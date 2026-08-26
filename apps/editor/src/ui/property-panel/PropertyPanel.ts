@@ -41,6 +41,18 @@ import { panelManager } from '../PanelManager';
 // CHROME. They must never throw into the app and must never compete with project
 // data for the storage budget; on quota the preference is simply dropped.
 import { readUiPreference, writeUiPreference } from '../uiPrefStorage';
+// §PANEL-MODE-GATE (L-12080) — the ONE gate. This panel names no mode by id;
+// it asks the registry whether the mode it was told about allows the panel.
+import {
+    isWorkspaceMode,
+    propertiesPanelAllowedIn,
+    type WorkspaceMode,
+} from '../platform/workspaceModes';
+// The deferred-subscription bridge — the panel is constructed at
+// engineLauncher.ts:313, well before `flushRuntimeEventListeners()` at :1085, so
+// a bare `window.runtime?.events?.on()` here would silently no-op. This is the
+// same helper AnalysisSurface / AuditStack / DataWorkbench use for this event.
+import { onRuntimeEvent } from '../../engine/runtimeEventBridge';
 import { appendRoomPropertySection } from '../property-inspector/RoomPropertySection';
 import { ViewPropertiesSection } from './ViewPropertiesSection';
 import { AnnotationElement } from '@pryzm/plugin-annotations';
@@ -116,6 +128,18 @@ export class PropertyPanel {
     private _userW: number | null = null;
     private _userH: number | null = null;
 
+    /**
+     * §PANEL-MODE-GATE (L-12080) — the last workspace mode this panel was told
+     * about. `null` = none observed yet (pre-boot), which `propertiesPanelAllowedIn`
+     * treats as allowed; see its header for why that direction is the safe one.
+     *
+     * This is a CACHE of the event, not a rival authority: `WorkspaceController`
+     * remains the only writer of the mode, `workspaceModes.ts` remains the only
+     * place that says which modes show the panel, and this field is only ever
+     * fed by the `pryzm-workspace-mode` emit.
+     */
+    private _workspaceMode: WorkspaceMode | null = null;
+
     setRoofStore(store: { getById(id: string): any }): void {
         this._roofStore = store;
     }
@@ -136,6 +160,7 @@ export class PropertyPanel {
         this._initPosition();
         this._initSize();
         this._bindRailAlignment();
+        this._bindWorkspaceModeGate();
         this._makeDraggable();
         this._makeResizable();
         window.addEventListener('resize', () => {
@@ -192,6 +217,44 @@ export class PropertyPanel {
                 }
             } else {
                 this.element.style.right = '';
+            }
+        });
+    }
+
+    /**
+     * §PANEL-MODE-GATE (L-12080) — the panel owns its own visibility.
+     *
+     * ⭐ WHY THE PANEL AND NOT THE CONTROLLER. `WorkspaceController._applyLayout()`
+     * used to do this by hand: `document.querySelector('.gpp-panel').style.display
+     * = 'none'` in three of its four mode branches. That is a second authority over
+     * one component's visibility (C84 EI-9), and — more to the point — it LOST.
+     * It ran once, at the moment of the mode switch, while `_makeVisible()` set
+     * `display:block` again on the very next selection. In Analysis mode selection
+     * is the whole interaction, so the panel came straight back over the widgets:
+     * the founder's "MULTI-SELECTION — 68 elements selected" covering the storey
+     * figures he had clicked those 68 elements to read.
+     *
+     * ⚠ THE PANEL, NEVER THE SELECTION. This handler touches `hide()` and nothing
+     * else. `updateInspector` (engineLauncher.ts:362) still writes
+     * `projectContext.selectedElementId` and still emits `pryzm-element-selected`;
+     * `selectionBus.subscribe` (:479) still computes the id set and the kind census;
+     * the highlighter, the Inspect isolation pipeline and Analysis's element
+     * traceability are all upstream of this gate and see no change whatsoever.
+     */
+    private _bindWorkspaceModeGate(): void {
+        onRuntimeEvent('pryzm-workspace-mode', (payload: unknown) => {
+            const mode = (payload as { mode?: string } | undefined)?.mode;
+            // An id the registry does not know is ignored rather than guessed at:
+            // recording it would make `propertiesPanelAllowedIn` fail open on a
+            // typo forever after. Keeping the previous mode is the honest read.
+            if (!isWorkspaceMode(mode)) return;
+            this._workspaceMode = mode;
+
+            // Requirement 2: a panel left floating over Analysis is the same
+            // complaint as one that pops up there. `hide()` — not a display poke —
+            // so PanelManager and the runtime view registry stay in step.
+            if (!propertiesPanelAllowedIn(mode) && this.element.style.display !== 'none') {
+                this.hide();
             }
         });
     }
@@ -549,6 +612,33 @@ export class PropertyPanel {
     }
 
     private _makeVisible(): void {
+        // ⭐ §PANEL-MODE-GATE (L-12080) — THE gate, and the ONLY one.
+        //
+        // Every way this panel can appear funnels through here: showElement,
+        // showMultiSelection, showViewProperties, the nine pre-draw states, the
+        // four annotation/grid/level states and all three import renderers. They
+        // reach it either directly or through the `makeVisible()` member of the
+        // four host structs (`_asPreDrawHost`, `_asAnnotationHost`,
+        // `_asElementRenderHost`, `_asBodyRendererHost`), each of which is
+        // `() => this._makeVisible()`. So one `if` here covers all of them, and
+        // there is no `if (mode !== 'author')` sprinkled at any call site.
+        //
+        // Placed ABOVE `panelManager.notifyOpened` on purpose: a refused open must
+        // not evict whatever panel the user does have open in Inspect or Analysis.
+        //
+        // The DOM has already been built by the caller at this point. That is a few
+        // wasted nodes on a suppressed selection, and it is the deliberate trade for
+        // ONE gate at the one place visibility is decided rather than a gate copied
+        // into ~20 render entry points, where the twenty-first would be missed.
+        if (!propertiesPanelAllowedIn(this._workspaceMode)) {
+            // Belt to the braces: state the invariant instead of assuming the
+            // element was already hidden. `.gpp-panel`'s CSS is `display:none`, so
+            // this is normally a no-op — but a panel that half-appears is worse
+            // than one that does not, and this line costs nothing.
+            this.element.style.display = 'none';
+            return;
+        }
+
         panelManager.notifyOpened('panel:property');
         this.element.style.display = 'block';
         // Wave 6 Phase B real binding — S73-WIRE.

@@ -132,7 +132,28 @@ export class WorkspaceController {
   private _applyLayout(): void {
     const canvas    = document.getElementById('container');
     const dw        = window.dataWorkbench as { setMode: (m: string) => void } | undefined; // TODO(F.6.5): legacy dataWorkbench — replace with runtime.panelHost.get('dataWorkbench')
-    const propPanel = document.querySelector('.gpp-panel') as HTMLElement | null;
+
+    // §PANEL-MODE-GATE (L-12080) — the `.gpp-panel` querySelector and its four
+    // per-mode `style.display` writes USED TO LIVE HERE, and they were the wrong
+    // half of the mechanism twice over.
+    //
+    //   1. They were a SECOND authority over another component's visibility
+    //      (C84 EI-9). `PropertyPanel` decides when it is visible; this file
+    //      reached past it into its DOM node.
+    //   2. They LOST. A display poke fires once, at the mode switch. The panel's
+    //      own `_makeVisible()` then set `display:block` again on the very next
+    //      selection — and in Inspect and Analysis, selection is the entire
+    //      interaction. That is the founder's report: the MULTI-SELECTION panel
+    //      appearing over the Analysis widgets he had selected 68 elements to read.
+    //
+    // The rule now lives as a COLUMN on the mode registry
+    // (`workspaceModes.ts` → `propertiesPanel` / `propertiesPanelAllowedIn`), and
+    // the panel reads it at both moments that matter: when it is asked to become
+    // visible, and when the `pryzm-workspace-mode` emit below tells it the mode
+    // changed under an already-open panel. Nothing needs doing here.
+    //
+    // ⛔ Do not reintroduce a `.gpp-panel` write in this file. Restoring one
+    // reinstates the losing race AND the second authority in the same line.
 
     // §MODE-BODY-CLASS-FOR-EVERY-MODE (L-3601) — was a single hand-written line
     // toggling ONLY `pryzm-mode-inspect`, and that asymmetry was a real defect,
@@ -218,14 +239,12 @@ export class WorkspaceController {
     switch (this._mode) {
       case 'author':
         if (dw) dw.setMode('hidden');
-        if (propPanel) propPanel.style.display = '';
         break;
 
       case 'inspect':
         // 50/50: canvas takes left half; AuditStack panel takes right half (fixed)
         // DataWorkbench hidden — AuditStack replaces it in inspect mode
         if (dw) dw.setMode('hidden');
-        if (propPanel) propPanel.style.display = 'none';
         this._setupInspectHUDs();
         break;
 
@@ -236,7 +255,6 @@ export class WorkspaceController {
         // dashboard that cannot highlight what it describes is the thing this
         // mode exists to not be.
         if (dw) dw.setMode('hidden');
-        if (propPanel) propPanel.style.display = 'none';
         break;
 
       case 'data':
@@ -249,7 +267,6 @@ export class WorkspaceController {
         // covered the screen. DataCommandCenter is now PARKED, not deleted —
         // see DataCommandCenter._bindEvents.
         if (dw) dw.setMode('full');
-        if (propPanel) propPanel.style.display = 'none';
         break;
     }
 

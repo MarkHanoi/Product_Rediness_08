@@ -38,7 +38,7 @@
  * yields `undefined` and white-screens the app.)
  *
  * L7 file. No THREE (P2), no rAF (P3), no `(window as any)` (P4), no store
- * writes (P6) — a frozen table and two pure lookups.
+ * writes (P6) — a frozen table and four pure lookups.
  */
 
 /** How the 3-D canvas is laid out in a given mode. */
@@ -55,6 +55,21 @@ export interface WorkspaceModeDef {
   readonly shortcut: string | null;
   /** The 3-D canvas's fate — see the file header. */
   readonly canvas: WorkspaceCanvasLayout;
+  /**
+   * §PANEL-MODE-GATE (L-12080) — may the element PROPERTIES panel show itself
+   * in this mode? A COLUMN, not a second list: the whole point of this registry
+   * is that a mode is a ROW and not five hand-edits, and "which modes show the
+   * properties panel" is exactly the kind of fact that forks into a private
+   * `mode !== 'author'` literal at every call site if it is not written here.
+   *
+   * ⚠ THIS GOVERNS THE PANEL, NEVER THE SELECTION. `'suppressed'` removes the
+   * panel's pixels and nothing else — selection, 3-D highlighting, the multi-
+   * select count and every downstream consumer keep running unchanged, because
+   * Inspect's isolation pipeline and Analysis's "every figure traceable to
+   * elements — click any of them" are BUILT on selection. A gate that reached
+   * the selection itself would be a regression wearing a fix's commit message.
+   */
+  readonly propertiesPanel: 'shown' | 'suppressed';
   /** Inline SVG for the pill. 13×13, `currentColor`, no fill. */
   readonly icon: string;
 }
@@ -76,6 +91,8 @@ export const WORKSPACE_MODES: readonly WorkspaceModeDef[] = Object.freeze([
     title: 'Author mode — full 3D canvas (F1)',
     shortcut: 'F1',
     canvas: 'full',
+    // The ONE mode that authors elements, so the ONE mode with the properties panel.
+    propertiesPanel: 'shown',
     icon: ICON('<path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/>'),
   },
   {
@@ -84,6 +101,9 @@ export const WORKSPACE_MODES: readonly WorkspaceModeDef[] = Object.freeze([
     title: 'Inspect mode — 3D + data side-by-side (F2)',
     shortcut: 'F2',
     canvas: 'half',
+    // The right half IS the read surface (AuditStack). A floating property panel
+    // over the canvas half competes with it and with the isolation HUDs.
+    propertiesPanel: 'suppressed',
     icon: ICON('<rect x="3" y="3" width="18" height="18" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="9" y1="21" x2="9" y2="9"/>'),
   },
   {
@@ -92,6 +112,11 @@ export const WORKSPACE_MODES: readonly WorkspaceModeDef[] = Object.freeze([
     title: 'Analysis mode — 3D + dashboards side-by-side (F4)',
     shortcut: 'F4',
     canvas: 'half',
+    // §PANEL-MODE-GATE (L-12080) — the founder's report: selecting a storey's 68
+    // elements popped the MULTI-SELECTION panel straight over the Analysis widgets
+    // the selection was made to read. The selection is the POINT of this mode; the
+    // panel is what covered its answer.
+    propertiesPanel: 'suppressed',
     icon: ICON('<line x1="4" y1="20" x2="4" y2="12"/><line x1="10" y1="20" x2="10" y2="4"/><line x1="16" y1="20" x2="16" y2="9"/><line x1="22" y1="20" x2="22" y2="15"/>'),
   },
   {
@@ -100,6 +125,9 @@ export const WORKSPACE_MODES: readonly WorkspaceModeDef[] = Object.freeze([
     title: 'Data mode — full data workbench (F3)',
     shortcut: 'F3',
     canvas: 'hidden',
+    // No canvas at all — a panel anchored to a viewport that is `display:none`
+    // would float over the full-width workbench with nothing behind it.
+    propertiesPanel: 'suppressed',
     icon: ICON('<ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M3 5v4c0 1.66 4.03 3 9 3s9-1.34 9-3V5"/><path d="M3 9v4c0 1.66 4.03 3 9 3s9-1.34 9-3V9"/>'),
   },
 ]);
@@ -123,4 +151,34 @@ export function workspaceModeForShortcut(key: string): WorkspaceModeDef | undefi
 /** True if `id` names a mode in the table. The localStorage-restore guard. */
 export function isWorkspaceMode(id: string | null | undefined): id is WorkspaceMode {
   return typeof id === 'string' && WORKSPACE_MODES.some((m) => m.id === id);
+}
+
+/**
+ * §PANEL-MODE-GATE (L-12080) — ⭐ THE ONE GATE for the element properties panel.
+ *
+ * `PropertyPanel` reads this in exactly two places and nowhere else does: at the
+ * single choke point where the panel becomes visible (`_makeVisible`), and on the
+ * workspace-mode event so an ALREADY-OPEN panel closes when the mode changes
+ * under it. Nothing else in the shell decides this — in particular
+ * `WorkspaceController` no longer pokes `.gpp-panel`'s `display` per mode, which
+ * was a second authority over one component's visibility (C84 EI-9) and which
+ * lost every race against the next selection anyway: `_makeVisible()` set
+ * `display:block` again the moment an element was clicked, which IS the defect
+ * the founder reported.
+ *
+ * ⚠ FAIL-OPEN ON AN UNKNOWN ID, and that direction is deliberate. The properties
+ * panel is the primary editing surface; a mode id this build does not know — a
+ * stale localStorage value, a mode added by a newer build — must not silently
+ * remove the ability to edit an element. `isWorkspaceMode` already rejects
+ * unknown ids at the restore boundary, so this branch is the belt to that braces,
+ * and it errs toward "the user can still work".
+ *
+ * `null` means "no mode has been observed yet" — the pre-boot state — and is
+ * likewise allowed: `WorkspaceController` starts in `author` and only emits when
+ * the mode actually differs, so silence means Author.
+ */
+export function propertiesPanelAllowedIn(id: string | null | undefined): boolean {
+  if (id == null) return true;
+  const def = getWorkspaceMode(id);
+  return def ? def.propertiesPanel === 'shown' : true;
 }
