@@ -236,7 +236,10 @@ export class FloorPanelBuilder {
       const material = makeFloorTopMaterial(color);
       const mesh = new THREE.Mesh(geometry, material);
       mesh.name = 'floor-body';
-      mesh.userData = { floorId: floor.id, role: 'body' };
+      // §MESH110-SHADOW-POLICY (L-11565) — `shadowPolicy: 'never'` DECLARES the
+      // deliberate non-caster below, so the scene shadow sweep
+      // (PascalSceneLighting) stops re-promoting it to caster on its next pass.
+      mesh.userData = { floorId: floor.id, role: 'body', shadowPolicy: 'never' };
       mesh.receiveShadow = true;
       mesh.castShadow = false;
       root.add(mesh);
@@ -250,7 +253,8 @@ export class FloorPanelBuilder {
       const material = makeFloorTopMaterial(color);
       const mesh = new THREE.Mesh(geometry, material);
       mesh.name = 'floor-top';
-      mesh.userData = { floorId: floor.id, role: 'top' };
+      // §MESH110-SHADOW-POLICY (L-11565) — declared non-caster (see the body arm).
+      mesh.userData = { floorId: floor.id, role: 'top', shadowPolicy: 'never' };
       mesh.receiveShadow = true;
       root.add(mesh);
     }

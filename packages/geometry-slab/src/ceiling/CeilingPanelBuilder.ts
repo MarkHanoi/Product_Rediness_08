@@ -279,7 +279,11 @@ export class CeilingPanelBuilder {
       const material = makeSoffitMaterial(color);
       const mesh = new THREE.Mesh(geometry, material);
       mesh.name = 'ceiling-body';
-      mesh.userData = { ceilingId: ceiling.id, role: 'body' };
+      // §MESH110-SHADOW-POLICY (L-11565) — `shadowPolicy: 'never'` DECLARES the
+      // deliberate non-caster below. Without it, `castShadow = false` is
+      // indistinguishable from THREE's default and the scene shadow sweep
+      // (PascalSceneLighting) re-promoted this mesh to caster on its next pass.
+      mesh.userData = { ceilingId: ceiling.id, role: 'body', shadowPolicy: 'never' };
       mesh.castShadow = false;
       mesh.receiveShadow = true;
       root.add(mesh);
@@ -293,7 +297,8 @@ export class CeilingPanelBuilder {
       const material = makeSoffitMaterial(color);
       const mesh = new THREE.Mesh(geometry, material);
       mesh.name = 'ceiling-soffit';
-      mesh.userData = { ceilingId: ceiling.id, role: 'soffit' };
+      // §MESH110-SHADOW-POLICY (L-11565) — declared non-caster (see the body arm).
+      mesh.userData = { ceilingId: ceiling.id, role: 'soffit', shadowPolicy: 'never' };
       mesh.receiveShadow = true;
       root.add(mesh);
     }

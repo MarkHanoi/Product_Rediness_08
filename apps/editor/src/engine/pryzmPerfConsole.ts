@@ -606,8 +606,10 @@ export function printSceneCensus(scene: unknown, label: string): void {
         P(`[pryzmPerf] §NAV-SHADOW-CENSUS  by family (top 8): ${casterRows || '(none)'}`);
         P('[pryzmPerf] §NAV-SHADOW-CENSUS  a refresh fires when a light moves or changes, when '
           + 'the shadow level changes (ShadowQualityUpgrader.setLevel), and on any frame that set '
-          + '`shadowMap.needsUpdate`. `furnitureShadowBudget` caps FURNITURE casters only — no '
-          + 'other family is budgeted (§PERF105, L-11565).');
+          + '`shadowMap.needsUpdate`. Casting is a per-family POLICY (§MESH110-SHADOW-POLICY, '
+          + 'L-11565): structural families cast; flat decor, hit-proxies, declared never-casters '
+          + 'and sub-texel meshes do not; furniture + lighting keep their builder flags '
+          + '(furnitureShadowBudget stays the furniture tier lever).');
 
         // ── The heavy-scene guard headroom.
         const meshHeadroom = HEAVY_SCENE_MESH_ARM - c.meshes;

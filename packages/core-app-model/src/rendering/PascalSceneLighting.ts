@@ -29,6 +29,8 @@
 import * as THREE from '@pryzm/renderer-three/three';
 // §PRYZM-PERF (INSTR1) — full-scene traversal attribution.
 import { bumpPerf, PERF_KEYS } from '@pryzm/frame-scheduler';
+// §MESH110-SHADOW-POLICY (L-11565) — the per-family caster policy this sweep executes.
+import { shadowCasterVerdict, MIN_CASTER_RADIUS_M } from './shadowCasterPolicy';
 import {
     getNeutralStudioEnvironment,
     isNeutralStudioEnvironment,
@@ -468,9 +470,22 @@ export class PascalSceneLighting {
     // ── Private ─────────────────────────────────────────────────────────────
 
     /**
-     * Traverses the scene and enables castShadow + receiveShadow on every Mesh.
+     * Traverses the scene and applies the SHADOW-CASTER POLICY to every Mesh.
      * Skips helper meshes (edges, collision, grid) via userData role guard.
-     * Safe to call multiple times — no-op for meshes already flagged.
+     * Safe to call multiple times — no-op for meshes already correctly flagged.
+     *
+     * ⭐ §MESH110-SHADOW-POLICY (L-11565) — this sweep used to PROMOTE every
+     * non-denylisted mesh unconditionally (`castShadow = true`), which made it
+     * the scene's real caster policy by accident: 907 of the founder's 978
+     * meshes cast, and every deliberate builder non-caster (the furniture
+     * budget's decorative-off, CeilingPanelBuilder's finish panels, the
+     * lighting builder's cables) was silently re-promoted within one debounce.
+     * It now executes `shadowCasterVerdict` per mesh — promote / demote /
+     * leave-to-the-builder — plus a sub-texel MIN radius arm beside the L-205
+     * MAX arm. ADR-0120 rule 1 named exactly this design as the successor of
+     * the radius denylist. The demote arms CLEAR a set flag rather than skip
+     * (the L-205 lesson); the `'builder'` arm touches nothing but
+     * `receiveShadow`, so `furnitureShadowBudget`'s verdict finally sticks.
      */
     private _enableShadowsOnScene(scene: THREE.Scene): void {
         // §PRYZM-PERF (INSTR1) — full-scene walk, attributed to this call site.
@@ -478,6 +493,9 @@ export class PascalSceneLighting {
         let count = 0;
         /** §FIX-SHADOW-CASTER-DENYLIST (L-205) — offenders demoted this pass, for the log. */
         const demoted: string[] = [];
+        /** §MESH110-SHADOW-POLICY — per-family / sub-texel demotions this pass. */
+        let policyDemoted = 0;
+        let subTexelDemoted = 0;
 
         scene.traverse((obj) => {
             if (!(obj instanceof THREE.Mesh)) return;
@@ -514,12 +532,14 @@ export class PascalSceneLighting {
             // catches whatever non-BIM plane the OBC ShadowedScene installs at boot (the scene
             // has 2 meshes and 0 elements at that point, yet 1 was being flagged as a caster).
             let radiusM = 0;
+            let radiusKnown = false;
             try {
                 if (!obj.geometry.boundingSphere) obj.geometry.computeBoundingSphere();
                 radiusM = (obj.geometry.boundingSphere?.radius ?? 0) *
                     Math.max(Math.abs(obj.scale.x), Math.abs(obj.scale.y), Math.abs(obj.scale.z));
-            } catch { /* degenerate geometry — treat as small */ }
-            const isImplausiblyLarge = Number.isFinite(radiusM) && radiusM > MAX_CASTER_RADIUS_M;
+                radiusKnown = Number.isFinite(radiusM);
+            } catch { /* degenerate geometry — radius UNMEASURED, never demote on it */ }
+            const isImplausiblyLarge = radiusKnown && radiusM > MAX_CASTER_RADIUS_M;
 
             if (isShadowReceiverPlane || isImplausiblyLarge) {
                 if (obj.castShadow) {
@@ -536,6 +556,47 @@ export class PascalSceneLighting {
             if (mat && (mat as THREE.MeshStandardMaterial).transparent &&
                 (mat as THREE.MeshStandardMaterial).opacity < 0.5) return;
 
+            // ── §MESH110-SHADOW-POLICY (L-11565) — the per-family verdict. ──
+            const ud = obj.userData as {
+                elementType?: string; furnitureType?: string; shadowPolicy?: string;
+            } | undefined;
+            const verdict = shadowCasterVerdict({
+                elementType:   ud?.elementType,
+                role,
+                furnitureType: ud?.furnitureType,
+                shadowPolicy:  ud?.shadowPolicy,
+            });
+
+            if (verdict === 'no-cast') {
+                // Demote, don't skip — an earlier blanket pass may have set it.
+                if (obj.castShadow) {
+                    obj.castShadow = false;
+                    policyDemoted++;
+                }
+                obj.receiveShadow = true;
+                return;
+            }
+            if (verdict === 'builder') {
+                // The family's own builder owns castShadow (furnitureShadowBudget,
+                // the lighting builder's per-part flags). Leave it EXACTLY as
+                // built — promoting here is the trampling L-11565 measured.
+                obj.receiveShadow = true;
+                return;
+            }
+
+            // verdict === 'cast' — structural BIM geometry. Sub-texel arm first:
+            // below MIN_CASTER_RADIUS_M the caster cannot mark one shadow texel
+            // (1024² map over ±50 m ≈ 10 cm/texel), so submitting it buys nothing.
+            // Only a MEASURED radius may demote (never the degenerate-geometry 0).
+            if (radiusKnown && radiusM > 0 && radiusM < MIN_CASTER_RADIUS_M) {
+                if (obj.castShadow) {
+                    obj.castShadow = false;
+                    subTexelDemoted++;
+                }
+                obj.receiveShadow = true;
+                return;
+            }
+
             if (!obj.castShadow || !obj.receiveShadow) {
                 obj.castShadow    = true;
                 obj.receiveShadow = true;
@@ -544,6 +605,13 @@ export class PascalSceneLighting {
         });
         if (count > 0) {
             console.log(`[PascalSceneLighting] Shadow flags set on ${count} mesh(es).`);
+        }
+        if (policyDemoted > 0 || subTexelDemoted > 0) {
+            console.log(
+                `[PascalSceneLighting] §MESH110-SHADOW-POLICY demoted ${policyDemoted} mesh(es) by ` +
+                `family policy (flat decor / hit-proxies / shadowPolicy='never') and ${subTexelDemoted} ` +
+                `sub-texel mesh(es) (< ${MIN_CASTER_RADIUS_M} m radius — cannot mark one shadow texel).`,
+            );
         }
         if (demoted.length > 0) {
             console.log(
