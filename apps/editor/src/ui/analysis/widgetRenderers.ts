@@ -94,7 +94,7 @@ import {
 import { censusPlacement, censusLevels, getCensus } from './analysisReadModel';
 import { AREA_STANDARDS, areaStandard, setAreaStandard } from './areaStandards';
 import { renderNodeLink, renderEdgeLegend, renderNodeLegend } from './nodeLinkSvg';
-import { foldOpen, setFoldOpen } from './analysisLayout';
+import { foldOpen, setFoldOpen, presentationMode } from './analysisLayout';
 import {
   HIERARCHY_VIEWS,
   DISCIPLINE_ORDER,
@@ -321,6 +321,14 @@ function foldable(host: HTMLElement, spec: FoldSpec): HTMLElement {
  */
 export function completenessStrip(result: AnalysisResult): HTMLElement | null {
   if (result.complete) return null;
+  // ⚠ AMENDED 2026-08-26 (§DEMO141, L-12301) — also null in presentation mode.
+  // This fold is exactly the class of chrome the founder asked hidden for a
+  // pitch: "Incomplete — every total here is a LOWER BOUND" plus a matching
+  // chip is a yellow banner whether or not the paragraph under it is open. The
+  // claim survives elsewhere — `AnalysisSurface._card` still marks the card
+  // with a compact marker, and every headline that already prints "≥ N" keeps
+  // doing so — this fold was never the ONLY carrier of the qualifier.
+  if (presentationMode()) return null;
   const host = el('div', 'anl-fold-host');
   foldable(host, {
     id: 'w.completeness',
@@ -1021,9 +1029,30 @@ export function renderGraph(host: HTMLElement, _def: AnalysisWidgetDef, _result:
   bindExpandEscape();
 
   // ── Scope, above everything it governs ─────────────────────────────────────
-  host.appendChild(levelScopePicker());
+  //
+  // ⚠ AMENDED 2026-08-26 (§GRAPH-EXPAND-CONTROLS-SURVIVE, L-12301) — CAPTURED,
+  // not appended immediately. The founder: *"on the top, on the graph extended
+  // mode, we want to still see this to filter"* — the storey scope and the
+  // relationship-view selector are the ONLY way to change what the graph shows,
+  // and his screenshot showed them gone the moment he expanded it.
+  //
+  // ⛔ THE CAUSE: `.anl-graph-stage--expanded` is `position: absolute; inset: 0`
+  // against `.anl-grid-viewport` (§SCROLL136) — the wrapper that holds the WHOLE
+  // grid, not just this card. These two bars used to be siblings of the stage,
+  // appended to `host` BEFORE it; an absolutely-positioned, opaque, z-index:60
+  // box painted after them in the same stacking context covers earlier siblings
+  // regardless of which card they belong to. The `.anl-facets` cross-filter bar
+  // is NOT this bug — it is a sibling of `.anl-grid-viewport` itself, one level
+  // higher, and was never inside the area the stage covers.
+  //
+  // ⭐ THE FIX IS TO PLACE THESE, NOT CLONE THEM. Two live instances of one
+  // control is its own defect — a click on one would leave the other showing a
+  // stale state. They become the stage's own first children, below, so they
+  // travel with it through expand/collapse exactly as the toolbar already does.
+  const storeyBar = levelScopePicker();
 
   if (g.unreachable.length > 0) {
+    host.appendChild(storeyBar);
     host.appendChild(
       el(
         'p',
@@ -1036,7 +1065,7 @@ export function renderGraph(host: HTMLElement, _def: AnalysisWidgetDef, _result:
   }
 
   // ── The view selector, and the projection it produces ──────────────────────
-  host.appendChild(viewSelector());
+  const viewBar = viewSelector();
 
   const families = censusFamilies();
   const projection = projectHierarchy(g.nodes, g.edges, graphView(), {
@@ -1053,6 +1082,11 @@ export function renderGraph(host: HTMLElement, _def: AnalysisWidgetDef, _result:
     // ⛔ THE NAMED CAUSE, NEVER A BLANK CANVAS. The System view reaches this on
     // every model and it must read as a fact about the product, not a broken
     // feature. The toolbar still ships, so the reader can leave the empty view.
+    // No `stage` exists on this branch (there is no graph to draw), so the two
+    // scope bars land on `host` directly — the expand-cover bug this lane fixes
+    // cannot occur here.
+    host.appendChild(storeyBar);
+    host.appendChild(viewBar);
     graphNotes(host, g, projection, null);
     host.appendChild(graphToolbar(host, projection, g));
     host.appendChild(el('p', 'anl-empty', projection.empty));
@@ -1108,6 +1142,24 @@ export function renderGraph(host: HTMLElement, _def: AnalysisWidgetDef, _result:
   // covered the model would sever the one join that makes the card worth reading.
   const stage = el('div', `anl-graph-stage${graphExpanded() ? ' anl-graph-stage--expanded' : ''}`);
 
+  // §GRAPH-EXPAND-CONTROLS-SURVIVE (L-12301) — the storey and relationship-view
+  // controls are now the stage's OWN first children, not the card's, precisely
+  // so expanding the graph does not black them out. See the comment where
+  // `storeyBar` / `viewBar` were captured, above.
+  //
+  // ⚠ THE HONESTY PIN IS THEREFORE NO LONGER THE STAGE'S FIRST CHILD. Its
+  // `position: sticky; top: 0` still works — sticky resolves against the
+  // nearest SCROLLING ancestor at whatever point its own normal-flow position
+  // reaches that offset, it does not require being the first element — but a
+  // reader scrolling from the very top now sees these two bars scroll past
+  // before the pin locks, rather than the pin locking immediately. That is a
+  // disclosed trade, not an oversight: the alternative was two sticky bands
+  // stacked at competing `top` offsets, which is real complexity for a
+  // scrolling nicety nobody asked for, and it stays open as a fast-follow if
+  // the founder wants the controls pinned too.
+  stage.appendChild(storeyBar);
+  stage.appendChild(viewBar);
+
   // ⭐⭐ THE HONESTY PIN — NEVER FOLDABLE, NEVER OUTSIDE THE STAGE.
   //
   // Two independent reasons, and the second is why it lives HERE rather than
@@ -1120,7 +1172,16 @@ export function renderGraph(host: HTMLElement, _def: AnalysisWidgetDef, _result:
   //      badge lives in that header. Without this line, maximising the graph would
   //      silently drop the surface's loudest qualifier at exactly the moment the
   //      reader is looking hardest at the picture.
-  if (!g.complete) {
+  //
+  // ⚠ AMENDED 2026-08-26 (§DEMO141, L-12301) — also gated on presentation mode.
+  // This IS the second of the founder's two duplicate yellow banners (the tab
+  // status line was the first — see `AnalysisSurface._setStatus`), and it is
+  // exactly the paragraph a pitch demo should not show. Reason 2 above still
+  // holds even with this paragraph gone: `AnalysisSurface._card` gives the card
+  // head a compact, non-warning "≥" marker in presentation mode instead of the
+  // `INCOMPLETE` text badge — see that function — so the claim does not
+  // disappear, it shrinks to the size the founder asked for.
+  if (!g.complete && !presentationMode()) {
     stage.appendChild(
       el(
         'p',
@@ -1141,13 +1202,36 @@ export function renderGraph(host: HTMLElement, _def: AnalysisWidgetDef, _result:
   frame.append(box, expandButton());
   stage.appendChild(frame);
 
+  // ── The two legends (§GRAPH-EXPAND-HEIGHT, L-12301) ────────────────────────
+  //
+  // ⚠ MOVED HERE, BEFORE THE HEIGHT IS COMPUTED AND BEFORE THE GRAPH IS MOUNTED.
+  // They used to be appended after the mount, which was fine for their OWN
+  // rendering — nothing here reads anything the mount produces — but it meant
+  // the reserve arithmetic below could not measure them: they simply did not
+  // exist yet. Building them first costs nothing (`groupIndex`, `familyCounts`,
+  // `edgeTypeIndex` and `projection.edgeCounts` are all already known) and turns
+  // "the legends take about this much room" back into a measurement.
+  //
+  // ⭐ THE NODE LEGEND CLOSES A CLAIM THE CARD HAS ALWAYS MADE. The footer says
+  // "colour = element family"; until now there was no table saying WHICH family
+  // each colour was, so the sentence was unreadable and the picture was eight
+  // anonymous hues.
+  renderNodeLegend(stage, groupIndex, familyCounts, focusCtl);
+
+  // The legend is also a QUERY surface: a row lights its whole relation family.
+  // ⚠ Built from `projection.edgeCounts`, which includes families that produced
+  // NOTHING — a legend listing only what fired cannot tell the reader what did not.
+  const edgeLegendCounts = new Map<string, number>();
+  for (const [t, n] of projection.edgeCounts) edgeLegendCounts.set(t, n);
+  renderEdgeLegend(stage, edgeTypeIndex, edgeLegendCounts, focusCtl);
+
   // ⚠ HEIGHT IS PASSED, NOT LEFT TO CSS, because the 3-D viewport sizes a canvas
   // BACKING STORE from `frame.clientHeight` and happy-dom/first paint would hand
   // it a zero. The two numbers below are the founder's other request — item (a) of
   // ASK 3: the canvas was 380 px under a stack of note blocks taller than itself.
   //
   // ═════════════════════════════════════════════════════════════════════════
-  // §GRAPH-EXPAND-HEIGHT (L-12201) — 'bring the graph a bit down' (2026-08-26)
+  // §GRAPH-EXPAND-HEIGHT (L-12201, amended L-12301) — 'the graph should be bigger'
   // ═════════════════════════════════════════════════════════════════════════
   // The founder's screenshot of the expanded (⤢) view showed the stage running
   // up under the panel's own chrome, AND the legend row sitting right at the
@@ -1158,29 +1242,36 @@ export function renderGraph(host: HTMLElement, _def: AnalysisWidgetDef, _result:
   // wrapper — see §SCROLL136 there) and left an under-measured guess for the
   // pin/toolbar/legends below the canvas.
   //
+  // ⚠ AMENDED 2026-08-26 (§DEMO141) — the "legend" term below used to be a
+  // CONSTANT, `STAGE_INTERNAL_RESERVE_PX = 180`, calibrated against ONE real
+  // Chromium render. It could only ever be as right as that screenshot: the
+  // same afternoon, presentation mode learned to remove the honesty pin and
+  // the whole notes row above, and the tab-level status line lost a duplicated
+  // sentence — every one of those SHRINKS the true reserve, and a constant does
+  // not know that. The founder's literal ask, "the graph should be bigger", is
+  // exactly what a fixed reserve cannot deliver once there is less chrome to
+  // reserve room for.
+  //
   // ⭐ THE ARITHMETIC, MEASURED NOT GUESSED: available height = viewport −
-  // chrome − legend.
+  // chrome − stage-internal reserve.
   //   viewport = `window.innerHeight`.
   //   chrome   = the LIVE rendered height of the four bands the graph's own
   //              stage must clear, read straight off the DOM rather than
   //              hand-typed — a facet bar that is `hidden` contributes a real
   //              zero automatically, it does not need its own branch.
-  //   legend   = `STAGE_INTERNAL_RESERVE_PX` below: the pin + toolbar + both
-  //              legends + the flex gaps between them + the stage's own
-  //              padding, all of which sit ABOVE or BELOW the canvas inside
-  //              the SAME stage. Measured with a real Chromium render at a
-  //              1600×900 viewport / 800px panel: stage available 695px,
-  //              canvas naturally settled (via `.anl-graph-frame`'s own
-  //              `flex: 1 1 auto` — see that rule) at 521.7px with the legend
-  //              row ending at 888px, i.e. a 173px reserve with 12px of stage
-  //              padding to spare. 180 keeps that margin without hand-fitting
-  //              it to the exact fixture.
+  //   reserve  = `stageInternalReservePx()` below: every DIRECT CHILD of the
+  //              stage OTHER THAN THE FRAME — the storey bar, the view bar, the
+  //              honesty pin (if rendered), the toolbar, both legends — summed
+  //              from ITS OWN live `getBoundingClientRect().height`, plus one
+  //              flex gap per visible sibling and the stage's own top+bottom
+  //              padding. A hidden pin (presentation mode, or a complete graph
+  //              with nothing to disclose) measures 0 and needs no branch here
+  //              to say so — that is the whole point of measuring instead of
+  //              declaring a constant.
   // The 2-D SVG path sets this as a `min-height`, so if the reserve is over-
-  // generous the canvas simply grows to fill the slack (as it already did
-  // before this lane, at 460 vs. an available 521.7). The 3-D path sets an
+  // generous the canvas simply grows to fill the slack. The 3-D path sets an
   // EXACT `height` (§GraphViewport.ts:132) with no such slack, which is why
   // this must be a real subtraction rather than a floor.
-  const STAGE_INTERNAL_RESERVE_PX = 180;
 
   /** The four bands the expanded stage must clear, summed from their LIVE
    *  rendered heights — not re-typed constants that rot the moment a header
@@ -1197,12 +1288,41 @@ export function renderGraph(host: HTMLElement, _def: AnalysisWidgetDef, _result:
     return total;
   }
 
+  /**
+   * Everything inside the stage that is NOT the graph frame, measured live —
+   * the same technique `expandedChromeAboveGridPx()` uses one level up.
+   *
+   * ⛔ `frame` is excluded on purpose: it is the `flex: 1 1 auto` child this
+   * reserve is being computed FOR (when expanded), so measuring it would be
+   * circular — it has no fixed height of its own yet.
+   *
+   * `GAP_PX` and `STAGE_PADDING_PX` mirror `.anl-graph-stage { gap: 8px }` and
+   * `.anl-graph-stage--expanded { padding: 12px 14px }` in `analysisSurface.ts`
+   * (the styles module) — read the rule, not this number, if either ever moves.
+   */
+  function stageInternalReservePx(stageEl: HTMLElement, exclude: HTMLElement): number {
+    if (typeof document === 'undefined') return 0;
+    const GAP_PX = 8;
+    const STAGE_PADDING_PX = 24; // 12px top + 12px bottom
+    let content = 0;
+    let visible = 0;
+    for (const child of Array.from(stageEl.children)) {
+      if (child === exclude) continue;
+      const h = (child as HTMLElement).getBoundingClientRect().height;
+      if (h > 0) { content += h; visible += 1; }
+    }
+    // One gap per boundary between visible boxes, INCLUDING the boundary above
+    // the (always-present) frame: `visible` siblings plus the frame is
+    // `visible + 1` boxes in the flex column, i.e. `visible` gaps between them.
+    return content + visible * GAP_PX + STAGE_PADDING_PX;
+  }
+
   const heightPx = graphExpanded()
     ? Math.max(
         460,
         (typeof window === 'undefined' ? 900 : window.innerHeight) -
           expandedChromeAboveGridPx() -
-          STAGE_INTERNAL_RESERVE_PX,
+          stageInternalReservePx(stage, frame),
       )
     : 430;
 
@@ -1280,20 +1400,8 @@ export function renderGraph(host: HTMLElement, _def: AnalysisWidgetDef, _result:
     });
   }
 
-  // ── The two legends, inside the stage so they survive expansion ────────────
-  //
-  // ⭐ THE NODE LEGEND IS NEW AND IT CLOSES A CLAIM THE CARD HAS ALWAYS MADE. The
-  // footer says "colour = element family"; until now there was no table saying
-  // WHICH family each colour was, so the sentence was unreadable and the picture
-  // was eight anonymous hues.
-  renderNodeLegend(stage, groupIndex, familyCounts, focusCtl);
-
-  // The legend is also a QUERY surface: a row lights its whole relation family.
-  // ⚠ Built from `projection.edgeCounts`, which includes families that produced
-  // NOTHING — a legend listing only what fired cannot tell the reader what did not.
-  const counts = new Map<string, number>();
-  for (const [t, n] of projection.edgeCounts) counts.set(t, n);
-  renderEdgeLegend(stage, edgeTypeIndex, counts, focusCtl);
+  // The two legends were built and appended to `stage` earlier, BEFORE the
+  // height reserve was measured — see §GRAPH-EXPAND-HEIGHT above for why.
 
   host.appendChild(stage);
 
@@ -1310,11 +1418,21 @@ export function renderGraph(host: HTMLElement, _def: AnalysisWidgetDef, _result:
 
   host.appendChild(categoryTree(projection));
 
+  // ⚠ FIXED 2026-08-26 (§DEMO141, L-12301) — the "≥" prefix was keyed on
+  // `g.truncated` alone, which is ONE of `!g.complete`'s three causes (the
+  // others are stale freshness and `scope.excludedUnplaceable`). A graph that
+  // was incomplete for either of the OTHER two reasons printed this exact line
+  // with no marker at all — a bare "348 drawn relationship(s) of 484 projected"
+  // where the honest reading is "≥ 348". That was always a latent gap; it
+  // stayed harmless while the honesty pin above always also rendered, but this
+  // footer is precisely the line presentation mode and a fully-collapsed card
+  // both fall back to as the compact marker (SPEC's "a lower-bound figure must
+  // still look like one"), so it must carry the qualifier ON ITS OWN.
   host.appendChild(
     el(
       'p',
       'anl-card-foot',
-      `${g.truncated ? '≥ ' : ''}${projection.edges.length} drawn relationship(s) of ${g.totalEdges} projected  ·  ` +
+      `${!g.complete ? '≥ ' : ''}${projection.edges.length} drawn relationship(s) of ${g.totalEdges} projected  ·  ` +
         `${projection.nodes.length} of ${g.totalNodes} elements  ·  node size = √degree  ·  colour = element family` +
         (projection.unresolvedFamilyCount > 0
           ? `  ·  ⚠ ${projection.unresolvedFamilyCount} node(s) have no family the census can resolve, so every ` +
@@ -1470,6 +1588,12 @@ function graphNotes(
   focus: ReturnType<typeof focusNeighbourhood> | null,
 ): HTMLElement {
   const row = el('div', 'anl-notes');
+  // §DEMO141 (L-12301) — presentation mode. NOT appended to `host` at all: every
+  // fold this row can hold (liveness, scope, basis, focus, truncation) is the
+  // same class of explanatory prose the founder asked excluded from a pitch, and
+  // none of them is the sole carrier of a number — the honesty pin and the
+  // card-head marker carry the LOWER BOUND claim; this row only ever carried WHY.
+  if (presentationMode()) return row;
   const stale = g.liveness?.freshness === 'stale';
 
   foldable(row, {

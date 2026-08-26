@@ -57,8 +57,10 @@ import {
   adoptCatalogueAsKnown,
   defaultLayout,
   loadLayout,
+  presentationMode,
   reconcileLayout,
   saveLayout,
+  setPresentationMode,
   type AnalysisLayout,
 } from './analysisLayout';
 import { WIDGET_CATALOGUE, widgetById } from './widgetCatalogue';
@@ -126,6 +128,10 @@ export class AnalysisSurface {
   private _layout: AnalysisLayout;
   private _debounce: ReturnType<typeof setTimeout> | null = null;
   private _pickerOpen = false;
+  /** §DEMO141 (L-12301) — the presentation-mode toggle. Repainted, never
+   *  recreated: `_show()` re-reads the flag on a project switch the same way
+   *  it re-reads `this._layout`. */
+  private _presentBtn!: HTMLButtonElement;
 
   constructor() {
     this._layout = loadLayout();
@@ -170,7 +176,17 @@ export class AnalysisSurface {
     const refreshBtn = this._headerButton('anl-refresh', '↺', 'Recompute every widget, including the manual take-off ones');
     const resetBtn = this._headerButton('anl-reset', '⟲', 'Reset this dashboard to the default arrangement');
     const provBtn = this._headerButton('anl-prov', 'ⓘ', 'Show which stores this surface counts');
-    actions.append(addBtn, refreshBtn, resetBtn, provBtn);
+    // §DEMO141 (L-12301) — the founder's pitch-demo toggle. Lives in the same
+    // icon cluster as the surface's other view controls (mirrors the existing
+    // idiom: a plain button, `_headerButton`, an `aria-pressed` state) rather
+    // than a new control surface of its own.
+    this._presentBtn = this._headerButton(
+      'anl-present',
+      'Present',
+      'Presentation mode: hide diagnostic and provenance text for a pitch. Counts, ' +
+        'charts, the graph and its legends stay; a lower-bound figure still shows “≥”.',
+    );
+    actions.append(addBtn, refreshBtn, resetBtn, provBtn, this._presentBtn);
 
     header.append(titleWrap, actions);
     panel.appendChild(header);
@@ -250,6 +266,13 @@ export class AnalysisSurface {
     });
     provBtn.addEventListener('click', () => this._toggleProvenance());
 
+    this._paintPresentButton();
+    this._presentBtn.addEventListener('click', () => {
+      setPresentationMode(!presentationMode());
+      this._paintPresentButton();
+      void this.refresh();
+    });
+
     this._buildTabs();
   }
 
@@ -326,6 +349,24 @@ export class AnalysisSurface {
     b.title = title;
     b.setAttribute('aria-label', title);
     return b;
+  }
+
+  /**
+   * §DEMO141 (L-12301) — reflect the stored presentation-mode flag on the
+   * toggle. Reads `presentationMode()` FRESH rather than a cached instance
+   * field, the same way `_show()` re-reads `loadLayout()` — a project switch
+   * must not leave yesterday's project's choice painted on today's button.
+   */
+  private _paintPresentButton(): void {
+    const on = presentationMode();
+    this._presentBtn.setAttribute('aria-pressed', String(on));
+    this._presentBtn.classList.toggle('anl-header-btn--on', on);
+    const title = on
+      ? 'Presentation mode is ON — diagnostic and provenance text is hidden. Click to bring it back.'
+      : 'Presentation mode: hide diagnostic and provenance text for a pitch. Counts, charts, the graph and its ' +
+        'legends stay; a lower-bound figure still shows “≥”.';
+    this._presentBtn.title = title;
+    this._presentBtn.setAttribute('aria-label', title);
   }
 
   // ── Events ──────────────────────────────────────────────────────────────────
@@ -419,6 +460,7 @@ export class AnalysisSurface {
     this._visible = true;
     this._el.classList.add('anl-surface--visible');
     this._layout = loadLayout(); // a project switch may have changed it
+    this._paintPresentButton(); // §DEMO141 — same reason: a different project may hold a different choice
     this._buildTabs();
     this._renderFacetBar();
     void this.refresh();
@@ -599,7 +641,11 @@ export class AnalysisSurface {
         default:
           renderUnknownWidget(host, def.id);
       }
-      host.appendChild(this._provenanceFoot(def, result));
+      // §DEMO141 (L-12301) — this is the exact "source: census · computed over
+      // N element(s) · cost O(n)" line the founder named for a pitch. Skipped
+      // entirely, not merely styled quiet: it is diagnostic metadata, never a
+      // figure, so nothing here needs a compact substitute.
+      if (!presentationMode()) host.appendChild(this._provenanceFoot(def, result));
     }, result);
 
     return { card, incomplete: !result.complete, unreachable: result.unreachable.length, reasons: result.incompleteReason };
@@ -655,9 +701,24 @@ export class AnalysisSurface {
       badge.textContent = 'NOT BUILT';
       tools.appendChild(badge);
     } else if (result && !result.complete) {
+      // §DEMO141 (L-12301) — the ONE place this decision is made, so every
+      // widget kind (kpi/donut/bar/treemap/table/coverage/graph) gets the same
+      // marker without each renderer re-deciding it. ⭐ THE ARM THAT STOPS
+      // PRESENTATION MODE FROM BECOMING A LIE: hiding the fold, the provenance
+      // foot and (for the graph) the honesty pin removes every PARAGRAPH that
+      // says "these totals are floors" — this badge is what is left, and it
+      // must still say so, just quietly. A bare "348" where the truth is
+      // "≥348" is a wrong number on a pitch slide, which is worse than an
+      // honest one, so this never disappears — only its loudness does.
       const badge = document.createElement('span');
-      badge.className = 'anl-badge anl-badge--warn';
-      badge.textContent = 'INCOMPLETE';
+      if (presentationMode()) {
+        badge.className = 'anl-badge anl-badge--muted';
+        badge.textContent = '≥';
+        badge.title = 'This card’s totals are a lower bound — not every element could be placed or drawn.';
+      } else {
+        badge.className = 'anl-badge anl-badge--warn';
+        badge.textContent = 'INCOMPLETE';
+      }
       tools.appendChild(badge);
     }
     const rm = document.createElement('button');
@@ -976,10 +1037,33 @@ export class AnalysisSurface {
    *     it cannot speak for tabs it did not read — and silently narrowing the
    *     scope of a trust claim while keeping its wording is exactly the
    *     overstatement this surface exists to refuse. It says "on this tab".
+   *
+   * ⚠ AMENDED 2026-08-26 (§DEMO141, L-12301) — THE DUPLICATE THE FOUNDER
+   * REPORTED, HALF OF IT. His screenshot circled two banners carrying the
+   * IDENTICAL clause — this line's `reasons.join(' · ')`, and (separately) the
+   * relationship graph's own `.anl-honesty-pin` in `widgetRenderers.ts` — both
+   * always visible, both quoting `graphReadModel.projectGraph()`'s
+   * `incompleteReason` verbatim. That is not two honest statements, it is one
+   * statement said twice.
+   *
+   * ⭐ THE CARD IS THE KEEPER. It carries the OPERANDS ("95 of 100 elements and
+   * 348 of 484 relationships drawn") the causes are ABOUT, it is scoped to the
+   * ONE widget the reason is true of (this line is scoped to the whole TAB,
+   * which may hold several widgets), and — for the graph specifically — it is
+   * the artefact §ANALYZE129 / §SCROLL136 already hardened to survive folding
+   * and expansion. Repeating the same sentence here bought no new information,
+   * only a second place it could go stale relative to the first. So this line
+   * now states THAT a tab holds a lower bound and points at its cards for WHY,
+   * instead of re-quoting them — every widget with `complete:false` already
+   * carries its own reason via `completenessStrip` (a fold, admittedly
+   * collapsed by default) or, for the graph, the always-visible pin. Nothing
+   * that was reachable before is unreachable now; it is reachable in ONE place
+   * instead of two.
    */
   private _setStatus(ms: number, incomplete: boolean, unreachable: number, reasons: readonly string[]): void {
     this._status.replaceChildren();
-    this._status.className = `anl-status${incomplete ? ' anl-status--warn' : ''}`;
+    const present = presentationMode();
+    this._status.className = `anl-status${incomplete && !present ? ' anl-status--warn' : ''}`;
     const tab = ANALYSIS_TABS.find((t) => t.id === this._layout.activeTab)?.label ?? 'this tab';
 
     // C06 §6.1 (L-3642) — "ONE chrome band plus, at most, one navigation row".
@@ -987,18 +1071,28 @@ export class AnalysisSurface {
     // one. Both are per-tab statements about the same tab, so they are one line.
     // ⛔ The lede was folded INTO the trust statement, not the other way round:
     // nothing below was shortened to make room for it (ADR-0343 §D.6).
+    //
+    // ⚠ THE LEDE IS NOT PRESENTATION-MODE CHROME. It says what the tab answers
+    // ("What is in this model — counts, by family, by storey, by type."), which
+    // is navigation, not a caveat or a provenance claim — it stays in both modes.
     if (this._tabLedeText) {
       const lede = document.createElement('span');
       lede.className = 'anl-status-lede';
-      lede.textContent = `${this._tabLedeText}  ·  `;
+      lede.textContent = present ? this._tabLedeText : `${this._tabLedeText}  ·  `;
       this._status.appendChild(lede);
     }
+
+    // §DEMO141 (L-12301) — the founder's pitch-demo ask. `Rendered in N ms`,
+    // the LOWER BOUNDS sentence and the "Arrangement saved…" note below are
+    // exactly the class of chrome he asked excluded; the per-card badge
+    // (`_card`, above) carries the lower-bound signal instead, quietly.
+    if (present) return;
 
     const text = document.createElement('span');
     if (!incomplete) {
       text.textContent = `Rendered in ${ms} ms — every declared source read on ${tab}.`;
     } else if (reasons.length > 0) {
-      text.textContent = `Rendered in ${ms} ms — ⚠ totals on ${tab} are LOWER BOUNDS: ${reasons.join(' · ')}`;
+      text.textContent = `Rendered in ${ms} ms — ⚠ totals on ${tab} are LOWER BOUNDS. Each affected card explains why on its own face.`;
     } else {
       // A producer flipped `complete:false` and gave no reason. Say THAT, rather
       // than inventing the unreadable-source sentence that was wrong before.

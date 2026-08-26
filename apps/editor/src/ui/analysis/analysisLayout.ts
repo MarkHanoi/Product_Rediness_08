@@ -112,6 +112,8 @@ interface StoredLayoutShape {
   knownWidgets?: unknown;
   /** §ANALYSIS-FOLD-STATE (L-12063). See {@link foldOpen}. */
   folds?: unknown;
+  /** §DEMO141 (L-12301). See {@link presentationMode}. */
+  presentationMode?: unknown;
 }
 
 /** Every widget id this build's catalogue holds. Derived; never hand-maintained. */
@@ -375,6 +377,67 @@ export function _clearFoldsForTest(projectId: string | null = currentProjectId()
     delete record.folds;
     localStorage.setItem(keyFor(projectId), JSON.stringify(record));
   } catch { /* §SWALLOW-TEST-SEAM — a seam that cannot clear leaves the default, which is the state under test anyway */ }
+}
+
+// =============================================================================
+// §DEMO141 (L-12301) — presentation mode: the founder's pitch-demo toggle
+// =============================================================================
+//
+// ⭐ THE FOUNDER'S REQUEST, VERBATIM: *"Exclude those yellow labels — I am doing
+// a pitch demo, I don't want this info."* The mechanism itself — completeness
+// folds, provenance feet, the tab status line's trust sentence — stays; this is
+// an EXPLICIT, REVERSIBLE reader preference for whether it is ON SCREEN, never a
+// deletion of the honesty machinery. ⛔ Default OFF: a demo mode that started
+// hidden would be a silent downgrade for every reader who never touched it.
+//
+// ⛔ SAME SHAPE AS `foldOpen` / `setFoldOpen`, DELIBERATELY, AND FOR THE SAME
+// REASON (C84 EI-9 — reuse the mechanism, do not mint a second one). A SIBLING
+// FIELD of the stored record, not a member of `AnalysisLayout`: the surface
+// holds one long-lived `this._layout` loaded at `_show()` and written back on a
+// tab switch, an add or a remove, and a toggle fired between two of those writes
+// would be silently clobbered by the stale in-memory copy on the next save —
+// exactly the two-writers-one-document defect folds were kept out of `tabs` to
+// avoid. ⚠ ONE STORAGE KEY, project-scoped exactly like the arrangement and the
+// folds: a pitch-mode choice is a statement about a project's dashboard, not
+// about the browser, so a project switch must not carry it over.
+
+/** Is presentation mode on for this project? Never throws; unreadable storage
+ *  reads as OFF, which is the honest default. */
+export function presentationMode(projectId: string | null = currentProjectId()): boolean {
+  return withHandlerSpan('pryzm.analysis.layout.presentation_read', { 'pryzm.surface': 'analysis' }, () => {
+    try {
+      const raw = localStorage.getItem(keyFor(projectId));
+      if (!raw) return false;
+      const parsed = JSON.parse(raw) as StoredLayoutShape;
+      return parsed.presentationMode === true;
+    } catch {
+      return false;
+    }
+  });
+}
+
+/**
+ * Set presentation mode. READ-MERGE-WRITE against the LIVE record, never a
+ * cached one — the arrangement or a fold may have been written since this
+ * project's record was last read here.
+ */
+export function setPresentationMode(on: boolean, projectId: string | null = currentProjectId()): boolean {
+  return withHandlerSpan(
+    'pryzm.analysis.layout.presentation_write',
+    { 'pryzm.surface': 'analysis', 'pryzm.analysis.presentation_mode': on },
+    () => {
+      try {
+        const raw = localStorage.getItem(keyFor(projectId));
+        const record = (raw ? (JSON.parse(raw) as StoredLayoutShape) : {}) as Record<string, unknown>;
+        record.presentationMode = on;
+        localStorage.setItem(keyFor(projectId), JSON.stringify(record));
+        return true;
+      } catch (e) {
+        console.warn('[analysis] presentation mode could not be saved in this browser:', e);
+        return false;
+      }
+    },
+  );
 }
 
 /** The live project id, or `null`. Read-only; never asserts a project exists. */

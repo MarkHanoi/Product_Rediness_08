@@ -237,6 +237,11 @@ export const ANALYSIS_SURFACE_STYLES = `
 }
 .anl-header-btn:hover { background: var(--app-on-accent-veil-hover); }
 .anl-header-btn:focus-visible { outline: none; box-shadow: var(--app-focus-ring); }
+/* §DEMO141 (L-12301) — the presentation-mode toggle's PRESSED state. Inverted
+   fg/bg, the same idiom '.anl-scope-chip--on' uses one selector below, so a
+   reader who already knows that convention recognises this one for free. */
+.anl-header-btn--on { background: var(--app-on-accent); color: var(--app-accent); }
+.anl-header-btn--on:hover { background: var(--app-on-accent); }
 
 /* ── Status strip ───────────────────────────────────────────────────────── */
 
@@ -483,6 +488,11 @@ export const ANALYSIS_SURFACE_STYLES = `
 .anl-badge--ok   { color: var(--app-status-success-ink); background: var(--app-status-success-bg); }
 .anl-badge--warn { color: var(--app-status-warning-ink); background: var(--app-status-warning-bg); }
 .anl-badge--err  { color: var(--app-status-error-ink);   background: var(--app-status-error-bg);   }
+/* §DEMO141 (L-12301) — presentation mode's compact lower-bound marker. NOT the
+   warn plate: the whole point is that it reads as clean, not as a warning, so
+   it takes the same quiet ink/ground the card foot already uses rather than
+   the amber pair above. */
+.anl-badge--muted { color: var(--app-text-muted); background: var(--app-surface-sunken); }
 
 .anl-strip {
   display: flex;
@@ -1469,17 +1479,26 @@ export const ANALYSIS_SURFACE_STYLES = `
 
    ⚠ ADDED 2026-08-26 (§SCROLL136, L-12200) — 'sticky' on the pin below.
    '.anl-card-body' just became a scroll container (see the block above this
-   one). The pin is the FIRST child of '.anl-graph-stage', which sits inside
-   that body when the graph is not expanded — a reader scrolling down to reach
-   the category tree or the legends would otherwise carry the pin off the top
-   of the viewport while the NUMBERS further down stayed on screen, which is
-   the exact "qualifier hidden, figures visible" shape this card exists to
-   refuse. 'position: sticky' keeps it glued to the top of whichever scroll
-   container is nearest: '.anl-card-body' when collapsed, or
-   '.anl-graph-stage--expanded' itself (also 'overflow: auto') when maximised
-   — one rule, both states, because sticky always resolves against the
-   NEAREST scrolling ancestor rather than a specific one named here.
-   ═══════════════════════════════════════════════════════════════════════════ */
+   one). The pin sits inside that body when the graph is not expanded — a
+   reader scrolling down to reach the category tree or the legends would
+   otherwise carry the pin off the top of the viewport while the NUMBERS
+   further down stayed on screen, which is the exact "qualifier hidden,
+   figures visible" shape this card exists to refuse. 'position: sticky' keeps
+   it glued to the top of whichever scroll container is nearest:
+   '.anl-card-body' when collapsed, or '.anl-graph-stage--expanded' itself
+   (also 'overflow: auto') when maximised — one rule, both states, because
+   sticky always resolves against the NEAREST scrolling ancestor rather than a
+   specific one named here.
+
+   ⚠ AMENDED 2026-08-26 (§DEMO141, L-12301) — the pin is NO LONGER the stage's
+   first child. The storey-scope and relationship-view controls moved INSIDE
+   the stage ahead of it (`widgetRenderers.ts`, §GRAPH-EXPAND-CONTROLS-SURVIVE)
+   so an expand no longer covers the only way to change what the graph shows.
+   'position: sticky' does not require being the first child — it locks once
+   the element's own normal-flow position would cross `top: 0` — so the pin
+   still locks, just after those two bars scroll past rather than immediately.
+   That is a disclosed trade, not a regression: see the widget-renderer comment
+   for why those two bars are not ALSO sticky yet. */
 
 .anl-graph-stage {
   display: flex;
