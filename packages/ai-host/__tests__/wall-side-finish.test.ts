@@ -40,6 +40,29 @@ import { EXECUTION_SPECS } from '../src/intents/CapabilityExecutionSpec.js';
 import { resolveChatCapability } from '../src/capabilities/ChatCapabilityRegistry.js';
 import type { ScopeDescriptor, ScopeResult } from '../src/intents/ScopeDescriptor.js';
 
+/** Records every descriptor `applyExecutionSpec` asks the resolver for, so a
+ *  test can prove WHICH scope kind reached `ctx.resolveScope` — the same
+ *  proof style `opening-shape-chat-acceptance.test.ts` uses for the window
+ *  orientation axis, mirrored here for §RACWALL128. */
+function capturingScope(n: number, diagnostic = 'facade'): {
+  calls: ScopeDescriptor[];
+  resolve: (d: ScopeDescriptor) => ScopeResult;
+} {
+  const calls: ScopeDescriptor[] = [];
+  return {
+    calls,
+    resolve: (d: ScopeDescriptor) => {
+      calls.push(d);
+      return {
+        ids: Array.from({ length: n }, (_, i) => `w-${i}`),
+        kindCounts: {},
+        skipped: [],
+        diagnostics: [diagnostic],
+      };
+    },
+  };
+}
+
 let seq = 0;
 function ctxOf(overrides: Partial<ResolverContext> = {}): ResolverContext {
   return {
@@ -178,6 +201,9 @@ describe('IT DOES NOT STEAL ITS NEIGHBOURS', () => {
     'make all walls white': 'set-wall-color',
     'make all walls interior partition': 'set-wall-type',
     'make all walls 3m high': 'set-wall-dimensions',
+    // §RACWALL128 — compass-scoped colour/rake asks stay with their grammars.
+    'make all south-facing walls white': 'set-wall-color',
+    'make all east-facing walls angled by 70 degrees': 'set-wall-rake',
   };
 
   for (const text of WALL_SIDE_FINISH_NON_CLAIMS) {
@@ -194,6 +220,104 @@ describe('IT DOES NOT STEAL ITS NEIGHBOURS', () => {
       expect(intentOf(r), `"${text}" was claimed by ${intentOf(r)}`).toBe(EXPECTED[text]);
     });
   }
+});
+
+// ─── §RACWALL128 — "change layer finish outside colour of all east-facing walls" ──
+//
+// The founder's ask for each cardinal orientation. MEASURED RED before this
+// lane (2026-08-26, the real ladder at HEAD):
+//   • grammar half — "change all east-facing walls exterior finish to clay
+//     plaster" parsed with base='all': the compass adjective was SWALLOWED and
+//     the ask silently widened to every wall in the project (C84 EI-2).
+//   • spec half — an orientation scope that DID parse (prepositional phrase,
+//     via the shared SpatialScopeTail) was refused by name:
+//     `spatialKinds: ['level','room']` predated the orientation axis, so
+//     applyExecutionSpec's guard declined it before ctx.resolveScope ever ran.
+// The compass MATH is not this lane's: orientationFromNormal's ±45° quadrant
+// and the true-north θ threading are @pryzm/spatial-index's, already shipped.
+
+describe('§RACWALL128 — the exterior finish of a compass facade', () => {
+  const CARDINALS = [
+    ['east', 'E'],
+    ['west', 'W'],
+    ['north', 'N'],
+    ['south', 'S'],
+  ] as const;
+
+  for (const [word, letter] of CARDINALS) {
+    it(`"change all ${word}-facing walls exterior finish to clay plaster" → orientation ${letter}, side exterior`, () => {
+      const cap = capturingScope(4);
+      const r = resolveFull(
+        `change all ${word}-facing walls exterior finish to clay plaster`,
+        ctxOf({ resolveScope: cap.resolve }),
+      );
+      expect(r.kind, `resolved as ${r.kind}`).toBe('commands');
+      if (r.kind !== 'commands') return;
+      const cmd = r.commands[0]!;
+      expect(cmd.type).toBe('wall.setSideFinishBatch');
+      const p = cmd.payload as Record<string, unknown>;
+      expect(p['side']).toBe('exterior');
+      // Resolved to the facade's ids by ctx.resolveScope — NOT left as 'all'.
+      expect(p['wallIds']).toEqual(['w-0', 'w-1', 'w-2', 'w-3']);
+      // An orientation scope asks no geometric room question.
+      expect(p['roomScoped']).toBe(false);
+      // ⭐ THE DESCRIPTOR IS THE PROOF the ask was not silently widened: the
+      // resolver was asked for the COMPASS facade, not for 'all'.
+      const o = cap.calls.find((d) => d.kind === 'orientation');
+      expect(o, JSON.stringify(cap.calls)).toBeDefined();
+      expect((o as { orientation: string }).orientation).toBe(letter);
+    });
+  }
+
+  it('the prepositional spelling scopes identically — "change the exterior finish of all west-facing walls to limewash"', () => {
+    const cap = capturingScope(2);
+    const r = resolveFull(
+      'change the exterior finish of all west-facing walls to limewash',
+      ctxOf({ resolveScope: cap.resolve }),
+    );
+    expect(r.kind).toBe('commands');
+    if (r.kind !== 'commands') return;
+    expect((r.commands[0]!.payload as Record<string, unknown>)['side']).toBe('exterior');
+    const o = cap.calls.find((d) => d.kind === 'orientation');
+    expect(o, JSON.stringify(cap.calls)).toBeDefined();
+    expect((o as { orientation: string }).orientation).toBe('W');
+  });
+
+  it('"on the south facade" (facade noun, no adjective) scopes by orientation too', () => {
+    const cap = capturingScope(3);
+    const r = resolveFull(
+      'make all walls on the south facade exterior finish plaster',
+      ctxOf({ resolveScope: cap.resolve }),
+    );
+    expect(r.kind).toBe('commands');
+    if (r.kind !== 'commands') return;
+    const o = cap.calls.find((d) => d.kind === 'orientation');
+    expect(o, JSON.stringify(cap.calls)).toBeDefined();
+    expect((o as { orientation: string }).orientation).toBe('S');
+  });
+
+  it('⛔ "these east-facing walls" is NOT claimed — orientation composes with ALL only', () => {
+    // Mirrors wallSpatialScopeBase: an orientation against the live selection
+    // is a contradiction, and a mass re-finish never guesses. The sentence must
+    // not become a side-finish command over the selection or over 'all'.
+    const cap = capturingScope(3);
+    const r = resolveFull(
+      'make these east-facing walls exterior finish plaster',
+      ctxOf({ resolveScope: cap.resolve, selection: [{ elementId: 'w-sel', elementType: 'wall' }] as never }),
+    );
+    expect(intentOf(r)).not.toBe('set-wall-side-finish');
+  });
+
+  it('a non-compass "-facing" adjective stays inert — "street-facing" does not scope by orientation', () => {
+    const cap = capturingScope(2);
+    const r = resolveFull(
+      'change all street-facing walls exterior finish to clay plaster',
+      ctxOf({ resolveScope: cap.resolve }),
+    );
+    // Claimed (finish ask), but the unknown adjective is not a compass claim:
+    // no orientation descriptor may be minted from it.
+    expect(cap.calls.every((d) => d.kind !== 'orientation')).toBe(true);
+  });
 });
 
 describe('THE CAPABILITY IS DECLARED, not just implemented', () => {

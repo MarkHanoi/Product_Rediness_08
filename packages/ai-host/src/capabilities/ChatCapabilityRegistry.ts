@@ -2239,7 +2239,11 @@ const CAPABILITIES: readonly ChatCapability[] = [
     scope: 'all',
     // §FIX-UNDECLARED-SPATIAL-REACH (L-1142, 2026-08-19) — the modes the arm
     // ALREADY honoured, now declared. See the note on DELETE_FAMILY_CAPABILITIES.
-    scopeModes: ['all', 'selection', 'level', 'room'],
+    // §RACWALL128 — 'orientation' ADDED, mirroring every other wall/window
+    // capability's scopeModes (e.g. line 2025): "all east-facing walls" is the
+    // same compass axis those already declare, and `CapabilityExecutionSpec`'s
+    // `spatialKinds` was the only place still refusing it for this capability.
+    scopeModes: ['all', 'selection', 'level', 'room', 'orientation'],
     destructive: false,
     busCommand: 'wall.setSideFinishBatch',
     // scope:'selection' deliberately — the anti-ElementCapabilities guard probes
@@ -2255,6 +2259,7 @@ const CAPABILITIES: readonly ChatCapability[] = [
       'make all inner finishes walls on the ground floor to plaster',
       'change all walls in the kitchen finish limewash',
       'change all outer finishes walls to clay plaster',
+      'change all east-facing walls exterior finish to clay plaster',
     ],
   },
   {
@@ -3829,7 +3834,15 @@ export const CHAT_UNAVAILABLE: ReadonlyMap<string, string> = new Map([
   // `MAX_UNDECLARED` coverage ratchet in `check-chat-capability-coverage.ts`
   // reads this command HONESTLY (built, not yet chat-driven) instead of
   // silently failing the next unrelated PR that trips the ratchet.
-  ['furniture.bulkUpdateKitchenMaterial', 'Bulk kitchen material changes are not wired to chat yet — use the kitchen\'s Edit Kitchen Layout panel for one kitchen at a time. (The bulk command itself is built — only the sentence-to-command grammar is missing.)'],
+  // §RACWALL128 — punctuation fix only: the sentence originally ended
+  // "...grammar is missing.)" (period BEFORE the closing paren), which failed
+  // `chat-capability-registry.test.ts`'s "every deferral states a reason a
+  // user could read" — `reason.endsWith('.')` — for the trivial reason that a
+  // closing paren was the actual last character. Every other parenthetical
+  // aside in this map (see `floor.setMaterial` above, "...L-1884).") ends the
+  // sentence AFTER the paren; this row now matches that convention. No other
+  // change: the RACKITCHEN127 content and authorship are untouched.
+  ['furniture.bulkUpdateKitchenMaterial', 'Bulk kitchen material changes are not wired to chat yet — use the kitchen\'s Edit Kitchen Layout panel for one kitchen at a time (the bulk command itself is built — only the sentence-to-command grammar is missing).'],
 ]);
 
 // ─── Lookup surface ──────────────────────────────────────────────────────────

@@ -593,6 +593,26 @@ export const EXECUTION_SPECS: SpecTable = {
    * walls by name. The flag is computed HERE because `si.scope` is the only
    * place the scope KIND still exists; by the time the handler runs it has been
    * resolved to a flat id list.
+   *
+   * ⭐ §RACWALL128 — `spatialKinds` GAINED `'orientation'`. The founder's ask —
+   * "change the layer finish outside colour of all east-facing walls" — is
+   * this capability with `side: 'exterior'` and a compass scope. The AXIS was
+   * never missing: `orientationFromNormal`/`facadesByOrientation`
+   * (`@pryzm/spatial-index`) and the shared `SpatialScopeTail` grammar
+   * (§CHAT-ORIENTATION-IS-NOT-A-ROOM, L-10941) already let "all east-facing
+   * walls" / "the walls facing east" parse to `{kind:'orientation',
+   * orientation:'E'}` through `WallSideFinishIntent`'s
+   * `parseInlineSpatialPhrase`. What refused it was this ONE declared array:
+   * `set-wall-color` / `set-wall-rake` never restrict `spatialKinds` at all
+   * (so an orientation scope always reached them, which is how "make all
+   * south-facing walls white" already worked), but this spec explicitly
+   * listed only `['level','room']` — predating the orientation axis — so the
+   * generic executor's guard at `applyExecutionSpec` (scope.kind check above)
+   * refused an orientation scope by name before `ctx.resolveScope` ever ran.
+   * Widening the declaration is the whole fix: the resolved wallIds, the
+   * θ-threading (project `SiteLocation.trueNorth`) and the ±45°
+   * quadrant tolerance are 100% the pre-existing, already-shipped facade
+   * service — nothing here reimplements or forks that math (C84 EI-8).
    */
   'set-wall-side-finish': {
     elementKind: 'wall',
@@ -605,8 +625,9 @@ export const EXECUTION_SPECS: SpecTable = {
       'make all inner finishes walls on the ground floor to plaster',
       'change all walls in the kitchen finish limewash',
     ],
-    spatialAbility: 'change all walls, the walls on a level, or the walls in a room',
-    spatialKinds: ['level', 'room'],
+    spatialAbility:
+      'change all walls, the walls on a level, the walls in a room, or the walls facing a compass direction',
+    spatialKinds: ['level', 'room', 'orientation'],
     resolveValue: (si) => {
       // §FIX-FINISH-VOCABULARY-IS-THE-CATALOGUE (L-1262) — ONE refusal copy,
       // stating the REAL vocabulary size and naming the candidates when the

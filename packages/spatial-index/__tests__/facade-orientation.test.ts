@@ -135,6 +135,50 @@ describe('classifyFacades — ZERO detected rooms (the shell case)', () => {
     });
 });
 
+// ─── §RACWALL128 — the tolerance boundary and the rotated site, PINNED ───────
+//
+// "Change layer finish outside colour of all east-facing walls" classifies
+// walls through THIS math. Two facts the bulk-orientation selector depends on
+// were true but unpinned:
+//   1. The tolerance is ±45° per cardinal (the four buckets PARTITION the
+//      circle), and a wall EXACTLY on a 45° boundary is deterministic — the
+//      buckets are half-open ((−45°,45°] = N), so an exact diagonal joins the
+//      ANTICLOCKWISE bucket: NE→N, SE→E, SW→S, NW→W.
+//   2. θ rotates the whole compass frame, so "east" means TRUE east on a
+//      rotated site — never the authoring frame's raw +X.
+
+describe('§RACWALL128 — quadrant boundaries are deterministic', () => {
+    const r2 = Math.SQRT1_2;
+    it('an exact 45° diagonal joins the ANTICLOCKWISE bucket (half-open (−45°,45°])', () => {
+        expect(orientationFromNormal({ x: r2, z: -r2 })).toBe('N');  // exact NE → N
+        expect(orientationFromNormal({ x: r2, z: r2 })).toBe('E');   // exact SE → E
+        expect(orientationFromNormal({ x: -r2, z: r2 })).toBe('S');  // exact SW → S
+        expect(orientationFromNormal({ x: -r2, z: -r2 })).toBe('W'); // exact NW → W
+    });
+    it('±45° per cardinal: a wall 35° off a cardinal still belongs to it', () => {
+        const deg35 = (35 * Math.PI) / 180;
+        // Rotate the +Z (south) normal 35° towards east: still S.
+        expect(orientationFromNormal({ x: Math.sin(deg35), z: Math.cos(deg35) })).toBe('S');
+    });
+});
+
+describe('§RACWALL128 — a rotated site (θ ≠ 0): east means TRUE east', () => {
+    it('θ = +90°: every cardinal moves one full quadrant', () => {
+        const theta = Math.PI / 2;
+        expect(orientationFromNormal({ x: 1, z: 0 }, theta)).toBe('S');  // project +X → true S
+        expect(orientationFromNormal({ x: 0, z: -1 }, theta)).toBe('E'); // project −Z → true E
+        expect(orientationFromNormal({ x: 0, z: 1 }, theta)).toBe('W');
+        expect(orientationFromNormal({ x: -1, z: 0 }, theta)).toBe('N');
+    });
+    it('classifyFacades THREADS θ — the +X wall of a 90°-rotated site is the SOUTH facade', () => {
+        const facades = classifyFacades([W_NORTH, W_SOUTH, W_EAST, W_WEST], [ROOM], Math.PI / 2);
+        expect(facades.get('w-e')!.orientation).toBe('S');
+        expect(facades.get('w-n')!.orientation).toBe('E');
+        expect(facades.get('w-s')!.orientation).toBe('W');
+        expect(facades.get('w-w')!.orientation).toBe('N');
+    });
+});
+
 // The SERVICE-level provider test lives in apps/editor/__tests__/
 // facadeTrueNorthProvider.test.ts — the service imports the @pryzm/core-app-model
 // BARREL, whose module-load side effects hang this pure-Node suite

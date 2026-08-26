@@ -48,7 +48,9 @@
 import { parseFilterClauses } from './FilterScope';
 import type { ElementFilter, IntentScope, IntentSpatialScope } from './ScopeDescriptor';
 // §FIX-WALL-FINISH-SIDE-EATS-SCOPE (L-1261) — THE one place-phrase reader.
-import { parseInlineSpatialPhrase } from './SpatialScopeTail';
+// §RACWALL128 — resolveCompassRef is THE one compass-word table (L-10941); the
+// facing-adjective probe below consults it rather than minting a second one.
+import { parseInlineSpatialPhrase, resolveCompassRef } from './SpatialScopeTail';
 import type { ResolverContext } from './ZeroTokenResolver';
 
 /** RAC U8.1 — re-attach the lifted filters. Structurally identical to
@@ -97,6 +99,27 @@ const FINISH_MARKER = /\bfinish(?:es|ed|ing)?\b/;
 
 const INNER_WORD = /\b(?:inner|interior|inside|internal|indoor)\b/;
 const OUTER_WORD = /\b(?:outer|exterior|outside|external|outdoor|façade|facade)\b/;
+
+/**
+ * §RACWALL128 — the compass-facing ADJECTIVE ("all east-facing walls").
+ *
+ * The colour and rake grammars have carried this adjective since ADR-0315 U3
+ * (`WALL_ORIENTATION_ADJ` in ZeroTokenResolver), so "make all south-facing
+ * walls white" already scopes by facade — but THIS token-based grammar only
+ * read a PREPOSITIONAL place phrase ("of all east-facing walls", "on the east
+ * facade"). Measured before this probe: "change all east-facing walls exterior
+ * finish to clay plaster" parsed with `base = 'all'` — the compass qualifier
+ * was swallowed and the ask SILENTLY WIDENED to every wall in the project
+ * (C84 EI-2), which on a mass re-finish is the worst available outcome.
+ *
+ * The captured word goes through `resolveCompassRef` — the ONE compass table —
+ * so "east-facing"/"eastern-facing" resolve and "street-facing" stays inert
+ * (null ⇒ the adjective is not a compass claim and the sentence reads as
+ * before). Composition rule mirrors `wallSpatialScopeBase` exactly: an
+ * orientation composes with the ALL scope only; against "these/selected" the
+ * grammar does not claim, it never guesses.
+ */
+const FACING_ADJ_RE = /\b([a-z]+)[- ]facing\b/;
 
 /**
  * §FIX-LAYER-ASK-REPAINTED (L-1260) — THE ONE TOKEN that separates this
@@ -281,7 +304,26 @@ export function parseWallSideFinishIntent(
     //    plaster" has a spatial phrase and no "all", and dropping the phrase would
     //    silently narrow a LEVEL ask to the selection — a quieter version of the
     //    same defect. The phrase the user typed wins over the default.
+    //
+    //    §RACWALL128 — the compass-facing ADJECTIVE is probed FIRST, mirroring
+    //    the colour/rake grammars' precedence (`wallScopeBase` consults the
+    //    orientation capture before the level/room tail). It composes with the
+    //    ALL scope only — "these east-facing walls" is a contradiction with the
+    //    live selection and is NOT claimed, byte-identical to how
+    //    `wallSpatialScopeBase` returns null for orientation ∧ selection.
     let base: 'all' | 'selection' | IntentSpatialScope;
+    const facingWord = FACING_ADJ_RE.exec(t)?.[1];
+    const facingCompass = facingWord !== undefined ? resolveCompassRef(facingWord) : null;
+    if (facingCompass !== null) {
+        if (!isAll || isSel) return null;
+        base = { kind: 'orientation', orientation: facingCompass };
+        return {
+            intent: 'set-wall-side-finish',
+            side,
+            finishRef,
+            scope: attachFilters(base, lifted.filters),
+        };
+    }
     const place = parseInlineSpatialPhrase(t, ctx);
     if (place.kind === 'unusable') {
         // A place was NAMED and cannot be resolved ("this floor" with no active
@@ -322,6 +364,12 @@ export const WALL_SIDE_FINISH_EXAMPLES: readonly string[] = [
     'set all walls on level 2 finish tadelakt',
     'make the selected walls finish venetian plaster',
     'change all outer finishes walls to clay plaster',
+    // ── §RACWALL128 — "change layer finish outside colour of all east-facing
+    //    walls": the exterior finish, scoped by compass facade. Both spellings:
+    //    the -facing adjective and the prepositional facade phrase.
+    'change all east-facing walls exterior finish to clay plaster',
+    'change the exterior finish of all west-facing walls to limewash',
+    'make all walls on the south facade exterior finish plaster',
 ];
 
 /**
@@ -334,4 +382,8 @@ export const WALL_SIDE_FINISH_NON_CLAIMS: readonly string[] = [
     'make all walls white',                                            // set-wall-color
     'make all walls interior partition',                               // set-wall-type
     'make all walls 3m high',                                          // set-wall-dimensions
+    // §RACWALL128 — the compass adjective must not make this grammar greedy:
+    // a compass-scoped COLOUR or RAKE ask still belongs to its own grammar.
+    'make all south-facing walls white',                               // set-wall-color
+    'make all east-facing walls angled by 70 degrees',                 // set-wall-rake
 ];
