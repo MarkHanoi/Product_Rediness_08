@@ -145,6 +145,11 @@ import {
 // See that file's header for the full mechanism and for the other instanced
 // families (InstanceGroup, InstancedMeshCoalescer) that shared the blind spot.
 import { buildEdgeOverlayGeometry } from './instancedEdgeOverlay';
+// §ANALYSIS-ROOM-VOLUME-SELECTED (L-12240) — the ONE ambient gate on a room
+// volume's visibility outside selection (`initScene.ts:1004`). Read, never
+// written, from here: this file only overrides `.visible` for the DURATION of
+// an explicit selection and restores exactly this value the instant it ends.
+import { UiPreferences } from '../../ui/UiPreferences';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -1440,9 +1445,13 @@ export class DiagnosticMaterialManager {
    * ⚠ With an EMPTY selection every mesh ghosts and nothing is emphasised — which
    * is the honest rendering of "nothing is selected", not a bug. The caller decides
    * whether to apply this lens at all; see `InspectModeCoordinator._onWorkspaceMode`.
+   *
+   * ⚠ AMENDED §ANALYSIS-ROOM-VOLUME-SELECTED (L-12240) — a ROOM VOLUME is now its
+   * own branch, painted BEFORE the generic id-match branch below. See that branch's
+   * comment for why a room cannot simply fall through to the generic case.
    */
   private _applyAnalysisSelection(scene: THREE.Scene): void {
-    this._pulseMeshes = [];
+    this._stopPulse(); // clears `_pulseMeshes` AND cancels any tick from a room that was selected a moment ago
     const selected = this._analysisSelection;
 
     scene.traverse(obj => {
@@ -1455,6 +1464,61 @@ export class DiagnosticMaterialManager {
           opacity:     VOLUME_FLOOR_OPACITY,
           depthWrite:  false,
         }));
+        return;
+      }
+
+      // §ANALYSIS-ROOM-VOLUME-SELECTED (L-12240) — a room's ONLY visible geometry
+      // in this lens is its 3-D VOLUME mesh (the floor overlay above is forced to
+      // `VOLUME_FLOOR_OPACITY` regardless of selection). That volume mesh is
+      // opt-in behind the ambient "Room Volume Colour" preference — default OFF,
+      // `initScene.ts:1004` — a decorative toggle with nothing to do with
+      // selection. `_applyToMesh` only ever replaces `.material`; it has never
+      // touched `.visible`. So falling through to the generic id-match branch
+      // below would paint the right purple onto a mesh nobody can see whenever
+      // that preference happens to be off — the founder's click would dispatch
+      // correctly, resolve correctly, and paint correctly, and still show NOTHING.
+      // A room is therefore handled here, before the generic branch: an explicit
+      // click is a stronger signal than an ambient decorative default, so a
+      // SELECTED room's volume is always shown, and put back to the ambient
+      // default the instant it stops being selected.
+      //
+      // The material + pulse below reuse Inspect's OWN "translucent volume that
+      // breathes" mechanism (`_pulseMeshes` → `_startPulse`, the same one
+      // `_makeRoomVolumeMat`'s §1.3 jewel drives) rather than a second one — only
+      // the colour differs, and it differs on purpose: ANALYSIS' OWN purple
+      // (§ANALYSIS-IS-GREY-AND-PURPLE, L-6410), never Inspect's violet jewel.
+      // L-3511 / L-9200 both name letting Inspect's palette show up in Analysis as
+      // the regression to never re-introduce, and reusing `_makeRoomVolumeMat`
+      // itself here would do exactly that.
+      if (obj.userData.isRoomVolume) {
+        const roomId = (obj.userData.roomId as string | undefined) ?? this._resolveElementId(obj);
+        const isSelected = roomId != null && selected.has(roomId);
+        obj.visible = isSelected || UiPreferences.get('showRoomVolumeColour');
+
+        if (isSelected) {
+          const mat = new THREE.MeshPhongMaterial({
+            color:             ANALYSIS_SELECTED_COLOR,
+            emissive:          new THREE.Color(ANALYSIS_SELECTED_EMISSIVE),
+            emissiveIntensity: 0.45,
+            opacity:           VOLUME_SELECTED_BASE, // §1.3's own base — the PULSE tick below re-derives the live value from this same constant for every pulsing mesh regardless of lens, so this is a starting point, not the steady-state opacity.
+            transparent:       true,
+            side:              THREE.DoubleSide,
+            depthWrite:        false,
+          });
+          this._applyToMesh(obj, mat);
+          this._pulseMeshes.push(mat);
+          return;
+        }
+
+        // Not selected: put back whatever this mesh wore before Analysis touched
+        // it (its own authored room colour) rather than leaving it in last
+        // click's purple. `resolveGhostRole`'s "leave rooms alone" below only
+        // holds for a room that was NEVER repainted while deselected — true
+        // before this branch existed, no longer true once a room can be selected.
+        const original = this._originals.get(obj);
+        if (original !== undefined) {
+          obj.material = Array.isArray(original) ? original.map(m => m.clone()) : original.clone();
+        }
         return;
       }
 
@@ -1482,9 +1546,11 @@ export class DiagnosticMaterialManager {
 
       // Everything else: the light grey ghost.
       //
-      // ⚠ `resolveGhostRole`/`ghostOpacityForRole` return null for rooms, shader
-      // materials and hit-proxies — those must be left alone, which is why this
-      // reuses the shared role resolution instead of painting every mesh flat.
+      // ⚠ `resolveGhostRole`/`ghostOpacityForRole` return null for shader
+      // materials and hit-proxies (and rooms, but rooms never reach this line —
+      // both room branches return above) — those must be left alone, which is
+      // why this reuses the shared role resolution instead of painting every
+      // mesh flat.
       const role = resolveGhostRole(this._ghostSubject(obj));
       const opacity = ghostOpacityForRole(role);
       if (opacity === null) return;
@@ -1497,6 +1563,8 @@ export class DiagnosticMaterialManager {
         depthWrite:  false,
       }));
     });
+
+    if (this._pulseMeshes.length > 0) this._startPulse();
   }
 
   /**
