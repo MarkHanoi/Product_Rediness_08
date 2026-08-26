@@ -56,6 +56,26 @@ describe('§DRAWING-LAYER-DERIVED — the collision is real and named', () => {
         const wallEdges = row({ role: 'edges', elementType: 'WallEdges', colour: '444444' });
         expect(attributeProducer(wallEdges)).toMatch(/WallEdgeOverlayBuilder/);
     });
+
+    it('§EDGE131 — names the two finish families the dump could only print as "-"', () => {
+        // The founder's L-1227 dump read `x5 LineSegments | - | edges | 444444 |
+        // VISIBLE`. The empty elementType column was the finding, not noise: these
+        // were floor finishes, governed by no view gate. Both now self-identify.
+        const floor = row({ role: 'edges', elementType: 'FloorEdges', colour: '555555' });
+        expect(attributeProducer(floor)).toMatch(/FloorPanelBuilder/);
+
+        const ceiling = row({ role: 'edges', elementType: 'CeilingEdges', colour: '555555' });
+        expect(attributeProducer(ceiling)).toMatch(/CeilingPanelBuilder/);
+    });
+
+    it('§EDGE131 — an UNSTAMPED overlay is reported as ungoverned, not merely unnamed', () => {
+        // The old wording ("elementType unstamped") read as a cosmetic gap. It is
+        // not: an unstamped overlay is one no view gate can reach.
+        const orphan = row({ role: 'edges', elementType: null, colour: '444444' });
+        const verdict = attributeProducer(orphan);
+        expect(verdict).toMatch(/UNSTAMPED/);
+        expect(verdict).toMatch(/no view gate can reach it/);
+    });
 });
 
 describe('§LINEWORK-3D-PROBE — the census and the diff that falsified hypothesis (a)', () => {

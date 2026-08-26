@@ -41,6 +41,20 @@
 //     edge-overlay gate has NO such re-apply. Whether that window is ever hit
 //     depends on runtime ordering.
 //
+// ⛔ §EDGE131 (L-12100) — THE HYPOTHESIS THIS LIST NEVER CONTAINED, AND THE ONE THAT
+//    WAS TRUE. Every branch above asks WHEN an overlay became visible. None asks
+//    WHETHER ANY GATE GOVERNS IT AT ALL. `WallEdgeVisibilityService` matches on
+//    `role === 'edges'` **AND** a known `elementType`; the floor-finish and ceiling
+//    overlays stamped `role` and no `elementType`, so they matched no arm of it and
+//    kept their born `visible = true` in every view, on every storey, forever.
+//    That is what the founder was looking at, and it is why the "on paper they
+//    cannot be visible in 3D" note above was simultaneously true (of WallEdges and
+//    SlabEdges) and irrelevant (the visible ones were neither). The dump's own
+//    `x5 … | - | edges | 444444 | VISIBLE` carried the answer in the column that
+//    was read as noise: `-` is an UNGOVERNED overlay, and `444444` was neither the
+//    wall nor the slab colour (`0x555555`) but FloorPanelBuilder's private one.
+//    ⭐ Before asking "when did it appear?", ask "who is supposed to hide this?"
+//
 // ⭐ THE ONE QUESTION THAT DISCRIMINATES ALL FOUR: **did the offending objects exist
 // on the FIRST 3D activation of the session, or did they appear after a visit to
 // another view?** This probe answers exactly that, by censusing on every 3D entry
@@ -221,7 +235,17 @@ export function attributeProducer(r: LineworkRow): string {
     }
     if (r.role === 'edges' && r.elementType === 'WallEdges') return 'WallEdgeOverlayBuilder (geometry-wall)';
     if (r.role === 'edges' && r.elementType === 'SlabEdges') return 'SlabFragmentBuilder (geometry-slab)';
-    if (r.role === 'edges') return 'an edge-overlay builder (role=edges, elementType unstamped)';
+    // §EDGE131 (L-12100) — these two used to fall to the "elementType unstamped"
+    // line below, and THAT LINE WAS THE WHOLE DEFECT wearing a label. An overlay
+    // with no elementType is not merely unattributed: `WallEdgeVisibilityService`
+    // matches on role AND type, so an unstamped overlay is GOVERNED BY NOBODY and
+    // sits at its born `visible = true` in every view. Both families now register.
+    if (r.role === 'edges' && r.elementType === 'FloorEdges') return 'FloorPanelBuilder (geometry-slab/floor)';
+    if (r.role === 'edges' && r.elementType === 'CeilingEdges') return 'CeilingPanelBuilder (geometry-slab/ceiling)';
+    if (r.role === 'edges') {
+        return 'an edge-overlay builder (role=edges, elementType UNSTAMPED — ⚠ no view gate can '
+            + 'reach it; it will draw in 3D forever. Register it in SLAB_FAMILY_EDGE_TYPES, §EDGE131)';
+    }
     if (
         r.parentChain.includes('TechnicalDrawing') ||
         (r.elementType === null && r.role === null && r.layerMask === (1 << 1))
