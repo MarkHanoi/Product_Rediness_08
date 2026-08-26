@@ -2916,6 +2916,62 @@ export interface StoresSlot {
    */
   readonly boundaryLine?: PluginDtoStoreHandle | undefined;
 
+  /**
+   * §BATH102 (L-11480 · C109 §9 axis 1 · L-11064) — the ONE authority for the
+   * bathroom-pod family, reachable from the composed runtime.
+   *
+   * ⭐ SAME TEST AS `boundaryLine`, PASSED FOR THE SAME REASON, AND IT IS NOT
+   * "every plugin store gets a field". ADR-0318 moved the authoritative element
+   * stores behind `elements` precisely so nobody reads a plugin DTO store for a
+   * family that HAS a geometry twin — reading `stores.wall` would be reading the
+   * store MT-01 says nobody reads. `bathroomPod` has **no geometry twin**:
+   * `plugins/plumbing/src/bathroomPodStore.ts` opens by declaring that this family
+   * has EXACTLY ONE store on purpose, so C84 EI-1 holds by construction. For this
+   * family the plugin store IS the record, not a DTO mirror of one.
+   *
+   * ⛔ AND THE FAMILY'S SIBLING `plumbing` DELIBERATELY GETS NO FIELD, which is the
+   * cleanest available illustration of the rule: `plumbing` HAS a twin (the legacy
+   * `@pryzm/geometry-plumbing` fixture store on `window.plumbingStore`), and C99
+   * measured them diverging — after any project load the DTO store is EMPTY while
+   * the legacy store holds N. Exposing it here would hand consumers the empty one.
+   *
+   * Optional, and the absence is honest rather than defensive: a `bootstrapFn` that
+   * contributes no plugins (bench / headless stubs) leaves it undefined, and every
+   * consumer must keep saying UNREADABLE rather than guessing — `undefined` here
+   * means "this session cannot answer", never "there are no bathroom pods"
+   * ([[context-data-honesty-family]]).
+   */
+  readonly bathroomPod?: PluginDtoStoreHandle | undefined;
+
+  /**
+   * §BATH102 (L-11064) — the C104 LIFT COMPOUND's two stores, adopted for the same
+   * reason as `boundaryLine` and closing the arm L-11060 explicitly left open.
+   *
+   * ⛔ THE DEFECT THIS CLOSES IS LIVE AND IS ALREADY WRITTEN DOWN ELSEWHERE.
+   * `apps/editor/src/engine/undo/liftUndoAdapter.ts`'s production resolver
+   * `resolveLiftStoresFromWindow()` reads `window.runtime.stores.lift` /
+   * `.liftPart` **through a cast**, because this interface did not declare them —
+   * and `composeRuntime` never attached them, so it returned `null` in every real
+   * browser session. A `null` resolve makes `_applyOrThrow` throw a NAMED error, so
+   * the lift's Ctrl+Z reported a per-store failure instead of reverting. That is
+   * exactly the shape L-11060 measured for `boundaryLine` (four production call
+   * sites reading `undefined` in silence), one family over, and L-11064 is the row
+   * that recorded it as *"the SAME latent unreachability, logged rather than fixed
+   * blind"*. This is the fix, taken deliberately rather than blind: `lift` /
+   * `liftPart` are the two families whose consumer was already written against the
+   * key.
+   *
+   * ⚠ `lift` HAS a namesake on `window.liftStore` and it is a DIFFERENT store — the
+   * LOD-200 MASSING lift (C104 §1; the two co-exist deliberately). The field below
+   * is the COMPOUND (`PluginRegistry` storeKey `lift` → `new LiftCompoundStore()`).
+   * ⛔ Do not "unify" them: aliasing would apply an inverse patch to a store that
+   * never received the forward — C03 §4.6 U-2b, forbidden by name in
+   * `performUndoRedo.ts`.
+   */
+  readonly lift?: PluginDtoStoreHandle | undefined;
+  /** §BATH102 (L-11064) — the lift's cabin/shaft parts. See `lift` above. */
+  readonly liftPart?: PluginDtoStoreHandle | undefined;
+
   /** Fan out a full project snapshot to all registered stores via the
    *  engine's `loadDelegate.load()`.  Throws `RuntimeNotWiredError` if
    *  called before `initPersistence` registers the hydrator. */

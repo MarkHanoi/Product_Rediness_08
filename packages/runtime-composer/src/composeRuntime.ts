@@ -1709,6 +1709,45 @@ export async function composeRuntime(opts: ComposeRuntimeOptions): Promise<Compo
       );
     }
 
+    // ── 6-pre-c. §BATH102 (L-11480 / L-11064) — adopt the THREE remaining
+    //    twin-less plugin stores whose consumers were ALREADY written against
+    //    `runtime.stores.<key>` ────────────────────────────────────────────────
+    //
+    // ⭐ ADOPTED, NEVER CONSTRUCTED — same rule as the boundary line above and for
+    // the same reason: constructing a rival store here would fork state against the
+    // instance the bus hands every handler through `storesAsRecordView`.
+    //
+    // ⛔ THIS IS NOT "expose the other 28". The block above states the test a family
+    // must pass — NO GEOMETRY TWIN — and these three pass it while `wall`, `slab`,
+    // `plumbing`, `furniture`, `lighting` and the rest do not. See `StoresSlot`'s
+    // per-field docstrings, which carry the measurement for each.
+    //
+    // ⚠ `lift` / `liftPart` close the LIVE half of L-11064: `liftUndoAdapter.ts`'s
+    // `resolveLiftStoresFromWindow()` reads exactly these two keys through a cast and
+    // returned `null` in every browser session, so the lift's Ctrl+Z threw a named
+    // per-store failure instead of reverting.
+    const bathroomPodStore: PluginDtoStoreHandle | undefined = inner.stores?.['bathroomPod'];
+    const liftCompoundStore: PluginDtoStoreHandle | undefined = inner.stores?.['lift'];
+    const liftPartStore: PluginDtoStoreHandle | undefined = inner.stores?.['liftPart'];
+    if (inner.stores !== undefined) {
+      for (const [key, value] of [
+        ['bathroomPod', bathroomPodStore],
+        ['lift', liftCompoundStore],
+        ['liftPart', liftPartStore],
+      ] as const) {
+        if (value === undefined) {
+          // The data half ran and still did not contribute the key — that is a
+          // missing `PluginRegistry` descriptor, not a headless stub. Named at boot,
+          // because the whole cost of L-11060 was that nothing said anything.
+          console.warn(
+            `[runtime-composer] §BATH102: the data half contributed no \`${key}\` store, so ` +
+            `\`runtime.stores.${key}\` will be UNREADABLE — undo/redo and the read models ` +
+            `for that family cannot reach it. Check the \`${key}\` descriptor in PluginRegistry.ts.`,
+          );
+        }
+      }
+    }
+
     let _hydratorFn: ((snapshot: unknown) => void | Promise<void>) | null = null;
     const stores: StoresSlot = {
       // ADR-0318 — authoritative element stores (live view over storeRegistry).
@@ -1717,6 +1756,13 @@ export async function composeRuntime(opts: ComposeRuntimeOptions): Promise<Compo
       // `undefined` when the data half contributed none; consumers must report
       // UNREADABLE, never EMPTY.
       boundaryLine: boundaryLineStore,
+      // §BATH102 (L-11480 · C109 §9 axis 1) — the bathroom-pod family's ONE store.
+      bathroomPod: bathroomPodStore,
+      // §BATH102 (L-11064) — the C104 lift compound's two stores, which
+      // `liftUndoAdapter`'s production resolver has been reading through a cast since
+      // L-11340 and finding `undefined`.
+      lift: liftCompoundStore,
+      liftPart: liftPartStore,
       registerHydrator(fn: (snapshot: unknown) => void | Promise<void>): void {
         _hydratorFn = fn;
       },

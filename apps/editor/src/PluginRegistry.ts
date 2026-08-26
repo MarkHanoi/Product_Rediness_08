@@ -139,7 +139,10 @@ import { buildAnnotationHandlerSet } from '@pryzm/plugin-annotations';
 // class. §FIX-DIMENSION-STOREKEY-SINGULAR (L-138): storeKey='dimension' to
 // match the handlers (unlike rooms, whose handlers read the plural key).
 import { FurnitureStore, buildFurnitureHandlerSet } from '@pryzm/plugin-furniture';
-import { PlumbingStore, buildPlumbingHandlerSet } from '@pryzm/plugin-plumbing';
+// §BATH102 — `BathroomPodStore` rides the same package (C109 §0 governs the pod's
+// store and handlers as living in `plugins/plumbing/`); the two `bathroomPod.*`
+// handlers are inside `buildPlumbingHandlerSet()`, spread from their own named set.
+import { PlumbingStore, BathroomPodStore, buildPlumbingHandlerSet } from '@pryzm/plugin-plumbing';
 // §LIGHTING-STORE-FIX (2026-06-26) — lighting was registered for HANDLERS
 // (engineLauncher registerLightingHandlers) but never contributed a STORE here,
 // so the bus storesProvider had no `lighting` key and every `lighting.create`
@@ -567,11 +570,57 @@ export const ALL_PLUGINS: readonly PluginDescriptor[] = [
   },
 
   // ---- Plumbing (E-finish.0.E orphan registration) ----
+  //
+  // ⚠ §BATH102 — `buildPlumbingHandlerSet()` ALSO registers `bathroomPod.create` and
+  // `bathroomPod.delete` (C109). Their `affectedStores: ['bathroomPod']` resolves
+  // against the store the `bathroomPod` descriptor below contributes, NOT this one:
+  // `storesAsRecordView(stores)` is built from EVERY descriptor's store, which is how
+  // `CreateLiftHandler` — registered by the `lift` descriptor — resolves `wall`,
+  // `curtainwall`, `door` and `slab` from four other descriptors.
   {
     id: 'plumbing',
     storeKey: 'plumbing',
     buildStore: () => new PlumbingStore() as unknown as Store<object>,
     buildHandlers: () => buildPlumbingHandlerSet() as readonly CommandHandler<unknown>[],
+  },
+
+  // ---- BathroomPod (§BATH102 · C109 · L-11480) ----
+  //
+  // ⭐ AXIS 1 AND AXIS 2 OF C109 §9's SEVEN, AND AXIS 2 IS THE ONE THAT SILENTLY
+  // THROWS. The production storesProvider is `storesAsRecordView(stores)` over
+  // `stores[plugin.storeKey]` accumulated from `ALL_PLUGINS`
+  // (bootstrap.everything.ts:145). With no descriptor here the key is simply absent
+  // and `CommandBus.buildContext` (CommandBus.ts:286-292) throws
+  //
+  //     bathroomPod.create: required store 'bathroomPod' is missing from HandlerContext.stores
+  //
+  // BEFORE anything mutates — with the handlers registered and undispatchable. That is
+  // the `pool` defect (L-5200), the `lift` defect (L-5700) and the `lighting` defect
+  // before both, and it is why
+  // `apps/editor/__tests__/bathroomPodReachableThroughComposedRuntime.test.ts` reads
+  // `rt.stores.bathroomPod` off the REAL composition root and never builds a store of
+  // its own. A plugin's own suite CANNOT catch this: it supplies the provider that was
+  // broken.
+  //
+  // ⭐ AND THIS IS THE FAMILY'S **ONLY** STORE — the `boundaryLine` shape (C106 §1),
+  // not the `plumbing` one. C84 §1's rows 2/3 (a plugin DTO store and a legacy geometry
+  // store that keep diverging) do not both exist here, so C84 EI-1 holds BY
+  // CONSTRUCTION. See `plugins/plumbing/src/bathroomPodStore.ts`.
+  //
+  // ⭐ NO HANDLERS ON THIS DESCRIPTOR, DELIBERATELY — a statement, not an omission, and
+  // it is the `water` / `liftPart` idiom with a DIFFERENT reason, written down in
+  // `STORE_ONLY_PLUGIN_IDS` below. The pod DOES own two verbs; they are registered by
+  // the `plumbing` descriptor above because C109 §0 governs the pod's store and
+  // handlers as living in `plugins/plumbing/`, and a descriptor carries exactly ONE
+  // `storeKey`. ⛔ Giving this descriptor the handlers instead would need a
+  // `plugins/bathroom-pod/` DIRECTORY, and arm D of
+  // `tools/ga-gate/check-plugin-census-equivalence.ts` is HARD-0 on
+  // *"REGISTRY \ DISK — booted with no directory"*.
+  {
+    id: 'bathroomPod',
+    storeKey: 'bathroomPod',
+    buildStore: () => new BathroomPodStore() as unknown as Store<object>,
+    buildHandlers: () => [] as readonly CommandHandler<unknown>[],
   },
 
   // ---- Lighting (§LIGHTING-STORE-FIX 2026-06-26) ----
@@ -763,6 +812,13 @@ export const ELEMENT_PLUGIN_IDS = [
   'ceiling',
   'furniture',
   'plumbing',
+  // §BATH102 (L-11480) — the C109 compound contributes a non-empty storeKey and NO
+  // handlers of its own, so it belongs in the list the storeKey assertion iterates AND
+  // needs a written reason in STORE_ONLY_PLUGIN_IDS below. ⚠ Omitting this row would
+  // NOT have failed anything loudly — it would simply have landed in arm F of
+  // `check-plugin-census-equivalence.ts` beside `floor`, `lighting` and `view`, which
+  // is why the row and the descriptor must land in the SAME commit.
+  'bathroomPod',
   'rooms',
   'structural',
   'dimensions',
@@ -818,6 +874,17 @@ export const STORE_ONLY_PLUGIN_IDS: Readonly<Record<string, string>> = Object.fr
   // `lift.create` declares `liftPart` among its six affectedStores and
   // `CommandBus.buildContext` throws unless all six keys resolve.
   liftPart: 'C104 §2 — cabin parts are created and destroyed only by lift.* ; they own no verb of their own.',
+  // §BATH102 · C109 §0 — ⚠ THIS EXEMPTION'S REASON IS DIFFERENT FROM THE TWO ABOVE,
+  // AND SAYING SO IS THE POINT. `water` and `liftPart` own NO verb at all. The bathroom
+  // pod owns TWO (`bathroomPod.create` / `bathroomPod.delete`, C109 R-1) — they are
+  // simply registered by the `plumbing` descriptor, because C109 §0 governs the pod's
+  // store AND its handlers as living in `plugins/plumbing/` and a descriptor carries
+  // exactly ONE storeKey. So THIS descriptor really does contribute zero handlers, the
+  // assertion this list refines is really satisfied, and the verbs really are on the
+  // bus — verified by `bathroomPodReachableThroughComposedRuntime.test.ts`, which
+  // dispatches through the REAL composed runtime rather than trusting this comment.
+  bathroomPod:
+    'C109 §0 — the pod\'s two verbs are registered by the `plumbing` descriptor (its store and handlers live in plugins/plumbing/); this descriptor exists to contribute the store, which bathroomPod.create declares.',
 });
 
 
