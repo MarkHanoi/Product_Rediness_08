@@ -95,6 +95,35 @@
 //     ⛔ Never quote the `runtime:composed → boot:ensure-requested` span as a cost again without
 //     `hub:open-clicked` in the same run. Say which half you measured.
 //
+// ⭐ ADDED 2026-08-26 (lane PERF104, §PERF104, L-11541) — the POST-SCENE family, because the
+// founder's own reading of the marks above ENDED at `boot:scene-done` (t+6227 ms) while he was
+// still reporting *"many minutes to open"*. His log continues past that point with
+// §WALL-JOIN-LOAD-DEFER join resolves, §FINISH-FOLLOW-LATE-ATTRIBUTION once per wall,
+// REDETECT_ROOMS and the projections — and NOT ONE of them had a mark on either side. The
+// interval after the last mark is the same unattributable-in-principle shape as the 44.2 s hole
+// PERF100 closed one layer up, one layer down:
+//
+//   · open:shell-context-set — `PlatformShell.setProjectContext` entry. Boot is behind you;
+//     everything after is per-project.
+//   · open:version-read-start / open:version-read-done — the LOCAL storage leg
+//     (`getLatestVersion`: mirror-read → envelope-parse → inflate → record-parse →
+//     journal-attach). Its internal breakdown is already printed by
+//     §PROBE-OPEN-PATH-STORAGE-LEG; these two put it on the SAME timeline as the boot stages
+//     so nobody has to correlate two logs by eye. Measured at founder scale
+//     (`perf104OpenPath.spec.ts`): 89 ms cold, of which 80 ms is the 5 361-record journal
+//     re-attach.
+//   · open:snapshot-loaded — the loader has finished and the model is in the stores.
+//   · ⭐ open:first-interactive-frame — the FIRST frame the ONE scheduler (P3) runs after that.
+//     `open:snapshot-loaded → open:first-interactive-frame` is the post-load settle, i.e. every
+//     deferred rebuild that piled onto the first tick. That gap is lane PERF105's subject; this
+//     family only makes it a number.
+//
+// ⚠ THE HUB-OPEN PATH STILL NEVER PRINTS THE TABLE, and that is a KNOWN GAP rather than an
+// oversight: `reportStartupBudget` is called from exactly one place (`enterCanvasWithSitePlan`,
+// the ONBOARDING arm) and it is one-shot per run. Calling it from the post-scene family would
+// pre-empt the onboarding table — one missing report traded for another. A hub-open therefore
+// emits every mark line but no summary. Logged, not patched inside a marks-only change.
+//
 // ⛔ These are MARKS, not gates. Adding one must never change what runs or in what order — the
 // "passive mark recorder" clause above is the whole contract of this module.
 //
@@ -106,7 +135,9 @@
 // (wiring:heavy-resolved, whenever it lands) → hub:open-clicked → open:router-launch →
 // open:persistence-openProject → boot:ensure-requested → boot:heavy-wiring-done → boot:engine-start →
 // boot:scene-done → boot:builders-done → boot:tools-done → boot:bus-handlers-done →
-// boot:data-platform-done → boot:ui-done → globe:eager-init-start/-done → open:project-loaded →
+// boot:data-platform-done → boot:ui-done → open:shell-context-set →
+// open:version-read-start/-done → open:snapshot-loaded → open:first-interactive-frame →
+// globe:eager-init-start/-done → open:project-loaded →
 // location-step:open → geocode:start/end → context-warm:start/done → flight:parcel-arrival →
 // reveal:content-ready → reveal:flight-settled → reveal:split-mounted → parcel:committed →
 // envelope:dispatched → enter-canvas. ⭐ A run that skips a mark is itself a finding — say which

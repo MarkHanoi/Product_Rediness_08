@@ -50,6 +50,14 @@ import { mountPresenceStrip, initSocketCollaboration } from './PlatformCollabPil
 import { PlatformSaveController } from './PlatformSaveController';
 import { PlatformVersionController } from './PlatformVersionController';
 import { PlatformProjectBrowser } from './PlatformProjectBrowser';
+import { getFrameScheduler } from '@pryzm/frame-scheduler';
+// §STARTUP-BUDGET (L-10722) / §PERF104 (L-11541) — the EXISTING instrument, not a rival
+// timer. The founder's 2026-08-26 table ENDS at `boot:scene-done` (t+6227 ms) and he
+// still reports "many minutes to open", so the remaining time is in a window NOTHING
+// names: snapshot hydrate, wall-join resolves, finish attribution, room redetect,
+// projections, first painted frame. ⛔ Marks only — no leg here is gated, delayed,
+// retried or skipped, and the fixes in that window belong to lane PERF105.
+import { markStartupPhase } from '../../engine/startupBudget';
 
 export class PlatformShell {
     private readonly ctx: ShellCtx;
@@ -144,6 +152,68 @@ export class PlatformShell {
      * Phase 4: also connects the socket.io collaboration client and joins the
      * project room so the user receives real-time version-saved notifications.
      */
+    /** §PERF104 — disposer for the one-shot `pryzm-project-loaded` mark listener. */
+    private _postSceneMarkUnsub: (() => void) | null = null;
+
+    /**
+     * §PERF104 (L-11541) — ⭐ NAME THE WINDOW THE FOUNDER IS ACTUALLY WAITING IN.
+     *
+     * His 2026-08-26 table ends at `boot:scene-done` (t+6227 ms) and he still reports
+     * "many minutes to open". Everything after that mark — the snapshot hydrate,
+     * §WALL-JOIN-LOAD-DEFER's per-level join resolves, §FINISH-FOLLOW-LATE-ATTRIBUTION
+     * once per wall, REDETECT_ROOMS, the projections — happens with NO mark on either
+     * side of it, so the interval can only be inferred from interleaved subsystem logs.
+     * That is the same defect shape as the 44.2 s hole PERF100 closed one layer up: an
+     * interval nothing names cannot be attributed, only guessed at.
+     *
+     * Two marks close it:
+     *   · `open:snapshot-loaded`        — the loader has finished; the model is in the
+     *     stores. `open:version-read-done → open:snapshot-loaded` is the hydrate.
+     *   · `open:first-interactive-frame` — the FIRST frame the scheduler runs after
+     *     that. `open:snapshot-loaded → open:first-interactive-frame` is the post-load
+     *     settle: every deferred rebuild that piled onto the first tick.
+     *
+     * ⛔ MARKS ONLY. Nothing here gates, delays, retries or skips a leg, and no fix in
+     * that window is attempted — it belongs to lane PERF105. ⛔ No rAF is minted either:
+     * the frame comes from the ONE scheduler (P3), which is why this uses
+     * `scheduleOnce` and not `requestAnimationFrame`.
+     *
+     * ⚠ Deliberately does NOT call `reportStartupBudget`. That reporter is one-shot per
+     * run and the ONBOARDING path already owns its trigger (`enter-canvas`); firing it
+     * here would silently pre-empt the onboarding table — trading one missing report for
+     * another. The consequence, stated rather than hidden: **a plain hub-open still
+     * never prints the summary table**, only the individual mark lines. Logged as its
+     * own row rather than fixed inside a marks-only change.
+     */
+    private _armPostSceneMarks(projectId: string): void {
+        this._postSceneMarkUnsub?.();
+        this._postSceneMarkUnsub = null;
+        const events = window.runtime?.events;
+        if (!events) return; // §NULL-AT-MOUNT — no bus yet; the marks simply do not arm.
+        const unsub = events.on('pryzm-project-loaded', (p: unknown) => {
+            const loadedId = (p as { projectId?: string } | undefined)?.projectId;
+            // A stale listener from a superseded open must not stamp this run's timeline.
+            if (loadedId !== undefined && loadedId !== projectId) return;
+            if (this.ctx.activeProjectId !== projectId) return;
+            this._postSceneMarkUnsub?.();
+            this._postSceneMarkUnsub = null;
+            markStartupPhase('open:snapshot-loaded');
+            try {
+                getFrameScheduler().scheduleOnce(
+                    'perf104-first-interactive-frame',
+                    () => { markStartupPhase('open:first-interactive-frame'); },
+                );
+            } catch {
+                // A scheduler that is not running yet must not break the open. The
+                // ABSENCE of the mark is then itself the reading — §STARTUP-BUDGET's
+                // "a run that skips a mark is a finding" clause.
+            }
+        });
+        this._postSceneMarkUnsub = typeof unsub === 'function'
+            ? unsub
+            : () => { (unsub as unknown as { dispose?: () => void } | undefined)?.dispose?.(); };
+    }
+
     setProjectContext(
         id: string,
         name: string,
@@ -157,6 +227,10 @@ export class PlatformShell {
             return;
         }
         this.ctx.activeProjectId = id;
+        // §PERF104 (L-11541) — the open path enters the SHELL here. Everything after
+        // this mark is per-project work; everything before it is boot.
+        markStartupPhase('open:shell-context-set');
+        this._armPostSceneMarks(id);
 
         // ── Save-protection fence ─────────────────────────────────────────────
         // setLoading(true) MUST be called BEFORE ctx.projectId is mutated so
@@ -213,7 +287,15 @@ export class PlatformShell {
         // forward as bytes straight out of the STORED container, so the save no
         // longer depends on the cache being warm. The read and the write had to move
         // together, and this is the second half.
+        // §PERF104 (L-11541) — `open:version-read-start → open:version-read-done` is the
+        // LOCAL storage leg of the open, and the founder's own console already prints
+        // its internal breakdown (§PROBE-OPEN-PATH-STORAGE-LEG). The two marks put that
+        // leg on the SAME timeline as the boot stages, so a reader no longer has to
+        // correlate two independently-timed logs by eye. Measured at founder scale
+        // (perf104OpenPath.spec.ts): 89 ms cold, of which 80 ms is journal re-attach.
+        markStartupPhase('open:version-read-start');
         const latest = versionRepository.getLatestVersion(id);
+        markStartupPhase('open:version-read-done');
         if (latest) {
             console.log('[PlatformShell] Auto-restoring latest local version:', latest.label);
             this.versionCtrl.loadVersion(latest);
