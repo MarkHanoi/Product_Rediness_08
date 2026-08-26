@@ -42,6 +42,8 @@ export const FURNITURE_TYPE_TO_CATEGORY: Readonly<Record<FurnitureType, Furnitur
     'sofa_3seat':           'sofas',
     'armchair':             'sofas',  // §LIVING-SOCIAL-ZONE — single upholstered accent chair
     'sofa_unit':            'sofas',  // §LIVING-SOCIAL-ZONE — modular sofa section
+    'sofa_sectional_left':  'sofas',  // §SOFA113 — L-shaped sectional, chaise on the LEFT
+    'sofa_sectional_right': 'sofas',  // §SOFA113 — L-shaped sectional, chaise on the RIGHT
 
     // ── Chairs ────────────────────────────────────────────────────────────────
     'chair':                'chairs',

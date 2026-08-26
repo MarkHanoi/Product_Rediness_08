@@ -82,6 +82,12 @@ export type FurnitureType =
     | 'sofa_1seat'
     | 'sofa_2seat'
     | 'sofa_3seat'
+    // §SOFA113 (founder, 2026-08-26) — L-shaped SECTIONAL sofa (SectionalSofaBuilder).
+    //   Handedness is the TYPE (the footprint differs, one card per hand); the
+    //   seat count 2|3|4 is the PARAMETER `properties.seatCount` (the §DESK108
+    //   `properties.chairCount` precedent).
+    | 'sofa_sectional_left'
+    | 'sofa_sectional_right'
     // §LIVING-SOCIAL-ZONE (founder, 2026-06-21) — living/family social-zone furniture.
     //   armchair  — single upholstered accent chair (routes to WhiteSofaBuilder, 1-seat scale).
     //   sofa_unit — modular sofa section (routes to WhiteSofaBuilder, sized by footprint).

@@ -32,6 +32,7 @@ import {
     ZenDeskBuilder, SkeletonDeskBuilder, VertexDeskBuilder, PanelDeskBuilder,
     ExtendingDiningTableBuilder, RusticDiningSetBuilder,
     ModernDiningSetBuilder, ShellDiningSetBuilder,
+    SectionalSofaBuilder,
 } from '@pryzm/geometry-furniture';
 import type { FurnitureData, IFurnitureBuilder } from '@pryzm/geometry-furniture';
 import { createToiletGeometry, createShowerGeometry, createAccessoryGeometry } from '@pryzm/geometry-plumbing';
@@ -193,6 +194,13 @@ export function buildFurnitureGeometry(
         case 'sofa_1seat':          buildStraightSofa(g, 1, sofaHexDark);     break;
         case 'sofa_2seat':          buildStraightSofa(g, 2, sofaHexDark);     break;
         case 'sofa_3seat':          buildStraightSofa(g, 3, sofaHexDark);     break;
+        // §SOFA113 — the sectional cards are drawn by the element's own builder
+        // (§CARPET97 no-drift rule), 3-seat + chaise at card scale. The card is
+        // keyed by TYPE, so the 2/4-seat cards share the 3-seat thumbnail.
+        case 'sofa_sectional_left':
+            buildDesk108Thumb(g, 'sofa_sectional_left',  (ms) => new SectionalSofaBuilder(ms), 2.72, 1.70, 0.78); break;
+        case 'sofa_sectional_right':
+            buildDesk108Thumb(g, 'sofa_sectional_right', (ms) => new SectionalSofaBuilder(ms), 2.72, 1.70, 0.78); break;
 
         // ── Chairs ──────────────────────────────────────────────────────────
         case 'chair':                  buildDiningChair(g);                  break;

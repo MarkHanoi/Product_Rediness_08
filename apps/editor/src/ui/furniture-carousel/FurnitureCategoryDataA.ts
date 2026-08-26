@@ -59,6 +59,61 @@ export const CATEGORIES_A: readonly FurnitureCategoryDescriptor[] = [
                 defaultColor: '#e8e2d5',
             },
 
+            // ── §SOFA113 — L-shaped SECTIONAL (SectionalSofaBuilder) ────────
+            // Handedness is the TYPE (the footprint differs); the seat count
+            // (2|3|4) is the parameter each card seeds via defaultProperties —
+            // the §DESK108 dining-set chairCount precedent. width = run, arm
+            // face to arm face (one module ≈ 0.77 m); length = the chaise's
+            // full depth; the builder's members (arm, piping, feet) never scale.
+            {
+                type: 'sofa_sectional_left',
+                label: 'Sectional 2-Seat — Chaise Left',
+                defaultDimensions: { width: 1.95, length: 1.70, height: 0.78, baseOffset: 0.0 },
+                defaultMaterial: 'fabric',
+                defaultColor: '#4a4a4a',
+                defaultProperties: { seatCount: 2 },
+            },
+            {
+                type: 'sofa_sectional_left',
+                label: 'Sectional 3-Seat — Chaise Left',
+                defaultDimensions: { width: 2.72, length: 1.70, height: 0.78, baseOffset: 0.0 },
+                defaultMaterial: 'fabric',
+                defaultColor: '#4a4a4a',
+                defaultProperties: { seatCount: 3 },
+            },
+            {
+                type: 'sofa_sectional_left',
+                label: 'Sectional 4-Seat — Chaise Left',
+                defaultDimensions: { width: 3.50, length: 1.70, height: 0.78, baseOffset: 0.0 },
+                defaultMaterial: 'fabric',
+                defaultColor: '#4a4a4a',
+                defaultProperties: { seatCount: 4 },
+            },
+            {
+                type: 'sofa_sectional_right',
+                label: 'Sectional 2-Seat — Chaise Right',
+                defaultDimensions: { width: 1.95, length: 1.70, height: 0.78, baseOffset: 0.0 },
+                defaultMaterial: 'fabric',
+                defaultColor: '#4a4a4a',
+                defaultProperties: { seatCount: 2 },
+            },
+            {
+                type: 'sofa_sectional_right',
+                label: 'Sectional 3-Seat — Chaise Right',
+                defaultDimensions: { width: 2.72, length: 1.70, height: 0.78, baseOffset: 0.0 },
+                defaultMaterial: 'fabric',
+                defaultColor: '#4a4a4a',
+                defaultProperties: { seatCount: 3 },
+            },
+            {
+                type: 'sofa_sectional_right',
+                label: 'Sectional 4-Seat — Chaise Right',
+                defaultDimensions: { width: 3.50, length: 1.70, height: 0.78, baseOffset: 0.0 },
+                defaultMaterial: 'fabric',
+                defaultColor: '#4a4a4a',
+                defaultProperties: { seatCount: 4 },
+            },
+
             // ── Sofa colour variants (3 colours × 3 seat counts = 9 cards) ──
             // All routed to WhiteSofaBuilder (same construction logic as
             // CornerSofaBuilder: base, individual cushions, structural back,

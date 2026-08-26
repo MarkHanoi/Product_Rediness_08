@@ -20,6 +20,7 @@ import { ChairBuilder } from './ChairBuilder';
 import { WardrobeGlassBuilder } from './WardrobeGlassBuilder';
 import { CornerSofaBuilder } from './CornerSofaBuilder';
 import { WhiteSofaBuilder } from './WhiteSofaBuilder';
+import { SectionalSofaBuilder } from './SectionalSofaBuilder';
 import { CoffeeTableBuilder } from './CoffeeTableBuilder';
 import { TableBuilder } from './TableBuilder';
 import { ShowerGlassPanelBuilder } from './ShowerGlassPanelBuilder';
@@ -233,6 +234,10 @@ export class FurnitureFactory {
             // seating; both route to the white-sofa builder, sized by the FurnitureData footprint.
             case 'armchair':           return new WhiteSofaBuilder(materialService);
             case 'sofa_unit':          return new WhiteSofaBuilder(materialService);
+            // §SOFA113 (founder, 2026-08-26) — L-shaped sectional. Handedness is
+            // the TYPE; the builder reads seatCount (2|3|4) from data.properties.
+            case 'sofa_sectional_left':  return new SectionalSofaBuilder(materialService);
+            case 'sofa_sectional_right': return new SectionalSofaBuilder(materialService);
 
             case 'coffee_table':       return new CoffeeTableBuilder(materialService);
             case 'shower_glass_panel': return new ShowerGlassPanelBuilder(materialService);

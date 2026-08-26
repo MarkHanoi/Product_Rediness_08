@@ -46,6 +46,10 @@
 // §CARPET97 carpets were found MISSING from this seed (L-11382); this block
 // exists so the desks/sets never repeat that gap. The count guard lives in
 // composeRuntime.familyRegistry.test.ts (now pinned 67).
+// §SOFA113 (2026-08-26) — +2 entries: the L-shaped SECTIONAL sofa, ONE family
+// per hand (chaise left / right — handedness is the type; seatCount 2|3|4 is a
+// parameter, not a family). Same same-day discipline as §DESK108 / L-11382; the
+// count guards move by +2 in the same commit.
 //
 // Out of scope (deferred to a later slice):
 //   • The full 50+ FurnitureType seed (every Barcelona-chair variant, every
@@ -1889,6 +1893,60 @@ export function buildCoreFamilySeeds(): RegisteredFamily[] {
             },
             schemaHash: 'core:dining_set_shell:1.0.0',
             tags:       ['table', 'dining', 'dining-set', 'shell', 'kitchen', 'living'],
+        },
+
+        // ── §SOFA113 — Sectional sofa, chaise LEFT — floor / living ──
+        // L-shaped sectional (SectionalSofaBuilder): seat run + chaise return,
+        // piped loose cushions, low metal feet. Anchors on the longest wall
+        // like every sofa entry; the chaise turns the room corner.
+        {
+            identity: {
+                id:      'family/core/sofa_sectional_left',
+                name:    'Sectional sofa (chaise left)',
+                version: '1.0.0',
+                author:  'PRYZM',
+                license: 'MIT',
+            },
+            category:   'seating',
+            mountClass: 'floor',
+            origin:     'core',
+            archetypeHints: [
+                { occupancy: 'living', anchor: 'wall-longest', group: 'lounge' },
+            ],
+            ifcMapping: {
+                entityType:     'IfcFurniture',
+                predefinedType: 'SOFA',
+                psets:          ['Pset_FurnitureTypeCommon'],
+            },
+            schemaHash: 'core:sofa_sectional_left:1.0.0',
+            tags:       ['sofa', 'sectional', 'chaise', 'left', 'living', 'lounge', 'seating'],
+        },
+
+        // ── §SOFA113 — Sectional sofa, chaise RIGHT — floor / living ──
+        // L-shaped sectional (SectionalSofaBuilder): seat run + chaise return,
+        // piped loose cushions, low metal feet. Anchors on the longest wall
+        // like every sofa entry; the chaise turns the room corner.
+        {
+            identity: {
+                id:      'family/core/sofa_sectional_right',
+                name:    'Sectional sofa (chaise right)',
+                version: '1.0.0',
+                author:  'PRYZM',
+                license: 'MIT',
+            },
+            category:   'seating',
+            mountClass: 'floor',
+            origin:     'core',
+            archetypeHints: [
+                { occupancy: 'living', anchor: 'wall-longest', group: 'lounge' },
+            ],
+            ifcMapping: {
+                entityType:     'IfcFurniture',
+                predefinedType: 'SOFA',
+                psets:          ['Pset_FurnitureTypeCommon'],
+            },
+            schemaHash: 'core:sofa_sectional_right:1.0.0',
+            tags:       ['sofa', 'sectional', 'chaise', 'right', 'living', 'lounge', 'seating'],
         },
     ];
 }

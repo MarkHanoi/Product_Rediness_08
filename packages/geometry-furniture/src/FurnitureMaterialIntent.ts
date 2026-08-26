@@ -113,6 +113,8 @@ export const FURNITURE_TYPE_TO_MATERIAL_INTENT: Readonly<Record<FurnitureType, F
     'sofa_3seat':                   'fabric-soft',
     'armchair':                     'fabric-soft',   // §LIVING-SOCIAL-ZONE — upholstered accent chair
     'sofa_unit':                    'fabric-soft',   // §LIVING-SOCIAL-ZONE — modular sofa section
+    'sofa_sectional_left':          'fabric-soft',   // §SOFA113 — upholstery dominates; the metal feet are the builder's own slot
+    'sofa_sectional_right':         'fabric-soft',   // §SOFA113
     'barcelona_sofa_1seat':         'fabric-soft',
     'barcelona_sofa_2seat':         'fabric-soft',
     'barcelona_sofa_3seat':         'fabric-soft',

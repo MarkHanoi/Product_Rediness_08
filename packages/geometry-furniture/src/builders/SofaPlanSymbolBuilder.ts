@@ -31,7 +31,8 @@
  *     selection in plan view still works.
  *
  * Scope: corner_sofa, white_corner_sofa, sofa, sofa_1seat/2seat/3seat,
- *        white_sofa_1seat/2seat/3seat. Other sofa families (Barcelona,
+ *        white_sofa_1seat/2seat/3seat, sofa_sectional_left/right (§SOFA113 —
+ *        linework from sectionalSofaLayout()). Other sofa families (Barcelona,
  *        glb_import, ai_element) fall through to default behaviour until
  *        their builders opt in.
  */
@@ -41,6 +42,7 @@ import * as OBC from '@thatopen/components';
 import { ViewDefinition } from '@pryzm/core-app-model';
 import { registerSegmentUUID } from '@pryzm/core-app-model';
 import type { FurnitureData, FurnitureType } from '../FurnitureTypes';
+import { sectionalSofaLayout } from './SectionalSofaBuilder';
 
 const FURN_LAYER = 'A-FURN';
 
@@ -55,6 +57,10 @@ const HANDLED: ReadonlySet<FurnitureType> = new Set<FurnitureType>([
     'white_sofa_1seat',
     'white_sofa_2seat',
     'white_sofa_3seat',
+    // §SOFA113 — L-shaped sectional. Its linework is derived from the SAME
+    // sectionalSofaLayout() the 3D builder uses, so plan and model cannot drift.
+    'sofa_sectional_left',
+    'sofa_sectional_right',
 ]);
 
 /** Default widths per straight-sofa seat count (must match WhiteSofaBuilder). */
@@ -152,6 +158,9 @@ export class SofaPlanSymbolBuilder {
         if (t === 'corner_sofa' || t === 'white_corner_sofa') {
             return this._buildCornerSofa(sofa);
         }
+        if (t === 'sofa_sectional_left' || t === 'sofa_sectional_right') {
+            return this._buildSectionalSofa(sofa);
+        }
         return this._buildStraightSofa(sofa);
     }
 
@@ -186,6 +195,50 @@ export class SofaPlanSymbolBuilder {
         for (let i = 1; i < cushCount; i++) {
             const x = armW + cushWidth * i;
             seg(x, backThk, x, seatDepth);
+        }
+
+        return segs;
+    }
+
+    /**
+     * §SOFA113 — L-shaped sectional symbol, in the SectionalSofaBuilder local
+     * frame (origin = back-left plinth corner, +X along the run, +Z toward the
+     * front, back panel at Z = 0). Every X passes through the layout's mirror
+     * map `mx`, so the left hand is the exact reflection the 3D builder draws.
+     *
+     * Reads: L-outline (run + chaise return) · both arm partitions (the
+     * chaise-end arm runs the full chaise depth) · back-panel front edge ·
+     * one seam per seat module. Nothing here is measured from the meshes —
+     * it is the same arithmetic the builder places its parts with.
+     */
+    private _buildSectionalSofa(sofa: FurnitureData): number[] {
+        const lay = sectionalSofaLayout(sofa);
+        const { W, L, runD, armW, backThk, moduleW, chaiseX0, seatCount, mx } = lay;
+
+        const segs: number[] = [];
+        const seg = (ax: number, az: number, bx: number, bz: number): void => {
+            segs.push(mx(ax), 0, az, mx(bx), 0, bz);
+        };
+
+        // ── L-polygon outline (canonical right hand; mx() reflects) ──────
+        seg(0,        0,    W,        0   );  // back edge, full width
+        seg(W,        0,    W,        L   );  // chaise-end side, full chaise depth
+        seg(W,        L,    chaiseX0, L   );  // chaise front
+        seg(chaiseX0, L,    chaiseX0, runD);  // chaise inner side (the L's inside edge)
+        seg(chaiseX0, runD, 0,        runD);  // run front
+        seg(0,        runD, 0,        0   );  // free-end side
+
+        // ── Arm partitions ───────────────────────────────────────────────
+        seg(armW,     0, armW,     runD);     // free-end arm — run depth only
+        seg(W - armW, 0, W - armW, L   );     // chaise-end arm — full chaise depth
+
+        // ── Back-panel front edge (between the arms) ─────────────────────
+        seg(armW, backThk, W - armW, backThk);
+
+        // ── Seat-module seams (the last one is the chaise cushion's edge) ─
+        for (let i = 1; i < seatCount; i++) {
+            const x = armW + moduleW * i;
+            seg(x, backThk, x, runD);
         }
 
         return segs;

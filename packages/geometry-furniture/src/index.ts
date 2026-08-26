@@ -75,6 +75,9 @@ export * from './builders/WardrobeBuilder';
 export * from './builders/WardrobeGlassBuilder';
 export * from './builders/WardrobePlanSymbolBuilder';
 export * from './builders/WhiteSofaBuilder';
+// §SOFA113 (founder, 2026-08-26) — L-shaped sectional; the carousel card is
+// drawn by this builder (§CARPET97 no-drift rule), so it joins the barrel.
+export * from './builders/SectionalSofaBuilder';
 export * from './builders/ApplianceBuilders';
 // §DESK108 (founder, 2026-08-26) — four working desks + extending dining table
 // + three dining sets, plus the merged-part kit they build with. The editor's

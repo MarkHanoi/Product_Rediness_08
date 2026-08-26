@@ -81,6 +81,12 @@ export type FurnitureType =
     | 'sofa_1seat'
     | 'sofa_2seat'
     | 'sofa_3seat'
+    // §SOFA113 (founder, 2026-08-26) — L-shaped SECTIONAL sofa (SectionalSofaBuilder).
+    //   Handedness is the TYPE (the footprint differs, one card per hand); the
+    //   seat count 2|3|4 is the PARAMETER `properties.seatCount` (the §DESK108
+    //   `properties.chairCount` precedent).
+    | 'sofa_sectional_left'
+    | 'sofa_sectional_right'
     | 'coffee_table'
     | 'wardrobe'
     | 'wardrobe_glass_door'

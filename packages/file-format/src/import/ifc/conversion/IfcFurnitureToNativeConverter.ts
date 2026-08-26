@@ -30,6 +30,9 @@ const IFC_NAME_TO_FURNITURE_TYPE: Array<[RegExp, FurnitureType]> = [
   [/1[- ]?seat.*sofa|single[- ]seat.*sofa|one[- ]seat.*sofa/i, 'white_sofa_1seat'],
   [/2[- ]?seat.*sofa|two[- ]seat.*sofa|double[- ]seat.*sofa/i, 'white_sofa_2seat'],
   [/3[- ]?seat.*sofa|three[- ]seat.*sofa|triple[- ]seat.*sofa/i, 'white_sofa_3seat'],
+  // §SOFA113 — a named sectional / chaise sofa maps to the handed sectional
+  // family (right hand by default; the importer cannot read the hand from a name).
+  [/sectional|chaise/i, 'sofa_sectional_right'],
   [/sofa|couch|settee|sectional/i, 'corner_sofa'],
 
   // Wardrobes / closets — recognise corner and parametric layouts when named
