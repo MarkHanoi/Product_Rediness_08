@@ -2098,7 +2098,13 @@ export class LightingFragmentBuilder {
      *  troffers, surface battens, coves (face up), under-cabinet strips, suspended
      *  linears, up/down sconces, wall packs and step markers. */
     private _lod200Bar(g: THREE.Group, c: Lod200Ctx): void {
-        const body = new THREE.Mesh(this._lod200BarBodyGeo(c), c.bodyMat);
+        const body = this._lod200BarBody(c);
+        // ⚠ `castShadow` does not propagate to a Group's children, and a chamfered
+        // body IS a group of three. `traverse` covers both shapes — on a plain Mesh
+        // it visits only itself, so the square-cut rows are unaffected.
+        const setBodyShadow = (v: boolean): void => {
+            body.traverse((n) => { if ((n as THREE.Mesh).isMesh) n.castShadow = v; });
+        };
 
         if (c.row.mount === 'wall') {
             // Wall frame convention, matching `_buildMirrorLight`: the fixture
@@ -2132,7 +2138,7 @@ export class LightingFragmentBuilder {
         // Surface/suspended: the body hangs below its mount plane.
         const topY = -c.drop;
         body.position.y = c.row.recessed ? topY + c.D / 2 : topY - c.D / 2;
-        body.castShadow = !c.row.recessed;
+        setBodyShadow(!c.row.recessed);
         g.add(body);
 
         if (c.row.face === 'down' || c.row.face === 'updown') {
@@ -2157,38 +2163,57 @@ export class LightingFragmentBuilder {
      * drop). Lane LIGHT99 mapped it as REUSE and named the ONE missing thing: the
      * chamfered end profile. This is that one thing.
      *
-     * The chamfer is a real TAPER, not a stepped approximation: the four vertices
-     * on each end face are pulled toward the mid-plane in Y, so the extrusion runs
-     * out to a thin lip exactly as a mitred aluminium end cap does. `BoxGeometry`
-     * duplicates its corners per face, so selecting by |x| = L/2 touches ONLY the
-     * two end faces; normals are recomputed afterwards.
+     * ⚠ BUILT AS THREE PIECES, and the first draft that did NOT is worth recording
+     * because it was silently wrong: it took ONE `BoxGeometry(L, D, W)` and pulled
+     * every vertex at |x| = L/2 toward the mid-plane, on the assumption that only
+     * the two end faces sit there. **Every vertex of a box is a corner**, so all 24
+     * matched and the whole bar was scaled — `linear_pendant`'s body became 20 mm
+     * deep instead of 70 mm, uniformly, with no chamfer anywhere. It rendered as a
+     * plausible thinner bar, which is exactly why the probe had to measure the
+     * geometry rather than trust the edit.
+     *
+     * So the taper is expressed where a taper can actually live: a CORE of length
+     * `L − 2·ch` at full depth, plus one wedge per end of length `ch` whose OUTER
+     * half (selected by the SIGN of x, not its magnitude — that distinction is the
+     * whole fix) runs out to a thin lip, exactly as a mitred aluminium end cap does.
      *
      * ⛔ Guarded on `endChamferMm > 0`, which ONLY `linear_pendant` authors. The
      * other nine `bar` rows — a 600 × 600 troffer, a plaster-in slot, a step marker
-     * — are square-cut by construction and get the identical `BoxGeometry` they
-     * always did. Chamfering the ARCHETYPE instead of the ROW would have re-shaped
-     * every one of them.
+     * — are square-cut by construction and get back the identical single
+     * `BoxGeometry` mesh they always did, not a group of one. Chamfering the
+     * ARCHETYPE instead of the ROW would have re-shaped every one of them.
      */
-    private _lod200BarBodyGeo(c: Lod200Ctx): THREE.BufferGeometry {
-        const geo = new THREE.BoxGeometry(c.L, c.D, c.W);
+    private _lod200BarBody(c: Lod200Ctx): THREE.Object3D {
         const ch = Math.min(c.endChamfer, c.L * 0.2);
-        if (ch <= 0) return geo;
+        if (ch <= 0) return new THREE.Mesh(new THREE.BoxGeometry(c.L, c.D, c.W), c.bodyMat);
 
         // How much of the end face survives, as a fraction of the body depth. A
         // chamfer of `ch` on a body of depth `D` leaves a lip of `D − 2·ch`, floored
         // at 25% so a deep chamfer narrows the end rather than collapsing it to a
         // zero-area knife edge (which would produce degenerate normals).
         const lip = Math.max(0.25, (c.D - 2 * ch) / c.D);
-        const halfL = c.L / 2;
-        const pos = geo.attributes.position as THREE.BufferAttribute;
-        for (let i = 0; i < pos.count; i++) {
-            if (Math.abs(Math.abs(pos.getX(i)) - halfL) < 1e-9) {
-                pos.setY(i, pos.getY(i) * lip);
+        const g = new THREE.Group();
+
+        const core = new THREE.Mesh(new THREE.BoxGeometry(c.L - 2 * ch, c.D, c.W), c.bodyMat);
+        g.add(core);
+
+        for (const sign of [1, -1]) {
+            const geo = new THREE.BoxGeometry(ch, c.D, c.W);
+            const pos = geo.attributes.position as THREE.BufferAttribute;
+            for (let i = 0; i < pos.count; i++) {
+                // SIGN, not magnitude: this selects the twelve vertices on the OUTER
+                // half of the wedge — including the shared corners the top, bottom,
+                // front and back faces contribute — so the piece stays watertight.
+                if (pos.getX(i) > 0) pos.setY(i, pos.getY(i) * lip);
             }
+            pos.needsUpdate = true;
+            geo.computeVertexNormals();
+            const wedge = new THREE.Mesh(geo, c.bodyMat);
+            wedge.position.x = sign * (c.L / 2 - ch / 2);
+            if (sign < 0) wedge.rotation.y = Math.PI;   // taper points outward at both ends
+            g.add(wedge);
         }
-        pos.needsUpdate = true;
-        geo.computeVertexNormals();
-        return geo;
+        return g;
     }
 
     /**
