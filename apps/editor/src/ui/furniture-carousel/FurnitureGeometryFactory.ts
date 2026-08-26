@@ -33,6 +33,7 @@ import {
     ExtendingDiningTableBuilder, RusticDiningSetBuilder,
     ModernDiningSetBuilder, ShellDiningSetBuilder,
     SectionalSofaBuilder,
+    LowboardBuilder, SlatConsoleBuilder,
 } from '@pryzm/geometry-furniture';
 import type { FurnitureData, IFurnitureBuilder } from '@pryzm/geometry-furniture';
 import { createToiletGeometry, createShowerGeometry, createAccessoryGeometry } from '@pryzm/geometry-plumbing';
@@ -245,6 +246,11 @@ export function buildFurnitureGeometry(
             buildDesk108Thumb(g, 'dining_set_modern', (ms) => new ModernDiningSetBuilder(ms), 2.2, 1.0, 0.75); break;
         case 'dining_set_shell':
             buildDesk108Thumb(g, 'dining_set_shell', (ms) => new ShellDiningSetBuilder(ms), 2.6, 1.1, 0.75); break;
+
+        // ── §TVFURN114 TV & Media — cards drawn by the element's own builders ──
+        case 'tv_lowboard':     buildDesk108Thumb(g, 'tv_lowboard',     (ms) => new LowboardBuilder(ms),    2.0, 0.42, 0.55); break;
+        case 'tv_lowboard_tv':  buildDesk108Thumb(g, 'tv_lowboard_tv',  (ms) => new LowboardBuilder(ms),    2.0, 0.42, 0.55); break;
+        case 'tv_console_slat': buildDesk108Thumb(g, 'tv_console_slat', (ms) => new SlatConsoleBuilder(ms), 1.5, 0.40, 0.45); break;
 
         // ── Bedroom ─────────────────────────────────────────────────────────
         case 'bed':                    buildBed(g, 1.50);             break;

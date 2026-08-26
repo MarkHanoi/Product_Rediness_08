@@ -44,7 +44,12 @@ export type FurnitureCategory =
     | 'kids'
     | 'teens'
     | 'pets'
-    | 'technical';
+    | 'technical'
+    // §TVFURN114 (founder, 2026-08-26) — "TV & Media": the living-room TV
+    // FURNITURE (lowboards, media consoles) — casework a screen stands on or
+    // hangs over. The DEVICES (screens, soundbars, speakers) are a separate
+    // category; a category is one vocabulary per concept (C84 EI-9).
+    | 'tv_media';
 
 export type FurnitureType =
     | 'bed'
@@ -245,6 +250,26 @@ export type FurnitureType =
     | 'dining_set_rustic'      // pale-timber gateleg table + slatted chairs (default 4)
     | 'dining_set_modern'      // oak top / black frame / turned legs + quilted shell chairs (default 6)
     | 'dining_set_shell'       // long oak top, splayed legs + grey moulded shell chairs (default 8)
+    // ── §TVFURN114 (founder, 2026-08-26) — the LOD 300 TV-furniture family from
+    // the founder's three reference images. Builders: MediaWallBuilder.ts (the
+    // F1.3 tv/tv_unit file — EXTENDED, not rivalled, C84 EI-9).
+    //   tv_lowboard     — parametric modular lowboard: `properties.bayCount` /
+    //                     `bayWidth` / `bayPattern` (d·o·c), carcass + front
+    //                     material slots; `properties.withTv: true` composes
+    //                     TvBuilder's own panel standing on the top (ONE element).
+    //   tv_lowboard_tv  — the SAME lowboard with the screen incorporated. A TYPE,
+    //                     not a card property: placement resolves descriptor
+    //                     defaults BY TYPE (FurnitureDragDropHandler ->
+    //                     getDescriptorForType, first card wins), so a same-type
+    //                     card carrying `withTv: true` would place without its
+    //                     screen — the `table_*` / `tv_43` many-types-one-builder
+    //                     pattern. `properties.withTv` stays the parametric road.
+    //   tv_console_slat — stadium-plan console wrapped in vertical timber slats
+    //                     over a recessed plinth; slat COUNT derives from the
+    //                     perimeter at constant slat width (the §CARPET97 rule).
+    | 'tv_lowboard'
+    | 'tv_lowboard_tv'
+    | 'tv_console_slat'
     // ── Japanese Bed Collection (parametric — BedEngine) ──────────────────────
     | 'japanese_platform_bed'
     | 'japanese_float_bed'

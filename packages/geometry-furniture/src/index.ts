@@ -86,6 +86,7 @@ export * from './builders/ApplianceBuilders';
 export * from './builders/mergedPartKit';
 export * from './builders/WorkingDeskBuilders';
 export * from './builders/DiningSetBuilders';
+export * from './builders/MediaWallBuilder';
 
 export * from './engines/BedEngine';
 export * from './engines/KitchenCabinetEngine';

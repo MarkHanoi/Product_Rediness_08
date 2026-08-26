@@ -1021,6 +1021,43 @@ export const CATEGORIES_B: readonly FurnitureCategoryDescriptor[] = [
         ],
     },
     {
+        // §TVFURN114 (founder, 2026-08-26) — "TV & Media": the living-room TV
+        // FURNITURE the founder asked for as its own section under Interiors —
+        // the casework a screen stands on. Cards are drawn by the element's own
+        // builders (FurnitureGeometryFactory, the §CARPET97 no-drift rule).
+        // Piece 2 is its OWN type (`tv_lowboard_tv`), not a same-type card with
+        // `withTv: true`: placement resolves descriptor defaults BY TYPE
+        // (FurnitureDragDropHandler → getDescriptorForType, first card wins), so
+        // a property-only card would have placed without its screen.
+        id: 'tv_media',
+        label: 'TV & Media',
+        description: 'TV lowboards and media consoles — the furniture a screen stands on',
+        items: [
+            {
+                type: 'tv_lowboard',
+                label: 'Modular Lowboard',
+                defaultDimensions: { width: 2.0, length: 0.42, height: 0.55, baseOffset: 0.0 },
+                defaultMaterial: 'wood',
+                // Bay rule (MediaWallBuilder.resolveLowboardBays): 4 bays reading
+                // drawer / open / door / drawer; bayWidth outranks bayCount.
+                defaultProperties: { bayCount: 4, bayPattern: 'doc' },
+            },
+            {
+                type: 'tv_lowboard_tv',
+                label: 'Lowboard with TV',
+                defaultDimensions: { width: 2.0, length: 0.42, height: 0.55, baseOffset: 0.0 },
+                defaultMaterial: 'wood',
+                defaultProperties: { bayCount: 4, bayPattern: 'doc' },
+            },
+            {
+                type: 'tv_console_slat',
+                label: 'Slat Console',
+                defaultDimensions: { width: 1.5, length: 0.4, height: 0.45, baseOffset: 0.0 },
+                defaultMaterial: 'wood',
+            },
+        ],
+    },
+    {
         id: 'technical',
         label: 'Technical',
         description: 'HVAC, safety, smart home devices',

@@ -136,6 +136,10 @@ export const CREATION_TOOL_SHORTCUTS: Readonly<Record<string, string>> = {
     'Soft Furnishings':     'Alt+Shift+S',
     'Bathroom':             'Alt+Shift+B',
     'Storage':              'Alt+Shift+G',
+    // §TVFURN114 (founder, 2026-08-26) — 'TV & Media' (the furniture section).
+    // T, V and M are all taken; H for Home cinema — the nearest free combo
+    // with a mnemonic left in it (the Swimming Pool precedent above).
+    'TV & Media':           'Alt+Shift+H',
     'Kids':                 'Alt+Shift+I',
     'Teens':                'Alt+Shift+E',
     'Lighting':             'Alt+Shift+L',

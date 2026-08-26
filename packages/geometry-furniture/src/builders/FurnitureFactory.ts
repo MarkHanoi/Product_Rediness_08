@@ -72,7 +72,7 @@ import {
     ModernDiningSetBuilder, ShellDiningSetBuilder,
 } from './DiningSetBuilders';
 import { BookshelfBuilder } from './BookshelfBuilder';
-import { TvBuilder, TvUnitBuilder } from './MediaWallBuilder';
+import { TvBuilder, TvUnitBuilder, LowboardBuilder, SlatConsoleBuilder } from './MediaWallBuilder';
 import {
     ShoeCabinetBuilder, CoatRackBuilder, ConsoleTableBuilder, EntryBenchBuilder,
 } from './EntryStorageBuilder';
@@ -149,6 +149,11 @@ export class FurnitureFactory {
             // F1.3 (2026-05-30) — Media wall (wall TV + low TV unit).
             case 'tv':                 return new TvBuilder(materialService);
             case 'tv_unit':            return new TvUnitBuilder(materialService);
+            // §TVFURN114 (founder, 2026-08-26) — the LOD 300 TV-furniture family;
+            // same file as tv/tv_unit (extended, not rivalled — C84 EI-9).
+            case 'tv_lowboard':        return new LowboardBuilder(materialService);
+            case 'tv_lowboard_tv':     return new LowboardBuilder(materialService);
+            case 'tv_console_slat':    return new SlatConsoleBuilder(materialService);
 
             // F1.4 (2026-05-30) — Entry storage primitives (S2 activity system).
             case 'shoe_cabinet':       return new ShoeCabinetBuilder(materialService);

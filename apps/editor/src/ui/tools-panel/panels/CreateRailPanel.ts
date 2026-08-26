@@ -1242,6 +1242,19 @@ export class CreateRailPanel {
                         } as any,
                     },
                     {
+                        // §TVFURN114 (founder, 2026-08-26) — "TV & Media": TV
+                        // lowboards + media consoles, the founder's own section.
+                        label: 'TV & Media',
+                        icon:  PryzmIcons.pryzmTvMediaIcon,
+                        action: () => { /* handled by subPanel */ },
+                        subPanel: {
+                            title:             'TV & Media',
+                            furniturePanel:    true,
+                            furnitureCategory: 'tv_media',
+                            items:             [],
+                        } as any,
+                    },
+                    {
                         label: 'Kids',
                         icon:  PryzmIcons.pryzmKidsIcon,
                         action: () => { /* handled by subPanel */ },

@@ -106,6 +106,15 @@ export const FURNITURE_TYPE_TO_CATEGORY: Readonly<Record<FurnitureType, Furnitur
     'sideboard':            'storage', // F1.9 — dining-room sideboard (low, longer)
     'pantry_cabinet':       'storage', // F1.14 — tall narrow kitchen pantry
 
+    // ── TV & Media (§TVFURN114, founder 2026-08-26) ───────────────────────────
+    // The founder's "TV furniture / living-space furniture" grouping under
+    // Interiors: the casework a screen stands on or hangs over. Distinct from
+    // 'storage' (the generic sideboard/bookcase bucket the F1.3 tv_unit sits
+    // in) and from the electronics DEVICES, which have their own category.
+    'tv_lowboard':          'tv_media', // §TVFURN114 — parametric modular lowboard
+    'tv_lowboard_tv':       'tv_media', // §TVFURN114 — the lowboard WITH the screen incorporated (ONE element)
+    'tv_console_slat':      'tv_media', // §TVFURN114 — slat-wrapped stadium console
+
     // ── Technical (electronics) ───────────────────────────────────────────────
     'tv':                   'technical', // F1.3 — wall-mounted TV panel
 

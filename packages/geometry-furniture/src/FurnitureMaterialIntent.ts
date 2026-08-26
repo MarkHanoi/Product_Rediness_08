@@ -293,6 +293,12 @@ export const FURNITURE_TYPE_TO_MATERIAL_INTENT: Readonly<Record<FurnitureType, F
     // ── Display (F1.3 TV media) ───────────────────────────────────────
     'tv':                           'plastic-utility',
     'tv_unit':                      'timber-warm',
+    // §TVFURN114 (2026-08-26) — TV FURNITURE reads as its timber: the carcass /
+    // the slat ring dominate the silhouette, and an incorporated screen is a
+    // detail on casework (the inverse of the appliance rule for the devices).
+    'tv_lowboard':                  'timber-warm',
+    'tv_lowboard_tv':               'timber-warm',
+    'tv_console_slat':              'timber-warm',
 
     // ── A.21.D20 (2026-06-06) — kitchen appliances + cabinet modules ──
     // Appliances read as plastic/steel utility finish; cabinet modules as

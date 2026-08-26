@@ -43,7 +43,12 @@ export type FurnitureCategory =
     | 'kids'
     | 'teens'
     | 'pets'
-    | 'technical';
+    | 'technical'
+    // §TVFURN114 (founder, 2026-08-26) — "TV & Media": the living-room TV
+    // FURNITURE (lowboards, media consoles) — casework a screen stands on or
+    // hangs over. The DEVICES (screens, soundbars, speakers) are a separate
+    // category; a category is one vocabulary per concept (C84 EI-9).
+    | 'tv_media';
 
 export type FurnitureType =
     | 'bed'
@@ -131,6 +136,11 @@ export type FurnitureType =
     | 'dining_set_rustic'
     | 'dining_set_modern'
     | 'dining_set_shell'
+    // ── §TVFURN114 (founder, 2026-08-26) — TV furniture. Mirrors the union in
+    // packages/geometry-furniture/src/FurnitureTypes.ts.
+    | 'tv_lowboard'
+    | 'tv_lowboard_tv'
+    | 'tv_console_slat'
     // ── Japanese Bed Collection (parametric — BedEngine) ──────────────────────
     | 'japanese_platform_bed'
     | 'japanese_float_bed'
