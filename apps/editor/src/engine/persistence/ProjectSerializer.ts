@@ -117,6 +117,12 @@ import {
     INTEGRITY_ALGO,
     type SnapshotIntegrityMeta,
 } from '@pryzm/persistence-client';
+// §PERSIST103 (L-11520) — the DECLARED answer to "does this family survive a reload?",
+// one row per plugin DTO store. Imported here so the loss is announced by the code that
+// causes it (C84 EI-6), and read by `tools/ga-gate/check-snapshot-family-coverage.ts`
+// so a NEW family cannot be added without somebody stating the answer in writing.
+// Pure data, zero imports — importing it costs nothing and drags in no module graph.
+import { UNPERSISTED_FAMILY_KEYS } from './snapshotFamilyCoverage';
 
 export const SNAPSHOT_SCHEMA_VERSION = 5;
 
@@ -186,6 +192,56 @@ export interface ProjectSnapshot {
      * three prior false-"corrupt" incidents.
      */
     boundaryLines?: any[];
+    /**
+     * §PERSIST103 (L-11520) · C104 · ADR-0124 · C103 — THE FIVE COMPOUND SLICES THAT
+     * HAD NO KEY AT ALL, and the founder's report verbatim: *"11 elements did not
+     * survive project opening — the lift for example, I can see it is not there."*
+     *
+     * ⛔ THE FOURTH RECURRENCE OF ONE DEFECT IN THIS ONE FILE. `lighting` (2026-05-22)
+     * and `boundaryLines` (L-9948, 2026-08-23) are the first two, and both wrote the
+     * lesson down HERE — in this interface — while the class stayed open. Measured
+     * 2026-08-26: `grep -c "liftStore\|liftCompound\|LiftCompound" ProjectSerializer.ts`
+     * → **0**. So `lift.create` validated, minted nineteen records across six stores,
+     * rendered, reported success — and the compound died on save.
+     *
+     * ⭐ WHAT WAS ACTUALLY LOST IS NARROWER THAN "THE LIFT", AND THE DIFFERENCE IS THE
+     * WHOLE DESIGN. A compound's members are first-class records in the families that
+     * own them (C104 §2.2 / C103 §2.4 / ADR-0124 §4 all open by saying so), and
+     * `CommandEventBridge` mirrors every one of them into the LEGACY store this
+     * serializer reads. So the shaft walls, the glass, the landing doors and the
+     * voided slabs ALREADY round-tripped. What did not:
+     *
+     *   · the PARENT record — `childrenIds`, `hostWallId`/`hostSlabId`, the profile,
+     *     the mark. Without it the members survive as anonymous walls and slabs and
+     *     the element stops being a lift, a pool or a balcony at all: not selectable
+     *     as one, not schedulable as one, not deletable as one.
+     *   · `liftPart` and `water`, which have NO family to fall back on (each mints
+     *     exactly one new family, and that is stated as deliberate in both stores).
+     *     Those were destroyed outright — the cabin vanished while the shaft
+     *     remained, and a reloaded pool was a dry hole.
+     *
+     * ADDITIVE AND OPTIONAL, so no `SNAPSHOT_SCHEMA_VERSION` bump — the disposition
+     * `lighting?`, `boundaryLines?` and `curtainPanels?` all carry, for the identical
+     * stated reason: an old snapshot simply LACKS the key, "no lifts were authored" IS
+     * the pre-fix state, and the migration is therefore correct by construction. A
+     * bump with an empty migration step would be a lie about compatibility.
+     *
+     * ⛔ EACH IS OMITTED ENTIRELY WHEN NOTHING WAS AUTHORED, so a project with no
+     * compounds produces a snapshot byte-identical to a pre-fix one — the rule this
+     * file states twice already, honoured a third time.
+     *
+     * ⛔ THEY ARE DIGEST-COVERED LIKE EVERY OTHER MODEL MEMBER. C05 §3.7 req 4 forbids
+     * adding a model member to `CHECKSUM_EXCLUDED_TOP_KEYS`, which stays at its two.
+     */
+    lifts?: any[];
+    /** §PERSIST103 · C104 §2.2 — the five LOD-300 cabin parts. No legacy twin exists. */
+    liftParts?: any[];
+    /** §PERSIST103 · ADR-0124 — the pool compound parent (walls + floor slab are their own families). */
+    pools?: any[];
+    /** §PERSIST103 · ADR-0124 §4 — the water body. No legacy twin exists. */
+    waters?: any[];
+    /** §PERSIST103 · C103 — the balcony compound parent (slab + finish + railings are their own families). */
+    balconies?: any[];
     /**
      * §L-1057 / C87 §13.1 CW-P — SPARSE curtain-panel overrides: only the panels a
      * user AUTHORED away from what the grid regenerates. A 20×10 façade with three
@@ -1370,6 +1426,67 @@ export class ProjectSerializer {
             return [];
         })();
 
+        // §PERSIST103 (L-11520) — THE COMPOUND SLICES, read through ONE resolver.
+        //
+        // ⭐ ONE HELPER, NOT FIVE COPIES OF THE `boundaryLines` BLOCK ABOVE. Every one
+        // of these stores is built by `PluginRegistry` and hung on the composed runtime
+        // under its descriptor's `storeKey` (`lift`, `liftPart`, `pool`, `water`,
+        // `balcony`) — the identical shape `boundaryLine` uses. Five hand-copied
+        // resolvers would be five places for the next `undefined`-vs-empty confusion to
+        // hide, and this file already records what copy-paste per family costs: the
+        // §TYPE-SNAPSHOT-CODEC note two hundred lines down exists because a hand-written
+        // field list drifted from the codec it was supposed to invert.
+        //
+        // ⛔ IT RESOLVES LAZILY, AT SAVE TIME — the §L-545-SITE-CAPTURE lesson the
+        // `boundaryLines` block states in full just above. A store reference threaded in
+        // at `initPersistence` time goes stale the moment the runtime is recomposed
+        // (project switch, renderer backend swap, device-loss recovery), and that is
+        // exactly how a serializer keeps saving from an empty store while the live one
+        // holds the model.
+        //
+        // ⚠ `[]` HERE MEANS "the store holds no records", AND `undefined` MEANS "there is
+        // no such store on the runtime" — kept apart deliberately (C70 L-INV-1;
+        // [[context-data-honesty-family]]: failure and empty must never be the same
+        // value). The caller below turns BOTH into an omitted key, because for a
+        // SNAPSHOT they have the same correct outcome — but the warning arm can only
+        // fire because the two were distinguished first.
+        const readPluginStore = (storeKey: string): unknown[] | undefined => {
+            const store = (window as {
+                runtime?: { stores?: Record<string, { getState?: () => Map<string, unknown> } | undefined> };
+            }).runtime?.stores?.[storeKey];
+            const state = store?.getState?.();
+            if (!state) return undefined;
+            return [...state.values()].map((r) => deepStrip(r));
+        };
+
+        const lifts      = readPluginStore('lift');
+        const liftParts  = readPluginStore('liftPart');
+        const pools      = readPluginStore('pool');
+        const waters     = readPluginStore('water');
+        const balconies  = readPluginStore('balcony');
+
+        // ── C84 EI-6, THE LOUD HALF: say what is about to be destroyed ────────────
+        //
+        // ⭐ THIS IS WHAT KEEPS `snapshotFamilyCoverage.ts` LOAD-BEARING RATHER THAN
+        // DECORATIVE. The table declares which families do NOT survive a reload; this
+        // reads it back at the moment of the loss and names them, with counts, in the
+        // console the founder is already watching. "Persistence is not optional and
+        // absence must be loud" is unenforceable if the only place the absence is
+        // written down is a table nobody prints.
+        //
+        // ⚠ It reports the LOSS, never a success. A family on this list is a DEFECT
+        // with an ISSUE-LOG row (structural → L-11523, section → L-11524), not an
+        // exemption, and the message says so rather than reading as a status line.
+        for (const key of UNPERSISTED_FAMILY_KEYS) {
+            const n = readPluginStore(key)?.length ?? 0;
+            if (n === 0) continue;
+            console.error(
+                `[ProjectSerializer] §PERSIST103 C84 EI-6 — ${n} '${key}' record(s) are in the live ` +
+                `store and are NOT being saved: this family has no snapshot key, so they will be GONE ` +
+                `on the next open. See snapshotFamilyCoverage.ts for the row and its ISSUE-LOG id.`,
+            );
+        }
+
         // Room subsystem — deepStrip removes any residual THREE.js references
         const rooms = roomStore ? roomStore.getAll().map(r => deepStrip(r)) : [];
 
@@ -1441,7 +1558,20 @@ export class ProjectSerializer {
             // ⭐ L-9948 — a boundary line IS an element, and the founder's report was
             // literally that the count did not move. Omitting it here would leave the
             // save log saying "14 elements" for a project with fifteen.
-            boundaryLines.length;
+            boundaryLines.length +
+            // ⭐ §PERSIST103 (L-11520) — the same argument, and it is the reason the
+            // founder could count the loss at all. A lift, a pool and a balcony ARE
+            // elements; their absence from this sum is why `elementCount` did not move
+            // when they were destroyed, so the save log agreed with the corrupted file
+            // instead of contradicting it.
+            //
+            // ⛔ MEMBERS ARE NOT DOUBLE-COUNTED. A lift's shaft walls are already in
+            // `walls`, its glass in `curtainWalls` and its landing doors in `doors`
+            // (C104 §2.2 — the compound owns them by `childrenIds`, not by containment),
+            // so only the PARENT and the twin-less parts are added here.
+            (lifts?.length ?? 0) + (liftParts?.length ?? 0) +
+            (pools?.length ?? 0) + (waters?.length ?? 0) +
+            (balconies?.length ?? 0);
 
         const snapshot: ProjectSnapshot = {
             schemaVersion: SNAPSHOT_SCHEMA_VERSION,
@@ -1456,6 +1586,18 @@ export class ProjectSerializer {
             // Omitted entirely when nothing was authored, so a project with no
             // boundary lines produces a snapshot byte-identical to a pre-fix one.
             boundaryLines: boundaryLines.length > 0 ? boundaryLines : undefined,
+            // §PERSIST103 (L-11520) — the five compound slices, each omitted entirely
+            // when nothing was authored (C47): an untouched project's snapshot stays
+            // byte-identical to a pre-fix one, so no `SNAPSHOT_SCHEMA_VERSION` bump and
+            // no migration step. `undefined` (no such store on the runtime) and `[]`
+            // (store present, empty) collapse to the SAME omission here — deliberately,
+            // because for a snapshot both mean "this file records no lifts", and a
+            // written `[]` would be the positive claim "the user deleted them all".
+            lifts:      lifts?.length      ? lifts      : undefined,
+            liftParts:  liftParts?.length  ? liftParts  : undefined,
+            pools:      pools?.length      ? pools      : undefined,
+            waters:     waters?.length     ? waters     : undefined,
+            balconies:  balconies?.length  ? balconies  : undefined,
             // §L-1057 — omitted entirely when nothing was authored, so an untouched
             // project's snapshot is byte-identical to a pre-fix one.
             curtainPanels: curtainPanels.length > 0 ? curtainPanels : undefined,

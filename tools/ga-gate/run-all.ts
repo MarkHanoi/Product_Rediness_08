@@ -242,6 +242,19 @@ const GATES: Gate[] = [
   // gate appended to the bottom of a list is the one nobody reads next time.
   { name: 'plugin-census-equivalence (C01/C11 · L-9920)', script: 'check-plugin-census-equivalence.ts' },
   { name: 'mirror-completeness (C68 §5.a · L-9940)',      script: 'check-mirror-completeness.ts' },
+  // ⭐ THE SIBLING `mirror-completeness` ASKS FOR BY NAME (lane PERSIST103, L-11520).
+  //
+  // That gate's own §WHAT-THIS-DOES-NOT-ESTABLISH block reads: *"It does not check the
+  // serializer. `boundaryLine` had a third break — zero occurrences in either
+  // `ProjectSerializer` — and no arm here would have seen it. That is a sibling gate
+  // somebody still has to write."* Registered IMMEDIATELY BELOW its sibling for the
+  // reason the comment above already gives: a gate appended to the bottom of a list is
+  // the one nobody reads next time.
+  //
+  // Mirror asks *"will the element appear when I make it?"*; this asks *"will it still
+  // be there tomorrow?"* — the question that lost lighting (2026-05-22), boundary lines
+  // (L-9948) and the founder's lift, pool and balcony (L-11520), three times in one file.
+  { name: 'snapshot-family-coverage (C13/C84 EI-6 · L-11520)', script: 'check-snapshot-family-coverage.ts' },
   // ⭐ ARM E of the gate above — the EXECUTED one (lane MIRROR21, L-10320).
   //
   // `mirror-completeness` passes and then prints, in its own words, that it has

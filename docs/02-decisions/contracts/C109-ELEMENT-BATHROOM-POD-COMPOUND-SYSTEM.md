@@ -431,9 +431,38 @@ the mirror of it, which is **leaving orphan fixtures standing in an empty room w
 
 ## §8 — One gesture, one undo entry
 
-`bathroomPod.create` writes **two** stores — `bathroomPod` (the parent) and `plumbing` (every
-member) — through **`produceMultiStoreCommand`**, ONE patch pair, landing completely or not at
-all.
+`bathroomPod.create` writes **one** store — `bathroomPod` — through **`produceCommand`**, ONE
+patch pair, landing completely or not at all. Every member rides **inside** that patch, because
+`members[]` is a field of the pod record (§4).
+
+> ⭐ **AMENDED 2026-08-26, lane BATH102, while implementing the dispatch half.** This section
+> read: *"writes **two** stores … **`affectedStores` MUST be `['bathroomPod', 'plumbing']`** —
+> the measured write set, no more and no less"*, with the ⚠ paragraph below it inheriting C99's
+> EI-1a hazard. **Two measurements taken before a line of the handler was written make the
+> two-store declaration wrong, not merely hazardous:**
+>
+> 1. ⛔ **`ctx.stores.plumbing` IS NOT THE FIXTURE STORE.** It is the plugin DTO store
+>    `plugins/plumbing/src/store.ts` — `Store<Plumbing>`, whose Zod shape is a **pipe**
+>    (`kind` / `diameter` / `bendRadius`). `plugins/plumbing/src/handlers/CreatePlumbingFixture.ts`
+>    states it in as many words: *"the `plumbing.create` target is the **pipe** handler … it
+>    silently dropped every fixture field (fixtureType, position, variants)."* Members written
+>    there would be sanitaryware in the **pipe** half of the family, where
+>    `PlumbingFragmentBuilder`, `PlumbingPlanSymbolBuilder`, `PlumbingElevationSymbolBuilder`,
+>    `ProjectSerializer` and `PlumbingReader` — the five consumers §2 reason 2 names — do not
+>    look. Invisible in 3-D, absent from plan, elevation and IFC.
+> 2. ⛔ **AND UNDO RESOLVES THE SAME KEY TO A THIRD STORE.** `buildUndoStoreMap()`
+>    (`apps/editor/src/engine/undo/performUndoRedo.ts`) maps `plumbing: window.plumbingStore` —
+>    the **legacy `@pryzm/geometry-plumbing` FIXTURE store**. So `'plumbing'` writes the PIPE DTO
+>    store forward and applies its inverse to the LEGACY FIXTURE store back. That is
+>    **C03 §4.6 U-2b verbatim** — a declared key that does not resolve to the store the handler
+>    wrote is satisfied by the **corrupting** case — and `liftUndoAdapter.ts` forbids exactly this
+>    aliasing by name, one family over.
+>
+> **So the declaration is `['bathroomPod']`, and it is the truthful one.** ⚠ **The cost is named
+> rather than hidden:** the members are materialised into the legacy fixture store by a mirror
+> subscribed to the pod store's `subscribeDirty()`, so create / undo / redo / delete all travel
+> **one** road; and a saved-and-reloaded project still keeps every **member** and loses the
+> **parent** (**L-11405**, OPEN, §12).
 
 ⛔ **NOT a `CompositeCommand`.** C104 §9.2 records that L-2401 measured `CompositeCommand`
 returning unconditionally `true` in **both** directions and counting children **attempted**,
@@ -443,16 +472,18 @@ success.
 ⛔ **NOT `runBatch()`.** C16 §8.6 B-6: `runBatch` is **undo-NEUTRAL**. One gesture is one undo
 entry because it is **one command**, never because a batch was held open.
 
-**`affectedStores` MUST be `['bathroomPod', 'plumbing']`** — the measured write set, no more
-and no less. C03 §4.6 U-2b: a declared key that does not resolve to the store the handler
-wrote is satisfied by the corrupting case; an **undeclared** store has its patches dropped
-from undo routing, so Ctrl+Z would remove the pod and **leave every fixture standing**.
+**`affectedStores` MUST be `['bathroomPod']`** — the measured write set of this command's
+**patches**, no more and no less. The rule it satisfies is unchanged: an **undeclared** store
+has its patches dropped from undo routing, and a **declared** store that does not resolve to
+the one the handler wrote is C03 §4.6 U-2b's corrupting case. This command produces patches for
+exactly one store, so exactly one is declared.
 
-⚠ **AND C99 §2's EI-1a HAZARD IS INHERITED, NOT SOLVED.** C99 measured that `'plumbing'`
-resolves to the **plugin DTO snapshot** on WRITE and to `window.plumbingStore` (**the legacy
-store**) on UNDO, via `buildUndoStoreMap()`. That is a live, pre-existing family defect. A pod
-does not fix it and **must not claim to**; §11's census records the undo axis as measured
-separately for that reason, and the un-mirrored-member case is **L-11406**.
+⚠ **AND C99 §2's EI-1a HAZARD IS INHERITED, NOT SOLVED** — it is the reason the declaration is
+one key rather than two (see the amendment box above). C99 measured that `'plumbing'` resolves
+to the **plugin DTO snapshot** on WRITE and to `window.plumbingStore` (**the legacy store**) on
+UNDO, via `buildUndoStoreMap()`. That is a live, pre-existing family defect. A pod does not fix
+it and **must not claim to**; §11's census records the undo axis as measured separately for that
+reason, and the un-mirrored-member case is **L-11406**.
 
 ---
 
@@ -496,8 +527,10 @@ report — *"Lift — it should be under Architecture, but could not see it!"* �
   `TOILET_FOOTPRINTS`, `SHOWER_FOOTPRINTS`, `ACCESSORY_FOOTPRINTS` and
   `resolveFixtureFootprint`'s fallbacks are the only places one may appear. The pod's own
   constants file may carry **clearances and gaps** (§5.2) and nothing else.
-- **R-7** One gesture is one undo entry, via `produceMultiStoreCommand` over the **two**
-  declared stores (§8).
+- **R-7** One gesture is one undo entry, via `produceCommand` over the **one** declared store
+  `bathroomPod` (§8 and its 2026-08-26 amendment). ⛔ Not `CompositeCommand` (C104 §9.2), not
+  `runBatch()` (C16 §8.6 B-6), and ⛔ **not `['bathroomPod','plumbing']`** — that key resolves to
+  the PIPE DTO store on write and the LEGACY FIXTURE store on undo.
 - **R-8** ⛔ **The glass panel is a PARAMETER of the shower member, never a member of its own**
   (§2.1).
 - **R-9** ⭐ **A reachability claim for this family is NOT admissible without a POINTER-LAYER

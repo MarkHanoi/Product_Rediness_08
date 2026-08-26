@@ -4167,6 +4167,9 @@ importers:
       '@pryzm/command-registry':
         specifier: workspace:*
         version: link:../../packages/command-registry
+      '@pryzm/geometry-plumbing':
+        specifier: workspace:*
+        version: link:../../packages/geometry-plumbing
       '@pryzm/plugin-sdk':
         specifier: workspace:*
         version: link:../../packages/plugin-sdk

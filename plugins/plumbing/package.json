@@ -9,6 +9,7 @@
   "exports": {
     ".": "./src/index.ts",
     "./store": "./src/store.ts",
+    "./bathroom-pod-store": "./src/bathroomPodStore.ts",
     "./errors": "./src/errors.ts",
     "./handlers": "./src/handlers/index.ts",
     "./intent": "./src/intent.ts",
@@ -26,7 +27,8 @@
   "dependencies": {
     "three": "^0.183.2",
     "@pryzm/plugin-sdk": "workspace:*",
-    "@pryzm/command-registry": "workspace:*"
+    "@pryzm/command-registry": "workspace:*",
+    "@pryzm/geometry-plumbing": "workspace:*"
   },
   "devDependencies": {
     "@types/three": "^0.183.1",

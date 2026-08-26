@@ -11,6 +11,17 @@ import { SetPlumbingMaterialHandler } from './SetPlumbingMaterial.js'; // §FEAT
 // `@pryzm/command-bus` `LEVEL_CHANGE_VERBS`; see that file for the four parts a
 // level change must complete before this row may exist.
 import { ChangePlumbingLevelHandler } from './ChangePlumbingLevel.js';
+// §BATH102 — the C109 compound. ⛔ ITS OWN HANDLER SET, ITS OWN STORE KEY, AND
+// DELIBERATELY NOT IN `PLUMBING_HANDLER_TYPES`: `buildPlumbingHandlerSet()` is what
+// `PluginRegistry`'s `plumbing` descriptor registers, and that descriptor contributes
+// the `plumbing` store ONLY. A `bathroomPod.*` handler registered there would declare
+// `affectedStores: ['bathroomPod']` against a context that has no such key, and
+// `CommandBus.buildContext` would throw *"required store 'bathroomPod' is missing
+// from HandlerContext.stores"* BEFORE anything mutated — the pool/lift/lighting axis-2
+// defect, committed on purpose. The pod gets its OWN descriptor; see
+// `buildBathroomPodHandlerSet` below.
+import { CreateBathroomPodHandler } from './CreateBathroomPod.js';
+import { DeleteBathroomPodHandler } from './DeleteBathroomPod.js';
 
 export const PLUMBING_HANDLER_TYPES = [
   'plumbing.create',
@@ -44,6 +55,39 @@ export function registerPlumbingHandlers(bus: CommandBus): readonly string[] {
   for (const h of buildPlumbingHandlerSet()) bus.register(h);
   return PLUMBING_HANDLER_TYPES;
 }
+
+// ── §BATH102 — the C109 bathroom-pod compound ────────────────────────────────
+//
+// ⭐ A SEPARATE HANDLER SET, PAIRED WITH A SEPARATE `PluginRegistry` DESCRIPTOR, so
+// the `bathroomPod` store the two handlers declare is contributed by the SAME
+// descriptor that registers them. Splitting a handler from the descriptor that
+// contributes its store is precisely how `lighting`, `pool` and `lift` each shipped
+// registered-and-undispatchable.
+//
+// ⛔ THERE IS NO `bathroomPodMember.*` VERB AND NONE MAY BE MINTED (C109 R-1). A
+// member is a `plumbing` fixture and is edited by the `plumbing.*` verbs that already
+// exist; a second write path to a member would be a way to produce half a pod.
+export const BATHROOM_POD_HANDLER_TYPES = [
+  'bathroomPod.create',
+  'bathroomPod.delete',
+] as const;
+
+export type BathroomPodHandlerType = (typeof BATHROOM_POD_HANDLER_TYPES)[number];
+
+export function buildBathroomPodHandlerSet(): readonly CommandHandler<unknown>[] {
+  return [
+    new CreateBathroomPodHandler() as unknown as CommandHandler<unknown>,
+    new DeleteBathroomPodHandler() as unknown as CommandHandler<unknown>,
+  ];
+}
+
+export function registerBathroomPodHandlers(bus: CommandBus): readonly string[] {
+  for (const h of buildBathroomPodHandlerSet()) bus.register(h);
+  return BATHROOM_POD_HANDLER_TYPES;
+}
+
+export { CreateBathroomPodHandler, type CreateBathroomPodPayload } from './CreateBathroomPod.js';
+export { DeleteBathroomPodHandler, type DeleteBathroomPodPayload } from './DeleteBathroomPod.js';
 
 export { CreatePlumbingHandler, type CreatePlumbingPayload } from './CreatePlumbing.js';
 export { DeletePlumbingHandler, type DeletePlumbingPayload } from './DeletePlumbing.js';
