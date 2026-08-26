@@ -197,8 +197,11 @@ export class SelectionManager implements ISelectionManager {
     // ────────────────────────────────────────────────────────────────────────
 
     // ── Kitchen-cabinet sub-element tracking ─────────────────────────────────
-    /** Ordered list of kitchen unit descriptors for Tab cycling. */
-    private kcSubUnits: Array<{ group: THREE.Object3D; index: number; arm: string }> = [];
+    /** Ordered list of kitchen unit descriptors for Tab cycling.
+     *  §KITCHEN107 — `upper` distinguishes the wall-cabinet row from the base
+     *  row: the two rows are INDEPENDENT unit lists sharing (arm, index), so
+     *  without the flag an upper selection would edit the base unit's config. */
+    private kcSubUnits: Array<{ group: THREE.Object3D; index: number; arm: string; upper: boolean }> = [];
     /** Current Tab index: -1 = whole run, 0..N-1 = unit, N = countertop slab. */
     private kcSubUnitIndex = -1;
     /** Amber highlight mesh for the active kitchen sub-element. */
@@ -3414,12 +3417,12 @@ export class SelectionManager implements ISelectionManager {
             this.kcSubHighlight.position.copy(center);
             this.world.scene.three.add(this.kcSubHighlight);
 
-            window.__kitchenSubUnit = { type: 'unit', furnitureId, unitIndex: unitEntry.index, arm: unitEntry.arm };
+            window.__kitchenSubUnit = { type: 'unit', furnitureId, unitIndex: unitEntry.index, arm: unitEntry.arm, upper: unitEntry.upper };
             const unitInsp = window.kitchenUnitInspector;
-            if (unitInsp) unitInsp.show(furnitureId, unitEntry.index, unitEntry.arm as any);
+            if (unitInsp) unitInsp.show(furnitureId, unitEntry.index, unitEntry.arm as any, unitEntry.upper);
             const runInsp  = window.kitchenRunInspector;
             if (runInsp) runInsp.hide();
-            console.log(`[SelectionManager] Kitchen unit [${this.kcSubUnitIndex + 1}/${this.kcSubUnits.length}] arm=${unitEntry.arm} index=${unitEntry.index}`);
+            console.log(`[SelectionManager] Kitchen unit [${this.kcSubUnitIndex + 1}/${this.kcSubUnits.length}] row=${unitEntry.upper ? 'upper' : 'base'} arm=${unitEntry.arm} index=${unitEntry.index}`);
         }
     }
 
@@ -3602,8 +3605,8 @@ export class SelectionManager implements ISelectionManager {
     }
 
     /** Build ordered list of kitchen unit sub-elements from the furniture root. */
-    private _buildKcUnitList(root: THREE.Object3D): Array<{ group: THREE.Object3D; index: number; arm: string }> {
-        const list: Array<{ group: THREE.Object3D; index: number; arm: string }> = [];
+    private _buildKcUnitList(root: THREE.Object3D): Array<{ group: THREE.Object3D; index: number; arm: string; upper: boolean }> {
+        const list: Array<{ group: THREE.Object3D; index: number; arm: string; upper: boolean }> = [];
         // The engine adds a child group (mesh group) to the root, then units are grandchildren
         root.traverse(child => {
             if (child.userData?.kitchenUnitIndex !== undefined && child.userData?.kitchenArm !== undefined) {
@@ -3611,12 +3614,17 @@ export class SelectionManager implements ISelectionManager {
                     group: child,
                     index: child.userData.kitchenUnitIndex as number,
                     arm:   child.userData.kitchenArm as string,
+                    upper: child.userData.isUpperCabinet === true,
                 });
             }
         });
-        // Sort: main arm first (by index), then left, then right
+        // Sort: the full BASE row first (main → left → right, by index), then
+        // the UPPER row in the same arm order (§KITCHEN107 — the two rows are
+        // independent lists; interleaving them made Tab appear to visit every
+        // unit twice).
         const armOrder: Record<string, number> = { main: 0, left: 1, right: 2 };
         list.sort((a, b) => {
+            if (a.upper !== b.upper) return a.upper ? 1 : -1;
             const ao = armOrder[a.arm] ?? 9;
             const bo = armOrder[b.arm] ?? 9;
             return ao !== bo ? ao - bo : a.index - b.index;

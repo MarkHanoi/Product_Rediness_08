@@ -20,13 +20,19 @@
  *  §05 §6   — no bim-* elements.
  */
 
-import { KitchenHandleStyle, KitchenUnitFront, KitchenApplianceType } from '@pryzm/geometry-furniture';
+import {
+    KitchenHandleStyle,
+    KitchenUnitFront,
+    KitchenUpperUnitFront,
+    KitchenApplianceType,
+    deriveUpperUnits,
+} from '@pryzm/geometry-furniture';
 import { STANDARD_MATERIAL_LIBRARY } from '@pryzm/core-app-model/material-library';
 
 // ── 10-option front matrix ────────────────────────────────────────────────────
 
 type UnitFrontOption = {
-    value:      KitchenUnitFront;
+    value:      KitchenUnitFront | KitchenUpperUnitFront;
     label:      string;
     icon:       string;
     numDrawers?: number;
@@ -44,6 +50,21 @@ const FRONT_OPTIONS: UnitFrontOption[] = [
     { value: 'shelf',            label: 'Shelf ×3',    icon: '≡', numShelves: 3 },
     { value: 'shelf',            label: 'Shelf ×2',    icon: '≡', numShelves: 2 },
     { value: 'none',             label: 'Open',        icon: '□' },
+];
+
+// §KITCHEN107 (L-11600) — the UPPER (wall cabinet) row's front options. This
+// list is the `KitchenUpperUnitFront` vocabulary verbatim: no drawer stacks,
+// and no appliance section is rendered for an upper selection at all — a wall
+// cabinet carrying a hob/sink is unrepresentable, not merely disabled.
+const UPPER_FRONT_OPTIONS: UnitFrontOption[] = [
+    { value: 'door',             label: 'Solid Door',  icon: '▭' },
+    { value: 'glass_door',       label: 'Glass Door',  icon: '◫' },
+    { value: 'framed_glass_door',label: 'Framed Glass',icon: '▣' },
+    { value: 'shelf',            label: 'Shelf ×4',    icon: '≡', numShelves: 4 },
+    { value: 'shelf',            label: 'Shelf ×3',    icon: '≡', numShelves: 3 },
+    { value: 'shelf',            label: 'Shelf ×2',    icon: '≡', numShelves: 2 },
+    { value: 'none',             label: 'Open',        icon: '□' },
+    { value: 'omitted',          label: 'No Cabinet',  icon: '∅' },
 ];
 
 const HANDLE_OPTIONS: Array<{ value: KitchenHandleStyle; label: string }> = [
@@ -89,6 +110,9 @@ export class KitchenUnitInspector {
     private _furnitureId: string | null = null;
     private _unitIndex:   number | null = null;
     private _arm:         'main' | 'left' | 'right' = 'main';
+    /** §KITCHEN107 — true when the selected unit is an UPPER (wall) cabinet:
+     *  edits then target `kitchenConfig.upperUnits`, never the base row. */
+    private _upper:       boolean = false;
 
     mount(container: HTMLElement): void {
         if (this._panel) return;
@@ -97,10 +121,11 @@ export class KitchenUnitInspector {
         this.hide();
     }
 
-    show(furnitureId: string, unitIndex: number, arm: 'main' | 'left' | 'right'): void {
+    show(furnitureId: string, unitIndex: number, arm: 'main' | 'left' | 'right', upper = false): void {
         this._furnitureId = furnitureId;
         this._unitIndex   = unitIndex;
         this._arm         = arm;
+        this._upper       = upper;
         if (!this._panel) return;
         this._refresh();
         this._panel.style.display = 'flex';
@@ -109,6 +134,7 @@ export class KitchenUnitInspector {
     hide(): void {
         this._furnitureId = null;
         this._unitIndex   = null;
+        this._upper       = false;
         if (this._panel) this._panel.style.display = 'none';
     }
 
@@ -161,6 +187,7 @@ export class KitchenUnitInspector {
 
         // Front finish sub-header
         const subHdr = document.createElement('div');
+        subHdr.id = 'kui-front-subhdr';
         subHdr.style.cssText = 'font-size:10px;font-weight:600;color:var(--app-text-muted,#999);text-transform:uppercase;letter-spacing:0.05em;';
         subHdr.textContent = 'Front finish (10 options)';
         panel.appendChild(subHdr);
@@ -182,13 +209,18 @@ export class KitchenUnitInspector {
         panel.appendChild(divider);
 
         // ── Appliance section ────────────────────────────────────────────────
+        // §KITCHEN107 — BASE row only. For an UPPER (wall cabinet) selection the
+        // whole section is removed from the panel (see _refresh): the upper
+        // vocabulary has no appliance axis at all.
         const appHdr = document.createElement('div');
+        appHdr.id = 'kui-app-hdr';
         appHdr.style.cssText = 'font-size:10px;font-weight:600;color:var(--app-text-muted,#999);text-transform:uppercase;letter-spacing:0.05em;';
         appHdr.textContent = 'Built-in Appliance';
         panel.appendChild(appHdr);
 
         // "None" button
         const appNoneWrap = document.createElement('div');
+        appNoneWrap.id = 'kui-app-none-wrap';
         appNoneWrap.style.cssText = 'display:flex;gap:5px;flex-wrap:wrap;margin-bottom:2px;';
         const appNoneBtn = document.createElement('button');
         appNoneBtn.type = 'button';
@@ -293,19 +325,41 @@ export class KitchenUnitInspector {
         const title = this._panel.querySelector('#kui-title') as HTMLElement;
         if (title) {
             const armLabel = this._arm === 'main' ? '' : ` (${this._arm} arm)`;
-            title.textContent = `Unit ${(this._unitIndex ?? 0) + 1}${armLabel}`;
+            title.textContent = this._upper
+                ? `Wall Unit ${(this._unitIndex ?? 0) + 1}${armLabel}`
+                : `Unit ${(this._unitIndex ?? 0) + 1}${armLabel}`;
         }
 
         // Update label input
         const lInput = this._panel.querySelector('#kui-label-input') as HTMLInputElement;
         if (lInput) lInput.value = unitData?.label ?? '';
 
-        // Rebuild option buttons (10 total)
+        // §KITCHEN107 — the appliance section exists only for BASE units; an
+        // upper (wall cabinet) selection removes the whole axis from the panel.
+        const options = this._upper ? UPPER_FRONT_OPTIONS : FRONT_OPTIONS;
+        const sectionDisplay: Record<string, string> = {
+            'kui-app-hdr':       'block',
+            'kui-app-none-wrap': 'flex',
+            'kui-appliances':    'grid',
+        };
+        for (const [id, display] of Object.entries(sectionDisplay)) {
+            const el = this._panel.querySelector(`#${id}`) as HTMLElement | null;
+            if (el) el.style.display = this._upper ? 'none' : display;
+        }
+        if (this._upper) {
+            // The side-by-side fridge notice is appliance-only.
+            const sn = this._panel.querySelector('#kui-side-note') as HTMLElement | null;
+            if (sn) sn.style.display = 'none';
+        }
+        const subHdr = this._panel.querySelector('#kui-front-subhdr') as HTMLElement | null;
+        if (subHdr) subHdr.textContent = this._upper ? 'Wall cabinet front' : 'Front finish (10 options)';
+
+        // Rebuild option buttons
         const optRow = this._panel.querySelector('#kui-options');
         if (!optRow) return;
         optRow.innerHTML = '';
 
-        for (const opt of FRONT_OPTIONS) {
+        for (const opt of options) {
             const btn = document.createElement('button');
             btn.type = 'button';
 
@@ -345,7 +399,7 @@ export class KitchenUnitInspector {
         this._refreshMaterialSelect(unitData);
         this._refreshHandleSelect(unitData);
         this._refreshCountertopSelect();
-        this._refreshAppliances(unitData);
+        if (!this._upper) this._refreshAppliances(unitData);
 
         const colorInput = this._panel.querySelector('#kui-door-color') as HTMLInputElement | null;
         if (colorInput) colorInput.value = unitData?.doorColor ?? '#f0ebe4';
@@ -461,7 +515,7 @@ export class KitchenUnitInspector {
     }
 
     private _getUnitData(): {
-        front: KitchenUnitFront;
+        front: KitchenUnitFront | KitchenUpperUnitFront;
         label?: string;
         doorMaterialId?: string;
         doorColor?: string;
@@ -474,7 +528,25 @@ export class KitchenUnitInspector {
         const store = window.furnitureStore; // TODO(E.furniture.S): legacy furnitureStore — replace with runtime.stores.furniture
         if (!store) return null;
         const fd: any = store.get(this._furnitureId);
-        if (!fd?.kitchenConfig?.units) return null;
+        if (!fd?.kitchenConfig) return null;
+
+        // §KITCHEN107 — UPPER selections read the independent upper list. A
+        // legacy record without `upperUnits` shows the same derived defaults
+        // the engine renders (deriveUpperUnits — one derivation, two readers).
+        if (this._upper) {
+            const uppers = fd.kitchenConfig.upperUnits
+                ?? deriveUpperUnits(
+                    fd.kitchenConfig.units ?? [],
+                    fd.kitchenConfig.numUnits ?? 0,
+                    fd.kitchenConfig.numUnitsLeft ?? 0,
+                    fd.kitchenConfig.numUnitsRight ?? 0,
+                );
+            return uppers.find(
+                (u: any) => u.arm === this._arm && u.index === this._unitIndex,
+            ) ?? null;
+        }
+
+        if (!fd.kitchenConfig.units) return null;
         const unit = fd.kitchenConfig.units.find(
             (u: any) => u.arm === this._arm && u.index === this._unitIndex
         );
@@ -483,7 +555,7 @@ export class KitchenUnitInspector {
 
     // ── Mutations (via store) ─────────────────────────────────────────────────
 
-    private _applyFront(front: KitchenUnitFront, numDrawers?: number, numShelves?: number): void {
+    private _applyFront(front: KitchenUnitFront | KitchenUpperUnitFront, numDrawers?: number, numShelves?: number): void {
         this._mutateUnit(u => {
             u.front = front;
             if (numDrawers !== undefined) u.numDrawers = numDrawers;
@@ -492,6 +564,10 @@ export class KitchenUnitInspector {
     }
 
     private _applyAppliance(appliance: KitchenApplianceType | undefined): void {
+        // §KITCHEN107 — appliances are a BASE-row axis; `KitchenUpperUnitConfig`
+        // cannot carry one. The UI never offers this for uppers; the guard keeps
+        // a stray call from writing an unrepresentable field into the record.
+        if (this._upper) return;
         this._mutateUnit(u => {
             u.appliance = appliance;
             // For freestanding appliances, ensure the front is 'none' automatically
@@ -537,9 +613,34 @@ export class KitchenUnitInspector {
         const store = window.furnitureStore; // TODO(E.furniture.S): legacy furnitureStore — replace with runtime.stores.furniture
         if (!store) return;
         const fd: any = store.get(this._furnitureId);
-        if (!fd?.kitchenConfig?.units) return;
+        if (!fd?.kitchenConfig) return;
 
         const newFd = structuredClone(fd) as any;
+
+        // §KITCHEN107 — UPPER edits target `upperUnits`. The first edit on a
+        // legacy record MATERIALISES the derived upper list (C47 additive
+        // write), so what the user saw is exactly what the edit starts from.
+        if (this._upper) {
+            if (!newFd.kitchenConfig.upperUnits) {
+                newFd.kitchenConfig.upperUnits = deriveUpperUnits(
+                    newFd.kitchenConfig.units ?? [],
+                    newFd.kitchenConfig.numUnits ?? 0,
+                    newFd.kitchenConfig.numUnitsLeft ?? 0,
+                    newFd.kitchenConfig.numUnitsRight ?? 0,
+                );
+            }
+            const upper = newFd.kitchenConfig.upperUnits.find(
+                (u: any) => u.arm === this._arm && u.index === this._unitIndex,
+            );
+            if (upper) {
+                mutate(upper);
+                this._applyKitchenConfig(newFd.kitchenConfig);
+            }
+            this._refresh();
+            return;
+        }
+
+        if (!newFd.kitchenConfig.units) return;
         const unit  = newFd.kitchenConfig.units.find(
             (u: any) => u.arm === this._arm && u.index === this._unitIndex
         );

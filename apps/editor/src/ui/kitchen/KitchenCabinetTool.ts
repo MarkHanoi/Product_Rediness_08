@@ -29,6 +29,7 @@ import {
     KitchenUnitFront,
     buildDefaultUnits,
     mergeUnits,
+    mergeUpperUnits,
     buildDefaultKitchenConfig,
     KitchenCabinetEngine,
 } from '@pryzm/geometry-furniture';
@@ -251,7 +252,18 @@ export class KitchenCabinetTool {
         if (units.length === 0) {
             units = buildDefaultUnits(this._config.numUnits, 'main', 0, this._defaultFront);
         }
-        return { ...this._config, units };
+        // §KITCHEN107 (L-11600) — keep the independent upper row in step with
+        // the current arm counts (tall layouts only; when absent, the engine
+        // derives sound defaults at build time).
+        const upperUnits = this._config.upperUnits
+            ? mergeUpperUnits(
+                this._config.upperUnits,
+                this._config.numUnits,
+                this._config.numUnitsLeft  ?? 0,
+                this._config.numUnitsRight ?? 0,
+            )
+            : undefined;
+        return { ...this._config, units, ...(upperUnits ? { upperUnits } : {}) };
     }
 
     private _rebuildPreview(): void {

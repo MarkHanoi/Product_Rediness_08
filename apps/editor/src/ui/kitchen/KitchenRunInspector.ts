@@ -21,7 +21,7 @@
  *  §05 §7.6 — inline styles / CSS custom properties only.
  */
 
-import { KitchenLayoutType, KitchenCabinetConfig, mergeUnits } from '@pryzm/geometry-furniture';
+import { KitchenLayoutType, KitchenCabinetConfig, mergeUnits, mergeUpperUnits } from '@pryzm/geometry-furniture';
 import { STANDARD_MATERIAL_LIBRARY } from '@pryzm/core-app-model/material-library';
 
 type SliderSpec = {
@@ -418,6 +418,18 @@ export class KitchenRunInspector {
             isULayout   ? newNumRight : 0,
         );
 
+        // §KITCHEN107 (L-11600) — keep the INDEPENDENT upper row consistent
+        // with the new slot counts too. A record still without `upperUnits`
+        // stays without it (the engine derives sound defaults at build time).
+        const updatedUpperUnits = base.upperUnits
+            ? mergeUpperUnits(
+                base.upperUnits,
+                newNumUnits,
+                isArmLayout ? newNumLeft  : 0,
+                isULayout   ? newNumRight : 0,
+            )
+            : undefined;
+
         const newKitchenConfig: KitchenCabinetConfig = {
             ...base,
             depth:    newDepth,
@@ -435,6 +447,7 @@ export class KitchenRunInspector {
             frontMaterialId:     rawFront      || base.frontMaterialId,
             countertopMaterialId: rawCountertop || base.countertopMaterialId,
             units: updatedUnits,
+            ...(updatedUpperUnits ? { upperUnits: updatedUpperUnits } : {}),
         };
 
         console.log('[KitchenRunInspector] Applying config:', {

@@ -43,7 +43,9 @@ type PryzmCurtainSubElement = PryzmCurtainSubElementPanel | PryzmCurtainSubEleme
 /** Transient sub-unit cache for kitchen component selection. */
 type PryzmKitchenSubUnit =
     | { type: 'countertop'; furnitureId: string }
-    | { type: 'unit'; furnitureId: string; unitIndex: number; arm: string };
+    /** §KITCHEN107 — `upper` distinguishes the wall-cabinet row (independent
+     *  unit list) from the base row; they share (arm, unitIndex). */
+    | { type: 'unit'; furnitureId: string; unitIndex: number; arm: string; upper?: boolean };
 
 /** Transient sub-unit cache for wardrobe component selection. */
 interface PryzmWardrobeSubUnit {
@@ -159,7 +161,7 @@ declare global {
         // ── Inspector / panel bridges ─────────────────────────────────────────
         curtainPanelStore: unknown;
         kitchenUnitInspector:
-            | { hide(): void; show(furnitureId: string, unitIndex: number, arm: unknown): void }
+            | { hide(): void; show(furnitureId: string, unitIndex: number, arm: unknown, upper?: boolean): void }
             | undefined;
         kitchenRunInspector:
             | { hide(): void; show(furnitureId: string): void }

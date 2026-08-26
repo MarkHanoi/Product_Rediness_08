@@ -23,7 +23,7 @@
  *  - §05: styles reuse the shared `wts-*` classes (same look as the wall picker).
  */
 
-import { deriveCategoryFromType, type FurnitureType } from '@pryzm/geometry-furniture';
+import { deriveCategoryFromType, isKitchenLayoutType, type FurnitureType } from '@pryzm/geometry-furniture';
 import {
     getItemsForCategory,
     getDescriptorForType,
@@ -96,6 +96,18 @@ export function buildFurnitureTypeSelectorWidget(
         return true;
     });
 
+    // §KITCHEN107 (L-11602, C86 §9 WO-Voc-4) — SEPARATE the vocabulary axes.
+    // The 'kitchen' category stocks THREE different kinds of thing: parametric
+    // RUN SHAPES (Straight / L / U / Island / ±Wall Cabinets), per-unit
+    // appliance MODULES (sink / hob / oven…), and standalone catalogue
+    // appliances. Offering all of them in one "Type" dropdown made the swap
+    // semantically ambiguous ("Hob/Cooktop" as the type of a whole kitchen
+    // run is meaningless). A kitchen RUN's peers are the seven run shapes
+    // ONLY; a standalone appliance's peers exclude the run shapes. Unit
+    // features belong to the Tab-cycle per-unit inspector, not here.
+    const currentIsKitchenRun = isKitchenLayoutType(currentType);
+    items = items.filter((it) => isKitchenLayoutType(String(it.type)) === currentIsKitchenRun);
+
     // Only surface the picker when there is a real choice (>1 peer). A category
     // with a single item offers nothing to swap to.
     if (items.length < 2) return null;
@@ -141,7 +153,12 @@ export function buildFurnitureTypeSelectorWidget(
         if (!selectedType || selectedType === currentType) return;
 
         const desc = getDescriptorForType(selectedType);
-        const dims = desc?.defaultDimensions;
+        // §KITCHEN107 (L-11601) — kitchen RUN targets keep the element's own
+        // dimensions: the run's real geometry lives in `kitchenConfig` (arm
+        // lengths / depths), which `retargetKitchenConfig` carries over in the
+        // command. Re-seeding the top-level w/l/h from the catalogue card
+        // would stomp a deliberately resized run with the 3.0×0.6 defaults.
+        const dims = isKitchenLayoutType(selectedType) ? undefined : desc?.defaultDimensions;
         onApply({
             newFurnitureType:  selectedType,
             furnitureCategory: category,
