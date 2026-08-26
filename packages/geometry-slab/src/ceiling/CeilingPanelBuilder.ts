@@ -30,6 +30,9 @@ import { computeCeilingArea as computeArea, computeCeilingBoundingBox as compute
 import { getSoffitColor, LAYER_FUNCTION_COLORS,  } from '@pryzm/core-app-model/stores';
 import { BimManager } from '@pryzm/core-app-model';
 import { elementRegistry } from '@pryzm/core-app-model/element-registry';
+// §EDGE131 (L-12100) — the slab family's ONE edge render-mode table (see
+// `SlabFragmentBuilder.SLAB_FAMILY_EDGE_TYPES`).
+import { SLAB_EDGE_MODE_SETTINGS } from '../SlabFragmentBuilder';
 
 // ── Constants ──────────────────────────────────────────────────────────────
 const CEILING_TESSELLATION_DIVISIONS = 1;
@@ -54,10 +57,10 @@ function makeLayerMaterial(color: string): THREE.MeshStandardMaterial {
   });
 }
 
-const CEILING_EDGE_MATERIAL = new THREE.LineBasicMaterial({
-  color: 0x444444,
-  linewidth: 1,
-});
+// §EDGE131 (L-12100) — the private `0x444444` edge material that used to live here
+// is gone; the soffit perimeter overlay now takes its material from the slab
+// family's ONE render-mode table, `SLAB_EDGE_MODE_SETTINGS`, so the view gate and
+// the builder can never disagree about what a ceiling edge looks like.
 
 const CEILING_GRID_MATERIAL = new THREE.LineBasicMaterial({
   color: 0x888888,
@@ -392,7 +395,16 @@ export class CeilingPanelBuilder {
     return path;
   }
 
-  /** Edge overlay lines at soffit perimeter. */
+  /**
+   * Edge overlay lines at soffit perimeter.
+   *
+   * §EDGE131 (L-12100) — the sibling of the floor-finish defect, repaired in the
+   * same pass. This overlay carried `{ ceilingId, role: 'edges' }` and no
+   * `elementType`, so — exactly like `FloorPanelBuilder`'s — it matched no arm of
+   * `WallEdgeVisibilityService` and sat at its born `visible = true` in every view.
+   * Registering it as `CeilingEdges` (a member of `SLAB_FAMILY_EDGE_TYPES`) puts it
+   * under that one authority: hidden in 3-D, black and always-on-top in plan.
+   */
   private _buildEdgeOverlay(
     polygon: CeilingVertex[],
     _holeElements: CeilingHoleElement[],
@@ -411,10 +423,26 @@ export class CeilingPanelBuilder {
     }
 
     if (points.length >= 2) {
+      const settings = SLAB_EDGE_MODE_SETTINGS['3d'];
       const geometry = new THREE.BufferGeometry().setFromPoints(points);
-      const edgeLines = new THREE.LineSegments(geometry, CEILING_EDGE_MATERIAL.clone());
+      // Per-ceiling material — applyRenderMode() mutates in place, so a shared
+      // singleton would restyle every other ceiling in the project.
+      const edgeLines = new THREE.LineSegments(geometry, new THREE.LineBasicMaterial({
+        color: settings.color,
+        depthTest: settings.depthTest,
+        depthWrite: settings.depthWrite,
+      }));
       edgeLines.name = 'ceiling-edge-overlay';
-      edgeLines.userData = { ceilingId: root.userData.id, role: 'edges' };
+      edgeLines.renderOrder = settings.renderOrder;
+      edgeLines.visible = false;
+      const ceilingId = root.userData?.id as string | undefined;
+      edgeLines.userData = {
+        ceilingId,
+        parentId: ceilingId,
+        elementType: 'CeilingEdges',
+        role: 'edges',
+        selectable: false,
+      };
       root.add(edgeLines);
     }
   }

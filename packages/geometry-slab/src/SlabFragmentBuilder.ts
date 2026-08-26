@@ -99,9 +99,50 @@ export const SLAB_EDGE_MODE_SETTINGS: Record<SlabEdgeRenderMode, {
 };
 
 /**
- * Apply a render mode to a single existing slab-edge LineSegments object.
- * Only operates on objects tagged with userData.elementType === 'SlabEdges'.
- * Safe to call on any arbitrary Object3D — no-ops if the tag is missing.
+ * §EDGE131 (L-12100) — THE SLAB-FAMILY EDGE-OVERLAY ELEMENT TYPES.
+ *
+ * `geometry-slab` builds THREE horizontal-plate families, and all three attach a
+ * perimeter edge overlay to their element subtree: structural slabs
+ * (`SlabFragmentBuilder`), floor finishes (`floor/FloorPanelBuilder`) and ceilings
+ * (`ceiling/CeilingPanelBuilder`).
+ *
+ * Until L-12100 only the FIRST of the three stamped an `elementType`. The other two
+ * stamped `role: 'edges'` and nothing else — and the one authority for
+ * "are element edges visible in this view" (`WallEdgeVisibilityService`) matches on
+ * `role === 'edges'` **AND** a known `elementType`. An overlay with no `elementType`
+ * therefore fell through every arm of that authority: nobody hid it entering 3-D and
+ * nobody restyled it entering plan, so it sat at whatever `visible` it was born with
+ * — `true` — and drew, once per storey, forever. That is the founder's
+ * "black lines that come over and over again from the floor finishes".
+ *
+ * The repair is to REGISTER the two missing families with the existing authority,
+ * not to give them a private `visible = false` (C84 EI-9 — one authority per
+ * concept). This constant is that registration, and it is the ONLY place the slab
+ * family's edge element types are enumerated: `applySlabEdgeRenderMode` and
+ * `WallEdgeVisibilityService` both read it rather than re-listing the strings.
+ */
+export const SLAB_FAMILY_EDGE_TYPES = ['SlabEdges', 'FloorEdges', 'CeilingEdges'] as const;
+
+export type SlabFamilyEdgeType = (typeof SLAB_FAMILY_EDGE_TYPES)[number];
+
+/**
+ * §EDGE131 — the slab family's membership test for the edge-visibility authority.
+ *
+ * Exported so `WallEdgeVisibilityService` can ask the OWNING package which of its
+ * nodes are edge overlays instead of hard-coding `elementType` literals up in the
+ * UI layer. A family that adds an edge overlay adds itself HERE, once, and both the
+ * visibility gate and the render-mode switch pick it up.
+ */
+export function isSlabFamilyEdge(obj: THREE.Object3D | null | undefined): boolean {
+    const ud = obj?.userData;
+    if (!ud || ud.role !== 'edges') return false;
+    return (SLAB_FAMILY_EDGE_TYPES as readonly string[]).includes(ud.elementType);
+}
+
+/**
+ * Apply a render mode to a single existing slab-family edge LineSegments object
+ * (slab, floor finish or ceiling — see `SLAB_FAMILY_EDGE_TYPES`).
+ * Safe to call on any arbitrary Object3D — no-ops if the tags are missing.
  *
  * Called by WallEdgeVisibilityService.applyRenderMode() during view switches.
  */
@@ -109,10 +150,7 @@ export function applySlabEdgeRenderMode(
     obj: THREE.Object3D,
     mode: SlabEdgeRenderMode
 ): void {
-    if (
-        obj.userData?.elementType !== 'SlabEdges' ||
-        obj.userData?.role !== 'edges'
-    ) return;
+    if (!isSlabFamilyEdge(obj)) return;
 
     const settings = SLAB_EDGE_MODE_SETTINGS[mode];
     const line = obj as THREE.LineSegments;

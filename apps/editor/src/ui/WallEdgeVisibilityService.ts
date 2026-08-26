@@ -1,6 +1,11 @@
 import * as THREE from '@pryzm/renderer-three/three';
 import { applyWallEdgeRenderMode, WallEdgeRenderMode } from '@pryzm/geometry-wall';
-import { applySlabEdgeRenderMode } from '@pryzm/geometry-slab';
+// §EDGE131 (L-12100) — `isSlabFamilyEdge` is imported rather than re-listing
+// `elementType` string literals up here in the UI layer. The owning package
+// enumerates its own edge families once (`SLAB_FAMILY_EDGE_TYPES`); a family that
+// grows an edge overlay registers there and is picked up by BOTH the visibility
+// gate and the render-mode switch below, with nothing to keep in sync by hand.
+import { applySlabEdgeRenderMode, isSlabFamilyEdge } from '@pryzm/geometry-slab';
 
 /**
  * WallEdgeVisibilityService
@@ -89,6 +94,19 @@ export class WallEdgeVisibilityService {
         const EVENTS = [
             'bim-wall-added', 'bim-wall-updated',
             'bim-slab-added', 'bim-slab-updated',
+            // §EDGE131 (L-12100) — the two families this re-apply could never have
+            // reached. L-1227's own probe dump is the evidence: it recorded
+            // `×5 LineSegments | - | edges | 444444 | VISIBLE` and read it as a
+            // TIMING race, but the `-` in the elementType column is the real
+            // finding — `_apply()` filtered those five out by type, so no amount of
+            // re-applying would ever have hidden them, and `444444` was not a wall
+            // or a slab (`0x555555`) but FloorPanelBuilder's private edge colour.
+            // Now that both families register, their rebuilds must re-apply too,
+            // for the reason the floor-hatch handler in `initScene` gives: a floor
+            // created while already in the 3-D view must not show its perimeter
+            // until the next view switch.
+            'bim-floor-added', 'bim-floor-updated',
+            'bim-ceiling-added', 'bim-ceiling-updated',
         ] as const;
         for (const ev of EVENTS) {
             window.addEventListener(ev, reapply);
@@ -155,7 +173,10 @@ export class WallEdgeVisibilityService {
 
             if (obj.userData?.elementType === 'WallEdges') {
                 applyWallEdgeRenderMode(obj, mode);
-            } else if (obj.userData?.elementType === 'SlabEdges') {
+            } else if (isSlabFamilyEdge(obj)) {
+                // §EDGE131 — slabs, floor finishes AND ceilings. Before L-12100 this
+                // arm read `=== 'SlabEdges'`, so the two finish families were
+                // restyled by nobody as well as hidden by nobody.
                 applySlabEdgeRenderMode(obj, mode);
             }
         });
@@ -170,11 +191,20 @@ export class WallEdgeVisibilityService {
         // userData.role = 'edges' is the authoritative, type-system-independent tag
         // stamped by both WallEdgeOverlayBuilder and SlabFragmentBuilder.
         // SlabEdges are included so the V/G toggle correctly hides slab outlines too.
+        //
+        // §EDGE131 (L-12100) — THE GATE MATCHES ON A TYPE, SO AN UNTYPED OVERLAY WAS
+        // INVISIBLE TO IT. The condition below is deliberately NOT "every node with
+        // `role === 'edges'`": `lineworkProbe.attributeProducer` shows the scene also
+        // carries projection linework and the parcel ring, and a catch-all here would
+        // seize those. It follows that an overlay must REGISTER a known `elementType`
+        // to be governed at all — and until L-12100 the floor-finish and ceiling
+        // overlays registered none, so this gate skipped them on every view switch
+        // and they drew their perimeter in 3-D on every storey, permanently.
+        // `isSlabFamilyEdge` now answers for all three slab-family plate types.
         this._scene.traverse((obj) => {
             if (
-                obj.userData?.role === 'edges' &&
-                (obj.userData?.elementType === 'WallEdges' ||
-                 obj.userData?.elementType === 'SlabEdges')
+                (obj.userData?.role === 'edges' && obj.userData?.elementType === 'WallEdges') ||
+                isSlabFamilyEdge(obj)
             ) {
                 obj.visible = this._visible;
             }

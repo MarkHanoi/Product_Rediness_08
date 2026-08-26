@@ -28,6 +28,10 @@ import { resolveFloorColor, resolveLayerColor,  } from '@pryzm/core-app-model/st
 import { materialHexById } from '@pryzm/core-app-model/material-library';
 import { BimManager } from '@pryzm/core-app-model';
 import { elementRegistry } from '@pryzm/core-app-model/element-registry';
+// §EDGE131 (L-12100) — the slab family's ONE edge render-mode table. Imported so
+// the floor finish's perimeter overlay is built from the same values the view gate
+// (`WallEdgeVisibilityService.applyRenderMode`) will later apply to it.
+import { SLAB_EDGE_MODE_SETTINGS } from '../SlabFragmentBuilder';
 
 // ── Constants ────────────────────────────────────────────────────────────────
 
@@ -54,10 +58,13 @@ function makeLayerMaterial(color: string): THREE.MeshStandardMaterial {
   });
 }
 
-const FLOOR_EDGE_MATERIAL = new THREE.LineBasicMaterial({
-  color: 0x444444,
-  linewidth: 1,
-});
+// §EDGE131 (L-12100) — the floor-finish perimeter overlay is a member of the slab
+// family's edge overlays and now takes its material from that family's ONE
+// render-mode table (`SLAB_EDGE_MODE_SETTINGS`) rather than a private constant.
+// The private `0x444444` LineBasicMaterial that used to live here is what the
+// founder's production probe dump printed — `×5 LineSegments | - | edges | 444444
+// | VISIBLE` — with the `elementType` column EMPTY, which is precisely why no view
+// gate ever touched it. See `SlabFragmentBuilder.SLAB_FAMILY_EDGE_TYPES`.
 
 const FLOOR_TILE_GRID_MATERIAL = new THREE.LineBasicMaterial({
   color: 0x888888,
@@ -135,7 +142,7 @@ export class FloorPanelBuilder {
     }
 
     // Edge overlay (always — rendered slightly ABOVE top face to avoid Z-fighting).
-    this._buildEdgeOverlay(polygon, floor.serviceHoles, worldY_top, root);
+    this._buildEdgeOverlay(floor.id, polygon, floor.serviceHoles, worldY_top, root);
 
     // Tile grid overlay (if applicable).
     if (floor.finishSpec?.finishPattern && floor.finishSpec.finishPattern !== 'none') {
@@ -360,8 +367,28 @@ export class FloorPanelBuilder {
   /**
    * Edge overlay lines at the top perimeter of the floor.
    * Rendered ABOVE the top face (worldY_top + EDGE_Y_OFFSET) to prevent Z-fighting.
+   *
+   * §EDGE131 (L-12100) — BORN HIDDEN AND REGISTERED, exactly like every sibling.
+   *
+   * This overlay used to be stamped `{ floorId, role: 'edges' }` and left at the
+   * `visible = true` a fresh THREE.LineSegments is born with. The one authority for
+   * "are element edges visible in this view" — `WallEdgeVisibilityService`, driven
+   * by `view-activated` — matches `role === 'edges'` **AND** a known `elementType`,
+   * so an overlay with no `elementType` matched no arm of it: entering the 3-D view
+   * never hid it and entering plan never restyled it. Every floor finish on every
+   * storey therefore drew its perimeter permanently — the founder's *"black lines
+   * that comes over and over again from the floor finishes"*.
+   *
+   * The repair is REGISTRATION, not a private flag (C84 EI-9): stamping
+   * `elementType: 'FloorEdges'` — a member of `SLAB_FAMILY_EDGE_TYPES` — puts this
+   * overlay under the existing authority, which then hides it in 3-D and restyles
+   * it to crisp black / always-on-top in plan, where it is legitimately wanted.
+   * `visible = false` at birth mirrors `WallEdgeOverlayBuilder.ts:143` and
+   * `SlabFragmentBuilder.ts:925` and covers the window before the first
+   * `view-activated`; it is the family convention, not a second authority.
    */
   private _buildEdgeOverlay(
+    floorId: string,
     polygon: FloorVertex[],
     _serviceHoles: FloorData['serviceHoles'],
     worldY_top: number,
@@ -378,10 +405,28 @@ export class FloorPanelBuilder {
     }
 
     if (points.length >= 2) {
+      const settings = SLAB_EDGE_MODE_SETTINGS['3d'];
       const geometry = new THREE.BufferGeometry().setFromPoints(points);
-      const edgeLines = new THREE.LineSegments(geometry, FLOOR_EDGE_MATERIAL.clone());
+      // A per-floor material, never a shared singleton: applyRenderMode() mutates
+      // the material in place, so sharing one would restyle every other floor.
+      const edgeLines = new THREE.LineSegments(geometry, new THREE.LineBasicMaterial({
+        color: settings.color,
+        depthTest: settings.depthTest,
+        depthWrite: settings.depthWrite,
+      }));
       edgeLines.name = 'floor-edge-overlay';
-      edgeLines.userData = { floorId: root.userData.id, role: 'edges' };
+      edgeLines.renderOrder = settings.renderOrder;
+      edgeLines.visible = false;
+      // `floorId` is passed in rather than read off `root.userData.id`: this method
+      // runs BEFORE buildFloor() assigns root.userData, so the old read produced
+      // `undefined` on every first build and only appeared to work on rebuilds.
+      edgeLines.userData = {
+        floorId,
+        parentId: floorId,
+        elementType: 'FloorEdges',
+        role: 'edges',
+        selectable: false,
+      };
       root.add(edgeLines);
     }
   }
