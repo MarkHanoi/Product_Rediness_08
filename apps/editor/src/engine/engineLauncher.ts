@@ -74,6 +74,14 @@ import '../ui/inspect/AuditStack';
 // document.body and shows itself on `pryzm-workspace-mode` === 'analysis'.
 // Side-effect import, because nothing else needs to hold a reference to it.
 import '../ui/analysis/AnalysisSurface';
+// §HILITE140 (L-12292) — the relationship graph's hop-N related-elements push
+// to the 3-D scene. A SEPARATE side-effect import, deliberately: it subscribes
+// to `selectionBus` on its own (mirroring `graphViewState.ts`'s own
+// module-load `projectScopeRegistry.register()`), so it does not need `ui/
+// analysis/AnalysisSurface.ts` or `widgetRenderers.ts` to call into it — those
+// two files are mid-edit by a concurrent lane (§DEMO141) and this avoids
+// touching either.
+import '../ui/analysis/analysisRelatedHighlight';
 import '../ui/data/DataCommandCenter';
 // §IFC-TREE-ATTACH (L-8370..L-8376) — the "PRYZM tree / IFC tree" toggle in the
 // Inspect header, plus the IFC primitive tree it switches to. Side-effect

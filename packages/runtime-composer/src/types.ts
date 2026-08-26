@@ -1406,6 +1406,22 @@ export interface RuntimeEvents {
     readonly roomId: string;
   };
 
+  /** §HILITE140 (L-12292), 2026-08-26 — emitted by the Analysis relationship
+   *  graph card (`analysisRelatedHighlight.ts`) whenever the selection changes,
+   *  carrying the CURRENT relationship view's neighbourhood: every related
+   *  element id, mapped to its own hop distance (1 = direct neighbour, 2 = a
+   *  neighbour of a neighbour, …). `InspectModeCoordinator` subscribes and
+   *  forwards it to `diagnosticMaterialManager.setAnalysisRelated()`, which
+   *  ramps the colour/opacity lighter as the hop grows — a DELIBERATELY
+   *  SEPARATE event from `pryzm-audit-room-select`/`selectionBus`: those carry
+   *  "what is selected", this carries "what the graph says is related to it",
+   *  and the two are computed by different producers (a click vs. a BFS). An
+   *  empty `hops` array means "nothing selected, or nothing related" — both
+   *  clear the ramp, which is the honest rendering of either fact. */
+  'pryzm-analysis-related-elements': {
+    readonly hops: ReadonlyArray<readonly [string, number]>;
+  };
+
   /** Emitted by AuditStack when the element-type dropdown changes.
    *  InspectModeCoordinator subscribes to toggle room-lens ↔ ghost-with-focus.
    *  Replaces the TASK-15 `pryzm-inspect-element-type` CustomEvent.

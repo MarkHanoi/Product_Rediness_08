@@ -290,8 +290,70 @@ const ANALYSIS_SELECTED_EMISSIVE  = 0x3300aa; // keeps it legible against the gr
  * so the wash still reads as lit rather than as dirt on the grey.
  *
  * ⭐ IF THIS IS WRONG, CHANGE THIS ONE CONSTANT — nothing else encodes the reading.
+ *
+ * ⚠ AMENDED §HILITE140 (L-12291), 2026-08-26. Founder: *"I want it slightly more
+ * transparent than now, maybe 10% more."* Read as 10% of the CURRENT value, not
+ * 10 percentage points (the same falsifiable-smallest-change reasoning L-9210
+ * itself used): **0.80 → 0.72**. The hue, `depthWrite` coupling and every
+ * paragraph above are UNCHANGED and still the authority on the founder's earlier
+ * "80% opaque" decision — this amendment moves the number 10% further toward
+ * transparent from that settled point, it does not revisit it.
  */
-const ANALYSIS_SELECTED_OPACITY   = 0.80;
+const ANALYSIS_SELECTED_OPACITY   = 0.72; // was 0.80 (L-9210) — 10% more transparent (L-12291)
+
+/**
+ * §HILITE140 (L-12292) — the RELATED-BY-HOP ramp.
+ *
+ * Founder: *"I would like to also highlight the elements that are being
+ * highlighted as RELATED in the graph… I presume that not all elements have the
+ * same 'strength' in terms of relationships and it would be good to reflect that
+ * as a lighter colour palette as it goes farther in the relationship — starting
+ * anyway from a lighter one, so that clearly we identify the selected element
+ * from the rest."*
+ *
+ * ⭐ A FUNCTION OF HOP INDEX, NOT A HAND-LISTED TABLE. Raising the FOCUS HOPS
+ * slider from 1 to 4 must not need a fifth row added anywhere — `relatedHopColor`
+ * / `relatedHopAlpha` below take any `hop >= 1` and compute an answer, so the
+ * ramp's reach is exactly whatever `focusNeighbourhood` traversed (§HILITE140,
+ * L-12290's `hopOf`), never a separately-maintained limit that could disagree.
+ *
+ * TWO axes, both monotonically weaker with distance, because the founder named
+ * colour specifically ("a lighter colour palette") rather than only opacity:
+ *   · TINT   — blend `ANALYSIS_SELECTED_COLOR` toward white by
+ *              `1 - (1 - RELATED_HOP_TINT_STEP) ** hop`. Geometric, so it
+ *              approaches white without ever fully reaching it (a hop-40 element,
+ *              if the graph had one, still reads as "a colour", not as invisible
+ *              chrome) and hop 1 is ALREADY visibly lighter than the solid
+ *              selection — his "starting anyway from a lighter one".
+ *   · ALPHA  — `ANALYSIS_SELECTED_OPACITY * RELATED_HOP_ALPHA_DECAY ** hop`. The
+ *              gentler multiplier (0.75 vs the tint's 0.72) is deliberate: alpha
+ *              alone at the tint's rate would make hop 3-4 nearly transparent
+ *              AND pale at once, over-stacking the two cues where one already
+ *              reads as "farther". Both axes still move the SAME direction, so
+ *              they reinforce rather than fight.
+ *
+ * ⛔ NEVER Inspect's violet (§ANALYSIS-IS-GREY-AND-PURPLE, L-6410) — every step
+ * of the ramp is a blend of `ANALYSIS_SELECTED_COLOR` (PRYZM purple) toward
+ * white, never toward Inspect's `INSPECT_BLUE`/`VOLUME_SELECTED_COLOR`.
+ */
+const RELATED_HOP_TINT_STEP  = 0.28; // fraction blended toward white, PER hop
+const RELATED_HOP_ALPHA_DECAY = 0.75; // opacity multiplier, PER hop
+
+/** Blend `from` toward `to` by `t` (0 = `from`, 1 = `to`), via THREE's own RGB lerp. */
+function _lerpColor(from: number, to: number, t: number): number {
+  return new THREE.Color(from).lerp(new THREE.Color(to), t).getHex();
+}
+
+/** PRYZM purple, progressively lightened toward white as `hop` grows. `hop` >= 1. */
+function relatedHopColor(hop: number): number {
+  const t = 1 - Math.pow(1 - RELATED_HOP_TINT_STEP, hop);
+  return _lerpColor(ANALYSIS_SELECTED_COLOR, 0xffffff, t);
+}
+
+/** The selection's own opacity, decayed once per hop. `hop` >= 1. */
+function relatedHopAlpha(hop: number): number {
+  return ANALYSIS_SELECTED_OPACITY * Math.pow(RELATED_HOP_ALPHA_DECAY, hop);
+}
 
 /**
  * §INSPECT-FOCUS-IS-THE-ONLY-COLOUR (L-3511) — THE Inspect blue.
@@ -369,6 +431,21 @@ export class DiagnosticMaterialManager {
   private _activeLens:    InspectLens = 'ghost';
   /** §ANALYSIS-IS-GREY-AND-PURPLE (L-6410) — ids the Analysis lens paints purple. */
   private _analysisSelection: ReadonlySet<string> = new Set<string>();
+  /**
+   * §HILITE140 (L-12292) — ids the relationship GRAPH reaches from the current
+   * selection, each mapped to its OWN hop distance (1 = direct neighbour, 2 = a
+   * neighbour of a neighbour, …), so the RENDER can lighten as it goes farther.
+   *
+   * ⛔ SEPARATE FIELD FROM `_analysisSelection` ON PURPOSE, same shape as the
+   * `_focusedElementIds` / `_analysisSelection` split above: one mechanism
+   * (`_applyAnalysisSelection`), two DIFFERENT questions ("what did the reader
+   * click" vs "what does the graph say is related to it"). A selected id that
+   * also appears here (a cycle in the graph, or depth-N re-reaching a seed) is
+   * resolved in favour of SELECTED — see the ordering inside
+   * `_applyAnalysisSelection` — so one element is never painted two conflicting
+   * ways.
+   */
+  private _analysisRelatedHops: ReadonlyMap<string, number> = new Map<string, number>();
   /**
    * §INSPECT-FOCUS-IS-ELEMENT-SHAPED (L-8200) — the element ids the INSPECT lenses
    * emphasise: a room as the §1.3 violet jewel, anything else as the Inspect-blue
@@ -1477,6 +1554,7 @@ export class DiagnosticMaterialManager {
   private _applyAnalysisSelection(scene: THREE.Scene): void {
     this._stopPulse(); // clears `_pulseMeshes` AND cancels any tick from a room that was selected a moment ago
     const selected = this._analysisSelection;
+    const related  = this._analysisRelatedHops; // §HILITE140 (L-12292)
 
     scene.traverse(obj => {
       if (!(obj instanceof THREE.Mesh)) return;
@@ -1517,7 +1595,18 @@ export class DiagnosticMaterialManager {
       if (obj.userData.isRoomVolume) {
         const roomId = (obj.userData.roomId as string | undefined) ?? this._resolveElementId(obj);
         const isSelected = roomId != null && selected.has(roomId);
-        obj.visible = isSelected || UiPreferences.get('showRoomVolumeColour');
+        // §HILITE140 (L-12292) — a room the GRAPH reaches from the selection, at
+        // its own hop distance. SELECTED wins if a room is somehow both (a cycle
+        // reaching a seed again) — checked first, so `isRelated` can never fire
+        // for an already-selected room.
+        const hop = !isSelected && roomId != null ? related.get(roomId) : undefined;
+        const isRelated = hop !== undefined;
+        // §ANALYSIS-ROOM-VOLUME-SELECTED (L-12240) EXTENDED — a RELATED room's
+        // volume needs the SAME forced-visible treatment a SELECTED one gets, for
+        // the identical reason: `_applyToMesh` only ever replaces `.material`, so
+        // painting a lighter purple onto a volume nobody can see (the ambient
+        // preference is OFF) would repeat L-12240's exact defect one hop out.
+        obj.visible = isSelected || isRelated || UiPreferences.get('showRoomVolumeColour');
 
         if (isSelected) {
           const mat = new THREE.MeshPhongMaterial({
@@ -1534,7 +1623,23 @@ export class DiagnosticMaterialManager {
           return;
         }
 
-        // Not selected: put back whatever this mesh wore before Analysis touched
+        if (isRelated) {
+          // No pulse — the breathing animation is a SELECTED-only signal (§1.3);
+          // giving every related room the same tick would make "which one did I
+          // click" unreadable in a busy neighbourhood.
+          this._applyToMesh(obj, new THREE.MeshPhongMaterial({
+            color:             relatedHopColor(hop!),
+            emissive:          new THREE.Color(relatedHopColor(hop!)),
+            emissiveIntensity: 0.30,
+            opacity:           relatedHopAlpha(hop!),
+            transparent:       true,
+            side:              THREE.DoubleSide,
+            depthWrite:        false,
+          }));
+          return;
+        }
+
+        // Neither: put back whatever this mesh wore before Analysis touched
         // it (its own authored room colour) rather than leaving it in last
         // click's purple. `resolveGhostRole`'s "leave rooms alone" below only
         // holds for a room that was NEVER repainted while deselected — true
@@ -1549,6 +1654,15 @@ export class DiagnosticMaterialManager {
       // `_resolveElementId` walks ancestors, so a child mesh of a door/window
       // GROUP resolves to the group's id — the same reason `_resolveElementType`
       // exists (see the file header on doors/windows carrying no own userData).
+      //
+      // ⚠ Also the reason this SAME branch already reaches an instanced element's
+      // hit-proxy (walls being the majority case, per the founder's own report):
+      // `_applyToMesh` replaces the WHOLE material, so a hit-proxy's authored
+      // `colorWrite:false` is overwritten unconditionally — this method has no
+      // `resolveGhostRole`/hit-proxy exemption (unlike the Inspect ghost pass),
+      // so an instanced wall's proxy becomes a visible, correctly-coloured stand-in
+      // with no extra code. This is why Analysis' selected-highlight already
+      // worked for walls before this lane; it carries over unchanged for "related".
       const id = this._resolveElementId(obj);
       if (id !== null && selected.has(id)) {
         this._applyToMesh(obj, new THREE.MeshPhongMaterial({
@@ -1557,13 +1671,37 @@ export class DiagnosticMaterialManager {
           opacity:     ANALYSIS_SELECTED_OPACITY,
           transparent: true,
           side:        THREE.DoubleSide,
-          // §ANALYSIS-SELECTION-IS-TRANSPARENT-PURPLE (L-9203), AMENDED L-9210.
+          // §ANALYSIS-SELECTION-IS-TRANSPARENT-PURPLE (L-9203), AMENDED L-9210/L-12291.
           // This tracks the ALPHA and must move with it. At 0.20 it had to be
           // `false` — a mostly-TRANSPARENT surface that writes depth occludes what
-          // is behind it and sorts badly against the ghost. At 0.80 the surface is
-          // mostly OPAQUE, so writing depth is correct again and NOT writing it
+          // is behind it and sorts badly against the ghost. At 0.72 the surface is
+          // still mostly OPAQUE, so writing depth is correct and NOT writing it
           // makes a solid-looking wash sort behind the grey it is meant to sit on.
           depthWrite:  true,
+        }));
+        return;
+      }
+
+      // §HILITE140 (L-12292) — a NON-room element the graph reaches from the
+      // selection. Same ordering rule as the room branch: `selected.has(id)` above
+      // already returned for a selected id, so this can only fire for an id that
+      // is related but not itself selected.
+      if (id !== null && related.has(id)) {
+        const hop = related.get(id)!;
+        // §HILITE140 — the alpha DECREASES with hop (see `relatedHopAlpha`), so
+        // the depth-write coupling L-9203/L-9210 established for the selection
+        // material is re-derived per hop rather than copied as a fixed boolean: a
+        // hop far enough to read as mostly-transparent must stop writing depth
+        // for the same sorting reason 0.20 did, and a near hop that is still
+        // mostly-opaque should keep doing so, exactly like the selection itself.
+        const alpha = relatedHopAlpha(hop);
+        this._applyToMesh(obj, new THREE.MeshPhongMaterial({
+          color:       relatedHopColor(hop),
+          emissive:    relatedHopColor(hop),
+          opacity:     alpha,
+          transparent: true,
+          side:        THREE.DoubleSide,
+          depthWrite:  alpha > 0.5,
         }));
         return;
       }
@@ -1918,6 +2056,34 @@ export class DiagnosticMaterialManager {
    */
   setAnalysisSelection(ids: Iterable<string>, scene: THREE.Scene | null): void {
     this._analysisSelection = new Set(ids);
+    if (scene && this._active && this._activeLens === 'analysis') {
+      this._applyAnalysisSelection(scene);
+    }
+  }
+
+  /**
+   * §HILITE140 (L-12292) — replace the hop map the Analysis lens ramps its
+   * related-element colour by. A DELIBERATELY SEPARATE sink from
+   * `setAnalysisSelection` (never a second call site of it —
+   * `analysisHighlightReachability.spec.ts` pins that call count at exactly one):
+   * "what is selected" and "what does the graph say is related" are two
+   * different questions with two different producers (a click, vs. a BFS over
+   * the current relationship view), and merging them would make a click that
+   * carries no hop information indistinguishable from one that does.
+   *
+   * @param hops Element id → hop distance (1 = direct neighbour, 2 = a
+   *             neighbour of a neighbour, …). Accepts a `Map` or a plain
+   *             `[id, hop][]` entry list so a caller reached only via a
+   *             structured-clone-safe runtime event (an array, never a Map) does
+   *             not need its own conversion.
+   */
+  setAnalysisRelated(
+    hops: ReadonlyMap<string, number> | ReadonlyArray<readonly [string, number]>,
+    scene: THREE.Scene | null,
+  ): void {
+    // `Map` and `[id, hop][]` are BOTH iterable as `[k, v]` pairs, so one
+    // constructor call normalises either input — no branch needed.
+    this._analysisRelatedHops = new Map(hops);
     if (scene && this._active && this._activeLens === 'analysis') {
       this._applyAnalysisSelection(scene);
     }

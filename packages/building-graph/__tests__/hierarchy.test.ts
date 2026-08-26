@@ -263,6 +263,36 @@ describe('L-8420 — "select a wall in PRYZM, see its topology"', () => {
   });
 });
 
+describe('§HILITE140 (L-12290) — hopOf: the SAME BFS names its own ring number', () => {
+  const topo = () => projectHierarchy(NODES, EDGES, 'topology', { families: CENSUS });
+
+  it('the seed is hop 0; the first ring reached is hop 1; a farther ring is hop 2', () => {
+    const f = focusNeighbourhood(topo(), ['wall_a'], 2);
+    expect(f.hopOf.get('wall_a')).toBe(0);
+    expect(f.hopOf.get('room_1')).toBe(1);
+    expect(f.hopOf.get('door_1')).toBe(1);
+    // room_2 is reachable from wall_a only THROUGH room_1 (adjacentTo/connectsTo),
+    // so it is two hops out, not one.
+    expect(f.hopOf.get('room_2')).toBe(2);
+  });
+
+  it('hopOf holds EXACTLY the ids in nodeIds — the same set, named a different way', () => {
+    const f = focusNeighbourhood(topo(), ['wall_a'], 1);
+    expect(new Set(f.hopOf.keys())).toEqual(f.nodeIds);
+    // room_2 is two hops out; at depth 1 it is in NEITHER set.
+    expect(f.hopOf.has('room_2')).toBe(false);
+    expect(f.nodeIds.has('room_2')).toBe(false);
+  });
+
+  it('two seeds are BOTH hop 0, even though they are on opposite sides of the graph', () => {
+    const f = focusNeighbourhood(topo(), ['wall_a', 'room_2'], 1);
+    expect(f.hopOf.get('wall_a')).toBe(0);
+    expect(f.hopOf.get('room_2')).toBe(0);
+    // room_1 is one hop from EITHER seed — still hop 1, not double-counted.
+    expect(f.hopOf.get('room_1')).toBe(1);
+  });
+});
+
 describe('L-8417 — node selection is EDGE-DRIVEN, so every count is exact for what is drawn', () => {
   it('⛔ an isolated node is not drawn under a heading that promises a relationship', () => {
     const withOrphan = [...NODES, { id: 'orphan_1', kind: 'wall' } as UbgNode];

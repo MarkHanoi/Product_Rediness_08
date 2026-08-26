@@ -401,6 +401,17 @@ export interface NeighbourhoodFocus {
   readonly seedsNotInView: readonly string[];
   /** Node ids within `depth` hops of any seed, seeds included. */
   readonly nodeIds: ReadonlySet<string>;
+  /**
+   * §HILITE140 (L-12290) — the SAME BFS's own hop number for every id in
+   * `nodeIds`: a seed is `0`, its direct neighbours are `1`, and so on up to
+   * `depth`. Threaded out rather than re-derived, for the 3-D scene highlight
+   * that wants "how far" as well as "in or out" — see
+   * `DiagnosticMaterialManager._applyAnalysisSelection`'s hop-colour ramp, the
+   * first consumer that needed per-node distance instead of flat membership.
+   * `nodeIds` is kept exactly as it was (the flat union every existing
+   * caller reads) rather than replaced, so this is additive, not a rename.
+   */
+  readonly hopOf: ReadonlyMap<string, number>;
   /** Edges with BOTH endpoints inside `nodeIds`, i.e. the drawn neighbourhood. */
   readonly edgeKeys: ReadonlySet<string>;
   /** How many hops were traversed. Stated on the card; never assumed to be 1. */
@@ -442,6 +453,11 @@ export function focusNeighbourhood(
   for (const id of seedIds) (present.has(id) ? seeds : missing).push(id);
 
   const reached = new Set<string>(seeds);
+  // §HILITE140 (L-12290) — the hop number is FREE inside this loop: every id
+  // added to `reached` is added at exactly one iteration of `hop`, so recording
+  // it here costs one Map write per node and needs no second traversal.
+  const hopOf = new Map<string, number>();
+  for (const s of seeds) hopOf.set(s, 0);
   let frontier: string[] = [...seeds];
 
   // Adjacency over the DRAWN edges only — the same rule `renderNodeLink` follows
@@ -465,6 +481,7 @@ export function focusNeighbourhood(
       for (const other of adj.get(id) ?? []) {
         if (reached.has(other)) continue;
         reached.add(other);
+        hopOf.set(other, hop + 1); // seeds are hop 0; the first ring reached is hop 1
         next.push(other);
       }
     }
@@ -479,7 +496,7 @@ export function focusNeighbourhood(
     byFamily.set(e.type, (byFamily.get(e.type) ?? 0) + 1);
   }
 
-  return { seeds, seedsNotInView: missing, nodeIds: reached, edgeKeys, depth: d, byFamily };
+  return { seeds, seedsNotInView: missing, nodeIds: reached, hopOf, edgeKeys, depth: d, byFamily };
 }
 
 /**

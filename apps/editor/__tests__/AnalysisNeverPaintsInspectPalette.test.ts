@@ -256,6 +256,11 @@ describe('§ANALYSIS-OWNS-ITS-PALETTE (L-9200) — Analysis never paints Inspect
     // built to force. The mechanism worked: a value he could SEE produced a decision.
     // ⚠ `depthWrite` moves WITH this number (true at 0.80, false at 0.20) — see
     // `ANALYSIS_SELECTED_OPACITY`. Changing one without the other is the defect.
-    expect(alphaOf(f.wall)).toBeCloseTo(0.80, 5);
+    //
+    // ⚠ AMENDED §HILITE140 (L-12291), 2026-08-26: *"I want it slightly more
+    // transparent than now, maybe 10% more."* 0.80 → 0.72 (10% of the CURRENT
+    // value, the same falsifiable-smallest-change reading L-9210 itself used).
+    // The hue and the L-9210 decision above are UNCHANGED; only this literal moves.
+    expect(alphaOf(f.wall)).toBeCloseTo(0.72, 5);
   });
 });

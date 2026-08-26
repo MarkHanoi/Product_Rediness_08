@@ -23,7 +23,10 @@
  *   pryzm-inspect-discovery        { rooms, ... }  → discovery heatmap (DiagnosticMaterialManager)
  *   pryzm-inspect-element-type     { elementType } → toggle room-lens ↔ ghost-with-focus
  *   pryzm-inspect-attribute-focus  { elementType, attributeKey, heatmap } → attribute heatmap
+ *   pryzm-analysis-related-elements { hops }      → §HILITE140 (L-12292) — the relationship
+ *                                    graph's hop-N neighbourhood of the current selection
  *
+
  * CONTRACT RULES:
  *   - NEVER mutates stores, ElementRegistry, or the semantic graph
  *   - NEVER dispatches commands
@@ -93,6 +96,8 @@ export class InspectModeCoordinator implements IInspectModeCoordinator {
   private _unsubRoomFocus:      (() => void) | null = null;
   /** §HILITE140 (L-12280) — the bottom Inspect table's per-element row click. */
   private _unsubAuditSelect:    (() => void) | null = null;
+  /** §HILITE140 (L-12292) — the Analysis relationship graph's hop neighbourhood. */
+  private _unsubAnalysisRelated: (() => void) | null = null;
   private _unsubElementType:    (() => void) | null = null;
   private _unsubAttributeFocus: (() => void) | null = null;
   private _unsubSelection:      (() => void) | null = null;
@@ -118,6 +123,7 @@ export class InspectModeCoordinator implements IInspectModeCoordinator {
     // §HILITE140 (L-12280) — see `_onAuditSelect` for why this event, despite its
     // room-shaped name, is the wire that was missing for every OTHER family.
     this._unsubAuditSelect    = window.runtime?.events?.on('pryzm-audit-room-select',        this._onAuditSelect.bind(this)) ?? null;
+    this._unsubAnalysisRelated = window.runtime?.events?.on('pryzm-analysis-related-elements', this._onAnalysisRelated.bind(this)) ?? null;
     this._unsubElementType    = window.runtime?.events?.on('pryzm-inspect-element-type',     this._onElementType.bind(this)) ?? null;
     this._unsubAttributeFocus = window.runtime?.events?.on('pryzm-inspect-attribute-focus',  this._onAttributeFocus.bind(this)) ?? null;
     // §ANALYSIS-IS-GREY-AND-PURPLE (L-6410) — the canonical selection event.
@@ -230,6 +236,7 @@ export class InspectModeCoordinator implements IInspectModeCoordinator {
     this._unsubDelta?.();          this._unsubDelta = null;
     this._unsubRoomFocus?.();      this._unsubRoomFocus = null;
     this._unsubAuditSelect?.();    this._unsubAuditSelect = null;
+    this._unsubAnalysisRelated?.(); this._unsubAnalysisRelated = null;
     this._unsubElementType?.();    this._unsubElementType = null;
     this._unsubAttributeFocus?.(); this._unsubAttributeFocus = null;
     this._unsubSelection?.();      this._unsubSelection = null;
@@ -486,6 +493,23 @@ export class InspectModeCoordinator implements IInspectModeCoordinator {
       `[InspectModeCoordinator] Inspect focus set from audit-select event `
       + `(source=${source ?? 'unknown'}): ${roomId}`,
     );
+  }
+
+  /**
+   * §HILITE140 (L-12292) — the Analysis relationship graph's hop-N neighbourhood
+   * of the current selection. Forwarded to `diagnosticMaterialManager` through
+   * its OWN sink (`setAnalysisRelated`), never through `setAnalysisSelection` —
+   * see that method's doc comment for why the two must not merge.
+   *
+   * ⚠ NOT gated on `this._active` here (unlike `_setFocusedElements`) — the
+   * gate lives INSIDE `setAnalysisRelated` itself (`this._active &&
+   * this._activeLens === 'analysis'`), the exact same shape
+   * `setAnalysisSelection` already uses. Duplicating that guard here would be a
+   * second copy of one condition to keep in sync.
+   */
+  private _onAnalysisRelated(payload: unknown): void {
+    const hops = (payload as { hops?: ReadonlyArray<readonly [string, number]> })?.hops ?? [];
+    diagnosticMaterialManager.setAnalysisRelated(hops, this._scene);
   }
 
   /**
