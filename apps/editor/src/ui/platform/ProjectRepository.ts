@@ -398,16 +398,111 @@ interface _ParsedContainer { entries: _V2Entry[]; journal: _V3Journal | null }
  * instrument reported them identically — the same §CONTEXT-DATA-HONESTY failure as
  * `thumbnail: none`, applied to a write.
  *
- * It is a REAL DOUBLE WRITE, and the two writers are now named in the line itself:
+ * It WAS a REAL DOUBLE WRITE, and the two writers were named in the line itself:
  *   1. `save-version`       — `saveVersionWithMeta`, the autosave proper.
  *   2. `sync-status-patch`  — `updateSyncStatus(…, 'synced')`, driven by
  *      `ServerSyncQueue.ts:815` → `PlatformSaveController.ts:83`, moments later, to flip
- *      ONE enum on ONE record. It rewrites the ENTIRE container to do it.
+ *      ONE enum on ONE record. It rewrote the ENTIRE container to do it.
  *      (`'sync-pending'` at `ServerSyncQueue.ts:466` is already short-circuited into the
  *      in-memory overlay by §PERF-SYNCSTATUS-TRANSIENT-NOT-PERSISTED / L-8702, which is
- *      why there are two lines and not three.)
+ *      why there were two lines and not three.)
+ *
+ * ⭐ §SUSTAIN109 (L-11545, 2026-08-26) — THE SECOND WRITER IS GONE. A durable sync
+ * status is METADATA about a version, not version CONTENT, so it now lives in its own
+ * tiny sidecar record (§SYNCSTATUS-SIDECAR below) and `updateSyncStatus` never touches
+ * the container at all. One save tick = ONE container write, and the founder's console
+ * shows exactly one `reason=save-version` line per tick. `'sync-status-patch'` is
+ * removed from this union deliberately: the compiler now proves no container write can
+ * claim that reason again.
  */
-type _ContainerWriteReason = 'save-version' | 'sync-status-patch' | 'legacy-whole-array' | 'unspecified';
+type _ContainerWriteReason = 'save-version' | 'legacy-whole-array' | 'unspecified';
+
+/**
+ * §SYNCSTATUS-SIDECAR (§SUSTAIN109, L-11545) — the durable per-project id→syncStatus
+ * map, stored OUTSIDE the version container.
+ *
+ * ─── WHY THIS EXISTS ─────────────────────────────────────────────────────────
+ * C05 §3.6 req 6 named the residual honestly: *"the floor with this container shape is
+ * TWO writes, not one (the save, plus one terminal status write). Reaching one requires
+ * `syncStatus` to leave the container for a sidecar id→status map — named and costed in
+ * L-8702, not shipped blind."* This is that sidecar, shipped. `updateSyncStatus(…,
+ * 'synced')` used to re-serialize + re-put the WHOLE ~2 MB container to flip one enum
+ * (measured `4e4043f9`: ~3 ms parse + ~4 ms stringify + one re-DEFLATE + one ~2 MB
+ * IndexedDB put, EVERY autosave tick). Now it writes ONE record of a few hundred bytes.
+ *
+ * ─── WHERE IT LIVES, AND WHY ─────────────────────────────────────────────────
+ * In the SAME IndexedDB object store as the containers (`pryzm-project-versions` /
+ * `versions`), under the key `syncstatus::<projectId>`. That choice is load-bearing:
+ *   • no IDB schema bump (C47) — the object store set is unchanged, so an old build
+ *     opening the DB sees nothing new to migrate and simply ignores the extra keys
+ *     (a project id can never begin `syncstatus::`, so no collision is possible);
+ *   • `VersionCacheStore.warm()`'s cursor loads it into the synchronous mirror for
+ *     free, so the overlay is readable at the same moment the containers are;
+ *   • this module is already the single writer of this store's keys (C13).
+ *
+ * ─── THE TAB-CLOSE GUARD (the trap PERF104 named) ────────────────────────────
+ * PERF104 refused to coalesce the status write because losing a `'synced'` marker on
+ * tab close must not overstate unsynced work. This design needs NO beforeunload flush,
+ * because the failure direction is conservative BY CONSTRUCTION:
+ *   • `unsyncedWorkGuard` counts from the ServerSyncQueue's own persisted queue
+ *     (`reportUnsyncedWork`), which the queue updates independently of this map — a
+ *     lost status put adds no queue item, so the guard cannot overstate;
+ *   • a lost `'synced'` put leaves the stored record reading `'local-only'`, which is
+ *     the CONSERVATIVE badge (same disposition C05 §3.6 req 6 assigns an interrupted
+ *     upload), and the queue's own 2xx bookkeeping still prevents any re-upload;
+ *   • C48 §1 ("the server already has this" may not live only in RAM) is satisfied:
+ *     the put IS durable — one tiny IDB put that completes in the same breath the old
+ *     2 MB put merely STARTED in.
+ *
+ * ─── HYGIENE ─────────────────────────────────────────────────────────────────
+ * `_commitSlots` prunes the map to the stored version ids (same bound as the blob
+ * cache and the transient overlay); `deleteVersions` deletes the record; a re-save of
+ * a version id drops that id's entry (a content write restarts its status story).
+ * When IndexedDB is unavailable the map is mirror-only for the session — exactly the
+ * durability the old flag-off no-IDB branch had (`putVersions` on a disabled store
+ * never reached localStorage either), so nothing regressed.
+ */
+const SYNC_STATUS_KEY_PREFIX = 'syncstatus::';
+const SYNC_STATUS_FORMAT = 'syncstatus1';
+function _syncStatusKey(projectId: string): string { return SYNC_STATUS_KEY_PREFIX + projectId; }
+
+interface _DurableStatusRecord { f: typeof SYNC_STATUS_FORMAT; s: Record<string, VersionRecord['syncStatus']> }
+
+/** Parse cache keyed on the raw string identity, so 20 record-reads parse once. */
+const _durableStatusCache = new Map<string, { raw: string; map: Record<string, VersionRecord['syncStatus']> }>();
+
+/** The durable id→status map for a project, or null when none is stored/readable. */
+function _durableStatusFor(projectId: string): Record<string, VersionRecord['syncStatus']> | null {
+    let raw: string | undefined;
+    try { raw = getVersionCacheStore().getVersionsSync(_syncStatusKey(projectId)); } catch { return null; }
+    if (!raw) return null;
+    const hit = _durableStatusCache.get(projectId);
+    if (hit && hit.raw === raw) return hit.map;
+    try {
+        const parsed = JSON.parse(raw) as _DurableStatusRecord;
+        if (!parsed || parsed.f !== SYNC_STATUS_FORMAT || typeof parsed.s !== 'object' || parsed.s === null) return null;
+        _durableStatusCache.set(projectId, { raw, map: parsed.s });
+        return parsed.s;
+    } catch {
+        return null; // undecodable sidecar — the inline (conservative) status stands
+    }
+}
+
+/** Write the durable id→status map (mirror synchronously, IDB fire-and-forget). */
+function _writeDurableStatus(projectId: string, map: Record<string, VersionRecord['syncStatus']>): void {
+    const raw = JSON.stringify({ f: SYNC_STATUS_FORMAT, s: map } satisfies _DurableStatusRecord);
+    _durableStatusCache.set(projectId, { raw, map });
+    try { getVersionCacheStore().putVersions(_syncStatusKey(projectId), raw); } catch { /* mirror holds it for the session */ }
+}
+
+/** Drop ONE version id's durable status entry (a content re-save restarts its story). */
+function _dropDurableStatus(projectId: string, versionId: string): void {
+    const map = _durableStatusFor(projectId);
+    if (!map || !(versionId in map)) return;
+    const next = { ...map };
+    delete next[versionId];
+    _writeDurableStatus(projectId, next);
+}
 
 /**
  * §JOURNAL-SIDECAR — parse a stored payload's ENVELOPE, whichever format it is
@@ -605,6 +700,11 @@ function _assembleContainer(entries: _V2Entry[], journal: _V3Journal | null): st
  * ⛔ Do NOT extend this to `synced`. That would trade 36.8 MB of writes for the
  * possibility of re-uploading a version after a crash, and "the server already
  * has this" is not a claim that may live only in RAM (C48).
+ *
+ * > ⭐ Amended 2026-08-26 (§SUSTAIN109, L-11545): 2 → 1. `synced` is STILL durable —
+ * > the rule above stands untouched — but it is now durable in its OWN tiny record
+ * > (§SYNCSTATUS-SIDECAR) rather than inside the container, so the second
+ * > whole-container write is gone entirely. This map remains transient-only.
  */
 const _transientSyncStatus = new Map<string, Map<string, VersionRecord['syncStatus']>>();
 function _transientFor(projectId: string): Map<string, VersionRecord['syncStatus']> {
@@ -612,10 +712,22 @@ function _transientFor(projectId: string): Map<string, VersionRecord['syncStatus
     if (!m) { m = new Map<string, VersionRecord['syncStatus']>(); _transientSyncStatus.set(projectId, m); }
     return m;
 }
-/** Overlay the in-memory transient status onto a decoded record (identity when none). */
-function _applyTransientStatus(projectId: string, record: VersionRecord): VersionRecord {
+/**
+ * Overlay BOTH status layers onto a decoded record (identity when neither applies).
+ *
+ * §SUSTAIN109 (L-11545) — order is the ladder's order: the DURABLE sidecar entry
+ * (§SYNCSTATUS-SIDECAR — what the server durably confirmed) is superseded by the
+ * TRANSIENT in-session entry (`'sync-pending'` — an upload in flight right now),
+ * exactly as `updateSyncStatus` already deletes the transient entry when a durable
+ * rung lands. The record's INLINE value is the save-time status and is the
+ * conservative floor both overlays sit on.
+ */
+function _applyStatusOverlays(projectId: string, record: VersionRecord): VersionRecord {
     const pending = _transientSyncStatus.get(projectId)?.get(record.id);
-    return pending === undefined ? record : { ...record, syncStatus: pending };
+    const status = pending ?? _durableStatusFor(projectId)?.[record.id];
+    return (status === undefined || status === record.syncStatus)
+        ? record
+        : { ...record, syncStatus: status };
 }
 
 /**
@@ -1736,7 +1848,7 @@ export class LocalVersionRepository implements IVersionRepository {
                     `journal-attach ${__ms(__tParse, __tJournal)} ms ` +
                     `= ${__ms(__t0, __tJournal)} ms before the loader has seen a single element.`,
                 );
-                return _applyTransientStatus(projectId, __record); // L-8702 overlay
+                return _applyStatusOverlays(projectId, __record); // L-8702 transient + L-11545 durable overlay
             }
             const all = this._decodeVersionsPayload(projectId, raw);
             return all.length > 0 ? all[all.length - 1]! : null;
@@ -1779,7 +1891,7 @@ export class LocalVersionRepository implements IVersionRepository {
                 // swallow) any version whose cursor the sidecar could not satisfy.
                 const __attach = attachJournalMutations(__record.snapshot, journal);
                 if (__attach.wasDetached && !__attach.exact) __inexact++;
-                out.push(_applyTransientStatus(projectId, __record));
+                out.push(_applyStatusOverlays(projectId, __record));
                 // ⛔ §PERF-VERSION-NARROW-READ (L-1300) — CACHE ONLY ACTUALLY-COMPRESSED
                 // BLOBS. The in-session MIRROR is now a v2 container whose newest
                 // entry may hold RAW JSON (it is written before the worker's deflate
@@ -1809,7 +1921,7 @@ export class LocalVersionRepository implements IVersionRepository {
         }
         // Legacy v1 whole-array blob / raw JSON.
         return (JSON.parse(_decompressJSON(raw)) as VersionRecord[])
-            .map(v => _applyTransientStatus(projectId, v)); // L-8702 overlay, both formats
+            .map(v => _applyStatusOverlays(projectId, v)); // L-8702 transient + L-11545 durable overlay, both formats
     }
 
     saveVersions(projectId: string, versions: VersionRecord[]): void {
@@ -1842,6 +1954,14 @@ export class LocalVersionRepository implements IVersionRepository {
         // `importProject`, `deleteVersion`); the stored journal it would otherwise
         // be compared against describes the array it is REPLACING.
         _journalMirror.delete(projectId);
+        // §SYNCSTATUS-SIDECAR (L-11545) — and the durable status overlay with them.
+        // Safe AND lossless: every record this wholesale writer is handed came out of
+        // an OVERLAID read, so its inline `syncStatus` already carries the durable
+        // fact, and it is about to be stored inline. Keeping the old map would let a
+        // stale entry shadow a record a caller deliberately edited (the L-5807 shape,
+        // one level up).
+        _durableStatusCache.delete(projectId);
+        try { getVersionCacheStore().deleteVersions(_syncStatusKey(projectId)); } catch { /* non-fatal */ }
         this.saveVersionsWithQuota(projectId, versions);
     }
 
@@ -1854,6 +1974,11 @@ export class LocalVersionRepository implements IVersionRepository {
         // here, so drop any cached blob for its id; every other version reuses its
         // cached blob and is not re-deflated.
         _blobCacheFor(projectId).delete(version.id);
+        // §SYNCSTATUS-SIDECAR (L-11545) — a content write restarts this id's status
+        // story: the record being written carries its own save-time syncStatus, and a
+        // stale durable overlay from a PREVIOUS upload of the same id must not shadow
+        // it. No-op (no write) when no entry exists — i.e. on every normal autosave.
+        _dropDurableStatus(projectId, version.id);
 
         // §PERF-VERSION-ENVELOPE-WRITE (L-5801) — THE NARROW APPEND.
         //
@@ -2008,61 +2133,59 @@ export class LocalVersionRepository implements IVersionRepository {
         // A DURABLE status supersedes any transient one for this id.
         _transientSyncStatus.get(projectId)?.delete(versionId);
 
-        // §VERSION-QUOTA-INDEXEDDB — persist to IDB (durable, large quota). Never
-        // throws; the mirror is updated synchronously so the next read is correct.
+        // §SUSTAIN109 (L-11545) — A DURABLE STATUS IS METADATA, NOT CONTENT, AND IT
+        // NO LONGER COSTS A CONTAINER WRITE.
+        //
+        // The predecessor of this block was §PERF-VERSION-ENVELOPE-WRITE's "narrow
+        // patch" (L-5802): inflate ONE record, flip the enum, re-deflate it — and then
+        // re-serialize + re-put the ENTIRE ~2 MB container, once per autosave tick,
+        // moments after the save had just written the same container. PERF104 traced
+        // the founder's doubled console line to exactly this writer (`3eec0465`).
+        // C05 §3.6 req 6 already named the fix — "syncStatus leaves the container for
+        // a sidecar id→status map" — and this is it: one tiny durable record
+        // (§SYNCSTATUS-SIDECAR), overlaid onto every read by _applyStatusOverlays,
+        // for BOTH container formats and regardless of the offload flag.
+        //
+        // ⛔ WHAT IS DELIBERATELY UNCHANGED:
+        //   • `'synced'` is still WRITTEN DURABLY (C48 §1 — "the server already has
+        //     this" may not live only in RAM). The put is durable; it is merely small.
+        //   • an unknown versionId is still a no-op (checked against the envelope /
+        //     blob cache below, exactly the ids the old findIndex saw);
+        //   • the stored container bytes are untouched, so the blob cache stays valid
+        //     — a status flip is no longer a content change, which also removes the
+        //     one cache invalidation this path used to need.
         try {
-            const store = getVersionCacheStore();
-            if (_saveWorkerOffloadEnabled() && !store.isDisabled()) {
-                // §PERF-VERSION-ENVELOPE-WRITE (L-5802) — THE NARROW PATCH.
-                //
-                // This runs on EVERY successful server sync, i.e. once per autosave,
-                // moments after the save itself. It used to open with the SAME full
-                // 20-snapshot inflate as the save did — so one autosave paid the
-                // whole-history decode TWICE. MEASURED (lane LOAD30, 2026-08-22,
-                // `node --expose-gc tools/perf/bench-version-container.mjs`):
-                // 2640 ms → 324 ms (8.1×).
-                //
-                // Only ONE version's content changes (its `syncStatus` field), so
-                // only ONE has to be inflated, patched and re-deflated; the other 19
-                // are carried forward as bytes.
-                const container = this._envelopeContainer(projectId);
-                if (container !== null) {
-                    const slots = container.slots;
-                    const at = slots.findIndex(s => s.id === versionId);
-                    if (at < 0) return; // unknown version — same no-op as before
-                    const current = slots[at];
-                    const raw = current.json ?? _decompressJSON(current.blob ?? '');
-                    const record = JSON.parse(raw) as VersionRecord;
-                    if (record.syncStatus === syncStatus) return; // already there — no rewrite
-                    record.syncStatus = syncStatus;
-                    _blobCacheFor(projectId).delete(versionId);
-                    // ⭐ §JOURNAL-SIDECAR — THE CURSOR IS CARRIED, NOT RE-DERIVED, and
-                    // the journal is not touched at all. This path patches ONE enum on
-                    // ONE record; the record's stored form already holds
-                    // `temporalGraph.mutationsRef`, which survives the parse/stringify
-                    // round-trip untouched, so re-attaching a journal here only to
-                    // detach it again would be pure work. Preserving `current.ref`
-                    // keeps the envelope's answer to "does anything still index the
-                    // shared journal?" true.
-                    slots[at] = { id: versionId, blob: null, json: JSON.stringify(record), ref: current.ref };
-                    this._persistSlots(projectId, slots.slice(-MAX_VERSIONS_STORED), container.journal, 'sync-status-patch');
-                    return;
+            // Existence check, envelope-only (C05 §3.6 req 1 — no snapshot decode).
+            // The blob cache holds exactly the stored ids after any container op this
+            // session; a cold session falls back to one envelope parse of the mirror.
+            const cached = _versionBlobCache.get(projectId);
+            let known = cached?.has(versionId) ?? false;
+            if (!known) {
+                const raw = this._rawPayload(projectId);
+                if (raw !== null) {
+                    const parsed = _parseContainer(raw);
+                    if (parsed !== null) {
+                        known = parsed.entries.some(e => e.i === versionId);
+                        if (!known) return; // unknown version — same no-op as before
+                    } else {
+                        // Legacy v1 whole-array payload: no envelope to consult. Accept
+                        // without decoding — a stray entry is pruned at the project's
+                        // next container commit and the overlay of an absent id is inert.
+                        known = true;
+                    }
                 }
-                // Legacy v1 payload — no envelope to patch. Decode, edit, re-persist.
-                const versions = this.getVersions(projectId);
-                const idx = versions.findIndex(v => v.id === versionId);
-                if (idx < 0) return;
-                versions[idx] = { ...versions[idx], syncStatus };
-                _blobCacheFor(projectId).delete(versionId);
-                this._persistVersionsIncremental(projectId, versions.slice(-MAX_VERSIONS_STORED));
-            } else {
-                // Flag OFF / no IDB — EXACT prior behaviour: whole-array recompress.
-                const versions = this.getVersions(projectId);
-                const idx = versions.findIndex(v => v.id === versionId);
-                if (idx < 0) return;
-                versions[idx] = { ...versions[idx], syncStatus };
-                store.putVersions(projectId, _compressJSON(JSON.stringify(versions)));
+                // raw === null (nothing stored yet): accept — the save that stores
+                // this id may still be in flight in the worker; see _persistSlots.
             }
+
+            const map = _durableStatusFor(projectId);
+            if (map?.[versionId] === syncStatus) return; // already recorded — no write
+            // `'local-only'` is the save-time INLINE floor: an entry saying it adds
+            // information only when it DOWNGRADES a previously recorded status. With
+            // no prior entry the stored record already reads conservatively, so a
+            // write here would record what the container already says.
+            if (syncStatus === 'local-only' && !(map && versionId in map)) return;
+            _writeDurableStatus(projectId, { ...(map ?? {}), [versionId]: syncStatus });
         } catch {
             console.warn('[VersionRepository] syncStatus not persisted');
         }
@@ -2071,6 +2194,10 @@ export class LocalVersionRepository implements IVersionRepository {
     deleteVersions(projectId: string): void {
         // §VERSION-QUOTA-INDEXEDDB — drop from IDB (primary) AND legacy localStorage.
         try { getVersionCacheStore().deleteVersions(projectId); } catch { /* non-fatal */ }
+        // §SYNCSTATUS-SIDECAR (L-11545) — the status map describes the container that
+        // was just removed; drop it and its parse cache with it.
+        try { getVersionCacheStore().deleteVersions(_syncStatusKey(projectId)); } catch { /* non-fatal */ }
+        _durableStatusCache.delete(projectId);
         // §PERF-VERSION-INCREMENTAL-COMPRESS — drop the per-version blob cache so a
         // later project reusing memory can't read stale blobs (defensive hygiene).
         _versionBlobCache.delete(projectId);
@@ -2383,6 +2510,18 @@ export class LocalVersionRepository implements IVersionRepository {
         const _pending = _transientSyncStatus.get(projectId);
         if (_pending) {
             for (const id of [..._pending.keys()]) if (!_stored.has(id)) _pending.delete(id);
+        }
+        // §SYNCSTATUS-SIDECAR (L-11545) — bound the DURABLE overlay the same way, for
+        // the same reason: an unbounded per-id map beside a bounded container is a
+        // slow leak. Written back only when something was actually pruned.
+        const _durable = _durableStatusFor(projectId);
+        if (_durable) {
+            const kept: Record<string, VersionRecord['syncStatus']> = {};
+            let pruned = false;
+            for (const id of Object.keys(_durable)) {
+                if (_stored.has(id)) kept[id] = _durable[id]!; else pruned = true;
+            }
+            if (pruned) _writeDurableStatus(projectId, kept);
         }
         const payload = _assembleContainer(entries, storedJournal);
         getVersionCacheStore().putVersions(projectId, payload); // mirror sync + IDB async, never throws

@@ -219,13 +219,20 @@ describe('§PERF-VERSION-ENVELOPE-WRITE (L-5801) — a save carries the unchange
         expect(stored[5]!.label).toBe('Renamed');
     });
 
-    it('⭐ updateSyncStatus() patches ONE version, inflating exactly ONE', () => {
+    it('⭐ updateSyncStatus() inflates NOTHING and never rewrites the container (L-11545)', () => {
         const repo = new LocalVersionRepository();
         const seeded = seedHistory(repo);
+        _putVersions.mockClear();
 
         repo.updateSyncStatus(PROJECT, seeded[12]!.id, 'synced');
 
-        expect(decodeCalls.n).toBe(1); // ⭐ the separating assertion (was 20)
+        // §SUSTAIN109 (L-11545) — was `toBe(1)` (inflate one, patch, re-put the whole
+        // container). The durable status now lives in its own sidecar record
+        // (§SYNCSTATUS-SIDECAR), so a flip decodes zero snapshots and the only put is
+        // the tiny `syncstatus::` record — NEVER the container.
+        expect(decodeCalls.n).toBe(0);
+        expect(_putVersions).toHaveBeenCalledTimes(1);
+        expect(_putVersions.mock.calls[0]![0]).toBe(`syncstatus::${PROJECT}`);
         decodeCalls.n = 0;
         const stored = repo.getVersions(PROJECT);
         expect(stored.map(v => v.id)).toEqual(seeded.map(v => v.id));
@@ -242,8 +249,10 @@ describe('§PERF-VERSION-ENVELOPE-WRITE (L-5801) — a save carries the unchange
 
         repo.updateSyncStatus(PROJECT, seeded[3]!.id, 'local-only'); // already local-only
 
-        // One inflate to READ it, then nothing written — no container rewrite at all.
-        expect(decodeCalls.n).toBe(1);
+        // §SUSTAIN109 (L-11545) — was one inflate to read the stored enum. Now ZERO:
+        // `'local-only'` is the save-time inline floor, so with no prior sidecar entry
+        // there is nothing to record and nothing at all is written.
+        expect(decodeCalls.n).toBe(0);
         expect(_putVersions).not.toHaveBeenCalled();
     });
 
