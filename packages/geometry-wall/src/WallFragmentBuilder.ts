@@ -2964,6 +2964,19 @@ export class WallFragmentBuilder {
                             width: op.width,
                             height: op.height,
                             sillHeight: op.sillHeight ?? 0,
+                            // §WINDOW122 (L-11920) — WITHOUT THIS FIELD, A `'custom'` PROFILE
+                            // REACHES `openingOutline()` WITH NO RING: `resolveCustomOutlineInput`
+                            // reads `undefined`, the outline resolves to `null`, and
+                            // `buildOpeningProfileGasket(null, …)` early-returns `null` — so this
+                            // whole block goes INERT and the abutting box segments above (which cut
+                            // only the opening's BOUNDING BOX) are left uncorrected. Arm C
+                            // (`LayeredWallOpeningBuilder.ts`) already threads `customOutline`
+                            // alongside `profile` for the identical reason; this arm — which is the
+                            // one EVERY mitred wall in a closed room takes (§OPENING-PROFILE-FRAME's
+                            // own header: the no-mitre arm "runs on the FEWEST walls") — did not,
+                            // which is why a hand-drawn custom window profile rendered on the WINDOW
+                            // frame but the wall it sat in kept cutting a plain rectangle.
+                            customOutline: (op as { customOutline?: unknown }).customOutline,
                         });
                         const _gGeo = buildOpeningProfileGasket(
                             _gOutline, -wallThickness / 2, wallThickness / 2, wallBaseOffset,
@@ -3634,6 +3647,15 @@ export class WallFragmentBuilder {
                     sillHeight: op.sillHeight ?? 0,
                     // §OPENING-PROFILE — arm A carries the shape natively (C86 §10.1 PR-3).
                     openingProfile: (op as { openingProfile?: never }).openingProfile,
+                    // §WINDOW122 (L-11920) — WITHOUT THIS FIELD A `'custom'` PROFILE STILL CARRIES
+                    // NO RING THROUGH THIS ARM EITHER: `WallHoleBodyBuilder.holeWalk` calls
+                    // `openingOutline({...r, customOutline: r.customOutline})`, and an `undefined`
+                    // ring makes `openingOutline` return `null`, so `holeWalk` returns `null` and
+                    // `pushHoles` falls back to its plain-rectangle `else` branch — a hand-drawn
+                    // custom window renders on the WINDOW frame but the wall keeps cutting its
+                    // bounding box. Arm C (`LayeredWallOpeningBuilder`) already threads this field;
+                    // this call site (arm A, the no-mitre plain-wall hole extrude) did not.
+                    customOutline: (op as { customOutline?: unknown }).customOutline,
                 })),
             );
             const geo = buildWallHoleBodyGeometry({
