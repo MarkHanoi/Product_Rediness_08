@@ -58,3 +58,6 @@ export {
 
 export { FloorHostDependencyTracker, floorHostReferenceEdges } from './FloorHostDependencyTracker';
 export { CeilingHostDependencyTracker, ceilingHostReferenceEdges } from './CeilingHostDependencyTracker';
+
+// §MESH110-RESTORE-IS-NOT-A-MOVE (L-11567 #3a) — the host-geometry delta gate.
+export { wallHostGeometryMoved } from './hostGeometryDelta';

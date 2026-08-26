@@ -89,6 +89,15 @@ interface WallSnap {
     tangent: { x: number; z: number };
     /** Outward (room-side) wall normal in world space. */
     normal: { x: number; z: number };
+    /**
+     * §GRAPH115 / ADR-0374 — the snap target ITSELF. This tool always found the
+     * wall and then threw its identity away (matrix cell `plumbing × wall`:
+     * "the nearest-wall logic is placement-time orientation only and persists
+     * nothing"). The record is carried so `_commit` can mint the anchor from the
+     * user's own snap gesture — creation-time authoring, never a later proximity
+     * search (C79 §2.2/§2.3).
+     */
+    wall: WallData;
 }
 
 export class PlumbingPlanToolHandler implements PlanToolHandler {
@@ -160,6 +169,7 @@ export class PlumbingPlanToolHandler implements PlanToolHandler {
         // wall (matches 3D PlumbingTool semantics). World-Y rotation = atan2
         // of the outward normal.
         let yaw = 0;
+        let wallAnchor: WallAnchor | undefined;
         if (type !== 'bath') {
             const snap = this._findWallSnap(pt.worldX, pt.worldZ);
             if (snap) {
@@ -170,6 +180,10 @@ export class PlumbingPlanToolHandler implements PlanToolHandler {
                 // that is not axis-aligned with the one it was eyeballed on — which is
                 // the shape of the founder's *"the plan-view SYMBOL is 90° rotated"*.
                 yaw = plumbingFixtureYawForWallNormal(snap.normal.x, snap.normal.z);
+                // §GRAPH115 / ADR-0374 — the identity half. Minted from the SAME x/z
+                // the record will hold and the SAME yaw, against the snap target, so
+                // the anchor's prediction and the stored pose agree from birth.
+                wallAnchor = mintWallAnchor({ x: pt.worldX, z: pt.worldZ, yaw }, snap.wall, 'wall') ?? undefined;
             }
         }
 
@@ -194,6 +208,8 @@ export class PlumbingPlanToolHandler implements PlanToolHandler {
             width:        fp.w,
             height:       fp.h,
             length:       fp.l,
+            // §GRAPH115 — absent stays absent (a free-placed bath has no host).
+            ...(wallAnchor ? { wallAnchor } : {}),
         })?.catch((e: Error) => console.error('[PlumbingPlanToolHandler] plumbing.createFixture failed:', e));
         console.log('[PlumbingPlanToolHandler] Fixture created', id, type, 'at', pt);
 
@@ -377,7 +393,7 @@ export class PlumbingPlanToolHandler implements PlanToolHandler {
         const t = c.planCanvas.worldToScreen(wx, wz);
         const angle = Math.atan2(t.sy - o.sy, t.sx - o.sx);
 
-        return { angle, tangent, normal: bestNormal };
+        return { angle, tangent, normal: bestNormal, wall: bestWall };
     }
 
     /**

@@ -1,3 +1,4 @@
+import * as THREE from '@pryzm/renderer-three/three';
 import { Command, CommandType, CommandValidationResult, CommandResult, SerializedCommand, CommandContext } from '../types';
 import { PlumbingFixtureData } from '@pryzm/geometry-plumbing';
 import { DOMEventBus } from '@pryzm/event-bus';
@@ -12,8 +13,13 @@ const _bus = new DOMEventBus();
  * plumbing fixture could be created but never moved (and a remote replay had nothing
  * to reconstruct). Mirrors MoveLightingCommand in shape; fully undoable.
  *
- * The fixture's `position` is a THREE.Vector3 — we clone-and-set it rather than
- * importing THREE here (P2: THREE is owned by renderer-three). Line-based fixtures
+ * ⛔ §GRAPH115 (L-11762) — `fixture.position` is typed THREE.Vector3 but is a PLAIN
+ * `{x,y,z}` at runtime: `PlumbingStore.add()` structuredClone's every record, and
+ * structuredClone strips prototypes. `fixture.position.clone()` therefore threw
+ * `TypeError: clone is not a function` on EVERY plumbing move — the FATAL ERROR the
+ * wall-anchor seam test surfaced the first time a real user move was driven through
+ * this command. Vectors are now rebuilt through the renderer-three facade (the P2
+ * owner), which accepts both shapes. Line-based fixtures
  * (bath) also carry startPoint/endPoint; those are translated by the same delta so
  * the fixture stays internally consistent.
  */
@@ -53,7 +59,7 @@ export class MovePlumbingCommand implements Command {
         // structuredClone would strip the prototype and break later .clone()/.set()).
         this.prevFixture = {
             ...fixture,
-            position: fixture.position.clone(),
+            position: new THREE.Vector3(fixture.position.x, fixture.position.y, fixture.position.z),
             ...(fixture.startPoint ? { startPoint: { ...fixture.startPoint } } : {}),
             ...(fixture.endPoint ? { endPoint: { ...fixture.endPoint } } : {}),
         };
@@ -63,8 +69,7 @@ export class MovePlumbingCommand implements Command {
         const dy = this.payload.to.y - old.y;
         const dz = this.payload.to.z - old.z;
 
-        const newPosition = fixture.position.clone();
-        newPosition.set(this.payload.to.x, this.payload.to.y, this.payload.to.z);
+        const newPosition = new THREE.Vector3(this.payload.to.x, this.payload.to.y, this.payload.to.z);
 
         const newData: PlumbingFixtureData = {
             ...fixture,

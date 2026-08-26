@@ -1,6 +1,6 @@
 import * as THREE from '@pryzm/renderer-three/three';
 import * as OBC from '@thatopen/components';
-import { CreatePlumbingFixtureCommand } from '@pryzm/command-registry';
+import { CreatePlumbingFixtureCommand, mintWallAnchor, type AnchorHostBaselineLike } from '@pryzm/command-registry';
 import { PlumbingStore } from '@pryzm/geometry-plumbing';
 import { PlumbingFragmentBuilder } from '@pryzm/geometry-plumbing';
 import { PlumbingFixtureType } from '@pryzm/geometry-plumbing';
@@ -443,6 +443,13 @@ export class PlumbingTool {
                 const slabPoint = this.getSlabPoint(e);
                 if (slabPoint) finalPos.y = Math.max(slabPoint.y, finalPos.y);
                 const rotation = this.previewMesh.rotation.clone();
+                // §GRAPH115 / ADR-0374 — the identity half of §PLUMBFRAME: record WHICH wall
+                // the fixture was seated against, from this tool's own snap target, at the
+                // exact pose the record will hold. Free placement (no wall in range) mints
+                // nothing — absence is a fact, not an omission (C79 §2.3).
+                const wallAnchor = wallResult
+                    ? mintWallAnchor({ x: finalPos.x, z: finalPos.z, yaw: rotation.y }, wallResult.wall, 'wall') ?? undefined
+                    : undefined;
 
                 // [E.5.x] Bus telemetry — fire-and-forget; legacy commandManager drives state during migration.
                 if (window.runtime?.bus) { window.runtime.bus.executeCommand('plumbing.create', {}).catch(() => {}); }
@@ -453,7 +460,8 @@ export class PlumbingTool {
                     position: { x: finalPos.x, y: finalPos.y, z: finalPos.z },
                     rotation: { x: rotation.x, y: rotation.y, z: rotation.z },
                     levelId: levelId,
-                    baseOffset: finalPos.y - (bimManager.getLevelById(levelId)?.elevation || 0)
+                    baseOffset: finalPos.y - (bimManager.getLevelById(levelId)?.elevation || 0),
+                    ...(wallAnchor ? { wallAnchor } : {}),
                 }));
             }
         }
@@ -510,7 +518,7 @@ export class PlumbingTool {
      * flip (its front is authored at +Z) — §FIX-SHOWER-ORIENTATION / Contracts
      * 36/39 §5.
      */
-    private getNearestWall(point: THREE.Vector3): { normal: THREE.Vector3, quaternion: THREE.Quaternion } | null {
+    private getNearestWall(point: THREE.Vector3): { normal: THREE.Vector3, quaternion: THREE.Quaternion, wall: AnchorHostBaselineLike } | null {
         const ws = window.wallStore; // TODO(TASK-08)
         if (!ws?.getAll) return null;
 
@@ -520,6 +528,8 @@ export class PlumbingTool {
         const SNAP_RANGE = 1.5; // metres — must match plan-view _findWallSnap
         let bestDist = SNAP_RANGE;
         let bestNormal: THREE.Vector3 | null = null;
+        // §GRAPH115 — the snap target is carried out, not discarded (ADR-0374 §2.3).
+        let bestWall: AnchorHostBaselineLike | null = null;
 
         for (const wall of ws.getAll() as any[]) {
             if (activeLevelId && wall.levelId && wall.levelId !== activeLevelId) continue;
@@ -548,15 +558,16 @@ export class PlumbingTool {
 
             bestDist   = dist;
             bestNormal = new THREE.Vector3(sign * nx, 0, sign * nz);
+            bestWall   = wall as AnchorHostBaselineLike;
         }
 
-        if (!bestNormal) return null;
+        if (!bestNormal || !bestWall) return null;
 
         // Quaternion is unused by current callers but kept for API parity.
         const quat = new THREE.Quaternion().setFromUnitVectors(
             new THREE.Vector3(0, 0, 1),
             bestNormal,
         );
-        return { normal: bestNormal, quaternion: quat };
+        return { normal: bestNormal, quaternion: quat, wall: bestWall };
     }
 }

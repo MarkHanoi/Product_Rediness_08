@@ -1058,6 +1058,11 @@ function serializePlumbing(p: any): any {
         color: p.color,
         startPoint: p.startPoint ? stripVec3(p.startPoint) : undefined,
         endPoint: p.endPoint ? stripVec3(p.endPoint) : undefined,
+        // §GRAPH115 / ADR-0374 §2.7 — additive-optional (C47): the key is emitted only
+        // when present, so an unanchored project's snapshot is byte-identical. ⚠ Two
+        // hand-synced serializer copies (C78 §14.3) — the persistence-client twin
+        // carries the same line; both restore paths pass it to CreatePlumbingFixtureCommand.
+        ...(p.wallAnchor ? { wallAnchor: { ...p.wallAnchor } } : {}),
         properties: p.properties ? { ...p.properties } : {}
     };
 }

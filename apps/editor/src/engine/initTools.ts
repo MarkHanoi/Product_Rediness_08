@@ -103,6 +103,8 @@ import {
     type FinishBoundaryWritePayload,
 } from '@pryzm/finish-host-tracker';
 import { UpdateFloorBoundaryCommand, UpdateCeilingBoundaryCommand, UpdateRoofBoundaryCommand } from '@pryzm/command-registry';
+// §GRAPH115 / ADR-0374 — the wall-attachment follower (plumbing + furniture anchored to walls / curtain walls).
+import { WallAnchorDependencyTracker } from '@pryzm/command-registry';
 // §FINISH-FOLLOW-LATE-ATTRIBUTION (L-2090) — extracted rather than inlined here
 // for the reason `beamCreatedMirror` was: a closure in this file needs a THREE
 // world and twenty stores to run one line, so no suite can execute it.
@@ -1023,6 +1025,32 @@ export async function initTools(p: ToolsParams): Promise<ToolsResult> {
         attributeFinishAgainstMovedWall,
     );
     ceilingHostDependencyTracker.bootstrap();
+
+    // ── Wall-anchored elements follow — §GRAPH115 / ADR-0374 ──────────────────
+    // The founder's ask, verbatim intent: "all families — wall-faced, wall-hosted
+    // or wall-connected — must follow / move / propagate as LIVING GRAPH elements":
+    // create a toilet against a wall, move the wall, the toilet moves with it —
+    // exactly as the finishes above do. The matrix cells this closes are
+    // `plumbing × wall` ("a wall-hung WC cannot record the wall it hangs on") and
+    // `furniture × wall` ("THE LARGEST GAP IN THIS MATRIX"). Same shape as the
+    // finish trackers: the §STEP7 `wallStore.subscribe` channel with prevState,
+    // one STRUCTURAL_CASCADE command per host move (one Ctrl+Z), the §L-943
+    // revert latch through `commandManagerRef`, and — its one difference — NO
+    // direct-store fallback: without a command manager it REFUSES by name (P6).
+    // Curtain walls are hosts too (ADR-0374 §2.6): their store now forwards the
+    // same pre-mutation snapshot, so a curtain-wall move carries its fixtures.
+    const wallAnchorDependencyTracker = new WallAnchorDependencyTracker(
+        [
+            { kind: 'wall', store: wallTool.getWallStore() },
+            { kind: 'curtainWall', store: curtainWallStoreInstance },
+        ],
+        commandManagerRef,
+        [
+            { family: 'plumbing', store: plumbingStore },
+            { family: 'furniture', store: furnitureStore },
+        ],
+    );
+    (window as unknown as { __pryzmWallAnchorTracker?: WallAnchorDependencyTracker }).__pryzmWallAnchorTracker = wallAnchorDependencyTracker;
 
     // §FINISH-HOST-CONSOLE — the founder asked for this by name (2026-08-24).
     // The two trackers above decide, per finish, WHICH walls it follows — and that

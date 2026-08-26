@@ -9,6 +9,7 @@ import { stableCreatedId } from '../StableCreatedId';
 // §FIX-INTERIOR-FFL-SEATING — finished-floor datum resolved at the shared chokepoint
 // (C11 §5.4). A WC pan / bath / shower tray sits on the tiled floor, not the slab.
 import { resolveFloorSeatingDatum } from '../seating/SeatingDatumResolver';
+import type { WallAnchor } from '../attachments/WallAnchor';
 
 export interface CreatePlumbingFixturePayload {
     id?: string;
@@ -29,6 +30,8 @@ export interface CreatePlumbingFixturePayload {
     color?: string;
     startPoint?: { x: number, y: number, z: number };
     endPoint?: { x: number, y: number, z: number };
+    /** §GRAPH115 / ADR-0374 — minted by the placement tool from its snap target; round-tripped by the loader. */
+    wallAnchor?: WallAnchor;
 }
 
 export class CreatePlumbingFixtureCommand implements Command {
@@ -88,6 +91,8 @@ export class CreatePlumbingFixtureCommand implements Command {
             color: this.payload.color,
             startPoint: this.payload.startPoint,
             endPoint: this.payload.endPoint,
+            // §GRAPH115 — stamped verbatim; absent stays absent (never invented, C79 §2.3).
+            ...(this.payload.wallAnchor ? { wallAnchor: { ...this.payload.wallAnchor } } : {}),
             properties: {}
         };
 

@@ -187,6 +187,9 @@ export enum CommandType {
     CREATE_PLUMBING_FIXTURE = 'CREATE_PLUMBING_FIXTURE',
     UPDATE_PLUMBING_PARAMETERS = 'UPDATE_PLUMBING_PARAMETERS',
     MOVE_PLUMBING = 'MOVE_PLUMBING',
+    // §GRAPH115 / ADR-0374 — wall-anchored elements (plumbing + furniture) reseated
+    // or detached as ONE structural-cascade child of a host wall / curtain-wall move.
+    RESEAT_WALL_ANCHORED = 'RESEAT_WALL_ANCHORED',
     CREATE_FURNITURE = 'CREATE_FURNITURE',
     // ── Lighting (first-class citizen) ───────────────────────────────────────
     CREATE_LIGHTING            = 'CREATE_LIGHTING',

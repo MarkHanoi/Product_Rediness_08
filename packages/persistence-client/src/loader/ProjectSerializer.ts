@@ -700,6 +700,8 @@ function serializePlumbing(p: any): any {
         color: p.color,
         startPoint: p.startPoint ? stripVec3(p.startPoint) : undefined,
         endPoint: p.endPoint ? stripVec3(p.endPoint) : undefined,
+        // §GRAPH115 / ADR-0374 §2.7 — additive-optional; twin of the apps/editor copy (C78 §14.3).
+        ...(p.wallAnchor ? { wallAnchor: { ...p.wallAnchor } } : {}),
         properties: p.properties ? { ...p.properties } : {}
     };
 }

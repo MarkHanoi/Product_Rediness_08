@@ -43,7 +43,8 @@ import { batchCoordinator } from '@pryzm/core-app-model';
 const tracer = trace.getTracer('pryzm.curtainwall.store');
 
 type CWEventType = 'add' | 'update' | 'remove';
-type CWEventListener = (event: CWEventType, cw: CurtainWallData) => void;
+/** §GRAPH115 — `prevState` is the optional §STEP7 pre-mutation snapshot, present on `update` only. */
+type CWEventListener = (event: CWEventType, cw: CurtainWallData, prevState?: CurtainWallData) => void;
 
 function cloneCurtainWallData(cw: CurtainWallData): CurtainWallData {
     return {
@@ -81,10 +82,12 @@ export class CurtainWallStore {
      * Clones the incoming object to prevent external mutation of stored state.
      */
     set(id: string, cw: CurtainWallData): void {
-        const isNew = !this.curtainWalls.has(id);
+        const prev = this.curtainWalls.get(id);
+        const isNew = !prev;
         const cloned = cloneCurtainWallData(cw);
         this.curtainWalls.set(id, cloned);
-        this.emit(isNew ? 'add' : 'update', cloned);
+        // §GRAPH115 — prev is the store's own pre-write reference: never re-read (C72 §3.5).
+        this.emit(isNew ? 'add' : 'update', cloned, prev);
     }
 
     /**
@@ -323,7 +326,8 @@ export class CurtainWallStore {
         if (!cw.levelId) throw new Error('[CurtainWallStore] add(): levelId is required');
         if (!cw.id) throw new Error('[CurtainWallStore] add(): id is required');
 
-        const isNew = !this.curtainWalls.has(cw.id);
+        const prev = this.curtainWalls.get(cw.id);
+        const isNew = !prev;
         const withDefaults: CurtainWallData = {
             ...cw,
             // §3.4: deep-clone all nested references so no caller can mutate stored state.
@@ -347,7 +351,7 @@ export class CurtainWallStore {
         };
         // Store and emit directly — withDefaults is already a full deep clone.
         this.curtainWalls.set(cw.id, withDefaults);
-        this.emit(isNew ? 'add' : 'update', withDefaults);
+        this.emit(isNew ? 'add' : 'update', withDefaults, prev); // §GRAPH115 — §STEP7 prevState
     }
 
     /**
@@ -466,16 +470,15 @@ export class CurtainWallStore {
 
         this.curtainWalls.set(id, cloned);
 
-        // ONE 'update'. `emit()` (:399-411) fans out to the in-process listeners
+        // ONE 'update'. `emit()` fans out to the in-process listeners
         // FIRST — which is how `CurtainPanelSyncHandler` gets to carry the panels
         // to the new storey in the same tick — and then to `storeEventBus`, which
         // is what drives the builder rebuild.
         //
-        // `emit(event, cw)` takes NO `prevState` parameter (:399), unlike
-        // `ColumnStore.emit` and `SlabStore.emit`. So a subscriber here cannot
-        // diff-dirty the VACATED storey from the event alone; the mirror dirties
-        // both storeys explicitly, which is why that half lives there.
-        this.emit('update', cloned);
+        // §GRAPH115 — `emit` now carries the §STEP7 `prevState` (it did not when the
+        // mirror was written, which is why the mirror dirties both storeys itself;
+        // that half stays there — a second dirtier here would be two answers).
+        this.emit('update', cloned, existing);
         return cloned;
     }
 
@@ -524,9 +527,19 @@ export class CurtainWallStore {
         };
     }
 
-    private emit(event: CWEventType, cw: CurtainWallData): void {
+    /**
+     * §GRAPH115 / ADR-0374 §2.6 — `prevState` is the §STEP7 third argument
+     * (C72 §3.1), OPTIONAL so the existing two-argument listeners are untouched.
+     * It is forwarded on the `update` emitted by `set()` / `update()` /
+     * `changeLevel()`, which is what lets a diff consumer (the wall-anchor
+     * tracker, and — the open half of C87 CW-Move-2 — any future slab/finish
+     * follower) tell a curtain-wall MOVE from a re-space, and verify an anchored
+     * fixture against the PRE-move baseline rather than re-reading the store
+     * after the fact (C72 §3.5 — a re-read diffs a value against itself).
+     */
+    private emit(event: CWEventType, cw: CurtainWallData, prevState?: CurtainWallData): void {
         this.listeners.forEach(l => {
-            try { l(event, cw); } catch (e) {
+            try { l(event, cw, prevState); } catch (e) {
                 console.error('[CurtainWallStore] listener error:', e);
             }
         });

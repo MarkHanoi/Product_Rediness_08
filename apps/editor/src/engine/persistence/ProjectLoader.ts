@@ -1542,7 +1542,10 @@ export class ProjectLoader {
                         length: p.length,
                         color: p.color,
                         startPoint: p.startPoint,
-                        endPoint: p.endPoint
+                        endPoint: p.endPoint,
+                        // §GRAPH115 / ADR-0374 §2.7 — C84 EI-6.1: the field is persisted only
+                        // because THIS restore path reads it back.
+                        wallAnchor: p.wallAnchor
                     });
                     const r = exec(cmd);
                     r.success ? result.loaded++ : this.recordFail(result, `Plumbing ${p.id}`, r);

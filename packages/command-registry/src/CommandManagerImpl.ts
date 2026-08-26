@@ -939,19 +939,7 @@ export class CommandManager {
                 // §L-874-ONE-UNDO — the gesture's structural cascades mutated
                 // AFTER the command's own write: revert them FIRST, in reverse
                 // chronological order, so the whole gesture is one Ctrl+Z.
-                const subs = entry.structuralChildren;
-                if (subs) {
-                    for (let i = subs.length - 1; i >= 0; i--) {
-                        try {
-                            const r = subs[i]!.command.undo(this.context);
-                            if (!r.success) {
-                                console.warn(`[CommandManager] UNDO structural child ${subs[i]!.command.type} reported failure`, r.info ?? '');
-                            }
-                        } catch (e) {
-                            console.warn(`[CommandManager] UNDO structural child ${subs[i]!.command.type} threw`, e);
-                        }
-                    }
-                }
+                this._undoStructuralChildren(entry.structuralChildren);
                 const result = entry.command.undo(this.context);
                 console.log(`[CommandManager] UNDO result: success=${result.success}`, result.info ?? '');
                 if (result.success) {
@@ -985,19 +973,7 @@ export class CommandManager {
                     // §L-874-ONE-UNDO — replay the gesture's structural cascades
                     // in chronological order (services are silent behind the
                     // reverting latch, so nothing re-fires them implicitly).
-                    const subs = entry.structuralChildren;
-                    if (subs) {
-                        for (const child of subs) {
-                            try {
-                                const r = child.command.execute(this.context);
-                                if (!r.success) {
-                                    console.warn(`[CommandManager] REDO structural child ${child.command.type} reported failure`, r.info ?? '');
-                                }
-                            } catch (e) {
-                                console.warn(`[CommandManager] REDO structural child ${child.command.type} threw`, e);
-                            }
-                        }
-                    }
+                    this._redoStructuralChildren(entry.structuralChildren);
                     this.history.push(entry);
                 }
                 return result;
@@ -1005,6 +981,56 @@ export class CommandManager {
                 this._reverting--;
             }
         });
+    }
+
+    /**
+     * §GRAPH115 / ADR-0374 — structural children NEST, and the walk must too.
+     *
+     * A cascade dispatched from inside ANOTHER cascade's execute() — the
+     * measured case: a fixture anchored to a wall that `CascadeWallBaselineCommand`
+     * moved, or a finish following that same neighbour wall — attaches to the
+     * INNER frame (`_execFrames[len-2]` is the cascade, not the gesture), so it
+     * lands one level deeper than the gesture's own `structuralChildren`. The
+     * previous walker called `child.command.undo()` on the first level only and
+     * never looked inside: a depth-2 child was neither undone nor redone, and
+     * nothing printed. One Ctrl+Z then left the fixture where the cascade put it
+     * — the C84 EI-7 write-set ⊋ restore-set inequality, hidden inside the very
+     * mechanism built to close it. Both walkers now recurse; a flat entry (no
+     * nested children) takes exactly the path it always took.
+     *
+     * Order is the §L-874 rule applied at every depth: undo visits a child's OWN
+     * children first (they mutated after it), then the child; redo replays the
+     * child, then its children.
+     */
+    private _undoStructuralChildren(subs: HistoryEntry[] | undefined): void {
+        if (!subs) return;
+        for (let i = subs.length - 1; i >= 0; i--) {
+            const child = subs[i]!;
+            this._undoStructuralChildren(child.structuralChildren);
+            try {
+                const r = child.command.undo(this.context);
+                if (!r.success) {
+                    console.warn(`[CommandManager] UNDO structural child ${child.command.type} reported failure`, r.info ?? '');
+                }
+            } catch (e) {
+                console.warn(`[CommandManager] UNDO structural child ${child.command.type} threw`, e);
+            }
+        }
+    }
+
+    private _redoStructuralChildren(subs: HistoryEntry[] | undefined): void {
+        if (!subs) return;
+        for (const child of subs) {
+            try {
+                const r = child.command.execute(this.context);
+                if (!r.success) {
+                    console.warn(`[CommandManager] REDO structural child ${child.command.type} reported failure`, r.info ?? '');
+                }
+            } catch (e) {
+                console.warn(`[CommandManager] REDO structural child ${child.command.type} threw`, e);
+            }
+            this._redoStructuralChildren(child.structuralChildren);
+        }
     }
 
     /**

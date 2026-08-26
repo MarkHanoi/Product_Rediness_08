@@ -2,6 +2,9 @@ import * as THREE from '@pryzm/renderer-three/three';
 import type { ToiletVariant } from './ToiletGeometry';
 import type { ShowerVariant } from './ShowerGeometry';
 import type { BathroomAccessoryVariant } from './BathroomAccessoryGeometry';
+// §GRAPH115 / ADR-0374 — type-only import: erased at runtime, so the
+// plumbing → command-registry → plumbing type cycle never loads a barrel.
+import type { WallAnchor } from '@pryzm/command-registry';
 
 /**
  * Plumbing fixture families. The `accessory` family covers bathroom
@@ -45,4 +48,13 @@ export interface PlumbingFixtureData {
     color?: string;
     startPoint?: { x: number, y: number, z: number };
     endPoint?: { x: number, y: number, z: number };
+    /**
+     * §GRAPH115 / ADR-0374 — the wall this fixture was placed AGAINST, recorded at
+     * placement from the tool's own snap target (the identity half of §PLUMBFRAME:
+     * the origin already sits on the wall-contact edge, the yaw already comes from
+     * the wall's room-side normal — this is WHICH wall). Additive-optional (C47);
+     * absent = placed free. Read by WallAnchorDependencyTracker so a wall move
+     * carries the fixture; cleared (kept in place) when the host is deleted.
+     */
+    wallAnchor?: WallAnchor;
 }

@@ -11,7 +11,7 @@ import {
   type HandlerResult,
   type ValidationResult,
 } from '@pryzm/plugin-sdk';
-import { CreatePlumbingFixtureCommand  } from '@pryzm/command-registry';
+import { CreatePlumbingFixtureCommand, type WallAnchor } from '@pryzm/command-registry';
 
 export interface CreatePlumbingFixturePayload {
   readonly fixtureType: string;
@@ -25,6 +25,8 @@ export interface CreatePlumbingFixturePayload {
   readonly toiletVariant?: string;
   readonly showerVariant?: string;
   readonly accessoryVariant?: string;
+  /** §GRAPH115 / ADR-0374 — the wall the fixture was placed against (identity half of §PLUMBFRAME). */
+  readonly wallAnchor?: WallAnchor;
 }
 
 export const CreatePlumbingFixtureHandler: CommandHandler<CreatePlumbingFixturePayload, Record<string, unknown>> = {

@@ -57,47 +57,31 @@
 
 import { trace, type Tracer } from '@opentelemetry/api';
 import {
-    resolveFflOffsetAt,
-    resolveCflOffsetAt,
     type FloorData,
     type CeilingData,
+    // §OUTDOOR112 (2026-08-26) — the CONTEXT-FREE core MOVED to
+    // `@pryzm/core-app-model/seating` so the lighting placement TOOL can preview
+    // on the same datum this module's commands commit to (command-registry
+    // imports geometry-lighting, so the tool could not import from here without
+    // completing an import cycle). Re-exported below VERBATIM — this module's
+    // public surface is unchanged (C84 §1.3), and the `CommandContext` adapters
+    // stay here, where the context type lives.
+    resolveFloorSeatingDatumFrom,
+    resolveCeilingSeatingDatumFrom,
+    type SeatingDatum,
+    type SeatingDatumSource,
+    type SeatingLevelLike,
 } from '@pryzm/core-app-model';
 import type { CommandContext } from '../types';
 
+export {
+    resolveFloorSeatingDatumFrom,
+    resolveCeilingSeatingDatumFrom,
+};
+export type { SeatingDatum, SeatingDatumSource, SeatingLevelLike };
+
 function _tracer(): Tracer {
     return trace.getTracer('@pryzm/command-registry');
-}
-
-/** Which surface the returned datum represents. */
-export type SeatingDatumSource =
-    /** Top face of a floor finish covering the probe point. */
-    | 'floor-finish'
-    /** Structural slab top — the level datum. No finish covers the probe point. */
-    | 'slab-top'
-    /** Finished soffit of a ceiling covering the probe point. */
-    | 'ceiling-finish'
-    /** Bare structural soffit — `level.elevation + level.height`. */
-    | 'level-head';
-
-export interface SeatingDatum {
-    /** World Y (metres) of the surface the element seats against. */
-    readonly y: number;
-    /** Offset (metres) of that surface above the LEVEL DATUM. Signed. */
-    readonly offsetAboveLevel: number;
-    /** Which surface `y` came from — assertable, so "no finish" ≠ "zero". */
-    readonly source: SeatingDatumSource;
-}
-
-/**
- * Minimal shape this module needs from a level.
- *
- * Structural, not nominal, so the CONTEXT-FREE entry points below can be called from
- * a layer that cannot import `BimManager`'s `Level` type (see the note on
- * `resolveFloorSeatingDatumFrom`).
- */
-export interface SeatingLevelLike {
-    readonly elevation?: number;
-    readonly height?: number;
 }
 
 type LevelLike = SeatingLevelLike;
@@ -120,97 +104,15 @@ function _store<T>(context: CommandContext, key: string): ByLevelStore<T> | unde
     return (s ?? undefined) as ByLevelStore<T> | undefined;
 }
 
-// ── The datum authority (CONTEXT-FREE core) ────────────────────────────────────
+// ── The datum authority (CONTEXT-FREE core) — MOVED, not gone ─────────────────
 //
-// §FIX-SEATING-ONE-AUTHORITY. The `CommandContext` entry points below are ADAPTERS.
-// The arithmetic lives here, once, in a form that takes plain data — because not
-// every caller that must seat an element holds a `CommandContext`.
-//
-// Concretely: the LIVE plan-tool / carousel / kitchen / wardrobe / D-FLE furnish
-// path does NOT run `CreateFurnitureCommand`. It dispatches `furniture.create` on
-// the bus and a bridge in `apps/editor/src/engine/initTools.ts` mirrors the result
-// into the legacy `FurnitureStore`. That bridge had its own `level.elevation`
-// arithmetic and so re-broke exactly the founder-reported kitchen/wardrobe/lighting
-// defect the resolver was written to close. Handing that bridge a *second copy* of
-// the rule would be C11 §5.4's "convergence by coincidence" all over again; giving
-// it a context-shaped API it cannot satisfy would leave it broken. So the rule is
-// expressed once, context-free, and every layer adapts INTO it.
-
-/**
- * The FLOOR seating datum, computed from plain data — **the single datum authority**.
- *
- * Returns the finish top face when a visible floor finish covers `point`, otherwise
- * the structural slab top. `point` is required — the whole defect is that this answer
- * is POSITION-DEPENDENT: one level routinely carries several finishes of different
- * thickness (tile in the bathroom, timber in the bedroom) plus unfinished regions.
- *
- * @param level  the level the element sits on. `undefined` → elevation 0.
- * @param floors the floor finishes on that level (`floorStore.getByLevel(levelId)`).
- * @param point  XZ plan position of the element.
- */
-export function resolveFloorSeatingDatumFrom(
-    level: SeatingLevelLike | undefined,
-    floors: readonly FloorData[] | undefined | null,
-    point: { x: number; z: number },
-): SeatingDatum {
-    return _tracer().startActiveSpan('pryzm.seating.resolveFloorDatumFrom', (span) => {
-        try {
-            const levelElevation = level?.elevation ?? 0;
-            span.setAttribute('pryzm.seating.levelElevation', levelElevation);
-
-            const offset = floors ? resolveFflOffsetAt(floors, point) : null;
-
-            const source: SeatingDatumSource = offset === null ? 'slab-top' : 'floor-finish';
-            const off = offset === null || !Number.isFinite(offset) ? 0 : offset;
-            span.setAttribute('pryzm.seating.source', source);
-            span.setAttribute('pryzm.seating.offset', off);
-
-            return { y: levelElevation + off, offsetAboveLevel: off, source };
-        } finally {
-            span.end();
-        }
-    });
-}
-
-/**
- * The CEILING seating datum, computed from plain data — **the single datum authority**
- * for ceiling-hosted elements. Mirror of `resolveFloorSeatingDatumFrom`.
- *
- * @param level    the level the element hangs in. `undefined` → elevation 0.
- * @param ceilings the ceilings on that level (`ceilingStore.getByLevel(levelId)`).
- * @param point    XZ plan position of the element.
- * @param defaultHeadHeightM used ONLY when the level carries no `height`. A
- *   LEVEL-GEOMETRY fallback, never a finish thickness.
- */
-export function resolveCeilingSeatingDatumFrom(
-    level: SeatingLevelLike | undefined,
-    ceilings: readonly CeilingData[] | undefined | null,
-    point: { x: number; z: number },
-    defaultHeadHeightM = 2.7,
-): SeatingDatum {
-    return _tracer().startActiveSpan('pryzm.seating.resolveCeilingDatumFrom', (span) => {
-        try {
-            const levelElevation = level?.elevation ?? 0;
-            const headHeight =
-                typeof level?.height === 'number' && Number.isFinite(level.height)
-                    ? level.height
-                    : defaultHeadHeightM;
-            span.setAttribute('pryzm.seating.levelElevation', levelElevation);
-
-            const soffit = ceilings ? resolveCflOffsetAt(ceilings, point) : null;
-
-            const useFinish = soffit !== null && Number.isFinite(soffit);
-            const source: SeatingDatumSource = useFinish ? 'ceiling-finish' : 'level-head';
-            const off = useFinish ? (soffit as number) : headHeight;
-            span.setAttribute('pryzm.seating.source', source);
-            span.setAttribute('pryzm.seating.offset', off);
-
-            return { y: levelElevation + off, offsetAboveLevel: off, source };
-        } finally {
-            span.end();
-        }
-    });
-}
+// §FIX-SEATING-ONE-AUTHORITY / §OUTDOOR112. The `CommandContext` entry points
+// below are ADAPTERS; the arithmetic lives ONCE, context-free, in
+// `@pryzm/core-app-model/seating` (SeatingDatumCore.ts) and is re-exported above
+// verbatim. It moved down a layer because the lighting placement TOOL must
+// preview on the same datum these commands commit to, and this package imports
+// `@pryzm/geometry-lighting` — the tool importing from here would have completed
+// an import cycle. Every prior importer of this module is unchanged.
 
 // ── CommandContext adapters ────────────────────────────────────────────────────
 

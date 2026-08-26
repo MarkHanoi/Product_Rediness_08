@@ -81,7 +81,9 @@ export class UpdatePlumbingParametersCommand implements Command {
             height:     this.payload.height     ?? fixture.height,
             baseOffset: this.payload.baseOffset ?? fixture.baseOffset,
             color:      this.payload.color      ?? fixture.color,
-            position:   fixture.position.clone()
+            // §GRAPH115 (L-11762) — the stored position is a PLAIN {x,y,z} (PlumbingStore.add
+            // structuredClone's it), so `.clone()` threw; rebuild through the P2 facade instead.
+            position:   new THREE.Vector3(fixture.position.x, fixture.position.y, fixture.position.z)
         };
 
         // Handle line-based repositioning for Bath

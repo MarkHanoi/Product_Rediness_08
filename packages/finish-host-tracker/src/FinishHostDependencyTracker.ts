@@ -69,6 +69,8 @@ import {
     type ReprojectFinishBoundaryResult,
     type WallSnapshotLike,
 } from './reprojectFinishBoundary';
+// §MESH110-RESTORE-IS-NOT-A-MOVE (L-11567 #3a) — the host-geometry delta gate.
+import { wallHostGeometryMoved } from './hostGeometryDelta';
 
 // ── Structural surfaces (kept minimal so probe doubles need no casts) ────────
 
@@ -215,7 +217,18 @@ export class FinishHostDependencyTracker<T extends FinishRecordLike> {
      * precondition for reporting it (C78 §1.4).
      */
     private unattributed = new Set<string>();
+    /**
+     * §MESH110-RESTORE-IS-NOT-A-MOVE (L-11567 #3a) — wall `'update'` events that
+     * carried NO host-geometry change and were therefore not treated as a move
+     * (opening add/edit, join write-back, paint). A COUNT so the gate is
+     * observable without printing one line per skipped event — which would be
+     * the founder's console noise back under a different tag.
+     */
+    private nonGeometryUpdatesSkipped = 0;
     private unsubscribeWall?: () => void;
+
+    /** §MESH110-RESTORE-IS-NOT-A-MOVE — see the field. */
+    get nonGeometryWallUpdatesSkipped(): number { return this.nonGeometryUpdatesSkipped; }
     private windowListeners: Array<[string, (e: Event) => void]> = [];
 
     constructor(
@@ -384,6 +397,22 @@ export class FinishHostDependencyTracker<T extends FinishRecordLike> {
         // §L-943 — a REVERT is not a wall move, and re-deriving during one is how
         // this tracker invented floor area. See `isRevertReplay()`.
         if (this.isRevertReplay()) return;
+
+        // ⭐ §MESH110-RESTORE-IS-NOT-A-MOVE (L-11567 #3a) — and neither is an
+        // opening add, a door drag, a join write-back or a paint. The store emits
+        // `'update'` for EVERY write to a wall record; on the founder's project
+        // open that was one full follow pass (recorded dependents + the late-
+        // attribution candidate scan + its "moved; checked N … none is bounded"
+        // line) PER WALL, against a centreline that had not moved. The gate sits
+        // UPSTREAM of C79 §5.2's report: the five states describe what a
+        // geometry change must report, and this event carried none. No
+        // `prevState` ⇒ the predicate says MOVED and every arm below still runs
+        // (its STALE_DERIVED_STATE report owns that case) — the gate can never
+        // manufacture "unchanged" from an absence. Counted, never silent.
+        if (!wallHostGeometryMoved(prevState, wall)) {
+            this.nonGeometryUpdatesSkipped++;
+            return;
+        }
 
         const dependents = this.graph.get(wall.id);
 

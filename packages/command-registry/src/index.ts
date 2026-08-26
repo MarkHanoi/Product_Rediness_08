@@ -201,6 +201,11 @@ export * from './plans/StairShapeAdvisor';
 export * from './plumbing/CreatePlumbingFixtureCommand';
 export * from './plumbing/UpdatePlumbingParametersCommand';
 export * from './plumbing/MovePlumbingCommand';
+// §GRAPH115 / ADR-0374 — the wall-attachment anchor: ONE authority (WallAnchor),
+// ONE follower (WallAnchorDependencyTracker), ONE write path (ReseatWallAnchoredElementsCommand).
+export * from './attachments/WallAnchor';
+export * from './attachments/ReseatWallAnchoredElementsCommand';
+export * from './attachments/WallAnchorDependencyTracker';
 
 // ─── Project ──────────────────────────────────────────────────────────────
 export * from './project/ClearProjectCommand';
