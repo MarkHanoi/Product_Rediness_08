@@ -69,7 +69,7 @@
  *    the serializer wrote a non-empty array into it, that `ProjectLoader` reads it
  *    back, or that the restored record has its properties. C67 rule 12 wants an
  *    EXECUTED create→serialize→deserialize→read-back, and that is what
- *    `apps/editor/__tests__/SnapshotFamilyRoundTrip.test.ts` does for the five
+ *    `apps/editor/src/engine/__tests__/snapshotFamilyRoundTrip.spec.ts` does for the five
  *    families §PERSIST103 closed. A green reading here means "the family is
  *    ACCOUNTED FOR", never "the family round-trips".
  * ⛔ It sees `plugins/**` only. A family whose store lives OUTSIDE the plugin tree
@@ -407,7 +407,7 @@ if (rc === 0) {
   console.log(`[${LABEL}] ⚠ NOT ESTABLISHED HERE: that any family ROUND-TRIPS. A snapshot key is a declared slot, not`);
   console.log(`[${LABEL}]   a proof that a record was written into it, read back, or restored with its properties.`);
   console.log(`[${LABEL}]   C67 rule 12 wants an EXECUTED create→serialize→deserialize→read-back: that is`);
-  console.log(`[${LABEL}]   apps/editor/__tests__/SnapshotFamilyRoundTrip.test.ts, for the five families L-11520 closed.`);
+  console.log(`[${LABEL}]   apps/editor/src/engine/__tests__/snapshotFamilyRoundTrip.spec.ts, for the five families L-11520 closed.`);
   console.log(`[${LABEL}] ⚠ ALSO OUT OF SUBJECT: the LOD-200 massing lift (packages/geometry-lift/src/LiftStore.ts,`);
   console.log(`[${LABEL}]   storeRegistry key 'verticalCirculation'). It has no plugins/*/src/store.ts, so no arm sees`);
   console.log(`[${LABEL}]   it — and it is NOT persisted either. L-11525, OPEN.`);

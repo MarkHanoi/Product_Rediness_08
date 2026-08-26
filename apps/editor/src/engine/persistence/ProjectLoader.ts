@@ -55,6 +55,11 @@ import { buildHandrailCreatePayload } from '@pryzm/core-app-model/stores';
 // §PERF-L03-PHASE (L-03) — gated per-phase load timing; OFF unless globalThis.__pryzmPerfTrace.
 import { perfTraceOn, perfLog } from '@pryzm/core-app-model';
 import { ProjectSnapshot } from './ProjectSerializer';
+// §PERSIST103 (L-11520) — the restore half for the five compound slices that had no
+// snapshot key at all. Called ONCE from the common tail, past the
+// `if (useImportCommandPath) … else …` join, so both load paths get it. See that call
+// site for why duplicating a restore into two paths is the defect, not the pattern.
+import { restoreCompoundFamilies } from './restoreCompoundFamilies';
 // L-334 / L-360 — verify the content-integrity checksum at LOAD. A mismatch is a
 // NON-BLOCKING warning (load best-effort); an absent checksum (legacy snapshot)
 // verifies clean. NEVER a hard refuse on the checksum alone.
@@ -339,7 +344,18 @@ export function snapshotHasElements(
         // L-9948 — a boundary line is an element. A project whose ONLY content is
         // setting-out lines would otherwise read as empty, and "empty" is what this
         // predicate protects against overwriting.
-        len((snapshot as { boundaryLines?: unknown }).boundaryLines);
+        len((snapshot as { boundaryLines?: unknown }).boundaryLines) +
+        // §PERSIST103 (L-11520) — the compound parents, for the identical reason
+        // L-9948 gives above and with a sharper edge: this predicate is what stops a
+        // real project being treated as empty and OVERWRITTEN. A file whose compounds
+        // were the only thing in it would read as empty here, so the C13 promise
+        // ("projects must never silently disappear") would be broken by the very
+        // guard that exists to keep it.
+        len((snapshot as { lifts?: unknown }).lifts) +
+        len((snapshot as { liftParts?: unknown }).liftParts) +
+        len((snapshot as { pools?: unknown }).pools) +
+        len((snapshot as { waters?: unknown }).waters) +
+        len((snapshot as { balconies?: unknown }).balconies);
     return total > 0;
 }
 
@@ -1900,6 +1916,63 @@ export class ProjectLoader {
                 return { ...result, success: false };
             }
 
+            // ── §PERSIST103 (L-11520) — the COMPOUND PARENTS ─────────────────
+            //
+            // The founder: *"11 elements did not survive project opening — the lift
+            // for example, I can see it is not there."* The save half is written
+            // (`lifts` / `liftParts` / `pools` / `waters` / `balconies`); this is the
+            // restore half, and a save without a restore is a file that holds the data
+            // and an editor that cannot show it.
+            //
+            // ⭐ IT IS HERE — IN THE COMMON TAIL, AFTER THE `if (useImportCmd) … else …`
+            // JOIN — AND THAT PLACEMENT IS THE WHOLE POINT, NOT AN ACCIDENT OF LAYOUT.
+            //
+            // Every other element restore in this file exists TWICE: once in the legacy
+            // branch above and once in `ImportProjectCommand` (the default path). That
+            // duplication has already stranded a fix. Measured 2026-08-26:
+            //
+            //     grep -c "boundaryLine" ImportProjectCommand.ts   ->  0
+            //     _useImportCommandPath()                          ->  true (default)
+            //
+            // so L-9948's boundary-line restore — Step 10c, two hundred lines above —
+            // DOES NOT RUN IN PRODUCTION. The line is saved and never read back. That is
+            // §PV-05's shape verbatim ("the fix landed on the copy this file does not
+            // import"), and it is reported as L-11528 rather than fixed here.
+            //
+            // Restoring the compounds ONCE, past the join, makes both paths correct by
+            // construction and gives the next family nowhere to drift.
+            //
+            // ⛔ IT DOES NOT RE-DISPATCH `lift.create` / `pool.create` / `balcony.create`.
+            // Those verbs mint their members too, and every member ALREADY round-tripped
+            // as its own family (`walls`, `curtainWalls`, `doors`, `slabs`, `floors`,
+            // `handrails`) and has ALREADY been restored above. Re-dispatching would
+            // double them — a lift back with eight shaft walls instead of four. See
+            // `restoreCompoundFamilies.ts` for the full argument and for why the render
+            // half reuses the undo/redo adapters rather than minting a rival channel.
+            try {
+                const __compound = restoreCompoundFamilies(snapshot);
+                if (__compound.total > 0) {
+                    result.loaded += __compound.total;
+                    console.log(
+                        `[ProjectLoader] §PERSIST103 restored ${__compound.total} compound record(s): ` +
+                        Object.entries(__compound.restored).map(([k, n]) => `${k}=${n}`).join(' '),
+                    );
+                }
+                // A diagnosed failure that reaches nobody is still a silent failure
+                // (C03 §4.6 U-4) — these ride the LoadResult the calling UI already shows.
+                for (const err of __compound.errors) {
+                    console.error(err);
+                    result.errors.push(err);
+                    result.failed++;
+                }
+            } catch (e) {
+                // Never fail a whole project load over one compound: losing the entire
+                // project is strictly worse than the defect being fixed (C13).
+                const msg = `[ProjectLoader] §PERSIST103 compound restore threw — lifts/pools/balconies may be missing: ${String(e)}`;
+                console.error(msg);
+                result.errors.push(msg);
+            }
+
             // FIX-12 §07 §3: Restore custom SlabSystemType definitions from snapshot.
             // Built-in presets are always present from code; only custom types need restoring.
             const snapshotSlabSystemTypes = (snapshot as any).slabSystemTypes;
@@ -3010,6 +3083,18 @@ export class ProjectLoader {
                 // quietly — it makes it accuse the innocent, which trains the reader to
                 // discount a P0 line.
                 __pushIds(s.boundaryLines);
+                // §PERSIST103 (L-11520) — the five compound slices, for the SAME
+                // COMPLETENESS reason as `lighting` above (§L-711), and this is the
+                // THIRD time that reason has had to be written out. A restored lift,
+                // cabin part, pool, water body or balcony registers an
+                // `elementRegistry` root; omitting them here would make the §L-325
+                // audit report every legitimately-restored compound as "a FOREIGN root
+                // FROM A PRIOR PROJECT". An incomplete expectation does not weaken an
+                // audit quietly — it makes it accuse the innocent, which trains the
+                // reader to discount a P0 line.
+                __pushIds(s.lifts);      __pushIds(s.liftParts);
+                __pushIds(s.pools);      __pushIds(s.waters);
+                __pushIds(s.balconies);
                 // §C13-SCENE-ID-KEY — `levels`, for the same COMPLETENESS reason as
                 // `lighting` above (§L-711), surfaced by the same widening.
                 //
