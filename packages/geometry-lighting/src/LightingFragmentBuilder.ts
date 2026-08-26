@@ -477,6 +477,14 @@ export class LightingFragmentBuilder {
      */
     private readonly _lightPool: THREE.PointLight[] = [];
 
+    /**
+     * §LIGHT121 (L-11903) — dedup key for the budget console summary below, so a
+     * resync that changes nothing (the common case: most syncs are triggered by
+     * an edit to ONE fixture elsewhere in a large scene) does not reprint the
+     * same line on every microtask.
+     */
+    private _lastBudgetLogKey: string | null = null;
+
     private _scene: THREE.Object3D | null = null;
     private _isNight = false;
 
@@ -1687,6 +1695,56 @@ export class LightingFragmentBuilder {
             } satisfies LiveLightState;
         }
 
+        // ⭐ §LIGHT121 (L-11903) — founder: "the lights of the Japanese bed are
+        // ALWAYS on — and it is the only element — the rest sometimes, mostly
+        // not." MEASURED, not assumed: `JapaneseBedBuilder.ts` has no emissive
+        // material and no light of its own — the bed's glow is the two lighting
+        // FIXTURES placed beside it. His scene logs `chosenBy=AUTO` at the
+        // `performance` tier (budget 3) over ~2983 meshes; `selectLiveLights`
+        // ranks by distance to the camera AT LAST EDIT, so whichever fixtures are
+        // nearest wherever the camera was last parked win every one of the 3
+        // slots, deterministically — the two bedside lamps read as "always on"
+        // because the camera is usually parked right next to the bed, and
+        // everything else in the model loses every time. `lightRebuildDeterminism
+        // .test.ts` (§LIGHT121, L-11903) independently pins that this is NOT a
+        // race: 25 rebuilds of one record under fixed tier/focus are byte-
+        // identical.
+        //
+        // The per-fixture explanation has existed since §LIGHT-BUDGET-HONESTY
+        // (L-11420) — `userData.liveLight.reason` / `liveLightDiagnostics()` —
+        // and nothing has ever read it: authored, unreachable, the repo's most-
+        // repeated defect shape. A console line is the one surface a founder
+        // session already uses without any new UI surface (his own report quotes
+        // `tier=performance chosenBy=AUTO`, a console line this SAME builder's
+        // caller already prints) — deduped on (tier, budget, live-set) so a
+        // resync that changes nothing does not reprint it.
+        //
+        // ⛔ Raising the budget is NOT this fix. `LIVE_LIGHT_BUDGET_BY_TIER` is
+        // DERIVED-BUT-UNMEASURED (L-11422) — the numbers stay exactly as they are.
+        if (candidates.length > 0 && dark.length > 0) {
+            // The key covers every number the sentence below actually states —
+            // `total` (candidates.length) included, so an 11th fixture added
+            // FAR away (which changes nothing about WHO is live) still reprints
+            // with the correct "N of total" count rather than going stale.
+            const key = `${this._tier ?? 'none'}|${budget}|${candidates.length}|${[...live].sort().join(',')}`;
+            if (key !== this._lastBudgetLogKey) {
+                this._lastBudgetLogKey = key;
+                console.info(
+                    `[LightingFragmentBuilder] §LIGHT-BUDGET: ${live.length} of ${candidates.length} fixtures ` +
+                    `are illuminating the room — the render tier ("${this._tier ?? 'default (no tier reported)'}") ` +
+                    `allows only ${budget} live fixture light${budget === 1 ? '' : 's'} at once. The other ` +
+                    `${dark.length} still show a lit lens but cast no light; the nearest-to-camera-at-last-edit ` +
+                    `${dark.length === 1 ? 'one wins' : 'ones win'} the slots. This is the render-tier budget ` +
+                    `working as designed, not a fault — raise the render quality tier (or move the camera ` +
+                    `nearer a fixture) to light it. Per-fixture detail: liveLightDiagnostics().`,
+                );
+            }
+        } else if (candidates.length > 0 && this._lastBudgetLogKey !== null && dark.length === 0) {
+            // Every fixture fits inside the budget again (a fixture removed, or
+            // the tier rose) — clear the key so a future overflow logs fresh.
+            this._lastBudgetLogKey = null;
+        }
+
         // ⭐ §FIX-LIGHT-PLACE-FREEZE (L-10080) — DETACH BEFORE ATTACH, IN TWO PASSES.
         //
         // This used to be ONE pass over `_roots` in insertion order, interleaving
@@ -2437,7 +2495,8 @@ export class LightingFragmentBuilder {
     }
 
     /** CAN — cylindrical body ± trim ring ± stem. Recessed downlights, adjustable
-     *  downlights, wall washers, emergency downlights, track heads. */
+     *  downlights, wall washers, emergency downlights, track heads — and, since
+     *  §LIGHT121, floor uplighters / floor-recessed spots (`mount: 'floor'`). */
     private _lod200Can(g: THREE.Group, c: Lod200Ctx): void {
         const r = c.L / 2;
         // §LIGHT102 (L-11500) — the suspension length is the stem PLUS the drop.
@@ -2455,6 +2514,50 @@ export class LightingFragmentBuilder {
         // lens together — tilting only the lens would light a direction the fixture
         // is not pointing, which is the failure an adjustable downlight exists to avoid.
         const head = new THREE.Group();
+
+        // §LIGHT121 (L-11904) — FLOOR MOUNT IS THE MIRROR IMAGE OF CEILING, NOT
+        // A REUSE OF IT. Every branch below this one assumes +Y is away from the
+        // room (true for a ceiling can, where the room is BELOW) — reused as-is
+        // for a floor can it would bury the body in the slab void the wrong way
+        // and hide the lens instead of showing it, since for a floor mount the
+        // room is ABOVE (+Y). `mount === 'wall'` already gets its own explicit
+        // arm in `_lod200Bar` for exactly this reason; `can` gains the same shape
+        // here rather than a shared branch guarded by a sign variable, so the
+        // ceiling geometry (read by twelve pre-existing rows) is untouched.
+        if (c.row.mount === 'floor') {
+            if (c.row.recessed) {
+                // Body sits INSIDE the floor build-up (−Y, below the slab surface);
+                // only the trim ring and the up-facing lens are visible, flush
+                // with the floor.
+                const body = new THREE.Mesh(new THREE.CylinderGeometry(r * 0.92, r * 0.92, c.D, SEG_BODY), c.bodyMat);
+                body.position.y = -c.D / 2;
+                head.add(body);
+                const trim = new THREE.Mesh(new THREE.TorusGeometry(r, r * 0.08, 8, SEG_TRIM), c.bodyMat);
+                trim.rotation.x = Math.PI / 2;
+                head.add(trim);
+                const lens = this._lod200Lens(r * 0.82, c, 0.005);
+                lens.rotation.x = Math.PI; // emissiveLens bulges −Y by default; flip to face up, into the room
+                head.add(lens);
+            } else {
+                // Surface puck: stands PROUD of the floor, body above +Y.
+                if (stem > 0) {
+                    const rod = new THREE.Mesh(new THREE.CylinderGeometry(0.008, 0.008, stem, SEG_CABLE), c.bodyMat);
+                    rod.position.y = stem / 2;
+                    g.add(rod);
+                }
+                const body = new THREE.Mesh(new THREE.CylinderGeometry(r, r * 0.92, c.D, SEG_BODY), c.bodyMat);
+                body.position.y = c.D / 2;
+                body.castShadow = true;
+                head.add(body);
+                const lens = this._lod200Lens(r * 0.88, c, c.D);
+                lens.rotation.x = Math.PI;
+                head.add(lens);
+            }
+            head.position.y = stem;
+            head.rotation.x = c.tilt;
+            g.add(head);
+            return;
+        }
 
         if (c.row.recessed) {
             // Body sits INSIDE the ceiling void (+Y, above the soffit); only the trim
@@ -2512,6 +2615,45 @@ export class LightingFragmentBuilder {
                 up.position.set(0, c.D / 2, c.W * 0.98);
                 up.rotation.x = Math.PI;
                 g.add(up);
+            }
+            return;
+        }
+
+        // §LIGHT121 (L-11904) — floor frame: the MIRROR of the ceiling frame
+        // below, not a reuse of it. `face` itself is mount-independent ('up'
+        // always means local +Y via the same 180° flip the ceiling branch uses
+        // below; 'down' always means the unrotated default) — only which side
+        // of the mount plane counts as "the room" changes with the mount, and
+        // that is the ONLY thing this branch flips.
+        if (c.row.mount === 'floor') {
+            // No authored floor row suspends (drop is always 0 today), but the
+            // shape is kept symmetric with the ceiling branch's cable handling
+            // rather than assuming it can never happen.
+            if (c.drop > 0) {
+                for (const sx of [-c.L * 0.35, c.L * 0.35]) {
+                    const cable = new THREE.Mesh(new THREE.CylinderGeometry(0.004, 0.004, c.drop, SEG_CABLE), c.bodyMat);
+                    cable.position.set(sx, c.drop / 2, 0);
+                    g.add(cable);
+                }
+            }
+            // Recessed: body BELOW the floor slab, lens flush at the mount plane.
+            // Surface: the body stands PROUD, above its mount plane.
+            const baseY = c.drop;
+            body.position.y = c.row.recessed ? baseY - c.D / 2 : baseY + c.D / 2;
+            setBodyShadow(!c.row.recessed);
+            g.add(body);
+
+            if (c.row.face === 'up' || c.row.face === 'updown') {
+                // Face UP is the whole point of a floor uplighter/cove: the lens
+                // points into the room, which for a floor mount is +Y.
+                const lensY = c.row.recessed ? baseY + 0.004 : baseY + c.D;
+                const up = this._lod200Lens(0, c, lensY, c.L * 0.92, c.W * 0.92);
+                up.rotation.x = Math.PI;
+                g.add(up);
+            }
+            if (c.row.face === 'down' || c.row.face === 'updown') {
+                const lensY = c.row.recessed ? baseY - c.D - 0.004 : baseY - 0.004;
+                g.add(this._lod200Lens(0, c, lensY, c.L * 0.92, c.W * 0.92));
             }
             return;
         }
@@ -2833,11 +2975,26 @@ export class LightingFragmentBuilder {
         const stem = this._mm(c.row.stemMm ?? 0) + c.drop;
         switch (c.row.archetype) {
             case 'can':
+                // §LIGHT121 (L-11904) — floor uplighter/spot: the emitter sits on
+                // the ROOM side of the mount plane, which for a floor mount is +Y
+                // (the mirror of the ceiling case's −Y below).
+                if (c.row.mount === 'floor') {
+                    return { x: 0, y: c.row.recessed ? 0.02 : stem + c.D + 0.02, z: 0 };
+                }
                 return { x: 0, y: c.row.recessed ? -0.02 : -(stem + c.D + 0.02), z: 0 };
             case 'bar':
                 if (c.row.mount === 'wall') {
                     // Just PROUD of the wall face, never inside it.
                     return { x: 0, y: -c.D * 0.5, z: (c.row.recessed ? 0.02 : c.W) + 0.02 };
+                }
+                if (c.row.mount === 'floor') {
+                    // Mirror of the ceiling arm below — the room is ABOVE a floor
+                    // mount, so the room-ward clearance is +Y here where it is −Y
+                    // there. Face 'up' (the only value any floor row authors) emits
+                    // into the room from just above the body.
+                    return c.row.face === 'up'
+                        ? { x: 0, y: c.drop + c.D + 0.05, z: 0 }
+                        : { x: 0, y: c.drop - (c.row.recessed ? 0.02 : c.D + 0.02), z: 0 };
                 }
                 // Face 'up' emits toward the ceiling from just above the body.
                 return c.row.face === 'up'
