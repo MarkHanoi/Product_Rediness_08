@@ -50,7 +50,7 @@ import { trace } from '@opentelemetry/api';
 import { BCN_REFOS_OV_CERTIFIED } from './providers/bcnRefosOVProvider.js';
 import { CH_FAR_CERTIFIED } from './providers/resolveChFarFromCantonCatalogue.js';
 import { MADRID_NZ1_CERTIFIED } from './providers/resolveMadridNZ1Ring.js';
-import { NL_BESTEMMINGSPLAN_CERTIFIED } from './providers/resolveNlBestemmingsplan.js';
+import { NL_BESTEMMINGSPLAN_CERTIFIED, NL_STOREY_DERIVED_HEIGHT_CERTIFIED } from './providers/resolveNlBestemmingsplan.js';
 import {
     AMB_NO_HELD_CORPUS_ENVELOPE_VERIFIED,
     AMB_PGM_NNUU_ENVELOPE_VERIFIED,
@@ -146,20 +146,42 @@ export const L449_CERTIFICATION_GATES: readonly L449Gate[] = Object.freeze([
             anchor: 'SIGNED OFF 2026-07-26 by the repo owner',
         },
     },
-
-    // ── ⛔ SHUT 2026-08-02 — these two WERE `true` with `signature: null`. §UNSIGNED-GATE-DEFAULTS-SHUT.
-    //    They were the Madrid defect found twice more, and unlike Madrid they had already SHIPPED.
-    //    Both now refuse with a CITED determination; neither draws. Reasoning is at each declaration.
     {
+        // ⭐ SIGNED 2026-08-26 (the founder), on Doctrine B — ADR-0283, PARTIAL. §L-11840 traced the
+        // founder's "missing Amsterdam envelope" report to this gate sitting shut with
+        // `signature: null` since 2026-08-02; §L-11841 is that recorded call. The founder's
+        // authorization explicitly EXCLUDED the storey-derived-height sub-path — see
+        // `NL_STOREY_DERIVED_HEIGHT_CERTIFIED` below, still shut, and the VERIFICATION.md anchor for
+        // exactly what is and is not covered.
         gate: 'NL_BESTEMMINGSPLAN_CERTIFIED',
         file: 'packages/site-parcel-data/src/providers/resolveNlBestemmingsplan.ts',
         value: NL_BESTEMMINGSPLAN_CERTIFIED,
-        signature: null,
+        signature: {
+            doc: 'docs/04-reference/jurisdictions/nl/sources/VERIFICATION.md',
+            anchor: 'SIG-NL1 · ✍ SIGNED 2026-08-26',
+        },
     },
+
+    // ── ⛔ SHUT 2026-08-02 — WAS `true` with `signature: null`. §UNSIGNED-GATE-DEFAULTS-SHUT.
+    //    The Madrid defect found again, and unlike Madrid it had already SHIPPED. Now refuses with
+    //    a CITED determination; does not draw. Reasoning at the declaration.
+    //    (NL_BESTEMMINGSPLAN_CERTIFIED — its sibling in this pair — moved to the SIGNED block above
+    //    2026-08-26, SIG-NL1: §L-11840/L-11841. This one stays here, unsigned.)
     {
         gate: 'FR_PARIS_PLU_CERTIFIED',
         file: 'packages/site-parcel-data/src/rulepacks/frParisPluBioclimatique.ts',
         value: FR_PARIS_PLU_CERTIFIED,
+        signature: null,
+    },
+    {
+        // §L-11841, 2026-08-26 — the NARROWER sibling of `NL_BESTEMMINGSPLAN_CERTIFIED` above.
+        // SIG-NL1 explicitly EXCLUDED this: a height PRYZM would derive from a published storey
+        // count (no metre height published) is an engineering approximation, not the authority's
+        // own number. Stays shut until its OWN signature. A stated willingness is not a signature —
+        // same discipline as `MADRID_ENVELOPE_VERIFIED` below.
+        gate: 'NL_STOREY_DERIVED_HEIGHT_CERTIFIED',
+        file: 'packages/site-parcel-data/src/providers/resolveNlBestemmingsplan.ts',
+        value: NL_STOREY_DERIVED_HEIGHT_CERTIFIED,
         signature: null,
     },
 

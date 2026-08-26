@@ -17,6 +17,7 @@ import {
     NL_RING_REF,
     NL_RULE,
     NL_BESTEMMINGSPLAN_CERTIFIED,
+    NL_STOREY_DERIVED_HEIGHT_CERTIFIED,
 } from '../src/index.js';
 
 // A representative bouwvlak polygon (GeoJSON, WGS84 [lon, lat], closing vertex repeated).
@@ -168,15 +169,20 @@ describe('ringFromGeoJson — closes the ring, drops the closing vertex', () => 
 });
 
 describe('resolveNlBestemmingsplan — the resolver', () => {
-    it('⛔ THE GATE IS SHUT — an UNRECORDED default is not a decision', () => {
-        // SHUT 2026-08-02 (§UNSIGNED-GATE-DEFAULTS-SHUT). This is the WEAKEST case of the two and is
-        // recorded that way so reopening is cheap: `maximum bouwhoogte (m)` is published-structured
-        // with a STATED unit and PRYZM transcribes no ordinance — the same ADR-0283 Doctrine B
-        // argument under which DENMARK is authorised ungated.
+    it('⭐ THE GATE IS OPEN, PARTIAL — §L-11841, 2026-08-26, SIG-NL1', () => {
+        // Was SHUT 2026-08-02 (§UNSIGNED-GATE-DEFAULTS-SHUT) for exactly one reason: nobody had
+        // recorded the call, not because the data was weak — `maximum bouwhoogte (m)` is
+        // published-structured with a STATED unit and PRYZM transcribes no ordinance, the same
+        // ADR-0283 Doctrine B argument under which Denmark is authorised ungated.
         //
-        // It is shut anyway because NOBODY MADE THAT CALL. Denmark's ungated entry is a RECORDED
-        // decision; this was an unrecorded default. That difference is the whole of Step 0.
-        expect(NL_BESTEMMINGSPLAN_CERTIFIED).toBe(false);
+        // §L-11840 traced the founder's "missing Amsterdam envelope" report to this exact gate;
+        // the founder's recorded answer (SIG-NL1, `docs/04-reference/jurisdictions/nl/sources/
+        // VERIFICATION.md`) opened it: "Authorize with the sparse-fallback path excluded."
+        expect(NL_BESTEMMINGSPLAN_CERTIFIED).toBe(true);
+        // The exclusion is its OWN flag, still shut — a height PRYZM would derive from a storey
+        // count (no metre height published) is an engineering approximation, not the authority's
+        // number, and was explicitly not part of what was signed.
+        expect(NL_STOREY_DERIVED_HEIGHT_CERTIFIED).toBe(false);
     });
 
     it('the ringRef constant equals the pack rule handle (no vintage drift)', () => {

@@ -78,45 +78,57 @@ import { trace, SpanStatusCode } from '@opentelemetry/api';
 const tracer = trace.getTracer('pryzm.zoning');
 
 /**
- * ⚠⚠ THE L-449-STYLE CERTIFICATION GATE. **DEFAULT ON** (§NL-NATIONWIDE, 2026-07-26).
+ * ⚠⚠ THE L-449-STYLE CERTIFICATION GATE. **REOPENED 2026-08-26 (§L-11841, RECORDED SIGNATURE).**
  *
- * Flipped true because the load-bearing precondition is MET and PROVEN live:
- *   (a) the same-origin `/api/nl/bestemmingsplan` proxy is wired to the KEYLESS PDOK RP WMS
- *       (`server/nlBestemmingsplanProxy.js`) — no API key, so no key can leak, and
- *   (b) real `maximum bouwhoogte (m)` values verified live at three NL points (Rotterdam 40 m,
- *       Utrecht 26 m, Groningen 24 m — see the header PROOF block).
+ * Shut 2026-08-02 (§UNSIGNED-GATE-DEFAULTS-SHUT) because the gate was found ON with
+ * `signature: null` — publishing numeric envelopes nationwide with no recorded human decision
+ * behind them, same reasoning as `FR_PARIS_PLU_CERTIFIED` at the time. §L-11840 traced the
+ * founder's "missing Amsterdam envelope" report to exactly this shut gate and asked the question
+ * Step 0 exists to force: does Doctrine B (ADR-0283) apply? The founder's answer, recorded here:
+ * **"Authorize with the sparse-fallback path excluded."**
  *
- * A certified NL `maximum bouwhoogte (m)` is an authoritative `published-structured` number with a
- * STATED unit, so the dispatcher may render `structured` when a real maatvoering resolves — and
- * `estimated-ruleset` when only the bouwvlak (no numbers) is available. See the dispatcher.
+ * WHAT THIS FLAG NOW AUTHORISES: `maximum bouwhoogte (m)` / `bebouwingspercentage` /
+ * `aantal bouwlagen` read directly off the keyless PDOK RP WMS `maatvoering` — an authoritative
+ * `published-structured` number with a stated unit, verified live at three NL points (Rotterdam
+ * 40 m, Utrecht 26 m, Groningen 24 m maximum bouwhoogte). PRYZM transcribes no ordinance here; this
+ * is the same argument under which Denmark is authorised ungated. With this ON, a resolved bouwvlak
+ * renders `structured` when a real maatvoering height resolves, and `estimated-ruleset` when the
+ * bouwvlak resolves with no numbers. See the dispatcher.
  *
- * ⛔ SHUT 2026-08-02 — UNSIGNED, AND SPAIN IS THE FOCUS. §UNSIGNED-GATE-DEFAULTS-SHUT.
+ * WHAT IT DOES **NOT** AUTHORISE: a height DERIVED from a published storey count (bouwlagen × an
+ * assumed ~3 m/floor) when no metre height is published — that is PRYZM's own engineering
+ * approximation, not the authority's published determination, and the founder's authorization
+ * explicitly excluded it. See `NL_STOREY_DERIVED_HEIGHT_CERTIFIED` below — a SEPARATE, narrower
+ * flag, still shut. A parcel that would need that derivation gets an honest "height withheld,
+ * storey count published but not yet authorised for derivation" rather than an approximated number
+ * (`siteDispatch.ts`'s `heightDerivedFromFloors`, §L-11841).
  *
- * This gate was ON with `signature: null` — publishing numeric envelopes NATIONWIDE with no human
- * signature behind them. Same reasoning as `FR_PARIS_PLU_CERTIFIED`: an envelope published under no
- * signature is a number with legal weight and no legal basis.
- *
- * ⚠ THE HONEST FINDING: this is the WEAKEST case for shutting of the two, and it is recorded that
- * way so reopening is cheap. `maximum bouwhoogte (m)` is an authoritative `published-structured`
- * number with a STATED UNIT, read live from the keyless PDOK proxy — PRYZM TRANSCRIBES NO ORDINANCE.
- * That is the same argument (ADR-0283 Doctrine B) under which DENMARK is authorised UNGATED. On the
- * merits NL probably belongs in `UNGATED_AUTHORISED_JURISDICTIONS` beside Plandata.dk.
- *
- * It is shut anyway, for one reason: NOBODY HAS MADE THAT CALL. Denmark's ungated entry is a
- * RECORDED DECISION; the Netherlands' open gate was an unrecorded default. The difference between
- * those two is the entire point of Step 0.
- *
- * COVERAGE EFFECT: bounded the same way. Every NL parcel refuses HONESTLY AND CITED, carrying the
- * resolved bouwvlak; the determination survives, the drawn envelope stops.
- *
- * TO REOPEN, a signature need assert only that Doctrine B applies — that `maatvoering` is the
- * authority's own published determination and not PRYZM's reading of one. If that holds, the correct
- * fix is not to reopen this gate but to DELETE it and move NL to `UNGATED_AUTHORISED_JURISDICTIONS`.
- *
- * (Typed `boolean`, not the literal `false`, so a consumer's `if (NL_BESTEMMINGSPLAN_CERTIFIED)`
- * draw branch is not narrowed away as dead code while the gate is shut.)
+ * (Typed `boolean`, not the literal `true`, so a consumer's `if (NL_BESTEMMINGSPLAN_CERTIFIED)`
+ * draw branch is never narrowed away as dead code if this is ever shut again.)
  */
-export const NL_BESTEMMINGSPLAN_CERTIFIED: boolean = false;
+export const NL_BESTEMMINGSPLAN_CERTIFIED: boolean = true;
+
+/**
+ * ⚠⚠ THE NARROWER, STILL-SHUT SUB-GATE — §L-11841, 2026-08-26.
+ *
+ * `NL_BESTEMMINGSPLAN_CERTIFIED` (above) authorises real published `maatvoering` numbers.
+ * It does NOT authorise this: when a parcel's bestemmingsplan publishes NO metre height but DOES
+ * publish a storey count (`aantal bouwlagen`), `siteDispatch.ts`'s §NL-SPARSE-FALLBACK path can
+ * DERIVE a height as `storeys × 3.0 m` — a labelled engineering approximation, not a number the
+ * planning authority itself published. The founder's 2026-08-26 authorization was explicit:
+ * "Authorize with the sparse-fallback path excluded" — this is that excluded path, named and
+ * gated on its own flag so the two decisions cannot be conflated by a future reader.
+ *
+ * Reopening this requires its own signature, separate from the one that opened the flag above:
+ * either an accepted floor-to-floor constant with a cited planning-practice basis, or dropping the
+ * derivation in favour of reading a per-plan storey height where the plan states one.
+ *
+ * COVERAGE EFFECT while shut: a parcel with a published bouwvlak/zone extent but only a storey
+ * count (no metre height) still gets its FOOTPRINT (real published geometry, `estimated-ruleset`)
+ * — only the derived HEIGHT is withheld. This is narrower than the outer gate's coverage effect
+ * was: geometry the authority published draws; a number PRYZM would have to invent does not.
+ */
+export const NL_STOREY_DERIVED_HEIGHT_CERTIFIED: boolean = false;
 
 /**
  * The `ringRef` handle this resolver answers for. MUST equal the pack's rule `ringRef` — asserted

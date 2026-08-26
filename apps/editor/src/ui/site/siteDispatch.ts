@@ -439,24 +439,28 @@ import {
     // certified parcel renders `structured` (real height fed into structuredFields), not just
     // estimated-ruleset. `resolveNlBestemmingsplan` resolves the bouwvlak ring + maatvoering via the
     // KEYLESS `/api/nl/bestemmingsplan` proxy (PDOK RP WMS), or refuses (never throws).
-    // ⚠ CORRECTED §L-11840 — `NL_BESTEMMINGSPLAN_CERTIFIED` IS SHUT (`false`, §UNSIGNED-GATE-
-    // DEFAULTS-SHUT, 2026-08-02), not "ON" as this comment used to read: the pack and resolver are
-    // proven live nationwide, but publication awaits a founder signature (ADR-0283 Doctrine B),
-    // so every NL parcel refuses honestly via `nlPublicationNotAuthorisedRefusal` today — never a
-    // fabricated bouwhoogte. The coarse gate is `isInNetherlands` (national bbox).
+    // ⚠ CORRECTED §L-11841, 2026-08-26 — `NL_BESTEMMINGSPLAN_CERTIFIED` is now OPEN (the founder's
+    // recorded authorization, traced from his "missing Amsterdam envelope" report at §L-11840): a
+    // resolved bouwvlak + real published maatvoering renders `structured`. The narrower
+    // `NL_STOREY_DERIVED_HEIGHT_CERTIFIED` sub-gate stays SHUT — the founder's authorization was
+    // explicit ("with the sparse-fallback path excluded"): a height DERIVED from a storey count
+    // (no metre height published) is PRYZM's own approximation, not the authority's number, and is
+    // still withheld honestly rather than drawn. The coarse gate is `isInNetherlands` (national bbox).
     isInNetherlands,
     resolveNlBestemmingsplan,
     NL_RING_REF,
     NL_BESTEMMINGSPLAN_CERTIFIED,
+    NL_STOREY_DERIVED_HEIGHT_CERTIFIED,
     NL_BESTEMMINGSPLAN_PACK,
     NL_ZONE_CODE,
     NL_JURISDICTION_ID,
     bestemmingToPermittedUse,
     nlBestemmingsplanRefusal,
-    // §L-11840 — the gate-shut refusal (`NL_BESTEMMINGSPLAN_CERTIFIED === false`), distinct from
-    // `nlBestemmingsplanRefusal` (a TRANSIENT fetch failure — retried, "try again" is honest) and
-    // from `nlNoPlanRefusal` (the source ANSWERED "no plan here"). The gate-shut case never even
-    // reaches the fetch, and no retry changes it — only a founder signature does.
+    // §L-11840 — the gate-shut refusal, retained for `NL_STOREY_DERIVED_HEIGHT_CERTIFIED === false`
+    // (§L-11841) even though the outer `NL_BESTEMMINGSPLAN_CERTIFIED` gate is now open: distinct
+    // from `nlBestemmingsplanRefusal` (a TRANSIENT fetch failure — retried, "try again" is honest)
+    // and from `nlNoPlanRefusal` (the source ANSWERED "no plan here"). No retry changes either
+    // shut-gate case — only a founder signature does.
     nlPublicationNotAuthorisedRefusal,
     // PARIS (Ville de Paris, INSEE 75056) — PLU bioclimatique, STRUCTURED-DATA-FIRST. `resolveParisEnvelope`
     // reads the zone identity (GPU zone_urba), the numeric hauteur plafond (opendata plub_hauteur) AND the
@@ -3241,14 +3245,11 @@ async function applyMadridNZ1ExplicitArea(
  *     front/side/rear estimate is the wrong geometric SHAPE for an explicit-area zone (the
  *     §CONTEXT-DATA-HONESTY failure this whole path exists to avoid).
  *
- * ⚠ GATED ON `NL_BESTEMMINGSPLAN_CERTIFIED` — CORRECTED §L-11840: this is SHUT (`false`), not "ON"
- * as this docstring used to claim. The keyless PDOK proxy is wired and real bouwhoogte was
- * verified live at Rotterdam 40 m / Utrecht 26 m / Groningen 24 m — but the gate was shut
- * 2026-08-02 (§UNSIGNED-GATE-DEFAULTS-SHUT) because nobody had signed off on nationwide NL
- * publication (ADR-0283 Doctrine B). Same discipline as `MADRID_NZ1_CERTIFIED` while it was
- * unsigned: every NL parcel refuses honestly (`nlPublicationNotAuthorisedRefusal`) until a
- * founder signature opens it — see `resolveNlBestemmingsplan.ts`'s own docstring for the exact
- * reopen condition.
+ * ⚠ GATED ON `NL_BESTEMMINGSPLAN_CERTIFIED` — REOPENED §L-11841, 2026-08-26 (the founder's recorded
+ * authorization). The keyless PDOK proxy is wired and real bouwhoogte was verified live at
+ * Rotterdam 40 m / Utrecht 26 m / Groningen 24 m; a resolved bouwvlak + real maatvoering now
+ * renders `structured`. The narrower `NL_STOREY_DERIVED_HEIGHT_CERTIFIED` sub-gate stays SHUT —
+ * see `resolveNlBestemmingsplan.ts`'s own docstring for exactly what it excludes and why.
  *
  * Best-effort + fully guarded — never throws into the commit path.
  */
@@ -3273,15 +3274,12 @@ async function applyNlZoningThenFallback(
             return;
         }
 
-        // ⚠⚠ THE CERTIFICATION GATE — CURRENTLY SHUT (§L-11840). `NL_BESTEMMINGSPLAN_CERTIFIED` is
-        // `false` (§UNSIGNED-GATE-DEFAULTS-SHUT, 2026-08-02): the pack + resolver are proven live
-        // nationwide, but a founder signature authorising nationwide publication is outstanding
-        // (ADR-0283 Doctrine B). No resolve, no fetch, no fabricated number — the honest,
-        // NON-TRANSIENT refusal. ⚠ THIS IS NOT `nlBestemmingsplanRefusal()` (that copy says "the
-        // source was temporarily unreachable ... retried ... try again", which is TRUE only for a
-        // failed fetch; this branch never fetches at all, and no retry — automatic or manual —
-        // changes a shut gate). Use the dedicated gate-shut refusal so the card cannot mislead the
-        // user into re-selecting the parcel expecting a different answer.
+        // ⚠⚠ THE CERTIFICATION GATE — REOPENED §L-11841, 2026-08-26. `NL_BESTEMMINGSPLAN_CERTIFIED`
+        // is `true`: the pack + resolver are proven live nationwide, and the founder has recorded
+        // authorization to publish real published maatvoering numbers. The narrower
+        // `NL_STOREY_DERIVED_HEIGHT_CERTIFIED` sub-gate (checked further below, at the point a
+        // height would need to be DERIVED from a storey count) stays shut on the founder's own
+        // explicit exclusion — this outer gate no longer blocks the fetch or the resolve.
         if (!NL_BESTEMMINGSPLAN_CERTIFIED) {
             dispatchEnvelope(
                 ctx,
@@ -3333,14 +3331,23 @@ async function applyNlZoningThenFallback(
 
             // §NL-SPARSE-FALLBACK height derivation (fallback branch only — the bouwvlak branch is
             // UNCHANGED). When the zone publishes no max bouwhoogte in metres but DOES publish a storey
-            // count, derive a height (floors × ~3 m) — the DK L-620 pattern (a LABELLED derivation, not
-            // a fabricated default). The precise bouwvlak branch never derives; it uses the metre value.
+            // count, the DK L-620 pattern would derive a height (floors × ~3 m) — a LABELLED
+            // derivation, not a fabricated default. The precise bouwvlak branch never derives; it
+            // uses the metre value.
+            // §L-11841, 2026-08-26 — the founder's authorization of `NL_BESTEMMINGSPLAN_CERTIFIED`
+            // was explicit: "with the sparse-fallback path excluded". `storeyDerivationApplicable`
+            // is the SITUATION (a storey count exists, no metre height does); `heightDerivedFromFloors`
+            // is whether PRYZM is AUTHORISED to act on it — gated on the narrower, still-shut
+            // `NL_STOREY_DERIVED_HEIGHT_CERTIFIED`. While shut, the situation is named in the caveat
+            // (`storeyCountWithheld`, below) rather than silently collapsed into "nothing published."
             const NL_FLOOR_H_M = 3.0;
-            const heightDerivedFromFloors =
+            const storeyDerivationApplicable =
                 isZoneFallback &&
                 resolution.maat.maxBouwhoogte_m === null &&
                 typeof resolution.maat.maxAantalBouwlagen === 'number' &&
                 resolution.maat.maxAantalBouwlagen > 0;
+            const heightDerivedFromFloors = storeyDerivationApplicable && NL_STOREY_DERIVED_HEIGHT_CERTIFIED;
+            const storeyCountWithheld = storeyDerivationApplicable && !NL_STOREY_DERIVED_HEIGHT_CERTIFIED;
             const effectiveMaxHeight_m = heightDerivedFromFloors
                 ? resolution.maat.maxAantalBouwlagen! * NL_FLOOR_H_M
                 : resolution.maat.maxBouwhoogte_m;
@@ -3393,7 +3400,11 @@ async function applyNlZoningThenFallback(
                         : heightDerivedFromFloors
                             ? `height DERIVED from ${resolution.maat.maxAantalBouwlagen} bouwlagen × ~${NL_FLOOR_H_M} m ` +
                               `(no maximum bouwhoogte published in metres — a labelled derivation, not a surveyed height)`
-                            : 'no maximum bouwhoogte published (height withheld)';
+                            : storeyCountWithheld
+                                ? `${resolution.maat.maxAantalBouwlagen} bouwlagen published, but no maximum ` +
+                                  `bouwhoogte in metres — height withheld (a floors→metres derivation is not yet ` +
+                                  'authorised, §L-11841; the storey count itself is real published data)'
+                                : 'no maximum bouwhoogte published (height withheld)';
                 const percClause =
                     resolution.maat.maxBebouwingspercentage !== null
                         ? `, maximum bebouwingspercentage ${(resolution.maat.maxBebouwingspercentage * 100).toFixed(0)} %`

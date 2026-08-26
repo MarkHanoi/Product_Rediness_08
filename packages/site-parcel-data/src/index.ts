@@ -1796,6 +1796,9 @@ export {
     ringFromGeoJson,
     NL_RING_REF,
     NL_BESTEMMINGSPLAN_CERTIFIED,
+    // §L-11841 — the narrower, still-shut sub-gate: storey-derived height (bouwlagen × ~3 m) is
+    // excluded from the founder's 2026-08-26 authorization of the flag above.
+    NL_STOREY_DERIVED_HEIGHT_CERTIFIED,
     NL_BESTEMMINGSPLAN_PATH,
     type NlLatLon,
     type NlBpDeps,
