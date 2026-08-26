@@ -120,6 +120,14 @@ export const NON_ELEMENT_STORE_GLOBALS: Readonly<Record<string, string>> = Objec
 
     // ── System TYPE catalogues (the library, not the instances) ────────────
     wallSystemTypeStore:    'Type catalogue; instances are inspected via `walls`.',
+    // §TREE134 (L-12161) — ARM A of `InspectCategoryCoverage.test.ts` was RED on main
+    // when this lane started: `initBuilders.ts:584` publishes `window.curtainWallTypeStore`
+    // and it had neither a row above nor a reason here. It is the CURTAIN-WALL SYSTEM-TYPE
+    // CATALOGUE (`initBusHandlers.ts:2142` reads `getById(newTypeId)` on a type swap), i.e.
+    // exactly the `*SystemTypeStore` shape already excluded on the lines around it — the
+    // naming is `curtainWallTypeStore` rather than `curtainWallSystemTypeStore`, which is
+    // why it slipped the eye and not the gate. The gate was doing its job; nobody read it.
+    curtainWallTypeStore:   'Type catalogue; instances are inspected via `curtainWalls`.',
     slabSystemTypeStore:    'Type catalogue; instances are inspected via `slabs`.',
     ceilingSystemTypeStore: 'Type catalogue; instances are inspected via `ceilings`.',
     floorSystemTypeStore:   'Type catalogue; instances are inspected via `floors`.',

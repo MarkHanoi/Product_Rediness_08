@@ -11,12 +11,41 @@
  * Exports:
  *   renderProjectTree   — full tree render into the project-tree zone container
  *   renderTreeBody      — tree body (levels + type groups) with filter support
- *   renderTypesForLevel — per-level element-type groups with expand/collapse
- *   countAllElements    — total element count across tracked stores
+ *   renderTypesForLevel — per-level element-family groups with expand/collapse
+ *   countAllElements    — total element count, EQUAL to the sum of the listed groups
  *   getElementIcon      — returns inline SVG for a store key
+ *
+ * ── §TREE134 (L-12160), 2026-08-26 — THE CATEGORY MAPPING IS DERIVED ────────────
+ *
+ * Founder: *"The Inspect tree doesn't have all the categories mapped — many are
+ * missing. Check the project browser on the left-hand side rail panel — you have
+ * them all there — do the same."*
+ *
+ * `renderTypesForLevel` used to open on a hand-written FOUR-entry `stores` array
+ * (room / wall / slab / column). `INSPECT_CATEGORIES`, three files away in this very
+ * directory, declares TWENTY families and is guarded by a coverage gate. Sixteen
+ * families the founder can select in 3-D — handrails, curtain walls, furniture,
+ * plumbing, lighting, stairs, openings, … — could not appear in this tree at all.
+ *
+ * ⭐ It now DERIVES from `INSPECT_CATEGORIES` via `projectTreeModel.ts`. Extending the
+ * array to today's twenty would have reproduced the defect on the twenty-first; see
+ * that file's header for the full audit, and `inspectProjectTreeCategories.spec.ts`
+ * for the pin that fails if this file ever goes back to hand-listing.
  */
 
 import { selectionBus } from '@pryzm/core-app-model';
+import {
+  buildProjectTreeModel,
+  buildLevelFamilyGroups,
+  elementRowLabel,
+  type TreeFamilyGroup,
+} from './projectTreeModel';
+import { INSPECT_CATEGORIES } from './inspectCategories';
+// §TREE134 · C84 EI-9 — "the icon for an element kind" already had ONE producer, and
+// it is the one the left-rail browser the founder pointed at renders from. The eight
+// hand-drawn SVGs this file used to carry were a second, smaller answer to the same
+// question; `getElementIcon` below now delegates rather than rivals.
+import { getTypeIcon } from '../../ViewBrowser/panels/unified-browser/BrowserDataHelpers';
 
 // ── State bag consumed by tree zone ──────────────────────────────────────────
 
@@ -83,14 +112,62 @@ export function renderTreeBody(
     .slice()
     .sort((a: any, b: any) => a.elevation - b.elevation);
 
-  const totalElements = countAllElements();
+  // ── §TREE134 (L-12162) — ONE traversal feeds BOTH the header and the rows ─────
+  //
+  // ⛔ THE HEADER USED TO LIE, and quietly. `countAllElements()` scanned SIX stores
+  // (room, wall, slab, column, door, window) while `renderTypesForLevel` listed FOUR
+  // groups — so `7 levels · 153 elements` counted every WINDOW in the model, which the
+  // tree had no group for, and every DOOR, which it drew only as a dead child row under
+  // a wall. It also counted elements whose storey matches no level, which no row can
+  // show. A total that includes rows the user cannot see is the §CONTEXT-DATA-HONESTY
+  // shape at a header: absence rendered as a confident number.
+  //
+  // ⭐ `model.listedTotal` is the SUM OF THE GROUPS THIS RENDER DRAWS. Not a second
+  // scan that ought to agree — the same traversal, so drift is not possible. Elements
+  // the tree cannot place, and families whose store could not be READ at all, are named
+  // separately rather than folded into (or dropped from) the total.
+  const model = buildProjectTreeModel(levels.map((l: any) => String(l.id)), filter);
+
   const projectRow = document.createElement('div');
   projectRow.className = 'aud-tree-project-row';
-  projectRow.innerHTML = `
-    <span class="aud-tree-dot">●</span>
-    <span class="aud-tree-row-label">PROJECT</span>
-    <span class="aud-tree-row-meta">${levels.length} level${levels.length !== 1 ? 's' : ''} · ${totalElements} elements</span>
-  `;
+  const dot = document.createElement('span');
+  dot.className   = 'aud-tree-dot';
+  dot.textContent = '●';
+  const projectLabel = document.createElement('span');
+  projectLabel.className   = 'aud-tree-row-label';
+  projectLabel.textContent = 'PROJECT';
+  const meta = document.createElement('span');
+  meta.className = 'aud-tree-row-meta';
+
+  const parts: string[] = [`${levels.length} level${levels.length !== 1 ? 's' : ''}`];
+  parts.push(
+    filter
+      // Under a search the header states BOTH numbers, because "12 elements" beside a
+      // filtered tree would be a different claim than the one the user is reading.
+      ? `${model.listedTotal} of ${model.totalUnfiltered} elements match`
+      : `${model.listedTotal} element${model.listedTotal !== 1 ? 's' : ''}`,
+  );
+  const notes: string[] = [];
+  if (model.unplaced > 0) {
+    parts.push(`${model.unplaced} unplaced`);
+    notes.push(
+      `${model.unplaced} element(s) name no storey this project declares, and no host wall that does — ` +
+      'they are real, and no row can show them.',
+    );
+  }
+  if (model.unreadable.length > 0) {
+    parts.push(`${model.unreadable.length} unread`);
+    notes.push(
+      `These stores could not be read, so their families are UNKNOWN here, not empty: ` +
+      `${model.unreadable.join(', ')}.`,
+    );
+  }
+  meta.textContent = parts.join(' · ');
+  if (notes.length > 0) meta.title = notes.join('\n');
+
+  projectRow.appendChild(dot);
+  projectRow.appendChild(projectLabel);
+  projectRow.appendChild(meta);
   container.appendChild(projectRow);
 
   const buildingRow = document.createElement('div');
@@ -109,17 +186,22 @@ export function renderTreeBody(
   `;
   container.appendChild(siteRow);
 
-  // Auto-expand all levels on first render
+  // Auto-expand all levels on first render.
+  // §TREE134 — the seed is keyed on CATEGORY IDS from the registry, not on the four
+  // display labels it used to hard-code ('WALL','ROOM','SLAB','COLUMN'). The default
+  // open set is deliberately still the spatial/structural core rather than all twenty:
+  // opening every family on a populated storey is a wall of rows, not a browser.
   if (state.treeExpandedLevels.size === 0 && levels.length > 0) {
     levels.forEach(l => state.treeExpandedLevels.add(l.id));
     const firstLevel = levels[0];
     if (firstLevel && !state.treeExpandedTypes.has(firstLevel.id)) {
-      state.treeExpandedTypes.set(firstLevel.id, new Set(['WALL', 'ROOM', 'SLAB', 'COLUMN']));
+      state.treeExpandedTypes.set(firstLevel.id, new Set(['rooms', 'walls', 'slabs', 'columns']));
     }
   }
 
   // ── Level rows ─────────────────────────────────────────────────────────────
-  for (const level of levels) {
+  for (let levelIndex = 0; levelIndex < levels.length; levelIndex++) {
+    const level = levels[levelIndex];
     const projectCtx = window.projectContext; // TODO(C.3.x): legacy projectContext — replace with runtime.projectContext
     const isActive   = level.id === (projectCtx?.activeLevelId ?? bimManager.getActiveLevelId?.());
     const levelKey   = level.id;
@@ -181,7 +263,10 @@ export function renderTreeBody(
       expandBtn.click();
     });
 
-    renderTypesForLevel(typeContainer, level, filter, state);
+    // The groups come from the SAME traversal the header total was summed from —
+    // passing them in is what makes "the header agrees with the tree" structural
+    // rather than a coincidence two scans have to keep re-earning.
+    renderTypesForLevel(typeContainer, level, filter, state, model.levels[levelIndex]?.groups);
   }
 }
 
@@ -192,32 +277,40 @@ export function renderTypesForLevel(
   level:     any,
   filter:    string,
   state:     ProjectTreeState,
+  /**
+   * §TREE134 — the pre-computed groups from `renderTreeBody`'s single traversal.
+   * Omitted only by a direct caller (and by the specs), in which case this level is
+   * read on its own. Either way the groups come from `projectTreeModel`, never from
+   * a list written out here.
+   */
+  precomputed?: readonly TreeFamilyGroup[],
 ): void {
-  const stores: Array<{ storeKey: string; label: string; childLabel?: string; childStoreKey?: string }> = [
-    { storeKey: 'roomStore',   label: 'ROOM' },
-    { storeKey: 'wallStore',   label: 'WALL', childLabel: 'DOOR', childStoreKey: 'doorStore' },
-    { storeKey: 'slabStore',   label: 'SLAB' },
-    { storeKey: 'columnStore', label: 'COLUMN' },
-  ];
+  // ⛔ THE HAND-WRITTEN `stores` ARRAY THAT USED TO OPEN THIS FUNCTION IS GONE.
+  //
+  //     [ roomStore/'ROOM', wallStore/'WALL' (+DOOR children), slabStore/'SLAB',
+  //       columnStore/'COLUMN' ]
+  //
+  // Four families out of the twenty `INSPECT_CATEGORIES` declares. Do NOT restore it,
+  // and do not "just add the missing ones" — that is the move that produced this bug,
+  // and the LEFT-RAIL browser the founder pointed at carries the receipt: its own
+  // category list is hand-written too, and §LIFT94 (L-11342) is the founder reporting
+  // the identical omission there, one family at a time.
+  //
+  // ⚠ HOSTED CHILDREN WENT WITH IT, DELIBERATELY. Doors used to render as `aud-tree-
+  // child-row`s nested under their host wall. Three reasons they are now first-class
+  // groups instead: (1) those child rows had NO click handler — they were decoration,
+  // not navigation, so nothing selectable is lost; (2) WINDOWS and OPENINGS, hosted the
+  // same way, were nested under nothing and appeared nowhere at all; (3) keeping both
+  // shapes would show a door twice and force the header to choose which one to count.
+  // The left-rail browser lists Doors, Windows and Openings as their own categories —
+  // "do the same" is the instruction, and their storey still resolves through the host
+  // wall (`resolveElementLevelId`, C15), so they travel with it exactly as before.
+  const groups = precomputed ?? buildLevelFamilyGroups(String(level.id), filter);
 
-  for (const { storeKey, label, childLabel, childStoreKey } of stores) {
-    const store = ((window as unknown as Record<string, any>))[storeKey]; // TODO(E.<family>.S): legacy per-family window store reach — replace with runtime.stores.<family> when family stores are exposed via runtime in Phase E/F
-    if (!store?.getAll) continue;
+  for (const group of groups) {
+    const { id: categoryId, storeKey, label, meshType, elements } = group;
 
-    let elements: any[] = store.getAll().filter(
-      (el: any) => String(el.levelId) === String(level.id)
-    );
-
-    if (filter) {
-      elements = elements.filter((el: any) => {
-        const name = (el.name || el.label || el.id || '').toLowerCase();
-        return name.includes(filter);
-      });
-    }
-
-    if (elements.length === 0) continue;
-
-    const isTypeExpanded = state.treeExpandedTypes.get(level.id)?.has(label) ?? false;
+    const isTypeExpanded = state.treeExpandedTypes.get(level.id)?.has(categoryId) ?? false;
 
     const typeRow = document.createElement('div');
     typeRow.className = 'aud-tree-type-row';
@@ -247,14 +340,17 @@ export function renderTypesForLevel(
 
     typeExpandBtn.addEventListener('click', (e) => {
       e.stopPropagation();
-      const open = !(state.treeExpandedTypes.get(level.id)?.has(label) ?? false);
+      // Keyed on the registry CATEGORY ID, not the display label: the label is a
+      // presentation string ('Curtain Walls') and renaming one must not silently reset
+      // every user's expanded state.
+      const open = !(state.treeExpandedTypes.get(level.id)?.has(categoryId) ?? false);
       if (!state.treeExpandedTypes.has(level.id)) {
         state.treeExpandedTypes.set(level.id, new Set());
       }
       if (open) {
-        state.treeExpandedTypes.get(level.id)!.add(label);
+        state.treeExpandedTypes.get(level.id)!.add(categoryId);
       } else {
-        state.treeExpandedTypes.get(level.id)!.delete(label);
+        state.treeExpandedTypes.get(level.id)!.delete(categoryId);
       }
       typeExpandBtn.textContent = open ? '▾' : '▸';
       elemContainer.style.display = open ? '' : 'none';
@@ -280,8 +376,10 @@ export function renderTypesForLevel(
 
       const elemLabel = document.createElement('span');
       elemLabel.className = 'aud-tree-elem-label';
-      elemLabel.textContent = el.name || el.label || `${label} ${el.id.substring(0, 4).toUpperCase()}`;
-      elemLabel.title = el.id;
+      // The unnamed-record fallback uses the SINGULAR builder type ('WALL 1A2B'),
+      // which is what it read before the group label became plural ('Walls 1A2B').
+      elemLabel.textContent = elementRowLabel({ meshType }, el);
+      elemLabel.title = String(el.id);
 
       elemRow.appendChild(elemIcon);
       elemRow.appendChild(elemLabel);
@@ -319,57 +417,45 @@ export function renderTypesForLevel(
         }
         selectionBus.select(el.id, 'inspect-panel');
       });
-
-      // ── Children (e.g., doors inside walls) ─────────────────────────────
-      if (childLabel && childStoreKey) {
-        const childStore = ((window as unknown as Record<string, any>))[childStoreKey]; // TODO(E.<family>.S)
-        if (childStore?.getAll) {
-          const children: any[] = childStore.getAll().filter(
-            (c: any) => String(c.hostWallId) === String(el.id) || String(c.wallId) === String(el.id)
-          );
-          for (const child of children) {
-            const childRow = document.createElement('div');
-            childRow.className = 'aud-tree-child-row';
-            childRow.style.marginLeft = '48px';
-
-            const childIcon = document.createElement('span');
-            childIcon.className = 'aud-tree-elem-icon';
-            childIcon.innerHTML = `<svg width="13" height="13" viewBox="0 0 13 13" fill="none"><rect x="3" y="1.5" width="7" height="10" rx="0.5" stroke="currentColor" stroke-width="1.1"/><circle cx="9" cy="6.5" r="0.8" fill="currentColor"/></svg>`;
-
-            const childLabelEl = document.createElement('span');
-            childLabelEl.className = 'aud-tree-elem-label';
-            childLabelEl.textContent = child.name || child.label || `${childLabel} ${child.id.substring(0, 4).toUpperCase()}`;
-            childLabelEl.title = child.id;
-
-            childRow.appendChild(childIcon);
-            childRow.appendChild(childLabelEl);
-            elemContainer.appendChild(childRow);
-          }
-        }
-      }
     }
   }
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
-export function countAllElements(): number {
-  let count = 0;
-  for (const key of ['roomStore', 'wallStore', 'slabStore', 'columnStore', 'doorStore', 'windowStore']) {
-    const store = ((window as unknown as Record<string, any>))[key]; // TODO(E.<family>.S)
-    if (store?.getAll) count += store.getAll().length;
-  }
-  return count;
+/**
+ * The project's element total — the number beside `PROJECT` in the header.
+ *
+ * ⛔ IT USED TO BE A SECOND SCAN, over a SIX-store list, while the tree listed FOUR
+ * groups. Two lists that had to agree and did not: windows were counted and never
+ * shown, doors were counted and shown only as dead child rows, and sixteen families
+ * were neither counted nor shown. §CONTEXT-DATA-HONESTY at a header — a confident
+ * total covering rows the user cannot see.
+ *
+ * ⭐ It is now the sum of the groups the tree renders, from the same traversal, so
+ * "does the header agree with the tree?" is not a question this code can answer
+ * wrongly. `unplaced` / `unreadable` are reported BESIDE the total, never folded in.
+ *
+ * @param levelIds the storeys being rendered. Omitted, it reads them off `bimManager`
+ *                 — the same source `renderTreeBody` uses.
+ */
+export function countAllElements(levelIds?: readonly string[]): number {
+  const ids = levelIds
+    ?? (window.bimManager?.getLevels?.() ?? []).map((l: any) => String(l.id)); // TODO(D.4): legacy bimManager
+  return buildProjectTreeModel(ids).listedTotal;
 }
 
+/**
+ * Inline SVG for one family's element rows, addressed by its store key.
+ *
+ * §TREE134 · C84 EI-9 — this used to be eight hand-drawn `if`s and a square fallback,
+ * so twelve of the twenty families rendered as an anonymous box. It now resolves the
+ * store key through `INSPECT_CATEGORIES` to the builder's mesh type and asks
+ * `getTypeIcon` — the producer the LEFT-RAIL browser the founder pointed at already
+ * renders from, which covers every family this tree can now show. One icon vocabulary,
+ * two surfaces; a new family inherits an icon instead of a blank square.
+ */
 export function getElementIcon(storeKey: string): string {
-  if (storeKey === 'roomStore')      return `<svg width="13" height="13" viewBox="0 0 13 13" fill="none"><rect x="1.5" y="1.5" width="10" height="10" rx="0.5" stroke="currentColor" stroke-width="1.1"/><path d="M1.5 6h5.5v5.5" stroke="currentColor" stroke-width="1" stroke-linecap="round"/></svg>`;
-  if (storeKey === 'wallStore')      return `<svg width="13" height="13" viewBox="0 0 13 13" fill="none"><rect x="1.5" y="2.5" width="10" height="8" rx="0.5" stroke="currentColor" stroke-width="1.1"/><line x1="1.5" y1="5.5" x2="11.5" y2="5.5" stroke="currentColor" stroke-width="1"/><line x1="6.5" y1="5.5" x2="6.5" y2="10.5" stroke="currentColor" stroke-width="1"/></svg>`;
-  if (storeKey === 'doorStore')      return `<svg width="13" height="13" viewBox="0 0 13 13" fill="none"><rect x="3" y="1.5" width="7" height="10" rx="0.5" stroke="currentColor" stroke-width="1.1"/><circle cx="9" cy="6.5" r="0.8" fill="currentColor"/></svg>`;
-  if (storeKey === 'windowStore')    return `<svg width="13" height="13" viewBox="0 0 13 13" fill="none"><rect x="2" y="2" width="9" height="9" rx="0.5" stroke="currentColor" stroke-width="1.1"/><line x1="6.5" y1="2" x2="6.5" y2="11" stroke="currentColor" stroke-width="1"/><line x1="2" y1="6.5" x2="11" y2="6.5" stroke="currentColor" stroke-width="1"/></svg>`;
-  if (storeKey === 'slabStore')      return `<svg width="13" height="13" viewBox="0 0 13 13" fill="none"><rect x="1" y="5" width="11" height="5" rx="0.5" stroke="currentColor" stroke-width="1.1"/><rect x="1" y="3" width="11" height="2" rx="0.5" stroke="currentColor" stroke-width="1"/></svg>`;
-  if (storeKey === 'columnStore')    return `<svg width="13" height="13" viewBox="0 0 13 13" fill="none"><rect x="4.5" y="1.5" width="4" height="10" rx="0.5" stroke="currentColor" stroke-width="1.1"/><line x1="2" y1="2.5" x2="11" y2="2.5" stroke="currentColor" stroke-width="1"/><line x1="2" y1="10.5" x2="11" y2="10.5" stroke="currentColor" stroke-width="1"/></svg>`;
-  if (storeKey === 'stairStore')     return `<svg width="13" height="13" viewBox="0 0 13 13" fill="none"><path d="M1 10h3V7h3V4h3V1" stroke="currentColor" stroke-width="1.1" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
-  if (storeKey === 'furnitureStore') return `<svg width="13" height="13" viewBox="0 0 13 13" fill="none"><rect x="2" y="3.5" width="9" height="8" rx="1" stroke="currentColor" stroke-width="1.1"/><path d="M4.5 3.5V3a1.5 1.5 0 013 0v.5" stroke="currentColor" stroke-width="1"/></svg>`;
-  return `<svg width="13" height="13" viewBox="0 0 13 13" fill="none"><rect x="2" y="2" width="9" height="9" rx="1" stroke="currentColor" stroke-width="1"/></svg>`;
+  const cat = INSPECT_CATEGORIES.find(c => c.storeKey === storeKey);
+  return getTypeIcon(cat?.meshType ?? storeKey.replace(/Store$/, ''));
 }

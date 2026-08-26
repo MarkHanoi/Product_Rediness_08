@@ -191,32 +191,52 @@ export function getAllStores(bag: UBPBag): any[] {
     ];
 }
 
+/**
+ * §149 ISOLATE-LEVEL-HOSTED-MISSING — doors/windows/openings are HOSTED on a wall
+ * and carry NO `levelId` of their own in their store record (only `wallId`; see
+ * DoorStore/WindowStore). Matching purely on `el.levelId` therefore yielded
+ * 'undefined' === levelId → false for every hosted element, so isolating/hiding a
+ * floor plan wrongly EXCLUDED that level's doors & windows and they vanished. Resolve
+ * a hosted element's level through its host wall (C15 hosted-element semantics) so a
+ * level's openings travel with their host.
+ *
+ * ⭐ §TREE134 (L-12160) — EXPORTED, and that is the point. This was a closure inside
+ * `getElementsForLevel`, so the Inspect project tree could not reach it and would have
+ * had to write a THIRD copy of the same rule (`IfcTreeAttachment.buildHostIndex` is
+ * already the second). C84 EI-9: "which storey is this element on?" gets ONE answer,
+ * and both trees now read it.
+ *
+ * ⚠ `hostWallId` is accepted alongside `wallId` because both aliases are live in this
+ * codebase — a curtain-wall-hosted window carries `hostWallId` (see
+ * `engine/__tests__/roomElementsQuery.spec.ts:23`) and the closure this replaces
+ * matched only `wallId`, silently dropping those from the level they belong to.
+ *
+ * @returns the storey id, or `undefined` when the element names none and no host
+ *          resolves one — never a guessed level.
+ */
+export function resolveElementLevelId(el: any): string | undefined {
+    if (el?.levelId != null) return String(el.levelId);
+    const hostId = el?.wallId ?? el?.hostWallId;
+    if (hostId != null) {
+        const ws = window.wallStore; // TODO(E.wall.S): legacy wallStore — replace with runtime.stores.wall
+        if (typeof ws?.getById === 'function') {
+            const host = ws.getById(String(hostId));
+            if (host?.levelId != null) return String(host.levelId);
+        }
+    }
+    return undefined;
+}
+
 export function getElementsForLevel(bag: UBPBag, levelId: string): any[] {
     if (levelId.startsWith('ifc-storey:')) {
         return getIfcElementsForStorey(levelId.slice('ifc-storey:'.length));
     }
     const result: any[] = [];
     const target = String(levelId);
-    // §149 ISOLATE-LEVEL-HOSTED-MISSING — doors/windows/openings are HOSTED on a wall
-    // and carry NO `levelId` of their own in their store record (only `wallId`; see
-    // DoorStore/WindowStore). Matching purely on `el.levelId` therefore yielded
-    // 'undefined' === levelId → false for every hosted element, so isolating/hiding a
-    // floor plan wrongly EXCLUDED that level's doors & windows and they vanished. Resolve
-    // a hosted element's level through its host wall (C15 hosted-element semantics) so a
-    // level's openings travel with their host.
-    const ws = window.wallStore; // TODO(E.wall.S): legacy wallStore — replace with runtime.stores.wall
-    const levelOfElement = (el: any): string | undefined => {
-        if (el?.levelId != null) return String(el.levelId);
-        if (el?.wallId != null && typeof ws?.getById === 'function') {
-            const host = ws.getById(String(el.wallId));
-            if (host?.levelId != null) return String(host.levelId);
-        }
-        return undefined;
-    };
     for (const store of getAllStores(bag)) {
         if (!store?.getAll) continue;
         for (const el of store.getAll()) {
-            if (levelOfElement(el) === target) result.push(el);
+            if (resolveElementLevelId(el) === target) result.push(el);
         }
     }
     const nativeLevel = getLevels().find(l => String(l.id) === target);
@@ -602,6 +622,13 @@ export function getActiveLevelName(): string {
 
 export function getTypeIcon(typeName: string): string {
     const t = typeName.toLowerCase();
+    // §TREE134 — `curtain` is tested BEFORE `wall`, and the order is the whole point:
+    // `'curtain-wall'` (the builders' `userData.elementType`, now the Inspect tree's
+    // icon key) contains 'wall', so the generic wall glyph won the match and a curtain
+    // wall was drawn as a solid wall in the one panel whose job is telling them apart.
+    // No existing caller regresses: no subtype string contains both tokens except a
+    // literal "curtain wall", which was mis-iconed by this same ordering.
+    if (t.includes('curtain'))   return `<svg width="12" height="12" viewBox="0 0 12 12" fill="none"><rect x="1" y="1" width="10" height="10" rx="0.5" stroke="currentColor" stroke-width="1.1"/><line x1="4" y1="1" x2="4" y2="11" stroke="currentColor" stroke-width="1"/><line x1="7.5" y1="1" x2="7.5" y2="11" stroke="currentColor" stroke-width="1"/><line x1="1" y1="4.5" x2="11" y2="4.5" stroke="currentColor" stroke-width="1"/><line x1="1" y1="8" x2="11" y2="8" stroke="currentColor" stroke-width="1"/></svg>`;
     if (t.includes('wall'))      return `<svg width="12" height="12" viewBox="0 0 12 12" fill="none"><rect x="1" y="2" width="10" height="8" rx="0.5" stroke="currentColor" stroke-width="1.1"/><line x1="1" y1="5" x2="11" y2="5" stroke="currentColor" stroke-width="1"/><line x1="6" y1="5" x2="6" y2="10" stroke="currentColor" stroke-width="1"/></svg>`;
     if (t.includes('slab'))      return `<svg width="12" height="12" viewBox="0 0 12 12" fill="none"><rect x="1" y="5" width="10" height="5" rx="0.5" stroke="currentColor" stroke-width="1.1"/><rect x="1" y="3" width="10" height="2" rx="0.5" stroke="currentColor" stroke-width="1"/></svg>`;
     if (t.includes('roof'))      return `<svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M1 7L6 2.5 11 7" stroke="currentColor" stroke-width="1.1" stroke-linecap="round"/><rect x="2.5" y="7" width="7" height="4" rx="0.5" stroke="currentColor" stroke-width="1"/></svg>`;
@@ -613,7 +640,6 @@ export function getTypeIcon(typeName: string): string {
     if (t.includes('furniture')) return `<svg width="12" height="12" viewBox="0 0 12 12" fill="none"><rect x="1.5" y="3" width="9" height="7.5" rx="1" stroke="currentColor" stroke-width="1.1"/><path d="M4 3V2.5a2 2 0 014 0V3" stroke="currentColor" stroke-width="1"/></svg>`;
     if (t.includes('lighting') || t.includes('fixture') || t.includes('downlight') || t.includes('pendant') || t.includes('linear_led') || t.includes('floor_') || t.includes('table_'))
         return `<svg width="12" height="12" viewBox="0 0 12 12" fill="none"><circle cx="6" cy="4.5" r="2.2" stroke="currentColor" stroke-width="1.1"/><line x1="6" y1="1" x2="6" y2="2.1" stroke="currentColor" stroke-width="1" stroke-linecap="round"/><line x1="6" y1="6.8" x2="6" y2="11" stroke="currentColor" stroke-width="1" stroke-linecap="round"/><line x1="3.2" y1="2.2" x2="3.8" y2="2.8" stroke="currentColor" stroke-width="1" stroke-linecap="round"/><line x1="8.8" y1="2.2" x2="8.2" y2="2.8" stroke="currentColor" stroke-width="1" stroke-linecap="round"/><line x1="1" y1="4.5" x2="2" y2="4.5" stroke="currentColor" stroke-width="1" stroke-linecap="round"/><line x1="11" y1="4.5" x2="10" y2="4.5" stroke="currentColor" stroke-width="1" stroke-linecap="round"/></svg>`;
-    if (t.includes('curtain'))   return `<svg width="12" height="12" viewBox="0 0 12 12" fill="none"><rect x="1" y="1" width="10" height="10" rx="0.5" stroke="currentColor" stroke-width="1.1"/><line x1="4" y1="1" x2="4" y2="11" stroke="currentColor" stroke-width="1"/><line x1="7.5" y1="1" x2="7.5" y2="11" stroke="currentColor" stroke-width="1"/><line x1="1" y1="4.5" x2="11" y2="4.5" stroke="currentColor" stroke-width="1"/><line x1="1" y1="8" x2="11" y2="8" stroke="currentColor" stroke-width="1"/></svg>`;
     if (t.includes('floor'))     return `<svg width="12" height="12" viewBox="0 0 12 12" fill="none"><rect x="1" y="7.5" width="10" height="3" rx="0.5" stroke="currentColor" stroke-width="1.1"/><line x1="2.5" y1="7.5" x2="2.5" y2="5" stroke="currentColor" stroke-width="1" stroke-linecap="round"/><line x1="6" y1="7.5" x2="6" y2="5" stroke="currentColor" stroke-width="1" stroke-linecap="round"/><line x1="9.5" y1="7.5" x2="9.5" y2="5" stroke="currentColor" stroke-width="1" stroke-linecap="round"/><line x1="1" y1="5" x2="11" y2="5" stroke="currentColor" stroke-width="1"/></svg>`;
     if (t.includes('ceil'))      return `<svg width="12" height="12" viewBox="0 0 12 12" fill="none"><rect x="1" y="1.5" width="10" height="3" rx="0.5" stroke="currentColor" stroke-width="1.1"/><line x1="2.5" y1="4.5" x2="2.5" y2="7" stroke="currentColor" stroke-width="1" stroke-linecap="round"/><line x1="6" y1="4.5" x2="6" y2="7" stroke="currentColor" stroke-width="1" stroke-linecap="round"/><line x1="9.5" y1="4.5" x2="9.5" y2="7" stroke="currentColor" stroke-width="1" stroke-linecap="round"/><line x1="1" y1="7" x2="11" y2="7" stroke="currentColor" stroke-width="1"/></svg>`;
     if (t.includes('opening'))   return `<svg width="12" height="12" viewBox="0 0 12 12" fill="none"><rect x="1" y="2" width="10" height="8" rx="0.5" stroke="currentColor" stroke-width="1.1"/><rect x="3.5" y="2" width="5" height="8" stroke="currentColor" stroke-width="1" stroke-dasharray="2 1.5"/></svg>`;
