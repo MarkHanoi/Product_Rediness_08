@@ -1,6 +1,8 @@
 import * as THREE from '@pryzm/renderer-three/three';
 import { FurnitureData } from '../FurnitureTypes';
 import { MaterialService } from '../MaterialService';
+// §WARD118 — the ONE shelf-count authority (replaces a private `height > 1.8`).
+import { wardrobeShelfCount } from '../WardrobeCabinetTypes';
 
 export class WardrobeGlassBuilder {
     constructor(private materialService: MaterialService) {}
@@ -134,7 +136,12 @@ export class WardrobeGlassBuilder {
         back.position.set(0, height / 2, -length / 2 + 0.006);
         group.add(back);
 
-        if (height > 1.8) {
+        // §WARD118 — was `if (height > 1.8)`: a private literal deciding whether a
+        // shelf exists, one of the two "1.8"s the founder met. The authority's
+        // constant-pitch rule decides now: a shelf exists when at least one bay
+        // fits above it. (Adds the shelf to glass wardrobes between ~0.83 m and
+        // 1.80 m, which had none.)
+        if (wardrobeShelfCount(height) >= 1) {
             const shelfGeo = new THREE.BoxGeometry(width - CARCASS_THICKNESS * 2 - SHELF_CLEARANCE * 2, SHELF_THICKNESS, length - SHELF_CLEARANCE * 2);
             const shelf = new THREE.Mesh(shelfGeo, mat);
             shelf.position.set(0, height * 0.6, 0);

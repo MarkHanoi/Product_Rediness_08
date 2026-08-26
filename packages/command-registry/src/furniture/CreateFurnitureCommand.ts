@@ -3,6 +3,8 @@ import { stableCreatedId } from '../StableCreatedId';
 import { FurnitureData, FurnitureType, FurnitureMaterial } from '@pryzm/geometry-furniture';
 import type { KitchenCabinetConfig } from '@pryzm/geometry-furniture';
 import type { WardrobeCabinetConfig } from '@pryzm/geometry-furniture';
+// §WARD118 — THE height authority for wardrobe cabinets (C84 EI-9: one answer).
+import { validateWardrobeCabinetHeight } from '@pryzm/geometry-furniture';
 import { semanticGraphManager } from '@pryzm/core-app-model';
 import { elementRegistry } from '@pryzm/core-app-model/element-registry';
 // §FIX-INTERIOR-FFL-SEATING — the ONE finished-floor seating chokepoint (C11 §5.4).
@@ -80,6 +82,14 @@ export class CreateFurnitureCommand implements Command {
         const level = context.bimManager.getLevelById(this.payload.levelId);
         if (!level) {
             return { ok: false, reason: `Level not found: ${this.payload.levelId}` };
+        }
+
+        // §WARD118 — a wardrobe cabinet is created at a height THE ONE authority
+        // accepts, or not at all (C16 CA-18 / C74: refuse by name with both numbers,
+        // never round). Same function, same verdict as the update path.
+        if (this.payload.wardrobeCabinetConfig) {
+            const verdict = validateWardrobeCabinetHeight(this.payload.wardrobeCabinetConfig.height);
+            if (!verdict.ok) return { ok: false, reason: verdict.code, blockingIssues: [verdict.reason] };
         }
 
         return { ok: true };

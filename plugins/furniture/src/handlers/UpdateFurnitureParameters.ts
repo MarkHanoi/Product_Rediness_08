@@ -61,6 +61,26 @@ function _furnitureMovePatchPair(cmd: UpdateFurnitureParametersPayload): { forwa
   return forward.length > 0 ? { forward, inverse } : null;
 }
 
+/**
+ * §WARD118 — ask the legacy command's OWN `canExecute` (with the live legacy
+ * context) whether it would refuse this payload. Returns the human sentence
+ * (`blockingIssues[0]`, L-813) or the code, or `null` when it would not refuse —
+ * or when there is no legacy context to ask (tests, headless), where the bridge
+ * in `execute` is a no-op anyway.
+ */
+function legacyCanExecuteRefusal(cmd: UpdateFurnitureParametersPayload): string | null {
+  const cm = window.commandManager as { getContext?(): unknown } | undefined;
+  const legacyCtx = cm?.getContext?.();
+  if (!legacyCtx) return null;
+  const verdict = new UpdateFurnitureParametersCommand(
+    cmd as unknown as ConstructorParameters<typeof UpdateFurnitureParametersCommand>[0],
+  ).canExecute(legacyCtx as never);
+  if (verdict.ok) return null;
+  return verdict.blockingIssues?.[0]
+    ?? verdict.reason
+    ?? 'UpdateFurnitureParametersCommand.canExecute refused without stating a reason';
+}
+
 export const UpdateFurnitureParametersHandler: CommandHandler<UpdateFurnitureParametersPayload, Record<string, unknown>> = {
   type: 'furniture.updateParameters',
   // §FIX-UNDO-CAPTURE-SYSTEMIC (L-72) — declare the `furniture` store so the
@@ -78,6 +98,22 @@ export const UpdateFurnitureParametersHandler: CommandHandler<UpdateFurniturePar
     cmd: UpdateFurnitureParametersPayload,
   ): ValidationResult {
     if (!cmd.id) return { valid: false, reason: 'furniture id is required' };
+
+    // §WARD118 — WARDROBE BRANCH: the bus gate must REFUSE a height the authority
+    // refuses (C16 CA-18). The bridge in execute() below swallows the legacy
+    // CommandResult, so a legacy `canExecute` refusal used to become a console.warn
+    // and a bus SUCCESS — the silent-success class C74 forbids, and exactly what the
+    // founder saw as "cannot be set lower". The authority
+    // (`validateWardrobeCabinetHeight`) lives in @pryzm/geometry-furniture, which
+    // this plugin does not import (the SDK-bypass ratchet is shrink-only);
+    // `UpdateFurnitureParametersCommand.canExecute` already reads it, so we ask THAT
+    // — one validator (C84 EI-9), no new layer edge. Only the two fields the
+    // authority judges trigger the consult; a headless bus (no legacy context) is
+    // unchanged, as is the drag-end move/rotate path.
+    if (cmd.wardrobeCabinetConfig !== undefined || cmd.height !== undefined) {
+      const refusal = legacyCanExecuteRefusal(cmd);
+      if (refusal !== null) return { valid: false, reason: refusal };
+    }
     return { valid: true };
   },
 

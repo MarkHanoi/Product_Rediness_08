@@ -14,6 +14,8 @@ import {
   type ValidationResult,
 } from '@pryzm/plugin-sdk';
 import { Furniture, createId } from '@pryzm/plugin-sdk';
+// §WARD118 — the legacy create command owns the wardrobe height verdict (see canExecute).
+import { CreateFurnitureCommand } from '@pryzm/command-registry';
 import { FurnitureSchemaError } from '../errors.js';
 import type { FurnitureData, FurnituresState } from '../store.js';
 import { isFiniteVec3, isValidLod, isValidScale } from '../intent.js';
@@ -55,6 +57,34 @@ export class CreateFurnitureHandler
     }
     if (cmd.size !== undefined && !isFiniteVec3(cmd.size)) {
       return { valid: false, reason: 'size override must have finite x, y, z' };
+    }
+
+    // §WARD118 — WARDROBE BRANCH (C16 CA-18 at the bus gate). A `furniture.create`
+    // carrying a `wardrobeCabinetConfig` is bridged to the legacy
+    // `CreateFurnitureCommand` (CommandEventBridge → initTools), whose `canExecute`
+    // reads THE height authority — but that refusal happens AFTER this bus
+    // reported success, silently (C74). Ask the legacy command's own verdict here,
+    // with the live legacy context, so the bus refuses by name with both numbers
+    // and the placement tool's toast reaches the founder. One validator (C84
+    // EI-9), no plugin → geometry-package import (the SDK-bypass ratchet is
+    // shrink-only). Headless buses (no legacy context) are unchanged.
+    const wardrobeCabinetConfig = (cmd as { readonly wardrobeCabinetConfig?: unknown }).wardrobeCabinetConfig;
+    if (wardrobeCabinetConfig !== undefined) {
+      const cm = window.commandManager as { getContext?(): unknown } | undefined;
+      const legacyCtx = cm?.getContext?.();
+      if (legacyCtx) {
+        const verdict = new CreateFurnitureCommand(
+          cmd as unknown as ConstructorParameters<typeof CreateFurnitureCommand>[0],
+        ).canExecute(legacyCtx as never);
+        if (!verdict.ok) {
+          return {
+            valid: false,
+            reason: verdict.blockingIssues?.[0]
+              ?? verdict.reason
+              ?? 'CreateFurnitureCommand.canExecute refused without stating a reason',
+          };
+        }
+      }
     }
     return { valid: true };
   }

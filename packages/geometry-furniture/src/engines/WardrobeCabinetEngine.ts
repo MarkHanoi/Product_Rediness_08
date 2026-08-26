@@ -42,11 +42,20 @@ import {
     WardrobeSectionInterior,
     WARDROBE_CABINET_DEFAULTS,
     isTallWardrobeLayout,
+    // §WARD118 — the ONE authority for carcass constants and the interior /
+    // handle decisions at a given height. This engine RENDERS what it decides.
+    WARDROBE_CARCASS_T,
+    WARDROBE_ROD_RADIUS,
+    resolveWardrobeInteriorLayout,
+    wardrobeHandleGeometry,
 } from '../WardrobeCabinetTypes';
 import { STANDARD_MATERIAL_LIBRARY } from '@pryzm/core-app-model/material-library';
 
-const T   = 0.018;  // carcass panel thickness
-const ROD = 0.012;  // hanger rod radius
+// §WARD118 — these used to be private literals here (0.018 / 0.012). The physical
+// height floor is DERIVED from the panel thickness, so the constant must have one
+// home that both the validator and this engine read.
+const T   = WARDROBE_CARCASS_T;   // carcass panel thickness
+const ROD = WARDROBE_ROD_RADIUS;  // hanger rod radius
 
 // ── Shared material cache ─────────────────────────────────────────────────────
 
@@ -324,71 +333,58 @@ export class WardrobeCabinetEngine {
         const shelfMat  = mat('#c8aa80', { roughness: 0.7, metalness: 0 });
         const rodMat    = mat('#b0b0b0', { roughness: 0.2, metalness: 0.9 });
 
-        const addRod = (yPos: number) => {
+        // §WARD118 — the interior is DECIDED by the one authority and RENDERED here.
+        // Before: `hanger` put a rod at 0.85 × height whatever the height (a rail at
+        // 0.85 m on a 1.0 m unit), `shelves` stretched a fixed count across whatever
+        // was left, drawers thinned without limit. Now a rail that lacks its clear
+        // drop drops out (the section builds as shelves), shelf count follows the
+        // constant pitch (a resize adds / removes shelves, never stretches them),
+        // and drawer count is capped by the smallest drawer front. At the 2.40 m
+        // default this renders byte-identically to before (pinned).
+        const layout = resolveWardrobeInteriorLayout(section.interior, height, {
+            numShelves: section.numShelves,
+            numDrawers: section.numDrawers,
+        });
+
+        if (layout.rodY !== null) {
             const rod = new THREE.Mesh(new THREE.CylinderGeometry(ROD, ROD, innerW, 8), rodMat);
             rod.rotation.z = Math.PI / 2;
-            rod.position.set(centerX, yPos, 0);
+            rod.position.set(centerX, layout.rodY, 0);
+            rod.userData.wardrobeRod = true;
             host.add(rod);
-        };
+        }
 
-        const addShelf = (yPos: number) => {
+        for (const yPos of layout.shelfYs) {
             const s = new THREE.Mesh(new THREE.BoxGeometry(innerW, T, innerD), shelfMat);
             s.position.set(centerX, yPos, 0);
+            s.userData.wardrobeShelf = true;
             host.add(s);
-        };
+        }
 
-        switch (section.interior) {
+        if (layout.drawers) {
+            const { count: n, height: drawerH } = layout.drawers;
+            const frontMat = mat('#d4c4a0', { roughness: 0.5, metalness: 0 });
+            const handleM  = mat('#888888', { roughness: 0.2, metalness: 0.9 });
+            for (let i = 0; i < n; i++) {
+                const cx  = centerX;
+                const cy  = T + (i + 0.5) * drawerH;
+                const dr  = new THREE.Mesh(
+                    new THREE.BoxGeometry(innerW, drawerH - 0.012, depth * 0.42),
+                    frontMat,
+                );
+                dr.position.set(cx, cy, depth * 0.29);
+                dr.userData.wardrobeDrawer = true;
+                host.add(dr);
 
-            case 'hanger': {
-                addRod(height * 0.85);
-                break;
+                const hr = new THREE.Mesh(
+                    new THREE.CylinderGeometry(0.006, 0.006, innerW * 0.28, 8),
+                    handleM,
+                );
+                hr.rotation.z = Math.PI / 2;
+                hr.position.set(cx, cy, depth / 2 + 0.01);
+                hr.userData.wardrobeDrawerHandle = true;
+                host.add(hr);
             }
-
-            case 'hanger_shelf': {
-                addRod(height * 0.70);
-                addShelf(height * 0.38);
-                break;
-            }
-
-            case 'shelves': {
-                const n = section.numShelves ?? 3;
-                const usableH  = height - T * 2;
-                const spacing  = usableH / (n + 1);
-                for (let i = 1; i <= n; i++) {
-                    addShelf(T + i * spacing);
-                }
-                break;
-            }
-
-            case 'drawers': {
-                const n        = section.numDrawers ?? 3;
-                const drawerH  = (height - T * 2) / n;
-                const frontMat = mat('#d4c4a0', { roughness: 0.5, metalness: 0 });
-                const handleM  = mat('#888888', { roughness: 0.2, metalness: 0.9 });
-                for (let i = 0; i < n; i++) {
-                    const cx  = centerX;
-                    const cy  = T + (i + 0.5) * drawerH;
-                    const dr  = new THREE.Mesh(
-                        new THREE.BoxGeometry(innerW, drawerH - 0.012, depth * 0.42),
-                        frontMat,
-                    );
-                    dr.position.set(cx, cy, depth * 0.29);
-                    host.add(dr);
-
-                    const hr = new THREE.Mesh(
-                        new THREE.CylinderGeometry(0.006, 0.006, innerW * 0.28, 8),
-                        handleM,
-                    );
-                    hr.rotation.z = Math.PI / 2;
-                    hr.position.set(cx, cy, depth / 2 + 0.01);
-                    host.add(hr);
-                }
-                break;
-            }
-
-            case 'open':
-            default:
-                break;
         }
     }
 
@@ -466,15 +462,21 @@ export class WardrobeCabinetEngine {
             dR.position.set(centerX + halfW / 2 + 0.003, height / 2, doorZ);
             host.add(dR);
 
-            const handleH = doorH * 0.22;
+            // §WARD118 — handle length and height come from the authority: was
+            // `doorH * 0.22` at `height * 0.50`, which stretched the handle with the
+            // door and put it at 1.40 m on a 2.80 m unit / vanished it on a low one.
+            // Unchanged at the 2.40 m default (0.520 m at 1.20 m).
+            const { length: handleH, centreY: handleY } = wardrobeHandleGeometry(height);
             const hGeo    = new THREE.CylinderGeometry(0.007, 0.007, handleH, 8);
 
             const hL = new THREE.Mesh(hGeo, handleMat);
-            hL.position.set(centerX - 0.012, height * 0.50, doorZ + 0.022);
+            hL.position.set(centerX - 0.012, handleY, doorZ + 0.022);
+            hL.userData.wardrobeHandle = true;
             host.add(hL);
 
             const hR = new THREE.Mesh(hGeo, handleMat);
-            hR.position.set(centerX + 0.012, height * 0.50, doorZ + 0.022);
+            hR.position.set(centerX + 0.012, handleY, doorZ + 0.022);
+            hR.userData.wardrobeHandle = true;
             host.add(hR);
 
         } else {

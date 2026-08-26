@@ -12,7 +12,16 @@
  */
 
 import { WardrobeCabinetTool } from './WardrobeCabinetTool';
-import { WardrobeLayoutType, WARDROBE_CABINET_DEFAULTS } from '@pryzm/geometry-furniture';
+import {
+    WardrobeLayoutType,
+    WARDROBE_CABINET_DEFAULTS,
+    // §WARD118 — THE height authority: slider range, physical floor, the verdict
+    // and the advisory all come from here. No height literal lives in this file.
+    WARDROBE_HEIGHT_SLIDER,
+    WARDROBE_HEIGHT_FLOOR,
+    validateWardrobeCabinetHeight,
+    wardrobeHeightAdvisory,
+} from '@pryzm/geometry-furniture';
 import { STANDARD_MATERIAL_LIBRARY } from '@pryzm/core-app-model/material-library';
 
 type FieldSpec = {
@@ -40,7 +49,11 @@ function isTallLayout(l: WardrobeLayoutType): boolean {
 const FIELDS: FieldSpec[] = [
     { id: 'wcp-depth',     label: 'Cabinet Depth',       min: 0.40, max: 0.80, step: 0.05, unit: 'm', key: 'depth' },
     { id: 'wcp-length',    label: 'Main Run Length',      min: 0.60, max: 8.00, step: 0.30, unit: 'm', key: 'length' },
-    { id: 'wcp-height',    label: 'Main Height',          min: 1.80, max: 2.80, step: 0.10, unit: 'm', key: 'height' },
+    // §WARD118 — was `min: 1.80` (a range input silently coerces below its min; the
+    // founder could not set 1.00 m). The slider is a COARSE control over the
+    // authority's range; the number field beside it is the value of record.
+    { id: 'wcp-height',    label: 'Main Height',
+      min: WARDROBE_HEIGHT_SLIDER.min, max: WARDROBE_HEIGHT_SLIDER.max, step: WARDROBE_HEIGHT_SLIDER.step, unit: 'm', key: 'height' },
     { id: 'wcp-sections',  label: 'Main Sections',        min: 1,    max: 12,   step: 1,    unit: '',   key: 'numSections' },
     { id: 'wcp-lleft',     label: 'Left Arm Length',      min: 0.60, max: 4.00, step: 0.30, unit: 'm', key: 'lengthLeft',
       show: isArmLayout },
@@ -80,6 +93,9 @@ export class WardrobeConfigPanel {
     private _panel:       HTMLElement | null = null;
     private _activeLayout: WardrobeLayoutType | null = null;
     private _values:      Record<string, number> = { ...DEFAULTS };
+    /** §WARD118 — values the authority REFUSED, keyed by field; `_dispatch` will not
+     *  push a refused height into the preview (the create command would refuse it). */
+    private _invalid:     Record<string, string> = {};
 
     /** Phase B (S73-WIRE) — runtime threaded by parent. */
     public readonly runtime: import('@pryzm/runtime-composer/types').PryzmRuntime | null;
@@ -216,30 +232,96 @@ export class WardrobeConfigPanel {
         input.value = String(this._values[field.key] ?? DEFAULTS[field.key]);
         input.style.cssText = 'flex:1;accent-color:var(--app-accent,#6600ff);cursor:pointer;';
 
-        const badge = document.createElement('span');
-        badge.id = `${field.id}-badge`;
-        badge.style.cssText = 'font-size:10px;font-weight:600;color:var(--app-text,#333);white-space:nowrap;min-width:36px;text-align:right;';
+        // §WARD118 — a range input cannot express a PRECISE value and coerces below
+        // its min silently. Metre rows carry an editable NUMBER field where the
+        // badge used to be (same element id): the number is the value of record,
+        // the slider mirrors it coarsely. The authority — not the `min` attribute —
+        // is what refuses (`_setValue`), and `_dispatch` will not push a refused
+        // height into the preview.
+        const badge = this._buildValueField(field);
         this._updateBadge(badge, field, this._values[field.key] ?? DEFAULTS[field.key]);
 
         input.addEventListener('input', () => {
             const val = parseFloat(input.value);
-            this._values[field.key] = val;
             this._updateBadge(badge, field, val);
-            this._dispatch();
+            this._setValue(field, val, row);
         });
+        if (badge instanceof HTMLInputElement) {
+            badge.addEventListener('input', () => {
+                const val = parseFloat(badge.value);
+                if (!Number.isFinite(val)) return;
+                input.value = String(val);
+                this._setValue(field, val, row);
+            });
+        }
 
         inputRow.appendChild(input);
         inputRow.appendChild(badge);
         row.appendChild(inputRow);
+
+        // Refusal / advisory line (height only) — filled by `_setValue`.
+        const note = document.createElement('div');
+        note.id = `${field.id}-note`;
+        note.style.cssText = 'font-size:9px;line-height:1.3;display:none;white-space:normal;';
+        row.appendChild(note);
         return row;
     }
 
+    /** §WARD118 — the value element: a number field for metre rows, a badge otherwise. */
+    private _buildValueField(field: FieldSpec): HTMLInputElement | HTMLSpanElement {
+        if (field.unit === 'm') {
+            const num = document.createElement('input');
+            num.type = 'number';
+            num.id   = `${field.id}-badge`;
+            num.step = String(WARDROBE_HEIGHT_SLIDER.precision);
+            num.min  = field.key === 'height' ? String(WARDROBE_HEIGHT_FLOOR) : String(field.min);
+            num.title = field.key === 'height'
+                ? `Any height from ${WARDROBE_HEIGHT_FLOOR.toFixed(3)} m — the slider is a coarse control`
+                : 'Type a precise value';
+            num.style.cssText = 'width:64px;font-size:10px;font-weight:600;padding:3px 4px;border:1px solid var(--app-border,#ddd);border-radius:6px;background:var(--app-surface,#f8f8f8);color:var(--app-text,#333);text-align:right;';
+            return num;
+        }
+        const badge = document.createElement('span');
+        badge.id = `${field.id}-badge`;
+        badge.style.cssText = 'font-size:10px;font-weight:600;color:var(--app-text,#333);white-space:nowrap;min-width:36px;text-align:right;';
+        return badge;
+    }
+
     private _updateBadge(badge: HTMLElement, field: FieldSpec, val: number): void {
-        if (field.unit === '') {
+        if (badge instanceof HTMLInputElement) {
+            badge.value = val.toFixed(2);
+        } else if (field.unit === '') {
             badge.textContent = String(Math.round(val));
         } else {
             badge.textContent = `${val.toFixed(2)}${field.unit}`;
         }
+    }
+
+    /** §WARD118 — record a value; a height is judged by THE authority before the
+     *  preview sees it. A refused height is shown by name and NOT dispatched. */
+    private _setValue(field: FieldSpec, val: number, row: HTMLElement): void {
+        if (field.key === 'height') {
+            const note    = row.querySelector(`#${field.id}-note`) as HTMLElement | null;
+            const verdict = validateWardrobeCabinetHeight(val);
+            if (!verdict.ok) {
+                this._invalid['height'] = verdict.reason;
+                if (note) {
+                    note.textContent   = verdict.reason;
+                    note.style.color   = 'var(--app-danger,#b3261e)';
+                    note.style.display = 'block';
+                }
+                return;
+            }
+            delete this._invalid['height'];
+            const advisory = wardrobeHeightAdvisory(verdict.height);
+            if (note) {
+                note.textContent   = advisory ?? '';
+                note.style.color   = 'var(--app-text-muted,#888)';
+                note.style.display = advisory ? 'block' : 'none';
+            }
+        }
+        this._values[field.key] = val;
+        this._dispatch();
     }
 
     private _buildMaterialField(
@@ -307,6 +389,8 @@ export class WardrobeConfigPanel {
 
     private _dispatch(): void {
         if (!this._activeLayout) return;
+        // §WARD118 — never push a refused height into the preview / placement config.
+        if (Object.keys(this._invalid).length > 0) return;
 
         const isL = isArmLayout(this._activeLayout);
         const isU = isULayout(this._activeLayout);

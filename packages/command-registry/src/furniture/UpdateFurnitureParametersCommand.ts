@@ -2,6 +2,8 @@ import { Command, CommandType, CommandValidationResult, CommandResult, Serialize
 import { FurnitureData, FurnitureMaterial } from '@pryzm/geometry-furniture';
 import { KitchenCabinetConfig } from '@pryzm/geometry-furniture';
 import { WardrobeCabinetConfig } from '@pryzm/geometry-furniture';
+// §WARD118 — THE height authority for wardrobe cabinets (C84 EI-9: one answer).
+import { validateWardrobeCabinetHeight } from '@pryzm/geometry-furniture';
 import { resolveFloorSeatingDatum } from '../seating/SeatingDatumResolver';
 import * as THREE from '@pryzm/renderer-three/three';
 import { DOMEventBus } from '@pryzm/event-bus';
@@ -50,6 +52,23 @@ export class UpdateFurnitureParametersCommand implements Command {
     canExecute(context: CommandContext): CommandValidationResult {
         const furniture = (context.stores as any).furnitureStore.get(this.payload.id);
         if (!furniture) return { ok: false, reason: "Furniture not found" };
+
+        // §WARD118 — a wardrobe cabinet's height is judged by THE ONE authority
+        // (`validateWardrobeCabinetHeight`, @pryzm/geometry-furniture): the same
+        // function the panels pre-flight with and the engine proportions from. The
+        // effective height follows execute()'s own precedence — an explicit
+        // `wardrobeCabinetConfig.height` wins over the top-level `height`. It refuses
+        // BY NAME WITH BOTH NUMBERS (C16 CA-18 / C74): `reason` carries the machine
+        // code, `blockingIssues[0]` the sentence (L-813 — CommandManagerImpl prints
+        // the sentence; the bus handler forwards it as its refusal). Before this
+        // branch no layer validated the height at all.
+        if (furniture.wardrobeCabinetConfig || this.payload.wardrobeCabinetConfig) {
+            const h = this.payload.wardrobeCabinetConfig?.height ?? this.payload.height;
+            if (h !== undefined) {
+                const verdict = validateWardrobeCabinetHeight(h);
+                if (!verdict.ok) return { ok: false, reason: verdict.code, blockingIssues: [verdict.reason] };
+            }
+        }
         return { ok: true };
     }
 

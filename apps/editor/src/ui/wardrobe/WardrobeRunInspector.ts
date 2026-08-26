@@ -19,7 +19,16 @@
  *  §05 §7.6 — inline styles / CSS custom properties only.
  */
 
-import { WardrobeLayoutType, WardrobeCabinetConfig } from '@pryzm/geometry-furniture';
+import {
+    WardrobeLayoutType,
+    WardrobeCabinetConfig,
+    // §WARD118 — THE height authority: slider range, physical floor, the verdict
+    // and the advisory all come from here. No height literal lives in this file.
+    WARDROBE_HEIGHT_SLIDER,
+    WARDROBE_HEIGHT_FLOOR,
+    validateWardrobeCabinetHeight,
+    wardrobeHeightAdvisory,
+} from '@pryzm/geometry-furniture';
 import { STANDARD_MATERIAL_LIBRARY } from '@pryzm/core-app-model/material-library';
 
 type SliderSpec = {
@@ -47,7 +56,11 @@ function isTallLayout(l: WardrobeLayoutType): boolean {
 const SLIDERS: SliderSpec[] = [
     { id: 'wri-depth',    label: 'Cabinet Depth',     key: 'depth',            min: 0.40, max: 0.80, step: 0.05, unit: 'm' },
     { id: 'wri-length',   label: 'Main Run Length',   key: 'length',           min: 0.60, max: 8.00, step: 0.30, unit: 'm' },
-    { id: 'wri-height',   label: 'Main Height',       key: 'height',           min: 1.80, max: 2.80, step: 0.10, unit: 'm' },
+    // §WARD118 — was `min: 1.80` (a range input silently coerces below its min; the
+    // founder could not set 1.00 m). The slider is a COARSE control over the
+    // authority's range; the number field beside it is the value of record.
+    { id: 'wri-height',   label: 'Main Height',       key: 'height',
+      min: WARDROBE_HEIGHT_SLIDER.min, max: WARDROBE_HEIGHT_SLIDER.max, step: WARDROBE_HEIGHT_SLIDER.step, unit: 'm' },
     { id: 'wri-sections', label: 'Main Sections',     key: 'numSections',      min: 1,    max: 12,   step: 1,    unit: '' },
     { id: 'wri-lleft',    label: 'Left Arm Length',   key: 'lengthLeft',       min: 0.60, max: 4.00, step: 0.30, unit: 'm',
       show: isArmLayout },
@@ -82,6 +95,9 @@ export class WardrobeRunInspector {
     private _furnitureId: string | null      = null;
     private _pending:     Record<string, number> = {};
     private _pendingMat:  Record<string, string> = {};
+    /** §WARD118 — pending values the authority REFUSED, keyed by field; Apply will
+     *  not dispatch while this is non-empty (the command would refuse identically). */
+    private _invalid:     Record<string, string> = {};
 
     mount(container: HTMLElement): void {
         if (this._panel) return;
@@ -94,6 +110,7 @@ export class WardrobeRunInspector {
         this._furnitureId = furnitureId;
         this._pending = {};
         this._pendingMat = {};
+        this._invalid = {};
         if (!this._panel) return;
         this._refresh();
         this._panel.style.display = 'flex';
@@ -103,6 +120,7 @@ export class WardrobeRunInspector {
         this._furnitureId = null;
         this._pending = {};
         this._pendingMat = {};
+        this._invalid = {};
         if (this._panel) this._panel.style.display = 'none';
     }
 
@@ -284,20 +302,100 @@ export class WardrobeRunInspector {
         input.step = String(spec.step);
         input.style.cssText = 'flex:1;accent-color:var(--app-accent,#6600ff);cursor:pointer;';
 
-        const badge = document.createElement('span');
-        badge.id = `${spec.id}-badge`;
-        badge.style.cssText = 'font-size:10px;font-weight:600;color:var(--app-text,#333);white-space:nowrap;min-width:40px;text-align:right;';
+        // §WARD118 — a range input cannot express a PRECISE value (its step grid is
+        // 0.10 m for height) and it enforces its bounds by SILENT COERCION. Metre
+        // rows therefore carry an editable NUMBER field where the badge used to be
+        // (same element id, so `_refresh` and the tests address one thing): the
+        // number is the value of record, the slider mirrors it coarsely. The
+        // number's `min` is the physical floor from the authority — decoration only;
+        // the authority itself is what refuses, in `_setPending`, and `_applyAll`
+        // will not dispatch a refused height.
+        const badge = this._buildValueField(spec);
 
         input.addEventListener('input', () => {
             const val = parseFloat(input.value);
-            badge.textContent = spec.unit === '' ? String(Math.round(val)) : `${val.toFixed(2)}${spec.unit}`;
-            this._pending[spec.key] = spec.unit === '' ? Math.round(val) : val;
+            this._showValue(badge, spec, val);
+            this._setPending(spec, spec.unit === '' ? Math.round(val) : val, row);
         });
+        if (badge instanceof HTMLInputElement) {
+            badge.addEventListener('input', () => {
+                const val = parseFloat(badge.value);
+                if (!Number.isFinite(val)) return;
+                input.value = String(val);
+                this._setPending(spec, val, row);
+            });
+        }
 
         inputRow.appendChild(input);
         inputRow.appendChild(badge);
         row.appendChild(inputRow);
+
+        // Refusal / advisory line (height only) — filled by `_setPending`.
+        const note = document.createElement('div');
+        note.id = `${spec.id}-note`;
+        note.style.cssText = 'font-size:9px;line-height:1.3;display:none;white-space:normal;';
+        row.appendChild(note);
         return row;
+    }
+
+    /** §WARD118 — the value element: a number field for metre rows, a badge otherwise. */
+    private _buildValueField(spec: SliderSpec): HTMLInputElement | HTMLSpanElement {
+        if (spec.unit === 'm') {
+            const num = document.createElement('input');
+            num.type = 'number';
+            num.id   = `${spec.id}-badge`;
+            num.step = String(WARDROBE_HEIGHT_SLIDER.precision);
+            num.min  = spec.key === 'height' ? String(WARDROBE_HEIGHT_FLOOR) : String(spec.min);
+            num.title = spec.key === 'height'
+                ? `Any height from ${WARDROBE_HEIGHT_FLOOR.toFixed(3)} m — the slider is a coarse control`
+                : 'Type a precise value';
+            num.style.cssText = 'width:64px;font-size:10px;font-weight:600;padding:3px 4px;border:1px solid var(--app-border,#ddd);border-radius:6px;background:var(--app-surface,#f8f8f8);color:var(--app-text,#333);text-align:right;';
+            return num;
+        }
+        const badge = document.createElement('span');
+        badge.id = `${spec.id}-badge`;
+        badge.style.cssText = 'font-size:10px;font-weight:600;color:var(--app-text,#333);white-space:nowrap;min-width:40px;text-align:right;';
+        return badge;
+    }
+
+    private _showValue(el: HTMLElement, spec: SliderSpec, val: number): void {
+        if (el instanceof HTMLInputElement) el.value = val.toFixed(2);
+        else el.textContent = spec.unit === '' ? String(Math.round(val)) : `${val.toFixed(2)}${spec.unit}`;
+    }
+
+    /** §WARD118 — record a pending value; a height is judged by THE authority. */
+    private _setPending(spec: SliderSpec, val: number, row: HTMLElement): void {
+        this._pending[spec.key] = val;
+        if (spec.key !== 'height') return;
+        this._judgeHeight(val, row.querySelector(`#${spec.id}-note`) as HTMLElement | null);
+    }
+
+    private _judgeHeight(val: number, note: HTMLElement | null): void {
+        const verdict = validateWardrobeCabinetHeight(val);
+        if (!verdict.ok) {
+            this._invalid['height'] = verdict.reason;
+            if (note) {
+                note.textContent   = verdict.reason;
+                note.style.color   = 'var(--app-danger,#b3261e)';
+                note.style.display = 'block';
+            }
+            return;
+        }
+        delete this._invalid['height'];
+        const advisory = wardrobeHeightAdvisory(verdict.height);
+        if (!note) return;
+        if (advisory) {
+            note.textContent   = advisory;
+            note.style.color   = 'var(--app-text-muted,#888)';
+            note.style.display = 'block';
+        } else {
+            note.style.display = 'none';
+        }
+    }
+
+    /** §WARD118 — a refusal must REACH the user (C74), not only the console. */
+    private _toast(message: string): void {
+        window.runtime?.events?.emit('pryzm:toast', { message, severity: 'error' });
     }
 
     // ── Refresh ───────────────────────────────────────────────────────────────
@@ -328,8 +426,14 @@ export class WardrobeRunInspector {
             if (raw === null) continue;
             const val = Number(raw);
             input.value = String(val);
-            badge.textContent = spec.unit === '' ? String(Math.round(val)) : `${val.toFixed(2)}${spec.unit}`;
+            this._showValue(badge, spec, val);
             this._pending[spec.key] = spec.unit === '' ? Math.round(val) : val;
+            // §WARD118 — a stored height is shown as stored (1.00 stays 1.00; the
+            // range thumb may sit at its own min, the number field is the truth)
+            // and judged, so the advisory is visible before any edit.
+            if (spec.key === 'height') {
+                this._judgeHeight(val, this._panel.querySelector(`#${spec.id}-note`) as HTMLElement | null);
+            }
         }
 
         // Sync material selects
@@ -358,6 +462,16 @@ export class WardrobeRunInspector {
 
         const base: WardrobeCabinetConfig = fd.wardrobeCabinetConfig;
 
+        // §WARD118 — a pending height the authority refused is REFUSED here, by
+        // name with both numbers, and NOTHING is dispatched. The command would
+        // refuse it identically (same function); surfacing it one step earlier is
+        // a courtesy, not a second rule.
+        const refused = Object.values(this._invalid);
+        if (refused.length > 0) {
+            this._toast(refused[0]);
+            return;
+        }
+
         const rawCarcass = this._pendingMat['carcassMaterialId'] ?? base.carcassMaterialId ?? '';
         const rawFront   = this._pendingMat['frontMaterialId']   ?? base.frontMaterialId   ?? '';
 
@@ -384,7 +498,11 @@ export class WardrobeRunInspector {
                 length: newCfg.depth,
                 height: newCfg.height,
                 wardrobeCabinetConfig: newCfg,
-            })?.catch((e: Error) => console.error('[WardrobeRunInspector] furniture.updateParameters failed:', e));
+            })?.catch((e: Error) => {
+                console.error('[WardrobeRunInspector] furniture.updateParameters failed:', e);
+                // §WARD118 — the bus gate's refusal (C16 CA-18) reaches the user.
+                this._toast(`Wardrobe not updated: ${e?.message ?? String(e)}`);
+            });
         } else {
             const newFd = { ...fd, wardrobeCabinetConfig: newCfg };
             store.update(this._furnitureId, newFd);
