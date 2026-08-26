@@ -223,6 +223,22 @@ export type FurnitureType =
     // FurnitureFactory. Distinct from the manual `parametric_*_carpet`
     // drag-and-drop variants (this is the archetype-placed semantic kind).
     | 'rug'
+    // ── §DESK108 (founder, 2026-08-26) — four LOD 300 working desks, from the
+    // founder's reference images. One mesh per material group (mergedPartKit);
+    // members constant under resize. Builders: WorkingDeskBuilders.ts.
+    | 'desk_zen'        // travertine top, black steel sled loop LEFT, dark-wood shelf pedestal RIGHT
+    | 'desk_skeleton'   // oak top, two black square-tube side frames, oak lower shelf on the right frame
+    | 'desk_vertex'     // oak waterfall top folding to the floor RIGHT, raised black-framed return LEFT
+    | 'desk_panel'      // all-panel oak: side-panel legs, recessed two-drawer band, flush top
+    // ── §DESK108 (founder, 2026-08-26) — extending dining table + three dining
+    // SETS (one element per set, chairs built in, `properties.chairCount`
+    // parametric). Builders: DiningSetBuilders.ts — the set/element decision
+    // is stated in that file's header. `dining_table` itself is UNCHANGED
+    // (§DINING-CHAIRS-ARE-ELEMENTS still holds for it).
+    | 'dining_table_extending' // painted grey, 3-segment top, H-stretcher frame — table only
+    | 'dining_set_rustic'      // pale-timber gateleg table + slatted chairs (default 4)
+    | 'dining_set_modern'      // oak top / black frame / turned legs + quilted shell chairs (default 6)
+    | 'dining_set_shell'       // long oak top, splayed legs + grey moulded shell chairs (default 8)
     // ── Japanese Bed Collection (parametric — BedEngine) ──────────────────────
     | 'japanese_platform_bed'
     | 'japanese_float_bed'

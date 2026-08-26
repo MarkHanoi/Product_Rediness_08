@@ -36,6 +36,21 @@ describe('furnitureShadowBudget (ADR-0076 §PERF-WEBGPU-FRAGMENT)', () => {
         it('handles undefined safely', () => {
             expect(isDecorativeFurniture(undefined)).toBe(false);
         });
+        it('§DESK108 — the four desks + dining table/sets are ARCHITECTURAL, not decorative', () => {
+            // A desk or a dining set reads the space the way a bed or kitchen
+            // does: it keeps casting shadows at EVERY budget. This follows what
+            // the module already decides for 'desk' and 'dining_table' — the
+            // eight new types must not silently join the decorative set.
+            setFurnitureShadowBudget('decorative-off');
+            for (const t of [
+                'desk_zen', 'desk_skeleton', 'desk_vertex', 'desk_panel',
+                'dining_table_extending', 'dining_set_rustic',
+                'dining_set_modern', 'dining_set_shell',
+            ]) {
+                expect(isDecorativeFurniture(t), t).toBe(false);
+                expect(furnitureCastsShadowUnderBudget(t), t).toBe(true);
+            }
+        });
         it('§CARPET97 — all ten new procedural carpets are decorative too', () => {
             // A 4 mm rug lying on the floor casts a 4 mm sliver. Missing one
             // here would leave it a shadow caster at the `performance` tier

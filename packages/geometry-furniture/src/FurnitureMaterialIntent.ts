@@ -198,6 +198,19 @@ export const FURNITURE_TYPE_TO_MATERIAL_INTENT: Readonly<Record<FurnitureType, F
     'entrance_table':               'timber-warm',
     'console_table':                'timber-warm',
     'desk':                         'timber-warm',
+    // §DESK108 (2026-08-26) — intent picks the DOMINANT visual read (header
+    // rule). Zen reads as its travertine slab → ceramic-clean; the other
+    // three desks read as their oak surfaces. The painted-grey extending
+    // table and the pale rustic set bias timber-LIGHT; the two oak-topped
+    // sets read timber-warm (upholstery is the chairs, not the silhouette).
+    'desk_zen':                     'ceramic-clean',
+    'desk_skeleton':                'timber-warm',
+    'desk_vertex':                  'timber-warm',
+    'desk_panel':                   'timber-warm',
+    'dining_table_extending':       'timber-light',
+    'dining_set_rustic':            'timber-light',
+    'dining_set_modern':            'timber-warm',
+    'dining_set_shell':             'timber-warm',
     'vanity_table':                 'timber-warm',
     'buffet':                       'timber-warm',
     'sideboard':                    'timber-warm',

@@ -76,6 +76,13 @@ export * from './builders/WardrobeGlassBuilder';
 export * from './builders/WardrobePlanSymbolBuilder';
 export * from './builders/WhiteSofaBuilder';
 export * from './builders/ApplianceBuilders';
+// §DESK108 (founder, 2026-08-26) — four working desks + extending dining table
+// + three dining sets, plus the merged-part kit they build with. The editor's
+// carousel imports the builders so a card and the placed element are drawn by
+// the SAME code (the §CARPET97 no-drift rule).
+export * from './builders/mergedPartKit';
+export * from './builders/WorkingDeskBuilders';
+export * from './builders/DiningSetBuilders';
 
 export * from './engines/BedEngine';
 export * from './engines/KitchenCabinetEngine';

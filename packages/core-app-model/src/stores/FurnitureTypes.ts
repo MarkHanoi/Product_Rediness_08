@@ -114,6 +114,17 @@ export type FurnitureType =
     | 'parametric_line_art_carpet'
     | 'parametric_fine_stripe_carpet'
     | 'parametric_diamond_trellis_carpet'
+    // ── §DESK108 (founder, 2026-08-26) — four working desks + extending dining
+    // table + three dining sets. Mirrors the union in
+    // packages/geometry-furniture/src/FurnitureTypes.ts.
+    | 'desk_zen'
+    | 'desk_skeleton'
+    | 'desk_vertex'
+    | 'desk_panel'
+    | 'dining_table_extending'
+    | 'dining_set_rustic'
+    | 'dining_set_modern'
+    | 'dining_set_shell'
     // ── Japanese Bed Collection (parametric — BedEngine) ──────────────────────
     | 'japanese_platform_bed'
     | 'japanese_float_bed'

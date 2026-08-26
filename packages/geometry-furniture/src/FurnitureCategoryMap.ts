@@ -78,6 +78,20 @@ export const FURNITURE_TYPE_TO_CATEGORY: Readonly<Record<FurnitureType, Furnitur
     'table_wood_double_conic': 'tables',
     'table_wood_4leg':      'tables',
     'table_ceramic_curve':  'tables',
+    // §DESK108 (2026-08-26) — the four working desks + the dining table/sets
+    // all live under 'tables': the Interiors rail's Tables sub-panel is the
+    // grouping whose own description already reads "All table types and desks"
+    // — the founder's "within desk/table" option, chosen over minting a new
+    // FurnitureCategory (a new category ripples through two union copies, the
+    // rail, and every category switch for zero extra reachability).
+    'desk_zen':              'tables',
+    'desk_skeleton':         'tables',
+    'desk_vertex':           'tables',
+    'desk_panel':            'tables',
+    'dining_table_extending': 'tables',
+    'dining_set_rustic':     'tables',
+    'dining_set_modern':     'tables',
+    'dining_set_shell':      'tables',
 
     // ── Storage (incl. bookshelves) ───────────────────────────────────────────
     'bookshelf':            'storage', // F1.2 — open-shelf bookcase

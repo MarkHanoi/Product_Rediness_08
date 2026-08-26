@@ -62,6 +62,14 @@ import { WardrobeCabinetEngine } from '../engines/WardrobeCabinetEngine';
 import { TreeBuilder } from './TreeBuilder';
 import { DeskBuilder } from './DeskBuilder';
 import { DeskChairBuilder } from './DeskChairBuilder';
+// §DESK108 (founder, 2026-08-26) — four working desks + dining table/sets.
+import {
+    ZenDeskBuilder, SkeletonDeskBuilder, VertexDeskBuilder, PanelDeskBuilder,
+} from './WorkingDeskBuilders';
+import {
+    ExtendingDiningTableBuilder, RusticDiningSetBuilder,
+    ModernDiningSetBuilder, ShellDiningSetBuilder,
+} from './DiningSetBuilders';
 import { BookshelfBuilder } from './BookshelfBuilder';
 import { TvBuilder, TvUnitBuilder } from './MediaWallBuilder';
 import {
@@ -116,6 +124,22 @@ export class FurnitureFactory {
             // F1.1 (2026-05-30) — Desk + desk chair (study workstation).
             case 'desk':               return new DeskBuilder(materialService);
             case 'desk_chair':         return new DeskChairBuilder(materialService);
+
+            // §DESK108 (founder, 2026-08-26) — four LOD 300 working desks from
+            // the founder's reference images; one mesh per material group.
+            case 'desk_zen':           return new ZenDeskBuilder(materialService);
+            case 'desk_skeleton':      return new SkeletonDeskBuilder(materialService);
+            case 'desk_vertex':        return new VertexDeskBuilder(materialService);
+            case 'desk_panel':         return new PanelDeskBuilder(materialService);
+
+            // §DESK108 (founder, 2026-08-26) — extending dining table + three
+            // dining SETS (one element each, chairs built in, chairCount
+            // parametric). `dining_table` below is untouched — its chairs
+            // remain separate elements (§DINING-CHAIRS-ARE-ELEMENTS).
+            case 'dining_table_extending': return new ExtendingDiningTableBuilder(materialService);
+            case 'dining_set_rustic':      return new RusticDiningSetBuilder(materialService);
+            case 'dining_set_modern':      return new ModernDiningSetBuilder(materialService);
+            case 'dining_set_shell':       return new ShellDiningSetBuilder(materialService);
 
             // F1.2 (2026-05-30) — Bookshelf (open + glass-front variants).
             case 'bookshelf':          return new BookshelfBuilder(materialService);
