@@ -122,20 +122,79 @@ describe('L-10402 — the previews must not wait on every project\'s version his
         expect(thumbWarmStarted).toBe(true);
     });
 
-    it('⚠ L-148 PRESERVED: the server sync does not start until the version warm settles', async () => {
+    // ─────────────────────────────────────────────────────────────────────────
+    // ⚠ REWRITTEN 2026-08-26 BY LANE PERF104 (§PERF104, L-11540) — DELIBERATELY,
+    // AND THE REASON IS THE POINT, SO IT IS RECORDED RATHER THAN QUIETLY EDITED.
+    //
+    // This test used to read: *"the server sync does not start until the version
+    // warm settles"*, and it passed. But that is NOT what L-148 requires. L-148's
+    // invariant, in its own words at `ProjectHub._warmThenSync`, is that **both
+    // migrations complete before the first server-sync `saveProject*` WRITE** —
+    // because the heavy legacy `bim-project-<id>-versions` blobs must be out of
+    // localStorage before that index write lands, or it hits "quota exceeded —
+    // eviction exhausted" once per project.
+    //
+    // "Before the write" and "before the sync starts" are different conditions,
+    // and the second is strictly stronger. Asserting the stronger PROXY had a real
+    // cost: it pinned the server list round-trip — the same list the OPEN path
+    // needs (`buildPersistence.openProject` step 1) — behind a cursor over every
+    // project's entire version container. Opening ONE project became a function of
+    // how many OTHER projects exist. On the founder's 2026-08-26 run that warm was
+    // 93 ms and the sync behind it ~509 ms.
+    //
+    // ⛔ SO THE PROXY IS REPLACED BY THE ACTUAL INVARIANT, NOT DROPPED. The write
+    // is now the thing observed. A regression that let the index write land on an
+    // unmigrated localStorage still fails here, which is the whole job of this test.
+    // ⛔ Do not "restore" the old assertion: it would re-serialise the open path
+    // behind whole-corpus maintenance and it never tested what its name claimed.
+    // ─────────────────────────────────────────────────────────────────────────
+    it('⭐ the server list fetch NO LONGER queues behind the whole-corpus version warm', async () => {
         const fetchSpy = vi.fn(async () => ({ ok: false, json: async () => ({}) }));
         (globalThis as any).fetch = fetchSpy;
 
         new ProjectHub(document.body, USER as any, { onOpenProject: () => {}, onSignOut: () => {} }, null);
         await flush();
 
-        // The reconcile pass must see the MIGRATED (lean) index, so it may not
-        // begin while the version migration is still moving legacy localStorage
-        // blobs into IndexedDB.
-        expect(fetchSpy).not.toHaveBeenCalled();
+        // The warm is STILL PENDING and the list has already been asked for. This is
+        // the ~0.5 s of serialized hub work that §PERF104 removed from ahead of the
+        // first possible click.
+        expect(versionWarmSettled, 'fixture: the version warm must still be pending').toBe(false);
+        expect(fetchSpy, 'the list fetch must not wait for the corpus warm').toHaveBeenCalled();
 
         releaseVersionWarm();
         await flush();
         expect(versionWarmSettled).toBe(true);
+    });
+
+    it('⚠ L-148 PRESERVED: the index WRITE still waits for the version warm', async () => {
+        // Two server rows, so the reconcile has genuine upserts to write. Without
+        // them `saveProjectsBatch` is never reached and this test would pass
+        // vacuously — the failure mode a "did not happen" assertion always has.
+        const fetchSpy = vi.fn(async () => ({
+            ok: true,
+            json: async () => ({ projects: [
+                { id: 'proj-1755555555556-aaaaaa', name: 'Server A', updated_at: new Date(Date.now() + 60_000).toISOString(), owner_id: 'u-1' },
+                { id: 'proj-1755555555557-bbbbbb', name: 'Server B', updated_at: new Date(Date.now() + 60_000).toISOString(), owner_id: 'u-1' },
+            ] }),
+        }));
+        (globalThis as any).fetch = fetchSpy;
+
+        new ProjectHub(document.body, USER as any, { onOpenProject: () => {}, onSignOut: () => {} }, null);
+        await flush();
+
+        expect(fetchSpy, 'fixture: the reconcile must have fetched').toHaveBeenCalled();
+        // ⛔ THE INVARIANT. The migration is still moving legacy blobs out of
+        // localStorage, so the full-index write must NOT have landed yet.
+        expect(versionWarmSettled, 'fixture: the version warm must still be pending').toBe(false);
+        expect(
+            localStorage.getItem('bim-projects-index'),
+            'the index write must wait for the version migration (L-148)',
+        ).not.toContain('Server A');
+
+        releaseVersionWarm();
+        await flush();
+        // …and once it settles, the write lands.
+        expect(localStorage.getItem('bim-projects-index')).toContain('Server A');
+        expect(localStorage.getItem('bim-projects-index')).toContain('Server B');
     });
 });

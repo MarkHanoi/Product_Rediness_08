@@ -54,6 +54,11 @@ import { generateUntitledSiteName } from './projectAutoName';
 // reading names the culprit instead of leaving it to inference. ⛔ Marks only — no leg is
 // gated, delayed, retried or skipped because of one.
 import { markStartupPhase } from '../../engine/startupBudget';
+// §PERF104 (L-11540) — the yielding runner and the residency-verdict vocabulary. The
+// audit and the preview back-fill are corpus maintenance; they must not sit on the
+// critical path of opening ONE project, and a deferral that could not SAY it had not
+// concluded would silently restore the wrong answer L-10400 exists to prevent.
+import { runDeferred, yieldToMacrotask, describeResidencyAudit } from './hubDeferredWork';
 
 const _tracer = trace.getTracer('pryzm.platform.projectHub');
 
@@ -104,6 +109,31 @@ export class ProjectHub {
 
     // Context menu state
     private ctxMenuEl: HTMLElement | null = null;
+
+    // ── §PERF104 (L-11540) — the deferral state ───────────────────────────────
+    /**
+     * The whole-corpus IndexedDB version-mirror warm. Held as a FIELD, not awaited
+     * inline, so the two places L-148 and §FIX-RECONCILE-NEVER-PURGE-ON-CONTRADICTION
+     * actually depend on it can await it while the grid paint and the server list
+     * do not. See `_warmThenSync` F1.
+     */
+    private _versionWarm: Promise<void> | null = null;
+    /**
+     * ⭐ TRUE FROM THE MOMENT THE USER CLICKS A CARD. Every deferred maintenance
+     * task checks this before each chunk and stops. This is the whole mechanism by
+     * which corpus maintenance leaves the open path: not a shorter debounce, not a
+     * spinner — the work genuinely stops running while an open is in flight, and
+     * resumes on the next hub mount (a gesture the user makes constantly).
+     */
+    private _openInFlight = false;
+    /** Set by {@link destroy}; a superseded hub must not keep auditing. */
+    private _destroyed = false;
+    /**
+     * §FIX-THUMBNAIL-DURABILITY back-fills COLLECTED rather than fired. The repair is
+     * unchanged and is NOT dropped — it is simply sent one connection at a time,
+     * after the grid is interactive. See `_runDeferredMaintenance`.
+     */
+    private _pendingThumbBackfill: Array<{ projectId: string; value: string }> = [];
 
     // Phase 10: Platform Owner Settings
     private readonly _ownerSettingsPanel = new OwnerSettingsPanel();
@@ -192,8 +222,32 @@ export class ProjectHub {
         // `bim-projects-index` vs `pryzm-project-versions` +
         // `bim-project-<id>-versions`), so running them concurrently is safe, and
         // `syncFromServer()` still runs only after BOTH have settled.
+        // ── §PERF104 (L-11540) — F1: THE WARM IS AWAITED AT ITS POINTS OF NEED ──
+        //
+        // ⚠ L-148's INVARIANT, READ EXACTLY. It is *"both migrations complete before
+        // the first server-sync `saveProject*` **WRITE**"* — NOT "before the sync
+        // starts". The old line `await versionWarm; await this.syncFromServer();`
+        // enforced the stronger proxy, and the cost of the proxy is that the server
+        // list round-trip queues behind reading EVERY project's version container.
+        // Opening one project cannot be a function of how many OTHER projects exist;
+        // it was, and this is the line that stops it.
+        //
+        // The warm is now held as a field and awaited at the TWO places the invariant
+        // actually names:
+        //   · `_reconcileFromServer`, immediately before `saveProjectsBatch` — the
+        //     write L-148 is about;
+        //   · `_auditLocalOnlyResidency`, before its first probe — and there it is
+        //     CORRECTNESS, not politeness (see F3 in that method).
+        //
+        // ⭐ MEASURED, and honestly: on the founder's 2026-08-26 run this leg was
+        // `hub:warm-versions-done +93 ms` and the sync behind it ~509 ms, so the win
+        // here is on the order of ~0.6 s of the ~1.4 s of serialized hub work ahead
+        // of the first possible click. It is NOT the 40 s of the 2026-08-25 report —
+        // that reading contained un-split human dwell and is not reproduced.
         markStartupPhase('hub:warm-start');
-        const versionWarm = warmVersionCache().catch(() => { /* non-fatal — server version fallback covers cold reads */ });
+        this._versionWarm = warmVersionCache()
+            .then(() => { markStartupPhase('hub:warm-versions-done'); })
+            .catch(() => { /* non-fatal — server version fallback covers cold reads */ });
         const thumbWarm = warmThumbnailCache().catch(() => { /* non-fatal — server thumbnailUrl / placeholder still render */ });
 
         // Repaint the moment the previews are available, WITHOUT waiting for the
@@ -203,10 +257,7 @@ export class ProjectHub {
         this.refreshGrid();
         markStartupPhase('hub:grid-painted');
 
-        // Sync projects from server AFTER both warms so the reconcile pass sees
-        // the migrated (lean) index. Sync also fills localStorage across sessions.
-        await versionWarm;
-        markStartupPhase('hub:warm-versions-done');
+        // ⛔ NO `await this._versionWarm` here any more. See F1 above.
         await this.syncFromServer();
     }
 
@@ -310,10 +361,24 @@ export class ProjectHub {
                 // every project whose original upload was lost (413 / plan-gated /
                 // offline at capture time) WITHOUT the user reopening the model, so
                 // the NEXT sign-out is survivable.
+                //
+                // ⚠ §PERF104 (L-11543) — F4: COLLECTED, NOT FIRED HERE. This line used
+                // to `void uploadProjectThumbnail(...)` INSIDE the loop: up to fifty
+                // concurrent POSTs of base64 image data to one origin, at hub mount.
+                // A browser allows ~6 connections per host, so the seventh onward
+                // queue — and the requests that queue behind them include the two the
+                // OPEN path needs (`controller.refresh()` and `tier.streamLoad()`).
+                // A repair pass for PREVIEWS was able to delay the PROJECT the user
+                // asked for, over a resource neither of them declares.
+                //
+                // ⛔ THE REPAIR IS NOT DROPPED. Dropping it re-opens
+                // §FIX-THUMBNAIL-DURABILITY — the whole point of that fix is that a
+                // preview lost to a 413 / plan-gate / offline capture self-heals
+                // WITHOUT the user reopening the model. Same repair, same rows, same
+                // self-heal; one connection at a time, after the grid is interactive,
+                // and paused the instant an open begins.
                 if (r.backfillToServer && r.value) {
-                    void uploadProjectThumbnail(r.projectId, r.value).then(outcome => {
-                        console.log(`[ProjectHub] §FIX-THUMBNAIL-DURABILITY back-fill ${r.projectId}: ${describeUploadOutcome(outcome)}`);
-                    });
+                    this._pendingThumbBackfill.push({ projectId: r.projectId, value: r.value });
                 }
             }
 
@@ -361,154 +426,32 @@ export class ProjectHub {
                 }
             }
 
-            // ── Purge stale local-only entries (conservative) ─────────────────
-            // Only remove a local project entry if ALL of these are true:
-            //   1. The server has no record of it (not in serverIds)
-            //   2. The project has no local version data (nothing to lose)
-            // This protects projects created while offline (they have local versions
-            // but may not yet be on the server) and free-plan users whose versions
-            // never make it to the server.
-            // §PROBE-LOCAL-ONLY-VERSION-EXPOSURE (L-1288) — see the census below.
-            const localOnlyWithVersions: string[] = [];
-            const refusedToPurge: string[] = [];
-            const notInThisPage: string[] = [];
+            // ── §PERF104 (L-11540) — F2: THE RESIDENCY AUDIT LEAVES THIS FUNCTION ──
+            //
+            // ⭐ WHAT MOVED, AND — MORE IMPORTANTLY — WHAT DID NOT.
+            //
+            // The audit below used to run HERE, inside the reconcile, as ONE
+            // uninterrupted `for` over every local row the server page did not name:
+            // 77 of them on the founder's account. Measured at that scale
+            // (`__tests__/perf104OpenPath.spec.ts`) it is **109 ms in a single
+            // main-thread task** — and a single task is exactly what a click cannot
+            // interrupt. It is also maintenance of projects the user is NOT opening,
+            // sequenced ahead of the one they asked for.
+            //
+            // ⛔ THE RULING IS UNCHANGED AND IS NOT WEAKENED. `mayConcludeAbsence`,
+            // `decideLocalOnlyProjectFate` and `probeVersions` are called with exactly
+            // the same inputs, in the same order, on the same rows. The ONLY change is
+            // WHEN and in HOW MANY TASKS. A deferral that skipped the audit, or that
+            // relaxed a gate to make it cheap, would be a regression wearing a fix's
+            // name — so the deferred pass reports **UNDETERMINED**, loudly and by
+            // reason, whenever it cannot finish. Absence is still never concluded from
+            // a page (§FIX-A-PAGE-IS-NOT-AN-INVENTORY, L-10400), and not-having-looked
+            // is still never allowed to read as "nothing there".
+            const localOnlyIds: ProjectMeta[] = [];
             for (const lp of localById.values()) {
-                if (serverIds.has(lp.id)) continue;
-
-                // ── §FIX-A-PAGE-IS-NOT-AN-INVENTORY (L-10400) ────────────────
-                //
-                // ⭐ THE PAGE DID NOT ENUMERATE THE SERVER, SO ABSENCE IS NOT A
-                // FACT ABOUT THE SERVER. Collect the id and stop — no purge, no
-                // "exists only in this browser" claim, no version probe.
-                //
-                // ⚠ The probe is skipped ON PURPOSE, not as an oversight. Running
-                // it would produce a `keep`/`refuse` ruling and a warning naming
-                // these projects as at-risk local-only work, which is exactly the
-                // false alarm the founder received: fifty projects reported as
-                // existing nowhere but his browser, on the strength of a list
-                // that returned its first fifty rows and stopped. A ruling drawn
-                // from an inadmissible premise is not a safer ruling; it is the
-                // same error with a decision attached.
-                if (!canConcludeAbsence) { notInThisPage.push(lp.id); continue; }
-
-                // ⭐ §FIX-RECONCILE-NEVER-PURGE-ON-CONTRADICTION (L-1289) — THE PURGE
-                // DECISION IS NO LONGER A COUNT COMPARISON.
-                //
-                // This branch used to read `countVersions(lp.id) > 0` and delete the
-                // row when it was false. `countVersions` returns 0 for THREE
-                // conditions — no versions, a cold/absent IndexedDB mirror, and a
-                // read that threw — so "I cannot find the data" and "the user has
-                // nothing here" were the same value, and the reconciler resolved that
-                // ambiguity by DELETING. Sign-out destroys `pryzm-project-versions`
-                // (§AUTH-SESSION-LEAK, correctly) while this non-prefixed index
-                // survives, so the very next sync completed the loss.
-                //
-                // `probeVersions` can now say "I could not look", and the ruling in
-                // `localOnlyProjectFate.ts` purges ONLY when the store AND this index
-                // row agree there is nothing. The second opinion is the fix; a better
-                // read alone could never have been one, because 0 is exactly what a
-                // broken instrument returns.
-                //
-                // ⚠ The L-1300 performance property is PRESERVED: `probeVersions`
-                // reads the same v2 envelope `countVersions` does — no inflate, no
-                // snapshot parse, still ~15 ms rather than ~503 ms per project.
-                const fate = decideLocalOnlyProjectFate({
-                    projectId: lp.id,
-                    indexVersionCount: lp.versionCount,
-                    probe: versionRepository.probeVersions(lp.id),
-                });
-
-                if (fate.action === 'keep') {
-                    // §PROBE-LOCAL-ONLY-VERSION-EXPOSURE (L-1288) — collected and
-                    // reported ONCE below instead of one line per project. Fifty
-                    // identical "Keeping…" lines read as routine chatter; the
-                    // aggregate is the fact that matters and it was never stated.
-                    localOnlyWithVersions.push(lp.id);
-                    continue;
-                }
-                if (fate.action === 'refuse') {
-                    refusedToPurge.push(lp.id);
-                    console.warn(`[ProjectHub] §FIX-RECONCILE-NEVER-PURGE-ON-CONTRADICTION refusing to purge — ${fate.detail}`);
-                    continue;
-                }
-                console.log(`[ProjectHub] Purging empty stale local project ${lp.id} (not on server, no local data, index agrees)`);
-                deleteIds.push(lp.id);
+                if (!serverIds.has(lp.id)) localOnlyIds.push(lp);
             }
-
-            markStartupPhase('hub:sync-residency-done');
-
-            if (refusedToPurge.length > 0) {
-                console.warn(
-                    `[ProjectHub] §FIX-RECONCILE-NEVER-PURGE-ON-CONTRADICTION — ${refusedToPurge.length} project(s) were ` +
-                    'KEPT that the previous code would have DELETED: their index rows claim version history the ' +
-                    'version store no longer holds, or the store could not be read at all. This is the signature ' +
-                    'of the sign-out / account-switch IndexedDB purge. The rows survive so the loss stays visible ' +
-                    `and recoverable. ids: ${refusedToPurge.join(', ')}`,
-                );
-            }
-
-            // ── §PROBE-LOCAL-ONLY-VERSION-EXPOSURE (L-1288) ────────────────────────
-            //
-            // ⭐ SHIP THE PROBE BEFORE THE FIX. This is NOT cosmetic. The keep-branch
-            // above is CORRECT — it protects offline and free-plan work — but the
-            // work it protects is stored in a place that sign-out destroys:
-            //
-            //   • version history lives in the IndexedDB database
-            //     `pryzm-project-versions` (`VersionCacheStore.ts:40`), and
-            //     `warmVersionCache()` MIGRATES the legacy, non-prefixed
-            //     `bim-project-<id>-versions` localStorage blobs into it, so after
-            //     the first warm that database is the ONLY copy;
-            //   • `purgeUserScopedClientState` (`AuthModal.ts`) deletes EVERY IDB
-            //     database whose name contains "pryzm" on sign-out and on account
-            //     switch — by design, and that security fix must stay
-            //     (§AUTH-SESSION-LEAK);
-            //   • the metadata index `bim-projects-index` is NOT prefixed, so it
-            //     SURVIVES — which means on the next sign-in this very loop re-reads
-            //     `countVersions()` as 0 and takes the PURGE branch below.
-            //
-            // So a local-only project with history is silently deleted one sign-out
-            // later, with no warning at any point. This is the SAME defect shape as
-            // §FIX-THUMBNAIL-DURABILITY — bytes that exist only in a cache the
-            // sign-out purge is entitled to destroy — except it is project data, not
-            // a preview. The durable fix is the same shape too (back-fill to the
-            // server), and it is a real piece of work, not a line in this function.
-            //
-            // What ships HERE is the measurement, because an exposure nobody can see
-            // cannot be prioritised, and the founder's boot log carried FIFTY of
-            // these as ordinary `log` lines. Deliberately `console.warn`.
-            if (localOnlyWithVersions.length > 0) {
-                console.warn(
-                    `[ProjectHub] §PROBE-LOCAL-ONLY-VERSION-EXPOSURE — ${localOnlyWithVersions.length} project(s) ` +
-                    'exist ONLY in this browser: they are absent from the server and their version history is in ' +
-                    'IndexedDB `pryzm-project-versions`, which sign-out and account-switch DELETE. They are kept ' +
-                    'now (correctly), but a sign-out would lose them and the next sync would then purge the rows. ' +
-                    `ids: ${localOnlyWithVersions.join(', ')}`,
-                );
-            }
-
-            // ── §FIX-A-PAGE-IS-NOT-AN-INVENTORY (L-10400) ──────────────────────
-            //
-            // ⭐ THE CORRECTION TO THE LINE ABOVE. On the founder's 2026-08-24 boot
-            // that warning named FORTY-SEVEN projects as existing "ONLY in this
-            // browser", and the neighbouring one named three more as damaged.
-            // Both counts were drawn from a server list that returned exactly 50
-            // rows — its cap. Fifty sent, fifty unmatched: the unmatched ones were
-            // overwhelmingly the SECOND PAGE, which nothing had asked for.
-            //
-            // ⚠ THIS LINE DOES NOT CLAIM THEY ARE SAFE EITHER. It claims only that
-            // residency is UNDETERMINED, which is the whole of what the data
-            // supports. Against a paginating server this branch does not run at
-            // all, and the projects are either enumerated (so present) or genuinely
-            // absent and reported as such above.
-            if (notInThisPage.length > 0) {
-                console.warn(
-                    `[ProjectHub] §FIX-A-PAGE-IS-NOT-AN-INVENTORY — ${notInThisPage.length} local project(s) are ` +
-                    `NOT IN THIS PAGE of the server list, and the list is ${describeCompleteness(completeness)}. ` +
-                    'That is NOT evidence they are missing from the server, so they were neither purged nor ' +
-                    'reported as local-only. Residency is UNDETERMINED until the list can be enumerated in full ' +
-                    `(GET /api/v1/projects?limit=&offset=, L-10400). ids: ${notInThisPage.join(', ')}`,
-                );
-            }
+            void this._auditLocalOnlyResidency(localOnlyIds, canConcludeAbsence, completeness);
             console.log(
                 `[ProjectHub] §FIX-A-PAGE-IS-NOT-AN-INVENTORY server list: ${describeCompleteness(completeness)} — ` +
                 `absence ${canConcludeAbsence ? 'IS' : 'is NOT'} concludable from it.`,
@@ -552,6 +495,17 @@ export class ProjectHub {
             );
 
             if (upserts.length > 0 || deleteIds.length > 0) {
+                // ⭐ §PERF104 (L-11540) — F1, THE POINT OF NEED. §FIX-LOCALSTORAGE-QUOTA-
+                // RESIDUAL (L-148) requires that BOTH migrations have completed before
+                // the first server-sync `saveProject*` WRITE — because the heavy legacy
+                // `bim-project-<id>-versions` blobs must be out of localStorage before
+                // this index write lands, or it hits "quota exceeded — eviction
+                // exhausted" once per project. THIS is that write, and this is where the
+                // await belongs. Awaiting it at the top of the sync (as the code did
+                // until this lane) enforced a strictly stronger condition and put a
+                // whole-corpus IndexedDB read in front of a network round trip that the
+                // open path also needs.
+                if (this._versionWarm !== null) await this._versionWarm;
                 projectRepository.saveProjectsBatch(upserts, deleteIds);
                 console.log(`[ProjectHub] Synced with server: ${summaries.length} project(s)`);
                 this.refreshSidebar();
@@ -578,6 +532,198 @@ export class ProjectHub {
             }
         } finally {
             markStartupPhase('hub:sync-done');
+            // §PERF104 (L-11543) — F4. The grid is interactive; the preview repair may
+            // now use the connection budget it was previously competing for.
+            void this._drainThumbnailBackfill();
+        }
+    }
+
+    /**
+     * §PERF104 (L-11540) — the local-only residency audit, off the open critical path.
+     *
+     * ⛔ THIS METHOD IS THE ONE PLACE A PROJECT ROW MAY BE DELETED, and every guard the
+     * inline version carried is carried here VERBATIM. Read the three that matter:
+     *
+     * F3 — **it awaits the version warm FIRST, and that is CORRECTNESS, not politeness.**
+     *   On an unwarmed store every `probeVersions` returns `unreadable/cache-not-warmed`,
+     *   every fate is `refuse`, and the hub prints the sign-out-damage warning for a
+     *   corpus that is perfectly intact (`localOnlyProjectPurgeSafety.test.ts:189`).
+     *   Deferring the audit WITHOUT this await would be faster and wrong.
+     *
+     * §FIX-A-PAGE-IS-NOT-AN-INVENTORY (L-10400) — `canConcludeAbsence` is passed in
+     *   already computed from the SAME `completeness` the reconcile saw. When it is
+     *   false NOTHING is probed and NOTHING is claimed: the rows are reported as
+     *   residency-UNDETERMINED, exactly as before. A ruling drawn from an inadmissible
+     *   premise is not a safer ruling; it is the same error with a decision attached.
+     *
+     * §FIX-RECONCILE-NEVER-PURGE-ON-CONTRADICTION (L-1289) — the purge branch is still
+     *   `decideLocalOnlyProjectFate`'s `purge`, never a count comparison. `probeVersions`
+     *   can say *"I could not look"*, and the ruling deletes only when the STORE and the
+     *   INDEX ROW agree there is nothing.
+     *
+     * ⭐ AND THE NEW HONESTY OBLIGATION THE DEFERRAL CREATES: an audit that stops early
+     * — because the user opened a project, or because the hub was replaced — has NOT
+     * established that the unexamined rows are present, absent, or safe. It reports
+     * UNDETERMINED with the reason and the unexamined count. Silence would be the
+     * defect: "never ran" and "found nothing" must not print the same value.
+     */
+    private async _auditLocalOnlyResidency(
+        localOnly: readonly ProjectMeta[],
+        canConcludeAbsence: boolean,
+        completeness: ListCompleteness,
+    ): Promise<void> {
+        if (localOnly.length === 0) {
+            markStartupPhase('hub:sync-residency-done');
+            return;
+        }
+
+        // §FIX-A-PAGE-IS-NOT-AN-INVENTORY (L-10400) — the page did not enumerate the
+        // server, so absence is not a fact about the server. No purge, no
+        // "exists only in this browser" claim, no version probe. Unchanged.
+        if (!canConcludeAbsence) {
+            markStartupPhase('hub:sync-residency-done');
+            console.warn(
+                `[ProjectHub] §FIX-A-PAGE-IS-NOT-AN-INVENTORY — ${localOnly.length} local project(s) are ` +
+                `NOT IN THIS PAGE of the server list, and the list is ${describeCompleteness(completeness)}. ` +
+                `${describeResidencyAudit({ kind: 'undetermined', reason: 'page-not-an-inventory', examined: 0, unexamined: localOnly.length })} ` +
+                `(GET /api/v1/projects?limit=&offset=, L-10400). ids: ${localOnly.map(p => p.id).join(', ')}`,
+            );
+            return;
+        }
+
+        // F3 — the await that makes the ruling meaningful. See the header.
+        if (this._versionWarm !== null) await this._versionWarm;
+        // One macrotask before the first probe, so the reconcile's repaint lands and
+        // any click already queued is dispatched before this pass takes the thread.
+        await yieldToMacrotask();
+
+        const localOnlyWithVersions: string[] = [];
+        const refusedToPurge: string[] = [];
+        const deleteIds: string[] = [];
+
+        const run = await runDeferred(localOnly, (lp) => {
+            // ⚠ The L-1300 performance property is PRESERVED: `probeVersions` reads the
+            // same v2/v3 envelope `countVersions` does — no inflate, no snapshot parse.
+            const fate = decideLocalOnlyProjectFate({
+                projectId: lp.id,
+                indexVersionCount: lp.versionCount,
+                probe: versionRepository.probeVersions(lp.id),
+            });
+            if (fate.action === 'keep') { localOnlyWithVersions.push(lp.id); return; }
+            if (fate.action === 'refuse') {
+                refusedToPurge.push(lp.id);
+                console.warn(`[ProjectHub] §FIX-RECONCILE-NEVER-PURGE-ON-CONTRADICTION refusing to purge — ${fate.detail}`);
+                return;
+            }
+            console.log(`[ProjectHub] Purging empty stale local project ${lp.id} (not on server, no local data, index agrees)`);
+            deleteIds.push(lp.id);
+        }, {
+            chunkSize: 8,
+            isOpenInFlight: () => this._openInFlight,
+            isDestroyed: () => this._destroyed,
+            onError: (lp, err) => {
+                // ⛔ An unreadable row must not abandon the other seventy-six, and it
+                // must not be counted as "nothing there" either — it is simply not
+                // ruled on, which leaves the row in place. Refusing is the safe arm.
+                console.warn(`[ProjectHub] §PERF104 residency probe threw for ${lp.id} — row KEPT, not ruled on:`, err);
+                refusedToPurge.push(lp.id);
+            },
+        });
+
+        markStartupPhase('hub:sync-residency-done');
+
+        // ⛔ THE PURGE IS APPLIED ONLY OVER ROWS THAT WERE ACTUALLY EXAMINED. A partial
+        // run purges what it ruled on and says so; it never extrapolates to the rest.
+        // §FIX-LOCALSTORAGE-QUOTA-RESIDUAL (L-148) — at most ONE additional full-index
+        // write, and only when something was genuinely purged. Two writes on a rare
+        // path is not the fifty-writes-plus-fifty-quota-warns defect L-148 was raised
+        // against.
+        if (deleteIds.length > 0) projectRepository.saveProjectsBatch([], deleteIds);
+
+        console.warn(
+            `[ProjectHub] §PERF104 residency audit — ${describeResidencyAudit(
+                run.complete
+                    ? {
+                        kind: 'concluded', examined: run.processed, purged: deleteIds.length,
+                        keptWithLocalVersions: localOnlyWithVersions.length, refused: refusedToPurge.length,
+                    }
+                    : {
+                        kind: 'undetermined',
+                        reason: run.stoppedBecause === 'surface-destroyed' ? 'surface-destroyed' : 'paused-project-open',
+                        examined: run.processed, unexamined: run.remaining,
+                    },
+            )} (${run.chunks} task(s), not one block)`,
+        );
+
+        if (refusedToPurge.length > 0) {
+            console.warn(
+                `[ProjectHub] §FIX-RECONCILE-NEVER-PURGE-ON-CONTRADICTION — ${refusedToPurge.length} project(s) were ` +
+                'KEPT that the previous code would have DELETED: their index rows claim version history the ' +
+                'version store no longer holds, or the store could not be read at all. This is the signature ' +
+                'of the sign-out / account-switch IndexedDB purge. The rows survive so the loss stays visible ' +
+                `and recoverable. ids: ${refusedToPurge.join(', ')}`,
+            );
+        }
+
+        // ── §PROBE-LOCAL-ONLY-VERSION-EXPOSURE (L-1288) ────────────────────────
+        //
+        // ⭐ SHIP THE PROBE BEFORE THE FIX. Not cosmetic: the keep-branch above is
+        // CORRECT — it protects offline and free-plan work — but that work lives in
+        // `pryzm-project-versions`, an IndexedDB database `purgeUserScopedClientState`
+        // deletes on sign-out and account switch by design (§AUTH-SESSION-LEAK, and
+        // that security fix must stay), while the non-prefixed `bim-projects-index`
+        // SURVIVES. So a local-only project with history is silently lost one sign-out
+        // later. The durable fix is a server back-fill and is real work; what ships
+        // here is the measurement, because an exposure nobody can see cannot be
+        // prioritised. Deliberately `console.warn`.
+        if (localOnlyWithVersions.length > 0) {
+            console.warn(
+                `[ProjectHub] §PROBE-LOCAL-ONLY-VERSION-EXPOSURE — ${localOnlyWithVersions.length} project(s) ` +
+                'exist ONLY in this browser: they are absent from the server and their version history is in ' +
+                'IndexedDB `pryzm-project-versions`, which sign-out and account-switch DELETE. They are kept ' +
+                'now (correctly), but a sign-out would lose them and the next sync would then purge the rows. ' +
+                `ids: ${localOnlyWithVersions.join(', ')}`,
+            );
+        }
+    }
+
+    /**
+     * §PERF104 (L-11543) — F4: the §FIX-THUMBNAIL-DURABILITY back-fill, SERIALISED.
+     *
+     * ⛔ SAME REPAIR, SAME ROWS, SAME SELF-HEAL. The only change is that the POSTs go
+     * one at a time instead of up to fifty at once, and stop while an open is in
+     * flight. A browser allows ~6 connections per host; the previous in-loop
+     * `void uploadProjectThumbnail(...)` could therefore put dozens of base64 image
+     * uploads ahead of `controller.refresh()` and `tier.streamLoad()` — the two
+     * requests the OPEN path is waiting on — over a resource neither side declares.
+     *
+     * ⚠ A paused drain resumes on the NEXT hub mount, not never: the plan is
+     * recomputed from scratch every sync and the repair is idempotent, so the corpus
+     * converges across the sign-in / back-to-hub gestures the user makes constantly.
+     * Stated rather than assumed, because "deferred" and "dropped" must not be the
+     * same value — dropping it re-opens §FIX-THUMBNAIL-DURABILITY.
+     */
+    private async _drainThumbnailBackfill(): Promise<void> {
+        const queue = this._pendingThumbBackfill;
+        if (queue.length === 0) return;
+        this._pendingThumbBackfill = [];
+        const run = await runDeferred(queue, async (row) => {
+            const outcome = await uploadProjectThumbnail(row.projectId, row.value);
+            console.log(`[ProjectHub] §FIX-THUMBNAIL-DURABILITY back-fill ${row.projectId}: ${describeUploadOutcome(outcome)}`);
+        }, {
+            chunkSize: 1,           // ONE connection at a time — that is the whole fix.
+            isOpenInFlight: () => this._openInFlight,
+            isDestroyed: () => this._destroyed,
+            onError: (row, err) => {
+                console.warn(`[ProjectHub] §FIX-THUMBNAIL-DURABILITY back-fill ${row.projectId} threw (will retry next hub mount):`, err);
+            },
+        });
+        if (!run.complete) {
+            console.log(
+                `[ProjectHub] §PERF104 thumbnail back-fill PAUSED after ${run.processed} of ${queue.length} ` +
+                `(${run.stoppedBecause}) — the remaining ${run.remaining} are NOT lost: the plan is recomputed on ` +
+                'the next hub mount and the repair is idempotent.',
+            );
         }
     }
 
@@ -1994,6 +2140,12 @@ export class ProjectHub {
         //   • hub:open-clicked → boot:ensure-requested = machine work on the CRITICAL PATH
         //     of opening ONE project. This is the only half a perf fix can shrink.
         markStartupPhase('hub:open-clicked');
+        // ⭐ §PERF104 (L-11540) — THE LATCH THAT TAKES CORPUS MAINTENANCE OFF THE PATH.
+        // From this instant the residency audit and the thumbnail back-fill stop before
+        // their next chunk and hand back both the main thread and the connection budget.
+        // ⛔ This is not a spinner and not a loading state: the work genuinely stops
+        // running. It resumes on the next hub mount, and both passes are idempotent.
+        this._openInFlight = true;
         const card = this.el.querySelector(`[data-project-id="${id}"]`) as HTMLElement | null;
         if (card) {
             card.style.opacity = '0.6';
@@ -2007,6 +2159,10 @@ export class ProjectHub {
     // ── Lifecycle ─────────────────────────────────────────────────────────────
 
     destroy(): void {
+        // §PERF104 (L-11540) — a superseded hub must not keep auditing a corpus on
+        // behalf of a surface that no longer exists. The deferred passes check this
+        // before each chunk and report UNDETERMINED rather than stopping silently.
+        this._destroyed = true;
         document.removeEventListener('click', this.onDocClick);
         this.el.remove();
     }
