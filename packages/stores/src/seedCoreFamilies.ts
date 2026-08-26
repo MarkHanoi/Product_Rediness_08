@@ -46,6 +46,11 @@
 // §CARPET97 carpets were found MISSING from this seed (L-11382); this block
 // exists so the desks/sets never repeat that gap. The count guard lives in
 // composeRuntime.familyRegistry.test.ts (now pinned 67).
+//
+// §MEDIA111 (2026-08-26) — grow from 67 → 73 entries (68..73): four TV
+// screen-size presets (no archetypeHints — see the block note) + soundbar +
+// floor-standing speaker pair. Same same-day discipline; count guards
+// re-pinned 73.
 // §SOFA113 (2026-08-26) — +2 entries: the L-shaped SECTIONAL sofa, ONE family
 // per hand (chaise left / right — handedness is the type; seatCount 2|3|4 is a
 // parameter, not a family). Same same-day discipline as §DESK108 / L-11382; the
@@ -1893,6 +1898,153 @@ export function buildCoreFamilySeeds(): RegisteredFamily[] {
             },
             schemaHash: 'core:dining_set_shell:1.0.0',
             tags:       ['table', 'dining', 'dining-set', 'shell', 'kitchen', 'living'],
+        },
+
+        // ═══════════════════════════════════════════════════════════════════
+        // §MEDIA111 (founder, 2026-08-26) — entries 68..73: Electronics.
+        // Four TV screen-size presets + the audio system (soundbar + floor-
+        // standing stereo pair). Registered the SAME DAY the types were minted
+        // (the L-11382 lesson, same as the §DESK108 block above).
+        //
+        // The TV size presets carry NO archetypeHints ON PURPOSE: auto-furnish
+        // places the semantic `tv` family (entry 57, wall/media anchored) —
+        // duplicating its hints across four size presets would hand the
+        // archetype engine five rival wall-TV anchors per room.
+        // ═══════════════════════════════════════════════════════════════════
+
+        // ── 68. TV 43″ — wall / size preset (no hints, see block note) ─────
+        {
+            identity: {
+                id:      'family/core/tv_43',
+                name:    'TV 43″',
+                version: '1.0.0',
+                author:  'PRYZM',
+                license: 'MIT',
+            },
+            category:   'media',
+            mountClass: 'wall',
+            origin:     'core',
+            archetypeHints: [],
+            ifcMapping: {
+                entityType: 'IfcElectricAppliance',
+                psets:      ['Pset_ElectricApplianceTypeCommon'],
+            },
+            schemaHash: 'core:tv_43:1.0.0',
+            tags:       ['tv', 'television', 'media', 'electronics', '43-inch'],
+        },
+
+        // ── 69. TV 55″ — wall / size preset (no hints, see block note) ─────
+        {
+            identity: {
+                id:      'family/core/tv_55',
+                name:    'TV 55″',
+                version: '1.0.0',
+                author:  'PRYZM',
+                license: 'MIT',
+            },
+            category:   'media',
+            mountClass: 'wall',
+            origin:     'core',
+            archetypeHints: [],
+            ifcMapping: {
+                entityType: 'IfcElectricAppliance',
+                psets:      ['Pset_ElectricApplianceTypeCommon'],
+            },
+            schemaHash: 'core:tv_55:1.0.0',
+            tags:       ['tv', 'television', 'media', 'electronics', '55-inch'],
+        },
+
+        // ── 70. TV 65″ — wall / size preset (no hints, see block note) ─────
+        {
+            identity: {
+                id:      'family/core/tv_65',
+                name:    'TV 65″',
+                version: '1.0.0',
+                author:  'PRYZM',
+                license: 'MIT',
+            },
+            category:   'media',
+            mountClass: 'wall',
+            origin:     'core',
+            archetypeHints: [],
+            ifcMapping: {
+                entityType: 'IfcElectricAppliance',
+                psets:      ['Pset_ElectricApplianceTypeCommon'],
+            },
+            schemaHash: 'core:tv_65:1.0.0',
+            tags:       ['tv', 'television', 'media', 'electronics', '65-inch'],
+        },
+
+        // ── 71. TV 85″ — wall / size preset (no hints, see block note) ─────
+        {
+            identity: {
+                id:      'family/core/tv_85',
+                name:    'TV 85″',
+                version: '1.0.0',
+                author:  'PRYZM',
+                license: 'MIT',
+            },
+            category:   'media',
+            mountClass: 'wall',
+            origin:     'core',
+            archetypeHints: [],
+            ifcMapping: {
+                entityType: 'IfcElectricAppliance',
+                psets:      ['Pset_ElectricApplianceTypeCommon'],
+            },
+            schemaHash: 'core:tv_85:1.0.0',
+            tags:       ['tv', 'television', 'media', 'electronics', '85-inch'],
+        },
+
+        // ── 72. Soundbar — floor-relative / living media zone ──────────────
+        // Sits on the media unit (card baseOffset 0.50) or wall-mounts under
+        // the TV. Hinted into the living media group so auto-furnish MAY place
+        // it with the tv + tv_unit anchor set.
+        {
+            identity: {
+                id:      'family/core/soundbar',
+                name:    'Soundbar',
+                version: '1.0.0',
+                author:  'PRYZM',
+                license: 'MIT',
+            },
+            category:   'media',
+            mountClass: 'floor',
+            origin:     'core',
+            archetypeHints: [
+                { occupancy: 'living', anchor: 'wall-longest', group: 'media' },
+            ],
+            ifcMapping: {
+                entityType: 'IfcAudioVisualAppliance',
+                psets:      ['Pset_AudioVisualApplianceTypeCommon'],
+            },
+            schemaHash: 'core:soundbar:1.0.0',
+            tags:       ['audio', 'soundbar', 'speaker', 'media', 'electronics', 'living'],
+        },
+
+        // ── 73. Floor speaker pair — floor / living media zone ─────────────
+        // ONE element, both towers (the §DESK108 dining-set precedent):
+        // data.width is the stereo span, the 220 mm tower is a constant member.
+        {
+            identity: {
+                id:      'family/core/speaker_floor_pair',
+                name:    'Floor speaker pair',
+                version: '1.0.0',
+                author:  'PRYZM',
+                license: 'MIT',
+            },
+            category:   'media',
+            mountClass: 'floor',
+            origin:     'core',
+            archetypeHints: [
+                { occupancy: 'living', anchor: 'wall-longest', group: 'media' },
+            ],
+            ifcMapping: {
+                entityType: 'IfcAudioVisualAppliance',
+                psets:      ['Pset_AudioVisualApplianceTypeCommon'],
+            },
+            schemaHash: 'core:speaker_floor_pair:1.0.0',
+            tags:       ['audio', 'speaker', 'stereo', 'floor-standing', 'media', 'electronics', 'living'],
         },
 
         // ── §SOFA113 — Sectional sofa, chaise LEFT — floor / living ──

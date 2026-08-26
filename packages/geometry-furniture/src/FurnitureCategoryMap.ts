@@ -115,8 +115,18 @@ export const FURNITURE_TYPE_TO_CATEGORY: Readonly<Record<FurnitureType, Furnitur
     'tv_lowboard_tv':       'tv_media', // §TVFURN114 — the lowboard WITH the screen incorporated (ONE element)
     'tv_console_slat':      'tv_media', // §TVFURN114 — slat-wrapped stadium console
 
-    // ── Technical (electronics) ───────────────────────────────────────────────
-    'tv':                   'technical', // F1.3 — wall-mounted TV panel
+    // ── Electronics (§MEDIA111, founder 2026-08-26) ───────────────────────────
+    // The founder's "new category under Interiors for electronics". `tv` moves
+    // here from 'technical' (which is HVAC / safety / smart-home devices);
+    // `tv_unit` stays 'storage' — it is casework, and the carousel registry is
+    // the authority for its card home anyway (the L-68 note above).
+    'tv':                   'electronics', // F1.3 — wall-mounted TV panel
+    'tv_43':                'electronics', // §MEDIA111 — 43″ preset → TvBuilder
+    'tv_55':                'electronics', // §MEDIA111 — 55″ preset → TvBuilder
+    'tv_65':                'electronics', // §MEDIA111 — 65″ preset → TvBuilder
+    'tv_85':                'electronics', // §MEDIA111 — 85″ preset → TvBuilder
+    'soundbar':             'electronics', // §MEDIA111 — AudioBuilders
+    'speaker_floor_pair':   'electronics', // §MEDIA111 — stereo pair, ONE element
 
     // ── Bedroom Furniture ─────────────────────────────────────────────────────
     'bed':                  'bedroom',

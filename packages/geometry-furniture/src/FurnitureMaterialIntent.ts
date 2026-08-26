@@ -299,6 +299,16 @@ export const FURNITURE_TYPE_TO_MATERIAL_INTENT: Readonly<Record<FurnitureType, F
     'tv_lowboard':                  'timber-warm',
     'tv_lowboard_tv':               'timber-warm',
     'tv_console_slat':              'timber-warm',
+    // §MEDIA111 (2026-08-26) — electronics keep an APPLIANCE finish at every
+    // typology: the resolver must never restyle a TV, a soundbar or a speaker
+    // cabinet in oak or terracotta. The speakers' fabric grille is a detail on
+    // an appliance body, not upholstery — plastic-utility, not fabric-soft.
+    'tv_43':                        'plastic-utility',
+    'tv_55':                        'plastic-utility',
+    'tv_65':                        'plastic-utility',
+    'tv_85':                        'plastic-utility',
+    'soundbar':                     'plastic-utility',
+    'speaker_floor_pair':           'plastic-utility',
 
     // ── A.21.D20 (2026-06-06) — kitchen appliances + cabinet modules ──
     // Appliances read as plastic/steel utility finish; cabinet modules as

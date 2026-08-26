@@ -45,6 +45,10 @@ export type FurnitureCategory =
     | 'teens'
     | 'pets'
     | 'technical'
+    // §MEDIA111 (founder, 2026-08-26) — "a new category under Interiors for
+    // electronics": TVs (parametric sizes) + audio (soundbar, floor speakers).
+    // Distinct from 'technical' (HVAC / safety / smart-home devices).
+    | 'electronics'
     // §TVFURN114 (founder, 2026-08-26) — "TV & Media": the living-room TV
     // FURNITURE (lowboards, media consoles) — casework a screen stands on or
     // hangs over. The DEVICES (screens, soundbars, speakers) are a separate
@@ -138,6 +142,22 @@ export type FurnitureType =
     // (APARTMENT-FURNITURE-AND-ACTIVITY-IMPLEMENTATION-PLAN §4.2.3) ──────────
     | 'tv'
     | 'tv_unit'
+    // ── §MEDIA111 (founder, 2026-08-26) — Electronics. TV screen-size presets
+    // (16:9 diagonals; all route to TvBuilder, which reads its panel size from
+    // FurnitureData — same many-types-one-builder pattern as `table_*`). They
+    // are DISTINCT types, not per-card dimensions, because parametric placement
+    // resolves the descriptor BY TYPE (activateFurnitureItem forwards only the
+    // type; FurnitureTool + FurnitureDragDropHandler then read the FIRST card
+    // registered for it — per-card dims do not travel).
+    | 'tv_43'
+    | 'tv_55'
+    | 'tv_65'
+    | 'tv_85'
+    // §MEDIA111 — the audio system: soundbar + floor-standing stereo pair (ONE
+    // element, both towers — the §DESK108 dining-set precedent; data.width is
+    // the stereo span). Builders: AudioBuilders.ts.
+    | 'soundbar'
+    | 'speaker_floor_pair'
     // ── F1.4 (2026-05-30) — Entry storage primitives. Hall S2 activity
     // system: shoe cabinet + coat rack + console table (taller/narrower than
     // entrance_table) + entry bench. Anchored on hall walls perpendicular to

@@ -32,8 +32,8 @@ import {
     ZenDeskBuilder, SkeletonDeskBuilder, VertexDeskBuilder, PanelDeskBuilder,
     ExtendingDiningTableBuilder, RusticDiningSetBuilder,
     ModernDiningSetBuilder, ShellDiningSetBuilder,
-    SectionalSofaBuilder,
     LowboardBuilder, SlatConsoleBuilder,
+    SectionalSofaBuilder,
 } from '@pryzm/geometry-furniture';
 import type { FurnitureData, IFurnitureBuilder } from '@pryzm/geometry-furniture';
 import { createToiletGeometry, createShowerGeometry, createAccessoryGeometry } from '@pryzm/geometry-plumbing';

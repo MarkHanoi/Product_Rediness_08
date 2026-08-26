@@ -73,6 +73,8 @@ import {
 } from './DiningSetBuilders';
 import { BookshelfBuilder } from './BookshelfBuilder';
 import { TvBuilder, TvUnitBuilder, LowboardBuilder, SlatConsoleBuilder } from './MediaWallBuilder';
+// §MEDIA111 (founder, 2026-08-26) — audio system: soundbar + floor-speaker pair.
+import { SoundbarBuilder, FloorSpeakerPairBuilder } from './AudioBuilders';
 import {
     ShoeCabinetBuilder, CoatRackBuilder, ConsoleTableBuilder, EntryBenchBuilder,
 } from './EntryStorageBuilder';
@@ -154,6 +156,21 @@ export class FurnitureFactory {
             case 'tv_lowboard':        return new LowboardBuilder(materialService);
             case 'tv_lowboard_tv':     return new LowboardBuilder(materialService);
             case 'tv_console_slat':    return new SlatConsoleBuilder(materialService);
+
+            // §MEDIA111 (founder, 2026-08-26) — TV screen-size presets. All
+            // route to TvBuilder (it reads the panel size from FurnitureData);
+            // distinct TYPES because parametric placement resolves dimensions
+            // by type, never per card (same pattern as the `table_*` family).
+            case 'tv_43':              return new TvBuilder(materialService);
+            case 'tv_55':              return new TvBuilder(materialService);
+            case 'tv_65':              return new TvBuilder(materialService);
+            case 'tv_85':              return new TvBuilder(materialService);
+
+            // §MEDIA111 (founder, 2026-08-26) — audio system: soundbar + floor-
+            // standing stereo pair (ONE element, both towers; data.width is the
+            // stereo span). One mesh per material group via mergedPartKit.
+            case 'soundbar':           return new SoundbarBuilder(materialService);
+            case 'speaker_floor_pair': return new FloorSpeakerPairBuilder(materialService);
 
             // F1.4 (2026-05-30) — Entry storage primitives (S2 activity system).
             case 'shoe_cabinet':       return new ShoeCabinetBuilder(materialService);

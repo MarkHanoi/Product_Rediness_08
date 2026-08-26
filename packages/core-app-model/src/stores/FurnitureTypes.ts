@@ -44,6 +44,9 @@ export type FurnitureCategory =
     | 'teens'
     | 'pets'
     | 'technical'
+    // §MEDIA111 (founder, 2026-08-26) — electronics category (TVs + audio).
+    // Mirrors packages/geometry-furniture/src/FurnitureTypes.ts.
+    | 'electronics'
     // §TVFURN114 (founder, 2026-08-26) — "TV & Media": the living-room TV
     // FURNITURE (lowboards, media consoles) — casework a screen stands on or
     // hangs over. The DEVICES (screens, soundbars, speakers) are a separate
@@ -141,6 +144,20 @@ export type FurnitureType =
     | 'tv_lowboard'
     | 'tv_lowboard_tv'
     | 'tv_console_slat'
+    // ── §MEDIA111 (founder, 2026-08-26) — Electronics: TV + size presets +
+    // audio. Mirrors packages/geometry-furniture/src/FurnitureTypes.ts.
+    // ⚠ `tv` / `tv_unit` were minted there in F1.3 (2026-05-30) but never
+    // mirrored HERE — this union is a partial mirror that has drifted (it also
+    // lacks the F1.2/F1.4–F1.14 kinds). Added now for the media family; the
+    // remaining drift is an open audit finding (§MEDIA111 report), not grown.
+    | 'tv'
+    | 'tv_unit'
+    | 'tv_43'
+    | 'tv_55'
+    | 'tv_65'
+    | 'tv_85'
+    | 'soundbar'
+    | 'speaker_floor_pair'
     // ── Japanese Bed Collection (parametric — BedEngine) ──────────────────────
     | 'japanese_platform_bed'
     | 'japanese_float_bed'
