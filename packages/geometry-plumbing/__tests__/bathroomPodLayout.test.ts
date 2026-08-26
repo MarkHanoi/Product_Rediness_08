@@ -495,3 +495,44 @@ describe('§BATH98 F — the record, its members and its validator (C109 §2 / �
         expect((built as unknown as { pod?: unknown }).pod).toBeUndefined();
     });
 });
+
+/**
+ * §BATH124 (L-11960, founder: *"if I create it in level 2, the symbols are in level 2
+ * but the elements always in ground"*) — the SOLVER half of the fix.
+ *
+ * ⭐ `BathroomPodAssembly.ts`'s `toWorld()` forwards `room.origin.y` to every member's
+ * `position.y` VERBATIM (`y: room.origin.y`) — that half was never the defect. The bug
+ * was entirely at the CALLER: `BathroomPodPlanToolHandler._roomOf()` hard-coded
+ * `origin.y` to the literal `0` on every one of its four quarter-turn branches,
+ * regardless of which level's plan view the architect was drawing in — so every pod,
+ * on every level, solved at world Y 0 (ground). These two tests pin the solver's own
+ * honesty (it was never wrong): give it a NON-ZERO room datum and every member must
+ * land there, exactly like the ground-floor control.
+ */
+describe('§BATH124 (L-11960, founder) G — the room\'s ORIGIN.Y reaches every member, not just the record', () => {
+    it('G-1 an ELEVATED room (a level-2 datum) solves every member at THAT elevation, not ground', () => {
+        const elevated: BathroomPodLayoutInput = {
+            ...input(4.0, 3.0),
+            room: { ...room(4.0, 3.0), origin: { x: 0, y: 3.0, z: 0 } },
+        };
+        const solved = solveBathroomPodLayout(elevated);
+        expect(solved.ok).toBe(true);
+        if (!solved.ok) return;
+        expect(solved.members.length).toBeGreaterThan(0);
+        for (const m of solved.members) {
+            expect(
+                m.position.y,
+                `member ${m.kind} must solve at the room's own elevation, not a literal 0`,
+            ).toBeCloseTo(3.0, 6);
+        }
+    });
+
+    it('G-2 control: a GROUND room (origin.y = 0) still solves every member at 0', () => {
+        const solved = solveBathroomPodLayout(input(4.0, 3.0));
+        expect(solved.ok).toBe(true);
+        if (!solved.ok) return;
+        for (const m of solved.members) {
+            expect(m.position.y).toBeCloseTo(0, 6);
+        }
+    });
+});

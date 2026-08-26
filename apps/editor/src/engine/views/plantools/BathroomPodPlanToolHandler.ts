@@ -75,6 +75,17 @@ const QUARTER_TURNS = 4;
 const PRIMARY_WALL_LABELS = ['top', 'right', 'bottom', 'left'] as const;
 
 /**
+ * A storey, as `bimManager.getLevels()` / `wallStore.getLevels()` return them.
+ *
+ * ⭐ §BATH124 (L-11960, founder) — same narrow shape `LiftPlanToolHandler` declares
+ * for the identical read, one family over.
+ */
+interface LevelRecord {
+    readonly id: string;
+    readonly elevation?: number;
+}
+
+/**
  * The smallest rectangle worth solving, in metres.
  *
  * ⚠ NOT A SANITARYWARE DIMENSION (C109 R-6) — it is a GESTURE floor, the same class
@@ -192,6 +203,21 @@ export class BathroomPodPlanToolHandler implements PlanToolHandler {
      *   turn 1 (rotation π/2)  +X → +z, +Z → −x   primary = the max-X edge
      *   turn 2 (rotation π)    +X → −x, +Z → −z   primary = the max-Z edge
      *   turn 3 (rotation 3π/2) +X → −z, +Z → +x   primary = the min-X edge
+     *
+     * ⭐ §BATH124 (L-11960, founder: *"if I create it in level 2, the symbols are in
+     * level 2 but the elements always in ground"*) — `origin.y` used to be the LITERAL
+     * `0`, unconditionally, on every one of these four branches. `BathroomPodAssembly.ts`
+     * forwards it verbatim (`toWorld()`: `y: room.origin.y`) into EVERY member's world
+     * position, so a pod drawn on level 2 solved every fixture at world Y 0 — GROUND —
+     * no matter which storey the architect was looking at. The member's `levelId` field
+     * (set correctly to `cmd.levelId` throughout) is what makes the PLAN view filter the
+     * symbol onto the right storey (`PlumbingPlanSymbolBuilder`'s `fixture.levelId !==
+     * levelId` check does not consult world Y at all) — so the symbol and the 3-D mesh
+     * were reading two DIFFERENT sources of truth for "which level": the record's
+     * `levelId` field (right) and a hard-coded literal standing in for the level's
+     * elevation (wrong). One source, now: the SAME `bimManager.getLevels()` /
+     * `wallStore.getLevels()` read `LiftPlanToolHandler._levels()` uses for the
+     * identical resolution, one family over.
      */
     private _roomOf(a: WorldPoint, b: WorldPoint): BathroomPodRoom {
         const minX = Math.min(a.worldX, b.worldX);
@@ -200,29 +226,59 @@ export class BathroomPodPlanToolHandler implements PlanToolHandler {
         const maxZ = Math.max(a.worldZ, b.worldZ);
         const spanX = maxX - minX;
         const spanZ = maxZ - minZ;
+        const y = this._activeLevelElevation();
 
         switch (this._primaryQuarterTurns) {
             case 1:
                 return {
                     clearWidth: spanZ, clearDepth: spanX,
-                    origin: { x: maxX, y: 0, z: minZ }, rotation: Math.PI / 2,
+                    origin: { x: maxX, y, z: minZ }, rotation: Math.PI / 2,
                 };
             case 2:
                 return {
                     clearWidth: spanX, clearDepth: spanZ,
-                    origin: { x: maxX, y: 0, z: maxZ }, rotation: Math.PI,
+                    origin: { x: maxX, y, z: maxZ }, rotation: Math.PI,
                 };
             case 3:
                 return {
                     clearWidth: spanZ, clearDepth: spanX,
-                    origin: { x: minX, y: 0, z: maxZ }, rotation: (3 * Math.PI) / 2,
+                    origin: { x: minX, y, z: maxZ }, rotation: (3 * Math.PI) / 2,
                 };
             default:
                 return {
                     clearWidth: spanX, clearDepth: spanZ,
-                    origin: { x: minX, y: 0, z: minZ }, rotation: 0,
+                    origin: { x: minX, y, z: minZ }, rotation: 0,
                 };
         }
+    }
+
+    /**
+     * The active view's level elevation (world Y), or `0` when the level is unknown or
+     * its elevation is non-finite.
+     *
+     * ⭐ THE SAME TWO READERS, IN THE SAME ORDER, `LiftPlanToolHandler._levels()`
+     * declares: `wallStore.getLevels()` first (the live store every other plan handler
+     * prefers), `bimManager.getLevels()` as the fallback (ADR-0327 — `window.levelStore`
+     * is a phantom that is never assigned). A THIRD reader here would be a third
+     * statement of "what level is this", which is the exact defect this fix closes.
+     */
+    private _activeLevelElevation(): number {
+        const levelId = this._ctx?.viewDef.spatial?.levelId;
+        if (!levelId) return 0;
+        const level = this._levels().find((l) => l.id === levelId);
+        const e = level?.elevation;
+        return Number.isFinite(e) ? (e as number) : 0;
+    }
+
+    /** Every storey in the project, from the same readers `LiftPlanToolHandler` uses. */
+    private _levels(): readonly LevelRecord[] {
+        const fromWallStore = (
+            this._ctx?.wallStore as unknown as { getLevels?: () => LevelRecord[] } | undefined
+        )?.getLevels?.();
+        if (fromWallStore && fromWallStore.length > 0) return fromWallStore;
+        // ADR-0327: `window.levelStore` is a phantom that is never assigned — the
+        // secondary is `bimManager`, which is what every other plan handler reads.
+        return window.bimManager?.getLevels?.() ?? [];
     }
 
     /** The member set a pod declares. One source, so the preview and the commit agree. */

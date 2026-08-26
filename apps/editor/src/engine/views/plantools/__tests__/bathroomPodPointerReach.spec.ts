@@ -80,6 +80,13 @@ import {
 } from '@pryzm/geometry-plumbing';
 
 const VIEW_ID = 'vd-bathroom-pod-pointer-probe';
+// §BATH124 (L-11960, founder: "if I create it in level 2, the symbols are in level 2
+// but the elements always in ground") — a second view, on a SECOND level with a
+// NON-ZERO elevation, so the level-Y bug (origin.y hard-coded to 0 regardless of which
+// storey the plan tool was invoked on) is measurable through the real pointer path.
+const VIEW_ID_L2 = 'vd-bathroom-pod-pointer-probe-l2';
+const LEVEL_2_ID = 'level-2';
+const LEVEL_2_ELEVATION = 3.0;
 const PPU = 50; // screen pixels per world metre — the fake plan canvas's scale
 
 const px = (worldX: number, worldZ: number): { clientX: number; clientY: number } => ({
@@ -114,8 +121,12 @@ function installWorld(): void {
         },
         stores: {},
     };
-    w.wallStore = { getAll: () => [], getLevels: () => [{ id: 'level-1', elevation: 0 }] };
-    w.bimManager = { getLevelById: () => ({ elevation: 0 }), getLevels: () => [{ id: 'level-1', elevation: 0 }] };
+    // §BATH124 — a second storey, at a NON-ZERO elevation, so the level-Y bug is
+    // reachable through the real `wallStore.getLevels()` / `bimManager.getLevels()`
+    // read the tool prefers (`LiftPlanToolHandler._levels()`'s pattern, one family over).
+    const levels = [{ id: 'level-1', elevation: 0 }, { id: LEVEL_2_ID, elevation: LEVEL_2_ELEVATION }];
+    w.wallStore = { getAll: () => [], getLevels: () => levels };
+    w.bimManager = { getLevelById: () => ({ elevation: 0 }), getLevels: () => levels };
     w.selectionManager = { setEnabled: () => undefined, getSelectedId: () => null, selectedObject: undefined };
     w.toolManager = { getActiveTool: () => 'none', subscribe: () => (): void => undefined };
 }
@@ -156,6 +167,13 @@ describe('§BATH102 — C109 R-9: a pointer event on the REAL plan overlay creat
             name: 'Bathroom pod pointer probe',
             viewType: 'plan',
             spatial: { levelId: 'level-1' },
+        });
+        // §BATH124 — a plan view on the SECOND level, so ARM F can dispatch through it.
+        viewDefinitionStore.create({
+            id: VIEW_ID_L2,
+            name: 'Bathroom pod pointer probe — level 2',
+            viewType: 'plan',
+            spatial: { levelId: LEVEL_2_ID },
         });
     });
 
@@ -390,6 +408,62 @@ describe('§BATH102 — C109 R-9: a pointer event on the REAL plan overlay creat
             // reads, so an empty list here is what makes "no strip" a property rather
             // than an omission.
             expect(creationModes('bathroom-pod')).toEqual([]);
+        });
+    });
+
+    // ── ARM F — §BATH124 (L-11960, founder): the LEVEL reaches the ROOM'S ELEVATION ──
+    describe('ARM F — the pod solves at the ACTIVE LEVEL\'s elevation, not always ground', () => {
+        it('F-1 control — level-1 (elevation 0) still dispatches origin.y = 0', () => {
+            activatePlanOnlyToolOrExplain('bathroom-pod', 'Bathroom Pod');
+            enterPane();
+            dragRoom(2, 2, 4.6, 4.1);
+
+            const room = payloadFor('bathroomPod.create')!.room as { origin: { y: number } };
+            expect(room.origin.y).toBeCloseTo(0, 6);
+        });
+
+        it('F-2 ⭐ level-2 (elevation 3.0 m): origin.y is the LEVEL\'s elevation, never ground', () => {
+            // ⛔ THE FOUNDER'S REPORT, VERBATIM: *"if I create it in level 2, the symbols
+            // are in level 2 but the elements always in ground."* `_roomOf()` used to
+            // hard-code `origin.y` to the literal `0` on every quarter-turn branch —
+            // `BathroomPodAssembly.ts`'s `toWorld()` forwards it VERBATIM to every
+            // member's `position.y`, so the whole pod (and every fixture in it) solved
+            // at world Y 0 regardless of which storey this view names. The member's
+            // `levelId` field is what made the PLAN SYMBOL land on the right storey —
+            // a completely different source of truth than the one the 3-D build read.
+            svpPlanToolOverlay.detach();
+            svpPlanToolOverlay.attach(canvas, planCanvasStub as never, VIEW_ID_L2);
+            activatePlanOnlyToolOrExplain('bathroom-pod', 'Bathroom Pod');
+            enterPane();
+            dragRoom(2, 2, 4.6, 4.1);
+
+            const p = payloadFor('bathroomPod.create')!;
+            expect(p.levelId, 'the levelId field was already correct — that is not the bug').toBe(LEVEL_2_ID);
+            const room = p.room as { origin: { y: number } };
+            expect(
+                room.origin.y,
+                'origin.y must be the LEVEL\'s elevation — BathroomPodAssembly.toWorld() forwards it verbatim to every member',
+            ).toBeCloseTo(LEVEL_2_ELEVATION, 6);
+        });
+
+        it('F-3 a level absent from the level store falls back to 0 rather than throwing', () => {
+            // The view names a levelId the level store does not carry — same posture
+            // `LiftPlanToolHandler._resolveServedLevels` takes for the identical miss:
+            // serve a sane default rather than let a lookup failure crash the tool.
+            viewDefinitionStore.create({
+                id: 'vd-bathroom-pod-unknown-level',
+                name: 'Bathroom pod pointer probe — unknown level',
+                viewType: 'plan',
+                spatial: { levelId: 'level-does-not-exist' },
+            });
+            svpPlanToolOverlay.detach();
+            svpPlanToolOverlay.attach(canvas, planCanvasStub as never, 'vd-bathroom-pod-unknown-level');
+            activatePlanOnlyToolOrExplain('bathroom-pod', 'Bathroom Pod');
+            enterPane();
+            dragRoom(2, 2, 4.6, 4.1);
+
+            const room = payloadFor('bathroomPod.create')!.room as { origin: { y: number } };
+            expect(room.origin.y).toBeCloseTo(0, 6);
         });
     });
 });
