@@ -124,6 +124,12 @@ import { openPdfExportTestModal } from '../dev/pdfExportTestModal';
 // RoomParameters from the runtime stores; live editing is D-α-5.
 import { openApartmentDataTestModal } from '../dev/apartmentDataTestModal';
 import { validationFailureText, validationSummaryFor } from './proposalRefusalText.js';
+// §PERF104-TYPE (L-11546) — the founder: "I type sentences and it renders extremely slow".
+// The per-keystroke work was rebuilding the capability node tree and re-lowercasing every
+// node's search text, neither of which can change between characters. See the module
+// header for the full measurement and for the one boundary a fix may not cross: the typed
+// character must still echo instantly.
+import { getNodeSearchText, createCoalescedRenderer } from './suggestionSearchIndex';
 
 // ─── Command-Aware Suggestion Tree ───────────────────────────────────────────
 //
@@ -1572,21 +1578,37 @@ export function createAIPanel(runtime: import('@pryzm/runtime-composer/types').P
         }
     }
 
+    // §PERF104-TYPE (L-11546) — ⭐ BUILT ONCE PER PANEL, NOT ONCE PER KEYSTROKE.
+    //
+    // `chatCapabilityNode()` walks `allChatCapabilities()` and mints a fresh node for every
+    // registered ability — re-casing each description, re-templating each hint. It was
+    // called from `currentNodes()`, which `renderSuggestions()` calls, which the `input`
+    // listener called on EVERY CHARACTER. A forty-character sentence rebuilt the whole
+    // registry tree forty times to answer forty questions that differed only in a filter
+    // string.
+    //
+    // ⚠ The registry is STATIC for the session — `allChatCapabilities()` reads a module-level
+    // table (`@pryzm/ai-host/capabilities/ChatCapabilityRegistry`), not live state — so the
+    // tree it produces cannot change between keystrokes. If capabilities ever become
+    // dynamically registrable, THIS is the line that has to learn to invalidate, and it is
+    // named here so that is a decision rather than a surprise.
+    let _rootNodesMemo: SuggestionNode[] | null = null;
     const currentNodes = (): SuggestionNode[] => {
         // §DRAIN (RAC U10.3) — the registry-generated hub sits alongside the
         // hand-written QueryEngine tree, first, because it is the current truth.
-        if (suggestionState.stack.length === 0) return [chatCapabilityNode(), ...COMMAND_TREE, batchCatalogueNode];
+        if (suggestionState.stack.length === 0) {
+            _rootNodesMemo ??= [chatCapabilityNode(), ...COMMAND_TREE, batchCatalogueNode];
+            return _rootNodesMemo;
+        }
         return suggestionState.stack[suggestionState.stack.length - 1].nodes;
     };
 
-    const nodeSearchText = (node: SuggestionNode): string => {
-        return [
-            node.label,
-            node.hint,
-            node.query,
-            node.prefill,
-        ].filter(Boolean).join(' ').toLowerCase();
-    };
+    // §PERF104-TYPE — memoised per node object (WeakMap). A node's searchable text does not
+    // depend on what the user typed, so recomputing it per character was pure waste: a fresh
+    // array, a filter, a join and a `toLowerCase()` for every node in the tree, on every
+    // keystroke. `suggestionSearchIndex.buildNodeSearchText` is the identical computation and
+    // the spec asserts the memoised value never differs from it.
+    const nodeSearchText = (node: SuggestionNode): string => getNodeSearchText(node);
 
     const collectMatchingNodes = (nodes: SuggestionNode[], filter: string, matches: SuggestionNode[] = []): SuggestionNode[] => {
         for (const node of nodes) {
@@ -2110,22 +2132,44 @@ export function createAIPanel(runtime: import('@pryzm/runtime-composer/types').P
         }
     });
 
-    // Wire input to filter suggestions in real time
+    // §PERF104-TYPE (L-11546) — ⭐ THE SUGGESTION RENDER IS COALESCED. THE CHARACTER IS NOT.
+    //
+    // The founder: *"I type sentences and it renders extremely slow — incredibly slow"*.
+    // This listener used to run `renderSuggestions()` synchronously per character, which
+    // tore down the pill row (`innerHTML = ''`) and rebuilt every matching `<button>` with a
+    // fresh `addEventListener` — plus (before the two memos above) a full capability-tree
+    // rebuild and a full search-text recomputation. Ten characters typed in a burst did that
+    // ten times to show one final list.
+    //
+    // ⛔ THIS CANNOT DELAY THE TYPED CHARACTER, and that is the property that makes the fix
+    // admissible. The browser applies and paints an input's own value BEFORE dispatching
+    // `input`; this handler never reads back into `inputEl.value` and never writes it. What
+    // is deferred is only the chips BELOW the field. A debounce placed on the value itself
+    // would be worse than the bug.
+    //
+    // ⚠ `flush()` on SEND is load-bearing, not tidiness: a queued render must not land after
+    // `handleSend` has already reset the state, or the panel would repaint stale chips over
+    // a fresh conversation turn.
+    const suggestionRenderer = createCoalescedRenderer(() => renderSuggestions());
     inputEl.addEventListener('input', () => {
         suggestionState.filterText = inputEl.value.trim();
-        renderSuggestions();
+        suggestionRenderer.request();
     });
 
     // Enter key to send
     inputEl.addEventListener('keydown', (e: KeyboardEvent) => {
-        if (e.key === 'Enter') { e.preventDefault(); handleSend(); }
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            suggestionRenderer.cancel();   // the send owns the state from here
+            handleSend();
+        }
     });
 
     const sendBtn = document.createElement('button');
     sendBtn.type = 'button';
     sendBtn.className = 'ai-chat-send-btn';
     sendBtn.textContent = 'Send';
-    sendBtn.addEventListener('click', handleSend);
+    sendBtn.addEventListener('click', () => { suggestionRenderer.cancel(); handleSend(); });
 
     inputRow.appendChild(fileInputEl);
     inputRow.appendChild(attachBtn);
