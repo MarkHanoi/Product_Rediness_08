@@ -413,6 +413,12 @@ export class ProjectHub {
                         description:  (s.description ?? undefined) ?? existing?.description,
                         projectType:  existing?.projectType,
                         cdeSummary:   existing?.cdeSummary,
+                        // §SHARE101 / §PERF104 (L-11547) — the share label, carried
+                        // through with its THREE states intact. `?? existing?.sharedWithMe`
+                        // keeps a previously-known label when THIS response omitted the
+                        // field (an older server), rather than downgrading a known `true`
+                        // to unknown; it does NOT invent one.
+                        sharedWithMe: (s as { sharedWithMe?: boolean | null }).sharedWithMe ?? existing?.sharedWithMe,
                     });
                     // §FIX-THUMBNAIL-DURABILITY / §CONTEXT-DATA-HONESTY — the old
                     // line said `thumbnail: none`, which could not distinguish

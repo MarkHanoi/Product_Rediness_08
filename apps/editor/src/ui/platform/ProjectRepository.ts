@@ -388,6 +388,28 @@ function _sameJournal(a: _V3Journal | null, b: _V3Journal | null): boolean {
 interface _ParsedContainer { entries: _V2Entry[]; journal: _V3Journal | null }
 
 /**
+ * §PERF104 (L-11545) — WHY a whole-container write happened. ⭐ THIS EXISTS BECAUSE THE
+ * LOG COULD NOT ANSWER THE FOUNDER'S QUESTION.
+ *
+ * His console shows, after EVERY autosave tick, TWO identical lines:
+ *   `[VersionRepository] 20 version(s) persisted to IndexedDB (~2.0 MB (2,088,443 chars)…)`
+ * and there was no way to tell from the log whether that was a real double WRITE or one
+ * write logged twice. Those are different defects with different fixes, and the
+ * instrument reported them identically — the same §CONTEXT-DATA-HONESTY failure as
+ * `thumbnail: none`, applied to a write.
+ *
+ * It is a REAL DOUBLE WRITE, and the two writers are now named in the line itself:
+ *   1. `save-version`       — `saveVersionWithMeta`, the autosave proper.
+ *   2. `sync-status-patch`  — `updateSyncStatus(…, 'synced')`, driven by
+ *      `ServerSyncQueue.ts:815` → `PlatformSaveController.ts:83`, moments later, to flip
+ *      ONE enum on ONE record. It rewrites the ENTIRE container to do it.
+ *      (`'sync-pending'` at `ServerSyncQueue.ts:466` is already short-circuited into the
+ *      in-memory overlay by §PERF-SYNCSTATUS-TRANSIENT-NOT-PERSISTED / L-8702, which is
+ *      why there are two lines and not three.)
+ */
+type _ContainerWriteReason = 'save-version' | 'sync-status-patch' | 'legacy-whole-array' | 'unspecified';
+
+/**
  * §JOURNAL-SIDECAR — parse a stored payload's ENVELOPE, whichever format it is
  * in, without inflating a single snapshot.
  *
@@ -1001,6 +1023,18 @@ export interface ProjectMeta {
     projectType?: string;
     /** User-defined display order for drag-and-drop reordering on the project hub */
     displayOrder?: number;
+    /**
+     * §SHARE101 / §PERF104 (L-11547) — HOW this user reached the project.
+     *
+     * ⭐ THREE STATES, AND THE THIRD IS THE POINT. `true` = shared with them by
+     * someone else; `false` = they own it; `undefined`/`null` = UNKNOWN, because the
+     * server did not say (an older deployment) or could not tell (the in-memory dev
+     * backend has no membership source — `server/projectShareLabel.js`). The hub
+     * renders a badge on `true` and NOTHING on the other two: a card that silently
+     * claimed "owned" from an absent answer would be a claim the data does not
+     * support, which is the whole reason the server refuses to send `false` there.
+     */
+    sharedWithMe?: boolean | null;
     /**
      * Project-hub improvement C — CDE summary snapshot.
      * Written every time a version is saved (via saveVersionWithMeta).
@@ -1883,7 +1917,7 @@ export class LocalVersionRepository implements IVersionRepository {
             const slots = base.slots;
             const at = slots.findIndex(s => s.id === version.id);
             if (at >= 0) slots[at] = fresh; else slots.push(fresh);
-            this._persistSlots(projectId, slots.slice(-MAX_VERSIONS_STORED), journal);
+            this._persistSlots(projectId, slots.slice(-MAX_VERSIONS_STORED), journal, 'save-version');
         } else {
             const versions = this.getVersions(projectId);
             const existingIdx = versions.findIndex(v => v.id === version.id);
@@ -2011,7 +2045,7 @@ export class LocalVersionRepository implements IVersionRepository {
                     // keeps the envelope's answer to "does anything still index the
                     // shared journal?" true.
                     slots[at] = { id: versionId, blob: null, json: JSON.stringify(record), ref: current.ref };
-                    this._persistSlots(projectId, slots.slice(-MAX_VERSIONS_STORED), container.journal);
+                    this._persistSlots(projectId, slots.slice(-MAX_VERSIONS_STORED), container.journal, 'sync-status-patch');
                     return;
                 }
                 // Legacy v1 payload — no envelope to patch. Decode, edit, re-persist.
@@ -2194,7 +2228,7 @@ export class LocalVersionRepository implements IVersionRepository {
                 json: JSON.stringify({ ...v, snapshot: det.snapshot }),
                 ref: det.mutations.length,
             };
-        }), journal);
+        }), journal, 'legacy-whole-array');
     }
 
     /**
@@ -2221,7 +2255,7 @@ export class LocalVersionRepository implements IVersionRepository {
      * with the raw text, which reads back identically because `_decompressJSON` is
      * a passthrough for unmarked strings.
      */
-    private _persistSlots(projectId: string, slots: _PendingSlot[], journal: _V3Journal | null): void {
+    private _persistSlots(projectId: string, slots: _PendingSlot[], journal: _V3Journal | null, reason: _ContainerWriteReason = 'unspecified'): void {
         const cache = _blobCacheFor(projectId);
         const blobs: (string | null)[] = slots.map(s => s.blob);
         const need: { idx: number; key: string; json: string }[] = [];
@@ -2231,7 +2265,7 @@ export class LocalVersionRepository implements IVersionRepository {
 
         // Nothing new to compress → assemble + persist with zero deflate.
         if (need.length === 0) {
-            this._commitSlots(projectId, slots, blobs, journal);
+            this._commitSlots(projectId, slots, blobs, journal, reason);
             return;
         }
 
@@ -2286,14 +2320,14 @@ export class LocalVersionRepository implements IVersionRepository {
                         cache.set(n.key, _cacheEntry(slots[n.idx]!, b));
                     }
                     if (_currentVersionSaveSeq(projectId) !== seq) return; // superseded by a newer save
-                    this._commitSlots(projectId, slots, blobs, journal);
+                    this._commitSlots(projectId, slots, blobs, journal, reason);
                 })
                 .catch(() => {
                     // Worker failed mid-flight — synchronous fallback so the save is
                     // never lost (never worse than the pre-P4 behaviour).
                     for (const n of need) { const b = _compressJSON(n.json); blobs[n.idx] = b; cache.set(n.key, _cacheEntry(slots[n.idx]!, b)); }
                     if (_currentVersionSaveSeq(projectId) !== seq) return;
-                    this._commitSlots(projectId, slots, blobs, journal);
+                    this._commitSlots(projectId, slots, blobs, journal, reason);
                 });
             return;
         }
@@ -2302,7 +2336,7 @@ export class LocalVersionRepository implements IVersionRepository {
         // NEW version(s) synchronously. Still O(new) not O(history), because the
         // unchanged versions reuse their cached blobs.
         for (const n of need) { const b = _compressJSON(n.json); blobs[n.idx] = b; cache.set(n.key, _cacheEntry(slots[n.idx]!, b)); }
-        this._commitSlots(projectId, slots, blobs, journal);
+        this._commitSlots(projectId, slots, blobs, journal, reason);
     }
 
     /**
@@ -2323,6 +2357,7 @@ export class LocalVersionRepository implements IVersionRepository {
         slots: _PendingSlot[],
         blobs: (string | null)[],
         journal: _V3Journal | null,
+        reason: _ContainerWriteReason = 'unspecified',
     ): void {
         const entries: _V2Entry[] = slots.map((s, i) => {
             const e: _V2Entry = {
@@ -2355,7 +2390,11 @@ export class LocalVersionRepository implements IVersionRepository {
         // outdated payload from the fallback path before the next warm.
         try { localStorage.removeItem(this.key(projectId)); } catch { /* ignore */ }
         console.log(
-            `[VersionRepository] ${entries.length} version(s) persisted to IndexedDB ` +
+            // §PERF104 (L-11545) — the `reason=` field is the whole point of this edit.
+            // Two identical lines per autosave tick could not be read as "one write logged
+            // twice" or "two writes"; now the line says which writer produced it. See
+            // {@link _ContainerWriteReason}.
+            `[VersionRepository] reason=${reason} — ${entries.length} version(s) persisted to IndexedDB ` +
             `(project "${projectId}", ${_formatPayloadSize(payload)} compressed` +
             // §JOURNAL-SIDECAR — say what the container is, not just how big it is.
             // The whole reason L-8704 needed measuring twice is that this line named

@@ -450,13 +450,30 @@ export function renderCard(p: ProjectMeta): string {
                         <span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${updated}</span>
                     </div>
                     <div class="ph-card-meta-right">
+                        ${p.sharedWithMe === true ? `
+                        <!-- §SHARE101 / §PERF104 (L-11547) — ⭐ RENDERED ON \`true\` ONLY.
+                             \`sharedWithMe\` has THREE states and \`null\` is UNKNOWN, not
+                             "owned": the in-memory dev backend has no membership source
+                             and returns null rather than a \`false\` it cannot support
+                             (server/projectShareLabel.js), and an older server omits the
+                             field entirely. So this renders a badge when the server SAID
+                             shared, and NOTHING otherwise — never an "Owned" badge minted
+                             from an absent answer. -->
+                        <div class="ph-card-shared" title="Shared with you by another user">
+                            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
+                                <circle cx="9" cy="7" r="4"/>
+                                <path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+                            </svg>
+                            Shared with you
+                        </div>` : `
                         <div class="ph-card-privacy">
                             <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                                 <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
                                 <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
                             </svg>
                             Private
-                        </div>
+                        </div>`}
                     </div>
                 </div>
                 ${p.description ? `<div class="ph-card-description">${escHtml(p.description)}</div>` : ''}

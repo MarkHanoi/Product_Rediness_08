@@ -99,7 +99,34 @@ export interface ServerProjectRow {
   readonly is_archived?: boolean;
   readonly is_starred?: boolean;
   readonly description?: string | null;
+  /**
+   * §SHARE101 — HOW the caller reached this row: `true` shared with them, `false`
+   * they own it, and ⭐ `null` UNKNOWN — the in-memory dev backend has no membership
+   * source and refuses to claim `false` (`server/projectShareLabel.js`). Three
+   * states, and `null` is NOT `false`.
+   */
+  readonly sharedWithMe?: boolean | null;
+  /** §SHARE101 — the caller's `project_members.role`, or null when they are the owner. */
+  readonly role?: string | null;
+  /** §SHARE101 — the owning user's id, projected alongside the label. */
+  readonly ownerId?: string | null;
 }
+
+/**
+ * §SHARE101 / §PERF104 (L-11547) — a summary carrying the share label.
+ *
+ * ⚠ DEFINED HERE RATHER THAN WIDENING `ProjectSummary` IN `@pryzm/stores`. The three
+ * fields are a PROJECTION LABEL — how this caller reached the row — not part of the
+ * durable project DTO, and `packages/stores` was owned by a concurrent lane fixing a
+ * live data-loss bug when this landed. An intersection at the client boundary gives the
+ * hub the fields with no change to the shared DTO and no merge hazard; if the label ever
+ * becomes part of the canonical shape, THIS is the type to fold in.
+ */
+export type LabelledProjectSummary = ProjectSummary & {
+  readonly sharedWithMe?: boolean | null;
+  readonly role?: string | null;
+  readonly ownerId?: string | null;
+};
 
 /** Map a server row → store DTO.  Server uses `snake_case` (Postgres
  *  default), the store uses `camelCase` per S28 line 669.
@@ -109,9 +136,9 @@ export interface ServerProjectRow {
  *  loss-less against the server projection — the Project Hub card
  *  reads `versionCount` for its per-project version-count chip
  *  (chunks/22 §22.1 step 1.5 leg). */
-export function rowToSummary(row: ServerProjectRow): ProjectSummary {
+export function rowToSummary(row: ServerProjectRow): LabelledProjectSummary {
   const summary: {
-    -readonly [K in keyof ProjectSummary]: ProjectSummary[K];
+    -readonly [K in keyof LabelledProjectSummary]: LabelledProjectSummary[K];
   } = {
     id: row.id,
     name: row.name,
@@ -125,6 +152,15 @@ export function rowToSummary(row: ServerProjectRow): ProjectSummary {
   if (typeof row.is_archived === 'boolean') summary.isArchived = row.is_archived;
   if (typeof row.is_starred === 'boolean') summary.isStarred = row.is_starred;
   if (row.description !== undefined) summary.description = row.description;
+  // §SHARE101 — ⛔ FORWARDED ONLY WHEN THE SERVER ACTUALLY SENT IT. `undefined` here
+  // means "this server does not label rows" and must stay distinguishable from `null`
+  // ("it labels them but cannot tell for this deployment") and from `false` ("you own
+  // it"). Defaulting any of the three to another is precisely what `projectShareLabel.js`
+  // refuses to do one layer down, and a mapper that undid it would make that refusal
+  // decorative.
+  if (row.sharedWithMe !== undefined) summary.sharedWithMe = row.sharedWithMe;
+  if (row.role !== undefined) summary.role = row.role;
+  if (row.ownerId !== undefined) summary.ownerId = row.ownerId;
   return summary;
 }
 

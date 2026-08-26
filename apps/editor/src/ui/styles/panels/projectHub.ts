@@ -670,6 +670,22 @@ export const PROJECT_HUB_STYLES = `
         font-weight: 500;
         color: var(--app-text-muted);
     }
+    /* §SHARE101 / §PERF104 (L-11547) — the "Shared with you" chip. Rendered ONLY when
+       the server said sharedWithMe === true; null (UNKNOWN) and false (owned) both fall
+       through to the Private chip, so this styling can never be the reason a card claims
+       something the data does not support. Brand purple (#6600FF) rather than the muted
+       grey, because it is a POSITIVE statement about access, not chrome.
+       NOTE: no backticks in this comment — the whole stylesheet is a TS template literal
+       and a stray backtick terminates it (it did, once: TS1005 at this line). */
+    .ph-card-shared {
+        display: flex;
+        align-items: center;
+        gap: 3px;
+        font-size: 10px;
+        font-weight: 600;
+        color: #6600FF;
+        white-space: nowrap;
+    }
     .ph-card-description {
         font-size: 11px;
         color: var(--app-text-muted);
