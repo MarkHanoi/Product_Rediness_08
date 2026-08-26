@@ -71,6 +71,11 @@ export * from './builders/TableBuilder';
 export * from './builders/ToiletRadiatorBuilder';
 export * from './builders/TreeBuilder';
 export * from './builders/TreePlanSymbolBuilder';
+// §TREE135 (L-12180) — drafted elevation/section tree symbol (mirrors the
+// plan-symbol precedent above); TreeElevationSymbolGeometry is the pure
+// linework, TreeElevationSymbolBuilder is the injector EdgeProjectorService calls.
+export * from './builders/TreeElevationSymbolGeometry';
+export * from './builders/TreeElevationSymbolBuilder';
 export * from './builders/WardrobeBuilder';
 export * from './builders/WardrobeGlassBuilder';
 export * from './builders/WardrobePlanSymbolBuilder';

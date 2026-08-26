@@ -87,6 +87,11 @@ import { wardrobePlanSymbolBuilder } from '@pryzm/geometry-furniture';
 import { chairPlanSymbolBuilder } from '@pryzm/geometry-furniture';
 
 import { treePlanSymbolBuilder } from '@pryzm/geometry-furniture';
+// §TREE135 (L-12180) — the elevation/section sibling of treePlanSymbolBuilder above. Trees
+// carry `skipInElevation` + `skipInSection` (ParametricTreeEngine) so this replaces the raw
+// foliage-cluster/trunk edge dump with a drafted symbol in BOTH view types — see that
+// builder's header for why section is included (plumbing's precedent explicitly is not).
+import { treeElevationSymbolBuilder } from '@pryzm/geometry-furniture';
 
 // DOC-2.5c: stair walking line / arrow / break line injection
 import { stairSymbolTechnicalDrawingBridge } from '@pryzm/geometry-stair';
@@ -2363,6 +2368,12 @@ export class EdgeProjectorService {
         //     (the nearest solid in the drawing, silhouette covering the whole plate) would
         //     occlude the ENTIRE PLAN.
         const isElevationView = viewDef.viewType === 'elevation';
+        // §TREE135 (L-12180) — section's own boolean, not folded into isElevationView /
+        // isSectionDepthView. Needed so the tree mesh-skip check and the
+        // treeElevationSymbolBuilder call site can each name "section" precisely, without
+        // also matching elevation (already named) or matching plan (isSectionDepthView does
+        // not, but naming intent explicitly here avoids a third reader having to re-derive it).
+        const isSectionView = viewDef.viewType === 'section';
         let viewDepthOfBox: ((box: THREE.Box3) => number) | null = null;
         if (isSectionDepthView) {
             const { normal: depthNormal, constant: depthConstant } = resolveSectionDepthPlane(viewDef, direction);
@@ -2877,6 +2888,16 @@ export class EdgeProjectorService {
                         // LOD400 mesh edge-dump is replaced by the clean silhouette symbol below.
                         // Section views are unaffected (a section legitimately cuts the fixture).
                         if (isElevationView && mesh.userData.skipInElevation === true) {
+                            return;
+                        }
+                        // §TREE135 (L-12180) — section sibling of skipInElevation, deliberately
+                        // a SEPARATE flag (not a reuse of skipInElevation): plumbing fixtures
+                        // set skipInElevation but NOT skipInSection, because a section
+                        // legitimately cuts a fixture (see PlumbingElevationSymbolBuilder's
+                        // header). Trees set BOTH — vegetation is not poché-cut construction,
+                        // so TreeElevationSymbolBuilder draws the same drafted symbol in
+                        // section as in elevation (see that builder's header for the defence).
+                        if (isSectionView && mesh.userData.skipInSection === true) {
                             return;
                         }
 
@@ -4045,6 +4066,16 @@ export class EdgeProjectorService {
         // occlusion + HLR passes so injected linework is occlusion-tested like any other.
         if (isElevationView) {
             if (_symbolGate('plumbing')) plumbingElevationSymbolBuilder.inject(drawing, viewDef);
+        }
+
+        // §TREE135 (L-12180) — tree elevation/section symbol injection. UNLIKE the plumbing
+        // builder above, this ALSO runs for `isSectionView`: a tree is not poché-cut
+        // construction, so the same drafted silhouette is correct in both view types (see
+        // TreeElevationSymbolBuilder's header for the full defence of that decision). Runs
+        // BEFORE the occlusion + HLR passes below, same as every other symbol injector, so
+        // injected linework is occlusion-tested/crop-clipped like any other.
+        if (isElevationView || isSectionView) {
+            if (_symbolGate('furniture')) treeElevationSymbolBuilder.inject(drawing, viewDef);
         }
 
         // §ELEV-SYMBOL-OPENING (L-1240) — the AUTHORED door/window elevation symbol.

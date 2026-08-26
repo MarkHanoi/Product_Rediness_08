@@ -15,6 +15,14 @@
  * and `userData.edgeAngleDeg = 30`.  TreePlanSymbolBuilder injects the
  * clean architectural plan symbol instead of a noisy mesh-edge dump.
  *
+ * §TREE135 (L-12180): every mesh is ALSO tagged `userData.skipInElevation =
+ * true` and `userData.skipInSection = true` — the elevation/section siblings
+ * of `skipInPlan`. `TreeElevationSymbolBuilder` injects a drafted symbol
+ * instead of the raw foliage-cluster/trunk-cylinder edge dump in BOTH view
+ * types (unlike plumbing fixtures, which keep their true section cut — trees
+ * are not poché-cut construction; see that builder's own header for the
+ * full defence).
+ *
  * Contract:
  *  - No store reads/writes.  Returns a THREE.Group rooted at (0, 0, 0)
  *    with the trunk base at Y=0 and the canopy extending upward.
@@ -559,8 +567,12 @@ export class ParametricTreeEngine {
     private _tagForPlanView(root: THREE.Group): void {
         root.traverse(obj => {
             if ((obj as THREE.Mesh).isMesh) {
-                obj.userData.skipInPlan   = true;
-                obj.userData.edgeAngleDeg = 50;
+                obj.userData.skipInPlan       = true;
+                obj.userData.edgeAngleDeg     = 50;
+                // §TREE135 — elevation/section draw TreeElevationSymbolBuilder's
+                // drafted symbol instead; see this file's header + that builder's.
+                obj.userData.skipInElevation  = true;
+                obj.userData.skipInSection    = true;
             }
         });
     }
