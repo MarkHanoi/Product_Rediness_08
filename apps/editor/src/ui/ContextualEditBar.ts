@@ -47,6 +47,15 @@ import type { CopyPasteTool } from '@pryzm/input-host';
 import type { ScaleTool } from '@pryzm/input-host';
 import type { OffsetTool } from '@pryzm/input-host';
 import type { ReferenceEditTool } from '@pryzm/input-host';
+// §TOOLBAR-MODE-GATE (L-12220) — the ONE gate for this bar's visibility, beside
+// §PANEL-MODE-GATE's identical column for the properties panel. This bar names
+// no mode by id; it asks the registry whether the mode it was told about
+// allows the editing toolbar.
+import {
+    editingToolbarAllowedIn,
+    isWorkspaceMode,
+    type WorkspaceMode,
+} from './platform/workspaceModes';
 
 export interface OperationTools {
     joinTool:          JoinTool;
@@ -165,6 +174,18 @@ export class ContextualEditBar {
     private _mvChordPending   = false;
     private _mvChordTimer: ReturnType<typeof setTimeout> | null = null;
 
+    /**
+     * §TOOLBAR-MODE-GATE (L-12220) — the last workspace mode this bar was told
+     * about. `null` = none observed yet (pre-boot), which `editingToolbarAllowedIn`
+     * treats as allowed; see its header for why that direction is the safe one.
+     *
+     * This is a CACHE of the event, not a rival authority: `WorkspaceController`
+     * remains the only writer of the mode, `workspaceModes.ts` remains the only
+     * place that says which modes show the toolbar, and this field is only ever
+     * fed by the `pryzm-workspace-mode` emit.
+     */
+    private _workspaceMode: WorkspaceMode | null = null;
+
     /** Phase B.8 (S73-WIRE) — runtime threaded by parent (Layout.ts). */
     public readonly runtime: PryzmRuntime | null;
 
@@ -177,6 +198,7 @@ export class ContextualEditBar {
         document.body.appendChild(this._el);
         this._wireSelectionEvent();
         this._wireOperationEvents();
+        this._wireWorkspaceModeGate();
         // F.5.4 Wave 14 — runtime.shortcuts.dispatch wiring.
         // Phase F stub: dispatch is a no-op; register returns a no-op disposer.
         // Phase C.shortcuts wires the real global key handler.
@@ -900,6 +922,64 @@ export class ContextualEditBar {
     }
 
     /**
+     * §TOOLBAR-MODE-GATE (L-12220) — the bar owns its own visibility, exactly as
+     * §PANEL-MODE-GATE made `PropertyPanel` own its own. Nothing outside this
+     * class pokes `.ceb-bar`'s display or class list per mode.
+     *
+     * Two things happen when the mode changes, and only two:
+     *
+     *  1. `_workspaceMode` is refreshed, so `setVisible()` — the ONE choke point
+     *     every visibility change already funnels through — starts answering
+     *     for the new mode on its very next call.
+     *  2. If the NEW mode suppresses the toolbar, this handler ALSO acts
+     *     immediately rather than waiting for the next selection event: it
+     *     re-applies `setVisible()` (which now gates itself closed) so a bar
+     *     already showing does not linger, and it cancels any armed operation
+     *     — `_cancelActiveTools()` for the join/cut/mirror/scale/align/offset/
+     *     rotate/reference-edit family, `_activatePlanTool('none')` for the plan
+     *     surface Move and Copy drive, which do not register an `_activeOpId`
+     *     at all. Hiding the bar without this would strand a live tool
+     *     (mid-move, waiting on a destination click) with no visible affordance
+     *     to cancel it — the founder's own scope condition for this fix.
+     *
+     *  Returning to an ALLOWED mode does the opposite of `PropertyPanel`'s
+     *  author-return on purpose: this bar never clears `_selectedObj` /
+     *  `_selectedIds` / `_selectedGridId` on hide (unlike `PropertyPanel.hide()`,
+     *  which clears its own draft state), so the selection was never lost —
+     *  only the bar's pixels were. Re-deriving "should the bar be visible" from
+     *  the SAME fields the selection handlers already trust, rather than
+     *  waiting for a fresh reselect, is the honest read: the user's selection
+     *  did not change, only the mode did.
+     *
+     * ⚠ THE BAR, NEVER THE SELECTION — same split as §PANEL-MODE-GATE.
+     * `selectionBus`, `_selectedIds`, `_selectedObj` and `_selectedGridId` are
+     * untouched here; only pixels and armed operations are.
+     */
+    private _wireWorkspaceModeGate(): void {
+        window.runtime?.events?.on('pryzm-workspace-mode', (payload: unknown) => {
+            const mode = (payload as { mode?: string } | undefined)?.mode;
+            // An id the registry does not know is ignored rather than guessed at:
+            // recording it would make `editingToolbarAllowedIn` fail open on a
+            // typo forever after. Keeping the previous mode is the honest read.
+            if (!isWorkspaceMode(mode)) return;
+            this._workspaceMode = mode;
+
+            if (!editingToolbarAllowedIn(mode)) {
+                // Nothing stays armed with its affordance gone.
+                this._cancelActiveTools();
+                this._activatePlanTool('none');
+                this.setVisible(false);
+                return;
+            }
+
+            // Back to an allowed mode: reflect the selection that never changed.
+            this.setVisible(
+                this._selectedIds.length > 1 || !!this._selectedObj || !!this._selectedGridId,
+            );
+        });
+    }
+
+    /**
      * Contextual keyboard shortcuts — active whenever a BIM element is selected.
      * Full shortcut table in docs/02-decisions/contracts/11-KEYBOARD-SHORTCUTS-CONTRACT.md.
      *
@@ -1451,8 +1531,25 @@ export class ContextualEditBar {
         return tool && typeof tool.enterProfileEditMode === 'function' ? tool : null;
     }
 
+    /**
+     * ⭐ §TOOLBAR-MODE-GATE (L-12220) — THE gate, and the ONLY one.
+     *
+     * Every way this bar's visibility changes funnels through here: the
+     * selectionBus subscription, the `bim-selection-changed` handler, the
+     * `pryzm-grid-selected` handler, and `_wireWorkspaceModeGate()` above. So
+     * one `if` here covers all of them, and there is no `if (mode !==
+     * 'author')` sprinkled at any call site — the same shape §PANEL-MODE-GATE
+     * used for `PropertyPanel._makeVisible()`.
+     *
+     * A caller asking to show the bar in a suppressed mode is a normal,
+     * expected event (every selection handler still runs unconditionally in
+     * Inspect/Analysis/Data — selection is untouched, per the file-level
+     * comment on `_wireWorkspaceModeGate`); it is refused here, quietly, rather
+     * than by teaching three call sites to ask permission first.
+     */
     setVisible(visible: boolean): void {
-        if (visible) {
+        const allowed = visible && editingToolbarAllowedIn(this._workspaceMode);
+        if (allowed) {
             this._el.classList.add('ceb-bar--visible');
         } else {
             this._el.classList.remove('ceb-bar--visible');

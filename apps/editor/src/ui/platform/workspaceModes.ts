@@ -38,7 +38,7 @@
  * yields `undefined` and white-screens the app.)
  *
  * L7 file. No THREE (P2), no rAF (P3), no `(window as any)` (P4), no store
- * writes (P6) — a frozen table and four pure lookups.
+ * writes (P6) — a frozen table and five pure lookups.
  */
 
 /** How the 3-D canvas is laid out in a given mode. */
@@ -70,6 +70,21 @@ export interface WorkspaceModeDef {
    * the selection itself would be a regression wearing a fix's commit message.
    */
   readonly propertiesPanel: 'shown' | 'suppressed';
+  /**
+   * §TOOLBAR-MODE-GATE (L-12220) — may the element EDITING toolbar (the
+   * `.ceb-bar` round-icon strip: undo/redo, move/rotate/copy, delete,
+   * join/cut/mirror/scale/align/offset/reference-edit) show itself in this
+   * mode? A COLUMN beside `propertiesPanel`, for the identical reason that one
+   * was written as a column instead of a second hand-kept list — see
+   * §WORKSPACE-MODE-REGISTRY above.
+   *
+   * ⚠ THIS GOVERNS THE TOOLBAR, NEVER THE SELECTION — same split as
+   * `propertiesPanel`. `'suppressed'` removes the bar's pixels and cancels any
+   * armed operation; it does not touch `selectionBus`, 3-D highlighting, or any
+   * selection-driven read surface. Inspect and Analysis are BUILT on selection
+   * remaining live while the AUTHORING affordance is what disappears.
+   */
+  readonly editingToolbar: 'shown' | 'suppressed';
   /** Inline SVG for the pill. 13×13, `currentColor`, no fill. */
   readonly icon: string;
 }
@@ -93,6 +108,8 @@ export const WORKSPACE_MODES: readonly WorkspaceModeDef[] = Object.freeze([
     canvas: 'full',
     // The ONE mode that authors elements, so the ONE mode with the properties panel.
     propertiesPanel: 'shown',
+    // The ONE mode elements are AUTHORED in, so the ONE mode with the editing toolbar.
+    editingToolbar: 'shown',
     icon: ICON('<path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/>'),
   },
   {
@@ -104,6 +121,11 @@ export const WORKSPACE_MODES: readonly WorkspaceModeDef[] = Object.freeze([
     // The right half IS the read surface (AuditStack). A floating property panel
     // over the canvas half competes with it and with the isolation HUDs.
     propertiesPanel: 'suppressed',
+    // §TOOLBAR-MODE-GATE (L-12220) — founder: "exclude the mode tools on the top
+    // (cut, move, rotate…) — this should be omitted on Analysis and Inspect mode
+    // views." Inspect reads the model; a floating move/rotate/delete strip over
+    // that reading surface invites an edit from a mode built to not make one.
+    editingToolbar: 'suppressed',
     icon: ICON('<rect x="3" y="3" width="18" height="18" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="9" y1="21" x2="9" y2="9"/>'),
   },
   {
@@ -117,6 +139,11 @@ export const WORKSPACE_MODES: readonly WorkspaceModeDef[] = Object.freeze([
     // the selection was made to read. The selection is the POINT of this mode; the
     // panel is what covered its answer.
     propertiesPanel: 'suppressed',
+    // §TOOLBAR-MODE-GATE (L-12220) — the founder named THIS mode by name, and his
+    // screenshot's two arrows cover the whole strip: undo/redo on the left, the
+    // tool cluster on the right. Analysis's widgets are read surfaces over a
+    // selection; the authoring strip is exactly the noise/hazard he flagged.
+    editingToolbar: 'suppressed',
     icon: ICON('<line x1="4" y1="20" x2="4" y2="12"/><line x1="10" y1="20" x2="10" y2="4"/><line x1="16" y1="20" x2="16" y2="9"/><line x1="22" y1="20" x2="22" y2="15"/>'),
   },
   {
@@ -128,6 +155,15 @@ export const WORKSPACE_MODES: readonly WorkspaceModeDef[] = Object.freeze([
     // No canvas at all — a panel anchored to a viewport that is `display:none`
     // would float over the full-width workbench with nothing behind it.
     propertiesPanel: 'suppressed',
+    // §TOOLBAR-MODE-GATE (L-12220) — SCOPE DECISION, not an assumption: the founder
+    // named only Analysis and Inspect, but Data's canvas is `'hidden'` — there is no
+    // 3-D viewport for move/rotate/mirror/align/offset to act ON. An editing
+    // toolbar with nothing under it to edit is a worse dead affordance than one
+    // merely out of place, and Data already suppresses the properties panel for
+    // this identical reason two lines above. Consistency argues the same verdict
+    // here; if a future Data view regains a live 3-D pane this row is the one
+    // place to flip.
+    editingToolbar: 'suppressed',
     icon: ICON('<ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M3 5v4c0 1.66 4.03 3 9 3s9-1.34 9-3V5"/><path d="M3 9v4c0 1.66 4.03 3 9 3s9-1.34 9-3V9"/>'),
   },
 ]);
@@ -181,4 +217,31 @@ export function propertiesPanelAllowedIn(id: string | null | undefined): boolean
   if (id == null) return true;
   const def = getWorkspaceMode(id);
   return def ? def.propertiesPanel === 'shown' : true;
+}
+
+/**
+ * §TOOLBAR-MODE-GATE (L-12220) — ⭐ THE ONE GATE for the element editing toolbar
+ * (`ContextualEditBar`, `.ceb-bar`).
+ *
+ * Same shape as `propertiesPanelAllowedIn` immediately above, extending the
+ * SAME registry rather than minting a rival mechanism: `ContextualEditBar`
+ * reads this at its own single choke point (`setVisible`) and on the
+ * `pryzm-workspace-mode` event, so a bar already showing when the mode changes
+ * under it is force-hidden and any armed operation is cancelled rather than
+ * left stranded with no visible affordance.
+ *
+ * ⚠ FAIL-OPEN ON AN UNKNOWN ID, for the same reason as its sibling: the editing
+ * toolbar is a primary authoring surface, and a mode id this build does not
+ * know must not silently remove the ability to move, rotate or delete an
+ * element. `isWorkspaceMode` already rejects unknown ids at the restore
+ * boundary; this is the belt to that braces.
+ *
+ * `null` means "no mode observed yet" (pre-boot) and is likewise allowed —
+ * `WorkspaceController` starts in `author` and only emits when the mode
+ * actually differs, so silence means Author.
+ */
+export function editingToolbarAllowedIn(id: string | null | undefined): boolean {
+  if (id == null) return true;
+  const def = getWorkspaceMode(id);
+  return def ? def.editingToolbar === 'shown' : true;
 }
