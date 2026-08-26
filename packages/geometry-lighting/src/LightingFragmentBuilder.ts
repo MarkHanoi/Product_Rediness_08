@@ -129,7 +129,67 @@ export interface LiveLightState {
     readonly focused: boolean;
     /** The whole explanation as one sentence, or `null` when lit. */
     readonly reason: string | null;
+    /**
+     * ⭐ §LIGHT147 (L-12420) — the ACTUAL `THREE.PointLight.intensity` this
+     * fixture's real light was given, present ONLY when `lit` is true.
+     *
+     * WHY THIS HAD TO EXIST: `lit: true` used to mean only "won a budget slot" —
+     * it asserted that `_attachLight` was CALLED, never that the light it produced
+     * is bright enough to read as switched on. A fixture whose photometry resolves
+     * to a near-zero intensity (a stale explicit `emission.intensity` override
+     * carried over from a schema predating real photometry, or any future
+     * resolution bug) would show `lit: true` and still look exactly like the
+     * THROTTLED population to anyone reading the diagnostic — three different
+     * failures wearing one boolean. Reading the number off the REAL light object
+     * (never re-derived) is what makes REGISTERED-BUT-ZERO-INTENSITY a distinct,
+     * observable state instead of a re-description of "lit".
+     */
+    readonly intensity?: number;
 }
+
+/**
+ * ⭐ §LIGHT147 (L-12420) — coverage of the live-light pool against the STORE,
+ * so a fixture that never enters `_roots` at all is distinguishable from one
+ * that entered and lost the budget.
+ *
+ * `liveLightDiagnostics()` can only describe fixtures already in `_roots` — a
+ * fixture whose `add()` never ran (a bus/store record with no builder mesh at
+ * all) has nothing to report ON, by construction, so it was previously
+ * invisible to every honesty surface this builder carries. This struct is the
+ * read side of the cross-check `_syncAllLights` now performs every pass:
+ * store records vs. builder roots, named and counted, never inferred.
+ */
+export interface LivePoolCoverage {
+    /** Fixture records the store reports (`_getAllData().length`). */
+    readonly storeRecords: number;
+    /** Fixtures the builder actually has a mesh/group for (`_roots.size`). */
+    readonly registered: number;
+    /**
+     * Store record ids with NO corresponding builder root — a mesh may or may
+     * not exist (some other path could have drawn one), but THIS builder never
+     * built one and it is therefore NOT a live-light candidate at all: not
+     * throttled, not dark-by-budget — invisible to the pool.
+     */
+    readonly unregisteredIds: readonly string[];
+    /**
+     * Fixtures that won a budget slot (`lit: true`) whose real light's
+     * `intensity` resolved to a value too low to plausibly read as switched on
+     * (< `ZERO_INTENSITY_THRESHOLD`). Registered, budgeted, and still dark —
+     * the third state, distinct from both of the above.
+     */
+    readonly zeroIntensityLitIds: readonly string[];
+}
+
+/**
+ * §LIGHT147 — below this, a "lit" fixture's real light is not visually
+ * distinguishable from off. `FixturePhotometry.ts`'s own worked example puts
+ * the pre-photometry legacy scalar (1.5 candela at the old scale) at an
+ * irradiance of 0.24 at 2.5 m — BELOW the scene's ambient floor. This
+ * threshold is set two orders of magnitude under the smallest *documented*
+ * working value (a 300 lm marker fixture) so it flags genuine near-zero
+ * resolution failures without tripping on any authored family.
+ */
+const ZERO_INTENSITY_THRESHOLD = 0.001;
 
 // ── Shared materials (one per builder instance) ───────────────────────────────
 
@@ -485,6 +545,13 @@ export class LightingFragmentBuilder {
      */
     private _lastBudgetLogKey: string | null = null;
 
+    /**
+     * §LIGHT147 (L-12420) — last-computed pool coverage (store vs. builder roots
+     * vs. real-light intensity). Recomputed on every `_syncAllLights` pass;
+     * `null` before the first sync so a caller cannot read a fabricated result.
+     */
+    private _lastCoverage: LivePoolCoverage | null = null;
+
     private _scene: THREE.Object3D | null = null;
     private _isNight = false;
 
@@ -596,6 +663,21 @@ export class LightingFragmentBuilder {
             if (s) out.push({ ...s, id });
         }
         return out.sort((a, b) => a.rank - b.rank);
+    }
+
+    /**
+     * §LIGHT147 (L-12420) — THROTTLED-BY-BUDGET vs NEVER-REGISTERED vs
+     * REGISTERED-BUT-ZERO-INTENSITY, as three independently-readable counts
+     * instead of one boolean that could mean any of the three.
+     *
+     * `liveLightDiagnostics()` alone cannot distinguish "lost the budget" from
+     * "never entered the pool", because a fixture that never entered has no row
+     * there to read — this is the surface that names the population
+     * `liveLightDiagnostics()` cannot see. Returns `null` before the first sync
+     * (never a fabricated zero).
+     */
+    livePoolCoverage(): LivePoolCoverage | null {
+        return this._lastCoverage;
     }
 
     /** Call once after THREE.Scene is available. */
@@ -1634,6 +1716,16 @@ export class LightingFragmentBuilder {
      */
     private _syncAllLights(): void {
         const byId = new Map(this._getAllData().map(d => [d.id, d]));
+
+        // ⭐ §LIGHT147 (L-12420) — NEVER-REGISTERED coverage, computed BEFORE anything
+        // below reasons about the budget. `liveLightDiagnostics()`/`userData.liveLight`
+        // can only ever describe a fixture already in `this._roots` — a store record
+        // whose `add()` never ran (a bridge that failed to call `builder.add`, a
+        // registration race, a second authority writing the store directly) has no row
+        // there to read, by construction, so it was invisible to every honesty surface
+        // this builder carries. This is the one check that can actually SEE it: cross
+        // the store's own id list against the roots this builder built.
+        const unregisteredIds = [...byId.keys()].filter((id) => !this._roots.has(id));
         // §LIGHT102 (L-11427) — `focused` is now "the provider RETURNED a point on
         // this pass", not "a provider was installed at boot". A late-arriving camera
         // therefore starts being used the moment it exists, and a genuinely absent
@@ -1773,6 +1865,60 @@ export class LightingFragmentBuilder {
         for (const [id, group] of this._roots) {
             if (!liveSet.has(id)) continue;
             this._attachLight(resolved.get(id) ?? this._synthesizeData(id, group), group);
+        }
+
+        // ⭐ §LIGHT147 (L-12420) — REGISTERED-BUT-ZERO-INTENSITY: read the REAL light's
+        // `.intensity` back off the object `_attachLight` just set, rather than
+        // re-deriving it. A fixture can win a budget slot (`lit: true`) and still be
+        // functionally dark if its resolved photometry is near-zero — a stale explicit
+        // `emission.intensity` override from a schema that predates real photometry is
+        // exactly this shape (§FEAT-FIXTURE-PHOTOMETRY's own worked example: 1.5
+        // legacy candela reads BELOW the scene's ambient floor). Stamping the actual
+        // number onto the diagnostic is what turns that from indistinguishable-from-
+        // "lit and working" into a third, independently observable state.
+        const zeroIntensityLitIds: string[] = [];
+        for (const id of live) {
+            const group = this._roots.get(id);
+            const realIntensity = this._lights.get(id)?.intensity;
+            if (group) {
+                const prior = group.userData.liveLight as LiveLightState | undefined;
+                if (prior) {
+                    group.userData.liveLight = { ...prior, intensity: realIntensity } satisfies LiveLightState;
+                }
+            }
+            if (realIntensity !== undefined && realIntensity < ZERO_INTENSITY_THRESHOLD) {
+                zeroIntensityLitIds.push(id);
+            }
+        }
+
+        this._lastCoverage = {
+            storeRecords: byId.size,
+            registered: this._roots.size,
+            unregisteredIds,
+            zeroIntensityLitIds,
+        };
+
+        // ⭐ §LIGHT147 — these two anomalies are ALWAYS worth reporting, unlike the
+        // throttled-by-budget line above (which is expected/benign and therefore
+        // deduped). A store record with no builder root, or a budget-winning fixture
+        // whose real light is near-zero, is never "working as designed" — so this
+        // fires every pass one exists, not once-then-suppressed.
+        if (unregisteredIds.length > 0) {
+            console.warn(
+                `[LightingFragmentBuilder] §LIGHT147: ${unregisteredIds.length} of ${byId.size} store ` +
+                `record(s) have NO builder mesh and are NEVER-REGISTERED — not throttled, not dark-by-` +
+                `budget, invisible to the live-light pool entirely: ${unregisteredIds.join(', ')}. ` +
+                `Check whatever called store.add() for these ids also called builder.add().`,
+            );
+        }
+        if (zeroIntensityLitIds.length > 0) {
+            console.warn(
+                `[LightingFragmentBuilder] §LIGHT147: ${zeroIntensityLitIds.length} fixture(s) won a live-` +
+                `light budget slot but resolved to a near-zero real intensity (REGISTERED-BUT-ZERO-` +
+                `INTENSITY, < ${ZERO_INTENSITY_THRESHOLD}) — registered and budgeted, still functionally ` +
+                `dark: ${zeroIntensityLitIds.join(', ')}. Check each fixture's photometry resolution ` +
+                `(an explicit \`emission.intensity\` override is the usual cause).`,
+            );
         }
     }
 
