@@ -86,7 +86,11 @@ export * from './builders/ApplianceBuilders';
 export * from './builders/mergedPartKit';
 export * from './builders/WorkingDeskBuilders';
 export * from './builders/DiningSetBuilders';
+// §MEDIA111 (founder, 2026-08-26) — Electronics: the carousel draws the TV /
+// TV-unit / audio cards with the element's own builders (§CARPET97 no-drift
+// rule), so the media + audio builders join the barrel.
 export * from './builders/MediaWallBuilder';
+export * from './builders/AudioBuilders';
 
 export * from './engines/BedEngine';
 export * from './engines/KitchenCabinetEngine';

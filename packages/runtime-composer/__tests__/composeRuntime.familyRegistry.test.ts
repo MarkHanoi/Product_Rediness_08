@@ -173,15 +173,19 @@ describe('composeRuntime() — familyRegistryStore (P0.3 slice B)', () => {
   // Slice B extension 3 (2026-05-31): grew 40 → 59.
   // §DESK108 (2026-08-26): grew 59 → 67 — four working desks + extending
   // dining table + three dining sets (seedCoreFamilies entries 60..67).
-  it('after compose, the store contains exactly 67 seeded core families', () => {
+  // §MEDIA111 (2026-08-26): grew 67 → 73 — four TV size presets + soundbar +
+  // floor-speaker pair (seedCoreFamilies entries 68..73).
+  // §SOFA113 (2026-08-26): grew 73 → 75 — the L-shaped sectional sofa, one
+  // family per hand (chaise left / right).
+  it('after compose, the store contains exactly 75 seeded core families', () => {
     const ids = Object.keys(runtime.familyRegistryStore.get().byId);
-    expect(ids).toHaveLength(67);
+    expect(ids).toHaveLength(75);
   });
 
   // ── Test 3 ──────────────────────────────────────────────────────────────
   it('every seeded family has origin = "core"', () => {
     const families = Object.values(runtime.familyRegistryStore.get().byId);
-    expect(families).toHaveLength(67);
+    expect(families).toHaveLength(75);
     for (const f of families) {
       expect(f.origin).toBe('core');
     }
@@ -298,7 +302,7 @@ describe('composeRuntime() — familyRegistryStore (P0.3 slice B)', () => {
     const seeds = buildCoreFamilySeeds();
     const ids = Object.keys(runtime.familyRegistryStore.get().byId);
     expect(ids).toHaveLength(seeds.length);
-    expect(seeds).toHaveLength(67); // §DESK108: 59 → 67
+    expect(seeds).toHaveLength(75); // §DESK108: 59 → 67 · §MEDIA111: 67 → 73 · §SOFA113: 73 → 75
   });
 
   // ── Test 14 — Slice B extension 2: plumbing wet-fixtures → IfcSanitaryTerminal ──
@@ -414,12 +418,15 @@ describe('composeRuntime() — familyRegistryStore (P0.3 slice B)', () => {
   // the next slice has to bump exactly one number here when the seed grows.
   // §DESK108 (2026-08-26): 59 → 67 (entries 60..67 — four working desks +
   // extending dining table + three dining sets).
-  it('buildCoreFamilySeeds().length === byId size === 67 (§DESK108)', async () => {
+  // §MEDIA111 (2026-08-26): 67 → 73 (entries 68..73 — four TV size presets +
+  // soundbar + floor-speaker pair).
+  // §SOFA113 (2026-08-26): 73 → 75 (sectional sofa, chaise left + right).
+  it('buildCoreFamilySeeds().length === byId size === 75 (§SOFA113)', async () => {
     const { buildCoreFamilySeeds } = await import('@pryzm/stores');
     const seeds = buildCoreFamilySeeds();
-    expect(seeds).toHaveLength(67);
+    expect(seeds).toHaveLength(75);
     const ids = Object.keys(runtime.familyRegistryStore.get().byId);
-    expect(ids).toHaveLength(67);
+    expect(ids).toHaveLength(75);
   });
 
   // ── Test 11 ─────────────────────────────────────────────────────────────

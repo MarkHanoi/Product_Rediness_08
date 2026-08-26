@@ -204,15 +204,17 @@ describe('FamilyRegistryStore (P0.3 slice B)', () => {
     // Slice B extension 3 (2026-05-31): grew from 40 → 59 entries.
     // §DESK108 (2026-08-26): grew from 59 → 67 entries (60..67 — four working
     // desks + extending dining table + three dining sets).
-    // §SOFA113 (2026-08-26): grew from 67 → 69 entries — the L-shaped sectional
+    // §MEDIA111 (2026-08-26): grew from 67 → 73 entries (68..73 — four TV
+    // screen-size presets + soundbar + floor-speaker pair).
+    // §SOFA113 (2026-08-26): grew from 73 → 75 entries — the L-shaped sectional
     // sofa, one family per hand (chaise left / right).
-    it('buildCoreFamilySeeds() returns 69 entries, all registrable + origin=core', () => {
+    it('buildCoreFamilySeeds() returns 75 entries, all registrable + origin=core', () => {
         const seeds = buildCoreFamilySeeds();
-        expect(seeds).toHaveLength(69);
+        expect(seeds).toHaveLength(75);
         for (const seed of seeds) {
             expect(seed.origin).toBe('core');
             store.register(seed);
         }
-        expect(Object.keys(store.get().byId)).toHaveLength(69);
+        expect(Object.keys(store.get().byId)).toHaveLength(75);
     });
 });
