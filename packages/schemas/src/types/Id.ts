@@ -107,6 +107,28 @@ export type LiftId        = Id<'lift'>;
  */
 export type LiftPartId    = Id<'liftPart'>;
 /**
+ * §BATH102 (L-11480, C109) — the LOD-300 parametric BATHROOM POD compound parent.
+ *
+ * A pod OWNS its members — the WC, the basin, the shower (glass panel INCLUDED, C109
+ * R-8) and any accessories — through `members[]` + `parentId`, the same ownership
+ * mechanism `pool` (ADR-0124 §3), `balcony` and `lift` (C104 §4) use. Every member is
+ * a record in the `plumbing` family; the pod mints exactly ONE new family — itself
+ * (C109 §2).
+ *
+ * ⚠ THIS IS THE **BRAND ONLY**, AND THE SPLIT IS DELIBERATE. C109 §12 defers the L0
+ * promotion of `BathroomPodSchema` — the Zod shape stays in
+ * `packages/geometry-plumbing/` and `bathroomPod` is **not** in `SCHEMA_REGISTRY`,
+ * because moving the schema changes **what validates a persisted project**, which is a
+ * C47 format question deserving its own blast radius (C104's L-7061, still OPEN). The
+ * BRAND carries none of that: it is a string-literal member of a type union with no
+ * I/O, no runtime and no persistence consequence, and without it `createId` — the ONE
+ * id factory — could not mint the one id the compound needs, leaving a caller with a
+ * hand-built string (a second vocabulary, C84 EI-8) or a cast. That is the exact
+ * argument `LiftId` above makes, and §12 is amended to record the two halves
+ * separately rather than as one deferral.
+ */
+export type BathroomPodId = Id<'bathroomPod'>;
+/**
  * §FEAT-CONSTRUCTION-BOUNDARY-LINE (L-7900, C106) — the AUTHORED construction /
  * setting-out line an architect draws to lay a scheme out at early-stage design.
  *
@@ -164,6 +186,9 @@ export type ElementType =
   | 'balcony'
   | 'lift'
   | 'liftPart'
+  // §BATH102 (L-11480, C109) — the LOD-300 parametric bathroom-pod compound parent.
+  // ⚠ BRAND ONLY; the Zod schema's L0 promotion stays deferred — see `BathroomPodId`.
+  | 'bathroomPod'
   // §FEAT-CONSTRUCTION-BOUNDARY-LINE (L-7900, C106) — the authored setting-out line.
   | 'boundaryLine'
   | 'opening'
@@ -177,7 +202,7 @@ export type AnyElementId =
   | RoomId | FurnitureId | AnnotationId | DimensionId | SheetId
   | ScheduleId | ViewId | ProjectId
   | StructuralId | LightingId | PlumbingId | ProjectOriginId
-  | PoolId | WaterId | BalconyId | LiftId | LiftPartId | BoundaryLineId
+  | PoolId | WaterId | BalconyId | LiftId | LiftPartId | BathroomPodId | BoundaryLineId
   | OpeningId | FloorId | SectionId;
 
 /** Map element-type discriminator → typed ID. */
@@ -212,6 +237,8 @@ export type IdFor<T extends ElementType> =
   T extends 'balcony'     ? BalconyId      :
   T extends 'lift'        ? LiftId        :
   T extends 'liftPart'    ? LiftPartId    :
+  // §BATH102 (L-11480, C109) — brand only; see `BathroomPodId`.
+  T extends 'bathroomPod' ? BathroomPodId :
   T extends 'boundaryLine' ? BoundaryLineId :
   T extends 'opening'     ? OpeningId     :
   T extends 'floor'       ? FloorId       :

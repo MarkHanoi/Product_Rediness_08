@@ -153,7 +153,21 @@ describe('§FEAT-DUAL-VIEW-CREATION-MATRIX — the creation matrix is real, not 
             // the row itself (L-7934). The list therefore GREW, and the growth is
             // recorded here with its reason rather than absorbed by widening the
             // assertion — which is the instruction this comment already carried.
-            expect(gaps).toEqual(['balcony', 'boundary-line', 'lighting', 'pool']);
+            //
+            // ⭐ UPDATED 2026-08-26 (§BATH102, L-11480 · C109): `bathroom-pod` JOINS
+            // this ledger, plan-only, and — like `balcony` and `boundary-line` — it is
+            // plan-only DELIBERATELY rather than pending, for a reason that is
+            // STRUCTURAL rather than a missing activator. The pod's gesture IS the
+            // room envelope: C109 §5.1 makes `clearWidth` × `clearDepth` + origin +
+            // rotation the three inputs, and C109 §4 rules that envelope STORED
+            // because it is *"the QUESTION the solver was asked"*. A 3-D arm would
+            // have to INVENT that question — guess a room from the walls near the
+            // cursor, or from the `rooms` store, or from a default rectangle — and
+            // each guess is a number the architect did not state, while C109 §1.2 is
+            // explicit that a pod may be placed *"against a wall in a space that will
+            // become one"*, i.e. before any room record exists. So the list GREW
+            // again, and the growth is recorded with its reason.
+            expect(gaps).toEqual(['balcony', 'bathroom-pod', 'boundary-line', 'lighting', 'pool']);
         });
 
         it('reports the LATENT mode-desync risks (the shape of the founder\'s AUTO bug)', () => {

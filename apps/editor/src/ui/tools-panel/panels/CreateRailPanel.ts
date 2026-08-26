@@ -1073,6 +1073,44 @@ export class CreateRailPanel {
                         action: () => { if (!this._activateTool('plumbing', 'shower')) service.activatePlumbingTool('shower'); },
                         disabled: () => false,
                     },
+                    {
+                        // §BATH102 (founder, 2026-08-25) — L-11480 · C109 · C109 R-11.
+                        //
+                        //   "I WANT YOU TO CREATE LOD 300 TOILET COMPOUNDS - MODULES -
+                        //    PARAMETRIC - MEANS THAT I CAN ADAPT THE MODULE TO THE ROOM
+                        //    DIMENSIONS: SINK (LOD200) + TOILET + SHOWER + PANEL ETC...
+                        //    ADD THIS NEW CATEGORY IN SERVICES."
+                        //
+                        // ⭐ AXIS 3 OF C109 §9's SEVEN — *"is there a row a person can see,
+                        // in the section they would look in?"* — and it is UNDER SERVICES,
+                        // where he asked for it. ⛔ Axis 3 and axis 4 are DIFFERENT
+                        // QUESTIONS and C109 R-9 forbids collapsing them: C104 R-10 exists
+                        // because axis 3 was reported closed on the strength of a
+                        // dispatch-layer suite while the founder's actual report — *"Lift —
+                        // it should be under Architecture, but could not see it!"* — was
+                        // about a palette SECTION, which no dispatch-layer test can see.
+                        // The pointer proof is `bathroomPodPointerReach.spec.ts`.
+                        //
+                        // ⛔ C109 R-11 — THIS ROW NAMES ONE OBJECT AND SHADOWS NONE OF THE
+                        // FOUR ABOVE. Bath / Toilet / Sink / Shower stay exactly as they
+                        // are: they are how an architect places ONE fixture. This is a
+                        // fifth, differently-named row that produces a COMPOUND.
+                        //
+                        // ⛔ NOT `this._activateTool('bathroom-pod')`. There is no
+                        // `ToolManager` activator for it and there must not be: the pod is
+                        // PLAN-ONLY (the gesture is a room rectangle, C109 §5.1), and
+                        // `activatePlanOnlyToolOrExplain` is the ONE entry point that arms
+                        // every attached plan surface, suppresses 3-D selection, and — when
+                        // no plan view is open — REFUSES OUT LOUD in a toast naming the
+                        // route back (C16 CA-18) instead of reporting an activation that
+                        // activated nothing.
+                        label:    'Bathroom Pod',
+                        icon:     PryzmIcons.pryzmBath,
+                        action: () => {
+                            activatePlanOnlyToolOrExplain('bathroom-pod', 'Bathroom Pod');
+                        },
+                        disabled: () => false,
+                    },
                 ],
             },
 

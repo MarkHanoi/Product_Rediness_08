@@ -751,6 +751,49 @@ export const ELEMENT_CREATION_MATRIX: readonly ElementCreationCapability[] = [
       gap: 'NOT IMPLEMENTED — auto-fit-to-wet-room exists in the deterministic furnish ' +
            'engine (D-FLE) as a batch executor, not as a tool mode in either view.' },
     {
+        tool: 'bathroom-pod', label: 'Bathroom Pod',
+        // §BATH102 (L-11480) · C109 — the LOD-300 PARAMETRIC bathroom module the
+        // founder asked for: "CREATE LOD 300 TOILET COMPOUNDS - MODULES - PARAMETRIC
+        // ... ADD THIS NEW CATEGORY IN SERVICES."
+        //
+        // ⛔ C109 R-11 — THIS ROW NAMES ONE OBJECT AND DOES NOT SHADOW THE FOUR ABOVE.
+        // The SERVICES palette already offers Bath / Toilet / Sink / Shower as
+        // individual fixtures (the `plumbing` row above). The pod is a FIFTH,
+        // differently-named row that produces a COMPOUND; the four single-fixture
+        // rows remain the way an architect places one basin.
+        //
+        // PLAN ONLY, and that is "not applicable" rather than "not implemented":
+        // the gesture is a room RECTANGLE (C109 §5.1 — the envelope is the question
+        // the solver is asked, and it is STORED), which is a plan gesture. A 3-D arm
+        // would have to invent the envelope from the walls near the cursor, which is
+        // a number the architect did not state.
+        views: ['plan'],
+        // ⛔ NO MODE STRIP, DELIBERATELY. The arrangement (`single-wall` / `l-shaped`)
+        // is DERIVED by the solver from the room (C109 §4) — never chosen. An
+        // "L-shaped" pill would be a control reporting a capability the payload cannot
+        // carry (C84 EI-3, the §FIX-STAIR-SHAPE-DESYNC defect), and it would let an
+        // architect pick the more-expensive-to-build arrangement when the cheap one
+        // fits, which C109 §5.3 forbids the solver itself from doing. The two axes
+        // that DO vary — which edge is the wet wall, and which end the shower takes —
+        // are SPACE and H, and both are named on the overlay (the §LIFT94 rule: a
+        // modifier nobody is told about is indistinguishable from one that does not
+        // exist).
+        modes: [],
+        // No AUTO. Where a bathroom goes is the architect's decision; the apartment
+        // and house generators place wet rooms in BATCH, which is not a creation MODE
+        // of this tool. "Not applicable" and "not implemented" are different answers.
+        autoIn: [],
+        modeSource: 'n/a',
+        gap: 'OPEN (C109 §11): (1) axis 7 — the pod\'s MEMBERS do not yet reach the '
+           + 'legacy fixture store, so they have no 3-D mesh, no plan symbol, no '
+           + 'elevation symbol and no IFC row (L-11484). (2) axis 8 — '
+           + '`ChatCommandClassification.ts` classifies unknown verbs class B, so the '
+           + 'AI chat route refuses `bathroomPod.create`, the identical state C104 §10 '
+           + 'axis 4 records for the lift (L-11407). (3) a saved-and-reloaded project '
+           + 'keeps every MEMBER and loses the PARENT — `ProjectSerializer` serialises '
+           + 'the legacy plumbing store and knows nothing about pods (L-11405).',
+    },
+    {
         tool: 'lighting', label: 'Lighting fixture',
         views: ['plan'], modes: [], autoIn: [], modeSource: 'n/a',
         gap: 'NOT IMPLEMENTED — PLAN-ONLY, the mirror image of `lift`. ' +

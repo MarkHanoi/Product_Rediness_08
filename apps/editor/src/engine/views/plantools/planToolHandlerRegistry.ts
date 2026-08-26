@@ -63,6 +63,13 @@ import { RailingPlanToolHandler }      from './RailingPlanToolHandler';
 import { FurniturePlanToolHandler }    from './FurniturePlanToolHandler';
 import { LightingPlanToolHandler }     from './LightingPlanToolHandler';
 import { PlumbingPlanToolHandler }     from './PlumbingPlanToolHandler';
+// §BATH102 (L-11480) — the plan route that makes the C109 BATHROOM POD compound
+// reachable. Registered beside the plumbing fixture tool because every member of a pod
+// IS a plumbing fixture (C109 §2); the pod is the COMPOUND that arranges them. Putting
+// it in this shared factory is what gives BOTH plan surfaces the tool at once (the
+// L-73 parity guarantee) rather than only the main overlay — the L-1380 defect the
+// lift's palette row had already committed once.
+import { BathroomPodPlanToolHandler }  from './BathroomPodPlanToolHandler';
 import { OpeningPlanToolHandler }      from './OpeningPlanToolHandler';
 import { GridPlanToolHandler }         from './GridPlanToolHandler';
 import { SectionPlanToolHandler }      from './SectionPlanToolHandler';
@@ -98,7 +105,7 @@ export const PLAN_TOOL_KEYS = [
     'wall', 'room', 'column', 'linear-dim', 'door', 'window', 'slab', 'pool',
     'balcony', 'lift', 'boundary-line', 'stair',
     'stair-path', 'beam', 'roof', 'curtain-wall', 'ceiling', 'floor', 'railing',
-    'furniture', 'lighting', 'plumbing', 'opening', 'grid', 'section-mark',
+    'furniture', 'lighting', 'plumbing', 'bathroom-pod', 'opening', 'grid', 'section-mark',
     'elevation-mark', 'move', 'rotate', 'align', 'copy-place', 'text-note', 'element-tag',
     'door-tag', 'window-tag', 'angular-dimension', 'radius-dimension',
     'diameter-dimension', 'slope-dimension', 'spot-elevation', 'keynote',
@@ -161,6 +168,10 @@ export function createPlanToolHandlers(): Record<string, PlanToolHandler> {
                 'furniture':          new FurniturePlanToolHandler(),
                 'lighting':           new LightingPlanToolHandler(),
                 'plumbing':           new PlumbingPlanToolHandler(),
+                // §BATH102 (L-11480) — the C109 LOD-300 parametric bathroom module.
+                // Beside the fixture tool because every member IS a plumbing fixture
+                // (C109 §2); the pod is the compound that arranges them to the room.
+                'bathroom-pod':       new BathroomPodPlanToolHandler(),
                 'opening':            new OpeningPlanToolHandler(),
                 'grid':               new GridPlanToolHandler(),
                 'section-mark':       new SectionPlanToolHandler(),

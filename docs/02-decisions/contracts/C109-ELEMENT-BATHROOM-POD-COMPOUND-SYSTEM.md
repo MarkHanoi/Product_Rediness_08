@@ -575,8 +575,25 @@ See `§13` of C104 for why a family with a green dispatch test can still be invi
 ## §12 — L0 promotion: DEFERRED, with the reason recorded
 
 `BathroomPodSchema` is declared in `packages/geometry-plumbing/` and is **not** in
-`packages/schemas/src/elements/` or `SCHEMA_REGISTRY`, and `'bathroomPod'` is **not** in the
-branded-`Id` union.
+`packages/schemas/src/elements/` or `SCHEMA_REGISTRY`.
+
+> ⚠ **AMENDED 2026-08-26, lane BATH102 — THIS CLAUSE CONFLATED TWO PROMOTIONS AND ONLY ONE OF
+> THEM CARRIES THE COST IT DESCRIBES.** It read: *"…and `'bathroomPod'` is **not** in the
+> branded-`Id` union."* **The brand is now in the union** (`packages/schemas/src/types/Id.ts`:
+> `BathroomPodId = Id<'bathroomPod'>`, plus its `ElementType` / `IdFor` / `AnyElementId` rows).
+>
+> **The two halves are not the same question:**
+> - **The Zod SCHEMA's promotion — still DEFERRED, for the reason below.** It changes *what
+>   validates a persisted project*, a C47 format question with its own blast radius.
+> - **The BRAND's promotion — TAKEN, and it costs nothing that argument names.** A string
+>   literal in a type union has no I/O, no runtime and no persistence consequence. Without it
+>   `createId('bathroomPod')` is a compile error, and the plan tool's only remaining options are
+>   a hand-built id string — a second vocabulary, **C84 EI-8** — or a cast. `LiftId`'s own
+>   docstring makes exactly this argument (*"the factory could not mint the ONE id the compound
+>   needs, and a caller's only options were a hand-built string … or a cast"*), and it is why
+>   `lift` / `liftPart` / `water` are in the union while their schemas are not.
+>
+> The clause below is unchanged and still correct.
 
 **This is the same split C104 §11 made, for the same measured reason and one more:**
 
@@ -589,5 +606,6 @@ branded-`Id` union.
   `childrenIds`, the drill-in and the delete-reap. **That is a real, named gap — L-11405,
   OPEN** — and it is the first thing to fix if a pod is to survive a reload.
 
-⚠ **Stated consequence:** until promoted, `bathroomPod` is absent from `SCHEMA_REGISTRY` and
-from the branded-`Id` union, so it does not participate in whatever those two drive.
+⚠ **Stated consequence:** until the SCHEMA is promoted, `bathroomPod` is absent from
+`SCHEMA_REGISTRY`, so it does not participate in whatever that drives. The **brand** is present
+(see the amendment above), so `createId('bathroomPod')` is the one id factory for a pod.
