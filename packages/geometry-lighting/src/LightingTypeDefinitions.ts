@@ -66,6 +66,14 @@ export interface LightingTypeDefinition {
     readonly description: string;
     readonly mount: LightingMountClass;
     readonly isBuiltIn: boolean;
+    /**
+     * §OUTDOOR112 — where the fixture is INSTALLED (`Lod200Location` vocabulary:
+     * interior / wet / exterior). Carried from the LOD-200 row so the create
+     * palette can offer an "Outdoor & Site" section DERIVED from the registry.
+     * Absent on the twelve hand-authored families — all interior — and optional
+     * so they stay untouched; treat `undefined` as interior.
+     */
+    readonly location?: 'interior' | 'wet' | 'exterior';
 }
 
 export const BUILT_IN_LIGHTING_TYPES: readonly LightingTypeDefinition[] = Object.freeze([
@@ -173,6 +181,9 @@ export const BUILT_IN_LIGHTING_TYPES: readonly LightingTypeDefinition[] = Object
         description: r.description,
         mount: r.mount as LightingMountClass,
         isBuiltIn: r.isBuiltIn,
+        // §OUTDOOR112 — the row's own installation location, so the palette's
+        // "Outdoor & Site" section derives from the registry, never a hand list.
+        location: r.location,
     })),
 ]);
 

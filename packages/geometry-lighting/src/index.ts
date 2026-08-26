@@ -19,3 +19,6 @@ export { LightingFragmentBuilder } from './LightingFragmentBuilder';
 // its numbers instead of leaving the user to guess (C16 CA-18).
 export type { LiveLightState } from './LightingFragmentBuilder';
 export { LightingTool } from './LightingTool';
+// §OUTDOOR112 — the ONE placement base-point convention (preview == commit).
+export { placementSeatFor } from './placementSeat';
+export type { PlacementSeat } from './placementSeat';

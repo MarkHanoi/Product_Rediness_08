@@ -555,6 +555,20 @@ export const MATERIAL_CATALOG: readonly MaterialRecord[] = ([
   { source: 'builtin' as const, id: 'tile-matt-forest-green', label: "Ceramic Tile · Forest Green Matt", category: 'Ceramic & Tile', color: '#33513f', metalness: 0, roughness: 0.8 },
   { source: 'builtin' as const, id: 'tile-matt-rust', label: "Ceramic Tile · Rust Matt", category: 'Ceramic & Tile', color: '#9c4f33', metalness: 0, roughness: 0.8 },
   { source: 'builtin' as const, id: 'tile-matt-almond', label: "Ceramic Tile · Almond Matt", category: 'Ceramic & Tile', color: '#dcc3b6', metalness: 0, roughness: 0.8 },
+  // ── §SLABTYPES117 (2026-08-26) — eight rows the SLAB catalogue needed and the master lacked.
+  // Founder: "30+ types of slab … many colours". Four through-coloured (pigmented) concretes, an
+  // exposed-aggregate finish, a white marble-chip terrazzo and two coloured epoxy floors. Per the
+  // `steel-grating` / `steel-powder-coated-dark` precedents above: mapping a real product onto the
+  // nearest wrong row (microcement for pigmented concrete, a paint for a resin) is how the rival
+  // vocabularies got written, so the MASTER gained the rows. Scalars only, no maps, pryzm-authored.
+  { source: 'builtin' as const, id: 'concrete-pigmented-terracotta', label: "Concrete · Pigmented Terracotta", category: 'Concrete', color: '#b5654a', metalness: 0, roughness: 0.6, surfaces: ['floor'] },
+  { source: 'builtin' as const, id: 'concrete-pigmented-ochre', label: "Concrete · Pigmented Ochre", category: 'Concrete', color: '#c9a35a', metalness: 0, roughness: 0.6, surfaces: ['floor'] },
+  { source: 'builtin' as const, id: 'concrete-pigmented-slate-blue', label: "Concrete · Pigmented Slate Blue", category: 'Concrete', color: '#5c6b7a', metalness: 0, roughness: 0.6, surfaces: ['floor'] },
+  { source: 'builtin' as const, id: 'concrete-pigmented-charcoal', label: "Concrete · Pigmented Charcoal", category: 'Concrete', color: '#3a3a3c', metalness: 0, roughness: 0.55, surfaces: ['floor'] },
+  { source: 'builtin' as const, id: 'concrete-exposed-aggregate', label: "Concrete · Exposed Aggregate", category: 'Concrete', color: '#a89f90', metalness: 0, roughness: 0.97, surfaces: ['floor', 'outdoor'] },
+  { source: 'builtin' as const, id: 'concrete-terrazzo-white-marble', label: "Concrete · White Marble-Chip Terrazzo", category: 'Concrete', color: '#e6e2d8', metalness: 0, roughness: 0.3, surfaces: ['floor'] },
+  { source: 'builtin' as const, id: 'coating-epoxy-petrol-blue', label: "Coating · Petrol Blue Epoxy Floor", category: 'Paint & Coating', color: '#2f5f6e', metalness: 0, roughness: 0.18, surfaces: ['floor'] },
+  { source: 'builtin' as const, id: 'coating-epoxy-oxide-red', label: "Coating · Oxide Red Epoxy Floor", category: 'Paint & Coating', color: '#8a3a2e', metalness: 0, roughness: 0.18, surfaces: ['floor'] },
 ] as Array<Omit<MaterialRecord, 'opacity' | 'transparent'> & { opacity?: number; transparent?: boolean }>)
   .map((m) => ({
     ...m,

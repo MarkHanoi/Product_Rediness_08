@@ -35,6 +35,7 @@
     "./neutral-studio-environment": "./src/rendering/NeutralStudioEnvironment.ts",
     "./lighting": "./src/lighting/index.ts",
     "./lod200-fixtures": "./src/lighting/Lod200FixtureCatalogue.ts",
+    "./seating": "./src/seating/SeatingDatumCore.ts",
     "./tool-types": "./src/tool-types.ts",
     "./store-registry": "./src/StoreRegistry.ts",
     "./store-event-bus": "./src/StoreEventBus.ts",

@@ -372,6 +372,14 @@ export { LevelVisualizer } from './LevelVisualizer.js';
 export { BimGridRenderer } from './BimGridRenderer.js';
 export * from './stores/index.js';
 
+// ── seating/ (§OUTDOOR112, 2026-08-26) ──────────────────────────────────────
+// The CONTEXT-FREE seating-datum authority (C11 §5.4), moved here from
+// command-registry so placement PREVIEWS can stand on the same datum the create
+// commands commit to. command-registry re-exports these — its surface is
+// unchanged.
+export type { SeatingDatum, SeatingDatumSource, SeatingLevelLike } from './seating/SeatingDatumCore.js';
+export { resolveFloorSeatingDatumFrom, resolveCeilingSeatingDatumFrom } from './seating/SeatingDatumCore.js';
+
 // ── rendering/ (P9-W3 2026-05-10) ───────────────────────────────────────────
 
 export type { RenderPassKind, FrameCoordinatorStats } from './rendering/FrameCoordinator.js';

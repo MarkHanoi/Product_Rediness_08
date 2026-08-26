@@ -59,6 +59,16 @@ const MOUNT_GROUPS: readonly {
     mount: LightingMountClass;
     heading: string;
     hint: string;
+    /**
+     * §OUTDOOR112 — which slice of the mount class this group takes:
+     * `'exterior'` = registry rows whose `location` is exterior (the SITE
+     * fixtures — bollards, post lights, street luminaires); `'interior'` =
+     * everything else (`location` absent counts as interior — the twelve
+     * hand-authored families carry none). Splitting on the registry's OWN
+     * location field keeps the founder's "Outdoor" section DERIVED: a new
+     * exterior floor fixture lands in it by construction, never by hand-listing.
+     */
+    where?: 'interior' | 'exterior';
     /** Icon used when no name rule below matches — never "no icon". */
     fallbackIcon: string;
 }[] = [
@@ -78,6 +88,19 @@ const MOUNT_GROUPS: readonly {
         mount: 'floor',
         heading: 'Floor Standing',
         hint: 'Place on floor surface',
+        where: 'interior',
+        fallbackIcon: 'material-symbols:floor-lamp',
+    },
+    {
+        // §OUTDOOR112 — the founder's five site fixtures, plus the pre-existing
+        // exterior bollard, land here BY THEIR REGISTRY LOCATION. Exterior
+        // wall-mounted fixtures (wall packs, floods) deliberately STAY in
+        // "Wall Mounted": they mount on building walls, and the section is
+        // about free-standing SITE fixtures.
+        mount: 'floor',
+        heading: 'Outdoor & Site',
+        hint: 'Free-standing site fixtures — place on ground / floor surface',
+        where: 'exterior',
         fallbackIcon: 'material-symbols:floor-lamp',
     },
     {
@@ -148,6 +171,11 @@ export function buildLightingPanel(): HTMLElement {
         hint: g.hint,
         items: BUILT_IN_LIGHTING_TYPES
             .filter((t) => t.mount === g.mount)
+            // §OUTDOOR112 — the interior/exterior slice, from the registry's own
+            // `location`. A group with no `where` takes the whole mount class;
+            // an absent location counts as interior (the hand-authored twelve).
+            .filter((t) => g.where === undefined
+                || (g.where === 'exterior') === (t.location === 'exterior'))
             .map((t) => ({
                 type: t.id as LightingFixtureType,
                 label: t.name,

@@ -124,19 +124,44 @@ import { findMaterialRecord } from '../materials/index.js';
  *             The first transparent shade in the matrix (see
  *             {@link lod200BodyAppearance}, which now carries opacity through).
  *
- * ⚠ ADDING AN ARCHETYPE IS NOT FREE — read this before minting a fourth.
+ * ── §OUTDOOR112 (2026-08-26) — three SITE masses, measured against the eight ──
+ *
+ *   bollard    — vertical cylinder whose head is a LATERAL luminous band under a
+ *                flat cap, optionally sliced by horizontal louvre slats
+ *                (`louvres` on the row; 0/absent = a clean diffuser band).
+ *                ⛔ NOT `post`: `post` draws a DOWN-facing lens concealed under
+ *                its cap (a full-cut-off optic — the legacy `bollard_light`
+ *                keeps it, untouched); the founder's bollards have a VISIBLE
+ *                side-emitting band, which is a different luminous body and a
+ *                different distribution, not a parameter of the old one.
+ *   globe_post — base + cylindrical post/pole + a GLOWING TRANSLUCENT SPHERE at
+ *                the top (`headMm` diameter, `headMaterialId` translucency).
+ *                `louvres > 0` draws the founder's louvre stack + flat cap
+ *                inside/atop the globe (the mini-bollard); `louvres` absent
+ *                draws a visible lamp inside instead (the park post light).
+ *                ⛔ NOT `dome` (its globe hangs UNDER an open bowl) and NOT
+ *                `tube` (an open cylinder) — a closed sphere atop a post is a
+ *                third surface, and the glow IS the fixture.
+ *   street_arm — pole + CANTILEVERED horizontal arm (`stemMm` = arm reach, the
+ *                same "projection off the mount" meaning `yoke` gives it) + a
+ *                flat, slightly-raked rectangular LED head (`lMm × wMm`) with a
+ *                down-facing lens. Nothing existing cantilevers: `yoke` is a
+ *                wall bracket aimed along +Z, not a pole-top arm.
+ *
+ * ⚠ ADDING AN ARCHETYPE IS NOT FREE — read this before minting another.
  * `LightingFragmentBuilder` holds TWO exhaustive switches over this union
  * (`_buildLod200` and `_lod200EmitterOffset`), and the second one RETURNS from
  * every arm with no `default`. A new member therefore returns `undefined`, the
  * emitter falls back to the group origin, and the ROOT `tsc` gate fails. Lane
  * LIGHT99 hit exactly that and reverted. Both switches are updated here; grep
- * `\.archetype` before adding another (measured 2026-08-26: those two switches
- * plus the two `===` comparisons in `efficacyClassFor` below are the only
+ * `\.archetype` before adding another (measured 2026-08-26, §OUTDOOR112: those
+ * two switches plus the set membership in `efficacyClassFor` below are the only
  * consumers in the repo).
  */
 export type Lod200Archetype =
     | 'can' | 'bar' | 'disc' | 'cone' | 'post' | 'arms' | 'yoke' | 'sign'
-    | 'dome' | 'capsule' | 'tube';
+    | 'dome' | 'capsule' | 'tube'
+    | 'bollard' | 'globe_post' | 'street_arm';
 
 /**
  * Which way the luminous face points, in the fixture's own frame. Drives where
@@ -217,8 +242,40 @@ export interface Lod200FixtureRow {
     readonly dMm: number;
     /** Radial arm count — `arms` archetype only. */
     readonly arms?: number;
-    /** Stem length below the mount plane, mm — `can` on a track, `yoke` bracket. */
+    /**
+     * Projection off the mount, mm — `can` on a track (stem below the ceiling),
+     * `yoke` (bracket off the wall), `street_arm` (§OUTDOOR112 — the cantilever
+     * arm's horizontal reach off the pole top). One field because it is one
+     * concept: how far the luminous head stands off the thing that carries it.
+     */
     readonly stemMm?: number;
+
+    // ── §OUTDOOR112 (2026-08-26) — SITE-fixture head details, not families ────
+    /**
+     * Horizontal louvre-slat count in the luminous head (`bollard`,
+     * `globe_post`). 0/absent = no louvres: a clean diffuser band (`bollard`) or
+     * a bare globe with a visible lamp (`globe_post`).
+     *
+     * ⭐ C84 EI-9 — the louvred bollard and the diffuser-band bollard are the
+     * SAME generic mass with a head-profile detail, exactly as `endChamferMm` is
+     * a profile detail of `bar`. Minting a second archetype for the slats would
+     * put two masses in the builder for one construction.
+     */
+    readonly louvres?: number;
+    /**
+     * Luminous head (globe) diameter, mm — `globe_post` only. The pole is `lMm`
+     * wide and the globe is `headMm` wide; deriving one from the other would tie
+     * a 60 mm park-light pole to a 400 mm globe by a magic ratio no datasheet has.
+     */
+    readonly headMm?: number;
+    /**
+     * Master-catalogue material id for the TRANSLUCENT luminous head (`globe_post`).
+     * Resolved through {@link lod200BodyAppearance} so the globe's opacity /
+     * transparency come from the C100 master row (the L-11501 carriage), never a
+     * hand-typed alpha. The EMITTED colour stays kelvin-derived like every lens.
+     * Absent → the head draws as an opaque emissive lens (the pre-existing look).
+     */
+    readonly headMaterialId?: string;
 
     // ── §LIGHT102 (L-11500) — two MOUNTING/PROFILE details, not families ─────
     /**
@@ -614,6 +671,160 @@ export const LOD200_FIXTURE_ROWS: readonly Lod200FixtureRow[] = Object.freeze([
         bodyMaterialId: 'aluminium-powder-coated-white', lMm: 500, wMm: 500, dMm: 40,
         canopyMm: 80,
     },
+
+    // ── §OUTDOOR112 (2026-08-26) — the founder's five OUTDOOR SITE fixtures ──
+    //
+    // All five are `mount: 'floor'`, `location: 'exterior'`: they stand on the
+    // ground plane and seat through the SAME floor datum every floor fixture
+    // uses. ⚠ SITE-PLACEMENT TRUTH, stated rather than implied: nothing in this
+    // repository seats an element on TERRAIN — the placement tool raycasts
+    // floor/slab surfaces and the seating authority resolves level + floor
+    // finishes. A bollard placed outside any slab lands on the level datum
+    // plane, not on a terrain surface. That is a named limitation, not a
+    // capability these rows can claim.
+    //
+    // ⚠ THE ONE-SCALAR BEAM LIMIT, named per row (the L-11423 uplight
+    // precedent): `beamAngleDeg` is a single full-angle. A louvred bollard's
+    // toroidal band (360° azimuth × a louvre-clamped vertical slice) and a
+    // street head's asymmetric forward throw (IES Type II/III: road-side
+    // reach, house-side cutoff) are NOT expressible in it. Each row below
+    // authors the half that IS expressible and says which half is not.
+
+    {
+        // FOUNDER OUTDOOR #1 — GLOBE MINI-BOLLARD: short dark post, louvre
+        // stack under a flat cap, all wrapped in a GLOWING translucent sphere.
+        //
+        // lumens 350 — a decorative garden mini-bollard: a 4–6 W integrated
+        //   module behind a frosted globe delivers 300–450 lm; 350 is the class
+        //   mid-figure. Deliberately the DIMMEST of the five: its duty is to
+        //   mark a path edge and glow, not to light an area.
+        // watts 6 — 58.3 lm/W. The frosted globe absorbs ~20–30% before the
+        //   flux leaves the fixture — the construction fact that puts
+        //   `globe_post` in the decorative lm/W band, where 58 is a real
+        //   number and not a typo.
+        // kelvin 3000 — the exterior residential amenity norm, matching the
+        //   pre-existing exterior rows (bollard_light, step_marker_light).
+        // cri 80 — garden/amenity class near the eye.
+        // beam 300° — a glowing globe radiates almost fully; the louvre stack
+        //   and post below block the lower cone. SAME construction reasoning as
+        //   the `dome` row's exposed globe (300°), and said so rather than
+        //   perturbed to look independent.
+        // IP65 — exterior floor fixture; the ground-level minimum.
+        id: 'bollard_globe_mini', name: 'Globe Mini Bollard',
+        use: 'Short dark post with a glowing frosted globe over a louvre stack — path edges and planting beds.',
+        archetype: 'globe_post', mount: 'floor', face: 'down', location: 'exterior',
+        lumens: 350, watts: 6, kelvin: 3000, cri: 80, beamAngleDeg: 300, ipRating: 65,
+        bodyMaterialId: 'aluminium-powder-coated-dark', lMm: 100, wMm: 100, dMm: 400,
+        headMm: 180, headMaterialId: 'glass-frosted', louvres: 3,
+    },
+    {
+        // FOUNDER OUTDOOR #2 — LOUVRED BOLLARD ("+ lumen": the photometry row
+        // he asked to be real). Black ~0.9 m cylinder, 4 horizontal louvre
+        // slats with the white diffuser visible between them, flat cap.
+        //
+        // lumens 600 — DELIVERED fixture lumens, not module lumens: a louvred
+        //   optic costs 30–40% of a ~900–1000 lm module, and 500–700 lm out is
+        //   what mid-market 0.9 m louvred bollards declare. Authoring the
+        //   module figure here would overstate the fixture by a third.
+        // watts 10 — 60 lm/W. LOW ON PURPOSE and judged in the decorative
+        //   band: the louvre stack sits in the light path by construction.
+        //   Judged architectural ([65,170]) this true number would fail as a
+        //   typo — which is exactly why efficacy class derives from archetype.
+        // kelvin 3000 · cri 80 — residential/park exterior amenity.
+        // beam 150° — the EXPRESSIBLE half: the louvres clamp emission to a
+        //   band from the horizon downward (glare cut-off above horizontal,
+        //   ULOR ≈ 0 — the point of a louvred bollard). ⛔ NOT EXPRESSIBLE:
+        //   that this 150° band runs the FULL 360° of azimuth — the toroidal
+        //   distribution has no field, and no number here should be read as a
+        //   downward cone.
+        // IP65 — exterior ground-level fixture.
+        id: 'bollard_louvred', name: 'Louvred Bollard',
+        use: 'Path bollard with horizontal louvre slats over a white diffuser — glare-free route lighting.',
+        archetype: 'bollard', mount: 'floor', face: 'down', location: 'exterior',
+        lumens: 600, watts: 10, kelvin: 3000, cri: 80, beamAngleDeg: 150, ipRating: 65,
+        bodyMaterialId: 'aluminium-powder-coated-dark', lMm: 160, wMm: 160, dMm: 900,
+        louvres: 4,
+    },
+    {
+        // FOUNDER OUTDOOR #3 — DIFFUSER-BAND BOLLARD: dark grey ~1 m cylinder,
+        // clean WHITE cylindrical diffuser band under a flat cap.
+        //
+        // lumens 550 — an opal-band bollard: the full-height band transmits
+        //   more evenly but no more efficiently than the louvred head's optic;
+        //   400–600 lm delivered is the class band and 550 sits in it. NOT the
+        //   louvred row's 600 copied — a different module behind a different
+        //   optic, and the two differing by less than 10% is what two same-duty
+        //   bollards genuinely look like on datasheets.
+        // watts 8 — 68.75 lm/W, decorative band (the band is in the path).
+        // kelvin 3000 · cri 80 — as its siblings; same duty, same class.
+        // beam 300° — the EXPRESSIBLE half: an unshielded band radiates nearly
+        //   omnidirectionally, blocked only by the cap above and shaft below —
+        //   the same cap-and-shaft reasoning as the globe rows. WIDER than the
+        //   louvred row's 150° because nothing clamps it: that ordering (open
+        //   diffuser > louvred) is the one photometric fact separating the two.
+        // IP65 — exterior ground-level fixture.
+        id: 'bollard_diffuser', name: 'Diffuser Bollard',
+        use: 'Minimal dark-grey bollard with a clean white diffuser band under a flat cap — paths and forecourts.',
+        archetype: 'bollard', mount: 'floor', face: 'down', location: 'exterior',
+        lumens: 550, watts: 8, kelvin: 3000, cri: 80, beamAngleDeg: 300, ipRating: 65,
+        bodyMaterialId: 'steel-powder-coated-dark', lMm: 140, wMm: 140, dMm: 1000,
+    },
+    {
+        // FOUNDER OUTDOOR #4 — GLOBE POST LIGHT: thin ~2.7 m pole on a small
+        // cylindrical base, glowing translucent sphere with a visible lamp
+        // inside at the top.
+        //
+        // lumens 1600 — a park opal-globe post-top: a ~2000 lm integrated
+        //   module behind an opal globe (~80% transmission) declares
+        //   1200–2500 lm; 1600 is the mid rung.
+        // watts 18 — 88.9 lm/W, the top of what an opal post-top honestly
+        //   reaches; still decorative-band because the globe is in the path.
+        // kelvin 3000 — dark-sky-era park lighting: municipalities now specify
+        //   ≤3000 K outdoors, and a residential-adjacent globe is exactly the
+        //   fixture that rule governs.
+        // cri 70 — ⭐ NOT the 80 of the garden bollards: area/park amenity is
+        //   specified at Ra ≥ 70 (EN 13201 territory), and this is an AREA
+        //   fixture at 2.7 m, not a garden accent at knee height.
+        // beam 320° — a globe on a THIN pole is blocked only by the fitting
+        //   beneath it: wider than the mini-bollard's 300°, whose thick head
+        //   stack shadows more of the lower sphere. The ordering is the
+        //   construction speaking, not a perturbation.
+        // IP65 — sealed modern post-top.
+        id: 'globe_post_light', name: 'Globe Post Light',
+        use: 'Slender park post with a glowing frosted globe and visible lamp — squares, gardens and courtyards.',
+        archetype: 'globe_post', mount: 'floor', face: 'down', location: 'exterior',
+        lumens: 1600, watts: 18, kelvin: 3000, cri: 70, beamAngleDeg: 320, ipRating: 65,
+        bodyMaterialId: 'aluminium-powder-coated-dark', lMm: 60, wMm: 60, dMm: 2700,
+        headMm: 400, headMaterialId: 'glass-frosted',
+    },
+    {
+        // FOUNDER OUTDOOR #5 — STREET / AREA LUMINAIRE: grey ~5 m pole,
+        // cantilevered arm, flat slightly-raked rectangular LED head.
+        //
+        // lumens 8000 — the M3/M4 residential-street class: modern flat LED
+        //   heads for 5–6 m mounting declare 6,000–12,000 lm; 8,000 is the
+        //   ordinary residential-street rung (a 10–12 klm head is a main-road
+        //   spec, a 4 klm head is a footpath one).
+        // watts 60 — 133 lm/W: the honest modern street-LED figure (120–160 on
+        //   current datasheets) and the ONE architectural-band row of the five —
+        //   an open flat optic loses almost nothing, unlike its shaded siblings.
+        // kelvin 4000 — the street norm (visibility duty, not amenity warmth).
+        // cri 70 — road lighting class; EN 13201 does not ask for more, and
+        //   claiming Ra 80 for a street head would be decorating the row.
+        // beam 140° — the EXPRESSIBLE half: the total downward spread of a flat
+        //   LED street optic. ⛔ NOT EXPRESSIBLE: the ASYMMETRY — a street head
+        //   is an IES Type II/III optic throwing forward across the road with a
+        //   house-side cutoff, and one scalar cannot carry direction. Until the
+        //   schema has an asymmetric-distribution field, this row lights
+        //   symmetrically and says so, rather than faking a bias.
+        // IP66 — street-luminaire sealing class, above the exterior floor of 65.
+        id: 'street_area_luminaire', name: 'Street / Area Luminaire',
+        use: 'Pole-top luminaire on a cantilevered arm with a flat raked LED head — streets, parking and site roads.',
+        archetype: 'street_arm', mount: 'floor', face: 'down', location: 'exterior',
+        lumens: 8000, watts: 60, kelvin: 4000, cri: 70, beamAngleDeg: 140, ipRating: 66,
+        bodyMaterialId: 'steel-galvanised', lMm: 620, wMm: 260, dMm: 5000,
+        stemMm: 800,
+    },
 ] as const satisfies readonly Lod200FixtureRow[]);
 
 /**
@@ -728,8 +939,19 @@ export function efficacyLmPerW(row: Lod200FixtureRow): number {
  * cover them would hand the lenient band to every recessed downlight in the
  * matrix — the exact thing this function refuses to allow.
  */
+/**
+ * §OUTDOOR112 — `bollard` and `globe_post` join by the same CONSTRUCTION test:
+ * a louvre stack / opal band / frosted globe sits in the light path and costs
+ * 20–40% of the module flux, so a louvred bollard's true 60 lm/W must be judged
+ * where 60 is a real number, not where it reads as a typo. "Decorative" here
+ * has always meant "optically lossy by construction", not "ornamental" — the
+ * set's own definition above says shade-or-source-in-the-path, and a bollard's
+ * band is exactly that. `street_arm` is deliberately ABSENT: an open flat LED
+ * optic loses almost nothing and belongs in the architectural band, where its
+ * 133 lm/W is checked against street-LED reality.
+ */
 const DECORATIVE_ARCHETYPES: ReadonlySet<Lod200Archetype> =
-    new Set<Lod200Archetype>(['arms', 'dome', 'capsule', 'tube']);
+    new Set<Lod200Archetype>(['arms', 'dome', 'capsule', 'tube', 'bollard', 'globe_post']);
 
 export function efficacyClassFor(row: Lod200FixtureRow): Lod200EfficacyClass {
     if (row.isEmergency || row.archetype === 'sign') return 'signalling';
@@ -939,6 +1161,7 @@ export function photometryRowsForLod200(): Record<Lod200FixtureId, Lod200Photome
 export function lod200TypeDefinitionRows(): readonly {
     id: string; name: string; description: string;
     mount: 'ceiling' | 'floor' | 'table' | 'wall'; isBuiltIn: true;
+    location: Lod200Location;
 }[] {
     return LOD200_FIXTURE_ROWS.map((r) => ({
         id: r.id,
@@ -946,5 +1169,9 @@ export function lod200TypeDefinitionRows(): readonly {
         description: r.use,
         mount: r.mount,
         isBuiltIn: true as const,
+        // §OUTDOOR112 — the row's own installation location, carried so the
+        // create palette can offer an "Outdoor & Site" section DERIVED from the
+        // registry (exterior + floor-standing) instead of a hand list of ids.
+        location: r.location,
     }));
 }

@@ -73,10 +73,12 @@ describe('§FEAT-LOD200-LUMINAIRES — the founder ask, measured', () => {
       * derived one is how a correct total ends up describing the wrong set.
       *
       * 20 on 2026-08-19 (§FEAT-LOD200-LUMINAIRES) → 25 on 2026-08-26 (§LIGHT102,
-      * L-11500: the founder's five new decorative pendant rows).
+      * L-11500: the founder's five new decorative pendant rows) → 30 on 2026-08-26
+      * (§OUTDOOR112: the founder's five OUTDOOR SITE rows — two bollards, two
+      * globe posts, one street luminaire, on three new archetypes).
       */
-    it('ships exactly TWENTY-FIVE LOD-200 families', () => {
-        expect(LOD200_FIXTURE_ROWS).toHaveLength(25);
+    it('ships exactly THIRTY LOD-200 families', () => {
+        expect(LOD200_FIXTURE_ROWS).toHaveLength(30);
     });
 
     it('every id is unique, snake_case and stable (they are PERSISTED)', () => {

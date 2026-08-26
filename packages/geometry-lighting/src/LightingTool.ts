@@ -24,9 +24,19 @@
 
 import * as THREE from '@pryzm/renderer-three/three';
 import * as OBC from '@thatopen/components';
-import { LightingFixtureType, FLOOR_MOUNTED_FIXTURES } from '@pryzm/core-app-model';
+import {
+    LightingFixtureType,
+    FLOOR_MOUNTED_FIXTURES,
+    photometryForFixture,
+    type FloorData,
+    type CeilingData,
+    type SeatingLevelLike,
+} from '@pryzm/core-app-model';
 import { LightingStore } from './LightingStore.js';
 import { LightingFragmentBuilder } from './LightingFragmentBuilder.js';
+// §OUTDOOR112 — the ONE base-point convention, shared with the commit path.
+// The preview must STAND where the commit will LAND; see placementSeat.ts.
+import { placementSeatFor, type PlacementSeat } from './placementSeat.js';
 import { CreateLightingCommand } from '@pryzm/command-registry';
 import { DOMEventBus } from '@pryzm/event-bus';
 const _bus = new DOMEventBus();
@@ -118,9 +128,21 @@ export class LightingTool {
         this._previewGroup = null;
     }
 
-    // ── Raycasting ───────────────────────────────────────────────────────────
+    // ── Raycasting + seating ─────────────────────────────────────────────────
 
-    private _getHitPoint(e: PointerEvent): THREE.Vector3 | null {
+    /**
+     * §OUTDOOR112 — the cursor's placement point, SEATED.
+     *
+     * The raycast supplies the XZ (and, for `table`-mounted fixtures, a picked
+     * host surface); the Y is then derived by `placementSeatFor` — the SAME
+     * datum authority `CreateLightingCommand` commits through. Previously the
+     * RAW hit Y was previewed and committed positions were re-derived, so a
+     * ceiling pendant previewed on the FLOOR SLAB (any 'slab' mesh matched,
+     * and the floor slab is what is usually under the cursor) and jumped to
+     * the ceiling at the click — the founder's "on placement they go off …
+     * after placement they behave better".
+     */
+    private _getSeatedPoint(e: PointerEvent): { point: THREE.Vector3; seat: PlacementSeat } | null {
         const canvas = (this._world.renderer as any)?.three?.domElement as HTMLCanvasElement | null;
         if (!canvas) return null;
         const rect = canvas.getBoundingClientRect();
@@ -133,7 +155,11 @@ export class LightingTool {
         this._raycaster.setFromCamera(this._pointer, camera);
 
         const isFloor = FLOOR_MOUNTED_FIXTURES.has(this._fixtureType);
+        const isTable = photometryForFixture(this._fixtureType).mount === 'table';
         const scene = (this._world.scene as any)?.three as THREE.Scene | undefined;
+
+        let hit: THREE.Vector3 | null = null;
+        let pickedSurfaceY: number | undefined;
 
         if (scene) {
             const targets: THREE.Object3D[] = [];
@@ -141,27 +167,65 @@ export class LightingTool {
                 if (!(obj as THREE.Mesh).isMesh || obj.userData.isPreview) return;
                 const et = obj.userData.elementType as string | undefined;
                 if (isFloor) {
-                    // Floor lamps: hit floor, slab-top, or furniture surfaces
+                    // Floor/table fixtures: floor, slab-top or furniture surfaces.
                     if (et === 'floor' || et === 'slab' || et === 'furniture') targets.push(obj);
                 } else {
-                    // Ceiling lamps: hit ceiling or slab-underside
+                    // Ceiling fixtures: ceiling or slab meshes give the XZ only —
+                    // the Y is the seating datum, never the raw hit.
                     if (et === 'ceiling' || et === 'slab') targets.push(obj);
                 }
             });
             if (targets.length > 0) {
                 const hits = this._raycaster.intersectObjects(targets, false);
-                if (hits.length > 0) return hits[0].point.clone();
+                if (hits.length > 0) {
+                    hit = hits[0].point.clone();
+                    // A table lamp pointed at furniture seats ON that surface.
+                    if (isTable && hits[0].object.userData.elementType === 'furniture') {
+                        pickedSurfaceY = hit.y;
+                    }
+                }
             }
         }
 
-        // Fallback horizontal planes
-        const planeY = isFloor
-            ? this._getLevelFloorElevation()
-            : this._getLevelCeilingHeight();
-        const plane = new THREE.Plane(new THREE.Vector3(0, 1, 0), -planeY);
-        const target = new THREE.Vector3();
-        this._raycaster.ray.intersectPlane(plane, target);
-        return target.y !== undefined ? target : null;
+        if (!hit) {
+            // Fallback horizontal plane at the coarse datum — XZ source only.
+            const planeY = isFloor
+                ? this._getLevelFloorElevation()
+                : this._getLevelCeilingHeight();
+            const plane = new THREE.Plane(new THREE.Vector3(0, 1, 0), -planeY);
+            const target = new THREE.Vector3();
+            this._raycaster.ray.intersectPlane(plane, target);
+            if (target.y === undefined) return null;
+            hit = target;
+        }
+
+        const seat = this._seatAt(hit.x, hit.z, pickedSurfaceY);
+        return { point: new THREE.Vector3(hit.x, seat.y, hit.z), seat };
+    }
+
+    /**
+     * §OUTDOOR112 — derive the base-point Y at an XZ through the shared
+     * convention. Store/level access mirrors `LightingPlanToolHandler._resolveY`
+     * (the plan tool), so the two tools and the command agree by construction.
+     */
+    private _seatAt(x: number, z: number, pickedSurfaceY?: number): PlacementSeat {
+        let level: SeatingLevelLike | undefined;
+        let floors: readonly FloorData[] | undefined;
+        let ceilings: readonly CeilingData[] | undefined;
+        try {
+            const bm = window.projectContext?.bimManager;
+            const active = bm?.getActiveLevel?.() as
+                { id?: string; elevation?: number; height?: number } | undefined;
+            level = active;
+            const levelId = active?.id;
+            if (levelId) {
+                floors = (window.floorStore as
+                    { getByLevel?: (id: string) => FloorData[] } | undefined)?.getByLevel?.(levelId);
+                ceilings = (window.ceilingStore as
+                    { getByLevel?: (id: string) => CeilingData[] } | undefined)?.getByLevel?.(levelId);
+            }
+        } catch { /* seat from whatever resolved */ }
+        return placementSeatFor(this._fixtureType, level, floors, ceilings, { x, z }, pickedSurfaceY);
     }
 
     private _getLevelCeilingHeight(): number {
@@ -196,15 +260,15 @@ export class LightingTool {
 
         this._onPointerMove = (e: PointerEvent) => {
             if (!this._previewGroup) return;
-            const pt = this._getHitPoint(e);
-            if (pt) this._previewGroup.position.copy(pt);
+            const seated = this._getSeatedPoint(e);
+            if (seated) this._previewGroup.position.copy(seated.point);
         };
 
         this._onPointerDown = (e: PointerEvent) => {
             if (e.button !== 0) return;
-            const pt = this._getHitPoint(e);
-            if (!pt) return;
-            this._placeLighting(pt);
+            const seated = this._getSeatedPoint(e);
+            if (!seated) return;
+            this._placeLighting(seated.point, seated.seat.seating);
         };
 
         this._onKeyDown = (e: KeyboardEvent) => {
@@ -230,7 +294,13 @@ export class LightingTool {
 
     // ── Placement ────────────────────────────────────────────────────────────
 
-    private _placeLighting(position: THREE.Vector3): void {
+    /**
+     * §OUTDOOR112 — `seating` rides the payload: `'auto'` lets the command
+     * re-derive the SAME datum the preview stood on (parity by construction);
+     * `'explicit'` stores a picked host surface (a table lamp on a tabletop)
+     * verbatim — the one case where the Y is geometry the user drew.
+     */
+    private _placeLighting(position: THREE.Vector3, seating: 'auto' | 'explicit' = 'auto'): void {
         const pc = window.projectContext;
         const bm = pc?.bimManager ?? window.bimManager;
         const levels: any[] = bm?.getLevels?.() ?? bm?.getAllLevels?.() ?? [];
@@ -253,6 +323,7 @@ export class LightingTool {
                 fixtureType: this._fixtureType,
                 position: { x: position.x, y: position.y, z: position.z },
                 levelId,
+                seating,
             }));
             if (!result?.success) {
                 console.error('[LightingTool] CreateLightingCommand failed:',
