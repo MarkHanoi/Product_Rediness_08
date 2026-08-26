@@ -1066,6 +1066,26 @@ export const pryzmStorageIcon = blk(`
 <line x1="74" y1="8"  x2="74" y2="30" ${BD}/>
 `, '-4 -4 108 108');
 
+/** TV & Media (§TVFURN114) — front elevation of a bayed lowboard with a flat panel standing on it */
+export const pryzmTvMediaIcon = blk(`
+<line x1="22" y1="14" x2="78" y2="14" ${BP}/>
+<line x1="78" y1="14" x2="78" y2="46" ${BP}/>
+<line x1="78" y1="46" x2="22" y2="46" ${BP}/>
+<line x1="22" y1="46" x2="22" y2="14" ${BP}/>
+<line x1="50" y1="46" x2="50" y2="54" ${BD}/>
+<line x1="40" y1="54" x2="60" y2="54" ${BD}/>
+<line x1="8"  y1="58" x2="92" y2="58" ${BP}/>
+<line x1="92" y1="58" x2="92" y2="84" ${BP}/>
+<line x1="92" y1="84" x2="8"  y2="84" ${BP}/>
+<line x1="8"  y1="84" x2="8"  y2="58" ${BP}/>
+<line x1="36" y1="58" x2="36" y2="84" ${BD}/>
+<line x1="64" y1="58" x2="64" y2="84" ${BD}/>
+<line x1="8"  y1="71" x2="36" y2="71" ${BD}/>
+<line x1="64" y1="71" x2="92" y2="71" ${BD}/>
+<line x1="14" y1="84" x2="14" y2="92" ${BD}/>
+<line x1="86" y1="84" x2="86" y2="92" ${BD}/>
+`, '-4 -4 108 108');
+
 /** Kids — top view of a ball with equator seam lines */
 export const pryzmKidsIcon = blk(`
 <circle cx="50" cy="50" r="38" ${BP}/>
