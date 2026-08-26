@@ -66,6 +66,11 @@ const COL_STEEL     = 0x1f1f1f;  // modern table's thin black frame
 const COL_UPHOLSTER = 0x8f7f6a;  // quilted shell — warm taupe upholstery
 const COL_QUILT     = 0x6d5f4e;  // quilting channel seams
 const COL_GREY_PP   = 0x9aa0a3;  // grey moulded shell
+// §FURN123 (founder, 2026-08-26) — cafe/bistro table palette.
+const COL_LAMINATE  = 0xe8e4dc;  // square variant — white laminate top
+const COL_CHROME    = 0xc9cdd0;  // square variant — chrome pedestal
+const COL_MARBLE    = 0xd9d6d0;  // marble variant — grey-white stone-look top
+const COL_MATTE_BLK = 0x1c1c1c;  // marble variant — matte black pedestal
 
 /** Guard degenerate store values (not a resize clamp). */
 function tableDims(data: FurnitureData): { W: number; L: number; H: number } {
@@ -385,6 +390,97 @@ export class ShellDiningSetBuilder implements IFurnitureBuilder {
         group.add(mergePartsToMesh(stamped.legs, oakMat, 'chair_legs'));
 
         group.userData = { role: 'dining_set', variant: 'shell', chairCount: count };
+        return group;
+    }
+}
+
+/**
+ * §FURN123 (founder, 2026-08-26) — "Cafe tables. Sofas. Soft furniture,
+ * shelves." AUDIT found nothing covering small bistro-style tables (the
+ * closest neighbours are the full-size dining tables/sets above and the
+ * accent `coffee_table`/`entrance_table` — neither is the round/square
+ * ~0.6-0.8 m pedestal table this item asks for), so this is genuinely new,
+ * built here rather than a rival file because it shares this file's table
+ * vocabulary and colour-constant convention (C84 EI-9).
+ *
+ * Three variants, ONE class (the §DESK108 per-type-spec-lookup pattern —
+ * see WhiteSofaBuilder's DEFAULT_WIDTHS for the precedent):
+ *   'cafe_table_round'  — round oak top, black steel pedestal.   Ø 0.70 m.
+ *   'cafe_table_square' — square white-laminate top, chrome pedestal. 0.65 m side.
+ *   'cafe_table_marble' — round marble-look top, matte-black pedestal. Ø 0.60 m.
+ *
+ * Construction: a round/square TOP (one mesh) on a weighted-disc-foot +
+ * tapered-column PEDESTAL BASE (one merged mesh) — the classic bistro-table
+ * silhouette, not a 4-leg frame. 2 meshes total, well inside the ≤3-6 budget.
+ * `data.width` is read as the diameter (round) / side (square); `data.length`
+ * is unused (the footprint is square in plan either way) — mirrors how the
+ * round carpets ignore their unused second axis.
+ */
+interface CafeTableSpec {
+    shape: 'round' | 'square';
+    size: number;    // diameter (round) or side length (square), metres
+    height: number;
+    topColor: number;
+    baseColor: number;
+}
+
+const CAFE_TABLE_SPECS: Readonly<Record<string, CafeTableSpec>> = {
+    cafe_table_round:  { shape: 'round',  size: 0.70, height: 0.75, topColor: COL_OAK,    baseColor: COL_STEEL },
+    cafe_table_square: { shape: 'square', size: 0.65, height: 0.75, topColor: COL_LAMINATE, baseColor: COL_CHROME },
+    cafe_table_marble: { shape: 'round',  size: 0.60, height: 0.75, topColor: COL_MARBLE, baseColor: COL_MATTE_BLK },
+};
+
+/** Guard degenerate store values (not a resize clamp) — mirrors tableDims(). */
+function cafeTableDims(data: FurnitureData, spec: CafeTableSpec): { size: number; H: number } {
+    return {
+        size: Math.max(data.width || spec.size, 0.40),
+        H:    Math.max(data.height || spec.height, 0.55),
+    };
+}
+
+export class CafeTableBuilder implements IFurnitureBuilder {
+    constructor(private materialService: MaterialService) {}
+
+    build(data: FurnitureData): THREE.Group {
+        const group = new THREE.Group();
+        const spec = CAFE_TABLE_SPECS[data.furnitureType] ?? CAFE_TABLE_SPECS['cafe_table_round'];
+        const { size, H } = cafeTableDims(data, spec);
+
+        const topMat  = this.materialService.getMaterial(spec.topColor, 'standard');
+        const baseMat = this.materialService.getMaterial(spec.baseColor, 'standard');
+
+        // ── Top — ONE mesh, round (32-segment cylinder) or square (slab) ────
+        const TOPT = spec.shape === 'round' ? 0.04 : 0.035;
+        const topY = H - TOPT / 2;
+        const topPart = spec.shape === 'round'
+            ? cylAt(size / 2, size / 2, TOPT, 0, topY, 0, 32)
+            : boxAt(size, TOPT, size, 0, topY, 0);
+        group.add(mergePartsToMesh([topPart], topMat, 'top'));
+
+        // ── Pedestal base — weighted foot disc + tapered column + a small
+        // mounting collar under the top, ONE merged mesh (metal) ───────────
+        const footR   = Math.max(size * 0.5 * 0.55, 0.16);
+        const footH   = 0.03;
+        const colRTop = 0.035;
+        const colRBot = 0.045;
+        const colH    = H - TOPT - footH;
+        const base: THREE.BufferGeometry[] = [
+            cylAt(footR, footR, footH, 0, footH / 2, 0, 24),                    // weighted foot disc
+            cylAt(colRTop, colRBot, colH, 0, footH + colH / 2, 0, 16),          // tapered column
+            cylAt(0.065, 0.065, 0.012, 0, H - TOPT - 0.006, 0, 24),             // mounting collar
+        ];
+        group.add(mergePartsToMesh(base, baseMat, 'base'));
+
+        // ── userData (§27 §3.1) ───────────────────────────────────────────
+        group.userData.id            = data.id;
+        group.userData.elementType   = 'furniture';
+        group.userData.furnitureType = data.furnitureType;
+        group.userData.width         = size;
+        group.userData.length        = size;
+        group.userData.height        = H;
+        group.userData.role          = 'cafe_table';
+        group.userData.variant       = data.furnitureType;
+
         return group;
     }
 }

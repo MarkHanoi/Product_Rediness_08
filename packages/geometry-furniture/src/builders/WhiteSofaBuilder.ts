@@ -28,6 +28,10 @@ import * as THREE from '@pryzm/renderer-three/three';
 import { FurnitureData } from '../FurnitureTypes';
 import { MaterialService } from '../MaterialService';
 import type { IFurnitureBuilder } from './IFurnitureBuilder';
+// §FURN123 (founder, 2026-08-26) — OttomanBuilder (below) merges its multi-leg
+// part groups the §DESK108 way (ONE mesh per material group) rather than one
+// mesh per leg, which is otherwise this file's plain-THREE.Mesh convention.
+import { cylAt, mergePartsToMesh } from './mergedPartKit';
 
 /* ────────────────────────────────────────────────────────────────────────── */
 /*  Geometry helpers (shared with CornerSofaBuilder pattern)                  */
@@ -67,6 +71,38 @@ export function roundedBox(w: number, h: number, d: number, r: number, segs: num
 export function plumpCushion(w: number, h: number, d: number): THREE.BufferGeometry {
     const r = Math.min(w, h, d) * 0.30;
     return roundedBox(w, h, d, r, 5);
+}
+
+/**
+ * §FURN123 (founder, 2026-08-26) — EXACT-SIZE rounded box. `roundedBox` above
+ * draws its shape at the full w×h and then ADDS the extrude bevel OUTWARD, so
+ * its real output is (w+2b) × (h+2b) — SectionalSofaBuilder's own
+ * `sizedRoundedBox` comment names this exactly ("the legacy sofas quietly
+ * overhang their nominal envelope by up to ~9 cm"). It matters here more than
+ * it did there: `OttomanBuilder`'s `floor_cushion_square` has no legs to hide
+ * the overhang under, so an un-corrected `plumpCushion` sinks the cushion's
+ * bottom face BELOW y=0 by exactly the bevel amount (caught by this lane's
+ * own test at the default 0.55×0.14×0.55 footprint — min.y landed at -38 mm,
+ * not the floor). Solves for the bevel the helper will choose (damped
+ * fixed-point — the bevel depends on the shrunken shape, which depends on the
+ * bevel) and pre-shrinks so the OUTPUT is exactly w × h × d. Duplicated here
+ * rather than imported from SectionalSofaBuilder.ts to avoid a circular
+ * import (that file already imports `roundedBox` FROM this one).
+ */
+function sizedRoundedBox(w: number, h: number, d: number, r: number, segs: number): THREE.BufferGeometry {
+    let b = 0;
+    for (let k = 0; k < 12; k++) {
+        const radius = Math.min(r, Math.min(w - 2 * b, h - 2 * b, d) * 0.49);
+        const target = Math.min(radius * 0.9, d * 0.45);
+        b = (b + target) / 2;                    // damped — the raw map oscillates
+    }
+    return roundedBox(w - 2 * b, h - 2 * b, d, r, segs);
+}
+
+/** Exact-size plump cushion — same 30% bevel ratio as `plumpCushion`. */
+function sizedPlumpCushion(w: number, h: number, d: number): THREE.BufferGeometry {
+    const r = Math.min(w, h, d) * 0.30;
+    return sizedRoundedBox(w, h, d, r, 5);
 }
 
 /* ────────────────────────────────────────────────────────────────────────── */
@@ -294,6 +330,132 @@ export class WhiteSofaBuilder implements IFurnitureBuilder {
         group.userData.width         = totalWidth;
         group.userData.length        = seatDepth;
         group.userData.height        = height;
+
+        return group;
+    }
+}
+
+/**
+ * §FURN123 (founder, 2026-08-26) — "Soft furniture" (occasional/soft-seating
+ * pieces). AUDIT found nothing in this package covering poufs, ottomans, or
+ * floor cushions — genuinely new. Placed HERE, not a rival file, because all
+ * three reuse THIS file's `roundedBox` / `plumpCushion` upholstery vocabulary
+ * (the same reason SectionalSofaBuilder imports rather than re-derives it —
+ * C84 EI-9: one cushion-geometry vocabulary, not a second one for occasional
+ * seating).
+ *
+ * Three variants, ONE class (per-type spec lookup, mirrors this file's own
+ * DEFAULT_WIDTHS / isWhiteFamily pattern):
+ *   'pouf_round'           — round upholstered drum on 4 short peg feet.
+ *   'ottoman_rect'         — rectangular padded top on 4 tapered legs
+ *                            (storage-ottoman/footstool silhouette).
+ *   'floor_cushion_square' — flat square cushion resting directly on the
+ *                            floor, no legs — a real object (not a rug: a
+ *                            rug is 4 mm, this is a genuine seat cushion).
+ *
+ * Mesh budget: floor_cushion_square = 1 (body only); pouf_round /
+ * ottoman_rect = 2 (body + ONE merged-leg mesh, the §DESK108 discipline) —
+ * all well inside the ≤3-6 range.
+ */
+interface OttomanSpec {
+    kind:  'drum' | 'block' | 'floor_cushion';
+    w: number; d: number; h: number;   // default footprint (drum: w = d = diameter)
+    color: number;
+}
+
+const OTTOMAN_SPECS: Readonly<Record<string, OttomanSpec>> = {
+    pouf_round:           { kind: 'drum',          w: 0.42, d: 0.42, h: 0.40, color: 0x8f7f6a },
+    ottoman_rect:         { kind: 'block',         w: 0.55, d: 0.40, h: 0.42, color: 0x6d5f4e },
+    floor_cushion_square: { kind: 'floor_cushion', w: 0.55, d: 0.55, h: 0.14, color: 0x9b8b6a },
+};
+
+/** Dark peg/leg colour — matches this file's own `legMat` (0x1a1008). */
+const OTTOMAN_LEG_COLOR = 0x1a1008;
+
+export class OttomanBuilder implements IFurnitureBuilder {
+    constructor(private materialService: MaterialService) {}
+
+    build(data: FurnitureData): THREE.Group {
+        const group = new THREE.Group();
+        const spec = OTTOMAN_SPECS[data.furnitureType] ?? OTTOMAN_SPECS['pouf_round'];
+
+        const W = Math.max(data.width  || spec.w, 0.20);
+        const D = Math.max(data.length || spec.d, 0.20);
+        const H = Math.max(data.height || spec.h, 0.06);
+
+        const rawColor = data.color
+            ? parseInt(data.color.replace('#', '0x'), 16)
+            : spec.color;
+        const bodyMat = this.materialService.getMaterial(rawColor, 'standard');
+        const legMat  = this.materialService.getMaterial(OTTOMAN_LEG_COLOR, 'standard');
+
+        // ⚠ Plan view: unlike the sofas above, these meshes do NOT tag
+        // `skipInPlan` — that tag means "SofaPlanSymbolBuilder draws the 2D
+        // symbol instead" (Contract 48 §3.4), and NO plan-symbol builder
+        // covers the ottoman types. Tagging it would render a pouf as four
+        // floating feet in plan and a floor cushion as nothing. The default
+        // edge projection draws the outline (the BookshelfBuilder precedent);
+        // `edgeAngleDeg = 30` still collapses the bevels to a clean silhouette.
+        if (spec.kind === 'floor_cushion') {
+            // ── Flat floor cushion — ONE mesh, sits directly on the floor.
+            // sizedPlumpCushion (not plumpCushion) — see its docstring: the
+            // uncorrected helper's bevel overhang sinks a leg-less cushion
+            // below y=0 by the bevel amount. ────────────────────────────────
+            const body = sizedPlumpCushion(W, H, D);
+            body.translate(0, H / 2, 0);
+            const mesh = new THREE.Mesh(body, bodyMat);
+            mesh.userData.edgeAngleDeg = 30;
+            group.add(mesh);
+        } else if (spec.kind === 'drum') {
+            // ── Round pouf — tapered drum body (own mesh) + 4 short peg
+            // feet (ONE merged mesh) ───────────────────────────────────────
+            const LEG_H = 0.04;
+            const bodyH = Math.max(H - LEG_H, 0.05);
+            const r = W / 2;
+            const bodyGeo = new THREE.CylinderGeometry(r * 0.94, r, bodyH, 28);
+            bodyGeo.translate(0, LEG_H + bodyH / 2, 0);
+            const bodyMesh = new THREE.Mesh(bodyGeo, bodyMat);
+            bodyMesh.userData.edgeAngleDeg = 30;
+            group.add(bodyMesh);
+
+            const feet: THREE.BufferGeometry[] = [];
+            const fr = r * 0.72;
+            for (let i = 0; i < 4; i++) {
+                const a = (Math.PI / 2) * i + Math.PI / 4;
+                feet.push(cylAt(0.014, 0.011, LEG_H, fr * Math.cos(a), LEG_H / 2, fr * Math.sin(a), 8));
+            }
+            group.add(mergePartsToMesh(feet, legMat, 'feet'));
+        } else {
+            // ── Rectangular storage-style ottoman — padded top (own mesh)
+            // on 4 tapered legs (ONE merged mesh) ────────────────────────
+            const LEG_H = 0.12;
+            const bodyH = Math.max(H - LEG_H, 0.08);
+            const body = sizedRoundedBox(W, bodyH, D, 0.05, 3);
+            body.translate(0, LEG_H + bodyH / 2, 0);
+            const bodyMesh = new THREE.Mesh(body, bodyMat);
+            bodyMesh.userData.edgeAngleDeg = 30;
+            group.add(bodyMesh);
+
+            const inset = 0.05;
+            const legs: THREE.BufferGeometry[] = [];
+            for (const sx of [-1, 1]) {
+                for (const sz of [-1, 1]) {
+                    legs.push(cylAt(0.018, 0.013, LEG_H,
+                        sx * (W / 2 - inset), LEG_H / 2, sz * (D / 2 - inset), 8));
+                }
+            }
+            group.add(mergePartsToMesh(legs, legMat, 'legs'));
+        }
+
+        // ── userData (§27 §3.1) ───────────────────────────────────────────
+        group.userData.id            = data.id;
+        group.userData.elementType   = 'furniture';
+        group.userData.furnitureType = data.furnitureType;
+        group.userData.width         = W;
+        group.userData.length        = D;
+        group.userData.height        = H;
+        group.userData.role          = 'ottoman';
+        group.userData.variant       = data.furnitureType;
 
         return group;
     }
