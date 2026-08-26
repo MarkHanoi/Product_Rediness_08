@@ -117,4 +117,55 @@ describe('FurnitureTypeSelectorWidget — §FEAT-ELEMENT-CHANGE-TYPE (ADR-0105)'
         expect(values).toContain('bed');
         expect(values).not.toContain('kave_dresser');
     });
+
+    // ── §KITCHEN107 (L-11602, C86 §9 WO-Voc-4) — kitchen axis separation ──────
+    //
+    // The 'kitchen' category stocks run SHAPES + appliance MODULES + catalogue
+    // appliances. The founder's dropdown offered all three in one list, so
+    // "Hob/Cooktop" was selectable as the TYPE of a whole L-shaped kitchen.
+    describe('kitchen vocabulary separation (§KITCHEN107, L-11602)', () => {
+        it('a kitchen RUN offers ONLY the seven run shapes — no unit features, no appliances', () => {
+            const el = buildFurnitureTypeSelectorWidget(
+                { type: 'furniture', furnitureType: 'kitchen_l_shape_tall', furnitureCategory: 'kitchen' },
+                vi.fn(),
+            );
+            expect(el).not.toBeNull();
+            const values = Array.from(q<HTMLSelectElement>(el!, 'select.wts-select').options).map((o) => o.value);
+            expect(values.sort()).toEqual([
+                'kitchen_island',
+                'kitchen_l_shape', 'kitchen_l_shape_tall',
+                'kitchen_straight', 'kitchen_straight_tall',
+                'kitchen_u_shape', 'kitchen_u_shape_tall',
+            ]);
+        });
+
+        it('a standalone kitchen appliance does NOT offer the run shapes', () => {
+            const el = buildFurnitureTypeSelectorWidget(
+                { type: 'furniture', furnitureType: 'hob', furnitureCategory: 'kitchen' },
+                vi.fn(),
+            );
+            expect(el).not.toBeNull();
+            const values = Array.from(q<HTMLSelectElement>(el!, 'select.wts-select').options).map((o) => o.value);
+            expect(values).toContain('hob');
+            expect(values.some((v) => v.startsWith('kitchen_'))).toBe(false);
+        });
+
+        it('a kitchen RUN target is applied WITHOUT a catalogue dimension re-seed', () => {
+            const onApply = vi.fn();
+            const el = buildFurnitureTypeSelectorWidget(
+                { type: 'furniture', furnitureType: 'kitchen_l_shape', furnitureCategory: 'kitchen' },
+                onApply,
+            )!;
+            const select = q<HTMLSelectElement>(el, 'select.wts-select');
+            select.value = 'kitchen_u_shape';
+            q<HTMLButtonElement>(el, 'button.wts-apply-btn').click();
+            expect(onApply).toHaveBeenCalledTimes(1);
+            const payload = onApply.mock.calls[0][0];
+            expect(payload.newFurnitureType).toBe('kitchen_u_shape');
+            // The run's real geometry lives in kitchenConfig; the 3.0×0.6
+            // catalogue card must not stomp a resized run.
+            expect(payload.width).toBeUndefined();
+            expect(payload.length).toBeUndefined();
+        });
+    });
 });
