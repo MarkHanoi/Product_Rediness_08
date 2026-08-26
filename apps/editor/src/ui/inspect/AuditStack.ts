@@ -41,6 +41,14 @@ import {
   renderProjectTree,
 } from './audit/ProjectTreeZone';
 
+// §ROOMTREE139 — the second tree grouping (room → family → element) and the
+// mode switch that picks between it and the by-level tree above.
+import {
+  type RoomTreeState,
+  renderRoomTree,
+} from './audit/RoomTreeZone';
+import { createTreeModeToggle, type TreeViewMode } from './audit/TreeModeToggle';
+
 import {
   type DiscoveryModeState,
   renderDiscoveryMode,
@@ -88,6 +96,14 @@ export class AuditStack {
   private _activeAttributeKey: string | null = null;
   private _treeExpandedLevels: Set<string> = new Set();
   private _treeExpandedTypes:  Map<string, Set<string>> = new Map();
+
+  // §ROOMTREE139 — by-room tree state, independent of the by-level tree's own
+  // expand/collapse sets above so switching modes never resets the other.
+  private _treeViewMode:        TreeViewMode = 'level';
+  private _treeExpandedRooms:   Set<string> = new Set();
+  private _treeExpandedRoomFamilies: Map<string, Set<string>> = new Map();
+  private _activeRoomFamilyFilter: string | null = null;
+  private _treeModeToggle: ReturnType<typeof createTreeModeToggle> | null = null;
 
   /** Phase B (S73-WIRE) — runtime threaded by parent. */
   public readonly runtime: import('@pryzm/runtime-composer/types').PryzmRuntime | null;
@@ -149,10 +165,32 @@ export class AuditStack {
 
     const treeSectionHeader = document.createElement('div');
     treeSectionHeader.className = 'aud-section-header';
-    treeSectionHeader.innerHTML = `
-      <span class="aud-section-title">PROJECT BROWSER</span>
-      <button class="aud-section-collapse" id="aud-tree-collapse" title="Collapse">▾</button>
-    `;
+    const treeSectionHeaderLeft = document.createElement('div');
+    treeSectionHeaderLeft.className = 'aud-section-header-left';
+    const treeSectionTitle = document.createElement('span');
+    treeSectionTitle.className = 'aud-section-title';
+    treeSectionTitle.textContent = 'PROJECT BROWSER';
+    treeSectionHeaderLeft.appendChild(treeSectionTitle);
+
+    // §ROOMTREE139 — the by-level / by-room mode switch. Mirrors the shape of
+    // the panel's existing "PRYZM tree | IFC tree" pill toggle
+    // (`IfcTreeAttachment.ts` → `createTreeToggle`) rather than a new control
+    // idiom — see `TreeModeToggle.ts` for why it is a same-shape twin, not an
+    // import of that one.
+    this._treeModeToggle = createTreeModeToggle(this._treeViewMode, (mode) => {
+      this._treeViewMode = mode;
+      this._renderProjectTree();
+    });
+    treeSectionHeaderLeft.appendChild(this._treeModeToggle.element);
+
+    const treeCollapseBtn = document.createElement('button');
+    treeCollapseBtn.className = 'aud-section-collapse';
+    treeCollapseBtn.id = 'aud-tree-collapse';
+    treeCollapseBtn.title = 'Collapse';
+    treeCollapseBtn.textContent = '▾';
+
+    treeSectionHeader.appendChild(treeSectionHeaderLeft);
+    treeSectionHeader.appendChild(treeCollapseBtn);
     treeSection.appendChild(treeSectionHeader);
 
     this._projectTreeZone = document.createElement('div');
@@ -345,27 +383,53 @@ export class AuditStack {
   // ── Rendering delegates ────────────────────────────────────────────────────
 
   private _renderProjectTree(): void {
+    this._treeModeToggle?.setMode(this._treeViewMode);
+
+    const onRoomSelect = (roomId: string): void => {
+      this._selectedRoomId = roomId;
+      if (this._activeElementType !== 'rooms') {
+        this._activeElementType = 'rooms';
+        this._elementDropdown.value = 'rooms';
+        // F.events.6 — pryzm-inspect-element-type migrated to runtime.events typed bus.
+        this.runtime?.events?.emit('pryzm-inspect-element-type', { elementType: 'rooms' });
+      }
+      this._renderProjectTree();
+      this._renderContent();
+    };
+    const onElementSelect = (elemId: string): void => {
+      this._selectedElementId = elemId;
+      this._renderProjectTree();
+      this._renderContent();
+    };
+
+    // §ROOMTREE139 — selection is shared across BOTH trees (`_selectedRoomId` /
+    // `_selectedElementId` are the only state either reads), so flipping the
+    // mode switch never resets or loses whatever was selected.
+    if (this._treeViewMode === 'room') {
+      const roomTreeState: RoomTreeState = {
+        selectedRoomId:    this._selectedRoomId,
+        selectedElementId: this._selectedElementId,
+        treeExpandedRooms: this._treeExpandedRooms,
+        treeExpandedRoomFamilies: this._treeExpandedRoomFamilies,
+        activeFamilyFilter: this._activeRoomFamilyFilter,
+        onRoomSelect,
+        onElementSelect,
+        onFamilyFilterChange: (familyId) => {
+          this._activeRoomFamilyFilter = familyId;
+          this._renderProjectTree();
+        },
+      };
+      renderRoomTree(this._projectTreeZone, roomTreeState);
+      return;
+    }
+
     const treeState: ProjectTreeState = {
       selectedRoomId:     this._selectedRoomId,
       selectedElementId:  this._selectedElementId,
       treeExpandedLevels: this._treeExpandedLevels,
       treeExpandedTypes:  this._treeExpandedTypes,
-      onRoomSelect: (roomId) => {
-        this._selectedRoomId = roomId;
-        if (this._activeElementType !== 'rooms') {
-          this._activeElementType = 'rooms';
-          this._elementDropdown.value = 'rooms';
-          // F.events.6 — pryzm-inspect-element-type migrated to runtime.events typed bus.
-          this.runtime?.events?.emit('pryzm-inspect-element-type', { elementType: 'rooms' });
-        }
-        this._renderProjectTree();
-        this._renderContent();
-      },
-      onElementSelect: (elemId) => {
-        this._selectedElementId = elemId;
-        this._renderProjectTree();
-        this._renderContent();
-      },
+      onRoomSelect,
+      onElementSelect,
     };
     renderProjectTree(this._projectTreeZone, treeState);
   }

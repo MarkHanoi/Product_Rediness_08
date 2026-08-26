@@ -388,37 +388,53 @@ export function renderTypesForLevel(
       elemRow.addEventListener('click', () => {
         const isRoomRow = storeKey === 'roomStore';
         if (isRoomRow) {
-          state.onRoomSelect(el.id);
+          selectRoomNode(state, el.id);
         } else {
-          state.onElementSelect(el.id);
+          selectElementNode(state, el.id);
         }
-        // ── §INSPECT-FOCUS-IS-ELEMENT-SHAPED (L-8201), 2026-08-23 ─────────────
-        //
-        // ⛔ THESE TWO EMITS WERE UNCONDITIONAL AND BOTH CARRY A FIELD CALLED
-        // `roomId`. This ONE line — `emit('pryzm-inspect-room-focus', { roomId:
-        // el.id })` for every family — is what put a WALL id into a room-shaped
-        // slot, and it is verbatim what the founder's console printed back:
-        //
-        //     [DiagnosticMaterialManager] Lens applied: ghost (room: wall_01M0PTPA…)
-        //     [InspectModeCoordinator] Room focused: wall_01M0PTPAWMNKP0B1G841G7XR04
-        //
-        // ⭐ THE NON-ROOM CASE IS NOT DROPPED — it was never carried by this event
-        // in the first place. `selectionBus.select(el.id, 'inspect-panel')` below
-        // already fired on every row, and `InspectModeCoordinator` now subscribes
-        // to it (C27 §4: SelectionBus is the single authorised entry point for all
-        // selection sources). So a wall row reaches the lens by the wire that
-        // actually means "this element is selected", instead of by an event named
-        // for a different concept — and, as a consequence, selecting the same wall
-        // in the 3-D VIEWPORT now reaches it too, which it never did.
-        if (isRoomRow) {
-          window.runtime?.events?.emit('pryzm-audit-room-select', { roomId: el.id, source: 'audit-stack' }); // F.events.12
-          // F.events.6 — pryzm-inspect-room-focus migrated to runtime.events typed bus.
-          window.runtime?.events?.emit('pryzm-inspect-room-focus', { roomId: el.id });
-        }
-        selectionBus.select(el.id, 'inspect-panel');
       });
     }
   }
+}
+
+// ── Shared selection paths ──────────────────────────────────────────────────
+//
+// §ROOMTREE139 — factored out of the click handler above so the BY-ROOM tree
+// (`RoomTreeZone.ts`) dispatches a room selection through the exact same
+// sequence, rather than a second, independently-typed copy that could silently
+// drift from it. Behaviour is unchanged from what this file already did.
+
+/**
+ * §INSPECT-FOCUS-IS-ELEMENT-SHAPED (L-8201), 2026-08-23 — the ROOM selection
+ * path. Every non-room row selects through `selectElementNode` alone; a room row
+ * ALSO carries the two room-shaped events below.
+ *
+ * ⛔ THESE TWO EMITS WERE ONCE UNCONDITIONAL AND BOTH CARRIED A FIELD CALLED
+ * `roomId`. `emit('pryzm-inspect-room-focus', { roomId: el.id })` fired for
+ * every family, which is what put a WALL id into a room-shaped slot — verbatim
+ * what the founder's console printed back:
+ *
+ *     [DiagnosticMaterialManager] Lens applied: ghost (room: wall_01M0PTPA…)
+ *     [InspectModeCoordinator] Room focused: wall_01M0PTPAWMNKP0B1G841G7XR04
+ *
+ * ⭐ THE NON-ROOM CASE WAS NOT DROPPED when this was scoped to rooms only — it
+ * was never carried by this event in the first place. `selectionBus.select`
+ * fires on every row regardless of family (see `selectElementNode`), and
+ * `InspectModeCoordinator` subscribes to it (C27 §4: SelectionBus is the single
+ * authorised entry point for all selection sources).
+ */
+export function selectRoomNode(state: Pick<ProjectTreeState, 'onRoomSelect'>, roomId: string): void {
+  state.onRoomSelect(roomId);
+  window.runtime?.events?.emit('pryzm-audit-room-select', { roomId, source: 'audit-stack' }); // F.events.12
+  // F.events.6 — pryzm-inspect-room-focus migrated to runtime.events typed bus.
+  window.runtime?.events?.emit('pryzm-inspect-room-focus', { roomId });
+  selectionBus.select(roomId, 'inspect-panel');
+}
+
+/** The non-room selection path — every other element family, in every tree. */
+export function selectElementNode(state: Pick<ProjectTreeState, 'onElementSelect'>, elementId: string): void {
+  state.onElementSelect(elementId);
+  selectionBus.select(elementId, 'inspect-panel');
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────

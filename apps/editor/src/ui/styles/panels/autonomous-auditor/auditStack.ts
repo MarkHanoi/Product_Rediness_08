@@ -327,6 +327,47 @@ export const AUDIT_STACK_STYLES = `
 }
 .aud-section-collapse:hover { color: var(--app-text-2); }
 
+/* ── §ROOMTREE139 — tree section header left slot + mode toggle ─────────────
+   Same-shape twin of the panel's existing "PRYZM tree | IFC tree" pill toggle
+   (.ifct-toggle / .ifct-toggle-btn, plugins/ifc-inspector/src/tree/ifc-tree-
+   view.ts) — a rounded pill with small pill buttons, one active — reimplemented
+   under the aud- prefix this contract's CSS uses (see TreeModeToggle.ts).
+   NOTE: this whole stylesheet is one JS template literal (see top of file) —
+   never put a backtick in a comment here, it silently truncates the string. */
+.aud-section-header-left {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  overflow: hidden;
+  min-width: 0;
+}
+
+.aud-tree-mode-toggle {
+  display: inline-flex;
+  gap: 2px;
+  padding: 2px;
+  background: var(--app-bg);
+  border: 1px solid var(--app-border);
+  border-radius: 20px;
+  flex-shrink: 0;
+}
+
+.aud-tree-mode-btn {
+  padding: 2px 8px;
+  border: none;
+  border-radius: 16px;
+  background: transparent;
+  color: var(--app-text-muted);
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  cursor: pointer;
+  white-space: nowrap;
+  font-family: inherit;
+}
+.aud-tree-mode-btn:hover { color: var(--app-text-2); }
+.aud-tree-mode-btn--active { background: var(--app-accent); color: var(--app-on-accent); }
+
 /* ── Project tree scrollable body ─────────────────────────────────────────── */
 /* flex: 1 1 0 collapses to 0px inside a flex: 0 0 auto parent — use an
    explicit min/max-height instead so the content is always visible.         */
@@ -523,6 +564,35 @@ export const AUDIT_STACK_STYLES = `
   font-size: 11px;
   color: var(--app-text-muted);
   text-align: center;
+}
+
+/* ── §ROOMTREE139 — by-room tree: family filter + "No Room" bucket ─────────── */
+.aud-room-filter-wrap {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 10px;
+}
+
+.aud-room-family-filter {
+  flex: 1;
+  background: var(--app-bg);
+  border: 1px solid var(--app-border);
+  border-radius: 4px;
+  color: var(--app-text);
+  font-size: 10px;
+  padding: 3px 6px;
+  outline: none;
+  cursor: pointer;
+  transition: border-color 0.15s;
+}
+.aud-room-family-filter:focus { border-color: var(--app-accent); }
+
+.aud-tree-no-room-row {
+  border-top: 1px dashed var(--app-border-light);
+  margin-top: 2px;
+  padding-top: 2px;
+  color: var(--app-text-2);
 }
 
 /* ── Element type selector ─────────────────────────────────────────────────── */
