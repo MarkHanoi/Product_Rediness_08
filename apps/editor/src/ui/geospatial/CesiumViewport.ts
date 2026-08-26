@@ -11847,13 +11847,51 @@ export class CesiumViewport {
     const R = tex.radiusM;
     const dLat = (R / 111_320);
     const dLon = R / (111_320 * Math.max(0.05, Math.cos((origin.lat * Math.PI) / 180)));
-    // §SITEFRAME-GROUND (C12 §9 T1) — when REAL relief is attached the heatmap must DRAPE on the
-    // terrain mesh, not hover on the ONE flat centroid plane (where the surrounding relief rises
-    // above the plane and occludes it → the faint heatmap the founder saw with terrain ON). We
-    // clamp the rectangle to ground (a terrain-classified ground primitive that carries the image
-    // material), so it paints ONTO the relief. On the keyless / un-baked / ellipsoid path there is
-    // no relief to occlude it, so we keep the exact flat `height: base + up` placement (no regression).
-    const drape = this.groundReliefAttached();
+    // §SITEFRAME-GROUND (C12 §9 T1) — ORIGINAL INTENT: when REAL relief is attached the heatmap
+    // should DRAPE on the terrain mesh (a terrain-classified ground primitive carrying the image
+    // material), instead of hovering on one flat centroid plane where surrounding relief rises
+    // above the plane and occludes it. On the keyless / un-baked / ellipsoid path there is no
+    // relief to occlude it, so the flat `height: base + up` placement was always correct there.
+    //
+    // ⚠⚠ CORRECTED §L-11840 (founder report, Amsterdam parcel — heatmap computed but invisible,
+    // "under the paths"). THE DRAPE BRANCH NEVER ACTUALLY DRAPED. `classificationType: TERRAIN`
+    // is a `GroundPrimitive` classification pass — the EXACT SAME primitive machinery `clampToGround`
+    // uses, which §CTX-ABS-SEAT (L-635, this file, ~line 9539) already MEASURED (Cesium 1.143) to
+    // render NOTHING on baked terrain: Forma unconditionally holds `globe.depthTestAgainstTerrain =
+    // false` (§CTX-DEPTH-CULL-FIX, so context buildings are never culled under relief — see
+    // `setFormaTerrainEnabled`), and with that flag false the classification pass has no terrain
+    // stencil to paint into. That is why roads/rail/sea/context-fill were ALL migrated off
+    // `clampToGround`/`classificationType` onto an ABSOLUTE height seated at the settled ground
+    // plane (§CTX-ABS-SEAT) — `paintMetricTexture` was the ONE consumer left on the broken path
+    // (confirmed: this file's only `ClassificationType` reference). The founder's "under the
+    // paths" read is the visible symptom, not the literal mechanism: the road/rail ribbons render
+    // correctly (they use the fixed absolute-height pattern) while the heatmap renders nothing at
+    // all wherever real terrain is attached — which every baked-terrain city hits, Amsterdam
+    // included (its coordinates fall inside the baked `amsterdam` bbox, so relief IS attached for
+    // this exact parcel and the broken branch WAS live).
+    //
+    // FIX: always seat the rectangle at the same absolute settled-ground height the flat/keyless
+    // path already used correctly (`base + up`, `base` = `formaTerrainBaseHeight`, the real
+    // terrain elevation SAMPLED at the analysis origin) — mirroring §CTX-ABS-SEAT exactly, so the
+    // heatmap renders in the standard opaque pass, depth-flag-independent, on any provider.
+    //
+    // ⚠ KNOWN RESIDUAL LIMITATION, NAMED RATHER THAN SILENTLY TRADED AWAY: a single flat height
+    // does not perfectly track relief that varies significantly across the full analysis-disc
+    // radius (up to ~240 m) — the ORIGINAL reason C12 §9 T1 wanted a per-point drape. For
+    // Amsterdam (near-flat, sub-metre variance at this scale) this is immaterial; for a
+    // genuinely hilly city the far edge of the disc can float above or sit slightly under real
+    // ground. That is a strictly BETTER failure mode than the current one (invisible everywhere
+    // relief is attached), but it is not a full terrain-following drape — a real per-vertex
+    // terrain-sampled mesh is the correct long-term fix and is OUT OF SCOPE here (open item,
+    // §L-11840).
+    const relief = this.groundReliefAttached();
+    if (relief) {
+      console.log(
+        `[CesiumViewport][site-metric] §L-11840 ${metric} heatmap: relief attached — seating at ` +
+          `the absolute settled-ground height (§CTX-ABS-SEAT), NOT terrain classification ` +
+          `(classificationType renders nothing under Forma's depthTestAgainstTerrain=false).`,
+      );
+    }
     const ent = viewer.entities.add({
       name: `pryzm-site-metric-${metric}`,
       rectangle: {
@@ -11861,26 +11899,7 @@ export class CesiumViewport {
           origin.lon - dLon, origin.lat - dLat,
           origin.lon + dLon, origin.lat + dLat,
         ),
-        ...(drape
-          ? {
-              // §FIX-FORMA-WATERWAY-GROUND-RIBBON (L-10160) — `heightReference` REMOVED here, and
-              // this is a DIAGNOSTIC fix, not a rendering one. It was the sole source of Cesium's
-              // one-time warning *"Entity corridor, ellipse, polygon or rectangle with
-              // heightReference must also have a defined height. heightReference will be ignored"*,
-              // and that warning cost a real investigation: it was read as evidence that the WATER
-              // layer never clamped, which sent the search to a feature that emits no such warning
-              // (its polygons carry an explicit `height`, and its waterways are polylines — a type
-              // the message does not even name).
-              //
-              // MEASURED in cesium 1.143: `GroundGeometryUpdater.getGeometryHeight` warns and
-              // returns undefined whenever `height` is absent and `heightReference !== NONE`. So
-              // the property was already doing NOTHING here — an omitted `height` plus
-              // `classificationType: TERRAIN` is what makes this a terrain-classified ground
-              // primitive, which is exactly the intent. Dropping the ignored property changes no
-              // pixel and removes a console line that asserted a defect the code does not have.
-              classificationType: Cesium.ClassificationType.TERRAIN,
-            }
-          : { height: base + up }),
+        height: base + up,
         material: new Cesium.ImageMaterialProperty({
           image: canvas,
           transparent: true,

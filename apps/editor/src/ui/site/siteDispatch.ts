@@ -438,10 +438,12 @@ import {
     // `maatvoering` numbers ("maximum bouwhoogte (m)" etc.) carry unambiguous SVBP2012 units, so a
     // certified parcel renders `structured` (real height fed into structuredFields), not just
     // estimated-ruleset. `resolveNlBestemmingsplan` resolves the bouwvlak ring + maatvoering via the
-    // KEYLESS `/api/nl/bestemmingsplan` proxy (PDOK RP WMS), or refuses (never throws). Gated on
-    // `NL_BESTEMMINGSPLAN_CERTIFIED` (ON — proven live nationwide): a parcel WITH a resolved
-    // bouwvlak+maatvoering renders structured; residual cases refuse (via `nlBestemmingsplanRefusal`),
-    // never a fabricated bouwhoogte. The coarse gate is `isInNetherlands` (national bbox).
+    // KEYLESS `/api/nl/bestemmingsplan` proxy (PDOK RP WMS), or refuses (never throws).
+    // ⚠ CORRECTED §L-11840 — `NL_BESTEMMINGSPLAN_CERTIFIED` IS SHUT (`false`, §UNSIGNED-GATE-
+    // DEFAULTS-SHUT, 2026-08-02), not "ON" as this comment used to read: the pack and resolver are
+    // proven live nationwide, but publication awaits a founder signature (ADR-0283 Doctrine B),
+    // so every NL parcel refuses honestly via `nlPublicationNotAuthorisedRefusal` today — never a
+    // fabricated bouwhoogte. The coarse gate is `isInNetherlands` (national bbox).
     isInNetherlands,
     resolveNlBestemmingsplan,
     NL_RING_REF,
@@ -451,6 +453,11 @@ import {
     NL_JURISDICTION_ID,
     bestemmingToPermittedUse,
     nlBestemmingsplanRefusal,
+    // §L-11840 — the gate-shut refusal (`NL_BESTEMMINGSPLAN_CERTIFIED === false`), distinct from
+    // `nlBestemmingsplanRefusal` (a TRANSIENT fetch failure — retried, "try again" is honest) and
+    // from `nlNoPlanRefusal` (the source ANSWERED "no plan here"). The gate-shut case never even
+    // reaches the fetch, and no retry changes it — only a founder signature does.
+    nlPublicationNotAuthorisedRefusal,
     // PARIS (Ville de Paris, INSEE 75056) — PLU bioclimatique, STRUCTURED-DATA-FIRST. `resolveParisEnvelope`
     // reads the zone identity (GPU zone_urba), the numeric hauteur plafond (opendata plub_hauteur) AND the
     // published `plub_ecm` buildable-FOOTPRINT polygon; `computeParisEnvelope` extrudes that real footprint
@@ -3234,9 +3241,14 @@ async function applyMadridNZ1ExplicitArea(
  *     front/side/rear estimate is the wrong geometric SHAPE for an explicit-area zone (the
  *     §CONTEXT-DATA-HONESTY failure this whole path exists to avoid).
  *
- * ⚠ GATED ON `NL_BESTEMMINGSPLAN_CERTIFIED` (ON — the keyless PDOK proxy is wired and real bouwhoogte
- * verified live at Rotterdam 40 m / Utrecht 26 m / Groningen 24 m). Same discipline as
- * `MADRID_NZ1_CERTIFIED`; if a regression re-closes the gate, every NL parcel refuses honestly.
+ * ⚠ GATED ON `NL_BESTEMMINGSPLAN_CERTIFIED` — CORRECTED §L-11840: this is SHUT (`false`), not "ON"
+ * as this docstring used to claim. The keyless PDOK proxy is wired and real bouwhoogte was
+ * verified live at Rotterdam 40 m / Utrecht 26 m / Groningen 24 m — but the gate was shut
+ * 2026-08-02 (§UNSIGNED-GATE-DEFAULTS-SHUT) because nobody had signed off on nationwide NL
+ * publication (ADR-0283 Doctrine B). Same discipline as `MADRID_NZ1_CERTIFIED` while it was
+ * unsigned: every NL parcel refuses honestly (`nlPublicationNotAuthorisedRefusal`) until a
+ * founder signature opens it — see `resolveNlBestemmingsplan.ts`'s own docstring for the exact
+ * reopen condition.
  *
  * Best-effort + fully guarded — never throws into the commit path.
  */
@@ -3261,17 +3273,26 @@ async function applyNlZoningThenFallback(
             return;
         }
 
-        // ⚠⚠ THE CERTIFICATION GATE (ON). Kept as an explicit safety valve: if a regression flips
-        // `NL_BESTEMMINGSPLAN_CERTIFIED` false, every NL parcel refuses honestly rather than render a
-        // stale/uncertified number. No resolve, no fabricated number; the honest cited refusal.
+        // ⚠⚠ THE CERTIFICATION GATE — CURRENTLY SHUT (§L-11840). `NL_BESTEMMINGSPLAN_CERTIFIED` is
+        // `false` (§UNSIGNED-GATE-DEFAULTS-SHUT, 2026-08-02): the pack + resolver are proven live
+        // nationwide, but a founder signature authorising nationwide publication is outstanding
+        // (ADR-0283 Doctrine B). No resolve, no fetch, no fabricated number — the honest,
+        // NON-TRANSIENT refusal. ⚠ THIS IS NOT `nlBestemmingsplanRefusal()` (that copy says "the
+        // source was temporarily unreachable ... retried ... try again", which is TRUE only for a
+        // failed fetch; this branch never fetches at all, and no retry — automatic or manual —
+        // changes a shut gate). Use the dedicated gate-shut refusal so the card cannot mislead the
+        // user into re-selecting the parcel expecting a different answer.
         if (!NL_BESTEMMINGSPLAN_CERTIFIED) {
             dispatchEnvelope(
                 ctx,
                 site.id,
-                buildRefusedEnvelope(NL_ZONE_CODE, nlBestemmingsplanRefusal(), 'none'),
+                buildRefusedEnvelope(NL_ZONE_CODE, nlPublicationNotAuthorisedRefusal(), 'none'),
                 NL_SOURCE,
             );
-            console.log(`${TAG} NL_BESTEMMINGSPLAN_CERTIFIED=false — cited refusal (gate closed).`);
+            console.log(
+                `${TAG} NL_BESTEMMINGSPLAN_CERTIFIED=false — gate-shut refusal dispatched ` +
+                    `(publication not yet authorised; no fetch attempted). §L-11840.`,
+            );
             return;
         }
 

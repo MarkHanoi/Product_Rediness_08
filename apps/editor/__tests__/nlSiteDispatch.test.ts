@@ -187,7 +187,14 @@ describe('§NL-BESTEMMINGSPLAN — a click on a Dutch parcel reaches the bestemm
         expect(envelope).not.toBeNull();
         expect(envelope!.status).toBe('none');
         expect(envelope!.refusal).toBeTruthy();
-        expect(envelope!.refusal!.code).toBe('source-data-unavailable');
+        // §L-11840 — CORRECTED: the gate-shut case is NOT the transient `source-data-unavailable`
+        // refusal (that copy falsely implied a retry could fix it). It is the dedicated
+        // `nlPublicationNotAuthorisedRefusal`, carried under the closest-fit closed code
+        // (`no-rule-pack` — the enum has no dedicated "unauthorised" code, same honest-fit
+        // compromise `cordobaUnverifiedRefusal` documents), and it names the real reason.
+        expect(envelope!.refusal!.code).toBe('no-rule-pack');
+        expect(envelope!.refusal!.detail).toMatch(/not yet been authorised|sign-off|signature/i);
+        expect(envelope!.refusal!.detail).not.toContain('temporarily unavailable');
         expect(envelope!.maxHeight_m).toBeNull();
         expect(envelope!.insetPolygon).toEqual([]);
     });
@@ -206,19 +213,25 @@ describe('§NL-BESTEMMINGSPLAN — a click on a Dutch parcel reaches the bestemm
         // for the unit-level sparse-fallback behaviour this will exercise again once re-signed.
         const { envelope } = await dispatchNl(SPARSE_BODY);
         expect(envelope!.status).toBe('none');
-        expect(envelope!.refusal!.code).toBe('source-data-unavailable');
+        expect(envelope!.refusal!.code).toBe('no-rule-pack');
         expect(envelope!.maxHeight_m).toBeNull();
     });
 
-    it('does NOT fall back to the estimated triple when PDOK is DOWN — and says it was a retry', async () => {
-        // ⚠ The failure mode this guards: the bouwvlak is an explicit-area rule, so a front/side/rear
-        // estimate would be the wrong SHAPE (C58 §2.2 / ADR-0270), not merely an imprecise number.
+    it('the gate-shut refusal is IDENTICAL whether or not PDOK would have answered — the fetch never happens', async () => {
+        // ⚠ RENAMED §L-11840 (was "…when PDOK is DOWN — and says it was a retry"). `nlOk = false`
+        // here does NOT simulate a live PDOK outage from the user's standpoint: the gate check
+        // returns before `fetchImpl` is ever called (test #1 above), so this is exercising the
+        // SAME gate-shut branch as every other case in this file, not a transient-fetch-failure
+        // path — that path only becomes reachable again once the gate reopens. The bouwvlak is an
+        // explicit-area rule, so even once the gate is open, a front/side/rear estimate would be
+        // the wrong SHAPE on a real fetch failure (C58 §2.2 / ADR-0270) — this suite's job today is
+        // just to confirm the gate-shut copy never claims a retry will help.
         const { store, envelope } = await dispatchNl(null, false);
         expect(envelope!.status).toBe('none');
         expect(envelope!.refusal).toBeTruthy();
-        // STRUCTURAL-SEAM-4 — a still-failing TRANSIENT is the retry-honest refusal…
-        expect(envelope!.refusal!.code).toBe('source-data-unavailable');
-        expect(envelope!.refusal!.detail).toContain('temporary outage');
+        expect(envelope!.refusal!.code).toBe('no-rule-pack');
+        expect(envelope!.refusal!.detail).not.toContain('temporary outage');
+        expect(envelope!.refusal!.detail).not.toMatch(/try again/i);
         expect(envelope!.maxHeight_m).toBeNull();
         expect(envelope!.insetPolygon).toEqual([]);
         expect(store.getSite()!.parcel.maxHeight).toBeNull();
@@ -238,8 +251,21 @@ describe('§NL-BESTEMMINGSPLAN — a click on a Dutch parcel reaches the bestemm
             maatvoeringen: [],
         });
         expect(envelope!.status).toBe('none');
-        expect(envelope!.refusal!.code).toBe('source-data-unavailable');
+        expect(envelope!.refusal!.code).toBe('no-rule-pack');
         expect(envelope!.maxHeight_m).toBeNull();
+    });
+
+    it('§L-11840 — the gate-shut refusal never invites a retry, unlike the transient refusal it replaced', async () => {
+        // The direct regression test for the defect the founder's Amsterdam report traced to: the
+        // dispatcher used to answer a shut certification gate with the SAME copy as a failed fetch
+        // ("temporarily unavailable ... retried ... re-select the parcel to try again"), which is
+        // false for a gate that will not reopen on any number of retries. Pin the honest copy.
+        const { envelope } = await dispatchNl(BOUWVLAK_BODY);
+        const refusal = envelope!.refusal!;
+        expect(refusal.detail).not.toMatch(/try again/i);
+        expect(refusal.detail).not.toMatch(/retried automatically/i);
+        expect(refusal.headline.toLowerCase()).toContain('not yet been authorised');
+        expect(refusal.legallyGrounded).toBe(false);
     });
 
     it('S5 — the Netherlands is lit on the C60 coverage globe, with the dispatcher own predicate', () => {

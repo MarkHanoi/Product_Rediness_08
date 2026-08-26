@@ -1783,6 +1783,10 @@ export {
     // STRUCTURAL-SEAM-4 — the NL genuine-absence refusal (no-plan-at-point), distinct from the
     // transient `nlBestemmingsplanRefusal`.
     nlNoPlanRefusal,
+    // §L-11840 — the NL gate-shut (publication-not-authorised) refusal, distinct from BOTH of the
+    // above: neither a transient fetch failure nor a genuine source-side absence, but a PRYZM-side
+    // sign-off still outstanding (§UNSIGNED-GATE-DEFAULTS-SHUT). No retry affordance.
+    nlPublicationNotAuthorisedRefusal,
 } from './rulepacks/nlBestemmingsplan.js';
 export {
     resolveNlBestemmingsplan,

@@ -16,6 +16,7 @@ import {
     NL_RING_REF,
     bestemmingToPermittedUse,
     nlBestemmingsplanRefusal,
+    nlPublicationNotAuthorisedRefusal,
     isInAmsterdam,
 } from '../src/index.js';
 
@@ -66,6 +67,43 @@ describe('nlBestemmingsplanRefusal — the cited, honest refusal (the shipping s
         expect(r.headline).toContain('Amsterdam Zuidas');
         // No numeric allowance anywhere in the refusal — it declines, it does not estimate.
         expect(r.detail).toMatch(/decline|no number/i);
+    });
+});
+
+describe('nlPublicationNotAuthorisedRefusal — §L-11840, the gate-shut refusal', () => {
+    // §L-11840 (founder report, Amsterdam parcel ASD03 E 10155) — the root cause traced to
+    // `NL_BESTEMMINGSPLAN_CERTIFIED === false` (§UNSIGNED-GATE-DEFAULTS-SHUT, 2026-08-02): the
+    // pack + resolver are proven live nationwide, but publication awaits a founder signature
+    // (ADR-0283 Doctrine B), so `applyNlZoningThenFallback` never even reaches the fetch. This
+    // refusal is what replaces the pre-fix bug — reusing the TRANSIENT `nlBestemmingsplanRefusal`
+    // copy ("temporarily unavailable ... retried ... try again") for a state no retry can clear.
+    it('is a valid EnvelopeRefusal that never claims a retry will help', () => {
+        const r = nlPublicationNotAuthorisedRefusal();
+        expect(() => EnvelopeRefusalSchema.parse(r)).not.toThrow();
+        // The enum has no dedicated "unauthorised" code — `no-rule-pack` is the documented honest
+        // fit (mirrors `cordobaUnverifiedRefusal`'s identical compromise for the same situation).
+        expect(r.code).toBe('no-rule-pack');
+        expect(r.legallyGrounded).toBe(false); // a statement about PRYZM's sign-off, not the land
+        expect(r.ordinanceRef).toBeTruthy();
+        expect(r.detail).not.toMatch(/try again/i);
+        expect(r.detail).not.toMatch(/retried automatically/i);
+        expect(r.detail).not.toMatch(/temporarily unavailable/i);
+    });
+
+    it('names the real reason — a proven live source withheld pending sign-off, not a fetch failure', () => {
+        const r = nlPublicationNotAuthorisedRefusal();
+        expect(r.headline.toLowerCase()).toContain('not yet been authorised');
+        expect(r.detail).toMatch(/sign-off|signature/i);
+        // The live-proof evidence should stay legible in the refusal so the card cannot read as
+        // "PRYZM cannot do this" when the truth is "PRYZM has proven this and awaits sign-off".
+        expect(r.detail).toMatch(/PDOK/);
+    });
+
+    it('is distinct from BOTH sibling refusals — three different reasons must never share a code+copy', () => {
+        const gateShut = nlPublicationNotAuthorisedRefusal();
+        const transient = nlBestemmingsplanRefusal();
+        expect(gateShut.code).not.toBe(transient.code);
+        expect(gateShut.detail).not.toBe(transient.detail);
     });
 });
 

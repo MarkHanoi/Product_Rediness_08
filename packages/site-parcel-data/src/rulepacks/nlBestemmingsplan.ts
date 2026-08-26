@@ -199,6 +199,54 @@ export function nlBestemmingsplanRefusal(
 }
 
 /**
+ * §L-11840 / L-449 — the NL PUBLICATION-NOT-AUTHORISED refusal: `NL_BESTEMMINGSPLAN_CERTIFIED` is
+ * SHUT (§UNSIGNED-GATE-DEFAULTS-SHUT, 2026-08-02), so this branch fires WITHOUT ever querying the
+ * PDOK RP WMS for this parcel.
+ *
+ * ⚠ THE DEFECT THIS REPLACES. The dispatcher used to answer the gate-shut case with
+ * `nlBestemmingsplanRefusal()` — the SAME copy used for a genuine transient PDOK outage
+ * ("temporarily unavailable ... has been retried automatically ... Re-select the parcel to try
+ * again"). That is a category error: a shut human-verification gate is a PERMANENT, administrative
+ * fact about PRYZM's own publication policy, not a network hiccup — no retry, automatic or manual,
+ * ever clears it, only a founder signature does (ADR-0283 Doctrine B). Telling the user to
+ * "try again" for a state that cannot change on a retry is the exact failure≠empty conflation
+ * §CONTEXT-DATA-HONESTY exists to prevent, one level removed (governance-hold vs. transient
+ * failure instead of absence vs. failure).
+ *
+ * Mirrors `cordobaUnverifiedRefusal` (`esCordobaZoneClassification.ts`) and the §ENVELOPE-
+ * PUBLICATION-AUTHORISATION (L-665) `pack-unverified` answerability class: PRYZM HOLDS a proven,
+ * live, keyless-resolved rule (nationwide PDOK RP WMS, verified live at Rotterdam/Utrecht/
+ * Groningen) and is simply not yet authorised to publish it. `code: 'no-rule-pack'` — the enum
+ * carries no dedicated "unverified/unauthorised" code (same honest-fit compromise Córdoba's
+ * refusal documents); the copy carries the precise meaning instead.
+ *
+ * `legallyGrounded: false` — a statement about PRYZM's OWN sign-off state, never about the
+ * ordinance or the parcel's land. No retry affordance: re-selecting the parcel re-runs this same
+ * branch and returns this same refusal until a human signs.
+ */
+export function nlPublicationNotAuthorisedRefusal(): EnvelopeRefusal {
+    return {
+        code: 'no-rule-pack',
+        headline:
+            'Bestemmingsplan — PRYZM has read and proven this rule live, but has not yet been ' +
+            'authorised to publish a number for it.',
+        detail:
+            'The Netherlands publishes the buildable envelope (bouwvlak) and its dimensions ' +
+            '(maatvoering) machine-readable nationwide via the keyless PDOK "Ruimtelijke plannen" ' +
+            'WMS, and PRYZM\'s reader is proven against real published values (e.g. Rotterdam 40 m, ' +
+            'Utrecht 26 m, Groningen 24 m maximum bouwhoogte). What is missing is not data: a ' +
+            'human sign-off on publishing NL numbers nationwide is still outstanding ' +
+            '(§UNSIGNED-GATE-DEFAULTS-SHUT — every open-and-unsigned gate found in this repo is ' +
+            'shut by default until a person signs it, ADR-0283). This parcel was not even queried ' +
+            '— the gate closes before the fetch, so no amount of re-selecting the parcel changes ' +
+            'this answer. Only a recorded signature does.',
+        ordinanceRef: NL_ORDINANCE_REF,
+        legallyGrounded: false,
+        knownFacts: [],
+    };
+}
+
+/**
  * L-609 / STRUCTURAL-SEAM-4 — the NL GENUINE-ABSENCE refusal: the PDOK WMS ANSWERED and there is no
  * adopted bestemmingsplan (or no bouwvlak / usable zone-extent) at this point. A DURABLE coverage
  * fact, not a failed fetch — so `code: 'no-plan-at-point'`, NOT the transient `source-data-unavailable`,
