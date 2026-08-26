@@ -31,6 +31,15 @@ import {
     type FloorData,
     type CeilingData,
     type SeatingLevelLike,
+    // §LIGHT121 (L-11900) — the shared PRYZM-purple "object placement" ghost
+    // material every sister tool (Furniture, Plumbing, Kitchen, Decor, Outdoor,
+    // Bathroom, Soft Furnishings) already uses — see PreviewStyle.ts's own header,
+    // which NAMES Lighting in that list. This tool alone hand-rolled a pale cyan
+    // (0x00ccff @ 0.45) material instead, which is why the founder's 3D preview
+    // "exists but you don't see it" — it was never on-brand and read as near-
+    // invisible against the scene. Contract §41 / C18.
+    createObjectPreviewMaterial,
+    tagPreview,
 } from '@pryzm/core-app-model';
 import { LightingStore } from './LightingStore.js';
 import { LightingFragmentBuilder } from './LightingFragmentBuilder.js';
@@ -96,14 +105,15 @@ export class LightingTool {
         const geo = isFloor
             ? new THREE.CylinderGeometry(0.15, 0.15, 0.04, 16)  // flat disc for floor lamps
             : new THREE.CylinderGeometry(0.065, 0.065, 0.12, 16); // canister for ceiling
-        const mat = new THREE.MeshStandardMaterial({
-            color: 0x00ccff,
-            transparent: true,
-            opacity: 0.45,
-            wireframe: false,
-        });
+        // §LIGHT121 (L-11900) — the SHARED "object placement" ghost, not a
+        // hand-rolled colour. PreviewStyle.ts's OBJECT key already names Lighting
+        // as one of its sister tools (Furniture / Plumbing / Kitchen / Decor /
+        // Outdoor / Bathroom / Soft Furnishings all resolve through this same
+        // factory); this tool was the one holdout still drawing a pale cyan
+        // (0x00ccff @ 0.45) ghost that read as near-invisible. Contract §41 / C18.
+        const mat = createObjectPreviewMaterial();
         const mesh = new THREE.Mesh(geo, mat);
-        mesh.userData.isPreview = true;
+        tagPreview(mesh);
         const group = new THREE.Group();
         group.add(mesh);
         mesh.position.y = isFloor ? 0.02 : -0.06;

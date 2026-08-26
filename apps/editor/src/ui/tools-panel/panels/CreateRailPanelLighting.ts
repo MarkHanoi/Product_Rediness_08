@@ -266,14 +266,32 @@ export function buildLightingPanel(): HTMLElement {
             card.appendChild(textWrap);
 
             card.addEventListener('click', () => {
-                const lt = window.lightingTool; // TODO(E.lighting.T): legacy lightingTool — replace with runtime.tools.activate('lighting', mode)
+                // §LIGHT121 (L-11900) — route through ToolManager.activateLighting,
+                // NOT window.lightingTool directly. Driving the 3D tool by hand
+                // bypassed ToolManager entirely, so its active-tool string never
+                // became 'lighting' — PlanViewToolOverlay / SvpPlanToolOverlay
+                // subscribe to exactly that string to decide which PlanToolHandler
+                // to arm, so LightingPlanToolHandler (fully coded, registered, and
+                // dead) never activated: the founder's "no preview in plan view".
+                // activateLighting mirrors activateFurniture — it stamps the
+                // active-fixture-type flag AND arms the 3D tool in one call, so both
+                // surfaces are reachable from this one click. TODO(E.lighting.T):
+                // still legacy window plumbing under the hood — replace with
+                // runtime.tools.activate('lighting', mode) when that lands.
+                const tm = window.toolManager;
+                if (typeof tm?.activateLighting === 'function') {
+                    void tm.activateLighting(def.type);
+                    return;
+                }
+                // Fallback for a runtime where ToolManager isn't wired yet — 3D-only,
+                // the pre-existing degraded behaviour.
+                const lt = window.lightingTool;
                 if (!lt) {
                     console.warn('[CreateRailPanel] lightingTool not ready');
                     return;
                 }
                 if (typeof lt.setFixtureType === 'function') lt.setFixtureType(def.type);
-                // Mirror to plan-view tool handler (LightingPlanToolHandler reads this flag)
-                window._pryzmActiveLightingType = def.type; // TODO(E.lighting.X): legacy _pryzmActiveLightingType — replace with runtime.tools.lighting active-fixture state
+                window._pryzmActiveLightingType = def.type;
                 if (typeof lt.activate === 'function') lt.activate();
             });
 

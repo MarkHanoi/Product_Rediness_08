@@ -167,7 +167,13 @@ describe('§FEAT-DUAL-VIEW-CREATION-MATRIX — the creation matrix is real, not 
             // explicit that a pod may be placed *"against a wall in a space that will
             // become one"*, i.e. before any room record exists. So the list GREW
             // again, and the growth is recorded with its reason.
-            expect(gaps).toEqual(['balcony', 'bathroom-pod', 'boundary-line', 'lighting', 'pool']);
+            //
+            // ⭐ UPDATED 2026-08-26 (§LIGHT121, L-11900): `lighting` LEAVES this
+            // ledger. `ToolManager.activateLighting` now publishes the key (mirrors
+            // `activateFurniture`), so the row declares both views and the list
+            // SHRANK — this comment's own instruction says to tighten for that, not
+            // to absorb it. It was five; it is four.
+            expect(gaps).toEqual(['balcony', 'bathroom-pod', 'boundary-line', 'pool']);
         });
 
         it('reports the LATENT mode-desync risks (the shape of the founder\'s AUTO bug)', () => {

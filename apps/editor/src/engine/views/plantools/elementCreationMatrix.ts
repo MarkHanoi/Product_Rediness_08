@@ -794,13 +794,33 @@ export const ELEMENT_CREATION_MATRIX: readonly ElementCreationCapability[] = [
            + 'the legacy plumbing store and knows nothing about pods (L-11405).',
     },
     {
+        // §LIGHT121 (L-11900, founder: "Lighting creation in plan view has no
+        // preview available, neither preview in 3D") — CLOSED for BOTH views.
+        //
+        // ⚠ THIS ROW USED TO READ `views: ['plan']`, THE OPPOSITE OF WHAT WAS
+        // ACTUALLY BROKEN. It reasoned correctly that `ToolManager` published no
+        // 'lighting' key, but concluded from that alone that 3D placement could
+        // not work — without tracing that the create-rail panel drove
+        // `window.lightingTool.activate()` DIRECTLY, attaching pointer listeners
+        // straight to the 3D canvas, entirely independent of ToolManager. 3D
+        // placement therefore DID work (which is why the founder saw a ghost
+        // fixture in 3D at all — just badly coloured, a separate fix); PLAN was
+        // the view with NO route at all, because `PlanViewToolOverlay` /
+        // `SvpPlanToolOverlay` arm a `PlanToolHandler` by subscribing to
+        // `ToolManager.getActiveTool()`, and that string could never become
+        // 'lighting' with no activator to set it. A registry-only reading of this
+        // gap got the AFFECTED VIEW backwards; tracing the actual call site is
+        // what found it.
+        //
+        // Fixed: `ToolManager.activateLighting(type)` (mirrors `activateFurniture`
+        // exactly) now publishes the 'lighting' key AND drives the 3D tool in one
+        // call; `CreateRailPanelLighting.ts`'s card click routes through it instead
+        // of touching `window.lightingTool` by hand.
         tool: 'lighting', label: 'Lighting fixture',
-        views: ['plan'], modes: [], autoIn: [], modeSource: 'n/a',
-        gap: 'NOT IMPLEMENTED — PLAN-ONLY, the mirror image of `lift`. ' +
-             '`LightingPlanToolHandler` is registered, but `ToolManager` publishes no ' +
-             "'lighting' key and exposes no `activateLighting`, so the fixture cannot be " +
-             'placed by clicking in the 3D view. Auto-layout exists only as a batch ' +
-             'executor (LightingLayoutExecutor), not as a tool mode in either view.',
+        views: ['plan', '3d'], modes: [], autoIn: [], modeSource: 'n/a',
+        gap: 'AUTO NOT IMPLEMENTED from either interactive view — auto-layout exists ' +
+             'only as a batch/AI executor (LightingLayoutExecutor), not as a tool mode ' +
+             'a click can reach in plan or 3D.',
     },
     { tool: 'grid', label: 'Grid', views: ['plan', '3d'],
       modes: [

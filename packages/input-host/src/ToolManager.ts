@@ -58,7 +58,13 @@ export type ActiveTool = ToolName;
 export const TOOL_MANAGER_TOOL_KEYS: readonly string[] = [
     'angular-dimension', 'beam', 'callout-detail', 'ceiling', 'column', 'curtain-wall',
     'diameter-dimension', 'door', 'door-tag', 'element-tag', 'elevation-mark', 'floor',
-    'furniture', 'grid', 'grid-bubble', 'keynote', 'level-tag', 'lift', 'linear-dim',
+    'furniture', 'grid', 'grid-bubble', 'keynote', 'level-tag', 'lift',
+    // §LIGHT121 (L-11900) — the founder's "no preview in plan view" report traced to
+    // this exact absence. `activateLighting` below publishes the key; see its own
+    // doc comment for why the gap existed despite `LightingPlanToolHandler` already
+    // being fully coded and registered in the plan registry.
+    'lighting',
+    'linear-dim',
     'opening', 'plumbing', 'radius-dimension', 'railing', 'revision-cloud', 'roof',
     'room', 'section-mark', 'slab', 'slope-dimension', 'spot-elevation', 'stair',
     'stair-path', 'text-note', 'wall', 'window', 'window-tag',
@@ -975,6 +981,33 @@ export class ToolManager {
             if (tool) {
                 tool.setFurnitureType(type);
                 tool.activate();
+            }
+        });
+    }
+
+    // §LIGHT121 (L-11900) — the founder: "Lighting creation in plan view has no
+    // preview available". `LightingPlanToolHandler` was fully coded and registered
+    // in `planToolHandlerRegistry` all along, but nothing ever ARMED it: the
+    // lighting create-rail panel drove `window.lightingTool.activate()` DIRECTLY,
+    // bypassing ToolManager entirely, so `ToolManager.activeTool` never became
+    // 'lighting' and `PlanViewToolOverlay` / `SvpPlanToolOverlay` — which subscribe
+    // to exactly that string to decide which PlanToolHandler to arm — never
+    // activated it. The 3D placement tool worked (it attaches its own pointer
+    // listeners straight to the 3D canvas, independent of ToolManager), which is
+    // why the founder saw a ghost in 3D and none in plan.
+    //
+    // Mirrors `activateFurniture` exactly: stamp the active-fixture-type window
+    // flag `LightingPlanToolHandler` reads, then route through `activateTool` so
+    // BOTH surfaces are armed by the one call.
+    async activateLighting(type: string): Promise<void> {
+        window._pryzmActiveLightingType = type;
+        await this.activateTool('lighting', () => {
+            const tool = window.lightingTool;
+            if (tool) {
+                if (typeof tool.setFixtureType === 'function') tool.setFixtureType(type);
+                tool.activate();
+            } else {
+                console.warn('ToolManager: window.lightingTool is NULL — was it initialised?');
             }
         });
     }

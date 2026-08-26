@@ -44,6 +44,9 @@ export type ToolName =
     // Sprint 3 — Missing element types in plan view
     | 'furniture'
     | 'plumbing'
+    // §LIGHT121 (L-11900) — publishes the key `activateLighting` (ToolManager.ts)
+    // activates, so `PlanViewToolOverlay` can arm `LightingPlanToolHandler`.
+    | 'lighting'
     | 'opening'
     | 'grid'
     | 'section-mark'
