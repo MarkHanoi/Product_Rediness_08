@@ -46,4 +46,6 @@ export {
   SetRoomOccupancyCommand,
   UpdateRoomBoundaryCommand,
   UpdateRoomCommand,
+  // §ROOMTYPE142 — content-based bulk autofill (name + occupancy, one undo).
+  BulkAutoClassifyRoomsCommand,
 } from '@pryzm/command-registry';

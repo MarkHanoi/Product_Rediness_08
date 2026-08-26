@@ -833,6 +833,21 @@ export function appendRoomPropertySection(
             import('./RoomAutoOrganiser').then(m => { m.openAutoOrganiseModal(room.levelId); });
         });
         id6.body.appendChild(aoBtn);
+
+        // Autofill Room Names — §ROOMTYPE142. Deterministic, content-based
+        // rename (bed → Bedroom, kitchen+sofa → Kitchen-Living, …), AD-HOC —
+        // run only on click, never on a store subscription (performance ask).
+        const afBtn = makeWideBtn('⚡  Autofill Room Names…', {
+            bg:     C.purpleSoft,
+            color:  C.purple,
+            border: C.purpleBorder,
+        });
+        afBtn.title = 'Rename rooms on this level from their contents (bed → Bedroom, kitchen+sofa → Kitchen-Living, …). Skips rooms you already renamed by hand.';
+        afBtn.style.marginTop = '4px';
+        afBtn.addEventListener('click', () => {
+            import('./RoomAutoOrganiser').then(m => { m.openAutoFillModal({ kind: 'level', levelId: room.levelId }); });
+        });
+        id6.body.appendChild(afBtn);
     }
 
     // ── 7  CONTAINED ELEMENTS ────────────────────────────────────────────────

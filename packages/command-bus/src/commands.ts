@@ -834,6 +834,19 @@ export type RoomMutationCommands = {
         boundary: { polygon: Array<{ x: number; z: number }>; centroid?: { x: number; z: number }; [k: string]: unknown };
         boundingWallIds?: string[];
     };
+
+    /**
+     * §ROOMTYPE142 — bulk content-based autofill: rename + reclassify many
+     * rooms in ONE undo entry (C16 §8.6). `patches` is an already-decided list
+     * — the caller (RoomAutoOrganiser.ts's autofill modal) has already run the
+     * classifier, filtered UNCLASSIFIED rooms and user-authored names, and let
+     * the user uncheck individual rows; this command does not re-decide any of
+     * that, it only applies what it is given (mirrors `room.rename`'s combined
+     * name+occupancy patch, one room at a time, for many rooms at once).
+     */
+    'room.autoClassify.batch': {
+        readonly patches: ReadonlyArray<{ readonly roomId: string; readonly name: string; readonly occupancyType: string }>;
+    };
 };
 
 /** D-α-2 (BIM 2/3 §6 Workstream D) — apartment-parameter mutation payloads.

@@ -255,6 +255,7 @@ export * from './rooms/UpdateRoomBoundaryCommand';
 export * from './rooms/UpdateRoomCommand';
 export * from './rooms/UpdateRoomFinishesCommand';
 export * from './rooms/UpdateRoomFinishesBulkCommand';
+export * from './rooms/BulkAutoClassifyRoomsCommand';
 // §REGION-HOST-ATTRIBUTION (C79 §6.3 rows 9–10) — the ONE shared room-finish boundary
 // attributor. Exported so the PLAN TOOL HANDLERS (`apps/editor`) can build the SAME
 // sketch the create-commands build, rather than minting a rival tracer for finishes —

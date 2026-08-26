@@ -163,6 +163,7 @@ import { UpdateFurnitureParametersCommand } from '@pryzm/command-registry';
 import { ChangeFurnitureTypeCommand } from '@pryzm/command-registry';
 // §RACKITCHEN127 — bulk kitchen carcass/door-front/countertop material batch.
 import { BulkUpdateKitchenMaterialCommand } from '@pryzm/command-registry';
+import { BulkAutoClassifyRoomsCommand } from '@pryzm/command-registry';
 import { CreatePlumbingFixtureCommand } from '@pryzm/command-registry';
 import { UpdatePlumbingParametersCommand } from '@pryzm/command-registry';
 import { MovePlumbingCommand } from '@pryzm/command-registry';
@@ -349,6 +350,8 @@ const REGISTRY = new Map<string, CommandFactory>([
     ['UPDATE_ROOM', (s) => new UpdateRoomCommand(s.payload.roomId, s.payload.updates)],
     ['SET_ROOM_OCCUPANCY', (s) => new SetRoomOccupancyCommand(s.payload.roomId, s.payload.occupancyType)],
     ['RENAME_ROOM', (s) => new RenameRoomCommand(s.payload.roomId, s.payload.updates)],
+    // §ROOMTYPE142 — content-based autofill batch (name + occupancy, one undo).
+    ['BULK_AUTO_CLASSIFY_ROOMS', (s) => BulkAutoClassifyRoomsCommand.deserialize(s)],
 
     // ── Columns ───────────────────────────────────────────────────────────────
     ['CREATE_COLUMN', (s) => new CreateColumnCommand(s.payload as any)],

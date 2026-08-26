@@ -16,6 +16,7 @@ import { RedetectRoomsHandler } from './RedetectRooms.js';
 import { RegenerateRoomsHandler } from './RegenerateRooms.js';
 import { RenameRoomHandler } from './RenameRoom.js';
 import { CreateTemplateHandler } from './CreateTemplate.js';
+import { BulkAutoClassifyRoomsHandler } from './BulkAutoClassifyRooms.js';
 // §ROOM-TOMBSTONE (L-10814) — the APPLY half of the DERIVATION + TOMBSTONE ruling.
 import { RestoreRoomMeaningHandler } from './RestoreRoomMeaning.js';
 
@@ -39,6 +40,9 @@ export const ROOM_HANDLER_TYPES = [
   // design and what closes it.
   'room.regenerate',
   'room.rename',
+  // §ROOMTYPE142 — bulk content-based autofill (name + occupancy), one undo
+  // entry for the whole batch. See BulkAutoClassifyRooms.ts.
+  'room.autoClassify.batch',
   // §ROOM-TOMBSTONE (L-10814) / C94 RM-3 — restores the NAME/NUMBER/OCCUPANCY of a
   // room a re-detection destroyed, onto the new room that replaced it. ⛔ MEANING
   // only: it writes no id and no geometry, because the founder's ruling granted
@@ -75,6 +79,7 @@ export function buildRoomHandlerSet(): readonly CommandHandler<unknown>[] {
     new RestoreRoomMeaningHandler() as unknown as CommandHandler<unknown>,
     RenameRoomHandler as unknown as CommandHandler<unknown>,
     CreateTemplateHandler as unknown as CommandHandler<unknown>,
+    BulkAutoClassifyRoomsHandler as unknown as CommandHandler<unknown>,
   ];
 }
 
@@ -117,3 +122,8 @@ export {
 } from './RegenerateRooms.js';
 export { RenameRoomHandler, type RenameRoomPayload } from './RenameRoom.js';
 export { CreateTemplateHandler, type CreateTemplatePayload } from './CreateTemplate.js';
+export {
+  BulkAutoClassifyRoomsHandler,
+  type BulkAutoClassifyRoomsPayload,
+  type BulkAutoClassifyRoomsPatch,
+} from './BulkAutoClassifyRooms.js';

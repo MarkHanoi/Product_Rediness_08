@@ -88,6 +88,20 @@ export {
 } from './RoomTypeInferenceEngine.js';
 export type { RoomTypeInferenceSuggestion } from './RoomTypeInferenceEngine.js';
 
+// §ROOMTYPE142 — the deterministic, table-driven bulk "autofill room name"
+// classifier. Separate from RoomTypeInferenceEngine (see that file's sibling
+// header for why); shares the same containment authority.
+export {
+  ROOM_AUTOFILL_RULES,
+  gatherRoomAutofillSignals,
+  classifyRoomForAutofill,
+} from './RoomAutoFillClassifier.js';
+export type {
+  AutoFillRule,
+  RoomContentSignals,
+  RoomAutoFillClassification,
+} from './RoomAutoFillClassifier.js';
+
 // ── SL-3: Façade orientation (SPEC-SEMANTIC-DESIGN-ASSISTANT §3) ──────────────
 // Pure math + types live in FacadeOrientationMath (no barrel-load side effects —
 // import that module directly in tests). The store-backed service + singleton
