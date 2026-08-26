@@ -115,6 +115,8 @@ import * as ifcStorageService from './server/ifcStorageService.js';
 import * as dwgConversionService from './server/dwgConversionService.js';
 import { z } from 'zod';
 import { updateProjectThumbnail as pgUpdateProjectThumbnail } from './server/projectStore.js';
+// §SUSTAIN109 (L-10405) — list rows carry thumbnail METADATA, never bytes.
+import { withThumbnailMetadata } from './server/projectThumbnail.js';
 import {
     upsertOAuthUser, mintToken, getBaseUrl,
     googleAuthUrl, exchangeGoogleCode, fetchGoogleProfile,
@@ -2936,7 +2938,11 @@ app.get('/api/projects', authMiddleware, async (req, res) => {
                 .eq('owner_id', userId)
                 .order('updated_at', { ascending: false }).limit(50);
             if (error) throw error;
-            supabaseProjects = data ?? [];
+            // §SUSTAIN109 (L-10405) — PostgREST cannot project `thumbnail IS NOT NULL`
+            // without an RPC, so the column is still read from the DB here; it is
+            // stripped to metadata BEFORE the response, which is the leg that cost the
+            // founder: the browser download of up to fifty base64 previews per mount.
+            supabaseProjects = (data ?? []).map(withThumbnailMetadata);
         }
 
         // Always also fetch from Replit PG when available.
@@ -3421,7 +3427,10 @@ app.patch('/api/projects/:id/thumbnail', authMiddleware, async (req, res) => {
         const proj = pgProjectStore.imGetProject(id); // §STORE-UNIFY — single in-memory authority
         if (!proj) return res.status(404).json({ error: 'Project not found.' });
         if (proj.ownerId !== userId) return res.status(403).json({ error: 'Forbidden' });
-        proj.thumbnail = thumbnail;
+        // §SUSTAIN109 (L-10405) — `proj` is the v0 COPY `imGetProject` returns; the
+        // old `proj.thumbnail = thumbnail` wrote onto a throwaway and the in-memory
+        // preview was never stored. Write through the store's own setter.
+        pgProjectStore.imSetProjectThumbnail(id, userId, thumbnail);
         // §FIX-THUMBNAIL-DURABILITY — name the tier that accepted the write, the
         // way server/ifcStorageService.js records `complete` vs
         // `complete_db_fallback`. The in-memory store does NOT survive a server

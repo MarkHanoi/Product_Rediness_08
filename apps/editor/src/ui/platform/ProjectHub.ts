@@ -37,7 +37,12 @@ import { assessListCompleteness, mayConcludeAbsence, describeCompleteness, type 
 // old code could only adopt the durable server copy inside the freshness gate —
 // which is false for exactly the unchanged projects whose cache was just wiped.
 import { planThumbnailReconcile, describeThumbnailResolution } from './thumbnailReconcile';
-import { uploadProjectThumbnail, describeUploadOutcome } from './thumbnailUpload';
+import {
+    uploadProjectThumbnail, describeUploadOutcome,
+    // §SUSTAIN109 (L-10405) — the READ leg: previews leave the list response and are
+    // fetched per card, lazily, after the grid is interactive.
+    downloadProjectThumbnail, describeDownloadOutcome,
+} from './thumbnailUpload';
 import { EntitlementStore } from '@pryzm/core-app-model';
 import { getPlanDisplayName, PLAN_LIMITS } from '@pryzm/core-app-model';
 import { ProjectMemberPanel, ProjectMember, MemberLoadResult } from './ProjectMemberPanel';
@@ -134,6 +139,14 @@ export class ProjectHub {
      * after the grid is interactive. See `_runDeferredMaintenance`.
      */
     private _pendingThumbBackfill: Array<{ projectId: string; value: string }> = [];
+    /**
+     * §SUSTAIN109 (L-10405) — previews the server HOLDS but the list did not carry
+     * (`has_thumbnail` + `thumbnail_url`, no bytes). Fetched one connection at a
+     * time after the grid is interactive, then seeded into the local cache exactly
+     * as the inline-bytes leg seeds it. Same durability story as before: the
+     * bytes are the server's; what changed is WHEN and per WHAT they travel.
+     */
+    private _pendingThumbFetch: Array<{ projectId: string; url: string }> = [];
 
     // Phase 10: Platform Owner Settings
     private readonly _ownerSettingsPanel = new OwnerSettingsPanel();
@@ -380,6 +393,15 @@ export class ProjectHub {
                 if (r.backfillToServer && r.value) {
                     this._pendingThumbBackfill.push({ projectId: r.projectId, value: r.value });
                 }
+                // §SUSTAIN109 (L-10405) — the server holds bytes the cache lacks and
+                // the list carried only their URL. Collected, never fetched here: the
+                // same connection-budget reasoning as the back-fill above, applied to
+                // the read leg. Fifty previews used to arrive INSIDE the list body
+                // before a card could paint; now the grid paints from the local cache
+                // first and the missing previews fill in one at a time.
+                if (r.fetchFromServer && r.serverUrl) {
+                    this._pendingThumbFetch.push({ projectId: r.projectId, url: r.serverUrl });
+                }
             }
 
             markStartupPhase('hub:sync-thumbs-done');
@@ -488,15 +510,22 @@ export class ProjectHub {
             // find out whether a fix named "durability" is working. So state it:
             // a row is durable when the SERVER holds usable bytes, whichever copy
             // was painted.
+            // §SUSTAIN109 (L-10405) — `server-remote` rows are DURABLE too: the server
+            // holds the bytes; the list simply no longer carries them. They paint
+            // after the deferred fetch below seeds the cache, and the line says so.
+            const _remote = thumbPlan.filter(r => r.source === 'server-remote').length;
             const _durable = thumbPlan.filter(
-                r => r.source === 'server' || (r.source === 'local-cache' && !r.backfillToServer),
+                r => r.source === 'server' || r.source === 'server-remote'
+                    || (r.source === 'local-cache' && !r.backfillToServer),
             ).length;
             console.log(
                 `[ProjectHub] §FIX-THUMBNAIL-DURABILITY thumbnails: ${thumbPlan.length} row(s) — ` +
                 `${_durable} DURABLE (server holds usable bytes; these survive sign-out) — ` +
                 `${thumbPlan.filter(r => r.source === 'local-cache').length} painted from local cache, ` +
                 `${thumbPlan.filter(r => r.source === 'server').length} painted from the durable server column ` +
-                `(${_seeded} seeded into the local cache), ${_backfilled} backfilled to the server, ` +
+                `(${_seeded} seeded into the local cache), ` +
+                `${_remote} held by the server and queued for a per-card fetch (§SUSTAIN109 — no bytes in the list), ` +
+                `${_backfilled} backfilled to the server, ` +
                 `${_absent.length} absent [${[...new Set(_absent.map(r => r.reason))].join(', ') || 'n/a'}]`,
             );
 
@@ -540,7 +569,49 @@ export class ProjectHub {
             markStartupPhase('hub:sync-done');
             // §PERF104 (L-11543) — F4. The grid is interactive; the preview repair may
             // now use the connection budget it was previously competing for.
-            void this._drainThumbnailBackfill();
+            // §SUSTAIN109 (L-10405) — the FETCH leg first (it is what fills the blank
+            // cards after a sign-out), then the back-fill; both one connection at a
+            // time, both stopping the instant an open begins.
+            void this._drainThumbnailFetch().then(() => this._drainThumbnailBackfill());
+        }
+    }
+
+    /**
+     * §SUSTAIN109 (L-10405) — fetch the previews the server holds but the list no
+     * longer carries, one at a time, and seed the local cache with each.
+     *
+     * Mirrors `_drainThumbnailBackfill` deliberately: same `runDeferred`, same
+     * chunk size of ONE, same open-in-flight stop, same "paused, not dropped"
+     * statement. One repaint at the end (not one per preview) so fifty cards do
+     * not cost fifty `innerHTML` rebuilds; a paused drain repaints what it managed.
+     */
+    private async _drainThumbnailFetch(): Promise<void> {
+        const queue = this._pendingThumbFetch;
+        if (queue.length === 0) return;
+        this._pendingThumbFetch = [];
+        let seeded = 0;
+        const run = await runDeferred(queue, async (row) => {
+            const outcome = await downloadProjectThumbnail(row.url);
+            if (outcome.ok) {
+                seedCachedThumbnail(row.projectId, outcome.dataUrl);
+                seeded++;
+            }
+            console.log(`[ProjectHub] §SUSTAIN109 thumbnail fetch ${row.projectId}: ${describeDownloadOutcome(outcome)}`);
+        }, {
+            chunkSize: 1,
+            isOpenInFlight: () => this._openInFlight,
+            isDestroyed: () => this._destroyed,
+            onError: (row, err) => {
+                console.warn(`[ProjectHub] §SUSTAIN109 thumbnail fetch ${row.projectId} threw (will retry next hub mount):`, err);
+            },
+        });
+        if (seeded > 0 && !this._destroyed) this.refreshGrid();
+        if (!run.complete) {
+            console.log(
+                `[ProjectHub] §SUSTAIN109 thumbnail fetch PAUSED after ${run.processed} of ${queue.length} ` +
+                `(${run.stoppedBecause}) — the remaining ${run.remaining} are NOT lost: the plan is recomputed on ` +
+                'the next hub mount.',
+            );
         }
     }
 
@@ -811,6 +882,11 @@ export class ProjectHub {
                 if (typeof p.is_starred === 'boolean')   summary.isStarred   = p.is_starred;
                 if (typeof p.description === 'string' || p.description === null) {
                     summary.description = p.description as string | null;
+                }
+                // §SUSTAIN109 (L-10405) — forwarded only when the server sent it, same
+                // three-state discipline as `rowToSummary`.
+                if (typeof p.has_thumbnail === 'boolean') {
+                    (summary as { hasThumbnail?: boolean }).hasThumbnail = p.has_thumbnail;
                 }
                 return summary;
             });

@@ -94,6 +94,13 @@ export interface ServerProjectRow {
   readonly version_count?: number;
   readonly thumbnail?: string | null;
   readonly thumbnail_url?: string | null;
+  /**
+   * §SUSTAIN109 (L-10405) — the server's statement that its durable column holds
+   * usable bytes. List rows no longer carry `thumbnail` bytes; they carry this flag
+   * plus `thumbnail_url` (`/api/v1/projects/:id/thumbnail`). Optional so a server
+   * that predates the change still parses.
+   */
+  readonly has_thumbnail?: boolean;
   readonly updated_at?: string;
   readonly created_at?: string;
   readonly is_archived?: boolean;
@@ -126,6 +133,13 @@ export type LabelledProjectSummary = ProjectSummary & {
   readonly sharedWithMe?: boolean | null;
   readonly role?: string | null;
   readonly ownerId?: string | null;
+  /**
+   * §SUSTAIN109 (L-10405) — forwarded `has_thumbnail`. Same reasoning as the three
+   * above: a projection FACT at the client boundary, not a widening of the shared
+   * DTO. `thumbnailUrl` is now a URL to FETCH when this is `true` and the local
+   * cache is empty (`thumbnailReconcile.ts`), or inline bytes from an older server.
+   */
+  readonly hasThumbnail?: boolean;
 };
 
 /** Map a server row → store DTO.  Server uses `snake_case` (Postgres
@@ -161,6 +175,10 @@ export function rowToSummary(row: ServerProjectRow): LabelledProjectSummary {
   if (row.sharedWithMe !== undefined) summary.sharedWithMe = row.sharedWithMe;
   if (row.role !== undefined) summary.role = row.role;
   if (row.ownerId !== undefined) summary.ownerId = row.ownerId;
+  // §SUSTAIN109 (L-10405) — forwarded only when the server sent it: `undefined`
+  // means "this server still inlines bytes (or predates the flag)", which the
+  // reconcile layer must keep distinguishable from `false` ("no preview exists").
+  if (typeof row.has_thumbnail === 'boolean') summary.hasThumbnail = row.has_thumbnail;
   return summary;
 }
 
@@ -299,6 +317,13 @@ export class ProjectListClient {
     // keeps every individual response exactly the size it is today and pays for
     // completeness in request COUNT, which is the cheap axis. ⛔ Do not raise this
     // to 200 without first moving thumbnails out of the list row (L-10405).
+    // §SUSTAIN109 (L-10405, 2026-08-26) — ⭐ THE REASON ABOVE IS NOW HISTORICAL. The list
+    // no longer carries `thumbnail` bytes: the server projects `has_thumbnail` +
+    // `thumbnail_url` (`server/projectThumbnail.js`) and a 50-row page measures ~22 KB
+    // instead of ~2.9 MB (`server/__tests__/projectThumbnailInMemory.test.ts`). The
+    // page size is left at 50 deliberately: raising it is a separate decision about
+    // the `LEFT JOIN LATERAL` cost per row, not a payload one, and belongs to its own
+    // lane — this note exists so nobody re-derives the OLD reason from the text above.
     const pageSize = opts?.pageSize ?? 50;
     const maxPages = opts?.maxPages ?? 40;
 

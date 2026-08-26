@@ -45,6 +45,8 @@ import { Router } from 'express';
 import { z } from 'zod';
 import { getSupabaseClient } from '../../supabaseClient.js';
 import * as pgProjectStore from '../../projectStore.js';
+// §SUSTAIN109 (L-10405) — the per-project thumbnail bytes, served once, cached by ETag.
+import { decodeThumbnailDataUrl } from '../../projectThumbnail.js';
 import { getMigrationsSettled } from '../../pgClient.js';
 import {
     registerWebhook,
@@ -519,6 +521,47 @@ v1Router.get('/projects', async (req, res) => {
         return ok(res, rows, { limit, offset, hasMore });
     } catch (err) {
         const { status, body } = classifyV1Error(err, 'GET /api/v1/projects', userId);
+        return res.status(status).json(body);
+    }
+});
+
+/**
+ * GET /api/v1/projects/:id/thumbnail → the preview IMAGE (binary), or 404.
+ *
+ * §SUSTAIN109 (L-10405 / L-11548) — the other half of taking `p.thumbnail` out of
+ * the list. The list now says `has_thumbnail` + `thumbnail_url`; this route serves
+ * the bytes of ONE project, decoded from the stored data URL, with:
+ *   • a strong `ETag` over the stored string and `304` on `If-None-Match`, so an
+ *     unchanged preview costs the browser one conditional request and zero bytes;
+ *   • `Cache-Control: private` — the response is per-caller (membership-scoped)
+ *     and must never land in a shared cache; `Vary: Authorization` for the same
+ *     reason.
+ * READ scope = owner OR member (`getProjectThumbnail` carries `memberOrOwner`),
+ * matching the list that showed the card. Both "not visible to you" and "no
+ * preview" are 404: a caller may not learn from this route that a project exists.
+ */
+v1Router.get('/projects/:id/thumbnail', async (req, res) => {
+    const userId = req.auth?.userId;
+    if (!userId || userId === 'anonymous') return res.status(401).json({ error: 'Authentication required.' });
+    const { id } = req.params;
+    if (!pgProjectStore.isValidProjectId(id)) {
+        return res.status(400).json({ error: 'Invalid project ID format', code: 'invalid_id' });
+    }
+    try {
+        const row = await pgProjectStore.getProjectThumbnail(id, userId);
+        if (!row) return res.status(404).json({ error: 'Project not found.', code: 'project_not_found' });
+        const img = decodeThumbnailDataUrl(row.thumbnail);
+        if (!img) return res.status(404).json({ error: 'No thumbnail stored for this project.', code: 'no_thumbnail' });
+        const etag = `"${img.etag}"`;
+        res.setHeader('Cache-Control', 'private, max-age=86400');
+        res.setHeader('ETag', etag);
+        res.setHeader('Vary', 'Authorization');
+        if (req.headers['if-none-match'] === etag) return res.status(304).end();
+        res.setHeader('Content-Type', img.contentType);
+        res.setHeader('Content-Length', String(img.bytes.length));
+        return res.status(200).end(img.bytes);
+    } catch (err) {
+        const { status, body } = classifyV1Error(err, 'GET /api/v1/projects/:id/thumbnail', userId);
         return res.status(status).json(body);
     }
 });

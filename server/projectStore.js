@@ -20,6 +20,7 @@ import { ProjectConflictError, VersionLimitError, PreconditionFailedError, Proje
 // Kept in their own module so all three backends (PG, Supabase, in-memory) produce
 // ONE shape, and so the honesty rule about UNKNOWN membership is stated once.
 import { labelProjectsForCaller } from './projectShareLabel.js';
+import { withThumbnailMetadata } from './projectThumbnail.js';
 import { hasPermission } from './permissions.js';
 
 // §SERVER-V1-INMEMORY-FALLBACK (DAILY-USE 2026-05-21, Round 40) — last-resort
@@ -428,12 +429,20 @@ export async function listProjects(userId, opts) {
     if (!_hasPool()) {
         const rows = [];
         for (const row of _inMemoryProjects.values()) {
-            if (row.owner_id === userId) rows.push(row);
+            // §SUSTAIN109 (L-10405) — a COPY, because `withThumbnailMetadata` and
+            // `labelProjectsForCaller` both mutate the row they are handed and this
+            // map's objects are the store itself. (The labeller used to decorate the
+            // live objects; harmless, but the metadata pass DELETES `thumbnail`, and
+            // deleting it from the store would have made every in-memory preview
+            // vanish on its first listing.)
+            if (row.owner_id === userId) rows.push({ ...row });
         }
         rows.sort((a, b) => new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime());
-        return labelProjectsForCaller(rows.slice(offset, offset + limit), userId, {
-            membershipKnown: false,
-        });
+        return labelProjectsForCaller(
+            rows.slice(offset, offset + limit).map(withThumbnailMetadata),
+            userId,
+            { membershipKnown: false },
+        );
     }
     // §SHARE101 — `m.role` is projected so the row can say HOW the caller reached
     // it. Three notes on the shape, because each was a real decision:
@@ -461,9 +470,18 @@ export async function listProjects(userId, opts) {
     //     than the `LEFT JOIN LATERAL` already running once per row over
     //     `project_versions`, whose rows carry TOASTed multi-MB snapshots. Net
     //     addition: ~50 unique-btree lookups, sub-millisecond. No new round trip.
+    //  4. §SUSTAIN109 (L-10405 / L-11548) — `p.thumbnail` is NOT selected. It was
+    //     the largest column in the row by two orders of magnitude (a base64 image
+    //     of up to 65 536 chars, `THUMBNAIL_MAX_CHARS`) and it was shipped for every
+    //     row of every page the hub fetched. The list now projects a boolean; the
+    //     bytes are served per project by `GET /api/v1/projects/:id/thumbnail`
+    //     (`getProjectThumbnail` below) with an ETag, so the browser cache pays for
+    //     an unchanged preview with zero bytes. `withThumbnailMetadata` adds the
+    //     `thumbnail_url` the client's `rowToSummary` already prefers.
     const result = await query(
         `SELECT
-             p.id, p.name, p.owner_id, p.version_count, p.thumbnail,
+             p.id, p.name, p.owner_id, p.version_count,
+             (p.thumbnail IS NOT NULL AND p.thumbnail <> '') AS has_thumbnail,
              p.is_archived, p.is_starred, p.description,
              p.updated_at, p.created_at,
              COALESCE(v.element_count, 0) AS latest_element_count,
@@ -484,7 +502,51 @@ export async function listProjects(userId, opts) {
          LIMIT $2 OFFSET $3`,
         [userId, limit, offset]
     );
-    return labelProjectsForCaller(result.rows, userId);
+    return labelProjectsForCaller(result.rows.map(withThumbnailMetadata), userId);
+}
+
+/**
+ * §SUSTAIN109 (L-10405) — the per-project thumbnail READ behind
+ * `GET /api/v1/projects/:id/thumbnail`.
+ *
+ * A READ, so it admits members (§FIX-ACCESS-MEMBERSHIP part 2's scope rule — the
+ * same `memberOrOwner` predicate the list carries; a member who can list the card
+ * must be able to paint it). Returns the stored data-URL string or `null` when the
+ * project is not visible to the caller OR holds no preview — the route turns both
+ * into 404, and the distinction is not one a caller may act on (C13 isolation).
+ *
+ * @returns {Promise<{ thumbnail: string | null } | null>}
+ */
+export async function getProjectThumbnail(projectId, userId) {
+    if (!userId) return null;
+    if (!_hasPool()) {
+        const row = _inMemoryProjects.get(projectId);
+        if (!row || row.owner_id !== userId) return null;
+        return { thumbnail: row.thumbnail ?? null };
+    }
+    const result = await query(
+        `SELECT p.thumbnail
+         FROM projects p
+         WHERE p.id = $1 AND ${memberOrOwner('p', '$2')}`,
+        [projectId, userId]
+    );
+    const row = result.rows[0];
+    return row ? { thumbnail: row.thumbnail ?? null } : null;
+}
+
+/**
+ * §SUSTAIN109 — the in-memory PATCH leg. `server.js`'s no-DB branch used to write
+ * `proj.thumbnail = …` onto the v0 COPY `imGetProject` returns, i.e. onto a
+ * throwaway object: the in-memory preview was never stored at all. Owner-only,
+ * like every other thumbnail WRITE (the scope rule above). Returns whether a row
+ * was written, mirroring `updateProjectThumbnail`'s honesty contract.
+ */
+export function imSetProjectThumbnail(projectId, ownerId, thumbnail) {
+    const row = _inMemoryProjects.get(projectId);
+    if (!row || row.owner_id !== ownerId) return false;
+    row.thumbnail = thumbnail;
+    row.updated_at = new Date().toISOString();
+    return true;
 }
 
 export async function createProject(name, userId) {

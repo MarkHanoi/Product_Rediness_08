@@ -63,6 +63,15 @@ export type ThumbnailSource =
     | 'local-cache'
     /** Bytes came from the durable server column and will seed the local cache. */
     | 'server'
+    /**
+     * §SUSTAIN109 (L-10405) — the server HOLDS usable bytes but the list row
+     * carried only their URL (`has_thumbnail` + `thumbnail_url`), not the bytes.
+     * Nothing paints from this resolution directly: the hub FETCHES the URL
+     * lazily, one connection at a time after the grid is interactive, then seeds
+     * the local cache — the same sign-out-survivability leg as `'server'`, paid
+     * per card instead of inside the list response.
+     */
+    | 'server-remote'
     /** No bytes are available from either side — see {@link ThumbnailAbsenceReason}. */
     | 'absent';
 
@@ -102,6 +111,14 @@ export interface ThumbnailResolution {
      * paint and on every subsequent session.
      */
     readonly seedLocalCache: boolean;
+    /**
+     * §SUSTAIN109 (L-10405) — true when the server holds bytes the cache lacks
+     * but the list carried only {@link serverUrl}. The hub downloads it (deferred,
+     * serialised) and then seeds the cache exactly as `seedLocalCache` would have.
+     */
+    readonly fetchFromServer: boolean;
+    /** The per-project thumbnail URL. Present IFF `source === 'server-remote'`. */
+    readonly serverUrl?: string;
 }
 
 /** A usable preview is a non-empty `data:image/...` URL within the server ceiling. */
@@ -124,6 +141,14 @@ export interface ThumbnailResolutionInput {
     readonly localReadFailed?: boolean;
     /** The durable `projects.thumbnail` value projected as `thumbnailUrl`. */
     readonly serverThumbnail?: string | null;
+    /**
+     * §SUSTAIN109 (L-10405) — the server's own statement that its durable column
+     * holds usable bytes (`has_thumbnail`). ⚠ Only when this is `true` may a
+     * non-`data:` {@link serverThumbnail} be read as a fetchable URL; a bare URL
+     * with no such statement stays `server-value-unusable`, because a value the
+     * client cannot verify or re-upload must not be trusted on its shape alone.
+     */
+    readonly serverHoldsThumbnail?: boolean;
 }
 
 /**
@@ -134,10 +159,18 @@ export interface ThumbnailResolutionInput {
  * durable fallback that survives a cache purge.
  */
 export function resolveProjectThumbnail(input: ThumbnailResolutionInput): ThumbnailResolution {
-    const { projectId, localThumbnail, localReadFailed = false, serverThumbnail } = input;
+    const { projectId, localThumbnail, localReadFailed = false, serverThumbnail, serverHoldsThumbnail } = input;
 
     const localOk = !localReadFailed && isUsableThumbnail(localThumbnail);
     const serverOk = isUsableThumbnail(serverThumbnail);
+    // §SUSTAIN109 (L-10405) — the third server-side state: bytes exist, reachable
+    // at a URL the list carried instead of the bytes. Gated on the server SAYING
+    // so; the URL's shape alone proves nothing (see `serverHoldsThumbnail`).
+    const serverRemote = !serverOk
+        && serverHoldsThumbnail === true
+        && typeof serverThumbnail === 'string'
+        && serverThumbnail.length > 0
+        && !serverThumbnail.startsWith('data:');
 
     if (localOk) {
         return {
@@ -146,9 +179,11 @@ export function resolveProjectThumbnail(input: ThumbnailResolutionInput): Thumbn
             source: 'local-cache',
             // The durable copy is missing (or unusable) while we hold good
             // bytes — push them up. This is the leg that makes the NEXT logout
-            // survivable.
-            backfillToServer: !serverOk,
+            // survivable. ⛔ NOT when the server holds them remotely: re-PATCHing
+            // fifty previews the server already has is the L-11543 storm.
+            backfillToServer: !serverOk && !serverRemote,
             seedLocalCache: false,
+            fetchFromServer: false,
         };
     }
 
@@ -160,6 +195,19 @@ export function resolveProjectThumbnail(input: ThumbnailResolutionInput): Thumbn
             backfillToServer: false,
             // Unconditional: the cache is empty (or unreadable) for this id.
             seedLocalCache: true,
+            fetchFromServer: false,
+        };
+    }
+
+    if (serverRemote) {
+        return {
+            projectId,
+            source: 'server-remote',
+            serverUrl: serverThumbnail as string,
+            backfillToServer: false,
+            seedLocalCache: false,
+            // The cache is empty (or unreadable) and the bytes are one GET away.
+            fetchFromServer: true,
         };
     }
 
@@ -168,15 +216,21 @@ export function resolveProjectThumbnail(input: ThumbnailResolutionInput): Thumbn
     if (localReadFailed) reason = 'cache-read-failed';
     else if (serverThumbnail !== null && serverThumbnail !== undefined && serverThumbnail !== '') {
         reason = 'server-value-unusable';
+    } else if (serverHoldsThumbnail === true) {
+        // The server claims bytes but sent no way to reach them — a projection
+        // defect, and a different one from "never captured".
+        reason = 'server-value-unusable';
     } else reason = 'never-captured';
 
-    return { projectId, source: 'absent', reason, backfillToServer: false, seedLocalCache: false };
+    return { projectId, source: 'absent', reason, backfillToServer: false, seedLocalCache: false, fetchFromServer: false };
 }
 
 /** Minimal server-row shape the planner needs. Matches `ProjectSummary`. */
 export interface ThumbnailSyncRow {
     readonly id: string;
     readonly thumbnailUrl?: string | null;
+    /** §SUSTAIN109 — the server's `has_thumbnail`, when it sent one. */
+    readonly hasThumbnail?: boolean;
 }
 
 /** Local cache probe. Must report a THROW as `failed`, never as an empty read. */
@@ -209,6 +263,7 @@ export function planThumbnailReconcile(
             localThumbnail: probe.value,
             localReadFailed: probe.failed,
             serverThumbnail: row.thumbnailUrl,
+            serverHoldsThumbnail: row.hasThumbnail,
         }));
     }
     return out;
@@ -222,7 +277,8 @@ export function planThumbnailReconcile(
 export function describeThumbnailResolution(r: ThumbnailResolution): string {
     const repair = r.backfillToServer ? ' +backfill->server'
         : r.seedLocalCache ? ' +seed->local-cache'
-            : '';
+            : r.fetchFromServer ? ' +fetch->local-cache'
+                : '';
     return r.source === 'absent'
         ? `absent (${r.reason})`
         : `${r.source}${repair}`;

@@ -85,6 +85,65 @@ export async function uploadProjectThumbnail(
     }
 }
 
+// ── §SUSTAIN109 (L-10405) — the READ leg: fetch ONE project's preview ───────
+
+export type ThumbnailDownloadOutcome =
+    /** The bytes, re-encoded as the `data:image/...` URL the local cache stores. */
+    | { readonly ok: true; readonly dataUrl: string; readonly bytes: number }
+    /** The server answered, and refused (401/403/404 — the preview is gone or not ours). */
+    | { readonly ok: false; readonly kind: 'rejected'; readonly status: number }
+    /** The body was not an image, or re-encoded past the cache's own ceiling. */
+    | { readonly ok: false; readonly kind: 'not-an-image' }
+    | { readonly ok: false; readonly kind: 'over-budget'; readonly chars: number }
+    /** The request never completed (offline, aborted, DNS, …). Retriable next sync. */
+    | { readonly ok: false; readonly kind: 'network'; readonly error: unknown };
+
+/** Base64 without `FileReader` (absent in some test DOMs), chunked to stay under the arg limit. */
+function _base64(bytes: Uint8Array): string {
+    let binary = '';
+    const CHUNK = 0x8000;
+    for (let i = 0; i < bytes.length; i += CHUNK) {
+        binary += String.fromCharCode.apply(null, Array.from(bytes.subarray(i, i + CHUNK)));
+    }
+    return btoa(binary);
+}
+
+/**
+ * GET a per-project thumbnail (`/api/v1/projects/:id/thumbnail`) and return it as
+ * the data URL the IndexedDB cache stores — the SAME string shape the list used to
+ * carry inline, so `seedCachedThumbnail` and the card render need no change.
+ *
+ * Uses `apiFetch` (bearer auth — an `<img src>` could not carry the token), so the
+ * browser's HTTP cache still honours the endpoint's `ETag` / `Cache-Control` on
+ * repeat fetches. Never throws — every failure is a returned outcome.
+ */
+export async function downloadProjectThumbnail(url: string): Promise<ThumbnailDownloadOutcome> {
+    try {
+        const res = await apiFetch(url, { method: 'GET' });
+        if (!res.ok) return { ok: false, kind: 'rejected', status: res.status };
+        const contentType = (res.headers?.get?.('content-type') ?? '').split(';')[0]!.trim().toLowerCase();
+        if (!contentType.startsWith('image/')) return { ok: false, kind: 'not-an-image' };
+        const buf = new Uint8Array(await res.arrayBuffer());
+        if (buf.length === 0) return { ok: false, kind: 'not-an-image' };
+        const dataUrl = `data:${contentType};base64,${_base64(buf)}`;
+        if (dataUrl.length > THUMBNAIL_MAX_CHARS) return { ok: false, kind: 'over-budget', chars: dataUrl.length };
+        return { ok: true, dataUrl, bytes: buf.length };
+    } catch (error) {
+        return { ok: false, kind: 'network', error };
+    }
+}
+
+/** Render a download outcome for the console. */
+export function describeDownloadOutcome(o: ThumbnailDownloadOutcome): string {
+    if (o.ok) return `fetched ${o.bytes} bytes and seeded into the local cache`;
+    switch (o.kind) {
+        case 'rejected':     return `NOT fetched — server answered HTTP ${o.status}; card keeps its placeholder`;
+        case 'not-an-image': return 'NOT fetched — response was not an image (server-side projection defect)';
+        case 'over-budget':  return `NOT cached — re-encoded to ${o.chars} chars, above the ${THUMBNAIL_MAX_CHARS}-char ceiling`;
+        case 'network':      return `NOT fetched — request did not complete (${String(o.error)}); retried by the next hub sync`;
+    }
+}
+
 /** Render an outcome for the console — never collapses two causes into one word. */
 export function describeUploadOutcome(o: ThumbnailUploadOutcome): string {
     if (o.ok) return 'stored (durable, survives sign-out)';
