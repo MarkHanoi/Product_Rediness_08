@@ -182,7 +182,7 @@ function coverageBlock(result: TakeoffResult): string {
         <section style="margin-top:20px;border-top:2px solid var(--app-border);padding-top:14px;">
             <h4 style="margin:0 0 4px;font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--app-text);">Coverage — what is measured, and what is not</h4>
             <div style="font-size:11px;line-height:1.6;color:var(--app-text-muted);margin-bottom:10px;">
-                ${notMeasured} of ${rows.length} families are <strong>NOT MEASURED</strong>. They contribute
+                ${notMeasured} of ${rows.length} categories are <strong>NOT MEASURED</strong>. They contribute
                 <strong>no line above</strong> — they are absent from the take-off, not zero in it.
                 A <em>medición</em> is a document an architect signs; this table is what makes the one above signable.
             </div>
@@ -203,7 +203,7 @@ function unreadableBanner(result: TakeoffResult): string {
         <div style="margin:0 0 12px;padding:10px 12px;border:1px solid rgba(179,38,30,.35);border-radius:8px;background:rgba(179,38,30,.06);font-size:11px;line-height:1.6;color:var(--app-text);">
             <strong>${result.unreadableStores.length} element store${result.unreadableStores.length === 1 ? ' was' : 's were'} not reachable</strong>
             when this take-off ran: ${escapeHtml(result.unreadableStores.join(', '))}.
-            Those families are marked NOT MEASURED below. This is different from "the project has none of them".
+            Those categories are marked NOT MEASURED below. This is different from "the project has none of them".
         </div>`;
 }
 
@@ -371,7 +371,7 @@ function renderTakeoff(panel: HTMLElement, runtime: Runtime): void {
                         <div style="font-size:13px;font-weight:700;color:var(--app-text);margin-bottom:6px;">Nothing to measure yet</div>
                         <div style="font-size:11.5px;line-height:1.7;color:var(--app-text-muted);max-width:380px;margin:0 auto;">
                             The element stores were read and contain no measurable geometry.
-                            This is a real answer — not a failure — and the coverage table below says which families were read.
+                            This is a real answer — not a failure — and the coverage table below says which categories were read.
                         </div>
                     </div>` : chapters.map(([id, lines]) => {
                         const c = chapterLabel(id);

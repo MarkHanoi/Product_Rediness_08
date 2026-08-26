@@ -46,8 +46,8 @@ const LABELS: Readonly<Record<TreeViewMode, string>> = {
 };
 
 const TITLES: Readonly<Record<TreeViewMode, string>> = {
-  level: 'Group the project tree by storey (level → family → element)',
-  room:  'Group the project tree by room (room → family → element)',
+  level: 'Group the project tree by storey (level → category → element)',
+  room:  'Group the project tree by room (room → category → element)',
 };
 
 /**

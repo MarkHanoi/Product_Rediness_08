@@ -367,7 +367,7 @@ export function renderNodeLegend(
   legend.className = 'anl-nodelink-legend anl-nodelink-legend--nodes';
   const lead = document.createElement('span');
   lead.className = 'anl-nodelink-legend-lead';
-  lead.textContent = 'Node colour = element family';
+  lead.textContent = 'Node colour = element category';
   legend.appendChild(lead);
   for (const [group, index] of groupIndex) {
     const row = markSeries(document.createElement('span'), FOCUS_GROUP(group));

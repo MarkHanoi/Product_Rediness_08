@@ -137,7 +137,7 @@ export function renderRoomTreeBody(container: HTMLElement, filter: string, state
   if (model.rooms.length === 0 && model.noRoom.length === 0 && !model.containmentUnavailable) {
     const empty = document.createElement('div');
     empty.className = 'aud-tree-empty';
-    empty.textContent = state.activeFamilyFilter ? 'No rooms contain this family.' : 'No rooms in this project.';
+    empty.textContent = state.activeFamilyFilter ? 'No rooms contain this category.' : 'No rooms in this project.';
     body.appendChild(empty);
   }
 }
@@ -154,11 +154,11 @@ function renderFamilyFilterRow(state: RoomTreeState): HTMLElement {
 
   const select = document.createElement('select');
   select.className = 'aud-room-family-filter';
-  select.title = 'Narrow rooms to those containing this family, sorted by count';
+  select.title = 'Narrow rooms to those containing this category, sorted by count';
 
   const allOpt = document.createElement('option');
   allOpt.value = '';
-  allOpt.textContent = 'All families';
+  allOpt.textContent = 'All categories';
   select.appendChild(allOpt);
 
   for (const cat of INSPECT_CATEGORIES) {
@@ -214,7 +214,7 @@ function renderHeaderRow(model: RoomTreeModel): HTMLElement {
   }
   if (model.unreadable.length > 0) {
     parts.push(`${model.unreadable.length} unread`);
-    notes.push(`These stores could not be read, so their families are UNKNOWN here, not empty: ${model.unreadable.join(', ')}.`);
+    notes.push(`These stores could not be read, so their categories are UNKNOWN here, not empty: ${model.unreadable.join(', ')}.`);
   }
   meta.textContent = parts.join(' · ');
   if (notes.length > 0) meta.title = notes.join('\n');

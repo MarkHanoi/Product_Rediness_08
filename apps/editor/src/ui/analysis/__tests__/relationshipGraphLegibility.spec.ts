@@ -390,8 +390,8 @@ describe('ASK 2 — §GRAPH-NODE-COLOUR / §GRAPH-NODE-LEGEND (L-12061, L-12064)
   it('⭐ the card carries a NODE legend, distinct from the edge legend', async () => {
     const c = await open2d();
     const nodes = c.querySelector('.anl-nodelink-legend--nodes');
-    expect(nodes, 'no node legend — the "colour = element family" claim has no key').not.toBeNull();
-    expect(nodes!.textContent).toMatch(/Node colour = element family/);
+    expect(nodes, 'no node legend — the "colour = element category" claim has no key').not.toBeNull();
+    expect(nodes!.textContent).toMatch(/Node colour = element category/);
     // Two legends, and the SHAPE distinguishes them: disc for nodes, bar for edges.
     expect(nodes!.querySelectorAll('.anl-nodelink-swatch--node').length).toBeGreaterThan(0);
     expect(c.querySelectorAll('.anl-nodelink-legend').length).toBe(2);

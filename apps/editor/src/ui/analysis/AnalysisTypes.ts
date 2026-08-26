@@ -275,7 +275,7 @@ export interface AnalysisTabDef {
 }
 
 export const ANALYSIS_TABS: readonly AnalysisTabDef[] = Object.freeze([
-  { id: 'overview',      label: 'Overview',      lede: 'What is in this model — counts, by family, by storey, by type.' },
+  { id: 'overview',      label: 'Overview',      lede: 'What is in this model — counts, by category, by storey, by type.' },
   { id: 'quantities',    label: 'Quantities',    lede: 'How much of it — measured take-off, and what the take-off does not measure.' },
   { id: 'relationships', label: 'Relationships', lede: 'How it is connected — the Unified Building Graph and which edge families are real.' },
   // ⚠ THE LEDE CHANGED 2026-08-22 (§ANALYSIS-AREA-STANDARDS, L-3640). It read

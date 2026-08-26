@@ -140,12 +140,12 @@ export function mountMaterialSchedule(panel: HTMLElement): void {
         if (familyStates.get(familyId) === 'unseeded') {
             return {
                 glyph: VOID, colour: '#b9a0d6', weight: '400',
-                title: 'This family cannot yet carry a material reference — no built-in type names one.',
+                title: 'This category cannot yet carry a material reference — no built-in type names one.',
             };
         }
         return usage?.has(familyId)
-            ? { glyph: TICK, colour: accentColor, weight: '700', title: 'Used by a built-in type in this family.' }
-            : { glyph: DASH, colour: '#c9d0dc', weight: '400', title: 'Available, but no built-in type in this family uses it.' };
+            ? { glyph: TICK, colour: accentColor, weight: '700', title: 'Used by a built-in type in this category.' }
+            : { glyph: DASH, colour: '#c9d0dc', weight: '400', title: 'Available, but no built-in type in this category uses it.' };
     };
 
     // ── DECLARED suitability, and it is NOT the same fact as the matrix ──────
@@ -168,7 +168,7 @@ export function mountMaterialSchedule(panel: HTMLElement): void {
             ? {
                 text: m.surfaces.join(' · '),
                 colour: 'var(--app-text-2)',
-                title: 'DECLARED suitability — a property of the product. Separate from the family columns to the right, which measure actual USE.',
+                title: 'DECLARED suitability — a property of the product. Separate from the category columns to the right, which measure actual USE.',
               }
             : {
                 // ⛔ NOT `VOID`. ∅ ALREADY MEANS SOMETHING ELSE IN THIS TABLE — "this
@@ -179,7 +179,7 @@ export function mountMaterialSchedule(panel: HTMLElement): void {
                 // different marks, and this one says what it means in words.
                 text: 'not declared',
                 colour: '#b9a0d6',
-                title: 'No suitability declared for this material. ⛔ NOT the same as "suitable everywhere" — nobody has classified it yet. (Distinct from the ∅ in the family columns, which means a family cannot yet name ANY material.)',
+                title: 'No suitability declared for this material. ⛔ NOT the same as "suitable everywhere" — nobody has classified it yet. (Distinct from the ∅ in the category columns, which means a category cannot yet name ANY material.)',
               };
 
     const columns = ['Name', 'Category', 'Suitable For (declared)', 'Color', 'Roughness', 'Metalness', ...families.map(f => f.label)];
@@ -283,7 +283,7 @@ export function mountMaterialSchedule(panel: HTMLElement): void {
                                  padding:2px 9px;font-weight:700;">${STANDARD_MATERIAL_LIBRARY.length} materials</span>
                     <span style="font-size:10px;color:var(--app-text-muted);margin-left:auto;">
                         ✓ = used in a type &nbsp;·&nbsp; — = available but not yet used
-                        ${unseededLabels.length > 0 ? `&nbsp;·&nbsp;<span style="color:#8a6db8;">∅ = family cannot yet name a material</span>` : ''}
+                        ${unseededLabels.length > 0 ? `&nbsp;·&nbsp;<span style="color:#8a6db8;">∅ = category cannot yet name a material</span>` : ''}
                     </span>
                 </div>
                 ${unseededLabels.length > 0 ? `
@@ -291,7 +291,7 @@ export function mountMaterialSchedule(panel: HTMLElement): void {
                                 background:rgba(138,109,184,.08);border:1px solid rgba(138,109,184,.22);
                                 font-size:10px;color:var(--app-text-2);line-height:1.5;">
                         <strong style="color:#6d4f9c;">∅ ${escapeHtml(unseededLabels.join(' · '))}</strong>
-                        — ${unseededLabels.length === 1 ? 'this family declares' : 'these families declare'}
+                        — ${unseededLabels.length === 1 ? 'this category declares' : 'these categories declare'}
                         a material slot, but no built-in type fills one, so
                         ${unseededLabels.length === 1 ? 'its column' : 'their columns'}
                         cannot tick for any material. That is a gap in the type catalogue, not a

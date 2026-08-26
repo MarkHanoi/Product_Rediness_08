@@ -48,7 +48,7 @@ const BUILT: readonly AnalysisWidgetDef[] = Object.freeze([
     tab: 'overview',
     kind: 'donut',
     title: 'Category report',
-    subtitle: 'Element count by family. Click a slice to select those elements.',
+    subtitle: 'Element count by category. Click a slice to select those elements.',
     // Same descriptor id as the KPI above — ADR-0343 §D.3: identical queries
     // are computed ONCE. These two widgets share one scan.
     query: { id: 'census:category', source: 'census', groupBy: 'category', measure: 'count', cost: 'O(n)' },
@@ -71,7 +71,7 @@ const BUILT: readonly AnalysisWidgetDef[] = Object.freeze([
     id: 'type-table',
     tab: 'overview',
     kind: 'table',
-    title: 'Family / type report',
+    title: 'Category / type report',
     subtitle: 'Count by resolved type. An element with no type is `Untyped` — its own row, never folded in.',
     query: { id: 'census:type', source: 'census', groupBy: 'type', measure: 'count', cost: 'O(n)' },
     refresh: 'on-commit',
@@ -138,7 +138,7 @@ const BUILT: readonly AnalysisWidgetDef[] = Object.freeze([
     tab: 'quantities',
     kind: 'table',
     title: 'Counted items (ud)',
-    subtitle: 'Families present and counted but with no area, volume or length derived.',
+    subtitle: 'Categories present and counted but with no area, volume or length derived.',
     query: { id: 'takeoff:lines:ud', source: 'takeoff', groupBy: 'unit', measure: 'quantity', unit: 'ud', cost: 'O(n·m)' },
     refresh: 'manual',
     span: 1,

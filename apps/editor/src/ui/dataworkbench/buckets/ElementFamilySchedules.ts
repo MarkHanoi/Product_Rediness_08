@@ -144,7 +144,7 @@ function openingHostRows(): TypeScheduleData {
 
 const NO_REGISTRY = (family: string, extra: string): string =>
     `PRYZM has NO system-type registry for ${family}. This tab exists and is empty ON PURPOSE: `
-    + `an absent tab and a tab saying "this family has no types" are different claims, and only the `
+    + `an absent tab and a tab saying "this category has no types" are different claims, and only the `
     + `second one is true. ${extra}`;
 
 export const ELEMENT_FAMILY_SCHEDULES: Record<StoreType, FamilyScheduleDef> = {

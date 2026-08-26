@@ -158,7 +158,7 @@ export function renderTreeBody(
   if (model.unreadable.length > 0) {
     parts.push(`${model.unreadable.length} unread`);
     notes.push(
-      `These stores could not be read, so their families are UNKNOWN here, not empty: ` +
+      `These stores could not be read, so their categories are UNKNOWN here, not empty: ` +
       `${model.unreadable.join(', ')}.`,
     );
   }
