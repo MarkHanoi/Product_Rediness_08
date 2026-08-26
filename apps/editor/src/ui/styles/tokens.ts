@@ -7,6 +7,11 @@
  * CONTRACT §05 §2 — CSS layer only, zero logic.
  */
 import { UI_SCALE } from './uiScale';
+// §QTYHL132 (L-12120) — the categorical scale is AUTHORED IN TS and its CSS is
+// GENERATED, because a CSS custom property is a DOM concept and `THREE.Color`
+// has no CSS engine. See `categoricalPalette.ts` for the measurement and for why
+// runtime `getComputedStyle` resolution was rejected as the shape.
+import { CATEGORICAL_TOKEN_CSS } from './categoricalPalette';
 
 export const DESIGN_TOKENS = `
     :root {
@@ -463,23 +468,40 @@ export const DESIGN_TOKENS = `
            identified by hue alone is a defect, not a style choice.
 
            ⛔ Do NOT extend this to --app-cat-9. Eight is where the floor stops
-           clearing 10. A ninth series is a "+N others" bucket, not a colour. */
-        --app-cat-1:                #6600FF;
-        --app-cat-2:                #E69F00;
-        --app-cat-3:                #009E73;
-        --app-cat-4:                #56B4E9;
-        --app-cat-5:                #D55E00;
-        --app-cat-6:                #CC79A7;
-        --app-cat-7:                #005F73;
-        --app-cat-8:                #F0E442;
-        /* NOT part of the rotation. "unassigned" / "untyped" is a real answer
-           and must never be mistaken for a category — SPEC §4.1 W2/W3 require
-           it as its own named slice, never folded into the largest. Same value
-           as --app-scrollbar-thumb, declared separately because this is a ROLE.
-           Verified NOT to degrade the scale: adding it keeps the global floor at
-           11.13 (the greys that read as "muted" — #9AA6BC, #7A8AAA — collapse
-           into cat-6 under deuteranopia at ΔE00 5.34 and 0.73). */
-        --app-cat-unassigned:       #C4CDE0;
+           clearing 10. A ninth series is a "+N others" bucket, not a colour.
+
+           ⭐ §QTYHL132 (L-12120..L-12123) — THE NINE VALUES ARE NO LONGER WRITTEN
+           HERE. They are AUTHORED IN TYPESCRIPT, in 'categoricalPalette.ts', and
+           the nine declarations below are GENERATED from that array at module
+           load. This is not tidying: a CSS custom property is a DOM concept, and
+           the 3-D Analysis graph feeds these same colours to 'THREE.Color', which
+           has NO CSS ENGINE. The founder's console printed hundreds of
+
+               THREE.Color: Unknown color model var(--app-cat-1)
+
+           because 'AnalysisTypes.CAT_TOKENS' handed the string 'var(--app-cat-N)'
+           straight through to the renderer, where the parse failed and the mark
+           was drawn in THREE's default WHITE — so "this category is white" and
+           "this category's colour was lost" printed the same pixels.
+
+           DOM/CSS consumers are UNCHANGED and keep using var(--app-cat-N). The
+           non-CSS consumers call resolveCssColour(), which answers these nine
+           from the same constant this block is printed from — so the two
+           consumers cannot drift, and a resolved value cannot go stale.
+
+           ⛔ Do NOT re-inline a hex here. A literal in this block would be a
+           second authority for a value the TS array already owns (C84 EI-9), and
+           'chartPalette.spec.ts' fails on exactly that.
+
+           The neutral is emitted last and is NOT part of the rotation:
+           "unassigned" / "untyped" is a real answer and must never be mistaken
+           for a category — SPEC §4.1 W2/W3 require it as its own named slice,
+           never folded into the largest. Same value as --app-scrollbar-thumb,
+           declared separately because this is a ROLE. Verified NOT to degrade the
+           scale: adding it keeps the global floor at 11.13 (the greys that read
+           as "muted" — #9AA6BC, #7A8AAA — collapse into cat-6 under deuteranopia
+           at ΔE00 5.34 and 0.73). */
+${CATEGORICAL_TOKEN_CSS}
     }
 
     /* ── Global typography baseline (§05 §2.3 Rule 6) ────────────────────── */

@@ -41,6 +41,11 @@ import { describe, it, expect } from 'vitest';
 import { readFileSync, readdirSync, existsSync } from 'node:fs';
 import { resolve, join } from 'node:path';
 
+// §QTYHL132 (L-12120) — the SHIPPED sheet, needed by ARM C: one block of
+// `tokens.ts` is now generated, so its source text is no longer the full set of
+// declared custom properties.
+import { DESIGN_TOKENS } from '../tokens';
+
 const REPO = resolve(__dirname, '../../../../../..');
 const STYLES = join(REPO, 'apps/editor/src/ui/styles');
 
@@ -155,9 +160,26 @@ describe('§PANEL-BRAND-STANDARD — the Inspect and Data mode surfaces', () => 
             { prop: '--aud-ramp-to', setBy: 'apps/editor/src/ui/inspect/audit/heatRamp.ts' },
         ];
 
+        /**
+         * ⭐ §QTYHL132 (L-12120) — SCAN THE SHIPPED SHEET, NOT ONLY THE SOURCE.
+         *
+         * This read `tokens.ts`'s SOURCE TEXT alone, which was exact for as long
+         * as every custom property was a literal in that file. It stopped being
+         * exact the moment one block started being GENERATED: the nine
+         * `--app-cat-*` declarations are printed from `categoricalPalette.ts` at
+         * module load, so they are absent from the source and present in the
+         * sheet — and this arm reported nine REAL, correctly-declared tokens as
+         * phantoms.
+         *
+         * `DESIGN_TOKENS` is the string `AppTheme.injectAppTheme()` actually puts
+         * in the document, so it is the honest answer to "what is declared". The
+         * source scan is kept in the union: it costs nothing and it keeps the arm
+         * working for anything declared in the file but not (yet) in `:root`.
+         */
         function declaredInTokens(): Set<string> {
             const out = new Set<string>();
             for (const m of read(TOKENS).matchAll(/^\s*(--[a-z0-9-]+)\s*:/gm)) out.add(m[1]!);
+            for (const m of DESIGN_TOKENS.matchAll(/^\s*(--[a-z0-9-]+)\s*:/gm)) out.add(m[1]!);
             return out;
         }
 

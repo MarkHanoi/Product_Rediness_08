@@ -31,11 +31,30 @@
  * The maths is written out here rather than imported so the guard cannot be
  * satisfied by editing a shared helper: the assertion and its arithmetic move
  * together or not at all.
+ *
+ * ─────────────────────────────────────────────────────────────────────────────
+ * ⭐ §QTYHL132 (L-12120), 2026-08-26 — WHAT "THE SHIPPED VALUES" NOW MEANS
+ * ─────────────────────────────────────────────────────────────────────────────
+ * This file used to regex the NINE HEX LITERALS out of `tokens.ts`'s source,
+ * because that was where they were written. They are no longer written there:
+ * they are authored in `categoricalPalette.ts` and the CSS block is GENERATED
+ * from that array, so that the WebGL consumer (`THREE.Color`, which has no CSS
+ * engine and cannot resolve `var(--app-cat-N)`) and the CSS consumer are served
+ * from one definition.
+ *
+ * So the guard now reads the ARRAY — which is the product, since both consumers
+ * are derived from it — and a THIRD arm below pins that the CSS half cannot
+ * re-fork: `DESIGN_TOKENS` must carry every value, and `tokens.ts`'s SOURCE must
+ * contain no hand-written categorical literal for the generation to be bypassed
+ * by.
  */
 
 import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { resolve, join } from 'node:path';
+
+import { CATEGORICAL_TOKEN_VALUES } from '../categoricalPalette';
+import { DESIGN_TOKENS } from '../tokens';
 
 const REPO = resolve(__dirname, '../../../../../..');
 const TOKENS = join(REPO, 'apps/editor/src/ui/styles/tokens.ts');
@@ -140,19 +159,13 @@ function ciede2000(p: [number, number, number], q: [number, number, number]): nu
     );
 }
 
-/** Read the shipped token values. The guard measures the PRODUCT, not a copy. */
+/**
+ * Read the shipped token values. The guard measures the PRODUCT, not a copy —
+ * and since §QTYHL132 the product IS this array: the CSS custom properties and
+ * every TS consumer are both generated from it.
+ */
 function shippedPalette(): Array<{ name: string; hex: string }> {
-    const src = readFileSync(TOKENS, 'utf8');
-    const out: Array<{ name: string; hex: string }> = [];
-    for (let i = 1; i <= 8; i++) {
-        const m = new RegExp(`--app-cat-${i}\\s*:\\s*(#[0-9a-fA-F]{6})\\s*;`).exec(src);
-        expect(m, `--app-cat-${i} is not declared in tokens.ts`).not.toBeNull();
-        out.push({ name: `--app-cat-${i}`, hex: m![1]!.toUpperCase() });
-    }
-    const u = /--app-cat-unassigned\s*:\s*(#[0-9a-fA-F]{6})\s*;/.exec(src);
-    expect(u, '--app-cat-unassigned is not declared in tokens.ts').not.toBeNull();
-    out.push({ name: '--app-cat-unassigned', hex: u![1]!.toUpperCase() });
-    return out;
+    return [...CATEGORICAL_TOKEN_VALUES].map(([name, hex]) => ({ name, hex: hex.toUpperCase() }));
 }
 
 describe('§CHART-CATEGORICAL-SCALE — the eight series are CVD-separable', () => {
@@ -193,6 +206,24 @@ describe('§CHART-CATEGORICAL-SCALE — the eight series are CVD-separable', () 
         // become hue-only even if the ΔE arms still pass.
         const Ls = palette.map((p) => toLab(simulate(p.hex, 'normal'))[0]).sort((a, b) => a - b);
         expect(Ls[Ls.length - 1]! - Ls[0]!).toBeGreaterThan(40);
+    });
+
+    it('⛔ §QTYHL132 — the CSS half is GENERATED and cannot re-fork', () => {
+        // Two arms, and they are different questions.
+        //   (a) every authored value actually reaches the injected stylesheet —
+        //       otherwise the CSS consumer silently loses a series;
+        //   (b) `tokens.ts` SOURCE declares no categorical literal of its own —
+        //       otherwise someone can "fix a colour" in the sheet, the 3-D path
+        //       keeps the array's value, and the two consumers disagree while
+        //       both look right in isolation. That divergence is exactly the
+        //       class of defect L-12120 was.
+        const src = readFileSync(TOKENS, 'utf8');
+        for (const [name, hex] of CATEGORICAL_TOKEN_VALUES) {
+            expect(DESIGN_TOKENS, `${name} missing from DESIGN_TOKENS`)
+                .toMatch(new RegExp(`${name}\\s*:\\s*${hex}\\s*;`));
+        }
+        const handWritten = src.match(/--app-cat-[a-z0-9-]+\s*:\s*#[0-9a-fA-F]{3,8}\s*;/g) ?? [];
+        expect(handWritten, `tokens.ts re-declares: ${handWritten.join(' ')}`).toHaveLength(0);
     });
 
     it('tokens.ts states that colour is never the only channel', () => {

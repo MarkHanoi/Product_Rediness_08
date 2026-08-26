@@ -40,6 +40,13 @@
  */
 
 import type { CoverageRow, CoverageState, QuantityUnit } from '@pryzm/core-app-model';
+// §QTYHL132 (L-12120) — the ONE authority for the categorical scale. Value
+// imports of pure constants; this module reads no DOM at load.
+import {
+  CATEGORICAL_SERIES,
+  CAT_UNASSIGNED_TOKEN_NAME,
+  catSeriesTokenName,
+} from '../styles/categoricalPalette';
 
 export type { CoverageRow, CoverageState, QuantityUnit };
 
@@ -317,17 +324,32 @@ export interface NotBuiltReason {
 
 // ── Constants shared by the renderers ─────────────────────────────────────────
 
-/** The categorical series tokens, in rotation order. §CHART-CATEGORICAL-SCALE. */
-export const CAT_TOKENS: readonly string[] = Object.freeze([
-  'var(--app-cat-1)', 'var(--app-cat-2)', 'var(--app-cat-3)', 'var(--app-cat-4)',
-  'var(--app-cat-5)', 'var(--app-cat-6)', 'var(--app-cat-7)', 'var(--app-cat-8)',
-]);
+/**
+ * The categorical series tokens, in rotation order. §CHART-CATEGORICAL-SCALE.
+ *
+ * ⭐ §QTYHL132 (L-12120) — DERIVED, not restated. The count and the names come
+ * from `styles/categoricalPalette.ts`, which is the ONE authority for the scale
+ * (C84 EI-9); this array used to be a hand-written list of eight, so adding or
+ * reordering a series meant editing two places that nothing compared.
+ *
+ * ⛔ THESE ARE REFERENCES, NOT COLOURS, AND THAT DISTINCTION IS LOAD-BEARING.
+ * `var(--app-cat-1)` is resolvable by the CSS cascade and by nothing else. A
+ * consumer that paints outside the DOM — `THREE.Color`, a 2-D canvas
+ * `fillStyle`, a GPU uniform — MUST put the value through
+ * `resolveCssColour()` first. THREE does not throw on a `var()`: it warns and
+ * silently keeps its default WHITE, which is how "this category is white" and
+ * "this category's colour was lost" became the same pixels on the founder's
+ * screen (L-12120).
+ */
+export const CAT_TOKENS: readonly string[] = Object.freeze(
+  CATEGORICAL_SERIES.map((_, i) => `var(${catSeriesTokenName(i)})`),
+);
 
 /**
  * The named neutral. ⛔ NOT part of the rotation: `unassigned` and `untyped` are
  * real answers about the model and must never be mistaken for a category.
  */
-export const CAT_UNASSIGNED = 'var(--app-cat-unassigned)';
+export const CAT_UNASSIGNED = `var(${CAT_UNASSIGNED_TOKEN_NAME})`;
 
 /** Group keys that are ABSENCE, not a category. Rendered in the neutral. */
 export const ABSENCE_KEYS: ReadonlySet<string> = new Set(['unassigned', 'untyped', 'unmeasured']);

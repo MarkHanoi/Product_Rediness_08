@@ -59,6 +59,9 @@ import type {
 } from './OpeningPreviewSubject';
 // §OUTLINE81 — the ONE narrowing predicate for the part union (a value import, not a type).
 import { isExtrudedOutlinePart } from './OpeningPreviewSubject';
+// §QTYHL132 (L-12120) — the ONE resolver for CSS custom-property colour
+// references. THREE has no CSS engine; see `graphMarkColour` below.
+import { resolveCssColour } from '../styles/categoricalPalette';
 import type { GraphSubject } from './GraphPreviewSubject';
 
 /**
@@ -589,6 +592,64 @@ const GRAPH_BUFFER_MAX = 1024;
  * these are indistinguishable from a smooth sphere, and the vertex budget is
  * spent once for every node rather than once per node.
  */
+/**
+ * ⭐ §QTYHL132 (L-12120) — THE ONE PLACE A GRAPH MARK'S COLOUR STRING BECOMES A
+ * COLOUR, and therefore the only place that can tell a parse failure from a
+ * parse. Both producers below call it; nothing else may call `Color.set` on a
+ * subject colour.
+ *
+ * ── THE DEFECT, MEASURED 2026-08-26 ──────────────────────────────────────────
+ * The founder's console, on the Analysis surface, hundreds of lines:
+ *
+ *     THREE.Color: Unknown color model var(--app-cat-1)
+ *     THREE.Color: Unknown color model var(--app-cat-2)
+ *     THREE.Color: Unknown color model var(--app-cat-4)
+ *
+ * `AnalysisTypes.CAT_TOKENS` is a list of CSS custom-property REFERENCES
+ * (`var(--app-cat-N)`); `widgetRenderers.ts:991/:992` hands them to
+ * `graphViewState.buildGraphSubject`, which passes them through to
+ * `GraphNodeMark.colour`; and the two `c.set(...)` calls below fed them to a
+ * renderer that has no CSS engine. ⛔ `Color.set` DOES NOT THROW on a value it
+ * cannot parse — it warns and leaves the instance at its default WHITE — so
+ * "this category is white" and "this category's colour was lost" produced the
+ * same pixels. That is §CONTEXT-DATA-HONESTY's exact prohibition, and it is the
+ * founder's "not all the categories highlight".
+ *
+ * ⚠ WHY HERE AND NOT AT THE SUBJECT. `graphViewState.ts:287` DECLARES this
+ * field to be a "resolved CSS colour" and has never received one. Fixing the
+ * producer would have made THAT caller honest and left `Color.set` able to
+ * whiten silently for the next one — and the Analysis relationship graph is
+ * acquiring new colour producers right now (lane ANALYZE129). Resolution at the
+ * consumer covers every producer, present and future, by construction.
+ * ⚠ OPEN: `graphViewState.ts:287`'s doc still says "Resolved". It is not, and
+ * that doc is now the only surviving statement of the wish — it belongs to a
+ * concurrently-edited file and is deliberately left for its owner.
+ *
+ * ⛔ DORMANT IS CARRIED BY COLOUR, NOT BY OPACITY, and the direction is towards
+ * WHITE. This clamp+blend was written TWICE — once for nodes, once for links —
+ * and is now written once. Per-instance alpha would need a custom material;
+ * more importantly a transparent node can disappear entirely against a white
+ * ground, and `seriesFocus`'s rule is DORMANT, NOT GONE: the reader must still
+ * see the whole population. Lightening preserves hue, so a dimmed mark is still
+ * identifiable as itself.
+ *
+ * `out` is reused by the callers so a 320-node graph allocates one Color, not
+ * 320.
+ */
+export function graphMarkColour(
+    css: string,
+    alpha: number,
+    out: THREE.Color = new THREE.Color(),
+): THREE.Color {
+    // resolveCssColour never returns a `var()` and never returns '' — on failure
+    // it returns the designated UNRESOLVED magenta and warns once, naming the
+    // token. So `set` here can no longer fail silently into white.
+    out.set(resolveCssColour(css));
+    const k = Math.max(0.12, Math.min(1, alpha));
+    out.setRGB(out.r * k + (1 - k), out.g * k + (1 - k), out.b * k + (1 - k));
+    return out;
+}
+
 function buildGraphContent(r: Rig, subject: GraphSubject): void {
     clearContent(r);
 
@@ -604,16 +665,8 @@ function buildGraphContent(r: Rig, subject: GraphSubject): void {
             m.makeScale(n.r, n.r, n.r);
             m.setPosition(n.p[0], n.p[1], n.p[2]);
             mesh.setMatrixAt(i, m);
-            // ⛔ DORMANT IS CARRIED BY COLOUR, NOT BY OPACITY, and the direction is
-            // towards WHITE. Per-instance alpha would need a custom material; more
-            // importantly, a transparent node can disappear entirely against a
-            // white ground, and `seriesFocus`'s rule is DORMANT, NOT GONE — the
-            // reader must still see the whole population. Lightening preserves hue,
-            // so a dimmed node is still identifiable as itself.
-            c.set(n.colour);
-            const k = Math.max(0.12, Math.min(1, n.alpha));
-            c.setRGB(c.r * k + (1 - k), c.g * k + (1 - k), c.b * k + (1 - k));
-            mesh.setColorAt(i, c);
+            // §QTYHL132 — resolve + dim in ONE place (see `graphMarkColour`).
+            mesh.setColorAt(i, graphMarkColour(n.colour, n.alpha, c));
         });
         mesh.instanceMatrix.needsUpdate = true;
         if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true;
@@ -629,12 +682,11 @@ function buildGraphContent(r: Rig, subject: GraphSubject): void {
         const c = new THREE.Color();
         subject.links.forEach((l, i) => {
             positions.set([l.a[0], l.a[1], l.a[2], l.b[0], l.b[1], l.b[2]], i * 6);
-            c.set(l.colour);
-            const k = Math.max(0.12, Math.min(1, l.alpha));
-            const rr = c.r * k + (1 - k);
-            const gg = c.g * k + (1 - k);
-            const bb = c.b * k + (1 - k);
-            colours.set([rr, gg, bb, rr, gg, bb], i * 6);
+            // §QTYHL132 — the SAME resolve + dim as the nodes above, deliberately
+            // not a second copy of the clamp. Two copies is how a link and the
+            // node it joins end up disagreeing about what "dormant" means.
+            graphMarkColour(l.colour, l.alpha, c);
+            colours.set([c.r, c.g, c.b, c.r, c.g, c.b], i * 6);
         });
         const geo = new THREE.BufferGeometry();
         geo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
