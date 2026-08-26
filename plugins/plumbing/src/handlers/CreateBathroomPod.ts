@@ -70,6 +70,10 @@ import {
     buildBathroomPod,
     bathroomPodMemberCount,
     validateBathroomPod,
+    // The member set a pod carries when the caller names none. Owned by the rules file
+    // (`BathroomPodRules.ts`), never re-typed here — a second default set is a second
+    // statement of what a bathroom pod IS.
+    BATHROOM_POD_DEFAULT_MEMBERS,
     type BathroomPodHandedness,
     type BathroomPodMemberKind,
     type BathroomPodRoom,
@@ -106,9 +110,6 @@ export interface CreateBathroomPodPayload {
 type BathroomPodHandlerStores = Readonly<
     { bathroomPod: BathroomPodsState } & Record<string, unknown>
 >;
-
-/** The member set a pod carries when the caller names none. Owned by the rules file. */
-import { BATHROOM_POD_DEFAULT_MEMBERS } from '@pryzm/geometry-plumbing';
 
 export class CreateBathroomPodHandler
     implements CommandHandler<CreateBathroomPodPayload, BathroomPodHandlerStores>

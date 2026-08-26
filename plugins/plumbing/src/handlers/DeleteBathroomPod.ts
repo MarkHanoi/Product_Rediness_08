@@ -47,7 +47,6 @@ import {
     type HandlerResult,
     type ValidationResult,
 } from '@pryzm/plugin-sdk';
-import { bathroomPodChildIds } from '@pryzm/geometry-plumbing';
 import { BathroomPodNotFoundError } from '../errors.js';
 import type { BathroomPodsState } from '../bathroomPodStore.js';
 
@@ -94,12 +93,23 @@ export class DeleteBathroomPodHandler
                 const pod = ctx.stores.bathroomPod[cmd.podId];
                 if (!pod) throw new BathroomPodNotFoundError(cmd.podId);
 
-                // Read the member list BEFORE the removal, from the RECORD, so the
+                // Read the member count BEFORE the removal, from the RECORD, so the
                 // span reports what was actually reaped rather than a count derived
-                // afterwards from a store that no longer holds it. ⭐ This attribute
-                // is the machine-readable half of R-4: an orphan is a member that was
-                // in this count and is still standing.
-                span.setAttribute('pryzm.bathroom_pod.members_reaped', bathroomPodChildIds(pod).length);
+                // afterwards from a store that no longer holds it. ⭐ This attribute is
+                // the machine-readable half of R-4: an orphan is a member that was in
+                // this count and is still standing.
+                //
+                // ⚠ `pod.members.length` AND NOT `bathroomPodChildIds(pod).length`.
+                // Those are the same fact — `bathroomPodChildIds` is a pure
+                // `members.map(m => m.id)` — and reading the length directly is not a
+                // rival derivation, it is the same one without an allocation. It also
+                // keeps this file free of an `@pryzm/geometry-plumbing` import, which
+                // matters: `check-layer-boundaries.ts`'s SDK-facade-bypass arm is a
+                // SHRINK-ONLY ratchet, and a lane that adds three plugin→geometry edges
+                // for one feature has to justify each one. The ID LIST derivation stays
+                // single — `bathroomPodStore.childIdsOf()` and the member mirror both go
+                // through `bathroomPodChildIds`.
+                span.setAttribute('pryzm.bathroom_pod.members_reaped', pod.members.length);
 
                 const [next, forward, inverse] = produceCommand<BathroomPodsState>(
                     ctx.stores.bathroomPod as BathroomPodsState,
