@@ -13,12 +13,25 @@ import { applySlabEdgeRenderMode, isSlabFamilyEdge } from '@pryzm/geometry-slab'
  * Manages user-controlled wall-edge overlay visibility as a pure render-layer
  * concern — mirrors the GridToggleService pattern exactly.
  *
- * Wall edge overlays are THREE.LineSegments tagged with:
- *   userData.elementType === 'WallEdges'
+ * Edge overlays are THREE.LineSegments tagged with:
  *   userData.role         === 'edges'
+ *   userData.elementType  === 'WallEdges'                      (geometry-wall)
+ *                          | 'SlabEdges' | 'FloorEdges' | 'CeilingEdges'
+ *                                                              (geometry-slab)
  *
- * These tags were stamped at build time by WallEdgeOverlayBuilder so that
- * this service can locate and toggle them without any store access.
+ * These tags are stamped at build time by the owning builders so that this
+ * service can locate and toggle them without any store access.
+ *
+ * ⭐ §EDGE131 (L-12100) — BOTH TAGS ARE LOAD-BEARING, AND THE TYPE IS THE ONE THAT
+ * BITES. Matching `role` alone would seize the parcel ring and OBC projection
+ * linework (see `lineworkProbe.attributeProducer`), so this service deliberately
+ * requires a KNOWN elementType too. The consequence is that an overlay which
+ * stamps `role` and NO type is not "partially governed" — it is governed by
+ * nobody, and keeps the `visible = true` a fresh LineSegments is born with, in
+ * every view, forever. The floor-finish and ceiling overlays were in exactly that
+ * state until L-12100; the founder saw their perimeters repeat on every storey of
+ * the 3-D view. A new edge overlay MUST register its type — for the slab family,
+ * in `SLAB_FAMILY_EDGE_TYPES` — or it is not covered by this service at all.
  *
  * Contract compliance:
  *  §01-1.1  UI/Tool layer — no store mutations.
