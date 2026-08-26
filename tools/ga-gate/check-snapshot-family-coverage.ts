@@ -34,8 +34,10 @@
  *
  * ─── WHAT IT CHECKS, PRECISELY ─────────────────────────────────────────────
  * The SUBJECT is measured, never enumerated by hand: every `super('<key>')` in a
- * `plugins/<plugin>/src/store.ts`. The AUTHORITY is the declared table
- * `SNAPSHOT_FAMILY_COVERAGE` in
+ * class that `extends Store` ANYWHERE under `plugins/<plugin>/src/` — not only in a
+ * file called `store.ts`. See `pluginStoreKeys()` for why that widening is
+ * load-bearing (it is what makes `bathroomPod` and `level` visible at all). The
+ * AUTHORITY is the declared table `SNAPSHOT_FAMILY_COVERAGE` in
  * `apps/editor/src/engine/persistence/snapshotFamilyCoverage.ts`.
  *
  * ARM A — EVERY FAMILY HAS A ROW (hard-0). A `Store` subclass with no row is a
@@ -70,11 +72,11 @@
  *    `apps/editor/__tests__/SnapshotFamilyRoundTrip.test.ts` does for the five
  *    families §PERSIST103 closed. A green reading here means "the family is
  *    ACCOUNTED FOR", never "the family round-trips".
- * ⛔ It sees `plugins/*​/src/store.ts` only. A family whose store lives elsewhere
+ * ⛔ It sees `plugins/**` only. A family whose store lives OUTSIDE the plugin tree
  *    (the legacy `window.*Store` geometry twins, `packages/stores/*`) is outside its
  *    subject — which is why rows exist for the twins but the SUBJECT is the plugin
  *    key. `verticalCirculation` (the LOD-200 massing lift, `packages/geometry-lift/
- *    src/LiftStore.ts`) is invisible here and is NOT persisted either: L-11525.
+ *    src/LiftStore.ts`) is invisible here and is NOT persisted either: L-11525, OPEN.
  * ⛔ It reads ONE serializer — the app copy at `apps/editor/src/engine/persistence/`,
  *    which is the copy production calls (`initPersistence.ts:100`). The
  *    `packages/persistence-client` copy is a known second implementation (§PV-05
@@ -126,10 +128,17 @@ const PLUGIN_STORE_GLOB_DIR = 'plugins';
  *
  * Current entries (named on every run by ARM E, so this comment cannot be the only
  * place they appear):
- *   · structural — L-11523, OPEN
- *   · section    — L-11524, OPEN
+ *   · structural  — L-11523, OPEN — authored records destroyed on reload TODAY.
+ *   · section     — L-11524, OPEN — authored records destroyed on reload TODAY.
+ *   · bathroomPod — L-11527, OPEN — ⚠ PENDING, NOT A LIVE LOSS. Lane BATH102's store
+ *     exists but is registered in neither `ALL_PLUGINS` nor `runtime.stores`, so no
+ *     user can author a pod and nothing is being destroyed. It is on the ledger so
+ *     the family cannot go live UNANSWERED — which is the whole point of ARM A.
+ *     ⛔ When BATH102 registers the storeKey, this entry LEAVES and the baseline
+ *     drops to 2 IN THE SAME COMMIT. The row and the key move together (the rule
+ *     CLAUDE.md records failing five times for the contract range).
  */
-const UNPERSISTED_BASELINE = 2;
+const UNPERSISTED_BASELINE = 3;
 
 const MIN_STORE_KEYS = 20;
 const MIN_ROWS = 20;
@@ -156,20 +165,41 @@ function fail2(msg: string): never {
 // (singular). One character of that drift already made a live channel read
 // "0 subscribers" once ([[grep-silence-has-three-causes]]).
 //
-// Lifted in shape from `check-mirror-completeness.ts` ON PURPOSE: two gates
-// disagreeing about which families exist would make both numbers unreadable, which
-// CLAUDE.md records three times over as how a number stops meaning anything.
+// ⛔ THE SUBJECT IS **EVERY FILE UNDER `plugins/*​/src/`**, NOT JUST `store.ts` — AND
+// THAT DIVERGENCE FROM `check-mirror-completeness.ts` IS DELIBERATE AND MEASURED.
+//
+// That gate scans `^plugins/<p>/src/store\.ts$` exactly. Measured 2026-08-26, while
+// this gate was being written: lane BATH102 had `plugins/plumbing/src/**bathroomPodStore.ts**`
+// on disk — `class BathroomPodStore extends Store<BathroomPodData>` with
+// `super('bathroomPod')` — and the narrow glob DID NOT SEE IT. A gate whose whole
+// purpose is "no element family gets forgotten" that cannot see a family because its
+// file is named `bathroomPodStore.ts` instead of `store.ts` reproduces, in its own
+// detector, the exact defect it exists to catch. A filename is not a fact about the
+// model ([[grep-silence-has-three-causes]] again: the silence had a THIRD cause, and
+// this time the cause was the glob).
+//
+// So: two gates now compute this set differently, and that is stated rather than
+// smoothed over — CLAUDE.md records three times what rival denominators cost. The
+// difference is one-directional and safe: this subject is a strict SUPERSET of the
+// mirror gate's, so a family visible there is always visible here. The mirror gate's
+// blind spot is real and is NOT this lane's to close (L-11526, OPEN).
+const STORE_FILE_RE = /^plugins\/[^/]+\/src\/.*\.ts$/;
 function pluginStoreKeys(): { keys: Map<string, string>; files: number; classes: number } {
   const keys = new Map<string, string>();
   let files = 0;
   let classes = 0;
   for (const abs of walk(path.join(ROOT, PLUGIN_STORE_GLOB_DIR))) {
     const rel = relPath(ROOT, abs);
-    if (!/^plugins\/[^/]+\/src\/store\.ts$/.test(rel)) continue;
+    if (!STORE_FILE_RE.test(rel)) continue;
+    // Tests build throwaway `Store` subclasses with sentinel keys; a fixture is not
+    // a family, and counting one would put a fake on the persistence ledger.
+    if (/\.(test|spec)\.tsx?$/.test(rel) || rel.includes('/__tests__/')) continue;
     let src: string;
     try { src = readFileSync(abs, 'utf8'); } catch { continue; }
+    const decls = [...src.matchAll(/\bextends\s+Store\b/g)].length;
+    if (decls === 0) continue;
     files++;
-    classes += [...src.matchAll(/\bextends\s+Store\b/g)].length;
+    classes += decls;
     for (const m of src.matchAll(/super\('([A-Za-z0-9_-]+)'\)/g)) keys.set(m[1]!, rel);
   }
   return { keys, files, classes };

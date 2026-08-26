@@ -167,6 +167,18 @@ export const SNAPSHOT_FAMILY_COVERAGE: readonly SnapshotFamilyRow[] = Object.fre
     { storeKey: 'section', status: 'UNPERSISTED', snapshotKey: null,
       reason: 'L-11524 (OPEN) — SectionStore (plugins/section-view) has no snapshot key, so every section view the user cuts is lost on reload. Sibling of `view`, whose ViewRegistry DOES persist via `viewDefinitions`; the asymmetry is real and undeclared until now.' },
 
+    // ── Found ONLY because the gate's glob was widened past `store.ts` ────────
+    //
+    // ⭐ NEITHER OF THESE TWO IS VISIBLE TO `check-mirror-completeness.ts`, whose
+    // subject is `^plugins/<p>/src/store\.ts$` exactly. They live in files named after
+    // their class. A detector that cannot see a family because of its FILENAME is the
+    // defect it exists to catch, wearing the detector's uniform — which is why this
+    // gate's subject is every file under `plugins/*​/src/` that extends `Store`.
+    { storeKey: 'level', status: 'via-legacy-twin', snapshotKey: 'levels',
+      reason: 'plugins/plan-view/src/LevelStore.ts — declares `static readonly ephemeral = true` and its own header says levels are "project metadata loaded on project open", not replayed. The AUTHORITY is BimManager: `snapshot.levels` is written from it and restored by AddLevelCommand, which repopulates this session registry. Nothing is lost; the store is a per-session view of a persisted fact.' },
+    { storeKey: 'bathroomPod', status: 'UNPERSISTED', snapshotKey: null,
+      reason: 'L-11527 (OPEN) · C109 §8 — ⚠ PENDING, NOT LANDED. Lane BATH102 has `plugins/plumbing/src/bathroomPodStore.ts` (`super(\'bathroomPod\')`) on disk but UNTRACKED, and it is registered in NEITHER `ALL_PLUGINS` nor `runtime.stores`, so no user can author a pod yet and nothing is being destroyed TODAY. The row is written ahead of the store on purpose: C109 §8 requires the compound parent to persist AS a pod, and L-11405 already records the shape it must avoid — the member fixtures survive in `plumbing` while the parent identity (childrenIds, drill-in, delete-reap) does not. When BATH102 registers the storeKey, this row must move to `persisted` with a `bathroomPods` key IN THE SAME COMMIT, exactly as §PERSIST103 moved the lift row and the lift key together.' },
+
     // ── Not model state — persisting these would be the defect ────────────────
     { storeKey: 'cube', status: 'not-model-state', snapshotKey: null,
       reason: 'plugins/toy-cube — the dev demo family. performUndoRedo.ts already names it "REACHABLE AND STRANDED, dev demo". It is not registered in ALL_PLUGINS, so no user can author one; persisting it would put a developer toy in an architect\'s file.' },
