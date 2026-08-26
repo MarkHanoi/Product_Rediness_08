@@ -51,6 +51,16 @@ describe('furnitureShadowBudget (ADR-0076 §PERF-WEBGPU-FRAGMENT)', () => {
                 expect(furnitureCastsShadowUnderBudget(t), t).toBe(true);
             }
         });
+        it('§TVFURN114 — the TV lowboard + slat console are ARCHITECTURAL, not decorative', () => {
+            // A lowboard is casework the way a sideboard or tv_unit is; the slat
+            // console is a solid low body. Both keep casting shadows at EVERY
+            // budget — the same verdict the module already gives 'tv_unit'.
+            setFurnitureShadowBudget('decorative-off');
+            for (const t of ['tv_lowboard', 'tv_console_slat']) {
+                expect(isDecorativeFurniture(t), t).toBe(false);
+                expect(furnitureCastsShadowUnderBudget(t), t).toBe(true);
+            }
+        });
         it('§CARPET97 — all ten new procedural carpets are decorative too', () => {
             // A 4 mm rug lying on the floor casts a 4 mm sliver. Missing one
             // here would leave it a shadow caster at the `performance` tier
