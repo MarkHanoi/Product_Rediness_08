@@ -253,7 +253,24 @@ describe('§EI-7c ARM 1 — every bus store key is MAPPED or DECLARED', () => {
       // existed) but because ARM 1 now sweeps by STRUCTURE instead of by directory
       // name. Same lesson as L-980's pool/water: the set only grows when the gate
       // learns to ask a wider question, and the growth is the finding.
-      ['active-view', 'balcony', 'cube', 'dimension', 'lift', 'liftPart', 'pool', 'projectOrigin', 'schedule', 'section', 'selection', 'sheet', 'structural', 'view', 'water'],
+      //
+      // ⭐⭐ SHRUNK 2026-08-26 (§BATH102, L-11494) — AND THIS IS THE THIRD TIME THIS
+      // LITERAL HAS ROTTED IN THE SAME WAY, WHICH IS THE FINDING. `lift`, `liftPart`,
+      // `pool` and `water` LEAVE: §LIFT94 (L-11340) and §POOL95 (L-11350) gave all four
+      // real adapters in `buildUndoStoreMap()` AND correctly deleted their
+      // `UNMAPPED_BUS_STORE_KEYS` rows — and neither lane moved this literal, so the
+      // suite has been RED since. The comment two lines above records the SAME failure
+      // for `balcony`/`lift`/`liftPart` in August ("this literal was not moved with them
+      // and read RED for two days"), and it happened again anyway.
+      //
+      // ⛔ THE INSTRUCTION IS "IF IT SHRINKS, TIGHTEN THIS ASSERTION", NOT "widen it
+      // until it stops complaining". The set is tightened, and the rule this keeps
+      // failing is stated plainly for whoever adds the SIXTH adapter: **the adapter,
+      // the `UNMAPPED_BUS_STORE_KEYS` row and THIS literal move in ONE commit.**
+      //
+      // ⚠ `bathroomPod` is deliberately absent: §BATH102 gave it an adapter in the same
+      // commit that minted the family, so it was never stranded and never declared.
+      ['active-view', 'balcony', 'cube', 'dimension', 'projectOrigin', 'schedule', 'section', 'selection', 'sheet', 'structural', 'view'],
     );
   });
 
