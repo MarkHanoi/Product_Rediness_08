@@ -462,6 +462,14 @@ import {
     // and from `nlNoPlanRefusal` (the source ANSWERED "no plan here"). No retry changes either
     // shut-gate case — only a founder signature does.
     nlPublicationNotAuthorisedRefusal,
+    // §CONTEXT-DERIVED-STUDY-ENVELOPE (§ENVAMS148) — a massing STUDY built from real
+    // neighbouring-building heights, offered ONLY alongside the genuine `nlNoPlanRefusal` above
+    // (never the transient one — see `attachNlContextDerivedStudy` below). Gated on its OWN,
+    // narrower, SHUT flag — deliberately NOT authorised by `NL_BESTEMMINGSPLAN_CERTIFIED`/SIG-NL1,
+    // which covers only real published `maatvoering` numbers, never a PRYZM-derived one.
+    CONTEXT_DERIVED_STUDY_ENVELOPE_CERTIFIED,
+    buildContextDerivedStudyEnvelope,
+    type ContextStudyNeighbourSample,
     // PARIS (Ville de Paris, INSEE 75056) — PLU bioclimatique, STRUCTURED-DATA-FIRST. `resolveParisEnvelope`
     // reads the zone identity (GPU zone_urba), the numeric hauteur plafond (opendata plub_hauteur) AND the
     // published `plub_ecm` buildable-FOOTPRINT polygon; `computeParisEnvelope` extrudes that real footprint
@@ -567,6 +575,9 @@ import {
     noteEnvelopeResolutionSettled,
     resetEnvelopeResolutionState,
 } from './envelopeResolutionState.js';
+// §CONTEXT-DERIVED-STUDY-ENVELOPE (§ENVAMS148) — session-only holder for the last computed
+// context-derived study (never persisted to the C19 Parcel — see that module's header for why).
+import { setContextDerivedStudyEnvelope } from './contextDerivedStudyEnvelopeState.js';
 
 const _siteRestoreTracer = trace.getTracer('pryzm.site.restore');
 
@@ -3468,6 +3479,13 @@ async function applyNlZoningThenFallback(
             buildRefusedEnvelope(NL_ZONE_CODE, nlRefusal, 'none'),
             NL_SOURCE,
         );
+        // §CONTEXT-DERIVED-STUDY-ENVELOPE (§ENVAMS148) — ONLY on a GENUINE absence (the source
+        // answered "no plan here"), never on a transient fetch failure: a retry might still find a
+        // real plan, and computing a study alongside a "try again" card would make the study look
+        // like the fallback answer rather than a deliberately separate, indicative one.
+        if (nlOutcome.status !== 'transient') {
+            void attachNlContextDerivedStudy(site.id, lat, lon, boundary);
+        }
     } catch (e) {
         // Best-effort — never block the commit. Leave an honest refusal rather than a fabricated
         // estimate; if even that cannot dispatch, drop silently (the boundary is set).
@@ -3483,6 +3501,86 @@ async function applyNlZoningThenFallback(
                 );
             }
         } catch { /* refusal dispatch is best-effort too */ }
+    }
+}
+
+/**
+ * §CONTEXT-DERIVED-STUDY-ENVELOPE (§ENVAMS148, 2026-08-27) — best-effort attach of a massing STUDY
+ * (median of REAL neighbouring-building heights) alongside a genuine NL no-plan refusal.
+ *
+ * ⚠ GATED SHUT BY DEFAULT (`CONTEXT_DERIVED_STUDY_ENVELOPE_CERTIFIED`, its OWN flag — see
+ * `contextDerivedStudyEnvelope.ts`'s header for why this is NOT authorised by
+ * `NL_BESTEMMINGSPLAN_CERTIFIED`/SIG-NL1). While shut this is a no-op: no fetch, no computation,
+ * the refusal card is byte-identical to today's. Reopening it requires its own recorded human
+ * decision, mirroring SIG-NL1's own.
+ *
+ * Reuses the SAME `fetchContextBuildingsNearAndFar(lat, lon)` the 3D-Site context prefetch already
+ * calls for this exact point earlier in `applyZoning` (§CTX-ONE-READ-PER-BBOX) — this call shares
+ * its cache, so it does not cost a second Overpass round-trip. Each candidate's distance from the
+ * parcel's own query point is computed in the SAME scene-XZ frame the bouwvlak ring above is
+ * projected into (`latLonToSceneXZ`), so "within `radius_m`" means the same thing here as it does
+ * for the parcel's own geometry.
+ *
+ * Result — ok or a typed refusal — is recorded in `contextDerivedStudyEnvelopeState.ts` (session-
+ * only; NEVER persisted to the C19 Parcel — see that module's header for why) for a future rail
+ * panel to read. Best-effort: any failure here must never touch the refusal already dispatched
+ * above, so every exit is caught and logged, never thrown.
+ */
+const CONTEXT_STUDY_RADIUS_M = 50;
+
+async function attachNlContextDerivedStudy(
+    siteId: string,
+    lat: number,
+    lon: number,
+    boundary: ZoningBoundary,
+): Promise<void> {
+    const TAG = '[gis][c58] §CONTEXT-DERIVED-STUDY';
+    if (!CONTEXT_DERIVED_STUDY_ENVELOPE_CERTIFIED) {
+        console.log(`${TAG} CONTEXT_DERIVED_STUDY_ENVELOPE_CERTIFIED=false — not computed (§ENVAMS148).`);
+        return;
+    }
+    try {
+        if (!Array.isArray(boundary.polygon) || boundary.polygon.length < 3) return;
+        const { near } = await fetchContextBuildingsNearAndFar(lat, lon);
+        const neighbours: ContextStudyNeighbourSample[] = [];
+        for (const f of near.features) {
+            const ring = f.geometry.coordinates[0];
+            if (!ring || ring.length === 0) continue;
+            let sumLon = 0;
+            let sumLat = 0;
+            for (const [pLon, pLat] of ring) { sumLon += pLon; sumLat += pLat; }
+            const centroid = { lat: sumLat / ring.length, lon: sumLon / ring.length };
+            const xz = latLonToSceneXZ(centroid, lat, lon);
+            const distM = Math.hypot(xz.x, xz.z);
+            neighbours.push({
+                heightM: f.properties.heightM,
+                heightProvenance: f.properties.heightProvenance ?? 'assumed',
+                distM,
+            });
+        }
+        const result = buildContextDerivedStudyEnvelope({
+            parcelRing: boundary.polygon,
+            neighbours,
+            radius_m: CONTEXT_STUDY_RADIUS_M,
+            setback_m: 0,
+            sourceLabel: 'OpenStreetMap context buildings (measured/derived heights only)',
+        });
+        setContextDerivedStudyEnvelope(siteId, result);
+        if (result.ok) {
+            console.log(
+                `${TAG} median ${result.study.maxHeight_m.toFixed(1)} m from ` +
+                    `${result.study.heightBasis.sampledCount} real-height neighbour(s) within ` +
+                    `${CONTEXT_STUDY_RADIUS_M} m (excluded ${result.study.heightBasis.excludedAssumedCount} ` +
+                    'fabricated-placeholder neighbour(s)). INDICATIVE ONLY — not a determination.',
+            );
+        } else {
+            console.log(
+                `${TAG} refused: ${result.reason} (real=${result.realSampleCount}, ` +
+                    `excludedAssumed=${result.excludedAssumedCount}).`,
+            );
+        }
+    } catch (e) {
+        console.warn(`${TAG} failed (non-fatal):`, e);
     }
 }
 

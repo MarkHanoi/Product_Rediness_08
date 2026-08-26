@@ -1809,6 +1809,21 @@ export {
     type RawMaatvoering,
     type NlBpProxyResponse,
 } from './providers/resolveNlBestemmingsplan.js';
+// §CONTEXT-DERIVED-STUDY-ENVELOPE (§ENVAMS148) — a massing STUDY built from real neighbour
+// heights, offered only alongside a genuine no-plan-class refusal (never a determination — see the
+// schema's own module header for why it is not a `BuildableEnvelope` field). Gated on its OWN,
+// narrower, SHUT `CONTEXT_DERIVED_STUDY_ENVELOPE_CERTIFIED` — deliberately NOT authorised by
+// `NL_BESTEMMINGSPLAN_CERTIFIED`/SIG-NL1, which covers only real published `maatvoering` numbers.
+export {
+    CONTEXT_DERIVED_STUDY_ENVELOPE_CERTIFIED,
+    CONTEXT_STUDY_DEFAULT_MIN_SAMPLE_SIZE,
+    CONTEXT_STUDY_DISCLAIMER,
+    buildContextDerivedStudyEnvelope,
+    type ContextStudyNeighbourSample,
+    type ContextDerivedStudyEnvelopeInput,
+    type ContextDerivedStudyEnvelopeRefusalReason,
+    type ContextDerivedStudyEnvelopeResult,
+} from './providers/contextDerivedStudyEnvelope.js';
 // ── BARCELONA-GIS-AUDIT-SPIKE — Barcelona clau 18 (volumetria específica) explicit-area path. ──
 // The AMB Refós OV_Trames resolver (footprint + PLANTES floor count, WGS84, never throws) + its
 // UNREGISTERED explicit-area pack declaration. Gated on `BCN_REFOS_OV_CERTIFIED` (default OFF): while

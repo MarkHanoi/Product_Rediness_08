@@ -19,3 +19,6 @@ export * from './BuildableEnvelope.js';
 export * from './LandBasis.js';
 // STRUCTURAL-SEAM-4 — the shared fetch-outcome union (transient ≠ absent), C57 §1.5 / C58 §1.13.8.
 export * from './FetchOutcome.js';
+// §CONTEXT-DERIVED-STUDY-ENVELOPE (§ENVAMS148) — a STANDALONE massing-study artefact, deliberately
+// NOT a field on `BuildableEnvelope` — see the module header for why.
+export * from './ContextDerivedStudyEnvelope.js';

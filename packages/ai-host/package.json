@@ -15,9 +15,12 @@
     "./validators/validate-and-format": "./src/workflows/apartmentLayout/validators/validate-and-format.ts",
     "./validators/layout-adapter": "./src/workflows/apartmentLayout/validators/layout-adapter.ts",
     "./validators/orchestrator-types": "./src/workflows/apartmentLayout/validators/orchestrator-types.ts",
-    "./reporting": "./src/workflows/apartmentLayout/reporting/index.ts"
+    "./reporting": "./src/workflows/apartmentLayout/reporting/index.ts",
+    "./intents/room-auto-label": "./src/intents/roomAutoLabel.ts"
   },
-  "files": ["src"],
+  "files": [
+    "src"
+  ],
   "scripts": {
     "test": "vitest run",
     "test:ci": "vitest run",

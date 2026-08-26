@@ -51,6 +51,7 @@ import { BCN_REFOS_OV_CERTIFIED } from './providers/bcnRefosOVProvider.js';
 import { CH_FAR_CERTIFIED } from './providers/resolveChFarFromCantonCatalogue.js';
 import { MADRID_NZ1_CERTIFIED } from './providers/resolveMadridNZ1Ring.js';
 import { NL_BESTEMMINGSPLAN_CERTIFIED, NL_STOREY_DERIVED_HEIGHT_CERTIFIED } from './providers/resolveNlBestemmingsplan.js';
+import { CONTEXT_DERIVED_STUDY_ENVELOPE_CERTIFIED } from './providers/contextDerivedStudyEnvelope.js';
 import {
     AMB_NO_HELD_CORPUS_ENVELOPE_VERIFIED,
     AMB_PGM_NNUU_ENVELOPE_VERIFIED,
@@ -182,6 +183,22 @@ export const L449_CERTIFICATION_GATES: readonly L449Gate[] = Object.freeze([
         gate: 'NL_STOREY_DERIVED_HEIGHT_CERTIFIED',
         file: 'packages/site-parcel-data/src/providers/resolveNlBestemmingsplan.ts',
         value: NL_STOREY_DERIVED_HEIGHT_CERTIFIED,
+        signature: null,
+    },
+    {
+        // §CONTEXT-DERIVED-STUDY-ENVELOPE (§ENVAMS148, 2026-08-27) — a THIRD, DELIBERATELY SEPARATE
+        // sibling of the two above. `NL_BESTEMMINGSPLAN_CERTIFIED` authorises real published
+        // `maatvoering`; `NL_STOREY_DERIVED_HEIGHT_CERTIFIED` (still shut) would authorise a height
+        // DERIVED from a published storey count. This gate is narrower again and NOT NL-specific:
+        // it authorises showing a massing STUDY (median of real neighbouring-building heights)
+        // alongside a genuine no-plan-class refusal, ANYWHERE, when no normative envelope resolves
+        // at all. A stated willingness in a founder conversation ("use the height of the existing
+        // buildings … do it sound") is not a signature any more than SIG-M1's was — it is the
+        // request the signature would answer. Stays shut until its own recorded decision, mirroring
+        // SIG-NL1's own record in docs/04-reference/jurisdictions/nl/sources/VERIFICATION.md.
+        gate: 'CONTEXT_DERIVED_STUDY_ENVELOPE_CERTIFIED',
+        file: 'packages/site-parcel-data/src/providers/contextDerivedStudyEnvelope.ts',
+        value: CONTEXT_DERIVED_STUDY_ENVELOPE_CERTIFIED,
         signature: null,
     },
 
