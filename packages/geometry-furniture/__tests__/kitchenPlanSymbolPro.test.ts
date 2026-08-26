@@ -102,4 +102,35 @@ describe('§KITCHEN-PLAN-PRO — wall (upper) cabinets are dashed for tall layou
         // Sanity: tall strictly adds geometry, base is the smaller set.
         expect(segCount(linework(furniture(tall)))).toBeGreaterThan(segCount(linework(furniture(base))));
     });
+
+    // §KITCHEN107 (L-11600) — the plan symbol mirrors the 3-D corner rule: the
+    // LEFT arm's dashed wall-cabinet run extends INTO the corner (it starts at
+    // the main wall plane + upperDepth), exactly where the engine now places
+    // the wall cabinets, instead of stopping where the base arm starts.
+    it('L-tall: the left arm upper dashes reach into the corner and the buffer is finite', () => {
+        const cfg: KitchenCabinetConfig = {
+            layoutType: 'kitchen_l_shape_tall', depth: 0.6, length: 3.0, height: 0.9,
+            numUnits: 5, lengthLeft: 1.8, numUnitsLeft: 3,
+            units: [
+                ...Array.from({ length: 5 }, (_, i) => unit(i)),
+                ...Array.from({ length: 3 }, (_, i) => ({ index: i, arm: 'left' as const, front: 'door' as const })),
+            ],
+        };
+        const buf = linework(furniture(cfg));
+        expect(buf.every(Number.isFinite)).toBe(true);
+
+        // Root frame: main wall at z = -depth/2 = -0.3; upper depth 0.35 → the
+        // left upper run starts at z = 0.05, i.e. BEFORE the base left arm's
+        // start at z = +0.3. The left-arm strip lives at x ∈ [-1.5, -1.5+0.35].
+        // Before this fix no segment of the left arm existed with z < 0.3.
+        let cornerSegs = 0;
+        for (let i = 0; i < buf.length; i += 6) {
+            const ax = buf[i]! , az = buf[i + 2]!;
+            const bx = buf[i + 3]!, bz = buf[i + 5]!;
+            const inLeftStrip = Math.max(ax, bx) < -1.5 + 0.36;
+            const inCornerZ   = Math.min(az, bz) > 0.0 && Math.max(az, bz) < 0.3;
+            if (inLeftStrip && inCornerZ) cornerSegs++;
+        }
+        expect(cornerSegs).toBeGreaterThan(0);
+    });
 });
