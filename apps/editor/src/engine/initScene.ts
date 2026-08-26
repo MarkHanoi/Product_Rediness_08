@@ -1178,12 +1178,15 @@ export async function initScene(container: HTMLElement, runtime: import('@pryzm/
             models:               Parameters<EdgeProjectorService['project']>[1],
             nativeMeshGroups:     Parameters<EdgeProjectorService['project']>[2],
             ifcSceneGroups?:      Parameters<EdgeProjectorService['project']>[3],
-            planBelowDepthOffset?: Parameters<EdgeProjectorService['project']>[4],
             // §PERF-PROJECTION-CANCEL-SUPERSEDED (L-704) — forwarded through the lazy façade.
-            isSuperseded?:         Parameters<EdgeProjectorService['project']>[5],
+            // §PERF105-CLIP-SIGNATURE-HAS-ONE-OWNER (L-11561) — `planBelowDepthOffset` was
+            // parameter [4] and is gone; `isSuperseded` moves up. This façade forwarded a
+            // hard-coded `0` from `onReprojectionNeeded` while PlanViewManager forwarded
+            // 1.20 for the same view, which is what made the projection cache read 0%.
+            isSuperseded?:         Parameters<EdgeProjectorService['project']>[4],
         ): ReturnType<EdgeProjectorService['project']> => {
             return _ensureEdgeProjectorService().then(svc =>
-                svc.project(viewDef, models, nativeMeshGroups, ifcSceneGroups, planBelowDepthOffset, isSuperseded),
+                svc.project(viewDef, models, nativeMeshGroups, ifcSceneGroups, isSuperseded),
             );
         },
         // §FIX-PLAN-PROJECT-INCREMENTAL (L-65) — incremental graft forwarded through
@@ -1194,10 +1197,10 @@ export async function initScene(container: HTMLElement, runtime: import('@pryzm/
             viewDef:              Parameters<EdgeProjectorService['projectElementsInto']>[1],
             dirtyGroups:          Parameters<EdgeProjectorService['projectElementsInto']>[2],
             dirtyIds:             Parameters<EdgeProjectorService['projectElementsInto']>[3],
-            planBelowDepthOffset?: Parameters<EdgeProjectorService['projectElementsInto']>[4],
+            // §PERF105-CLIP-SIGNATURE-HAS-ONE-OWNER (L-11561) — parameter [4] removed.
         ): ReturnType<EdgeProjectorService['projectElementsInto']> => {
             return _ensureEdgeProjectorService().then(svc =>
-                svc.projectElementsInto(targetDrawing, viewDef, dirtyGroups, dirtyIds, planBelowDepthOffset),
+                svc.projectElementsInto(targetDrawing, viewDef, dirtyGroups, dirtyIds),
             );
         },
         setRoofSlopeSymbolBuilder: (builder: Parameters<EdgeProjectorService['setRoofSlopeSymbolBuilder']>[0]): void => {
@@ -1441,8 +1444,14 @@ export async function initScene(container: HTMLElement, runtime: import('@pryzm/
             // to completion and was rejected by setIfCurrent() at the very end; the
             // founder's 2026-08-06 log shows THREE complete plan projections discarded per
             // wall drawn ("Stale projection rejected — staleGen=2/3/4 currentGen=5").
+            // §PERF105-CLIP-SIGNATURE-HAS-ONE-OWNER (L-11561) — THIS `0` WAS THE OTHER
+            // HALF OF THE 0% CACHE. This driver and PlanViewManager both re-project the
+            // same plan view on the same store change; this one said the below-level band
+            // was 0 m and the other said 1.20 m, so their clip signatures never matched
+            // and each pass disposed the other's cached geometry. The projector now
+            // resolves it from the viewDef and there is no argument to disagree with.
             const drawing = await edgeProjectorService.project(
-                viewDef, models, nativeGroups, ifcSceneGroups, 0,
+                viewDef, models, nativeGroups, ifcSceneGroups,
                 () => viewTechnicalDrawingCache.currentGeneration(viewId) !== gen,
             );
 

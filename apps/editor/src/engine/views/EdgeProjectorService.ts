@@ -164,6 +164,9 @@ const EPS_VERBOSE = false;
 // lazily loaded 3,700-line projector into the main bundle. Re-exported here so existing
 // `from './EdgeProjectorService'` call sites resolve it too.
 import { ProjectionSupersededError } from './projectionCancellation';
+// §PERF105-CLIP-SIGNATURE-HAS-ONE-OWNER (L-11561) — the ONE producer of a plan view's
+// below-level band. Read that module's header before adding a second.
+import { resolvePlanBelowDepthOffset } from './planBelowDepthOffset';
 // §PERF-CW-YIELD-IS-PER-GROUP / §PERF-CANCEL-IS-NOT-A-YIELD-RIDER (L-5400..L-5401, L-5404) —
 // the per-group SCHEDULING policy, lifted into a pure leaf module so the tests drive the
 // SAME code this loop runs. There is no hand-written model of the loop any more.
@@ -2248,10 +2251,24 @@ export class EdgeProjectorService {
         models:               FRAGS.FragmentsModel[],
         nativeMeshGroups:     THREE.Group[],
         ifcSceneGroups:       THREE.Group[] = [],
-        planBelowDepthOffset: number = 0,
         isSuperseded?:        () => boolean,
     ): Promise<OBC.TechnicalDrawing> {
 
+        // ⭐ §PERF105-CLIP-SIGNATURE-HAS-ONE-OWNER (L-11561) — THIS USED TO BE A
+        // PARAMETER, `planBelowDepthOffset: number = 0`, AND THAT IS WHY THE
+        // PER-ELEMENT PROJECTION CACHE READ hitRate=0 % IN PRODUCTION.
+        //
+        // PlanViewManager passed 1.20; `initScene.onReprojectionNeeded` passed 0;
+        // `projectElementsInto` omitted it (0); ViewController passed 0. All four drive
+        // the SAME plan view on the SAME element create, and the value is folded into
+        // `computeClipSignature` — so two consecutive projections of one unchanged view
+        // produced two different signatures, missed every entry, and (because the cache
+        // is keyed by viewId alone) DISPOSED and overwrote each other's geometry.
+        //
+        // The offset is a property of the VIEW. Resolving it here, with no parameter to
+        // override it, makes disagreement unrepresentable. See `planBelowDepthOffset.ts`
+        // for the full evidence and for why a shared CONSTANT would not have fixed it.
+        const planBelowDepthOffset    = resolvePlanBelowDepthOffset(viewDef);
         const direction               = this.getDirectionForView(viewDef);
         const { near, far, floorY }   = this.resolveClipRange(viewDef);  // §02 §1.2 — no cache
 
@@ -4189,12 +4206,14 @@ export class EdgeProjectorService {
         viewDef:              ViewDefinition,
         dirtyGroups:          THREE.Group[],
         dirtyIds:             ReadonlySet<string>,
-        planBelowDepthOffset: number = 0,
     ): Promise<number> {
         if (dirtyGroups.length === 0) return 0;
 
-        // Build a throwaway drawing containing ONLY the dirty elements.
-        const fresh = await this.project(viewDef, [], dirtyGroups, [], planBelowDepthOffset);
+        // §PERF105-CLIP-SIGNATURE-HAS-ONE-OWNER (L-11561) — the `planBelowDepthOffset`
+        // parameter is gone from here too. This path OMITTED it, so it silently took the
+        // `0` default while PlanViewManager's full path passed 1.20 — meaning a GRAFT and
+        // a FULL pass on the same view could never share a cache entry either.
+        const fresh = await this.project(viewDef, [], dirtyGroups, []);
         let moved = 0;
         try {
             moved = this._transplantElementLines(fresh, targetDrawing, dirtyIds);

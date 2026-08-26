@@ -688,8 +688,10 @@ export class ViewController implements IViewController {
             // discarded — the exact waste §PERF-PROJECTION-CANCEL-SUPERSEDED (L-704) closed
             // for the other five drivers. Measured 2026-08-22: 2 of the 7 `project()` call
             // sites omitted it, and BOTH are in this file.
+            // §PERF105-CLIP-SIGNATURE-HAS-ONE-OWNER (L-11561) — the `0` argument is gone;
+            // the projector resolves the below-level band from the viewDef itself.
             const drawing = await this._edgeProjectorService.project(
-                viewDef, models, nativeGroups, [], 0,
+                viewDef, models, nativeGroups, [],
                 () => viewTechnicalDrawingCache.currentGeneration(viewId) !== projectionGen,
             );
             const accepted = viewTechnicalDrawingCache.setIfCurrent(viewId, projectionGen, drawing);
@@ -2286,8 +2288,9 @@ export class ViewController implements IViewController {
                     // driver, i.e. the pane the founder keeps open while he navigates. It
                     // opened a generation and checked `setIfCurrent`, but never let the
                     // projector abandon a pass it had already lost.
+                    // §PERF105-CLIP-SIGNATURE-HAS-ONE-OWNER (L-11561) — `0` argument removed.
                     this._edgeProjectorService.project(
-                        elevViewDef, models, nativeGroups, [], 0,
+                        elevViewDef, models, nativeGroups, [],
                         () => viewTechnicalDrawingCache.currentGeneration(elevViewDef.id) !== projectionGen,
                     ).then(drawing => {
                         const accepted = viewTechnicalDrawingCache.setIfCurrent(elevViewDef.id, projectionGen, drawing);

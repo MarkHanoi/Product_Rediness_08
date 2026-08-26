@@ -29,7 +29,9 @@ import { shouldSuppressAutoFrameWhileDrawing } from './autoframeGuard';
 // §SVP-FITALL-MIRROR-STARVED (L-743) — single owner of main-renderer visibility.
 import { mainRendererVisibility, MAIN_RENDERER_HIDE_CANVAS2D } from './mainRendererVisibility';
 import { viewIntentInstanceStore } from '@pryzm/core-app-model/presentation';
-import { visibilityIntentStore } from '@pryzm/core-app-model/presentation';
+// §PERF105-CLIP-SIGNATURE-HAS-ONE-OWNER (L-11561) — `visibilityIntentStore` was imported
+// ONLY by the two deleted copies of `_resolvePlanBelowDepthOffset`. Its one remaining
+// reader is `views/planBelowDepthOffset.ts`, which is where the answer now lives.
 import { OverridePanel } from '@app/ui/OverridePanel';
 import { ifcProjectionStore, IFC_PROJECTION_CHANGED_EVENT } from '@pryzm/core-app-model';
 
@@ -637,9 +639,11 @@ export class PlanViewManager implements IPlanViewManager {
             return true;
         }
 
-        const planBelowDepthOffset = this._resolvePlanBelowDepthOffset(viewDef);
+        // §PERF105-CLIP-SIGNATURE-HAS-ONE-OWNER (L-11561) — the offset is resolved by
+        // the projector from the viewDef; passing one from here is what made this graft
+        // and the full pass below disagree, and the cache miss 100% of the time.
         this._edgeProjectorService
-            .projectElementsInto(warm, viewDef, dirtyGroups, dirtyIds, planBelowDepthOffset)
+            .projectElementsInto(warm, viewDef, dirtyGroups, dirtyIds)
             .then(moved => {
                 nativeElementMeshExporter.releaseGroups(dirtyGroups, { disposeProxies: true });
                 if (moved === 0) {
@@ -675,17 +679,19 @@ export class PlanViewManager implements IPlanViewManager {
         this._scheduleDoubleBufferedReproject(viewDef);
     }
 
-    /** Resolve planBelowDepthOffset from the view's assigned intent (default 1.20 m). */
-    private _resolvePlanBelowDepthOffset(viewDef: ViewDefinition): number {
-        const isPlanType = viewDef.viewType === 'plan' || viewDef.viewType === 'structural-plan';
-        if (!isPlanType) return 0;
-        const instance = viewIntentInstanceStore.get(viewDef.id);
-        const intent   = instance ? visibilityIntentStore.get(instance.intentId) : null;
-        const isStructural = viewDef.viewType === 'structural-plan';
-        return isStructural
-            ? (intent?.planViewRange?.structuralPlanBelowLevelDepth ?? 1.20)
-            : (intent?.planViewRange?.belowLevelDepth ?? 1.20);
-    }
+    /**
+     * ⛔ `_resolvePlanBelowDepthOffset(viewDef)` WAS HERE AND IS GONE
+     * (§PERF105-CLIP-SIGNATURE-HAS-ONE-OWNER, L-11561).
+     *
+     * It was one of THREE producers of the same number — this method, an inline copy in
+     * the split-view path below, and a hard-coded `0` default on the projector taken by
+     * `initScene` and `ViewController`. All four drive the same plan view on the same
+     * element create, and the number is folded into the projection cache's clip
+     * signature, so the cache read `hitRate=0%` in production while re-running the full
+     * pipeline on every pass. `EdgeProjectorService.project()` now resolves it from the
+     * viewDef and takes no parameter for it; the one implementation lives in
+     * `views/planBelowDepthOffset.ts`, with the evidence.
+     */
 
     private _onIntentUpdated(e: Event): void {
         // When an intent's planViewRange changes, plan views using that intent need full re-projection.
@@ -868,12 +874,11 @@ export class PlanViewManager implements IPlanViewManager {
 
         if (models.length === 0 && nativeGroups.length === 0 && ifcSceneGroups.length === 0) return;
 
-        // Resolve planBelowDepthOffset from the view's assigned intent (default 1.20 m).
-        const planBelowDepthOffset = this._resolvePlanBelowDepthOffset(viewDef);
-
+        // §PERF105-CLIP-SIGNATURE-HAS-ONE-OWNER (L-11561) — planBelowDepthOffset is no
+        // longer passed: `EdgeProjectorService.project()` resolves it from the viewDef.
         const projectionGen = viewTechnicalDrawingCache.beginProjection(viewDef.id);
         this._edgeProjectorService.project(
-            viewDef, models, nativeGroups, ifcSceneGroups, planBelowDepthOffset,
+            viewDef, models, nativeGroups, ifcSceneGroups,
             () => viewTechnicalDrawingCache.currentGeneration(viewDef.id) !== projectionGen
                 || this._viewDef?.id !== viewDef.id,
         ).then(drawing => {
@@ -1027,7 +1032,7 @@ export class PlanViewManager implements IPlanViewManager {
             return;
         }
 
-        const planBelowDepthOffset = this._resolvePlanBelowDepthOffset(viewDef);
+        // §PERF105-CLIP-SIGNATURE-HAS-ONE-OWNER (L-11561) — see the graft path above.
 
         // HOLD the warm drawing: no invalidate() — the cache keeps rendering it while the
         // fresh projection runs. beginSwap() only bumps the generation.
@@ -1037,7 +1042,7 @@ export class PlanViewManager implements IPlanViewManager {
         // this commits", which is exactly what this method already did by hand.
         const projectionGen = viewTechnicalDrawingCache.beginSwap(viewDef.id);
         this._edgeProjectorService.project(
-            viewDef, models, nativeGroups, ifcSceneGroups, planBelowDepthOffset,
+            viewDef, models, nativeGroups, ifcSceneGroups,
             () => viewTechnicalDrawingCache.currentGeneration(viewDef.id) !== projectionGen
                 || this._viewDef?.id !== viewDef.id,
         ).then(drawing => {
@@ -1123,20 +1128,14 @@ export class PlanViewManager implements IPlanViewManager {
 
         if (models.length === 0 && nativeGroups.length === 0 && ifcSceneGroups.length === 0) return;
 
-        const isPlanTypeSV = viewDef.viewType === 'plan' || viewDef.viewType === 'structural-plan';
-        let planBelowDepthOffsetSV = 0;
-        if (isPlanTypeSV) {
-            const instance = viewIntentInstanceStore.get(viewDef.id);
-            const intent   = instance ? visibilityIntentStore.get(instance.intentId) : null;
-            const isStructural = viewDef.viewType === 'structural-plan';
-            planBelowDepthOffsetSV = isStructural
-                ? (intent?.planViewRange?.structuralPlanBelowLevelDepth ?? 1.20)
-                : (intent?.planViewRange?.belowLevelDepth ?? 1.20);
-        }
-
+        // ⛔ §PERF105-CLIP-SIGNATURE-HAS-ONE-OWNER (L-11561) — AN INLINE THIRD COPY of
+        // `_resolvePlanBelowDepthOffset` stood here (`planBelowDepthOffsetSV`), six lines
+        // duplicated with the 1.20 literal repeated. It is deleted, not extracted: the
+        // projector resolves the offset itself now, so the split view cannot disagree
+        // with the main pane about the clip signature of the same drawing.
         const projectionGen = viewTechnicalDrawingCache.beginProjection(viewDef.id);
         this._edgeProjectorService.project(
-            viewDef, models, nativeGroups, ifcSceneGroups, planBelowDepthOffsetSV,
+            viewDef, models, nativeGroups, ifcSceneGroups,
             () => viewTechnicalDrawingCache.currentGeneration(viewDef.id) !== projectionGen,
         ).then(drawing => {
             const accepted = viewTechnicalDrawingCache.setIfCurrent(viewDef.id, projectionGen, drawing);

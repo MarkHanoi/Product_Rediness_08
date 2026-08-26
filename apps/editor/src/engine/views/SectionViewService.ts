@@ -189,8 +189,10 @@ export class SectionViewService implements ISectionViewService {
         // L-703), with none of the guard the plan path has. Take a generation before the
         // await and commit through `setIfCurrent`, which enforces INVARIANT D.
         const projectionGen = viewTechnicalDrawingCache.beginProjection(viewDef.id);
+        // §PERF105-CLIP-SIGNATURE-HAS-ONE-OWNER (L-11561) — the `0` argument is gone; the
+        // projector resolves the below-level band from the viewDef (0 for a section).
         this._edgeProjectorService!.project(
-            viewDef, models, nativeGroups, ifcSceneGroups, 0,
+            viewDef, models, nativeGroups, ifcSceneGroups,
             // §PERF-PROJECTION-CANCEL-SUPERSEDED (L-704) — a section is the most expensive
             // view in the product (no level filter: it exports every element on every
             // level), so finishing one that is already superseded is the single largest
