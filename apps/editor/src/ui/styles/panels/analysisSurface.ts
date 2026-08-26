@@ -1492,10 +1492,10 @@ export const ANALYSIS_SURFACE_STYLES = `
 
    ⚠ AMENDED 2026-08-26 (§DEMO141, L-12301) — the pin is NO LONGER the stage's
    first child. The storey-scope and relationship-view controls moved INSIDE
-   the stage ahead of it (`widgetRenderers.ts`, §GRAPH-EXPAND-CONTROLS-SURVIVE)
+   the stage ahead of it ('widgetRenderers.ts', §GRAPH-EXPAND-CONTROLS-SURVIVE)
    so an expand no longer covers the only way to change what the graph shows.
    'position: sticky' does not require being the first child — it locks once
-   the element's own normal-flow position would cross `top: 0` — so the pin
+   the element's own normal-flow position would cross 'top: 0' — so the pin
    still locks, just after those two bars scroll past rather than immediately.
    That is a disclosed trade, not a regression: see the widget-renderer comment
    for why those two bars are not ALSO sticky yet. */
