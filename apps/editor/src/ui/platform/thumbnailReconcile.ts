@@ -121,8 +121,17 @@ export interface ThumbnailResolution {
     readonly serverUrl?: string;
 }
 
-/** A usable preview is a non-empty `data:image/...` URL within the server ceiling. */
-function isUsableThumbnail(v: string | null | undefined): v is string {
+/**
+ * A usable preview is a non-empty `data:image/...` URL within the server ceiling.
+ * Deliberately `boolean`, not a `v is string` type guard: `false` does NOT mean
+ * "not a string" — a perfectly real string fails this (a bare server URL, e.g.),
+ * and `resolveProjectThumbnail`'s serverRemote branch exists exactly to handle
+ * that case. A `v is string` predicate would have TypeScript narrow `serverThumbnail`
+ * to `null | undefined` on the `!serverOk` path and then to `never` the moment the
+ * next line re-checks `typeof serverThumbnail === 'string'` — correct data, a type
+ * the compiler no longer believes is reachable.
+ */
+function isUsableThumbnail(v: string | null | undefined): boolean {
     return typeof v === 'string'
         && v.length > 0
         && v.startsWith('data:image/')

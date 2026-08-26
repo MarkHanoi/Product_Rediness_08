@@ -26,6 +26,7 @@ import { DEFAULT_SHOWER_VARIANT, SHOWER_FOOTPRINTS, ShowerVariant, isWalkInShowe
 // the yaw below.
 import { plumbingFixtureYawForWallNormal } from '@pryzm/geometry-plumbing';
 import type { WallData } from '@pryzm/geometry-wall';
+import { mintWallAnchor, type WallAnchor } from '@pryzm/command-registry';
 
 // ── Plan-view footprint dimensions per fixture type (metres) ─────────────────
 const FOOTPRINTS: Record<PlumbingFixtureType, { w: number; l: number; h: number }> = {
