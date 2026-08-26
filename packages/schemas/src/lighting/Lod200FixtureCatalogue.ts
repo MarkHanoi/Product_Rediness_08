@@ -825,6 +825,117 @@ export const LOD200_FIXTURE_ROWS: readonly Lod200FixtureRow[] = Object.freeze([
         bodyMaterialId: 'steel-galvanised', lMm: 620, wMm: 260, dMm: 5000,
         stemMm: 800,
     },
+
+    // ── §LIGHT121 (L-11904, 2026-08-26) — the founder's INTERIOR FLOOR family ──
+    //
+    // Every existing `mount: 'floor'` row is `location: 'exterior'` (the five
+    // §OUTDOOR112 site fixtures plus the legacy `bollard_light`) — there was no
+    // INDOOR floor-standing luminaire in the whole matrix. The founder's ask,
+    // "floor lighting" — uplighters, floor-recessed spots, plinth/cove LED — is
+    // exactly that gap, on the SAME `mount: 'floor'` vocabulary the site fixtures
+    // already prove out, reusing the existing `can` and `bar` archetypes rather
+    // than minting new ones (C84 EI-9: an uplighter is optically a downlight
+    // pointed the other way, not a new mass).
+    //
+    // ⚠ THE ONE THING THAT WAS NOT ALREADY TRUE FOR THESE ARCHETYPES: `_lod200Can`
+    // and `_lod200Bar` (and their `_lod200EmitterOffset` arms) hard-assumed a
+    // CEILING mount — local +Y is "away from the room" there, so a `can` recessed
+    // body sits at +D/2 and a non-recessed one hangs at −D/2. For a FLOOR mount
+    // the room is on the OPPOSITE side of the local origin (+Y is INTO the room,
+    // −Y is the void below the slab), so reusing that code unmodified would have
+    // built an uplighter with its body and lens on the wrong side of the floor —
+    // invisible or emitting into the slab. `LightingFragmentBuilder` gained an
+    // explicit `mount === 'floor'` arm in both places, sign-mirrored from the
+    // ceiling arm, exactly as `mount === 'wall'` already has its own arm there.
+    // See `floorMountFixtures.test.ts` for the measurement (emitter Y ≥ 0 for all
+    // four; the non-recessed row's whole body sits at y ≥ 0 too).
+    {
+        // #1 — RECESSED IN-GROUND UPLIGHTER: a walk-over puck flush with the
+        // floor, washing a nearby column or feature wall from below.
+        //
+        // lumens 400 / watts 6 → 66.7 lm/W — architectural band, low end: the
+        //   walk-over lens (toughened, sealed to IP67) costs a few % of
+        //   transmission a plain trim ring does not, distinct from #2's 71.4.
+        // kelvin 2700 — warm accent wash, the architectural-feature norm.
+        // cri 90 — feature/accent duty, matching the ceiling accent rows
+        //   (`adjustable_downlight`, `wall_washer_recessed`) rather than the
+        //   70–80 of an amenity/area fixture.
+        // beam 30° — a WASH, wider than #3's precision spot, narrower than a
+        //   general downlight: the fixture lights a surface, not the floor
+        //   around it.
+        // IP67 — in-ground walk-over sealing (EN 60598-2-13), the recessed
+        //   floor-fixture floor — distinct from a merely splash-rated surface
+        //   puck (#2).
+        id: 'floor_uplighter_recessed', name: 'Recessed Floor Uplighter',
+        use: 'In-ground recessed uplighter, flush with the floor, washing a column or feature wall from below.',
+        archetype: 'can', mount: 'floor', face: 'up', recessed: true, location: 'interior',
+        lumens: 400, watts: 6, kelvin: 2700, cri: 90, beamAngleDeg: 30, ipRating: 67,
+        bodyMaterialId: 'steel-stainless-brushed', lMm: 100, wMm: 100, dMm: 90,
+    },
+    {
+        // #2 — SURFACE FLOOR UPLIGHTER: a squat puck standing proud of the
+        // floor beside a column, plant stand or display plinth.
+        //
+        // lumens 500 / watts 7 → 71.4 lm/W — no walk-over sealing overhead
+        //   (it is not driven over), so slightly ahead of #1's in-ground figure.
+        // kelvin 3000 — general accent, a touch cooler than the in-ground
+        //   feature wash.
+        // beam 40° — WIDER than #1: a surface puck typically carries a simpler,
+        //   less collimated optic than a recessed in-ground unit.
+        // IP44 — indoor surface accent, splash-protected for floor cleaning,
+        //   not walk-over rated (it is not flush, so nothing walks ON it).
+        id: 'floor_uplighter_surface', name: 'Surface Floor Uplighter',
+        use: 'Surface-standing puck uplighter beside a column or plinth, washing it from floor level.',
+        archetype: 'can', mount: 'floor', face: 'up', location: 'interior',
+        lumens: 500, watts: 7, kelvin: 3000, cri: 90, beamAngleDeg: 40, ipRating: 44,
+        bodyMaterialId: 'aluminium-powder-coated-dark', lMm: 90, wMm: 90, dMm: 70,
+    },
+    {
+        // #3 — RECESSED FLOOR SPOT: a narrow-beam in-ground spot grazing
+        // artwork or a textured wall from low level — a precision accent, not
+        // a wash.
+        //
+        // lumens 480 / watts 7 → 68.6 lm/W — between #1 and #2: a narrower
+        //   optic than #1's wash costs a little more transmission for the
+        //   tighter control, distinct from both rather than sitting on either.
+        // kelvin 3000 · cri 90 — matches the ceiling spot family
+        //   (`track_head`, `adjustable_downlight`) it is the floor-level
+        //   sibling of.
+        // beam 20° — genuinely narrower than #1's 30° wash: the "spot" vs
+        //   "uplighter" distinction is this field, not the name.
+        // IP67 — in-ground walk-over, the same duty as #1.
+        id: 'floor_recessed_spot', name: 'Recessed Floor Spot',
+        use: 'Narrow-beam in-ground spot grazing a nearby wall, column or artwork from low level.',
+        archetype: 'can', mount: 'floor', face: 'up', recessed: true, location: 'interior',
+        lumens: 480, watts: 7, kelvin: 3000, cri: 90, beamAngleDeg: 20, ipRating: 67,
+        bodyMaterialId: 'steel-stainless-brushed', lMm: 95, wMm: 95, dMm: 100,
+    },
+    {
+        // #4 — PLINTH / COVE LED STRIP: a linear LED strip recessed into a
+        // skirting/plinth groove, washing the floor indirectly along a wall run.
+        //
+        // ⭐ THE SAME LINEAR ARCHETYPE AS `cove_indirect` (its ceiling sibling),
+        // reused rather than re-invented (C84 EI-9) — a plinth cove and a
+        // ceiling cove are the SAME product family, mounted at the opposite
+        // skirting.
+        // lumens 900 / watts 9 → 100 lm/W — a genuinely different absolute
+        //   pair from `cove_indirect`'s 1100/11 (also 100 lm/W): the SAME
+        //   linear-LED-strip efficacy class, a shorter run at a lower total
+        //   output, not that row's numbers copied across.
+        // kelvin 2700 — matches `cove_indirect`'s warm indirect wash.
+        // cri 90 — matches the architectural cove family.
+        // beam 110° — a touch narrower than `cove_indirect`'s 120°: recessed
+        //   in a plinth groove rather than an open ceiling channel, the groove
+        //   itself clips a few degrees off the edge of the wash.
+        // IP44 — recessed in a floor-level groove, exposed to routine floor
+        //   cleaning; not walk-over (the groove sets it back from the floor
+        //   surface a person would stand on).
+        id: 'plinth_cove_led', name: 'Plinth / Cove LED Strip',
+        use: 'Linear LED strip recessed into a skirting/plinth groove, washing the floor indirectly along a wall run.',
+        archetype: 'bar', mount: 'floor', face: 'up', recessed: true, location: 'interior',
+        lumens: 900, watts: 9, kelvin: 2700, cri: 90, beamAngleDeg: 110, ipRating: 44,
+        bodyMaterialId: 'aluminium-anodised-silver', lMm: 900, wMm: 35, dMm: 35,
+    },
 ] as const satisfies readonly Lod200FixtureRow[]);
 
 /**

@@ -75,10 +75,13 @@ describe('§FEAT-LOD200-LUMINAIRES — the founder ask, measured', () => {
       * 20 on 2026-08-19 (§FEAT-LOD200-LUMINAIRES) → 25 on 2026-08-26 (§LIGHT102,
       * L-11500: the founder's five new decorative pendant rows) → 30 on 2026-08-26
       * (§OUTDOOR112: the founder's five OUTDOOR SITE rows — two bollards, two
-      * globe posts, one street luminaire, on three new archetypes).
+      * globe posts, one street luminaire, on three new archetypes) → 34 on
+      * 2026-08-26 (§LIGHT121, L-11904: the founder's INTERIOR FLOOR family — two
+      * uplighters, a recessed spot and a plinth/cove LED strip, on the two
+      * PRE-EXISTING `can` / `bar` archetypes).
       */
-    it('ships exactly THIRTY LOD-200 families', () => {
-        expect(LOD200_FIXTURE_ROWS).toHaveLength(30);
+    it('ships exactly THIRTY-FOUR LOD-200 families', () => {
+        expect(LOD200_FIXTURE_ROWS).toHaveLength(34);
     });
 
     it('every id is unique, snake_case and stable (they are PERSISTED)', () => {
