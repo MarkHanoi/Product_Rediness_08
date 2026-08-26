@@ -102,7 +102,7 @@ const REFRESH_DEBOUNCE_MS = 350;
  * stays the authority — this table only renames it at the glass.
  */
 const FACET_AXIS_LABEL: Readonly<Record<string, string>> = Object.freeze({
-  category:     'Family',
+  category:     'Category',
   level:        'Storey',
   type:         'Type',
   chapter:      'Chapter',

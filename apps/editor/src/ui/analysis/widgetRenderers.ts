@@ -436,12 +436,12 @@ export function renderCoverage(host: HTMLElement, result: AnalysisResult): void 
     ? `classes declared by ${areaStandard().label}`
     : result.query.source === 'graph'
       ? 'declared UBG edge families'
-      : 'families known to the take-off engine';
+      : 'categories known to the take-off engine';
   const lede = el(
     'p',
     'anl-lede',
     `${rows.length} ${noun} · ${notMeasured} NOT MEASURED · ${counted} counted only. ` +
-      'A family that is not measured produces no line and is NEVER rendered as a zero — that is the difference between ' +
+      'A category that is not measured produces no line and is NEVER rendered as a zero — that is the difference between ' +
       '"you have no roofs" and "roofs are not measured".',
   );
   host.appendChild(lede);
@@ -498,7 +498,7 @@ export function renderKpi(host: HTMLElement, result: AnalysisResult): void {
 
   const fams = el('div', 'anl-kpi');
   fams.appendChild(el('div', 'anl-kpi-value', NUM0.format(result.figures.length)));
-  fams.appendChild(el('div', 'anl-kpi-label', 'families present'));
+  fams.appendChild(el('div', 'anl-kpi-label', 'categories present'));
   wrap.appendChild(fams);
 
   const un = el('div', 'anl-kpi');
@@ -1213,7 +1213,7 @@ export function renderGraph(host: HTMLElement, _def: AnalysisWidgetDef, _result:
   // "the legends take about this much room" back into a measurement.
   //
   // ⭐ THE NODE LEGEND CLOSES A CLAIM THE CARD HAS ALWAYS MADE. The footer says
-  // "colour = element family"; until now there was no table saying WHICH family
+  // "colour = element category"; until now there was no table saying WHICH family
   // each colour was, so the sentence was unreadable and the picture was eight
   // anonymous hues.
   renderNodeLegend(stage, groupIndex, familyCounts, focusCtl);
@@ -1433,9 +1433,9 @@ export function renderGraph(host: HTMLElement, _def: AnalysisWidgetDef, _result:
       'p',
       'anl-card-foot',
       `${!g.complete ? '≥ ' : ''}${projection.edges.length} drawn relationship(s) of ${g.totalEdges} projected  ·  ` +
-        `${projection.nodes.length} of ${g.totalNodes} elements  ·  node size = √degree  ·  colour = element family` +
+        `${projection.nodes.length} of ${g.totalNodes} elements  ·  node size = √degree  ·  colour = element category` +
         (projection.unresolvedFamilyCount > 0
-          ? `  ·  ⚠ ${projection.unresolvedFamilyCount} node(s) have no family the census can resolve, so every ` +
+          ? `  ·  ⚠ ${projection.unresolvedFamilyCount} node(s) have no category the census can resolve, so every ` +
             'category count is a floor'
           : ''),
     ),
@@ -1448,7 +1448,7 @@ export function renderGraph(host: HTMLElement, _def: AnalysisWidgetDef, _result:
 //
 // ⭐ THE FOUNDER ASKED FOR COLOURED NODES. THE CARD ALREADY HAD THEM, ON PAPER.
 // `renderGraph` has always filled nodes from `seriesColour(groupIndex…)` and its
-// footer has always printed *"colour = element family"* — and in 2-D that is
+// footer has always printed *"colour = element category"* — and in 2-D that is
 // exactly what happens. In 3-D, the DEFAULT mode and the one in his screenshot,
 // every node was the same pale grey.
 //
@@ -1911,7 +1911,7 @@ function categoryTree(projection: HierarchyProjection): HTMLElement {
       'p',
       'anl-card-foot',
       'Element categories in this view. ⚠ Discipline is assigned per FAMILY, not per element — PRYZM authors no ' +
-        'per-wall load-bearing flag, so this is a family tally and never a structural analysis.',
+        'per-wall load-bearing flag, so this is a category tally and never a structural analysis.',
     ),
   );
 
@@ -1944,7 +1944,7 @@ function categoryTree(projection: HierarchyProjection): HTMLElement {
           label: f.family,
           value: f.count,
           unit: 'ud',
-          basis: `Elements of family ${f.family} participating in the ${projection.def.label} view.`,
+          basis: `Elements of category ${f.family} participating in the ${projection.def.label} view.`,
           elementIds: [...f.ids],
           qualifiers: [],
         }),
