@@ -83,7 +83,11 @@ describe('§PERF104 A — corpus maintenance yields to a project open', () => {
         // BEFORE the run must be able to interleave with it.
         const order: string[] = [];
         setTimeout(() => order.push('timer'), 0);
-        await runDeferred([1, 2, 3, 4], () => order.push('work'), { chunkSize: 1 });
+        // ⚠ BRACED, not a concise body: `Array.push` returns the new LENGTH, and the
+        // worker's contract is `void | Promise<void>`. The expression form made the
+        // ROOT `tsc` gate RC=2 (TS2322) while the test itself passed — the exact
+        // shape that turns green tests into a red build.
+        await runDeferred([1, 2, 3, 4], () => { order.push('work'); }, { chunkSize: 1 });
         expect(order).toContain('timer');
         expect(order.indexOf('timer')).toBeLessThan(order.length - 1);
     });
