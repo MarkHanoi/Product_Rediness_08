@@ -49,6 +49,26 @@ export class DoorPlanToolHandler implements PlanToolHandler {
         return this._ctx?.doorConfig ?? getDoorToolConfig();
     }
 
+    /**
+     * §DOOR125 (L-11980, C74) — surface a refusal to the PERSON, not just the
+     * console. Every `onClick` refusal below already had a `console.warn`/`error`
+     * line; none of them reached a toast, so a real click-time refusal was
+     * indistinguishable from "nothing happened" to anyone who isn't watching
+     * DevTools — precisely the founder's report ("the preview appears, but can't
+     * create"). Mirrors the guarded `rt?.toasts?.show(...)` pattern
+     * `activatePlanOnlyTool.ts` already uses: never let a toast failure take the
+     * click with it, and never assume `runtime`/`toasts` is wired (tests and some
+     * headless contexts construct a `PlanToolDrawContext` without one).
+     */
+    private _toast(message: string, kind: 'error' | 'info' = 'error'): void {
+        try {
+            const rt = this._ctx?.runtime ?? window.runtime;
+            rt?.toasts?.show(message, kind, kind === 'error' ? 7000 : 4000);
+        } catch {
+            /* a toast that throws must never take the click with it */
+        }
+    }
+
     activate(ctx: PlanToolDrawContext): void {
         this._ctx = ctx;
         this._doorCursorPoint = null;
@@ -112,7 +132,16 @@ export class DoorPlanToolHandler implements PlanToolHandler {
         );
 
         if (!wallId) {
+            // §DOOR125 (L-11980, C74) — THE PREVIEW HAS NO PROXIMITY GATE (see
+            // `_drawDoorPreview`: it draws wherever the cursor is, wall or not), but
+            // THE COMMIT DOES (1.5 m plan / 2.0 m vertical / 16 px hitTest). Before
+            // this fix that asymmetry refused with `console.warn` ONLY — a click that
+            // LOOKED aligned on screen (a coarse zoom, a split 3-D/plan pane) produced
+            // a convincing preview and then silently did nothing, which is exactly
+            // the founder's report: "the preview appears, but can't create." The
+            // refusal was always correct; it was never VISIBLE.
             console.warn('[DoorPlanToolHandler] No wall found near cursor — click closer to a wall');
+            this._toast('No wall found near the cursor — click closer to a wall to place a door.', 'error');
             return;
         }
 
@@ -122,6 +151,7 @@ export class DoorPlanToolHandler implements PlanToolHandler {
         const targetWall = wallStore.getById(wallId);
         if (!targetWall) {
             console.warn(`[DoorPlanToolHandler] Resolved host ${wallId} is not a wall — refusing to place a door on a non-wall element.`);
+            this._toast('That is not a wall — a door can only be hosted on a wall.', 'error');
             return;
         }
 
@@ -132,6 +162,7 @@ export class DoorPlanToolHandler implements PlanToolHandler {
         // CurvedWallOpeningBuilder). Only the disabled escape-hatch mode refuses.
         if ((targetWall as any).curve && !isArcHost(targetWall as any)) {
             console.warn('[DoorPlanToolHandler] Curved-wall hosting is disabled (__pryzmHostedOnCurvedWall = false).');
+            this._toast('Curved-wall door hosting is disabled for this project.', 'error');
             return;
         }
 
@@ -171,8 +202,20 @@ export class DoorPlanToolHandler implements PlanToolHandler {
         //     uses, so the persisted DoorStore record is identical to the 3D path's.
         // §P4.1: ctx.runtime is now typed — no unsafe (window as any) cast needed.
         const _runtime = c.runtime ?? window.runtime;
+        // §DOOR125 (L-11980, C74) — a `canExecute` refusal (or any other bus-level
+        // throw) rejects this promise. Before this fix the ONLY handling was
+        // `console.error` — invisible to the user, and from their seat
+        // indistinguishable from "the click did nothing": the preview had already
+        // been drawn (a pure canvas draw with no bus involvement), so a rejected
+        // commit left nothing on screen and no visible explanation. Never silent
+        // now — the reason names WHY, matching the `activatePlanOnlyTool.ts` /
+        // C80 §10.f pattern other create tools already use.
         _runtime?.bus?.executeCommand('wall.opening.create', { wallId, openingData: _openingData })
-            ?.catch((e: unknown) => console.error('[DoorPlanToolHandler] wall.opening.create bus failed:', e));
+            ?.catch((e: unknown) => {
+                console.error('[DoorPlanToolHandler] wall.opening.create bus failed:', e);
+                const reason = e instanceof Error ? e.message : String(e);
+                this._toast(`Could not place the door — ${reason}`, 'error');
+            });
 
         this._doorCursorPoint = null;
         this._clearOverlay();
