@@ -1248,6 +1248,13 @@ export type TransformDragCommands = {
      */
     'plumbing.moveFixture': { readonly id: string; readonly to: { readonly x: number; readonly y: number; readonly z: number } };
     /**
+     * §LIGHT121 (L-11900) — move a placed lighting fixture to a new ABSOLUTE world
+     * position. Bridged to the legacy `MoveLightingCommand` (geometry
+     * `window.lightingStore` → `bim-lighting-updated` → 3D fragment rebuild + 2D
+     * plan re-projection), the identical L-220 pattern `plumbing.moveFixture` uses.
+     */
+    'lighting.moveFixture': { readonly id: string; readonly to: { readonly x: number; readonly y: number; readonly z: number } };
+    /**
      * Move a floor by translating its boundary polygon. `_recordUndo` + `_prev`
      * opt the move onto the ring-buffer undo timeline (§FIX-UNDO-CAPTURE-SYSTEMIC).
      * Bridged to the legacy `UpdateFloorCommand` (geometry `window.floorStore`).

@@ -15,16 +15,16 @@ change, not a rename — see C69 §2.
 
 | | |
 |---|---|
-| Handler files read | 1377 (floor 900) |
-| **Verbs** | **353** (floor 250) |
-| LIVE | 136 |
+| Handler files read | 1397 (floor 900) |
+| **Verbs** | **357** (floor 250) |
+| LIVE | 138 |
 | REFUSES | 37 |
 | SHADOWED (dead route) | 1 |
-| UNKNOWN | 179 |
+| UNKNOWN | 181 |
 | — of the LIVE, credited by the §L-946 mirror channel | 12 of 12 level-change verb(s) |
-| authoritative store NONE or UNKNOWN | 217 |
+| authoritative store NONE or UNKNOWN | 219 |
 | sync UNDECLARED (property verbs) | 2 |
-| chat UNDECLARED | 12 |
+| chat UNDECLARED | 14 |
 
 These numbers are re-derived on every run. Do not transcribe them anywhere else
 (C64 §2.13) — cite this file.
@@ -57,6 +57,8 @@ These numbers are re-derived on every run. Do not transcribe them anywhere else
 | `balcony.create` | plugins/balcony | UNKNOWN | UNKNOWN | patch-pair → balcony + slab + floor + handrail | synced via 'balconyId' (disclose) | UNDECLARED |
 | `balcony.delete` | plugins/balcony | UNKNOWN | UNKNOWN | patch-pair → balcony + slab + floor + handrail | not-synced (reason declared) | UNDECLARED |
 | `balcony.updateProfile` | plugins/balcony | UNKNOWN | UNKNOWN | patch-pair → balcony + slab + floor + handrail | synced via 'balconyId' (disclose) | UNDECLARED |
+| `bathroomPod.create` | plugins/plumbing | UNKNOWN | UNKNOWN | patch-pair → bathroomPod | n/a (not a property verb) | UNDECLARED |
+| `bathroomPod.delete` | plugins/plumbing | UNKNOWN | UNKNOWN | patch-pair → bathroomPod | n/a (not a property verb) | UNDECLARED |
 | `beam.batch.create` | plugins/beam | UNKNOWN | UNKNOWN | patch-pair → beam | not-synced (reason declared) | classified C |
 | `beam.changeLevel` | plugins/beam | LIVE | legacy beamStore (via element.level-changed mirror) | patch-pair → beam | not-synced (reason declared) | capability: move-to-level |
 | `beam.create` | plugins/beam | UNKNOWN | UNKNOWN | patch-pair → beam | synced via 'id' (disclose) | classified B |
@@ -145,7 +147,7 @@ These numbers are re-derived on every run. Do not transcribe them anywhere else
 | `element.hideInView` | plugins/view | LIVE | legacy geometry store (via commandManager) | legacy-stack (no affectedStores) | not-synced (reason declared) | classified B |
 | `element.isolateInView` | plugins/view | LIVE | legacy geometry store (via commandManager) | legacy-stack (no affectedStores) | not-synced (reason declared) | classified B |
 | `element.setGraphicOverride` | plugins/view | LIVE | legacy geometry store (via commandManager) | legacy-stack (no affectedStores) | not-synced (reason declared) | classified B |
-| `element.updateDimensionsBatch` | plugins/view | LIVE | legacy geometry store (via commandManager) | legacy-stack (no affectedStores) | not-synced (reason declared) | capability: set-window-dimensions |
+| `element.updateDimensionsBatch` | plugins/view | LIVE | legacy geometry store (via commandManager) | legacy-stack (no affectedStores) | not-synced (reason declared) | capability: set-curtain-wall-dimensions |
 | `element.updateMark` | apps/editor | LIVE | legacy geometry store (via commandManager) | legacy-stack (no affectedStores) | synced via 'elementId' (disclose) | classified D |
 | `element.updateOpeningProfileBatch` | plugins/view | LIVE | legacy geometry store (via commandManager) | legacy-stack (no affectedStores) | not-synced (reason declared) | capability: set-window-shape |
 | `element.updateParameters` | apps/editor | LIVE | legacy geometry store (via commandManager) | legacy-stack (no affectedStores) | synced via 'elementId' (disclose) | capability: set-height |
@@ -161,6 +163,7 @@ These numbers are re-derived on every run. Do not transcribe them anywhere else
 | `floor.update` | apps/editor | LIVE | floor | UNKNOWN (declares floor) | synced via 'floorId' (disclose) | classified D |
 | `floor.updateLayers` | plugins/floor | UNKNOWN | UNKNOWN | patch-pair → floor | synced via 'floorId' (disclose) | classified B |
 | `furniture.batch.create` | plugins/furniture | UNKNOWN | UNKNOWN | patch-pair → furniture | not-synced (reason declared) | classified C |
+| `furniture.bulkUpdateKitchenMaterial` | plugins/furniture | LIVE | legacy geometry store (via commandManager) | legacy-stack (no affectedStores) | n/a (not a property verb) | deferred (CHAT_UNAVAILABLE) |
 | `furniture.changeLevel` | plugins/furniture | LIVE | legacy furnitureStore (via element.level-changed mirror) | patch-pair → furniture | not-synced (reason declared) | capability: move-to-level |
 | `furniture.create` | plugins/furniture | UNKNOWN | UNKNOWN | patch-pair → furniture | synced via 'id' (disclose) | classified B |
 | `furniture.delete` | plugins/furniture | UNKNOWN | UNKNOWN | patch-pair → furniture | not-synced (reason declared) | classified D |
@@ -209,6 +212,7 @@ These numbers are re-derived on every run. Do not transcribe them anywhere else
 | `lighting.create` | plugins/lighting | UNKNOWN | UNKNOWN | patch-pair → lighting | synced via 'id' (disclose) | classified B |
 | `lighting.delete` | plugins/lighting | UNKNOWN | UNKNOWN | patch-pair → lighting | not-synced (reason declared) | classified D |
 | `lighting.move` | plugins/lighting | REFUSES | NONE | patch-pair → lighting | not-synced (reason declared) | deferred (CHAT_UNAVAILABLE) |
+| `lighting.moveFixture` | apps/editor | LIVE | legacy geometry store (via commandManager) | legacy-stack (no affectedStores) | synced via 'id' (disclose) | classified B |
 | `lighting.setEmergency` | plugins/lighting | UNKNOWN | UNKNOWN | patch-pair → lighting | synced via 'lightingId' (disclose) | classified B |
 | `lighting.setIntensity` | plugins/lighting | UNKNOWN | UNKNOWN | patch-pair → lighting | synced via 'lightingId' (disclose) | classified D |
 | `lighting.setMaterial` | plugins/lighting | REFUSES | NONE | patch-pair → lighting | not-synced (reason declared) | deferred (CHAT_UNAVAILABLE) |
@@ -378,7 +382,7 @@ These numbers are re-derived on every run. Do not transcribe them anywhere else
 | `wall.updateBaseline` | plugins/wall | UNKNOWN | UNKNOWN | NONE (empty patch pair) | synced via 'wallId' (disclose) | classified B |
 | `wall.updateColor` | apps/editor | LIVE | legacy geometry store (via commandManager) | legacy-stack (no affectedStores) | synced via 'wallId' (disclose) | deferred (CHAT_UNAVAILABLE) |
 | `wall.updateColorBatch` | plugins/wall | LIVE | legacy geometry store (via commandManager) | legacy-stack (no affectedStores) | not-synced (reason declared) | capability: set-wall-color |
-| `wall.updateCurtainWall` | apps/editor | LIVE | legacy geometry store (via commandManager) | legacy-stack (no affectedStores) | synced via 'id' (disclose) | classified C |
+| `wall.updateCurtainWall` | apps/editor | LIVE | legacy geometry store (via commandManager) | legacy-stack (no affectedStores) | synced via 'id' (disclose) | capability: set-post-spacing |
 | `wall.updateDimensions` | apps/editor | LIVE | legacy geometry store (via commandManager) | legacy-stack (no affectedStores) | synced via 'wallId' (disclose) | capability: set-height |
 | `wall.updateHeightBatch` | plugins/wall | LIVE | legacy geometry store (via commandManager) | legacy-stack (no affectedStores) | not-synced (reason declared) | capability: set-wall-dimensions |
 | `wall.updateRakeBatch` | plugins/wall | LIVE | legacy geometry store (via commandManager) | legacy-stack (no affectedStores) | not-synced (reason declared) | capability: set-wall-rake |

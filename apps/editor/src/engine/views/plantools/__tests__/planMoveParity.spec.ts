@@ -133,6 +133,11 @@ describe('§FIX-PLAN-MOVE-PARITY — the shared translate definition (Gate G7)',
             expect(moveCommandFor('plumbingfixture')).toBe('plumbing.moveFixture');
             expect(DRAG_HANDLER_SRC).toContain("dragDispatch('plumbing.moveFixture'");
 
+            // §LIGHT121 (L-11900) — the founder's "no move icon" report closed with
+            // the identical L-220 pattern plumbing uses above.
+            expect(moveCommandFor('lighting')).toBe('lighting.moveFixture');
+            expect(DRAG_HANDLER_SRC).toContain("dragDispatch('lighting.moveFixture'");
+
             expect(moveCommandFor('column')).toBe('column.update');
             expect(moveCommandFor('beam')).toBe('beam.update');
             expect(moveCommandFor('furniture')).toBe('furniture.updateParameters');
@@ -204,6 +209,8 @@ describe('§FIX-PLAN-MOVE-PARITY — the shared translate definition (Gate G7)',
             { type: 'ceiling',   record: { id: 'ce1', boundary: { polygon: [{ x: 0, z: 0 }, { x: 2, z: 0 }, { x: 2, z: 2 }] } } },
             { type: 'roof',      record: { id: 'r1', footprint: { polygon: [[0, 0], [2, 0], [2, 2]], centroid: [1, 1] } } },
             { type: 'plumbing',  record: { id: 'p1', position: { x: 1, y: 0, z: 2 } } },
+            // §LIGHT121 (L-11900) — the same absolute-destination shape as plumbing.
+            { type: 'lighting',  record: { id: 'l1', position: { x: 1, y: 2.7, z: 2 } } },
             { type: 'stair',     record: { id: 's1' } },
             // §FIX-MOVE-SLAB-AND-HANDRAIL (G7) — both now move on BOTH surfaces.
             { type: 'slab',      record: { id: 'sl1', polygon: [{ x: 0, y: 0 }, { x: 4, y: 0 }, { x: 4, y: 3 }] } },
@@ -282,6 +289,14 @@ describe('§FIX-PLAN-MOVE-PARITY — the shared translate definition (Gate G7)',
             expect(cmd).toEqual({
                 type: 'plumbing.moveFixture',
                 payload: { id: 'p1', to: { x: 2, y: 0.4, z: 2 } },
+            });
+        });
+
+        it('lighting: an absolute destination `to`, the same shape as plumbing (§LIGHT121, L-11900)', () => {
+            const cmd = buildMoveCommand('lighting', { id: 'l1', position: { x: 1, y: 2.7, z: 1 } }, 1, 1);
+            expect(cmd).toEqual({
+                type: 'lighting.moveFixture',
+                payload: { id: 'l1', to: { x: 2, y: 2.7, z: 2 } },
             });
         });
 
@@ -426,13 +441,19 @@ describe('§FIX-PLAN-MOVE-PARITY — the shared translate definition (Gate G7)',
             'wall', 'curtain-wall', 'curtainwall', 'beam', 'slab', 'floor', 'ceiling',
             'railing', 'stair', 'stairs', 'column', 'roof', 'door', 'window', 'furniture',
             'plumbing', 'handrail',
+            // §LIGHT121 (L-11900) — lighting joins: the Move icon now renders for it
+            // AND lands on a real command (`lighting.moveFixture`).
+            'lighting',
         ];
 
         it('the capability table really does declare move for all of these (guard is not vacuous)', () => {
             for (const t of CAPABILITY_MOVE_TYPES) {
                 expect(canDo(t, 'move'), `${t} should declare 'move'`).toBe(true);
             }
-            expect(availableOps('lighting')).toEqual([]); // lighting has no ops — no button to lie
+            // §LIGHT121 (L-11900) — lighting declares MOVE ONLY, deliberately narrower
+            // than plumbing's POINT_OPS: move is the one op this fix verified end to
+            // end; mirror/copy must not be claimed until they are (the L-267 rule).
+            expect(availableOps('lighting').sort()).toEqual(['move']);
         });
 
         it('every type whose Move button is ON either MOVES, or SAYS WHY IT CANNOT', () => {
@@ -449,13 +470,16 @@ describe('§FIX-PLAN-MOVE-PARITY — the shared translate definition (Gate G7)',
         });
 
         it('records the families that CANNOT move yet, so the gap is visible rather than silent', () => {
-            // §FIX-MOVE-SLAB-AND-HANDRAIL (G7) — slab, handrail and railing are GONE from this
-            // list: they are wired now, on both surfaces. `lighting` is the last honest gap
-            // (and ElementCapabilities declares no ops for it, so no button lies).
-            expect(Object.keys(MOVE_UNSUPPORTED_REASON).sort()).toEqual(['lighting']);
+            // §FIX-MOVE-SLAB-AND-HANDRAIL (G7) — slab, handrail and railing left this list
+            // when they were wired. §LIGHT121 (L-11900) — `lighting` was the LAST entry and
+            // it is wired now too (`lighting.moveFixture`, both surfaces), so the honest
+            // state of this ledger is EMPTY. Any future family that shows a Move button it
+            // cannot honour must land here, and this assertion will name it.
+            expect(Object.keys(MOVE_UNSUPPORTED_REASON).sort()).toEqual([]);
             expect(canMove('slab')).toBe(true);
             expect(canMove('handrail')).toBe(true);
             expect(canMove('railing')).toBe(true);
+            expect(canMove('lighting')).toBe(true);
         });
     });
 });

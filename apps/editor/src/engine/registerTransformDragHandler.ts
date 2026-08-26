@@ -367,6 +367,46 @@ export function registerTransformDragHandler(deps: DragHandlerDeps): void {
                 }
             }
 
+            // ── Lighting fixture ────────────────────────────────────────────
+            // §LIGHT121 (L-11900, founder: "No move lighting icon for plan view") —
+            // `MoveLightingCommand` (packages/command-registry/src/lighting/) has
+            // existed since Phase L1, complete with undo AND room re-resolution on
+            // move, and its ONLY caller was the boundary-line host-propagation
+            // adapter — nothing dispatched it from an actual drag. `elementMove.ts`
+            // named lighting as having "no move command on any surface", and
+            // `ElementCapabilities` declared no ops for it at all, so the Move
+            // button/icon never appeared on EITHER surface. Same shape, same fix as
+            // plumbing (L-220): a distinct bus type bridged to the legacy command
+            // that owns the real geometry store, so nothing can shadow it.
+            if (elemType === 'lighting' && obj.userData?.id) {
+                const ls = window.lightingStore; // TODO(TASK-08)
+                const id = obj.userData.id as string;
+                const fixture = ls?.get?.(id) ?? (ls as any)?.getById?.(id);
+                if (fixture?.position) {
+                    const prevX = fixture.position.x ?? 0;
+                    const prevY = fixture.position.y ?? 0;
+                    const prevZ = fixture.position.z ?? 0;
+                    const dx = obj.position.x - prevX;
+                    const dz = obj.position.z - prevZ;
+                    if (Math.abs(dx) > 1e-6 || Math.abs(dz) > 1e-6) {
+                        // y is level-locked (LevelPlaneConstraint) — keep the fixture's own y.
+                        dragDispatch('lighting.moveFixture', {
+                            id,
+                            to: { x: prevX + dx, y: prevY, z: prevZ + dz },
+                        });
+                        const captured = obj;
+                        const sched = getFrameScheduler();
+                        sched.scheduleOnce('drag-lighting-rehighlight-1', () => {
+                            sched.scheduleOnce('drag-lighting-rehighlight-2', () => {
+                                if (selectionManager.selectedObject === captured) {
+                                    selectionManager.applyHighlight(captured);
+                                }
+                            });
+                        });
+                    }
+                }
+            }
+
             // ── Column ──────────────────────────────────────────────────────
             // OI-039: Previously fell through silently — store was never updated.
             if (elemType === 'column' && obj.userData?.id) {

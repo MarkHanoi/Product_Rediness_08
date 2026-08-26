@@ -70,23 +70,23 @@ describe('§FEAT-CONSTRUCTION-BOUNDARY-LINE — the two move tables agree', () =
         ).toEqual([]);
     });
 
-    it('AG-4: ⭐ LIGHTING — the ONE deliberate asymmetry, asserted so it cannot rot', () => {
-        // ⚠ THIS CASE RECORDS A CORRECTION. The boundary-line table's first draft
-        // REFUSED lighting, quoting `MOVE_UNSUPPORTED_REASON.lighting` verbatim. That
-        // sentence is TRUE — of the BUS. It is FALSE of the command layer, where
-        // `MoveLightingCommand` exists and writes the lighting store.
-        //
-        // `MoveBoundaryLineCommand` dispatches COMMANDS, not bus verbs, so a light
-        // attached to a boundary line follows it. The row therefore says PROPAGATES and
-        // carries NO `moveVerb` — and the absence is the honest statement that lighting
-        // still has no bus route. Both halves are pinned here so a later reader cannot
-        // "fix" either one into agreement with the other.
-        expect(MOVE_TABLE['lighting']).toBeUndefined();
-        expect(MOVE_UNSUPPORTED_REASON['lighting']).toMatch(/no move command on any surface/i);
+    it('AG-4: ⭐ LIGHTING — CLOSED §LIGHT121 (L-11900), recorded rather than deleted', () => {
+        // ⚠ THIS CASE USED TO PIN AN ASYMMETRY: the boundary-line row PROPAGATES with
+        // NO `moveVerb` (a command-layer-only reach), while `elementMove.ts` had no
+        // `MOVE_COMMAND_BY_TYPE` entry and `MOVE_UNSUPPORTED_REASON.lighting` refused
+        // out loud. That was true of the WIRING, not the underlying command —
+        // `MoveLightingCommand` always existed — and the founder's "no move icon"
+        // report is what surfaced the gap. Both tables are wired now: `lighting` has a
+        // real `moveVerb` (`lighting.moveFixture`) and `MOVE_UNSUPPORTED_REASON` no
+        // longer names it. Pinned as a POSITIVE agreement (AG-1's general loop already
+        // covers this, but the case is kept — deleting it would make the closure
+        // invisible rather than making it disappear).
+        expect(MOVE_TABLE['lighting']).toBe('lighting.moveFixture');
+        expect(MOVE_UNSUPPORTED_REASON['lighting']).toBeUndefined();
 
         const rule = boundaryLineRuleFor('lighting')!;
         expect(rule.verdict).toBe('PROPAGATES');
-        expect(rule.moveVerb).toBeUndefined();
+        expect(rule.moveVerb).toBe('lighting.moveFixture');
     });
 
     it('AG-5: ⛔ no family is claimed by BOTH a PROPAGATES verdict and a REFUSES one', () => {

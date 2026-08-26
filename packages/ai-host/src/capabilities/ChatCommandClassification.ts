@@ -186,6 +186,11 @@ const B_VIEWS = family(
 
 const B_MISC = [
   ...family('B', 'Copy needs a paste, and paste needs a target position the chat cannot infer — a pointer workflow end to end.', ['copy-selection', 'paste-clipboard'], { blockedBy: 'a placement model for the pasted content' }),
+  // §LIGHT121 (L-11900) — the lighting drag-move authoring verb, the exact sibling
+  // of `plumbing.moveFixture` (which sits in CHAT_UNAVAILABLE with the same reason;
+  // the two surfaces are disjoint by the coverage gate's rule, so this one is
+  // classified here rather than duplicated there).
+  ...family('B', 'Moving a lighting fixture from chat needs a target world position the sentence cannot carry — drag it, or use the Move tool.', ['lighting.moveFixture'], { blockedBy: 'a placement/position reference model for chat (the same blocker as plumbing.moveFixture)' }),
   // §L-1032 — DELETED, not moved. This row deferred `wall.changeLevel` and
   // `roof.changeLevel` as class B with
   // `blockedBy: 'defined re-hosting semantics per element family'`.

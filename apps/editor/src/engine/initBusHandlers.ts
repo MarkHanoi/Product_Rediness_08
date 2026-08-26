@@ -60,6 +60,13 @@ import {
   // different element type, different store, and until now no update command at all.
   UpdateStairRailingCommand,
   UpdateLightingParametersCommand,
+  // §LIGHT121 (L-11900) — the bus bridge for the drag-move gizmo + plan Move tool.
+  // The command has existed since Phase L1 (undo + room re-resolution included);
+  // its only caller was the boundary-line host-propagation adapter, which is a
+  // DIFFERENT trigger (a moved boundary line dragging its attached fixture along),
+  // not a user-initiated move. See the bridge registration below for why the L-220
+  // distinct-verb pattern applies here too.
+  MoveLightingCommand,
   // §FIX-MOVE-SLAB-AND-HANDRAIL (Gate G7) — the two remaining "double lie" Move buttons
   // (enabled on BOTH surfaces, inert on BOTH). Both legacy commands own the GEOMETRY store
   // (window.slabStore / window.handrailStore) that the fragment builders, the 2-D plan
@@ -1089,6 +1096,19 @@ export function initBusHandlers(
             stores: [] as const,
             validate: (cmd) => (!cmd.id ? 'id is required' : (!cmd.to ? 'to is required' : null)),
             fn: (cmd) => { _cmExec(new MovePlumbingCommand({ id: cmd.id, to: cmd.to })); },
+        },
+        {
+            // §LIGHT121 (L-11900) — lighting gizmo-move authoring bridge, the exact
+            // L-220 `plumbing.moveFixture` pattern. `registerTransformDragHandler`
+            // dispatches 'lighting.moveFixture' { id, to } on drag-end and
+            // `MovePlanToolHandler` dispatches the same command via `buildMoveCommand`
+            // on plan-view move-tool release. `MoveLightingCommand` already existed
+            // (Phase L1) with undo + room re-resolution; only the bus route was
+            // missing, which is why the founder's Move icon had nowhere to land.
+            type: 'lighting.moveFixture',
+            stores: [] as const,
+            validate: (cmd) => (!cmd.id ? 'id is required' : (!cmd.to ? 'to is required' : null)),
+            fn: (cmd) => { _cmExec(new MoveLightingCommand({ elementId: cmd.id, to: cmd.to })); },
         },
 
         // ── §FEAT-CONSTRUCTION-BOUNDARY-LINE (L-7940) — the HOST MOVE ────────────

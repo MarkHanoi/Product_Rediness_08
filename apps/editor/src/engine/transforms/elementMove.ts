@@ -51,8 +51,21 @@
  *                   `offset` (C15). It needs the host wall record, not just the element,
  *                   so it stays in the handler (`door.setOffset` / `window.setOffset` —
  *                   the same commands `HostedElementDragController` commits).
- *   • lighting    — no move command exists on any surface (and `ElementCapabilities` does
- *                   not declare 'move' for it, so at least no button lies).
+ *
+ * ## §LIGHT121 (L-11900) — lighting CLOSED, formerly listed above as unhandled
+ *
+ * The founder: *"No move lighting icon for plan view (in the icons mode)."* This
+ * paragraph used to name lighting as having "no move command on any surface" —
+ * true of the WIRING, not the CAPABILITY. `MoveLightingCommand`
+ * (`packages/command-registry/src/lighting/`) had existed since Phase L1 — undo
+ * AND room re-resolution on move, fully built — and its only caller was the
+ * boundary-line host-propagation adapter (a fixture riding a boundary line that
+ * moves, a different trigger entirely). Nothing ever dispatched it from a user
+ * drag, and `ElementCapabilities` declared no ops at all for lighting, so no Move
+ * icon ever rendered on either surface. Point-anchored (translate `position`), so
+ * it is handled below exactly like furniture/plumbing/column, via the
+ * `lighting.moveFixture` bus bridge (the L-220 distinct-verb pattern — see
+ * `plumbing.moveFixture`'s own note, immediately below).
  *
  * ## §FIX-MOVE-SLAB-AND-HANDRAIL (Gate G7) — the last two lying Move buttons
  *
@@ -113,6 +126,8 @@ export const MOVE_COMMAND_BY_TYPE = {
     furniture:     'furniture.updateParameters',
     plumbing:      'plumbing.moveFixture',
     plumbingfixture:'plumbing.moveFixture',
+    // §LIGHT121 (L-11900) — see the header's own note on why this was missing.
+    lighting:      'lighting.moveFixture',
     stair:         'stair.move',
     stairs:        'stair.move',
     room:          'room.updateBoundary',
@@ -135,7 +150,9 @@ export type MovableType = keyof typeof MOVE_COMMAND_BY_TYPE;
  * whole point: a button that is enabled and does nothing is worse than a missing button.
  */
 export const MOVE_UNSUPPORTED_REASON: Readonly<Record<string, string>> = {
-    lighting: 'Lighting fixtures have no move command on any surface yet — tracked under Gate G7.',
+    // §LIGHT121 (L-11900) — CLOSED. `lighting` used to be the sole entry here;
+    // it now has a real move command (see MOVE_COMMAND_BY_TYPE.lighting), so an
+    // empty table is the correct, honest state rather than a stale placeholder.
 };
 
 /** Canonicalise a raw `userData.elementType` (any case, with aliases). */
@@ -259,6 +276,21 @@ export function buildMoveCommand(
         // store. This is the exact command the 3-D gizmo commits.
         return {
             type: 'plumbing.moveFixture',
+            payload: { id, to: { x: p.x + dx, y: p.y, z: p.z + dz } },
+        };
+    }
+
+    if (type === 'lighting') {
+        if (!isFiniteVec(r.position)) return null;
+        const p = r.position;
+        // §LIGHT121 (L-11900) — `lighting.moveFixture` { id, to } is the L-220
+        // un-shadowed bridge → MoveLightingCommand → geometry window.lightingStore
+        // → bim-lighting-updated → 3D rebuild + 2D re-projection. Absolute
+        // destination, exactly like plumbing.moveFixture (not a delta): the command
+        // also re-resolves `roomId` from the destination point, which only makes
+        // sense against an absolute `to`.
+        return {
+            type: 'lighting.moveFixture',
             payload: { id, to: { x: p.x + dx, y: p.y, z: p.z + dz } },
         };
     }

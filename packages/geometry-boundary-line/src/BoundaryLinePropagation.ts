@@ -67,9 +67,11 @@ export interface BoundaryLineFamilyRule {
      *
      * WARNING: ABSENCE IS MEANINGFUL AND IS NOT THE SAME AS "does not move". A
      * PROPAGATES row with NO `moveVerb` is a family that HAS a legacy COMMAND reaching
-     * its authoritative store but NO bus route and no gizmo branch -- `lighting` is
-     * exactly that, and the row says so. Reading absence as "cannot follow" is the
-     * mistake this table's first draft made; see the lighting row.
+     * its authoritative store but NO bus route and no gizmo branch. Reading absence as
+     * "cannot follow" is the mistake this table's first draft made for `lighting` — see
+     * that row's history for the correction (§LIGHT121, L-11900); `lighting` now DOES
+     * carry a `moveVerb`, so it is no longer this warning's example, but the shape of
+     * the mistake it records is why the warning stays.
      */
     readonly moveVerb?: string;
     /**
@@ -134,26 +136,19 @@ export const BOUNDARY_LINE_FAMILY_RULES: readonly BoundaryLineFamilyRule[] = Obj
     // answers; flattening them would be the wrong kind of consistency.
     { family: 'stair', verdict: 'PROPAGATES', shape: 'point', moveVerb: 'stair.move' },
     { family: 'stairs', verdict: 'PROPAGATES', shape: 'point', moveVerb: 'stair.move' },
-    // LIGHTING -- A CORRECTION, RECORDED RATHER THAN QUIETLY MADE.
-    //
-    // The first draft of this table REFUSED lighting and quoted
-    // `MOVE_UNSUPPORTED_REASON.lighting` from `elementMove.ts` verbatim: "Lighting
-    // fixtures have no move command on any surface yet -- tracked under Gate G7."
-    // THAT SENTENCE IS TRUE OF THE BUS AND FALSE OF THE COMMAND LAYER, and the
-    // difference decides this cell.
-    //
-    // MEASURED 2026-08-23:
-    // `packages/command-registry/src/lighting/MoveLightingCommand.ts` EXISTS, takes
-    // `{ elementId, to: {x,y,z} }`, and writes the lighting store. What is missing is a
-    // `MOVE_COMMAND_BY_TYPE` row and a 3-D gizmo branch -- i.e. no SURFACE dispatches
-    // it. `MoveBoundaryLineCommand` dispatches COMMANDS, not bus verbs, so it reaches
-    // the one that exists. `moveVerb` is therefore ABSENT on this row, and its absence
-    // is the honest statement that lighting has no bus route yet.
-    //
-    // Copying the refusal without re-measuring would have shipped a REFUSES cell for a
-    // family that can follow perfectly well -- the inverse of the "PROPAGATES row that
-    // propagates nothing" C84 warns about, and just as wrong.
-    { family: 'lighting', verdict: 'PROPAGATES', shape: 'point' },
+    // LIGHTING -- CLOSED §LIGHT121 (L-11900). This row used to carry no `moveVerb`
+    // (measured 2026-08-23: `MoveLightingCommand` existed and wrote the lighting
+    // store, but no SURFACE dispatched it -- no `MOVE_COMMAND_BY_TYPE` row, no 3-D
+    // gizmo branch, and `ElementCapabilities` declared no ops for lighting at all,
+    // which is exactly the founder's "no move icon" report). All three are wired now
+    // (`lighting.moveFixture`, the L-220 distinct-verb bridge), so this row states the
+    // verb like every other family instead of the deliberate absence it used to
+    // record. `MoveBoundaryLineCommand` still dispatches the COMMAND directly rather
+    // than the bus verb (folding every dependent's move into ONE undo entry, C81 --
+    // see `boundaryLineDependentAdapters.ts`), so this cell's behaviour is unchanged;
+    // only its HONESTY improved, from "the bus cannot reach this family" to "the bus
+    // can too, and this adapter simply does not use it."
+    { family: 'lighting', verdict: 'PROPAGATES', shape: 'point', moveVerb: 'lighting.moveFixture' },
 
     // -- REFUSES, EACH WITH ITS MEASURED REASON ----------------------------------
     // These are not gaps. C84 EI-PROP-b: an honest refusal is a valid answer, and for a

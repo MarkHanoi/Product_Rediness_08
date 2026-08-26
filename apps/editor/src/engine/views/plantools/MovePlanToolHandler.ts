@@ -343,6 +343,11 @@ export class MovePlanToolHandler implements PlanToolHandler {
             furniture:       window.furnitureStore,   // TODO(TASK-08)
             plumbing:        window.plumbingStore,    // TODO(TASK-08)
             plumbingfixture: window.plumbingStore,    // TODO(TASK-08)
+            // §LIGHT121 (L-11900) — the founder's "no move icon" report. See
+            // elementMove.ts's header for why lighting had neither a store lookup
+            // here nor a `buildMoveCommand` case despite `MoveLightingCommand`
+            // already existing.
+            lighting:        window.lightingStore,    // TODO(TASK-08)
             stair:           window.stairStore,       // TODO(TASK-08)
             stairs:          window.stairStore,       // TODO(TASK-08)
             room:            window.roomStore,        // TODO(TASK-08)

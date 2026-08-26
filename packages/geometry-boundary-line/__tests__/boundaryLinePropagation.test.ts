@@ -213,12 +213,16 @@ describe('§FEAT-CONSTRUCTION-BOUNDARY-LINE — the per-family table (C106 §3.3
                 // point, re-seats a span or displaces a polygon.
                 expect(r.shape, `${r.family} must declare its shape`).toBeTruthy();
                 // MOVE VERB IS **NOT** MANDATORY, and that was learnt by measurement.
-                // `lighting` has `MoveLightingCommand` (which reaches its authoritative
-                // store) but NO `MOVE_COMMAND_BY_TYPE` row and no gizmo branch, so it
-                // follows a boundary line while having no bus route at all. Requiring a
-                // verb here would have forced lighting into a REFUSES cell it does not
-                // deserve — the inverse of the "PROPAGATES row that propagates nothing"
-                // defect, and just as wrong. What IS mandatory is an ADAPTER, and
+                // `lighting` was the case that proved it: until §LIGHT121 (L-11900) it
+                // had `MoveLightingCommand` (reaching its authoritative store) but NO
+                // `MOVE_COMMAND_BY_TYPE` row and no gizmo branch, so it followed a
+                // boundary line while having no bus route at all. Requiring a verb here
+                // would have forced lighting into a REFUSES cell it did not deserve —
+                // the inverse of the "PROPAGATES row that propagates nothing" defect,
+                // and just as wrong. `lighting` has a real `moveVerb` now (the gap is
+                // closed), but the rule stays: a future family may need the same
+                // command-layer-only reach, and this field must not force it to wait for
+                // a bus route it does not yet have. What IS mandatory is an ADAPTER, and
                 // `boundaryLineAdapterCoverage.test.ts` (command-registry) asserts that.
                 if (r.moveVerb !== undefined) {
                     expect(typeof r.moveVerb, `${r.family}'s moveVerb must be a bus type`).toBe('string');

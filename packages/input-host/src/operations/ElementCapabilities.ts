@@ -92,6 +92,16 @@ const CAPABILITIES = new Map<string, Set<OperationId>>([
     // Plumbing — point
     ['plumbing',        POINT_OPS],
 
+    // §LIGHT121 (L-11900, founder: "No move lighting icon for plan view") — MOVE
+    // ONLY, deliberately narrower than plumbing's full POINT_OPS. `MoveLightingCommand`
+    // is now wired (see elementMove.ts / registerTransformDragHandler.ts), which is
+    // the one capability this fix verified end to end; mirror/copy for lighting are
+    // NOT verified here and must not be claimed until they are (an enabled button
+    // that does nothing is worse than a missing one — the L-267 rule this whole
+    // capability table exists to uphold). No 'rotate': not wired into the
+    // transform-drag handler, same reason plumbing has none.
+    ['lighting',        new Set<OperationId>(['move'])],
+
     // Handrail — rail set
     ['handrail',        RAIL_OPS],
 

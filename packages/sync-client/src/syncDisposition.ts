@@ -559,6 +559,8 @@ export const SYNC_DISPOSITIONS: Readonly<Record<string, SyncDisposition>> = {
   'plumbing.setSystem':          { kind: 'element-property', subject: 'plumbingId',  conflict: 'disclose' },
   // ABSOLUTE: the payload is the destination point (`to`), not a displacement.
   'plumbing.moveFixture':        { kind: 'element-property', subject: 'id',          conflict: 'disclose' },
+  // §LIGHT121 (L-11900) — same shape as plumbing.moveFixture: `to` is ABSOLUTE.
+  'lighting.moveFixture':        { kind: 'element-property', subject: 'id',          conflict: 'disclose' },
   // A GRID is a placed model datum with its own id — unlike a LEVEL, it is not
   // ADR-049 routing, so it can be a record inside a document rather than the
   // thing that selects one.

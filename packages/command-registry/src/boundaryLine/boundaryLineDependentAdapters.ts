@@ -31,9 +31,16 @@
 // what makes STRUCTURAL_CASCADE composition possible: the children must be `Command`
 // instances for `CommandManagerImpl` to fold them into ONE history entry (C81).
 //
-// ⭐ IT ALSO REACHES ONE FAMILY THE BUS CANNOT. `lighting` has `MoveLightingCommand`
-// and NO `MOVE_COMMAND_BY_TYPE` row (Gate G7). Dispatching commands rather than verbs
-// is why a light attached to a boundary line follows it.
+// ⭐ CORRECTED §LIGHT121 (L-11900) — this paragraph used to read "IT ALSO REACHES
+// ONE FAMILY THE BUS CANNOT. `lighting` has `MoveLightingCommand` and NO
+// `MOVE_COMMAND_BY_TYPE` row (Gate G7)." `lighting` now HAS a `MOVE_COMMAND_BY_TYPE`
+// row (`lighting.moveFixture`, the same L-220 distinct-verb pattern as
+// `plumbing.moveFixture`) — the founder's "no move icon" report is what surfaced
+// the gap. That does not weaken the reasoning THIS FILE stands on: dispatching
+// `Command` instances directly (not bus verbs) is still what lets
+// `CommandManagerImpl` fold the boundary line's move and every dependent's move
+// into ONE undo entry (C81) — a bus round-trip per dependent could not do that.
+// The exception this paragraph named is closed; the reason for the pattern is not.
 
 import type { Command } from '../types';
 import type { BoundaryLineAdaptation } from '@pryzm/geometry-boundary-line';
@@ -188,10 +195,11 @@ export const BOUNDARY_LINE_DEPENDENT_ADAPTERS: Readonly<Record<string, BoundaryL
         plumbing: (a) => plumbing(a),
         plumbingfixture: (a) => plumbing(a),
 
-        // ⭐ THE FAMILY WITH NO BUS ROUTE. `MOVE_COMMAND_BY_TYPE` has no `lighting` row
-        // and `MOVE_UNSUPPORTED_REASON.lighting` says so — but that is a statement about
-        // the SURFACES, not about the command layer. `MoveLightingCommand` exists and
-        // writes the store, so a light attached to a boundary line follows it.
+        // §LIGHT121 (L-11900) — this adapter used to be "THE FAMILY WITH NO BUS ROUTE";
+        // `lighting.moveFixture` now exists (`MOVE_COMMAND_BY_TYPE` carries the row and
+        // both drag surfaces dispatch it). The adapter is UNCHANGED: it dispatches the
+        // command directly like every other family here, which is what folds the
+        // dependent's move into the boundary line's ONE undo entry (C81).
         lighting: (a) => {
             if (!a.position) return null;
             return new MoveLightingCommand({ elementId: a.elementId, to: a.position });
