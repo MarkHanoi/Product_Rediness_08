@@ -136,6 +136,15 @@ import {
   EMPTY_FOCUS,
   type FocusSubject,
 } from './inspectFocus';
+// §INSPECT-EDGES-RIDE-EVERY-INSTANCE (L-12140) — an edge overlay added as a CHILD
+// of a THREE.InstancedMesh is drawn ONCE at the parent's own transform, because
+// `instanceMatrix` applies to that mesh's draw call and never to its children. For
+// the curtain-wall mullion racks — a CENTRED BoxGeometry whose instances are each
+// lifted by `height/2` — the outline therefore landed half a wall height BELOW the
+// floor plate, which is the founder's "cyan sticks dangling past several storeys".
+// See that file's header for the full mechanism and for the other instanced
+// families (InstanceGroup, InstancedMeshCoalescer) that shared the blind spot.
+import { buildEdgeOverlayGeometry } from './instancedEdgeOverlay';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -916,10 +925,20 @@ export class DiagnosticMaterialManager {
       // It is also a SNAPSHOT — it fixes the outline at the world pose the mesh
       // held at ghost-apply time, which is why the outline stayed put while the
       // level explode lifted the mesh out from under it.
-      const edges   = new THREE.EdgesGeometry(obj.geometry);
-      const lineMat = new THREE.LineBasicMaterial({ color: GHOST_EDGE_COLOR, linewidth: 1 });
-      const lines   = new THREE.LineSegments(edges, lineMat);
-      this._addOverlayAsChildOf(obj, lines);
+      // §INSPECT-EDGES-RIDE-EVERY-INSTANCE (L-12140) — this used to be a bare
+      // `new THREE.EdgesGeometry(obj.geometry)`. That is correct for a plain Mesh
+      // and WRONG for an InstancedMesh, whose children are not instanced: the
+      // outline was drawn once at the rack's identity transform, on the UN-lifted
+      // centred base box, i.e. half a wall height below the storey it belongs to.
+      // `buildEdgeOverlayGeometry` returns the identical EdgesGeometry for a plain
+      // mesh and the per-instance BAKE for an instanced one; `null` means the mesh
+      // is instanced and currently draws nothing, so it gets no outline either.
+      const edges = buildEdgeOverlayGeometry(obj);
+      if (edges) {
+        const lineMat = new THREE.LineBasicMaterial({ color: GHOST_EDGE_COLOR, linewidth: 1 });
+        const lines   = new THREE.LineSegments(edges, lineMat);
+        this._addOverlayAsChildOf(obj, lines);
+      }
     } else {
       // 'opening' and 'non-structural' differ ONLY in accumulated weight — an
       // opening is many stacked sub-boxes, a wall is one or two. No cyan edge
@@ -1610,9 +1629,15 @@ export class DiagnosticMaterialManager {
     // ⚠ Cost is bounded by the SELECTION, not by the model: the base ghost pass
     // already builds one EdgesGeometry per structural mesh in the scene, so a
     // handful more for the focused element is noise against it.
-    const edges   = new THREE.EdgesGeometry(obj.geometry);
-    const lineMat = new THREE.LineBasicMaterial({ color: FOCUS_ELEMENT_EDGE_COLOR, linewidth: 1 });
-    this._addOverlayAsChildOf(obj, new THREE.LineSegments(edges, lineMat));
+    // §INSPECT-EDGES-RIDE-EVERY-INSTANCE (L-12140) — the SECOND site of the same
+    // class defect, and it must move with the first. A focused instanced wall (the
+    // 70–85% majority, WallFragmentBuilder.ts:1303) got its white focus outline at
+    // the rack's identity transform rather than around the wall the user selected.
+    const edges = buildEdgeOverlayGeometry(obj);
+    if (edges) {
+      const lineMat = new THREE.LineBasicMaterial({ color: FOCUS_ELEMENT_EDGE_COLOR, linewidth: 1 });
+      this._addOverlayAsChildOf(obj, new THREE.LineSegments(edges, lineMat));
+    }
   }
 
   /**
