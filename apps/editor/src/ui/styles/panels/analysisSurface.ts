@@ -47,14 +47,20 @@ export const ANALYSIS_SURFACE_STYLES = `
   height: 100%;
   overflow: hidden;
   background: var(--app-bg);
-  /* §GRAPH-EXPAND (L-12062) — the containing block the expanded graph stage fills.
-     ⛔ It must be THIS element and not '.anl-grid': the grid SCROLLS, and an
-     'inset: 0' child of a scroll container is positioned against the CONTENT box,
-     so a maximised graph would scroll away with the cards under it. It must also
-     not be 'position: fixed' against the viewport: this panel owns the right 50%
-     and the 3-D model owns the left, and every widget here is a SELECTOR whose
-     clicks land in that model (ADR-0343 §D.1 reason 2). A graph that covered the
-     model would sever the join that makes the card worth reading. */
+  /* §GRAPH-EXPAND (L-12062) — kept 'position: relative' for the same reason it
+     was added: not 'position: fixed' against the viewport (this panel owns the
+     right 50%, the 3-D model owns the left — ADR-0343 §D.1 reason 2), and not
+     absent (an un-positioned ancestor would push the search further up the
+     tree, past the surface entirely).
+
+     ⚠ CORRECTED 2026-08-26 (§SCROLL136, L-12201 — founder: "bring the graph a
+     bit down"). This comment used to say the expanded stage's containing block
+     "must be THIS element". It no longer is: '.anl-grid-viewport' (below,
+     wrapping '.anl-grid') is NOW the nearer positioned ancestor, and is what
+     the stage actually fills — see that rule for why a THIRD container was
+     needed rather than just moving 'position: relative' onto '.anl-grid'
+     itself. This element stays positioned regardless, in case anything else
+     ever needs the panel as a reference (nothing currently does). */
   position: relative;
 }
 
@@ -258,8 +264,55 @@ export const ANALYSIS_SURFACE_STYLES = `
 
 /* ── Grid ───────────────────────────────────────────────────────────────── */
 
-.anl-grid {
+/* ═══════════════════════════════════════════════════════════════════════════
+   §SCROLL136 (L-12201) — 'bring the graph a bit down' (founder, expanded ⤢ view)
+   ═══════════════════════════════════════════════════════════════════════════
+
+   ⛔ THE DEFECT. '.anl-graph-stage--expanded' is 'position: absolute; inset: 0'
+   against '.anl-panel' — which spans the WHOLE panel, top edge included. That
+   put the expanded stage's OWN top content (the honesty pin, the toolbar) at
+   y=0, directly under '.anl-header' + '.anl-tabs' + '.anl-facets' + '.anl-
+   status' — all of which are normal-flow siblings occupying that same span,
+   painted first and then covered by the stage's opaque background at a higher
+   z-index. The founder's screenshot is that collision: the toolbar strip
+   overlapping the card's own caveat text.
+
+   ⭐ THE FIX IS A WRAPPER, NOT A MEASURED OFFSET. '.anl-grid-viewport' is a NEW,
+   NON-SCROLLING element that takes over '.anl-grid's old job of being the
+   'flex: 1 1 auto' region below the header/tabs/facets/status — sized by
+   ordinary flex layout to EXACTLY the space left after them, with zero pixel
+   math anywhere. '.anl-grid' moves inside it and keeps its own scrolling
+   ('overflow-y: auto') unchanged; the wrapper does not scroll.
+
+   Making '.anl-grid-viewport' 'position: relative' — rather than putting
+   'position: relative' on '.anl-grid' itself — is what lets
+   '.anl-graph-stage--expanded' (unchanged CSS: still 'inset: 0') resolve
+   against a box that is EXACTLY the visible area below the chrome:
+     · it cannot be '.anl-grid': that box SCROLLS, and an 'inset: 0' child of a
+       scroll container sizes against the scrolled CONTENT box, not the visible
+       viewport — precisely the trap the original §GRAPH-EXPAND comment (on
+       '.anl-panel', above) already named for '.anl-grid'. This wrapper exists
+       so that reasoning has somewhere to point that is NOT the whole panel.
+     · '.anl-panel' still WORKS as a containing block (nothing here breaks it —
+       it stays 'position: relative'), but it is no longer the NEAREST one, so
+       it is no longer the one the stage actually resolves against.
+   Verified by measurement (a real Chromium render, not asserted from CSS text
+   alone) at a 1600×900 viewport, 800px-wide panel: chrome above the wrapper
+   (header 94 + tabs 36 + facets 47 when a filter is active + status 28) = 205;
+   the wrapper's own box was exactly (900 − 205) = 695 tall, and the expanded
+   stage filled precisely that — not the panel's full 900. See
+   'widgetRenderers.ts' (§GRAPH-EXPAND-HEIGHT, same lane) for why the graph's
+   OWN height also had to change once the box it fills got correctly smaller. */
+
+.anl-grid-viewport {
   flex: 1 1 auto;
+  min-height: 0;
+  overflow: hidden;
+  position: relative;
+}
+
+.anl-grid {
+  height: 100%;
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 12px;
@@ -270,6 +323,54 @@ export const ANALYSIS_SURFACE_STYLES = `
 
 /* ── Card ───────────────────────────────────────────────────────────────── */
 
+/* ═══════════════════════════════════════════════════════════════════════════
+   §SCROLL136 (L-12200) — each PANE scrolls on its own, as Inspect's does
+   ═══════════════════════════════════════════════════════════════════════════
+
+   Founder: "as we have in the Inspect tree — I requested bars on the
+   right-hand side to be able to scroll down the information in each pane."
+
+   ⛔ THE DEFECT. '.anl-grid' has had 'overflow-y: auto' since it shipped — but
+   that scrolls the WHOLE tab, all cards together, past a card's own head. A
+   tall card (a wide quantity table, the relationship graph's category tree)
+   grew '.anl-card' to its full content height (no bound existed), stretched
+   its ROW to match, and the only way to read past the fold was to scroll the
+   card's TITLE off screen along with everything else on the tab.
+
+   ⭐ THE FIX MIRRORS '.aud-project-tree' (Inspect's PROJECT BROWSER pane,
+   auditStack.ts) rather than inventing a second shape for it (C84 EI-9): a
+   BOUNDED outer box, a head pinned by 'flex-shrink: 0', and a body that is the
+   scroll container — 'flex: 1 1 auto' + 'min-height: 0' (the load-bearing pair
+   Inspect's own comment names) + 'overflow-y: auto'. Inspect bounds its pane
+   with an explicit max-height because its section is itself 'flex: 0 0 auto'
+   inside a parent that does not hand it a definite size; '.anl-card' is a GRID
+   item, so 'max-height' alone is enough here — there is no equivalent collapse
+   to guard against.
+
+   ⛔ NO NEW SCROLLBAR LOOK IS DECLARED ANYWHERE IN THIS FILE. The styled thumb
+   ('#c4cde0', 4px, rounded) is already a UNIVERSAL rule — tokens.ts's
+   '* { scrollbar-width: thin; scrollbar-color: ... } *::-webkit-scrollbar
+   {...}' (§05 §2.3 Rule 7) — which is exactly what Inspect's tree ALSO relies
+   on; neither surface carries a bespoke scrollbar rule of its own. Adding one
+   here would be a second, rival scrollbar treatment beside the one every other
+   panel already inherits — 'analysisScrollPane.spec.ts' fails if this file
+   ever declares its own '::-webkit-scrollbar'.
+
+   ⚠ DOES NOT TOUCH THE RELATIONSHIP GRAPH'S EXPAND MODE (§GRAPH-EXPAND,
+   L-12062, lane ANALYZE129). '.anl-graph-stage--expanded' is 'position:
+   absolute; inset: 0' against its nearest POSITIONED ancestor — '.anl-grid
+   -viewport' (§SCROLL136 L-12201, further down this file; it used to be
+   '.anl-panel' directly, see that rule's own comment). Neither '.anl-card' nor
+   '.anl-card-body' below gains a 'position' — an overflow:hidden/auto box that
+   is NOT itself a positioned ancestor does not clip an absolutely-positioned
+   descendant whose containing block escapes further up the tree (verified
+   empirically against this exact shape — bounded overflow:hidden card,
+   overflow-y:auto body, non-scrolling position:relative wrapper — before this
+   landed: the escapee still fills the wrapper, not the small card). Do not add
+   'position: relative' to either rule below; that would make ONE OF THEM the
+   containing block instead and the graph would expand to fill a small card
+   rather than the grid's own visible area. */
+
 .anl-card {
   display: flex;
   flex-direction: column;
@@ -279,6 +380,10 @@ export const ANALYSIS_SURFACE_STYLES = `
   border-radius: var(--app-radius-md);
   box-shadow: var(--app-shadow-card);
   overflow: hidden;
+  /* Bounds the PANE. A card whose content fits comfortably under this never
+     shows a scrollbar at all — 'overflow-y: auto' on the body below only
+     activates once content actually exceeds the space the head leaves it. */
+  max-height: 66vh;
 }
 .anl-card--wide { grid-column: 1 / -1; }
 
@@ -289,6 +394,12 @@ export const ANALYSIS_SURFACE_STYLES = `
   gap: 8px;
   padding: 11px 13px 9px;
   border-bottom: 1px solid var(--app-border-light);
+  /* The OUTER CHROME that must stay visible while the body scrolls — the
+     per-pane analogue of '.aud-section-header' staying put over Inspect's
+     scrolling tree. Flex items default to 'flex-shrink: 1'; without this, a
+     card whose body overflows would squeeze the HEAD instead of scrolling the
+     body, once the card itself is height-bounded. */
+  flex-shrink: 0;
 }
 
 .anl-card-headline { min-width: 0; display: flex; flex-direction: column; gap: 3px; }
@@ -326,7 +437,27 @@ export const ANALYSIS_SURFACE_STYLES = `
 .anl-icon-btn:hover { background: var(--app-wash-hover); color: var(--app-accent); }
 .anl-icon-btn:focus-visible { outline: none; box-shadow: var(--app-focus-ring); }
 
-.anl-card-body { padding: 12px 13px; display: flex; flex-direction: column; gap: 10px; min-width: 0; }
+.anl-card-body {
+  padding: 12px 13px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-width: 0;
+  /* §SCROLL136 (L-12200) — THE SCROLL CONTAINER. 'flex: 1 1 auto' claims
+     whatever height '.anl-card-head' (pinned, above) does not, and
+     'min-height: 0' is the load-bearing override this file's header comment
+     names: a flex item's automatic minimum size is its CONTENT size unless
+     told otherwise, which would let the body grow past the card's
+     'max-height' instead of scrolling. '.aud-content-zone' (Inspect's own
+     scrolling content region) reaches the same result via 'overflow-y: auto'
+     alone, because the CSS overflow spec zeroes the automatic minimum for any
+     box whose overflow is not 'visible' — this states the same thing
+     explicitly rather than resting on that rule silently, so a reviewer (and
+     'analysisScrollPane.spec.ts') can read the invariant off the declaration. */
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+}
 
 .anl-card-foot {
   padding: 7px 13px 9px;
@@ -1335,6 +1466,19 @@ export const ANALYSIS_SURFACE_STYLES = `
    expanded it covers the card head, and the 'INCOMPLETE' badge lives there — so
    without this line, maximising the graph would silently drop the surface's
    loudest qualifier at the moment the reader is looking hardest.
+
+   ⚠ ADDED 2026-08-26 (§SCROLL136, L-12200) — 'sticky' on the pin below.
+   '.anl-card-body' just became a scroll container (see the block above this
+   one). The pin is the FIRST child of '.anl-graph-stage', which sits inside
+   that body when the graph is not expanded — a reader scrolling down to reach
+   the category tree or the legends would otherwise carry the pin off the top
+   of the viewport while the NUMBERS further down stayed on screen, which is
+   the exact "qualifier hidden, figures visible" shape this card exists to
+   refuse. 'position: sticky' keeps it glued to the top of whichever scroll
+   container is nearest: '.anl-card-body' when collapsed, or
+   '.anl-graph-stage--expanded' itself (also 'overflow: auto') when maximised
+   — one rule, both states, because sticky always resolves against the
+   NEAREST scrolling ancestor rather than a specific one named here.
    ═══════════════════════════════════════════════════════════════════════════ */
 
 .anl-graph-stage {
@@ -1364,6 +1508,12 @@ export const ANALYSIS_SURFACE_STYLES = `
   font-size: 10.2px;
   font-weight: 600;
   line-height: 1.5;
+  /* §SCROLL136 (L-12200) — see the comment above this block. 'background' is
+     already opaque, which is what makes a sticky header read as pinned rather
+     than as text ghosting through the content scrolling beneath it. */
+  position: sticky;
+  top: 0;
+  z-index: 1;
 }
 
 /* The positioned wrapper the corner control sits in. */

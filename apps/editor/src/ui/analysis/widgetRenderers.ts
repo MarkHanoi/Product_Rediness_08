@@ -1145,8 +1145,65 @@ export function renderGraph(host: HTMLElement, _def: AnalysisWidgetDef, _result:
   // BACKING STORE from `frame.clientHeight` and happy-dom/first paint would hand
   // it a zero. The two numbers below are the founder's other request — item (a) of
   // ASK 3: the canvas was 380 px under a stack of note blocks taller than itself.
+  //
+  // ═════════════════════════════════════════════════════════════════════════
+  // §GRAPH-EXPAND-HEIGHT (L-12201) — 'bring the graph a bit down' (2026-08-26)
+  // ═════════════════════════════════════════════════════════════════════════
+  // The founder's screenshot of the expanded (⤢) view showed the stage running
+  // up under the panel's own chrome, AND the legend row sitting right at the
+  // bottom edge. Both are the SAME bug: `− 300` was tuned against the OLD,
+  // wrong assumption that the expanded stage fills the whole 'window.innerHeight'
+  // — it never cleared '.anl-header' / '.anl-tabs' / '.anl-facets' / '.anl-status'
+  // at the top (fixed in `analysisSurface.ts` via the new '.anl-grid-viewport'
+  // wrapper — see §SCROLL136 there) and left an under-measured guess for the
+  // pin/toolbar/legends below the canvas.
+  //
+  // ⭐ THE ARITHMETIC, MEASURED NOT GUESSED: available height = viewport −
+  // chrome − legend.
+  //   viewport = `window.innerHeight`.
+  //   chrome   = the LIVE rendered height of the four bands the graph's own
+  //              stage must clear, read straight off the DOM rather than
+  //              hand-typed — a facet bar that is `hidden` contributes a real
+  //              zero automatically, it does not need its own branch.
+  //   legend   = `STAGE_INTERNAL_RESERVE_PX` below: the pin + toolbar + both
+  //              legends + the flex gaps between them + the stage's own
+  //              padding, all of which sit ABOVE or BELOW the canvas inside
+  //              the SAME stage. Measured with a real Chromium render at a
+  //              1600×900 viewport / 800px panel: stage available 695px,
+  //              canvas naturally settled (via `.anl-graph-frame`'s own
+  //              `flex: 1 1 auto` — see that rule) at 521.7px with the legend
+  //              row ending at 888px, i.e. a 173px reserve with 12px of stage
+  //              padding to spare. 180 keeps that margin without hand-fitting
+  //              it to the exact fixture.
+  // The 2-D SVG path sets this as a `min-height`, so if the reserve is over-
+  // generous the canvas simply grows to fill the slack (as it already did
+  // before this lane, at 460 vs. an available 521.7). The 3-D path sets an
+  // EXACT `height` (§GraphViewport.ts:132) with no such slack, which is why
+  // this must be a real subtraction rather than a floor.
+  const STAGE_INTERNAL_RESERVE_PX = 180;
+
+  /** The four bands the expanded stage must clear, summed from their LIVE
+   *  rendered heights — not re-typed constants that rot the moment a header
+   *  or the tab strip resizes. Returns 0 outside a browser (SSR/tests), which
+   *  correctly falls back to the `Math.max(460, …)` floor below rather than a
+   *  bogus subtraction. */
+  function expandedChromeAboveGridPx(): number {
+    if (typeof document === 'undefined') return 0;
+    let total = 0;
+    for (const sel of ['.anl-header', '.anl-tabs', '.anl-facets', '.anl-status']) {
+      const bandEl = document.querySelector<HTMLElement>(sel);
+      if (bandEl) total += bandEl.getBoundingClientRect().height;
+    }
+    return total;
+  }
+
   const heightPx = graphExpanded()
-    ? Math.max(460, (typeof window === 'undefined' ? 900 : window.innerHeight) - 300)
+    ? Math.max(
+        460,
+        (typeof window === 'undefined' ? 900 : window.innerHeight) -
+          expandedChromeAboveGridPx() -
+          STAGE_INTERNAL_RESERVE_PX,
+      )
     : 430;
 
   if (graphMode() === '3d') {

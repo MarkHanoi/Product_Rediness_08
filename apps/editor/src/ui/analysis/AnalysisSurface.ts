@@ -219,9 +219,20 @@ export class AnalysisSurface {
     panel.appendChild(this._status);
 
     // ── Widget grid ─────────────────────────────────────────────────────────
+    //
+    // §SCROLL136 (L-12201) — '.anl-grid' sits inside a wrapper it did not used
+    // to need. The wrapper, not the grid, is now the 'position: relative'
+    // ancestor the expanded relationship graph resolves 'inset: 0' against
+    // (see 'analysisSurface.ts' — '.anl-grid-viewport''s own comment for why:
+    // the grid itself SCROLLS, which is exactly what the expanded stage must
+    // NOT size against). '.anl-grid' keeps every one of its own responsibilities
+    // — the 2-column layout, its own scrolling — unchanged.
+    const gridViewport = document.createElement('div');
+    gridViewport.className = 'anl-grid-viewport';
     this._grid = document.createElement('div');
     this._grid.className = 'anl-grid';
-    panel.appendChild(this._grid);
+    gridViewport.appendChild(this._grid);
+    panel.appendChild(gridViewport);
 
     this._el.appendChild(panel);
     document.body.appendChild(this._el);
