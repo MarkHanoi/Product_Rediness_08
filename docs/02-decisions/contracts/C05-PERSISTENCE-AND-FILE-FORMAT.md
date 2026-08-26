@@ -3,7 +3,7 @@
 > **Stamp**: 2026-05-03 · **Status**: CANONICAL  
 > **Scope**: `packages/persistence-client/` (L4), `packages/file-format/` (L5), project lifecycle, project isolation, render gallery storage, and server-side PostgreSQL routing.  
 > **References**: [ADR-0203] object storage, [ADR-0204] wire format, [SPEC-26] `.pryzm` file format, [ADR-0217] `.pryzm-family` format.  
-> **Changelog**: 2026-08-22 (lane LOAD30) — added **§3.5** (a snapshot describes state; an append-only journal MUST NOT live inside it) and **§3.6** (a version-history write MUST NOT decode the history it is not changing), per [ADR-0356](../adrs/ADR-0356-a-design-journal-is-not-snapshot-state.md); ISSUE-LOG L-5800 … L-5851. · 2026-05-03 — added §1.3 server-side pgClient routing invariant (`DATABASE_URL` before `SUPABASE_DB_URL`); added §1.3.1 FK-removal invariant (`projects_owner_id_fkey` dropped in mixed-auth deployments); §1.4 renumbered from §1.3.
+> **Changelog**: 2026-08-26 (lane SUSTAIN109) — added **§3.9** (journal retention follows the version ring — the founder's decision, superseding §3.5's "not decided" clause, dated box in place) and the §3.6 req 6 box (the syncStatus sidecar shipped: one container write per save tick); ISSUE-LOG L-11542, L-11545. · 2026-08-22 (lane LOAD30) — added **§3.5** (a snapshot describes state; an append-only journal MUST NOT live inside it) and **§3.6** (a version-history write MUST NOT decode the history it is not changing), per [ADR-0356](../adrs/ADR-0356-a-design-journal-is-not-snapshot-state.md); ISSUE-LOG L-5800 … L-5851. · 2026-05-03 — added §1.3 server-side pgClient routing invariant (`DATABASE_URL` before `SUPABASE_DB_URL`); added §1.3.1 FK-removal invariant (`projects_owner_id_fkey` dropped in mixed-auth deployments); §1.4 renumbered from §1.3.
 
 ---
 
@@ -337,6 +337,22 @@ the ratchet does not shrink it. Remediation options are costed in ISSUE-LOG **L-
 retention cap is not among them** — it would delete design history the user never agreed to lose, to
 fix a defect that was ours.
 
+> ⚠ **SUPERSEDED 2026-08-26 (lane SUSTAIN109, ISSUE-LOG L-11542) — THE FOUNDER'S CALL IS MADE.** The
+> clause above ("a blind retention cap is not among them") and the §3.8 box's "still not a retention cap"
+> both deferred pruning to a founder decision. That decision arrived verbatim: *"please do the best
+> possible architecturally sound — this is not sustainable — all fixes need to occur."* PERF104 had
+> measured the designed trajectory (`4e4043f9`): the journal NEVER trims — versions cap at 20, every
+> save writes a cursor, so the sidecar is unreleasable by construction; 2 056 → 5 361 records in one
+> day; projected ×4 → 160 ms/open + 3.2 MB, ×10 → 400 ms/open + 8.3 MB.
+> ⭐ **What supersedes what, precisely.** The word "blind" survives: a size cap or an age cap is STILL
+> ruled out. What is now binding is a retention floor tied to the RESTORABLE history — every record any
+> RETAINED version references is kept, and only records no restorable version can reach are released.
+> That is **§3.9**, and it is the FIRST retention rule this contract has ever carried. The record-count
+> assertions in §3.8 req 1 remain true of the sidecar MIGRATION (copies → cursors); they are no longer
+> true of the journal's lifetime, and any test that asserted "unchanged forever" is now asserting the
+> superseded clause. Record this box, not a silent edit: the clause was ratified, and it was right until
+> the number it protected became the number that hurt.
+
 > ⭐ **RE-MEASURED 2026-08-23 (lane INTEG51, ISSUE-LOG L-8704) — the ratchet is stopped and the
 > SHAPE is unchanged, so the number went UP, not down.** The founder's live console reads
 > `281 elements, 7 levels, 62 walls, 10 slabs, 31 furniture … temporalGraph **30 432 mutations**`
@@ -435,6 +451,16 @@ Five requirements, each binding:
    container for a sidecar id→status map — named and costed in L-8702, not shipped blind.
    ⭐ **A test for this requirement MUST COUNT WRITES, not assert the stored history is correct**: a
    correctness-only assertion passes identically against the unbounded implementation.
+   > ⭐ **SHIPPED 2026-08-26 (lane SUSTAIN109, ISSUE-LOG L-11545) — the floor is now ONE write.** The
+   > sidecar id→status map this requirement named lives at key `syncstatus::<projectId>` in the SAME
+   > IndexedDB object store as the containers (no schema bump; `warm()` loads it for free; this module
+   > stays the store's single writer). `'synced'` is STILL written durably (C48 §1) — one record of a
+   > few hundred bytes instead of a ~2 MB container put — and `_applyStatusOverlays` overlays
+   > durable-then-transient onto every read. ⚠ The tab-close trap PERF104 named needs no beforeunload
+   > flush: `unsyncedWorkGuard` counts from the queue's own persisted state, and a lost `'synced'` put
+   > leaves the record reading `'local-only'`, the conservative badge — both arms are EXECUTED in
+   > `apps/editor/__tests__/syncStatusSidecar.test.ts`, which counts container puts by key as this
+   > requirement demands (full ladder = 1 container put + 1 sidecar put).
 
 **Not decided by this section:** server-side version retention. The client keeps 20; the server keeps
 everything (`versionLimitFor(plan)` returns `-1` for an uncapped plan — **746** rows for one project,
@@ -588,6 +614,83 @@ the whole snapshot with the journal inline, deliberately — detaching on the wi
 documented C05 §3 route shape and belongs with **L-5831**/**L-5832**, not to a client storage lane.
 So the 50 MB POST cap and the 746-row server history are **not** improved by this section, and
 saying otherwise would be an unmeasured claim.
+
+---
+
+### §3.9 — Journal retention follows the VERSION RING: a record no retained version references is released (binding)
+
+> **Added**: 2026-08-26 · lane SUSTAIN109, closes **L-11542**; supersedes the "not decided" clauses of
+> §3.5 and the "still not a retention cap" line of §3.8 — see the dated box under §3.5.
+> **Authority**: the founder's directive of 2026-08-26 (*"this is not sustainable — all fixes need to
+> occur"*), quoted in that box. Files: `apps/editor/src/ui/platform/ProjectRepository.ts`
+> (`§JOURNAL-RETENTION` — `_releaseJournalHead`, the `rel`/`b0` envelope fields, the per-version
+> attach window). Test: `apps/editor/__tests__/journalRetention.test.ts` (founder scale, 6 000 records).
+
+§3.8 stores the journal ONCE and lets each version hold a cursor. It left the journal's LIFETIME
+unbounded: the local store keeps `MAX_VERSIONS_STORED = 20` snapshots, but the journal they index kept
+every record since the project's first save. The size of what the user can still restore was bounded;
+the size of what every open had to inflate and verify was not.
+
+**MEASURED** (`apps/editor/__tests__/journalRetention.test.ts`, real codec + real digests + real integrity
+stamps, 30 autosaves growing 200 records each to **6 000** — the founder's console read 5 361):
+one open released **2 000** records (one sealed chunk) → container **171 018 → 119 828 chars (30 %
+smaller)**; the retained window attached to every one of the 20 restorable versions, tail-aligned at
+each version's own stamp; the real `TemporalGraphManager` deserialized and queried the restored oldest
+version; the next save reused BOTH surviving sealed chunks byte-for-byte and read back with an EXACT
+digest. ⚠ The fixture compresses better than the founder's real records; the SHAPE is the claim, and in
+steady state the journal is bounded to the ring's span plus one chunk of granularity (~2 300 records at
+his ~13 records/save) instead of growing without bound.
+
+Six requirements, each binding:
+
+1. ⭐ **THE FLOOR IS THE RING, NOT A NUMBER.** A version's claim on its journal prefix ends when the
+   ring evicts it. The largest cursor among EVICTED versions (`journal.rel`, recorded at eviction from
+   the envelope — a free read inside a container write already happening) is the exact boundary below
+   which no restorable version references anything. ⛔ A size cap, an age cap, or any release above
+   that boundary remains forbidden — §3.5's "blind" survives; only its "never" is superseded.
+2. ⭐ **RELEASE AT OPEN, NEVER MID-SESSION.** The release runs in `getLatestVersion`, BEFORE the
+   journal is attached, so the live model of the session that follows begins AT the window. Every later
+   save then extends the stored window exactly (cursor = window index = `mutationsRef.n`), the
+   append-only check stays O(n) identity/id comparisons, sealed-chunk reuse survives, and every
+   post-release save's integrity digest is EXACT. Releasing mid-session would leave a live model whose
+   journal reaches below the stored window; every later save of that session would fail the extension
+   check and fall back to inline-whole storage — the bloat §3.8 removed, resurrected by its own fix.
+3. **WHOLE SEALED CHUNKS ONLY, AS BYTES.** No version blob is decoded, no chunk re-DEFLATEd, no digest
+   recomputed: chunks below the boundary are dropped, the survivors keep their `k`-alignment (the drop
+   is a multiple of `k`), envelope cursors shift down in the same write. Cost: one envelope stringify
+   and one IndexedDB put of a SMALLER container, paid only when ≥ one full chunk has become
+   unreferenced. ⛔ It MUST NOT run on a disabled store (L-5805's lesson): `putVersions` there reaches
+   only the mirror while the legacy localStorage copy — the container's only durable home in that
+   environment — would be removed.
+4. ⭐ **A PRE-RELEASE STAMP IS *NOT COMPARABLE*, AND THAT IS A POLICY FACT, NOT AN ERROR.** Versions saved
+   before a release were stamped over their full journal; after it, re-attachment supplies every
+   retained record and reports the shortfall. That is the SAME disposition §3.7 req 3 and §3.8 req 4
+   already assign to an algorithm change and to an in-flight migration: `comparable:false, ok:true`,
+   never "corrupt". The read path attributes a shortfall ≤ `b0` (the released head) to this section
+   and prints an INFO line naming it; a larger shortfall is still damage and still an error.
+   ⛔ Re-stamping old versions in the storage layer to fake exactness is FORBIDDEN: a stamp minted over
+   content the serializer never saw is the L-334 / L-360 / L-8700 ignition condition, built on purpose.
+5. ⭐ **THE ATTACH WINDOW IS PER VERSION AND TAIL-BOUNDED BY THE ENVELOPE CURSOR.** After a release the
+   envelope cursor is window-relative while `mutationsRef.n` inside an old record still counts the
+   absolute lineage; passing the whole journal to the attach would let an older version take records
+   NEWER than its stamp. Every reader MUST slice `journal[0, r)` by the envelope cursor. On a complete
+   lineage (`b0 = 0` — every container written before this section) the slice is what the internal
+   cursor took anyway, so the behaviour is byte-identical.
+6. **BACKWARD-COMPATIBLE BY ABSENCE, REVERSIBLE BY SWITCH, AND NOT THE LAST COPY.** `b0`/`rel` are
+   optional envelope fields; absent = 0 = a complete lineage, so no migration touches a stored container
+   (C47). `globalThis.__pryzmJournalRetention = false` reverts the WRITE side (no `rel` bookkeeping, no
+   release); the read side is never gated. ⚠ Rollback hazard, named: a build predating this section
+   reading a RELEASED container restores its NEWEST version exactly but may attach up to `b0` too-new
+   records to an OLDER version's history — bounded, non-crashing, and gone on roll-forward. And the
+   released head is not deleted from the world: every synced version's SERVER snapshot still carries its
+   journal inline (§3.8's "not decided" clause is unchanged), so pre-release history remains recoverable
+   from server history.
+
+**Not decided by this section:** the server copy's retention (still L-5831 / L-5832), and whether the
+temporal-history surfaces (DesignHistoryPanel's timeline, `GhostOverlayRenderer.queryAt`,
+`getMutationsForElement`) should be told the window's start so they can say "history before here was
+released" rather than simply starting there. They degrade in DEPTH only — the retained window is present
+bit-for-bit — but the honest label is a UI change and belongs to a UI lane.
 
 ---
 

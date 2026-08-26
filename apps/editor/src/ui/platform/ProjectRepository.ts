@@ -269,8 +269,34 @@ const JOURNAL_CHUNK_RECORDS = 2000;
 
 /** One sealed-or-tail journal chunk. `b` may be raw text (see `_decompressJSON`). */
 interface _V3Chunk { b: string; n: number; h: string }
-/** The shared per-project journal: chunk size, total record count, chunks in order. */
-interface _V3Journal { k: number; n: number; c: _V3Chunk[] }
+/**
+ * The shared per-project journal: chunk size, STORED record count, chunks in order.
+ *
+ * §JOURNAL-RETENTION (§SUSTAIN109, L-11542, C05 §3.9) — two optional annotations:
+ *
+ *   `b0`  — how many records have been RELEASED from the head of this lineage. The
+ *           stored array therefore begins at absolute record `b0`; `n` counts what is
+ *           STORED, not what ever existed. Absent = 0 = a complete lineage, which is
+ *           every container written before this change (C47 backward-compat is the
+ *           absent default, not a migration).
+ *   `rel` — the RELEASABLE prefix length, relative to the stored array: the largest
+ *           envelope cursor (`_V2Entry.r`) among versions the 20-slot ring has
+ *           EVICTED. Records below it are referenced by NO retained version — the
+ *           founder's retention floor — and become droppable once a whole sealed
+ *           chunk of them accumulates. Recording it at eviction time is free (the
+ *           container write is already happening and the cursor is an envelope fact);
+ *           acting on it is deferred to `_releaseJournalHead`, at project OPEN,
+ *           because that is the one moment no live model still remembers the head.
+ *
+ * ⚠ Cursor semantics are UNCHANGED: `_V2Entry.r` / `mutationsRef.n` index the STORED
+ * array. With `b0 = 0` that is the historical absolute meaning, so every existing
+ * container reads identically; after a release the envelope cursors are shifted down
+ * by the release in the same write that drops the chunks, and only the (immutable)
+ * `mutationsRef.n` INSIDE pre-release records keeps the old absolute count — which is
+ * exactly how the attach path knows to report those versions' reassembly as
+ * NOT COMPARABLE (a policy fact) instead of pretending exactness it cannot have.
+ */
+interface _V3Journal { k: number; n: number; c: _V3Chunk[]; b0?: number; rel?: number }
 /** The v3 container envelope. `f` is the format tag; `j` is null when nothing is shared. */
 interface _V3Container { f: 3; j: _V3Journal | null; v: _V2Entry[] }
 
@@ -609,11 +635,19 @@ function _planJournal(
     if (records.length === 0) return null;
     const k = prior?.k && prior.k > 0 ? prior.k : JOURNAL_CHUNK_RECORDS;
 
+    // §JOURNAL-RETENTION — the extension verdict is computed ONCE and reused for two
+    // decisions: chunk reuse (as before) and whether the retention annotations
+    // (`b0`/`rel`) travel forward. They belong to the LINEAGE: an extension keeps
+    // them (even when `reuse` is 0 because no chunk is sealed yet — a post-release
+    // window can be shorter than one chunk); a rebuilt journal is a NEW lineage whose
+    // own head has released nothing.
+    const extended = !!(prior && priorRecords !== null && prior.k === k && isJournalExtension(records, priorRecords));
+
     let reuse = 0;
-    if (prior && priorRecords !== null && prior.k === k && isJournalExtension(records, priorRecords)) {
+    if (extended) {
         // Sealed chunks only: chunk i covers [i*k, min((i+1)*k, prior.n)), so the
         // last chunk is sealed exactly when prior.n is a multiple of k.
-        reuse = Math.min(Math.floor(prior.n / k), prior.c.length);
+        reuse = Math.min(Math.floor(prior!.n / k), prior!.c.length);
     }
 
     const chunks: _V3Chunk[] = reuse > 0 ? prior!.c.slice(0, reuse) : [];
@@ -622,7 +656,28 @@ function _planJournal(
         const text = JSON.stringify(slice);
         chunks.push({ b: _compressJSON(text), n: slice.length, h: hashJournalChunk(text) });
     }
-    return { k, n: records.length, c: chunks };
+    const journal: _V3Journal = { k, n: records.length, c: chunks };
+    if (extended) {
+        if (prior!.b0) journal.b0 = prior!.b0;
+        if (prior!.rel) journal.rel = prior!.rel;
+    }
+    return journal;
+}
+
+/**
+ * §JOURNAL-RETENTION (§SUSTAIN109, L-11542) — the revert switch for the WRITE side of
+ * retention (the `rel` bookkeeping at eviction and the head release at open), in the
+ * same idiom as `__pryzmJournalSidecar`. DEFAULT ON. The READ path is deliberately not
+ * gated — a container whose head has already been released must keep reading
+ * correctly whatever the flag says, or the flag would strand data (the same reasoning
+ * as `_journalSidecarEnabled`'s header).
+ */
+function _journalRetentionEnabled(): boolean {
+    try {
+        return (globalThis as { __pryzmJournalRetention?: boolean }).__pryzmJournalRetention !== false;
+    } catch {
+        return true;
+    }
 }
 
 /**
@@ -1756,6 +1811,125 @@ export class LocalVersionRepository implements IVersionRepository {
         return { slots, journal };
     }
 
+    /**
+     * §JOURNAL-RETENTION (§SUSTAIN109, L-11542, C05 §3.9) — release the journal
+     * records that NO RETAINED VERSION references, at the one moment it is free.
+     *
+     * ─── THE DECISION THIS IMPLEMENTS (the founder's, 2026-08-26) ───────────────
+     * C05 §3.5/§3.8 ratified the sidecar as copy-elimination and left pruning
+     * "pending the founder's call". His directive — *"this is not sustainable — all
+     * fixes need to occur"* — is that call, and C05 §3.9 records the supersession.
+     * The retention floor is NOT a size cap and NOT an age cap: it is the version
+     * ring itself. A version's journal claim ends when the version leaves the
+     * 20-slot ring; the largest evicted cursor (`journal.rel`, recorded at eviction
+     * by `saveVersionWithMeta`) is therefore the exact boundary below which every
+     * record is referenced by nothing the user can still restore. The journal keeps
+     * the same time-depth as the history that indexes it — bounded forever, by
+     * construction, instead of growing without bound (measured `4e4043f9`:
+     * ×4 → 160 ms/open + 3.2 MB, ×10 → 400 ms/open + 8.3 MB on the old trajectory).
+     *
+     * ─── WHY AT OPEN, AND ONLY AT OPEN ──────────────────────────────────────────
+     * This runs from `getLatestVersion`, BEFORE the journal is attached to the
+     * snapshot the loader will hydrate — so the live temporalGraph of the session
+     * that follows begins AT the window. Every subsequent save's detached journal
+     * then extends the stored window exactly (cursor = window index; `mutationsRef.n`
+     * = envelope ref), which keeps the append-only check O(n), the chunk reuse
+     * intact, and — decisive — the integrity digest of every post-release save
+     * EXACT. Releasing mid-session instead would leave a live model whose journal
+     * reaches below the stored window: every later save would fail the extension
+     * check and fall back to inline-whole storage, resurrecting the very bloat the
+     * sidecar removed.
+     *
+     * ─── WHAT IT COSTS, AND WHAT IT REFUSES TO COST ─────────────────────────────
+     * Whole SEALED chunks only, dropped as bytes: no version blob is decoded, no
+     * chunk is re-DEFLATEd, no digest is recomputed — remaining chunks keep their
+     * k-alignment because the drop is a multiple of k. The entire cost is one
+     * envelope stringify and one IndexedDB put of a now-SMALLER container, paid only
+     * when ≥ one full chunk (2000 records) has become unreferenced — at founder
+     * scale (~13 records/save, ring span ~260 records) roughly twice a day, not per
+     * open. Until then `rel` simply rides along.
+     *
+     * ─── HONESTY ABOUT WHAT OLD STAMPS CAN NO LONGER PROVE ──────────────────────
+     * Versions SAVED BEFORE a release were stamped over their full journal; after
+     * it, re-attachment supplies `expected − b0-shortfall` records, and their
+     * digests are reported NOT COMPARABLE with the retention policy named — the
+     * SAME precedented disposition §3.7/§3.8 assign an algorithm change and an
+     * in-flight migration, never "corrupt". Re-stamping them here to fake exactness
+     * was considered and REJECTED: a stamp minted by the storage layer over content
+     * the serializer never saw is the L-334/L-360/L-8700 ignition condition, built
+     * on purpose. Chunk digests (`h`) still verify every byte that IS stored.
+     * ⚠ The released head is not the last copy in the world: every synced version's
+     * SERVER snapshot still carries its journal inline (C05 §3.8 "not decided"
+     * clause), so pre-release history remains recoverable from server history.
+     *
+     * @returns the released container + its payload, or null when nothing released.
+     */
+    private _releaseJournalHead(
+        projectId: string,
+        parsed: _ParsedContainer,
+        beforeChars: number,
+    ): { parsed: _ParsedContainer; payload: string } | null {
+        if (!_journalRetentionEnabled() || !_journalSidecarEnabled()) return null;
+        // ⛔ L-5805's lesson, applied before it can recur: on a DISABLED store,
+        // `putVersions` reaches only the in-memory mirror while the line below would
+        // still remove the legacy localStorage copy — the container's ONLY durable
+        // home in that environment. No release without a durable destination.
+        if (getVersionCacheStore().isDisabled()) return null;
+        const j = parsed.journal;
+        if (!j || !j.rel || j.rel <= 0 || !Array.isArray(j.c) || j.c.length === 0) return null;
+        const k = j.k > 0 ? j.k : JOURNAL_CHUNK_RECORDS;
+
+        // The floor, re-derived defensively from the envelope rather than trusted:
+        // nothing a RETAINED version references may go, whatever `rel` claims.
+        let minRef = Infinity;
+        for (const e of parsed.entries) {
+            if (e.r !== undefined && e.r < minRef) minRef = e.r;
+        }
+        const releasable = Math.min(j.rel, minRef === Infinity ? j.rel : minRef, j.n);
+        const dropChunks = Math.floor(releasable / k);
+        if (dropChunks <= 0) return null;
+        // Only sealed chunks may go whole; a malformed chunk length must not shift
+        // cursors against records that are still there.
+        for (let i = 0; i < dropChunks; i++) {
+            if (j.c[i]?.n !== k) return null;
+        }
+        const dropped = dropChunks * k;
+
+        const journal: _V3Journal = {
+            k,
+            n: j.n - dropped,
+            c: j.c.slice(dropChunks),
+            b0: (j.b0 ?? 0) + dropped,
+        };
+        if (j.rel - dropped > 0) journal.rel = j.rel - dropped;
+        const entries = parsed.entries.map<_V2Entry>(e =>
+            e.r !== undefined ? { ...e, r: e.r - dropped } : e,
+        );
+
+        const payload = _assembleContainer(entries, journal);
+        getVersionCacheStore().putVersions(projectId, payload);
+        try { localStorage.removeItem(this.key(projectId)); } catch { /* ignore */ }
+        // The caches describe the pre-release container. The blob cache is rebuilt to
+        // the shifted cursors (bytes unchanged — only `r` moved); the journal mirror
+        // is dropped and re-seeds from the windowed read that follows.
+        const cache = _blobCacheFor(projectId);
+        cache.clear();
+        for (const e of entries) {
+            if (e.b.startsWith(COMPRESSED_MARKER)) cache.set(e.i, e);
+        }
+        _journalMirror.delete(projectId);
+
+        console.log(
+            `[VersionRepository] §JOURNAL-RETENTION "${projectId}": released ${dropped} journal record(s) ` +
+            `(${dropChunks} sealed chunk(s)) that no retained version references — the 20-version ring evicted ` +
+            `every version born before them (C05 §3.9). ${journal.n} record(s) retained in ${journal.c.length} ` +
+            `chunk(s); lineage head now at absolute record ${journal.b0}. Container ` +
+            `${(beforeChars / 1024 / 1024).toFixed(2)} MB → ${(payload.length / 1024 / 1024).toFixed(2)} MB. ` +
+            `Server history still holds the released records inline for every synced version.`,
+        );
+        return { parsed: { entries, journal }, payload };
+    }
+
     private _envelopeContainer(projectId: string): _PendingContainer | null {
         const raw = this._rawPayload(projectId);
         // Nothing stored yet — an append is a fresh container with no shared journal.
@@ -1798,8 +1972,15 @@ export class LocalVersionRepository implements IVersionRepository {
         const __tRaw = performance.now();
         if (!raw) return null;
         try {
-            const __parsed = _parseContainer(raw);
+            let __parsed = _parseContainer(raw);
+            let __rawChars = raw.length;
             if (__parsed) {
+                // §JOURNAL-RETENTION (L-11542) — the release runs HERE, before the
+                // journal is read or attached, so the live model this open produces
+                // begins AT the window and every save of the coming session stays
+                // exact and extension-aligned. See `_releaseJournalHead`.
+                const __released = this._releaseJournalHead(projectId, __parsed, raw.length);
+                if (__released) { __parsed = __released.parsed; __rawChars = __released.payload.length; }
                 const entries = __parsed.entries;
                 const __tEnvelope = performance.now();
                 if (entries.length === 0) return null;
@@ -1824,19 +2005,47 @@ export class LocalVersionRepository implements IVersionRepository {
                 // sidecar and is timed separately, so the probe keeps saying where
                 // ALL the time goes rather than quietly losing a leg to the fix.
                 const __journal = _readJournalRecords(projectId, __parsed.journal);
-                const __attach = attachJournalMutations(__record.snapshot, __journal);
+                // §JOURNAL-RETENTION — attach sees THIS VERSION'S WINDOW, bounded at
+                // the tail by its own envelope cursor. On a complete lineage (b0 = 0,
+                // every pre-change container) the slice equals what the internal
+                // cursor took anyway — byte-identical behaviour. On a released
+                // lineage it is load-bearing twice over: it prevents records NEWER
+                // than this version being silently attached as its history (the
+                // cursor is now window-relative while `mutationsRef.n` inside an old
+                // record still counts the absolute lineage), and it makes the head
+                // shortfall exactly `min(n, b0)` — attributable to policy below.
+                const __window = (__journal && last.r !== undefined) ? __journal.slice(0, last.r) : __journal;
+                const __attach = attachJournalMutations(__record.snapshot, __window);
                 const __tJournal = performance.now();
                 if (__attach.wasDetached && !__attach.exact) {
-                    console.error(
-                        `[VersionRepository] §JOURNAL-SIDECAR "${projectId}": ${__attach.note} ` +
-                        `The project is being opened with every record that could be verified.`,
-                    );
+                    const __b0 = __parsed.journal?.b0 ?? 0;
+                    if (__b0 > 0 && (__attach.expected - __attach.actual) <= __b0) {
+                        // §JOURNAL-RETENTION — a shortfall no larger than the released
+                        // head is the POLICY working, not damage: this version was
+                        // stamped before the release, its integrity stamp will report
+                        // NOT COMPARABLE (never "corrupt"), and every stored record it
+                        // references is attached. An INFO line, not an error.
+                        console.log(
+                            `[VersionRepository] §JOURNAL-RETENTION "${projectId}": this version predates a ` +
+                            `journal head release — ${__attach.actual} of the ${__attach.expected} record(s) its ` +
+                            `stamp covers are retained (${__b0} released under C05 §3.9, still on the server for ` +
+                            `synced versions). Its integrity stamp reads NOT COMPARABLE, which is the designed ` +
+                            `disposition, not a defect.`,
+                        );
+                    } else {
+                        console.error(
+                            `[VersionRepository] §JOURNAL-SIDECAR "${projectId}": ${__attach.note} ` +
+                            `The project is being opened with every record that could be verified.`,
+                        );
+                    }
                 }
                 const __tg = (__record.snapshot as { temporalGraph?: { mutations?: unknown[]; edges?: unknown[] } } | undefined)?.temporalGraph;
                 const __ms = (a: number, b: number) => (b - a).toFixed(0);
                 console.log(
                     `[VersionRepository] §PROBE-OPEN-PATH-STORAGE-LEG open "${projectId}": ` +
-                    `container ${_formatPayloadSize(raw)} / ${entries.length} version(s) · ` +
+                    // §JOURNAL-RETENTION — `__rawChars` so a release that just ran is
+                    // reported at the size the NEXT read pays, not the size it removed.
+                    `container ~${(__rawChars / 1024 / 1024).toFixed(1)} MB (${__rawChars.toLocaleString()} chars) / ${entries.length} version(s) · ` +
                     `newest inflates to ${(__json.length / 1024 / 1024).toFixed(1)} MB ` +
                     `(temporalGraph ${__tg?.mutations?.length ?? 0} mutations / ${__tg?.edges?.length ?? 0} edges` +
                     `${__attach.wasDetached
@@ -1877,6 +2086,7 @@ export class LocalVersionRepository implements IVersionRepository {
             // twenty inflates and twenty parses of the same 8.7 MB log.
             const journal = _readJournalRecords(projectId, parsed.journal);
             let __inexact = 0;
+            let __inexactPolicy = 0; // §JOURNAL-RETENTION — pre-release stamps; INFO, never error
             const cache = _blobCacheFor(projectId);
             cache.clear(); // rebuild to exactly the stored ids (drops trimmed-out versions)
             const out: VersionRecord[] = [];
@@ -1889,8 +2099,18 @@ export class LocalVersionRepository implements IVersionRepository {
                 const __record = JSON.parse(_decompressJSON(e.b)) as VersionRecord;
                 // §JOURNAL-SIDECAR — put the shared journal back, and count (never
                 // swallow) any version whose cursor the sidecar could not satisfy.
-                const __attach = attachJournalMutations(__record.snapshot, journal);
-                if (__attach.wasDetached && !__attach.exact) __inexact++;
+                // §JOURNAL-RETENTION — per-version WINDOW, tail-bounded by the
+                // envelope cursor: identical bytes on a complete lineage (b0 = 0);
+                // on a released one it stops newer records being misattributed to an
+                // older version whose internal cursor still counts the absolute
+                // lineage. Same slice as `getLatestVersion`, for the same reasons.
+                const __window = (journal && e.r !== undefined) ? journal.slice(0, e.r) : journal;
+                const __attach = attachJournalMutations(__record.snapshot, __window);
+                if (__attach.wasDetached && !__attach.exact) {
+                    const __b0 = parsed.journal?.b0 ?? 0;
+                    if (__b0 > 0 && (__attach.expected - __attach.actual) <= __b0) __inexactPolicy++;
+                    else __inexact++;
+                }
                 out.push(_applyStatusOverlays(projectId, __record));
                 // ⛔ §PERF-VERSION-NARROW-READ (L-1300) — CACHE ONLY ACTUALLY-COMPRESSED
                 // BLOBS. The in-session MIRROR is now a v2 container whose newest
@@ -1915,6 +2135,14 @@ export class LocalVersionRepository implements IVersionRepository {
                     `version(s) could not be given the exact journal their cursor names. Every record that ` +
                     `verified was attached and NOTHING was deleted; those versions' integrity stamps will ` +
                     `report NOT COMPARABLE rather than a mismatch.`,
+                );
+            }
+            if (__inexactPolicy > 0) {
+                console.log(
+                    `[VersionRepository] §JOURNAL-RETENTION "${projectId}": ${__inexactPolicy} of ${entries.length} ` +
+                    `version(s) predate a journal head release (C05 §3.9) — every retained record they reference ` +
+                    `is attached; their stamps read NOT COMPARABLE by design, and synced versions still hold the ` +
+                    `released records on the server.`,
                 );
             }
             return out;
@@ -2042,7 +2270,26 @@ export class LocalVersionRepository implements IVersionRepository {
             const slots = base.slots;
             const at = slots.findIndex(s => s.id === version.id);
             if (at >= 0) slots[at] = fresh; else slots.push(fresh);
-            this._persistSlots(projectId, slots.slice(-MAX_VERSIONS_STORED), journal, 'save-version');
+            const kept = slots.slice(-MAX_VERSIONS_STORED);
+            // §JOURNAL-RETENTION (L-11542, C05 §3.9) — THE RING JUST DECIDED WHAT THE
+            // JOURNAL MAY FORGET. A version leaving the 20-slot ring takes with it the
+            // last claim on its journal prefix: records below the largest EVICTED
+            // cursor are referenced by no retained version. That fact is recorded here
+            // — an envelope read, in a container write already happening, costing
+            // nothing — and ACTED on at the next open (`_releaseJournalHead`), the one
+            // moment no live model still remembers the head. Recording and releasing
+            // are deliberately different moments: releasing here, mid-session, would
+            // desynchronise the live temporalGraph (which still holds the head) from
+            // the stored window and force every later save of this session inline.
+            let storedJournal = journal;
+            if (storedJournal !== null && _journalRetentionEnabled() && slots.length > kept.length) {
+                let rel = storedJournal.rel ?? 0;
+                for (const evicted of slots.slice(0, slots.length - kept.length)) {
+                    if (evicted.ref !== undefined && evicted.ref > rel) rel = evicted.ref;
+                }
+                if (rel > (storedJournal.rel ?? 0)) storedJournal = { ...storedJournal, rel };
+            }
+            this._persistSlots(projectId, kept, storedJournal, 'save-version');
         } else {
             const versions = this.getVersions(projectId);
             const existingIdx = versions.findIndex(v => v.id === version.id);
