@@ -45,6 +45,17 @@ export interface EventCatalog {
   'bim-copy-requested':       { ids: string[] };
   'bim-curtainwall-added':    { id: string };
   'bim-curtainwall-removed':  { id?: string; ids?: string[] };
+  // §CWLEVEL149 (L-12460) — the sibling every other family already has
+  // (bim-ceiling/door/floor-updated below). `UpdateCurtainWallCommand` writes
+  // the ONLY geometry record `UnifiedBrowserPanel` / `SchedulePanel` read for a
+  // curtain wall (levelId, systemTypeId, gridXSpacing, …) but had no event to
+  // announce the write with — the catalog never declared this key, so no
+  // command could type-check an emit of it. `UnifiedBrowserPanel.ts:154` and
+  // `SchedulePanel.ts:45` already listen for it (a listener for an event
+  // nobody could ever type-check emitting), and `geometryMutationEvents.ts`
+  // already classifies it in `GEOMETRY_CASTER_MUTATION_EVENTS` — only the
+  // catalog entry and the emit call were missing.
+  'bim-curtainwall-updated':  { id: string };
   'bim-door-added':           { id: string };
   'bim-door-removed':         { id: string };
   'bim-door-updated':         { id: string };

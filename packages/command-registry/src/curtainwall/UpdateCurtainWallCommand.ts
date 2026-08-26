@@ -37,6 +37,14 @@ import { CurtainWallData, migrateToGridSystem } from '@pryzm/geometry-curtain-wa
 // remaining TASK-08 work is retiring the window.* seam globally. Work note relocated
 // from the file header, where it read to the C74 §3.4 M-B gate as a module-scaffold
 // claim; this command is production, not a stand-in (CO-06, 2026-08-14).
+//
+// §CWLEVEL149 (L-12460) — `batchCoordinator` + `DOMEventBus` are the SAME two
+// imports `CreateCurtainWallCommand.ts` (this directory) already uses for the
+// identical `bim-curtainwall-added`/`-removed` announcement; this command mints
+// no new dependency, it closes the missing THIRD member of that family.
+import { batchCoordinator } from '@pryzm/core-app-model';
+import { DOMEventBus } from '@pryzm/event-bus';
+const _bus = new DOMEventBus();
 
 export interface UpdateCurtainWallInput {
     id: string;
@@ -177,6 +185,25 @@ export class UpdateCurtainWallCommand implements Command {
             }
         }
 
+        // §CWLEVEL149 (L-12460) — announce the write. `CreateCurtainWallCommand`
+        // (this directory) has always paired `bim-curtainwall-added` with the
+        // SAME batchCoordinator gate; this command had NO announcement at all,
+        // for any of the fields it writes (levelId via §DW-03, systemTypeId via
+        // a type swap, gridXSpacing/gridSystem via a re-space). Every listener
+        // below reads the geometry record correctly WHEN it runs — the record
+        // was never wrong — it simply never ran:
+        //   `UnifiedBrowserPanel.ts:154` (the Project Browser "Curtain Walls"
+        //     category list, and the "isolate this level"/"isolate this
+        //     category" buttons that re-render from it),
+        //   `SchedulePanel.ts:45`,
+        //   `FrustumCullingService` / `ViewRenderCache` (geometryMutationEvents.ts
+        //     already classified this key as a caster mutation, waiting for it).
+        // A bulk RAC "change all curtain walls to <type>" fan-out runs N of
+        // these inside ONE `batchCoordinator.runBatch()` (ZeroTokenChatBridge's
+        // `executeSlice`), so the SAME dedup path `bim-curtainwall-added` uses
+        // applies here — one dispatch per batch, not N.
+        this._announce();
+
         return { success: true, affectedElementIds: [this.input.id], ...(_info.length ? { info: _info } : {}) };
     }
 
@@ -198,7 +225,27 @@ export class UpdateCurtainWallCommand implements Command {
             }
         }
 
+        // §CWLEVEL149 — undo restores the record via `store.set()` (:196) but a
+        // ring/adapter undo never touches this command's own execute() again, so
+        // without this the SAME stale-panel gap reopens on every Ctrl+Z.
+        this._announce();
+
         return { success: true, affectedElementIds: [this.input.id] };
+    }
+
+    /**
+     * §CWLEVEL149 — one announcement, used by both execute() and undo(),
+     * routed exactly the way `CreateCurtainWallCommand` routes
+     * `bim-curtainwall-added`/`-removed`: coalesced through the batch
+     * coordinator during a `runBatch()` fan-out (one dispatch per unique event
+     * name, not per element), direct otherwise.
+     */
+    private _announce(): void {
+        if (batchCoordinator.isBatching) {
+            batchCoordinator.trackPostBatchWindowEvent('bim-curtainwall-updated');
+        } else {
+            _bus.emit('bim-curtainwall-updated', { id: this.input.id });
+        }
     }
 
     serialize(): SerializedCommand {
