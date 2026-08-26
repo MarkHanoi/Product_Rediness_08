@@ -328,18 +328,30 @@ export class PlumbingTool {
                         // aims local +Z TOWARD the target (non-camera path, see
                         // three/src/core/Object3D.js), so after lookAt(point+normal)
                         // the fixture's local +Z already points along the outward
-                        // room-normal (into the room).
-                        //   • Toilet & sink: their FRONT is at local −Z (D-shape /
-                        //     basin extrude to −Z, wall plate at +Z), so we flip 180°
-                        //     to seat their back against the wall.
-                        //   • Shower: its FRONT (riser → rain-arm → head, tray, glass)
-                        //     is authored at local +Z (ShowerGeometry header), so it is
-                        //     ALREADY correct after lookAt — flipping it 180° drove the
-                        //     rain head into the wall (the founder's "wrong direction").
-                        //     Parity with PlumbingPlanToolHandler, which never flips.
-                        if (this.fixtureType === 'sink' || this.fixtureType === 'toilet') {
-                            this.previewMesh.rotateY(Math.PI);
-                        }
+                        // room-normal (into the room). That IS the convention
+                        // (`PlumbingFixtureFrame.ts`), so nothing further is applied.
+                        //
+                        // ⛔ §PLUMBFRAME (founder, 2026-08-26 · L-11489) — THE
+                        // COMPENSATING HALF-TURN THAT USED TO LIVE HERE IS GONE, AND
+                        // ITS RATIONALE WAS FALSE. It read: *"Toilet & sink: their
+                        // FRONT is at local −Z (D-shape / basin extrude to −Z, wall
+                        // plate at +Z), so we flip 180° to seat their back against the
+                        // wall."* The premise was HALF true and the remedy was in the
+                        // wrong place:
+                        //   · the SINK really was built on −Z — and that was the SINK
+                        //     MESH's defect, now fixed at the geometry
+                        //     (`PlumbingFragmentBuilder.createSinkMesh`);
+                        //   · the TOILET's cistern was correctly at +Z while only its
+                        //     three D-EXTRUSIONS ran backwards — measured, bowl
+                        //     `z[-0.742, 0.022]` — now fixed in `ToiletGeometry`.
+                        // ⛔ A COMPENSATING OFFSET AT ONE WRITER CANNOT FIX A READER
+                        // THAT TWO OTHER WRITERS ALSO FEED: `PlumbingPlanToolHandler`
+                        // never flipped, so the 3-D tool and the plan tool STORED
+                        // DIFFERENT ANGLES FOR THE SAME WALL, and the plan symbol and
+                        // the mesh could not both be right for either of them. One
+                        // convention, obeyed by the geometry, is the only shape that
+                        // closes it. The migration duty for already-stored 3-D-placed
+                        // toilets and sinks is L-11491, named in `PlumbingFixtureFrame`.
                         const offset = wallResult.normal.clone().multiplyScalar(0.02);
                         this.previewMesh.position.add(offset);
                         this.setPreviewColor(PRYZM_PURPLE);

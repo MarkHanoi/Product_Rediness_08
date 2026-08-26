@@ -163,9 +163,19 @@ describe('§BATH98 B — the run arithmetic (C109 §5.3)', () => {
         if (!solved.ok) return;
         for (const m of solved.members) {
             if (m.wall !== 'primary') continue;
-            // Back face at local z = 0 => centre at half the depth.
-            expect(m.position.z).toBeCloseTo(m.footprint.length / 2, 9);
-            expect(m.position.z + m.footprint.length / 2).toBeLessThanOrEqual(3.0 + 1e-9);
+            // ⚠ AMENDED 2026-08-26 (§PLUMBFRAME, founder · L-11490). This read
+            // `expect(m.position.z).toBeCloseTo(m.footprint.length / 2, 9)` with the
+            // comment *"Back face at local z = 0 => centre at half the depth"*. The
+            // PREMISE was right and the assertion pinned the WRONG POINT: `position` on
+            // a `PlumbingFixtureData` is the midpoint of the WALL-CONTACT EDGE, and
+            // every consumer builds the body over z ∈ [0, length] from it
+            // (`PlumbingFixtureFrame.ts`). Asserting the centre made this suite GREEN on
+            // a solver that pushed every member half its own depth into the room — the
+            // founder's straddling shower plate, at pod scale.
+            expect(m.position.z).toBeCloseTo(0, 9);
+            // …and the whole body still fits inside the room depth, measured from the
+            // anchor rather than about it.
+            expect(m.position.z + m.footprint.length).toBeLessThanOrEqual(3.0 + 1e-9);
         }
     });
 

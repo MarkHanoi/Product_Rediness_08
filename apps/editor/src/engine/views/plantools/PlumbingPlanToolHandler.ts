@@ -21,6 +21,10 @@ import type { PlanToolHandler, PlanToolDrawContext, WorldPoint } from './PlanToo
 import type { PlumbingFixtureType } from '@pryzm/geometry-plumbing';
 import { DEFAULT_TOILET_VARIANT, ToiletVariant } from '@pryzm/geometry-plumbing';
 import { DEFAULT_SHOWER_VARIANT, SHOWER_FOOTPRINTS, ShowerVariant, isWalkInShower, walkInGlassSide } from '@pryzm/geometry-plumbing';
+// §PLUMBFRAME (L-11487..L-11491) — the ONE convention: origin at the WALL-CONTACT EDGE,
+// local +Z into the room. Read `PlumbingFixtureFrame.ts` before touching the anchor or
+// the yaw below.
+import { plumbingFixtureYawForWallNormal } from '@pryzm/geometry-plumbing';
 import type { WallData } from '@pryzm/geometry-wall';
 
 // ── Plan-view footprint dimensions per fixture type (metres) ─────────────────
@@ -159,7 +163,13 @@ export class PlumbingPlanToolHandler implements PlanToolHandler {
         if (type !== 'bath') {
             const snap = this._findWallSnap(pt.worldX, pt.worldZ);
             if (snap) {
-                yaw = Math.atan2(snap.normal.x, snap.normal.z);
+                // §PLUMBFRAME (L-11490) — THE ONE FUNCTION, not a hand-written atan2.
+                // `atan2(x, z)` and not `atan2(z, x)`: for `Euler(0, yaw, 0)` THREE maps
+                // local +Z to `(sin yaw, cos yaw)`, so recovering a yaw from a direction
+                // is `atan2(dir.x, dir.z)`. The swapped form is 90° out for every wall
+                // that is not axis-aligned with the one it was eyeballed on — which is
+                // the shape of the founder's *"the plan-view SYMBOL is 90° rotated"*.
+                yaw = plumbingFixtureYawForWallNormal(snap.normal.x, snap.normal.z);
             }
         }
 
@@ -242,21 +252,39 @@ export class PlumbingPlanToolHandler implements PlanToolHandler {
         ctx.translate(sx, sy);
         ctx.rotate(symbolAngle);
 
-        // Outer bounding box (dashed)
+        // ── §PLUMBFRAME (founder, 2026-08-26 · L-11490) — THE ANCHOR ────────────
+        //
+        // ⛔ THE FOUNDER: *"the preview of the shower plate is CENTRED on the shower
+        // itself — whereas it should not [be]."* This box used to be
+        // `ctx.rect(-hw, -hl, hw*2, hl*2)` — CENTRED on the cursor, so half the tray
+        // sat behind the insertion point, i.e. INSIDE THE WALL. Every consumer of the
+        // committed record disagrees with that: `buildPlanLinework` draws
+        // `planRect(-hw, 0, hw, fp.length)`, `buildElevationLinework` uses
+        // `zMid = fp.length / 2`, and the shower MESH spans z ∈ [0, length] (measured,
+        // all seven variants). So the architect aimed a centred ghost and got a fixture
+        // half a depth further into the room.
+        //
+        // ⭐ THE PREVIEW NOW DRAWS THE CONVENTION: origin at the WALL-CONTACT EDGE,
+        // body running into the room. Symbol-local +Y is the room side (the symbol's
+        // BACK is at −Y), so the box runs y ∈ [0, length] rather than [−L/2, +L/2].
+        // `PlumbingFixtureFrame.ts` is the one place that declares this.
+        const depthPx = hl * 2;
         ctx.setLineDash([4, 3]);
         ctx.strokeStyle = stroke;
         ctx.lineWidth   = 1.5;
         ctx.fillStyle   = fill;
         ctx.beginPath();
-        ctx.rect(-hw, -hl, hw * 2, hl * 2);
+        ctx.rect(-hw, 0, hw * 2, depthPx);
         ctx.fill();
         ctx.stroke();
         ctx.setLineDash([]);
 
-        // Interior 2D plan symbol per fixture type
+        // Interior 2D plan symbol per fixture type, drawn in the SAME frame as the box
+        // it sits in — translated forward by half a depth so its own centred glyphs
+        // land inside the anchored footprint rather than straddling the wall with it.
         ctx.strokeStyle = symbol;
         ctx.lineWidth   = 1;
-        this._drawSymbol(ctx, 0, 0, hw, hl, type);
+        this._drawSymbol(ctx, 0, hl, hw, hl, type);
 
         ctx.restore();
 

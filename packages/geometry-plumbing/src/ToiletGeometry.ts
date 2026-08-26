@@ -18,9 +18,19 @@
  *   3. Close-Coupled Square     — visible square tank, dual flush buttons
  *   4. Close-Coupled Round      — visible rounded tank, single dome flush
  *
- * Local axes:
- *   • +Z points away from the back wall (front of the bowl).
- *   • +Y is up. Origin sits on the floor at the bowl's back-centre.
+ * Local axes — ⭐ THE ONE CONVENTION, AND IT IS DECLARED IN `PlumbingFixtureFrame.ts`,
+ * not here. Origin = the midpoint of the WALL-CONTACT EDGE, on the floor; local +Z runs
+ * INTO THE ROOM (the front of the bowl); local +X runs ALONG the host wall; +Y is up.
+ *
+ * ⚠ THIS PARAGRAPH USED TO SAY EXACTLY THAT AND THE GEOMETRY DID NOT DO IT
+ * (§PLUMBFRAME, founder 2026-08-26, L-11487). The cistern sat correctly at +Z while the
+ * bowl body, the seat ring and the seat lid all extruded to −Z — measured, for
+ * `close_coupled_round`: bowl `z[-0.742, 0.022]` against a declared footprint length of
+ * 0.72. So the tank hugged the wall and the pan stuck through it, which is the founder's
+ * *"in 3D it creates it 180° ROTATED"*. `faceExtrusionIntoTheRoom()` below is the fix
+ * and carries the full measurement. ⛔ A header is not a measurement: the pin is
+ * `__tests__/plumbingFixtureFrame.measure.test.ts`, which asks the built mesh.
+ *
  *   The fixture is positioned by the caller; rotation is applied by the
  *   command/tool to align with the chosen wall.
  */
@@ -77,6 +87,38 @@ export interface ToiletGeometryOptions {
 }
 
 // ─── Shape helpers ────────────────────────────────────────────────────────────
+
+/**
+ * §PLUMBFRAME (founder, 2026-08-26 · L-11487) — THE HALF-TURN THAT MAKES A D-EXTRUSION
+ * OBEY `PlumbingFixtureFrame`.
+ *
+ * ⛔ MEASURED, NOT REASONED. `dShape` lays its flat back at shape-y 0 and its round
+ * front at shape-y +length. `ExtrudeGeometry` extrudes along +Z, and `rotateX(-π/2)`
+ * — needed to stand the extrusion up so its DEPTH becomes height — maps shape +Y to
+ * world-local **−Z**. So every D part came out with its front at −Z while the CISTERN
+ * (a plain rounded box, no D) sat correctly at +Z. Dumped extents for
+ * `close_coupled_round` (fp.length 0.72), before this fix:
+ *
+ *     cistern    z[-0.022, 0.238]   ← correctly against the wall
+ *     bowl body  z[-0.742,  0.022]  ⛔ through the wall
+ *     seat ring  z[-0.740,  0.006]  ⛔
+ *     seat lid   z[-0.742,  0.008]  ⛔
+ *     basin      z[ 0.117,  0.563]  ← the recess was already in the right place,
+ *                                     floating in front of a pan that was behind it
+ *
+ * That is the founder's *"in 3D it creates it 180° ROTATED"* exactly: the tank hugs the
+ * wall and the pan sticks through it.
+ *
+ * ⭐ WHY A GEOMETRY ROTATION AND NOT A REDRAWN SILHOUETTE. `rotateY(π)` about the
+ * fixture's own local Y is a proper rotation: normals rotate with it and winding is
+ * preserved, so the bevels, the carved seat aperture and the D's asymmetry are
+ * untouched. Mirroring the shape in its own Y would flip the winding of the outer
+ * contour and its hole independently, which is how a carved aperture becomes a solid.
+ * The D is symmetric in x, so the accompanying x-mirror is a no-op on the silhouette.
+ */
+function faceExtrusionIntoTheRoom(geo: THREE.BufferGeometry): void {
+    geo.rotateY(Math.PI);
+}
 
 /**
  * Build a "D" silhouette: flat back at y=0, rounded front.
@@ -187,6 +229,9 @@ function buildBowlBody(
     });
     // Extrude is along +Z; we want height along Y, depth along Z (front).
     geo.rotateX(-Math.PI / 2);
+    // §PLUMBFRAME (L-11487) — …and that rotation puts the D's FRONT at −Z. See
+    // `faceExtrusionIntoTheRoom` for the measured extents this corrects.
+    faceExtrusionIntoTheRoom(geo);
     const m = new THREE.Mesh(geo, mat);
     m.position.y = floorClearance;
     return m;
@@ -222,6 +267,7 @@ function buildSeatRing(
         curveSegments: 24,
     });
     geo.rotateX(-Math.PI / 2);
+    faceExtrusionIntoTheRoom(geo); // §PLUMBFRAME (L-11487)
     const m = new THREE.Mesh(geo, mat);
     m.position.y = yBase;
     return m;
@@ -242,6 +288,7 @@ function buildSeatLid(
         curveSegments: 24,
     });
     geo.rotateX(-Math.PI / 2);
+    faceExtrusionIntoTheRoom(geo); // §PLUMBFRAME (L-11487)
     const m = new THREE.Mesh(geo, mat);
     m.position.y = yBase + 0.024;
     return m;

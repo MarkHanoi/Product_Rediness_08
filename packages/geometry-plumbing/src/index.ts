@@ -58,6 +58,16 @@ export {
     podShowerVariantFor,
 } from './BathroomPodRules';
 export type { BathroomPodClearance } from './BathroomPodRules';
+// §PLUMBFRAME (founder, 2026-08-26 · L-11487..L-11491) — THE ONE CONVENTION every
+// producer and every reader of a plumbing fixture obeys: origin at the WALL-CONTACT
+// EDGE, local +Z INTO THE ROOM, +X along the host wall. Read its header before adding
+// any rotation or anchor arithmetic anywhere in this family.
+export {
+    plumbingFixtureYawForWallNormal,
+    plumbingFixtureLocalFootprintRing,
+    plumbingFixtureWorldFootprintRing,
+    PLUMBING_FIXTURE_HALF_TURN,
+} from './PlumbingFixtureFrame';
 export {
     bathroomPodMemberCount,
     bathroomPodMemberOrder,

@@ -115,11 +115,22 @@ export interface BathroomPodRoom {
 /**
  * One placed member of a pod, as the solver resolves it.
  *
- * The `position` is the member's FOOTPRINT CENTRE in world XZ at the level datum, and
- * `rotationY` is its plan angle — the two fields a `PlumbingFixtureData` needs. The
- * footprint is carried so a consumer (a preview, a plan symbol, an audit) can draw the
- * member without re-resolving the family's tables; ⛔ it is NEVER the source of those
- * numbers, which is `resolveFixtureFootprint` (C109 R-6).
+ * The `position` is the midpoint of the member's **WALL-CONTACT EDGE** in world XZ at
+ * the level datum, and `rotationY` is its plan angle — the two fields a
+ * `PlumbingFixtureData` needs. ⛔ **THE ANCHOR IS DECLARED ONCE, IN
+ * `PlumbingFixtureFrame.ts`**, and this field obeys it: origin at the contact edge,
+ * local +Z into the room, body over z ∈ [0, length].
+ *
+ * ⚠ THIS DOCSTRING SAID "FOOTPRINT CENTRE" AND THE SOLVER EMITTED ONE (§PLUMBFRAME,
+ * founder 2026-08-26 · L-11490). Every consumer of a `PlumbingFixtureData` — the mesh,
+ * the plan symbol, the elevation symbol — reads it as the CONTACT EDGE, so every pod
+ * member landed half its own depth further into the room than the solver's own
+ * clearance arithmetic assumed. It is the founder's straddling shower plate, at pod
+ * scale.
+ *
+ * The footprint is carried so a consumer (a preview, a plan symbol, an audit) can draw
+ * the member without re-resolving the family's tables; ⛔ it is NEVER the source of
+ * those numbers, which is `resolveFixtureFootprint` (C109 R-6).
  */
 export interface BathroomPodMember {
     /** Pre-minted by the tool (CA-2). Becomes the `plumbing` fixture record's id. */

@@ -163,7 +163,26 @@ export class PlumbingFragmentBuilder {
         pedestal.position.set(0, 0.35, -0.15);
         group.add(pedestal);
 
-        group.userData = { 
+        // §PLUMBFRAME (founder, 2026-08-26 · L-11488) — THE SINK WAS BUILT ENTIRELY ON
+        // −Z, 180° FROM ITS OWN PLAN SYMBOL.
+        //
+        // ⛔ MEASURED: every part above is authored at a NEGATIVE z — basin −0.225, rim
+        // and drain −0.25, backsplash −0.025, pedestal −0.15 — while
+        // `buildPlanLinework`'s `sink` arm draws `planRect(-hw, 0, hw, fp.length)`, i.e.
+        // the body on +Z. Two readers of one record, half a turn apart, in the same
+        // family. `PlumbingTool` was compensating for exactly this at WRITE time
+        // (`if (fixtureType === 'sink' || 'toilet') rotateY(π)`), which is why the 3-D
+        // tool and the plan tool stored different angles for the same wall.
+        //
+        // ⭐ ONE HALF-TURN ABOUT THE FIXTURE'S OWN ORIGIN, rather than negating nine
+        // hand-written literals: it is a proper rotation (normals and winding rotate
+        // with it), the basin, rim and pedestal are symmetric in x, and the faucet is on
+        // the centreline — so the silhouette is untouched and only the FACING moves. The
+        // convention it now obeys is `PlumbingFixtureFrame.ts`: origin at the
+        // wall-contact edge, local +Z into the room.
+        group.rotation.y = Math.PI;
+
+        group.userData = {
             id: data.id,
             type: data.type,
             levelId: data.levelId,

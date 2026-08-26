@@ -411,7 +411,13 @@ function _place(
         const fp = fps.get(wetIndex)!;
         // On a return wall the fixture's WIDTH runs along local Z and its DEPTH along
         // local X. Rotated a quarter turn; its back faces the return wall.
-        const localX = mirror ? room.clearWidth - fp.length / 2 : fp.length / 2;
+        // §PLUMBFRAME (L-11490) — THE ANCHOR IS THE WALL-CONTACT EDGE, NOT THE CENTRE.
+        // `PlumbingFixtureFrame.ts` is the one declaration: origin = the midpoint of the
+        // contact edge, local +Z into the room. On a return wall the fixture's own +Z
+        // runs along room-local ±X, so its origin sits ON that wall (localX 0 or
+        // clearWidth) and is centred along its own width, which runs along room-local Z
+        // — hence `localZ = fp.width / 2`, which was already right.
+        const localX = mirror ? room.clearWidth : 0;
         const localZ = fp.width / 2;
         out.push({
             id: ids[wetIndex]!,
@@ -442,7 +448,8 @@ function _place(
                 kind,
                 fixtureType: FIXTURE_TYPE_OF[kind] as BathroomPodMember['fixtureType'],
                 ...(variants.get(i) !== undefined ? { variant: variants.get(i)! } : {}),
-                position: toWorld(room, localX, fp.length / 2),
+                // §PLUMBFRAME (L-11490) — the CONTACT EDGE, on the wall (local Z = 0).
+                position: toWorld(room, localX, 0),
                 rotationY: room.rotation,
                 footprint: { width: fp.width, length: fp.length, height: fp.height },
                 wall: 'primary',
@@ -457,9 +464,25 @@ function _place(
             kind,
             fixtureType: FIXTURE_TYPE_OF[kind] as BathroomPodMember['fixtureType'],
             ...(variants.get(i) !== undefined ? { variant: variants.get(i)! } : {}),
-            // The fixture's BACK sits on the primary wall (local Z = 0), so its centre
-            // is half its depth into the room.
-            position: toWorld(room, localX, fp.length / 2),
+            // §PLUMBFRAME (founder, 2026-08-26 · L-11490) — THE ANCHOR IS THE
+            // WALL-CONTACT EDGE, AND THIS LINE USED TO EMIT THE CENTRE.
+            //
+            // ⛔ It read `toWorld(room, localX, fp.length / 2)` with the comment *"The
+            // fixture's BACK sits on the primary wall (local Z = 0), so its centre is
+            // half its depth into the room."* The PREMISE was right and the OUTPUT was
+            // the wrong point: every consumer of a `PlumbingFixtureData` — the mesh, the
+            // plan symbol, the elevation symbol — reads `position` as the midpoint of
+            // the CONTACT EDGE and builds the body over z ∈ [0, length] from there
+            // (`PlumbingFixtureFrame.ts`). Emitting the centre pushed every pod member
+            // half its own depth further into the room, which is the founder's
+            // straddling shower plate at pod scale.
+            //
+            // ⚠ THE REFUSAL ARITHMETIC IS UNCHANGED, and that is worth stating because
+            // it is the obvious thing to fear: `requiredRun` and `requiredDepth` are
+            // functions of WIDTHS and DEPTHS, not of where a member's origin sits. The
+            // 2.27 m width refusal and the depth refusal quote exactly the same numbers
+            // as before — D-3 and D-6 in `bathroomPodLayout.test.ts` pin them.
+            position: toWorld(room, localX, 0),
             rotationY: room.rotation,
             footprint: { width: fp.width, length: fp.length, height: fp.height },
             wall: 'primary',
