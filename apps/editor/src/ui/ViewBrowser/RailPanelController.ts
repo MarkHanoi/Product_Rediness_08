@@ -15,7 +15,7 @@
  *   §01      — Read-only UI layer; no store mutations
  */
 
-import { panelManager } from '../PanelManager';
+import { panelManager, PANEL_PIN_ICON_SVG } from '../PanelManager';
 
 const PM_ID          = 'rail:left';
 const LS_WIDTH_KEY   = 'rp-panel-width';
@@ -71,7 +71,9 @@ export class RailPanelController {
         pinBtn.className = 'rp-pin-btn' + (this._pinned ? ' rp-pin-btn--active' : '');
         pinBtn.type = 'button';
         pinBtn.title = this._pinned ? 'Unpin panel (keep open)' : 'Pin panel (keep open)';
-        pinBtn.innerHTML = `<svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M16 9V4h1c.55 0 1-.45 1-1s-.45-1-1-1H7c-.55 0-1 .45-1 1s.45 1 1 1h1v5c0 1.66-1.34 3-3 3v2h5.97v7l1 1 1-1v-7H19v-2c-1.66 0-3-1.34-3-3z"/></svg>`;
+        pinBtn.setAttribute('aria-label', pinBtn.title);
+        pinBtn.setAttribute('aria-pressed', String(this._pinned));
+        pinBtn.innerHTML = PANEL_PIN_ICON_SVG;
         pinBtn.addEventListener('click', () => this._togglePin());
         this._pinBtn = pinBtn;
 
@@ -110,6 +112,10 @@ export class RailPanelController {
         this._panel = panel;
 
         panelManager.register(PM_ID, () => { if (!this._pinned) this.close(); });
+        // §PIN146 — report the loaded pinned state into the shared authority too
+        // (PanelManager._closeOthers also skips it there; this local gate above
+        // is unaffected and stays the primary guard for this panel).
+        panelManager.setPinned(PM_ID, this._pinned);
 
         // Recalculate position whenever the viewport or panel layout changes
         // (e.g. when the vb-panel is pinned/unpinned to the dock zone).
@@ -325,8 +331,11 @@ export class RailPanelController {
     private _togglePin(): void {
         this._pinned = !this._pinned;
         this._savePinned(this._pinned);
+        panelManager.setPinned(PM_ID, this._pinned);
         this._pinBtn.classList.toggle('rp-pin-btn--active', this._pinned);
         this._pinBtn.title = this._pinned ? 'Unpin panel' : 'Pin panel (keep open)';
+        this._pinBtn.setAttribute('aria-label', this._pinBtn.title);
+        this._pinBtn.setAttribute('aria-pressed', String(this._pinned));
         window.runtime?.events?.emit('pryzm-rail-panel-state-changed', { activeId: this._activeId, pinned: this._pinned }); // F.events.12
     }
 

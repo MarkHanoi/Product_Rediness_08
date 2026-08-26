@@ -20,6 +20,15 @@
  */
 
 import { getFrameScheduler } from '@pryzm/frame-scheduler';
+// §PIN146 — founder: "Provide the PIN — to keep it on — on the PRYZM AI chat."
+// The Project Browser panel already has one (RailPanelController / rp-header,
+// re-hosted by UnifiedBrowserPanel's own header for the "Project Browser"
+// section). PanelManager is now the ONE authority "pinned survives exclusivity"
+// reports to (C84 EI-9) — this panel wires into that SAME registry rather than
+// hand-rolling a second pinned-flag mechanism; only the icon glyph and the
+// localStorage persistence are local, because this panel's chrome (⚙ / ⠿) is
+// its own, bespoke shell, not RailPanelController's.
+import { panelManager, PANEL_PIN_ICON_SVG } from '../PanelManager';
 import { aiService, allChatCapabilities } from '@pryzm/ai-host';
 import { commandProposalStore } from '@pryzm/command-registry';
 import { CommandProposal, CommandType } from '@pryzm/command-registry';
@@ -828,6 +837,26 @@ interface ChatMessage {
     ghostProposal?: ElementSchema[];
 }
 
+// ─── §PIN146 — chat panel pin ───────────────────────────────────────────────────
+//
+// The single id `AIAreaLayout.ts` registers this panel's exclusivity closeFn
+// under (`panelManager.register(AI_PANEL_ID, …)`). Exported so both files use
+// the SAME literal instead of two hand-typed copies of `'panel:ai'` that could
+// drift.
+export const AI_PANEL_ID = 'panel:ai';
+
+/** Global, browser-local — same scope as RailPanelController's `rp-panel-pinned`
+ *  (not per-project; a plain localStorage flag). Exported for tests only. */
+export const AI_CHAT_PIN_STORAGE_KEY = 'pryzm-ai-panel-pinned';
+
+function _loadAiChatPinned(): boolean {
+    try { return localStorage.getItem(AI_CHAT_PIN_STORAGE_KEY) === 'true'; } catch { return false; }
+}
+
+function _saveAiChatPinned(value: boolean): void {
+    try { localStorage.setItem(AI_CHAT_PIN_STORAGE_KEY, String(value)); } catch { /* ignore */ }
+}
+
 // ─── createAIPanel ─────────────────────────────────────────────────────────────
 
 export function createAIPanel(runtime: import('@pryzm/runtime-composer/types').PryzmRuntime | null = null /* B-runtime createAIPanel */): HTMLElement {
@@ -835,6 +864,12 @@ export function createAIPanel(runtime: import('@pryzm/runtime-composer/types').P
     // ── Internal state ─────────────────────────────────────────────────────
     const messages: ChatMessage[] = [];
     let suggestionState: SuggestionState = { stack: [], filterText: '' };
+
+    // §PIN146 — load the persisted pinned state and report it to PanelManager
+    // immediately, so it is honoured even before the user ever touches the
+    // button (e.g. a panel opened programmatically right after boot).
+    let aiChatPinned = _loadAiChatPinned();
+    panelManager.setPinned(AI_PANEL_ID, aiChatPinned);
 
     // ── DOM element references ─────────────────────────────────────────────
     let transcriptEl: HTMLElement;
@@ -2014,6 +2049,43 @@ export function createAIPanel(runtime: import('@pryzm/runtime-composer/types').P
     dragHintEl.title = 'Drag to reposition';
     dragHintEl.innerHTML = '<span></span><span></span><span></span><span></span><span></span><span></span>';
 
+    // §PIN146 — founder: "Provide the PIN — to keep it on — on the PRYZM AI
+    // chat." Same control as the Project Browser's rp-header pin (identical
+    // glyph, imported from PanelManager rather than copied — see AI_PANEL_ID's
+    // header comment): same title wording, same toggled-state highlight
+    // (`rgba(255,255,255,0.32)` + inset ring, the exact values
+    // `pb-ubp-header-btn--active` uses), same default (unpinned). What differs
+    // is only that this button's markup is local to this bespoke header (⚙/⠿
+    // have no RailPanelController equivalent) — the STATE lives in the one
+    // shared `panelManager` pin registry, not a second local flag.
+    const pinBtn = document.createElement('button');
+    pinBtn.type = 'button';
+    pinBtn.className = 'ai-chat-header-pin' + (aiChatPinned ? ' ai-chat-header-pin--active' : '');
+    pinBtn.title = aiChatPinned ? 'Unpin panel' : 'Pin panel (keep open)';
+    pinBtn.setAttribute('aria-label', pinBtn.title);
+    pinBtn.setAttribute('aria-pressed', String(aiChatPinned));
+    pinBtn.innerHTML = PANEL_PIN_ICON_SVG;
+    const _pinBtnStyle = (active: boolean): string =>
+        'background:' + (active ? 'rgba(255,255,255,0.32)' : 'transparent') + ';' +
+        'box-shadow:' + (active ? 'inset 0 0 0 1px rgba(255,255,255,0.36)' : 'none') + ';' +
+        'border:none;color:inherit;cursor:pointer;padding:3px 5px;line-height:1;' +
+        'display:flex;align-items:center;border-radius:5px;opacity:' + (active ? '1' : '.75') + ';' +
+        'transition:background .12s,opacity .12s;';
+    pinBtn.style.cssText = _pinBtnStyle(aiChatPinned);
+    pinBtn.addEventListener('mousedown', (e) => { e.stopPropagation(); });
+    pinBtn.addEventListener('click', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        aiChatPinned = !aiChatPinned;
+        _saveAiChatPinned(aiChatPinned);
+        panelManager.setPinned(AI_PANEL_ID, aiChatPinned);
+        pinBtn.classList.toggle('ai-chat-header-pin--active', aiChatPinned);
+        pinBtn.title = aiChatPinned ? 'Unpin panel' : 'Pin panel (keep open)';
+        pinBtn.setAttribute('aria-label', pinBtn.title);
+        pinBtn.setAttribute('aria-pressed', String(aiChatPinned));
+        pinBtn.style.cssText = _pinBtnStyle(aiChatPinned);
+    });
+
     // §BYOM (C105 §7.1) — the way in to "AI provider keys". It sits in the chat
     // header rather than in a settings screen because the thing it changes is
     // WHO ANSWERS THIS CHAT, and a control belongs beside the thing it affects.
@@ -2037,6 +2109,7 @@ export function createAIPanel(runtime: import('@pryzm/runtime-composer/types').P
 
     headerEl.appendChild(headerIconEl);
     headerEl.appendChild(headerTitleEl);
+    headerEl.appendChild(pinBtn);
     headerEl.appendChild(keysBtn);
     headerEl.appendChild(dragHintEl);
     panel.appendChild(headerEl);

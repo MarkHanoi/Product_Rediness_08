@@ -43,6 +43,7 @@
 
 import type { ProjectBrowserPanelProps } from '../ProjectBrowserTypes';
 import type { RailPanelController }      from '../RailPanelController';
+import { PANEL_PIN_ICON_SVG }            from '../../PanelManager';
 import type { UBPBag }                   from './unified-browser/BrowserDataHelpers';
 import { buildProjectCard }              from './unified-browser/ProjectTreeSection';
 import { buildElementsCard }             from './unified-browser/ElementsSummarySection';
@@ -297,7 +298,8 @@ export class UnifiedBrowserPanel {
         pinBtn.type       = 'button';
         pinBtn.title      = this._rail.isPinned ? 'Unpin panel' : 'Pin panel';
         pinBtn.setAttribute('aria-label', pinBtn.title);
-        pinBtn.innerHTML  = `<svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M16 9V4h1c.55 0 1-.45 1-1s-.45-1-1-1H7c-.55 0-1 .45-1 1s.45 1 1 1h1v5c0 1.66-1.34 3-3 3v2h5.97v7l1 1 1-1v-7H19v-2c-1.66 0-3-1.34-3-3z"/></svg>`;
+        pinBtn.setAttribute('aria-pressed', String(this._rail.isPinned));
+        pinBtn.innerHTML  = PANEL_PIN_ICON_SVG;
         pinBtn.addEventListener('click', (e) => {
             e.stopPropagation();
             this._rail.togglePinned();

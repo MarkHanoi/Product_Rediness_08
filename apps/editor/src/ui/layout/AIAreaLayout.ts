@@ -1,6 +1,6 @@
 import * as OBC from '@thatopen/components';
 import * as THREE from '@pryzm/renderer-three/three';
-import { createAIPanel } from '../ai/AIPanel';
+import { createAIPanel, AI_PANEL_ID } from '../ai/AIPanel';
 import { createAICreatePanel } from '../ai/AICreatePanel';
 import { installApartmentLayoutConsoleTrigger } from '../apartment-layout/apartmentLayoutTrigger';
 import { installHouseLayoutConsoleTrigger } from '../house-layout/houseLayoutTrigger';
@@ -409,7 +409,7 @@ export function mountAIArea(props: UIProps, runtime: PryzmRuntime | null): AIRes
     // Registration is lazy (DOM-based) so it works even before the elements
     // are mounted. Each close callback hides the panel element by ID.
     if (_aiEnabled) {
-        panelManager.register('panel:ai',        () => { const el = document.getElementById(aiPanelId); if (el) el.style.display = 'none'; });
+        panelManager.register(AI_PANEL_ID,        () => { const el = document.getElementById(aiPanelId); if (el) el.style.display = 'none'; });
         panelManager.register('panel:ai-create', () => { const el = document.getElementById('ai-create-panel-container'); if (el) el.style.display = 'none'; });
     }
     // fp-import panel is always registered — created unconditionally above.
@@ -423,11 +423,11 @@ export function mountAIArea(props: UIProps, runtime: PryzmRuntime | null): AIRes
         if (panel) {
             const isHidden = panel.style.display === 'none';
             if (isHidden) {
-                panelManager.notifyOpened('panel:ai');
+                panelManager.notifyOpened(AI_PANEL_ID);
                 panel.style.display = 'flex';
             } else {
                 panel.style.display = 'none';
-                panelManager.notifyClosed('panel:ai');
+                panelManager.notifyClosed(AI_PANEL_ID);
             }
         }
     };
@@ -443,7 +443,7 @@ export function mountAIArea(props: UIProps, runtime: PryzmRuntime | null): AIRes
             const panel = document.getElementById(aiPanelId);
             if (panel && panel.style.display === 'flex') {
                 panel.style.display = 'none';
-                panelManager.notifyClosed('panel:ai');
+                panelManager.notifyClosed(AI_PANEL_ID);
             }
         });
     }
