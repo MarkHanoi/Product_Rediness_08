@@ -56,6 +56,14 @@
 // parameter, not a family). Same same-day discipline as §DESK108 / L-11382; the
 // count guards move by +2 in the same commit.
 //
+// §FURN123 (2026-08-26) — grow from 75 → 82 entries (76..82): "Cafe tables.
+// Sofas. Soft furniture, shelves." AUDIT found straight sofas (sofa_1seat/
+// 2seat/3seat, armchair) already registered + reachable — NOT duplicated here.
+// Adds 3 cafe/bistro tables (round oak / square laminate / round marble), 3
+// occasional soft-seating pieces (round pouf / storage ottoman / floor
+// cushion), and 1 wall-mounted floating-shelf unit. Same same-day discipline
+// as §DESK108/§MEDIA111/§SOFA113/L-11382; the count guards move by +7.
+//
 // Out of scope (deferred to a later slice):
 //   • The full 50+ FurnitureType seed (every Barcelona-chair variant, every
 //     plant species, every kitchen-cabinet sub-type, …). This slice already
@@ -2099,6 +2107,186 @@ export function buildCoreFamilySeeds(): RegisteredFamily[] {
             },
             schemaHash: 'core:sofa_sectional_right:1.0.0',
             tags:       ['sofa', 'sectional', 'chaise', 'right', 'living', 'lounge', 'seating'],
+        },
+
+        // ═══════════════════════════════════════════════════════════════════
+        // §FURN123 (founder, 2026-08-26) — entries 76..82: cafe tables, soft
+        // furniture, floating shelves. "Cafe tables. Sofas. Soft furniture,
+        // shelves." — the sofa half is already covered (see the lane report);
+        // these seven are the genuinely new pieces.
+        // ═══════════════════════════════════════════════════════════════════
+
+        // ── 76. Cafe table — round oak — floor / kitchen+living ────────────
+        {
+            identity: {
+                id:      'family/core/cafe_table_round',
+                name:    'Cafe table (round oak)',
+                version: '1.0.0',
+                author:  'PRYZM',
+                license: 'MIT',
+            },
+            category:   'tables',
+            mountClass: 'floor',
+            origin:     'core',
+            archetypeHints: [
+                { occupancy: 'kitchen', anchor: 'center', group: 'cafe-table' },
+                { occupancy: 'living',  anchor: 'center', group: 'cafe-table' },
+            ],
+            ifcMapping: {
+                entityType:     'IfcFurniture',
+                predefinedType: 'TABLE',
+                psets:          ['Pset_FurnitureTypeCommon'],
+            },
+            schemaHash: 'core:cafe_table_round:1.0.0',
+            tags:       ['table', 'cafe', 'bistro', 'round', 'pedestal', 'kitchen', 'living'],
+        },
+
+        // ── 77. Cafe table — square laminate — floor / kitchen+living ──────
+        {
+            identity: {
+                id:      'family/core/cafe_table_square',
+                name:    'Cafe table (square laminate)',
+                version: '1.0.0',
+                author:  'PRYZM',
+                license: 'MIT',
+            },
+            category:   'tables',
+            mountClass: 'floor',
+            origin:     'core',
+            archetypeHints: [
+                { occupancy: 'kitchen', anchor: 'center', group: 'cafe-table' },
+                { occupancy: 'living',  anchor: 'center', group: 'cafe-table' },
+            ],
+            ifcMapping: {
+                entityType:     'IfcFurniture',
+                predefinedType: 'TABLE',
+                psets:          ['Pset_FurnitureTypeCommon'],
+            },
+            schemaHash: 'core:cafe_table_square:1.0.0',
+            tags:       ['table', 'cafe', 'bistro', 'square', 'pedestal', 'kitchen', 'living'],
+        },
+
+        // ── 78. Cafe table — round marble — floor / kitchen+living ─────────
+        {
+            identity: {
+                id:      'family/core/cafe_table_marble',
+                name:    'Cafe table (round marble)',
+                version: '1.0.0',
+                author:  'PRYZM',
+                license: 'MIT',
+            },
+            category:   'tables',
+            mountClass: 'floor',
+            origin:     'core',
+            archetypeHints: [
+                { occupancy: 'kitchen', anchor: 'center', group: 'cafe-table' },
+                { occupancy: 'living',  anchor: 'center', group: 'cafe-table' },
+            ],
+            ifcMapping: {
+                entityType:     'IfcFurniture',
+                predefinedType: 'TABLE',
+                psets:          ['Pset_FurnitureTypeCommon'],
+            },
+            schemaHash: 'core:cafe_table_marble:1.0.0',
+            tags:       ['table', 'cafe', 'bistro', 'round', 'marble', 'pedestal', 'kitchen', 'living'],
+        },
+
+        // ── 79. Round pouf — floor / living ─────────────────────────────────
+        {
+            identity: {
+                id:      'family/core/pouf_round',
+                name:    'Round pouf',
+                version: '1.0.0',
+                author:  'PRYZM',
+                license: 'MIT',
+            },
+            category:   'soft-furnishings',
+            mountClass: 'floor',
+            origin:     'core',
+            archetypeHints: [
+                { occupancy: 'living', anchor: 'center', group: 'occasional-seating' },
+            ],
+            ifcMapping: {
+                entityType: 'IfcFurniture',
+                psets:      ['Pset_FurnitureTypeCommon'],
+            },
+            schemaHash: 'core:pouf_round:1.0.0',
+            tags:       ['pouf', 'ottoman', 'soft-seating', 'soft-furnishings', 'living'],
+        },
+
+        // ── 80. Storage ottoman — floor / living ────────────────────────────
+        {
+            identity: {
+                id:      'family/core/ottoman_rect',
+                name:    'Storage ottoman',
+                version: '1.0.0',
+                author:  'PRYZM',
+                license: 'MIT',
+            },
+            category:   'soft-furnishings',
+            mountClass: 'floor',
+            origin:     'core',
+            archetypeHints: [
+                { occupancy: 'living', anchor: 'center', group: 'occasional-seating' },
+            ],
+            ifcMapping: {
+                entityType: 'IfcFurniture',
+                psets:      ['Pset_FurnitureTypeCommon'],
+            },
+            schemaHash: 'core:ottoman_rect:1.0.0',
+            tags:       ['ottoman', 'footstool', 'soft-seating', 'soft-furnishings', 'living'],
+        },
+
+        // ── 81. Floor cushion — floor / living+bedroom ──────────────────────
+        {
+            identity: {
+                id:      'family/core/floor_cushion_square',
+                name:    'Floor cushion',
+                version: '1.0.0',
+                author:  'PRYZM',
+                license: 'MIT',
+            },
+            category:   'soft-furnishings',
+            mountClass: 'floor',
+            origin:     'core',
+            archetypeHints: [
+                { occupancy: 'living',  anchor: 'center', group: 'occasional-seating' },
+                { occupancy: 'bedroom', anchor: 'center', group: 'occasional-seating' },
+            ],
+            ifcMapping: {
+                entityType: 'IfcFurniture',
+                psets:      ['Pset_FurnitureTypeCommon'],
+            },
+            schemaHash: 'core:floor_cushion_square:1.0.0',
+            tags:       ['floor-cushion', 'soft-seating', 'soft-furnishings', 'living', 'bedroom'],
+        },
+
+        // ── 82. Floating shelves — wall / living+bedroom+office ─────────────
+        // §CARPET97/§WARD118 discipline: shelf count derives from height at a
+        // constant pitch (floatingShelfCount/Ys in BookshelfBuilder.ts) — a
+        // resize adds/removes boards, it never stretches them.
+        {
+            identity: {
+                id:      'family/core/shelf_floating',
+                name:    'Floating shelves',
+                version: '1.0.0',
+                author:  'PRYZM',
+                license: 'MIT',
+            },
+            category:   'storage',
+            mountClass: 'wall',
+            origin:     'core',
+            archetypeHints: [
+                { occupancy: 'living',         anchor: 'wall-longest' },
+                { occupancy: 'bedroom',        anchor: 'wall-longest' },
+                { occupancy: 'private_office', anchor: 'wall-longest' },
+            ],
+            ifcMapping: {
+                entityType: 'IfcFurniture',
+                psets:      ['Pset_FurnitureTypeCommon'],
+            },
+            schemaHash: 'core:shelf_floating:1.0.0',
+            tags:       ['shelf', 'shelving', 'floating', 'wall-mounted', 'storage'],
         },
     ];
 }

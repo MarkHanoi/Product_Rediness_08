@@ -95,6 +95,17 @@ export type FurnitureType =
     //   `properties.chairCount` precedent).
     | 'sofa_sectional_left'
     | 'sofa_sectional_right'
+    // §FURN123 (founder, 2026-08-26) — cafe tables + soft furniture + shelves.
+    // Mirrors the union in packages/geometry-furniture/src/FurnitureTypes.ts.
+    // This union is a documented PARTIAL mirror (see the §MEDIA111 note below)
+    // — only the types minted THIS lane are added here, matching precedent.
+    | 'cafe_table_round'
+    | 'cafe_table_square'
+    | 'cafe_table_marble'
+    | 'pouf_round'
+    | 'ottoman_rect'
+    | 'floor_cushion_square'
+    | 'shelf_floating'
     | 'coffee_table'
     | 'wardrobe'
     | 'wardrobe_glass_door'

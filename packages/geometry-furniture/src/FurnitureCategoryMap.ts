@@ -44,6 +44,12 @@ export const FURNITURE_TYPE_TO_CATEGORY: Readonly<Record<FurnitureType, Furnitur
     'sofa_unit':            'sofas',  // §LIVING-SOCIAL-ZONE — modular sofa section
     'sofa_sectional_left':  'sofas',  // §SOFA113 — L-shaped sectional, chaise on the LEFT
     'sofa_sectional_right': 'sofas',  // §SOFA113 — L-shaped sectional, chaise on the RIGHT
+    // §FURN123 (founder, 2026-08-26) — "soft furniture": occasional soft-
+    // seating goes under 'soft_furnishings' (the rug/curtain bucket below),
+    // not 'sofas' — poufs/floor cushions are a distinct catalogue shelf.
+    'pouf_round':            'soft_furnishings',
+    'ottoman_rect':          'soft_furnishings',
+    'floor_cushion_square':  'soft_furnishings',
 
     // ── Chairs ────────────────────────────────────────────────────────────────
     'chair':                'chairs',
@@ -94,10 +100,15 @@ export const FURNITURE_TYPE_TO_CATEGORY: Readonly<Record<FurnitureType, Furnitur
     'dining_set_rustic':     'tables',
     'dining_set_modern':     'tables',
     'dining_set_shell':      'tables',
+    // §FURN123 (founder, 2026-08-26) — small round/square bistro-style tables.
+    'cafe_table_round':      'tables',
+    'cafe_table_square':     'tables',
+    'cafe_table_marble':     'tables',
 
     // ── Storage (incl. bookshelves) ───────────────────────────────────────────
     'bookshelf':            'storage', // F1.2 — open-shelf bookcase
     'bookshelf_glass':      'storage', // F1.2 — glass-front bookcase
+    'shelf_floating':       'storage', // §FURN123 — wall-mounted floating shelves
     'tv_unit':              'storage', // F1.3 — low TV / media console
     'shoe_cabinet':         'storage', // F1.4 — entry-zone shoe storage
     'coat_rack':            'storage', // F1.4 — wall coat rack

@@ -115,6 +115,11 @@ export const FURNITURE_TYPE_TO_MATERIAL_INTENT: Readonly<Record<FurnitureType, F
     'sofa_unit':                    'fabric-soft',   // §LIVING-SOCIAL-ZONE — modular sofa section
     'sofa_sectional_left':          'fabric-soft',   // §SOFA113 — upholstery dominates; the metal feet are the builder's own slot
     'sofa_sectional_right':         'fabric-soft',   // §SOFA113
+    // §FURN123 (2026-08-26) — occasional soft-seating: upholstery dominates
+    // the silhouette exactly like the sofas above.
+    'pouf_round':                   'fabric-soft',
+    'ottoman_rect':                 'fabric-soft',
+    'floor_cushion_square':         'fabric-soft',
     'barcelona_sofa_1seat':         'fabric-soft',
     'barcelona_sofa_2seat':         'fabric-soft',
     'barcelona_sofa_3seat':         'fabric-soft',
@@ -213,6 +218,13 @@ export const FURNITURE_TYPE_TO_MATERIAL_INTENT: Readonly<Record<FurnitureType, F
     'dining_set_rustic':            'timber-light',
     'dining_set_modern':            'timber-warm',
     'dining_set_shell':             'timber-warm',
+    // §FURN123 (2026-08-26) — cafe/bistro tables. Round oak + square laminate
+    // read as their timber surface (matches table_marble_cone/table precedent
+    // above); the marble variant follows the SAME precedent that already
+    // reads marble as clean stone.
+    'cafe_table_round':             'timber-warm',
+    'cafe_table_square':            'timber-light',
+    'cafe_table_marble':            'ceramic-clean',   // marble reads as clean stone
     'vanity_table':                 'timber-warm',
     'buffet':                       'timber-warm',
     'sideboard':                    'timber-warm',
@@ -229,6 +241,7 @@ export const FURNITURE_TYPE_TO_MATERIAL_INTENT: Readonly<Record<FurnitureType, F
     'corner_wardrobe':              'timber-warm',
     'bookshelf':                    'timber-warm',
     'bookshelf_glass':              'glass-translucent',
+    'shelf_floating':               'timber-warm',   // §FURN123 — timber boards, matches bookshelf
     'shoe_cabinet':                 'timber-warm',
     'entry_bench':                  'timber-warm',
     'pantry_cabinet':               'timber-warm',

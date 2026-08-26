@@ -106,7 +106,26 @@ export type FurnitureType =
     | 'sofa_unit'
     | 'side_table'
     | 'fireplace'
+    // §FURN123 (founder, 2026-08-26) — "Soft furniture": occasional soft-
+    // seating (OttomanBuilder, WhiteSofaBuilder.ts). AUDIT found none of these
+    // existed anywhere in the package.
+    //   pouf_round           — round upholstered drum on 4 short peg feet.
+    //   ottoman_rect         — rectangular padded storage-ottoman silhouette.
+    //   floor_cushion_square — flat square cushion resting on the floor.
+    | 'pouf_round'
+    | 'ottoman_rect'
+    | 'floor_cushion_square'
     | 'coffee_table'
+    // §FURN123 (founder, 2026-08-26) — cafe/bistro tables (CafeTableBuilder,
+    // DiningSetBuilders.ts). AUDIT found no small round/square pedestal table
+    // anywhere — the closest neighbours (dining tables, coffee_table,
+    // entrance_table) are all a different footprint class.
+    //   cafe_table_round  — round oak top, black steel pedestal.   Ø 0.70 m.
+    //   cafe_table_square — square white-laminate top, chrome pedestal.
+    //   cafe_table_marble — round marble-look top, matte-black pedestal.
+    | 'cafe_table_round'
+    | 'cafe_table_square'
+    | 'cafe_table_marble'
     | 'wardrobe'
     | 'wardrobe_glass_door'
     | 'corner_wardrobe'
@@ -137,6 +156,12 @@ export type FurnitureType =
     // (APARTMENT-FURNITURE-AND-ACTIVITY-IMPLEMENTATION-PLAN §4.2.2) ──────────
     | 'bookshelf'
     | 'bookshelf_glass'
+    // §FURN123 (founder, 2026-08-26) — "shelves": wall-mounted floating
+    // shelves (FloatingShelfBuilder, BookshelfBuilder.ts). AUDIT found the
+    // freestanding bookcase above but nothing wall-mounted/cantilevered.
+    // N thin timber boards, no visible brackets, shelf count derived from
+    // height at a constant pitch (§CARPET97/§WARD118 discipline).
+    | 'shelf_floating'
     // ── F1.3 (2026-05-30) — Media wall primitives. Living-room S1 activity
     // system anchor: wall-mounted TV + low TV unit cabinet beneath.
     // (APARTMENT-FURNITURE-AND-ACTIVITY-IMPLEMENTATION-PLAN §4.2.3) ──────────

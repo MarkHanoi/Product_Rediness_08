@@ -508,6 +508,28 @@ export const CATEGORIES_A: readonly FurnitureCategoryDescriptor[] = [
                 defaultMaterial: 'wood',
                 defaultProperties: { chairCount: 8 },
             },
+            // ── §FURN123 (founder, 2026-08-26) — cafe/bistro tables. AUDIT
+            // found nothing at this footprint (small round/square pedestal
+            // table, ~0.6-0.8 m); the card is drawn by the element's own
+            // builder (§CARPET97 no-drift rule — see FurnitureGeometryFactory.ts).
+            {
+                type: 'cafe_table_round',
+                label: 'Cafe Table — Round Oak',
+                defaultDimensions: { width: 0.70, length: 0.70, height: 0.75, baseOffset: 0.0 },
+                defaultMaterial: 'wood',
+            },
+            {
+                type: 'cafe_table_square',
+                label: 'Cafe Table — Square Laminate',
+                defaultDimensions: { width: 0.65, length: 0.65, height: 0.75, baseOffset: 0.0 },
+                defaultMaterial: 'metal',
+            },
+            {
+                type: 'cafe_table_marble',
+                label: 'Cafe Table — Round Marble',
+                defaultDimensions: { width: 0.60, length: 0.60, height: 0.75, baseOffset: 0.0 },
+                defaultMaterial: 'metal',
+            },
             {
                 type: 'kave_coffee_table',
                 label: 'Coffee Table (Kave)',

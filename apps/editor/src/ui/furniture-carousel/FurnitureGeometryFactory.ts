@@ -34,6 +34,10 @@ import {
     ModernDiningSetBuilder, ShellDiningSetBuilder,
     LowboardBuilder, SlatConsoleBuilder,
     SectionalSofaBuilder,
+    // §FURN123 (founder, 2026-08-26) — cafe tables, occasional soft-seating,
+    // bookshelves + the new floating shelf. Cards drawn by the element's own
+    // builders (§CARPET97 no-drift rule).
+    CafeTableBuilder, OttomanBuilder, BookshelfBuilder, FloatingShelfBuilder,
 } from '@pryzm/geometry-furniture';
 import type { FurnitureData, IFurnitureBuilder } from '@pryzm/geometry-furniture';
 import { createToiletGeometry, createShowerGeometry, createAccessoryGeometry } from '@pryzm/geometry-plumbing';
@@ -202,6 +206,13 @@ export function buildFurnitureGeometry(
             buildDesk108Thumb(g, 'sofa_sectional_left',  (ms) => new SectionalSofaBuilder(ms), 2.72, 1.70, 0.78); break;
         case 'sofa_sectional_right':
             buildDesk108Thumb(g, 'sofa_sectional_right', (ms) => new SectionalSofaBuilder(ms), 2.72, 1.70, 0.78); break;
+        // §FURN123 (founder, 2026-08-26) — occasional soft-seating.
+        case 'pouf_round':
+            buildDesk108Thumb(g, 'pouf_round', (ms) => new OttomanBuilder(ms), 0.42, 0.42, 0.40); break;
+        case 'ottoman_rect':
+            buildDesk108Thumb(g, 'ottoman_rect', (ms) => new OttomanBuilder(ms), 0.55, 0.40, 0.42); break;
+        case 'floor_cushion_square':
+            buildDesk108Thumb(g, 'floor_cushion_square', (ms) => new OttomanBuilder(ms), 0.55, 0.55, 0.14); break;
 
         // ── Chairs ──────────────────────────────────────────────────────────
         case 'chair':                  buildDiningChair(g);                  break;
@@ -246,6 +257,13 @@ export function buildFurnitureGeometry(
             buildDesk108Thumb(g, 'dining_set_modern', (ms) => new ModernDiningSetBuilder(ms), 2.2, 1.0, 0.75); break;
         case 'dining_set_shell':
             buildDesk108Thumb(g, 'dining_set_shell', (ms) => new ShellDiningSetBuilder(ms), 2.6, 1.1, 0.75); break;
+        // §FURN123 (founder, 2026-08-26) — cafe/bistro tables.
+        case 'cafe_table_round':
+            buildDesk108Thumb(g, 'cafe_table_round', (ms) => new CafeTableBuilder(ms), 0.70, 0.70, 0.75); break;
+        case 'cafe_table_square':
+            buildDesk108Thumb(g, 'cafe_table_square', (ms) => new CafeTableBuilder(ms), 0.65, 0.65, 0.75); break;
+        case 'cafe_table_marble':
+            buildDesk108Thumb(g, 'cafe_table_marble', (ms) => new CafeTableBuilder(ms), 0.60, 0.60, 0.75); break;
 
         // ── §TVFURN114 TV & Media — cards drawn by the element's own builders ──
         case 'tv_lowboard':     buildDesk108Thumb(g, 'tv_lowboard',     (ms) => new LowboardBuilder(ms),    2.0, 0.42, 0.55); break;
@@ -268,6 +286,16 @@ export function buildFurnitureGeometry(
 
         // ── Decor ────────────────────────────────────────────────────────────
         case 'chimney':             buildBookshelf(g);          break;
+        // §FURN123 (founder, 2026-08-26) — the REAL bookshelf/floating-shelf
+        // types (distinct from the 'chimney' case above, which borrows the
+        // generic buildBookshelf() icon and predates this lane). Drawn by the
+        // element's own builder so a card cannot drift from the placed piece.
+        case 'bookshelf':
+            buildDesk108Thumb(g, 'bookshelf', (ms) => new BookshelfBuilder(ms), 0.9, 0.32, 1.9); break;
+        case 'bookshelf_glass':
+            buildDesk108Thumb(g, 'bookshelf_glass', (ms) => new BookshelfBuilder(ms), 0.9, 0.32, 1.9); break;
+        case 'shelf_floating':
+            buildDesk108Thumb(g, 'shelf_floating', (ms) => new FloatingShelfBuilder(ms), 0.9, 0.22, 1.05); break;
         case 'plant_01':
         case 'plant_02':
         case 'plant_03':

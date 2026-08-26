@@ -91,6 +91,12 @@ export * from './builders/DiningSetBuilders';
 // rule), so the media + audio builders join the barrel.
 export * from './builders/MediaWallBuilder';
 export * from './builders/AudioBuilders';
+// §FURN123 (founder, 2026-08-26) — the carousel draws the bookshelf/floating-
+// shelf cards with the element's own builders (§CARPET97 no-drift rule), so
+// BookshelfBuilder (open + glass-front + the new FloatingShelfBuilder) joins
+// the barrel — it was never exported before, which is why it was reachable
+// via FurnitureFactory but not via `@pryzm/geometry-furniture` importers.
+export * from './builders/BookshelfBuilder';
 
 export * from './engines/BedEngine';
 export * from './engines/KitchenCabinetEngine';

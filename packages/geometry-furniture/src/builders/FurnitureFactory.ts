@@ -19,7 +19,7 @@ import { BedsideTableBuilder } from './BedsideTableBuilder';
 import { ChairBuilder } from './ChairBuilder';
 import { WardrobeGlassBuilder } from './WardrobeGlassBuilder';
 import { CornerSofaBuilder } from './CornerSofaBuilder';
-import { WhiteSofaBuilder } from './WhiteSofaBuilder';
+import { WhiteSofaBuilder, OttomanBuilder } from './WhiteSofaBuilder';
 import { SectionalSofaBuilder } from './SectionalSofaBuilder';
 import { CoffeeTableBuilder } from './CoffeeTableBuilder';
 import { TableBuilder } from './TableBuilder';
@@ -70,8 +70,9 @@ import {
 import {
     ExtendingDiningTableBuilder, RusticDiningSetBuilder,
     ModernDiningSetBuilder, ShellDiningSetBuilder,
+    CafeTableBuilder,
 } from './DiningSetBuilders';
-import { BookshelfBuilder } from './BookshelfBuilder';
+import { BookshelfBuilder, FloatingShelfBuilder } from './BookshelfBuilder';
 import { TvBuilder, TvUnitBuilder, LowboardBuilder, SlatConsoleBuilder } from './MediaWallBuilder';
 // §MEDIA111 (founder, 2026-08-26) — audio system: soundbar + floor-speaker pair.
 import { SoundbarBuilder, FloorSpeakerPairBuilder } from './AudioBuilders';
@@ -143,10 +144,18 @@ export class FurnitureFactory {
             case 'dining_set_rustic':      return new RusticDiningSetBuilder(materialService);
             case 'dining_set_modern':      return new ModernDiningSetBuilder(materialService);
             case 'dining_set_shell':       return new ShellDiningSetBuilder(materialService);
+            // §FURN123 (founder, 2026-08-26) — cafe/bistro tables. Genuinely new
+            // (AUDIT found nothing covering this footprint); one class, three
+            // per-type specs (round oak / square laminate / round marble).
+            case 'cafe_table_round':       return new CafeTableBuilder(materialService);
+            case 'cafe_table_square':      return new CafeTableBuilder(materialService);
+            case 'cafe_table_marble':      return new CafeTableBuilder(materialService);
 
             // F1.2 (2026-05-30) — Bookshelf (open + glass-front variants).
             case 'bookshelf':          return new BookshelfBuilder(materialService);
             case 'bookshelf_glass':    return new BookshelfBuilder(materialService);
+            // §FURN123 (founder, 2026-08-26) — wall-mounted floating shelves.
+            case 'shelf_floating':     return new FloatingShelfBuilder(materialService);
 
             // F1.3 (2026-05-30) — Media wall (wall TV + low TV unit).
             case 'tv':                 return new TvBuilder(materialService);
@@ -260,6 +269,12 @@ export class FurnitureFactory {
             // the TYPE; the builder reads seatCount (2|3|4) from data.properties.
             case 'sofa_sectional_left':  return new SectionalSofaBuilder(materialService);
             case 'sofa_sectional_right': return new SectionalSofaBuilder(materialService);
+            // §FURN123 (founder, 2026-08-26) — "soft furniture": poufs, ottoman,
+            // floor cushion. Genuinely new (AUDIT found nothing); one class,
+            // reusing this file's cushion vocabulary via WhiteSofaBuilder.
+            case 'pouf_round':           return new OttomanBuilder(materialService);
+            case 'ottoman_rect':         return new OttomanBuilder(materialService);
+            case 'floor_cushion_square': return new OttomanBuilder(materialService);
 
             case 'coffee_table':       return new CoffeeTableBuilder(materialService);
             case 'shower_glass_panel': return new ShowerGlassPanelBuilder(materialService);

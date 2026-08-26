@@ -298,6 +298,31 @@ export const CATEGORIES_B: readonly FurnitureCategoryDescriptor[] = [
                 glbPath: '/items/Soft Furnishings/shower-rug/model.glb',
                 thumbnailPath: '/items/Soft Furnishings/shower-rug/thumbnail.webp',
             },
+            // ── §FURN123 (founder, 2026-08-26) — "soft furniture": occasional
+            // soft-seating. AUDIT found nothing covering poufs/ottomans/floor
+            // cushions anywhere in the package. Cards drawn by the element's
+            // own builder (OttomanBuilder, §CARPET97 no-drift rule).
+            {
+                type: 'pouf_round',
+                label: 'Round Pouf',
+                defaultDimensions: { width: 0.42, length: 0.42, height: 0.40, baseOffset: 0.0 },
+                defaultMaterial: 'fabric',
+                defaultColor: '#8f7f6a',
+            },
+            {
+                type: 'ottoman_rect',
+                label: 'Storage Ottoman',
+                defaultDimensions: { width: 0.55, length: 0.40, height: 0.42, baseOffset: 0.0 },
+                defaultMaterial: 'fabric',
+                defaultColor: '#6d5f4e',
+            },
+            {
+                type: 'floor_cushion_square',
+                label: 'Floor Cushion',
+                defaultDimensions: { width: 0.55, length: 0.55, height: 0.14, baseOffset: 0.0 },
+                defaultMaterial: 'fabric',
+                defaultColor: '#9b8b6a',
+            },
         ],
     },
     {
@@ -804,6 +829,32 @@ export const CATEGORIES_B: readonly FurnitureCategoryDescriptor[] = [
         label: 'Storage',
         description: 'Shelving, cabinets, wardrobes',
         items: [
+            // ── §FURN123 (founder, 2026-08-26) — AUDIT found 'bookshelf' /
+            // 'bookshelf_glass' already registered (FurnitureFactory /
+            // FurnitureTypes / FurnitureCategoryMap / seedCoreFamilies) but
+            // ABSENT from this carousel — the L-11382 unreachable-but-
+            // registered pattern (only the GLB 'kave_bookshelf' below was
+            // reachable). Both native types now get cards, plus the new
+            // 'shelf_floating' variant; all three are drawn by the element's
+            // own builder (§CARPET97 no-drift rule).
+            {
+                type: 'bookshelf',
+                label: 'Bookshelf (Open)',
+                defaultDimensions: { width: 0.9, length: 0.32, height: 1.9, baseOffset: 0.0 },
+                defaultMaterial: 'wood',
+            },
+            {
+                type: 'bookshelf_glass',
+                label: 'Bookshelf (Glass Front)',
+                defaultDimensions: { width: 0.9, length: 0.32, height: 1.9, baseOffset: 0.0 },
+                defaultMaterial: 'wood',
+            },
+            {
+                type: 'shelf_floating',
+                label: 'Floating Shelves',
+                defaultDimensions: { width: 0.9, length: 0.22, height: 1.05, baseOffset: 1.2 },
+                defaultMaterial: 'wood',
+            },
             {
                 type: 'kave_bookshelf',
                 label: 'Bookshelf',
