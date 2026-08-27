@@ -57,6 +57,7 @@ import {
   type ProjectedNode,
 } from '../element-preview/ElementPreviewRenderer';
 import type { GraphSubject } from '../element-preview/GraphPreviewSubject';
+import { hopEmphasisFor } from './hopEmphasis';
 
 const PURPLE = '#6600FF';
 const LINE = '#d8dce3';
@@ -101,6 +102,15 @@ export interface GraphViewportOptions {
    * caller-owned orbit survives the remount.
    */
   orbit?: OrbitState;
+  /**
+   * §GRAPH154 (L-12560..) — hop distance from the active model selection, per
+   * element id. `null` (or omitted) means no selection is active: the SAME
+   * meaning `NodeLinkOptions.hopOf` carries for the 2-D SVG card, and the same
+   * `focusNeighbourhood().hopOf` map — this widget draws no second BFS, it
+   * only draws a RING on top of the WebGL blit for whatever hop map the caller
+   * already computed. See `hopEmphasis.ts` for the ramp both renderers share.
+   */
+  hopOf?: ReadonlyMap<string, number> | null;
 }
 
 /**
@@ -202,6 +212,27 @@ export function mountGraphViewport(host: HTMLElement, opts: GraphViewportOptions
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
     const dpr = Math.min(2, window.devicePixelRatio || 1);
+
+    // §GRAPH154 (L-12560..) — SELECTED / CONNECTED rings, drawn in this SAME
+    // 2-D overlay pass the hover ring already uses (below), never inside the
+    // WebGL blit: `GraphNodeMark.colour` stays the element's CATEGORY colour
+    // (P2 — no THREE type is named here, and this file owns no material), so
+    // the ring is the ONLY channel selection draws on, exactly as the 2-D SVG
+    // card resolves the same channel conflict (`hopEmphasis.ts`'s header).
+    const hopOf = opts.hopOf ?? null;
+    if (hopOf !== null) {
+      for (const [id, node] of p) {
+        const emphasis = hopEmphasisFor(hopOf.get(id), true);
+        if (!emphasis.ringColour) continue;
+        ctx.beginPath();
+        ctx.arc(node.x, node.y, (node.r + 3 * dpr) * emphasis.radiusScale, 0, Math.PI * 2);
+        ctx.strokeStyle = emphasis.ringColour;
+        ctx.globalAlpha = emphasis.ringAlpha;
+        ctx.lineWidth = 1.6 * dpr * emphasis.ringWidthScale;
+        ctx.stroke();
+        ctx.globalAlpha = 1;
+      }
+    }
 
     if (hovered) {
       const h = p.get(hovered);

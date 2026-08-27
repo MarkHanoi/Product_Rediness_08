@@ -47,6 +47,7 @@
 import { seriesColour } from './AnalysisTypes';
 import { markSeries, type SeriesFocus } from './seriesFocus';
 import { layoutND, SEPARATION_DEFAULT } from './forceLayoutND';
+import { hopEmphasisFor } from './hopEmphasis';
 
 /**
  * The focus-key namespaces. §ANALYSIS-SERIES-FOCUS (L-3610).
@@ -132,6 +133,25 @@ export interface NodeLinkOptions {
    * reader on the 2-D tab moved a control that did nothing and had no way to know.
    */
   readonly markScale?: number;
+
+  /**
+   * §GRAPH154 (L-12560..) — hop distance from the active model selection, per
+   * node id. `null` (the default) means no selection is active on this card at
+   * all, and every node draws exactly as it did before this option existed.
+   *
+   * A non-`null`, possibly-EMPTY map means a selection IS active: seed(s) carry
+   * `0`, the first ring `1`, and so on (`focusNeighbourhood`'s own `hopOf`,
+   * `packages/building-graph/src/hierarchy.ts:459`) — a node absent from the
+   * map is reached by NOTHING drawn here and recedes (§CONTEXT-DATA-HONESTY: an
+   * empty map and no selection are different facts and must not collapse to
+   * the same drawing, which is why this is `hopOf`, never a boolean).
+   *
+   * ⛔ NOT a second BFS. The caller (`widgetRenderers.renderGraph`) already
+   * computes this via `focusNeighbourhood()` for the 3-D subject; this option
+   * hands the SAME map to the 2-D renderer so both tell the same story — see
+   * `hopEmphasis.ts`'s header.
+   */
+  readonly hopOf?: ReadonlyMap<string, number> | null;
 }
 
 // ═════════════════════════════════════════════════════════════════════════════
@@ -230,6 +250,12 @@ export function renderNodeLink(
   const pos = forceLayout(ids, pairs, W, H, 160, opts.separation ?? SEPARATION_DEFAULT);
   const mark = opts.markScale ?? 1;
 
+  // §GRAPH154 — see `hopEmphasis.ts`. `null` (the default) means no selection
+  // is active, and every mark below draws exactly as it did before this option
+  // existed; a non-null map (possibly empty) means the ramp is live.
+  const hopOf = opts.hopOf ?? null;
+  const selectionActive = hopOf !== null;
+
   // Adjacency over the DRAWN edges only — see the note on the node keys below.
   const neighbours = new Map<string, Set<string>>();
   const link = (a: string, b: string): void => {
@@ -253,7 +279,13 @@ export function renderNodeLink(
     line.setAttribute('y2', String(b.y));
     line.setAttribute('stroke', seriesColour(opts.edgeTypeIndex.get(e.type) ?? 0, e.type));
     line.setAttribute('stroke-width', String(1.5 * mark));
-    line.setAttribute('stroke-opacity', '0.5');
+    // §GRAPH154 — DORMANT, NOT GONE (seriesFocus.ts's own rule, applied here):
+    // an edge whose BOTH endpoints the active neighbourhood reaches stays close
+    // to its ordinary strength; one touching the unreached population recedes,
+    // never disappears, so the truncation counts above stay true regardless of
+    // whether a selection is active.
+    const bothReached = selectionActive && (hopOf!.has(e.from) && hopOf!.has(e.to));
+    line.setAttribute('stroke-opacity', selectionActive ? (bothReached ? '0.68' : '0.12') : '0.5');
     // Three keys: this edge lights when EITHER endpoint is picked, or when its
     // relation family is. That is what makes "click a node" answer "what does
     // this connect to" rather than "which dot is this".
@@ -290,12 +322,43 @@ export function renderNodeLink(
     g.setAttribute('aria-label', `${n.label} — ${n.group}. Select in the model.`);
     g.style.cursor = opts.onPick ? 'pointer' : 'default';
 
-    const r = (6 + 8 * Math.sqrt((n.weight ?? 1) / maxW)) * mark;
+    // §GRAPH154 (L-12560..) — SELECTED / CONNECTED / UNRELATED, on a channel
+    // that is NOT the fill. `hopEmphasis.ts`'s header records the resolution:
+    // the legend's "colour = element category" stays true in every state
+    // because selection draws as a RING behind the fill (cyan for the seed,
+    // violet ramped by hop for its neighbourhood — the SAME ramp
+    // `DiagnosticMaterialManager`'s §HILITE140 ramp uses in the main 3-D scene,
+    // reproduced here because that file is a THREE consumer and this one must
+    // stay THREE-free) plus a fill-OPACITY change, never a fill-HUE one.
+    const emphasis = hopEmphasisFor(hopOf?.get(n.id), selectionActive);
+    const rBase = (6 + 8 * Math.sqrt((n.weight ?? 1) / maxW)) * mark;
+    const r = rBase * emphasis.radiusScale;
+
+    if (emphasis.ringColour) {
+      // Drawn BEHIND the fill circle (appended first) so the fill's own thin
+      // panel-bg separator stroke still reads on top, unchanged, for every
+      // node — active or not. A stroked, unfilled circle, not a second solid
+      // disc: a filled halo would compete with the fill for "what colour is
+      // this node", which is exactly the channel conflict this ring exists to
+      // avoid.
+      const ring = document.createElementNS(SVG_NS, 'circle');
+      ring.setAttribute('cx', String(p.x));
+      ring.setAttribute('cy', String(p.y));
+      ring.setAttribute('r', String(r + 3 * mark));
+      ring.setAttribute('fill', 'none');
+      ring.setAttribute('stroke', emphasis.ringColour);
+      ring.setAttribute('stroke-width', String(1.6 * mark * emphasis.ringWidthScale));
+      ring.setAttribute('stroke-opacity', String(emphasis.ringAlpha));
+      ring.setAttribute('pointer-events', 'none');
+      g.appendChild(ring);
+    }
+
     const circle = document.createElementNS(SVG_NS, 'circle');
     circle.setAttribute('cx', String(p.x));
     circle.setAttribute('cy', String(p.y));
     circle.setAttribute('r', String(r));
     circle.setAttribute('fill', seriesColour(opts.groupIndex.get(n.group) ?? 0, n.group));
+    circle.setAttribute('fill-opacity', String(emphasis.fillOpacity));
     circle.setAttribute('stroke', 'var(--app-panel-bg)');
     circle.setAttribute('stroke-width', String(1.5 * mark));
     g.appendChild(circle);
@@ -306,6 +369,10 @@ export function renderNodeLink(
     text.setAttribute('text-anchor', 'middle');
     text.setAttribute('font-size', String(9 * mark));
     text.setAttribute('fill', 'var(--app-text-2)');
+    // The label recedes WITH its node — an unrelated node's name competing at
+    // full strength against a dimmed disc would read as more important than
+    // the disc says it is.
+    text.setAttribute('fill-opacity', String(emphasis.fillOpacity));
     text.textContent = n.label.length > 18 ? `${n.label.slice(0, 17)}…` : n.label;
     g.appendChild(text);
 
@@ -356,12 +423,21 @@ export function renderNodeLink(
  * other and both use the same eight-value rotation; the SHAPE is what says which
  * legend you are reading. Colour is never the only channel (SC 1.4.1) and here it
  * is not even the only channel between the two legends.
+ *
+ * ⚠ AMENDED §GRAPH154 (L-12560..) — `selectionActive` adds a SECOND, additive
+ * line, never a rewrite of the first. "Node colour = element category" stays
+ * true word-for-word whether or not a selection is active, because selection
+ * draws on the RING channel (`hopEmphasis.ts`), not the fill — so the legend
+ * does not need to start lying the moment the founder clicks a wall. What
+ * changes is that a second sentence appears explaining the ring, exactly while
+ * the ring is the thing on screen the reader is asking about.
  */
 export function renderNodeLegend(
   host: HTMLElement,
   groupIndex: ReadonlyMap<string, number>,
   counts: ReadonlyMap<string, number>,
   focus?: SeriesFocus,
+  selectionActive?: boolean,
 ): HTMLElement {
   const legend = document.createElement('div');
   legend.className = 'anl-nodelink-legend anl-nodelink-legend--nodes';
@@ -369,6 +445,13 @@ export function renderNodeLegend(
   lead.className = 'anl-nodelink-legend-lead';
   lead.textContent = 'Node colour = element category';
   legend.appendChild(lead);
+  if (selectionActive) {
+    // ⛔ ADDITIVE, NOT A REPLACEMENT OF THE LINE ABOVE — see the doc comment.
+    const ringNote = document.createElement('span');
+    ringNote.className = 'anl-nodelink-legend-lead anl-nodelink-legend-ring-note';
+    ringNote.textContent = 'Ring: cyan = selected · violet = connected, fading with distance';
+    legend.appendChild(ringNote);
+  }
   for (const [group, index] of groupIndex) {
     const row = markSeries(document.createElement('span'), FOCUS_GROUP(group));
     row.className = 'anl-nodelink-legend-row';

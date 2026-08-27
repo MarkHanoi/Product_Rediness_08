@@ -228,27 +228,35 @@ describe('§SCROLL136 L-12201 — the expanded stage clears the panel\'s own chr
   });
 
   // ═══════════════════════════════════════════════════════════════════════
-  // §GRAPH-EXPAND-HEIGHT amended (§DEMO141, L-12301) — the reserve is now
-  // MEASURED, not a second constant standing in for the chrome one above.
+  // §GRAPH-EXPAND-HEIGHT amended (§DEMO141, L-12301; corrected §GRAPH154,
+  // L-12562) — the reserve is an honest per-child ESTIMATE, not a re-hardcoded
+  // flat constant standing in for the chrome one above.
   // ═══════════════════════════════════════════════════════════════════════
   it('⛔ the SECOND magic number — the 180px stage-internal reserve — is ALSO gone', () => {
     // A fixed reserve was exactly as wrong as the "− 300" it replaced: once
-    // presentation mode can remove the honesty pin and the whole notes row,
-    // a constant calibrated against one screenshot with both of those visible
-    // no longer describes what is actually rendered. `stageInternalReservePx`
-    // reads the stage's own children instead of re-declaring their heights.
-    // ⚠ The OLD constant's name still appears in prose (the comment recording
-    // WHY it was replaced), so the arm checks for a DECLARATION, not the bare
-    // substring — a substring check would trip on the very sentence explaining
-    // the fix.
-    expect(WIDGET_RENDERERS).not.toMatch(/const\s+STAGE_INTERNAL_RESERVE_PX/);
+    // presentation mode can remove the honesty pin and the whole notes row, a
+    // constant calibrated against one screenshot with both of those visible no
+    // longer describes what is actually rendered.
+    //
+    // ⛔⛔ CORRECTED §GRAPH154 (L-12562) — this arm used to also assert
+    // `stageInternalReservePx` MEASURED its children live
+    // (`getBoundingClientRect().height` per child, guarded by `if (child ===
+    // exclude) continue`). That was never a real measurement: `stage` is
+    // disconnected from the document at the point this function runs (see
+    // that function's own corrected doc comment), so every one of those rects
+    // was `{0,0,0,0}` in every browser, not only in this test's happy-dom
+    // harness. The function now COUNTS the stage's remaining flow children
+    // (after §GRAPH-FLOAT-CONTROLS moved the storey/view/toolbar/honesty bars
+    // out of `stage`'s flow entirely) and applies a small, NAMED per-row
+    // ESTIMATE — honest about what it is, rather than a disguised measurement.
+    expect(WIDGET_RENDERERS).not.toMatch(/const\s+STAGE_INTERNAL_RESERVE_PX\s*=\s*180/);
     expect(WIDGET_RENDERERS).toContain('function stageInternalReservePx');
-    // It excludes the frame it is computing room FOR — measuring it would be
-    // circular — and folds in a gap-per-visible-sibling plus the stage's own
-    // padding, both read off the stylesheet rule rather than re-guessed.
-    expect(WIDGET_RENDERERS).toMatch(/if\s*\(\s*child\s*===\s*exclude\s*\)\s*continue/);
+    expect(WIDGET_RENDERERS).toContain('ROW_ESTIMATE_PX = 30');
     expect(WIDGET_RENDERERS).toContain('GAP_PX = 8');
     expect(WIDGET_RENDERERS).toContain('STAGE_PADDING_PX = 24');
+    // It excludes the frame it is computing room FOR — measuring it would be
+    // circular even if a live measurement were possible here.
+    expect(WIDGET_RENDERERS).toMatch(/filter\(\s*\(c\)\s*=>\s*c\s*!==\s*exclude\s*\)/);
   });
 });
 
@@ -411,19 +419,25 @@ describe('§SCROLL136 — the Relationship graph\'s expand mode survives the new
    * canvas box's height is a value this test can PREDICT and check, rather
    * than merely observe.
    *
-   * ⚠ AMENDED (§DEMO141, L-12301) — the stage-internal reserve is now MEASURED
-   * off the stage's own children rather than a second stubbed constant. happy-
-   * dom's default `getBoundingClientRect()` (the fallback this fixture uses for
-   * every selector it does not name) always answers an all-zero rect, so every
-   * stage-internal element — the storey bar, the view bar, the toolbar, both
-   * legends, and the honesty pin when this fixture's graph is incomplete —
-   * measures 0 here. That is not a gap in the fixture: it is the SAME "hidden
-   * things measure a real zero, no branch needed" property the function exists
-   * for, just exercised by the test harness rather than by presentation mode.
-   * Only the fixed stage padding (`STAGE_PADDING_PX = 24`) survives, because it
-   * is a declared CSS constant, not a measurement.
+   * ⛔⛔ CORRECTED §GRAPH154 (L-12562) — THIS ARM'S OWN PREVIOUS VERSION SAID
+   * "the stage-internal reserve is now MEASURED off the stage's own children".
+   * THAT WAS NEVER TRUE, and this test's OWN un-stubbed-selector behaviour was
+   * the proof sitting in plain sight: `AnalysisSurface._renderWidget()` builds
+   * this whole card — including the call to `stageInternalReservePx()` — and
+   * only appends it to `_grid` AFTERWARDS, so `stage` is NOT CONNECTED to the
+   * document at the point that function runs. `getBoundingClientRect()` on a
+   * disconnected element is `{0,0,0,0}` in a REAL browser exactly as it is in
+   * happy-dom — this test's global `getBoundingClientRect` override merely
+   * matched that accidentally, by stubbing per SELECTOR rather than per
+   * CONNECTED-NESS, which is why "every stage-internal element measures 0
+   * here" read as a happy-dom quirk instead of the actual, always-true,
+   * every-browser behaviour it was. §GRAPH154 replaced the attempted
+   * measurement with an honest per-child ESTIMATE (`stageInternalReservePx`'s
+   * new doc comment) and floated the storey/view/toolbar/honesty bars out of
+   * `stage`'s flow entirely (`.anl-graph-controls`, inside `frame`) — so the
+   * only flow children left are the two legends.
    */
-  it('the canvas height is viewport − MEASURED chrome − the MEASURED stage-internal reserve, not a re-hardcoded guess', async () => {
+  it('the canvas height is viewport − MEASURED chrome − an ESTIMATED reserve for the two remaining stage rows (the legends)', async () => {
     await openRelationships();
 
     const HEIGHTS: Record<string, number> = {
@@ -455,11 +469,17 @@ describe('§SCROLL136 — the Relationship graph\'s expand mode survives the new
       const box = card().querySelector<HTMLElement>('.anl-nodelink-box');
       expect(box, 'the 2-D SVG box did not render').not.toBeNull();
 
-      // chrome = 94 + 36 + 0 + 28 = 158. Every stage-internal sibling measures 0
-      // (happy-dom's un-stubbed default), so the MEASURED reserve is just the
-      // fixed stage padding: 0 content + 0 gaps + 24 padding = 24.
-      // expected = max(460, 900 − 158 − 24) = 718.
-      expect(box!.style.minHeight).toBe('718px');
+      // chrome = 94 + 36 + 0 + 28 = 158. `stage`'s only flow children besides
+      // `frame` are the two legends (the storey/view/toolbar/honesty bars now
+      // float inside `frame`, see §GRAPH-FLOAT-CONTROLS) — an ESTIMATE of
+      // 2 * (ROW_ESTIMATE_PX 30 + GAP_PX 8) = 76, plus STAGE_PADDING_PX 24 = 100.
+      // expected = max(460, 900 − 158 − 100) = 642.
+      //
+      // ⛔ `box.style.height`, NOT `.minHeight` — §GRAPH154 sets an EXPLICIT
+      // height (the viewBox now grows to match it instead of merely being
+      // floored by it), so the SVG actually fills the box instead of leaving
+      // empty space under a floor.
+      expect(box!.style.height).toBe('642px');
     } finally {
       Element.prototype.getBoundingClientRect = original;
       if (innerHeightDescriptor) Object.defineProperty(window, 'innerHeight', innerHeightDescriptor);
@@ -470,11 +490,15 @@ describe('§SCROLL136 — the Relationship graph\'s expand mode survives the new
   });
 
   /**
-   * ⭐ THE OTHER HALF: when the stage-internal siblings DO measure real height,
-   * the reserve grows to match and the canvas correspondingly SHRINKS — proving
-   * the function reads the DOM rather than returning a disguised constant.
+   * ⭐ THE INTENDED CONSEQUENCE OF §GRAPH-FLOAT-CONTROLS, PROVEN: the bars that
+   * used to sit in `stage`'s own flow (storey, view, toolbar, honesty pin) no
+   * longer affect the reserve AT ALL, because they are not `stage`'s children
+   * any more — they float inside `frame`, on top of the canvas. Stubbing them
+   * to a large height (exactly what the PREVIOUS version of this test did, to
+   * prove the opposite — that they USED to count) must now make NO difference
+   * to the computed canvas height.
    */
-  it('a taller stage-internal sibling makes the reserve — and only the reserve — grow', async () => {
+  it('stubbing the FLOATING bars to a large height no longer shrinks the canvas — they are not in the stage\'s flow any more', async () => {
     await openRelationships();
 
     const HEIGHTS: Record<string, number> = {
@@ -490,14 +514,12 @@ describe('§SCROLL136 — the Relationship graph\'s expand mode survives the new
           return { height, width: 800, top: 0, left: 0, right: 800, bottom: height, x: 0, y: 0, toJSON: () => ({}) } as DOMRect;
         }
       }
-      // Every DIRECT CHILD of the stage other than the frame reports 40px —
-      // storey bar, view bar, toolbar, both legends, and the honesty pin if
-      // this fixture's graph is incomplete. The frame itself is excluded by
-      // the function under test, not by this stub, so it is deliberately NOT
-      // special-cased here.
+      // The exact stub the OLD test used to PROVE these siblings counted.
+      // Now that they float inside `frame` rather than sitting in `stage`'s
+      // own flow, this must have NO EFFECT on the reserve at all.
       if (this.classList?.contains('anl-scope-bar') || this.classList?.contains('anl-nodelink-legend')
         || this.classList?.contains('anl-nodelink-legend--nodes') || this.classList?.contains('anl-honesty-pin')) {
-        return { height: 40, width: 800, top: 0, left: 0, right: 800, bottom: 40, x: 0, y: 0, toJSON: () => ({}) } as DOMRect;
+        return { height: 400, width: 800, top: 0, left: 0, right: 800, bottom: 400, x: 0, y: 0, toJSON: () => ({}) } as DOMRect;
       }
       return original.call(this);
     };
@@ -513,13 +535,9 @@ describe('§SCROLL136 — the Relationship graph\'s expand mode survives the new
 
       const box = card().querySelector<HTMLElement>('.anl-nodelink-box');
       expect(box, 'the 2-D SVG box did not render').not.toBeNull();
-      const px = Number((box!.style.minHeight || '0').replace('px', ''));
-      // chrome is unchanged at 158. The reserve is now STRICTLY GREATER than the
-      // 24px floor from the previous arm (real siblings measured, not zero), so
-      // the resulting canvas height must be STRICTLY SMALLER than 718 — proving
-      // the sibling heights actually reached the arithmetic.
-      expect(px).toBeLessThan(718);
-      expect(px).toBeGreaterThanOrEqual(460); // the floor still applies
+      // Identical to the previous arm's 642 — proof the floated bars' stubbed
+      // (huge) height reached nothing.
+      expect(box!.style.height).toBe('642px');
     } finally {
       Element.prototype.getBoundingClientRect = original;
       if (innerHeightDescriptor) Object.defineProperty(window, 'innerHeight', innerHeightDescriptor);

@@ -1162,25 +1162,54 @@ export function renderGraph(host: HTMLElement, _def: AnalysisWidgetDef, _result:
   // covered the model would sever the one join that makes the card worth reading.
   const stage = el('div', `anl-graph-stage${graphExpanded() ? ' anl-graph-stage--expanded' : ''}`);
 
-  // §GRAPH-EXPAND-CONTROLS-SURVIVE (L-12301) — the storey and relationship-view
-  // controls are now the stage's OWN first children, not the card's, precisely
-  // so expanding the graph does not black them out. See the comment where
-  // `storeyBar` / `viewBar` were captured, above.
-  //
-  // ⚠ THE HONESTY PIN IS THEREFORE NO LONGER THE STAGE'S FIRST CHILD. Its
-  // `position: sticky; top: 0` still works — sticky resolves against the
-  // nearest SCROLLING ancestor at whatever point its own normal-flow position
-  // reaches that offset, it does not require being the first element — but a
-  // reader scrolling from the very top now sees these two bars scroll past
-  // before the pin locks, rather than the pin locking immediately. That is a
-  // disclosed trade, not an oversight: the alternative was two sticky bands
-  // stacked at competing `top` offsets, which is real complexity for a
-  // scrolling nicety nobody asked for, and it stays open as a fast-follow if
-  // the founder wants the controls pinned too.
-  stage.appendChild(storeyBar);
-  stage.appendChild(viewBar);
+  const focusCtl = new SeriesFocus(host);
+  const frame = el('div', 'anl-graph-frame');
+  const box = el('div', 'anl-nodelink-box');
 
-  // ⭐⭐ THE HONESTY PIN — NEVER FOLDABLE, NEVER OUTSIDE THE STAGE.
+  // ═══════════════════════════════════════════════════════════════════════
+  // §GRAPH-FLOAT-CONTROLS (L-12561, lane §GRAPH154) — floating, not stacked
+  // ═══════════════════════════════════════════════════════════════════════
+  //
+  // Founder, verbatim: *"make the graphs larger occupy all the proposed shape
+  // - the buttons can be 'floating' on top of the graphs."* Every control he
+  // named survives — storey, relationship view, the honesty qualifier, draw
+  // mode, node size, focus hops, reset, both exports — none of it is removed;
+  // it moves from being `stage`'s own FLEX CHILDREN (each consuming real
+  // height, stacking three rows above the canvas before it could start) to
+  // being `frame`'s OWN absolutely-positioned overlay, drawn ON TOP of `box`
+  // instead of above it. That is what lets `frame` — the canvas's own
+  // wrapper — claim nearly all of `stage`'s height instead of whatever three
+  // rows of chips left over.
+  //
+  // ⛔ TWO HAZARDS A FLOATING BAR INTRODUCES, BOTH HANDLED HERE, NOT LEFT
+  // IMPLICIT:
+  //   1. OCCLUSION. `.anl-graph-controls` (styles/panels/analysisSurface.ts)
+  //      gives each bar a translucent, blurred backing plate with real
+  //      contrast against both pale and saturated node fills, caps its own
+  //      width so it never reaches the canvas CENTRE, and anchors top-left —
+  //      the corner §DEMO141 already proved safe (the expand button owns the
+  //      opposite corner, and neither one is where a force layout seeds its
+  //      densest cluster).
+  //   2. POINTER CAPTURE. `.anl-graph-controls` itself is `pointer-events:
+  //      none` — a drag or click over its EMPTY background falls straight
+  //      through to the canvas beneath, exactly as if the overlay were not
+  //      there. Every bar it holds sets its OWN `pointer-events: auto` and
+  //      sizes to its content (`width: fit-content`, never `100%`), so only
+  //      the visible chips and sliders capture the pointer, never the
+  //      transparent gutter around them.
+  //
+  // ⚠ THIS IS THE MIRROR OF §DEMO141's OWN BUG, DELIBERATELY NOT REPEATED.
+  // That lane moved these bars OFF an absolutely-positioned expanded stage
+  // because the stage's own chrome was covering them; the fix here does not
+  // reintroduce that shape, because `.anl-graph-controls` sits INSIDE `frame`
+  // (the canvas's wrapper) at a modest z-index below `.anl-graph-expand`
+  // (the corner control), and both are scoped to the CANVAS'S OWN box, never
+  // to the card head or the storey/view controls of some OTHER widget.
+  const controls = el('div', 'anl-graph-controls');
+  controls.appendChild(storeyBar);
+  controls.appendChild(viewBar);
+
+  // ⭐⭐ THE HONESTY PIN — NEVER FOLDABLE, NEVER OUTSIDE THE FLOATING CONTROLS.
   //
   // Two independent reasons, and the second is why it lives HERE rather than
   // beside the folds:
@@ -1217,18 +1246,18 @@ export function renderGraph(host: HTMLElement, _def: AnalysisWidgetDef, _result:
   // making the case for). So going straight to "print nothing" here would be
   // the ONE combination — expanded AND incomplete — where the surface's
   // loudest qualifier is unreachable by ANY path. `expandedBoundNotice` below
-  // is the stage's own quiet carrier: `foldable()` (the SAME persisted-fold
-  // primitive `graphNotes` already uses — C84 EI-9, reuse, not a second
-  // mechanism), `tone: 'scope'` rather than `'warn'` (the accent-violet
+  // is the floating controls' own quiet carrier: `foldable()` (the SAME
+  // persisted-fold primitive `graphNotes` already uses — C84 EI-9, reuse, not
+  // a second mechanism), `tone: 'scope'` rather than `'warn'` (the accent-violet
   // treatment already used for this card's OWN storey/basis/focus folds, never
   // the yellow the founder is asking to be rid of), collapsed by default, one
   // click or one Enter key from the full sentence. The bound is DEMOTED, never
   // deleted.
   if (!g.complete) {
     if (graphExpanded()) {
-      stage.appendChild(expandedBoundNotice(g, projection));
+      controls.appendChild(expandedBoundNotice(g, projection));
     } else if (!presentationMode()) {
-      stage.appendChild(
+      controls.appendChild(
         el(
           'p',
           'anl-honesty-pin',
@@ -1244,12 +1273,9 @@ export function renderGraph(host: HTMLElement, _def: AnalysisWidgetDef, _result:
     // exactly as §DEMO141 shipped. Nothing to add here in that case.
   }
 
-  stage.appendChild(graphToolbar(host, projection, g));
+  controls.appendChild(graphToolbar(host, projection, g));
 
-  const focusCtl = new SeriesFocus(host);
-  const frame = el('div', 'anl-graph-frame');
-  const box = el('div', 'anl-nodelink-box');
-  frame.append(box, expandButton());
+  frame.append(box, controls, expandButton());
   stage.appendChild(frame);
 
   // ── The two legends (§GRAPH-EXPAND-HEIGHT, L-12301) ────────────────────────
@@ -1266,7 +1292,12 @@ export function renderGraph(host: HTMLElement, _def: AnalysisWidgetDef, _result:
   // "colour = element category"; until now there was no table saying WHICH family
   // each colour was, so the sentence was unreadable and the picture was eight
   // anonymous hues.
-  renderNodeLegend(stage, groupIndex, familyCounts, focusCtl);
+  //
+  // ⚠ AMENDED §GRAPH154 (L-12560..) — the fifth argument. `focus !== null` is
+  // exactly "a model selection is active on this card right now", the same
+  // test `hopOf` downstream reads it as. See the legend's own doc for why this
+  // is an ADDITIVE second line, never a rewrite of "colour = element category".
+  renderNodeLegend(stage, groupIndex, familyCounts, focusCtl, focus !== null);
 
   // The legend is also a QUERY surface: a row lights its whole relation family.
   // ⚠ Built from `projection.edgeCounts`, which includes families that produced
@@ -1277,57 +1308,57 @@ export function renderGraph(host: HTMLElement, _def: AnalysisWidgetDef, _result:
 
   // ⚠ HEIGHT IS PASSED, NOT LEFT TO CSS, because the 3-D viewport sizes a canvas
   // BACKING STORE from `frame.clientHeight` and happy-dom/first paint would hand
-  // it a zero. The two numbers below are the founder's other request — item (a) of
-  // ASK 3: the canvas was 380 px under a stack of note blocks taller than itself.
+  // it a zero.
   //
   // ═════════════════════════════════════════════════════════════════════════
-  // §GRAPH-EXPAND-HEIGHT (L-12201, amended L-12301) — 'the graph should be bigger'
+  // §GRAPH-EXPAND-HEIGHT (L-12201, amended L-12301, amended §GRAPH154 L-12562)
   // ═════════════════════════════════════════════════════════════════════════
-  // The founder's screenshot of the expanded (⤢) view showed the stage running
-  // up under the panel's own chrome, AND the legend row sitting right at the
-  // bottom edge. Both are the SAME bug: `− 300` was tuned against the OLD,
-  // wrong assumption that the expanded stage fills the whole 'window.innerHeight'
-  // — it never cleared '.anl-header' / '.anl-tabs' / '.anl-facets' / '.anl-status'
-  // at the top (fixed in `analysisSurface.ts` via the new '.anl-grid-viewport'
-  // wrapper — see §SCROLL136 there) and left an under-measured guess for the
-  // pin/toolbar/legends below the canvas.
+  // ⛔⛔ CORRECTED §GRAPH154 — the PRIOR VERSION OF THIS COMMENT CLAIMED
+  // `stageInternalReservePx()` MEASURED THE STAGE'S OWN CHILDREN LIVE. IT DID
+  // NOT, AND COULD NOT. `AnalysisSurface._renderWidget()` builds this ENTIRE
+  // card — `fill(body)` below, which is this function — BEFORE appending it
+  // anywhere (`_card()`: `fill(body); card.appendChild(body);`, and the caller
+  // appends `card` to `_grid` only after `_renderWidget` returns). So at the
+  // exact point this file used to call `getBoundingClientRect()` on `stage`'s
+  // children, `stage.isConnected` is `false` — always, not merely on a bad
+  // render — and every one of those rects was `{0,0,0,0}`. The function had,
+  // since it shipped, only ever returned its flat padding floor: it MEASURED
+  // NOTHING, while its own comment said "measured, not guessed". That is the
+  // same defect shape this codebase corrects elsewhere (a claim of enforcement
+  // that does not hold) — recorded here rather than left for the next reader
+  // to rediscover by disbelieving a comment that sounded precise.
   //
-  // ⚠ AMENDED 2026-08-26 (§DEMO141) — the "legend" term below used to be a
-  // CONSTANT, `STAGE_INTERNAL_RESERVE_PX = 180`, calibrated against ONE real
-  // Chromium render. It could only ever be as right as that screenshot: the
-  // same afternoon, presentation mode learned to remove the honesty pin and
-  // the whole notes row above, and the tab-level status line lost a duplicated
-  // sentence — every one of those SHRINKS the true reserve, and a constant does
-  // not know that. The founder's literal ask, "the graph should be bigger", is
-  // exactly what a fixed reserve cannot deliver once there is less chrome to
-  // reserve room for.
+  // ⭐ §GRAPH-FLOAT-CONTROLS (above) is what makes this survivable rather than
+  // merely relabelled: the storey/view/honesty/toolbar bars — the biggest and
+  // most variable-height content that comment was trying to measure — are no
+  // longer `stage`'s flow children at all; they float inside `frame`. The ONLY
+  // flow children `stage` has left, besides `frame` itself, are the two
+  // legends appended below it. `stageInternalReservePx()` now says plainly
+  // that it ESTIMATES their height (a small, per-row constant), because a live
+  // measurement of an unattached tree is not a smaller number, it is not a
+  // measurement.
   //
-  // ⭐ THE ARITHMETIC, MEASURED NOT GUESSED: available height = viewport −
-  // chrome − stage-internal reserve.
-  //   viewport = `window.innerHeight`.
-  //   chrome   = the LIVE rendered height of the four bands the graph's own
-  //              stage must clear, read straight off the DOM rather than
-  //              hand-typed — a facet bar that is `hidden` contributes a real
-  //              zero automatically, it does not need its own branch.
-  //   reserve  = `stageInternalReservePx()` below: every DIRECT CHILD of the
-  //              stage OTHER THAN THE FRAME — the storey bar, the view bar, the
-  //              honesty pin (if rendered), the toolbar, both legends — summed
-  //              from ITS OWN live `getBoundingClientRect().height`, plus one
-  //              flex gap per visible sibling and the stage's own top+bottom
-  //              padding. A hidden pin (presentation mode, or a complete graph
-  //              with nothing to disclose) measures 0 and needs no branch here
-  //              to say so — that is the whole point of measuring instead of
-  //              declaring a constant.
-  // The 2-D SVG path sets this as a `min-height`, so if the reserve is over-
-  // generous the canvas simply grows to fill the slack. The 3-D path sets an
-  // EXACT `height` (§GraphViewport.ts:132) with no such slack, which is why
-  // this must be a real subtraction rather than a floor.
+  // ⭐ THE COLLAPSED (non-expanded) HEIGHT NO LONGER A HARDCODED CONSTANT.
+  // It was `430` regardless of viewport size — literally "a fixed extent, not
+  // the container", the opposite of the founder's "occupy all the proposed
+  // shape". `.anl-card` itself (`analysisSurface.ts`) is CSS-capped at
+  // `max-height: 66vh`; `COLLAPSED_HEIGHT_VH_FRACTION` below is a DELIBERATELY
+  // smaller fraction of that SAME budget (leaving headroom for the card head,
+  // the completeness fold and the provenance foot, none of which this function
+  // can see either, for the identical unattached-tree reason), so the graph
+  // grows and shrinks with the viewport instead of sitting at one number on
+  // every screen. It is still an ESTIMATE, not a per-pixel container read —
+  // said plainly, not implied to be more than it is.
 
   /** The four bands the expanded stage must clear, summed from their LIVE
-   *  rendered heights — not re-typed constants that rot the moment a header
-   *  or the tab strip resizes. Returns 0 outside a browser (SSR/tests), which
-   *  correctly falls back to the `Math.max(460, …)` floor below rather than a
-   *  bogus subtraction. */
+   *  rendered heights. Unlike `stageInternalReservePx()` below, this DOES
+   *  measure a real, already-attached document: `.anl-header` / `.anl-tabs` /
+   *  `.anl-facets` / `.anl-status` are persistent chrome built once when the
+   *  surface mounts, not torn down and rebuilt per card the way `stage` is —
+   *  so `document.querySelector` here finds live elements with real layout
+   *  boxes. Returns 0 outside a browser (SSR/tests), which correctly falls
+   *  back to the `Math.max(460, …)` floor below rather than a bogus
+   *  subtraction. */
   function expandedChromeAboveGridPx(): number {
     if (typeof document === 'undefined') return 0;
     let total = 0;
@@ -1339,33 +1370,32 @@ export function renderGraph(host: HTMLElement, _def: AnalysisWidgetDef, _result:
   }
 
   /**
-   * Everything inside the stage that is NOT the graph frame, measured live —
-   * the same technique `expandedChromeAboveGridPx()` uses one level up.
+   * An ESTIMATE — never a live measurement — of the height `stage`'s flow
+   * children OTHER THAN `frame` will occupy once attached. See the correction
+   * above for why a live measurement is not available at this call site: this
+   * function used to attempt one and always got zero for its trouble.
    *
-   * ⛔ `frame` is excluded on purpose: it is the `flex: 1 1 auto` child this
-   * reserve is being computed FOR (when expanded), so measuring it would be
-   * circular — it has no fixed height of its own yet.
-   *
-   * `GAP_PX` and `STAGE_PADDING_PX` mirror `.anl-graph-stage { gap: 8px }` and
-   * `.anl-graph-stage--expanded { padding: 12px 14px }` in `analysisSurface.ts`
-   * (the styles module) — read the rule, not this number, if either ever moves.
+   * `ROW_ESTIMATE_PX` is a single flex-wrap chip row's typical height (the
+   * legends this now sizes for); `GAP_PX` and `STAGE_PADDING_PX` mirror
+   * `.anl-graph-stage { gap: 8px }` and `.anl-graph-stage--expanded { padding:
+   * 12px 14px }` in `analysisSurface.ts` (the styles module) — read the rule,
+   * not this number, if either ever moves.
    */
   function stageInternalReservePx(stageEl: HTMLElement, exclude: HTMLElement): number {
     if (typeof document === 'undefined') return 0;
+    const ROW_ESTIMATE_PX = 30;
     const GAP_PX = 8;
     const STAGE_PADDING_PX = 24; // 12px top + 12px bottom
-    let content = 0;
-    let visible = 0;
-    for (const child of Array.from(stageEl.children)) {
-      if (child === exclude) continue;
-      const h = (child as HTMLElement).getBoundingClientRect().height;
-      if (h > 0) { content += h; visible += 1; }
-    }
-    // One gap per boundary between visible boxes, INCLUDING the boundary above
-    // the (always-present) frame: `visible` siblings plus the frame is
-    // `visible + 1` boxes in the flex column, i.e. `visible` gaps between them.
-    return content + visible * GAP_PX + STAGE_PADDING_PX;
+    const flowChildren = Array.from(stageEl.children).filter((c) => c !== exclude).length;
+    return flowChildren * (ROW_ESTIMATE_PX + GAP_PX) + STAGE_PADDING_PX;
   }
+
+  /** §GRAPH154 — the SAME 66vh budget `.anl-card` is CSS-capped to, minus
+   *  headroom for chrome this function cannot see (the card head, folds, the
+   *  provenance foot) at the point it runs — see the correction above. */
+  const COLLAPSED_HEIGHT_VH_FRACTION = 0.58;
+  const COLLAPSED_HEIGHT_MIN_PX = 440;
+  const COLLAPSED_HEIGHT_MAX_PX = 700;
 
   const heightPx = graphExpanded()
     ? Math.max(
@@ -1374,7 +1404,14 @@ export function renderGraph(host: HTMLElement, _def: AnalysisWidgetDef, _result:
           expandedChromeAboveGridPx() -
           stageInternalReservePx(stage, frame),
       )
-    : 430;
+    : Math.max(
+        COLLAPSED_HEIGHT_MIN_PX,
+        Math.min(
+          COLLAPSED_HEIGHT_MAX_PX,
+          Math.round((typeof window === 'undefined' ? 900 : window.innerHeight) * COLLAPSED_HEIGHT_VH_FRACTION) -
+            stageInternalReservePx(stage, frame),
+        ),
+      );
 
   if (graphMode() === '3d') {
     const handle = mountGraphViewport(box, {
@@ -1403,6 +1440,12 @@ export function renderGraph(host: HTMLElement, _def: AnalysisWidgetDef, _result:
       // The orbit is owned OUTSIDE the widget so a re-render (which every
       // selection causes) does not snap the camera back to the default.
       orbit: graphOrbit(),
+      // §GRAPH154 — the SAME hop map `buildGraphSubject` above already read
+      // off `focus` for the fill-alpha ramp; handed over again here so the
+      // canvas OVERLAY (drawn on top of the WebGL blit, see GraphViewport.ts
+      // `paintOverlay`) can ring the selected/connected nodes without a
+      // second BFS or a second idea of what "related" means.
+      hopOf: focus?.hopOf ?? null,
       // ⛔ The SAME dispatch the 2-D card and every other surface uses (C27 §4).
       // A private event here would be a second idea of what "selected" means.
       onPick: (id) => selectionBus.dispatch({ type: 'select', source: 'analytics', elementIds: [id] }),
@@ -1428,7 +1471,20 @@ export function renderGraph(host: HTMLElement, _def: AnalysisWidgetDef, _result:
       group: familyOf.get(n.id) ?? n.kind,
       weight: degrees.get(n.id) ?? 1,
     }));
-    box.style.minHeight = `${heightPx}px`;
+    // §GRAPH154 — an EXPLICIT `height`, not `min-height`. `.anl-nodelink` (the
+    // styles module) now matches with `height: 100%` instead of `auto`, so the
+    // SVG's own box becomes exactly this tall rather than deriving its height
+    // from its width via the intrinsic viewBox aspect ratio and leaving the
+    // rest as empty space under a floor. See `extent2dHeight` below for why
+    // the viewBox itself also grows to match, rather than merely letterboxing
+    // inside a taller box.
+    box.style.height = `${heightPx}px`;
+    // The viewBox's OWN height grows with the box it fills — otherwise a
+    // taller box just adds letterbox padding around an unchanged picture
+    // (`preserveAspectRatio="xMidYMid meet"` fits the EXISTING aspect ratio,
+    // it does not stretch to a new one). `GRAPH_2D_EXTENT[1]` remains the
+    // floor for a small/collapsed card.
+    const extent2dHeight = Math.max(GRAPH_2D_EXTENT[1], heightPx);
     renderNodeLink(box, nodes, projection.edges, {
       // §GRAPH-SEPARATION (L-12060). ⛔ THE 2-D LEVER IS THE EXTENT, NOT THE
       // REPULSION MULTIPLIER, and that is measured rather than assumed — see
@@ -1437,7 +1493,7 @@ export function renderGraph(host: HTMLElement, _def: AnalysisWidgetDef, _result:
       // 18.29 and the MINIMUM is 0.00, i.e. exactly-coincident bodies were
       // reachable on the shipped card. At 900×560 they are 28.87 and 14.42.
       width: GRAPH_2D_EXTENT[0],
-      height: GRAPH_2D_EXTENT[1],
+      height: extent2dHeight,
       // ⭐ The marks are scaled BACK UP by the same factor the viewBox grew, so
       // the extra room lands in the GAPS rather than being cancelled by the
       // uniform rescale an SVG viewBox performs. `graphNodeScale()` rides along —
@@ -1447,6 +1503,8 @@ export function renderGraph(host: HTMLElement, _def: AnalysisWidgetDef, _result:
       groupIndex,
       onPick: (id) => selectionBus.dispatch({ type: 'select', source: 'analytics', elementIds: [id] }),
       focus: focusCtl,
+      // §GRAPH154 — the SAME hop map the 3-D-in-card overlay rings with above.
+      hopOf: focus?.hopOf ?? null,
     });
   }
 

@@ -265,7 +265,13 @@ describe('⭐⭐ THE HONESTY PIN — what survives when EVERY block is collapsed
 
     // 2 ─ the always-visible honesty pin INSIDE the graph stage. This is the one
     //     that also survives EXPANSION, which covers the card head.
-    const pin = c.querySelector('.anl-graph-stage > .anl-honesty-pin');
+    //
+    // ⚠ AMENDED §GRAPH154 (L-12560..) — no longer a DIRECT child of the stage.
+    // §GRAPH-FLOAT-CONTROLS moved it (with the storey/view/toolbar bars) into
+    // `.anl-graph-controls`, the frame's own floating overlay, so it survives
+    // as a DESCENDANT of the stage rather than a direct child — still inside
+    // it, which is the property this test actually cares about.
+    const pin = c.querySelector('.anl-graph-stage .anl-honesty-pin');
     expect(pin, 'the honesty pin is missing or left the stage').not.toBeNull();
     expect(pin!.textContent).toMatch(/INCOMPLETE/);
     expect(pin!.textContent).toMatch(/LOWER BOUND/);

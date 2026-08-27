@@ -35,6 +35,7 @@ import {
 import { resolveActiveProjectId } from '../../engine/project/activeProjectId';
 import { forceLayout3D } from './forceLayoutND';
 import { normaliseToCube, type GraphSubject, type GraphNodeMark, type GraphLinkMark } from '../element-preview/GraphPreviewSubject';
+import { relatedFillOpacity } from './hopEmphasis';
 
 /** Fired whenever any control below changes. `AnalysisSurface` re-renders the card. */
 export const GRAPH_VIEW_EVENT = 'anl-graph-view-changed';
@@ -353,6 +354,12 @@ export function buildGraphSubject(input: SubjectInputs): GraphSubject {
 
   const maxDeg = Math.max(1, ...ids.map((id) => degrees.get(id) ?? 1));
   const lit = focus?.nodeIds ?? null;
+  // §GRAPH154 (L-12560..) — the SAME hop map the 2-D SVG card and the 3-D-in-
+  // card canvas overlay ring both read (`hopEmphasis.ts`), so the fill's own
+  // alpha ramp here tells the identical story: full strength at the seed,
+  // fading per hop, DORMANT_3D for anything the neighbourhood does not reach —
+  // never a second, independently-tuned dormant treatment.
+  const hopOf = focus?.hopOf ?? null;
 
   const nodes: GraphNodeMark[] = [];
   for (const n of projection.nodes) {
@@ -360,12 +367,15 @@ export function buildGraphSubject(input: SubjectInputs): GraphSubject {
     if (!p) continue;
     const deg = degrees.get(n.id) ?? 1;
     const r = (0.028 + 0.055 * Math.sqrt(deg / maxDeg)) * scale;
+    const hop = hopOf?.get(n.id);
+    const alpha =
+      hopOf === null ? 1 : hop === undefined ? DORMANT_3D : hop <= 0 ? 1 : relatedFillOpacity(hop);
     nodes.push({
       id: n.id,
       p,
       r,
       colour: nodeColour(n.id),
-      alpha: lit === null || lit.has(n.id) ? 1 : DORMANT_3D,
+      alpha,
     });
   }
 

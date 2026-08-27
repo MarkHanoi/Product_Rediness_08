@@ -815,7 +815,12 @@ export const ANALYSIS_SURFACE_STYLES = `
   background: var(--app-surface-sunken);
   padding: 4px;
 }
-.anl-nodelink { display: block; width: 100%; min-width: 420px; height: auto; }
+/* §GRAPH154 (L-12560..) — 'height: 100%' replaces 'height: auto'. The box now
+   gets an EXPLICIT pixel height from 'widgetRenderers.ts' ('box.style.height'),
+   and the viewBox's own height grows to match (see 'extent2dHeight' there), so
+   the SVG fills that box rather than deriving its own height from its width
+   via the intrinsic viewBox aspect ratio and leaving a gap under a floor. */
+.anl-nodelink { display: block; width: 100%; min-width: 420px; height: 100%; }
 .anl-nodelink g[role='button']:focus-visible {
   outline: 2px solid var(--app-focus-ring);
   outline-offset: 2px;
@@ -1562,6 +1567,77 @@ export const ANALYSIS_SURFACE_STYLES = `
 .anl-graph-expand:hover { color: var(--app-accent); border-color: var(--app-accent); }
 .anl-graph-expand:focus-visible { outline: none; box-shadow: var(--app-focus-ring); }
 
+/* ═══════════════════════════════════════════════════════════════════════════
+   §GRAPH-FLOAT-CONTROLS (L-12561, lane §GRAPH154) — buttons floating ON TOP
+   of the graph, not stacked above it
+   ═══════════════════════════════════════════════════════════════════════════
+
+   Founder, verbatim: 'make the graphs larger occupy all the proposed shape -
+   the buttons can be floating on top of the graphs.' Every control survives
+   this move — storey, relationship view, the honesty qualifier, draw mode,
+   node size, focus hops, reset, both exports — nothing is removed. They move
+   from being '.anl-graph-stage's own flex children (each one consuming real
+   height, three rows stacked above the canvas before it could even start) to
+   being '.anl-graph-frame's own overlay, painted OVER the canvas instead.
+
+   TWO HAZARDS A FLOATING BAR INTRODUCES, BOTH HANDLED HERE:
+
+   1. POINTER CAPTURE. '.anl-graph-controls' itself is 'pointer-events: none'
+      -- an empty stretch of its background lets a click or a drag fall
+      straight through to the canvas beneath, exactly as if the overlay were
+      not there. Every bar it holds re-enables 'pointer-events: auto' on
+      ITSELF and sizes to its own content ('width: fit-content', never
+      '100%'), so only the visible chips/sliders/buttons capture the pointer
+      -- never the transparent gutter around them.
+
+   2. OCCLUSION. A translucent, blurred backing plate gives each bar real
+      contrast against BOTH the pale and the saturated node fills the
+      founder's own screenshot showed (tan, grey, warm orange, teal, dark
+      green); 'max-width' keeps the whole cluster out of the canvas CENTRE,
+      anchored top-left -- clear of the corner the expand ('anl-graph-expand')
+      control owns. */
+
+.anl-graph-controls {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  right: 40px; /* clears the corner expand button, .anl-graph-expand */
+  z-index: 3;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+  max-width: min(560px, 74%);
+  pointer-events: none;
+}
+
+.anl-graph-controls > * {
+  pointer-events: auto;
+  width: fit-content;
+  max-width: 100%;
+}
+
+.anl-graph-controls > .anl-scope-bar,
+.anl-graph-controls > .anl-honesty-pin,
+.anl-graph-controls > .anl-fold-host {
+  background: color-mix(in srgb, var(--app-panel-bg) 88%, transparent);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  border: 1px solid var(--app-border-light);
+  border-radius: var(--app-radius-sm);
+  padding: 4px 7px;
+  box-shadow: var(--app-shadow-card);
+}
+
+/* The pin no longer scrolls past anything to reach -- it is already pinned to
+   the canvas's own top corner by the floating overlay it now lives inside, so
+   the sticky behaviour the collapsed card used it for (see the '.anl-honesty-
+   pin' rule above) would only add a redundant, no-op position context here. */
+.anl-graph-controls > .anl-honesty-pin {
+  position: static;
+  margin: 0;
+}
+
 /* §GRAPH-NODE-LEGEND (L-12061). ⛔ A DISC, where the edge legend uses a BAR: the
    two legends sit one above the other on the same eight-value rotation, and the
    SHAPE is what says which key you are reading. Colour is never the only
@@ -1578,6 +1654,17 @@ export const ANALYSIS_SURFACE_STYLES = `
   width: 8px;
   height: 8px;
   border-radius: 50%;
+}
+
+/* §GRAPH154 (L-12560..) — the SECOND legend line, additive, shown only while a
+   model selection is active. Same colour, lighter weight and normal case than
+   '.anl-nodelink-legend-lead' above it -- a visual "this is a note, not the
+   claim" cue, since the claim itself ('colour = element category') is on the
+   line above and does not change meaning when this one appears. */
+.anl-nodelink-legend-ring-note {
+  font-weight: 600;
+  text-transform: none;
+  letter-spacing: normal;
 }
 
 /* The two sliders on the graph toolbar. They sit INSIDE an '.anl-scope-label', so
