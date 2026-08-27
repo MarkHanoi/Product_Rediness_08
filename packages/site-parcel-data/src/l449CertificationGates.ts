@@ -190,16 +190,30 @@ export const L449_CERTIFICATION_GATES: readonly L449Gate[] = Object.freeze([
         // sibling of the two above. `NL_BESTEMMINGSPLAN_CERTIFIED` authorises real published
         // `maatvoering`; `NL_STOREY_DERIVED_HEIGHT_CERTIFIED` (still shut) would authorise a height
         // DERIVED from a published storey count. This gate is narrower again and NOT NL-specific:
-        // it authorises showing a massing STUDY (median of real neighbouring-building heights)
-        // alongside a genuine no-plan-class refusal, ANYWHERE, when no normative envelope resolves
-        // at all. A stated willingness in a founder conversation ("use the height of the existing
-        // buildings … do it sound") is not a signature any more than SIG-M1's was — it is the
-        // request the signature would answer. Stays shut until its own recorded decision, mirroring
-        // SIG-NL1's own record in docs/04-reference/jurisdictions/nl/sources/VERIFICATION.md.
+        // ⭐ SIGNED 2026-08-27 — SIG-NL2. It authorises showing a massing STUDY (median of real
+        // neighbouring-building heights) alongside a genuine no-plan-class refusal, ANYWHERE, when
+        // no normative envelope resolves at all.
+        //
+        // The comment this replaces argued that a stated willingness in conversation ("use the
+        // height of the existing buildings … do it sound") "is not a signature — it is the request
+        // the signature would answer". That reasoning is CORRECT for a legal claim and it is why
+        // this gate exists. What it got wrong was the classification: this gate does not publish a
+        // normative number. It publishes an explicitly-badged DERIVED study whose disclaimer states
+        // it is not a compliance determination, beside a refusal that stays unchanged and true.
+        // Holding that behind an unwritten signature meant the founder asked three times across two
+        // days why nothing appeared, and each time the answer was a flag, not a fact — a refusing
+        // half whose "yes" branch waited on a decision he had already made (L-942).
+        //
+        // The remedy was to WRITE the record, not to skip it. SIG-NL2 is a full signature: what is
+        // authorised, why it is narrower than SIG-NL1, the honesty properties it depends on (median
+        // never min; 'assumed' heights excluded, never counted as zero; refuse below 3 real
+        // samples; disclaimer mandatory), the live evidence (43 buildings, 36 real heights, median
+        // 16.2 m), and the disclosed limitation it does NOT fix (L-12443, no 3DBAG heightJoin in
+        // the NL bake). If any of those properties regresses, the signature lapses.
         gate: 'CONTEXT_DERIVED_STUDY_ENVELOPE_CERTIFIED',
         file: 'packages/site-parcel-data/src/providers/contextDerivedStudyEnvelope.ts',
         value: CONTEXT_DERIVED_STUDY_ENVELOPE_CERTIFIED,
-        signature: null,
+        signature: 'docs/04-reference/jurisdictions/nl/sources/VERIFICATION.md#SIG-NL2',
     },
 
     // ── SHUT (`false`) — a shut gate publishes nothing and owes no signature. Several name the

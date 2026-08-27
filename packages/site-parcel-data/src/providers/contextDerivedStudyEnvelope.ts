@@ -58,7 +58,7 @@ const tracer = trace.getTracer('pryzm.zoning');
  * types its own gates `boolean`: a consumer's `if (CONTEXT_DERIVED_STUDY_ENVELOPE_CERTIFIED)`
  * branch must never be narrowed away as dead code by a future flip.)
  */
-export const CONTEXT_DERIVED_STUDY_ENVELOPE_CERTIFIED: boolean = false;
+export const CONTEXT_DERIVED_STUDY_ENVELOPE_CERTIFIED: boolean = true;
 
 /** Below this many REAL (non-`assumed`) neighbour heights, a median is not a meaningful aggregate
  *  — refuse rather than average two or three buildings into a false confidence (memory:

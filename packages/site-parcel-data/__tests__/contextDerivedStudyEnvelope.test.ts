@@ -15,6 +15,8 @@ import {
     CONTEXT_STUDY_DEFAULT_MIN_SAMPLE_SIZE,
     type ContextStudyNeighbourSample,
 } from '../src/index.js';
+// SIG-NL2: an OPEN gate must name its recorded decision — asserted below, not assumed.
+import { L449_CERTIFICATION_GATES } from '../src/l449CertificationGates.js';
 import {
     ContextDerivedStudyEnvelopeSchema,
     CONTEXT_DERIVED_STUDY_STATUS,
@@ -40,8 +42,24 @@ function neighbour(
 }
 
 describe('CONTEXT_DERIVED_STUDY_ENVELOPE_CERTIFIED — the gate itself', () => {
-    it('is shut (false) by default — §UNSIGNED-GATE-DEFAULTS-SHUT', () => {
-        expect(CONTEXT_DERIVED_STUDY_ENVELOPE_CERTIFIED).toBe(false);
+    // ⚠ AMENDED 2026-08-27 — this asserted `false` under §UNSIGNED-GATE-DEFAULTS-SHUT, which was
+    // correct while the gate was unsigned. It is now SIGNED (SIG-NL2), so asserting `false` would
+    // pin the repo to the state the founder was asking us to leave.
+    //
+    // The assertion is UPGRADED, not deleted: an OPEN gate must carry a signature, and that is the
+    // invariant actually worth defending. §UNSIGNED-GATE-DEFAULTS-SHUT survives intact in its real
+    // form — open ⇒ signed — rather than being silently dropped when it became inconvenient. A gate
+    // flipped open with `signature: null` still fails here, which is the failure mode that matters.
+    it('is OPEN and therefore MUST name its signature — SIG-NL2', () => {
+        expect(CONTEXT_DERIVED_STUDY_ENVELOPE_CERTIFIED).toBe(true);
+        const row = L449_CERTIFICATION_GATES.find(
+            g => g.gate === 'CONTEXT_DERIVED_STUDY_ENVELOPE_CERTIFIED',
+        );
+        expect(row).toBeDefined();
+        expect(row!.value).toBe(true);
+        // The whole point of §L449-SIGNATURE-TOTALITY: open without a recorded decision is the bug.
+        expect(row!.signature).toBeTruthy();
+        expect(row!.signature).toContain('SIG-NL2');
     });
 });
 
