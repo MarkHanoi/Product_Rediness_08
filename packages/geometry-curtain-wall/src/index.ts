@@ -108,3 +108,36 @@ export {
     checkCurtainWallParameter,
     unknownCurtainWallParameterRefusal,
 } from './CurtainWallParameterConstraints.js';
+
+// §CWWELD169 (L-12800..) — CW↔CW move re-weld: the pure engine + its store
+// dispatch service. Mirrors `@pryzm/geometry-wall`'s `WallMoveReweld` /
+// `WallMoveReweldService` split; see CurtainWallMoveReweld.ts's module doc for
+// what is closed (mutual corner + dependent stem) and what is named as
+// deliberately NOT closed (the subject-as-guest case, and CW↔wall joints).
+export type {
+    CurtainReweldBaseline,
+    CurtainMoveReweldMovedWall,
+    CurtainMoveReweldPartner,
+    CurtainMoveReweldOptions,
+    CurtainMoveReweldEntry,
+    CurtainMoveRefusalReason,
+    CurtainMoveReweldRefusal,
+    CurtainMoveNotApplicableReason,
+    CurtainMoveNotApplicable,
+    CurtainMoveReweldPlan,
+} from './CurtainWallMoveReweld.js';
+export {
+    computeCurtainWallMoveReweldCensus,
+    MIN_CURTAIN_MOVE_M,
+    MIN_CURTAIN_STUB_LENGTH,
+} from './CurtainWallMoveReweld.js';
+export type {
+    CurtainWallReweldStoreRef,
+    CurtainWallMoveReweldServiceDeps,
+    CurtainReweldCommandLike,
+    CurtainReweldCommandManagerLike,
+    CurtainReweldCommandManagerRef,
+    CurtainReweldCascadeCommandFactory,
+    CurtainReweldConsequenceReport,
+} from './CurtainWallMoveReweldService.js';
+export { CurtainWallMoveReweldService } from './CurtainWallMoveReweldService.js';

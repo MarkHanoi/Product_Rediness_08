@@ -195,6 +195,8 @@ import { AddCurtainGridLineCommand } from '@pryzm/command-registry';
 import { RemoveCurtainGridLineCommand } from '@pryzm/command-registry';
 import { UpdateAllCurtainWallsCommand } from '@pryzm/command-registry';
 import { CascadeWallBaselineCommand } from '@pryzm/command-registry';
+// §CWWELD169 — CW↔CW move re-weld cascade (mirrors CascadeWallBaselineCommand).
+import { CascadeCurtainWallBaselineCommand } from '@pryzm/command-registry';
 import { TogglePinGridCommand } from '@pryzm/command-registry';
 import { CreateGridSystemCommand } from '@pryzm/command-registry';
 import { UpdateFloorLayersCommand } from '@pryzm/command-registry';
@@ -489,6 +491,9 @@ const REGISTRY = new Map<string, CommandFactory>([
     // serialize drops per-entry prevBaseLine so undo-after-replay can't restore the old
     // baseline (pre-existing; forward apply on a remote peer is what replay needs).
     ['CASCADE_WALL_BASELINE', (s) => new CascadeWallBaselineCommand(s.payload as any)],
+    // CascadeCurtainWallBaselineCommand(input{cause,entries}) — same replay shape
+    // as its wall sibling above (§CWWELD169).
+    ['CASCADE_CURTAIN_WALL_BASELINE', (s) => new CascadeCurtainWallBaselineCommand(s.payload as any)],
     // Grid pin/system + floor layers — payload round-trips 1:1 into each ctor.
     ['TOGGLE_PIN_GRID', (s) => new TogglePinGridCommand(s.payload as any)],
     ['CREATE_GRID_SYSTEM', (s) => new CreateGridSystemCommand(s.payload as any)],

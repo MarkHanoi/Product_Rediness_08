@@ -46,6 +46,10 @@ import { WallInstanceBridge, WallMoveReweldService } from '@pryzm/geometry-wall'
 // latch, injected into WallMoveReweldService (factory pattern: geometry-wall must
 // not import command-registry at module load, §SCC).
 import { CascadeWallBaselineCommand, isCascadeWallBaselineApplying } from '@pryzm/command-registry';
+// §CWWELD169 (L-12800..) — the curtain-wall CW↔CW move re-weld, mirroring the
+// wall pair immediately above (same factory-injection reason, §SCC).
+import { CurtainWallMoveReweldService } from '@pryzm/geometry-curtain-wall';
+import { CascadeCurtainWallBaselineCommand, isCascadeCurtainWallBaselineApplying } from '@pryzm/command-registry';
 import { semanticGraphManager } from '@pryzm/core-app-model';
 // §STARTUP-BUDGET / §STARTUP-BOOT-STAGES (L-10560) — the boot's own stage marks. The
 // founder's run showed a 2.5-second gap between `cesium:warm-start` and
@@ -1017,6 +1021,34 @@ export async function bootstrap(
         },
     });
     void wallMoveReweldService; // owned by the engine lifetime; disposed with it
+
+    // ── §CWWELD169 (L-12800..): CW↔CW junction re-weld on curtain-wall move ──
+    // The wall service above has ZERO curtain-wall coverage (measured: no
+    // `CurtainWall` reference anywhere in `WallMoveReweldService.ts` /
+    // `WallMoveReweld.ts`) — moving a curtain wall left its joined partner
+    // exactly where it stood, the room-boundary loop broke past the 200mm
+    // `hostSnap` floor, and the room it bounded was silently REMOVED and not
+    // restorable by undo (C94 §TOBE.1.2, `§ROOM-LOSS-CENSUS`). This service is
+    // the missing engine for the CW↔CW case — see `CurtainWallMoveReweld.ts`'s
+    // module doc for exactly which joint shapes it closes (mutual corner +
+    // dependent stem) and which it declines by name (subject-as-guest;
+    // CW↔wall / wall↔CW are out of scope entirely for this lane).
+    const curtainWallMoveReweldService = new CurtainWallMoveReweldService(curtainWallStoreInstance, {
+        commandManagerRef: { current: commandManager },
+        makeCascadeCommand: (input) => new CascadeCurtainWallBaselineCommand(input),
+        isCascadeApplying: isCascadeCurtainWallBaselineApplying,
+        // Same channel as the wall service's own sink, for the same founder
+        // instruction (§L-921-ONE-CHANNEL, "I WANT THE MESSAGE ONLY ON THE AI
+        // CHAT") — a curtain-wall junction this move cannot repair is the same
+        // gesture, refused one subscriber later.
+        onConsequence: (report) => {
+            const sentences = report.detail.length > 0
+                ? report.detail
+                : [`${report.reason} — junction(s) left unrepaired: ${report.partnerIds.join(', ')}`];
+            for (const sentence of sentences) chatSay(sentence);
+        },
+    });
+    void curtainWallMoveReweldService; // owned by the engine lifetime; disposed with it
 
     // ── §3.2 + §MT-05: ONE hand-off, TWO consumers ────────────────────────────
     // ADR-0318 I-1 says the instance the StoreRegistry holds IS the instance the

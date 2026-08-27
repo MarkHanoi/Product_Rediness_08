@@ -66,6 +66,8 @@ export * from './curtainwall/BulkUpdateCurtainWallParameterCommand';
 export * from './curtainwall/ReplacePanelWithDoorCommand';
 export * from './curtainwall/UpdateAllCurtainWallsCommand';
 export * from './curtainwall/UpdateCurtainWallCommand';
+// §CWWELD169 — CW↔CW move re-weld cascade (mirrors CascadeWallBaselineCommand).
+export * from './curtainwall/CascadeCurtainWallBaselineCommand';
 
 // ─── Doors ────────────────────────────────────────────────────────────────
 export * from './doors/MoveDoorCommand';

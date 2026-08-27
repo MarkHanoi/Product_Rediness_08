@@ -221,6 +221,9 @@ export enum CommandType {
     // §CWPROPS152 — bulk curtain-WALL parameter batch (mullion size, panel
     // thickness, post/transom spacing), one undo entry for N walls.
     BULK_UPDATE_CURTAIN_WALL_PARAMETER = 'BULK_UPDATE_CURTAIN_WALL_PARAMETER',
+    // §CWWELD169 (L-12800..) — CW↔CW move re-weld cascade, mirroring
+    // CASCADE_WALL_BASELINE: one undo entry for N re-seated curtain walls.
+    CASCADE_CURTAIN_WALL_BASELINE = 'CASCADE_CURTAIN_WALL_BASELINE',
     CREATE_COLUMN = 'CREATE_COLUMN',
     UPDATE_COLUMN = 'UPDATE_COLUMN',
     DELETE_COLUMN = 'DELETE_COLUMN',
