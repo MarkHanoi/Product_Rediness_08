@@ -86,6 +86,16 @@ import {
     GROUND_SHADE_FILL_ALPHA,
     type EnvelopeDrawMode,
 } from '@pryzm/site-parcel-data';
+// §CESIUMENV167 (L-12760) — the study's hue/fill-alpha constants moved to this shared,
+// dependency-free module so `CesiumViewport.ts` (the globe / 3D Site) can read the IDENTICAL
+// numbers rather than a hand-copied second literal. Pure hoist — same values, same names, no
+// behaviour change here. See that module's header for the full reasoning (unit-independent
+// colour/opacity live there; unit-dependent dash sizing stays local to each renderer, below).
+import {
+    STUDY_MASSING_TEAL,
+    STUDY_MASSING_FILL_ALPHA,
+    STUDY_GROUND_SHADE_FILL_ALPHA,
+} from './contextStudyMassingStyle';
 
 /** The unified PRYZM preview / site-context violet. */
 const PRYZM_VIOLET = 0x6600ff;
@@ -110,18 +120,9 @@ const GROUND_Y_OFFSET = 0.02;
 //                  anywhere else in this file.
 // ════════════════════════════════════════════════════════════════════════════════════════════
 
-/** Teal — deliberately outside the confident-violet / provisional-grey / suggested-amber family
- *  `envelopeRenderStyle.ts` already owns, so a study massing cannot be mistaken for any of them. */
-const STUDY_MASSING_TEAL = 0x00a99a;
-
-/** Near-wireframe fill — well below the plan-backed envelope's normal 0.16, matching the weight
- *  this file already uses for an upper-bound / open-top plan envelope (0.05), so a study reads at
- *  least as tentative as PRYZM's own least-confident plan-backed rendering, never more solid. */
-const STUDY_MASSING_FILL_ALPHA = 0.05;
-
-/** The study's own ground-shade weight — lighter than the real envelope's `GROUND_SHADE_FILL_ALPHA`
- *  (0.22): the shade underneath an indicative study must read as the LESSER claim of the two. */
-const STUDY_GROUND_SHADE_FILL_ALPHA = 0.12;
+// STUDY_MASSING_TEAL / STUDY_MASSING_FILL_ALPHA / STUDY_GROUND_SHADE_FILL_ALPHA — imported above
+// from `./contextStudyMassingStyle` (§CESIUMENV167). Used exactly as before this file's own hue/
+// fill-alpha constants; only their DEFINITION moved, so `CesiumViewport.ts` reads the same values.
 
 /** Dashed-rim tuning (metres) — small relative to a typical building footprint so the dashes read
  *  as a texture, not as a countable set of segments. */

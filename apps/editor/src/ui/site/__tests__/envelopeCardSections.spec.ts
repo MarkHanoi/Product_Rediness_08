@@ -52,6 +52,11 @@ import {
     STUDY_HEIGHT_SETBACK_INPUT_TESTID,
     STUDY_HEIGHT_SAVE_BTN_TESTID,
     STUDY_HEIGHT_STATUS_TESTID,
+    // §OLDPROJ168 — the stored-determination notice moved here from GISAreaLayout, so the
+    // hydrated-date pin below now asserts the producer + its exported id rather than a raw
+    // literal in a file that no longer owns it.
+    buildStoredDeterminationNoticeHtml,
+    STORED_DETERMINATION_TESTID,
 } from '../envelopeCardSections';
 import { CONTEXT_STUDY_DEFAULT_MIN_SAMPLE_SIZE, type ContextDerivedStudyEnvelopeResult } from '@pryzm/site-parcel-data';
 import type { UserSuppliedStudyHeightRecord } from '../userSuppliedStudyHeightState';
@@ -289,7 +294,17 @@ describe('§L-1654 wiring — the card HYDRATES the persisted determination (sou
     });
 
     it('a hydrated card wears its date: the banner renders on BOTH the full and refusal templates', () => {
-        expect(src).toContain('data-testid="envelope-hydrated-at"');
+        // ⚠ AMENDED (§OLDPROJ168) — this asserted the RAW LITERAL `data-testid="envelope-hydrated-at"`
+        // appeared in GISAreaLayout.ts. The literal moved: the notice's PRODUCER is now the pure
+        // module beside the other card sections, which owns the id as an exported constant. That is
+        // the SAME move the neighbouring reduced-card test already documents ("the SENTENCE is
+        // unchanged, its PRODUCER moved"), so this pin is updated to follow it rather than being
+        // deleted — the invariant it defends (a hydrated card wears its date, on BOTH templates) is
+        // unchanged and still asserted below.
+        expect(STORED_DETERMINATION_TESTID).toBe('envelope-hydrated-at');
+        expect(buildStoredDeterminationNoticeHtml('2026-08-25T16:52:26.016Z', { refreshAvailable: false }))
+            .toContain(`data-testid="${STORED_DETERMINATION_TESTID}"`);
+        // BOTH templates still emit the line — the half the original test was really protecting.
         expect((src.match(/\$\{safeHydratedLine\}/g) ?? []).length).toBeGreaterThanOrEqual(2);
         expect(src).toContain('Stored determination');
     });

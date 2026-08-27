@@ -237,6 +237,13 @@ import {
     buildLegacyDeterminationNoticeHtml,
     LEGACY_NOTICE_TESTID,
     LEGACY_RECOMPUTE_BTN_TESTID,
+    // §OLDPROJ168 (L-12780..) — the "Stored determination" notice's OWN refresh escape hatch,
+    // shared by the refusal-card AND the full-determination templates below (C06 §13.3 — ONE
+    // producer). See `envelopeCardSections.ts`'s own header for why this is an EXPLICIT button
+    // rather than an automatic re-derive on load.
+    buildStoredDeterminationNoticeHtml,
+    STORED_DETERMINATION_TESTID,
+    REFRESH_DETERMINATION_BTN_TESTID,
     // §BCN-OV-CITATION (L-1656) — which article a `block-constructed` envelope cites,
     // decided by the engine's own derivation row rather than a hard-coded string.
     resolveBlockConstructedSourceText,
@@ -2720,6 +2727,65 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
         };
     };
 
+    /**
+     * §OLDPROJ168 (L-12780..) — build the "Stored determination" notice for a HYDRATED card
+     * (a determination read back from persistence, never re-derived on load — see
+     * `refreshEnvelopePanel`'s `hydratedAtIso`). Reuses `legacyRecomputeUnavailableReason`'s
+     * predicate: it asks nothing "legacy"-specific, only whether there is an active site with a
+     * committed ≥3-point boundary to re-check against — the exact precondition
+     * `reapplyZoningForActiveSite` itself applies.
+     */
+    const buildHydratedDeterminationLine = (determinedAtIso: string): string => {
+        const unavailableReason = legacyRecomputeUnavailableReason();
+        return buildStoredDeterminationNoticeHtml(determinedAtIso, {
+            refreshAvailable: unavailableReason === null,
+            unavailableReason,
+        });
+    };
+
+    /**
+     * §OLDPROJ168 (L-12780..) — wire the "Stored determination" notice's OWN refresh button.
+     * Shared by both card templates (refusal + full determination) since both render the SAME
+     * `buildStoredDeterminationNoticeHtml` output whenever `hydratedAtIso` is non-null.
+     *
+     * Reuses `recomputeEnvelopeDetermination` — the SAME re-solve `wireLegacyRecompute` already
+     * calls: re-runs the C58 determination against the boundary already committed to this
+     * project (never redraws it) and PERSISTS whatever the source answers today, dated today.
+     * That write is what lets the study massing + "type your own height" section reach a
+     * restored parcel: a genuine NL absence answer triggers `attachNlContextDerivedStudy` from
+     * inside the SAME `applyZoning` chain a fresh commit uses (§MANUALENV159 requirement 3) —
+     * there is no separate wiring to add for that; re-solving IS what reaches it.
+     *
+     * On failure the notice is REPLACED by its stated-failure arm — never a live-looking button
+     * that silently re-enables (the L-1187 rule `wireLegacyRecompute` above already follows).
+     */
+    const wireStoredDeterminationRefresh = (panel: HTMLDivElement, determinedAtIso: string): void => {
+        const btn = panel.querySelector(
+            `[data-testid="${REFRESH_DETERMINATION_BTN_TESTID}"]`,
+        ) as HTMLButtonElement | null;
+        if (!btn || btn.disabled) return;
+        btn.onclick = (ev) => {
+            ev.stopPropagation(); // never bubble into the header's drag-start handler
+            btn.disabled = true;
+            btn.textContent = 'Checking…';
+            // Same success contract as `wireLegacyRecompute`: a successful recompute repaints
+            // the WHOLE card via `refreshEnvelopePanel`, so there is nothing to clean up here —
+            // only the failure path has to speak.
+            if (recomputeEnvelopeDetermination()) return;
+            const notice = panel.querySelector(
+                `[data-testid="${STORED_DETERMINATION_TESTID}"]`,
+            ) as HTMLElement | null;
+            if (!notice) return;
+            notice.outerHTML = buildStoredDeterminationNoticeHtml(determinedAtIso, {
+                refreshAvailable: false,
+                failedReason:
+                    'The determination engine could not resolve a site context for this project '
+                    + 'in this session — this is a PRYZM-side failure, not a fact about your '
+                    + 'land, and it says nothing about whether the plot is buildable.',
+            });
+        };
+    };
+
     const renderReducedEnvelopePanel = (viewport: HTMLElement, maxHeightM: number | null): void => {
         const panel = ensureEnvelopePanel(viewport);
         const heightTxt = maxHeightM !== null ? `${maxHeightM.toFixed(1)} m` : '—';
@@ -3115,19 +3181,13 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
         // prominently (mirroring the parcel section's "Retrieved:" line): a stored snapshot
         // presented as freshly derived would fabricate recency, which is provenance (C58 §1.4).
         // Rendered on BOTH the full and refusal templates; '' for a session-solved envelope.
-        const safeHydratedLine = hydratedAtIso
-            ? (() => {
-                const d = new Date(hydratedAtIso);
-                const dateTxt = Number.isFinite(d.getTime())
-                    ? d.toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' })
-                    : hydratedAtIso;
-                return `<div data-testid="envelope-hydrated-at" style="margin-top:2px;margin-bottom:6px;padding:5px 8px;border-radius:6px;background:#f3eeff;color:#6600FF;font-size:10px;line-height:1.45;">
-                     <b>Stored determination · ${escHtml(dateTxt)}.</b> Determined when the parcel was
-                     committed and saved with this project — not re-derived on load. Re-commit the
-                     parcel to refresh it.
-                   </div>`;
-            })()
-            : '';
+        //
+        // §OLDPROJ168 (L-12780..) — "Re-commit the parcel to refresh it" is GONE from this line.
+        // It was the ONLY stated route forward and it asked the user to redraw geometry to fix a
+        // provenance gap — see `buildStoredDeterminationNoticeHtml`'s own header for why. The
+        // notice now carries its own "Re-check this parcel" button (wired below, both templates)
+        // that re-asks the source without touching the boundary.
+        const safeHydratedLine = hydratedAtIso ? buildHydratedDeterminationLine(hydratedAtIso) : '';
 
         // ── §L-550 PHASE-1B — THE REFUSAL CARD. ──────────────────────────────────────────────
         // `status: 'not-applicable'` means the ORDINANCE answered and its answer is "no private
@@ -3306,6 +3366,11 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
             wireEnvelopeClose(panel);
             wireManualZoneButton(panel);
             wireStudyHeightEntry(panel);
+            // §OLDPROJ168 — the REFUSAL-card arm. A stored determination is a dated snapshot, so
+            // the notice it renders needs its button live here too: this is the arm the founder
+            // actually lands on with an old project (a stored `source-data-unavailable` from a
+            // past session), and it was the one route out that the copy named but never wired.
+            if (hydratedAtIso) wireStoredDeterminationRefresh(panel, hydratedAtIso);
             return;
         }
         const setback = (c: 'setback.front' | 'setback.side' | 'setback.rear'): string => {
@@ -3570,6 +3635,11 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
              ${safeEnvToggle}`;
         wireEnvelopeToggle(panel);
         wireEnvelopeClose(panel);
+        // §OLDPROJ168 — the FULL-card arm. Same reasoning as the refusal arm above: whenever the
+        // card is showing a HYDRATED (stored, dated) determination rather than a live one, the
+        // "Re-check this parcel" route must be live. Guarded on `hydratedAtIso` so a freshly
+        // solved card — which has nothing stale to re-check — never renders a live button.
+        if (hydratedAtIso) wireStoredDeterminationRefresh(panel, hydratedAtIso);
     };
 
     /**

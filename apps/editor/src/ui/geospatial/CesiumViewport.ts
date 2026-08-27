@@ -72,7 +72,28 @@ import {
 // ⭐ §ENVELOPE-TWO-AXES (C58 §1.17 / L-1188) — the PURE projection rule that turns the user's two
 // visibility axes into the solids to draw. It lives in L2 beside `envelopeToMassing` (the §1.14
 // seam) so BOTH rasterisers obey ONE rule; this viewport holds no opinion about what "off" means.
-import { applyEnvelopeVisibilityAxes, envelopeDrawMode } from "@pryzm/site-parcel-data";
+// §CESIUMENV167 (L-12760) — `GROUND_SHADE_HEIGHT_M` added: the context-study rasteriser (below)
+// needs the SAME flat-shade thickness the plan-backed envelope's ground-shade already uses, so a
+// study shade and a real-envelope shade never disagree about how "flat" a flat shade is.
+import { applyEnvelopeVisibilityAxes, envelopeDrawMode, GROUND_SHADE_HEIGHT_M } from "@pryzm/site-parcel-data";
+// §CESIUMENV167 (L-12760) — the founder tested "3D Site" (this Cesium viewport) and saw NOTHING
+// for his 24.5 m study: §ENV3D164 (commit 465c65b0) wired it only into the THREE.js BIM/plan scene
+// (`ParcelBoundarySceneRenderer.ts`). Founder clarification: BOTH viewports were always the goal —
+// this is ADDITIVE alongside that renderer, never a replacement for it. Reads the SAME session-only
+// holder that renderer subscribes to, keyed by the SAME site id (C84 EI-9 — one resolved study, two
+// rasterisers, neither re-derives the footprint or the height).
+import {
+  getContextDerivedStudyEnvelope,
+  subscribeContextDerivedStudyEnvelope,
+} from "../site/contextDerivedStudyEnvelopeState";
+// §CESIUMENV167 — the SAME hue/fill-alpha constants `ParcelBoundarySceneRenderer.ts`'s THREE study
+// volume uses (hoisted to this shared, dependency-free module by this lane), so the two viewports
+// can never disagree about what "the study" looks like.
+import {
+  STUDY_MASSING_TEAL_CSS,
+  STUDY_MASSING_FILL_ALPHA,
+  STUDY_GROUND_SHADE_FILL_ALPHA,
+} from "../site/contextStudyMassingStyle";
 // §FIX-FORMA-OPENINGS-UNKNOWN (GR-10, the []-means-unknown drain) — the pure
 // openings decision: an OMITTED openings array (older callers) is UNKNOWN,
 // never a determined "this building has no openings"; the envelope subject's
@@ -1010,6 +1031,12 @@ export class CesiumViewport {
    *  (the toggle's `else { refreshEnvelopePanel(); }` branch re-rendered NOTHING whenever
    *  the site pane was in `map2d` sub-mode — flag off, box still there). */
   private envelopeVisibilitySub: (() => void) | null = null;
+  /** §CESIUMENV167 (L-12760) — this viewport's subscription to the context-derived-study-envelope
+   *  holder (mirrors `envelopeVisibilitySub` immediately above, and
+   *  `ParcelBoundarySceneRenderer`'s own subscription to the SAME module). PUSH, not poll: a study
+   *  saved (or replaced by a re-typed height, or cleared by a project switch) repaints this globe
+   *  without anything else having to remember to poke it. */
+  private contextStudySub: (() => void) | null = null;
   /** When true, the NEXT `site.location-changed` does not re-fly the camera — set
    *  by a caller (GISAreaLayout's geocode `onFlyTo`) that has ALREADY framed the
    *  exact plot bbox, so the event-driven point-flyTo doesn't override the better
@@ -1704,6 +1731,25 @@ export class CesiumViewport {
       });
     } catch (e) {
       console.warn('[CesiumViewport][forma] §ENVELOPE-ONE-VISIBILITY subscribe failed (non-fatal):', e);
+    }
+
+    // §CESIUMENV167 (L-12760) — repaint when the STUDY massing changes: computed for the first
+    // time, replaced by a re-typed height, or cleared by a project switch. Same PUSH discipline as
+    // the subscription immediately above (and `ParcelBoundarySceneRenderer`'s identical
+    // subscription to this SAME module, §ENV3D164) — this viewport never polls, so a study saved
+    // while the globe is idle still reaches it the moment it is saved.
+    try {
+      this.contextStudySub = subscribeContextDerivedStudyEnvelope(() => {
+        const input = this.formaLastMassingInput;
+        if (!input) return; // nothing placed on this globe — nothing to repaint.
+        try {
+          this.renderFormaMassing({ ...input, frameCentroid: false, _skipTerrainClamp: true });
+        } catch (e) {
+          console.warn('[CesiumViewport][forma] §CESIUMENV167 study repaint failed (non-fatal):', e);
+        }
+      });
+    } catch (e) {
+      console.warn('[CesiumViewport][forma] §CESIUMENV167 study subscribe failed (non-fatal):', e);
     }
 
     // This is the LAST statement of the constructor: a viewport that threw part-way
@@ -5819,6 +5865,158 @@ export class CesiumViewport {
       `[CesiumViewport][forma] §ENVELOPE-VIA-MASSING render diag: envelope present=${envelopePresent ? 'y' : 'n'}, ` +
         `envelope entities added=${envelopeEntitiesAdded}, total massing entities=${this.formaMassingEntities.length}, ` +
         `viewer=${this.instanceId}, container=${this.container?.id ?? 'n/a'}.`,
+    );
+
+    // ── §CESIUMENV167 (L-12760) — INDICATIVE STUDY MASSING, the Cesium arm of §ENV3D164 ──────────
+    //
+    // The founder tested "3D Site" (THIS viewport) and his console showed the plan-backed rasteriser
+    // above finding nothing (`envelope present=n`) — his 24.5 m study, already drawing correctly in
+    // the THREE.js BIM/plan scene since §ENV3D164 (commit 465c65b0), had no Cesium counterpart at
+    // all. Founder clarification: BOTH viewports were always the goal; this block is ADDITIVE
+    // alongside `ParcelBoundarySceneRenderer.buildContextStudyVolume`, never a replacement for it —
+    // that renderer is untouched by this lane and keeps drawing exactly as before.
+    //
+    // ⭐ SAME SOURCE OF TRUTH (C84 EI-9) — reads the SAME session-only holder
+    // (`contextDerivedStudyEnvelopeState.ts`) that renderer subscribes to, keyed by the SAME site
+    // id, so the SAME 24.5 m cannot drift between the two viewports: there is exactly ONE resolved
+    // `ContextDerivedStudyEnvelope` per site and both rasterisers only PROJECT it — neither
+    // recomputes the footprint nor re-derives the height. Read directly here (not threaded through
+    // `input`) for the same reason the THREE renderer reads it directly rather than taking it as a
+    // constructor argument: unlike the plan-backed envelope (which GISAreaLayout resolves and
+    // forwards as `input.envelope`), the study has no upstream per-render resolver to mirror, so
+    // both renderers go straight to the one shared map instead of inventing one.
+    //
+    // ⛔ MUTUAL EXCLUSIVITY WITH THE PLAN-BACKED ENVELOPE ABOVE — ENFORCED HERE, NOT BY OMISSION.
+    // `ContextDerivedStudyEnvelope`'s own schema header: it is offered "ONLY where no normative
+    // buildable envelope resolves at all" — the SAME rule §ENV3D164 encodes in THREE as
+    // `if (envelopeMesh) {…} else { buildContextStudyVolume(...) }`. Gating on `envelopePresent`
+    // (computed above, BEFORE this block) means:
+    //   · §ENVELOPE-ZERO-INSET-REFUSAL (L-1171) is UNTOUCHED — it runs entirely inside
+    //     `resolveFormaEnvelope()` upstream (GISAreaLayout.ts) and reaches this function as
+    //     `envelopePresent=false, envSolids=[]`. That refusal is not what makes room for the study;
+    //     the study draws — or doesn't — on its OWN evidence, independent of why the plan-backed
+    //     path came back empty.
+    //   · This block can never SATISFY `envelopePresent` / the diagnostic just above — it runs
+    //     strictly AFTER that diagnostic was computed and logged, writes to its OWN counters
+    //     (`studyEntitiesAdded`), and never assigns into `envSolids` / `envelopeEntitiesAdded`.
+    let studyEntitiesAdded = 0;
+    let studyPresent = false;
+    let studyHeightBasisMethod: 'median-neighbour-height' | 'user-supplied' | null = null;
+    if (!envelopePresent) {
+      try {
+        const studyDrawMode = envelopeDrawMode(envAxes);
+        // §ENVELOPE-TWO-AXES, reused: 'none' ⇒ neither the volume nor the ground shade — no third,
+        // study-only control (the founder's own instruction). 'ground-shade' ⇒ a flat shade, same
+        // as a real envelope with the volume toggled off. 'volume' ⇒ the full open-top prism.
+        if (studyDrawMode !== 'none') {
+          const site = this.runtime?.siteModelStore?.getSite?.() ?? null;
+          const result = site ? getContextDerivedStudyEnvelope(site.id) : null;
+          // Absent (nothing computed yet), or a typed refusal (too few real neighbours / a
+          // degenerate setback) — either way there is no solid to draw. The refusal is surfaced in
+          // WORDS on the card (`envelopeCardSections.ts`); this rasteriser draws geometry only,
+          // never a placeholder for a refusal — identical posture to the THREE renderer.
+          if (result && result.ok) {
+            const study = result.study;
+            const studyRing = study.footprintPolygon;
+            if (Array.isArray(studyRing) && studyRing.length >= 3) {
+              studyPresent = true;
+              studyHeightBasisMethod = study.heightBasis.method;
+              const studyGroundShade = studyDrawMode === 'ground-shade';
+              // A study is ground-touching by construction (no tiers, no `baseHeightM` field at
+              // all) — the sink applies unconditionally, unlike the plan-backed loop's per-solid
+              // `baseHeightM === 0` check a few dozen lines above.
+              const studyBottom = baseHeight - FORMA_BASE_SINK_M;
+              const studyHeightM = studyGroundShade ? GROUND_SHADE_HEIGHT_M : study.maxHeight_m;
+              const studyTop = baseHeight + studyHeightM;
+              const studyPositions = studyRing.map((p) => toCartesian(p.x, p.z, studyBottom));
+              const studyFace = viewer.entities.add({
+                name: studyGroundShade
+                  ? 'pryzm-context-study-massing-ground-shade'
+                  : 'pryzm-context-study-massing-volume',
+                polygon: {
+                  hierarchy: new Cesium.PolygonHierarchy(studyPositions),
+                  height: studyBottom,
+                  extrudedHeight: studyTop,
+                  material: Cesium.Color.fromCssColorString(STUDY_MASSING_TEAL_CSS).withAlpha(
+                    studyGroundShade ? STUDY_GROUND_SHADE_FILL_ALPHA : STUDY_MASSING_FILL_ALPHA,
+                  ),
+                  // §L-616 — NO SOLID OUTLINE on the fill itself: Cesium's `PolygonGraphics.
+                  // outlineColor` accepts only a flat `Color`, never a dash material, so a solid
+                  // polygon outline here would be a FOURTH, undashed line competing with the
+                  // dashed rim below and reading as "surveyed", not "sketch". The dashed polyline
+                  // entity below carries the WHOLE outline channel — see its own comment for why
+                  // that is not a compromise (Cesium already draws a dashed line elsewhere in this
+                  // same method, for the parcel boundary).
+                  outline: false,
+                  shadows: Cesium.ShadowMode.DISABLED,
+                  perPositionHeight: false,
+                  // §OPEN-TOP-INDICATIVE, applied UNCONDITIONALLY (unlike the plan-backed loop
+                  // above, which honours a per-solid posture flag from the L2 classifier): a study
+                  // massing NEVER claims a buildable ceiling, so it is ALWAYS drawn open-top —
+                  // except the flat ground shade, which (§ENV3D164's own reasoning, carried over)
+                  // has no top to leave open in the first place.
+                  closeTop: studyGroundShade,
+                  closeBottom: true,
+                },
+              });
+              this.formaMassingEntities.push(studyFace);
+              this.formaSiteOverlayEntities.add(studyFace);
+              studyEntitiesAdded += 1;
+
+              // ── Dashed rim — the THIRD non-negotiable channel (hue = teal, silhouette = open
+              // top, outline = dashed), mirroring `buildDashedRim` in `ParcelBoundarySceneRenderer.
+              // ts` and reusing the SAME Cesium construction the parcel-boundary dashed line above
+              // already uses (`PolylineDashMaterialProperty`) — proof this API CAN express the
+              // channel; nothing here is a dropped channel. Traced at the TOP of whatever was just
+              // built, so it reads as THIS solid's edge, never the parcel's.
+              const studyRimRing = [...studyRing, studyRing[0]!];
+              const studyRimPositions = studyRimRing.map((p) => toCartesian(p.x, p.z, studyTop));
+              const studyRim = viewer.entities.add({
+                name: 'pryzm-context-study-massing-rim',
+                polyline: {
+                  positions: studyRimPositions,
+                  width: 2,
+                  clampToGround: false,
+                  material: new Cesium.PolylineDashMaterialProperty({
+                    color: Cesium.Color.fromCssColorString(STUDY_MASSING_TEAL_CSS),
+                    // §CESIUMENV167 DIVERGENCE (named, not silent) — THREE's dashed rim tunes
+                    // `dashSize`/`gapSize` in WORLD METRES (`ParcelBoundarySceneRenderer.ts`'s own
+                    // `STUDY_DASH_SIZE_M`/`STUDY_DASH_GAP_M`). Cesium's `PolylineDashMaterialProperty.
+                    // dashLength` is SCREEN PIXELS — there is no unit-compatible way to reuse the
+                    // metre constants, so this mirrors the EXISTING Cesium dashed parcel-boundary
+                    // line's own value (`dashLength: 16`, a few dozen lines above in this same
+                    // method) instead, for visual consistency WITHIN Cesium rather than a
+                    // metre-for-metre match to THREE that would not mean anything on screen.
+                    dashLength: 16,
+                  }),
+                },
+              });
+              this.formaMassingEntities.push(studyRim);
+              this.formaSiteOverlayEntities.add(studyRim);
+              studyEntitiesAdded += 1;
+            }
+          }
+        }
+      } catch (e) {
+        console.warn('[CesiumViewport][forma] §CESIUMENV167 context-study massing failed — skipped:', e);
+      }
+    }
+    if (studyPresent) {
+      console.log(
+        `[CesiumViewport][forma] §CESIUMENV167 (context-study rasteriser) drew ${studyEntitiesAdded} ` +
+          `entit${studyEntitiesAdded === 1 ? 'y' : 'ies'}: method=${studyHeightBasisMethod}, ` +
+          `${STUDY_MASSING_TEAL_CSS}, open-top, dashed rim — never the plan-backed envelope's ` +
+          `violet/grey solid outline.`,
+      );
+    }
+    // §CESIUMENV167 diagnostic — mirrors the §ENVELOPE-VIA-MASSING diag immediately above, for the
+    // same reason: the founder's console must be able to tell "no study drawn" apart from "drawn
+    // but not visible" without guessing. `skipped-envelope-present=y` names the MOST likely reason
+    // for `present=n` explicitly, since `envelopePresent` was already computed and logged above.
+    console.log(
+      `[CesiumViewport][forma] §CESIUMENV167 render diag: study present=${studyPresent ? 'y' : 'n'}, ` +
+        `study entities added=${studyEntitiesAdded}, skipped-envelope-present=${envelopePresent ? 'y' : 'n'}, ` +
+        `viewer=${this.instanceId}.`,
     );
 
     // §SITE-OVERLAY-DATUM-DIAG (L-466) — WHERE, VERTICALLY, DID THE OVERLAY LAND?
@@ -14017,6 +14215,18 @@ export class CesiumViewport {
         console.warn('[CesiumViewport] envelope-visibility subscription dispose failed:', e);
       }
       this.envelopeVisibilitySub = null;
+    }
+
+    // §CESIUMENV167 (L-12760) — same reasoning as the envelope-visibility unsubscribe above: a
+    // destroyed viewport must not stay subscribed to the context-study holder, or the repaint
+    // would run against a dead viewer. A re-mount subscribes fresh in its own constructor.
+    if (this.contextStudySub) {
+      try {
+        this.contextStudySub();
+      } catch (e) {
+        console.warn('[CesiumViewport] context-study subscription dispose failed:', e);
+      }
+      this.contextStudySub = null;
     }
 
     if (this.handler) {

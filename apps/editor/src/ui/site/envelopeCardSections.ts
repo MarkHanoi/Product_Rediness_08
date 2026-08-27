@@ -405,6 +405,114 @@ export function buildLegacyDeterminationNoticeHtml(opts: {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// §OLDPROJ168 (L-12780..) — the "Stored determination" notice's OWN refresh escape hatch
+// ─────────────────────────────────────────────────────────────────────────────
+//
+// Founder: an OLD project's envelope card read a STALE `source-data-unavailable` refusal
+// (Aug 25) as if it were still true, and its ONLY stated route forward was "Re-commit the
+// parcel" — a GEOMETRY-touching action prescribed for a PROVENANCE gap, exactly the
+// [[refusing-half-needs-its-escape-hatch]] shape §GIS-LEGACY-DETERMINATION-ESCAPE already
+// fixed for the "no determination at all" arm (above). This is the SAME fix for the other
+// arm: a project that DOES carry a stored `BuildableDeterminationRecord` — full determination
+// or cited refusal alike — but never re-asks the source on load (L-1654's own rule: "hydrate,
+// never re-derive").
+//
+// ⚠ L-12440 is why this matters beyond tidiness: a stored `source-data-unavailable` can go
+// STALE AND KNOWN-FALSE — the real answer for that exact parcel, queried live the same day,
+// was the DURABLE `no-plan-at-point`. A transient-outage story told forever about a settled,
+// correct refusal is worse than a missing feature (§CONTEXT-DATA-HONESTY): it is confidently
+// wrong AND it prescribes a useless action ("try again" on an answer that cannot change).
+//
+// ⭐ DECISION (i) vs (ii): an EXPLICIT button, not an automatic re-derive on every load. An
+// automatic re-derive would put a network call on the project-OPEN path (already a 179 s cold
+// start) and would SILENTLY MUTATE a stored determination the user may be relying on. An
+// explicit, honestly-worded button costs nothing until pressed and can never surprise.
+//
+// This is the ONE producer for the "Stored determination · [date]" line (C06 §13.3) — both the
+// refusal-card template and the full-determination template in `GISAreaLayout.refreshEnvelopePanel`
+// render it, and both wire the SAME button to the SAME `recomputeEnvelopeDetermination` the
+// legacy notice above already uses: it re-solves against the boundary ALREADY COMMITTED to this
+// project — never redrawing, never re-deriving project north — and PERSISTS whatever the source
+// answers today, dated today (§GIS-ENVELOPE-DETERMINATION-PERSIST, L-1654), refusal included
+// (C63 — a refusal is a correct answer, not a missing envelope). It never locally reinterprets
+// the OLD determination; it only ever asks the source again.
+export const STORED_DETERMINATION_TESTID = 'envelope-hydrated-at';
+export const REFRESH_DETERMINATION_BTN_TESTID = 'envelope-refresh-determination-btn';
+/** A verb that promises what actually happens — ask again, then store whatever comes back. */
+export const REFRESH_DETERMINATION_LABEL = 'Re-check this parcel';
+
+/**
+ * The "Stored determination · [date]" notice, now carrying its own refresh escape hatch.
+ * Three `data-state` arms (C84 EI-1b — distinct, never presented identically):
+ *   · `refresh-available`   — the route resolves; the button is live.
+ *   · `refresh-unavailable` — no site context / no committed boundary to re-check against;
+ *                             button DISABLED, reason shown (L-1187 honest-unavailability).
+ *   · `refresh-failed`      — the user pressed it and the re-check could not run.
+ *
+ * `escHtml` is applied to every interpolated runtime string; everything else is author-written
+ * static markup (§XSS-SINK-SCAN, C08 §3.1).
+ */
+export function buildStoredDeterminationNoticeHtml(
+    determinedAtIso: string,
+    opts: {
+        readonly refreshAvailable: boolean;
+        readonly unavailableReason?: string | null;
+        readonly failedReason?: string | null;
+    },
+): string {
+    const span = _tracer.startSpan('pryzm.site.buildStoredDeterminationNoticeHtml');
+    try {
+        const d = new Date(determinedAtIso);
+        const dateTxt = Number.isFinite(d.getTime())
+            ? d.toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' })
+            : determinedAtIso;
+        const failed = typeof opts.failedReason === 'string' && opts.failedReason.length > 0;
+        const state = failed
+            ? 'refresh-failed'
+            : (opts.refreshAvailable ? 'refresh-available' : 'refresh-unavailable');
+        span.setAttribute('pryzm.envelopeCard.storedDeterminationArm', state);
+
+        let safeAction: string;
+        if (failed) {
+            safeAction =
+                `<div data-testid="${REFRESH_DETERMINATION_BTN_TESTID}-failed" style="margin-top:6px;`
+                + `color:#8a1f1f;background:#fdecec;border-radius:6px;padding:5px 7px;font-size:9.5px;`
+                + `line-height:1.45;"><b>The re-check could not run.</b> ${escHtml(opts.failedReason)} `
+                + `Nothing was changed — the determination shown above is untouched.</div>`;
+        } else if (opts.refreshAvailable) {
+            safeAction =
+                `<button type="button" data-testid="${REFRESH_DETERMINATION_BTN_TESTID}"`
+                + ` title="Asks the planning source again for this parcel's boundary — already committed`
+                + ` to this project — and stores whatever it answers, including a refusal. Does not move,`
+                + ` redraw or re-derive the boundary."`
+                + ` style="margin-top:6px;width:100%;appearance:none;border:1px solid #6600FF;cursor:pointer;`
+                + `padding:5px 9px;border-radius:7px;font:600 10.5px system-ui;background:#ffffff;color:#6600FF;">`
+                + `${escHtml(REFRESH_DETERMINATION_LABEL)}</button>`;
+        } else {
+            const reason = opts.unavailableReason
+                ?? 'This project has no committed parcel boundary to re-check against.';
+            safeAction =
+                `<button type="button" disabled aria-disabled="true"`
+                + ` data-testid="${REFRESH_DETERMINATION_BTN_TESTID}" title="${escHtml(reason)}"`
+                + ` style="margin-top:6px;width:100%;appearance:none;border:1px solid #d8d3e6;cursor:not-allowed;`
+                + `padding:5px 9px;border-radius:7px;font:600 10.5px system-ui;background:#f4f2f8;color:#8a83a0;">`
+                + `${escHtml(REFRESH_DETERMINATION_LABEL)}</button>`;
+        }
+
+        return `<div data-testid="${STORED_DETERMINATION_TESTID}" data-state="${state}" style="margin-top:2px;`
+            + `margin-bottom:6px;padding:5px 8px;border-radius:6px;background:#f3eeff;color:#6600FF;`
+            + `font-size:10px;line-height:1.45;">`
+            + `<b>Stored determination · ${escHtml(dateTxt)}.</b> Determined when the parcel was committed `
+            + `and saved with this project — not automatically re-derived on load, so it may not reflect `
+            + `PRYZM's current resolver.`
+            + safeAction
+            + `</div>`;
+    } finally {
+        span.end();
+    }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // §MANUALENV159 (L-12640) — Section (c): the CONTEXT-DERIVED / USER-SUPPLIED STUDY MASSING
 // ─────────────────────────────────────────────────────────────────────────────
 //
