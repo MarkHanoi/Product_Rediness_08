@@ -3891,6 +3891,45 @@ export const CHAT_UNAVAILABLE: ReadonlyMap<string, string> = new Map([
   // today is a refusal LISTING the real panel/window/door types, never a
   // silent invention.
   ['curtain-wall.bulkUpdatePanels', 'Bulk curtain-wall panel type/material changes are not wired to chat yet — use the curtain-wall panel editor for one panel at a time (the bulk command itself is built — only the sentence-to-command grammar is missing).'],
+
+  // ── §CWPROPS152 — curtain-wall PARAMETER (mullion size / panel thickness /
+  // post spacing / transom spacing), COMMAND AND GRAMMAR BOTH BUILT. ─────────
+  //
+  // The founder's ask, verbatim: *"important request via RAC ... Make mullion
+  // size of all curtain walls in ground level to 0.06 meters ... Post Spacing
+  // (m) 1.5 / Transom Spacing (m) 5 / Mullion Size (m) 0.03 / Panel Thickness
+  // (m) 0.019."* `curtain-wall.bulkUpdateParameter` and its command
+  // (`BulkUpdateCurtainWallParameterCommand`, @pryzm/command-registry) ship
+  // this release: one wall / one level / the whole project / an explicit
+  // pre-resolved id list (where a COMPASS scope lands), ONE undo entry,
+  // §CONTEXT-DATA-HONESTY partial-failure reporting, and the SAME write path
+  // (`UpdateCurtainWallCommand`) the property panel's Post/Transom
+  // Spacing/Mullion Size/Panel Thickness rows already use — so a bulk edit
+  // re-derives the grid exactly as a single-wall edit does (C87 §13.6 CW-4).
+  //
+  // UNLIKE `curtain-wall.bulkUpdatePanels` above, the grammar for THIS
+  // capability is ALSO built and unit-tested end to end —
+  // `parseCurtainWallParameterIntent` (`@pryzm/ai-host/src/intents/CurtainWallParameterFamily.ts`)
+  // parses every one of the founder's four literal example sentences,
+  // including both tail-before-value and tail-after-value word orders, into
+  // `{ parameter, value, scope }`. What remains is WIRING, not authoring: a
+  // `CapabilityExecutionSpec` row (mirroring `dimensionFamilySpec`) and a call
+  // site in `ZeroTokenResolver`'s tier-0 dispatch (mirroring
+  // `parseDimensionScopedIntent`'s own call site) — deferred in THIS lane
+  // because the generic `applyExecutionSpec` template `DimensionFamilies` rides
+  // assumes a flat resolved `elementIds: string[]`, while this capability's
+  // scope is the SAME `{kind:'element'|'level'|'project'|'ids'}` shape
+  // `curtain-wall.bulkUpdatePanels` above already uses and which that sibling
+  // ALSO left unwired for the identical reason — a hand-written case arm (the
+  // shape `CapabilityExecutionSpec.ts`'s own header carves out for
+  // create-windows-parametric, set-rhino-material, etc.) is the likely correct
+  // route, not a spec-table row, and is a bigger change than one lane should
+  // make silently. Declared here rather than left undeclared so the
+  // shrink-only `MAX_UNDECLARED` coverage ratchet in
+  // `check-chat-capability-coverage.ts` reads this command HONESTLY (command
+  // built, grammar built and tested, only the resolver wiring missing) instead
+  // of silently failing the next unrelated PR that trips the ratchet.
+  ['curtain-wall.bulkUpdateParameter', 'Bulk curtain-wall parameter changes (mullion size, panel thickness, post spacing, transom spacing) are not wired to chat yet — use the property panel for one curtain wall at a time (the bulk command AND its sentence grammar are both built and tested; only the resolver wiring that connects the two is missing).'],
 ]);
 
 // ─── Lookup surface ──────────────────────────────────────────────────────────

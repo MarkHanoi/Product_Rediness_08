@@ -34,6 +34,10 @@ import { SetCurtainWallMaterialHandler } from './SetCurtainWallMaterial.js'; // 
 // scope), legacy-bridged like `UpdateWallsSystemTypeBatch.ts` /
 // `BulkUpdateKitchenMaterial.ts`.
 import { BulkUpdateCurtainPanelsHandler } from './BulkUpdateCurtainPanels.js';
+// §CWPROPS152 — bulk curtain-WALL parameter batch (mullion size, panel
+// thickness, post/transom spacing), element/level/project/ids scope,
+// legacy-bridged like `BulkUpdateCurtainPanels.ts` immediately above.
+import { BulkUpdateCurtainWallParameterHandler } from './BulkUpdateCurtainWallParameter.js';
 // §L-1032 — the storey move. Registered in the ONE register at
 // `@pryzm/command-bus` `LEVEL_CHANGE_VERBS`; see that file for the four parts a
 // level change must complete before this row may exist.
@@ -102,6 +106,8 @@ export const CURTAIN_WALL_HANDLER_TYPES = [
   // §RACORIENT145 — legacy-bridge batch verb (mirrors
   // 'furniture.bulkUpdateKitchenMaterial's registration exactly).
   'curtain-wall.bulkUpdatePanels',
+  // §CWPROPS152 — the WALL-level parameter twin of the row above.
+  'curtain-wall.bulkUpdateParameter',
 ] as const;
 
 export type CurtainWallHandlerType = (typeof CURTAIN_WALL_HANDLER_TYPES)[number];
@@ -138,6 +144,8 @@ export function buildCurtainWallHandlerSet() {
     new ChangeCurtainWallLevelHandler() as unknown as CommandHandler<unknown>,
     // §RACORIENT145
     BulkUpdateCurtainPanelsHandler as unknown as CommandHandler<unknown>,
+    // §CWPROPS152
+    BulkUpdateCurtainWallParameterHandler as unknown as CommandHandler<unknown>,
   ];
 }
 
@@ -184,6 +192,12 @@ export {
   type CurtainPanelBatchReport,
   CURTAIN_PANEL_BATCH_REPORT_EVENT,
 } from './BulkUpdateCurtainPanels.js';
+export {
+  BulkUpdateCurtainWallParameterHandler,
+  type BulkUpdateCurtainWallParameterPayload,
+  type CurtainWallParameterBatchReport,
+  CURTAIN_WALL_PARAMETER_BATCH_REPORT_EVENT,
+} from './BulkUpdateCurtainWallParameter.js';
 // P2e: batch create + batch delete
 export {
   CreateCurtainWallBatchHandler,

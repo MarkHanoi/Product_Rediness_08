@@ -165,6 +165,9 @@ import { ChangeFurnitureTypeCommand } from '@pryzm/command-registry';
 import { BulkUpdateKitchenMaterialCommand } from '@pryzm/command-registry';
 // §RACORIENT145 — bulk curtain-wall panel type/material batch.
 import { BulkUpdateCurtainPanelsCommand } from '@pryzm/command-registry';
+// §CWPROPS152 — bulk curtain-WALL parameter batch (mullion size, panel
+// thickness, post/transom spacing).
+import { BulkUpdateCurtainWallParameterCommand } from '@pryzm/command-registry';
 import { BulkAutoClassifyRoomsCommand } from '@pryzm/command-registry';
 import { CreatePlumbingFixtureCommand } from '@pryzm/command-registry';
 import { UpdatePlumbingParametersCommand } from '@pryzm/command-registry';
@@ -439,6 +442,7 @@ const REGISTRY = new Map<string, CommandFactory>([
     ['BULK_UPDATE_KITCHEN_MATERIAL', (s) => BulkUpdateKitchenMaterialCommand.deserialize(s)],
     // §RACORIENT145 — bulk curtain-wall panel type/material batch, same reason.
     ['BULK_UPDATE_CURTAIN_PANELS', (s) => BulkUpdateCurtainPanelsCommand.deserialize(s)],
+    ['BULK_UPDATE_CURTAIN_WALL_PARAMETER', (s) => BulkUpdateCurtainWallParameterCommand.deserialize(s)],
     ['CREATE_PLUMBING_FIXTURE', (s) => new CreatePlumbingFixtureCommand(s.payload as any)],
     // §ELEMENT-REPLAY-AUDIT — same revert-on-catch-up gap as furniture for the OTHER
     // placed elements the user moves/rotates. With §REMOTE-EXEC-FALLBACK these factories

@@ -15,16 +15,16 @@ change, not a rename — see C69 §2.
 
 | | |
 |---|---|
-| Handler files read | 1397 (floor 900) |
-| **Verbs** | **357** (floor 250) |
-| LIVE | 138 |
+| Handler files read | 1404 (floor 900) |
+| **Verbs** | **360** (floor 250) |
+| LIVE | 141 |
 | REFUSES | 37 |
 | SHADOWED (dead route) | 1 |
 | UNKNOWN | 181 |
 | — of the LIVE, credited by the §L-946 mirror channel | 12 of 12 level-change verb(s) |
 | authoritative store NONE or UNKNOWN | 219 |
 | sync UNDECLARED (property verbs) | 2 |
-| chat UNDECLARED | 14 |
+| chat UNDECLARED | 15 |
 
 These numbers are re-derived on every run. Do not transcribe them anywhere else
 (C64 §2.13) — cite this file.
@@ -100,6 +100,8 @@ These numbers are re-derived on every run. Do not transcribe them anywhere else
 | `curtain-wall.batch.create` | plugins/curtain-wall | UNKNOWN | UNKNOWN | patch-pair → curtainwall | not-synced (reason declared) | classified C |
 | `curtain-wall.batch.delete` | plugins/curtain-wall | UNKNOWN | UNKNOWN | patch-pair → curtainwall | not-synced (reason declared) | classified C |
 | `curtain-wall.batch.update` | plugins/curtain-wall | UNKNOWN | UNKNOWN | patch-pair → curtainwall | not-synced (reason declared) | classified C |
+| `curtain-wall.bulkUpdatePanels` | plugins/curtain-wall | LIVE | legacy geometry store (via commandManager) | legacy-stack (no affectedStores) | n/a (not a property verb) | deferred (CHAT_UNAVAILABLE) |
+| `curtain-wall.bulkUpdateParameter` | plugins/curtain-wall | LIVE | legacy geometry store (via commandManager) | legacy-stack (no affectedStores) | n/a (not a property verb) | deferred (CHAT_UNAVAILABLE) |
 | `curtain-wall.create` | plugins/curtain-wall | UNKNOWN | UNKNOWN | patch-pair → curtainwall | synced via 'id' (disclose) | classified B |
 | `curtain-wall.create-on-all-slabs` | plugins/curtain-wall | LIVE | legacy geometry store (via commandManager) | legacy-stack (no affectedStores) | not-synced (reason declared) | classified E |
 | `curtain-wall.delete` | plugins/curtain-wall | UNKNOWN | UNKNOWN | patch-pair → curtainwall | not-synced (reason declared) | classified D |
@@ -245,6 +247,7 @@ These numbers are re-derived on every run. Do not transcribe them anywhere else
 | `roof.setShape` | plugins/roof | UNKNOWN | UNKNOWN | patch-pair → roof | synced via 'roofId' (disclose) | classified B |
 | `roof.setThickness` | plugins/roof | UNKNOWN | UNKNOWN | patch-pair → roof | synced via 'roofId' (disclose) | classified D |
 | `roof.update` | apps/editor | LIVE | legacy geometry store (via commandManager) | legacy-stack (no affectedStores) | synced via 'id' (disclose) | capability: set-thickness |
+| `room.autoClassify.batch` | plugins/rooms | LIVE | legacy geometry store (via commandManager) | legacy-stack (no affectedStores) | n/a (not a property verb) | UNDECLARED |
 | `room.create` | plugins/rooms | LIVE | legacy geometry store (via commandManager) | legacy-stack (no affectedStores) | synced via 'id' (disclose) | classified B |
 | `room.delete` | plugins/rooms | LIVE | legacy geometry store (via commandManager) | legacy-stack (no affectedStores) | not-synced (reason declared) | classified D |
 | `room.move` | plugins/rooms | LIVE | legacy geometry store (via commandManager) | legacy-stack (no affectedStores) | not-synced (reason declared) | deferred (CHAT_UNAVAILABLE) |

@@ -96,3 +96,15 @@ export {
     collectCurtainWallDoors,
     countCurtainWallDoors,
 } from './curtainWallDoors.js';
+
+// §CWPROPS152 / C87 §13.6 CW-Mul-1 — the bulk-editable NUMERIC parameter
+// vocabulary (mullion size, panel thickness, post/transom spacing) + bounds,
+// shared by the single-element and bulk write paths (C84 EI-9).
+export type { CurtainWallParameterKey, CurtainWallParameterMeta } from './CurtainWallParameterConstraints.js';
+export {
+    CURTAIN_WALL_PARAMETER_KEYS,
+    CURTAIN_WALL_PARAMETER_META,
+    isCurtainWallParameterKey,
+    checkCurtainWallParameter,
+    unknownCurtainWallParameterRefusal,
+} from './CurtainWallParameterConstraints.js';

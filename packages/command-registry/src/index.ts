@@ -62,6 +62,7 @@ export * from './curtainwall/CreateCurtainWallsOnAllSlabsCommand';
 export * from './curtainwall/RemoveCurtainGridLineCommand';
 export * from './curtainwall/ReplacePanelTypeCommand';
 export * from './curtainwall/BulkUpdateCurtainPanelsCommand';
+export * from './curtainwall/BulkUpdateCurtainWallParameterCommand';
 export * from './curtainwall/ReplacePanelWithDoorCommand';
 export * from './curtainwall/UpdateAllCurtainWallsCommand';
 export * from './curtainwall/UpdateCurtainWallCommand';

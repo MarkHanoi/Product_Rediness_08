@@ -218,6 +218,9 @@ export enum CommandType {
     REPLACE_CURTAIN_PANEL_WITH_DOOR = 'REPLACE_CURTAIN_PANEL_WITH_DOOR',
     // §RACORIENT145 — bulk panel type/material batch, one undo entry for N panels.
     BULK_UPDATE_CURTAIN_PANELS = 'BULK_UPDATE_CURTAIN_PANELS',
+    // §CWPROPS152 — bulk curtain-WALL parameter batch (mullion size, panel
+    // thickness, post/transom spacing), one undo entry for N walls.
+    BULK_UPDATE_CURTAIN_WALL_PARAMETER = 'BULK_UPDATE_CURTAIN_WALL_PARAMETER',
     CREATE_COLUMN = 'CREATE_COLUMN',
     UPDATE_COLUMN = 'UPDATE_COLUMN',
     DELETE_COLUMN = 'DELETE_COLUMN',
