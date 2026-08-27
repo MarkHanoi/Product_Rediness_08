@@ -148,6 +148,9 @@ import { RoomTopologyObserver } from '@pryzm/room-topology';
 import { initOpenedRegionProposals } from '../ui/ai/OpenedRegionProposal';
 // §ROOM-TOMBSTONE (L-10814) — the OFFER half of "a re-detection destroyed an authored room".
 import { initRoomMeaningRestoreProposals } from '../ui/ai/RoomMeaningRestoreProposal';
+// §ROOM-LOSS-NOTICE (L-12660) — the TELL half: announced immediately, unconditionally,
+// independent of whether a matching face ever comes home for the OFFER above to reach.
+import { initRoomLossNotices } from '../ui/ai/RoomLossNotice';
 import { RoomTool } from '@pryzm/room-topology';
 import { RoomBoundingLineTool } from '@pryzm/geometry-wall';
 
@@ -3176,6 +3179,18 @@ export async function initTools(p: ToolsParams): Promise<ToolsResult> {
         initRoomMeaningRestoreProposals();
     } catch (e) {
         console.warn('[initTools] §ROOM-TOMBSTONE offer channel not installed (non-fatal):', e);
+    }
+
+    // §ROOM-LOSS-NOTICE (L-12660) — companion to §ROOM-TOMBSTONE above. That offer only
+    // fires once a matching face reclaims the space; when the boundary loop simply never
+    // recloses (the founder's measured case — §DIAG-ROOM-LOOP BREAK, a curtain-wall gap
+    // past hostSnap that no repair pass closes) the user learned of the loss from nowhere
+    // but the console. This announces it immediately, every time, regardless of whether
+    // the region is ever reclaimed. Installed here for the same reason as the offer above.
+    try {
+        initRoomLossNotices();
+    } catch (e) {
+        console.warn('[initTools] §ROOM-LOSS-NOTICE channel not installed (non-fatal):', e);
     }
 
     // ── RoomTool ──────────────────────────────────────────────────────────────
