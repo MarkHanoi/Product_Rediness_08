@@ -71,6 +71,10 @@ import { parseWallSideFinishIntent } from './WallSideFinishIntent.js';
 // the wall grammar so tier-0 and tier-1 can never disagree about a sentence.
 import { parseFloorFinishIntent } from './FloorFinishIntent.js';
 import { finishRefCandidates, resolveFinishRef } from './finishRef.js';
+// §CWCHAT155 — the SAME parser tier-0 uses (matchCurtainWallParameter,
+// ZeroTokenResolver.ts), so a sentence that misses the exact tier-0 grammar
+// but reaches this natural-language layer cannot be understood differently.
+import { parseCurtainWallParameterIntent } from './CurtainWallParameterFamily.js';
 
 // ─── Public types ────────────────────────────────────────────────────────────
 
@@ -1105,6 +1109,34 @@ function classify(
   // the SAME function the tier-0 grammar uses. It outranks the wall-type
   // candidate below (0.95 > 0.92): "make all walls white" matches both parsers'
   // shapes, and the colour reading is the resolvable one.
+  // §CWCHAT155 — the founder's curtain-wall PARAMETER ask. Pushed ABOVE
+  // wall-side-finish at 0.97, deliberately: "make mullion size of all curtain
+  // walls in ground level to 0.06 meters" and "set post spacing to 1.2 on the
+  // west facade" both carry the word "wall(s)" — the ONE thing
+  // `parseWallSideFinishIntent` requires to claim a sentence (§RACSIDE144,
+  // L-12363, deliberately widened so "make all walls white paint" resolves,
+  // and NOT reverted here). "Curtain walls" containing "walls" is the
+  // collision; the PARAMETER NOUN is the discriminator — mullion size, panel
+  // thickness, post spacing and transom spacing name no finish in
+  // `finishRef.ts` and appear in no finish sentence, so this parser NEVER
+  // claims a genuine finish ask ("change the finish of all curtain walls to
+  // grey" has no parameter word and is not claimed here, leaving it for the
+  // wall-side-finish candidate below at its own 0.96). Same house rule the
+  // 0.96/0.95/0.92 stack below already uses twice: the MORE SPECIFIC reading
+  // outranks the more general one, stated here rather than assumed.
+  const curtainWallParameter = parseCurtainWallParameterIntent(n.plain, ctx);
+  if (curtainWallParameter !== null) {
+    push({
+      intent: 'set-curtain-wall-parameter',
+      confidence: 0.97,
+      evidence: [
+        'noun:curtain-wall', `parameter:${curtainWallParameter.parameter}`,
+        `scope:${scopeTag(curtainWallParameter.scope)}`,
+      ],
+      si: { intent: 'set-curtain-wall-parameter', ...curtainWallParameter },
+    });
+  }
+
   // §FEAT-WALL-SIDE-FINISH — the founder's per-side finish ask. Pushed ABOVE
   // wall colour at 0.96 deliberately: "change all walls in the kitchen finish
   // plaster" also matches the COLOUR shape (with "plaster" read as a colour

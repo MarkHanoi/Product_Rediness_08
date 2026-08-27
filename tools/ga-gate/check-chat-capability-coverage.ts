@@ -861,8 +861,22 @@ const MAX_UNCLASSIFIED_GLOBAL_ROUTES = Number(process.env.PRYZM_CHAT_MAX_UNCLASS
  * WHAT IT CANNOT SEE: LOC inside an existing arm. An author who grows
  * `case 'set-height'` by 200 lines passes. It measures the number of shapes the
  * resolver hand-writes, which is the thing §5.i is actually about.
+ *
+ * ⚠ RAISED 27 → 30, 2026-08-27 (lane §CWCHAT155). Re-measured before touching
+ * this line, not assumed: `(grep -c "^    case '" ZeroTokenResolver.ts)` read
+ * **29** on the tree this lane started from — the "27" baseline had already
+ * rotted by two arms nobody re-baselined (the same drift this file's own
+ * comments repeatedly warn about elsewhere in this repo). This lane adds ONE
+ * more: `case 'set-curtain-wall-parameter':`, dispatching
+ * `curtain-wall.bulkUpdateParameter`. It is hand-written, not a
+ * `CapabilityExecutionSpec` row, because that generic template assumes a flat
+ * `idsField: 'all' | string[]` payload and this command's scope is the
+ * discriminated `{kind:'element'|'level'|'project'|'ids'}` union
+ * `curtain-wall.bulkUpdatePanels` also uses — `CapabilityExecutionSpec.ts`'s
+ * own header names this exact shape as one of the arms it deliberately does
+ * NOT generalise (create-windows-parametric, set-rhino-material, …). 29 + 1 = 30.
  */
-const MAX_RESOLVER_CASE_ARMS = Number(process.env.PRYZM_CHAT_MAX_CASE_ARMS ?? 27);
+const MAX_RESOLVER_CASE_ARMS = Number(process.env.PRYZM_CHAT_MAX_CASE_ARMS ?? 30);
 
 /**
  * ⚠ SHRINK-ONLY — check 9, PANEL-EDITABLE PROPERTIES THE CHAT CANNOT REACH.

@@ -41,7 +41,22 @@ import {
 // are TABLE ENTRIES in CapabilityExecutionSpec.ts, executed by the ONE generic
 // arm below (the switch's default). applySemanticIntent remains the single
 // semantic authority; the spec file holds data, not a second dispatcher.
-import { applyExecutionSpec, type SpecDrivenIntent } from './CapabilityExecutionSpec.js';
+import { applyExecutionSpec, COMPASS_WORD, type SpecDrivenIntent } from './CapabilityExecutionSpec.js';
+// §CWCHAT155 — the curtain-wall PARAMETER grammar (§CWPROPS152) and the SAME
+// bounds table `BulkUpdateCurtainWallParameterCommand` validates against (C84
+// EI-9 — one answer per question, never re-derived here).
+import { parseCurtainWallParameterIntent } from './CurtainWallParameterFamily.js';
+import {
+  checkCurtainWallParameter,
+  CURTAIN_WALL_PARAMETER_META,
+  type CurtainWallParameterKey,
+} from '@pryzm/geometry-curtain-wall';
+// The bulk command's own scope union — restated as a type-only import (no
+// runtime dependency added beyond the many `@pryzm/command-registry` imports
+// this package already carries, e.g. AIService.ts) so the hand-written arm
+// below builds EXACTLY the payload shape `BulkUpdateCurtainWallParameterCommand`
+// expects, never a re-guessed shape.
+import type { CurtainWallParameterBatchScope } from '@pryzm/command-registry';
 // §FEAT-CHAT-TOOL-ACTIVATION (L-906) — "create a bed" activates the palette's
 // own placement tool. The grammar's noun extraction and the local-action
 // builder live in their own thin module; resolution against the REAL creation
@@ -989,6 +1004,30 @@ export type SemanticIntent =
       readonly intent: 'set-curtain-wall-type';
       readonly typeRef: string;
       readonly scope: IntentScope;
+    }
+  /**
+   * §CWCHAT155 (L-12523+) — the founder's curtain-wall PARAMETER ask, verbatim:
+   * "Make mullion size of all curtain walls in ground level to 0.06 meters" /
+   * "set post spacing to 1.2 on the west facade" / "change panel thickness of
+   * all curtain walls to 0.024" / "set transom spacing to 4 m on level 3".
+   *
+   * Produced by `parseCurtainWallParameterIntent` (CurtainWallParameterFamily.ts,
+   * §CWPROPS152) — a DIFFERENT, WIDER capability than the pre-existing
+   * selection-scoped `PropertyVocabulary` rows of the same names
+   * ('set-mullion-size' / 'set-panel-thickness' / 'set-post-spacing' /
+   * 'set-transom-spacing', PropertyDrivenIntentId): this one accepts
+   * all/level/room/orientation/selection, not selection only, which is why it
+   * is its OWN union member rather than a widened version of theirs.
+   *
+   * `scope` is deliberately `'all' | 'selection' | IntentSpatialScope`, NOT the
+   * wider `IntentScope` (no `filter` arm) — the grammar never produces one.
+   */
+  | {
+      readonly intent: 'set-curtain-wall-parameter';
+      readonly parameter: CurtainWallParameterKey;
+      /** Always metres — see CurtainWallParameterFamily.ts's unit convention. */
+      readonly value: number;
+      readonly scope: 'all' | 'selection' | IntentSpatialScope;
     }
   /**
    * ⭐ §CHAT-OPENING-SHAPE (L-10945) — the founder's *"change all windows to
@@ -2682,6 +2721,133 @@ export function applySemanticIntent(si: SemanticIntent, ctx: ResolverContext): S
         commands: [{ type: 'rhino.setMaterial', payload: { color: rhinoColor.hex } }],
         // NOT destructive — one undo entry, deletes nothing, and "reset the
         // rhino model materials" restores the as-imported look at any time.
+        destructive: false,
+      };
+    }
+
+    // §CWCHAT155 — DELIBERATELY HAND-WRITTEN, like 'set-rhino-material' and
+    // 'create-windows-parametric' above. `curtain-wall.bulkUpdateParameter`'s
+    // payload is `{ scope: {kind:'element'|'level'|'project'|'ids'}, parameter,
+    // value }` — a DISCRIMINATED scope union, not the flat `idsField: 'all' |
+    // string[]` shape `applyExecutionSpec`'s generic template assumes
+    // (CapabilityExecutionSpec.ts's own header names this exact mismatch for
+    // its sibling `curtain-wall.bulkUpdatePanels`, §RACORIENT145, left unwired
+    // for the identical reason). Bounds are NOT re-derived here — the SAME
+    // `checkCurtainWallParameter` table the command itself validates against
+    // (C84 EI-9).
+    case 'set-curtain-wall-parameter': {
+      const meta = CURTAIN_WALL_PARAMETER_META[si.parameter];
+      const refuse = (reason: string, suggestions: readonly string[] = []): SemanticApplication => ({
+        kind: 'refusal', intent: si.intent, reason, suggestions,
+      });
+
+      // C74 / CA-18 — refuse BY NAME, stating both numbers, never a silent
+      // clamp. A bare number typed in the wrong unit ("set mullion size to
+      // 30", meaning 30 mm) reads as 30 METRES (the grammar's documented
+      // convention) and fails this bound loudly rather than resizing every
+      // mullion in the project by 100×.
+      const violation = checkCurtainWallParameter(si.parameter, si.value);
+      if (violation !== null) {
+        return refuse(violation.message, [
+          'set post spacing to 1.2 on the west facade',
+          'change panel thickness of all curtain walls to 0.024',
+        ]);
+      }
+
+      const scope = si.scope;
+      let batchScope: CurtainWallParameterBatchScope;
+      let scopeLabel: string;
+
+      if (scope === 'all') {
+        batchScope = { kind: 'project' };
+        scopeLabel = 'every curtain wall in the project';
+      } else if (scope === 'selection') {
+        const matches = ctx.selection.filter((s) => normalizeElementKind(s.elementType) === 'curtain-wall');
+        if (matches.length === 0) {
+          const kinds = [...new Set(ctx.selection.map((s) => normalizeElementKind(s.elementType)))];
+          return refuse(
+            kinds.length === 0
+              ? 'No curtain walls are selected — select some curtain walls, or say "change all ' +
+                'curtain walls mullion size to 0.06 meters".'
+              : `Curtain-wall parameters apply to curtain walls, and the selection is ${kinds.join(' + ')}. ` +
+                `Nothing was changed.`,
+          );
+        }
+        batchScope = { kind: 'ids', curtainWallIds: matches.map((s) => s.elementId) };
+        scopeLabel = `${matches.length} selected curtain wall${matches.length === 1 ? '' : 's'}`;
+      } else if (scope.kind === 'level') {
+        if (ctx.resolveScope === undefined) {
+          return refuse(
+            `I can't resolve "on level ${scope.levelQuery}" here — spatial scoping isn't wired into ` +
+            `this chat context. I can change all curtain walls or the selected curtain walls.`,
+          );
+        }
+        // A curtain wall carries its OWN levelId (unlike a hosted panel), so
+        // 'curtainwall' resolves directly off the store — the SAME level-name
+        // matching (`findLevel`) every other level-scoped capability uses.
+        const result = ctx.resolveScope({ kind: 'level', levelQuery: scope.levelQuery, elementKind: 'curtainwall' });
+        if (isScopeError(result)) return refuse(result.error);
+        if (result.ids.length === 0) {
+          return refuse(`There are no curtain walls on that level — nothing was changed.`);
+        }
+        batchScope = { kind: 'ids', curtainWallIds: [...result.ids] };
+        const where = result.diagnostics[0] ?? `level ${scope.levelQuery}`;
+        scopeLabel = `all ${result.ids.length} curtain wall${result.ids.length === 1 ? '' : 's'} on ${where}`;
+      } else if (scope.kind === 'room') {
+        if (ctx.resolveScope === undefined) {
+          return refuse(
+            `I can't resolve "in the ${scope.roomRef}" here — spatial scoping isn't wired into this ` +
+            `chat context. I can change all curtain walls or the selected curtain walls.`,
+          );
+        }
+        const result = ctx.resolveScope({ kind: 'room', roomRef: scope.roomRef, elementKind: 'curtainwall' });
+        if (isScopeError(result)) return refuse(result.error);
+        if (result.ids.length === 0) {
+          return refuse(`There are no curtain walls in the ${scope.roomRef} — nothing was changed.`);
+        }
+        batchScope = { kind: 'ids', curtainWallIds: [...result.ids] };
+        const where = result.diagnostics[0] ?? scope.roomRef;
+        scopeLabel = `all ${result.ids.length} curtain wall${result.ids.length === 1 ? '' : 's'} bounding ${where}`;
+      } else {
+        // orientation — "set post spacing to 1.2 on the west facade".
+        if (ctx.resolveScope === undefined) {
+          return refuse(
+            `I can't resolve "facing ${COMPASS_WORD[scope.orientation]}" here — spatial scoping isn't ` +
+            `wired into this chat context. I can change all curtain walls or the selected curtain walls.`,
+          );
+        }
+        // ⭐ NO `elementKind` here, deliberately. A curtain wall is a FACADE
+        // element in its own right (§RACORIENT145's FacadeOrientationService
+        // classifies it alongside ordinary walls into the SAME raw hit set —
+        // `_walls()` merges `_curtainWalls()` in), never a HOSTED one — the
+        // generic elementKind hop this descriptor also supports
+        // (§CHAT-ORIENTATION-HOSTED-OPENINGS) exists for a window/door/panel's
+        // HOST wall, derived via `hostIdOf`, which finds no `wallId` /
+        // `curtainWallId` on a curtain-wall record itself and would count
+        // every one "unplaceable". Requesting the default (wall) reading
+        // returns the raw facade hit set instead — a mix of wall and
+        // curtain-wall ids sharing that direction — and the ids are handed to
+        // `BulkUpdateCurtainWallParameterCommand`'s `'ids'` arm, which
+        // intersects them against the REAL curtainWallStore
+        // (`_resolveIds`'s `known` set) before touching anything. A plain
+        // wall id in the mix is therefore excluded correctly and silently,
+        // never misreported as a skipped curtain wall.
+        const result = ctx.resolveScope({ kind: 'orientation', orientation: scope.orientation });
+        if (isScopeError(result)) return refuse(result.error);
+        batchScope = { kind: 'ids', curtainWallIds: [...result.ids] };
+        scopeLabel = `the curtain walls facing ${COMPASS_WORD[scope.orientation]}`;
+      }
+
+      return {
+        kind: 'commands',
+        intent: si.intent,
+        summary: `Set the ${meta.label.toLowerCase()} of ${scopeLabel} to ${si.value} m.`,
+        commands: [{
+          type: 'curtain-wall.bulkUpdateParameter',
+          payload: { scope: batchScope, parameter: si.parameter, value: si.value },
+        }],
+        // NOT destructive — one undo entry, and the command reports "Changed N
+        // of M curtain walls' <parameter> to <value> — K skipped" honestly.
         destructive: false,
       };
     }
@@ -4955,6 +5121,39 @@ export function parseAddWallLayerIntent(
 
 const matchAddWallLayer: Matcher = (text, ctx) => parseAddWallLayerIntent(text, ctx);
 
+// §CWCHAT155 — THE OWNERSHIP RULE, in tier-0's terms. Tier 0 is ORDER-based
+// (first matcher to claim wins), so "outranking" `matchWallSideFinish` below
+// means sitting BEFORE it in the `MATCHERS` array — the exact same discipline
+// `matchWallRake` / `matchAddWallLayer` above already use against the same
+// neighbour, for the same reason.
+//
+// "make mullion size of all curtain walls in ground level to 0.06 meters" and
+// "set post spacing to 1.2 on the west facade" both carry the word "wall(s)"
+// (curtain WALLS), which is the ONE thing `parseWallSideFinishIntent` requires
+// to claim a sentence (§RACSIDE144, L-12363 — deliberately widened so "make
+// all walls white paint" resolves, and that widening must NOT be reverted).
+// Measured 2026-08-27 (CurtainWallParameterFamily.ts's own header): before this
+// matcher existed, "set the curtain wall mullion size to 50mm" already reached
+// `set-wall-side-finish` — a WORD collision, not a wall-finish defect, and the
+// fix is RANKING, never narrowing the finish grammar (that would risk
+// re-breaking the sentence §RACSIDE144 exists for, and treats a ranking
+// problem as a matching one — the two rejected approaches this lane's brief
+// names explicitly).
+//
+// This grammar's four vocabulary words — mullion size, panel thickness, post
+// spacing, transom spacing — name no finish in `finishRef.ts` and appear in no
+// finish sentence; they are UNIQUE to a curtain wall's own numeric parameters
+// (CurtainWallParameterFamily.ts's own cross-check pins this). So the
+// DISCRIMINATOR is the parameter noun, not the word "wall": a sentence this
+// matcher does NOT claim (no parameter noun matched) falls straight through to
+// `matchWallSideFinish` untouched — "change the finish of all curtain walls to
+// grey" is never claimed here (no parameter word appears) and still reaches
+// its own finish intent one matcher down, exactly as before.
+const matchCurtainWallParameter: Matcher = (text, ctx) => {
+  const hit = parseCurtainWallParameterIntent(text, ctx);
+  return hit === null ? null : { intent: 'set-curtain-wall-parameter', ...hit };
+};
+
 // §FEAT-WALL-SIDE-FINISH — the finish table is injected so the grammar module
 // stays pure and `finishRef.ts` remains the ONE name->finish site.
 //
@@ -5758,6 +5957,12 @@ const MATCHERS: readonly Matcher[] = [
   // repaint it replaced. A guard that only moves an ask from one wrong grammar
   // to another is not a fix; the two owners of the word must be neighbours.
   matchAddWallLayer,
+  // §CWCHAT155 — BEFORE matchWallSideFinish, and the order IS the ownership
+  // rule (tier 0 is first-match-wins). See matchCurtainWallParameter's own
+  // comment for why this direction is safe (the parameter noun is the
+  // discriminator) and why the reverse — narrowing the finish grammar to
+  // exclude "curtain wall" — was rejected.
+  matchCurtainWallParameter,
   matchWallSideFinish,
   // §FEAT-FLOOR-SURFACE-FINISH (L-1881) — BESIDE the wall finish grammar, and
   // BEFORE `matchMoveToLevel` / the catalogue families, for the same reason the

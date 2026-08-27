@@ -2880,13 +2880,20 @@ const CAPABILITIES: readonly ChatCapability[] = [
       },
     ],
     scope: 'all',
-    // 'room' is NOT declared: none of the founder's own sentences scope a
-    // curtain-wall parameter by room, and whether `roomQueryService` tags a
-    // curtain wall with `type: 'curtainwall'` for the generic room-contents
-    // lookup (the arm for element kinds other than 'wall'/'room') is not
-    // measured — declaring it would be the C68 §7.d lie this capability's
-    // sibling rows are careful to avoid.
-    scopeModes: ['all', 'selection', 'level', 'orientation'],
+    // §CWCHAT155 — 'room' ADDED (was omitted, then measured: the hand-written
+    // arm forwards a room descriptor to `ctx.resolveScope` unconditionally,
+    // the SAME as level/orientation, so omitting it was the C68 §6.3-G3
+    // UNDER-report — "declaring reach no sentence can reach is the same lie in
+    // the other direction" (STR-03's own words for this exact shape, quoted
+    // in the room-occupancy spec's ScopeDescriptor.ts comment). ⚠ Declaring
+    // ARM reach is not the same claim as PRODUCT fidelity: whether
+    // `roomQueryService.getElementsInRoom` tags a curtain wall with
+    // `type: 'curtainwall'` for the generic non-wall/non-room fan-out branch
+    // is NOT measured by this lane — the same disclosed gap
+    // `set-wall-dimensions` / `create-windows-parametric` already carry for
+    // their own undeclared-vs-declared 'orientation'/'room' reach (see this
+    // gate's own MAX_UNDECLARED_SPATIAL_REACH comment).
+    scopeModes: ['all', 'selection', 'level', 'room', 'orientation'],
     destructive: false,
     busCommand: 'curtain-wall.bulkUpdateParameter',
     probe: { intent: 'set-curtain-wall-parameter', parameter: 'mullionSize', value: 0.06, scope: 'selection' },

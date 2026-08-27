@@ -17,31 +17,41 @@
 // per question). This module only ever recognises the four real keys that
 // table declares; it never invents a fifth.
 //
-// ── ⚠ NOT WIRED INTO THE LIVE CHAT LADDER — DECLARED, NOT DISCOVERED ────────
+// ── ⭐ WIRED IN 2026-08-27 (§CWCHAT155) — this section corrected, not deleted ─
 //
-// `ZeroTokenResolver.ts`, `CapabilityExecutionSpec.ts` and
-// `ChatCapabilityRegistry.ts` — the three files a NEW capability normally
-// joins (a case arm / table row / registry entry + `examples[]`) — were all
-// DIRTY (mid-edit by a concurrently active lane, §RACSIDE144) at the time this
-// module was written, and this lane's own standing instruction is never to
-// edit a dirty file. So this grammar is a COMPLETE, STANDALONE parser —
-// exported, fully unit-tested by calling it directly — but the live chat
-// pipeline does not yet call it. Wiring it in is a small, mechanical follow-up
-// once those three files are free:
-//   1. `CapabilityExecutionSpec.ts` — add a table row (mirroring
-//      `dimensionFamilySpec`) whose `resolveValue` calls
-//      `checkCurtainWallParameter` and whose payload shape matches
-//      `BulkUpdateCurtainWallParameterInput`.
-//   2. `ZeroTokenResolver.ts` — call `parseCurtainWallParameterIntent(text, ctx)`
-//      from the tier-0 grammar dispatch, exactly where `parseDimensionScopedIntent`
-//      is called today.
-//   3. `ChatCapabilityRegistry.ts` — a capability entry (or, until the bus verb
-//      itself is registered — see the bulk command's own header re:
-//      `types.ts`'s dirty `CommandType` enum — a `CHAT_UNAVAILABLE` row,
-//      mirroring `curtain-wall.bulkUpdatePanels`'s honest declaration).
-// This module intentionally has ZERO import of any of those three files, so it
-// cannot be broken by their concurrent edits and cannot break them by being
-// imported.
+// This paragraph used to read "NOT WIRED INTO THE LIVE CHAT LADDER". That is
+// no longer true, and the plan below is kept as a record of what was
+// predicted, not because it is still accurate — item 1 in particular was
+// WRONG (a `CapabilityExecutionSpec.ts` table row does not fit this
+// capability's payload shape; see below).
+//
+// What actually shipped:
+//   1. `ZeroTokenResolver.ts` — `matchCurtainWallParameter` calls
+//      `parseCurtainWallParameterIntent(text, ctx)` from the tier-0 MATCHERS
+//      array, positioned BEFORE `matchWallSideFinish` (the ownership rule,
+//      tier-0's order-based equivalent of a confidence rank) — NOT beside
+//      `matchDimensionScoped` as originally planned, because
+//      `matchWallSideFinish` sits well before that position and would have
+//      intercepted every sentence carrying "curtain wall(s)" first (measured;
+//      see the "SELECTION-scoped sibling" section below, which is what
+//      exposed the collision). A hand-written `applySemanticIntent` case arm
+//      dispatches `curtain-wall.bulkUpdateParameter` directly — NOT a
+//      `CapabilityExecutionSpec.ts` table row: that generic template assumes
+//      a flat `idsField: 'all' | string[]` payload, and this command's scope
+//      is the discriminated `{kind:'element'|'level'|'project'|'ids'}` union
+//      `curtain-wall.bulkUpdatePanels` (§RACORIENT145) also uses — the exact
+//      mismatch this file's own original plan did not anticipate.
+//   2. `LocalNaturalLanguageResolver.ts` — the SAME parser pushed as a
+//      confidence-ranked NL-layer candidate at 0.97 (above wall-side-finish's
+//      0.96), for a sentence tier-0's exact grammar misses but the NL layer's
+//      looser normalization still reaches.
+//   3. `ChatCapabilityRegistry.ts` — a `set-curtain-wall-parameter`
+//      `ChatCapability` entry replaces the `CHAT_UNAVAILABLE` row, once a
+//      foreground-green test proved a real sentence reaches the bus verb
+//      (`curtainWallParameterChatWiring.test.ts`).
+// See ZeroTokenResolver.ts's `case 'set-curtain-wall-parameter':` and
+// `matchCurtainWallParameter` for the implementation and their own comments
+// for the ownership-rule reasoning.
 //
 // ── SHAPE — REUSE, NOT A SIXTH SPELLING OF THE SCOPE TAIL ───────────────────
 //

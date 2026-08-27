@@ -569,6 +569,23 @@ const BASE_ACCEPTANCE: readonly AcceptanceCase[] = [
       'change the curtain wall type to unitised bronze',
     ],
   },
+  // §CWCHAT155 — the founder's four literal curtain-wall PARAMETER sentences,
+  // verbatim. `scopedSel('curtain-wall')` injects BOTH a curtain-wall selection
+  // and a `resolveScope` stub that answers every descriptor kind (level /
+  // orientation / room) with three ids — exactly what these four sentences'
+  // level and orientation scopes need to resolve to a real dispatch rather than
+  // an honest "spatial scoping isn't wired" refusal.
+  {
+    id: 'set-curtain-wall-parameter',
+    ctx: scopedSel('curtain-wall'),
+    scoped: true,
+    phrasings: [
+      'make mullion size of all curtain walls in ground level to 0.06 meters',
+      'set post spacing to 1.2 on the west facade',
+      'change panel thickness of all curtain walls to 0.024',
+      'set transom spacing to 4 m on level 3',
+    ],
+  },
   // ── RAC U7.1 — the PROPERTY VOCABULARY families ─────────────────────────
   // These reach applySemanticIntent through the ONE generic property arm and
   // the ONE table-compiled grammar; nothing about them is hand-written.
