@@ -24,6 +24,18 @@ export const SCHEDULE_PANEL_STYLES = `
         overflow: hidden;
     }
 
+    /* §LIVESCHED151 — the render()-managed sub-tree. Mirrors .sched-panel's own
+       flex column so header+layout keep filling the panel exactly as before;
+       the resize grip is a SIBLING of this, appended directly to .sched-panel,
+       so it survives every re-render (see SchedulePanel.ts's own note). */
+    .sched-content {
+        display: flex;
+        flex-direction: column;
+        flex: 1;
+        min-height: 0;
+        overflow: hidden;
+    }
+
     .sched-header {
         display: flex;
         justify-content: space-between;
@@ -32,6 +44,56 @@ export const SCHEDULE_PANEL_STYLES = `
         background: var(--app-gradient);
         flex-shrink: 0;
         box-shadow: var(--app-shadow-header);
+        cursor: move;
+    }
+
+    /* §LIVESCHED151 — interactive header children must not inherit the drag
+       cursor (makeDraggable already excludes them from starting a drag). */
+    .sched-header button,
+    .sched-header input {
+        cursor: pointer;
+    }
+    .sched-header input { cursor: text; }
+
+    /* ── Resize grip (bottom-right corner) ──────────────────────────────────── */
+    .sched-resize-grip {
+        position: absolute;
+        right: 3px;
+        bottom: 3px;
+        width: 16px;
+        height: 16px;
+        cursor: nwse-resize;
+        z-index: 2;
+        background:
+            linear-gradient(135deg, transparent 0 50%, rgba(255,255,255,0.55) 50% 60%, transparent 60% 100%),
+            linear-gradient(135deg, transparent 0 70%, rgba(255,255,255,0.55) 70% 80%, transparent 80% 100%);
+        opacity: 0.55;
+    }
+    .sched-resize-grip:hover { opacity: 0.9; }
+
+    /* ── Pin button (§PIN146 reuse — same glyph as AI chat / Project Browser) ── */
+    .sched-pin-btn {
+        display: flex;
+        align-items: center;
+        background: transparent;
+        border: none;
+        color: rgba(255,255,255,0.75);
+        cursor: pointer;
+        padding: 3px 5px;
+        line-height: 1;
+        border-radius: 5px;
+        margin-left: 8px;
+        transition: background 0.12s, opacity 0.12s, color 0.12s;
+    }
+    .sched-pin-btn:hover {
+        background: rgba(255,255,255,0.18);
+        color: #ffffff;
+    }
+    .sched-pin-btn--active {
+        background: rgba(255,255,255,0.32);
+        box-shadow: inset 0 0 0 1px rgba(255,255,255,0.36);
+        color: #ffffff;
+        opacity: 1;
     }
 
     .sched-title {

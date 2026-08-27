@@ -24,7 +24,16 @@
  */
 import { ScheduleRegistry, scheduleStore } from '@pryzm/core-app-model';
 import { ScheduleExtractor } from '@pryzm/core-app-model';
-import { panelManager } from '../PanelManager';
+import { panelManager, PANEL_PIN_ICON_SVG } from '../PanelManager';
+// §LIVESCHED151 — the panel becomes movable/resizable using the SAME shared
+// utilities RACChatbotPanel/OverridePanel/VGGovernancePanel already use (no
+// third drag/resize implementation), and persists its geometry through the
+// SAME app-global UI-chrome funnel PropertyPanel already uses for its own
+// position ('bim-pp-pos') / size ('pryzm-pp-size') — see uiPrefStorage.ts's
+// own header for why writes must never throw on a full quota.
+import { makeDraggable } from '../makeDraggable';
+import { makeResizable } from '../makeResizable';
+import { readUiPreference, writeUiPreference } from '../uiPrefStorage';
 
 /** PR-12 (C72 §1.1) — the geometry events an OPEN schedule must re-render on.
  *  Copied from the canonical families in `engine/initScene.ts` (`_vptEditEvents`,
@@ -53,8 +62,39 @@ import {
   dispatchScheduleUpdate,
 } from './scheduleViewModel';
 
+/**
+ * §LIVESCHED151 (reuses §PIN146) — whether the schedule panel survives
+ * PanelManager's exclusivity close. Global, browser-local, NOT per-project —
+ * same scope and shape as `AI_CHAT_PIN_STORAGE_KEY` (AIPanel.ts) and
+ * RailPanelController's `rp-panel-pinned`. The pinned STATE itself lives in
+ * `panelManager` (the one shared authority, C84 EI-9); this key exists only to
+ * remember the user's choice across a reload, exactly like the other two.
+ */
+export const SCHEDULE_PANEL_PIN_STORAGE_KEY = 'pryzm-sched-panel-pinned';
+
+function _loadSchedPinned(): boolean {
+  try { return localStorage.getItem(SCHEDULE_PANEL_PIN_STORAGE_KEY) === 'true'; } catch { return false; }
+}
+function _saveSchedPinned(value: boolean): void {
+  try { localStorage.setItem(SCHEDULE_PANEL_PIN_STORAGE_KEY, String(value)); } catch { /* ignore */ }
+}
+
+/** §LIVESCHED151 — panel position/size, app-global UI chrome (never project
+ *  content), through the SAME quota-safe funnel PropertyPanel already uses. */
+const SCHED_POS_KEY  = 'pryzm-sched-pos';
+const SCHED_SIZE_KEY = 'pryzm-sched-size';
+
 export class SchedulePanel {
   private _element: HTMLElement;
+  /** §LIVESCHED151 — the sub-tree `render()` clears/rebuilds each call. The
+   *  drag handle (`.sched-header`, rebuilt every render) is found inside this
+   *  by SELECTOR (makeDraggable re-queries on each mousedown), but the resize
+   *  grip is a persistent NODE `makeResizable` attaches listeners to directly —
+   *  it must live OUTSIDE what render() clears, or every re-render (which
+   *  happens on every live geometry event, §LIVESCHED151 part D) would destroy
+   *  it and leak a fresh pair of document-level mousemove/mouseup listeners. */
+  private _contentEl: HTMLElement;
+  private _panelPinned: boolean;
   private _currentScheduleId: string | null = null;
   private _tbody: HTMLTableSectionElement | null = null;
 
@@ -74,7 +114,56 @@ export class SchedulePanel {
     this._element = document.createElement('div');
     this._element.className = 'sched-panel';
     document.body.appendChild(this._element);
+
+    // §LIVESCHED151 — `render()` clears/rebuilds ONLY this inner node from now
+    // on, so the resize grip (appended directly to `_element`, below) survives
+    // every re-render. `.sched-content` mirrors `.sched-panel`'s own
+    // flex column so header+layout keep filling the panel exactly as before —
+    // see the CSS file for the rule.
+    this._contentEl = document.createElement('div');
+    this._contentEl.className = 'sched-content';
+    this._element.appendChild(this._contentEl);
+
     panelManager.register('panel:schedule', () => this.hide());
+
+    // §LIVESCHED151 (C) — capability C ("select a row, zoom, but the schedule
+    // stays open") needs NO new close-guarding logic here. The only thing that
+    // closes this panel today is PanelManager's own exclusivity: selecting any
+    // element opens the Properties Panel (PropertyPanel._makeVisible() calls
+    // `panelManager.notifyOpened('panel:property')`), and `_closeOthers` force-
+    // closes every OTHER registered panel — including 'panel:schedule' — UNLESS
+    // it is pinned (§PIN146). So capability C reduces entirely to capability B:
+    // once this panel reports itself pinned, the SAME conditional this repo
+    // already ships (`PanelManager._closeOthers`'s `if (this._pinned.has(id))
+    // continue;`) is what leaves it open through a row-click zoom. No third
+    // mechanism (C84 EI-9) — see the founder brief's own instruction to reuse
+    // §PIN146 rather than add a second "stay open" path.
+    this._panelPinned = _loadSchedPinned();
+    panelManager.setPinned('panel:schedule', this._panelPinned);
+
+    // §LIVESCHED151 (A) — restore a previously-saved position/size BEFORE the
+    // panel is ever shown, mirroring PropertyPanel._initPosition/_initSize.
+    this._restoreGeometry();
+
+    // §LIVESCHED151 (A) — drag by the header, resize via a corner grip. Same
+    // shared utilities RACChatbotPanel / OverridePanel / VGGovernancePanel use
+    // (no new drag/resize implementation). Interactive header children are
+    // excluded so clicking Edit/Pin/Close or typing a rename never starts a drag.
+    makeDraggable(this._element, '.sched-header', ['.sched-close', '.sched-fields-btn', '.sched-pin-btn', 'input']);
+    const resizeGrip = document.createElement('div');
+    resizeGrip.className = 'sched-resize-grip';
+    resizeGrip.setAttribute('aria-hidden', 'true');
+    resizeGrip.title = 'Drag to resize the panel';
+    this._element.appendChild(resizeGrip);
+    makeResizable(this._element, resizeGrip, { minWidth: 480, minHeight: 320 });
+
+    // §LIVESCHED151 (A) — persist geometry after a drag or resize ends. Neither
+    // utility exposes a drag-end/resize-end callback, so this reads back
+    // whatever the utility just settled the panel at; visible-gated so a
+    // mouseup anywhere else in the app while the panel is closed is a no-op,
+    // and idempotent so an unrelated mouseup while it IS open just re-saves the
+    // same numbers (cheap: two small JSON writes through the quota-safe funnel).
+    document.addEventListener('mouseup', () => this._persistGeometryIfVisible());
 
     this.runtime?.events?.on('pryzm-element-selected', (detail) => {
       if (detail.source !== 'schedule') {
@@ -125,6 +214,47 @@ export class SchedulePanel {
     for (const evt of SCHEDULE_GEOMETRY_EVENTS) {
       window.addEventListener(evt, onGeometryChange);
     }
+  }
+
+  // ── Geometry persistence (A) ─────────────────────────────────────────────
+
+  /** Restore a saved position/size, or leave the CSS default (centred, 80%×70%)
+   *  untouched when nothing was ever saved. Malformed/missing data is ignored —
+   *  a broken preference must never block the panel from opening. */
+  private _restoreGeometry(): void {
+    try {
+      const posRaw = readUiPreference(SCHED_POS_KEY);
+      if (posRaw) {
+        const { x, y } = JSON.parse(posRaw) as { x?: number; y?: number };
+        if (typeof x === 'number' && typeof y === 'number' && Number.isFinite(x) && Number.isFinite(y)) {
+          this._element.style.left = `${x}px`;
+          this._element.style.top = `${y}px`;
+          this._element.style.right = 'auto';
+          this._element.style.bottom = 'auto';
+          this._element.style.margin = '0';
+          this._element.style.transform = 'none';
+        }
+      }
+    } catch { /* malformed — CSS default applies */ }
+    try {
+      const sizeRaw = readUiPreference(SCHED_SIZE_KEY);
+      if (sizeRaw) {
+        const { w, h } = JSON.parse(sizeRaw) as { w?: number; h?: number };
+        if (typeof w === 'number' && w > 0) this._element.style.width = `${w}px`;
+        if (typeof h === 'number' && h > 0) this._element.style.height = `${h}px`;
+      }
+    } catch { /* malformed — CSS default applies */ }
+  }
+
+  /** Persist the panel's current on-screen box. UI chrome — never project
+   *  content, so it goes through the app-global `uiPrefStorage` funnel, exactly
+   *  like PropertyPanel's own 'bim-pp-pos' / 'pryzm-pp-size'. */
+  private _persistGeometryIfVisible(): void {
+    if (this._element.style.display === 'none') return;
+    const rect = this._element.getBoundingClientRect();
+    if (rect.width === 0 && rect.height === 0) return; // not actually laid out
+    writeUiPreference(SCHED_POS_KEY, JSON.stringify({ x: rect.left, y: rect.top }));
+    writeUiPreference(SCHED_SIZE_KEY, JSON.stringify({ w: rect.width, h: rect.height }));
   }
 
   show(scheduleId: string) {
@@ -181,7 +311,7 @@ export class SchedulePanel {
     const rows = ScheduleExtractor.getRows(schedule.category);
     console.log(`[SchedulePanel] Rendering ${schedule.id} — ${rows.length} rows`);
 
-    this._element.innerHTML = '';
+    this._contentEl.innerHTML = '';
     this._tbody = null;
 
     // §FEAT-SCHEDULE-VIEW-EDIT (L-80) — visible columns come from the PERSISTED
@@ -239,6 +369,28 @@ export class SchedulePanel {
     countBadge.className = 'sched-count-badge';
     countBadge.textContent = `${rows.length} item${rows.length !== 1 ? 's' : ''}`;
 
+    // §LIVESCHED151 (B) — the ONE pin control (PANEL_PIN_ICON_SVG), wired
+    // purely through panelManager's shared pin registry (§PIN146) exactly like
+    // AIPanel's chat pin — no second local flag. Pinning is what lets
+    // capability C (row-select zooms without closing the schedule) hold: see
+    // the constructor's note on PanelManager._closeOthers.
+    const pinBtn = document.createElement('button');
+    pinBtn.type = 'button';
+    pinBtn.className = `sched-pin-btn${this._panelPinned ? ' sched-pin-btn--active' : ''}`;
+    pinBtn.title = this._panelPinned ? 'Unpin panel' : 'Pin panel (stays open while you navigate/select)';
+    pinBtn.setAttribute('aria-label', pinBtn.title);
+    pinBtn.setAttribute('aria-pressed', String(this._panelPinned));
+    pinBtn.innerHTML = PANEL_PIN_ICON_SVG;
+    pinBtn.addEventListener('click', () => {
+      this._panelPinned = !this._panelPinned;
+      _saveSchedPinned(this._panelPinned);
+      panelManager.setPinned('panel:schedule', this._panelPinned);
+      pinBtn.classList.toggle('sched-pin-btn--active', this._panelPinned);
+      pinBtn.title = this._panelPinned ? 'Unpin panel' : 'Pin panel (stays open while you navigate/select)';
+      pinBtn.setAttribute('aria-label', pinBtn.title);
+      pinBtn.setAttribute('aria-pressed', String(this._panelPinned));
+    });
+
     const closeBtn = document.createElement('button');
     closeBtn.className = 'sched-close';
     closeBtn.setAttribute('aria-label', 'Close schedule panel');
@@ -248,6 +400,7 @@ export class SchedulePanel {
     header.appendChild(titleEl);
     header.appendChild(countBadge);
     header.appendChild(editBtn);
+    header.appendChild(pinBtn);
     header.appendChild(closeBtn);
 
     // ── Layout container ─────────────────────────────────────────────────────
@@ -451,7 +604,7 @@ export class SchedulePanel {
 
     layout.appendChild(body);
 
-    this._element.appendChild(header);
-    this._element.appendChild(layout);
+    this._contentEl.appendChild(header);
+    this._contentEl.appendChild(layout);
   }
 }
