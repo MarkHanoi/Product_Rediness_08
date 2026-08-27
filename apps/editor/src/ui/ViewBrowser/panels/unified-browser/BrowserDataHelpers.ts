@@ -188,8 +188,35 @@ export function getAllStores(bag: UBPBag): any[] {
         window.beamStore,         // TODO(E.beam.S) // TODO(TASK-08)
         window.plumbingStore,     // TODO(E.plumbing.S) // TODO(TASK-08)
         window.roomStore,         // TODO(E.18-R.S) // TODO(TASK-08)
+        // §L-12084 — ADDED. Both stores were published (initBuilders.ts:985, :1014)
+        // but absent from this hand-written list, and this list feeds BOTH
+        // getElementsForLevel() and getAllElementIds(). ProjectVisibilitySection
+        // hides anything whose id is not in the resulting set, so isolating a level
+        // made every stair railing and every massing lift VANISH from the viewport.
+        // Nothing was lost — they were simply never named as belonging anywhere.
+        window.stairRailingStore, // TODO(TASK-08)
+        window.liftStore,         // TODO(TASK-08)
     ];
 }
+
+/**
+ * §L-12084 — TWO FAMILIES THIS LIST STILL CANNOT REACH, and adding their stores
+ * here would NOT fix them. Recorded so the next reader does not "complete" the
+ * list above and wrongly believe the class is closed:
+ *
+ *   · CURTAIN PANELS — `CurtainPanelFactory` stamps `elementId` but never `id`,
+ *     and ProjectVisibilitySection's guard is `if (!obj.userData?.id) return`.
+ *     They are therefore SKIPPED entirely: never hidden, but never isolated
+ *     either. The fix is an `id` stamp at the factory, not a row here.
+ *   · C104 COMPOUND LIFTS — the root carries `id: lift.id` but its CHILDREN
+ *     carry `id: part.id`, and no store yields those part ids. The children
+ *     stay hidden even with `liftStore` present. The fix is either stamping the
+ *     owning lift id on children or teaching the guard about part ownership.
+ *
+ * Both are real, both are separate changes, and both are logged rather than
+ * silently half-fixed — a list that LOOKS complete is worse than one that says
+ * where it stops.
+ */
 
 /**
  * §149 ISOLATE-LEVEL-HOSTED-MISSING — doors/windows/openings are HOSTED on a wall
