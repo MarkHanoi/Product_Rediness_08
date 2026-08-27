@@ -421,6 +421,46 @@ function droppedCatalogueWords(
   return tokens(ref).filter((w) => CATALOGUE_WORDS.has(w) && !covered.has(w));
 }
 
+/** Arm 1 of {@link resolveFinishRef} — the CURATED alias table, and nothing
+ *  else. Factored out so {@link isCanonicalFinishAlias} asks the identical
+ *  question `resolveFinishRef` asks internally, rather than a second
+ *  hand-written copy of "is `n` one of the hand-picked nicknames" (C84 EI-9). */
+function canonicalAliasEntry(n: string): (typeof FINISHES)[number] | null {
+  for (const entry of FINISHES) {
+    if (entry.aliases.some((a) => a === n)) return entry;
+  }
+  return null;
+}
+
+/**
+ * §OVERCLAIM158 (L-12583) — TRUE only when `ref` is a CURATED alias (arm 1 of
+ * {@link resolveFinishRef}: the hand-picked nickname table), never a
+ * catalogue-DERIVED hit (arm 2, `finishRefCandidates`) or a loose substring
+ * hit (arm 3).
+ *
+ * Exists for a caller whose own claim rule is WEAKER than "the user said the
+ * word 'finish'" — `WallSideFinishIntent`'s §RACSIDE144 bare-form exception —
+ * which needs to ask a narrower question than `resolveFinishRef(ref) !== null`:
+ * "did the user say a DELIBERATE finish word", not "did some word in the
+ * sentence happen to be the only catalogue label carrying it". Measured
+ * 2026-08-27 (L-12583): `resolveFinishRef('curtain')` is a real, CORRECT arm-2
+ * answer — `Glass · Reflective (Curtain Wall)` is the one label carrying that
+ * word — and it is a completely wrong answer to "did 'make all curtain walls
+ * 5 meters high' name a finish". Same for `resolveFinishRef('tall')` →
+ * `Landscape · Tall Ornamental Grass` (from "make this wall 3m TALL and
+ * 300mm thick") and `resolveFinishRef('glazed')` → `Brick · White Glazed`
+ * (from "make all walls double GLAZED titanium"). None of the three is a word
+ * anyone CURATED as a finish nickname; all three are single-word arm-2
+ * coincidences. `'white paint'`, `'grey paint'` and `'timber'` ARE curated
+ * (arm 1), so this predicate keeps returning `true` for them — §RACSIDE144's
+ * founder fix ("make all walls white paint") is untouched.
+ */
+export function isCanonicalFinishAlias(ref: string): boolean {
+  const n = normalize(ref);
+  if (n.length === 0) return false;
+  return canonicalAliasEntry(n) !== null;
+}
+
 /**
  * Resolve a finish reference ("plaster", "limewash") to the library values.
  * Exact alias first, then unique-substring (ambiguity ⇒ null, never a
@@ -433,9 +473,8 @@ export function resolveFinishRef(ref: string): ResolvedFinish | null {
   // ── 1. THE CANONICAL NICKNAME. The LANGUAGE layer wins outright: 'plaster'
   //    means Skim Coat here by decision, and 'wood' means Oak (§L960). A raw
   //    catalogue scan would make both ambiguous, so this arm stays first.
-  for (const entry of FINISHES) {
-    if (entry.aliases.some((a) => a === n)) return entry.finish;
-  }
+  const canonical = canonicalAliasEntry(n);
+  if (canonical !== null) return canonical.finish;
   // ── 2. §FIX-FINISH-VOCABULARY-IS-THE-CATALOGUE (L-1262) — THE MASTER, by its
   //    own labels. This is what makes all 205 materials nameable rather than 39,
   //    and it is DERIVED: a new C100 row is chat-nameable with no edit here.

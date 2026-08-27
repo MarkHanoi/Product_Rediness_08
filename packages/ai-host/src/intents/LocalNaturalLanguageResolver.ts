@@ -70,7 +70,7 @@ import { parseWallSideFinishIntent } from './WallSideFinishIntent.js';
 // §FEAT-FLOOR-SURFACE-FINISH (L-1881) — the floor twin, on the SAME two tiers as
 // the wall grammar so tier-0 and tier-1 can never disagree about a sentence.
 import { parseFloorFinishIntent } from './FloorFinishIntent.js';
-import { finishRefCandidates, resolveFinishRef } from './finishRef.js';
+import { finishRefCandidates, isCanonicalFinishAlias, resolveFinishRef } from './finishRef.js';
 // §CWCHAT155 — the SAME parser tier-0 uses (matchCurtainWallParameter,
 // ZeroTokenResolver.ts), so a sentence that misses the exact tier-0 grammar
 // but reaches this natural-language layer cannot be understood differently.
@@ -1148,6 +1148,9 @@ function classify(
     ctx,
     // §RACSIDE144 (L-12365) — same ambiguity-aware scan as the tier-0 matcher.
     (r) => finishRefCandidates(r).length > 0,
+    // §OVERCLAIM158 (L-12583) — same CURATED-alias gate as the tier-0 matcher,
+    // through the SAME shared parser; see its own comment for why.
+    isCanonicalFinishAlias,
   );
   if (wallSideFinish !== null) {
     push({

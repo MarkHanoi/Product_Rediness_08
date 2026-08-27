@@ -209,7 +209,7 @@ import {
 } from './FacadePhotoBrief.js';
 // resolveFinishRef is the GRAMMAR's finish recognizer (word-window scan);
 // the refusal copy (exampleFinishNames) moved into CapabilityExecutionSpec.
-import { finishRefCandidates, resolveFinishRef } from './finishRef.js';
+import { finishRefCandidates, isCanonicalFinishAlias, resolveFinishRef } from './finishRef.js';
 // §FEAT-WALL-SIDE-FINISH — the per-side finish grammar, in its own pure module.
 import { parseWallSideFinishIntent, LAYER_NOUN, type WallSideFinishIntent } from './WallSideFinishIntent';
 // §FEAT-FLOOR-SURFACE-FINISH (L-1881) — the FLOOR twin, its own grammar for the
@@ -5170,6 +5170,9 @@ const matchWallSideFinish: Matcher = (text, ctx) =>
     ctx?.resolveWallSystemType,
     ctx,
     (r) => finishRefCandidates(r).length > 0,
+    // §OVERCLAIM158 (L-12583) — gates the BARE-CLAIM exception to a CURATED
+    // alias only; see `parseWallSideFinishIntent`'s own comment.
+    isCanonicalFinishAlias,
   );
 
 // §FEAT-FLOOR-SURFACE-FINISH (L-1881) — the floor twin. TWO predicates are

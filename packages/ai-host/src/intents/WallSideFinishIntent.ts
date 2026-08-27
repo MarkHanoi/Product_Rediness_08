@@ -51,6 +51,13 @@ import type { ElementFilter, IntentScope, IntentSpatialScope } from './ScopeDesc
 // §RACWALL128 — resolveCompassRef is THE one compass-word table (L-10941); the
 // facing-adjective probe below consults it rather than minting a second one.
 import { parseInlineSpatialPhrase, resolveCompassRef } from './SpatialScopeTail';
+// §OVERCLAIM158 (L-12583) — `nearbyNames` is THE ONE "does this word overlap a
+// real catalogue name" reader (§FIX-SELF-REFERENTIAL-TYPE-NAME, L-10100);
+// reused here rather than a second hand-written "contains" check so an
+// AMBIGUOUS wall-type collision ("timber" names two real types) is detected
+// the same way `CapabilityExecutionSpec.ts`'s own wall-type refusal already
+// detects it, not by a rival definition of "nearby".
+import { nearbyNames } from './CatalogueFamilies';
 import type { ResolverContext } from './ZeroTokenResolver';
 
 /** RAC U8.1 — re-attach the lifted filters. Structurally identical to
@@ -198,6 +205,12 @@ export const LAYER_NOUN = /\b(?:layers?|coat(?:ing)?s?)\b/;
  *        phrase names AT LEAST ONE real material, ambiguous or not. Optional
  *        so every existing call site still compiles; see the SCAN comment
  *        below for why this is a SEPARATE question from `resolvesFinish`.
+ * @param isCanonicalFinish §OVERCLAIM158 (L-12583) — injected
+ *        `isCanonicalFinishAlias`-shaped predicate: TRUE only when `ref` is a
+ *        CURATED alias (`finishRef.ts` arm 1), never a catalogue-DERIVED
+ *        single-word hit. Gates the BARE-CLAIM exception below — see its own
+ *        comment for why `resolvesFinish` alone is the wrong question there.
+ *        Optional so every existing call site still compiles.
  */
 export function parseWallSideFinishIntent(
     text: string,
@@ -208,6 +221,7 @@ export function parseWallSideFinishIntent(
      *  unchanged and a context-free caller simply cannot say "this floor". */
     ctx?: ResolverContext,
     hasFinishCandidates?: (ref: string) => boolean,
+    isCanonicalFinish?: (ref: string) => boolean,
 ): WallSideFinishIntent | null {
     // ⛔ Never steal the layer-ADD ask. That one moves the wall's thickness.
     if (/^add\b/.test(text)) return null;
@@ -388,8 +402,43 @@ export function parseWallSideFinishIntent(
     // claim here: `resolveFinishRef('white')` is null (several real whites),
     // so it stays a colour ask for `set-wall-color`, exactly as before this
     // lane. Only a genuinely UNAMBIGUOUS bare finish reaches this claim.
-    const typeCollision = knownFinishIsStrict && resolveWallSystemType?.(knownFinish!) != null;
-    if (!hasMarker && !hasInner && !hasOuter && !hasBoth && (!knownFinishIsStrict || typeCollision)) {
+    //
+    // §OVERCLAIM158 (L-12583) — AND "UNAMBIGUOUS" WAS NEVER THE WHOLE TEST.
+    // `knownFinishIsStrict` means "exactly one catalogue row carries every
+    // word of this phrase" — true for 'white paint' (a hand-curated nickname,
+    // finishRef.ts arm 1) AND, just as truly, for 'curtain' (the ONLY label
+    // carrying that word is `Glass · Reflective (Curtain Wall)`, arm 2) and
+    // for 'tall' (the only label carrying IT is `Landscape · Tall Ornamental
+    // Grass`, also arm 2). All three are correct answers to "what material is
+    // this"; only the first is evidence the user NAMED A FINISH — the other
+    // two are a scope-noun ("curtain wall(s)") and a dimension word ("3m
+    // TALL") that merely happen to be the sole occupant of some unrelated
+    // catalogue label. Measured: "make all curtain walls 5 meters high"
+    // claimed via 'curtain', discarding "5 meters high"; "make this wall 3m
+    // tall and 300mm thick" claimed via 'tall', discarding both measurements;
+    // "make all walls double glazed titanium" claimed via 'glazed'
+    // (`Brick · White Glazed`), pre-empting `set-wall-type`'s own honest
+    // "no wall type called…" refusal. `knownFinishIsCanonical` narrows the
+    // bare exception to arm 1 ONLY — exactly the tier 'white paint' and
+    // 'grey paint' already resolve/refuse through, so §RACSIDE144's founder
+    // fix and L-12365's ambiguity fix are both untouched.
+    const knownFinishIsCanonical = knownFinish !== null && (isCanonicalFinish?.(knownFinish) ?? false);
+    // §OVERCLAIM158 (L-12583) — the collision check ALSO widened, from "does
+    // this EXACT phrase resolve to one real wall type" to "does this word
+    // overlap ANY real wall type name, singular or AMBIGUOUS". 'timber' IS a
+    // curated finish alias (arm 1 → wood-oak), so `knownFinishIsCanonical`
+    // alone still claims it — but the same word also names TWO real wall
+    // types ("Timber Frame – 200mm", "Wooden Frames – Exposed Timber
+    // 296mm"), an AMBIGUOUS collision `resolveWallSystemType` cannot see
+    // (it returns `null` for "no match" and "ambiguous match" alike). Reusing
+    // `nearbyNames` — the SAME "does this overlap a real name" reader
+    // `CapabilityExecutionSpec.ts`'s own wall-type refusal already calls,
+    // never a second "contains" implementation (C84 EI-8a) — answers both.
+    const typeCollision = knownFinishIsStrict && (
+        resolveWallSystemType?.(knownFinish!) != null
+        || nearbyNames(ctx?.wallSystemTypeNames ?? [], knownFinish!).length > 0
+    );
+    if (!hasMarker && !hasInner && !hasOuter && !hasBoth && (!knownFinishIsCanonical || typeCollision)) {
         return null;
     }
 
