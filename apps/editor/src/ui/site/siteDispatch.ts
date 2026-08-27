@@ -470,6 +470,10 @@ import {
     CONTEXT_DERIVED_STUDY_ENVELOPE_CERTIFIED,
     buildContextDerivedStudyEnvelope,
     type ContextStudyNeighbourSample,
+    // §MANUALENV159 (L-12640) — the user-supplied-height sibling, deliberately UNGATED (see the
+    // provider's own module header for why this is not behind `CONTEXT_DERIVED_STUDY_ENVELOPE_CERTIFIED`).
+    buildUserSuppliedStudyEnvelope,
+    type UserSuppliedStudyEnvelopeResult,
     // PARIS (Ville de Paris, INSEE 75056) — PLU bioclimatique, STRUCTURED-DATA-FIRST. `resolveParisEnvelope`
     // reads the zone identity (GPU zone_urba), the numeric hauteur plafond (opendata plub_hauteur) AND the
     // published `plub_ecm` buildable-FOOTPRINT polygon; `computeParisEnvelope` extrudes that real footprint
@@ -577,7 +581,17 @@ import {
 } from './envelopeResolutionState.js';
 // §CONTEXT-DERIVED-STUDY-ENVELOPE (§ENVAMS148) — session-only holder for the last computed
 // context-derived study (never persisted to the C19 Parcel — see that module's header for why).
-import { setContextDerivedStudyEnvelope } from './contextDerivedStudyEnvelopeState.js';
+import {
+    setContextDerivedStudyEnvelope,
+    resetContextDerivedStudyEnvelopeState,
+} from './contextDerivedStudyEnvelopeState.js';
+// §MANUALENV159 (L-12640) — the RAW user-supplied study-height decision, PROJECT-persisted (see
+// that module's header for why this one, unlike the line above, is NOT session-only).
+import {
+    setUserSuppliedStudyHeight,
+    getUserSuppliedStudyHeight,
+    resetUserSuppliedStudyHeightState,
+} from './userSuppliedStudyHeightState.js';
 
 const _siteRestoreTracer = trace.getTracer('pryzm.site.restore');
 
@@ -706,6 +720,16 @@ export function resetSiteDispatchProjectState(): void {
         // project B's parcel panel. Same rule as `_lastEnvelope` two lines up, and the same
         // reason: the phase is a claim about THIS project's parcel.
         resetEnvelopeResolutionState();
+        // §MANUALENV159 (L-12640) — found while wiring the user-supplied-height persistence:
+        // NEITHER the context-derived-study display slot NOR (now) its user-supplied sibling was
+        // ever reset here, despite this being the file's own documented "single named owner" of
+        // per-project singleton teardown. Left alone, project B's rail would show project A's
+        // last-computed study (derived OR user-typed) until something else happened to overwrite
+        // it — exactly the C13 §4 leak this function exists to prevent for every other singleton
+        // in this file. Both are session-only display/decision state, never the C19 Parcel itself,
+        // so resetting them here is safe and has no persisted-data consequence.
+        resetContextDerivedStudyEnvelopeState();
+        resetUserSuppliedStudyHeightState();
         _owningProjectId = null;
     } catch (e) {
         console.warn('[gis] §L-676 resetSiteDispatchProjectState failed (non-fatal):', e);
@@ -1244,6 +1268,44 @@ export function restoreSiteState(
                 // into a fabricated fact on reload.
                 provenance: model.parcel.provenance ?? null,
             });
+        }
+
+        // §MANUALENV159 (L-12640) — rehydrate a persisted user-supplied study height, if this
+        // project has one for this site, by RECOMPUTING it against the JUST-RESTORED parcel ring
+        // rather than replaying a stale footprint (mirrors the derived study's own "recomputed on
+        // demand" philosophy — see `userSuppliedStudyHeightState.ts`'s header). Requires
+        // `restoreUserSuppliedStudyHeights(snapshot.manualStudyHeight?.bySiteId)` to already have
+        // run (ProjectLoader calls it BEFORE `restoreSiteState`) so the raw decision is in memory
+        // by the time this reads it. Best-effort: never blocks the rest of the restore.
+        try {
+            const savedHeight = getUserSuppliedStudyHeight(model.id);
+            if (savedHeight && Array.isArray(polygon) && polygon.length >= 3) {
+                const rehydrated = buildUserSuppliedStudyEnvelope({
+                    parcelRing: polygon,
+                    edgeClassifications: model.parcel?.boundary?.edgeClassifications,
+                    heightM: savedHeight.heightM,
+                    setback_m: savedHeight.setbackM,
+                    nowIso: savedHeight.savedAtIso,
+                });
+                if (rehydrated.ok) {
+                    setContextDerivedStudyEnvelope(model.id, { ok: true, study: rehydrated.study });
+                    console.log(
+                        `[gis] §MANUALENV159 — user-supplied study height ${savedHeight.heightM.toFixed(1)} m ` +
+                        `rehydrated for siteId=${model.id} from the project snapshot.`,
+                    );
+                } else {
+                    // The saved height no longer builds against the CURRENT ring (e.g. the parcel
+                    // was re-drawn since). Say so rather than silently dropping it — the raw
+                    // decision stays in `userSuppliedStudyHeightState` either way (it is not
+                    // cleared here), so a user who re-widens the parcel can re-save unchanged.
+                    console.warn(
+                        `[gis] §MANUALENV159 — saved user-supplied height no longer builds against the ` +
+                        `restored parcel (reason=${rehydrated.reason}) — not displayed; the raw value is retained.`,
+                    );
+                }
+            }
+        } catch (e) {
+            console.warn('[gis] §MANUALENV159 — user-supplied study height rehydrate failed (non-fatal):', e);
         }
 
         console.log(
@@ -3566,14 +3628,19 @@ async function attachNlContextDerivedStudy(
             sourceLabel: 'OpenStreetMap context buildings (measured/derived heights only)',
         });
         setContextDerivedStudyEnvelope(siteId, result);
-        if (result.ok) {
+        // `buildContextDerivedStudyEnvelope` only ever produces a `'median-neighbour-height'`
+        // basis — the narrowing below is for the TYPE CHECKER (the schema's `heightBasis` is a
+        // discriminated union since §MANUALENV159 added the `'user-supplied'` sibling), not a
+        // runtime possibility this call site needs to branch on.
+        if (result.ok && result.study.heightBasis.method === 'median-neighbour-height') {
+            const basis = result.study.heightBasis;
             console.log(
                 `${TAG} median ${result.study.maxHeight_m.toFixed(1)} m from ` +
-                    `${result.study.heightBasis.sampledCount} real-height neighbour(s) within ` +
-                    `${CONTEXT_STUDY_RADIUS_M} m (excluded ${result.study.heightBasis.excludedAssumedCount} ` +
+                    `${basis.sampledCount} real-height neighbour(s) within ` +
+                    `${CONTEXT_STUDY_RADIUS_M} m (excluded ${basis.excludedAssumedCount} ` +
                     'fabricated-placeholder neighbour(s)). INDICATIVE ONLY — not a determination.',
             );
-        } else {
+        } else if (!result.ok) {
             console.log(
                 `${TAG} refused: ${result.reason} (real=${result.realSampleCount}, ` +
                     `excludedAssumed=${result.excludedAssumedCount}).`,
@@ -3582,6 +3649,65 @@ async function attachNlContextDerivedStudy(
     } catch (e) {
         console.warn(`${TAG} failed (non-fatal):`, e);
     }
+}
+
+/**
+ * §MANUALENV159 (L-12640) — the "study height" input the founder asked for directly: *"if you
+ * dont know add this: 24.5 meters on this parcel."* Builds a context-derived-study-SHAPED
+ * envelope (SAME schema, status `'context-derived-study'`, SAME mandatory disclaimer) from a
+ * height the USER TYPED, never measured or derived by PRYZM from any source — reusing
+ * `ContextDerivedStudyEnvelope` rather than inventing a third envelope kind (C84 EI-9).
+ *
+ * ⚠ UNGATED, DELIBERATELY — see `buildUserSuppliedStudyEnvelope`'s own header. That function
+ * makes no PRYZM claim; it echoes back exactly what the user typed, badged as such, so it carries
+ * none of the legal/scope reasoning `CONTEXT_DERIVED_STUDY_ENVELOPE_CERTIFIED` (SIG-NL2) exists to
+ * bound. Gating a user's own typed input behind a signature meant for PRYZM's OWN derivations
+ * would be the exact L-942 shape this lane exists to remove.
+ *
+ * On success: writes the COMPUTED study into the SAME session-only display slot
+ * (`contextDerivedStudyEnvelopeState.ts`) the derived study already uses — one card renderer
+ * serves both, and a user-supplied study REPLACES whatever derived (or absent) study was showing,
+ * since the user has now made an explicit choice for this parcel. Also persists the RAW decision
+ * (`userSuppliedStudyHeightState.ts` → `ProjectSnapshot.manualStudyHeight`, C47 additive-optional)
+ * so it survives reload/collaboration — a PROJECT decision, not a browser preference.
+ *
+ * On a bounds/geometry refusal: the display slot is left UNTOUCHED (any existing derived-study
+ * result keeps showing) and the typed refusal is returned to the caller for an inline message —
+ * never silently swapped for the old state, and never persisted.
+ *
+ * Returns `null` only when there is no active site with a committed parcel boundary to build a
+ * footprint from (the caller should not have been able to reach this control in that state, but
+ * the check is defensive rather than assumed).
+ */
+export function applyUserSuppliedStudyHeight(
+    ctx: SiteContext,
+    heightM: number,
+    setbackM: number = 0,
+): UserSuppliedStudyEnvelopeResult | null {
+    const site = ctx.store.getSite();
+    const boundary = site?.parcel?.boundary;
+    if (!site || !boundary || !Array.isArray(boundary.polygon) || boundary.polygon.length < 3) {
+        return null;
+    }
+    const nowIso = new Date().toISOString();
+    const result = buildUserSuppliedStudyEnvelope({
+        parcelRing: boundary.polygon,
+        edgeClassifications: boundary.edgeClassifications,
+        heightM,
+        setback_m: setbackM,
+        nowIso,
+    });
+    if (result.ok) {
+        setContextDerivedStudyEnvelope(site.id, { ok: true, study: result.study });
+        setUserSuppliedStudyHeight(site.id, { heightM, setbackM, savedAtIso: nowIso });
+        console.log(
+            `[gis][c58] §MANUALENV159 — user-supplied study height ${heightM.toFixed(1)} m saved ` +
+                `for site ${site.id}. INDICATIVE ONLY — supplied by the user, not measured or derived.`,
+        );
+    } else {
+        console.log(`[gis][c58] §MANUALENV159 — user-supplied study height refused: ${result.reason}.`);
+    }
+    return result;
 }
 
 /**

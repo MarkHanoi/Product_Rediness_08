@@ -39,6 +39,11 @@ import { elementCodeStore } from '@pryzm/core-app-model';
 // guarantee instead of a second copy of the prefix string.
 import { rateBookStorageKey, type RateEntry } from '@pryzm/core-app-model';
 import { deriveSnapshotRates } from './rateBookSnapshotSync';
+// §MANUALENV159 (L-12640, C47 additive-optional — the SAME pattern §RATES157 used above). A
+// pure, dependency-free (no DOM/store/fetch) leaf module, so importing it here is cheap — unlike
+// `siteDispatch.ts` (512 KB), which is why THAT module is reached only via `@app/ui/site/siteDispatch`
+// in `ProjectLoader.ts`, never imported by this file.
+import { serializeUserSuppliedStudyHeights } from '@app/ui/site/userSuppliedStudyHeightState';
 import { roomBoundingLineStore } from '@pryzm/core-app-model/stores';
 import { WallStore } from '@pryzm/geometry-wall';
 import { SlabStore } from '@pryzm/geometry-slab';
@@ -384,6 +389,27 @@ export interface ProjectSnapshot {
         version: 1;
         currency: string;
         entries: RateEntry[];
+    };
+
+    /**
+     * §MANUALENV159 (L-12640, C47 additive-optional).
+     * The user-supplied "study height" decision (e.g. *"assume 24.5 m on this parcel"*) for a
+     * site where no normative buildable envelope resolves — see `ManualAdminZonePanel.ts`'s
+     * sibling entry point and `userSuppliedStudyHeightState.ts` for the full context. A PROJECT
+     * decision (survives reload/collaboration), not a browser preference — mirrors `rates` above
+     * exactly, keyed by site id rather than a single project-wide value because
+     * `contextDerivedStudyEnvelopeState.ts` (the display slot this rehydrates into) is ALSO keyed
+     * that way. Optional for backward compat: a snapshot saved before this lane, or a project
+     * that never used this feature, has no `manualStudyHeight` key and MUST load cleanly with
+     * nothing rehydrated.
+     */
+    manualStudyHeight?: {
+        version: 1;
+        bySiteId: Record<string, {
+            readonly heightM: number;
+            readonly setbackM: number;
+            readonly savedAtIso: string;
+        }>;
     };
 
     /**
@@ -1681,6 +1707,18 @@ export class ProjectSerializer {
                 if (typeof window === 'undefined' || !window.localStorage) return undefined;
                 const raw = window.localStorage.getItem(rateBookStorageKey(opts.projectId ?? null));
                 return deriveSnapshotRates(raw);
+            })(),
+
+            // §MANUALENV159 (L-12640) — the user-supplied study-height decision(s) (C47
+            // additive-optional). UNLIKE `rates` above, there IS an in-memory store already
+            // (`userSuppliedStudyHeightState.ts`, kept live by `siteDispatch.ts`'s
+            // `applyUserSuppliedStudyHeight`), so this reads it directly rather than reaching into
+            // `localStorage` — no per-browser cache is involved at all. Omitted entirely (never an
+            // empty stub) when nothing was ever typed this session, so an untouched project's
+            // snapshot carries no `manualStudyHeight` key.
+            manualStudyHeight: ((): ProjectSnapshot['manualStudyHeight'] => {
+                const bySiteId = serializeUserSuppliedStudyHeights();
+                return bySiteId ? { version: 1, bySiteId } : undefined;
             })(),
 
             // Phase D — D-1 (schema v3): Semantic graph relationships

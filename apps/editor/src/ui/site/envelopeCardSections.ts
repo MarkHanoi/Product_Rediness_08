@@ -33,13 +33,15 @@
 // spans. C08 §3.1 — every interpolated runtime string routes through the local `escHtml`.
 
 import { trace } from '@opentelemetry/api';
-import type { CapacityComparison } from '@pryzm/site-parcel-data';
+import type { CapacityComparison, ContextDerivedStudyEnvelopeResult } from '@pryzm/site-parcel-data';
+import { CONTEXT_STUDY_DEFAULT_MIN_SAMPLE_SIZE } from '@pryzm/site-parcel-data';
 import {
     buildCapacitySectionHtml,
     renderMeasurementCaveatLinesHtml,
     resolveCapacityVerdict,
 } from './capacityPanelSection';
 import type { DesignMeasurement } from './designMeasurement';
+import type { UserSuppliedStudyHeightRecord } from './userSuppliedStudyHeightState';
 
 const _tracer = trace.getTracer('pryzm.site.envelopeCardSections');
 
@@ -397,6 +399,166 @@ export function buildLegacyDeterminationNoticeHtml(opts: {
             + '</div>'
             + safeAction
             + '</div>';
+    } finally {
+        span.end();
+    }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// §MANUALENV159 (L-12640) — Section (c): the CONTEXT-DERIVED / USER-SUPPLIED STUDY MASSING
+// ─────────────────────────────────────────────────────────────────────────────
+//
+// The founder asked FOUR times why his Amsterdam demo parcel showed no envelope. §ENVAMS148
+// built a massing study from real neighbour heights and SIG-NL2 opened its gate — but the
+// resulting `ContextDerivedStudyEnvelope` (or its typed refusal) was only ever written to
+// `contextDerivedStudyEnvelopeState.ts` "for a future rail panel to read". No rail panel read
+// it. A refusal that cannot be distinguished from "nothing happened" is the exact
+// §CONTEXT-DATA-HONESTY failure this repo exists to refuse — this section is that rail panel.
+//
+// TWO source arms produce the SAME `ContextDerivedStudyEnvelopeResult` shape
+// (`heightBasis.method` discriminates `'median-neighbour-height'` vs `'user-supplied'` —
+// see `@pryzm/schemas`'s `ContextDerivedStudyEnvelope`), so ONE renderer serves both — the
+// C84 EI-9 reuse the founder's brief asked for, not a second card.
+
+export const CONTEXT_STUDY_SECTION_TESTID = 'envelope-section-context-study';
+
+/**
+ * The context-derived / user-supplied study massing section — three arms, three distinct
+ * `data-state` values (never a blank where there is something to say):
+ *
+ *  · `study === null`         — nothing was ever computed for this site (gate shut, jurisdiction
+ *    not wired, or a fetch never landed). Absent section — mirrors `comparison === null` above.
+ *  · `study.ok === false`     — a study was ATTEMPTED and REFUSED. Names how many neighbours were
+ *    found, how many carried a REAL height, and the threshold — the exact numbers TASK A asked to
+ *    surface, read off the card rather than a console timing line.
+ *  · `study.ok === true`      — a study was built. Badge + wording DIFFER by `heightBasis.method`
+ *    so a user-supplied height is never presented as measured or derived (§CONTEXT-DATA-HONESTY).
+ *
+ * Deliberately carries NO "Designed vs permitted" verdict and no ordinance citation — the
+ * disclaimer on the object itself already states PRYZM cannot judge compliance against it; this
+ * renderer adds no claim the object does not already carry.
+ */
+export function buildContextStudySectionHtml(
+    study: ContextDerivedStudyEnvelopeResult | null,
+): string {
+    const span = _tracer.startSpan('pryzm.site.buildContextStudySectionHtml');
+    try {
+        if (study === null) {
+            span.setAttribute('pryzm.envelopeCard.studyArm', 'absent');
+            return '';
+        }
+        if (!study.ok) {
+            span.setAttribute('pryzm.envelopeCard.studyArm', `refused-${study.reason}`);
+            const safeReason = study.reason === 'insufficient-neighbour-sample'
+                ? `PRYZM looked for real neighbouring-building heights near this parcel and found `
+                    + `<b>${escHtml(study.realSampleCount)}</b> with a real, measured or tagged height`
+                    + (study.excludedAssumedCount > 0
+                        ? ` (plus ${escHtml(study.excludedAssumedCount)} nearby whose only height was a `
+                          + `fabricated placeholder — excluded, not counted as data)`
+                        : '')
+                    + `. A study needs at least <b>${escHtml(CONTEXT_STUDY_DEFAULT_MIN_SAMPLE_SIZE)}</b> real `
+                    + `samples to be a meaningful starting point, so PRYZM is not showing one here rather `
+                    + `than averaging too few buildings into a false confidence.`
+                : `PRYZM tried to build a study massing here, but the requested setback left no `
+                    + `buildable area inside the parcel ring, so nothing could be drawn. Try a smaller `
+                    + `setback.`;
+            return fold(
+                CONTEXT_STUDY_SECTION_TESTID,
+                `refused-${study.reason}`,
+                'Study massing — not enough data to build one',
+                `<div data-testid="context-study-refused" style="color:#6b6480;background:#faf9fd;`
+                + `border-radius:6px;padding:6px 8px;font-size:10px;line-height:1.5;">${safeReason}</div>`,
+            );
+        }
+        const basis = study.study.heightBasis;
+        const isUserSupplied = basis.method === 'user-supplied';
+        span.setAttribute('pryzm.envelopeCard.studyArm', isUserSupplied ? 'rendered-user-supplied' : 'rendered-derived');
+        const heightTxt = `${study.study.maxHeight_m.toFixed(1)} m`;
+        const safeBasisLine = isUserSupplied
+            ? `Height supplied by you`
+              + (basis.method === 'user-supplied'
+                  ? ` on ${escHtml(formatStudyDate(basis.sampledAtIso))}.`
+                  : '.')
+            : (basis.method === 'median-neighbour-height'
+                ? `Median of <b>${escHtml(basis.sampledCount)}</b> nearby building${basis.sampledCount === 1 ? '' : 's'} `
+                  + `with a real height, within ${escHtml(basis.radius_m)} m`
+                  + (basis.excludedAssumedCount > 0
+                      ? ` (${escHtml(basis.excludedAssumedCount)} more excluded as fabricated placeholders)`
+                      : '')
+                  + '.'
+                : '');
+        const safeBadge = isUserSupplied
+            ? `<span data-testid="context-study-badge" style="display:inline-block;padding:2px 8px;`
+              + `border-radius:999px;background:#fff6e8;color:#9a6414;font-weight:700;font-size:9.5px;`
+              + `letter-spacing:.03em;text-transform:uppercase;margin-bottom:6px;">Height supplied by you</span>`
+            : `<span data-testid="context-study-badge" style="display:inline-block;padding:2px 8px;`
+              + `border-radius:999px;background:#f3eeff;color:#6600FF;font-weight:700;font-size:9.5px;`
+              + `letter-spacing:.03em;text-transform:uppercase;margin-bottom:6px;">Context-derived study</span>`;
+        return fold(
+            CONTEXT_STUDY_SECTION_TESTID,
+            isUserSupplied ? 'rendered-user-supplied' : 'rendered-derived',
+            `Study massing — ${escHtml(heightTxt)}${isUserSupplied ? ' (supplied by you)' : ''}`,
+            `<div>${safeBadge}</div>`
+            + `<div style="color:#3d4a5c;font-size:10.5px;line-height:1.5;">${safeBasisLine}</div>`
+            + `<div style="margin-top:6px;color:#8a83a0;font-size:9.5px;line-height:1.5;">${escHtml(study.study.disclaimer)}</div>`,
+        );
+    } finally {
+        span.end();
+    }
+}
+
+/** ISO datetime → a short human date, tolerant of a malformed string (never throws into the card). */
+function formatStudyDate(iso: string): string {
+    const d = new Date(iso);
+    return Number.isFinite(d.getTime())
+        ? d.toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' })
+        : iso;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// §MANUALENV159 (L-12640) — Section (d): the STUDY-HEIGHT ENTRY FORM
+// ─────────────────────────────────────────────────────────────────────────────
+
+export const STUDY_HEIGHT_INPUT_TESTID = 'envelope-study-height-input';
+export const STUDY_HEIGHT_SETBACK_INPUT_TESTID = 'envelope-study-height-setback-input';
+export const STUDY_HEIGHT_SAVE_BTN_TESTID = 'envelope-study-height-save-btn';
+export const STUDY_HEIGHT_STATUS_TESTID = 'envelope-study-height-status';
+
+/**
+ * The "type a height for a study massing" input — the founder's own request, taken literally:
+ * *"if you dont know add this: 24.5 meters on this parcel."* Prefills from `current` (the
+ * project-persisted decision, if one exists) so re-opening the card shows what was last saved,
+ * not a blank field that looks like nothing was ever typed.
+ *
+ * Pure markup only — `GISAreaLayout.ts`'s `wireStudyHeightEntry` attaches the click handler that
+ * calls `applyUserSuppliedStudyHeight` and re-renders the card (C06 §13.3 — one producer).
+ */
+export function buildStudyHeightEntryHtml(
+    current: UserSuppliedStudyHeightRecord | null,
+): string {
+    const span = _tracer.startSpan('pryzm.site.buildStudyHeightEntryHtml');
+    try {
+        span.setAttribute('pryzm.envelopeCard.studyEntryHasSaved', current !== null);
+        const heightAttr = current ? ` value="${escHtml(current.heightM)}"` : '';
+        const setbackAttr = ` value="${escHtml(current ? current.setbackM : 0)}"`;
+        return `<div data-testid="envelope-study-height-entry" style="margin-top:9px;border-top:1px solid #efecf7;padding-top:7px;min-width:0;max-width:100%;">
+             <div style="font-weight:700;font-size:10.5px;color:#6600FF;">Don't know the height? Type one for a study massing.</div>
+             <div style="margin-top:3px;color:#8a83a0;font-size:9.5px;line-height:1.4;">This is YOUR number, not a measurement — it will be labelled &ldquo;supplied by you&rdquo; and PRYZM still cannot judge compliance against it.</div>
+             <div style="display:flex;gap:6px;margin-top:6px;align-items:flex-end;">
+               <div style="flex:1;min-width:0;">
+                 <label style="display:block;font-size:9px;color:#8a83a0;">Height (m)</label>
+                 <input data-testid="${STUDY_HEIGHT_INPUT_TESTID}" type="number" min="1" max="250" step="0.1"${heightAttr} placeholder="e.g. 24.5" style="width:100%;box-sizing:border-box;padding:5px 6px;border-radius:6px;border:1px solid #d8d3e6;font:600 11px system-ui;" />
+               </div>
+               <div style="width:68px;flex:none;">
+                 <label style="display:block;font-size:9px;color:#8a83a0;">Setback (m)</label>
+                 <input data-testid="${STUDY_HEIGHT_SETBACK_INPUT_TESTID}" type="number" min="0" step="0.1"${setbackAttr} style="width:100%;box-sizing:border-box;padding:5px 6px;border-radius:6px;border:1px solid #d8d3e6;font:600 11px system-ui;" />
+               </div>
+             </div>
+             <button type="button" data-testid="${STUDY_HEIGHT_SAVE_BTN_TESTID}" style="margin-top:6px;width:100%;appearance:none;border:1px solid #6600FF;cursor:pointer;padding:6px 10px;border-radius:8px;font:600 11px system-ui;background:#faf9fd;color:#6600FF;">
+               Build study from this height
+             </button>
+             <div data-testid="${STUDY_HEIGHT_STATUS_TESTID}" style="min-height:14px;margin-top:4px;font-size:9.5px;color:#8a83a0;"></div>
+           </div>`;
     } finally {
         span.end();
     }

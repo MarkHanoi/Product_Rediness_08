@@ -66,7 +66,16 @@ import {
     resolveStoredBuildableDetermination,
     resolveActiveProjectId,
     resolveSiteContext,
+    // §MANUALENV159 (L-12640) — the "type a height for a study massing" action: builds + persists
+    // a user-supplied study, reusing the SAME `ContextDerivedStudyEnvelope` schema/status/badge
+    // the context-derived study already uses. Deliberately UNGATED — see its own header.
+    applyUserSuppliedStudyHeight,
 } from '../site/siteDispatch';
+// §CONTEXT-DERIVED-STUDY-ENVELOPE (§ENVAMS148) / §MANUALENV159 (L-12640) — the session-only read
+// point for the last computed study (derived OR user-supplied — one slot, one card renderer) and
+// the project-persisted RAW user-supplied decision (to prefill the entry form on re-open).
+import { getContextDerivedStudyEnvelope } from '../site/contextDerivedStudyEnvelopeState';
+import { getUserSuppliedStudyHeight } from '../site/userSuppliedStudyHeightState';
 // ⭐ §ENVELOPE-ONE-VISIBILITY (L-1170) — the SINGLE authority for "is the buildable envelope
 // on screen?". This file used to BE that authority (a `let` nobody else could see) and three
 // other surfaces drew the envelope without it. It now only reads + writes.
@@ -231,6 +240,15 @@ import {
     // §BCN-OV-CITATION (L-1656) — which article a `block-constructed` envelope cites,
     // decided by the engine's own derivation row rather than a hard-coded string.
     resolveBlockConstructedSourceText,
+    // §MANUALENV159 (L-12640) — the context-derived/user-supplied study massing section + its
+    // entry form. See `envelopeCardSections.ts`'s own header for why one renderer serves both
+    // source arms.
+    buildContextStudySectionHtml,
+    buildStudyHeightEntryHtml,
+    STUDY_HEIGHT_INPUT_TESTID,
+    STUDY_HEIGHT_SETBACK_INPUT_TESTID,
+    STUDY_HEIGHT_SAVE_BTN_TESTID,
+    STUDY_HEIGHT_STATUS_TESTID,
 } from '../site/envelopeCardSections';
 
 /**
@@ -2545,6 +2563,55 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
     };
 
     /**
+     * §MANUALENV159 (L-12640) — wires the "type a height for a study massing" entry the founder
+     * asked for directly. A no-op when the form is not present in this render (the entry is only
+     * built on the `isAbsent`/`isGap` refusal arms — see `refreshEnvelopePanel`'s own comment at
+     * the call site). Synchronous (no network — `applyUserSuppliedStudyHeight` is pure geometry),
+     * so there is no loading state to manage: a click either updates the status line in place (a
+     * bounds/geometry refusal, so the user's typed value is never discarded under them) or calls
+     * `refreshEnvelopePanel()` on success — the ONE producer re-renders the whole card, including
+     * the study section above this form and the form's own prefill, from the state this save just
+     * wrote.
+     */
+    const wireStudyHeightEntry = (panel: HTMLDivElement): void => {
+        const input = panel.querySelector(`[data-testid="${STUDY_HEIGHT_INPUT_TESTID}"]`) as HTMLInputElement | null;
+        const setbackInput = panel.querySelector(`[data-testid="${STUDY_HEIGHT_SETBACK_INPUT_TESTID}"]`) as HTMLInputElement | null;
+        const btn = panel.querySelector(`[data-testid="${STUDY_HEIGHT_SAVE_BTN_TESTID}"]`) as HTMLButtonElement | null;
+        const status = panel.querySelector(`[data-testid="${STUDY_HEIGHT_STATUS_TESTID}"]`) as HTMLElement | null;
+        if (!input || !btn) return;
+        btn.onclick = (ev) => {
+            ev.stopPropagation();
+            const heightM = Number(input.value);
+            if (!Number.isFinite(heightM) || input.value.trim() === '') {
+                if (status) status.textContent = 'Enter a height in metres first.';
+                return;
+            }
+            const rawSetback = Number(setbackInput?.value ?? '0');
+            const setbackM = Number.isFinite(rawSetback) ? rawSetback : 0;
+            const ctx = resolveSiteContext(runtime ?? null);
+            if (!ctx) {
+                if (status) status.textContent = 'No active project — open or create one first.';
+                return;
+            }
+            const result = applyUserSuppliedStudyHeight(ctx, heightM, setbackM);
+            if (result === null) {
+                if (status) status.textContent = 'No committed parcel boundary to build a study from yet.';
+                return;
+            }
+            if (!result.ok) {
+                if (status) {
+                    status.textContent = result.reason === 'height-out-of-bounds'
+                        ? `Height must be between ${result.minM} and ${result.maxM} m.`
+                        : 'That setback leaves no buildable area inside the parcel — try a smaller one.';
+                }
+                return;
+            }
+            if (status) status.textContent = `Saved — study built at ${heightM.toFixed(1)} m.`;
+            refreshEnvelopePanel();
+        };
+    };
+
+    /**
      * L-445 — the REDUCED card, shown when the buildable ring was read back from persistence
      * (C58 §1.7a) but this session never re-solved the envelope.
      *
@@ -3119,6 +3186,27 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
             // this whole seam removes, L-422/457/467/469).
             const isAbsent = r.code === 'no-plan-at-point';
             const isGap = !isTransient && !isAbsent && !r.legallyGrounded;
+            // §MANUALENV159 (L-12640) — TASK A: surface the study/refusal that was previously
+            // computed (SIG-NL2 gate open) but written only to a state slot "for a future rail
+            // panel to read" — no rail panel ever read it, which is why the founder's console
+            // proving a SECOND refusal (`insufficient-neighbour-sample`) never reached him. Read
+            // the SAME session slot the context-derived study writes AND a user-supplied save
+            // writes (one slot, one renderer — see `envelopeCardSections.ts`). Also read the
+            // project-persisted raw decision to prefill the entry form on re-open.
+            //
+            // TASK B: the "type a height" entry is offered on a GENUINE data-absence (`isAbsent`)
+            // or a coverage gap (`isGap`) — states where PRYZM itself has no answer. NOT on
+            // `isTransient` (a retry may still resolve this) and NOT on the base "no envelope
+            // applies" card below (a SETTLED legal answer — offering a massing input there would
+            // misleadingly imply buildability where the ordinance says there is none).
+            const studyCtx = resolveSiteContext(runtime ?? null);
+            const studySite = studyCtx?.store.getSite() ?? null;
+            const studyResult = studySite ? getContextDerivedStudyEnvelope(studySite.id) : null;
+            const savedStudyHeight = studySite ? getUserSuppliedStudyHeight(studySite.id) : null;
+            const safeContextStudySection = buildContextStudySectionHtml(studyResult);
+            const safeStudyHeightEntry = (isAbsent || isGap)
+                ? buildStudyHeightEntryHtml(savedStudyHeight)
+                : '';
             // §L-577a — THE CHIP MUST NOT SHRINK. It rendered as `COULDN'T COMPL…` because it is a
             // flex item in the header row and flex items default to `flex-shrink: 1`, so the pill
             // was compressed below its own text and clipped. Two fixes, both needed: `flex:none`
@@ -3209,12 +3297,15 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
                  ${safeReasonLine}
                  ${safeCite}
                  ${safeManualZoneBtn}
+                 ${safeContextStudySection}
+                 ${safeStudyHeightEntry}
                  ${safeCapacitySection}
                  ${safeMeasuredSection}
                  ${safeEnvToggle}`;
             wireEnvelopeToggle(panel);
             wireEnvelopeClose(panel);
             wireManualZoneButton(panel);
+            wireStudyHeightEntry(panel);
             return;
         }
         const setback = (c: 'setback.front' | 'setback.side' | 'setback.rear'): string => {

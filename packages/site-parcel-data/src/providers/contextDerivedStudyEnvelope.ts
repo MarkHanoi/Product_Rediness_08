@@ -42,6 +42,77 @@ import { CONTEXT_DERIVED_STUDY_STATUS } from '@pryzm/schemas';
 import { polygonSignedArea } from '@pryzm/site-validators';
 import { insetPolygonPerEdge, type PerEdgeSetbacks } from '../geometry/insetPolygon.js';
 
+// ══════════════════════════════════════════════════════════════════════════════════════════════
+// §MANUALENV159 (L-12640, 2026-08-27) — THE FOUNDER'S OWN REQUEST, TAKEN LITERALLY
+// ══════════════════════════════════════════════════════════════════════════════════════════════
+// *"Why can i still see the data on the demo parcel? cant see envelope - maximum height etc? if
+// you dont know add this: 24.5 meters on this parcel."* — `buildUserSuppliedStudyEnvelope` below
+// is that literal ask: a massing study built from a height the USER TYPED, reusing the EXACT same
+// `ContextDerivedStudyEnvelope` schema/status/badge §ENVAMS148 already built (C84 EI-9 — one
+// authority per concept; a THIRD envelope kind here would be the category error that contract
+// exists to prevent) — same footprint construction (`insetPolygonPerEdge`, parcel ring, editable
+// setback defaulting to 0), same mandatory on-object disclaimer, same "cannot judge compliance"
+// posture. The ONLY thing that differs is `heightBasis.method`: `'user-supplied'`, never
+// `'median-neighbour-height'` — see the schema's own header for why that distinction is structural,
+// not prose.
+//
+// ⚠ DELIBERATELY UNGATED BY `CONTEXT_DERIVED_STUDY_ENVELOPE_CERTIFIED`. That gate (SIG-NL2)
+// authorises PRYZM publishing a number PRYZM ITSELF derived from context — a claim that needed a
+// recorded human decision precisely because PRYZM was the one making it. This function makes NO
+// PRYZM claim: it echoes back, verbatim, a number the user typed, badged as exactly that. Routing
+// a user's own input through a signature that exists to bound PRYZM's OWN derivations would be the
+// L-942 shape this lane exists to remove — a refusing half whose "yes" branch waits on a decision
+// that was never PRYZM's to make in the first place. The bounds check below is a SANITY gate (a
+// typo — "245" instead of "24.5" — must not silently draw a 245 m tower), never a legal one.
+
+/** A typed height below this is not a credible building height for a massing study — almost
+ *  certainly a typo or a unit confusion (e.g. feet). Not a legal minimum; a sanity floor. */
+export const USER_SUPPLIED_STUDY_HEIGHT_MIN_M = 1;
+/** A typed height above this exceeds anything a "study massing" input should accept without a
+ *  real engineering review — almost certainly a typo (e.g. an extra digit). Not a legal ceiling;
+ *  a sanity ceiling comfortably above any conventional building (the founder's own 24.5 m sits
+ *  well inside it). */
+export const USER_SUPPLIED_STUDY_HEIGHT_MAX_M = 250;
+
+/** The mandatory, on-the-face disclaimer a user-supplied study carries — deliberately DIFFERENT
+ *  wording from `CONTEXT_STUDY_DISCLAIMER` (below): it must never read as measured or derived. */
+export const USER_SUPPLIED_STUDY_DISCLAIMER =
+    'INDICATIVE ONLY — not a compliance determination. No adopted plan published a buildable ' +
+    'envelope at this point; this massing height was SUPPLIED BY YOU, not measured or derived by ' +
+    'PRYZM from any source. PRYZM cannot judge compliance against it.';
+
+export interface UserSuppliedStudyEnvelopeInput {
+    /** Closed ring, scene-XZ metres — same frame `BuildableEnvelope.insetPolygon` uses. */
+    readonly parcelRing: readonly Pt[];
+    /** One per edge. Defaults to all-`unclassified` (a uniform setback needs no per-edge call). */
+    readonly edgeClassifications?: readonly ParcelEdgeClassification[];
+    /** The height the user typed, in metres. */
+    readonly heightM: number;
+    /** User-editable inward offset from the parcel ring. Default 0 = the parcel ring itself. */
+    readonly setback_m?: number;
+    /** Injectable clock reading (ISO-8601), for deterministic tests. Defaults to `Date.now()`. */
+    readonly nowIso?: string;
+}
+
+/** Why a user-supplied study could not be built. A closed vocabulary — both are genuine, distinct
+ *  refusals, named with BOTH numbers per C74/CA-18. */
+export type UserSuppliedStudyEnvelopeRefusalReason =
+    /** `heightM` fell outside `[minM, maxM]` — refuses by name with both bounds, never silently
+     *  clamps a typo into a plausible-looking number. */
+    | 'height-out-of-bounds'
+    /** The setback consumed the whole parcel ring (only reachable when `setback_m > 0`). */
+    | 'degenerate-footprint';
+
+export type UserSuppliedStudyEnvelopeResult =
+    | { readonly ok: true; readonly study: ContextDerivedStudyEnvelope }
+    | {
+          readonly ok: false;
+          readonly reason: UserSuppliedStudyEnvelopeRefusalReason;
+          /** Present only for `'height-out-of-bounds'` — the two numbers C74/CA-18 requires. */
+          readonly minM?: number;
+          readonly maxM?: number;
+      };
+
 const tracer = trace.getTracer('pryzm.zoning');
 
 /**
@@ -224,6 +295,86 @@ export function buildContextDerivedStudyEnvelope(
         span.setAttribute('sampledCount', real.length);
         span.setAttribute('excludedAssumedCount', excludedAssumedCount);
         span.setAttribute('medianHeight_m', medianHeight_m);
+        span.setStatus({ code: SpanStatusCode.OK });
+        return { ok: true, study };
+    } catch (err) {
+        span.setStatus({ code: SpanStatusCode.ERROR, message: (err as Error).message });
+        throw err;
+    } finally {
+        span.end();
+    }
+}
+
+/**
+ * Build a context-derived-study-SHAPED envelope from a height the USER TYPED — §MANUALENV159
+ * (L-12640), see the module header above `USER_SUPPLIED_STUDY_HEIGHT_MIN_M` for why this exists
+ * and why it is deliberately ungated. Same footprint construction as
+ * `buildContextDerivedStudyEnvelope` (parcel ring, per-edge setback via `insetPolygonPerEdge`,
+ * default 0 m) — the ONLY divergence is the evidence: `heightBasis.method: 'user-supplied'`.
+ *
+ * Refuses (never clamps) a height outside `[USER_SUPPLIED_STUDY_HEIGHT_MIN_M,
+ * USER_SUPPLIED_STUDY_HEIGHT_MAX_M]`, naming both bounds (C74/CA-18) — a silently clamped 2450 m
+ * typo would be worse than a stated refusal. Also refuses a degenerate inset, exactly like the
+ * median-of-neighbours sibling.
+ *
+ * P8 span `pryzm.zoning.buildUserSuppliedStudyEnvelope`.
+ */
+export function buildUserSuppliedStudyEnvelope(
+    input: UserSuppliedStudyEnvelopeInput,
+): UserSuppliedStudyEnvelopeResult {
+    const span = tracer.startSpan('pryzm.zoning.buildUserSuppliedStudyEnvelope');
+    try {
+        if (
+            !Number.isFinite(input.heightM)
+            || input.heightM < USER_SUPPLIED_STUDY_HEIGHT_MIN_M
+            || input.heightM > USER_SUPPLIED_STUDY_HEIGHT_MAX_M
+        ) {
+            span.setAttribute('resultFields', 'height-out-of-bounds');
+            span.setAttribute('heightM', input.heightM);
+            span.setStatus({ code: SpanStatusCode.OK });
+            return {
+                ok: false,
+                reason: 'height-out-of-bounds',
+                minM: USER_SUPPLIED_STUDY_HEIGHT_MIN_M,
+                maxM: USER_SUPPLIED_STUDY_HEIGHT_MAX_M,
+            };
+        }
+
+        const setback_m = input.setback_m ?? 0;
+        const edgeClassifications: readonly ParcelEdgeClassification[] =
+            input.edgeClassifications ?? input.parcelRing.map(() => 'unclassified');
+        const setbacks: PerEdgeSetbacks = {
+            front: setback_m,
+            side: setback_m,
+            rear: setback_m,
+            unclassified: setback_m,
+        };
+        const inset = insetPolygonPerEdge(input.parcelRing, edgeClassifications, setbacks);
+        if (inset.degenerate || inset.polygon.length < 3) {
+            span.setAttribute('resultFields', 'degenerate-footprint');
+            span.setStatus({ code: SpanStatusCode.OK });
+            return { ok: false, reason: 'degenerate-footprint' };
+        }
+
+        const footprintAreaM2 = Math.abs(polygonSignedArea(inset.polygon));
+        const sampledAtIso = input.nowIso ?? new Date().toISOString();
+
+        const study: ContextDerivedStudyEnvelope = {
+            status: CONTEXT_DERIVED_STUDY_STATUS,
+            footprintPolygon: inset.polygon,
+            footprintAreaM2,
+            setback_m,
+            maxHeight_m: input.heightM,
+            heightBasis: {
+                method: 'user-supplied',
+                sourceLabel: 'Height supplied by you',
+                suppliedHeight_m: input.heightM,
+                sampledAtIso,
+            },
+            disclaimer: USER_SUPPLIED_STUDY_DISCLAIMER,
+        };
+        span.setAttribute('resultFields', 'ok');
+        span.setAttribute('suppliedHeight_m', input.heightM);
         span.setStatus({ code: SpanStatusCode.OK });
         return { ok: true, study };
     } catch (err) {

@@ -213,7 +213,17 @@ export const L449_CERTIFICATION_GATES: readonly L449Gate[] = Object.freeze([
         gate: 'CONTEXT_DERIVED_STUDY_ENVELOPE_CERTIFIED',
         file: 'packages/site-parcel-data/src/providers/contextDerivedStudyEnvelope.ts',
         value: CONTEXT_DERIVED_STUDY_ENVELOPE_CERTIFIED,
-        signature: 'docs/04-reference/jurisdictions/nl/sources/VERIFICATION.md#SIG-NL2',
+        // §MANUALENV159 (L-12640) — FIXED a pre-existing type error found while working this
+        // lane: this row shipped `signature` as a bare string (`'…VERIFICATION.md#SIG-NL2'`),
+        // which does not satisfy `L449SignatureRef` (`{doc, anchor}`, matching every sibling row
+        // in this file) and failed `tsc --noEmit` on `packages/site-parcel-data` outright — a
+        // build break in the very gate this lane is built on top of. Same `{doc, anchor}` shape
+        // as SIG-NL1 immediately above; `anchor: 'SIG-NL2'` is the literal substring
+        // `l449CertificationGates.test.ts` dereferences in the doc.
+        signature: {
+            doc: 'docs/04-reference/jurisdictions/nl/sources/VERIFICATION.md',
+            anchor: 'SIG-NL2',
+        },
     },
 
     // ── SHUT (`false`) — a shut gate publishes nothing and owes no signature. Several name the

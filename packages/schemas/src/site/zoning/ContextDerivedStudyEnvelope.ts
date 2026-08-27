@@ -63,6 +63,11 @@ export const CONTEXT_DERIVED_STUDY_STATUS = 'context-derived-study' as const;
  * ⚠ `'assumed'` (the fabricated 9 m placeholder default) is a SENTINEL, not a real height — a
  * study built from this schema's `heightBasis` must never have counted an `'assumed'` sample into
  * its median (see `excludedAssumedCount`).
+ *
+ * ⚠ This union is about a NEIGHBOUR's height (one input to a median). It is NOT the study's own
+ * top-level basis — see `ContextStudyHeightBasisSchema.method` below for the sibling closed union
+ * that distinguishes a MEDIAN-OF-NEIGHBOURS study from a USER-SUPPLIED one (§MANUALENV159). A
+ * `'user-supplied'` study has no neighbours at all, so it has no seat in THIS union.
  */
 export const ContextStudyHeightProvenanceSchema = z.enum([
     'measured-lidar',
@@ -73,13 +78,13 @@ export const ContextStudyHeightProvenanceSchema = z.enum([
 export type ContextStudyHeightProvenance = z.infer<typeof ContextStudyHeightProvenanceSchema>;
 
 /**
- * The evidence a context-derived study height rests on. Every field here is something a reader
- * could independently re-check — that is the whole point of a "basis" object (C58 §1.6 applied to
- * a study rather than an ordinance).
+ * The MEDIAN-OF-NEIGHBOURS arm (§ENVAMS148/SIG-NL2) — evidence: real neighbouring-building
+ * heights. Unchanged since this schema's introduction; only lifted out of the (formerly
+ * one-member) `heightBasis` object into a named, discriminated branch (§MANUALENV159) so a second,
+ * differently-shaped arm could be added without inventing fake `sampledCount`/`radius_m` values
+ * for evidence that was never sampled.
  */
-export const ContextStudyHeightBasisSchema = z.object({
-    /** Closed to ONE value today; a future aggregation method gets its own literal, never a silent
-     *  change of what "the number" means under an unchanged field name. */
+export const MedianNeighbourHeightBasisSchema = z.object({
     method: z.literal('median-neighbour-height'),
     /** e.g. "OpenStreetMap context buildings (measured/derived heights only)". Never blank. */
     sourceLabel: z.string().min(1),
@@ -97,10 +102,44 @@ export const ContextStudyHeightBasisSchema = z.object({
     maxHeight_m: z.number().min(0),
     /** When the sample was drawn — an indicative study is only ever as fresh as its last read. */
     sampledAtIso: z.string().datetime(),
-}).refine((b) => b.minHeight_m <= b.medianHeight_m && b.medianHeight_m <= b.maxHeight_m, {
-    message: 'medianHeight_m must lie between minHeight_m and maxHeight_m.',
-    path: ['medianHeight_m'],
 });
+export type MedianNeighbourHeightBasis = z.infer<typeof MedianNeighbourHeightBasisSchema>;
+
+/**
+ * The USER-SUPPLIED arm (§MANUALENV159, L-12640) — the founder's own request: *"if you dont know
+ * add this: 24.5 meters on this parcel."* Evidence: a height the USER TYPED, not measured, not
+ * derived from neighbours, not read from any source PRYZM consulted.
+ *
+ * §CONTEXT-DATA-HONESTY: this MUST be its own `method` literal, never a `'median-neighbour-height'`
+ * basis with a fabricated one-item sample — a typed number and a measured median are different
+ * KINDS of evidence, and the schema keeps them structurally distinct rather than trusting a
+ * renderer's prose to keep them apart (the same reasoning `excludedAssumedCount` applies to a
+ * sentinel folded into an aggregate, one level up: applied here to the PROVENANCE itself).
+ */
+export const UserSuppliedHeightBasisSchema = z.object({
+    method: z.literal('user-supplied'),
+    /** Always names the user as the source, e.g. "Height supplied by you" — never worded like a
+     *  measurement or a derivation. Never blank. */
+    sourceLabel: z.string().min(1),
+    /** The exact metres the user typed — no rounding, no clamping beyond the caller's own bounds
+     *  check (see `@pryzm/site-parcel-data`'s `buildUserSuppliedStudyEnvelope`). */
+    suppliedHeight_m: z.number().min(0),
+    /** When it was typed/saved — mirrors `sampledAtIso`'s naming so both arms carry a date under
+     *  the same field name, even though nothing was "sampled" on this arm. */
+    sampledAtIso: z.string().datetime(),
+});
+export type UserSuppliedHeightBasis = z.infer<typeof UserSuppliedHeightBasisSchema>;
+
+/**
+ * The evidence a context-derived study height rests on — discriminated on `method` so a consumer
+ * switch is exhaustive and a median-only reader cannot silently mis-read a user-supplied basis (or
+ * vice versa). Every field on either arm is something a reader could independently re-check — that
+ * is the whole point of a "basis" object (C58 §1.6 applied to a study rather than an ordinance).
+ */
+export const ContextStudyHeightBasisSchema = z.discriminatedUnion('method', [
+    MedianNeighbourHeightBasisSchema,
+    UserSuppliedHeightBasisSchema,
+]);
 export type ContextStudyHeightBasis = z.infer<typeof ContextStudyHeightBasisSchema>;
 
 /**
@@ -119,17 +158,45 @@ export const ContextDerivedStudyEnvelopeSchema = z.object({
     footprintAreaM2: z.number().min(0),
     /** User-editable inward offset from the parcel ring. Default 0 = the parcel ring itself. */
     setback_m: z.number().min(0).default(0),
-    /** = `heightBasis.medianHeight_m`, mirrored here so a consumer that reads only the top-level
-     *  scalar (as every `BuildableEnvelope` reader does for `maxHeight_m`) still gets the number —
-     *  but see the module header: this is NEVER read by anything that reads `BuildableEnvelope`. */
+    /** Mirrors the evidence's own number — `heightBasis.medianHeight_m` on the median arm,
+     *  `heightBasis.suppliedHeight_m` on the user-supplied arm (§MANUALENV159) — so a consumer
+     *  that reads only the top-level scalar (as every `BuildableEnvelope` reader does for
+     *  `maxHeight_m`) still gets the number regardless of which arm produced it. But see the
+     *  module header: this is NEVER read by anything that reads `BuildableEnvelope`. */
     maxHeight_m: z.number().min(0),
     heightBasis: ContextStudyHeightBasisSchema,
-    /** MANDATORY, non-empty. Must state: indicative only, not a compliance determination, derived
-     *  from real neighbour heights rather than the applicable ordinance. */
+    /** MANDATORY, non-empty. Must state: indicative only, not a compliance determination, and
+     *  (per whichever arm produced it) derived from real neighbour heights or supplied by the
+     *  user — never worded as the applicable ordinance. */
     disclaimer: z.string().min(1),
-}).refine((e) => e.maxHeight_m === e.heightBasis.medianHeight_m, {
-    message: '`maxHeight_m` must mirror `heightBasis.medianHeight_m` exactly — a study height must '
-        + 'not drift from the evidence it cites.',
-    path: ['maxHeight_m'],
+}).superRefine((e, ctx) => {
+    if (e.heightBasis.method === 'median-neighbour-height') {
+        const b = e.heightBasis;
+        if (!(b.minHeight_m <= b.medianHeight_m && b.medianHeight_m <= b.maxHeight_m)) {
+            ctx.addIssue({
+                code: z.ZodIssueCode.custom,
+                path: ['heightBasis', 'medianHeight_m'],
+                message: 'medianHeight_m must lie between minHeight_m and maxHeight_m.',
+            });
+        }
+        if (e.maxHeight_m !== b.medianHeight_m) {
+            ctx.addIssue({
+                code: z.ZodIssueCode.custom,
+                path: ['maxHeight_m'],
+                message: '`maxHeight_m` must mirror `heightBasis.medianHeight_m` exactly — a '
+                    + 'study height must not drift from the evidence it cites.',
+            });
+        }
+    } else {
+        const b = e.heightBasis;
+        if (e.maxHeight_m !== b.suppliedHeight_m) {
+            ctx.addIssue({
+                code: z.ZodIssueCode.custom,
+                path: ['maxHeight_m'],
+                message: '`maxHeight_m` must mirror `heightBasis.suppliedHeight_m` exactly — a '
+                    + 'study height must not drift from what you typed.',
+            });
+        }
+    }
 });
 export type ContextDerivedStudyEnvelope = z.infer<typeof ContextDerivedStudyEnvelopeSchema>;

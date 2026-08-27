@@ -44,7 +44,17 @@ import {
     LEGACY_RECOMPUTE_BTN_TESTID,
     LEGACY_RECOMPUTE_LABEL,
     resolveBlockConstructedSourceText,
+    // §MANUALENV159 (L-12640) — the context-derived/user-supplied study massing section + entry.
+    buildContextStudySectionHtml,
+    buildStudyHeightEntryHtml,
+    CONTEXT_STUDY_SECTION_TESTID,
+    STUDY_HEIGHT_INPUT_TESTID,
+    STUDY_HEIGHT_SETBACK_INPUT_TESTID,
+    STUDY_HEIGHT_SAVE_BTN_TESTID,
+    STUDY_HEIGHT_STATUS_TESTID,
 } from '../envelopeCardSections';
+import { CONTEXT_STUDY_DEFAULT_MIN_SAMPLE_SIZE, type ContextDerivedStudyEnvelopeResult } from '@pryzm/site-parcel-data';
+import type { UserSuppliedStudyHeightRecord } from '../userSuppliedStudyHeightState';
 
 // ── Fixtures (mirroring capacityPanelSection.spec / designMeasurement.spec) ────────────────
 
@@ -503,5 +513,203 @@ describe('§GIS-LEGACY-DETERMINATION-ESCAPE (L-1970..L-1974) — the reduced car
         const callSites = src.match(/reapplyZoningForActiveSite\(ctx\)/g) ?? [];
         expect(callSites.length).toBe(1);
         expect(src).toContain('window.pryzmRecomputeEnvelopeCard = (): boolean => recomputeEnvelopeDetermination()');
+    });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────────────────────
+// §MANUALENV159 (L-12640) — TASK A: the study/refusal that was computed but never rendered.
+// ─────────────────────────────────────────────────────────────────────────────────────────────
+//
+// §ENVAMS148 + SIG-NL2 built `buildContextDerivedStudyEnvelope` and opened its gate, but the
+// result — ok OR a typed refusal — was only ever written to `contextDerivedStudyEnvelopeState.ts`
+// "for a future rail panel to read". No rail panel read it: the founder's console proved a SECOND
+// refusal (`insufficient-neighbour-sample`) that was invisible on the card itself, which is why he
+// asked four times. These tests are the RED evidence for that gap (a `null` renders nothing — the
+// old, true behaviour) and the GREEN fix (a refused/ok result now reads off the card).
+
+const STUDY_RING = rect(0, 0, 20, 10);
+
+/** Mirrors the founder's own live-measured parcel (SIG-NL2): 43 neighbours, 36 real, median 16.2 m. */
+function derivedOkResult(): ContextDerivedStudyEnvelopeResult {
+    return {
+        ok: true,
+        study: {
+            status: 'context-derived-study',
+            footprintPolygon: STUDY_RING,
+            footprintAreaM2: 200,
+            setback_m: 0,
+            maxHeight_m: 16.2,
+            heightBasis: {
+                method: 'median-neighbour-height',
+                sourceLabel: 'OpenStreetMap context buildings (measured/derived heights only)',
+                sampledCount: 36,
+                excludedAssumedCount: 7,
+                radius_m: 60,
+                medianHeight_m: 16.2,
+                minHeight_m: 3,
+                maxHeight_m: 29.6,
+                sampledAtIso: '2026-08-27T00:00:00.000Z',
+            },
+            disclaimer: 'INDICATIVE ONLY — not a compliance determination. Derived from real '
+                + 'neighbouring-building heights as a study starting point, not from the applicable '
+                + 'ordinance. PRYZM cannot judge compliance against it.',
+        },
+    };
+}
+
+/** The founder's own literal ask: 24.5 m, typed, not measured. */
+function userSuppliedOkResult(): ContextDerivedStudyEnvelopeResult {
+    return {
+        ok: true,
+        study: {
+            status: 'context-derived-study',
+            footprintPolygon: STUDY_RING,
+            footprintAreaM2: 200,
+            setback_m: 0,
+            maxHeight_m: 24.5,
+            heightBasis: {
+                method: 'user-supplied',
+                sourceLabel: 'Height supplied by you',
+                suppliedHeight_m: 24.5,
+                sampledAtIso: '2026-08-27T00:00:00.000Z',
+            },
+            disclaimer: 'INDICATIVE ONLY — not a compliance determination. No adopted plan '
+                + 'published a buildable envelope at this point; this massing height was SUPPLIED '
+                + 'BY YOU, not measured or derived by PRYZM from any source. PRYZM cannot judge '
+                + 'compliance against it.',
+        },
+    };
+}
+
+// Not widened to `ContextDerivedStudyEnvelopeResult` — kept as the exact literal shape so
+// `.realSampleCount` below is a direct (narrowed) read, not a re-guarded ternary.
+const refusedInsufficientSample = {
+    ok: false as const,
+    reason: 'insufficient-neighbour-sample' as const,
+    realSampleCount: 1,
+    excludedAssumedCount: 2,
+};
+
+describe('§MANUALENV159 RED evidence — a computed study/refusal that was never rendered', () => {
+    it('`study === null` renders NOTHING — the exact "computed but no rail panel reads it" state before this fix', () => {
+        expect(buildContextStudySectionHtml(null)).toBe('');
+    });
+});
+
+describe('§MANUALENV159 TASK A — buildContextStudySectionHtml surfaces the refusal', () => {
+    it('a REFUSED study is a first-class, default-collapsed fold with a stable testid', () => {
+        const host = mount(buildContextStudySectionHtml(refusedInsufficientSample));
+        const details = host.querySelector(`details[data-testid="${CONTEXT_STUDY_SECTION_TESTID}"]`);
+        expect(details).not.toBeNull();
+        expect(details!.hasAttribute('open')).toBe(false);
+        expect(details!.getAttribute('data-state')).toBe('refused-insufficient-neighbour-sample');
+    });
+
+    it('names how many neighbours were found, how many carried a REAL height, and the threshold — the exact numbers the founder could previously only see in a console line', () => {
+        const host = mount(buildContextStudySectionHtml(refusedInsufficientSample));
+        expect(host.textContent).toContain(String(refusedInsufficientSample.realSampleCount));
+        expect(host.textContent).toContain(String(CONTEXT_STUDY_DEFAULT_MIN_SAMPLE_SIZE));
+        expect(host.textContent).toMatch(/not enough/i);
+        // The excluded-assumed count is also named, never silently dropped.
+        expect(host.textContent).toContain('2');
+        expect(host.textContent).toContain('fabricated placeholder');
+    });
+
+    it('a `degenerate-footprint` refusal reads a DIFFERENT body sentence — never the sample-size wording', () => {
+        const host = mount(buildContextStudySectionHtml({ ok: false, reason: 'degenerate-footprint', realSampleCount: 5, excludedAssumedCount: 0 }));
+        const details = host.querySelector(`details[data-testid="${CONTEXT_STUDY_SECTION_TESTID}"]`)!;
+        expect(details.getAttribute('data-state')).toBe('refused-degenerate-footprint');
+        // Shares the summary line with the sample-size refusal (both are "not enough data to build
+        // a study"), but the BODY explanation must be the geometry reason, never the sample count
+        // wording — a setback problem and a sparse-neighbourhood problem are different facts.
+        expect(host.textContent).toMatch(/setback/i);
+        expect(host.textContent).not.toContain('real, measured or tagged height');
+        expect(host.textContent).not.toContain(String(CONTEXT_STUDY_DEFAULT_MIN_SAMPLE_SIZE));
+    });
+});
+
+describe('§MANUALENV159 TASK A/B — the study renderer serves BOTH source arms, distinctly', () => {
+    it('a DERIVED (median-of-neighbours) study badges "Context-derived study" — never "supplied by you"', () => {
+        const host = mount(buildContextStudySectionHtml(derivedOkResult()));
+        expect(host.textContent).toContain('Context-derived study');
+        expect(host.textContent?.toLowerCase()).not.toContain('supplied by you');
+        expect(host.textContent).toContain('16.2 m');
+        expect(host.textContent).toContain('36'); // sampledCount
+    });
+
+    it('a USER-SUPPLIED study badges "Height supplied by you" — never "Context-derived study", never presented as measured', () => {
+        const host = mount(buildContextStudySectionHtml(userSuppliedOkResult()));
+        expect(host.textContent).toContain('Height supplied by you');
+        expect(host.textContent).not.toContain('Context-derived study');
+        expect(host.textContent).toContain('24.5 m');
+        expect(host.textContent).toContain('SUPPLIED BY YOU');
+    });
+
+    it('PROVENANCE STAYS DISTINCT — the two arms never render the same `data-state`', () => {
+        const derivedState = mount(buildContextStudySectionHtml(derivedOkResult()))
+            .querySelector('details')!.getAttribute('data-state');
+        const suppliedState = mount(buildContextStudySectionHtml(userSuppliedOkResult()))
+            .querySelector('details')!.getAttribute('data-state');
+        expect(derivedState).toBe('rendered-derived');
+        expect(suppliedState).toBe('rendered-user-supplied');
+        expect(derivedState).not.toBe(suppliedState);
+    });
+
+    it('NEVER satisfies a "Designed vs permitted" verdict or carries an ordinance citation — a study is not a determination', () => {
+        const host = mount(buildContextStudySectionHtml(userSuppliedOkResult()));
+        expect(host.textContent).not.toMatch(/designed vs permitted/i);
+        expect(host.querySelector('a[href]')).toBeNull(); // no citation link of any kind
+    });
+});
+
+describe('§MANUALENV159 TASK B — buildStudyHeightEntryHtml, the manual height input', () => {
+    it('renders an empty height field and a zeroed setback when nothing was ever saved', () => {
+        const host = mount(buildStudyHeightEntryHtml(null));
+        const heightInput = host.querySelector(`[data-testid="${STUDY_HEIGHT_INPUT_TESTID}"]`) as HTMLInputElement;
+        const setbackInput = host.querySelector(`[data-testid="${STUDY_HEIGHT_SETBACK_INPUT_TESTID}"]`) as HTMLInputElement;
+        expect(heightInput).not.toBeNull();
+        expect(heightInput.value).toBe('');
+        expect(setbackInput.value).toBe('0');
+    });
+
+    it('PREFILLS from a saved project decision — re-opening the card shows what was last typed, not a blank field', () => {
+        const saved: UserSuppliedStudyHeightRecord = { heightM: 24.5, setbackM: 1.5, savedAtIso: '2026-08-27T00:00:00.000Z' };
+        const host = mount(buildStudyHeightEntryHtml(saved));
+        const heightInput = host.querySelector(`[data-testid="${STUDY_HEIGHT_INPUT_TESTID}"]`) as HTMLInputElement;
+        const setbackInput = host.querySelector(`[data-testid="${STUDY_HEIGHT_SETBACK_INPUT_TESTID}"]`) as HTMLInputElement;
+        expect(heightInput.value).toBe('24.5');
+        expect(setbackInput.value).toBe('1.5');
+    });
+
+    it('the save button and status line carry stable testids for the wiring layer to find', () => {
+        const host = mount(buildStudyHeightEntryHtml(null));
+        expect(host.querySelector(`[data-testid="${STUDY_HEIGHT_SAVE_BTN_TESTID}"]`)).not.toBeNull();
+        expect(host.querySelector(`[data-testid="${STUDY_HEIGHT_STATUS_TESTID}"]`)).not.toBeNull();
+    });
+
+    it('states plainly that this is the user\'s own number, not a measurement', () => {
+        const host = mount(buildStudyHeightEntryHtml(null));
+        expect(host.textContent?.toLowerCase()).toContain('not a measurement');
+    });
+});
+
+describe('§MANUALENV159 — SOURCE PINS: the card actually calls these builders and wires the button', () => {
+    it('the refusal-card branch in GISAreaLayout.ts RENDERS the study section + entry form and WIRES the save button (not a second copy)', () => {
+        const src = readFileSync(resolve(__dirname, '../../layout/GISAreaLayout.ts'), 'utf8');
+        expect(src).toContain('buildContextStudySectionHtml(studyResult)');
+        expect(src).toContain('buildStudyHeightEntryHtml(savedStudyHeight)');
+        expect(src).toContain('wireStudyHeightEntry(panel)');
+        expect(src).toContain('getContextDerivedStudyEnvelope(');
+        expect(src).toContain('applyUserSuppliedStudyHeight(');
+    });
+
+    it('the entry is offered on a genuine data-absence or coverage gap, never on the "no envelope applies" legal card', () => {
+        const src = readFileSync(resolve(__dirname, '../../layout/GISAreaLayout.ts'), 'utf8');
+        // The condition gating `safeStudyHeightEntry` must be `isAbsent || isGap` — not
+        // unconditional (which would offer it on the settled "no envelope applies" card too) and
+        // not `isGap` alone (which would drop the founder's own `no-plan-at-point` case).
+        const match = src.match(/const safeStudyHeightEntry = \(([^)]+)\)/);
+        expect(match).not.toBeNull();
+        expect(match![1].replace(/\s+/g, ' ').trim()).toBe('isAbsent || isGap');
     });
 });

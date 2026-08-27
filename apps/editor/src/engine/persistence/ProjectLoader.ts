@@ -152,6 +152,11 @@ import { hierarchyStore } from '@pryzm/core-app-model';
 // the site.* domain events so the sun (RealSunService), Cesium globe, and parcel
 // renderer re-anchor to the REAL site instead of defaulting to Madrid.
 import { restoreSiteState } from '@app/ui/site/siteDispatch';
+// §MANUALENV159 (L-12640) — the user-supplied study-height decision(s). MUST be restored BEFORE
+// `restoreSiteState` runs below: that function reads this state (keyed by site id) to rehydrate
+// the DISPLAYED study against the just-restored parcel ring, so the raw decision has to already
+// be in memory by the time it looks.
+import { restoreUserSuppliedStudyHeights } from '@app/ui/site/userSuppliedStudyHeightState';
 import { templateStore } from '@pryzm/core-app-model';
 import { templateAssignmentStore } from '@pryzm/core-app-model';
 import { elementCodeStore } from '@pryzm/core-app-model';
@@ -2452,6 +2457,14 @@ export class ProjectLoader {
             // snapshot.site is absent) so a non-GIS project resets any prior project's
             // site for C13 isolation — mirrors the IfcMetaStore restore above.
             try {
+                // §MANUALENV159 (L-12640) — repopulate the RAW user-supplied study-height state
+                // FIRST: `restoreSiteState` (next call) reads it by site id to rehydrate the
+                // displayed study against the boundary it is about to restore. A snapshot saved
+                // before this lane has no `manualStudyHeight` key, and `restoreUserSuppliedStudyHeights`
+                // treats `undefined` the same as "nothing recorded" — never throws, never invents one.
+                restoreUserSuppliedStudyHeights(
+                    (snapshot as { manualStudyHeight?: { bySiteId?: Record<string, { heightM: number; setbackM: number; savedAtIso: string }> } }).manualStudyHeight?.bySiteId,
+                );
                 const restored = restoreSiteState(
                     (window as { runtime?: import('@pryzm/runtime-composer/types').PryzmRuntime }).runtime,
                     (snapshot as { site?: import('@pryzm/schemas').SiteModel | null }).site ?? null,

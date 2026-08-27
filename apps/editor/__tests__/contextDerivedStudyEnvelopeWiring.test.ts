@@ -157,6 +157,8 @@ describe('§CONTEXT-DERIVED-STUDY-ENVELOPE — reachability from a real dispatch
         // Median of the four REAL heights (12, 14, 16, 18) is 15 — the fabricated-default fifth
         // neighbour (id 5, no height/levels tag) must be EXCLUDED, not folded in as a 0 or a 9 m.
         expect(study!.study.maxHeight_m).toBe(15);
+        expect(study!.study.heightBasis.method).toBe('median-neighbour-height');
+        if (study!.study.heightBasis.method !== 'median-neighbour-height') return;
         expect(study!.study.heightBasis.sampledCount).toBe(4);
         expect(study!.study.heightBasis.excludedAssumedCount).toBe(1);
         expect(study!.study.status).toBe('context-derived-study');

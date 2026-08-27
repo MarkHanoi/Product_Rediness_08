@@ -1823,6 +1823,17 @@ export {
     type ContextDerivedStudyEnvelopeInput,
     type ContextDerivedStudyEnvelopeRefusalReason,
     type ContextDerivedStudyEnvelopeResult,
+    // §MANUALENV159 (L-12640) — the user-supplied-height sibling. Deliberately UNGATED (no
+    // *_CERTIFIED flag) — see the module's own header for why: it echoes the user's own typed
+    // number rather than asserting a PRYZM derivation, so it carries none of the legal/scope
+    // reasoning `CONTEXT_DERIVED_STUDY_ENVELOPE_CERTIFIED` exists to bound.
+    USER_SUPPLIED_STUDY_HEIGHT_MIN_M,
+    USER_SUPPLIED_STUDY_HEIGHT_MAX_M,
+    USER_SUPPLIED_STUDY_DISCLAIMER,
+    buildUserSuppliedStudyEnvelope,
+    type UserSuppliedStudyEnvelopeInput,
+    type UserSuppliedStudyEnvelopeRefusalReason,
+    type UserSuppliedStudyEnvelopeResult,
 } from './providers/contextDerivedStudyEnvelope.js';
 // ── BARCELONA-GIS-AUDIT-SPIKE — Barcelona clau 18 (volumetria específica) explicit-area path. ──
 // The AMB Refós OV_Trames resolver (footprint + PLANTES floor count, WGS84, never throws) + its
