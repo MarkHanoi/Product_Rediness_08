@@ -2253,7 +2253,10 @@ const CAPABILITIES: readonly ChatCapability[] = [
     // scope:'selection' deliberately — the anti-ElementCapabilities guard probes
     // by SELECTING each kind, and an 'all' probe never reaches the selection
     // gate, so it would 'accept' all sixteen kinds and declare a lie.
-    probe: { intent: 'set-wall-side-finish', side: 'interior', finishRef: 'plaster', scope: 'selection' },
+    // §RACSIDE144 made `sideExplicit` REQUIRED on WallSideFinishIntent — the probe
+    // must state it too. `true` here because this probe NAMES a side ('interior'),
+    // which is exactly what the flag records: the side was chosen, not defaulted.
+    probe: { intent: 'set-wall-side-finish', side: 'interior', sideExplicit: true, finishRef: 'plaster', scope: 'selection' },
     commandProof: {
       file: 'packages/command-registry/src/walls/SetWallSideFinishCommand.ts',
       mustMention: ['wallStore', 'withWallSideFinish'],

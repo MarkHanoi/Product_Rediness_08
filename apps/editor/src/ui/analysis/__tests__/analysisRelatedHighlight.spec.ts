@@ -138,31 +138,31 @@ describe('§HILITE140 — the selectionBus → runtime-event wire', () => {
       seen.push((p as { hops: ReadonlyArray<readonly [string, number]> }).hops);
     });
 
-    selectionBus.dispatch({ type: 'select', source: 'test', elementIds: ['wall_a'] });
+    selectionBus.dispatch({ type: 'select', source: 'analytics', elementIds: ['wall_a'] });
 
     expect(seen).toHaveLength(1);
     expect(new Map(seen[0])).toEqual(new Map([['room_1', 1], ['door_1', 1], ['room_2', 2]]));
   });
 
   it('a selectionBus CLEAR publishes an empty hop map', () => {
-    selectionBus.dispatch({ type: 'select', source: 'test', elementIds: ['wall_a'] });
+    selectionBus.dispatch({ type: 'select', source: 'analytics', elementIds: ['wall_a'] });
     const seen: Array<ReadonlyArray<readonly [string, number]>> = [];
     window.runtime!.events!.on('pryzm-analysis-related-elements', (p: unknown) => {
       seen.push((p as { hops: ReadonlyArray<readonly [string, number]> }).hops);
     });
 
-    selectionBus.dispatch({ type: 'clear', source: 'test', elementIds: [] });
+    selectionBus.dispatch({ type: 'clear', source: 'analytics', elementIds: [] });
 
     expect(seen).toHaveLength(1);
     expect(seen[0]).toEqual([]);
   });
 
   it('a decoration event ("highlight") does NOT republish — the set did not move', () => {
-    selectionBus.dispatch({ type: 'select', source: 'test', elementIds: ['wall_a'] });
+    selectionBus.dispatch({ type: 'select', source: 'analytics', elementIds: ['wall_a'] });
     const seen: unknown[] = [];
     window.runtime!.events!.on('pryzm-analysis-related-elements', (p: unknown) => seen.push(p));
 
-    selectionBus.dispatch({ type: 'highlight', source: 'test', elementIds: ['zzz'] });
+    selectionBus.dispatch({ type: 'highlight', source: 'analytics', elementIds: ['zzz'] });
 
     expect(seen).toHaveLength(0);
   });
@@ -172,7 +172,7 @@ describe('§HILITE140 — the selectionBus → runtime-event wire', () => {
     const seen: unknown[] = [];
     window.runtime!.events!.on('pryzm-analysis-related-elements', (p: unknown) => seen.push(p));
 
-    selectionBus.dispatch({ type: 'select', source: 'test', elementIds: ['wall_a'] });
+    selectionBus.dispatch({ type: 'select', source: 'analytics', elementIds: ['wall_a'] });
 
     expect(seen).toHaveLength(1); // not 2
   });
