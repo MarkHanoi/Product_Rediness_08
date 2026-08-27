@@ -15,9 +15,9 @@ change, not a rename — see C69 §2.
 
 | | |
 |---|---|
-| Handler files read | 1404 (floor 900) |
-| **Verbs** | **360** (floor 250) |
-| LIVE | 141 |
+| Handler files read | 1406 (floor 900) |
+| **Verbs** | **361** (floor 250) |
+| LIVE | 142 |
 | REFUSES | 37 |
 | SHADOWED (dead route) | 1 |
 | UNKNOWN | 181 |
@@ -101,7 +101,7 @@ These numbers are re-derived on every run. Do not transcribe them anywhere else
 | `curtain-wall.batch.delete` | plugins/curtain-wall | UNKNOWN | UNKNOWN | patch-pair → curtainwall | not-synced (reason declared) | classified C |
 | `curtain-wall.batch.update` | plugins/curtain-wall | UNKNOWN | UNKNOWN | patch-pair → curtainwall | not-synced (reason declared) | classified C |
 | `curtain-wall.bulkUpdatePanels` | plugins/curtain-wall | LIVE | legacy geometry store (via commandManager) | legacy-stack (no affectedStores) | n/a (not a property verb) | deferred (CHAT_UNAVAILABLE) |
-| `curtain-wall.bulkUpdateParameter` | plugins/curtain-wall | LIVE | legacy geometry store (via commandManager) | legacy-stack (no affectedStores) | n/a (not a property verb) | deferred (CHAT_UNAVAILABLE) |
+| `curtain-wall.bulkUpdateParameter` | plugins/curtain-wall | LIVE | legacy geometry store (via commandManager) | legacy-stack (no affectedStores) | n/a (not a property verb) | capability: set-curtain-wall-parameter |
 | `curtain-wall.create` | plugins/curtain-wall | UNKNOWN | UNKNOWN | patch-pair → curtainwall | synced via 'id' (disclose) | classified B |
 | `curtain-wall.create-on-all-slabs` | plugins/curtain-wall | LIVE | legacy geometry store (via commandManager) | legacy-stack (no affectedStores) | not-synced (reason declared) | classified E |
 | `curtain-wall.delete` | plugins/curtain-wall | UNKNOWN | UNKNOWN | patch-pair → curtainwall | not-synced (reason declared) | classified D |
@@ -247,7 +247,7 @@ These numbers are re-derived on every run. Do not transcribe them anywhere else
 | `roof.setShape` | plugins/roof | UNKNOWN | UNKNOWN | patch-pair → roof | synced via 'roofId' (disclose) | classified B |
 | `roof.setThickness` | plugins/roof | UNKNOWN | UNKNOWN | patch-pair → roof | synced via 'roofId' (disclose) | classified D |
 | `roof.update` | apps/editor | LIVE | legacy geometry store (via commandManager) | legacy-stack (no affectedStores) | synced via 'id' (disclose) | capability: set-thickness |
-| `room.autoClassify.batch` | plugins/rooms | LIVE | legacy geometry store (via commandManager) | legacy-stack (no affectedStores) | n/a (not a property verb) | UNDECLARED |
+| `room.autoClassify.batch` | plugins/rooms | LIVE | legacy geometry store (via commandManager) | legacy-stack (no affectedStores) | not-synced (reason declared) | UNDECLARED |
 | `room.create` | plugins/rooms | LIVE | legacy geometry store (via commandManager) | legacy-stack (no affectedStores) | synced via 'id' (disclose) | classified B |
 | `room.delete` | plugins/rooms | LIVE | legacy geometry store (via commandManager) | legacy-stack (no affectedStores) | not-synced (reason declared) | classified D |
 | `room.move` | plugins/rooms | LIVE | legacy geometry store (via commandManager) | legacy-stack (no affectedStores) | not-synced (reason declared) | deferred (CHAT_UNAVAILABLE) |
@@ -257,6 +257,7 @@ These numbers are re-derived on every run. Do not transcribe them anywhere else
 | `room.rename` | plugins/rooms | LIVE | legacy geometry store (via commandManager) | legacy-stack (no affectedStores) | synced via 'roomId' (last-writer-wins) | capability: rename-room |
 | `room.restoreMeaning` | plugins/rooms | LIVE | legacy geometry store (via commandManager) | legacy-stack (no affectedStores) | n/a (not a property verb) | UNDECLARED |
 | `room.setColourMode` | plugins/rooms | UNKNOWN | UNKNOWN | NONE (empty patch pair) | UNDECLARED | UNDECLARED |
+| `room.setDepartment` | plugins/rooms | LIVE | legacy geometry store (via commandManager) | legacy-stack (no affectedStores) | synced via 'roomId' (disclose) | deferred (CHAT_UNAVAILABLE) |
 | `room.setFinish` | plugins/rooms | LIVE | legacy geometry store (via commandManager) | legacy-stack (no affectedStores) | not-synced (reason declared) | classified B |
 | `room.setHeightOffset` | plugins/rooms | LIVE | legacy geometry store (via commandManager) | legacy-stack (no affectedStores) | synced via 'roomId' (disclose) | capability: set-room-height-offset |
 | `room.setMaterial` | plugins/rooms | LIVE | legacy geometry store (via commandManager) | legacy-stack (no affectedStores) | synced via 'roomId' (disclose) | deferred (CHAT_UNAVAILABLE) |
