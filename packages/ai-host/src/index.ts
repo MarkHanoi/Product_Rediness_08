@@ -113,6 +113,13 @@ export { APARTMENT_STATED_DEFAULT } from './intents/ZeroTokenResolver.js';
 // editor bridge (one implementation, two consumers — the L-1201 lift pattern).
 export { matchRoomsByNumber, resolveSingleRoomRef, describeRoomRow } from './intents/roomNumberMatch.js';
 export type { RoomNumberRow, RoomNumberMatch, SingleRoomResolution } from './intents/roomNumberMatch.js';
+// §ROOMTYPE142 — the ONE "is this the auto-default name, or did a human already
+// type one?" test (L-905) plus the "Label" + "Label 01" naming primitives, so
+// the bulk-autofill feature (RoomAutoOrganiser.ts) reuses the SAME protection
+// and numbering the chat rename gesture already ships, instead of a second
+// hand-rolled regex (C84 EI-9).
+export { isAutoDefaultRoomName, nextAutoLabelIndex, formatAutoLabelName } from './intents/roomAutoLabel.js';
+export type { RoomLabelRow } from './intents/roomAutoLabel.js';
 // ADR-0315 U3 — the canonical scope representation + the injected resolver's
 // result contract (F1/F2).
 export { isScopeError } from './intents/ScopeDescriptor.js';
@@ -141,7 +148,7 @@ export type {
 // element kinds whose level lives on their HOST WALL (windows, doors). PURE and
 // DERIVED from the record shape, so the editor-side resolver does not carry a
 // hand-maintained list of hosted kinds.
-export { resolveLevelScopeByHost, isHostDerivedKind, resolveOrientationScopeByHost } from './intents/HostedOpeningScope.js';
+export { resolveLevelScopeByHost, isHostDerivedKind, resolveOrientationScopeByHost, hostIdOf } from './intents/HostedOpeningScope.js';
 // §CHAT-AXIS-AWARE-REFUSAL (L-10942) — the modelled-axis registry, so a
 // refusal can try every axis and name the ones it searched.
 export {

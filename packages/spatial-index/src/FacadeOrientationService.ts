@@ -108,12 +108,52 @@ export class FacadeOrientationService {
             .filter(f => f.isExterior && f.orientation === orientation);
     }
 
+    /**
+     * §RACORIENT145 — CURTAIN WALLS ARE FACADE ELEMENTS TOO, LIKE §CW90 ALREADY
+     * MADE THEM ROOM-BOUNDING.
+     *
+     * A curtain wall (`CurtainWallData`) has its own `id` / `levelId` /
+     * `baseLine` — the SAME shape `FacadeWall` needs — so it classifies through
+     * `classifyFacades` identically to a masonry wall, with NO second orientation
+     * formula: `orientationFromNormal` and the θ-threading are untouched.
+     *
+     * This is what makes "all west-facing curtain panels" answerable at all: a
+     * panel has no facade of its own (§CHAT-ORIENTATION-HOSTED-OPENINGS, L-10946
+     * — "an opening faces where its host faces"), and its host is a curtain
+     * wall, not a wall. Before this, curtain walls were absent from `_walls()`
+     * entirely, so `facadesByOrientation` could never return one — every panel
+     * host lookup would have missed, not refused (§CONTEXT-DATA-HONESTY: a
+     * classification that silently omits a whole element kind is worse than one
+     * that names the gap).
+     *
+     * Exterior/interior still comes from `boundingRoomCount` — §CW90
+     * (`RoomDetectionEngine`) already lists curtain-wall ids in a room's
+     * `boundingWallIds` on the SAME id-space as walls, so merging the two lists
+     * here is what makes that room-bounding fact reach the façade classifier;
+     * nothing new is asserted about interior/exterior, only READ.
+     */
+    private _curtainWalls(levelId?: string): FacadeWall[] {
+        const cwStore = storeRegistry.getStoreForType('curtainwall') as unknown as {
+            getAll?: () => Array<{ id: string; levelId: string; baseLine: Array<{ x: number; y?: number; z: number }> }>;
+        } | undefined;
+        if (!cwStore?.getAll) return [];
+        return cwStore.getAll()
+            .filter(cw => (levelId === undefined || cw.levelId === levelId) && Array.isArray(cw.baseLine) && cw.baseLine.length >= 2)
+            .map(cw => ({
+                id: cw.id,
+                levelId: cw.levelId,
+                baseLine: [
+                    { x: cw.baseLine[0]!.x, z: cw.baseLine[0]!.z },
+                    { x: cw.baseLine[cw.baseLine.length - 1]!.x, z: cw.baseLine[cw.baseLine.length - 1]!.z },
+                ] as [{ x: number; z: number }, { x: number; z: number }],
+            }));
+    }
+
     private _walls(levelId?: string): FacadeWall[] {
         const wallStore = storeRegistry.getStoreForType('wall') as unknown as {
             getAll?: () => Array<{ id: string; levelId: string; baseLine: Array<{ x: number; z: number }> }>;
         } | undefined;
-        if (!wallStore?.getAll) return [];
-        return wallStore.getAll()
+        const walls = !wallStore?.getAll ? [] : wallStore.getAll()
             .filter(w => (levelId === undefined || w.levelId === levelId) && Array.isArray(w.baseLine) && w.baseLine.length >= 2)
             .map(w => ({
                 id: w.id,
@@ -123,6 +163,9 @@ export class FacadeOrientationService {
                     { x: w.baseLine[1]!.x, z: w.baseLine[1]!.z },
                 ] as [{ x: number; z: number }, { x: number; z: number }],
             }));
+        // §RACORIENT145 — merged, not appended as a rival list: `classifyFacades`
+        // treats every entry identically regardless of which store it came from.
+        return [...walls, ...this._curtainWalls(levelId)];
     }
 
     private _rooms(levelId?: string): FacadeRoom[] {

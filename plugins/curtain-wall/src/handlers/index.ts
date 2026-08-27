@@ -30,6 +30,10 @@ import { AddCurtainGridLineHandler } from './AddCurtainGridLine.js';
 import { RemoveCurtainGridLineHandler } from './RemoveCurtainGridLine.js';
 import { ReplacePanelHandler } from './ReplacePanel.js';
 import { SetCurtainWallMaterialHandler } from './SetCurtainWallMaterial.js'; // §FEAT-UNIFORM-MATERIAL-COMMAND
+// §RACORIENT145 — bulk panel type/material batch (element/level/project/ids
+// scope), legacy-bridged like `UpdateWallsSystemTypeBatch.ts` /
+// `BulkUpdateKitchenMaterial.ts`.
+import { BulkUpdateCurtainPanelsHandler } from './BulkUpdateCurtainPanels.js';
 // §L-1032 — the storey move. Registered in the ONE register at
 // `@pryzm/command-bus` `LEVEL_CHANGE_VERBS`; see that file for the four parts a
 // level change must complete before this row may exist.
@@ -95,6 +99,9 @@ export const CURTAIN_WALL_HANDLER_TYPES = [
   // without it also loses the bimManager / view-dependency re-registration the
   // adapter performs alongside the call.
   'curtainWall.changeLevel',
+  // §RACORIENT145 — legacy-bridge batch verb (mirrors
+  // 'furniture.bulkUpdateKitchenMaterial's registration exactly).
+  'curtain-wall.bulkUpdatePanels',
 ] as const;
 
 export type CurtainWallHandlerType = (typeof CURTAIN_WALL_HANDLER_TYPES)[number];
@@ -129,6 +136,8 @@ export function buildCurtainWallHandlerSet() {
     ReplacePanelHandler as unknown as CommandHandler<unknown>,
     new SetCurtainWallMaterialHandler() as unknown as CommandHandler<unknown>,
     new ChangeCurtainWallLevelHandler() as unknown as CommandHandler<unknown>,
+    // §RACORIENT145
+    BulkUpdateCurtainPanelsHandler as unknown as CommandHandler<unknown>,
   ];
 }
 
@@ -169,6 +178,12 @@ export {
 export { AddCurtainGridLineHandler, type AddCurtainGridLinePayload } from './AddCurtainGridLine.js';
 export { RemoveCurtainGridLineHandler, type RemoveCurtainGridLinePayload } from './RemoveCurtainGridLine.js';
 export { ReplacePanelHandler, type ReplacePanelPayload } from './ReplacePanel.js';
+export {
+  BulkUpdateCurtainPanelsHandler,
+  type BulkUpdateCurtainPanelsPayload,
+  type CurtainPanelBatchReport,
+  CURTAIN_PANEL_BATCH_REPORT_EVENT,
+} from './BulkUpdateCurtainPanels.js';
 // P2e: batch create + batch delete
 export {
   CreateCurtainWallBatchHandler,

@@ -39,3 +39,41 @@ describe('FacadeOrientationService — injected true-north provider (U2.1)', () 
     expect(svc.getFacades('L0').get('w-s')!.orientation).toBe('S');
   });
 });
+
+// §RACORIENT145 — a curtain wall classifies exactly like a wall: same shape
+// (id/levelId/baseLine), same `classifyFacades` math, no second formula. This
+// is the HOST a curtain-panel inherits its facing from
+// (§CHAT-ORIENTATION-HOSTED-OPENINGS, L-10946 — "an opening faces where its
+// host faces"); before this the curtain-wall store was absent from `_walls()`
+// entirely, so a panel's host could never be found facing anything.
+describe('FacadeOrientationService — curtain walls join the facade classification (§RACORIENT145)', () => {
+  const CURTAIN_WALLS = [
+    // A glazed south facade, replacing what would otherwise be the south wall.
+    { id: 'cw-s', levelId: 'L0', baseLine: [{ x: -5, y: 0, z: 5 }, { x: 5, y: 0, z: 5 }] },
+  ];
+
+  it('an exterior curtain wall gets a compass orientation, θ=0', () => {
+    storeRegistry.register('wall', { getAll: () => WALLS.filter((w) => w.id !== 'w-s') } as never);
+    storeRegistry.register('curtainwall', { getAll: () => CURTAIN_WALLS } as never);
+    storeRegistry.register('room', { getAll: () => [] } as never);
+
+    const svc = new FacadeOrientationService();
+    const facades = svc.getFacades('L0');
+    expect(facades.get('cw-s')!.isExterior).toBe(true);
+    expect(facades.get('cw-s')!.orientation).toBe('S');
+    // The compass-scoped selector (facadesByOrientation) returns the curtain
+    // wall's id alongside any wall's, the same way a window-hosting wall does.
+    expect(svc.facadesByOrientation('L0', 'S').map((f) => f.wallId)).toContain('cw-s');
+  });
+
+  it('θ-threaded (true-north corrected): a 90°-rotated site reclassifies the SAME curtain wall', () => {
+    storeRegistry.register('wall', { getAll: () => WALLS.filter((w) => w.id !== 'w-s') } as never);
+    storeRegistry.register('curtainwall', { getAll: () => CURTAIN_WALLS } as never);
+    storeRegistry.register('room', { getAll: () => [] } as never);
+
+    const svc = new FacadeOrientationService();
+    // Byte-identical θ-threading proof to the wall case above: the raw
+    // authoring-frame +Z normal is South at θ=0 and West at θ=+90°.
+    expect(svc.getFacades('L0', Math.PI / 2).get('cw-s')!.orientation).toBe('W');
+  });
+});

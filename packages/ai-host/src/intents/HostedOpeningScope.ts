@@ -71,6 +71,39 @@ export interface LevelBearingRow {
   readonly wallId?: string | null;
 }
 
+/**
+ * §RACORIENT145 — THE HOST-ID FIELD IS ALWAYS CALLED `wallId` HERE, AND THAT IS
+ * A NAME, NOT A SCOPE LIMIT.
+ *
+ * A door and a window are hosted in a WALL, and `LevelBearingRow.wallId` was
+ * written for exactly them. A curtain-wall PANEL is hosted in a CURTAIN WALL —
+ * a different store, a different id space, and the record calls the field
+ * `curtainWallId` (`CurtainPanelData.curtainWallId`), never `wallId`. Every
+ * function below is otherwise 100% generic over "the id of whatever hosts
+ * this element" — it never reads a wall-specific fact, only compares the id
+ * against a caller-supplied set or asks a caller-supplied lookup whether it
+ * exists. The one thing that actually differs per hosted kind is WHICH FIELD
+ * ON THE RECORD carries that id, and enumerating that ("windows/doors read
+ * wallId, panels read curtainWallId") is exactly the "list that must be
+ * REMEMBERED" defect this file's own header already refuses to repeat for the
+ * kind name — so it is refused here too, for the field name: a row's host id
+ * is DERIVED by asking each candidate field in turn, never by a per-kind
+ * branch a future hosted family could be missing from.
+ *
+ * ⛔ A row that carries BOTH (an authored oddity, never a real shape) reads
+ * `wallId` first — arbitrary but total, and irrelevant in practice because no
+ * element kind in this codebase is hosted two ways at once.
+ */
+export function hostIdOf(row: {
+  readonly wallId?: string | null;
+  readonly curtainWallId?: string | null;
+}): string | undefined {
+  const wallId = typeof row.wallId === 'string' ? row.wallId.trim() : '';
+  if (wallId.length > 0) return wallId;
+  const curtainWallId = typeof row.curtainWallId === 'string' ? row.curtainWallId.trim() : '';
+  return curtainWallId.length > 0 ? curtainWallId : undefined;
+}
+
 export type HostedLevelResolution =
   | { readonly kind: 'resolved'; readonly ids: readonly string[]; readonly skipped: readonly ScopeSkip[] }
   | { readonly kind: 'refused'; readonly error: string };

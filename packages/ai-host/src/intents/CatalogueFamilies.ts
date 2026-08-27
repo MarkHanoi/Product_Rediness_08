@@ -268,19 +268,54 @@ export interface CatalogueFamily {
    * §FEAT-CHAT-LIGHTING-TYPES (L-10220) — the spatial scope kinds this family
    * can answer CORRECTLY, forwarded to `CapabilityExecutionSpec.spatialKinds`.
    *
-   * ⭐ MEASURED, and it is a defect being closed rather than a preference.
-   * `makeHostedTypeParser` passes `orientationWord: undefined` unconditionally,
-   * so NO catalogue family's grammar can produce an orientation scope. The
-   * generic arm honours it anyway — and the editor's orientation descriptor
-   * carries no `elementKind`, so it answers "facing south" with the WALLS that
-   * face south. A fan-out family then fans its per-element verb over WALL ids
-   * and refuses once per wall: reach that exists only as a defect, which is the
-   * exact wording `set-room-occupancy` used when it introduced the field.
+   * ⭐ CORRECTED (§RACORIENT145) — this comment used to read *"`makeHostedTypeParser`
+   * passes `orientationWord: undefined` unconditionally, so NO catalogue family's
+   * grammar can produce an orientation scope"*. That was true of the
+   * -FACING ADJECTIVE spelling ("west-facing windows") — nothing in the
+   * factory's regex captured it, so the whole match failed and the sentence
+   * never reached this table at all. It was **already false** of the
+   * PREPOSITIONAL spelling ("windows in the west facade"): `SPATIAL_TAIL_SRC` /
+   * `readSpatialTail` (§CHAT-ORIENTATION-IS-NOT-A-ROOM, L-10941) already
+   * resolves a compass phrase to `{kind:'orientation',...}` and
+   * `makeHostedTypeParser` already threads that tail scope into
+   * `wallSpatialScopeBase` — this factory just never told you so. Both
+   * spellings now parse (`HOSTED_TYPE_ORIENTATION_ADJ` added for the
+   * adjective); see `ZeroTokenResolver.ts`'s header on that constant.
    *
-   * ⚠ Set on the three FAN-OUT rows only. window / door / slab / ceiling
-   * declare `orientation` in `scopeModes` today and their batch commands filter
-   * by id, so narrowing them is a separate, declared decision — not a side
-   * effect of this one.
+   * ⚠ MEASURED, and NOT fixed by this lane (a separate, PRE-EXISTING defect,
+   * scoped out): the PREPOSITIONAL spelling's SCOPE resolves correctly, but
+   * its typeRef can carry LEFTOVER WORDS. `SPATIAL_TAIL_SRC`'s place-phrase
+   * capture is lazy (`[\w.-]+?`) and the arbitration below it only overrides
+   * when a FLAT (no-tail) reading resolves against the catalogue — so
+   * "change all windows in the west facade to timber casement" captures the
+   * tail phrase as JUST "west" (the minimal match satisfying the lazy
+   * quantifier) and typeRef ends up "facade to timber casement", not "timber
+   * casement" — a confusing "no window type called…" refusal over a real
+   * type name, even though the SCOPE itself (orientation W) is right.
+   * Reproduced in isolation (no ai-host import) and confirmed present
+   * byte-for-byte on the UNMODIFIED pre-§RACORIENT145 regex — this is not
+   * something the adjective addition introduced. The ADJECTIVE spelling
+   * ("west-facing windows") has no such corruption: its capture sits BEFORE
+   * the noun and contributes nothing to the typeRef tail.
+   *
+   * The editor's orientation descriptor still answers "facing south" with the
+   * WALLS that face south UNLESS the descriptor carries an `elementKind`
+   * (§CHAT-ORIENTATION-HOSTED-OPENINGS, L-10946) — which `CapabilityExecutionSpec`
+   * attaches automatically from `spec.elementKind` for every non-wall spec. So
+   * for window/door (host = wall, via `wallId`) this is now a genuine,
+   * end-to-end reach, not a defect wearing a declaration.
+   *
+   * ⚠ Set on the three FAN-OUT rows only, UNCHANGED by this correction.
+   * window / door / slab / ceiling declare `orientation` in `scopeModes` today
+   * and their batch commands filter by id, so narrowing them is a separate,
+   * declared decision — not a side effect of this one. `curtain-wall` (the
+   * WALL type, this table's last row) is DELIBERATELY NOT widened here either:
+   * a curtain wall IS a facade element, not one hosted in something else, and
+   * the bridge's orientation arm does not yet special-case that — widening its
+   * `spatialKinds` without that fix would DECLARE reach that is actually a
+   * defect (the exact failure this paragraph itself warns about). Left as
+   * `['level']`, honestly, for a lane that touches the bridge's `curtain-wall`
+   * arm specifically.
    */
   readonly spatialKinds?: readonly ('level' | 'room' | 'orientation')[];
 }

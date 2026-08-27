@@ -16,7 +16,8 @@
     "./validators/layout-adapter": "./src/workflows/apartmentLayout/validators/layout-adapter.ts",
     "./validators/orchestrator-types": "./src/workflows/apartmentLayout/validators/orchestrator-types.ts",
     "./reporting": "./src/workflows/apartmentLayout/reporting/index.ts",
-    "./intents/room-auto-label": "./src/intents/roomAutoLabel.ts"
+    "./intents/room-auto-label": "./src/intents/roomAutoLabel.ts",
+    "./intents/hosted-opening-scope": "./src/intents/HostedOpeningScope.ts"
   },
   "files": [
     "src"
