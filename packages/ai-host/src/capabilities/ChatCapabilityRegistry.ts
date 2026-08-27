@@ -2841,6 +2841,79 @@ const CAPABILITIES: readonly ChatCapability[] = [
       'change the curtain wall type to unitised bronze',
     ],
   },
+  // §CWCHAT155 (L-12520..L-12524, §CWPROPS152's follow-up) — the founder's
+  // curtain-wall PARAMETER ask: mullion size, panel thickness, post spacing,
+  // transom spacing, bulk-edited by all / a level / a facade / the selection.
+  // `busCommand` is `curtain-wall.bulkUpdateParameter` (plugins/curtain-wall),
+  // dispatched by a HAND-WRITTEN `applySemanticIntent` case arm — see that
+  // arm's own header comment for why (the command's scope is a discriminated
+  // `{kind:'element'|'level'|'project'|'ids'}` union, not the flat
+  // `idsField: 'all' | string[]` shape `applyExecutionSpec`'s generic template
+  // assumes; the SAME mismatch left `curtain-wall.bulkUpdatePanels` above
+  // hand-arm-shaped too, once it is wired).
+  {
+    id: 'set-curtain-wall-parameter',
+    description: 'change a curtain wall parameter (mullion size, panel thickness, post spacing, or transom spacing)',
+    verbs: ['set', 'change', 'make', 'resize', 'update', 'adjust'],
+    aliases: [
+      'mullion size', 'mullion width', 'mullion depth',
+      'panel thickness', 'glazing thickness', 'glass thickness',
+      'post spacing', 'mullion spacing', 'u-line spacing',
+      'transom spacing', 'v-line spacing',
+    ],
+    refusalLabel: 'curtain wall parameter',
+    targets: ['curtain-wall'],
+    parameters: [
+      {
+        name: 'parameter',
+        description: 'which parameter: mullionSize, panelThickness, gridXSpacing (post spacing), or gridYSpacing (transom spacing)',
+        required: true,
+        valueSource: 'user-text',
+        example: 'mullion size',
+      },
+      {
+        name: 'value',
+        description: 'the new value, in metres (a bare number is read as metres, never millimetres)',
+        required: true,
+        valueSource: 'measurement',
+        example: '0.06',
+      },
+    ],
+    scope: 'all',
+    // 'room' is NOT declared: none of the founder's own sentences scope a
+    // curtain-wall parameter by room, and whether `roomQueryService` tags a
+    // curtain wall with `type: 'curtainwall'` for the generic room-contents
+    // lookup (the arm for element kinds other than 'wall'/'room') is not
+    // measured — declaring it would be the C68 §7.d lie this capability's
+    // sibling rows are careful to avoid.
+    scopeModes: ['all', 'selection', 'level', 'orientation'],
+    destructive: false,
+    busCommand: 'curtain-wall.bulkUpdateParameter',
+    probe: { intent: 'set-curtain-wall-parameter', parameter: 'mullionSize', value: 0.06, scope: 'selection' },
+    commandProof: [
+      {
+        file: 'plugins/curtain-wall/src/handlers/BulkUpdateCurtainWallParameter.ts',
+        mustMention: [
+          "type: 'curtain-wall.bulkUpdateParameter'",
+          'commandManager',
+          'affectedStores: [] as const',
+          'BulkUpdateCurtainWallParameterCommand',
+        ],
+        note: 'The LIVE route: a legacy bridge (commandManager + empty affectedStores — undo lives on the legacy stack) constructing BulkUpdateCurtainWallParameterCommand, which composes UpdateCurtainWallCommand per wall (the SAME write path the property panel\'s Post/Transom Spacing/Mullion Size/Panel Thickness rows already use) and reports "Changed N of M curtain walls\' <parameter> to <value> — K skipped".',
+      },
+      {
+        file: 'packages/command-registry/src/curtainwall/BulkUpdateCurtainWallParameterCommand.ts',
+        mustMention: ['checkCurtainWallParameter', 'UpdateCurtainWallCommand', 'skipped'],
+        note: 'The bulk command validates the (parameter, value) pair against the SAME bounds table the chat resolver refuses against (C84 EI-9 — one answer per question), then composes UpdateCurtainWallCommand per resolved wall.',
+      },
+    ],
+    examples: [
+      'make mullion size of all curtain walls in ground level to 0.06 meters',
+      'set post spacing to 1.2 on the west facade',
+      'change panel thickness of all curtain walls to 0.024',
+      'set transom spacing to 4 m on level 3',
+    ],
+  },
   {
     id: 'set-rhino-material',
     // §FEAT-RHINO-CHAT-MATERIAL — the imported Rhino model is REFERENCE
@@ -3629,6 +3702,16 @@ export const CHAT_UNAVAILABLE: ReadonlyMap<string, string> = new Map([
   ['window.move', 'Moving a window along its wall needs a picked position — drag it.'],
   ['window.setOffset', 'Moving a window along its wall needs a picked position — drag it.'],
   ['room.move', 'Rooms follow their bounding walls; move the walls instead.'],
+  // §DEPT153 (L-12540+) — the manual Department field (`room.setDepartment`,
+  // `RoomPropertySection.ts`) and the bulk autofill (`room.autoClassify.batch`,
+  // already covered by 'set-room-occupancy'-adjacent capabilities) are new this
+  // lane. `room.setDepartment` is declared here rather than left UNDECLARED
+  // (which the coverage gate's ratchet may only shrink, never grow) — a full
+  // `ChatCapability` entry needs `commandProof` + an executed example +
+  // acceptance-suite coverage (checks 3b/4/4b), which is real, separate work
+  // this lane did not do. Honest deferral, not a silent gap — see ISSUE-LOG
+  // L-12546 (OPEN).
+  ['room.setDepartment', 'Department is set from the Properties panel (beside Occupancy) or via the Room Schedule\'s "Autofill all rooms…" (Edit mode) — not yet reachable from a chat sentence.'],
 
   // ── §FEAT-CONSTRUCTION-BOUNDARY-LINE (L-7960, C106 §7) ──────────────────────
   //
@@ -3892,44 +3975,23 @@ export const CHAT_UNAVAILABLE: ReadonlyMap<string, string> = new Map([
   // silent invention.
   ['curtain-wall.bulkUpdatePanels', 'Bulk curtain-wall panel type/material changes are not wired to chat yet — use the curtain-wall panel editor for one panel at a time (the bulk command itself is built — only the sentence-to-command grammar is missing).'],
 
-  // ── §CWPROPS152 — curtain-wall PARAMETER (mullion size / panel thickness /
-  // post spacing / transom spacing), COMMAND AND GRAMMAR BOTH BUILT. ─────────
-  //
-  // The founder's ask, verbatim: *"important request via RAC ... Make mullion
-  // size of all curtain walls in ground level to 0.06 meters ... Post Spacing
-  // (m) 1.5 / Transom Spacing (m) 5 / Mullion Size (m) 0.03 / Panel Thickness
-  // (m) 0.019."* `curtain-wall.bulkUpdateParameter` and its command
-  // (`BulkUpdateCurtainWallParameterCommand`, @pryzm/command-registry) ship
-  // this release: one wall / one level / the whole project / an explicit
-  // pre-resolved id list (where a COMPASS scope lands), ONE undo entry,
-  // §CONTEXT-DATA-HONESTY partial-failure reporting, and the SAME write path
-  // (`UpdateCurtainWallCommand`) the property panel's Post/Transom
-  // Spacing/Mullion Size/Panel Thickness rows already use — so a bulk edit
-  // re-derives the grid exactly as a single-wall edit does (C87 §13.6 CW-4).
-  //
-  // UNLIKE `curtain-wall.bulkUpdatePanels` above, the grammar for THIS
-  // capability is ALSO built and unit-tested end to end —
-  // `parseCurtainWallParameterIntent` (`@pryzm/ai-host/src/intents/CurtainWallParameterFamily.ts`)
-  // parses every one of the founder's four literal example sentences,
-  // including both tail-before-value and tail-after-value word orders, into
-  // `{ parameter, value, scope }`. What remains is WIRING, not authoring: a
-  // `CapabilityExecutionSpec` row (mirroring `dimensionFamilySpec`) and a call
-  // site in `ZeroTokenResolver`'s tier-0 dispatch (mirroring
-  // `parseDimensionScopedIntent`'s own call site) — deferred in THIS lane
-  // because the generic `applyExecutionSpec` template `DimensionFamilies` rides
-  // assumes a flat resolved `elementIds: string[]`, while this capability's
-  // scope is the SAME `{kind:'element'|'level'|'project'|'ids'}` shape
-  // `curtain-wall.bulkUpdatePanels` above already uses and which that sibling
-  // ALSO left unwired for the identical reason — a hand-written case arm (the
-  // shape `CapabilityExecutionSpec.ts`'s own header carves out for
-  // create-windows-parametric, set-rhino-material, etc.) is the likely correct
-  // route, not a spec-table row, and is a bigger change than one lane should
-  // make silently. Declared here rather than left undeclared so the
-  // shrink-only `MAX_UNDECLARED` coverage ratchet in
-  // `check-chat-capability-coverage.ts` reads this command HONESTLY (command
-  // built, grammar built and tested, only the resolver wiring missing) instead
-  // of silently failing the next unrelated PR that trips the ratchet.
-  ['curtain-wall.bulkUpdateParameter', 'Bulk curtain-wall parameter changes (mullion size, panel thickness, post spacing, transom spacing) are not wired to chat yet — use the property panel for one curtain wall at a time (the bulk command AND its sentence grammar are both built and tested; only the resolver wiring that connects the two is missing).'],
+  // ── §CWPROPS152 → §CWCHAT155 — curtain-wall PARAMETER row REMOVED, 2026-08-27.
+  // ─────────────────────────────────────────────────────────────────────────
+  // This row used to declare `curtain-wall.bulkUpdateParameter` deferred —
+  // "the bulk command AND its sentence grammar are both built and tested;
+  // only the resolver wiring that connects the two is missing". That wiring is
+  // now done: `matchCurtainWallParameter` (ZeroTokenResolver.ts, tier-0/1) and
+  // a `set-curtain-wall-parameter` push (LocalNaturalLanguageResolver.ts, the
+  // NL layer) both call `parseCurtainWallParameterIntent` and dispatch through
+  // a hand-written `applySemanticIntent` case arm — see that arm's own header
+  // for why it is hand-written (the command's scope union does not fit
+  // `applyExecutionSpec`'s flat `idsField` template). Proven with a foreground
+  // green test driving the founder's four literal sentences through
+  // `resolveUtterance` to a real `curtain-wall.bulkUpdateParameter` payload
+  // (`curtainWallParameterChatWiring.test.ts`) BEFORE this row was deleted —
+  // an honest "not yet" is only replaced once the path is shown to work, never
+  // on the strength of the wiring alone. The capability itself is declared
+  // below, as `set-curtain-wall-parameter`.
 ]);
 
 // ─── Lookup surface ──────────────────────────────────────────────────────────

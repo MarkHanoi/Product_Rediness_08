@@ -341,6 +341,9 @@ export class RoomStore {
         // member omitted here is dropped on the next update no matter what the
         // schema says. The user-authorship flag must be carried in BOTH branches.
         roomNumberAuthored: updates.metadata.roomNumberAuthored ?? existing.metadata.roomNumberAuthored,
+        // §DEPT153 — same rule, same both-branches requirement, for department's
+        // own authorship flag (RoomTypes.ts RoomMetadata.departmentAuthored).
+        departmentAuthored: updates.metadata.departmentAuthored ?? existing.metadata.departmentAuthored,
         tags:             updates.metadata.tags        ?? existing.metadata.tags,
         description:      updates.metadata.description ?? existing.metadata.description,
       };
@@ -355,6 +358,9 @@ export class RoomStore {
         // EI-7e (C84 §9) — see the twin above; omitting it here would silently
         // un-author every room number on its next ordinary update.
         roomNumberAuthored: safeUpdates.metadata?.roomNumberAuthored ?? existing.metadata.roomNumberAuthored,
+        // §DEPT153 — see the twin above; omitting it here would silently
+        // un-author every department on its next ordinary update.
+        departmentAuthored: safeUpdates.metadata?.departmentAuthored ?? existing.metadata.departmentAuthored,
         tags:             safeUpdates.metadata?.tags             ?? existing.metadata.tags,
         description:      safeUpdates.metadata?.description      ?? existing.metadata.description,
       };

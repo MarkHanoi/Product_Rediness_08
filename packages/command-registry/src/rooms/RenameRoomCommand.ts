@@ -34,7 +34,13 @@ export class RenameRoomCommand implements Command {
     // SetRoomOccupancyCommand) are two legacy history entries — two Ctrl+Z for
     // one user sentence — so the occupancy rides the SAME store patch here.
     // The full-RoomData snapshot above already restores it on undo.
-    private readonly updates: { name?: string; roomNumber?: string; occupancyType?: RoomOccupancyType },
+    // §DEPT153 (L-12540+) — `department` rides the SAME combined patch for the
+    // SAME reason occupancyType does: one gesture, one undo entry. This is the
+    // "documented precedent" for the manual Department field (RoomPropertySection.ts)
+    // and its bus verb (`room.setDepartment` → SetRoomDepartment.ts).
+    private readonly updates: {
+      name?: string; roomNumber?: string; occupancyType?: RoomOccupancyType; department?: string;
+    },
   ) {
     this.targetIds = [roomId];
   }
@@ -73,6 +79,18 @@ export class RenameRoomCommand implements Command {
       // §L-905 — occupancy in the SAME patch: one store update, one history
       // entry, one undo (the snapshot restore covers all three fields).
       if (this.updates.occupancyType !== undefined) patch.occupancyType = this.updates.occupancyType;
+
+      // §DEPT153 (L-12540+) — department in the SAME patch, mirroring roomNumber's
+      // own authorship stamp exactly (EI-7e, C84 §9): a HUMAN setting department
+      // through this command (via `room.setDepartment`) must be RECORDED, not
+      // inferred from the value, because an autofill-derived department
+      // ("Residential") and a human-typed one are the identical shape. A blank
+      // save clears the flag too — see RoomMetadata.departmentAuthored.
+      if (this.updates.department !== undefined) {
+        patch.department = this.updates.department;
+        const authored = this.updates.department.trim().length > 0;
+        patch.metadata = { ...(patch.metadata ?? {}), departmentAuthored: authored } as RoomData['metadata'];
+      }
 
       roomStore.update(this.roomId, patch);
       return { success: true, affectedElementIds: [this.roomId] };

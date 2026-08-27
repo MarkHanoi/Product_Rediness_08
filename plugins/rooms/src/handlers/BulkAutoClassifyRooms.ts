@@ -20,6 +20,9 @@ export interface BulkAutoClassifyRoomsPatch {
   readonly roomId: string;
   readonly name: string;
   readonly occupancyType: string;
+  // §DEPT153 (L-12540+) — optional: absent means "leave this room's department
+  // alone" (e.g. it is already human-authored). See BulkAutoClassifyRoomsCommand.
+  readonly department?: string;
 }
 
 export interface BulkAutoClassifyRoomsPayload {
@@ -32,7 +35,9 @@ function isValidPatches(patches: unknown): patches is readonly BulkAutoClassifyR
     typeof p === 'object' && p !== null &&
     typeof (p as any).roomId === 'string' && (p as any).roomId.length > 0 &&
     typeof (p as any).name === 'string' && (p as any).name.length > 0 &&
-    typeof (p as any).occupancyType === 'string' && (p as any).occupancyType.length > 0,
+    typeof (p as any).occupancyType === 'string' && (p as any).occupancyType.length > 0 &&
+    // §DEPT153 — optional, but must be a string when present.
+    ((p as any).department === undefined || typeof (p as any).department === 'string'),
   );
 }
 
@@ -75,7 +80,13 @@ export const BulkAutoClassifyRoomsHandler: CommandHandler<BulkAutoClassifyRoomsP
       let result: { success?: boolean; info?: string[]; error?: string } | void;
       try {
         result = cm.execute(new BulkAutoClassifyRoomsCommand(
-          cmd.patches.map((p) => ({ roomId: p.roomId, name: p.name, occupancyType: p.occupancyType as never })),
+          cmd.patches.map((p) => ({
+            roomId: p.roomId,
+            name: p.name,
+            occupancyType: p.occupancyType as never,
+            // §DEPT153 — forwarded only when the caller decided to write it.
+            ...(p.department !== undefined ? { department: p.department } : {}),
+          })),
         ));
       } catch (e) {
         console.error('[room.autoClassify.batch.handler] bridge failed:', e);

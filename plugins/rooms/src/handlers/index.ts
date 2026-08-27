@@ -6,6 +6,8 @@ import { DeleteRoomHandler } from './DeleteRoom.js';
 import { MoveRoomHandler } from './MoveRoom.js';
 import { SetRoomNameHandler } from './SetRoomName.js';
 import { SetRoomNumberHandler } from './SetRoomNumber.js';
+// §DEPT153 (L-12540+) — the manual Department entry point, mirroring SetRoomNumber.
+import { SetRoomDepartmentHandler } from './SetRoomDepartment.js';
 import { SetRoomOccupancyHandler } from './SetRoomOccupancy.js';
 import { SetRoomColourModeHandler } from './SetRoomColourMode.js';
 import { SetRoomMaterialHandler } from './SetRoomMaterial.js';
@@ -26,6 +28,9 @@ export const ROOM_HANDLER_TYPES = [
   'room.move',
   'room.setName',
   'room.setNumber',
+  // §DEPT153 (L-12540+) — the manual Department field's bus verb. See
+  // SetRoomDepartment.ts.
+  'room.setDepartment',
   'room.setOccupancy',
   // §ROOM-VG-CATEGORY (L-1614) -- HOW rooms are colour-coded (by type / size /
   // user-defined / all white). A `room` VG CATEGORY write, not a room mutation.
@@ -68,6 +73,7 @@ export function buildRoomHandlerSet(): readonly CommandHandler<unknown>[] {
     new MoveRoomHandler() as unknown as CommandHandler<unknown>,
     new SetRoomNameHandler() as unknown as CommandHandler<unknown>,
     new SetRoomNumberHandler() as unknown as CommandHandler<unknown>,
+    new SetRoomDepartmentHandler() as unknown as CommandHandler<unknown>,
     new SetRoomOccupancyHandler() as unknown as CommandHandler<unknown>,
     new SetRoomColourModeHandler() as unknown as CommandHandler<unknown>,
     new SetRoomMaterialHandler() as unknown as CommandHandler<unknown>,
@@ -93,6 +99,7 @@ export { DeleteRoomHandler, type DeleteRoomPayload } from './DeleteRoom.js';
 export { MoveRoomHandler, type MoveRoomPayload } from './MoveRoom.js';
 export { SetRoomNameHandler, type SetRoomNamePayload } from './SetRoomName.js';
 export { SetRoomNumberHandler, type SetRoomNumberPayload } from './SetRoomNumber.js';
+export { SetRoomDepartmentHandler, type SetRoomDepartmentPayload } from './SetRoomDepartment.js';
 export { SetRoomOccupancyHandler, type SetRoomOccupancyPayload } from './SetRoomOccupancy.js';
 export { SetRoomColourModeHandler, type SetRoomColourModePayload } from './SetRoomColourMode.js';
 export { SetRoomMaterialHandler, type SetRoomMaterialPayload } from './SetRoomMaterial.js';

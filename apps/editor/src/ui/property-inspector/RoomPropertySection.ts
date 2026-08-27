@@ -17,6 +17,11 @@
 import { RoomData, RoomOccupancyType } from '@pryzm/room-topology';
 import { RoomColourSystem, OCCUPANCY_PALETTE } from '@pryzm/room-topology';
 import { RoomRelationshipService } from '@pryzm/room-topology';
+// §DEPT153 (L-12540+) — the manual Department field's autocomplete vocabulary.
+// A HINT, not a closed enum: `department` stays a free string (C47); the list
+// is the SAME grouping `departmentForOccupancy` derives from occupancy, reused
+// here rather than re-typed (C84 EI-9).
+import { CANONICAL_DEPARTMENTS } from '@pryzm/room-topology';
 import { resolveRoomFinishes } from '@pryzm/core-app-model';
 // §ROOM-VG-CATEGORY (L-1615) -- the room colour MODE is a `room` VG category
 // property resolved per view, not a field on the mesh builder.
@@ -193,6 +198,57 @@ export function appendRoomPropertySection(
         wrap.appendChild(lbl);
         wrap.appendChild(swatch);
         wrap.appendChild(sel);
+        wrap.appendChild(btn);
+        id1.body.appendChild(wrap);
+    }
+
+    // Department — §DEPT153 (L-12540+). The founder's screenshot showed every
+    // DEPARTMENT cell in the Room Schedule reading '—': the field is real
+    // (RoomDataSchema.ts, optional string) and the schedule reads it, but
+    // nothing anywhere could WRITE it. This is that writer — a manual editor
+    // BEFORE an automatic one (a field a human cannot set by hand should not
+    // first become a field a robot sets automatically). Free text, not a
+    // dropdown: department stays an open string on the schema (C47); the
+    // datalist below offers the SAME grouping the bulk autofill derives from
+    // occupancy, as a hint.
+    {
+        const wrap = document.createElement('div');
+        wrap.style.cssText = 'display:flex;align-items:center;gap:6px;padding:5px 0;border-bottom:1px solid ' + C.rowSep + ';';
+        const lbl = document.createElement('span');
+        lbl.style.cssText = LABEL_S;
+        lbl.textContent = 'Department';
+        const inp = document.createElement('input');
+        inp.type = 'text';
+        inp.value = room.department ?? '';
+        inp.placeholder = 'e.g. Residential';
+        inp.setAttribute('list', 'pryzm-department-options');
+        inp.style.cssText = INPUT_S;
+
+        // Autocomplete hint only — never a constraint (C47: department stays a
+        // free string). Reuses the SAME vocabulary the bulk autofill derives
+        // from occupancy (RoomDepartment.ts), not a second, hand-typed list.
+        const datalist = document.createElement('datalist');
+        datalist.id = 'pryzm-department-options';
+        CANONICAL_DEPARTMENTS.forEach(d => {
+            const opt = document.createElement('option');
+            opt.value = d;
+            datalist.appendChild(opt);
+        });
+
+        const btn = makePrimaryBtn('Save', { small: true });
+        const origStyle = btn.style.cssText;
+        btn.addEventListener('click', () => {
+            // room.setDepartment -> RenameRoomCommand({department}), the SAME
+            // combined-patch command Name/Number/Occupancy already write
+            // through (C84 EI-9 — one authority, not a rival writer). An empty
+            // save clears the field AND un-authors it, handing the room back
+            // to the bulk autofill (RoomMetadata.departmentAuthored).
+            window.runtime?.bus?.executeCommand('room.setDepartment', { roomId: room.id, department: inp.value.trim() })?.catch(console.error);
+            showFeedback(btn, '✓', '✗', 'Save', origStyle, true);
+        });
+        wrap.appendChild(lbl);
+        wrap.appendChild(inp);
+        wrap.appendChild(datalist);
         wrap.appendChild(btn);
         id1.body.appendChild(wrap);
     }
@@ -837,12 +893,12 @@ export function appendRoomPropertySection(
         // Autofill Room Names — §ROOMTYPE142. Deterministic, content-based
         // rename (bed → Bedroom, kitchen+sofa → Kitchen-Living, …), AD-HOC —
         // run only on click, never on a store subscription (performance ask).
-        const afBtn = makeWideBtn('⚡  Autofill Room Names…', {
+        const afBtn = makeWideBtn('⚡  Autofill Rooms…', {
             bg:     C.purpleSoft,
             color:  C.purple,
             border: C.purpleBorder,
         });
-        afBtn.title = 'Rename rooms on this level from their contents (bed → Bedroom, kitchen+sofa → Kitchen-Living, …). Skips rooms you already renamed by hand.';
+        afBtn.title = 'Set name, occupancy & department for rooms on this level from their contents (bed → Bedroom · Residential, kitchen+sofa → Kitchen-Living, …). Skips rooms you already named or gave a department by hand. See the Room Schedule\'s Edit mode for the whole-project version.';
         afBtn.style.marginTop = '4px';
         afBtn.addEventListener('click', () => {
             import('./RoomAutoOrganiser').then(m => { m.openAutoFillModal({ kind: 'level', levelId: room.levelId }); });

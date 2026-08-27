@@ -36,6 +36,10 @@ import { storeRegistry } from '@pryzm/core-app-model';
 // L-905 name-authorship + naming primitives (@pryzm/ai-host/intents/roomAutoLabel.ts),
 // both REUSED rather than re-implemented (C84 EI-9). See openAutoFillModal below.
 import { classifyRoomForAutofill } from '@pryzm/spatial-index';
+// §DEPT153 (L-12540+) — department is a PURE FUNCTION of the room's
+// freshly-classified occupancy (see RoomDepartment.ts's header for why this is
+// not a second contents classifier riding alongside `classifyRoomForAutofill`).
+import { departmentForOccupancy } from '@pryzm/room-topology';
 // Imported via the package's dedicated subpath export, NOT the '@pryzm/ai-host'
 // root — the root barrel transitively imports the generative workflow chain
 // (LayoutGenerator → ConstraintEngine, which constructs a singleton at module
@@ -447,6 +451,17 @@ export interface RoomAutofillProposal {
     readonly ruleLabel: string;
     readonly proposedName: string;
     readonly occupancyType: RoomOccupancyType;
+    /**
+     * §DEPT153 (L-12540+) — the department `departmentForOccupancy(occupancyType)`
+     * derives. `undefined` means "leave this room's department alone" — it is
+     * already human-authored (`departmentAuthored`) and BulkAutoClassifyRoomsCommand
+     * must never silently overwrite a human's choice.
+     */
+    readonly department?: string;
+    /** True when this room's department was skipped because a human already set
+     *  it by hand — surfaced in the preview so "why does this row show no
+     *  department change" has a visible answer, never a silent one. */
+    readonly departmentAuthored: boolean;
 }
 
 export interface RoomAutofillPreview {
@@ -516,12 +531,21 @@ export function buildRoomAutofillProposals(roomIds: readonly string[]): RoomAuto
         const proposedName = formatAutoLabelName(classification.label, nextAutoLabelIndex(classification.label, taken));
         assignedInThisRun.push({ levelId: room.levelId, name: proposedName });
 
+        // §DEPT153 — department follows the SAME freshly-classified occupancy,
+        // one inference not two (RoomDepartment.ts header). Skipped when a
+        // human already set this room's department by hand — never a silent
+        // overwrite (§CONTEXT-DATA-HONESTY).
+        const departmentAuthored = room.metadata?.departmentAuthored === true;
+        const department = departmentAuthored ? undefined : departmentForOccupancy(classification.occupancyType);
+
         toApply.push({
             roomId,
             currentName: room.name ?? '',
             ruleLabel: classification.label,
             proposedName,
             occupancyType: classification.occupancyType,
+            department,
+            departmentAuthored,
         });
     }
 
@@ -586,10 +610,10 @@ export function openAutoFillModal(scope: { kind: 'level'; levelId: string } | { 
     ].join('');
     const scopeWord = scope.kind === 'level' ? 'this level' : 'the whole project';
     header.innerHTML = `
-        <div style="font-size:15px;font-weight:700;letter-spacing:0.01em;">⚡ Autofill Room Names</div>
+        <div style="font-size:15px;font-weight:700;letter-spacing:0.01em;">⚡ Autofill Rooms</div>
         <div style="font-size:11px;opacity:0.85;margin-top:3px;">
             ${roomIds.length} room${roomIds.length === 1 ? '' : 's'} scanned on ${scopeWord} —
-            ${toApply.length} will be renamed, ${authoredSkipIds.length} kept (named by hand),
+            ${toApply.length} will get a name, occupancy &amp; department, ${authoredSkipIds.length} kept (named by hand),
             ${unclassifiedIds.length} unclassified (left alone).
         </div>`;
     card.appendChild(header);
@@ -615,15 +639,15 @@ export function openAutoFillModal(scope: { kind: 'level'; levelId: string } | { 
         listBody.style.cssText = 'flex:1;overflow-y:auto;padding:12px 16px;display:flex;flex-direction:column;gap:6px;';
 
         const cols = document.createElement('div');
-        cols.style.cssText = 'display:grid;grid-template-columns:1fr 1fr;gap:6px;font-size:9px;font-weight:700;color:#9e9e9e;text-transform:uppercase;letter-spacing:0.06em;padding:0 4px 4px;border-bottom:1px solid #eee;';
-        cols.innerHTML = '<span>Current name</span><span>New name (rule)</span>';
+        cols.style.cssText = 'display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;font-size:9px;font-weight:700;color:#9e9e9e;text-transform:uppercase;letter-spacing:0.06em;padding:0 4px 4px;border-bottom:1px solid #eee;';
+        cols.innerHTML = '<span>Current name</span><span>New name (rule)</span><span>Department</span>';
         listBody.appendChild(cols);
 
         const checkboxes: HTMLInputElement[] = [];
 
         toApply.forEach((p) => {
             const row = document.createElement('div');
-            row.style.cssText = 'display:grid;grid-template-columns:auto 1fr 1fr;gap:6px;align-items:center;padding:5px 4px;border-bottom:1px dotted #f0f0f0;font-size:11px;';
+            row.style.cssText = 'display:grid;grid-template-columns:auto 1fr 1fr 1fr;gap:6px;align-items:center;padding:5px 4px;border-bottom:1px dotted #f0f0f0;font-size:11px;';
 
             const cb = document.createElement('input');
             cb.type = 'checkbox';
@@ -640,9 +664,22 @@ export function openAutoFillModal(scope: { kind: 'level'; levelId: string } | { 
             toEl.textContent = p.proposedName;
             toEl.title = `Rule matched: ${p.ruleLabel} → occupancy "${p.occupancyType}"`;
 
+            // §DEPT153 — the department column: the derived value, or a visible
+            // "kept" note when a human already set it by hand (never silently
+            // blank, which would read as "nothing happens here").
+            const deptEl = document.createElement('span');
+            deptEl.style.cssText = p.departmentAuthored
+                ? 'font-size:10px;color:#9b6a1a;font-style:italic;'
+                : 'font-weight:600;color:#10b981;';
+            deptEl.textContent = p.departmentAuthored ? 'kept (set by hand)' : (p.department ?? '—');
+            deptEl.title = p.departmentAuthored
+                ? 'This room already has a department you set — left untouched.'
+                : `Derived from occupancy "${p.occupancyType}".`;
+
             row.appendChild(cb);
             row.appendChild(fromEl);
             row.appendChild(toEl);
+            row.appendChild(deptEl);
             row.title = toEl.title;
             listBody.appendChild(row);
         });
@@ -651,7 +688,7 @@ export function openAutoFillModal(scope: { kind: 'level'; levelId: string } | { 
 
         const legend = document.createElement('div');
         legend.style.cssText = 'padding:5px 20px;font-size:9px;color:#aaa;border-top:1px solid #f0f0f0;background:#fafafa;';
-        legend.textContent = 'Hover a row to see which rule matched. Uncheck a row to keep that room as-is.';
+        legend.textContent = 'Hover a row to see which rule matched. Uncheck a row to keep that room as-is. Department follows the matched occupancy — rooms already given a department by hand are kept.';
         card.appendChild(legend);
 
         const footer = document.createElement('div');
@@ -678,12 +715,14 @@ export function openAutoFillModal(scope: { kind: 'level'; levelId: string } | { 
             applyBtn.textContent = 'Applying…';
             try {
                 // ONE bus call, ONE command, ONE undo entry — C16 §8.6 — no
-                // matter how many rows are checked.
+                // matter how many rows are checked. §DEPT153: department rides
+                // the SAME patch, omitted per-room when already human-authored.
                 await window.runtime?.bus?.executeCommand('room.autoClassify.batch', {
                     patches: selected.map((p) => ({
                         roomId: p.roomId,
                         name: p.proposedName,
                         occupancyType: p.occupancyType,
+                        ...(p.department !== undefined ? { department: p.department } : {}),
                     })),
                 });
             } catch (e) {

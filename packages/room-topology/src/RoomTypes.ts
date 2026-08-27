@@ -289,6 +289,22 @@ export interface RoomMetadata {
    * system rather than pinning an empty string.
    */
   roomNumberAuthored?: boolean;
+  /**
+   * §DEPT153 (L-12540+) — TRUE when `department` was set by a HUMAN, via
+   * `room.setDepartment` → `SetRoomDepartment.ts` → `RenameRoomCommand`.
+   * Mirrors `roomNumberAuthored` exactly, for the identical reason: a real
+   * department string ("Residential") and an autofill-derived one
+   * (`departmentForOccupancy` in `RoomDepartment.ts`) are the SAME shape —
+   * authorship cannot be inferred from the value, only recorded at the
+   * moment a human acts. Absent/false ⇒ `department.autoClassify.batch` may
+   * re-derive the value freely as occupancy/contents evolve; TRUE ⇒ the bulk
+   * autofill leaves this room's department untouched (never a silent
+   * overwrite of a human's choice).
+   *
+   * Cleared when the user blanks the field — that hands department back to
+   * autofill rather than pinning an empty string, exactly like roomNumber.
+   */
+  departmentAuthored?: boolean;
   tags?: string[];
   description?: string;
 }

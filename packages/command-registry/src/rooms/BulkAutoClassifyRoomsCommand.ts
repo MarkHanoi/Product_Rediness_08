@@ -48,11 +48,23 @@ import type { RoomData, RoomOccupancyType } from '@pryzm/room-topology';
 
 /** One room's decided autofill outcome — name AND occupancy change together,
  *  in ONE store patch (mirrors `RenameRoomCommand`'s combined patch: a rename
- *  that also carries an occupancy change is one gesture, not two). */
+ *  that also carries an occupancy change is one gesture, not two).
+ *
+ *  §DEPT153 (L-12540+) — `department` joins the SAME patch, widened from the
+ *  original `{name, occupancyType}` per the founder's ask ("auto generate the
+ *  DEPARTMENT of the rooms based on the elements within" — the exact same
+ *  signal §ROOMTYPE142 already uses, via the room's freshly-classified
+ *  occupancy — see `RoomDepartment.ts`'s header for why department is a pure
+ *  function of occupancy rather than a second contents classifier). OPTIONAL
+ *  per room: the caller (`buildRoomAutofillProposals`, RoomAutoOrganiser.ts)
+ *  omits it for a room whose department is already human-authored
+ *  (`RoomMetadata.departmentAuthored`), so this command never silently
+ *  overwrites a department a human set by hand. */
 export interface RoomAutoClassifyPatch {
   readonly roomId: string;
   readonly name: string;
   readonly occupancyType: RoomOccupancyType;
+  readonly department?: string;
 }
 
 export class BulkAutoClassifyRoomsCommand implements Command {
@@ -97,11 +109,18 @@ export class BulkAutoClassifyRoomsCommand implements Command {
     const affected: string[] = [];
     try {
       // ONE mutation pass over every decided room — one undo entry, not N.
-      for (const { roomId, name, occupancyType } of this.patches) {
+      for (const { roomId, name, occupancyType, department } of this.patches) {
         const current = roomStore.getById(roomId);
         if (!current) { this._vanished.push(roomId); continue; } // best-effort: room vanished since preview
         this.snapshots.push(current);
         const patch: Partial<RoomData> = { name, occupancyType };
+        // §DEPT153 — only when the caller decided this room's department should
+        // change (undefined means "leave it alone", e.g. already human-authored).
+        // Deliberately NOT stamping `metadata.departmentAuthored` here: this is
+        // an AUTOFILL write, not a human one, so a LATER autofill run stays free
+        // to re-derive it as occupancy/contents evolve (mirrors how re-running
+        // this same command on name/occupancy is always allowed).
+        if (department !== undefined) patch.department = department;
         roomStore.update(roomId, patch);
         affected.push(roomId);
       }

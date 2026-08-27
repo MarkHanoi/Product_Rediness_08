@@ -605,6 +605,76 @@ describe('room.setNumber / setOccupancy / setMaterial / setHeightOffset — lega
   });
 });
 
+// §DEPT153 (L-12540+) — room.setDepartment is a LEGACY BRIDGE, mirroring
+// room.setNumber EXACTLY (same RenameRoomCommand target, same empty-string-clears
+// shape). This is the manual Department field's ONLY writer
+// (RoomPropertySection.ts, beside Occupancy).
+describe('room.setDepartment — legacy bridge (§DEPT153)', () => {
+  let env: ReturnType<typeof buildEnv>;
+  const g = globalThis as unknown as { window?: unknown };
+  const savedWindow = g.window;
+  afterEach(() => {
+    env?.detach();
+    if (savedWindow === undefined) delete g.window;
+    else g.window = savedWindow;
+  });
+
+  function busWithoutRoomStore() {
+    const bus = new CommandBus({
+      audit: { actorId: 'test', projectId: 'p1', clientId: 't1' },
+      storesProvider: () => ({}),
+    });
+    for (const h of buildRoomHandlerSet()) bus.register(h);
+    return bus;
+  }
+
+  it('is registered by registerRoomHandlers', () => {
+    expect(ROOM_HANDLER_TYPES).toContain('room.setDepartment');
+  });
+
+  it('forwards a RenameRoomCommand carrying department (empty string clears)', async () => {
+    env = buildEnv();
+    const bus = busWithoutRoomStore();
+    const executed: Array<{ type?: string; targetIds?: readonly string[] }> = [];
+    g.window = {
+      __pryzmInitComplete: true,
+      commandManager: { execute: (c: unknown) => executed.push(c as { type?: string }) },
+    };
+    await expect(
+      bus.executeCommand('room.setDepartment', { roomId: 'room_abc', department: 'Residential' }),
+    ).resolves.toBeDefined();
+    expect(executed).toHaveLength(1);
+    expect(executed[0]?.type).toBe('RENAME_ROOM');
+    expect(executed[0]?.targetIds).toContain('room_abc');
+    // Clearing (empty string) still forwards a RenameRoomCommand — mirrors setNumber.
+    await bus.executeCommand('room.setDepartment', { roomId: 'room_abc', department: '' });
+    expect(executed).toHaveLength(2);
+    // The plugin RoomsState is NOT mutated by the bridge.
+    expect(env.room.size()).toBe(0);
+  });
+
+  it('refuses, with a reason, before the engine is initialised', async () => {
+    env = buildEnv();
+    const bus = busWithoutRoomStore();
+    g.window = {
+      __pryzmInitComplete: false,
+      commandManager: { execute: () => { throw new Error('must not run pre-init'); } },
+    };
+    await expect(
+      bus.executeCommand('room.setDepartment', { roomId: 'room_x', department: 'Residential' }),
+    ).rejects.toThrow(/room\.setDepartment: the engine is not initialised/);
+  });
+
+  it('rejects an empty roomId payload', async () => {
+    env = buildEnv();
+    const bus = busWithoutRoomStore();
+    g.window = { __pryzmInitComplete: true, commandManager: { execute: () => {} } };
+    await expect(
+      bus.executeCommand('room.setDepartment', { roomId: '', department: 'Residential' }),
+    ).rejects.toThrow();
+  });
+});
+
 // §FIX-ROOM-SIBLING-HANDLERS-STORE (L-79) — room.recomputeBoundary declares
 // affectedStores:[]; before L-79 it declared affectedStores:['room'] and threw
 // "required store 'room' is missing" on every wall create/move/resize.

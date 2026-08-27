@@ -139,6 +139,11 @@ export const RoomMetadataSchema = z.object({
   // delete an undeclared field in transit while parse() reported success —
   // the exact mechanism C84 §1 names. See RoomMetadata.roomNumberAuthored.
   roomNumberAuthored: z.boolean().optional(),
+  // §DEPT153 — mirrors roomNumberAuthored's own EI-7e note directly above:
+  // RoomMetadataSchema has NO .passthrough(), so an undeclared field is
+  // stripped silently on the next parse rather than rejected. See
+  // RoomMetadata.departmentAuthored (RoomTypes.ts) for the full rationale.
+  departmentAuthored: z.boolean().optional(),
   tags: z.array(z.string()).optional(),
   description: z.string().optional(),
 });

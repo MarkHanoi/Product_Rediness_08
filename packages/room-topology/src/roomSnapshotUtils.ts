@@ -70,6 +70,16 @@ export interface SerializedRoom {
     version: number;
     aiGenerated?: boolean;
     detectionVersion?: number;
+    // §DEPT153 (L-12540+) — ⭐ FOUND WHILE ADDING departmentAuthored: this
+    // serialised shape, `serializeRoom()` and `deserializeRoom()` below all
+    // OMITTED `roomNumberAuthored` (RoomTypes.ts's own EI-7e flag, live since
+    // §FIX-ROOM-SIBLING-HANDLERS-STORE). It survives in-memory (RoomStore.update
+    // merges it correctly — see that file) but was silently DROPPED across a
+    // project save/reload, because the persistence boundary never carried it.
+    // Adding departmentAuthored alone would have shipped the identical defect
+    // on day one, so both flags are declared and carried here together.
+    roomNumberAuthored?: boolean;
+    departmentAuthored?: boolean;
     tags?: string[];
     description?: string;
   };
@@ -129,6 +139,11 @@ export function serializeRoom(room: RoomData): SerializedRoom {
       version:          room.metadata.version,
       aiGenerated:      room.metadata.aiGenerated,
       detectionVersion: room.metadata.detectionVersion,
+      // §DEPT153 — see SerializedRoom.metadata's note: both authorship flags
+      // must be carried across the persistence boundary, not just the
+      // in-memory RoomStore.update() merge.
+      roomNumberAuthored: room.metadata.roomNumberAuthored,
+      departmentAuthored: room.metadata.departmentAuthored,
       tags:             room.metadata.tags ? [...room.metadata.tags] : undefined,
       description:      room.metadata.description,
     },
@@ -262,6 +277,11 @@ export function deserializeRoom(raw: unknown): RoomData {
     version:          Number(rawMeta['version'])    || 1,
     aiGenerated:      rawMeta['aiGenerated'] === true,
     detectionVersion: rawMeta['detectionVersion'] != null ? Number(rawMeta['detectionVersion']) : undefined,
+    // §DEPT153 — see SerializedRoom.metadata's note above serializeRoom(): both
+    // flags must round-trip through JSON, not just through the in-memory
+    // RoomStore.update() merge.
+    roomNumberAuthored: rawMeta['roomNumberAuthored'] === true ? true : undefined,
+    departmentAuthored: rawMeta['departmentAuthored'] === true ? true : undefined,
     tags:             Array.isArray(rawMeta['tags']) ? (rawMeta['tags'] as string[]) : undefined,
     description:      rawMeta['description'] != null ? String(rawMeta['description']) : undefined,
   };

@@ -538,6 +538,47 @@ export class SchedulePanel {
       sidebar.appendChild(sidebarTitle);
       sidebar.appendChild(quickActions);
       sidebar.appendChild(fieldList);
+
+      // §DEPT153 (L-12540+) — the founder, after §ROOMTYPE142 shipped a
+      // level-scoped Autofill button in the room Properties panel: *"occupancy
+      // is good - but i want to do it all at once - this button should be
+      // small, in edit / under the room schedule, a bulk rename all!"* This is
+      // that entry point: SMALL (reuses `.sched-fields-quick-btn`, the same
+      // look as Show all/Hide all above), lives in Edit mode (this whole block
+      // is `if (editing)`), and is gated on `schedule.category === 'Rooms'` —
+      // NOT on the display name, which the founder had already renamed to
+      // "Floors Schedule" for this exact Rooms-category schedule (see the
+      // §LIVESCHED151 (D) comment atop this file). A door/window/floor
+      // schedule never shows this — "bulk rename all rooms" on a door
+      // schedule would be a category error.
+      //
+      // Routes to the SAME modal and the SAME `room.autoClassify.batch`
+      // command the Properties panel's level-scoped button uses (one
+      // authority, two scopes — C84 EI-9), just with `{ kind: 'project' }`
+      // instead of `{ kind: 'level', levelId }`. `_resolveAutofillScopeRoomIds`
+      // already had a correct, complete `project` arm
+      // (`roomStore.getAll?.() ?? []`) with no caller until this button —
+      // the repo's own "authored-but-unwired" pattern, closed here rather
+      // than rebuilt.
+      if (schedule.category === 'Rooms') {
+        const roomsActions = document.createElement('div');
+        roomsActions.className = 'sched-fields-quick';
+
+        const autofillBtn = document.createElement('button');
+        autofillBtn.type = 'button';
+        autofillBtn.className = 'sched-fields-quick-btn';
+        autofillBtn.textContent = '⚡ Autofill all rooms…';
+        autofillBtn.title = 'Set name, occupancy & department for every room in the project from its contents (bed → Bedroom · Residential, …). Skips rooms already named or given a department by hand.';
+        autofillBtn.addEventListener('click', () => {
+          import('../property-inspector/RoomAutoOrganiser').then((m) => {
+            m.openAutoFillModal({ kind: 'project' });
+          });
+        });
+
+        roomsActions.appendChild(autofillBtn);
+        sidebar.appendChild(roomsActions);
+      }
+
       layout.appendChild(sidebar);
     }
 

@@ -119,6 +119,44 @@ describe('BulkAutoClassifyRoomsCommand — §ROOMTYPE142', () => {
         ).toBe(false);
     });
 
+    // §DEPT153 (L-12540+) — department rides the SAME patch, optional per room
+    // (see BulkAutoClassifyRoomsCommand's own header for why it is NOT stamped
+    // as `departmentAuthored`: an autofill write must stay re-derivable).
+    it('writes department when the caller supplies it, and does NOT stamp departmentAuthored', () => {
+        const store = makeStore([makeRoom('r0', 'Room 00-001', 'unclassified')]);
+        const cmd = new BulkAutoClassifyRoomsCommand([
+            { roomId: 'r0', name: 'Bedroom 01', occupancyType: 'bedroom' as never, department: 'Residential' },
+        ]);
+        const res = cmd.execute(makeCtx(store));
+        expect(res.success).toBe(true);
+        expect(store.peek('r0')!.department).toBe('Residential');
+        expect((store.peek('r0') as any).metadata?.departmentAuthored).toBeUndefined();
+    });
+
+    it('leaves department untouched when the caller omits it (already human-authored)', () => {
+        const store = makeStore([
+            { ...makeRoom('r0', 'Room 00-001', 'unclassified'), department: 'Finance (hand-set)' },
+        ]);
+        const cmd = new BulkAutoClassifyRoomsCommand([
+            { roomId: 'r0', name: 'Bedroom 01', occupancyType: 'bedroom' as never }, // no department
+        ]);
+        const res = cmd.execute(makeCtx(store));
+        expect(res.success).toBe(true);
+        expect(store.peek('r0')!.department).toBe('Finance (hand-set)');
+    });
+
+    it('a single undo reverts department alongside name+occupancy for the whole batch', () => {
+        const store = makeStore([makeRoom('r0', 'Room 00-001', 'unclassified')]);
+        const cmd = new BulkAutoClassifyRoomsCommand([
+            { roomId: 'r0', name: 'Bedroom 01', occupancyType: 'bedroom' as never, department: 'Residential' },
+        ]);
+        cmd.execute(makeCtx(store));
+        expect(store.peek('r0')!.department).toBe('Residential');
+        const undo = cmd.undo(makeCtx(store));
+        expect(undo.success).toBe(true);
+        expect(store.peek('r0')!.department).toBeUndefined();
+    });
+
     it('serialize/deserialize round-trips the patch list', () => {
         const patches: RoomAutoClassifyPatch[] = [
             { roomId: 'r0', name: 'Bedroom 01', occupancyType: 'bedroom' as never },

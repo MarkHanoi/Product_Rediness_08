@@ -87,6 +87,16 @@ export { RoomColourSystem } from './RoomColourSystem';
 export type { RoomVisualisationMode } from './RoomColourSystem';
 export { OCCUPANCY_PALETTE, SYNC_STATE_COLOURS, ROOM_CSS_TOKENS } from './RoomColourSystem';
 
+// §DEPT153 — occupancy → department (a PURE function of the already-resolved
+// occupancy; see RoomDepartment.ts's header for why this is not a rival
+// contents-classifier).
+export {
+  DEPARTMENT_UNCLASSIFIED,
+  CANONICAL_DEPARTMENTS,
+  DEPARTMENT_FOR_OCCUPANCY,
+  departmentForOccupancy,
+} from './RoomDepartment';
+
 export { RoomRelationshipService } from './RoomRelationshipService';
 export type { RoomRef, DoorRoomRelationship, WindowRoomRelationship } from './RoomRelationshipService';
 
