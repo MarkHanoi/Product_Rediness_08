@@ -3263,7 +3263,11 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
             const studySite = studyCtx?.store.getSite() ?? null;
             const studyResult = studySite ? getContextDerivedStudyEnvelope(studySite.id) : null;
             const savedStudyHeight = studySite ? getUserSuppliedStudyHeight(studySite.id) : null;
-            const safeContextStudySection = buildContextStudySectionHtml(studyResult);
+            // §DVP170 (L-12820) — feed the SAME `capacityJoin.measurement` this branch already
+            // computed above (before the refusal check, precisely so the designed side is never
+            // lost when the zoning envelope refuses) into the study section, so it can add its
+            // one factual "designed vs this study" line. Never a second measurement pass.
+            const safeContextStudySection = buildContextStudySectionHtml(studyResult, capacityJoin.measurement);
             const safeStudyHeightEntry = (isAbsent || isGap)
                 ? buildStudyHeightEntryHtml(savedStudyHeight)
                 : '';
@@ -4763,6 +4767,26 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
         // re-renders (reading the stores FRESH each time — getFormaFurniture pulls
         // live) once furniture/ceilings/lights actually exist. renderFormaMassing
         // is idempotent (clearFormaMassing first), so the extra re-renders are safe.
+        // §DVP170 (L-12820) — THE DESIGNED-VS-PERMITTED CARD HAD NO LIVE TRIGGER OF ITS OWN.
+        //
+        // MEASURED (not guessed): `refreshEnvelopePanel`'s `capacityJoin` re-reads the authored
+        // model FRESH on every call — `measureAuthoredDesign`/`collectAuthoredModelSnapshot` are
+        // pure and correct against live stores (pinned by `designMeasurement.spec.ts`). The
+        // founder's card nonetheless read "Nothing has been authored on this site yet" against a
+        // 462-element / 7-level / 56-wall / 10-slab project, because `refreshEnvelopePanel` was
+        // never CALLED AGAIN after the parcel was committed: its only triggers were envelope-
+        // visibility toggles, a recompute button, `pryzmMountEnvelopeCard` re-hosting, and — via
+        // `renderFormaMassing`'s OWN tail call at its very end — this exact event list. But that
+        // tail call is reached only through `liveUpdateFormaMassing`, which returns EARLY at
+        // `if (!cesiumViewport?.renderFormaMassing) return;` whenever the Cesium/3D-Site view was
+        // never opened. So a project authored (or AI-generated — `apartment.layout-executed` →
+        // `furnish.layout-executed` is exactly the D-TGL/D-FLE chain a 95-furniture project runs)
+        // without ever opening 3D Site got a card frozen at whatever it showed at parcel-commit
+        // time — usually nothing, since nothing was authored yet. `refreshEnvelopePanel` itself
+        // needs no Cesium (`getForma3dHostEl()` is a plain DOM host resolver), so it does not
+        // belong behind that gate. Called directly, unconditionally, on the SAME event list the
+        // massing already trusts — a second call when Cesium IS open is a harmless idempotent
+        // re-render (same convention `renderFormaMassing` itself already relies on).
         for (const evt of [
             'site.parcel-boundary-set',
             // C58 (L-402b) — re-render once the buildable envelope is computed +
@@ -4776,18 +4800,31 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
             'lighting.layout-executed',
         ] as const) {
             try {
-                const sub = events.on(evt, () => liveUpdateFormaMassing(evt));
+                const sub = events.on(evt, () => {
+                    liveUpdateFormaMassing(evt);
+                    // §DVP170 — independent of the Cesium-mount gate above; see the block header.
+                    try { refreshEnvelopePanel(); } catch (e) {
+                        console.warn(`[gis][envelope-card] §DVP170 live-update refresh on ${evt} failed (non-fatal):`, e);
+                    }
+                });
                 // EventSubscription is callable-as-disposer.
                 formaLiveUpdateDisposers.push(() => { try { sub(); } catch { /* gone */ } });
             } catch (e) {
                 console.warn(`[gis][forma] live-update subscribe to ${evt} failed:`, e);
             }
         }
-        console.log('[gis][forma] live-update subscribed: site.parcel-boundary-set + apartment/ceiling/furnish/lighting.layout-executed (furniture-timing fix).');
+        console.log('[gis][forma] live-update subscribed: site.parcel-boundary-set + apartment/ceiling/furnish/lighting.layout-executed (furniture-timing fix + §DVP170 capacity-card refresh).');
         // §GEN-VIEW-COALESCE — the one catch-up re-place at generation end. The lease
         // dispatches 'pryzm-building-generation-ended' AFTER clearing
         // __pryzmBuildingGenActive, so the call below is not re-deferred by the gate.
         const onGenerationEnded = (): void => {
+            // §DVP170 — refresh the capacity card on EVERY generation end, not only when a
+            // Cesium re-place was pending: `formaMassingPendingAfterGen` tracks the MASSING'S
+            // own coalescing, and gating this card's refresh on it would reintroduce the exact
+            // Cesium-mount coupling this fix removes above.
+            try { refreshEnvelopePanel(); } catch (e) {
+                console.warn('[gis][envelope-card] §DVP170 generation-end refresh failed (non-fatal):', e);
+            }
             if (!formaMassingPendingAfterGen) return;
             formaMassingPendingAfterGen = false;
             liveUpdateFormaMassing('generation-ended');

@@ -677,6 +677,70 @@ describe('§MANUALENV159 TASK A/B — the study renderer serves BOTH source arms
     });
 });
 
+// ─────────────────────────────────────────────────────────────────────────────────────────────
+// §DVP170 (L-12820) — the study section's ONE new line: designed height vs the study's reference
+// height. Never a `CapacityStatus` chip, never "compliant"/"exceeds", always basis-labelled.
+// ─────────────────────────────────────────────────────────────────────────────────────────────
+
+describe('§DVP170 — Designed vs this study (reference only)', () => {
+    it('absent when no measurement is given — never renders "0 m designed"', () => {
+        const host = mount(buildContextStudySectionHtml(derivedOkResult()));
+        expect(host.querySelector('[data-testid="context-study-vs-designed"]')).toBeNull();
+    });
+
+    it('absent when the authored model measured no height (e.g. no storey-height recorded) — a stated absence, not a fabricated 0', () => {
+        const noHeight: DesignMeasurement = measureAuthoredDesign({
+            levels: [{ id: 'L0', name: 'Ground', elevation: 0, height: null }],
+            floorPlates: [],
+            rooms: [],
+            elementLevelIds: ['L0'],
+        });
+        expect(noHeight.design.heightM).toBeNull();
+        const host = mount(buildContextStudySectionHtml(derivedOkResult(), noHeight));
+        expect(host.querySelector('[data-testid="context-study-vs-designed"]')).toBeNull();
+    });
+
+    it('renders both real numbers, labelled with the SAME basis words as the badge above it — never re-derived wording', () => {
+        const measurement = measureAuthoredDesign(house()); // heightM = 6 (see fixture)
+        const host = mount(buildContextStudySectionHtml(derivedOkResult(), measurement));
+        const block = host.querySelector('[data-testid="context-study-vs-designed"]');
+        expect(block).not.toBeNull();
+        const txt = block!.textContent ?? '';
+        expect(txt).toContain('6.0 m');     // designed height
+        expect(txt).toContain('16.2 m');    // the study's median height (derivedOkResult fixture)
+        expect(txt).toContain('Context-derived study'); // same label the badge above already uses
+    });
+
+    it('a user-supplied study labels the comparison "Height supplied by you" and states user-supplied basis explicitly', () => {
+        const measurement = measureAuthoredDesign(house());
+        const host = mount(buildContextStudySectionHtml(userSuppliedOkResult(), measurement));
+        const block = host.querySelector('[data-testid="context-study-vs-designed"]');
+        expect(block!.textContent).toContain('Height supplied by you');
+        expect(block!.textContent).toContain('24.5 m');
+        expect(block!.textContent).toMatch(/basis: user-supplied/i);
+    });
+
+    it('NEVER reuses the compliance vocabulary — no within/at-limit/over/no-limit chip, and says outright it is not a compliance check', () => {
+        const measurement = measureAuthoredDesign(house());
+        const host = mount(buildContextStudySectionHtml(derivedOkResult(), measurement));
+        const block = host.querySelector('[data-testid="context-study-vs-designed"]')!;
+        expect(block.querySelector('[data-testid="capacity-status"]')).toBeNull();
+        expect(block.textContent).toMatch(/not a compliance check/i);
+        expect(block.textContent).not.toMatch(/\bcompliant\b/i);
+        // No colour drawn from the real compliance palette (green/red) — reference-only styling.
+        expect(block.getAttribute('style') ?? '').not.toContain('#eef7ee'); // CAPACITY_STATUS_STYLE.within.bg
+        expect(block.getAttribute('style') ?? '').not.toContain('#fdecea'); // .over.bg
+    });
+
+    it('states the numeric difference in neutral, non-verdict language ("below/above this study reference")', () => {
+        const measurement = measureAuthoredDesign(house()); // designed heightM = 6
+        const host = mount(buildContextStudySectionHtml(derivedOkResult(), measurement)); // study 16.2 m
+        const txt = host.querySelector('[data-testid="context-study-vs-designed"]')!.textContent ?? '';
+        expect(txt).toMatch(/10\.2 m below this study reference/);
+        expect(txt).not.toMatch(/over|exceed/i);
+    });
+});
+
 describe('§MANUALENV159 TASK B — buildStudyHeightEntryHtml, the manual height input', () => {
     it('renders an empty height field and a zeroed setback when nothing was ever saved', () => {
         const host = mount(buildStudyHeightEntryHtml(null));
@@ -711,7 +775,11 @@ describe('§MANUALENV159 TASK B — buildStudyHeightEntryHtml, the manual height
 describe('§MANUALENV159 — SOURCE PINS: the card actually calls these builders and wires the button', () => {
     it('the refusal-card branch in GISAreaLayout.ts RENDERS the study section + entry form and WIRES the save button (not a second copy)', () => {
         const src = readFileSync(resolve(__dirname, '../../layout/GISAreaLayout.ts'), 'utf8');
-        expect(src).toContain('buildContextStudySectionHtml(studyResult)');
+        // §DVP170 (L-12820) — the founder's own measured design now rides along so the study
+        // section can add its "designed vs this study" reference line; NOT a second measurement
+        // pass — it reuses `capacityJoin.measurement`, the exact object already computed above
+        // for the "Designed vs permitted" fold.
+        expect(src).toContain('buildContextStudySectionHtml(studyResult, capacityJoin.measurement)');
         expect(src).toContain('buildStudyHeightEntryHtml(savedStudyHeight)');
         expect(src).toContain('wireStudyHeightEntry(panel)');
         expect(src).toContain('getContextDerivedStudyEnvelope(');

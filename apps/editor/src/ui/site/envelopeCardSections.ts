@@ -542,12 +542,25 @@ export const CONTEXT_STUDY_SECTION_TESTID = 'envelope-section-context-study';
  *  · `study.ok === true`      — a study was built. Badge + wording DIFFER by `heightBasis.method`
  *    so a user-supplied height is never presented as measured or derived (§CONTEXT-DATA-HONESTY).
  *
- * Deliberately carries NO "Designed vs permitted" verdict and no ordinance citation — the
+ * Deliberately carries NO "Designed vs permitted" VERDICT and no ordinance citation — the
  * disclaimer on the object itself already states PRYZM cannot judge compliance against it; this
- * renderer adds no claim the object does not already carry.
+ * renderer adds no compliance claim the object does not already carry.
+ *
+ * §DVP170 (L-12820) — `measurement`, when given, adds ONE factual line: the authored design's
+ * measured height next to the study's reference height. This is NOT a fourth `CapacityStatus`
+ * arm and NEVER reuses `judge()`/the within-at-limit-over vocabulary — a study is not an
+ * ordinance number (see `ContextDerivedStudyEnvelope`'s own header: "not a weaker
+ * `estimated-ruleset` … it has no seat on that ladder at all"), so scoring it the same way would
+ * launder a study into a compliance check by the back door. The line states both numbers, states
+ * the basis in the SAME words the badge above it already uses (`Context-derived study` /
+ * `Height supplied by you` — never re-derived, never re-worded), and says in the same breath that
+ * this is not a compliance check. Absent when there is nothing designed to compare
+ * (`measurement` is null, or its `heightM` is null — e.g. the topmost storey has no recorded
+ * floor-to-floor height) — never rendered as "0 m designed".
  */
 export function buildContextStudySectionHtml(
     study: ContextDerivedStudyEnvelopeResult | null,
+    measurement: DesignMeasurement | null = null,
 ): string {
     const span = _tracer.startSpan('pryzm.site.buildContextStudySectionHtml');
     try {
@@ -602,13 +615,46 @@ export function buildContextStudySectionHtml(
             : `<span data-testid="context-study-badge" style="display:inline-block;padding:2px 8px;`
               + `border-radius:999px;background:#f3eeff;color:#6600FF;font-weight:700;font-size:9.5px;`
               + `letter-spacing:.03em;text-transform:uppercase;margin-bottom:6px;">Context-derived study</span>`;
+        // §DVP170 (L-12820) — the ONE factual line comparing what was AUTHORED to this study's
+        // reference height. NEVER a `CapacityStatus` chip (within/at-limit/over/unknown/no-limit)
+        // — those are reserved for a real `BuildableEnvelope` judged by `buildCapacityComparison`,
+        // and reusing them here would dress a study in the same visual vocabulary as an ordinance
+        // check. Neutral colour, no red/green/amber "verdict" tone; the basis label is the exact
+        // text the badge above already renders, never re-derived. Absent (never "0 m designed")
+        // when nothing on the authored model could be measured.
+        const designedHeightM = measurement?.design.heightM ?? null;
+        let safeDesignComparison = '';
+        if (designedHeightM !== null) {
+            const studyHeightM = study.study.maxHeight_m;
+            const deltaM = studyHeightM - designedHeightM;
+            const EPS = 0.05; // mirrors CAPACITY_AT_LIMIT_BAND_M2_OR_M — "equal" for a 5 cm band.
+            const deltaTxt = Math.abs(deltaM) <= EPS
+                ? 'exactly at this study reference'
+                : deltaM > 0
+                    ? `${escHtml(deltaM.toFixed(1))} m below this study reference`
+                    : `${escHtml(Math.abs(deltaM).toFixed(1))} m above this study reference`;
+            const safeBasisLabel = isUserSupplied ? 'Height supplied by you' : 'Context-derived study';
+            safeDesignComparison = `<div data-testid="context-study-vs-designed" style="margin-top:8px;padding:6px 8px;`
+                + `border-radius:6px;background:#faf9fd;border:1px dashed #d8d3e6;">`
+                + `<div style="font-weight:700;font-size:10px;color:#3d4a5c;">Designed vs this study — reference only</div>`
+                + `<div style="margin-top:2px;color:#3d4a5c;font-size:10.5px;line-height:1.5;">`
+                + `Your design measures <b>${escHtml(designedHeightM.toFixed(1))} m</b> tall, `
+                + `${deltaTxt} (<b>${escHtml(studyHeightM.toFixed(1))} m</b>, ${escHtml(safeBasisLabel)}).`
+                + `</div>`
+                + `<div style="margin-top:3px;color:#8a83a0;font-size:9.5px;line-height:1.45;">`
+                + `This is NOT a compliance check. Basis: ${escHtml(isUserSupplied ? 'user-supplied' : 'context-derived study')} `
+                + `— indicative only; ${escHtml(isUserSupplied ? 'a height you typed' : 'a median of real neighbour heights')} `
+                + `is not an ordinance limit, and PRYZM cannot judge compliance against it.`
+                + `</div></div>`;
+        }
         return fold(
             CONTEXT_STUDY_SECTION_TESTID,
             isUserSupplied ? 'rendered-user-supplied' : 'rendered-derived',
             `Study massing — ${escHtml(heightTxt)}${isUserSupplied ? ' (supplied by you)' : ''}`,
             `<div>${safeBadge}</div>`
             + `<div style="color:#3d4a5c;font-size:10.5px;line-height:1.5;">${safeBasisLine}</div>`
-            + `<div style="margin-top:6px;color:#8a83a0;font-size:9.5px;line-height:1.5;">${escHtml(study.study.disclaimer)}</div>`,
+            + `<div style="margin-top:6px;color:#8a83a0;font-size:9.5px;line-height:1.5;">${escHtml(study.study.disclaimer)}</div>`
+            + safeDesignComparison,
         );
     } finally {
         span.end();

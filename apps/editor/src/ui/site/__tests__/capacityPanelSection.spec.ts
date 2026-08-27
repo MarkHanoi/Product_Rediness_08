@@ -278,6 +278,38 @@ describe('L-456 UI — HONESTY RULE 3: measure, never infer', () => {
     });
 });
 
+describe('§DVP170 (L-12820) — a MEASURED design value is never withheld because the permitted side is unknown', () => {
+    // The founder's report: "Designed vs permitted" always read "Designed — · Permitted —" even
+    // once his project held real geometry. Half of that was a wiring gap upstream (the join never
+    // re-ran after the model changed — fixed in GISAreaLayout.ts's live-update subscription). This
+    // pins the OTHER half: once a metric IS measured, the row must show it even when the envelope
+    // itself never resolved a limit for it (a refusal/degenerate envelope, or a limit-less field).
+    it('renders a REAL designed footprint even when the envelope resolved no permitted footprint at all', () => {
+        // `status !== 'ok'` ⇒ `buildCapacityComparison` reports `permittedFootprint: null` —
+        // the shape a refused/degenerate envelope actually produces (§DVP170 root-cause read).
+        const host = render(
+            { ...NOTHING, footprintM2: 340 },
+            envelope({ status: 'degenerate' } as Partial<BuildableEnvelope>),
+        );
+        const row = rowByMetric(host, 'footprint');
+        // Correctly UNJUDGED (rule 1: a missing limit is never a pass) — but not BLANK.
+        expect(row.getAttribute('data-status')).toBe('unknown');
+        expect(row.textContent).toMatch(/Designed\s*340\.0\s*m²/);
+        expect(row.textContent).toContain('Permitted —');
+        // The metric WAS measured — no fabricated "nothing authored" reason line underneath it.
+        expect(row.querySelector('[data-testid="capacity-unmeasured-reason"]')).toBeNull();
+    });
+
+    it('never inverts the rule: a permitted number is never shown when only the designed side is known', () => {
+        const host = render(
+            { ...NOTHING, footprintM2: 340 },
+            envelope({ status: 'degenerate' } as Partial<BuildableEnvelope>),
+        );
+        const row = rowByMetric(host, 'footprint');
+        expect(row.textContent).not.toMatch(/Permitted\s*[\d.]/);
+    });
+});
+
 // ─────────────────────────────────────────────────────────────────────────────────────────────
 // §GIS-ENVELOPE-FULL-SECTIONS (L-1651) — the embed options that let the card host this section
 // inside a first-class fold WITHOUT a second producer. Defaults must stay byte-compatible.
