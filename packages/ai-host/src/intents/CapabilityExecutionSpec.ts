@@ -646,6 +646,16 @@ export const EXECUTION_SPECS: SpecTable = {
         ? si.scope.base
         : si.scope;
       const roomScoped = base !== 'all' && base !== 'selection' && base.kind === 'room';
+      // §RACSIDE144 — the confirmation states the SIDE explicitly, every time,
+      // and says so when it was a DEFAULT rather than something the user named.
+      // The founder's whole complaint was that a wall re-finish never stated
+      // which face it touched, so he discovered "only the outer changed" from
+      // the model instead of from the reply. `sideLabel` speaks 'both' as
+      // "interior and exterior", never the raw union literal.
+      const sideLabel = si.side === 'both' ? 'interior and exterior' : si.side;
+      const defaultHint = si.sideExplicit
+        ? ''
+        : ` (${si.side} face only — the default here; say "inner and outer" or "both sides" to change both)`;
       return {
         payload: {
           side: si.side,
@@ -657,7 +667,7 @@ export const EXECUTION_SPECS: SpecTable = {
           roomScoped,
         },
         summary: (scopeLabel, notesTail) =>
-          `Set the ${si.side} finish of ${scopeLabel} to ${finish.name}${notesTail}`,
+          `Set the ${sideLabel} finish of ${scopeLabel} to ${finish.name}${defaultHint}${notesTail}`,
       };
     },
     // NOT destructive — one undo entry, deletes nothing, moves nothing, and the

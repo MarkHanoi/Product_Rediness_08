@@ -1114,6 +1114,8 @@ function classify(
     (r) => resolveFinishRef(r) !== null,
     ctx.resolveWallSystemType,
     ctx,
+    // §RACSIDE144 (L-12365) — same ambiguity-aware scan as the tier-0 matcher.
+    (r) => finishRefCandidates(r).length > 0,
   );
   if (wallSideFinish !== null) {
     push({

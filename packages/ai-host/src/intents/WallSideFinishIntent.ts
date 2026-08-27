@@ -68,12 +68,28 @@ function attachFilters(
 
 /** The semantic side. Mirrors `WallFinishSide` in `@pryzm/geometry-wall`,
  *  restated structurally so this module stays pure (geometry-wall pulls THREE
- *  transitively; the same ruling `finishRef.ts` cites for transcribing hexes). */
-export type WallFinishSideRef = 'interior' | 'exterior';
+ *  transitively; the same ruling `finishRef.ts` cites for transcribing hexes).
+ *
+ *  §RACSIDE144 — `'both'` is this lane's addition. The founder: *"I want to
+ *  also change the INTERIOR wall finish, but this still would only change the
+ *  outer finish."* `@pryzm/geometry-wall`'s OWN `WallFinishSide` stays
+ *  `'interior' | 'exterior'` — every SINGLE-WALL write is still one side at a
+ *  time; `'both'` exists only at the BATCH boundary
+ *  (`SetWallSideFinishBatchCommand` applies it as two per-wall child writes,
+ *  still ONE undo entry — C16 §8.6). */
+export type WallFinishSideRef = 'interior' | 'exterior' | 'both';
 
 export interface WallSideFinishIntent {
     readonly intent: 'set-wall-side-finish';
     readonly side: WallFinishSideRef;
+    /**
+     * §RACSIDE144 — `true` when the user NAMED a side (inner / outer / both);
+     * `false` when the grammar supplied the scope-dependent DEFAULT below. The
+     * founder's whole complaint was that the scope of the change was never
+     * stated back to him, so the confirmation (`CapabilityExecutionSpec.ts`)
+     * reads this to say so explicitly rather than silently picking one.
+     */
+    readonly sideExplicit: boolean;
     /** Raw spoken finish name; resolved in the VALUE stage via `finishRef.ts`,
      *  never in the grammar — so an unknown name refuses by LISTING real
      *  options instead of failing to parse. `null` = the user said "finish"
@@ -99,6 +115,11 @@ const FINISH_MARKER = /\bfinish(?:es|ed|ing)?\b/;
 
 const INNER_WORD = /\b(?:inner|interior|inside|internal|indoor)\b/;
 const OUTER_WORD = /\b(?:outer|exterior|outside|external|outdoor|façade|facade)\b/;
+/** §RACSIDE144 — "both sides" / "both faces" / "both finishes", the spelling
+ *  that does NOT already carry one INNER_WORD and one OUTER_WORD (that pair —
+ *  "inner and outer", "inside and outside" — already claims `hasBoth` via the
+ *  two regexes above; this one exists for the founder's OTHER spelling). */
+const BOTH_SIDES_RE = /\bboth\s+(?:the\s+)?(?:sides?|faces?|finishes?)\b/;
 
 /**
  * §RACWALL128 — the compass-facing ADJECTIVE ("all east-facing walls").
@@ -168,9 +189,15 @@ export const LAYER_NOUN = /\b(?:layers?|coat(?:ing)?s?)\b/;
  * `parseWallColorIntent` — one grammar, two entry points, so the two tiers can
  * never disagree about what a sentence means.
  *
- * @param resolvesFinish injected `resolveFinishRef`-shaped predicate. Injected
- *        rather than imported so this module stays a pure function of its
- *        inputs and the finish table has exactly one owner (`finishRef.ts`).
+ * @param resolvesFinish injected `resolveFinishRef`-shaped predicate — TRUE
+ *        only for an UNAMBIGUOUS resolution. Injected rather than imported so
+ *        this module stays a pure function of its inputs and the finish table
+ *        has exactly one owner (`finishRef.ts`).
+ * @param hasFinishCandidates §RACSIDE144 (L-12365) — injected
+ *        `finishRefCandidates(ref).length > 0`-shaped predicate: TRUE when the
+ *        phrase names AT LEAST ONE real material, ambiguous or not. Optional
+ *        so every existing call site still compiles; see the SCAN comment
+ *        below for why this is a SEPARATE question from `resolvesFinish`.
  */
 export function parseWallSideFinishIntent(
     text: string,
@@ -180,6 +207,7 @@ export function parseWallSideFinishIntent(
      *  can name the ACTIVE level. Optional, so every existing call site is
      *  unchanged and a context-free caller simply cannot say "this floor". */
     ctx?: ResolverContext,
+    hasFinishCandidates?: (ref: string) => boolean,
 ): WallSideFinishIntent | null {
     // ⛔ Never steal the layer-ADD ask. That one moves the wall's thickness.
     if (/^add\b/.test(text)) return null;
@@ -248,27 +276,70 @@ export function parseWallSideFinishIntent(
     const hasMarker = FINISH_MARKER.test(t);
     const hasInner = INNER_WORD.test(t);
     const hasOuter = OUTER_WORD.test(t);
+    // §RACSIDE144 — "inner and outer" / "inside and outside" already sets BOTH
+    // of the above; "both sides" / "both faces" / "both finishes" carries
+    // neither, so it needs its own marker.
+    const hasBoth = (hasInner && hasOuter) || BOTH_SIDES_RE.test(t);
 
     // ── The finish NAME, by the same shrinking-window scan the layer parser
     //    uses, so word order never matters: "finish plaster", "plaster finish"
     //    and "to limewash" all resolve.
+    //
+    //    §RACSIDE144 (L-12365) — THE SCAN MUST NOT DROP A WORD TO MANUFACTURE A
+    //    CLEAN ANSWER. Measured: "change all walls finish to grey paint" used to
+    //    resolve to `Paint · Matte White`. "grey paint" (the real 2-word phrase)
+    //    is AMBIGUOUS — five real rows (Pastel/Light/Mid/Slate/Anthracite Grey)
+    //    — so `resolvesFinish('grey paint')` is false, and the OLD scan read
+    //    that as "not a finish, keep shrinking", tried the 1-word span next, and
+    //    "paint" alone IS an exact alias (`Paint · Matte White`) — so it won,
+    //    silently discarding the one word ("grey") that carried the whole ask.
+    //    That is L-1880 (droppedCatalogueWords) one layer OUTSIDE the function
+    //    it was fixed inside: this scan never asked finishRef.ts's own guard.
+    //
+    //    So a span that names ANY real candidate — ambiguous or not — now stops
+    //    the scan from shrinking further. A STRICT (unambiguous) match still
+    //    wins immediately and outranks everything, exactly as before; an
+    //    AMBIGUOUS one is remembered and used only if no strict match exists
+    //    anywhere, so the VALUE stage (`resolveFinishRef`, not a second
+    //    resolver — C84 EI-8) is what actually refuses and lists the real
+    //    candidates. `knownFinishIsStrict` keeps the CLAIM rule below from
+    //    treating an ambiguous bare guess as license to steal a sentence that
+    //    belongs to a neighbour ("make all walls white" must still reach
+    //    set-wall-color, not refuse as an ambiguous "white").
     let finishRef: string | null = null;
+    let finishRefIsStrict = false;
+    let ambiguousFinishRef: string | null = null;
     const words = t.split(/[^a-z-]+/i).filter((w) => w.length > 2);
     outer:
     for (let span = 3; span >= 1; span--) {
         for (let i = 0; i + span <= words.length; i++) {
             const candidate = words.slice(i, i + span).join(' ').toLowerCase();
-            if (resolvesFinish(candidate)) { finishRef = candidate; break outer; }
+            if (resolvesFinish(candidate)) { finishRef = candidate; finishRefIsStrict = true; break outer; }
+            // ⛔ span >= 2 ONLY. Measured regression: "make all inner finishes
+            // walls on the ground floor to unobtainium" — the bare word
+            // "ground" (from "ground floor", a LEVEL phrase, not a material)
+            // names 14 real "Ground · …" landscape materials on its own, so an
+            // unrestricted span=1 check hijacked the scan into reporting
+            // "'ground' matches 14 materials" instead of ever reaching
+            // "unobtainium". A lone word is never worth stopping the shrink
+            // for; only a genuine MULTI-WORD phrase (span 2 or 3) earns that.
+            if (span >= 2 && ambiguousFinishRef === null && hasFinishCandidates?.(candidate) === true) {
+                ambiguousFinishRef = candidate;
+            }
         }
+        if (ambiguousFinishRef !== null) break; // do not shrink past a span that named something real
     }
+    if (finishRef === null && ambiguousFinishRef !== null) finishRef = ambiguousFinishRef;
 
-    // ── THE UNRECOGNISED TAIL. When the scan found nothing, carry the words the
-    //    user actually typed after the connector so the refusal can QUOTE them
-    //    ("I don't know the finish \"unobtainium\"") instead of the strictly
-    //    weaker "tell me which finish", which makes the user guess whether they
-    //    were misheard or had simply omitted it. This never widens the claim:
-    //    `knownFinish` below, not this, is what the claim rule tests.
+    // ── THE UNRECOGNISED TAIL. When the scan found nothing AT ALL (not even an
+    //    ambiguous candidate), carry the words the user actually typed after the
+    //    connector so the refusal can QUOTE them ("I don't know the finish
+    //    \"unobtainium\"") instead of the strictly weaker "tell me which
+    //    finish", which makes the user guess whether they were misheard or had
+    //    simply omitted it. This never widens the claim: `knownFinish` below,
+    //    captured BEFORE this runs, is what the claim rule tests.
     const knownFinish = finishRef;
+    const knownFinishIsStrict = finishRefIsStrict;
     if (finishRef === null) {
         // The leading `^.*` is GREEDY on purpose: it consumes as far right as it
         // can, so the connector matched is the LAST one in the sentence. Without
@@ -288,14 +359,39 @@ export function parseWallSideFinishIntent(
     //    alone is NOT enough — "make all walls interior partition" is a wall
     //    TYPE ask, and only a resolvable finish name distinguishes the two.
     if (!hasMarker && knownFinish === null) return null;
-    if (!hasMarker && !hasInner && !hasOuter) return null;
-
-    // ── The SIDE. Explicit words win; absent, 'interior' is the default — the
-    //    same default `parseAddWallLayerIntent` already ships, and the reading
-    //    "all walls in the kitchen" plainly means the faces you can see from
-    //    inside it. When BOTH words appear we do not guess: no claim.
-    if (hasInner && hasOuter) return null;
-    const side: WallFinishSideRef = hasOuter ? 'exterior' : 'interior';
+    // §RACSIDE144 (L-12363) — A RESOLVED, UNAMBIGUOUS FINISH NAME IS ALSO
+    // ENOUGH ON ITS OWN, one exception aside.
+    //
+    // Founder-reported: "make all walls white paint" answered *"There is no
+    // wall type called 'white paint' in this project… I searched compass
+    // orientations, colours, levels, rooms or wall types."* The sentence has no
+    // "finish" word and no side word, so the OLD rule below declined it
+    // outright — even though `knownFinish` above had ALREADY resolved "white
+    // paint" to `paint-matte-white` via the exact-alias tier of
+    // `resolveFinishRef`. The ladder then fell through matchWallColor
+    // (`resolveColorRef('white paint')` is null — the colour table is
+    // exact-name-only) into `matchWallType`'s catch-all `(.+)$` tail, which
+    // confidently searched the WRONG dimension (never touches the finish
+    // table) and refused as though a wall-type miss were the whole story.
+    //
+    // So an UNAMBIGUOUS `knownFinish` now claims even bare, UNLESS the exact
+    // same phrase ALSO names a real wall SYSTEM TYPE in this project — that
+    // is a genuine collision between two capabilities, and rather than a
+    // coin-flip this grammar defers to the type grammar (which runs after it
+    // in the MATCHERS ladder), matching the pre-existing precedent that a
+    // resolved TYPE always wins in `parseWallTypeIntent`'s own early-exit
+    // branch. Measured: no wall-type catalogue name in this codebase collides
+    // with a finish alias today, so this is a defensive guard, not a live case.
+    //
+    // ⛔ `knownFinishIsStrict`, NOT merely `knownFinish !== null` — an
+    // AMBIGUOUS bare guess ("white" inside "make all walls white") must NOT
+    // claim here: `resolveFinishRef('white')` is null (several real whites),
+    // so it stays a colour ask for `set-wall-color`, exactly as before this
+    // lane. Only a genuinely UNAMBIGUOUS bare finish reaches this claim.
+    const typeCollision = knownFinishIsStrict && resolveWallSystemType?.(knownFinish!) != null;
+    if (!hasMarker && !hasInner && !hasOuter && !hasBoth && (!knownFinishIsStrict || typeCollision)) {
+        return null;
+    }
 
     // ── The SPATIAL scope. Refused only against "these/selected", which would
     //    contradict the live selection. §FIX-BARE-FINISH-SELF-CONTRADICTS (L-998)
@@ -311,35 +407,69 @@ export function parseWallSideFinishIntent(
     //    ALL scope only — "these east-facing walls" is a contradiction with the
     //    live selection and is NOT claimed, byte-identical to how
     //    `wallSpatialScopeBase` returns null for orientation ∧ selection.
+    //
+    //    §RACSIDE144 — the scope is resolved BEFORE the side below, because the
+    //    side's own bare-form default depends on it.
     let base: 'all' | 'selection' | IntentSpatialScope;
     const facingWord = FACING_ADJ_RE.exec(t)?.[1];
     const facingCompass = facingWord !== undefined ? resolveCompassRef(facingWord) : null;
     if (facingCompass !== null) {
         if (!isAll || isSel) return null;
         base = { kind: 'orientation', orientation: facingCompass };
-        return {
-            intent: 'set-wall-side-finish',
-            side,
-            finishRef,
-            scope: attachFilters(base, lifted.filters),
-        };
-    }
-    const place = parseInlineSpatialPhrase(t, ctx);
-    if (place.kind === 'unusable') {
-        // A place was NAMED and cannot be resolved ("this floor" with no active
-        // level). Decline — never silently widen to the whole building, which on
-        // a mass re-finish is the outcome this grammar exists to prevent.
-        return null;
-    }
-    if (place.kind === 'scope' && !isSel) {
-        base = place.scope;
     } else {
-        base = isAll ? 'all' : 'selection';
+        const place = parseInlineSpatialPhrase(t, ctx);
+        if (place.kind === 'unusable') {
+            // A place was NAMED and cannot be resolved ("this floor" with no
+            // active level). Decline — never silently widen to the whole
+            // building, which on a mass re-finish is the outcome this grammar
+            // exists to prevent.
+            return null;
+        }
+        base = place.kind === 'scope' && !isSel ? place.scope : (isAll ? 'all' : 'selection');
     }
+
+    // ── The SIDE. Explicit words win, and BOTH is now a real answer, never a
+    //    decline (§RACSIDE144 — the founder's actual complaint: "I want to also
+    //    change the INTERIOR wall finish, but this still would only change the
+    //    outer finish"). The OLD line here was `if (hasInner && hasOuter) return
+    //    null;` — "inner and outer" stranded the whole sentence rather than
+    //    doing what it plainly asked for.
+    //
+    //    Absent any side word, the default depends on the SCOPE, not one global
+    //    rule:
+    //      · a COMPASS scope ("west-facing walls") is inherently about the face
+    //        that HAS a compass direction — the exterior one. An interior
+    //        partition has no "west-facing" side at all (see the module header,
+    //        and `classifyFacades` in @pryzm/spatial-index: an interior wall's
+    //        `orientation` is `null`, never guessed). So a bare compass ask
+    //        defaults EXTERIOR — the same side every previously-shipped compass
+    //        example (§RACWALL128) already said explicitly; this generalises it
+    //        to the unmarked form instead of leaving it undefined.
+    //      · every other scope (all / selection / level / room) keeps the
+    //        pre-existing INTERIOR default — "all walls in the kitchen" plainly
+    //        means the faces you can see from inside it, and three existing
+    //        pinned tests already assert 'interior' for that shape (wall-side-
+    //        finish.test.ts, L998BareWallFinishRoutes.test.ts); changing it
+    //        globally would be a much larger, undefended behaviour change than
+    //        this ask needs.
+    //    `sideExplicit` records whether the user NAMED a side at all, so the
+    //    confirmation can say "exterior face only — say 'inner and outer' for
+    //    both" instead of silently picking one, which is the actual defect the
+    //    founder reported: the SCOPE of the change was never stated back to him
+    //    (C74/CA-18).
+    const isOrientationScope = typeof base === 'object' && base.kind === 'orientation';
+    const sideExplicit = hasInner || hasOuter || hasBoth;
+    const side: WallFinishSideRef =
+        hasBoth ? 'both'
+        : hasOuter ? 'exterior'
+        : hasInner ? 'interior'
+        : isOrientationScope ? 'exterior'
+        : 'interior';
 
     return {
         intent: 'set-wall-side-finish',
         side,
+        sideExplicit,
         finishRef,
         scope: attachFilters(base, lifted.filters),
     };
@@ -370,6 +500,21 @@ export const WALL_SIDE_FINISH_EXAMPLES: readonly string[] = [
     'change all east-facing walls exterior finish to clay plaster',
     'change the exterior finish of all west-facing walls to limewash',
     'make all walls on the south facade exterior finish plaster',
+    // ── §RACSIDE144 — the founder's actual complaint: "I want to also change
+    //    the INTERIOR wall finish, but this still would only change the outer
+    //    finish." BOTH spellings of the combined ask, on the SAME compass scope
+    //    §RACWALL128 proved for exterior alone, plus the headline acceptance
+    //    sentence (reversed-word-order material, "inside and outside" as the
+    //    both-marker, resolved through the shared catalogue-token ladder).
+    'change the finish of all west-facing walls to red paint, inner and outer',
+    'change all west-facing walls finish to clay plaster, both sides',
+    'change outside and inside finish of all west-facing walls to green pastel paint',
+    // ── §RACSIDE144 (L-12363) — a RESOLVED, UNAMBIGUOUS finish name is enough
+    //    on its own, even with no "finish" word and no side word. Before this
+    //    lane, "make all walls white paint" fell through to `matchWallType`'s
+    //    catch-all tail and refused "there is no wall type called 'white
+    //    paint'" — a confident answer from the WRONG dimension.
+    'make all walls white paint',
 ];
 
 /**

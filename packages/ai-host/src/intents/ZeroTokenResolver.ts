@@ -4576,6 +4576,36 @@ function nounSrc(noun: string): string {
   return escapeReSrc(noun).replace(/(?:\\-|-|\s)+/g, '[- ]');
 }
 
+// ─── §RACORIENT145 — the compass-facing ADJECTIVE, for HOSTED families ───────
+//
+// The founder's ask: "change all west-facing windows to steel crittal style"
+// / "change all west-facing curtain panels to spider point-fix glazing". The
+// PREPOSITIONAL form ("change all windows in the west facade to …") already
+// resolved a SCOPE before this change — `SPATIAL_TAIL_SRC`/`readSpatialTail`
+// already turns a compass phrase into `{kind:'orientation',...}`
+// (§CHAT-ORIENTATION-IS-NOT-A-ROOM, L-10941) and `makeHostedTypeParser`
+// already threads that tail scope into `wallSpatialScopeBase`. What did NOT
+// work at all is the ADJECTIVE spelling, because nothing in this factory's
+// grammar captured it — the sentence read as `(?:${nouns})s?` starting
+// immediately after the scope word, so "west-facing" had nowhere to go and
+// the whole match failed outright.
+//
+// ⚠ MEASURED, NOT a claim that the prepositional form was fully correct: its
+// typeRef can carry leftover words ("facade to timber casement" instead of
+// "timber casement") because `SPATIAL_TAIL_SRC`'s place-phrase capture is
+// lazy and stops at the FIRST word a compass table can read ("west"),
+// leaving the rest for the typeRef tail — a pre-existing defect, reproduced
+// and confirmed present on the UNMODIFIED regex, and out of this lane's
+// scope to fix. The ADJECTIVE spelling below has no such corruption: its
+// capture sits before the noun and contributes nothing to the typeRef tail.
+//
+// Byte-identical in shape to `WALL_ORIENTATION_ADJ` (the wall colour/rake
+// grammars' own capture), minus the wall-only "exterior" qualifier: a window,
+// door or curtain-wall panel has no interior/exterior axis of its own to say
+// "exterior" about — its facing IS its host's, full stop
+// (§CHAT-ORIENTATION-HOSTED-OPENINGS, L-10946).
+const HOSTED_TYPE_ORIENTATION_ADJ = String.raw`(?:(north|south|east|west)[- ]facing )?`;
+
 function makeHostedTypeParser(
   noun: string,
   catalogueOf: (ctx: ResolverContext) => ((ref: string) => { id: string; name: string } | null) | undefined,
@@ -4619,7 +4649,11 @@ function makeHostedTypeParser(
   const scopedRe = new RegExp(
     `^(?:change|set|make|convert|swap|turn) (?:the )?(${WALL_SCOPE_ALL}|${WALL_SCOPE_SEL})` +
     // §FIX-HOSTED-TYPE-SCOPE-PHRASING — byte-identical to WALL_TYPE_RE's.
-    `(?: selected)?(?: of)?(?: the)? (?:${nouns})s?${SPATIAL_TAIL_SRC}` +
+    // §RACORIENT145 — the compass-facing ADJECTIVE, byte-identical to
+    // `WALL_ORIENTATION_ADJ`'s capture (minus the wall-only "exterior"
+    // qualifier, which has no meaning for a hosted opening): "change all
+    // west-facing windows to steel crittal". Group 2.
+    `(?: selected)?(?: of)?(?: the)? ${HOSTED_TYPE_ORIENTATION_ADJ}(?:${nouns})s?${SPATIAL_TAIL_SRC}` +
     // §FIX-HOSTED-TYPE-SCOPE-PHRASING — the leading article, as WALL_TYPE_RE
     // already strips it: "make all the stairs A monolithic concrete".
     `(?:'s)?(?: types?)?(?: (?:to|into|as|be))? (?:a |an |the )?(.+)$`,
@@ -4632,7 +4666,7 @@ function makeHostedTypeParser(
   // project's catalogue AFFIRMATIVELY CLAIMS wins.
   const scopedNoTailRe = new RegExp(
     `^(?:change|set|make|convert|swap|turn) (?:the )?(${WALL_SCOPE_ALL}|${WALL_SCOPE_SEL})` +
-    `(?: selected)?(?: of)?(?: the)? (?:${nouns})s?` +
+    `(?: selected)?(?: of)?(?: the)? ${HOSTED_TYPE_ORIENTATION_ADJ}(?:${nouns})s?` +
     `(?:'s)?(?: types?)?(?: (?:to|into|as|be))? (?:a |an |the )?(.+)$`,
   );
   const singularRe = new RegExp(
@@ -4653,18 +4687,25 @@ function makeHostedTypeParser(
     // ref the catalogue does NOT know, where dropping the phrase leaves one it
     // DOES, was never a place phrase. This can only ADD a resolution: with no
     // catalogue injected, or with neither ref known, the tail reading stands.
-    if (scoped !== null && scoped[3] !== undefined && catalogue !== undefined
-        && catalogue(clean(scoped[5]!)) === null) {
+    //
+    // §RACORIENT145 — group indices shifted by ONE: group 2 is now the
+    // compass-facing adjective (`HOSTED_TYPE_ORIENTATION_ADJ`), so the tail
+    // groups that used to sit at 2/3/4 sit at 3/4/5, and the type ref moves
+    // from 5 to 6. `scopedNoTailRe` gained the same group, so its ref moves
+    // from 2 to 3.
+    if (scoped !== null && scoped[4] !== undefined && catalogue !== undefined
+        && catalogue(clean(scoped[6]!)) === null) {
       const flat = scopedNoTailRe.exec(source);
-      if (flat !== null && catalogue(clean(flat[2]!)) !== null) scoped = flat;
+      if (flat !== null && catalogue(clean(flat[3]!)) !== null) scoped = flat;
     }
     const singular = scoped === null ? singularRe.exec(source) : null;
     if (scoped === null && singular === null) return null;
-    // Groups 2/3/4 are `SPATIAL_TAIL_SRC`'s (leading level noun, place phrase,
-    // trailing level noun) and group 5 is the type ref. `scopedNoTailRe` has no
-    // tail groups at all, so its ref sits at group 2 and group 5 reads undefined.
+    // Group 2 is the §RACORIENT145 orientation adjective; groups 3/4/5 are
+    // `SPATIAL_TAIL_SRC`'s (leading level noun, place phrase, trailing level
+    // noun) and group 6 is the type ref. `scopedNoTailRe` has no tail groups
+    // at all, so its ref sits at group 3 and group 6 reads undefined.
     const typeRef = clean(
-      scoped === null ? singular![1]! : (scoped[5] ?? scoped[2]!),
+      scoped === null ? singular![1]! : (scoped[6] ?? scoped[3]!),
     );
     if (typeRef.length === 0) return null;
     // "make all windows 1m wide" is a DIMENSION ask, not a type ask — never claim it.
@@ -4719,15 +4760,23 @@ function makeHostedTypeParser(
     // The SHARED classifier: the preposition never decides the scope KIND, the
     // NOUN does (SpatialScopeTail.ts). When `scopedNoTailRe` won there are no
     // tail groups, and `none` is exactly the right reading.
-    const tail = scoped[5] === undefined
+    const tail = scoped[6] === undefined
       ? { kind: 'none' as const }
-      : readSpatialTail(scoped[2], joinTailPhrase(scoped[3], scoped[4]), ctx);
+      : readSpatialTail(scoped[3], joinTailPhrase(scoped[4], scoped[5]), ctx);
     // ⛔ A place WAS named and cannot be resolved ("this floor" with no active
     // level). DECLINE — never widen to the whole project (C68 §7.d).
     if (tail.kind === 'unusable') return null;
+    // §RACORIENT145 — the compass-facing ADJECTIVE ("west-facing windows"),
+    // group 2 in BOTH `scopedRe` and `scopedNoTailRe` (same position in each,
+    // since the group sits BEFORE the tail that only one of them carries).
+    // Composes with the ALL scope only — `wallSpatialScopeBase`'s existing
+    // rule, unchanged: "these west-facing windows" contradicts the live
+    // selection and is not claimed, byte-identical to the wall colour/rake
+    // grammars' own reading of `WALL_ORIENTATION_ADJ`.
+    const orientationWord = scoped[2];
     const base = wallSpatialScopeBase(
       isAll,
-      undefined,
+      orientationWord,
       tail.kind === 'scope' ? tail.scope : undefined,
     );
     if (base === null) return null;
@@ -4908,8 +4957,21 @@ const matchAddWallLayer: Matcher = (text, ctx) => parseAddWallLayerIntent(text, 
 
 // §FEAT-WALL-SIDE-FINISH — the finish table is injected so the grammar module
 // stays pure and `finishRef.ts` remains the ONE name->finish site.
+//
+// §RACSIDE144 (L-12365) — the FIFTH argument mirrors `matchFloorFinish`'s
+// `namesFinish` below: `resolvesFinish` answers "is this ONE material?",
+// `hasFinishCandidates` answers "does the catalogue know this word AT ALL?" —
+// "grey paint" is FALSE for the first (five real greys — an ambiguity refuses,
+// never picks one) and TRUE for the second, which is what stops the SCAN from
+// shrinking to the single word "paint" and silently substituting Matte White.
 const matchWallSideFinish: Matcher = (text, ctx) =>
-  parseWallSideFinishIntent(text, (r) => resolveFinishRef(r) !== null, ctx?.resolveWallSystemType, ctx);
+  parseWallSideFinishIntent(
+    text,
+    (r) => resolveFinishRef(r) !== null,
+    ctx?.resolveWallSystemType,
+    ctx,
+    (r) => finishRefCandidates(r).length > 0,
+  );
 
 // §FEAT-FLOOR-SURFACE-FINISH (L-1881) — the floor twin. TWO predicates are
 // injected, and they are not the same question: `resolvesFinish` answers "is this

@@ -86,6 +86,24 @@ describe('classifyFacades — shared wall between two rooms is interior', () => 
         expect(facades.get('w-out')!.isExterior).toBe(true);
         expect(facades.get('w-out')!.orientation).toBe('N'); // z=-5 side, faces −Z
     });
+
+    // §RACSIDE144 — the founder is now asking to change the INTERIOR finish of
+    // a compass-scoped wall ("west-facing walls, inner and outer"), which makes
+    // this exact convention load-bearing for a NEW reason: a genuine interior
+    // PARTITION must never be silently swept into a "west-facing" selection
+    // just because the request now touches its interior face too.
+    it('§RACSIDE144 — a genuine interior partition matches NO compass direction, ever — never guessed from either side', () => {
+        // The wall-finish command-side consumer (`facadesByOrientation` /
+        // apps/editor/src/ui/ai/ZeroTokenChatBridge.ts:472-490) filters on
+        // `f.isExterior && f.orientation === orientation`. Proving both halves
+        // of that predicate fail for a 2-room wall, for EVERY cardinal, is what
+        // makes "west-facing interior wall" structurally unreachable rather
+        // than merely untested.
+        for (const letter of ['N', 'E', 'S', 'W'] as const) {
+            const wouldMatch = facades.get('w-shared')!.isExterior && facades.get('w-shared')!.orientation === letter;
+            expect(wouldMatch, `w-shared must not match orientation ${letter}`).toBe(false);
+        }
+    });
 });
 
 // ─── §FIX-FACADE-NO-ROOMS + §FIX-FACADE-TRUE-NORTH (ADR-0315 U2.1) ───────────

@@ -349,3 +349,160 @@ describe('THE CAPABILITY IS DECLARED, not just implemented', () => {
     }
   });
 });
+
+// ─────────────────────────────────────────────────────────────────────────────
+// §RACSIDE144 — the founder's actual complaint: "I have a problem — I want to
+// also change the INTERIOR wall finish, but this still would only change the
+// outer finish." The command already carried a `side` parameter
+// (`SetWallSideFinishBatchCommand`); what was missing was a GRAMMAR that could
+// say "both" (it used to REFUSE outright on "inner and outer" — see the OLD
+// `if (hasInner && hasOuter) return null;` this lane deleted) and a command
+// that could carry it as ONE undo entry rather than two commands.
+// ─────────────────────────────────────────────────────────────────────────────
+
+describe('§RACSIDE144 — "both" is a real answer, never a decline', () => {
+  it('"inner and outer" claims BOTH, explicitly, as ONE command', () => {
+    const r = resolveFull(
+      'change the finish of all west-facing walls to red paint, inner and outer',
+      ctxOf({ resolveScope: stubScope(4) }),
+    );
+    expect(r.kind, `resolved as ${r.kind}`).toBe('commands');
+    if (r.kind !== 'commands') return;
+    expect(r.commands).toHaveLength(1);
+    const p = r.commands[0]!.payload as Record<string, unknown>;
+    expect(p['side']).toBe('both');
+    // The confirmation states BOTH sides, never the raw union literal.
+    expect(r.summary).toContain('interior and exterior finish');
+    // Explicit — no "this was a default" hint attached.
+    expect(r.summary).not.toContain('the default here');
+  });
+
+  it('"both sides" (without the words inner/outer) claims BOTH too', () => {
+    const r = resolveFull(
+      'change all west-facing walls finish to clay plaster, both sides',
+      ctxOf({ resolveScope: stubScope(2) }),
+    );
+    expect(r.kind).toBe('commands');
+    if (r.kind !== 'commands') return;
+    expect((r.commands[0]!.payload as Record<string, unknown>)['side']).toBe('both');
+  });
+
+  it("⭐ THE HEADLINE ACCEPTANCE TEST — side + orientation + a reversed-word-order material, together", () => {
+    // The founder's material picker shows "Paint · Pastel Green"; he types the
+    // words in the OTHER order. `resolveFinishRef`'s catalogue-token tier is
+    // bag-of-words, not positional, so this is not a new resolver — it is the
+    // existing one, exercised through the fixed grammar.
+    const cap = capturingScope(3);
+    const r = resolveFull(
+      'change outside and inside finish of all west-facing walls to green pastel paint',
+      ctxOf({ resolveScope: cap.resolve }),
+    );
+    expect(r.kind, `resolved as ${r.kind}`).toBe('commands');
+    if (r.kind !== 'commands') return;
+    expect(r.commands).toHaveLength(1); // ONE bus command — the undo entry stays singular.
+    const p = r.commands[0]!.payload as Record<string, unknown>;
+    expect(p['side']).toBe('both');
+    const o = cap.calls.find((d) => d.kind === 'orientation');
+    expect(o, JSON.stringify(cap.calls)).toBeDefined();
+    expect((o as { orientation: string }).orientation).toBe('W');
+    const finish = p['finish'] as Record<string, unknown>;
+    expect(finish['materialId']).toBe('paint-pastel-green');
+  });
+
+  it('a ZERO-match compass scope is still a visible honest no-op with "both" requested', () => {
+    const r = resolveFull(
+      'change outside and inside finish of all west-facing walls to green pastel paint',
+      ctxOf({ resolveScope: stubScope(0) }),
+    );
+    expect(r.kind).toBe('refusal');
+    if (r.kind !== 'refusal') return;
+    expect(r.reason.toLowerCase()).toContain('no walls');
+    expect(r.reason.toLowerCase()).toContain('west');
+  });
+});
+
+describe('§RACSIDE144 — the bare form: default depends on SCOPE, and the confirmation SAYS which', () => {
+  it('a bare COMPASS ask defaults EXTERIOR — the same side every shipped compass example already said', () => {
+    const cap = capturingScope(4);
+    const r = resolveFull(
+      'change finish of all west-facing walls to clay plaster',
+      ctxOf({ resolveScope: cap.resolve }),
+    );
+    expect(r.kind).toBe('commands');
+    if (r.kind !== 'commands') return;
+    expect((r.commands[0]!.payload as Record<string, unknown>)['side']).toBe('exterior');
+    // The default is STATED, not silent — the actual fix for the founder's surprise.
+    expect(r.summary).toContain('exterior face only');
+    expect(r.summary.toLowerCase()).toContain('inner and outer');
+  });
+
+  it('a bare NON-compass ask keeps the pre-existing INTERIOR default, unaffected', () => {
+    const r = resolveFull(
+      'change all walls in the kitchen finish plaster',
+      ctxOf({ resolveScope: stubScope(3) }),
+    );
+    expect(r.kind).toBe('commands');
+    if (r.kind !== 'commands') return;
+    expect((r.commands[0]!.payload as Record<string, unknown>)['side']).toBe('interior');
+    expect(r.summary).toContain('interior face only');
+  });
+
+  it('an EXPLICIT side never carries the default hint', () => {
+    const r = resolveFull(
+      'change all east-facing walls exterior finish to clay plaster',
+      ctxOf({ resolveScope: stubScope(4) }),
+    );
+    expect(r.kind).toBe('commands');
+    if (r.kind !== 'commands') return;
+    expect(r.summary).not.toContain('the default here');
+  });
+});
+
+describe('§RACSIDE144 (L-12363) — a resolved, unambiguous finish name is enough on its own', () => {
+  it('"make all walls white paint" — no "finish" word, no side word, still claims (not the wall-TYPE catch-all)', () => {
+    const r = resolveFull('make all walls white paint', ctxOf({ resolveScope: stubScope(5) }));
+    expect(r.kind, `resolved as ${r.kind}`).toBe('commands');
+    if (r.kind !== 'commands') return;
+    expect(r.intent).toBe('set-wall-side-finish');
+    const p = r.commands[0]!.payload as Record<string, unknown>;
+    const finish = p['finish'] as Record<string, unknown>;
+    expect(finish['materialId']).toBe('paint-matte-white');
+    // Bare, non-compass ⇒ the pre-existing interior default, stated.
+    expect(p['side']).toBe('interior');
+  });
+
+  it('a wall TYPE that collides with a finish name still wins the type grammar (defensive, not a live case today)', () => {
+    // Measured: no wall-type catalogue name in this codebase collides with a
+    // finish alias. This proves the PRECEDENCE holds if one ever does, rather
+    // than asserting a case that cannot occur.
+    const r = resolveFull(
+      'make all walls white paint',
+      ctxOf({
+        resolveScope: stubScope(2),
+        resolveWallSystemType: (ref: string) =>
+          ref === 'white paint' ? { id: 'wt-white-paint', name: 'White Paint Wall Type' } : null,
+      }),
+    );
+    expect(intentOf(r)).toBe('set-wall-type');
+  });
+
+  it('an AMBIGUOUS material still refuses by LISTING the real candidates, never guessing', () => {
+    // "grey paint" matches five real rows (Pastel / Light / Mid / Slate /
+    // Anthracite Grey) — measured against the real resolver, not assumed.
+    const r = resolveFull(
+      'change all walls finish to grey paint',
+      ctxOf({ resolveScope: stubScope(3) }),
+    );
+    expect(r.kind).toBe('refusal');
+    if (r.kind !== 'refusal') return;
+    expect(r.reason.toLowerCase()).toContain('grey paint');
+  });
+
+  it('a genuine DATA GAP ("red pastel paint" — no such row) refuses honestly, never invents one', () => {
+    const r = resolveFull(
+      'change all walls finish to red pastel paint',
+      ctxOf({ resolveScope: stubScope(3) }),
+    );
+    expect(r.kind).toBe('refusal');
+  });
+});

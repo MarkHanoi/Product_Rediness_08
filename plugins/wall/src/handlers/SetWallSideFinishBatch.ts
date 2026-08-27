@@ -58,8 +58,11 @@ import { SetWallSideFinishBatchCommand } from '@pryzm/command-registry';
 export interface SetWallSideFinishBatchPayload {
   /** 'all' = every wall in the project (all levels); or an explicit id list. */
   readonly wallIds: readonly string[] | 'all';
-  /** The SEMANTIC side — the axis WallLayerFunction declares. Never a face. */
-  readonly side: 'interior' | 'exterior';
+  /** The SEMANTIC side — the axis WallLayerFunction declares. Never a face.
+   *  §RACSIDE144 — `'both'` applies two per-wall writes (exterior + interior)
+   *  inside the ONE `SetWallSideFinishBatchCommand` instance the bridge below
+   *  constructs, so it is still one undo entry (C16 §8.6). */
+  readonly side: 'interior' | 'exterior' | 'both';
   readonly finish: {
     readonly materialId: string;
     readonly materialColor?: string;
@@ -136,8 +139,8 @@ export const SetWallSideFinishBatchHandler: CommandHandler<
     if (cmd.wallIds !== 'all' && !Array.isArray(cmd.wallIds)) {
       return { valid: false, reason: "wallIds must be 'all' or an array of wall ids" };
     }
-    if (cmd.side !== 'interior' && cmd.side !== 'exterior') {
-      return { valid: false, reason: "side must be 'interior' or 'exterior'" };
+    if (cmd.side !== 'interior' && cmd.side !== 'exterior' && cmd.side !== 'both') {
+      return { valid: false, reason: "side must be 'interior', 'exterior', or 'both'" };
     }
     if (!cmd.finish || typeof cmd.finish.materialId !== 'string' || cmd.finish.materialId.length === 0) {
       return { valid: false, reason: 'finish.materialId is required' };

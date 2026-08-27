@@ -52,6 +52,7 @@
 import { resolveColorRef } from './colorRef.js';
 import { resolveOpeningShapeRef, openingShapeNames, joinNames } from './OpeningShapeVocabulary.js';
 import { resolveCompassRef } from './SpatialScopeTail.js';
+import { resolveFinishRef } from './finishRef.js';
 import type { ResolverContext } from './ZeroTokenResolver.js';
 
 /** The modelled axes, as identifiers. A refusal cites these by `noun`. */
@@ -61,7 +62,8 @@ export type QualifierAxisId =
   | 'orientation'
   | 'level'
   | 'room'
-  | 'colour';
+  | 'colour'
+  | 'finish';
 
 /** What an axis found, and — the part that makes a refusal useful — HOW THE
  *  USER SHOULD HAVE SAID IT. A refusal that names the right axis but not the
@@ -151,6 +153,42 @@ export const QUALIFIER_AXES: readonly QualifierAxis[] = [
       return hit === null ? null : {
         value: hit.label,
         sayIt: (kind) => `paint all ${kind}s ${hit.label}`,
+      };
+    },
+  },
+  // §RACSIDE144 (L-12364) — the MATERIAL axis, added because its absence was a
+  // second, independent instance of THIS MODULE'S OWN founding defect.
+  //
+  // Founder-reported: "make all walls white paint" answered *"There is no wall
+  // type called 'white paint' in this project… I searched compass
+  // orientations, colours, levels, rooms or wall types."* That sentence is
+  // built from `axesSearched()` below — and it is TRUE about what ran, and
+  // FALSE about what it implies: "white paint" resolves cleanly to `Paint ·
+  // Matte White` in `finishRef.ts`'s own catalogue, which this table never
+  // tried. `set-wall-type`'s refusal named five axes and the one that would
+  // have answered was not among them — the exact "picked ONE axis, reported
+  // its inventory as the whole vocabulary" shape this module's header opens
+  // with, just one capability over.
+  //
+  // `appliesTo` is `['wall', 'floor']` — the two element kinds with a live
+  // finish capability (`set-wall-side-finish`, `set-floor-finish`); a finish
+  // axis on a door refusal would offer a redirect no door capability honours.
+  {
+    id: 'finish',
+    noun: 'finishes',
+    appliesTo: ['wall', 'floor'],
+    searchable: () => true, // the alias table + full C100 catalogue, always readable.
+    probe: (token) => {
+      const hit = resolveFinishRef(token);
+      // `resolveFinishRef` returns null for BOTH "no match" and "ambiguous,
+      // several rows" (§CONTEXT-DATA-HONESTY: neither is guessed past here).
+      // The ambiguous case is not lost — it still reaches the finish
+      // CAPABILITY'S OWN refusal (`finishRefusalCopy`, which lists the real
+      // candidates) whenever the sentence carries the word "finish" or a side
+      // word; this axis only needs to redirect the CLEAN, unambiguous case.
+      return hit === null ? null : {
+        value: hit.name,
+        sayIt: (kind) => `change all ${kind}s finish to ${hit.name.toLowerCase()}`,
       };
     },
   },

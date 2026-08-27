@@ -2230,7 +2230,11 @@ const CAPABILITIES: readonly ChatCapability[] = [
       },
       {
         name: 'side',
-        description: 'inner (default) or outer face',
+        // §RACSIDE144 — "inner and outer" / "both sides" / "both faces" change
+        // BOTH faces in ONE undo entry. The bare-form default is scope-
+        // dependent: exterior for a compass-scoped ask ("west-facing walls"
+        // has no interior side to default to), interior everywhere else.
+        description: 'inner, outer, or both faces (default depends on scope — see the capability note)',
         required: false,
         valueSource: 'user-text',
         example: 'inner finishes',
@@ -2260,6 +2264,11 @@ const CAPABILITIES: readonly ChatCapability[] = [
       'change all walls in the kitchen finish limewash',
       'change all outer finishes walls to clay plaster',
       'change all east-facing walls exterior finish to clay plaster',
+      // §RACSIDE144 — the founder's actual complaint: "I want to also change
+      // the INTERIOR wall finish, but this still would only change the outer
+      // finish." Both sides, one undo entry.
+      'change outside and inside finish of all west-facing walls to green pastel paint',
+      'make all walls white paint',
     ],
   },
   {
@@ -3843,6 +3852,42 @@ export const CHAT_UNAVAILABLE: ReadonlyMap<string, string> = new Map([
   // sentence AFTER the paren; this row now matches that convention. No other
   // change: the RACKITCHEN127 content and authorship are untouched.
   ['furniture.bulkUpdateKitchenMaterial', 'Bulk kitchen material changes are not wired to chat yet — use the kitchen\'s Edit Kitchen Layout panel for one kitchen at a time (the bulk command itself is built — only the sentence-to-command grammar is missing).'],
+
+  // ── §RACORIENT145 — curtain-wall PANEL type/material, BUILT but the grammar
+  // not yet wired. ─────────────────────────────────────────────────────────────
+  //
+  // The founder's ask: "change all west-facing curtain panels to spider
+  // point-fix glazing" / "... to a MATERIAL — any from the materials list."
+  // `curtain-wall.bulkUpdatePanels` and its command
+  // (`BulkUpdateCurtainPanelsCommand`, @pryzm/command-registry) ship this
+  // release: one panel / one level / the whole project / an explicit
+  // pre-resolved id list (where a COMPASS scope lands — see the command's own
+  // header), ONE undo entry, §CONTEXT-DATA-HONESTY partial-failure reporting,
+  // TYPE resolved against the live `PanelType` union (refuses naming every real
+  // one) and MATERIAL resolved against STANDARD_MATERIAL_LIBRARY via the SAME
+  // forgiving ladder §RACKITCHEN127 shipped (`resolveKitchenMaterialRef`,
+  // reused verbatim — not forked). The command is real and reachable by any
+  // caller (`window.commandManager` bridge, a future test) — what is NOT done
+  // is teaching `ZeroTokenResolver` to turn "change all west-facing curtain
+  // panels to spider point-fix glazing" into that bus command, exactly the
+  // same honestly-declared gap `furniture.bulkUpdateKitchenMaterial` above
+  // states for kitchens. Declared here rather than left undeclared so the
+  // shrink-only `MAX_UNDECLARED` coverage ratchet in
+  // `check-chat-capability-coverage.ts` reads this command HONESTLY (built,
+  // not yet chat-driven) instead of silently failing the next unrelated PR
+  // that trips the ratchet.
+  //
+  // ⚠ NEITHER of the founder's two named TYPE examples exists in the catalogue
+  // TODAY: `VALID_PANEL_TYPES` (@pryzm/geometry-curtain-wall) has no "crittal"
+  // and no "spider point-fix" / "point-fix" / "spider" member (measured —
+  // `grep -ri 'crittal|spider|point-fix'` across geometry-window /
+  // geometry-door / geometry-curtain-wall → 0 hits). "steel crittal style"
+  // (a window/door style) likewise matches no built-in window/door SYSTEM
+  // TYPE name. Creating those new types is a DIFFERENT lane's job (C65 — the
+  // element type system); this capability's honest answer for either name
+  // today is a refusal LISTING the real panel/window/door types, never a
+  // silent invention.
+  ['curtain-wall.bulkUpdatePanels', 'Bulk curtain-wall panel type/material changes are not wired to chat yet — use the curtain-wall panel editor for one panel at a time (the bulk command itself is built — only the sentence-to-command grammar is missing).'],
 ]);
 
 // ─── Lookup surface ──────────────────────────────────────────────────────────

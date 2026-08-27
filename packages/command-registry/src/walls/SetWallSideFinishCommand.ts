@@ -70,6 +70,28 @@ function _tracer(): Tracer {
 
 const HEX_COLOR_RE = /^#[0-9a-fA-F]{6}$/;
 
+/**
+ * §RACSIDE144 — the BATCH-ONLY widening. `@pryzm/geometry-wall`'s own
+ * `WallFinishSide` stays exactly `'interior' | 'exterior'`: every SINGLE-wall
+ * write (`SetWallSideFinishCommand` below) is still one side at a time, and
+ * `withWallSideFinish` / `resolveWallSideFinish` / `maskedSideAfterSetting`
+ * are untouched (C84 EI-8 — one producer per question, not re-typed here).
+ * `'both'` exists only on the BATCH input: the founder's "inner and outer" ask
+ * applies as TWO per-wall child writes inside ONE `SetWallSideFinishBatchCommand`
+ * instance, so it stays ONE undo entry (C16 §8.6) rather than two commands.
+ */
+export type WallFinishSideOrBoth = WallFinishSide | 'both';
+
+/** The concrete sides to write for a batch `side` value, in a fixed order.
+ *  Order does not change the OUTCOME (`maskedSideAfterSetting`'s "exterior
+ *  wins" rule is a fixed return value, not order-dependent), but a fixed order
+ *  keeps a re-run (redo) deterministic and the masked-disclosure math sane —
+ *  it reads the wall's CURRENT sideFinishes on each step, so writing exterior
+ *  before interior lets the interior write see the just-written exterior. */
+function sidesToApply(side: WallFinishSideOrBoth): readonly WallFinishSide[] {
+    return side === 'both' ? ['exterior', 'interior'] : [side];
+}
+
 // ─── Single wall ─────────────────────────────────────────────────────────────
 
 export interface SetWallSideFinishInput {
@@ -160,7 +182,9 @@ export class SetWallSideFinishCommand implements Command {
 export interface SetWallSideFinishBatchInput {
     /** `'all'` = every wall in the project (ALL levels), or an explicit id list. */
     wallIds: string[] | 'all';
-    side: WallFinishSide;
+    /** §RACSIDE144 — `'both'` applies TWO per-wall child writes (exterior then
+     *  interior), still ONE undo entry. See {@link WallFinishSideOrBoth}. */
+    side: WallFinishSideOrBoth;
     finish: WallSideFinish;
     /**
      * Present ONLY when the scope came from a ROOM ("all walls in the kitchen").
@@ -239,32 +263,41 @@ export class SetWallSideFinishBatchCommand implements Command {
         return Array.from(new Set(this.input.wallIds));
     }
 
-    private _child(wallId: string): SetWallSideFinishCommand {
+    /** §RACSIDE144 — `side` is now a PARAMETER, not read off `this.input.side`
+     *  directly: a `'both'` batch input applies this per-wall via TWO children,
+     *  one per real {@link WallFinishSide}, never a wall-set command that
+     *  itself understands 'both'. */
+    private _child(wallId: string, side: WallFinishSide): SetWallSideFinishCommand {
         return new SetWallSideFinishCommand({
             wallId,
-            side: this.input.side,
+            side,
             finish: { ...this.input.finish },
         });
     }
 
     /**
-     * THE HONEST REFUSAL, per wall. Returns the refusal text, or `null` to proceed.
+     * THE HONEST REFUSAL, per wall and per SIDE. Returns the refusal text, or
+     * `null` to proceed.
      *
      * Only room-scoped requests can hit it: they are the only ones that ask a
      * GEOMETRIC question ("the face that looks into room X") rather than a
-     * semantic one ("the interior finish").
+     * semantic one ("the interior finish"). §RACSIDE144 — `side` is now a
+     * parameter so a `'both'` batch asks this once per real side; "exterior" is
+     * never the shared face, so a `'both'` write is refused only on its
+     * interior half, exactly as an `'interior'`-only write already was.
      */
-    private _sideRefusal(wallId: string): string | null {
+    private _sideRefusal(wallId: string, side: WallFinishSide): string | null {
         const counts = this.input.roomBoundCounts;
-        if (!counts) return null;                    // not a room scope — nothing geometric asked
-        if (this.input.side !== 'interior') return null; // "exterior" is never the shared face
+        if (!counts) return null;             // not a room scope — nothing geometric asked
+        if (side !== 'interior') return null; // "exterior" is never the shared face
         const auth = authoriseRoomScopedSideFinish(wallId, counts.get(wallId) ?? null);
         return auth.ok ? null : auth.text;
     }
 
     private _valueLabel(): string {
         const f = this.input.finish;
-        return `${this.input.side} finish ${f.materialName ?? f.materialId}`;
+        const sideLabel = this.input.side === 'both' ? 'interior and exterior' : this.input.side;
+        return `${sideLabel} finish ${f.materialName ?? f.materialId}`;
     }
 
     canExecute(ctx: CommandContext): CommandValidationResult {
@@ -279,16 +312,27 @@ export class SetWallSideFinishBatchCommand implements Command {
             };
         }
 
+        // §RACSIDE144 — a wall counts as ACCEPTABLE when at least one of its
+        // requested sides can take the write; `'both'` tries both and a wall
+        // is only unacceptable if NEITHER side can (both refusals are still
+        // recorded, so a partial-side gate reads as a partial refusal, not a
+        // silent narrowing).
+        const isBoth = this.input.side === 'both';
         const refusals: string[] = [];
         let acceptable = 0;
         for (const wallId of ids) {
-            const sideRefusal = this._sideRefusal(wallId);
-            if (sideRefusal !== null) { refusals.push(sideRefusal); continue; }
-            const v = this._child(wallId).canExecute(ctx);
-            if (v.ok) acceptable++;
-            // §REFUSAL-IDENTITY (GE-09): a stated reason passes VERBATIM; a silent
-            // child is NAMED as silent — never re-worded into a manufactured verdict.
-            else refusals.push(childRefusalText(v.reason, 'SetWallSideFinishCommand.canExecute', `wall ${wallId}`));
+            let wallAcceptable = false;
+            for (const side of sidesToApply(this.input.side)) {
+                const subject = isBoth ? `wall ${wallId} (${side} face)` : `wall ${wallId}`;
+                const sideRefusal = this._sideRefusal(wallId, side);
+                if (sideRefusal !== null) { refusals.push(sideRefusal); continue; }
+                const v = this._child(wallId, side).canExecute(ctx);
+                if (v.ok) { wallAcceptable = true; continue; }
+                // §REFUSAL-IDENTITY (GE-09): a stated reason passes VERBATIM; a silent
+                // child is NAMED as silent — never re-worded into a manufactured verdict.
+                refusals.push(childRefusalText(v.reason, 'SetWallSideFinishCommand.canExecute', subject));
+            }
+            if (wallAcceptable) acceptable++;
         }
 
         if (acceptable === 0) {
@@ -314,78 +358,99 @@ export class SetWallSideFinishBatchCommand implements Command {
                 this.targetIds = [...ids];
                 const affected: string[] = [];
 
+                // §RACSIDE144 — `'both'` applies TWO per-wall child writes
+                // (exterior then interior; see `sidesToApply`'s header for why
+                // the order is fixed but does not change the outcome). A wall
+                // is `affected` once if EITHER side actually landed — C84 EI-7
+                // names WALLS changed, not sides — and a per-side failure is
+                // still recorded as its own skip, so "changed 1 of 2 sides" is
+                // never silently reported as either a full success or a full
+                // refusal for that wall.
+                const isBoth = this.input.side === 'both';
                 for (const wallId of ids) {
-                    const sideRefusal = this._sideRefusal(wallId);
-                    if (sideRefusal !== null) {
-                        this._skipped.push({ wallId, reason: sideRefusal });
-                        continue;
-                    }
-                    const child = this._child(wallId);
-                    const v = child.canExecute(ctx);
-                    if (!v.ok) {
-                        this._skipped.push({
-                            wallId,
-                            reason: childRefusalText(v.reason, 'SetWallSideFinishCommand.canExecute', `wall ${wallId}`),
-                        });
-                        continue;
-                    }
-                    // §L960-STEP3 — asked BEFORE the child writes, because the
-                    // question is "what will this wall look like afterwards" and
-                    // `maskedSideAfterSetting` composes the next value itself.
-                    const maskedSide = maskedSideAfterSetting(
-                        (ctx.stores.wallStore.getById(wallId) ?? {}) as never,
-                        this.input.side,
-                        this.input.finish,
-                    );
-                    const r = child.execute(ctx);
-                    if (r.success) {
-                        // The child is retained for undo REGARDLESS of the read-back
-                        // below: whatever the store did accept must still be revertible.
-                        this.executedChildren.push(child);
-                        // ── §WALL-FINISH-READBACK (L-1670 · C67 rule 12, C16 CA-21) ──
-                        //
-                        // "Set … on 59 of 59 walls" counted successful CALLS, never
-                        // records. `SetWallSideFinishCommand.execute` returns
-                        // `{ success: true }` the moment `updateWall()` returns — and
-                        // `WallStore.updateWall` projects the snapshot onto a field
-                        // WHITELIST, so a field it does not name is dropped in silence
-                        // while the call still succeeds. That is not hypothetical: it is
-                        // exactly L-995, where `sideFinishes` was missing from that
-                        // whitelist and the chat reported 17 of 17 walls over a model
-                        // nothing had touched. The whitelist is fixed, but a COUNT
-                        // DERIVED FROM A RETURN VALUE cannot notice if it regresses.
-                        //
-                        // So the count is now MEASURED: re-read the record from the
-                        // authority and ask the shipped ladder (`resolveWallSideFinish`,
-                        // the one function that answers "what finish does this side
-                        // carry?" — C84 EI-8, not a second spelling here) whether the
-                        // side really carries what we just wrote. A wall that fails is
-                        // NOT counted as changed and is named as a skip, so the failure
-                        // reads as a partial refusal instead of a confident lie.
-                        const after = ctx.stores.wallStore.getById(wallId);
-                        const landed = after
-                            ? resolveWallSideFinish(after as never, this.input.side).materialId === this.input.finish.materialId
-                            : false;
-                        if (!landed) {
+                    let wallChanged = false;
+                    let wallMaskedSide: WallFinishSide | null = null;
+                    for (const side of sidesToApply(this.input.side)) {
+                        const subject = isBoth ? `wall ${wallId} (${side} face)` : `wall ${wallId}`;
+                        const sideRefusal = this._sideRefusal(wallId, side);
+                        if (sideRefusal !== null) {
+                            this._skipped.push({ wallId, reason: sideRefusal });
+                            continue;
+                        }
+                        const child = this._child(wallId, side);
+                        const v = child.canExecute(ctx);
+                        if (!v.ok) {
                             this._skipped.push({
                                 wallId,
-                                reason:
-                                    `wall ${wallId}: the store accepted the write and reported success, but reading ` +
-                                    `the record back shows its ${this.input.side} finish is NOT ` +
-                                    `${this.input.finish.materialName ?? this.input.finish.materialId}. The value did ` +
-                                    `not reach the authority, so nothing about this wall changed — do not trust a ` +
-                                    `success count over this wall.`,
+                                reason: childRefusalText(v.reason, 'SetWallSideFinishCommand.canExecute', subject),
                             });
                             continue;
                         }
-                        affected.push(wallId);
-                        if (maskedSide) this._masked.push({ wallId, maskedSide });
-                    } else {
-                        this._skipped.push({
-                            wallId,
-                            reason: childRefusalText(r.info?.[0], 'SetWallSideFinishCommand.execute', `wall ${wallId}`),
-                        });
+                        // §L960-STEP3 — asked BEFORE the child writes, because the
+                        // question is "what will this wall look like afterwards" and
+                        // `maskedSideAfterSetting` composes the next value itself. For
+                        // 'both', the wall is re-read on EACH iteration, so the
+                        // interior write (applied second) sees the exterior write
+                        // (applied first) already landed — which is what lets this
+                        // correctly detect "both sides now carry a finish" on a
+                        // single-layer wall without a second copy of that rule.
+                        const maskedSide = maskedSideAfterSetting(
+                            (ctx.stores.wallStore.getById(wallId) ?? {}) as never,
+                            side,
+                            this.input.finish,
+                        );
+                        const r = child.execute(ctx);
+                        if (r.success) {
+                            // The child is retained for undo REGARDLESS of the read-back
+                            // below: whatever the store did accept must still be revertible.
+                            this.executedChildren.push(child);
+                            // ── §WALL-FINISH-READBACK (L-1670 · C67 rule 12, C16 CA-21) ──
+                            //
+                            // "Set … on 59 of 59 walls" counted successful CALLS, never
+                            // records. `SetWallSideFinishCommand.execute` returns
+                            // `{ success: true }` the moment `updateWall()` returns — and
+                            // `WallStore.updateWall` projects the snapshot onto a field
+                            // WHITELIST, so a field it does not name is dropped in silence
+                            // while the call still succeeds. That is not hypothetical: it is
+                            // exactly L-995, where `sideFinishes` was missing from that
+                            // whitelist and the chat reported 17 of 17 walls over a model
+                            // nothing had touched. The whitelist is fixed, but a COUNT
+                            // DERIVED FROM A RETURN VALUE cannot notice if it regresses.
+                            //
+                            // So the count is now MEASURED: re-read the record from the
+                            // authority and ask the shipped ladder (`resolveWallSideFinish`,
+                            // the one function that answers "what finish does this side
+                            // carry?" — C84 EI-8, not a second spelling here) whether the
+                            // side really carries what we just wrote. A side that fails is
+                            // NOT counted as changed and is named as a skip, so the failure
+                            // reads as a partial refusal instead of a confident lie.
+                            const after = ctx.stores.wallStore.getById(wallId);
+                            const landed = after
+                                ? resolveWallSideFinish(after as never, side).materialId === this.input.finish.materialId
+                                : false;
+                            if (!landed) {
+                                this._skipped.push({
+                                    wallId,
+                                    reason:
+                                        `${subject}: the store accepted the write and reported success, but reading ` +
+                                        `the record back shows its ${side} finish is NOT ` +
+                                        `${this.input.finish.materialName ?? this.input.finish.materialId}. The value did ` +
+                                        `not reach the authority, so nothing about this ${isBoth ? 'side' : 'wall'} changed — ` +
+                                        `do not trust a success count over this wall.`,
+                                });
+                                continue;
+                            }
+                            wallChanged = true;
+                            if (maskedSide) wallMaskedSide = maskedSide;
+                        } else {
+                            this._skipped.push({
+                                wallId,
+                                reason: childRefusalText(r.info?.[0], 'SetWallSideFinishCommand.execute', subject),
+                            });
+                        }
                     }
+                    if (wallChanged) affected.push(wallId);
+                    if (wallMaskedSide) this._masked.push({ wallId, maskedSide: wallMaskedSide });
                 }
 
                 const total = ids.length;
@@ -413,10 +478,18 @@ export class SetWallSideFinishBatchCommand implements Command {
                 // place that sentence is written (C84 EI-8) — with a lead-in that names
                 // WHICH side is lost, because "interior" and "exterior" are not
                 // interchangeable to the person who just asked for one of them.
+                // §RACSIDE144 — `'both'` reads the SAME branch as `'interior'`:
+                // the masked side is always 'interior' (the pure rule's fixed
+                // answer, "exterior wins" on a single-layer wall), and for a
+                // `'both'` request the user explicitly asked for the interior
+                // face too, so "will NOT show it" is the honest statement —
+                // not the "this now covers the interior" wording, which is only
+                // for a REQUESTED exterior silently masking a PRE-EXISTING
+                // interior the user did not just ask to change.
                 const maskedCount = this._masked.length;
                 const maskedTail = maskedCount === 0
                     ? ''
-                    : this.input.side === 'interior'
+                    : this.input.side !== 'exterior'
                         ? ` — ⚠ on ${maskedCount} of them the 3D view will NOT show it: ` +
                           `${describeSingleLayerRenderLimit()}`
                         : ` — ⚠ on ${maskedCount} of them this now covers the interior finish ` +
