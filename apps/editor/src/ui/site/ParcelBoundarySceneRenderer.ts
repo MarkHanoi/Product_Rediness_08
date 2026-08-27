@@ -56,6 +56,15 @@ import { projectScopeRegistry } from '@pryzm/core-app-model';
 import type { PryzmRuntime } from '@pryzm/runtime-composer';
 import { getLastBuildableEnvelope, isLastEnvelopeSuggestedPreview } from './siteDispatch';
 import { envelopeRenderStyle } from './envelopeRenderStyle';
+// §ENV3D164 (L-12700) — the STUDY MASSING (§MANUALENV159 / §ENVAMS148): a context-derived or
+// user-typed massing, computed ONLY when no normative buildable envelope resolves at all. See
+// `buildContextStudyVolume` below for why it routes through this SAME renderer instead of a new one
+// (C84 EI-9 — one renderer, two input sources) and why its material treatment must differ from the
+// plan-backed envelope above.
+import {
+    getContextDerivedStudyEnvelope,
+    subscribeContextDerivedStudyEnvelope,
+} from './contextDerivedStudyEnvelopeState';
 // ⭐ §ENVELOPE-ONE-VISIBILITY (L-1170) — the SINGLE authority for "is the buildable envelope on
 // screen?". THIS RENDERER WAS THE SURFACE THAT NEVER ASKED: it drew the study volume into the
 // BIM + plan scene straight off `getLastBuildableEnvelope()`, so the GIS card's `Envelope: OFF`
@@ -71,13 +80,53 @@ import {
 // ⭐ §ENVELOPE-TWO-AXES (C58 §1.17 / L-1188) — the PURE rule for what the user's two visibility axes
 // mean as geometry. Read HERE rather than re-implemented, so this surface and the Cesium §1.14
 // rasteriser cannot read one preference two different ways (which is the L-1170 shape one level down).
-import { envelopeDrawMode, GROUND_SHADE_HEIGHT_M, GROUND_SHADE_FILL_ALPHA } from '@pryzm/site-parcel-data';
+import {
+    envelopeDrawMode,
+    GROUND_SHADE_HEIGHT_M,
+    GROUND_SHADE_FILL_ALPHA,
+    type EnvelopeDrawMode,
+} from '@pryzm/site-parcel-data';
 
 /** The unified PRYZM preview / site-context violet. */
 const PRYZM_VIOLET = 0x6600ff;
 
 /** Slight +y lift (metres) so the outline never z-fights the ground grid. */
 const GROUND_Y_OFFSET = 0.02;
+
+// ════════════════════════════════════════════════════════════════════════════════════════════
+// §ENV3D164 (L-12700) — STUDY MASSING render treatment. ⛔ NON-NEGOTIABLE: this must NEVER read
+// as the plan-backed envelope above, on any single channel, because a study massing carries NO
+// ordinance behind it at all — not even the "estimate" tier `PROVISIONAL_GREY` names. If a viewer
+// cannot tell the two apart, an indicative number reads as a legal one — the exact §L-616
+// overstatement this repo has burned itself on before (see `envelopeRenderStyle.ts`'s own header).
+// So THREE independent channels differ from the plan-backed volume, not one:
+//   1. HUE       — teal, a colour used nowhere else in this file's honesty vocabulary (confident
+//                  violet / provisional grey / suggested amber are all spoken for).
+//   2. SILHOUETTE — always open-top (no cap), the SAME disclosure device §OPEN-TOP-INDICATIVE uses
+//                  for "PRYZM claims no buildable right here" — true of a study in a stronger sense
+//                  (it is not tied to any ordinance at all, not even an estimated one).
+//   3. OUTLINE   — a DASHED rim (not solid), so even a greyscale screenshot with the fill washed
+//                  out still reads "sketch", never "surveyed solid". No dashed line appears
+//                  anywhere else in this file.
+// ════════════════════════════════════════════════════════════════════════════════════════════
+
+/** Teal — deliberately outside the confident-violet / provisional-grey / suggested-amber family
+ *  `envelopeRenderStyle.ts` already owns, so a study massing cannot be mistaken for any of them. */
+const STUDY_MASSING_TEAL = 0x00a99a;
+
+/** Near-wireframe fill — well below the plan-backed envelope's normal 0.16, matching the weight
+ *  this file already uses for an upper-bound / open-top plan envelope (0.05), so a study reads at
+ *  least as tentative as PRYZM's own least-confident plan-backed rendering, never more solid. */
+const STUDY_MASSING_FILL_ALPHA = 0.05;
+
+/** The study's own ground-shade weight — lighter than the real envelope's `GROUND_SHADE_FILL_ALPHA`
+ *  (0.22): the shade underneath an indicative study must read as the LESSER claim of the two. */
+const STUDY_GROUND_SHADE_FILL_ALPHA = 0.12;
+
+/** Dashed-rim tuning (metres) — small relative to a typical building footprint so the dashes read
+ *  as a texture, not as a countable set of segments. */
+const STUDY_DASH_SIZE_M = 0.6;
+const STUDY_DASH_GAP_M = 0.4;
 
 /** §ENVELOPE-VIA-MASSING (L-402d) — the fallback envelope height (m) when the C58
  *  envelope has no `maxHeight_m` resolved. Mirrors the Cesium side's fallback. */
@@ -128,6 +177,12 @@ export class ParcelBoundarySceneRenderer {
         // mounted only while the GIS area exists, and this scene outlives it. Subscribing to the
         // authority is what makes the two surfaces agree without knowing about each other.
         this.disposers.push(subscribeBuildableEnvelopeVisibility(() => this.refresh()));
+
+        // §ENV3D164 (L-12700) — repaint when the STUDY massing changes: computed for the first
+        // time, replaced by a user-typed height, or cleared by a project switch. Same PUSH
+        // discipline as the subscription above — this renderer never polls, so a study saved
+        // while the scene is idle still reaches the ground the moment it is saved.
+        this.disposers.push(subscribeContextDerivedStudyEnvelope(() => this.refresh()));
 
         // Project-switch reset — clear the outline alongside the stores so a
         // Project A parcel never renders against Project B (C19 §1.13).
@@ -243,8 +298,23 @@ export class ParcelBoundarySceneRenderer {
         // ring/fill (hidden in the pure-3D BIM view), the envelope volume is site
         // intelligence the founder wants visible IN the design scene, so it carries
         // NO `isParcelBoundaryFill`/`isParcelBoundaryLine` hide flag.
-        const envelopeMesh = this.buildEnvelopeVolume();
-        if (envelopeMesh) group.add(envelopeMesh);
+        // §ENV3D164 — read the user's two axes ONCE and share the answer with the study-massing
+        // builder below, so "reuse the existing Volume/Footprint toggles" is structural: whichever
+        // solid ends up drawn (plan-backed or study), it is gated by the SAME `envelopeDrawMode`
+        // this file already reads for the real envelope, never a second toggle.
+        const drawMode = envelopeDrawMode(getBuildableEnvelopeAxes());
+        const envelopeMesh = this.buildEnvelopeVolume(drawMode);
+        if (envelopeMesh) {
+            group.add(envelopeMesh);
+        } else {
+            // No plan-backed envelope to draw (no parcel, refused, or not yet resolved) — offer the
+            // INDICATIVE study massing in its place, honouring the same two axes. §CONTEXT-DERIVED-
+            // STUDY-ENVELOPE's own schema header: a study is only ever surfaced "where no normative
+            // buildable envelope resolves at all", so the two are mutually exclusive by construction,
+            // never drawn one inside the other.
+            const studyGroup = this.buildContextStudyVolume(drawMode);
+            if (studyGroup) group.add(studyGroup);
+        }
 
         // EDITOR_LAYER + non-pickable for the whole group.
         group.traverse((obj) => {
@@ -338,8 +408,12 @@ export class ParcelBoundarySceneRenderer {
      * polygon + generated walls. We build the 2D shape in (x, −z) and rotate it flat
      * onto the XZ ground plane extruding UP (+Y) so scene coords land at (p.x, y, p.z)
      * — aligned with the parcel line + walls.
+     *
+     * @param drawMode §ENV3D164 — now read ONCE by the caller (`buildOutline`) and passed in, so
+     *        the plan-backed volume and the study-massing volume below can never disagree about
+     *        what the user's two toggles mean (previously this method read the authority itself).
      */
-    private buildEnvelopeVolume(): THREE.Mesh | null {
+    private buildEnvelopeVolume(drawMode: EnvelopeDrawMode): THREE.Mesh | null {
         try {
             // ⭐ §ENVELOPE-ONE-VISIBILITY (L-1170) — ask the ONE authority, first, before any
             // geometry exists. Returning null here is what makes the user's "hide" reach the
@@ -350,7 +424,6 @@ export class ParcelBoundarySceneRenderer {
             // and the flat ground shade is useful precisely then because it occludes nothing.
             // `envelopeDrawMode` is the SAME pure L2 decision the globe rasteriser makes — this
             // surface must not have its own idea of what "off" means.
-            const drawMode = envelopeDrawMode(getBuildableEnvelopeAxes());
             if (drawMode === 'none') return null;
             const env = getLastBuildableEnvelope();
             if (!env || env.status !== 'ok') return null;
@@ -467,6 +540,147 @@ export class ParcelBoundarySceneRenderer {
             return mesh;
         } catch (e) {
             console.warn('[ParcelBoundarySceneRenderer] envelope volume build failed:', e);
+            return null;
+        }
+    }
+
+    /**
+     * §ENV3D164 (L-12700) — build the STUDY MASSING volume: a context-derived (median of real
+     * neighbour heights) or user-typed (§MANUALENV159, "24.5 m") `ContextDerivedStudyEnvelope`,
+     * rendered through the SAME three.js scene path as the plan-backed envelope above — an
+     * `ExtrudeGeometry` mesh in this same non-pickable `EDITOR_LAYER` group (C84 EI-9: one
+     * renderer, two input sources, not a second volume renderer built alongside this one).
+     *
+     * Returns null when there is no study for the current site (nothing computed, a typed refusal,
+     * both toggles off, or no active site) — never throws.
+     *
+     * ⛔ NON-NEGOTIABLE (see the STUDY MASSING constants above this class): the returned group must
+     * never be visually confusable with `buildEnvelopeVolume`'s plan-backed solid. Three channels
+     * differ — hue (teal, not violet/grey/amber), silhouette (always open-top), outline (dashed,
+     * not solid) — so no single screenshot or colour-blind viewer can mistake an indicative study
+     * for a determination.
+     *
+     * @param drawMode the SAME axes-derived mode `buildEnvelopeVolume` used (shared by the caller),
+     *        so "Volume: ON/OFF" and "Footprint: ON/OFF" govern the study exactly as they govern a
+     *        real envelope — no third, study-only control (the founder's own instruction).
+     */
+    private buildContextStudyVolume(drawMode: EnvelopeDrawMode): THREE.Group | null {
+        try {
+            if (drawMode === 'none') return null;
+            const site = this.runtime.siteModelStore?.getSite?.() ?? null;
+            if (!site) return null;
+            const result = getContextDerivedStudyEnvelope(site.id);
+            // Absent (nothing computed yet) or a typed refusal (too few real neighbours / a
+            // degenerate setback) — either way there is no solid to draw. The refusal itself is
+            // already surfaced in words by `buildContextStudySectionHtml` on the card; this
+            // renderer draws geometry only, never a placeholder for a refusal.
+            if (!result || !result.ok) return null;
+            const study = result.study;
+            const ring = study.footprintPolygon;
+            if (!Array.isArray(ring) || ring.length < 3) return null;
+
+            const groundShade = drawMode === 'ground-shade';
+            const height = groundShade ? GROUND_SHADE_HEIGHT_M : study.maxHeight_m;
+
+            const shape = new THREE.Shape();
+            shape.moveTo(ring[0]!.x, -ring[0]!.z);
+            for (let i = 1; i < ring.length; i++) {
+                shape.lineTo(ring[i]!.x, -ring[i]!.z);
+            }
+            shape.closePath();
+
+            // Same (x, −z) → XZ-ground construction as `buildEnvelopeVolume` / `buildFill` above —
+            // ONE convention in this file, so the study aligns with the parcel + walls exactly like
+            // every other overlay here.
+            const geo = new THREE.ExtrudeGeometry(shape, { depth: height, bevelEnabled: false, steps: 1 });
+            geo.rotateX(-Math.PI / 2);
+            geo.translate(0, GROUND_Y_OFFSET, 0);
+
+            const sideMat = new THREE.MeshBasicMaterial({
+                color: STUDY_MASSING_TEAL,
+                transparent: true,
+                opacity: groundShade ? STUDY_GROUND_SHADE_FILL_ALPHA : STUDY_MASSING_FILL_ALPHA,
+                depthWrite: false,
+                side: THREE.DoubleSide,
+            });
+            // ⭐ ALWAYS open-top when a volume is drawn (never for the flat ground shade — a
+            // 0.12 m slab has no top to leave open, exactly `buildEnvelopeVolume`'s own reasoning).
+            // A study massing NEVER claims a buildable ceiling, so unlike the plan-backed envelope
+            // (open-top only under the `open-top-indicative` posture) this is unconditional.
+            const capMat = !groundShade
+                ? new THREE.MeshBasicMaterial({
+                      color: STUDY_MASSING_TEAL,
+                      transparent: true,
+                      opacity: 0,
+                      depthWrite: false,
+                      side: THREE.DoubleSide,
+                  })
+                : null;
+            const useOpenTop = capMat !== null && geo.groups.length >= 2;
+            const mesh = new THREE.Mesh(geo, useOpenTop ? [capMat!, sideMat] : sideMat);
+            if (capMat !== null && !useOpenTop) capMat.dispose();
+            mesh.name = groundShade
+                ? 'pryzm-context-study-massing-ground-shade'
+                : 'pryzm-context-study-massing-volume';
+            mesh.userData.isContextStudyMassingVolume = true;
+            mesh.userData.contextStudyHeightBasisMethod = study.heightBasis.method;
+            mesh.userData.contextStudyGroundShade = groundShade;
+            mesh.userData.contextStudyOpenTopExpressed = useOpenTop;
+
+            const group = new THREE.Group();
+            group.name = 'pryzm-context-study-massing';
+            group.add(mesh);
+
+            // ── Dashed rim — the outline channel of the three-channel distinction. ───────────────
+            // Traced along the SAME ring at the TOP of whatever we just built (`height` is already
+            // the volume's top, or the ground shade's own thin top), so it reads as this solid's
+            // edge, not the parcel's.
+            const rim = this.buildDashedRim(ring, height);
+            if (rim) group.add(rim);
+
+            return group;
+        } catch (e) {
+            console.warn('[ParcelBoundarySceneRenderer] context-study massing build failed:', e);
+            return null;
+        }
+    }
+
+    /**
+     * §ENV3D164 — a closed DASHED line loop along `ring` at height `y` above the ground datum.
+     * `THREE.LineDashedMaterial` requires `computeLineDistances()` before it can dash correctly
+     * (already the vetted pattern in this codebase — see `WallAlignmentGuide.ts`). Returns null on
+     * any failure; the fill mesh alone is still a valid (if less legible) study indicator.
+     */
+    private buildDashedRim(ring: ReadonlyArray<XZPoint>, y: number): THREE.Line | null {
+        try {
+            const ringLen = ring.length + 1;
+            const positions = new Float32Array(ringLen * 3);
+            for (let i = 0; i < ring.length; i++) {
+                const p = ring[i]!;
+                positions[i * 3 + 0] = p.x;
+                positions[i * 3 + 1] = y;
+                positions[i * 3 + 2] = p.z;
+            }
+            const first = ring[0]!;
+            positions[ring.length * 3 + 0] = first.x;
+            positions[ring.length * 3 + 1] = y;
+            positions[ring.length * 3 + 2] = first.z;
+            const geo = new THREE.BufferGeometry();
+            geo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+            const mat = new THREE.LineDashedMaterial({
+                color: STUDY_MASSING_TEAL,
+                transparent: true,
+                opacity: 0.85,
+                dashSize: STUDY_DASH_SIZE_M,
+                gapSize: STUDY_DASH_GAP_M,
+                depthWrite: false,
+            });
+            const line = new THREE.Line(geo, mat);
+            line.computeLineDistances();
+            line.name = 'pryzm-context-study-massing-rim';
+            return line;
+        } catch (e) {
+            console.warn('[ParcelBoundarySceneRenderer] context-study dashed rim build failed:', e);
             return null;
         }
     }

@@ -204,14 +204,20 @@ describe('§PARCEL-SHADE-NOT-MIRRORED — the three.js PRYZM-view rasteriser', (
         return s;
     }
 
-    it('⭐ THE REGRESSION PIN: both builders construct the shape identically AND rotate identically', () => {
+    it('⭐ THE REGRESSION PIN: every builder constructs the shape identically AND rotates identically', () => {
         // This is the guard, not a restatement. The defect was two builders 100 lines apart in ONE
-        // file with identical shape construction and OPPOSITE rotation signs. Pin both halves.
+        // file with identical shape construction and OPPOSITE rotation signs. Pin every half.
+        //
+        // §ENV3D164 (L-12700) added a THIRD builder (`buildContextStudyVolume`, the study-massing
+        // volume) using the SAME (x, −z) shape convention and the SAME rotation sign — the count
+        // below grew from 2 to 3 for that reason, not because the guard was loosened: the assertion
+        // two lines down (no wrong-sign rotation ANYWHERE in the file) is unchanged and still what
+        // actually catches a re-introduced mirror.
         const src = readFileSync(RENDERER_SRC, 'utf8');
         expect(src).toContain('shape.moveTo(polygon[0]!.x, -polygon[0]!.z);');   // fill
-        expect(src).toContain('shape.moveTo(ring[0]!.x, -ring[0]!.z);');         // envelope / shade
-        // BOTH must now rotate the same way…
-        expect(src.match(/geo\.rotateX\(-Math\.PI \/ 2\);/g) ?? []).toHaveLength(2);
+        expect(src).toContain('shape.moveTo(ring[0]!.x, -ring[0]!.z);');         // envelope / shade / study
+        // EVERY builder must rotate the same way…
+        expect(src.match(/geo\.rotateX\(-Math\.PI \/ 2\);/g) ?? []).toHaveLength(3);
         // …and the mirroring sign must not reappear anywhere in this file.
         expect(src).not.toMatch(/geo\.rotateX\(Math\.PI \/ 2\);/);
     });
