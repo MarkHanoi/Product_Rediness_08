@@ -32,39 +32,55 @@
  * (`projectTreeModel.ts`, §ROOMTREE139) already read. It does not re-derive
  * "which element is in which room".
  *
- * ── DETERMINISM / PRECEDENCE (stated, not emergent) ─────────────────────────
+ * ── DOMINANCE / PRECEDENCE — RE-DESIGNED §DEPT153 (L-12540+, founder ruling
+ * 2026-08-27) ─────────────────────────────────────────────────────────────
  *
- * `ROOM_AUTOFILL_RULES` is an ORDERED array. The FIRST rule whose `test()`
- * passes wins; no lower rule is even evaluated. This is the whole precedence
- * mechanism — a rule is a row, and moving a row up or down IS changing its
- * precedence. The order below is deliberate:
+ * ⛔ THIS USED TO BE "an ordered array, first match wins, and row 1 happens to
+ * be bed" — true, but NOT the actual defect the founder hit. His plan view of
+ * Level 1 showed rooms with a plainly-visible BED still labelled "Dressing".
+ * `bedroom-bed` WAS already row 1 and `dressing-wardrobe` WAS already last —
+ * array order was correct THE WHOLE TIME. The real defect was one layer
+ * down: `BED_RE`/`SOFA_RE`/`KITCHEN_RE`/`DESK_RE` never MATCHED a real
+ * furniture record (catalogue kinds are underscore-joined compounds —
+ * 'kave_double_bed', 'kitchen_straight' — and JS's `\b` does not treat `_` as
+ * a boundary), while `WARDROBE_RE` had no boundary check at all and kept
+ * firing. Every furniture-based rule except wardrobe was going BLIND, not
+ * losing a precedence fight. See `hasToken` below for the actual fix — the
+ * table's ORDER did not need to change, its MATCHING did.
  *
- *   1. Bedroom (bed)            — the strongest single-purpose signal. A room
- *      with a bed AND a wardrobe is Bedroom, never Dressing, because this row
- *      is checked first and short-circuits every row below it. A room with a
- *      bed AND kitchen AND sofa is ALSO Bedroom — bed outranks the
- *      Kitchen-Living combination rule too. This is the one call in this table
- *      that is genuinely arguable; it is documented here rather than left to
- *      be reverse-engineered from array order.
- *   2. Bathroom (wet fixtures)
- *   3. Core / vertical circulation (stair)
- *   4. Outdoor area (planting)
- *   5. Kitchen-Living (BOTH kitchen appliances AND a sofa) — deliberately
+ * That said, the founder's own words — *"if bed → bedroom no matter what"* —
+ * are now enforced as something STRONGER than array position: bed is a
+ * PRECONDITION in `classifyRoomForAutofill`, evaluated before
+ * `ROOM_AUTOFILL_RULES` is even consulted, not a row inside it. It is not
+ * "row 1 happens to win" any more; there is no row for a future edit to move.
+ *
+ * `ROOM_AUTOFILL_RULES` remains an ORDERED array for everything ELSE. The
+ * FIRST rule whose `test()` passes wins; no lower rule is even evaluated:
+ *
+ *   1. Bathroom (wet fixtures)
+ *   2. Core / vertical circulation (stair)
+ *   3. Outdoor area (planting)
+ *   4. Kitchen-Living (BOTH kitchen AND sofa signals, on the same room) —
  *      ABOVE the standalone Kitchen/Living rows so a room matching both
- *      signals takes the combined label instead of whichever single rule
- *      happened to be listed first.
- *   6. Kitchen (alone)
- *   7. Living (alone)
- *   8. Study / Office (desk)
- *   9. Dining (dining table)
- *  10. Dressing (wardrobe, and ONLY when no bed is present — belt-and-braces:
- *      row 1 already guarantees this, but the row's own test does not rely on
- *      array position alone, so re-ordering this table cannot silently make a
- *      bed+wardrobe room "Dressing").
+ *      signals takes the combined label — the founder's own rule 3, *"if
+ *      sofa + kitchen [+ living] → kitchen."*
+ *   5. Kitchen (alone) — founder's rule 4 ("kitchen must be recognised").
+ *   6. Living (alone) — founder's rule 2, *"if sofa → living."*
+ *   7. Study / Office (desk)
+ *   8. Dining (dining table)
+ *   9. Dressing (wardrobe) — LAST, by construction: every row above it runs
+ *      first, AND the bed precondition already returned before this table is
+ *      ever reached. Founder's rule 5, *"wardrobe ⇒ Dressing only when
+ *      NOTHING higher matched."* Also demoted by area — see
+ *      `WARDROBE_ONLY_AREA_CEILING_M2` — a SECONDARY tie-breaker that can
+ *      only turn a weak, unopposed wardrobe match into `unclassified`, never
+ *      into a different asserted type, and never applied when ANY stronger
+ *      signal (bed, or anything above this row) is present.
  *
- * A room matching NONE of these rows is UNCLASSIFIED — `classifyRoomForAutofill`
- * returns `null`, and the caller must leave the room's name and occupancy
- * untouched (§CONTEXT-DATA-HONESTY: an invented type is worse than a blank).
+ * A room matching NEITHER the bed precondition NOR any table row is
+ * UNCLASSIFIED — `classifyRoomForAutofill` returns `null`, and the caller
+ * must leave the room's name and occupancy untouched (§CONTEXT-DATA-HONESTY:
+ * an invented type is worse than a blank).
  *
  * ── OCCUPANCY MAPPING — TWO ROWS TARGET AN IMPERFECT FIT (stated, OPEN) ─────
  *
@@ -122,6 +138,13 @@ export interface RoomContentSignals {
   readonly plumbingTypes: readonly string[];
   /** True when the room's containment includes at least one stair element. */
   readonly hasStair: boolean;
+  /** §DEPT153 (L-12540+) — the room's own gross area (`room.computed.area`),
+   *  m². `undefined` when the room record carried no computed metrics. Read
+   *  ONLY by the `dressing-wardrobe` demotion band below — never by anything
+   *  that could out-rank a bed/sofa/kitchen/stair/wet-fixture match (the
+   *  founder's own ruling: area is a tie-breaker/demotion, never an
+   *  override). */
+  readonly areaM2?: number;
 }
 
 /**
@@ -175,10 +198,18 @@ export function gatherRoomAutofillSignals(roomId: string): RoomContentSignals | 
     plumbingTypes = contents.contained.plumbing.map((r) => r.label);
   }
 
+  // §DEPT153 — read defensively: `room` is `unknown` (this module narrows
+  // nothing about RoomStore's record shape beyond `getById` existing), and an
+  // absent/non-numeric area must become `undefined`, never `0` — a 0 m² room
+  // is not the same claim as "area not recorded" (§CONTEXT-DATA-HONESTY).
+  const rawArea = (room as { computed?: { area?: unknown } })?.computed?.area;
+  const areaM2 = typeof rawArea === 'number' && Number.isFinite(rawArea) ? rawArea : undefined;
+
   return {
     furnitureNames,
     plumbingTypes,
     hasStair: contents.contained.stairs.length > 0,
+    areaM2,
   };
 }
 
@@ -195,31 +226,105 @@ export interface AutoFillRule {
   readonly test: (signals: RoomContentSignals) => boolean;
 }
 
-function furnitureMatches(signals: RoomContentSignals, re: RegExp): boolean {
-  return signals.furnitureNames.some((n) => re.test(n));
+// ── Token-aware matching (§DEPT153, L-12540+) ────────────────────────────────
+//
+// ⭐ ROOT CAUSE of "bedrooms called Dressing, sofa+kitchen+dining called
+// Dressing, kitchen never recognised" (founder, plan-view evidence on Level 1:
+// Dressing 02/03 both plainly contain a BED; "Dressing 01" at 75 m² contains a
+// dining table, a sofa AND a kitchen run). It was NOT a rule-precedence bug —
+// `bedroom-bed` was already row 1 and `dressing-wardrobe` already excluded a
+// detected bed as belt-and-braces. It was that BED_RE/SOFA_RE/KITCHEN_RE/
+// DESK_RE never matched a real furniture record at all, while WARDROBE_RE kept
+// firing — so wardrobe wasn't WINNING, every other rule was going BLIND.
+//
+// Catalogue furniture kinds are compound identifiers joined by underscores —
+// 'kitchen_straight', 'kave_double_bed', 'sofa_2seat', 'corner_wardrobe'
+// (packages/geometry-furniture/src/FurnitureTypes.ts /
+// FurnitureCategoryMap.ts — word lists MIRRORED here as literals, NOT
+// imported: @pryzm/spatial-index is L1, @pryzm/geometry-furniture is L2, and
+// importing it here would be an upward layer edge
+// `tools/ga-gate/check-layer-boundaries.ts` forbids). `gatherRoomAutofillSignals`
+// falls back to `furnitureType` whenever an item has no custom `.name`
+// (the common case for a parametric/catalogue placement), so the SIGNAL this
+// module actually reads is very often that compound identifier, not prose.
+//
+// JS's native `\b` treats `_` as a word character, so `/\bbed\b/` does NOT
+// match 'kave_double_bed' or 'sofa_1seat' (no boundary either side of "bed"/
+// "sofa" — both neighbours are word characters). `WARDROBE_RE` had NO `\b` at
+// all, so it alone kept matching every wardrobe variant while its siblings
+// silently matched nothing. `hasToken` fixes this ONE way for every signal:
+// start/end-of-string and underscore/hyphen/space are ALL boundaries, so it
+// matches a free-text name ("Queen size bed frame") and a catalogue kind
+// ("kave_double_bed") through the SAME mechanism — this IS "match on the real
+// element kind", not a label-string guess, because the kind string is exactly
+// what the boundary-aware test is built to read correctly.
+
+function escapeRegExp(s: string): string {
+  return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
-function plumbingMatches(signals: RoomContentSignals, re: RegExp): boolean {
-  return signals.plumbingTypes.some((n) => re.test(n));
+/** `word` bounded by start/end-of-string or an underscore/hyphen/space on
+ *  either side — so it matches BOTH "bed" inside "kave_double_bed" (bounded
+ *  by "_" and end) and "bed" inside "a queen bed frame" (bounded by spaces). */
+function hasToken(text: string, word: string): boolean {
+  return new RegExp(`(?:^|[_\\-\\s])${escapeRegExp(word)}(?:[_\\-\\s]|$)`, 'i').test(text);
 }
 
-const BED_RE       = /\bbed\b|bunk|double\s*bed|single\s*bed/i;
-const WET_RE       = /toilet|\bwc\b|shower|\bbath\b|bathtub|sink|basin/i;
-const OUTDOOR_RE   = /\btree(s)?\b|arbol|planting|shrub|hedge|landscap/i;
-const KITCHEN_RE   = /cooker|hob|\boven\b|fridge|dishwasher|kitchen\s*unit|kitchen\s*counter/i;
-const SOFA_RE      = /\bsofa\b|couch|armchair|settee/i;
-const DESK_RE      = /\bdesk\b|workstation/i;
-const DINING_RE    = /dining\s*table/i;
-const WARDROBE_RE  = /wardrobe|closet|armoire/i;
+/** True when ANY signal name contains ANY of `words` as a delimited token. */
+function anyToken(names: readonly string[], words: readonly string[]): boolean {
+  return names.some((n) => words.some((w) => hasToken(n, w)));
+}
+
+/** True when ONE signal name contains ALL of `words` as delimited tokens —
+ *  for combinations that must land on the SAME item ("dining_table", not a
+ *  dining chair in one item and an unrelated table in another). */
+function allTokensOnOneName(names: readonly string[], words: readonly string[]): boolean {
+  return names.some((n) => words.every((w) => hasToken(n, w)));
+}
+
+/** Free-text substrings kept boundary-FREE on purpose — `WARDROBE_WORDS`
+ *  already proved (by accident) that a plain substring test survives every
+ *  catalogue variant ('wardrobe', 'corner_wardrobe', 'wardrobe_glass_door', …
+ *  all contain "wardrobe"); the same style is used here for stems/synonyms
+ *  that have no catalogue-kind form to be boundary-strict about. */
+function anySubstring(names: readonly string[], words: readonly string[]): boolean {
+  return names.some((n) => words.some((w) => n.toLowerCase().includes(w)));
+}
+
+function furnitureMatchesTokens(signals: RoomContentSignals, words: readonly string[]): boolean {
+  return anyToken(signals.furnitureNames, words);
+}
+
+function plumbingMatchesTokens(signals: RoomContentSignals, words: readonly string[]): boolean {
+  return anyToken(signals.plumbingTypes, words);
+}
+
+const BED_WORDS      = ['bed'] as const;              // + 'bunk' handled separately (see isBedSignal)
+const WET_WORDS       = ['toilet', 'wc', 'shower', 'bath', 'bathtub', 'sink', 'basin'] as const;
+const OUTDOOR_WORDS   = ['tree', 'trees', 'planting', 'shrub', 'hedge'] as const;
+const OUTDOOR_SUBSTR  = ['arbol', 'landscap'] as const; // stems: 'arbol(ito)', 'landscap(e/ing)'
+const KITCHEN_WORDS   = ['kitchen', 'oven', 'hob', 'fridge', 'dishwasher', 'cooker'] as const;
+const SOFA_WORDS      = ['sofa', 'couch', 'armchair', 'settee'] as const;
+const DESK_WORDS      = ['desk', 'workstation'] as const;
+const DINING_WORDS    = ['dining', 'table'] as const; // BOTH tokens on the SAME item
+const WARDROBE_SUBSTR = ['wardrobe', 'closet', 'armoire'] as const;
+
+/** §DOMINANCE-BED (founder, 2026-08-27, register L-12540+), verbatim: *"if bed
+ *  -> bedroom no matter what."* A bed also matches 'bunk' as a plain
+ *  substring — 'kave_bunkbed' is a real catalogue kind (BedPlanSymbolBuilder's
+ *  own out-of-scope list) with NO separator between "bunk" and "bed", so it
+ *  fails the boundary-strict token test on 'bed' alone. */
+function isBedSignal(signals: RoomContentSignals): boolean {
+  return furnitureMatchesTokens(signals, BED_WORDS) || anySubstring(signals.furnitureNames, ['bunk']);
+}
+
+// ── Rule table (DATA — first match wins AMONG THESE; bed is a PRECONDITION,
+// not a row — see classifyRoomForAutofill) ──────────────────────────────────
 
 export const ROOM_AUTOFILL_RULES: readonly AutoFillRule[] = [
   {
-    id: 'bedroom-bed', label: 'Bedroom', occupancyType: 'bedroom',
-    test: (s) => furnitureMatches(s, BED_RE),
-  },
-  {
     id: 'bathroom-wet-fixtures', label: 'Bathroom', occupancyType: 'bathroom',
-    test: (s) => plumbingMatches(s, WET_RE),
+    test: (s) => plumbingMatchesTokens(s, WET_WORDS),
   },
   {
     id: 'core-stair', label: 'Core', occupancyType: 'stairwell',
@@ -227,35 +332,76 @@ export const ROOM_AUTOFILL_RULES: readonly AutoFillRule[] = [
   },
   {
     id: 'outdoor-planting', label: 'Outdoor Area', occupancyType: 'courtyard',
-    test: (s) => furnitureMatches(s, OUTDOOR_RE),
+    test: (s) => furnitureMatchesTokens(s, OUTDOOR_WORDS) || anySubstring(s.furnitureNames, [...OUTDOOR_SUBSTR]),
   },
   {
+    // §DOMINANCE (founder, verbatim): "if sofa + kitchen + living -> kitchen."
+    // Checked BEFORE the standalone kitchen/living rows so a room matching
+    // both signals takes the combined label instead of whichever single rule
+    // happened to be listed first.
     id: 'kitchen-living-combo', label: 'Kitchen-Living', occupancyType: 'kitchen',
-    test: (s) => furnitureMatches(s, KITCHEN_RE) && furnitureMatches(s, SOFA_RE),
+    test: (s) => furnitureMatchesTokens(s, KITCHEN_WORDS) && furnitureMatchesTokens(s, SOFA_WORDS),
   },
   {
     id: 'kitchen', label: 'Kitchen', occupancyType: 'kitchen',
-    test: (s) => furnitureMatches(s, KITCHEN_RE),
+    test: (s) => furnitureMatchesTokens(s, KITCHEN_WORDS),
   },
   {
+    // §DOMINANCE (founder, verbatim): "if sofa -> living."
     id: 'living-sofa', label: 'Living', occupancyType: 'living-room',
-    test: (s) => furnitureMatches(s, SOFA_RE),
+    test: (s) => furnitureMatchesTokens(s, SOFA_WORDS),
   },
   {
     id: 'study-office-desk', label: 'Office', occupancyType: 'private-office',
-    test: (s) => furnitureMatches(s, DESK_RE),
+    test: (s) => furnitureMatchesTokens(s, DESK_WORDS),
   },
   {
     id: 'dining-table', label: 'Dining', occupancyType: 'dining-room',
-    test: (s) => furnitureMatches(s, DINING_RE),
+    test: (s) => allTokensOnOneName(s.furnitureNames, DINING_WORDS),
   },
   {
+    // §DOMINANCE (founder, verbatim): "wardrobe -> Dressing only when NOTHING
+    // higher matched" — LAST row, by construction (every row above it is
+    // checked first; the bed precondition already ran and returned before
+    // this table is ever reached — see classifyRoomForAutofill).
+    //
+    // §AREA-DEMOTION (coordinator brief, L-12540+, demoted to SECONDARY —
+    // never an override, only a tie-breaker/demotion for a WEAK, otherwise-
+    // unopposed wardrobe-only match): a room whose ONLY signal is a wardrobe
+    // but whose area is AT OR ABOVE `WARDROBE_ONLY_AREA_CEILING_M2` is more
+    // plausibly a mis-signalled bedroom/living space (a wardrobe alone proves
+    // nothing about room SIZE) than a genuine dressing room — left honestly
+    // `unclassified` rather than asserted as Dressing (founder's own example:
+    // a 224 m² "Dressing 01"). See the constant's own doc for where the
+    // number comes from and why it is a demotion, not a cited standard.
     id: 'dressing-wardrobe', label: 'Dressing', occupancyType: 'storage-residential',
-    // Belt-and-braces (see header): even if this row were ever moved above
-    // 'bedroom-bed', a room with a bed would still not classify as Dressing.
-    test: (s) => furnitureMatches(s, WARDROBE_RE) && !furnitureMatches(s, BED_RE),
+    test: (s) =>
+      anySubstring(s.furnitureNames, [...WARDROBE_SUBSTR]) &&
+      (s.areaM2 === undefined || s.areaM2 < WARDROBE_ONLY_AREA_CEILING_M2),
   },
 ];
+
+/**
+ * §AREA-DEMOTION (L-12540+) — reused, not invented: the SMALLEST habitable
+ * room type's normative floor area, from `packages/ai-host/src/workflows/
+ * apartmentLayout/rules/programRules.ts`'s `ROOM_RULES.living.minAreaM2`
+ * (14 m², cited there as "DB-047, HQI mandatory"). Mirrored as a literal
+ * rather than imported — @pryzm/spatial-index is L1, @pryzm/ai-host is L2,
+ * and importing it would be an upward layer violation
+ * `check-layer-boundaries.ts` forbids.
+ *
+ * `storage` (that database's closest existing type to "Dressing") declares a
+ * MINIMUM (1.5 m²) but no documented MAXIMUM anywhere in that database — no
+ * normative ceiling for a dressing room is on record in this repo. This
+ * number is therefore an AUTHORED demotion threshold, not a cited standard:
+ * "a room at least as large as the smallest room type this database
+ * considers habitable at all, whose ONLY furniture signal is a wardrobe, is
+ * more likely mis-signalled than genuinely a dressing room." It never
+ * overturns a stronger match — bed/sofa/kitchen/stair/wet-fixture rules all
+ * run first (bed as a hard precondition, the rest by table order), so this
+ * value is consulted ONLY when wardrobe is the sole signal found.
+ */
+const WARDROBE_ONLY_AREA_CEILING_M2 = 14;
 
 export interface RoomAutoFillClassification {
   readonly ruleId: string;
@@ -267,6 +413,11 @@ export interface RoomAutoFillClassification {
  * Classify one room from its contents, deterministically. Same room, same
  * store state → same answer, every call (no randomness, no wall-clock read).
  *
+ * §DOMINANCE-BED is enforced HERE, as a precondition evaluated before the
+ * ordered table — not by the table's row order — so a future rule inserted
+ * anywhere in `ROOM_AUTOFILL_RULES` cannot silently demote it. Pinned by
+ * `RoomAutoFillClassifier.dominance.test.ts`.
+ *
  * Returns `null` — UNCLASSIFIED — when the room's signals could not be read
  * at all, OR when every rule's `test()` returned false. The caller MUST leave
  * an unclassified room's name and occupancy untouched (§CONTEXT-DATA-HONESTY:
@@ -276,6 +427,15 @@ export interface RoomAutoFillClassification {
 export function classifyRoomForAutofill(roomId: string): RoomAutoFillClassification | null {
   const signals = gatherRoomAutofillSignals(roomId);
   if (!signals) return null;
+
+  // §DOMINANCE-BED — a PRECONDITION, evaluated before the ordered table, not a
+  // row inside it. This is what makes "if bed -> bedroom no matter what" TRUE
+  // BY CONSTRUCTION: no future insertion into ROOM_AUTOFILL_RULES can run
+  // before this line, because this line is not part of that array.
+  if (isBedSignal(signals)) {
+    return { ruleId: 'bedroom-bed', label: 'Bedroom', occupancyType: 'bedroom' };
+  }
+
   for (const rule of ROOM_AUTOFILL_RULES) {
     if (rule.test(signals)) {
       return { ruleId: rule.id, label: rule.label, occupancyType: rule.occupancyType };
