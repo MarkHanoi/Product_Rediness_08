@@ -27,6 +27,12 @@
 //
 // ⛔ ASK, NEVER AUTO-EDIT. Nothing here detects, guesses or defaults. If the
 // user cancels, the attachment keeps NO corners and the chip says so.
+//
+// §RAF166 — the fourth-corner paint deferral goes through the frame bus
+// (P3 — Single rAF; `packages/frame-scheduler/src/RafAdapter.ts` is the only
+// permitted `requestAnimationFrame` call site) rather than a raw rAF call.
+
+import { getFrameScheduler } from '@pryzm/frame-scheduler';
 
 export interface CornerPoint {
     readonly x: number;
@@ -170,8 +176,9 @@ export function pickFacadeCorners(req: CornerPickRequest): Promise<CornerQuad | 
             draw();
             if (picked.length === 4) {
                 const quad: CornerQuad = [picked[0]!, picked[1]!, picked[2]!, picked[3]!];
-                // Let the fourth point paint before the overlay goes.
-                requestAnimationFrame(() => finish(quad));
+                // Let the fourth point paint before the overlay goes. §RAF166:
+                // routed through the frame bus instead of a raw rAF call.
+                getFrameScheduler().scheduleOnce('chat-corner-pick-finish', () => finish(quad), 'overlay');
             }
         });
 

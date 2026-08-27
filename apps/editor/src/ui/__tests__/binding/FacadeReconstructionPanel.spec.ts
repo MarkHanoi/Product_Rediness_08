@@ -19,10 +19,11 @@
 //     click handlers themselves call.
 // The raster-side twins of those overlays ARE proven, by the CLI's PNG output.
 
-import { beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import { caseA } from '@pryzm/facade-reconstruction/testing';
 import type { Quad } from '@pryzm/facade-reconstruction';
+import { _resetFrameSchedulerForTest, getFrameScheduler } from '@pryzm/frame-scheduler';
 
 import { FACADE_LAYERS, confidenceCss } from '../../facade/facadeOverlays';
 import {
@@ -45,6 +46,21 @@ function text(panel: FacadeReconstructionPanel, selector: string): string {
 describe('FacadeReconstructionPanel — C108 §8 reachability + honesty', () => {
     beforeEach(() => {
         document.body.replaceChildren();
+        // §RAF166 — `_run()` now yields a frame via the frame bus
+        // (`yieldForProgress`) instead of a raw `requestAnimationFrame`. The bus
+        // only ticks once the `FrameScheduler` singleton has been `start()`-ed —
+        // by design, `wakeIfStopped()` refuses to spin up an adapter nobody gave
+        // it (see `FrameScheduler.ts`). The real app starts it exactly once at
+        // bootstrap, long before any panel can open; this spec constructs the
+        // panel standalone, so the test must reproduce that one bootstrap step
+        // itself or `loadImage()` hangs to the suite's timeout — the migrated
+        // call compiles and the P3 gate is green, but the callback silently
+        // never fires without this.
+        getFrameScheduler().start();
+    });
+
+    afterEach(() => {
+        _resetFrameSchedulerForTest();
     });
 
     it('constructs without a runtime and exposes a complementary landmark', () => {

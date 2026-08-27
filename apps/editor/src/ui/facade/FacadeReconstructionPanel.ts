@@ -52,6 +52,7 @@ import {
     type Point2,
     type Quad,
 } from '@pryzm/facade-reconstruction';
+import { yieldForProgress } from '@pryzm/frame-scheduler';
 
 import { panelManager } from '../PanelManager';
 import { injectAppTheme } from '../styles/AppTheme';
@@ -398,9 +399,18 @@ export class FacadeReconstructionPanel {
         // above never paints and the panel simply appears to hang. The engine's
         // `async` signature is the seam a worker slides behind later without
         // touching this call site (C108 §5.2).
-        await new Promise<void>((r) => {
-            requestAnimationFrame(() => r());
-        });
+        //
+        // §RAF166 — routed through `yieldForProgress` (the frame-bus yield;
+        // `packages/frame-scheduler/src/progressScheduler.ts`) instead of a raw
+        // `await new Promise(r => requestAnimationFrame(r))`. Not a mechanical
+        // substitution: that raw form is the exact bug class §PROGRESS-SCHEDULER
+        // fixed elsewhere — a hidden/backgrounded tab stops firing rAF entirely,
+        // so a bare rAF-yield here would park this panel's pipeline forever if
+        // the user switched tabs mid-measure. `yieldForProgress` keeps the same
+        // next-frame behaviour while visible and falls back to an unclamped
+        // macrotask while hidden, so the pipeline always completes. P3 is
+        // untouched — no new rAF call site, only the canonical bus API.
+        await yieldForProgress('facade-reconstruct-status-paint');
 
         try {
             const result = await reconstructFacade(decoded.image, {

@@ -46,9 +46,10 @@
  * nobody later reads a bare number as permission to retry a hang.
  */
 
-import { describe, it, expect } from 'vitest';
+import { afterEach, beforeEach, describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
+import { _resetFrameSchedulerForTest, getFrameScheduler } from '@pryzm/frame-scheduler';
 
 /** The action id that must appear identically in all three places. */
 const ACTION_ID = 'import-facade-photo';
@@ -145,6 +146,23 @@ describe('§FACADE-PANEL-REACHABILITY · ARM C — the hub handler acts on that 
  * and say so; this one runs the thing.
  */
 describe('§FACADE-CORNERS-ARE-ASKED-FOR · ARM D — the plane is asked for, not assumed', () => {
+    // §RAF166 — the panel's `_run()` now yields a frame via the frame bus
+    // (`yieldForProgress`) rather than a raw `requestAnimationFrame`. The bus
+    // only ticks once the `FrameScheduler` singleton has been `start()`-ed
+    // (by design: `wakeIfStopped()` refuses to spin up an adapter nobody gave
+    // it). The real app starts it exactly once at bootstrap, long before any
+    // panel can open; this spec constructs the panel standalone via a bare
+    // dynamic import, so it must reproduce that one bootstrap step itself or
+    // every `loadImage()`/`setFacadeQuad()` call below hangs to the test
+    // timeout — a migrated call that compiles and a green P3 gate look
+    // identical to a callback that silently never fires.
+    beforeEach(() => {
+        getFrameScheduler().start();
+    });
+    afterEach(() => {
+        _resetFrameSchedulerForTest();
+    });
+
     const load = async (): Promise<{
         panel: import('../FacadeReconstructionPanel').FacadeReconstructionPanel;
         image: import('@pryzm/facade-reconstruction').RasterImage;
