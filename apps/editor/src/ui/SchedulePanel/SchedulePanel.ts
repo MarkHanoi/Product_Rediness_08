@@ -40,7 +40,31 @@ import { readUiPreference, writeUiPreference } from '../uiPrefStorage';
  *  `_rpcGeomEvents`) rather than invented, so the schedule follows the same signal
  *  the rest of the application already treats as "the model changed". `added` and
  *  `removed` are here alongside `updated` because a schedule's ROW COUNT moves on
- *  those, not only its quantities. */
+ *  those, not only its quantities.
+ *
+ * §LIVESCHED151 (D) — ⭐ FIVE FAMILIES ADDED, and neither "canonical" list in
+ * `initScene.ts` actually names all of them, so this is NOT a re-copy.
+ * MEASURED (not read) against `ScheduleRegistry`'s own categories, which is the
+ * vocabulary this file is supposed to stay in step with: `Floors`/`Ceilings`
+ * read `floorStore`/`ceilingStore` (their `bim-floor-*`/`bim-ceiling-*` events
+ * exist — `packages/core-app-model/src/stores/FloorStore.ts` /
+ * `CeilingStore.ts` — and are even in `_rpcGeomEvents`, but PR-12's copy
+ * DROPPED them); `Handrails`/`Plumbing` read `handrailStore`/`plumbingStore`
+ * (their events exist in `HandrailStore.ts`/`PlumbingStore.ts` + the
+ * `event-bus` catalog, consumed elsewhere — `SelectionManager.ts`,
+ * `registerTransformDragHandler.ts`, `SaveOrchestrator.ts` — but never listed
+ * in EITHER canonical family here); and `Rooms` — the founder's own demo
+ * schedule (his "Floors Schedule" is `Rooms Schedule`, category `Rooms`,
+ * user-renamed — its columns are byte-for-byte `ScheduleRegistry`'s Rooms
+ * definition) — reads `roomStore`, whose `bim-room-*` events
+ * (`packages/room-topology/src/RoomStore.ts`) are real, dispatched, and
+ * consumed by half a dozen OTHER subsystems, yet are in NEITHER canonical
+ * list — a gap in `initScene.ts`'s own families, not only in this copy of
+ * them. Without this, moving a partition would recompute `room.computed.area`
+ * (via `RoomTopologyObserver`'s 150 ms debounce → re-detect → `roomStore`
+ * update → `bim-room-updated`) and the open schedule would never learn — the
+ * exact demo the founder wants to give would show a STALE flooring area next
+ * to a wall that had visibly moved. */
 const SCHEDULE_GEOMETRY_EVENTS = [
   'bim-wall-added',        'bim-wall-updated',        'bim-wall-removed',
   'bim-slab-added',        'bim-slab-updated',        'bim-slab-removed',
@@ -52,6 +76,13 @@ const SCHEDULE_GEOMETRY_EVENTS = [
   'bim-beam-added',        'bim-beam-updated',        'bim-beam-removed',
   'bim-furniture-added',   'bim-furniture-updated',   'bim-furniture-removed',
   'bim-curtainwall-added', 'bim-curtainwall-updated', 'bim-curtainwall-removed',
+  // §LIVESCHED151 (D) — see the note above for why each of these five is real,
+  // consumed elsewhere, and was nonetheless absent here.
+  'bim-room-added',        'bim-room-updated',        'bim-room-removed',
+  'bim-floor-added',       'bim-floor-updated',       'bim-floor-removed',
+  'bim-ceiling-added',     'bim-ceiling-updated',     'bim-ceiling-removed',
+  'bim-handrail-added',    'bim-handrail-updated',    'bim-handrail-removed',
+  'bim-plumbing-added',    'bim-plumbing-updated',    'bim-plumbing-removed',
 ] as const;
 import {
   resolveVisibleColumns,
