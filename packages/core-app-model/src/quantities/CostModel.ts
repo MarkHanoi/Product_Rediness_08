@@ -78,6 +78,31 @@ export interface RateBook {
   readonly entries: readonly RateEntry[];
 }
 
+// ── §RATES157 (L-12503) — the ONE key format for the browser-cached rate book ──
+//
+// The rate book's DURABLE home is the project snapshot (`ProjectSnapshot.rates`,
+// written by `ProjectSerializer` / restored by `ProjectLoader`) — see those files
+// for the persistence half. This module only owns the KEY FORMAT for the
+// per-browser `localStorage` cache that sits in front of it: the UI
+// (`apps/editor/src/ui/dataworkbench/buckets/MedicionesBucket.ts`) reads/writes
+// this cache directly for latency, and the engine persistence layer
+// (`ProjectSerializer`/`ProjectLoader`) reads/writes the SAME cache to move rates
+// into and out of the snapshot. Both sides import this pure helper rather than
+// each carrying their own copy of the prefix string — a second, silently
+// divergent copy of a storage key is exactly how a value goes "missing" while
+// still sitting in the browser under a slightly different name.
+//
+// Pure: no localStorage access here, just the string format. L2 (`core-app-model`)
+// does the I/O nowhere in this file; the app layer keeps that.
+export const RATE_BOOK_STORAGE_KEY_PREFIX = 'pryzm.mediciones.rates.';
+
+/** The per-project localStorage key for the cached rate book. `projectId` absent
+ *  or empty maps to the `'unscoped'` bucket — matches the pre-existing behaviour
+ *  of `MedicionesBucket.ts`'s `rateKey()`, unchanged by this extraction. */
+export function rateBookStorageKey(projectId: string | null | undefined): string {
+  return RATE_BOOK_STORAGE_KEY_PREFIX + (projectId && projectId.length > 0 ? projectId : 'unscoped');
+}
+
 export type UnpricedReason =
   | 'NO_RATE'
   /** A rate exists but was quoted in a different unit — applying it would be a category error. */

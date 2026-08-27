@@ -47,7 +47,7 @@ export type {
   CostSummary,
   UnpricedReason,
 } from './CostModel.js';
-export { applyRates, chapterSubtotals } from './CostModel.js';
+export { applyRates, chapterSubtotals, RATE_BOOK_STORAGE_KEY_PREFIX, rateBookStorageKey } from './CostModel.js';
 
 // ── 5D — REGIONAL COST ESTIMATES (§REGIONAL-COST-ESTIMATE, L-4830, ADR-0353) ──
 // ⛔ The mechanism ships with ZERO rates: every candidate price base is licensed

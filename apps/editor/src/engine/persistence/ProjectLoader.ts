@@ -155,6 +155,10 @@ import { restoreSiteState } from '@app/ui/site/siteDispatch';
 import { templateStore } from '@pryzm/core-app-model';
 import { templateAssignmentStore } from '@pryzm/core-app-model';
 import { elementCodeStore } from '@pryzm/core-app-model';
+// §RATES157 (L-12503) — the 5D rate book's ONE key-format helper, shared with
+// `ProjectSerializer.ts` and `MedicionesBucket.ts`'s `rateKey()`. See CostModel.ts.
+import { rateBookStorageKey, type RateEntry } from '@pryzm/core-app-model';
+import { reconcileRateBookOnLoad } from './rateBookSnapshotSync';
 import { semanticGraphManager } from '@pryzm/core-app-model';
 import { temporalGraphManager } from '@pryzm/core-app-model';
 import { decisionRecordStore } from '@pryzm/core-app-model';
@@ -2511,6 +2515,36 @@ export class ProjectLoader {
                     counters: snapshot.elementCodes.counters,
                 });
                 console.log(`[ProjectLoader] Element code store restored from snapshot (${snapshot.elementCodes.codes.length} codes)`);
+            }
+
+            // §RATES157 (L-12503) — restore/migrate the 5D rate book.
+            //
+            // There is no in-memory rate store (mirrors `ProjectSerializer`'s write
+            // side): `MedicionesBucket.ts` reads/writes a per-project cache directly
+            // in `localStorage` under `rateBookStorageKey(projectId)`, so restoring
+            // means reconciling THAT cache against `snapshot.rates` rather than
+            // calling a `.deserialize()` on a store. The precedence rule (never
+            // clobber a populated side; an empty side gets filled in) is documented
+            // and unit-tested, in both directions, in `rateBookSnapshotSync.ts` —
+            // read that file's header for the full reasoning, not this comment.
+            try {
+                if (typeof window !== 'undefined' && window.localStorage) {
+                    const ratePid = (snapshot as any).projectId ?? null;
+                    const rateCacheKey = rateBookStorageKey(ratePid);
+                    const cachedRaw = window.localStorage.getItem(rateCacheKey);
+                    const snapRates = (snapshot as any).rates as
+                        { version?: 1; currency?: string; entries?: RateEntry[] } | undefined;
+                    // The PRECEDENCE decision is pure and lives in `rateBookSnapshotSync.ts`
+                    // (unit-tested in both directions there); this call site only performs
+                    // the actual localStorage I/O the decision asks for.
+                    const decision = reconcileRateBookOnLoad(snapRates, cachedRaw);
+                    if (decision.action === 'write-cache' && decision.cacheValue !== undefined) {
+                        window.localStorage.setItem(rateCacheKey, decision.cacheValue);
+                    }
+                    console.log(`[ProjectLoader] ${decision.message}`);
+                }
+            } catch (e) {
+                console.warn('[ProjectLoader] §RATES157 rate book restore/migration failed (non-fatal):', e);
             }
 
             // Phase D — D-1 (schema v3): Restore SemanticGraph relationships.

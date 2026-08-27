@@ -32,6 +32,13 @@ import { hierarchyStore } from '@pryzm/core-app-model';
 import { templateStore } from '@pryzm/core-app-model';
 import { templateAssignmentStore } from '@pryzm/core-app-model';
 import { elementCodeStore } from '@pryzm/core-app-model';
+// §RATES157 (L-12503) — the 5D rate book's ONE key-format helper. See its own
+// header in CostModel.ts: rates live in a per-project localStorage cache that
+// this snapshot now carries through save/load, and the key MUST be derived the
+// same way here as in MedicionesBucket.ts's rateKey() — this import is that
+// guarantee instead of a second copy of the prefix string.
+import { rateBookStorageKey, type RateEntry } from '@pryzm/core-app-model';
+import { deriveSnapshotRates } from './rateBookSnapshotSync';
 import { roomBoundingLineStore } from '@pryzm/core-app-model/stores';
 import { WallStore } from '@pryzm/geometry-wall';
 import { SlabStore } from '@pryzm/geometry-slab';
@@ -362,6 +369,21 @@ export interface ProjectSnapshot {
         version: 1;
         codes: import('@pryzm/core-app-model').ElementCode[];
         counters: Record<string, number>;
+    };
+
+    /**
+     * §RATES157 (L-12503, C47 additive-optional).
+     * The 5D rate book — user-typed/imported per-line prices (BEDEC, SPON'S,
+     * RSMeans, a bespoke quotation — never a PRYZM-shipped default). Optional
+     * for backward compat: a snapshot saved before this lane has no `rates` key
+     * and MUST load cleanly with an empty book, never throw and never wipe the
+     * per-browser localStorage cache that may still hold the real data (see
+     * `ProjectLoader`'s §RATES157 recovery block).
+     */
+    rates?: {
+        version: 1;
+        currency: string;
+        entries: RateEntry[];
     };
 
     /**
@@ -1639,6 +1661,26 @@ export class ProjectSerializer {
             elementCodes: ((): ProjectSnapshot['elementCodes'] => {
                 const { codes, counters } = elementCodeStore.serialize();
                 return { version: 1, codes, counters };
+            })(),
+
+            // §RATES157 (L-12503) — the 5D rate book (C47 additive-optional).
+            // There is no in-memory rate store yet — `MedicionesBucket.ts` reads
+            // and writes a per-project cache directly in `localStorage` under
+            // `rateBookStorageKey(projectId)`. Reading that SAME key here is what
+            // makes the rate book travel with the project instead of dying with
+            // the browser it was typed in. Omitted entirely (never an empty stub)
+            // when this browser holds nothing for the project, so an untouched
+            // project's snapshot carries no `rates` key at all.
+            rates: ((): ProjectSnapshot['rates'] => {
+                // Guarded exactly like `ProjectLoader`'s existing localStorage reads:
+                // this serializer also runs under `apps/editor/vitest.config.ts`
+                // (`environment: 'node'`, `window` deliberately undefined), where a
+                // bare `localStorage` reference does not exist. The SHAPING logic
+                // itself (`deriveSnapshotRates`) is pure and lives in
+                // `rateBookSnapshotSync.ts` so it is unit-testable without `window`.
+                if (typeof window === 'undefined' || !window.localStorage) return undefined;
+                const raw = window.localStorage.getItem(rateBookStorageKey(opts.projectId ?? null));
+                return deriveSnapshotRates(raw);
             })(),
 
             // Phase D — D-1 (schema v3): Semantic graph relationships

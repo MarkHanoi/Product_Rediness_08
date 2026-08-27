@@ -204,9 +204,17 @@ describe('MEDICIONES › 5D Cost — no rate is not a zero, and no rate ships', 
     });
 
     it('says where rates are stored and what that does NOT give you', () => {
+        // §RATES157 (L-12503) — corrected. Rates now round-trip through the
+        // project snapshot (ProjectSerializer/ProjectLoader), so the disclosure
+        // must no longer claim "in this browser only" — that claim is what cost
+        // the founder a day of typed rates. What DOES stay true: rates are still
+        // outside the undo ring (C16 §8.6 — see MedicionesBucket.ts's rateKey
+        // header for the reasoning).
         mountCostPanel(panel, null);
         const text = panel.textContent ?? '';
-        expect(text).toContain('in this browser only');
+        expect(text).not.toContain('in this browser only');
+        expect(text).toMatch(/saved into the project/);
+        expect(text).toMatch(/sync/);
         expect(text).toMatch(/not covered by undo/);
     });
 });

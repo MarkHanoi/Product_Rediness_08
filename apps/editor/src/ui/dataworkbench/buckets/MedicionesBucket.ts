@@ -56,6 +56,7 @@ import {
     type LineEstimate,
     type BuildingCostEstimate,
     type RegionalBuildingCostModel,
+    rateBookStorageKey,
 } from '@pryzm/core-app-model';
 import { withHandlerSpan } from '@pryzm/plugin-sdk';
 import { escapeHtml } from './DWHelpers';
@@ -67,16 +68,30 @@ type Runtime = import('@pryzm/runtime-composer/types').PryzmRuntime | null;
 
 // ── Rate book storage ─────────────────────────────────────────────────────────
 //
-// ⚠ STATED, NOT HIDDEN: rates live in THIS BROWSER's localStorage, keyed by
-// project id. They are NOT part of the project file, they do NOT sync between
-// collaborators, and they are NOT covered by undo. The panel says all three on
-// its own face — a persistence claim the code cannot honour is the same defect
-// class as an invented rate.
-
-const RATE_STORE_PREFIX = 'pryzm.mediciones.rates.';
+// §RATES157 (L-12503) — CORRECTED. This used to read "rates live in THIS
+// BROWSER's localStorage … NOT part of the project file, do NOT sync between
+// collaborators" and that was a persistence claim the code could not honour —
+// the founder lost a day of typed cost prices to it. Rates now ALSO round-trip
+// through `ProjectSnapshot.rates` (`ProjectSerializer.serialize()` /
+// `ProjectLoader` — see those files' §RATES157 blocks), so they DO travel with
+// the project and DO sync to collaborators on the next open. This localStorage
+// read/write is now a same-browser CACHE in front of that durable copy, kept
+// for latency and for the one-time recovery path (a snapshot saved before this
+// lane sees no `rates` key; the loader adopts whatever this cache still holds
+// for the project and folds it back into the snapshot on the next save — never
+// the other way around). Undo: deliberately NOT covered, unchanged — see the
+// UI copy in `mountCostPanel` for the reasoning (C16 §8.6; rates sit outside
+// the command-bus/Immer undo ring the same way userMaterialStore, scheduleStore
+// and templateStore already do, and this file does not open a new exception).
+//
+// The KEY FORMAT itself is now owned by `rateBookStorageKey()` in
+// `@pryzm/core-app-model` (`packages/core-app-model/src/quantities/CostModel.ts`)
+// — the engine persistence layer (`ProjectSerializer`/`ProjectLoader`) needs the
+// EXACT SAME key to move rates into and out of the snapshot, and two independent
+// copies of a storage-key prefix is exactly how this kind of loss happens.
 
 function rateKey(runtime: Runtime): string {
-    return RATE_STORE_PREFIX + (runtime?.projectContext?.projectId ?? 'unscoped');
+    return rateBookStorageKey(runtime?.projectContext?.projectId ?? null);
 }
 
 // §LIVESCHED151 (E) — exported so SchedulePanel's Cost column reads the
@@ -621,8 +636,12 @@ function ratesDisclosure(regionStatement: string): string {
         ${SHIPPED_BUILDING_COST_MODEL_COUNT}.</strong> They come from official bulletins, which carry no
         copyright, and they are a €/m² for the WHOLE building — never a per-line rate, never added to the
         total above. ${escapeHtml(regionStatement)}
-        <br>Rates are stored <strong>in this browser only</strong>: they are not in the project file, they do not
-        sync to collaborators, and they are not covered by undo.
+        <br>§RATES157 — <strong>rates are saved into the project</strong>: they travel with the project file and
+        sync to collaborators the next time they open it. This browser also keeps a local copy for instant
+        access, and recovers yours from it if an older save predates this. They are
+        <strong>not covered by undo</strong> — like your material library, templates and schedule
+        definitions, a rate book is project data, not a modelled element, so undoing a wall or a door
+        does not touch it.
     </div>`;
 }
 
