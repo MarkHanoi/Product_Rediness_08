@@ -55,6 +55,7 @@ import {
 // region comes home. ⛔ Offer only — nothing here applies anything.
 import {
   captureRoomTombstone, findTombstonesFor, consumeTombstone, roomMeaningNotifier,
+  roomLossNotifier, type RoomTombstone,
 } from './roomTombstoneRegister';
 
 // ── Command ───────────────────────────────────────────────────────────────────
@@ -138,13 +139,18 @@ export class ReDetectRoomsCommand implements Command {
       // the whole set rather than one per room, because `ProjectLoader.ts:2807` already
       // records per-element console churn as a real main-thread cost.
       const lost: RoomLossRecord[] = [];
+      /** §ROOM-LOSS-NOTICE (L-12660) — every tombstone actually captured this pass, so
+       *  the ones that find NO immediate match (below) can be announced unconditionally.
+       *  See the notifier's own header for why this cannot simply reuse `roomMeaningNotifier`. */
+      const capturedTombstones: RoomTombstone[] = [];
       for (const r of existing) {
         if (newIds.has(r.id)) continue;          // preserved — leave registrations in place
         lost.push(classifyRoomLoss(r));
         // §ROOM-TOMBSTONE — durable LOSS, not a durable room. Returns undefined (and
         // keeps nothing) when the room carried no authored meaning, which is the common
         // case; the register is bounded by authored rooms lost per level per session.
-        captureRoomTombstone(r);
+        const tombstone = captureRoomTombstone(r);
+        if (tombstone) capturedTombstones.push(tombstone);
         try { roomStore.remove(r.id); } catch { /* §SWALLOW-SIDE-INDEX — see file header */ }
         try { ctx.bimManager.unregisterElement(r.id); } catch { /* §SWALLOW-SIDE-INDEX — see file header */ }
         try { elementRegistry.unregister(r.id); } catch { /* §SWALLOW-SIDE-INDEX — see file header */ }
@@ -247,6 +253,9 @@ export class ReDetectRoomsCommand implements Command {
       // §ROOM-TOMBSTONE — publish AFTER every room is in the store, so a subscriber that
       // reads the store sees the finished level rather than a half-built one. Matching is
       // O(new rooms x tombstones on this level), and BOTH factors are normally zero.
+      /** §ROOM-LOSS-NOTICE — `seq`s consumed as an IMMEDIATE match in THIS pass, so the
+       *  loss-notice below announces only the tombstones nothing already offered for. */
+      const consumedNow = new Set<number>();
       for (const room of offers) {
         const candidates = findTombstonesFor(room);
         if (candidates.length === 0) continue;
@@ -255,8 +264,35 @@ export class ReDetectRoomsCommand implements Command {
         // is offered the choice; ALL of them are consumed either way, because the
         // question has been put once and re-asking on the next wall nudge is the
         // nagging that gets a channel muted.
-        for (const t of candidates) consumeTombstone(t);
+        for (const t of candidates) { consumeTombstone(t); consumedNow.add(t.seq); }
         roomMeaningNotifier.publish({ levelId: this.levelId, roomId: room.id, candidates });
+      }
+
+      // ⭐⭐ §ROOM-LOSS-NOTICE (L-12660) — TELL THE USER NOW, unconditionally.
+      //
+      // `roomMeaningNotifier` above only speaks when a face reclaims the space on SOME
+      // later pass. The founder's own measured session never reached that: the boundary
+      // loop stayed broken (§DIAG-ROOM-LOOP BREAK, unresolvedLoopBreaks=2, a 282mm gap
+      // against the 200mm hostSnap floor), so no face was ever detected there and no
+      // offer could ever fire. The only trace was a console line he happened to read.
+      // That is the exact §CONTEXT-DATA-HONESTY failure this codebase has rules against:
+      // a destruction of the user's own classification work, invisible on screen.
+      //
+      // Every tombstone captured this pass that was NOT immediately claimed by a
+      // reclaiming face (`consumedNow`) is announced here, once, regardless of whether
+      // the gap ever closes. It does not race the offer above: a tombstone announced
+      // here and matched on a LATER pass still fires `roomMeaningNotifier` as normal,
+      // because it was never consumed — this only covers the pass where nothing claimed
+      // it, which is the founder's case and the common one for a real repair failure.
+      //
+      // Suppressed on the same two gates as the census (§LOAD-REDETECT-FREEZE /
+      // §GEN-LOG-GATING) — a restore or generation legitimately drops and re-adds rooms
+      // wholesale, and announcing that as user loss would be noise, not honesty.
+      if (!roomCensusSuppressed()) {
+        const stillPending = capturedTombstones.filter(t => !consumedNow.has(t.seq));
+        if (stillPending.length > 0) {
+          roomLossNotifier.publish({ levelId: this.levelId, tombstones: stillPending });
+        }
       }
 
       // Phase D — D-1: SemanticGraph — adjacentTo and connectedTo after all rooms are created.

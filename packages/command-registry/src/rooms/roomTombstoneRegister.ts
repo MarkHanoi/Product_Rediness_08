@@ -165,6 +165,60 @@ class RoomMeaningNotifier {
 
 export const roomMeaningNotifier = new RoomMeaningNotifier();
 
+/**
+ * §ROOM-LOSS-NOTICE (L-12660) — the TELL half. C94 §TOBE.1.2 / RM-3 companion.
+ *
+ * ## WHY THIS EXISTS ALONGSIDE `roomMeaningNotifier`, NOT INSTEAD OF IT
+ *
+ * `roomMeaningNotifier` fires an OFFER only once a freshly-detected face's centroid
+ * lands inside a tombstoned polygon — i.e. only once the region comes home. The
+ * founder's own reported session never reached that state: `§DIAG-ROOM-LOOP BREAK
+ * … unresolvedLoopBreaks=2` (a 282 mm gap against a 200 mm `hostSnap`) means the
+ * boundary loop did not close, no face was ever detected there, and no offer could
+ * ever fire — for as long as the gap stays open, which may be indefinitely. The only
+ * record was `§ROOM-LOSS-CENSUS`'s console line. **A silent destruction of authored
+ * work is the exact §CONTEXT-DATA-HONESTY failure this codebase has rules against.**
+ *
+ * This notifier fires ONCE, unconditionally, in the SAME `execute()` that dropped an
+ * authored room — independent of whether anything ever reclaims the space. It is not
+ * a substitute for the offer: a tombstone that is announced here and LATER matched by
+ * a reclaiming face still fires `roomMeaningNotifier` as before (see
+ * `ReDetectRoomsCommand`'s `consumedNow` bookkeeping) — this only covers the gap where
+ * that would otherwise never happen at all, or would happen only after an unbounded
+ * wait.
+ */
+export interface RoomLossNotice {
+    readonly levelId: string;
+    /** Tombstones captured on THIS pass that did NOT immediately find a match. Never empty. */
+    readonly tombstones: readonly RoomTombstone[];
+}
+
+type LossListener = (notice: RoomLossNotice) => void;
+
+/** Same publish/subscribe shape as {@link RoomMeaningNotifier}, deliberately. */
+class RoomLossNoticeNotifier {
+    private readonly _listeners = new Set<LossListener>();
+
+    subscribe(fn: LossListener): () => void {
+        this._listeners.add(fn);
+        return () => { this._listeners.delete(fn); };
+    }
+
+    publish(notice: RoomLossNotice): void {
+        for (const fn of [...this._listeners]) {
+            try {
+                fn(notice);
+            } catch (err) {
+                console.warn('[roomTombstoneRegister] loss-notice listener threw — ignored:', err);
+            }
+        }
+    }
+
+    get listenerCount(): number { return this._listeners.size; }
+}
+
+export const roomLossNotifier = new RoomLossNoticeNotifier();
+
 // ── The register ────────────────────────────────────────────────────────────
 const _byLevel = new Map<string, RoomTombstone[]>();
 let _seq = 0;
@@ -342,6 +396,7 @@ export function describeRoomTombstoneState(): Record<string, unknown> {
         tombstones: __byLevelValues().length,
         maxPerLevel: MAX_TOMBSTONES_PER_LEVEL,
         listeners: roomMeaningNotifier.listenerCount,
+        lossListeners: roomLossNotifier.listenerCount,
     };
 }
 
