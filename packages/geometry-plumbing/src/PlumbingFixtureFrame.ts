@@ -1,3 +1,5 @@
+import * as THREE from '@pryzm/renderer-three/three';
+
 // PlumbingFixtureFrame — THE ONE CONVENTION every reader of a plumbing fixture obeys.
 //
 // §PLUMBFRAME (founder, 2026-08-26 · L-11487..L-11491) · C84 EI-1 / EI-9 · C99 · C109.
@@ -142,6 +144,70 @@ export function plumbingFixtureWorldFootprintRing(
         x: origin.x + p.x * cos + p.z * sin,
         z: origin.z - p.x * sin + p.z * cos,
     }));
+}
+
+/**
+ * §PLUMBSYM161 (founder, 2026-08-27 · L-12680..) — reads a fixture's stored yaw
+ * regardless of HOW `rotation` survived the trip from write to read.
+ *
+ * ⛔ THE BUG THIS CLOSES, AND IT IS NOT §PLUMBFRAME'S BUG. `§PLUMBFRAME` (above)
+ * fixed WHICH way each fixture's geometry faces. This fixes a completely
+ * orthogonal defect one layer further down: `PlumbingStore.add()` / `.update()`
+ * still call `structuredClone(data)` on a DTO whose `rotation` field is typed
+ * `THREE.Euler` and, at every write site (`CreatePlumbingFixtureCommand`), IS
+ * one — a live class instance.
+ *
+ * `structuredClone` clones an object's OWN properties only; it never carries a
+ * prototype. `THREE.Euler` stores its angle in `_x`/`_y`/`_z`/`_order` — real own
+ * properties assigned in the constructor — and exposes the public `x`/`y`/`z`/
+ * `order` API as GETTERS on `Euler.prototype`. A clone keeps the former (own
+ * data survives) and loses the latter (prototype accessors do not exist on any
+ * plain object). So `clone.x` is `undefined` on every persisted plumbing
+ * fixture — silently; nothing throws.
+ *
+ * §GRAPH115 (L-11762, see `MovePlumbingCommand.ts`) hit the EXACT SAME
+ * structuredClone-strips-prototype defect for `fixture.position`
+ * (`THREE.Vector3`) and fixed it by rebuilding a fresh `Vector3` at every call
+ * site that needed `.clone()`/`.set()`. That defect was LOUD — `TypeError:
+ * clone is not a function` — which is why it got caught and fixed. This one is
+ * SILENT: `THREE.Quaternion.setFromEuler()` (see `three/src/math/Quaternion.js`)
+ * reads `euler._x`/`_y`/`_z`/`_order` directly, not the public getters, so
+ * `PlumbingFragmentBuilder.updateFixture()`'s `root.quaternion.setFromEuler(
+ * data.rotation)` kept producing the CORRECT rotation by accident — which is
+ * why the founder's 3-D placement is fine. `PlumbingPlanSymbolBuilder` /
+ * `PlumbingElevationSymbolBuilder`'s `_applyTransform`, by contrast, read the
+ * PUBLIC getter API (`Number(r.x) || 0`, …) to defensively re-wrap whatever it
+ * was handed into a fresh `Euler` — a reasonable instinct that, on a
+ * structuredClone-stripped Euler, reads `undefined` for every field and
+ * silently reconstructs `Euler(0, 0, 0)`. Every plan/elevation plumbing symbol
+ * was therefore drawn at yaw ZERO regardless of which way the fixture actually
+ * faces — the founder's "toilet mirrored 180° / shower mirrored 180° / sink
+ * rotated 90°" is exactly, and only, whatever each fixture's TRUE stored yaw
+ * happens to differ from zero by. It is ONE bug shared by all three fixture
+ * types (and by both symbol builders), not three per-fixture ones — which is
+ * why the fix is this ONE function, not a per-fixture offset table.
+ *
+ * THIS is the one place a stored rotation is read defensively, so no other
+ * caller has to know the store can hand back a corpse of an `Euler`. In order:
+ * the public getters (works for a live `Euler` or a genuine plain
+ * `{x,y,z,order}` DTO), then the underscore-prefixed internal fields (works for
+ * a structuredClone-stripped `Euler`), then 0.
+ */
+export function readFixtureRotationEuler(rotation: unknown): THREE.Euler {
+    const r = (rotation ?? {}) as Record<string, unknown>;
+    const pick = (pub: string, priv: string): number => {
+        const pv = r[pub];
+        if (typeof pv === 'number' && Number.isFinite(pv)) return pv;
+        const iv = r[priv];
+        if (typeof iv === 'number' && Number.isFinite(iv)) return iv;
+        return 0;
+    };
+    const x = pick('x', '_x');
+    const y = pick('y', '_y');
+    const z = pick('z', '_z');
+    const orderRaw = r['order'] ?? r['_order'];
+    const order = (typeof orderRaw === 'string' ? orderRaw : 'XYZ') as THREE.EulerOrder;
+    return new THREE.Euler(x, y, z, order);
 }
 
 /**

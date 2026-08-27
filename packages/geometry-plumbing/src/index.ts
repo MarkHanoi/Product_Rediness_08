@@ -67,6 +67,7 @@ export {
     plumbingFixtureLocalFootprintRing,
     plumbingFixtureWorldFootprintRing,
     PLUMBING_FIXTURE_HALF_TURN,
+    readFixtureRotationEuler,
 } from './PlumbingFixtureFrame';
 export {
     bathroomPodMemberCount,

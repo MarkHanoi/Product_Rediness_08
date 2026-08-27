@@ -31,6 +31,7 @@ import * as OBC from '@thatopen/components';
 import { ViewDefinition, registerSegmentUUID, storeRegistry } from '@pryzm/core-app-model';
 import type { PlumbingFixtureData } from './PlumbingTypes';
 import { buildPlanLinework } from './PlumbingSymbolGeometry';
+import { readFixtureRotationEuler } from './PlumbingFixtureFrame';
 
 /** ISO 13567 DXF layer for plumbing/MEP fixtures — matches ELEMENT_TYPE_TO_PROJECTION_LAYER. */
 const PLMB_LAYER = 'A-PLMB';
@@ -87,16 +88,20 @@ export class PlumbingPlanSymbolBuilder {
         }
     }
 
+    /**
+     * §PLUMBSYM161 — `fixture.rotation` reads via `readFixtureRotationEuler`, NOT
+     * `Number(r.x) || 0`. The store hands back a `structuredClone`d record, which
+     * strips `THREE.Euler`'s prototype (its public `x`/`y`/`z`/`order` getters)
+     * while keeping its private `_x`/`_y`/`_z`/`_order` fields intact. Reading the
+     * public getters off that corpse silently yields `undefined` for every
+     * field, so the OLD code here always drew every plumbing plan symbol at yaw
+     * ZERO — see `PlumbingFixtureFrame.ts`'s `readFixtureRotationEuler` header
+     * for the full measurement (§PLUMBSYM161, L-12680).
+     */
     private _applyTransform(obj: THREE.Object3D, fixture: PlumbingFixtureData): void {
         const p = fixture.position;
         if (p) obj.position.set(Number(p.x) || 0, Number(p.y) || 0, Number(p.z) || 0);
-        const r = fixture.rotation;
-        if (r) {
-            obj.quaternion.setFromEuler(new THREE.Euler(
-                Number(r.x) || 0, Number(r.y) || 0, Number(r.z) || 0,
-                ((r as THREE.Euler).order || 'XYZ') as THREE.EulerOrder,
-            ));
-        }
+        if (fixture.rotation) obj.quaternion.setFromEuler(readFixtureRotationEuler(fixture.rotation));
     }
 }
 

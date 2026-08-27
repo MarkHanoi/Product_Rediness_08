@@ -29,6 +29,7 @@ import * as OBC from '@thatopen/components';
 import { ViewDefinition, registerSegmentUUID, storeRegistry } from '@pryzm/core-app-model';
 import type { PlumbingFixtureData } from './PlumbingTypes';
 import { buildElevationLinework } from './PlumbingSymbolGeometry';
+import { readFixtureRotationEuler } from './PlumbingFixtureFrame';
 
 const PLMB_LAYER = 'A-PLMB';
 
@@ -83,16 +84,17 @@ export class PlumbingElevationSymbolBuilder {
         }
     }
 
+    /**
+     * §PLUMBSYM161 — SAME defect and SAME fix as `PlumbingPlanSymbolBuilder`'s
+     * twin method: `fixture.rotation` reads via `readFixtureRotationEuler`, not
+     * the public `Euler` getters, because the store hands back a
+     * `structuredClone`d record that has lost them. See
+     * `PlumbingFixtureFrame.ts`'s `readFixtureRotationEuler` header.
+     */
     private _applyTransform(obj: THREE.Object3D, fixture: PlumbingFixtureData): void {
         const p = fixture.position;
         if (p) obj.position.set(Number(p.x) || 0, Number(p.y) || 0, Number(p.z) || 0);
-        const r = fixture.rotation;
-        if (r) {
-            obj.quaternion.setFromEuler(new THREE.Euler(
-                Number(r.x) || 0, Number(r.y) || 0, Number(r.z) || 0,
-                ((r as THREE.Euler).order || 'XYZ') as THREE.EulerOrder,
-            ));
-        }
+        if (fixture.rotation) obj.quaternion.setFromEuler(readFixtureRotationEuler(fixture.rotation));
     }
 }
 
