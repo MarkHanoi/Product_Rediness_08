@@ -251,6 +251,7 @@ export class PlanOrdering {
         [CommandType.SET_ROOM_OCCUPANCY]:      51,
         [CommandType.UPDATE_ROOM_FINISHES]:    51,
         [CommandType.UPDATE_ROOM_FINISHES_BULK]: 51,
+        [CommandType.BULK_AUTO_CLASSIFY_ROOMS]: 51,
         [CommandType.DELETE_ROOM]:             90,
         // FIX-7: Sketch degradation on wall removal (cascading structural change)
         [CommandType.DEGRADE_SLAB_SKETCH]:     85,
