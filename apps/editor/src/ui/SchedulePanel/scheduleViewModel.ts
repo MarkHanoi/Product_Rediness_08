@@ -170,6 +170,95 @@ export function computeColumnTotal(
   return sawNonNumber ? `≥ ${total}` : total;
 }
 
+// ── Filtering (§SCHED156-FILTER, L-12606) ──────────────────────────────────
+//
+// The founder: "Also allow to filter the data in the schedule, by level, by
+// room." Both facts already render on most schedules (Walls has Level and
+// Room Side A/B; Doors has Level, Room From, Room To; Windows has Level,
+// Room, Adjacent Room; Rooms has Level) — this is a UI affordance over data
+// already extracted, not new extraction, per the founder's own framing.
+//
+// Generic over a column where cheap (a schedule offers an axis only when its
+// palette actually carries a matching column id), rather than a bespoke
+// filter per schedule. Two axes ship — LEVEL and ROOM — rather than a fully
+// generic per-column filter engine nobody asked for yet.
+
+/** The column ids checked for the ROOM axis, in no particular priority — a
+ *  row matches if ANY of these (whichever the schedule's palette carries)
+ *  equals the selected value. Doors carry the fact under `roomFrom`/`roomTo`,
+ *  Windows under `room`/`adjacentRoom`, Walls under `roomSideA`/`roomSideB` —
+ *  one filter axis, several vocabularies, because the schedules themselves
+ *  already disagree on the column id for "the room this row touches". */
+const ROOM_FILTER_COLUMN_IDS = ['room', 'roomFrom', 'roomTo', 'roomSideA', 'roomSideB', 'adjacentRoom'] as const;
+
+export type ScheduleFilterAxis = 'level' | 'room';
+
+/** `null` (not `'—'`, not `''`) ⇒ "show every row" — the same "absence is a
+ *  real value, not a sentinel string" discipline the honesty columns use. */
+export interface ScheduleFilterState {
+  readonly level: string | null;
+  readonly room: string | null;
+}
+
+export const EMPTY_SCHEDULE_FILTER: ScheduleFilterState = { level: null, room: null };
+
+function axisColumnIds(axis: ScheduleFilterAxis): readonly string[] {
+  return axis === 'level' ? ['level'] : ROOM_FILTER_COLUMN_IDS;
+}
+
+/** Which axes this schedule's column PALETTE supports — an axis with no
+ *  matching column id contributes no filter control, rather than an empty
+ *  dropdown nobody could ever use. Checked against the full palette
+ *  (`allColumns`), not the currently-visible subset, so hiding the Level
+ *  column in EDIT mode does not also remove the ability to filter by it. */
+export function supportedFilterAxes(cols: ReadonlyArray<ScheduleColumn>): ScheduleFilterAxis[] {
+  const ids = new Set(cols.map((c) => c.id));
+  const axes: ScheduleFilterAxis[] = [];
+  if (ids.has('level')) axes.push('level');
+  if (ROOM_FILTER_COLUMN_IDS.some((id) => ids.has(id))) axes.push('room');
+  return axes;
+}
+
+/** Distinct, sorted values an axis could be set to — read off the given row
+ *  set. Callers pass the FULL unfiltered rows so a dropdown always offers
+ *  every option, never only the options that survive today's OTHER filter. */
+export function distinctAxisValues(
+  axis: ScheduleFilterAxis,
+  cols: ReadonlyArray<ScheduleColumn>,
+  rows: ReadonlyArray<Record<string, unknown>>,
+): string[] {
+  const relevantCols = cols.filter((c) => axisColumnIds(axis).includes(c.id));
+  const values = new Set<string>();
+  for (const row of rows) {
+    for (const col of relevantCols) {
+      const v = String(col.value(row) ?? '').trim();
+      if (v && v !== '—') values.add(v);
+    }
+  }
+  return [...values].sort((a, b) => a.localeCompare(b));
+}
+
+/**
+ * The rows matching the given filter state — BOTH axes apply together (AND),
+ * each axis itself an OR across its candidate columns (a door matches the
+ * "101" room filter whether "101" is its Room From or its Room To).
+ * `{ level: null, room: null }` (or any all-null state) returns every row,
+ * unfiltered — a fresh array, never the same reference, so a caller cannot
+ * mistake "no filter" for "mutate freely".
+ */
+export function applyScheduleFilters(
+  cols: ReadonlyArray<ScheduleColumn>,
+  rows: ReadonlyArray<Record<string, unknown>>,
+  filters: ScheduleFilterState,
+): Record<string, unknown>[] {
+  const matchesAxis = (axis: ScheduleFilterAxis, selected: string | null, row: Record<string, unknown>): boolean => {
+    if (!selected) return true;
+    const relevantCols = cols.filter((c) => axisColumnIds(axis).includes(c.id));
+    return relevantCols.some((col) => String(col.value(row) ?? '').trim() === selected);
+  };
+  return rows.filter((row) => matchesAxis('level', filters.level, row) && matchesAxis('room', filters.room, row));
+}
+
 /**
  * Compute the new `fields` array after toggling a single column's membership.
  * Membership order always follows the registry column order (`orderedColumnIds`)

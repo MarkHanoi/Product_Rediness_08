@@ -99,6 +99,12 @@ import {
   toggleFieldPatch,
   dispatchScheduleUpdate,
   computeColumnTotal,
+  supportedFilterAxes,
+  distinctAxisValues,
+  applyScheduleFilters,
+  EMPTY_SCHEDULE_FILTER,
+  type ScheduleFilterState,
+  type ScheduleFilterAxis,
 } from './scheduleViewModel';
 
 /**
@@ -140,6 +146,15 @@ export class SchedulePanel {
    *  architect opening a schedule mid-review is not shown numbers they never
    *  asked to see. */
   private _showTotals = false;
+  /**
+   * §SCHED156-FILTER (L-12606) — founder: "allow to filter the data in the
+   * schedule, by level, by room." Session-only, like `_showTotals` right
+   * above (same rationale: an option, not a remembered preference) and reset
+   * whenever a different schedule is shown (`show()`) — a Level filter left
+   * over from the Doors schedule would silently hide rows on the Rooms
+   * schedule next opened, which is a wrong table, not a convenience.
+   */
+  private _filters: ScheduleFilterState = EMPTY_SCHEDULE_FILTER;
   private _currentScheduleId: string | null = null;
   private _tbody: HTMLTableSectionElement | null = null;
 
@@ -303,6 +318,7 @@ export class SchedulePanel {
   }
 
   show(scheduleId: string) {
+    if (this._currentScheduleId !== scheduleId) this._filters = EMPTY_SCHEDULE_FILTER;
     this._currentScheduleId = scheduleId;
     this._mode = 'view';
     this.render();
@@ -356,9 +372,11 @@ export class SchedulePanel {
     // §LIVESCHED151 (E) — the take-off is real work, so `ScheduleExtractor`
     // only does it when THIS schedule's persisted columns actually include
     // 'cost'. A schedule with Cost hidden, or a category the 5D engine does
-    // not cover (Floors/Roofs/Slabs/Ceilings/Furniture/Plumbing — see
-    // ScheduleExtractor's own `COST_COVERED_CATEGORIES`), computes nothing
-    // extra: `costContext` stays `undefined` and `attachCost()` is a no-op.
+    // not cover (Plumbing and the Data-Platform/Materials schedules — see
+    // ScheduleExtractor's own `COST_COVERED_CATEGORIES`; §SCHED156-COST5
+    // added Floors/Roofs/Ceilings/Slabs/Furniture, which WERE previously
+    // excluded here on a stale claim), computes nothing extra: `costContext`
+    // stays `undefined` and `attachCost()` is a no-op.
     const wantsCost = (storeFields(schedule.id) ?? []).includes('cost');
     const costContext = wantsCost ? { rateBook: loadRateBook(this.runtime) } : undefined;
     const rows = ScheduleExtractor.getRows(schedule.category, costContext);
@@ -373,6 +391,18 @@ export class SchedulePanel {
     const paletteCols  = allColumns(schedule.id);
     const visibleCols  = resolveVisibleColumns(schedule.id);
     const persistedIds = new Set(storeFields(schedule.id) ?? []);
+    // §SCHED156-FILTER (L-12606) — checked against the PALETTE (not only the
+    // visible columns), so hiding the Level column in EDIT mode does not also
+    // remove the ability to filter by it. `filteredRows` is what the table
+    // body, the row-count badge and the totals row all read from now — never
+    // `rows` directly — so a filtered totals row can never silently sum the
+    // unfiltered set (the founder's own requirement).
+    const filterAxes   = supportedFilterAxes(paletteCols);
+    // Cast back to the same loose shape `rows` already carries (`getRows()`
+    // returns `any[]`) — `applyScheduleFilters` itself stays honestly typed
+    // (`Record<string, unknown>`); only this call site, which already treats
+    // every row as `any` throughout (`row.id`, `col.value(row)`, …), widens it.
+    const filteredRows = applyScheduleFilters(paletteCols, rows, this._filters) as any[];
     const displayName  = scheduleName(schedule.id);
     const totalCols    = paletteCols.length;
     const visibleCount = visibleCols.length;
@@ -417,10 +447,14 @@ export class SchedulePanel {
       this.render();
     });
 
-    // Row count badge
+    // Row count badge — §SCHED156-FILTER (L-12606): "N of M" the moment a
+    // filter narrows the set, plain "M items" otherwise (never silently
+    // implying the panel shows everything when it does not).
     const countBadge = document.createElement('span');
     countBadge.className = 'sched-count-badge';
-    countBadge.textContent = `${rows.length} item${rows.length !== 1 ? 's' : ''}`;
+    countBadge.textContent = filteredRows.length === rows.length
+      ? `${rows.length} item${rows.length !== 1 ? 's' : ''}`
+      : `${filteredRows.length} of ${rows.length} items`;
 
     // §LIVESCHED151 (E) — "totals as an option at the bottom" (founder).
     // Reuses the existing `.sched-fields-btn` toggle-button look (Edit's own
@@ -470,6 +504,64 @@ export class SchedulePanel {
     header.appendChild(totalsBtn);
     header.appendChild(pinBtn);
     header.appendChild(closeBtn);
+
+    // ── Filter bar (§SCHED156-FILTER, L-12606) ────────────────────────────────
+    // Founder: "allow to filter the data in the schedule, by level, by room."
+    // An axis with no matching column contributes no control — a Materials
+    // Library schedule (no Level, no Room) shows no filter bar at all rather
+    // than two disabled dropdowns nobody could use.
+    let filterBar: HTMLElement | null = null;
+    if (filterAxes.length > 0) {
+      filterBar = document.createElement('div');
+      filterBar.className = 'sched-filter-bar';
+
+      const AXIS_LABEL: Record<ScheduleFilterAxis, string> = { level: 'Level', room: 'Room' };
+      filterAxes.forEach((axis) => {
+        const label = document.createElement('span');
+        label.className = 'sched-filter-label';
+        label.textContent = AXIS_LABEL[axis];
+
+        const select = document.createElement('select');
+        select.className = `sched-filter-select${this._filters[axis] ? ' sched-filter-select--active' : ''}`;
+        select.setAttribute('aria-label', `Filter by ${AXIS_LABEL[axis]}`);
+
+        const allOpt = document.createElement('option');
+        allOpt.value = '';
+        allOpt.textContent = `All`;
+        select.appendChild(allOpt);
+
+        // Distinct values come from the FULL (unfiltered) row set so the
+        // dropdown always offers every option, never only what survives the
+        // OTHER axis's current filter.
+        for (const value of distinctAxisValues(axis, paletteCols, rows)) {
+          const opt = document.createElement('option');
+          opt.value = value;
+          opt.textContent = value;
+          select.appendChild(opt);
+        }
+        select.value = this._filters[axis] ?? '';
+
+        select.addEventListener('change', () => {
+          this._filters = { ...this._filters, [axis]: select.value || null };
+          this.render();
+        });
+
+        filterBar!.appendChild(label);
+        filterBar!.appendChild(select);
+      });
+
+      if (this._filters.level || this._filters.room) {
+        const clearBtn = document.createElement('button');
+        clearBtn.type = 'button';
+        clearBtn.className = 'sched-filter-clear';
+        clearBtn.textContent = 'Clear filters';
+        clearBtn.addEventListener('click', () => {
+          this._filters = EMPTY_SCHEDULE_FILTER;
+          this.render();
+        });
+        filterBar.appendChild(clearBtn);
+      }
+    }
 
     // ── Layout container ─────────────────────────────────────────────────────
     const layout = document.createElement('div');
@@ -591,10 +683,14 @@ export class SchedulePanel {
       emptyMsg.className = 'sched-empty';
       emptyMsg.textContent = 'No columns in this schedule. Use Edit to add columns.';
       body.appendChild(emptyMsg);
-    } else if (rows.length === 0) {
+    } else if (filteredRows.length === 0) {
       const emptyMsg = document.createElement('div');
       emptyMsg.className = 'sched-empty';
-      emptyMsg.textContent = `No ${schedule.category.toLowerCase()} found in the model.`;
+      emptyMsg.textContent = rows.length === 0
+        ? `No ${schedule.category.toLowerCase()} found in the model.`
+        // §SCHED156-FILTER — a filter matching nothing is a DIFFERENT message
+        // from an empty model: the rows exist, the filter combination does not.
+        : `No rows match the current filter${filterAxes.length > 1 ? 's' : ''}.`;
       body.appendChild(emptyMsg);
     } else {
       const tableWrap = document.createElement('div');
@@ -667,7 +763,7 @@ export class SchedulePanel {
       const tbody = document.createElement('tbody');
       this._tbody = tbody;
 
-      rows.forEach(row => {
+      filteredRows.forEach(row => {
         const tr = document.createElement('tr');
         if (row.id) {
           tr.dataset.elementId = row.id;
@@ -715,16 +811,23 @@ export class SchedulePanel {
       // LOWER BOUND the instant any contributing row was unmeasured/unpriced
       // — the Cost column's own per-row honesty rule, applied once more here
       // rather than a second rule for the total.
-      if (this._showTotals && rows.length > 0) {
+      //
+      // §SCHED156-FILTER (L-12606) — sums `filteredRows`, NOT `rows`. A
+      // filtered table showing an unfiltered total is a wrong number
+      // presented confidently — exactly what the `≥` lower-bound discipline
+      // exists to prevent. `computeColumnTotal` needed no changes for this:
+      // it already sums whatever row array its caller passes it, so filtering
+      // OUT every unpriced/unmeasured row makes the `≥` disappear on its own.
+      if (this._showTotals && filteredRows.length > 0) {
         const tfoot = document.createElement('tfoot');
         const totalsRow = document.createElement('tr');
         totalsRow.className = 'sched-totals-row';
         visibleCols.forEach((col, idx) => {
           const td = document.createElement('td');
           if (idx === 0) {
-            td.textContent = `Totals — ${rows.length} item${rows.length !== 1 ? 's' : ''}`;
+            td.textContent = `Totals — ${filteredRows.length} item${filteredRows.length !== 1 ? 's' : ''}`;
           } else {
-            td.textContent = computeColumnTotal(col, rows) ?? '';
+            td.textContent = computeColumnTotal(col, filteredRows) ?? '';
           }
           totalsRow.appendChild(td);
         });
@@ -739,6 +842,7 @@ export class SchedulePanel {
     layout.appendChild(body);
 
     this._contentEl.appendChild(header);
+    if (filterBar) this._contentEl.appendChild(filterBar);
     this._contentEl.appendChild(layout);
   }
 }

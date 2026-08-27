@@ -273,6 +273,48 @@ export const SCHEDULE_PANEL_STYLES = `
         white-space: nowrap;
     }
 
+    /* ── Filter bar (§SCHED156-FILTER, L-12606) ────────────────────────────── */
+    .sched-filter-bar {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 6px 16px;
+        background: var(--app-bg);
+        border-bottom: 1px solid var(--app-border-light, var(--app-border));
+        flex-shrink: 0;
+    }
+    .sched-filter-label {
+        font-size: 11px;
+        font-weight: 600;
+        color: var(--app-text-muted);
+        font-family: var(--app-font);
+    }
+    .sched-filter-select {
+        font-size: 11px;
+        font-family: var(--app-font);
+        color: var(--app-text);
+        background: var(--app-panel-bg);
+        border: 1px solid var(--app-border);
+        border-radius: var(--app-radius-md, 5px);
+        padding: 3px 6px;
+        cursor: pointer;
+    }
+    .sched-filter-select--active {
+        border-color: var(--app-violet, #7c3aed);
+        color: var(--app-violet, #7c3aed);
+        font-weight: 600;
+    }
+    .sched-filter-clear {
+        font-size: 11px;
+        font-family: var(--app-font);
+        color: var(--app-violet, #7c3aed);
+        background: transparent;
+        border: none;
+        cursor: pointer;
+        padding: 2px 6px;
+        text-decoration: underline;
+    }
+
     /* ── Fields (column picker) button ─────────────────────────────────────── */
     .sched-fields-btn {
         display: flex;
