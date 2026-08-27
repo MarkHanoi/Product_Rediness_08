@@ -109,6 +109,67 @@ export function projectRows(
   }));
 }
 
+/** A plain numeric string, and NOTHING else — never "3 room(s)" or an
+ *  "⚠ cannot determine" sentinel. Deliberately strict: a loose numeric parse
+ *  (`parseFloat`) would silently sum the "3" out of "3 room(s)" and call that
+ *  a total. */
+const PLAIN_NUMBER_RE = /^-?\d+(\.\d+)?$/;
+
+/**
+ * §LIVESCHED151 (E) — one column's total over the CURRENTLY VISIBLE rows.
+ * `null` ⇒ this column has no meaningful total (e.g. Name, Level — every row
+ * read as non-numeric) and the totals row leaves its cell blank.
+ *
+ * §CONTEXT-DATA-HONESTY / C78 §8.1 — the Cost column is handled SEPARATELY
+ * from every other numeric column, because "total cost" cannot be read off
+ * the already-formatted display string (`'≥ EUR 800.00'`, `'NO RATE'`,
+ * `'not costed'`): it must sum the RAW `row.cost`, and it is a LOWER BOUND
+ * ('≥ …') the instant any contributing row is `!costComplete` OR
+ * `!costMeasured` — exactly the same rule the row-level cell already
+ * follows, applied once more at the total.
+ */
+export function computeColumnTotal(
+  col: ScheduleColumn,
+  rows: ReadonlyArray<Record<string, unknown>>,
+): string | null {
+  if (rows.length === 0) return null;
+
+  if (col.id === 'cost') {
+    let sum = 0;
+    let anyPriced = false;
+    let anyMeasured = false;
+    let complete = true;
+    let currency = '';
+    for (const r of rows) {
+      if (!r.costMeasured) { complete = false; continue; } // excluded, not zero
+      anyMeasured = true;
+      if (typeof r.costCurrency === 'string' && r.costCurrency) currency = r.costCurrency;
+      if (!r.costComplete) complete = false;
+      if (typeof r.cost === 'number') { sum += r.cost; anyPriced = true; }
+    }
+    if (!anyMeasured) return null; // nothing in view is even measured
+    if (!anyPriced) return 'NO RATE';
+    const amount = `${currency ? currency + ' ' : ''}${sum.toFixed(2)}`;
+    return complete ? amount : `≥ ${amount}`;
+  }
+
+  let sum = 0;
+  let sawNumber = false;
+  let sawNonNumber = false;
+  for (const r of rows) {
+    const raw = col.value(r);
+    const text = String(raw ?? '').trim();
+    if (PLAIN_NUMBER_RE.test(text)) { sum += Number(text); sawNumber = true; }
+    else sawNonNumber = true;
+  }
+  if (!sawNumber) return null; // not a numeric column at all (Name, Level, Type, …)
+  const total = sum.toFixed(2);
+  // A total over a column where SOME rows could not be read as a plain number
+  // (an undetermined sentinel, a blank) is a LOWER BOUND on the true sum,
+  // exactly like an unpriced Cost row — the same glyph says the same thing.
+  return sawNonNumber ? `≥ ${total}` : total;
+}
+
 /**
  * Compute the new `fields` array after toggling a single column's membership.
  * Membership order always follows the registry column order (`orderedColumnIds`)

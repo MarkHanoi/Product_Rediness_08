@@ -24,6 +24,16 @@ import { FINISH_UNDETERMINED } from '../RoomFinishResolver.js';
 import { doorStore } from '@pryzm/geometry-door';
 import { windowStore } from '@pryzm/geometry-window';
 import { STANDARD_MATERIAL_LIBRARY } from '@pryzm/core-app-model/material-library';
+// §LIVESCHED151 (E) — the 5D cost engine, reused rather than re-implemented
+// (C84 EI-9). Relative imports (not the package barrel), same reason as the
+// two RoomFinishResolver/boundingWallDetermination imports above.
+import { computeTakeoff } from '../quantities/QuantityTakeoff.js';
+import { applyRates, type RateBook } from '../quantities/CostModel.js';
+import {
+  buildElementCostIndex,
+  summariseElementCost,
+  type ElementCostContribution,
+} from './ScheduleCostBridge.js';
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -62,10 +72,75 @@ function polygonArea(pts: Array<{ x: number; y?: number; z?: number; [k: string]
 
 // ── Extractor ─────────────────────────────────────────────────────────────────
 
+/**
+ * §LIVESCHED151 (E) — categories the 5D take-off (`computeTakeoff()`)
+ * actually measures, MEASURED against `QuantityTakeoff.ts`'s own `family:`
+ * declarations rather than assumed. `Floors` (the floorStore element),
+ * `Roofs`, `Slabs`, `Ceilings` (as their own store, distinct from a room's
+ * ceiling FINISH), `Furniture`, `Plumbing` and the Data-Platform/Materials
+ * schedules are NOT in this set — the take-off has zero coverage for them
+ * today, so `getRows()` does not attach a 'cost' field there at all rather
+ * than attach one that would always read "not costed" (the same "state the
+ * gap, don't paper over it" rule `ELEMENT_FAMILY_SCHEDULES` already follows).
+ */
+const COST_COVERED_CATEGORIES: ReadonlySet<string> = new Set([
+  'Walls', 'Doors', 'Windows', 'Columns', 'Beams', 'Handrails', 'Stairs',
+  'CurtainWalls', 'Rooms',
+]);
+
 export class ScheduleExtractor {
-  static getRows(categoryId: string): any[] {
+  /**
+   * @param costContext §LIVESCHED151 (E) — OPTIONAL, and deliberately not read
+   * from storage HERE: this is L2 (`packages/core-app-model`), and the rate
+   * book lives in browser `localStorage` (an L7 concern — see
+   * `apps/editor/.../MedicionesBucket.ts`'s own `loadRateBook`). The CALLER
+   * (SchedulePanel) decides whether to pay for a take-off at all — it is
+   * real work, so it happens ONLY when a schedule's persisted columns
+   * actually include a take-off-derived field. `costContext.rateBook: null`
+   * still computes the take-off (so quantities stay available) but prices
+   * nothing — every contribution reads as unpriced, honestly.
+   */
+  static getRows(categoryId: string, costContext?: { rateBook: RateBook | null } | null): any[] {
     const wallStore = window.wallStore // TODO(TASK-07) as WallStore;
     const bimManager = window.bimManager;
+
+    // §LIVESCHED151 (E) — see ScheduleCostBridge.ts's header for why a line's
+    // cost must be re-attributed PER CONTRIBUTION rather than read off the
+    // line directly (one line can price several elements at once).
+    let costIndex: ReadonlyMap<string, readonly ElementCostContribution[]> | null = null;
+    let costCurrency: string | null = null;
+    if (costContext != null && COST_COVERED_CATEGORIES.has(categoryId)) {
+      try {
+        const takeoff = computeTakeoff();
+        const costed = applyRates(takeoff, costContext.rateBook ?? null);
+        costIndex = buildElementCostIndex(costed);
+        costCurrency =
+          costContext.rateBook && costContext.rateBook.entries.length > 0
+            ? costContext.rateBook.currency
+            : null;
+      } catch (err) {
+        // A broken cost computation must never blank the schedule itself —
+        // only the Cost column degrades, and it degrades HONESTLY (below).
+        console.warn(
+          '[ScheduleExtractor] §LIVESCHED151 cost take-off failed (non-fatal — Cost column reports unmeasured):',
+          err,
+        );
+      }
+    }
+    /** Attach 'cost'/'costComplete'/'costMeasured'/'costReason'/'costCurrency'
+     *  to a row — a no-op (same reference, zero allocation) whenever no cost
+     *  column was asked for, so every OTHER category and every schedule with
+     *  Cost hidden pays nothing for this. */
+    const attachCost = (row: any): any => {
+      if (!costIndex) return row;
+      const summary = summariseElementCost(costIndex.get(row.id));
+      row.cost = summary.amount;
+      row.costComplete = summary.complete;
+      row.costMeasured = summary.measured;
+      row.costReason = summary.reason;
+      row.costCurrency = costCurrency;
+      return row;
+    };
 
     // ── ARCHITECTURE — Walls ────────────────────────────────────────────────
     if (categoryId === 'Walls') {
@@ -75,7 +150,7 @@ export class ScheduleExtractor {
         const length = Math.sqrt((_bl1.x-_bl0.x)**2 + (_bl1.y-_bl0.y)**2 + (_bl1.z-_bl0.z)**2);
         const adjRooms = RoomRelationshipService.getWallAdjacentRooms(w);
         const levelName = resolveLevel(bimManager, (w as any).levelId, 0);
-        return {
+        return attachCost({
           id:        w.id,
           type:      w.type || 'Wall',
           length:    length.toFixed(2),
@@ -84,7 +159,7 @@ export class ScheduleExtractor {
           level:     levelName,
           roomSideA: fmtRoom(adjRooms[0] ?? null),
           roomSideB: fmtRoom(adjRooms[1] ?? null),
-        };
+        });
       });
     }
 
@@ -228,7 +303,7 @@ export class ScheduleExtractor {
 
         const finishes = resolveRoomFinishes(r);
 
-        return {
+        return attachCost({
           id:            r.id,
           number:        r.roomNumber || '—',
           name:          r.name       || '—',
@@ -252,7 +327,7 @@ export class ScheduleExtractor {
           windows:       wallsUndetermined ? FINISH_UNDETERMINED : windowMarks,
           walls:         wallsUndetermined ? FINISH_UNDETERMINED : wallCount,
           furniture:     furnitureCount,
-        };
+        });
       });
     }
 
@@ -265,7 +340,7 @@ export class ScheduleExtractor {
         const topLevelName  = resolveLevel(bimManager, s.topLevelId);
         const totalRisers   = s.riserCount || (s.flights ?? []).reduce((acc: number, f: any) => acc + (f.riserCount ?? 0), 0);
         const blondel       = 2 * (s.riserHeight ?? 0) + (s.treadDepth ?? 0);
-        return {
+        return attachCost({
           id:             s.id,
           mark:           s.properties?.mark ?? '—',
           shape:          s.shape ?? '—',
@@ -278,7 +353,7 @@ export class ScheduleExtractor {
           accessibilityType: s.accessibilityType ?? 'standard',
           fireRating:     s.fireRating ?? '—',
           blondelOk:      blondel >= 0.600 && blondel <= 0.650,
-        };
+        });
       });
     }
 
@@ -297,7 +372,7 @@ export class ScheduleExtractor {
           : { roomFrom: null, roomTo: null };
         const storedDoorMark = doorStore.getById(d.id)?.mark;
         const doorMark = storedDoorMark ?? `D-${String(idx + 1).padStart(3, '0')}`;
-        return {
+        return attachCost({
           id:         d.id,
           mark:       doorMark,
           type:       d.doorType === 'double' ? 'Double Door' : 'Single Door',
@@ -308,7 +383,7 @@ export class ScheduleExtractor {
           hostWall:   wallRef,
           roomFrom:   fmtRoom(rel.roomFrom),
           roomTo:     fmtRoom(rel.roomTo),
-        };
+        });
       });
     }
 
@@ -327,7 +402,7 @@ export class ScheduleExtractor {
         const levelName  = level?.name ?? resolveLevel(bimManager, levelId, w.sillHeight || 0);
         const storedWindowMark = windowStore.getById(w.id)?.mark;
         const windowMark = storedWindowMark ?? `W-${String(idx + 1).padStart(3, '0')}`;
-        return {
+        return attachCost({
           mark:          windowMark,
           id:            w.id,
           name:          w.windowType === 'double' ? 'Double Window' : 'Single Window',
@@ -337,7 +412,7 @@ export class ScheduleExtractor {
           level:         levelName,
           room:          fmtRoom(rel.roomId),
           adjacentRoom:  fmtRoom(rel.adjacentRoomId),
-        };
+        });
       });
     }
 
@@ -354,7 +429,7 @@ export class ScheduleExtractor {
           length = Math.sqrt(dx * dx + dz * dz);
         }
         const mark = cw.properties?.mark ?? cw.id?.substring(0, 8) ?? `CW${String(idx + 1).padStart(3, '0')}`;
-        return {
+        return attachCost({
           id:            cw.id,
           mark,
           level:         levelName,
@@ -364,7 +439,7 @@ export class ScheduleExtractor {
           gridYSpacing:  (cw.gridYSpacing ?? 0).toFixed(3),
           mullionSize:   (cw.mullionSize ?? 0).toFixed(3),
           panelThickness: (cw.panelThickness ?? 0).toFixed(3),
-        };
+        });
       });
     }
 
@@ -375,7 +450,7 @@ export class ScheduleExtractor {
       return (columnStore.getAll?.() ?? []).map((c: any, idx: number) => {
         const levelName = resolveLevel(bimManager, c.levelId, c.position?.y ?? 0);
         const mark = c.properties?.mark ?? `CL${String(idx + 1).padStart(3, '0')}`;
-        return {
+        return attachCost({
           id:         c.id,
           mark,
           level:      levelName,
@@ -385,7 +460,7 @@ export class ScheduleExtractor {
           height:     (c.height ?? 0).toFixed(3),
           material:   c.materialId ?? '—',
           baseOffset: (c.baseOffset ?? 0).toFixed(3),
-        };
+        });
       });
     }
 
@@ -403,7 +478,7 @@ export class ScheduleExtractor {
           span = Math.sqrt(dx * dx + dy * dy + dz * dz);
         }
         const mark = b.properties?.mark ?? `BM${String(idx + 1).padStart(3, '0')}`;
-        return {
+        return attachCost({
           id:           b.id,
           mark,
           level:        levelName,
@@ -415,7 +490,7 @@ export class ScheduleExtractor {
           fireRating:   b.fireRating ?? '—',
           startSupport: b.startSupportType ?? '—',
           endSupport:   b.endSupportType   ?? '—',
-        };
+        });
       });
     }
 
@@ -484,7 +559,7 @@ export class ScheduleExtractor {
           length = Math.sqrt(dx * dx + dz * dz);
         }
         const mark = h.properties?.mark ?? `HR${String(idx + 1).padStart(3, '0')}`;
-        return {
+        return attachCost({
           id:           h.id,
           mark,
           level:        levelName,
@@ -494,7 +569,7 @@ export class ScheduleExtractor {
           railProfile:  h.railProfile  ?? '—',
           postSpacing:  h.postSpacing  != null ? h.postSpacing.toFixed(3) : '—',
           material:     h.materialId   ?? '—',
-        };
+        });
       });
     }
 

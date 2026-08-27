@@ -25,6 +25,32 @@ export interface ScheduleColumn {
   value: (element: any) => string | number;
 }
 
+/**
+ * §LIVESCHED151 (E) — the Cost column's cell, shared across every category
+ * `ScheduleExtractor` attaches a cost to (see its `COST_COVERED_CATEGORIES`).
+ * Reads plain fields `attachCost()` put on the row; no import needed, so
+ * this file's own "zero cross-subsystem imports" stays true.
+ *
+ * §CONTEXT-DATA-HONESTY / C78 §8.1 — the three states are rendered as three
+ * DIFFERENT STRINGS, never collapsed into one:
+ *   · not measured by the take-off at all       → 'not costed'
+ *   · measured, but no rate exists for it        → 'NO RATE'
+ *   · measured AND priced, but only PARTIALLY    → '≥ <amount>' (LOWER BOUND)
+ *   · measured and fully priced                  → '<amount>'
+ * A missing rate and a genuinely zero cost must never render the same cell.
+ */
+function formatCost(e: any): string {
+  if (!e.costMeasured) return 'not costed';
+  if (e.cost === null || e.cost === undefined) return 'NO RATE';
+  const cur = typeof e.costCurrency === 'string' && e.costCurrency ? `${e.costCurrency} ` : '';
+  const amount = `${cur}${Number(e.cost).toFixed(2)}`;
+  return e.costComplete ? amount : `≥ ${amount}`;
+}
+
+/** The one Cost column definition, reused verbatim by every category the 5D
+ *  take-off measures — one definition, not nine near-identical copies. */
+const COST_COLUMN: ScheduleColumn = { id: 'cost', label: 'Cost', value: formatCost };
+
 export interface ScheduleDefinition {
   id: string;
   label: string;
@@ -68,6 +94,7 @@ export class ScheduleRegistry {
         { id: 'level',     label: 'Level',           value: (e) => e.level },
         { id: 'roomSideA', label: 'Room (Side A)',   value: (e) => e.roomSideA ?? '—' },
         { id: 'roomSideB', label: 'Room (Side B)',   value: (e) => e.roomSideB ?? '—' },
+        COST_COLUMN,
       ],
     });
 
@@ -143,6 +170,11 @@ export class ScheduleRegistry {
         { id: 'windows',      label: 'Windows',         value: (e) => e.windows },
         { id: 'walls',        label: 'Bounding Walls',  value: (e) => e.walls },
         { id: 'furniture',    label: 'Furniture',       value: (e) => e.furniture },
+        // §LIVESCHED151 (E) — the founder's demo column: sums this room's
+        // FLOOR + CEILING + WALL finish lines from the SAME 5D take-off the
+        // Data › MEDICIONES tab reads (ScheduleCostBridge.ts), so moving a
+        // partition that changes this room's area is what moves this cell.
+        COST_COLUMN,
       ],
     });
 
@@ -161,6 +193,7 @@ export class ScheduleRegistry {
         { id: 'treadDepth',    label: 'Tread Dp (m)',   value: (e) => typeof e.treadDepth === 'number' ? e.treadDepth.toFixed(3) : e.treadDepth },
         { id: 'fireRating',    label: 'Fire Rating',    value: (e) => e.fireRating ?? '—' },
         { id: 'accessibility', label: 'Accessibility',  value: (e) => e.accessibilityType ?? 'standard' },
+        COST_COLUMN,
       ],
     });
 
@@ -180,6 +213,7 @@ export class ScheduleRegistry {
         { id: 'hostWall',   label: 'Host Wall',      value: (e) => e.hostWall },
         { id: 'roomFrom',   label: 'Room From',      value: (e) => e.roomFrom ?? '—' },
         { id: 'roomTo',     label: 'Room To',        value: (e) => e.roomTo   ?? '—' },
+        COST_COLUMN,
       ],
     });
 
@@ -197,6 +231,7 @@ export class ScheduleRegistry {
         { id: 'level',        label: 'Level',            value: (e) => e.level },
         { id: 'room',         label: 'Room',             value: (e) => e.room         ?? '—' },
         { id: 'adjacentRoom', label: 'Adjacent Room',    value: (e) => e.adjacentRoom ?? '—' },
+        COST_COLUMN,
       ],
     });
 
@@ -213,6 +248,7 @@ export class ScheduleRegistry {
         { id: 'gridYSpacing',  label: 'Grid V Spacing',  value: (e) => e.gridYSpacing },
         { id: 'mullionSize',   label: 'Mullion Size',     value: (e) => e.mullionSize },
         { id: 'panelThickness', label: 'Panel Thickness', value: (e) => e.panelThickness },
+        COST_COLUMN,
       ],
     });
 
@@ -231,6 +267,7 @@ export class ScheduleRegistry {
         { id: 'height',    label: 'Height (m)',    value: (e) => e.height },
         { id: 'material',  label: 'Material',      value: (e) => e.material },
         { id: 'baseOffset', label: 'Base Offset (m)', value: (e) => e.baseOffset },
+        COST_COLUMN,
       ],
     });
 
@@ -249,6 +286,7 @@ export class ScheduleRegistry {
         { id: 'fireRating',  label: 'Fire Rating',   value: (e) => e.fireRating },
         { id: 'startSupport', label: 'Start Support', value: (e) => e.startSupport },
         { id: 'endSupport',   label: 'End Support',   value: (e) => e.endSupport },
+        COST_COLUMN,
       ],
     });
 
@@ -297,6 +335,7 @@ export class ScheduleRegistry {
         { id: 'railProfile',    label: 'Rail Profile',    value: (e) => e.railProfile },
         { id: 'postSpacing',    label: 'Post Spacing (m)', value: (e) => e.postSpacing },
         { id: 'material',       label: 'Material',        value: (e) => e.material },
+        COST_COLUMN,
       ],
     });
 

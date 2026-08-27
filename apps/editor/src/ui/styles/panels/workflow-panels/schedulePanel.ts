@@ -199,6 +199,24 @@ export const SCHEDULE_PANEL_STYLES = `
         color: #fff;
     }
 
+    /* §LIVESCHED151 (E) — the optional totals row, bottom of the table. */
+    .sched-table tfoot tr.sched-totals-row td {
+        font-weight: 700;
+        color: var(--app-text);
+        background: var(--app-bg);
+        border-top: 2px solid rgba(12,122,110,.35);
+        border-bottom: none;
+        position: sticky;
+        bottom: 0;
+    }
+    .sched-table tfoot tr.sched-totals-row td:first-child {
+        color: var(--app-text-muted);
+        font-weight: 600;
+        font-size: 10px;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+    }
+
     /* Mark badges inside schedule cells */
     .sched-mark-badge {
         display: inline-block;

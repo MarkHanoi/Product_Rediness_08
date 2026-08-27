@@ -25,6 +25,13 @@
 import { ScheduleRegistry, scheduleStore } from '@pryzm/core-app-model';
 import { ScheduleExtractor } from '@pryzm/core-app-model';
 import { panelManager, PANEL_PIN_ICON_SVG } from '../PanelManager';
+// §LIVESCHED151 (E) — the SAME rate-book reader the Data › MEDICIONES 5D tab
+// uses (same localStorage key, same EUR-default fallback) — never a second
+// reader with its own key derivation (see MedicionesBucket.ts's own note on
+// why it is exported). This is the ONLY place SchedulePanel touches the 5D
+// subsystem; the actual take-off + costing runs inside `ScheduleExtractor`
+// (packages/core-app-model), which never reads browser storage itself.
+import { loadRateBook } from '../dataworkbench/buckets/MedicionesBucket';
 // §LIVESCHED151 — the panel becomes movable/resizable using the SAME shared
 // utilities RACChatbotPanel/OverridePanel/VGGovernancePanel already use (no
 // third drag/resize implementation), and persists its geometry through the
@@ -91,6 +98,7 @@ import {
   scheduleName,
   toggleFieldPatch,
   dispatchScheduleUpdate,
+  computeColumnTotal,
 } from './scheduleViewModel';
 
 /**
@@ -126,6 +134,12 @@ export class SchedulePanel {
    *  it and leak a fresh pair of document-level mousemove/mouseup listeners. */
   private _contentEl: HTMLElement;
   private _panelPinned: boolean;
+  /** §LIVESCHED151 (E) — "totals as an option at the bottom" (founder). A
+   *  session-only toggle (not persisted, not per-schedule): the founder asked
+   *  for an option, not a remembered preference, and it defaults off so an
+   *  architect opening a schedule mid-review is not shown numbers they never
+   *  asked to see. */
+  private _showTotals = false;
   private _currentScheduleId: string | null = null;
   private _tbody: HTMLTableSectionElement | null = null;
 
@@ -339,7 +353,15 @@ export class SchedulePanel {
     const schedule = ScheduleRegistry.get(this._currentScheduleId);
     if (!schedule) return;
 
-    const rows = ScheduleExtractor.getRows(schedule.category);
+    // §LIVESCHED151 (E) — the take-off is real work, so `ScheduleExtractor`
+    // only does it when THIS schedule's persisted columns actually include
+    // 'cost'. A schedule with Cost hidden, or a category the 5D engine does
+    // not cover (Floors/Roofs/Slabs/Ceilings/Furniture/Plumbing — see
+    // ScheduleExtractor's own `COST_COVERED_CATEGORIES`), computes nothing
+    // extra: `costContext` stays `undefined` and `attachCost()` is a no-op.
+    const wantsCost = (storeFields(schedule.id) ?? []).includes('cost');
+    const costContext = wantsCost ? { rateBook: loadRateBook(this.runtime) } : undefined;
+    const rows = ScheduleExtractor.getRows(schedule.category, costContext);
     console.log(`[SchedulePanel] Rendering ${schedule.id} — ${rows.length} rows`);
 
     this._contentEl.innerHTML = '';
@@ -400,6 +422,20 @@ export class SchedulePanel {
     countBadge.className = 'sched-count-badge';
     countBadge.textContent = `${rows.length} item${rows.length !== 1 ? 's' : ''}`;
 
+    // §LIVESCHED151 (E) — "totals as an option at the bottom" (founder).
+    // Reuses the existing `.sched-fields-btn` toggle-button look (Edit's own
+    // class) rather than inventing a second button style.
+    const totalsBtn = document.createElement('button');
+    totalsBtn.type = 'button';
+    totalsBtn.className = `sched-fields-btn${this._showTotals ? ' sched-fields-btn--active' : ''}`;
+    totalsBtn.setAttribute('aria-pressed', String(this._showTotals));
+    totalsBtn.textContent = 'Totals';
+    totalsBtn.title = this._showTotals ? 'Hide the totals row' : 'Show a totals row at the bottom';
+    totalsBtn.addEventListener('click', () => {
+      this._showTotals = !this._showTotals;
+      this.render();
+    });
+
     // §LIVESCHED151 (B) — the ONE pin control (PANEL_PIN_ICON_SVG), wired
     // purely through panelManager's shared pin registry (§PIN146) exactly like
     // AIPanel's chat pin — no second local flag. Pinning is what lets
@@ -431,6 +467,7 @@ export class SchedulePanel {
     header.appendChild(titleEl);
     header.appendChild(countBadge);
     header.appendChild(editBtn);
+    header.appendChild(totalsBtn);
     header.appendChild(pinBtn);
     header.appendChild(closeBtn);
 
@@ -628,6 +665,31 @@ export class SchedulePanel {
         tbody.appendChild(tr);
       });
       table.appendChild(tbody);
+
+      // §LIVESCHED151 (E) — "totals as an option at the bottom" (founder).
+      // One footer row, one cell per VISIBLE column — never a second, richer
+      // total nobody asked for. Each cell is `computeColumnTotal` (pure,
+      // scheduleViewModel.ts): `null` for a non-numeric column (blank cell),
+      // a plain sum for a fully-measured numeric column, or a `≥`-prefixed
+      // LOWER BOUND the instant any contributing row was unmeasured/unpriced
+      // — the Cost column's own per-row honesty rule, applied once more here
+      // rather than a second rule for the total.
+      if (this._showTotals && rows.length > 0) {
+        const tfoot = document.createElement('tfoot');
+        const totalsRow = document.createElement('tr');
+        totalsRow.className = 'sched-totals-row';
+        visibleCols.forEach((col, idx) => {
+          const td = document.createElement('td');
+          if (idx === 0) {
+            td.textContent = `Totals — ${rows.length} item${rows.length !== 1 ? 's' : ''}`;
+          } else {
+            td.textContent = computeColumnTotal(col, rows) ?? '';
+          }
+          totalsRow.appendChild(td);
+        });
+        tfoot.appendChild(totalsRow);
+        table.appendChild(tfoot);
+      }
 
       tableWrap.appendChild(table);
       body.appendChild(tableWrap);

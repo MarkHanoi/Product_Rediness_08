@@ -79,7 +79,12 @@ function rateKey(runtime: Runtime): string {
     return RATE_STORE_PREFIX + (runtime?.projectContext?.projectId ?? 'unscoped');
 }
 
-function loadRateBook(runtime: Runtime): RateBook {
+// §LIVESCHED151 (E) — exported so SchedulePanel's Cost column reads the
+// EXACT SAME rate book this 5D tab does (same key, same fallback, same
+// EUR default when unset). Reusing this function verbatim — rather than a
+// second reader with its own key derivation — is what guarantees the
+// schedule and the Data › MEDICIONES tab can never quietly disagree.
+export function loadRateBook(runtime: Runtime): RateBook {
     try {
         const raw = localStorage.getItem(rateKey(runtime));
         if (!raw) return { currency: 'EUR', entries: [] };
