@@ -84,6 +84,9 @@ import { runSiteRevealSequence, type SiteRevealTarget } from './siteRevealSequen
 // `wait` or `offer` and nothing else: a watchdog may offer, it may never author domain data.
 import { decideDrawIdleAction, DRAW_IDLE_OFFER_MS as DRAW_IDLE_OFFER_MS_DEFAULT } from './drawIdleWatchdog.js';
 import { siteEntryCoverageEntries } from '../../engine/views/siteEntryCoverage';
+// §FLYIN165 — the demo fly-in button reuses the model's OWN declared world framing + the
+// parcel-stage altitude/pitch (never hand-typed here), same idiom as `worldFramingTarget()`.
+import { WORLD_HOME, SITE_ENTRY_ALTITUDE_M, SITE_ENTRY_PITCH_DEG } from '../../engine/views/siteEntryModel';
 import { fetchContextBuildingsNearAndFar } from '../geospatial/contextBuildings.js';
 import { warmAllContextLayers } from '../geospatial/contextLayerWarm.js';
 // §STARTUP-BUDGET (founder 2026-08-07, 5× startup) — passive phase marks; behaviour-free.
@@ -153,6 +156,42 @@ const OFFICE_DEFAULT_RADIUS_M = 22;
  *  `DRAW_IDLE_OFFER_MS` — how long a VISIBLE, READY, UNTOUCHED draw surface waits before it
  *  OFFERS the escape hatch the user already has. See `drawIdleWatchdog.ts` for the rationale. */
 const DRAW_IDLE_OFFER_MS = DRAW_IDLE_OFFER_MS_DEFAULT;
+
+/**
+ * §FLYIN165 (founder 2026-08-27: "a fly-by from the initial PRYZM Earth screen going to the
+ * parcel in Amsterdam SLOWLY … create a small button fly-in in the little panel where the
+ * user ADDS THE LOCATION") — DECLARED duration of the demo-only cinematic descent, seconds.
+ *
+ * ⚠ THIS IS NOT `SITE_ENTRY_FLIGHT_DURATION_S`. The real search path (`GlobeHeroSearch.search()`)
+ * deliberately passes THROUGH every intermediate stage in one synchronous dispatch chain
+ * (§STARTUP-DIRECT-DESCENT) — each `camera.flyTo` supersedes the previous one before Cesium
+ * renders a single frame at that altitude, so what the user actually sees today is a CUT: the
+ * budget trace shows `flight:parcel-arrival` landing ~2ms after the previous mark, and
+ * `reveal:flight-settled` ~9ms after that — nowhere near a flight. That is CORRECT for a normal
+ * search (founder ruled "speed wins" on 2026-08-07) and this constant must never be applied to
+ * it. This button is the ONE place in the product that flies the camera slowly ON PURPOSE, as a
+ * demo affordance the founder chooses to press — it never auto-fires.
+ *
+ * 8s sits in the founder's stated 6–10s band. One continuous `camera.flyTo` (Cesium's own
+ * default arc/easing — no `easingFunction` override, same as `flyToGeographic`'s other callers)
+ * from the untouched world view down to the parcel altitude/pitch already declared by the model
+ * (`SITE_ENTRY_ALTITUDE_M.parcel` / `SITE_ENTRY_PITCH_DEG.parcel`, pitch −60° so it arrives
+ * oriented at the parcel rather than snapping top-down).
+ */
+const DEMO_FLYIN_DURATION_S = 8;
+
+/**
+ * §FLYIN165 — the demo fly-in's fixed destination: a point in Amsterdam's registered
+ * jurisdiction (CBS/BAG gemeente 0363), well inside `AMSTERDAM_BBOX`
+ * (`packages/site-parcel-data/src/providers/amsterdamBbox.ts`) and away from any municipal
+ * edge, so §JURISDICTION-SPECIFICITY ambiguity is not in play. Hard-coded deliberately: a demo
+ * affordance is not a search, and does not go through the geocoder.
+ */
+const DEMO_FLYIN_TARGET: SiteRevealTarget = {
+    lat: 52.3676,
+    lon: 4.9041,
+    address: 'Amsterdam, Netherlands (demo fly-in)',
+};
 
 /** The narrowed location result we thread into `createSiteFromRect`. */
 interface PickedLocation {
@@ -364,6 +403,14 @@ export class OnboardingStepController {
      * (`revealSplitAtParcel` handles its own failures), so awaiting it can only resolve.
      */
     private revealInFlight: Promise<void> | null = null;
+
+    /**
+     * §FLYIN165 — true for the duration of the demo fly-in button's own flight/reveal.
+     * Cleared the instant a REAL user action (submit, skip) fires, so a demo flight still
+     * settling in the background can never race the real path into a second reveal — the
+     * continuation checks this flag after every `await` and bails out silently if it is gone.
+     */
+    private demoFlightActive = false;
 
     /** Current step — drives the indicator + guards re-entry into generate. */
     private step: StepId = 'location';
@@ -643,6 +690,15 @@ export class OnboardingStepController {
 
         const skipRow = document.createElement('div');
         skipRow.className = 'os-footer';
+        // §FLYIN165 — the demo fly-in button. A small, OPT-IN affordance (never auto-fires):
+        // a slow, deliberate cinematic descent to a fixed Amsterdam parcel, for demo purposes.
+        const demoFlyIn = document.createElement('button');
+        demoFlyIn.type = 'button';
+        demoFlyIn.className = 'os-btn os-btn--ghost';
+        demoFlyIn.setAttribute('data-testid', 'onboarding-location-demo-flyin');
+        demoFlyIn.title = 'Cinematic demo: fly slowly to a parcel in Amsterdam';
+        demoFlyIn.textContent = '✈ Fly-in demo (Amsterdam)';
+        skipRow.appendChild(demoFlyIn);
         const skip = document.createElement('button');
         skip.type = 'button';
         skip.className = 'os-btn os-btn--ghost';
@@ -767,6 +823,10 @@ export class OnboardingStepController {
 
         const onSubmit = (e: Event): void => {
             e.preventDefault();
+            // §FLYIN165 — a REAL search always wins the race against a still-settling demo
+            // fly-in (see `runDemoFlyIn`'s header on why clearing this here, not just there,
+            // is what makes the two paths race-free).
+            this.demoFlightActive = false;
             void this.handleGeocode(input.value, status, submit);
         };
         form.addEventListener('submit', onSubmit);
@@ -778,9 +838,13 @@ export class OnboardingStepController {
             // step is the product not listening. Skip now asks for a NAME and opens
             // the canvas.
             console.log('[onboarding-step] location skipped (no location) -> name, then canvas.');
+            this.demoFlightActive = false; // §FLYIN165 — Skip abandons any in-flight demo too.
             this.picked = null;
             this.leaveLocationStep();
             this.renderNameThenCanvasStep();
+        });
+        demoFlyIn.addEventListener('click', () => {
+            void this.runDemoFlyIn(status, demoFlyIn);
         });
         this.addCleanup(() => form.removeEventListener('submit', onSubmit));
 
@@ -797,6 +861,132 @@ export class OnboardingStepController {
         // the 3D Site pane the user just flew into goes black (`setVisible(false)`).
         this.globeHero?.dispose(this.splitRevealed ? { keepGlobe: true } : undefined);
         this.globeHero = null;
+    }
+
+    /**
+     * §FLYIN165 (founder 2026-08-27) — the demo fly-in button's own flight, driven directly
+     * against the ONE Cesium camera host (the same structural port `GlobeHeroSearch` uses,
+     * `flyToGeographic`) rather than through the reducer's stage machine. It does not need
+     * `SiteEntryStore`'s world→country→city→parcel intents — those exist to make coverage
+     * verdicts and panel copy correct at every stage a REAL search can land on; a fixed demo
+     * destination has none of that to decide. What it MUST reuse, and does, is:
+     *   - the same camera primitive (`flyToGeographic`) — no second tween, no new rAF (P3);
+     *   - the same context-warm calls `warmContextCache` makes for a real search — so tiles
+     *     resolve DURING the descent instead of after it lands on blurry proxy tiles;
+     *   - the same reveal hand-off (`revealSplitAtParcel`) → `reveal:split-mounted` — never
+     *     re-implemented, never raced against a real search's own `revealInFlight`.
+     *
+     * RACE SAFETY: `demoFlightActive` is set here and checked after every `await`; `onSubmit`
+     * and the Skip handler clear it immediately, so a user who acts for real while this is
+     * still descending gets exactly one reveal — theirs — and this continuation quietly no-ops.
+     *
+     * TILE READINESS: this does NOT gate the reveal on any "tiles loaded" flag. §L-716 is the
+     * reason — a hidden/degenerate tileset can leave such a flag permanently false, and a flight
+     * that waits forever is worse than one that lands on whatever resolved so far. The one
+     * bounded wait is `contextWarm` (buildings), which never throws and always settles
+     * (`fetchContextBuildingsNearAndFar`'s own contract) — the imagery/terrain tiles Cesium is
+     * streaming underneath are given the WHOLE descent to resolve (started before the flight,
+     * per the hard constraint) but are not, and cannot honestly be, awaited to completion.
+     *
+     * REDUCED MOTION: `prefers-reduced-motion` swaps the descent for an instant `setView` — the
+     * warm-up and reveal hand-off are unchanged, only the camera tween is skipped.
+     */
+    private async runDemoFlyIn(status: HTMLElement, demoBtn: HTMLButtonElement): Promise<void> {
+        const hero = this.globeHero;
+        if (!hero || this.disposed || this.demoFlightActive) return;
+        this.demoFlightActive = true;
+        demoBtn.disabled = true;
+        status.hidden = false;
+        status.textContent = 'Flying to Amsterdam…';
+
+        // A superseded/failed run must not leave the button permanently disabled.
+        const releaseButton = (): void => {
+            demoBtn.disabled = false;
+        };
+        // True once we've handed off to the reveal (or bailed) — used only to decide whether
+        // to re-enable the button on the way out (a handed-off run tears the whole step down).
+        let handedOff = false;
+
+        try {
+            const target = DEMO_FLYIN_TARGET;
+            let reducedMotion = false;
+            try {
+                reducedMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches === true;
+            } catch { /* no matchMedia (test env) — treat as full motion */ }
+
+            // §CTX-PREFETCH-ON-LOCATION — START THE WARM NOW, before/alongside the descent
+            // (the hard constraint: `context-warm` measures ~1.4s cold, and a slow flight that
+            // only starts warming on arrival would land on blurry proxy tiles).
+            try { warmAllContextLayers(target.lat, target.lon); } catch { /* best-effort */ }
+            this.contextWarm = fetchContextBuildingsNearAndFar(target.lat, target.lon).catch(() => null);
+
+            const w = window as unknown as {
+                pryzmGetSiteEntryCameraHost?: () => import('../../engine/views/siteEntryStore').GlobeCameraHost | null;
+                pryzmGetSiteEntryCameraHostReady?: () => Promise<void>;
+            };
+            try { await (w.pryzmGetSiteEntryCameraHostReady?.() ?? Promise.resolve()); } catch { /* best-effort */ }
+            if (this.disposed || this.globeHero !== hero || !this.demoFlightActive) return;
+
+            const host = w.pryzmGetSiteEntryCameraHost?.() ?? null;
+            if (!host) {
+                console.warn('[onboarding-step] §FLYIN165: no camera host resolved — cannot fly.');
+                status.textContent = 'The globe is still loading — try again in a moment.';
+                return;
+            }
+
+            // Start WIDE — snap to the untouched world view first (a mount, not a navigation,
+            // hence `instant`), so the demo reads the same regardless of where the camera
+            // happens to be sitting (a prior search, a dragged globe).
+            try {
+                await host.flyToGeographic({
+                    lat: WORLD_HOME.lat,
+                    lon: WORLD_HOME.lon,
+                    altitudeM: SITE_ENTRY_ALTITUDE_M.world,
+                    pitchDeg: SITE_ENTRY_PITCH_DEG.world,
+                    instant: true,
+                });
+            } catch { /* best-effort reset — proceed to the descent regardless */ }
+            if (this.disposed || this.globeHero !== hero || !this.demoFlightActive) return;
+
+            // THE flight. One continuous descent, Cesium's own default arc/easing (no
+            // `easingFunction` override), landing at the parcel stage's declared pitch
+            // (−60°) — oriented at the parcel, not a top-down snap. `flyToGeographic`
+            // resolves on cancel as well as complete, so a click/scroll that grabs the
+            // globe — or the user acting on the panel — yields to them immediately; we
+            // never end up waiting out an animation the user has already overridden.
+            try {
+                await host.flyToGeographic({
+                    lat: target.lat,
+                    lon: target.lon,
+                    altitudeM: SITE_ENTRY_ALTITUDE_M.parcel,
+                    pitchDeg: SITE_ENTRY_PITCH_DEG.parcel,
+                    durationS: DEMO_FLYIN_DURATION_S,
+                    instant: reducedMotion,
+                });
+            } catch (e) {
+                console.warn('[onboarding-step] §FLYIN165: flight failed (non-fatal):', e);
+            }
+            if (this.disposed || this.globeHero !== hero || !this.demoFlightActive) return;
+
+            status.textContent = 'Arrived — loading the site…';
+            await (this.contextWarm ?? Promise.resolve());
+            if (this.disposed || this.globeHero !== hero || !this.demoFlightActive) return;
+
+            this.demoFlightActive = false;
+            this.picked = { lat: target.lat, lon: target.lon, address: target.address };
+            handedOff = true;
+            // Hand off to the EXISTING reveal path (§22) — never re-implemented, never raced:
+            // by construction only one of {a real search, this demo} can still be `active` at
+            // this point, so `revealInFlight` is never assigned twice concurrently.
+            this.revealInFlight = this.revealSplitAtParcel(target);
+            await this.revealInFlight;
+            if (this.disposed) return;
+            this.leaveLocationStep();
+            void this.startDrawThenGenerate();
+        } finally {
+            this.demoFlightActive = false;
+            if (!handedOff) releaseButton();
+        }
     }
 
     // ── PRD §22: the zoom-then-split reveal ───────────────────────────────────
