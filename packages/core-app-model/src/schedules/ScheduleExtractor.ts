@@ -13,9 +13,14 @@
  *   DATA PLATFORM — Hierarchy / Template / Programme schedules
  */
 
-import { WallData, WindowData, DoorData } from '@pryzm/geometry-wall';
+import { WallData, WindowData, DoorData, wallSystemTypeStore } from '@pryzm/geometry-wall';
+import {
+  openingVoidArea,
+  openingPerimeter,
+  openingClearArea,
+} from '../quantities/QuantityTakeoff.js';
 import { RoomRelationshipService } from '@pryzm/room-topology';
-import { resolveRoomFinishes } from '../RoomFinishResolver.js';
+import { resolveRoomFinishes, roomsCoveredByFloor } from '../RoomFinishResolver.js';
 // §FIX-BOUNDING-WALLS-UNDETERMINED (C78 §1.4 · C71 §4.4 · C79 §5.2.0) — relative
 // import (not the package barrel) so this module does not re-enter its own
 // package's index at load; see MEMORY §SCC: no barrel access at module load.
@@ -53,6 +58,17 @@ function resolveLevel(bimManager: any, levelId: string | undefined, fallbackY = 
   return levelId || fallbackYLevel(fallbackY);
 }
 
+/**
+ * §SCHED156-DOORWIN (L-12605) — a measured geometric quantity, or the reason
+ * it could not be measured. `null` renders 'not measured' — NEVER '0.00'
+ * standing in for "could not be measured" (§CONTEXT-DATA-HONESTY / C78 §8.1,
+ * the same discipline `formatCost` below already applies to cost, applied
+ * here to geometry: unknown and zero must never render the same).
+ */
+function fmtQty(value: number | null): string {
+  return value === null ? 'not measured' : value.toFixed(2);
+}
+
 function fallbackYLevel(y: number): string {
   if (y < 1.5) return 'Ground Floor';
   if (y < 4.5) return 'Level 1';
@@ -73,19 +89,25 @@ function polygonArea(pts: Array<{ x: number; y?: number; z?: number; [k: string]
 // ── Extractor ─────────────────────────────────────────────────────────────────
 
 /**
- * §LIVESCHED151 (E) — categories the 5D take-off (`computeTakeoff()`)
- * actually measures, MEASURED against `QuantityTakeoff.ts`'s own `family:`
- * declarations rather than assumed. `Floors` (the floorStore element),
- * `Roofs`, `Slabs`, `Ceilings` (as their own store, distinct from a room's
- * ceiling FINISH), `Furniture`, `Plumbing` and the Data-Platform/Materials
- * schedules are NOT in this set — the take-off has zero coverage for them
- * today, so `getRows()` does not attach a 'cost' field there at all rather
- * than attach one that would always read "not costed" (the same "state the
- * gap, don't paper over it" rule `ELEMENT_FAMILY_SCHEDULES` already follows).
+ * §LIVESCHED151 (E) / §SCHED156-COST5 (L-12603) — categories the 5D take-off
+ * (`computeTakeoff()`) actually measures, MEASURED against
+ * `QuantityTakeoff.ts`'s own `family:` declarations rather than assumed.
+ *
+ * ⚠ CORRECTED (L-12603) — this comment previously claimed `Floors`, `Roofs`,
+ * `Slabs`, `Ceilings` and `Furniture` had "zero coverage" in the take-off.
+ * Re-read against `QuantityTakeoff.ts` directly: it was WRONG for all five.
+ * `measurePolyFamily()` measures Floors/Roofs/Ceilings (m²) and Slabs (m³),
+ * each contributing `elementId: e.id` — the SAME id this schedule's rows
+ * carry — and `countFamily()` measures Furniture as a `ud` count, exactly
+ * the same shape Columns/Beams/Handrails already cost successfully. Only
+ * `Plumbing` and the Data-Platform/Materials schedules remain genuinely
+ * uncovered (Plumbing IS counted by the take-off too, via `countFamily`, but
+ * was left out of this lane's scope — see the report — not because it lacks
+ * coverage).
  */
 const COST_COVERED_CATEGORIES: ReadonlySet<string> = new Set([
   'Walls', 'Doors', 'Windows', 'Columns', 'Beams', 'Handrails', 'Stairs',
-  'CurtainWalls', 'Rooms',
+  'CurtainWalls', 'Rooms', 'Floors', 'Roofs', 'Ceilings', 'Slabs', 'Furniture',
 ]);
 
 export class ScheduleExtractor {
@@ -150,9 +172,32 @@ export class ScheduleExtractor {
         const length = Math.sqrt((_bl1.x-_bl0.x)**2 + (_bl1.y-_bl0.y)**2 + (_bl1.z-_bl0.z)**2);
         const adjRooms = RoomRelationshipService.getWallAdjacentRooms(w);
         const levelName = resolveLevel(bimManager, (w as any).levelId, 0);
+        // §SCHED156-RICHCOLS (L-12604) — founder: "type says wall - but we
+        // have way more than that". `w.type` is the ELEMENT KIND
+        // (`'wall' | 'window' | 'door'`, `WallTypes.ts:317`) and is the
+        // literal string "wall" on every row of a Walls Schedule BY
+        // DEFINITION — it carries zero information there. The wall's real
+        // TYPE IDENTITY is `w.systemTypeId`, resolved through
+        // `wallSystemTypeStore` — the SAME resolver `QuantityTakeoff.ts`
+        // already uses for its `WALL.<type>.<thickness>` take-off line names
+        // (`stores.wallTypeName`), so the schedule and the 5D take-off can
+        // never disagree about what type a wall is (C84 EI-9).
+        const systemType = w.systemTypeId ? wallSystemTypeStore.getById(w.systemTypeId) : undefined;
+        const typeName = systemType?.name ?? w.type ?? 'Wall';
+        const layers = systemType?.layers ?? [];
+        const layerSummary = layers.length > 0
+          ? `${layers.length} layer${layers.length === 1 ? '' : 's'} (${(systemType!.totalThickness * 1000).toFixed(0)}mm)`
+          : systemType
+            ? '0 layers'
+            : '—';
+        const materialSummary = layers.length > 0
+          ? [...new Set(layers.map((l) => l.name))].join(', ')
+          : '—';
         return attachCost({
           id:        w.id,
-          type:      w.type || 'Wall',
+          type:      typeName,
+          layers:    layerSummary,
+          materials: materialSummary,
           length:    length.toFixed(2),
           height:    w.height.toFixed(2),
           thickness: w.thickness.toFixed(2),
@@ -167,18 +212,40 @@ export class ScheduleExtractor {
     if (categoryId === 'Floors') {
       const floorStore = window.floorStore // TODO(TASK-07);
       if (!floorStore) return [];
+      // §SCHED156-FLOOR-ROOMS (L-12602) — read via the SAME rooms this level's
+      // Room Schedule reads, so "N room(s)" here can never disagree with what
+      // the Rooms schedule lists for those same rooms.
+      const roomStoreForFloors = window.roomStore // TODO(TASK-07);
+      const allRoomsForFloors: any[] = roomStoreForFloors?.getAll?.() ?? [];
       return (floorStore.getAll?.() ?? []).map((f: any, idx: number) => {
         const levelName = resolveLevel(bimManager, f.levelId);
         const polygon = f.boundary?.polygon ?? f.polygon ?? [];
         const area = f.computed?.area ?? (polygon.length >= 3 ? polygonArea(polygon) : 0);
         const thickness = (f.layers ?? []).reduce((s: number, l: any) => s + (l.thickness ?? 0), 0)
           || f.thickness || 0;
-        const finish = f.finishSpec?.material || f.finishSpec?.surfaceFinish || '—';
-        const rooms = (f.coveredRoomIds ?? []).length > 0
-          ? `${(f.coveredRoomIds ?? []).length} room(s)` : '—';
+        // §SCHED156-FLOOR-ROOMS (L-12602) — was `f.finishSpec?.material ||
+        // f.finishSpec?.surfaceFinish`, and NEITHER field exists on
+        // `FloorFinishSpec` (see `FloorTypes.ts`) — both always read
+        // `undefined`, so this cell always fell through to '—'. The real
+        // fields, read in the SAME precedence `resolveRoomFinishes` already
+        // uses for the identical fact on the Room schedule's side (a
+        // `layers[]` entry whose `function === 'finish'`, else
+        // `finishSpec.materialName`), are read here instead — same authority,
+        // same order, no rival vocabulary (C84 EI-9).
+        const finishLayer = (f.layers ?? []).find((l: any) => l?.function === 'finish');
+        const finish = finishLayer?.name || f.finishSpec?.materialName || '—';
+        // §SCHED156-FLOOR-ROOMS (L-12602) — was `f.coveredRoomIds` alone,
+        // which is a real but INCOMPLETE answer: it is `[]` for any floor
+        // authored without an explicit `hostRoomId`
+        // (`CreateFloorCommand.ts`), which is most of them. `roomsCoveredByFloor`
+        // adds the same-level spatial pass `resolveRoomFinishes` already
+        // applies in the room→floor direction, so a floor drawn without an
+        // explicit room link still reports the rooms it geometrically covers.
+        const coveredRooms = roomsCoveredByFloor(f, allRoomsForFloors);
+        const rooms = coveredRooms.length > 0 ? `${coveredRooms.length} room(s)` : '—';
         const slope = f.slope?.angle != null ? `${f.slope.angle.toFixed(1)}°` : '—';
         const mark = f.properties?.mark ?? `FL${String(idx + 1).padStart(3, '0')}`;
-        return {
+        return attachCost({
           id:         f.id,
           mark,
           label:      f.label || '—',
@@ -189,7 +256,7 @@ export class ScheduleExtractor {
           department: f.department || '—',
           rooms,
           slope,
-        };
+        });
       });
     }
 
@@ -205,7 +272,7 @@ export class ScheduleExtractor {
         const area = ptsNorm.length >= 3 ? polygonArea(ptsNorm) : 0;
         const mark = r.properties?.mark ?? `RF${String(idx + 1).padStart(3, '0')}`;
         const material = r.layers?.[0]?.material || r.materialId || '—';
-        return {
+        return attachCost({
           id:        r.id,
           mark,
           level:     levelName,
@@ -215,7 +282,7 @@ export class ScheduleExtractor {
           thickness: (r.thickness ?? 0).toFixed(3),
           overhang:  (r.overhang ?? 0).toFixed(3),
           material,
-        };
+        });
       });
     }
 
@@ -223,16 +290,26 @@ export class ScheduleExtractor {
     if (categoryId === 'Ceilings') {
       const ceilingStore = window.ceilingStore // TODO(TASK-07);
       if (!ceilingStore) return [];
+      // §SCHED156-FLOOR-ROOMS (L-12602) — CeilingData has the SAME shape as
+      // FloorData for this fact (`finishSpec.materialName`, a `layers[]`
+      // entry whose `function === 'finish'`, `hostRoomId` /
+      // `coveredRoomIds`) — the identical bug existed here too, one schedule
+      // block down. `roomsCoveredByFloor` is reused structurally (its
+      // parameter shape, not its name, is what a ceiling satisfies) rather
+      // than duplicating the same two-pass rule a third time.
+      const roomStoreForCeilings = window.roomStore // TODO(TASK-07);
+      const allRoomsForCeilings: any[] = roomStoreForCeilings?.getAll?.() ?? [];
       return (ceilingStore.getAll?.() ?? []).map((c: any, idx: number) => {
         const levelName = resolveLevel(bimManager, c.levelId);
         const polygon = c.boundary?.polygon ?? [];
         const area = c.computed?.area ?? (polygon.length >= 3 ? polygonArea(polygon) : 0);
-        const finish = c.finishSpec?.material || c.finishSpec?.surfaceFinish || '—';
-        const rooms = (c.coveredRoomIds ?? []).length > 0
-          ? `${(c.coveredRoomIds ?? []).length} room(s)` : '—';
+        const finishLayer = (c.layers ?? []).find((l: any) => l?.function === 'finish');
+        const finish = finishLayer?.name || c.finishSpec?.materialName || '—';
+        const coveredRooms = roomsCoveredByFloor(c, allRoomsForCeilings);
+        const rooms = coveredRooms.length > 0 ? `${coveredRooms.length} room(s)` : '—';
         const mark = c.properties?.mark ?? c.ceilingNumber ?? `CG${String(idx + 1).padStart(3, '0')}`;
         const height = c.boundary?.baseOffset ?? c.baseOffset ?? 0;
-        return {
+        return attachCost({
           id:         c.id,
           mark,
           label:      c.label || '—',
@@ -242,7 +319,7 @@ export class ScheduleExtractor {
           finish,
           department: c.department || '—',
           rooms,
-        };
+        });
       });
     }
 
@@ -372,6 +449,25 @@ export class ScheduleExtractor {
           : { roomFrom: null, roomTo: null };
         const storedDoorMark = doorStore.getById(d.id)?.mark;
         const doorMark = storedDoorMark ?? `D-${String(idx + 1).padStart(3, '0')}`;
+        // §SCHED156-DOORWIN (L-12605) — the wall's OWN `Opening` record (the
+        // VOID `openingOutline()` cuts the mesh with), not `DoorData` alone:
+        // `DoorData` carries no `openingProfile` (only `WindowData` mirrors
+        // it — §OUTLINE80 L-3421), so an arched/circular door would silently
+        // measure as rectangular if read off `d`. Falls back to `d` itself
+        // (⇒ rectangular default, per `Opening.openingProfile`'s own "absent
+        // ⇒ rectangular" rule) only if the void record cannot be found at
+        // all — the same fallback QuantityTakeoff.ts's `rec`-not-found arm
+        // uses. `frameWidth` comes from `d`, the ONE place it is required and
+        // populated (`DoorData.frameWidth`, non-optional; the produce-mesh
+        // path itself reads it — see this lane's report on the OTHER
+        // frameWidth source, `@pryzm/geometry-door`'s DoorStore, being
+        // dead in production).
+        const doorOpening = hostWall?.openings?.find(
+          (o: any) => o.elementId === d.id || o.id === d.openingId,
+        ) ?? d;
+        const doorOpeningArea = openingVoidArea(doorOpening);
+        const doorFramePerimeter = openingPerimeter(doorOpening);
+        const doorLeaf = openingClearArea(doorOpening, d.frameWidth);
         return attachCost({
           id:         d.id,
           mark:       doorMark,
@@ -383,6 +479,17 @@ export class ScheduleExtractor {
           hostWall:   wallRef,
           roomFrom:   fmtRoom(rel.roomFrom),
           roomTo:     fmtRoom(rel.roomTo),
+          // §SCHED156-DOORWIN — the STRUCTURAL/ROUGH opening (the void cut
+          // in the wall), NOT the leaf. Shown alongside Leaf Area so the
+          // two numbers' difference is visible on the same row rather than
+          // asserted in a column label alone.
+          openingArea:    fmtQty(doorOpeningArea),
+          // The DOOR LEAF itself, clear of the frame — smaller than the
+          // opening above by the frame band on all four sides.
+          leafArea:       fmtQty(doorLeaf.area),
+          // The frame/lining run around the ROUGH opening (§L-4810's
+          // "Frame / lining perimeter") — the founder's "linear of frame".
+          framePerimeter: fmtQty(doorFramePerimeter),
         });
       });
     }
@@ -402,6 +509,16 @@ export class ScheduleExtractor {
         const levelName  = level?.name ?? resolveLevel(bimManager, levelId, w.sillHeight || 0);
         const storedWindowMark = windowStore.getById(w.id)?.mark;
         const windowMark = storedWindowMark ?? `W-${String(idx + 1).padStart(3, '0')}`;
+        // §SCHED156-DOORWIN (L-12605) — see the Doors block's comment above
+        // for why this reads the wall's own `Opening` record rather than `w`
+        // alone (here `w` DOES mirror `openingProfile`, but reading the void
+        // record keeps doors and windows on one code path rather than two).
+        const winOpening = hostWall?.openings?.find(
+          (o: any) => o.elementId === w.id || o.id === w.openingId,
+        ) ?? w;
+        const winOpeningArea = openingVoidArea(winOpening);
+        const winFramePerimeter = openingPerimeter(winOpening);
+        const winGlazed = openingClearArea(winOpening, w.frameWidth);
         return attachCost({
           mark:          windowMark,
           id:            w.id,
@@ -412,6 +529,14 @@ export class ScheduleExtractor {
           level:         levelName,
           room:          fmtRoom(rel.roomId),
           adjacentRoom:  fmtRoom(rel.adjacentRoomId),
+          // §SCHED156-DOORWIN — the STRUCTURAL/ROUGH opening (the void cut
+          // in the wall), NOT the glazed pane. See the Doors block for why
+          // both are shown together.
+          openingArea:    fmtQty(winOpeningArea),
+          // The GLAZED area itself, clear of the frame.
+          glazedArea:     fmtQty(winGlazed.area),
+          // The frame/lining run around the ROUGH opening.
+          framePerimeter: fmtQty(winFramePerimeter),
         });
       });
     }
@@ -503,7 +628,7 @@ export class ScheduleExtractor {
         const polygon   = s.polygon ?? [];
         const area      = polygon.length >= 3 ? polygonArea(polygon) : (s.width ?? 0) * (s.depth ?? 0);
         const mark      = s.properties?.mark ?? `SB${String(idx + 1).padStart(3, '0')}`;
-        return {
+        return attachCost({
           id:         s.id,
           mark,
           level:      levelName,
@@ -512,7 +637,7 @@ export class ScheduleExtractor {
           material:   s.materialId ?? '—',
           phase:      s.phase ?? '—',
           baseOffset: (s.baseOffset ?? 0).toFixed(3),
-        };
+        });
       });
     }
 
@@ -532,7 +657,7 @@ export class ScheduleExtractor {
           if (ref) room = fmtRoom(ref as any);
         }
 
-        return {
+        return attachCost({
           id:           f.id,
           mark,
           furnitureType: f.furnitureType ?? f.type ?? '—',
@@ -541,7 +666,7 @@ export class ScheduleExtractor {
           width:        (f.width ?? 0).toFixed(2),
           length:       (f.length ?? 0).toFixed(2),
           height:       (f.height ?? 0).toFixed(2),
-        };
+        });
       });
     }
 

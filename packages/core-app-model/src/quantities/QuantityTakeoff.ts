@@ -357,6 +357,55 @@ export function openingPerimeter(
   return total;
 }
 
+/** {@link openingClearArea}'s result — `area: null` always carries a `reason`. */
+export interface OpeningClearAreaResult {
+  readonly area: number | null;
+  readonly reason: string | null;
+}
+
+/**
+ * §SCHED156-DOORWIN (L-12605) — the LEAF (door) / GLAZED (window) clear area:
+ * the opening's void, LESS a constant-width frame band on all four sides.
+ *
+ * Extracted from this engine's own door/window measurer (it used to be
+ * inline here, and ONLY here) so a per-element schedule column can compute
+ * the identical figure for ONE door instead of reading `TakeoffLine.secondary`
+ * — a LINE-level SUM across every element sharing that line's code (see
+ * `ScheduleCostBridge.ts`'s header for why reading that per-row would print
+ * "all doors of this type's leaf area" on every one of them). Same formula,
+ * same wording, callable per-element — C84 EI-9: one quantity authority, not
+ * a second formula for the schedule to drift against.
+ *
+ * Exact only where the frame is a constant-width band around a RECTANGULAR
+ * void; an arched or circular head would need a polygon offset this engine
+ * does not do, so it is REFUSED (`area: null` + a reason) rather than
+ * approximated by the bounding box.
+ */
+export function openingClearArea(
+  op: Pick<Opening, 'width' | 'height' | 'openingProfile'>,
+  frameWidth: number | null | undefined,
+): OpeningClearAreaResult {
+  const profile = resolveOpeningProfile(op.openingProfile);
+  const rectangular = profile === 'rectangular';
+  const fw = frameWidth ?? 0;
+  if (!(fw > 0)) {
+    return { area: null, reason: 'the joinery record states no frameWidth, so the frame band cannot be deducted' };
+  }
+  if (!rectangular) {
+    return {
+      area: null,
+      reason: `a ${profile} head cannot be inset by a constant frame width without a polygon offset, which this engine does not do`,
+    };
+  }
+  const cw = op.width - 2 * fw;
+  const ch = op.height - 2 * fw;
+  const clearArea = cw > 0 && ch > 0 ? cw * ch : 0;
+  if (!(clearArea > 0)) {
+    return { area: null, reason: 'the stated frameWidth consumes the whole opening — the clear area would be zero or negative' };
+  }
+  return { area: clearArea, reason: null };
+}
+
 // ── Line accumulation ─────────────────────────────────────────────────────────
 
 interface Accum {
@@ -741,29 +790,18 @@ export function computeTakeoff(stores: TakeoffStores = defaultTakeoffStores()): 
         const fireRating = rec?.fireRating?.trim() || null;
         if (rec) { if (fireRating) ratedN++; else unratedN++; } else { noRecordN++; }
 
-        // LEAF / GLAZED area. Exact only where the frame is a constant-width band
-        // around a RECTANGULAR void; for an arched or circular head, insetting the
-        // outline is a polygon offset this engine does not do, so the measure is
-        // REFUSED with its reason rather than approximated by the bounding box.
-        const fw = rec?.frameWidth ?? 0;
-        const rectangular = profile === 'rectangular';
+        // LEAF / GLAZED area — §SCHED156-DOORWIN (L-12605): the formula now
+        // lives in `openingClearArea()`, ABOVE, so a per-element schedule
+        // column can call the exact same function this line does.
         let clearArea: number | null = null;
         let clearReason: string | null = null;
         if (!rec) {
           clearReason = 'no joinery element record found for this void, so the frame width is unknown';
-        } else if (!(fw > 0)) {
-          noFrameWidthN++;
-          clearReason = 'the joinery record states no frameWidth, so the frame band cannot be deducted';
-        } else if (!rectangular) {
-          clearReason = `a ${profile} head cannot be inset by a constant frame width without a polygon offset, which this engine does not do`;
         } else {
-          const cw = op.width - 2 * fw;
-          const ch = op.height - 2 * fw;
-          clearArea = cw > 0 && ch > 0 ? cw * ch : 0;
-          if (!(clearArea > 0)) {
-            clearArea = null;
-            clearReason = 'the stated frameWidth consumes the whole opening — the clear area would be zero or negative';
-          }
+          if (!((rec.frameWidth ?? 0) > 0)) noFrameWidthN++;
+          const clear = openingClearArea(op, rec.frameWidth);
+          clearArea = clear.area;
+          clearReason = clear.reason;
         }
 
         const secondary: SecondaryMeasure[] = [];

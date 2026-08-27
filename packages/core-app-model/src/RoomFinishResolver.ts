@@ -79,6 +79,96 @@ function pointInPolygon(px: number, pz: number, polygon: Array<{ x: number; z: n
   return pointInPolygonXZ(px, pz, polygon);
 }
 
+// ── Floor → covered rooms ───────────────────────────────────────────────────
+//
+// §SCHED156-FLOOR-ROOMS (L-12602) — the founder's screenshot: the Floors
+// Schedule's "Rooms" column read `'—'` on all 31 rows while the SAME rooms'
+// resolved floor finish worked correctly one schedule over. Root cause was
+// TWO separate defects that happened to share one symptom:
+//   1. the Floors schedule's `finish` cell read `f.finishSpec?.material` /
+//      `f.finishSpec?.surfaceFinish` — neither field exists on
+//      `FloorFinishSpec` (`FloorTypes.ts`); the real fields are
+//      `finishSpec.materialName` and a `layers[]` entry whose
+//      `function === 'finish'`, exactly what THIS resolver already reads
+//      two-pass, below, for the ROOM side of the same fact;
+//   2. the `rooms` cell read ONLY `f.coveredRoomIds`, an explicit-linkage
+//      field that is genuinely `[]` for any floor authored without a
+//      `hostRoomId` (`CreateFloorCommand.ts`) — a real but INCOMPLETE
+//      answer, missing the spatial case this resolver's own "Pass 2" already
+//      covers for the room→floor direction.
+//
+// L-12321 records TWO EXISTING room-containment resolvers
+// (`RoomQueryService.getElementsInRoom`, `RoomContentsService.getContents`)
+// that already disagree by construction — neither answers "which rooms does
+// THIS FLOOR cover", so this is not a third rival for an answered question.
+// It deliberately MIRRORS the two-pass rule this file already applies in the
+// opposite direction (explicit link, then same-level spatial centroid-in-
+// polygon) rather than inventing a new containment rule, so the Floors
+// schedule and the Rooms schedule can never disagree about which floor
+// covers which room.
+//
+// Genuinely covering zero rooms (an unlinked, un-overlapping floor slab) is a
+// real, determined answer and returns `[]` — not a sentinel. This directional
+// query does not yet distinguish "checked and found none" from "roomStore
+// was unreadable" (§GR-10/GR-14's discipline); callers with an empty
+// `rooms` argument already cannot tell the difference, which is the same
+// honesty gap `RoomContentsService.roomsDetermination()` closes for its own
+// callers — NOT closed here; see this lane's report.
+
+export interface CoveredRoomRef {
+  readonly id: string;
+  readonly roomNumber?: string;
+  readonly name?: string;
+}
+
+interface FloorForRoomLookup {
+  readonly id: string;
+  readonly levelId?: string;
+  readonly hostRoomId?: string;
+  readonly coveredRoomIds?: readonly string[];
+  // Mutable element type (not `ReadonlyArray<...>`) to match `pointInPolygon`'s
+  // existing signature, same as every other polygon read in this file.
+  readonly boundary?: { readonly polygon?: Array<{ x: number; z: number }> };
+}
+
+interface RoomForFloorLookup {
+  readonly id: string;
+  readonly levelId?: string;
+  readonly roomNumber?: string;
+  readonly name?: string;
+  readonly computed?: { readonly centroid?: { x: number; z: number } };
+  readonly centroid?: { x: number; z: number };
+}
+
+/**
+ * Which rooms does this FLOOR cover? Mirrors the floor-resolution rule
+ * `resolveRoomFinishes` already applies room→floor: explicit linkage
+ * (`hostRoomId` / `coveredRoomIds`) first, then — for rooms not already
+ * matched — a same-level spatial test (room centroid inside the floor's
+ * polygon). Pure; takes the room list rather than reading a store, so it is
+ * testable without `window.*`.
+ */
+export function roomsCoveredByFloor(
+  floor: FloorForRoomLookup,
+  rooms: ReadonlyArray<RoomForFloorLookup>,
+): CoveredRoomRef[] {
+  const explicit = new Set<string>();
+  if (floor.hostRoomId) explicit.add(floor.hostRoomId);
+  for (const id of floor.coveredRoomIds ?? []) explicit.add(id);
+
+  const polygon = floor.boundary?.polygon ?? [];
+  const out: CoveredRoomRef[] = [];
+  for (const r of rooms) {
+    let covered = explicit.has(r.id);
+    if (!covered && polygon.length >= 3 && r.levelId === floor.levelId) {
+      const c = r.computed?.centroid ?? r.centroid;
+      if (c && pointInPolygon(c.x, c.z, polygon)) covered = true;
+    }
+    if (covered) out.push({ id: r.id, roomNumber: r.roomNumber, name: r.name });
+  }
+  return out;
+}
+
 // ── Main resolver ─────────────────────────────────────────────────────────────
 
 /**

@@ -87,7 +87,13 @@ export class ScheduleRegistry {
       category: 'Walls',
       columns: [
         { id: 'id',        label: 'ID',              value: (e) => e.id },
+        // §SCHED156-RICHCOLS (L-12604) — was `e.type` reading the raw
+        // element-kind literal ("wall" on every row); now the resolved
+        // C15 system-type name (e.g. "Interior — Partition 100mm"), the
+        // SAME name the 5D take-off's own line descriptions use.
         { id: 'type',      label: 'Type',            value: (e) => e.type },
+        { id: 'layers',    label: 'Layers',          value: (e) => e.layers },
+        { id: 'materials', label: 'Materials',       value: (e) => e.materials },
         { id: 'length',    label: 'Length (m)',      value: (e) => e.length },
         { id: 'height',    label: 'Height (m)',      value: (e) => e.height },
         { id: 'thickness', label: 'Thickness (m)',   value: (e) => e.thickness },
@@ -112,6 +118,10 @@ export class ScheduleRegistry {
         { id: 'department', label: 'Department',    value: (e) => e.department },
         { id: 'rooms',      label: 'Rooms',         value: (e) => e.rooms },
         { id: 'slope',      label: 'Slope',         value: (e) => e.slope },
+        // §SCHED156-COST5 (L-12603) — the 5D take-off DOES measure Floors
+        // (m² net, `measurePolyFamily`); the schedule simply never asked for
+        // it. See ScheduleExtractor.ts's COST_COVERED_CATEGORIES correction.
+        COST_COLUMN,
       ],
     });
 
@@ -128,6 +138,8 @@ export class ScheduleRegistry {
         { id: 'thickness', label: 'Thickness (m)',  value: (e) => e.thickness },
         { id: 'overhang',  label: 'Overhang (m)',   value: (e) => e.overhang },
         { id: 'material',  label: 'Material',       value: (e) => e.material },
+        // §SCHED156-COST5 (L-12603) — take-off measures Roofs (PLAN m²).
+        COST_COLUMN,
       ],
     });
 
@@ -144,6 +156,8 @@ export class ScheduleRegistry {
         { id: 'finish',     label: 'Finish',        value: (e) => e.finish },
         { id: 'department', label: 'Department',    value: (e) => e.department },
         { id: 'rooms',      label: 'Rooms',         value: (e) => e.rooms },
+        // §SCHED156-COST5 (L-12603) — take-off measures Ceilings (m²).
+        COST_COLUMN,
       ],
     });
 
@@ -213,6 +227,19 @@ export class ScheduleRegistry {
         { id: 'hostWall',   label: 'Host Wall',      value: (e) => e.hostWall },
         { id: 'roomFrom',   label: 'Room From',      value: (e) => e.roomFrom ?? '—' },
         { id: 'roomTo',     label: 'Room To',        value: (e) => e.roomTo   ?? '—' },
+        // §SCHED156-DOORWIN (L-12605) — the founder: "for doors surface of
+        // leaf, linear of frame". Three DISTINCT, unambiguously labelled
+        // numbers, all reusing `openingVoidArea`/`openingPerimeter`/
+        // `openingClearArea` from `QuantityTakeoff.ts` (C84 EI-9 — one
+        // quantity authority, not a rival formula in this layer):
+        //   · Opening Area  — the STRUCTURAL/ROUGH void cut in the wall.
+        //   · Leaf Area     — the door LEAF itself, clear of the frame band
+        //                     (smaller than Opening Area — shown alongside
+        //                     it so the difference is visible, not asserted).
+        //   · Frame Perimeter — the frame/lining run around the opening.
+        { id: 'openingArea',    label: 'Opening Area (m²)',    value: (e) => e.openingArea },
+        { id: 'leafArea',       label: 'Leaf Area (m²)',       value: (e) => e.leafArea },
+        { id: 'framePerimeter', label: 'Frame Perimeter (m)',  value: (e) => e.framePerimeter },
         COST_COLUMN,
       ],
     });
@@ -231,6 +258,13 @@ export class ScheduleRegistry {
         { id: 'level',        label: 'Level',            value: (e) => e.level },
         { id: 'room',         label: 'Room',             value: (e) => e.room         ?? '—' },
         { id: 'adjacentRoom', label: 'Adjacent Room',    value: (e) => e.adjacentRoom ?? '—' },
+        // §SCHED156-DOORWIN (L-12605) — same three quantities as the Doors
+        // schedule, same authority, mirrored for the window's GLAZED area
+        // rather than a LEAF (see ScheduleRegistry.ts's Doors columns above
+        // for the full rationale).
+        { id: 'openingArea',    label: 'Opening Area (m²)',    value: (e) => e.openingArea },
+        { id: 'glazedArea',     label: 'Glazed Area (m²)',     value: (e) => e.glazedArea },
+        { id: 'framePerimeter', label: 'Frame Perimeter (m)',  value: (e) => e.framePerimeter },
         COST_COLUMN,
       ],
     });
@@ -302,6 +336,9 @@ export class ScheduleRegistry {
         { id: 'material',  label: 'Material',       value: (e) => e.material },
         { id: 'phase',     label: 'Phase',          value: (e) => e.phase },
         { id: 'baseOffset', label: 'Base Offset (m)', value: (e) => e.baseOffset },
+        // §SCHED156-COST5 (L-12603) — take-off measures Slabs (m³, priced
+        // per-m³ via the same code the Slabs schedule groups by).
+        COST_COLUMN,
       ],
     });
 
@@ -319,6 +356,9 @@ export class ScheduleRegistry {
         { id: 'width',         label: 'Width (m)',       value: (e) => e.width },
         { id: 'length',        label: 'Length (m)',      value: (e) => e.length },
         { id: 'height',        label: 'Height (m)',      value: (e) => e.height },
+        // §SCHED156-COST5 (L-12603) — take-off COUNTS furniture (`ud`), the
+        // same shape Columns/Beams already cost.
+        COST_COLUMN,
       ],
     });
 
