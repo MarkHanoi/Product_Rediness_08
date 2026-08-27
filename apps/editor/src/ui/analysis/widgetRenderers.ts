@@ -1106,6 +1106,25 @@ export function renderGraph(host: HTMLElement, _def: AnalysisWidgetDef, _result:
     : null;
 
   // ── Stable colour indices, shared by BOTH modes and BOTH legends ───────────
+  //
+  // ⚠ AMENDED §CLEAN150 (L-12481) — THE LABEL USED TO ASK A DIFFERENT, WORSE
+  // AUTHORITY THAN THE COLOUR DID. `familyOfNode(n, families)` — THE census-
+  // then-kind LADDER `hierarchy.ts` itself documents as authoritative — was
+  // already being computed here and fed to `familyOf` (colour/legend/grouping)
+  // as `fam`, but `readableLabel(n)` below read `n.kind` directly and never saw
+  // it. Three of the five UBG adapters (`semanticAdapter.ts:46-47`,
+  // `dependencyAdapter.ts:36-37`, `constraintAdapter.ts:50`) stamp `kind:
+  // 'element'` UNCONDITIONALLY on every endpoint they materialise, regardless of
+  // what the element actually is — so a wall reached only through `hostedIn` /
+  // `dependsOn` carried `kind: 'element'` even though the census (the SAME
+  // resolver the colour already trusted) knew it was a wall. The founder's
+  // report — "there nodes called elements - but we know for sure what element is
+  // - provide the category please" — is that gap: the SAME node could be
+  // coloured correctly (via `familyOf`) while its printed label still read
+  // "element 4afc", a within-card contradiction that is exactly the rival-
+  // authority shape C84 EI-9 names. Resolving ONCE and handing the SAME answer
+  // to both consumers is the fix; a second ladder inside `readableLabel` would
+  // have been the mistake repeated, not corrected.
   const edgeTypeIndex = new Map<string, number>();
   for (const t of projection.edgeCounts.keys()) if (!edgeTypeIndex.has(t)) edgeTypeIndex.set(t, edgeTypeIndex.size);
   const groupIndex = new Map<string, number>();
@@ -1113,9 +1132,10 @@ export function renderGraph(host: HTMLElement, _def: AnalysisWidgetDef, _result:
   const labelOf = new Map<string, string>();
   const familyCounts = new Map<string, number>();
   for (const n of projection.nodes) {
-    const fam = familyOfNode(n, families) ?? n.kind;
+    const resolvedFamily = familyOfNode(n, families);
+    const fam = resolvedFamily ?? n.kind;
     familyOf.set(n.id, fam);
-    labelOf.set(n.id, readableLabel(n));
+    labelOf.set(n.id, readableLabel(n, resolvedFamily));
     if (!groupIndex.has(fam)) groupIndex.set(fam, groupIndex.size);
     familyCounts.set(fam, (familyCounts.get(fam) ?? 0) + 1);
   }
@@ -1181,17 +1201,47 @@ export function renderGraph(host: HTMLElement, _def: AnalysisWidgetDef, _result:
   // head a compact, non-warning "≥" marker in presentation mode instead of the
   // `INCOMPLETE` text badge — see that function — so the claim does not
   // disappear, it shrinks to the size the founder asked for.
-  if (!g.complete && !presentationMode()) {
-    stage.appendChild(
-      el(
-        'p',
-        'anl-honesty-pin',
-        `⚠ INCOMPLETE — every total on this card is a LOWER BOUND  ·  ` +
-          `${projection.nodes.length} of ${g.totalNodes} elements and ` +
-          `${projection.edges.length} of ${g.totalEdges} relationships drawn` +
-          (g.incompleteReason.length > 0 ? `  ·  ${g.incompleteReason[0]!}` : ''),
-      ),
-    );
+  //
+  // ⚠ AMENDED §CLEAN150 (L-12480) — A THIRD BRANCH, FOR THE EXPANDED CASE, AND
+  // IT IS NOT THE SAME AS PRESENTATION MODE. Founder, verbatim: *"exclude the
+  // yellow tabs completely when the graph is big (extended) - leave all white
+  // ... that's all for the analysis side."* Unlike presentation mode (a
+  // separate, persisted, manual toggle the reader must ALSO press), this is
+  // the direct behaviour of the expand (⤢) control itself — expanding the
+  // graph is, on its own, "make this a clean canvas", with no second click.
+  //
+  // ⛔ BUT REASON 2 ABOVE IS *WORSE* HERE THAN IN PRESENTATION MODE, NOT
+  // ABSENT. Presentation mode leaves the card head on screen (only the STAGE'S
+  // prose goes quiet), so its "≥" marker is reachable — that is reason 2's
+  // whole answer. Expanding COVERS the card head (the very fact reason 2 is
+  // making the case for). So going straight to "print nothing" here would be
+  // the ONE combination — expanded AND incomplete — where the surface's
+  // loudest qualifier is unreachable by ANY path. `expandedBoundNotice` below
+  // is the stage's own quiet carrier: `foldable()` (the SAME persisted-fold
+  // primitive `graphNotes` already uses — C84 EI-9, reuse, not a second
+  // mechanism), `tone: 'scope'` rather than `'warn'` (the accent-violet
+  // treatment already used for this card's OWN storey/basis/focus folds, never
+  // the yellow the founder is asking to be rid of), collapsed by default, one
+  // click or one Enter key from the full sentence. The bound is DEMOTED, never
+  // deleted.
+  if (!g.complete) {
+    if (graphExpanded()) {
+      stage.appendChild(expandedBoundNotice(g, projection));
+    } else if (!presentationMode()) {
+      stage.appendChild(
+        el(
+          'p',
+          'anl-honesty-pin',
+          `⚠ INCOMPLETE — every total on this card is a LOWER BOUND  ·  ` +
+            `${projection.nodes.length} of ${g.totalNodes} elements and ` +
+            `${projection.edges.length} of ${g.totalEdges} relationships drawn` +
+            (g.incompleteReason.length > 0 ? `  ·  ${g.incompleteReason[0]!}` : ''),
+        ),
+      );
+    }
+    // else: presentation mode, NOT expanded — the card head is on screen and
+    // its quiet "≥" marker (`AnalysisSurface._card`) is the sole carrier,
+    // exactly as §DEMO141 shipped. Nothing to add here in that case.
   }
 
   stage.appendChild(graphToolbar(host, projection, g));
@@ -1560,6 +1610,64 @@ function bindExpandEscape(): void {
 }
 
 // ═════════════════════════════════════════════════════════════════════════════
+// §CLEAN150 (L-12480) — the expanded stage's own quiet carrier for `!g.complete`
+// ═════════════════════════════════════════════════════════════════════════════
+
+/**
+ * The bound, demoted rather than deleted, for when the graph is expanded.
+ *
+ * ⭐ WHY THIS EXISTS AND IS NOT JUST "SKIP THE PIN". The card-head "≥" marker
+ * (`AnalysisSurface._card`) is what presentation mode alone relies on to keep a
+ * lower-bound figure looking like one once the verbose paragraph is gone — but
+ * that marker lives in the CARD HEAD, and the expanded stage covers the card
+ * head along with everything else on the surface (`position: absolute; inset:
+ * 0` over the whole grid). Without a carrier INSIDE the stage, "the graph is
+ * expanded and incomplete" would be the one state on this entire surface where
+ * a lower-bound total is on screen with NOTHING beside it saying so — the exact
+ * overstatement this surface exists to refuse (§CONTEXT-DATA-HONESTY, C78 §8.1).
+ *
+ * ⛔ `tone: 'scope'`, NEVER `'warn'`. `'warn'` paints `--app-status-warning-bg`
+ * — the founder's own words were "exclude the yellow tabs completely … leave
+ * all white", and repainting the SAME yellow one level down would not be that.
+ * `'scope'` already carries a "this is a fact, not a warning" meaning on this
+ * exact card (the storey/basis/focus folds below use it) and paints
+ * `--app-violet-soft` — the ONE accent colour the founder asked to keep beside
+ * white, never a third hue.
+ *
+ * ⛔ `foldable()`, THE SAME PRIMITIVE `graphNotes` USES — not a bespoke tooltip
+ * or a hover-only affordance. Reusing it means this gets, for free, exactly
+ * what the brief asks for: discoverable while collapsed (the label states the
+ * claim in plain words, not just a glyph), reachable by mouse click OR by
+ * keyboard (`<button>` + Enter/Space, `aria-expanded`), and persisted through
+ * the SAME project-scoped fold record (`analysisLayout.ts`) every other fold on
+ * this card already uses — one authority, not a second one minted for this case
+ * (C84 EI-9).
+ */
+function expandedBoundNotice(g: GraphProjection, projection: HierarchyProjection): HTMLElement {
+  const host = el('div', 'anl-fold-host');
+  foldable(host, {
+    id: 'graph.bound',
+    // ⛔ THE CLAIM IS ON THE LABEL, COLLAPSED, so a reader never has to open
+    // this to learn the totals are floors — only to learn WHY.
+    label: '≥ Totals on this card are a LOWER BOUND',
+    defaultOpen: false,
+    tone: 'scope',
+    fill: (b) => {
+      b.appendChild(
+        el(
+          'span',
+          'anl-strip-text',
+          `${projection.nodes.length} of ${g.totalNodes} elements and ${projection.edges.length} of ` +
+            `${g.totalEdges} relationships drawn` +
+            (g.incompleteReason.length > 0 ? `  ·  ${g.incompleteReason[0]!}` : ''),
+        ),
+      );
+    },
+  });
+  return host;
+}
+
+// ═════════════════════════════════════════════════════════════════════════════
 // §ANALYSIS-FOLD-STATE (L-12063) — the graph card's note blocks, folded
 // ═════════════════════════════════════════════════════════════════════════════
 
@@ -1593,7 +1701,20 @@ function graphNotes(
   // same class of explanatory prose the founder asked excluded from a pitch, and
   // none of them is the sole carrier of a number — the honesty pin and the
   // card-head marker carry the LOWER BOUND claim; this row only ever carried WHY.
-  if (presentationMode()) return row;
+  //
+  // ⚠ AMENDED §CLEAN150 (L-12480) — an EXPANDED graph goes quiet here too, and
+  // not only because the row would be a paragraph on an otherwise-clean canvas.
+  // `.anl-graph-stage--expanded` is `position: absolute; inset: 0` over the
+  // WHOLE grid viewport (§SCROLL136) with a higher stacking order, so this row
+  // — a sibling of `stage`, not a child of it — is already visually COVERED the
+  // moment the graph expands, whether or not it renders. Rendering it anyway
+  // would leave its fold-toggle buttons in the tab order, focusable and
+  // clickable, behind an opaque overlay a keyboard user cannot see past — a
+  // worse defect than the paragraph this suite is otherwise about. Not
+  // rendering it costs nothing a reader could see: `expandedBoundNotice` below
+  // is the stage's OWN carrier for the one qualifier this row is not the sole
+  // holder of.
+  if (presentationMode() || graphExpanded()) return row;
   const stale = g.liveness?.freshness === 'stale';
 
   foldable(row, {
@@ -1957,12 +2078,25 @@ function categoryTree(projection: HierarchyProjection): HTMLElement {
 
 /**
  * A human label for a UBG node. Enrichment stamps `name`/`occupancy` on rooms;
- * everything else falls back to the id's type prefix plus a short suffix.
+ * everything else falls back to the RESOLVED FAMILY plus a short suffix.
  *
  * ⛔ Never blank, and never the bare ULID — a diagram of twenty identical grey
  * hex strings is a diagram of nothing.
+ *
+ * ⚠ AMENDED §CLEAN150 (L-12481) — `resolvedFamily` REPLACES `node.kind` as the
+ * fallback authority, and it is NOT a second resolver: it is
+ * `familyOfNode(node, families)`'s own answer, computed once at the call site
+ * and threaded in here so the label and the colour/legend can never disagree
+ * (C84 EI-9 — one ladder, not two). `null` is that ladder's explicit, honest
+ * "genuinely unresolved" answer — not a family named "element" — so it is
+ * rendered as a NAMED, visibly-different non-answer rather than silently
+ * reusing the generic UBG `kind`. §CONTEXT-DATA-HONESTY: "unknown" and "wall"
+ * must never be the same value, including at the level of a node's label.
  */
-function readableLabel(node: { id: string; kind: string; props?: Record<string, unknown> }): string {
+function readableLabel(
+  node: { id: string; kind: string; props?: Record<string, unknown> },
+  resolvedFamily: string | null,
+): string {
   const p = node.props ?? {};
   const name = typeof p.name === 'string' && p.name.trim() ? p.name.trim() : null;
   const occ = typeof p.occupancy === 'string' && p.occupancy.trim() ? p.occupancy.trim() : null;
@@ -1970,7 +2104,7 @@ function readableLabel(node: { id: string; kind: string; props?: Record<string, 
   if (occ) return occ;
   const under = node.id.indexOf('_');
   const suffix = under > 0 ? node.id.slice(under + 1, under + 5) : node.id.slice(0, 4);
-  return `${node.kind} ${suffix}`;
+  return resolvedFamily ? `${resolvedFamily} ${suffix}` : `unresolved element ${suffix}`;
 }
 
 // ═════════════════════════════════════════════════════════════════════════════

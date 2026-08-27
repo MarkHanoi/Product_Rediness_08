@@ -87,7 +87,7 @@ import {
   renderTreemap,
   renderUnknownWidget,
 } from './widgetRenderers';
-import { GRAPH_VIEW_EVENT } from './graphViewState';
+import { GRAPH_VIEW_EVENT, graphExpanded } from './graphViewState';
 
 type ChartJS = typeof import('chart.js');
 
@@ -619,7 +619,19 @@ export class AnalysisSurface {
     }
 
     const card = this._card(def, def.id, (host) => {
-      const strip = completenessStrip(result);
+      // ⚠ AMENDED §CLEAN150 (L-12480) — a THIRD yellow fold the founder's two
+      // named banners did not call out, but the same rule applies: this is
+      // `completenessStrip`'s own `w.completeness` fold, `tone: 'warn'`
+      // (`--app-status-warning-bg`), appended OUTSIDE the graph's own stage —
+      // so while the graph is expanded it sits behind the opaque, higher
+      // z-index stage exactly like `graphNotes`' row does (see that comment in
+      // `widgetRenderers.ts`), reachable by keyboard but invisible to a sighted
+      // reader. Suppressed for the SAME reason and by the SAME condition, and
+      // ONLY for the graph widget — every other card's own completeness fold is
+      // untouched, because expanding the graph does not touch what those cards
+      // show (they are simply covered, not altered).
+      const suppressStrip = def.kind === 'graph' && graphExpanded();
+      const strip = suppressStrip ? null : completenessStrip(result);
       if (strip) host.appendChild(strip);
       switch (def.kind) {
         case 'kpi':      renderKpi(host, result); break;
@@ -1059,10 +1071,35 @@ export class AnalysisSurface {
    * collapsed by default) or, for the graph, the always-visible pin. Nothing
    * that was reachable before is unreachable now; it is reachable in ONE place
    * instead of two.
+   *
+   * ⚠ AMENDED §CLEAN150 (L-12480) — THIS IS BANNER (a) OF THE FOUNDER'S NEXT
+   * REPORT, VERBATIM: *"exclude the yellow tabs completely when the graph is
+   * big (extended) - leave all white."* His screenshot named two banners; this
+   * line was one of them. `present` below now also goes true when the
+   * relationship graph — the ONE `kind: 'graph'` widget this catalogue holds —
+   * is both on the active tab and expanded, so this line goes quiet the moment
+   * the graph fills the panel, with no second "Present" click required. See
+   * `graphExpandedHere`'s own comment for why the check is scoped to the
+   * widget actually being shown rather than to a tab id or to `graphExpanded()`
+   * alone.
    */
   private _setStatus(ms: number, incomplete: boolean, unreachable: number, reasons: readonly string[]): void {
     this._status.replaceChildren();
-    const present = presentationMode();
+    // ⚠ AMENDED §CLEAN150 (L-12480) — an expanded graph quiets this line too,
+    // and NOT via a second flag: `presentationMode()` is a separate, persisted,
+    // manual toggle the reader must press deliberately; expanding the
+    // relationship graph is the founder's literal ask — "exclude the yellow
+    // tabs completely when the graph is big (extended)" — with no second click.
+    // Guarded on `_activeWidgetIds()` actually holding the graph widget, not on
+    // the tab id: `graphExpanded()` is module state that outlives a tab switch
+    // (it is reset only by a project switch, not by leaving Relationships — see
+    // `graphViewState.ts`), so an unguarded check would silently quiet an
+    // UNRELATED tab's own honest status line the next time the reader opened
+    // it after once expanding the graph and clicking away without collapsing
+    // it first — a stale flag borrowing a different tab's identity, the same
+    // shape of bug this repository keeps re-finding one level up.
+    const graphExpandedHere = graphExpanded() && this._activeWidgetIds().includes('relationship-graph');
+    const present = presentationMode() || graphExpandedHere;
     this._status.className = `anl-status${incomplete && !present ? ' anl-status--warn' : ''}`;
     const tab = ANALYSIS_TABS.find((t) => t.id === this._layout.activeTab)?.label ?? 'this tab';
 

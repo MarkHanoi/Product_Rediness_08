@@ -280,15 +280,25 @@ describe('⭐⭐ THE HONESTY PIN — what survives when EVERY block is collapsed
     expect(visible).toMatch(/INCOMPLETE/);
   });
 
-  it('⛔ the pin survives EXPANSION, where the card head is covered', async () => {
+  // ⚠ AMENDED §CLEAN150 (L-12480) — the founder's NEXT report asked for the
+  // opposite of what this arm used to assert: *"exclude the yellow tabs
+  // completely when the graph is big (extended) - leave all white."* The
+  // verbose, always-visible pin is now demoted to a quiet fold under
+  // expansion — see `analysisCleanExpandedGraph.spec.ts` for the full
+  // coverage of that substitute (it survives, discoverable and keyboard-
+  // reachable; it is simply no longer a standing paragraph).
+  it('⛔ the verbose pin is GONE under EXPANSION — it is demoted, not deleted', async () => {
     await openRelationships();
     setGraphExpanded(true);
     await settle();
     const stage = card().querySelector('.anl-graph-stage--expanded');
     expect(stage, 'the stage did not take the expanded class').not.toBeNull();
-    const pin = stage!.querySelector('.anl-honesty-pin');
-    expect(pin, 'expanding the graph dropped the lower-bound claim').not.toBeNull();
-    expect(pin!.textContent).toMatch(/LOWER BOUND/);
+    expect(stage!.querySelector('.anl-honesty-pin'), 'the verbose pin survived expansion').toBeNull();
+    // The claim is not lost — a quiet, collapsed fold takes its place. Full
+    // coverage of that substitute lives in `analysisCleanExpandedGraph.spec.ts`.
+    const notice = stage!.querySelector('[data-fold="graph.bound"]');
+    expect(notice, 'no quiet substitute took the pin\'s place').not.toBeNull();
+    expect(notice!.textContent ?? '').toMatch(/LOWER BOUND/);
   });
 
   it('⛔ the card FOOTER still prints its operands and is not foldable', async () => {
@@ -359,7 +369,13 @@ describe('ASK 3+4 — §GRAPH-EXPAND (L-12062): the corner control', () => {
 
     setGraphExpanded(true);
     await settle();
-    expect(card().textContent ?? '').toMatch(/1 selected/);
+    // ⚠ AMENDED §CLEAN150 (L-12480) — the "N selected" readout lived in the
+    // `graph.focus` fold, part of the notes row that now goes quiet under
+    // expansion (same treatment as presentation mode — see
+    // `analysisCleanExpandedGraph.spec.ts`). This arm's actual claim is that
+    // the SELECTION STATE itself is untouched by expand/collapse, which is
+    // what `selectionBus` — the state, not a rendering of it — proves directly.
+    expect(selectionBus.currentIds).toEqual(['wall_a']);
 
     window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }));
     await settle();
