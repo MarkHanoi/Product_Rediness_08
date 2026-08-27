@@ -765,9 +765,25 @@ function toRef(e: any, type: string): ElementRef {
   return { id: String(e.id), type, label: String(label) };
 }
 
+/**
+ * §DEPT153 (L-12540+) — ⭐ FOUND while diagnosing the founder's "stair core not
+ * recognised" report: `StairData` (packages/geometry-stair/src/StairTypes.ts)
+ * carries `startPosition: Vec3`, NOT `position` — the only two shapes this
+ * function recognised. Every `_containedByCentroid(this._stairStore(), …)`
+ * call therefore silently found ZERO stairs in EVERY room, project-wide,
+ * regardless of `levelId` correctness: `hasStair` was always `false`, so the
+ * classifier's `core-stair` rule (already present, already correctly ordered
+ * — see RoomAutoFillClassifier.ts) could never fire. This was a containment
+ * gap, not a rule-precedence bug; reordering the rule table would not have
+ * fixed it. `startPosition` is added as a second recognised field, same
+ * priority as `position` (stairs never carry both).
+ */
 function elementXZ(e: any): { x: number; z: number } | null {
   if (e?.position && typeof e.position.x === 'number' && typeof e.position.z === 'number') {
     return { x: e.position.x, z: e.position.z };
+  }
+  if (e?.startPosition && typeof e.startPosition.x === 'number' && typeof e.startPosition.z === 'number') {
+    return { x: e.startPosition.x, z: e.startPosition.z };
   }
   if (typeof e?.x === 'number' && typeof e?.z === 'number') return { x: e.x, z: e.z };
   return null;

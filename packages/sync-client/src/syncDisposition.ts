@@ -576,6 +576,10 @@ export const SYNC_DISPOSITIONS: Readonly<Record<string, SyncDisposition>> = {
   // off it, so a silently dropped renumber leaves other documents pointing at a
   // room that no longer answers to that number. DISCLOSE, unlike `setName`.
   'room.setNumber':       { kind: 'element-property', subject: 'roomId', conflict: 'disclose' },
+  // §DEPT153 (L-12540+) — same shape and policy as room.setNumber: a free-text
+  // property keyed by roomId, no nested bag. `department` becomes the synced
+  // property automatically (the generic path — see this file's header).
+  'room.setDepartment':   { kind: 'element-property', subject: 'roomId', conflict: 'disclose' },
   'room.updateBoundary':  { kind: 'element-property', subject: 'id',     conflict: 'disclose' },
   // The plugin-side twin of `room.rename` above, and it carries the same policy
   // for the same stated reason — a free-text label with no geometric dependents,
@@ -1058,6 +1062,18 @@ export const SYNC_DISPOSITIONS: Readonly<Record<string, SyncDisposition>> = {
   'window.batch.create':      { kind: 'not-synced', reason: 'MULTI-SUBJECT §NEEDS-MULTI-SUBJECT-KIND: `{windows: CreateWindowPayload[]}`. See beam.batch.create.' },
   'curtain-wall.batch.update':{ kind: 'not-synced', reason: 'MULTI-SUBJECT §NEEDS-MULTI-SUBJECT-KIND: `{updates: {id, updates}[]}` — a per-element patch LIST. See beam.batch.create.' },
   'curtain-wall.batch.delete':{ kind: 'not-synced', reason: 'MULTI-SUBJECT + LIFECYCLE: `{ids: string[]}`. Both missing kinds at once — see beam.batch.create and annotation.delete.' },
+  // §DEPT153 (L-12540+) — flagged by YjsDocAdapter's own W5-3 warning
+  // ("command type 'room.autoClassify.batch' has NO sync disposition"). The
+  // properties (name/occupancyType/department) SHOULD replicate — this is NOT
+  // a "nothing to sync" verb — but the shape is the SAME per-element patch
+  // LIST as curtain-wall.batch.update: `{patches: {roomId, name,
+  // occupancyType, department?}[]}`. One `subject` key cannot name an array,
+  // so ElementPropertyDisposition genuinely cannot represent it today.
+  // Declared NOT-SYNCED with the SAME named, tracked gap its siblings use
+  // rather than forced into a shape that would silently sync only patches[0]
+  // or throw away the rest — until §NEEDS-MULTI-SUBJECT-KIND lands, a
+  // collaborator's autofill results do not reach peers.
+  'room.autoClassify.batch':  { kind: 'not-synced', reason: 'MULTI-SUBJECT §NEEDS-MULTI-SUBJECT-KIND: `{patches: {roomId, name, occupancyType, department?}[]}` — a per-room patch LIST, one command for the whole batch (C16 §8.6). See curtain-wall.batch.update / beam.batch.create. The properties SHOULD replicate; they cannot until this gate gets a multi-subject kind.' },
 
   // ── NOT SYNCED — DERIVED-MULTI CREATION: the subject is minted inside ──────
   //
