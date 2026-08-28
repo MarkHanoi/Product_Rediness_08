@@ -37,6 +37,7 @@
 
 import { injectAppTheme } from '../styles/AppTheme';
 import { LandingPage } from './LandingPage';
+import { CONTACT_MAILTO } from './landingMarkup';
 import { AuthModal } from './AuthModal';
 import { ProjectHub } from './ProjectHub';
 import { projectRepository } from './ProjectRepository';
@@ -492,7 +493,12 @@ export class PlatformRouter {
             // still reachable from the hub's "Upgrade" button and from
             // marketplace events; it is NOT the landing-page destination.
             onPricing: () => this.showMarketing('pricing'),
-            onContactSales: () => window.open('mailto:hello@pryzm.io?subject=PRYZM+Sales+Enquiry', '_blank'),
+            // §NAV-MAILTO — reads the ONE authority (C84 EI-9) rather than
+            // re-spelling the address. It previously hardcoded a dead one.
+            onContactSales: () => window.open(
+                `${CONTACT_MAILTO}?subject=${encodeURIComponent('PRYZM enquiry')}`,
+                '_blank',
+            ),
         });
     }
 

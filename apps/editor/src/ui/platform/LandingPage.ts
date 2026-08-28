@@ -141,7 +141,12 @@ export class LandingPage {
         // contact-sales callback the apex points at (${APP_ORIGIN}/contact).
         el.querySelector('#lp-nav-demo')!.addEventListener('click', () => this.callbacks.onContactSales());
         el.querySelector('#lp-hero-btn')!.addEventListener('click', () => this.callbacks.onGetStarted());
-        el.querySelector('#lp-nav-pricing')!.addEventListener('click', (e) => {
+        // §NAV-MINIMAL (2026-08-28) — Pricing is withheld from the bar behind
+        // LANDING_MINIMAL_NAV, so this id is no longer emitted. Optional-chained
+        // for the same reason §NAV-CTA-TRIM optional-chained its two: a `!` here
+        // throws a TypeError on mount and takes the whole in-app landing down.
+        // Still wired when the flag is flipped back.
+        el.querySelector('#lp-nav-pricing')?.addEventListener('click', (e) => {
             e.preventDefault();
             this.callbacks.onPricing();
         });
@@ -166,9 +171,11 @@ export class LandingPage {
         el.querySelector('#lp-mob-cta')!.addEventListener('click', () => { closeDrawer(); this.callbacks.onGetStarted(); });
         el.querySelector('#lp-mob-login')!.addEventListener('click', () => { closeDrawer(); this.callbacks.onLogin(); });
         el.querySelector('#lp-mob-contact')!.addEventListener('click', () => { closeDrawer(); this.callbacks.onContactSales(); });
-        el.querySelector('#lp-mob-pricing')!.addEventListener('click', () => { closeDrawer(); this.callbacks.onPricing(); });
-        el.querySelector('#lp-mob-solutions')!.addEventListener('click', () => { closeDrawer(); this.callbacks.onGetStarted(); });
-        el.querySelector('#lp-mob-resources')!.addEventListener('click', () => { closeDrawer(); this.callbacks.onContactSales(); });
+        // §NAV-MINIMAL — the drawer's three content links go with the bar's.
+        // Optional-chained, wired again the moment the flag returns.
+        el.querySelector('#lp-mob-pricing')?.addEventListener('click', () => { closeDrawer(); this.callbacks.onPricing(); });
+        el.querySelector('#lp-mob-solutions')?.addEventListener('click', () => { closeDrawer(); this.callbacks.onGetStarted(); });
+        el.querySelector('#lp-mob-resources')?.addEventListener('click', () => { closeDrawer(); this.callbacks.onContactSales(); });
 
         return el;
     }

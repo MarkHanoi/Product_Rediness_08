@@ -112,6 +112,10 @@ const pricingMod = await import(pathToFileURL(join(stylesPanels, 'pricingPage.ts
 const platformDir = resolve(editorRoot, 'src', 'ui', 'platform');
 const landingMarkupMod = await import(pathToFileURL(join(platformDir, 'landingMarkup.ts')).href);
 const landingMarkup = landingMarkupMod.landingMarkup;
+// §NAV-MAILTO — the ONE authority for the contact address (C84 EI-9). Pulled from
+// the same module the landing markup uses, so the apex's other pages can never
+// drift back to a different address than the landing bar advertises.
+const CONTACT_MAILTO = landingMarkupMod.CONTACT_MAILTO;
 
 const DESIGN_TOKENS = tokensMod.DESIGN_TOKENS ?? '';
 const LANDING_PAGE_STYLES = marketingMod.LANDING_PAGE_STYLES ?? '';
@@ -119,6 +123,16 @@ const PRICING_PAGE_STYLES = pricingMod.PRICING_PAGE_STYLES ?? '';
 
 if (typeof landingMarkup !== 'function') {
   console.error('[prerender-apex] FATAL — landingMarkup export missing from landingMarkup.ts');
+  process.exit(1);
+}
+
+// §NAV-MAILTO — fail the BUILD rather than shipping `undefined?subject=…` into a
+// live href. A missing export here is silent at runtime and produces a contact
+// link that looks fine and goes nowhere, which is the exact defect class this
+// change exists to close.
+if (typeof CONTACT_MAILTO !== 'string' || !CONTACT_MAILTO.startsWith('mailto:')) {
+  console.error('[prerender-apex] FATAL — CONTACT_MAILTO missing/malformed in landingMarkup.ts');
+  console.error('  got:', CONTACT_MAILTO);
   process.exit(1);
 }
 
@@ -152,6 +166,17 @@ const PRYZM_PYRAMID_SVG = `
  * `style-src 'unsafe-inline'` is required because every route inlines its
  * CSS into <style> for first-paint speed.
  */
+/**
+ * §HERO-R2 — the public R2 bucket that serves the hero film.
+ *
+ * The SAME bucket already serving `/tiles/` and `/items/` to the app (see
+ * `tools/deploy/fly-bundle-proof.sh`, which asserts those URLs) — one origin, not
+ * a second one to keep in sync. Named as a constant so the CSP entry below and
+ * `HERO_VIDEO_URL` in `landingMarkup.ts` cannot drift apart silently: if this
+ * moves, both move.
+ */
+const R2_MEDIA_ORIGIN = 'https://pub-1ad4f6c5dec849b5b25a45586898fd4d.r2.dev';
+
 const APEX_CSP = [
   "default-src 'none'",
   "style-src 'unsafe-inline'",
@@ -160,11 +185,22 @@ const APEX_CSP = [
   // is a permission, not a preference — staying self-contained means marketing
   // cannot be broken by a third-party outage, and the CSP stays tight.
   "img-src 'self' data:",
-  // The hero background video ships INSIDE the apex too (public/apex/hero.mp4).
   // <video>/<source> is governed by media-src, which falls back to
   // default-src 'none' — so WITHOUT this line the hero video is CSP-blocked and
-  // the section silently degrades to its gradient. 'self' only; no CDN.
-  "media-src 'self'",
+  // the section silently degrades to its gradient.
+  //
+  // ⚠ AMENDED 2026-08-28 (§HERO-R2) — this was `'self'` only, and the comment
+  // above it said the video "ships INSIDE the apex". It cannot any more:
+  // Cloudflare Pages rejects any single file over 25 MB, which caps a 2:16 hero
+  // at ~1.4 Mbps — far too low for legible BIM UI text. That is arithmetic, not
+  // an encoder setting. Hosting the hero on R2 removes the cap.
+  //
+  // ⭐ CSP IS NOT CORS. R2 can serve the file with correct CORS headers and the
+  // browser will STILL refuse to play it unless this origin is named here — the
+  // exact trap the R2 context tiles hit. Both must be right; neither implies the
+  // other. If the hero ever silently falls back to the gradient, check this line
+  // BEFORE re-checking the bucket.
+  `media-src 'self' ${R2_MEDIA_ORIGIN}`,
   "font-src 'self' data:",
   "connect-src 'self'",
   "form-action 'self'",
@@ -371,7 +407,7 @@ function renderPricing() {
             </ul>
           </div>
           <div class="pr-bespoke-cta-wrap">
-            <a id="pr-bespoke-cta" href="${APP_ORIGIN}/contact">Talk to us about a bespoke build</a>
+            <a id="pr-bespoke-cta" href="${CONTACT_MAILTO}?subject=PRYZM%20bespoke%20build%20enquiry">Talk to us about a bespoke build</a>
           </div>
         </div>
       </div>
@@ -472,7 +508,6 @@ function renderManifesto() {
       <nav class="nav" aria-label="Site">
         <a href="/" class="brand">PRYZM</a>
         <a href="/manifesto" aria-current="page">Manifesto</a>
-        <a href="/pricing">Pricing</a>
         <a href="/trust">Trust</a>
       </nav>
 
@@ -609,7 +644,6 @@ function renderTrust() {
       <nav class="nav" aria-label="Site">
         <a href="/" class="brand">PRYZM</a>
         <a href="/manifesto">Manifesto</a>
-        <a href="/pricing">Pricing</a>
         <a href="/trust" aria-current="page">Trust</a>
       </nav>
 

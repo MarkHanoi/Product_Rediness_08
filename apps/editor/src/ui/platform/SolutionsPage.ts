@@ -168,7 +168,7 @@ function studentsHtml(): string {
         ${para('When you graduate and start practice, your projects migrate with you. Nothing gets locked or deleted. Upgrade to a paid plan when you\'re ready.')}
         ${featureList('For students and graduates', [
             'Free plan — full modelling, AI Design Advisor, up to 3 projects',
-            'Full Architect plan free with verified .edu email — contact hello@pryzm.io',
+            'Full Architect plan free with verified .edu email — contact hellopryzm@gmail.com',
             'IFC export for academic submissions and collaboration projects',
             'Projects carry forward when you move to a paid plan',
         ])}
@@ -290,7 +290,7 @@ function bespokeHtml(): string {
             'Private cloud or on-premise deployment',
             'Handover, training, and ongoing engineering support',
         ])}
-        ${callout('This is scoped and priced separately from all subscription plans. To start a conversation: <a href="mailto:hello@pryzm.io" class="lp-sol-link">hello@pryzm.io</a> with the subject "Bespoke Build Enquiry".')}
+        ${callout('This is scoped and priced separately from all subscription plans. To start a conversation: <a href="mailto:hellopryzm@gmail.com" class="lp-sol-link">hellopryzm@gmail.com</a> with the subject "Bespoke Build Enquiry".')}
     `;
 }
 

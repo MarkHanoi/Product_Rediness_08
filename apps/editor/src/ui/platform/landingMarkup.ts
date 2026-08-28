@@ -222,6 +222,40 @@ export const HERO_VIDEO_POSTER_URL = '/apex/hero-poster.png';
  */
 export const LANDING_HERO_ONLY = true;
 
+/**
+ * §NAV-MAILTO — the ONE authority for the address every PRYZM contact CTA opens.
+ *
+ * Founder brief 2026-08-28, reported as urgent: "Book a demo" on the apex landed
+ * on a surface still advertising `hello@pryzm.io`, an address that does not
+ * receive mail. The CTA worked; the enquiries did not arrive. That is the worst
+ * shape a defect can take on a marketing page — it looks like success.
+ *
+ * C84 EI-9 (one authority per concept): every contact point in the product now
+ * reads THIS constant. It is deliberately exported so `PlatformRouter` (app-mode
+ * `onContactSales`) and the apex prerender resolve the same string, rather than
+ * each carrying its own copy — which is exactly how the dead address survived in
+ * eight places at once.
+ */
+export const CONTACT_EMAIL = 'hellopryzm@gmail.com';
+export const CONTACT_MAILTO = `mailto:${CONTACT_EMAIL}`;
+
+/**
+ * §NAV-MINIMAL — founder brief 2026-08-28: the landing bar carries only
+ * Log in · Contact · Book a demo, plus "Start here" in the hero. Solutions,
+ * Resources and Pricing are withheld from the UI until their pages are ready to
+ * be read by a stranger.
+ *
+ * A FLAG, not a deletion, for the same reason as [LANDING_HERO_ONLY]: the pages,
+ * their routes, their prerender and their styles all still exist and still build.
+ * Flip this to `false` and the full nav returns with no other edit. Deleting the
+ * markup would have made restoring it a rewrite.
+ *
+ * NB the wiring in `LandingPage.ts` optional-chains every id this hides. A `!`
+ * assertion there would throw on mount the moment this flag went true, taking the
+ * whole in-app landing page down — the trap §NAV-CTA-TRIM already documented.
+ */
+export const LANDING_MINIMAL_NAV = true;
+
 const ALL_VIDEO_SECTIONS = [
     { src: '/apex/hero_02.mp4', label: SHOWCASE_CAPTIONS[0], variant: 'fade' },
     { src: '/apex/hero_03.mp4', label: SHOWCASE_CAPTIONS[1], variant: 'plain' },
@@ -265,15 +299,24 @@ export function landingMarkup(opts: LandingMarkupOptions): string {
     // Apex CTA destinations (ignored in app mode, where buttons have no href).
     const SIGNUP = `${origin}/signup`;
     const SIGNIN = `${origin}/sign-in`;
-    const CONTACT = `${origin}/contact`;
     const SOLUTIONS = `${origin}/solutions`;
     const RESOURCES = `${origin}/resources`;
-    // "Book a demo" is an auth-adjacent SALES surface. C51 §2.2.1 forbids the
-    // apex from owning any such surface, so it reuses the SAME app-owned
-    // /contact route (and the SAME appOrigin mechanism) as "Contact sales",
-    // distinguished only by an intent query param the contact surface may
-    // read or ignore. No new origin constant, no hardcoded host.
-    const DEMO = `${CONTACT}?intent=demo`;
+    // §NAV-MAILTO — "Contact" and "Book a demo" open the reader's own mail client
+    // addressed to [CONTACT_EMAIL], instead of routing to the app-owned /contact
+    // surface. They previously pointed at `${origin}/contact`, a page still
+    // advertising a dead address.
+    //
+    // This STRENGTHENS C51 §2.2.1 rather than bending it. The clause forbids the
+    // apex from OWNING an auth-adjacent sales surface; a mailto: owns nothing —
+    // it is a protocol handoff to the user's own client. No apex route, no new
+    // origin constant, no hardcoded host, and one fewer cross-domain hop before
+    // the enquiry reaches a human.
+    //
+    // It also needs no CSP grant. The apex ships `default-src 'none'`, which
+    // governs subresource FETCHES, not link navigations — so the zero-JS posture
+    // is untouched and no `media-src`-style exception is required.
+    const CONTACT = `${CONTACT_MAILTO}?subject=${encodeURIComponent('PRYZM enquiry')}`;
+    const DEMO = `${CONTACT_MAILTO}?subject=${encodeURIComponent('PRYZM — book a demo')}`;
 
     return `
             <!-- ── Nav bar ──────────────────────────────────── -->
@@ -289,18 +332,34 @@ export function landingMarkup(opts: LandingMarkupOptions): string {
                 <div class="lp-nav-brand">
                     <img class="lp-nav-mark" src="${NAV_MARK_URL}" width="${NAV_MARK_WIDTH}" height="${NAV_MARK_HEIGHT}" alt="${NAV_MARK_ALT}" decoding="async">
                 </div>
-                <div class="lp-nav-links">
+                <!-- §NAV-MINIMAL — Solutions / Resources / Pricing are withheld
+                     from the bar behind LANDING_MINIMAL_NAV. The markup is kept
+                     verbatim inside the false branch so restoring them is one
+                     boolean, not a rewrite. In 'app' mode this also removes the
+                     two dropdown MOUNT POINTS, which is why LandingPage.ts
+                     already guards both with an if-present check.
+                     NB no backticks in this comment: it lives INSIDE a template
+                     literal, where one would terminate the string. -->
+                <div class="lp-nav-links">${LANDING_MINIMAL_NAV ? '' : `
                     <div class="lp-sol-nav-wrapper" id="lp-sol-nav-wrapper">${apex ? `<a class="lp-nav-link" id="lp-nav-solutions" href="${SOLUTIONS}">Solutions</a>` : ''}</div>
                     <div class="lp-res-nav-wrapper" id="lp-res-nav-wrapper">${apex ? `<a class="lp-nav-link" id="lp-nav-resources" href="${RESOURCES}">Resources</a>` : ''}</div>
                     <a class="lp-nav-link" href="${apex ? '/pricing' : '#'}" id="lp-nav-pricing">Pricing</a>
-                </div>
+                `}</div>
                 <div class="lp-nav-actions">
                     <!-- Founder brief 2026-08-10 round 2: "Contact sales" and "Get
                          started for free" removed from the BAR. Log in + Book a demo
                          remain. Both routes stay reachable elsewhere (the hero CTA
                          goes to signup; the mobile drawer keeps all four) so no
                          journey is lost — only the bar is quieter. -->
+                    <!-- §NAV-MINIMAL (2026-08-28) reinstates "Contact" in the bar,
+                         partially reversing §NAV-CTA-TRIM below. With Solutions,
+                         Resources and Pricing withheld, the bar was down to two
+                         actions and a stranger had no way to reach a human that
+                         did not read as a sales funnel. Contact sits BEFORE the
+                         demo so the softer ask comes first and the emphasised
+                         white pill stays last. -->
                     ${cta('lp-nav-login', 'lp-nav-login', SIGNIN, 'Log in')}
+                    ${cta('lp-nav-contact', 'lp-nav-contact', CONTACT, 'Contact')}
                     ${cta('lp-nav-demo', 'lp-nav-demo', DEMO, 'Book a demo')}
                 </div>
                 ${apex ? '' : `<!-- ── Mobile hamburger (visible at ≤768px) ── -->
@@ -313,11 +372,11 @@ export function landingMarkup(opts: LandingMarkupOptions): string {
                 </button>
                 <!-- ── Mobile nav drawer ── -->
                 <div class="lp-mobile-drawer" id="lp-mobile-drawer" aria-hidden="true">
-                    <div class="lp-mobile-drawer-links">
+                    ${LANDING_MINIMAL_NAV ? '' : `<div class="lp-mobile-drawer-links">
                         ${cta('lp-mob-solutions', 'lp-mobile-drawer-link', SOLUTIONS, 'Solutions')}
                         ${cta('lp-mob-resources', 'lp-mobile-drawer-link', RESOURCES, 'Resources')}
                         ${cta('lp-mob-pricing', 'lp-mobile-drawer-link', apex ? '/pricing' : '#', 'Pricing')}
-                    </div>
+                    </div>`}
                     <div class="lp-mobile-drawer-actions">
                         ${cta('lp-mob-demo', 'lp-mobile-drawer-demo', DEMO, 'Book a demo')}
                         ${cta('lp-mob-cta', 'lp-mobile-drawer-cta', SIGNUP, 'Get started for free')}

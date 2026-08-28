@@ -24,6 +24,7 @@ import {
     HERO_DATELINE, HERO_HEADLINE, HERO_SUBHEAD_BRAND, HERO_SUBHEAD,
     SHOWCASE_CAPTIONS,
     HERO_IMAGE_URL, HERO_IMAGE_WIDTH, HERO_IMAGE_HEIGHT, HERO_IMAGE_ALT,
+    CONTACT_EMAIL, CONTACT_MAILTO, LANDING_MINIMAL_NAV,
 } from '../src/ui/platform/landingMarkup.js';
 import { LANDING_PAGE_STYLES } from '../src/ui/styles/panels/marketingPages.js';
 
@@ -262,23 +263,37 @@ describe('landingMarkup — motif-modelled header', () => {
         }
     });
 
-    it('nav actions carry all four CTAs, ending with Book a demo', () => {
+    it('nav actions are Log in → Contact → Book a demo, in that order', () => {
         for (const html of [
             landingMarkup({ mode: 'app' }),
             landingMarkup({ mode: 'apex', appOrigin: APEX_ORIGIN }),
         ]) {
-            // §NAV-CTA-TRIM (2026-08-10 round 2): the BAR keeps only Log in +
-            // Book a demo. "Contact sales" / "Get started for free" were removed
-            // from it — asserted absent here so they cannot creep back silently.
-            for (const id of ['lp-nav-login', 'lp-nav-demo']) {
+            // §NAV-MINIMAL (2026-08-28) partially reverses §NAV-CTA-TRIM: Contact
+            // is back in the BAR, because with Solutions/Resources/Pricing withheld
+            // there was no non-sales route to a human. "Get started for free" stays
+            // out — the hero's "Start here" is that journey.
+            for (const id of ['lp-nav-login', 'lp-nav-contact', 'lp-nav-demo']) {
                 expect(html).toContain(`id="${id}"`);
             }
-            for (const id of ['lp-nav-contact', 'lp-nav-cta']) {
-                expect(html).not.toContain(`id="${id}"`);
-            }
+            expect(html).not.toContain('id="lp-nav-cta"');
             expect(html).toContain('Book a demo');
-            // Focus order follows visual order: demo is the LAST action.
-            expect(html.indexOf('lp-nav-demo')).toBeGreaterThan(html.indexOf('lp-nav-login'));
+            // Focus order follows visual order; the emphasised pill stays LAST.
+            expect(html.indexOf('lp-nav-contact')).toBeGreaterThan(html.indexOf('lp-nav-login'));
+            expect(html.indexOf('lp-nav-demo')).toBeGreaterThan(html.indexOf('lp-nav-contact'));
+        }
+    });
+
+    it('§NAV-MAILTO — no surface anywhere still advertises the dead address', () => {
+        // The defect this guards: "Book a demo" worked, and the mail went nowhere.
+        // A CTA that fails by SUCCEEDING is invisible without an assertion.
+        expect(CONTACT_EMAIL).toBe('hellopryzm@gmail.com');
+        expect(CONTACT_MAILTO).toBe(`mailto:${CONTACT_EMAIL}`);
+        for (const html of [
+            landingMarkup({ mode: 'app' }),
+            landingMarkup({ mode: 'apex', appOrigin: APEX_ORIGIN }),
+        ]) {
+            expect(html).not.toContain('hello@pryzm.io');
+            expect(html).not.toContain('pryzm.io');
         }
     });
 
@@ -288,20 +303,33 @@ describe('landingMarkup — motif-modelled header', () => {
         expect(html).not.toContain('href="https://');
     });
 
-    it('apex Book a demo is a cross-domain link to the APP contact surface (C51 §2.2.1)', () => {
+    it('apex Contact + Book a demo open the mail client, not an app route (§NAV-MAILTO)', () => {
         const html = landingMarkup({ mode: 'apex', appOrigin: APEX_ORIGIN });
-        expect(html).toContain(`<a class="lp-nav-demo" id="lp-nav-demo" href="${APEX_ORIGIN}/contact?intent=demo">`);
-        // Never an apex-owned auth/sales route, never a hardcoded host.
+        expect(html).toContain(`<a class="lp-nav-contact" id="lp-nav-contact" href="${CONTACT_MAILTO}?subject=PRYZM%20enquiry">`);
+        expect(html).toContain(`<a class="lp-nav-demo" id="lp-nav-demo" href="${CONTACT_MAILTO}?`);
+        expect(html).toContain('subject=PRYZM%20%E2%80%94%20book%20a%20demo');
+        // C51 §2.2.1 still holds, and more strongly: a mailto: OWNS no surface.
+        // Neither CTA may resolve to an apex-owned route or a hardcoded host.
         expect(html).not.toContain('href="/contact');
+        expect(html).not.toContain('intent=demo');
         expect(html).not.toContain('app.pryzm.so');
     });
 
     it('apex nav is fully usable with JS DISABLED (C51 §2.1.1 / §2.1.3)', () => {
         const html = landingMarkup({ mode: 'apex', appOrigin: APEX_ORIGIN });
-        // Solutions/Resources are real crawlable anchors, not empty JS mounts.
-        expect(html).toContain(`<a class="lp-nav-link" id="lp-nav-solutions" href="${APEX_ORIGIN}/solutions">Solutions</a>`);
-        expect(html).toContain(`<a class="lp-nav-link" id="lp-nav-resources" href="${APEX_ORIGIN}/resources">Resources</a>`);
-        expect(html).toContain('id="lp-nav-pricing"');
+        // §NAV-MINIMAL — Solutions/Resources/Pricing are withheld from the bar.
+        // Asserted ABSENT so they cannot creep back before their pages are ready.
+        expect(LANDING_MINIMAL_NAV).toBe(true);
+        for (const id of ['lp-nav-solutions', 'lp-nav-resources', 'lp-nav-pricing']) {
+            expect(html).not.toContain(`id="${id}"`);
+        }
+        expect(html).not.toContain('>Solutions<');
+        expect(html).not.toContain('>Resources<');
+        expect(html).not.toContain('>Pricing<');
+        // What REMAINS must still be real crawlable anchors, not JS mounts —
+        // that is the actual subject of this test and it is unchanged.
+        expect(html).toContain(`<a class="lp-nav-login" id="lp-nav-login" href="${APEX_ORIGIN}/sign-in">Log in</a>`);
+        expect(html).toContain(`href="${APEX_ORIGIN}/signup"`);
         // The JS-only hamburger + drawer are NOT emitted on apex — they would
         // be dead markup. The apex header wraps instead (.lp-nav--apex).
         expect(html).toContain('lp-nav--apex');
@@ -309,14 +337,20 @@ describe('landingMarkup — motif-modelled header', () => {
         expect(html).not.toContain('lp-mobile-drawer');
     });
 
-    it('app mode keeps the JS dropdown mounts empty and the mobile drawer intact', () => {
+    it('app mode drops the dropdown mounts with the links, drawer actions intact', () => {
         const html = landingMarkup({ mode: 'app' });
-        expect(html).toContain('<div class="lp-sol-nav-wrapper" id="lp-sol-nav-wrapper"></div>');
-        expect(html).toContain('<div class="lp-res-nav-wrapper" id="lp-res-nav-wrapper"></div>');
+        // §NAV-MINIMAL removes the two dropdown MOUNT POINTS along with the links.
+        // LandingPage.ts guards both with `if (wrapper)`, so nothing throws — this
+        // asserts the contract those guards depend on.
+        expect(html).not.toContain('id="lp-sol-nav-wrapper"');
+        expect(html).not.toContain('id="lp-res-nav-wrapper"');
+        // The drawer keeps its ACTIONS (the four journeys) but loses its LINKS.
         expect(html).toContain('id="lp-hamburger"');
-        // The drawer mirrors the desktop actions — including Book a demo.
         for (const id of ['lp-mob-demo', 'lp-mob-cta', 'lp-mob-login', 'lp-mob-contact']) {
             expect(html).toContain(`id="${id}"`);
+        }
+        for (const id of ['lp-mob-solutions', 'lp-mob-resources', 'lp-mob-pricing']) {
+            expect(html).not.toContain(`id="${id}"`);
         }
         expect(html).not.toContain('lp-nav--apex');
     });
