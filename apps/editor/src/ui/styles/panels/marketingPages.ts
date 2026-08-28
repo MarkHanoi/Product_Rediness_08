@@ -96,7 +96,14 @@ export const LANDING_PAGE_STYLES = `
         flex-direction: column;
         font-family: var(--app-font);
         color: var(--app-text);
-        overflow-y: auto;
+        /* §HERO-ONLY (founder 2026-08-27) — 'hidden', not 'auto': the landing is
+           deliberately a single non-scrolling hero for now. This is the SECOND
+           half of the flag in landingMarkup.ts ('LANDING_HERO_ONLY'); that
+           constant empties the stacked video sections, this line stops the page
+           scrolling to whatever remains below. Revert BOTH together — flipping
+           one alone leaves either a scrollable near-empty page or unreachable
+           sections. Restore to 'auto' when the flag goes false. */
+        overflow-y: hidden;
         overflow-x: hidden;
         z-index: 10;
     }

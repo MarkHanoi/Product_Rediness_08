@@ -140,10 +140,21 @@ export const NAV_MARK_ALT = 'PRYZM';
  * amendment that ratifies it. It is `preload="metadata"`, so first paint costs
  * only the poster; the body streams afterwards.
  *
- * The poster is a 64×36 LQIP the browser upscales — a real first frame could
- * not be extracted (no ffmpeg in this toolchain), so it is a brand-violet field
- * matching `.lp-hero-media`'s CSS gradient. Its only job is to make sure the
- * hero never flashes BLACK, and at 1.7 KB it does that for free.
+ * ⚠ AMENDED 2026-08-28 — this said *"a real first frame could not be extracted
+ * (no ffmpeg in this toolchain), so it is a brand-violet field"*. An ffmpeg was
+ * found on the machine, so the poster is now a REAL first frame of the hero:
+ * 192px wide, 31 KB, upscaled by the browser as an LQIP. It still exists only to
+ * stop the hero flashing black before the video paints, but it now previews the
+ * actual opening shot instead of approximating it with a gradient.
+ *
+ * §HERO-2026-08-28 — the hero source is the founder's 2:16 product film,
+ * transcoded from an 8K/60fps/HEVC master (738 MB, unplayable in most browsers)
+ * to 1080p H.264 High @ ~2.3 Mbps, 30 fps, silent — **38 MB**. `+faststart` was
+ * requested so playback can begin before the whole file lands; the atom order
+ * was not independently re-verified here, so treat that as passed-to-ffmpeg
+ * rather than measured. H.264 was chosen deliberately over keeping HEVC: HEVC
+ * playback is uneven across browsers and a hero that silently fails to paint is
+ * worse than one that is slightly larger.
  */
 export const HERO_VIDEO_URL = '/apex/hero.mp4';
 export const HERO_VIDEO_POSTER_URL = '/apex/hero-poster.png';
@@ -168,11 +179,35 @@ export const HERO_VIDEO_POSTER_URL = '/apex/hero-poster.png';
  *   'dark'  — the video is dark content; the section takes a HARD edge (no
  *             blend) and a near-black-violet fallback ground.
  */
-export const VIDEO_SECTIONS = [
+/**
+ * §HERO-ONLY (founder 2026-08-27) — *"just have one video on PRYZM at the top,
+ * then remove the rest … the user should not be able to scroll down FOR NOW."*
+ *
+ * ⭐ ONE FLAG, TWO EFFECTS, FULLY REVERSIBLE. Flip this to `false` and the
+ * landing returns EXACTLY to the four-section scroll it had before — nothing was
+ * deleted. The stacked sections below, the bespoke block and every other section
+ * remain in this file and in the markup builder; they are simply not emitted and
+ * not reachable while this is on.
+ *
+ * That choice is deliberate: "for now" is a temporary editorial state, not a
+ * decision to drop content. Deleting the sections would make the revert a
+ * reconstruction job rather than a one-character edit.
+ *
+ * The scroll lock itself lives in `marketingPages.ts` (`.lp-shell`'s
+ * `overflow-y`), because that is the element that actually scrolls — see the
+ * §HERO-ONLY note beside it. Both halves cite this constant so neither can be
+ * flipped alone and leave the page half-changed.
+ */
+export const LANDING_HERO_ONLY = true;
+
+const ALL_VIDEO_SECTIONS = [
     { src: '/apex/hero_02.mp4', label: SHOWCASE_CAPTIONS[0], variant: 'fade' },
     { src: '/apex/hero_03.mp4', label: SHOWCASE_CAPTIONS[1], variant: 'plain' },
     { src: '/apex/Hero_04.mp4', label: SHOWCASE_CAPTIONS[2], variant: 'dark' },
 ] as const;
+
+export const VIDEO_SECTIONS: readonly (typeof ALL_VIDEO_SECTIONS)[number][] =
+    LANDING_HERO_ONLY ? [] : ALL_VIDEO_SECTIONS;
 /** The small caps line above each section label — the brand, reused, not new copy. */
 export const VIDEO_SECTION_EYEBROW = 'PRYZM DESIGN';
 
