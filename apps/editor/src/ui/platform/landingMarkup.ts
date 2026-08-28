@@ -356,13 +356,22 @@ export function landingMarkup(opts: LandingMarkupOptions): string {
                      boolean, not a rewrite. In 'app' mode this also removes the
                      two dropdown MOUNT POINTS, which is why LandingPage.ts
                      already guards both with an if-present check.
+
+                     THE WHOLE WRAPPER GOES, not just its children. .lp-nav-links
+                     is itself a styled pill (translucent fill, 1px border,
+                     border-radius 999px, 4px 6px padding) centred in the bar, so
+                     an EMPTY one rendered as a small grey blob floating mid-nav —
+                     founder screenshot 2026-08-28. Removing it shifts nothing:
+                     .lp-nav-actions pins right on margin-left:auto, and at
+                     >=1200px the pill was position:absolute and out of flow anyway.
+
                      NB no backticks in this comment: it lives INSIDE a template
                      literal, where one would terminate the string. -->
-                <div class="lp-nav-links">${LANDING_MINIMAL_NAV ? '' : `
+                ${LANDING_MINIMAL_NAV ? '' : `<div class="lp-nav-links">
                     <div class="lp-sol-nav-wrapper" id="lp-sol-nav-wrapper">${apex ? `<a class="lp-nav-link" id="lp-nav-solutions" href="${SOLUTIONS}">Solutions</a>` : ''}</div>
                     <div class="lp-res-nav-wrapper" id="lp-res-nav-wrapper">${apex ? `<a class="lp-nav-link" id="lp-nav-resources" href="${RESOURCES}">Resources</a>` : ''}</div>
                     <a class="lp-nav-link" href="${apex ? '/pricing' : '#'}" id="lp-nav-pricing">Pricing</a>
-                `}</div>
+                </div>`}
                 <div class="lp-nav-actions">
                     <!-- Founder brief 2026-08-10 round 2: "Contact sales" and "Get
                          started for free" removed from the BAR. Log in + Book a demo

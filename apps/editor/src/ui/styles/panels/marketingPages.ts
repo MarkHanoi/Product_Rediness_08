@@ -295,6 +295,7 @@ export const LANDING_PAGE_STYLES = `
     }
     /* Shared pill geometry for the four action CTAs. */
     .lp-nav-login,
+    .lp-nav-contact,
     .lp-nav-demo {
         display: inline-flex;
         align-items: center;
@@ -314,10 +315,17 @@ export const LANDING_PAGE_STYLES = `
     /* The emphasis ramp is UNCHANGED (text → outlined → tinted → solid); only
        the ground it sits on flipped from pale lavender to violet, so each step
        inverts. Contrast is stated per pill against the #6600FF bar. */
-    /* 1 — Contact sales: quietest, plain text. #fff on #6600FF = 8.1:1. */
-    .lp-nav-contact:hover { background: rgba(255,255,255,0.16); color: #ffffff; }
-    /* 2 — Log in: outlined in white. */
-    .lp-nav-login {
+    /* 1+2 — Log in AND Contact: outlined in white, identical.
+       §NAV-MINIMAL (founder brief 2026-08-28, screenshot): Contact used to be
+       step 1 of the ramp — "quietest, plain text", a :hover rule and NO base
+       style at all. That was survivable while it sat in a four-step ramp beside
+       Get-started and Pricing. With the bar trimmed to three actions it had no
+       neighbours to be quiet against, and an unstyled anchor next to two pills
+       read as a rendering fault rather than a hierarchy. The ramp is now
+       outlined → outlined → solid, and Contact shares Log in's rule outright so
+       the two cannot drift apart on a later edit. #fff on #6600FF = 8.1:1. */
+    .lp-nav-login,
+    .lp-nav-contact {
         background: rgba(255,255,255,0.10);
         backdrop-filter: blur(16px);
         -webkit-backdrop-filter: blur(16px);
@@ -326,7 +334,8 @@ export const LANDING_PAGE_STYLES = `
         font-weight: 600;
         padding: 6px 14px;
     }
-    .lp-nav-login:hover { background: rgba(255,255,255,0.20); border-color: #ffffff; }
+    .lp-nav-login:hover,
+    .lp-nav-contact:hover { background: rgba(255,255,255,0.20); border-color: #ffffff; }
     /* 3 — Get started for free: tinted secondary. */
     .lp-nav-cta:hover { background: rgba(255,255,255,0.32); transform: translateY(-1px); }
     /* 4 — Book a demo: THE primary, INVERTED. On the old pale bar this was a
@@ -1129,8 +1138,12 @@ export const LANDING_PAGE_STYLES = `
            itself stays laid out — the tile mark lives inside it, and the
            founder's brief puts that mark on the right at every width. */
         .lp-nav-links { display: none; }
-            .lp-nav-login,
-            .lp-nav-demo { display: none; }
+        /* .lp-nav-contact added 2026-08-28 — it is back in the bar (§NAV-MINIMAL)
+           and without it here it was the ONE action still visible at mobile while
+           its two neighbours hid, beside the hamburger that already offers it. */
+        .lp-nav-login,
+        .lp-nav-contact,
+        .lp-nav-demo { display: none; }
         .lp-nav-actions { gap: 4px; }
         .lp-nav-mark { height: 56px; margin-left: -12px; margin-right: 2px; }
         /* Show hamburger */
@@ -1165,9 +1178,15 @@ export const LANDING_PAGE_STYLES = `
         .lp-nav--apex .lp-nav-link { padding: 7px 11px; font-size: 13px; }
         .lp-nav--apex .lp-nav-actions { display: flex; margin: 0 0 0 auto; }
         /* Only the primary CTA survives the narrow row (plus the tile mark). */
+        /* Pre-existing typo, fixed 2026-08-28 while editing this list: the third
+           selector repeated .lp-nav--apex twice with whitespace between, making
+           it a DESCENDANT selector requiring one .lp-nav--apex inside another.
+           It matched nothing, so the primary CTA silently missed this
+           narrow-apex sizing while its two neighbours got it.
+           (No backticks in this comment — it is inside a template literal.) */
         .lp-nav--apex .lp-nav-contact,
         .lp-nav--apex .lp-nav-login,
-        .lp-nav--apex        .lp-nav--apex .lp-nav-demo { display: inline-flex; padding: 9px 16px; font-size: 13px; }
+        .lp-nav--apex .lp-nav-demo { display: inline-flex; padding: 9px 16px; font-size: 13px; }
 
         /* Scale down logo */
         .lp-logo-icon { width: 36px; height: 36px; }
