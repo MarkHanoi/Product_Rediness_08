@@ -157,6 +157,28 @@ export const NAV_MARK_ALT = 'PRYZM';
  * worse than one that is slightly larger.
  */
 export const HERO_VIDEO_URL = '/apex/hero.mp4';
+
+/**
+ * §HERO-HEVC — the SAME film in HEVC, offered FIRST.
+ *
+ * At the byte budget Cloudflare Pages allows (25 MB/file, which for a 2:16 hero
+ * fixes the average near 1.3 Mbps) H.264 cannot hold the linework in a section
+ * drawing — hundreds of 1px lines smear into grey. HEVC at the same size holds
+ * them: compared frame-for-frame at 0:56, the H.264 build loses individual lines
+ * that the HEVC build keeps, and it carries 1920x1080 where H.264 needed 1600x900.
+ *
+ * ⚠ ORDER MATTERS AND IS THE WHOLE MECHANISM. The browser takes the FIRST
+ * <source> whose `type` it can decode, so HEVC must be listed before the H.264
+ * fallback. Anything that cannot decode `hvc1` — an older Chrome, a machine with
+ * no hardware HEVC — silently falls through to the H.264 file. No JS is involved,
+ * which matters here: the apex ships ZERO JavaScript (CSP `default-src 'none'`),
+ * so a JS-based player or HLS is not available on this surface.
+ *
+ * The prior hero was ALSO HEVC, so this is a return to a proven-on-this-site
+ * codec, not a new bet — the difference is that it now has an H.264 fallback
+ * beneath it instead of being the only option.
+ */
+export const HERO_VIDEO_HEVC_URL = '/apex/hero-hevc.mp4';
 export const HERO_VIDEO_POSTER_URL = '/apex/hero-poster.png';
 
 /**
@@ -332,6 +354,7 @@ export function landingMarkup(opts: LandingMarkupOptions): string {
                     <video class="lp-hero-video" autoplay muted loop playsinline
                            preload="metadata" poster="${HERO_VIDEO_POSTER_URL}"
                            tabindex="-1" disablepictureinpicture>
+                        <source src="${HERO_VIDEO_HEVC_URL}" type="video/mp4; codecs=hvc1">
                         <source src="${HERO_VIDEO_URL}" type="video/mp4">
                     </video>
                 </div>
