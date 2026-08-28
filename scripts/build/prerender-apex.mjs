@@ -407,7 +407,7 @@ function renderPricing() {
             </ul>
           </div>
           <div class="pr-bespoke-cta-wrap">
-            <a id="pr-bespoke-cta" href="${CONTACT_MAILTO}?subject=PRYZM%20bespoke%20build%20enquiry">Talk to us about a bespoke build</a>
+            <!--email_off--><a id="pr-bespoke-cta" href="${CONTACT_MAILTO}?subject=PRYZM%20bespoke%20build%20enquiry">Talk to us about a bespoke build</a><!--/email_off-->
           </div>
         </div>
       </div>
@@ -878,6 +878,27 @@ for (const route of ROUTES) {
   try {
     const fragments = route.render();
     const html = renderToHtmlString(fragments);
+
+    // §EMAIL-OFF — every mailto: MUST be inside a Cloudflare `<!--email_off-->`
+    // wrapper, or Scrape Shield rewrites it to /cdn-cgi/l/email-protection# and
+    // injects a decoder script that THIS SITE'S OWN CSP blocks (`default-src
+    // 'none'`, no script-src). The result is a contact link that renders, clicks,
+    // and opens a Cloudflare interstitial instead of mail — a dead CTA that looks
+    // alive. Measured on the live apex 2026-08-28, which is why this exists.
+    //
+    // Counted, not merely pattern-matched: an unwrapped mailto anywhere fails the
+    // build. A wrapper that only sometimes applies is worse than none, because it
+    // makes the surviving cases look deliberate.
+    const mailtos = (html.match(/mailto:/g) || []).length;
+    const wrapped = (html.match(/<!--email_off-->(?:(?!<!--\/email_off-->)[\s\S])*?mailto:[\s\S]*?<!--\/email_off-->/g) || []).length;
+    if (mailtos !== wrapped) {
+      throw new Error(
+        `§EMAIL-OFF — ${mailtos} mailto: link(s) but only ${wrapped} inside <!--email_off-->. ` +
+        `Cloudflare will obfuscate the unwrapped one(s) and our CSP will block the decoder, ` +
+        `leaving a dead contact link. Wrap every mailto: anchor.`,
+      );
+    }
+
     total += writeRoute(route, html);
   } catch (err) {
     console.error(`[prerender-apex] FAILED ${route.path} — ${err && err.stack ? err.stack : String(err)}`);

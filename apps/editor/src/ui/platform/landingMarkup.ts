@@ -315,6 +315,24 @@ export function landingMarkup(opts: LandingMarkupOptions): string {
     // It also needs no CSP grant. The apex ships `default-src 'none'`, which
     // governs subresource FETCHES, not link navigations — so the zero-JS posture
     // is untouched and no `media-src`-style exception is required.
+    // §EMAIL-OFF — the two mailto CTAs below are wrapped in Cloudflare's
+    // `<!--email_off-->` opt-out, and they MUST stay wrapped.
+    //
+    // Cloudflare's Scrape Shield "Email Address Obfuscation" is ON for this zone.
+    // It rewrites every mailto: it finds into `/cdn-cgi/l/email-protection#<hex>`
+    // and injects `/cdn-cgi/scripts/…/email-decode.min.js` to undo it in the
+    // browser. On a normal site that is invisible. On THIS one it is fatal: the
+    // apex ships `default-src 'none'` with NO `script-src`, so the decoder is
+    // blocked by our own CSP and the link resolves to a Cloudflare interstitial
+    // instead of opening mail.
+    //
+    // Measured on the live apex before this wrapper existed: the served nav
+    // carried `href="/cdn-cgi/l/email-protection#2048454c…"` and a
+    // `<script src="…/email-decode.min.js">` the CSP forbids. The address was
+    // correct and the link was dead — the SAME "fails by succeeding" shape as the
+    // dead address this whole change exists to fix, reintroduced one layer down.
+    // The zero-JS posture is the point of the apex, so the fix is to opt the
+    // markup out, never to admit a script-src.
     const CONTACT = `${CONTACT_MAILTO}?subject=${encodeURIComponent('PRYZM enquiry')}`;
     const DEMO = `${CONTACT_MAILTO}?subject=${encodeURIComponent('PRYZM — book a demo')}`;
 
@@ -359,8 +377,8 @@ export function landingMarkup(opts: LandingMarkupOptions): string {
                          demo so the softer ask comes first and the emphasised
                          white pill stays last. -->
                     ${cta('lp-nav-login', 'lp-nav-login', SIGNIN, 'Log in')}
-                    ${cta('lp-nav-contact', 'lp-nav-contact', CONTACT, 'Contact')}
-                    ${cta('lp-nav-demo', 'lp-nav-demo', DEMO, 'Book a demo')}
+                    <!--email_off-->${cta('lp-nav-contact', 'lp-nav-contact', CONTACT, 'Contact')}<!--/email_off-->
+                    <!--email_off-->${cta('lp-nav-demo', 'lp-nav-demo', DEMO, 'Book a demo')}<!--/email_off-->
                 </div>
                 ${apex ? '' : `<!-- ── Mobile hamburger (visible at ≤768px) ── -->
                 <button class="lp-hamburger" id="lp-hamburger" aria-label="Open menu" aria-expanded="false">
@@ -487,7 +505,7 @@ export function landingMarkup(opts: LandingMarkupOptions): string {
                         <h2 class="lp-bespoke-heading">Building your own platform?</h2>
                         <p class="lp-bespoke-desc">AI is making software cheap to build. We partner with enterprises to deploy a bespoke BIM platform under their brand — custom element libraries, your workflows, your infrastructure.</p>
                         <div class="lp-bespoke-actions">
-                            ${cta('lp-bespoke-contact', '', CONTACT, 'Talk to us')}
+                            <!--email_off-->${cta('lp-bespoke-contact', '', CONTACT, 'Talk to us')}<!--/email_off-->
                             ${cta('lp-bespoke-learn', '', apex ? '/pricing' : '#', 'See enterprise options')}
                         </div>
                     </div>
