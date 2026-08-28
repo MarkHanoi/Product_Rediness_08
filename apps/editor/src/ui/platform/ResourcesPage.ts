@@ -102,7 +102,7 @@ function faqHtml(): string {
         },
         {
             q: 'Do you offer discounts for students or education?',
-            a: 'Yes. Architecture and engineering students get full Architect tier features free with a verified .edu email address. Contact hellopryzm@gmail.com with your institutional email for access. Institutional licensing for universities is also available.',
+            a: 'Yes. Architecture and engineering students get full Architect tier features free with a verified .edu email address. Contact pryzmhello@gmail.com with your institutional email for access. Institutional licensing for universities is also available.',
         },
         {
             q: 'Can multiple people work on the same project?',
@@ -110,7 +110,7 @@ function faqHtml(): string {
         },
         {
             q: 'What payment methods do you accept?',
-            a: 'All major credit and debit cards — Visa, Mastercard, American Express. Annual plans for the Firm and Enterprise tiers can be paid by invoice. Contact hellopryzm@gmail.com to arrange invoice billing.',
+            a: 'All major credit and debit cards — Visa, Mastercard, American Express. Annual plans for the Firm and Enterprise tiers can be paid by invoice. Contact pryzmhello@gmail.com to arrange invoice billing.',
         },
         {
             q: 'What is the AI approval workflow?',

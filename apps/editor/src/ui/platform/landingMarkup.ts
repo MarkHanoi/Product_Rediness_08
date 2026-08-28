@@ -236,7 +236,7 @@ export const LANDING_HERO_ONLY = true;
  * each carrying its own copy — which is exactly how the dead address survived in
  * eight places at once.
  */
-export const CONTACT_EMAIL = 'hellopryzm@gmail.com';
+export const CONTACT_EMAIL = 'pryzmhello@gmail.com';
 export const CONTACT_MAILTO = `mailto:${CONTACT_EMAIL}`;
 
 /**

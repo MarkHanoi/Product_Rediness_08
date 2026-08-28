@@ -202,7 +202,7 @@ export class PricingPage {
             <!-- Footer CTA -->
             <div class="pr-footer-cta">
                 <p class="pr-footer-cta-text">Questions? We're happy to help.</p>
-                <a class="pr-footer-cta-link" href="mailto:hellopryzm@gmail.com">Contact sales →</a>
+                <a class="pr-footer-cta-link" href="mailto:pryzmhello@gmail.com">Contact sales →</a>
             </div>
         `;
     }
@@ -317,13 +317,13 @@ export class PricingPage {
         });
 
         el.querySelector('#pr-bespoke-cta')!.addEventListener('click', () => {
-            window.open('mailto:hellopryzm@gmail.com?subject=PRYZM+Bespoke+Build+Enquiry', '_blank');
+            window.open('mailto:pryzmhello@gmail.com?subject=PRYZM+Bespoke+Build+Enquiry', '_blank');
         });
 
         el.querySelectorAll<HTMLElement>('.pr-addon-btn').forEach(btn => {
             btn.addEventListener('click', () => {
                 const pack = btn.dataset.pack;
-                alert(`AI Credit Pack (${pack} actions) — payment integration coming soon. Contact hellopryzm@gmail.com to purchase.`);
+                alert(`AI Credit Pack (${pack} actions) — payment integration coming soon. Contact pryzmhello@gmail.com to purchase.`);
             });
         });
     }
@@ -336,7 +336,7 @@ export class PricingPage {
         if (plan === currentPlan) return;
 
         if (plan === 'enterprise') {
-            window.open('mailto:hellopryzm@gmail.com?subject=PRYZM Enterprise Inquiry', '_blank');
+            window.open('mailto:pryzmhello@gmail.com?subject=PRYZM Enterprise Inquiry', '_blank');
             return;
         }
 

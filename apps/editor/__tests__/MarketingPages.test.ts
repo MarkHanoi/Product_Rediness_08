@@ -286,7 +286,7 @@ describe('landingMarkup — motif-modelled header', () => {
     it('§NAV-MAILTO — no surface anywhere still advertises the dead address', () => {
         // The defect this guards: "Book a demo" worked, and the mail went nowhere.
         // A CTA that fails by SUCCEEDING is invisible without an assertion.
-        expect(CONTACT_EMAIL).toBe('hellopryzm@gmail.com');
+        expect(CONTACT_EMAIL).toBe('pryzmhello@gmail.com');
         expect(CONTACT_MAILTO).toBe(`mailto:${CONTACT_EMAIL}`);
         for (const html of [
             landingMarkup({ mode: 'app' }),

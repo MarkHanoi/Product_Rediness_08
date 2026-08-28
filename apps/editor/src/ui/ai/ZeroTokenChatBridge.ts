@@ -52,6 +52,11 @@ import {
     // §CHAT-ORIENTATION-HOSTED-OPENINGS (L-10946) — the FACADE twin of the
     // level hop above: an opening faces where its host wall faces.
     resolveOrientationScopeByHost,
+    // §RACORIENT145 — the ONE host-id derivation, shared across every hosted
+    // kind (a window/door reads `wallId`; a curtain-wall panel reads
+    // `curtainWallId`). See HostedOpeningScope.ts's header for why this is a
+    // DERIVATION rather than a per-kind field-name branch.
+    hostIdOf,
     // §CHAT-AXIS-AWARE-REFUSAL (L-10942) — try every modelled axis before
     // denying a qualifier, and say which ones were tried.
     unmatchedQualifierTail,
@@ -519,7 +524,7 @@ function makeScopeResolver(
             const wantKind = scope.elementKind;
             if (wantKind !== undefined && wantKind !== 'wall') {
                 const store = storeRegistry.getStoreForType(wantKind) as unknown as {
-                    getAll?: () => Array<{ id: string; levelId?: string; wallId?: string }>;
+                    getAll?: () => Array<{ id: string; levelId?: string; wallId?: string; curtainWallId?: string }>;
                 } | undefined;
                 if (!store?.getAll) {
                     return { error: `I can't list ${wantKind}s here — that store isn't available.` };
@@ -527,13 +532,38 @@ function makeScopeResolver(
                 const wallStore = storeRegistry.getStoreForType('wall') as unknown as {
                     getById?: (id: string) => unknown;
                 } | undefined;
+                // §RACORIENT145 — a CURTAIN-WALL PANEL is hosted in a curtain
+                // wall, not a wall (`panel.curtainWallId`, never `wallId`).
+                // `facadesByOrientation` now classifies curtain walls too (see
+                // FacadeOrientationService.ts), so `wallIds` above already
+                // contains their ids when they face this way; what was missing
+                // is (a) reading the RIGHT field per row and (b) checking
+                // EXISTENCE against the store the id actually belongs to.
+                // `hostIdOf` derives (a) without a per-kind branch; (b) tries
+                // whichever store actually holds the id.
+                const curtainWallStore = storeRegistry.getStoreForType('curtainwall') as unknown as {
+                    getById?: (id: string) => unknown;
+                } | undefined;
+                const rows: readonly LevelBearingRow[] = store.getAll().map((r) => ({
+                    id: r.id,
+                    levelId: r.levelId,
+                    wallId: hostIdOf(r),
+                }));
                 const hosted = resolveOrientationScopeByHost(
                     wantKind,
-                    store.getAll() as unknown as readonly LevelBearingRow[],
+                    rows,
                     wallIds,
                     label,
-                    // `null` = no wall store at all (REFUSE); a boolean = a fact.
-                    (wallId) => (wallStore?.getById === undefined ? null : wallStore.getById(wallId) !== undefined),
+                    // `null` = NEITHER store is available at all (REFUSE); a
+                    // boolean = a fact, checked against whichever store the id
+                    // resolves in (a wall id is never a curtain-wall id and
+                    // vice versa, so trying both is safe, never ambiguous).
+                    (hostId) => {
+                        if (wallStore?.getById === undefined && curtainWallStore?.getById === undefined) return null;
+                        if (wallStore?.getById?.(hostId) !== undefined) return true;
+                        if (curtainWallStore?.getById?.(hostId) !== undefined) return true;
+                        return false;
+                    },
                 );
                 if (hosted.kind === 'refused') return { error: hosted.error };
                 if (hosted.ids.length === 0) {
