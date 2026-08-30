@@ -1,0 +1,158 @@
+# ============================================================================
+# p05-C01-section5-gate-inventory.diff
+# PROPOSED — NOT APPLIED (D9). Audit: audit/element-creation/2026-08-29
+# Measured 2026-08-29 · HEAD 064a838e · branch main
+# Apply with:  git apply <this file>        (strips the leading '#' block? NO —
+#              this file is a PATCH WITH A COMMENT HEADER. 'git apply' ignores
+#              everything before the first '--- a/' line, so it applies as-is.)
+#              On Windows, if using GNU patch instead of git: patch --binary -p1
+# ============================================================================
+# TARGET   docs/02-decisions/contracts/C01-ARCHITECTURE-AND-GOVERNANCE.md  §5
+# ORDER    FOURTH / LAST of the C01 chain: p03 -> p04 -> p07 -> p05.
+#          p07 owns the P3 rAF row in this same table; applying p05 before p07
+#          rejects on context. Verified in the stated order -> byte-exact.
+#
+# WHAT IS FALSIFIED, AND BY WHICH COMMAND
+#
+#   C01 §5:238 reads "Everything else (22 gates) ... Suite total on 2026-08-09:
+#   16 passing / 15 declared debt / 0 regressions (31 gates)."
+#
+#   $ ls tools/ga-gate/*.ts | wc -l
+#   -> 75  (= 74 check-*.ts + run-all.ts)          documented 31
+#   $ parse `const GATES: Gate[]` in tools/ga-gate/run-all.ts
+#   -> 98 distinct registered scripts, 0 duplicate rows
+#   $ ls tools/rac-conformance/certification/gates/*.ts | wc -l
+#   -> 46          => 120 distinct gate FILES across both homes
+#   $ jq '.failing | length' tools/ga-gate/gate-debt.json      -> 2   (documented 15)
+#   $ jq '.entries | length' tools/ga-gate/gate-newly-measured.json -> 32
+#
+# THE 15 -> 2 DROP IS NOT PROGRESS, AND SAYING SO IS THE POINT OF THIS PATCH
+#
+#   32 tolerated-failure entries MOVED to gate-newly-measured.json, a sibling
+#   ledger created 2026-08-12 that did not exist when §5 was written. Reading
+#   gate-debt.json alone now understates declared debt sixteen-fold.
+#
+# BUCKET B — THE DEAD GATE
+#
+#   $ git ls-files -- tools/ga-gate/check-render-aggregate-seam.ts   -> TRACKED (377dd06b, L-10530)
+#   $ grep -c check-render-aggregate-seam tools/ga-gate/run-all.ts   -> 0
+#   $ grep -c check-render-aggregate-seam .github/workflows/ci.yml   -> 0
+#   $ npx tsx tools/ga-gate/check-render-aggregate-seam.ts; echo "RC=$?"
+#   -> RC=1, arm A 0/0, ARM B 50 / 49, across 7984 files — a NON-EMPTY scope.
+#
+#   DISPOSITION: WIRE, not REMOVE. This is D2 exactly. The gate is not absent and
+#   not vestigial — it EXISTS, its scope is non-empty, and it is FAILING on a real
+#   arm. Deleting it would delete a live finding; treating it as missing would
+#   authorise someone to write a second render-seam gate beside it.
+#   run-all.ts:1009-1041 (GATE-AUTHORED-BUT-UNWIRED) exists to catch precisely
+#   this and cannot, because the gate is invisible to it.
+#
+# BUCKET D — A LEDGER KEY THAT CAN NEVER MATCH
+#
+#   gate-newly-measured.json has check-dependent-adapts-on-host-move.ts with
+#   runner "ga-gate"; run-all.ts registers it as
+#   ../rac-conformance/certification/gates/check-dependent-adapts-on-host-move.ts.
+#   run-all.ts:1181 does newlyMeasured.get(gate.script) on the EXACT string, so
+#   the lookup can never hit and the gate's exit 1 falls to the REGRESSION branch
+#   at run-all.ts:1212. run-all.ts has NO orphan-key check (only inBoth at :915
+#   and malformed at :941).  DISPOSITION: WIRE (fix the key + add the check).
+#
+# THE STRUCTURAL CHANGE, NOT JUST THE NUMBERS
+#
+#   The Status column now carries RC + THE COMMAND instead of a transcribed count.
+#   Every prior revision of this table rotted the same way. run-all.ts:73 already
+#   says it in its own header: "the numbered inventory above is a HISTORY, not a
+#   census — GATES below is the authority." This patch makes §5 agree with that
+#   instead of competing with it (C84 EI-9: one authority per concept).
+#
+# §RATCHET-EXCEEDED-IS-NEVER-DEBT
+#
+#   Seven registered gates exit 3 at HEAD. The patch records that run-all.ts:1162
+#   sets anyFailed=true on code 3 unconditionally, so NO ledger entry can absorb
+#   any of them and raising a ceiling to clear one is forbidden.
+#
+# ACCEPTANCE (D3)
+#
+#   $ ls tools/ga-gate/*.ts | wc -l
+#     -> must equal the figure in §5. It prints 75 today.
+#   $ npx tsx tools/ga-gate/run-all.ts; echo "RC=$?"
+#     -> the printed per-gate table must contain 0 rows with exit code 3, and
+#        0 rows under "COMMITTED gate(s) are registered nowhere".
+#   $ npx tsx tools/ga-gate/check-render-aggregate-seam.ts; echo "RC=$?"
+#     -> arm B must print <= 49. It prints 50 today.
+#
+--- a/docs/02-decisions/contracts/C01-ARCHITECTURE-AND-GOVERNANCE.md
++++ b/docs/02-decisions/contracts/C01-ARCHITECTURE-AND-GOVERNANCE.md
+@@ -301,20 +301,62 @@
+ `tools/ga-gate/gate-debt.json` and blocks a regression, a stale baseline, a
+ missing gate file, or a misconfigured scan.
+ 
+-### Status as measured on 2026-08-09
++### Status — RE-MEASURED 2026-08-29 (HEAD `064a838e`)
++
++> ⛔ **CORRECTED 2026-08-29 (audit `element-creation/2026-08-29`). The counts in this section were
++> 20 days stale and understated the suite by roughly a factor of three.**
++>
++> | | Documented (2026-08-09) | Measured 2026-08-29 | Falsifying command |
++> |---|---:|---:|---|
++> | gate scripts in `tools/ga-gate/` | 31 | **74** `check-*.ts` (75 `.ts` incl. `run-all.ts`) | `ls tools/ga-gate/*.ts \| wc -l` |
++> | distinct scripts registered in `run-all.ts` | — | **98** | parse of `const GATES: Gate[]` |
++> | gate files across BOTH homes | 31 | **120** | + `tools/rac-conformance/certification/gates/` (**46**) |
++> | `gate-debt.json` entries | 15 | **2** | `jq '.failing \| length' tools/ga-gate/gate-debt.json` |
++> | `gate-newly-measured.json` entries | *(category did not exist)* | **32** | created 2026-08-12 |
++>
++> ⭐ **THE 15 → 2 DROP IS NOT PROGRESS.** Thirty-two tolerated-failure entries **moved** to the
++> sibling `gate-newly-measured.json`, a ledger that did not exist on 2026-08-09. Reading
++> `gate-debt.json` alone now understates declared debt sixteen-fold. **Read both ledgers.**
++>
++> ⛔ **ONE COMMITTED GATE IS REGISTERED IN NO RUNNER — a gate policing nothing.**
++> `tools/ga-gate/check-render-aggregate-seam.ts` (committed `377dd06b`, L-10530, `git ls-files`
++> confirms it is TRACKED) appears in **no `run-all.ts` row and no `ci.yml` step**. Run by hand it
++> **FAILS**: `npx tsx tools/ga-gate/check-render-aggregate-seam.ts` → **RC=1**, arm A 0/0, **arm B
++> 50 / 49**, across a non-empty scope of **7,984 files**. `run-all.ts:1009-1041`
++> (`GATE-AUTHORED-BUT-UNWIRED`) exists precisely to catch this and would set `inventoryFailed=true`
++> — it cannot, because the gate is invisible to it. **Disposition: WIRE it (the arm is real and
++> failing), not REMOVE it.**
++>
++> ⛔ **ONE LEDGER KEY CAN NEVER MATCH.** `gate-newly-measured.json` carries
++> `check-dependent-adapts-on-host-move.ts` with `runner: ga-gate`, but `run-all.ts` registers it as
++> `../rac-conformance/certification/gates/check-dependent-adapts-on-host-move.ts`. `run-all.ts:1181`
++> does `newlyMeasured.get(gate.script)` against the **exact** registered string, so the lookup can
++> never hit and the gate's exit 1 falls through to the REGRESSION branch at `run-all.ts:1212`.
++> **`run-all.ts` has no orphan-ledger-key check** — the only key checks are `inBoth` (:915) and
++> `malformed` (:941).
++>
++> ⛔ **THE MERGE-BLOCKING `ga-gate` JOB FAILS AT THIS SHA.** Seven registered gates exit **3**
++> (SHRINK-ONLY RATCHET EXCEEDED), and `run-all.ts:1162` sets `anyFailed=true` on code 3
++> **unconditionally** — §RATCHET-EXCEEDED-IS-NEVER-DEBT (R7 / L-836). **No ledger entry may absorb
++> any of them, and raising any ceiling to clear one is the single forbidden fix.**
++>
++> ⚠ **THE STATUS COLUMN BELOW NOW CARRIES `RC` + THE COMMAND, NOT A TRANSCRIBED COUNT.** Every
++> previous revision of this table rotted the same way: a number copied out of a gate and left to
++> age. The gate is the authority (`run-all.ts:73` says so in its own header: *"the numbered
++> inventory above is a HISTORY, not a census"*). **Read the gate, never this table.**
+ 
+ | Gate | Script | Principle | Status — real number, not an aspiration |
+ |---|---|---|---|
+-| Layer boundaries | `tools/ga-gate/check-layer-boundaries.ts` | L0–L7 matrix | **PASSING at a non-zero ceiling.** violations 102/102 · unclassified 13/13 · SDK-bypass 171/171 · restricted-imports 113. Shrink-only. NOT `eslint-plugin-boundaries` — see the note above |
+-| Single composition root | `tools/ga-gate/check-single-compose.ts` | P1 | **NEW (L-812).** PASSING — 1 definition, 1 ratcheted rival (`createFamilyEditorRuntime`), 2 production callers |
+-| THREE isolation | `tools/ga-gate/check-three-imports.ts` | P2 | **PASSING, hard 0** — 0 violations across 6,261 files. Was on the debt ledger only because of the `rg` crash; removed from it |
++| Layer boundaries | `tools/ga-gate/check-layer-boundaries.ts` | L0–L7 matrix | ⛔ **RC=3 — ALL FOUR ARMS BREACHED** (2026-08-29): upward **105/102** · SDK-facade bypass **186/182** · banned third-party **123/113** · unclassified **15/13**. 167 workspace packages, 152 classified. SDK bypass is tracked **separately** by the gate itself — `plugin → renderer-three` is a *downward* edge, a facade breach not a layer violation; merging the two makes both unreadable. NOT `eslint-plugin-boundaries` — see the note above |
++| Single composition root | `tools/ga-gate/check-single-compose.ts` | P1 | ⛔ **RC=0, AND THE SUCCESS LINE IS FALSE.** Body prints `composeRuntime definitions: 1 · rival runtime factories: 1 · production callers: 2` and names the rival `apps/component-editor/src/app/familyEditorRuntime.ts:85 createFamilyEditorRuntime`; the terminal line at `check-single-compose.ts:216` then prints the **hard-coded string** `0 rivals`. `MAX_RIVALS` defaults to 1 (:103), so the gate passes **at a ratcheted ceiling of one rival while reporting zero**. **Disposition: REPLACE the literal with the count.** A false green manufactured inside the instrument |
++| THREE isolation | `tools/ga-gate/check-three-imports.ts` | P2 | ✅ **RC=0, hard-0 across 8,171 files** (2026-08-29). Zero headroom, widest scope in the suite — the strongest reading here. Was on the debt ledger only because of the `rg` crash; removed from it |
+ | rAF owners | `tools/ga-gate/check-raf-count.ts` | P3 | ⛔ **CORRECTED 2026-08-29 — this cell read "FAILING: 5 owner files, target 1. Declared debt." IT PASSES, hard-0 at one declared owner.** `npx tsx tools/ga-gate/check-raf-count.ts` → **RC=0**, `[raf-tripwire] OK: 1 owner` · 5,438 files scanned · 5 comment-only mentions correctly excluded. **Not declared debt — a genuine PASS**, and the strongest of the nine convergence booleans (§4 #3). See §1 P3 for why the "5" existed |
+-| `(window as any)` | `tools/ga-gate/check-cast-count.ts` | P4 | **FAILING: 20 strict / 215 repo-wide.** Declared debt. The strict scope had drifted onto `src/`, which is now empty — the old "0 achieved" was a scope artefact |
+-| Schemas purity | `tools/ga-gate/check-domain-purity.ts` | P5 | **NEW (L-812).** PASSING, hard 0 — 0 impurities across 165 files, 7 rule families |
+-| Direct store writes from UI | `tools/ga-gate/check-no-direct-store-writes.ts` | P6 | **NEW (L-812).** PASSING at a ratcheted **41** direct writes. Shrink-only |
+-| Visibility intent ≠ UI | `tools/ga-gate/check-visibility-intent-not-ui.ts` | P7 | **NEW (L-812), PARTIAL BY CONSTRUCTION.** Arm A (domain package contains no UI) hard-fails at 0 and passes. Arm B (direct `.visible =` from UI) is a ratcheted **43**-site proxy. See the honesty note below |
+-| OpenTelemetry spans | `tools/ga-gate/check-otel-spans.ts` | P8 | **PASSING** — 245 ≥ floor 213. Formerly mis-cited as `scripts/ci-check-spans.ts` |
+-| Everything else (22 gates) | `tools/ga-gate/*.ts` | assorted | See `run-all.ts` and `gate-debt.json`. Suite total on 2026-08-09: **16 passing / 15 declared debt / 0 regressions** (31 gates) |
++| `(window as any)` | `tools/ga-gate/check-cast-count.ts` | P4 | ⛔ **RC=3 — BOTH ARMS BREACHED** (2026-08-29): scoped strict **11 / 3** (headroom **−8**, `A regression added 8 new cast(s)`) · repo-wide **101 / 100** across 5,315 files, tests excluded. ⚠ **Two latent hazards in the gate itself:** (a) `:78-79` returns `Number.MAX_SAFE_INTEGER` when the baseline file is absent, so a MISSING PREREQUISITE and a CLEAN MEASUREMENT print the same result; (b) when `current < baseline` it calls `writeBaseline`, **mutating a git-tracked ledger** — a local run can silently move the ceiling. Neither is firing today. Carried and **not re-measured**: `gate-debt.json`'s own `$comment` records **409 `window as unknown as` casts across 151 files this regex cannot see** |
++| Schemas purity | `tools/ga-gate/check-domain-purity.ts` | P5 | ✅ **RC=0, hard-0 across 192 files** (2026-08-29), scope independently confirmed non-empty |
++| Direct store writes from UI | `tools/ga-gate/check-no-direct-store-writes.ts` | P6 | ⚠ **RC=0 at 37 / 37 — zero headroom at a NON-ZERO ceiling** (2026-08-29). ⛔ **`packages/` is not in scope**: a direct store write from a package is invisible to this gate **by design**. RC=0 here is not "P6 holds" |
++| Visibility intent ≠ UI | `tools/ga-gate/check-visibility-intent-not-ui.ts` | P7 | ⚠ **RC=0, PROXY-ONLY** (2026-08-29). Arm A hard-0 over 20 files; arm B **40 / 43** (headroom 3) across 772 UI files. The gate prints its own NOT-CHECKED list on every run — persistence, per-view scoping, the AI intent path. See the honesty note below |
++| OpenTelemetry spans | `tools/ga-gate/check-otel-spans.ts` | P8 | ⛔ **RC=3 — and it is THREE-ZONE, not the single `floor 213` count this row used to name** (2026-08-29): ZONE A (CommandBus handlers, zero tolerance) **275 / 275 instrumented, clean**; ZONE B **66 uninstrumented of 87 against a shrink-only baseline of 52 — 14 NEW files, this is the failure**; ZONE C (the literal C10 §2 "every exported function" clause) **UNGATED at 2,100 of 2,399**. Zone C prints a number and gates nothing, so the headline clause is measured for **zero** of the 2,399 |
++| Everything else | `tools/ga-gate/*.ts` + `tools/rac-conformance/certification/gates/*.ts` | assorted | ⛔ **RE-MEASURED 2026-08-29.** This row said *"(22 gates) … Suite total on 2026-08-09: 16 passing / 15 declared debt / 0 regressions (**31 gates**)"*. Measured: **74 `check-*.ts` under `tools/ga-gate/` · 98 distinct scripts registered in `run-all.ts` · 120 gate files across both homes · 2 `gate-debt.json` entries + 32 `gate-newly-measured.json` entries · 1 committed-but-unregistered gate · 7 exit-3 ratchet breaches**. `ls tools/ga-gate/*.ts \| wc -l`. **Do not transcribe a suite total here again — `run-all.ts` is the census and says so at :73** |
+ 
+ ### P7 is only partly checkable, and the gate says so
+ 

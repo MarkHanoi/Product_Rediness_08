@@ -1,0 +1,186 @@
+npm warn Unknown project config "package-manager-strict". This will stop working in the next major version of npm. See `npm help npmrc` for supported config options.
+
+ RUN  v4.1.10 C:/Users/LENOVO/OneDrive/Desktop/PRYZM/Product_Rediness_08/apps/editor
+
+stderr | ../../audit/element-creation/2026-08-29/probe/b1Dispatch.probe.test.ts
+THREE.WARNING: Multiple instances of Three.js being imported.
+
+stdout | ../../audit/element-creation/2026-08-29/probe/b1Dispatch.probe.test.ts
+[CreateCurtainWallsOnAllSlabsCommand] §DEV: window.__resetCwPrewarm() registered. Call it in DevTools to re-enable first-run PSO prewarm for next execute().
+
+stderr | ../../audit/element-creation/2026-08-29/probe/b1Dispatch.probe.test.ts
+Warning: Please use the `legacy` build in Node.js environments.
+
+stdout | ../../audit/element-creation/2026-08-29/probe/b1Dispatch.probe.test.ts
+[ConstraintEngine] 17 rules registered (7 Tier 1, 5 Tier 2 spatial, 5 Tier 2 physics)
+
+stderr | ../../audit/element-creation/2026-08-29/probe/b1Dispatch.probe.test.ts > B1 — the composed runtime surface > P-1: what keys the composed runtime exposes
+[P-1] rt.stores keys = ["bathroomPod","boundaryLine","elements","hydrate","lift","liftPart","pool","project","registerHydrator","viewState","water"]
+[P-1] rt.registeredStoreKeys = undefined
+[P-1] rt.stores.elements kinds = ["wall=WallStore","slab=SlabStore","curtainwall=undefined","curtain-wall=undefined","ceiling=undefined"]
+
+stderr | ../../audit/element-creation/2026-08-29/probe/b1Dispatch.probe.test.ts > B1 — DISPATCHABLE on the REAL composed bus > P-3: slab.create
+[P-3] slab.create outcome = OK
+[P-3] AUTHORITATIVE slabStore.getById(slab_01M16FE9SKJE5GHVWW72XR67EG) = undefined
+
+stderr | ../../audit/element-creation/2026-08-29/probe/b1Dispatch.probe.test.ts > B1 — DISPATCHABLE on the REAL composed bus > P-4: curtain-wall.create
+[P-4] curtain-wall.create outcome = OK
+
+stderr | ../../audit/element-creation/2026-08-29/probe/b1Dispatch.probe.test.ts > B1 — DISPATCHABLE on the REAL composed bus > P-4: curtain-wall.create
+[P-4] geometry-curtain-wall singleton = undefined
+[P-4] singleton.has(curtainwall_01M16FE9SZYBA491CRV0BWHH2K) = undefined
+
+stderr | ../../audit/element-creation/2026-08-29/probe/b1Dispatch.probe.test.ts > B1 — DISPATCHABLE on the REAL composed bus > P-4b: curtainwall.create (the declared ALIAS)
+[CommandBus] §FIX-COMMAND-NAMESPACE — 'curtainwall.create' is a DEPRECATED alias for 'curtain-wall.create'. Update the call site; the alias will be removed once the naming ratchet reaches zero (L-796).
+
+stderr | ../../audit/element-creation/2026-08-29/probe/b1Dispatch.probe.test.ts > B1 — DISPATCHABLE on the REAL composed bus > P-4b: curtainwall.create (the declared ALIAS)
+[P-4b] curtainwall.create (alias) outcome = OK
+
+stderr | ../../audit/element-creation/2026-08-29/probe/b1Dispatch.probe.test.ts > B1 — DISPATCHABLE on the REAL composed bus > P-5: ceiling.create
+[P-5] ceiling.create outcome = OK
+
+stderr | ../../audit/element-creation/2026-08-29/probe/b1Dispatch.probe.test.ts > B1 — DISPATCHABLE on the REAL composed bus > P-6: curtain-wall.replacePanel — the curtainPanelStore key nobody provides
+[P-6] curtain-wall.replacePanel outcome = curtain-wall.replacePanel: canExecute rejected — newPanelType is required
+
+stderr | ../../audit/element-creation/2026-08-29/probe/b1Dispatch.probe.test.ts > B1 — the PreviewManager slab payload SHAPE (PreviewManager.ts:330-340) > P-7: Slab.parse REJECTS a boundary of {x,z} with no y
+[P-7] Slab.safeParse success = false
+[P-7] first issues = [{"expected":"number","code":"invalid_type","path":["boundary",0,"y"],"message":"Invalid input: expected number, received undefined"},{"expected":"number","code":"invalid_type","path":["boundary",1,"y"],"message":"Invalid input: expected number, received undefined"},{"expected":"number","code":"invalid_type","path":["boundary",2,"y"],"message":"Invalid input: expected number, received undefined"},{"expected":"number","code":"invalid_type","path":["boundary",3,"y"],"message":"Invalid input: expected number, received undefined"}]
+
+stderr | ../../audit/element-creation/2026-08-29/probe/b1Dispatch.probe.test.ts > B1 — the PreviewManager slab payload SHAPE (PreviewManager.ts:330-340) > P-8: the same PreviewManager-shaped payload through the composed BUS
+[P-8] PreviewManager-shaped slab.create outcome = Slab schema validation failed: [
+  {
+    "expected": "number",
+    "code": "invalid_type",
+    "path": [
+      "boundary",
+      0,
+      "y"
+    ],
+    "message": "Invalid input: expected number, received undefined"
+  },
+  {
+    "expected": "number",
+    "code": "invalid_type",
+    "path": [
+      "boundary",
+      1,
+      "y"
+    ],
+    "message": "Invalid input: expected number, received undefined"
+  },
+  {
+    "expected": "number",
+    "code": "invalid_type",
+    "path": [
+      "boundary",
+      2,
+      "y"
+    ],
+    "message": "Invalid input: expected number, received undefined"
+  },
+  {
+    "expected": "number",
+    "code": "invalid_type",
+    "path": [
+      "boundary",
+      3,
+      "y"
+    ],
+    "message": "Invalid input: expected number, received undefined"
+  }
+]
+
+stderr | ../../audit/element-creation/2026-08-29/probe/b1Dispatch.probe.test.ts > B1 — CEB payload-field reading for slab.create > P-9: which *.created events reach runtime.events for a boundary-only slab.create
+[P-9] slab(boundary-only) = OK
+
+stderr | ../../audit/element-creation/2026-08-29/probe/b1Dispatch.probe.test.ts > B1 — CEB payload-field reading for slab.create > P-9: which *.created events reach runtime.events for a boundary-only slab.create
+[P-9] slab(polygon) = slab.create: canExecute rejected — boundary has zero area
+
+stderr | ../../audit/element-creation/2026-08-29/probe/b1Dispatch.probe.test.ts > B1 — CEB payload-field reading for slab.create > P-9: which *.created events reach runtime.events for a boundary-only slab.create
+[P-9] ceiling = OK
+
+stderr | ../../audit/element-creation/2026-08-29/probe/b1Dispatch.probe.test.ts > B1 — CEB payload-field reading for slab.create > P-9: which *.created events reach runtime.events for a boundary-only slab.create
+[P-9] cw = OK
+
+stderr | ../../audit/element-creation/2026-08-29/probe/b1Dispatch.probe.test.ts > B1 — CEB payload-field reading for slab.create > P-9: which *.created events reach runtime.events for a boundary-only slab.create
+[P-9] EVENTS SEEN = [
+ "slab.created id=slab_01M16FE9TCNPDNXDYNG8QZP4ZA polygon=undefined boundary=undefined",
+ "ceiling.created id=ceiling_01M16FE9TE5TPKHXPSQ18F1ZEA polygon=undefined boundary=[{\"x\":0,\"y\":0,\"z\":0},{\"x\":4,\"y\":0,\"z\":0},{\"x\":4,\"y\":0,\"z\":4},{\"x\":0,\"y\":0,\"z\":4}]",
+ "curtain-wall.created id=curtainwall_01M16FE9TFK6PBST0B2YJ5CAR1 polygon=undefined boundary=undefined"
+]
+
+ ✓ ../../audit/element-creation/2026-08-29/probe/b1Dispatch.probe.test.ts > B1 — the composed runtime surface > P-1: what keys the composed runtime exposes 2ms
+ ✓ ../../audit/element-creation/2026-08-29/probe/b1Dispatch.probe.test.ts > B1 — DISPATCHABLE on the REAL composed bus > P-3: slab.create 20ms
+ ✓ ../../audit/element-creation/2026-08-29/probe/b1Dispatch.probe.test.ts > B1 — DISPATCHABLE on the REAL composed bus > P-4: curtain-wall.create 4ms
+ ✓ ../../audit/element-creation/2026-08-29/probe/b1Dispatch.probe.test.ts > B1 — DISPATCHABLE on the REAL composed bus > P-4b: curtainwall.create (the declared ALIAS) 1ms
+ ✓ ../../audit/element-creation/2026-08-29/probe/b1Dispatch.probe.test.ts > B1 — DISPATCHABLE on the REAL composed bus > P-5: ceiling.create 3ms
+ ✓ ../../audit/element-creation/2026-08-29/probe/b1Dispatch.probe.test.ts > B1 — DISPATCHABLE on the REAL composed bus > P-6: curtain-wall.replacePanel — the curtainPanelStore key nobody provides 1ms
+ ✓ ../../audit/element-creation/2026-08-29/probe/b1Dispatch.probe.test.ts > B1 — the PreviewManager slab payload SHAPE (PreviewManager.ts:330-340) > P-7: Slab.parse REJECTS a boundary of {x,z} with no y 2ms
+ ✓ ../../audit/element-creation/2026-08-29/probe/b1Dispatch.probe.test.ts > B1 — the PreviewManager slab payload SHAPE (PreviewManager.ts:330-340) > P-8: the same PreviewManager-shaped payload through the composed BUS 1ms
+ ✓ ../../audit/element-creation/2026-08-29/probe/b1Dispatch.probe.test.ts > B1 — CEB payload-field reading for slab.create > P-9: which *.created events reach runtime.events for a boundary-only slab.create 70ms
+stderr | ../../audit/element-creation/2026-08-29/probe/b1Dispatch.probe.test.ts > B1 — alias, missing-id and batch paths > P-10: the curtainwall.create ALIAS still produces a curtain-wall.created event
+[P-10] alias outcome = OK
+
+stderr | ../../audit/element-creation/2026-08-29/probe/b1Dispatch.probe.test.ts > B1 — alias, missing-id and batch paths > P-10: the curtainwall.create ALIAS still produces a curtain-wall.created event
+[P-10] events = ["cw id=curtainwall_01M16FE9WJAZ1JD419F0YB088K baseLine=[{\"x\":0,\"y\":0,\"z\":0},{\"x\":5,\"y\":0,\"z\":0}]"]
+
+stderr | ../../audit/element-creation/2026-08-29/probe/b1Dispatch.probe.test.ts > B1 — alias, missing-id and batch paths > P-11: NO id in the payload — does the *.created event carry one? (bridge guards on !ev.id)
+[P-11] slab(no id) = OK
+
+stderr | ../../audit/element-creation/2026-08-29/probe/b1Dispatch.probe.test.ts > B1 — alias, missing-id and batch paths > P-11: NO id in the payload — does the *.created event carry one? (bridge guards on !ev.id)
+[P-11] ceiling(no id) = OK
+
+stderr | ../../audit/element-creation/2026-08-29/probe/b1Dispatch.probe.test.ts > B1 — alias, missing-id and batch paths > P-11: NO id in the payload — does the *.created event carry one? (bridge guards on !ev.id)
+[P-11] cw(no id) = OK
+
+stderr | ../../audit/element-creation/2026-08-29/probe/b1Dispatch.probe.test.ts > B1 — alias, missing-id and batch paths > P-11: NO id in the payload — does the *.created event carry one? (bridge guards on !ev.id)
+[P-11] events = [
+ "slab.created id=undefined",
+ "ceiling.created id=undefined",
+ "curtain-wall.created id=undefined"
+]
+
+stderr | ../../audit/element-creation/2026-08-29/probe/b1Dispatch.probe.test.ts > B1 — alias, missing-id and batch paths > P-12: batch verbs
+[P-12] slab.batch.create = OK
+
+stdout | ../../audit/element-creation/2026-08-29/probe/b1Dispatch.probe.test.ts > B1 — alias, missing-id and batch paths > P-12: batch verbs
+[CommandBus] DISPATCH: curtain-wall.batch.create — 1 curtain wall(s) committed to plugin store
+
+stderr | ../../audit/element-creation/2026-08-29/probe/b1Dispatch.probe.test.ts > B1 — alias, missing-id and batch paths > P-12: batch verbs
+[P-12] ceiling.batch.create = OK
+
+stderr | ../../audit/element-creation/2026-08-29/probe/b1Dispatch.probe.test.ts > B1 — alias, missing-id and batch paths > P-12: batch verbs
+[P-12] curtain-wall.batch.create = OK
+
+ ✓ ../../audit/element-creation/2026-08-29/probe/b1Dispatch.probe.test.ts > B1 — alias, missing-id and batch paths > P-10: the curtainwall.create ALIAS still produces a curtain-wall.created event 47ms
+ ✓ ../../audit/element-creation/2026-08-29/probe/b1Dispatch.probe.test.ts > B1 — alias, missing-id and batch paths > P-11: NO id in the payload — does the *.created event carry one? (bridge guards on !ev.id) 48ms
+stderr | ../../audit/element-creation/2026-08-29/probe/b1Dispatch.probe.test.ts > B1 — alias, missing-id and batch paths > P-12: batch verbs
+[P-12] events = [
+ "slab.created id=slab_01M16FE9ZHQMXKNHMDA659XHWC",
+ "ceiling.created id=ceiling_01M16FE9ZKYYT9Q0CBPYGA61ZY",
+ "curtain-wall.created id=curtainwall_01M16FE9ZMGH124F4D4HK48JFZ"
+]
+
+stderr | ../../audit/element-creation/2026-08-29/probe/b1Dispatch.probe.test.ts > B1 — alias, missing-id and batch paths > P-13: which UPDATE verbs emit element.updated (ELEMENT_UPDATE_VERBS)
+[P-13] slab.setThickness = OK
+
+stderr | ../../audit/element-creation/2026-08-29/probe/b1Dispatch.probe.test.ts > B1 — alias, missing-id and batch paths > P-13: which UPDATE verbs emit element.updated (ELEMENT_UPDATE_VERBS)
+[P-13] ceiling.setHeight = OK
+
+stderr | ../../audit/element-creation/2026-08-29/probe/b1Dispatch.probe.test.ts > B1 — alias, missing-id and batch paths > P-13: which UPDATE verbs emit element.updated (ELEMENT_UPDATE_VERBS)
+[P-13] curtain-wall.resize = OK
+
+stderr | ../../audit/element-creation/2026-08-29/probe/b1Dispatch.probe.test.ts > B1 — alias, missing-id and batch paths > P-13: which UPDATE verbs emit element.updated (ELEMENT_UPDATE_VERBS)
+[P-13] element.updated events = [
+ "{\"commandId\":\"01M16FEA12M4KZSAEKJFMN87EN\",\"commandType\":\"slab.setThickness\",\"elementKind\":\"slab\",\"elementId\":\"slab_01M16FEA10GG5D7CM880E2E86A\",\"changedFields\":[\"thickness\"]}"
+]
+
+ ✓ ../../audit/element-creation/2026-08-29/probe/b1Dispatch.probe.test.ts > B1 — alias, missing-id and batch paths > P-12: batch verbs 48ms
+ ✓ ../../audit/element-creation/2026-08-29/probe/b1Dispatch.probe.test.ts > B1 — alias, missing-id and batch paths > P-13: which UPDATE verbs emit element.updated (ELEMENT_UPDATE_VERBS) 47ms
+
+ Test Files  1 passed (1)
+      Tests  13 passed (13)
+   Start at  12:00:28
+   Duration  32.89s (transform 23.37s, setup 0ms, import 31.15s, tests 626ms, environment 834ms)
+
+RC=0

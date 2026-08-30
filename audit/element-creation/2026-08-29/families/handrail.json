@@ -1,0 +1,153 @@
+{
+  "family": "handrail",
+  "batch": "B3",
+  "date": "2026-08-29",
+  "doctrine": {
+    "D1": "C11 §11's matrix says handrail has 'No bridge'. That is an ABSENCE CLAIM, and it is FALSE — settled by grep below, not by argument.",
+    "D2": "handrail is the batch's ONE family whose bus create chain holds end to end. Its debt is a SECOND, LEGACY creation path that the primary user gesture actually uses, plus an orphan committer.",
+    "D5": "dispatchable, reachable, renders_3d and renders_plan are all YES here — and each is proven separately, from a different artefact."
+  },
+
+  "registration": {
+    "registration_site": "apps/editor/src/PluginRegistry.ts:404-410  (// ---- Handrail ----  id:'handrail', storeKey:'handrail', buildStore: () => new HandrailStore(), buildHandlers: () => buildHandrailHandlerSet())",
+    "second_registration_site": "apps/editor/src/engine/engineLauncher.ts:694 — `registerHandrailHandlers(_bus)` (§P3.3-HR), idempotent via the §OI-053 skip-if-present proxy.",
+    "declared_storeKey": "handrail",
+    "storeKey_matches_ctx_stores_key": "YES. All eight handrail handlers declare `affectedStores = ['handrail']` (grep -rn affectedStores plugins/handrail/src -> ChangeHandrailLevel.ts:73, CreateHandrail.ts:31, DeleteHandrail.ts:20, RecomputeHandrail.ts:27, SetHandrailHost.ts:23, SetHandrailMaterial.ts:63, SetHandrailPath.ts:24, SetHandrailShape.ts:25 — NONE declares []). ctx.stores.handrail resolves; the ten-times 'required store missing' defect cannot fire here.",
+    "cross_family_note": "`balcony.create` declares `affectedStores = ['balcony','slab','floor','handrail']` (PluginRegistry.ts:448-455), so the handrail store must resolve for a DIFFERENT family's command too — and the registry comment records that the descriptor ORDER was set to make that true.",
+    "the_rival_store": "PluginRegistry.ts:408 `buildStore: () => new HandrailStore()` (from @pryzm/plugin-handrail) is ctx.stores.handrail. The AUTHORITATIVE record is `packages/core-app-model/src/stores/HandrailStore.ts` — the one initBuilders.ts constructs, HandrailFragmentBuilder builds from, ProjectSerializer.ts:722/785 round-trips and ExportIFC.ts:50 reads. ⭐ UNLIKE door/window/stair, THE GAP IS BRIDGED: the §FT-HANDRAIL initTools subscriber mirrors the Immer commit into the legacy store (initTools.ts:2575-2679). That mirror is exactly what door/window/stair's own create verbs lack.",
+    "in_ELEMENT_PLUGIN_IDS": true,
+    "ELEMENT_PLUGIN_IDS_evidence": "apps/editor/src/PluginRegistry.ts:811 — 'handrail'. NOT in STORE_ONLY_PLUGIN_IDS (:860-888).",
+    "proof_reads_real_composition_root": "apps/editor/__tests__/bootstrap.everything.test.ts:46-62 — `expect(rt.stores.handrail).toBeInstanceOf(HandrailStore)` against the real `bootstrapWithEverything`; constructs no stores object (D6-compliant in form). The `HandrailStore` it imports is from '@pryzm/plugin-handrail' (line 26) — the DTO store. Here that is CORRECT rather than misleading, because the DTO store IS what the handler is contracted to write and the bridge carries it onward. A separate reachability suite exists: apps/editor/__tests__/HandrailCreationParityReachable.test.ts, which starts at controls a user can touch (mode bar, pre-draw panel, plan registry tool key, seven real click sequences) — but it proves the LEGACY commandManager path, not the bus verb.",
+    "status": "REGISTERED · KEY RESOLVES · DTO STORE MIRRORED TO THE AUTHORITATIVE ONE BY THE §FT-HANDRAIL BRIDGE"
+  },
+
+  "handler": {
+    "path": "plugins/handrail/src/handlers/CreateHandrail.ts — `readonly type = 'handrail.create'` (:30)",
+    "id_pre_generated_in_tool": "OPTIONAL, AND THIS IS THE FAMILY'S ONE LATENT ID HAZARD. CreateHandrail.ts:49 `const id = (cmd.id ?? createId('handrail'))` mints in the HANDLER when absent, while the CEB forwards `id: p.id` — the PAYLOAD id (CommandEventBridge.ts:1116) — and the bridge guards `if (... || !ev.id || ...) return;` (initTools.ts:2577-2582). A dispatcher that omits `id` therefore commits an Immer handrail that NEVER reaches the legacy store, the mesh or the plan. Every measured production dispatcher pre-generates: CopyPlanToolHandler.ts:600 `const newId = createId('handrail')` then :608 dispatch; duplicateToLevel.ts:326-329 `verb:'handrail.create', idKind:'handrail'`; plugins/handrail/src/tool.ts:32-34 mints its own id. So the guard is satisfied TODAY by convention, not by construction — this is the FIX-WALL-ID / FIX-CW-ID / FIX-BEAM-ID class one careless caller away.",
+    "validates_before_mutation": "YES — CreateHandrail.ts:33-44 validates the path via `validateHandrailPath` (plugins/handrail/src/intent.ts) and rejects non-finite / non-positive height and diameter. Typed errors: HandrailSchemaError, HandrailGeometryError (plugins/handrail/src/errors.ts). Duplicate-id guard at :65 before the produceCommand.",
+    "mutates_only_via_immer_draft": "YES — CreateHandrail.ts:67-69 `produceCommand<HandrailsState>(ctx.stores.handrail, draft => { draft[handrail.id] = handrail; })`. grep -rn '@pryzm/geometry-handrail\\|core-app-model' plugins/handrail/src -> 0 hits: no store-singleton import.",
+    "geometry_deferred": "YES by architecture — the handler commits data only; geometry is built by HandrailFragmentBuilder off `bim-handrail-added`.",
+    "emits_typed_domain_event": "VIA CEB, not from the handler. packages/runtime-composer/src/CommandEventBridge.ts:1095-1122 `case 'handrail.create'` emits `handrail.created` with `{commandId, commandType, levelId, id, path, height, diameter, shape, hostId, materialId}`.",
+    "otel_span": "YES — CreateHandrail.ts:47 `withHandlerSpan(this.type + '.handler', {'pryzm.command.type': this.type}, ...)`.",
+    "must_not_violations": [],
+    "must_not_clean": [
+      "NO commandManager.execute — grep -rnE '^[^/*]*(window\\.commandManager|window\\.dispatchEvent|cm\\.execute)' plugins/handrail/src returns ZERO lines. This is the ONLY family of the four that is clean on this arm (door 4 hits, window 6, stair 8).",
+      "no cascading dispatch",
+      "no window.dispatchEvent, no DOM access",
+      "no direct requestAnimationFrame",
+      "no import from src/engine or src/ui",
+      "no cross-family store mutation — affectedStores ['handrail'] and produceCommand targets ctx.stores.handrail only"
+    ],
+    "evidence": "grep -rnE '^[^/*]*(window\\.commandManager|window\\.dispatchEvent|cm\\.execute)' plugins/door/src plugins/window/src plugins/stair/src plugins/handrail/src  ->  door 4 lines, window 6 lines, stair 8 lines, handrail 0 lines.",
+    "status": "FULLY CONFORMANT TO C11 §5 · ONE LATENT ID HAZARD"
+  },
+
+  "lifecycle": {
+    "ceb_case": "YES — packages/runtime-composer/src/CommandEventBridge.ts:1095 `case 'handrail.create':`, emitting at :1110-1120. GEOMETRY-COMPLETE, not levelId-only: it forwards id, path, height, diameter, shape, hostId, materialId AND levelId. The in-file comment names the reason: '§FT-HANDRAIL (HANDRAIL-BUS-MIGRATION, C11 §11.9): forward the full geometry payload so the initTools.ts §FT-HANDRAIL bridge can mirror the handrail into the legacy HandrailStore'.",
+    "initTools_bridge_tag": "§FT-HANDRAIL — `runtime.events.on('handrail.created', ...)` at apps/editor/src/engine/initTools.ts:2575, closing at :2679 with `console.log('[initTools] §FT-HANDRAIL: handrail.created bus→legacy-store bridge registered.')`. STABLE SUB-TAGS inside it: §FIX-HANDRAIL-BRIDGE-TRUNCATION, §FIX-HANDRAIL-BRIDGE-PROFILE, §FIX-HANDRAIL-BRIDGE-DIAMETER, §FIX-HANDRAIL-BRIDGE-FILL, §FIX-PLAN-VDT-BIMMANAGER.",
+    "initTools_bridge_grep": "grep -noE \"'[a-zA-Z.-]+\\\\.(created|updated|deleted)'\" apps/editor/src/engine/initTools.ts | sort -u  ->  includes `2575:'handrail.created'`. SECOND, INDEPENDENT GREP (the one C11 §0.0 prescribes): grep -n 'bridge registered' apps/editor/src/engine/initTools.ts -> the line '[initTools] §FT-HANDRAIL: handrail.created bus→legacy-store bridge registered.' at :2679.",
+    "bridge_writes": "initTools.ts:2641-2669 `handrailStore.add({ id: ev.id, type:'handrail', levelId, parentId, baseLine:[p0,p1], height, thickness: diameter, railDiameter: diameter, baseOffset: 0, railProfile, fillType:'baluster', ...materialId, properties:{} })`.",
+    "vdt_registerElement": "YES — apps/editor/src/engine/initTools.ts:2672 `viewDependencyTracker.registerElement(ev.id, ev.levelId ?? '')`, tagged §FIX-PLAN-VDT-BIMMANAGER (handrail).",
+    "bimManager_registerElement": "YES — apps/editor/src/engine/initTools.ts:2673 `try { bimManager.registerElement(ev.id, ev.levelId ?? ''); } catch { /* non-fatal */ }`.",
+    "bridge_invariant_7_verdict": "SATISFIED. Both calls sit immediately after `handrailStore.add(...)`, so `level.childrenIds` contains the handrail and `NativeElementMeshExporter.exportForView` (:281-340, `.flatMap(l => l.childrenIds)`) enumerates it — the Canvas2D-blank failure mode does not apply.",
+    "bimManager_via_window_any": "NO — `bimManager` is a parameter of initTools (declared at initTools.ts:267, destructured at :373), not a global read. `grep -c 'window as any' apps/editor/src/engine/initTools.ts` -> 1, and it is not this site. NOT a C14 LP-01 / P4 violation. ⚠ It IS declared `bimManager: any`, which is an untyped seam rather than a P4 one.",
+    "in_GEOMETRY_ELEMENT_TYPES": true,
+    "GEOMETRY_ELEMENT_TYPES_evidence": "packages/core-app-model/src/views/ViewDependencyTracker.ts:47 — 'handrail'. Spelling MATCHES the producer: packages/core-app-model/src/stores/HandrailStore.ts:191-196 emits `storeEventBus.emit({elementId, elementType:'handrail', operation})`.",
+    "update_verbs_covered": "NO — CREATE-MIRROR-WITHOUT-UPDATE-MIRROR. ELEMENT_UPDATE_VERBS (CommandEventBridge.ts:241-294) = 8 rows, all slab/roof/column. handrail.setPath / setShape / setHost / setMaterial / recompute / changeLevel emit NO element.updated, so a handrail can be created and reach the mesh and the plan, and then edited and reach neither.",
+    "orphan_committer": "plugins/handrail/src/committer/handrail-committer.ts:40 `export class HandrailCommitter implements PrimitiveCommitter<HandrailData, THREE.Mesh>` — NEVER constructed. `grep -rnoE 'new [A-Za-z]+Committer\\(' --include=*.ts apps packages plugins src` (tests included) -> only DoorCommitter (:140) and WindowCommitter (:144) at bootstrap.render.everything.ts.",
+    "second_creation_path": "apps/editor/src/engine/views/plantools/RailingPlanToolHandler.ts:33-48 states in writing that it executes `CreateHandrailCommand` / `CreateHandrailRunCommand` through `ctx.commandManager`, NOT the bus, and gives a MEASURED reason: the `handrail.create` payload has no slot for fillType / railProfile / postSpacing / baseOffset / materialColor, and the bridge HARD-CODES `fillType:'baluster'` and `baseOffset:0` (initTools.ts:2666, :2660). Routing a catalogue type through the bus would silently drop most of it. So the PRIMARY user gesture does not use the bus verb this whole lifecycle serves.",
+    "status": "CEB ✅ GEOMETRY-COMPLETE · BRIDGE ✅ · BRIDGE INVARIANT 7 ✅ · NO UPDATE MIRROR · TWO RIVAL CREATION PATHS · ORPHAN COMMITTER"
+  },
+
+  "milestones": {
+    "authored": "YES",
+    "authored_proof": "plugins/handrail/src/{store,intent,tool,errors}.ts + 8 handler files + committer/{handrail-committer,geometry-bridge,material-bridge}.ts; packages/geometry-handrail/src/HandrailFragmentBuilder.ts; packages/core-app-model/src/stores/HandrailStore.ts; packages/command-registry CreateHandrailCommand / CreateHandrailRunCommand / CreateHandrailRunOnSlabCommand.",
+    "dispatchable": "YES",
+    "dispatchable_proof": "plugins/handrail/src/handlers/index.ts:17 declares 'handrail.create' in HANDRAIL_HANDLER_TYPES and :37 `new CreateHandrailHandler()` is in buildHandrailHandlerSet(); PluginRegistry.ts:409 contributes that set under storeKey 'handrail'; CreateHandrail.ts:33-44 `canExecute` returns `{valid:true}` for a well-formed payload — there is NO §FIX-CREATE-LIVENESS-LIE refusal in this family (contrast door/window). `affectedStores = ['handrail']` matches the descriptor storeKey, so buildContext cannot throw.",
+    "reachable": "YES",
+    "reachable_proof": "Three measured dispatchers of the bus verb, all pre-generating the id the bridge guards on: apps/editor/src/engine/views/plantools/CopyPlanToolHandler.ts:608 `window.runtime?.bus?.executeCommand('handrail.create', handrailCopyPayload(..., newId))` (newId minted at :600); apps/editor/src/engine/views/plantools/duplicateToLevel.ts:326-329 `handrail: { kind:'handrail', verb:'handrail.create', idKind:'handrail', undoStack:'bus' }`; plugins/handrail/src/tool.ts:33 `await this.deps.bus.executeCommand('handrail.create', { id, path, shape, height, diameter })`. ⚠ The PRIMARY draw gesture is NOT on this verb — RailingPlanToolHandler routes through ctx.commandManager by declared design (see lifecycle.second_creation_path).",
+    "renders_3d": "YES",
+    "renders_3d_proof": "initTools.ts:2641 `handrailStore.add(...)` -> packages/core-app-model/src/stores/HandrailStore.ts:202 `_bus.emit('bim-handrail-added', {id: handrail.id})` -> apps/editor/src/engine/initBuilders.ts:962-963 `window.addEventListener('bim-handrail-added', e => buildHandrailById(e.detail?.id ...))` -> :957-960 `const h = handrailStore.getById(id); if (h) handrailBuilder.updateHandrail(h);`. A COMPLETE, READ CHAIN — no link inferred. ⚠ REFUSED for `ev.path.length > 2`: initTools.ts:2599-2607 logs '§FIX-HANDRAIL-BRIDGE-TRUNCATION: REFUSED handrail <id>' and returns, so a multi-segment rail creates NOTHING in 3D (a deliberate honest refusal, ADR-0332 Tier 4).",
+    "renders_plan": "YES",
+    "renders_plan_proof": "'handrail' is in GEOMETRY_ELEMENT_TYPES (ViewDependencyTracker.ts:47) and HandrailStore.ts:191-196 emits exactly that spelling; the bridge registers BOTH spatial authorities at initTools.ts:2672-2673, so the handrail is in level.childrenIds and exportForView enumerates it.",
+    "persists": "YES",
+    "persists_proof": "packages/persistence-client/src/loader/ProjectSerializer.ts:722 declares `handrailStore: HandrailStore`, :766 destructures it and :785 `const handrails = handrailStore.getAll().map(serializeHandrail)`. Round-trip pinned by packages/command-registry/__tests__/handrailPersistenceRoundTrip.test.ts.",
+    "exports": "YES",
+    "exports_proof": "packages/file-format/src/export/ifc/ExportIFC.ts:50 `handrailStore: window.handrailStore ?? undefined` -> packages/file-format/src/export/ifc/FragmentReader.ts:115-117 `if (this.stores.handrailStore) { elements.push(...new HandrailReader(this.stores.handrailStore, this).read()); }`. IFC class IfcRailing (packages/core-app-model/src/CoreElement.ts:93)."
+  },
+
+  "first_failing_link": "NONE — authored -> dispatchable -> reachable -> renders_3d -> renders_plan -> persists -> exports all hold, and every link was read rather than inferred. The first thing that DOES fail is outside the create chain: the UPDATE half (zero handrail verbs in ELEMENT_UPDATE_VERBS) and the SECOND, legacy creation path that the primary draw gesture actually uses.",
+
+  "c11_matrix_says": "C11 §11's matrix Handrail row: CEB '⚠ handrail.create case emits geometry-free payload (levelId only)' · initTools '❌ No bridge' · Store add() ✅ · Plan-view tracked ✅ 'handrail' · VDT+bimManager '❌ (no bridge — N/A)' · 3D via bus '❌' · Status '⚠ LEGACY-ONLY — handrail populated via legacy path; CEB payload insufficient for bridge'. FIVE OF THOSE SEVEN CELLS ARE REFUTED BY MEASUREMENT. (1) The CEB payload is NOT geometry-free: CommandEventBridge.ts:1110-1120 forwards id, path, height, diameter, shape, hostId, materialId. (2) The bridge EXISTS: initTools.ts:2575 §FT-HANDRAIL, registration log at :2679. (3) VDT is registered at :2672. (4) bimManager is registered at :2673. (5) 3D DOES build from the bus path: handrailStore.add -> 'bim-handrail-added' -> initBuilders.ts:962 -> handrailBuilder.updateHandrail. The 'LEGACY-ONLY' status is therefore wrong. ⭐ C11 §0.0 (2026-08-18) ALREADY RECORDS THIS for handrail/lighting/furniture, and §11.9 already describes the bridge as shipped ('handrail fully fixed — both FIX-HANDRAIL-PAYLOAD and FIX-HANDRAIL-BRIDGE applied'). THE CONTRACT CONTRADICTS ITSELF IN THREE PLACES AND THE MATRIX IS THE HALF THAT IS WRONG. §11.1's HANDRAIL-BUS-MIGRATION work order ('Enrich handrail.create CEB payload with geometry fields; add initTools.ts §FT-HANDRAIL bridge') is DISCHARGED and still written as OPEN.",
+
+  "findings": [
+    {
+      "id": "B3-HR-01",
+      "class": "DOC-CONFLICT",
+      "severity": "P1",
+      "claim": "C11 §11's matrix marks handrail 'No bridge', 'geometry-free CEB payload', 'VDT+bimManager ❌', '3D via bus ❌' and 'LEGACY-ONLY'. All five are false, and §11.1 still carries the discharged work order that would have an engineer build what already exists.",
+      "command": "grep -n \"bridge registered\" apps/editor/src/engine/initTools.ts   ·   sed -n '1095,1122p' packages/runtime-composer/src/CommandEventBridge.ts   ·   sed -n '2665,2678p' apps/editor/src/engine/initTools.ts",
+      "output_excerpt": "initTools.ts:2679  console.log('[initTools] §FT-HANDRAIL: handrail.created bus→legacy-store bridge registered.');  ||  CommandEventBridge.ts:1110-1120  events.emit('handrail.created', { commandId, commandType:'handrail.create', levelId, id: p.id, path: p.path, height: p.height, diameter: p.diameter, shape: p.shape, hostId: p.hostId, materialId: p.materialId });  ||  initTools.ts:2672  viewDependencyTracker.registerElement(ev.id, ev.levelId ?? '');  :2673  try { bimManager.registerElement(ev.id, ev.levelId ?? ''); } catch { }",
+      "contract_clause": "C11 §11 matrix, Handrail row · C11 §11.1 HANDRAIL-BUS-MIGRATION · contradicted by C11 §0.0 and C11 §11.9",
+      "disposition": "DOCUMENT",
+      "blocks_production": false
+    },
+    {
+      "id": "B3-HR-02",
+      "class": "ID-MINTED-IN-HANDLER",
+      "severity": "P1",
+      "claim": "CreateHandrailHandler mints the id when the payload omits it, the CEB forwards the PAYLOAD id, and the bridge returns early on `!ev.id`. Any dispatcher that omits `id` produces an Immer commit that reaches no store, no mesh and no plan — a silent success. Every current caller pre-generates, so the guard holds by convention, not by construction.",
+      "command": "sed -n '46,52p' plugins/handrail/src/handlers/CreateHandrail.ts   ·   sed -n '1110,1121p' packages/runtime-composer/src/CommandEventBridge.ts   ·   sed -n '2575,2583p' apps/editor/src/engine/initTools.ts",
+      "output_excerpt": "CreateHandrail.ts:49  const id = (cmd.id ?? createId('handrail')) as unknown as HandrailData['id'];  ||  CommandEventBridge.ts:1116  id: p.id,  ||  initTools.ts:2576-2582  runtime.events.on('handrail.created', (ev) => { if (ev.commandType !== 'handrail.create' || !ev.id || !ev.path || ev.path.length < 2) return;",
+      "contract_clause": "C11 §7.6 (element-ID minting is uncontracted, L-665/L-666) · C11 §10.2",
+      "disposition": "WIRE",
+      "blocks_production": false
+    },
+    {
+      "id": "B3-HR-03",
+      "class": "RIVAL-CREATION-PATH",
+      "severity": "P2",
+      "claim": "The primary handrail draw gesture does NOT use the bus verb this whole lifecycle serves. RailingPlanToolHandler dispatches CreateHandrailCommand through ctx.commandManager, with a measured reason: the bus payload carries no fillType / railProfile / postSpacing / baseOffset / materialColor, and the bridge hard-codes `fillType:'baluster'` and `baseOffset:0`. So a catalogue handrail type CANNOT survive the bus path today.",
+      "command": "sed -n '30,50p' apps/editor/src/engine/views/plantools/RailingPlanToolHandler.ts   ·   sed -n '2655,2668p' apps/editor/src/engine/initTools.ts   ·   sed -n '1,30p' apps/editor/__tests__/HandrailCreationParityReachable.test.ts",
+      "output_excerpt": "RailingPlanToolHandler.ts:34-47  It executes `CreateHandrailCommand` / `CreateHandrailRunCommand` through `ctx.commandManager` ... `runtime.bus.executeCommand('handrail.create')`'s payload is {id, levelId, hostId, path, shape, height, diameter, materialId} — no slot for `fillType`, `railProfile`, `postSpacing`, `baseOffset`, `materialColor` ... Routing a catalogue type through it would SILENTLY drop most of it.  ||  initTools.ts:2666  fillType: 'baluster',   :2660  baseOffset: 0,",
+      "contract_clause": "C11 §3 · C95 §4.2 · C95 §5 · ADR-0332",
+      "disposition": "DOCUMENT",
+      "blocks_production": false
+    },
+    {
+      "id": "B3-HR-04",
+      "class": "CREATE-MIRROR-WITHOUT-UPDATE-MIRROR",
+      "severity": "P1",
+      "claim": "Zero handrail verbs in ELEMENT_UPDATE_VERBS. handrail.setPath / setShape / setHost / setMaterial / recompute / changeLevel emit no element.updated, so the create mirror exists and the update mirror does not — a handrail can be drawn and rendered, then edited into a divergence between the Immer record and the legacy record the renderer reads.",
+      "command": "grep -n 'ELEMENT_UPDATE_VERBS' -A 55 packages/runtime-composer/src/CommandEventBridge.ts",
+      "output_excerpt": "8 rows: slab.addHole, slab.removeHole, slab.setThickness, slab.setBaseOffset, slab.setType, roof.setOverhang, roof.setThickness, column.setHeight — 0 handrail rows",
+      "contract_clause": "C11 §5.2.1 (MUTATIONS EMIT TOO) · C11 §10.2",
+      "disposition": "WIRE",
+      "blocks_production": false
+    },
+    {
+      "id": "B3-HR-05",
+      "class": "AUTHORED-NOT-REACHABLE",
+      "severity": "P2",
+      "claim": "plugins/handrail ships a HandrailCommitter that is never constructed anywhere in the tree, tests included.",
+      "command": "grep -rnoE 'new [A-Za-z]+Committer\\(' --include=*.ts apps packages plugins src | grep -v node_modules   ·   grep -n 'class HandrailCommitter' plugins/handrail/src/committer/handrail-committer.ts",
+      "output_excerpt": "apps/editor/src/bootstrap.render.everything.ts:140:new DoorCommitter(\napps/editor/src/bootstrap.render.everything.ts:144:new WindowCommitter(   — zero `new HandrailCommitter(`, against handrail-committer.ts:40 `export class HandrailCommitter implements PrimitiveCommitter<HandrailData, THREE.Mesh>`",
+      "contract_clause": "D2 ladder AUTHORED -> REACHABLE",
+      "disposition": "REMOVE",
+      "blocks_production": false
+    },
+    {
+      "id": "B3-HR-06",
+      "class": "HONEST-REFUSAL-AS-CAPABILITY-GAP",
+      "severity": "P2",
+      "claim": "The bridge REFUSES any handrail whose path has more than 2 points, because legacy HandrailData.baseLine is a 2-tuple. The refusal is correct and loudly logged (it replaced a silent truncation), but it means an N-point rail drawn on the bus path produces NOTHING — a capability gap, not a defect, and it must not be read as 'handrail renders' without the qualifier.",
+      "command": "sed -n '2584,2608p' apps/editor/src/engine/initTools.ts",
+      "output_excerpt": "initTools.ts:2599-2606  console.error(`[initTools] §FIX-HANDRAIL-BRIDGE-TRUNCATION: REFUSED handrail ${ev.id} — its path has ${ev.path.length} points and the legacy HandrailData.baseLine holds exactly 2. Multi-segment handrails are not built yet (ADR-0332 Tier 4). No handrail was created; ...`); return;",
+      "contract_clause": "ADR-0332 §2 defect 1 · C11 §10.2",
+      "disposition": "DOCUMENT",
+      "blocks_production": false
+    }
+  ],
+
+  "status": "PARTIAL"
+}

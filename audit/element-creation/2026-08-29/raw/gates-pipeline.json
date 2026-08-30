@@ -1,0 +1,292 @@
+{
+  "$meta": {
+    "phase": "0b - element-pipeline gates",
+    "measuredAt": "2026-08-29",
+    "repo": "c:/Users/LENOVO/OneDrive/Desktop/PRYZM/Product_Rediness_08",
+    "branch": "main",
+    "invocation": "npx tsx tools/ga-gate/<script>.ts > <log> 2>&1; echo RC=$?",
+    "timeBox": "200s per gate; none timed out",
+    "exitCodeLegend": { "0": "PASS", "1": "FAIL", "2": "MISCONFIGURED", "3": "RATCHET EXCEEDED" },
+    "rawLogsDir": "audit/element-creation/2026-08-29/raw/check-*.log",
+    "D3_WARNING": "Every RC=0 below is a ratchet or ledger HOLDING at a non-zero count unless the row says hard-0. Read printedNumbers, never the verdict alone.",
+    "excludedFromMeasurement": "Nothing. All 16 named gates exist, all 16 are registered in run-all.ts, all 16 were executed. node_modules is excluded by each gate's own walker, not by me.",
+    "misconfiguredCount": 0,
+    "misconfiguredBasis": "No gate exited 2. No gate died on ENOENT. Every gate printed a subject count above its declared floor, so no gate scanned an emptied path. Scope non-emptiness independently confirmed: `ls plugins | wc -l` -> 51; `find apps/editor/src -name '*.ts' -o -name '*.tsx' | wc -l` -> 1457; `wc -l packages/runtime-composer/src/CommandEventBridge.ts` -> 2256."
+  },
+
+  "runAllRegistration": {
+    "command": "grep -nE \"script: 'check-(...)\\.ts'\" tools/ga-gate/run-all.ts",
+    "result": "All 16 appear as uncommented entries in the RUNNER array of tools/ga-gate/run-all.ts (1362 lines).",
+    "lines": {
+      "check-l7-boundary.ts": 119,
+      "check-project-isolation.ts": 123,
+      "check-no-commandmanager.ts": 125,
+      "check-commandmanager-any.ts": 133,
+      "check-command-naming.ts": 140,
+      "check-layer-boundaries.ts": 141,
+      "check-batch-creation-coverage.ts": 190,
+      "check-plugin-census-equivalence.ts": 243,
+      "check-mirror-completeness.ts": 244,
+      "check-mirror-reachability.ts": 277,
+      "check-hosted-dual-write.ts": 285,
+      "check-prevstate-contract.ts": 349,
+      "check-graph-write-coverage.ts": 390,
+      "check-derived-not-authored.ts": 500,
+      "check-provenance-coverage.ts": 503,
+      "check-gate-subject-floors.ts": 694
+    },
+    "skipMechanism": "None. grep -n 'skip|SKIP|continue-on-error|allowFail' tools/ga-gate/run-all.ts returns only line 844, a prose comment. No gate is conditionally suppressed."
+  },
+
+  "gateDebtLedger": {
+    "file": "tools/ga-gate/gate-debt.json",
+    "baselinedAt": "2026-08-08",
+    "baselinedCommit": "d0d34999",
+    "failingArray": ["check-no-commandmanager.ts", "check-custom-event-apps.ts"],
+    "consequence": "Of the 16 pipeline gates, ONLY check-no-commandmanager.ts has a gate-debt.json row. Per that file's own rule 1 ('A gate NOT on this list that fails is a REGRESSION and blocks CI'), the other non-zero gates below - layer-boundaries, command-naming, graph-write-coverage, gate-subject-floors (all exit 3) and batch-creation-coverage (exit 1) - are unabsorbed.",
+    "exit3IsNeverAbsorbable": "run-all.ts:97-98 §RATCHET-EXCEEDED-IS-NEVER-DEBT (R7/L-836): 'NEVER absorbable - the ledger declares that a gate FAILS, not that it may fail WORSE.' check-no-commandmanager's own output repeats it: 'Exit 3 is never absorbed by the ledger.' So even the ONE gate with a debt row is not covered by it today, because it exited 3 rather than 1."
+  },
+
+  "headlineFinding_mirrorChannelVsReadback": {
+    "question": "Does anything establish an executed READ-BACK from a RENDER / PERSIST / EXPORT store?",
+    "answer": "NO. Neither mirror gate performs an executed read from a render, persistence or export store. mirror-completeness proves a channel is DECLARED. mirror-reachability executes the EMIT half only; its LISTEN half is a regex over source text.",
+
+    "check-mirror-completeness": {
+      "whatItDoesEstablish": "It is a STATIC set-difference. It parses handler files for `affectedStores`, resolves which bus verbs write a plugin DTO store, and asks whether each such verb has a matching `case` arm in packages/runtime-composer/src/CommandEventBridge.ts (2256 lines). A verb with a case arm is COVERED; one without goes on mirror-debt.json. Nothing is executed. Nothing is read back.",
+      "whatItDoesNotEstablish_gatesOwnWords": "[mirror-completeness] NOT ESTABLISHED HERE: that any covered verb's event reaches a subscriber, a legacy record, or a mesh.  ·  A bridge case is a DECLARED channel. C16 §5.1 CA-21 wants an executed read-back.",
+      "printedSubject": "1407 handler file(s) · 361 verb(s) · 28 plugin DTO store key(s) from 35 store file(s) · 38 bridge case arm(s) + 8 mutation-table verb(s)",
+      "printedResult": "200 verbs write a plugin DTO store - 44 with a bridge case, 156 WITHOUT. Ledger 156 rows: 109 kind=UNMIRRORED ('these will not update on screen'), 47 declared-exempt.",
+      "theAsymmetryItNames": "grep -c \"\\.created'\" apps/editor/src/engine/initTools.ts -> 17;  grep -c \"\\.updated'\" -> 0. Gate header: 'Every element family can be CREATED and reach the render layer. None can be UPDATED and reach it.' Its own run prints the current census as 19 '*.created' mirrors and 1 '*.updated' mirror."
+    },
+
+    "check-mirror-reachability": {
+      "whatItDoesEstablish": "The EMIT half, genuinely executed. It constructs a real CommandBus, loads real plugin handler classes, dispatches 14 named verbs across 3 families through the real CommandEventBridge, counts forward patches, and records which typed events actually fired. Five executed controls (negative, positive, refusal, orphan-channel, and an explode-vs-refuse discriminator) fire on every run, so the instrument is watched failing.",
+      "whatItDoesNotEstablish": "The LISTEN half is a NAME MATCH, not an execution. Nothing is read back from any store.",
+      "theMechanism_source": "tools/ga-gate/check-mirror-reachability.ts:227 function subscriberCensus() - const RE = /\\.on\\(\\s*'([a-zA-Z][a-zA-Z0-9._-]*\\.[a-zA-Z0-9._-]+)'/g; walks SUBSCRIBER_ROOTS reading file text and recording which files CONTAIN a matching listener registration. A file containing the string is scored as a subscriber.",
+      "gatesOwnWords_header": "tools/ga-gate/check-mirror-reachability.ts:101-107 §WHAT-THIS-DOES-NOT-COVER - '1. The subscriber is NAMED, not RUN. apps/editor/src/engine/initTools.ts imports the browser world (its transitive svg2pdf.js import alone refuses to load under node), so no gate in this directory can execute a mirror callback. A REACHES-SUBSCRIBER verdict means \"a typed event really fired, and a file really contains a listener for that name\" - the emit half is executed, the listen half is a grep.'",
+      "gatesOwnWords_terminal": "[mirror-reachability] WHAT THIS GREEN DOES NOT SAY - the EMIT half is executed, the LISTEN half is a NAME MATCH.  ·  Not covered: that the subscriber RUNS, that the legacy record is well-formed, that a mesh appears, that the serializer carries it, or anything at all about the 337+ verbs outside this named set.",
+      "explicitlyUncovered_perSource": [
+        "2. The legacy RECORD is not inspected - whether the subscriber writes a WELL-FORMED legacy record (the boundaryLine defect) is invisible.",
+        "3. No mesh. LiftCompoundReachesTheMesh.test.ts / BeamMasterMaterialReachesMesh.test.ts are per-family vitest suites, not a gate.",
+        "4. The SERIALIZER is not checked. boundaryLine's zero occurrences in either ProjectSerializer is still nobody's gate.",
+        "5. App-registered BridgeSpec verbs (element.changeType) are INVISIBLE - initBusHandlers.ts cannot load outside a browser.",
+        "6. Fourteen verbs, not 351."
+      ],
+      "acknowledgedUnsafeDirection": "Source comment at check-mirror-reachability.ts:217-226: the regex 'also matches DOM and Node emitters using the same spelling. That over-counts in the SAFE direction for an orphan census ... and in the UNSAFE direction for a REACHES-SUBSCRIBER verdict.' So the 7 REACHES-SUBSCRIBER readings are the gate's own least-safe output.",
+      "executedReadFromRenderPersistExport": "NONE. Confirmed by source read: the only executed side is bus dispatch + patch counting. No renderer, no persistence-client, no exporter is instantiated or queried."
+    },
+
+    "whatTheTwoGatesJointlyLeaveOpen": "For the 14 dispatched verbs, 7 reach a FILE THAT CONTAINS a listener. For the other 337+ registered verbs nothing at all is measured. 9 of the 28 typed event names the bridge can emit have no listener anywhere outside tests (annotation.created, ceiling.layer-updated, dimension.created, floor.layer-updated, grid.created, plumbing.created, room.created, slab.layer-updated, structural.created) - all 9 are ledgered, so the gate is green while nine declared channels reach nobody."
+  },
+
+  "eslintResolverGap": {
+    "question": "Does the import/resolver gap that made eslint-plugin-boundaries blind to @pryzm/* specifiers still exist?",
+    "command": "grep -n \"resolver|import/resolver|typescript-resolver|eslint-import-resolver\" eslint.config.js",
+    "answer": "YES, the gap still exists - but it is now a DOCUMENTED DELIBERATE NON-CHOICE, not an accident. There is no import/resolver key in eslint.config.js; the only four matches (lines 402, 404, 410, 412) are inside a comment block explaining its absence.",
+    "settingsBlock": "eslint.config.js:397-419 - settings: { 'boundaries/elements': layerElements, 'boundaries/include': ['packages/**','tools/**','apps/**','plugins/**'] } and NO resolver.",
+    "quotedComment": "§FIX-LAYER-GATE-BLIND (L-809) - READ THIS BEFORE TRUSTING THE RULE BELOW. There is NO `import/resolver` configured here, and adding one is a deliberate NON-CHOICE. eslint-plugin-boundaries classifies a file by its RESOLVED PATH, so without a resolver it cannot map `@pryzm/geometry-wall` to `packages/geometry-wall/**` - and in this monorepo essentially every cross-package import is written that way. **The `boundaries/element-types` rule below therefore only sees RELATIVE imports.** That is still worth having, but it is not the layer gate. ... THE AUTHORITY FOR THE LAYER RULE IS `tools/ga-gate/check-layer-boundaries.ts`.",
+    "packageEvidence": "grep -n 'eslint-import-resolver' package.json -> no match. ls node_modules | grep -i 'import-resolver' -> no match. No resolver package is installed, consistent with the documented refusal.",
+    "verdict": "The CLAUDE.md claim that check-layer-boundaries.ts is THE authority is CONFIRMED by the config file itself. The eslint rule remains blind to @pryzm/* and is retained only for relative-path violations."
+  },
+
+  "layerViolationsVsSdkBypass_KEPT_SEPARATE": {
+    "note": "These are FOUR independent ratchets inside one gate. Merging them makes all four unreadable. Every one is over ceiling as of 2026-08-29.",
+    "arm_layerViolations": { "current": 105, "baseline": 102, "headroom": -3, "status": "EXCEEDED", "unit": "upward import(s) between classified packages" },
+    "arm_unclassifiedPackages": { "current": 15, "baseline": 13, "headroom": -2, "status": "EXCEEDED", "unit": "workspace package(s) with no layer" },
+    "arm_bannedThirdParty": { "current": 123, "baseline": 113, "headroom": -10, "status": "EXCEEDED", "unit": "OBC/express imports outside their allowed homes" },
+    "arm_sdkFacadeBypass": { "current": 186, "baseline": 182, "headroom": -4, "status": "EXCEEDED", "unit": "L6 plugin imports bypassing the L5 SDK facade" },
+    "violationsByLayerPair": { "L2->L6": 40, "L2->L4": 14, "L3->L4": 12, "L3->L6": 11, "L1->L2": 11, "L4->L6": 9, "L2->L3": 6, "L3->L7": 1, "L6->L7": 1 },
+    "bannedThirdPartyTopHolders": {
+      "packages/core-app-model [@thatopen/components]": 31,
+      "plugins/annotations [@thatopen/components]": 24,
+      "apps/editor [@thatopen/components]": 23,
+      "packages/geometry-furniture [@thatopen/components]": 8,
+      "apps/editor [@thatopen/components-front]": 5,
+      "packages/geometry-slab [@thatopen/components]": 5,
+      "packages/input-host [@thatopen/components]": 5
+    },
+    "unclassifiedPackages_tailOfLog": ["eslint-plugin-pryzm", "@pryzm/geometry-boundary-line", "@pryzm/geometry-handrail", "@pryzm/legacy-shim", "@pryzm/rate-limit", "@pryzm/release", "@pryzm/wcag-audit", "@pryzm/webhooks"],
+    "unclassifiedPackages_note": "8 of the 15 are visible in the tail of check-layer-boundaries.log; the full list is at check-layer-boundaries.log:351-370. Two of the eight shown are ELEMENT geometry packages (@pryzm/geometry-boundary-line, @pryzm/geometry-handrail) - the gate cannot judge ANY import to or from them.",
+    "claudeMdIsStale": "CLAUDE.md records 'measured 2026-08-16: exit 0, within baselines (violations 102/102, unclassified 13/13, sdk-bypass 171/182)'. Today the gate exits 3 and every arm is over. The sdk-bypass figure in particular moved 171 -> 186, crossing its 182 ceiling. CLAUDE.md's own instruction - 'Read the gate, not this line' - is the correct one.",
+    "whyNotMerged": "A plugin -> renderer-three edge goes DOWNWARD: it is a facade-encapsulation breach, not a layer violation. Adding 186 to 105 would produce a number that describes nothing."
+  },
+
+  "gates": [
+    {
+      "script": "tools/ga-gate/check-plugin-census-equivalence.ts",
+      "exists": true, "listedInRunAll": true, "runAllLine": 243, "ran": true, "exitCode": 0,
+      "verdict": "PASS",
+      "printedNumbers": "directories on disk (plugins/*): 51 · ALL_PLUGINS ids: 30 (29 inline · 1 authored in plugin packages) · PLUGIN_CATALOG rows (plugins.list()): 43 · ELEMENT_PLUGIN_IDS rows: 27 · A DISK\\REGISTRY 24/24 · B DISK\\CATALOG 8/8 · C CATALOG\\DISK 0 (hard) · D REGISTRY\\DISK 0 (hard) · E (REGISTRY n DISK)\\CATALOG 0/0 · F REGISTRY\\ELEMENT_PLUGIN_IDS 3/3 · G ELEMENT_PLUGIN_IDS\\REGISTRY 0 (hard) · H UNRESOLVED DESCRIPTOR 0 (hard)",
+      "scannedScope": "plugins/* (51 directories on disk, independently confirmed `ls plugins | wc -l` -> 51), plus the runtime plugin registry, PLUGIN_CATALOG and ELEMENT_PLUGIN_IDS tables. NON-EMPTY.",
+      "scopeIsEmpty": false,
+      "baselineInGateDebt": "NOT on gate-debt.json. Baselines are named per-arm INSIDE the gate.",
+      "headroom": "A 0 · B 0 · E 0 · F 0. Four hard arms (C, D, G, H) at 0 with no baseline. ZERO headroom on every ratcheted arm.",
+      "notes": "RC=0 is NOT 0 violations. 24 plugin directories exist on disk and contribute NOTHING at boot (ai-floorplan, ai-generative, ai-query, ai-rules, ai-voice, bcf, cross, dxf, export-pdf, family-editor, geospatial, ifc-export, ifc-import, ifc-inspector, levels, multiplayer, navigate, plan-view, render, rhino-import, schedules, sheets, toy-cube, visibility-intent) - AUTHORED but not REACHABLE, held at a ceiling, not fixed. A further 8 boot but are invisible to runtime.plugins.list() (dxf, export-pdf, family-editor, geospatial, levels, navigate, render, visibility-intent). 3 are registered but never iterated by the storeKey assertion (floor, lighting, view). STORE_ONLY exemptions derived: water, liftPart, bathroomPod."
+    },
+    {
+      "script": "tools/ga-gate/check-mirror-completeness.ts",
+      "exists": true, "listedInRunAll": true, "runAllLine": 244, "ran": true, "exitCode": 0,
+      "verdict": "PASS",
+      "printedNumbers": "subject: 1407 handler file(s) · 361 verb(s) · 28 plugin DTO store key(s) from 35 store file(s) · 38 bridge case arm(s) (38 line(s)) + 8 mutation-table verb(s). Verbs that WRITE a plugin DTO store: 200 - 44 with a bridge case, 156 without. Ledger: 156 row(s) - 109 kind=UNMIRRORED, 47 declared-exempt. Census (initTools.ts): 19 '*.created' mirror(s) · 1 '*.updated' mirror(s).",
+      "scannedScope": "1407 handler files + 35 store files + packages/runtime-composer/src/CommandEventBridge.ts (2256 lines, confirmed present). NON-EMPTY.",
+      "scopeIsEmpty": false,
+      "baselineInGateDebt": "NOT on gate-debt.json. Baseline is tools/ga-gate/mirror-debt.json, rows array length 156.",
+      "headroom": "0 - 156 uncovered against 156 listed, exact. Both directions clean (no new uncovered, no stale paid row).",
+      "notes": "ESTABLISHES ONLY THAT A CHANNEL IS DECLARED. Static set-difference; nothing executed, nothing read back. 156 of 200 store-writing verbs have NO bridge case; the gate's own text says the 109 UNMIRRORED 'will not update on screen'. Gate prints: 'A bridge case is a DECLARED channel. C16 §5.1 CA-21 wants an executed read-back.'"
+    },
+    {
+      "script": "tools/ga-gate/check-mirror-reachability.ts",
+      "exists": true, "listedInRunAll": true, "runAllLine": 277, "ran": true, "exitCode": 0,
+      "verdict": "PASS",
+      "printedNumbers": "subject: 14 verb(s) DISPATCHED across 3 famil(ies) · 28 typed event name(s) the bridge can emit · 31 dotted event name(s) subscribed across 5157 non-test source file(s). REACHES-SUBSCRIBER 7 · NO-TYPED-EVENT 4 · REFUSED 3 · ARM E2 orphan channels 9 of 28. Terminal: 'within the named ledger - 7/14 dispatched verb(s) reach a subscriber; 7 ledgered as not reaching; 9 ledgered orphan channel(s). Controls fired.'",
+      "scannedScope": "EXECUTED: 14 named verbs (lighting.*, slab.*, roof.*) through a real CommandBus + real CommandEventBridge. STATIC: 5157 non-test .ts/.tsx files under SUBSCRIBER_ROOTS for the .on('x.y') regex. NON-EMPTY on both halves.",
+      "scopeIsEmpty": false,
+      "baselineInGateDebt": "NOT on gate-debt.json. Baseline is tools/ga-gate/mirror-reachability-ledger.json - notReaching: 7 rows, orphanChannels: 9 rows.",
+      "headroom": "0 on both arms - 7 not-reaching against a ledger of exactly 7, and 9 orphan channels against a ledger of exactly 9.",
+      "notes": "DOES NOT ESTABLISH A READ-BACK. The emit half is executed; the listen half is the regex at check-mirror-reachability.ts:227 that scores a file as a subscriber if it CONTAINS the listener text. No renderer, persistence or export store is ever read. Source comment concedes the regex over-counts 'in the UNSAFE direction for a REACHES-SUBSCRIBER verdict'. Subject is 14 verbs of 361 registered. Notable executed refusals, quoting the gate: slab.setMaterial and roof.setMaterial 'canExecute rejected - It writes the plugin DTO store, which is a FRESH instance built by PluginRegistry and is read by no renderer, no 2-D projector, no IFC exporter and no persistence path'."
+    },
+    {
+      "script": "tools/ga-gate/check-layer-boundaries.ts",
+      "exists": true, "listedInRunAll": true, "runAllLine": 141, "ran": true, "exitCode": 3,
+      "verdict": "RATCHET_EXCEEDED",
+      "printedNumbers": "workspace packages: 167 · classified: 152 · UNCLASSIFIED: 15. FAIL - 105 upward import(s), baseline 102. FAIL - 15 unclassified package(s), baseline 13. FAIL - 123 banned third-party import(s), baseline 113. FAIL - 186 SDK-facade bypass(es), baseline 182.",
+      "scannedScope": "167 workspace packages resolved by reading each workspace package.json (packages/, apps/, plugins/, tools/). NON-EMPTY.",
+      "scopeIsEmpty": false,
+      "baselineInGateDebt": "NOT on gate-debt.json. Four baselines live as constants in the gate (MAX_RESTRICTED_IMPORTS, MAX_SDK_BYPASS, etc.), importing the tables from eslint.config.js rather than copying them.",
+      "headroom": "NEGATIVE ON ALL FOUR ARMS: layer violations -3 (105 vs 102) · unclassified -2 (15 vs 13) · banned third-party -10 (123 vs 113) · sdk-bypass -4 (186 vs 182).",
+      "notes": "THE AUTHORITY for layer violations, confirmed by eslint.config.js:416 itself. Exit 3 is never absorbable by gate-debt.json (run-all.ts:97-98). CLAUDE.md's recorded 2026-08-16 reading (exit 0, 102/102, 13/13, 171/182) is STALE and stale OPTIMISTICALLY: the repo is now over on every arm. Layer violations and SDK bypass reported SEPARATELY per the brief."
+    },
+    {
+      "script": "tools/ga-gate/check-l7-boundary.ts",
+      "exists": true, "listedInRunAll": true, "runAllLine": 119, "ran": true, "exitCode": 0,
+      "verdict": "PASS",
+      "printedNumbers": "files scanned: 833 (floor 500) · dir: plugins · comments stripped · 102 violating import line(s) in 83 file(s). Baseline ceiling: 84 files. 'No regressions - ratchet holding.' NOTE: annotations improved 26 -> 25 files.",
+      "scannedScope": "plugins/ - 833 .ts/.tsx files, above its declared floor of 500. NON-EMPTY.",
+      "scopeIsEmpty": false,
+      "baselineInGateDebt": "NOT on gate-debt.json. Per-plugin file-count baselines are constants in the gate; aggregate ceiling 84 files.",
+      "headroom": "1 file (83 current vs 84 ceiling). ONE file of silent regression is authorised before this gate speaks.",
+      "notes": "RC=0 is NOT 0 violations - 102 violating import lines across 83 files in 21 plugins remain. Its unit is FILES, not lines, so the 102 lines could grow without bound inside the existing 83 files and the gate would stay green. This is the same subject as check-layer-boundaries' sdk-bypass arm (186) counted a different way; do not add them."
+    },
+    {
+      "script": "tools/ga-gate/check-batch-creation-coverage.ts",
+      "exists": true, "listedInRunAll": true, "runAllLine": 190, "ran": true, "exitCode": 1,
+      "verdict": "FAIL",
+      "printedNumbers": "live catalogue entries: 16 (floor 10) · command classes indexed: 307 · batched: 12 · unbatched loops: 3. FAIL: 1 ledger entr(ies) no longer loop unbatched - CreateCurtainWallsFromSlabCommand (curtain-walls.from-selected-slab).",
+      "scannedScope": "The live create-catalogue (16 entries) + 307 indexed command classes. NON-EMPTY.",
+      "scopeIsEmpty": false,
+      "baselineInGateDebt": "NOT on gate-debt.json. LEDGER is a constant inside the gate file.",
+      "headroom": "N/A - this failure is a STALE LEDGER ROW (paid debt left behind), not a new violation. 3 unbatched loops remain against a ledger that still lists 4.",
+      "notes": "Fails in the SAFE direction: the debt was paid and the row not struck - exactly the gate-debt.json rule-2 failure mode ('a ledger that keeps paid debt rots into a list of things that are secretly fine'). ALSO flagged by check-gate-subject-floors as 'declares a floor but has no reachable process.exit(2)', so its 'live catalogue entries: 16 (floor 10)' line prints a floor it cannot enforce - the 16 is not established as a measurement."
+    },
+    {
+      "script": "tools/ga-gate/check-command-naming.ts",
+      "exists": true, "listedInRunAll": true, "runAllLine": 140, "ran": true, "exitCode": 3,
+      "verdict": "RATCHET_EXCEEDED",
+      "printedNumbers": "domains in use: 34 · non-canonical prefixes: 5 (baseline 0). FAIL - new non-canonical command prefix(es): balcony, bathroomPod, boundaryLine, curtainWall, lift.",
+      "scannedScope": "Command `type` string literals across plugins/*/src/handlers/ and the command registry. 34 domains resolved. NON-EMPTY.",
+      "scopeIsEmpty": false,
+      "baselineInGateDebt": "NOT on gate-debt.json. CANONICAL_PREFIXES is a constant in the gate; baseline 0.",
+      "headroom": "0 (baseline is 0) - headroom is NEGATIVE 5.",
+      "notes": "Directly element-creation relevant: 11 command types across 5 element families are UNKNOWN DOMAIN. Sites the gate printed: plugins/balcony/src/handlers/CreateBalcony.ts:135 balcony.create · plugins/plumbing/src/handlers/CreateBathroomPod.ts:117 bathroomPod.create · plugins/boundary-line/src/handlers/CreateBoundaryLine.ts:67 boundaryLine.create · plugins/curtain-wall/src/handlers/ChangeCurtainWallLevel.ts:79 curtainWall.changeLevel · plugins/lift/src/handlers/CreateLift.ts:155 lift.create. boundaryLine and lift are the same two families the mirror gates name as the un-mechanised residue and the 19-records/1-of-16-rendered defect (C104 §13)."
+    },
+    {
+      "script": "tools/ga-gate/check-no-commandmanager.ts",
+      "exists": true, "listedInRunAll": true, "runAllLine": 125, "ran": true, "exitCode": 3,
+      "verdict": "RATCHET_EXCEEDED",
+      "printedNumbers": "files scanned: 1455 (floor 700) · dir: apps/editor/src · unit: matching lines. code-only (ENFORCED) literal=12 window=57 cm.execute=62 · incl. comments literal=53 window=102 cm.execute=69. FAIL (literal): commandManager.execute = 12 exceeds LITERAL_CEILING 0 - hard regression. Terminal: 'WORSE THAN DECLARED (exit 3): literal 12 > 11.'",
+      "scannedScope": "apps/editor/src ONLY - 1455 files, above its floor of 700. Independently confirmed non-empty: 1457 .ts/.tsx files present. Note the scope EXCLUDES packages/, plugins/ and server code.",
+      "scopeIsEmpty": false,
+      "baselineInGateDebt": "YES - the only one of the 16 on gate-debt.json ('failing': ['check-no-commandmanager.ts','check-custom-event-apps.ts']). In-file: LITERAL_CEILING=0 (line 106), LEDGERED_LITERAL=11 (line 384), LEDGERED_WINDOW=62 (line 385), WINDOW_CEILING env-overridable default 2 (line 113).",
+      "headroom": "NEGATIVE 1 on the literal arm (12 vs ledgered 11). window 57 is BELOW its ledgered 62, so that arm has 5 headroom; cm.execute 62 equals its ledgered 62, headroom 0.",
+      "notes": "Its gate-debt row does NOT cover this: exit 3 is never absorbable - 'gate-debt.json declares that this gate FAILS. It does not declare that P6 may be bypassed in more places than yesterday.' CLAUDE.md's recorded reading 'literal 11/11 · window 62/62 · cm.execute 62/62' is stale on two of three arms. Heaviest element-creation offenders printed: apps/editor/src/ui/office-building/OfficeBuildingExecutor.ts (CreateRoofCommand:744, CreateWallOpeningsBatchCommand:830/894, CreateVerticalCirculationCommand:1015, CreateStairCommand:1106, CreateCurtainWallCommand:1197, BatchCreateRoomsCommand:1302, CreateFloorCommand:1323/1381), officeFurnish.ts (CreateFurnitureCommand:115, CreateLightingCommand:160, CreateFloorCommand:178), and engineLauncher.ts:754/1458. NAME-BLINDNESS CAVEAT STANDS: three rival commandManager counters with three denominators - this one, check-commandmanager-any.ts (RC=0, 25/25, packages only), and npm run check:commandmanager (scripts/check/ci-check-no-commandmanager.mjs). Name the gate before quoting a number."
+    },
+    {
+      "script": "tools/ga-gate/check-commandmanager-any.ts",
+      "exists": true, "listedInRunAll": true, "runAllLine": 133, "ran": true, "exitCode": 0,
+      "verdict": "PASS",
+      "printedNumbers": "files scanned: 4661 (floor 2500) · dir: packages · comments stripped · unit: matching lines. OK: 25 / 25.",
+      "scannedScope": "packages/ ONLY - 4661 files, above floor 2500. EXCLUDES apps/, plugins/ and src/. NON-EMPTY.",
+      "scopeIsEmpty": false,
+      "baselineInGateDebt": "NOT on gate-debt.json. In-file ceiling 25.",
+      "headroom": "0 - exactly at ceiling (25/25).",
+      "notes": "RC=0 is NOT 0 violations: 25 `commandManager: any` typed params remain, held at ceiling. Its scope is DISJOINT from check-no-commandmanager.ts (apps/editor/src). Neither gate covers plugins/ - so the 48-plugin element-creation tier is unmeasured by both commandManager gates. Second of the three rival counters."
+    },
+    {
+      "script": "tools/ga-gate/check-hosted-dual-write.ts",
+      "exists": true, "listedInRunAll": true, "runAllLine": 285, "ran": true, "exitCode": 0,
+      "verdict": "PASS",
+      "printedNumbers": "files scanned: 5119 (excluded 2865) · dirs: packages, apps, plugins, src. hosted-opening write sites: 55 in 23 file(s). PAIRED (C15 §8.1 honoured): 20. UNPAIRED (C15 §8.1 violated): 3 / baseline 3. OK: 3 unpaired = baseline 3 (shrink-only).",
+      "scannedScope": "packages, apps, plugins, src - 5119 files scanned, 2865 excluded. NON-EMPTY. Broadest scope of the 16.",
+      "scopeIsEmpty": false,
+      "baselineInGateDebt": "NOT on gate-debt.json. In-file baseline 3.",
+      "headroom": "0 - 3 unpaired against a baseline of exactly 3.",
+      "notes": "RC=0 is NOT 0 violations - three hosted-element dual-write breaches persist, all on the element-editing path: apps/editor/src/ui/property-inspector/PropertyInspectorApply.ts:159,164,169,174,182,187,192,197,238 · packages/command-registry/src/UpdateElementMarkCommand.ts:56,57 · packages/core-app-model/src/views/PlanElementDragController.ts:570,571,713,715 - each 'no doorStore.update + windowStore.update in this file'. One named EXEMPT: packages/geometry-wall/src/WallStore.ts, the definition site of updateDoor/updateWindow."
+    },
+    {
+      "script": "tools/ga-gate/check-project-isolation.ts",
+      "exists": true, "listedInRunAll": true, "runAllLine": 123, "ran": true, "exitCode": 0,
+      "verdict": "PASS",
+      "printedNumbers": "Gate 1 BatchCoordinator.forceReset() exists (2 code hits) [31 further mentions in comments - NOT counted] · Gate 2 ProjectLifecycleController calls forceReset() (2 code hits) [1 comment mention not counted] · Gate 3 __engineTeardown declared in global-window.d.ts (1 code hit) · Gate 4 ProjectLifecycleController calls resetWallRebuildState() (1 code hit). All 4 anchors present in code.",
+      "scannedScope": "Four NAMED anchor symbols in four named files (C13 §4). This is an ANCHOR-PRESENCE gate, not a tree scan - its subject is 4 greps, not a file population. Comment hits correctly excluded.",
+      "scopeIsEmpty": false,
+      "baselineInGateDebt": "NOT on gate-debt.json. Hard 4/4, no ratchet.",
+      "headroom": "0 - hard requirement, all four present.",
+      "notes": "WEAKEST SUBJECT OF THE 16, and it matters for the ladder: it establishes only that four symbols EXIST and are CALLED somewhere in code. It does NOT execute a project switch, does not assert any state is actually cleared, and does not measure cross-project leakage. On the AUTHORED -> REACHABLE -> COMPOSABLE -> CERTIFIED ladder this reaches REACHABLE and stops. A four-anchor grep cannot distinguish 'isolation works' from 'four functions are called'."
+    },
+    {
+      "script": "tools/ga-gate/check-prevstate-contract.ts",
+      "exists": true, "listedInRunAll": true, "runAllLine": 349, "ran": true, "exitCode": 0,
+      "verdict": "PASS",
+      "printedNumbers": "floor *Store.ts files read under packages/: measured 116, min 100 (ok). Negative control (planted tree): 4 findings, arms fired [P1,P2,P3]. Positive control (clean tree): 0 findings. diff consumers (no-prevState guards): 3. -> [0] CLEAN - 0 findings, hard-0, no baseline.",
+      "scannedScope": "116 *Store.ts files under packages/, above floor 100. NON-EMPTY.",
+      "scopeIsEmpty": false,
+      "baselineInGateDebt": "NOT on gate-debt.json. HARD-0, no baseline.",
+      "headroom": "N/A - genuine hard-0. One of only four genuinely-zero gates in this set.",
+      "notes": "Instrument watched failing: three arms (P1/P2/P3) fire against a planted tree every run, clean tree yields 0. Element stores confirmed carrying prevState at every update site: DoorStore 3/3, LiftStore 2/2, RoofStore 3/3, SlabStore 2/2, StairStore 2/2, WallStore 7/7, WindowStore 3/3, RoomStore 1/1. Named weakness it prints itself: 2 of 3 diff consumers resolve to [NO STORE RESOLVED] with '3-arg feed: NO · seam test: NONE' (packages/finish-host-tracker/src/FinishHostDependencyTracker.ts and reprojectFinishBoundary.ts)."
+    },
+    {
+      "script": "tools/ga-gate/check-derived-not-authored.ts",
+      "exists": true, "listedInRunAll": true, "runAllLine": 500, "ran": true, "exitCode": 0,
+      "verdict": "PASS",
+      "printedNumbers": "files scanned: 5089 · authoritative-member table: 7 rows over 3 vocabularies · distinct arms proven to fire against a planted violation: measured 5, min 5 (ok). Negative control: 5 findings, arms [A1,A2,A3,A4,A5]. Positive control: 0 findings. -> [0] CLEAN - 0 findings, hard-0, no baseline.",
+      "scannedScope": "5089 production source files. NON-EMPTY.",
+      "scopeIsEmpty": false,
+      "baselineInGateDebt": "NOT on gate-debt.json. All five arms HARD (declared 0).",
+      "headroom": "N/A - genuine hard-0 on all five arms.",
+      "notes": "Strongest instrument discipline of the 16: five arms all watched firing against a planted tree, plus a clean-tree positive control. Prints its own blind spots (C75 §6.3): a semantically false authoredProvenance() call wrapped around machine output; an origin decided at runtime by a branch; cross-session overwrites; §2.6 violations in generated prose."
+    },
+    {
+      "script": "tools/ga-gate/check-graph-write-coverage.ts",
+      "exists": true, "listedInRunAll": true, "runAllLine": 390, "ran": true, "exitCode": 3,
+      "verdict": "RATCHET_EXCEEDED",
+      "printedNumbers": "declared RelationshipType members: 26 (min 20) · REQUIRED families located: 9/9 · production source files scanned: 5157 (min 1500) · rebuild implementations: 1 · executed controls passed: 5/5. C-INV-4 - RATCHET: 4 finding(s) against a NAMED ledger of 0.",
+      "scannedScope": "5157 production source files, above floor 1500. NON-EMPTY.",
+      "scopeIsEmpty": false,
+      "baselineInGateDebt": "NOT on gate-debt.json. NAMED ledger of 0 - hard.",
+      "headroom": "NEGATIVE 4 - 4 unledgered findings against a ledger of 0.",
+      "notes": "FOUR of the nine REQUIRED C71 §2.1 relationship families are WRITE-ONLY - written by element-creation commands, readable by nothing typed: hosts, boundedBy, connectedTo, contains. Each has exactly one allowlist-only mention in packages/ai-host/src/graph/GraphQueryService.ts (lines 143, 147, 145, 148) and the gate rules 'an allowlist for a dynamic reader is not a typed reader, C71 §1.3'. Element-creation relevance is direct: the C-INV-1 matrix shows hosts written at packages/command-registry/src/handrails/CreateHandrailCommand.ts:215, and boundedBy/connectedTo at packages/command-registry/src/rooms/DetectAllRoomsCommand.ts:158/219 - creation writes the edge and nothing typed can query it. SEPARATE observation from the same matrix: no family has a type-aware delete (d1) except joinedTo; the other nine all read 'o53 - cascade only (d2, weak)'. Five executed controls fired in both directions."
+    },
+    {
+      "script": "tools/ga-gate/check-provenance-coverage.ts",
+      "exists": true, "listedInRunAll": true, "runAllLine": 503, "ran": true, "exitCode": 0,
+      "verdict": "PASS",
+      "printedNumbers": "element kinds discovered: 30 (min 20) · element schema files read: 33 (min 25) · outside-schemas files scanned: 4896 (min 500) · distinct vocabulary members read: 18 (min 10) · executed controls passed 1/1. Negative control: 7 findings across arms C1,C2,C3,C4. Positive control: 0 findings. -> [0] CLEAN - 0 findings, hard-0, no baseline.",
+      "scannedScope": "packages/schemas/src/elements (30 kinds via defineElement(), 33 schema files) + 4896 outside-schemas files. NON-EMPTY.",
+      "scopeIsEmpty": false,
+      "baselineInGateDebt": "NOT on gate-debt.json. Hard-0, no baseline.",
+      "headroom": "N/A - genuine hard-0. All 30 discovered kinds are covered kinds.",
+      "notes": "All 30 element kinds covered: annotation, balcony, beam, boundaryLine, ceiling, column, curtainwall, dimension, door, floor, furniture, grid, handrail, lighting, plumbing, pool, project, projectOrigin, roof, room, schedule, sheet, slab, stair, structural, verticalCirculation, view, wall, water, window. Prints its own uncovered axes: the site/context/climate/zoning/AI-artefact domains, non-schema construction paths (C75 §6.3.b), and whether any kind is argued out of scope (C75 §5). DENOMINATOR NOTE for the audit: this gate discovers 30 element kinds while plugin-census counts 27 ELEMENT_PLUGIN_IDS and 51 plugin directories - three different denominators for 'element', none reconciled by any gate."
+    },
+    {
+      "script": "tools/ga-gate/check-gate-subject-floors.ts",
+      "exists": true, "listedInRunAll": true, "runAllLine": 694, "ran": true, "exitCode": 3,
+      "verdict": "RATCHET_EXCEEDED",
+      "printedNumbers": "gates inspected: 73 · floored: 66 · unfloored: 7 · ceiling: 0. FAIL: 7 gate(s) lack a subject floor; the shrink-only ceiling is 0.",
+      "scannedScope": "73 gate scripts under tools/ga-gate/ (75 .ts files exist there; run-all.ts and one other are not gates). NON-EMPTY.",
+      "scopeIsEmpty": false,
+      "baselineInGateDebt": "NOT on gate-debt.json. Ceiling 0 - hard.",
+      "headroom": "NEGATIVE 7.",
+      "notes": "THE META-GATE, and its failure is load-bearing for this audit's D4 rule. The 7 unfloored gates: check-batch-creation-coverage.ts ('declares a floor but has no reachable process.exit(2)' - one of MY 16), check-material-id-required.ts, check-material-maps-tiling.ts, check-property-rac-matrix.ts, check-render-aggregate-seam.ts, check-runtime-arg-omitted.ts, check-tool-activator-coverage.ts. Gate's own words: 'A gate without a subject floor cannot tell \"0 violations\" from \"walked nothing\".' Four of the seven (material-id-required, material-maps-tiling, render-aggregate-seam, tool-activator-coverage) are element/render-pipeline gates, so their greens are NOT established as measurements."
+    }
+  ]
+}

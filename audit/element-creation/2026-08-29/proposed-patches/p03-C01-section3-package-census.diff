@@ -1,0 +1,142 @@
+# ============================================================================
+# p03-C01-section3-package-census.diff
+# PROPOSED — NOT APPLIED (D9). Audit: audit/element-creation/2026-08-29
+# Measured 2026-08-29 · HEAD 064a838e · branch main
+# Apply with:  git apply <this file>        (strips the leading '#' block? NO —
+#              this file is a PATCH WITH A COMMENT HEADER. 'git apply' ignores
+#              everything before the first '--- a/' line, so it applies as-is.)
+#              On Windows, if using GNU patch instead of git: patch --binary -p1
+# ============================================================================
+# TARGET   docs/02-decisions/contracts/C01-ARCHITECTURE-AND-GOVERNANCE.md  §3
+# ORDER    FIRST of the four C01 patches. Chain: p03 -> p04 -> p07 -> p05.
+#          Verified: `git apply --check p03` against HEAD -> CLEAN.
+#
+# WHAT IS FALSIFIED, AND BY WHICH COMMAND
+#
+#   C01 §3:162 reads "54 packages, 12 apps, 46 plugins."
+#
+#   $ ls packages/*/package.json | wc -l   -> 103    (documented 54,  delta +49)
+#   $ ls apps/    | wc -l                  ->  13    (documented 12,  delta  +1)
+#   $ ls plugins/ | wc -l                  ->  51    (documented 46,  delta  +5)
+#
+#   Independent corroboration, not a second grep of the same thing:
+#   $ npx tsx tools/ga-gate/check-layer-boundaries.ts
+#   -> "167 workspace packages"   and   103 + 13 + 51 = 167.
+#   The DISK is self-consistent. Only the contract line was wrong.
+#
+# A SECOND DEFECT FOUND WHILE MEASURING (recorded in the patch)
+#
+#   CLAUDE.md says "two entries under packages/ carry no manifest, so count
+#   manifests, not directories."
+#   $ for d in packages/*/; do [ -f "$d/package.json" ] || echo NO-MANIFEST: $d; done
+#   -> prints NOTHING. All 103 directories have a manifest. The 2-entry delta is
+#      two loose JSON FILES (tsconfig.build.template.json, tsconfig.references.json).
+#   The instruction gives the right answer for the wrong reason and will stop
+#   giving it the moment a genuinely manifest-less directory appears.
+#
+# THE PART THAT MATTERS MORE THAN THE NUMBER
+#
+#   FIVE plugin counts are in circulation and they are NOT the same KIND of number:
+#     51  directories on disk            (ls plugins/)
+#     48  stale census                   (CLAUDE.md, C07)
+#     46  staler census                  (this line, pre-patch)
+#     43  rows the runtime ADVERTISES    (PLUGIN_CATALOG / plugins.list())
+#     30  ids that CONTRIBUTE AT BOOT    (ALL_PLUGINS)
+#   Only the first is a census; the last two are capability. A doc saying "46
+#   plugins" is wrong by 5 against disk and by 16 against what boots. The patch
+#   states all five WITH what each counts, so the next reader cannot flatten them.
+#
+#   $ npx tsx tools/ga-gate/check-plugin-census-equivalence.ts; echo "RC=$?"
+#   -> RC=0 while certifying arm A = 24/24 (on disk, contributes NOTHING at boot)
+#      and arm B = 8/8. D3 in its purest form: a green exit over 32 named drift rows.
+#
+# DISPOSITION (D2)
+#
+#   REPLACE the line with the measured numbers AND the commands that produced
+#   them. This is not a WIRE case — nothing is unreachable here; a transcribed
+#   number rotted. The fix is to stop transcribing: the patch tells the reader to
+#   re-run, and gives the exact commands.
+#
+# ACCEPTANCE (D3)
+#
+#   $ ls packages/*/package.json | wc -l ; ls apps/ | wc -l ; ls plugins/ | wc -l
+#     -> the three printed integers must equal the three in §3. If they do not,
+#        §3 is stale again — re-run, do not re-transcribe.
+#   $ grep -cE '^\*\*54 packages, 12 apps, 46 plugins\.\*\*' docs/02-decisions/contracts/C01-ARCHITECTURE-AND-GOVERNANCE.md
+#     -> must print 0 (the standalone ASSERTION line is gone).
+#   ⚠ A BARE `grep -c "54 packages, 12 apps, 46 plugins"` IS THE WRONG CRITERION AND
+#     WILL PRINT 1 — MEASURED ON THE PATCHED COPY. The correction box QUOTES the old
+#     sentence on purpose, as the record of what rotted; a substring grep cannot tell
+#     an assertion from a quotation of a retracted assertion. Anchor on the
+#     line-initial `**…**` assertion form, never on the substring. This is the same
+#     confusion, one level up, that the patch itself exists to remove.
+#
+--- a/docs/02-decisions/contracts/C01-ARCHITECTURE-AND-GOVERNANCE.md
++++ b/docs/02-decisions/contracts/C01-ARCHITECTURE-AND-GOVERNANCE.md
+@@ -151,15 +151,63 @@
+ | L3 | `stores`, `runtime-composer`, `ui-base`, `view-state`, `file-format`, `sync-client` | ~10,000 |
+ | L4 | `scene-committer`, `persistence-client`, `renderer`, `render-runtime` | 9,878 |
+ | L5 | `plugin-sdk` v1.0.0-rc.1 — the curated facade | 2,067 |
+-| L6 | 46 plugins | 58,424 |
+-| L7 | 14 apps (`editor`, `marketplace`, workers, `docs-site`…) | — |
++| L6 | **51** plugins *(directories on disk, 2026-08-29 — but see the census note below: only **30** contribute at boot)* | 58,424 *(LOC dated 2026-05-01, NOT re-measured)* |
++| L7 | **13** apps (`editor`, `marketplace`, workers, `docs-site`…) | — |
+ 
+ > ⚠ **Renumbered 2026-08-09** to match the corrected §2 table: SDK L6→L5, plugins
+ > L7→L6, apps added at L7. `file-format` and `view-state` were listed at BOTH L3 and
+ > L5 in the old table; they are L3. `frame-scheduler` is L1, not L3 — it imports
+ > nothing and is consumed by eleven L2 packages.
+ 
+-**54 packages, 12 apps, 46 plugins.** The per-file inventory is the canonical source of truth: `reference/architecture-detail/02-file-structure.md`.
++⛔ **CORRECTED 2026-08-29 (audit `element-creation/2026-08-29`, HEAD `064a838e`). This line read
++*"54 packages, 12 apps, 46 plugins."* All three numbers were wrong; packages was wrong by roughly
++a factor of two.**
++
++| | Documented | Measured 2026-08-29 | Δ |
++|---|---:|---:|---:|
++| packages | 54 | **103** | **+49** |
++| apps | 12 | **13** | +1 |
++| plugins | 46 | **51** | +5 |
++
++**The falsifying commands, in full:**
++
++```bash
++ls packages/*/package.json | wc -l          # -> 103   (manifests)
++find packages -mindepth 1 -maxdepth 1 -type d | wc -l   # -> 103   (directories)
++ls packages/ | wc -l                        # -> 105   (the 2 extra are FILES, not dirs:
++                                            #           tsconfig.build.template.json,
++                                            #           tsconfig.references.json)
++ls apps/    | wc -l                         # -> 13
++ls plugins/ | wc -l                         # -> 51
++```
++
++**Independent corroboration:** `tools/ga-gate/check-layer-boundaries.ts` reports **167 workspace
++packages**, and `103 + 13 + 51 = 167`. **The disk is self-consistent; only this line was stale.**
++
++⚠ **`CLAUDE.md`'s gloss on the packages count is right by accident and must not be copied.** It
++says *"two entries under `packages/` carry no manifest, so count manifests, not directories."*
++Measured: **every one of the 103 directories has a manifest** —
++`for d in packages/*/; do [ -f "$d/package.json" ] || echo NO-MANIFEST: $d; done` prints **nothing**.
++The 2-entry delta is two loose JSON *files*. The instruction yields the right answer today for the
++wrong reason, and stops doing so the moment a genuinely manifest-less directory appears.
++
++⛔ **A PLUGIN COUNT IS NOT ONE NUMBER, AND CONFLATING THE KINDS IS HOW THIS ROTS.** Five mutually
++inconsistent figures are in simultaneous circulation, and they measure different things:
++
++| Figure | What it actually counts | Source |
++|---:|---|---|
++| **51** | directories on disk | `ls plugins/` |
++| 48 | a stale census | `CLAUDE.md`, `C07` |
++| 46 | a staler census | *this line, before this correction* |
++| **43** | rows the runtime **advertises** | `PLUGIN_CATALOG` / `plugins.list()` |
++| **30** | ids that actually **contribute at boot** | `ALL_PLUGINS` |
++
++Only the first is a census; the last two are capability. **`npx tsx tools/ga-gate/check-plugin-census-equivalence.ts`
++exits RC=0 while certifying that 24 of the 51 plugin directories contribute NOTHING at boot** (arm A,
++baseline 24) and 8 are absent from `plugins.list()` (arm B, baseline 8). **RC=0 is not 0 drift.**
++
++**Do not re-transcribe any of these.** Re-run the commands; they have now been wrong at least twice.
++The per-file inventory remains at `reference/architecture-detail/02-file-structure.md`.
+ 
+ ---
+ 

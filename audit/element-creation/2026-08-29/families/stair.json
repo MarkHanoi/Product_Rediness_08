@@ -1,0 +1,173 @@
+{
+  "family": "stair",
+  "batch": "B3",
+  "date": "2026-08-29",
+  "doctrine": {
+    "D2": "`stair.create` is NOT missing from the plugin by accident — it was DELETED on purpose after a rivalry read-back declared the plugin arm the loser. AUTHORED -> REACHABLE holds through a LEGACY route; the plugin's own StairCommitter is AUTHORED and NEVER CONSTRUCTED.",
+    "D5": "stair dispatchable=YES and stair's PLUGIN handler set containing stair.create=NO are both true. The verb is on the bus; it is simply owned by initBusHandlers, not by plugins/stair."
+  },
+
+  "registration": {
+    "registration_site": "apps/editor/src/PluginRegistry.ts:396-402  (// ---- Stair ----  id:'stair', storeKey:'stair', buildStore: () => new StairStore(), buildHandlers: () => buildStairHandlerSet())",
+    "the_create_verb_is_NOT_registered_there": "plugins/stair/src/handlers/index.ts:17-46 — `STAIR_HANDLER_TYPES` opens with a 14-line §FIX-STAIR-CREATE-SHADOW (MT-03) block explaining that 'stair.create' is NOT declared. The live owner is the §E.5.4 bridge in apps/editor/src/engine/initBusHandlers.ts:2540-2545 — `{ type: 'stair.create', stores: [] as const, validate: cmd => (!cmd.baseLevelId ? 'baseLevelId is required' : null), fn: cmd => { _cmExec(new CreateStairCommand(cmd)); } }`.",
+    "declared_storeKey": "stair",
+    "storeKey_matches_ctx_stores_key": "YES for the ELEVEN plugin verbs that remain. All declare `affectedStores = ['stair']` (grep -rn affectedStores plugins/stair/src -> CreateStairBatch.ts:62, DeleteStair.ts:20, MoveStair.ts:122, RotateStair.ts:73, SetRiserHeight.ts:20, SetStairMaterial.ts:63, SetStairShape.ts:22, SetStairType.ts:23, SetTreadCount.ts:20, SetWidth.ts:20; CreateStairRailing.ts:29 and UpdateStairParameters.ts:21 declare []). ctx.stores.stair resolves — no 'required store missing' throw is possible. ⚠ The CREATE verb declares `stores: [] as const` at the bridge and touches the geometry store through commandManager instead, so the storeKey question does not even arise for it.",
+    "the_rival_store": "PluginRegistry.ts:400 `buildStore: () => new StairStore()` (from @pryzm/plugin-stair) is ctx.stores.stair. The AUTHORITATIVE record is the @pryzm/geometry-stair StairStore — the one `initBuilders.ts:902` constructs and exposes as `window.stairStore`, that StairMeshBuilder/StairRailingBuilder rebuild from, that ProjectSerializer round-trips (ProjectSerializer.ts:716, :780) and that ExportIFC reads (ExportIFC.ts:47). CreateStairCommand.ts:438 `stairStore.add(stair)` writes THAT one.",
+    "in_ELEMENT_PLUGIN_IDS": true,
+    "ELEMENT_PLUGIN_IDS_evidence": "apps/editor/src/PluginRegistry.ts:810 — 'stair'. NOT in STORE_ONLY_PLUGIN_IDS (:860-888).",
+    "proof_reads_real_composition_root": "apps/editor/__tests__/bootstrap.everything.test.ts:46-62 — `expect(rt.stores.stair).toBeInstanceOf(StairStore)` against the real `bootstrapWithEverything`, constructing no stores object. ⛔ `StairStore` imported from '@pryzm/plugin-stair' (line 25) — the DTO store again. NO composition-root proof exists that `stair.create` resolves to the §E.5.4 bridge rather than to a plugin handler: apps/editor/__tests__/StairCreateReachesGeometryStore.test.ts BUILDS ITS OWN `new CommandBus(...)` and registers `buildStairHandlerSet()` by hand, so by D6 it CANNOT observe the registration order it is reasoning about — it pins the RIVALRY, not the composition.",
+    "status": "REGISTERED (11 verbs) · CREATE VERB OWNED BY THE LEGACY BRIDGE · NO D6 PROOF OF WHO WINS THE VERB AT BOOT"
+  },
+
+  "handler": {
+    "path": "apps/editor/src/engine/initBusHandlers.ts:2540-2545 (the live 'stair.create' owner) -> packages/command-registry/src/stair/CreateStairCommand.ts. The plugin's CreateStairHandler was DELETED (plugins/stair/src/handlers/index.ts:81-86: 'CreateStairHandler deleted; the payload type survives as the batch entry shape').",
+    "id_pre_generated_in_tool": "NO — minted inside CreateStairCommand (`createdStairId`, unregistered at :700). apps/editor/src/engine/views/plantools/StairPlanToolHandler.ts:246 dispatches `stair.create` with `{baseLevelId, topLevelId, shape:'I', riserHeight, treadDepth, width, startPosition, flights, landings}` and NO id. HARMLESS here ONLY because there is no stair.created CEB case and therefore no bridge guarding on `!ev.id` — the FIX-WALL-ID / FIX-CW-ID / FIX-BEAM-ID class cannot fire on a family with no bridge.",
+    "validates_before_mutation": "PARTIAL — the bridge's own `validate` is a single presence check ('baseLevelId is required'). The real validation is CreateStairCommand.canExecute (level-height vs riserHeight × riserCount against HEIGHT_TOLERANCE). It is a legacy Command, so the refusal is NOT a typed DomainError in the C11 §5 sense.",
+    "mutates_only_via_immer_draft": "NO — and by declared design. The live path calls `_cmExec(new CreateStairCommand(cmd))`, which writes the module singleton at CreateStairCommand.ts:438 `stairStore.add(stair)`, plus `ctx.bimManager.registerElement(stairId, baseLevelId)` (:340), elementRegistry, semanticGraph, the auto slab-void carve and the railing proposals. The ELEVEN remaining PLUGIN verbs do use `produceCommand(ctx.stores.stair, ...)` — against the DTO store.",
+    "geometry_deferred": "N/A on the legacy path — CreateStairCommand builds through StairMeshBuilder off `bim-stair-added`.",
+    "emits_typed_domain_event": "NO — no CEB case, so no stair.created is emitted at all (see lifecycle).",
+    "otel_span": "NO for the live create path — `grep -n withHandlerSpan packages/command-registry/src/stair/CreateStairCommand.ts` returns nothing; it is a legacy Command, not a CommandHandler. The plugin's remaining handlers DO use withHandlerSpan.",
+    "must_not_violations": [
+      "apps/editor/src/engine/initBusHandlers.ts:2544 — `_cmExec(new CreateStairCommand(cmd))` is a commandManager.execute site on the ONE live creation path (C11 §3 / §5.3; P6 'commands are the only mutation path' is satisfied in letter, the LEGACY command bus in spirit)",
+      "plugins/stair/src/handlers/CreateStairRailing.ts:72 — `const cm = window.commandManager as {execute(...)}` ; :86 `cm.execute(new CreateStairRailingCommand(cmd as any))`",
+      "plugins/stair/src/handlers/MoveStair.ts:106 — `const cm = window.commandManager as ...` ; :112 `cm.execute(new MoveStairCommand({stairId, delta}))`",
+      "plugins/stair/src/handlers/UpdateStairParameters.ts:36 — `const cm = window.commandManager as ...` ; :39 `cm.execute(new UpdateStairParametersCommand({...}))`"
+    ],
+    "must_not_clean": [
+      "no window.dispatchEvent in plugins/stair/src",
+      "no direct requestAnimationFrame",
+      "no import from src/engine or src/ui",
+      "no cross-family store mutation from the plugin handlers (affectedStores is ['stair'] where non-empty)"
+    ],
+    "evidence": "grep -rnE '^[^/*]*(window\\.commandManager|window\\.dispatchEvent|cm\\.execute)' plugins/stair/src  ->  CreateStairRailing.ts:72,:78,:81,:86 ; MoveStair.ts:106,:112 ; UpdateStairParameters.ts:36,:39 (:78/:81 are console text).   grep -n 'stair.create\\|CreateStairCommand' apps/editor/src/engine/initBusHandlers.ts  ->  :130 import, :2541 type, :2544 _cmExec.",
+    "status": "LEGACY PATH C · NO OTEL SPAN ON THE CREATE · 3 PLUGIN FILES CARRY commandManager MUST-NOTs"
+  },
+
+  "lifecycle": {
+    "ceb_case": "NONE. grep -n \"case '\" packages/runtime-composer/src/CommandEventBridge.ts -> 44 labels, no stair.*. Documented at CommandEventBridge.ts:998-1002 (TASK-13): \"stair: uses Path C (legacy commandManager bridge) — no CEB bridge needed.\"",
+    "initTools_bridge_tag": "NONE. grep -noE \"'[a-zA-Z.-]+\\\\.(created|updated|deleted)'\" apps/editor/src/engine/initTools.ts | sort -u  ->  wall.created, wall.opening.created, lift.created/deleted, boundaryLine.created/updated/deleted, water.created, curtain-wall.created, ceiling.created, roof.created, column.created, slab.created, beam.created, floor.created, handrail.created, lighting.created, furniture.created. NO 'stair.created'.",
+    "vdt_registerElement": "NO — `grep -n 'registerElement\\|viewDependencyTracker' packages/command-registry/src/stair/CreateStairCommand.ts` returns bimManager lines only (:340, :700, :719, :763) and ZERO viewDependencyTracker references. Nothing in initTools registers a stair either (all 13 VDT sites belong to other families).",
+    "bimManager_registerElement": "YES — packages/command-registry/src/stair/CreateStairCommand.ts:340 `ctx.bimManager.registerElement(stairId, baseLevelId)`. Reached as `ctx.bimManager`, i.e. through the command context, NOT via `(window as any)` — no C14 LP-01 / P4 violation at this site.",
+    "bimManager_via_window_any": "NO",
+    "bridge_invariant_7_verdict": "HALF-SATISFIED BY A DIFFERENT MECHANISM. Bridge Invariant 7 names an initTools bridge; there is none. bimManager IS registered (so level.childrenIds contains the stair and exportForView enumerates it) but VDT is NOT, so `ViewDependencyTracker._elementLevelMap` has no entry and `_resolveLevelIdForEvent` (ViewDependencyTracker.ts:665-672) must fall through to the optional `_resolveElementLevelId` callback. Whether that callback resolves a stair id is UNVERIFIED by this audit.",
+    "in_GEOMETRY_ELEMENT_TYPES": true,
+    "GEOMETRY_ELEMENT_TYPES_evidence": "packages/core-app-model/src/views/ViewDependencyTracker.ts:43-44 — 'stair', 'stair-landing', 'stair-railing'. The PARENT spelling matches the producer: packages/geometry-stair/src/StairStore.ts:185 emits `elementType:'stair'`. ⚠ The two CHILD spellings do NOT: StairLandingStore.ts:42/66/90 emits 'stairLanding' and StairRailingStore.ts:70/97/115/126 emits 'stairRailing' (camelCase), which the kebab-case set at :43-44 rejects at ViewDependencyTracker.ts:676. That is census row CD (census.json:1555-1568) and it is a REAL, still-open drop.",
+    "update_verbs_covered": "NO — CREATE-MIRROR-WITHOUT-UPDATE-MIRROR (and there is no create mirror either). ELEMENT_UPDATE_VERBS (CommandEventBridge.ts:241-294) = 8 rows, all slab/roof/column. stair.setType / setShape / setTreadCount / setRiserHeight / setWidth / rotate / move / updateParameters emit NO element.updated.",
+    "orphan_committer": "plugins/stair/src/committer/stair-committer.ts:52 `export class StairCommitter implements PrimitiveCommitter<StairData, THREE.Mesh>` — a dormant rival. `grep -rnoE 'new (Door|Window|Stair|Handrail)Committer\\(' --include=*.ts apps packages plugins src` (node_modules excluded, TESTS INCLUDED) -> apps/editor/src/bootstrap.render.everything.ts:140 `new DoorCommitter(` and :144 `new WindowCommitter(`. ZERO hits for StairCommitter. It is AUTHORED, not REACHABLE.",
+    "status": "NO CEB CASE · NO initTools BRIDGE (both documented as intentional) · bimManager YES / VDT NO · NO UPDATE MIRROR · ORPHAN COMMITTER"
+  },
+
+  "milestones": {
+    "authored": "YES",
+    "authored_proof": "plugins/stair/src/{store,intent,tool,errors}.ts + 12 handler files + committer/{stair-committer,geometry-bridge,material-bridge}.ts; packages/geometry-stair/src/{StairStore,StairMeshBuilder,StairRailingBuilder,StairLandingBuilder,StairLandingStore,StairRailingStore,StairTypeStore}.ts; packages/command-registry/src/stair/CreateStairCommand.ts.",
+    "dispatchable": "YES",
+    "dispatchable_proof": "apps/editor/src/engine/initBusHandlers.ts:2541 registers the bus verb `stair.create` with a `validate` and an `fn`. Its `stores: [] as const` means CommandBus.buildContext resolves nothing and cannot throw 'required store missing'. The rival plugin handler was DELETED, so the §OI-053 `registry.has()` skip no longer suppresses this bridge (plugins/stair/src/handlers/index.ts:17-31).",
+    "reachable": "YES",
+    "reachable_proof": "apps/editor/src/engine/views/plantools/StairPlanToolHandler.ts:246 `window.runtime?.bus?.executeCommand('stair.create', {...})` — its own header (:11, :24) names the §E.5.4 bridge as the handler it expects, and the payload it sends (`shape:'I'`, `baseLevelId`, `startPosition`, `flights`) is the CreateStairInput shape the bridge forwards. The 3-D tools (StairTool.ts:283, StairPathToolController.ts:746) run `commandManager.execute(new CreateStairCommand(...))` directly.",
+    "renders_3d": "YES",
+    "renders_3d_proof": "packages/command-registry/src/stair/CreateStairCommand.ts:438 `stairStore.add(stair)` -> packages/geometry-stair/src/StairStore.ts:180-189 `emit()` fires the listener set and `storeEventBus.emit({elementType:'stair', operation:'create'})` -> StairMeshBuilder (packages/geometry-stair/src/StairMeshBuilder.ts:155 stamps `elementType:'Stair'` on the built mesh). ⚠ NOT independently executed by this audit.",
+    "renders_plan": "YES",
+    "renders_plan_proof": "'stair' is in GEOMETRY_ELEMENT_TYPES (ViewDependencyTracker.ts:43) and StairStore.ts:185 emits exactly that spelling; CreateStairCommand.ts:340 registers the stair with bimManager so `level.childrenIds` contains it and NativeElementMeshExporter.exportForView (:281-340, `.flatMap(l => l.childrenIds)`) enumerates it. ⚠ VDT registration is ABSENT, so targeted dirty-marking depends on the optional `_resolveElementLevelId` fallback — that half is UNVERIFIED.",
+    "persists": "YES",
+    "persists_proof": "packages/persistence-client/src/loader/ProjectSerializer.ts:716 declares `stairStore: StairStore` in the dependency block, :764 destructures it and :780 `const stairs = stairStore.getAll().map(serializeStair)`.",
+    "exports": "YES",
+    "exports_proof": "packages/file-format/src/export/ifc/ExportIFC.ts:47 `stairStore: window.stairStore ?? undefined` -> packages/file-format/src/export/ifc/FragmentReader.ts:103-105 `if (this.stores.stairStore) { elements.push(...new StairReader(this.stores.stairStore, this).read()); }`. IFC class mapping at packages/core-app-model/src/stores/StairStore.ts:54 and StairTypes.ts:172 (IfcStair)."
+  },
+
+  "first_failing_link": "NONE for the creation chain — authored -> dispatchable -> reachable -> renders_3d -> renders_plan -> persists -> exports all hold. The chain holds THROUGH A LEGACY commandManager ROUTE (initBusHandlers §E.5.4 -> CreateStairCommand), which is a C11 §3 / §5.3 debt rather than a break, and it holds with NO OTel span on the create and NO VDT registration. The first thing that DOES fail is the UPDATE half: zero stair verbs in ELEMENT_UPDATE_VERBS.",
+
+  "c11_matrix_says": "C11 §11's 'Stair' row: CEB ❌ (not needed — see §11.3) · initTools ❌ (not needed) · Store add() ✅ StairStore.add() -> storeEventBus · Plan-view tracked ✅ 'stair' · VDT+bimManager 'via CreateStairCommand.execute() -> ctx.bimManager.registerElement (CreateStairCommand.ts:201) — NOT an initTools bridge' · 3D via bus ⚠ 'bus-entry -> initBusHandlers §E.5.4 -> legacy CreateStairCommand' · Status ⚠ PARTIAL. MEASUREMENT CONFIRMS every cell in substance. TWO REFUTATIONS OF DETAIL: (a) the cited line is WRONG — `grep -n registerElement packages/command-registry/src/stair/CreateStairCommand.ts` puts `ctx.bimManager.registerElement(stairId, baseLevelId)` at :340, not :201; (b) the cell names bimManager but silently implies the VDT half too, and there is NO viewDependencyTracker reference anywhere in that file. §11.1's STAIR-BUS-MIGRATION work order (replace the _cmExec bridge with a PRYZM3 handler + a stair.created CEB event) is STILL OPEN and is now CONTRADICTED by §FIX-STAIR-CREATE-SHADOW (MT-03), which deleted the plugin handler precisely because the bridge won the rivalry read-back — executing §11.1 as written would re-mint the loser.",
+
+  "findings": [
+    {
+      "id": "B3-STAIR-01",
+      "class": "AUTHORED-NOT-REACHABLE",
+      "severity": "P2",
+      "claim": "plugins/stair ships a StairCommitter that is never constructed anywhere in the repository, tests included — a dormant rival to the live legacy path, the same shape as the Grid/Room/Structural/Dimension committers the census flags.",
+      "command": "grep -rnoE 'new [A-Za-z]+Committer\\(' --include=*.ts apps packages plugins src | grep -v node_modules",
+      "output_excerpt": "apps/editor/src/bootstrap.render.everything.ts:140:new DoorCommitter(\napps/editor/src/bootstrap.render.everything.ts:144:new WindowCommitter(   — and nothing else. Zero `new StairCommitter(`, against plugins/stair/src/committer/stair-committer.ts:52 `export class StairCommitter`.",
+      "contract_clause": "C11 §2 (canonical pipeline) · D2 ladder AUTHORED -> REACHABLE",
+      "disposition": "REMOVE",
+      "blocks_production": false
+    },
+    {
+      "id": "B3-STAIR-02",
+      "class": "DOC-CONFLICT",
+      "severity": "P1",
+      "claim": "C11 §11's Stair row cites `CreateStairCommand.ts:201` for the bimManager registration. The call is at :340, and the same file contains no viewDependencyTracker reference at all — so the cell's 'VDT + bimManager' heading is only half true for this family.",
+      "command": "grep -n 'registerElement\\|viewDependencyTracker\\|stairStore.add' packages/command-registry/src/stair/CreateStairCommand.ts",
+      "output_excerpt": "340:            ctx.bimManager.registerElement(stairId, baseLevelId);\n438:        stairStore.add(stair);\n700:        ctx.bimManager.unregisterElement(this.createdStairId);   — zero viewDependencyTracker hits",
+      "contract_clause": "C11 §11 matrix, Stair row, column 'VDT + bimManager' · C11 §10.2 Bridge Invariant 7",
+      "disposition": "DOCUMENT",
+      "blocks_production": false
+    },
+    {
+      "id": "B3-STAIR-03",
+      "class": "DOC-CONFLICT",
+      "severity": "P1",
+      "claim": "C11 §11.1's STAIR-BUS-MIGRATION work order tells the next engineer to replace the _cmExec bridge with a PRYZM3 plugin handler + a stair.created CEB event. §FIX-STAIR-CREATE-SHADOW (MT-03) already tried that arm and DELETED it: the plugin handler wrote only the detached DTO store, REFUSED the live plan payload (shape 'I' is not in its Zod enum) and minted a phantom default stair on every 3-D telemetry dispatch. Executing the open work order as written re-mints the arm that lost.",
+      "command": "sed -n '17,31p' plugins/stair/src/handlers/index.ts   ·   sed -n '1,55p' apps/editor/__tests__/StairCreateReachesGeometryStore.test.ts   ·   sed -n '1296,1307p' docs/02-decisions/contracts/C11-ELEMENT-CREATION-PIPELINE.md",
+      "output_excerpt": "index.ts:17 §FIX-STAIR-CREATE-SHADOW (MT-03) — 'stair.create' is NOT declared here ... Authority declared: the bridge. Loser deleted, not commented.   ||   C11 §11.1: 'STAIR-BUS-MIGRATION | Stair | ... Remaining: replace the `_cmExec(new CreateStairCommand)` legacy bridge with a PRYZM3 plugin handler + `stair.created` CEB event | Wave A21'",
+      "contract_clause": "C11 §11.1 · C11 §11.3",
+      "disposition": "DOCUMENT",
+      "blocks_production": false
+    },
+    {
+      "id": "B3-STAIR-04",
+      "class": "NO-D6-REGISTRATION-PROOF",
+      "severity": "P1",
+      "claim": "The verb's ownership is decided by BOOT ORDER (PluginRegistry contributes at composeRuntime, initBusHandlers runs after and skips a taken verb via §OI-053). The only test that reasons about that rivalry builds its own `new CommandBus(...)` and hand-registers `buildStairHandlerSet()`, so by D6 it cannot observe the provider it is reasoning about. No composition-root proof asserts that the live `stair.create` is the bridge.",
+      "command": "grep -n 'new CommandBus\\|buildStairHandlerSet\\|import' apps/editor/__tests__/StairCreateReachesGeometryStore.test.ts | head",
+      "output_excerpt": "import { CommandBus } from '@pryzm/command-bus';\nimport { buildStairHandlerSet } from '@pryzm/plugin-stair';\nimport { StairStore as GeometryStairStore } from '@pryzm/geometry-stair';",
+      "contract_clause": "C11 §5.5 · D6",
+      "disposition": "WIRE",
+      "blocks_production": false
+    },
+    {
+      "id": "B3-STAIR-05",
+      "class": "SPELLING-DRIFT-DROP",
+      "severity": "P1",
+      "claim": "GEOMETRY_ELEMENT_TYPES lists the stair's children as kebab 'stair-landing' / 'stair-railing'; the STORES emit camelCase 'stairLanding' / 'stairRailing'. Every StairLandingStore / StairRailingStore mutation is silently dropped at ViewDependencyTracker.ts:676, so a landing or railing change never dirties a projection.",
+      "command": "sed -n '42,48p' packages/core-app-model/src/views/ViewDependencyTracker.ts   ·   grep -rnE \"elementType: 'stair(Landing|Railing)'\" packages/geometry-stair/src",
+      "output_excerpt": "ViewDependencyTracker.ts:43-44  'window','door','roof','stair','stair-landing','stair-railing'   ||   StairLandingStore.ts:42,66,90 elementType:'stairLanding'  ·  StairRailingStore.ts:70,97,115,126 elementType:'stairRailing'   ||   ViewDependencyTracker.ts:676  if (!GEOMETRY_ELEMENT_TYPES.has(event.elementType)) return;",
+      "contract_clause": "C11 §6.2 · C11 §10.2",
+      "disposition": "WIRE",
+      "blocks_production": false
+    },
+    {
+      "id": "B3-STAIR-06",
+      "class": "CREATE-MIRROR-WITHOUT-UPDATE-MIRROR",
+      "severity": "P1",
+      "claim": "Zero stair verbs in ELEMENT_UPDATE_VERBS. stair.setType/setShape/setTreadCount/setRiserHeight/setWidth/rotate/move/updateParameters emit no element.updated, so the §MIRROR-UPDATE bridge never runs for a stair.",
+      "command": "grep -n 'ELEMENT_UPDATE_VERBS' -A 55 packages/runtime-composer/src/CommandEventBridge.ts",
+      "output_excerpt": "8 rows: slab.addHole, slab.removeHole, slab.setThickness, slab.setBaseOffset, slab.setType, roof.setOverhang, roof.setThickness, column.setHeight — 0 stair rows",
+      "contract_clause": "C11 §5.2.1 · C11 §10.2",
+      "disposition": "WIRE",
+      "blocks_production": false
+    },
+    {
+      "id": "B3-STAIR-07",
+      "class": "HANDLER-MUST-NOT",
+      "severity": "P1",
+      "claim": "Three stair handlers read `window.commandManager` and call `cm.execute(...)`, and the live create path itself is `_cmExec(new CreateStairCommand(cmd))`.",
+      "command": "grep -rnE '^[^/*]*(window\\.commandManager|cm\\.execute)' plugins/stair/src   ·   sed -n '2540,2546p' apps/editor/src/engine/initBusHandlers.ts",
+      "output_excerpt": "CreateStairRailing.ts:72 const cm = window.commandManager as {...} | :86 cm.execute(new CreateStairRailingCommand(cmd as any)); | MoveStair.ts:106 const cm = window.commandManager as {...} | :112 cm.execute(new MoveStairCommand({stairId, delta})); | UpdateStairParameters.ts:36 const cm = window.commandManager as {...} | :39 cm.execute(new UpdateStairParametersCommand({...}));   ||   initBusHandlers.ts:2544  fn: (cmd) => { _cmExec(new CreateStairCommand(cmd)); },",
+      "contract_clause": "C11 §3 · C11 §5.3 · C14 LP-01 · P4",
+      "disposition": "DOCUMENT",
+      "blocks_production": false
+    },
+    {
+      "id": "B3-STAIR-08",
+      "class": "OTEL-GAP",
+      "severity": "P2",
+      "claim": "The ONE live stair creation path emits no OTel span: CreateStairCommand is a legacy Command, not a CommandHandler, so `withHandlerSpan` never runs and the bridge's `fn` does not wrap it.",
+      "command": "grep -n withHandlerSpan packages/command-registry/src/stair/CreateStairCommand.ts ; echo \"RC=$?\"",
+      "output_excerpt": "(no output) RC=1",
+      "contract_clause": "C11 §5.2 · C10 §2 · P8 spans half",
+      "disposition": "WIRE",
+      "blocks_production": false
+    }
+  ],
+
+  "status": "PARTIAL"
+}

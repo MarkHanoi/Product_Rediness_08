@@ -1,0 +1,63 @@
+{
+  "family": "pool",
+  "measured": "2026-08-29",
+  "note": "The family is TWO storeKeys: 'pool' (the assembly parent) and 'water' (its own family, ADR-0124 SS4). Both are audited here.",
+  "A_registration": {
+    "status": "REGISTERED-AND-DISPATCHABLE",
+    "registration_site": "apps/editor/src/PluginRegistry.ts:318-325 (pool) and :327-337 (water), both INLINE descriptors in ALL_PLUGINS. No plugins/pool/src/registration.ts exists.",
+    "declared_storeKey": "'pool' (:319) and 'water' (:328)",
+    "storeKey_matches_ctx_stores_key": "YES. PoolStore binds super('pool') and WaterStore super('water') (plugins/pool/src/store.ts). CreatePoolHandler.affectedStores = ['pool','wall','slab','water'] (CreatePool.ts:127); DeletePool.ts:79 the same four. All four resolve on the real runtime -- poolReachableThroughComposedRuntime.test.ts R-1 asserts rt.stores.pool instanceof PoolStore, rt.stores.water instanceof WaterStore, rt.stores.wall and rt.stores.slab defined. NOT compared against the directory name.",
+    "in_ELEMENT_PLUGIN_IDS": true,
+    "element_plugin_ids_line": "PluginRegistry.ts:787 ('pool') and :788 ('water'). 'water' is additionally in STORE_ONLY_PLUGIN_IDS (:868) with the written reason 'ADR-0124 SS4 -- water is created and destroyed only by pool.* ; it owns no verb of its own.'",
+    "proof_reads_real_composition_root": "YES -- apps/editor/__tests__/poolReachableThroughComposedRuntime.test.ts uses bootstrapWithEverything() and reads rt.stores; PoolStore/WaterStore are imported only as toBeInstanceOf arguments. D6 satisfied.",
+    "evidence": "npx vitest run --root apps/editor (4 reachability files) -> 'Test Files 4 passed (4) / Tests 47 passed (47)' RC=0",
+    "gate_readings": [
+      "npx tsx tools/ga-gate/check-tool-activator-coverage.ts -> RC=1; 'ARM A FAIL -- 4 declared tool id(s) have NO registered activator (baseline 0): balcony, bathroom-pod, boundary-line, pool'. Known and logged as L-9308 in elementCreationMatrix.ts:288-295.",
+      "npx tsx tools/ga-gate/check-mirror-completeness.ts -> RC=0, 'within the named ledger (156 uncovered / 156 listed)'. pool.delete is one of those 156."
+    ]
+  },
+  "B_handler": {
+    "path": "plugins/pool/src/handlers/CreatePool.ts (249 lines); sibling DeletePool.ts",
+    "status": "CONFORMANT",
+    "validates_before_mutation": "YES -- canExecute at :129 returns {valid:false, reason}; typed PoolNotFoundError / PoolHostSlabError / PoolBoundaryError in plugins/pool/src/errors.ts.",
+    "mutates_only_via_immer_draft": "YES -- produceMultiStoreCommand at CreatePool.ts:186 over ctx.stores.{pool,wall,slab,water}. No store-singleton import in plugins/pool/src.",
+    "otel_span": "YES -- withHandlerSpan at CreatePool.ts:160.",
+    "must_not_violations": [],
+    "must_not_evidence": "grep -rnE 'commandManager|window\\.|document\\.|requestAnimationFrame|dispatchEvent' plugins/pool/src -> the single hit is a COMMENT at plugins/pool/src/handlers/index.ts:4, no code.",
+    "id_pre_generated_in_tool": "YES -- apps/editor/src/engine/views/plantools/PoolPlanToolHandler.ts:454-461 mints poolId=createId('pool'), wallIds=boundary.map(()=>createId('wall')), floorSlabId=createId('slab'), waterId=createId('water').",
+    "geometry_deferred": "buildPoolAssembly (@pryzm/geometry-pool) is pure DTO math inside the handler; no mesh."
+  },
+  "C_lifecycle": {
+    "status": "CREATE FULLY MIRRORED (four channels incl. the mutation channel); DELETE UNMIRRORED",
+    "ceb_case": "YES -- CommandEventBridge.ts:1871 case 'pool.create'. Geometry-complete, read off record.forward.",
+    "member_event_restamping_mechanism": "VERIFIED AND SOUND. Four separate emissions: (1) wall.created per basin wall, guarded wall['parentId'] === p.poolId, commandType 'wall.create'; (2) slab.created for the pool floor, commandType 'slab.create', with the plan-convention polygon conversion {x, y:v.z}; (3) element.updated for the HOST slab's holes -- commandType 'pool.create', elementKind 'slab', changedFields ['holes'] -- emitted ONLY when the replace patch ['slab',hostSlabId,'holes'] is actually on the commit; (4) water.created on WATER'S OWN CHANNEL, commandType 'pool.create'. The file states the refusal explicitly at :2033-2041: the water is NOT emitted as slab.created because 'that would put one id on two families and give the water a thickness it does not have -- C84 EI-9'. NO SMUGGLED CHANNEL. A residual console.warn enumerates any member that reached no mirror, and goes quiet when there is nothing to say.",
+    "initTools_bridge_tag": "NO OWN-NAME 'pool.created' BRIDGE (correct). Reached bridges: SS-P2.1 (wall.created, initTools.ts:1225), SS-FT1 (slab.created, :2363), SS-MIRROR-UPDATE (element.updated, registered :1511, elementUpdatedMirror.ts), and SS-FT-WATER (water.created, :1943, registration log at :1997).",
+    "vdt_registerElement": "YES for wall (:1304), slab (:2398) and water (:1982). SS-FT-WATER additionally REFUSES to register when levelId is empty (:1975-1980) rather than defaulting to the ground plan. The POOL PARENT id is registered nowhere -- correct, since ADR-0124 SS3 gives the parent no geometry.",
+    "bimManager_registerElement": "YES at the same three sites (:1306, :2399, :1984).",
+    "bimManager_via_window_any": "NO in initTools (injected option). The pool/water STORES are reached through the same typed-window cast as balcony in ProjectSerializer.readPluginStore and in resolvePoolStoresFromWindow (apps/editor/src/engine/undo/poolUndoAdapter.ts).",
+    "in_GEOMETRY_ELEMENT_TYPES": false,
+    "geometry_element_types_evidence": "Neither 'pool' nor 'water' is in the 19-member set (ViewDependencyTracker.ts:42-48). Members wall/slab are. Consequence for water: it is registered in VDT/bimManager but a water StoreChangeEvent would be dropped at ViewDependencyTracker.ts:676, and initTools.ts:1965-1968 states in its own words that 'there is no plan SYMBOL builder for water', so water renders in 3-D and NOT in plan.",
+    "update_verbs_covered": "PARTIALLY, AND UNIQUELY WELL. The pool has no *.update verb of its own, but its create's COMPOUND MUTATION (the void punched in the host slab) rides element.updated -- so this family is NOT a create-mirror-without-update-mirror case for its create. pool.delete IS unmirrored: tools/ga-gate/mirror-debt.json:785, kind=UNMIRRORED, with the reason 'What is missing is a DELETE channel, not an update one ... ~23 rows on this ledger are *.delete and they all need the same one thing -- an element.deleted channel plus a per-family remove(id) adapter.'",
+    "undo": "YES -- poolUndoAdapter (:493) and waterUndoAdapter (:494) in performUndoRedo.ts, both resolved lazily from window.runtime.stores."
+  },
+  "D_seven_facts": {
+    "authored": "YES -- plugins/pool, packages/geometry-pool, and TWO L0 Zod schemas: packages/schemas/src/elements/Pool.ts:41 defineElement('pool') and Water.ts defineElement('water'). Both ARE in SCHEMA_REGISTRY (packages/schemas/src/registry.ts:66-67) -- the only family in this batch whose schemas are.",
+    "dispatchable": "YES -- poolReachableThroughComposedRuntime.test.ts R-2 passes; R-3 lands the pool, 4 walls, the floor slab and the water; R-4 proves the host slab's holes array goes 0 -> 1.",
+    "reachable": "YES -- PoolPlanToolHandler.ts:466 dispatches pool.create; palette row CreatePanelLayout.ts:448-453 'Swimming Pool' under LANDSCAPE. Armed via the plan overlay, which is why the activator gate names 'pool'.",
+    "renders_3d": "YES -- basin walls via SS-P2.1, floor slab via SS-FT1, the host void via element.updated -> elementUpdatedMirror, and the water via SS-FT-WATER -> WaterMeshBuilder (apps/editor/src/engine/WaterMeshBuilder.ts, imported initTools.ts:124, constructed :1928).",
+    "renders_plan": "YES for the basin walls and the floor slab (both in GEOMETRY_ELEMENT_TYPES, both VDT+bimManager registered). NO for the water: no plan symbol builder exists and 'water' is not in GEOMETRY_ELEMENT_TYPES -- stated by initTools.ts:1965-1968 itself.",
+    "persists": "YES -- snapshotFamilyCoverage.ts:157 (pool -> 'pools') and :159 (water -> 'waters'), both status 'persisted'. ProjectSerializer.ts:1517-1518 readPluginStore('pool'/'water'); restoreCompoundFamilies.ts restores both through poolUndoAdapter / waterUndoAdapter. Executed: snapshotFamilyRoundTrip.spec.ts 8/8 green, ARM A asserts saved.waters toHaveLength(1) with the note 'ADR-0124 SS4 -- water has no other family to fall back on'.",
+    "exports": "NO for the parent and the water -- grep -c 'snapshot.pools' / 'snapshot.waters' in plugins/ifc-export/src/exporters/IFC4X3Exporter.ts -> 0 and 0. The basin WALLS and the floor SLAB do reach IFC via snapshot.walls (:239) and snapshot.slabs (:320).",
+    "first_failing_link": "renders_plan (the water body only; the basin walls and floor slab project correctly). If the water is scoped out, the first failing link is exports."
+  },
+  "E_c11_ss11_crosscheck": {
+    "matrix_row": "NO ROW for Pool and none for Water in C11 SS11's 14-row table (:1281-1294).",
+    "verdict": "REFUTES BY OMISSION -- same normative breach as balcony (SS11 preamble :1267 'MUST be updated whenever a bridge is added'). Pool acquired a full CEB case plus FOUR channels and the matrix has no row.",
+    "additional_stale_claims_found_in_code": [
+      "CommandEventBridge.ts:1436-1441 (inside the balcony case) states pool.create has NO case here, and prints the pattern to prove it: grep -nE \"^\\s+case 'pool\\.(create|delete)'\" CommandEventBridge.ts -> RC=1, zero matches. RE-RUN 2026-08-29 with that exact pattern: RC=0, ONE match at :1871. The comment is STALE.",
+      "CommandEventBridge.ts:2216 (the default: arm) repeats it: 'THAT DESCRIBES pool.create TODAY'. Also stale.",
+      "CommandEventBridge.ts:2044 cites the water builder as geometry-slab/src/water/WaterBuilder.ts. ls packages/geometry-slab/src/water/ -> 'No such file or directory', RC=2. The real builder is apps/editor/src/engine/WaterMeshBuilder.ts.",
+      "plugins/pool/src/handlers/index.ts:4 says the set is 'Registered from apps/editor/src/engine/engineLauncher.ts'. It is registered by the PluginRegistry.ts:318 descriptor."
+    ]
+  }
+}

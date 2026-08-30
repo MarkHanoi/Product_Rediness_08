@@ -1,0 +1,127 @@
+# ============================================================================
+# p04-C01-section4-booleans.diff
+# PROPOSED — NOT APPLIED (D9). Audit: audit/element-creation/2026-08-29
+# Measured 2026-08-29 · HEAD 064a838e · branch main
+# Apply with:  git apply <this file>        (strips the leading '#' block? NO —
+#              this file is a PATCH WITH A COMMENT HEADER. 'git apply' ignores
+#              everything before the first '--- a/' line, so it applies as-is.)
+#              On Windows, if using GNU patch instead of git: patch --binary -p1
+# ============================================================================
+# TARGET   docs/02-decisions/contracts/C01-ARCHITECTURE-AND-GOVERNANCE.md  §4
+# ORDER    SECOND of the four C01 patches. Chain: p03 -> p04 -> p07 -> p05.
+#
+# WHAT IS FALSIFIED
+#
+#   C01 §4:182 reads "State today (post-Wave-12, 2026-05-01): 5/9 true
+#   (#2 ok #3 ok #4 ok #5 ok #6 ok)."
+#   Measured 2026-08-29: 2/9 STRICT (#3, #5). 3/9 at its most generous, counting
+#   #4 despite its one tolerated rival. Phase F requires >= 6/9.
+#
+# THE FALSIFYING COMMAND FOR EACH BOOLEAN THAT MOVED
+#
+#   #1 $ find src -mindepth 1 -maxdepth 1 -type d | wc -l   -> 0
+#      $ ls -d src/ui                                       -> No such file or directory
+#   #2 $ grep -rn "(window as any)" src/ | wc -l             -> 0  (SCOPE DOES NOT EXIST)
+#      $ find apps/editor/src/ui -type f | wc -l             -> 1120
+#      $ grep -rn "(window as any)" apps/editor/src/ui | wc -l -> 70
+#   #4 $ npx tsx tools/ga-gate/check-single-compose.ts       -> RC=0, body prints
+#         "rival runtime factories: 1", terminal line hard-codes "0 rivals" (:216)
+#   #6 $ ls .github/workflows/ | wc -l                       -> 8, SIX dispatch-only
+#      $ npx tsx tools/ga-gate/check-cast-count.ts           -> RC=3
+#      $ npx tsx tools/ga-gate/check-layer-boundaries.ts     -> RC=3
+#         run-all.ts:1162 sets anyFailed=true on code 3 UNCONDITIONALLY.
+#   #7 $ npm view @pryzm/plugin-sdk version ; npm view @pryzm/sdk version -> E404, E404
+#   #8 $ npm view @pryzm/headless version                    -> E404
+#         (private:false, publishConfig.access:public, 1.0.0-rc.2 — publish-READY)
+#   #9 $ curl -s -o /dev/null -w "%{http_code}" https://marketplace.pryzm.app -> 000
+#         "Could not resolve host". CONTROL: https://pryzm.app -> 302, same shell,
+#         same minute. The failure is DNS, not this machine.
+#
+# WHY #1 AND #2 ARE REWORDED, NOT MERELY RE-SCORED (this is the load-bearing part)
+#
+#   Both are satisfied by THE ABSENCE OF A DIRECTORY, not by clean code. src/ui/
+#   no longer exists; src/ holds 7 loose files and 0 subdirectories. So:
+#     - #1 targets == 1 on a folder that is GONE. It was never true and CANNOT
+#       BECOME TRUE AS WORDED. Scoring it FALSE leaves an unsatisfiable predicate
+#       in a convergence definition — see the standing note that a gate whose
+#       "yes" branch can never be reached is a defect, not a red light.
+#     - #2 reports 0 because the scan set is empty. Absence of the folder and
+#       absence of the defect are THE SAME VALUE (§CONTEXT-DATA-HONESTY).
+#   The restated predicates name scopes that EXIST, so they can be measured and
+#   can become true. That is the difference between a fix and a score change.
+#
+# DISPOSITION (D2)
+#
+#   REPLACE (#1, #2 — the predicates are misconfigured, not merely failing).
+#   WIRE   (#6 — the seven exit-3 gates are honest FAILs with named subjects).
+#   The remaining Phase-F three are FAIL-as-designed and need no disposition.
+#
+# §RATCHET-EXCEEDED-IS-NEVER-DEBT
+#
+#   #6 does not become true by absorbing the exit-3 gates into gate-debt.json.
+#   run-all.ts:1162 refuses that by construction and the patch records it.
+#
+# ACCEPTANCE (D3)
+#
+#   $ grep -rn "(window as any)" apps/editor/src/ui | wc -l
+#     -> #2 is true when this prints 0. It prints 70 today.
+#   $ find src -mindepth 1 -maxdepth 1 -type d | wc -l
+#     -> #1 is true when this prints 0. It prints 0 today — under the RESTATED
+#        wording it is already TRUE, which is exactly what re-scoring alone would
+#        have hidden.
+#   $ npx tsx tools/ga-gate/run-all.ts; echo "RC=$?"
+#     -> #6 needs RC=0 AND the printed per-gate table free of any "exit 3" row.
+#
+--- a/docs/02-decisions/contracts/C01-ARCHITECTURE-AND-GOVERNANCE.md
++++ b/docs/02-decisions/contracts/C01-ARCHITECTURE-AND-GOVERNANCE.md
+@@ -216,8 +216,8 @@
+ PRYZM 3 exists at the git SHA when **all 9 are simultaneously true**.
+ 
+ ```
+-#1  legacy_src_folders == 1            (only src/ui/ remains)
+-#2  window_any_in_src_ui == 0          (P4 hard-fail in src/ui/)
++#1  legacy_src_dirs_under_src == 0     (RESTATED 2026-08-29 - see the box below)
++#2  window_any_in_apps_editor_src_ui == 0  (RESTATED 2026-08-29 - see the box below)
+ #3  raf_owners_outside_frame_scheduler == 0
+ #4  default_runtime == composeRuntime()
+ #5  EngineBootstrap_LOC == 0           ✅ achieved Wave 7 / S87-WIRE
+@@ -227,7 +227,38 @@
+ #9  marketplace_live == true            (Phase F)
+ ```
+ 
+-**State today (post-Wave-12, 2026-05-01)**: 5/9 true (#2 ✅ #3 ✅ #4 ✅ #5 ✅ #6 ✅). Live table: `03-CURRENT-STATE.md §8`.
++⛔ **CORRECTED 2026-08-29 (audit `element-creation/2026-08-29`, HEAD `064a838e`). This line read
++*"**State today (post-Wave-12, 2026-05-01)**: 5/9 true (#2 ✅ #3 ✅ #4 ✅ #5 ✅ #6 ✅)."*
++Measured: **2/9 strict — #3 and #5. 3/9 at its most generous**, counting #4 despite its one
++tolerated rival. TWO of the five "achieved" booleans do not hold, and TWO MORE cannot hold as
++they were worded.**
++
++| # | Boolean | Documented | Measured 2026-08-29 | Falsifying command |
++|---|---|---|---|---|
++| 1 | `legacy_src_folders == 1` | — | ⛔ **MISCONFIGURED — REWORDED, not merely re-scored** | `find src -mindepth 1 -maxdepth 1 -type d \| wc -l` → **0** · `ls -d src/ui` → *No such file or directory* |
++| 2 | `window_any_in_src_ui == 0` | ✅ achieved | ⛔ **MISCONFIGURED — REWORDED, not merely re-scored** | `grep -rn '(window as any)' src/` → **0**, but the scope **does not exist**. Successor scope `apps/editor/src/ui` → **1,120 files, 70 casts** |
++| 3 | `raf_owners_outside_frame_scheduler == 0` | ✅ | ✅ **PASS — the strongest of the nine** | `npx tsx tools/ga-gate/check-raf-count.ts` → RC=0, `[raf-tripwire] OK: 1 owner`, **5,438 files scanned**, code lines distinguished from comments |
++| 4 | `default_runtime == composeRuntime()` | ✅ | ⚠ **PARTIAL** — holds for the editor runtime, but the gate's own success line is false | `npx tsx tools/ga-gate/check-single-compose.ts` → RC=0, body prints `rival runtime factories: 1` and names `apps/component-editor/src/app/familyEditorRuntime.ts:85`; terminal line **hard-codes** `0 rivals` (`check-single-compose.ts:216`) |
++| 5 | `EngineBootstrap_LOC == 0` | ✅ | ✅ **PASS** | `npx tsx tools/ga-gate/check-engine-bootstrap-loc.ts` → RC=0, cross-checked with a whole-tree `find`, which agrees |
++| 6 | `all_workflows_green == workflows_total` | ✅ | ⛔ **FAIL** | `ls .github/workflows/ \| wc -l` → **8**, of which **6 are `workflow_dispatch`-only**; the merge-blocking `ga-gate` job runs `run-all.ts`, and **seven registered gates exit 3** at this SHA — `run-all.ts:1162` sets `anyFailed=true` on code 3 **unconditionally** |
++| 7 | `plugin_sdk_published == true` | false (Phase F) | ⛔ **FAIL** | `npm view @pryzm/plugin-sdk version` **and** `npm view @pryzm/sdk version` (the `publishConfig` rename) → **E404** both. Control: `curl https://pryzm.app` → 302 from the same shell |
++| 8 | `headless_published == true` | false (Phase F) | ⛔ **FAIL — and publish-READY** | `npm view @pryzm/headless version` → **E404**, while `packages/headless/package.json` has `private:false`, `publishConfig.access:public`, version `1.0.0-rc.2` |
++| 9 | `marketplace_live == true` | false (Phase F) | ⛔ **FAIL — DNS, not downtime** | `curl https://marketplace.pryzm.app` → `code=000 err="Could not resolve host"`; control `curl https://pryzm.app` → **302**, same shell, same minute |
++
++⛔ **#1 AND #2 ARE REWORDED ABOVE, NOT JUST RE-SCORED, AND THE REASON IS THE POINT.** Both were
++satisfied by **the absence of a directory**, not by clean code. `src/ui/` no longer exists: `src/`
++holds **7 loose files and 0 subdirectories**. So #1's target of `== 1` names a folder that is gone —
++**it was never true and cannot become true as worded** — and #2's `0` is the count of casts in a
++directory that is not there. **Absence of the folder and absence of the defect are the same value.**
++That is `§CONTEXT-DATA-HONESTY` appearing as a convergence metric, and it is why re-scoring alone
++would have been the wrong fix: a MISCONFIGURED predicate scored FALSE is still a predicate that
++cannot be satisfied. The restated forms above name scopes that exist, so they can be **measured**
++and can **become true**. The successor scope's current reading is **70 casts across 1,120 files**;
++the repo-wide P4 arm is **101 / 100 — BREACHED** (`npx tsx tools/ga-gate/check-cast-count.ts` → RC=3).
++
++⚠ **NO GATE COMPUTES #1, #2, #6, #7, #8 OR #9.** Six of the nine are hand-measured, which is how
++this line stayed wrong for four months. **Read the commands in the table; do not re-transcribe the
++score.**
+ 
+ **Phase F (booleans #7, #8, #9) MUST NOT start until ≥ 6/9 booleans are true** (Rule 4 of `01-VISION.md §8`).
+ 

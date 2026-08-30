@@ -1,0 +1,94 @@
+npm warn Unknown project config "package-manager-strict". This will stop working in the next major version of npm. See `npm help npmrc` for supported config options.
+
+ RUN  v4.1.10 C:/Users/LENOVO/OneDrive/Desktop/PRYZM/Product_Rediness_08/apps/editor
+
+stdout | ../../audit/element-creation/2026-08-29/probe/b2Dispatch.probe.test.ts > B2 probe -- store keys at the real composition root > P-A: roof/column/beam/floor keys all resolve on rt.stores
+[PROBE P-A] stores present: ["roof","column","beam","floor"]
+[PROBE P-A] ELEMENT_PLUGIN_IDS has floor? false
+[PROBE P-A] ELEMENT_PLUGIN_IDS has roof/column/beam? [true,true,true]
+
+ ✓ ../../audit/element-creation/2026-08-29/probe/b2Dispatch.probe.test.ts > B2 probe -- store keys at the real composition root > P-A: roof/column/beam/floor keys all resolve on rt.stores 288ms
+stdout | ../../audit/element-creation/2026-08-29/probe/b2Dispatch.probe.test.ts > B2 probe -- store keys at the real composition root > P-B: registered handler types + store keys for the four families
+[PROBE P-B] registeredHandlerTypes[roof] = ["roof.create","roof.delete","roof.setShape","roof.setPitch","roof.setThickness","roof.setOverhang","roof.move","roof.changeLevel","roof.addSkylight","roof.removeSkylight","roof.joinRoofs","roof.setMaterial"]
+[PROBE P-B] registeredStoreKeys[roof] = "roof"
+[PROBE P-B] registeredHandlerTypes[column] = ["column.create","column.batch.create","column.delete","column.move","column.setType","column.setHeight","column.setMaterial","column.changeLevel"]
+[PROBE P-B] registeredStoreKeys[column] = "column"
+[PROBE P-B] registeredHandlerTypes[beam] = ["beam.create","beam.batch.create","beam.delete","beam.move","beam.setType","beam.setSection","beam.setMaterial","beam.changeLevel"]
+[PROBE P-B] registeredStoreKeys[beam] = "beam"
+[PROBE P-B] registeredHandlerTypes[floor] = ["floor.create","floor.updateLayers","floor.setMaterial","floor.changeLevel","floor.setFinishBatch"]
+[PROBE P-B] registeredStoreKeys[floor] = "floor"
+
+ ✓ ../../audit/element-creation/2026-08-29/probe/b2Dispatch.probe.test.ts > B2 probe -- store keys at the real composition root > P-B: registered handler types + store keys for the four families 251ms
+stdout | ../../audit/element-creation/2026-08-29/probe/b2Dispatch.probe.test.ts > B2 probe -- dispatchability through the composed runtime > P-C: roof.create dispatches and commits
+[PROBE P-C] roof.create result: {"id":"01M16E2YGG2S9Q30WJRHE5177Z","type":"roof.create","payload":{"id":"roof_01ARZ3NDEKTSV4RRFFQ69G5FA1","levelId":"level-1","boundary":[{"x":0,"y":0,"z":0},{"x":6,"y":0,"z":0},{"x":6,"y":0,"z":4},{"x":0,"y":0,"z":4}],"shape":"flat","pitch":0,"thickness":0.2,"overhang":0.3},"affectedStores":["roof"
+[PROBE P-C] roof store ids: ["roof_01ARZ3NDEKTSV4RRFFQ69G5FA1"]
+[PROBE P-C] roof record: {"id":"roof_01ARZ3NDEKTSV4RRFFQ69G5FA1","type":"roof","parentId":null,"childrenIds":[],"metadata":{"createdAt":0,"modifiedAt":0,"createdBy":"system","version":0},"provenance":{"origin":null,"unknownReason":"predates-provenance"},"confidence":{"score":null,"validationState":"not-checked","unknownReason":"pending-implementation"},"levelId":"level-1","boundary":[{"x":0,"y":0,"z":0},{"x":6,"y":0,"z":0},{"x":6,"y":0,"z":4},{"x":0,"y":0,"z":4}],"shape":"flat","pitch":0,"overhang":0.3,"thickness":0.2,"skylights":[],"joinedToRoofIds":[]}
+
+ ✓ ../../audit/element-creation/2026-08-29/probe/b2Dispatch.probe.test.ts > B2 probe -- dispatchability through the composed runtime > P-C: roof.create dispatches and commits 279ms
+stdout | ../../audit/element-creation/2026-08-29/probe/b2Dispatch.probe.test.ts > B2 probe -- dispatchability through the composed runtime > P-D: column.create dispatches and commits
+[PROBE P-D] column.create result: {"id":"01M16E2YPZDTYVQKA9EDGNAXB2","type":"column.create","payload":{"id":"column_01ARZ3NDEKTSV4RRFFQ69G5FA2","levelId":"level-1","origin":{"x":1,"y":0,"z":1},"width":0.3,"depth":0.3,"height":3},"affectedStores":["column"],"patches":[{"storeKey":"column","forwardPatches":[{"op":"add","path":["column
+[PROBE P-D] column store ids: ["column_01ARZ3NDEKTSV4RRFFQ69G5FA2"]
+
+ ✓ ../../audit/element-creation/2026-08-29/probe/b2Dispatch.probe.test.ts > B2 probe -- dispatchability through the composed runtime > P-D: column.create dispatches and commits 203ms
+stdout | ../../audit/element-creation/2026-08-29/probe/b2Dispatch.probe.test.ts > B2 probe -- dispatchability through the composed runtime > P-E: beam.create dispatches and commits
+[PROBE P-E] beam.create result: {"id":"01M16E2YQXZZR2A00BT91VE41V","type":"beam.create","payload":{"id":"beam_01ARZ3NDEKTSV4RRFFQ69G5FA3","levelId":"level-1","baseLine":[{"x":0,"y":3,"z":0},{"x":6,"y":3,"z":0}],"width":0.2,"depth":0.4},"affectedStores":["beam"],"patches":[{"storeKey":"beam","forwardPatches":[{"op":"add","path":["b
+[PROBE P-E] beam store ids: ["beam_01ARZ3NDEKTSV4RRFFQ69G5FA3"]
+
+ ✓ ../../audit/element-creation/2026-08-29/probe/b2Dispatch.probe.test.ts > B2 probe -- dispatchability through the composed runtime > P-E: beam.create dispatches and commits 30ms
+stdout | ../../audit/element-creation/2026-08-29/probe/b2Dispatch.probe.test.ts > B2 probe -- dispatchability through the composed runtime > P-F: floor.create dispatches and commits
+[PROBE P-F] floor.create result: {"id":"01M16E2YVR1TST3KEV52GCN1PR","type":"floor.create","payload":{"floorId":"floor_01ARZ3NDEKTSV4RRFFQ69G5FA4","levelId":"level-1","polygon":[{"x":0,"y":0,"z":0},{"x":6,"y":0,"z":0},{"x":6,"y":0,"z":4},{"x":0,"y":0,"z":4}],"thickness":0.015,"baseOffset":0},"affectedStores":["floor"],"patches":[{"s
+[PROBE P-F] floor store ids: ["floor_01ARZ3NDEKTSV4RRFFQ69G5FA4"]
+
+ ✓ ../../audit/element-creation/2026-08-29/probe/b2Dispatch.probe.test.ts > B2 probe -- dispatchability through the composed runtime > P-F: floor.create dispatches and commits 123ms
+stdout | ../../audit/element-creation/2026-08-29/probe/b2Dispatch.probe.test.ts > B2 probe -- DEGENERATE payloads > P-G: beam.create with the EMPTY payload input-host/BeamTool.ts:222 sends
+[PROBE P-G] threw: null
+[PROBE P-G] result: {"id":"01M16E2Z3TCJ04RBGG2NJ71W06","type":"beam.create","payload":{},"affectedStores":["beam"],"patches":[{"storeKey":"beam","forwardPatches":[{"op":"add","path":["beam_01M16E2Z3TBK84EJXNF8TTMZS3"],"value":{"id":"beam_01M16E2Z3TBK84EJXNF8TTMZS3","type":"beam","parentId":null,"childrenIds":[],"metada
+[PROBE P-G] beam store ids after {} dispatch: ["beam_01M16E2Z3TBK84EJXNF8TTMZS3"]
+[PROBE P-G] PHANTOM BEAM RECORD: {"id":"beam_01M16E2Z3TBK84EJXNF8TTMZS3","type":"beam","parentId":null,"childrenIds":[],"metadata":{"createdAt":0,"modifiedAt":0,"createdBy":"system","version":0},"provenance":{"origin":null,"unknownReason":"predates-provenance"},"confidence":{"score":null,"validationState":"not-checked","unknownReason":"pending-implementation"},"levelId":"","baseLine":[{"x":0,"y":0,"z":0},{"x":4,"y":0,"z":0}],"shape":"rectangular","width":0.2,"depth":0.4,"rotation":0,"loadBearing":true}
+
+ ✓ ../../audit/element-creation/2026-08-29/probe/b2Dispatch.probe.test.ts > B2 probe -- DEGENERATE payloads > P-G: beam.create with the EMPTY payload input-host/BeamTool.ts:222 sends 258ms
+stdout | ../../audit/element-creation/2026-08-29/probe/b2Dispatch.probe.test.ts > B2 probe -- DEGENERATE payloads > P-H: floor.create with NO polygon
+[PROBE P-H] threw: null
+[PROBE P-H] result: {"id":"01M16E2ZCR1611EAW0AGJQM59H","type":"floor.create","payload":{"floorId":"floor_01ARZ3NDEKTSV4RRFFQ69G5FA6","levelId":"level-1"},"affectedStores":["floor"],"patches":[{"storeKey":"floor","forwardPatches":[{"op":"add","path":["floor_01ARZ3NDEKTSV4RRFFQ69G5FA6"],"value":{"id":"floor_01ARZ3NDEKTSV
+[PROBE P-H] floor store ids: ["floor_01ARZ3NDEKTSV4RRFFQ69G5FA6"]
+[PROBE P-H] boundary of the record: {"polygon":[],"baseOffset":0.015,"thickness":0.015,"detectionMethod":"manual-polygon"}
+
+ ✓ ../../audit/element-creation/2026-08-29/probe/b2Dispatch.probe.test.ts > B2 probe -- DEGENERATE payloads > P-H: floor.create with NO polygon 287ms
+stdout | ../../audit/element-creation/2026-08-29/probe/b2Dispatch.probe.test.ts > B2 probe -- DEGENERATE payloads > P-I: roof.create with NO boundary
+[PROBE P-I] threw: null
+[PROBE P-I] result: {"id":"01M16E2ZMRYS4FT9VX190CA9M9","type":"roof.create","payload":{"id":"roof_01ARZ3NDEKTSV4RRFFQ69G5FA1","levelId":"level-1"},"affectedStores":["roof"],"patches":[{"storeKey":"roof","forwardPatches":[{"op":"add","path":["roof_01ARZ3NDEKTSV4RRFFQ69G5FA1"],"value":{"id":"roof_01ARZ3NDEKTSV4RRFFQ69G5F
+[PROBE P-I] roof store ids: ["roof_01ARZ3NDEKTSV4RRFFQ69G5FA1"]
+[PROBE P-I] roof boundary: [{"x":0,"y":0,"z":0},{"x":1,"y":0,"z":0},{"x":1,"y":0,"z":1},{"x":0,"y":0,"z":1}]
+
+ ✓ ../../audit/element-creation/2026-08-29/probe/b2Dispatch.probe.test.ts > B2 probe -- DEGENERATE payloads > P-I: roof.create with NO boundary 255ms
+stdout | ../../audit/element-creation/2026-08-29/probe/b2Dispatch.probe.test.ts > B2 probe -- DEGENERATE payloads > P-J: which verbs are on the bus
+[PROBE P-J] all registeredHandlerTypes: {"wall":["wall.create","wall.delete","wall.move","wall.setDimensions","wall.setColor","wall.transform","wall.setLayers","wall.bulkSetVisuals","wall.createOpening","wall.opening.create","wall.createBetweenMarks","wall.createFromSlab","wall.batch.create","wall.changeLevel","wall.join","wall.cut","wall.split","wall.setSystemType","wall.updateSystemType","wall.updateSystemTypeBatch","wall.updateColorBatch","wall.setSideFinishBatch","wall.updateRakeBatch","wall.updateHeightBatch","wall.addLayerBatch","wall.updateBaseline","wall.cascadeBaseline","wall.create-on-all-slabs"],"slab":["slab.create","slab.batch.create","slab.delete","slab.move","slab.setType","slab.addHole","slab.removeHole","slab.setThickness","slab.setBaseOffset","slab.update","slab.updatePolygon","slab.updateLayers","slab.create-on-all-floors","slab.setMaterial","slab.updateSystemTypeBatch","slab.changeLevel"],"pool":["pool.create","pool.delete"],"water":[],"door":["door.create","door.batch.create","door.delete","door.move","door.setType","door.setSwing","door.setFireRating","door.setAccessibility","door.updateSystemTypeBatch"],"window":["window.create","window.batch.create","window.delete","window.move","window.setType","window.setFireRating","window.updateSystemTypeBatch","window.parametricCreate"],"roof":["roof.create","roof.delete","roof.setShape","roof.setPitch","roof.setThickness","roof.setOverhang","roof.move","roof.changeLevel","roof.addSkylight","roof.removeSkylight","roof.joinRoofs","roof.setMaterial"],"curtain-wall":["curtain-wall.create","curtain-wall.delete","curtain-wall.move","curtain-wall.setGrid","curtain-wall.setMullionType","curtain-wall.setTransomType","curtain-wall.setPanelType","curtain-wall.setOutline","curtain-wall.resize","curtain-wall.addPanel","curtain-wall.removePanel","curtain-wall.swapPanel","curtain-wall.rotatePanel","curtain-wall.batch.create","curtain-wall.batch.delete","curtain-wall.batch.update","curtain-wall.create-on-all-slabs","curtain-wall.addGridLine","curtain-wall.removeGridLine","curtain-wall.replacePanel","curtain-wall.setMaterial","curtainWall.changeLevel","curtain-wall.bulkUpdatePanels","curtain-wall.bulkUpdateParameter"],"grid":["grid.create","grid.delete","grid.setSpacing","grid.setExtent"],"column":["column.create","column.batch.create","column.delete","column.move","column.setType","column.setHeight","column.setMaterial","column.changeLevel"],"beam":["beam.create","beam.batch.create","beam.delete","beam.move","beam.setType","beam.setSection","beam.setMaterial","beam.changeLevel"],"stair":["stair.batch.create","stair.delete","stair.move","stair.setType","stair.setShape","stair.setTreadCount","stair.setRiserHeight","stair.setWidth","stair.rotate","stair.createRailing","stair.updateParameters","stair.setMaterial"],"handrail":["handrail.create","handrail.delete","handrail.setPath","handrail.setShape","handrail.setHost","handrail.recompute","handrail.setMaterial","handrail.changeLevel"],"ceiling":["ceiling.create","ceiling.batch.create","ceiling.delete","ceiling.setBoundary","ceiling.setHeight","ceiling.updateLayers","ceiling.setMaterial","ceiling.updateSystemTypeBatch","ceiling.changeLevel"],"floor":["floor.create","floor.updateLayers","floor.setMaterial","floor.changeLevel","floor.setFinishBatch"],"balcony":["balcony.create","balcony.updateProfile","balcony.delete"],"lift":["lift.create","lift.delete"],"liftPart":[],"boundary-line":["boundaryLine.create","boundaryLine.attach","boundaryLine.detach","boundaryLine.update","boundaryLine.delete"],"furniture":["furniture.create","furniture.batch.create","furniture.delete","furniture.move","furniture.rotate","furniture.setScale","furniture.setActiveLod","furniture.setRepresentation","furniture.updateParameters","furniture.setMaterial","furniture.changeLevel","furniture.bulkUpdateKitchenMaterial"],"plumbing":["plumbing.create","plumbing.delete","plumbing.move","plumbing.setSystem","plumbing.createFixture","plumbing.setMaterial","plumbing.changeLevel","bathroomPod.create","bathroomPod.delete"],"bathroomPod":[],"lighting":["lighting.create","lighting.delete","lighting.move","lighting.setIntensity","lighting.setEmergency","lighting.setMaterial","lighting.changeLevel"],"rooms":["room.create","room.delete","room.move","room.setName","room.setNumber","room.setDepartment","room.setOccupancy","room.setColourMode","room.setMaterial","room.setFinish","room.setHeightOffset","room.recomputeBoundary","room.redetect","room.regenerate","room.restoreMeaning","room.rename","template.create","room.autoClassify.batch"],"structural":["structural.create","structural.delete","structural.move","structural.setKind","structural.setDimensions","structural.setMaterial","structural.setBraceEndOffset"],"dimensions":["dimension.create","dimension.createMany","dimension.delete","dimension.move","dimension.setPrecision","dimension.setUnit","dimension.setText"],"selection":["selection.select","selection.deselect","selection.clear","copy-selection","paste-clipboard"],"annotations":["annotation.create","annotation.delete","annotation.update","annotation.move","annotation.setText","annotation.setKind","annotation.setRotation","annotation.setTextHeight","annotation.setColor"],"view":["view.create","view.delete","view.rename","view.switch","view.updateCamera"],"section-view":["section.create","section.delete","section.moveLine","section.setDepth","section.setMark","section.setScale"]}
+
+stdout | ../../audit/element-creation/2026-08-29/probe/b2Dispatch.probe.test.ts > B2 probe -- DEGENERATE payloads > P-J: which verbs are on the bus
+[PROBE P-J] beam.batch.create -> "beam.batch.create: canExecute rejected — beams must be a non-empty array"
+
+stdout | ../../audit/element-creation/2026-08-29/probe/b2Dispatch.probe.test.ts > B2 probe -- DEGENERATE payloads > P-J: which verbs are on the bus
+[PROBE P-J] column.batch.create -> "column.batch.create: canExecute rejected — columns must be a non-empty array"
+
+stdout | ../../audit/element-creation/2026-08-29/probe/b2Dispatch.probe.test.ts > B2 probe -- DEGENERATE payloads > P-J: which verbs are on the bus
+[PROBE P-J] roof.delete -> "roof.delete: canExecute rejected — roofId must be a non-empty string"
+
+stdout | ../../audit/element-creation/2026-08-29/probe/b2Dispatch.probe.test.ts > B2 probe -- DEGENERATE payloads > P-J: which verbs are on the bus
+[PROBE P-J] floor.delete -> "no handler registered for: floor.delete"
+
+stdout | ../../audit/element-creation/2026-08-29/probe/b2Dispatch.probe.test.ts > B2 probe -- DEGENERATE payloads > P-J: which verbs are on the bus
+[PROBE P-J] beam.delete -> "beam.delete: canExecute rejected — beamId must be a non-empty string"
+
+stdout | ../../audit/element-creation/2026-08-29/probe/b2Dispatch.probe.test.ts > B2 probe -- DEGENERATE payloads > P-J: which verbs are on the bus
+[PROBE P-J] column.delete -> "column.delete: canExecute rejected — columnId must be a non-empty string"
+
+stdout | ../../audit/element-creation/2026-08-29/probe/b2Dispatch.probe.test.ts > B2 probe -- DEGENERATE payloads > P-J: which verbs are on the bus
+[PROBE P-J] floor.updateLayers -> "floor.updateLayers: canExecute rejected — floorId is required"
+
+ ✓ ../../audit/element-creation/2026-08-29/probe/b2Dispatch.probe.test.ts > B2 probe -- DEGENERATE payloads > P-J: which verbs are on the bus 287ms
+
+ Test Files  1 passed (1)
+      Tests  10 passed (10)
+   Start at  11:36:47
+   Duration  33.89s (transform 23.62s, setup 0ms, import 31.10s, tests 2.26s, environment 0ms)
+

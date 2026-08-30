@@ -1,0 +1,159 @@
+{
+  "family": "window",
+  "batch": "B3",
+  "date": "2026-08-29",
+  "doctrine": {
+    "D1": "Every absence below carries the exact command that produced it.",
+    "D2": "window.create is NOT absent. It is AUTHORED, REGISTERED and DELIBERATELY REFUSING. The family's live creation route is wall.opening.create, PROVEN BY AN EXECUTED CONSTRUCTION SITE (bootstrap.render.everything.ts:144), not by a comment.",
+    "D5": "window.create dispatchable=NO and the window family reachable=YES are both true and are NOT the same fact.",
+    "D6": "The composition-root proof constructs nothing and proves the WRONG STORE — same defect as door."
+  },
+
+  "registration": {
+    "registration_site": "apps/editor/src/PluginRegistry.ts:348-354  (// ---- Window ----  id:'window', storeKey:'window', buildStore: () => new WindowStore(), buildHandlers: () => buildWindowHandlerSet())",
+    "second_registration_site": "apps/editor/src/engine/engineLauncher.ts:730 — `registerWindowHandlers(_bus)` (§P3.1-WI). Idempotent skip-if-present (§OI-053); the PluginRegistry contribution wins on boot order.",
+    "declared_storeKey": "window",
+    "storeKey_matches_ctx_stores_key": "YES. Every window handler declares `affectedStores = ['window']` (grep -rn affectedStores plugins/window/src -> CreateWindow.ts:69, CreateWindowBatch.ts:52, DeleteWindow.ts:24, MoveWindow.ts:76, SetWindowFireRating.ts:29, SetWindowType.ts:28; CreateWindowsParametricBatch.ts:64 and UpdateWindowsSystemTypeBatch.ts:73 declare []). ctx.stores.window resolves; no 'required store missing' throw is possible.",
+    "the_real_defect_is_not_a_missing_key_but_a_RIVAL_STORE": "PluginRegistry.ts:352 `buildStore: () => new WindowStore()` (from @pryzm/plugin-window) is what lands on ctx.stores.window. packages/runtime-composer/src/composeRuntime.ts:1649 `storeRegistry.register('window', windowStore)` registers the @pryzm/geometry-window MODULE SINGLETON — the one ProjectSerializer.ts:58 imports, WindowBuilder renders from and WindowPlanSymbolBuilder projects from. Two objects, one key name, two registries.",
+    "in_ELEMENT_PLUGIN_IDS": true,
+    "ELEMENT_PLUGIN_IDS_evidence": "apps/editor/src/PluginRegistry.ts:804 — 'window'. NOT in STORE_ONLY_PLUGIN_IDS (:860-888 = water, liftPart, bathroomPod only).",
+    "proof_reads_real_composition_root": "apps/editor/__tests__/bootstrap.everything.test.ts:46-62 — `expect(rt.stores.window).toBeInstanceOf(WindowStore)` against the REAL `bootstrapWithEverything`, constructing no stores object (D6-compliant in form). ⛔ `WindowStore` is imported from '@pryzm/plugin-window' (line 19) — the DTO store. The proof is green while the family is dead against the authoritative store.",
+    "status": "REGISTERED · KEY RESOLVES · BINDS THE DETACHED DTO STORE"
+  },
+
+  "handler": {
+    "path": "plugins/window/src/handlers/CreateWindow.ts (type 'window.create'); CreateWindowBatch.ts ('window.batch.create'); CreateWindowsParametricBatch.ts ('window.parametricCreate')",
+    "id_pre_generated_in_tool": "OPTIONAL — CreateWindow.ts:110 `const id = (cmd.id ?? createId('window'))`. Minted in the HANDLER when absent. Harmless because there is no window.created CEB case and therefore no bridge guarding on !ev.id.",
+    "validates_before_mutation": "YES — validatePayload() (CreateWindow.ts:71-93) checks wallId/openingId non-empty, width>0, height>0, systemTypeId resolvable via getWindowType. Typed errors: WindowSchemaError / WindowDimensionsError / WindowTypeNotFoundError (plugins/window/src/errors.ts).",
+    "canExecute_ALWAYS_REFUSES": "CreateWindow.ts:95-101 — canExecute runs validatePayload then unconditionally `return { valid:false, reason: WINDOW_CREATE_UNREACHABLE }`. §FIX-CREATE-LIVENESS-LIE. The refusal text at CreateWindow.ts:63 names the replacement path verbatim.",
+    "mutates_only_via_immer_draft": "YES — CreateWindow.ts:133-135 `produceCommand(ctx.stores.window, draft => { draft[window.id] = window; })`. grep -rn '@pryzm/geometry-window' plugins/window/src -> 0 hits.",
+    "geometry_deferred": "N/A — data-only handler; geometry is built by WindowBuilder off the geometry store.",
+    "emits_typed_domain_event": "NO — no runtime.events.emit in the handler, and no 'window.create' CEB case exists to emit one on its behalf.",
+    "otel_span": "YES — CreateWindow.ts:103 withHandlerSpan; CreateWindowBatch.ts withHandlerSpan; CreateWindowsParametricBatch.ts:88-89 withHandlerSpan('window.parametricCreate.handler').",
+    "must_not_violations": [
+      "plugins/window/src/handlers/CreateWindowsParametricBatch.ts:91 — `const cm = window.commandManager as ...` (C11 §5.3 · C14 LP-01 · P4)",
+      "plugins/window/src/handlers/CreateWindowsParametricBatch.ts:122 — `const result = cm.execute(` (C11 §5.3 no commandManager.execute)",
+      "plugins/window/src/handlers/CreateWindowsParametricBatch.ts:115 and :137 — `window.dispatchEvent(new CustomEvent(...))` (C11 §5.3 no window.dispatchEvent / no DOM)",
+      "plugins/window/src/handlers/UpdateWindowsSystemTypeBatch.ts:98 — `const cm = window.commandManager as ...`",
+      "plugins/window/src/handlers/UpdateWindowsSystemTypeBatch.ts:161 — `const result = cm.execute(batch);`",
+      "plugins/window/src/handlers/UpdateWindowsSystemTypeBatch.ts:122 and :179 — `window.dispatchEvent(...)`"
+    ],
+    "must_not_clean": [
+      "no cascading dispatch",
+      "no direct requestAnimationFrame",
+      "no import from src/engine or src/ui",
+      "no cross-family store mutation"
+    ],
+    "evidence": "grep -rnE '^[^/*]*(window\\.commandManager|window\\.dispatchEvent|cm\\.execute)' plugins/window/src -> the six lines above. NOTE: `window.frameWidth` / `draft[window.id]` inside CreateWindow.ts are LOCAL VARIABLES named `window`, not the global — they are excluded from the violation list deliberately.",
+    "status": "CONFORMANT SHAPE · REFUSES BY CONSTRUCTION · TWO FILES CARRY 6 MUST-NOT VIOLATIONS"
+  },
+
+  "lifecycle": {
+    "ceb_case": "NONE for 'window.create'. grep -n \"case '\" packages/runtime-composer/src/CommandEventBridge.ts -> 44 labels, no window.*. Documented removal at CommandEventBridge.ts:998-1002 (TASK-13).",
+    "ceb_case_that_DOES_carry_the_window": "case 'wall.opening.create' (CommandEventBridge.ts:592-601) and case 'wall.createOpening' (:602-611), both emitting `wall.opening.created` with the geometry-complete opening object.",
+    "initTools_bridge_tag": "§P2.3 + §P2.3-WIN — the same `runtime.events.on('wall.opening.created', ...)` subscriber at apps/editor/src/engine/initTools.ts:1530; the window arm is the `if (type === 'window' && !windowStore.has(elementId))` block at :1609-1651. STABLE TAGS: §P2.3, §P2.3-WIN, §P2.3-WIN/MAT, §FIX-DOOR-WINDOW-SYMBOL-PARITY-AND-LOD300.",
+    "initTools_bridge_grep": "grep -noE \"'[a-zA-Z.-]+\\\\.(created|updated|deleted)'\" apps/editor/src/engine/initTools.ts | sort -u  ->  includes 1530:'wall.opening.created'; there is NO 'window.created'.",
+    "bridge_writes": "initTools.ts:1545 `_legacyWallStoreForOpeningBridge.addOpening(...)`; :1636 `windowStore.add(buildWindowStoreRecord({...}))` — the ONE record chokepoint shared with the 3-D path. The §FIX-DOOR-WINDOW-SYMBOL-PARITY comment at :1613-1634 records that the superseded literal invented `'wt-single-pane'` while the 3-D WindowTool defaulted to `'wt-timber-casement'` — the founder's 'window parity not correct'.",
+    "vdt_registerElement": "NO — same measurement as door: none of the 13 viewDependencyTracker.registerElement sites in initTools.ts falls inside :1530-1653.",
+    "bimManager_registerElement": "NO on the BUS path; YES on the legacy path (packages/command-registry/src/walls/CreateWallOpeningCommand.ts:182).",
+    "bridge_invariant_7_verdict": "HALF-SATISFIED and matrix-labelled 'N/A'. A bus-created window is not in level.childrenIds, so exportForView (NativeElementMeshExporter.ts:322 `.flatMap(l => l.childrenIds)`) never enumerates it; the frame symbol still draws because WindowPlanSymbolBuilder reads windowStore.getAll() and grafts onto the host wall's dirtied drawing.",
+    "bimManager_via_window_any": "NO — bimManager is a parameter of initTools (declared `bimManager: any` at :267). Not a P4 site; the `any` is a separate hole.",
+    "in_GEOMETRY_ELEMENT_TYPES": true,
+    "GEOMETRY_ELEMENT_TYPES_evidence": "ViewDependencyTracker.ts:43 — 'window'. Spelling MATCHES the producer: packages/geometry-window/src/WindowStore.ts:50 emits `elementType:'window'`.",
+    "update_verbs_covered": "NO — CREATE-MIRROR-WITHOUT-UPDATE-MIRROR. ELEMENT_UPDATE_VERBS (CommandEventBridge.ts:241-294) = 8 rows, all slab/roof/column. window.setType / window.setFireRating / window.move emit no element.updated.",
+    "committer_path_A": "WindowCommitter IS constructed — apps/editor/src/bootstrap.render.everything.ts:144 `new WindowCommitter({materialPool, wallsSnapshot})`, registered at :159, bound at :169 `bindOne('window','window')` — i.e. to `inner.stores.window`, THE DTO STORE. Reached in production through composeRuntime.ts:1491. Path A is wired and its input is the store production never writes.",
+    "status": "NO OWN CEB CASE (deliberate) · OPENING BRIDGE LIVE · BRIDGE INVARIANT 7 NOT MET ON THE BUS PATH · NO UPDATE MIRROR"
+  },
+
+  "milestones": {
+    "authored": "YES",
+    "authored_proof": "plugins/window/src/{store,intent,tool,errors}.ts + 8 handler files + committer/{window-committer,geometry-bridge,material-bridge}.ts; packages/geometry-window/src/{WindowStore,WindowBuilder,WindowPlanSymbolBuilder,WindowSystemTypeStore,WindowTool}.ts. 5 test files under plugins/window/__tests__.",
+    "dispatchable": "NO",
+    "dispatchable_proof": "plugins/window/src/handlers/CreateWindow.ts:95-101 — canExecute returns `{valid:false, reason: WINDOW_CREATE_UNREACHABLE}` for every well-formed payload. window.setSize / window.setSillHeight LEFT the handler set (plugins/window/src/handlers/index.ts:19-24, §FIX-DIMS-REACH-RECORD L-815). window.batch.create IS dispatchable and reaches A store — the DTO one (finding B3-WIN-02).",
+    "reachable": "YES — VIA THE OPENING PATH, NOT VIA window.*",
+    "reachable_proof": "WindowPlanToolHandler dispatches `wall.opening.create {wallId, openingData}` (C11 §11.10 stage 1) -> WallOpeningLegacyAdapterHandler (CreateWallOpeningLegacyAdapter.ts:47) -> CEB :592 -> initTools §P2.3/§P2.3-WIN :1530/:1636 -> WallStore.addOpening + windowStore.add. `grep -rnoE 'new [A-Za-z]+Committer\\(' apps packages plugins src` -> bootstrap.render.everything.ts:144 `new WindowCommitter(` — the executed construction site the census calls the control case.",
+    "renders_3d": "YES",
+    "renders_3d_proof": "packages/geometry-window/src/WindowStore.ts:50 add() emits storeEventBus; packages/geometry-window/src/WindowBuilder.ts:534 stamps `elementType:'window'` on the built group; the host-wall void comes from WallRebuildCoordinator off WallStore.addOpening. ⚠ NOT independently executed by this audit — cited from store/builder wiring plus C11 §11.10 stage 5.",
+    "renders_plan": "YES",
+    "renders_plan_proof": "packages/geometry-window/src/WindowPlanSymbolBuilder.ts:252 stamps `elementType:'window'`; it reads windowStore.getAll(). 'window' is in GEOMETRY_ELEMENT_TYPES (ViewDependencyTracker.ts:43). C11 §11.10 stage 6 records the runtime log \"Injected 2 window symbol(s)\".",
+    "persists": "YES",
+    "persists_proof": "packages/persistence-client/src/loader/ProjectSerializer.ts:58 `import { windowStore } from '@pryzm/geometry-window'` and :776 `const windows = windowStore.getAll().map(w => ({...w}))`. THE GEOMETRY SINGLETON — which is why window.create / window.batch.create writing ctx.stores.window persists nothing.",
+    "exports": "YES",
+    "exports_proof": "packages/file-format/src/export/ifc/FragmentReader.ts:89 `new WindowDoorReader(this.stores.wallStore, this).read()` — windows are exported from the WALL STORE'S OPENINGS. packages/core-app-model/src/CoreElement.ts:84 carries the IfcWindow mapping."
+  },
+
+  "first_failing_link": "dispatchable — `window.create` refuses every well-formed payload by construction (CreateWindow.ts:95-101); `window.batch.create` executes but writes the detached DTO store and, on the probe's own measurement, is never dispatched by any production executor. The FAMILY still reaches renders_3d / renders_plan / persists / exports through the wall.opening.create path.",
+
+  "c11_matrix_says": "NO 'Window' row. The single 'Wall Opening (Door/Window)' row claims CEB ✅ · initTools ✅ §P2.3 · `OpeningStore.add()` ✅ · plan-tracked ✅ · VDT+bimManager N/A · 3D via bus ✅ · Status ✅ FULL. CONFIRMED for CEB, initTools, plan-tracked and 3D-via-bus. REFUTED for `OpeningStore.add()` — `grep -n openingStore apps/editor/src/engine/initTools.ts` returns 4 parameter-plumbing hits and ZERO `openingStore.add(` calls; the bridge writes WallStore.addOpening + windowStore.add. PARTIALLY REFUTED for the VDT+bimManager 'N/A': the legacy path registers (CreateWallOpeningCommand.ts:182) and the bus path does not, so one cell cannot cover both. The ✅ FULL verdict is dated 2026-05-19 and pre-dates §FIX-CREATE-LIVENESS-LIE, so it also says nothing about window.create refusing.",
+
+  "findings": [
+    {
+      "id": "B3-WIN-01",
+      "class": "DOC-CONFLICT",
+      "severity": "P1",
+      "claim": "C11 §11's 'Wall Opening (Door/Window)' row names `OpeningStore.add()` as the store write for windows. OpeningStore is never written on this path.",
+      "command": "grep -n openingStore apps/editor/src/engine/initTools.ts  ->  319, 383, 706, 1179 (parameter plumbing only)   ·   sed -n '1609,1652p' apps/editor/src/engine/initTools.ts",
+      "output_excerpt": "initTools.ts:1636  windowStore.add(buildWindowStoreRecord({ opening: {...o, id, elementId, offset, width, height, sillHeight}, wallId: ev.wallId, ... }))",
+      "contract_clause": "C11 §11 matrix, column 'Store add() → storeEventBus'",
+      "disposition": "DOCUMENT",
+      "blocks_production": false
+    },
+    {
+      "id": "B3-WIN-02",
+      "class": "DISPATCHABLE-BUT-DETACHED",
+      "severity": "P0",
+      "claim": "`window.batch.create` is registered and LIVE while its singular twin was made to refuse for writing the same store the same way. Its only claimed production dispatch sites CONSTRUCT a payload and never dispatch it.",
+      "command": "sed -n '1,79p' apps/editor/__tests__/WindowBatchCreateLiveness.probe.test.ts   ·   grep -rn \"'window.batch.create'\" packages/ai-host/src/workflows/apartmentLayout/executePlan.ts  ->  :693, :767   ·   grep -n \"storeRegistry.register(\" packages/runtime-composer/src/composeRuntime.ts  ->  1649",
+      "output_excerpt": "MEASURED :693 and :767 CONSTRUCT a `LayoutCommand` object into the `windowBatch`/`shellWindowBatch` fields ... ARM D scans every consumer ... finds ZERO dispatch sites, against a POSITIVE CONTROL that the same scanner does find `wallBatch` dispatched. | composeRuntime.ts:1649 storeRegistry.register('window', windowStore)",
+      "contract_clause": "C11 §5.5 · C70 §4.2 · C15 §8.1",
+      "disposition": "REPLACE",
+      "blocks_production": false
+    },
+    {
+      "id": "B3-WIN-03",
+      "class": "FALSE-GREEN-REGISTRATION-PROOF",
+      "severity": "P1",
+      "claim": "bootstrap.everything.test.ts is the family's only composition-root proof; it constructs nothing and asserts `rt.stores.window` is the PLUGIN DTO WindowStore. Green here is compatible with the authoritative windowStore never moving.",
+      "command": "sed -n '15,30p;46,62p' apps/editor/__tests__/bootstrap.everything.test.ts",
+      "output_excerpt": "import { WindowStore } from '@pryzm/plugin-window';  ...  expect(rt.stores.window).toBeInstanceOf(WindowStore);",
+      "contract_clause": "C11 §5.5 · D6",
+      "disposition": "REPLACE",
+      "blocks_production": false
+    },
+    {
+      "id": "B3-WIN-04",
+      "class": "HANDLER-MUST-NOT",
+      "severity": "P1",
+      "claim": "Two window handlers break C11 §5.3 MUST-NOTs six times: `window.commandManager` reads, `cm.execute(...)` calls and `window.dispatchEvent(new CustomEvent(...))` emissions.",
+      "command": "grep -rnE '^[^/*]*(window\\.commandManager|window\\.dispatchEvent|cm\\.execute)' plugins/window/src",
+      "output_excerpt": "CreateWindowsParametricBatch.ts:91 const cm = window.commandManager as | :115 window.dispatchEvent(new CustomEvent(WINDOW_PARAMETRIC_REPORT_EVENT,... | :122 const result = cm.execute( | :137 window.dispatchEvent( || UpdateWindowsSystemTypeBatch.ts:98 const cm = window.commandManager as | :122 window.dispatchEvent(... | :161 const result = cm.execute(batch); | :179 window.dispatchEvent(",
+      "contract_clause": "C11 §5.3 · C14 LP-01 · P4",
+      "disposition": "REPLACE",
+      "blocks_production": false
+    },
+    {
+      "id": "B3-WIN-05",
+      "class": "CREATE-MIRROR-WITHOUT-UPDATE-MIRROR",
+      "severity": "P1",
+      "claim": "No window verb appears in ELEMENT_UPDATE_VERBS, so window.setType / window.setFireRating / window.move emit no element.updated and no mirror runs.",
+      "command": "grep -n 'ELEMENT_UPDATE_VERBS' -A 55 packages/runtime-composer/src/CommandEventBridge.ts",
+      "output_excerpt": "8 rows: slab.addHole, slab.removeHole, slab.setThickness, slab.setBaseOffset, slab.setType, roof.setOverhang, roof.setThickness, column.setHeight — 0 window rows",
+      "contract_clause": "C11 §5.2.1 · C11 §10.2",
+      "disposition": "WIRE",
+      "blocks_production": false
+    },
+    {
+      "id": "B3-WIN-06",
+      "class": "BRIDGE-INVARIANT-7",
+      "severity": "P2",
+      "claim": "The §P2.3-WIN bus bridge registers neither VDT nor bimManager for the window, while the legacy CreateWallOpeningCommand does. A bus-created window is absent from level.childrenIds and therefore from exportForView's element set.",
+      "command": "grep -rn 'viewDependencyTracker.registerElement\\|bimManager.registerElement' apps/editor/src/engine/initTools.ts   ·   sed -n '281,340p' packages/core-app-model/src/geometry/NativeElementMeshExporter.ts",
+      "output_excerpt": "no VDT/bimManager call between initTools.ts:1530 and :1653  |  NativeElementMeshExporter.ts:322  elementIds = levels.filter(...).flatMap(l => l.childrenIds);",
+      "contract_clause": "C11 §10.2 Bridge Invariant 7",
+      "disposition": "DOCUMENT",
+      "blocks_production": false
+    }
+  ],
+
+  "status": "PARTIAL"
+}

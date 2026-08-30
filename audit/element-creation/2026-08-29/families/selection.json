@@ -1,0 +1,70 @@
+{
+  "family": "selection",
+  "batch": "B7",
+  "measured": "2026-08-29",
+  "registration": {
+    "registration_site": "apps/editor/src/PluginRegistry.ts -- inline descriptor in ALL_PLUGINS, section 'Selection (Wave 18 -- zero-dep handler registration)': { id:'selection', storeKey:'selection', buildStore: () => new SelectionStore(), buildHandlers: () => buildSelectionHandlerSet() }. plugins/selection/ DOES exist; plugins/selection/src/store.ts is a re-export of packages/stores' SelectionStore ('so the Wave 12 verifier finds the file at plugins/selection/src/store.ts').",
+    "declared_storeKey": "selection",
+    "storeKey_matches_ctx_stores_key": "YES BY NAME -- AND THE FAMILY IS STILL UNDISPATCHABLE. This is the finding. probe b7Edge Q-A: stores.selection = SelectionStore, registeredStoreKeys[selection]='selection'; every handler declares affectedStores=['selection'] and reads ctx.stores.selection. The key resolves. The SHAPE does not: probe b7Edge2 R-B captured ctx.stores.selection inside a handler on the real bus as {typeof:'object', ctor:'Object', isMap:false, ownKeys:[], hasSelectFn:false, hasClearFn:false, hasGetStateFn:false}.",
+    "in_ELEMENT_PLUGIN_IDS": true,
+    "in_STORE_ONLY_PLUGIN_IDS": false,
+    "proof_reads_real_composition_root": "NONE EXISTS. ls apps/editor/__tests__/ | grep -i reachable -> HandrailCreationParityReachable, balconyReachable..., bathroomPodReachable..., boundaryLineReachable..., liftReachable..., poolReachable..., sectionButtonReachability, sectionViewReachable... -- there is NO selectionReachable* test. The only selection tests are plugins/selection/__tests__/, and by D6 they CANNOT discharge this proof: plugins/selection/__tests__/handlers/Select.test.ts:16-21 builds storesProvider: () => ({ selection }) with the comment 'Selection handlers receive the STORE INSTANCE directly (not a POJO state map)'. The suite supplies the exact provider that is broken in production.",
+    "status": "REGISTERED AND UNDISPATCHABLE -- an ELEVENTH instance of the ten-times defect, in a NEW variant"
+  },
+  "handler": {
+    "path": "plugins/selection/src/handlers/{Select,Deselect,ClearSelection,CopySelectionHandler,PasteClipboardHandler}.ts. Types: selection.select, selection.deselect, selection.clear, copy-selection, paste-clipboard (probe Q-B: registeredHandlerTypes[selection] = all five).",
+    "validates_before_mutation": "PARTIAL -- Select.canExecute and Deselect.canExecute return typed ValidationResults with reasons (targets must be an array; targets[i].id must be a non-empty string; unknown mode). ClearSelection.canExecute is unconditionally { valid: true } (ClearSelection.ts:23-25).",
+    "mutates_only_via_immer_draft": "NO -- AND THIS IS THE MECHANISM OF THE DEFECT. All three write handlers call STORE METHODS and return empty patch pairs: Select.ts:71 ctx.stores.selection.select(cmd.targets, cmd.mode ?? 'replace'); Deselect.ts:38 ctx.stores.selection.deselect(cmd.ids); ClearSelection.ts:29 ctx.stores.selection.clear(); each followed by return { forward: [], inverse: [] }. Declared as deliberate (ADR-0015 s'Consequences', 'selection state is ephemeral by design'). CopySelectionHandler.ts:54/65 reads ctx.stores.selection.getState(). The production storesProvider is storesAsRecordView(stores) (apps/editor/src/bootstrap.ts:94, impl :148-158) which returns Object.fromEntries(store.getState()) -- a Record<id, dto>, NEVER the store instance. So every method call is on a plain object.",
+    "otel_span": "YES on all five -- withHandlerSpan(this.type + '.handler', { 'pryzm.command.type': this.type }, ...) with a closing 'withHandlerSpan -- C10 s2' comment.",
+    "id_pre_generated_in_tool": "N/A -- selection mints no element ids of its own.",
+    "affectedStores_declared": "['selection'] on select/deselect/clear/copy-selection; [] on paste-clipboard (PasteClipboardHandler.ts:48).",
+    "must_not_violations": [],
+    "status": "SPANS AND VALIDATION CLEAN; THE MUTATION CONTRACT IS THE BREAK"
+  },
+  "dispatch_measurement": {
+    "probe": "audit/element-creation/2026-08-29/probe/b7Edge2.probe.test.ts R-A, through bootstrapWithEverything (the REAL composition root), VALID payloads, constructing no store and no stores object.",
+    "results": [
+      "selection.select   THREW ctx.stores.selection.select is not a function",
+      "selection.deselect THREW ctx.stores.selection.deselect is not a function",
+      "selection.clear    THREW ctx.stores.selection.clear is not a function",
+      "copy-selection     THREW ctx.stores.selection.getState is not a function",
+      "paste-clipboard    THREW paste-clipboard: canExecute rejected -- Paste is not available (no paste port wired)",
+      "selection store AFTER all five: {size: 0}"
+    ],
+    "root_cause": "storeKey/interface mismatch, NOT storeKey/name mismatch. The brief's stated verification -- 'verify the declared storeKey against affectedStores AND the actual ctx.stores.<key>' -- PASSES here, and the family is still undispatchable. That is a gap in the existing check.",
+    "live_blast_radius": "apps/editor/src/PluginRegistry.ts:1223 -- the 'selection' tool ACTIVATOR (the DEFAULT pointer tool) does busAdapter.executeCommand('selection.clear', {}).catch(console.error). It throws on every activation and is swallowed by the .catch. Second site: plugins/plan-view/src/selection.ts:120 dispatches selection.select and :125 dispatches selection.clear -- plan-view is in check-plugin-census-equivalence arm A ('on disk, contributes NOTHING at boot'), so that path may be dormant, which I did not confirm."
+  },
+  "lifecycle": {
+    "ceb_case": "NO -- and CORRECT. Selection is not a geometry element and has no create verb.",
+    "initTools_bridge_tag": "NONE -- and CORRECT.",
+    "vdt_registerElement": "N/A",
+    "bimManager_registerElement": "N/A",
+    "bimManager_via_window_any": "N/A",
+    "in_GEOMETRY_ELEMENT_TYPES": false,
+    "update_verbs_covered": "N/A -- no element updates.",
+    "evidence": "packages/sync-client/src/syncDisposition.ts:330 selection.select, :331 selection.clear, :1207 selection.deselect -- all three { kind: 'not-synced', reason: 'Selection is per-user; it travels over PRESENCE/awareness, not the document.' } No snapshotFamilyCoverage.ts row (its subject is 30 plugin DTO store keys and reports 'sets equal in both directions'; SelectionStore lives in packages/stores/, so it is outside that gate's subject too).",
+    "status": "CORRECTLY OUTSIDE THE ELEMENT PIPELINE"
+  },
+  "misclassification_verdict": "THE BATCH PREMISE IS REFUTED, AND THE REAL FINDING IS THE OPPOSITE ONE. Premise: 'selection is in ELEMENT_PLUGIN_IDS with no verb and no schema'. Measured: it has FIVE verbs on the real bus (probe Q-B). Membership in ELEMENT_PLUGIN_IDS is defensible on that list's OWN stated purpose -- PluginRegistry.ts:777-780 says the list exists so the bootstrap suite's per-plugin storeKey assertion iterates it, and census arm F ('REGISTRY \\ ELEMENT_PLUGIN_IDS -- registered, storeKey assertion never iterates it', baseline 3: floor, lighting, view) exists to punish OMISSIONS from it, not inclusions. Removing selection would move it into arm F and reduce coverage. What IS misclassified is treating selection as an ELEMENT FAMILY: it is per-user UI state, correctly not-synced, correctly not persisted, correctly outside GEOMETRY_ELEMENT_TYPES. DISPOSITION: DOCUMENT the list's dual meaning; WIRE the store-shape contract. Do NOT remove the row.",
+  "milestones": {
+    "authored": "YES",
+    "dispatchable": "NO",
+    "reachable": "NO",
+    "renders_3d": "NO",
+    "renders_plan": "NO",
+    "persists": "NO",
+    "exports": "NO"
+  },
+  "milestone_proofs": {
+    "authored": "plugins/selection/src/handlers/ (5 handlers), plugins/selection/src/store.ts (re-export), plugins/selection/src/tool.ts (SelectionTool), plugins/selection/src/clipboard.ts, plugins/selection/src/intent.ts. NO L0 element schema: SCHEMA_REGISTRY has no 'selection' key; packages/schemas/src/inspect/selection.ts is an INSPECT type, not an element. No SelectionId brand in packages/schemas/src/types/Id.ts.",
+    "dispatchable": "NO -- probe b7Edge2 R-A, four of five verbs throw 'is not a function' at the composition root; the fifth is refused for an unrelated missing paste port. Store size 0 after all five.",
+    "reachable": "NO -- follows from dispatchable. The one production activator (PluginRegistry.ts:1223) dispatches a verb that throws, into a .catch(console.error).",
+    "renders_3d": "NO -- and correct; selection has no geometry.",
+    "renders_plan": "NO -- and correct.",
+    "persists": "NO -- and correct, by ADR-0015 (ephemeral) and syncDisposition.ts (per-user, presence channel).",
+    "exports": "NO -- and correct."
+  },
+  "first_failing_link": "dispatchable",
+  "c11_matrix_says": "NO ROW -- and correctly so, since selection is not an element. My measurement neither confirms nor refutes the matrix here. The gap is elsewhere: there is no composition-root reachability test for this family, which is what let a total dispatch failure sit behind a green plugin suite.",
+  "status": "NOT-READY"
+}

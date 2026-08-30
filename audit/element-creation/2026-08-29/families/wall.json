@@ -1,0 +1,104 @@
+{
+  "family": "wall",
+  "date": "2026-08-29",
+  "batch": "B1",
+  "doctrine": "D1 absence-with-a-command / D2 unreachable-beats-absent / D3 RC=0 is not 0 violations / D5 seven separate facts / D6 a plugin suite cannot discharge a registration proof / D7 file:line only with its grep",
+  "A_registration": {
+    "registration_site": "apps/editor/src/PluginRegistry.ts:262-278 (INLINE descriptor inside ALL_PLUGINS). There is NO plugins/wall/src/registration.ts -- `find plugins/wall -name \"registration*.ts\" -not -path \"*/node_modules/*\"` -> 0 hits.",
+    "declared_storeKey": "wall",
+    "storeKey_matches_ctx_stores_key": "YES. Verified against affectedStores AND ctx.stores, never the directory name. `grep -rn affectedStores plugins/wall/src/handlers/` -> ['wall'] on 14 handlers (7 declare [] by design). `grep -o \"ctx\\.stores\\.\\w*\" plugins/wall/src` -> wall x48 (level x1 is a comment).",
+    "how_the_key_is_bound": "apps/editor/src/bootstrap.everything.ts:143-145 -- registeredStoreKeys[plugin.id]=plugin.storeKey; if (store!==undefined && plugin.storeKey.length>0) stores[plugin.storeKey]=store;",
+    "in_ELEMENT_PLUGIN_IDS": true,
+    "ELEMENT_PLUGIN_IDS_site": "apps/editor/src/PluginRegistry.ts:782 ('wall', first row)",
+    "in_STORE_ONLY_PLUGIN_IDS": false,
+    "proof_reads_real_composition_root": "YES -- and wall is the ONLY B1 family with one. apps/editor/__tests__/composedBusElementReadback.test.ts:72-75 calls the REAL composeRuntime() (P1's only legal root) and constructs no store: arm A-3 'ENGINE PRESENT -- wall.create is READBACK-POSITIVE on the composed bus'. Secondary: apps/editor/__tests__/bootstrap.everything.test.ts:46-61 walks the real ALL_PLUGINS and asserts rt.stores.wall instanceof WallStore.",
+    "census_gate": "npx tsx tools/ga-gate/check-plugin-census-equivalence.ts -> RC=0. D3: arms A=24/24, B=8/8, F=3/3 are NON-ZERO ratcheted baselines, not zero drift. wall appears in none of them."
+  },
+  "B_handler": {
+    "path": "plugins/wall/src/handlers/CreateWall.ts",
+    "type": "wall.create (:165)",
+    "affectedStores": "['wall'] (:166)",
+    "validates_before_mutation": "YES -- canExecute :180-218: height>0, thickness>=0.05m, branded wall_<ulid> id format, then authoritativeWallStoreRefusal() LAST (the three-valued FIX-CREATE-DTO-ONLY-SUCCESS census, :102-125). Typed DomainErrors thrown OUTWARD from execute: WallSystemTypeNotFoundError, WallSchemaError, WallDimensionsError.",
+    "mutates_only_via_immer_draft": "YES -- :329-331 produceCommand<WallsState>(ctx.stores.wall, draft => { draft[id] = wall; }). No store-singleton import on the mutation path (storeRegistry is imported at :45 for the READ-ONLY refusal census only).",
+    "geometry_deferred_to_FrameScheduler": "N/A at the handler -- geometry is built by WallFragmentBuilder off the legacy-store event, not inside execute. No requestAnimationFrame in plugins/wall/src (grep -> 0).",
+    "emits_typed_domain_event": "NOT BY THE HANDLER. CommandEventBridge emits wall.created from the patch record. C11 SS11.1 already carries this as the open HANDLER-RUNTIME-EVENTS work item for all 177 handlers.",
+    "otel_span": "YES -- withHandlerSpan('wall.create.handler', {'pryzm.command.type':'wall.create'}) wraps the whole execute body (:222, closed :334).",
+    "id_pre_generated_in_tool": "PREFERRED AND HONOURED, and wall is IMMUNE to the FIX-WALL-ID class. The handler accepts cmd.id ?? createId('wall') (:275), but the CEB case does NOT read the payload id alone: it indexes the COMMITTED patch (indexCommittedWalls(record.forward), CommandEventBridge.ts:505-509) and emits wallId: p.id ?? w.id. So a handler-minted id still reaches the bridge. Live tools pre-generate anyway -- WallPlanToolHandler.ts:694, PreviewManager.ts:311.",
+    "must_not_violations": [
+      "window.commandManager -- 9 CODE sites in the wall handler set: AddWallLayerBatch.ts:100, CascadeWallBaseline.ts:55, CreateWallsOnAllSlabs.ts:49, SetWallSideFinishBatch.ts:162, UpdateWallBaseline.ts:119, UpdateWallsColorBatch.ts:111, UpdateWallsRakeBatch.ts:95, UpdateWallsSystemTypeBatch.ts:95, UpdateWallSystemType.ts:41",
+      "window.dispatchEvent -- 13 CODE sites: AddWallLayerBatch.ts:124,164 / SetWallSideFinishBatch.ts:182,242 / UpdateWallsColorBatch.ts:135,177 / UpdateWallsHeightBatch.ts:177,231,290 / UpdateWallsRakeBatch.ts:119,156 / UpdateWallsSystemTypeBatch.ts:119,159",
+      "NONE of these is in CreateWall.ts -- the same grep over that file returns 0. The CREATE verb is clean; the BATCH/UPDATE verbs are not.",
+      "No DOM access, no requestAnimationFrame, no import from src/engine or src/ui anywhere in plugins/wall/src (grep -> 0)."
+    ],
+    "must_not_grep": "grep -rn \"window\\.commandManager|window\\.dispatchEvent|requestAnimationFrame\\(|document\\.getElementById|document\\.querySelector\" plugins/wall/src --include=*.ts | grep -vE \":\\s*(//|\\*|/\\*)\""
+  },
+  "C_lifecycle": {
+    "ceb_case": "YES x2, geometry-COMPLETE. CommandEventBridge.ts:499 case 'wall.create'; :539 case 'wall.batch.create'. Fields: baseLine, height, thickness, baseOffset, systemTypeId, materialColor, materialId, layers, curve. Commit-over-request so handler-resolved layers[]/thickness reach the mirror (SS-FIX-WALL-LAYERS-PLAN-VS-3D-CREATION, L-239).",
+    "initTools_bridge_tag": "SS-P2.1",
+    "bridge_grep": "$ grep -n \"bridge registered\" apps/editor/src/engine/initTools.ts   ->   1396:        console.log('[initTools] SS-P2.1: wall.created bus->legacy-store bridge registered.')",
+    "bridge_body": "apps/editor/src/engine/initTools.ts:1225-1395",
+    "vdt_registerElement": "YES -- initTools.ts:1304, UNCONDITIONAL (outside the dedup guard).",
+    "bimManager_registerElement": "YES -- initTools.ts:1306, UNCONDITIONAL.",
+    "bridge_invariant_7": "HELD -- and wall is the ONLY B1 family that holds it correctly. SS-FIX-VDT-DUAL-PATH + SS-G3-STALE-FIX put both registrations BEFORE the legacy add() (:1312) and OUTSIDE the dedup guard (alreadyMirrored at :1310 gates the add() only). Slab, ceiling and curtain-wall all RETURN from their dedup guard before registering.",
+    "bimManager_via_window_any": "NO. bimManager is an injected ToolsParams field (initTools.ts:267 `bimManager: any`) supplied by engineLauncher.ts:445. `grep -n \"window\\.bimManager\" apps/editor/src/engine/initTools.ts` -> 0 hits; the only (window as any).bimManager text in the file is a historical comment at :2547 about the FLOOR bridge. It is an `any` seam (L-980 class) but NOT a C14 LP-01 / P4 window-as-namespace violation.",
+    "in_GEOMETRY_ELEMENT_TYPES": true,
+    "geometry_types_site": "packages/core-app-model/src/views/ViewDependencyTracker.ts:42-49 -- 'wall' present. Also in PLAN_INCREMENTAL_SAFE_TYPES (apps/editor/src/engine/initTools.ts:70) so a wall create is graft-eligible O(dirty) reprojection.",
+    "legacy_store_emits_storeEventBus": "YES -- packages/geometry-wall/src/WallStore.ts:1814 storeEventBus.emit.",
+    "update_verbs_covered": "NO -- wall is a CREATE-MIRROR-WITHOUT-UPDATE-MIRROR family. ELEMENT_UPDATE_VERBS (CommandEventBridge.ts:241-292) has 8 rows across THREE families only: slab(5), roof(2), column(1). ZERO wall rows. elementUpdatedMirror.ts LEGACY_UPDATABLE_STORES (:183-232) is the same three keys. tools/ga-gate/mirror-debt.json carries 15 wall rows: 7 UNMIRRORED (wall.createBetweenMarks, wall.createFromSlab, wall.cut, wall.delete, wall.join, wall.setSystemType, wall.split, wall.updateBaseline), 7 'refuses' (bulkSetVisuals, move, setColor, setDimensions, setLayers, transform), 1 'mirrored-elsewhere' (wall.changeLevel).",
+    "mirror_gate": "npx tsx tools/ga-gate/check-mirror-completeness.ts -> RC=0. D3: printed '156 uncovered / 156 listed' -- 109 kind=UNMIRRORED backlog + 47 declared-exempt. RC=0 means within a NAMED LEDGER of 156, not 0 uncovered verbs.",
+    "declared_hole": "SS-DIAG-WALL-LEVEL (initTools.ts:1298-1303) -- a wall.created whose levelId is '' or undefined SKIPS spatial registration entirely and warns loudly. That wall then appears in NO plan view. Declared and deliberate ('strictly safer than landing on the wrong floor'), not silent."
+  },
+  "D_seven_facts": {
+    "authored": {
+      "v": "YES",
+      "proof": "plugins/wall/src/handlers/CreateWall.ts:165 readonly type='wall.create'; 28 verbs listed in plugins/wall/src/handlers/index.ts"
+    },
+    "dispatchable": {
+      "v": "YES",
+      "proof": "PluginRegistry.ts:262-263 storeKey 'wall' === affectedStores ['wall'] === ctx.stores.wall (48 reads); bootstrap.everything.test.ts:47 asserts rt.stores.wall instanceof WallStore on the real registry walk"
+    },
+    "reachable": {
+      "v": "YES",
+      "proof": "composedBusElementReadback.test.ts A-3 dispatches wall.create on a REAL composeRuntime() bus and reads thickness=0.3, height=2.9, baseLine[1].x=5 back out of the AUTHORITATIVE wallStore singleton ProjectSerializer reads. A-2 proves the engine-absent case REFUSES BY NAME and writes nothing."
+    },
+    "renders_3d": {
+      "v": "YES",
+      "proof": "CEB:499 geometry-complete -> SS-P2.1 initTools:1312 legacy WallStore.add() -> WallStore.ts:1814 storeEventBus.emit -> WallRebuildCoordinator -> packages/geometry-wall/src/WallFragmentBuilder.ts"
+    },
+    "renders_plan": {
+      "v": "YES",
+      "proof": "'wall' in GEOMETRY_ELEMENT_TYPES (ViewDependencyTracker.ts:42) and in PLAN_INCREMENTAL_SAFE_TYPES (initTools.ts:70); VDT.registerElement:1304 + bimManager.registerElement:1306 both UNCONDITIONAL and BEFORE add(). CAVEAT: empty levelId -> registration deliberately skipped (SS-DIAG-WALL-LEVEL)."
+    },
+    "persists": {
+      "v": "YES",
+      "proof": "snapshotFamilyCoverage.ts:111 {storeKey:'wall', status:'via-legacy-twin', snapshotKey:'walls'}. npx tsx tools/ga-gate/check-snapshot-family-coverage.ts -> RC=0, printed '30 family/families, 30 row(s), sets equal in both directions ... 26 persistence claim(s) verified against the snapshot's own fields and writers, 3/3 declared losses' (bathroomPod, section, structural -- wall is not one). The gate itself prints 'NOT ESTABLISHED HERE: that any family ROUND-TRIPS.'"
+    },
+    "exports": {
+      "v": "YES",
+      "proof": "TWO pipelines. packages/file-format/src/export/ifc/FragmentReader.ts:87 new WallReader(this.stores.wallStore,this).read(); plugins/ifc-export/src/exporters/IFC4X3Exporter.ts:239 for (const wall of snapshot.walls ?? []) with Pset_WallCommon (:244) and Qto_WallBaseQuantities (:261)."
+    }
+  },
+  "first_failing_link": "NONE on the create chain -- all seven facts are YES. The first failure in the FAMILY is on the UPDATE chain: 7 wall verbs are UNMIRRORED in tools/ga-gate/mirror-debt.json (they commit, report success and change nothing on screen), and ELEMENT_UPDATE_VERBS has zero wall rows.",
+  "E_c11_ss11_crosscheck": {
+    "matrix_row": "| Wall | CEB wall.create + wall.batch.create OK | SS-P2.1 OK | WallStore.add() OK | 'wall' OK | OK (Rev 3 -- FIX-PLAN-VDT-BIMMANAGER) | 3D via bus OK | FULL |",
+    "verdict": "CONFIRMED on all seven cells.",
+    "column_legend_refuted": "The matrix's COLUMN LEGEND is wrong even though the wall CELL is right. It defines the VDT+bimManager column as 'bridge calls viewDependencyTracker.registerElement + bimManager.registerElement AFTER LegacyStore.add() (Bridge Invariant 7)'. Measured: wall calls them BEFORE add (initTools.ts:1304/1306, SS-G3-STALE-FIX 2026-05-24) and so does curtain-wall (:2092/2094, SS-G3-STALE-FIX-CW). Following the legend literally would REINTRODUCE the SS-G3-STALE-EVENT storm those fixes removed."
+  },
+  "B1_RECHECK_2026_08_29": {
+    "by": "BATCH B1 measurement agent — independent re-measurement, nothing inherited from the row above",
+    "spot_checks_that_HOLD": [
+      "CEB case 'wall.create' at CommandEventBridge.ts:499 — grep -n \"case '\" packages/runtime-composer/src/CommandEventBridge.ts",
+      "initTools §P2.1 bridge log at initTools.ts:1396 — grep -n \"bridge registered\" apps/editor/src/engine/initTools.ts",
+      "PluginRegistry.ts:263 storeKey: 'wall' — grep -n storeKey apps/editor/src/PluginRegistry.ts",
+      "ELEMENT_UPDATE_VERBS (CommandEventBridge.ts:241-292) = 8 rows across slab(5) / roof(2) / column(1); ZERO wall rows — read in full, sed -n 235,300p",
+      "tools/ga-gate/mirror-debt.json carries exactly 15 wall verbs (8 UNMIRRORED, 6 refuses, 1 mirrored-elsewhere) — node count over the 156-row ledger"
+    ],
+    "the_ONE_fact_that_makes_wall_UNIQUE_in_B1": {
+      "claim": "wall is the ONLY B1 family immune to the no-id bridge drop, and the mechanism lives in the CEB, not in the tool.",
+      "evidence": "CommandEventBridge.ts:508-511 — `const committed = indexCommittedWalls(record.forward); const w = (p.id !== undefined ? committed.get(p.id) : undefined) ?? [...committed.values()][0] ?? p;` then :517 `wallId: p.id ?? w.id`. The COMMITTED Immer patch supplies the id when the request payload omits it.",
+      "contrast": "slab.create, ceiling.create and curtain-wall.create all read `id: p.id` off record.payload ONLY. MEASURED on the REAL composed bus (probe P-11): a create with no id in the payload emits `*.created` with `id=undefined` for all three, and every one of their bridges/mirrors guards on `!ev.id` (initTools.ts:2370 slab; ceilingCreatedMirror.ts:135; curtainWallCreatedMirror.ts:123)."
+    },
+    "mirror_completeness_gate_D3": "npx tsx tools/ga-gate/check-mirror-completeness.ts -> RC=0, printed: \"within the named ledger (156 uncovered / 156 listed)\" · \"verbs that WRITE a plugin DTO store: 200 — 44 with a bridge case, 156 without\" · \"109 kind=UNMIRRORED (the BACKLOG: these will not update on screen), 47 declared-exempt\" · \"census (initTools.ts): 19 *.created mirror(s) · 1 *.updated mirror(s)\". RC=0 means WITHIN A NAMED LEDGER OF 156, not 0 uncovered verbs.",
+    "probe": "audit/element-creation/2026-08-29/probe/b1Dispatch.probe.test.ts + probe/b1-run.txt (13 passed, RC=0)"
+  }
+}

@@ -1,0 +1,34 @@
+npm warn Unknown project config "package-manager-strict". This will stop working in the next major version of npm. See `npm help npmrc` for supported config options.
+
+ RUN  v4.1.10 C:/Users/LENOVO/OneDrive/Desktop/PRYZM/Product_Rediness_08/apps/editor
+
+ ↓ ../../audit/element-creation/2026-08-29/probe/b4Dispatch.probe.test.ts > B4 probe -- registration facts at the real composition root > P-A: storeKeys / handler types / ELEMENT_PLUGIN_IDS membership
+ ↓ ../../audit/element-creation/2026-08-29/probe/b4Dispatch.probe.test.ts > B4 probe -- dispatchability + committed record shape > P-B: furniture.create with the PLUGIN TOOL payload (origin/catalogId)
+ ↓ ../../audit/element-creation/2026-08-29/probe/b4Dispatch.probe.test.ts > B4 probe -- dispatchability + committed record shape > P-C: furniture.create with the EDITOR payload (furnitureType/position)
+ ↓ ../../audit/element-creation/2026-08-29/probe/b4Dispatch.probe.test.ts > B4 probe -- dispatchability + committed record shape > P-D: furniture.create with the TELEMETRY payload {} (FurnitureTool.ts:625)
+ ↓ ../../audit/element-creation/2026-08-29/probe/b4Dispatch.probe.test.ts > B4 probe -- dispatchability + committed record shape > P-E: lighting.create (tool payload kind/origin)
+ ↓ ../../audit/element-creation/2026-08-29/probe/b4Dispatch.probe.test.ts > B4 probe -- dispatchability + committed record shape > P-F: plumbing.create with the TELEMETRY payload {} (PlumbingTool.ts:414)
+ ↓ ../../audit/element-creation/2026-08-29/probe/b4Dispatch.probe.test.ts > B4 probe -- dispatchability + committed record shape > P-G: plumbing.create with the DECLARED bus type (fixtureType/position)
+ ↓ ../../audit/element-creation/2026-08-29/probe/b4Dispatch.probe.test.ts > B4 probe -- dispatchability + committed record shape > P-H: plumbing.createFixture (the reachable fixture route) headless
+ ↓ ../../audit/element-creation/2026-08-29/probe/b4Dispatch.probe.test.ts > B4 probe -- dispatchability + committed record shape > P-I: room.create telemetry {} and complete record
+ ↓ ../../audit/element-creation/2026-08-29/probe/b4Dispatch.probe.test.ts > B4 probe -- dispatchability + committed record shape > P-J: furniture.create carrying wardrobeCabinetConfig (window-guard probe)
+stdout | ../../audit/element-creation/2026-08-29/probe/b4Dispatch.probe.test.ts > B4 probe -- does a ghost create occupy an undo slot > P-K: bus.undo.size before/after furniture.create {} and plumbing.create {}
+[B4 P-K] undo.size before: 0
+
+stdout | ../../audit/element-creation/2026-08-29/probe/b4Dispatch.probe.test.ts > B4 probe -- does a ghost create occupy an undo slot > P-K: bus.undo.size before/after furniture.create {} and plumbing.create {}
+[B4 P-K] undo.size after furniture.create {}: 1
+
+stdout | ../../audit/element-creation/2026-08-29/probe/b4Dispatch.probe.test.ts > B4 probe -- does a ghost create occupy an undo slot > P-K: bus.undo.size before/after furniture.create {} and plumbing.create {}
+[B4 P-K] undo.size after plumbing.create {}: 2
+
+stdout | ../../audit/element-creation/2026-08-29/probe/b4Dispatch.probe.test.ts > B4 probe -- does a ghost create occupy an undo slot > P-K: bus.undo.size before/after furniture.create {} and plumbing.create {}
+[B4 P-K] undo.size after room.create {} (refused): 2
+
+ ✓ ../../audit/element-creation/2026-08-29/probe/b4Dispatch.probe.test.ts > B4 probe -- does a ghost create occupy an undo slot > P-K: bus.undo.size before/after furniture.create {} and plumbing.create {} 200ms
+
+ Test Files  1 passed (1)
+      Tests  1 passed | 10 skipped (11)
+   Start at  11:57:05
+   Duration  26.03s (transform 18.96s, setup 0ms, import 25.35s, tests 202ms, environment 0ms)
+
+RC=0

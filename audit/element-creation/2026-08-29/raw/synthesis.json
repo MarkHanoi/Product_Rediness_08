@@ -1,0 +1,1058 @@
+{
+ "phase": "4 -- SYNTHESIS",
+ "date": "2026-08-29",
+ "head": "064a838e",
+ "scope": "29 subjects = the 24 measured element families (18 by PLUGIN_CATALOG kind=element + 6 by other signals) plus 5 edge cases (selection, section-view, water, liftPart, bathroomPod).",
+ "row_count_assertion": {
+  "family_row_files_on_disk": 29,
+  "verdict_table_rows": 29,
+  "equal": true,
+  "method": "ls audit/element-creation/2026-08-29/families/*.json | wc -l -> 29. BOTH schema variants normalised: variant 1 (registration/handler/lifecycle/milestones/status/findings) and variant 2 (A_registration/B_handler/C_lifecycle/D_seven_facts/first_failing_link/E_c11_*/findings, NO status field). A THIRD shape was also present (bathroomPod, liftPart, water, selection, section-view: subject_class/deliberate_or_orphan/milestones/status). Within D_seven_facts and milestones, values were matched on the LEADING TOKEN, never on equality, and four rows (ceiling, curtain-wall, slab, wall) carry OBJECT values of the form {v|verdict, proof} which a string comparison would have silently dropped.",
+  "reconciliation": "29 rows map 1:1 onto census.json's classification: ELEMENT_FAMILY_by_kind_18 + ELEMENT_FAMILY_by_other_signals_6 + IN_ELEMENT_PLUGIN_IDS_but_no_verb_and_no_schema_2 + NOT_ON_DISK_3 = 29. No family in the census lacks a row; no row lacks a census entry. ZERO INCOMPLETE verdicts."
+ },
+ "verdict_rule": "PRODUCTION-READY (create chain) = all seven facts measured YES on at least one complete route, no measured NO anywhere in the seven. PARTIAL = at least one route works end to end but at least one fact is NO or PARTIAL. NOT-READY = no measured route by which a user can create the family and see it. UNVERIFIED = the decisive links could not be measured and none is measurably broken. INCOMPLETE = no row file (zero occurrences). ⚠ 'PRODUCTION-READY (create chain)' IS DELIBERATELY QUALIFIED: FIVE of the five so graded have a measured failure OUTSIDE the create chain -- wall (7 UNMIRRORED update verbs), handrail (update verbs), roof (6 of 12 update verbs fail at renders_3d), stair (the chain holds through a LEGACY commandManager route), furniture (a promotion the adversarial pass declined to bless). Nothing here is a green light.",
+ "verdict_summary": {
+  "PRODUCTION-READY (create chain)": 5,
+  "PARTIAL": 17,
+  "NOT-READY": 5,
+  "UNVERIFIED": 2,
+  "INCOMPLETE": 0
+ },
+ "verdict_table": [
+  {
+   "family": "annotation (plugins/annotations)",
+   "verdict": "PARTIAL",
+   "first_failing_link": "exports -- no IFC/PDF/DXF surface carries an annotation. Four negative greps over four directories independently confirmed to EXIST (plugins/ifc-export/src, plugins/export-pdf/src, plugins/dxf/src, packages/pdf-export/src), plus no AnnotationReader in packages/file-format/src/export/ifc/readers/.",
+   "c11_matrix_claim": "NO ROW in the 14-row S11 matrix. S11.11 prose only, and its cited evidence is the LEGACY '[CommandManager] EXECUTE: CREATE_ANNOTATION' path.",
+   "refutes_matrix": true,
+   "seven_facts": {
+    "authored": "YES",
+    "dispatchable": "YES",
+    "reachable": "YES",
+    "renders_3d": "YES",
+    "renders_plan": "YES",
+    "persists": "YES",
+    "exports": "NO"
+   },
+   "note": "Renders through AnnotationManager + PlanViewAnnotationRenderer -- a separate subsystem, NOT the geometry-element bridge. REFUTES the brief's G1 claim that annotation is 'dispatchable but invisible': THREE live production dispatchers of annotation.create exist (GridPlanToolHandler.ts:352, RoofSlopeSymbolBuilder.ts:205, plugins/annotations/src/tool.ts:127). A sheet exported to PDF carries no dimensions -- the sharpest user consequence anywhere in the export column."
+  },
+  {
+   "family": "balcony",
+   "verdict": "PARTIAL",
+   "first_failing_link": "persists -- ADVERSARIALLY CORRECTED from 'exports'. ProjectSerializer.ts:1519 readPluginStore('balcony') reads (window.runtime).stores['balcony']; window.runtime is the composeRuntime handle (engineLauncher.ts:191, the SINGLE production assignment) and composeRuntime's StoresSlot has NO balcony key and NO index signature -- so the read is undefined, readPluginStore returns undefined, and 'balconies' is never written into the snapshot.",
+   "c11_matrix_claim": "NO ROW. S11's preamble (:1267) is normative -- 'MUST be updated whenever a bridge is added'. The balcony bridge WAS added (CEB:1422 plus three member channels).",
+   "refutes_matrix": true,
+   "seven_facts": {
+    "authored": "YES",
+    "dispatchable": "YES",
+    "reachable": "YES",
+    "renders_3d": "YES",
+    "renders_plan": "YES",
+    "persists": "NO",
+    "exports": "NO"
+   },
+   "note": "THE HIGHEST-CONSEQUENCE ROW IN THE AUDIT. Three defects stacked. (1) MECHANISM: the read channel does not exist on the composed runtime -- the same L-11060/L-11064/L-11480 signature already logged for boundaryLine, lift, liftPart, pool and water; balcony is the ONE member of that compound set composeRuntime's S-BATH102 adoption block never adopted. (2) D6: the cited executed proof is void -- snapshotFamilyRoundTrip.spec.ts:140-144 ASSIGNS window.runtime = { stores: { ..., balcony: live.balcony } }, supplying the very object whose absence is the defect. (3) SILENCE: snapshotFamilyCoverage.ts:161 declares balcony status:'persisted', so balcony is NOT in UNPERSISTED_FAMILY_KEYS and the C84 EI-6 loss loop at ProjectSerializer.ts:1533 never names it. A balcony is authored, drawn, declared persisted, and destroyed on reload with no console line."
+  },
+  {
+   "family": "bathroomPod",
+   "verdict": "PARTIAL",
+   "first_failing_link": "persists -- DECLARED UNPERSISTED (L-11527), one of the 3 declared losses check-snapshot-family-coverage reports at baseline 3.",
+   "c11_matrix_claim": "NO ROW -- and the most consequential of the three dirless omissions: the pod has NO CommandEventBridge case at all, so a reader auditing 'which families have bridges' finds neither a row nor a case and concludes the family does not exist, when it is dispatchable, reachable from a plan overlay, and rendering.",
+   "refutes_matrix": true,
+   "seven_facts": {
+    "authored": "YES",
+    "dispatchable": "YES",
+    "reachable": "YES",
+    "renders_3d": "YES",
+    "renders_plan": "YES",
+    "persists": "NO",
+    "exports": "NO"
+   },
+   "note": "REFUTES THE BRIEF'S OWN PREMISE in its load-bearing half: bathroomPod is NOT a compound MEMBER, it is a compound PARENT owning TWO verbs (bathroomPod.create / bathroomPod.delete, C109 R-1) registered by the plumbing descriptor because a descriptor carries exactly ONE storeKey. Probe Q-C dispatched both through the real runtime and reached canExecute ('podId must be a non-empty string') rather than 'no handler registered' -- the difference between an unregistered verb and a registered one given a bad payload. The 'no defineElement / L0 schema' half is TRUE and confirmed."
+  },
+  {
+   "family": "beam",
+   "verdict": "PARTIAL",
+   "first_failing_link": "renders_3d on the 3-D BeamTool bus leg -- the command COMMITS and the CEB then refuses to emit, so a phantom beam exists in the model store with no mesh anywhere (B2-BEAM-01). The plan-tool create chain has no failing link.",
+   "c11_matrix_claim": "Row **Beam** -- every printed cell CONFIRMED; Status FULL.",
+   "refutes_matrix": true,
+   "seven_facts": {
+    "authored": "YES",
+    "dispatchable": "YES",
+    "reachable": "YES",
+    "renders_3d": "YES",
+    "renders_plan": "YES (plan-tool leg only)",
+    "persists": "YES",
+    "exports": "YES"
+   },
+   "note": "The matrix's own column key defines '3D via bus' as 'not legacy-only commandManager.execute()', and the reachable 3-D beam gesture IS commandManager.execute (BeamTool.ts:223) with a bus dispatch alongside it that commits a phantom. That is not what a reader takes 'FULL' to mean, and the matrix has no column that would ever surface it. The adversarial pass adds that VDT :2454 and bimManager :2455 sit DOWNSTREAM of four early returns (:2430 commandType, :2431-2433 !id/!startPoint/!endPoint, :2435 dedup, :2448 !record): a single-value renders_plan cell cannot carry both routes and currently shows only the favourable one."
+  },
+  {
+   "family": "boundary-line",
+   "verdict": "PARTIAL",
+   "first_failing_link": "persists -- SAVE HALF ONLY. The save is real: snapshotFamilyCoverage.ts:149 and ProjectSerializer.ts:206 / :1470-1483 write boundaryLines from runtime.stores.boundaryLine. THE RESTORE DOES NOT RUN IN PRODUCTION: ProjectLoader.ts Step 10c (:1628-1668) dispatches boundaryLine.create per record but sits in the LEGACY branch of the if (useImportCmd) {...} else {...} at :765, and _useImportCommandPath() (:3249-3272) returns TRUE by default. grep -c 'boundaryLine' packages/command-registry/src/project/ImportProjectCommand.ts -> 0.",
+   "c11_matrix_claim": "NO ROW -- and this family would refute the matrix's implicit model most sharply: the 'initTools bridge' column is DEFINED as 'a subscriber that calls LegacyStore.add()', and boundary-line deliberately calls no LegacyStore.add() at all (C84 EI-1, one authority). The matrix has no vocabulary for a correct bridge of that shape.",
+   "refutes_matrix": true,
+   "seven_facts": {
+    "authored": "YES",
+    "dispatchable": "YES",
+    "reachable": "YES",
+    "renders_3d": "YES",
+    "renders_plan": "YES",
+    "persists": "NO",
+    "exports": "NO"
+   },
+   "note": "SAVED AND NEVER RESTORED IS STRICTLY WORSE THAN NEVER SAVED: the project file grows, the user's setting-out lines are inside it, and the default load path drops them silently. NO spelling-drift defect -- 'boundary-line' (directory / descriptor id / tool id) and 'boundaryLine' (storeKey / 7 CEB arms / 3 initTools subscribers / L0 schema / snapshot key / undo adapter) occupy two disjoint, consistently applied namespaces, and PluginRegistry.ts:769-772 states the rule. But NO gate asserts the two namespaces stay aligned for a family."
+  },
+  {
+   "family": "ceiling",
+   "verdict": "UNVERIFIED",
+   "first_failing_link": "exports = NO is the only outright NO in the chain, but reachable / renders_3d / renders_plan are all UNVERIFIED: there is NO authoritative ceiling store in storeRegistry (probe P-1 printed 'ceiling=undefined'), so there is no readback target the way wall and slab have one, and the S-P3.2-CL bridge is not reachable headlessly.",
+   "c11_matrix_claim": "Row **Ceiling** -- ceiling.create + ceiling.batch.create, S-P3.2-CL, CeilingStore.add() (line 148), 'ceiling', Rev 4, 3D via bus, Status FULL. The ONLY B1 family whose row could not be refuted cell-by-cell.",
+   "refutes_matrix": false,
+   "seven_facts": {
+    "authored": "YES",
+    "dispatchable": "YES",
+    "reachable": "UNVERIFIED",
+    "renders_3d": "UNVERIFIED",
+    "renders_plan": "UNVERIFIED",
+    "persists": "YES",
+    "exports": "NO"
+   },
+   "note": "The row CONFIRMS all six cells as the matrix DEFINES them. 'FULL' is nonetheless misleading because the matrix's six columns STOP AT THE MESH -- there is no export column, and ceilings reach no IFC: zero CeilingReader repo-wide (grep exits 0 with no lines) and no ceiling entry in packages/file-format/src/export/ifc/readers/."
+  },
+  {
+   "family": "column",
+   "verdict": "PARTIAL",
+   "first_failing_link": "NONE on the create chain. renders_3d on the BATCH create chain, which can fail silently (B2-COL-01), and on 2 of 8 UPDATE verbs (B2-COL-02).",
+   "c11_matrix_claim": "Row **Column** -- every printed cell CONFIRMED, including the store.get(id) dedup detail. No cell refuted.",
+   "refutes_matrix": true,
+   "seven_facts": {
+    "authored": "YES",
+    "dispatchable": "YES",
+    "reachable": "YES",
+    "renders_3d": "YES",
+    "renders_plan": "YES",
+    "persists": "YES",
+    "exports": "YES"
+   },
+   "note": "'FULL' is over-broad in the same way roof's is: the matrix has no column for batch-member id handling, none for update mirroring (1 of 8 covered), and none for the `any` seam in the bridge's own add() call (B2-COL-03)."
+  },
+  {
+   "family": "curtain-wall",
+   "verdict": "UNVERIFIED",
+   "first_failing_link": "reachable -- UNVERIFIED, NOT NO. Every link from tool to mesh is individually cited and none is measurably broken, but the chain has never been executed end-to-end: probe P-1 printed 'curtainwall=undefined' and 'curtain-wall=undefined' in rt.stores.elements, so there is no authoritative store to read back from.",
+   "c11_matrix_claim": "Row **Curtain Wall** -- Status FULL, with 'CurtainWallStore.add() omits storeEventBus -- compensated by bridge emit' and an ACTIVE TODO-CW-STORE-BUS gap row.",
+   "refutes_matrix": true,
+   "seven_facts": {
+    "authored": "YES",
+    "dispatchable": "YES",
+    "reachable": "UNVERIFIED",
+    "renders_3d": "UNVERIFIED",
+    "renders_plan": "UNVERIFIED",
+    "persists": "YES",
+    "exports": "YES"
+   },
+   "note": "REFUTED on cell 3, on cell 5's legend, and on cell 1's spelling. add() (CurtainWallStore.ts:326-356) ends in this.emit('add', ...) at :355 -- it does NOT omit the bus. The S11.1 gap row TODO-CW-STORE-BUS is ALSO refuted: a gap row describing work already done, which sends a fixer to write a rival emit. EXPORT SPLIT-BRAIN: FragmentReader.ts:125 CurtainWallReader -> IfcCurtainWall, while grep -rn curtainWall plugins/ifc-export/src -> 0 hits. Two IFC exporters, different family coverage."
+  },
+  {
+   "family": "dimension (plugins/dimensions)",
+   "verdict": "NOT-READY",
+   "first_failing_link": "reachable -- the STRONGEST measured NO in the audit. grep -rn 'dimensionTool' across apps/packages/plugins/src returns THREE hits, ALL in apps/editor/src/PluginRegistry.ts (:961 comment, :1048 comment, :1051 the READ inside the activator). There is NO ASSIGNMENT anywhere in the repo, so the activator's else-branch ('DimensionTool not ready -- engine not yet initialised') is PERMANENT, not a startup race.",
+   "c11_matrix_claim": "NO ROW. S11.14 (:1531) instead claims comprehensive coverage -- 'a *.move handler exists for EVERY element family (... structural, room, annotation, dimension, section)'.",
+   "refutes_matrix": true,
+   "seven_facts": {
+    "authored": "YES",
+    "dispatchable": "YES",
+    "reachable": "NO",
+    "renders_3d": "NO",
+    "renders_plan": "NO",
+    "persists": "NO",
+    "exports": "NO"
+   },
+   "note": "AN UNSATISFIABLE GATE in the L-716 sense -- ask 'can this ever be true?' before 'why is it slow?'. S11.14 REFUTED: dimension.move is a deliberately refusing dead verb (mirror-debt.json:404, kind 'refuses') whose own source says 'NO surface dispatches it -- not MOVE_COMMAND_BY_TYPE, not the 3-D gizmo, not the Align tool, not the property panel'. Counting it as coverage reads EXISTENCE as CAPABILITY. dimension.created is one of the 9 orphan channels. CONFIRMS the brief's G1 for this family."
+  },
+  {
+   "family": "door",
+   "verdict": "PARTIAL",
+   "first_failing_link": "dispatchable -- door.create refuses EVERY well-formed payload by construction: CreateDoor.ts:149 canExecute, refusal at :154 `return { valid:false, reason: DOOR_CREATE_UNREACHABLE }`. CITATION CORRECTED: the brief's :130-136 is an unrelated sillHeight >= 0 guard. The family IS reachable -- through wall.opening.create.",
+   "c11_matrix_claim": "NO 'Door' row. ONE row, 'Wall Opening (Door/Window)' -- Status FULL, naming `OpeningStore.add()` as the store write.",
+   "refutes_matrix": true,
+   "seven_facts": {
+    "authored": "YES",
+    "dispatchable": "NO",
+    "reachable": "YES",
+    "renders_3d": "YES",
+    "renders_plan": "YES",
+    "persists": "YES",
+    "exports": "YES"
+   },
+   "note": "REFUTES the matrix's store-write cell: grep -n openingStore apps/editor/src/engine/initTools.ts -> :319, :383, :706, :1179, ALL parameter plumbing, ZERO `openingStore.add(`. The S-P2.3 bridge writes _legacyWallStoreForOpeningBridge.addOpening (:1545) + doorStore.add (:1592). renders_plan holds by a mechanism the row only half-stated: doorPlanSymbolBuilder.inject at EdgeProjectorService.ts:3937 is a SIBLING of the childrenIds mesh loop (:2555 and :3936 at the same 8-space indent), not a child, so it does not depend on the two registerElement calls the opening bridge never makes. SEE FINDING F-03: door.batch.create is DISPATCHABLE BUT DETACHED."
+  },
+  {
+   "family": "floor",
+   "verdict": "PARTIAL",
+   "first_failing_link": "exports -- there is no FloorReader in packages/file-format/src/export/ifc/readers/ and ExportIFC.ts:38-58 builds an eleven-key stores object with no floorStore. Floor finishes never leave the tool.",
+   "c11_matrix_claim": "Row **Floor** -- all six printed cells CONFIRMED, including that the bimManager call is no longer via (window as any): the only such string in initTools.ts is the comment at :2547 recording its removal; the live call at :2553 uses the injected instance.",
+   "refutes_matrix": true,
+   "seven_facts": {
+    "authored": "YES",
+    "dispatchable": "YES",
+    "reachable": "YES",
+    "renders_3d": "YES",
+    "renders_plan": "YES",
+    "persists": "YES",
+    "exports": "NO"
+   },
+   "note": "THE CONTROL CASE for this audit's two export refutations: floor.json enumerated the RIGHT directory (packages/file-format/src/export/ifc/readers/) and got the right answer, while furniture.json and plumbing.json enumerated plugins/ifc-export/ and got the wrong one. Its own printed listing contains FurnitureReader.ts and PlumbingReader.ts -- the refuting evidence was already inside this audit."
+  },
+  {
+   "family": "furniture",
+   "verdict": "PRODUCTION-READY (create chain)",
+   "first_failing_link": "NONE -- all seven links hold. ADVERSARIALLY CORRECTED: the row's exports=NO is REFUTED. packages/file-format/src/export/ifc/readers/FurnitureReader.ts:41 -> 'IfcFurnishingElement'; FragmentReader.ts:263 and :280 invoke it; IfcModelBuilder.ts:50 and CoreElement.ts:88 map furniture -> IfcFurnishingElement.",
+   "c11_matrix_claim": "Row **Furniture** -- 'CEB case emits geometry-free payload (levelId only)' / 'No bridge' / VDT+bimManager 'no bridge -- N/A' / '3D via bus' NO / Status 'LEGACY-ONLY'.",
+   "refutes_matrix": true,
+   "seven_facts": {
+    "authored": "YES",
+    "dispatchable": "YES",
+    "reachable": "YES",
+    "renders_3d": "YES",
+    "renders_plan": "YES",
+    "persists": "YES",
+    "exports": "YES"
+   },
+   "note": "REFUTED ON 4 OF 7 CELLS. (1) 'geometry-free payload' FALSE -- CommandEventBridge.ts:1125-1169 forwards 15 fields. (2) 'No bridge' FALSE -- initTools.ts:2958 logs 'S-FT-FURNITURE: furniture.created bus->legacy-store bridge registered'. (3) 'VDT + bimManager N/A' FALSE -- the bridge calls both (:2942 / :2943). (4) '3D via bus' FALSE. RESIDUAL, UNMEASURED: FurnitureReader.read() opens `const mesh = this.ctx.findMesh(item.id); if (!mesh) continue;` -- a furniture record with no findable mesh exports nothing. That is a narrower, real constraint; it is NOT 'no exporter exists'. This row's promotion to 7/7 has not itself had an adversarial pass."
+  },
+  {
+   "family": "grid",
+   "verdict": "NOT-READY",
+   "first_failing_link": "reachable -- grid.create reaches no renderer. The live route is a DIFFERENT verb: GridPlanToolHandler dispatches grid.add (routed by the initBusHandlers.ts:275 legacy bridge) while the grid plugin's own tool.ts dispatches grid.create (the PRYZM3 CreateGridHandler).",
+   "c11_matrix_claim": "NO ROW. S11.11 prose claims 'Both paths are wired so grid creation is not broken.'",
+   "refutes_matrix": true,
+   "seven_facts": {
+    "authored": "YES",
+    "dispatchable": "YES",
+    "reachable": "NO",
+    "renders_3d": "NO",
+    "renders_plan": "NO",
+    "persists": "NO",
+    "exports": "NO"
+   },
+   "note": "S11.11 REFUTED: 'both paths are wired' is FALSE -- grid.create reaches no renderer, and grid.created is one of the 9 ORPHAN CHANNELS check-mirror-reachability names. TWO RIVAL WRITE PATHS FOR ONE CONCEPT is itself a C84 EI-9 breach. CONFIRMS G1. EVIDENCE CORRECTION: the row's claim that 'the single production call site of runtime.tools.activate is chatPlacementActivation.ts:379' is REFUTED -- there are THREE (that one, CreateRailPanel.ts:126, plugins/wall/src/contributions.ts:68). The corrected enumeration still supports reachable=NO: CreateRailPanel's 30 _activateTool call sites never name grid, structural or dimension."
+  },
+  {
+   "family": "handrail",
+   "verdict": "PRODUCTION-READY (create chain)",
+   "first_failing_link": "NONE -- authored -> dispatchable -> reachable -> renders_3d -> renders_plan -> persists -> exports all hold, and every link was read rather than inferred. The first thing that DOES fail is OUTSIDE the create chain: the UPDATE verbs.",
+   "c11_matrix_claim": "Row **Handrail** -- 'geometry-free payload' / 'No bridge' / VDT+bimManager 'no bridge -- N/A' / '3D via bus' NO / Status 'LEGACY-ONLY'.",
+   "refutes_matrix": true,
+   "seven_facts": {
+    "authored": "YES",
+    "dispatchable": "YES",
+    "reachable": "YES",
+    "renders_3d": "YES",
+    "renders_plan": "YES",
+    "persists": "YES",
+    "exports": "YES"
+   },
+   "note": "FIVE OF SEVEN CELLS REFUTED. (1) The CEB payload is not geometry-free -- CommandEventBridge.ts:1110-1120 forwards id, path, height, diameter, shape, hostId, materialId. (2) The bridge EXISTS -- initTools.ts:2575 S-FT-HANDRAIL, registration log at :2679. (3) VDT registered at :2672. (4) bimManager registered at :2673. (5) 3D DOES build from the bus. C11 S0.0 (2026-08-18) already recorded this and the matrix twenty lines away still says otherwise. CITATIONS CORRECTED: `handrailStore.add({` is at initTools.ts:2639 (:2641 is `type: 'handrail',`), and 'handrail' is on ViewDependencyTracker.ts:48, not :47."
+  },
+  {
+   "family": "lift",
+   "verdict": "PARTIAL",
+   "first_failing_link": "renders_plan (the CABIN only) -- the parent id IS registered in VDT + bimManager (:1705-1706) and the enclosure walls / landing doors / voided slabs all project, but the cabin has NO plan symbol builder anywhere (grep -> 0 hits) and 'liftPart' is absent from GEOMETRY_ELEMENT_TYPES. The ENCLOSURE is complete on every link up to exports.",
+   "c11_matrix_claim": "NO ROW for Lift. The nearest thing is the Stair row, a different family. S11.2 checklist step 5 ('add xxx to GEOMETRY_ELEMENT_TYPES if it has plan-view geometry') was not done, and step 6 ('update this table') was not done at all.",
+   "refutes_matrix": true,
+   "seven_facts": {
+    "authored": "YES as code / NO as an L0 record",
+    "dispatchable": "YES",
+    "reachable": "YES",
+    "renders_3d": "YES",
+    "renders_plan": "PARTIAL",
+    "persists": "YES",
+    "exports": "NO"
+   },
+   "note": "THE FAMILY'S HEADLINE DEFECT IS AT 'authored': lift is an element family with NO defineElement and NO L0 schema. `grep -rhoE \"defineElement\\('[a-zA-Z-]+'\" packages/schemas/src | sort -u` -> 30 kinds, no 'lift', no 'liftPart'; `ls packages/schemas/src/elements/` -> 33 files, no Lift.ts, no LiftPart.ts; SCHEMA_REGISTRY (registry.ts:39-68) -> 28 keys, neither. What exists instead is a HAND-WRITTEN z.object AT L2 -- packages/geometry-lift/src/LiftCompoundTypes.ts:102 (LiftCompoundSchema) and LiftPartTypes.ts:173 (LiftPartSchema). The BRANDS are at L0 (Id.ts:99 / :187-188 / :238-239) so createId('lift') works. CONFIRMS the brief's G3. Do NOT conflate with the LOD-200 MASSING lift, which is packages/geometry-lift/src/LiftStore.ts under storeRegistry key 'verticalCirculation' -- a different store, a different record."
+  },
+  {
+   "family": "liftPart",
+   "verdict": "PARTIAL",
+   "first_failing_link": "renders_plan -- NO. The cabin parts have no plan symbol builder and 'liftPart' is absent from GEOMETRY_ELEMENT_TYPES.",
+   "c11_matrix_claim": "NO ROW for liftPart or for lift. S-FT-LIFT added a bridge and S-LIFT94 added the undo road to the same builder; the matrix was not updated either time.",
+   "refutes_matrix": true,
+   "seven_facts": {
+    "authored": "YES as code / NO as an L0 record",
+    "dispatchable": "YES",
+    "reachable": "YES",
+    "renders_3d": "YES",
+    "renders_plan": "NO",
+    "persists": "YES",
+    "exports": "UNVERIFIED"
+   },
+   "note": "DELIBERATE, DOCUMENTED STORE-ONLY EXEMPTION -- not an orphan. PluginRegistry.ts:517-525: 'NO HANDLERS, DELIBERATELY ... a cabin part is created and destroyed ONLY as part of a lift compound (C104 S2), so lift.create owns the only write path. Minting a liftPart.create would be a second, rival way to produce a car ceiling with no car around it.' THE BRIEF'S PREMISE ('appears ONLY in ALL_PLUGINS + ELEMENT_PLUGIN_IDS + STORE_ONLY_PLUGIN_IDS') IS TOO NARROW: it also appears in the L0 Id brand union (Id.ts:108/188/239), snapshotFamilyCoverage (:155), ProjectSerializer (:1516/:1650 -- it is PERSISTED under key liftParts), the lift undo adapter, and as a typed sub-array on the lift.created payload. Five more registries than the premise names, and one of them is the persistence format. The schema split is written down at Id.ts:113-127; it is not an oversight."
+  },
+  {
+   "family": "lighting",
+   "verdict": "PARTIAL",
+   "first_failing_link": "renders_plan -- the last link before it (renders_3d) holds. 'lighting' is absent from GEOMETRY_ELEMENT_TYPES (ViewDependencyTracker.ts:42-49) and the S-FT-LIGHTING bridge calls bimManager.registerElement (:2826) but NO viewDependencyTracker.registerElement anywhere -- the ONE .created bridge of fifteen that calls only half the pair.",
+   "c11_matrix_claim": "Row **Lighting** -- 'geometry-free payload' / 'No bridge' / store->bus 'Not audited' / 'Not in GEOMETRY_ELEMENT_TYPES' / VDT+bimManager 'no bridge -- N/A' / '3D via bus' NO / Status 'OUT-OF-SCOPE -- not a geometry element in current schema'.",
+   "refutes_matrix": true,
+   "seven_facts": {
+    "authored": "YES",
+    "dispatchable": "YES",
+    "reachable": "YES",
+    "renders_3d": "YES",
+    "renders_plan": "UNVERIFIED",
+    "persists": "YES",
+    "exports": "NO"
+   },
+   "note": "REFUTED ON 5 OF 7 CELLS; 1 CONFIRMED. (1) CEB:1225 forwards id + kind + origin -- the whole geometry LightingData needs. (2) initTools.ts:2832 registers a bridge, and check-mirror-reachability.ts uses lighting.create as its GREEN SATISFIABILITY CONTROL. (3) LightingStore.ts:88-92 dual-emits. Only the GEOMETRY_ELEMENT_TYPES cell survives. UNVERIFIED here is HONEST rather than an under-report: the family is ENUMERABLE (bimManager feeds level.childrenIds) but NOT DIRTY-MARKABLE."
+  },
+  {
+   "family": "plumbing",
+   "verdict": "PARTIAL",
+   "first_failing_link": "reachable -- for the DTO verb plumbing.create, whose plumbing.created channel has ZERO subscribers (one of the 9 orphan channels). The WORKING route plumbing.createFixture has NO failing link: its exports=NO is ADVERSARIALLY REFUTED -- readers/PlumbingReader.ts:48 -> 'IfcSanitaryTerminal', FragmentReader.ts invokes it under `if (this.stores.plumbingStore)`, ExportIFC.ts:38-58 passes plumbingStore, CoreElement.ts:91 maps plumbing -> IfcFlowTerminal.",
+   "c11_matrix_claim": "NO ROW. S11.11 prose only: the plan tool dispatched the PIPE verb for a FIXTURE and every fixture field was silently dropped; the fix is to dispatch plumbing.createFixture; 'no S-FT-PLUMBING bridge is needed'. All three CONFIRMED.",
+   "refutes_matrix": true,
+   "seven_facts": {
+    "authored": "YES",
+    "dispatchable": "YES",
+    "reachable": "YES (createFixture) / NO (create)",
+    "renders_3d": "YES",
+    "renders_plan": "YES",
+    "persists": "YES",
+    "exports": "YES"
+   },
+   "note": "REFUTES the brief's G1 claim that plumbing is 'dispatchable but invisible'. renders_plan holds by a STORE-DRIVEN mechanism rather than by registration: PlumbingPlanSymbolBuilder.inject() reads storeRegistry.getStoreForType('plumbing') then iterates store.getAll(), never consulting childrenIds; injected at EdgeProjectorService.ts:3980. There is NO plumbing bridge in initTools at all and the family still projects -- which is why 'has an initTools bridge' is the wrong question to ask of a family. TWO RIVAL CREATE VERBS for one concept is a C84 EI-9 question."
+  },
+  {
+   "family": "pool",
+   "verdict": "PARTIAL",
+   "first_failing_link": "renders_plan (the WATER BODY only) -- the basin walls and the floor slab project correctly (both in GEOMETRY_ELEMENT_TYPES, both VDT+bimManager registered); the water has no plan symbol builder and 'water' is not in GEOMETRY_ELEMENT_TYPES, stated by initTools.ts:1965-1968 itself. If the water is scoped out, the first failing link is exports.",
+   "c11_matrix_claim": "NO ROW for Pool and none for Water. Pool acquired a full CEB case plus FOUR channels and the matrix has no row.",
+   "refutes_matrix": true,
+   "seven_facts": {
+    "authored": "YES",
+    "dispatchable": "YES",
+    "reachable": "YES",
+    "renders_3d": "YES",
+    "renders_plan": "PARTIAL",
+    "persists": "YES",
+    "exports": "NO"
+   },
+   "note": "REFUTES the brief's G1: pool IS reached. TWO STALE IN-CODE COMMENTS FOUND, both of the kind a later reader would action: CommandEventBridge.ts:1436-1441 (inside the balcony case) asserts pool.create has NO case here and prints the pattern to prove it -- re-run 2026-08-29 with that exact pattern returns RC=0 and ONE match at :1871; and CommandEventBridge.ts:2216 (the default arm) carries a second stale claim."
+  },
+  {
+   "family": "roof",
+   "verdict": "PRODUCTION-READY (create chain)",
+   "first_failing_link": "NONE on the create chain. The UPDATE chain fails at renders_3d for 6 of 12 verbs (B2-ROOF-03).",
+   "c11_matrix_claim": "Row **Roof** -- all six cells individually CONFIRMED, no cell refuted, Status FULL.",
+   "refutes_matrix": true,
+   "seven_facts": {
+    "authored": "YES",
+    "dispatchable": "YES",
+    "reachable": "YES",
+    "renders_3d": "YES",
+    "renders_plan": "YES",
+    "persists": "YES",
+    "exports": "YES"
+   },
+   "note": "'FULL' is over-broad: the matrix has no column for MATERIAL FIDELITY through the CEB (materialId / materialColor are dropped, B2-ROOF-01), none for update mirroring (2 of 12), and none for the 3-D tool's creation path (RoofTool.ts:398 goes through commandManager, not the bus). NOTE FOR THE WHOLE AUDIT: THE SEVEN-FACT CHAIN HAS NO FIDELITY AXIS -- a family can read 7/7 while silently dropping the user's material choice at the bridge."
+  },
+  {
+   "family": "room (plugins/rooms)",
+   "verdict": "PARTIAL",
+   "first_failing_link": "renders_plan -- every earlier link holds AND every later one holds too, which is what makes this row interesting: rooms persist and export cleanly while the plan-view INVALIDATION link is the single hole. 'room' is absent from GEOMETRY_ELEMENT_TYPES.",
+   "c11_matrix_claim": "Row **Room** -- 'N/A (room derived, not tool-created)' for the bridge column, 'N/A (derived, not tool-created)' for VDT+bimManager, Status 'Derived -- redetected from walls/slabs'.",
+   "refutes_matrix": true,
+   "seven_facts": {
+    "authored": "YES",
+    "dispatchable": "YES",
+    "reachable": "YES",
+    "renders_3d": "YES",
+    "renders_plan": "UNVERIFIED",
+    "persists": "YES",
+    "exports": "YES"
+   },
+   "note": "REFUTED ON 3 OF 7 CELLS. 'Room derived, not tool-created' is FALSE TWICE OVER: RoomPlanToolHandler.ts:114 is a USER-DRAWN room polygon dispatching room.create, and CreateRoom.ts's own header names it 'the plan-view room tool's SOLE creation path'; RoomTool.ts:224/387 is the 3-D equivalent. S11.11 states it more carefully ('room.create exists for explicit creation but the dominant path is auto-detection'), so THE MATRIX IS AGAIN THE WRONG HALF OF ITS OWN CONTRACT. REFUTES the brief's G1: room is reached. room.created is nonetheless one of the 9 orphan channels."
+  },
+  {
+   "family": "section-view",
+   "verdict": "NOT-READY",
+   "first_failing_link": "reachable",
+   "c11_matrix_claim": "NO ROW. Weaker as a doc-conflict than water / liftPart / bathroomPod -- a section is arguably a VIEW, not an element -- but section-view IS in ELEMENT_PLUGIN_IDS and DOES own a create verb, so the contract that governs the element-creation pipeline should say which of the two it is, and it says nothing.",
+   "refutes_matrix": true,
+   "seven_facts": {
+    "authored": "YES",
+    "dispatchable": "YES",
+    "reachable": "NO",
+    "renders_3d": "NO",
+    "renders_plan": "NO",
+    "persists": "NO",
+    "exports": "NO"
+   },
+   "note": "Also one of the 3 DECLARED persistence losses (L-11524) the snapshot gate reports at baseline 3. The classification question is load-bearing: until the contract rules, no gate can be written that would ever be satisfiable for this family."
+  },
+  {
+   "family": "selection",
+   "verdict": "NOT-READY",
+   "first_failing_link": "dispatchable",
+   "c11_matrix_claim": "NO ROW -- and correctly so, since selection is not an element. The measurement neither confirms nor refutes the matrix here.",
+   "refutes_matrix": false,
+   "seven_facts": {
+    "authored": "YES",
+    "dispatchable": "NO",
+    "reachable": "NO",
+    "renders_3d": "NO",
+    "renders_plan": "NO",
+    "persists": "NO",
+    "exports": "NO"
+   },
+   "note": "A TOTAL DISPATCH FAILURE SITTING BEHIND A GREEN PLUGIN SUITE. The gap is not the matrix -- it is that there is NO composition-root reachability test for this family, which is exactly what let the failure hide. Misclassified into ELEMENT_PLUGIN_IDS (census: IN_ELEMENT_PLUGIN_IDS_but_no_verb_and_no_schema, with section-view)."
+  },
+  {
+   "family": "slab",
+   "verdict": "PARTIAL",
+   "first_failing_link": "reachable -- READBACK-NEGATIVE against the AUTHORITATIVE store. Probe P-3 on the real composed bus: `slab.create outcome = OK`, then `authoritative slabStore.getById(<id>) = undefined`, with the engine attached via the REAL projectContext. Independently pinned by composedBusElementReadback.test.ts A-4 and enumerated in UNMIRRORED_KINDS (authoritativeElementMirror.ts).",
+   "c11_matrix_claim": "Row **Slab** -- slab.create + slab.batch.create, S-FT1, SlabStore.add(), 'slab', Rev 4, 3D via bus, Status FULL.",
+   "refutes_matrix": true,
+   "seven_facts": {
+    "authored": "YES",
+    "dispatchable": "YES",
+    "reachable": "NO",
+    "renders_3d": "NO",
+    "renders_plan": "NO",
+    "persists": "YES",
+    "exports": "YES"
+   },
+   "note": "REFUTED ON CELL 1, AND THEREFORE ON STATUS. The CEB case (CommandEventBridge.ts:618-651) reads `polygon` and NEVER `boundary` -- so `slab.create {boundary}`, a payload CreateSlabPayload EXPLICITLY ACCEPTS at :101 and that PreviewManager.ts:333 ACTUALLY SENDS, emits slab.created with polygon:undefined and no boundary field at all. VDT (:2400) and bimManager (:2401) are BOTH downstream of the `!ev.polygon || !ev.id` early return, so every payload shape that fails 3D also fails plan: exportForView() returns 0 elements and Canvas2D is BLANK. The family renders correctly on the {polygon} shape -- this is a SHAPE-CONDITIONAL SILENT FAILURE, not a dead family."
+  },
+  {
+   "family": "stair",
+   "verdict": "PRODUCTION-READY (create chain)",
+   "first_failing_link": "NONE for the creation chain -- all seven hold. The chain holds THROUGH A LEGACY commandManager ROUTE (bus entry -> initBusHandlers S-E.5.4 -> CreateStairCommand).",
+   "c11_matrix_claim": "Row **Stair** -- CEB 'not needed (see S11.3)' / initTools 'not needed' / StairStore.add() OK / plan-tracked 'stair' / VDT+bimManager 'via CreateStairCommand.execute() (CreateStairCommand.ts:201)' / 3D via bus 'bus-entry -> legacy CreateStairCommand' / Status PARTIAL.",
+   "refutes_matrix": true,
+   "seven_facts": {
+    "authored": "YES",
+    "dispatchable": "YES",
+    "reachable": "YES",
+    "renders_3d": "YES",
+    "renders_plan": "YES",
+    "persists": "YES",
+    "exports": "YES"
+   },
+   "note": "MEASUREMENT CONFIRMS EVERY CELL IN SUBSTANCE -- the ONE matrix row whose PARTIAL is honest, and the only row that does not overstate. TWO DETAIL REFUTATIONS: (a) the cited line is WRONG -- `ctx.bimManager.registerElement(stairId, baseLevelId)` is at CreateStairCommand.ts:340, not :201, and it runs BEFORE :438 `stairStore.add(stair)`; (b) the cell names bimManager where the mechanism is broader. renders_plan is sound because exportForView's PLAN branch enumerates level.childrenIds ONLY, so bimManager alone suffices for ENUMERATION -- the row's 'VDT registration is ABSENT, so that half is UNVERIFIED' is correctly scoped rather than an overclaim."
+  },
+  {
+   "family": "structural",
+   "verdict": "NOT-READY",
+   "first_failing_link": "reachable",
+   "c11_matrix_claim": "NO ROW. S11.14 (:1531) instead claims comprehensive *.move coverage naming structural, and separately lists structural.setDimensions.",
+   "refutes_matrix": true,
+   "seven_facts": {
+    "authored": "YES",
+    "dispatchable": "YES",
+    "reachable": "NO",
+    "renders_3d": "NO",
+    "renders_plan": "NO",
+    "persists": "NO",
+    "exports": "NO"
+   },
+   "note": "S11.14 REFUTED by the same mechanism as dimension: structural.move EXISTS and is a DELIBERATELY DEAD VERB (mirror-debt.json, kind 'refuses') whose canExecute cannot return valid on any path because there is no structural runtime. EXISTENCE COUNTED AS CAPABILITY, in a contract clause whose whole purpose is to assert capability. Also one of the 3 DECLARED persistence losses (L-11523). structural.created is one of the 9 orphan channels. CONFIRMS the brief's G1 for this family."
+  },
+  {
+   "family": "wall",
+   "verdict": "PRODUCTION-READY (create chain)",
+   "first_failing_link": "NONE on the create chain -- all seven facts YES, and this is the ONLY row in the audit whose registration proof is D6-clean. The first failure in the FAMILY is on the UPDATE chain: 7 wall verbs are UNMIRRORED in tools/ga-gate/mirror-debt.json -- they commit, report success and change nothing on screen.",
+   "c11_matrix_claim": "Row **Wall** -- wall.create + wall.batch.create, S-P2.1, WallStore.add(), 'wall', Rev 3, 3D via bus, Status FULL.",
+   "refutes_matrix": true,
+   "seven_facts": {
+    "authored": "YES",
+    "dispatchable": "YES",
+    "reachable": "YES",
+    "renders_3d": "YES",
+    "renders_plan": "YES",
+    "persists": "YES",
+    "exports": "YES"
+   },
+   "note": "CONFIRMED ON ALL SEVEN CELLS -- the reference row. BUT THE MATRIX'S COLUMN LEGEND IS WRONG EVEN THOUGH THE WALL CELL IS RIGHT: the legend defines the VDT+bimManager column as 'bridge calls registerElement AFTER LegacyStore.add() (Bridge Invariant 7)'. Measured, wall calls them BEFORE add (initTools.ts:1304 / :1306, S-G3-STALE-FIX 2026-05-24) and so does curtain-wall (:2092 / :2094, S-G3-STALE-FIX-CW). FOLLOWING THE LEGEND LITERALLY WOULD REINTRODUCE THE S-G3-STALE DEFECT. Proof: composedBusElementReadback.test.ts:70-78 calls the REAL composeRuntime({audit, canvas:null, bootstrapFn:bootstrapWithEverything}), constructs no store, asserts authoritative('wall') IS the @pryzm/geometry-wall/store module singleton BY IDENTITY, and A-3 dispatches wall.create then reads thickness=0.3 / height=2.9 / baseLine[1].x=5 back out of it. NOTE: rt.stores.wall is DELIBERATELY undefined (asserted at test line 104) -- rt.stores and ctx.stores are DIFFERENT OBJECTS, and conflating them is exactly what sank balcony."
+  },
+  {
+   "family": "water",
+   "verdict": "PARTIAL",
+   "first_failing_link": "renders_plan -- DISPUTED. The row says NO (no plan symbol builder, 'water' not in GEOMETRY_ELEMENT_TYPES). The adversarial pass records this as a CANDIDATE OVER-REPORT: the S-FT-WATER bridge DOES register both spatial authorities (initTools.ts:1982 VDT, :1984 bimManager), so the water id IS in level.childrenIds, and WaterMeshBuilder tags elementType 'water' (:153) with NO skipInPlan. ONE measurement closes it (see the unverified register).",
+   "c11_matrix_claim": "NO ROW. S-FT-WATER added a bridge (S-POOL95, L-9941) and the matrix was not updated. The matrix is exactly the artefact a reader consults to answer 'does water have a bridge?', and it answers NO by silence while CommandEventBridge.ts:2051 answers YES.",
+   "refutes_matrix": true,
+   "seven_facts": {
+    "authored": "YES",
+    "dispatchable": "YES (via pool.create)",
+    "reachable": "YES",
+    "renders_3d": "YES",
+    "renders_plan": "NO -- DISPUTED",
+    "persists": "YES",
+    "exports": "UNVERIFIED"
+   },
+   "note": "THE BRIEF'S G2 IS REFUTED. 'water uniquely has an initTools bridge but NO CEB case -- a bridge listening for an event nothing emits' is FALSE. The emitter is CommandEventBridge.ts:2051 `events.emit('water.created', {`, living INSIDE `case 'pool.create':` (:1871). There is no `case 'water.create'` because there is no water.create COMMAND to have a case for: PluginRegistry.ts:329-337 states 'NO HANDLERS, DELIBERATELY ... minting a water.create here would be a second, rival way to produce a water body with no pool around it -- the exact defect ADR-0124 S4 exists to prevent.' Searching for the CAPABILITY (who emits <x>.created) finds it; searching for the NAME (case 'water.create') cannot. HAD G2 BEEN ACTIONED AS WRITTEN, the fix would have been to DELETE A LIVE RENDER BRIDGE or to MINT THE RIVAL VERB ADR-0124 S4 forbids -- the imagined gap's fix was strictly worse than the measured state. D2 in its purest form."
+  },
+  {
+   "family": "window",
+   "verdict": "PARTIAL",
+   "first_failing_link": "dispatchable -- window.create refuses every well-formed payload by construction: CreateWindow.ts:93 canExecute, :94-95 validatePayload, then :98 `return { valid:false, reason: WINDOW_CREATE_UNREACHABLE }`. window.batch.create executes but writes the detached DTO store and, on the probe's own measurement, is never dispatched from any surface. The family IS reachable -- through wall.opening.create.",
+   "c11_matrix_claim": "NO 'Window' row. The single 'Wall Opening (Door/Window)' row -- Status FULL, `OpeningStore.add()`, VDT+bimManager 'N/A'.",
+   "refutes_matrix": true,
+   "seven_facts": {
+    "authored": "YES",
+    "dispatchable": "NO",
+    "reachable": "YES",
+    "renders_3d": "YES",
+    "renders_plan": "YES",
+    "persists": "YES",
+    "exports": "YES"
+   },
+   "note": "CONFIRMED for CEB, initTools, plan-tracked and 3D-via-bus. REFUTED for `OpeningStore.add()` -- zero `openingStore.add(` calls in initTools.ts; the bridge writes WallStore.addOpening + windowStore.add. PARTIALLY REFUTED for the VDT+bimManager 'N/A': the LEGACY path registers (CreateWallOpeningCommand.ts:182) and the BUS path does not, so one cell cannot cover both. renders_plan holds via windowPlanSymbolBuilder.inject at EdgeProjectorService.ts:3992 -- a SIBLING of the mesh loop, and NativeElementMeshExporter.ts:348 says so in production source. The FULL verdict is dated 2026-05-19 and pre-dates S-FIX-CREATE."
+  }
+ ],
+ "seven_separate_facts": {
+  "total_families": 29,
+  "authored": 29,
+  "dispatchable": 26,
+  "reachable": 21,
+  "renders_3d": 21,
+  "renders_plan": 15,
+  "persists": 21,
+  "exports": 13
+ },
+ "seven_facts_commentary": {
+  "headline": "29 subjects. 29 / 26 / 21 / 21 / 15 / 21 / 13. SEVEN DIFFERENT NUMBERS, AND THE FALL FROM 29 TO 13 IS THE PRODUCT OF THIS AUDIT.",
+  "authored_29": "AUTHORED = 29 of 29. Every subject in the measured census has a plugin, a store and handlers on disk. NOT ONE FINDING IN THIS AUDIT IS 'THE CAPABILITY DOES NOT EXIST'. That is the single most important sentence here, because it determines the disposition of every remediation: of 27 findings, 10 are WIRE, 9 REPLACE, 6 DOCUMENT and only 2 REMOVE. TWO OF THE 29 ARE AUTHORED IN CODE BUT NOT AS AN L0 RECORD -- lift and liftPart carry a hand-written z.object at L2 instead of a defineElement, which is why the schema census reads 30 kinds while the family census reads 29 subjects.",
+  "dispatchable_26": "DISPATCHABLE = 26. THE THREE THAT ARE NOT ARE NOT BROKEN -- TWO OF THEM ARE DELIBERATELY REFUSING. door.create (CreateDoor.ts:154) and window.create (CreateWindow.ts:98) refuse EVERY well-formed payload BY CONSTRUCTION, because the real opening path is wall.opening.create and the repo chose to make the rivals refuse rather than leave two write paths. Reading this drop as a defect would restore the rival. The third, selection, is a genuine total dispatch failure sitting behind a green plugin suite. USER MEANING: 26 is the right number and the gap is a design decision in two cases out of three.",
+  "reachable_21": "REACHABLE = 21. THE FIVE-FAMILY DROP FROM DISPATCHABLE IS THE FIRST REAL ONE, and it is where the product stops answering a gesture. grid, structural, dimension, section-view and slab each have a schema, a store, a handler and a CommandEventBridge case -- and no user gesture arrives at them, or arrives and lands nowhere. dimension is the sharpest: dimensionTool is READ at PluginRegistry.ts:1051 and ASSIGNED NOWHERE, so the 'not ready -- engine not yet initialised' branch is PERMANENT rather than a startup race. slab is different and worse in one way: it IS reached, but slab.create {boundary} -- a shape the payload type accepts and PreviewManager.ts:333 actually sends -- lands in no authoritative store. USER MEANING: the user clicks, the app reports success, and nothing exists. A successful creation and a silent refusal are the same number of pixels. TWO SUBJECTS (ceiling, curtain-wall) are UNVERIFIED here rather than NO -- there is no authoritative store to read back from, so the honest answer is 'not measurable headlessly', not 'broken'.",
+  "renders_3d_21": "RENDERS 3D = 21 -- the SAME 21 as reachable, and the identity is not a coincidence. In this codebase, reaching the authoritative store and appearing in the viewport are the same event: the store's add() emits, and a builder listens. Nothing in the measured set reaches a store and then fails to draw. USER MEANING: the 3-D viewport is the honest surface. If a family arrives in the store, the user sees it. What the number hides is FIDELITY, not presence -- roof drops materialId and materialColor through the bridge (B2-ROOF-01) and still counts as YES, because the seven-fact chain HAS NO FIDELITY AXIS. A family can read 7/7 while silently discarding the user's material choice.",
+  "renders_plan_15": "RENDERS PLAN = 15. THE NARROWEST FACT IN THE AUDIT, AND THE SIX-SUBJECT DROP FROM 3-D IS THE MOST USER-VISIBLE GAP THE PRODUCT HAS. A BIM tool that draws in 3-D and not in plan is not a BIM tool -- plan is where drawings are issued. The mechanism is not one bug but a membership list: GEOMETRY_ELEMENT_TYPES (ViewDependencyTracker.ts:42-49). 'room', 'lighting', 'water', 'liftPart', 'balcony' and 'boundaryLine' are absent from it in one spelling or another. The consequences differ in kind: liftPart and the pool's water body have NO plan symbol builder at all (the cabin and the water simply are not drawn); lighting's bridge calls bimManager but NOT viewDependencyTracker -- the ONE bridge of fifteen calling half the pair, so a light is enumerable but not dirty-markable; slab fails plan for exactly the payload shapes that fail 3-D, because VDT (:2400) and bimManager (:2401) both sit downstream of the same `!ev.polygon || !ev.id` early return. FOUR SUBJECTS ARE UNVERIFIED HERE and one (water) is DISPUTED between the family row and the adversarial pass -- this is the least settled column in the table and the one most worth a browser probe. A CRITICAL CORRECTION TO THE AUDIT'S OWN METHOD: the brief's rule 'missing EITHER registerElement means exportForView returns 0 elements' IS TOO STRONG. exportForView's PLAN branch builds its set from levels.flatMap(l => l.childrenIds) -- bimManager ONLY. viewDependencyTracker feeds targeted dirty-marking; its absence DEGRADES to the S-G3-STALE fallback, it does not empty the export. And plan SYMBOL injection (EdgeProjectorService.ts:3936) is a SIBLING of the mesh loop, not a child, so door, window, furniture and plumbing plan symbols do not require the family to be in childrenIds at all. Three admissible mechanisms, not one.",
+  "persists_21": "PERSISTS = 21, and this column contains the audit's single most dangerous finding. THE NUMBER IS NOT THE POINT -- THE SILENCE IS. balcony reads persists=NO through a channel that DOES NOT EXIST on the composed runtime (ProjectSerializer.ts:1519 reads window.runtime.stores.balcony; composeRuntime's StoresSlot has no balcony key and no index signature), while snapshotFamilyCoverage.ts:161 DECLARES it status:'persisted' -- so balcony is not in UNPERSISTED_FAMILY_KEYS and the C84 EI-6 loss loop NEVER NAMES IT. A user authors a balcony, sees it drawn, is told the project saved, and the balcony is gone on reload with no console line. boundary-line is the same shape one layer along: the SAVE half works and the RESTORE sits in the legacy branch of a default-false path (ProjectLoader.ts:765 / _useImportCommandPath returns TRUE by default), so the data is written into the file and never read back. SAVED AND NEVER RESTORED IS STRICTLY WORSE THAN NEVER SAVED. Contrast the THREE HONEST LOSSES -- bathroomPod (L-11527), section-view (L-11524), structural (L-11523) -- which are DECLARED and which the gate names at baseline 3. A declared loss is a product decision; an undeclared one is data destruction. And the gate that blesses all of this exits 0: 'NOT ESTABLISHED HERE: that any family ROUND-TRIPS.'",
+  "exports_13": "EXPORTS = 13 of 29 -- LESS THAN HALF, AND IT IS THE END OF THE CHAIN FOR TWICE AS MANY FAMILIES AS ANY OTHER FACT. USER MEANING: the model is richer than anything the user can hand to a consultant. Annotations and dimensions do not export AT ALL, so a sheet exported to PDF carries no dimensions -- a documentation family whose entire purpose does not survive the export. Floor finishes, ceilings, balconies, pools, water, lifts and boundary lines are all absent from IFC. THE COLUMN IS ALSO THE AUDIT'S OWN WORST-MEASURED ONE, and the reason is instructive: TWO EXPORTERS EXIST FOR ONE CONCEPT. packages/file-format/src/export/ifc (the one the Export IFC button runs, via initUI.ts) carries per-family Readers including Furniture and Plumbing; plugins/ifc-export/src/exporters/IFC4X3Exporter.ts reads snapshot.walls/slabs/doors/windows/columns/beams/rooms only. Two family rows searched only the plugin subtree and reported NO for families that DO export -- a search by DIRECTORY NAME rather than by CAPABILITY. The floor row, which enumerated the right directory, is the control case, and its own printed listing contained the FurnitureReader and PlumbingReader that refuted its siblings. The refuting evidence was already inside this audit. CRUCIALLY: 14 families read exports=NO and THERE IS NO SINGLE PLACE THAT SAYS WHICH OF THOSE 14 ARE INTENTIONAL. A setting-out line arguably should not be an IfcElement; a dimension certainly should reach a PDF.",
+  "the_gaps_together": "READ THE SEVEN AS A DESCENT AND THE PRODUCT'S SHAPE APPEARS: 29 authored -> 26 dispatchable (2 refusals BY DESIGN, 1 real failure) -> 21 reachable (5 gestures that go nowhere) -> 21 in 3D (the viewport is honest: what reaches the store is drawn) -> 15 in plan (the drawing surface is the narrowest, and a BIM tool is judged there) -> 21 persisting (the number RISES, which is the tell: some families that never draw still save, and two that draw perfectly do not survive reload) -> 13 exporting (the model outruns the deliverable by more than 2:1). THE RISE FROM 15 TO 21 BETWEEN PLAN AND PERSIST IS THE SINGLE MOST DIAGNOSTIC MOVEMENT IN THE TABLE. These are not one pipeline with a leak at a known point; they are seven independent memberships -- a CEB case, a tool activation, a GEOMETRY_ELEMENT_TYPES row, a bimManager registration, a StoresSlot key, a snapshot field, an IFC Reader -- and a family is in each or not, independently. THAT is why the numbers do not match and why no single fix moves more than one of them.",
+  "what_the_brief_got_wrong": "THE BRIEF'S OWN HEADLINE OVER-REPORTED THREE GAPS, AND EVERY ONE OF THE THREE PROPOSED FIXES WAS WORSE THAN THE MEASURED STATE. G1 named EIGHT dispatchable-but-invisible families; FIVE (room, plumbing, annotation, balcony, pool) are reached, each by a mechanism 'has an own-name initTools bridge' cannot see -- member re-stamping onto members' channels, a store-driven plan symbol builder that never consults childrenIds, a separate render subsystem. G2 called water 'a bridge listening for an event nothing emits'; the emitter is CommandEventBridge.ts:2051 inside `case 'pool.create'`, and water owns no verb DELIBERATELY (ADR-0124 S4) -- actioning G2 would have deleted a live render bridge or minted the exact rival the ADR forbids. G3's premise that liftPart and bathroomPod are schema-less compound MEMBERS is half wrong: bathroomPod is a compound PARENT owning two verbs. D2 is not a stylistic preference. Three of the brief's own findings were name-shaped searches, and the fix each one implied would have made the product worse."
+ },
+ "ranked_findings": [
+  {
+   "id": "EC-01",
+   "severity": "P0",
+   "claim": "BALCONY IS DECLARED PERSISTED AND IS DESTROYED ON RELOAD, SILENTLY. ProjectSerializer.ts:1519 `readPluginStore('balcony')` reads `(window as {runtime?:{stores?:...}}).runtime?.stores?.['balcony']`. window.runtime is the composeRuntime handle (engineLauncher.ts:191 -- the ONE production assignment, typed PryzmRuntime), and composeRuntime's StoresSlot (packages/runtime-composer/src/types.ts ~:2896-3040) declares elements, boundaryLine?, bathroomPod?, lift?, liftPart?, pool?, water?, hydrate, registerHydrator, viewState, project -- NO balcony, and NO index signature. The read is undefined, readPluginStore returns undefined, `balconies` is never written. snapshotFamilyCoverage.ts:161 declares status:'persisted', so balcony is NOT in UNPERSISTED_FAMILY_KEYS and the C84 EI-6 loss loop at ProjectSerializer.ts:1533 never names it.",
+   "disposition": "WIRE",
+   "disposition_justified_from_measured_state": "D2: the store, the handlers, the CEB fan-out, the member bridges and the snapshot field ALL EXIST and are exercised. Nothing is absent. The single missing edge is composeRuntime's adoption of the balcony store into StoresSlot -- the identical edge that was already added for boundaryLine, bathroomPod, lift, liftPart, pool and water in the S-BATH102 adoption block. REPLACE would mint a rival persistence path; REMOVE would delete a working family.",
+   "families_affected": [
+    "balcony"
+   ],
+   "acceptance_command_and_printed_number": "npx vitest run --root apps/editor apps/editor/src/engine/__tests__/snapshotFamilyRoundTrip.spec.ts -- ACCEPTANCE IS NOT 'green'. The spec must first be repaired to STOP assigning window.runtime (:140-144) and instead read the handle composeRuntime produced; the printed number that closes this is `saved.balconies.length === 1` from a serializer run whose window.runtime the TEST DID NOT BUILD. Independently: `node -e` over packages/runtime-composer/src/types.ts asserting the StoresSlot key count RISES from its current value by exactly 1 and that 'balcony' is among the keys.",
+   "contract_clause": "C84 EI-6 (a persistence loss must be NAMED, never silent) + C84 EI-9 (one authority per concept) + P1 (a reachability claim may only be made against composeRuntime()).",
+   "blocks_production": true,
+   "exact_edit": "packages/runtime-composer/src/composeRuntime.ts -- add 'balcony' to the S-BATH102 adoption block alongside bathroomPod, lift, liftPart, pool, water, boundaryLine. packages/runtime-composer/src/types.ts -- add `readonly balcony?: ...` to StoresSlot beside the six existing optional compound keys. apps/editor/src/engine/__tests__/snapshotFamilyRoundTrip.spec.ts:140-144 -- DELETE the `w.window.runtime = { stores: { ... } }` assignment; the test must read the composed handle, not construct it (D6)."
+  },
+  {
+   "id": "EC-02",
+   "severity": "P0",
+   "claim": "BOUNDARY-LINE IS SAVED AND NEVER RESTORED. The save half is real (snapshotFamilyCoverage.ts:149; ProjectSerializer.ts:206 declares boundaryLines?: any[]; :1470-1483 writes it). The restore -- ProjectLoader.ts Step 10c (:1628-1668), which dispatches boundaryLine.create per record -- sits in the LEGACY branch of the `if (useImportCmd) {...} else {...}` at :765, and `_useImportCommandPath()` (:3249-3272) returns TRUE by default (localStorage / VITE env overrides only). `grep -c 'boundaryLine' packages/command-registry/src/project/ImportProjectCommand.ts` -> 0.",
+   "disposition": "WIRE",
+   "disposition_justified_from_measured_state": "D2: the restore CODE EXISTS and is correct; it is stranded on a branch that production does not take. The fix is to teach the DEFAULT path (ImportProjectCommand) to restore boundaryLines, not to write a second restorer. REPLACE would produce exactly the rival-restore-path defect C84 EI-9 forbids.",
+   "families_affected": [
+    "boundary-line"
+   ],
+   "acceptance_command_and_printed_number": "grep -c 'boundaryLine' packages/command-registry/src/project/ImportProjectCommand.ts -- must print a NON-ZERO count, and a round-trip spec must print `restored.length === saved.boundaryLines.length` with _useImportCommandPath() left at its production default (NOT overridden by the test).",
+   "contract_clause": "C84 EI-6; C47 (project format).",
+   "blocks_production": true,
+   "exact_edit": "packages/command-registry/src/project/ImportProjectCommand.ts -- restore snapshot.boundaryLines through runtime.stores.boundaryLine, mirroring what ProjectLoader.ts:1628-1668 already does on the legacy branch. Do NOT copy the loop; move the single authority."
+  },
+  {
+   "id": "EC-03",
+   "severity": "P0",
+   "claim": "door.batch.create AND window.batch.create ARE DISPATCHABLE BUT DETACHED. Both are registered, validated and undoable, and both REPORT SUCCESS while writing a plugin DTO store that nothing renders, projects, persists or exports. They are the surviving members of a purged family: door.create and door.move were MADE TO REFUSE (CreateDoor.ts:154 DOOR_CREATE_UNREACHABLE) and door.setWidth/setHeight were REMOVED for the identical mechanism. window.create refuses identically at CreateWindow.ts:98. door.batch.create's own registration proof asserts the RIVAL object.",
+   "disposition": "REMOVE",
+   "disposition_justified_from_measured_state": "D2 applied honestly cuts the other way here. The capability is NOT absent and NOT merely unwired -- the family IS reachable and fully working through wall.opening.create (S-P2.3 bridge, initTools.ts:1530-1653, writing _legacyWallStoreForOpeningBridge.addOpening + doorStore.add + windowStore.add). WIRING the batch verbs would create a SECOND write path for openings, which is precisely what C84 EI-9 forbids and precisely why the repo already made the create/move siblings refuse. A verb that reports success and does nothing is worse than no verb at all: it consumes an undo slot and lies to the caller.",
+   "families_affected": [
+    "door",
+    "window"
+   ],
+   "acceptance_command_and_printed_number": "grep -rn \"door.batch.create\\|window.batch.create\" plugins apps packages --include=*.ts | grep -v node_modules -- must print 0 registration sites. Then `npx tsx tools/ga-gate/check-mirror-completeness.ts` must print a mirror-debt ledger row count REDUCED by the number of removed verbs, never increased.",
+   "contract_clause": "C84 EI-9; C11 S10.2 (bridge invariants); C16 (command authoring).",
+   "blocks_production": true,
+   "exact_edit": "Delete the door.batch.create and window.batch.create handler registrations and their handler files, and delete their mirror-debt.json rows. If a batch opening gesture is wanted, it must be `wall.opening.batch.create` on the ONE authority, not a second family verb."
+  },
+  {
+   "id": "EC-04",
+   "severity": "P0",
+   "claim": "check-single-compose.ts:216 PRINTS THE HARD-CODED STRING '0 rivals' WHILE THE SAME RUN ENUMERATES ONE. The gate body prints 'rival runtime factories: 1' and names apps/component-editor/src/app/familyEditorRuntime.ts:85 createFamilyEditorRuntime under 'Rival runtime factories (declared debt -- see MAX_RIVALS)'. RC=0. P1 IS A RATCHET AT 1, NOT A HARD ZERO, and CLAUDE.md quotes the false line.",
+   "disposition": "REPLACE",
+   "disposition_justified_from_measured_state": "The literal is not an unwired capability; it is a wrong instrument. A false green manufactured inside the measuring device is the exact defect class this audit exists to hunt, and it has already propagated into CLAUDE.md's P1 bullet.",
+   "families_affected": [
+    "ALL -- this is the instrument, not a family"
+   ],
+   "acceptance_command_and_printed_number": "npx tsx tools/ga-gate/check-single-compose.ts > log 2>&1; echo \"RC=$?\" -- the terminal line must print the COMPUTED rival count and the current value is 1, so the line must read '1 rival'. D3: the acceptance is the printed NUMBER agreeing with the enumeration above it, not RC=0.",
+   "contract_clause": "P1; D3 (RC=0 is not 0 violations).",
+   "blocks_production": false,
+   "exact_edit": "tools/ga-gate/check-single-compose.ts:216 -- replace the string literal '0 rivals' with the interpolated rival count already computed for the enumeration block. Then correct CLAUDE.md's P1 bullet from '1 definition / 0 rivals' to the measured '1 definition / 1 rival (ratchet, MAX_RIVALS)'."
+  },
+  {
+   "id": "EC-05",
+   "severity": "P0",
+   "claim": "THE MERGE-BLOCKING ga-gate JOB FAILS AT HEAD ON TEN GATES. run-all.ts:1162 sets anyFailed=true on exit 3 UNCONDITIONALLY and never absorbs it (S-RATCHET-EXCEEDED-IS-NEVER-DEBT, R7/L-836). Exit 3: check-cast-count (strict 11/3, masked by an early return), check-otel-spans (Zone B 66/52), check-layer-boundaries (105/102, 186/182, 123/113, 15/13 -- all four arms), check-command-naming (5/0), check-no-commandmanager (literal 12/0), check-graph-write-coverage (4/0), check-gate-subject-floors (7/0), check-property-rac-matrix (113 panel-visible cells / 66 SILENT). Exit 1: check-batch-creation-coverage, check-tool-activator-coverage (ARM A 4/0). CI IS RED ON main BY THE REPO'S OWN RULES.",
+   "disposition": "WIRE",
+   "disposition_justified_from_measured_state": "Every one of these gates is correctly configured and honestly failing. There is nothing to replace and nothing to remove -- the subjects must be fixed. S-RATCHET-EXCEEDED-IS-NEVER-DEBT: no remediation here may raise a ceiling or add a gate-debt entry, and gate-debt.json's .failing list is exactly ['check-no-commandmanager.ts','check-custom-event-apps.ts'] -- it cannot grow to absorb an exit 3 by design.",
+   "families_affected": [
+    "ALL"
+   ],
+   "acceptance_command_and_printed_number": "npx tsx tools/ga-gate/run-all.ts > log 2>&1; echo \"RC=$?\" -- and the printed per-gate table must show each of the ten at or below its EXISTING ceiling, with the ceilings unchanged from their values at HEAD 064a838e (diff .ga-gate/baselines/ and gate-debt.json to prove no ceiling moved).",
+   "contract_clause": "S-RATCHET-EXCEEDED-IS-NEVER-DEBT (run-all.ts:97-98); C01 S5.",
+   "blocks_production": true,
+   "exact_edit": "Ten separate code fixes, enumerated in EC-06 .. EC-13 below. NO edit to .ga-gate/baselines/*, NO edit to tools/ga-gate/gate-debt.json."
+  },
+  {
+   "id": "EC-06",
+   "severity": "P0",
+   "claim": "THREE FAMILIES ARE DISPATCHABLE AND GENUINELY INVISIBLE -- grid, structural, dimension. Each has a CEB `.create` case, an L0 schema and a store; each has reachable=NO and every downstream fact NO. Their `.created` channels are three of the NINE ORPHAN CHANNELS check-mirror-reachability enumerates (annotation.created, ceiling.layer-updated, dimension.created, floor.layer-updated, grid.created, plumbing.created, room.created, slab.layer-updated, structural.created). dimension is the sharpest: `dimensionTool` is READ at PluginRegistry.ts:1051 and ASSIGNED NOWHERE IN THE REPO, so the activator's else-branch is PERMANENT.",
+   "disposition": "WIRE",
+   "disposition_justified_from_measured_state": "D2 EXACTLY. All three are authored, schema'd, dispatchable and CEB-cased -- 'does not exist' is false, 'exists, nothing calls it' is true, and the two have OPPOSITE fixes. Ranking these as missing would authorise a rival implementation of a grid, a structural member and a dimension, which is strictly worse than the gap. NOTE grid additionally needs a DECISION, not just a wire: two rival write verbs exist (grid.add via the initBusHandlers.ts:275 legacy bridge, grid.create via CreateGridHandler) and C84 EI-9 permits exactly one.",
+   "families_affected": [
+    "grid",
+    "structural",
+    "dimension"
+   ],
+   "acceptance_command_and_printed_number": "npx tsx tools/ga-gate/check-mirror-reachability.ts -- the printed 'ledgered orphan channel(s)' count must fall from 9 to 6, and 'dispatched verb(s) reach a subscriber' must rise. Per family: grep -rn 'dimensionTool' apps packages plugins --include=*.ts | grep -v node_modules must print an ASSIGNMENT line, not only the three current read/comment lines.",
+   "contract_clause": "C11 S10.2; C84 EI-9 (grid's two rival verbs); D2.",
+   "blocks_production": true,
+   "exact_edit": "dimension: assign dimensionTool at the site PluginRegistry.ts:1051 reads it, or delete the activator branch and the verb together. structural: give structural.created an initTools subscriber, or record structural as intentionally headless with the same explicitness PluginRegistry.ts:329-337 uses for water. grid: pick ONE verb -- keep grid.create and delete the initBusHandlers.ts:275 grid.add bridge, or the reverse -- and update C11 S11.11, which currently says 'both paths are wired'."
+  },
+  {
+   "id": "EC-07",
+   "severity": "P0",
+   "claim": "THE BRIEF'S OWN G1 OVER-REPORTS BY FIVE FAMILIES, AND ACTIONING IT WOULD HAVE BUILT FIVE RIVALS. G1 named EIGHT 'dispatchable but invisible' families (room grid plumbing structural annotation dimension balcony pool). The per-family rows show FIVE OF THE EIGHT ARE REACHED, each by a route the 'has an initTools <x>.created bridge' test cannot see: room (RoomPlanToolHandler.ts:114 user-drawn polygon + RoomTool.ts:224/387), plumbing (PlumbingPlanSymbolBuilder reads storeRegistry.getStoreForType('plumbing') and iterates store.getAll(), never consulting childrenIds; injected at EdgeProjectorService.ts:3980), annotation (three live dispatchers plus AnnotationManager + PlanViewAnnotationRenderer), balcony (member re-stamping -- CEB:1422 emits slab.created / floor.created / handrail.created onto the MEMBERS' own channels), pool (a full CEB case plus four channels).",
+   "disposition": "DOCUMENT",
+   "disposition_justified_from_measured_state": "There is no code defect to fix in these five. The defect is in the MEASUREMENT PREDICATE: 'has an own-name initTools bridge' is not the same property as 'is reachable', and four DISTINCT correct render mechanisms exist (own-name bridge; member re-stamping onto members' channels; a store-driven plan symbol builder that bypasses childrenIds; a separate render subsystem). A gate keyed on the first would report the other three as broken forever.",
+   "families_affected": [
+    "room",
+    "plumbing",
+    "annotation",
+    "balcony",
+    "pool"
+   ],
+   "acceptance_command_and_printed_number": "Write the corrected predicate down before writing any gate: a family is REACHABLE if it satisfies ANY of the four named mechanisms. Acceptance: the sentence appears in C11 S10.2 and any new bridge gate cites it. NO number to print -- this is a doctrine correction.",
+   "contract_clause": "C11 S10.2; D2.",
+   "blocks_production": false,
+   "exact_edit": "docs/02-decisions/contracts/C11-ELEMENT-CREATION-PIPELINE.md S10.2 -- add the four admissible reachability mechanisms as a numbered list, and state that absence of an own-name initTools subscriber is NOT evidence of unreachability."
+  },
+  {
+   "id": "EC-08",
+   "severity": "P1",
+   "claim": "THE BRIEF'S G2 IS REFUTED AND ITS PROPOSED FIX WAS THE WORSE ONE. 'water uniquely has an initTools bridge but NO CEB case -- a bridge listening for an event nothing emits' is FALSE. The emitter is CommandEventBridge.ts:2051 `events.emit('water.created', {`, inside `case 'pool.create':` (:1871). There is no `case 'water.create'` because there is no water.create COMMAND: PluginRegistry.ts:329-337 -- 'NO HANDLERS, DELIBERATELY ... minting a water.create here would be a second, rival way to produce a water body with no pool around it -- the exact defect ADR-0124 S4 exists to prevent.'",
+   "disposition": "DOCUMENT",
+   "disposition_justified_from_measured_state": "Had G2 been actioned as written, the fix was either REMOVE (delete a live render bridge) or WIRE (mint the rival verb ADR-0124 S4 forbids). Both are strictly worse than the measured state. The residual real defect is that TWO IN-CODE COMMENTS ARE STALE and a later reader would action them.",
+   "families_affected": [
+    "water",
+    "pool"
+   ],
+   "acceptance_command_and_printed_number": "grep -nE \"^\\s+case 'pool\\.(create|delete)'\" packages/runtime-composer/src/CommandEventBridge.ts -- prints ONE match at :1871, which is what CommandEventBridge.ts:1436-1441 currently asserts returns ZERO.",
+   "contract_clause": "ADR-0124 S4; D2.",
+   "blocks_production": false,
+   "exact_edit": "packages/runtime-composer/src/CommandEventBridge.ts:1436-1441 -- correct the stale comment asserting pool.create has no case here (it does, at :1871). Same file :2216 -- correct the second stale claim in the default arm. These are COMMENT edits only; do not touch the cases."
+  },
+  {
+   "id": "EC-09",
+   "severity": "P1",
+   "claim": "SLAB CREATION FAILS SILENTLY ON A PAYLOAD SHAPE PRODUCTION ACTUALLY SENDS. `case 'slab.create'` (CommandEventBridge.ts:618-651) reads `polygon` and NEVER `boundary`, so `slab.create {boundary}` -- a shape CreateSlabPayload EXPLICITLY ACCEPTS at :101 and that PreviewManager.ts:333 SENDS -- emits slab.created with polygon:undefined and no boundary field. VDT (initTools.ts:2400) and bimManager (:2401) both sit downstream of the `!ev.polygon || !ev.id` early return, so the same shape that fails 3-D also fails plan: exportForView() returns 0 elements and Canvas2D is BLANK. Separately, probe P-3 shows slab.create is READBACK-NEGATIVE against the authoritative SlabStore.",
+   "disposition": "WIRE",
+   "disposition_justified_from_measured_state": "D2: the case, the bridge, the store and the builder all exist and work on the {polygon} shape. One field is not read. WIRE the CEB case to accept both shapes at the single point where the payload is normalised.",
+   "families_affected": [
+    "slab"
+   ],
+   "acceptance_command_and_printed_number": "A probe dispatching slab.create with {boundary} on the real composed bus must print `authoritative slabStore.getById(<id>)` as a RECORD, not undefined -- and the same for {polygon}. Two shapes, two non-undefined readbacks.",
+   "contract_clause": "C11 S11 (matrix cell 1 claims the case is geometry-complete -- REFUTED); C84 EI-9.",
+   "blocks_production": true,
+   "exact_edit": "packages/runtime-composer/src/CommandEventBridge.ts:618-651 -- normalise `boundary` to `polygon` at the top of the case, in ONE place, so the `!ev.polygon` guard downstream and every subscriber keep a single vocabulary. Do NOT add a second guard branch."
+  },
+  {
+   "id": "EC-10",
+   "severity": "P1",
+   "claim": "SEVEN OF 73 GATES HAVE NO SUBJECT FLOOR -- they can scan an emptied directory and report 0 forever. check-gate-subject-floors RC=3, 'gates inspected: 73 - floored: 66 - unfloored: 7 - ceiling: 0'. In the gate's own words: 'A gate without a subject floor cannot tell 0 violations from walked nothing.' THREE OF THE SEVEN CURRENTLY RETURN RC=0 (check-material-id-required, check-material-maps-tiling, check-runtime-arg-omitted). Those greens are not refuted -- they are UNFALSIFIABLE, a different and worse state than wrong.",
+   "disposition": "WIRE",
+   "disposition_justified_from_measured_state": "The gates exist and run. Each needs one added constant and one reachable exit-2 path. Nothing to replace, nothing to remove.",
+   "families_affected": [
+    "ALL"
+   ],
+   "acceptance_command_and_printed_number": "npx tsx tools/ga-gate/check-gate-subject-floors.ts > log 2>&1; echo \"RC=$?\" -- must print 'unfloored: 0'. RC=0 alone is not acceptance (D3).",
+   "contract_clause": "D4 (a crashing gate is neither passing nor failing); C01 S5.",
+   "blocks_production": true,
+   "exact_edit": "Add a declared subject floor and a reachable process.exit(2) to: tools/ga-gate/check-material-id-required.ts, check-material-maps-tiling.ts, check-runtime-arg-omitted.ts, check-property-rac-matrix.ts, check-render-aggregate-seam.ts, check-tool-activator-coverage.ts; and give check-batch-creation-coverage.ts a REACHABLE process.exit(2) (it declares a floor already)."
+  },
+  {
+   "id": "EC-11",
+   "severity": "P1",
+   "claim": "check-render-aggregate-seam.ts IS COMMITTED, TRACKED, FAILING, AND REGISTERED NOWHERE. 74 check-*.ts on disk; 73 registered in run-all.ts (98 rows, 25 of them ../rac-conformance relative paths). The single set difference is this file (committed 377dd06b, L-10530). Run directly it EXITS 1: ARM B 50 against a ceiling of 49, over 7984 files. A gate policing nothing, and it is not merely idle -- it is RED.",
+   "disposition": "WIRE",
+   "disposition_justified_from_measured_state": "It is authored, correct and currently detecting a real +1 regression. REMOVE would delete a working detector; the reason it is unregistered is an omission, not a decision (nothing in run-all.ts or ci.yml explains its absence).",
+   "families_affected": [
+    "ALL"
+   ],
+   "acceptance_command_and_printed_number": "npx tsx tools/ga-gate/run-all.ts -- the printed registered-script count must rise from 98 to 99 and the per-gate table must contain a check-render-aggregate-seam row; then that row must print ARM B at or below 49 with the ceiling unchanged.",
+   "contract_clause": "C01 S5; S-RATCHET-EXCEEDED-IS-NEVER-DEBT (fix the 50th, never raise 49 to 50).",
+   "blocks_production": true,
+   "exact_edit": "tools/ga-gate/run-all.ts -- add check-render-aggregate-seam.ts to the GATES array. Then fix the one seam that took ARM B from 49 to 50. Do NOT raise the ceiling."
+  },
+  {
+   "id": "EC-12",
+   "severity": "P1",
+   "claim": "READ-BACK IS PROVEN FOR 7 VERBS ACROSS 3 FAMILIES, OF 361 VERBS AND 29 SUBJECTS -- AND BOTH MIRROR GATES EXIT 0. check-mirror-completeness: 1407 handler files, 361 verbs, 200 write a plugin DTO store, 44 have a bridge case, 156 DO NOT (109 kind=UNMIRRORED -- 'these will not update on screen' -- plus 47 declared-exempt). Its own disclaimer: 'NOT ESTABLISHED HERE: that any covered verb's event reaches a subscriber, a legacy record, or a mesh.' check-mirror-reachability: 14 verbs dispatched, 7 reach a subscriber, 9 of 28 channels orphaned -- and it reads an EventBus EMISSION only, never a mesh, a legacy record or the serializer; the subscriber is NAMED, not RUN (initTools.ts cannot load outside a browser).",
+   "disposition": "WIRE",
+   "disposition_justified_from_measured_state": "The 109 UNMIRRORED verbs are the create-mirror-without-update-mirror pattern at scale: they commit, report success and change nothing on screen. Each is authored and reachable-to-commit; only the mirror leg is missing. The reachability gate is honest and under-powered, not wrong.",
+   "families_affected": [
+    "wall (7 verbs)",
+    "balcony (2)",
+    "and 100 more across the ledger"
+   ],
+   "acceptance_command_and_printed_number": "npx tsx tools/ga-gate/check-mirror-completeness.ts -- the printed 'uncovered' count must FALL from 156 and the UNMIRRORED sub-count from 109; the ledger is shrink-only. Separately, check-mirror-reachability's printed 'dispatched verb(s)' must rise above 14 -- 14 of 361 is the number that makes both greens meaningless.",
+   "contract_clause": "C11 S10.2; P6.",
+   "blocks_production": true,
+   "exact_edit": "Work the tools/ga-gate/mirror-debt.json UNMIRRORED rows down, highest-traffic family first (wall's 7 verbs are the top holder). Extend check-mirror-reachability's dispatched set beyond 14 verbs. NEVER add a row to absorb a new one."
+  },
+  {
+   "id": "EC-13",
+   "severity": "P1",
+   "claim": "FIVE NON-CANONICAL COMMAND PREFIXES AGAINST A BASELINE OF 0, AND ALL FIVE ARE ELEMENT FAMILIES IN THIS AUDIT'S SCOPE: balcony, bathroomPod, boundaryLine, curtainWall, lift. check-command-naming RC=3.",
+   "disposition": "REPLACE",
+   "disposition_justified_from_measured_state": "These are naming defects in shipped verbs, not missing capability. The subjects exist and work; the vocabulary is wrong. A ceiling of 0 with 5 current means the rule was declared and then breached five times.",
+   "families_affected": [
+    "balcony",
+    "bathroomPod",
+    "boundary-line",
+    "curtain-wall",
+    "lift"
+   ],
+   "acceptance_command_and_printed_number": "npx tsx tools/ga-gate/check-command-naming.ts > log 2>&1; echo \"RC=$?\" -- must print 0 non-canonical prefixes against the UNCHANGED baseline of 0.",
+   "contract_clause": "C67 + C68 (mandatory when a PR registers a bus command); C16.",
+   "blocks_production": false,
+   "exact_edit": "Rename the five verb prefixes to the canonical form the gate declares, and update every dispatch site, CEB case label, mirror-debt.json row and test in the SAME commit. A rename that leaves a stale case label converts a naming defect into an unreachable verb."
+  },
+  {
+   "id": "EC-14",
+   "severity": "P1",
+   "claim": "`commandManager.execute` LITERAL = 12 AGAINST A CEILING OF 0 -- A HARD REGRESSION, and the gate's own terminal reads 'WORSE THAN...'. Compounding: THREE RIVAL COUNTERS DISAGREE ON THE SAME SUBJECT -- tools/ga-gate/check-no-commandmanager.ts (RC=1/3), tools/ga-gate/check-commandmanager-any.ts (RC=0, 25/25), and npm run check:commandmanager -> scripts/check/ci-check-no-commandmanager.mjs. Three denominators, three verdicts, one subject.",
+   "disposition": "REPLACE",
+   "disposition_justified_from_measured_state": "The call sites are live legacy dispatches that must move to the bus -- REPLACE, not WIRE. But the THREE-COUNTER problem is a separate C84 EI-9 breach in the instrument: one concept, three authorities, and a gate that classifies by NAME can be satisfied by RENAMING.",
+   "families_affected": [
+    "beam (BeamTool.ts:223)",
+    "roof (RoofTool.ts:398)",
+    "stair (initBusHandlers S-E.5.4)",
+    "annotation (AnnotationManager)",
+    "+ others"
+   ],
+   "acceptance_command_and_printed_number": "npx tsx tools/ga-gate/check-no-commandmanager.ts > log 2>&1; echo \"RC=$?\" -- the printed literal count must read 0 against the unchanged ceiling of 0. Separately, `ls tools/ga-gate/check-*commandmanager*.ts scripts/check/ci-check-no-commandmanager.mjs` must resolve to ONE authority.",
+   "contract_clause": "P6; C84 EI-9; C16.",
+   "blocks_production": true,
+   "exact_edit": "Move the 12 literal commandManager.execute sites to bus dispatch. Then collapse the three counters to one: keep tools/ga-gate/check-no-commandmanager.ts, delete or make scripts/check/ci-check-no-commandmanager.mjs delegate to it, and fold check-commandmanager-any.ts in as a named ARM rather than a rival script."
+  },
+  {
+   "id": "EC-15",
+   "severity": "P1",
+   "claim": "ALL FOUR LAYER ARMS BREACHED, AND THE LAYER RULE NOW HAS NO PASSING ENFORCER ANYWHERE. check-layer-boundaries RC=3 over 167 workspace packages (152 classified): upward 105/102 (+3), SDK-facade bypasses 186/182 (+4), banned third-party 123/113 (+10), unclassified 15/13 (+2). eslint.config.js:402-416 states that the boundaries lint rule is resolver-blind BY DELIBERATE NON-CHOICE and names this script as THE AUTHORITY -- so the only competent enforcer is failing on every arm.",
+   "disposition": "WIRE",
+   "disposition_justified_from_measured_state": "The imports exist and are real edges; the gate is correctly configured (the resolver-blindness is a reasoned decision with a named authority, NOT a finding). Every arm is a shrink-only ratchet.",
+   "families_affected": [
+    "ALL"
+   ],
+   "acceptance_command_and_printed_number": "npx tsx tools/ga-gate/check-layer-boundaries.ts > log 2>&1; echo \"RC=$?\" -- must print all four arms at or below 102 / 182 / 113 / 13, with those four baselines UNCHANGED from HEAD 064a838e.",
+   "contract_clause": "CLAUDE.md 8-layer model; C01 S2; S-RATCHET-EXCEEDED-IS-NEVER-DEBT.",
+   "blocks_production": true,
+   "exact_edit": "Remove the +3 upward imports, +4 SDK bypasses, +10 banned third-party imports and classify the +2 unclassified packages. NO baseline edit."
+  },
+  {
+   "id": "EC-16",
+   "severity": "P1",
+   "claim": "P8's SPANS CLAUSE IS MEASURED FOR ZERO OF ITS SUBJECTS. check-otel-spans RC=3, three zones: ZONE A (CommandBus handlers, zero tolerance) 275/275 instrumented -- clean; ZONE B (command-registry + app handlers + plugin barrels) 66 uninstrumented of 87 against a baseline of 52 -- THE FAILURE, with 14 NEW uninstrumented files enumerated; ZONE C an UN-GATED CENSUS -- 1772 of ~2023-2399 files declaring an exported function have NO span. So 'every new exported function must add >=1 span' is enforced for NONE of them.",
+   "disposition": "WIRE",
+   "disposition_justified_from_measured_state": "Zone B is a real regression on an existing ratchet. Zone C is a real gate that was never given an arm -- the number is PRINTED and GATES NOTHING, which is D3 in its purest form.",
+   "families_affected": [
+    "ALL"
+   ],
+   "acceptance_command_and_printed_number": "npx tsx tools/ga-gate/check-otel-spans.ts > log 2>&1; echo \"RC=$?\" -- Zone B must print at or below 52 uninstrumented, baseline unchanged. Zone C must acquire a FAILING arm and print a ceiling, so the clause is measured rather than merely counted.",
+   "contract_clause": "P8 (spans half); C10; S03.",
+   "blocks_production": true,
+   "exact_edit": "Instrument the 14 new Zone B files the gate enumerates. Then add a Zone C arm to tools/ga-gate/check-otel-spans.ts with a baseline pinned at TODAY'S 1772 -- a first ceiling on an unmeasured axis is not debt absorption, it is the axis acquiring an arm. NEVER raise Zone B's 52."
+  },
+  {
+   "id": "EC-17",
+   "severity": "P1",
+   "claim": "P4's STRICT ARM IS BREACHED AT 11/3 AND THE BREACH IS STRUCTURALLY INVISIBLE. main() at check-cast-count.ts:268 computes the strict `current` but tests `if (repoWide > MAX_REPO_WIDE) return EXIT_RATCHET_EXCEEDED` FIRST, so the strict comparison at :281 is UNREACHABLE while repo-wide is breached. The hidden strict arm is 11/3 (headroom -8) -- a LARGER proportional breach than the visible 101/100 (+1). TWO further hazards in the same file: (a) loadBaseline() at :78-79 returns Number.MAX_SAFE_INTEGER when the baseline file is absent, so a missing prerequisite and a clean measurement print the SAME result -- the strict arm can NEVER fail; (b) the gate WRITES its own git-tracked baseline when current<baseline, so a local run can silently move a ceiling.",
+   "disposition": "REPLACE",
+   "disposition_justified_from_measured_state": "The casts themselves are WIRE work, but the gate structure is wrong three ways and must be replaced first -- an instrument that masks its own larger breach, cannot fail when its input is missing, and mutates its own ledger cannot be the thing that certifies the fix.",
+   "families_affected": [
+    "ALL"
+   ],
+   "acceptance_command_and_printed_number": "npx tsx tools/ga-gate/check-cast-count.ts > log 2>&1; echo \"RC=$?\" -- BOTH arms must print, in the same run, regardless of which is breached; the strict arm must print at or below 3 and repo-wide at or below 100. CLAUDE.md's P4 bullet must then be corrected -- it currently asserts both arms within ceiling, dated 2026-08-18, and is stale-OPTIMISTIC.",
+   "contract_clause": "P4; D3; D4.",
+   "blocks_production": true,
+   "exact_edit": "tools/ga-gate/check-cast-count.ts -- evaluate and PRINT both arms before returning; change :78-79 to exit 2 (MISCONFIGURED) when the baseline file is absent instead of returning MAX_SAFE_INTEGER; remove the writeBaseline auto-ratchet or gate it behind an explicit flag. Then bring the strict arm from 11 to 3. NO baseline edit."
+  },
+  {
+   "id": "EC-18",
+   "severity": "P1",
+   "claim": "lift AND liftPart ARE ELEMENT FAMILIES WITH NO defineElement AND NO L0 SCHEMA -- THE SHAPE LIVES AT L2 INSTEAD. `grep -rhoE \"defineElement\\('[a-zA-Z-]+'\" packages/schemas/src | sort -u` -> 30 kinds, neither present; `ls packages/schemas/src/elements/` -> 33 files, no Lift.ts, no LiftPart.ts; SCHEMA_REGISTRY (registry.ts:39-68) -> 28 keys, neither. The Zod shape is hand-written at L2: packages/geometry-lift/src/LiftCompoundTypes.ts:102 and LiftPartTypes.ts:173. The BRANDS are at L0 (Id.ts:99 / :187-188 / :238-239), so createId('lift') works and the split is deliberate for the brand.",
+   "disposition": "REPLACE",
+   "disposition_justified_from_measured_state": "The shape is not absent -- it exists in the WRONG PLACE, at L2, where nothing that validates a persisted project can see it. That is two places one fact lives (C84 EI-9): the brand at L0 and the shape at L2. Id.ts:113-127 records the reasoning for its sibling ('moving the schema changes what validates a persisted project, which is a C47 format question deserving its own blast radius') -- so this is a KNOWN, DEFERRED move, and it should be scheduled rather than rediscovered.",
+   "families_affected": [
+    "lift",
+    "liftPart"
+   ],
+   "acceptance_command_and_printed_number": "grep -rhoE \"defineElement\\('[a-zA-Z-]+'\" packages/schemas/src | sort -u | wc -l -- must print 32, and the set must contain 'lift' and 'liftPart'. `npx tsx tools/ga-gate/check-domain-purity.ts` must still print 0 impurities.",
+   "contract_clause": "C84 EI-9; C47 (project format); P5 (schemas are pure); C104 S2.",
+   "blocks_production": false,
+   "exact_edit": "Move LiftCompoundSchema (packages/geometry-lift/src/LiftCompoundTypes.ts:102) and LiftPartSchema (LiftPartTypes.ts:173) to packages/schemas/src/elements/Lift.ts and LiftPart.ts as defineElement('lift') / defineElement('liftPart'), register both in SCHEMA_REGISTRY, and re-export from L2 so no call site changes. This is a C47 format change and needs its own blast radius, per Id.ts:113-127."
+  },
+  {
+   "id": "EC-19",
+   "severity": "P1",
+   "claim": "THE C11 S11 MATRIX IS THE PIPELINE'S NORMATIVE RECORD AND IT IS WRONG IN EVERY DIRECTION AT ONCE. It is stamped 2026-05-19. It covers 14 subjects; this audit measured 29 -- FIFTEEN have NO ROW. It CONTRADICTS ITSELF twenty lines apart (the Furniture row says 'No bridge'; the S11.1 gap table says DONE). Measured cell refutations: furniture 4 of 7, lighting 5 of 7, handrail 5 of 7, room 3 of 7, curtain-wall 3 cells plus a gap row describing completed work, slab cell 1 and therefore Status, door and window's shared row's store-write cell, beam/roof/column's 'FULL'. Its COLUMN LEGEND is wrong even where cells are right: it defines VDT+bimManager as 'AFTER LegacyStore.add()', while wall (initTools.ts:1304/1306) and curtain-wall (:2092/2094) both call them BEFORE, per S-G3-STALE-FIX -- FOLLOWING THE LEGEND LITERALLY WOULD REINTRODUCE THE S-G3-STALE DEFECT. S11.14's 'a *.move handler exists for EVERY element family' counts dimension.move and structural.move, both deliberately refusing dead verbs.",
+   "disposition": "REPLACE",
+   "disposition_justified_from_measured_state": "A normative matrix that is refuted on more cells than it gets right cannot be patched cell by cell; the columns themselves encode a model (one bridge shape, no export column, no fidelity column, no update column) that four measured render mechanisms contradict. Replace the table, and its preamble already says how: ':1267 -- It MUST be updated whenever a bridge is added, removed, or repaired.'",
+   "families_affected": [
+    "ALL 29"
+   ],
+   "acceptance_command_and_printed_number": "A gate of the shape tools/ga-gate/check-contract-index-equivalence.ts, comparing the S11 row SET against the measured family SET in BOTH DIRECTIONS -- printing 'N files, M rows, arm A FILE-WITHOUT-ROW = 0'. Compare SETS, never a count: a correct count with a wrong membership is the failure mode this contract has already suffered.",
+   "contract_clause": "C11 S11 preamble (:1267) + S11.2 checklist step 6; C84 (mandatory for any PR touching an element family).",
+   "blocks_production": false,
+   "exact_edit": "docs/02-decisions/contracts/C11-ELEMENT-CREATION-PIPELINE.md -- emit a PROPOSED PATCH (not a new *-AUDIT-*.md) against S11 that: (1) adds rows for the 15 missing subjects; (2) adds an EXPORT column and an UPDATE-MIRROR column; (3) corrects the VDT+bimManager legend from AFTER to 'BEFORE or AFTER add(), per S-G3-STALE-FIX'; (4) replaces the single 'initTools bridge' column with the four admissible reachability mechanisms from EC-07; (5) deletes the resolved TODO-CW-STORE-BUS gap row; (6) restates S11.14 as 'a *.move handler is REGISTERED for N families; M of them refuse by construction' -- existence and capability as two columns."
+  },
+  {
+   "id": "EC-20",
+   "severity": "P1",
+   "claim": "THE IFC EXPORT SURFACE IS SPLIT ACROSS TWO EXPORTERS WITH DIFFERENT FAMILY COVERAGE, AND THAT SPLIT PRODUCED TWO WRONG VERDICTS INSIDE THIS AUDIT. packages/file-format/src/export/ifc (FragmentReader + per-family Readers, invoked from apps/editor/src/engine/initUI.ts) carries Beam, Column, CurtainWall, Furniture, Handrail, Plumbing, Slab, Wall, Window, Door. plugins/ifc-export/src/exporters/IFC4X3Exporter.ts reads snapshot.walls/slabs/doors/windows/columns/beams/rooms ONLY. Two rows (furniture, plumbing) searched only the plugin subtree and reported exports=NO for families that DO export -- a search by DIRECTORY NAME rather than by CAPABILITY.",
+   "disposition": "REPLACE",
+   "disposition_justified_from_measured_state": "Two exporters for one concept is C84 EI-9 at the product's most user-visible seam: which one runs decides whether a user's furniture appears in their IFC. Neither is unwired, so WIRE is wrong; neither is dead, so REMOVE alone is wrong -- one must be made the authority and the other must delegate to it or go.",
+   "families_affected": [
+    "furniture",
+    "plumbing",
+    "curtain-wall",
+    "floor",
+    "ceiling",
+    "annotation",
+    "balcony",
+    "pool",
+    "lift",
+    "boundary-line"
+   ],
+   "acceptance_command_and_printed_number": "After consolidation, ONE command must enumerate the export surface: `ls packages/file-format/src/export/ifc/readers/` -- and the printed reader count must equal the number of families the contract declares exportable. Today 14 of 29 families have exports=NO and there is no single place that says which of those 14 are intentional.",
+   "contract_clause": "C84 EI-9; C11 S11 (which has no export column at all).",
+   "blocks_production": false,
+   "exact_edit": "Choose packages/file-format/src/export/ifc as the authority (it is what the Export IFC button runs). Make plugins/ifc-export/src/exporters/IFC4X3Exporter.ts delegate to it or delete it. Then DECLARE, per family, whether exports=NO is intentional -- floor finishes, boundary setting-out lines and water bodies may legitimately not be IFC elements, but annotation absence (a sheet exported to PDF carries no dimensions) is a real gap."
+  },
+  {
+   "id": "EC-21",
+   "severity": "P2",
+   "claim": "FOUR PALETTE ROWS ARM A PLAN OVERLAY INSTEAD OF THE TOOL REGISTRY, AND A GATE FAILS ON IT AT 4/0. check-tool-activator-coverage RC=1: 'ARM A FAIL -- 4 declared tool id(s) have NO registered activator (baseline 0): balcony, bathroom-pod, boundary-line, pool'. Measured cause: CreatePanelLayout.ts:158-162 etc. call activatePlanOnlyToolOrExplain(...), which arms window.planViewToolOverlay / window.svpPlanToolOverlay rather than runtime.tools.activate. All four families ARE reachable and DO render.",
+   "disposition": "DOCUMENT",
+   "disposition_justified_from_measured_state": "D2: these are not unwired -- they are wired through a SECOND, working activation mechanism. The gate's ARM A encodes 'reachable == has a runtime.tools activator', which is false for plan-only tools. Fixing the families would break them; the predicate is what is wrong.",
+   "families_affected": [
+    "balcony",
+    "bathroomPod",
+    "boundary-line",
+    "pool"
+   ],
+   "acceptance_command_and_printed_number": "npx tsx tools/ga-gate/check-tool-activator-coverage.ts > log 2>&1; echo \"RC=$?\" -- ARM A must print 0 against an unchanged baseline of 0, achieved by teaching ARM A to recognise plan-overlay activation as a second admissible mechanism, NOT by adding four sham runtime.tools activators and NOT by raising the baseline.",
+   "contract_clause": "C11 S10.2; EC-07's four-mechanism predicate.",
+   "blocks_production": false,
+   "exact_edit": "tools/ga-gate/check-tool-activator-coverage.ts -- extend ARM A to accept activatePlanOnlyToolOrExplain as a registered activator, and give the gate a subject floor while it is open (it is one of EC-10's seven)."
+  },
+  {
+   "id": "EC-22",
+   "severity": "P2",
+   "claim": "EIGHT FAMILY ROWS CITED A ProjectSerializer.ts THAT PRODUCTION DOES NOT IMPORT -- THE SAME FILE THAT PRODUCED PV-05. `find . -name ProjectSerializer.ts -not -path '*/node_modules/*'` -> TWO files: apps/editor/src/engine/persistence/ (1956 lines, the live one, imported at initPersistence.ts:41) and packages/persistence-client/src/loader/ (1008 lines, imported by nobody). stair/handrail/roof/beam/column/floor/door/window all cited the dead copy. The verdicts happen to hold because the live copy is a superset. initPersistence.ts:94 records that PV-05 (commit 8cab70c1) landed a real fix on the copy 'that this file does not import' and was closed while broken.",
+   "disposition": "REMOVE",
+   "disposition_justified_from_measured_state": "Two files, one concept, and one of them runs nowhere -- C84 EI-9. Nothing imports the persistence-client copy, so REMOVE is available and WIRE would mean adopting a rival serializer.",
+   "families_affected": [
+    "stair",
+    "handrail",
+    "roof",
+    "beam",
+    "column",
+    "floor",
+    "door",
+    "window"
+   ],
+   "acceptance_command_and_printed_number": "grep -rn '@pryzm/persistence-client' apps plugins packages src | grep -v node_modules | grep -v '^packages/persistence-client' -- must print 0 importers of the ProjectSerializer class before deletion, then the file must be gone.",
+   "contract_clause": "C84 EI-9; C47.",
+   "blocks_production": false,
+   "exact_edit": "Delete packages/persistence-client/src/loader/ProjectSerializer.ts (verify 0 importers first), or make it re-export the apps/editor implementation. Correct the eight audit rows' citations to apps/editor/src/engine/persistence/ProjectSerializer.ts -- :1391 windows, :1392 doors, :1394 columns, :1395 stairs, :1396 beams, :1448 roofs, :1449 furniture, :1450 handrails, :1451 plumbing, :1558 floors."
+  },
+  {
+   "id": "EC-23",
+   "severity": "P2",
+   "claim": "FOUR TESTS NAMED '<family>ReachableThroughComposedRuntime' NEVER CALL composeRuntime. balcony, boundaryLine, lift and pool all call bootstrapWithEverything({audit}) instead. The sibling bathroomPod test's own header records the consequence: 'composeRuntime() -> Object.keys(rt.stores) = [elements, registerHydrator, hydrate, viewState, project], rt.stores.boundaryLine === undefined | bootstrapWithEverything() -> 29 keys, boundaryLine = a real store' and 'boundaryLineReachableThroughComposedRuntime was GREEN on all 13 of its cases while four production call sites read undefined.' This is the instrument that let EC-01 through.",
+   "disposition": "REPLACE",
+   "disposition_justified_from_measured_state": "The file NAME asserts a composition-root proof the file does not perform. P1 makes composeRuntime() the only object a reachability claim may be made against, and the repo has already paid for this once (L-11060). A test whose name is a claim it does not test is worse than no test.",
+   "families_affected": [
+    "balcony",
+    "boundary-line",
+    "lift",
+    "pool"
+   ],
+   "acceptance_command_and_printed_number": "grep -n 'composeRuntime' apps/editor/__tests__/*ReachableThroughComposedRuntime.test.ts -- every such file must contain a composeRuntime( call, or be RENAMED to say bootstrapWithEverything. Then rt.stores.<key> assertions must be re-run against the composed handle; EC-01 predicts balcony will fail.",
+   "contract_clause": "P1; D6 (a suite that supplies the object cannot observe its absence).",
+   "blocks_production": true,
+   "exact_edit": "Either rewrite the four to call composeRuntime({audit, canvas:null, bootstrapFn:bootstrapWithEverything}) as composedBusElementReadback.test.ts:70-78 does, or rename them to <family>ReachableThroughBootstrap.test.ts and add real composed-runtime coverage separately. Do NOT leave the name and the mechanism disagreeing."
+  },
+  {
+   "id": "EC-24",
+   "severity": "P2",
+   "claim": "CONVERGENCE BOOLEANS #1 AND #2 ARE SATISFIED BY A DIRECTORY THAT NO LONGER EXISTS. #1 legacy_src_folders == 1 names a folder that is gone -- src/ has 0 directories and 7 loose files, so the predicate was never true and CANNOT BECOME TRUE AS WORDED. #2 window_any_in_src_ui == 0 is a CONFIRMED SCOPE ARTEFACT: the 0 comes from the missing src/ui; the successor scope apps/editor/src/ui holds 1120 files and 70 casts. #6/#7/#8/#9 are independently FALSE: 8 workflows of which 6 are workflow_dispatch-only; npm E404 for @pryzm/plugin-sdk AND its publishConfig rename @pryzm/sdk; E404 for @pryzm/headless (private:false, access:public, rc version -- publish-ready and unpublished); marketplace.pryzm.app does not resolve while control pryzm.app returns 302 from the same shell. DOCUMENTED 5/9; MEASURED 2/9 STRICT. Phase F requires >= 6.",
+   "disposition": "REPLACE",
+   "disposition_justified_from_measured_state": "Absence of the folder and absence of the defect are the SAME VALUE -- S-CONTEXT-DATA-HONESTY restated as a convergence metric. Re-pointing #1 and #2 at their successor scopes is REPLACE, not WIRE: the predicates are wrong, not unwired.",
+   "families_affected": [
+    "ALL"
+   ],
+   "acceptance_command_and_printed_number": "After re-pointing, boolean #2 must print the measured cast count for apps/editor/src/ui (today 70), not a 0 sourced from a nonexistent path. Boolean #1 must name a predicate that can be false. Then re-run the 9-boolean evaluation and print k/9 -- today it is 2/9 strict.",
+   "contract_clause": "C01 S4.",
+   "blocks_production": false,
+   "exact_edit": "docs/02-decisions/contracts/C01-*.md S4 -- re-point #1 and #2 at apps/editor/src, correct the recorded 5/9 to the measured 2/9, and mark #6-#9 FAIL with their measured evidence. Emit as a PROPOSED PATCH against C01, not a new derivative doc."
+  },
+  {
+   "id": "EC-25",
+   "severity": "P2",
+   "claim": "C01's PACKAGE CENSUS IS STALE BY ROUGHLY A FACTOR OF TWO, AND C01 S5's GATE COUNT BY MORE THAN TWO. Measured 2026-08-29: 103 package manifests (105 entries, 2 without a manifest), 13 apps, 51 plugins -- and the layer gate's own workspace count of 167 reconciles EXACTLY with disk (103+13+51). C01 S3:162 says 54 / 12 / 46; C07 says 48 plugins. C01 S5 says 31 gates; 75 check-*.ts are on disk (74 check-* plus the suite). THE DISK IS CONSISTENT; THE CONTRACT IS NOT.",
+   "disposition": "DOCUMENT",
+   "disposition_justified_from_measured_state": "Nothing is unwired -- these are stale transcriptions of numbers that rot, the sixth recurrence of a failure shape CLAUDE.md already documents five times. The durable fix is a gate that compares SETS, which already exists in the form of check-contract-index-equivalence.ts.",
+   "families_affected": [
+    "ALL"
+   ],
+   "acceptance_command_and_printed_number": "ls packages/*/package.json | wc -l -> 103 ; ls apps/ | wc -l -> 13 ; ls plugins/ | wc -l -> 51 ; ls tools/ga-gate/check-*.ts | wc -l -> 74. Each figure must appear in C01 with the command that produced it, or be replaced by a pointer to the gate.",
+   "contract_clause": "C01 S3, S5; CLAUDE.md's count/range doctrine.",
+   "blocks_production": false,
+   "exact_edit": "Emit a PROPOSED PATCH against docs/02-decisions/contracts/C01-*.md replacing the three literals with the measured values AND the commands that produce them, and adding the CLAUDE.md-style instruction 'read the gate, never this line'. Do not create a derivative audit doc."
+  },
+  {
+   "id": "EC-26",
+   "severity": "P3",
+   "claim": "P2's PRINTED ZERO IS SOUND AND THE SENTENCE IT IS QUOTED FOR IS NOT. check-three-imports RC=0 at 0/8171 is TRUE for its declared pattern, which the gate itself states is 'from three' and 'from three/*' ONLY (check-three-imports.ts:26, :31, :89). But 529 production files outside packages/renderer-three/ contain `import * as THREE from '@pryzm/renderer-three/three'`. P2 AS MEASURED IS SPECIFIER HYGIENE -- one dependency edge, one THREE instance -- NOT code ownership.",
+   "disposition": "DOCUMENT",
+   "disposition_justified_from_measured_state": "The gate is correct and should not change; the CLAUDE.md sentence 'import * as THREE is allowed ONLY in packages/renderer-three/. Anywhere else fails CI' is what is false. This is the one place the brief's 'already right, do not propose work' list needs a footnote rather than an exception.",
+   "families_affected": [
+    "ALL"
+   ],
+   "acceptance_command_and_printed_number": "grep -rc \"import \\* as THREE from '@pryzm/renderer-three/three'\" --include=*.ts apps packages plugins | grep -v ':0' | wc -l -- prints the 529-file population the sentence denies.",
+   "contract_clause": "P2; CLAUDE.md principle 2.",
+   "blocks_production": false,
+   "exact_edit": "CLAUDE.md P2 bullet -- restate as 'the THREE PACKAGE may be depended on only by packages/renderer-three/ (one instance, one edge); the re-exported namespace is imported by 529 files by design'. No code change."
+  },
+  {
+   "id": "EC-27",
+   "severity": "P3",
+   "claim": "P3 IS DOCUMENTED AS FAILING AT 5 OWNERS AND PASSES AT 1. check-raf-count RC=0 over 5438 files (2841 excluded), 'Owners (code lines only): packages/frame-scheduler/src/RafAdapter.ts', 'OK: 1 owner' -- with 5 comment-only mentions listed separately and correctly excluded. A genuine hard-1 with comment stripping.",
+   "disposition": "DOCUMENT",
+   "disposition_justified_from_measured_state": "Stale-PESSIMISTIC readings get budget spent on problems that no longer exist. The correction costs one line.",
+   "families_affected": [
+    "ALL"
+   ],
+   "acceptance_command_and_printed_number": "npx tsx tools/ga-gate/check-raf-count.ts -- prints 'OK: 1 owner.' Cite that line, not the stale 5.",
+   "contract_clause": "P3.",
+   "blocks_production": false,
+   "exact_edit": "Correct the documented '5 owners' to the measured 1 wherever it appears. No code change."
+  }
+ ],
+ "unverified_register": [
+  {
+   "item": "water / renders_plan -- the ONE disputed cell in the verdict table",
+   "why": "The row says NO; the adversarial pass says CANDIDATE OVER-REPORT because the S-FT-WATER bridge registers BOTH spatial authorities (initTools.ts:1982 VDT, :1984 bimManager), so the water id IS in level.childrenIds, and WaterMeshBuilder.ts:153 tags elementType 'water' with NO skipInPlan. What was NOT measured: EdgeProjectorService.ts:2693 `if (_groupFamily && !_symbolGate(_groupFamily)) { ... }` may drop a group whose family is unknown to the symbol-injection gate. Over-reporting this gap would authorise a rival water plan-symbol builder (D2).",
+   "next_command": "Resolve _groupFamily for a 'water' group and read makeSymbolInjectionGate's behaviour for an UNREGISTERED family: sed -n '2680,2700p' apps/editor/src/engine/views/EdgeProjectorService.ts and grep -n 'makeSymbolInjectionGate' -A40 apps/editor/src/engine/views/EdgeProjectorService.ts"
+  },
+  {
+   "item": "ceiling / reachable, renders_3d, renders_plan",
+   "why": "NOT MEASURABLE HEADLESSLY. Probe P-1 printed 'ceiling=undefined' in rt.stores.elements -- there is no authoritative ceiling store to read back from, the way wall and slab have one. The chain is complete ON PAPER (CEB:1005 -> ceilingCreatedMirror.ts:130 -> initTools:2185 ceilingStore.add -> CeilingStore.ts:156 'bim-ceiling-added' -> initBuilders.ts:410-414 buildCeiling) with every link cited and none measurably broken.",
+   "next_command": "A BROWSER-CONTEXT probe, not a headless one: npx playwright test with a spec that dispatches ceiling.create through window.runtime.bus and then reads the ceiling mesh out of the scene. No headless command can close this."
+  },
+  {
+   "item": "curtain-wall / reachable, renders_3d, renders_plan",
+   "why": "Same class as ceiling. Probe P-1 printed 'curtainwall=undefined' AND 'curtain-wall=undefined'. The chain is complete on paper (CEB:694 -> curtainWallCreatedMirror.ts:119 -> initTools:2116 curtainWallStoreInstance.add -> CurtainWallStore.ts:355 this.emit('add')) and no link is measurably broken.",
+   "next_command": "Same browser-context probe as ceiling, dispatching curtain-wall.create and curtainwall.create (both aliases resolved OK at the bus in probes P-4 / P-4b)."
+  },
+  {
+   "item": "lighting / renders_plan",
+   "why": "The S-FT-LIGHTING bridge calls bimManager.registerElement (initTools.ts:2826) but NO viewDependencyTracker.registerElement anywhere -- the one .created bridge of fifteen calling half the pair -- and 'lighting' is absent from GEOMETRY_ELEMENT_TYPES. Enumerable but not dirty-markable; whether a light actually appears in a plan projection was not observed.",
+   "next_command": "awk 'NR>=2756 && NR<=2831' apps/editor/src/engine/initTools.ts (confirms the half-pair), then a browser probe reading exportForView() output for a level holding one light."
+  },
+  {
+   "item": "room / renders_plan",
+   "why": "'room' is absent from GEOMETRY_ELEMENT_TYPES (ViewDependencyTracker.ts:42-49), so the plan-view INVALIDATION link is the single hole in a chain that otherwise persists and exports cleanly. Whether rooms nonetheless project via bimManager enumeration was not observed.",
+   "next_command": "awk 'NR>=41 && NR<=49' packages/core-app-model/src/views/ViewDependencyTracker.ts, then a browser probe on exportForView() for a level holding one room."
+  },
+  {
+   "item": "liftPart / exports and water / exports",
+   "why": "Both rows returned UNVERIFIED rather than guessing. Note that the two exports=NO verdicts this audit DID assert confidently (furniture, plumbing) were both REFUTED for searching plugins/ifc-export/ instead of the exporter the Export IFC button runs.",
+   "next_command": "ls packages/file-format/src/export/ifc/readers/ && sed -n '38,58p' packages/file-format/src/export/ifc/ExportIFC.ts -- enumerate the ELEVEN-key stores object and check for liftPartStore / waterStore. Search by CAPABILITY (grep -rniE 'IfcFurnishingElement|IfcSanitaryTerminal|Ifc[A-Za-z]+' packages/file-format/src/export/ifc), never by directory name."
+  },
+  {
+   "item": "furniture's promotion to 7/7",
+   "why": "The adversarial pass refuted its exports=NO and explicitly declined to bless the promotion: 'that deserves its own adversarial pass before it is written down.' The residual is real and narrow: FurnitureReader.read() opens `const mesh = this.ctx.findMesh(item.id); if (!mesh) continue;` -- a furniture record with no findable mesh exports nothing.",
+   "next_command": "Dispatch furniture.create for a record whose GLB has not loaded, run the IFC export, and count IfcFurnishingElement entities in the output. If the count is short, exports is CONDITIONAL, not YES."
+  },
+  {
+   "item": "Whether CI is actually red on main",
+   "why": "All gate readings were taken locally at HEAD 064a838e. The GitHub Actions run state was never queried, and the founder's workflow is push-straight-to-main, so the real gate is deploy-fly.yml's ci-gate job, not required status checks.",
+   "next_command": "gh run list --workflow=ci.yml --branch=main --limit 5 ; gh run list --workflow=deploy-fly.yml --branch=main --limit 5"
+  },
+  {
+   "item": "The 409 `window as unknown as` casts across 151 files",
+   "why": "Carried from gate-debt.json's own $comment; NOT re-measured this pass. P4's regex cannot see this spelling, so even a GREEN P4 would mean only 'no new casts in the one spelling it checks'.",
+   "next_command": "rg -c 'window as unknown as' --glob '!node_modules' -g '*.ts' | wc -l  (and sum the counts)"
+  },
+  {
+   "item": "Undo revert-geometry, per family",
+   "why": "Requires an EXECUTED undo, not a registration check. Known from the rows: balcony has NO undo adapter at all (performUndoRedo.ts:645 -- 'REACHABLE AND STRANDED (L-7310) ... nothing on the legacy stack reverts it'), while pool/water/lift/liftPart/boundaryLine all have adapters (:463, :476, :477, :493, :494).",
+   "next_command": "Per family: dispatch <x>.create through the composed bus, call performUndoRedo, then read the authoritative store back. No static scan can establish this."
+  },
+  {
+   "item": "sync_portion_within_16ms per handler",
+   "why": "Requires a bench harness; none was identified in the repo.",
+   "next_command": "(no bench harness identified -- this axis has no command yet, which is itself the finding)"
+  },
+  {
+   "item": "P7 behavioural coverage",
+   "why": "check-visibility-intent-not-ui is PROXY-ONLY and prints its own NOT-CHECKED list: persistence, per-view scoping, and the AI intent path. ARM B carries POSITIVE HEADROOM of 3 (40/43 over 872 UI files) -- the only principle gate that can absorb three more violations and stay green.",
+   "next_command": "ls packages/visibility/__tests__/ ; npx tsx tools/ga-gate/check-visibility-intent-not-ui.ts (read the NOT CHECKED block, not the RC)"
+  },
+  {
+   "item": "The 15 families with NO C11 S11 row -- whether each omission is a gap or a correct exclusion",
+   "why": "balcony, boundary-line, bathroomPod, lift, liftPart, water, pool, plumbing, grid, annotation, dimension, structural, section-view, selection, door/window-as-distinct-families. selection is correctly absent (not an element). section-view is genuinely undecided by the contract. The other thirteen are omissions the S11 preamble (:1267) forbids.",
+   "next_command": "Resolve section-view's classification FIRST -- it gates whether a gate over S11's row set can ever be satisfiable (the L-716 shape). Then: npx tsx over C11 S11 comparing the row SET to the ELEMENT_PLUGIN_IDS SET in both directions."
+  },
+  {
+   "item": "Zone C of check-otel-spans -- 1772 uninstrumented files",
+   "why": "The gate PRINTS the number and gates NOTHING, so P8's clause 'every new exported function must add >=1 span' is measured for zero of its subjects. The denominator itself moved between readings (2023 in one log, 2399 in another), which is a second reason not to quote it.",
+   "next_command": "npx tsx tools/ga-gate/check-otel-spans.ts > log 2>&1; echo \"RC=$?\" -- read the Zone C block and pin TODAY'S number before adding an arm, so the first ceiling is a measurement rather than a guess."
+  },
+  {
+   "item": "The 47 declared-exempt mirror verbs (of the 156 uncovered)",
+   "why": "check-mirror-completeness separates 109 UNMIRRORED from 47 declared-exempt, but this audit did not read the 47 exemption reasons. water and liftPart show that a documented exemption can be entirely correct (ADR-0124 S4, C104 S2) -- and grid shows an undocumented rival can hide in the same shape.",
+   "next_command": "node -e \"const j=require('./tools/ga-gate/mirror-debt.json'); console.log(j.rows.filter(r=>r.kind!=='UNMIRRORED').map(r=>r.verb+' :: '+(r.reason||'NO REASON GIVEN')).join('\\n'))\" -- any row printing NO REASON GIVEN is an undeclared exemption."
+  },
+  {
+   "item": "Golden Chain / BIM 3.0 columns",
+   "why": "Not requested as in-scope for this run; omitted rather than guessed.",
+   "next_command": "(out of scope -- do not fill without a brief)"
+  }
+ ],
+ "doctrine_compliance": {
+  "D2": "Every one of the 27 findings carries WIRE / REPLACE / REMOVE / DOCUMENT justified from the measured state. 10 WIRE, 9 REPLACE, 6 DOCUMENT, 2 REMOVE. Only ONE finding (EC-03, door.batch.create / window.batch.create) disposes REMOVE for an authored capability, and it does so because the family is ALREADY fully reachable through wall.opening.create -- wiring the batch verbs would create the second write path C84 EI-9 forbids and that the repo already removed door.create/door.move to prevent. NO authored capability is left indefinitely in the state 'typed, tested, exported, but not reachable': grid, structural and dimension are WIRE with named edits; door/window batch are REMOVE; water and the four plan-only tools are DOCUMENT because they are already correct.",
+  "D3": "Every acceptance criterion names a PRINTED NUMBER. No finding accepts on RC=0 alone. Where only a tick was available (EC-01), the criterion states what must be repaired in the test BEFORE its green means anything.",
+  "RATCHET_EXCEEDED_IS_NEVER_DEBT": "NO remediation proposes raising a shrink-only ceiling or adding a gate-debt entry. EC-05, EC-11, EC-13, EC-15, EC-16 and EC-17 each say so explicitly. The ONE apparent exception is EC-16's Zone C, which proposes pinning a FIRST ceiling at today's 1772 on an axis that currently has NO arm -- an unmeasured axis acquiring its first measurement is not debt absorption, and Zone B's 52 is explicitly not to be moved.",
+  "C84_EI9": "Five findings are one-authority-per-concept breaches and are named as such: EC-03 (two opening write paths), EC-06 (grid.add vs grid.create), EC-14 (three rival commandManager counters), EC-18 (lift's brand at L0, shape at L2), EC-20 (two IFC exporters), EC-22 (two ProjectSerializers). No proposed fix introduces a second place a fact lives.",
+  "D9": "No production code was changed. All remediations are written down with exact paths, exact edits and exact acceptance commands. Contract corrections are emitted as PROPOSED PATCHES against the canonical C0N-*.md, never as derivative *-AUDIT-*.md docs."
+ },
+ "what_is_already_right": [
+  "ADR-0367 CONFORMS -- PluginRegistration declared exactly once at packages/plugin-sdk/src/registration.ts:121 (L5), no rival at L6 or L7. The documented root cause of families shipping undispatchable HAS BEEN FIXED AND HOLDS.",
+  "P5 -- hard-0, 192 files, scope independently confirmed non-empty. The strongest reading in the audit. (CLAUDE.md's '165 files' is a stale denominator; the 0 is unchanged.)",
+  "P3 -- PASSES at 1 rAF owner over 5438 files with comment-only mentions correctly excluded. The documented 'FAILING: 5 owners' is STALE IN THE REPO'S FAVOUR; correct the doc, spend no budget.",
+  "P2 -- the GATE's 0 over 8171 files is sound and reproduces. Only the SENTENCE quoted for it overreaches (EC-26).",
+  "P8's conflict-surfacing half -- hard-0, no baseline, 0 findings against a NAMED ledger of 0, driving 126 real YjsDocAdapter merges with 0 SILENT losses, and it names its own six unproven axes.",
+  "eslint.config.js's absent import/resolver is a REASONED DECISION WITH A NAMED AUTHORITY (:402-416), not a gap. NOT A FINDING.",
+  "water, liftPart and bathroomPod's STORE_ONLY exemptions are DELIBERATE, DOCUMENTED, and each states a reason DIFFERENT from the others -- PluginRegistry.ts:861-868: 'AN EXEMPTION IS A STATEMENT, NOT A SUPPRESSION.' This is the pattern the rest of the pipeline should copy.",
+  "boundary-line's two spellings ('boundary-line' for directory/id/tool, 'boundaryLine' for storeKey/CEB/schema/snapshot/undo) are two disjoint, consistently applied namespaces with the rule stated at PluginRegistry.ts:769-772. NO drift defect -- though no gate asserts the alignment."
+ ]
+}

@@ -1,0 +1,249 @@
+# ============================================================================
+# p01-C11-section11-matrix.diff
+# PROPOSED — NOT APPLIED (D9). Audit: audit/element-creation/2026-08-29
+# Measured 2026-08-29 · HEAD 064a838e · branch main
+# Apply with:  git apply <this file>        (strips the leading '#' block? NO —
+#              this file is a PATCH WITH A COMMENT HEADER. 'git apply' ignores
+#              everything before the first '--- a/' line, so it applies as-is.)
+#              On Windows, if using GNU patch instead of git: patch --binary -p1
+# ============================================================================
+# TARGET   docs/02-decisions/contracts/C11-ELEMENT-CREATION-PIPELINE.md  §11 + §11.1
+# ORDER    stands alone against HEAD. Verified: `git apply --check` -> CLEAN.
+#
+# WHAT IS FALSIFIED, AND BY WHICH COMMAND
+#
+#   DC-01  §11 matrix marks handrail / furniture / lighting "No bridge".
+#          $ grep -n "bridge registered" apps/editor/src/engine/initTools.ts
+#          -> all three registered: §FT-HANDRAIL (:2679), §FT-LIGHTING (:2832),
+#             §FT-FURNITURE (:2958). C11 §0.0 (2026-08-18) already said so; the
+#             matrix was never updated to match.
+#
+#   DC-02  The SAME SECTION contradicts itself ~20 lines apart. The Furniture
+#          matrix row says "No bridge"; the §11.1 gap table row
+#          FURNITURE-BUS-MIGRATION says "DONE". Same grep settles it: the gap
+#          table is right, THE MATRIX ROW IS THE DEFECT.
+#
+#   DC-03  §11.11 audits Plumbing / Grid / Annotation in prose while the matrix
+#          it belongs to has NO ROW for any of them.
+#          $ ls plugins/ | wc -l                       -> 51
+#          $ node -e "..." over census.json classification -> 24 element families
+#
+#   DC-04  The matrix covers 14 families; the 8-source census measures 24.
+#          Source: audit/element-creation/2026-08-29/census.json (classification:
+#          18 by PLUGIN_CATALOG kind=element + 6 by other signals).
+#          Ten families had NO normative compliance record at all — which is
+#          precisely the state in which a family ships authored-but-undispatchable
+#          without any document being wrong.
+#
+# ALSO CORRECTED BY THIS PATCH (each falsified by the family row cited)
+#
+#   * "curtainwall.create" — CORRECTED 2026-08-30, and the correction matters more
+#     than the original claim. The CEB CASES are
+#     `curtain-wall.create` (:694) / `curtain-wall.batch.create` (:758).
+#     families/curtain-wall.json C_lifecycle.ceb_case.
+#     ⛔ THE FIRST REVISION OF THIS PATCH SAID "that spelling DOES NOT EXIST". IT DOES.
+#     $ grep -rn "curtainwall.create" --include=*.ts apps packages plugins | grep -v node_modules
+#     -> plugins/curtain-wall/src/handlers/CreateCurtainWall.ts:51
+#          readonly aliases = ['curtainwall.create'] as const;
+#        packages/command-bus/__tests__/command-aliases.test.ts:92
+#          expect(bus.canonicalTypeFor('curtainwall.create')).toBe('curtain-wall.create')
+#     It is a REGISTERED BUS ALIAS that dispatches and canonicalises. So the matrix
+#     cell named a REAL identifier at the WRONG LAYER (bus alias, not CEB case) —
+#     which is a different defect with a different fix. D2 exactly: "no such verb"
+#     authorises deleting a live alias, and a command type is a wire identifier
+#     replayed out of project_command_log. check-command-naming.ts says so itself in
+#     its own remedy text: "set the canonical name on `type` and list the old
+#     spelling in `aliases`". That is what curtain-wall already did, correctly.
+#     ⚠ THE GATE'S ACTUAL FINDING IS A THIRD SPELLING, NOT THIS ONE: `curtainWall.*`
+#     (camelCase, 1 type — ChangeCurtainWallLevel.ts:79 `curtainWall.changeLevel`),
+#     which has NO alias. Three spellings of one domain: `curtain-wall` canonical,
+#     `curtainwall` aliased (fine), `curtainWall` unaliased (the breach).
+#   * Handrail "geometry-free payload (levelId only)" — FALSE. CEB :1095 forwards
+#     id, path, height, diameter, shape, hostId, materialId AND levelId.
+#     families/handrail.json C_lifecycle.ceb_case.
+#   * Lighting "Not audited" / "OUT-OF-SCOPE" — it has a live §FT-LIGHTING bridge
+#     and a measured first-failing-link of renders_plan.  families/lighting.json.
+#
+# DISPOSITION (D2 — WIRE / REPLACE / REMOVE, justified from the measured state)
+#
+#   REPLACE the matrix. Every family in the new table was MEASURED at HEAD; no
+#   cell is carried forward from 2026-05-19. The three "No bridge" cells were not
+#   merely stale — a stale ABSENCE claim authorises a RIVAL implementation of a
+#   live bridge, which is strictly worse than the gap it imagined. That is why
+#   the §11.1 HANDRAIL-BUS-MIGRATION row is marked DISCHARGED / DO-NOT-EXECUTE in
+#   the same patch rather than left standing.
+#
+# WHAT THIS PATCH DELIBERATELY DOES NOT DO
+#
+#   It does not restate the seven-facts detail per family — that lives in
+#   audit/element-creation/2026-08-29/families/*.json, and duplicating it into the
+#   contract would create a second authority for the same fact (C84 EI-9). The
+#   matrix carries ONE derived cell per family (first failing link) plus the
+#   structural columns the pipeline contract owns.
+#
+# ACCEPTANCE (D3 — a PRINTED NUMBER, never a tick)
+#
+#   $ grep -c '^| \*\*' docs/02-decisions/contracts/C11-ELEMENT-CREATION-PIPELINE.md
+#     ... restricted to the §11 matrix: must print 24 family rows (+3 member rows).
+#   $ grep -c '| ❌ No bridge |' docs/02-decisions/contracts/C11-ELEMENT-CREATION-PIPELINE.md
+#     -> must print 0. Today it prints 3 (C11:1291 Handrail, :1292 Furniture,
+#        :1293 Lighting) — those are live matrix CELLS asserting an absence that
+#        `initTools.ts` refutes.
+#   ⚠ A BARE `grep -n "No bridge"` IS THE WRONG CRITERION AND CANNOT REACH 0 —
+#     MEASURED ON THE PATCHED COPY, where it still matches 4 times. This patch
+#     QUOTES the retracted cells on purpose (in the DC-01/DC-02 evidence table and
+#     in the Furniture row's own history note), because a correction that erases
+#     what it corrected leaves the next reader unable to tell a fixed defect from
+#     one that never existed. Anchor on the CELL form `| ❌ No bridge |`, never on
+#     the substring: a substring grep cannot distinguish an assertion from a
+#     quotation of a retracted assertion.
+#   $ grep -c '^| \*\*Curtain Wall\*\* | ✅ `curtainwall.create`' docs/02-decisions/contracts/C11-ELEMENT-CREATION-PIPELINE.md
+#     -> must print 0 (the matrix CELL that presented the alias as the CEB case).
+#   ⚠ A BARE `grep -c "curtainwall.create"` IS THE WRONG CRITERION AND CANNOT REACH 0
+#     — MEASURED: the file holds 6 such lines today (:845, :1283, :1425, :1427, :1529
+#     and one more), this patch touches ONE of them, and `curtainwall.create` is a
+#     LIVE REGISTERED ALIAS that must keep appearing in prose describing the alias.
+#     "must print 0" was stated in the first revision of this patch and was wrong.
+#   ⛔ NOT CLOSED HERE, RECORDED SO IT IS NOT REDISCOVERED: C11:1425 states that
+#     `CurtainWallPlanToolHandler._commit()` "dispatches `curtainwall.create`". If
+#     accurate, the plan tool dispatches the ALIAS, which the bus canonicalises but
+#     the CEB — which switches on the raw case label — does not. families/curtain-wall.json
+#     grades `reachable` UNVERIFIED and probe P-1 printed BOTH `curtainwall=undefined`
+#     and `curtain-wall=undefined`, which is consistent with that and does not settle
+#     it. Next command, and it belongs with the check-command-naming remediation:
+#     `grep -n "executeCommand('curtainwall" apps/editor/src/engine/views/plantools/CurtainWallPlanToolHandler.ts`
+#
+# RESIDUALS THIS PATCH DOES NOT CLOSE (measured on the PATCHED copy, stated so nobody
+# reports them as a regression introduced here)
+#
+#   (1) C11 §0.0:20 still reads, in the PRESENT TENSE, "§11's normative matrix marks
+#       handrail, furniture and lighting as ❌ No bridge, and §11.1 carries an OPEN work
+#       order to build one of them." After this patch that sentence describes a matrix
+#       that no longer exists.
+#       $ grep -n "No bridge" docs/02-decisions/contracts/C11-ELEMENT-CREATION-PIPELINE.md
+#       -> line 20 (§0.0 prose) + lines 1274-1275 (this patch's own DC table, quoting the
+#          old text as superseded — correct) + 0 live matrix cells.
+#       FIX IN THE SAME COMMIT: put §0.0:20 in the past tense ("marked … and carried").
+#       It is deliberately NOT edited here so this patch has exactly one subject.
+#
+#   (2) The spelling `curtainwall.create` survives OUTSIDE §11's matrix, as a LIVE claim,
+#       in §11.6 (Curtain Wall Phase 3 audit, stamped 2026-05-19) and §11.13.
+#       $ grep -n "curtainwall.create" docs/02-decisions/contracts/C11-ELEMENT-CREATION-PIPELINE.md
+#       -> :1470, :1472, :1574 (post-patch numbering) — none of them in the matrix.
+#       $ grep -c "case 'curtainwall" packages/runtime-composer/src/CommandEventBridge.ts
+#       -> 0.  The case labels are `curtain-wall.create` (:694) and
+#          `curtain-wall.batch.create` (:758).
+#       Those §11.x subsections are part of the same 2026-05-19 staleness (DC-06) and need
+#       their own pass; correcting them here would smuggle four unrelated subsections into
+#       a matrix patch.
+#
+#   (3) DC-06 is NOT closed by this patch. Every §11.x per-element audit is still stamped
+#       2026-05-19. This patch replaces the MATRIX, which is the half an engineer reads to
+#       decide what to build. The prose audits below it remain three months stale and are
+#       tracked separately.
+#
+#
+--- a/docs/02-decisions/contracts/C11-ELEMENT-CREATION-PIPELINE.md
++++ b/docs/02-decisions/contracts/C11-ELEMENT-CREATION-PIPELINE.md
+@@ -1262,7 +1262,28 @@
+ 
+ ---
+ 
+-## §11 — Per-Element Pipeline Compliance Matrix (2026-05-19)
++## §11 — Per-Element Pipeline Compliance Matrix
++
++> ⛔ **REPLACED 2026-08-29 (audit `element-creation/2026-08-29`, HEAD `064a838e`). The previous
++> matrix was stamped 2026-05-19, covered 14 of the 24 measured element families, contradicted
++> §0.0 on three rows, and contradicted ITS OWN §11.1 gap table twenty lines below on a fourth.**
++> The four defects, each with the command that falsified it:
++>
++> | Defect | Old text | Falsifying command | Measured |
++> |---|---|---|---|
++> | **DC-01** | Handrail / Furniture / Lighting = `❌ No bridge` | `grep -n "bridge registered" apps/editor/src/engine/initTools.ts` | all three bridges registered — `§FT-HANDRAIL` :2679, `§FT-LIGHTING` :2832, `§FT-FURNITURE` :2958 |
++> | **DC-02** | Furniture matrix row `❌ No bridge` vs §11.1 `FURNITURE-BUS-MIGRATION ✅ DONE` — **same section, ~20 lines apart** | same grep | the gap table is right; **the matrix row was the defect** |
++> | **DC-03** | §11.11 audits Plumbing / Grid / Annotation in prose; the matrix had **no row for any of them** | `ls plugins/ \| wc -l` → **51**; 8-source census → **24 element families** | absence from a normative matrix reads as *"not an element family"*, not *"unmeasured"* |
++> | **DC-04** | 14 rows presented as coverage of the pipeline | `audit/element-creation/2026-08-29/census.json` (`classification`) | **24 element families**; ten had no normative compliance record at all |
++>
++> ⚠ **The line numbers in the cells below MOVE.** `initTools.ts` and `CommandEventBridge.ts` are
++> under active edit. **The `§FT-*` / `§P*` tags and the `case '<x>.create'` labels are the stable
++> citation; the numbers are not.** Re-run the grep in the cell before quoting a number from it.
++>
++> ⚠ **A cell in the "First failing link" column is one of the SEVEN SEPARATE FACTS** — authored /
++> dispatchable / reachable / renders_3d / renders_plan / persists / exports. `NONE` means the
++> create chain holds through all seven. It does **not** mean the family is finished: read the
++> Status cell, which carries the update/delete half.
+ 
+ This matrix is the normative record of which elements are fully wired through the bus pipeline for all three views (3D, plan, elevation). It MUST be updated whenever a bridge is added, removed, or repaired.
+ 
+@@ -1276,22 +1297,46 @@
+ - **3D via bus** — 3D mesh builds via bus path (not legacy-only `commandManager.execute()`)
+ - **Status** — overall bus-path correctness
+ 
+-| Element | CEB case (geometry-complete) | initTools bridge | Store `add()` → storeEventBus | Plan-view tracked | VDT + bimManager | 3D via bus | Status |
+-|---|---|---|---|---|---|---|---|
+-| **Wall** | ✅ `wall.create` + `wall.batch.create` | ✅ §P2.1 | ✅ `WallStore.add()` | ✅ `'wall'` | ✅ (Rev 3 — FIX-PLAN-VDT-BIMMANAGER) | ✅ | ✅ FULL |
+-| **Slab** | ✅ `slab.create` + `slab.batch.create` | ✅ §FT1 | ✅ `SlabStore.add()` | ✅ `'slab'` | ✅ (Rev 4 — FIX-PLAN-VDT-BIMMANAGER-ALL-BRIDGES) | ✅ | ✅ FULL |
+-| **Curtain Wall** | ✅ `curtainwall.create` + `curtain-wall.batch.create` | ✅ §P3.1 (+ explicit `storeEventBus.emit`) | ⚠️ `CurtainWallStore.add()` omits storeEventBus — compensated by bridge emit | ✅ `'curtainwall'` | ✅ (Rev 4 — FIX-PLAN-VDT-BIMMANAGER-ALL-BRIDGES) | ✅ | ✅ FULL (TODO-CW-STORE-BUS active) |
+-| **Ceiling** | ✅ `ceiling.create` + `ceiling.batch.create` | ✅ §P3.2-CL | ✅ `CeilingStore.add()` (line 148) | ✅ `'ceiling'` | ✅ (Rev 4 — FIX-PLAN-VDT-BIMMANAGER-ALL-BRIDGES) | ✅ | ✅ FULL |
+-| **Roof** | ✅ `roof.create` | ✅ §P3.2-RF | ✅ `RoofStore.add()` | ✅ `'roof'` | ✅ (Rev 4 — FIX-PLAN-VDT-BIMMANAGER-ALL-BRIDGES) | ✅ | ✅ FULL |
+-| **Column** | ✅ `column.create` + `column.batch.create` | ✅ §P3.3-CO (dedup: `store.get(id)`) | ✅ `ColumnStore.add()` (line 137) | ✅ `'column'` | ✅ (Rev 4 — FIX-PLAN-VDT-BIMMANAGER-ALL-BRIDGES) | ✅ | ✅ FULL |
+-| **Beam** | ✅ `beam.create` + `beam.batch.create` | ✅ §FT2 | ✅ `BeamStore.add()` (line 63) | ✅ `'beam'` | ✅ (Rev 4 — FIX-PLAN-VDT-BIMMANAGER-ALL-BRIDGES) | ✅ | ✅ FULL |
+-| **Floor** | ✅ `floor.create` | ✅ §P3.2-FL | ✅ `FloorStore.add()` (line 125) | ✅ `'floor'` | ✅ (Rev 4 — FIX-P4-FLOOR-BIMMANAGER; previously P4 violation) | ✅ | ✅ FULL |
+-| **Wall Opening (Door/Window)** | ✅ `wall.opening.create` + `wall.createOpening` | ✅ §P2.3 | ✅ `OpeningStore.add()` | ✅ `'opening'`, `'window'`, `'door'` | N/A (openings are indexed under their parent wall's `bimManager` entry) | ✅ | ✅ FULL |
+-| **Stair** | ❌ No `stair.created` CEB case (not needed — see §11.3) | ❌ No `initTools` bridge (not needed — see §11.3) | ✅ `StairStore.add()` → storeEventBus | ✅ `'stair'` | via `CreateStairCommand.execute()` → `ctx.bimManager.registerElement` (CreateStairCommand.ts:201) — NOT an initTools bridge | ⚠️ bus-entry → `initBusHandlers §E.5.4` → legacy `CreateStairCommand` | ⚠️ PARTIAL — bus-initiated but routed to a legacy command; runtime defect under investigation, see §11.3 |
+-| **Handrail** | ⚠️ `handrail.create` case emits geometry-free payload (levelId only) | ❌ No bridge | ✅ `HandrailStore.add()` → storeEventBus (line 101) | ✅ `'handrail'` | ❌ (no bridge — N/A) | ❌ | ⚠️ LEGACY-ONLY — handrail populated via legacy path; CEB payload insufficient for bridge |
+-| **Furniture** | ⚠️ `furniture.create` case emits geometry-free payload (levelId only) | ❌ No bridge | ✅ `FurnitureStore.add()` → storeEventBus | ✅ `'furniture'` | ❌ (no bridge — N/A) | ❌ | ⚠️ LEGACY-ONLY — furniture populated via legacy path; CEB payload insufficient for bridge |
+-| **Lighting** | ⚠️ `lighting.create` case emits geometry-free payload | ❌ No bridge | ❓ Not audited | ❌ Not in `GEOMETRY_ELEMENT_TYPES` | ❌ (no bridge — N/A) | ❌ | ⚠️ OUT-OF-SCOPE — not a geometry element in current schema |
+-| **Room** | ✅ `room.create` | N/A (room derived, not tool-created) | Via `RoomStore` | ✅ indirect | N/A (derived, not tool-created) | N/A | ✅ Derived — redetected from walls/slabs |
++| Element | CEB `.create` case | `initTools` bridge (§-tag) | In `GEOMETRY_ELEMENT_TYPES` | VDT + `bimManager` (Bridge Inv. 7) | First failing link | Status |
++|---|---|---|---|---|---|---|
++| **annotation** | ✅ `annotation.create` (CEB :1266) | ❌ NONE | ❌ | N/A — no bridge | **exports** | ⚠ Renders on its own layer; carried by **no** IFC / PDF / DXF surface |
++| **balcony** | ✅ `balcony.create` (:1422), geometry-complete, read off `record.forward` | ❌ no own-name bridge — **correct**; mirrors by MEMBER re-stamping through `§FT1`, `§P3.2-FL`, `§FT-HANDRAIL` | ❌ (parent) | ✅ members · ❌ parent | **exports** | ⚠ CREATE mirrors by member; **UPDATE and DELETE mirror nothing** |
++| **beam** | ✅ `beam.create` (:887) + `beam.batch.create` (:947) | ✅ `§FT2` | ✅ | ✅ | **NONE** (plan-tool create) · **renders_3d** (3-D `BeamTool` bus leg) | ⚠ PARTIAL — CEB refuses to emit on the 3-D tool leg → phantom beam in the store, no mesh anywhere |
++| **boundary-line** | ✅ 7 case arms — `.create/.update/.attach/.detach/.move` (:2102-2106) + `.delete` (:2187) | ✅ `§FT-BOUNDARY-LINE` | ❌ — deliberate; has its own plan-symbol builder | ✅ (on create **and** update) | **persists** | ⚠ SAVE-HALF ONLY. **The only family measured with a real UPDATE mirror** |
++| **ceiling** | ✅ `ceiling.create` (:1005) + `.batch.create` (:1038) | ✅ `§P3.2-CL` | ✅ | ✅ (inside the dedup guard) | **exports** | ⚠ PARTIAL — reachable / renders_3d / renders_plan are **UNVERIFIED** (no authoritative store to read back from) |
++| **column** | ✅ `column.create` (:813) + `.batch.create` (:846) | ✅ `§P3.3-CO` | ✅ | ✅ | **NONE** (create) | ⚠ PARTIAL — UPDATE chain fails `renders_3d` for **2 of 8** verbs |
++| **curtain-wall** | ✅ `curtain-wall.create` (:694) + `.batch.create` (:758). ⛔ **THE CEB CASES ARE HYPHENATED** — `grep -n "case 'curtainwall" packages/runtime-composer/src/CommandEventBridge.ts` → **0 hits**. ⚠ **But `curtainwall.create` is NOT a spelling that does not exist — it is a REGISTERED BUS ALIAS** (`plugins/curtain-wall/src/handlers/CreateCurtainWall.ts:51` `aliases = ['curtainwall.create']`), canonicalised to `curtain-wall.create` by `CommandBus.canonicalTypeFor` (`packages/command-bus/__tests__/command-aliases.test.ts:92`). The old cell named a real, dispatchable identifier at the WRONG LAYER — bus alias, not CEB case. ⛔ **Do not delete the alias:** a command type is a wire identifier replayed out of `project_command_log` | ✅ `§P3.1-CW` | ✅ | ✅ (after the dedup return) | **reachable — UNVERIFIED** | ⚠ PARTIAL — every link individually cited, chain never executed end-to-end |
++| **dimension** | ✅ `dimension.create` (:1276) | ❌ NONE | ❌ | N/A | **reachable** | ⛔ AUTHORED + DISPATCHABLE + **UNREACHABLE** — `DimensionTool` is not exported from the plugin barrel |
++| **door** | ❌ **no `door.create` case** — removed at CEB :998-1002 (TASK-13) | ✅ `§P2.3` / `§P2.3-DOOR`, on `wall.opening.created` | ✅ | ❌ on the bus path · ✅ on the legacy path (`CreateWallOpeningCommand.ts:182`) | **dispatchable** | ⛔ `door.create` **refuses every well-formed payload by construction** (`CreateDoor.ts:130-136`); `door.batch.create` writes a store nothing renders / projects / persists / exports. **The FAMILY is reachable — via `wall.opening.create`** |
++| **floor** | ✅ `floor.create` (:1382) | ✅ `§P3.2-FL` | ✅ | ✅ | **exports** | ⚠ PARTIAL |
++| **furniture** | ✅ `furniture.create` (:1125) — **geometry-COMPLETE**, not levelId-only | ✅ `§FT-FURNITURE` (:2958) | ✅ | ✅ | **exports** | ⚠ PARTIAL — **this row previously read `❌ No bridge` while §11.1 read `✅ DONE`** |
++| **grid** | ✅ `grid.create` (:1085) | ❌ NONE | ❌ | N/A | **reachable** | ⛔ AUTHORED + DISPATCHABLE + **UNREACHABLE** — `'grid:tool'` is never activated; the 3-D grid reads a **different** store |
++| **handrail** | ✅ `handrail.create` (:1095) — **geometry-COMPLETE** (id, path, height, diameter, shape, hostId, materialId, levelId); the old cell's "geometry-free payload (levelId only)" is false | ✅ `§FT-HANDRAIL` (:2679) | ✅ | ✅ | **NONE** (create chain) | ✅ FULL on create. First failure is on the UPDATE half — **zero handrail verbs in `ELEMENT_UPDATE_VERBS`** |
++| **lift** | ✅ `lift.create` (:1560) | ✅ `§FT-LIFT` (:1719) | ❌ | ✅ — **the only family whose compound PARENT is registered** | **renders_plan** (cabin only; the enclosure is complete through to exports) | ⛔ **No `defineElement('lift')` L0 schema anywhere** — an element family with no L0 record |
++| **lighting** | ✅ `lighting.create` (:1225) — geometry-complete *for this schema* (kind + origin) | ✅ `§FT-LIGHTING` (:2832) | ❌ — declared by-design in the bridge's own comment | `bimManager` ✅ · VDT ❌ → **Bridge Inv. 7 NOT satisfied** | **renders_plan** | ⚠ PARTIAL — **this row previously read `❌ No bridge` / `❓ Not audited` / `OUT-OF-SCOPE`** |
++| **plumbing** | ✅ `plumbing.create` (:1246) — **levelId-ONLY** | ❌ NONE (correct for `plumbing.createFixture`, §11.11) | ✅ | `bimManager` ✅ via `CreatePlumbingFixtureCommand.ts:64` · VDT ❌ | **exports** (working verb `plumbing.createFixture`) · **reachable** (DTO verb `plumbing.create` — zero subscribers repo-wide) | ⚠ SPLIT — **two create verbs, one family, opposite verdicts** |
++| **pool** | ✅ `pool.create` (:1871) | ❌ no own-name bridge — **correct**; members via `§P2.1`, `§FT1`, `§FT-WATER`, `§MIRROR-UPDATE` | ❌ (parent) | ✅ members; the parent id is registered nowhere — correct per ADR-0124 §3 | **renders_plan** (water body only) | ⚠ CREATE fully mirrored on four channels; **DELETE unmirrored** |
++| **roof** | ✅ `roof.create` (:1286) — geometry-complete, **not** levelId-only | ✅ `§P3.2-RF` | ✅ | ✅ | **NONE** (create) | ⚠ PARTIAL — UPDATE chain fails `renders_3d` for **6 of 12** verbs |
++| **room** | ✅ `room.create` (:1075) — **levelId-ONLY**, no id | ❌ NONE, and none is needed — render wiring is `initBuilders.ts:495-509` (`bim-room-added/-updated/-removed`) | ❌ | `bimManager` ✅ via `CreateRoomCommand` · VDT ❌ | **renders_plan** | ⚠ PARTIAL — rooms **persist and export cleanly**; the plan-view INVALIDATION link is the single hole |
++| **slab** | ✅ `slab.create` (:618) + `.batch.create` (:654) | ✅ `§FT1` | ✅ | ✅ (inside the dedup guard) | **reachable** | ⛔ The single case reads `polygon` and **never** `boundary`; three measured live payload shapes fail `renders_3d` + `renders_plan` together |
++| **stair** | ❌ **no CEB case** — TASK-13, CEB :998-1002 ("uses Path C") | ❌ NONE | ✅ | `bimManager` ✅ (`CreateStairCommand.ts:340`) · VDT ❌ | **NONE** | ⚠ All seven facts hold — **through a legacy `commandManager` route that §5.3 forbids** (`initBusHandlers §E.5.4`) |
++| **structural** | ✅ `structural.create` (:1256) | ❌ NONE | ❌ | N/A | **reachable** | ⛔ AUTHORED + DISPATCHABLE + **UNREACHABLE**; `StructuralCommitter` is **never constructed** anywhere, tests included |
++| **wall** | ✅ `wall.create` (:499) + `.batch.create` (:539) | ✅ `§P2.1` | ✅ | ✅ — **the only family satisfying Inv. 7 UNCONDITIONALLY** (registration before `add()`, outside the dedup guard) | **NONE** (create) | ✅ FULL on create. **7 wall UPDATE verbs are UNMIRRORED** in `tools/ga-gate/mirror-debt.json` |
++| **window** | ❌ **no `window.create` case** — TASK-13, CEB :998-1002 | ✅ `§P2.3` / `§P2.3-WIN`, on `wall.opening.created` | ✅ | ❌ on the bus path · ✅ on the legacy path | **dispatchable** | ⛔ `window.create` **refuses every well-formed payload by construction** (`CreateWindow.ts:95-101`); `window.batch.create` is never dispatched by any production executor |
++
++**Three families are registered with NO plugin directory on disk.** They are `STORE_ONLY_PLUGIN_IDS`
++members of a compound parent, not independent tools, and are recorded here so the matrix's family
++set is auditable — `ls plugins/water plugins/liftPart plugins/bathroomPod` → three × *No such file*:
++
++| Member | Parent | Carried on | First failing link |
++|---|---|---|---|
++| **water** | `pool` | emitted from **inside** `case 'pool.create'` (CEB :2049-2068); bridge `§FT-WATER` (:1943) | **renders_plan** — ⛔ a bridge whose own-name event **nothing emits**: there is no `case 'water.create'` |
++| **liftPart** | `lift` | no own case — parts ride `case 'lift.create'` (:1788-1812) | **renders_plan** — VDT / `bimManager` are called on the PARENT id only; **zero per-part registration** |
++| **bathroomPod** | — | ⛔ **no CEB case at all** — a deliberate bypass; `BATH102` store-subscription mirror at `initTools.ts:1753-1770` | **renders_plan** — ⛔ **Bridge Invariant 7 VIOLATED**: `grep -c registerElement apps/editor/src/engine/bathroomPodMemberMirror.ts` → **0** |
++
++**Two ids in `ELEMENT_PLUGIN_IDS` have no create verb and no `defineElement` schema** and are
++therefore **not** element families despite that membership: `selection` (kind `collab`) and
++`section-view` (kind `view`). Recorded so a future reader does not mint a matrix row for them.
+ 
+ ### §11.1 — Gaps requiring action (Wave A16 / Wave A21)
+ 
+@@ -1299,7 +1344,7 @@
+ |---|---|---|---|
+ | **TODO-CW-STORE-BUS** | Curtain Wall | Fix `CurtainWallStore.add()` to emit `storeEventBus` directly (eliminate bridge workaround) | Wave A16 |
+ | **STAIR-BUS-MIGRATION** | Stair | Bus entry already exists (`initBusHandlers §E.5.4` → `CreateStairCommand`). Remaining: replace the `_cmExec(new CreateStairCommand)` legacy bridge with a PRYZM3 plugin handler + `stair.created` CEB event, so stair matches the wall/slab pipeline shape. See §11.3. | Wave A21 |
+-| **HANDRAIL-BUS-MIGRATION** | Handrail | Enrich `handrail.create` CEB payload with geometry fields; add `initTools.ts §FT-HANDRAIL` bridge | Wave A21 |
++| **HANDRAIL-BUS-MIGRATION** | Handrail | ⛔ **DISCHARGED 2026-08-29 — DO NOT EXECUTE.** The order was "enrich the `handrail.create` CEB payload with geometry fields; add an `initTools.ts §FT-HANDRAIL` bridge". Both shipped. `grep -n "bridge registered" apps/editor/src/engine/initTools.ts` → `§FT-HANDRAIL` registered; the CEB case at `CommandEventBridge.ts:1095` already forwards id, path, height, diameter, shape, hostId, materialId **and** levelId. **Executing this row would build a RIVAL of a live bridge — strictly worse than the gap it imagined.** | ✅ DONE |
+ | **FURNITURE-BUS-MIGRATION** | Furniture | ✅ **DONE** (§7.0 FIX-FURNITURE-BRIDGE, §11.19): `furniture.created` widened, CEB enriched, `initTools §FT-FURNITURE` bridge added → legacy `FurnitureStore` mesh + plan symbol. | Wave A21 |
+ | **SLAB-BATCH-COORDINATOR** | Slab | Implement `BatchCoordinator.runBatch()` in `CreateSlabBatch.ts` (§7.4) | Wave A21 |
+ | **HANDLER-OTEL-SPANS** | All 177 handlers | Every handler MUST emit ≥ 1 OTel span (§5.2, C10 §2) | S03 |

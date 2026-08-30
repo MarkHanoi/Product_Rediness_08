@@ -1,0 +1,83 @@
+npm warn Unknown project config "package-manager-strict". This will stop working in the next major version of npm. See `npm help npmrc` for supported config options.
+
+ RUN  v4.1.10 C:/Users/LENOVO/OneDrive/Desktop/PRYZM/Product_Rediness_08/apps/editor
+
+stdout | ../../audit/element-creation/2026-08-29/probe/b4Dispatch.probe.test.ts > B4 probe -- registration facts at the real composition root > P-A: storeKeys / handler types / ELEMENT_PLUGIN_IDS membership
+[B4 P-A] ALL rt.stores keys: ["annotation","balcony","bathroomPod","beam","boundaryLine","ceiling","column","curtainwall","dimension","door","floor","furniture","grid","handrail","lift","liftPart","lighting","plumbing","pool","roof","rooms","section","selection","slab","stair","structural","view","wall","water","window"]
+[B4 P-A] rt.stores.furniture present = true
+[B4 P-A] rt.stores.lighting present = true
+[B4 P-A] rt.stores.plumbing present = true
+[B4 P-A] rt.stores.rooms present = true
+[B4 P-A] rt.stores.room present = false
+[B4 P-A] rt.stores.bathroomPod present = true
+[B4 P-A] registeredStoreKeys[furniture] = "furniture"
+[B4 P-A] registeredHandlerTypes[furniture] = ["furniture.create","furniture.batch.create","furniture.delete","furniture.move","furniture.rotate","furniture.setScale","furniture.setActiveLod","furniture.setRepresentation","furniture.updateParameters","furniture.setMaterial","furniture.changeLevel","furniture.bulkUpdateKitchenMaterial"]
+[B4 P-A] ELEMENT_PLUGIN_IDS has furniture = true
+[B4 P-A] registeredStoreKeys[lighting] = "lighting"
+[B4 P-A] registeredHandlerTypes[lighting] = ["lighting.create","lighting.delete","lighting.move","lighting.setIntensity","lighting.setEmergency","lighting.setMaterial","lighting.changeLevel"]
+[B4 P-A] ELEMENT_PLUGIN_IDS has lighting = false
+[B4 P-A] registeredStoreKeys[plumbing] = "plumbing"
+[B4 P-A] registeredHandlerTypes[plumbing] = ["plumbing.create","plumbing.delete","plumbing.move","plumbing.setSystem","plumbing.createFixture","plumbing.setMaterial","plumbing.changeLevel","bathroomPod.create","bathroomPod.delete"]
+[B4 P-A] ELEMENT_PLUGIN_IDS has plumbing = true
+[B4 P-A] registeredStoreKeys[rooms] = "rooms"
+[B4 P-A] registeredHandlerTypes[rooms] = ["room.create","room.delete","room.move","room.setName","room.setNumber","room.setDepartment","room.setOccupancy","room.setColourMode","room.setMaterial","room.setFinish","room.setHeightOffset","room.recomputeBoundary","room.redetect","room.regenerate","room.restoreMeaning","room.rename","template.create","room.autoClassify.batch"]
+[B4 P-A] ELEMENT_PLUGIN_IDS has rooms = true
+
+ ✓ ../../audit/element-creation/2026-08-29/probe/b4Dispatch.probe.test.ts > B4 probe -- registration facts at the real composition root > P-A: storeKeys / handler types / ELEMENT_PLUGIN_IDS membership 287ms
+stdout | ../../audit/element-creation/2026-08-29/probe/b4Dispatch.probe.test.ts > B4 probe -- dispatchability + committed record shape > P-B: furniture.create with the PLUGIN TOOL payload (origin/catalogId)
+[B4 P-B] outcome: OK
+[B4 P-B] furniture ids: ["furniture_01ARZ3NDEKTSV4RRFFQ69G5FB1"]
+[B4 P-B] record: {"id":"furniture_01ARZ3NDEKTSV4RRFFQ69G5FB1","type":"furniture","parentId":null,"childrenIds":[],"metadata":{"createdAt":0,"modifiedAt":0,"createdBy":"system","version":0},"provenance":{"origin":null,"unknownReason":"predates-provenance"},"confidence":{"score":null,"validationState":"not-checked","unknownReason":"pending-implementation"},"levelId":"L0","catalogId":"cat-sofa","origin":{"x":3,"y":0,"z":4},"rotation":0,"scale":1,"activeLod":2,"representations":{},"materialSlots":{}}
+
+ ✓ ../../audit/element-creation/2026-08-29/probe/b4Dispatch.probe.test.ts > B4 probe -- dispatchability + committed record shape > P-B: furniture.create with the PLUGIN TOOL payload (origin/catalogId) 291ms
+stdout | ../../audit/element-creation/2026-08-29/probe/b4Dispatch.probe.test.ts > B4 probe -- dispatchability + committed record shape > P-C: furniture.create with the EDITOR payload (furnitureType/position)
+[B4 P-C] outcome: OK
+[B4 P-C] record: {"id":"furniture_01ARZ3NDEKTSV4RRFFQ69G5FB4","type":"furniture","parentId":null,"childrenIds":[],"metadata":{"createdAt":0,"modifiedAt":0,"createdBy":"system","version":0},"provenance":{"origin":null,"unknownReason":"predates-provenance"},"confidence":{"score":null,"validationState":"not-checked","unknownReason":"pending-implementation"},"levelId":"L0","catalogId":"","origin":{"x":0,"y":0,"z":0},"rotation":0,"scale":1,"activeLod":2,"representations":{},"materialSlots":{}}
+
+ ✓ ../../audit/element-creation/2026-08-29/probe/b4Dispatch.probe.test.ts > B4 probe -- dispatchability + committed record shape > P-C: furniture.create with the EDITOR payload (furnitureType/position) 249ms
+stdout | ../../audit/element-creation/2026-08-29/probe/b4Dispatch.probe.test.ts > B4 probe -- dispatchability + committed record shape > P-D: furniture.create with the TELEMETRY payload {} (FurnitureTool.ts:625)
+[B4 P-D] outcome: OK
+[B4 P-D] furniture ids after {}: ["furniture_01M16F58ZJJT5FPF57XCB4307Z"]
+[B4 P-D] ghost record: {"id":"furniture_01M16F58ZJJT5FPF57XCB4307Z","type":"furniture","parentId":null,"childrenIds":[],"metadata":{"createdAt":0,"modifiedAt":0,"createdBy":"system","version":0},"provenance":{"origin":null,"unknownReason":"predates-provenance"},"confidence":{"score":null,"validationState":"not-checked","unknownReason":"pending-implementation"},"levelId":"","catalogId":"","origin":{"x":0,"y":0,"z":0},"rotation":0,"scale":1,"activeLod":2,"representations":{},"materialSlots":{}}
+
+ ✓ ../../audit/element-creation/2026-08-29/probe/b4Dispatch.probe.test.ts > B4 probe -- dispatchability + committed record shape > P-D: furniture.create with the TELEMETRY payload {} (FurnitureTool.ts:625) 285ms
+stdout | ../../audit/element-creation/2026-08-29/probe/b4Dispatch.probe.test.ts > B4 probe -- dispatchability + committed record shape > P-E: lighting.create (tool payload kind/origin)
+[B4 P-E] outcome: OK
+[B4 P-E] record: {"id":"lighting_01ARZ3NDEKTSV4RRFFQ69G5FB2","type":"lighting","parentId":null,"childrenIds":[],"metadata":{"createdAt":0,"modifiedAt":0,"createdBy":"system","version":0},"provenance":{"origin":null,"unknownReason":"predates-provenance"},"confidence":{"score":null,"validationState":"not-checked","unknownReason":"pending-implementation"},"levelId":"L0","kind":"downlight","origin":{"x":1,"y":2.7,"z":1},"rotation":0,"width":0.2,"depth":0.2,"thickness":0.05,"dropLength":0,"range":6,"lumens":800,"kelvin":2700,"beamAngleDeg":180,"color":[1,1,1],"isEmergency":false}
+
+ ✓ ../../audit/element-creation/2026-08-29/probe/b4Dispatch.probe.test.ts > B4 probe -- dispatchability + committed record shape > P-E: lighting.create (tool payload kind/origin) 275ms
+stdout | ../../audit/element-creation/2026-08-29/probe/b4Dispatch.probe.test.ts > B4 probe -- dispatchability + committed record shape > P-F: plumbing.create with the TELEMETRY payload {} (PlumbingTool.ts:414)
+[B4 P-F] outcome: OK
+[B4 P-F] plumbing ids after {}: ["plumbing_01M16F59H4NNSP8XFDVPGGD5YN"]
+[B4 P-F] ghost record: {"id":"plumbing_01M16F59H4NNSP8XFDVPGGD5YN","type":"plumbing","parentId":null,"childrenIds":[],"metadata":{"createdAt":0,"modifiedAt":0,"createdBy":"system","version":0},"provenance":{"origin":null,"unknownReason":"predates-provenance"},"confidence":{"score":null,"validationState":"not-checked","unknownReason":"pending-implementation"},"levelId":"","kind":"straight","origin":{"x":0,"y":0,"z":0},"diameter":0.05,"wallThickness":0.005,"length":1,"rotation":0,"bendRadius":0.075,"baseOffset":0,"systemTag":"cold-water"}
+
+ ✓ ../../audit/element-creation/2026-08-29/probe/b4Dispatch.probe.test.ts > B4 probe -- dispatchability + committed record shape > P-F: plumbing.create with the TELEMETRY payload {} (PlumbingTool.ts:414) 286ms
+stdout | ../../audit/element-creation/2026-08-29/probe/b4Dispatch.probe.test.ts > B4 probe -- dispatchability + committed record shape > P-G: plumbing.create with the DECLARED bus type (fixtureType/position)
+[B4 P-G] outcome: OK
+[B4 P-G] record: {"id":"plumbing_01ARZ3NDEKTSV4RRFFQ69G5FB3","type":"plumbing","parentId":null,"childrenIds":[],"metadata":{"createdAt":0,"modifiedAt":0,"createdBy":"system","version":0},"provenance":{"origin":null,"unknownReason":"predates-provenance"},"confidence":{"score":null,"validationState":"not-checked","unknownReason":"pending-implementation"},"levelId":"L0","kind":"straight","origin":{"x":0,"y":0,"z":0},"diameter":0.05,"wallThickness":0.005,"length":1,"rotation":0,"bendRadius":0.075,"baseOffset":0,"systemTag":"cold-water"}
+
+ ✓ ../../audit/element-creation/2026-08-29/probe/b4Dispatch.probe.test.ts > B4 probe -- dispatchability + committed record shape > P-G: plumbing.create with the DECLARED bus type (fixtureType/position) 287ms
+stdout | ../../audit/element-creation/2026-08-29/probe/b4Dispatch.probe.test.ts > B4 probe -- dispatchability + committed record shape > P-H: plumbing.createFixture (the reachable fixture route) headless
+[B4 P-H] outcome: window is not defined
+[B4 P-H] plumbing ids: []
+
+ ✓ ../../audit/element-creation/2026-08-29/probe/b4Dispatch.probe.test.ts > B4 probe -- dispatchability + committed record shape > P-H: plumbing.createFixture (the reachable fixture route) headless 297ms
+stdout | ../../audit/element-creation/2026-08-29/probe/b4Dispatch.probe.test.ts > B4 probe -- dispatchability + committed record shape > P-I: room.create telemetry {} and complete record
+[B4 P-I] {} outcome: room.create: canExecute rejected — room.create needs a COMPLETE RoomData record and this payload is missing: id, levelId, boundary.polygon (≥3 vertices), computed, metadata. `computed` (area/grossArea/perimeter/volume/centroid/boundingBox) and `metadata` are DERIVED — this plugin will not re-derive them, because a rival derivation would silently disagree with the one the area schedules, the room label renderer and the IFC exporter read. Either send the complete record (the shape apps/editor/src/engine/views/plantools/RoomPlanToolHandler.ts:114 sends, which CreateRoomCommand accepts verbatim), or — for a wall-bound room — dispatch `room.redetect` { levelId }, which runs ReDetectRoomsCommand and derives the boundary from the wall graph.
+
+stdout | ../../audit/element-creation/2026-08-29/probe/b4Dispatch.probe.test.ts > B4 probe -- dispatchability + committed record shape > P-I: room.create telemetry {} and complete record
+[B4 P-I] complete outcome: room.create: the legacy command manager is not available in this process, so no room was created. The authoritative path is CreateRoomCommand (@pryzm/command-registry), which needs the engine half — a BimManager level authority + RoomStore — that apps/editor/src/engine/initBuilders.ts attaches at boot (roomStore.attachEngine, §ADR-0318-ELEMENTS-SLOT). A composed runtime without that half cannot create a room.
+[B4 P-I] rooms store ids: []
+
+ ✓ ../../audit/element-creation/2026-08-29/probe/b4Dispatch.probe.test.ts > B4 probe -- dispatchability + committed record shape > P-I: room.create telemetry {} and complete record 280ms
+stdout | ../../audit/element-creation/2026-08-29/probe/b4Dispatch.probe.test.ts > B4 probe -- dispatchability + committed record shape > P-J: furniture.create carrying wardrobeCabinetConfig (window-guard probe)
+[B4 P-J] outcome: window is not defined
+
+ ✓ ../../audit/element-creation/2026-08-29/probe/b4Dispatch.probe.test.ts > B4 probe -- dispatchability + committed record shape > P-J: furniture.create carrying wardrobeCabinetConfig (window-guard probe) 254ms
+
+ Test Files  1 passed (1)
+      Tests  10 passed (10)
+   Start at  11:55:40
+   Duration  26.55s (transform 17.60s, setup 0ms, import 23.24s, tests 2.80s, environment 0ms)
+
+RC=0

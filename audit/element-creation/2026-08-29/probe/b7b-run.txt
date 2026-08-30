@@ -1,0 +1,28 @@
+npm warn Unknown project config "package-manager-strict". This will stop working in the next major version of npm. See `npm help npmrc` for supported config options.
+
+ RUN  v4.1.10 C:/Users/LENOVO/OneDrive/Desktop/PRYZM/Product_Rediness_08/apps/editor
+
+[B7B R-A selection.select] THREW ctx.stores.selection.select is not a function
+[B7B R-A selection.deselect] THREW ctx.stores.selection.deselect is not a function
+[B7B R-A selection.clear] THREW ctx.stores.selection.clear is not a function
+[B7B R-A copy-selection] THREW ctx.stores.selection.getState is not a function
+[B7B R-A paste-clipboard] THREW paste-clipboard: canExecute rejected — Paste is not available (no paste port wired)
+[B7B R-A selection store AFTER all five] {"size":0}
+[B7B R-B ctx.stores.selection] {"typeof":"object","ctor":"Object","isMap":false,"ownKeys":[],"hasSelectFn":false,"hasClearFn":false,"hasGetStateFn":false}
+[B7B R-B ctx.stores.section] {"typeof":"object","ctor":"Object","isMap":false,"hasGetStateFn":false}
+[B7B R-C pool.create] RESOLVED, affectedStores=["pool","wall","slab","water"]
+[B7B R-C water store] {"size":1,"keys":["water_01ARZ3NDEKTSV4RRFFQ69G5H06"]}
+[B7B R-C water record] {"id":"water_01ARZ3NDEKTSV4RRFFQ69G5H06","type":"water","parentId":"pool_01ARZ3NDEKTSV4RRFFQ69G5H05","childrenIds":[],"metadata":{"createdAt":0,"modifiedAt":0,"createdBy":"system","version":0},"provenance":{"origin":"computed","detail":"@pryzm/geometry-pool buildPoolAssembly — pool water"},"confidence":{"score":null,"validationState":"not-checked","unknownReason":"pending-implementation"},"levelId":"level-1","poolId":"pool_01ARZ3NDEKTSV4RRFFQ69G5H05","boundary":[{"x":0,"y":0,"z":0},{"x":8,"y":0,"z":0},{"x":8,"y":0,"z":4},{"x":0,"y":0,"z":4}],"surfaceElevation":-0.1,"bottomElevation":-1.5,"color":"#2E86C1","opacity":0.3}
+[B7B R-D n=3] THREW Cannot read properties of undefined (reading 'toFixed')
+[B7B R-D n=4] THREW bathroomPod.create: canExecute rejected — expected 3 pre-minted member id(s) for this member set, got 4
+[B7B R-D n=5] THREW bathroomPod.create: canExecute rejected — expected 3 pre-minted member id(s) for this member set, got 5
+[B7B R-D n=6] THREW bathroomPod.create: canExecute rejected — expected 3 pre-minted member id(s) for this member set, got 6
+[B7B R-D bathroomPod store] {"size":0,"keys":[]}
+[B7B R-D MEMBERS unused] 4
+
+ Test Files  1 passed (1)
+      Tests  4 passed (4)
+   Start at  12:06:03
+   Duration  24.89s (transform 17.19s, setup 0ms, import 22.92s, tests 1.12s, environment 0ms)
+
+RC=0

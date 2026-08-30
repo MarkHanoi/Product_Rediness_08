@@ -1,0 +1,58 @@
+{
+  "family": "section-view",
+  "batch": "B7",
+  "measured": "2026-08-29",
+  "registration": {
+    "registration_site": "plugins/section-view/src/registration.ts -- 'sectionViewPluginRegistration', authored INSIDE the plugin at L6 against the L5 PluginRegistration contract (PLUGIN-DESCRIPTOR-AT-L5, L-9921/L-9922, ADR-0367). apps/editor/src/PluginRegistry.ts:111 imports it and :770 places it in ALL_PLUGINS as a bare reference -- the ONLY non-object-literal member of that array.",
+    "declared_storeKey": "section",
+    "storeKey_matches_ctx_stores_key": "YES, AND THE ID DELIBERATELY DIFFERS FROM IT. id='section-view' (must match the DIRECTORY -- the census gate compares the set against ls plugins/); storeKey='section' (must match what the six handlers read). Verified against ctx.stores and affectedStores, not the directory: probe b7Edge Q-A stores.section = SectionStore; Q-B registeredStoreKeys['section-view'] = 'section'; all six handlers declare affectedStores=['section'] and read ctx.stores.section. probe b7Edge2 R-B: ctx.stores.section is {typeof:'object', ctor:'Object', isMap:false, hasGetStateFn:false} -- a Record view, which is EXACTLY what these handlers expect (they index it and run produceCommand over it). Contrast selection, whose handlers expect the store instance and break.",
+    "in_ELEMENT_PLUGIN_IDS": true,
+    "in_STORE_ONLY_PLUGIN_IDS": false,
+    "proof_reads_real_composition_root": "YES -- apps/editor/__tests__/sectionViewReachableThroughComposedRuntime.test.ts, R-1..R-8: R-1 the composition root contributes the section store; R-2 the descriptor is the PLUGIN'S OWN OBJECT, not a copy; R-3 section.create DISPATCHES (no longer throws at CommandBus.buildContext); R-4 the record LANDS in the store the composition root binds; R-5 setMark/setDepth/setScale all land; R-6 section.moveLine still REFUSES; R-7 a MALFORMED section is refused BEFORE anything lands; R-8 section.delete removes exactly one. Header: 'It deliberately never constructs a store, a stores object or a bus of its own' (D6). RAN 2026-08-29: RC=0, 38 tests across 4 files.",
+    "history": "This was the TENTH instance of the missing-store defect and the FIRST found by a gate (check-plugin-census-equivalence.ts arm A) rather than by a person: engineLauncher.ts:711 had been calling registerSectionHandlers(_bus) since P3.4-SE, so all six verbs were REGISTERED, but no descriptor contributed a 'section' key and every dispatch died in buildContext with \"section.create: required store 'section' is missing from HandlerContext.stores\". Closed.",
+    "status": "REGISTERED + DISPATCHABLE"
+  },
+  "handler": {
+    "path": "plugins/section-view/src/handlers/ -- CreateSection.ts, DeleteSection.ts, MoveSectionLine.ts, SetSectionDepth.ts, SetSectionMark.ts, SetSectionScale.ts. probe Q-B: registeredHandlerTypes['section-view'] = [section.create, section.delete, section.moveLine, section.setDepth, section.setMark, section.setScale].",
+    "validates_before_mutation": "YES, typed, on all six. CreateSection.canExecute checks id shape + duplicate, line presence, finite a.x/a.y/b.x/b.y, non-negative finite lookDepth, positive finite scale, non-negative integer seq. probe b7Edge Q-C: section.create {} -> 'section.create: canExecute rejected -- line is required'.",
+    "mutates_only_via_immer_draft": "YES on all six -- produceCommand<SectionsState>(ctx.stores.section, (draft) => {...}) returning { forward, inverse, nextStates: { section: next } }. No store-singleton import.",
+    "otel_span": "YES on all six -- withHandlerSpan(this.type + '.handler', {'pryzm.command.type': this.type}, ...), closing 'withHandlerSpan -- C10 s2'.",
+    "id_pre_generated_in_tool": "NO -- AND THIS IS A FINDING. CreateSectionPayload.id is OPTIONAL (CreateSection.ts:16). CreateSection.ts:24 defines mintId() = `section-${Date.now().toString(36)}-${(++_seq).toString(36)}` and :58 uses it whenever cmd.id is undefined. plugins/section-view/src/tool.ts:105-111 builds its payload as { line, scale } with NO id and dispatches. MEASURED, probe b7Edge Q-E: section.create with no id -> store id 'section-mte7npfu-1'. execute() runs again on REDO, so a redo mints a DIFFERENT id -- the C11 s3.2 MANDATORY ID pre-generation invariant, the FIX-WALL-ID / FIX-CW-ID / FIX-BEAM-ID class. Documented rather than fixed: packages/schemas/src/types/Id.ts:152 records 'Ids are minted by CreateSectionHandler as section-<ts36>-<seq36>'. Not currently exploitable only because the tool that omits the id is never constructed (see reachable).",
+    "deliberate_refusal": "section.moveLine REFUSES BY DESIGN. MoveSectionLine.ts:129-133 -- canExecute runs validatePayload, and when the payload is well-formed it STILL returns { valid: false, reason: SECTION_MOVE_LINE_UNREACHABLE }. FIX-DEAD-MOVE-VERB-REFUSE (W3-4): 'the payload is well-formed, and it STILL cannot reach authoritative state. Say so; never report success.' The method ORDER is load-bearing for tools/ga-gate/check-verb-register.ts and is annotated as such.",
+    "must_not_violations": [],
+    "status": "CONTRACT-CLEAN EXCEPT FOR THE HANDLER-MINTED ID"
+  },
+  "lifecycle": {
+    "ceb_case": "NONE -- no 'case section.create' in packages/runtime-composer/src/CommandEventBridge.ts. Consistent with the family's state: nothing downstream consumes a section.created event.",
+    "initTools_bridge_tag": "NONE -- grep for runtime.events.on('section in apps/editor/src/engine/initTools.ts -> 0 hits (the file's only 'section' hits are the structural sectionType field at :904 and unrelated prose).",
+    "vdt_registerElement": "N/A -- no bridge to carry it.",
+    "bimManager_registerElement": "N/A -- no bridge to carry it.",
+    "bimManager_via_window_any": "N/A for the family. BUT the ACTIVATOR is a window-as-namespace read: apps/editor/src/PluginRegistry.ts:1208 const t = (window as unknown as Record<string, unknown>).sectionTool -- see reachable.",
+    "in_GEOMETRY_ELEMENT_TYPES": false,
+    "geometry_element_types_evidence": "ViewDependencyTracker.ts:42-48 -- 'section' ABSENT.",
+    "update_verbs_covered": "NO -- ELEMENT_UPDATE_VERBS (CommandEventBridge.ts:241-294) has no section.* row, so setMark / setDepth / setScale / moveLine mirror nothing. Not the usual create-mirror-without-update-mirror asymmetry though: section.create mirrors nothing either, so the family is uniformly unmirrored.",
+    "evidence": "probe b7Edge Q-E: section.create RESOLVED with patches [{storeKey:'section', forwardPatches:[{op:'add', path:['section-mte7npfu-1'], ...}]}]; section store ids after create = ['section-mte7npfu-1']; rt.stores.section state is a Map.",
+    "status": "STORE-ONLY -- DISPATCHES, LANDS, AND GOES NO FURTHER"
+  },
+  "milestones": {
+    "authored": "YES",
+    "dispatchable": "YES",
+    "reachable": "NO",
+    "renders_3d": "NO",
+    "renders_plan": "NO",
+    "persists": "NO",
+    "exports": "NO"
+  },
+  "milestone_proofs": {
+    "authored": "plugins/section-view/src/ -- 6 handlers, store.ts (SectionStore), registration.ts, tool.ts, intent.ts, SectionViewRenderer.ts, SectionViewCanvasHost.ts, section-cut-producer.ts. L0: packages/schemas/src/elements/Section.ts EXISTS and is exported from packages/schemas/src/elements/index.ts:63 (SectionData, SectionLine, SectionsState) -- so the batch premise 'no schema' is REFUTED. It is NOT in SCHEMA_REGISTRY (packages/schemas/src/registry.ts:40-68, 28 keys, no 'section'), so it is a DTO type rather than a registered element schema. Branded id exists: Id.ts:155 SectionId = Id<'section'>.",
+    "dispatchable": "probe b7Edge Q-C/Q-E and sectionViewReachableThroughComposedRuntime R-3/R-4/R-5/R-8 -- five of six verbs land through the real composed runtime; the sixth refuses by design.",
+    "reachable": "NO, ON THREE INDEPENDENT MEASUREMENTS. (1) plugins/section-view/src/tool.ts is the only production dispatcher of section.create, and grep -rn 'new SectionTool' across apps/packages/plugins (excluding node_modules and __tests__) -> 0 hits outside its own docstring: nothing ever constructs it. (2) The activator at PluginRegistry.ts:1207-1215 reads (window as unknown as Record<string, unknown>).sectionTool -- grep -rn sectionTool across the tree -> 2 hits, the read itself and a test comment; the global is assigned NOWHERE. It therefore always falls through to busAdapter.executeCommand('section.panel.open', ...), a verb with no handler. So tools/ga-gate/check-tool-activator-coverage.ts counts section-view COVERED on the NAME of a registration, never its reachability -- and the reachability test's own header (sectionViewReachableThroughComposedRuntime.test.ts:43-52) records exactly this, self-corrected: 'This paragraph first read section-view has no tool activator at all. That is false, and the truth is worse (L-9923).' (3) apps/editor/src/engine/views/plantools/SectionPlanToolHandler.ts:126 dispatches 'section.mark.create' -- the section-MARK ANNOTATION, a different key, and :122-123 says so explicitly. No production path reaches section.create.",
+    "renders_3d": "NO -- SectionViewRenderer and SectionViewCanvasHost exist and are exported from plugins/section-view/src/index.ts:14-23, and have ZERO production construction sites (the only non-test hits are the plugin's own barrel and their own definitions, plus a plugins/multiplayer/src/cursor.ts:7 comment). ADR-0367 s6 / Gate G7 owns the wiring; the reachability test states 'It also does NOT prove the section RENDERS'.",
+    "renders_plan": "NO -- 'section' is not in GEOMETRY_ELEMENT_TYPES and there is no bridge, no VDT registration and no plan symbol builder for it.",
+    "persists": "NO -- snapshotFamilyCoverage.ts { storeKey:'section', status:'UNPERSISTED', snapshotKey: null }, L-11524 OPEN. grep -ci section apps/editor/src/engine/persistence/ProjectSerializer.ts -> 1, and that one hit is the console.error prose at :1531. tools/ga-gate/check-snapshot-family-coverage.ts printed it among the 3 declared losses: 'SectionStore (plugins/section-view) has no snapshot key, so every section view the user cuts is lost on reload. Sibling of view, whose ViewRegistry DOES persist via viewDefinitions; the asymmetry is real and undeclared until now.'",
+    "exports": "NO -- follows from persists; no snapshot key, no round trip."
+  },
+  "first_failing_link": "reachable",
+  "c11_matrix_says": "NO ROW. C11 s11's 14 element rows do not include section-view. Weaker as a doc-conflict than water/liftPart/bathroomPod (a section is arguably a VIEW, not an element) -- but section-view IS in ELEMENT_PLUGIN_IDS and DOES own a create verb, so the contract that governs the element-creation pipeline should say which of the two it is, and it says nothing. REFUTED by omission.",
+  "status": "NOT-READY"
+}

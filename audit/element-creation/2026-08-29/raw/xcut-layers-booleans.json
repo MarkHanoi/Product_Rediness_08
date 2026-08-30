@@ -1,0 +1,367 @@
+{
+  "phase": "2c",
+  "subject": "Layer matrix, SDK bypasses, package census, ADR-0367 extension-contract placement, the 9 convergence booleans",
+  "measuredAt": "2026-08-29",
+  "repo": "c:/Users/LENOVO/OneDrive/Desktop/PRYZM/Product_Rediness_08",
+  "headSha": "064a838ed9e7e3db3bb8ab3500bf70a9f06cc2fd",
+  "branch": "main",
+  "environment": {
+    "shell": "Git Bash on Windows 11",
+    "excludedFromAllGreps": ["node_modules", ".git"],
+    "gateInvocation": "npx tsx tools/ga-gate/<script>.ts > log 2>&1; echo RC=$?"
+  },
+
+  "part1_layer_violations": {
+    "authority": "tools/ga-gate/check-layer-boundaries.ts",
+    "command": "npx tsx tools/ga-gate/check-layer-boundaries.ts",
+    "rc": 3,
+    "rcMeaning": "3 = SHRINK-ONLY RATCHET EXCEEDED. Not PASS, not ordinary FAIL. run-all.ts:1162 sets anyFailed=true on code===3 unconditionally and never absorbs it via gate-debt.json (RATCHET-EXCEEDED-IS-NEVER-DEBT, R7 / L-836).",
+    "scopeActuallyScanned": {
+      "workspacePackages": 167,
+      "classified": 152,
+      "unclassified": 15
+    },
+    "fourArms": {
+      "upwardImports":        { "measured": 105, "baseline": 102, "verdict": "FAIL (+3)" },
+      "sdkFacadeBypasses":    { "measured": 186, "baseline": 182, "verdict": "FAIL (+4)", "note": "TRACKED SEPARATELY from upwardImports by the gate itself. plugin -> renderer-three is a DOWNWARD edge: a facade-encapsulation breach, not a layer violation." },
+      "bannedThirdParty":     { "measured": 123, "baseline": 113, "verdict": "FAIL (+10)", "subjects": "@thatopen/components outside plugins/ifc-import; express outside the server apps" },
+      "unclassifiedPackages": { "measured": 15,  "baseline": 13,  "verdict": "FAIL (+2)" }
+    },
+    "violationsByLayerPair": {
+      "L2->L6": 40,
+      "L2->L4": 14,
+      "L3->L4": 12,
+      "L3->L6": 11,
+      "L1->L2": 11,
+      "L4->L6": 9,
+      "L2->L3": 6,
+      "L3->L7": 1,
+      "L6->L7": 1,
+      "total": 105
+    },
+    "violationsBySourcePackage": {
+      "packages/command-registry": 23,
+      "packages/core-app-model": 14,
+      "packages/runtime-composer": 12,
+      "packages/spatial-index": 11,
+      "packages/file-format": 10,
+      "packages/persistence-client": 9,
+      "packages/input-host": 7,
+      "packages/geometry-column": 6,
+      "packages/room-topology": 2,
+      "packages/geometry-stair": 2,
+      "packages/geometry-roof": 2,
+      "packages/geometry-beam": 2,
+      "plugins/toy-cube": 1,
+      "packages/view-state": 1,
+      "packages/headless": 1,
+      "packages/geometry-wall": 1,
+      "packages/ai-host": 1
+    },
+    "dominantTargetsOfUpwardEdges": {
+      "@pryzm/plugin-annotations": "the single largest attractor of L2->L6, L3->L6 and L4->L6 edges: command-registry, core-app-model, file-format, geometry-roof, input-host, persistence-client and room-topology all reach up into it",
+      "@pryzm/plugin-structural": "geometry-beam, geometry-column and input-host reach up into it",
+      "@pryzm/scene-committer": "core-app-model, geometry-stair, headless and input-host reach up (L2/L3 -> L4)"
+    },
+    "documentedExceptionsCarriedForward_reMeasured": {
+      "runtime-composer_is_not_really_L3": {
+        "documented": 16,
+        "measured": 12,
+        "note": "the fact holds; the NUMBER has moved. 12 of the 105 are runtime-composer, including the only L3->L7 edge: composeRuntime.ts -> @pryzm/editor/bootstrap.render.everything"
+      },
+      "core-app-model_and_command-registry_at_L2_importing_L4": {
+        "measured": 37,
+        "breakdown": "command-registry 23 + core-app-model 14"
+      },
+      "backend_packages_have_no_layer": {
+        "documentedListSize": 8,
+        "measuredUnclassified": 15,
+        "note": "the 15 unclassified are NOT all backend. Seven are not: @pryzm/bench-visual-diff, eslint-plugin-pryzm, @pryzm/geometry-boundary-line, @pryzm/geometry-handrail, @pryzm/legacy-shim, @pryzm/release, @pryzm/wcag-audit. Two geometry-* packages sitting UNCLASSIFIED means the gate cannot judge ANY import to or from geometry packages that element families depend on."
+      },
+      "apps_L7_above_plugins_L6": "PRESERVED - the gate reports exactly 1 L6->L7 edge (plugins/toy-cube/src/HelloCubeBoot.ts -> @pryzm/editor) and zero apps->plugins violations, i.e. apps->plugins is DOWNWARD and legal.",
+      "frame_scheduler_is_L1": "PRESERVED - frame-scheduler appears in neither the violation list nor the unclassified list."
+    },
+    "sdkBypassesByTargetPackage": {
+      "packages/renderer-three": 83,
+      "packages/command-registry": 37,
+      "packages/core-app-model": 27,
+      "packages/scene-committer": 19,
+      "packages/schemas": 4,
+      "packages/geometry-curtain-wall": 3,
+      "packages/geometry-lift": 3,
+      "packages/ai-host": 2,
+      "packages/geometry-balcony": 2,
+      "packages/geometry-plumbing": 2,
+      "packages/geospatial": 1,
+      "packages/drawing-primitives": 1,
+      "packages/geometry-pool": 1,
+      "apps/editor": 1,
+      "total": 186
+    },
+    "sdkBypassesBySourcePlugin": {
+      "plugins/annotations": 68,
+      "plugins/wall": 14,
+      "plugins/curtain-wall": 9,
+      "plugins/view": 8,
+      "plugins/stair": 6,
+      "plugins/plumbing": 6,
+      "plugins/furniture": 6,
+      "plugins/window": 5,
+      "plugins/slab": 5,
+      "plugins/structural": 4,
+      "plugins/rooms": 4,
+      "plugins/floor": 4,
+      "plugins/door": 4,
+      "plugins/ceiling": 4,
+      "plugins/roof": 3,
+      "plugins/lighting": 3,
+      "plugins/lift": 3,
+      "plugins/ifc-export": 3,
+      "plugins/handrail": 3,
+      "plugins/grid": 3,
+      "plugins/dimensions": 3,
+      "plugins/column": 3,
+      "plugins/beam": 3,
+      "plugins/toy-cube": 2,
+      "plugins/balcony": 2,
+      "plugins/ai-floorplan": 2,
+      "plugins/schedules": 1,
+      "plugins/pool": 1,
+      "plugins/plan-view": 1,
+      "plugins/levels": 1,
+      "plugins/ifc-import": 1,
+      "plugins/geospatial": 1
+    },
+    "structuralPattern_relevantToElementCreation": "The per-family committer triple (committer.ts + geometry-bridge.ts + material-bridge.ts) bypasses the SDK to reach @pryzm/renderer-three/three in EVERY element plugin: beam, ceiling, column, curtain-wall, dimensions, door, furniture, grid, handrail, lighting, plumbing, roof, rooms, slab, stair, structural, wall, window and toy-cube. That is roughly 57 of the 83 renderer-three bypasses and it is SYSTEMATIC, not incidental: no element family can be committed to the scene through the L5 facade today.",
+    "secondGate_l7Boundary": {
+      "command": "npx tsx tools/ga-gate/check-l7-boundary.ts",
+      "rc": 0,
+      "printed": "833 files scanned (floor 500) - dir: plugins - comments stripped - 102 violating import line(s) in 83 file(s); baseline ceiling 84 files; annotations improved 26 -> 25",
+      "verdict": "RATCHET HOLDING AT NON-ZERO. RC=0 here means 83 of 833 plugin files still import L0-L5 packages directly, one file below the ceiling. Not 0 violations."
+    }
+  },
+
+  "part2_package_census": {
+    "commands": [
+      "ls apps/ | wc -l",
+      "ls plugins/ | wc -l",
+      "ls packages/ | wc -l",
+      "ls packages/*/package.json | wc -l",
+      "find packages -mindepth 1 -maxdepth 1 -type d | wc -l",
+      "find packages -mindepth 1 -maxdepth 1 -not -type d",
+      "for d in packages/*/; do [ -f \"$d/package.json\" ] || echo NO-MANIFEST: $d; done"
+    ],
+    "measured_2026_08_29": {
+      "apps_dirs": 13,
+      "apps_manifests": 13,
+      "plugins_dirs": 51,
+      "plugins_manifests": 51,
+      "packages_entries": 105,
+      "packages_dirs": 103,
+      "packages_manifests": 103,
+      "packages_nonDirEntries": ["packages/tsconfig.build.template.json", "packages/tsconfig.references.json"],
+      "totalWorkspacePackages_perLayerGate": 167,
+      "arithmeticCheck": "103 + 13 + 51 = 167 - the layer gate's own workspace count reconciles exactly with the disk count"
+    },
+    "documentedValues": {
+      "C01_section3_line162": {
+        "text": "54 packages, 12 apps, 46 plugins.",
+        "file": "docs/02-decisions/contracts/C01-ARCHITECTURE-AND-GOVERNANCE.md:162",
+        "delta": "packages -49, apps -1, plugins -5"
+      },
+      "C01_section3_LOC_table_line154": "L6 | 46 plugins | 58,424 LOC (dated 2026-05-01)",
+      "C07_plugins": 48,
+      "CLAUDE_md_measured_2026_08_11": { "apps": 13, "plugins": 48, "packagesManifests": 97, "packagesDirs": 99 }
+    },
+    "THE_FINDING": "FIVE mutually inconsistent plugin counts are in simultaneous circulation, and they are not all the same KIND of number: 51 (directories on disk), 48 (CLAUDE.md and C07), 46 (C01 section 3), 43 (PLUGIN_CATALOG rows the runtime advertises), 30 (ALL_PLUGINS ids that actually contribute at boot). Only the first is a census; the last two are capability. A doc that says '46 plugins' is wrong by 5 against disk AND wrong by 16 against what boots.",
+    "CLAUDE_md_explanation_is_also_wrong_in_kind": "CLAUDE.md says 'two entries under packages/ carry no manifest, so count manifests, not directories'. Measured: EVERY one of the 103 directories under packages/ has a manifest - the loop above printed nothing. The 2-entry delta is two loose JSON FILES (tsconfig.build.template.json, tsconfig.references.json), not manifest-less directories. The instruction happens to give the right answer for the wrong reason, which means it will stop giving the right answer the moment a real manifest-less directory appears.",
+    "readBackGate": {
+      "command": "npx tsx tools/ga-gate/check-plugin-census-equivalence.ts",
+      "rc": 0,
+      "rcMeaning": "RC=0 AT NON-ZERO NAMED BASELINES, not 0 findings",
+      "printed": {
+        "directoriesOnDisk": 51,
+        "ALL_PLUGINS_ids": 30,
+        "ALL_PLUGINS_inline": 29,
+        "ALL_PLUGINS_authoredInPluginPackages": 1,
+        "PLUGIN_CATALOG_rows": 43,
+        "ELEMENT_PLUGIN_IDS_rows": 27,
+        "STORE_ONLY_exemptions": ["water", "liftPart", "bathroomPod"],
+        "armA_DISK_minus_REGISTRY": {
+          "count": 24, "baseline": 24,
+          "meaning": "on disk, contributes NOTHING at boot",
+          "ids": ["ai-floorplan","ai-generative","ai-query","ai-rules","ai-voice","bcf","cross","dxf","export-pdf","family-editor","geospatial","ifc-export","ifc-import","ifc-inspector","levels","multiplayer","navigate","plan-view","render","rhino-import","schedules","sheets","toy-cube","visibility-intent"]
+        },
+        "armB_DISK_minus_CATALOG": { "count": 8, "baseline": 8, "ids": ["dxf","export-pdf","family-editor","geospatial","levels","navigate","render","visibility-intent"] },
+        "armC_CATALOG_minus_DISK": { "count": 0, "baseline": "hard 0" },
+        "armD_REGISTRY_minus_DISK": { "count": 0, "baseline": "hard 0" },
+        "armE_wiredButInvisibleToRuntimePlugins": { "count": 0, "baseline": 0 },
+        "armF_REGISTRY_minus_ELEMENT_PLUGIN_IDS": { "count": 3, "baseline": 3, "ids": ["floor","lighting","view"] },
+        "armG_ELEMENT_PLUGIN_IDS_minus_REGISTRY": { "count": 0, "baseline": "hard 0" },
+        "armH_unresolvedDescriptorReference": { "count": 0, "baseline": "hard 0" }
+      },
+      "scopeSanity": "The gate is real and compares SETS in both directions, so it cannot be gamed by a count. But RC=0 here certifies that 24 of 51 plugin directories contribute nothing at boot AS THE DECLARED BASELINE. 47 percent of the plugin tree is AUTHORED-BUT-UNREACHABLE and the gate is designed to stay green while that is true."
+    }
+  },
+
+  "part3_adr0367_extension_contract_placement": {
+    "normativeSource": "docs/02-decisions/contracts/C01-ARCHITECTURE-AND-GOVERNANCE.md section 2.1 (NORMATIVE - ADR-0367, L-9921). ADR present on disk: docs/02-decisions/adrs/ADR-0367-plugin-registration-contract-moves-to-l5.md",
+    "requirement": "PluginRegistration must be declared at packages/plugin-sdk/src/registration.ts (L5). No NEW extension contract may be declared at L6 or L7.",
+    "declarationSite": {
+      "command": "Grep pattern '(interface|type)\\s+PluginRegistration\\b' over **/*.{ts,tsx,d.ts}",
+      "result": "EXACTLY ONE match: packages/plugin-sdk/src/registration.ts:121  'export interface PluginRegistration<'",
+      "verdict": "CONFORMS. The contract is at L5, as ADR-0367 requires."
+    },
+    "rivalContractsSearchedAtL6andL7": {
+      "command": "Grep pattern 'export\\s+(interface|type)\\s+\\w*(Registration|Descriptor|Contribution|Manifest|PluginSpec)\\w*\\b' over {apps,plugins}/**/*.ts",
+      "searchedByCapability": "not by the single name 'PluginRegistration' - by every noun this codebase uses for an extension contract",
+      "candidates": [
+        {
+          "site": "apps/editor/src/PluginRegistry.ts:192",
+          "declaration": "export type PluginDescriptor = PluginRegistration<PluginContribution, RoomEventRuntime>;",
+          "verdict": "NOT A RIVAL",
+          "reason": "It is an ALIAS that supplies the two type PARAMETERS the L5 contract deliberately leaves open - exactly the mechanism ADR-0367 section 2.2 prescribes ('a type parameter the composition root supplies, not an upward import'). The file's own comment at :186-191 states this and names why L5 cannot import either type."
+        },
+        {
+          "site": "apps/component-editor/src/app/commandBus.ts:39",
+          "declaration": "export interface CommandRegistration<TArgs, TResult> { ... }",
+          "verdict": "A SECOND REGISTRATION CONTRACT DECLARED AT L7 - watch item, not a current breach",
+          "reason": "Measured blast radius: grep 'CommandRegistration' over apps+packages+plugins returns 2 lines, BOTH inside apps/component-editor/src/app/commandBus.ts (:39 declaration, :84 use). ZERO L6 implementors. It does not currently reproduce the ADR-0367 failure mode, but it is the same shape at the same layer and nothing prevents it acquiring plugin implementors."
+        },
+        {
+          "site": "plugins/{ai-voice,ai-rules,ai-query,ai-generative,ai-floorplan}/src/descriptor.ts",
+          "declaration": "export interface Ai<X>PluginDescriptor { ... }  - five declarations at L6",
+          "verdict": "NOT RIVALS",
+          "reason": "Measured: each is referenced ONLY in its own plugin's descriptor.ts and index.ts - 10 files total, 2 per plugin, zero cross-plugin and zero sub-L6 consumers. They are self-descriptions, not contracts anything below must satisfy."
+        }
+      ],
+      "conclusion": "No rival PluginRegistration exists at L6 or L7. The ADR-0367 placement requirement HOLDS at the declaration site."
+    },
+    "D2_ladder_the_placement_is_not_the_whole_story": {
+      "AUTHORED": "YES - PluginRegistration at L5, packages/plugin-sdk/src/registration.ts:121.",
+      "REACHABLE": "YES, but for ONE plugin. check-plugin-census-equivalence prints 'ALL_PLUGINS ids (store + handlers): 30 (29 inline - 1 authored in plugin packages)'. grep -rln PluginRegistration plugins/ returns only plugins/section-view (registration.ts, index.ts, handlers/MoveSectionLine.ts).",
+      "COMPOSABLE": "FIRST RUNG THAT FAILS. apps/editor/src/PluginRegistry.ts:259 'export const ALL_PLUGINS: readonly PluginDescriptor[] = [' is still a 71 KB hand-written central table at L7 holding 29 of the 30 registrations. Moving the TYPE to L5 did not move the TABLE. The documented root cause of nine families shipping undispatchable was 'every descriptor had to be hand-written centrally, so the census was hand-maintained, so it drifted' - and 29 of 30 descriptors are still hand-written centrally.",
+      "CERTIFIED": "NOT REACHED. The gate that would certify it (check-plugin-census-equivalence) passes at baselines that permit 24 dark directories and 29 centrally-authored descriptors.",
+      "secondaryEvidence_docRotInsideTheTable": "apps/editor/src/PluginRegistry.ts:257 comment reads '/** All 13 plugins, in registration order.' immediately above a table the census gate measures at 30 ids."
+    }
+  },
+
+  "part4_nine_convergence_booleans": {
+    "definitionSource": "docs/02-decisions/contracts/C01-ARCHITECTURE-AND-GOVERNANCE.md section 4, lines 166-181",
+    "documentedState": "5/9 true (#2 achieved, #3 achieved, #4 achieved, #5 achieved, #6 achieved) - post-Wave-12, dated 2026-05-01",
+    "phaseFRule": "C01 section 4: 'Phase F (booleans #7, #8, #9) MUST NOT start until >= 6/9 booleans are true'",
+    "booleans": [
+      {
+        "n": 1,
+        "name": "legacy_src_folders == 1",
+        "documentedGloss": "(only src/ui/ remains)",
+        "command": "find src -mindepth 1 -maxdepth 1 -type d | wc -l ; find src -type f | wc -l ; ls -d src/ui",
+        "measured": "0 directories under src/ ; 7 files under src/ ; 'ls: cannot access src/ui: No such file or directory'",
+        "documented": "1",
+        "value": false,
+        "verdict": "MISCONFIGURED",
+        "scopeSanity": "The predicate names a folder that DOES NOT EXIST. src/ now holds 7 loose files (boot-shell.d.ts, browser-entry.tsx, browser.css, global-window.d.ts, gpuDisabledOverlay.ts, main.ts, three-addons.d.ts) and ZERO subdirectories. The boolean cannot be TRUE by any reading: the count is 0, the target is 1, and the folder the target names is gone. No gate computes it. The migration over-shot the predicate and nobody restated it."
+      },
+      {
+        "n": 2,
+        "name": "window_any_in_src_ui == 0",
+        "documentedGloss": "(P4 hard-fail in src/ui/)",
+        "command": "grep -rn '(window as any)' src/ | wc -l ; ls -d src/ui ; find apps/editor/src/ui -type f | wc -l ; grep -rn '(window as any)' apps/editor/src/ui | wc -l ; npx tsx tools/ga-gate/check-cast-count.ts",
+        "measured": "src/ -> 0 casts, but src/ui DOES NOT EXIST. Successor scope apps/editor/src/ui -> 1120 files, 70 casts. Gate check-cast-count RC=3: scoped arm 308 files across dirs 'src, apps/editor/src/engine'; repo-wide arm 5315 files, 101 casts vs baseline 100 -> FAIL. Raw grep across apps+packages+plugins+src -> 500 lines (the gate strips comments and tests down to the enforced 101).",
+        "documented": "0, marked ACHIEVED",
+        "value": false,
+        "verdict": "MISCONFIGURED",
+        "scopeSanity": "CONFIRMED SCOPE ARTEFACT. The 0 is produced by a NONEXISTENT directory, not by clean code - absence of the directory and absence of casts are the same value here. The honest successor scope has 70 casts, and the gate that actually enforces the same principle (P4) exits 3 at 101/100 repo-wide. This is one of C01's five ACHIEVED booleans and it is not true."
+      },
+      {
+        "n": 3,
+        "name": "raf_owners_outside_frame_scheduler == 0",
+        "command": "npx tsx tools/ga-gate/check-raf-count.ts",
+        "measured": "RC=0. 'files scanned: 5438 (excluded 2841)'. Owners (code lines only): 1 - packages/frame-scheduler/src/RafAdapter.ts. Comment-only mentions correctly excluded: 5 files. Terminal line: '[raf-tripwire] OK: 1 owner.'",
+        "documented": "0 outside, marked ACHIEVED",
+        "value": true,
+        "verdict": "PASS",
+        "scopeSanity": "MEANINGFUL. Scope is 5438 files repo-wide, not a narrowed directory, and the gate distinguishes code lines from comment lines (the 2026-08-10 fix that removed 4 phantom owners). This is a genuine hard-0 at one declared owner, not a ratchet. The strongest of the nine."
+      },
+      {
+        "n": 4,
+        "name": "default_runtime == composeRuntime()",
+        "command": "npx tsx tools/ga-gate/check-single-compose.ts",
+        "measured": "RC=0. 'files scanned: 5030 - composeRuntime definitions: 1 - rival runtime factories: 1 - production callers: 2'. Production callers: packages/headless/src/headlessRuntime.ts, src/main.ts. Rival listed by the gate: apps/component-editor/src/app/familyEditorRuntime.ts:85 createFamilyEditorRuntime.",
+        "documented": "true, marked ACHIEVED",
+        "value": true,
+        "verdict": "PARTIAL",
+        "scopeSanity": "The boolean HOLDS for the editor runtime: 1 definition, 2/2 production callers. But the gate's own success line is FALSE - check-single-compose.ts:216 hard-codes the string '0 rivals' while line 166 of the same run printed 'rival runtime factories: 1' and lines 180-183 listed it by name. MAX_RIVALS defaults to 1 (check-single-compose.ts:103), so the gate passes AT A RATCHETED CEILING OF ONE RIVAL while reporting it as zero. A reader who trusts the terminal line gets the wrong number from the right gate."
+      },
+      {
+        "n": 5,
+        "name": "EngineBootstrap_LOC == 0",
+        "command": "npx tsx tools/ga-gate/check-engine-bootstrap-loc.ts ; find . -name 'EngineBootstrap*' -not -path '*/node_modules/*' -not -path '*/.git/*'",
+        "measured": "RC=0. '[loc-tripwire] OK: no EngineBootstrap.ts under src, apps/editor/src, packages/runtime-composer/src'. INDEPENDENT whole-tree find returns exactly one file: packages/engine/src/types/EngineBootstrapFn.ts - a type-only declaration, outside the gate's three scanned dirs and not the god file the boolean targets.",
+        "documented": "0, marked ACHIEVED (Wave 7 / S87-WIRE)",
+        "value": true,
+        "verdict": "PASS",
+        "scopeSanity": "The gate scans only THREE directories, which is precisely the shape that produces a scope artefact - so it was cross-checked with a whole-tree find, which agrees: no EngineBootstrap.ts anywhere in the repo. The one surviving EngineBootstrapFn.ts is a function-type alias, not LOC of the deleted god file. Genuinely TRUE."
+      },
+      {
+        "n": 6,
+        "name": "all_workflows_green == workflows_total",
+        "command": "ls .github/workflows/ | wc -l ; curl https://api.github.com/repos/MarkHanoi/Product_Rediness_08/actions/runs?per_page=40 ; npx tsx tools/ga-gate/check-layer-boundaries.ts ; npx tsx tools/ga-gate/check-cast-count.ts ; node -e 'print gate-debt.json failing[]' ; grep -n 'run-all|ga-gate:' .github/workflows/ci.yml",
+        "measured": "workflows_total = 8 (ci.yml, context-bake.yml, deploy-fly.yml, r2-cors.yml, r2-sync-items.yml, r2-sync-textures.yml, terrain-bake-all.yml, terrain-bake.yml). GitHub Actions REST API returns HTTP 404 (private repo; GH_TOKEN / GITHUB_TOKEN / GH_PAT / PRYZM_GH_PAT all unset; no gh CLI on PATH) so RUN STATUS COULD NOT BE READ REMOTELY. Determined LOCALLY instead: ci.yml:424 runs 'pnpm run ga-gate:all' -> tools/ga-gate/run-all.ts WHOLESALE inside the ga-gate job, which ci.yml:25 states is MERGE-BLOCKING with no continue-on-error. run-all.ts:115 and :141 register check-cast-count.ts and check-layer-boundaries.ts. BOTH exit 3 at HEAD. run-all.ts:1162-1172 sets anyFailed=true on code===3 UNCONDITIONALLY (RATCHET-EXCEEDED-IS-NEVER-DEBT, R7/L-836) - exit 3 is never absorbed by any ledger. gate-debt.json failing[] = ['check-no-commandmanager.ts','check-custom-event-apps.ts'] ONLY; neither failing gate is on it.",
+        "documented": "true, marked ACHIEVED",
+        "value": false,
+        "verdict": "FAIL",
+        "scopeSanity": "Two scope problems, pointing the same way. (a) SIX of the eight workflows are workflow_dispatch-ONLY (context-bake, r2-cors, r2-sync-items, r2-sync-textures, terrain-bake-all, terrain-bake); only ci.yml and deploy-fly.yml trigger on push. 'all_workflows_green == workflows_total' over a denominator that is 75 percent manual-only is a weak predicate before you even measure it. (b) The one workflow that matters is deterministically RED at this SHA - established from the gate exit codes plus run-all's own absorption logic, not from a checkmark. This is the SECOND of C01's five ACHIEVED booleans that is measurably false."
+      },
+      {
+        "n": 7,
+        "name": "plugin_sdk_published == true",
+        "phase": "F",
+        "command": "npm view @pryzm/plugin-sdk version ; npm view @pryzm/sdk version ; grep -n 'name|version|private|publishConfig' packages/plugin-sdk/package.json",
+        "measured": "npm error code E404 for BOTH names. packages/plugin-sdk/package.json: name '@pryzm/plugin-sdk', version 1.0.0, publishConfig.name '@pryzm/sdk'. Both the workspace name and the publish name 404 on registry.npmjs.org.",
+        "documented": "false (Phase F)",
+        "value": false,
+        "verdict": "FAIL",
+        "scopeSanity": "Meaningful and unambiguous. BOTH the workspace name and the publishConfig rename were checked, so this is not a wrong-name miss. Network is live: https://pryzm.app returns 302 from the same shell in the same minute."
+      },
+      {
+        "n": 8,
+        "name": "headless_published == true",
+        "phase": "F",
+        "command": "npm view @pryzm/headless version ; grep -n 'name|version|private|publishConfig' packages/headless/package.json",
+        "measured": "npm error code E404. packages/headless/package.json: name '@pryzm/headless', version '1.0.0-rc.2', 'private': false, publishConfig { access: 'public', registry: 'https://registry.npmjs.org/' }.",
+        "documented": "false (Phase F)",
+        "value": false,
+        "verdict": "FAIL",
+        "scopeSanity": "Meaningful. The package is CONFIGURED to publish (private:false, access:public, explicit registry) and carries an rc version - publish-ready and unpublished, which is a different state from unprepared."
+      },
+      {
+        "n": 9,
+        "name": "marketplace_live == true",
+        "phase": "F",
+        "command": "curl -s --max-time 25 -o /dev/null -w 'code=%{http_code} err=%{errormsg}' https://marketplace.pryzm.app ; curl -s -o /dev/null -w 'code=%{http_code}' https://pryzm.app",
+        "measured": "code=000, err='Could not resolve host: marketplace.pryzm.app'. Control: https://pryzm.app -> code=302.",
+        "documented": "false (Phase F)",
+        "value": false,
+        "verdict": "FAIL",
+        "scopeSanity": "Meaningful, with a working control. The failure is DNS (the host does not resolve), not a timeout or a local firewall - and the apex domain resolves from the same shell in the same minute, so it is not this machine's network."
+      }
+    ],
+    "score": {
+      "documented": "5/9",
+      "measuredStrict": "2/9 TRUE (#3, #5)",
+      "measuredGenerous": "3/9 TRUE (#3, #5, and #4 counted despite its one tolerated rival)",
+      "phaseFThreshold": 6,
+      "phaseFEligible": false,
+      "delta": "TWO of C01's five ACHIEVED booleans do not hold. #2 is a SCOPE ARTEFACT (src/ui does not exist; the successor scope has 70 casts and the P4 gate exits 3 at 101/100). #6 is measurably FALSE (the merge-blocking ga-gate job fails at HEAD on two exit-3 ratchets that no ledger can absorb). #1 was never true and cannot become true as worded. Phase F is gated at >= 6/9 and the measured figure is 3/9 at its most generous - and #7, #8 and #9, which ARE Phase F, are all independently confirmed FALSE, so the two halves of the rule agree."
+    }
+  },
+
+  "crossCuttingObservations": [
+    "THE SAME DEFECT SHAPE APPEARS INSIDE A GATE'S OWN OUTPUT: check-single-compose.ts:216 prints the literal '0 rivals' after line 166 of the same run printed 'rival runtime factories: 1'. A gate that hard-codes a number in its success line has stopped reporting its own measurement.",
+    "RC=0 IS NOT 0 VIOLATIONS, three times over in this phase: check-l7-boundary RC=0 at 83/84 files; check-plugin-census-equivalence RC=0 at 24 dark plugin directories; check-single-compose RC=0 at 1 tolerated rival. check-raf-count RC=0 is the only genuine hard invariant of the four gates that passed.",
+    "TWO GEOMETRY PACKAGES ARE UNCLASSIFIED (@pryzm/geometry-boundary-line, @pryzm/geometry-handrail). The layer gate states explicitly that it 'cannot judge any import to or from them' - so every edge into or out of two element-family geometry packages is unmeasured, and the unclassified ratchet just moved 13 -> 15.",
+    "THE ELEMENT-CREATION COMMIT PATH IS THE SDK BYPASS. Roughly 57 of the 83 renderer-three bypasses are the committer/geometry-bridge/material-bridge triple repeated across 19 element plugins. This is not drift; it is the only route a family currently has to the scene.",
+    "FOUR OF THE FOUR ARMS of check-layer-boundaries are over baseline simultaneously (105/102, 186/182, 123/113, 15/13). All four are shrink-only. The gate exits 3, which run-all treats as unabsorbable, so this single gate is sufficient to make ci.yml red."
+  ]
+}

@@ -1,0 +1,102 @@
+{
+  "family": "column",
+  "measured": "2026-08-29",
+  "registration": {
+    "registration_site": "apps/editor/src/PluginRegistry.ts:380-386 -- { id: 'column', storeKey: 'column', buildStore: () => new ColumnStore(), buildHandlers: () => buildColumnHandlerSet() }",
+    "declared_storeKey": "column",
+    "storeKey_matches_ctx_stores_key": "YES -- probe P-B printed registeredStoreKeys[column] = \"column\"; probe P-A printed rt.stores.column present. All 9 column handlers declare affectedStores = ['column']. Verified against ctx.stores AND affectedStores, never the directory name.",
+    "in_ELEMENT_PLUGIN_IDS": true,
+    "proof_reads_real_composition_root": "YES -- apps/editor/__tests__/bootstrap.everything.test.ts:57 `expect(rt.stores.column).toBeInstanceOf(ColumnStore)` plus the ELEMENT_PLUGIN_IDS loop at :134. bootstrapWithEverything() only; constructs no store and no stores object (D6). Measured: 1 file passed, 8 tests passed.",
+    "status": "CLEAN",
+    "evidence": "npx tsx tools/ga-gate/check-plugin-census-equivalence.ts -> RC=0; arm G hard-0; arm F = floor, lighting, view (column not named)."
+  },
+  "handler": {
+    "path": "plugins/column/src/handlers/CreateColumn.ts",
+    "validates_before_mutation": "YES -- canExecute checks origin finiteness, positive width/depth/height and the circular width===depth rule; typed ColumnSchemaError / ColumnDimensionsError / ColumnNotFoundError live in plugins/column/src/errors.ts.",
+    "mutates_only_via_immer_draft": "YES -- produceCommand<ColumnsState>(ctx.stores.column, ...). No store-singleton import anywhere in plugins/column/src/handlers/.",
+    "otel_span": "YES -- withHandlerSpan in all 8 handler files (grep -rc withHandlerSpan plugins/column/src/handlers/*.ts -> 3 per file, 0 in index.ts).",
+    "affectedStores_declared": "['column'] as const",
+    "must_not_violations": [],
+    "id_pre_generated_in_tool": "MIXED -- handler mints when absent (`const id = (c.id ?? createId('column'))`, CreateColumnBatch.ts:100; the same pattern in CreateColumn.ts). ColumnPlanToolHandler.ts:56 pre-generates `id: createId('column')`; CopyPlanToolHandler.ts:425 and duplicateToLevel (idKind 'column') pre-generate. The batch path is where the hazard is live -- see B2-COL-01.",
+    "status": "COMPLIANT",
+    "evidence": "grep -rn \"commandManager|window\\.|document\\.|requestAnimationFrame|src/engine|src/ui|@app/|dispatchEvent|import \\* as THREE\" plugins/column/src (excluding committer/) -> 4 hits, ALL comment text in ChangeColumnLevel.ts:49,119 and MoveColumn.ts:34,52. No code violation."
+  },
+  "lifecycle": {
+    "ceb_case": "packages/runtime-composer/src/CommandEventBridge.ts:813 `case 'column.create':` (id, levelId, origin, shape, width, depth, height, baseOffset, rotation, materialId) and :846 `case 'column.batch.create':` fanning out one column.created per member. Geometry-complete, not levelId-only.",
+    "initTools_bridge_tag": "SS-P3.3-CO -- grep -n \"\\u00a7P3.3-CO: .*bridge registered\" apps/editor/src/engine/initTools.ts -> :2342 `console.log('[initTools] \\u00a7P3.3-CO: column.created bus->legacy-store bridge registered.')`; subscriber opens at :2291 `runtime.events.on('column.created', ...)`. It accepts BOTH 'column.create' and 'column.batch.create' commandTypes (SS51 U-B4).",
+    "vdt_registerElement": "YES -- initTools.ts:2332 viewDependencyTracker.registerElement(ev.id, ev.levelId ?? '') after the add.",
+    "bimManager_registerElement": "YES -- initTools.ts:2333 `try { bimManager.registerElement(ev.id, ev.levelId ?? ''); } catch {}`.",
+    "bimManager_via_window_any": "NO -- injected ToolsParams field (initTools.ts:267, destructured :373). The single `(window as any).bimManager` string in the file is COMMENT text at :2547 in the floor bridge.",
+    "in_GEOMETRY_ELEMENT_TYPES": true,
+    "update_verbs_covered": "PARTIAL 1/8. ELEMENT_UPDATE_VERBS has only column.setHeight (CommandEventBridge.ts:288-293); LEGACY_UPDATABLE_STORES.column.fields = { height } (elementUpdatedMirror.ts:220-231, write:'whole'). column.changeLevel is covered by elementLevelChangedMirror.ts:207 `column: (deps) => deps.columnStore`. NOT covered: column.setType, column.move. column.setMaterial REFUSES by declaration and names `column.update`, which IS registered (initBusHandlers.ts:947).",
+    "status": "WIRED",
+    "evidence": "probe P-B: registeredHandlerTypes[column] = [column.create, column.batch.create, column.delete, column.move, column.setType, column.setHeight, column.setMaterial, column.changeLevel] -- 8 verbs, 1 update-mirrored."
+  },
+  "milestones": {
+    "authored": "YES",
+    "dispatchable": "YES",
+    "reachable": "YES",
+    "renders_3d": "YES",
+    "renders_plan": "YES",
+    "persists": "YES",
+    "exports": "YES"
+  },
+  "milestone_proofs": {
+    "authored": "plugins/column/src/handlers/CreateColumn.ts + CreateColumnBatch.ts + 6 siblings; plugins/column/src/store.ts.",
+    "dispatchable": "probe P-D through the REAL composed runtime: `rt.bus.executeCommand('column.create', {...})` resolved; column store ids: [\"column_01ARZ3NDEKTSV4RRFFQ69G5FA2\"]. No missing-store throw.",
+    "reachable": "planToolHandlerRegistry.ts:131 `'column': new ColumnPlanToolHandler()`; elementCreationMatrix.ts:544 `{ tool: 'column', label: 'Column', views: ['plan','3d'] }`; check-tool-activator-coverage.ts ARM A uncovered = balcony, bathroom-pod, boundary-line, pool -- column has an activator.",
+    "renders_3d": "initBuilders.ts:310 `new ColumnFragmentBuilder(scene, bimManager, null)` + :325-333 storeEventBus.subscribe(event => { if (event.elementType !== 'column') return; ... columnBuilder.updateColumn(columnStore.get(event.elementId)) }). ColumnStore.add() emits storeEventBus; the SS-P3.3-CO bridge calls it.",
+    "renders_plan": "'column' in GEOMETRY_ELEMENT_TYPES; EdgeProjectorService.ts:2000 'column' in the version-stamped incremental set; initBuilders.ts:324 installColumnPlanSymbolBuilder(columnStore) supplies the plan crosshair symbol.",
+    "persists": "ProjectSerializer.ts:779 `const columns = columnStore.getAll().map(serializeColumn)`; columnStore is a REQUIRED dep (:714).",
+    "exports": "packages/file-format/src/export/ifc/readers/ColumnReader.ts wired at FragmentReader.ts:95-98; ExportIFC.ts:44 supplies `columnStore: window.columnStore`."
+  },
+  "first_failing_link": "NONE (create chain). The update chain fails at renders_3d for 2 of 8 verbs, and the BATCH create chain can fail at renders_3d silently -- see B2-COL-01 / B2-COL-02.",
+  "c11_s11_matrix_says": "Row **Column**: CEB case OK `column.create` + `column.batch.create`; initTools bridge OK SS-P3.3-CO (dedup: store.get(id)); Store add()->storeEventBus OK ColumnStore.add() line 137; Plan-view tracked OK 'column'; VDT+bimManager OK (Rev 4); 3D via bus OK; Status FULL. My measurement CONFIRMS every printed cell, including the store.get(id) dedup detail. It does NOT refute any cell. The 'FULL' verdict is over-broad in the same way roof's is: no column for batch-member id handling (B2-COL-01), none for update mirroring (1/8, B2-COL-02), none for the `any` seam in the bridge's own add() call (B2-COL-03).",
+  "status": "PARTIAL",
+  "findings": [
+    {
+      "id": "B2-COL-01",
+      "class": "ID-MINTED-IN-HANDLER-BRIDGE-GUARDS-ON-IT (batch arm), SILENT",
+      "severity": "P1",
+      "blocks_production": false,
+      "claim": "CreateColumnBatchHandler mints an id for any member that omits one (`const id = (c.id ?? createId('column'))`), and the CEB batch fan-out reads the id from the PAYLOAD and skips id-less members with a bare `continue` -- no console, no counter, no refusal. A batch of N columns whose members carry no id commits N columns to the plugin store and produces ZERO column.created events, so zero legacy records, zero meshes, zero plan symbols and zero persistence. This is the FIX-BEAM-ID / FIX-CW-ID class, still live in the batch arm, and unlike the beam batch's geometry check it is not even loud.",
+      "command": "sed -n '98,101p' plugins/column/src/handlers/CreateColumnBatch.ts; sed -n '865,868p' packages/runtime-composer/src/CommandEventBridge.ts",
+      "output_excerpt": "CreateColumnBatch.ts:100 `const id = (c.id ?? createId('column')) as ColumnData['id'];` || CommandEventBridge.ts:866-867 `for (const c of (p.columns ?? [])) { if (!c.id || !c.origin) continue;`  -- compare the SIBLING beam batch at :974-979, which console.error()s BY NAME when geometry is missing",
+      "contract_clause": "C11 SS10.2 Bridge Invariant; C03 SS4.6 U-4 (a swallowed failure must be reported, never treated as emptiness)",
+      "disposition": "WIRE"
+    },
+    {
+      "id": "B2-COL-02",
+      "class": "CREATE-MIRROR-WITHOUT-UPDATE-MIRROR",
+      "severity": "P1",
+      "blocks_production": false,
+      "claim": "Column has 8 registered verbs and an update mirror for 1. column.setType and column.move write the plugin DTO store, report success, and reach no renderer, no plan projector, no exporter and no persistence path -- while column.setMaterial REFUSES for exactly that reason. Two verbs with the same consequence and opposite honesty.",
+      "command": "grep -n 'ELEMENT_UPDATE_VERBS' -A 55 packages/runtime-composer/src/CommandEventBridge.ts | grep -n 'column'; grep -n 'LEGACY_UPDATABLE_STORES' -A 50 apps/editor/src/engine/elementUpdatedMirror.ts | grep -n 'column' -A 12",
+      "output_excerpt": "CommandEventBridge.ts:288-293 the ONLY column row is 'column.setHeight' || elementUpdatedMirror.ts:220-231 LEGACY_UPDATABLE_STORES.column.fields = { height: { to: 'height' } } || probe P-B: 8 registered column verbs",
+      "contract_clause": "C11 SS6; C03 SS4.6 U-4",
+      "disposition": "WIRE"
+    },
+    {
+      "id": "B2-COL-03",
+      "class": "ANY-SEAM-IN-THE-BRIDGE",
+      "severity": "P3",
+      "blocks_production": false,
+      "claim": "The SS-P3.3-CO bridge writes the legacy record through `(columnStore as any).add({...})` -- an unnamed cast, unlike the sibling roof bridge which uses a NAMED cast with the SS-FIX-ANY-STORE-SEAM (L-980) rationale attached. The object literal it passes is hand-built inside the initTools closure, so no suite can execute the mapping (the same condition that hid the hardcoded `loadBearing: false` until beamCreatedMirror.ts was extracted).",
+      "command": "sed -n '2309,2325p' apps/editor/src/engine/initTools.ts; sed -n '2262,2266p' apps/editor/src/engine/initTools.ts",
+      "output_excerpt": "initTools.ts:2311 `(columnStore as any).add({ id: ev.id, type: 'column', ... profile: (ev.shape ?? 'rectangular') as any, ... })` -- an inline literal, no extracted mirror module || contrast initTools.ts:2262-2264 `\\u00a7FIX-ANY-STORE-SEAM (L-980) -- named cast ... roofStore.add(record as RoofData)` with roofCreatedMirror.ts holding the mapping",
+      "contract_clause": "C14 SS2 (typed seams); the roofCreatedMirror.ts / beamCreatedMirror.ts extraction precedent",
+      "disposition": "REPLACE"
+    },
+    {
+      "id": "B2-COL-04",
+      "class": "AUTHORED-BUT-UNREACHABLE",
+      "severity": "P3",
+      "blocks_production": false,
+      "claim": "ColumnPlacementTool (plugins/column/src/tool.ts) pre-generates the id and dispatches bus-primary, and nothing outside the plugin barrel imports it. The reachable 3-D column gesture is packages/geometry-column/src/ColumnTool.ts:234 `cm.execute(new CreateColumnCommand(payload))` -- legacy commandManager, no bus leg at all.",
+      "command": "grep -rn --include=*.ts 'ColumnPlacementTool' apps packages plugins | grep -v node_modules; grep -n 'executeCommand|cm.execute' packages/geometry-column/src/ColumnTool.ts",
+      "output_excerpt": "ColumnPlacementTool hits: plugins/column/src/index.ts:24,26 (barrel) and plugins/column/src/tool.ts (definition) -- ZERO app-side importers || ColumnTool.ts:234 `const result = cm.execute(new CreateColumnCommand(payload));`",
+      "contract_clause": "C14 SS2.1; P6",
+      "disposition": "DOCUMENT"
+    }
+  ]
+}

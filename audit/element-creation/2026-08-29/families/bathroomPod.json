@@ -1,0 +1,158 @@
+{
+  "family": "bathroomPod",
+  "batch": "B7",
+  "measured": "2026-08-29",
+  "subject_class": "registry id with NO plugins/<name> directory on disk",
+
+  "registration": {
+    "dir_on_disk": "NO -- `[ -d plugins/bathroomPod ]` -> NO_DIR. Store and handlers live in plugins/plumbing/ by contract: PluginRegistry.ts:613-618 records that giving this descriptor the handlers 'would need a `plugins/bathroom-pod/` DIRECTORY, and arm D of check-plugin-census-equivalence.ts is HARD-0 on REGISTRY \\ DISK'.",
+    "registries": [
+      {
+        "registry": "ALL_PLUGINS",
+        "site": "apps/editor/src/PluginRegistry.ts:619-624",
+        "grep": "grep -n -E \"'(water|liftPart|bathroomPod|selection|section-view)'\" apps/editor/src/PluginRegistry.ts",
+        "declares": "id 'bathroomPod', storeKey 'bathroomPod', buildStore: () => new BathroomPodStore(), buildHandlers: () => []"
+      },
+      {
+        "registry": "ELEMENT_PLUGIN_IDS",
+        "site": "apps/editor/src/PluginRegistry.ts:821 (comment at :816-820)"
+      },
+      {
+        "registry": "STORE_ONLY_PLUGIN_IDS",
+        "site": "apps/editor/src/PluginRegistry.ts:881-882 (value string)"
+      },
+      {
+        "registry": "Id brand union",
+        "site": "packages/schemas/src/types/Id.ts:130 `export type BathroomPodId = Id<'bathroomPod'>`; union member :191; conditional :241"
+      },
+      {
+        "registry": "snapshotFamilyCoverage",
+        "site": "apps/editor/src/engine/persistence/snapshotFamilyCoverage.ts:179-180 -- status 'UNPERSISTED', snapshotKey null. ⚠ THE ROW'S REASON IS STALE ON THREE COUNTS -- see finding B7-POD-01."
+      },
+      {
+        "registry": "COMMAND HANDLERS (the premise's blind spot)",
+        "site": "Registered by the PLUMBING descriptor, not this one: buildPlumbingHandlerSet() contributes `bathroomPod.create` and `bathroomPod.delete` (C109 R-1). Probe b7Edge Q-B: plumbing handlerTypes = [plumbing.create, plumbing.delete, plumbing.move, plumbing.setSystem, plumbing.createFixture, plumbing.setMaterial, plumbing.changeLevel, bathroomPod.create, bathroomPod.delete]."
+      },
+      {
+        "registry": "L0 SCHEMA (defineElement)",
+        "site": "ABSENT AND DELIBERATE -- the Zod shape is withheld ON PURPOSE. Id.ts:118-127: 'THIS IS THE **BRAND ONLY**, AND THE SPLIT IS DELIBERATE. C109 §12 defers the L0 promotion of `BathroomPodSchema` -- the Zod shape stays in `packages/geometry-plumbing/` and `bathroomPod` is **not** in `SCHEMA_REGISTRY`, because moving the schema changes **what validates a persisted project**, which is a C47 format question deserving its own blast radius (C104's L-7061, still OPEN).'"
+      }
+    ],
+    "storeKey_resolves_at_runtime": "YES. Probe b7Edge Q-A: `[B7 Q-A stores.bathroomPod] {defined:true, ctor:BathroomPodStore}`. PluginRegistry.ts:145 imports BathroomPodStore from @pryzm/plugin-plumbing; :622 constructs it."
+  },
+
+  "deliberate_or_orphan": {
+    "verdict": "DELIBERATE, DOCUMENTED STORE-ONLY EXEMPTION -- and its reason is EXPLICITLY DIFFERENT from water's and liftPart's, which the registry itself insists on.",
+    "quoted_documentation": [
+      "PluginRegistry.ts:610-618 (descriptor): \"NO HANDLERS ON THIS DESCRIPTOR, DELIBERATELY -- a statement, not an omission, and it is the `water` / `liftPart` idiom with a DIFFERENT reason ... The pod DOES own two verbs; they are registered by the `plumbing` descriptor above because C109 s0 governs the pod's store and handlers as living in `plugins/plumbing/`, and a descriptor carries exactly ONE `storeKey`.\"",
+      "PluginRegistry.ts:876-887 (STORE_ONLY_PLUGIN_IDS entry): \"THIS EXEMPTION'S REASON IS DIFFERENT FROM THE TWO ABOVE, AND SAYING SO IS THE POINT. `water` and `liftPart` own NO verb at all. The bathroom pod owns TWO (`bathroomPod.create` / `bathroomPod.delete`, C109 R-1) -- they are simply registered by the `plumbing` descriptor ... verified by `bathroomPodReachableThroughComposedRuntime.test.ts`, which dispatches through the REAL composed runtime rather than trusting this comment.\"",
+      "PluginRegistry.ts:606-609: \"AND THIS IS THE FAMILY'S **ONLY** STORE -- the `boundaryLine` shape (C106 s1), not the `plumbing` one. C84 s1's rows 2/3 (a plugin DTO store and a legacy geometry store that keep diverging) do not both exist here, so C84 EI-1 holds BY CONSTRUCTION.\""
+    ],
+    "gate_corroboration": "check-plugin-census-equivalence.ts RC=0; arm D hard-0; 'STORE_ONLY exemptions (derived): water, liftPart, bathroomPod'."
+  },
+
+  "brief_premise_refuted": {
+    "premise_as_given": "\"`liftPart` and `bathroomPod` ... are documented compound MEMBERS and carry NO defineElement / L0 schema at all -- unlike their parent families.\"",
+    "verdict": "REFUTED IN ITS LOAD-BEARING HALF for bathroomPod. The pod IS NOT A MEMBER -- IT IS A COMPOUND PARENT, and it owns two verbs.",
+    "measurements": [
+      "It owns verbs: PluginRegistry.ts:879 -- 'The bathroom pod owns TWO (`bathroomPod.create` / `bathroomPod.delete`, C109 R-1)'. Probe Q-B lists both on the plumbing descriptor's registered handler types. Probe Q-C dispatched both through the real runtime: they reached canExecute ('podId must be a non-empty string') rather than 'no handler registered' -- which is the difference between an unregistered verb and a registered one given a bad payload.",
+      "It is a PARENT, not a member: Id.ts:113-117 -- 'the LOD-300 parametric BATHROOM POD compound parent. A pod OWNS its members -- the WC, the basin, the shower ... through `members[]` + `parentId`, the same ownership mechanism `pool` (ADR-0124 §3), `balcony` and `lift` (C104 §4) use. Every member is a record in the `plumbing` family; the pod mints exactly ONE new family -- itself (C109 §2).'"
+    ],
+    "the_half_that_holds": "'No defineElement / L0 Zod schema' is TRUE -- confirmed by `grep -rn \"defineElement('\" packages/schemas/src/` (26 kinds, no bathroomPod) and `grep -rn 'BathroomPodSchema' packages plugins` (the Zod shape is in geometry-plumbing; plugins/plumbing/src/errors.ts:43 has only a BathroomPodSchemaError). But it is deliberate and reasoned at Id.ts:118-127, not an oversight -- and the L0 BRAND is present, so 'no L0 surface' would be wrong.",
+    "why_this_matters": "Grouping the pod with liftPart as 'a member with no verb' inverts its actual risk. liftPart genuinely cannot be authored alone. The pod CAN be authored -- from a real plan overlay, today -- and what it cannot do is SURVIVE A RELOAD. Those need opposite responses."
+  },
+
+  "smuggling_question": {
+    "question": "Brief s4 -- 'MEMBER WITH NO CHANNEL, SMUGGLED onto another family's channel' -- one element id appearing on two families?",
+    "verdict": "THE POD HAS NO BUS CHANNEL AT ALL -- and that is the honest state, NAMED here. Its members are NOT smuggled: they are `plumbing`-family records BY CONTRACT, each id belonging to exactly one family.",
+    "no_channel_measurement": [
+      "`grep -n 'bathroomPod' packages/runtime-composer/src/CommandEventBridge.ts` -> ZERO hits. There is no `case 'bathroomPod.create':` and no emit.",
+      "`grep -rn 'bathroomPod' packages/runtime-composer/src/types.ts` -> 3 hits, all at :2943-2960 describing the store handle; NO `'bathroomPod.created'` event key in the RuntimeEvents map.",
+      "So `bathroomPod.create` dispatches, mutates its store, and emits NOTHING on the bus. Unlike water (parent's channel) and liftPart (parent's payload field), the pod has neither."
+    ],
+    "how_it_reaches_the_screen_instead": "A STORE SUBSCRIPTION, not an event. apps/editor/src/engine/bathroomPodMemberMirror.ts projects pod members into the LEGACY fixture store (`window.plumbingStore`, @pryzm/geometry-plumbing). Attached at boot by initTools §BATH102 (initTools.ts:1739-1768), which warns loudly if `runtime.stores.bathroomPod` is unreadable ('no mesh, no plan symbol, no elevation symbol, no IFC') rather than failing silently.",
+    "why_that_is_NOT_smuggling": [
+      "Each id belongs to ONE family. `fixtureRecordFor` (bathroomPodMemberMirror.ts:153-172) writes `id: m.id` -- the MEMBER's own id -- with `type: 'plumbing_fixture'` and `parentId: pod.id`. The pod's id is never written as a fixture; a member's id is never written as a pod. C109 §2: 'the pod mints exactly ONE new family -- itself'.",
+      "The ownership link is EXPLICIT, not spatial: :167-170 -- 'C109 §2.3 -- the OWNERSHIP LINK, on every member. `parentId` is what makes the drill-in, the inspector and the delete-reap answerable from the record rather than from a spatial query (C109 §7 / R-4).'",
+      "The members are a PROJECTION, not independent state: the module header states 'They are re-derived from the pod record on every diff and reaped when it leaves', so there is no second authority to drift. C84 EI-1 holds by construction.",
+      "⚠ THE ONE REAL CAVEAT, and the module names it itself: 'A member an architect MOVES with `plumbing.move` writes the legacy store directly. Today nothing re-projects an existing pod (there is no `bathroomPod.update` verb -- C109 R-1), so that move survives. ⛔ WHEN AN UPDATE VERB IS MINTED, this is the clause to revisit: a blind re-projection would silently discard the architect's move. **L-11485, OPEN.**'"
+    ],
+    "closest_of_the_three_to_the_pattern": "Yes -- the pod is the only one of the three whose members land in ANOTHER family's store. But it clears the C84 EI-9 test (one id, one family) and its reason is contracted at C109 §2, so calling it smuggling would be wrong. The defect is elsewhere: PERSISTENCE."
+  },
+
+  "milestones": {
+    "authored": "YES",
+    "dispatchable": "YES",
+    "reachable": "YES",
+    "renders_3d": "YES",
+    "renders_plan": "YES",
+    "persists": "NO",
+    "exports": "NO"
+  },
+
+  "milestone_proofs": {
+    "authored": "BathroomPodStore in plugins/plumbing/src/bathroomPodStore.ts (`super('bathroomPod')`), constructed at PluginRegistry.ts:622. L0 brand BathroomPodId at Id.ts:130. Zod shape deliberately held at packages/geometry-plumbing/ (Id.ts:118-127). Handlers: plugins/plumbing/src/handlers/CreateBathroomPod.ts.",
+    "dispatchable": "YES, ITS OWN VERBS, ON THE REAL BUS. Probe Q-C: `bathroomPod.create` and `bathroomPod.delete` both reached canExecute rejection ('podId must be a non-empty string'), not 'no handler registered'. Independent proof: apps/editor/__tests__/bathroomPodReachableThroughComposedRuntime.test.ts:98/:109 -- 'B-1 `bathroomPod.create` resolves rather than throwing on a missing store', dispatched via `rt.bus.executeCommand` off the composed runtime.",
+    "reachable": "YES, FROM A REAL PLAN OVERLAY. apps/editor/src/engine/views/plantools/BathroomPodPlanToolHandler.ts:317 mints `podId: createId('bathroomPod')`; :330-331 dispatches `bathroomPod.create`. Pinned by apps/editor/src/engine/views/plantools/__tests__/bathroomPodPointerReach.spec.ts -- header: 'at a REAL PLAN OVERLAY, producing exactly one `bathroomPod.create`'; :231 `expect(dispatched()).toEqual(['bathroomPod.create'])`. ⚠ ONE ROUTE CLOSED: elementCreationMatrix.ts:791 records the 'AI chat route refuses `bathroomPod.create`'.",
+    "renders_3d": "YES, VIA THE MEMBER MIRROR. bathroomPodMemberMirror projects members into the legacy PlumbingStore whose `add()`/`remove()` already drive PlumbingFragmentBuilder (initTools §BATH102: 'the mirror mints no render capability of its own' because the legacy store's writers already do). ⛔ THE POD ITSELF IS NOT DRAWN, DECLARED not discovered: the module header -- 'it \"carries no geometry of its own beyond its placement and its room envelope\" (C109 §1), and drawing a box around the module would be a second representation of the room the architect already owns.'",
+    "renders_plan": "YES -- AND THIS IS WHERE THE POD DIFFERS FROM water AND liftPart. `plumbingPlanSymbolBuilder` is not merely present but WIRED: apps/editor/src/engine/views/EdgeProjectorService.ts:132 imports it from @pryzm/geometry-plumbing and :3980 calls `plumbingPlanSymbolBuilder.inject(drawing, viewDef)` behind `_symbolGate('plumbing')`. It reads the legacy fixture store the mirror writes, so projected pod members carry A-PLMB plan symbols. Corroborated by the mirror's own consumer list (bathroomPodMemberMirror.ts:9-13) naming PlumbingPlanSymbolBuilder as one of the five, and by BathroomPodPlanToolHandler.ts:214 reasoning about `PlumbingPlanSymbolBuilder`'s levelId filter.",
+    "persists": "NO -- LIVE DATA LOSS. snapshotFamilyCoverage.ts:179 -- status 'UNPERSISTED', snapshotKey null. Write-site absence confirmed independently: `grep -n 'waters\\|liftParts\\|bathroomPods\\|sections' apps/editor/src/engine/persistence/ProjectSerializer.ts` returns `liftParts` and `waters` with declared fields and write lines, and NOTHING for `bathroomPods`. Gate: `npx tsx tools/ga-gate/check-snapshot-family-coverage.ts` -> RC=0, '3 family/families are DECLARED UNPERSISTED (baseline 3) -- authored records are destroyed on reload', bathroomPod among them. Shape of the loss, from the mirror header: 'A saved-and-reloaded project keeps every MEMBER (they are in the legacy store the serializer writes) and LOSES THE PARENT ... `childrenIds`, the drill-in and the delete-reap do not survive a reload, and the members come back as ordinary hand-placed fixtures. That is **L-11405**.'",
+    "exports": "NO, for the POD as a family. The pod parent has no IFC representation: it is not in the L0 SCHEMA_REGISTRY (Id.ts:120), the CEB never emits it, and the serializer never writes it. Its MEMBERS do export -- the mirror header names `PlumbingReader` (IFC) as one of the five legacy-store consumers -- but they export as ordinary fixtures with the pod identity stripped, which is the same loss as the reload case. Not the first failing link (persists precedes it and is its cause)."
+  },
+
+  "first_failing_link": "persists",
+
+  "status": "PARTIAL",
+
+  "lifecycle": {
+    "create": "bathroomPod.create (own verb, plumbing descriptor) -> pod record -> subscribeDirty -> members projected into legacy PlumbingStore -> 3D + plan + elevation + IFC. WIRED, no bus event.",
+    "update": "NO `bathroomPod.update` VERB (C109 R-1). Consequence recorded at bathroomPodMemberMirror.ts:47-50 as L-11485, OPEN.",
+    "delete": "bathroomPod.delete -> store diff says `removed` -> mirror reaps members BY `childrenIds`, NEVER SPATIALLY (:202-208, C109 §7 / R-4).",
+    "undo": "WIRED, and via the SAME road as create -- apps/editor/src/engine/undo/bathroomPodUndoAdapter.ts:48. The module header explains why this is stronger than the lift's arrangement: 'Store.applyPatch() is called by the bus on EXECUTE and by bathroomPodUndoAdapter on UNDO and REDO, and it notifies its subscribers every time ... So CREATE, UNDO, REDO and DELETE all arrive here through ONE subscription ... there is no second channel that could drift from the first.'"
+  },
+
+  "c11_matrix_says": "NO ROW. C11 §11's 14 element rows do not include bathroomPod. This omission is the most consequential of the three dirless families: the matrix's 'VDT + bimManager' column exists to catch exactly the class of defect the pod has, and the pod is also the only one of the three with NO CommandEventBridge case at all -- so a reader auditing 'which families have bridges' finds neither a row nor a case and would conclude the family does not exist, when in fact it is dispatchable, reachable from a plan overlay, and rendering. REFUTED BY OMISSION.",
+
+  "findings": [
+    {
+      "id": "B7-POD-01",
+      "class": "REGISTER-STALE-AND-INVERTED",
+      "severity": "HIGH",
+      "claim": "The snapshotFamilyCoverage row for bathroomPod is STALE ON THREE COUNTS, and the gate PRINTS IT VERBATIM while exiting 0. The row reads: 'Lane BATH102 has plugins/plumbing/src/bathroomPodStore.ts on disk but UNTRACKED, and it is registered in NEITHER ALL_PLUGINS nor runtime.stores, so no user can author a pod yet and nothing is being destroyed TODAY.' Measured: (1) the file IS git-tracked -- `git ls-files plugins/plumbing/src/bathroomPodStore.ts` returns the path, RC=0; (2) it IS in ALL_PLUGINS (PluginRegistry.ts:619-624) and IS on runtime.stores (probe Q-A, ctor BathroomPodStore); (3) a user CAN author a pod -- BathroomPodPlanToolHandler.ts:330 dispatches from a real plan overlay, pinned by bathroomPodPointerReach.spec.ts:231. So pods ARE being destroyed on reload today. The row's own same-commit rule -- 'When BATH102 registers the storeKey, this row must move to persisted with a bathroomPods key IN THE SAME COMMIT' -- was violated: BATH102 registered the storeKey and the row did not move. The classification (UNPERSISTED) is right; the STATED RATIONALE INVERTS THE SEVERITY, telling a reader this is a pre-emptive placeholder when it is live data loss.",
+      "command": "npx tsx tools/ga-gate/check-snapshot-family-coverage.ts  # RC=0, prints the stale reason; then: git ls-files plugins/plumbing/src/bathroomPodStore.ts ; grep -n \"id: 'bathroomPod'\" apps/editor/src/PluginRegistry.ts ; grep -n \"bathroomPod.create\" apps/editor/src/engine/views/plantools/BathroomPodPlanToolHandler.ts",
+      "disposition": "WIRE"
+    },
+    {
+      "id": "B7-POD-02",
+      "class": "GATE-BLIND-SPOT",
+      "severity": "MEDIUM",
+      "claim": "check-snapshot-family-coverage.ts verifies SET EQUALITY between store keys and declared rows, and verifies 26 persistence claims against the snapshot's own fields and writers -- but the row's `reason` string is free prose it never checks. That is how a green gate carried three false statements about the family it was describing. The gate is not wrong about WHAT is unpersisted; it cannot be wrong about that. It has no arm over WHY.",
+      "command": "npx tsx tools/ga-gate/check-snapshot-family-coverage.ts",
+      "disposition": "DOCUMENT"
+    },
+    {
+      "id": "B7-POD-03",
+      "class": "BATCH-PREMISE-REFUTED",
+      "severity": "MEDIUM",
+      "claim": "The B7 brief groups bathroomPod with liftPart as a 'documented compound MEMBER' owning no verb. The pod is a compound PARENT (Id.ts:113-117) and owns TWO verbs (PluginRegistry.ts:879, probe Q-B, probe Q-C reaching canExecute rather than 'no handler registered'). Only the 'no L0 Zod schema' half survives, and that half is deliberate and reasoned at Id.ts:118-127. The mis-grouping inverts the fix: liftPart's honest state is 'cannot be authored alone'; the pod's is 'can be authored, cannot survive a reload'.",
+      "command": "grep -n 'bathroomPod' apps/editor/src/PluginRegistry.ts | sed -n '1,20p'",
+      "disposition": "DOCUMENT"
+    },
+    {
+      "id": "B7-POD-04",
+      "class": "NO-CHANNEL-NAMED",
+      "severity": "LOW",
+      "claim": "bathroomPod has NO bus channel whatsoever -- no CommandEventBridge case (grep returns zero) and no RuntimeEvents key. Its render path is a store subscription (subscribeDirty), which the module argues is STRONGER than an event channel because create/undo/redo/delete all arrive through one road with no second channel to drift. Named here rather than smuggled: this is the honest state, it is contracted at C109 §2, and it clears C84 EI-9 (one id, one family).",
+      "command": "grep -n 'bathroomPod' packages/runtime-composer/src/CommandEventBridge.ts packages/runtime-composer/src/types.ts",
+      "disposition": "DOCUMENT"
+    },
+    {
+      "id": "B7-POD-05",
+      "class": "DEFERRED-HAZARD",
+      "severity": "LOW",
+      "claim": "Pre-logged by the module itself (L-11485, OPEN): when a `bathroomPod.update` verb is minted, a blind re-projection would silently discard an architect's `plumbing.move` on a pod member. Recorded so the update verb is not added without revisiting the clause.",
+      "command": "sed -n '40,52p' apps/editor/src/engine/bathroomPodMemberMirror.ts",
+      "disposition": "DOCUMENT"
+    }
+  ]
+}

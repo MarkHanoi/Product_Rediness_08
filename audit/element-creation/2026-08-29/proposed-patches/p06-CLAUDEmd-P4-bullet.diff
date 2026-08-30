@@ -1,0 +1,116 @@
+# ============================================================================
+# p06-CLAUDEmd-P4-bullet.diff
+# PROPOSED — NOT APPLIED (D9). Audit: audit/element-creation/2026-08-29
+# Measured 2026-08-29 · HEAD 064a838e · branch main
+# Apply with:  git apply <this file>        (strips the leading '#' block? NO —
+#              this file is a PATCH WITH A COMMENT HEADER. 'git apply' ignores
+#              everything before the first '--- a/' line, so it applies as-is.)
+#              On Windows, if using GNU patch instead of git: patch --binary -p1
+# ============================================================================
+# TARGET   CLAUDE.md  — the P4 bullet (§ "The 8 principles")
+# ORDER    apply AFTER p07 (p07 edits the P3 bullet immediately above; the hunks
+#          share context lines). Verified in order p07 -> p06 -> byte-exact.
+# NOTE     CLAUDE.md is CRLF (313 of 323 lines). Use `git apply`, or GNU
+#          `patch --binary -p1`. Plain `patch -p1` rejects with
+#          "different line endings".
+#
+# WHAT IS FALSIFIED, AND BY WHICH COMMAND
+#
+#   The bullet's 2026-08-18 correction box asserts:
+#     "RC=0, terminal line [cast-tripwire] OK: 3 = baseline. ... scoped 215 files
+#      3/3 ... repo-wide 4821 files 100/100 ... Both arms are within ceiling;
+#      neither is breached."
+#
+#   $ npx tsx tools/ga-gate/check-cast-count.ts > /tmp/cast.txt 2>&1; echo "RC=$?"
+#   -> RC=3
+#      [cast-tripwire] FAIL (repo-wide): 101 (window as any) cast(s) > baseline 100.
+#      repo-wide scope: 5315 files, 101/100 (tests excluded)
+#      scoped strict (src, apps/editor/src/engine): 11 / 3  — "A regression added
+#      8 new cast(s)."
+#
+#   BOTH arms are breached. Neither is within ceiling. Every clause of the 08-18
+#   box is now false.
+#
+# WHY THIS ONE MATTERS MORE THAN A STALE NUMBER
+#
+#   The 08-18 box was itself a correction of a stale-PESSIMISTIC reading. It has
+#   now become stale-OPTIMISTIC. Same defect, opposite sign, eleven days apart:
+#     08-16 read RED  ->  08-18 read GREEN  ->  08-29 reads RED
+#   Three transcribed readings, three verdicts, one gate. Stale-pessimistic wastes
+#   budget on a solved problem. Stale-optimistic CERTIFIES A BREACH AS CLEAN, and
+#   a merge-blocking job is red on main while the file says it is green.
+#   The patch therefore preserves the 08-18 box, explicitly marked SUPERSEDED, so
+#   the oscillation is legible — deleting it would hide the pattern that is the
+#   actual finding.
+#
+# DISPOSITION (D2)
+#
+#   REPLACE the reading. Not WIRE: nothing here is unreachable — the gate runs, is
+#   registered, and reports correctly. The document is what is wrong.
+#
+# §RATCHET-EXCEEDED-IS-NEVER-DEBT
+#
+#   RC=3 is SHRINK-ONLY RATCHET EXCEEDED. run-all.ts:1162 sets anyFailed=true on
+#   code 3 unconditionally (R7 / L-836). Raising either ceiling — or adding
+#   check-cast-count.ts to gate-debt.json to swallow the exit-3 — is the one
+#   forbidden fix, and the new box says so in the file.
+#
+# AN ADJACENT FALSIFIED STATEMENT THIS PATCH DELIBERATELY DOES NOT TOUCH
+#
+#   CLAUDE.md:140 (the P1 bullet) reads "check-single-compose.ts, 1 definition /
+#   0 rivals". The gate BODY prints "rival runtime factories: 1" and names
+#   apps/component-editor/src/app/familyEditorRuntime.ts:85 createFamilyEditorRuntime;
+#   only its terminal line, a HARD-CODED string at check-single-compose.ts:216,
+#   says "0 rivals".
+#   It is NOT patched here on purpose. The defect is in the INSTRUMENT, not the
+#   doc: correcting the prose while the gate keeps printing a literal leaves the
+#   false green in the place that gets read by CI. Fix the gate (REPLACE the
+#   literal with the count), then the doc line becomes true or false by
+#   measurement rather than by editing. Filed as an issue row in p08.
+#
+# ACCEPTANCE (D3)
+#
+#   $ npx tsx tools/ga-gate/check-cast-count.ts; echo "RC=$?"
+#     -> must print "[cast-tripwire] OK: <n> = baseline" with n <= 3 on the scoped
+#        arm AND repo-wide <= 100, and RC=0. RC=0 alone is not acceptance: the two
+#        printed numerators are the criterion.
+#
+--- a/CLAUDE.md
++++ b/CLAUDE.md
+@@ -162,6 +162,27 @@
+ 4. **P4 — No `(window as any)`.** Forbidden outside the one allowlisted shim file — *as a rule*.
+    **NOT-YET-TRUE as enforcement:** `check-cast-count.ts` is a shrink-only ratchet and is on
+    `tools/ga-gate/gate-debt.json`.
++   > ⛔ **Corrected AGAIN 2026-08-29 — the 2026-08-18 box below is now stale in the OPPOSITE
++   > direction. This bullet has been wrong in BOTH directions inside eleven days.** The 08-18 box
++   > read *"**RC=0**, terminal line `[cast-tripwire] OK: 3 = baseline.` · scoped 215 files ·
++   > **3 / 3** · repo-wide 4821 files · **100 / 100** … **Both arms are within ceiling; neither is
++   > breached.**"* **Re-run 2026-08-29 (HEAD `064a838e`):**
++   > `npx tsx tools/ga-gate/check-cast-count.ts > /tmp/cast.txt 2>&1; echo "RC=$?" >> /tmp/cast.txt`
++   > → **RC=3**. Terminal line: `[cast-tripwire] FAIL (repo-wide): 101 (window as any) cast(s) >
++   > baseline 100.` · **repo-wide 5,315 files · 101 / 100** (tests excluded) · **scoped strict
++   > (`src`, `apps/editor/src/engine`) 11 / 3 — headroom −8**, in the gate's own words:
++   > *"A regression added 8 new cast(s)."* **BOTH arms are breached; neither is within ceiling.**
++   > ⛔ **RC=3 is SHRINK-ONLY RATCHET EXCEEDED, and `run-all.ts:1162` sets `anyFailed=true` on code
++   > 3 UNCONDITIONALLY. It is NOT absorbable via `gate-debt.json`
++   > (§RATCHET-EXCEEDED-IS-NEVER-DEBT, R7 / L-836). Fix the 8 new casts. Raising either ceiling, or
++   > adding a ledger entry to swallow the exit-3, is the one forbidden fix.**
++   > ⭐ **The lesson is the OSCILLATION, not the number.** 08-16 read RED · 08-18 read GREEN ·
++   > 08-29 reads RED — three transcribed readings, three verdicts, one gate. Stale-pessimistic
++   > wastes budget on a solved problem; stale-optimistic **certifies a breach as clean**, which is
++   > worse. **If you are quoting a number out of this bullet, you have already made the mistake it
++   > documents. Read the gate.**
++
++   > ⚠ **SUPERSEDED 2026-08-29 — kept as the record of the oscillation, NOT as a reading.**
+    > ⚠ **Corrected 2026-08-18 — this bullet claimed the gate was RED. It is GREEN.** It read
+    > *"**RED — exit 3** (measured 2026-08-16) … repo-wide **209 / 215** … scoped **6 / 4** — **this
+    > is the breach**"*. **Re-run:** `npx tsx tools/ga-gate/check-cast-count.ts > /tmp/cast.txt 2>&1;
+@@ -170,7 +191,7 @@
+    > 100 / 100** (tests excluded). **Both arms are within ceiling; neither is breached.** The
+    > earlier reading was not merely stale, it was stale *pessimistically* — it named a breach that
+    > the gate does not report, which is the same class of defect as claiming enforcement that does
+-   > not exist, inverted. **Read the gate, never this line.**
++   > not exist, inverted. **Read the gate, never this line.** ⛔ *(Every number in THIS box is the 08-18 measurement and is NO LONGER TRUE — see the 08-29 box above.)*
+ 
+    > ⚠ **The `commandManager` sub-finding under this bullet was ALSO stale — rewritten
+    > 2026-08-18.** It read: *"one of the six is

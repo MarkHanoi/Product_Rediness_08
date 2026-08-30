@@ -1,0 +1,144 @@
+{
+  "family": "furniture",
+  "batch": "B4",
+  "measured": "2026-08-29",
+  "registration": {
+    "status": "OK",
+    "registration_site": "apps/editor/src/PluginRegistry.ts — ALL_PLUGINS descriptor `{ id: 'furniture', storeKey: 'furniture', buildStore: () => new FurnitureStore(), buildHandlers: () => buildFurnitureHandlerSet() }` (found by `grep -n \"storeKey:\" apps/editor/src/PluginRegistry.ts` -> :567). There is NO plugins/furniture/src/registration.ts; registration is the descriptor.",
+    "declared_storeKey": "furniture",
+    "storeKey_matches_ctx_stores_key": "YES — MEASURED, EXECUTED. `grep -rn affectedStores plugins/furniture/src/` -> 11 handlers declare `['furniture']`, 1 (BulkUpdateKitchenMaterial) declares `[]`. bootstrap.everything.ts:145 builds the provider as `stores[plugin.storeKey] = store`. B4 probe P-A printed `registeredStoreKeys[furniture] = \"furniture\"` and `rt.stores.furniture present = true`, and P-B dispatched furniture.create successfully on the real composed bus.",
+    "in_ELEMENT_PLUGIN_IDS": true,
+    "proof_reads_real_composition_root": "YES (created by this audit). audit/element-creation/2026-08-29/probe/b4Dispatch.probe.test.ts imports `bootstrapWithEverything` and constructs NO store and no stores object (D6). BEFORE this audit: NONE. composedBusElementReadback.test.ts covers wall/slab/room only; check-mirror-reachability.ts's subject is 14 verbs across 3 families (lighting/slab/roof) and does not include furniture; check-verb-liveness.ts STORE CENSUS lists furniture under ABSENT (12) — 'CA-21 is unprovable BY CONSTRUCTION in this process'.",
+    "evidence": "npx vitest run --config audit/element-creation/2026-08-29/probe/vitest.b4.config.ts --reporter=verbose -> Tests 10 passed. [B4 P-A] ALL rt.stores keys: [\"annotation\",\"balcony\",\"bathroomPod\",\"beam\",\"boundaryLine\",\"ceiling\",\"column\",\"curtainwall\",\"dimension\",\"door\",\"floor\",\"furniture\",\"grid\",\"handrail\",\"lift\",\"liftPart\",\"lighting\",\"plumbing\",\"pool\",\"roof\",\"rooms\",\"section\",\"selection\",\"slab\",\"stair\",\"structural\",\"view\",\"wall\",\"water\",\"window\"]"
+  },
+  "handler": {
+    "status": "PARTIAL",
+    "path": "plugins/furniture/src/handlers/CreateFurniture.ts",
+    "validates_before_mutation": "YES — canExecute checks origin finiteness, rotation finiteness, scale, activeLod, size. Returns `{valid:false, reason}`; the bus converts it to a named rejection (measured: P-I room refusal text shows the bus surfaces `reason` verbatim). NOT a typed DomainError subclass — the typed error (FurnitureSchemaError) is raised INSIDE execute() at `Furniture.parse`, i.e. after canExecute, before the draft write.",
+    "mutates_only_via_immer_draft": "YES — `produceCommand<FurnituresState>(ctx.stores.furniture, draft => { draft[f.id] = f; })`. No store-singleton import in the handler.",
+    "otel_span": "YES — `withHandlerSpan(this.type + '.handler', …)` wraps execute(). check-otel-spans.ts ZONE A: 275 / 275 instrumented (zero tolerance arm), RC=3 overall but the FAIL is ZONE B (66 uninstrumented of 87, baseline 52) and names no furniture create handler.",
+    "id_pre_generated_in_tool": "YES for every REACHABLE editor path — apps/editor/src/engine/furniture/furnitureCreatePayload.ts `buildFurnitureCreatePayload()` mints `createId('furniture')` (§FIX-FURNITURE-AD-HOC-ID / L-665) and validates a caller-supplied id with `isId(id,'furniture')`. The handler still falls back to `cmd.id ?? createId('furniture')`, which is what mints the ghost id in the `{}` telemetry path (see B4-FURN-03).",
+    "must_not_violations": [
+      "C11 §5.3 (no DOM/window access in a handler): plugins/furniture/src/handlers/CreateFurniture.ts:73 `const cm = window.commandManager as { getContext?(): unknown } | undefined;` — read inside canExecute, with NO `typeof window` guard (its siblings CreateRoom.ts:166 and CreateTemplate.ts:76 have one). EXECUTED: B4 probe P-J dispatched furniture.create with a wardrobeCabinetConfig on the real composed bus and got `window is not defined`.",
+      "C11 §5.3 (no commandManager.execute): plugins/furniture/src/handlers/UpdateFurnitureParameters.ts and plugins/furniture/src/handlers/BulkUpdateKitchenMaterial.ts both call `window.commandManager.execute(...)`.",
+      "C11 §5.3 (no window.dispatchEvent): plugins/furniture/src/handlers/BulkUpdateKitchenMaterial.ts calls `window.dispatchEvent(new CustomEvent(KITCHEN_MATERIAL_BATCH_REPORT_EVENT, ...))` (2 sites).",
+      "`Window.commandManager` is declared `commandManager?: any` (packages/core-app-model/src/global-window-augment.d.ts:38) — the value is `any`, so the seam is a silencer even though it is not literally `(window as any)` and therefore invisible to check-cast-count.ts."
+    ],
+    "affectedStores_declared": "['furniture'] on 11 handlers; [] on furniture.bulkUpdateKitchenMaterial",
+    "evidence": "grep -rn \"affectedStores\" plugins/furniture/src/ ; grep -n window plugins/furniture/src/handlers/CreateFurniture.ts -> single hit at :73"
+  },
+  "lifecycle": {
+    "status": "PARTIAL",
+    "ceb_case": "YES and GEOMETRY-COMPLETE — packages/runtime-composer/src/CommandEventBridge.ts:1125 `case 'furniture.create'` forwards id/levelId/furnitureType/position/rotation/baseOffset/width/length/height/material/materialId/color/furnitureCategory/kitchenConfig/wardrobeCabinetConfig. :1171 `case 'furniture.batch.create'` fans out one `furniture.created` per entry with commandType 'furniture.create'. ⚠ Both read `record.payload` (the REQUEST), not `record.forward` (the COMMIT) — which is the only reason the bridge still works despite the handler discarding those fields (see B4-FURN-01).",
+    "initTools_bridge_tag": "§FT-FURNITURE — `grep -n \"bridge registered\" apps/editor/src/engine/initTools.ts` -> `2958:        console.log('[initTools] §FT-FURNITURE: furniture.created bus→legacy-store bridge registered.');`. Subscriber at `grep -n \"\\.created'\" apps/editor/src/engine/initTools.ts` -> `2847: runtime.events.on('furniture.created', ...)`. Guard: `if (ev.commandType !== 'furniture.create' || !ev.id || !ev.furnitureType || !ev.position) return;`",
+    "vdt_registerElement": "YES — `viewDependencyTracker.registerElement(ev.id, ev.levelId ?? '')` immediately after `_fs.add({...})` (§FIX-PLAN-VDT-BIMMANAGER). Bridge Invariant 7 satisfied.",
+    "bimManager_registerElement": "YES — `try { bimManager.registerElement(ev.id, ev.levelId ?? ''); } catch { }`. Also `elementRegistry.registerSemanticOrReplace(ev.id, 'furniture')` (§FIX-CATCHUP-DUPLICATE-CREATE / L-18).",
+    "bimManager_via_window_any": "NO — `bimManager` is a parameter on `ToolsParams` (apps/editor/src/engine/initTools.ts:267 `bimManager: any;`) passed in by bootstrap, not a window read. It IS typed `any`, which is a separate typing debt, not a C14 LP-01 / P4 window breach. `viewDependencyTracker` and `elementRegistry` are real imports (initTools.ts:176-177 from @pryzm/core-app-model). The legacy STORE is reached as `window.furnitureStore as FurnitureStore | undefined` — a typed cast to the real class (§FIX-ANY-STORE-SEAM / L-980), not `(window as any)`.",
+    "in_GEOMETRY_ELEMENT_TYPES": true,
+    "update_verbs_covered": "NO — packages/runtime-composer/src/CommandEventBridge.ts:241 ELEMENT_UPDATE_VERBS contains ONLY slab.addHole, slab.removeHole, slab.setThickness, slab.setBaseOffset, roof.setOverhang, roof.setThickness, column.setHeight. Zero furniture verbs. mirror-debt.json rows: furniture.delete, furniture.setActiveLod, furniture.setRepresentation, furniture.setScale, furniture.updateParameters = kind=UNMIRRORED; furniture.move / furniture.rotate / furniture.setMaterial = refuses; furniture.changeLevel = mirrored-elsewhere (element.level-changed).",
+    "evidence": "npx tsx tools/ga-gate/check-mirror-completeness.ts -> RC=0, 'census (initTools.ts): 19 *.created mirror(s) · 1 *.updated mirror(s)'; 'verbs that WRITE a plugin DTO store: 200 — 44 with a bridge case, 156 without'."
+  },
+  "milestones": {
+    "authored": "YES",
+    "dispatchable": "YES",
+    "reachable": "YES",
+    "renders_3d": "YES",
+    "renders_plan": "YES",
+    "persists": "YES",
+    "exports": "NO"
+  },
+  "milestone_proofs": {
+    "authored": "plugins/furniture/src/handlers/CreateFurniture.ts + CreateFurnitureBatch.ts + 10 more; FURNITURE_HANDLER_TYPES lists 12 verbs.",
+    "dispatchable": "EXECUTED on the REAL composed bus: B4 probe P-B `furniture.create` -> outcome OK, record committed `{...\"levelId\":\"L0\",\"catalogId\":\"cat-sofa\",\"origin\":{\"x\":3,\"y\":0,\"z\":4\"},...}`. Store key resolves; no 'required store missing' throw.",
+    "reachable": "5 production dispatch sites, all through window.runtime.bus: FurniturePlanToolHandler.ts:412, FurnitureDragDropHandler.ts:475, KitchenCabinetTool.ts:422, WardrobeCabinetTool.ts:384, CopyPlanToolHandler.ts:503 (+ duplicateToLevel.ts:263 and ai-host buildFurnishCommands.ts:93 via furniture.batch.create). Tool activator registered: PluginRegistry.ts:1065 `runtime.tools.register('furniture', …)`; check-tool-activator-coverage.ts ARM A names only balcony/bathroom-pod/boundary-line/pool as uncovered.",
+    "renders_3d": "Source chain complete and each link grepped: CEB:1125 -> initTools.ts:2847 §FT-FURNITURE -> `_fs.add({...})` on window.furnitureStore -> `bim-furniture-added` -> apps/editor/src/engine/initBuilders.ts:852 `window.addEventListener('bim-furniture-added', …)` -> _safeFurnitureUpdate -> FurnitureFragmentBuilder. NOT executed end-to-end here (no mesh gate exists: check-mirror-completeness.ts prints 'NOT ESTABLISHED HERE: that any covered verb's event reaches a subscriber, a legacy record, or a mesh').",
+    "renders_plan": "'furniture' IS in GEOMETRY_ELEMENT_TYPES (packages/core-app-model/src/views/ViewDependencyTracker.ts:42-49), so FurnitureStore.add's storeEventBus emit dirties the view at ViewDependencyTracker.ts:676. Bridge Invariant 7 satisfied (VDT + bimManager both called). Plan symbol builders exist and are imported by apps/editor/src/engine/views/EdgeProjectorService.ts:78-89 (sofa/bed/kitchen/wardrobe/chair/tree from @pryzm/geometry-furniture); 'furniture' is in EdgeProjectorService CACHEABLE_ELEMENT_TYPES.",
+    "persists": "apps/editor/src/engine/persistence/snapshotFamilyCoverage.ts:137 `{ storeKey:'furniture', status:'via-legacy-twin', snapshotKey:'furniture', reason:'Serialized from the legacy FurnitureStore.' }`. check-snapshot-family-coverage.ts RC=0: '30 family/families, 30 row(s), sets equal in both directions · 26 persistence claim(s) verified against the snapshot's own fields and writers · 3/3 declared losses' (the 3 losses are bathroomPod, section, structural — not furniture). The §FT-FURNITURE bridge is what puts bus-created furniture into that legacy store.",
+    "exports": "NO IFC exporter. `ls plugins/ifc-export/src/exporters/` -> IFC4X3Exporter.ts beam.ts column.ts door.ts opening-profile-declaration.ts pset-door-common.ts pset-wall-common.ts pset-window-common.ts qto-wall-base.ts revit-variant.ts slab.ts space.ts wall.ts window.ts zone.ts. `grep -ril \"furniture\\|lighting\\|plumbing\" plugins/ifc-export/` -> 1 file, pset-window-common.ts (an unrelated 'lighting' Pset word). No IfcFurnishingElement path. SCOPE NOTE: this measures IFC only; GLB export walks the scene graph and is NOT measured here."
+  },
+  "first_failing_link": "exports — every earlier link holds. `grep -ril \"furniture\" plugins/ifc-export/` returns no furnishing exporter, so furniture is absent from every IFC4X3 export.",
+  "c11_ss11_crosscheck": {
+    "matrix_row": "| **Furniture** | ⚠️ `furniture.create` case emits geometry-free payload (levelId only) | ❌ No bridge | ✅ `FurnitureStore.add()` → storeEventBus | ✅ `'furniture'` | ❌ (no bridge — N/A) | ❌ | ⚠️ LEGACY-ONLY — furniture populated via legacy path; CEB payload insufficient for bridge |",
+    "verdict": "REFUTED on 4 of 7 cells",
+    "detail": "(1) 'CEB case emits geometry-free payload (levelId only)' — FALSE: CommandEventBridge.ts:1125-1169 forwards 15 fields. (2) '❌ No bridge' — FALSE: initTools.ts:2958 logs '§FT-FURNITURE: furniture.created bus→legacy-store bridge registered.' (3) 'VDT + bimManager ❌ (no bridge — N/A)' — FALSE: the bridge calls both. (4) '3D via bus ❌' — FALSE: the bus path is the only path the plan tool / carousel / kitchen / wardrobe use. C11 §0.0 (2026-08-18) ALREADY states this and §11.1 already marks FURNITURE-BUS-MIGRATION '✅ DONE', so the contract contradicts itself in three places and the MATRIX is the wrong half."
+  },
+  "findings": [
+    {
+      "id": "B4-FURN-01",
+      "class": "PAYLOAD FIELD-NAME MISMATCH (FT1-C11-SLAB-BOUNDARY class)",
+      "severity": "P1",
+      "claim": "Every REACHABLE furniture creation path sends `furnitureType`/`position`/`width`/`length`/`height`/`material`, and `CreateFurnitureHandler` reads none of them. The committed plugin DTO record is `catalogId: \"\"`, `origin: {0,0,0}` for EVERY furniture the user places. The 3D mesh is correct only because CommandEventBridge reads `record.payload` (the REQUEST) rather than `record.forward` (the COMMIT) — the opposite of what §FIX-BEAM-CEB-STEEL (L-974) established for beam, whose bridge was deliberately moved onto the commit.",
+      "command": "npx vitest run --config audit/element-creation/2026-08-29/probe/vitest.b4.config.ts --reporter=verbose",
+      "output_excerpt": "[B4 P-C] outcome: OK\n[B4 P-C] record: {\"id\":\"furniture_01ARZ3NDEKTSV4RRFFQ69G5FB4\",\"type\":\"furniture\",...,\"levelId\":\"L0\",\"catalogId\":\"\",\"origin\":{\"x\":0,\"y\":0,\"z\":0},\"rotation\":0,\"scale\":1,\"activeLod\":2,\"representations\":{},\"materialSlots\":{}}\n(contrast P-B, the never-instantiated plugin tool's payload: \"catalogId\":\"cat-sofa\",\"origin\":{\"x\":3,\"y\":0,\"z\":4})",
+      "contract_clause": "C11 §11.19 'Residual (non-blocking)'; C84 EI-1 (two stores that keep diverging); packages/command-bus/src/commands.ts:781 declares the payload as `{ furnitureType, position, levelId }` — the DECLARED bus type and the HANDLER's type do not intersect on a single geometry field.",
+      "disposition": "REPLACE",
+      "blocks_production": false
+    },
+    {
+      "id": "B4-FURN-02",
+      "class": "SINGLE/BATCH PATH DIVERGENCE INSIDE ONE FAMILY",
+      "severity": "P2",
+      "claim": "`furniture.batch.create` maps the legacy `position` onto `origin` and `furniture.create` does not — so the SAME family stores a located record when created in bulk and a record at world origin when created one at a time. The batch handler's own comment states the asymmetry as a known fact instead of fixing the single-create path.",
+      "command": "sed -n '105,112p' plugins/furniture/src/handlers/CreateFurnitureBatch.ts",
+      "output_excerpt": "// Map the legacy furnish `position` to `origin` when no explicit origin\n// is supplied — keeps the PRYZM3 record location-aware (harmless; the\n// single CreateFurnitureHandler defaults origin to {0,0,0}).\norigin: cmdF.origin ?? cmdF.position ?? { x: 0, y: 0, z: 0 },",
+      "contract_clause": "C11 §2 (one element type, one creation pipeline)",
+      "disposition": "REPLACE",
+      "blocks_production": false
+    },
+    {
+      "id": "B4-FURN-03",
+      "class": "GHOST RECORD + STOLEN UNDO SLOT (telemetry dispatch with an empty payload)",
+      "severity": "P1",
+      "claim": "The 3-D `FurnitureTool` fires `bus.executeCommand('furniture.create', {})` as 'bus telemetry' at three sites and then does the real work through `commandManager.execute(new CreateFurnitureCommand(...))`. `CreateFurnitureHandler` ACCEPTS `{}` — it mints an id, commits a record with `levelId:\"\"` and `origin {0,0,0}`, and that record takes an undo slot. Every 3-D furniture placement therefore pushes TWO undo entries and the user's first Ctrl+Z removes a phantom nobody can see. `room.create` proves this is fixable at the handler: the same `{}` telemetry dispatch from RoomTool.ts:387 is REFUSED BY NAME and takes no undo slot.",
+      "command": "npx vitest run --config audit/element-creation/2026-08-29/probe/vitest.b4.config.ts --reporter=verbose -t \"P-K\"",
+      "output_excerpt": "[B4 P-D] outcome: OK\n[B4 P-D] furniture ids after {}: [\"furniture_01M16F58ZJJT5FPF57XCB4307Z\"]\n[B4 P-D] ghost record: {...\"levelId\":\"\",\"catalogId\":\"\",\"origin\":{\"x\":0,\"y\":0,\"z\":0}...}\n[B4 P-K] undo.size before: 0\n[B4 P-K] undo.size after furniture.create {}: 1\n[B4 P-K] undo.size after plumbing.create {}: 2\n[B4 P-K] undo.size after room.create {} (refused): 2",
+      "contract_clause": "C16 §5.1 CA-21 / ADR-0299 §RECOVERY-MUST-REFUSE — an empty patch pair or a degenerate success is indistinguishable from a real create. C03 §4.1 (undo stack integrity). Sites: packages/geometry-furniture/src/FurnitureTool.ts:625, :706, :753.",
+      "disposition": "REPLACE",
+      "blocks_production": true
+    },
+    {
+      "id": "B4-FURN-04",
+      "class": "AUTHORED BUT UNREACHABLE (D2 — build vs wire)",
+      "severity": "P2",
+      "claim": "`FurniturePlacementTool` (plugins/furniture/src/tool.ts) is the ONE furniture producer whose payload actually matches `CreateFurniturePayload` — and it is never constructed anywhere in the tree. `runtime.tools.register('furniture', …)` (PluginRegistry.ts:1065) activates `window.furnitureTool`, which initTools.ts:689-690 assigns to the LEGACY `new FurnitureTool(...)` from @pryzm/geometry-furniture. `FurnitureCommitter` (plugins/furniture/src/committer/) is likewise referenced by nothing outside its own barrel. This is WIRE work, not BUILD work.",
+      "command": "Grep pattern `new (FurniturePlacementTool|PlumbingPlacementTool|LightingPlacementTool|RoomTool)\\(` over *.ts ; Grep `FurnitureCommitter`",
+      "output_excerpt": "apps\\editor\\src\\engine\\initTools.ts:3201: const roomTool = new RoomTool(commandManager, bimManager);\napps\\editor\\src\\PluginRegistry.ts:1101: (window as unknown as Record<string, unknown>).lightingTool = new LightingPlacementTool({\n(no `new FurniturePlacementTool(` anywhere)\nFurnitureCommitter -> 13 hits, ALL inside plugins/furniture/src/committer/, plugins/furniture/src/index.ts",
+      "contract_clause": "C11 §3.1 tool activation contract",
+      "disposition": "WIRE",
+      "blocks_production": false
+    },
+    {
+      "id": "B4-FURN-05",
+      "class": "UNGUARDED window READ IN A HANDLER — executed crash",
+      "severity": "P2",
+      "claim": "`CreateFurniture.ts:73` reads bare `window.commandManager` inside `canExecute` with no `typeof window` guard. Its two siblings in the same repo (CreateRoom.ts:166, CreateTemplate.ts:76) do guard. Any headless dispatch of `furniture.create` carrying a `wardrobeCabinetConfig` throws `ReferenceError: window is not defined` — not a typed DomainError, not a named refusal.",
+      "command": "npx vitest run --config audit/element-creation/2026-08-29/probe/vitest.b4.config.ts --reporter=verbose -t \"P-J\"",
+      "output_excerpt": "[B4 P-J] outcome: window is not defined",
+      "contract_clause": "C11 §5.3 (a handler MUST NOT touch the DOM); C14 LP-01",
+      "disposition": "REPLACE",
+      "blocks_production": false
+    },
+    {
+      "id": "B4-FURN-06",
+      "class": "DOC-CONFLICT (C11 §11 matrix)",
+      "severity": "P1",
+      "claim": "C11 §11's normative matrix marks Furniture 'CEB payload geometry-free / No bridge / no VDT+bimManager / 3D via bus ❌ / LEGACY-ONLY'. Four of those seven cells are refuted by grep, and C11's own §0.0, §11.1 and §11.19 already say so. An engineer reading the matrix would build a second bridge.",
+      "command": "grep -n \"bridge registered\" apps/editor/src/engine/initTools.ts",
+      "output_excerpt": "2958:        console.log('[initTools] §FT-FURNITURE: furniture.created bus→legacy-store bridge registered.');\n(also: §0.0's own cited line numbers 2050/2111/2217 for handrail/lighting/furniture are STALE — the grep now returns 2679/2832/2958)",
+      "contract_clause": "C11 §11 ('This matrix … MUST be updated whenever a bridge is added, removed, or repaired')",
+      "disposition": "DOCUMENT",
+      "blocks_production": false
+    },
+    {
+      "id": "B4-FURN-07",
+      "class": "CREATE-MIRROR WITHOUT UPDATE-MIRROR",
+      "severity": "P2",
+      "claim": "Zero furniture verbs appear in ELEMENT_UPDATE_VERBS. furniture.setScale / setActiveLod / setRepresentation / updateParameters / delete write the DTO store and emit no typed event, so a furniture item can be created and rendered but never updated or deleted through the bus and reach the render layer.",
+      "command": "grep -n \"ELEMENT_UPDATE_VERBS\" -A 55 packages/runtime-composer/src/CommandEventBridge.ts ; node -e (read tools/ga-gate/mirror-debt.json)",
+      "output_excerpt": "ELEMENT_UPDATE_VERBS = { 'slab.addHole', 'slab.removeHole', 'slab.setThickness', 'slab.setBaseOffset', 'roof.setOverhang', 'roof.setThickness', 'column.setHeight' }  (7 rows, 3 families)\nmirror-debt.json: furniture.delete|UNMIRRORED, furniture.setActiveLod|UNMIRRORED, furniture.setRepresentation|UNMIRRORED, furniture.setScale|UNMIRRORED, furniture.updateParameters|UNMIRRORED",
+      "contract_clause": "C11 §10.2 Bridge Invariants; C84 EI-2",
+      "disposition": "WIRE",
+      "blocks_production": false
+    }
+  ]
+}

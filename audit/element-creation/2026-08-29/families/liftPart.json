@@ -1,0 +1,140 @@
+{
+  "family": "liftPart",
+  "batch": "B7",
+  "measured": "2026-08-29",
+  "subject_class": "registry id with NO plugins/<name> directory on disk",
+
+  "registration": {
+    "dir_on_disk": "NO -- `[ -d plugins/liftPart ]` -> NO_DIR. The store (LiftPartStore) is authored in plugins/lift/src/store.ts; the geometry types in packages/geometry-lift/src/LiftPartTypes.ts.",
+    "registries": [
+      {
+        "registry": "ALL_PLUGINS",
+        "site": "apps/editor/src/PluginRegistry.ts:513-527",
+        "grep": "grep -n -E \"'(water|liftPart|bathroomPod|selection|section-view)'\" apps/editor/src/PluginRegistry.ts",
+        "declares": "id 'liftPart', storeKey 'liftPart', buildStore: () => new LiftPartStore(), buildHandlers: () => []"
+      },
+      {
+        "registry": "ELEMENT_PLUGIN_IDS",
+        "site": "apps/editor/src/PluginRegistry.ts:798 (comment at :793-796)"
+      },
+      {
+        "registry": "STORE_ONLY_PLUGIN_IDS",
+        "site": "apps/editor/src/PluginRegistry.ts:878 (value string)"
+      },
+      {
+        "registry": "Id brand union",
+        "site": "packages/schemas/src/types/Id.ts:108 `export type LiftPartId = Id<'liftPart'>`; union member :188; conditional :239"
+      },
+      {
+        "registry": "snapshotFamilyCoverage",
+        "site": "apps/editor/src/engine/persistence/snapshotFamilyCoverage.ts:155 -- status 'persisted', snapshotKey 'liftParts'"
+      },
+      {
+        "registry": "L0 SCHEMA (defineElement)",
+        "site": "ABSENT -- see brief_premise_checked below. `grep -rn \"defineElement('\" packages/schemas/src/ | grep -v BaseNode.ts` returns 26 element kinds and liftPart is not among them; `ls packages/schemas/src/elements/` has no LiftPart.ts."
+      }
+    ],
+    "storeKey_resolves_at_runtime": "YES. Prior-run probe b7Edge Q-A: `[B7 Q-A stores.liftPart] {defined:true, ctor:LiftPartStore}`. Q-B: `{handlerTypes:[], storeKeys:'liftPart'}` -- store contributed, zero handlers, exactly as declared."
+  },
+
+  "deliberate_or_orphan": {
+    "verdict": "DELIBERATE, DOCUMENTED STORE-ONLY EXEMPTION -- not an orphan. Same idiom as `water`, same stated reason shape, different contract.",
+    "quoted_documentation": [
+      "PluginRegistry.ts:517-525 (descriptor): \"NO HANDLERS, DELIBERATELY -- a statement, not an omission, and the same statement the `water` descriptor makes. A cabin part is created and destroyed ONLY as part of a lift compound (C104 s2), so `lift.create` owns the only write path. Minting a `liftPart.create` would be a second, rival way to produce a car ceiling with no car around it -- exactly the defect the single-write-path rule exists to prevent.\"",
+      "PluginRegistry.ts:878 (STORE_ONLY_PLUGIN_IDS value): \"C104 s2 -- cabin parts are created and destroyed only by lift.* ; they own no verb of their own.\"",
+      "packages/schemas/src/types/Id.ts:100-108: \"The five kinds are `LIFT_PART_CYCLE_ORDER` (structure, wall finish, floor, ceiling, door). A cabin part is created and destroyed ONLY as part of a lift compound (C104 s2) -- `lift.create` owns the only write path, which is why `PluginRegistry` gives the `liftPart` store NO handlers of its own.\"",
+      "apps/editor/src/engine/undo/liftUndoAdapter.ts:222-225: \"Adapter for storeKey `liftPart` ... It emits NOTHING. A `liftPart` is never created, updated or destroyed on its own.\""
+    ],
+    "gate_corroboration": "npx tsx tools/ga-gate/check-plugin-census-equivalence.ts -> RC=0; arm D hard-0; header prints 'STORE_ONLY exemptions (derived): water, liftPart, bathroomPod'."
+  },
+
+  "brief_premise_checked": {
+    "premise_as_given": "\"`liftPart` and `bathroomPod` appear ONLY in ALL_PLUGINS + ELEMENT_PLUGIN_IDS + STORE_ONLY_PLUGIN_IDS. They are documented compound MEMBERS and carry NO defineElement / L0 schema at all -- unlike their parent families.\"",
+    "verdict_for_liftPart": "SUBSTANTIALLY CONFIRMED, WITH ONE CORRECTION AND ONE ADDITION.",
+    "correction": "'appear ONLY in [three registries]' is too narrow. liftPart also appears in the L0 Id BRAND union (Id.ts:108/188/239), in snapshotFamilyCoverage (:155), in ProjectSerializer (:1516/:1650 -- it is PERSISTED under key `liftParts`), in the lift undo adapter, and as a typed sub-array on the `lift.created` event payload (types.ts, `readonly parts: ReadonlyArray<{ readonly id: string; readonly kind: string; ...}>`). Five more registries than the premise names, and one of them is the persistence format.",
+    "addition_the_premise_misses": "The schema split is DELIBERATE AND WRITTEN DOWN, not an oversight -- and the doctrine is stated at Id.ts:113-127 for its sibling: the BRAND is promoted to L0 while the Zod SHAPE is not, 'because moving the schema changes what validates a persisted project, which is a C47 format question deserving its own blast radius'. Without the brand, `createId` -- the ONE id factory -- could not mint the id, 'leaving a caller with a hand-built string (a second vocabulary, C84 EI-8) or a cast'. Id.ts:102-104 says the LiftId promotion is 'THE PROMOTION liftReachableThroughComposedRuntime.test.ts ANTICIPATED'. So 'carries NO L0 schema' is true of the Zod shape and FALSE of the L0 type surface.",
+    "parent_asymmetry_confirmed": "The premise's 'unlike their parent families' holds: `lift` also has no defineElement (it is not in the 26-kind census either). The asymmetric pair is liftPart/lift vs water/pool -- `water` DOES have defineElement('water') at Water.ts:41 while `pool` has defineElement('pool') at Pool.ts:41. So the compound-member families are not uniformly schema-less; water is the counter-example."
+  },
+
+  "smuggling_question": {
+    "question": "Brief s4 -- is this the 'MEMBER WITH NO CHANNEL, SMUGGLED onto another family's channel' pattern -- one element id appearing on two families?",
+    "verdict": "NO CHANNEL OF ITS OWN -- AND NOT SMUGGLED. The parts ride as a TYPED FIELD on the PARENT'S OWN event.",
+    "measurement": [
+      "`grep -n 'liftPart' packages/runtime-composer/src/CommandEventBridge.ts` -> 6 hits, ALL inside `case 'lift.create':` (CEB:1560), NONE of them an emit of a `liftPart.*` event.",
+      "CEB:1788-1792 collects the committed parts into a local `_liftParts`, filtered by `part['parentId'] !== p.liftId`.",
+      "CEB:1795-1811 emits ONE `lift.created` carrying `parts: _liftParts as never` -- the parent's own typed event, whose payload type at packages/runtime-composer/src/types.ts:785 declares `readonly parts: ReadonlyArray<{ readonly id: string; readonly kind: string; ... }>`.",
+      "There is no `'liftPart.created'` key in the RuntimeEvents map: `grep -n \"'liftPart\" packages/runtime-composer/src/types.ts` -> no event key."
+    ],
+    "why_it_is_not_smuggling": "Smuggling would be ONE ID APPEARING ON TWO FAMILIES -- emitting a member under another family's event name so something draws it. I tested for exactly that and it does not happen. The `wall.created` events that DO fire inside `case 'lift.create':` (CEB:1671) iterate `_liftCommitted.get('wall')` and are skipped unless `wall['parentId'] === p.liftId`: they carry REAL `Wall` records with wall ids -- the shaft enclosure sides, which the code describes as 'a real `Wall` record the assembly already built ... so the §P2.1 mirror builds it exactly as it builds a hand-drawn wall'. No liftPart id is ever placed on a wall/slab/furniture event.",
+    "the_refusal_is_explicit_elsewhere": "The sibling case states the doctrine in the negative and names the contract: CommandEventBridge.ts:2028-2035, in `case 'pool.create':` -- \"THE WATER IS NOT SMUGGLED THROUGH AS A SLAB ... Emitting `slab.created` for it to make something blue appear would put one id on two families and give the water a thickness it does not have -- C84 EI-9, and the same refusal the lift made when it declined to feed its compound into the massing store.\" That last clause is the lift's own recorded refusal.",
+    "the_honest_state_named": "liftPart HAS NO CHANNEL OF ITS OWN, and does not need one: it has no independent lifecycle to announce. Its create leg rides the parent event's `parts` field; its undo leg is `registerLiftRenderSink` (§LIFT94), because -- as bathroomPodMemberMirror.ts:29-31 records -- \"there is no `'lift.deleted'` key in `RuntimeEvents`, so an undo could not be relayed as a bus event\" and the lift had to hand-build a render sink to get what a store subscription gives for free."
+  },
+
+  "milestones": {
+    "authored": "YES",
+    "dispatchable": "YES",
+    "reachable": "YES",
+    "renders_3d": "YES",
+    "renders_plan": "NO",
+    "persists": "YES",
+    "exports": "UNVERIFIED"
+  },
+
+  "milestone_proofs": {
+    "authored": "LiftPartStore (plugins/lift/src/store.ts) constructed at PluginRegistry.ts:516. L0 brand LiftPartId at Id.ts:108. Geometry types at packages/geometry-lift/src/LiftPartTypes.ts; the five kinds are LIFT_PART_CYCLE_ORDER. ⚠ NO Zod defineElement -- deliberate, see brief_premise_checked.",
+    "dispatchable": "YES VIA THE PARENT VERB ONLY, BY DESIGN. Probe Q-C, real composition root: `liftPart.create` and `liftPart.delete` both THREW 'no handler registered'. `lift.create` declares affectedStores ['lift','liftPart','wall','curtainwall','door','slab'] and CommandBus.buildContext throws unless all six resolve -- so a non-throwing lift.create is itself the proof the liftPart storeKey resolves. NOT a failure: a family whose contract says it owns no verb cannot fail a verb check.",
+    "reachable": "apps/editor/__tests__/liftReachableThroughComposedRuntime.test.ts:131 -- '`wall`, `slab`, `door` and `curtainwall` always did; `lift` and `liftPart` [now do]'. User gesture: apps/editor/src/engine/views/plantools/LiftPlanToolHandler.ts:256 `cabinPartIds: LIFT_PART_CYCLE_ORDER.map(() => createId('liftPart'))`. ⚠ TWO ROUTES STILL CLOSED, both pre-logged in PluginRegistry.ts:490-499: the compound 'is still not dispatchable from the UI' (L-5709), and ChatCommandClassification classifies lift.create class B so the AI chat route refuses it (L-5710).",
+    "renders_3d": "initTools §FT-LIFT (§FEAT-LIFT-OBSERVATION-FRAME, L-9400..L-9406 · C104 §13) subscribes `lift.created` and drives LiftCompoundMeshBuilder (initTools:1709-1719). The parts arrive as the event's `parts` field; types.ts:785 documents why they are read off the COMMIT not the request -- 'the frame geometry is computed by `buildLiftAssembly` and is NOT in the command payload, so an event built from the payload would describe a lift that has no frame' (ADR-002 §5). Undo leg: registerLiftRenderSink (§LIFT94), same builder instance. Pinned by packages/geometry-lift/__tests__/LiftCompoundReachesTheMesh.test.ts.",
+    "renders_plan": "NO -- ABSENCE MEASURED. The 13 distinct PlanSymbolBuilder classes in the tree (Bed, BoundaryLine, Chair, Column, Desk, Door, Kitchen, Plumbing, Sofa, Tree, WallLayer, Wardrobe, Window) include no Lift or LiftPart builder. ⚠ NOTE THE ASYMMETRY, because it makes the compound look half-drawn rather than absent: the lift's SHAFT WALLS are real `Wall` records (CEB:1671) and so DO appear in plan as walls, while the five cabin parts do not appear at all.",
+    "persists": "YES. snapshotFamilyCoverage.ts:155 -- storeKey 'liftPart', status 'persisted', snapshotKey 'liftParts'. WRITE SITE CONFIRMED: ProjectSerializer.ts:1516 `const liftParts = readPluginStore('liftPart')`, :1650 `liftParts: liftParts?.length ? liftParts : undefined`, declared at :250. Restore leg: restoreCompoundFamilies.ts:176-179. The coverage row records what this closed: '§PERSIST103 (L-11520) · C104 §2.2 -- the five LOD-300 cabin parts, the only lift members with no other family to belong to. They have no legacy twin at all, so they were destroyed outright: the cabin vanished while the shaft walls remained.'",
+    "exports": "UNVERIFIED. `grep -rn -iE \"liftPart\" plugins/ifc-export/src` returned no hits, which is consistent with no IFC mapping but does not establish one is absent -- I did not enumerate plugins/ifc-export/src/exporters/ family coverage, so I cannot separate 'no mapping' from 'reached generically'. Not counted as the first failing link: an unmeasured axis is not a measured failure."
+  },
+
+  "first_failing_link": "renders_plan",
+
+  "status": "PARTIAL",
+
+  "lifecycle": {
+    "create": "lift.create -> liftPart records -> `parts` on lift.created -> LiftCompoundMeshBuilder. WIRED.",
+    "update": "no liftPart.update verb; no re-projection path.",
+    "delete": "no `lift.deleted` event key in RuntimeEvents (stated at bathroomPodMemberMirror.ts:29-31); lift.delete is on tools/ga-gate/mirror-debt.json:684. The render-removal path exists only through registerLiftRenderSink.",
+    "undo": "WIRED. apps/editor/src/engine/undo/liftUndoAdapter.ts (§LIFT94, L-11340, closes L-7311 lift / L-7312 liftPart). :45 records the ordering hazard: when the `lift` adapter runs, `liftPart` has NOT been applied yet. Pinned by apps/editor/__tests__/liftUndoRoundTrip.test.ts:159/:181."
+  },
+
+  "c11_matrix_says": "NO ROW -- for liftPart or for lift. C11 §11's matrix carries 14 element rows and neither appears. The preamble requires an update 'whenever a bridge is added'; §FT-LIFT added one and §LIFT94 added the undo road to the same builder, and the matrix was not updated either time. REFUTED BY OMISSION.",
+
+  "findings": [
+    {
+      "id": "B7-LIFTPART-01",
+      "class": "PREMISE-NARROWED",
+      "severity": "LOW",
+      "claim": "The brief's 'appears ONLY in ALL_PLUGINS + ELEMENT_PLUGIN_IDS + STORE_ONLY_PLUGIN_IDS' undercounts by five registries, one of which is the PERSISTENCE FORMAT (ProjectSerializer key `liftParts`, snapshotFamilyCoverage :155). A family in the save format is not a registry-only id, and treating it as one is how a 'tidy up the orphan' action becomes a data-loss change.",
+      "command": "grep -rn --include='*.ts' -E \"['\\\"`]liftPart['\\\"`.]\" apps packages plugins tools | grep -v node_modules",
+      "disposition": "DOCUMENT"
+    },
+    {
+      "id": "B7-LIFTPART-02",
+      "class": "NOT-SMUGGLED",
+      "severity": "INFO",
+      "claim": "Tested for the C84 EI-9 'one id on two families' pattern and it is ABSENT. liftPart records ride as the typed `parts` field on the parent's own `lift.created` event (CEB:1795-1811, types.ts:785), never re-emitted under another family's event name. The `wall.created` events fired inside `case 'lift.create':` carry real Wall records filtered by `parentId`, not cabin parts.",
+      "command": "grep -n 'liftPart' packages/runtime-composer/src/CommandEventBridge.ts",
+      "disposition": "DOCUMENT"
+    },
+    {
+      "id": "B7-LIFTPART-03",
+      "class": "GAP-UNDECLARED",
+      "severity": "MEDIUM",
+      "claim": "The lift compound is HALF-DRAWN IN PLAN and nothing declares it. Shaft walls are real Wall records and render in plan; the five cabin parts have no plan symbol. That reads to a user as a lift shaft with an empty car, not as a missing feature. Unlike the delete leg (declared in initTools §FT-WATER for water, and carried on mirror-debt.json for lift.delete), this asymmetry is written down nowhere.",
+      "command": "grep -rn --include='*.ts' -oE '[A-Za-z]+PlanSymbolBuilder' apps/editor/src packages plugins | grep -oE '[A-Za-z]+PlanSymbolBuilder' | sort -u",
+      "disposition": "DOCUMENT"
+    },
+    {
+      "id": "B7-LIFTPART-04",
+      "class": "ROUTE-CLOSED",
+      "severity": "MEDIUM",
+      "claim": "Pre-logged and re-confirmed: the lift compound 'is still not dispatchable from the UI' (L-5709) and the AI chat route refuses lift.create as class B (L-5710). So liftPart is reachable in tests and from LiftPlanToolHandler, but the two named user routes remain closed. Recorded for completeness, not as new.",
+      "command": "sed -n '488,502p' apps/editor/src/PluginRegistry.ts",
+      "disposition": "DOCUMENT"
+    }
+  ]
+}

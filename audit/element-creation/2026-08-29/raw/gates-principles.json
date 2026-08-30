@@ -1,0 +1,436 @@
+{
+  "$meta": {
+    "audit": "PHASE 0a - the eight principle gates (P1..P8)",
+    "measuredAt": "2026-08-29",
+    "repoRoot": "c:/Users/LENOVO/OneDrive/Desktop/PRYZM/Product_Rediness_08",
+    "branch": "main",
+    "runner": "npx tsx tools/ga-gate/<script>.ts  (Git Bash on win32)",
+    "rawLogDir": "c:/Users/LENOVO/OneDrive/Desktop/PRYZM/Product_Rediness_08/audit/element-creation/2026-08-29/raw",
+    "exitCodeContract": "0=PASS/at-baseline | 1=FAIL at declared level (ledger-absorbable) | 2=MISCONFIGURED (never absorbable) | 3=SHRINK-ONLY RATCHET EXCEEDED (never absorbable)",
+    "ledgerState": {
+      "gate-debt.json.failing": ["check-no-commandmanager.ts", "check-custom-event-apps.ts"],
+      "command": "node -e \"const j=require('./tools/ga-gate/gate-debt.json');console.log(JSON.stringify(j.failing));\"",
+      "finding": "NONE of the eight principle gates has a live ledger row. grep hits for check-three-imports / check-raf-count / check-cast-count inside gate-debt.json are in the $comment prose (historical REMOVED notes), NOT in the `failing` array. gate-newly-measured.json contains zero of the eight (grep count 0 for all 8 names). Therefore P4 and P8, both at exit 3, are UNABSORBABLE by either ledger AND unledgered."
+    },
+    "runAllWiring": "All 8 appear in the executable `const GATES: Gate[]` array in tools/ga-gate/run-all.ts (lines 115-147), not merely in the header comment. Verified by sed -n '110,150p' tools/ga-gate/run-all.ts."
+  },
+
+  "gates": [
+    {
+      "principle": "P1",
+      "script": "tools/ga-gate/check-single-compose.ts",
+      "exists": true,
+      "existsEvidence": "ls -la -> -rwxr-xr-x 11741 bytes Aug 11 22:57",
+      "listedInRunAll": true,
+      "runAllEvidence": "run-all.ts:144  { name: 'single-compose (P1/L-812)', script: 'check-single-compose.ts' }",
+      "ran": true,
+      "exitCode": 0,
+      "verdict": "PASS",
+      "rawLog": "audit/element-creation/2026-08-29/raw/P1-single-compose.log",
+      "printedNumbers": {
+        "filesScanned": 5030,
+        "composeRuntimeDefinitions": "1 (HARD 1)",
+        "rivalRuntimeFactories": "1 / MAX_RIVALS 1",
+        "productionCallers": "2 / MAX_PROD_CALLERS 2"
+      },
+      "namedFindings": {
+        "rival": "apps/component-editor/src/app/familyEditorRuntime.ts:85  createFamilyEditorRuntime",
+        "callers": ["packages/headless/src/headlessRuntime.ts", "src/main.ts"]
+      },
+      "scannedScope": "SCAN_DIRS = ['src','apps','plugins','packages'] (check-single-compose.ts:107), all four exist. MIN_FILES=1500 honesty floor; actual 5030. Scope NON-EMPTY.",
+      "scopeIsEmpty": false,
+      "baselineInGateDebt": "ABSENT - not in gate-debt.json.failing, not in gate-newly-measured.json. Ceilings are in-source constants: MAX_RIVALS=1 (line 103, env PRYZM_P1_MAX_RIVALS), MAX_PROD_CALLERS=2 (line 67, env PRYZM_P1_MAX_CALLERS).",
+      "headroom": {
+        "rivals": "1 - 1 = 0",
+        "prodCallers": "2 - 2 = 0",
+        "note": "Zero headroom on both ratchets. A second rival factory or a third composition entry point fails immediately."
+      },
+      "defectFound": "THE TERMINAL LINE CONTRADICTS THE GATE'S OWN BODY. The gate printed a named rival, then printed '[single-compose] one composition root (...), 0 rivals, 2/2 production caller(s).' The string '0 rivals' is a HARD-CODED LITERAL, not the count - check-single-compose.ts line 216 interpolates only callFiles.size, never rivals.matches.length. Measured truth is 1 rival (baselined, not allowlisted, per the header's own note: 'Adding the file to FACTORY_ALLOWLIST would make the rival disappear from this gate's output; baselining keeps it counted and named on every CI run'). An agent reading only the last line records 'P1 has zero rivals', which is false. P1 is NOT at the invariant CLAUDE.md claims ('1 definition / 0 rivals'); it is at 1 definition / 1 baselined rival."
+    },
+
+    {
+      "principle": "P2",
+      "script": "tools/ga-gate/check-three-imports.ts",
+      "exists": true,
+      "existsEvidence": "ls -la -> -rwxr-xr-x 4392 bytes Aug  9 23:12",
+      "listedInRunAll": true,
+      "runAllEvidence": "run-all.ts:117  { name: 'three-imports (P2)', script: 'check-three-imports.ts' }",
+      "ran": true,
+      "exitCode": 0,
+      "verdict": "PASS",
+      "rawLog": "audit/element-creation/2026-08-29/raw/P2-three-imports.log",
+      "printedNumbers": {
+        "filesScanned": 8171,
+        "filesExcluded": 114,
+        "directThreeImportersOutsideRendererThree": "0 (hard 0)"
+      },
+      "scannedScope": "dirs printed by the gate: src, apps, packages, plugins, server, tools, scripts. 8171 files scanned, 114 excluded. Scope NON-EMPTY and the widest of the eight.",
+      "scopeIsEmpty": false,
+      "baselineInGateDebt": "ABSENT from `failing`. It appears in gate-debt.json $comment prose ONLY, as the 2026-08-09 SS-FIX-GATE-NEEDS-RIPGREP note recording its REMOVAL from the ledger. That is history, not a live baseline.",
+      "headroom": "0 - 0 = 0. Hard-zero, no ratchet, no headroom.",
+      "defectFound": null,
+      "notes": "The only one of the eight at a hard-zero invariant across a repo-wide scope with zero headroom. Strongest reading in the set."
+    },
+
+    {
+      "principle": "P3",
+      "script": "tools/ga-gate/check-raf-count.ts",
+      "exists": true,
+      "existsEvidence": "ls -la -> -rwxr-xr-x 17716 bytes Aug 10 11:41",
+      "listedInRunAll": true,
+      "runAllEvidence": "run-all.ts:116  { name: 'raf-count (P3)', script: 'check-raf-count.ts' }",
+      "ran": true,
+      "exitCode": 0,
+      "verdict": "PASS",
+      "rawLog": "audit/element-creation/2026-08-29/raw/P3-raf-count.log",
+      "printedNumbers": {
+        "filesScanned": 5438,
+        "filesExcluded": 2841,
+        "owners_CODE_LINES_ONLY": "1 (HARD_FAIL target 1)",
+        "commentOnlyMentions_NOT_OWNERS": 5
+      },
+      "TRAP_HANDLED": "The number 1 comes from the section headed 'Owners (code lines only)', which lists exactly ONE file: packages/frame-scheduler/src/RafAdapter.ts. It does NOT come from the tail section 'Comment-only mentions (not owners)', which lists 5 files and is NOT the answer.",
+      "commentOnlyMentionFiles": [
+        "apps/editor/src/ui/facade/FacadeReconstructionPanel.ts",
+        "apps/editor/src/ui/living-graph/livingGraphSelection.ts",
+        "apps/editor/src/ui/overlays/RendererSwapOverlay.ts",
+        "packages/core-app-model/src/BimWorld.ts",
+        "packages/core-app-model/src/rendering/RenderingPipelineCoordinator.ts"
+      ],
+      "scannedScope": "5438 files scanned, 2841 excluded. Scope NON-EMPTY. Canonical owner packages/frame-scheduler/src/RafAdapter.ts confirmed present in the Owners section.",
+      "scopeIsEmpty": false,
+      "baselineInGateDebt": "ABSENT from `failing`. Two grep hits in gate-debt.json are $comment prose: the 2026-08-09 baseline note and the 2026-08-10 SS-RAF-GATE-COMMENT-BLIND REMOVAL note.",
+      "headroom": "1 owner - 1 ceiling = 0. Zero headroom.",
+      "defectFound": null,
+      "driftNote": "gate-debt.json's 2026-08-10 SS-RAF-GATE-COMMENT-BLIND note records FOUR comment-only mention files. Today there are FIVE - apps/editor/src/ui/facade/FacadeReconstructionPanel.ts added since. The comment list is ungated and grows freely; it does not affect the verdict, but it is the surface that produced the original P3 false alarm."
+    },
+
+    {
+      "principle": "P4",
+      "script": "tools/ga-gate/check-cast-count.ts",
+      "exists": true,
+      "existsEvidence": "ls -la -> -rwxr-xr-x 15491 bytes Aug 16 18:41",
+      "listedInRunAll": true,
+      "runAllEvidence": "run-all.ts:115  { name: 'cast-count (P4)', script: 'check-cast-count.ts' }",
+      "ran": true,
+      "exitCode": 3,
+      "verdict": "RATCHET_EXCEEDED",
+      "rawLog": "audit/element-creation/2026-08-29/raw/P4-cast-count.log",
+      "rawLogProbe": "audit/element-creation/2026-08-29/raw/P4-cast-count-STRICTARM-PROBE.log",
+      "TRAP_HANDLED": "TWO ARMS, both reported below. BOTH ARE BREACHED - and the second is INVISIBLE in a normal run.",
+      "arms": {
+        "scoped_strict": {
+          "current": 11,
+          "ceiling": 3,
+          "headroom": -8,
+          "status": "RATCHET EXCEEDED",
+          "filesScanned": 308,
+          "dirs": "src, apps/editor/src/engine",
+          "ceilingSource": ".ga-gate/baselines/cast-count.json -> {\"count\": 3, \"ratchedAt\": \"2026-08-16\"}",
+          "byFile": {
+            "apps/editor/src/engine/views/plantools/__tests__/curtainWallPlanTypeParity.spec.ts": 5,
+            "apps/editor/src/engine/views/plantools/__tests__/curtainWallPlanEnterCloses.spec.ts": 3,
+            "apps/editor/src/engine/views/plantools/__tests__/LinearDimThirdClickOffset.spec.ts": 3
+          },
+          "VISIBILITY_DEFECT": "This arm's VERDICT LINE NEVER PRINTS in a normal run. main() (check-cast-count.ts:269-303) evaluates the repo-wide arm FIRST and returns EXIT_RATCHET_EXCEEDED before reaching the strict arm's comparison. The default run prints only a bare 'By file:' table with no ceiling, no verdict, no FAIL. Revealed by measurement probe: PRYZM_P4_MAX_REPO_WIDE=999999 npx tsx tools/ga-gate/check-cast-count.ts, which then printed '[cast-tripwire] FAIL: (window as any) count = 11 > baseline 3. A regression added 8 new cast(s).' Exit still 3. No production code was changed; the baseline file was re-read after the probe and is unchanged at count:3 (the auto-writer only fires on current<baseline).",
+          "scopeNote": "Root dir `src` holds only 6 .ts/.tsx files (find src -name '*.ts' -o -name '*.tsx' | wc -l -> 6); apps/editor/src/engine holds 306. The 308 total is carried almost entirely by the second dir. `src` is nearly-empty but NOT empty, so this is NOT MISCONFIGURED - it is a thin scope worth noting.",
+          "compositionNote": "All 11 strict-arm casts are in __tests__ files. The strict arm excludes only rel.endsWith('.d.ts') (line 66) - it does NOT exclude tests, unlike the repo-wide arm which does."
+        },
+        "repo_wide": {
+          "current": 101,
+          "ceiling": 100,
+          "headroom": -1,
+          "status": "RATCHET EXCEEDED - this is the arm that produced the exit code",
+          "filesScanned": 5315,
+          "ceilingSource": "MAX_REPO_WIDE = Number(process.env.PRYZM_P4_MAX_REPO_WIDE ?? 100) - check-cast-count.ts:167",
+          "testsExcluded": true,
+          "proseCheck": "241 raw line(s) - 101 cast(s) = 140 comment(s) NOT counted (L-845b; enforcement is the stripped number)",
+          "byPackage": {
+            "packages/room-topology": 38,
+            "apps/editor": 20,
+            "packages/core-app-model": 13,
+            "packages/input-host": 11,
+            "packages/runtime-composer": 9,
+            "packages/geometry-stair": 2,
+            "packages/ai-host": 1,
+            "packages/constraint-solver": 1,
+            "packages/file-format": 1,
+            "packages/renderer-three": 1,
+            "packages/runtime-undo-stack": 1,
+            "packages/snapping": 1,
+            "plugins/annotations": 1,
+            "plugins/rooms": 1
+          },
+          "failText": "[cast-tripwire] FAIL (repo-wide): 101 (window as any) cast(s) > baseline 100. ... RATCHET-EXCEEDED-IS-NEVER-DEBT (R7): exiting 3, not 1"
+        }
+      },
+      "scopeIsEmpty": false,
+      "baselineInGateDebt": "ABSENT from `failing` - struck 2026-08-11 by SS-FIX-CAST-STRICT-BASELINE (L-844), recorded in $comment only. Exit 3 is unabsorbable by any ledger regardless, per the gate's own RATCHET-EXCEEDED-IS-NEVER-DEBT (R7) and run-all.ts:97-99.",
+      "contradictsClaudeMd": "CLAUDE.md P4 bullet, corrected 2026-08-18, asserts 'RC=0, terminal line [cast-tripwire] OK: 3 = baseline. | scoped 215 files | 3/3 | repo-wide 4821 files | 100/100. Both arms are within ceiling; neither is breached.' MEASURED 2026-08-29: RC=3, scoped 308 files | 11/3, repo-wide 5315 files | 101/100. BOTH ARMS ARE NOW BREACHED. The CLAUDE.md reading is stale in the OPTIMISTIC direction.",
+      "blindSpotCarriedForward": "gate-debt.json $comment (SS-FIX-CAST-STRICT-BASELINE) records 409 `window as unknown as` casts across 151 files that this gate's regex CANNOT SEE. Not re-measured in this pass. A green P4 would still mean 'no new casts in the ONE spelling checked'."
+    },
+
+    {
+      "principle": "P5",
+      "script": "tools/ga-gate/check-domain-purity.ts",
+      "exists": true,
+      "existsEvidence": "ls -la -> -rwxr-xr-x 8999 bytes Aug  9 23:09",
+      "listedInRunAll": true,
+      "runAllEvidence": "run-all.ts:145  { name: 'domain-purity (P5/L-812)', script: 'check-domain-purity.ts' }",
+      "ran": true,
+      "exitCode": 0,
+      "verdict": "PASS",
+      "rawLog": "audit/element-creation/2026-08-29/raw/P5-domain-purity.log",
+      "printedNumbers": {
+        "scope": "packages/schemas/src",
+        "filesScanned": 192,
+        "rules": 7,
+        "impurities": "0 (HARD-FAIL AT ZERO)"
+      },
+      "scannedScope": "packages/schemas/src - independently verified NON-EMPTY: find packages/schemas/src -name '*.ts' | wc -l -> 192, exactly matching the gate's own filesScanned. No emptied-directory risk.",
+      "scopeIsEmpty": false,
+      "baselineInGateDebt": "ABSENT from both ledgers (grep hits 0 / 0). Hard-fail at zero; no baseline exists to declare.",
+      "headroom": "0 - 0 = 0. Zero headroom.",
+      "defectFound": null,
+      "notes": "Narrowest scope of the eight (one package). Within that scope it is a true hard-zero. CLAUDE.md's '0 impurities / 165 files' is stale on the FILE COUNT only - 192 today; the impurity reading is unchanged at 0."
+    },
+
+    {
+      "principle": "P6",
+      "script": "tools/ga-gate/check-no-direct-store-writes.ts",
+      "exists": true,
+      "existsEvidence": "ls -la -> -rwxr-xr-x 14834 bytes Aug 11 22:55",
+      "listedInRunAll": true,
+      "runAllEvidence": "run-all.ts:146  { name: 'no-direct-store-writes (P6/L-812)', script: 'check-no-direct-store-writes.ts' }",
+      "ran": true,
+      "exitCode": 0,
+      "verdict": "PASS",
+      "rawLog": "audit/element-creation/2026-08-29/raw/P6-no-direct-store-writes.log",
+      "printedNumbers": {
+        "scope": "src, apps, plugins",
+        "uiFilesScanned": 886,
+        "nonUiOrTestFilesSkipped": 2461,
+        "storeMethodCallsInUI": 376,
+        "classifiedAsWrites": "37 / MAX_VIOLATIONS 37"
+      },
+      "RC0_IS_NOT_ZERO_VIOLATIONS": "This gate PASSES AT 37 TOLERATED DIRECT STORE WRITES, not at 0. P6 says commands are the only mutation path; there are 37 named UI sites that are not.",
+      "writesByMethod": {
+        "remove()": 8, "add()": 5, "clear()": 3, "addComment()": 2, "append()": 2,
+        "create()": 2, "init()": 2, "setAllVisible()": 2, "setForView()": 2,
+        "delete()": 1, "pruneStaleCursors()": 1, "register()": 1, "restore()": 1,
+        "seedDefaultSchedules()": 1, "setSunTime()": 1, "setVisible()": 1,
+        "update()": 1, "updateCursor()": 1
+      },
+      "writesByFile": {
+        "apps/editor/src/ui/import/DxfImportPanel.ts": 12,
+        "apps/editor/src/ui/ai/ValidatePanel.ts": 6,
+        "apps/editor/src/ui/ai/AIPanel.ts": 4,
+        "apps/editor/src/ui/SheetEditor/SheetEditorSidebar.ts": 4,
+        "apps/editor/src/ui/dataworkbench/buckets/MaterialsBucket.ts": 3,
+        "apps/editor/src/ui/ai/floorplan-import/Step6CommitView.ts": 2,
+        "apps/editor/src/ui/views/ViewHeaderButtons.ts": 2,
+        "apps/editor/src/ui/ai/AICreatePanel.ts": 1,
+        "apps/editor/src/ui/canvas/IntentPrompt.ts": 1,
+        "apps/editor/src/ui/dataworkbench/buckets/AuditBucket.ts": 1,
+        "apps/editor/src/ui/geospatial/FormaSiteAnalysisControls.ts": 1
+      },
+      "scannedScope": "SCAN_DIRS = ['src','apps','plugins'] (check-no-direct-store-writes.ts:148), existsSync-filtered; all three exist. 886 UI files scanned. NOTE: `packages` is NOT in scope - a direct store write from a package is invisible to this gate BY DESIGN (UI-scoped).",
+      "scopeIsEmpty": false,
+      "baselineInGateDebt": "ABSENT from both ledgers (grep 0 / 0). Ceiling is an in-source constant: MAX_VIOLATIONS = Number(process.env.PRYZM_P6_MAX_WRITES ?? 37) at line 130.",
+      "headroom": "37 - 37 = 0. Zero headroom at a NON-ZERO ceiling - no new write can be added, but 37 existing ones are permanently licensed until the baseline is driven down.",
+      "defectFound": null,
+      "exitCondition": "CLAUDE.md P6: baseline reaches 0, then flip the gate to hard-0. NOT MET."
+    },
+
+    {
+      "principle": "P7",
+      "script": "tools/ga-gate/check-visibility-intent-not-ui.ts",
+      "exists": true,
+      "existsEvidence": "ls -la -> -rwxr-xr-x 10967 bytes Aug 11 22:55",
+      "listedInRunAll": true,
+      "runAllEvidence": "run-all.ts:147  { name: 'visibility-intent-not-ui (P7/L-812)', script: 'check-visibility-intent-not-ui.ts' }",
+      "ran": true,
+      "exitCode": 0,
+      "verdict": "PASS",
+      "rawLog": "audit/element-creation/2026-08-29/raw/P7-visibility-intent.log",
+      "arms": {
+        "armA_decidable_hard0": {
+          "scope": "packages/visibility/src",
+          "filesScanned": 20,
+          "uiLeaks": 0,
+          "ceiling": 0,
+          "headroom": 0,
+          "status": "PASS at hard zero"
+        },
+        "armB_proxy_ratcheted": {
+          "uiFilesScanned": 872,
+          "current": 40,
+          "ceiling": 43,
+          "headroom": 3,
+          "status": "PASS - WITHIN baseline, NOT at zero",
+          "ceilingSource": "MAX_DIRECT_VISIBLE = Number(process.env.PRYZM_P7_MAX_DIRECT_VISIBLE ?? 43) - check-visibility-intent-not-ui.ts:143, frozen 2026-08-09"
+        }
+      },
+      "HEADROOM_WARNING": "ARM B IS THE ONLY GATE OF THE EIGHT WITH POSITIVE HEADROOM: 43 - 40 = 3. Three new direct `.visible =` assignments from UI code can be added today and this gate will still exit 0 and print a pass. Headroom silently authorises regression.",
+      "armBByFileTop15": {
+        "apps/editor/src/ui/ViewBrowser/panels/unified-browser/ProjectVisibilitySection.ts": 13,
+        "apps/editor/src/ui/bottom-menu/BottomActionMenu.ts": 5,
+        "apps/editor/src/ui/site/overlay/SitePlanOverlayLayer.ts": 3,
+        "apps/editor/src/ui/furniture-carousel/FloatingObjectCarousel.ts": 2,
+        "apps/editor/src/ui/graph/BuildingGraphOverlay.ts": 2,
+        "apps/editor/src/ui/import-manager/ImportManagerPanel.ts": 2,
+        "apps/editor/src/ui/living-graph/LivingGraphOverlay.ts": 2,
+        "apps/editor/src/ui/property-panel/PropertyPanelElementRenderers.ts": 2,
+        "apps/editor/src/ui/ViewPropertiesPanel.ts": 2,
+        "apps/editor/src/ui/furniture-carousel/FurnitureDragDropHandler.ts": 1,
+        "apps/editor/src/ui/GridToggleService.ts": 1,
+        "apps/editor/src/ui/imported-models/ImportedModelsPanel.ts": 1,
+        "apps/editor/src/ui/OverridePanel.ts": 1,
+        "apps/editor/src/ui/site/overlay/SitePlanOverlayController.ts": 1,
+        "apps/editor/src/ui/VisibilityIntentPanel.ts": 1
+      },
+      "scannedScope": "ARM A: packages/visibility/src - independently verified NON-EMPTY (find ... -name '*.ts' | wc -l -> 20, exactly matching the gate's filesScanned). ARM B: UI-scoped, 872 files.",
+      "scopeIsEmpty": false,
+      "baselineInGateDebt": "ABSENT from both ledgers (grep 0 / 0). Arm B ceiling is an in-source constant.",
+      "GATE_SELF_DECLARED_BLIND_SPOTS": "The gate prints, verbatim: '[visibility-intent-not-ui] NOT CHECKED: persistence, per-view scoping, AI intent path - see header. A pass here is NOT \"P7 holds\".' Three axes of P7 are measured by nothing.",
+      "defectFound": null
+    },
+
+    {
+      "principle": "P8",
+      "script": "tools/ga-gate/check-otel-spans.ts",
+      "exists": true,
+      "existsEvidence": "ls -la -> -rwxr-xr-x 22152 bytes Aug 11 22:55",
+      "listedInRunAll": true,
+      "runAllEvidence": "run-all.ts:121  { name: 'otel-spans (S03/C10)', script: 'check-otel-spans.ts' }",
+      "ran": true,
+      "exitCode": 3,
+      "verdict": "RATCHET_EXCEEDED",
+      "rawLog": "audit/element-creation/2026-08-29/raw/P8-otel-spans.log",
+      "TRAP_HANDLED": "THREE ZONES, reported separately below. TWO are gated (A hard-zero, B ratcheted); ZONE C IS AN UNGATED CENSUS - it prints a number and enforces nothing.",
+      "zones": {
+        "zoneA": {
+          "name": "CommandBus handlers, zero tolerance",
+          "gated": true,
+          "instrumented": 275,
+          "total": 275,
+          "uninstrumented": 0,
+          "ceiling": "0 uninstrumented (hard) + HARD_FLOOR on covered count",
+          "headroom": 0,
+          "filesRead": 316,
+          "filesExcluded": 41,
+          "markerExempt": [
+            "plugins/ifc-import/src/handlers/pluginHandlers.ts",
+            "plugins/rooms/src/handlers/legacyCommands.ts"
+          ],
+          "markerExemptMechanism": "@command-gate: not-a-command-bus-handler",
+          "status": "PASS",
+          "honestyFloor": "ZONE_A_MIN_FILES = 200 (line 132); 316 read, floor satisfied - an emptied glob would exit 2, not print 0."
+        },
+        "zoneB": {
+          "name": "command-registry + app handlers + plugin barrels",
+          "gated": true,
+          "uninstrumented": 66,
+          "totalConsidered": 87,
+          "baselineAllows": 52,
+          "headroom": -14,
+          "status": "RATCHET EXCEEDED - this is the arm that produced exit 3",
+          "baselineSource": "ZONE_B_BASELINE: readonly string[] in check-otel-spans.ts:202 - a NAMED LEDGER of file paths, not a count. 53 rows incl. one __PLACEHOLDER__ -> 52 effective (gate prints 'baseline allows 52').",
+          "newUninstrumentedFiles": [
+            "packages/command-registry/src/attachments/ReseatWallAnchoredElementsCommand.ts",
+            "packages/command-registry/src/attachments/WallAnchor.ts",
+            "packages/command-registry/src/boundaryLine/boundaryLineDependentAdapters.ts",
+            "packages/command-registry/src/floors/floorFinishPattern.ts",
+            "packages/command-registry/src/handrails/CreateHandrailRunOnSlabCommand.ts",
+            "packages/command-registry/src/lighting/lightingAuthoredParams.ts",
+            "packages/command-registry/src/resolveDeleteCommand.ts",
+            "packages/command-registry/src/rooms/roomLossCensus.ts",
+            "packages/command-registry/src/rooms/roomTombstoneRegister.ts",
+            "packages/command-registry/src/stair/stairPiercedLevels.ts",
+            "packages/command-registry/src/stair/StairVoidCascade.ts",
+            "plugins/balcony/src/handlers/index.ts",
+            "plugins/boundary-line/src/handlers/index.ts",
+            "plugins/lift/src/handlers/index.ts"
+          ],
+          "newCount": 14,
+          "failText": "[otel-spans] FAIL (Zone B): 14 NEW uninstrumented exported function file(s) outside the RATCHET-P8-ZONE-B baseline. Add >= 1 OTel span (P8 / C10 section 2). The baseline is shrink-only - it must NOT be extended to absorb new debt."
+        },
+        "zoneC": {
+          "name": "CENSUS - literal C10 section 2 scope",
+          "gated": false,
+          "GATED_EXPLICITLY_FALSE": "The gate prints 'ZONE C CENSUS (NOT GATED - literal C10 section 2 scope)'. It enforces nothing.",
+          "filesWithExportedFunctionAndNoSpan": 2100,
+          "filesDeclaringAnExportedFunction": 2399,
+          "sourceFilesRead": 5281,
+          "coverage": "299 of 2399 (12.5%) carry a span",
+          "consequence": "P8's stated rule - 'every new exported function must add >=1 OpenTelemetry span' - is MEASURED FOR ZERO of the 2399. Zone C prints the number and gates nothing. The gate itself states at check-otel-spans.ts:426 that C10 section 2 is not fully enforced by any gate in this repo.",
+          "honestyFloor": "ZONE_C_MIN_FILES = 3000 (line 134); 5281 read."
+        }
+      },
+      "scopeIsEmpty": false,
+      "baselineInGateDebt": "ABSENT from both ledgers (grep 0 / 0). Zone B's ledger is IN-SOURCE (ZONE_B_BASELINE array), not in gate-debt.json. Exit 3 is unabsorbable regardless - run-all.ts:97-99.",
+      "contradictsClaudeMd": "CLAUDE.md P8 bullet (measured 2026-08-18) says Zone A 246/246, Zone B '54 uninstrumented of 70 against a baseline of 52 - 2 new files (UpdateElementParameterCommand.ts, lightingAuthoredParams.ts)', Zone C '1772 of 2023'. MEASURED 2026-08-29: Zone A 275/275, Zone B 66 of 87 vs 52 - 14 NEW files, Zone C 2100 of 2399. Zone B new-debt grew 2 -> 14; Zone C uninstrumented grew 1772 -> 2100. UpdateElementParameterCommand.ts is no longer named; lightingAuthoredParams.ts still is."
+    }
+  ],
+
+  "rollup": {
+    "total": 8,
+    "pass": 6,
+    "ratchetExceeded": 2,
+    "fail": 0,
+    "misconfigured": 0,
+    "timeout": 0,
+    "notRun": 0,
+    "allEightExist": true,
+    "allEightWiredIntoRunAll": true,
+    "noneScannedAnEmptyScope": true,
+    "gatesAtTrueHardZeroWithZeroHeadroom": ["P2", "P5", "P8-ZoneA"],
+    "gatesPassingAtANonZeroCeiling": {
+      "P1": "1 rival / 1 | 2 callers / 2",
+      "P6": "37 direct UI store writes / 37",
+      "P7": "arm B 40 direct .visible= / 43"
+    },
+    "onlyGateWithPositiveHeadroom": "P7 arm B - headroom 3",
+    "unabsorbableFailures": ["P4 (exit 3, BOTH arms)", "P8 (exit 3, Zone B)"],
+    "consequenceForCI": "run-all.ts:97-99 declares exit 3 NEVER absorbable by gate-debt.json. Neither P4 nor P8 has a ledger row in either ledger file. Two of the eight load-bearing principle gates are hard-blocking today."
+  },
+
+  "crossCuttingFindings": [
+    {
+      "id": "F1",
+      "severity": "high",
+      "title": "P4's second breach is structurally invisible",
+      "detail": "check-cast-count.ts main() returns on the repo-wide arm before evaluating the strict arm, so the strict arm's 11-vs-3 breach never prints a verdict. Anyone reading the default output sees ONE breach (101/100) and an unlabelled file table. There are TWO. Same class as the pre-2026-08-11 early-return that hid this arm for two days, recorded in gate-debt.json $comment (SS-FIX-CAST-STRICT-BASELINE): 'an early-return then HID this arm behind the repo-wide one for two days.'"
+    },
+    {
+      "id": "F2",
+      "severity": "high",
+      "title": "P1's success line prints a hard-coded '0 rivals' while the gate measured 1",
+      "detail": "check-single-compose.ts:216 interpolates callFiles.size but literals the rival count as 0. The rival - apps/component-editor/src/app/familyEditorRuntime.ts:85 createFamilyEditorRuntime - is baselined, NOT allowlisted, precisely so it stays visible on every run; the terminal line then erases it. CLAUDE.md's '1 definition / 0 rivals' appears to be transcribed from that false line."
+    },
+    {
+      "id": "F3",
+      "severity": "high",
+      "title": "CLAUDE.md's P4 and P8 readings are stale in the OPTIMISTIC direction",
+      "detail": "CLAUDE.md was last corrected 2026-08-18 and records P4 as RC=0 with both arms clean, and P8 Zone B as 2 new files. Today P4 is RC=3 with both arms breached and P8 Zone B has 14 new files. The file's own standing instruction - 'Read the gate, never this line' - is the correct response."
+    },
+    {
+      "id": "F4",
+      "severity": "medium",
+      "title": "P8 Zone C measures the literal P8 rule and gates none of it",
+      "detail": "2100 of 2399 files declaring an exported function carry no span. The P8 clause 'every new exported function must add >=1 span' has an instrument and no enforcement arm. Largest single unenforced number in the eight."
+    },
+    {
+      "id": "F5",
+      "severity": "medium",
+      "title": "Three principles pass while their own gates disclaim the principle",
+      "detail": "P7 prints 'NOT CHECKED: persistence, per-view scoping, AI intent path - a pass here is NOT \"P7 holds\"'. P8 states C10 section 2 is not fully enforced by any gate. P6 is UI-scoped only ('packages' is not in SCAN_DIRS), so a direct store write from a package is invisible by design. RC=0 on these three does not mean the principle holds."
+    },
+    {
+      "id": "F6",
+      "severity": "low",
+      "title": "No principle gate is on either ledger",
+      "detail": "gate-debt.json.failing = [check-no-commandmanager.ts, check-custom-event-apps.ts]. gate-newly-measured.json contains none of the eight. Every ceiling for the eight is an in-source constant or a file under .ga-gate/baselines/, so the two ledger files do NOT give a complete picture of tolerated debt in the principle set."
+    }
+  ]
+}

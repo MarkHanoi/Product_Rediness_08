@@ -70,3 +70,9 @@ tools/texture-pipeline/out/
 
 # playwright output (regenerable)
 test-results/
+
+# §VIDEO-SOURCE — 916 MB of camera/master footage (PRYZM.mp4 737 MB, pryzm-hero-1080p.mp4 178 MB).
+# GitHub hard-rejects any blob over 100 MB, so a commit carrying these can never be pushed. The
+# SHIPPED derivatives live in public/apex/ (hero-hevc.mp4, hero.mp4) and ARE tracked; these are the
+# masters they are cut from and belong on disk, not in history.
+docs/04-reference/Video/

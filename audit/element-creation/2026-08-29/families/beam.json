@@ -1,0 +1,102 @@
+{
+  "family": "beam",
+  "measured": "2026-08-29",
+  "registration": {
+    "registration_site": "apps/editor/src/PluginRegistry.ts:388-394 -- { id: 'beam', storeKey: 'beam', buildStore: () => new BeamStore(), buildHandlers: () => buildBeamHandlerSet() }",
+    "declared_storeKey": "beam",
+    "storeKey_matches_ctx_stores_key": "YES -- probe P-B printed registeredStoreKeys[beam] = \"beam\"; probe P-A printed rt.stores.beam present. All 9 beam handlers declare affectedStores = ['beam']. Checked against ctx.stores AND affectedStores, not the directory name.",
+    "in_ELEMENT_PLUGIN_IDS": true,
+    "proof_reads_real_composition_root": "YES -- apps/editor/__tests__/bootstrap.everything.test.ts:58 `expect(rt.stores.beam).toBeInstanceOf(BeamStore)` plus the ELEMENT_PLUGIN_IDS loop at :134. Uses bootstrapWithEverything() and builds nothing (D6). Measured: 1 file passed, 8 tests passed.",
+    "status": "CLEAN",
+    "evidence": "npx tsx tools/ga-gate/check-plugin-census-equivalence.ts -> RC=0; arm G hard-0; arm F = floor, lighting, view."
+  },
+  "handler": {
+    "path": "plugins/beam/src/handlers/CreateBeam.ts",
+    "validates_before_mutation": "PARTIAL -- canExecute rejects an unmappable legacy sectionType ('UC'), non-finite or coincident baseLine endpoints, and non-positive width/depth. It does NOT require a baseLine at all, so an EMPTY payload validates. execute throws typed BeamGeometryError / BeamSchemaError (plugins/beam/src/errors.ts). See B2-BEAM-01.",
+    "mutates_only_via_immer_draft": "YES -- produceCommand<BeamsState>(ctx.stores.beam, draft => { draft[beam.id] = beam; }). No store-singleton import in plugins/beam/src/handlers/.",
+    "otel_span": "YES -- withHandlerSpan in all 8 handler files (3 hits each; index.ts 0).",
+    "affectedStores_declared": "['beam'] as const",
+    "must_not_violations": [],
+    "id_pre_generated_in_tool": "NO for the reachable 3-D tool, YES for the plan tool. BeamPlanToolHandler.ts:94 `const beamId = createId('beam')` pre-generates and passes `id` -- the FIX-BEAM-ID fix holds THERE. But packages/input-host/src/BeamTool.ts:222 dispatches `beam.create` with `{}` -- no id, no geometry -- and CreateBeamHandler mints one at CreateBeam.ts:127 (`const id = (cmd.id ?? createId('beam'))`). That is the FIX-BEAM-ID defect FIRING, in production, on the 3-D path. See B2-BEAM-01.",
+    "status": "COMPLIANT (handler) / VIOLATED AT THE CALLER",
+    "evidence": "grep -rn \"commandManager|window\\.|document\\.|requestAnimationFrame|src/engine|src/ui|@app/|dispatchEvent|import \\* as THREE\" plugins/beam/src (excluding committer/) -> 2 hits, both COMMENT text in MoveBeam.ts:34,52."
+  },
+  "lifecycle": {
+    "ceb_case": "packages/runtime-composer/src/CommandEventBridge.ts:887 `case 'beam.create':` and :947 `case 'beam.batch.create':`. Geometry-complete and the most defensive case in the file: it prefers the COMMITTED beam (indexCommittedBeams over record.forward), resolves endpoints through resolveBeamEndpoints (accepting both `baseLine` and `startPoint`/`endPoint`), and REFUSES BY NAME with a console.error when neither spelling is present rather than emitting a geometry-less event (SS-FIX-BEAM-CEB-BASELINE, L-971).",
+    "initTools_bridge_tag": "SS-FT2 -- grep -n \"\\u00a7FT2: .*bridge registered\" apps/editor/src/engine/initTools.ts -> :2464 `console.log('[initTools] \\u00a7FT2: beam.created bus->legacy-store bridge registered.')`; subscriber opens at :2428 `runtime.events.on('beam.created', ...)`. The field mapping is EXTRACTED to apps/editor/src/engine/beamCreatedMirror.ts so a suite can execute it.",
+    "vdt_registerElement": "YES -- initTools.ts:2454 viewDependencyTracker.registerElement(ev.id, ev.levelId ?? '') after beamStore.add(record).",
+    "bimManager_registerElement": "YES -- initTools.ts:2455 `try { bimManager.registerElement(ev.id, ev.levelId ?? ''); } catch {}`. The comment at :2452-2454 records that BeamStore.ts SS3.5 REMOVED registration from the store, so the bridge is the only registration site for the bus creation path.",
+    "bimManager_via_window_any": "NO -- injected ToolsParams field (initTools.ts:267, destructured :373).",
+    "in_GEOMETRY_ELEMENT_TYPES": true,
+    "update_verbs_covered": "NONE 0/8. There is NO beam row in ELEMENT_UPDATE_VERBS (CommandEventBridge.ts:241-294 has slab, roof and column rows only) and NO beam adapter in LEGACY_UPDATABLE_STORES (elementUpdatedMirror.ts:183-232 = slab, roof, column). beam.changeLevel is the sole covered mutation, via elementLevelChangedMirror.ts:218 `beam: (deps) => deps.beamStore`. beam.setSection, beam.setType and beam.move are all create-mirror-without-update-mirror. beam.setMaterial REFUSES by declaration and names `beam.update`, which IS registered (initBusHandlers.ts:955).",
+    "status": "WIRED (create) / UNMIRRORED (update)",
+    "evidence": "probe P-B: registeredHandlerTypes[beam] = [beam.create, beam.batch.create, beam.delete, beam.move, beam.setType, beam.setSection, beam.setMaterial, beam.changeLevel] -- 8 verbs, 0 in ELEMENT_UPDATE_VERBS."
+  },
+  "milestones": {
+    "authored": "YES",
+    "dispatchable": "YES",
+    "reachable": "YES",
+    "renders_3d": "YES",
+    "renders_plan": "YES",
+    "persists": "YES",
+    "exports": "YES"
+  },
+  "milestone_proofs": {
+    "authored": "plugins/beam/src/handlers/CreateBeam.ts + CreateBeamBatch.ts + 6 siblings; plugins/beam/src/store.ts.",
+    "dispatchable": "probe P-E through the REAL composed runtime: `rt.bus.executeCommand('beam.create', { id, levelId, baseLine, width, depth })` resolved; beam store ids: [\"beam_01ARZ3NDEKTSV4RRFFQ69G5FA3\"].",
+    "reachable": "planToolHandlerRegistry.ts:162 `'beam': new BeamPlanToolHandler()`; elementCreationMatrix.ts:551 `{ tool: 'beam', label: 'Beam', views: ['plan','3d'] }`; check-tool-activator-coverage.ts ARM A uncovered = balcony, bathroom-pod, boundary-line, pool -- beam has an activator. The 3-D BeamTool is also live: initTools.ts:3254 `new BeamTool(world, beamStore, commandManager)` and :3529 `toolManager.setBeamTool(beamTool)`.",
+    "renders_3d": "initBuilders.ts:1039 `new BeamFragmentBuilder(scene)` + :1048 `beamStore.setBuilder(beamBuilder)` -- BeamStore drives the builder directly. The SS-FT2 bridge calls beamStore.add(record).",
+    "renders_plan": "'beam' in GEOMETRY_ELEMENT_TYPES AND in PLAN_INCREMENTAL_SAFE_TYPES (ViewDependencyTracker.ts) AND at EdgeProjectorService.ts:2022 in the version-stamped set.",
+    "persists": "ProjectSerializer.ts:781 `const beams = beamStore.getAll().map(serializeBeam)`; beamStore is a REQUIRED dep (:717).",
+    "exports": "packages/file-format/src/export/ifc/readers/BeamReader.ts wired at FragmentReader.ts:99-102; ExportIFC.ts:46 supplies `beamStore: window.beamStore`."
+  },
+  "first_failing_link": "NONE for the plan-tool create chain. For the 3-D BeamTool's bus leg the first failing link is renders_3d -- the command commits and the CEB then refuses to emit, so a phantom beam exists in the model store with no mesh anywhere. See B2-BEAM-01.",
+  "c11_s11_matrix_says": "Row **Beam**: CEB case OK `beam.create` + `beam.batch.create`; initTools bridge OK SS-FT2; Store add()->storeEventBus OK BeamStore.add() line 63; Plan-view tracked OK 'beam'; VDT+bimManager OK (Rev 4); 3D via bus OK; Status FULL. Every printed cell is CONFIRMED. The cell I would flag is 'Status FULL': the matrix's own column key defines '3D via bus' as 'not legacy-only commandManager.execute()', and the reachable 3-D beam gesture IS commandManager.execute (BeamTool.ts:223) with a bus dispatch alongside it that commits a phantom element. That is not what a reader takes 'FULL' to mean, and the matrix has no column that would ever surface it.",
+  "status": "PARTIAL",
+  "findings": [
+    {
+      "id": "B2-BEAM-01",
+      "class": "PHANTOM-COMMIT-FROM-EMPTY-TELEMETRY-DISPATCH (ID-MINTED-IN-HANDLER, firing)",
+      "severity": "P1",
+      "blocks_production": false,
+      "claim": "packages/input-host/src/BeamTool.ts:222 -- the reachable 3-D beam tool, constructed at initTools.ts:3254 and wired at :3529 -- dispatches `beam.create` with an EMPTY payload `{}` as fire-and-forget 'bus telemetry', then runs the real work through `this.commandManager.execute(command)`. That empty dispatch is not telemetry: canExecute passes (every field is optional), the handler mints an id, and the L0 Beam schema's `baseLine` DEFAULT commits a 4-metre beam at the world origin on level '' into the REAL beam store, once per 3-D beam the user draws. CommandEventBridge then correctly refuses to emit beam.created (no id, no geometry on the payload), so the ghost never reaches the legacy store, never renders, never persists and never exports -- it exists only in the model the plugin store owns, and it prints a console.error every time. Whether it also consumes an undo slot is UNVERIFIED (bootstrapWithEverything exposes rt.undoStack but undoCount was undefined in probe P-K).",
+      "command": "npx vitest run --config audit/element-creation/2026-08-29/probe/vitest.probe.config.ts --reporter=verbose --silent=false   (case P-G);  sed -n '218,226p' packages/input-host/src/BeamTool.ts;  sed -n '44,50p' packages/schemas/src/elements/Beam.ts",
+      "output_excerpt": "[PROBE P-G] threw: null || [PROBE P-G] beam store ids after {} dispatch: [\"beam_01M16E2Z3TBK84EJXNF8TTMZS3\"] || [PROBE P-G] PHANTOM BEAM RECORD: {\"id\":\"beam_01M16E2Z3TBK84EJXNF8TTMZS3\",\"type\":\"beam\",...,\"levelId\":\"\",\"baseLine\":[{\"x\":0,\"y\":0,\"z\":0},{\"x\":4,\"y\":0,\"z\":0}],\"shape\":\"rectangular\",\"width\":0.2,\"depth\":0.4,\"rotation\":0,\"loadBearing\":true} || BeamTool.ts:222 `if (window.runtime?.bus) { window.runtime.bus.executeCommand('beam.create', {}).catch(() => {}); }` :223 `const result = this.commandManager.execute(command);` || Beam.ts:46-49 `baseLine: z.tuple([Vec3, Vec3]).default([{x:0,y:0,z:0},{x:4,y:0,z:0}])`",
+      "contract_clause": "C11 SS5 (validate before mutation); C14 SS2.1 (no commandManager.execute); P6 (commands are the only mutation path); C03 SS4.6 U-4",
+      "disposition": "REMOVE"
+    },
+    {
+      "id": "B2-BEAM-02",
+      "class": "CREATE-MIRROR-WITHOUT-UPDATE-MIRROR",
+      "severity": "P1",
+      "blocks_production": false,
+      "claim": "Beam is the purest instance of the 17-created / 0-updated shape in this batch: 8 registered verbs, ZERO rows in ELEMENT_UPDATE_VERBS and ZERO adapter in LEGACY_UPDATABLE_STORES. beam.setSection, beam.setType and beam.move each write the plugin DTO store, report success, and change nothing the fragment builder, the plan projector, the IFC BeamReader or ProjectSerializer will ever see. The sibling verb beam.setMaterial REFUSES for exactly this reason, which makes the inconsistency deliberate-looking rather than merely missing.",
+      "command": "sed -n '241,294p' packages/runtime-composer/src/CommandEventBridge.ts | grep -n \"beam\"; sed -n '183,232p' apps/editor/src/engine/elementUpdatedMirror.ts | grep -n \"beam\"",
+      "output_excerpt": "ELEMENT_UPDATE_VERBS (CommandEventBridge.ts:241-294) contains slab.addHole, slab.removeHole, slab.setThickness, slab.setBaseOffset, slab.setType, roof.setOverhang, roof.setThickness, column.setHeight -- NO beam row. LEGACY_UPDATABLE_STORES (elementUpdatedMirror.ts:183-232) = { slab, roof, column } -- NO beam adapter. probe P-B: 8 registered beam verbs.",
+      "contract_clause": "C11 SS6; C03 SS4.6 U-4",
+      "disposition": "WIRE"
+    },
+    {
+      "id": "B2-BEAM-03",
+      "class": "ID-MINTED-IN-HANDLER-BRIDGE-GUARDS-ON-IT (batch arm), SILENT",
+      "severity": "P2",
+      "blocks_production": false,
+      "claim": "CreateBeamBatchHandler mints an id for any member that omits one, and the CEB batch fan-out guards on the PAYLOAD id with a bare `continue` -- silent, unlike the geometry check three lines below it which console.errors BY NAME. A batch member with geometry but no id is committed and never rendered, and nothing says so.",
+      "command": "sed -n '90,93p' plugins/beam/src/handlers/CreateBeamBatch.ts; sed -n '965,980p' packages/runtime-composer/src/CommandEventBridge.ts",
+      "output_excerpt": "CreateBeamBatch.ts:92 `const id = (b.id ?? createId('beam')) as BeamData['id'];` || CommandEventBridge.ts:966-967 `for (const b of (p.beams ?? [])) { if (!b.id) continue;` -- then :974-979 `if (!bEnds) { console.error('...SKIPPED beam ... no beam.created was emitted for it and no mesh will be built.'); continue; }`. Two skips, one loud, one silent.",
+      "contract_clause": "C11 SS10.2 Bridge Invariant; C03 SS4.6 U-4",
+      "disposition": "WIRE"
+    },
+    {
+      "id": "B2-BEAM-04",
+      "class": "AUTHORED-BUT-UNREACHABLE",
+      "severity": "P3",
+      "blocks_production": false,
+      "claim": "BeamPlacementTool (plugins/beam/src/tool.ts) is bus-primary, pre-generates the id and validates a non-zero baseline before dispatching, and nothing outside the plugin barrel imports it. Its reachable rival, packages/input-host/src/BeamTool.ts, is the one that carries B2-BEAM-01. This is [[authored-but-unwired-is-the-bottleneck]] with the correct implementation sitting beside the defective one.",
+      "command": "grep -rn --include=*.ts 'BeamPlacementTool' apps packages plugins | grep -v node_modules",
+      "output_excerpt": "BeamPlacementTool hits: plugins/beam/src/index.ts:25,27 (barrel) and plugins/beam/src/tool.ts (definition) -- ZERO app-side importers. By contrast `BeamTool` from @pryzm/input-host is imported at initTools.ts:134, constructed at :3254 and registered at :3529.",
+      "contract_clause": "C14 SS2.1; P6",
+      "disposition": "DOCUMENT"
+    }
+  ]
+}

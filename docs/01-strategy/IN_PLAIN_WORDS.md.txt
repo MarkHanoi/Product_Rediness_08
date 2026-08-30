@@ -1,0 +1,61 @@
+Sure. Set the audit aside for a minute — here's the layer model from scratch.
+
+## The one idea underneath it
+
+Imagine a bookshelf with eight shelves. Every piece of code in PRYZM lives on exactly one shelf. There's a single rule:
+
+**Code on any shelf may reach *down* to the shelves below it. It may never reach *up*.**
+
+That's it. Everything else is consequences of that one rule.
+
+The building analogy is apt, given what PRYZM makes: the foundation doesn't know the roof exists. The roof absolutely knows the foundation exists — it rests on it. If you ever build a foundation that depends on the roof, you can't pour the foundation without first building the roof, which you can't build without the foundation. Everything seizes up.
+
+In code, "reaching up" is a boring, concrete thing: an `import` line at the top of a file. That's all a layer violation ever is. One file saying "give me that other file," where the other file lives on a higher shelf.## Walking up the shelves
+
+**L0 — schemas.** Pure definitions. "A wall has a start point, an end point, a height, a thickness." That's a description, not machinery. It doesn't draw anything, doesn't save anything, doesn't touch the screen. This is why the rule for L0 is that it has no I/O, no 3D library, no browser code at all — it's the dictionary, and a dictionary doesn't do anything.
+
+**L1 — small shared machines.** Tiny, independent tools: the command bus (the thing that carries "create a wall" from wherever it was asked to wherever it gets done), the frame scheduler (the one clock that decides when work happens each frame), snapping, picking. These depend on the dictionary and nothing else.
+
+**L2 — the maths.** Geometry, the AI host, the constraint solver. Given the description of a wall, work out its actual shape.
+
+**L3 — the live model.** The stores: the current state of your building right now, in memory. What actually exists at this moment.
+
+**L4 — drawing and saving.** The renderer and the persistence layer. Takes the live model and puts it on screen, or on disk.
+
+**L5 — the SDK.** A deliberately narrow doorway. Everything below is the platform's private business; L5 is the curated list of things the outside world is allowed to use.
+
+**L6 — plugins.** One per feature. The wall plugin, the roof plugin, the stair plugin. Each one is supposed to reach the platform only through that L5 doorway.
+
+**L7 — apps.** The editor you actually open.
+
+## Why anyone cares
+
+Three payoffs, all practical.
+
+**You can hold one piece in your head.** To understand the geometry layer you need the layers below it, not the whole product. Without the rule, understanding anything means understanding everything.
+
+**Blast radius is knowable.** Change something at L4 and only L5–L7 can possibly be affected. Nothing below can be, because nothing below is allowed to know it exists.
+
+**Pieces are replaceable.** Swap the renderer and the geometry maths doesn't notice, because the maths never knew which renderer was there.
+
+## The part that trips people up
+
+Look at the diagram again: **apps sit above plugins.** People's intuition says the opposite — plugins feel like add-ons bolted onto the app, so surely they're on top?
+
+No. The app is what *registers* the plugins. It imports them in order to switch them on. Something that assembles the pieces necessarily sits above the pieces it assembles. Your docs record this being got wrong once: the ordering was assumed rather than measured, and when someone finally counted, `apps → plugins` was 142 imports and `plugins → apps` was zero. Encoding the wrong order created 151 permanent false violations — a gate that could never go green, which means a gate everyone eventually switches off.
+
+The lesson worth keeping: **layer order is a measurement, not an opinion.** You count the actual import lines, and the arrows tell you the ordering.
+
+## One subtlety in your matrix
+
+The plugin row (L6) says "subset" rather than a plain tick. That means: a plugin is *supposed* to reach the platform only through the L5 doorway, even though everything below is technically lower and therefore "legal" by the down-only rule.
+
+So a plugin importing the 3D renderer directly is a genuinely different kind of problem from a plugin importing the app. The first goes downward — it's legal by the gravity rule but walks past the front desk. The second goes upward and breaks the rule outright. Your repo counts these separately for exactly that reason: one is a broken door policy, the other is broken physics. Averaging them makes both numbers meaningless.
+
+## The most interesting rule of the lot
+
+There's a normative line in C01 §2.1 that's easy to skim past: **no extension contract may live at L6 or L7.**
+
+Plainly: the *definition of what a plugin must look like* has to sit below the plugins themselves. If it sits at the top, no plugin can point at it and say "I am one of these" — because pointing up is forbidden. So instead somebody has to hand-write every plugin into a central list at the top. And a hand-maintained list drifts. Your docs trace nine element families shipping fully built, fully tested and completely undispatchable to that single placement mistake.
+
+The general form, which is a good thing to carry around: **an extension contract above the code that must satisfy it isn't a contract, it's a table.** Which end of the stack a definition sits at decides whether your system is open to extension or quietly closed.

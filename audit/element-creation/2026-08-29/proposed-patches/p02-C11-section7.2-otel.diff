@@ -1,0 +1,136 @@
+# ============================================================================
+# p02-C11-section7.2-otel.diff
+# PROPOSED — NOT APPLIED (D9). Audit: audit/element-creation/2026-08-29
+# Measured 2026-08-29 · re-measured 2026-08-30 · HEAD 064a838e · branch main
+# Apply with:  git apply <this file>
+#              ('git apply' ignores everything before the first '--- a/' line,
+#               so the comment block above the diff is inert.)
+#              On Windows with GNU patch instead of git: patch --binary -p1
+# ============================================================================
+# TARGET   docs/02-decisions/contracts/C11-ELEMENT-CREATION-PIPELINE.md
+#            hunk 1 — §0.0's OTel block (the numbers)
+#            hunk 2 — §7.2, row 2 (the false absence-claim)
+# ORDER    apply AFTER p01 (both touch C11; the hunks do not overlap, but p01
+#          shifts §7.2's line numbers by +11). Verified in sequence p01 -> p02:
+#          `git apply p01 && git apply p02` -> RC=0, RC=0, no rejects.
+#
+# WHAT IS FALSIFIED, AND BY WHICH COMMAND
+#
+#   §7.2 row 2 reads: "No OTel span in any handler — plugin-sdk does not expose a
+#   tracer; no tracer.startSpan(...) call exists in any handler file ... All 177
+#   handlers (0 compliant)."
+#
+#   $ grep -rIl "withHandlerSpan" --include=*.ts --exclude-dir=node_modules \
+#         packages apps plugins | wc -l
+#   -> 293      (measured 2026-08-30 at HEAD 064a838e)
+#
+#   The tracer is exposed and used at scale. The claim is not stale-by-a-margin,
+#   it is INVERTED: it asserts an ABSENCE that 293 files refute.
+#
+# ⛔ THIS PATCH ALSO CORRECTS THE AUDIT'S OWN NUMBER — READ THIS BEFORE QUOTING IT
+#
+#   The first revision of this patch stated 253. That figure was TRANSCRIBED out
+#   of C11 §0.0:48 ("# -> 253", written 2026-08-18) instead of produced by running
+#   the command §0.0 itself prints. Re-running it gives 293. So the patch that
+#   exists to stop a contract transcribing a rotted number had transcribed one.
+#   HUNK 1 IS THE CONSEQUENCE: §0.0 and §7.2 must not carry two readings of one
+#   fact (C84 EI-9), so §0.0's stale figures are corrected in the same commit:
+#
+#     withHandlerSpan files   253  -> 293
+#     ZONE A                246/246 -> 275/275
+#     ZONE B          54 of 70    -> 66 of 87   (baseline 52 unchanged)
+#     ZONE C      1772 of 2023    -> 2100 of 2399
+#
+#   Source for the three gate figures (not a second transcription — the log):
+#   audit/element-creation/2026-08-29/raw/P8-otel-spans.log
+#
+# THE HALF THAT MUST NOT BE LOST (this is why the row is rewritten, not deleted)
+#
+#   $ npx tsx tools/ga-gate/check-otel-spans.ts > /tmp/otel.txt 2>&1; echo "RC=$?"
+#   -> RC=3
+#      ZONE A (CommandBus handlers, zero tolerance):  275 / 275 instrumented
+#      ZONE B (command-registry + app handlers + plugin barrels):
+#             66 uninstrumented of 87, baseline 52 -> 14 NEW files. THIS IS THE FAIL.
+#             The 14 are named in full in the log above; 11 are
+#             packages/command-registry/**, 3 are plugins/{balcony,boundary-line,lift}
+#             /src/handlers/index.ts — all three of those plugins are also among
+#             check-command-naming's 5 non-canonical prefixes, so the same commit
+#             can pay both.
+#      ZONE C (the literal C10 §2 "every exported function" clause):
+#             UNGATED — 2100 of 2399 files with an exported function have NO span.
+#
+#   "The tracer exists" and "P8 holds" are INDEPENDENT facts. Deleting the row
+#   would replace a false absence-claim with a false silence; asserting only the
+#   293 would manufacture the opposite error. The replacement row STATES BOTH.
+#
+# DISPOSITION (D2)
+#
+#   REPLACE. The gap is real but is a COVERAGE gap in a built subsystem, not an
+#   absent subsystem. Ranking it as absent authorises someone to build a second
+#   tracer facade beside withHandlerSpan — strictly worse than the gap imagined.
+#
+# §RATCHET-EXCEEDED-IS-NEVER-DEBT
+#
+#   The remediation named in the new row is "instrument the 14 named files".
+#   Extending the Zone B baseline from 52 to 66, or adding check-otel-spans.ts to
+#   gate-debt.json, is the ONE FORBIDDEN FIX and the row says so. run-all.ts:1162
+#   sets anyFailed=true on exit code 3 unconditionally, so no ledger can absorb it.
+#
+# ACCEPTANCE (D3 — a printed number, never a tick)
+#
+#   $ npx tsx tools/ga-gate/check-otel-spans.ts; echo "RC=$?"
+#     -> the ZONE B line must print "52 uninstrumented of 87" or lower, AND RC=0.
+#        RC=0 alone is NOT acceptance — the Zone B numerator must be read.
+#   $ grep -rIl "withHandlerSpan" --include=*.ts --exclude-dir=node_modules \
+#         packages apps plugins | wc -l
+#     -> the integer printed must equal the integer in C11 §0.0. If it does not,
+#        §0.0 is stale AGAIN — re-run, do not re-transcribe. It has now been
+#        wrong once (253 -> 293) inside twelve days.
+#   $ grep -c "no OTel span" docs/02-decisions/contracts/C11-ELEMENT-CREATION-PIPELINE.md
+#     -> must print 0 outside a quoted-as-superseded context.
+#
+--- a/docs/02-decisions/contracts/C11-ELEMENT-CREATION-PIPELINE.md
++++ b/docs/02-decisions/contracts/C11-ELEMENT-CREATION-PIPELINE.md
+@@ -45,16 +45,27 @@
+ 
+ ```
+ grep -rIl "withHandlerSpan" --include=*.ts --exclude-dir=node_modules packages apps plugins | wc -l
+-# -> 253
++# -> 293      (re-measured 2026-08-29, HEAD 064a838e)
+ ```
+ 
+-**`withHandlerSpan` is used in 253 files.** The tracer is exposed and used at scale.
++**`withHandlerSpan` is used in 293 files.** The tracer is exposed and used at scale.
++
++⛔ **RE-MEASURED 2026-08-29 — THIS BLOCK PREVIOUSLY PRINTED `253`, AND EVERY NUMBER IN THE
++PARAGRAPH BELOW IT WAS STALE TOO.** The command above is unchanged and its output moved
++**253 → 293** in eleven days; the gate figures moved **Zone A 246/246 → 275/275 · Zone B 54 of 70
++→ 66 of 87 · Zone C 1772 of 2023 → 2100 of 2399**. ⭐ **The audit that found this had itself
++transcribed the `253` out of this block instead of re-running the command** — which is the whole
++failure mode in one line. **Run the command; do not quote this block.**
+ 
+ ⚠ **But do not read that as P8 satisfied** — the two facts are independent. The span *gate*
+-(`tools/ga-gate/check-otel-spans.ts`) is **RC=3**: Zone A 246/246, **Zone B 54 uninstrumented of 70
+-against a shrink-only baseline of 52**, and Zone C (the "every exported function" clause) is
+-**ungated** at 1772 of 2023 without a span. **The plumbing exists; the coverage invariant does not
+-hold.** State both.
++(`tools/ga-gate/check-otel-spans.ts`) is **RC=3**: Zone A **275/275** instrumented (316 files read,
++41 excluded), **Zone B 66 uninstrumented of 87 against a shrink-only baseline of 52 — 14 NEW files,
++and that is the failure**, and Zone C (the "every exported function" clause) is **ungated** at
++**2100 of 2399** files declaring an exported function without a span (5,281 source files read).
++**The plumbing exists; the coverage invariant does not hold.** State both.
++⛔ §RATCHET-EXCEEDED-IS-NEVER-DEBT: the fix is to instrument the 14 named files. Extending the
++Zone B baseline from 52, or adding `check-otel-spans.ts` to `gate-debt.json`, is the one forbidden
++fix — `run-all.ts:1162` sets `anyFailed=true` on exit code 3 unconditionally.
+ 
+ ---
+ 
+@@ -889,7 +900,7 @@
+ | Gap | C11 clause | Handlers affected | Sprint |
+ |---|---|---|---|
+ | **`runtime.events.emit(eventName, payload)` not called after mutation** — no handler emits `'wall.created'`, `'slab.created'`, etc. Room redetect is triggered via a CustomEvent bridge workaround in `engineLauncher.ts:1306` instead of the canonical `runtime.events.on('wall.created', ...)` subscriber in `plugins/rooms/`. | §5.2, §6.3 | All 177 handlers (0 compliant) | S03 |
+-| **No OTel span in any handler** — `plugin-sdk` does not expose a tracer; no `tracer.startSpan(...)` call exists in any handler file | §5.2, §6.5; **C10 §2 merge blocker** | All 177 handlers (0 compliant) | S03 |
++| ⛔ ~~**No OTel span in any handler**~~ — **THIS ROW IS FALSE AND WAS REPLACED 2026-08-29.** It read: *"`plugin-sdk` does not expose a tracer; no `tracer.startSpan(...)` call exists in any handler file … All 177 handlers (0 compliant)"*. Falsified by `grep -rIl "withHandlerSpan" --include=*.ts --exclude-dir=node_modules packages apps plugins \| wc -l` → **293 files** *(re-measured 2026-08-29; §0.0 recorded 253 on 2026-08-18 — the command is the authority, not either number)*. The tracer is exposed and used at scale. **The surviving, MEASURED gap is a COVERAGE gap, not an absence:** `npx tsx tools/ga-gate/check-otel-spans.ts` → **RC=3** · ZONE A (CommandBus handlers, zero tolerance) **275 / 275 instrumented** · ZONE B (command-registry + app handlers + plugin barrels) **66 uninstrumented of 87 against a shrink-only baseline of 52 — 14 NEW files, this is the failure** · ZONE C (the literal C10 §2 "every exported function" clause) **UNGATED: 2100 of 2399 files declaring an exported function have NO span**. ⚠ **State both halves or neither.** *"The tracer exists"* does **not** mean P8 holds, and *"P8 is red"* does **not** mean there is no tracer — that inversion is what produced this row. §RATCHET-EXCEEDED-IS-NEVER-DEBT: fix the 14 files; **never** extend the Zone B baseline. | §5.2, §6.5; **C10 §2 merge blocker** | ZONE A 0 of 275 · **ZONE B 66 of 87** · ZONE C 2100 of 2399 (ungated) | ZONE B: next sprint · ZONE C: needs an arm before the clause is measured at all |
+ | **Geometry builders use internal rAF queues, not `FrameScheduler.schedule('pre-render', fn)`** — `WallFragmentBuilder` and `CurtainWallBuilder` manage their own deferred `requestAnimationFrame` queues. The rAF-owner gate passes (1 owner) but the canonical FrameScheduler API from `packages/frame-scheduler` is not used. | §5.2, §6.1 | All geometry builders | Wave A16 |
+ | **No `produceWithPatches` → no `{forward[], inverse[]}` patch pairs** — handlers use direct Map mutations or plain `produce()`. `PatchSnapshot.ts` utility exists but is not called. `RingBufferUndoStack` exists but receives no entries. Undo works via `CommandManager.createSnapshot()` (structuredClone — 80ms per undo on large projects). | §5.2; C03 §4.1 | All 177 handlers (0 compliant) | S03 |
+ 

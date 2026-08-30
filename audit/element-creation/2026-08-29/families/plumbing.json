@@ -1,0 +1,144 @@
+{
+  "family": "plumbing",
+  "batch": "B4",
+  "measured": "2026-08-29",
+  "note_two_verbs": "THIS FAMILY HAS TWO RIVAL CREATE VERBS AND THEY MODEL DIFFERENT THINGS. `plumbing.create` = a PIPE (kind/origin/diameter/bendRadius), writes the plugin DTO store, has a CEB case, and NOTHING subscribes to its event. `plumbing.createFixture` = a FIXTURE (toilet/sink/bath/shower), has NO CEB case and NO initTools bridge, and is the route that actually renders — it bridges straight to the legacy CreatePlumbingFixtureCommand. The census's 'CEB case but no initTools bridge, yet reachable by another route' is exactly this: the OTHER ROUTE IS `plumbing.createFixture`.",
+  "registration": {
+    "status": "OK",
+    "registration_site": "apps/editor/src/PluginRegistry.ts — `{ id: 'plumbing', storeKey: 'plumbing', buildStore: () => new PlumbingStore(), buildHandlers: () => buildPlumbingHandlerSet() }` (grep `storeKey:` -> :582). The same descriptor ALSO registers bathroomPod.create / bathroomPod.delete (C109 §0), whose affectedStores ['bathroomPod'] resolve against the separate `bathroomPod` descriptor at :621.",
+    "declared_storeKey": "plumbing",
+    "storeKey_matches_ctx_stores_key": "YES — MEASURED, EXECUTED. `grep -rn affectedStores plugins/plumbing/src/` -> 6 handlers declare `['plumbing']`, 2 declare `['bathroomPod']`, CreatePlumbingFixture declares `[]`. B4 probe P-A: `registeredStoreKeys[plumbing] = \"plumbing\"`, `rt.stores.plumbing present = true`, `rt.stores.bathroomPod present = true`. P-F/P-G dispatched plumbing.create successfully (no 'required store missing' throw).",
+    "in_ELEMENT_PLUGIN_IDS": true,
+    "proof_reads_real_composition_root": "PARTIAL. For `bathroomPod` a real one exists and is exemplary: apps/editor/__tests__/bathroomPodReachableThroughComposedRuntime.test.ts reads `rt.stores.bathroomPod` off the REAL composition root and builds no store of its own. For `plumbing` itself: NONE before this audit — audit/element-creation/2026-08-29/probe/b4Dispatch.probe.test.ts P-F/P-G/P-H now supplies it. check-verb-liveness.ts lists plumbing under ABSENT in its STORE CENSUS ('CA-21 is unprovable BY CONSTRUCTION in this process').",
+    "evidence": "[B4 P-A] registeredHandlerTypes[plumbing] = [\"plumbing.create\",\"plumbing.delete\",\"plumbing.move\",\"plumbing.setSystem\",\"plumbing.createFixture\",\"plumbing.setMaterial\",\"plumbing.changeLevel\",\"bathroomPod.create\",\"bathroomPod.delete\"]"
+  },
+  "handler": {
+    "status": "PARTIAL",
+    "path": "plugins/plumbing/src/handlers/CreatePlumbing.ts (pipe) AND plugins/plumbing/src/handlers/CreatePlumbingFixture.ts (fixture bridge)",
+    "validates_before_mutation": "CreatePlumbing: YES — origin finiteness, diameter/length/bendRadius > 0, wallThickness >= 0, each with a named reason; PlumbingSchemaError inside execute() before the draft write. CreatePlumbingFixture: MINIMAL — `if (!cmd.fixtureType) return { valid:false, reason:'fixtureType is required' }` and nothing else; levelId is NOT validated here even though the legacy command it forwards to refuses on a missing levelId (CreatePlumbingFixtureCommand.canExecute: `if (!this.payload.levelId) return { ok:false, reason:'Missing levelId' }`), so that refusal lands after the bus has already reported success.",
+    "mutates_only_via_immer_draft": "CreatePlumbing: YES — `produceCommand<PlumbingsState>(ctx.stores.plumbing, draft => { draft[p.id] = p; })`. CreatePlumbingFixture: NO BY DESIGN — `affectedStores: []`, returns `{ forward: [], inverse: [] }`, and the write is `window.commandManager.execute(new CreatePlumbingFixtureCommand(cmd))`.",
+    "otel_span": "YES on both — withHandlerSpan('plumbing.create.handler') and withHandlerSpan('plumbing.createFixture.handler'). check-otel-spans.ts ZONE A 275/275.",
+    "id_pre_generated_in_tool": "MIXED. Plan tool: YES — PlumbingPlanToolHandler.ts:167 `const id = createId('plumbing')`, forwarded to plumbing.createFixture. 3-D PlumbingTool: NO id in the telemetry `plumbing.create {}` and the legacy command mints its own via `stableCreatedId(this, 'plumbing', this.payload.id)` (§STABLE-CREATED-ID, C03 §2.6 — memoised so redo restores the same id). CreatePlumbingHandler falls back to `cmd.id ?? createId('plumbing')`, which is what mints the ghost pipe id.",
+    "must_not_violations": [
+      "C11 §5.3 (no commandManager.execute in a handler) AND (no DOM/window access): plugins/plumbing/src/handlers/CreatePlumbingFixture.ts:49 `const cm = window.commandManager as { execute(cmd: unknown, options?: unknown): void } | undefined;` then `cm.execute(new CreatePlumbingFixtureCommand(cmd as any))`. No `typeof window` guard. EXECUTED: B4 probe P-H got `window is not defined`.",
+      "SILENT-SUCCESS-ON-FAILURE: CreatePlumbingFixture.ts wraps the execute in `try { … } catch (e) { console.error(…) }` and then returns `{ forward: [], inverse: [] }` — a SUCCESS. In a browser where `window.commandManager` is absent or the command throws, the bus reports success and nothing is created. Its sibling CreateRoomHandler in the same repo THROWS by name in exactly that situation (measured: B4 P-I). This is the ADR-0299 §RECOVERY-MUST-REFUSE shape.",
+      "`cmd as any` at the CreatePlumbingFixtureCommand construction site — an `any` seam at the plugin/legacy boundary."
+    ],
+    "affectedStores_declared": "['plumbing'] x6 · ['bathroomPod'] x2 · [] on plumbing.createFixture",
+    "evidence": "cat plugins/plumbing/src/handlers/CreatePlumbingFixture.ts"
+  },
+  "lifecycle": {
+    "status": "SPLIT",
+    "ceb_case": "`plumbing.create`: YES BUT levelId-ONLY — packages/runtime-composer/src/CommandEventBridge.ts:1246 `case 'plumbing.create': const p = record.payload as { levelId?: string }; events.emit('plumbing.created', { commandId, commandType:'plumbing.create', levelId: p.levelId ?? '' });`. No id, no origin, no kind. NOT geometry-complete. `plumbing.createFixture`: NO CEB case at all — and none is needed, because the handler writes the legacy store synchronously.",
+    "initTools_bridge_tag": "NONE. `grep -n \"\\.created'\" apps/editor/src/engine/initTools.ts` returns 19 subscribers and no `plumbing.created` among them. The absence is CORRECT for `plumbing.createFixture` (C11 §11.11: 'No §FT-PLUMBING bridge is needed — CreatePlumbingFixtureHandler.execute() writes straight to the legacy fixture store'), and is a real orphan for `plumbing.create`.",
+    "vdt_registerElement": "NO on either route. The legacy CreatePlumbingFixtureCommand calls `context.bimManager.registerElement(id, levelId)` (packages/command-registry/src/plumbing/CreatePlumbingFixtureCommand.ts:64) but NOT viewDependencyTracker.registerElement. Level attribution for a fixture therefore falls to ViewDependencyTracker's `_resolveElementLevelId` fallback rather than the O(1) map — the §G3-STALE path.",
+    "bimManager_registerElement": "YES via the legacy command (CreatePlumbingFixtureCommand.ts:64), reached through `context.bimManager` — a CommandContext field, not a window read. It also writes a semanticGraphManager 'sitsOn' relationship and unregisters on undo (:123).",
+    "bimManager_via_window_any": "NO in the command-registry path. In the 3-D tool path packages/geometry-plumbing/src/PlumbingTool.ts:395 reads `projectContext.bimManager || window.bimManager` — a window fallback in a package, but that is the TOOL, not the handler or a bridge.",
+    "in_GEOMETRY_ELEMENT_TYPES": true,
+    "update_verbs_covered": "NO — zero plumbing rows in ELEMENT_UPDATE_VERBS. mirror-debt.json: plumbing.delete = UNMIRRORED, plumbing.setSystem = UNMIRRORED, plumbing.move = refuses, plumbing.setMaterial = refuses, plumbing.changeLevel = mirrored-elsewhere.",
+    "evidence": "npx tsx tools/ga-gate/check-mirror-reachability.ts ARM E2: 'plumbing.created' is one of the 9 typed event names the bridge emits that reach NOBODY."
+  },
+  "milestones": {
+    "authored": "YES",
+    "dispatchable": "YES",
+    "reachable": "YES",
+    "renders_3d": "YES",
+    "renders_plan": "YES",
+    "persists": "YES",
+    "exports": "NO"
+  },
+  "milestone_proofs": {
+    "authored": "plugins/plumbing/src/handlers/ — 9 handlers (7 plumbing.* + 2 bathroomPod.*).",
+    "dispatchable": "EXECUTED. B4 probe P-F `plumbing.create {}` -> OK, record committed. P-G `plumbing.create {fixtureType,position}` -> OK, record committed. P-H `plumbing.createFixture` -> throws `window is not defined` headlessly (the handler needs the browser's commandManager by construction); in the browser it is the plan tool's live path.",
+    "reachable": "PlumbingPlanToolHandler.ts:200 dispatches `plumbing.createFixture` (§FIX-PLUMBING-FIXTURE-CMD); packages/geometry-plumbing/src/PlumbingTool.ts:414/:455 drives the 3-D path via commandManager.execute(CreatePlumbingFixtureCommand) with a `plumbing.create {}` telemetry shot alongside; FurnitureDragDropHandler also dispatches plumbing.createFixture. Tool activator registered at apps/editor/src/ui/layout/ToolsAreaLayout.ts:322 `runtime.tools.register('plumbing', (m?) => service.activatePlumbingTool(m ?? 'toilet'))` -> BimService.ts:343; not in check-tool-activator-coverage.ts's uncovered set.",
+    "renders_3d": "YES via the fixture route only. Chain grepped end to end: CreatePlumbingFixtureCommand.ts:99 `context.stores.plumbingStore.add(data)` -> packages/geometry-plumbing/src/PlumbingStore.ts:39 `_bus.emit('bim-plumbing-added', { id })` -> apps/editor/src/engine/initBuilders.ts:679 `window.addEventListener('bim-plumbing-added', …)` -> PlumbingBuilder. Via `plumbing.create`: NO — measured, the channel is orphaned.",
+    "renders_plan": "YES via the fixture route. PlumbingStore.ts:40 also emits `storeEventBus { elementType:'plumbing', operation:'create' }`, and 'plumbing' IS in GEOMETRY_ELEMENT_TYPES (ViewDependencyTracker.ts:42-49), so the view is dirtied. Plan + elevation symbol builders exist and are imported by apps/editor/src/engine/views/EdgeProjectorService.ts:132 (`plumbingPlanSymbolBuilder, plumbingElevationSymbolBuilder` from @pryzm/geometry-plumbing, §FEAT-PLUMBING-PLAN-ELEV-SYMBOLS / L-221), and 'plumbingfixture' is in EdgeProjectorService CACHEABLE_ELEMENT_TYPES. ⚠ VDT registerElement is NOT called, so the level is resolved by fallback rather than by the map.",
+    "persists": "YES via the fixture route. snapshotFamilyCoverage.ts:139 `{ storeKey:'plumbing', status:'via-legacy-twin', snapshotKey:'plumbing', reason:'Serialized from the legacy PlumbingStore. ⚠ C109 §L-11405 (OPEN): a bathroom POD parent is not persisted AS a pod — its member fixtures survive, the compound identity does not.' }`. NO for `plumbing.create`: the plugin DTO store is not the persistence source, so every ghost pipe is destroyed on reload.",
+    "exports": "NO IFC exporter — `grep -ril \"plumbing\" plugins/ifc-export/` -> no hit (the single match in that plugin is pset-window-common.ts for an unrelated word). No IfcSanitaryTerminal / IfcFlowTerminal path. SCOPE NOTE: IFC only; GLB scene export not measured."
+  },
+  "first_failing_link": "exports for the WORKING route (`plumbing.createFixture`) — every earlier link holds. For the DTO verb `plumbing.create` the first failing link is EARLIER and harder: reachable — its `plumbing.created` channel has ZERO subscribers repo-wide, measured by check-mirror-reachability.ts ARM E2.",
+  "c11_ss11_crosscheck": {
+    "matrix_row": "NO ROW. C11 §11's per-element table has rows for Wall, Slab, Curtain Wall, Ceiling, Roof, Column, Beam, Floor, Wall Opening, Stair, Handrail, Furniture, Lighting, Room — and none for Plumbing. The family is discussed only in §11.11 prose.",
+    "verdict": "NO ROW TO CONFIRM OR REFUTE — and the missing row is itself the defect. §11.11's prose is CONFIRMED as far as it goes.",
+    "detail": "§11.11 says: the plan tool dispatched the PIPE verb for a FIXTURE and every fixture field was silently dropped; the fix is to dispatch `plumbing.createFixture`; 'No §FT-PLUMBING bridge is needed'. All three CONFIRMED — PlumbingPlanToolHandler.ts:200 now dispatches plumbing.createFixture with the §FIX-PLUMBING-FIXTURE-CMD note in place, and CreatePlumbingFixtureHandler writes the legacy store directly. What §11.11 does NOT say, and what a matrix row would have forced someone to write down: `plumbing.create` STILL EXISTS, still accepts the fixture payload silently (B4 P-G), still emits a levelId-only `plumbing.created` that nothing subscribes to, and is still fired with `{}` by the 3-D tool. The verb that caused the defect was never retired."
+  },
+  "findings": [
+    {
+      "id": "B4-PLUMB-01",
+      "class": "DISPATCHABLE BUT INVISIBLE — orphan channel, measured",
+      "severity": "P1",
+      "claim": "`plumbing.create` is registered, validated, undoable and commits to the DTO store — and `plumbing.created` is one of nine typed event names the CommandEventBridge emits that reach nobody in the whole tree. A successful creation and a silent refusal are the same number of pixels. The CEB case is also levelId-only, so even if a bridge were written it would have nothing to build from.",
+      "command": "npx tsx tools/ga-gate/check-mirror-reachability.ts",
+      "output_excerpt": "[mirror-reachability] ARM E2 (STATIC name match, NOT executed) — declared channels with NO listener anywhere outside tests:\n    9 of 28 typed event name(s) the bridge emits reach nobody:\n      · annotation.created  · ceiling.layer-updated  · dimension.created  · floor.layer-updated\n      · grid.created  · plumbing.created  · room.created  · slab.layer-updated  · structural.created",
+      "contract_clause": "C11 §10.2 Bridge Invariants 1 & 2; C11 §11.11",
+      "disposition": "REMOVE",
+      "blocks_production": false
+    },
+    {
+      "id": "B4-PLUMB-02",
+      "class": "DECLARED BUS PAYLOAD AND HANDLER PAYLOAD DO NOT INTERSECT",
+      "severity": "P1",
+      "claim": "packages/command-bus/src/commands.ts:792 declares `'plumbing.create': { fixtureType: string; position: {x,y,z}; levelId?: string }`. CreatePlumbingHandler reads `kind`/`origin`/`diameter`/`bendRadius`. A dispatcher that OBEYS the declared type gets a silently defaulted 50 mm cold-water straight pipe at world origin — the exact defect §FIX-PLUMBING-FIXTURE-CMD fixed at ONE call site while leaving the type declaration that invites it in place. This is the same shape as B4-FURN-01 (commands.ts:781 for furniture).",
+      "command": "npx vitest run --config audit/element-creation/2026-08-29/probe/vitest.b4.config.ts --reporter=verbose -t \"P-G\"",
+      "output_excerpt": "[B4 P-G] outcome: OK\n[B4 P-G] record: {\"id\":\"plumbing_01ARZ3NDEKTSV4RRFFQ69G5FB3\",...,\"levelId\":\"L0\",\"kind\":\"straight\",\"origin\":{\"x\":0,\"y\":0,\"z\":0},\"diameter\":0.05,\"wallThickness\":0.005,\"length\":1,\"rotation\":0,\"bendRadius\":0.075,\"baseOffset\":0,\"systemTag\":\"cold-water\"}\n(fixtureType 'toilet' and position {2,0,3} both discarded, no warning)",
+      "contract_clause": "C11 §5.2; C16 §5.1 CA-18",
+      "disposition": "REPLACE",
+      "blocks_production": false
+    },
+    {
+      "id": "B4-PLUMB-03",
+      "class": "GHOST RECORD + STOLEN UNDO SLOT",
+      "severity": "P1",
+      "claim": "packages/geometry-plumbing/src/PlumbingTool.ts:414 and :455 fire `bus.executeCommand('plumbing.create', {})` as 'bus telemetry' beside the real `commandManager.execute(CreatePlumbingFixtureCommand)`. The handler accepts `{}`, mints an id, commits a levelId-less pipe and takes an undo slot. Every 3-D fixture placement therefore leaves a phantom pipe in the DTO store and pushes two undo entries.",
+      "command": "npx vitest run --config audit/element-creation/2026-08-29/probe/vitest.b4.config.ts --reporter=verbose -t \"P-K\"",
+      "output_excerpt": "[B4 P-F] outcome: OK\n[B4 P-F] plumbing ids after {}: [\"plumbing_01M16F59H4NNSP8XFDVPGGD5YN\"]\n[B4 P-F] ghost record: {...\"levelId\":\"\",\"kind\":\"straight\",\"origin\":{\"x\":0,\"y\":0,\"z\":0},\"diameter\":0.05,...}\n[B4 P-K] undo.size after furniture.create {}: 1\n[B4 P-K] undo.size after plumbing.create {}: 2",
+      "contract_clause": "C16 §5.1 CA-21 / ADR-0299; C03 §4.1",
+      "disposition": "REPLACE",
+      "blocks_production": true
+    },
+    {
+      "id": "B4-PLUMB-04",
+      "class": "SILENT SUCCESS ON FAILURE (the refusing half has no escape hatch)",
+      "severity": "P0",
+      "claim": "CreatePlumbingFixtureHandler.execute() catches every error from the legacy command, console.errors it, and returns `{ forward: [], inverse: [] }` — which the bus reads as SUCCESS. If `window.commandManager` is absent it does not even try: `if (cm) { … }` and then the same empty success. The plan tool's `.catch()` therefore never fires and the user is told a toilet exists that was never created. CreateRoomHandler, in the same repo and the same shape, THROWS by name instead — so the correct pattern is already written down here.",
+      "command": "sed -n '44,62p' plugins/plumbing/src/handlers/CreatePlumbingFixture.ts ; npx vitest run --config audit/element-creation/2026-08-29/probe/vitest.b4.config.ts --reporter=verbose -t \"P-H\"",
+      "output_excerpt": "const cm = window.commandManager as { execute(cmd: unknown, options?: unknown): void } | undefined;\nif (cm) {\n  try { cm.execute(new CreatePlumbingFixtureCommand(cmd as any)); }\n  catch (e) { console.error('[plumbing.createFixture.handler] bridge failed:', e); }\n}\nreturn { forward: [], inverse: [] };\n---\n[B4 P-H] outcome: window is not defined\n[B4 P-H] plumbing ids: []\n(contrast [B4 P-I] complete outcome: \"room.create: the legacy command manager is not available in this process, so no room was created. …\")",
+      "contract_clause": "C16 §5.1 CA-21 / ADR-0299 §RECOVERY-MUST-REFUSE — 'a bridge that cannot reach authoritative state THROWS. It never returns an empty patch pair, because an empty patch pair is indistinguishable from applied, nothing to change.' (quoted from plugins/rooms/src/handlers/CreateRoom.ts, the sibling that got it right)",
+      "disposition": "REPLACE",
+      "blocks_production": true
+    },
+    {
+      "id": "B4-PLUMB-05",
+      "class": "MISSING viewDependencyTracker.registerElement",
+      "severity": "P2",
+      "claim": "The reachable fixture route registers the element with bimManager (CreatePlumbingFixtureCommand.ts:64) but never with viewDependencyTracker, unlike the §FT-FURNITURE / §FT-WALL bridges which call both (§FIX-PLAN-VDT-BIMMANAGER). Every plumbing store event therefore misses the O(1) `_elementLevelMap` lookup and falls to ViewDependencyTracker's `_resolveElementLevelId` fallback — the §G3-STALE path the curtain-panel work (OI-054) identified as an O(views) sweep plus a console.warn per element.",
+      "command": "grep -n \"registerElement\" packages/command-registry/src/plumbing/CreatePlumbingFixtureCommand.ts ; grep -n \"viewDependencyTracker.registerElement\" apps/editor/src/engine/initTools.ts",
+      "output_excerpt": "CreatePlumbingFixtureCommand.ts:64:        context.bimManager.registerElement(id, this.payload.levelId);\nCreatePlumbingFixtureCommand.ts:123:        context.bimManager.unregisterElement(this.createdId);\n(no viewDependencyTracker.registerElement in the plumbing path; initTools.ts has one for furniture at the §FT-FURNITURE bridge and one for water at §FT-WATER)",
+      "contract_clause": "C11 §10.2 Bridge Invariant 7",
+      "disposition": "WIRE",
+      "blocks_production": false
+    },
+    {
+      "id": "B4-PLUMB-06",
+      "class": "DOC-CONFLICT — NO MATRIX ROW",
+      "severity": "P1",
+      "claim": "C11 §11's per-element compliance matrix has no Plumbing row at all, even though §11.11 documents a shipped fix for the family and C11 §11 says the matrix 'MUST be updated whenever a bridge is added, removed, or repaired'. A family with no row cannot be read as compliant or non-compliant; it is invisible to the artefact an engineer consults before touching it. The concrete cost: nothing in §11 records that `plumbing.create` survived the fix as a live, ghost-producing, orphan-channelled verb.",
+      "command": "sed -n '1281,1295p' docs/02-decisions/contracts/C11-ELEMENT-CREATION-PIPELINE.md",
+      "output_excerpt": "| Element | CEB case (geometry-complete) | initTools bridge | … |\n| **Wall** … | **Slab** … | **Curtain Wall** … | **Ceiling** … | **Roof** … | **Column** … | **Beam** … | **Floor** … | **Wall Opening (Door/Window)** … | **Stair** … | **Handrail** … | **Furniture** … | **Lighting** … | **Room** … |\n(14 rows; no Plumbing row)",
+      "contract_clause": "C11 §11",
+      "disposition": "DOCUMENT",
+      "blocks_production": false
+    },
+    {
+      "id": "B4-PLUMB-07",
+      "class": "AUTHORED BUT UNREACHABLE (D2)",
+      "severity": "P3",
+      "claim": "`PlumbingPlacementTool` (plugins/plumbing/src/tool.ts) — the only producer whose payload matches CreatePlumbingPayload — is never constructed. `PlumbingCommitter` is referenced by nothing outside its own barrel. `window.plumbingTool` is the LEGACY `new PlumbingTool(world, plumbingStore, plumbingBuilder)` assigned at initTools.ts:686.",
+      "command": "Grep `new PlumbingPlacementTool\\(` and `PlumbingCommitter` over *.ts",
+      "output_excerpt": "(no `new PlumbingPlacementTool(` anywhere)\nPlumbingCommitter -> 8 hits, all inside plugins/plumbing/src/committer/ and plugins/plumbing/src/index.ts\napps/editor/src/engine/initTools.ts:685: const plumbingTool = new PlumbingTool(world, plumbingStore, plumbingBuilder);",
+      "contract_clause": "C11 §3.1",
+      "disposition": "DOCUMENT",
+      "blocks_production": false
+    }
+  ]
+}

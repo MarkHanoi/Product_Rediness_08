@@ -1,0 +1,56 @@
+{
+  "family": "balcony",
+  "measured": "2026-08-29",
+  "A_registration": {
+    "status": "REGISTERED-AND-DISPATCHABLE",
+    "registration_site": "apps/editor/src/PluginRegistry.ts:461-465 (INLINE descriptor in ALL_PLUGINS). There is NO plugins/balcony/src/registration.ts -- find plugins/balcony -type f returns 11 files and none is registration.ts. That is a C11 SS5.5 clause-1 'preferred, not required' deviation, not a defect.",
+    "declared_storeKey": "'balcony' (PluginRegistry.ts:462)",
+    "storeKey_matches_ctx_stores_key": "YES. Store binds super('balcony') at plugins/balcony/src/store.ts:36. CreateBalconyHandler.affectedStores = ['balcony','slab','floor','handrail'] (CreateBalcony.ts:144); UpdateBalconyProfile.ts:124 and DeleteBalcony.ts:62 declare the identical four. All four keys resolve on the REAL composed runtime -- balconyReachableThroughComposedRuntime.test.ts R-1 asserts rt.stores.balcony instanceof BalconyStore AND rt.stores.slab/floor/handrail defined. NOT compared against the directory name.",
+    "in_ELEMENT_PLUGIN_IDS": true,
+    "element_plugin_ids_line": "apps/editor/src/PluginRegistry.ts:792 ('balcony'); NOT in STORE_ONLY_PLUGIN_IDS (it contributes 3 handlers).",
+    "proof_reads_real_composition_root": "YES -- apps/editor/__tests__/balconyReachableThroughComposedRuntime.test.ts imports bootstrapWithEverything() from ../src/bootstrap.everything.js and reads rt.stores.*; it constructs NO store (BalconyStore is imported only as the toBeInstanceOf argument). D6 satisfied.",
+    "evidence": "npx vitest run --root apps/editor apps/editor/__tests__/balconyReachableThroughComposedRuntime.test.ts (+3 siblings) -> 'Test Files 4 passed (4) / Tests 47 passed (47)' RC=0",
+    "gate_readings": [
+      "npx tsx tools/ga-gate/check-plugin-census-equivalence.ts -> RC=0; arm G (ELEMENT_PLUGIN_IDS minus REGISTRY) = 0 (hard 0); arm D = 0 (hard 0).",
+      "npx tsx tools/ga-gate/check-tool-activator-coverage.ts -> RC=1; 'ARM A FAIL -- 4 declared tool id(s) have NO registered activator (baseline 0): balcony, bathroom-pod, boundary-line, pool'."
+    ]
+  },
+  "B_handler": {
+    "path": "plugins/balcony/src/handlers/CreateBalcony.ts (287 lines); siblings UpdateBalconyProfile.ts, DeleteBalcony.ts",
+    "status": "CONFORMANT",
+    "validates_before_mutation": "YES -- canExecute at :146 returns {valid:false, reason} before execute; execute throws typed BalconyBoundaryError / BalconyHostWallError / BalconyMemberIdError (plugins/balcony/src/errors.ts) rather than a bare Error.",
+    "mutates_only_via_immer_draft": "YES -- produceMultiStoreCommand over {balcony,slab,floor,handrail} taken from ctx.stores at CreateBalcony.ts:237 and UpdateBalconyProfile.ts:206. No store-singleton import anywhere in plugins/balcony/src.",
+    "otel_span": "YES -- withHandlerSpan(this.type + '.handler', ...) at CreateBalcony.ts:198, UpdateBalconyProfile.ts:160.",
+    "must_not_violations": [],
+    "must_not_evidence": "grep -rnE 'commandManager|window\\.|window as|document\\.|requestAnimationFrame|dispatchEvent|src/engine|src/ui' plugins/balcony/src -> 0 hits.",
+    "id_pre_generated_in_tool": "YES -- apps/editor/src/engine/views/plantools/BalconyPlanToolHandler.ts:255-264 mints balconyId=createId('balcony'), slabId=createId('slab'), floorId=createId('floor'), railingIds=freeEdges.map(()=>createId('handrail')) and passes them in the payload. No id is minted in the handler, so the FIX-WALL-ID / FIX-CW-ID class (bridge guards on !ev.id) cannot occur here.",
+    "geometry_deferred": "Geometry MATH (buildBalconyAssembly, @pryzm/geometry-balcony) runs in-handler and is pure DTO computation; no MESH is built in the handler."
+  },
+  "C_lifecycle": {
+    "status": "CREATE MIRRORS BY MEMBER RE-STAMPING; UPDATE AND DELETE MIRROR NOTHING",
+    "ceb_case": "YES -- packages/runtime-composer/src/CommandEventBridge.ts:1422 case 'balcony.create'. GEOMETRY-COMPLETE, and read off record.forward (the COMMIT), not the request payload.",
+    "member_event_restamping_mechanism": "VERIFIED AND SOUND -- NOT a smuggled channel. The case indexes record.forward for multi-store patches (path [storeKey,id]) and emits exactly three member events: slab.created (id = p.slabId), floor.created (floorId = p.floorId), handrail.created (one per committed handrail record). Each carries commandType = the MEMBER's own verb ('slab.create'/'floor.create'/'handrail.create') because the existing subscribers filter on it. EVERY MEMBER ID APPEARS ON EXACTLY ONE CHANNEL -- ITS OWN FAMILY'S. No id lands on two families, so C84 EI-9 is not breached. The BALCONY's own id is emitted on NO channel -- correct for a compound whose geometry IS its members (C103 SS2.3), and why there is no balcony mesh builder to miss (packages/geometry-balcony/src = BalconyAssembly.ts, BalconyDimensions.ts, BalconyGeometry.ts, index.ts -- no builder).",
+    "initTools_bridge_tag": "NO OWN-NAME BRIDGE (correct). The three bridges actually reached are SS-FT1 (slab.created, initTools.ts:2363), SS-P3.2-FL (floor.created, :2480) and SS-FT-HANDRAIL (handrail.created, :2575). Evidence: grep -nE \"\\.on\\('[a-zA-Z.-]+\\.(created|updated|deleted)'\" apps/editor/src/engine/initTools.ts -> 17 subscriber lines, none of them balcony.",
+    "vdt_registerElement": "YES FOR MEMBERS, NO FOR THE PARENT. SS-FT1 calls viewDependencyTracker.registerElement(ev.id, ev.levelId ?? '') (initTools.ts:2398); SS-P3.2-FL for ev.floorId (:2552); SS-FT-HANDRAIL for ev.id (:2672). Bridge Invariant 7 holds for all three members. The balcony PARENT id reaches neither VDT nor bimManager.",
+    "bimManager_registerElement": "YES FOR MEMBERS (same three sites, each wrapped try { bimManager.registerElement(...) } catch {}). NO for the parent.",
+    "bimManager_via_window_any": "NO in initTools -- bimManager is an injected option (declared initTools.ts:267, destructured :373). BUT the balcony STORE is reached through a window cast in two production paths: ProjectSerializer.ts readPluginStore uses (window as {runtime?...}).runtime?.stores?.[storeKey], and restoreCompoundFamilies.ts reads (window as unknown as {...}).runtime?.stores?.['balcony']. Typed-window casts rather than (window as any), but the C14 LP-01 shape is identical and ?. swallows failure headlessly.",
+    "in_GEOMETRY_ELEMENT_TYPES": false,
+    "geometry_element_types_evidence": "grep -c balcony packages/core-app-model/src/views/ViewDependencyTracker.ts -> 0. The 19-member set (:42-48) has no 'balcony'. Harmless in effect: the members' types (slab, floor, handrail) ARE in the set and the members are what project.",
+    "update_verbs_covered": "NO -- the sharpest defect in this family. ELEMENT_UPDATE_VERBS (CommandEventBridge.ts:241-320) has exactly 8 rows: slab.addHole/removeHole/setThickness/setBaseOffset/setType, roof.setOverhang/setThickness, column.setHeight. balcony.updateProfile is in none and has no CEB case. tools/ga-gate/mirror-debt.json :70 (balcony.delete) and :81 (balcony.updateProfile), both kind=UNMIRRORED.",
+    "undo": "NO ADAPTER. apps/editor/src/engine/undo/performUndoRedo.ts:645 -- balcony: { owner: 'nothing', reason: 'REACHABLE AND STRANDED (L-7310) ... nothing on the legacy stack reverts it.' }. pool/water/lift/liftPart/boundaryLine all have adapters (:463,:476,:477,:493,:494); balcony does not."
+  },
+  "D_seven_facts": {
+    "authored": "YES -- plugins/balcony (11 files), packages/geometry-balcony, and an L0 Zod schema: packages/schemas/src/elements/Balcony.ts:55 defineElement('balcony').",
+    "dispatchable": "YES -- balconyReachableThroughComposedRuntime.test.ts R-2 'balcony.create DISPATCHES -- it does not throw at CommandBus.buildContext' passes; R-3 lands the plate, the finish and three rails in rt.stores.",
+    "reachable": "YES -- BalconyPlanToolHandler.ts:271 dispatches balcony.create; palette row apps/editor/src/ui/layout/CreatePanelLayout.ts:158-162 calls activatePlanOnlyToolOrExplain('balcony','Balcony'), which arms the PLAN OVERLAY (window.planViewToolOverlay / window.svpPlanToolOverlay) rather than runtime.tools.activate. THAT is why check-tool-activator-coverage ARM A names 'balcony'.",
+    "renders_3d": "YES -- via members. The re-stamped slab.created / floor.created / handrail.created reach SS-FT1 / SS-P3.2-FL / SS-FT-HANDRAIL, each of which calls its legacy store's add(). No balcony-as-entity mesh exists and none is required.",
+    "renders_plan": "YES -- via members. All three member bridges call VDT + bimManager registerElement, and slab/floor/handrail are in GEOMETRY_ELEMENT_TYPES.",
+    "persists": "YES -- snapshotFamilyCoverage.ts:161 row { storeKey:'balcony', status:'persisted', snapshotKey:'balconies' }; ProjectSerializer.ts:1519 readPluginStore('balcony'); restoreCompoundFamilies.ts writes it back through runtime.stores.balcony.applyPatch. Executed proof: apps/editor/src/engine/__tests__/snapshotFamilyRoundTrip.spec.ts -> 'Test Files 1 passed (1) / Tests 8 passed (8)', ARM A asserts saved.balconies toHaveLength(1), ARM B reads every record back out of the REAL store.",
+    "exports": "NO -- plugins/ifc-export/src/exporters/IFC4X3Exporter.ts reads snapshot.walls/slabs/doors/windows/columns/beams/rooms only. grep -c 'snapshot.balconies' -> 0; 'snapshot.floors' -> 0; 'snapshot.handrails' -> 0. Only the balcony's SLAB member reaches IFC; the parent, the floor finish and the railings do not.",
+    "first_failing_link": "exports"
+  },
+  "E_c11_ss11_crosscheck": {
+    "matrix_row": "NO ROW. C11 SS11's table (C11-ELEMENT-CREATION-PIPELINE.md:1281-1294) has 14 rows: Wall, Slab, Curtain Wall, Ceiling, Roof, Column, Beam, Floor, Wall Opening, Stair, Handrail, Furniture, Lighting, Room. No Balcony row.",
+    "verdict": "REFUTES BY OMISSION. SS11's preamble (:1267) is normative: 'It MUST be updated whenever a bridge is added, removed, or repaired.' The balcony bridge WAS added (CEB:1422 plus three member channels) and the matrix was not updated; SS11.2's own checklist step 6 is 'Verify SS11 matrix -- update this table'. Same defect class C11 SS0.0 (2026-08-18) already recorded for handrail/furniture/lighting, now in a second form: not merely wrong cells, but missing families."
+  }
+}

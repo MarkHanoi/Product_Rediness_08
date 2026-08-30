@@ -1,0 +1,77 @@
+{
+  "family": "boundary-line",
+  "measured": "2026-08-29",
+  "note": "The AUTHORED construction / setting-out line (C106, ADR-0348). NOT Parcel.boundary (C19 SS1.4) and NOT RoomBoundingLine.",
+  "A_registration": {
+    "status": "REGISTERED-AND-DISPATCHABLE",
+    "registration_site": "apps/editor/src/PluginRegistry.ts:558-561, INLINE descriptor. No plugins/boundary-line/src/registration.ts.",
+    "declared_storeKey": "'boundaryLine' (:559) -- while the descriptor id is 'boundary-line' (:558). Deliberate, see spelling_drift below.",
+    "storeKey_matches_ctx_stores_key": "YES. BoundaryLineStore binds super('boundaryLine') at plugins/boundary-line/src/store.ts:50. All FIVE handlers declare affectedStores = ['boundaryLine'] (CreateBoundaryLine.ts:68, AttachToBoundaryLine.ts:76 and :174, UpdateBoundaryLine.ts:66 and :150). Proven on the real runtime: boundaryLineReachableThroughComposedRuntime.test.ts R-1 asserts rt.stores.boundaryLine instanceof BoundaryLineStore. NOT compared against the directory name.",
+    "in_ELEMENT_PLUGIN_IDS": true,
+    "element_plugin_ids_line": "PluginRegistry.ts:802 ('boundary-line' -- the hyphenated DIRECTORY id, which is what the census gate compares to ls plugins/). Not in STORE_ONLY_PLUGIN_IDS (it contributes 5 handlers).",
+    "proof_reads_real_composition_root": "YES -- apps/editor/__tests__/boundaryLineReachableThroughComposedRuntime.test.ts uses bootstrapWithEverything() and reads rt.stores.boundaryLine; BoundaryLineStore is imported only as the toBeInstanceOf argument. D6 satisfied. Two siblings add coverage: boundaryLineFootprintThroughComposedRuntime.test.ts and boundaryLineHasOneStore.test.ts (which greps the repo for a rival class .*BoundaryLineStore and for a window.boundaryLineStore assignment).",
+    "evidence": "npx vitest run --root apps/editor (4 reachability files) -> 'Test Files 4 passed (4) / Tests 47 passed (47)' RC=0",
+    "gate_readings": [
+      "npx tsx tools/ga-gate/check-tool-activator-coverage.ts -> RC=1; 'ARM A FAIL -- 4 declared tool id(s) have NO registered activator (baseline 0): balcony, bathroom-pod, boundary-line, pool'.",
+      "npx tsx tools/ga-gate/check-mirror-completeness.ts -> RC=0; grep -c '\"verb\": \"boundaryLine' tools/ga-gate/mirror-debt.json -> 0. This family owes the mirror ledger NOTHING."
+    ]
+  },
+  "spelling_drift": {
+    "verdict": "NO DRIFT DEFECT -- the two spellings occupy two disjoint, consistently applied namespaces, and PluginRegistry states the rule in its own words at :769-772: 'The id must match the DIRECTORY (the census gate compares it to ls plugins/); the storeKey must match what the handlers read.'",
+    "hyphenated_boundary_line": [
+      "plugin directory plugins/boundary-line",
+      "descriptor id (PluginRegistry.ts:558)",
+      "ELEMENT_PLUGIN_IDS row (PluginRegistry.ts:802)",
+      "tool id -- CreatePanelLayout.ts:210 activatePlanOnlyToolOrExplain('boundary-line','Boundary Line'); elementCreationMatrix.ts:480 tool: 'boundary-line'"
+    ],
+    "camelCase_boundaryLine": [
+      "storeKey (PluginRegistry.ts:559)",
+      "Store super('boundaryLine') (store.ts:50)",
+      "all 7 CEB case arms (CommandEventBridge.ts:2102-2106, :2187)",
+      "all 3 initTools subscribers (:1883, :1887, :1891)",
+      "L0 schema -- packages/schemas/src/elements/BoundaryLine.ts:111 defineElement('boundaryLine')",
+      "ElementType union + IdFor (packages/schemas/src/types/Id.ts:193, :242) and BoundaryLineId brand (:147)",
+      "snapshot key 'boundaryLines' + snapshotFamilyCoverage.ts:149 storeKey 'boundaryLine'",
+      "undo adapter key (performUndoRedo.ts:463)"
+    ],
+    "GEOMETRY_ELEMENT_TYPES": "NEITHER spelling. grep -c boundaryLine ViewDependencyTracker.ts -> 0; grep -c boundary-line -> 0.",
+    "residual_risk": "There is NO gate asserting the tool-id namespace and the storeKey namespace stay aligned for a family. check-plugin-census-equivalence compares descriptor ids to ls plugins/; check-tool-activator-coverage compares matrix tool ids to registered activators; nothing joins tool id -> storeKey. A future rename of one half would not be caught."
+  },
+  "B_handler": {
+    "path": "plugins/boundary-line/src/handlers/CreateBoundaryLine.ts (162 lines); AttachToBoundaryLine.ts (attach + detach); UpdateBoundaryLine.ts (update + delete)",
+    "status": "CONFORMANT -- the cleanest handler in batch B6",
+    "validates_before_mutation": "YES -- canExecute :70-103 refuses empty/duplicate boundaryLineId, a missing levelId ('refuses rather than defaulting to level-1, which would put the line on a storey the user was not looking at'), a failing BoundaryLine.safeParse, and (C100) hasVolume with an unresolvable material via resolveBoundaryLineMaterial. Execute re-parses and throws typed BoundaryLineGeometryError.",
+    "mutates_only_via_immer_draft": "YES -- produceCommand<BoundaryLinesState>(ctx.stores.boundaryLine, draft => ...) at :127. SINGLE-store, so produceCommand rather than produceMultiStoreCommand, and the file argues why at :4-7. No store-singleton import in plugins/boundary-line/src.",
+    "otel_span": "YES -- withHandlerSpan at :110.",
+    "must_not_violations": [],
+    "must_not_evidence": "grep -rnE 'commandManager|window\\.|window as|document\\.|requestAnimationFrame|dispatchEvent|src/engine|src/ui' plugins/boundary-line/src -> the single hit is a COMMENT in store.ts:22 describing what boundaryLineHasOneStore.test.ts greps for. No code.",
+    "id_pre_generated_in_tool": "YES -- BoundaryLinePlanToolHandler.ts:331 boundaryLineId: createId('boundaryLine').",
+    "deliberate_absence": "There is NO boundaryLine.move handler in the plugin, and handlers/index.ts:3-19 states why: the move is a HOST MOVE that must carry attached walls/slabs/columns in the AUTHORITATIVE geometry stores, which a plugin handler cannot reach (citing MoveWall.ts's own refusal). The verb is registered instead at apps/editor/src/engine/initBusHandlers.ts:1136 as the L-220 distinct-verb bridge to MoveBoundaryLineCommand (@pryzm/command-registry), which declares stores: [] and writes through BoundaryLineStorePort."
+  },
+  "C_lifecycle": {
+    "status": "THE ONLY FAMILY IN BATCH B6 WITH A REAL UPDATE MIRROR",
+    "ceb_case": "YES -- SEVEN case arms. CommandEventBridge.ts:2102-2106 fall through to ONE block for boundaryLine.create / .update / .attach / .detach / .move, splitting only on create-vs-update; :2187 handles .delete. Geometry-complete: the whole committed record is lifted off record.forward (op add or replace at path [id]) and shipped as ev.line. For .move the patches are legitimately absent (that command declares stores: []), so the subscriber falls back to runtime.stores.boundaryLine -- which for THIS family is the authority, not a fallback.",
+    "initTools_bridge_tag": "YES -- SS-FT-BOUNDARY-LINE (initTools.ts:1772-2040). Subscribers at :1883 boundaryLine.created, :1887 boundaryLine.updated, :1891 boundaryLine.deleted. Registration log at :2039. Grep that found it: grep -nE \"\\.on\\('[a-zA-Z.-]+\\.(created|updated|deleted)'\" apps/editor/src/engine/initTools.ts -> 17 lines, of which :1883/:1887/:1891 are these three. PLUS the plan half: installBoundaryLinePlanSymbolBuilder at :2020 (SS-FIX-BOUNDARY-LINE-INVISIBLE-IN-PLAN, L-10502).",
+    "vdt_registerElement": "YES -- initTools.ts:1857 viewDependencyTracker.registerElement(id, levelId), inside _drawBoundaryLine so it runs on BOTH created and updated. No LegacyStore.add() precedes it and that is deliberate: :1786-1791 states there is no legacy boundaryLine store to mirror into and there must not be one (C84 EI-1 by construction, checked by boundaryLineHasOneStore.test.ts).",
+    "bimManager_registerElement": "YES -- initTools.ts:1858, wrapped in try/catch.",
+    "bimManager_via_window_any": "NO for bimManager (injected option; also used at :1828 bimManager.getLevelById for the storey datum, resolved HERE and handed down as a number rather than letting the builder reach for an elevation). The STORE is reached through ONE documented cast: runtime.stores as unknown as Record<string, unknown> at :1811-1815 and again at :2022-2026 -- described in-file as 'THE ONE CAST, and it is the pre-existing StoresSlot disagreement ... not a new one'. C14 LP-01 shape, typed rather than any.",
+    "in_GEOMETRY_ELEMENT_TYPES": false,
+    "geometry_element_types_evidence": "Neither spelling appears (both greps -> 0). Consequence: a boundaryLine StoreChangeEvent would be dropped at ViewDependencyTracker.ts:676. It does not matter here because the family emits no StoreChangeEvent -- the bridge registers the element explicitly and the plan symbol reader re-reads the store on every projection.",
+    "update_verbs_covered": "YES, AND UNIQUELY. This family does NOT ride ELEMENT_UPDATE_VERBS (which has only 8 slab/roof/column rows) -- it has its own boundaryLine.updated channel covering four mutation verbs plus the move. It is therefore the ONE family in batch B6 that is not a create-mirror-without-update-mirror case, and it owes tools/ga-gate/mirror-debt.json nothing (0 rows).",
+    "undo": "YES -- boundaryLineUndoAdapter (performUndoRedo.ts:463) resolved lazily from window; apps/editor/__tests__/boundaryLineUndoAdapter.test.ts exists."
+  },
+  "D_seven_facts": {
+    "authored": "YES -- plugins/boundary-line (11 files), packages/geometry-boundary-line (BoundaryLineDimensions/Geometry/Propagation/Types), and an L0 Zod schema at packages/schemas/src/elements/BoundaryLine.ts:111 defineElement('boundaryLine'). NB it is NOT in SCHEMA_REGISTRY (registry.ts:39-68 has 28 keys, no boundaryLine) -- the same omission as balcony.",
+    "dispatchable": "YES -- boundaryLineReachableThroughComposedRuntime.test.ts R-2 'boundaryLine.create DISPATCHES -- it no longer throws at CommandBus.buildContext'; R-3 lands the record; R-4/R-5/R-7/R-8/R-9/R-10 all pin refusals BEFORE anything lands.",
+    "reachable": "YES -- BoundaryLinePlanToolHandler.ts:342 dispatches boundaryLine.create; palette row CreatePanelLayout.ts:206-210 under ARCHITECTURE calls activatePlanOnlyToolOrExplain('boundary-line','Boundary Line'). Armed through the plan overlay, which is why the activator gate names it.",
+    "renders_3d": "YES -- BoundaryLineMeshBuilder (apps/editor/src/engine/BoundaryLineMeshBuilder.ts) constructed at initTools.ts:1802 and driven by _drawBoundaryLine, which reports three distinct outcomes (solid / linework-material-refused / nothing) rather than failing silently. apps/editor/__tests__/BoundaryLineReachesTheMesh.test.ts passes.",
+    "renders_plan": "YES -- installBoundaryLinePlanSymbolBuilder (initTools.ts:2020-2038) reads runtime.stores.boundaryLine per level on EVERY projection (no cache, deliberately). The in-file note eight lines above it, saying 'there is no plan SYMBOL builder for this family yet (L-9948)', is superseded by L-10502 and the file says so.",
+    "persists": "NO -- SAVE HALF ONLY. The save half is real: snapshotFamilyCoverage.ts:149 { storeKey:'boundaryLine', status:'persisted', snapshotKey:'boundaryLines' }; ProjectSerializer.ts:206 declares boundaryLines?: any[] and :1470-1483 writes it from runtime.stores.boundaryLine. THE RESTORE DOES NOT RUN IN PRODUCTION. ProjectLoader.ts Step 10c (:1628-1668) dispatches boundaryLine.create per record, but it sits in the LEGACY branch of the if (useImportCmd) { ... } else { ... } at :765, and _useImportCommandPath() (:3249-3272) returns TRUE by default (localStorage / VITE env overrides only). Measured 2026-08-29: grep -c 'boundaryLine' packages/command-registry/src/project/ImportProjectCommand.ts -> 0. So a boundary line is saved and never read back. Logged L-11528, OPEN; the repo states it in two places (ProjectLoader.ts:1946-1951 and restoreCompoundFamilies.ts:63-70). ADDITIONALLY, snapshotFamilyCoverage.ts:150 records that attachments[] are serialized but NOT re-attached on load (L-9950, OPEN). NB the executed round-trip proof (snapshotFamilyRoundTrip.spec.ts, 8/8 green) covers only the FIVE SS-PERSIST103 families -- boundaryLine is not among them; its ARM G cites the boundaryLine grep as the very reason the compound restore was placed in the common tail.",
+    "exports": "NO -- grep -c 'snapshot.boundaryLines' in plugins/ifc-export/src/exporters/IFC4X3Exporter.ts -> 0. That exporter reads walls/slabs/doors/windows/columns/beams/rooms only. (Arguably correct for a setting-out line, but it is undeclared either way.)",
+    "first_failing_link": "persists"
+  },
+  "E_c11_ss11_crosscheck": {
+    "matrix_row": "NO ROW for Boundary Line in C11 SS11's 14-row table (:1281-1294).",
+    "verdict": "REFUTES BY OMISSION. SS11 preamble (:1267): 'It MUST be updated whenever a bridge is added, removed, or repaired.' This family acquired a CEB block covering SEVEN verbs, three initTools subscribers, a mesh builder, a plan symbol builder and an undo adapter -- and has no row. It is also the family that would REFUTE the matrix's implicit model most sharply: the matrix's column key defines 'initTools bridge' as 'a subscriber that calls LegacyStore.add()', and this family deliberately calls no LegacyStore.add() at all (C84 EI-1, one authority). The matrix has no vocabulary for a correct bridge of that shape."
+  }
+}

@@ -1,0 +1,128 @@
+{
+  "family": "floor",
+  "measured": "2026-08-29",
+  "registration": {
+    "registration_site": "apps/editor/src/PluginRegistry.ts:420-430 -- { id: 'floor', storeKey: 'floor', buildStore: () => new FloorStore(), buildHandlers: () => buildFloorHandlerSet() }, under the SS-P3.2-FL comment block.",
+    "declared_storeKey": "floor",
+    "storeKey_matches_ctx_stores_key": "YES -- probe P-B printed registeredStoreKeys[floor] = \"floor\"; probe P-A printed rt.stores.floor present. CreateFloorHandler and ChangeFloorLevelHandler declare affectedStores ['floor']; UpdateFloorLayersHandler and SetFloorMaterialHandler declare ['floor']; SetFloorFinishBatchHandler declares [] (see B2-FLOOR-01). Verified against ctx.stores AND affectedStores, not the directory name.",
+    "in_ELEMENT_PLUGIN_IDS": false,
+    "proof_reads_real_composition_root": "NONE EXISTS. bootstrap.everything.test.ts:46-61 enumerates twelve stores by name and `rt.stores.floor` is NOT among them; its generic assertion at :134 iterates ELEMENT_PLUGIN_IDS, which does not contain 'floor'. So no D6-compliant proof observes floor's storeKey. A regression that renamed floor's storeKey would leave every gate and suite green and only surface as a runtime 'required store floor is missing from HandlerContext.stores' throw.",
+    "status": "REGISTERED, NOT PROVEN",
+    "evidence": "awk '/^export const ELEMENT_PLUGIN_IDS/,/^\\] as const;/' apps/editor/src/PluginRegistry.ts | grep -n floor -> ONE hit and it is COMMENT text at relative line 39 ('...beside `floor`, `lighting` and `view`'). probe P-A printed: ELEMENT_PLUGIN_IDS has floor? false. npx tsx tools/ga-gate/check-plugin-census-equivalence.ts -> RC=0 but arm F prints '3 (baseline 3) -> floor, lighting, view' under the heading 'REGISTRY \\ ELEMENT_PLUGIN_IDS -- registered, storeKey assertion never iterates it'. RC=0 is not 0 violations."
+  },
+  "handler": {
+    "path": "plugins/floor/src/handlers/CreateFloor.ts",
+    "validates_before_mutation": "PARTIAL -- canExecute rejects a polygon that is PRESENT and shorter than 3, a non-positive resolved thickness and a non-finite baseOffset. It does NOT require a polygon, so an omitted one commits `boundary.polygon: []` (probe P-H). No typed DomainError exists for this family at all: `ls plugins/floor/src/` -> contributions.ts, handlers, index.ts, store.ts -- there is NO errors.ts, unlike roof/column/beam which each have one.",
+    "mutates_only_via_immer_draft": "YES for CreateFloor -- produceCommand<FloorsState>(ctx.stores.floor, draft => { draft[floorId] = newFloor; }). NO for SetFloorFinishBatchHandler, which mutates through window.commandManager instead (B2-FLOOR-01).",
+    "otel_span": "YES -- withHandlerSpan('floor.create.handler', ...) at CreateFloor.ts:90. All five floor handlers wrap (grep -rc withHandlerSpan plugins/floor/src/handlers/*.ts -> 2-3 hits per file, 0 in index.ts).",
+    "affectedStores_declared": "['floor'] as const (CreateFloor.ts:69)",
+    "must_not_violations": [
+      "plugins/floor/src/handlers/SetFloorFinishBatch.ts:106 -- `const cm = window.commandManager as {...}` then :142 `cm.execute(new SetFloorFinishBatchCommand({...}))`. C11 SS5 MUST NOT: no commandManager.execute. C14 SS2.1. P4 window-as-namespace.",
+      "plugins/floor/src/handlers/SetFloorFinishBatch.ts:126 and :173 -- `window.dispatchEvent(new CustomEvent(FLOOR_FINISH_BATCH_REPORT_EVENT, { detail: report }))`. C11 SS5 MUST NOT: no window.dispatchEvent, no DOM access.",
+      "plugins/floor/src/handlers/SetFloorFinishBatch.ts:80 -- `affectedStores: [] as const` and every return is `{ forward: [], inverse: [] }`, so the verb is undo-NEUTRAL on the bus while the legacy commandManager it calls really does mutate the model."
+    ],
+    "id_pre_generated_in_tool": "YES on every reachable path -- FloorPlanToolHandler.ts:494 `const floorId = createId('floor')` (and its own `ifcGuid = crypto.randomUUID()` at :495), CopyPlanToolHandler.ts:575, BalconyPlanToolHandler.ts:263, duplicateToLevel (idKind 'floor', mintsIfcGuid true). The handler mints when absent (`const floorId = (cmd.floorId ?? createId('floor'))`, CreateFloor.ts:94), so the latent FIX-WALL-ID hazard exists but is not firing.",
+    "status": "PARTIAL -- CreateFloor is compliant; the family's LIVE finish-update verb is not",
+    "evidence": "grep -rn \"commandManager|window\\.|document\\.|requestAnimationFrame|dispatchEvent\" plugins/floor/src -> 6 hits: 2 are contract-citation comments in CreateFloor.ts:12 and UpdateFloorLayers.ts:8, and FOUR are live code in SetFloorFinishBatch.ts (:106, :126, :153 comment, :173). plugins/floor/src/handlers/index.ts calls floor.setFinishBatch 'the LIVE floor-finish route'."
+  },
+  "lifecycle": {
+    "ceb_case": "packages/runtime-composer/src/CommandEventBridge.ts:1382 `case 'floor.create':` -- the most geometry-complete case of the four in this batch: levelId, floorId, ifcGuid, polygon, baseOffset, thickness, label, systemTypeId, layers, finishSpec, serviceHoles, hostSlabId, hostRoomId, createdBy. It also fires from :1525 inside `balcony.create` for the balcony's floor finish. There is NO floor.batch.create case (and no such verb).",
+    "initTools_bridge_tag": "SS-P3.2-FL -- grep -n \"\\u00a7P3.2-FL: .*bridge registered\" apps/editor/src/engine/initTools.ts -> :2562 `console.log('[initTools] \\u00a7P3.2-FL: floor mirrored ... bridge registered.')`; subscriber opens at :2480 `runtime.events.on('floor.created', ...)`.",
+    "vdt_registerElement": "YES -- initTools.ts:2552 viewDependencyTracker.registerElement(ev.floorId, ev.levelId ?? '').",
+    "bimManager_registerElement": "YES -- initTools.ts:2553 `try { bimManager.registerElement(ev.floorId, ev.levelId ?? ''); } catch {}`.",
+    "bimManager_via_window_any": "NO -- SS-FIX-P4-FLOOR-BIMMANAGER IS GENUINELY FIXED. `grep -n 'window as any).bimManager|window.bimManager' apps/editor/src/engine/initTools.ts` -> ONE hit, :2547, and it is COMMENT text recording the removal ('Previously used `(window as any).bimManager?.registerElement?.(...)` -- a C14 SS LP-01 prohibited pattern'). The live call at :2553 uses the bimManager injected as a ToolsParams field (initTools.ts:267, destructured :373). Residual: that field is typed `any` -- a typed-any seam, not a P4 window-as-namespace violation.",
+    "in_GEOMETRY_ELEMENT_TYPES": true,
+    "update_verbs_covered": "NONE 0/5 through the element.updated channel. There is NO floor row in ELEMENT_UPDATE_VERBS and NO floor adapter in LEGACY_UPDATABLE_STORES. floor.changeLevel is covered separately by elementLevelChangedMirror.ts:210 `floor: (deps) => deps.floorStore`. floor.updateLayers has its own CEB case (:1362) emitting `floor.layer-updated` -- an event with ZERO subscribers anywhere in the repo. floor.setMaterial REFUSES by declaration and names `floor.update`, which IS registered (initBusHandlers.ts:963). floor.setFinishBatch reaches the model only through window.commandManager.",
+    "status": "WIRED (create) / UNMIRRORED (update)",
+    "evidence": "probe P-B: registeredHandlerTypes[floor] = [floor.create, floor.updateLayers, floor.setMaterial, floor.changeLevel, floor.setFinishBatch]. probe P-J: floor.delete -> \"no handler registered for: floor.delete\"."
+  },
+  "milestones": {
+    "authored": "YES",
+    "dispatchable": "YES",
+    "reachable": "YES",
+    "renders_3d": "YES",
+    "renders_plan": "YES",
+    "persists": "YES",
+    "exports": "NO"
+  },
+  "milestone_proofs": {
+    "authored": "plugins/floor/src/handlers/CreateFloor.ts + 4 siblings; plugins/floor/src/store.ts FloorStore.",
+    "dispatchable": "probe P-F through the REAL composed runtime: `rt.bus.executeCommand('floor.create', { floorId, levelId, polygon, thickness, baseOffset })` resolved; floor store ids: [\"floor_01ARZ3NDEKTSV4RRFFQ69G5FA4\"]. No 'required store floor is missing' throw. NOTE this is my probe, not a repo suite -- no committed test observes it (see registration.proof_reads_real_composition_root).",
+    "reachable": "planToolHandlerRegistry.ts:166 `'floor': new FloorPlanToolHandler()`; elementCreationMatrix.ts:385 `{ tool: 'floor', label: 'Floor finish' }`; check-tool-activator-coverage.ts ARM A uncovered = balcony, bathroom-pod, boundary-line, pool -- floor has an activator.",
+    "renders_3d": "initBuilders.ts:434 `new FloorPanelBuilder(scene, bimManager)` + :440 `window.addEventListener('bim-floor-added', e => { const data = floorStore.getById(id); if (data) floorBuilder.buildFloor(data); })`. FloorStore.add() fires that event; the SS-P3.2-FL bridge calls floorStore.add().",
+    "renders_plan": "'floor' in GEOMETRY_ELEMENT_TYPES AND in PLAN_INCREMENTAL_SAFE_TYPES (ViewDependencyTracker.ts) AND at EdgeProjectorService.ts:2048 in the version-stamped incremental set; layer key 'A-FLOR' at EdgeProjectorService.ts:206.",
+    "persists": "ProjectSerializer.ts:822 `const floors = floorStore ? floorStore.getAll().map(f => deepStrip(f)) : []` and apps/editor/src/engine/authoritativeStores.ts:138 / :177 pass floorStore in. NOTE the dep is OPTIONAL at :741 (`floorStore?:`), so a caller that omits it serialises floors as [] with no diagnostic -- failure and emptiness are the same value at that seam.",
+    "exports": "NO. `ls packages/file-format/src/export/ifc/readers/` -> BeamReader, ColumnReader, CurtainWallReader, FurnitureReader, HandrailReader, PlumbingReader, ReaderContext, RoofReader, RoomReader, SlabReader, StairReader, WallReader, WindowDoorReader, commonPsets -- there is NO FloorReader. FragmentReader.read() (:75-135) is a fixed sequence of eleven `if (this.stores.<x>Store)` blocks with no generic fallback, and `grep -i floor FragmentReader.ts` returns ONE hit, :237 'Ground Floor' (a level name). ExportIFC.ts:41-53 builds the stores object with eleven entries and floorStore is not one of them."
+  },
+  "first_failing_link": "exports",
+  "c11_s11_matrix_says": "Row **Floor**: CEB case OK `floor.create`; initTools bridge OK SS-P3.2-FL; Store add()->storeEventBus OK FloorStore.add() line 125; Plan-view tracked OK 'floor'; VDT+bimManager OK (Rev 4 -- FIX-P4-FLOOR-BIMMANAGER; previously P4 violation); 3D via bus OK; Status FULL. The batch's specific instruction was to verify the bimManager call is not via (window as any): CONFIRMED FIXED -- the only such string in initTools.ts is the comment at :2547 recording its removal, and the live call at :2553 uses the injected instance. All six printed cells are CONFIRMED. The 'FULL' verdict is REFUTED at the export leg, which the matrix has no column for: floor finishes have no IFC reader and never leave the tool. It is also refuted at the registration leg -- floor is the one family in this batch outside ELEMENT_PLUGIN_IDS, so the storeKey assertion the matrix implicitly relies on never runs for it.",
+  "status": "PARTIAL",
+  "findings": [
+    {
+      "id": "B2-FLOOR-01",
+      "class": "HANDLER-MUST-NOT-TRIPLE-VIOLATION (the LIVE finish route)",
+      "severity": "P1",
+      "blocks_production": false,
+      "claim": "SetFloorFinishBatchHandler -- which plugins/floor/src/handlers/index.ts calls 'the LIVE floor-finish route' -- breaks three C11 SS5 MUST NOTs in one function: it reads `window.commandManager` and calls `cm.execute(new SetFloorFinishBatchCommand(...))`, it calls `window.dispatchEvent(new CustomEvent(...))` twice, and it declares `affectedStores: []` while returning `{forward: [], inverse: []}` -- so the bus records no patch pair for a command that really does mutate the legacy model. The result is a verb that is undo-neutral on the bus and destructive in the model: Ctrl+Z after a floor-finish batch pops the PREVIOUS command.",
+      "command": "sed -n '78,82p;104,110p;124,128p;140,145p;170,176p' plugins/floor/src/handlers/SetFloorFinishBatch.ts",
+      "output_excerpt": ":80 `affectedStores: [] as const,` || :106 `const cm = window.commandManager as | { execute(cmd: unknown, options?: unknown): {...} } | undefined;` || :126 `window.dispatchEvent(new CustomEvent(FLOOR_FINISH_BATCH_REPORT_EVENT, { detail: report }));` || :142 `const result = cm.execute(new SetFloorFinishBatchCommand({...}));` || :173 `window.dispatchEvent(new CustomEvent(FLOOR_FINISH_BATCH_REPORT_EVENT, { detail: report }));` || :180 `const empty: HandlerResult = { forward: [], inverse: [] }; return empty;`",
+      "contract_clause": "C11 SS5 MUST NOT (no commandManager.execute, no window.dispatchEvent, no DOM access); C14 SS2.1; C14 SS LP-01 / P4; C03 SS4.5-4.8 (undo symmetry)",
+      "disposition": "REPLACE"
+    },
+    {
+      "id": "B2-FLOOR-02",
+      "class": "EXPORT-GAP (no IFC reader)",
+      "severity": "P1",
+      "blocks_production": true,
+      "claim": "Floor finishes never leave the tool. There is no FloorReader in the IFC export readers directory, FragmentReader.read() has no floor block and no generic fallback, and ExportIFC.ts does not even put floorStore into the stores object it hands the reader. Every floor finish a user draws -- carrying a systemTypeId, a layer stack, a finishSpec and an IfcCovering/FLOORING classification the schema goes to the trouble of declaring (core-app-model/src/stores/FloorTypes.ts:6,159) -- is silently absent from the exported model. A consultant opening the IFC sees the structural slab and no covering.",
+      "command": "ls packages/file-format/src/export/ifc/readers/ | grep -i floor; grep -n -i 'floor' packages/file-format/src/export/ifc/FragmentReader.ts; sed -n '41,53p' packages/file-format/src/export/ifc/ExportIFC.ts",
+      "output_excerpt": "readers/ grep -i floor -> NO MATCH (14 entries: BeamReader, ColumnReader, CurtainWallReader, FurnitureReader, HandrailReader, PlumbingReader, ReaderContext, RoofReader, RoomReader, SlabReader, StairReader, WallReader, WindowDoorReader, commonPsets) || FragmentReader.ts grep -i floor -> 1 hit, :237 `name: 'Ground Floor'` (a level name) || ExportIFC.ts:41-53 stores = { wallStore, slabStore, columnStore, curtainWallStore, beamStore, stairStore, roofStore, furnitureStore, handrailStore, plumbingStore, roomStore } -- eleven entries, no floorStore",
+      "contract_clause": "C11 SS11 (the matrix's FULL verdict); C76 (Platform & API Surface); C89 (floor finish / IfcCovering)",
+      "disposition": "WIRE"
+    },
+    {
+      "id": "B2-FLOOR-03",
+      "class": "REGISTERED-BUT-UNPROVEN (census arm F)",
+      "severity": "P1",
+      "blocks_production": false,
+      "claim": "floor is the only family in this batch that is registered in ALL_PLUGINS and absent from ELEMENT_PLUGIN_IDS, and it is not in STORE_ONLY_PLUGIN_IDS either, so no written reason exists. The consequence is precise: bootstrap.everything.test.ts's per-plugin storeKey assertion iterates ELEMENT_PLUGIN_IDS and therefore never looks at floor, and its explicit twelve-store list omits rt.stores.floor. The single defect class this repo has hit TEN times -- a declared storeKey that does not match the key in ctx.stores -- is unobserved for floor. The census gate NAMES this hole and passes at a baseline of 3, which is exactly why RC=0 must not be read as zero violations.",
+      "command": "npx tsx tools/ga-gate/check-plugin-census-equivalence.ts; awk '/^export const ELEMENT_PLUGIN_IDS/,/^\\] as const;/' apps/editor/src/PluginRegistry.ts | grep -n floor; grep -n 'ELEMENT_PLUGIN_IDS|stores\\.' apps/editor/__tests__/bootstrap.everything.test.ts",
+      "output_excerpt": "[plugin-census-equivalence] F REGISTRY \\ ELEMENT_PLUGIN_IDS -- registered, storeKey assertion never iterates it :: 3 (baseline 3) -> floor, lighting, view || RC=0 || ELEMENT_PLUGIN_IDS block grep floor -> 1 hit, COMMENT text only || bootstrap.everything.test.ts:46-61 asserts wall, slab, door, window, roof, curtainwall, grid, column, beam, stair, handrail, ceiling -- twelve, no floor; :134 `for (const id of ELEMENT_PLUGIN_IDS)`",
+      "contract_clause": "C11 SS5.5 (the storeKey/ctx.stores identity); D6 (a plugin's own suite cannot discharge a registration proof)",
+      "disposition": "WIRE"
+    },
+    {
+      "id": "B2-FLOOR-04",
+      "class": "EVENT-WITH-NO-SUBSCRIBER",
+      "severity": "P2",
+      "blocks_production": false,
+      "claim": "CommandEventBridge's floor.updateLayers case emits `floor.layer-updated` under the comment 'so FragmentBuilder subscribers know the floor's system-type / layer stack has changed and can trigger a mesh rebuild'. There are no such subscribers. Repo-wide the string appears three times: the comment, the emit, and the type declaration. A floor.updateLayers therefore changes the layer stack in the plugin store and rebuilds nothing. (The same is true of the sibling slab.layer-updated and ceiling.layer-updated -- this is one TASK-12 gap across three families, and floor is one of them.)",
+      "command": "grep -rn --include=*.ts --include=*.tsx --include=*.js 'floor\\.layer-updated' apps packages plugins server tools tests src | grep -v node_modules",
+      "output_excerpt": "packages/runtime-composer/src/CommandEventBridge.ts:1363 (comment) || packages/runtime-composer/src/CommandEventBridge.ts:1371 events.emit('floor.layer-updated', {...}) || packages/runtime-composer/src/types.ts:1040 'floor.layer-updated': { ... }  -- 3 hits, ZERO `events.on('floor.layer-updated'` anywhere",
+      "contract_clause": "C11 SS6; C03 SS4.6 U-4",
+      "disposition": "WIRE"
+    },
+    {
+      "id": "B2-FLOOR-05",
+      "class": "DEGENERATE-PAYLOAD-COMMITS-INVISIBLE-ELEMENT",
+      "severity": "P2",
+      "blocks_production": false,
+      "claim": "floor.create with no polygon passes canExecute (which only rejects a polygon that is PRESENT and short) and commits a floor whose boundary.polygon is []. The SS-P3.2-FL bridge then returns early on `!ev.polygon || ev.polygon.length < 3`, so the record exists in the plugin store and in no renderer, no plan view, no legacy store and no save file. Compounding it: an L0 `Floor` schema EXISTS at packages/schemas/src/elements/Floor.ts and CreateFloorHandler does not use it -- it hand-builds the record and casts `as unknown as FloorData`, so the schema's own guards never run. roof/column/beam all call their L0 parser; floor is the odd one out, and it is also the only one of the four with no errors.ts and therefore no typed DomainError.",
+      "command": "npx vitest run --config audit/element-creation/2026-08-29/probe/vitest.probe.config.ts --reporter=verbose --silent=false   (case P-H);  grep -rn 'Floor\\.parse|elements/Floor' packages plugins apps | grep -v node_modules;  ls plugins/floor/src/",
+      "output_excerpt": "[PROBE P-H] threw: null || [PROBE P-H] floor store ids: [\"floor_01ARZ3NDEKTSV4RRFFQ69G5FA6\"] || [PROBE P-H] boundary of the record: {\"polygon\":[],\"baseOffset\":0.015,\"thickness\":0.015,\"detectionMethod\":\"manual-polygon\"} || `Floor.parse` importers outside packages/schemas' own tests: NONE || ls plugins/floor/src/ -> contributions.ts  handlers  index.ts  store.ts   (no errors.ts) || CreateFloor.ts:139 `} as unknown as FloorData;`",
+      "contract_clause": "C11 SS5 (validate before mutation, typed DomainError); C03 (schemas are the validation authority)",
+      "disposition": "REPLACE"
+    },
+    {
+      "id": "B2-FLOOR-06",
+      "class": "OPTIONAL-DEP-MAKES-FAILURE-AND-EMPTINESS-THE-SAME-VALUE",
+      "severity": "P3",
+      "blocks_production": false,
+      "claim": "ProjectSerializer declares floorStore OPTIONAL and serialises `floorStore ? floorStore.getAll().map(deepStrip) : []`. Every sibling family's store is a required dep. A caller that forgets floorStore saves a project with zero floor finishes and no diagnostic -- indistinguishable from a project that genuinely has none. authoritativeStores.ts does pass it today, so this is a latent seam, not a live loss.",
+      "command": "sed -n '714,745p;779,824p' packages/persistence-client/src/loader/ProjectSerializer.ts; grep -n 'floorStore' apps/editor/src/engine/authoritativeStores.ts",
+      "output_excerpt": "ProjectSerializer.ts:714 `columnStore: ColumnStore;` :717 `beamStore: BeamStore;` :719 `roofStore: RoofStore;` (all required) vs :741 `floorStore?: import('@pryzm/core-app-model/stores').FloorStore;` || :822 `const floors = floorStore ? floorStore.getAll().map(f => deepStrip(f)) : [];` || authoritativeStores.ts:102 'floorStore', :138 `floorStore: s.floorStore,`, :177 `floorStore: s.floorStore,`",
+      "contract_clause": "C03 SS4.6 U-4 (failure and emptiness are never the same value); [[context-data-honesty-family]]",
+      "disposition": "REPLACE"
+    }
+  ]
+}

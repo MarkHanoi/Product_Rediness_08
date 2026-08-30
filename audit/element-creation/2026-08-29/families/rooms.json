@@ -1,0 +1,132 @@
+{
+  "family": "rooms",
+  "batch": "B4",
+  "measured": "2026-08-29",
+  "classification": "NOT A BROKEN ELEMENT — A DELIBERATE LEGACY BRIDGE FAMILY. All 18 room verbs declare `affectedStores: []` and forward a @pryzm/command-registry command through `window.commandManager`; the authoritative record lives in the room-topology RoomStore, never in the plugin's SDK RoomsState. That is the stated L-75 / L-79 resolution (plugins/rooms/src/store.ts:11-45, plugins/rooms/src/handlers/legacyCommands.ts §ROOM-ONE-LEGACY-SEAM). Scoring the empty plugin DTO store as a failure would be reading the design as a defect. ⚠ BUT the brief's premise 'rooms is kind=view and derived, not tool-created' is REFUTED: rooms ARE tool-created — apps/editor/src/engine/views/plantools/RoomPlanToolHandler.ts:114 dispatches room.create with a complete RoomData from a user-drawn polygon, and RoomTool (@pryzm/room-topology, instantiated at initTools.ts:3201) is the 3-D equivalent. Derivation (room.redetect) is the DOMINANT path, not the only one.",
+  "registration": {
+    "status": "OK-WITH-A-LATENT-DIVERGENCE",
+    "registration_site": "apps/editor/src/PluginRegistry.ts — `{ id: 'rooms', storeKey: 'rooms', buildStore: () => new RoomStore(), buildHandlers: () => buildRoomHandlerSet(), wireSubscriptions: wireRoomEventSubscriptions }` (grep `storeKey:` -> :655). rooms is the ONLY plugin declaring wireSubscriptions (C11 §6.3, Task 1.3).",
+    "declared_storeKey": "rooms",
+    "storeKey_matches_ctx_stores_key": "VACUOUSLY — and that is the point. Every room handler declares `affectedStores: []`, so CommandBus.buildContext never resolves a room store key and the mismatch is unrepresentable today. But the two spellings ARE divergent: the descriptor declares `'rooms'` while the plugin store binds `super('room')` (plugins/rooms/src/store.ts:57). MEASURED at the composition root: `rt.stores.rooms present = true`, `rt.stores.room present = false`. The moment any room handler declares `affectedStores: ['room']` it throws \"required store 'room' is missing from HandlerContext.stores\" — which is EXACTLY what §FIX-ROOM-CREATE-STORE-KEY had to undo for room.create, the last of eleven siblings to be holding it.",
+    "in_ELEMENT_PLUGIN_IDS": true,
+    "proof_reads_real_composition_root": "YES — apps/editor/__tests__/composedBusElementReadback.test.ts arm A-4 composes the real runtime (composeRuntime + bootstrapWithEverything), dispatches room.create with a complete RoomData, asserts the outcome matches /legacy command manager is not available/ and that `rt.stores.elements.get('room').getById(id)` is undefined. It constructs no store. `room` is also one of the two entries in the exported UNMIRRORED_KINDS census, each with a >80-char reason. Reproduced independently here by B4 probe P-I.",
+    "evidence": "[B4 P-A] registeredStoreKeys[rooms] = \"rooms\" ; rt.stores.rooms present = true ; rt.stores.room present = false ; registeredHandlerTypes[rooms] = 18 verbs"
+  },
+  "handler": {
+    "status": "OK-BY-DESIGN (bridge), with the DOM seam the design requires",
+    "path": "plugins/rooms/src/handlers/CreateRoom.ts",
+    "validates_before_mutation": "YES, and it is the best example in this batch. `whyNotACompleteRoom()` names every missing field, explains why `computed`/`metadata` will NOT be re-derived here (a rival derivation would disagree with the one the area schedules, the label renderer and the IFC exporter read), and points at the two paths that do work. canExecute also rejects a wrong `type` and a >256-char name.",
+    "mutates_only_via_immer_draft": "NO — BY DESIGN AND DECLARED. `affectedStores = []`, `return { forward: [], inverse: [] }`, and the write is `cm.execute(new CreateRoomCommand(cmd))`. The authoritative write is CreateRoomCommand, which does the three things a bare roomStore.add() would skip: assignUniqueRoomNumber, bimManager.registerElement, elementRegistry.registerSemantic, in the §R-3 order.",
+    "otel_span": "YES — withHandlerSpan wraps execute(). ZONE A 275/275. plugins/rooms/src/handlers/legacyCommands.ts is the ONE file in the repo carrying the `@command-gate: not-a-command-bus-handler` marker, printed by check-otel-spans on every run: a pure re-export with no executable path, exempted visibly rather than silently.",
+    "id_pre_generated_in_tool": "YES — RoomPlanToolHandler.ts:81 `const roomId = createId('room')`, and the handler REFUSES a payload with no id rather than minting one (unlike furniture and plumbing, which mint on `{}`). That is why the RoomTool.ts:387 `room.create {}` telemetry shot is harmless.",
+    "must_not_violations": [
+      "C11 §5.3 (no commandManager.execute / no DOM access) — violated by design across the whole family: `window.commandManager` appears in CreateRoom, CreateTemplate, RenameRoom, DeleteRoom, MoveRoom, SetRoomDepartment, SetRoomFinish, BulkAutoClassifyRooms and more; plugins/rooms/src/handlers/RedetectRooms.ts also calls `window.dispatchEvent(...)`. The plugin CONCENTRATES the coupling into one re-export seam (legacyCommands.ts) rather than eleven import edges, and guards `typeof window === 'undefined'` in CreateRoom.ts:166 and CreateTemplate.ts:76 — the two guards furniture and plumbing lack.",
+      "`Window.commandManager` is typed `any` (packages/core-app-model/src/global-window-augment.d.ts:38), so every one of these seams is an `any` boundary."
+    ],
+    "affectedStores_declared": "[] on ALL 18 room verbs — uniformly, with a written reason on each",
+    "evidence": "grep -rn \"affectedStores\" plugins/rooms/src/ -> every handler `readonly affectedStores = [] as const;` or `affectedStores: [] as const,`"
+  },
+  "lifecycle": {
+    "status": "PARTIAL",
+    "ceb_case": "YES BUT levelId-ONLY — packages/runtime-composer/src/CommandEventBridge.ts:1075 `case 'room.create': const p = record.payload as { levelId?: string }; events.emit('room.created', { commandId, commandType:'room.create', levelId: p.levelId ?? '' });`. No id, no boundary. NOT geometry-complete — and correctly so, because nothing is meant to rebuild a room from this event; the legacy command already did the work.",
+    "initTools_bridge_tag": "NONE, and none is needed. `grep -n \"\\.created'\" apps/editor/src/engine/initTools.ts` -> 19 subscribers, no `room.created`. The render wiring is at apps/editor/src/engine/initBuilders.ts:495-509: `window.addEventListener('bim-room-added'|'bim-room-updated'|'bim-room-removed', …)` -> RoomBoundaryBuilder.updateRoom + RoomLabelRenderer.updateRoom. ⚠ But `room.created` IS therefore an orphan typed channel — see B4-ROOM-02.",
+    "vdt_registerElement": "NO — CreateRoomCommand registers with bimManager and elementRegistry, not with viewDependencyTracker. Moot for the plan FILL (which reads the store on every paint) but not for reprojection scheduling.",
+    "bimManager_registerElement": "YES — inside CreateRoomCommand (@pryzm/command-registry), reached via `context.bimManager`, i.e. a CommandContext field, not a window read. initBuilders.ts:466 adopts the room store singleton with `roomStoreSingleton.attachEngine(projectContext, bimManager)` (§ADR-0318-ELEMENTS-SLOT).",
+    "bimManager_via_window_any": "NO in the command path. YES in the tool path: packages/room-topology/src/RoomTool.ts:387 `if ((window as any).runtime?.bus) { (window as any).runtime.bus.executeCommand('room.create', {})…}` — a literal `(window as any)` in an L2 package, which is a P4 / C14 LP-01 breach even though check-cast-count.ts absorbs it inside the repo-wide baseline (100/100).",
+    "in_GEOMETRY_ELEMENT_TYPES": false,
+    "update_verbs_covered": "NO — zero room rows in ELEMENT_UPDATE_VERBS (which holds 7 rows across slab/roof/column). Rooms are the one family where this matters least, because every room verb writes the legacy store synchronously through commandManager and the legacy store fires `bim-room-updated` -> RoomBoundaryBuilder/RoomLabelRenderer directly. The bus mirror is not the render path here.",
+    "evidence": "npx tsx tools/ga-gate/check-mirror-reachability.ts uses room.create as its ORPHAN-CHANNEL CONTROL: '✓ fired — room.create → TYPED-EVENT-NO-SUB (a REAL bridge case whose event name nobody subscribes to — the orphan-channel arm)'."
+  },
+  "milestones": {
+    "authored": "YES",
+    "dispatchable": "YES",
+    "reachable": "YES",
+    "renders_3d": "YES",
+    "renders_plan": "UNVERIFIED",
+    "persists": "YES",
+    "exports": "YES"
+  },
+  "milestone_proofs": {
+    "authored": "plugins/rooms/src/handlers/ — 18 verbs; the authoritative commands live in @pryzm/command-registry and are re-exported through the single §ROOM-ONE-LEGACY-SEAM file.",
+    "dispatchable": "EXECUTED, and the refusals are the proof it is wired correctly. B4 probe P-I: `room.create {}` -> 'room.create: canExecute rejected — room.create needs a COMPLETE RoomData record and this payload is missing: id, levelId, boundary.polygon (≥3 vertices), computed, metadata. …' ; `room.create` with a complete record -> 'room.create: the legacy command manager is not available in this process, so no room was created. The authoritative path is CreateRoomCommand … A composed runtime without that half cannot create a room.' Both are named refusals, neither is a silent success. In a browser (commandManager present) the same dispatch reaches CreateRoomCommand. check-verb-liveness.ts STORE CENSUS lists `room` under REACHABLE (11) — one of only three element families whose authoritative store the composed runtime can reach at all.",
+    "reachable": "4 production dispatch sites: RoomPlanToolHandler.ts:114 (the plan Room tool's SOLE creation path), RoomAIAssistant.ts:165, apartment-layout executePlan.ts:839, RoomTool.ts:224/387. Tool activator registered at PluginRegistry.ts:1181 `runtime.tools.register('rooms', …)` -> window.roomTool (assigned initTools.ts:3236) with a `rooms.panel.open` fallback; not in check-tool-activator-coverage.ts's uncovered set.",
+    "renders_3d": "YES. Chain grepped: CreateRoomCommand -> room-topology RoomStore.add (packages/room-topology/src/RoomStore.ts:271-277) -> `_emitDom('bim-room-added', id, levelId)` -> apps/editor/src/engine/initBuilders.ts:495 `window.addEventListener('bim-room-added', …)` -> `roomBoundaryBuilder.updateRoom(room)` + `roomLabelRenderer.updateRoom(room)`. RoomBoundingLineBuilder stamps `userData.version` (EdgeProjectorService.ts:1974) and 'room' is in CACHEABLE_ELEMENT_TYPES.",
+    "renders_plan": "UNVERIFIED — same split as lighting. PAINTING IS WIRED: PlanViewCanvas._renderRoomFills() (packages/core-app-model/src/views/PlanViewCanvas.ts:2488, called at :383 and :1959) reads `window.roomStore` directly on every plan-like paint. PROJECTION IS WIRED: RoomBoundingLineBuilder version-stamps and 'room' is CACHEABLE in EdgeProjectorService. INVALIDATION IS NOT: RoomStore.add DOES emit `storeEventBus { elementType:'room', operation:'create' }` (RoomStore.ts:273-277), and ViewDependencyTracker._onStoreEvent drops it at :676 because 'room' is absent from GEOMETRY_ELEMENT_TYPES. So a room mutation dirties no view and whether the user sees it promptly depends on an unmeasured repaint driver.",
+    "persists": "YES — snapshotFamilyCoverage.ts:141 `{ storeKey:'room', status:'via-legacy-twin', snapshotKey:'rooms', reason:'Serialized from the room-topology RoomStore. ⚠ The plugin binds super(\\'room\\') while PluginRegistry declares storeKey `rooms` — a divergence noted, not introduced here.' }`. check-snapshot-family-coverage.ts RC=0, 26 claims verified against the snapshot's own fields and writers; rooms is not among the 3 declared losses. NOTE: the persistence authority's own row records the storeKey divergence of B4-ROOM-03.",
+    "exports": "YES — the ONLY family in batch B4 with a real IFC exporter. plugins/ifc-export/src/exporters/space.ts emits one IfcSpace per PRYZM Room under its IfcBuildingStorey via IfcRelAggregates, with Pset_SpaceCommon and an IfcSpaceTypeEnum predefined type; IFC4X3Exporter.ts:400 'IFC-α-2: Rooms → IfcSpace'. plugins/ifc-export/src/exporters/zone.ts groups spaces into apartments via IfcRelAssignsToGroup."
+  },
+  "first_failing_link": "renders_plan — every earlier link holds and every later one holds too, which is what makes this the interesting row: rooms persist and export cleanly while the plan-view INVALIDATION link is the single hole. 'room' is absent from GEOMETRY_ELEMENT_TYPES (packages/core-app-model/src/views/ViewDependencyTracker.ts:42-49), so ViewDependencyTracker._onStoreEvent returns at :676 for every room store event.",
+  "c11_ss11_crosscheck": {
+    "matrix_row": "| **Room** | ✅ `room.create` | N/A (room derived, not tool-created) | Via `RoomStore` | ✅ indirect | N/A (derived, not tool-created) | N/A | ✅ Derived — redetected from walls/slabs |",
+    "verdict": "REFUTED on 3 of 7 cells",
+    "detail": "(1) 'N/A (room derived, not tool-created)' — FALSE, twice over. RoomPlanToolHandler.ts:114 is a USER-DRAWN room polygon dispatching room.create, and CreateRoom.ts's own header names it 'the plan-view room tool's SOLE creation path'; RoomTool.ts:224/387 is the 3-D equivalent. §11.11 states it more carefully ('room.create exists for explicit creation but the dominant path is auto-detection'), so the MATRIX is again the wrong half of its own contract. (2) 'Plan-view tracked ✅ indirect' — FALSE as written: 'room' is NOT in GEOMETRY_ELEMENT_TYPES and every room storeEventBus event is dropped at ViewDependencyTracker.ts:676. Room fills reach the canvas by a DIRECT store read on paint, which is a different mechanism with a different failure mode; '✅ indirect' hides exactly the invalidation gap that matters. (3) 'CEB case ✅ room.create' — TRUE that a case exists, but the column header says 'CEB case (geometry-complete)' and the payload is levelId-only, so the ✅ overstates it; check-mirror-reachability.ts uses room.create as its ORPHAN-CHANNEL CONTROL because nobody subscribes to room.created. CONFIRMED: 'Via RoomStore' and 'Derived — redetected from walls/slabs' are both true as far as they go."
+  },
+  "findings": [
+    {
+      "id": "B4-ROOM-01",
+      "class": "STORE EMITS, TRACKER DROPS — plan invalidation gap (same line as lighting)",
+      "severity": "P1",
+      "claim": "packages/room-topology/src/RoomStore.ts:273 emits `storeEventBus { elementType: 'room', operation: 'create' }` and ViewDependencyTracker._onStoreEvent discards it at its first line because 'room' is not in GEOMETRY_ELEMENT_TYPES. Rooms and lighting are the two B4 families in this hole; ONE line in ONE Set closes both, and both need the reprojection-cost measurement that line implies.",
+      "command": "sed -n '268,280p' packages/room-topology/src/RoomStore.ts ; sed -n '42,49p;676p' packages/core-app-model/src/views/ViewDependencyTracker.ts",
+      "output_excerpt": "RoomStore.ts:273:    storeEventBus.emit({ elementId: frozen.id, elementType: 'room', operation: 'create', timestamp: now });\nViewDependencyTracker.ts:42: const GEOMETRY_ELEMENT_TYPES = new Set([ 'wall','slab','column','beam','curtainwall','curtain-panel','window','door','roof','stair','stair-landing','stair-railing','verticalCirculation','opening','ceiling','floor','handrail','furniture','plumbing' ]);\nViewDependencyTracker.ts:676:        if (!GEOMETRY_ELEMENT_TYPES.has(event.elementType)) return;",
+      "contract_clause": "C11 §6.2; C11 §11.2 checklist item 5",
+      "disposition": "WIRE",
+      "blocks_production": false
+    },
+    {
+      "id": "B4-ROOM-02",
+      "class": "ORPHAN TYPED CHANNEL (measured, executed)",
+      "severity": "P2",
+      "claim": "`room.created` is emitted by the CommandEventBridge and subscribed by nobody — check-mirror-reachability.ts uses it as its NEGATIVE CONTROL for exactly that reason. Harmless today (the legacy command owns the render) but it is a declared channel that would silently absorb any future subscriber-shaped fix, and its payload is levelId-only so nothing could be rebuilt from it anyway.",
+      "command": "npx tsx tools/ga-gate/check-mirror-reachability.ts",
+      "output_excerpt": "    ✓ fired — room.create → TYPED-EVENT-NO-SUB  (a REAL bridge case whose event name nobody subscribes to — the orphan-channel arm)\n[mirror-reachability] ARM E2 … 9 of 28 typed event name(s) the bridge emits reach nobody: … · room.created …",
+      "contract_clause": "C11 §10.2 Bridge Invariants 1 & 2",
+      "disposition": "DOCUMENT",
+      "blocks_production": false
+    },
+    {
+      "id": "B4-ROOM-03",
+      "class": "LATENT STOREKEY DIVERGENCE (the ten-times defect, disarmed but not removed)",
+      "severity": "P2",
+      "claim": "The registry declares storeKey `'rooms'`; the plugin store binds `super('room')`. MEASURED at the composition root: `rt.stores.rooms` exists, `rt.stores.room` does not. It cannot throw today only because all 18 handlers declare `affectedStores: []` — the same eleven-handler sweep that had to be done after room.create threw \"required store 'room' is missing from HandlerContext.stores\" on the real composed bus. bootstrap.everything.test.ts asserts only `registeredStoreKeys['rooms'].length > 0`, i.e. that the key is a non-empty STRING — it never compares the declared key against any handler's affectedStores, so no gate would catch a re-arm. snapshotFamilyCoverage.ts:141 records the divergence in prose and nothing enforces it.",
+      "command": "npx vitest run --config audit/element-creation/2026-08-29/probe/vitest.b4.config.ts --reporter=verbose -t \"P-A\" ; grep -n \"super(\" plugins/rooms/src/store.ts",
+      "output_excerpt": "[B4 P-A] rt.stores.rooms present = true\n[B4 P-A] rt.stores.room present = false\n[B4 P-A] registeredStoreKeys[rooms] = \"rooms\"\nplugins/rooms/src/store.ts:57:    super('room');",
+      "contract_clause": "C11 §5.5 (affectedStores is a promise the REGISTRATION keeps, not the handler); ADR-0367; L-75 / L-79",
+      "disposition": "REPLACE",
+      "blocks_production": false
+    },
+    {
+      "id": "B4-ROOM-04",
+      "class": "DOC-CONFLICT (C11 §11 matrix) — 'derived, not tool-created' is false",
+      "severity": "P1",
+      "claim": "C11 §11's matrix marks Room 'N/A (room derived, not tool-created)' in TWO cells and 'Plan-view tracked ✅ indirect'. Rooms ARE tool-created from a user-drawn polygon, and they are NOT tracked by the ViewDependencyTracker at all. The brief for this batch inherited the same false premise, which is the measurable cost of the stale cell.",
+      "command": "sed -n '110,120p' apps/editor/src/engine/views/plantools/RoomPlanToolHandler.ts ; sed -n '14,32p' plugins/rooms/src/handlers/CreateRoom.ts",
+      "output_excerpt": "RoomPlanToolHandler.ts:114:        window.runtime?.bus?.executeCommand('room.create', {\nCreateRoom.ts: \"The blast radius was live, not theoretical. `RoomPlanToolHandler.ts:114` is the plan-view room tool's SOLE creation path and it dispatches this verb; the AI room assistant (`RoomAIAssistant.ts:165`) and the apartment-layout executor (`executePlan.ts:839`) dispatch it too.\"",
+      "contract_clause": "C11 §11 ('This matrix is the normative record … It MUST be updated whenever a bridge is added, removed, or repaired')",
+      "disposition": "DOCUMENT",
+      "blocks_production": false
+    },
+    {
+      "id": "B4-ROOM-05",
+      "class": "P4 / C14 LP-01 — literal (window as any) in an L2 package",
+      "severity": "P3",
+      "claim": "packages/room-topology/src/RoomTool.ts:387 fires `(window as any).runtime.bus.executeCommand('room.create', {})` as telemetry. Two separate issues: the literal `(window as any)` double cast in a package (P4), and the `.catch(() => {})` that swallows whatever comes back. The SECOND issue is harmless here ONLY because CreateRoomHandler refuses `{}` by name and takes no undo slot — the same telemetry pattern on furniture and plumbing mints ghost records (B4-FURN-03 / B4-PLUMB-03). Room is the worked example of why validating the create verb is what makes the telemetry shot safe.",
+      "command": "npx vitest run --config audit/element-creation/2026-08-29/probe/vitest.b4.config.ts --reporter=verbose -t \"P-K\" ; Grep `executeCommand\\('(furniture|plumbing|lighting|room)\\.create', \\{\\}\\)`",
+      "output_excerpt": "packages\\room-topology\\src\\RoomTool.ts:387: if ((window as any).runtime?.bus) { (window as any).runtime.bus.executeCommand('room.create', {}).catch(() => {}); }\n[B4 P-K] undo.size after plumbing.create {}: 2\n[B4 P-K] undo.size after room.create {} (refused): 2   <-- unchanged: the refusal costs nothing",
+      "contract_clause": "P4 (no `(window as any)` outside the allowlisted shim); C14 LP-01. check-cast-count.ts absorbs it in the repo-wide baseline (RC=0 at 100/100), so it is baselined debt, not a new breach.",
+      "disposition": "DOCUMENT",
+      "blocks_production": false
+    },
+    {
+      "id": "B4-ROOM-06",
+      "class": "AUTHORED BUT UNREACHABLE (D2)",
+      "severity": "P3",
+      "claim": "`RoomSeedTool` (plugins/rooms/src/tool.ts, ROOM_TOOL_ID 'room.seed') is never constructed — PluginRegistry.ts:1180 carries the TODO: 'replace with runtime.inputHost when RoomSeedTool is wired'. `RoomCommitter` is referenced by nothing outside its own barrel. The reachable tool is `new RoomTool(commandManager, bimManager)` from @pryzm/room-topology at initTools.ts:3201. Fourth instance of the same shape in this batch: four plugin placement tools and four plugin committers authored, one placement tool (lighting) and zero committers wired.",
+      "command": "Grep `RoomSeedTool` and `RoomCommitter` over *.ts",
+      "output_excerpt": "RoomSeedTool -> apps/editor/src/PluginRegistry.ts:1180 (a TODO comment) and plugins/rooms/src/tool.ts:38 (the declaration). No construction site.\nRoomCommitter -> 8 hits, all inside plugins/rooms/src/committer/ and plugins/rooms/src/index.ts",
+      "contract_clause": "C11 §3.1",
+      "disposition": "DOCUMENT",
+      "blocks_production": false
+    }
+  ]
+}

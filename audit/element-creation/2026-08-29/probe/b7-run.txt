@@ -1,0 +1,58 @@
+npm warn Unknown project config "package-manager-strict". This will stop working in the next major version of npm. See `npm help npmrc` for supported config options.
+
+ RUN  v4.1.10 C:/Users/LENOVO/OneDrive/Desktop/PRYZM/Product_Rediness_08/apps/editor
+
+[B7 Q-A stores.water] {"defined":true,"ctor":"WaterStore"}
+[B7 Q-A stores.liftPart] {"defined":true,"ctor":"LiftPartStore"}
+[B7 Q-A stores.bathroomPod] {"defined":true,"ctor":"BathroomPodStore"}
+[B7 Q-A stores.selection] {"defined":true,"ctor":"SelectionStore"}
+[B7 Q-A stores.section] {"defined":true,"ctor":"SectionStore"}
+[B7 Q-A all rt.stores keys] ["annotation","balcony","bathroomPod","beam","boundaryLine","ceiling","column","curtainwall","dimension","door","floor","furniture","grid","handrail","lift","liftPart","lighting","plumbing","pool","roof","rooms","section","selection","slab","stair","structural","view","wall","water","window"]
+[B7 Q-B water] {"handlerTypes":[],"storeKeys":"water"}
+[B7 Q-B liftPart] {"handlerTypes":[],"storeKeys":"liftPart"}
+[B7 Q-B bathroomPod] {"handlerTypes":[],"storeKeys":"bathroomPod"}
+[B7 Q-B selection] {"handlerTypes":["selection.select","selection.deselect","selection.clear","copy-selection","paste-clipboard"],"storeKeys":"selection"}
+[B7 Q-B section-view] {"handlerTypes":["section.create","section.delete","section.moveLine","section.setDepth","section.setMark","section.setScale"],"storeKeys":"section"}
+[B7 Q-B plumbing (owner of bathroomPod verbs)] {"handlerTypes":["plumbing.create","plumbing.delete","plumbing.move","plumbing.setSystem","plumbing.createFixture","plumbing.setMaterial","plumbing.changeLevel","bathroomPod.create","bathroomPod.delete"],"storeKeys":"plumbing"}
+[B7 Q-B ELEMENT_PLUGIN_IDS] ["wall","slab","pool","water","balcony","lift","liftPart","boundary-line","door","window","roof","curtain-wall","grid","column","beam","stair","handrail","ceiling","furniture","plumbing","bathroomPod","rooms","structural","dimensions","selection","annotations","section-view"]
+[B7 Q-B ELEMENT_PLUGIN_IDS.length] 27
+[B7 Q-B STORE_ONLY_PLUGIN_IDS keys] ["water","liftPart","bathroomPod"]
+[B7 Q-B membership water] {"inELEMENT_PLUGIN_IDS":true,"inSTORE_ONLY":true}
+[B7 Q-B membership liftPart] {"inELEMENT_PLUGIN_IDS":true,"inSTORE_ONLY":true}
+[B7 Q-B membership bathroomPod] {"inELEMENT_PLUGIN_IDS":true,"inSTORE_ONLY":true}
+[B7 Q-B membership selection] {"inELEMENT_PLUGIN_IDS":true,"inSTORE_ONLY":false}
+[B7 Q-B membership section-view] {"inELEMENT_PLUGIN_IDS":true,"inSTORE_ONLY":false}
+[B7 Q-C water.create] THREW no handler registered for: water.create
+[B7 Q-C water.delete] THREW no handler registered for: water.delete
+[B7 Q-C water.update] THREW no handler registered for: water.update
+[B7 Q-C liftPart.create] THREW no handler registered for: liftPart.create
+[B7 Q-C liftPart.delete] THREW no handler registered for: liftPart.delete
+[B7 Q-C bathroomPod.create] THREW bathroomPod.create: canExecute rejected — podId must be a non-empty string
+[B7 Q-C bathroomPod.delete] THREW bathroomPod.delete: canExecute rejected — podId must be a non-empty string
+[B7 Q-C selection.select] THREW selection.select: canExecute rejected — targets must be an array
+[B7 Q-C section.create] THREW section.create: canExecute rejected — line is required
+[B7 Q-D selection state BEFORE] {"type":"Map","size":0}
+[B7 Q-D selection.select THREW] ctx.stores.selection.select is not a function
+[B7 Q-D selection state AFTER] {"size":0,"keys":[]}
+[B7 Q-E section.create (no id) result] {"id":"01M16FF3WB843S8HNEN7H9DZZG","type":"section.create","payload":{"line":{"a":{"x":0,"y":0},"b":{"x":10,"y":0},"lookDepth":5}},"affectedStores":["section"],"patches":[{"storeKey":"section","forwardPatches":[{"op":"add","path":["section-mte7npfu-1"],"value":{"id":"section-mte7npfu-1","line":{"a":
+[B7 Q-E section store ids after create] ["section-mte7npfu-1"]
+[B7 Q-E section store shape] Map
+[B7 Q-F pool.create THREW] pool.create: canExecute rejected — pool boundary needs ≥ 3 vertices
+[B7 Q-F water store] {"size":0,"keys":[]}
+[B7 Q-G on("water.created")] THREW Cannot read properties of undefined (reading 'on')
+[B7 Q-G on("water.updated")] THREW Cannot read properties of undefined (reading 'on')
+[B7 Q-G on("water.deleted")] THREW Cannot read properties of undefined (reading 'on')
+[B7 Q-G on("liftPart.created")] THREW Cannot read properties of undefined (reading 'on')
+[B7 Q-G on("lift.created")] THREW Cannot read properties of undefined (reading 'on')
+[B7 Q-G on("bathroomPod.created")] THREW Cannot read properties of undefined (reading 'on')
+[B7 Q-G on("plumbing.created")] THREW Cannot read properties of undefined (reading 'on')
+[B7 Q-G on("selection.changed")] THREW Cannot read properties of undefined (reading 'on')
+[B7 Q-G on("section.created")] THREW Cannot read properties of undefined (reading 'on')
+[B7 Q-G on("element.updated")] THREW Cannot read properties of undefined (reading 'on')
+
+ Test Files  1 passed (1)
+      Tests  7 passed (7)
+   Start at  12:01:03
+   Duration  24.64s (transform 16.51s, setup 0ms, import 21.92s, tests 2.03s, environment 0ms)
+
+RC=0

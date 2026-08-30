@@ -1,0 +1,45 @@
+# ============================================================================
+# p07-C01-P3-rows.diff
+# PROPOSED — NOT APPLIED (D9). Audit: audit/element-creation/2026-08-29
+# Measured 2026-08-29 · HEAD 064a838e · branch main
+# Apply with:  git apply <this file>        (strips the leading '#' block? NO —
+#              this file is a PATCH WITH A COMMENT HEADER. 'git apply' ignores
+#              everything before the first '--- a/' line, so it applies as-is.)
+#              On Windows, if using GNU patch instead of git: patch --binary -p1
+# ============================================================================
+# COMPANION HUNK to p07-CLAUDEmd-P3-bullet.diff — SAME FACT, SAME LANE.
+# TARGET  docs/02-decisions/contracts/C01-ARCHITECTURE-AND-GOVERNANCE.md
+#         §1 P3 row (line 17) and §5 rAF row (line 232) — the LAST TWO
+#         uncorrected copies of "FAILING: 5 owner files, target 1".
+# ORDER   C01 chain: p03 -> p04 -> THIS -> p05.
+#         p05 rewrites the other rows of the same §5 table; applying p05 first
+#         makes this hunk reject on context.
+#
+# FALSIFYING COMMAND
+#   $ npx tsx tools/ga-gate/check-raf-count.ts; echo "RC=$?"
+#   -> RC=0 · files scanned 5438 (excluded 2841) · Owners (code lines only): 1
+#      · Comment-only mentions (not owners): 5 file(s) · "[raf-tripwire] OK: 1 owner."
+#
+# See p07-CLAUDEmd-P3-bullet.diff for the full rationale, the prior-correction
+# trail (C14:344, CONTRACT-AMENDMENT-REGISTER:664) and the acceptance criteria.
+#
+--- a/docs/02-decisions/contracts/C01-ARCHITECTURE-AND-GOVERNANCE.md
++++ b/docs/02-decisions/contracts/C01-ARCHITECTURE-AND-GOVERNANCE.md
+@@ -14,7 +14,7 @@
+ |---|---|---|---|---|
+ | **P1** | Single composition root | ONE `composeRuntime()` in production. No second runtime wiring, no parallel composition. | `tools/ga-gate/check-single-compose.ts` | **Written 2026-08-09 (L-812) — the file did NOT exist before.** Passing: 1 definition, 1 rival (`createFamilyEditorRuntime`, ratcheted), 2 production callers |
+ | **P2** | Single THREE owner | `import * as THREE` allowed **only** in `packages/renderer-three/`. All other THREE uses are a CI failure. | `tools/ga-gate/check-three-imports.ts` (hard 0) | Hard-fail, **PASSING** — 0 violations across 6,261 files. Not `eslint-plugin-boundaries`; see §5 note |
+-| **P3** | Single rAF | `requestAnimationFrame()` called **only** in `packages/frame-scheduler/src/RafAdapter.ts` (called by `FrameScheduler.ts`). Every other animation MUST subscribe to the frame bus. | `tools/ga-gate/check-raf-count.ts` (ratchet = 1) | Hard-fail, **FAILING: 5 owner files, target 1** (L-811 — the gate crashed on missing `rg` for months, so this was never visible) |
++| **P3** | Single rAF | `requestAnimationFrame()` called **only** in `packages/frame-scheduler/src/RafAdapter.ts` (called by `FrameScheduler.ts`). Every other animation MUST subscribe to the frame bus. | `tools/ga-gate/check-raf-count.ts` (ratchet = 1) | ⛔ **CORRECTED 2026-08-29 — this cell read "Hard-fail, FAILING: 5 owner files, target 1". IT PASSES.** `npx tsx tools/ga-gate/check-raf-count.ts` → **RC=0**, `[raf-tripwire] OK: 1 owner`, **5,438 files scanned (2,841 excluded)**. The one owner is `RafAdapter.ts`. ⭐ **The "5" was 1 owner + 4 COMMENT-ONLY mentions** — the gate was counting sentences until the 2026-08-10 fix (`gate-debt.json` `§RAF-GATE-COMMENT-BLIND`). It now prints them separately: *"Comment-only mentions (not owners): 5 file(s)."* **Do not re-derive this with a naive `grep -c requestAnimationFrame` — that reproduces the original defect** |
+ | **P4** | No `(window as any)` | Forbidden everywhere except the allowlisted shim `apps/editor/src/engine/window-shim.ts`. The allowlist is one file; adding to it requires an ADR. | `tools/ga-gate/check-cast-count.ts` (strict ceiling 0 · repo-wide ratchet 215) | Hard-fail, **FAILING: 20 in the strict scope, 215 repo-wide.** The old "achieved Wave 5" claim was scope drift — the gate scanned `src/`, which is now empty (L-811b) |
+ | **P5** | Schemas are pure | `packages/schemas/` MUST have zero I/O imports, zero THREE, zero DOM. | `tools/ga-gate/check-domain-purity.ts` | **Written 2026-08-09 (L-812) — `scripts/ci-check-domain-purity.ts` never existed.** Hard-fail at 0, **PASSING**: 0 impurities across 165 files |
+ | **P6** | Commands are the only mutation path | UI MUST dispatch commands through `commandBus`. No direct store writes from UI code. | `tools/ga-gate/check-no-direct-store-writes.ts` | **Written 2026-08-09 (L-812) — `scripts/ci-check-no-direct-store-writes.ts` never existed; NOTHING checked P6.** Shrink-only ratchet at **41** direct writes |
+@@ -308,7 +308,7 @@
+ | Layer boundaries | `tools/ga-gate/check-layer-boundaries.ts` | L0–L7 matrix | **PASSING at a non-zero ceiling.** violations 102/102 · unclassified 13/13 · SDK-bypass 171/171 · restricted-imports 113. Shrink-only. NOT `eslint-plugin-boundaries` — see the note above |
+ | Single composition root | `tools/ga-gate/check-single-compose.ts` | P1 | **NEW (L-812).** PASSING — 1 definition, 1 ratcheted rival (`createFamilyEditorRuntime`), 2 production callers |
+ | THREE isolation | `tools/ga-gate/check-three-imports.ts` | P2 | **PASSING, hard 0** — 0 violations across 6,261 files. Was on the debt ledger only because of the `rg` crash; removed from it |
+-| rAF owners | `tools/ga-gate/check-raf-count.ts` | P3 | **FAILING: 5 owner files, target 1.** Declared debt. Ceiling NOT raised |
++| rAF owners | `tools/ga-gate/check-raf-count.ts` | P3 | ⛔ **CORRECTED 2026-08-29 — this cell read "FAILING: 5 owner files, target 1. Declared debt." IT PASSES, hard-0 at one declared owner.** `npx tsx tools/ga-gate/check-raf-count.ts` → **RC=0**, `[raf-tripwire] OK: 1 owner` · 5,438 files scanned · 5 comment-only mentions correctly excluded. **Not declared debt — a genuine PASS**, and the strongest of the nine convergence booleans (§4 #3). See §1 P3 for why the "5" existed |
+ | `(window as any)` | `tools/ga-gate/check-cast-count.ts` | P4 | **FAILING: 20 strict / 215 repo-wide.** Declared debt. The strict scope had drifted onto `src/`, which is now empty — the old "0 achieved" was a scope artefact |
+ | Schemas purity | `tools/ga-gate/check-domain-purity.ts` | P5 | **NEW (L-812).** PASSING, hard 0 — 0 impurities across 165 files, 7 rule families |
+ | Direct store writes from UI | `tools/ga-gate/check-no-direct-store-writes.ts` | P6 | **NEW (L-812).** PASSING at a ratcheted **41** direct writes. Shrink-only |

@@ -1,0 +1,450 @@
+{
+  "measuredAt": "2026-08-29",
+  "repo": "c:/Users/LENOVO/OneDrive/Desktop/PRYZM/Product_Rediness_08",
+  "headCommit": "064a838e",
+  "method": {
+    "diskSet": "ls tools/ga-gate/*.ts -> 75 .ts files = 74 check-*.ts + run-all.ts",
+    "registeredSet": "parsed the script: fields of the GATES array in tools/ga-gate/run-all.ts (const GATES: Gate[] = [ ... ], lines 114-~740)",
+    "debtSet": "tools/ga-gate/gate-debt.json .failing[]",
+    "newlyMeasuredSet": "tools/ga-gate/gate-newly-measured.json .entries[].gate",
+    "certifySet": "parsed const gates = [ ... ] from tools/rac-conformance/certification/certify.ts",
+    "excluded": "node_modules. tools/ga-gate/lib/*, tools/ga-gate/__tests__/*, and the 15 sibling *.json ledgers are not gates and were not counted. tools/rac-conformance/certification/gates/regionEdgeSites.ts and scan.ts are helpers, not check-*.ts, and were excluded.",
+    "comparison": "all three sets compared AS SETS, IN BOTH DIRECTIONS, via comm and via Set difference in node."
+  },
+  "counts": {
+    "tsFilesInGaGateDir": 75,
+    "checkScriptsOnDiskGaGate": 74,
+    "registeredRowsInGATES": 98,
+    "registeredDistinctScripts": 98,
+    "duplicateRows": 0,
+    "registeredLocal": 73,
+    "registeredRacPaths": 25,
+    "checkScriptsOnDiskRacGates": 46,
+    "certifyRegistered": 21,
+    "gateDebtEntries": 2,
+    "gateNewlyMeasuredEntries": 32,
+    "totalDistinctGateFilesBothHomes": 120
+  },
+  "bucketA_onDiskAndListedInRunAll": {
+    "gaGateHome": {
+      "count": 73,
+      "list": [
+        "check-apps-editor-ghost-dirs.ts",
+        "check-batch-creation-coverage.ts",
+        "check-cast-count.ts",
+        "check-cast-unknown.ts",
+        "check-chat-capability-coverage.ts",
+        "check-collab-graph-integrity.ts",
+        "check-command-naming.ts",
+        "check-commandmanager-any.ts",
+        "check-constraint-honesty.ts",
+        "check-contract-cited-paths.ts",
+        "check-contract-index-equivalence.ts",
+        "check-cross-process-determinism.ts",
+        "check-ctrl-z-wired.ts",
+        "check-custom-event-apps.ts",
+        "check-custom-event-packages.ts",
+        "check-declared-project-scopes.ts",
+        "check-derived-not-authored.ts",
+        "check-deterministic-regeneration.ts",
+        "check-domain-purity.ts",
+        "check-engine-bootstrap-loc.ts",
+        "check-epsilon-policy.ts",
+        "check-gate-subject-floors.ts",
+        "check-generator-circulation.ts",
+        "check-geometry-ceiling.ts",
+        "check-graph-write-coverage.ts",
+        "check-height-fidelity.ts",
+        "check-hosted-dual-write.ts",
+        "check-l7-boundary.ts",
+        "check-layer-boundaries.ts",
+        "check-material-id-required.ts",
+        "check-material-maps-tiling.ts",
+        "check-material-single-source.ts",
+        "check-mirror-completeness.ts",
+        "check-mirror-reachability.ts",
+        "check-motion-gate-coverage.ts",
+        "check-no-commandmanager.ts",
+        "check-no-dark-test-files.ts",
+        "check-no-direct-store-writes.ts",
+        "check-no-hidden-mock.ts",
+        "check-no-workspacemountbridge.ts",
+        "check-offset-implementations.ts",
+        "check-otel-spans.ts",
+        "check-per-package-compile.ts",
+        "check-plugin-census-equivalence.ts",
+        "check-predicate-canonical.ts",
+        "check-prevstate-contract.ts",
+        "check-project-isolation.ts",
+        "check-property-rac-matrix.ts",
+        "check-provenance-coverage.ts",
+        "check-provenance-not-invented.ts",
+        "check-raf-count.ts",
+        "check-refusal-identity.ts",
+        "check-report-payload-discard.ts",
+        "check-runtime-arg-omitted.ts",
+        "check-scene-graph.ts",
+        "check-secrets-register.ts",
+        "check-shear-survives-transport.ts",
+        "check-single-compose.ts",
+        "check-snapshot-family-coverage.ts",
+        "check-solver-is-real.ts",
+        "check-structuredclone-new-commands.ts",
+        "check-suppression-is-reversible.ts",
+        "check-sync-disposition.ts",
+        "check-three-imports.ts",
+        "check-tool-activator-coverage.ts",
+        "check-triangulation-canonical.ts",
+        "check-verb-liveness.ts",
+        "check-verb-register.ts",
+        "check-visibility-intent-not-ui.ts",
+        "check-window-store-in-packages.ts",
+        "check-write-route-auth.ts",
+        "check-xss-guards.ts",
+        "check-zoning-fidelity-label.ts"
+      ]
+    },
+    "racHomeRegisteredInRunAll": {
+      "count": 25,
+      "list": [
+        "../rac-conformance/certification/gates/check-census-verified-invariants.ts",
+        "../rac-conformance/certification/gates/check-conflict-surfacing.ts",
+        "../rac-conformance/certification/gates/check-dependency-fields-honoured.ts",
+        "../rac-conformance/certification/gates/check-dependent-adapts-on-host-move.ts",
+        "../rac-conformance/certification/gates/check-element-confidence-declared.ts",
+        "../rac-conformance/certification/gates/check-gate-residency.ts",
+        "../rac-conformance/certification/gates/check-generation-is-consequential.ts",
+        "../rac-conformance/certification/gates/check-geometry-change-consumers.ts",
+        "../rac-conformance/certification/gates/check-graph-delete-integrity.ts",
+        "../rac-conformance/certification/gates/check-graph-persistence.ts",
+        "../rac-conformance/certification/gates/check-graph-query-verbs.ts",
+        "../rac-conformance/certification/gates/check-graph-runtime-readback.ts",
+        "../rac-conformance/certification/gates/check-index-can-refuse.ts",
+        "../rac-conformance/certification/gates/check-no-empty-means-unknown.ts",
+        "../rac-conformance/certification/gates/check-no-silent-partial.ts",
+        "../rac-conformance/certification/gates/check-polygon-boolean-canonical.ts",
+        "../rac-conformance/certification/gates/check-propagation-reaches.ts",
+        "../rac-conformance/certification/gates/check-provenance-export-boundary.ts",
+        "../rac-conformance/certification/gates/check-provenance-slice-persisted.ts",
+        "../rac-conformance/certification/gates/check-region-fallback-populated.ts",
+        "../rac-conformance/certification/gates/check-region-host-attribution.ts",
+        "../rac-conformance/certification/gates/check-region-reference-frame.ts",
+        "../rac-conformance/certification/gates/check-relationship-determination.ts",
+        "../rac-conformance/certification/gates/check-source-verified-invariants.ts",
+        "../rac-conformance/certification/gates/check-ubg-snapshot-derived.ts"
+      ]
+    }
+  },
+  "bucketB_onDiskNotListedInRunAll": {
+    "gaGateHome": {
+      "count": 1,
+      "list": [
+        "check-render-aggregate-seam.ts"
+      ],
+      "evidence": "Set difference disk-local minus registered-local -> 1 row. git ls-files -- tools/ga-gate/check-render-aggregate-seam.ts returns the path (TRACKED). git log -> 377dd06b (L-10530). Grep tool over the whole tree for the string check-render-aggregate-seam -> 2 files: the gate itself and packages/core-app-model/src/rendering/renderAggregateIdentity.ts (a doc comment). No ci.yml step, no package.json script.",
+      "consequence": "run-all.ts:1009-1041 (GATE-AUTHORED-BUT-UNWIRED) would print COMMITTED gate(s) are registered nowhere and set inventoryFailed=true, which becomes anyFailed=true at run-all.ts:1224."
+    },
+    "racHome_registeredInNeitherRunner": {
+      "count": 0,
+      "list": []
+    },
+    "racHome_runByCertifyOnly": {
+      "count": 20,
+      "list": [
+        "check-ai-human-parity.ts",
+        "check-approval-binding.ts",
+        "check-authored-state-protection.ts",
+        "check-authoritative-state.ts",
+        "check-consequence-report-completeness.ts",
+        "check-derived-classification.ts",
+        "check-derived-regenerable.ts",
+        "check-execution-plan-agreement.ts",
+        "check-identity-roundtrip.ts",
+        "check-move-propagation.ts",
+        "check-plan-determinism.ts",
+        "check-preview-purity.ts",
+        "check-propagation-trackers-reach.ts",
+        "check-room-aabb-canonical.ts",
+        "check-room-identity-survives-wall-move.ts",
+        "check-room-reshape-fidelity.ts",
+        "check-room-reshape-undo.ts",
+        "check-topology-survives.ts",
+        "check-two-client-convergence.ts",
+        "check-undo-resume-flushes-topology.ts"
+      ],
+      "note": "NOT dead. Executed by tools/rac-conformance/certification/certify.ts. Its CI job bim20-certification carries continue-on-error: true at ci.yml:561, so these 20 are REACHABLE but not merge-blocking."
+    },
+    "racHome_registeredInBothRunners": {
+      "count": 1,
+      "list": [
+        "check-propagation-reaches.ts"
+      ],
+      "note": "run-all.ts:1093 discloses this, does not fail it."
+    }
+  },
+  "bucketC_listedOrReferencedButAbsentFromDisk": {
+    "runAllLocalRowsWithNoFile": {
+      "count": 0,
+      "list": []
+    },
+    "runAllRacRowsWithNoFile": {
+      "count": 0,
+      "list": []
+    },
+    "certifyRowsWithNoFile": {
+      "count": 0,
+      "list": []
+    },
+    "otherReferences": [
+      {
+        "path": "scripts/check/check-pryzm3-exists.ts",
+        "referencedAt": "run-all.ts:1318 - informational convergence booleans, explicitly not a PR gate",
+        "exists": true,
+        "evidence": "ls -la scripts/check/check-pryzm3-exists.ts -> 11298 bytes"
+      }
+    ],
+    "total": 0,
+    "verdict": "BUCKET C IS EMPTY. Verified in both directions and across both gate homes: every GATES row and every certify.ts row resolves to a file on disk."
+  },
+  "bucketD_ledgerReconciliation": {
+    "gateDebtOrphans": {
+      "count": 0,
+      "list": [],
+      "note": "both gate-debt.json entries match a registered script string exactly."
+    },
+    "gateNewlyMeasuredOrphans": {
+      "count": 8,
+      "list": [
+        {
+          "gate": "../rac-conformance/certification/gates/check-propagation-trackers-reach.ts",
+          "runner": "certify",
+          "reviewBy": "2026-11-12",
+          "resolvesUnderGaGate": true
+        },
+        {
+          "gate": "../rac-conformance/certification/gates/check-ai-human-parity.ts",
+          "runner": "certify",
+          "reviewBy": "2026-11-12",
+          "resolvesUnderGaGate": true
+        },
+        {
+          "gate": "../rac-conformance/certification/gates/check-authoritative-state.ts",
+          "runner": "certify",
+          "reviewBy": "2026-11-12",
+          "resolvesUnderGaGate": true
+        },
+        {
+          "gate": "../rac-conformance/certification/gates/check-two-client-convergence.ts",
+          "runner": "certify",
+          "reviewBy": "2026-11-12",
+          "resolvesUnderGaGate": true
+        },
+        {
+          "gate": "../rac-conformance/certification/gates/check-authored-state-protection.ts",
+          "runner": "certify",
+          "reviewBy": "2026-11-12",
+          "resolvesUnderGaGate": true
+        },
+        {
+          "gate": "../rac-conformance/certification/gates/check-derived-classification.ts",
+          "runner": "certify",
+          "reviewBy": "2026-11-12",
+          "resolvesUnderGaGate": true
+        },
+        {
+          "gate": "../rac-conformance/certification/gates/check-move-propagation.ts",
+          "runner": "certify",
+          "reviewBy": "2026-11-15",
+          "resolvesUnderGaGate": true
+        },
+        {
+          "gate": "check-dependent-adapts-on-host-move.ts",
+          "runner": "ga-gate",
+          "reviewBy": "2026-11-21",
+          "resolvesUnderGaGate": false
+        }
+      ],
+      "note": "run-all.ts:1181 does newlyMeasured.get(gate.script) against the EXACT registered string. 7 of these 8 carry runner:certify and are deliberately absent from GATES (disclosed at run-all.ts:1303). The 8th is the real defect.",
+      "realDefect": {
+        "gate": "check-dependent-adapts-on-host-move.ts",
+        "runner": "ga-gate",
+        "reviewBy": "2026-11-21",
+        "problem": "registered in run-all as ../rac-conformance/certification/gates/check-dependent-adapts-on-host-move.ts; the ledger key omits the prefix and resolves to no file under tools/ga-gate/.",
+        "consequence": "newlyMeasured.get() can never match, so the gate is on no ledger and its measured exit 1 falls to the REGRESSION branch at run-all.ts:1212, which sets anyFailed=true.",
+        "absenceEvidence": "grepped run-all.ts for a ledger-key-vs-registered-script reconciliation: the only key checks are inBoth (:915, both-ledgers) and malformed (:941, missing exitCondition/reviewBy/runner). No orphan-key check exists."
+      }
+    },
+    "headroom": {
+      "shape": "gate-debt.json carries NO numeric baselines. It is a name list of 2 gates plus a ~250-line $comment. Every numeric ceiling lives inside a gate script or in one of the 15 sibling *-baseline / *-ledger .json files. Headroom therefore had to be read from each gate printed output.",
+      "measured": [
+        {
+          "script": "check-no-commandmanager.ts",
+          "printed": "code-only literal=12 window=57 cm.execute=62 (incl. comments 53/102/69); files scanned 1455, floor 700",
+          "ceilings": "LITERAL_CEILING 0, window CEILING 2; LEDGERED literal 11 / window 62 / cm.execute 62",
+          "headroom": "literal NEGATIVE (12 exceeds ledgered 11); window +5 (57 of 62); cm.execute 0 (62 of 62)",
+          "rc": 3
+        },
+        {
+          "script": "check-custom-event-apps.ts",
+          "printed": "28 vs ratchet baseline 4; 24 new dispatches; files scanned 1457, floor 700",
+          "ceilings": "ratchet baseline 4, LEDGERED_LEVEL 20",
+          "headroom": "NEGATIVE (28 exceeds 20)",
+          "rc": 3
+        },
+        {
+          "script": "../rac-conformance/certification/gates/check-dependent-adapts-on-host-move.ts",
+          "printed": "ARM A 20/20, ARM B 6/6, ARM C 38 of declared 38; 64 matrix cells (min 40); 268 production files read (min 20)",
+          "ceilings": "declared level 38",
+          "headroom": "ZERO",
+          "rc": 1
+        },
+        {
+          "script": "check-render-aggregate-seam.ts",
+          "printed": "arm A 0/0, arm B 50/49; 7984 files scanned",
+          "ceilings": "arm A hard-0, arm B shrink-only 49",
+          "headroom": "NEGATIVE (50 exceeds 49) - and nothing observes it, because the gate is in no runner",
+          "rc": 1
+        }
+      ],
+      "verdict": "NO gate measured today sits BELOW its declared level with spare headroom. Two ledgered gates sit ABOVE it."
+    }
+  },
+  "gatesActuallyRun": [
+    {
+      "script": "tools/ga-gate/check-render-aggregate-seam.ts",
+      "cmd": "npx tsx tools/ga-gate/check-render-aggregate-seam.ts",
+      "rc": 1,
+      "verdict": "FAIL",
+      "why": "bucket B - dead gate",
+      "printed": "arm A 0/0, arm B 50/49",
+      "scannedScope": "7984 files across packages, apps, plugins, src - NON-EMPTY",
+      "log": "raw/g-render-aggregate-seam.log"
+    },
+    {
+      "script": "tools/ga-gate/check-no-commandmanager.ts",
+      "cmd": "npx tsx tools/ga-gate/check-no-commandmanager.ts",
+      "rc": 3,
+      "verdict": "RATCHET_EXCEEDED",
+      "why": "gate-debt.json entry",
+      "printed": "literal 12 window 57 cm.execute 62; WORSE THAN DECLARED: literal 12 > 11",
+      "scannedScope": "apps/editor/src - 1455 files (floor 700) - NON-EMPTY",
+      "log": "raw/g-no-commandmanager.log"
+    },
+    {
+      "script": "tools/ga-gate/check-custom-event-apps.ts",
+      "cmd": "npx tsx tools/ga-gate/check-custom-event-apps.ts",
+      "rc": 3,
+      "verdict": "RATCHET_EXCEEDED",
+      "why": "gate-debt.json entry",
+      "printed": "28 > baseline 4; WORSE THAN DECLARED: 28 > ledgered level 20",
+      "scannedScope": "apps/editor/src - 1457 files (floor 700) - NON-EMPTY",
+      "log": "raw/g-custom-event-apps.log"
+    },
+    {
+      "script": "tools/rac-conformance/certification/gates/check-dependent-adapts-on-host-move.ts",
+      "cmd": "npx tsx tools/rac-conformance/certification/gates/check-dependent-adapts-on-host-move.ts",
+      "rc": 1,
+      "verdict": "FAIL at declared level 38/38",
+      "why": "orphaned ledger key",
+      "printed": "ARM A 20/20, ARM B 6/6, ARM C 38",
+      "scannedScope": "64-cell matrix, 268 production files - NON-EMPTY",
+      "log": "raw/g-dependent-adapts.log"
+    },
+    {
+      "script": "tools/ga-gate/check-apps-editor-ghost-dirs.ts",
+      "cmd": "npx tsx tools/ga-gate/check-apps-editor-ghost-dirs.ts",
+      "rc": 0,
+      "verdict": "PASS",
+      "why": "name suggested an empty-directory scan",
+      "printed": "0 ghost directories found (checked 3 known ghost paths)",
+      "scannedScope": "asserts ABSENCE of apps/editor/src/projectsui, apps/editor/src/views, apps/editor/src/plantools; SUBJECT_ROOT=apps/editor/src. Empty scope IS the pass condition by design - this is not the misconfigured shape.",
+      "log": "raw/g-ghost-dirs.log"
+    },
+    {
+      "script": "tools/ga-gate/check-motion-gate-coverage.ts",
+      "cmd": "npx tsx tools/ga-gate/check-motion-gate-coverage.ts",
+      "rc": 0,
+      "verdict": "PASS",
+      "why": "historically had the empty-directory blindness (gate-debt.json $comment)",
+      "printed": "subject apps/editor/src/engine/views - 129 files (floor 10); 2 camera navigation views, both covered; 4 tool overlays exempt",
+      "scannedScope": "apps/editor/src/engine/views - 129 files - NON-EMPTY. Explicitly names what it did NOT scan: apps/editor/src/ui/views (first-candidate-wins).",
+      "log": "raw/g-motion-gate.log"
+    }
+  ],
+  "ciWorkflow": {
+    "file": ".github/workflows/ci.yml",
+    "gaGateJob": {
+      "lineNumber": 362,
+      "mergeBlocking": true,
+      "yamlQuote": "  ga-gate:\n    name: GA-gate (contract gates, shrink-only ratchet)\n    runs-on: ubuntu-latest\n    timeout-minutes: 25\n    # GA-GATE-RATCHET (L-775) -- MERGE-BLOCKING. `continue-on-error: true` is GONE.\n      - name: Contract gates (ratcheted -- count printed by run-all.ts)\n        run: pnpm run ga-gate:all\n      - name: Legacy release gate (advisory)\n        continue-on-error: true\n        run: pnpm run ga-gate",
+      "note": "The JOB has no continue-on-error. The SECOND STEP inside it is advisory: pnpm run ga-gate resolves to node packages/release/src/ga-gate.mjs (package.json:52), a different and smaller script. pnpm run ga-gate:all resolves to tsx tools/ga-gate/run-all.ts (package.json:57)."
+    },
+    "jobsWithContinueOnError": [
+      {
+        "job": "test-pryzm1",
+        "line": 349,
+        "yaml": "    continue-on-error: true"
+      },
+      {
+        "job": "nft-bench",
+        "line": 481,
+        "yaml": "    continue-on-error: true"
+      },
+      {
+        "job": "bim20-certification",
+        "line": 561,
+        "yaml": "    continue-on-error: true"
+      },
+      {
+        "job": "a11y",
+        "line": 635,
+        "yaml": "    continue-on-error: true"
+      }
+    ],
+    "stepsWithContinueOnError": [
+      {
+        "job": "ga-gate",
+        "step": "Legacy release gate (advisory)",
+        "line": 426,
+        "yaml": "        continue-on-error: true"
+      }
+    ],
+    "headerQuote": "#   - ga-gate        (GA-GATE-RATCHET / L-775 -- MERGE-BLOCKING. See the job header at the\n#                     `ga-gate:` key below. It has no `continue-on-error`, so a regression,\n#                     a stale baseline, a missing gate script or a MISCONFIGURED gate fails\n#                     the job and the run.)",
+    "realGateNote": "ci.yml header L-540-CI-GATE (lines 60-68): required status checks are NOT the gate here, because the founder pushes straight to main. The real gate is the ci-gate job in deploy-fly.yml, which reads this workflow conclusion for the pushed SHA and refuses to deploy unless it succeeded. A continue-on-error job cannot block a deploy, by design."
+  },
+  "documentedVsMeasured": {
+    "documented": {
+      "source": "docs/02-decisions/contracts/C01-ARCHITECTURE-AND-GOVERNANCE.md section 5, table row line 238",
+      "quote": "| Everything else (22 gates) | `tools/ga-gate/*.ts` | assorted | See `run-all.ts` and `gate-debt.json`. Suite total on 2026-08-09: **16 passing / 15 declared debt / 0 regressions** (31 gates) |",
+      "asOf": "2026-08-09",
+      "total": 31,
+      "passing": 16,
+      "declaredDebt": 15
+    },
+    "measured": {
+      "asOf": "2026-08-29",
+      "checkScriptsGaGateHome": 74,
+      "registeredDistinctInRunAll": 98,
+      "checkScriptsRacHome": 46,
+      "certifyRegistered": 21,
+      "gateDebtEntries": 2,
+      "gateNewlyMeasuredEntries": 32,
+      "totalDistinctGateFilesBothHomes": 120
+    },
+    "disagreement": [
+      "TOTAL: C01 says 31. run-all.ts registers 98 distinct scripts. 120 check-*.ts gate files exist across the two homes. C01 is 20 days stale.",
+      "DECLARED DEBT: C01 says 15. gate-debt.json .failing today holds 2. The other 32 tolerated-failure entries moved to the sibling gate-newly-measured.json, a category that did not exist on 2026-08-09 (created 2026-08-12).",
+      "C01 section 5 lines 219-223 correctly name run-all.ts as the AUTHORITY and correctly state the job is merge-blocking. Only its numbers are stale.",
+      "run-all.ts:73 says the same thing in its own header: the numbered inventory above is a HISTORY, not a census -- GATES below is the authority."
+    ]
+  },
+  "findings": [
+    "F1 CRITICAL - The merge-blocking ga-gate job FAILS on main as of 2026-08-29. Both gate-debt.json entries exit 3 (RATCHET EXCEEDED): check-no-commandmanager literal 12 > ledgered 11, check-custom-event-apps 28 > ledgered 20. run-all.ts:1163 routes exit 3 to failedRatchet with anyFailed=true and explicitly refuses ledger absorption. Whether CI is currently red on main was not verified from Actions; the two gate readings are.",
+    "F2 - BUCKET B in the ga-gate home is exactly 1: check-render-aggregate-seam.ts. Committed (377dd06b, L-10530), tracked by git, registered in no runner, no ci.yml step, no package.json script. Run by hand it FAILS: arm B 50/49 across 7984 files. AUTHORED but not REACHABLE.",
+    "F3 - BUCKET C IS EMPTY, in both directions and both homes. Every registered row resolves to a file. The docs-vs-disk defect shape that recurs elsewhere in this repo does not recur here.",
+    "F4 - BUCKET D: 1 real ledger orphan. gate-newly-measured.json keys check-dependent-adapts-on-host-move.ts without the ../rac-conformance/certification/gates/ prefix run-all registers it under, and no such file exists under tools/ga-gate/. The key can never match newlyMeasured.get(gate.script), so the gate exit 1 is graded REGRESSION instead of NEWLY-MEASURED. run-all has no ledger-key-vs-registered-script reconciliation at all.",
+    "F5 - 20 of the 46 rac-home gate files are executed only by certify.ts, whose CI job (bim20-certification) is continue-on-error: true. REACHABLE but not merge-blocking.",
+    "F6 - Headroom cannot be read from gate-debt.json: it holds names, not numbers. Of the four ratcheted gates measured today, none has spare headroom; two sit above their declared level.",
+    "F7 - Both empty-scope suspects are honestly configured. check-motion-gate-coverage scans 129 files against a floor of 10 and names the candidate path it skipped; check-apps-editor-ghost-dirs asserts ABSENCE of 3 paths, so 0 is its correct pass value."
+  ]
+}

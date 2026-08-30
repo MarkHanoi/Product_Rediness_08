@@ -19,9 +19,7 @@
     "./intents/room-auto-label": "./src/intents/roomAutoLabel.ts",
     "./intents/hosted-opening-scope": "./src/intents/HostedOpeningScope.ts"
   },
-  "files": [
-    "src"
-  ],
+  "files": ["src"],
   "scripts": {
     "test": "vitest run",
     "test:ci": "vitest run",

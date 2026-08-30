@@ -1,0 +1,156 @@
+{
+  "family": "door",
+  "batch": "B3",
+  "date": "2026-08-29",
+  "doctrine": {
+    "D1": "Every absence below carries the exact command that produced it.",
+    "D2": "door.create is NOT absent. It is AUTHORED, REGISTERED and DELIBERATELY REFUSING. The family's live creation route is wall.opening.create, PROVEN BY AN EXECUTED CONSTRUCTION SITE, not by a comment.",
+    "D5": "Seven facts, seven proofs. door.create dispatchable=NO and the door family reachable=YES are both true and are NOT the same fact.",
+    "D6": "The composition-root proof exists and CONSTRUCTS NOTHING — and it proves the WRONG STORE. See registration.proof_reads_real_composition_root."
+  },
+
+  "registration": {
+    "registration_site": "apps/editor/src/PluginRegistry.ts:340-346  (// ---- Door ----  id:'door', storeKey:'door', buildStore: () => new DoorStore(), buildHandlers: () => buildDoorHandlerSet())",
+    "second_registration_site": "apps/editor/src/engine/engineLauncher.ts:726 — `registerDoorHandlers(_bus)` (§P3.1-DO). Idempotent via the §OI-053 skip-if-present proxy; the PluginRegistry contribution at composeRuntime wins because it runs first.",
+    "declared_storeKey": "door",
+    "storeKey_matches_ctx_stores_key": "YES — but the MATCH IS NOT THE POINT. Every door handler declares `affectedStores = ['door']` (grep -rn affectedStores plugins/door/src -> CreateDoor.ts:113, CreateDoorBatch.ts:54, DeleteDoor.ts:24, MoveDoor.ts:77, SetDoorAccessibility.ts:29, SetDoorFireRating.ts:29, SetDoorSwing.ts:44, SetDoorType.ts:34; UpdateDoorsSystemTypeBatch.ts:73 declares []). ctx.stores.door resolves. NO 'required store missing' throw is possible here.",
+    "the_real_defect_is_not_a_missing_key_but_a_RIVAL_STORE": "PluginRegistry.ts:344 `buildStore: () => new DoorStore()` mints a FRESH @pryzm/plugin-door DTO store per boot — that is what lands on ctx.stores.door. packages/runtime-composer/src/composeRuntime.ts:1648 `storeRegistry.register('door', doorStore)` registers the @pryzm/geometry-door MODULE SINGLETON — the one ProjectSerializer.ts:57/777 reads, DoorBuilder renders from and DoorPlanSymbolBuilder projects from. A `new` expression cannot return a pre-existing singleton, so these are TWO OBJECTS under ONE key name in TWO registries.",
+    "in_ELEMENT_PLUGIN_IDS": true,
+    "ELEMENT_PLUGIN_IDS_evidence": "apps/editor/src/PluginRegistry.ts:803 — 'door', inside `export const ELEMENT_PLUGIN_IDS` (:781-835). NOT in STORE_ONLY_PLUGIN_IDS (:860-888 lists only water, liftPart, bathroomPod).",
+    "proof_reads_real_composition_root": "apps/editor/__tests__/bootstrap.everything.test.ts:46-62 — `const rt = await bootstrapWithEverything({audit}); expect(rt.stores.door).toBeInstanceOf(DoorStore)` and :128-137 `for (const id of ELEMENT_PLUGIN_IDS) expect(rt.registeredStoreKeys[id]?.length).toBeGreaterThan(0)`. It constructs NO stores object — D6-COMPLIANT IN FORM. ⛔ AND ITS `DoorStore` IS IMPORTED FROM '@pryzm/plugin-door' (line 18), i.e. THE DTO STORE. The proof is green and the family is still dead against the authoritative store. A registration proof that asserts the rival object is a false green of a new kind: it proves the key resolves and says nothing about which store it resolved to.",
+    "status": "REGISTERED · KEY RESOLVES · BINDS THE DETACHED DTO STORE"
+  },
+
+  "handler": {
+    "path": "plugins/door/src/handlers/CreateDoor.ts (type 'door.create'); CreateDoorBatch.ts (type 'door.batch.create')",
+    "id_pre_generated_in_tool": "OPTIONAL — CreateDoor.ts:150 `const id = (cmd.id ?? createId('door'))`. Minted in the HANDLER when absent. Harmless HERE because there is no door.created CEB case and therefore no bridge that could guard on !ev.id.",
+    "validates_before_mutation": "YES — validatePayload() (CreateDoor.ts:116-148) checks wallId/openingId non-empty, width>0, height>0, offset>=0, sillHeight>=0, systemTypeId resolvable via getDoorType. Typed errors: DoorSchemaError / DoorDimensionsError / DoorTypeNotFoundError (plugins/door/src/errors.ts).",
+    "canExecute_ALWAYS_REFUSES": "CreateDoor.ts:130-136 — `canExecute` runs validatePayload, then unconditionally `return { valid: false, reason: DOOR_CREATE_UNREACHABLE }`. §FIX-CREATE-LIVENESS-LIE (BIM20 C5/C6 Wave 4). The refusal text (CreateDoor.ts:106) names the replacement path verbatim: wall.createOpening { wallId, opening: {...} }.",
+    "mutates_only_via_immer_draft": "YES — CreateDoor.ts:180 `produceCommand<DoorsState>(ctx.stores.door, draft => { draft[door.id] = door; })`. No store-singleton import: grep -rn '@pryzm/geometry-door' plugins/door/src -> 0 hits.",
+    "geometry_deferred": "N/A — the handler commits data only; geometry is built by DoorBuilder off the geometry store.",
+    "emits_typed_domain_event": "NO — no `runtime.events.emit` in the handler. Events are emitted by CommandEventBridge, and there is NO 'door.create' case in it (see lifecycle).",
+    "otel_span": "YES — CreateDoor.ts:139 `withHandlerSpan(this.type + '.handler', {'pryzm.command.type': this.type}, ...)`; CreateDoorBatch.ts:90 the same.",
+    "must_not_violations": [
+      "plugins/door/src/handlers/UpdateDoorsSystemTypeBatch.ts:98 — `const cm = window.commandManager as ...` (C11 §5.3: no commandManager.execute; C14 LP-01 / P4)",
+      "plugins/door/src/handlers/UpdateDoorsSystemTypeBatch.ts:153 — `const result = cm.execute(batch);` (C11 §5.3 no commandManager.execute)",
+      "plugins/door/src/handlers/UpdateDoorsSystemTypeBatch.ts:122 and :171 — `window.dispatchEvent(new CustomEvent(...))` (C11 §5.3: no window.dispatchEvent, no DOM access from a handler)"
+    ],
+    "must_not_clean": [
+      "no cascading dispatch",
+      "no direct requestAnimationFrame",
+      "no import from src/engine or src/ui (grep -rn \"src/engine|src/ui\" plugins/door/src -> comment references only, no import statements)",
+      "no cross-family store mutation — affectedStores is ['door'] and the produceCommand target is ctx.stores.door only"
+    ],
+    "evidence": "grep -rnE '^[^/*]*(window\\.commandManager|window\\.dispatchEvent|cm\\.execute)' plugins/door/src -> the four lines above and nothing else.",
+    "status": "CONFORMANT SHAPE · REFUSES BY CONSTRUCTION · ONE FILE CARRIES 4 MUST-NOT VIOLATIONS"
+  },
+
+  "lifecycle": {
+    "ceb_case": "NONE for 'door.create'. grep -n \"case '\" packages/runtime-composer/src/CommandEventBridge.ts -> 44 case labels, no door.*. The removal is DOCUMENTED at CommandEventBridge.ts:998-1002 (TASK-13): \"door/window/stair CEB cases removed — no initTools.ts subscribers exist ... door / window: use the Committer architecture (Path A) — no CEB bridge needed.\"",
+    "ceb_case_that_DOES_carry_the_door": "case 'wall.opening.create' (CommandEventBridge.ts:592-601) and case 'wall.createOpening' (:602-611). Both emit `wall.opening.created` with `opening: p.openingData ?? {}` / `p.opening ?? {}` — GEOMETRY-COMPLETE (id, elementId, type, offset, width, height, sillHeight all travel inside the opening object).",
+    "initTools_bridge_tag": "§P2.3 + §P2.3-DOOR — `runtime.events.on('wall.opening.created', ...)` at apps/editor/src/engine/initTools.ts:1530, closing at :1653 with `console.log('[initTools] §P2.3: wall.opening.created bus→legacy-store bridge registered.')`. STABLE TAGS: §P2.3, §P2.3-DOOR, §FIX-DOOR-WINDOW-SYMBOL-PARITY-AND-LOD300.",
+    "initTools_bridge_grep": "grep -noE \"'[a-zA-Z.-]+\\\\.(created|updated|deleted)'\" apps/editor/src/engine/initTools.ts | sort -u  ->  1530:'wall.opening.created'. There is NO 'door.created' in that set.",
+    "bridge_writes": "initTools.ts:1545 `_legacyWallStoreForOpeningBridge.addOpening(ev.wallId, opening)`; :1592 `doorStore.add(buildDoorStoreRecord({...}))` — the ONE record chokepoint shared with the 3-D path (§FIX-DOOR-WINDOW-SYMBOL-PARITY-AND-LOD300, L-266).",
+    "vdt_registerElement": "NO. grep -rn 'viewDependencyTracker.registerElement' apps/editor/src/engine/initTools.ts -> :1304 (wall), :1705 (lift), :1857, :1982, :2092, :2192, :2266, :2332, :2398, :2454, :2552, :2672 (handrail), :2942. NONE of them is inside the :1530-1653 §P2.3 block.",
+    "bimManager_registerElement": "NO on the BUS path. Same grep for bimManager.registerElement -> :1306, :1706, :1858, :1984, :2094, :2193, :2267, :2333, :2399, :2455, :2553, :2673, :2826, :2943 — none inside :1530-1653. ⚠ The LEGACY 3-D path DOES register it: packages/command-registry/src/walls/CreateWallOpeningCommand.ts:182 `bimManager.registerElement(opening.elementId, updatedWall.levelId)`. So the two opening paths DIVERGE on Bridge Invariant 7.",
+    "bridge_invariant_7_verdict": "HALF-SATISFIED, AND C11 §11 CALLS IT 'N/A'. exportForView (packages/core-app-model/src/geometry/NativeElementMeshExporter.ts:281-340) enumerates `level.childrenIds` — the set bimManager.registerElement populates. A bus-created door is NOT in it, so it never appears in the base projection. It STILL draws in plan because DoorPlanSymbolBuilder.inject() reads doorStore.getAll() and grafts the swing arc onto the drawing the HOST WALL dirtied. The matrix's 'N/A (openings are indexed under their parent wall's bimManager entry)' is therefore TRUE FOR THE PLAN SYMBOL and FALSE FOR THE PROJECTION MEMBERSHIP — and only on the bus path.",
+    "bimManager_via_window_any": "NO. initTools.ts receives bimManager as a parameter (declared `bimManager: any` at initTools.ts:267, destructured at :373). `grep -c 'window as any' apps/editor/src/engine/initTools.ts` -> 1, and it is not this site. NOT a C14 LP-01 / P4 violation — though the `any` type is its own hole.",
+    "in_GEOMETRY_ELEMENT_TYPES": true,
+    "GEOMETRY_ELEMENT_TYPES_evidence": "packages/core-app-model/src/views/ViewDependencyTracker.ts:42-48 — the set contains 'window', 'door' (line 43) and 'opening' (line 47). DoorStore.ts:64 emits `storeEventBus.emit({elementId, elementType:'door', operation:'create'})`, so the spelling MATCHES (unlike stairLanding/stairRailing, CD-row in census.json:1555).",
+    "update_verbs_covered": "NO — CREATE-MIRROR-WITHOUT-UPDATE-MIRROR. `ELEMENT_UPDATE_VERBS` (CommandEventBridge.ts:241-294) holds EIGHT rows and not one is a door verb: slab.addHole, slab.removeHole, slab.setThickness, slab.setBaseOffset, slab.setType, roof.setOverhang, roof.setThickness, column.setHeight. door.setType / door.setSwing / door.setFireRating / door.setAccessibility / door.move emit NO element.updated, so no mirror runs and the legacy record never moves.",
+    "committer_path_A": "DoorCommitter IS constructed — apps/editor/src/bootstrap.render.everything.ts:140 `new DoorCommitter({materialPool, wallsSnapshot})`, registered at :158 and bound at :168 `bindOne('door','door')`. That binding subscribes it to `inner.stores.door` — THE DTO STORE. Reached in production via packages/runtime-composer/src/composeRuntime.ts:1491 (dynamic import of @pryzm/editor/bootstrap.render.everything). So Path A is WIRED and its INPUT is the store production never writes.",
+    "status": "NO OWN CEB CASE (deliberate) · OPENING BRIDGE LIVE · BRIDGE INVARIANT 7 NOT MET ON THE BUS PATH · NO UPDATE MIRROR"
+  },
+
+  "milestones": {
+    "authored": "YES",
+    "authored_proof": "plugins/door/src/{store.ts, intent.ts, tool.ts, errors.ts} + 9 handler files + committer/{door-committer,geometry-bridge,material-bridge}.ts; packages/geometry-door/src/{DoorStore,DoorBuilder,DoorPlanSymbolBuilder,DoorSystemTypeStore,DoorTool}.ts. 5 test files under plugins/door/__tests__.",
+    "dispatchable": "NO",
+    "dispatchable_proof": "plugins/door/src/handlers/CreateDoor.ts:130-136 — canExecute returns `{valid:false, reason: DOOR_CREATE_UNREACHABLE}` for EVERY well-formed payload. door.move is the same (§FIX-DEAD-MOVE-VERB-REFUSE). door.setWidth / door.setHeight LEFT the handler set entirely (plugins/door/src/handlers/index.ts:20-26, §FIX-DIMS-REACH-RECORD L-815). door.batch.create IS dispatchable but is READBACK-NEGATIVE — see the ledger quoted in findings B3-DOOR-02.",
+    "reachable": "YES — VIA THE OPENING PATH, NOT VIA door.*",
+    "reachable_proof": "DoorPlanToolHandler dispatches `wall.opening.create {wallId, openingData}` (C11 §11.10 stage 1) -> WallOpeningLegacyAdapterHandler (plugins/wall/src/handlers/CreateWallOpeningLegacyAdapter.ts:47) -> CEB case at CommandEventBridge.ts:592 -> initTools.ts:1530 §P2.3 bridge -> WallStore.addOpening + doorStore.add. Every link measured. The refusal texts' alternate path is not an assertion: `grep -rnoE 'new [A-Za-z]+Committer\\(' apps packages plugins src` -> apps/editor/src/bootstrap.render.everything.ts:140 new DoorCommitter( — an EXECUTED construction site.",
+    "renders_3d": "YES",
+    "renders_3d_proof": "packages/geometry-door/src/DoorStore.ts:63-64 add() -> notify('add') + storeEventBus; packages/geometry-door/src/DoorBuilder.ts:701 `_bus.emit('bim-door-added', {id: door.id})`; the host-wall void is rebuilt by WallRebuildCoordinator off WallStore.addOpening (C11 §11.10 stage 5). ⚠ NOT independently executed by this audit — cited from the store/builder wiring plus C11 §11.10's live-verified runtime logs.",
+    "renders_plan": "YES",
+    "renders_plan_proof": "packages/geometry-door/src/DoorPlanSymbolBuilder.ts:289 stamps `elementType:'door'` on the injected symbol; it reads doorStore.getAll(). 'door' is in GEOMETRY_ELEMENT_TYPES (ViewDependencyTracker.ts:43). C11 §11.10 stage 6 records the runtime log \"Injected 2 door swing arc(s)\". ⚠ The door's own id is NOT in level.childrenIds on the bus path (see bridge_invariant_7_verdict) — the symbol rides the host wall's dirty mark.",
+    "persists": "YES",
+    "persists_proof": "packages/persistence-client/src/loader/ProjectSerializer.ts:57 `import { doorStore } from '@pryzm/geometry-door'` and :777 `const doors = doorStore.getAll().map(d => ({...d}))`. ⛔ THIS IS THE GEOMETRY SINGLETON, NOT ctx.stores.door — which is exactly why door.create/door.batch.create writing the DTO store persists NOTHING.",
+    "exports": "YES",
+    "exports_proof": "packages/file-format/src/export/ifc/FragmentReader.ts:89 `elements.push(...new WindowDoorReader(this.stores.wallStore, this).read())`. Doors are exported FROM THE WALL STORE'S OPENINGS, not from doorStore — so the export leg depends on WallStore.addOpening, which the §P2.3 bridge does call (initTools.ts:1545). packages/core-app-model/src/CoreElement.ts:85 carries the IfcDoor mapping."
+  },
+
+  "first_failing_link": "dispatchable — `door.create` refuses every well-formed payload by construction (CreateDoor.ts:130-136), and `door.batch.create`, the one create verb that still executes, is READBACK-NEGATIVE against the authoritative store. The FAMILY nevertheless reaches renders_3d / renders_plan / persists / exports through the wall.opening.create path, which holds end to end.",
+
+  "c11_matrix_says": "C11 §11's matrix (dated 2026-05-19) has NO 'Door' row. It has ONE row, 'Wall Opening (Door/Window)': CEB ✅ `wall.opening.create` + `wall.createOpening` · initTools ✅ §P2.3 · Store add() ✅ `OpeningStore.add()` · Plan-view tracked ✅ 'opening','window','door' · VDT+bimManager 'N/A (openings are indexed under their parent wall's bimManager entry)' · 3D via bus ✅ · Status ✅ FULL. MEASUREMENT CONFIRMS columns 1, 2, 4 and 6. MEASUREMENT REFUTES column 3: the §P2.3 bridge calls `_legacyWallStore.addOpening()` (initTools.ts:1545) and `doorStore.add()` (:1592) — `grep -n openingStore apps/editor/src/engine/initTools.ts` -> :319, :383, :706, :1179, all of them PARAMETER PLUMBING, ZERO `openingStore.add(` calls anywhere in the file. OpeningStore.add() is NOT on this path. MEASUREMENT PARTIALLY REFUTES column 5: the 'N/A' is true for the plan symbol and false for level.childrenIds membership, and the legacy path at CreateWallOpeningCommand.ts:182 DOES call bimManager.registerElement while the bus path does not — one row cannot be both. The ✅ FULL verdict also PRE-DATES §FIX-CREATE-LIVENESS-LIE and says nothing about the door.* verb family being refused/retired/readback-negative.",
+
+  "findings": [
+    {
+      "id": "B3-DOOR-01",
+      "class": "DOC-CONFLICT",
+      "severity": "P1",
+      "claim": "C11 §11's matrix row 'Wall Opening (Door/Window)' names `OpeningStore.add()` as the store write. The §P2.3 bridge never touches OpeningStore; it writes WallStore.addOpening + doorStore.add + windowStore.add.",
+      "command": "grep -n openingStore apps/editor/src/engine/initTools.ts   ->  319, 383, 706, 1179 (all parameter plumbing; zero `openingStore.add(`)   ·   sed -n '1530,1660p' apps/editor/src/engine/initTools.ts  ->  :1545 _legacyWallStoreForOpeningBridge.addOpening(...) ; :1592 doorStore.add(buildDoorStoreRecord(...)) ; :1636 windowStore.add(buildWindowStoreRecord(...))",
+      "output_excerpt": "initTools.ts:1545  _legacyWallStoreForOpeningBridge.addOpening(ev.wallId, opening as any);  |  initTools.ts:1592  doorStore.add(buildDoorStoreRecord({ opening: {...}, wallId: ev.wallId, ... }))",
+      "contract_clause": "C11 §11 matrix, column 'Store add() → storeEventBus'",
+      "disposition": "DOCUMENT",
+      "blocks_production": false
+    },
+    {
+      "id": "B3-DOOR-02",
+      "class": "DISPATCHABLE-BUT-DETACHED",
+      "severity": "P0",
+      "claim": "`door.batch.create` is registered, validated, undoable and REPORTS SUCCESS while writing a store nothing renders, projects, persists or exports. It is the surviving member of a purged family: door.create and door.move were made to refuse and door.setWidth/setHeight were removed for the identical mechanism, and this verb writes the same store the same way.",
+      "command": "sed -n '1,120p' apps/editor/__tests__/DoorBatchCreateLiveness.probe.test.ts   ·   grep -n 'affectedStores\\|produceCommand' plugins/door/src/handlers/CreateDoorBatch.ts  ->  :54 affectedStores = ['door'] ; produceCommand over ctx.stores.door   ·   grep -n \"storeRegistry.register(\" packages/runtime-composer/src/composeRuntime.ts  ->  1648 storeRegistry.register('door', doorStore)",
+      "output_excerpt": "[K5-CENSUS] are they the SAME object? false | [K5-DISPATCH] door.batch.create ok=true | [K5-AUTH] doors[0] undefined -> undefined | [K5-VERDICT] READBACK-NEGATIVE — dispatch reported success; the AUTHORITATIVE store did NOT change | [K5-FALSIFY] sees a genuine write=true | refuses a value never written=true",
+      "contract_clause": "C11 §5.5 (affectedStores is a promise the registration keeps) · C70 §4.2 (read back from the STORE) · C15 §8.1 dual-store",
+      "disposition": "REPLACE",
+      "blocks_production": false
+    },
+    {
+      "id": "B3-DOOR-03",
+      "class": "FALSE-GREEN-REGISTRATION-PROOF",
+      "severity": "P1",
+      "claim": "The one composition-root proof for this family constructs nothing (D6-compliant in form) and asserts the RIVAL object. `expect(rt.stores.door).toBeInstanceOf(DoorStore)` imports DoorStore from '@pryzm/plugin-door' — the detached DTO store. A green registration proof here is compatible with the family being dead against the store ProjectSerializer reads.",
+      "command": "sed -n '15,30p;46,62p' apps/editor/__tests__/bootstrap.everything.test.ts",
+      "output_excerpt": "import { DoorStore } from '@pryzm/plugin-door';  ...  expect(rt.stores.door).toBeInstanceOf(DoorStore);",
+      "contract_clause": "C11 §5.5 · D6",
+      "disposition": "REPLACE",
+      "blocks_production": false
+    },
+    {
+      "id": "B3-DOOR-04",
+      "class": "HANDLER-MUST-NOT",
+      "severity": "P1",
+      "claim": "`UpdateDoorsSystemTypeBatch.ts` breaks four C11 §5.3 MUST-NOTs in one file: it reads `window.commandManager`, calls `cm.execute(batch)`, and fires `window.dispatchEvent(new CustomEvent(...))` twice.",
+      "command": "grep -rnE '^[^/*]*(window\\.commandManager|window\\.dispatchEvent|cm\\.execute)' plugins/door/src",
+      "output_excerpt": "plugins/door/src/handlers/UpdateDoorsSystemTypeBatch.ts:98:        const cm = window.commandManager as | :122:  window.dispatchEvent(new CustomEvent(DOOR_TYPE_BATCH_REPORT_EVENT, { detail: report })); | :153:  const result = cm.execute(batch); | :171:  window.dispatchEvent(",
+      "contract_clause": "C11 §5.3 · C14 LP-01 · P4",
+      "disposition": "REPLACE",
+      "blocks_production": false
+    },
+    {
+      "id": "B3-DOOR-05",
+      "class": "CREATE-MIRROR-WITHOUT-UPDATE-MIRROR",
+      "severity": "P1",
+      "claim": "No door verb appears in ELEMENT_UPDATE_VERBS. A door can be created (via the opening path) and reach every render layer; none of door.setType / door.setSwing / door.setFireRating / door.setAccessibility / door.move can be UPDATED and reach one, because no element.updated is emitted for them.",
+      "command": "grep -n 'ELEMENT_UPDATE_VERBS' -A 55 packages/runtime-composer/src/CommandEventBridge.ts | sed -n '1,55p'",
+      "output_excerpt": "const ELEMENT_UPDATE_VERBS: Readonly<Record<string, ElementUpdateVerbSpec>> = { 'slab.addHole' ... 'slab.removeHole' ... 'slab.setThickness' ... 'slab.setBaseOffset' ... 'slab.setType' ... 'roof.setOverhang' ... 'roof.setThickness' ... 'column.setHeight' };  — 8 rows, 0 door rows",
+      "contract_clause": "C11 §5.2.1 (MUTATIONS EMIT TOO) · C11 §10.2",
+      "disposition": "WIRE",
+      "blocks_production": false
+    },
+    {
+      "id": "B3-DOOR-06",
+      "class": "BRIDGE-INVARIANT-7",
+      "severity": "P2",
+      "claim": "The §P2.3 bus bridge calls neither viewDependencyTracker.registerElement nor bimManager.registerElement for the door, while the legacy CreateWallOpeningCommand DOES (:182). A bus-created door is absent from level.childrenIds and therefore from exportForView's element set; it renders in plan only because DoorPlanSymbolBuilder grafts onto the host wall's dirtied drawing.",
+      "command": "grep -rn 'viewDependencyTracker.registerElement\\|bimManager.registerElement' apps/editor/src/engine/initTools.ts   ·   grep -n 'registerElement' packages/command-registry/src/walls/CreateWallOpeningCommand.ts   ·   sed -n '281,340p' packages/core-app-model/src/geometry/NativeElementMeshExporter.ts",
+      "output_excerpt": "initTools.ts VDT hits: 1304,1705,1857,1982,2092,2192,2266,2332,2398,2454,2552,2672,2942 — NONE in 1530..1653  |  CreateWallOpeningCommand.ts:182  bimManager.registerElement(opening.elementId, updatedWall.levelId);  |  NativeElementMeshExporter.ts:322  elementIds = levels.filter(...).flatMap(l => l.childrenIds);",
+      "contract_clause": "C11 §10.2 Bridge Invariant 7",
+      "disposition": "DOCUMENT",
+      "blocks_production": false
+    }
+  ],
+
+  "status": "PARTIAL"
+}

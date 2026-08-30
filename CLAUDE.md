@@ -146,9 +146,43 @@ math) and a `plugins/*` package (the user-facing tool, commands, UI).
    `packages/frame-scheduler/src/RafAdapter.ts` — the frame scheduler is its OWN L1 package, it is
    not "inside `runtime-composer`". All animation subscribes to the frame bus.
    → **hard-fail at the invariant** (`tools/ga-gate/check-raf-count.ts`, exactly 1 owner).
+   > ⭐ **CONFIRMED GREEN 2026-08-29 — recorded here because the CONTRACTS were wrong
+   > PESSIMISTICALLY, which costs budget rather than safety.**
+   > `npx tsx tools/ga-gate/check-raf-count.ts > /tmp/raf.txt 2>&1; echo "RC=$?" >> /tmp/raf.txt`
+   > → **RC=0**, `[raf-tripwire] OK: 1 owner` (`packages/frame-scheduler/src/RafAdapter.ts`),
+   > **files scanned: 5438 (excluded 2841)**, plus *"Comment-only mentions (not owners): 5 file(s)"*.
+   > ⚠ **THIS BULLET WAS ALREADY RIGHT.** `C01` §1 and `C01` §5 both read *"FAILING: 5 owner files,
+   > target 1"* and were the LAST uncorrected copies — `C14`'s banner and
+   > `CONTRACT-AMENDMENT-REGISTER` §11B had both already corrected it. Corrected in `C01` by the
+   > same patch that added this note, so the fact lives in one place with one reading (C84 EI-9).
+   > ⭐ **The "5" was 1 owner + 4 COMMENT lines, three of them doc comments asserting P3
+   > compliance** — the gate counted sentences until `§RAF-GATE-COMMENT-BLIND` (2026-08-10).
+   > ⛔ **Do not re-open P3 from a naive `grep -c requestAnimationFrame`: that grep reproduces the
+   > exact defect the fix removed.** Run the gate.
 4. **P4 — No `(window as any)`.** Forbidden outside the one allowlisted shim file — *as a rule*.
    **NOT-YET-TRUE as enforcement:** `check-cast-count.ts` is a shrink-only ratchet and is on
    `tools/ga-gate/gate-debt.json`.
+   > ⛔ **Corrected AGAIN 2026-08-29 — the 2026-08-18 box below is now stale in the OPPOSITE
+   > direction. This bullet has been wrong in BOTH directions inside eleven days.** The 08-18 box
+   > read *"**RC=0**, terminal line `[cast-tripwire] OK: 3 = baseline.` · scoped 215 files ·
+   > **3 / 3** · repo-wide 4821 files · **100 / 100** … **Both arms are within ceiling; neither is
+   > breached.**"* **Re-run 2026-08-29 (HEAD `064a838e`):**
+   > `npx tsx tools/ga-gate/check-cast-count.ts > /tmp/cast.txt 2>&1; echo "RC=$?" >> /tmp/cast.txt`
+   > → **RC=3**. Terminal line: `[cast-tripwire] FAIL (repo-wide): 101 (window as any) cast(s) >
+   > baseline 100.` · **repo-wide 5,315 files · 101 / 100** (tests excluded) · **scoped strict
+   > (`src`, `apps/editor/src/engine`) 11 / 3 — headroom −8**, in the gate's own words:
+   > *"A regression added 8 new cast(s)."* **BOTH arms are breached; neither is within ceiling.**
+   > ⛔ **RC=3 is SHRINK-ONLY RATCHET EXCEEDED, and `run-all.ts:1162` sets `anyFailed=true` on code
+   > 3 UNCONDITIONALLY. It is NOT absorbable via `gate-debt.json`
+   > (§RATCHET-EXCEEDED-IS-NEVER-DEBT, R7 / L-836). Fix the 8 new casts. Raising either ceiling, or
+   > adding a ledger entry to swallow the exit-3, is the one forbidden fix.**
+   > ⭐ **The lesson is the OSCILLATION, not the number.** 08-16 read RED · 08-18 read GREEN ·
+   > 08-29 reads RED — three transcribed readings, three verdicts, one gate. Stale-pessimistic
+   > wastes budget on a solved problem; stale-optimistic **certifies a breach as clean**, which is
+   > worse. **If you are quoting a number out of this bullet, you have already made the mistake it
+   > documents. Read the gate.**
+
+   > ⚠ **SUPERSEDED 2026-08-29 — kept as the record of the oscillation, NOT as a reading.**
    > ⚠ **Corrected 2026-08-18 — this bullet claimed the gate was RED. It is GREEN.** It read
    > *"**RED — exit 3** (measured 2026-08-16) … repo-wide **209 / 215** … scoped **6 / 4** — **this
    > is the breach**"*. **Re-run:** `npx tsx tools/ga-gate/check-cast-count.ts > /tmp/cast.txt 2>&1;
@@ -157,7 +191,7 @@ math) and a `plugins/*` package (the user-facing tool, commands, UI).
    > 100 / 100** (tests excluded). **Both arms are within ceiling; neither is breached.** The
    > earlier reading was not merely stale, it was stale *pessimistically* — it named a breach that
    > the gate does not report, which is the same class of defect as claiming enforcement that does
-   > not exist, inverted. **Read the gate, never this line.**
+   > not exist, inverted. **Read the gate, never this line.** ⛔ *(Every number in THIS box is the 08-18 measurement and is NO LONGER TRUE — see the 08-29 box above.)*
 
    > ⚠ **The `commandManager` sub-finding under this bullet was ALSO stale — rewritten
    > 2026-08-18.** It read: *"one of the six is

@@ -1,0 +1,167 @@
+{
+  "phase": "3-VERIFY (adversarial)",
+  "date": "2026-08-29",
+  "doctrine": "D1 absence-with-a-command / D2 unreachable-beats-absent / D3 RC=0 is not 0 violations / D5 four separate facts / D6 a suite that supplies the object cannot observe its absence / D7 file:line only with its grep / D9 no production code changed",
+  "method": "Every claim below was re-run from the repo root. Nothing was accepted from a row's prose.",
+
+  "ground_truth_established_first": {
+    "what_actually_enumerates_a_plan_view": {
+      "command": "grep -n exportForView packages/core-app-model/src/geometry/NativeElementMeshExporter.ts ; sed -n '281,340p' <same>",
+      "finding": "exportForView(viewDef) PLAN branch builds its element set from `levels.filter(...).flatMap(l => l.childrenIds)` -- i.e. from bimManager ONLY. viewDependencyTracker.registerElement does NOT feed enumeration; it feeds targeted dirty-marking (its absence degrades to the section-G3-STALE fallback, it does not empty the export).",
+      "consequence_for_this_audit": "The brief's rule 'missing EITHER registerElement means exportForView returns 0 elements' is too strong. bimManager.registerElement is the necessary one for enumeration. I therefore graded renders_plan on THREE admissible mechanisms, not one: (a) bimManager.registerElement -> childrenIds, (b) a store-driven plan SYMBOL builder that bypasses childrenIds entirely, (c) neither -> NO."
+    },
+    "symbol_injection_is_not_nested_under_the_mesh_guard": {
+      "command": "awk 'NR>=2553 && NR<=2560' + awk 'NR>=3925 && NR<=3945' apps/editor/src/engine/views/EdgeProjectorService.ts",
+      "finding": ":2555 `if (nativeMeshGroups.length > 0) {` and :3936 `if (PLAN_SYMBOL_INJECTION_VIEW_TYPES.has(viewDef.viewType)) {` sit at the SAME 8-space indent. Symbol injection is a SIBLING of the native-mesh loop, not a child of it. So door/window/furniture/plumbing plan symbols do not require the family to be in childrenIds."
+    },
+    "GEOMETRY_ELEMENT_TYPES_verbatim": {
+      "command": "awk 'NR>=41 && NR<=49' packages/core-app-model/src/views/ViewDependencyTracker.ts",
+      "output": ":42 const GEOMETRY_ELEMENT_TYPES = new Set([ / :43 'wall','slab','column','beam','curtainwall','curtain-panel', / :44 'window','door','roof','stair','stair-landing','stair-railing', / :47 'verticalCirculation', / :48 'opening','ceiling','floor','handrail','furniture','plumbing', ]) -- 19 members, matching the Phase-1 census. PLAN_INCREMENTAL_SAFE_TYPES at :69-71 = wall, slab, beam, ceiling, floor (five, a different set)."
+    },
+    "registerElement_census_in_initTools": {
+      "command": "grep -n 'viewDependencyTracker.registerElement' apps/editor/src/engine/initTools.ts ; grep -n 'bimManager.registerElement' apps/editor/src/engine/initTools.ts ; grep -n \"\\.created'\" apps/editor/src/engine/initTools.ts",
+      "finding": "15 VDT call sites / 15 real bimManager call sites (+2 bimManager lines that are comments). Pairing them against the 15 `runtime.events.on('<x>.created')` registrations at :1225 wall, :1530 wall.opening, :1687 lift, :1883 boundaryLine, :1943 water, :2064 curtain-wall, :2161 ceiling, :2217 roof, :2291 column, :2363 slab, :2428 beam, :2480 floor, :2575 handrail, :2756 lighting, :2847 furniture gives EXACTLY ONE bridge with bimManager and NO VDT: lighting (bimManager :2826, no VDT anywhere in 2756-2831). Every other bridge calls both. wall.opening calls neither (by design -- door/window ride the host wall plus their own symbol builders)."
+    },
+    "which_ProjectSerializer_is_live": {
+      "command": "find . -name ProjectSerializer.ts -not -path '*/node_modules/*' ; grep -rn '@pryzm/persistence-client' apps plugins packages src | grep -v node_modules | grep -v '^packages/persistence-client'",
+      "output": "TWO files: apps/editor/src/engine/persistence/ProjectSerializer.ts (1956 lines) and packages/persistence-client/src/loader/ProjectSerializer.ts (1008 lines). The LIVE one is the apps/editor copy -- apps/editor/src/engine/initPersistence.ts:41 `import { ProjectSerializer } from './persistence/ProjectSerializer'`. NOTHING outside packages/persistence-client/src/loader/ imports that package's ProjectSerializer class. initPersistence.ts:94 records the hazard in its own words: a PV-05 fix 'landed on the persistence-client copy of ProjectSerializer that this file does not import.'"
+    }
+  },
+
+  "refuted": [
+    {
+      "family": "furniture",
+      "claim": "exports = NO -- 'No IFC exporter exists for furniture ... no IfcFurnishingElement path.' first_failing_link = 'exports'.",
+      "verdict": "REFUTED",
+      "corrected_value": "exports = YES (IFC). first_failing_link 'exports' falls with it and must be re-derived.",
+      "commands": [
+        "ls packages/file-format/src/export/ifc/readers/  ->  BeamReader ColumnReader CurtainWallReader FurnitureReader HandrailReader PlumbingReader ReaderContext RoofReader RoomReader SlabReader StairReader WallReader WindowDoorReader commonPsets",
+        "sed -n '70,140p' packages/file-format/src/export/ifc/FragmentReader.ts  ->  `if (this.stores.furnitureStore) { debug(\"Reading furniture...\"); elements.push(...new FurnitureReader(this.stores.furnitureStore, this).read()); }`",
+        "sed -n '38,58p' packages/file-format/src/export/ifc/ExportIFC.ts  ->  `furnitureStore: window.furnitureStore ?? undefined`",
+        "grep -rn 'ExportIFC|exportIFC' apps  ->  apps/editor/src/engine/initUI.ts:1044 `const exportIFC = await _getExportIFC();` :1045 `await exportIFC(components, fragments, {...})` (again at :1999-2000) -- the live user-facing Export IFC action",
+        "grep -rniE 'IfcFurnishingElement' packages  ->  packages/core-app-model/src/CoreElement.ts:88 `furniture: 'IfcFurnishingElement'`, IfcModelBuilder.ts:50, FragmentReader.ts:263 and :280, readers/FurnitureReader.ts:41"
+      ],
+      "why_wrong": "The row searched ONE subtree -- `ls plugins/ifc-export/src/exporters/` and `grep -ril furniture plugins/ifc-export/`. That is a search by DIRECTORY NAME, not by capability (D1). The reachable IFC exporter is packages/file-format/src/export/ifc, invoked from apps/editor/src/engine/initUI.ts. The row's own sibling -- floor.json -- printed the readers directory listing that contains FurnitureReader.ts, so the refuting evidence was already inside this audit.",
+      "residual_true_fact_worth_keeping": "FurnitureReader.read() opens with `const mesh = this.ctx.findMesh(item.id); if (!mesh) continue;` -- a furniture record with no findable mesh exports nothing. That is a narrower, real constraint; it is NOT 'no exporter exists'."
+    },
+    {
+      "family": "plumbing",
+      "claim": "exports = NO -- 'grep -ril \"plumbing\" plugins/ifc-export/ -> no hit ... No IfcSanitaryTerminal / IfcFlowTerminal path.'",
+      "verdict": "REFUTED",
+      "corrected_value": "exports = YES (IFC, IfcSanitaryTerminal). The row's stated first_failing_link for the WORKING plumbing.createFixture route ('exports') falls.",
+      "commands": [
+        "ls packages/file-format/src/export/ifc/readers/  ->  PlumbingReader.ts present",
+        "sed -n '70,140p' packages/file-format/src/export/ifc/FragmentReader.ts  ->  `if (this.stores.plumbingStore) { debug(\"Reading plumbing...\"); elements.push(...new PlumbingReader(this.stores.plumbingStore, this).read()); }`",
+        "sed -n '38,58p' packages/file-format/src/export/ifc/ExportIFC.ts  ->  `plumbingStore: window.plumbingStore ?? undefined`",
+        "grep -rniE 'IfcSanitaryTerminal|IfcFlowTerminal' packages  ->  readers/PlumbingReader.ts:48 `ifcClass: (item as any).ifcData?.ifcClass ?? 'IfcSanitaryTerminal'`; IfcModelBuilder.ts:51 'IfcFlowTerminal', :69 'IfcSanitaryTerminal'; CoreElement.ts:91 `plumbing: 'IfcFlowTerminal'`",
+        "sed -n '1,35p' packages/file-format/src/export/ifc/readers/PlumbingReader.ts  ->  emits Pset_FlowTerminalCommon plus Pset_ElementParameters"
+      ],
+      "why_wrong": "Identical D1 failure to furniture: the negative grep was scoped to plugins/ifc-export/, which is not the exporter the Export IFC button runs. The claim 'No IfcSanitaryTerminal path' is directly contradicted by a repo-wide grep for that exact IFC class."
+    },
+    {
+      "family": "balcony",
+      "claim": "persists = YES -- 'snapshotFamilyCoverage.ts:161 { storeKey:\"balcony\", status:\"persisted\", snapshotKey:\"balconies\" }; ProjectSerializer.ts:1519 readPluginStore(\"balcony\") ... Executed proof: snapshotFamilyRoundTrip.spec.ts 8/8 green, ARM A asserts saved.balconies toHaveLength(1).' first_failing_link = 'exports'.",
+      "verdict": "REFUTED -- the highest-consequence refutation in this pass.",
+      "corrected_value": "persists = NO in production, and SILENTLY. first_failing_link moves from 'exports' back to 'persists'.",
+      "commands": [
+        "sed -n '1506,1520p' apps/editor/src/engine/persistence/ProjectSerializer.ts  ->  `const readPluginStore = (storeKey: string): unknown[] | undefined => { const store = (window as { runtime?: { stores?: Record<string, { getState?: () => Map<string, unknown> } | undefined> } }).runtime?.stores?.[storeKey]; const state = store?.getState?.(); if (!state) return undefined; ... }` then :1519 `const balconies = readPluginStore('balcony');`",
+        "grep -rn 'window.runtime\\s*=' apps/editor/src packages | grep -v node_modules | grep -v __tests__  ->  EXACTLY ONE production site: apps/editor/src/engine/engineLauncher.ts:191 `if (runtime) window.runtime = runtime as typeof window.runtime;` -- and engineLauncher.ts:181 types that parameter as `import('@pryzm/runtime-composer').PryzmRuntime`, i.e. the composeRuntime() handle",
+        "awk 'NR>=2896 && NR<=3040' packages/runtime-composer/src/types.ts | grep -E '^\\s*(readonly )?\\[?[a-zA-Z_]'  ->  StoresSlot fields: elements, boundaryLine?, bathroomPod?, lift?, liftPart?, pool?, water?, hydrate, registerHydrator, viewState, project.  NO `balcony`.  Index-signature check on the same range: grep -n '\\[key:'  ->  NO OUTPUT",
+        "grep -rn 'balcony' packages/runtime-composer/src/*.ts  ->  only CommandEventBridge.ts:1422+ (the balcony.create member fan-out case). composeRuntime.ts never adopts a balcony store; its section-BATH102 adoption block adopts bathroomPod, lift, liftPart, pool, water alongside boundaryLine -- balcony is not in the list",
+        "grep -n 'window.runtime|stores:|balcony' apps/editor/src/engine/__tests__/snapshotFamilyRoundTrip.spec.ts  ->  :140 `w.window.runtime = {` :141 `stores: {` :144 `balcony: live.balcony,`"
+      ],
+      "why_wrong": "THREE independent defects stacked. (1) MECHANISM: the save reads `window.runtime.stores.balcony`; window.runtime is the composeRuntime handle; composeRuntime's StoresSlot has no balcony key and no index signature -- so the read is `undefined`, readPluginStore returns `undefined`, and `balconies` is never written into the snapshot. This is the SAME latent-unreachability signature the repo already logged as L-11060 / L-11064 / L-11480 for boundaryLine, lift, liftPart, pool and water; balcony is the one member of that compound set that was never adopted. (2) D6: the cited executed proof ASSIGNS `window.runtime = { stores: { ..., balcony: live.balcony } }` at :140-144. It supplies the very object whose absence is the defect, so it cannot observe it -- the exact prohibition D6 states. (3) SILENCE: snapshotFamilyCoverage.ts:161 declares balcony `status:'persisted'`, so balcony is NOT in UNPERSISTED_FAMILY_KEYS and the C84 EI-6 loss loop at ProjectSerializer.ts:1533 never names it. Failure and emptiness are the same value at this seam.",
+      "gate_that_did_not_catch_it": "npx tsx tools/ga-gate/check-snapshot-family-coverage.ts -> RC=0. D3: the PRINTED numbers are '30 family/families, 30 row(s), sets equal in both directions', '26 persistence claim(s) verified against the snapshot's own fields and writers', '3/3 declared losses' (bathroomPod, section, structural -- balcony is not among them). The gate verifies that a snapshot FIELD and a WRITER exist; it does not evaluate the writer's READ CHANNEL. Its own closing lines say so: 'NOT ESTABLISHED HERE: that any family ROUND-TRIPS.'"
+    },
+    {
+      "family": "stair, handrail, roof, beam, column, floor, door, window (8 rows)",
+      "claim": "persists = YES, each proven by a file:line in `packages/persistence-client/src/loader/ProjectSerializer.ts` (stair :716/:764/:780 - handrail :722/:766/:785 - roof :719/:783 - beam :717/:781 - column :714/:779 - floor :741/:822 - door :57/:777 - window :58/:776).",
+      "verdict": "CITATION REFUTED -- every cited line is in a file the production path does not import. The MILESTONE survives on corrected evidence.",
+      "corrected_value": "persists = YES, but proven at apps/editor/src/engine/persistence/ProjectSerializer.ts -- :1391 windows, :1392 doors, :1394 columns, :1395 stairs, :1396 beams, :1448 roofs, :1449 furniture, :1450 handrails, :1451 plumbing, :1558 floors.",
+      "commands": [
+        "find . -name ProjectSerializer.ts -not -path '*/node_modules/*'  ->  2 files (apps/editor 1956 lines, packages/persistence-client 1008 lines)",
+        "grep -rn '@pryzm/persistence-client' apps plugins packages src | grep -v node_modules | grep -v '^packages/persistence-client'  ->  no importer of that package's ProjectSerializer class; apps/editor/src/engine/initPersistence.ts:41 imports the LOCAL copy",
+        "for k in stairStore handrailStore roofStore beamStore columnStore floorStore doorStore windowStore plumbingStore furnitureStore; do grep -c $k apps/editor/src/engine/persistence/ProjectSerializer.ts; done  ->  3 3 3 3 3 3 2 2 3 3 (capability present in the live file too)",
+        "grep -n 'const stairs|const handrails|const roofs|const beams|const columns|const floors|const doors|const windows|const plumbing|const furniture' apps/editor/src/engine/persistence/ProjectSerializer.ts  ->  the ten lines quoted above"
+      ],
+      "why_wrong": "D7 with teeth. The repo itself records at initPersistence.ts:94 that a real fix (PV-05, commit 8cab70c1) landed on the persistence-client copy 'that this file does not import' and was recorded closed while broken. Eight rows have now cited that same dead file as their persistence authority. The verdicts happen to hold because the live copy is a superset -- but as written the audit points a fixer at code that runs nowhere, which is precisely the failure that produced PV-05."
+    },
+    {
+      "family": "grid, structural (2 rows)",
+      "claim": "'the single production call site of runtime.tools.activate is apps/editor/src/ui/ai/chatPlacementActivation.ts:379' -- the exhaustiveness that carries reachable = NO.",
+      "verdict": "EVIDENCE REFUTED. The CONCLUSION survives.",
+      "corrected_value": "There are THREE production call sites, not one. reachable = NO still holds, but on a corrected enumeration.",
+      "commands": [
+        "grep -rnE \"tools[?]?\\.activate\\(\" --include=*.ts --include=*.tsx apps packages plugins src | grep -v node_modules | grep -vE '__tests__|\\.test\\.|\\.spec\\.'  ->  three NON-COMMENT hits: apps/editor/src/ui/ai/chatPlacementActivation.ts:379 `const armed = tools.activate(entry.tool);` ; apps/editor/src/ui/tools-panel/panels/CreateRailPanel.ts:126 `this.runtime.tools.activate(family, mode);` ; plugins/wall/src/contributions.ts:68 `runtime.tools.activate('wall', 'POLYLINE_ORTHO');`  (the remaining ~40 hits are prose inside comments)",
+        "grep -n '_activateTool(' apps/editor/src/ui/tools-panel/panels/CreateRailPanel.ts  ->  30 call sites: wall, curtain-wall, door, window, stair x4, handrail, ramp, ceiling, ceiling:auto, floor, floor:auto, room, room:level, room-bounding, column, beam, slab, roof x4, opening x2, plumbing x4.  NONE passes 'grid:tool', 'structural' or 'dimension'."
+      ],
+      "why_wrong": "The rows asserted a one-element set from a grep they say they ran; re-running that exact pattern returns three. A verdict of the form 'the ONLY caller is X, and X cannot reach me' is only as strong as the enumeration, and this enumeration was wrong. The corrected enumeration still supports reachable=NO -- CreateRailPanel's 30 activations never name these three ids -- so the rows' answer is right and their proof is not."
+    },
+    {
+      "family": "door",
+      "claim": "'plugins/door/src/handlers/CreateDoor.ts:130-136 -- canExecute returns {valid:false, reason: DOOR_CREATE_UNREACHABLE} for EVERY well-formed payload.'",
+      "verdict": "CITATION REFUTED. Claim survives at the corrected line.",
+      "corrected_value": "CreateDoor.ts:149 `canExecute(...)`, refusal at :154 `return { valid: false, reason: DOOR_CREATE_UNREACHABLE };`. Lines 130-136 are an unrelated `sillHeight must be >= 0` validation block.",
+      "commands": [
+        "grep -n 'DOOR_CREATE_UNREACHABLE\\|canExecute' plugins/door/src/handlers/CreateDoor.ts  ->  :102 (comment) :106 (const decl) :149 canExecute :154 the refusal",
+        "sed -n '125,140p' plugins/door/src/handlers/CreateDoor.ts  ->  height / offset / sillHeight guards only, no refusal"
+      ],
+      "why_wrong": "Line drift in an actively-edited handler. The SIBLING row got the same shape right: window.json cited CreateWindow.ts:95-101 and the refusal is genuinely at :98 inside canExecute at :93. Same defect class, one row hit and one missed -- which is why D7 asks for the grep alongside the line."
+    },
+    {
+      "family": "handrail (plus minor: stair, door, window GEOMETRY_ELEMENT_TYPES cites)",
+      "claim": "'initTools.ts:2641 handrailStore.add' ; \"'handrail' is in GEOMETRY_ELEMENT_TYPES (ViewDependencyTracker.ts:47)\" ; stair/door/window cite ViewDependencyTracker.ts:43.",
+      "verdict": "CITATION REFUTED (off-by-N). All underlying claims survive.",
+      "corrected_value": "`handrailStore.add({` is at initTools.ts:2639 (:2641 is `type: 'handrail',`). 'handrail','furniture','plumbing','ceiling','floor','opening' are on ViewDependencyTracker.ts:48, not :47. 'stair','door','window','roof' are on :44, not :43.",
+      "commands": [
+        "awk 'NR>=2636 && NR<=2646' apps/editor/src/engine/initTools.ts  ->  2639 `handrailStore.add({` / 2640 `id: ev.id,` / 2641 `type: 'handrail',`",
+        "awk 'NR>=41 && NR<=49' packages/core-app-model/src/views/ViewDependencyTracker.ts"
+      ],
+      "why_wrong": "initTools.ts is under active edit (D7 says so explicitly) and the rows cite it by raw line. The handrail row's OTHER two cites are exact and survive: :2599-2607 is verbatim the section-FIX-HANDRAIL-BRIDGE-TRUNCATION `if (ev.path.length > 2) { console.error(...); return; }`, and :2672 VDT plus :2673 bimManager are exact."
+    },
+    {
+      "family": "balcony, boundary-line, lift, pool (dispatchable proofs)",
+      "claim": "dispatchable = YES, proven by `<family>ReachableThroughComposedRuntime.test.ts`.",
+      "verdict": "NOT REFUTED for dispatch -- but the PROOF INSTRUMENT is mis-named and cannot support any `runtime.stores.<key>` claim built on top of it. Recorded because balcony's persists row is exactly the failure this enables.",
+      "corrected_value": "dispatchable = YES stands (the bus and its storesProvider are the same objects composeRuntime consumes via bootstrapFn). The tests do NOT establish composed-runtime store READABILITY, and must not be cited for it.",
+      "commands": [
+        "grep -n 'composeRuntime|bootstrapWithEverything' apps/editor/__tests__/{balcony,boundaryLine,lift,pool}ReachableThroughComposedRuntime.test.ts  ->  all four call `bootstrapWithEverything({ audit: AUDIT })`; NONE calls composeRuntime()",
+        "sed -n '1,40p' apps/editor/__tests__/bathroomPodReachableThroughComposedRuntime.test.ts  ->  the sibling's own header: 'composeRuntime() -> Object.keys(rt.stores) = [elements, registerHydrator, hydrate, viewState, project], rt.stores.boundaryLine === undefined | bootstrapWithEverything() -> 29 keys, boundaryLine = a real store' and 'boundaryLineReachableThroughComposedRuntime was GREEN on all 13 of its cases while four production call sites read undefined.'"
+      ],
+      "why_wrong": "The file names assert a composition-root proof the files do not perform. P1 makes composeRuntime() the only object a reachability claim may be made against, and the repo has already paid for this once (L-11060). Any row that reads 'proven through the composed runtime' out of these four files has imported that error."
+    }
+  ],
+
+  "survived": [
+    "wall / renders_plan=YES -- VERIFIED INDEPENDENTLY. `awk 'NR>=1285 && NR<=1345' apps/editor/src/engine/initTools.ts` shows :1304 `viewDependencyTracker.registerElement(ev.wallId, resolvedLevelId)` and :1306 `bimManager.registerElement(ev.wallId, resolvedLevelId)`, BOTH present and BOTH before the :1313 `_legacyWallStoreForBridge.add(`. The row's own stated caveat is correct and I confirmed it: they sit in the `else` of :1297 `if (resolvedLevelId === null)`, so an empty levelId skips registration deliberately (section-DIAG-WALL-LEVEL). One nuance the row overstates: 'UNCONDITIONAL' is true only relative to the :1310 dedup guard -- the pair is still downstream of the :1239-1244 payload guard (commandType, !ev.wallId, !ev.baseLine, baseLine.length<2).",
+    "wall / dispatchable=YES -- VERIFIED, and it is the ONLY row in the batch whose registration proof is D6-clean. apps/editor/__tests__/composedBusElementReadback.test.ts:70-78 calls the REAL `composeRuntime({ audit, canvas: null, bootstrapFn: bootstrapWithEverything })` and constructs no store; A-1 asserts `authoritative('wall')` IS the `@pryzm/geometry-wall/store` module singleton by identity (`toBe`), and A-3 dispatches wall.create then reads `thickness===0.3 / height===2.9 / baseLine[1].x===5` back out of it. PluginRegistry.ts:261-264 declares `{ id:'wall', storeKey:'wall', buildStore: () => new WallStore() }`; bootstrap.everything.ts:143-145 binds `stores[plugin.storeKey] = store`; bootstrap.ts:94 `storesProvider: () => storesAsRecordView(stores)` hands that to CommandBus.buildContext -- so ctx.stores.wall resolves and the storeKey was checked against the binding, not the directory name. NOTE for future readers: `rt.stores.wall` is deliberately `undefined` (asserted at test line 104) -- rt.stores and ctx.stores are DIFFERENT objects, and conflating them is exactly what sank balcony above.",
+    "stair / renders_plan=YES -- VERIFIED. `grep -n registerElement packages/command-registry/src/stair/CreateStairCommand.ts` -> :340 `ctx.bimManager.registerElement(stairId, baseLevelId);`, exactly the cited line, and it runs BEFORE :438 `stairStore.add(stair)`. Because exportForView's plan branch reads level.childrenIds ONLY, bimManager alone is sufficient for ENUMERATION, so the row's 'VDT registration is ABSENT ... that half is UNVERIFIED' is correctly scoped rather than an overclaim.",
+    "stair / dispatchable=YES -- VERIFIED. `grep -n \"'stair.create'\" apps/editor/src/engine/initBusHandlers.ts` -> :2541, with :2542 `stores: [] as const`, so CommandBus.buildContext's `for (const key of required)` loop is empty and cannot throw the missing-store error; :2544 `fn: (cmd) => { _cmExec(new CreateStairCommand(cmd)); }`. `grep -n stair.create plugins/stair/src/handlers/index.ts` -> :18, a comment stating 'stair.create is NOT declared here', so the section-OI-053 registry.has() skip cannot suppress the bridge. Every cited line exact.",
+    "door + window / renders_plan=YES -- VERIFIED by a mechanism the rows only half-stated. `grep -rn 'doorPlanSymbolBuilder|windowPlanSymbolBuilder' apps` -> EdgeProjectorService.ts:3937 `if (_symbolGate('door')) doorPlanSymbolBuilder.inject(drawing, viewDef);` and :3992 `if (_symbolGate('window')) windowPlanSymbolBuilder.inject(drawing, viewDef);`, both inside :3936 `if (PLAN_SYMBOL_INJECTION_VIEW_TYPES.has(viewDef.viewType))` -- a SIBLING of the childrenIds mesh loop, not a child. NativeElementMeshExporter.ts:348 states the same thing in production source: 'PLAN still shows those openings because WindowPlanSymbolBuilder reads the WallStore/WindowStore directly (bypassing childrenIds)'. So renders_plan for door/window does not depend on the two registerElement calls the wall.opening bridge indeed never makes.",
+    "window / dispatchable=NO -- VERIFIED verbatim. `sed -n '90,105p' plugins/window/src/handlers/CreateWindow.ts` -> :93 `canExecute(ctx, cmd)`, :94-95 `const v = this.validatePayload(ctx, cmd); if (!v.valid) return v;`, then :98 `return { valid: false, reason: WINDOW_CREATE_UNREACHABLE };` -- a well-formed payload is refused by construction. The cited range 95-101 contains it.",
+    "plumbing / renders_plan=YES -- VERIFIED, and by the store-driven mechanism rather than by registration. `sed -n '43,90p' packages/geometry-plumbing/src/PlumbingPlanSymbolBuilder.ts` -> `inject()` reads `storeRegistry.getStoreForType('plumbing')` then `for (const fixture of store.getAll()) { if (fixture.levelId !== levelId) continue; ... }` -- it never consults childrenIds. Injected at EdgeProjectorService.ts:3980 `if (_symbolGate('plumbing')) plumbingPlanSymbolBuilder.inject(drawing, viewDef);`. The row's '(warning) VDT registerElement is NOT called' caveat is true (there is no plumbing bridge in initTools at all) and correctly does not sink the verdict.",
+    "roof, column, floor, furniture, handrail / renders_plan=YES -- VERIFIED. Both registerElement calls present in each bridge, read directly out of apps/editor/src/engine/initTools.ts and none inferred: roof :2266 VDT + :2267 bimManager (bridge at :2217); column :2332 + :2333 (bridge :2291); floor :2552 + :2553 (bridge :2480); furniture :2942 + :2943 (bridge :2847); handrail :2672 + :2673 (bridge :2575).",
+    "floor / exports=NO -- VERIFIED and correctly derived. `ls packages/file-format/src/export/ifc/readers/` contains NO FloorReader, and `sed -n '38,58p' ExportIFC.ts` builds an eleven-key stores object with no floorStore. This row is the CONTROL CASE for the two export refutations above: it enumerated the RIGHT directory and got the right answer, while furniture.json and plumbing.json enumerated plugins/ifc-export and got the wrong one. Its listing even contains FurnitureReader and PlumbingReader.",
+    "annotations / exports=NO -- VERIFIED, including the D1 guard the row did not state. Its four negative greps target plugins/ifc-export/src, plugins/export-pdf/src, plugins/dxf/src and packages/pdf-export/src; I confirmed ALL FOUR DIRECTORIES EXIST (`for d in ...; do [ -d $d ] && echo EXISTS; done` -> EXISTS x4), so the empty output is real absence rather than a bad path. There is also no AnnotationReader in packages/file-format/src/export/ifc/readers/.",
+    "dimensions / reachable=NO -- VERIFIED and it is the strongest NO in the batch. `grep -rn 'dimensionTool' --include=*.ts apps packages plugins src | grep -v node_modules` returns THREE hits and all three are in apps/editor/src/PluginRegistry.ts (:961 a comment, :1048 a comment, :1051 the READ inside the activator). There is NO assignment anywhere in the repo, so the activator's else-branch ('DimensionTool not ready -- engine not yet initialised') is permanent, not a startup race. An unsatisfiable gate in the L-716 sense, correctly identified.",
+    "lighting / renders_plan=UNVERIFIED -- VERIFIED AS HONEST, not an under-report. `awk 'NR>=2756 && NR<=2831' initTools.ts` shows :2826 `bimManager.registerElement(ev.id, ev.levelId ?? '')` and NO viewDependencyTracker.registerElement anywhere in that bridge -- lighting is the ONE .created bridge of the fifteen that calls only half the pair. 'lighting' is also absent from GEOMETRY_ELEMENT_TYPES (ViewDependencyTracker.ts:42-49). UNVERIFIED is the correct verdict for a family that is enumerable-but-not-dirty-markable.",
+    "D3 spot-check of the gate the persistence rows lean on -- `npx tsx tools/ga-gate/check-snapshot-family-coverage.ts` -> RC=0, but the PRINTED numbers are '30 plugin DTO store key(s) across 28 store file(s)', '74 field(s) declared, 71 written', '3 family/families are DECLARED UNPERSISTED (baseline 3)' (bathroomPod L-11527, section L-11524, structural L-11523), '26 persistence claim(s) verified ... 3/3 declared losses'. RC=0 is NOT 0 violations, and the gate's own closing lines read 'NOT ESTABLISHED HERE: that any family ROUND-TRIPS.'"
+  ],
+
+  "over_reported_gaps": [
+    {
+      "family": "water",
+      "why": "CANDIDATE, NOT CONFIRMED -- recorded because over-reporting a gap authorises a rival implementation (D2) and I would rather flag it unresolved than let it stand unexamined. The row says renders_plan = NO. But the water bridge DOES register both spatial authorities: `awk 'NR>=1975 && NR<=1986' apps/editor/src/engine/initTools.ts` -> :1982 `viewDependencyTracker.registerElement(ev.waterId, levelId)` and :1984 `bimManager.registerElement(ev.waterId, levelId)`. Being in bimManager means the water id IS in level.childrenIds, and exportForView's plan branch enumerates childrenIds unconditionally. `grep -n 'skipInPlan|elementType' apps/editor/src/engine/WaterMeshBuilder.ts` -> :153 `group.userData['elementType'] = 'water'`, :179 `mesh.userData['elementType'] = 'WaterPart'`, and NO skipInPlan tag, so nothing opts the water mesh out of the base projection. WHAT I DID NOT MEASURE, and why this is not a refutation: EdgeProjectorService.ts:2693 `if (_groupFamily && !_symbolGate(_groupFamily)) { ... }` may drop a group whose family is unknown to the symbol-injection gate. ONE measurement closes it -- resolve _groupFamily for a 'water' group and read makeSymbolInjectionGate's behaviour for an unregistered family. NOTE the row's own supporting citation (initTools.ts:1965-1970) actually says registration 'makes the id and its storey KNOWN to that pipeline -- it is not what draws it', which is a statement about SYMBOLS, not about whether the base projection runs."
+    },
+    {
+      "family": "furniture, plumbing (first_failing_link)",
+      "why": "Both rows named 'exports' as the first failing link and both are refuted above. Neither row now has a first_failing_link, and one must be re-derived rather than assumed to be the next milestone in the list. For furniture every one of the seven links now reads YES, which would make it the second PRODUCTION-READY family in the batch -- that promotion deserves its own adversarial pass before it is written down."
+    },
+    {
+      "family": "beam (renders_plan=YES in the milestone table)",
+      "why": "Not a gap over-report but its mirror image -- a green that the row's OWN finding contradicts. `awk 'NR>=2428 && NR<=2463' initTools.ts` puts VDT :2454 and bimManager :2455 DOWNSTREAM of four early returns: :2430 `ev.commandType !== 'beam.create'`, :2431-2433 `!ev.id / !ev.startPoint / !ev.endPoint`, :2435 `if (beamStore.get(ev.id)) return;`, and :2448 `if (!record) return;`. That is exactly the empty-payload path the row's own B2-BEAM-01 describes ('the empty-payload dispatch COMMITS and the CEB then refuses to emit, so a phantom beam exists in the model store with no mesh anywhere'). renders_plan=YES is true for the plan-tool chain and false for the reachable 3-D BeamTool leg; a single-value milestone cell cannot carry both and currently shows only the favourable one."
+    }
+  ],
+
+  "verdict": "24 high-risk rows attacked. THREE substantive refutations (furniture exports=NO, plumbing exports=NO, balcony persists=YES) and FIVE evidence/citation refutations that leave their verdicts standing (8 rows citing a non-imported duplicate ProjectSerializer; grid+structural's 'single tools.activate call site'; door's refusal line; handrail's store.add line plus four GEOMETRY_ELEMENT_TYPES off-by-ones; the four ReachableThroughComposedRuntime tests that never call composeRuntime). balcony is the serious one: the row asserts persistence through a channel that does not exist on the production composed runtime, its executed proof is D6-void because the test constructs window.runtime.stores itself, and the gate that blesses it verifies fields and writers rather than the writer's read channel -- so a balcony is authored, drawn, declared 'persisted', and destroyed on reload with no console line. The two export refutations share ONE root: a negative grep scoped to plugins/ifc-export/ while the exporter the Export IFC button actually runs is packages/file-format/src/export/ifc -- searching by directory name instead of by capability, the D1 failure the doctrine names first. No production code was changed (D9)."
+}

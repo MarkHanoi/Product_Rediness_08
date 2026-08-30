@@ -1,0 +1,149 @@
+{
+  "family": "water",
+  "batch": "B7",
+  "measured": "2026-08-29",
+  "subject_class": "registry id with NO plugins/<name> directory on disk",
+
+  "registration": {
+    "dir_on_disk": "NO -- `for d in water ...; do [ -d plugins/$d ]` -> NO_DIR plugins/water. The store is authored in plugins/pool/src/store.ts and imported by PluginRegistry.",
+    "registries": [
+      {
+        "registry": "ALL_PLUGINS",
+        "site": "apps/editor/src/PluginRegistry.ts:327-338",
+        "grep": "grep -n -E \"'(water|liftPart|bathroomPod|selection|section-view)'\" apps/editor/src/PluginRegistry.ts",
+        "declares": "id 'water', storeKey 'water', buildStore: () => new WaterStore(), buildHandlers: () => []"
+      },
+      {
+        "registry": "ELEMENT_PLUGIN_IDS",
+        "site": "apps/editor/src/PluginRegistry.ts:788",
+        "grep": "same grep; row preceded by the comment at :785-786"
+      },
+      {
+        "registry": "STORE_ONLY_PLUGIN_IDS",
+        "site": "apps/editor/src/PluginRegistry.ts:869 (value string)",
+        "grep": "sed -n '860,895p' apps/editor/src/PluginRegistry.ts"
+      },
+      {
+        "registry": "L0 SCHEMA (defineElement)",
+        "site": "packages/schemas/src/elements/Water.ts:41 -- `export const Water = defineElement('water', {`",
+        "grep": "grep -rn \"defineElement('\" packages/schemas/src/ | grep -v BaseNode.ts"
+      },
+      {
+        "registry": "Id brand union",
+        "site": "packages/schemas/src/types/Id.ts:52 `export type WaterId = Id<'water'>`; union member :185; conditional :236"
+      },
+      {
+        "registry": "RuntimeEvents typed map",
+        "site": "packages/runtime-composer/src/types.ts:1100 -- `'water.created': {`"
+      },
+      {
+        "registry": "snapshotFamilyCoverage",
+        "site": "apps/editor/src/engine/persistence/snapshotFamilyCoverage.ts:159 -- status 'persisted', snapshotKey 'waters'"
+      }
+    ],
+    "storeKey_resolves_at_runtime": "YES. Prior-run probe b7Edge Q-A: `[B7 Q-A stores.water] {defined:true, ctor:WaterStore}`; `rt.stores` key list contains 'water'. Independently corroborated by PluginRegistry.ts:322-325's own note that pool.create declares affectedStores ['pool','wall','slab','water'] and CommandBus.buildContext throws unless all four resolve."
+  },
+
+  "deliberate_or_orphan": {
+    "verdict": "DELIBERATE, DOCUMENTED STORE-ONLY EXEMPTION -- not an orphan.",
+    "quoted_documentation": [
+      "PluginRegistry.ts:329-337 (descriptor): \"NO HANDLERS, DELIBERATELY -- and this is a statement, not an omission. Water has no commands of its own: a water body is created and destroyed ONLY as part of a pool assembly (ADR-0124 s4), so `pool.create` owns the only write path. Minting a `water.create` here would be a second, rival way to produce a water body with no pool around it -- the exact defect ADR-0124 s4 exists to prevent.\"",
+      "PluginRegistry.ts:869 (STORE_ONLY_PLUGIN_IDS value): \"ADR-0124 s4 -- water is created and destroyed only by pool.* ; it owns no verb of its own.\"",
+      "PluginRegistry.ts:861-868 (the list's own preamble): \"AN EXEMPTION IS A STATEMENT, NOT A SUPPRESSION ... `water` is the first legitimate exception, and there were two dishonest ways to make the suite green again: delete the assertion, or mint a sham `water.noop` handler ... Instead the invariant is REFINED and stays enforced.\"",
+      "packages/schemas/src/elements/Water.ts:11-33 -- three numbered reasons water is its own family and not a blue slab (water level is not a thickness; water is not construction and would be counted as FLOOR AREA in every takeoff and IfcSlab export; water is schedulable as a VOLUME)."
+    ],
+    "gate_corroboration": "npx tsx tools/ga-gate/check-plugin-census-equivalence.ts -> RC=0. Arm D 'REGISTRY \\ DISK -- booted with no directory (minus declared STORE_ONLY ids)' = 0 (hard 0), and the header line prints 'STORE_ONLY exemptions (derived): water, liftPart, bathroomPod'. The missing directory is an EXEMPTED absence the gate derives from the registry, not a transcribed allowlist.",
+    "enforcement_that_keeps_it_honest": "apps/editor/__tests__/bootstrap.everything.test.ts:103-112 -- a declared STORE-ONLY plugin must contribute EXACTLY zero handlers; if it grows one the test fails with 'remove it from STORE_ONLY_PLUGIN_IDS'. The exemption cannot go stale silently in the permissive direction."
+  },
+
+  "brief_premise_refuted": {
+    "premise_as_given": "\"`water` uniquely has an initTools '<x>.created' bridge but NO CommandEventBridge '<x>.create' case -- i.e. a bridge listening for an event NOTHING EMITS.\"",
+    "verdict": "REFUTED. The bridge has a live emitter.",
+    "measurement": "grep -rn --include='*.ts' -E \"\\.emit\\(\\s*['\\\"`][a-zA-Z]+\\.created\" apps/editor/src packages plugins -> packages/runtime-composer/src/CommandEventBridge.ts:2051 `events.emit('water.created', {`.",
+    "why_the_premise_looked_true": "The search was NAME-shaped. There is indeed no `case 'water.create':` in the CEB -- because there is no `water.create` COMMAND to have a case for. The emitter lives inside `case 'pool.create':` (CommandEventBridge.ts:1871, the enclosing case for line 2051, established by `grep -n -E \"case '[a-zA-Z.\\-]+':\" ... | awk '$1>1850 && $1<2200'`). Searching for the CAPABILITY (who emits `<x>.created`) finds it; searching for the NAME (`case 'water.create'`) cannot. This is the D2 distinction exactly: not ABSENT, and not even UNREACHABLE -- WIRED, on the parent's channel, by design.",
+    "consequence": "Had this been actioned as written, the 'fix' would have been to delete a live render bridge (REMOVE) or to mint a `water.create` verb and CEB case (WIRE) -- and minting that verb is precisely the rival write path ADR-0124 s4 exists to forbid. The imagined gap's fix was strictly worse than the measured state."
+  },
+
+  "what_dispatches_water": {
+    "question": "Brief s3 -- find what (if anything) dispatches water.*, by capability not name.",
+    "direct_verbs": "NONE, and that is the design. Prior-run probe b7Edge Q-C, through the real composition root: `water.create` THREW 'no handler registered for: water.create'; same for water.delete and water.update. Corroborated statically: the descriptor's buildHandlers returns [] (PluginRegistry.ts:337) and `grep -rn 'water\\.(create|created|delete|deleted|update|updated)'` across apps/packages/plugins/tools returns no handler declaration -- only comments, the CEB emit, the initTools subscriber and tests.",
+    "the_real_write_path": "`pool.create` (plugins/pool). It declares affectedStores ['pool','wall','slab','water'] and mints the water record; PoolPlanToolHandler.ts:461 `waterId: createId('water')` is the user-gesture entry point.",
+    "the_render_path_end_to_end": [
+      "1. DISPATCH  -- pool.create (PoolPlanToolHandler, LANDSCAPE palette row, pool activator).",
+      "2. EMIT      -- CommandEventBridge.ts:2051, inside `case 'pool.create':`, iterating `_poolCommitted.get('water')` and skipping any record whose parentId is not this pool.",
+      "3. SUBSCRIBE -- apps/editor/src/engine/initTools.ts, section-tag §FT-WATER (§POOL95 · ADR-0124 §4 · L-9941): `runtime.events.on('water.created', ...)` driving WaterMeshBuilder.",
+      "4. UNDO LEG  -- the same section registers `registerWaterRenderSink({update, remove})` over the SAME builder instance, because performUndoRedo emits no bus events. One builder, two roads."
+    ],
+    "decision": "NEITHER WIRE NOR REMOVE -- DOCUMENT.",
+    "justification": "WIRE (add a CEB `water.create` case) requires a `water.create` command to bridge; minting one is explicitly ruled out by ADR-0124 §4 and by the descriptor's own comment as 'a second, rival way to produce a water body with no pool around it'. REMOVE (delete the §FT-WATER bridge) would delete the only thing that puts water on screen: CommandEventBridge.ts:2036-2043 records that the paragraph 'water has no typed event, no subscriber and no mesh builder anywhere in the tree' USED to print on every pool, and that §POOL95 landed all three together because 'any one alone leaves it true'. Both candidate actions regress a working path. The only defect present is DOCUMENTARY: C11 §11's bridge matrix has no water row (see c11_matrix_says), and the CEB's own case-label census is where a name-shaped reader goes wrong.",
+    "cited_section_tag": "§FT-WATER (§POOL95 · ADR-0124 §4 · L-9941) -- cited as a §-tag rather than a line number per the brief."
+  },
+
+  "milestones": {
+    "authored": "YES",
+    "dispatchable": "YES",
+    "reachable": "YES",
+    "renders_3d": "YES",
+    "renders_plan": "NO",
+    "persists": "YES",
+    "exports": "UNVERIFIED"
+  },
+
+  "milestone_proofs": {
+    "authored": "L0 `defineElement('water')` at packages/schemas/src/elements/Water.ts:41, with surfaceElevation/bottomElevation carried INDEPENDENTLY (the whole reason it is not a slab). WaterId brand at Id.ts:52. WaterStore authored in plugins/pool/src/store.ts and constructed at PluginRegistry.ts:329.",
+    "dispatchable": "YES VIA THE PARENT VERB, WHICH IS THE DESIGNED AND ONLY WRITE PATH. `water.*` itself is deliberately unregistered (probe Q-C: 'no handler registered'). `pool.create` resolves all four stores through the real composed runtime -- the dispatch not throwing at CommandBus.buildContext IS the proof the water storeKey resolves. NOT counted as a failure: a family whose contract says it owns no verb cannot fail a verb check.",
+    "reachable": "apps/editor/__tests__/poolReachableThroughComposedRuntime.test.ts -- R-1 'the composition root contributes BOTH the pool and the water store', R-3 'ONE dispatch lands the pool, its 4 walls, its floor slab and its water in the REAL stores'. User gesture: PoolPlanToolHandler (:461 mints the waterId) + the LANDSCAPE palette row + the pool activator. ⚠ ONE ROUTE IS STILL CLOSED: PluginRegistry.ts:307-312 records that ChatCommandClassification.ts:66 classifies pool.create as class B, so the AI chat route refuses it -- 'NOT closed here and is recorded as still-open in L-5206'.",
+    "renders_3d": "The four-step chain above. Terminal proof: apps/editor/__tests__/PoolAndSlabUpdateReachTheRenderStore.test.ts:500 -- `expect(emitted, 'the water must reach the screen through its OWN typed event').toContain('water.created')`. That test's own comment (:465-472) records that it USED to assert the opposite (`not.toContain`) and that §POOL95 'closed the gap the proper way'.",
+    "renders_plan": "NO -- ABSENCE MEASURED, NOT ASSUMED. `grep -rn --include='*.ts' -oE '[A-Za-z]+PlanSymbolBuilder' apps/editor/src packages plugins | sort -u` returns 13 distinct builder classes (Bed, BoundaryLine, Chair, Column, Desk, Door, Kitchen, Plumbing, Sofa, Tree, WallLayer, Wardrobe, Window). There is no Water one. `grep -rn -iE 'water' apps/editor/src/engine/views packages/core-app-model/src/drawing` returns only pool-tool and copy/duplicate comments -- no drawing-layer or plan-symbol reference. A pool in plan shows its walls and floor slab; the water body is not drawn.",
+    "persists": "YES. apps/editor/src/engine/persistence/snapshotFamilyCoverage.ts:159 -- storeKey 'water', status 'persisted', snapshotKey 'waters'. WRITE SITE CONFIRMED rather than trusted: ProjectSerializer.ts:1518 `const waters = readPluginStore('water')`, :1652 `waters: waters?.length ? waters : undefined`, and the declared key at :254. Restore leg: restoreCompoundFamilies.ts:216-219. The coverage row records what this closed: '§PERSIST103 (L-11520) · ADR-0124 §4 -- ... Like liftPart it has NO legacy twin and no family of its own, so it was destroyed outright: a reloaded pool was a dry hole.'",
+    "exports": "UNVERIFIED -- and I am naming the limit rather than guessing. `grep -rn -iE \"Ifc(Water|Section|Selection)|'water'|liftPart|bathroomPod\" plugins/ifc-export/src` returned NO hits, which is consistent with 'water is not exported' but does not establish it: the exporter dispatches through plugins/ifc-export/src/exporters/ and I did not enumerate that directory's family coverage, so I cannot distinguish 'no IfcWater mapping exists' from 'the mapping is reached generically'. Water.ts's own reason 2 argues water MUST NOT be exported as IfcSlab, which makes the correct answer here a design question, not only a measurement. NOT counted as the first failing link, because an unmeasured axis is not a measured failure."
+  },
+
+  "first_failing_link": "renders_plan",
+
+  "status": "PARTIAL",
+
+  "lifecycle": {
+    "create": "pool.create -> water record + water.created -> WaterMeshBuilder. WIRED.",
+    "update": "no water.update verb. The pool's element.updated arm is the only field-write channel.",
+    "delete": "UNWIRED AND DECLARED. initTools §FT-WATER states: 'NO `water.deleted` ARM, AND THAT IS DECLARED RATHER THAN FORGOTTEN. `pool.delete` has no CommandEventBridge case at all (mirror-debt.json carries it as UNMIRRORED), and there is no generic element-deletion event in RuntimeEvents.' Confirmed: tools/ga-gate/mirror-debt.json:785 verb 'pool.delete', affected stores include 'water', reason 'OPEN, AND ITS SIBLING `pool.create` IS NOW CLOSED (lane MIRROR3, 2026-08-23) ... ~23 rows on this ledger are `*.delete` and they all need the same one thing -- an `element.deleted` channel plus a per-family `remove(id)` adapter.'",
+    "undo": "WIRED. apps/editor/src/engine/undo/poolUndoAdapter.ts:172-181 -- 'Adapter for storeKey `water` -- the one pool member with a mesh of its own'; drives flushWaterRender over the same builder instance as the bus subscriber."
+  },
+
+  "c11_matrix_says": "NO ROW. C11 §11's bridge matrix (docs/02-decisions/contracts/C11-ELEMENT-CREATION-PIPELINE.md) carries 14 element rows (Wall, Slab, Curtain Wall, Ceiling, Roof, Column, Beam, Floor, Wall Opening, Stair, Handrail, Furniture, Lighting, Room) and its own preamble requires it to be 'updated whenever a bridge is added, removed, or repaired'. §FT-WATER added a bridge (§POOL95, L-9941) and the matrix was not updated. My measurement REFUTES THE MATRIX BY OMISSION -- and the omission is not cosmetic: the matrix is exactly the artefact a reader consults to answer 'does water have a bridge?', and it answers NO by silence while CommandEventBridge.ts:2051 answers YES.",
+
+  "findings": [
+    {
+      "id": "B7-WATER-01",
+      "class": "BATCH-PREMISE-REFUTED",
+      "severity": "HIGH",
+      "claim": "The B7 brief's stated measurement -- that §FT-WATER is 'a bridge listening for an event NOTHING EMITS' -- is FALSE. CommandEventBridge.ts:2051 emits `water.created` from inside `case 'pool.create':`. The premise was reached by searching for the NAME (`case 'water.create'`) instead of the CAPABILITY (who emits `<x>.created`). Acting on it would have deleted a live render path, or minted the rival `water.create` verb ADR-0124 §4 forbids.",
+      "command": "grep -rn --include='*.ts' -E \"\\.emit\\(\\s*['\\\"`][a-zA-Z]+\\.created\" apps/editor/src packages plugins | grep water",
+      "disposition": "DOCUMENT"
+    },
+    {
+      "id": "B7-WATER-02",
+      "class": "DOC-DRIFT",
+      "severity": "MEDIUM",
+      "claim": "C11 §11's bridge matrix has no `water` row, although §POOL95 added the create bridge and the matrix's own preamble makes updating it mandatory when a bridge is added. The matrix therefore answers 'no bridge' by silence for a family that has one -- which is how the B7 premise above became plausible in the first place.",
+      "command": "grep -n 'Water\\|water' docs/02-decisions/contracts/C11-ELEMENT-CREATION-PIPELINE.md",
+      "disposition": "DOCUMENT"
+    },
+    {
+      "id": "B7-WATER-03",
+      "class": "GAP-DECLARED",
+      "severity": "LOW",
+      "claim": "Water has no plan representation. Measured as an absence over the 13 PlanSymbolBuilder classes that DO exist, not asserted. This is the family's first failing link, and it is undeclared anywhere -- unlike the delete leg, which initTools §FT-WATER declares explicitly and mirror-debt.json carries as a named row.",
+      "command": "grep -rn --include='*.ts' -oE '[A-Za-z]+PlanSymbolBuilder' apps/editor/src packages plugins | grep -oE '[A-Za-z]+PlanSymbolBuilder' | sort -u",
+      "disposition": "DOCUMENT"
+    },
+    {
+      "id": "B7-WATER-04",
+      "class": "ROUTE-CLOSED",
+      "severity": "LOW",
+      "claim": "The AI chat route still refuses the water's only write path: ChatCommandClassification.ts:66 classifies pool.create as class B. Already logged as L-5206 by PluginRegistry.ts:311-312; recorded here for completeness, not as a new finding.",
+      "command": "sed -n '300,315p' apps/editor/src/PluginRegistry.ts",
+      "disposition": "DOCUMENT"
+    }
+  ]
+}

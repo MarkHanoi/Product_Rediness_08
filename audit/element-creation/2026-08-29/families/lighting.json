@@ -1,0 +1,117 @@
+{
+  "family": "lighting",
+  "batch": "B4",
+  "measured": "2026-08-29",
+  "registration": {
+    "status": "OK-BUT-UNGATED",
+    "registration_site": "apps/editor/src/PluginRegistry.ts — ALL_PLUGINS descriptor `{ id: 'lighting', storeKey: 'lighting', buildStore: () => new LightingStore(), buildHandlers: () => buildLightingHandlerSet() }` (grep `storeKey:` -> :641). The descriptor's own comment records §LIGHTING-STORE-FIX (2026-06-26): the handlers were registered while NO store was contributed, so every lighting.create threw \"required store 'lighting' is missing from HandlerContext.stores\" 48x per furnish. That is the ten-times defect, and lighting is one of its instances.",
+    "declared_storeKey": "lighting",
+    "storeKey_matches_ctx_stores_key": "YES — MEASURED, EXECUTED TWICE. `grep -rn affectedStores plugins/lighting/src/` -> all 8 handlers declare `['lighting']`. B4 probe P-A: `registeredStoreKeys[lighting] = \"lighting\"`, `rt.stores.lighting present = true`. check-mirror-reachability.ts DISPATCHED lighting.create through a real CommandBus and measured `patches= 1`.",
+    "in_ELEMENT_PLUGIN_IDS": false,
+    "proof_reads_real_composition_root": "YES — two independent ones. (1) tools/ga-gate/check-mirror-reachability.ts dispatches lighting.create on a real bus + the real CommandEventBridge; it is the gate's own SATISFIABILITY CONTROL ('a REAL bridge case with a REAL subscriber — SATISFIABILITY PROOF that green is reachable'). (2) audit/element-creation/2026-08-29/probe/b4Dispatch.probe.test.ts P-E via bootstrapWithEverything, constructing nothing.",
+    "evidence": "npx tsx tools/ga-gate/check-plugin-census-equivalence.ts -> RC=0, but ARM F prints: '  F REGISTRY \\ ELEMENT_PLUGIN_IDS — registered, storeKey assertion never iterates it :  3  (baseline 3)  →  floor, lighting, view'. bootstrap.everything.test.ts's storeKey assertion iterates ELEMENT_PLUGIN_IDS, so lighting's storeKey is registered and NEVER ASSERTED — the exact hole the §LIGHTING-STORE-FIX defect fell through."
+  },
+  "handler": {
+    "status": "OK",
+    "path": "plugins/lighting/src/handlers/CreateLighting.ts",
+    "validates_before_mutation": "YES — canExecute checks origin finiteness, width/depth/thickness > 0, intensity >= 0, range >= 0, each with a named reason. Typed LightingSchemaError raised inside execute() at `Lighting.parse` before the draft write.",
+    "mutates_only_via_immer_draft": "YES — `produceCommand<LightingsState>(ctx.stores.lighting, draft => { draft[l.id] = l; })`. No store-singleton import.",
+    "otel_span": "YES — withHandlerSpan wraps execute(). check-otel-spans.ts ZONE A 275/275. (ZONE B FAIL names packages/command-registry/src/lighting/lightingAuthoredParams.ts, which is not a bus handler.)",
+    "id_pre_generated_in_tool": "YES on every dispatch site — LightingPlanToolHandler.ts:133 `id: createId('lighting')`, plugins/lighting/src/tool.ts:49 `const id = createId('lighting')`, ai-host buildLightingCommands.ts:104 `const id = mintId('lighting')`. Required: the §FT-LIGHTING bridge guards on `!ev.id` and would return early on every event otherwise (the FIX-WALL-ID / FIX-CW-ID class).",
+    "must_not_violations": [],
+    "affectedStores_declared": "['lighting'] on all 8 handlers",
+    "evidence": "grep -rn \"window\\.\" plugins/lighting/src/handlers/ -> ONE hit, and it is a COMMENT in ChangeLightingLevel.ts:94 explaining that the handler deliberately avoids a `window.*` bridge cast because P4 forbids it. No requestAnimationFrame, no document., no import from src/engine or src/ui, no executeCommand. This is the cleanest of the four B4 handlers."
+  },
+  "lifecycle": {
+    "status": "PARTIAL",
+    "ceb_case": "YES and geometry-complete FOR THIS SCHEMA — packages/runtime-composer/src/CommandEventBridge.ts:1225 `case 'lighting.create'` forwards id/levelId/kind/origin. That is the whole geometry a LightingData needs (fixtureType + position); the fixture's dimensional params are derived from `kind`. ⚠ NO `lighting.batch.create` case exists and no batch handler exists, so the AI lighting-layout executor fans out N single creates.",
+    "initTools_bridge_tag": "§FT-LIGHTING — `grep -n \"bridge registered\" apps/editor/src/engine/initTools.ts` -> `2832:        console.log('[initTools] §FT-LIGHTING: lighting.created bus→legacy-store bridge registered.');`. Subscriber at initTools.ts:2756 `runtime.events.on('lighting.created', …)`; guard `if (ev.commandType !== 'lighting.create' || !ev.id || !ev.origin) return;`.",
+    "vdt_registerElement": "NO — and DECLARED as by-design in the bridge's own comment: 'Lighting is NOT in GEOMETRY_ELEMENT_TYPES (no plan-view projection — by design), so no viewDependencyTracker registration.' Bridge Invariant 7 is therefore NOT satisfied; whether the design claim is still true is B4-LIGHT-01.",
+    "bimManager_registerElement": "YES — `try { bimManager.registerElement(ev.id, ev.levelId ?? ''); } catch { }`.",
+    "bimManager_via_window_any": "NO — bimManager arrives as a `ToolsParams` parameter (initTools.ts:267, typed `any`). The legacy store and builder are reached as `window.lightingStore as LightingStore | undefined` and `window.lightingBuilder as LightingFragmentBuilder | undefined` — typed casts to the REAL classes (§FIX-ANY-STORE-SEAM / L-980), not `(window as any)`. `window.lightingBuilder` is assigned at initBuilders.ts:886.",
+    "in_GEOMETRY_ELEMENT_TYPES": false,
+    "update_verbs_covered": "NO. Worse than absent — MEASURED AND EXECUTED as failing: tools/ga-gate/mirror-reachability-ledger.json carries lighting.setIntensity, lighting.setEmergency and lighting.delete as verdict NO-TYPED-EVENT, each with 1 forward patch and zero typed events. The ledger's own words for lighting.delete: 'the bridge has no *.deleted channel for any family except boundaryLine, so a deleted light fixture is removed from the DTO store while its legacy record and its mesh stay on screen.'",
+    "evidence": "npx tsx tools/ga-gate/check-mirror-reachability.ts -> RC=0. 'REACHES-SUBSCRIBER — 7 … lighting.create patches= 1 events=[lighting.created] sub=apps/editor/src/engine/initTools.ts'. 'NO-TYPED-EVENT — 4 … lighting.setIntensity patches= 1 / lighting.setEmergency patches= 1 / lighting.delete patches= 1'. 'REFUSED — 3 … lighting.setMaterial patches= 0'."
+  },
+  "milestones": {
+    "authored": "YES",
+    "dispatchable": "YES",
+    "reachable": "YES",
+    "renders_3d": "YES",
+    "renders_plan": "UNVERIFIED",
+    "persists": "YES",
+    "exports": "NO"
+  },
+  "milestone_proofs": {
+    "authored": "plugins/lighting/src/handlers/ — 8 handlers, LIGHTING_HANDLER_TYPES lists 7 verbs (+ changeLevel).",
+    "dispatchable": "EXECUTED twice. check-mirror-reachability.ts (real CommandBus): 'lighting.create patches= 1'. B4 probe P-E on the real composed runtime: outcome OK, record `{...\"levelId\":\"L0\",\"kind\":\"downlight\",\"origin\":{\"x\":1,\"y\":2.7,\"z\":1},\"width\":0.2,...,\"lumens\":800,\"kelvin\":2700,...}` — the payload is preserved, not defaulted.",
+    "reachable": "3 production dispatch sites: LightingPlanToolHandler.ts:129, plugins/lighting/src/tool.ts:50 (the plugin tool IS instantiated — PluginRegistry.ts:1101 `new LightingPlacementTool({...})`, the only one of the four B4 plugin tools that is), packages/ai-host/src/workflows/lightingLayout/buildLightingCommands.ts:106; plus CopyPlanToolHandler.ts:631 and duplicateToLevel.ts:344. Tool activator registered (PluginRegistry.ts:1096) and not in check-tool-activator-coverage.ts's uncovered set.",
+    "renders_3d": "YES, and the mechanism was CORRECTED in place. §LIGHT121 (L-11902): the bridge calls `_builder.add(_data)` EXPLICITLY after `_ls.add(_data)`, because the comment that used to claim `bim-lighting-added` reached LightingFragmentBuilder was fiction — 'a repo-wide sweep finds NO production listener that routes bim-lighting-added … into LightingFragmentBuilder.add'. Every bus-created fixture previously got a store record and NO mesh, so SelectionManager.selectById (scene-scan by userData.id) returned false and Delete refused: the founder's 'I can't remove some lighting fixtures'. `window.lightingBuilder` is assigned at initBuilders.ts:886; `window.lightingFragmentBuilder` is a command-registry-only alias that is never populated here.",
+    "renders_plan": "UNVERIFIED — the two halves point opposite ways and I did not measure the tie-breaker. PAINTING IS WIRED: PlanViewCanvas._renderLightingPlanSymbols() (packages/core-app-model/src/views/PlanViewCanvas.ts:2292, called at :660 and :2092) calls renderLightingSymbols(), which reads LightingStore directly on every paint. INVALIDATION IS NOT WIRED: 'lighting' is absent from GEOMETRY_ELEMENT_TYPES (ViewDependencyTracker.ts:42-49), so ViewDependencyTracker._onStoreEvent drops every lighting store event at its first line (:676) — placing, moving or deleting a fixture dirties NO view. Whether the user sees the symbol promptly therefore depends on some OTHER paint driver firing, which I have not measured. Separately, the projected-linework half is NEGATIVE: PlanViewCanvas.ts:1524 records that lighting 'contributes ZERO LineSegments' to the technical drawing (§FIX-LIGHT-PLAN-UNSELECTABLE / L-10081) — so exportForView()/sheet output carries no fixture, and plan selection needed a bespoke store-read hit-test fallback.",
+    "persists": "apps/editor/src/engine/persistence/snapshotFamilyCoverage.ts:143 `{ storeKey:'lighting', status:'via-legacy-twin', snapshotKey:'lighting', reason:'§PERSIST-LIGHTING (2026-05-22) — read from the window-managed legacy lightingStore … ⚠ The PLUGIN LightingStore at runtime.stores.lighting is NOT repopulated by a load (L-11405 shape); the data survives, the plugin store does not see it.' }`. The §FT-LIGHTING bridge writes that legacy store, so bus-created fixtures persist. check-snapshot-family-coverage.ts RC=0, 26 persistence claims verified, lighting not among the 3 declared losses.",
+    "exports": "NO IFC exporter — `grep -ril \"furniture\\|lighting\\|plumbing\" plugins/ifc-export/` -> 1 file (pset-window-common.ts, an unrelated word match). No IfcLightFixture path. And the plan/sheet leg is negative for a second, independent reason (zero LineSegments, above). SCOPE NOTE: GLB scene-graph export is not measured here."
+  },
+  "first_failing_link": "renders_plan — the LAST link before it (renders_3d) holds. 'lighting' is absent from GEOMETRY_ELEMENT_TYPES (packages/core-app-model/src/views/ViewDependencyTracker.ts:42-49), so ViewDependencyTracker._onStoreEvent returns at :676 for every lighting store event and no lighting mutation ever dirties a plan view.",
+  "c11_ss11_crosscheck": {
+    "matrix_row": "| **Lighting** | ⚠️ `lighting.create` case emits geometry-free payload | ❌ No bridge | ❓ Not audited | ❌ Not in `GEOMETRY_ELEMENT_TYPES` | ❌ (no bridge — N/A) | ❌ | ⚠️ OUT-OF-SCOPE — not a geometry element in current schema |",
+    "verdict": "REFUTED on 5 of 7 cells; 1 cell CONFIRMED",
+    "detail": "REFUTED: (1) 'geometry-free payload' — CEB:1225 forwards id + kind + origin, which is the whole geometry LightingData needs. (2) '❌ No bridge' — initTools.ts:2832 registers one, and check-mirror-reachability.ts uses lighting.create as its GREEN SATISFIABILITY CONTROL. (3) '❓ Not audited' store→storeEventBus — packages/geometry-lighting/src/LightingStore.ts:88-92 dual-emits `elementType:'lighting', operation:'create'`. (4) 'VDT+bimManager ❌ N/A' — bimManager.registerElement IS called. (5) 'Status ⚠️ OUT-OF-SCOPE' — lighting renders in 3D from the bus path and persists. CONFIRMED: 'Not in GEOMETRY_ELEMENT_TYPES' is TRUE and is the family's first failing link. C11 §0.0 (2026-08-18) and §11.11 both already record the bridge as FIXED, so the matrix contradicts two other sections of its own contract."
+  },
+  "findings": [
+    {
+      "id": "B4-LIGHT-01",
+      "class": "STORE EMITS, TRACKER DROPS — plan invalidation gap",
+      "severity": "P1",
+      "claim": "LightingStore.add/update/remove dual-emit `elementType: 'lighting'` on storeEventBus specifically so the ten derived consumers can see it, and ViewDependencyTracker._onStoreEvent discards every one of them on its first line because 'lighting' is not in GEOMETRY_ELEMENT_TYPES. The store's own header names this as DECLARED-NOT-FIXED. User-visible: placing, moving or deleting a fixture dirties no plan view, so the plan pane does not re-project for it; and because lighting contributes zero projected LineSegments, no sheet/PDF export carries a fixture at all. `room` has the identical defect (see rooms.json B4-ROOM-01) — two families, one line.",
+      "command": "sed -n '42,49p' packages/core-app-model/src/views/ViewDependencyTracker.ts ; sed -n '676p' packages/core-app-model/src/views/ViewDependencyTracker.ts ; sed -n '76,84p' packages/geometry-lighting/src/LightingStore.ts",
+      "output_excerpt": "const GEOMETRY_ELEMENT_TYPES = new Set([ 'wall','slab','column','beam','curtainwall','curtain-panel','window','door','roof','stair','stair-landing','stair-railing','verticalCirculation','opening','ceiling','floor','handrail','furniture','plumbing' ]);\n676:        if (!GEOMETRY_ELEMENT_TYPES.has(event.elementType)) return;\nLightingStore.ts: \"⚠ DECLARED, NOT FIXED — necessary but not sufficient for the plan-view leg. … that set carries furniture and plumbing but NOT `lighting`. So these events reach the bus and are filtered out one line into the tracker.\"",
+      "contract_clause": "C11 §6.2 (plan-view update mechanism); C11 §11.2 checklist item 5",
+      "disposition": "WIRE",
+      "blocks_production": true
+    },
+    {
+      "id": "B4-LIGHT-02",
+      "class": "REGISTERED BUT NEVER ASSERTED (arm F of the census gate)",
+      "severity": "P1",
+      "claim": "`lighting` is in ALL_PLUGINS with storeKey 'lighting' but is NOT in ELEMENT_PLUGIN_IDS, so bootstrap.everything.test.ts's per-plugin storeKey assertion (`for (const id of ELEMENT_PLUGIN_IDS) expect(rt.registeredStoreKeys[id]?.length).toBeGreaterThan(0)`) never looks at it. This is precisely the hole the §LIGHTING-STORE-FIX defect fell through — the family that already broke this way is still outside the assertion that exists to catch it. `floor` and `view` sit in the same hole.",
+      "command": "npx tsx tools/ga-gate/check-plugin-census-equivalence.ts",
+      "output_excerpt": "[plugin-census-equivalence]   F REGISTRY \\ ELEMENT_PLUGIN_IDS — registered, storeKey assertion never iterates it\n[plugin-census-equivalence]     3  (baseline 3)  →  floor, lighting, view\n[plugin-census-equivalence] OK: all eight set comparisons within their NAMED baselines; hard arms clean.\nRC=0",
+      "contract_clause": "C11 §5.5 (affectedStores is a promise the REGISTRATION keeps); ADR-0367",
+      "disposition": "WIRE",
+      "blocks_production": false
+    },
+    {
+      "id": "B4-LIGHT-03",
+      "class": "CREATE-MIRROR WITHOUT UPDATE-MIRROR / NO DELETE CHANNEL — measured, executed",
+      "severity": "P1",
+      "claim": "lighting.setIntensity, lighting.setEmergency and lighting.delete each produce exactly 1 forward patch against the DTO store and emit ZERO typed events — dispatched and read, not inferred. A deleted fixture leaves its legacy record and its mesh on screen; the ISO 50293 emergency override is authored, undoable, persisted to a store no renderer reads, and invisible.",
+      "command": "npx tsx tools/ga-gate/check-mirror-reachability.ts",
+      "output_excerpt": "  NO-TYPED-EVENT — 4\n      lighting.setIntensity    patches= 1\n      lighting.setEmergency    patches= 1\n      lighting.delete          patches= 1\n      roof.addSkylight         patches= 1\n[mirror-reachability] ✓ within the named ledger — 7/14 dispatched verb(s) reach a subscriber; 7 ledgered as not reaching; 9 ledgered orphan channel(s).",
+      "contract_clause": "C11 §10.2 Bridge Invariants; ELEMENT_UPDATE_VERBS carries 7 rows across 3 families (slab/roof/column) and no lighting row.",
+      "disposition": "WIRE",
+      "blocks_production": true
+    },
+    {
+      "id": "B4-LIGHT-04",
+      "class": "DOC-CONFLICT (C11 §11 matrix)",
+      "severity": "P1",
+      "claim": "C11 §11's matrix marks Lighting '❌ No bridge / ⚠️ OUT-OF-SCOPE — not a geometry element in current schema', and marks the store→storeEventBus cell '❓ Not audited'. Five of seven cells are refuted by grep, and C11 §0.0 and §11.11 already record the bridge as shipped. A '❓ Not audited' cell in a normative matrix is itself the defect: the answer is one grep away.",
+      "command": "grep -n \"bridge registered\" apps/editor/src/engine/initTools.ts ; grep -n \"storeEventBus.emit\" packages/geometry-lighting/src/LightingStore.ts",
+      "output_excerpt": "2832:        console.log('[initTools] §FT-LIGHTING: lighting.created bus→legacy-store bridge registered.');\nLightingStore.ts:88: storeEventBus.emit({ elementId: data.id, elementType: 'lighting', operation: 'create', timestamp: Date.now() });",
+      "contract_clause": "C11 §11; C11 §0.0 already corrects this and the matrix was not moved with it",
+      "disposition": "DOCUMENT",
+      "blocks_production": false
+    },
+    {
+      "id": "B4-LIGHT-05",
+      "class": "AUTHORED BUT UNREACHABLE (D2)",
+      "severity": "P3",
+      "claim": "`LightingCommitter` (plugins/lighting/src/committer/) — the PRYZM3 PrimitiveCommitter that would render LightingData from the DTO store — is referenced by nothing outside its own barrel and plugins/lighting/src/index.ts. The reachable render path is the legacy LightingFragmentBuilder. Same shape as FurnitureCommitter / PlumbingCommitter / RoomCommitter: four authored committers, zero consumers.",
+      "command": "Grep `LightingCommitter` over *.ts (excluding node_modules)",
+      "output_excerpt": "plugins/lighting/src/committer/index.ts:4,5,6 ; plugins/lighting/src/committer/lighting-committer.ts:1,54,70,91,96,100,101  (no consumer outside the plugin)",
+      "contract_clause": "C11 §6.1 geometry build",
+      "disposition": "DOCUMENT",
+      "blocks_production": false
+    }
+  ]
+}

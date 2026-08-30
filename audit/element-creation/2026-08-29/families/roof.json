@@ -1,0 +1,102 @@
+{
+  "family": "roof",
+  "measured": "2026-08-29",
+  "registration": {
+    "registration_site": "apps/editor/src/PluginRegistry.ts:356-362 -- { id: 'roof', storeKey: 'roof', buildStore: () => new RoofStore(), buildHandlers: () => buildRoofHandlerSet() }  [grep -n \"roofPluginRegistration|Roof\" apps/editor/src/PluginRegistry.ts -> :82 import, :356 '---- Roof ----']",
+    "declared_storeKey": "roof",
+    "storeKey_matches_ctx_stores_key": "YES -- probe P-B printed registeredStoreKeys[roof] = \"roof\"; probe P-A printed stores present: [\"roof\",\"column\",\"beam\",\"floor\"]. Every roof handler declares affectedStores = ['roof'] (13 occurrences across plugins/roof/src/handlers/*.ts). Matched against ctx.stores AND affectedStores, NOT the directory name.",
+    "in_ELEMENT_PLUGIN_IDS": true,
+    "proof_reads_real_composition_root": "YES -- apps/editor/__tests__/bootstrap.everything.test.ts:52 `expect(rt.stores.roof).toBeInstanceOf(RoofStore)` and the ELEMENT_PLUGIN_IDS loop at :134. It calls bootstrapWithEverything() and constructs NO store and NO stores object (D6-compliant). Measured: `npx vitest run __tests__/bootstrap.everything.test.ts` -> 1 file passed, 8 tests passed.",
+    "status": "CLEAN",
+    "evidence": "npx tsx tools/ga-gate/check-plugin-census-equivalence.ts -> RC=0; arm G (ELEMENT_PLUGIN_IDS \\ REGISTRY) 0 hard-0; arm F names floor/lighting/view, NOT roof."
+  },
+  "handler": {
+    "path": "plugins/roof/src/handlers/CreateRoof.ts",
+    "validates_before_mutation": "YES -- canExecute rejects boundary<3, thickness<=0, pitch outside [0, pi/2), unknown systemTypeId; execute throws RoofTypeNotFoundError / RoofSchemaError (typed DomainErrors from plugins/roof/src/errors.ts) before produceCommand.",
+    "mutates_only_via_immer_draft": "YES -- produceCommand<RoofsState>(ctx.stores.roof, draft => { draft[roof.id] = roof; }). No store-singleton import in plugins/roof/src/handlers/.",
+    "otel_span": "YES -- withHandlerSpan('roof.create.handler', ...). grep -rc withHandlerSpan plugins/roof/src/handlers/*.ts -> 3 hits in each of the 12 handler files, 0 in index.ts.",
+    "affectedStores_declared": "['roof'] as const",
+    "must_not_violations": [],
+    "id_pre_generated_in_tool": "MIXED -- the handler mints when absent (`const id = (cmd.id ?? createId('roof'))`, CreateRoof.ts:56). Every REACHABLE dispatcher pre-generates: RoofPlanToolHandler.ts:258 `const roofId = createId('roof')`, CopyPlanToolHandler.ts:529, duplicateToLevel.ts idKind:'roof'. The FIX-WALL-ID/FIX-CW-ID hazard is therefore latent, not firing: CEB relays `id: p.id` (the PAYLOAD id) and the bridge guards `!ev.id`, so any future dispatcher that omits the id gets a committed roof and no mesh.",
+    "status": "COMPLIANT",
+    "evidence": "grep -rn \"commandManager|window\\.|document\\.|requestAnimationFrame|src/engine|src/ui|@app/|dispatchEvent|import \\* as THREE\" plugins/roof/src (excluding committer/) -> 2 hits, both COMMENT text in MoveRoof.ts:34,52 citing apps/editor paths. No code violation."
+  },
+  "lifecycle": {
+    "ceb_case": "packages/runtime-composer/src/CommandEventBridge.ts:1286 `case 'roof.create':` -- geometry-complete for id, levelId, boundary, shape, overhang, thickness, pitch, boundingWallIds. NOT levelId-only.",
+    "initTools_bridge_tag": "SS-P3.2-RF -- grep -n \"\\u00a7P3.2-RF: .*bridge registered\" apps/editor/src/engine/initTools.ts -> :2276 `console.log('[initTools] \\u00a7P3.2-RF: roof.created bus->legacy-store bridge registered.')`; subscriber opens at :2217 `runtime.events.on('roof.created', ...)`.",
+    "vdt_registerElement": "YES -- initTools.ts:2266 viewDependencyTracker.registerElement(ev.id, ev.levelId ?? '') after roofStore.add(record).",
+    "bimManager_registerElement": "YES -- initTools.ts:2267 `try { bimManager.registerElement(ev.id, ev.levelId ?? ''); } catch {}`.",
+    "bimManager_via_window_any": "NO -- bimManager is a ToolsParams field (initTools.ts:267 `bimManager: any;`) destructured at :373. grep -n \"window as any).bimManager|window.bimManager\" apps/editor/src/engine/initTools.ts -> 1 hit, :2547, inside a COMMENT in the FLOOR bridge. Note the injected param is typed `any` -- a typed-any seam, not a P4 violation.",
+    "in_GEOMETRY_ELEMENT_TYPES": true,
+    "update_verbs_covered": "PARTIAL 2/12. ELEMENT_UPDATE_VERBS (CommandEventBridge.ts:276-285) has roof.setOverhang + roof.setThickness only; LEGACY_UPDATABLE_STORES.roof (elementUpdatedMirror.ts:207-219) bridges overhang+thickness. roof.changeLevel is covered separately by elementLevelChangedMirror.ts:200 `roof: (deps) => deps.roofStore`. NOT covered: roof.setShape, roof.setPitch, roof.move, roof.addSkylight, roof.removeSkylight, roof.joinRoofs. roof.setMaterial REFUSES by declaration (SetRoofMaterial.ts:57) and names `roof.update` as the escape hatch, which IS registered (initBusHandlers.ts:936).",
+    "status": "WIRED",
+    "evidence": "probe P-B: registeredHandlerTypes[roof] = [roof.create, roof.delete, roof.setShape, roof.setPitch, roof.setThickness, roof.setOverhang, roof.move, roof.changeLevel, roof.addSkylight, roof.removeSkylight, roof.joinRoofs, roof.setMaterial] -- 12 verbs, 2 update-mirrored."
+  },
+  "milestones": {
+    "authored": "YES",
+    "dispatchable": "YES",
+    "reachable": "YES",
+    "renders_3d": "YES",
+    "renders_plan": "YES",
+    "persists": "YES",
+    "exports": "YES"
+  },
+  "milestone_proofs": {
+    "authored": "plugins/roof/src/handlers/CreateRoof.ts + 11 sibling handlers; plugins/roof/src/store.ts RoofStore.",
+    "dispatchable": "probe P-C through the REAL composed runtime: `rt.bus.executeCommand('roof.create', {...})` resolved and the record landed in rt.stores.roof -- roof store ids: [\"roof_01ARZ3NDEKTSV4RRFFQ69G5FA1\"]. No 'required store roof is missing' throw.",
+    "reachable": "planToolHandlerRegistry.ts:163 `'roof': new RoofPlanToolHandler()`; elementCreationMatrix.ts:558 `{ tool: 'roof', label: 'Roof', views: ['plan','3d'] }`; npx tsx tools/ga-gate/check-tool-activator-coverage.ts -> ARM A uncovered 4 (balcony, bathroom-pod, boundary-line, pool) -- roof NOT among them, so it has a registered activator.",
+    "renders_3d": "initBuilders.ts:616 `new RoofFragmentBuilder(...)` + :624 `window.addEventListener('bim-roof-added', ...)` -> roofBuilder.updateRoof(roofStore.getById(id)). RoofStore.add() fires that event; the SS-P3.2-RF bridge calls roofStore.add().",
+    "renders_plan": "'roof' in GEOMETRY_ELEMENT_TYPES (ViewDependencyTracker.ts:42-48) AND in EdgeProjectorService.ts:1998 version-stamped incremental set; bridge registers the element in VDT + bimManager so exportForView() sees it.",
+    "persists": "packages/persistence-client/src/loader/ProjectSerializer.ts:783 `const roofs = roofStore.getAll().map(serializeRoof)`; roofStore is a REQUIRED dep (:719).",
+    "exports": "packages/file-format/src/export/ifc/readers/RoofReader.ts, wired at FragmentReader.ts:107-110; ExportIFC.ts:48 supplies `roofStore: window.roofStore`."
+  },
+  "first_failing_link": "NONE (create chain). The update chain fails at renders_3d for 6 of 12 verbs -- see findings B2-ROOF-03.",
+  "c11_s11_matrix_says": "Row **Roof**: CEB case OK `roof.create`; initTools bridge OK SS-P3.2-RF; Store add()->storeEventBus OK RoofStore.add(); Plan-view tracked OK 'roof'; VDT+bimManager OK (Rev 4 -- FIX-PLAN-VDT-BIMMANAGER-ALL-BRIDGES); 3D via bus OK; Status FULL. My measurement CONFIRMS all six cells individually. It does NOT refute any printed cell. It DOES show the 'FULL' verdict is over-broad: the matrix has no column for material fidelity through the CEB (materialId/materialColor are dropped, B2-ROOF-01), none for update mirroring (2/12, B2-ROOF-03), and none for the 3-D tool's creation path (RoofTool.ts:398 goes through commandManager, not the bus).",
+  "status": "PARTIAL",
+  "findings": [
+    {
+      "id": "B2-ROOF-01",
+      "class": "PAYLOAD-TRUNCATION-AT-CEB",
+      "severity": "P1",
+      "blocks_production": false,
+      "claim": "roofCopyPayload sends materialId AND materialColor, and CommandEventBridge's roof.create case does not list either, so both are dropped in flight. A copied roof reaches the legacy RoofStore -- the store the fragment builder, the plan projector, the IFC exporter and persistence all read -- with the default material. Same defect shape as the already-fixed SS-FIX-BEAM-CEB-STEEL (L-974) and SS-ROOF-FOLLOWS-WALL (L-924), unfixed for roof material.",
+      "command": "sed -n '803,807p' apps/editor/src/engine/views/plantools/copyPayloads.ts; sed -n '1301,1318p' packages/runtime-composer/src/CommandEventBridge.ts; sed -n '26,35p;84,96p' apps/editor/src/engine/roofCreatedMirror.ts",
+      "output_excerpt": "copyPayloads.ts:805-806 `...(roof.materialId !== undefined ? { materialId: roof.materialId } : {}), ...(roof.materialColor !== undefined ? { materialColor: roof.materialColor } : {})` || CommandEventBridge.ts:1301-1318 events.emit('roof.created', { commandId, commandType, levelId, id, boundary, shape, overhang, thickness, pitch, boundingWallIds }) -- NO material field || roofCreatedMirror.ts RoofCreatedEventLike { id, levelId, boundary, shape, pitch, overhang, thickness, boundingWallIds } and MirroredRoofRecord { id, type, levelId, footprint, roofType, slope, overhang, baseOffset, thickness, autoBaseOffset, boundingWallIds } -- NO material at either hop",
+      "contract_clause": "C11 SS10.2 Bridge Invariant (geometry-complete payload); C11 SS11.2 checklist item 2 ('FULL geometry payload'); C84 EI-2a precedent",
+      "disposition": "WIRE"
+    },
+    {
+      "id": "B2-ROOF-02",
+      "class": "DEGENERATE-PAYLOAD-COMMITS-INVISIBLE-ELEMENT",
+      "severity": "P2",
+      "blocks_production": false,
+      "claim": "roof.create with no boundary passes canExecute (it only rejects a boundary that is PRESENT and shorter than 3), and Roof.parse fills the schema default 1x1 m boundary. The roof commits to the real roof store with a boundary nobody drew, while CEB emits boundary: undefined so the SS-P3.2-RF bridge returns early -- no legacy record, no mesh, no plan symbol, no persistence. Store says 1x1 m roof; every surface the user can see says nothing.",
+      "command": "npx vitest run --config audit/element-creation/2026-08-29/probe/vitest.probe.config.ts --reporter=verbose --silent=false   (case P-I)",
+      "output_excerpt": "[PROBE P-I] threw: null || [PROBE P-I] roof store ids: [\"roof_01ARZ3NDEKTSV4RRFFQ69G5FA1\"] || [PROBE P-I] roof boundary: [{\"x\":0,\"y\":0,\"z\":0},{\"x\":1,\"y\":0,\"z\":0},{\"x\":1,\"y\":0,\"z\":1},{\"x\":0,\"y\":0,\"z\":1}]   (packages/schemas/src/elements/Roof.ts:65 `boundary: z.array(Vec3).min(3).default([...])`)",
+      "contract_clause": "C11 SS5 (validate before mutation); C03 SS4.6 U-4 (failure and emptiness are never the same value)",
+      "disposition": "REPLACE"
+    },
+    {
+      "id": "B2-ROOF-03",
+      "class": "CREATE-MIRROR-WITHOUT-UPDATE-MIRROR",
+      "severity": "P1",
+      "blocks_production": false,
+      "claim": "Roof has 12 registered verbs and an update mirror for 2 of them. roof.setShape, roof.setPitch, roof.move, roof.addSkylight, roof.removeSkylight and roof.joinRoofs each write the plugin DTO store correctly, report success, and reach no renderer, no plan projector, no exporter and no persistence path -- the exact condition SetRoofMaterial.ts:57 names when it REFUSES rather than lying, applied inconsistently to its six siblings.",
+      "command": "grep -n 'ELEMENT_UPDATE_VERBS' -A 60 packages/runtime-composer/src/CommandEventBridge.ts | sed -n '30,50p'; grep -n 'LEGACY_UPDATABLE_STORES' -A 50 apps/editor/src/engine/elementUpdatedMirror.ts",
+      "output_excerpt": "CommandEventBridge.ts:275-285 roof rows = roof.setOverhang, roof.setThickness (2). elementUpdatedMirror.ts:207-219 LEGACY_UPDATABLE_STORES.roof.fields = { overhang, thickness } (2). probe P-B registeredHandlerTypes[roof] = 12 verbs.",
+      "contract_clause": "C11 SS6; C03 SS4.6 U-4",
+      "disposition": "WIRE"
+    },
+    {
+      "id": "B2-ROOF-04",
+      "class": "AUTHORED-BUT-UNREACHABLE",
+      "severity": "P3",
+      "blocks_production": false,
+      "claim": "RoofPlacementTool (plugins/roof/src/tool.ts) is a complete, id-pre-generating, bus-primary placement tool with its own test suite, and nothing outside the plugin barrel and its own test imports it. The reachable 3-D roof gesture is packages/geometry-roof/src/RoofTool.ts:376-398, which builds a legacy CreateRoofCommand and runs it through _commandManager.execute -- and fires a dead `element.update` bus telemetry dispatch with an empty payload at :397 for a verb no descriptor registers.",
+      "command": "grep -rn --include=*.ts 'RoofPlacementTool' apps packages plugins | grep -v node_modules; grep -n 'executeCommand|commandManager.execute' packages/geometry-roof/src/RoofTool.ts",
+      "output_excerpt": "RoofPlacementTool hits: plugins/roof/src/index.ts:44,46 (barrel), plugins/roof/src/tool.ts (definition), plugins/roof/__tests__/tool.test.ts:8 -- ZERO app-side importers || RoofTool.ts:397 `if (window.runtime?.bus) { window.runtime.bus.executeCommand('element.update', {}).catch(() => {}); }` :398 `const result = this._commandManager.execute(command);`",
+      "contract_clause": "C14 SS2.1 (no commandManager.execute); P6 (commands are the only mutation path)",
+      "disposition": "DOCUMENT"
+    }
+  ]
+}

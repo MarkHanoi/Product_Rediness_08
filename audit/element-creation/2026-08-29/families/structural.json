@@ -1,0 +1,78 @@
+{
+  "family": "structural",
+  "batch": "B5",
+  "date": "2026-08-29",
+  "doctrine": {
+    "D1": "Every ABSENT claim carries its command and output.",
+    "D2": "structural is the ONE family in this batch with NO alternate path. Not 'unwired' -- there is nothing downstream to wire TO. That is a build, not a wire, and this row says so rather than ranking it beside grid/dimension.",
+    "D6": "The plugin's own suite builds its own stores; it cannot observe a provider defect and is not used as a registration proof."
+  },
+
+  "A_registration": {
+    "registration_site": "apps/editor/src/PluginRegistry.ts -- descriptor block '---- Structural (E-finish.0.E orphan registration) ----'. grep -n \"storeKey: 'structural'\" apps/editor/src/PluginRegistry.ts -> 664. Fields: id:'structural', storeKey:'structural', buildStore: () => new StructuralStore(), buildHandlers: () => buildStructuralHandlerSet().",
+    "declared_storeKey": "structural",
+    "storeKey_matches_ctx_stores_key": "YES -- verified along the chain, not against the directory name. (1) plugins/structural/src/handlers/CreateStructural.ts declares affectedStores = ['structural'] and reads ctx.stores.structural in produceCommand<StructuralsState>(ctx.stores.structural, ...). (2) plugins/structural/src/store.ts binds super('structural'). (3) apps/editor/src/bootstrap.everything.ts:145 stores[plugin.storeKey] = store. (4) apps/editor/src/bootstrap.ts:94 storesProvider -> storesAsRecordView keyed by storeKey. All four spell it 'structural'.",
+    "in_ELEMENT_PLUGIN_IDS": true,
+    "ELEMENT_PLUGIN_IDS_evidence": "apps/editor/src/PluginRegistry.ts ELEMENT_PLUGIN_IDS contains 'structural' (added by E-finish.0.E as one of the five orphan registrations). Not in STORE_ONLY_PLUGIN_IDS.",
+    "second_registration_site": "apps/editor/src/engine/engineLauncher.ts:704 registerStructuralHandlers(_bus), tagged 'P3.4-ST'. Not a rival -- the OI-053 idempotent Proxy (engineLauncher.ts:630-641) skips duplicates and composeRuntime registers first.",
+    "proof_reads_real_composition_root": "NONE EXISTS. plugins/structural/__tests__/handlers.test.ts constructs its own StructuralStore and hands it to a bus it builds itself -- D6 exactly: the PROVIDER is the thing that can break and a test that supplies it cannot observe its absence. apps/editor/__tests__/transformDragUndoCapture.matrix.test.ts:39 imports MoveStructuralHandler directly, also constructing. There is no *ReachableThroughComposedRuntime test for structural (find apps packages plugins -iname '*ComposedRuntime*' -> balcony, bathroomPod, boundaryLine x2, lift, pool, sectionView, handrail; no structural).",
+    "status": "REGISTERED AND DISPATCHABLE. The ten-times storeKey defect does NOT apply here."
+  },
+
+  "B_handler": {
+    "path": "plugins/structural/src/handlers/CreateStructural.ts",
+    "validates_before_mutation": "PARTIAL. canExecute() checks origin/endOffset finiteness via isFiniteVec3 and that width/depth/thickness/radius are > 0, returning {valid:false, reason:string}. The typed StructuralSchemaError is thrown inside execute() when Structural.parse(seed) rejects -- still before produceCommand, so no partial mutation.",
+    "mutates_only_via_immer_draft": "YES. Single mutation: produceCommand<StructuralsState>(ctx.stores.structural, draft => { draft[s.id] = s; }). No store-singleton import.",
+    "geometry_deferred_to_FrameScheduler": "N/A -- no geometry is built. No structural committer is registered anywhere and no fragment builder exists (see D.renders_3d).",
+    "emits_typed_domain_event": "NO -- the handler emits nothing; CommandEventBridge does. C11 11.1 HANDLER-RUNTIME-EVENTS.",
+    "otel_span": "YES -- withHandlerSpan(this.type + '.handler', { 'pryzm.command.type': this.type }, ...) wraps execute.",
+    "must_not_violations": [],
+    "must_not_evidence": "Imports are @pryzm/plugin-sdk, ../errors.js, ../store.js, ../intent.js only. No commandManager.execute, no cascading dispatch, no window.dispatchEvent, no DOM, no rAF, no src/engine or src/ui import, one family in affectedStores.",
+    "id_pre_generated_in_tool": "YES in the plugin tool -- plugins/structural/src/tool.ts:58 const id = createId('structural'), then :59 bus.executeCommand('structural.create', { id, origin, kind, width, depth, thickness, radius, levelId }). Handler falls back to (cmd.id ?? createId('structural')). No bridge guards on ev.id -- there is no bridge."
+  },
+
+  "C_lifecycle": {
+    "ceb_case": "packages/runtime-composer/src/CommandEventBridge.ts:1256 -- case 'structural.create'.",
+    "ceb_payload_geometry_complete": "NO. Reads only { levelId?: string }; emits { commandId, commandType:'structural.create', levelId }. No id, no origin, no kind, no dimensions. C11 10.2 Bridge Invariant 1 violated verbatim.",
+    "initTools_bridge_tag": "NONE.",
+    "initTools_bridge_evidence": "grep -rn \"'structural.created'\" --include=*.ts apps packages plugins src (node_modules excluded) -> exactly 2 hits: CommandEventBridge.ts:1258 (emit) and packages/runtime-composer/src/types.ts:958 (type). Zero subscribers repo-wide. Confirmed independently by audit/.../raw/check-mirror-reachability.log ARM E2, which names structural.created among the 9 orphan channels.",
+    "vdt_registerElement": "N/A -- no bridge.",
+    "bimManager_registerElement": "N/A -- no bridge.",
+    "bimManager_via_window_any": "N/A.",
+    "in_GEOMETRY_ELEMENT_TYPES": false,
+    "geometry_element_types_evidence": "ViewDependencyTracker.ts:42-49 -- 19 strings, 'structural' absent.",
+    "update_verbs_covered": "NO. No ELEMENT_UPDATE_VERBS row. tools/ga-gate/mirror-debt.json: structural.delete (:1052), structural.setBraceEndOffset (:1068), structural.setDimensions (:1076), structural.setKind (:1084) are kind 'UNMIRRORED'; structural.move (:1060) and structural.setMaterial (:1092) are kind 'refuses' -- deliberately dead verbs that MUST NOT acquire a mirror while they refuse."
+  },
+
+  "D_seven_facts": {
+    "authored": { "verdict": "YES", "proof": "plugins/structural/src/{store.ts, handlers/CreateStructural.ts + 6 more, tool.ts, committer/structural-committer.ts, ISectionGenerator.ts, SteelProfileLibrary.ts} present. STRUCTURAL_HANDLER_TYPES declares 7 verbs." },
+    "dispatchable": { "verdict": "YES", "proof": "storeKey chain verified in A; affectedStores ['structural'] resolves at CommandBus.buildContext." },
+    "reachable": { "verdict": "NO", "proof": "The only dispatcher of structural.create is plugins/structural/src/tool.ts:59 (StructuralPlacementTool.onPointerDown). StructuralPlacementTool is constructed at exactly ONE site: apps/editor/src/PluginRegistry.ts:1116, inside the body of runtime.tools.register('structural', ...). That activator is never invoked: the single production call site of runtime.tools.activate is apps/editor/src/ui/ai/chatPlacementActivation.ts:379, driven by ELEMENT_CREATION_MATRIX, and grep -nE 'grid|structural|dimension|annotation' apps/editor/src/engine/views/plantools/elementCreationMatrix.ts shows NO structural row (the only 'structural' hits are the word inside the grid row's prose at :832-834). structural is also absent from NON_CREATION_PLAN_TOOLS, so it is in neither half of that table. AI route closed: ChatCommandClassification.ts:67 puts structural.create in B_CREATION, blockedBy 'per-family placement grammar'." },
+    "renders_3d": { "verdict": "NO", "proof": "grep -rn 'new StructuralCommitter' over apps packages plugins src -> no output (not even in plugins/structural/__tests__). grep -rn 'stores.structural|StructuralData' over apps packages plugins src excluding plugins/structural -> no output: nothing outside the plugin reads the family. Production code states it outright -- plugins/structural/src/handlers/MoveStructural.ts, const STRUCTURAL_MOVE_UNREACHABLE: 'structural.move is dead for a deeper reason than a detached store: THERE IS NO STRUCTURAL RUNTIME FAMILY. schemas/elements/Structural.ts defines the element, but no structuralStore, no fragment builder and no command exist anywhere in the app -- it is schema-only ... Nothing can render, export or persist a structural member, so nothing can observe it moving. The real structural element is column.'" },
+    "renders_plan": { "verdict": "NO", "proof": "Not in GEOMETRY_ELEMENT_TYPES; no bridge; no legacy twin store to project from. Same evidence as renders_3d." },
+    "persists": { "verdict": "NO", "proof": "apps/editor/src/engine/persistence/snapshotFamilyCoverage.ts declares { storeKey:'structural', status:'UNPERSISTED', snapshotKey:null, reason:'L-11523 (OPEN) -- brace / footing / foundation-slab / connection (S26, ADR-0026) have NO snapshot key and NO legacy twin ... Every structural record is destroyed on reload.' }. ProjectSerializer.serialize() loops UNPERSISTED_FAMILY_KEYS and console.errors the loss at save time (ProjectSerializer.ts:1532-1541)." },
+    "exports": { "verdict": "NO", "proof": "grep -rn 'structuralStore' plugins/ifc-export/src plugins/export-pdf/src plugins/dxf/src packages/pdf-export/src -> no output. The only 'structural' hits inside plugins/ifc-export/src are the English adjective in comments (IFC4X3Exporter.ts:156/166/544, pset-wall-common.ts:88 'whether the wall is structural / load-bearing')." }
+  },
+  "first_failing_link": "reachable",
+  "first_failing_link_note": "structural is AUTHORED and DISPATCHABLE, then fails at REACHABLE, and would fail at every remaining link too. Unlike grid and dimension it has NO alternate path: there is no legacy structural store, no fragment builder, no snapshot key and no exporter. The disposition is therefore BUILD-or-REMOVE, never WIRE.",
+
+  "alternate_path_that_works": {
+    "verb": null,
+    "chain": "NONE. Measured on four axes: (1) no legacy store -- performUndoRedo.ts UNMAPPED_BUS_STORE_KEYS declares structural: { owner: 'nothing', reason: 'No legacy structural store exists (no window.structuralStore assignment site).' }; (2) no committer/builder -- new StructuralCommitter 0 hits; (3) no snapshot key -- snapshotFamilyCoverage status UNPERSISTED; (4) no exporter -- 0 hits across all four export surfaces.",
+    "note": "MoveStructural.ts names the substitute the product actually ships: 'The real structural element is column, which has a full live path.'"
+  },
+
+  "E_c11_cross_check": {
+    "matrix_row": "NO ROW. C11 11's 14 rows do not include Structural.",
+    "prose_claim": "C11 11.14 (:1531) claims comprehensive coverage: 'A *.move handler exists for EVERY element family (wall, slab, column, beam, curtain-wall, roof, floor*, ceiling*, door, window, stair, furniture, plumbing, lighting, structural, room, annotation, dimension, section). Dimension/geometry updates also exist: ... structural.setDimensions.'",
+    "verdict": "REFUTES. Existence is not capability, and C11 11.14 counts existence. structural.move EXISTS and is a DELIBERATELY DEAD VERB: its canExecute cannot return valid on any path (mirror-debt.json kind 'refuses'), and its own source explains why -- there is no structural runtime family to move anything in. structural.setDimensions exists and is ledgered UNMIRRORED. Listing both under 'coverage -- confirmed comprehensive' reads as capability where the code guarantees refusal. Separately, the absence of a structural row anywhere in C11 11 while five other orphan registrations were audited is a DOC-CONFLICT of the same shape as grid's."
+  },
+
+  "findings": [
+    { "id": "B5-STRUCT-01", "class": "AUTHORED-NEVER-BUILT", "severity": "P1", "claim": "There is no structural runtime family: no legacy store, no fragment builder, no committer construction, no snapshot key, no exporter. Seven registered bus verbs mutate a store nothing downstream reads.", "command": "grep -rn 'new StructuralCommitter' --include=*.ts apps packages plugins src | grep -v node_modules ; grep -rn 'structuralStore' --include=*.ts apps packages plugins src | grep -v node_modules", "output_excerpt": "(no output for either)", "contract_clause": "C11 6, C84 EI-6", "disposition": "REMOVE", "blocks_production": false },
+    { "id": "B5-STRUCT-02", "class": "DISPATCHABLE-BUT-INVISIBLE", "severity": "P1", "claim": "structural.create has a CEB case emitting a levelId-only payload and structural.created has zero subscribers repo-wide -- a declared channel that reaches nobody.", "command": "grep -rn \"'structural.created'\" --include=*.ts apps packages plugins src | grep -v node_modules", "output_excerpt": "CommandEventBridge.ts:1258 (emit); types.ts:958 (type). 2 hits, 0 subscribers.", "contract_clause": "C11 10.2 invariants 1 and 2", "disposition": "REMOVE", "blocks_production": false },
+    { "id": "B5-STRUCT-03", "class": "UNREACHABLE-TOOL", "severity": "P2", "claim": "StructuralPlacementTool is constructed only inside the 'structural' tool activator, and 'structural' appears in neither ELEMENT_CREATION_MATRIX nor NON_CREATION_PLAN_TOOLS, so the single production activate() call site can never name it.", "command": "grep -nE 'grid|structural|dimension|annotation' apps/editor/src/engine/views/plantools/elementCreationMatrix.ts", "output_excerpt": "no structural row; the only 'structural' hits are prose inside the grid row (:832-834)", "contract_clause": "C11 3.1", "disposition": "REMOVE", "blocks_production": false },
+    { "id": "B5-STRUCT-04", "class": "UNDO-STRANDED", "severity": "P2", "claim": "Ctrl+Z after a structural create is a total no-op; the family is declared owner:'nothing' on the undo path.", "command": "grep -n \"structural: { owner: 'nothing'\" apps/editor/src/engine/undo/performUndoRedo.ts", "output_excerpt": "structural: { owner: 'nothing', reason: 'No legacy structural store exists (no window.structuralStore assignment site). Registered at engineLauncher.ts:588.' }", "contract_clause": "C03 4.5-4.8", "disposition": "DOCUMENT", "blocks_production": false },
+    { "id": "B5-STRUCT-05", "class": "DOC-CONFLICT", "severity": "P1", "claim": "C11 11.14 lists structural.move and structural.setDimensions under 'Coverage -- confirmed comprehensive'. structural.move is a deliberately-refusing dead verb and structural.setDimensions is ledgered UNMIRRORED; neither is coverage.", "command": "sed -n '1531,1533p' docs/02-decisions/contracts/C11-ELEMENT-CREATION-PIPELINE.md ; grep -n 'structural.move' -A 6 tools/ga-gate/mirror-debt.json", "output_excerpt": "mirror-debt.json: structural.move kind 'refuses' -- 'canExecute cannot return valid on any path ... The verb is deliberately dead'", "contract_clause": "C11 11.14", "disposition": "DOCUMENT", "blocks_production": false }
+  ]
+}

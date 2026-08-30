@@ -1,0 +1,104 @@
+# ============================================================================
+# p07-CLAUDEmd-P3-bullet.diff
+# PROPOSED — NOT APPLIED (D9). Audit: audit/element-creation/2026-08-29
+# Measured 2026-08-29 · HEAD 064a838e · branch main
+# Apply with:  git apply <this file>        (strips the leading '#' block? NO —
+#              this file is a PATCH WITH A COMMENT HEADER. 'git apply' ignores
+#              everything before the first '--- a/' line, so it applies as-is.)
+#              On Windows, if using GNU patch instead of git: patch --binary -p1
+# ============================================================================
+# TARGET   CLAUDE.md — the P3 bullet   AND
+#          docs/02-decisions/contracts/C01-ARCHITECTURE-AND-GOVERNANCE.md §1 + §5
+# ORDER    Two files, two chains, both stated:
+#            CLAUDE.md : p07 FIRST, then p06.
+#            C01       : p03 -> p04 -> p07 -> p05.
+#          The CLAUDE.md hunk is in p07-CLAUDEmd-P3-bullet.diff (this file).
+#          The C01 hunks are in p07-C01-P3-rows.diff (same lane, same fact).
+# NOTE     CLAUDE.md is CRLF. Use `git apply` or `patch --binary -p1`.
+#
+# ⚠ THE BRIEF'S PREMISE WAS ITSELF FALSIFIED — SAYING SO IS PART OF THE PATCH
+#
+#   The lane brief named "CLAUDE.md P3 bullet: documented FAILING at 5 rAF owners".
+#   $ grep -n "raf-count" CLAUDE.md
+#   -> 148: "hard-fail at the invariant (tools/ga-gate/check-raf-count.ts, exactly
+#            1 owner)."
+#   CLAUDE.md ALREADY SAYS 1 OWNER. It was never the stale copy.
+#
+#   $ grep -rn "5 owner" CLAUDE.md docs/02-decisions/contracts/
+#   -> C01-ARCHITECTURE-AND-GOVERNANCE.md:17    "FAILING: 5 owner files, target 1"
+#      C01-ARCHITECTURE-AND-GOVERNANCE.md:232   "FAILING: 5 owner files, target 1"
+#      C14-LEGACY-ELIMINATION...:344            already CORRECTS it (2026-08-18)
+#      CONTRACT-AMENDMENT-REGISTER.md:664       already CORRECTS it
+#   C01 holds the LAST TWO uncorrected copies. Two other canonical docs had
+#   already refuted them and C01 never got the memo.
+#
+# THE MEASUREMENT
+#
+#   $ npx tsx tools/ga-gate/check-raf-count.ts > /tmp/raf.txt 2>&1; echo "RC=$?"
+#   -> RC=0
+#      [raf-tripwire] files scanned: 5438 (excluded 2841)
+#        Owners (code lines only):  packages/frame-scheduler/src/RafAdapter.ts
+#        Comment-only mentions (not owners): 5 file(s)
+#      [raf-tripwire] OK: 1 owner.
+#
+#   P3 PASSES, hard-0 at one declared owner, over the widest non-narrowed scope in
+#   the suite. It is the strongest of the nine convergence booleans (§4 #3).
+#
+# WHY THE "5" EXISTED — AND WHY THIS IS NOT A COSMETIC PATCH
+#
+#   The 5 was 1 OWNER + 4 COMMENT lines, three of which are doc comments ASSERTING
+#   P3 compliance. The gate counted sentences until §RAF-GATE-COMMENT-BLIND
+#   (gate-debt.json, 2026-08-10). A naive `grep -c requestAnimationFrame`
+#   REPRODUCES THE ORIGINAL DEFECT exactly, so the correction records the
+#   mechanism, not just the verdict. Without that, the next agent re-derives 5,
+#   "re-opens" P3, and spends a lane on a problem that was closed 19 days ago.
+#   A stale-PESSIMISTIC contract reading costs budget; that is the whole cost here,
+#   and it is why this is worth a patch at all.
+#
+# DISPOSITION (D2)
+#
+#   REPLACE the two C01 cells; ANNOTATE the (already-correct) CLAUDE.md bullet with
+#   the dated reading and the comment-vs-code mechanism.
+#   C84 EI-9: the fact now has ONE reading, stated identically in the two places
+#   that already claimed to hold it, with the gate named as the authority in both.
+#   Nothing new becomes a second source of truth.
+#
+# ACCEPTANCE (D3)
+#
+#   $ npx tsx tools/ga-gate/check-raf-count.ts; echo "RC=$?"
+#     -> must print "[raf-tripwire] OK: 1 owner." and RC=0.
+#   $ grep -cE '[*][*]FAILING: 5 owner files' docs/02-decisions/contracts/C01-ARCHITECTURE-AND-GOVERNANCE.md
+#     -> must print 0 — the BOLD ASSERTION form `**FAILING:`, which is what §1:17 and
+#        §5:232 both use. MEASURED: prints 2 today; the two replacement cells quote the
+#        old text as `read "FAILING:` with NO bold marker, so this regex reaches 0.
+#   ⚠ A BARE `grep -rc "5 owner files"` IS THE WRONG CRITERION AND CANNOT REACH 0 —
+#     MEASURED ON THE PATCHED COPY: it prints 2, because p07-C01-P3-rows.diff QUOTES
+#     each retracted cell inside its replacement ("this cell read …"). That quotation
+#     is deliberate: a correction that erases what it corrected leaves the next reader
+#     unable to tell a fixed defect from one that never existed, and this exact fact
+#     has now been corrected in four documents at four different times. Anchor on the
+#     assertion form, never on the substring. "must print 0" was stated in the first
+#     revision of this patch and was wrong.
+#
+--- a/CLAUDE.md
++++ b/CLAUDE.md
+@@ -146,6 +146,19 @@
+    `packages/frame-scheduler/src/RafAdapter.ts` — the frame scheduler is its OWN L1 package, it is
+    not "inside `runtime-composer`". All animation subscribes to the frame bus.
+    → **hard-fail at the invariant** (`tools/ga-gate/check-raf-count.ts`, exactly 1 owner).
++   > ⭐ **CONFIRMED GREEN 2026-08-29 — recorded here because the CONTRACTS were wrong
++   > PESSIMISTICALLY, which costs budget rather than safety.**
++   > `npx tsx tools/ga-gate/check-raf-count.ts > /tmp/raf.txt 2>&1; echo "RC=$?" >> /tmp/raf.txt`
++   > → **RC=0**, `[raf-tripwire] OK: 1 owner` (`packages/frame-scheduler/src/RafAdapter.ts`),
++   > **files scanned: 5438 (excluded 2841)**, plus *"Comment-only mentions (not owners): 5 file(s)"*.
++   > ⚠ **THIS BULLET WAS ALREADY RIGHT.** `C01` §1 and `C01` §5 both read *"FAILING: 5 owner files,
++   > target 1"* and were the LAST uncorrected copies — `C14`'s banner and
++   > `CONTRACT-AMENDMENT-REGISTER` §11B had both already corrected it. Corrected in `C01` by the
++   > same patch that added this note, so the fact lives in one place with one reading (C84 EI-9).
++   > ⭐ **The "5" was 1 owner + 4 COMMENT lines, three of them doc comments asserting P3
++   > compliance** — the gate counted sentences until `§RAF-GATE-COMMENT-BLIND` (2026-08-10).
++   > ⛔ **Do not re-open P3 from a naive `grep -c requestAnimationFrame`: that grep reproduces the
++   > exact defect the fix removed.** Run the gate.
+ 4. **P4 — No `(window as any)`.** Forbidden outside the one allowlisted shim file — *as a rule*.
+    **NOT-YET-TRUE as enforcement:** `check-cast-count.ts` is a shrink-only ratchet and is on
+    `tools/ga-gate/gate-debt.json`.

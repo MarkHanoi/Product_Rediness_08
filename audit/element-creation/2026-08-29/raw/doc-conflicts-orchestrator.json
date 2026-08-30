@@ -1,0 +1,106 @@
+{
+  "phase": "4-prep (D8 DOC-CONFLICT, measured by the orchestrator, not delegated)",
+  "measured_on": "2026-08-29",
+  "authority_order_applied": "C01 > the more specific contract (C11 wins on pipeline shape) > code. Where code disagrees with a contract, the CODE is the defect. Where two canonical statements disagree, report BOTH and do not resolve silently.",
+
+  "conflicts": [
+    {
+      "id": "DC-01",
+      "class": "DOC-CONFLICT",
+      "severity": "P1",
+      "subject": "C11 §11 matrix vs C11 §0.0 — three bridges ordered built that already shipped",
+      "statement_a": {
+        "location": "C11 §11 matrix rows Handrail / Furniture / Lighting",
+        "dated": "2026-05-19",
+        "says": "initTools bridge = '❌ No bridge' for all three; Status LEGACY-ONLY / OUT-OF-SCOPE"
+      },
+      "statement_b": {
+        "location": "C11 §0.0",
+        "dated": "2026-08-18",
+        "says": "All three are live in initTools.ts — §FT-HANDRAIL, §FT-LIGHTING, §FT-FURNITURE bridges registered; §11.1's work order is DISCHARGED, do not execute it"
+      },
+      "command_to_settle": "grep -n 'bridge registered' apps/editor/src/engine/initTools.ts",
+      "note_from_contract": "C11 §0.0 warns the line numbers move under active edit and that the §FT-* TAGS are the stable citation. An earlier statement of this same finding cited :1919/:1967/:2031 which now point at unrelated lines.",
+      "why_it_matters": "The matrix is the half an engineer reads to decide what to BUILD. Three bridges were ordered built that already shipped. Cost is not a wasted sprint — it is a RIVAL implementation of a live bridge, which is strictly worse than the gap it imagined (D2).",
+      "status": "PENDING-VERIFICATION-BY-CENSUS-AGENT"
+    },
+    {
+      "id": "DC-02",
+      "class": "DOC-CONFLICT",
+      "severity": "P1",
+      "subject": "C11 §11 contradicts ITSELF about Furniture, ~20 lines apart, in the same section",
+      "statement_a": {
+        "location": "C11 §11 matrix, Furniture row",
+        "says": "initTools bridge = '❌ No bridge' · VDT+bimManager '❌ (no bridge — N/A)' · 3D via bus '❌' · Status '⚠️ LEGACY-ONLY'"
+      },
+      "statement_b": {
+        "location": "C11 §11.1 gap table, FURNITURE-BUS-MIGRATION row",
+        "says": "'✅ DONE (§7.0 FIX-FURNITURE-BRIDGE, §11.19): furniture.created widened, CEB enriched, initTools §FT-FURNITURE bridge added → legacy FurnitureStore mesh + plan symbol.'"
+      },
+      "why_it_matters": "This is not staleness between two documents written months apart. The matrix and the gap table that immediately follows it disagree on the same page. A reader who scans the matrix concludes furniture is unbuilt; a reader who scans the gap table concludes it is finished. Both are 'the normative record'.",
+      "disposition": "The gap table is corroborated by §0.0 and §11.19. The MATRIX ROW is the defect.",
+      "status": "MEASURED-FROM-DOC-TEXT"
+    },
+    {
+      "id": "DC-03",
+      "class": "DOC-CONFLICT",
+      "severity": "P1",
+      "subject": "C11 §11.11 audits families that have NO ROW in the §11 matrix it belongs to",
+      "statement_a": {
+        "location": "C11 §11.11 heading",
+        "says": "'Plumbing / Lighting / Grid / Annotation / Room — Phases 12–14 audit (2026-05-19)'"
+      },
+      "statement_b": {
+        "location": "C11 §11 matrix table",
+        "says": "Contains rows for Room and Lighting ONLY. There is NO Plumbing row, NO Grid row, NO Annotation row."
+      },
+      "why_it_matters": "§11 declares itself 'the normative record of which elements are fully wired'. Three families it audits in prose are absent from the record entirely — neither compliant nor non-compliant, simply unrepresented. An absence in a normative matrix reads as 'not an element family', not as 'unmeasured'.",
+      "status": "MEASURED-FROM-DOC-TEXT"
+    },
+    {
+      "id": "DC-04",
+      "class": "COVERAGE-GAP",
+      "severity": "P0",
+      "subject": "The normative per-element matrix covers 14 families; the measured census is far larger",
+      "matrix_families": [
+        "Wall", "Slab", "Curtain Wall", "Ceiling", "Roof", "Column", "Beam", "Floor",
+        "Wall Opening (Door/Window)", "Stair", "Handrail", "Furniture", "Lighting", "Room"
+      ],
+      "matrix_family_count": 14,
+      "measured_plugins_dir": 51,
+      "measured_element_schemas": 33,
+      "command": "ls plugins/ | wc -l  ->  51   ;   ls packages/schemas/src/elements/ | wc -l  ->  33",
+      "families_with_a_schema_and_a_plugin_but_NO_matrix_row_candidate": [
+        "balcony", "boundary-line", "grid", "annotation", "dimension",
+        "structural", "pool", "lift", "plumbing", "section-view"
+      ],
+      "why_it_matters": "C11 §11 is dated 2026-05-19 — over three months stale as of this audit. Its 14 rows are being read as coverage of the element pipeline. Every family outside those 14 has NO normative compliance record at all, which is precisely the state in which a family ships authored-but-undispatchable without any document being wrong.",
+      "caution": "This row is a CANDIDATE list derived from directory names. It must be confirmed against the six-source census before it is asserted — a plugin directory is not proof of an element family (D1: search by capability, not by the name I would have given it).",
+      "status": "PENDING-CENSUS"
+    },
+    {
+      "id": "DC-05",
+      "class": "DOC-CONFLICT",
+      "severity": "P2",
+      "subject": "C11 §7.2's 'no OTel span' claim is refuted inside C11 itself",
+      "statement_a": { "location": "C11 §7.2", "says": "there is 'no OTel span, and plugin-sdk exposes no tracer'" },
+      "statement_b": {
+        "location": "C11 §0.0",
+        "says": "withHandlerSpan is used in 253 files; the tracer is exposed and used at scale"
+      },
+      "critical_nuance_to_preserve": "§0.0 explicitly warns NOT to read 253 files as P8 satisfied. The plumbing existing and the coverage invariant holding are INDEPENDENT facts. The gate is RC=3: Zone A 246/246, Zone B 54 uninstrumented of 70 against a shrink-only baseline of 52, Zone C UNGATED at 1772 of 2023 without a span. State both or state neither.",
+      "status": "MEASURED-FROM-DOC-TEXT-PENDING-GATE-RERUN"
+    },
+    {
+      "id": "DC-06",
+      "class": "STALENESS",
+      "severity": "P2",
+      "subject": "Every §11.x per-element audit carries the date 2026-05-19",
+      "command": "grep -c '(2026-05-19)' docs/02-decisions/contracts/C11-ELEMENT-CREATION-PIPELINE.md",
+      "why_it_matters": "§11.3 through §11.17 are all stamped the same day. Between then and this audit the repo has moved through at least the §7.7 dead-click work (2026-08-23), the §7.8 inverse (2026-08-23) and the §0.0 correction (2026-08-18). A matrix whose rows all share one stale date, sitting under a §0.0 that refutes three of them, is a document whose green cells cannot be relied on individually.",
+      "status": "MEASURED-FROM-DOC-TEXT"
+    }
+  ],
+
+  "orchestrator_note": "These six were measured by reading the contract text directly and are NOT delegated to any sub-agent, so they do not duplicate the fan-out. DC-01 and DC-04 carry PENDING statuses on purpose: the doc text establishes what the CONTRACT says, but the code half must come from the census agent's measurement. Per D1, no absence claim in DC-04 is asserted until that lands."
+}
