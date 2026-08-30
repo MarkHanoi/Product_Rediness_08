@@ -15,8 +15,17 @@
  * `@pryzm/geometry-lighting`, `@pryzm/core-app-model`, `@pryzm/event-bus` and the seating
  * resolver into that module graph and broken exactly that property.
  *
- * So the shared definition lives here, with a TYPE-ONLY dependency and no runtime imports
- * at all. `CreateLightingCommand` re-exports it, so the public surface is unchanged.
+ * So the shared definition lives here, with a TYPE-ONLY dependency on `LightingData`.
+ * `CreateLightingCommand` re-exports it, so the public surface is unchanged.
+ *
+ * ⚠ AMENDED 2026-08-30 (P8 / C10 §2). This paragraph used to end "and no runtime imports
+ * at all"; there is now exactly ONE — `@opentelemetry/api`. It is the API-only package
+ * (no SDK, no exporter, no transitive runtime graph) and is already a direct dependency
+ * of `@pryzm/command-registry`. The property the paragraph exists to protect — that
+ * `projectLoaderUtils`' unit tests do not have to stand up `@pryzm/geometry-lighting`,
+ * `@pryzm/core-app-model`, `@pryzm/event-bus` and the seating resolver — is unchanged.
+ * ⛔ Do not read this as licence to add a second runtime import; the ban on the heavy
+ * geometry/barrel graph stands exactly as written.
  *
  * ## What was wrong
  *
@@ -31,7 +40,17 @@
  * is restored by construction rather than silently dropped — which is how this arose.
  */
 
+import { trace, type Tracer } from '@opentelemetry/api';
 import type { LightingData } from '@pryzm/geometry-lighting';
+
+// P8 / C10 §2 — same tracer idiom as `DeleteElementsBatchCommand.ts` /
+// `moveReweldPreflight.ts` in this package (C84 EI-9: one tracer authority per
+// package, never a second wrapper).
+let _cachedTracer: Tracer | null = null;
+function _tracer(): Tracer {
+    _cachedTracer ??= trace.getTracer('@pryzm/command-registry', '0.1.0');
+    return _cachedTracer;
+}
 
 /**
  * Every `LightingData` key holding authored state. Identity (`id`, `type`), placement
@@ -70,11 +89,26 @@ export type LightingAuthoredParams =
 export function pickAuthoredLightingParams(
     src: Partial<LightingAuthoredParams> | null | undefined,
 ): LightingAuthoredParams {
-    const out: Record<string, unknown> = {};
-    if (!src) return out as LightingAuthoredParams;
-    for (const k of LIGHTING_AUTHORED_PARAM_KEYS) {
-        const v = (src as Record<string, unknown>)[k];
-        if (v !== undefined) out[k] = v;
-    }
-    return out as LightingAuthoredParams;
+    return _tracer().startActiveSpan('pryzm.lighting.pickAuthoredParams', (span) => {
+        try {
+            const out: Record<string, unknown> = {};
+            // ABSENT SOURCE AND EMPTY SOURCE ARE DIFFERENT FACTS and are emitted
+            // separately. This module exists because authored blocks were being
+            // dropped on the round-trip; a trace that printed only "0 keys
+            // carried" could not distinguish "this fixture authored nothing"
+            // from "the snapshot never reached the picker".
+            span.setAttribute('pryzm.lighting.srcPresent', Boolean(src));
+            if (src) {
+                for (const k of LIGHTING_AUTHORED_PARAM_KEYS) {
+                    const v = (src as Record<string, unknown>)[k];
+                    if (v !== undefined) out[k] = v;
+                }
+            }
+            span.setAttribute('pryzm.lighting.authoredKeys', Object.keys(out).length);
+            span.setAttribute('pryzm.lighting.knownKeys', LIGHTING_AUTHORED_PARAM_KEYS.length);
+            return out as LightingAuthoredParams;
+        } finally {
+            span.end();
+        }
+    });
 }

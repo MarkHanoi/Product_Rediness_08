@@ -1737,6 +1737,20 @@ export async function composeRuntime(opts: ComposeRuntimeOptions): Promise<Compo
     // from and exposing them is correct rather than a leak.
     const poolStore: PluginDtoStoreHandle | undefined = inner.stores?.['pool'];
     const waterStore: PluginDtoStoreHandle | undefined = inner.stores?.['water'];
+    // ── §PERSIST-BALCONY (L-11530) · C103 — THE SIXTH, AND THE ONE §BATH102 MISSED.
+    //
+    // ⛔ THIS ONE IS NOT AN UNDO GAP, IT IS A SILENT DATA LOSS. `ProjectSerializer`'s
+    // `readPluginStore('balcony')` reads `window.runtime.stores.balcony`, and
+    // `window.runtime` is THIS handle (`engineLauncher.ts:191` is the one production
+    // assignment site). With no `balcony` key on `StoresSlot` and no index signature
+    // the read was `undefined`, so the `balconies` slice was never written and every
+    // balcony died on reload — while `snapshotFamilyCoverage.ts` declared the family
+    // `persisted`, which kept it out of the C84 EI-6 save-time loss warning.
+    //
+    // ⭐ SAME NO-GEOMETRY-TWIN TEST, PASSED BY THE SAME KIND OF MEASUREMENT:
+    // `performUndoRedo.ts`'s `UNMAPPED_BUS_STORE_KEYS` row for `balcony` states there
+    // is no `window.balconyStore` at all, so nothing can diverge from this instance.
+    const balconyStore: PluginDtoStoreHandle | undefined = inner.stores?.['balcony'];
     if (inner.stores !== undefined) {
       for (const [key, value] of [
         ['bathroomPod', bathroomPodStore],
@@ -1744,6 +1758,7 @@ export async function composeRuntime(opts: ComposeRuntimeOptions): Promise<Compo
         ['liftPart', liftPartStore],
         ['pool', poolStore],
         ['water', waterStore],
+        ['balcony', balconyStore],
       ] as const) {
         if (value === undefined) {
           // The data half ran and still did not contribute the key — that is a
@@ -1776,6 +1791,10 @@ export async function composeRuntime(opts: ComposeRuntimeOptions): Promise<Compo
       // §BATH102 (L-11064) — the ADR-0124 pool assembly, same measurement.
       pool: poolStore,
       water: waterStore,
+      // §PERSIST-BALCONY (L-11530 · C103) — the compound parent `ProjectSerializer`
+      // reads through `readPluginStore('balcony')`. Absent here, the save wrote no
+      // `balconies` key and the family was destroyed on every reload, silently.
+      balcony: balconyStore,
       registerHydrator(fn: (snapshot: unknown) => void | Promise<void>): void {
         _hydratorFn = fn;
       },

@@ -80,6 +80,29 @@ const LABEL = 'runtime-arg-omitted';
  */
 const BASELINE = 21;
 
+/**
+ * Subject floors (RATCHET R5, lane W1b 2026-08-30).
+ *
+ * This gate had NO floor of any kind. `walk()` swallows a readdir failure with
+ * `catch { return out; }`, so a moved SCAN_DIR, a wrong REPO_ROOT or a permission
+ * error yields zero files, zero classes, zero findings -- and prints
+ * "OK: 0 <= baseline 21". Failure and emptiness shared a value inside a gate whose
+ * whole subject is silent behavioural loss.
+ *
+ * Measured 2026-08-30: 5114 files scanned, 214 classes with an optional trailing
+ * runtime param. The floors sit far below both: they fire when the walk COLLAPSES,
+ * not when the tree is refactored.
+ */
+const MIN_SCANNED_FILES = 2500;
+const MIN_RUNTIME_CLASSES = 100;
+
+/** The MISCONFIGURED exit. Never absorbable as debt, never aliased to 0 or 1. */
+function die2(msg: string): never {
+    console.error(`[${LABEL}] MISCONFIGURED (exit 2) — ${msg}`);
+    console.error(`[${LABEL}] This is NOT a pass: the walk did not reach its subjects.`);
+    process.exit(2);
+}
+
 const SCAN_DIRS = ['apps', 'src', 'packages', 'plugins'];
 const SKIP_DIR = new Set(['node_modules', 'dist', 'build', '.git', 'coverage', '__tests__', '__mocks__']);
 
@@ -127,6 +150,9 @@ interface ClassInfo {
 
 function main(): number {
     const files = SCAN_DIRS.flatMap(d => walk(join(REPO_ROOT, d)));
+    if (files.length < MIN_SCANNED_FILES) {
+        die2(`walked ${files.length} .ts file(s) across ${SCAN_DIRS.join(', ')} under ${REPO_ROOT} — floor is ${MIN_SCANNED_FILES}.`);
+    }
 
     // ── Pass 1: classes with an optional trailing runtime param ──────────────
     const classes = new Map<string, ClassInfo>();
@@ -171,6 +197,11 @@ function main(): number {
         }
     }
 
+    if (classes.size < MIN_RUNTIME_CLASSES) {
+        die2(`found ${classes.size} class(es) with an optional trailing runtime param — floor is ${MIN_RUNTIME_CLASSES}. `
+            + 'Pass 2 has nothing to look for, so its "0 bare constructions" would be an empty-seed lie, not a clean bill.');
+    }
+
     // ── Pass 2: bare `new X()` construction sites ────────────────────────────
     const armA: string[] = [];
     const armB: string[] = [];
@@ -195,7 +226,7 @@ function main(): number {
 
     armA.sort(); armB.sort();
 
-    console.log(`[${LABEL}] scanned ${files.length} files · ${classes.size} classes with an optional trailing runtime param`);
+    console.log(`[${LABEL}] scanned ${files.length} files (floor ${MIN_SCANNED_FILES}) · ${classes.size} classes with an optional trailing runtime param (floor ${MIN_RUNTIME_CLASSES})`);
     console.log(`[${LABEL}] ARM A — bare construction of a class that optional-chains runtime for behaviour: ${armA.length} / ${BASELINE}`);
     for (const f of armA) console.log(`  ✗ ${f}`);
     console.log(`[${LABEL}] ARM B — same shape but the constructor falls back to window.runtime (advisory): ${armB.length}`);

@@ -42,6 +42,7 @@
 // into ONE undo entry (C81) — a bus round-trip per dependent could not do that.
 // The exception this paragraph named is closed; the reason for the pattern is not.
 
+import { trace, type Tracer } from '@opentelemetry/api';
 import type { Command } from '../types';
 import type { BoundaryLineAdaptation } from '@pryzm/geometry-boundary-line';
 import { UpdateWallBaselineCommand } from '../walls/UpdateWallBaselineCommand';
@@ -98,6 +99,52 @@ export type BoundaryLineDependentAdapter = (
 
 const line = (a: BoundaryLineAdaptation): { start: P3; end: P3 } | null => a.span ?? null;
 
+// ── P8 / C10 §2 ───────────────────────────────────────────────────────────────
+//
+// Same tracer idiom as `DeleteElementsBatchCommand.ts` / `moveReweldPreflight.ts`
+// in this package (C84 EI-9: one tracer authority per package, not a second
+// wrapper).
+//
+// The span sits on the ADAPTATION, not on `adaptedFamilies()`. `adaptedFamilies()`
+// is a keys read the coverage test calls; tracing it would satisfy the gate and
+// tell an operator nothing. What an operator actually needs from a boundary-line
+// move is WHICH family was asked to follow and WHETHER it produced a command —
+// and per the doc comment above, `null` is a REPORTED unresolved dependent, never
+// a silent skip, so `carried` is emitted as its own attribute rather than left to
+// be inferred from an absent span.
+let _cachedTracer: Tracer | null = null;
+function _tracer(): Tracer {
+    _cachedTracer ??= trace.getTracer('@pryzm/command-registry', '0.1.0');
+    return _cachedTracer;
+}
+
+function traced(
+    family: string,
+    fn: BoundaryLineDependentAdapter,
+): BoundaryLineDependentAdapter {
+    return (a, before) =>
+        _tracer().startActiveSpan('pryzm.boundaryLine.adaptDependent', (span) => {
+            try {
+                span.setAttribute('pryzm.boundaryLine.family', family);
+                span.setAttribute('pryzm.boundaryLine.elementId', a.elementId);
+                const cmd = fn(a, before);
+                span.setAttribute('pryzm.boundaryLine.carried', cmd !== null);
+                return cmd;
+            } finally {
+                span.end();
+            }
+        });
+}
+
+/** Wrap every adapter in the table without changing its identity or key set. */
+function tracedAdapters(
+    table: Record<string, BoundaryLineDependentAdapter>,
+): Record<string, BoundaryLineDependentAdapter> {
+    const out: Record<string, BoundaryLineDependentAdapter> = {};
+    for (const [family, fn] of Object.entries(table)) out[family] = traced(family, fn);
+    return out;
+}
+
 /**
  * ⚠ THE SLAB CONVENTION IS `{x, y}` WHERE `y` IS WORLD **Z**, and it is written down
  * here because it is the single most likely mis-wire in this file.
@@ -129,7 +176,7 @@ function translateSlabPolygon(
  * declared.
  */
 export const BOUNDARY_LINE_DEPENDENT_ADAPTERS: Readonly<Record<string, BoundaryLineDependentAdapter>> =
-    Object.freeze({
+    Object.freeze(tracedAdapters({
         wall: (a, before) => {
             const s = line(a);
             if (!s || !before.span) return null;
@@ -204,7 +251,7 @@ export const BOUNDARY_LINE_DEPENDENT_ADAPTERS: Readonly<Record<string, BoundaryL
             if (!a.position) return null;
             return new MoveLightingCommand({ elementId: a.elementId, to: a.position });
         },
-    });
+    }));
 
 function curtainWall(a: BoundaryLineAdaptation): Command | null {
     const s = line(a);

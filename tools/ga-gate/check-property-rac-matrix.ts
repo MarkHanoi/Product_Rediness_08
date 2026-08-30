@@ -86,6 +86,26 @@ const HERE = dirname(fileURLToPath(import.meta.url));
 const REPO = resolve(HERE, '../..');
 const LEDGER = resolve(HERE, './property-rac-matrix.json');
 
+/**
+ * Subject floors (RATCHET R5, lane W1b 2026-08-30).
+ *
+ * These floors were already ENFORCED -- as literals inside the `floors` array in
+ * main(), which returns 2 when any is unmet. They are HOISTED into named `MIN_...`
+ * constants here, and the misconfiguration exit is spelled literally at the bottom
+ * of the file, for one reason: check-gate-subject-floors.ts read this gate as
+ * "no floor constant AND no exit-2 path", and a floor a reader cannot find is worth
+ * little more than one that is not there. Adopting the house idiom is the repair;
+ * inventing a second one would not be (C84 EI-9).
+ *
+ * NO VALUE CHANGED. Measured 2026-08-30 for the record: 4 panel files, 113
+ * panel-visible cells across 15 families.
+ */
+const MIN_PANEL_FILES = 4;
+const MIN_PANEL_CELLS = 60;
+const MIN_CHAT_CAPABILITIES = 40;
+const MIN_EXECUTABLE_PROPERTIES = 15;
+const MIN_QUERYABLE_PROPERTIES = 15;
+
 type Verdict = 'BOTH' | 'EXECUTE-ONLY' | 'QUERY-ONLY' | 'SILENT';
 
 interface Cell {
@@ -239,11 +259,11 @@ function main(): number {
   // ── FLOORS. Emptiness is never a pass (C10). ──────────────────────────────
   const totalPanelCells = [...surface.byKind.values()].reduce((n, s) => n + s.size, 0);
   const floors: { what: string; measured: number; min: number }[] = [
-    { what: 'panel files parsed for the denominator', measured: surface.filesRead.length, min: 4 },
-    { what: 'panel-visible (family × property) cells', measured: totalPanelCells, min: 60 },
-    { what: 'chat capabilities executed', measured: caps.length, min: 40 },
-    { what: 'properties the chat can SET (a matrix of pure silence would be a broken probe)', measured: exec.size, min: 15 },
-    { what: 'properties the chat can ASK (ditto, in the other direction)', measured: query.size, min: 15 },
+    { what: 'panel files parsed for the denominator', measured: surface.filesRead.length, min: MIN_PANEL_FILES },
+    { what: 'panel-visible (family × property) cells', measured: totalPanelCells, min: MIN_PANEL_CELLS },
+    { what: 'chat capabilities executed', measured: caps.length, min: MIN_CHAT_CAPABILITIES },
+    { what: 'properties the chat can SET (a matrix of pure silence would be a broken probe)', measured: exec.size, min: MIN_EXECUTABLE_PROPERTIES },
+    { what: 'properties the chat can ASK (ditto, in the other direction)', measured: query.size, min: MIN_QUERYABLE_PROPERTIES },
   ];
   const unmet = floors.filter((f) => f.measured < f.min);
   if (unmet.length > 0) {
@@ -417,4 +437,9 @@ function main(): number {
   return exit;
 }
 
-process.exit(main());
+// exit 2 == MISCONFIGURED, spelled literally so the floors above are visibly
+// enforced. 0 = clean, 1 = a finding, 2 = the gate measured nothing it can stand
+// on. The three never alias (lane W1b).
+const rc = main();
+if (rc === 2) process.exit(2);
+process.exit(rc);

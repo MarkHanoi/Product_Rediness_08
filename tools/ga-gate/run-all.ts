@@ -734,6 +734,44 @@ const GATES: Gate[] = [
   // for excluding raked walls from instancing. The argument was written down three times and
   // enforced zero times, so the third consumer shipped anyway.
   { name: 'shear-survives-transport (L-10142 · C04 §PF)',      script: 'check-shear-survives-transport.ts' },
+  // §GATE-AUTHORED-BUT-UNWIRED, round 4 (2026-08-30, lane W1c) —
+  // The gate registered on the last line of this block was committed 2026-08-24
+  // in 377dd06b, is cited by its own subject line (C71 §7 ·
+  // §TOPO-AGGREGATE-IS-NOT-AN-ELEMENT · L-10530) as the enforcement for that seam,
+  // and was registered in NO runner and no ci.yml step. Same shape this file already records three times above
+  // (check-verb-liveness; the four of round 2; the thirteen of round 3).
+  //
+  // ⭐ WHY IT MATTERS THAT IT RAN NOWHERE: registering it is what MEASURED it, and
+  // it had drifted. At HEAD it read arm B 50 against a shrink-only ceiling of 49 —
+  // and the delta was not one new blind harvest but TWO ARRIVALS THAT WERE FALSE
+  // POSITIVES OF THE GATE ITSELF: a builder WRITING userData.id onto its own group
+  // (WaterMeshBuilder :150/:177), and a file whose only occurrences of the string
+  // are two COMMENTS about a past defect (initTools :2750/:2810). ARM A had always
+  // stripped comments before counting; ARM B never did — so prose could not take a
+  // file OFF that census but could put one ON it. That is the gate's own
+  // "a gate satisfiable by writing prose about it measures prose", inverted.
+  //
+  // ⛔ THE CEILING WAS NOT RAISED and nothing was absorbed. Both arms now share one
+  // stripComments helper (C84 EI-9), ARM B counts a READ rather than any mention,
+  // all SEVEN departures were read individually before they were allowed to leave,
+  // and the shrink-only ceiling was re-pinned DOWN 49 -> 43 to its measured value
+  // so no slack is banked. The read test also WIDENED: an optional-chained bracket
+  // read was invisible to the old regex and is a real harvest
+  // (visibilitySceneApplier :111), which stays on the census because of it.
+  //
+  // FIRST REGISTERED READING, MEASURED 2026-08-30: RC=0 · 7984 files scanned ·
+  // ARM A 0/0 (HARD-0, may never acquire a baseline) · ARM B 43/43 (census,
+  // shrink-only, sitting AT its ceiling — so the 44th blind harvest turns this
+  // suite red, which is the entire point of registering it). It arrives FLOORED:
+  // MIN_SCANNED_FILES 4000, plus a premise floor over the canonical predicate and
+  // the minter, both exiting 2 — so "walked nothing" can never print as "found
+  // nothing". An ARM B breach exits 3, never 1 (§RATCHET-EXCEEDED-IS-NEVER-DEBT).
+  //
+  // ⚠ ARM B is a CENSUS, not a defect count, and it says so on every run: two
+  // members are verified and OPEN (ElementSpatialIndex, SpatialTree), the rest are
+  // unverified candidates that must be read before being called defects. Do not
+  // quote 43 as "43 defects".
+  { name: 'render-aggregate-seam (C71 §7 · L-10530)',          script: 'check-render-aggregate-seam.ts' },
 ];
 
 // §FIX-GATE-REGISTERED-TWICE (2026-08-11, C9). `check-report-payload-discard.ts`

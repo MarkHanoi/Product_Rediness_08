@@ -15,11 +15,21 @@
 // C84 EI-7a honesty: `affectedStores` is computed per instance from the exact
 // family set the payload writes — never a superset.
 
+import { trace, type Tracer } from '@opentelemetry/api';
 import { Command, CommandType, CommandValidationResult, CommandResult, SerializedCommand, CommandContext } from '../types';
 import { DOMEventBus } from '@pryzm/event-bus';
 import type { WallAnchor } from './WallAnchor';
 
 const _bus = new DOMEventBus();
+
+// P8 / C10 §2 — the write path carries ≥ 1 OTel span. Same tracer idiom as
+// `DeleteElementsBatchCommand.ts` / `moveReweldPreflight.ts` in this package
+// (C84 EI-9: one tracer authority per package, not a second wrapper).
+let _cachedTracer: Tracer | null = null;
+function _tracer(): Tracer {
+    _cachedTracer ??= trace.getTracer('@pryzm/command-registry', '0.1.0');
+    return _cachedTracer;
+}
 
 export type WallAnchorFamily = 'plumbing' | 'furniture';
 
@@ -148,6 +158,24 @@ export class ReseatWallAnchoredElementsCommand implements Command {
     }
 
     execute(context: CommandContext): CommandResult {
+        return _tracer().startActiveSpan('pryzm.attachment.reseatWallAnchored', (span) => {
+            try {
+                span.setAttribute('pryzm.anchor.hostId', this.payload.hostId);
+                span.setAttribute('pryzm.anchor.cause', this.payload.cause);
+                span.setAttribute('pryzm.anchor.items', this.payload.items.length);
+                const r = this._execute(context);
+                // `success` is `landed === attempted` (C16 B-8). Emitting it as its
+                // own attribute keeps "nothing to reseat" readable apart from
+                // "a write did not land" in the trace, which is the whole point.
+                span.setAttribute('pryzm.anchor.success', r.success);
+                return r;
+            } finally {
+                span.end();
+            }
+        });
+    }
+
+    private _execute(context: CommandContext): CommandResult {
         this.snapshots = [];
         const info: string[] = [];
         let attempted = 0;

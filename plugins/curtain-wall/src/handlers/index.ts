@@ -90,19 +90,21 @@ export const CURTAIN_WALL_HANDLER_TYPES = [
   'curtain-wall.setMaterial',
   // §L-1032 — move a curtain wall between storeys (founder-requested).
   //
-  // CAMEL-CASED, and deliberately out of step with every other row above:
-  // `packages/command-bus/src/levelChangeVerbs.ts:184-193` declares the verb as
-  // 'curtainWall.changeLevel', and that register is what the event bridge, the
-  // property panel and the chat registration all read. A hyphenated spelling
-  // here would be a verb the register matches nothing for — the command would
-  // report success and the renderer would keep its own copy.
+  // HYPHENATED, in step with every other row above, since 2026-08-30 (lane W3d,
+  // §FIX-COMMAND-NAMESPACE / L-796 / C87 §CW-Dec-2). This comment used to explain
+  // why the row was camel-cased: the register
+  // (`packages/command-bus/src/levelChangeVerbs.ts`) declared it that way, and a
+  // spelling that disagrees with the register matches nothing. That reasoning was
+  // sound — so the REGISTER ROW was re-spelled first, and this row follows it, as
+  // it always did. The handler additionally carries the old spelling in
+  // `aliases`, so a replayed `project_command_log` still resolves (C69 §1.1).
   //
   // The legacy `CurtainWallStore.changeLevel` MUST exist before this verb does
   // (`packages/geometry-curtain-wall/src/CurtainWallStore.ts`): the undo
   // adapter routes a `levelId` inverse by testing for that METHOD, and a family
   // without it also loses the bimManager / view-dependency re-registration the
   // adapter performs alongside the call.
-  'curtainWall.changeLevel',
+  'curtain-wall.changeLevel',
   // §RACORIENT145 — legacy-bridge batch verb (mirrors
   // 'furniture.bulkUpdateKitchenMaterial's registration exactly).
   'curtain-wall.bulkUpdatePanels',

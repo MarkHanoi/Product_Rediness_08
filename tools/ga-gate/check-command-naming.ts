@@ -52,6 +52,35 @@ const CANONICAL_PREFIXES = new Set([
     'door', 'element', 'floor', 'furniture', 'grid', 'handrail', 'level', 'lighting',
     'plumbing', 'pool', 'roof', 'room', 'schedule', 'section', 'selection', 'sheet',
     'slab', 'stair', 'structural', 'template', 'view', 'wall', 'window',
+    // ─── ADDED 2026-08-30 (lane W3d) — FOUR GENUINELY NEW DOMAINS, not drift ───
+    //
+    // Each was measured for a rival spelling before being admitted, because that
+    // measurement is the ONLY thing separating this file's sanctioned move
+    // ("Adding a genuinely new element type means adding it here") from the
+    // L-796 defect it exists to catch. Rival-spelling counts, measured over
+    // plugins/ + packages/ + apps/ as COMMAND-type prefixes:
+    //
+    //   balcony      46 sites · rival 'balcon*' spellings: 0
+    //   lift         49 sites · rival spellings:            0
+    //   bathroomPod  25 sites · `'bathroom-pod.` :           0 hits
+    //   boundaryLine 67 sites · `'boundary-line.`:           0 hits
+    //
+    // ⛔ `curtainWall` was DENIED admission here and migrated instead: its domain
+    // already had a canonical spelling (`curtain-wall`, 21 verbs) so it was a
+    // SECOND SPELLING — the L-796 defect — not a new domain. See C87 §CW-Dec-2.
+    //
+    // ⚠ The last two are camelCase while the one existing multi-word member of
+    // this set (`curtain-wall`) is kebab. That asymmetry is DELIBERATE and is not
+    // this gate's to overturn: **the element contracts declare these spellings
+    // NORMATIVELY** — C106 §6.1 (`boundaryLine.delete`), C106 §3.5-c
+    // (`boundaryLine.move`), C106 §5 (`boundaryLine.create` / `.update`), and
+    // C109 R-1 (*"A pod is created and destroyed only by `bathroomPod.create` /
+    // `bathroomPod.delete`"*). Under the conflict-resolution order in CLAUDE.md
+    // the contract suite outranks a convention inferred from one sample, and a
+    // rename to kebab would put the CODE in breach of a normative clause — the
+    // inverse of "when code disagrees with a contract, the code is wrong".
+    // Re-spelling them is a C106/C109 amendment first and a code change second.
+    'balcony', 'bathroomPod', 'boundaryLine', 'lift',
 ]);
 
 /**

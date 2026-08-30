@@ -95,7 +95,7 @@ function makeCtx(walls: any[]) {
 
 function capture() {
     let annotation: any = null;
-    (window as any).commandManager = { execute: (cmd: any) => { annotation = cmd.annotation; } };
+    window.commandManager = { execute: (cmd: any) => { annotation = cmd.annotation; } };
     return () => annotation;
 }
 
@@ -113,7 +113,7 @@ function placeDim(
 }
 
 describe('§FIX-DIM-3RD-CLICK-OFFSET-PLACEMENT (L-176)', () => {
-    beforeEach(() => { (window as any).commandManager = undefined; (window as any).wallStore = undefined; });
+    beforeEach(() => { window.commandManager = undefined; window.wallStore = undefined; });
 
     it('point-ref dim: committed offset = perpendicular distance of the 3rd click', () => {
         const getAnn = capture();

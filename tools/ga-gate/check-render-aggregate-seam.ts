@@ -86,7 +86,7 @@
  * (see the module header of the canonical file).
  */
 
-import { readFileSync, readdirSync, statSync } from 'node:fs';
+import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs';
 import { join, relative, sep } from 'node:path';
 
 const ROOT = join(import.meta.dirname, '..', '..');
@@ -105,12 +105,105 @@ const CANONICAL_IMPORT = 'render-aggregate-identity';
  * never raise it. Measured 2026-08-24 (lane TOPO51) immediately AFTER the L-10530
  * fix, so this number already excludes the two harvests this lane repaired.
  */
-const ARM_B_BASELINE = 49;
+const ARM_B_BASELINE = 43;
+
+/**
+ * ─── 49 -> 43 (2026-08-30, lane W1c — THE REGISTRATION LANE) ────────────────
+ * This gate was committed 2026-08-24 in 377dd06b and REGISTERED IN NOTHING —
+ * not run-all.ts, not ci.yml, not package.json. Registering it is what produced
+ * this re-pin, and the shape is worth recording: an unregistered gate drifts in
+ * silence, which is the same authored-but-unwired failure the runner's own
+ * committed-but-unregistered pre-flight exists to shout about.
+ *
+ * At HEAD it read 50/49 — ONE over a shrink-only ceiling. The delta was NOT one
+ * new blind harvest. It was TWO arrivals and one departure, and BOTH arrivals
+ * were FALSE POSITIVES OF THIS GATE:
+ *   • apps/editor/src/engine/WaterMeshBuilder.ts — only ever WRITES the id
+ *     (:150, :177). A stamp is not a harvest. Its one traverse (:289) disposes
+ *     geometry and materials and reads no id at all.
+ *   • apps/editor/src/engine/initTools.ts — the text userData.id occurs at :2750
+ *     and :2810 and nowhere else, both times inside PROSE about a past defect.
+ *     Its one traversal (:3414) reads userData.isPreview.
+ *
+ * ⭐ THE SECOND IS THIS GATE'S OWN NAMED DEFECT, INVERTED. The importsCanonical
+ * comment below already says: a gate satisfiable by writing prose about it
+ * measures prose. ARM A stripped comments before counting; ARM B did not — so
+ * prose could not take a file OFF this census but could put one ON it. Both arms
+ * now share ONE stripComments helper (C84 EI-9, one authority per concept).
+ *
+ * The narrowing is faithful to the subject this gate declares above — "a HARVEST,
+ * an id READ inside an iteration" — and every one of the SEVEN departures was
+ * read individually before it was allowed to leave:
+ *   WRITE, not a read : WaterMeshBuilder :150/:177 · RhinoImporter :269 (stamping
+ *                       ids onto freshly imported objects inside a traverse)
+ *   PROSE, not code   : initTools :2750/:2810 · lineworkProbe :80 (JSDoc) ·
+ *                       GLBExporter :232/:592 (JSDoc) · FloorPanelBuilder :420 ·
+ *                       InstancedMeshCoalescer :15
+ *
+ * ⭐ The read test also WIDENED, in the direction that costs: an optional-chained
+ * bracket read was invisible to the old bracket regex. visibilitySceneApplier.ts
+ * :111 is exactly that, and it STAYS on the census because of the widening, not
+ * in spite of it — so this pass is not one-way narrowing.
+ *
+ * ⛔ Lowering a shrink-only ceiling TO ITS MEASURED VALUE is always allowed, and
+ * here it is required: a ceiling above the measurement is not a safety margin, it
+ * is a blind spot with a number on it. RAISING one is the forbidden move and
+ * nothing in this note licenses it.
+ */
+
+/**
+ * ─── SUBJECT FLOOR (R5 · L-811 · §CONTEXT-DATA-HONESTY) ─────────────────────
+ * "I walked 7984 files and found nothing" and "I walked nothing" must never print
+ * the same value. This gate shipped with NEITHER a floor nor an exit-2 path, and
+ * was the last unfloored gate in tools/ga-gate/ — precisely what
+ * check-gate-subject-floors.ts exists to name.
+ *
+ * Floored at 4000 against a measured 7984 (2026-08-30): well below the reading so
+ * a legitimate tree shrink cannot fire it, and far above the failure that matters
+ * — a walk that resolves the wrong root, throws inside readdirSync, swallows it,
+ * and prints a clean number over an unscanned tree (the batch-9 check-xss-guards
+ * defect, recorded in check-gate-subject-floors.ts's own header).
+ */
+const MIN_SCANNED_FILES = 4000;
 
 /** Tests legitimately hard-code the literal to build fixtures — that is the point of a fixture. */
 function isTest(rel: string): boolean {
     return /(^|[\\/])__tests__[\\/]|\.test\.tsx?$|\.spec\.tsx?$/.test(rel);
 }
+
+/**
+ * Source with whole-line comments removed. THE ONE comment authority in this file
+ * (C84 EI-9) — ARM A has always stripped, ARM B never did, and that asymmetry is
+ * what let two files onto the census by PROSE ALONE (see the ARM_B_BASELINE note).
+ *
+ * Line-granular on purpose, matching what ARM A has always done: a trailing
+ * comment on a live code line is left in place rather than half-parsed. Erring
+ * toward KEEPING a line is the safe direction for a census that must not shrink
+ * by accident.
+ */
+function stripComments(src: string): string {
+    return src
+        .split('\n')
+        .filter((l) => {
+            const t = l.trim();
+            return !(t.startsWith('//') || t.startsWith('*') || t.startsWith('/*'));
+        })
+        .join('\n');
+}
+
+/**
+ * A READ of userData.id — dot, optional-chained dot, or bracket — that is NOT the
+ * left-hand side of an assignment. The negative lookahead is what separates a
+ * HARVEST from a STAMP: InstancedElementRenderer is not the only producer that
+ * writes userData.id, and a builder stamping identity onto its own group has
+ * inherited nothing from anybody.
+ *
+ * ⚠ The lookahead must NOT consume the whitespace it looks past. An earlier draft
+ * put it after a greedy whitespace class and the engine simply backtracked that
+ * class to zero width, so an assignment padded with spaces still read as a read.
+ */
+const READ_DOT = /userData\s*(?:\?\.|\.)\s*id\b(?!\s*=[^=])/;
+const READ_BRACKET = /userData\s*(?:\?\.)?\s*\[\s*['"]id['"]\s*\](?!\s*=[^=])/;
 
 function walk(dir: string, out: string[]): void {
     let entries: string[];
@@ -128,6 +221,35 @@ function walk(dir: string, out: string[]): void {
 const files: string[] = [];
 for (const d of SCAN_DIRS) walk(join(ROOT, d), files);
 
+// ── SUBJECT FLOOR — exit 2 (MISCONFIGURED), never 0 and never 1 ─────────────
+// Three states, three exit codes, no aliasing: 0 clean · 1 or 3 a real finding ·
+// 2 "this gate could not evaluate its subject".
+if (files.length < MIN_SCANNED_FILES) {
+    console.error(
+        '\n[check-render-aggregate-seam] MISCONFIGURED (exit 2) — walked only ' +
+        files.length + ' file(s) across ' + SCAN_DIRS.join(', ') + '; the floor is ' +
+        MIN_SCANNED_FILES + '.\n' +
+        'A walk this small did not read this repository, so neither arm below means anything.\n' +
+        'Check that ROOT resolved (' + ROOT + ') and that SCAN_DIRS still exist.\n',
+    );
+    process.exit(2);
+}
+
+// The gate's PREMISE, floored separately from its walk: if the canonical predicate
+// or the minter has moved, ARM A is excluding files that no longer exist and ARM B
+// is measuring a seam that no longer has an owner. Either way the number is void.
+for (const required of [CANONICAL, MINTER]) {
+    if (!existsSync(join(ROOT, required))) {
+        console.error(
+            '\n[check-render-aggregate-seam] MISCONFIGURED (exit 2) — ' + required +
+            ' does not exist.\n' +
+            'This gate polices the seam between that module and its consumers. With the\n' +
+            'module gone there is no seam to police and a clean reading would be a lie.\n',
+        );
+        process.exit(2);
+    }
+}
+
 const armA: string[] = [];
 const armB: string[] = [];
 
@@ -138,6 +260,11 @@ for (const abs of files) {
 
     let src: string;
     try { src = readFileSync(abs, 'utf8'); } catch { continue; }
+
+    // ⭐ ONE stripped view per file, shared by BOTH arms. ARM A always had this
+    // (inline, below); ARM B never did, and that asymmetry is how two files joined
+    // the census by prose alone. See the ARM_B_BASELINE note.
+    const live = stripComments(src);
 
     // ⚠ Must be a real IMPORT, not a mention. An earlier revision of this gate used
     // `src.includes(CANONICAL_IMPORT)`, and a COMMENT in `SpatialTree.ts` naming the
@@ -150,14 +277,8 @@ for (const abs of files) {
     // ── ARM A — a re-rolled copy of the test ────────────────────────────────
     if (src.includes(`'${LITERAL}`) || src.includes(`"${LITERAL}`) || src.includes(`\`${LITERAL}`)) {
         // A comment naming the string while explaining the seam is documentation,
-        // not a copy. Only count it when it appears outside comment lines.
-        const live = src
-            .split('\n')
-            .filter((l) => {
-                const t = l.trim();
-                return !(t.startsWith('//') || t.startsWith('*') || t.startsWith('/*'));
-            })
-            .join('\n');
+        // not a copy. Only count it when it appears outside comment lines — which is
+        // exactly what `live` is, and what ARM B now reads too.
         if (live.includes(`'${LITERAL}`) || live.includes(`"${LITERAL}`) || live.includes(`\`${LITERAL}`)) {
             const lines = src.split('\n')
                 .map((l, i) => [i + 1, l] as const)
@@ -172,15 +293,21 @@ for (const abs of files) {
     }
 
     // ── ARM B — a scene harvest with no predicate ───────────────────────────
-    const harvests = /\.children\b/.test(src) || /\.traverse\s*\(/.test(src);
-    const readsId = /userData\s*(\?\.|\.)\s*id\b/.test(src) || /userData\s*\[\s*['"]id['"]\s*\]/.test(src);
+    const harvests = /\.children\b/.test(live) || /\.traverse\s*\(/.test(live);
+    // ⭐ A READ — not a mention, and not a WRITE. Prose about userData.id is not a
+    // harvest (initTools :2750/:2810), and stamping userData.id onto an object you
+    // just built is not a harvest either (WaterMeshBuilder :150, RhinoImporter
+    // :269): a PRODUCER has inherited nothing from anybody. Both spellings also
+    // accept the optional-chained bracket form the old bracket regex could not see,
+    // which is a real harvest (visibilitySceneApplier :111).
+    const readsId = READ_DOT.test(live) || READ_BRACKET.test(live);
     // Only a HARVEST — an id read inside an iteration — is in scope. A file that
     // reads `obj.userData.id` for one already-resolved object is not enumerating
     // the scene and cannot inherit an aggregate it was not handed.
     if (harvests && readsId && !importsCanonical) {
         // The aggregate-aware flag is an equally valid opt-in marker: a file that
         // already tests `isInstancedGroup` has made the decision consciously.
-        if (!/isInstancedGroup/.test(src)) armB.push(rel);
+        if (!/isInstancedGroup/.test(live)) armB.push(rel);
     }
 }
 
@@ -199,6 +326,13 @@ for (const f of armA) console.log(`      ⛔ ${f}`);
 console.log(`  ARM B — scene id-harvest with no aggregate predicate       : ${armB.length}`);
 for (const f of armB) console.log(`      ⛔ ${f}`);
 
+// ─── EXIT CODES — three facts, three codes (run-all.ts's contract) ──────────
+// 1 = a HARD-0 invariant failed and MAY be absorbed by gate-debt.json if someone
+//     chooses to; 3 = a SHRINK-ONLY RATCHET WAS EXCEEDED, which
+//     §RATCHET-EXCEEDED-IS-NEVER-DEBT (R7 / L-836) makes permanently
+//     unabsorbable. ARM A is the former, ARM B is the latter, and collapsing them
+//     onto 1 — which this gate did while it was registered nowhere and nothing
+//     read its exit code — would hand a future lane the one forbidden fix.
 if (armA.length > 0 || armB.length > ARM_B_BASELINE) {
     console.error(
         `\n[check-render-aggregate-seam] FAIL — arm A ${armA.length}/0, arm B ${armB.length}/${ARM_B_BASELINE}.\n` +
@@ -211,7 +345,7 @@ if (armA.length > 0 || armB.length > ARM_B_BASELINE) {
         `  This is the arm that would have caught L-10530: the two topology harvests contained no\n` +
         `  magic string to grep for, they contained NO CHECK AT ALL.\n`,
     );
-    process.exit(1);
+    process.exit(armA.length > 0 ? 1 : 3);
 }
 
 console.log(

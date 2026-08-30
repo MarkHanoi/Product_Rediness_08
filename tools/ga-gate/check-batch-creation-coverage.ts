@@ -84,6 +84,16 @@ const CATALOGUE = 'apps/editor/src/ui/create/batchCatalogue.ts';
 const MIN_LIVE_ENTRIES = 10;
 
 /**
+ * The SECOND subject (lane W1b, 2026-08-30). `indexCommandFiles` walks packages/,
+ * plugins/ and apps/ for `*Command.ts` declarations; 307 classes are indexed
+ * today. If that walk collapsed, every class named by a live entry would land in
+ * `unresolved` and the gate would exit 2 -- correct, but only by accident, and only
+ * while the catalogue itself is non-empty. Floored explicitly so the
+ * misconfiguration is NAMED rather than inferred.
+ */
+const MIN_INDEXED_COMMAND_CLASSES = 150;
+
+/**
  * ─── THE LEDGER ─────────────────────────────────────────────────────────────
  * Commands reachable from a LIVE catalogue entry that loop over elements without
  * a batch. Every line is a known cost, measured 2026-08-19, kept because the
@@ -249,6 +259,14 @@ function main(): number {
   }
 
   const index = indexCommandFiles(['packages', 'plugins', 'apps']);
+  if (index.size < MIN_INDEXED_COMMAND_CLASSES) {
+    console.error(
+      `[${LABEL}] EXIT 2 — indexed only ${index.size} command class(es) across packages/, plugins/, apps/ ` +
+      `(floor ${MIN_INDEXED_COMMAND_CLASSES}).`,
+    );
+    console.error(`[${LABEL}] The walk, not the repo, is what changed. "I could not tell" is not "everything batches".`);
+    return 2;
+  }
 
   const unresolved: Array<{ id: string; cls: string; why: string }> = [];
   const unbatched = new Map<string, { file: string; entries: string[] }>();
@@ -270,7 +288,8 @@ function main(): number {
 
   console.log(
     `[${LABEL}] live catalogue entries: ${liveEntries.length} (floor ${MIN_LIVE_ENTRIES}) · ` +
-    `command classes indexed: ${index.size} · batched: ${batched.size} · unbatched loops: ${unbatched.size}`,
+    `command classes indexed: ${index.size} (floor ${MIN_INDEXED_COMMAND_CLASSES}) · ` +
+    `batched: ${batched.size} · unbatched loops: ${unbatched.size}`,
   );
 
   if (unresolved.length > 0) {
@@ -343,4 +362,11 @@ function main(): number {
   return 1;
 }
 
-process.exit(main());
+// exit 2 == the scan could not form an opinion, spelled LITERALLY (lane W1b).
+// main() returns 2 from four places -- an unreadable catalogue, a catalogue under
+// MIN_LIVE_ENTRIES, an index under MIN_INDEXED_COMMAND_CLASSES, and an
+// unresolvable class -- and `process.exit(main())` alone made none of them visible
+// to a reader checking whether those floors are enforced at all.
+const rc = main();
+if (rc === 2) process.exit(2);
+process.exit(rc);

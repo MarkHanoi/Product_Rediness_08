@@ -47,6 +47,7 @@
  * (`RoomBoundaryBuilder.ts:342,407`), so the tag is present on whichever one is selected.
  */
 
+import { trace, type Tracer } from '@opentelemetry/api';
 import type { Command } from './types';
 import { DeleteElementCommand } from './walls/DeleteElementCommand';
 import { DeleteOpeningCommand } from './slabs/DeleteOpeningCommand';
@@ -77,9 +78,41 @@ const SPECIALISED: Readonly<Record<string, (id: string) => Command>> = {
  * to the general store-probing command rather than refusing.
  */
 export function resolveDeleteCommand(elementId: string, elementType?: string): Command {
-    const tag = String(elementType ?? '').toLowerCase();
-    const specialised = SPECIALISED[tag];
-    return specialised ? specialised(elementId) : new DeleteElementCommand(elementId);
+    return _tracer().startActiveSpan('pryzm.element.resolveDeleteCommand', (span) => {
+        try {
+            const tag = String(elementType ?? '').toLowerCase();
+            const specialised = SPECIALISED[tag];
+            // The ROUTE is the fact worth tracing. `DeleteElementCommand` is the
+            // correct answer for most families AND the answer an unrecognised
+            // tag falls through to; a trace carrying only the resulting command
+            // name could not tell "general probe, as designed" from "the tag was
+            // spelled wrong and nobody noticed".
+            span.setAttribute('pryzm.delete.elementId', elementId);
+            span.setAttribute('pryzm.delete.elementType', tag);
+            // Asked through the file's OWN exported predicate rather than by
+            // re-testing `specialised` for truthiness — that is exactly what
+            // `hasSpecialisedDeleteCommand` says it is exported for, and a
+            // second spelling of "is this family specialised?" is the rot C84
+            // EI-9 names. (It also avoids TS2774: a function value read as a
+            // condition is always truthy, so the compiler rightly objects.)
+            span.setAttribute(
+                'pryzm.delete.route',
+                hasSpecialisedDeleteCommand(elementType) ? 'specialised' : 'general-probe',
+            );
+            return specialised ? specialised(elementId) : new DeleteElementCommand(elementId);
+        } finally {
+            span.end();
+        }
+    });
+}
+
+// P8 / C10 §2 — same tracer idiom as `DeleteElementsBatchCommand.ts` /
+// `moveReweldPreflight.ts` in this package (C84 EI-9: one tracer authority per
+// package, never a second wrapper).
+let _cachedTracer: Tracer | null = null;
+function _tracer(): Tracer {
+    _cachedTracer ??= trace.getTracer('@pryzm/command-registry', '0.1.0');
+    return _cachedTracer;
 }
 
 /**

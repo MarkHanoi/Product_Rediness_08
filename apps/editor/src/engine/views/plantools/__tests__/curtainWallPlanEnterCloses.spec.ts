@@ -20,7 +20,7 @@ type Dispatched = { verb: string; payload: Record<string, unknown> };
 
 function makeHandler(): { handler: CurtainWallPlanToolHandler; dispatched: Dispatched[] } {
     const dispatched: Dispatched[] = [];
-    (window as any).runtime = {
+    window.runtime = {
         bus: {
             executeCommand: (verb: string, payload: Record<string, unknown>) => {
                 dispatched.push({ verb, payload });
@@ -54,8 +54,8 @@ function makeHandler(): { handler: CurtainWallPlanToolHandler; dispatched: Dispa
 const enter = () => new KeyboardEvent('keydown', { key: 'Enter', cancelable: true });
 
 afterEach(() => {
-    delete (window as any).runtime;
-    delete (window as any).curtainWallTool;
+    delete window.runtime;
+    delete window.curtainWallTool;
 });
 
 describe('§CW90-PLAN-ENTER-CLOSES — Enter closes a curtain-wall polyline loop in plan view', () => {

@@ -59,7 +59,6 @@ import { wallSystemTypeStore } from '@pryzm/geometry-wall';
 import { doorSystemTypeStore } from '@pryzm/geometry-door';
 import { windowSystemTypeStore } from '@pryzm/geometry-window';
 import { makeAnnotationElement, makePointRef, type AnnotationElement } from '@pryzm/plugin-annotations';
-import { UpdateAnnotationCommand } from '@pryzm/command-registry';
 import * as THREE from '@pryzm/renderer-three/three';
 import { createId } from '@pryzm/schemas';
 import type { PryzmRuntime } from '@pryzm/runtime-composer';
@@ -102,12 +101,10 @@ interface AnnotationStoreLike {
   getByView(viewId: string): AnnotationElement[];
   getById(id: string): AnnotationElement | undefined;
 }
-interface CommandManagerLike { execute(cmd: unknown): unknown }
 interface WindowWithStores {
   viewController?: { currentViewDefinitionId?: string | null };
   bimManager?: { getLevels?(): LevelRecord[] };
   annotationStore?: AnnotationStoreLike;
-  commandManager?: CommandManagerLike;
   doorStore?: StoreLike<OpeningElementRecord>;
   windowStore?: StoreLike<OpeningElementRecord>;
 }
@@ -484,21 +481,60 @@ export function autoTagView(
       // ── Refresh drifted tags (a rename/retype after the tag was placed). These are
       // in-place UPDATEs, not creations, so they ride the command path individually —
       // they are also, by construction, rare: a settled view refreshes nothing.
-      const commandManager = w.commandManager;
-      if (commandManager) {
+      //
+      // §W3c-P6-ANNOTATION-UPDATE (L-12840, 2026-08-30) — THIS IS THE BUS VERB NOW,
+      // and it is a re-route, NOT a rename. This loop used to read
+      // the legacy global command manager and run the legacy UpdateAnnotation command,
+      // which is the P6 bypass `tools/ga-gate/check-no-commandmanager.ts` counter A
+      // measures against a ceiling of 0 (C03 §P6; C11 §5.3 MUST-NOT).
+      //
+      // ⭐ WHY IT IS MIGRATABLE NOW AND WAS NOT BEFORE. Two things had to be true, and
+      // both are, measured 2026-08-30:
+      //   1. `annotation.update` EXISTS and is registered — `ANNOTATION_HANDLER_TYPES`
+      //      (plugins/annotations/src/handlers/index.ts:17) declares it and
+      //      `registerAnnotationHandlers(_bus)` runs at engineLauncher.ts:719. The
+      //      stale comments in PropertyPanelAnnotations.ts:433 and
+      //      dimensionSelectionPanel.spec.ts:195 that say "NO HANDLER EXISTS" predate
+      //      §ANN-UPDATE-VERB; do not trust them over the handler set.
+      //   2. It lands in the SAME STORE this file reads. §ANN-ONE-STORE routes every
+      //      annotation verb through `canonicalAnnotationSink`, and
+      //      `sinkParameters(id, p)` writes the ADR-0119 subsystem `annotationStore`
+      //      with `{...existing.parameters, ...p}` — the identical MERGE this loop
+      //      used to spell out by hand. So the four fields below are the whole payload;
+      //      re-spreading `existingTag.parameters` here would be a second copy of the
+      //      merge rule (C84 EI-9, one authority per concept).
+      //
+      // ⚠ ASYNC, AND THE REFUSAL IS NAMED RATHER THAN AWAITED. `bus.executeCommand`
+      // returns a promise and THROWS a refusal. Awaiting would make this whole executor
+      // async for a path that is "by construction, rare" and whose result nothing reads
+      // back — but a swallowed rejection would reproduce exactly the silence L-703 and
+      // §ANN-ONE-STORE were written about, so every rejection is reported.
+      const bus = window.runtime?.bus;
+      if (bus) {
         for (const { tagId, target } of toRefresh) {
-          const existingTag = annotationStore.getById(tagId);
-          const cmd = new UpdateAnnotationCommand(tagId, {
-            parameters: {
-              ...(existingTag?.parameters ?? {}),
-              label: target.displayMark,
-              cachedLabel: target.displayMark,
-              mark: target.instanceMark,
-              typeMark: target.typeMark,
-            },
-          } as never);
-          commandManager.execute(cmd);
+          try {
+            bus.executeCommand('annotation.update', {
+              annotationId: tagId,
+              parameters: {
+                label: target.displayMark,
+                cachedLabel: target.displayMark,
+                mark: target.instanceMark,
+                typeMark: target.typeMark,
+              },
+            })?.catch((e: unknown) => {
+              console.warn(
+                `[auto-tag] annotation.update REFUSED for tag '${tagId}' — its mark is stale ` +
+                `on screen and was NOT refreshed:`, e);
+            });
+          } catch (e) {
+            console.warn(`[auto-tag] annotation.update threw for tag '${tagId}':`, e);
+          }
         }
+      } else {
+        // Declared, not silent (C84 EI-2). No bus means no refresh happened, and the
+        // count reported below would otherwise claim work that never ran.
+        console.warn(
+          `[auto-tag] command bus unavailable — ${toRefresh.length} drifted tag(s) NOT refreshed.`);
       }
 
       span.setAttribute('pryzm.autotag.created', created.length);

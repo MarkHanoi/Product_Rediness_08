@@ -13,10 +13,25 @@
 // A third module owned by neither is the honest shape — and it is the reason the
 // two families can never drift into piercing different decks.
 
+import { trace, type Tracer } from '@opentelemetry/api';
 import type { CommandContext } from '../types';
 
 /** Elevation comparisons are C73 §1 tolerant — a deck 0.1 mm above the base is the base. */
 const ELEV_EPS = 1e-4;
+
+// P8 / C10 §2 — same tracer idiom as `DeleteElementsBatchCommand.ts` /
+// `moveReweldPreflight.ts` in this package (C84 EI-9: one tracer authority per
+// package, never a second wrapper).
+//
+// ⭐ The doc comment below already promised `level_basis` would be "reported on
+// the span" — but the span belonged to the CALLERS, so a derivation that fell
+// back was only visible if the caller that day happened to be instrumented.
+// The basis is emitted HERE, where it is decided.
+let _cachedTracer: Tracer | null = null;
+function _tracer(): Tracer {
+    _cachedTracer ??= trace.getTracer('@pryzm/command-registry', '0.1.0');
+    return _cachedTracer;
+}
 
 /**
  * ⭐ THE LEVEL AXIS, DERIVED. Every level whose deck the stair rises THROUGH or
@@ -33,6 +48,28 @@ const ELEV_EPS = 1e-4;
  * reported on the span as `level_basis: 'fallback-top-only'`.
  */
 export function stairPiercedLevelIds(
+    ctx: CommandContext,
+    stair: { readonly topLevelId: string; readonly baseLevelId?: string },
+): { levelIds: string[]; basis: 'derived-span' | 'fallback-top-only' } {
+    return _tracer().startActiveSpan('pryzm.stair.piercedLevelIds', (span) => {
+        try {
+            const r = _stairPiercedLevelIds(ctx, stair);
+            span.setAttribute('pryzm.stair.topLevelId', stair.topLevelId);
+            span.setAttribute('pryzm.stair.baseLevelId', stair.baseLevelId ?? '');
+            // `basis` and `levels` are BOTH emitted. A one-level answer is the
+            // correct derivation for a one-storey rise AND the shape of the
+            // fallback; the count alone cannot tell them apart, which is the
+            // whole reason `basis` is part of the return type.
+            span.setAttribute('pryzm.stair.levelBasis', r.basis);
+            span.setAttribute('pryzm.stair.piercedLevels', r.levelIds.length);
+            return r;
+        } finally {
+            span.end();
+        }
+    });
+}
+
+function _stairPiercedLevelIds(
     ctx: CommandContext,
     stair: { readonly topLevelId: string; readonly baseLevelId?: string },
 ): { levelIds: string[]; basis: 'derived-span' | 'fallback-top-only' } {

@@ -136,6 +136,22 @@ const REGISTER_FILES = [
 const UNCOVERED_BASELINE = 0;
 
 /**
+ * Subject floors (RATCHET R5, lane W1b 2026-08-30).
+ *
+ * The guards in the Run section tested `size === 0`. Zero is the only value a
+ * floor of zero can catch, and neither of these regexes fails all-or-nothing: the
+ * matrix regex ALREADY silently skipped every indented block row once (see
+ * declaredToolIds' leading-\s* note), which truncated the declared set without
+ * emptying it. A floor at zero would not have noticed.
+ *
+ * Measured 2026-08-30: 24 declared matrix tool ids, 51 registered activator ids.
+ * The floors sit well under both -- they fire when a SET COLLAPSES, not when a
+ * family is retired.
+ */
+const MIN_DECLARED_TOOL_IDS = 15;
+const MIN_REGISTERED_ACTIVATORS = 30;
+
+/**
  * Declared matrix ids that deliberately have NO activator, with the reason.
  *
  * ⭐ AN EXEMPTION IS A STATEMENT, NOT A SUPPRESSION. Each entry says why binding
@@ -235,8 +251,14 @@ const registered = registeredToolIds(registerSrcs);
 // have rotted against a refactor and a "0 gaps" reading would be meaningless.
 // §CONTEXT-DATA-HONESTY — "found nothing" and "nothing is wrong" must not share
 // a value, which is the exact failure this whole gate is about.
-if (declared.size === 0) die('found ZERO declared tool ids — the matrix regex has rotted.');
-if (registered.size === 0) die('found ZERO register() calls — the register regex has rotted.');
+if (declared.size < MIN_DECLARED_TOOL_IDS) {
+    die(`found ${declared.size} declared tool id(s) in the matrix — floor is ${MIN_DECLARED_TOOL_IDS}. `
+        + 'The matrix regex has rotted against a refactor, so ARM A would compare against a truncated set.');
+}
+if (registered.size < MIN_REGISTERED_ACTIVATORS) {
+    die(`found ${registered.size} registered activator id(s) across ${REGISTER_FILES.length} site(s) — floor is ${MIN_REGISTERED_ACTIVATORS}. `
+        + 'A truncated register sweep reports COVERED ids as uncovered, which is how this gate once nearly shipped a rival lighting registration.');
+}
 
 const uncovered: string[] = [];
 const exempted: string[] = [];
@@ -256,8 +278,8 @@ const staleExemptions = Object.keys(ACTIVATOR_EXEMPT)
     .sort();
 
 console.log(
-    `[${LABEL}] ${declared.size} declared matrix tool id(s) · ` +
-    `${registered.size} registered activator id(s) · ` +
+    `[${LABEL}] ${declared.size} declared matrix tool id(s) (floor ${MIN_DECLARED_TOOL_IDS}) · ` +
+    `${registered.size} registered activator id(s) (floor ${MIN_REGISTERED_ACTIVATORS}) · ` +
     `${exempted.length} named exemption(s) · ` +
     `ARM A uncovered ${uncovered.length}/${UNCOVERED_BASELINE} · ` +
     `ARM B phantom ${phantom.length}/0`,

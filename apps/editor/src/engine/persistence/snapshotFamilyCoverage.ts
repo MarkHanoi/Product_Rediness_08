@@ -147,7 +147,7 @@ export const SNAPSHOT_FAMILY_COVERAGE: readonly SnapshotFamilyRow[] = Object.fre
     { storeKey: 'dimension', status: 'persisted', snapshotKey: 'annotations',
       reason: '§ANN-A2 — dimensions ride the SAME `annotations` block as its `dimensions` array; the family has no top-level key of its own.' },
     { storeKey: 'boundaryLine', status: 'persisted', snapshotKey: 'boundaryLines',
-      reason: '§FIX-POOL-AND-BOUNDARY-LINE-INVISIBLE (L-9948) · C106 — read from the ONE authority (runtime.stores.boundaryLine), restored by dispatching the bus verb. ⚠ `attachments[]` are serialized but NOT re-attached on load (L-9950, OPEN).' },
+      reason: '§FIX-POOL-AND-BOUNDARY-LINE-INVISIBLE (L-9948) · C106 — read from the ONE authority (runtime.stores.boundaryLine). ⚠ CORRECTED 2026-08-30 (L-11528): this row used to read "restored by dispatching the bus verb", and that restore SAT IN THE LEGACY BRANCH of ProjectLoader while `_useImportCommandPath()` defaults TRUE and `grep -c boundaryLine ImportProjectCommand.ts` -> 0, so it never ran in production — saved and never read back. Now restored ONCE in the common tail by `restoreCompoundFamilies`, through `boundaryLineUndoAdapter` (store applyPatch + the family\'s own bus events, so the 3-D linework and the plan symbol are rebuilt by the SAME §FT-BOUNDARY-LINE seam). ⭐ That route also carries `attachments[]` back verbatim, which the bus verb could not (CreateBoundaryLineHandler writes `attachments: []` by construction) — L-9950 CLOSED for the restore path.' },
 
     // ── §PERSIST103 (L-11520) — the five this lane closed ─────────────────────
     { storeKey: 'lift', status: 'persisted', snapshotKey: 'lifts',
@@ -159,7 +159,7 @@ export const SNAPSHOT_FAMILY_COVERAGE: readonly SnapshotFamilyRow[] = Object.fre
     { storeKey: 'water', status: 'persisted', snapshotKey: 'waters',
       reason: '§PERSIST103 (L-11520) · ADR-0124 §4 — the water body. Like liftPart it has NO legacy twin and no family of its own, so it was destroyed outright: a reloaded pool was a dry hole.' },
     { storeKey: 'balcony', status: 'persisted', snapshotKey: 'balconies',
-      reason: '§PERSIST103 (L-11520) · C103 — the compound parent. Its slab, floor finish and railings survive as their own families; the balcony record (childrenIds, hostWallId, profile) did not.' },
+      reason: '§PERSIST103 (L-11520) · C103 — the compound parent. Its slab, floor finish and railings survive as their own families; the balcony record (childrenIds, hostWallId, profile) did not. ⚠ CORRECTED 2026-08-30 (L-11530): this row read `persisted` for four days while the family was STILL destroyed on every reload. The serializer reads it as `readPluginStore(\'balcony\')` = `window.runtime.stores.balcony`; `window.runtime` is the composeRuntime() handle, and `StoresSlot` declared no `balcony` key and no index signature — so the read was `undefined`, `balconies` was never written, and because THIS ROW said `persisted` the family stayed out of UNPERSISTED_FAMILY_KEYS and out of the C84 EI-6 save-time loss warning. Closed by adopting the store in composeRuntime, exactly as §BATH102 adopted lift/liftPart/pool/water. ⛔ A `persisted` row asserts the READ CHANNEL resolves, not merely that a key and a writer exist — this gate checks the latter and says so.' },
 
     // ── Declared losses that remain OPEN — the shrink-only backlog ────────────
     { storeKey: 'structural', status: 'UNPERSISTED', snapshotKey: null,

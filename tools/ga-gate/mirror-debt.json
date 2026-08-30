@@ -377,7 +377,7 @@
       "reason": "SEEDED BACKLOG — writes a plugin DTO store, has no CommandEventBridge case, and does not refuse. Nothing relays it to the legacy geometry store the fragment builders, the 2-D plan projector, the IFC exporter and ProjectSerializer read, so it commits, reports success, and changes nothing the user can see. Fix = a case in CommandEventBridge.ts + a subscriber in initTools.ts, OR replace this text with the measured reason it needs neither."
     },
     {
-      "verb": "curtainWall.changeLevel",
+      "verb": "curtain-wall.changeLevel",
       "kind": "mirrored-elsewhere",
       "stores": [
         "curtainwall"

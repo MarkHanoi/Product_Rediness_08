@@ -1,14 +1,19 @@
-// restoreCompoundFamilies — the LOAD half of §PERSIST103 (L-11520).
+// restoreCompoundFamilies — the LOAD half of §PERSIST103 (L-11520), and since
+// §FIX-BOUNDARY-LINE-RESTORE-STRANDED (L-11528) the load half of C106's boundary
+// line as well.
 //
 // C13 (*"projects must never silently disappear"*) · C104 (lift) · ADR-0124 (pool) ·
-// C103 (balcony) · C47 (a missing key means "none authored", never an error) ·
-// C84 EI-6 (persistence is not optional; absence must be loud).
+// C103 (balcony) · C106 + ADR-0348 (boundary line) · C47 (a missing key means "none
+// authored", never an error) · C84 EI-6 (persistence is not optional; absence must
+// be loud) · C84 EI-9 (one authority per concept).
 //
 // ═══════════════════════════════════════════════════════════════════════════════
 // ⭐ A SAVE WITHOUT A RESTORE IS A FILE THAT HOLDS THE DATA AND AN EDITOR THAT
-//    CANNOT SHOW IT. That sentence is already in `ProjectLoader.ts`, written by the
-//    boundary-line fix; this module is the other half for the five families
-//    §PERSIST103 gave a snapshot key.
+//    CANNOT SHOW IT. That sentence was written by the boundary-line fix, in
+//    `ProjectLoader.ts`, above a restore that sat on the load path production does
+//    not take — so the family it was written for was one of the families it
+//    described. This module is the other half for all SIX: the five §PERSIST103
+//    gave a snapshot key, and the boundary line whose key was already there.
 // ═══════════════════════════════════════════════════════════════════════════════
 //
 // ─── WHY IT DOES NOT RE-DISPATCH `lift.create` / `pool.create` / `balcony.create` ──
@@ -61,8 +66,10 @@
 // only reason though, and the other one is the load-bearing one: `boundaryLine` was
 // given a restore step in `ProjectLoader.ts` by L-9948 and **`grep -c boundaryLine
 // ImportProjectCommand.ts` → 0**, while `_useImportCommandPath()` defaults to TRUE —
-// so that restore does not run in production at all (L-11528, OPEN, reported not
-// fixed here). Duplicating a restore into two load paths is how that happened. This
+// so that restore did not run in production at all (L-11528). ⭐ CLOSED 2026-08-30
+// by MOVING it in here rather than by writing a third copy: Step 10c is deleted and
+// the block at the foot of this file is the one authority. Duplicating a restore into
+// two load paths is how that happened in the first place. This
 // module is instead called ONCE from `ProjectLoader`, in the COMMON TAIL after the
 // `if (useImportCommandPath) … else …` join, so both paths get it by construction and
 // neither can drift from the other.
@@ -84,6 +91,10 @@ import {
     waterUndoAdapter,
     resolvePoolStoresFromWindow,
 } from '../undo/poolUndoAdapter';
+import {
+    boundaryLineUndoAdapter,
+    resolveBoundaryLineStoreFromWindow,
+} from '../undo/pluginStoreUndoAdapter';
 
 /** What the caller gets back, so the loader can roll these into its own tally. */
 export interface CompoundRestoreResult {
@@ -148,8 +159,12 @@ export function restoreCompoundFamilies(snapshot: unknown): CompoundRestoreResul
     const pools     = readSlice(snapshot, 'pools');
     const waters    = readSlice(snapshot, 'waters');
     const balconies = readSlice(snapshot, 'balconies');
+    // §FIX-BOUNDARY-LINE-RESTORE-STRANDED (L-11528) — see the block at the foot of
+    // this function for why the C106 setting-out line moved in here.
+    const boundaryLines = readSlice(snapshot, 'boundaryLines');
 
-    if (lifts.length + liftParts.length + pools.length + waters.length + balconies.length === 0) {
+    if (lifts.length + liftParts.length + pools.length + waters.length
+        + balconies.length + boundaryLines.length === 0) {
         return { restored, errors, total: 0 };
     }
 
@@ -265,6 +280,69 @@ export function restoreCompoundFamilies(snapshot: unknown): CompoundRestoreResul
             }
         } catch (e) {
             errors.push(`[restoreCompoundFamilies] balcony restore FAILED — the balconies are lost: ${String(e)}`);
+        }
+    }
+
+    // ── BOUNDARY LINE (C106 · ADR-0348) — §FIX-BOUNDARY-LINE-RESTORE-STRANDED, L-11528 ──
+    //
+    // ⭐ THIS FAMILY WAS SAVED AND NEVER READ BACK, AND THE REASON WAS PLACEMENT, NOT
+    //    ABSENCE. L-9948 wrote a correct restore — `ProjectLoader.ts` Step 10c, which
+    //    dispatched `boundaryLine.create` per record — and put it in the LEGACY branch
+    //    of `if (useImportCommandPath) … else …`. Measured 2026-08-29:
+    //
+    //        grep -c 'boundaryLine' packages/command-registry/src/project/ImportProjectCommand.ts  ->  0
+    //        ProjectLoader._useImportCommandPath()                                                 ->  true (default)
+    //
+    //    so the restore sat on the branch production does not take. The file held the
+    //    data and the editor could not show it — the sentence this module's own header
+    //    opens with, and the failure the header cited as *"reported not fixed here"*.
+    //    It is fixed HERE, past the branch join, which is the placement that makes
+    //    "which load path am I on?" stop being a question anyone can get wrong again.
+    //    Step 10c is deleted in the same commit: two roads to one store would be C84
+    //    EI-9, and the async `create` racing this synchronous write would non-
+    //    deterministically reset `attachments[]` to `[]`.
+    //
+    // ─── WHY THE UNDO ADAPTER AND NOT `boundaryLine.create` ───────────────────
+    // ⭐ IT IS THE SAME ARGUMENT THE FIVE FAMILIES ABOVE MAKE, PLUS ONE MORE.
+    //    `boundaryLineUndoAdapter` (§FIX-BOUNDARY-LINE-UNDO-STRANDED, L-11160) already
+    //    owns exactly this operation: `Store.applyPatch()` — the very method the bus
+    //    calls on execute — followed by the family's OWN bus events
+    //    (`boundaryLine.created`), so `initTools.ts` §FT-BOUNDARY-LINE builds the 3-D
+    //    linework and `installBoundaryLinePlanSymbolBuilder` picks up the plan symbol.
+    //    One render authority, reached by the road that already exists. Writing a
+    //    second one here is the rival-channel defect this module was created to avoid.
+    //
+    // ⭐ AND IT CLOSES L-9950 AS A SIDE EFFECT, WHICH THE BUS ROUTE COULD NOT.
+    //    `CreateBoundaryLineHandler` writes `attachments: []` by construction, so the
+    //    Step 10c route destroyed the attachment edges on every load even when it ran.
+    //    An `add` patch of the SERIALIZED RECORD carries `attachments[]` back verbatim.
+    //
+    // ⚠ NOT A COMPOUND, and the module name is now one word too narrow. It is here
+    //    because "restored once, in the common tail, through the family's existing
+    //    store+render seam" is the property that matters, and splitting it into a
+    //    second module would recreate the two-places problem in a new place.
+    if (boundaryLines.length > 0) {
+        try {
+            const live = resolveBoundaryLineStoreFromWindow();
+            if (live === null) {
+                // ⛔ LOUD, NEVER SILENT (C84 EI-6). UNREADABLE and EMPTY are different
+                // facts and must not arrive as the same value.
+                errors.push(
+                    `[restoreCompoundFamilies] §L-11528 — runtime.stores.boundaryLine is not reachable, ` +
+                    `so ${boundaryLines.length} boundary line(s) are in the file and NOT in the model.`,
+                );
+            } else {
+                const side = addPatches(boundaryLines, 'boundaryLine', errors);
+                if (side.patches.length > 0) {
+                    boundaryLineUndoAdapter(resolveBoundaryLineStoreFromWindow).applyPatch(side.patches);
+                    restored['boundaryLine'] = side.ids.length;
+                }
+            }
+        } catch (e) {
+            errors.push(
+                `[restoreCompoundFamilies] §L-11528 boundaryLine restore FAILED — the setting-out ` +
+                `lines are lost: ${String(e)}`,
+            );
         }
     }
 

@@ -5,7 +5,15 @@
 // ONLY thing that makes these dispatchable (axis 2 of the four-axis reachability
 // check; see the descriptor's comment for what happens without it).
 
+// P8 / C10 §2 — `withHandlerSpan` from `@pryzm/plugin-sdk`, the SAME wrapper the
+// 275 Zone-A handler files use. ADR-002 §2 forbids a direct `@opentelemetry/api`
+// import at L7, and C84 EI-9 forbids a second wrapper.
+//
+// The span sits on REGISTRATION because that is axis 2 of the four-axis
+// reachability check the header names: without it these handlers exist and are
+// undispatchable, and nothing in a trace would say so.
 import type { CommandBus, CommandHandler } from '@pryzm/plugin-sdk';
+import { withHandlerSpan } from '@pryzm/plugin-sdk';
 import { CreateLiftHandler } from './CreateLift.js';
 import { DeleteLiftHandler } from './DeleteLift.js';
 
@@ -24,8 +32,15 @@ export function buildLiftHandlerSet(): readonly CommandHandler<unknown>[] {
 }
 
 export function registerLiftHandlers(bus: CommandBus): readonly string[] {
-    for (const h of buildLiftHandlerSet()) bus.register(h);
-    return LIFT_HANDLER_TYPES;
+    return withHandlerSpan('pryzm.lift.registerHandlers', {
+        'pryzm.plugin': 'lift',
+    }, (span) => {
+        const set = buildLiftHandlerSet();
+        for (const h of set) bus.register(h);
+        span.setAttribute('pryzm.plugin.handlers', set.length);
+        span.setAttribute('pryzm.plugin.verbs', LIFT_HANDLER_TYPES.length);
+        return LIFT_HANDLER_TYPES;
+    });
 }
 
 export { CreateLiftHandler, DEFAULT_LIFT_TYPE_ID, type CreateLiftPayload } from './CreateLift.js';

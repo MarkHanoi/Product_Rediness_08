@@ -54,6 +54,7 @@
 // `undoStairVoidCascade`, and pass the restored record in. That ordering is the
 // contract; it is asserted by the tests, not merely documented.
 
+import { trace, type Tracer } from '@opentelemetry/api';
 import type { CommandContext } from '../types';
 import { elementRegistry } from '@pryzm/core-app-model/element-registry';
 import type { OpeningData } from '@pryzm/core-app-model';
@@ -124,10 +125,36 @@ export function toStairVoidSource(stair: {
  * answer for a project that has none.
  */
 export function cascadeStairVoids(ctx: CommandContext, stair: StairVoidSource): StairVoidCascade {
-    const openingReconciles = _reconcileSlabVoids(ctx, stair);
-    const removedOpenings = _removeVoidsOnDecksThatLeft(ctx, stair);
-    const { cutPierces, closedPierceCount } = _repierceHorizontalHosts(ctx, stair);
-    return { openingReconciles, removedOpenings, cutPierces, closedPierceCount };
+    return _tracer().startActiveSpan('pryzm.stair.cascadeVoids', (span) => {
+        try {
+            const openingReconciles = _reconcileSlabVoids(ctx, stair);
+            const removedOpenings = _removeVoidsOnDecksThatLeft(ctx, stair);
+            const { cutPierces, closedPierceCount } = _repierceHorizontalHosts(ctx, stair);
+            span.setAttribute('pryzm.stair.id', stair.id);
+            span.setAttribute('pryzm.stair.topLevelId', stair.topLevelId);
+            span.setAttribute('pryzm.stair.baseLevelId', stair.baseLevelId ?? '');
+            // All four legs are emitted separately. "Never throws: a family with
+            // no store contributes nothing" means every one of these can be 0
+            // for a legitimate reason; a single total would make an absent store
+            // indistinguishable from a stair that pierces nothing.
+            span.setAttribute('pryzm.stair.openingReconciles', openingReconciles.length);
+            span.setAttribute('pryzm.stair.removedOpenings', removedOpenings.length);
+            span.setAttribute('pryzm.stair.cutPierces', cutPierces.length);
+            span.setAttribute('pryzm.stair.closedPierces', closedPierceCount);
+            return { openingReconciles, removedOpenings, cutPierces, closedPierceCount };
+        } finally {
+            span.end();
+        }
+    });
+}
+
+// P8 / C10 §2 — same tracer idiom as `DeleteElementsBatchCommand.ts` /
+// `moveReweldPreflight.ts` in this package (C84 EI-9: one tracer authority per
+// package, never a second wrapper).
+let _cachedTracer: Tracer | null = null;
+function _tracer(): Tracer {
+    _cachedTracer ??= trace.getTracer('@pryzm/command-registry', '0.1.0');
+    return _cachedTracer;
 }
 
 /**

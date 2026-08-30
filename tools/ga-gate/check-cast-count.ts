@@ -10,7 +10,11 @@
  * Auto-ratchets the baseline DOWN when count drops (one-way ratchet).
  * Baseline file: .ga-gate/baselines/cast-count.json
  *
- * --no-ratchet  : do not auto-lower the baseline on a drop (CI mode).
+ * --ratchet     : OPT IN to auto-lowering the baseline on a drop. Without it the
+ *                 gate only ever READS the baseline file. See §FIX-RATCHET-IS-
+ *                 OPT-IN below for why the default was inverted.
+ * --no-ratchet  : accepted and now redundant (no-write is the default). Kept so
+ *                 existing invocations keep working; it hard-overrides --ratchet.
  */
 // ─── §FIX-GATE-NEEDS-RIPGREP (L-811), 2026-08-09 ─────────────────────────────
 // This gate used to run `rg -c … | awk -F: '{s+=$2}'` through execSync. TWO
@@ -28,8 +32,41 @@ import { scanFiles, scanFilesStripped, tallyBy } from './lib/sourceScan.js';
 
 const REPO_ROOT = process.env.GA_GATE_REPO_ROOT ?? process.cwd();
 const BASELINE_FILE = resolve(REPO_ROOT, '.ga-gate/baselines/cast-count.json');
-const NO_RATCHET = process.argv.includes('--no-ratchet');
+/**
+ * §FIX-RATCHET-IS-OPT-IN (W3a, 2026-08-30) — THE DEFAULT WAS INVERTED.
+ *
+ * This gate WRITES a git-tracked file (`.ga-gate/baselines/cast-count.json`)
+ * whenever `current < baseline`, and it did so by DEFAULT — `--no-ratchet` was
+ * the opt-OUT. So any developer who ran the gate to *read* a number moved a
+ * ceiling as a side effect, and the move landed in their working tree to be
+ * swept up by the next `git add -A`. A measurement instrument that mutates the
+ * thing it measures unless you remember a flag is not an instrument.
+ *
+ * Two concrete ways that bites, both of them silent:
+ *   • a scan that under-reports (a `minFiles` floor is a floor, not a proof)
+ *     ratchets the ceiling DOWN to the wrong number, and the next honest run
+ *     then reports a REGRESSION that never happened;
+ *   • the baseline file carries a long hand-written `comment` recording WHAT
+ *     PAID the last ratchet. The auto-writer overwrites it with boilerplate, so
+ *     an incidental local run destroys the provenance of the ceiling.
+ *
+ * Inverted: writing is now OPT-IN via `--ratchet`. This CANNOT raise a ceiling —
+ * the writer is only ever reached on the `current < baseline` path, and that path
+ * is unchanged. It removes a way to LOWER one by accident.
+ *
+ * `--no-ratchet` is kept and still wins, so no existing caller changes behaviour
+ * (run-all.ts passes neither; `spawnGate` forwards no argv at all).
+ */
+const RATCHET =
+  process.argv.includes('--ratchet') && !process.argv.includes('--no-ratchet');
 const LABEL = 'cast-tripwire';
+
+/**
+ * §MISCONFIG-IS-NEVER-DEBT — exit 2 means "could not evaluate". Distinct from 1
+ * (failed at declared level) and 3 (shrink-only ratchet exceeded); `run-all.ts`
+ * refuses to absorb it as ledgered debt.
+ */
+export const EXIT_MISCONFIGURED = 2;
 
 /**
  * `(window as any)` occurrences.
@@ -74,9 +111,42 @@ function count(): number {
   return res.matches.length;
 }
 
-function loadBaseline(): number {
-  if (!existsSync(BASELINE_FILE)) return Number.MAX_SAFE_INTEGER;
-  return JSON.parse(readFileSync(BASELINE_FILE, 'utf8')).count;
+/**
+ * §FIX-MISSING-BASELINE-IS-NOT-A-PASS (W3a, 2026-08-30)
+ *
+ * ⚠ This function used to `return Number.MAX_SAFE_INTEGER` when the baseline
+ * file was absent. Read what that does to the caller: `current > baseline` is
+ * then false FOR EVERY POSSIBLE current, so the strict arm COULD NOT FAIL. And
+ * on the `current < baseline` path the gate would then WRITE a brand-new
+ * baseline at whatever it happened to measure — inventing a ceiling out of the
+ * reading it was supposed to be judged against.
+ *
+ * So a MISSING PREREQUISITE and a CLEAN MEASUREMENT printed the same result
+ * (`OK: N`) and returned the same exit code (0). That is precisely the defect
+ * §FIX-GATE-NEEDS-RIPGREP (L-811) is named after, in its quiet direction — and
+ * the L-716 shape besides: a threshold that can never be crossed is not a gate.
+ *
+ * A baseline that is missing, unparseable, or does not carry a finite
+ * non-negative `count` is now MISCONFIGURED (exit 2), never a pass. Exit 2 is
+ * explicitly non-absorbable by `gate-debt.json`, so it cannot be re-hidden.
+ *
+ * Returns `null` for "cannot evaluate"; the reason is printed by the caller.
+ */
+function loadBaseline(): { count: number } | { error: string } {
+  if (!existsSync(BASELINE_FILE)) {
+    return { error: `baseline file not found: ${BASELINE_FILE}` };
+  }
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(readFileSync(BASELINE_FILE, 'utf8'));
+  } catch (e) {
+    return { error: `baseline file is not valid JSON: ${(e as Error).message}` };
+  }
+  const count = (parsed as { count?: unknown } | null)?.count;
+  if (typeof count !== 'number' || !Number.isFinite(count) || count < 0) {
+    return { error: `baseline file has no finite non-negative "count" (got ${JSON.stringify(count)})` };
+  }
+  return { count };
 }
 
 function writeBaseline(n: number): void {
@@ -267,8 +337,24 @@ const RATCHET_EXCEEDED_NOTE =
 
 function main(): number {
   const current = count();
-  const baseline = loadBaseline();
+  const loaded = loadBaseline();
   const repoWide = countRepoWide();
+
+  if ('error' in loaded) {
+    console.error(`\n[${LABEL}] MISCONFIGURED (exit ${EXIT_MISCONFIGURED}): ${loaded.error}`);
+    // The repo-wide arm IS evaluable and was measured above; say where it stands
+    // so a real breach is never hidden behind the arm that could not run.
+    console.error(
+      `  (repo-wide arm did evaluate: ${repoWide}/${MAX_REPO_WIDE} — `
+      + `${repoWide > MAX_REPO_WIDE ? 'ALSO OVER CEILING, fix it too' : 'within ceiling'}.)`,
+    );
+    console.error(`  The strict arm has NOTHING to compare ${current} against, so it cannot`);
+    console.error(`  pass and must not pretend to. §FIX-MISSING-BASELINE-IS-NOT-A-PASS.`);
+    console.error(`  Restore the file from git (it is tracked), or write it deliberately:`);
+    console.error(`      echo '{"count": ${current}, "comment": "…what paid this…"}' > ${BASELINE_FILE}`);
+    return EXIT_MISCONFIGURED;
+  }
+  const baseline = loaded.count;
 
   if (repoWide > MAX_REPO_WIDE) {
     console.error(`\n[${LABEL}] FAIL (repo-wide): ${repoWide} (window as any) cast(s) > baseline ${MAX_REPO_WIDE}.`);
@@ -289,11 +375,14 @@ function main(): number {
   }
 
   if (current < baseline) {
-    if (NO_RATCHET) {
-      console.log(`[cast-tripwire] OK: ${current} (would ratchet ${baseline} → ${current}; --no-ratchet).`);
-    } else {
+    if (RATCHET) {
       writeBaseline(current);
-      console.log(`[cast-tripwire] OK: ${current} (ratchet lowered from ${baseline}).`);
+      console.log(`[cast-tripwire] OK: ${current} (ratchet lowered from ${baseline}; --ratchet).`);
+    } else {
+      console.log(
+        `[cast-tripwire] OK: ${current} (would ratchet ${baseline} → ${current}; `
+        + `re-run with --ratchet to write it — §FIX-RATCHET-IS-OPT-IN).`,
+      );
     }
   } else {
     console.log(`[cast-tripwire] OK: ${current} = baseline.`);

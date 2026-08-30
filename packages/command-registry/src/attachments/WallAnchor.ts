@@ -20,6 +20,20 @@
 // (sin yaw, cos yaw), so the yaw carrying a direction (dx, dz) is atan2(dx, dz),
 // and local +X lands on (cos yaw, −sin yaw) = (dz, −dx)/len for that direction.
 
+import { trace, type Tracer } from '@opentelemetry/api';
+
+// P8 / C10 §2 — same tracer idiom as `DeleteElementsBatchCommand.ts` /
+// `moveReweldPreflight.ts` in this package (C84 EI-9: one tracer authority per
+// package, never a second wrapper). The span sits on the DECISION —
+// `wallAnchorAgreement` — not on the frame maths it calls: a trace per
+// projection would drown the one event an operator needs to see, which is
+// "this anchor went stale and the follower DETACHED".
+let _cachedTracer: Tracer | null = null;
+function _tracer(): Tracer {
+    _cachedTracer ??= trace.getTracer('@pryzm/command-registry', '0.1.0');
+    return _cachedTracer;
+}
+
 /** The persisted anchor record. Additive-optional on the element (C47). */
 export interface WallAnchor {
     /** The host element's id — a wall or a curtain wall. */
@@ -155,6 +169,52 @@ export type WallAnchorAgreement =
  * never teleport authored geometry (C78 §1.4; C71 §1.2 semantic 5).
  */
 export function wallAnchorAgreement(
+    anchor: WallAnchor,
+    hostBefore: AnchorHostBaselineLike,
+    element: { readonly x: number; readonly z: number; readonly yaw: number },
+): WallAnchorAgreement {
+    return _tracer().startActiveSpan('pryzm.attachment.wallAnchorAgreement', (span) => {
+        try {
+            const r = _wallAnchorAgreement(anchor, hostBefore, element);
+            span.setAttribute('pryzm.anchor.hostId', anchor.hostId);
+            span.setAttribute('pryzm.anchor.hostKind', anchor.hostKind);
+            span.setAttribute('pryzm.anchor.agrees', r.agrees);
+            // UNPREDICTABLE and DIVERGED are DIFFERENT facts and must stay
+            // readable apart: the first says the anchor could not be evaluated
+            // against this host state, the second says the user moved the
+            // element. Collapsing them to one boolean is the exact conflation
+            // C71 §4.4 forbids.
+            //
+            // ⚠ Read through a widened structural view, NOT by narrowing on
+            // `r.agrees`. This package's `tsconfig.json` does not narrow a
+            // boolean-literal discriminant (`WallAnchorDependencyTracker.ts`
+            // carries the identical pre-existing TS2339s for the same reason),
+            // so narrowing here would compile at the root and fail the package
+            // check. Every field is optional in this view precisely because
+            // which ones exist depends on the arm.
+            const d = r as {
+                readonly why?: 'UNPREDICTABLE' | 'DIVERGED';
+                readonly reason?: string;
+                readonly distanceM?: number;
+                readonly yawDeltaRad?: number;
+            };
+            if (!r.agrees && d.why) {
+                span.setAttribute('pryzm.anchor.why', d.why);
+                if (d.why === 'UNPREDICTABLE') {
+                    if (d.reason) span.setAttribute('pryzm.anchor.reason', d.reason);
+                } else {
+                    if (typeof d.distanceM === 'number') span.setAttribute('pryzm.anchor.distanceM', d.distanceM);
+                    if (typeof d.yawDeltaRad === 'number') span.setAttribute('pryzm.anchor.yawDeltaRad', d.yawDeltaRad);
+                }
+            }
+            return r;
+        } finally {
+            span.end();
+        }
+    });
+}
+
+function _wallAnchorAgreement(
     anchor: WallAnchor,
     hostBefore: AnchorHostBaselineLike,
     element: { readonly x: number; readonly z: number; readonly yaw: number },

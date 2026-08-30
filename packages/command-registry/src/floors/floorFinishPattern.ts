@@ -32,9 +32,21 @@
 // lands on a sensible grid with no edit here. A hand table of 245 material ids
 // would be the seventh remember-don't-derive list this repository has paid for.
 //
-// PURE — no THREE, no DOM, no stores, no I/O.
+// PURE — no THREE, no DOM, no stores, no I/O. (An OTel span is observability,
+// not a store read: the derivation below still depends on nothing but its
+// argument, and `_floorPatternForMaterialLabel` is the whole of it.)
 
+import { trace, type Tracer } from '@opentelemetry/api';
 import type { FloorPattern } from '@pryzm/core-app-model';
+
+// P8 / C10 §2 — same tracer idiom as `DeleteElementsBatchCommand.ts` /
+// `moveReweldPreflight.ts` in this package (C84 EI-9: one tracer authority per
+// package, never a second wrapper).
+let _cachedTracer: Tracer | null = null;
+function _tracer(): Tracer {
+    _cachedTracer ??= trace.getTracer('@pryzm/command-registry', '0.1.0');
+    return _cachedTracer;
+}
 
 /**
  * The grid a material's own label implies, or `'none'` when the label describes
@@ -49,6 +61,24 @@ import type { FloorPattern } from '@pryzm/core-app-model';
  *              (90 × 600)"`). Case-insensitive; punctuation-tolerant.
  */
 export function floorPatternForMaterialLabel(label: string): FloorPattern {
+    return _tracer().startActiveSpan('pryzm.floor.patternForMaterialLabel', (span) => {
+        try {
+            const pattern = _floorPatternForMaterialLabel(label);
+            span.setAttribute('pryzm.floor.materialLabel', label);
+            // Both sides are emitted because the header's whole complaint is that
+            // a wrong derivation reads as "the floor went a slightly different
+            // shade of brown". The label ALONE cannot tell you which arm fired,
+            // and `'seamless'` is a real answer, not a fallback — a trace that
+            // printed only the input could not tell those apart.
+            span.setAttribute('pryzm.floor.pattern', pattern);
+            return pattern;
+        } finally {
+            span.end();
+        }
+    });
+}
+
+function _floorPatternForMaterialLabel(label: string): FloorPattern {
     const t = label.toLowerCase();
 
     // ── Timber laid in a figured pattern. Checked BEFORE the plain-plank arm,

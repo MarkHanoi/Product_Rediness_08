@@ -85,12 +85,27 @@ const BASELINE_E_IDS_NEVER_READ_BACK = 0; // 1 -> 0 (2026-08-19). The `slab` ent
 const BASELINE_F_RUNTIME_RECORDS_WITHOUT_ID = 3; // 5 -> 4 -> 3. `furniture` closed 2026-08-20 (MAT2, L-1460) - and closing it required CORRECTING THIS ARM FIRST (L-1463): the declared pair pointed at `core-app-model/src/stores/FurnitureTypes.ts`, a DEAD RIVAL that nothing renders from, instead of `geometry-furniture/src/FurnitureTypes.ts`, which `initBuilders.ts:758` constructs as the live `window.furnitureStore`. The four-value `material` union predicted as "the awkward one" was NOT removed: it is KEPT as a construction hint that 62 builders read, with `materialId` added beside it as the reference (C100 §2.1). `lighting`, `plumbing` and `stair` remain. ARM F, built 2026-08-19 (MT3): the L0 schema names a materialId and the RUNTIME record - which is what persistence reads - has none. C100 §9.7 DECLARED this arm and left it unbuilt; built, it reproduced the four families §9.7 named by hand and found a FIFTH (`lighting`, which §9.1 files under "never persisted at all"). `beam` closed 2026-08-19 (MT4), end to end. ⭐ THE REMAINING FOUR ARE NOT ONE JOB: each needs a field on its runtime record AND a command that writes it AND a builder that reads it, and `furniture`'s is the awkward one - its record carries `material: 'wood'|'metal'|'fabric'|'glass'`, a FOUR-VALUE rival vocabulary against the master's 205 rows (C100 §1.1's finding sitting in a store), so closing it means deciding what happens to that field rather than just adding one beside it.
 
 // Subject floors — if we scan fewer than this, we are misconfigured.
-const FLOOR_SCHEMAS = 20;
-const FLOOR_ID_SITES = 40;
-const FLOOR_PRODUCERS = 8;
-const FLOOR_SERIALIZERS = 8;
-const FLOOR_ID_WRITERS = 4; // ARM E: fewer id-writing serializers than this means the scan broke.
-const FLOOR_RUNTIME_PAIRS = 12; // ARM F: fewer declared L0<->runtime pairs than this means the map was gutted rather than corrected.
+//
+// SPELLED `MIN_...`, NOT `FLOOR_...` (renamed 2026-08-30, lane W1b). The six
+// constants below were named FLOOR_* and enforced correctly, but
+// check-gate-subject-floors.ts -- the meta-gate whose entire subject is whether a
+// gate HAS a floor -- reported this file as "no floor constant AND no exit-2
+// path". That accusation was false in substance and true in spelling: it keys on
+// the house idiom `MIN_...` and on a literal exit 2, and this file had neither
+// spelling while having both behaviours. The honest repair is to adopt the ONE
+// idiom rather than teach the meta-gate a second one (C84 EI-9, one authority per
+// concept). No VALUE below was raised, lowered, or re-derived in this pass.
+//
+// MIN_MASTER_IDS is NEW, and replaces a bare `master.size === 0` guard. The master
+// catalogue carries 348 ids today; a parse that yields 40 is as broken as one that
+// yields none, and only a floor above zero can tell either from a real shrink.
+const MIN_MASTER_IDS = 200;
+const MIN_SCHEMAS = 20;
+const MIN_ID_SITES = 40;
+const MIN_PRODUCERS = 8;
+const MIN_SERIALIZERS = 8;
+const MIN_ID_WRITERS = 4; // ARM E: fewer id-writing serializers than this means the scan broke.
+const MIN_RUNTIME_PAIRS = 12; // ARM F: fewer declared L0<->runtime pairs than this means the map was gutted rather than corrected.
 
 const CATALOG_REL = 'packages/schemas/src/materials/materialCatalog.ts';
 const SCHEMA_DIR_REL = 'packages/schemas/src/elements';
@@ -213,9 +228,9 @@ function armA(): number {
     return 0;
   }
   const files = readdirSync(dirAbs).filter((f) => f.endsWith('.ts'));
-  if (files.length < FLOOR_SCHEMAS) {
+  if (files.length < MIN_SCHEMAS) {
     misconfigured.push(
-      `ARM A subject floor: scanned ${files.length} schemas, expected >= ${FLOOR_SCHEMAS}`,
+      `ARM A subject floor: scanned ${files.length} schemas, expected >= ${MIN_SCHEMAS}`,
     );
     return 0;
   }
@@ -273,9 +288,9 @@ function armB(master: Set<string>): number {
     }
   }
 
-  if (sites < FLOOR_ID_SITES) {
+  if (sites < MIN_ID_SITES) {
     misconfigured.push(
-      `ARM B subject floor: found ${sites} materialId literal sites, expected >= ${FLOOR_ID_SITES}`,
+      `ARM B subject floor: found ${sites} materialId literal sites, expected >= ${MIN_ID_SITES}`,
     );
     return 0;
   }
@@ -322,9 +337,9 @@ function armC(): number {
     minters.push({ rel, routed });
   }
 
-  if (minters.length < FLOOR_PRODUCERS) {
+  if (minters.length < MIN_PRODUCERS) {
     misconfigured.push(
-      `ARM C subject floor: found ${minters.length} key-minting producers, expected >= ${FLOOR_PRODUCERS}`,
+      `ARM C subject floor: found ${minters.length} key-minting producers, expected >= ${MIN_PRODUCERS}`,
     );
     return 0;
   }
@@ -380,9 +395,9 @@ function armD(): number {
   const marks: Array<{ family: string; at: number }> = [];
   for (const m of src.matchAll(re)) marks.push({ family: m[1]!, at: m.index! });
 
-  if (marks.length < FLOOR_SERIALIZERS) {
+  if (marks.length < MIN_SERIALIZERS) {
     misconfigured.push(
-      `ARM D subject floor: found ${marks.length} serialize<Family> functions, expected >= ${FLOOR_SERIALIZERS}`,
+      `ARM D subject floor: found ${marks.length} serialize<Family> functions, expected >= ${MIN_SERIALIZERS}`,
     );
     return 0;
   }
@@ -617,8 +632,8 @@ function armE(): number {
   const re = /function\s+serialize([A-Z][A-Za-z0-9_]*)\s*\(/g;
   const marks: Array<{ family: string; at: number }> = [];
   for (const m of ser.matchAll(re)) marks.push({ family: m[1]!, at: m.index! });
-  if (marks.length < FLOOR_SERIALIZERS) {
-    misconfigured.push(`ARM E subject floor: ${marks.length} serializers, expected >= ${FLOOR_SERIALIZERS}`);
+  if (marks.length < MIN_SERIALIZERS) {
+    misconfigured.push(`ARM E subject floor: ${marks.length} serializers, expected >= ${MIN_SERIALIZERS}`);
     return 0;
   }
   for (let i = 0; i < marks.length; i++) {
@@ -634,9 +649,9 @@ function armE(): number {
     // pairing a loader against one would invent a defect rather than find one.
     if (idTok.test(body)) writers.push(marks[i]!.family);
   }
-  if (writers.length < FLOOR_ID_WRITERS) {
+  if (writers.length < MIN_ID_WRITERS) {
     misconfigured.push(
-      `ARM E subject floor: only ${writers.length} serializers write an id, expected >= ${FLOOR_ID_WRITERS}`,
+      `ARM E subject floor: only ${writers.length} serializers write an id, expected >= ${MIN_ID_WRITERS}`,
     );
     return 0;
   }
@@ -777,9 +792,9 @@ const RUNTIME_PAIRS: ReadonlyArray<RuntimePair> = Object.freeze([
 const ANY_MATERIAL_ID_RE = /^\s{2,}[A-Za-z]*[Mm]aterialId\s*[:?]/m;
 
 function armF(): number {
-  if (RUNTIME_PAIRS.length < FLOOR_RUNTIME_PAIRS) {
+  if (RUNTIME_PAIRS.length < MIN_RUNTIME_PAIRS) {
     misconfigured.push(
-      `ARM F subject floor: ${RUNTIME_PAIRS.length} declared pairs, expected >= ${FLOOR_RUNTIME_PAIRS}`,
+      `ARM F subject floor: ${RUNTIME_PAIRS.length} declared pairs, expected >= ${MIN_RUNTIME_PAIRS}`,
     );
     return 0;
   }
@@ -850,8 +865,10 @@ function main(): number {
   console.log('[material-id-required] C100 §2.1 — elements REFERENCE materials by id');
 
   const master = loadMasterIds();
-  if (master.size === 0 && misconfigured.length === 0) {
-    misconfigured.push('parsed 0 ids out of the master catalogue');
+  if (master.size < MIN_MASTER_IDS && misconfigured.length === 0) {
+    misconfigured.push(
+      `master catalogue subject floor: parsed ${master.size} ids out of ${CATALOG_REL}, expected >= ${MIN_MASTER_IDS}`,
+    );
   }
   if (misconfigured.length > 0) {
     for (const m of misconfigured) console.error(`  ! MISCONFIGURED: ${m}`);
@@ -914,4 +931,9 @@ function main(): number {
   return EXIT_OK;
 }
 
-process.exit(main());
+// The three exit codes never alias, and the MISCONFIGURED one is spelled
+// LITERALLY here on purpose (lane W1b): `process.exit(main())` alone hides from
+// every reader -- human and meta-gate alike -- that exit 2 is reachable at all.
+const rc = main();
+if (rc === EXIT_MISCONFIGURED) process.exit(2);
+process.exit(rc);

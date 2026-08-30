@@ -49,6 +49,24 @@ const RESOLVER = join(REPO_ROOT, 'packages/core-app-model/src/materials/Material
 const CATALOG_SEAM = join(REPO_ROOT, 'packages/core-app-model/src/catalog/catalogAssetUrl.ts');
 const MANIFEST = join(REPO_ROOT, 'tools/texture-pipeline/textures.manifest.json');
 
+/**
+ * Subject floors (RATCHET R5, lane W1b 2026-08-30).
+ *
+ * This gate walks three sets and every arm is a hard zero -- which is exactly the
+ * shape that cannot tell "clean" from "walked nothing". Measured 2026-08-30:
+ * 348 catalogue rows, 50 of them carrying maps, 34 live procedural generators.
+ * The floors sit well under those readings on purpose: a floor is an HONESTY
+ * TRIPWIRE that must fire when the SET COLLAPSES (a broken import, a renamed
+ * export, a predicate that stops matching), never when the data merely dips.
+ *
+ * MIN_CATALOG_ROWS names a literal 200 that was already in the guard below; the
+ * other two floors are new -- ARMs B, C and E iterate `textured` and the generator
+ * list, and either could have emptied silently.
+ */
+const MIN_CATALOG_ROWS = 200;
+const MIN_TEXTURED_ROWS = 25;
+const MIN_PROCEDURAL_GENERATORS = 15;
+
 const failures: string[] = [];
 const fail = (arm: string, msg: string): void => { failures.push(`  x [ARM ${arm}] ${msg}`); };
 
@@ -58,8 +76,8 @@ if (!existsSync(RESOLVER) || !existsSync(CATALOG_SEAM)) {
   process.exit(2);
 }
 /** L-950: a collection that resolves to ~nothing must FAIL, never pass over an empty run. */
-if (MATERIAL_CATALOG.length < 200) {
-  console.error(`MISCONFIGURED: MATERIAL_CATALOG has ${MATERIAL_CATALOG.length} rows (floor 200) — the import, not the data, is most likely broken.`);
+if (MATERIAL_CATALOG.length < MIN_CATALOG_ROWS) {
+  console.error(`MISCONFIGURED: MATERIAL_CATALOG has ${MATERIAL_CATALOG.length} rows (floor ${MIN_CATALOG_ROWS}) — the import, not the data, is most likely broken.`);
   process.exit(2);
 }
 
@@ -85,6 +103,20 @@ if (LOADABLE.length === 0) {
 
 // ── the rows under test ──────────────────────────────────────────────────────
 const textured = MATERIAL_CATALOG.filter((m) => hasAnyMap(m.maps));
+// ARMs B, C and E have NOTHING to say if this set empties, and "nothing to say"
+// prints as PASS. 50 rows today; below the floor it is hasAnyMap() or the `maps`
+// shape that changed, which is not a fact about the catalogue.
+if (textured.length < MIN_TEXTURED_ROWS) {
+  console.error(`MISCONFIGURED: only ${textured.length} of ${MATERIAL_CATALOG.length} rows carry maps (floor ${MIN_TEXTURED_ROWS}) — hasAnyMap() or the map shape has changed, so ARMs B/C/E walked almost nothing.`);
+  process.exit(2);
+}
+// ARM E's second direction (a generator with no row) walks this list. An empty
+// registry would silence half the arm while the other half still ran.
+const GENERATORS = listProceduralGenerators();
+if (GENERATORS.length < MIN_PROCEDURAL_GENERATORS) {
+  console.error(`MISCONFIGURED: listProceduralGenerators() returned ${GENERATORS.length} (floor ${MIN_PROCEDURAL_GENERATORS}) — the registry import, not the catalogue, is most likely broken.`);
+  process.exit(2);
+}
 
 // ── ARM A (hard-0) — maps imply a usable real-world scale ────────────────────
 for (const m of MATERIAL_CATALOG) {
@@ -183,7 +215,7 @@ for (const m of textured) {
     }
   }
 }
-for (const g of listProceduralGenerators()) {
+for (const g of GENERATORS) {
   if (!referencedGenerators.has(g.id)) {
     fail('E', `generator '${g.id}' has no catalogue row — it can be rasterised and cannot be chosen (§AUTHORED-BUT-UNWIRED)`);
   }
@@ -192,8 +224,8 @@ for (const g of listProceduralGenerators()) {
 // ── report ───────────────────────────────────────────────────────────────────
 console.log(`[${LABEL}] §MATERIAL-MAPS-AND-TILING (C100 §10.2.c / §10.9)`);
 const procRows = textured.filter((m) => MATERIAL_MAP_CHANNELS.some((c) => m.maps?.[c]?.startsWith(PROCEDURAL_ID_PREFIX)));
-console.log(`[${LABEL}] catalogue : ${MATERIAL_CATALOG.length} rows, ${textured.length} carrying maps (${procRows.length} procedural, ${textured.length - procRows.length} file-backed)`);
-console.log(`[${LABEL}] generators: ${listProceduralGenerators().length} live, ${referencedGenerators.size} referenced`);
+console.log(`[${LABEL}] catalogue : ${MATERIAL_CATALOG.length} rows (floor ${MIN_CATALOG_ROWS}), ${textured.length} carrying maps (floor ${MIN_TEXTURED_ROWS}: ${procRows.length} procedural, ${textured.length - procRows.length} file-backed)`);
+console.log(`[${LABEL}] generators: ${GENERATORS.length} live (floor ${MIN_PROCEDURAL_GENERATORS}), ${referencedGenerators.size} referenced`);
 console.log(`[${LABEL}] prefix    : '${PREFIX}' (read from catalogAssetUrl.ts, not transcribed)`);
 console.log(`[${LABEL}] loadable  : ${LOADABLE.join(', ')} (read from MaterialResolver.ts, not transcribed)`);
 console.log(`[${LABEL}] NOT CHECKED (UNPROVEN per C70 §7.1, never an inherited green):`);

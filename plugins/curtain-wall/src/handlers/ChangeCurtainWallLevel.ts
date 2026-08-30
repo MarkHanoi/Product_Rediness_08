@@ -38,17 +38,43 @@
 // L-946, and §committed-is-not-reachable is why this header names the whole
 // chain rather than only its own quarter.
 //
-// ─── WHY THE VERB IS `curtainWall.changeLevel`, NOT `curtain-wall.changeLevel` ─
-// Every other verb in this plugin is hyphenated (`curtain-wall.move`,
-// `curtain-wall.setGrid`). This one is camel-cased because
-// `packages/command-bus/src/levelChangeVerbs.ts:184-193` DECLARES it that way,
-// and that register — not this file — is what `CommandEventBridge`, the property
-// panel and the chat registration all read. A verb string that disagrees with
-// its register row is a row that matches nothing: the bridge would never build
-// the `element.level-changed` event, the mirror would never run, and the command
-// would report success while the renderer kept its own copy. The register is the
-// single authority (C84 EI-9); this file follows it rather than the local
-// convention.
+// ─── WHY THE VERB IS `curtain-wall.changeLevel` ──────────────────────────────
+// §FIX-COMMAND-NAMESPACE (L-796) / C87 §CW-Dec-2 — RE-SPELLED 2026-08-30 (lane
+// W3d). This block used to argue the OPPOSITE: that the verb was camel-cased
+// because `levelChangeVerbs.ts` declared it that way, and that the register is
+// the single authority (C84 EI-9) which this file must follow.
+//
+// The premise was true and the conclusion was still wrong. The register WAS the
+// authority on this verb's spelling, so a camel-cased row there made the whole
+// family answer to two prefixes — `curtain-wall.*` (21 verbs) and
+// `curtainWall.*` (1) — which is L-796 itself. C84 EI-9 says one authority per
+// concept; it does not say the authority is right. The fix therefore moved the
+// REGISTER ROW first (`packages/command-bus/src/levelChangeVerbs.ts`), and this
+// file still follows it — the file's discipline was never the defect.
+//
+// C87 §CW-Dec-2 settles which spelling wins: *"ONE VERB SPELLING:
+// `curtain-wall.*` … it makes the FAMILY inconsistent to make the AXIS
+// consistent, and C84 EI-8 is a per-concept rule, so the family wins."*
+//
+// ─── WHY THE OLD SPELLING SURVIVES AS AN ALIAS ───────────────────────────────
+// C69 §1.1 makes a verb name a WIRE IDENTIFIER: it is written into
+// `project_command_log` and replayed out of it. Between `5420ee55` and this
+// commit, every storey move of a curtain wall was logged as
+// `curtainWall.changeLevel`, and those rows are still on disk. A bare rename
+// would make each of them unresolvable on replay — a saved project losing a
+// move it had already committed. So the old spelling is registered as a
+// DEPRECATED ALIAS, exactly as C87 §CW-Dec-2 prescribes and as
+// `MoveCurtainWall.ts:25` already does for its own pre-migration spelling.
+// `CommandBus.register()` enters every alias as a key in the SAME `handlers` map
+// as the canonical type (`CommandBus.ts:116-127`), so `executeCommand`, `has()`
+// and `registry.has()` all keep resolving through it.
+//
+// ⚠ The comment at the declaration used to justify having NO alias on the
+// grounds that nothing spells this verb by hand. That was true of live callers
+// and false of the one that matters: the live dispatcher does build the string
+// from the register (`buildLevelChangePayload` / `spec.verb`), but the PERSISTED
+// LOG already spells it, and REPLAY IS A CALLER. Deleting this alias is safe
+// only once no `project_command_log` row carries the old name.
 //
 // ─── WHY `curtainWallId`/`levelId` ───────────────────────────────────────────
 // Same register row, and it matches what the rest of the family already spells
@@ -76,14 +102,13 @@ type CWStores = Readonly<{ curtainwall: CurtainWallsState } & Record<string, unk
 export class ChangeCurtainWallLevelHandler
   implements CommandHandler<ChangeCurtainWallLevelPayload, CWStores>
 {
-  readonly type = 'curtainWall.changeLevel';
-  // Deliberately NO `aliases` for the hyphenated spelling, unlike
-  // `MoveCurtainWall.ts:25`. That alias exists there to keep a PRE-MIGRATION
-  // caller working; this verb has no callers predating it, and its one
-  // dispatcher builds the verb string from the register itself
-  // (`buildLevelChangePayload` / `spec.verb`). A second name for a verb nothing
-  // spells by hand is a second thing the register would have to stay in step
-  // with, for no caller.
+  readonly type = 'curtain-wall.changeLevel';
+  /** The pre-2026-08-30 spelling — see the header. ⛔ Keep this short: `storesOf()`
+   *  in `check-mirror-completeness.ts:186-188` reads only the first 900 chars after
+   *  the `type` declaration, so prose here can push `affectedStores` out of the
+   *  gate's window and make a mirrored verb read as un-mirrored. It did exactly
+   *  that once, during this rename. */
+  readonly aliases = ['curtainWall.changeLevel'] as const;
   /**
    * `curtainwall` — ONE WORD, LOWERCASE, and the exact key matters.
    * `buildUndoStoreMap()` (`apps/editor/src/engine/undo/performUndoRedo.ts:315-320`)

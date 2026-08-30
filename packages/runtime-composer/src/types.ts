@@ -3009,6 +3009,41 @@ export interface StoresSlot {
   /** §BATH102 (L-11064) — the water body a pool holds (ADR-0124 §4). See `pool`. */
   readonly water?: PluginDtoStoreHandle | undefined;
 
+  /**
+   * §PERSIST-BALCONY (L-11530) · C103 — the balcony compound parent store, adopted
+   * for the SAME reason as `boundaryLine` / `lift` / `pool` above, and closing the
+   * ONE member of that compound set that §BATH102 left out.
+   *
+   * ⛔ THE DEFECT THIS CLOSES IS A SILENT DATA LOSS, MEASURED RATHER THAN INFERRED.
+   * `ProjectSerializer.serialize()` reads this family through
+   * `readPluginStore('balcony')` — i.e. `window.runtime.stores.balcony` — and
+   * `window.runtime` is the `composeRuntime()` handle (`engineLauncher.ts:191`, the
+   * ONE production assignment site, measured). This interface declared no `balcony`
+   * key and carries no index signature, so that read was `undefined`,
+   * `readPluginStore` returned `undefined`, and the `balconies` slice was NEVER
+   * WRITTEN into the snapshot. Every balcony was destroyed on reload.
+   *
+   * ⚠ AND IT WAS SILENT, WHICH IS THE WORSE HALF: `snapshotFamilyCoverage.ts`
+   * declares the family `status: 'persisted'`, which keeps it OUT of
+   * `UNPERSISTED_FAMILY_KEYS` and therefore out of the C84 EI-6 save-time loss
+   * warning. Failure and emptiness were the same value at that seam
+   * ([[context-data-honesty-family]]).
+   *
+   * ⚠ THE EXECUTED PROOF THAT SAID OTHERWISE WAS D6-VOID.
+   * `snapshotFamilyRoundTrip.spec.ts` ASSIGNS
+   * `window.runtime = { stores: { …, balcony } }` itself, so it supplied the very
+   * object whose absence IS the defect and could never observe it. The arm that CAN
+   * observe it reads `rt.stores.<key>` off a REAL `composeRuntime()` and assigns
+   * nothing: `apps/editor/__tests__/persistedFamiliesReachTheSerializerChannel.test.ts`.
+   *
+   * ⭐ IT PASSES THE NO-GEOMETRY-TWIN TEST BY MEASUREMENT, not by assertion:
+   * `performUndoRedo.ts`'s own `UNMAPPED_BUS_STORE_KEYS` row for `balcony` records
+   * that **there is no `window.balconyStore`** — a repo-wide grep for that identifier
+   * finds that row and nothing else — so there is no rival authority to diverge from.
+   * ADOPTED, NEVER CONSTRUCTED, exactly as the four fields above.
+   */
+  readonly balcony?: PluginDtoStoreHandle | undefined;
+
   /** Fan out a full project snapshot to all registered stores via the
    *  engine's `loadDelegate.load()`.  Throws `RuntimeNotWiredError` if
    *  called before `initPersistence` registers the hydrator. */

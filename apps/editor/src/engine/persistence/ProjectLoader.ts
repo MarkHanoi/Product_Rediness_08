@@ -1601,77 +1601,33 @@ export class ProjectLoader {
                 }
             }
 
-            // ── Step 10c: Boundary lines ─────────────────────────────────────
-            // §FIX-POOL-AND-BOUNDARY-LINE-INVISIBLE (L-9948) · C106.
+            // ── Step 10c: Boundary lines — DELETED, MOVED, NOT DROPPED ───────
+            // §FIX-BOUNDARY-LINE-RESTORE-STRANDED (L-11528) · C106 · C84 EI-9.
             //
-            // ⛔ THE THIRD OF THIS FAMILY'S THREE BREAKS. Measured 2026-08-23:
-            // `grep -c "boundaryLine" ProjectSerializer.ts` → **0**, in both copies —
-            // so a boundary line the architect drew committed, rendered (after
-            // L-9944), and was gone on the next open. The save half is now written;
-            // this is the restore half, and a save without a restore is a file that
-            // holds the data and an editor that cannot show it.
+            // ⛔ THE RESTORE THAT USED TO BE HERE NEVER RAN. L-9948 wrote it
+            // correctly and put it on the wrong side of a branch. Measured 2026-08-29:
             //
-            // ⭐ IT DISPATCHES THE BUS VERB, NOT A STORE WRITE. `boundaryLine.create`
-            // is the ONE creation path (C11 §1), and going through it is what makes a
-            // restored line identical to a drawn one: the same Zod parse, the same
-            // `CommandEventBridge` case, the same §FT-BOUNDARY-LINE subscriber, the
-            // same mesh. Writing `runtime.stores.boundaryLine` directly here would
-            // populate the store and draw NOTHING — which is precisely the defect
-            // (`committed ≠ reachable`) this whole lane exists to close.
+            //     grep -c 'boundaryLine' ImportProjectCommand.ts   ->  0
+            //     this._useImportCommandPath()                      ->  true (DEFAULT)
             //
-            // ⚠ ASYNC, AND THE FAILURE IS NAMED RATHER THAN AWAITED. The bus verb
-            // returns a promise; every other restore on this path is a synchronous
-            // legacy `exec(cmd)`, and making this one await would serialise the whole
-            // load behind N round-trips. The `.catch` is what keeps a refusal visible
-            // — a swallowed rejection here would reproduce the silence the record
-            // already suffered once.
-            const snapshotBoundaryLines = (snapshot as { boundaryLines?: any[] }).boundaryLines;
-            if (Array.isArray(snapshotBoundaryLines) && snapshotBoundaryLines.length > 0) {
-                console.log(`[ProjectLoader] Loading ${snapshotBoundaryLines.length} boundary lines`);
-                for (const bl of snapshotBoundaryLines) {
-                    try {
-                        window.runtime?.bus?.executeCommand('boundaryLine.create', {
-                            // ⛔ THE ID IS CARRIED, NEVER RE-MINTED. `attachments[]` on
-                            // OTHER lines and every future reference key on it, and a
-                            // fresh id would orphan all of them silently (C16 CA-2 is the
-                            // same rule for redo).
-                            boundaryLineId: bl.id,
-                            levelId:        bl.levelId,
-                            vertices:       bl.vertices,
-                            closed:         bl.closed,
-                            drawMode:       bl.drawMode,
-                            hasVolume:      bl.hasVolume,
-                            // ⚠ EVERY OPTIONAL DIMENSION IS FORWARDED AS-IS, INCLUDING
-                            // `undefined`. "Unset" is a first-class state meaning *resolve
-                            // me from the systemType, then the documented default* (L-127),
-                            // and coercing it to a number here would BAKE the default into
-                            // the record on the first reload — a silent one-way migration
-                            // that destroys the tier the resolver exists for.
-                            height:         bl.height,
-                            thickness:      bl.thickness,
-                            baseOffset:     bl.baseOffset,
-                            systemTypeId:   bl.systemTypeId,
-                            materialId:     bl.materialId,
-                            materialColor:  bl.materialColor,
-                            name:           bl.name,
-                        })?.then(() => { result.loaded++; })
-                          ?.catch((e: unknown) => {
-                            console.warn(
-                                `[ProjectLoader] boundaryLine.create failed for '${bl?.id}' — ` +
-                                `the line is in the file and will NOT be on screen:`, e);
-                        });
-                    } catch (e) {
-                        this.recordFail(result, `BoundaryLine ${bl?.id}`, { success: false, affectedElementIds: [], error: String(e) });
-                    }
-                }
-                // ⚠ ATTACHMENTS ARE NOT RESTORED HERE, AND THAT IS NAMED RATHER THAN
-                // FORGOTTEN. `CreateBoundaryLineHandler` writes `attachments: []` by
-                // construction, so a reloaded line loses which walls and slabs were
-                // anchored to it — the propagation edge survives in the FILE (it is
-                // serialised on the record) and not in the STORE. Restoring it needs
-                // `boundaryLine.attach` per attachment AFTER every dependent family has
-                // loaded, which is a later step than this one. L-9950.
-            }
+            // so these ~60 lines sat inside `else { … }` while every real load took the
+            // `if`. A boundary line was saved (`ProjectSerializer` writes `boundaryLines`)
+            // and never read back: the file held the data and the editor could not show
+            // it. The block's own header said so about a DIFFERENT bug and could not see
+            // itself — which is exactly why the fix is a MOVE, not a third copy.
+            //
+            // ⭐ IT NOW RUNS IN `restoreCompoundFamilies()`, IN THE COMMON TAIL
+            // BELOW, past the `if (useImportCmd) … else …` join — so BOTH load paths get
+            // it by construction and neither can drift. Read that module's boundary-line
+            // block for why it goes through `boundaryLineUndoAdapter` (one store+render
+            // seam, already proven by L-11160) rather than re-dispatching the bus verb,
+            // and for why that also restores `attachments[]` verbatim — which the verb
+            // could not, since `CreateBoundaryLineHandler` writes `attachments: []` by
+            // construction (L-9950).
+            //
+            // ⛔ DO NOT RE-ADD A RESTORE HERE. Two roads to one store is the defect,
+            // and the async `create` racing the synchronous patch would non-
+            // deterministically wipe the attachment edges it just restored.
 
             // ── Cancellation check (before Step 11) ───────────────────────────
             if (cancelled()) {

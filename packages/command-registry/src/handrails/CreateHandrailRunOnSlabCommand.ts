@@ -60,6 +60,7 @@
  * C95 §15.1/§15.4.
  */
 
+import { trace, type Tracer } from '@opentelemetry/api';
 import {
     Command,
     CommandType,
@@ -69,6 +70,15 @@ import {
     CommandContext,
 } from '../types';
 import { CreateHandrailRunCommand, type HandrailRunSegmentSpec } from './CreateHandrailRunCommand';
+
+// P8 / C10 §2 — same tracer idiom as `DeleteElementsBatchCommand.ts` /
+// `moveReweldPreflight.ts` in this package (C84 EI-9: one tracer authority per
+// package, never a second wrapper).
+let _cachedTracer: Tracer | null = null;
+function _tracer(): Tracer {
+    _cachedTracer ??= trace.getTracer('@pryzm/command-registry', '0.1.0');
+    return _cachedTracer;
+}
 
 /**
  * The geometric + visual fields a by-slab run carries, resolved by the CALLER
@@ -263,6 +273,24 @@ export class CreateHandrailRunOnSlabCommand implements Command {
     }
 
     execute(ctx: CommandContext): CommandResult {
+        return _tracer().startActiveSpan('pryzm.handrail.createRunOnSlab', (span) => {
+            try {
+                span.setAttribute('pryzm.handrail.slabId', this.data.slabId);
+                const r = this._execute(ctx);
+                // A BY-SLAB run that produced no segments refuses with a reason
+                // (see the `success: false` arm below) — so `success` and the
+                // segment count are both emitted: an empty ring and a missing
+                // level are two different failures wearing the same result.
+                span.setAttribute('pryzm.handrail.success', r.success);
+                span.setAttribute('pryzm.handrail.elements', r.affectedElementIds.length);
+                return r;
+            } finally {
+                span.end();
+            }
+        });
+    }
+
+    private _execute(ctx: CommandContext): CommandResult {
         if (!this._run) {
             const slab = this._slab(ctx);
             const levelId = this.data.levelId ?? slab?.levelId;

@@ -15,29 +15,74 @@
  * rival factory produces an object that looks like a runtime and silently lacks
  * one of them.
  *
- * ─── The three things this gate CAN decide ───────────────────────────────────
- *   1. `composeRuntime` is DEFINED exactly once, in the one legal file.  HARD 1.
- *   2. No RIVAL runtime factory is exported anywhere — any exported symbol
- *      matching /^(create|build|make|init|assemble|setup|wire)…Runtime$/ outside
- *      the allowlist.                                                    HARD 0.
- *   3. How many production (non-test, non-bench) files CALL composeRuntime.
- *      Ratcheted, not hard-failed: a legitimate second caller exists today
- *      (`@pryzm/headless`, which delegates rather than re-composes), so a hard 1
- *      would be wrong. Growth still has to be argued for.
+ * ─── The three things this gate CAN decide (the three ARMS) ──────────────────
+ *   D1  `composeRuntime` is DEFINED exactly once, in the one legal file.  HARD 1.
+ *   R1  No RIVAL runtime factory is exported anywhere — any exported symbol
+ *       matching /^(create|build|make|assemble|compose)…Runtime$/ outside the
+ *       allowlist. Ratcheted at MAX_RIVALS (currently 1, ADR-0316).
+ *   C1  How many production (non-test, non-bench) files CALL composeRuntime.
+ *       Ratcheted, not hard-failed: a legitimate second caller exists today
+ *       (`@pryzm/headless`, which delegates rather than re-composes), so a hard 1
+ *       would be wrong. Growth still has to be argued for.
  *
  * ─── What it CANNOT decide, stated plainly ───────────────────────────────────
  * It cannot tell a delegating wrapper (`headlessRuntime` → `composeRuntime`) from
  * a genuine second composition root by static shape alone — both call the same
- * function. Check 3 is therefore a TRIPWIRE on the number of entry points, not a
+ * function. C1 is therefore a TRIPWIRE on the number of entry points, not a
  * proof of singularity. Claiming otherwise would be the manufactured-confidence
  * failure this suite exists to avoid.
  *
- * Exit: 0 = clean/at baseline · 1 = violated · 2 = scan misconfigured
+ * ─── §FALSE-GREEN-TERMINAL-LINE — CORRECTED 2026-08-30 (audit W1a) ───────────
+ * The terminal success line used to read, verbatim:
+ *
+ *     "✓ one composition root (…), 0 rivals, N/M production caller(s)."
+ *
+ * **"0 rivals" was a HARD-CODED STRING.** It interpolated only the caller count
+ * and never the measured rival count. The gate's own body had already printed
+ * "rival runtime factories: 1" and NAMED
+ * `apps/component-editor/src/app/familyEditorRuntime.ts:85 createFamilyEditorRuntime`
+ * — and then its last line, the one a CI log reader actually sees, told them P1
+ * was clean at zero rivals. A summary that contradicts the measurement above it
+ * is worse than no summary: it is the gate laundering its own finding.
+ * The line now interpolates the MEASURED count against its baseline.
+ *
+ * ─── Negative + positive control — EXECUTED ON EVERY RUN ────────────────────
+ * A terminal line can only be trusted if the arms behind it are watched failing.
+ * `selfTest()` materialises two synthetic workspaces and runs the SAME
+ * `analyse()` over them at the SAME production baselines (MAX_RIVALS,
+ * MAX_PROD_CALLERS) — not at relaxed ones, so what the control proves is what
+ * production enforces:
+ *   • PLANTED — a second `composeRuntime` definition outside the canonical file
+ *     (D1 must fire), two rival factories outside the allowlist (R1 must fire
+ *     and must NAME them), and three production callers (C1 must fire).
+ *   • CLEAN — one canonical definition, an allowlisted delegate that calls it,
+ *     `src/main.ts` calling it (exactly the baseline 2 callers), plus the two
+ *     shapes that are CORRECT and must never fire: `wireRuntime(rt)`, an
+ *     INJECTOR receiving the composed runtime, and a diagnostic string literal
+ *     mentioning composeRuntime(). Must read 0.
+ * If any planted arm stays silent, or the clean tree reads dirty, the gate exits
+ * 2 as a BLIND COMPARATOR — an arm never watched failing has never been shown to
+ * work, and this gate has already shipped one false green.
+ *
+ * A consequence worth stating, because it is the point rather than a side
+ * effect: because the controls run at the LIVE baselines, RAISING a ceiling
+ * through `PRYZM_P1_MAX_RIVALS` / `PRYZM_P1_MAX_CALLERS` disarms the planted
+ * violations and the gate exits 2 instead of going green — the forbidden fix
+ * (§RATCHET-EXCEEDED-IS-NEVER-DEBT) now announces itself.
+ *   Measured 2026-08-30: `PRYZM_P1_MAX_RIVALS=99 PRYZM_P1_MAX_CALLERS=99` →
+ *   RC=2, "R1 did not fire", "C1 did not fire".
+ * The converse — legitimately TIGHTENING a baseline — will make the CLEAN
+ * fixture read dirty (it carries exactly 2 callers). That is a fixture that must
+ * move in the same commit as the threshold, the same rule as CANONICAL moving.
+ *
+ * Exit: 0 = clean/at baseline · 1 = invariant violated (D1/R1) · 2 = scan
+ * misconfigured or blind comparator · 3 = shrink-only ratchet exceeded (C1).
  */
 
-import { existsSync, readFileSync } from 'node:fs';
-import { join } from 'node:path';
-import { scanFiles, walk, relPath } from './lib/sourceScan.js';
+import { existsSync, readFileSync, mkdirSync, writeFileSync, rmSync } from 'node:fs';
+import { join, dirname, sep } from 'node:path';
+import { tmpdir } from 'node:os';
+import { scanFiles, walk, relPath, type Match } from './lib/sourceScan.js';
 
 const REPO_ROOT = process.env.GA_GATE_REPO_ROOT ?? process.cwd();
 const LABEL = 'single-compose';
@@ -99,6 +144,11 @@ const MAX_PROD_CALLERS = Number(process.env.PRYZM_P1_MAX_CALLERS ?? 2);
  * FACTORY_ALLOWLIST would make the rival disappear from this gate's output;
  * baselining keeps it counted and named on every CI run while forbidding growth.
  * 1 → 2 is a new ADR or a bug. Never raise it to go green.
+ *
+ * ⚠ And it must be VISIBLE, not merely counted: see §FALSE-GREEN-TERMINAL-LINE
+ * above. A baselined rival that the summary line reports as zero is
+ * indistinguishable from no rival at all, which defeats the entire reason for
+ * baselining it instead of allowlisting it.
  */
 const MAX_RIVALS = Number(process.env.PRYZM_P1_MAX_RIVALS ?? 1);
 
@@ -113,104 +163,303 @@ function isTest(rel: string): boolean {
       || /(^|\/)apps\/bench\//.test(rel);
 }
 
-// ── 1. composeRuntime is defined exactly once ────────────────────────────────
-const defs = scanFiles({
-  root: REPO_ROOT,
-  dirs: SCAN_DIRS,
-  pattern: /^\s*export\s+(?:async\s+)?function\s+composeRuntime\b|^\s*export\s+const\s+composeRuntime\s*[:=]/,
-  minFiles: MIN_FILES,
-  exclude: isTest,
-  label: LABEL,
-});
+// ── The arms ─────────────────────────────────────────────────────────────────
 
-// ── 2. rival runtime factories ───────────────────────────────────────────────
-// PREFIXES ARE CONSTRUCTION VERBS ONLY. The first draft also matched
-// `wire|setup|init|boot`, which produced 7 false positives: `wireRuntime(rt)`,
-// `wireClimateRuntime(rt)` and friends are INJECTORS — they receive the composed
-// runtime and store it in a module singleton, which is the P1-compliant pattern,
-// the exact opposite of a rival factory. Recorded because a gate that flags the
-// correct pattern as the violation is how gates get switched off.
-const RIVAL_RE = /^\s*export\s+(?:async\s+)?(?:function|const|class)\s+((?:create|build|make|assemble|compose)[A-Za-z0-9_]*Runtime)\b/;
-const rivals = scanFiles({
-  root: REPO_ROOT,
-  dirs: SCAN_DIRS,
-  pattern: RIVAL_RE,
-  minFiles: MIN_FILES,
-  exclude: (rel) => isTest(rel) || FACTORY_ALLOWLIST.includes(rel),
-  label: LABEL,
-});
+type Arm = 'D1' | 'R1' | 'C1';
 
-// ── 3. production callers ────────────────────────────────────────────────────
-const CALL_RE = /(?<![\w.])composeRuntime\s*\(/;
-const callFiles = new Set<string>();
-for (const dir of SCAN_DIRS) {
-  for (const abs of walk(join(REPO_ROOT, dir))) {
-    const rel = relPath(REPO_ROOT, abs);
-    if (isTest(rel) || rel.startsWith('packages/runtime-composer/')) continue;
-    let src: string;
-    try { src = readFileSync(abs, 'utf8'); } catch { continue; }
-    for (const raw of src.split('\n')) {
-      if (/^\s*(\/\/|\*|\/\*)/.test(raw)) continue;   // comments are not call sites
-      // Strip string literals BEFORE matching. Without this, the two
-      // `console.error('… composeRuntime() must have failed at boot')` diagnostics
-      // in ProjectHub.ts and src/main.ts counted as composition entry points —
-      // a gate reporting log messages as architecture.
-      const line = raw.replace(/'[^']*'|"[^"]*"|`[^`]*`/g, "''");
-      if (CALL_RE.test(line)) { callFiles.add(rel); break; }
+interface Finding {
+  readonly arm: Arm;
+  readonly key: string;
+  readonly detail: string;
+}
+
+interface Analysis {
+  readonly defs: readonly Match[];
+  readonly rivals: readonly Match[];
+  readonly callers: readonly string[];
+  readonly filesScanned: number;
+  readonly findings: readonly Finding[];
+}
+
+/**
+ * The whole measurement, over an arbitrary root. Parameterised by root/dirs/
+ * minFiles ONLY so the executed controls can drive the identical code path over
+ * a synthetic tree; the BASELINES are the production ones in both cases, so a
+ * control that fires proves the arm that ships fires.
+ */
+function analyse(
+  root: string,
+  dirs: readonly string[],
+  minFiles: number,
+  maxRivals: number,
+  maxCallers: number,
+): Analysis {
+  // ── D1. composeRuntime is defined exactly once ─────────────────────────────
+  const defs = scanFiles({
+    root,
+    dirs,
+    pattern: /^\s*export\s+(?:async\s+)?function\s+composeRuntime\b|^\s*export\s+const\s+composeRuntime\s*[:=]/,
+    minFiles,
+    exclude: isTest,
+    label: LABEL,
+  });
+
+  // ── R1. rival runtime factories ────────────────────────────────────────────
+  // PREFIXES ARE CONSTRUCTION VERBS ONLY. The first draft also matched
+  // `wire|setup|init|boot`, which produced 7 false positives: `wireRuntime(rt)`,
+  // `wireClimateRuntime(rt)` and friends are INJECTORS — they receive the composed
+  // runtime and store it in a module singleton, which is the P1-compliant pattern,
+  // the exact opposite of a rival factory. Recorded because a gate that flags the
+  // correct pattern as the violation is how gates get switched off. The CLEAN
+  // control tree carries a `wireRuntime`, so that guard is EXECUTED, not asserted.
+  const RIVAL_RE = /^\s*export\s+(?:async\s+)?(?:function|const|class)\s+((?:create|build|make|assemble|compose)[A-Za-z0-9_]*Runtime)\b/;
+  const rivals = scanFiles({
+    root,
+    dirs,
+    pattern: RIVAL_RE,
+    minFiles,
+    exclude: (rel) => isTest(rel) || FACTORY_ALLOWLIST.includes(rel),
+    label: LABEL,
+  });
+
+  // ── C1. production callers ─────────────────────────────────────────────────
+  const CALL_RE = /(?<![\w.])composeRuntime\s*\(/;
+  const callFiles = new Set<string>();
+  for (const dir of dirs) {
+    for (const abs of walk(join(root, dir))) {
+      const rel = relPath(root, abs);
+      if (isTest(rel) || rel.startsWith('packages/runtime-composer/')) continue;
+      let src: string;
+      try { src = readFileSync(abs, 'utf8'); } catch { continue; }
+      for (const raw of src.split('\n')) {
+        if (/^\s*(\/\/|\*|\/\*)/.test(raw)) continue;   // comments are not call sites
+        // Strip string literals BEFORE matching. Without this, the two
+        // console.error diagnostics in ProjectHub.ts and src/main.ts that mention
+        // composeRuntime() counted as composition entry points — a gate reporting
+        // log messages as architecture. The CLEAN control tree carries that exact
+        // shape, so the guard is EXECUTED, not asserted.
+        const line = raw.replace(/'[^']*'|"[^"]*"|`[^`]*`/g, "''");
+        if (CALL_RE.test(line)) { callFiles.add(rel); break; }
+      }
     }
   }
-}
+  const callers = [...callFiles].sort();
 
-// ── Report ───────────────────────────────────────────────────────────────────
-console.log(`[${LABEL}] §P1-UNENFORCED (L-812) — single composition root (C01 §1 P1)`);
-console.log(`[${LABEL}] files scanned: ${defs.filesScanned} · composeRuntime definitions: ${defs.matches.length} · rival runtime factories: ${rivals.matches.length} · production callers: ${callFiles.size}`);
+  // ── Findings ───────────────────────────────────────────────────────────────
+  const findings: Finding[] = [];
 
-let failed = false;
-
-if (defs.matches.length !== 1 || defs.matches[0]!.file !== CANONICAL) {
-  console.error(`\n[${LABEL}] FAIL — composeRuntime must be defined EXACTLY ONCE, in ${CANONICAL}.`);
-  for (const m of defs.matches) console.error(`      ${m.file}:${m.line}  ${m.text}`);
-  if (defs.matches.length === 0) {
-    console.error(`  Found ZERO definitions. Either the composition root moved (update CANONICAL in\n` +
-                  `  this gate in the same commit) or the scan is wrong — do not ignore this.`);
+  if (defs.matches.length !== 1 || defs.matches[0]!.file !== CANONICAL) {
+    findings.push({
+      arm: 'D1',
+      key: `D1::definitions=${defs.matches.length}`,
+      detail:
+        `composeRuntime must be defined EXACTLY ONCE, in ${CANONICAL}; found ${defs.matches.length} ` +
+        `definition(s) [${defs.matches.map((m) => `${m.file}:${m.line}`).join(', ') || 'none'}]. ` +
+        (defs.matches.length === 0
+          ? 'ZERO definitions: either the composition root moved (update CANONICAL in this gate in ' +
+            'the same commit) or the scan is wrong — do not ignore this.'
+          : 'A second definition IS a second composition root, whatever it is called.'),
+    });
   }
-  failed = true;
+
+  if (rivals.matches.length > maxRivals) {
+    findings.push({
+      arm: 'R1',
+      key: `R1::rivals=${rivals.matches.length}>${maxRivals}`,
+      detail:
+        `${rivals.matches.length} rival runtime factory export(s), baseline ${maxRivals}: ` +
+        `[${rivals.matches.map((m) => `${m.file}:${m.line} ${m.groups[0]}`).join(' · ')}]. ` +
+        `P1: there is ONE composition root. A second factory yields an object that looks like a ` +
+        `runtime while quietly missing a slot (bus, scheduler, store attachment, plugin host). ` +
+        `Delegate to composeRuntime() instead, or — if it genuinely must be a distinct wiring — ` +
+        `raise an ADR and add the file to FACTORY_ALLOWLIST with the ADR number. Never silently.`,
+    });
+  }
+
+  if (callers.length > maxCallers) {
+    findings.push({
+      arm: 'C1',
+      key: `C1::callers=${callers.length}>${maxCallers}`,
+      detail:
+        `${callers.length} production file(s) call composeRuntime(), baseline ${maxCallers}: ` +
+        `[${callers.join(', ')}]. Each new caller is a new entry point into composition. Justify ` +
+        `it or route through the existing one. Do NOT raise this threshold to go green.`,
+    });
+  }
+
+  return { defs: defs.matches, rivals: rivals.matches, callers, filesScanned: defs.filesScanned, findings };
 }
 
-if (rivals.matches.length) {
+// ─── Executed controls — an arm never watched failing is UNPROVEN ────────────
+
+function writeTree(base: string, files: Record<string, string>): void {
+  rmSync(base, { recursive: true, force: true });
+  for (const [p, body] of Object.entries(files)) {
+    const abs = join(base, p.split('/').join(sep));
+    mkdirSync(dirname(abs), { recursive: true });
+    writeFileSync(abs, body, 'utf8');
+  }
+}
+
+const PLANTED: Record<string, string> = {
+  // The canonical root, correct…
+  'packages/runtime-composer/src/composeRuntime.ts':
+    'export function composeRuntime(opts: unknown) { return opts; }\n',
+  // …and a SECOND definition of it elsewhere. D1 must fire.
+  'packages/rogue/src/rogueComposer.ts':
+    'export function composeRuntime(opts: unknown) { return opts; }\n',
+  // Two rival factories outside the allowlist — 2 > MAX_RIVALS. R1 must fire,
+  // and must NAME them.
+  'apps/a/src/familyRuntime.ts':
+    'export function createFamilyRuntime() { return {}; }\n',
+  'apps/b/src/kioskRuntime.ts':
+    'export const buildKioskRuntime = () => ({});\n',
+  // Three production callers — 3 > MAX_PROD_CALLERS. C1 must fire.
+  'src/main.ts': 'void composeRuntime({});\n',
+  'apps/a/src/boot.ts': 'void composeRuntime({});\n',
+  'apps/b/src/boot.ts': 'void composeRuntime({});\n',
+};
+
+const CLEAN: Record<string, string> = {
+  'packages/runtime-composer/src/composeRuntime.ts':
+    'export function composeRuntime(opts: unknown) { return opts; }\n',
+  // An ALLOWLISTED delegate: exports a factory-shaped symbol AND calls the one
+  // composer. Caller #1. Must not fire.
+  'packages/headless/src/headlessRuntime.ts':
+    'export function createHeadlessRuntime() { return composeRuntime({ canvas: null }); }\n',
+  // Caller #2 — exactly at the baseline of 2. Must not fire.
+  'src/main.ts': 'void composeRuntime({});\n',
+  // The INJECTOR shape. Receives a composed runtime; it is the P1-compliant
+  // pattern and the 7-false-positive lesson. Must not be counted as a rival.
+  'apps/a/src/wireRuntime.ts':
+    'export function wireRuntime(rt: unknown) { void rt; }\n',
+  // The DIAGNOSTIC STRING shape: composeRuntime() inside a literal. Must not be
+  // counted as a third caller.
+  'apps/a/src/diagnostic.ts':
+    "console.error('composeRuntime() must have failed at boot');\n",
+};
+
+interface Control {
+  readonly ok: boolean;
+  readonly lines: readonly string[];
+  readonly armsFired: readonly string[];
+}
+
+function selfTest(): Control {
+  const base = join(tmpdir(), `pryzm-${LABEL}-selftest`);
+  const lines: string[] = [];
+  const dirs = ['src', 'apps', 'packages'];
+  let armsFired: string[] = [];
+  let ok = true;
+  try {
+    writeTree(join(base, 'planted'), PLANTED);
+    writeTree(join(base, 'clean'), CLEAN);
+    // minFiles 1: the honesty floor exists to catch a walk that reached nothing,
+    // and these trees are deliberately tiny. The BASELINES stay the production
+    // ones — a control run at relaxed thresholds proves nothing about the gate
+    // that ships.
+    const bad = analyse(join(base, 'planted'), dirs, 1, MAX_RIVALS, MAX_PROD_CALLERS);
+    const good = analyse(join(base, 'clean'), dirs, 1, MAX_RIVALS, MAX_PROD_CALLERS);
+
+    const fired = new Set(bad.findings.map((f) => f.arm));
+    armsFired = [...fired].sort();
+    lines.push(`Negative control (planted tree): ${bad.findings.length} finding(s), arms fired [${armsFired.join(', ')}]`);
+    for (const f of bad.findings) lines.push(`    ✓ ${f.arm} fired — ${f.key}`);
+    for (const arm of ['D1', 'R1', 'C1'] as const) {
+      if (!fired.has(arm)) {
+        ok = false;
+        lines.push(`    ✗ BLIND COMPARATOR — ${arm} did not fire on a deliberately planted violation.`);
+      }
+    }
+    // R1 must NAME the rivals, not merely count them: a summary that loses the
+    // name is exactly how this gate shipped "0 rivals" over a rival it had found.
+    const named = [...bad.rivals].map((m) => m.file).sort();
+    lines.push(`    planted rivals named: [${named.join(', ') || 'NONE'}]`);
+    for (const want of ['apps/a/src/familyRuntime.ts', 'apps/b/src/kioskRuntime.ts']) {
+      if (!named.includes(want)) {
+        ok = false;
+        lines.push(`    ✗ BLIND COMPARATOR — R1 did not name the planted rival ${want}.`);
+      }
+    }
+
+    lines.push(
+      `Positive control (clean tree — allowlisted delegate, wireRuntime injector, ` +
+      `composeRuntime() inside a log string): ${good.findings.length} finding(s) — must be 0`,
+    );
+    lines.push(
+      `    clean tree read: ${good.defs.length} definition(s) · ${good.rivals.length} rival(s) · ` +
+      `${good.callers.length} caller(s) [${good.callers.join(', ')}]`,
+    );
+    for (const f of good.findings) lines.push(`    ✗ FALSE POSITIVE — ${f.key}: ${f.detail}`);
+    if (good.findings.length > 0) ok = false;
+    if (good.rivals.length !== 0) {
+      ok = false;
+      lines.push('    ✗ FALSE POSITIVE — the injector/delegate shapes were counted as rivals.');
+    }
+    if (good.callers.length !== 2) {
+      ok = false;
+      lines.push(`    ✗ MISCOUNT — the clean tree has exactly 2 real callers; the gate read ${good.callers.length} (the log-string guard).`);
+    }
+  } catch (e) {
+    ok = false;
+    lines.push(`    ✗ self-test threw: ${(e as Error).message}`);
+  } finally {
+    rmSync(base, { recursive: true, force: true });
+  }
+  return { ok, lines, armsFired };
+}
+
+// ─── Run ─────────────────────────────────────────────────────────────────────
+
+const control = selfTest();
+console.log(`[${LABEL}] executed controls (an arm never watched failing is UNPROVEN):`);
+for (const l of control.lines) console.log('   ' + l);
+
+const a = analyse(REPO_ROOT, SCAN_DIRS, MIN_FILES, MAX_RIVALS, MAX_PROD_CALLERS);
+
+console.log(`\n[${LABEL}] §P1-UNENFORCED (L-812) — single composition root (C01 §1 P1)`);
+console.log(
+  `[${LABEL}] files scanned: ${a.filesScanned} · composeRuntime definitions: ${a.defs.length} · ` +
+  `rival runtime factories: ${a.rivals.length} / MAX_RIVALS ${MAX_RIVALS} · ` +
+  `production callers: ${a.callers.length} / ${MAX_PROD_CALLERS}`,
+);
+
+if (a.rivals.length) {
   console.log('\n  Rival runtime factories (declared debt — see MAX_RIVALS):');
-  for (const m of rivals.matches) console.log(`      ${m.file}:${m.line}  ${m.groups[0]}`);
+  for (const m of a.rivals) console.log(`      ${m.file}:${m.line}  ${m.groups[0]}`);
+}
+if (a.callers.length) {
+  console.log('\n  Production composeRuntime() callers:');
+  for (const f of a.callers) console.log(`      ${f}`);
 }
 
-if (rivals.matches.length > MAX_RIVALS) {
-  console.error(`\n[${LABEL}] FAIL — ${rivals.matches.length} rival runtime factory export(s), baseline ${MAX_RIVALS}:`);
-  for (const m of rivals.matches) console.error(`      ${m.file}:${m.line}  ${m.groups[0]}`);
+for (const f of a.findings) console.error(`\n[${LABEL}] FAIL ${f.arm} — ${f.detail}`);
+
+// A blind comparator is a MISCONFIGURATION, not a pass and not a violation:
+// exit 2, the same code sourceScan uses for a scan that looked nowhere.
+if (!control.ok) {
   console.error(
-    `  P1: there is ONE composition root. A second factory yields an object that looks\n` +
-    `  like a runtime while quietly missing a slot (bus, scheduler, store attachment,\n` +
-    `  plugin host). Delegate to composeRuntime() instead, or — if it genuinely must be\n` +
-    `  a distinct wiring — raise an ADR and add the file to FACTORY_ALLOWLIST with the\n` +
-    `  ADR number. Do not add it silently.`,
+    `\n[${LABEL}] MISCONFIGURED (exit 2) — BLIND COMPARATOR. The executed controls did not ` +
+    `establish that this gate's arms fire.\n` +
+    `  Whatever it printed about the real tree above is unproven. This gate has already shipped\n` +
+    `  one false green (§FALSE-GREEN-TERMINAL-LINE); a silent arm is how the next one ships.`,
   );
-  failed = true;
+  process.exit(2);
 }
 
 // §EXIT-CODE-CONTRACT (2026-08-11, C9). MAX_PROD_CALLERS is a shrink-only ratchet
 // — a NEW composition entry point is debt GROWTH, which no ledger absorbs (exit 3,
 // §RATCHET-EXCEEDED-IS-NEVER-DEBT R7). A rival runtime factory outside
 // FACTORY_ALLOWLIST is a P1 invariant breach (exit 1). Two facts, two codes.
-let ratchetExceeded = false;
-if (callFiles.size > MAX_PROD_CALLERS) {
-  console.error(`\n[${LABEL}] FAIL — ${callFiles.size} production file(s) call composeRuntime(), baseline ${MAX_PROD_CALLERS}:`);
-  for (const f of [...callFiles].sort()) console.error(`      ${f}`);
-  console.error(`  Each new caller is a new entry point into composition. Justify it or route\n` +
-                `  through the existing one. Do NOT raise this threshold to go green.`);
-  ratchetExceeded = true;
-} else if (callFiles.size) {
-  console.log('\n  Production composeRuntime() callers:');
-  for (const f of [...callFiles].sort()) console.log(`      ${f}`);
-}
+if (a.findings.some((f) => f.arm === 'C1')) process.exit(3);
+if (a.findings.length) process.exit(1);
 
-if (ratchetExceeded) process.exit(3);
-if (failed) process.exit(1);
-console.log(`\n[${LABEL}] ✓ one composition root (${CANONICAL}), 0 rivals, ${callFiles.size}/${MAX_PROD_CALLERS} production caller(s).`);
+// ⛔ EVERY NUMBER ON THIS LINE IS MEASURED. Never re-introduce a literal here:
+// the string "0 rivals" stood on this line while the body above named one.
+console.log(
+  `\n[${LABEL}] ✓ one composition root (${CANONICAL}), ` +
+  `${a.rivals.length}/${MAX_RIVALS} rival runtime factor${a.rivals.length === 1 ? 'y' : 'ies'}` +
+  `${a.rivals.length ? ` (${a.rivals.map((m) => m.groups[0]).join(', ')} — declared debt, ADR-0316)` : ''}, ` +
+  `${a.callers.length}/${MAX_PROD_CALLERS} production caller(s), ` +
+  `controls: arms proven to fire [${control.armsFired.join(', ')}].`,
+);

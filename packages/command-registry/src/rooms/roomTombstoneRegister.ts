@@ -64,9 +64,19 @@
  * or for both halves, with no change to this file.
  */
 
+import { trace, type Tracer } from '@opentelemetry/api';
 import type { RoomData, RoomVertex, RoomFinishes } from '@pryzm/room-topology';
 import { pointInPolygon } from '@pryzm/room-topology';
 import { classifyRoomLoss, type RoomLossRecord } from './roomLossCensus';
+
+// P8 / C10 §2 — same tracer idiom as `DeleteElementsBatchCommand.ts` /
+// `moveReweldPreflight.ts` in this package (C84 EI-9: one tracer authority per
+// package, never a second wrapper).
+let _cachedTracer: Tracer | null = null;
+function _tracer(): Tracer {
+    _cachedTracer ??= trace.getTracer('@pryzm/command-registry', '0.1.0');
+    return _cachedTracer;
+}
 
 /**
  * Per level. FIFO beyond it.
@@ -291,13 +301,37 @@ export function captureRoomTombstone(room: RoomData): RoomTombstone | undefined 
  * old spot.
  */
 export function findTombstonesFor(room: RoomData): readonly RoomTombstone[] {
+    return _tracer().startActiveSpan('pryzm.room.findTombstones', (span) => {
+        try {
+            const r = _findTombstonesFor(room);
+            span.setAttribute('pryzm.room.levelId', String(room?.levelId ?? ''));
+            span.setAttribute('pryzm.room.tombstoneMatches', r.hits.length);
+            // ⭐ AN EMPTY RESULT HAS TWO CAUSES AND THEY ARE NOT THE SAME FACT.
+            // "no tombstone contains this centroid" is the normal case; "one did
+            // and the area guard rejected it" is the guard doing its job — and if
+            // the guard is ever wrong, this attribute is the only place a trace
+            // would show it. Collapsing both to `matches: 0` would hide the
+            // second inside the first.
+            span.setAttribute('pryzm.room.tombstoneAreaGuardRejected', r.areaGuardRejected);
+            return r.hits;
+        } finally {
+            span.end();
+        }
+    });
+}
+
+function _findTombstonesFor(
+    room: RoomData,
+): { hits: readonly RoomTombstone[]; areaGuardRejected: boolean } {
     try {
         const polygon = room?.boundary?.polygon;
         const area = room?.computed?.area;
-        if (!polygon || polygon.length < 3 || typeof area !== 'number') return [];
+        if (!polygon || polygon.length < 3 || typeof area !== 'number') {
+            return { hits: [], areaGuardRejected: false };
+        }
 
         const list = _byLevel.get(String(room.levelId ?? ''));
-        if (!list || list.length === 0) return [];
+        if (!list || list.length === 0) return { hits: [], areaGuardRejected: false };
 
         const hits: RoomTombstone[] = [];
         for (let i = list.length - 1; i >= 0; i--) {
@@ -312,13 +346,15 @@ export function findTombstonesFor(room: RoomData): readonly RoomTombstone[] {
             const c = hits[0]!.census;
             if (c.areaM2 > 0 && area > 0) {
                 const ratio = Math.min(c.areaM2, area) / Math.max(c.areaM2, area);
-                if (ratio < TOMBSTONE_AREA_SIMILARITY_MIN) return [];
+                if (ratio < TOMBSTONE_AREA_SIMILARITY_MIN) {
+                    return { hits: [], areaGuardRejected: true };
+                }
             }
         }
-        return hits;
+        return { hits, areaGuardRejected: false };
     } catch (err) {
         console.warn('[roomTombstoneRegister] match failed (non-fatal):', err);
-        return [];
+        return { hits: [], areaGuardRejected: false };
     }
 }
 

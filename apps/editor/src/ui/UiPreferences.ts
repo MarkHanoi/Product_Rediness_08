@@ -97,7 +97,11 @@ class UiPreferencesClass {
     set<K extends keyof UiPrefsData>(key: K, value: UiPrefsData[K]): void {
         this._data[key] = value;
         this._save();
-        (window as any).runtime?.events?.emit('pryzm-ui-pref-changed', { key, value }); // F.events.14
+        // §W3a (P4) — the cast is gone, not moved: `window.runtime` is a TYPED global
+        // (apps/editor/src/types/globals.d.ts §Command dispatch globals), so this reads
+        // the declared `events.emit` surface directly. Not `window as unknown as`, which
+        // defeats the Window type exactly as completely and only hides from the regex.
+        window.runtime?.events?.emit('pryzm-ui-pref-changed', { key, value }); // F.events.14
         console.log(`[UiPreferences] ${key} → ${value}`);
     }
 

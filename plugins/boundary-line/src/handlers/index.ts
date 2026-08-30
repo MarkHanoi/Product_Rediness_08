@@ -18,7 +18,17 @@
 // already use. Adding a rival handler here would shadow that verb and quietly move
 // the line while stranding everything on it.
 
+// P8 / C10 §2 — `withHandlerSpan` from `@pryzm/plugin-sdk`, the SAME wrapper the
+// 275 Zone-A handler files use. ADR-002 §2 forbids a direct `@opentelemetry/api`
+// import at L7, and C84 EI-9 forbids a second wrapper.
+//
+// The span sits on REGISTRATION, and it earns its place here more than in most
+// barrels: this file's header explains at length that `boundaryLine.move` is
+// DELIBERATELY ABSENT from the set below and lives on the bus verb instead. The
+// registered-verb list is therefore a fact somebody will eventually want to read
+// back from a trace rather than infer from a comment.
 import type { CommandBus, CommandHandler } from '@pryzm/plugin-sdk';
+import { withHandlerSpan } from '@pryzm/plugin-sdk';
 import { CreateBoundaryLineHandler } from './CreateBoundaryLine.js';
 import {
     AttachToBoundaryLineHandler,
@@ -47,8 +57,15 @@ export function buildBoundaryLineHandlerSet(): readonly CommandHandler<unknown>[
 }
 
 export function registerBoundaryLineHandlers(bus: CommandBus): readonly string[] {
-    for (const h of buildBoundaryLineHandlerSet()) bus.register(h);
-    return BOUNDARY_LINE_HANDLER_TYPES;
+    return withHandlerSpan('pryzm.boundaryLine.registerHandlers', {
+        'pryzm.plugin': 'boundary-line',
+    }, (span) => {
+        const set = buildBoundaryLineHandlerSet();
+        for (const h of set) bus.register(h);
+        span.setAttribute('pryzm.plugin.handlers', set.length);
+        span.setAttribute('pryzm.plugin.verbs', BOUNDARY_LINE_HANDLER_TYPES.length);
+        return BOUNDARY_LINE_HANDLER_TYPES;
+    });
 }
 
 export { CreateBoundaryLineHandler, type CreateBoundaryLinePayload } from './CreateBoundaryLine.js';

@@ -15,7 +15,7 @@ change, not a rename — see C69 §2.
 
 | | |
 |---|---|
-| Handler files read | 1406 (floor 900) |
+| Handler files read | 1407 (floor 900) |
 | **Verbs** | **361** (floor 250) |
 | LIVE | 142 |
 | REFUSES | 37 |
@@ -102,6 +102,7 @@ These numbers are re-derived on every run. Do not transcribe them anywhere else
 | `curtain-wall.batch.update` | plugins/curtain-wall | UNKNOWN | UNKNOWN | patch-pair → curtainwall | not-synced (reason declared) | classified C |
 | `curtain-wall.bulkUpdatePanels` | plugins/curtain-wall | LIVE | legacy geometry store (via commandManager) | legacy-stack (no affectedStores) | n/a (not a property verb) | deferred (CHAT_UNAVAILABLE) |
 | `curtain-wall.bulkUpdateParameter` | plugins/curtain-wall | LIVE | legacy geometry store (via commandManager) | legacy-stack (no affectedStores) | n/a (not a property verb) | capability: set-curtain-wall-parameter |
+| `curtain-wall.changeLevel` | plugins/curtain-wall | LIVE | legacy curtainWallStore (via element.level-changed mirror) | patch-pair → curtainwall | not-synced (reason declared) | capability: move-to-level |
 | `curtain-wall.create` | plugins/curtain-wall | UNKNOWN | UNKNOWN | patch-pair → curtainwall | synced via 'id' (disclose) | classified B |
 | `curtain-wall.create-on-all-slabs` | plugins/curtain-wall | LIVE | legacy geometry store (via commandManager) | legacy-stack (no affectedStores) | not-synced (reason declared) | classified E |
 | `curtain-wall.delete` | plugins/curtain-wall | UNKNOWN | UNKNOWN | patch-pair → curtainwall | not-synced (reason declared) | classified D |
@@ -118,7 +119,6 @@ These numbers are re-derived on every run. Do not transcribe them anywhere else
 | `curtain-wall.setPanelType` | plugins/curtain-wall | UNKNOWN | UNKNOWN | patch-pair → curtainwall | not-synced (reason declared) | classified B |
 | `curtain-wall.setTransomType` | plugins/curtain-wall | UNKNOWN | UNKNOWN | patch-pair → curtainwall | synced via 'curtainWallId' (disclose) | classified B |
 | `curtain-wall.swapPanel` | plugins/curtain-wall | UNKNOWN | UNKNOWN | patch-pair → curtainwall | not-synced (reason declared) | classified B |
-| `curtainWall.changeLevel` | plugins/curtain-wall | LIVE | legacy curtainWallStore (via element.level-changed mirror) | patch-pair → curtainwall | not-synced (reason declared) | capability: move-to-level |
 | `data.clearPropertyDerived` | apps/editor | LIVE | legacy geometry store (via commandManager) | legacy-stack (no affectedStores) | not-synced (reason declared) | classified C |
 | `data.markPropertyDerived` | apps/editor | LIVE | legacy geometry store (via commandManager) | legacy-stack (no affectedStores) | not-synced (reason declared) | classified C |
 | `data.setDerivation` | apps/editor | LIVE | legacy geometry store (via commandManager) | legacy-stack (no affectedStores) | not-synced (reason declared) | classified C |

@@ -201,9 +201,25 @@ export const LEVEL_CHANGE_VERBS: Readonly<Record<string, LevelChangeVerbSpec>> =
         heightFollowsLevel: true,
         heightEvidence: 'packages/geometry-stair/src/HandrailFragmentBuilder.ts:237-238 - const level = bimManager.getLevelById(levelId); elevation = level.elevation',
     },
-    'curtainWall.changeLevel': {
+    // §FIX-COMMAND-NAMESPACE (L-796) / C87 §CW-Dec-2 — RE-SPELLED 2026-08-30 (lane
+    // W3d). This row used to be keyed `'curtainWall.changeLevel'`, the ONE
+    // camel-cased verb in a family of 21 hyphenated ones, and it was this register
+    // that made the spelling stick: `ChangeCurtainWallLevel.ts` and
+    // `CURTAIN_WALL_HANDLER_TYPES` both cite this row as their reason for
+    // camel-casing. So the fix had to start HERE, not at the handler.
+    //
+    // ⛔ THE KEY AND `verb` MOVED TOGETHER, AND `kind` DELIBERATELY DID NOT.
+    // `emitLevelChange()` looks the row up as `LEVEL_CHANGE_VERBS[record.type]`
+    // (`CommandEventBridge.ts:143`), so the KEY must equal the handler's `type` or
+    // the row matches nothing and `element.level-changed` is never built — the
+    // command reports success and the renderer keeps its own copy (L-946). `kind`
+    // is a different namespace: it is matched against `LEGACY_LEVEL_MOVERS`
+    // (`elementLevelChangedMirror.ts`), pinned by
+    // `SlabLevelChangeReachesLegacyStore.test.ts:149-160` in BOTH directions, and
+    // re-spelling it would have broken the mirror this rename exists to protect.
+    'curtain-wall.changeLevel': {
         kind: 'curtainWall',
-        verb: 'curtainWall.changeLevel',
+        verb: 'curtain-wall.changeLevel',
         idField: 'curtainWallId',
         levelField: 'levelId',
         // `normalizeType()` folds 'curtain-wall' and 'curtainwall' to

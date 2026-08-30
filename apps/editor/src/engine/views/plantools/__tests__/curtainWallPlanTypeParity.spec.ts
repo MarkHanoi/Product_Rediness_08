@@ -43,7 +43,7 @@ function makeHandler(armed: Record<string, unknown> | null): {
     dispatched: Dispatched[];
 } {
     const dispatched: Dispatched[] = [];
-    (window as any).runtime = {
+    window.runtime = {
         bus: {
             executeCommand: vi.fn((verb: string, payload: Record<string, unknown>) => {
                 dispatched.push({ verb, payload });
@@ -73,11 +73,11 @@ function drawSegment(handler: CurtainWallPlanToolHandler): void {
 
 beforeEach(() => {
     // No armed tool leaking between arms.
-    delete (window as any).curtainWallTool;
+    delete window.curtainWallTool;
 });
 afterEach(() => {
-    delete (window as any).runtime;
-    delete (window as any).curtainWallTool;
+    delete window.runtime;
+    delete window.curtainWallTool;
 });
 
 describe('§CW90-PLAN-TYPE-PARITY — plan creation carries the armed type', () => {
@@ -102,7 +102,7 @@ describe('§CW90-PLAN-TYPE-PARITY — plan creation carries the armed type', () 
     it('⭐ the payload CHANGES when the armed type changes — the founder\'s report, inverted', () => {
         let armed: Record<string, unknown> = TYPE_A;
         const dispatched: Dispatched[] = [];
-        (window as any).runtime = {
+        window.runtime = {
             bus: {
                 executeCommand: (verb: string, payload: Record<string, unknown>) => {
                     dispatched.push({ verb, payload });

@@ -55,8 +55,24 @@
  * PURE: no I/O, no store, no THREE, no DOM, no clock. The caller does the logging.
  */
 
+import { trace, type Tracer } from '@opentelemetry/api';
 import type { RoomData } from '@pryzm/room-topology';
 import { isSystemMintedRoomName, isSystemMintedRoomNumber } from './RoomNumbering';
+
+// P8 / C10 §2 — same tracer idiom as `DeleteElementsBatchCommand.ts` /
+// `moveReweldPreflight.ts` in this package (C84 EI-9: one tracer authority per
+// package, never a second wrapper).
+//
+// ⭐ ONE SPAN FOR N ROOMS, for the same reason there is ONE LINE for N rooms
+// (see `formatRoomLossLine` below). `classifyRoomLoss` is deliberately NOT
+// traced: a span per dropped room would re-mint exactly the per-element churn
+// this module's header rejects, while telling an operator nothing the summary
+// span does not already carry.
+let _cachedTracer: Tracer | null = null;
+function _tracer(): Tracer {
+    _cachedTracer ??= trace.getTracer('@pryzm/command-registry', '0.1.0');
+    return _cachedTracer;
+}
 
 /** What a freshly-detected room's `occupancyType` is before anyone classifies it. */
 const UNCLASSIFIED_OCCUPANCY = 'unclassified';
@@ -160,7 +176,27 @@ export function classifyRoomLoss(room: RoomData): RoomLossRecord {
  * under C94 R-1 it is the reading that ARGUES FOR leaving pure derivation alone.
  */
 export function formatRoomLossLine(levelId: string, records: readonly RoomLossRecord[]): string {
-    const authoredCount = records.filter(r => r.authored).length;
+    return _tracer().startActiveSpan('pryzm.room.lossCensus', (span) => {
+        try {
+            const authoredCount = records.filter(r => r.authored).length;
+            span.setAttribute('pryzm.room.levelId', levelId);
+            span.setAttribute('pryzm.room.dropped', records.length);
+            // `authored` is emitted even when ZERO, for the reason the doc
+            // comment gives: a blank reads as "fine" (C84 EI-1b), and zero
+            // authored losses is a RESULT, not an absence of one.
+            span.setAttribute('pryzm.room.droppedAuthored', authoredCount);
+            return _formatRoomLossLine(levelId, records, authoredCount);
+        } finally {
+            span.end();
+        }
+    });
+}
+
+function _formatRoomLossLine(
+    levelId: string,
+    records: readonly RoomLossRecord[],
+    authoredCount: number,
+): string {
     const detail = records
         .map(r => {
             const label = r.name !== '' ? r.name : r.roomNumber !== '' ? r.roomNumber : r.id.slice(0, 8);
