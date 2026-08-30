@@ -124,6 +124,8 @@
  *   (r3) `.type === 'X'` / `.type !== 'X'` — a typed discriminator over edges;
  *   (r4) a DEDICATED typed reader from `DEDICATED_READERS`, credited at its
  *        production call site (`getJoinedWalls` → `joinedTo`, C71 §3 / §4.4).
+ *        An entry may PIN A RECEIVER, and one MUST whenever its method name is
+ *        shared with a rival graph — see the map's own note.
  *
  * NOT a reader, deliberately, and each of these was measured present at HEAD:
  *   • `GraphQueryService.SUPPORTED_RELATIONSHIP_TYPES` — a 14-member `Set` of
@@ -205,6 +207,16 @@
  *     is equally useless; exits 2.
  *   • PARKED — a planted PARKED family with a writer MUST be flagged
  *     WRITER-FIRST, and the same family with only a reader MUST NOT be.
+ *   • DEDICATED-READER COMPLETENESS — an UNREGISTERED `*Query` reader MUST be
+ *     reported, a REGISTERED one MUST NOT, and the raw non-`Query` `getTargets`
+ *     MUST NOT. This is the arm that stops the map silently falling behind the
+ *     source file it mirrors — see §DEDICATED-READER-COMPLETENESS.
+ *   • RECEIVER QUALIFICATION — a pinned DEDICATED_READERS entry driven over BOTH
+ *     receivers: a call on the RIVAL room-topology graph
+ *     (`roomGraphService.getConnectedRooms`) MUST earn no credit, while the
+ *     SemanticGraph receiver MUST earn exactly one. Without the pin a shared
+ *     method name reads one graph's coverage off another — C71 §7.g, the
+ *     anti-pattern that "has already produced one false claim".
  *   • COMMENT-BLINDNESS — a family whose ONLY mention is inside a `//` and a
  *     `/* *\/` block MUST read absent on every arm. This is the control that
  *     protects the whole gate from the union's own prose.
@@ -220,7 +232,10 @@
  *     REQUIRED family must EXIST in the union, or the split is stale.
  *   • source files scanned ≥ 1500
  *   • rebuild files located ≥ 1  (C71 §6 `check-graph-persistence` floor shape)
- *   • executed controls passed = 5
+ *   • refusal-bearing `*Query` readers located on `SemanticGraphManager` ≥ 8 —
+ *     without it the completeness arm's "nothing unregistered" and "parsed
+ *     nothing" are the same value (§DEDICATED-READER-COMPLETENESS)
+ *   • executed controls passed = 8
  *
  * A run that parsed no union, or resolved no call sites, is MISCONFIGURED — not
  * "full coverage". C70 §7 names this exact trap for this exact gate.
@@ -340,15 +355,142 @@ const HELPER_WRITERS: Readonly<Record<string, string>> = {
  * A bare `getTargets` at a call site returns `[]` for both, and C71 §7.h names
  * that as the anti-pattern.
  */
-const DEDICATED_READERS: Readonly<Record<string, string>> = {
-  getJoinedWalls: 'joinedTo',
+interface DedicatedReader {
+  /** The ONE family this method typed-reads. Never a list. */
+  readonly family: string;
+  /**
+   * OPTIONAL receiver pin — the identifier that must immediately precede the
+   * `.` at a crediting call site.
+   *
+   * ⚠ REQUIRED whenever the method NAME is not unique to the SemanticGraph, and
+   * that is not hypothetical: `packages/spatial-index/`'s ROOM-TOPOLOGY graph
+   * exposes `getConnectedRooms` / `getAdjacentRooms` with the same spelling and
+   * a different meaning (`RoomGraphService`, `RoomQueryService`,
+   * `RoomValidationService`, `ai-host/src/rooms/RoomWorldModelAdapter`, and the
+   * `qs.` handle in `RoomPropertySection` — measured 2026-08-30, FOUR call
+   * sites, none of which touches the SemanticGraph). A bare-name match would
+   * credit `connectedTo` on all four — C71 §4.3 / §7.g exactly, the same class
+   * of false claim `OTHER_GRAPH_PATHS` exists to prevent, arriving through the
+   * reader map instead of through the corpus.
+   *
+   * The pin is checked by the executed RECEIVER QUALIFICATION control in BOTH
+   * directions on every run, so it cannot rot into decoration.
+   */
+  readonly receiver?: string;
+}
+const DEDICATED_READERS: Readonly<Record<string, DedicatedReader>> = {
+  getJoinedWalls: { family: 'joinedTo' },
   // §SITSON-REVERSE-READER (C71 §2.1 #5) — wraps `getSources(levelId,'sitsOn')`.
   // Consumer: DeleteLevelCommand.canExecute.
-  getElementsSittingOn: 'sitsOn',
+  getElementsSittingOn: { family: 'sitsOn' },
   // §HOSTEDBY-REVERSE-READER (C71 §2.1 #1) — wraps `getTargets(id,'hostedBy')`.
   // Consumer: SyncStateEngine._findHostWall.
-  getHostWall: 'hostedBy',
+  getHostWall: { family: 'hostedBy' },
+
+  // ── REGISTERED 2026-08-30 · the four readers this gate could not see ──────
+  // Each of the four below was AUTHORED, WIRED and TESTED before this map named
+  // it, and the gate reported its family as "write-only state nobody can query"
+  // anyway — because a wrapper's own `getTargets` lives inside SemanticGraph.ts,
+  // which the corpus EXCLUDES so that the declaration site cannot prove its own
+  // coverage. That exclusion is right; the missing map rows were the defect, and
+  // the four findings were an artefact of this gate's evidence vocabulary rather
+  // than four unqueryable families. STR-05 §12's disposition ("if the graph
+  // exists but cannot be queried, EXPOSE IT") was already discharged in code.
+  //
+  // Registering a name buys nothing on its own — the standing rule above still
+  // holds. The production call sites named per entry are what earn the credit,
+  // and each wrapper performs `this.getTargets(id,'<its own family>')` inside
+  // SemanticGraph.ts, which is the second standing constraint.
+
+  // §HOSTS-FORWARD-READER (C71 §2.1 #1, the reference-shape pair's FORWARD half)
+  // — wraps `getTargets(wallId,'hosts')` and cross-checks the `hostedBy` inverse.
+  // Consumers: SemanticQueryEngine — the rooms-without-a-door door count, and
+  // the "what does this wall host" NL handler.
+  getHostedOpenings: { family: 'hosts' },
+  // §GR12-BOUNDARY-INVALIDATION (C71 §2.1 #3 · C79 §5.2) — wraps
+  // `getTargets(roomId,'boundedBy')` behind the undetermined mark.
+  // Consumers: SemanticQueryEngine; WallDeleteConsequencePlanner (via its
+  // `boundingWalls` dep — the reader this gate's own H6/H7 prose already cites
+  // by name while scoring its family readerless).
+  getBoundingWalls: { family: 'boundedBy' },
+  // §GR13-CONTAINS-READER (C71 §2.1 #7) — wraps `getTargets(roomId,'contains')`
+  // behind the `_containsCovered` mark.
+  // Consumers: WorldModelAdapter (the room summary fed verbatim into AI
+  // prompts); HierarchyTreePanel (the data-workbench tree's furniture group).
+  getContainedElements: { family: 'contains' },
+  // §GR13-ADJACENCY-READER (C71 §2.1 #5) — wraps
+  // `getTargets(roomId,'connectedTo')` behind the region-invalidation mark and
+  // the `_adjacencyCovered` mark.
+  // Consumers: SemanticQueryEngine (rooms-without-a-door); WorldModelAdapter.
+  // RECEIVER PINNED — see `DedicatedReader.receiver`. This is the one of the
+  // four whose spelling the room-topology graph also uses.
+  getConnectedRooms: { family: 'connectedTo', receiver: 'semanticGraphManager' },
+  // §GR13-ADJACENCY-READER (C71 §2.1 #4) — wraps `getTargets(roomId,'adjacentTo')`.
+  // Consumers: SemanticQueryEngine (the "which rooms are next to X" handler);
+  // WorldModelAdapter. `adjacentTo` was NOT one of the four findings — it holds a
+  // raw (r1) read in `IfcSemanticWriter` — so this entry closes no finding. It is
+  // here because the COMPLETENESS ARM below is only honest if the map is
+  // complete: leaving the one reader that happened not to be load-bearing
+  // unregistered would make the arm report a gap it cannot act on. Same
+  // room-topology collision as its sibling, same pin.
+  getAdjacentRooms: { family: 'adjacentTo', receiver: 'semanticGraphManager' },
 };
+
+/**
+ * §DEDICATED-READER-COMPLETENESS (L-12850) — the RECURRENCE ARM.
+ *
+ * ⚠ THIS ARM EXISTS BECAUSE THE GATE ONCE PUNISHED THE FIX IT WAS WRITTEN TO
+ * REWARD. Commit `847a16e0` (§GR13) replaced the raw `getTargets(id,'X')` reads
+ * in `SemanticQueryEngine` and `WorldModelAdapter` — the C71 §7.h anti-pattern —
+ * with the refusal-bearing wrappers this map is supposed to credit, and did not
+ * extend the map. The gate went RED with FOUR findings naming four families as
+ * "write-only state nobody can query" while every one of them had an authored,
+ * wired and tested typed reader. Four false positives against a ledger of 0, for
+ * twelve days, pointed at exactly the code that had done the right thing.
+ *
+ * The defect is structural, not clerical: `DEDICATED_READERS` is a CLOSED map
+ * that must be kept in step with a SOURCE FILE by hand, and nothing checked. So
+ * this arm derives the reader surface FROM SOURCE — the same rule the SUBJECT
+ * section states for the union itself, applied to the thing that reads it.
+ *
+ * SUBJECT: every method on `SemanticGraphManager` whose return type ends in
+ * `Query`. That shape is not a heuristic — it IS the C71 §4.4 refusal-bearing
+ * reader contract in this file: the `*Query` unions exist precisely so a reader
+ * can distinguish "no results" from "cannot answer", and a method returning one
+ * is a dedicated typed reader by construction. Measured at HEAD: eight methods,
+ * eight `*Query` types, one per family.
+ *
+ * A method found here that is NOT in the map is a FINDING, not a silent gap:
+ * the family it reads is being scored on the (r1)/(r3) arms alone, so it can be
+ * reported readerless while a reader sits in front of it.
+ */
+export function dedicatedReaderSurface(unionSrc: string): string[] {
+  const clean = stripComments(unionSrc);
+  const re = /^\s*(?:public\s+|private\s+)?([A-Za-z_$][\w$]*)\s*\([^)]*\)\s*:\s*[A-Za-z_$][\w$]*Query\s*\{/gm;
+  const found: string[] = [];
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(clean)) !== null) {
+    const name = m[1]!;
+    if (!found.includes(name)) found.push(name);
+  }
+  return found;
+}
+
+/** The surface, minus what the map already names. A non-empty result is a FINDING. */
+export function unregisteredDedicatedReaders(unionSrc: string): string[] {
+  return dedicatedReaderSurface(unionSrc).filter((n) => !(n in DEDICATED_READERS));
+}
+
+/**
+ * The arm above reports "nothing unregistered" both when the map is complete and
+ * when the SCAN MATCHED NOTHING — the failure-vs-emptiness collision this whole
+ * contract is about, committed inside the gate that polices it. So the surface
+ * itself carries an honesty floor: eight readers measured at HEAD, and a run
+ * that recovers fewer has failed to parse its subject rather than found a tidy
+ * map. Shrink here means a reader was DELETED, which is a source change a human
+ * should confirm — not something a gate should absorb by reading zero.
+ */
+const FLOOR_MIN_DEDICATED_READER_SURFACE = 8;
 /** The type-agnostic cascade purge (d2). */
 const CASCADE_PURGE = 'removeAllRelationshipsForElement';
 
@@ -705,10 +847,14 @@ export function analyse(files: readonly CorpusFile[], declared: readonly string[
           cov.deleteTyped.push(site(hm.index));
         }
       }
-      for (const [fn, fam] of Object.entries(DEDICATED_READERS)) {
-        const cov = coverage.get(fam);
+      for (const [fn, spec] of Object.entries(DEDICATED_READERS)) {
+        const cov = coverage.get(spec.family);
         if (!cov) continue;
-        const dre = new RegExp(`\\.${fn}\\s*\\(`, 'g');
+        // A PINNED entry matches ONLY on its declared receiver, so a rival
+        // graph's identically-named method earns nothing (C71 §4.3 / §7.g).
+        const dre = spec.receiver
+          ? new RegExp(`\\b${spec.receiver}\\s*\\.\\s*${fn}\\s*\\(`, 'g')
+          : new RegExp(`\\.${fn}\\s*\\(`, 'g');
         let dm: RegExpExecArray | null;
         while ((dm = dre.exec(clean)) !== null) cov.reader.push(site(dm.index));
       }
@@ -974,6 +1120,70 @@ function selfTest(): { ok: boolean; lines: string[] } {
   // 6. Untyped read must NOT count (C71 §1.3), proven via the negative control's
   //    sibling: `getRelationships(elementId)` one-arg appears in readers.ts and
   //    must not have granted `sitsOn` a reader. Folded into control 1's verdict.
+
+  // 7. RECEIVER QUALIFICATION (C71 §4.3 / §7.g) — a pinned DEDICATED_READERS
+  //    entry must credit the SemanticGraph receiver and REFUSE the rival graph's
+  //    identically-named method. BOTH directions, because a pin that credits
+  //    nothing at all would also "pass" a one-armed check while silently
+  //    reinstating the very finding it was added to close.
+  //
+  //    This is not hypothetical. `packages/spatial-index/`'s ROOM-TOPOLOGY graph
+  //    spells its adjacency reader `getConnectedRooms` too, and at HEAD FOUR
+  //    production call sites read it (`RoomQueryService`, `RoomValidationService`,
+  //    `ai-host/src/rooms/RoomWorldModelAdapter`, `RoomPropertySection`). A
+  //    receiver-blind match would have handed `connectedTo` SemanticGraph
+  //    coverage on the strength of a DIFFERENT GRAPH — the §7.g false claim.
+  //
+  //    Driven on its OWN corpora so it cannot perturb controls 1-6.
+  const rivalRecv = analyse(
+    [{ rel: 'packages/synthetic/src/rivalRoomGraph.ts', src: 'const ids = roomGraphService.getConnectedRooms(roomId);' }],
+    types,
+  ).coverage.get('connectedTo')!;
+  const ownRecv = analyse(
+    [{ rel: 'packages/synthetic/src/semanticGraphReader.ts', src: 'const q = semanticGraphManager.getConnectedRooms(roomId);' }],
+    types,
+  ).coverage.get('connectedTo')!;
+  if (rivalRecv.reader.length === 0 && ownRecv.reader.length === 1) {
+    pass(
+      "RECEIVER QUALIFICATION: 'roomGraphService.getConnectedRooms' (the RIVAL room-topology graph) earned NO " +
+      "connectedTo reader credit, while 'semanticGraphManager.getConnectedRooms' earned exactly one",
+    );
+  } else {
+    fail(
+      `the receiver pin does not discriminate (rival ${rivalRecv.reader.length}, own ${ownRecv.reader.length}) — ` +
+      'a method name shared with the room-topology graph would grant SemanticGraph coverage on the ' +
+      'strength of a DIFFERENT graph (C71 §4.3 / §7.g), or the pin credits nothing and the entry is decorative',
+    );
+  }
+
+  // 8. DEDICATED-READER COMPLETENESS (L-12850) — THREE directions in one, because
+  //    the arm can fail in three ways and only one of them is "misses a gap":
+  //      • a REGISTERED reader must NOT be reported (or the gate red-lines a
+  //        correct map and gets edited until it stops complaining);
+  //      • an UNREGISTERED `*Query` reader MUST be reported (the actual defect);
+  //      • a NON-`*Query` method must NOT be reported (`getTargets` is the raw
+  //        lookup the whole §4.4 wrapper layer exists to sit in front of; naming
+  //        it here would demand the map absorb the primitive it is built on).
+  const synthUnionReaders = [
+    '    getJoinedWalls(wallId: string): JoinedWallsQuery {',
+    '    getFrobbedThings(id: string): FrobbedThingsQuery {',
+    '    getTargets(id: string, t: RelationshipType): string[] {',
+    '    // getCommentedOut(id: string): CommentedQuery {',
+  ].join('\n');
+  const unreg = unregisteredDedicatedReaders(synthUnionReaders);
+  if (unreg.length === 1 && unreg[0] === 'getFrobbedThings') {
+    pass(
+      'DEDICATED-READER COMPLETENESS: an UNREGISTERED *Query reader was reported, while a ' +
+      'REGISTERED one, the raw non-Query `getTargets`, and a commented-out declaration were not',
+    );
+  } else {
+    fail(
+      `the completeness arm reported [${unreg.join(', ') || 'nothing'}] instead of exactly ` +
+      "['getFrobbedThings'] — a reader upgrade that skips DEDICATED_READERS would again score its " +
+      'family write-only while a typed reader sits in front of it (L-12847 / L-12850)',
+    );
+  }
+
   return { ok, lines };
 }
 
@@ -1036,7 +1246,18 @@ function main(): number {
     { what: 'REQUIRED families (C71 §2.1) located in the parsed union', measured: requiredFamiliesFound, min: REQUIRED_FAMILY_COUNT },
     { what: 'production source files scanned', measured: a.filesScanned, min: FLOOR_MIN_FILES },
     { what: 'rebuild implementations located', measured: a.rebuildFiles.length, min: FLOOR_MIN_REBUILD_FILES },
-    { what: 'executed controls passed', measured: control.ok ? 5 : 0, min: 5 },
+    // §DEDICATED-READER-COMPLETENESS — proves the completeness arm SAW its
+    // subject. Without it, "0 unregistered" and "parsed nothing" are one value.
+    {
+      what: 'refusal-bearing *Query readers located on SemanticGraphManager',
+      measured: dedicatedReaderSurface(unionSrc).length,
+      min: FLOOR_MIN_DEDICATED_READER_SURFACE,
+    },
+    // ⚠ 7, not 5. The printed control block already listed SIX assertions while
+    // this floor said five — a floor that under-counts its own comparators is
+    // the same honesty defect the gates it guards exist to catch, inverted.
+    // Raising a MIN is a TIGHTENING, never an absorbed baseline.
+    { what: 'executed controls passed', measured: control.ok ? 8 : 0, min: 8 },
   ];
 
   // ── Classification cross-check (SUBJECT, header) ──────────────────────────
@@ -1146,6 +1367,20 @@ function main(): number {
 
   // ── Findings vs the NAMED ledger, both directions ────────────────────────
   const findings = findingsOf(a);
+  // §DEDICATED-READER-COMPLETENESS (L-12850) — read the function's docblock for
+  // why this is a FINDING and not a census line.
+  for (const m of unregisteredDedicatedReaders(unionSrc)) {
+    findings.push({
+      key: `${m}/unregistered-reader`,
+      detail:
+        `SemanticGraphManager.${m}() returns a *Query type — a C71 §4.4 refusal-bearing typed ` +
+        `reader — and is NOT in DEDICATED_READERS. The family it reads is therefore scored on the ` +
+        `raw (r1)/(r3) arms alone and can be reported READERLESS while a reader sits in front of ` +
+        `it. Register it, pinning the receiver if the name is shared with another graph. This arm ` +
+        `exists because that exact omission produced FOUR false findings for twelve days ` +
+        `(L-12847 / L-12850) against the code that had just done the right thing.`,
+    });
+  }
   const measuredKeys = new Set(findings.map((f) => f.key));
   const ledgerKeys = new Set(LEDGER.map((e) => e.key));
   const stale = [...ledgerKeys].filter((k) => !measuredKeys.has(k));
