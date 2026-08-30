@@ -26,7 +26,7 @@ import * as OBC from '@thatopen/components';
 import { makeAnnotationElement } from '../subsystem/AnnotationTypes';
 import { makePointRef, makeRef, resolveReferenceToPoint, ResolverStores, StableReference } from '../subsystem/AnnotationReference';
 import { persistAnnotation } from './persistAnnotation';
-import { BIM_LAYER } from '@pryzm/scene-committer';
+import { BIM_LAYER } from '@pryzm/plugin-sdk';   // FIX-SDK-BYPASS-BIM-LAYER (2026-08-30) - reach the platform through the L5 facade
 
 export enum SlopeDimToolState {
     IDLE,

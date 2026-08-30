@@ -22,7 +22,7 @@ import * as OBC from '@thatopen/components';
 import { makeAnnotationElement } from '../subsystem/AnnotationTypes';
 import { makePointRef } from '../subsystem/AnnotationReference';
 import { CreateAnnotationCommand } from '../commands/CreateAnnotationCommand';
-import { BIM_LAYER } from '@pryzm/scene-committer';
+import { BIM_LAYER } from '@pryzm/plugin-sdk';   // FIX-SDK-BYPASS-BIM-LAYER (2026-08-30) - reach the platform through the L5 facade
 
 type CommandManager = { execute(cmd: unknown): { success: boolean; error?: unknown } };
 

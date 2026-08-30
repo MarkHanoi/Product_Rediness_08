@@ -142,10 +142,12 @@ export const layerElements = [
   // The element families. geometry-* anchored on geometry-kernel (L2).
   { type: 'L2', pattern: 'packages/geometry-balcony/**' },      // [family] verified: imports schemas + @opentelemetry/api only
   { type: 'L2', pattern: 'packages/geometry-beam/**' },         // [family]
+  { type: 'L2', pattern: 'packages/geometry-boundary-line/**' },// [family] verified 2026-08-30: imports @pryzm/schemas + @opentelemetry/api only
   { type: 'L2', pattern: 'packages/geometry-column/**' },       // [family]
   { type: 'L2', pattern: 'packages/geometry-curtain-wall/**' }, // [family]
   { type: 'L2', pattern: 'packages/geometry-door/**' },         // [family]
   { type: 'L2', pattern: 'packages/geometry-furniture/**' },    // [family]
+  { type: 'L2', pattern: 'packages/geometry-handrail/**' },     // [family] verified 2026-08-30: imports schemas/snapping/renderer-three (L0/L1) + core-app-model/command-registry/geometry-stair/geometry-wall (L2) — no upward edge
   { type: 'L2', pattern: 'packages/geometry-lift/**' },         // [family]
   { type: 'L2', pattern: 'packages/geometry-lighting/**' },     // [family]
   { type: 'L2', pattern: 'packages/geometry-plumbing/**' },     // [family]

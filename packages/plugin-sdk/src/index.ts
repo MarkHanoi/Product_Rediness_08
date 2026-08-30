@@ -253,6 +253,20 @@ export {
   bindStore,
   diffToDeltas,
   commitDimensions,
+  // §FIX-SDK-BYPASS-BIM-LAYER (2026-08-30) — WIDEN THE FACADE, which is what
+  // `check-layer-boundaries` tells you to do instead of importing the package
+  // directly. `BIM_LAYER` was the SINGLE symbol behind all 19 of the
+  // `plugins/** → @pryzm/scene-committer` bypasses the gate counted: nineteen
+  // annotation tools each wrote `import { BIM_LAYER } from '@pryzm/scene-committer'`.
+  //
+  // Two defects, one edit. The second is the quieter one: `@pryzm/scene-committer`
+  // is NOT in `plugins/annotations/package.json` — those nineteen imports resolved
+  // only through pnpm's store layout, i.e. an UNDECLARED dependency. `@pryzm/plugin-sdk`
+  // IS declared there, and already depends on `@pryzm/scene-committer`, so routing
+  // through the facade adds no package edge and no lockfile change; it removes one.
+  //
+  // Additive to the v1.x locked surface (ADR-0038 §A) — nothing is renamed or removed.
+  BIM_LAYER,
 } from '@pryzm/scene-committer';
 
 export type {

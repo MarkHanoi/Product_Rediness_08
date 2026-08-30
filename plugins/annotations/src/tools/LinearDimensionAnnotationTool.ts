@@ -46,7 +46,7 @@ import { detectWallFace, WallFaceHit, WallFaceType } from '../plantools/WallFace
 import { formatDimension, DimensionUnit } from '../subsystem/DimensionFormatter';
 import { LinearDimOptionsBar } from '../plantools/LinearDimOptionsBar';
 import type { DimHoverHint } from '../AnnotationRenderLayer';
-import { BIM_LAYER } from '@pryzm/scene-committer';
+import { BIM_LAYER } from '@pryzm/plugin-sdk';   // FIX-SDK-BYPASS-BIM-LAYER (2026-08-30) - reach the platform through the L5 facade
 
 // ─────────────────────────────────────────────────────────────────────────────
 // §DIM-V-1/V-2 — Hover hint callback type
