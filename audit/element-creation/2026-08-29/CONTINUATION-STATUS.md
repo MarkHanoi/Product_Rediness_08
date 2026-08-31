@@ -307,3 +307,53 @@ verification I ran was real; the attribution beside it was not measured.
 unchanged and still the right one — what was the 113 ceiling measured against, and when?** If it
 was set while packages were unclassified, 113 was never the true count and the arm has been
 understated the whole time. That is a measurement question for its own pass, not a code fix.
+
+## banned-3p: the 113 ceiling is ANSWERED; the 123 -> 124 MECHANISM is now UNRESOLVED
+
+### What 113 was measured against — ANSWERED, by the gate itself
+
+`tools/ga-gate/check-layer-boundaries.ts:322`
+`const MAX_RESTRICTED_IMPORTS = Number(process.env.PRYZM_LAYER_MAX_RESTRICTED ?? 113);`
+
+Set **2026-08-09** by `acae9ea4` *"§FIX-RESTRICTED-IMPORT-RATCHET — move a permanently-red rule onto
+a ratchet"*. The gate documents its own denominator at :331, and it is not sloppy:
+
+> "NOTE the denominator: eslint reports 122, this gate 113. **Not a discrepancy to reconcile** —
+>  eslint counts per LINE across every file including tests and .d.ts, this gate counts resolved
+>  specifiers in non-test source. **Frozen at THIS gate's own measurement, because a ratchet must be
+>  comparable with itself.**"
+
+So the suspicion that 113 was set against a smaller scan set is **not supported**: it was set against
+this gate's own measurement, deliberately, with the eslint difference already reconciled in writing.
+
+### But the 123 -> 124 mechanism is now IN DOUBT, and I am not asserting a second cause
+
+`RESTRICTED_MODULES` (:336-340) allows by **PATH PREFIX**, not by layer:
+```
+{ mod: '@thatopen/components-front', allowed: ['plugins/ifc-import/'] }
+{ mod: '@thatopen/components',       allowed: ['plugins/ifc-import/'] }
+{ mod: 'express',                    allowed: ['apps/sync-server/', 'apps/bake-worker/', ...] }
+```
+and the restricted walk at :509 / :589 shows **no dependency on classification**.
+
+If the arm scans every package regardless of layer, then "classifying `geometry-handrail` brought
+its import into scope" — which I wrote into `f5071259` and repeated in the correction `7bb30bf1` —
+**may itself be wrong**. The remaining candidate is `scan(pkgs)` at :569: whether `pkgs` is all
+workspace packages or only classified ones.
+
+⛔ **I am NOT resolving this by inference.** I asserted an unmeasured cause for this exact number
+once today already (`7bb30bf1`). The correlation is real — the count moved 123 -> 124 in the same
+commit that classified handrail — but correlation is what produced the first error.
+
+**NEXT COMMAND, for whoever picks this up:**
+```
+sed -n '560,575p' tools/ga-gate/check-layer-boundaries.ts     # what is `pkgs`?
+git stash list                                                 # MUST be empty before any experiment
+PRYZM_LAYER_MAX_RESTRICTED=999 npx tsx tools/ga-gate/check-layer-boundaries.ts   # per-package table
+```
+Then revert `geometry-handrail`'s two eslint.config.js lines in a scratch copy and re-read the
+banned-3p count. If it returns to 123, classification is the mechanism. If it stays 124, it is not,
+and both my explanation and my correction of it need a third revision.
+
+**Status of the arm: 124/113, RC=3, cause UNRESOLVED, ceiling legitimate.** It is a measurement
+question, not ten imports to delete.
