@@ -102,11 +102,21 @@ const MIN_INDEXED_COMMAND_CLASSES = 150;
  *
  * SHRINK-ONLY. Fix one, delete its line in the same commit. Do not add a line
  * without an explicit decision — adding one is choosing to ship the avalanche.
+ *
+ * ─── PAID AND REMOVED (never re-add without a new measurement) ──────────────
+ * • `CreateCurtainWallsFromSlabCommand` — removed 2026-08-30 (lane W2-A). Paid by
+ *   `6de40a8b` (§CW4-CW-BY-SLAB-BATCH, L-1162), which wrapped the panel loop in
+ *   `_createCurtainWalls` and gave it the two-arm bracket at
+ *   `CreateCurtainWallsFromSlabCommand.ts:275` — `isBatching` JOINs, else
+ *   `runBatch({ levelIds, totalElementCount })`. The commit landed the FIX but
+ *   left this line behind, so the gate correctly reported good news as FAIL for
+ *   eleven days. That is the ledger working, not the ledger broken.
+ *   The other three lines were RE-MEASURED in the same pass and are STILL REAL:
+ *   none of the three files contains the string `batchCoordinator` at all
+ *   (`grep -n 'batchCoordinator\|runBatch\|isBatching'` -> no match in each), and
+ *   each still dispatches a child command per element inside `execute()`.
  */
 const LEDGER: ReadonlyMap<string, string> = new Map([
-  ['CreateCurtainWallsFromSlabCommand',
-   'curtain-walls.from-selected-slab — fires bim-curtainwall-added per panel, so it DOES pay ' +
-   'the per-add traversal. packages/command-registry/src/curtainwall/ is lane CW3\'s active fence (C87).'],
   ['CreateAllSlabsFromLevelToTopLevelCommand',
    'slabs.from-level-to-top — fires bim-slab-added per slab. packages/command-registry/src/slabs/ ' +
    'has lane SL2 work in flight (C92).'],
