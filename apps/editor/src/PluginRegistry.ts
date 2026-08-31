@@ -69,14 +69,14 @@ import type { PluginRegistration } from '@pryzm/plugin-sdk';
 // LightingPlacementTool imports were deleted with the dead constructions that
 // used them — all three were built on `window.__pryzmScreenToWorld`, a key
 // ASSIGNED NOWHERE in the repo. See the tombstones in
-// registerAllPluginToolActivators. StructuralPlacementTool remains imported
-// solely by the REFUSED `structural` registration (annotated at its site).
+// registerAllPluginToolActivators. StructuralPlacementTool followed on
+// 2026-09-01 under the L-12869 ruling — structural placement is WITHHELD with
+// a draw-first exit condition; see the tombstone at its former site.
 //
 // Phase 2 NOTE: zero `commandManager` call sites introduced here.  All
 // dispatch goes through `runtime.bus.executeCommand`.  Clean of F1–F13.
 import { BCFTool } from '@pryzm/plugin-bcf/tool';
 import { CrossTool } from '@pryzm/plugin-cross/tool';
-import { StructuralPlacementTool } from '@pryzm/plugin-structural/tool';
 import { CubeTool } from '@pryzm/plugin-toy-cube/tool';
 
 // ---- 12 element family plugins ----
@@ -1266,38 +1266,25 @@ export function registerAllPluginToolActivators(runtime: ToolActivatorRuntime): 
     }
   });
 
-  // ─── structural ─── ⚠ REFUSED, NOT FIXED (2026-08-31, lane 7B1b) ──────────
+  // ─── structural ─── ⛔ WITHHELD CAPABILITY (RULED 2026-08-31, L-12869) ─────
   //
-  // This registration is DEAD AT EVERY LAYER, measured:
-  //   • its `screenToWorld` is `eventScreenToWorld` above — a bridge over
-  //     `window.__pryzmScreenToWorld`, assigned nowhere in the repo;
-  //   • nothing activates `'structural'` (no matrix row, no panel; chat
-  //     classifies `structural.create` as class B "needs design" —
-  //     ChatCommandClassification.ts:67);
-  //   • `window.structuralTool` has zero consumers and the tool attaches no
-  //     DOM listener, so nothing could ever call its onPointerDown.
-  // UNLIKE grid/lighting/annotation, the family has NO live alternative:
-  // brace/footing/connection (`structural.create`, handler registered at
-  // engineLauncher.ts:704) is reachable from no user surface at all — beam
-  // and column are different families with their own plan handlers.
-  // Deleting this would erase the only marker that the family is unplaceable;
-  // "wiring" it needs surfaces outside this file (a ToolManager activator, a
-  // plan handler, a matrix row — the §LIGHT121 treatment) or a founder ruling
-  // that the family is a rival of beam/column. Left as-is pending that
-  // decision — see audit/full-stack/2026-08-31/LANE-7B1b-pryzmScreenToWorld.md.
-  runtime.tools.register('structural', (m?) => {
-    const prior = (window as unknown as Record<string, unknown>).structuralTool as
-      { dispose?: () => void } | undefined;
-    prior?.dispose?.();
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (window as unknown as Record<string, unknown>).structuralTool = new StructuralPlacementTool({
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      commandBus: busAdapter as any,
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      screenToWorld: eventScreenToWorld as any,
-    });
-    console.log(`[runtime.tools/structural] activated (type=${m ?? 'default'})`);
-  });
+  // The registration that stood here was DEAD AT EVERY LAYER (lane 7B1b
+  // measured it: screenToWorld bridged `window.__pryzmScreenToWorld`, assigned
+  // nowhere; nothing activated 'structural'; `window.structuralTool` had zero
+  // consumers and the tool attached no DOM listener). Lane 7B1b refused to
+  // delete it because the family has NO live alternative; the founder-delegated
+  // ruling (ISSUE-LOG L-12869) settled the direction: a dead construction that
+  // reads as capability is the fake-more-capable-than-real defect, so it is
+  // REMOVED like its grid/lighting/text-note siblings, and structural placement
+  // is recorded WITHHELD with an ORDERED exit condition (§PLAN-MEMBERSHIP-RULE):
+  //   1. the family gains a DRAW path (fragment builder + plan symbol consumer
+  //      — today no consumer of StructuralStore was ever constructed, L2b);
+  //   2. THEN a placement tool with a real injected projector (every live
+  //      conversion is a per-view closure; there is nothing to adopt yet);
+  //   3. THEN VDT/bimManager registration — registering a family that draws
+  //      nothing claims plan/tree presence falsely.
+  // Do not re-add a construction here before (1) and (2) exist; the verbs
+  // themselves stay registered (engineLauncher.ts:704) and undo-adapted.
 
   // ─── toy-cube (dev demo) ──────────────────────────────────────────────────
   // CubeTool.activeCubeId: uses 'demo-cube' as the well-known dev-scene cube.
