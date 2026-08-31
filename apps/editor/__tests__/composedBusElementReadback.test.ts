@@ -208,8 +208,14 @@ describe('MT-01 — element creates on the COMPOSED bus, read back from the AUTH
     // ROOM — a DISTINCT defect from the readback one: `CreateRoomHandler` declares
     // `affectedStores: []` and delegates to `window.commandManager`, so there is no
     // patch pair to mirror and no authoritative write available in this process.
-    // It throws BY NAME rather than lying, which is the part that is already right.
-    const roomOutcome = await dispatchOutcome('room.create', {
+    // §FIX-ROOM-CREATE-REFUSAL-IS-A-VALUE (C-FIX lane 3): it no longer THROWS —
+    // three of its four live dispatchers catch into EMPTY blocks, so the throw
+    // reached nobody. It refuses BY VALUE on the C80 §1.4 seam: an empty patch
+    // pair carrying a typed `CapabilityRefusal` on `EventRecord.refusal`. This arm
+    // therefore reads the RECORD, not a catch — `dispatchOutcome` would report
+    // 'OK' and miss the refusal entirely, which is exactly the fire-and-forget
+    // shape C80 §10.f names.
+    const roomRecord = await rt.bus.executeCommand('room.create', {
       id: '0318a318-0318-4318-8318-000000000001',
       type: 'room',
       levelId: LEVEL_ID,
@@ -231,8 +237,13 @@ describe('MT-01 — element creates on the COMPOSED bus, read back from the AUTH
       },
       metadata: { createdAt: 1, modifiedAt: 1, createdBy: 'mt01', version: 1 },
     });
-    expect(roomOutcome).not.toBe('OK');
-    expect(roomOutcome).toMatch(/legacy command manager is not available/);
+    expect(roomRecord.refusal).toBeDefined();
+    expect(roomRecord.refusal?.reason).toBe('ENGINE_NOT_AVAILABLE');
+    // Both C80 §1.4 numbers, not just the prose — a refusal that loses its
+    // numbers on the wire has lost the part the caller can act on.
+    expect(roomRecord.refusal?.asked).toBe(1);
+    expect(roomRecord.refusal?.unaccountedFor).toBe(1);
+    expect(roomRecord.refusal?.detail).toMatch(/legacy command manager is not present/);
     expect(authoritative('room').getById('0318a318-0318-4318-8318-000000000001')).toBeUndefined();
   });
 });

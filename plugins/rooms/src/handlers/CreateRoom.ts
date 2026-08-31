@@ -69,9 +69,50 @@
 // authoritative state THROWS. It never returns an empty patch pair, because an
 // empty patch pair is indistinguishable from "applied, nothing to change" — the
 // Class-A dead verb this whole family exists to end.
+//
+// ─── §FIX-ROOM-CREATE-REFUSAL-IS-A-VALUE (C-FIX LANE 3, P3 AXIS C) ──────────
+//
+// ⚠ THE PARAGRAPH DIRECTLY ABOVE IS NARROWER THAN IT READS, and the ENGINE-ABSENT
+// branch below no longer obeys it. "It never returns an empty patch pair" is
+// about a BARE empty pair — C16 CA-18 shape (b), which cannot be told apart from
+// "applied, nothing to change". C80 §1.4 exists precisely to close that gap: an
+// empty pair carrying a typed `CapabilityRefusal` on `HandlerResult.refusal` IS
+// distinguishable, by construction, and `types.ts` says so at the field
+// ("PRESENT ⇒ forward/inverse are empty BY CONSTRUCTION and the empty pair is a
+// determined refusal, not the C16 CA-18(b) silent no-op"). So the choice here was
+// never throw-vs-silence; it was throw-vs-VALUE, and C80 §10.f settles it: a
+// throw is what a fire-and-forget catch-block swallows. THREE of this verb's four
+// live dispatchers are exactly that shape — `RoomAIAssistant.ts:165` and
+// `RoomTool.ts:224/387` catch to an EMPTY block, and only
+// `RoomPlanToolHandler.ts:149` logs. The throw was reaching nobody.
+//
+// ⭐ WHAT WAS MEASURED FIRST, so this is not read as a wiring fix it is not:
+//   · the handler IS registered in production — `PluginRegistry.ts:694`
+//     (`buildRoomHandlerSet` via composeRuntime) and again at
+//     `engineLauncher.ts:658` (`registerRoomHandlers`, F-1.3);
+//   · `window.commandManager` IS assigned in production, at
+//     `initTools.ts:3254`.
+// So in the browser this verb DELEGATES and rooms are created; the absence is
+// real only in a composed process that never boots the engine half. That absence
+// is LEGITIMATE, and closing it from inside this plugin would mean minting rooms
+// locally — a RIVAL of `CreateRoomCommand` that skips unique room-number
+// assignment, `bimManager.registerElement` and `elementRegistry.registerSemantic`.
+// NOT DONE. The refusal is the correct answer, and it is now readable.
+//
+// ⚠ THIS IS A CONDITIONAL REFUSAL, NOT A DEAD VERB. `check-verb-register.ts`
+// classifies by a slice regex (`refusesByValue`) that cannot see a mutation
+// performed through `commandManager`, so it may grade this verb REFUSES — which
+// its own ⚠ on `refusesInCanExecute` calls the worse defect ("a gate that grades
+// a working bridge 'refuses' is worse than the defect it was written to fix").
+// The reading to trust is the executed one:
+// `__tests__/roomCreateEngineRefusal.test.ts`, whose last case dispatches the
+// SAME payload with a command manager present and proves it reaches
+// `CreateRoomCommand` and returns NO refusal.
 
 import {
+  capabilityRefused,
   withHandlerSpan,
+  type CapabilityRefusal,
   type CommandHandler,
   type HandlerContext,
   type HandlerResult,
@@ -130,6 +171,47 @@ function whyNotACompleteRoom(cmd: CreateRoomPayload): string | null {
   );
 }
 
+/**
+ * §FIX-ROOM-CREATE-REFUSAL-IS-A-VALUE — the ENGINE-ABSENT refusal, built where it
+ * can be unit-tested independently of the bus (the shape
+ * `buildRegenerationRefusal` in `RegenerateRooms.ts` established for this
+ * directory).
+ *
+ * C80 §1.4's both-numbers discipline is structural: `room.create` names exactly
+ * ONE room per dispatch, so `asked` is 1 — a REAL count, not a sentinel — and
+ * `unaccountedFor` is the same 1, because the single room asked for is the one
+ * that cannot be accounted for. Neither is `undefined` here: the §5.2
+ * known-vs-unknown rule reserves that for an ask that names no element set, and
+ * this ask names one.
+ */
+export function buildEngineAbsentRefusal(cmd: CreateRoomPayload): CapabilityRefusal {
+  const named = typeof cmd.name === 'string' && cmd.name.length > 0 ? ` '${cmd.name}'` : '';
+  return capabilityRefused({
+    commandType: 'room.create',
+    reason: 'ENGINE_NOT_AVAILABLE',
+    asked: 1,
+    unaccountedFor: 1,
+    protects:
+      'the registration work CreateRoomCommand (@pryzm/command-registry) performs in the §R-3 order and ' +
+      'a plugin-local roomStore.add() would skip — unique room-number assignment (assignUniqueRoomNumber), ' +
+      'bimManager.registerElement spatial registration, and elementRegistry.registerSemantic. A room minted ' +
+      'without those is a record the area schedules, the room-label renderer and the IFC exporter cannot ' +
+      'account for, which is a lie about WHAT THE MODEL IS rather than about whether something moved',
+    detail:
+      `room.create was asked to create 1 room${named}, and 1 could not be created. ` +
+      'The legacy command manager is not present in this process, so the ONLY path to authoritative room ' +
+      'state is absent. This is not a no-op and not a silent success: nothing was written. ' +
+      'THE ASK: create 1 room from a complete RoomData record. ' +
+      'THE BLOCKER: CreateRoomCommand needs the engine half — a BimManager level authority plus an attached ' +
+      'RoomStore — which apps/editor/src/engine/initBuilders.ts wires at boot (roomStore.attachEngine, ' +
+      '§ADR-0318-ELEMENTS-SLOT) and apps/editor/src/engine/initTools.ts:3254 exposes as window.commandManager. ' +
+      'A composed runtime without that half cannot create a room, and this plugin will not write one locally: ' +
+      'doing so would mint a rival creation path that skips the registrations named in `protects`. ' +
+      'In a browser session both are present and this verb delegates normally — see ' +
+      'plugins/rooms/__tests__/roomCreateEngineRefusal.test.ts, whose last case proves exactly that.',
+  });
+}
+
 export class CreateRoomHandler implements CommandHandler<CreateRoomPayload, Record<string, unknown>> {
   readonly type = 'room.create';
   /**
@@ -172,13 +254,38 @@ export class CreateRoomHandler implements CommandHandler<CreateRoomPayload, Reco
       // §FIX-ROOM-CREATE-STORE-KEY — no commandManager means the ONLY path to
       // authoritative room state is absent in this process. That is a failure, not
       // a no-op, and it is reported as one (C16 §5.1 CA-21 / ADR-0299).
+      //
+      // §FIX-ROOM-CREATE-REFUSAL-IS-A-VALUE — reported as a VALUE, not a throw.
+      // See the header: three of this verb's four live dispatchers catch to an
+      // empty block, so the throw this replaces was reaching nobody. The console
+      // line is kept BESIDE the returned refusal rather than in place of it —
+      // dropping it would have made the composed-process case quieter than it was
+      // before, which is not an improvement even when the value is strictly
+      // better.
+      //
+      // ⚠ MEASURED SIDE-EFFECT ON THE REGISTER, recorded so nobody "tidies" it.
+      // `check-verb-register.ts`'s CA18_SHAPE regex looks for the two empty
+      // patch arrays followed by an explicit key-and-colon for the refusal. The
+      // SHORTHAND property used below does not satisfy it, so this verb still
+      // measures LIVE — re-measured across this change: LIVE 143, REFUSES 37,
+      // both unchanged. That verdict is the CORRECT one: this is a CONDITIONAL
+      // refusal, and the gate's own warning on `refusesInCanExecute` says
+      // grading a working bridge as refusing is worse than the defect it was
+      // written to fix. But it is correct here for an INCIDENTAL reason.
+      // Rewriting the shorthand into an explicit key would flip the published
+      // row to REFUSES and assert that a verb which creates rooms in every
+      // browser session will not act. Do not rewrite it without moving the
+      // gate's classifier in the same commit.
+      //
+      // ⚠ AND THE SAME REGEX READS COMMENTS. An earlier revision of this very
+      // note spelled the matched shape out literally and flipped the register
+      // by itself (LIVE 143→142, REFUSES 37→38) with no code change at all.
+      // That is logged as a gate finding, not worked around: a classifier that
+      // a comment can move is one a rename can move too.
       if (!cm) {
-        throw new Error(
-          'room.create: the legacy command manager is not available in this process, so no room was created. ' +
-            'The authoritative path is CreateRoomCommand (@pryzm/command-registry), which needs the engine half — ' +
-            'a BimManager level authority + RoomStore — that apps/editor/src/engine/initBuilders.ts attaches at boot ' +
-            '(roomStore.attachEngine, §ADR-0318-ELEMENTS-SLOT). A composed runtime without that half cannot create a room.',
-        );
+        const refusal = buildEngineAbsentRefusal(cmd);
+        console.warn('[room.create.handler] REFUSED —', refusal.detail);
+        return { forward: [], inverse: [], refusal };
       }
 
       let result: { success?: boolean; error?: string } | void;

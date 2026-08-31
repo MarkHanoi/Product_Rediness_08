@@ -57,6 +57,13 @@ describe('§FIX-SHEET-ADDVIEWPORT-SHADOW — the sheets plugin yields sheet.addV
 
     // Negative control — the guard is not vacuously false: a verb the sheets
     // plugin DOES own reads `true` through the same call.
-    expect(bus.registry?.has?.('sheet.create' as never) ?? false).toBe(true);
+    //
+    // ⚠ This control used to name 'sheet.create'. §FIX-SHEET-CREATE-SHADOW
+    // (C-FIX LANE 3) yielded that verb to the L-1590 initBusHandlers bridge for
+    // the same three reasons this file records for 'sheet.addViewport', so it
+    // is no longer a verb the plugin owns and would no longer be a control.
+    // 'sheet.rename' is: it is still in SHEET_HANDLER_TYPES. See
+    // __tests__/createSheetShadow.test.ts.
+    expect(bus.registry?.has?.('sheet.rename' as never) ?? false).toBe(true);
   });
 });

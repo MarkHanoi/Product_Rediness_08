@@ -136,12 +136,34 @@ describe('room.create — legacy bridge (§FIX-ROOM-CREATE-STORE-KEY)', () => {
     ).rejects.toThrow(/room\.redetect/);
   });
 
-  it('refuses, with a reason, when no legacy command manager is present', async () => {
+  it('refuses AS A VALUE, with both numbers, when no legacy command manager is present', async () => {
+    // §FIX-ROOM-CREATE-REFUSAL-IS-A-VALUE (C-FIX LANE 3) — REWRITTEN, not
+    // deleted, in the commit that changed the behaviour. This case used to
+    // assert `.rejects.toThrow(/legacy command manager is not available/)`.
+    //
+    // The engine-absent branch now returns a typed `CapabilityRefusal` on
+    // `HandlerResult.refusal` beside an empty patch pair (C80 §1.4) instead of
+    // throwing, because three of this verb's four live dispatchers catch to an
+    // EMPTY block (`RoomAIAssistant.ts:165`, `RoomTool.ts:224/387`) and so the
+    // throw was reaching nobody — C80 §10.f's defect exactly.
+    //
+    // ⚠ THE OTHER THREE CASES IN THIS DESCRIBE STILL ASSERT THROWS ON PURPOSE.
+    // An incomplete payload and a CreateRoomCommand rejection are ordinary
+    // validation/propagation failures, not a withheld capability, and
+    // flattening them into refusals would make "the room could not be created"
+    // and "this process cannot create rooms at all" the same value.
     env = buildEnv();
     delete g.window;
-    await expect(
-      env.bus.executeCommand('room.create', COMPLETE_ROOM('22222222-2222-4222-a222-222222222222')),
-    ).rejects.toThrow(/legacy command manager is not available/);
+    const record = await env.bus.executeCommand(
+      'room.create',
+      COMPLETE_ROOM('22222222-2222-4222-a222-222222222222'),
+    );
+    expect(record.refusal).toBeDefined();
+    expect(record.refusal!.reason).toBe('ENGINE_NOT_AVAILABLE');
+    expect(record.refusal!.asked).toBe(1);
+    expect(record.refusal!.unaccountedFor).toBe(1);
+    expect(record.refusal!.detail).toMatch(/legacy command manager is not present/);
+    // Full coverage of the shape lives in __tests__/roomCreateEngineRefusal.test.ts.
   });
 
   it('surfaces a CreateRoomCommand refusal instead of reporting success', async () => {

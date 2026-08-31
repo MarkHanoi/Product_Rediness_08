@@ -240,8 +240,21 @@ export class SheetsRailPanel {
 
     private _executeCreateSheet(sheetNumber: string, name: string): void {
         // Phase C (Task 3.2): sheet.create is now the primary dispatch path.
-        // CreateSheetHandler (plugins/sheets/src/handlers/CreateSheet.ts, type='sheet.create')
-        // is a real handler — commandManager removed.
+        //
+        // ⚠ CORRECTED by §FIX-SHEET-CREATE-SHADOW (C-FIX LANE 3). These lines used
+        // to name `CreateSheetHandler` (plugins/sheets/src/handlers/CreateSheet.ts)
+        // as the handler that answers. IT NEVER DID, and that file no longer
+        // exists. `registerSheetHandlers()` has ZERO production callers, so the
+        // plugin arm claimed this verb on no real bus; the arm that answers is the
+        // L-1590 bridge at apps/editor/src/engine/initBusHandlers.ts:2641, which
+        // runs CreateSheetCommand into the core-app-model `sheetStore` singleton —
+        // the same store `build()` above reads through `sheetStore.getAll()`,
+        // which is why a sheet created here shows up in this rail.
+        //
+        // The payload below is therefore the BRIDGE's validated shape
+        // ({ id, sheetNumber, name }); the deleted plugin handler had no
+        // `sheetNumber` field at all and would have auto-numbered over it.
+        // Pin: plugins/sheets/__tests__/createSheetShadow.test.ts.
         const id = `sheet-${crypto.randomUUID()}`;
         const bus = window.runtime?.bus;
         if (!bus) {

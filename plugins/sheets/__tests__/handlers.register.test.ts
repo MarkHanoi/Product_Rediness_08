@@ -9,8 +9,9 @@ import {
 } from '../src/handlers/index.js';
 
 const EXPECTED_TYPES = [
-  // S37
-  'sheet.create',
+  // S37 — NB 'sheet.create' is deliberately ABSENT: its live arm is the
+  // initBusHandlers L-1590 bridge (§FIX-SHEET-CREATE-SHADOW, C-FIX LANE 3; see
+  // __tests__/createSheetShadow.test.ts).
   'sheet.delete',
   'sheet.rename',
   'sheet.reorder',
@@ -27,7 +28,7 @@ const EXPECTED_TYPES = [
 ] as const;
 
 describe('buildSheetHandlerSet', () => {
-  it('returns all 10 handlers in S37→S39 declaration order', () => {
+  it('returns all 9 handlers in S37→S39 declaration order', () => {
     const set = buildSheetHandlerSet();
     expect(set.map((h) => h.type)).toEqual([...EXPECTED_TYPES]);
   });
@@ -44,7 +45,7 @@ describe('buildSheetHandlerSet', () => {
 });
 
 describe('registerSheetHandlers', () => {
-  it('registers all 10 handlers on a fresh CommandBus', () => {
+  it('registers all 9 handlers on a fresh CommandBus', () => {
     const bus = new CommandBus({
       storesProvider: () => ({ sheet: {} }),
       audit: { actorId: 'test', projectId: 'p', clientId: 'c' },
