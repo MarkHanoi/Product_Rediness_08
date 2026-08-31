@@ -1,5 +1,5 @@
 import * as THREE from '@pryzm/renderer-three/three';
-import * as OBC from '@thatopen/components';
+import type { SeamCamera, SeamWorld } from '@pryzm/core-app-model';
 
 export type ToolName = 
     | 'none' 
@@ -61,9 +61,9 @@ export enum ToolState {
 }
 
 export interface ToolContext {
-    world: OBC.World;
+    world: SeamWorld;
     scene: THREE.Scene;
-    camera: OBC.SimpleCamera;
+    camera: SeamCamera;
     canvas: HTMLCanvasElement;
 }
 

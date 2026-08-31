@@ -1,6 +1,6 @@
 
 import * as THREE from '@pryzm/renderer-three/three';
-import * as OBC from '@thatopen/components';
+import type { SeamCamera, SeamWorld } from '@pryzm/core-app-model';
 // §SELECT-HIGHLIGHT-RELEASE-AT-BOUNDARY (L-1002) — `scheduleGpuRelease` is the
 // frame-boundary release queue (ADR-0297 INVARIANT L2), drained by
 // `RenderPipelineManager.render()`. The `safeDispose*` helpers remain for the
@@ -474,8 +474,8 @@ export class SelectionManager implements ISelectionManager {
     private readonly PARENT_RESOLVED_ROLES = ['geometry', 'mullion', 'panel'];
 
     constructor(
-        private world: OBC.World,
-        private camera: OBC.SimpleCamera,
+        private world: SeamWorld,
+        private camera: SeamCamera,
         private domElement: HTMLElement,
         private transformControls: TransformControls,
         private updateInspector: (obj: THREE.Object3D) => void

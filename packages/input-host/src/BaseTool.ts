@@ -1,5 +1,5 @@
 import * as THREE from '@pryzm/renderer-three/three';
-import * as OBC from '@thatopen/components';
+import type { SeamWorld } from '@pryzm/core-app-model';
 import { ITool, ToolName, ToolState, ToolStateInfo, ToolContext } from './types.js';
 
 export abstract class BaseTool implements ITool {
@@ -10,7 +10,7 @@ export abstract class BaseTool implements ITool {
     protected _hasPreview = false;
     protected _boundHandlers: Map<string, EventListener> = new Map();
     
-    protected world: OBC.World;
+    protected world: SeamWorld;
     protected scene: THREE.Scene;
     protected canvas: HTMLCanvasElement;
     

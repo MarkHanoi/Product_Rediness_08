@@ -1,5 +1,5 @@
 import * as THREE from '@pryzm/renderer-three/three';
-import * as OBC from '@thatopen/components';
+import type { SeamWorld } from '@pryzm/core-app-model';
 import { ITool, ToolName, ToolState } from './types.js';
 import { SnapManager } from '@pryzm/snapping';
 // §WALL-AUDIT-2026-W5: shared camera-zoom-aware tolerance.
@@ -25,7 +25,7 @@ export class BeamTool implements ITool {
     private _isActive = false;
     private _state: ToolState = ToolState.IDLE;
 
-    private world: OBC.World;
+    private world: SeamWorld;
     private beamStore: BeamStore;
     private commandManager: CommandManager;
     private snapManager: SnapManager | null = null;
@@ -46,7 +46,7 @@ export class BeamTool implements ITool {
     private pointerDownHandler: ((e: PointerEvent) => void) | null = null;
     private pointerMoveHandler: ((e: PointerEvent) => void) | null = null;
 
-    constructor(world: OBC.World, beamStore: BeamStore, commandManager: CommandManager) {
+    constructor(world: SeamWorld, beamStore: BeamStore, commandManager: CommandManager) {
         this.world = world;
         this.beamStore = beamStore;
         this.commandManager = commandManager;
@@ -141,7 +141,10 @@ export class BeamTool implements ITool {
     // ── Listeners ────────────────────────────────────────────────────────────
 
     private attachListeners() {
-        const canvas = this.world.renderer!.three.domElement;
+        // §OBC-SEAM: SeamWorld declares renderer.three honestly-optional (the OBC
+        // d.ts hid it behind BaseRenderer). No canvas => refuse by name, not TypeError.
+        const canvas = this.world.renderer?.three?.domElement;
+        if (!canvas) { console.warn('[BeamTool] no renderer canvas — pointer events not bound'); return; }
         this.pointerDownHandler = (e) => this.onPointerDown(e);
         this.pointerMoveHandler = (e) => this.onPointerMove(e);
         canvas.addEventListener('pointerdown', this.pointerDownHandler);
@@ -149,7 +152,8 @@ export class BeamTool implements ITool {
     }
 
     private detachListeners() {
-        const canvas = this.world.renderer!.three.domElement;
+        const canvas = this.world.renderer?.three?.domElement;
+        if (!canvas) return;
         if (this.pointerDownHandler) canvas.removeEventListener('pointerdown', this.pointerDownHandler);
         if (this.pointerMoveHandler) canvas.removeEventListener('pointermove', this.pointerMoveHandler);
         this.pointerDownHandler = null;
@@ -382,7 +386,8 @@ export class BeamTool implements ITool {
     // ── Raycasting ───────────────────────────────────────────────────────────
 
     private getWorldPoint(e: PointerEvent): THREE.Vector3 | null {
-        const canvas = this.world.renderer!.three.domElement;
+        const canvas = this.world.renderer?.three?.domElement;
+        if (!canvas) return null;
         const rect   = canvas.getBoundingClientRect();
         const mouse  = new THREE.Vector2(
             ((e.clientX - rect.left) / rect.width)  *  2 - 1,
