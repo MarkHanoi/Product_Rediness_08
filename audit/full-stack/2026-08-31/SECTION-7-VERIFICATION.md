@@ -5,6 +5,7 @@
 |---|---|---|---|
 | Audit baseline (gate-snapshot.json, morning) | 61 | 38 | 99 |
 | After C + L waves (L-lane run ~18:45, ga-gate-run.txt) | 63 | 37 | 100 |
+| After 7 Wave A + input-host (full run-all, ~21:50) | **64** | **36** | 100 |
 
 **Attribution, both directions:**
 - **+1 flip red→green: check-verb-register** (rc1→rc0) — sheet.create shadow removed,
@@ -29,7 +30,6 @@
   in either direction.
 
 ## Still owed before deploy
-- [ ] Wave A verify returns safe_to_commit + banned-3p ≤ 113 → commit + push
-- [ ] Re-run run-all AFTER Wave A commit; update the table above from the run,
-      never from this file (read the gate, not this line)
+- [x] Wave A verified + committed (1234ca9b) + input-host (83979ad3): banned-3p 124 -> 86/113, check-layer-boundaries RC=0 — the SECOND red->green flip of the session
+- [x] Full run-all re-read at 83979ad3: 64 passing / 36 failing / 1 declared debt / 22 ratchet exceeded / 4 regression-class (all four red in the MORNING baseline too) / 0 misconfigured. The 36 are the morning 38 minus verb-register minus layer-boundaries. ZERO new reds all session.
 - [ ] Deploy per DEPLOY-CONTRACT-MANUAL-FLY.md (push already done for C + L)
