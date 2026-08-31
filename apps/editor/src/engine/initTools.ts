@@ -2082,7 +2082,14 @@ export async function initTools(p: ToolsParams): Promise<ToolsResult> {
             // call therefore evaluated to `undefined` on every single event and the
             // guard never once fired — a sixth constant-false read in this same bridge,
             // hidden by the store being typed `any` here.
-            if (curtainWallStoreInstance.has(cwRecord.id)) return;
+            // §AXIS-L-W1 (2026-08-31) — the dedup guard MOVED BELOW the VDT + bimManager
+            // registration: it gates the add() MIRROR ONLY, the wall §P2.1 / §FIX-VDT-DUAL-PATH
+            // shape. Early-returning here left a duplicate event — or a curtain wall that
+            // reached the legacy store via another path — with NO VDT entry and NO
+            // level.childrenIds membership: invisible in plan view and the BIM tree. Both
+            // sinks are idempotent on a known id (VDT registerElement is Map.set — replace,
+            // ViewDependencyTracker.ts:453-455; BimManager.registerElement is an
+            // includes-guarded push, BimKernel.ts:263-265), so re-registering is a no-op.
             // §G3-STALE-FIX-CW (OI-054 (a), 2026-05-24) — register the curtain wall in VDT +
             // bimManager BEFORE add(), mirroring the wall §P2.1 fix. curtainWallStoreInstance.add()
             // SYNCHRONOUSLY drives CurtainPanelSyncHandler, which fires a storeEventBus event per
@@ -2092,7 +2099,13 @@ export async function initTools(p: ToolsParams): Promise<ToolsResult> {
             try { viewDependencyTracker.registerElement(cwRecord.id, cwRecord.levelId); }
             catch (err) { console.warn('[initTools] §P3.1-CW VDT.registerElement failed (non-fatal):', err); }
             try { bimManager.registerElement(cwRecord.id, cwRecord.levelId); }
-            catch { /* non-fatal — may already be registered */ }
+            catch (err) {
+                // §AXIS-L-W1 / C74 CA-18 — refuse by name, never silently. (Idempotent
+                // re-registration does NOT throw — this fires only on a real failure,
+                // e.g. an unknown or empty levelId.)
+                console.error('[initTools] §P3.1-CW: bimManager.registerElement FAILED for curtain-wall', cwRecord.id, '—', err instanceof Error ? err.message : String(err));
+            }
+            if (curtainWallStoreInstance.has(cwRecord.id)) return; // dedup guard — gates the add() mirror ONLY (§AXIS-L-W1)
             try {
                 // §FIX-ANY-STORE-SEAM (L-980) — `as CurtainWallData`, NOT `as any`.
                 // `CurtainWallStore.add()` STAMPS `properties` (and `properties.mark`,
@@ -2181,16 +2194,32 @@ export async function initTools(p: ToolsParams): Promise<ToolsResult> {
             // call evaluated to `undefined` on every event, so the guard never once
             // fired — the same constant-false shape as the curtain-wall guard in
             // L-972, hidden by the store being typed `any` at this seam.
-            if (ceilingStore.has(ceilingRecord.id)) return;
+            // §AXIS-L-W1 (2026-08-31) — registration hoisted ABOVE the add() and OUTSIDE the
+            // dedup guard (wall §P2.1 / §G3-STALE-FIX shape). Two defects in the old order:
+            //  (1) the early return skipped VDT + bimManager on a duplicate event, so a
+            //      ceiling that reached the store via another path stayed invisible in plan
+            //      view and the BIM tree;
+            //  (2) add() fires storeEventBus SYNCHRONOUSLY — registering after it meant the
+            //      create event fell into the §G3-STALE fallback (all non-3D views dirtied).
+            // Both sinks are idempotent on a known id (VDT: Map.set replace,
+            // ViewDependencyTracker.ts:453-455; bimManager: includes-guarded push,
+            // BimKernel.ts:263-265). ⛔ C11 §11's add-then-register legend is the documented
+            // order that CAUSED the bug — do not restore it.
+            // §FIX-PLAN-VDT-BIMMANAGER (ceiling): without these two calls, ceiling elements
+            // created via the bus path are invisible in plan view — same root cause as wall fix.
+            // viewDependencyTracker.registerElement → targeted dirty-marking (no §G3-STALE-EVENT).
+            // bimManager.registerElement → level.childrenIds contains ceilingId →
+            // NativeElementMeshExporter includes it in plan-view projections.
+            try { viewDependencyTracker.registerElement(ceilingRecord.id, ceilingRecord.levelId); }
+            catch (err) { console.warn('[initTools] §P3.2-CL VDT.registerElement failed (non-fatal):', err); }
+            try { bimManager.registerElement(ceilingRecord.id, ceilingRecord.levelId); }
+            catch (err) {
+                // §AXIS-L-W1 / C74 CA-18 — refuse by name, never silently.
+                console.error('[initTools] §P3.2-CL: bimManager.registerElement FAILED for ceiling', ceilingRecord.id, '—', err instanceof Error ? err.message : String(err));
+            }
+            if (ceilingStore.has(ceilingRecord.id)) return; // dedup guard — gates the add() mirror ONLY (§AXIS-L-W1)
             try {
                 ceilingStore.add(ceilingRecord);
-                // §FIX-PLAN-VDT-BIMMANAGER (ceiling): without these two calls, ceiling elements
-                // created via the bus path are invisible in plan view — same root cause as wall fix.
-                // viewDependencyTracker.registerElement → targeted dirty-marking (no §G3-STALE-EVENT).
-                // bimManager.registerElement → level.childrenIds contains ceilingId →
-                // NativeElementMeshExporter includes it in plan-view projections.
-                viewDependencyTracker.registerElement(ceilingRecord.id, ceilingRecord.levelId);
-                try { bimManager.registerElement(ceilingRecord.id, ceilingRecord.levelId); } catch { /* non-fatal */ }
                 console.log('[initTools] §P3.2-CL: ceiling mirrored to legacy store', ceilingRecord.id);
             } catch (err) {
                 console.error(
@@ -2221,7 +2250,10 @@ export async function initTools(p: ToolsParams): Promise<ToolsResult> {
                 !ev.boundary ||
                 ev.boundary.length < 3
             ) return;
-            if (roofStore.getById(ev.id)) return; // dedup guard
+            // §AXIS-L-W1 (2026-08-31) — the dedup guard that early-returned HERE moved below
+            // the VDT + bimManager registration inside the try: it gates the add() mirror
+            // ONLY (wall §P2.1 shape). Early-returning skipped registration on a duplicate
+            // event, leaving the roof invisible in plan view and the BIM tree.
             try {
                 // §ROOF-FOLLOWS-WALL (L-924) — the field mapping now lives in
                 // `roofCreatedMirror.ts` so a test can EXECUTE it. As a closure
@@ -2260,11 +2292,22 @@ export async function initTools(p: ToolsParams): Promise<ToolsResult> {
                 // curtain-wall mirror above: `RoofStore.add()` backfills `properties`
                 // (+ `properties.mark`) and REBUILDS `metadata` wholesale
                 // (RoofStore.ts:58-83), so both are stamped, not dropped.
-                roofStore.add(record as RoofData);
                 // §FIX-PLAN-VDT-BIMMANAGER (roof): without these two calls, roof elements
                 // created via the bus path are invisible in plan view — same root cause as wall fix.
-                viewDependencyTracker.registerElement(ev.id, ev.levelId ?? '');
-                try { bimManager.registerElement(ev.id, ev.levelId ?? ''); } catch { /* non-fatal */ }
+                // §AXIS-L-W1 / §G3-STALE-FIX — registration BEFORE add() (add() fires
+                // storeEventBus synchronously) and OUTSIDE the dedup guard (both sinks are
+                // idempotent: VDT Map.set replace, ViewDependencyTracker.ts:453-455;
+                // bimManager includes-guarded push, BimKernel.ts:263-265). Placed after the
+                // record null-check so a refused event registers nothing.
+                try { viewDependencyTracker.registerElement(ev.id, ev.levelId ?? ''); }
+                catch (err) { console.warn('[initTools] §P3.2-RF VDT.registerElement failed (non-fatal):', err); }
+                try { bimManager.registerElement(ev.id, ev.levelId ?? ''); }
+                catch (err) {
+                    // §AXIS-L-W1 / C74 CA-18 — refuse by name, never silently.
+                    console.error('[initTools] §P3.2-RF: bimManager.registerElement FAILED for roof', ev.id, '—', err instanceof Error ? err.message : String(err));
+                }
+                if (roofStore.getById(ev.id)) return; // dedup guard — gates the add() mirror ONLY (§AXIS-L-W1)
+                roofStore.add(record as RoofData);
                 console.log('[initTools] §P3.2-RF: roof mirrored to legacy store', ev.id);
             } catch (err) {
                 console.error(
@@ -2305,7 +2348,21 @@ export async function initTools(p: ToolsParams): Promise<ToolsResult> {
             // so the guard never fired — CreateColumnCommand already adds the column
             // to the legacy store directly, causing the bridge to double-add (duplicate
             // Map.set → duplicate ColumnFragmentBuilder mesh in the scene).
-            if (columnStore.get(ev.id)) return; // dedup guard
+            // §AXIS-L-W1 (2026-08-31) — registration BEFORE the dedup guard and BEFORE the
+            // add() (wall §P2.1 / §G3-STALE-FIX shape). The early return below used to sit
+            // above these calls, so a duplicate event — or a column added directly by
+            // CreateColumnCommand (the legacy-first path this guard exists for) — never
+            // registered for plan view or the BIM tree. Both sinks are idempotent on a
+            // known id (VDT: Map.set replace, ViewDependencyTracker.ts:453-455; bimManager:
+            // includes-guarded push, BimKernel.ts:263-265).
+            try { viewDependencyTracker.registerElement(ev.id, ev.levelId ?? ''); }
+            catch (err) { console.warn('[initTools] §P3.3-CO VDT.registerElement failed (non-fatal):', err); }
+            try { bimManager.registerElement(ev.id, ev.levelId ?? ''); }
+            catch (err) {
+                // §AXIS-L-W1 / C74 CA-18 — refuse by name, never silently.
+                console.error('[initTools] §P3.3-CO: bimManager.registerElement FAILED for column', ev.id, '—', err instanceof Error ? err.message : String(err));
+            }
+            if (columnStore.get(ev.id)) return; // dedup guard — gates the add() mirror ONLY (§AXIS-L-W1)
             try {
                 // Legacy ColumnData uses `position` (not `origin`) and `profile` (not `shape`).
                 (columnStore as any).add({
@@ -2327,10 +2384,8 @@ export async function initTools(p: ToolsParams): Promise<ToolsResult> {
                         ifcClass: 'IfcColumn',
                     },
                 });
-                // §FIX-PLAN-VDT-BIMMANAGER (column): without these two calls, column elements
-                // created via the bus path are invisible in plan view — same root cause as wall fix.
-                viewDependencyTracker.registerElement(ev.id, ev.levelId ?? '');
-                try { bimManager.registerElement(ev.id, ev.levelId ?? ''); } catch { /* non-fatal */ }
+                // §FIX-PLAN-VDT-BIMMANAGER (column) — the VDT + bimManager registration that
+                // used to live HERE (after add) moved ABOVE the dedup guard (§AXIS-L-W1).
                 console.log('[initTools] §P3.3-CO: column mirrored to legacy store', ev.id);
             } catch (err) {
                 console.error(
@@ -2371,7 +2426,22 @@ export async function initTools(p: ToolsParams): Promise<ToolsResult> {
                 !ev.polygon ||
                 ev.polygon.length < 3
             ) return;
-            if (slabStore.getById(ev.id)) return; // dedup guard
+            // §AXIS-L-W1 (2026-08-31) — registration BEFORE the dedup guard and BEFORE the
+            // add() (wall §P2.1 / §G3-STALE-FIX shape). The early return below used to sit
+            // above these calls, so a duplicate event — or a slab that reached the legacy
+            // store via another path — never registered for plan view or the BIM tree.
+            // Both sinks are idempotent on a known id (VDT: Map.set replace,
+            // ViewDependencyTracker.ts:453-455; bimManager: includes-guarded push,
+            // BimKernel.ts:263-265). BeamStore.ts §3.5 confirms bimManager.registerElement()
+            // was removed from the stores — bridges must call it explicitly.
+            try { viewDependencyTracker.registerElement(ev.id, ev.levelId ?? ''); }
+            catch (err) { console.warn('[initTools] §FT1 VDT.registerElement failed (non-fatal):', err); }
+            try { bimManager.registerElement(ev.id, ev.levelId ?? ''); }
+            catch (err) {
+                // §AXIS-L-W1 / C74 CA-18 — refuse by name, never silently.
+                console.error('[initTools] §FT1: bimManager.registerElement FAILED for slab', ev.id, '—', err instanceof Error ? err.message : String(err));
+            }
+            if (slabStore.getById(ev.id)) return; // dedup guard — gates the add() mirror ONLY (§AXIS-L-W1)
             try {
                 slabStore.add({
                     id:         ev.id,
@@ -2391,12 +2461,8 @@ export async function initTools(p: ToolsParams): Promise<ToolsResult> {
                         ifcClass: 'IfcSlab',
                     },
                 } as any);
-                // §FIX-PLAN-VDT-BIMMANAGER (slab): without these two calls, slab elements
-                // created via the bus path are invisible in plan view — same root cause as wall fix.
-                // BeamStore.ts §3.5 comment confirms bimManager.registerElement() was removed from
-                // the store — bridges must call it explicitly.
-                viewDependencyTracker.registerElement(ev.id, ev.levelId ?? '');
-                try { bimManager.registerElement(ev.id, ev.levelId ?? ''); } catch { /* non-fatal */ }
+                // §FIX-PLAN-VDT-BIMMANAGER (slab) — the VDT + bimManager registration that
+                // used to live HERE (after add) moved ABOVE the dedup guard (§AXIS-L-W1).
                 console.log('[initTools] §FT1: slab mirrored to legacy store', ev.id);
             } catch (err) {
                 console.error(
@@ -2432,7 +2498,10 @@ export async function initTools(p: ToolsParams): Promise<ToolsResult> {
                 !ev.startPoint ||
                 !ev.endPoint
             ) return;
-            if (beamStore.get(ev.id)) return; // dedup guard
+            // §AXIS-L-W1 (2026-08-31) — the dedup guard that early-returned HERE moved below
+            // the VDT + bimManager registration inside the try: it gates the add() mirror
+            // ONLY (wall §P2.1 shape). Early-returning skipped registration on a duplicate
+            // event, leaving the beam invisible in plan view and the BIM tree.
             try {
                 // §FIX-BEAM-BRIDGE-LOADBEARING / §FIX-BEAM-BRIDGE-SECTION (C84
                 // EI-2a + EI-2c) — the field mapping now lives in
@@ -2446,13 +2515,24 @@ export async function initTools(p: ToolsParams): Promise<ToolsResult> {
                 // `roofCreatedMirror.ts`, for the same reason.
                 const record = beamRecordFromCreatedEvent(ev);
                 if (!record) return;
-                beamStore.add(record);
                 // §FIX-PLAN-VDT-BIMMANAGER (beam): without these two calls, beam elements
                 // created via the bus path are invisible in plan view — same root cause as wall fix.
                 // BeamStore.ts §3.5 explicitly documents bimManager.registerElement was removed from
                 // the store — the bridge is the only registration site for the bus creation path.
-                viewDependencyTracker.registerElement(ev.id, ev.levelId ?? '');
-                try { bimManager.registerElement(ev.id, ev.levelId ?? ''); } catch { /* non-fatal */ }
+                // §AXIS-L-W1 / §G3-STALE-FIX — registration BEFORE add() (add() fires
+                // storeEventBus synchronously) and OUTSIDE the dedup guard (both sinks are
+                // idempotent: VDT Map.set replace, ViewDependencyTracker.ts:453-455;
+                // bimManager includes-guarded push, BimKernel.ts:263-265). Placed after the
+                // record null-check so a refused event registers nothing.
+                try { viewDependencyTracker.registerElement(ev.id, ev.levelId ?? ''); }
+                catch (err) { console.warn('[initTools] §FT2 VDT.registerElement failed (non-fatal):', err); }
+                try { bimManager.registerElement(ev.id, ev.levelId ?? ''); }
+                catch (err) {
+                    // §AXIS-L-W1 / C74 CA-18 — refuse by name, never silently.
+                    console.error('[initTools] §FT2: bimManager.registerElement FAILED for beam', ev.id, '—', err instanceof Error ? err.message : String(err));
+                }
+                if (beamStore.get(ev.id)) return; // dedup guard — gates the add() mirror ONLY (§AXIS-L-W1)
+                beamStore.add(record);
                 console.log('[initTools] §FT2: beam mirrored to legacy store', ev.id);
             } catch (err) {
                 console.error(
@@ -2484,7 +2564,23 @@ export async function initTools(p: ToolsParams): Promise<ToolsResult> {
                 !ev.polygon ||
                 ev.polygon.length < 3
             ) return;
-            if (floorStore.getById(ev.floorId)) return; // dedup guard
+            // §AXIS-L-W1 (2026-08-31) — registration BEFORE the dedup guard and BEFORE the
+            // add() (wall §P2.1 / §G3-STALE-FIX shape). The early return below used to sit
+            // above these calls, so a duplicate event — or a floor that reached the legacy
+            // store via another path — never registered for plan view or the BIM tree.
+            // Both sinks are idempotent on a known id (VDT: Map.set replace,
+            // ViewDependencyTracker.ts:453-455; bimManager: includes-guarded push,
+            // BimKernel.ts:263-265).
+            // §FIX-P4-FLOOR-BIMMANAGER — the properly-imported `bimManager`, not the
+            // prohibited `(window as any).bimManager` (C14 §LP-01).
+            try { viewDependencyTracker.registerElement(ev.floorId, ev.levelId ?? ''); }
+            catch (err) { console.warn('[initTools] §P3.2-FL VDT.registerElement failed (non-fatal):', err); }
+            try { bimManager.registerElement(ev.floorId, ev.levelId ?? ''); }
+            catch (err) {
+                // §AXIS-L-W1 / C74 CA-18 — refuse by name, never silently.
+                console.error('[initTools] §P3.2-FL: bimManager.registerElement FAILED for floor', ev.floorId, '—', err instanceof Error ? err.message : String(err));
+            }
+            if (floorStore.getById(ev.floorId)) return; // dedup guard — gates the add() mirror ONLY (§AXIS-L-W1)
             try {
                 const floorCount = floorStore.getAll().length + 1;
                 const label = ev.label ?? `Floor-${floorCount.toString().padStart(2, '0')}`;
@@ -2543,14 +2639,8 @@ export async function initTools(p: ToolsParams): Promise<ToolsResult> {
                         version:    1,
                     },
                 } as any);
-                // §FIX-PLAN-VDT-BIMMANAGER (floor) / §FIX-P4-FLOOR-BIMMANAGER:
-                // Previously used `(window as any).bimManager?.registerElement?.(...)` — a C14
-                // §LP-01 prohibited pattern (P4 window-as-namespace).  Replaced with the
-                // properly-imported `bimManager` (same instance, already in scope at L1).
-                // viewDependencyTracker.registerElement added for targeted dirty-marking parity
-                // with all other element bridges (§FIX-PLAN-VDT-BIMMANAGER).
-                viewDependencyTracker.registerElement(ev.floorId, ev.levelId ?? '');
-                try { bimManager.registerElement(ev.floorId, ev.levelId ?? ''); } catch { /* non-fatal */ }
+                // §FIX-PLAN-VDT-BIMMANAGER (floor) — the VDT + bimManager registration that
+                // used to live HERE (after add) moved ABOVE the dedup guard (§AXIS-L-W1).
                 console.log('[initTools] §P3.2-FL: floor mirrored to legacy store', ev.floorId);
             } catch (err) {
                 console.error(
@@ -2579,7 +2669,11 @@ export async function initTools(p: ToolsParams): Promise<ToolsResult> {
                 !ev.path ||
                 ev.path.length < 2
             ) return;
-            if (handrailStore.getById(ev.id)) return; // dedup guard
+            // §AXIS-L-W1 (2026-08-31) — the dedup guard that early-returned HERE moved
+            // below the N>2 refusal and the VDT + bimManager registration: it gates the
+            // add() mirror ONLY (wall §P2.1 shape). Early-returning skipped registration
+            // on a duplicate event, leaving the handrail invisible in plan view and the
+            // BIM tree.
 
             // ── §FIX-HANDRAIL-BRIDGE-TRUNCATION (ADR-0332 §2 defect 1) ────────
             //
@@ -2606,6 +2700,20 @@ export async function initTools(p: ToolsParams): Promise<ToolsResult> {
                 );
                 return;
             }
+
+            // §AXIS-L-W1 — registration BEFORE the dedup guard and BEFORE the add()
+            // (§G3-STALE-FIX), and AFTER the refusal above so a refused rail registers
+            // nothing. Both sinks are idempotent on a known id (VDT: Map.set replace,
+            // ViewDependencyTracker.ts:453-455; bimManager: includes-guarded push,
+            // BimKernel.ts:263-265).
+            try { viewDependencyTracker.registerElement(ev.id, ev.levelId ?? ''); }
+            catch (err) { console.warn('[initTools] §FT-HANDRAIL VDT.registerElement failed (non-fatal):', err); }
+            try { bimManager.registerElement(ev.id, ev.levelId ?? ''); }
+            catch (err) {
+                // §AXIS-L-W1 / C74 CA-18 — refuse by name, never silently.
+                console.error('[initTools] §FT-HANDRAIL: bimManager.registerElement FAILED for handrail', ev.id, '—', err instanceof Error ? err.message : String(err));
+            }
+            if (handrailStore.getById(ev.id)) return; // dedup guard — gates the add() mirror ONLY (§AXIS-L-W1)
 
             try {
                 const p0 = ev.path[0];
@@ -2667,10 +2775,8 @@ export async function initTools(p: ToolsParams): Promise<ToolsResult> {
                     ...(ev.materialId ? { materialId: ev.materialId } : {}),
                     properties: {},
                 } as any);
-                // §FIX-PLAN-VDT-BIMMANAGER (handrail): targeted VDT dirty-marking +
-                // level.childrenIds membership — required for plan-view projection.
-                viewDependencyTracker.registerElement(ev.id, ev.levelId ?? '');
-                try { bimManager.registerElement(ev.id, ev.levelId ?? ''); } catch { /* non-fatal */ }
+                // §FIX-PLAN-VDT-BIMMANAGER (handrail) — the VDT + bimManager registration
+                // that used to live HERE (after add) moved ABOVE the dedup guard (§AXIS-L-W1).
                 console.log('[initTools] §FT-HANDRAIL: handrail mirrored to legacy store', ev.id);
             } catch (err) {
                 console.error('[initTools] §FT-HANDRAIL: failed to mirror handrail to legacy store — mesh may not build:', err);
@@ -2787,7 +2893,41 @@ export async function initTools(p: ToolsParams): Promise<ToolsResult> {
             // type must be what PROVES that, not what assumes it.
             const _ls = window.lightingStore as LightingStore | undefined;
             if (!_ls) return;
-            if (_ls.has(ev.id)) return; // dedup guard
+            // §AXIS-L-W1 (2026-08-31) — VDT + bimManager registration hoisted ABOVE the
+            // dedup guard: the guard gates the mirror (store add + mesh build) ONLY, the
+            // wall §P2.1 / §FIX-VDT-DUAL-PATH shape. Early-returning before registration
+            // left a duplicate event — or a fixture that reached the store via another
+            // path — with no VDT entry and no level.childrenIds membership. Both sinks
+            // are idempotent on a known id (VDT: Map.set replace,
+            // ViewDependencyTracker.ts:453-455; bimManager: includes-guarded push,
+            // BimKernel.ts:263-265).
+            //
+            // ⚠ Canonical level resolution, the §DIAG-WALL-LEVEL rule (:1288-1300):
+            // `'' ?? 'L0'` is `''`, so an UNKNOWN storey must be REFUSED, not
+            // defaulted — a fixture registered under `''` is an orphan, and one
+            // defaulted to the ground storey bleeds onto the ground plan. The
+            // legacy record below still carries the raw levelId verbatim (an empty
+            // levelId is an S07-allowed store value); it is only the SPATIAL
+            // registration that refuses, exactly as the wall and water bridges do.
+            const _regLevelId = (ev.levelId ?? '').trim();
+            if (_regLevelId.length === 0) {
+                console.warn(
+                    '[initTools] §FT-LIGHTING ⚠ lighting.created with NO levelId — ' +
+                    'skipping spatial registration to avoid bleeding it onto the ground plan. id=',
+                    ev.id,
+                );
+            } else {
+                try { viewDependencyTracker.registerElement(ev.id, _regLevelId); }
+                catch (err) { console.warn('[initTools] §FT-LIGHTING VDT.registerElement failed (non-fatal):', err); }
+                try { bimManager.registerElement(ev.id, _regLevelId); }
+                catch (err) {
+                    // §AXIS-L-W1 / C74 CA-18 — refuse by name, never silently.
+                    // (Idempotent re-registration — e.g. after CreateLightingCommand —
+                    // does NOT throw; this fires only on a real failure.)
+                    console.error('[initTools] §FT-LIGHTING: bimManager.registerElement FAILED for lighting', ev.id, '—', err instanceof Error ? err.message : String(err));
+                }
+            }
+            if (_ls.has(ev.id)) return; // dedup guard — gates the mirror (store add + mesh build) ONLY (§AXIS-L-W1)
             try {
                 // §FIX-SEATING-ONE-AUTHORITY — re-seat rather than forwarding `origin.y`.
                 // `LightingPlanToolHandler._resolveY` computes the raw structure
@@ -2826,28 +2966,9 @@ export async function initTools(p: ToolsParams): Promise<ToolsResult> {
                 };
                 // §FIX-LIGHT-PLAN-INVALIDATION (Wave 4a) — VDT + bimManager BEFORE
                 // `add()`. See the §G3-STALE-FIX note in this bridge's header for why
-                // the order is not cosmetic.
-                //
-                // ⚠ Canonical level resolution, the §DIAG-WALL-LEVEL rule (:1288-1300):
-                // `'' ?? 'L0'` is `''`, so an UNKNOWN storey must be REFUSED, not
-                // defaulted — a fixture registered under `''` is an orphan, and one
-                // defaulted to the ground storey bleeds onto the ground plan. The
-                // legacy record below still carries `_levelId` verbatim (an empty
-                // levelId is an S07-allowed store value); it is only the SPATIAL
-                // registration that refuses, exactly as the wall and water bridges do.
-                const _regLevelId = _levelId.trim();
-                if (_regLevelId.length === 0) {
-                    console.warn(
-                        '[initTools] §FT-LIGHTING ⚠ lighting.created with NO levelId — ' +
-                        'skipping spatial registration to avoid bleeding it onto the ground plan. id=',
-                        ev.id,
-                    );
-                } else {
-                    try { viewDependencyTracker.registerElement(ev.id, _regLevelId); }
-                    catch (err) { console.warn('[initTools] §FT-LIGHTING VDT.registerElement failed (non-fatal):', err); }
-                    try { bimManager.registerElement(ev.id, _regLevelId); }
-                    catch { /* non-fatal — may already be registered by CreateLightingCommand */ }
-                }
+                // the order is not cosmetic. §AXIS-L-W1 moved the registration block
+                // (with its §DIAG-WALL-LEVEL empty-level refusal) further up, ABOVE
+                // the dedup guard, so a duplicate event still registers.
                 _ls.add(_data);
                 // §LIGHT121 (L-11902) — build the 3-D mesh HERE, not via an event
                 // listener that never existed. `LightingStore.add()` fires
@@ -2972,7 +3093,21 @@ export async function initTools(p: ToolsParams): Promise<ToolsResult> {
             // the silencer (see the lighting bridge above).
             const _fs = window.furnitureStore as FurnitureStore | undefined;
             if (!_fs) return;
-            if (_fs.get(ev.id)) return; // dedup guard
+            // §AXIS-L-W1 (2026-08-31) — registration BEFORE the dedup guard and BEFORE
+            // the add() (wall §P2.1 / §G3-STALE-FIX shape). The early return below used
+            // to sit above these calls, so a duplicate event — or furniture that reached
+            // the legacy store via another path — never registered for plan view or the
+            // BIM tree. Both sinks are idempotent on a known id (VDT: Map.set replace,
+            // ViewDependencyTracker.ts:453-455; bimManager: includes-guarded push,
+            // BimKernel.ts:263-265).
+            try { viewDependencyTracker.registerElement(ev.id, ev.levelId ?? ''); }
+            catch (err) { console.warn('[initTools] §FT-FURNITURE VDT.registerElement failed (non-fatal):', err); }
+            try { bimManager.registerElement(ev.id, ev.levelId ?? ''); }
+            catch (err) {
+                // §AXIS-L-W1 / C74 CA-18 — refuse by name, never silently.
+                console.error('[initTools] §FT-FURNITURE: bimManager.registerElement FAILED for furniture', ev.id, '—', err instanceof Error ? err.message : String(err));
+            }
+            if (_fs.get(ev.id)) return; // dedup guard — gates the add() mirror ONLY (§AXIS-L-W1)
             try {
                 // §LAMP-FLOAT-FIX / A.21.D15 datum contract — FurnitureFragmentBuilder
                 // applies the mount height EXACTLY ONCE: world Y = position.y + baseOffset
@@ -3059,10 +3194,8 @@ export async function initTools(p: ToolsParams): Promise<ToolsResult> {
                     ...(ev.kitchenConfig         ? { kitchenConfig: ev.kitchenConfig as KitchenCabinetConfig } : {}),
                     ...(ev.wardrobeCabinetConfig ? { wardrobeCabinetConfig: ev.wardrobeCabinetConfig as WardrobeCabinetConfig } : {}),
                 });
-                // §FIX-PLAN-VDT-BIMMANAGER (furniture): targeted VDT dirty-marking +
-                // level.childrenIds membership — required for plan-view export.
-                viewDependencyTracker.registerElement(ev.id, ev.levelId ?? '');
-                try { bimManager.registerElement(ev.id, ev.levelId ?? ''); } catch { /* non-fatal */ }
+                // §FIX-PLAN-VDT-BIMMANAGER (furniture) — the VDT + bimManager registration
+                // that used to live HERE (after add) moved ABOVE the dedup guard (§AXIS-L-W1).
                 // §FIX-CATCHUP-DUPLICATE-CREATE (L-18) — bus-placed furniture (carousel /
                 // plan tool / AI furnish) reaches the legacy store ONLY through this
                 // bridge, so register its id in the ElementRegistry here too, matching the
