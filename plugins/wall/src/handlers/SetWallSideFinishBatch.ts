@@ -187,12 +187,28 @@ export const SetWallSideFinishBatchHandler: CommandHandler<
           }
         };
 
+        // §FIX-BATCH-REFUSAL-DISCARDED (L-1141, C16 §5.1 CA-18, C84 §4F.3) —
+        // propagated from `plugins/slab/src/handlers/UpdateSlabsSystemTypeBatch.ts`
+        // :186-209.
+        //
+        // ⭐ THIS IS THE FOUNDER'S OWN VERB. L-996 fixed the half where the chat
+        // did not SUBSCRIBE to the report below. This is the other half: every
+        // path here ended in the same `{forward:[],inverse:[]}`, so a caller that
+        // is not ZeroTokenChatBridge — BatchCoordinator, a plan step, a script —
+        // still could not tell "17 walls refinished" from "the command refused
+        // all 17". A truthful transcript layered over a lying verb is what let
+        // L-995 survive a week; this closes the verb itself.
         if (!cm) {
           sayNothingRan('the command manager is not available in this session');
-          const empty: HandlerResult = { forward: [], inverse: [] };
-          return empty;
+          throw new Error(
+            'wall.setSideFinishBatch: the command manager is not available in this session',
+          );
         }
 
+        // Set INSIDE the try, thrown AFTER it: throwing in place would be caught
+        // by this block's own `catch` and re-labelled "the bridge threw", which
+        // would attribute the command's refusal to a transport failure.
+        let refusal: string | null = null;
         try {
           // ── The room-scope refusal input. Only built for a room scope, and
           //    only when the side asked for is the shared one. See the header.
@@ -242,9 +258,21 @@ export const SetWallSideFinishBatchHandler: CommandHandler<
           window.dispatchEvent(
             new CustomEvent(WALL_SIDE_FINISH_BATCH_REPORT_EVENT, { detail: report }),
           );
+          // CA-18. Quote the command's OWN sentence — this bridge never invents
+          // refusal copy, and never guesses one when `info` is empty.
+          if (!report.success) {
+            refusal = report.info[0] ?? 'the wall finish change was refused, and no reason was given';
+          }
         } catch (e) {
           console.error('[wall.setSideFinishBatch.handler] bridge failed:', e);
           sayNothingRan(`the bridge threw: ${String((e as Error)?.message ?? e)}`);
+          refusal = `the bridge threw: ${String((e as Error)?.message ?? e)}`;
+        }
+        if (refusal !== null) {
+          // Nothing was mutated on any of these paths, so throwing loses no work
+          // — it only stops success and refusal being the same observable at the
+          // dispatch site.
+          throw new Error(`wall.setSideFinishBatch: ${refusal}`);
         }
 
         const empty: HandlerResult = { forward: [], inverse: [] };

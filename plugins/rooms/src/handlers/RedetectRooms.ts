@@ -90,6 +90,22 @@ export class RedetectRoomsHandler
       );
     } catch (err) {
       console.error('[RedetectRoomsHandler] Failed to dispatch bridge event:', err);
+      // §FIX-BATCH-REFUSAL-DISCARDED (L-1141, C16 §5.1 CA-18) — the dispatch is
+      // this handler's ENTIRE effect. If it threw, no room detection was even
+      // requested, and returning the same `{forward:[],inverse:[]}` a successful
+      // request returns makes "the bridge is broken" and "rooms were re-detected"
+      // one value at the bus boundary.
+      //
+      // ⚠ The CustomEvent itself is NOT the defect and is deliberately kept: it
+      // is the layer-legal L6→L7 escape this file's header documents (a direct
+      // import would invert ADR-002), and `apps/editor/src/engine/engineLauncher.ts`
+      // :1454 is its live consumer. Converting the producer without the engine
+      // listener would strand a working path — the failure this audit measures
+      // everywhere else.
+      throw new Error(
+        `room.redetect: the room-detection bridge event could not be dispatched — `
+        + `${String((err as Error)?.message ?? err)}. No re-detection was requested.`,
+      );
     }
     // No Immer patches — room-store mutations happen through the PRYZM 1 path.
     return { forward: [], inverse: [] };

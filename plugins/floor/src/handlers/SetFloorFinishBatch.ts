@@ -131,12 +131,22 @@ export const SetFloorFinishBatchHandler: CommandHandler<
           }
         };
 
+        // §FIX-BATCH-REFUSAL-DISCARDED (L-1141, C16 §5.1 CA-18, C84 §4F.3) —
+        // propagated from `plugins/slab/src/handlers/UpdateSlabsSystemTypeBatch.ts`
+        // :186-209. Every path used to end in the same `{forward:[],inverse:[]}`,
+        // so failure and emptiness were ONE VALUE at the bus boundary. Every
+        // throw happens AFTER the CustomEvent, so listeners are unchanged.
         if (!cm) {
           sayNothingRan('the command manager is not available in this session');
-          const empty: HandlerResult = { forward: [], inverse: [] };
-          return empty;
+          throw new Error(
+            'floor.setFinishBatch: the command manager is not available in this session',
+          );
         }
 
+        // Set INSIDE the try, thrown AFTER it: throwing in place would be caught
+        // by this block's own `catch` and re-labelled "the bridge threw", which
+        // would attribute the command's refusal to a transport failure.
+        let refusal: string | null = null;
         try {
           const result = cm.execute(
             new SetFloorFinishBatchCommand({
@@ -173,9 +183,21 @@ export const SetFloorFinishBatchHandler: CommandHandler<
           window.dispatchEvent(
             new CustomEvent(FLOOR_FINISH_BATCH_REPORT_EVENT, { detail: report }),
           );
+          // CA-18. Quote the command's OWN sentence — this bridge never invents
+          // refusal copy, and never guesses one when `info` is empty.
+          if (!report.success) {
+            refusal = report.info[0] ?? 'the floor finish change was refused, and no reason was given';
+          }
         } catch (e) {
           console.error('[floor.setFinishBatch.handler] bridge failed:', e);
           sayNothingRan(`the bridge threw: ${String((e as Error)?.message ?? e)}`);
+          refusal = `the bridge threw: ${String((e as Error)?.message ?? e)}`;
+        }
+        if (refusal !== null) {
+          // Nothing was mutated on any of these paths, so throwing loses no work
+          // — it only stops success and refusal being the same observable at the
+          // dispatch site.
+          throw new Error(`floor.setFinishBatch: ${refusal}`);
         }
 
         const empty: HandlerResult = { forward: [], inverse: [] };

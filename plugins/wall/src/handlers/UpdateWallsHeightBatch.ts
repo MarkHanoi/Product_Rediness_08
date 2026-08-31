@@ -180,10 +180,32 @@ export const UpdateWallsHeightBatchHandler: CommandHandler<
           }
         };
 
+        // §FIX-BATCH-REFUSAL-DISCARDED (L-1141, C16 §5.1 CA-18, C84 §4F.3) — the
+        // refusal this bridge must not swallow, propagated from the sibling it
+        // was fixed in first (`plugins/slab/src/handlers/UpdateSlabsSystemTypeBatch.ts`
+        // :186-209, and `plugins/ceiling/.../UpdateCeilingsSystemTypeBatch.ts:143-177`).
+        //
+        // ⛔ Until now EVERY path below ended in the same `{forward:[],inverse:[]}`:
+        // N walls raised; no command manager; no wall store; an empty scope; the
+        // command REFUSING EVERYTHING (`CommandManagerImpl.execute` returns
+        // `{success:false, info:[reason]}` WITHOUT throwing); and the bridge
+        // throwing. FAILURE AND EMPTINESS WERE THE SAME VALUE at the bus
+        // boundary — the L-995 defect class.
+        //
+        // ⭐ The chat transcript was honest only by accident of subscription:
+        // `BATCH_REPORT_EVENTS` in ZeroTokenChatBridge listens to the CustomEvent
+        // below, so the AI panel alone saw the truth. EVERY OTHER CALLER of
+        // `wall.updateHeightBatch` — BatchCoordinator, a plan step, a script —
+        // read unconditional success.
+        //
+        // Every throw happens AFTER the CustomEvent, so existing listeners
+        // receive byte-identical detail to before (L-996 stays closed).
         const cm = w.commandManager;
         if (!cm) {
           sayNothingRan('the command manager is not available in this session');
-          return empty;
+          throw new Error(
+            'wall.updateHeightBatch: the command manager is not available in this session',
+          );
         }
 
         // ── SCOPE RESOLUTION — the one thing that was actually missing ────────
@@ -198,7 +220,9 @@ export const UpdateWallsHeightBatchHandler: CommandHandler<
         if (cmd.wallIds === 'all') {
           if (!store) {
             sayNothingRan('the wall store is not available, so "all walls" could not be resolved');
-            return empty;
+            throw new Error(
+              'wall.updateHeightBatch: the wall store is not available, so "all walls" could not be resolved',
+            );
           }
           resolved = store.getAll().map((x) => x.id);
         } else {
@@ -230,9 +254,14 @@ export const UpdateWallsHeightBatchHandler: CommandHandler<
           try {
             window.dispatchEvent(new CustomEvent(WALL_HEIGHT_BATCH_REPORT_EVENT, { detail: report }));
           } catch { /* report emission is best-effort; the refusal is the value */ }
-          return empty;
+          // CA-18 — quote the report's OWN sentence rather than inventing copy.
+          throw new Error(`wall.updateHeightBatch: ${report.info[0]}`);
         }
 
+        // Set INSIDE the try, thrown AFTER it. Throwing in place would be caught
+        // by this block's own `catch` and re-labelled "the bridge threw", which
+        // would attribute the command's refusal to a transport failure.
+        let refusal: string | null = null;
         try {
           // ONE command over N walls ⇒ ONE undo entry, full per-wall snapshots.
           const result = cm.execute(
@@ -288,9 +317,24 @@ export const UpdateWallsHeightBatchHandler: CommandHandler<
                 outcome: 'indeterminate',
               };
           window.dispatchEvent(new CustomEvent(WALL_HEIGHT_BATCH_REPORT_EVENT, { detail: report }));
+          // CA-18. A refused batch and an UNREADABLE result are both non-success:
+          // neither may reach the caller as the same empty pair a full success
+          // returns. The report's own sentence is quoted verbatim — `outcome`
+          // still distinguishes 'refused' from 'indeterminate' on the event, so
+          // the nuance survives for the listener that wants it.
+          if (!report.success) {
+            refusal = report.info[0] ?? 'the wall height change was refused, and no reason was given';
+          }
         } catch (e) {
           console.error('[wall.updateHeightBatch.handler] bridge failed:', e);
           sayNothingRan(`the bridge threw: ${String((e as Error)?.message ?? e)}`);
+          refusal = `the bridge threw: ${String((e as Error)?.message ?? e)}`;
+        }
+        if (refusal !== null) {
+          // Nothing was mutated on any of these paths, so throwing loses no work
+          // — it only stops success and refusal being the same observable at the
+          // dispatch site.
+          throw new Error(`wall.updateHeightBatch: ${refusal}`);
         }
 
         return empty;

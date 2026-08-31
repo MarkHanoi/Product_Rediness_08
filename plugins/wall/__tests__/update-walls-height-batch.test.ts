@@ -216,8 +216,14 @@ describe('wall.updateHeightBatch', () => {
     g.window = { __pryzmInitComplete: true, commandManager: makeCommandManager(wallStore), wallStore };
     const reports = captureReports();
 
-    await buildBus().executeCommand('wall.updateHeightBatch', { wallIds: 'all', height: 3.2 });
+    // §FIX-BATCH-REFUSAL-DISCARDED (L-1141) — the DISCRIMINANT. This used to
+    // RESOLVE, so at the dispatch site "no walls exist" was indistinguishable
+    // from "every wall was raised".
+    await expect(
+      buildBus().executeCommand('wall.updateHeightBatch', { wallIds: 'all', height: 3.2 }),
+    ).rejects.toThrow(/no walls in this project/);
 
+    // The event was never the defect — its detail is byte-identical to before.
     expect(reports).toHaveLength(1);
     expect(reports[0]?.success).toBe(false);
     expect(reports[0]?.outcome).toBe('refused');
@@ -248,7 +254,11 @@ describe('wall.updateHeightBatch', () => {
     g.window = { __pryzmInitComplete: true };
     const reports = captureReports();
 
-    await buildBus().executeCommand('wall.updateHeightBatch', { wallIds: 'all', height: 3.2 });
+    // §FIX-BATCH-REFUSAL-DISCARDED (L-1141) — an absent sink must reach the BUS
+    // CALLER, not only the CustomEvent listener.
+    await expect(
+      buildBus().executeCommand('wall.updateHeightBatch', { wallIds: 'all', height: 3.2 }),
+    ).rejects.toThrow(/command manager is not available/);
 
     expect(reports).toHaveLength(1);
     expect(reports[0]?.outcome).toBe('indeterminate');
@@ -260,9 +270,89 @@ describe('wall.updateHeightBatch', () => {
     g.window = { __pryzmInitComplete: true, commandManager: { execute: () => ({ success: true, affectedElementIds: [] }) } };
     const reports = captureReports();
 
-    await buildBus().executeCommand('wall.updateHeightBatch', { wallIds: 'all', height: 3.2 });
+    await expect(
+      buildBus().executeCommand('wall.updateHeightBatch', { wallIds: 'all', height: 3.2 }),
+    ).rejects.toThrow(/"all walls" could not be resolved/);
 
     expect(reports[0]?.outcome).toBe('indeterminate');
     expect(reports[0]?.info[0]).toMatch(/"all walls" could not be resolved/);
+  });
+
+  // ── §FIX-BATCH-REFUSAL-DISCARDED (L-1141, C16 §5.1 CA-18) ──────────────────
+  //
+  // THE CASE THE SUITE NEVER HAD. `CommandManagerImpl.execute` returns a legacy
+  // refusal as `{success:false, info:[reason]}` WITHOUT THROWING (:172-185). The
+  // bridge ignored that return value, so a batch the command refused OUTRIGHT
+  // reached the bus as the same `{forward:[],inverse:[]}` a full success
+  // returns. Only ZeroTokenChatBridge — which happens to subscribe to the
+  // CustomEvent — could tell the two apart; BatchCoordinator, a plan step and
+  // every script read unconditional success.
+  //
+  // The assertion is on the DISCRIMINANT (rejected vs resolved) and on the
+  // command's OWN sentence. Never "it did not throw" — that is precisely the
+  // assertion that let this defect live.
+  it('a sink that REFUSES WITHOUT THROWING rejects, carrying the command’s own sentence', async () => {
+    const wallStore = new FakeWallStore();
+    wallStore.seed(wall('w1', 2.4));
+    const REASON = 'A raked wall cannot take a uniform height.';
+    g.window = {
+      __pryzmInitComplete: true,
+      wallStore,
+      commandManager: {
+        // Returns a refusal as a VALUE — the real legacy shape.
+        execute: () => ({ success: false, affectedElementIds: [], info: [REASON] }),
+      },
+    };
+    const reports = captureReports();
+
+    await expect(
+      buildBus().executeCommand('wall.updateHeightBatch', { wallIds: ['w1'], height: 3.2 }),
+    ).rejects.toThrow(REASON);
+
+    // The refusal names the VERB too, so a caller can route it.
+    const err = await buildBus()
+      .executeCommand('wall.updateHeightBatch', { wallIds: ['w1'], height: 3.2 })
+      .then(() => null, (e: unknown) => e as Error);
+    expect(err?.message).toContain('wall.updateHeightBatch');
+
+    // The model is untouched, and the event still carried the verdict.
+    expect(wallStore.heightOf('w1')).toBe(2.4);
+    expect(reports[0]?.success).toBe(false);
+    expect(reports[0]?.outcome).toBe('refused');
+  });
+
+  it('an UNREADABLE result rejects as INDETERMINATE — not as a refusal, not as success', async () => {
+    // §BATCH-UNREADABLE-RESULT-IS-NOT-ZERO. The sink returns something with no
+    // readable `affectedElementIds`. "WHICH walls changed is not known" must not
+    // reach the caller as a clean success.
+    const wallStore = new FakeWallStore();
+    wallStore.seed(wall('w1', 2.4));
+    g.window = {
+      __pryzmInitComplete: true,
+      wallStore,
+      commandManager: { execute: () => undefined },
+    };
+    const reports = captureReports();
+
+    await expect(
+      buildBus().executeCommand('wall.updateHeightBatch', { wallIds: ['w1'], height: 3.2 }),
+    ).rejects.toThrow(/no readable result/);
+
+    expect(reports[0]?.outcome).toBe('indeterminate');
+  });
+
+  it('SUCCESS PATH UNCHANGED — an applied batch still RESOLVES and still reports', async () => {
+    // The other half of the proof: the fix must be invisible on the happy path.
+    const wallStore = new FakeWallStore();
+    wallStore.seed(wall('w1', 2.4), wall('w2', 2.4));
+    g.window = { __pryzmInitComplete: true, commandManager: makeCommandManager(wallStore), wallStore };
+    const reports = captureReports();
+
+    await buildBus().executeCommand('wall.updateHeightBatch', { wallIds: 'all', height: 3.2 });
+
+    expect(wallStore.heightOf('w1')).toBe(3.2);
+    expect(wallStore.heightOf('w2')).toBe(3.2);
+    expect(reports[0]?.success).toBe(true);
+    expect(reports[0]?.outcome).toBe('applied');
   });
 });

@@ -26,11 +26,22 @@
  *
  * ─── PROVED AT THE CALLER (task step 4, §COMMITTED-IS-NOT-REACHABLE) ─────────
  * A determination type that every consumer immediately spreads back into a bare
- * array satisfies a static gate and still violates U-INV-4 in effect. So none
- * of these arms inspect the handler's return value — `execute()` returns
- * `{ forward: [], inverse: [] }` in every case and always did. Each arm
- * SUBSCRIBES to the report event, exactly as the chat bridge does, and asserts
- * on what arrives there.
+ * array satisfies a static gate and still violates U-INV-4 in effect. So these
+ * arms do not read a determination off the RETURN value: each one SUBSCRIBES to
+ * the report event, exactly as the chat bridge does, and asserts on what
+ * arrives there.
+ *
+ * ─── UPDATED BY §FIX-BATCH-REFUSAL-DISCARDED (L-1141) ────────────────────────
+ * This header used to add: "`execute()` returns `{ forward: [], inverse: [] }`
+ * in every case and always did." That is NO LONGER TRUE, and its being true was
+ * the L-1141 defect — an unreadable result and a clean batch left the handler
+ * as the same value, so every caller that is not the chat bridge could not tell
+ * them apart. The non-success paths now THROW, after broadcasting.
+ *
+ * The event assertions below are unchanged and still load-bearing: the report
+ * goes out BEFORE the throw, so what a subscriber receives is byte-identical to
+ * before. ARM 2 and ARM 3 are the negative control — the success paths still
+ * return normally, and a test that throws there would fail.
  */
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
@@ -68,6 +79,25 @@ function captureReport(event: string, fn: () => void): AnyReport[] {
   return seen;
 }
 
+/**
+ * §FIX-BATCH-REFUSAL-DISCARDED (L-1141) — subscribe, run a handler whose
+ * non-success path now THROWS, and return BOTH the broadcast and the refusal.
+ *
+ * The throw is captured and RETURNED rather than swallowed, so each arm asserts
+ * on it explicitly. A bare `try {} catch {}` here would re-create the exact
+ * fire-and-forget shape this family of fixes exists to remove.
+ */
+function captureReportAndRefusal(
+  event: string,
+  fn: () => void,
+): { reports: AnyReport[]; error: Error | null } {
+  let error: Error | null = null;
+  const reports = captureReport(event, () => {
+    try { fn(); } catch (e) { error = e as Error; }
+  });
+  return { reports, error };
+}
+
 /** Install a command manager whose execute() returns exactly `value`. */
 function installCommandManager(value: unknown): void {
   g.window.commandManager = { execute: () => value };
@@ -89,7 +119,7 @@ describe('§BATCH-UNREADABLE-RESULT-IS-NOT-ZERO — an unread result never reads
     // `{ success: false, info: [], affectedElementIds: [] }` — "0 walls changed".
     installCommandManager({ somethingElse: true });
 
-    const reports = captureReport(WALL_COLOR_BATCH_REPORT_EVENT, () => {
+    const { reports, error } = captureReportAndRefusal(WALL_COLOR_BATCH_REPORT_EVENT, () => {
       UpdateWallsColorBatchHandler.execute(
         {} as never,
         { wallIds: 'all', materialColor: '#ff0000' } as never,
@@ -102,6 +132,11 @@ describe('§BATCH-UNREADABLE-RESULT-IS-NOT-ZERO — an unread result never reads
     expect(r.info.join(' ')).toContain('no readable');
     // The load-bearing assertion: the caller is told this is NOT a zero-claim.
     expect(r.info.join(' ')).toContain('NOT a report that none did');
+    // §FIX-BATCH-REFUSAL-DISCARDED (L-1141) — and the BUS CALLER hears it too,
+    // rather than receiving the same empty pair a clean batch returns.
+    expect(error).not.toBeNull();
+    expect(error!.message).toContain('wall.updateColorBatch');
+    expect(error!.message).toContain('no readable');
   });
 
   it('ARM 2 — NEGATIVE CONTROL: a READABLE result with zero ids still reports zero', () => {
@@ -148,14 +183,22 @@ describe('§BATCH-UNREADABLE-RESULT-IS-NOT-ZERO — an unread result never reads
     }
 
     installCommandManager({ somethingElse: true });
-    const unreadable = captureReport(WALL_TYPE_BATCH_REPORT_EVENT, () => {
+    // The unreadable case now also REFUSES at the bus (L-1141) — captured so the
+    // throw is asserted rather than swallowed.
+    const unreadableRun = captureReportAndRefusal(WALL_TYPE_BATCH_REPORT_EVENT, () => {
       UpdateWallsSystemTypeBatchHandler.execute({} as never, { wallIds: 'all', systemTypeId: 't1' } as never);
-    })[0]!;
+    });
+    const unreadable = unreadableRun.reports[0]!;
+    expect(unreadableRun.error).not.toBeNull();
 
     installCommandManager({ success: true, affectedElementIds: [] });
-    const honestlyEmpty = captureReport(WALL_TYPE_BATCH_REPORT_EVENT, () => {
+    // The honestly-empty case must still RETURN NORMALLY — the negative control
+    // that stops the fix turning every quiet batch into a refusal.
+    const honestlyEmptyRun = captureReportAndRefusal(WALL_TYPE_BATCH_REPORT_EVENT, () => {
       UpdateWallsSystemTypeBatchHandler.execute({} as never, { wallIds: 'all', systemTypeId: 't1' } as never);
-    })[0]!;
+    });
+    const honestlyEmpty = honestlyEmptyRun.reports[0]!;
+    expect(honestlyEmptyRun.error).toBeNull();
 
     // Both carry affectedElementIds: [] — the ARRAY alone cannot tell them
     // apart, which is exactly why the determination has to travel beside it.

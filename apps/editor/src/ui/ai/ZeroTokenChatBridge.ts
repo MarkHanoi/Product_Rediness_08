@@ -1520,6 +1520,23 @@ export const BATCH_REPORT_EVENTS: Readonly<Record<string, string>> = {
         // dead for want of a grammar ever since; its report event already
         // existed, only nothing could reach it.
         'wall.updateHeightBatch': 'pryzm-wall-height-batch-report',
+        // §FIX-SIDEFINISH-REPORT-UNHEARD (L-996) — THE THIRD RECURRENCE, found
+        // by the guard rather than by a founder report this time, which is the
+        // whole point of having made the assertion about the TABLE.
+        //
+        // These three verbs have broadcast a real report all along — the
+        // command's own "Changed N of M — K skipped", its grouped refusal
+        // reasons, and `outcome:'indeterminate'` when the bridge never ran — and
+        // NOTHING SUBSCRIBED. `expectsReport` was therefore false and
+        // `classifyDispatch` returned `{kind:'applied', lines:[]}`: the branch
+        // that prints the resolver's PLANNED summary plus "Done". The transcript
+        // said the same sentence for 12-of-12, 0-of-12, and never-ran.
+        //
+        // The row and the emitter must move together; that is what the guard
+        // enforces, and it was RED before this line existed.
+        'curtain-wall.bulkUpdatePanels': 'pryzm-curtain-panel-batch-report',
+        'curtain-wall.bulkUpdateParameter': 'pryzm-curtain-wall-parameter-batch-report',
+        'furniture.bulkUpdateKitchenMaterial': 'pryzm-kitchen-material-batch-report',
         // §FEAT-RHINO-CHAT-MATERIAL — the Rhino bridge reports mesh counts and
         // the honest "no Rhino model is imported" failure through this event.
         'rhino.setMaterial': 'pryzm-rhino-material-report',
