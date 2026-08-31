@@ -275,6 +275,45 @@ const GATES: Gate[] = [
   // It can also fail for a reason none of the static gates can: a handler module
   // that stops loading under node. That reads as exit 2 (UNPROVEN), never a pass.
   { name: 'mirror-reachability (C16 §5.1 CA-21 · L-10320)', script: 'check-mirror-reachability.ts' },
+  // ⭐ THE EIGHTH FACT — registered here, with the two gates above, because the
+  // three of them are one question at three layers and quoting any one alone
+  // overstates the other two (lane B-FIX-3, 2026-08-31).
+  //
+  //   mirror-completeness   — is there a CHANNEL at all?          (presence)
+  //   mirror-reachability   — does a SUBSCRIBER actually hear it? (executed)
+  //   fidelity-axis         — do the user's FIELDS survive it?    (this one)
+  //
+  // The element-creation chain is graded on seven facts and EVERY ONE OF THEM IS
+  // A PRESENCE TEST. `renders_3d = YES` is true of a mesh that is the wrong
+  // colour, the wrong size and missing its voids. Measured 2026-08-31
+  // (audit/full-stack/2026-08-31/builders/_EIGHT-FACT-ROW.json): of 26 drawable
+  // L0 families, **24 DRAW and 6 DRAW WHAT THE USER AUTHORED.** Nothing in this
+  // list could see that gap, and without a gate it reopens the moment a field is
+  // added to a schema.
+  //
+  // Both the authored set and the carried set are DERIVED FROM SOURCE on every
+  // run — `defineElement(...)` in packages/schemas/src/elements/ against the
+  // brace-matched keys of every `events.emit(...)` in CommandEventBridge.ts — so
+  // a new schema field is measured the day it lands. CARRIED is the INTERSECTION
+  // over a family's emit sites, never the union: beam.create carries
+  // steelProfileName and beam.batch.create does not, and a union would have
+  // scored that clean while a batch-created steel beam drew as a rectangle.
+  //
+  // Its ledger, `fidelity-axis-ledger.json`, is a NAMED shrink-only backlog —
+  // 103 drops + 2 unchannelled + 17 fan-out + 10 unbound rows, each with a
+  // mechanism, a reason and the user-visible consequence — not a bare count.
+  // Read it as the migration list for the eighteen, not as absolution.
+  //
+  // ⛔ It measures the EMIT. Several families drop the same field a SECOND time
+  // in the initTools mirror, which this gate states in its own output that it
+  // cannot see. Green here means "the drop is not silent", never "it renders".
+  //
+  // First reading at HEAD by the registering commit: exit 0 CLEAN — 30 kinds ·
+  // 48 emit sites · 20 families bound · 244 authored fields walked · 7 arms
+  // proven to fire · 0 unledgered findings. Arms A1 and A5 were additionally
+  // watched failing on the REAL tree (remove the slab.holes row → exit 3;
+  // add a row for a carried field → exit 3 STALE), not only on the planted one.
+  { name: 'fidelity-axis (C84 EI-2a · C74/CA-18 · THE EIGHTH FACT)', script: 'check-fidelity-axis.ts' },
   // C15 §8.1 / C86 WO-B-3 (2026-08-19) — the hosted-opening dual-write gate. C15
   // §8.1's OWN stated enforcement was "a code-review checklist item", i.e. nothing,
   // and it had measurably failed on the two most-used door/window gestures. This
