@@ -29,7 +29,7 @@ import { StairData, StairShape, STAIR_CONSTRAINTS, DEFAULT_STAIR_PROPERTIES, Vec
 // can no longer offer a stair this command will refuse (C84 EI-3).
 import { resolveStairGeometryLimits, checkStairGeometry } from '@pryzm/geometry-stair';
 import { elementRegistry } from '@pryzm/core-app-model/element-registry';
-import { semanticGraphManager } from '@pryzm/core-app-model';
+import { semanticGraphManager, viewDependencyTracker } from '@pryzm/core-app-model';
 import { LevelTraversalPolicy } from '@pryzm/geometry-stair';
 // §FIX-STAIR-SLAB-OPENING-SYMMETRY — the footprint maths, the host-slab choice
 // and the `opening-stair-<id>` convention all moved to the ONE invariant owner.
@@ -341,6 +341,15 @@ export class CreateStairCommand implements Command {
         } catch (e: any) {
             return { success: false, affectedElementIds: [], info: [e.message] };
         }
+
+        // §G3-STALE-FIX (lane L3b, per the 2026-08-31 L2b measurement) — register the
+        // stair with the ViewDependencyTracker BEFORE `stairStore.add()` below emits its
+        // `'stair'` create event, so plan invalidation is TARGETED to this level instead
+        // of the §G3-STALE coarse fallback (console.warn + EVERY non-3D view dirtied,
+        // `ViewDependencyTracker.ts:893/906-930`). Placed AFTER the bimManager register
+        // so a refused level cannot leak a VDT entry for a stair that was never created.
+        // Precedent: `CreateCurtainWallCommand.ts` §CW90 item 7 (§G3-STALE-FIX-CW).
+        viewDependencyTracker.registerElement(stairId, baseLevelId);
 
         // §03-SEMANTIC-MODEL — Register stair in elementRegistry so AI queries,
         // selection manager, and generic deletion can resolve this element by type.
@@ -698,6 +707,10 @@ export class CreateStairCommand implements Command {
         }
 
         ctx.bimManager.unregisterElement(this.createdStairId);
+        // §G3-STALE-FIX (lane L3b) — symmetric with execute()'s registerElement. The
+        // VDT's own doc says "Commands should call this when deleting an element";
+        // the §A.2 elementRegistry.onUnregister prune only exists after init() ran.
+        viewDependencyTracker.unregisterElement(this.createdStairId);
         elementRegistry.unregister(this.createdStairId);
         try {
             semanticGraphManager.removeAllRelationshipsForElement(this.createdStairId);

@@ -1524,7 +1524,9 @@ export async function initTools(p: ToolsParams): Promise<ToolsResult> {
     // for PRYZM3 consumers; the legacy store only drives mesh geometry.
     //
     // Duplicate guard: if the opening is already present in the legacy store (rare
-    // race), the bridge silently skips to avoid a Zod validation throw.
+    // race), the bridge skips the MIRROR WRITES to avoid a Zod validation throw —
+    // but VDT + bimManager registration runs UNCONDITIONALLY above the guard
+    // (§AXIS-L-W1 / §P2.3-REG, the wall §P2.1 shape).
     if (runtime) {
         const _legacyWallStoreForOpeningBridge = wallTool.getWallStore();
         runtime.events.on('wall.opening.created', (ev) => {
@@ -1537,8 +1539,31 @@ export async function initTools(p: ToolsParams): Promise<ToolsResult> {
             const width     = typeof o.width     === 'number' ? o.width     : 1.0;
             const height    = typeof o.height    === 'number' ? o.height    : 2.1;
             const sillHeight = typeof o.sillHeight === 'number' ? o.sillHeight : 0;
-            // Dedup guard: skip if opening is already in the legacy WallStore.
             const _legacyWall = _legacyWallStoreForOpeningBridge.getById(ev.wallId);
+            // §AXIS-L-W1 / §P2.3-REG (2026-08-31) — VDT + bimManager registration for the
+            // opening's ELEMENT id, UNCONDITIONAL and ABOVE the dedup guard (the wall
+            // §P2.1 / §G3-STALE-FIX shape the ten committed families carry). Measured
+            // (L2b, audit/full-stack/2026-08-31/legacy-work/no-registration-families-
+            // measurement.md): a bus-created door/window had NO VDT entry — every
+            // DoorStore/WindowStore create event fell into the §G3-STALE fallback
+            // (warn + ALL non-3D views dirtied) — and NO bimManager registration, so
+            // the door/window id never entered level.childrenIds on the bus path
+            // (only the legacy 3D CreateWallOpeningCommand.ts:182 does it).
+            // Both sinks are idempotent on a known id (VDT: Map.set replace,
+            // ViewDependencyTracker.ts:453-455; bimManager: includes-guarded push,
+            // BimKernel.ts:263-265), so re-registering on a duplicate event is a no-op.
+            // levelId comes from the HOST wall's legacy record; a legacy-only wall may
+            // be absent mid-migration, in which case '' makes bimManager.registerElement
+            // THROW (BimKernel.ts:243-268) — that throw lands in the NAMED console.error
+            // below (C74 CA-18: refuse by name, never silently) and never escapes.
+            try { viewDependencyTracker.registerElement(elementId, _legacyWall?.levelId ?? ''); }
+            catch (err) { console.warn('[initTools] §P2.3-REG VDT.registerElement failed (non-fatal):', err); }
+            try { bimManager.registerElement(elementId, _legacyWall?.levelId ?? ''); }
+            catch (err) {
+                console.error('[initTools] §P2.3-REG: bimManager.registerElement FAILED for ' + type, elementId, '—', err instanceof Error ? err.message : String(err));
+            }
+            // Dedup guard: skip if opening is already in the legacy WallStore — gates the
+            // mirror writes ONLY (§AXIS-L-W1); registration above already ran.
             if (_legacyWall?.openings?.some((existing: any) => existing.id === id)) return;
             try {
                 const opening = { ...o, id, elementId, type, offset, width, height, sillHeight };

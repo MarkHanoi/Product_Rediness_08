@@ -4,7 +4,7 @@ import { PlumbingFixtureData } from '@pryzm/geometry-plumbing';
 import type { ToiletVariant } from '@pryzm/geometry-plumbing';
 import type { ShowerVariant } from '@pryzm/geometry-plumbing';
 import type { BathroomAccessoryVariant } from '@pryzm/geometry-plumbing';
-import { semanticGraphManager } from '@pryzm/core-app-model';
+import { semanticGraphManager, viewDependencyTracker } from '@pryzm/core-app-model';
 import { stableCreatedId } from '../StableCreatedId';
 // §FIX-INTERIOR-FFL-SEATING — finished-floor datum resolved at the shared chokepoint
 // (C11 §5.4). A WC pan / bath / shower tray sits on the tiled floor, not the slab.
@@ -62,6 +62,14 @@ export class CreatePlumbingFixtureCommand implements Command {
         if (!level) throw new Error(`Level not found: ${this.payload.levelId}`);
 
         context.bimManager.registerElement(id, this.payload.levelId);
+
+        // §G3-STALE-FIX (lane L3b, per the 2026-08-31 L2b measurement) — register the
+        // fixture with the ViewDependencyTracker BEFORE `plumbingStore.add()` below emits
+        // its `'plumbing'` create event (`PlumbingStore.ts:40`), so plan invalidation is
+        // TARGETED to this level instead of the §G3-STALE coarse fallback (console.warn +
+        // EVERY non-3D view dirtied). Placed AFTER the bimManager register so a refused
+        // level cannot leak a VDT entry. Precedent: `CreateCurtainWallCommand.ts` §CW90.
+        viewDependencyTracker.registerElement(id, this.payload.levelId);
 
         const rotation = new THREE.Euler(this.payload.rotation.x, this.payload.rotation.y, this.payload.rotation.z);
         // §FIX-INTERIOR-FFL-SEATING — bathrooms are the WORST case for this defect:
@@ -121,6 +129,9 @@ export class CreatePlumbingFixtureCommand implements Command {
     undo(context: CommandContext): CommandResult {
         if (!this.createdId) return { success: false, affectedElementIds: [] };
         context.bimManager.unregisterElement(this.createdId);
+        // §G3-STALE-FIX (lane L3b) — symmetric with execute()'s registerElement; the
+        // §A.2 elementRegistry.onUnregister prune only exists after VDT init() ran.
+        viewDependencyTracker.unregisterElement(this.createdId);
         try {
             semanticGraphManager.removeAllRelationshipsForElement(this.createdId);
         } catch (err) {

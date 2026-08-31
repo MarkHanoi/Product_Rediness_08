@@ -61,6 +61,17 @@
 // and the members come back as ordinary hand-placed fixtures. That is **L-11405**,
 // C109 §12's own open row, and this module does not pretend to close it.
 
+// §G3-STALE-FIX (lane L3b, per the 2026-08-31 L2b measurement) — the ONE import this
+// module carries. The same seam `initTools.ts:176` and `CreateCurtainWallCommand.ts`
+// §CW90 use: the `@pryzm/core-app-model` singleton, directly. Members are registered
+// against `pod.levelId` BEFORE `store.add()` (whose `'plumbing'` create event the VDT
+// can then TARGET to the level instead of the §G3-STALE coarse all-non-3D-views
+// fallback), and unregistered in the reap loop. Because this module sees execute /
+// undo / redo alike via `subscribeDirty`, registration survives undo by construction.
+// ⛔ The POD's own id is NOT registered — nothing draws it (§PLAN-MEMBERSHIP-RULE
+// precondition (1) fails; see the file header).
+import { viewDependencyTracker } from '@pryzm/core-app-model';
+
 /**
  * The narrowest shape of the LEGACY fixture store this module needs.
  *
@@ -212,6 +223,11 @@ export function projectBathroomPodMembers(
                     ' of pod ' + podId + ':', err,
                 );
             }
+            // §G3-STALE-FIX (lane L3b) — AFTER remove(), so the store's `'plumbing'`
+            // delete event still resolves this id to its level (targeted), THEN the
+            // map entry goes. Outside the try: the pod record is gone either way, and
+            // a stale entry is exactly the phantom association §A.2 exists to prune.
+            viewDependencyTracker.unregisterElement(memberId);
         }
     }
 
@@ -220,6 +236,11 @@ export function projectBathroomPodMembers(
         const pod = state.get(podId) as PodView | undefined;
         if (pod === undefined || !Array.isArray(pod.members)) continue;
         for (const m of pod.members) {
+            // §G3-STALE-FIX (lane L3b) — BEFORE add(): `PlumbingStore.add()` emits the
+            // `'plumbing'` create event synchronously, and the VDT can attribute it to
+            // the pod's level only if the member id is already registered. Idempotent
+            // (`Map.set`) for the `updated` re-projection path.
+            viewDependencyTracker.registerElement(m.id, pod.levelId);
             try {
                 store.add(fixtureRecordFor(pod, m));
             } catch (err) {

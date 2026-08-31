@@ -19,9 +19,13 @@
  * code under test is the shipped text, not a copy — edit the closure and this
  * suite sees the edit on the next run.
  *
- * Two families, one of each briefed shape:
+ * Three families:
  *   ceiling  — was ADD-BEFORE-REGISTER behind the guard (order-fixed §G3-STALE-FIX)
  *   lighting — was REGISTER-BEFORE-ADD but the guard sat above the registration
+ *   door     — §P2.3-REG (lane L3a, 2026-08-31): the wall.opening.created bridge had
+ *              NO registration at all (L2b measurement, Probe B: vdt=0, bim=0 on the
+ *              shipped arrow); registration now sits above the dedup guard, keyed on
+ *              the opening's ELEMENT id against the HOST wall's levelId
  *
  * The recording sinks reproduce the PROVEN semantics of the real ones:
  *   VDT.registerElement        = Map.set (replace)        — ViewDependencyTracker.ts:453-455
@@ -39,12 +43,17 @@
 import { describe, it, expect } from 'vitest';
 import { readFile } from 'node:fs/promises';
 import ts from 'typescript';
-import { CeilingStore, FLOOR_MOUNTED_FIXTURES } from '@pryzm/core-app-model';
+import { CeilingStore, FLOOR_MOUNTED_FIXTURES, generateMark } from '@pryzm/core-app-model';
 import { ceilingRecordFromCreatedEvent } from '../src/engine/ceilingCreatedMirror';
 // Deep import, NOT the `@pryzm/geometry-lighting` barrel: the barrel exports
 // `LightingFragmentBuilder`, which imports THREE at module scope. Same dodge as
 // CeilingBridgeCarriesAuthoredFinish.test.ts uses for runtime-composer.
 import { LightingStore } from '../../../packages/geometry-lighting/src/LightingStore';
+// Deep imports for the same reason — the `@pryzm/geometry-door` barrel exports
+// DoorBuilder, which imports THREE at module scope. The REAL DoorStore class and the
+// REAL buildDoorStoreRecord chokepoint (C11 §3) are both Node-safe by deep path.
+import { DoorStore } from '../../../packages/geometry-door/src/DoorStore';
+import { buildDoorStoreRecord } from '../../../packages/geometry-door/src/DoorOpeningFactory';
 
 // ─── harness ────────────────────────────────────────────────────────────────
 
@@ -266,5 +275,142 @@ describe('§AXIS-L-W1 lighting — duplicate lighting.created still registers (g
         expect(vdt.calls.length, 'no spatial registration under an EMPTY levelId — an orphan id must not be minted').toBe(0);
         expect(bim.calls.length, 'no bimManager registration under an EMPTY levelId').toBe(0);
         expect(lightingStore.has('axisL-nolevel-light'), 'the legacy record itself still lands (S07 allows empty levelId)').toBe(true);
+    });
+});
+
+// ─── door — the no-registration-at-all shape (§P2.3-REG, lane L3a) ──────────
+
+/**
+ * Faithful to WallStore.ts:1199-1326 (`addOpening`): the opening lands in the host
+ * wall record's `openings` array under the SAME `id`, which is exactly the probe the
+ * §P2.3 dedup guard runs (`_legacyWall?.openings?.some(existing => existing.id === id)`).
+ * Recording fake — the real WallStore's barrel-mates pull THREE at module scope and
+ * `add()` demands a Zod-valid wall, neither of which is under test here.
+ */
+function makeLegacyWallStore(wall: { id: string; levelId: string }) {
+    const record: { id: string; levelId: string; openings: Array<Record<string, unknown>> } = {
+        ...wall,
+        openings: [],
+    };
+    const addOpeningCalls: Array<[string, Record<string, unknown>]> = [];
+    return {
+        record,
+        addOpeningCalls,
+        getById(id: string) {
+            return id === record.id ? record : undefined;
+        },
+        addOpening(wallId: string, opening: Record<string, unknown>): void {
+            addOpeningCalls.push([wallId, opening]);
+            record.openings.push(opening);
+        },
+    };
+}
+
+describe('§P2.3-REG door — duplicate wall.opening.created still registers (no-registration shape)', () => {
+    it('same event twice: ONE addOpening mirror, ONE DoorStore record, VDT+bim registered on BOTH deliveries against the host wall levelId', async () => {
+        const src = await initToolsSource;
+        const text = extractHandlerText(src, 'wall.opening.created');
+
+        // Structural belt (diagnostic clarity when the behavioural arms fail):
+        // registration must appear ABOVE the dedup guard AND above the addOpening mirror.
+        const regAt = text.indexOf("viewDependencyTracker.registerElement(elementId, _legacyWall?.levelId ?? '')");
+        const guardAt = text.indexOf('if (_legacyWall?.openings?.some((existing: any) => existing.id === id)) return;');
+        const addAt = text.indexOf('_legacyWallStoreForOpeningBridge.addOpening(ev.wallId, opening as any)');
+        expect(regAt, 'opening handler must register the ELEMENT id in VDT').toBeGreaterThan(-1);
+        expect(guardAt, 'opening handler must keep its dedup guard').toBeGreaterThan(-1);
+        expect(addAt, 'opening handler must still mirror into the legacy WallStore').toBeGreaterThan(-1);
+        expect(regAt, 'registration must sit ABOVE the dedup guard (§AXIS-L-W1)').toBeLessThan(guardAt);
+        expect(regAt, 'registration must sit ABOVE the addOpening() mirror (§G3-STALE-FIX)').toBeLessThan(addAt);
+
+        const legacyWallStore = makeLegacyWallStore({ id: 'axisL-host-wall', levelId: 'L1' });
+        const realDoorStore = new DoorStore();
+        const vdt = makeVdt();
+        const bim = makeBim();
+        const handler = compileHandler(text, {
+            _legacyWallStoreForOpeningBridge: legacyWallStore,
+            doorStore: realDoorStore,
+            buildDoorStoreRecord,
+            // window branch is dead for a door event; stubs guard against accidental evaluation
+            windowStore: { has: () => false, add: () => {}, getAll: () => [] },
+            buildWindowStoreRecord: () => ({}),
+            generateMark,
+            viewDependencyTracker: vdt,
+            bimManager: {
+                ...bim,
+                // resolveMark's level lookup — one level is enough for a real mark
+                getLevels: () => [{ id: 'L1', name: 'Level 1' }],
+            },
+        });
+
+        const ev = {
+            wallId: 'axisL-host-wall',
+            opening: {
+                id: 'axisL-dup-open-1',
+                elementId: 'axisL-dup-door-1',
+                type: 'door',
+                offset: 1.2,
+                width: 0.9,
+                height: 2.1,
+                sillHeight: 0,
+            },
+        };
+
+        handler(ev);
+        expect(legacyWallStore.addOpeningCalls.length, 'first delivery mirrors ONE opening into the wall').toBe(1);
+        expect(realDoorStore.has('axisL-dup-door-1'), 'first delivery mirrors the door record (real DoorStore, real buildDoorStoreRecord)').toBe(true);
+        expect(realDoorStore.getAll().length, 'first delivery mirrors ONE door').toBe(1);
+        expect(vdt.calls.length, 'first delivery registers in VDT').toBe(1);
+        expect(bim.calls.length, 'first delivery registers in bimManager').toBe(1);
+        expect(vdt.map.get('axisL-dup-door-1'), 'VDT registration keys the ELEMENT id against the HOST wall levelId').toBe('L1');
+        expect(bim.calls[0], 'bimManager registration keys the ELEMENT id against the HOST wall levelId').toEqual(['axisL-dup-door-1', 'L1']);
+
+        handler(ev); // THE defect made executable: the SAME create event again
+        expect(legacyWallStore.addOpeningCalls.length, 'duplicate delivery must NOT double the wall-opening mirror — the guard still gates it').toBe(1);
+        expect(realDoorStore.getAll().length, 'duplicate delivery must NOT double the DoorStore record').toBe(1);
+        expect(vdt.calls.length, 'VDT registration must STILL occur on the duplicate delivery').toBe(2);
+        expect(bim.calls.length, 'bimManager registration must STILL occur on the duplicate delivery').toBe(2);
+        expect(
+            bim.childrenIds.filter((id) => id === 'axisL-dup-door-1').length,
+            'the BIM tree must hold exactly ONE row for the id — a doubled row is a worse defect than the one fixed',
+        ).toBe(1);
+        expect(vdt.map.size, 'VDT holds exactly one entry for the id (Map.set replace)').toBe(1);
+    });
+
+    it('missing host wall: bimManager throw lands in the NAMED console.error, never escapes, and the empty-level registration attempt is visible', async () => {
+        const src = await initToolsSource;
+        const text = extractHandlerText(src, 'wall.opening.created');
+        const legacyWallStore = makeLegacyWallStore({ id: 'some-other-wall', levelId: 'L1' });
+        const vdt = makeVdt();
+        const bim = makeBim();
+        const errors: unknown[][] = [];
+        const consoleSpy = {
+            log: () => {},
+            warn: () => {},
+            error: (...args: unknown[]) => { errors.push(args); },
+        };
+        const handler = compileHandler(text, {
+            _legacyWallStoreForOpeningBridge: legacyWallStore,
+            doorStore: { has: () => true, add: () => {}, getAll: () => [] }, // door mirror gated off — not under test
+            buildDoorStoreRecord,
+            windowStore: { has: () => false, add: () => {}, getAll: () => [] },
+            buildWindowStoreRecord: () => ({}),
+            generateMark,
+            viewDependencyTracker: vdt,
+            bimManager: { ...bim, getLevels: () => [] },
+            console: consoleSpy,
+        });
+
+        // Host wall id resolves to NOTHING -> levelId '' -> bimManager.registerElement throws.
+        expect(() => handler({
+            wallId: 'axisL-ghost-wall',
+            opening: { id: 'axisL-op-2', elementId: 'axisL-door-2', type: 'door', offset: 0, width: 0.9, height: 2.1, sillHeight: 0 },
+        }), 'the bimManager throw must be caught inside the handler').not.toThrow();
+
+        expect(bim.calls.length, 'bimManager.registerElement was attempted with the empty levelId').toBe(1);
+        expect(bim.calls[0]).toEqual(['axisL-door-2', '']);
+        expect(bim.childrenIds.length, 'the throw means NO BIM row was minted').toBe(0);
+        const named = errors.filter((args) => typeof args[0] === 'string' && (args[0] as string).includes('§P2.3-REG: bimManager.registerElement FAILED for door'));
+        expect(named.length, 'the failure is refused BY NAME (family + id) in console.error (C74 CA-18)').toBe(1);
+        expect(named[0], 'the console.error names the element id').toContain('axisL-door-2');
     });
 });
