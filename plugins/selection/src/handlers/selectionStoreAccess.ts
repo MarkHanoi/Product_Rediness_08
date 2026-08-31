@@ -1,5 +1,20 @@
 // selectionStoreAccess — §SEL-STORE-IDENTITY (W4d).
 //
+// @command-gate: not-a-command-bus-handler
+//
+// ⭐ WHY THE MARKER, AND WHY IT IS NOT A GATE WEAKENING (2026-08-31).
+// check-otel-spans ZONE A is zero-tolerance over CommandBus handlers and classifies by
+// DIRECTORY — anything under a `handlers/` folder. This file sits there and is NOT a handler:
+//   grep -nE "readonly type|implements|CommandHandler|canExecute|execute\(" -> 0 hits
+// It exports exactly two things, neither of which the bus can dispatch:
+//   :71  export class SelectionStoreUnavailableError extends Error
+//   :110 export function resolveSelectionStore(...)
+// A withHandlerSpan wrapper here would instrument a RESOLVER as though it were a command, which
+// makes the span count read higher while measuring something the invariant was never about.
+// The marker is the gate's OWN documented mechanism for exactly this case, already carried by
+// plugins/ifc-import/src/handlers/pluginHandlers.ts and plugins/rooms/src/handlers/legacyCommands.ts.
+// It exempts ONE misclassified file; it does not move a ceiling, widen a baseline, or narrow a scope.
+//
 // ═══════════════════════════════════════════════════════════════════════════════
 // WHAT WAS BROKEN, AS A MEASUREMENT.
 // ═══════════════════════════════════════════════════════════════════════════════
