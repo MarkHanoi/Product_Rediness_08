@@ -57,9 +57,9 @@
 | Axis | Measured |
 |---|---|
 | L0 schema | `packages/schemas/src/elements/Annotation.ts` — the `kind` union at `:6-18`, **11 members** |
-| Canonical record | `AnnotationElement` — `plugins/annotations/src/subsystem/AnnotationTypes.ts:138`; its `type` union at `:20-54`, **27 members** |
-| Parallel flat record | `DimensionElement` — `AnnotationTypes.ts:218`, single literal `type: 'linear-dimension'` |
-| Canonical store | `plugins/annotations/src/subsystem/AnnotationStore.ts:74`, singleton `:395` |
+| Canonical record | `AnnotationElement` — `packages/core-app-model/src/annotations/AnnotationTypes.ts:138`; its `type` union at `:20-54`, **27 members** *(subsystem moved out of `plugins/annotations/src/subsystem/` by the F-P5-04 inversion, LANE A 2026-08-31 — same-path shims remain in the plugin)* |
+| Parallel flat record | `DimensionElement` — `AnnotationTypes.ts:216`, single literal `type: 'linear-dimension'` |
+| Canonical store | `packages/core-app-model/src/annotations/AnnotationStore.ts:86`, singleton `:440` |
 | Flat "ledger" store | `plugins/annotations/src/store.ts` (class in `packages/stores/src/AnnotationStore.ts:24`), `kind` typed bare `string` at `store.ts:18` |
 | Palette tool ids | **19** — `apps/editor/src/engine/initAnnotationTools.ts:5-23`, `section: 'ANNOTATION'` |
 | Bus verb namespace | `annotation.*` — **9** handlers, `plugins/annotations/src/handlers/index.ts:14-24`; plus `dimension.*` |
@@ -71,7 +71,7 @@
 |---|---|---|---|
 | Schema `kind` | 11 | `packages/schemas/src/elements/Annotation.ts:6-18` (mirrored verbatim as `ANNOTATION_KINDS`, `plugins/annotations/src/intent.ts:16-28`) | **NO** |
 | Canonical `AnnotationType` | 27 | `AnnotationTypes.ts:20-54` | **YES** |
-| `DimensionElement.type` | 1 | `AnnotationTypes.ts:218` | YES, in a separate `_dims` array |
+| `DimensionElement.type` | 1 | `AnnotationTypes.ts:216` | YES, in a separate `_dims` array |
 | Palette tool id | 19 | `initAnnotationTools.ts:5-23` | n/a — ids, not kinds |
 
 ⚠ **The tool id is NOT the kind.** `linear-dimension` (tool) → `linear-dim` (kind); `element-tag` →
@@ -98,12 +98,12 @@ with a kind it is not. Three spellings, two of them identical strings meaning di
 
 | Store | Record | Persisted | Rendered | Undo-bound | Readers |
 |---|---|---|---|---|---|
-| `subsystem/AnnotationStore.ts:74` (singleton `:395`) | `AnnotationElement` | **YES** — `ProjectSerializer.ts:922-927` | **YES** — all four renderers | **YES** — `performUndoRedo.ts:352` | all |
+| `packages/core-app-model/src/annotations/AnnotationStore.ts:86` (singleton `:440`) | `AnnotationElement` | **YES** — `ProjectSerializer.ts:922-927` | **YES** — all four renderers | **YES** — `performUndoRedo.ts:352` | all |
 | `plugins/annotations/src/store.ts` | `AnnotationData` (zod) | NO | NO | NO | **NONE** |
 
 ### THE AUTHORITY
 
-**`subsystem/AnnotationStore.ts`, unambiguously.** This family is the repo's **cleanest** case of a
+**`packages/core-app-model/src/annotations/AnnotationStore.ts`, unambiguously.** This family is the repo's **cleanest** case of a
 declared co-living pair, and it is worth recording as a positive: `canonicalAnnotationSink.ts:1-47`
 states in source that the flat store *"is read by NOTHING… a DERIVED MIRROR, never a read source"*,
 and `assertNotARead()` (`:255`) **throws** if anyone reads it.
@@ -116,7 +116,7 @@ has two and a tripwire.
 
 ### TO-BE — normative
 
-- **A-ST-1.** `subsystem/AnnotationStore` is THE authority. New code MUST NOT read
+- **A-ST-1.** `packages/core-app-model/src/annotations/AnnotationStore` (formerly `plugins/annotations/src/subsystem/AnnotationStore`) is THE authority. New code MUST NOT read
   `plugins/annotations/src/store.ts`; `assertNotARead()` enforces it and MUST NOT be weakened.
 - **A-ST-2.** Per C84 EI-5a the mirror's **WRITE** is retired when its reader count is provably
   zero repo-wide. It is zero today. **NOT MEASURED:** whether any external consumer (plugin SDK,

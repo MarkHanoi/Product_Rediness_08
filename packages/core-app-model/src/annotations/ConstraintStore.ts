@@ -213,7 +213,7 @@ export class ConstraintStore {
 /** Module-level singleton — shared across the annotation system */
 export const constraintStore = new ConstraintStore();
 
-import { projectScopeRegistry } from '@pryzm/core-app-model';
+import { projectScopeRegistry } from '../persistence/ProjectScopeRegistry.js';
 projectScopeRegistry.register({
     scopeName: 'constraintStore',
     clear: () => constraintStore.clear(),

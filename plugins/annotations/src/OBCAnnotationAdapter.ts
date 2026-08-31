@@ -7,6 +7,14 @@
  */
 
 import * as OBC from '@thatopen/components';
+// §ANN-OBC-ID-MAP (F-P5-04 LANE A): the uuid→annotationId map — the ONLY part
+// of this adapter persistence ever touched — is SPLIT out to
+// packages/core-app-model/src/annotations/ObcAnnotationIdMap.ts. This class
+// keeps ALL @thatopen subscription machinery (RESTRICTED_MODULES leaves that
+// import counted HERE, deliberately flat) and delegates every map operation to
+// the one singleton, reached through the SDK (never a direct core-app-model
+// import — that would grow the sdk-bypass ratchet).
+import { obcAnnotationIdMap } from '@pryzm/plugin-sdk';
 import { makeAnnotationElement } from './subsystem/AnnotationTypes';
 import { CreateAnnotationCommand } from './commands/CreateAnnotationCommand';
 import { DeleteAnnotationCommand } from './commands/DeleteAnnotationCommand';
@@ -14,23 +22,15 @@ import { DeleteAnnotationCommand } from './commands/DeleteAnnotationCommand';
 export class OBCAnnotationAdapter {
     private _currentDrawing: OBC.TechnicalDrawing | null = null;
     private _currentViewDefId: string | null = null;
-    private _uuidToAnnotationId = new Map<string, string>();
     private _unsubscribes: (() => void)[] = [];
 
+    /** Delegates to §ANN-OBC-ID-MAP — the serialized shape is unchanged on disk. */
     serialize(): { version: 1; entries: Array<[string, string]> } {
-        return { version: 1, entries: Array.from(this._uuidToAnnotationId.entries()) };
+        return obcAnnotationIdMap.serialize();
     }
 
     deserialize(payload: any): void {
-        this._uuidToAnnotationId.clear();
-        if (!payload || typeof payload !== 'object') return;
-        if (payload.version !== 1) return;
-        const list = Array.isArray(payload.entries) ? payload.entries : [];
-        for (const e of list) {
-            if (Array.isArray(e) && typeof e[0] === 'string' && typeof e[1] === 'string') {
-                this._uuidToAnnotationId.set(e[0], e[1]);
-            }
-        }
+        obcAnnotationIdMap.deserialize(payload);
     }
 
     setDrawingEditor(editor: any): void {
@@ -149,7 +149,7 @@ export class OBCAnnotationAdapter {
             const slopeRatio = typeof item.slope === 'number' ? item.slope : (run > 0.001 ? rise / run : 0);
             const slopePercent = slopeRatio * 100;
             const dto = makeAnnotationElement(annotationId, 'slope-dim', viewDefId, [], { modelPoints: [{ x: pA.x, y: pA.y, z: pA.z }, { x: pB.x, y: pB.y, z: pB.z }], offset: 0 }, { slopeRatio, slopePercent, unit: 'percent' });
-            if (item.uuid) this._uuidToAnnotationId.set(item.uuid, annotationId);
+            if (item.uuid) obcAnnotationIdMap.set(item.uuid, annotationId);
             this._dispatchCreate(dto); group.clear();
             console.log('[OBCAnnotationAdapter] slope-dim created', annotationId, `slope=${slopePercent.toFixed(1)}%`);
         }
@@ -162,7 +162,7 @@ export class OBCAnnotationAdapter {
             if (drawing !== this._currentDrawing) continue;
             const annotationId = crypto.randomUUID();
             const dto = makeAnnotationElement(annotationId, 'linear-dim', viewDefId, [], { modelPoints: [{ x: item.pointA.x, y: item.pointA.y, z: item.pointA.z }, { x: item.pointB.x, y: item.pointB.y, z: item.pointB.z }], offset: typeof item.offset === 'number' ? item.offset : 0 }, { unit: 'mm' });
-            if (item.uuid) this._uuidToAnnotationId.set(item.uuid, annotationId);
+            if (item.uuid) obcAnnotationIdMap.set(item.uuid, annotationId);
             this._dispatchCreate(dto); group.clear();
         }
     }
@@ -174,7 +174,7 @@ export class OBCAnnotationAdapter {
             if (drawing !== this._currentDrawing) continue;
             const annotationId = crypto.randomUUID();
             const dto = makeAnnotationElement(annotationId, 'angular-dim', viewDefId, [], { modelPoints: [{ x: item.pointA.x, y: item.pointA.y, z: item.pointA.z }, { x: item.vertex.x, y: item.vertex.y, z: item.vertex.z }, { x: item.pointB.x, y: item.pointB.y, z: item.pointB.z }], offset: 0 }, { arcRadius: typeof item.arcRadius === 'number' ? item.arcRadius : 0 });
-            if (item.uuid) this._uuidToAnnotationId.set(item.uuid, annotationId);
+            if (item.uuid) obcAnnotationIdMap.set(item.uuid, annotationId);
             this._dispatchCreate(dto); group.clear();
         }
     }
@@ -183,9 +183,9 @@ export class OBCAnnotationAdapter {
         const cm = window.commandManager; // TODO(TASK-06)
         if (!cm) { console.warn('[OBCAnnotationAdapter] commandManager not available for delete'); return; }
         for (const uuid of uuids) {
-            const annotationId = this._uuidToAnnotationId.get(uuid);
+            const annotationId = obcAnnotationIdMap.get(uuid);
             if (!annotationId) continue;
-            try { cm.execute(new DeleteAnnotationCommand(annotationId)); this._uuidToAnnotationId.delete(uuid); }
+            try { cm.execute(new DeleteAnnotationCommand(annotationId)); obcAnnotationIdMap.delete(uuid); }
             catch (err) { console.error(`[OBCAnnotationAdapter] Delete dispatch failed for uuid=${uuid}:`, err); }
         }
     }
@@ -200,7 +200,7 @@ export class OBCAnnotationAdapter {
     dispose(): void {
         this.detach();
         for (const unsub of this._unsubscribes) { try { unsub(); } catch { /* ignore */ } }
-        this._unsubscribes = []; this._uuidToAnnotationId.clear();
+        this._unsubscribes = []; obcAnnotationIdMap.clear();
         console.log('[OBCAnnotationAdapter] disposed');
     }
 }

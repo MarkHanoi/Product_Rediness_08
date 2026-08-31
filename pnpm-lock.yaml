@@ -1712,9 +1712,6 @@ importers:
       '@pryzm/geometry-wall':
         specifier: workspace:*
         version: link:../geometry-wall
-      '@pryzm/plugin-annotations':
-        specifier: workspace:*
-        version: link:../../plugins/annotations
       '@pryzm/procedural-textures':
         specifier: workspace:*
         version: link:../procedural-textures
@@ -2716,6 +2713,9 @@ importers:
       '@pryzm/command-bus':
         specifier: workspace:*
         version: link:../command-bus
+      '@pryzm/core-app-model':
+        specifier: workspace:*
+        version: link:../core-app-model
       '@pryzm/protocol':
         specifier: workspace:*
         version: link:../protocol

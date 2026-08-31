@@ -15,7 +15,9 @@
  */
 
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { annotationStore, makeAnnotationElement, makePointRef } from '@pryzm/plugin-annotations';
+import { annotationStore } from '../../annotations/AnnotationStore.js';
+import { makeAnnotationElement } from '../../annotations/AnnotationTypes.js';
+import { makePointRef } from '../../annotations/AnnotationReference.js';
 import { PlanViewAnnotationRenderer } from '../PlanViewAnnotationRenderer';
 
 /** A Canvas2D stub that records every call, so we can assert on the drawing itself. */

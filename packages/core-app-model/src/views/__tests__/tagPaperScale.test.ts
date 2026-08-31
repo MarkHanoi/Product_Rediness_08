@@ -23,7 +23,9 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
-import { annotationStore, makeAnnotationElement, makePointRef } from '@pryzm/plugin-annotations';
+import { annotationStore } from '../../annotations/AnnotationStore.js';
+import { makeAnnotationElement } from '../../annotations/AnnotationTypes.js';
+import { makePointRef } from '../../annotations/AnnotationReference.js';
 import { PlanViewAnnotationRenderer } from '../PlanViewAnnotationRenderer';
 import { viewDefinitionStore } from '../ViewDefinitionStore';
 import { TAG_PAPER_MM, paperMmToWorldM, paperMmToPx } from '../../annotations/paperScale';

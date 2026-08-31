@@ -719,3 +719,69 @@ export {
 // module-graph weight (no THREE/@thatopen barrel) to anything importing the SDK —
 // the same reasoning ADR-0318 §5 gives for `composeRuntime`'s use of it.
 export { storeRegistry, type BimStore } from '@pryzm/core-app-model/store-registry';
+
+// ── @pryzm/core-app-model/annotations — the annotation SUBSYSTEM ────────────
+// §ANN-ONE-STORE / F-P5-04 inversion (LANE A, 2026-08-31): the 9-file
+// dependency-closed subsystem cluster (types, references, stores, constraint
+// solver, dependency graph, dimension formatter) moved from
+// `plugins/annotations/src/subsystem/` down to
+// `packages/core-app-model/src/annotations/`. The SDK is the ONLY sanctioned
+// route for a plugin to reach it (`plugins/annotations`' same-path shims
+// re-export from here), so the sdk-bypass ratchet moves DOWN, never up.
+//
+// Deep subpath on purpose — same reasoning as `store-registry` above: keep the
+// SDK's module graph off the full core-app-model barrel.
+//
+// TWO ALIASES, both forced by pre-existing SDK exports (verified collisions):
+//  - `AnnotationStore` at this barrel is ALREADY the `@pryzm/stores` Zustand
+//    DTO-ledger class → the subsystem class exports as `AnnotationSubsystemStore`.
+//  - `formatDimension` is ALREADY geometry-kernel's (mm/UnitFormat signature)
+//    → the subsystem formatter (metres/unit-string) exports as
+//    `formatAnnotationDimension`. They are DIFFERENT functions, not duplicates
+//    (scout §2a). The plugin's shims re-alias both back to the original names,
+//    so no consumer anywhere sees a rename.
+export {
+  type SubElementType,
+  type StableReference,
+  type ResolverStores,
+  makeStableKey,
+  makeRef,
+  makePointRef,
+  makeWallFaceRef,
+  resolveReferenceToPoint,
+  type AnnotationType,
+  type AnnotationStyle,
+  type AnnotationGeometry2D,
+  type AnnotationSemantics,
+  type AnnotationElement,
+  type DimensionElement,
+  type DimPoint2D,
+  type LinearDimSegment,
+  DEFAULT_ANNOTATION_STYLE,
+  makeAnnotationElement,
+  type AnnotationTypeCategory,
+  ANNOTATION_CATEGORY_BY_FAMILY,
+  ANNOTATION_DEFAULT_TYPE_BY_CATEGORY,
+  defaultAnnotationTypeIdFor,
+  type ValidationOutcome,
+  validateAnnotationParameters,
+  AnnotationStore as AnnotationSubsystemStore,
+  annotationStore,
+  AnnotationDependencyGraph,
+  AnnotationVisibilityStore,
+  annotationVisibilityStore,
+  type ConstraintOperator,
+  type ConstraintRecord,
+  ConstraintStore,
+  constraintStore,
+  type ConstraintResult,
+  type UnresolvedReference,
+  ConstraintSolver,
+  constraintSolver,
+  type DimensionUnit,
+  formatDimension as formatAnnotationDimension,
+  // §ANN-OBC-ID-MAP — persisted half of the old OBCAnnotationAdapter (split,
+  // not moved: the @thatopen subscription half stays in the plugin).
+  ObcAnnotationIdMap,
+  obcAnnotationIdMap,
+} from '@pryzm/core-app-model/annotations';

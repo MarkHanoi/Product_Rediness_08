@@ -9,6 +9,7 @@
   "exports": {
     ".": "./src/index.ts",
     "./drawing": "./src/drawing/index.ts",
+    "./annotations": "./src/annotations/index.ts",
     "./presentation": "./src/presentation/index.ts",
     "./presentation/migrations": "./src/presentation/migrations/index.ts",
     "./hierarchy": "./src/hierarchy/index.ts",
@@ -67,7 +68,6 @@
     "zod": "*",
     "immer": "^10.1.1",
     "@pryzm/command-registry": "workspace:*",
-    "@pryzm/plugin-annotations": "workspace:*",
     "@pryzm/room-topology": "workspace:*"
   },
   "devDependencies": {

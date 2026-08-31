@@ -1,7 +1,7 @@
 import * as THREE from '@pryzm/renderer-three/three';
 import { viewTechnicalDrawingCache } from './ViewTechnicalDrawingCache';
 import { planViewAnnotationRenderer } from './PlanViewAnnotationRenderer';
-import { annotationStore } from '@pryzm/plugin-annotations';
+import { annotationStore } from '../annotations/AnnotationStore.js';
 import { PocheFillBuilder, type PochePolygon } from './PocheFillBuilder';
 import { RoomColourSystem } from '@pryzm/room-topology';
 // A-1: DrawingSelectionIndex — primary UUID resolution path for hitTest

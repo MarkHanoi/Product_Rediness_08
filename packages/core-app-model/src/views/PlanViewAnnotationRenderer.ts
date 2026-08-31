@@ -19,14 +19,14 @@
  *   - Does not register tick listeners; its caller drives the render cadence.
  */
 
-import { annotationStore } from '@pryzm/plugin-annotations';
+import { annotationStore } from '../annotations/AnnotationStore.js';
 import {
-    AnnotationElement,
-    AnnotationStyle,
+    type AnnotationElement,
+    type AnnotationStyle,
     DEFAULT_ANNOTATION_STYLE,
-    DimensionElement,
-} from '@pryzm/plugin-annotations';
-import { formatDimension } from '@pryzm/plugin-annotations';
+    type DimensionElement,
+} from '../annotations/AnnotationTypes.js';
+import { formatDimension } from '../annotations/DimensionFormatter.js';
 import { viewDefinitionStore } from './ViewDefinitionStore';
 import type { ViewDefinition } from './ViewDefinitionTypes';
 // §ELEV-SCOPE-DEPTH (L-1855) — ONE far-clip expression. The three sites below used

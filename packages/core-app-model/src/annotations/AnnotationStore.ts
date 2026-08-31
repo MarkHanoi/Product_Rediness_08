@@ -23,7 +23,7 @@
  */
 
 import { AnnotationElement, DimensionElement } from './AnnotationTypes';
-import { storeEventBus } from '@pryzm/core-app-model';
+import { storeEventBus } from '../StoreEventBus.js';
 import { validateAnnotationParameters } from './AnnotationParametersSchema';
 
 /**
@@ -439,7 +439,7 @@ export class AnnotationStore {
 /** Module-level singleton — mirrors the pattern used by viewDefinitionStore, sheetStore, etc. */
 export const annotationStore = new AnnotationStore();
 
-import { projectScopeRegistry } from '@pryzm/core-app-model';
+import { projectScopeRegistry } from '../persistence/ProjectScopeRegistry.js';
 projectScopeRegistry.register({
     scopeName: 'annotationStore',
     clear: () => annotationStore.clear(),

@@ -24,7 +24,7 @@
  *   §01 §5 — No DOM, no Three.js
  */
 
-import { storeEventBus, StoreChangeEvent } from '@pryzm/core-app-model';
+import { storeEventBus, type StoreChangeEvent } from '../StoreEventBus.js';
 import { AnnotationStore } from './AnnotationStore';
 import { AnnotationElement } from './AnnotationTypes';
 import { resolveReferenceToPoint, ResolverStores } from './AnnotationReference';

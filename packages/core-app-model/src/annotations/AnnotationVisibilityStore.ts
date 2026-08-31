@@ -149,7 +149,7 @@ export class AnnotationVisibilityStore {
 /** Module-level singleton */
 export const annotationVisibilityStore = new AnnotationVisibilityStore();
 
-import { projectScopeRegistry } from '@pryzm/core-app-model';
+import { projectScopeRegistry } from '../persistence/ProjectScopeRegistry.js';
 projectScopeRegistry.register({
     scopeName: 'annotationVisibilityStore',
     clear: () => {
