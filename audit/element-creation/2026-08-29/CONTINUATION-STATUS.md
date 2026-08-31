@@ -172,3 +172,96 @@ so it does **not** cover `tools/` — the changed file was typechecked directly:
 **Unrelated, not mine:** `git status` shows a concurrent lane moving `RoomAutoFillClassifier` from
 `@pryzm/spatial-index` to `@pryzm/room-topology`, plus the `plugins/annotations` + `plugin-sdk` +
 `eslint.config.js` set. None is touched by this lane. Nothing was committed.
+
+---
+
+## R7 — WAVES 1–3 WERE ENTIRELY INSTRUMENT WORK
+
+**The seven-fact row has not moved and was never going to.**
+
+| | authored | dispatchable | reachable | renders 3D | renders plan | persists | exports |
+|---|---|---|---|---|---|---|---|
+| after audit (2026-08-29) | 29 | 26 | 21 | 21 | 15 | 21 | 13 |
+| **after Waves 1–3** | **29** | **26** | **21** | **21** | **15** | **21** | **13** |
+
+Waves 1–3 repaired the measuring system: four layer arms (three closed), the graph-write reader
+vocabulary, a stale ledger, and four gates that could not prove they would fire. Every one of those
+is a change to what we can *know*, not to what a user can *do*.
+
+**Wave 4 is the first wave that changes what a user can do.** Its acceptance is the seven-fact row
+re-measured against `29 / 26 / 21 / 21 / 15 / 21 / 13`, not a gate exit code.
+
+## Wave 1–3 gate ledger
+
+| Gate | RC before | RC after | Numbers |
+|---|---|---|---|
+| check-layer-boundaries | 3 | 3 | upward 105/102 → **PASS** · unclassified 15/13 → **13/13** · sdk-bypass 186/182 → **≤182** · banned-3p 123/113 → 124 (arm became honest) |
+| check-graph-write-coverage | 3 | **0** | 4 unledgered findings → 0, hard-0, no ledger entry added · controls 5 → 8 |
+| check-batch-creation-coverage | 1 | **0** | ledger 4 → 3, three entries re-proven still real |
+| check-runtime-arg-omitted | 0 | 0 | + executed controls, arms [A, B, F1, F2] |
+| check-tool-activator-coverage | 0 | **1** | + controls; now catching ARM-A uncovered=2, ARM-B phantom=1 — newly VISIBLE debt |
+| check-material-maps-tiling | 0 | 0 | + executed controls, arms [F1,F2,F3,A,B,C,D,E] |
+| check-render-aggregate-seam | 0 | 0 | + executed controls, arms [A, B] |
+
+## R6 — dispositions assigned
+
+| Row | Disposition |
+|---|---|
+| **L-12860** | → **WAVE 4.** `GraphQueryService` answers all four families through dynamic `getTargets`, returning a confident `{ok:true, targets:[]}` exactly where the typed readers REFUSE. STR-06 §6-bis: *"known + unknown = [] is the defect this whole session has hunted."* A confident empty reaching the AI host is indistinguishable from a building with no relationships. **Fix: the dynamic path must refuse where the typed reader refuses, or delegate to it. Do NOT add a fifth reader.** |
+| **L-12859** | → **OWNER: `check-graph-write-coverage`.** `gate-newly-measured.json:329` pins that gate to "5 NAMED entries" while its ledger holds zero. One authority per concept (C84 EI-9); the gate owns its own count and the shared file must follow it, not lead it. |
+
+## Open, not carried silently
+
+- **banned-3p 124/113** — the ONLY open layer arm. Not a Wave 2/3 task. Its own pass, and that
+  pass's first question is **what the 113 ceiling was measured against, and when** — because
+  `geometry-handrail` was unclassified when it was set, so 113 may never have been the true count.
+- **Wave 2 lane B** — commandManager convergence, agent died. `.mjs` export landed; `.ts` caller did
+  not. Held, not staged, relaunching.
+
+---
+
+## WAVE 4 — INTERRUPTED MID-FLIGHT (2026-08-31 09:1x). TREE IS DIRTY AND RED. DO NOT COMMIT AS-IS.
+
+**Committed and safe:** `f5071259` · `be6cfecd` · `8ec7dfd5` · `6936d713` (Waves 1–3).
+**Wave 4 is UNCOMMITTED work-in-progress in the working tree.** Six lanes were running; none
+returned. `git status` shows 14 modified files.
+
+### Root typecheck is RED — 5 errors, all in half-written lane work
+
+```
+packages/ai-host/src/graph/GraphQueryService.ts(261,27) TS2536
+    Type '"reason"' cannot be used to index type 'Extract<T, { ok: false; }>'
+packages/file-format/src/export/ifc/FragmentReader.ts(34,1) TS6192  all imports unused
+packages/file-format/src/export/ifc/FragmentReader.ts(48,1) TS6133  'FloorReader' declared, never read
+```
+
+These are **incomplete edits, not defects** — `FloorReader` is imported and not yet wired (Wave 4b
+was mid-way through adding it), and the `GraphQueryService` refusal type (L-12860) is mid-change.
+
+### What each lane had reached
+
+| Lane | Files touched | State |
+|---|---|---|
+| **W2b** commandManager convergence | `ci-check-no-commandmanager.mjs`, `check-no-commandmanager.ts` | ⭐ the `.ts` caller half FINALLY landed — the piece the dead lane never wrote |
+| **4b** export | `FragmentReader.ts`, `ExportIFC.ts`, `IfcModelBuilder.ts` | `FloorReader` imported, not yet registered |
+| **4c** dimension | `PluginRegistry.ts` | in progress |
+| **4d** selection | — | no source written; was told to measure first |
+| **4h** bathroomPod | `ProjectSerializer.ts`, `restoreCompoundFamilies.ts`, `snapshotFamilyCoverage.ts`, `check-snapshot-family-coverage.ts` | in progress |
+| **L-12860** confident empty | `GraphQueryService.ts` + its parked-hierarchy test | in progress, type error above |
+
+**Wave 4B never started** (plan view + invisible families · roof/column/beam/slab · ceiling/curtain-wall).
+
+### Baselines: CLEAN
+`git status --porcelain .ga-gate/ gate-debt.json gate-newly-measured.json` → **empty**.
+No ceiling raised at any point in this pass.
+
+### Seven-fact row: STILL UNMOVED
+`29 / 26 / 21 / 21 / 15 / 21 / 13` — Wave 4 did not complete, so nothing user-facing changed.
+
+### Resume options
+1. **Finish the tree** — complete the 5 type errors (wire `FloorReader`, fix the refusal generic),
+   re-run the gates, commit Wave 4A, then run Wave 4B.
+2. **Reset to clean** — `git checkout --` the 14 files and re-run Wave 4 from `6936d713`. Loses the
+   W2b caller wiring, which is the most valuable uncommitted piece.
+
+⭐ **Option 1 is right.** The W2b `.ts` caller is the half that TWO dead lanes failed to land.
