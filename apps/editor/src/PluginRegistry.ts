@@ -53,7 +53,7 @@ import type { PluginRegistration } from '@pryzm/plugin-sdk';
 
 // ── C06 §4 — Task 3.1 (Phase 3) — plugin tool activator imports ─────────────
 //
-// Seven plugin tool classes imported via stable `./tool` subpath exports.
+// Plugin tool classes imported via stable `./tool` subpath exports.
 // One tool (FurniturePlacementTool) requires engine-provided deps (the
 // catalogue) and therefore uses the existing window-bridge pattern (same as
 // ToolsAreaLayout's ramp/room/ceiling bridges) until Phase 4 lands the
@@ -65,13 +65,17 @@ import type { PluginRegistration } from '@pryzm/plugin-sdk';
 // assigned anywhere; the dimension bridge has been deleted. See the tombstone
 // in registerAllPluginToolActivators.
 //
+// ⚠ 2026-08-31 (lane 7B1b, F-P5-02): the TextNoteTool, GridPlacementTool and
+// LightingPlacementTool imports were deleted with the dead constructions that
+// used them — all three were built on `window.__pryzmScreenToWorld`, a key
+// ASSIGNED NOWHERE in the repo. See the tombstones in
+// registerAllPluginToolActivators. StructuralPlacementTool remains imported
+// solely by the REFUSED `structural` registration (annotated at its site).
+//
 // Phase 2 NOTE: zero `commandManager` call sites introduced here.  All
 // dispatch goes through `runtime.bus.executeCommand`.  Clean of F1–F13.
-import { TextNoteTool, type ScreenToWorldFn } from '@pryzm/plugin-annotations/tool';
 import { BCFTool } from '@pryzm/plugin-bcf/tool';
 import { CrossTool } from '@pryzm/plugin-cross/tool';
-import { GridPlacementTool } from '@pryzm/plugin-grid/tool';
-import { LightingPlacementTool } from '@pryzm/plugin-lighting/tool';
 import { StructuralPlacementTool } from '@pryzm/plugin-structural/tool';
 import { CubeTool } from '@pryzm/plugin-toy-cube/tool';
 
@@ -1009,21 +1013,31 @@ export interface ToolActivatorRuntime {
  *  plugin tools not wired in Phase E (S78-WIRE).
  *
  *  Families registered (none overlap with ToolsAreaLayout.ts registrations):
- *    `annotation` · `bcf` · `cross` · `furniture` ·
- *    `grid:tool` · `lighting` · `structural` · `toy-cube`
+ *    `bcf` · `cross` · `furniture` · `lighting` · `structural` · `toy-cube`
  *
  *  ⚠ This list read NINE and included `dimension` until Wave 4c. That family's
  *  bridge was deleted, not renamed — see the tombstone at the point where it
  *  stood, below `cross`. Dimensions reach the user on the ANNOTATION channel.
+ *  ⚠ It then read EIGHT and included `annotation` and `grid:tool` until
+ *  2026-08-31 (lane 7B1b, F-P5-02) — both deleted as dead rivals of live
+ *  paths; see their tombstones below. `lighting` survives as a DELEGATE to
+ *  `ToolManager.activateLighting` (§LIGHT121), no longer a construction.
  *
  *  Design notes:
  *  - `busAdapter` wraps `runtime.bus.executeCommand` (returns `unknown`) in
  *    `Promise.resolve()` to satisfy the `executeCommand<T>(): Promise<unknown>`
  *    shape each plugin tool constructor expects.
- *  - `annotationScreenToWorld` / `eventScreenToWorld` are lazy engine bridges:
+ *  - ⛔ CORRECTED 2026-08-31 (lane 7B1b, F-P5-02): this bullet used to say
+ *    "`annotationScreenToWorld` / `eventScreenToWorld` are lazy engine bridges:
  *    the engine sets `window.__pryzmScreenToWorld` during `initTools()` once
- *    the THREE camera + raycaster are ready.  Until then both functions return
- *    null / undefined — every tool's `onPointerDown` bails safely, no crash.
+ *    the THREE camera + raycaster are ready." THE ENGINE NEVER DID. Measured:
+ *    `__pryzmScreenToWorld` is ASSIGNED NOWHERE in the repo (4 hits total, all
+ *    in this file — two comments, two reads), and `initTools.ts` contains no
+ *    `screenToWorld` at all. This is the same defect shape as the `dimension`
+ *    bullet below: a window bridge asserted, never verified, never true. The
+ *    real conversions are per-view closures (PlanCamera in the plan overlays)
+ *    and per-tool raycasts — none global. Every tool constructed on these
+ *    bridges was dead on its screenToWorld; see the tombstones below.
  *  - the `furniture` activator reads `window.furnitureTool` at call-time (same
  *    pattern as ToolsAreaLayout's ramp, room, ceiling bridges) because
  *    FurniturePlacementTool requires an initialised catalogue. That bridge is
@@ -1047,18 +1061,25 @@ export function registerAllPluginToolActivators(runtime: ToolActivatorRuntime): 
     },
   } as { executeCommand<T>(type: string, payload: T): Promise<unknown> };
 
-  // Lazy engine bridge — (x: number, y: number) signature for TextNoteTool.
-  // Note: engine sets window.__pryzmScreenToWorld during initTools(); returns
-  // null until engine is ready. Cast as ScreenToWorldFn — callers guard
-  // against null at the pointer-event level (onPointerDown bails if no point).
-  const annotationScreenToWorld = ((x: number, y: number) => {
-    const fn = (window as unknown as Record<string, unknown>).__pryzmScreenToWorld as
-      | ((x: number, y: number) => { x: number; y: number; z: number } | null)
-      | undefined;
-    return fn ? fn(x, y) : null;
-  }) as unknown as ScreenToWorldFn;
-
-  // Lazy engine bridge — {offsetX, offsetY} event signature for placement tools.
+  // ⚠ DEAD-KEY BRIDGE, KEPT ONLY FOR THE REFUSED `structural` REGISTRATION ──
+  // (2026-08-31, lane 7B1b, F-P5-02/F-P5-03.)
+  //
+  // `window.__pryzmScreenToWorld` is ASSIGNED NOWHERE in the repo — the `fn`
+  // read below is ALWAYS undefined and this bridge ALWAYS returns undefined.
+  // Its sibling `annotationScreenToWorld` was deleted with the `annotation`
+  // and `grid:tool` constructions (tombstones below) and the `lighting`
+  // construction (now a delegate). This one survives solely because the
+  // `structural` registration below is REFUSED-pending-founder-decision and
+  // still references it.
+  //
+  // F-P5-03, measured and left UNFIXED deliberately: the placement-tool
+  // contracts (`plugins/structural/src/tool.ts:16`) pass an event promising
+  // `clientX`/`clientY`, while this bridge reads `ev.offsetX`/`ev.offsetY` —
+  // properties the contract does not promise. The fix direction is
+  // undecidable: the annotation plugin's projector convention is CANVAS-LOCAL
+  // coords, the tool contracts promise CLIENT coords, and the underlying `fn`
+  // does not exist to arbitrate. Do not "fix" one side without a real
+  // projector to test against.
   const eventScreenToWorld = (ev: { offsetX: number; offsetY: number }) => {
     const fn = (window as unknown as Record<string, unknown>).__pryzmScreenToWorld as
       | ((x: number, y: number) => { x: number; y: number; z: number } | null)
@@ -1066,30 +1087,38 @@ export function registerAllPluginToolActivators(runtime: ToolActivatorRuntime): 
     return fn ? (fn(ev.offsetX, ev.offsetY) ?? undefined) : undefined;
   };
 
-  // ─── annotation ───────────────────────────────────────────────────────────
-  // TextNoteTool requires canvas + viewId (engine-provided after initTools()).
-  // Bridge pattern: engine stores ready instance at window.annotationTool;
-  // activator re-activates it. TODO(Phase 4): replace with runtime.inputHost.
-  runtime.tools.register('annotation', (m?) => {
-    const tool = (window as unknown as Record<string, unknown>).annotationTool as
-      { activate?: (mode?: string) => void; dispose?: () => void } | undefined;
-    if (tool?.activate) {
-      tool.activate(m);
-    } else {
-      // Fallback: engine not yet initialised — construct a lightweight shim
-      // for non-canvas contexts (e.g. headless tests). Canvas + viewId are
-      // optional at this stage; the tool bails gracefully on pointer events.
-      const prior = (window as unknown as Record<string, unknown>).annotationTool as
-        { dispose?: () => void } | undefined;
-      prior?.dispose?.();
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      (window as unknown as Record<string, unknown>).annotationTool = new TextNoteTool({
-        commandBus: busAdapter,
-        screenToWorld: annotationScreenToWorld,
-      } as any);
-    }
-    console.log(`[runtime.tools/annotation] activated (kind=${m ?? 'text-note'})`);
-  });
+  // ─── annotation ─── REMOVED (2026-08-31, lane 7B1b, F-P5-02) ──────────────
+  //
+  // ⛔ DO NOT RE-ADD a `runtime.tools` registration for the `annotation`
+  // family here. (Wording is deliberate: `check-tool-activator-coverage.ts`
+  // regex-matches register calls COMMENTS INCLUDED, so a literal call
+  // spelled out in a comment would count as a registration forever.)
+  //
+  // What stood here read `window.annotationTool` and, when absent, constructed
+  // `@pryzm/plugin-annotations/tool`'s TextNoteTool. Both branches were dead,
+  // measured:
+  //   • The primary branch's `window.annotationTool` was assigned NOWHERE
+  //     except by the fallback branch itself — so the first activation always
+  //     took the fallback.
+  //   • The fallback constructed TextNoteTool WITHOUT its required `canvas`
+  //     option (cast `as any`), and that constructor immediately calls
+  //     `this.canvas.addEventListener(...)` — a guaranteed TypeError. The
+  //     comment claiming "the tool bails gracefully on pointer events" was
+  //     false; it crashed at construction.
+  //   • Its `screenToWorld` was `annotationScreenToWorld`, built on
+  //     `window.__pryzmScreenToWorld` — a key assigned nowhere in the repo.
+  //   • SINK — nothing ever called `activate('annotation')`: no matrix row,
+  //     no panel route (measured 2026-08-31).
+  //
+  // THE CAPABILITY IS NOT MISSING — text notes reach the user on the live
+  // annotation channel, fully wired end to end:
+  //   AnnotationRailPanel._dispatchTool('text-note')  (AnnotationRailPanel.ts:134)
+  //     → ToolManager.activateTextNote()              (packages/input-host/src/ToolManager.ts:712)
+  //     → the engine TextNoteTool instance wired at initTools.ts:3753
+  //       (`toolManager.setTextNoteTool(annotationManager.textNoteTool)`),
+  //       which owns its own raycast projection — no window bridge involved.
+  // Re-arming the plugin-side TextNoteTool here would be a RIVAL of that path,
+  // exactly as the `dimension` tombstone below records for its family.
 
   // ─── bcf ──────────────────────────────────────────────────────────────────
   runtime.tools.register('bcf', () => {
@@ -1115,7 +1144,11 @@ export function registerAllPluginToolActivators(runtime: ToolActivatorRuntime): 
 
   // ─── dimension ─── REMOVED (Wave 4c, audit B5-DIM-01) ─────────────────────
   //
-  // ⛔ DO NOT RE-ADD A `runtime.tools.register('dimension', ...)` BRIDGE HERE.
+  // ⛔ DO NOT RE-ADD a `runtime.tools` registration for the `dimension`
+  // family here. (This line used to spell the call out literally;
+  // `check-tool-activator-coverage.ts` regex-matches register calls COMMENTS
+  // INCLUDED, so the tombstone itself was counted as a live registration of
+  // `dimension`. Reworded 2026-08-31, lane 7B1b.)
   //
   // What stood here read `window.dimensionTool` and, when it was absent, warned
   // "DimensionTool not ready — engine not yet initialised". That warning named a
@@ -1166,40 +1199,92 @@ export function registerAllPluginToolActivators(runtime: ToolActivatorRuntime): 
     }
   });
 
-  // ─── grid:tool ────────────────────────────────────────────────────────────
-  // Note: 'grid' family in ToolsAreaLayout covers the GridStore-backed creation
-  // modal.  'grid:tool' is the pointer-driven GridPlacementTool (interactive
-  // grid-line snapping placement).  Different families; no overlap.
-  runtime.tools.register('grid:tool', () => {
-    const prior = (window as unknown as Record<string, unknown>).gridPlacementTool as
-      { dispose?: () => void } | undefined;
-    prior?.dispose?.();
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (window as unknown as Record<string, unknown>).gridPlacementTool = new GridPlacementTool({
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      commandBus: busAdapter as any,
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      screenToWorld: eventScreenToWorld as any,
-    });
-    console.log('[runtime.tools/grid:tool] activated');
-  });
+  // ─── grid:tool ─── REMOVED (2026-08-31, lane 7B1b, F-P5-02) ───────────────
+  //
+  // ⛔ DO NOT RE-ADD a `runtime.tools` registration for the `grid:tool`
+  // family here. (Wording is deliberate — see the annotation tombstone: the
+  // coverage gate counts register calls spelled out in comments.)
+  //
+  // What stood here constructed `GridPlacementTool` on `eventScreenToWorld` —
+  // a bridge over `window.__pryzmScreenToWorld`, ASSIGNED NOWHERE in the repo,
+  // so every projected click returned undefined and `onPointerDown` bailed
+  // forever. The construction was dead at every layer, measured 2026-08-31:
+  //   • SOURCE — no assignment of the window key, anywhere.
+  //   • SINK   — nothing ever called `activate('grid:tool')`: the matrix
+  //     declares `grid` (no colon), and `check-tool-activator-coverage.ts`
+  //     itself records "`grid:tool` is NOT the matrix's `grid` — the colon is
+  //     the whole difference".
+  //   • PUMP   — `window.gridPlacementTool` had ZERO consumers, and the tool
+  //     attaches no DOM listener; nothing could ever call its onPointerDown.
+  //
+  // THE CAPABILITY IS NOT MISSING — grids reach the user on the live path:
+  //   ToolsAreaLayout.ts:356 registers the `grid` family: `() => tm.activateGrid()`
+  //     → ToolManager.activateGrid()      (packages/input-host/src/ToolManager.ts:1091)
+  //     → GridPlanToolHandler             (armed by PlanViewToolOverlay.ts:801 /
+  //                                        SvpPlanToolOverlay.ts:873)
+  //     → dispatches `grid.add`           (GridPlanToolHandler.ts:235/:253/:901)
+  //   UI: GridsLevelsRailPanel.ts:229 drives the same activateGrid().
+  // Re-arming GridPlacementTool (verb `grid.create`) would be a RIVAL sink of
+  // that path — the dimension tombstone above records the identical shape.
 
-  // ─── lighting ─────────────────────────────────────────────────────────────
+  // ─── lighting ─── DELEGATE, not a construction (2026-08-31, lane 7B1b) ────
+  //
+  // ⚠ This registration MUST exist: `elementCreationMatrix.ts` declares a
+  // `lighting` row and THIS FILE is its only `runtime.tools.register` site —
+  // ToolsAreaLayout deliberately declined to register `lighting` because this
+  // binding already existed (its own comment records that), and ARM A of
+  // `tools/ga-gate/check-tool-activator-coverage.ts` counts an unregistered
+  // matrix id as uncovered. Chat placement (`chatPlacementActivation.ts:379`)
+  // lands here via `tools.activate('lighting')`.
+  //
+  // ⛔ What stood here until 2026-08-31 (F-P5-02) CONSTRUCTED a
+  // `LightingPlacementTool` on the never-assigned `__pryzmScreenToWorld` key
+  // and OVERWROTE `window.lightingTool` — the ENGINE's live LightingTool,
+  // assigned at initTools.ts:842-843 and required by the §LIGHT121 path. So a
+  // chat activation would have reported success, armed a tool that could
+  // never place (dead projector, and no pointer pump ever called its
+  // onPointerDown), and clobbered the working 3D tool in the same gesture.
+  //
+  // Now it DELEGATES to the ONE live path — the same call
+  // CreateRailPanelLighting.ts:282 makes: `ToolManager.activateLighting(type)`
+  // (packages/input-host/src/ToolManager.ts:1002, §LIGHT121/L-11900), which
+  // stamps the fixture type AND arms both the 3D tool and the plan handler.
+  // Default 'downlight' matches LightingTool.ts:56 and
+  // LightingPlanToolHandler.ts:29 — the system's own default, not a new one.
   runtime.tools.register('lighting', (m?) => {
-    const prior = (window as unknown as Record<string, unknown>).lightingTool as
-      { dispose?: () => void } | undefined;
-    prior?.dispose?.();
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (window as unknown as Record<string, unknown>).lightingTool = new LightingPlacementTool({
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      commandBus: busAdapter as any,
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      screenToWorld: eventScreenToWorld as any,
-    });
-    console.log(`[runtime.tools/lighting] activated (fixture=${m ?? 'default'})`);
+    const tm = (window as unknown as Record<string, unknown>).toolManager as
+      { activateLighting?: (type: string) => Promise<void> } | undefined;
+    if (typeof tm?.activateLighting === 'function') {
+      void tm.activateLighting(m ?? 'downlight');
+      console.log(`[runtime.tools/lighting] delegated to ToolManager.activateLighting (fixture=${m ?? 'downlight'})`);
+    } else {
+      // Honest miss — engine not booted yet. Nothing is armed and we say so;
+      // constructing a placement tool here is the defect this replaced.
+      console.warn(
+        '[runtime.tools/lighting] ToolManager.activateLighting not available — engine not initialised; nothing armed',
+      );
+    }
   });
 
-  // ─── structural ───────────────────────────────────────────────────────────
+  // ─── structural ─── ⚠ REFUSED, NOT FIXED (2026-08-31, lane 7B1b) ──────────
+  //
+  // This registration is DEAD AT EVERY LAYER, measured:
+  //   • its `screenToWorld` is `eventScreenToWorld` above — a bridge over
+  //     `window.__pryzmScreenToWorld`, assigned nowhere in the repo;
+  //   • nothing activates `'structural'` (no matrix row, no panel; chat
+  //     classifies `structural.create` as class B "needs design" —
+  //     ChatCommandClassification.ts:67);
+  //   • `window.structuralTool` has zero consumers and the tool attaches no
+  //     DOM listener, so nothing could ever call its onPointerDown.
+  // UNLIKE grid/lighting/annotation, the family has NO live alternative:
+  // brace/footing/connection (`structural.create`, handler registered at
+  // engineLauncher.ts:704) is reachable from no user surface at all — beam
+  // and column are different families with their own plan handlers.
+  // Deleting this would erase the only marker that the family is unplaceable;
+  // "wiring" it needs surfaces outside this file (a ToolManager activator, a
+  // plan handler, a matrix row — the §LIGHT121 treatment) or a founder ruling
+  // that the family is a rival of beam/column. Left as-is pending that
+  // decision — see audit/full-stack/2026-08-31/LANE-7B1b-pryzmScreenToWorld.md.
   runtime.tools.register('structural', (m?) => {
     const prior = (window as unknown as Record<string, unknown>).structuralTool as
       { dispose?: () => void } | undefined;
@@ -1394,8 +1479,11 @@ export function registerAllPluginToolActivators(runtime: ToolActivatorRuntime): 
     console.log(`[runtime.tools/navigate] navigation mode activated (${m ?? 'orbit'})`);
   });
 
+  // ⚠ This line used to hand-count "27 (9 original + 9 tool.ts + 9
+  // command-dispatch bridges)" — stale twice over (dimension deleted Wave 4c;
+  // annotation + grid:tool deleted 2026-08-31, lane 7B1b). A hand-copied
+  // count rots; log the number the registrations themselves produce.
   console.log(
-    '[PluginRegistry] C06 §4 (Task 3.1) — 27 plugin tool activators registered with runtime.tools' +
-    ' (9 original + 9 tool.ts + 9 command-dispatch bridges = 27 total in PluginRegistry)',
+    '[PluginRegistry] C06 §4 (Task 3.1) — plugin tool activators registered with runtime.tools (24 families as of 2026-08-31; the runtime-composer activate() miss-warning prints the live set)',
   );
 }
