@@ -119,3 +119,123 @@ export function resolveBoundaryLineStoreFromWindow(): { store: PatchableRecordSt
     if (!store || typeof store.applyPatch !== 'function' || !events || typeof events.emit !== 'function') return null;
     return { store, events };
 }
+
+// ═════════════════════════════════════════════════════════════════════════════
+// §UNDO-C-FIX-2 (L-11520, 2026-08-31) — THE FIFTH..EIGHTH FAMILIES, AND THE FIRST
+// TIME THE SHAPE IS WRITTEN ONCE INSTEAD OF AGAIN.
+// ═════════════════════════════════════════════════════════════════════════════
+//
+// THE MEASUREMENT THIS CLOSES. `audit/full-stack/2026-08-31/commands/` scored 47
+// of 361 verbs STRANDED: a ring-buffer entry is minted, `_covered()` declines it
+// because one declared store key has no adapter, `performUndo` does NOT step the
+// cursor, and the legacy `commandManager` owns nothing for that key. Ctrl+Z is a
+// measured no-op. The 47 fall on TEN keys; FOUR of them are closed here (23 verbs).
+// A fifth — `view` — was wired, then REFUSED on an executed measurement: see its
+// `UNMAPPED_BUS_STORE_KEYS` row in performUndoRedo.ts for the TypeError that
+// disqualified it. The remaining five keys are refused there too, each with the
+// measurement that makes wiring it wrong.
+//
+// ⭐ WHY A GENERIC FACTORY AND NOT A SIXTH BESPOKE FILE. `boundaryLine`,
+// `lift`/`liftPart`, `pool`/`water` and `bathroomPod` each got their own module
+// between 2026-08-25 and 2026-08-26, and `bathroomPodUndoAdapter.ts`'s own header
+// opens by saying it is "the FOURTH family to need this EXACT shape in three days,
+// and it is DELIBERATELY the same shape rather than a fourth spelling of it". Four
+// more families needing it in one week is the signal that the shape is the unit, not
+// the family. The four existing modules are LEFT ALONE — two of them (boundaryLine,
+// lift) do real per-family work at the render seam that this factory does not and
+// must not guess at, and rewriting a live path to route through a new one is the
+// rival-building failure this repo has hit six times. This is an ADDITIONAL door for
+// the families that need only the plain one, not a replacement for theirs.
+//
+// ── WHAT "ONLY THE PLAIN ONE" MEANS, MEASURED PER FAMILY (2026-08-31) ─────────
+// The render/UI half of these four is served by `Store.applyPatch()` itself, which
+// notifies `subscribeDirty` on EXECUTE, UNDO and REDO alike — one road, four
+// directions, no second path that could drift. Per family:
+//
+//  · `structural`, `dimension` — `CommandEventBridge.ts:1632` records both as DEAD
+//    CHANNELS: `structural.created` / `dimension.created` have exactly ONE emitter
+//    and ZERO subscribers outside `types.ts` (re-measured at this head). There is no
+//    event road to re-drive, so emitting one here would be inventing a consumer.
+//    `PlanViewCanvasHost` subscribes `structuralStore` / `dimensionStore` via
+//    `subscribeDirty` (:298-299) when it is given them.
+//  · `section` — grep for `'section.created'` over apps+plugins+packages (excluding
+//    node_modules and __tests__) returns NOTHING: the family has no bus channel at
+//    all. Its readers hold the store.
+//  · `balcony` — a PARENT DTO store carrying no geometry (`plugins/balcony/src/
+//    store.ts:7-13`: "None of them is copied in here"). Its slab, floor and handrail
+//    MEMBERS are already adapted in `buildUndoStoreMap()`, so the member half of the
+//    inverse was never the gap; the parent record was. Same relationship the pool and
+//    bathroomPod parents have to their members.
+//
+// ⛔ WHAT THIS FACTORY DOES NOT DO, STATED SO NOBODY READS COVERAGE INTO IT. It
+// reverts the AUTHORITATIVE record. It does not claim the 3-D mesh disappears for a
+// family whose mesh is driven by a channel nobody subscribes to — for `structural`
+// and `dimension` that channel is measured dead in BOTH directions, so there is
+// nothing to drive, and the honest statement is that the store reverts and the
+// family's rendering is an AXIS-B question this lane did not measure. A store that
+// still holds an element the user undid is the worse of the two failures: it
+// persists, it schedules, it exports, and it comes back on reload.
+
+/**
+ * Build a patch-applying undo adapter over ONE store on the composed runtime.
+ *
+ * This is the `bathroomPodUndoAdapter` shape with the family name lifted into a
+ * parameter. Use it for a family whose undo is exactly "apply the inverse to the
+ * store the handler wrote"; use a bespoke module when the family additionally has
+ * a render seam that must be re-driven (see `boundaryLineUndoAdapter` above, whose
+ * event re-emission is precisely what a generic factory cannot invent).
+ *
+ * ⚠ LAZY, ON PURPOSE — the L-980 rule kept, not bent. The store lives on the
+ * composed runtime, which does not exist when `buildUndoStoreMap()` runs. Resolving
+ * at APPLY time keeps the map key HONEST: `_covered()` sees a working `applyPatch`,
+ * and a genuinely absent runtime THROWS a NAMED error that `applyRingBufferSide`
+ * reports as a per-store failure. A permanently-`undefined` adapter is a lie; a
+ * silent `return` is a worse one.
+ *
+ * @param storeKey  the `affectedStores` key this adapter answers for — used only in
+ *                  the error text, so a failure names the family that failed.
+ * @param resolve   returns the live store, or `null` when the runtime is absent.
+ *                  Called on EVERY apply — never cached.
+ */
+export function composedStoreUndoAdapter(
+    storeKey: string,
+    resolve: (storeKey: string) => PatchableRecordStore | null,
+): PatchApplicableAdapter {
+    return {
+        applyPatch(patches: readonly Patch[]): void {
+            const store = resolve(storeKey);
+            if (store === null) {
+                throw new Error(
+                    `[undo] ${storeKey}: runtime.stores.${storeKey} is not reachable — the ` +
+                    'composed runtime is absent, so the inverse was NOT applied ' +
+                    '(L-11520, C03 §4.7 B1).',
+                );
+            }
+            // The UI/render half happens inside `subscribeDirty`, which this call fires.
+            // See the header for the per-family measurement of what is subscribed.
+            store.applyPatch(patches);
+        },
+    };
+}
+
+/**
+ * The production resolver: one store off the composed runtime on `window`.
+ *
+ * ⛔ IT DOES NOT FALL BACK TO `window.<key>Store`. None of the four families this
+ * serves has a legacy global at all (measured 2026-08-31: no `window.structuralStore`
+ * / `window.dimensionStore` / `window.sectionStore` / `window.balconyStore`
+ * assignment site exists anywhere in the tree). Reaching for the nearest global with
+ * a matching name is exactly the aliasing `liftUndoAdapter` forbids for
+ * `window.liftStore`: it would satisfy `_covered()` and then apply an inverse to a
+ * store that never received the forward — C03 §4.6 U-2b, which is corruption rather
+ * than a failed undo.
+ */
+export function resolveComposedStoreFromWindow(storeKey: string): PatchableRecordStore | null {
+    if (typeof window === 'undefined') return null;
+    const rt = (window as unknown as {
+        runtime?: { stores?: Record<string, unknown> };
+    }).runtime;
+    const store = rt?.stores?.[storeKey] as PatchableRecordStore | undefined;
+    if (!store || typeof store.applyPatch !== 'function') return null;
+    return store;
+}

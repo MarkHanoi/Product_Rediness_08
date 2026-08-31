@@ -90,6 +90,10 @@ import { applyRingBufferSide, fromJsonPointer, type ApplyRingBufferOutcome } fro
 import type { PatchPair, PatchSide } from '@pryzm/runtime-undo-stack';
 import { adaptElementStoreMap, type PatchApplicableAdapter } from './elementUndoStoreAdapter.js';
 import { boundaryLineUndoAdapter, resolveBoundaryLineStoreFromWindow } from './pluginStoreUndoAdapter.js';
+// §UNDO-C-FIX-2 (L-11520) — the generic one-store adapter, used by the five families
+// closed below. See pluginStoreUndoAdapter.ts for why the shape is written once here
+// rather than a sixth, seventh, eighth and ninth time.
+import { composedStoreUndoAdapter, resolveComposedStoreFromWindow } from './pluginStoreUndoAdapter.js';
 import { liftCompoundUndoAdapter, liftPartUndoAdapter, resolveLiftStoresFromWindow } from './liftUndoAdapter.js';
 // §POOL95 (L-11350) — the ADR-0124 pool assembly's two own stores. Same lazy
 // runtime-resolution shape as the two adapters above; see poolUndoAdapter.ts.
@@ -509,6 +513,75 @@ export function buildUndoStoreMap(): Record<string, PatchApplicableAdapter | und
     // `subscribeDirty` on EXECUTE, UNDO and REDO alike, and `bathroomPodMemberMirror`
     // is subscribed to it — so one road serves all four directions. See that module.
     bathroomPod: bathroomPodUndoAdapter(resolveBathroomPodStoreFromWindow),
+
+    // ⭐ §UNDO-C-FIX-2 (L-11520, 2026-08-31) — FOUR FAMILIES, 23 OF THE 47 STRANDED
+    // VERBS THE 2026-08-31 COMMAND AUDIT MEASURED. Same lazy-resolution shape as the
+    // four adapters above; written ONCE via `composedStoreUndoAdapter` because an
+    // eighth bespoke spelling of one `applyPatch` call is not a design.
+    //
+    // WHAT WAS BROKEN, PER KEY (audit/full-stack/2026-08-31/commands/<family>.json):
+    //   · balcony    — 3 verbs (create / delete / updateProfile)
+    //   · structural — 7 verbs (create / delete / move / setBraceEndOffset /
+    //                  setDimensions / setKind / setMaterial)
+    //   · dimension  — 7 verbs (create / createMany / delete / move / setPrecision /
+    //                  setText / setUnit)
+    //   · section    — 6 verbs (create / delete / moveLine / setDepth / setMark /
+    //                  setScale)
+    // Each declares EXACTLY these store keys, so `_covered()` — which is
+    // all-or-nothing — declined every one of the 23 entries outright.
+    //
+    // ⛔ `view` (7 verbs) WAS IN THIS LIST AND WAS TAKEN OUT BY AN EXECUTED
+    // MEASUREMENT — see its `UNMAPPED_BUS_STORE_KEYS` row. Wiring it would have
+    // reported coverage for a family that cannot mint a ring entry at all.
+    //
+    // ⭐ ALL FOUR ARE REACHABLE, MEASURED THROUGH THE REAL COMPOSITION ROOT AND THE
+    // REAL BUS rather than inferred from a descriptor. `bootstrapWithEverything()`
+    // yields `rt.stores` containing balcony (BalconyStore), structural
+    // (StructuralStore), dimension (DimensionStore) and section (SectionStore) — each
+    // a `Store<T>` with a working `applyPatch` — and `strandedUndoRoundTrip.test.ts`
+    // DISPATCHES each family, takes the PatchPair the bus really minted, applies its
+    // inverse through THIS map, and reads the record back out. That is the L-980
+    // lesson applied BEFORE the fix rather than two months after it: presence of a
+    // key and existence of a live, WRITEABLE store are different questions — and it
+    // is exactly the question that disqualified `view`.
+    //
+    // ⛔ NONE OF THE FOUR POINTS AT A `window.*Store` GLOBAL; none exists for any of
+    // them. Reaching for the nearest global with a matching name is the
+    // `window.liftStore` mistake the rows below still forbid by name — C03 §4.6 U-2b
+    // corruption, not a failed undo.
+    // ⚠⚠ THE SEAM THIS LANE REPORTS RATHER THAN RACES — READ BEFORE ADDING A NINTH KEY.
+    //
+    // `LegacyStoreUpdateSemantics.measured.test.ts` §L-977 arm 1 iterates THIS map's key
+    // set and demands a merge-vs-replace row in `legacyStoreUpdateSemantics.ts` for every
+    // key. It is RED, and it was ALREADY RED before this lane — measured 2026-08-31 by
+    // removing the four rows below and re-running it: 4 keys (`boundaryLine`, `lift`,
+    // `liftPart`, `bathroomPod`) with them out, 8 with them in. Same defect, longer list;
+    // no arm went from green to red.
+    //
+    // ⭐ THE ARM IS ASKING THE WRONG KEY SET, WHICH IS WHY THIS IS NOT A REGRESSION.
+    // Its own docstring states the hazard: *"`adaptElementStoreMap` looks the
+    // declaration up by store key; a key with no row falls back to the historical
+    // destructive partial"*. None of the eight goes through `adaptElementStoreMap`. They
+    // are added to this object DIRECTLY and every one of them applies its inverse with
+    // `Store.applyPatch(patches)` — the same method the bus calls on execute — so
+    // `update(id, partial)` is never reached and merge-vs-replace cannot arise. The arm
+    // should iterate `adaptElementStoreMap`'s keys, not this map's.
+    //
+    // ⛔ WHY THE OBVIOUS FIX WAS TRIED AND BACKED OUT. `legacyStoreUpdateSemantics.ts`
+    // already carries the right category — `pool` and `water` sit there as `semantics:
+    // 'unmeasured'` with exactly this note, and `resolveLegacyStoreUpdateDeclaration()`
+    // maps `unmeasured` back to `undefined`, so such rows change no behaviour. Adding the
+    // eight took arm 1 from 8 keys to 3 (the remaining three are a `normaliseStoreKey`
+    // case-folding mismatch on the camelCase keys) — but it turned arm 2, *"names every
+    // family this suite could NOT drive, with its reason"*, from GREEN to RED, because
+    // that arm requires each declared key to ALSO appear in an undrivable list inside the
+    // test file. Closing this properly needs an edit to that suite, which belongs to
+    // whoever owns §L-977 — and trading one green arm for one red one to shorten a list in
+    // an already-red one is not a fix. Reported, not raced.
+    balcony:    composedStoreUndoAdapter('balcony',    resolveComposedStoreFromWindow),
+    structural: composedStoreUndoAdapter('structural', resolveComposedStoreFromWindow),
+    dimension:  composedStoreUndoAdapter('dimension',  resolveComposedStoreFromWindow),
+    section:    composedStoreUndoAdapter('section',    resolveComposedStoreFromWindow),
   };
 }
 
@@ -522,10 +595,24 @@ export function buildUndoStoreMap(): Record<string, PatchApplicableAdapter | und
  * routing — the legacy stack genuinely owns those mutations, so the fallback
  * reverts them and the user sees their Ctrl+Z work.
  *
- * For TEN other keys there is nothing on the legacy stack either. Their
- * handlers ARE registered in production (`engineLauncher.ts:550,588,606,619,622`
- * and the `sheets`/`schedules`/`selection` registrations), and for eight of the
- * ten the ring buffer holds a real entry and Ctrl+Z is a TOTAL NO-OP. `pool` and
+ * ⭐ CORRECTED 2026-08-31 (§UNDO-C-FIX-2, L-11520) — THIS PARAGRAPH SAID "for TEN
+ * other keys there is nothing on the legacy stack either" AND, BELOW, THAT
+ * `structural` / `dimension` / `section` / `selection` "have NO legacy store to
+ * adapt at all". BOTH SENTENCES WERE TRUE AND BOTH MISSED THE POINT, in the exact
+ * direction L-980's pool rows missed it: the question is not whether a LEGACY
+ * global exists, it is whether the store the PATCH WAS MINTED AGAINST is reachable.
+ * For four of those keys it was — `runtime.stores.structural` / `.dimension` /
+ * `.section` / `.view` are live `Store<T>`s with a working `applyPatch` — so the
+ * text was arguing from the wrong object for six months. Five keys (balcony,
+ * structural, dimension, section, view; 30 of the 47 stranded verbs the
+ * 2026-08-31 command audit measured) now carry adapters above and have LEFT this
+ * table. The remainder are listed with the measurement that keeps them here.
+ *
+ * For the keys BELOW there is nothing on the legacy stack either. Their handlers
+ * are registered in production (`engineLauncher.ts:550` and the `selection`
+ * registration) — except `sheet` and `schedule`, whose PLUGIN handler sets are
+ * measured UNREGISTERED (see their rows) — and where a ring entry is minted at all,
+ * Ctrl+Z is a TOTAL NO-OP. `pool` and
  * `water` (added by L-980) are the exception WITHIN this group and the difference
  * is stated rather than smoothed over: their handlers are registered but cannot
  * execute at all — `CommandBus.buildContext` throws on the missing store before
@@ -539,14 +626,25 @@ export function buildUndoStoreMap(): Record<string, PatchApplicableAdapter | und
  *
  * THIS TABLE IS NOT A PERMISSION SLIP. It does not make a stranded family
  * undoable; it makes the gap DECLARED, and `_reportStranded` below makes the
- * keypress's failure visible to the user instead of silent. Wiring an adapter
- * for these is the real fix and is NOT done here: their handlers write a plugin
- * DTO store whose record shape is not the legacy record's (the §OI-054
- * REDO-SHAPE-FIX hazard in `elementUndoStoreAdapter`), and four of the eight —
- * `structural`, `dimension`, `section`, `selection` — have NO legacy store to
- * adapt at all (measured: no `window.*Store` assignment site exists for any of
- * them). Adding a map entry pointing at nothing would report coverage that does
- * not exist, which is the one outcome worse than the current gap.
+ * keypress's failure visible to the user instead of silent.
+ *
+ * ⚠ THIS PARAGRAPH USED TO CONTINUE: "Wiring an adapter for these is the real fix
+ * and is NOT done here: their handlers write a plugin DTO store whose record shape
+ * is not the legacy record's (the §OI-054 REDO-SHAPE-FIX hazard in
+ * `elementUndoStoreAdapter`), and four of the eight — `structural`, `dimension`,
+ * `section`, `selection` — have NO legacy store to adapt at all." ⭐ THE PREMISE WAS
+ * THE ERROR, not the conclusion: it assumed an adapter must reach a LEGACY store and
+ * therefore inherit the shape hazard. It need not. `composedStoreUndoAdapter` applies
+ * the inverse to the SAME plugin store the forward was minted against, through the
+ * SAME `Store.applyPatch` the bus calls on execute — so there is no shape bridge, no
+ * cast, and the OI-054 hazard does not arise. That door has existed since L-11160
+ * (`boundaryLine`) and this paragraph was not re-read when it opened. §UNDO-C-FIX-2
+ * walked five more families through it.
+ *
+ * What remains true, and is the reason the rows below are still rows: adding a map
+ * entry pointing at nothing would report coverage that does not exist, which is the
+ * one outcome worse than the current gap. Every row below names the measurement that
+ * makes it a nothing rather than an oversight.
  *
  * MEASURED 2026-08-18 by sweeping every `affectedStores` declaration under
  * `plugins/**‍/handlers/**` (27 distinct keys) against `buildUndoStoreMap()`'s
@@ -570,14 +668,98 @@ export const UNMAPPED_BUS_STORE_KEYS: Readonly<Record<string, { readonly owner: 
   window: { owner: 'legacy-stack', reason: 'HOSTED — as door: undo must also close the host wall opening, and the two-part inverse lives in the legacy command.' },
   level:  { owner: 'legacy-stack', reason: 'Spatial authority — Path-A AddLevelCommand owns the inverse.' },
   // ── Stranded: nothing reverts these. Ctrl+Z is a no-op; the user is told. ───
-  structural: { owner: 'nothing', reason: 'No legacy structural store exists (no window.structuralStore assignment site). Registered at engineLauncher.ts:588.' },
-  dimension:  { owner: 'nothing', reason: 'No legacy dimension store exists. Registered at engineLauncher.ts:606.' },
-  section:    { owner: 'nothing', reason: 'No legacy section store exists. Registered at engineLauncher.ts:619.' },
-  selection:  { owner: 'nothing', reason: 'No legacy selection store on the undo path.' },
-  sheet:      { owner: 'nothing', reason: 'window.sheetStore exists (initUI.ts:439) but holds the SHEET record, not the plugin DTO the patch was minted against — adapting it needs a shape bridge first.' },
-  schedule:   { owner: 'nothing', reason: 'window.scheduleStore exists (initUI.ts:460); same shape mismatch as sheet.' },
-  view:       { owner: 'nothing', reason: 'window.viewDefinitionStore exists (initUI.ts:675); same shape mismatch as sheet. Registered at engineLauncher.ts:622.' },
-  'active-view': { owner: 'nothing', reason: 'view.switch — the active-view pointer has no store record at all; NOT named in C84 §3 EI-7c, found by the 2026-08-18 sweep.' },
+  // ⭐ §UNDO-C-FIX-2 (L-11520, 2026-08-31) — `structural`, `dimension` and `section`
+  // ARE NO LONGER HERE, and neither is `balcony` (its row was ~70 lines below). All
+  // four now carry real adapters in `buildUndoStoreMap()` above. The row, the adapter
+  // and the `undoStoreCoverageAndStrandedVisibility.test.ts` literal move in ONE
+  // commit — that instruction is written three times in this file and in that test,
+  // and it had been broken three times before this lane.
+  //
+  // ⚠ THE THREE REASONS DELETED HERE WERE STALE, AND STALE IN THE SAME DIRECTION AS
+  // L-980's pool rows: they asserted absence of a LEGACY store, which was true and
+  // was never the question. `structural` / `dimension` / `section` each have a live
+  // store ON THE COMPOSED RUNTIME (`StructuralStore` / `DimensionStore` /
+  // `SectionStore`, each a `Store<T>` with a working `applyPatch`), which is where the
+  // patches were minted and where the inverse belongs — and all three now round-trip
+  // through the real bus in `strandedUndoRoundTrip.test.ts`.
+  //
+  // ⛔ `view` HAS A ROW BELOW AND IT IS NOT THE OLD ONE. Its old reason was ALSO
+  // stale — it blamed a shape mismatch with `window.viewDefinitionStore`, a store the
+  // `view.*` handlers never touch — but the CONCLUSION survived re-measurement for a
+  // different and better reason, which is written out at that row.
+  selection:  { owner: 'nothing', reason: 'No legacy selection store on the undo path. `runtime.stores.selection` IS a live Store, but selection is VIEW state, not document state (P7): reverting it on Ctrl+Z would make a highlight consume an undo step. Deliberate, not a gap to close.' },
+  // ── The keys the 2026-08-31 command audit measured STRANDED that this lane REFUSES
+  //    to wire, each with the measurement that makes wiring it wrong (C74 / CA-18). A
+  //    declared absence beats a unit that silently does nothing.
+  sheet: {
+    owner: 'nothing',
+    reason:
+      'REFUSED BY NAME (L-11520) — the 10 stranded `sheet.*` verbs are the PLUGIN handler set ' +
+      '(plugins/sheets/src/handlers/), and `registerSheetHandlers()` has ZERO production callers: ' +
+      'initBusHandlers.ts:2633 states it is unregistered ON PURPOSE because §FIX-SHEET-ADDVIEWPORT-SHADOW ' +
+      '(MT-03) declared the bridge the authority and deleted the rival DTO store. Measured 2026-08-31 ' +
+      'through the real composition root: `rt.stores.sheet` is ABSENT and the registry answers has(sheet.create) ' +
+      'FALSE. Production `sheet.create` routes to the legacy CreateSheetCommand (initBusHandlers.ts), which the ' +
+      'commandManager fallback already reverts. An adapter here would re-mint the shadow store MT-03 removed and ' +
+      'manufacture coverage for handlers that never run.',
+  },
+  schedule: {
+    owner: 'nothing',
+    reason:
+      'REFUSED BY NAME (L-11520) — the 4 stranded `schedule.*` verbs are plugin handlers in a package ' +
+      'apps/editor does not import at all (grep for plugins/schedules over apps/editor/src -> 0 hits). ' +
+      'Measured 2026-08-31: `rt.stores.schedule` is ABSENT and the registry answers has(schedule.create) FALSE. ' +
+      'There is no store to adapt and no dispatch to strand; the gap is REGISTRATION, not undo, and closing it ' +
+      'here would report coverage for a family that cannot execute.',
+  },
+  // ⭐⭐ `view` — THE REFUTATION THIS LANE WAS ORDERED TO AVOID, AND FOUND ANYWAY.
+  //
+  // The 2026-08-31 audit scored 7 `view.*` verbs STRANDED and this lane wired an
+  // adapter for them, because `runtime.stores.view` IS a live `ViewRegistry` with a
+  // working `applyPatch` — every static signal said GO. The executed round-trip then
+  // failed BEFORE the undo, at dispatch:
+  //
+  //     TypeError: ctx.stores.view.getState is not a function
+  //       at CreateViewHandler.canExecute (plugins/view/src/handlers/CreateView.ts:27)
+  //
+  // ALL SEVEN handlers read `ctx.stores.view.getState()` (the Map view on the
+  // ViewRegistry INSTANCE), while `bootstrap.ts:94`'s storesProvider hands every
+  // handler `storesAsRecordView(stores)` — a plain `Record<id, T>`. So `view.*`
+  // THROWS at `canExecute` and can never mint a ring entry. `PluginRegistry.ts:779-789`
+  // has said so in writing since W-1C-1: *"Calling `view.*` commands through the bus
+  // requires a custom storesProvider that passes the ViewRegistry instance directly —
+  // that wiring is owned by W-2A view-state integration."* The gap is the
+  // STORES-PROVIDER SHAPE, not the undo path.
+  //
+  // ⛔ THE ADAPTER WAS REMOVED RATHER THAN LEFT IN AS HARMLESS. It is not harmless: a
+  // key in this map is read as coverage by `_covered()`, by the census arm of
+  // `undoStoreCoverageAndStrandedVisibility.test.ts`, and by the next reader of the
+  // audit — and it would have moved 7 verbs out of the STRANDED column while Ctrl+Z
+  // stayed exactly as dead as before, for a reason NOBODY would then be looking for.
+  // That is L-980's "a permanently-undefined adapter is a lie" with the lie moved one
+  // hop upstream: here the adapter works and the DISPATCH is what cannot happen.
+  view: {
+    owner: 'nothing',
+    reason:
+      'REFUSED BY NAME (L-11520) — all 7 `view.*` verbs THROW at canExecute before any mutation: they read ' +
+      'ctx.stores.view.getState() (the ViewRegistry INSTANCE) while bootstrap.ts:94 supplies ' +
+      'storesAsRecordView(stores), a plain Record. Measured 2026-08-31 by dispatching view.create through the ' +
+      'real composed bus -> TypeError. No ring entry can ever be minted, so there is nothing to strand and an ' +
+      'adapter here would report coverage for a dead verb. PluginRegistry.ts:779-789 names the real fix and its ' +
+      'owner: a custom storesProvider, W-2A view-state integration. ⚠ This row REPLACES an older one that blamed ' +
+      'a shape mismatch with window.viewDefinitionStore — a store these handlers never touch.',
+  },
+  'active-view': {
+    owner: 'nothing',
+    reason:
+      'REFUSED BY NAME — `view.switch` declares affectedStores [active-view] and the active-view POINTER has no ' +
+      'store record at all (measured 2026-08-31: no `active-view` key on `rt.stores`). NOT named in C84 §3 EI-7c; ' +
+      'found by the 2026-08-18 sweep. ⚠ It is deliberately NOT aliased to the ViewRegistry: applying a ' +
+      'view-DEFINITION inverse to answer an active-POINTER patch is C03 §4.6 U-2b corruption, and it would be wrong ' +
+      'even once the `view` row above is closed. Two reasons stack here — the pointer has no record, AND `view.switch` ' +
+      'throws at canExecute for the same storesProvider-shape defect as its six siblings. The real fix is for the ' +
+      'pointer to become a record, which is a C102 decision, not an undo one.',
+  },
   // §L-980 (2026-08-18) — pool + water ARRIVE here from buildUndoStoreMap(), where
   // they had been `undefined` since L-292. The family is UNREACHABLE, measured on
   // four independent axes, not inferred: (1) `new PoolStore()` / `new WaterStore()`
@@ -642,7 +824,21 @@ export const UNMAPPED_BUS_STORE_KEYS: Readonly<Record<string, { readonly owner: 
   // U-2b verbatim, which is not a failed undo but a corruption of authoritative
   // state. An adapter here needs the COMPOUND store on the window (or, better, U-7's
   // single store), not the nearest global with a matching name.
-  balcony:  { owner: 'nothing', reason: 'REACHABLE AND STRANDED (L-7310) — BalconyStore is built and `balcony.create` dispatches from BalconyPlanToolHandler, but there is no `window.balconyStore`, so the ring entry is never covered and nothing on the legacy stack reverts it.' },
+  // ⭐ §UNDO-C-FIX-2 (L-11520, 2026-08-31) — `balcony` IS NO LONGER HERE. L-7310 is
+  // CLOSED: `composedStoreUndoAdapter('balcony', ...)` in `buildUndoStoreMap()` above
+  // resolves `runtime.stores.balcony`, the store `BalconyPlanToolHandler`'s dispatch
+  // actually writes. The row was RIGHT that there is no `window.balconyStore` and
+  // WRONG to conclude from that that nothing could revert it — the same inference
+  // L-980 made for pool and the lift rows made for `lift`.
+  //
+  // ⭐ AND THE RENDER SEAM THE LIFT LANE DECLINED TO CLAIM BY SYMMETRY IS NOW
+  // MEASURED, WHICH IS WHY THIS CLOSES AND DID NOT THEN. `plugins/balcony/src/store.ts`
+  // :7-13 states the parent record holds NO geometry — the slab lives in the slab
+  // store, the finish in the floor store, the railings in the handrail store, and
+  // "None of them is copied in here". Those three keys were ALREADY adapted in
+  // `buildUndoStoreMap()`, so the member half of the inverse was never the gap; the
+  // parent record was, and `_covered()`'s all-or-nothing rule declined all four
+  // stores over that one. Exactly the pool-parent / bathroomPod-parent relationship.
   // ⭐ §LIFT94 (L-11340, 2026-08-25) — `lift` and `liftPart` ARE NO LONGER HERE.
   // Both now carry real adapters in `buildUndoStoreMap()` above
   // (`liftCompoundUndoAdapter` / `liftPartUndoAdapter`), resolving

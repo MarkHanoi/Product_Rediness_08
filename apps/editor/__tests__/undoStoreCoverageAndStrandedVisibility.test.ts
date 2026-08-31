@@ -270,7 +270,35 @@ describe('§EI-7c ARM 1 — every bus store key is MAPPED or DECLARED', () => {
       //
       // ⚠ `bathroomPod` is deliberately absent: §BATH102 gave it an adapter in the same
       // commit that minted the family, so it was never stranded and never declared.
-      ['active-view', 'balcony', 'cube', 'dimension', 'projectOrigin', 'schedule', 'section', 'selection', 'sheet', 'structural', 'view'],
+      //
+      // ⭐⭐ SHRUNK AGAIN 2026-08-31 (§UNDO-C-FIX-2, L-11520) — AND THIS TIME THE LITERAL
+      // MOVED IN THE SAME COMMIT AS THE ADAPTERS AND THE ROWS, WHICH IS THE RULE THE
+      // COMMENT ABOVE SAYS HAS FAILED THREE TIMES. `balcony`, `dimension`, `section`,
+      // and `structural` LEAVE: all four now have real adapters in `buildUndoStoreMap()`
+      // (`composedStoreUndoAdapter`, resolving the store off the COMPOSED RUNTIME), their
+      // `UNMAPPED_BUS_STORE_KEYS` rows are deleted, and `strandedUndoRoundTrip.test.ts`
+      // dispatches each one and reads the record back out after the inverse lands. That is
+      // 23 of the 47 verbs the 2026-08-31 command audit measured STRANDED.
+      //
+      // ⭐ `view` DOES NOT LEAVE, AND THAT IS THE LANE'S REFUTATION RATHER THAN ITS
+      // SHORTFALL. It was wired — `runtime.stores.view` is a live ViewRegistry with a
+      // working `applyPatch` — and the executed round-trip then failed BEFORE the undo:
+      // all seven `view.*` handlers read `ctx.stores.view.getState()` while
+      // `bootstrap.ts:94` supplies `storesAsRecordView(stores)`, so `view.create` throws
+      // `TypeError: ctx.stores.view.getState is not a function` at canExecute and can
+      // never mint a ring entry. The adapter was REMOVED again rather than left in as
+      // harmless: a key here reads as coverage to `_covered()`, to this arm, and to the
+      // next reader of the audit, and it would have moved 7 verbs out of the STRANDED
+      // column while Ctrl+Z stayed exactly as dead. PluginRegistry.ts:779-789 has named
+      // the real owner (W-2A) since W-1C-1.
+      //
+      // ⛔ THE SIX THAT REMAIN ARE REFUSALS, NOT LEFTOVERS, and each row now carries the
+      // measurement: `sheet` and `schedule` are plugin handler sets with ZERO production
+      // registration (`rt.stores.sheet` / `.schedule` absent, registry `has()` false);
+      // `view` throws at canExecute; `active-view` is a pointer with no record; `cube` is
+      // a dev demo; `projectOrigin` returns `patches: []` so no ring entry is ever minted;
+      // `selection` is view state (P7) that must NOT consume an undo step.
+      ['active-view', 'cube', 'projectOrigin', 'schedule', 'selection', 'sheet', 'view'],
     );
   });
 
@@ -327,15 +355,42 @@ describe('§EI-7c ARM 2 — a stranded Ctrl+Z is visible, not just logged', () =
     delete (window as unknown as Record<string, unknown>).wallStore;
   });
 
-  it('a `dimension` entry strands AND tells the user the change is still there', async () => {
-    installRingBuffer(['dimension'], false);
+  // ⭐ §UNDO-C-FIX-2 (L-11520, 2026-08-31) — THIS ARM USED TO USE `dimension`, AND ITS
+  // GOING RED IS THE FIX LANDING, NOT A BREAK. `dimension` now HAS an adapter, so a
+  // `['dimension']` entry no longer strands: it routes down the APPLY leg. Re-pointed at
+  // `sheet`, which the same commit REFUSES BY NAME with a measurement
+  // (`registerSheetHandlers()` has zero production callers; `rt.stores.sheet` is absent),
+  // so this arm still exercises a REAL stranded key rather than a hypothetical one.
+  //
+  // ⛔ IF THIS EVER GOES RED AGAIN, CHECK WHICH DIRECTION FIRST. Red because the named
+  // key gained an adapter is progress — re-point it at another key whose
+  // `UNMAPPED_BUS_STORE_KEYS` row says `owner: 'nothing'`. Red because the toast stopped
+  // naming the store is the regression this arm exists to catch.
+  it('a `sheet` entry strands AND tells the user the change is still there', async () => {
+    installRingBuffer(['sheet'], false);
     const out = performUndo();
     expect(out.status).toBe('stranded');
     await vi.waitFor(() => expect(showToast).toHaveBeenCalledTimes(1));
     const [msg, kind] = showToast.mock.calls[0]!;
-    expect(msg).toContain('dimension');
+    expect(msg).toContain('sheet');
     expect(msg).toContain('still there');   // the user's WORK, named — not a code
     expect(kind).toBe('error');
+  });
+
+  // §UNDO-C-FIX-2 — THE OTHER HALF OF THE SAME CHANGE, AND THE ONE THAT KEEPS THE NEW
+  // COVERAGE HONEST. `composedStoreUndoAdapter` is LAZY: `_covered()` sees a working
+  // `applyPatch` even when the composed runtime is absent. L-980's rule is that a
+  // permanently-undefined adapter is a lie — so the absent case must THROW BY NAME, never
+  // return quietly. A silent return here would be strictly WORSE than the stranding this
+  // lane closed: the cursor steps, the entry is consumed, and nothing changed.
+  it('a covered-but-unresolvable key THROWS BY NAME rather than silently doing nothing', () => {
+    const map = buildUndoStoreMap();
+    for (const key of ['balcony', 'structural', 'dimension', 'section'] as const) {
+      expect(typeof map[key]?.applyPatch, `${key} has no adapter`).toBe('function');
+      // `window.runtime` is undefined in this arm — the resolver must refuse loudly.
+      expect(() => map[key]!.applyPatch([]), `${key} swallowed an unresolvable apply`)
+        .toThrow(new RegExp(`runtime\\.stores\\.${key} is not reachable`));
+    }
   });
 
   it('NEGATIVE CONTROL — a COVERED store undoes normally and raises no message', async () => {

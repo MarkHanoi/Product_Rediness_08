@@ -170,7 +170,11 @@ describe('§L-980 ARM 3 — pool / water are COVERED now (§POOL95, L-11350)', (
     // The table is NOT empty — so this cannot pass by everything having been
     // deleted from it. The genuinely stranded keys are still declared.
     expect(Object.keys(UNMAPPED_BUS_STORE_KEYS).length).toBeGreaterThan(3);
-    expect(UNMAPPED_BUS_STORE_KEYS['structural'], 'a real gap is still declared').toBeDefined();
+    // §UNDO-C-FIX-2 (L-11520, 2026-08-31) — this line named `structural`, which now
+    // HAS an adapter. Re-pointed at `sheet`, whose row states a MEASURED refusal
+    // (registerSheetHandlers has zero production callers), so the non-empty check still
+    // proves something rather than passing on a leftover.
+    expect(UNMAPPED_BUS_STORE_KEYS['sheet'], 'a real gap is still declared').toBeDefined();
   });
 
   it('NEGATIVE CONTROL — a genuinely covered key is NOT in the table', () => {
