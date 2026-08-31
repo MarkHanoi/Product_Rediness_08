@@ -357,3 +357,51 @@ and both my explanation and my correction of it need a third revision.
 
 **Status of the arm: 124/113, RC=3, cause UNRESOLVED, ceiling legitimate.** It is a measurement
 question, not ten imports to delete.
+
+## RESOLVED BY TABLE DIFF — and I was wrong THREE times about this one number
+
+```
+diff <(123-reading per-package table) <(124-reading per-package table)
+  3a4
+  >  1  packages/geometry-handrail  [@thatopen/components]
+
+geometry-handrail in the 123 table: 0
+geometry-handrail in the 124 table: 1
+```
+
+**`geometry-handrail` IS the entire delta. +1, exactly.** The two readings are otherwise identical.
+
+### The three-revision sequence, kept because the shape is the lesson
+
+| # | Claim | Verdict |
+|---|---|---|
+| 1 | `f5071259` — "classifying handrail brought a pre-existing import into scope" | **CORRECT** |
+| 2 | `88dab53a` / `61e7e8d1` — "real new @thatopen imports from the export lane" | **WRONG** — inferred from a dirty `git status`, never diffed |
+| 3 | `7bb30bf1` — corrected #2 back toward #1 | correct conclusion, but it then over-corrected: |
+| 4 | `3b0cee35` — "the mechanism is UNRESOLVED, `scan(pkgs)` takes ALL packages so classification cannot be the cause" | **WRONG DOUBT.** Reading the call site is not the same as measuring the output. |
+
+**#4 is the interesting error.** I read `scan(pkgs)` at :569, saw it receives the full workspace map
+rather than the `classified` subset computed at :565, and concluded classification could not be the
+mechanism. That is a sound inference from the code and it is contradicted by the measurement. The
+table diff settles it in one command; the code read did not.
+
+⭐ **Reading the implementation is not measuring the behaviour.** That is the same class as every
+false green in this audit — `check-single-compose` printed "0 rivals" from a hard-coded literal while
+its own body found one; `check-mirror-completeness` establishes a channel is DECLARED and says so
+while read-back sits at 2%. I spent two commits inferring from source what one `diff` of two saved
+gate outputs answered.
+
+### Standing status of the arm
+
+**banned-3p 124 / 113 · RC=3 · ceiling LEGITIMATE (set 2026-08-09 against this gate's own
+measurement, denominator documented at :331) · delta CAUSE = `geometry-handrail`, one pre-existing
+`@thatopen/components` import at `HandrailTool.ts:42`, made visible by classification.**
+
+The count is HONEST and it went UP because the gate got BETTER. Deleting that import is a real fix
+worth ~1; the other 11 over baseline are the pre-existing `@thatopen` concentration
+(`core-app-model` 31 · `plugins/annotations` 24 · `apps/editor` 23+5 · `geometry-furniture` 8 ·
+`geometry-slab` 5 · `input-host` 5), and THAT is the pass this arm actually needs.
+
+The finer mechanism — why a package absent from `layerElements` is skipped by an arm whose call site
+takes every package — is still unexplained and is a real question about the gate, but it no longer
+blocks anything: the cause and the number are both established.
