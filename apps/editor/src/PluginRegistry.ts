@@ -1061,31 +1061,14 @@ export function registerAllPluginToolActivators(runtime: ToolActivatorRuntime): 
     },
   } as { executeCommand<T>(type: string, payload: T): Promise<unknown> };
 
-  // ⚠ DEAD-KEY BRIDGE, KEPT ONLY FOR THE REFUSED `structural` REGISTRATION ──
-  // (2026-08-31, lane 7B1b, F-P5-02/F-P5-03.)
-  //
-  // `window.__pryzmScreenToWorld` is ASSIGNED NOWHERE in the repo — the `fn`
-  // read below is ALWAYS undefined and this bridge ALWAYS returns undefined.
-  // Its sibling `annotationScreenToWorld` was deleted with the `annotation`
-  // and `grid:tool` constructions (tombstones below) and the `lighting`
-  // construction (now a delegate). This one survives solely because the
-  // `structural` registration below is REFUSED-pending-founder-decision and
-  // still references it.
-  //
-  // F-P5-03, measured and left UNFIXED deliberately: the placement-tool
-  // contracts (`plugins/structural/src/tool.ts:16`) pass an event promising
-  // `clientX`/`clientY`, while this bridge reads `ev.offsetX`/`ev.offsetY` —
-  // properties the contract does not promise. The fix direction is
-  // undecidable: the annotation plugin's projector convention is CANVAS-LOCAL
-  // coords, the tool contracts promise CLIENT coords, and the underlying `fn`
-  // does not exist to arbitrate. Do not "fix" one side without a real
-  // projector to test against.
-  const eventScreenToWorld = (ev: { offsetX: number; offsetY: number }) => {
-    const fn = (window as unknown as Record<string, unknown>).__pryzmScreenToWorld as
-      | ((x: number, y: number) => { x: number; y: number; z: number } | null)
-      | undefined;
-    return fn ? (fn(ev.offsetX, ev.offsetY) ?? undefined) : undefined;
-  };
+  // ⚰ `eventScreenToWorld` DELETED 2026-09-01 with the `structural`
+  // construction (L-12869) — the last referent of the dead-key bridge over
+  // `window.__pryzmScreenToWorld` (assigned nowhere; F-P5-02). The F-P5-03
+  // coordinate-convention finding it carried (tool contracts promise
+  // clientX/clientY, the bridge read offsetX/offsetY, and no real projector
+  // exists to arbitrate) is preserved in
+  // audit/full-stack/2026-08-31/LANE-7B1b-pryzmScreenToWorld.md — resolve it
+  // only when L-12869's exit condition delivers a real projector.
 
   // ─── annotation ─── REMOVED (2026-08-31, lane 7B1b, F-P5-02) ──────────────
   //
