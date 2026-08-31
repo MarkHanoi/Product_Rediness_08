@@ -102,7 +102,21 @@
  * confirm or to mint dedicated enum members later.
  */
 
-import type { RoomOccupancyType } from '@pryzm/room-topology';
+// §FIX-LAYER-ROOM-AUTOFILL-HOME (2026-08-30) — this module MOVED here from
+// `packages/spatial-index/src/`. It was the newest of the six `Room*` modules
+// sitting in an L1 spatial primitive while depending on L2 domain packages, and
+// the two edges it added (`spatial-index → room-topology`, `spatial-index →
+// core-app-model`) were over `check-layer-boundaries`'s upward-import baseline.
+// Nothing inside `spatial-index` consumed it — only that package's barrel and its
+// two test files — and the subject it classifies (`RoomOccupancyType`) is defined
+// three files away in `./RoomTypes.ts`. Both edges disappear here because
+// room-topology is L2 and core-app-model is L2.
+//
+// ⚠ Its five siblings (RoomQueryService, RoomGraphService, RoomTypeInferenceEngine,
+// RoomValidationService, RoomAutoFillClassifier's neighbour FacadeOrientationService)
+// still carry the same L1 → L2 edges INSIDE the baseline. They are the follow-up,
+// not a licence to move this one back.
+import type { RoomOccupancyType } from './RoomTypes';
 import { storeRegistry } from '@pryzm/core-app-model';
 
 // ── Signal gathering ──────────────────────────────────────────────────────────

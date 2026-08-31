@@ -23,7 +23,7 @@
 
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { storeRegistry } from '@pryzm/core-app-model';
-import { classifyRoomForAutofill, ROOM_AUTOFILL_RULES } from '../src/RoomAutoFillClassifier';
+import { classifyRoomForAutofill, ROOM_AUTOFILL_RULES } from '../RoomAutoFillClassifier';
 
 interface FakeElement { id: string; [k: string]: unknown }
 

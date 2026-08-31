@@ -32,10 +32,13 @@
 import type { RoomOccupancyType } from '@pryzm/room-topology';
 import { storeRegistry } from '@pryzm/core-app-model';
 // §ROOMTYPE142 — the deterministic, table-driven "autofill room name from
-// contents" classifier (@pryzm/spatial-index/RoomAutoFillClassifier.ts) and the
+// contents" classifier (@pryzm/room-topology/RoomAutoFillClassifier.ts) and the
 // L-905 name-authorship + naming primitives (@pryzm/ai-host/intents/roomAutoLabel.ts),
 // both REUSED rather than re-implemented (C84 EI-9). See openAutoFillModal below.
-import { classifyRoomForAutofill } from '@pryzm/spatial-index';
+// §FIX-LAYER-ROOM-AUTOFILL-HOME (2026-08-30) — the classifier moved out of
+// `@pryzm/spatial-index` (L1) into `@pryzm/room-topology` (L2), where the
+// `RoomOccupancyType` it classifies into is declared. Same function, same call.
+import { classifyRoomForAutofill } from '@pryzm/room-topology';
 // §DEPT153 (L-12540+) — department is a PURE FUNCTION of the room's
 // freshly-classified occupancy (see RoomDepartment.ts's header for why this is
 // not a second contents classifier riding alongside `classifyRoomForAutofill`).

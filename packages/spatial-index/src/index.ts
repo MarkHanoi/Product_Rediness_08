@@ -91,16 +91,16 @@ export type { RoomTypeInferenceSuggestion } from './RoomTypeInferenceEngine.js';
 // §ROOMTYPE142 — the deterministic, table-driven bulk "autofill room name"
 // classifier. Separate from RoomTypeInferenceEngine (see that file's sibling
 // header for why); shares the same containment authority.
-export {
-  ROOM_AUTOFILL_RULES,
-  gatherRoomAutofillSignals,
-  classifyRoomForAutofill,
-} from './RoomAutoFillClassifier.js';
-export type {
-  AutoFillRule,
-  RoomContentSignals,
-  RoomAutoFillClassification,
-} from './RoomAutoFillClassifier.js';
+//
+// §FIX-LAYER-ROOM-AUTOFILL-HOME (2026-08-30) — MOVED to `@pryzm/room-topology`.
+// Import `ROOM_AUTOFILL_RULES` / `gatherRoomAutofillSignals` /
+// `classifyRoomForAutofill` / `AutoFillRule` / `RoomContentSignals` /
+// `RoomAutoFillClassification` from `@pryzm/room-topology`, which is where the
+// `RoomOccupancyType` they classify into is declared.
+//
+// ⛔ Do NOT re-export them from here "for compatibility": this package is L1 and
+// room-topology is L2, so a re-export would restore the exact upward edge the move
+// removed — the gate counts the specifier, not the intent.
 
 // ── SL-3: Façade orientation (SPEC-SEMANTIC-DESIGN-ASSISTANT §3) ──────────────
 // Pure math + types live in FacadeOrientationMath (no barrel-load side effects —

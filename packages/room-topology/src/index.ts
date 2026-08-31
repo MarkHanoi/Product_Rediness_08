@@ -127,3 +127,19 @@ export { RoomTool } from './RoomTool';
 export type { RoomToolPickDeps, RoomToolManualDeps } from './RoomTool';
 
 export { RoomTopologyObserver } from './RoomTopologyObserver';
+
+// §ROOMTYPE142 · §FIX-LAYER-ROOM-AUTOFILL-HOME (2026-08-30) — the deterministic,
+// table-driven bulk "autofill room name" classifier. It lived in
+// `packages/spatial-index/src/` (L1) while depending on this package and on
+// `@pryzm/core-app-model` (both L2); nothing inside spatial-index consumed it.
+// Its subject, `RoomOccupancyType`, is declared in `./RoomTypes.ts`.
+export {
+  ROOM_AUTOFILL_RULES,
+  gatherRoomAutofillSignals,
+  classifyRoomForAutofill,
+} from './RoomAutoFillClassifier';
+export type {
+  AutoFillRule,
+  RoomContentSignals,
+  RoomAutoFillClassification,
+} from './RoomAutoFillClassifier';

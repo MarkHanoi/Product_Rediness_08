@@ -670,6 +670,28 @@ export interface WallToolCallbacks {
      * runtime.bus.executeCommand() instead of the legacy commandManager.execute()
      * path.  Optional: when absent (or when the relevant handler is not yet
      * registered in the bus), WallTool falls back to commandManager.execute().
+     *
+     * §FIX-LAYER-WALL-RUNTIME-PORT (2026-08-30) — this field used to read
+     * `import('@pryzm/runtime-composer').PryzmRuntime`, an L2 → L3 upward edge
+     * counted by `tools/ga-gate/check-layer-boundaries.ts`. It is now the NARROW
+     * PORT of what `WallTool` actually reaches for, which is exactly two members
+     * at three call sites (WallTool.ts ~1924 / ~2112 / ~2467):
+     *     `runtime.bus.registry.has(type)`  and  `runtime.bus.executeCommand(type, payload)`.
+     *
+     * The composed `PryzmRuntime` remains assignable to this shape, so
+     * `initTools.ts:898` (`runtime: runtime ?? null`) is unchanged and no caller
+     * moves. `registry` widens to `ReadonlyMap<string, unknown>`; the runtime's
+     * `ReadonlyMap<string, CommandHandler<…>>` assigns to it (read-only maps are
+     * covariant in their value) and `.has()` is all this package calls.
+     *
+     * ⚠ This is a TYPE-LEVEL narrowing of an existing contract, NOT a second
+     * runtime: nothing here constructs, wraps or re-implements a bus. If WallTool
+     * ever needs a third member, widen THIS port — do not restore the L3 import.
      */
-    runtime?: import('@pryzm/runtime-composer').PryzmRuntime | null;
+    runtime?: {
+        readonly bus: {
+            executeCommand(type: string, payload: unknown): unknown;
+            readonly registry: ReadonlyMap<string, unknown>;
+        };
+    } | null;
 }
