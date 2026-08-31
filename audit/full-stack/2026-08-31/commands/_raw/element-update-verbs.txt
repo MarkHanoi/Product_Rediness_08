@@ -1,0 +1,10 @@
+slab.addHole
+slab.removeHole
+slab.setThickness
+slab.setBaseOffset
+slab.setType
+roof.setOverhang
+roof.setThickness
+roof.setShape
+roof.setPitch
+column.setHeight

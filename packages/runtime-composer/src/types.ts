@@ -568,6 +568,29 @@ export interface RuntimeEvents {
     readonly thickness?: number;
     readonly baseOffset?: number;
     readonly materialId?: string;
+    /**
+     * ⛔ §REFUSE-SLAB-HOLES-AND-COLOUR — `holes` AND `materialColor` ARE
+     * DELIBERATELY ABSENT FROM THIS EVENT, AND THE ABSENCE IS A MEASURED ZERO,
+     * NOT AN OVERSIGHT. Do not add them alone.
+     *
+     * Both are on the L0 `Slab` schema, accepted, ring-validated and committed by
+     * `CreateSlab.ts:112/116/141-143/176-178`, and `SlabFragmentBuilder` reads
+     * both (`holes` :551/:939, `materialColor` :520/:579/:804). The 2026-08-31
+     * builders audit therefore scored slab FIDELITY = NO: *"an authored void
+     * renders solid, in the default colour, and it counts as renders_3d = YES."*
+     *
+     * The blocking hop is NOT this type. It is the §FT1 mirror —
+     * `initTools.ts:2377-2392` `slabStore.add({...})` copies
+     * id/levelId/polygon/position/width/depth/thickness/baseOffset and a
+     * conditional `materialId`, and reads NEITHER field. Declaring them here
+     * without that read mints keys nothing consumes: authored, emitted, unwired.
+     *
+     * ⭐ The two halves must land in ONE change, in a lane that owns both files:
+     * these two `readonly` lines, plus the two reads in the §FT1 mirror. Until
+     * then `CommandEventBridge.announceSlabFieldsWithNoDestination` ANNOUNCES the
+     * loss at runtime, per command, naming the field and the visible consequence
+     * — the `curtainWallCreatedMirror.ts:147` disposition (C74 / CA-18).
+     */
   };
 
   /** Fired after `slab.updateLayers` succeeds (TASK-12).
@@ -725,6 +748,19 @@ export interface RuntimeEvents {
      *  `BeamFragmentBuilder.ts:253` gates its steel branch on this being
      *  present, so dropping it here rendered every copied steel beam as a box. */
     readonly steelProfileName?: string;
+    /*
+     * ⚠ §FIX-BEAM-BATCH-CEB-STEEL (2026-08-31) — THE THREE FIELDS ABOVE ARE NOW
+     * EMITTED FROM BOTH SITES. Their docs read "as COMMITTED" because
+     * `beam.create` relays the committed record; `beam.batch.create` relays the
+     * REQUEST for these three, deliberately. `CreateBeamBatchHandler.execute`
+     * seeds only eight fields (`CreateBeamBatch.ts:101-108`) and omits all three,
+     * so a batch commit's `loadBearing` is `Beam.parse`'s `.default(true)`
+     * (`Beam.ts:75`) rather than an authored value — reading the commit first
+     * there would silently overwrite an authored `false`. Between 2026-05-18 and
+     * this change the batch emit listed none of them, so THE SAME steel beam drew
+     * as a rolled UB singly and as a plain rectangle in an AI structural batch.
+     * The upstream half — the batch handler's own seed — is still open.
+     */
   };
 
   /** Fired after `door.create` or `door.batch.create` succeeds (Sprint A28/A29).

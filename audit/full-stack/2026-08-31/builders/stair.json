@@ -1,0 +1,84 @@
+{
+  "family": "stair",
+  "head": "d91d30d4af51bc67317ef8afc0b46b1dbef94038",
+  "members": ["stair flight", "stair-landing", "stair-railing", "stair-type"],
+  "rows": [
+    {
+      "member": "stair flight",
+      "surface": "3d",
+      "builder_file": "packages/geometry-stair/src/StairMeshBuilder.ts (731 lines)",
+      "entry_fn": "updateStair(stair, isPreview=false) :111  ·  removeStair :232  ·  buildPreview :292  ·  clearPreview :316  ·  rebuildAll :330  ·  dispose :365  ·  clearProjectGeometry :384  ·  setTypeStore :105",
+      "package": "@pryzm/geometry-stair",
+      "layer": "L2",
+      "layer_proof": "eslint.config.js:157",
+      "invoked_by": [
+        "apps/editor/src/engine/initBuilders.ts:975 `new StairMeshBuilder(stairStore, scene)`",
+        "SELF-SUBSCRIBING via window CustomEvents — StairMeshBuilder.ts:90/:91/:96 addEventListener('bim-stair-added' | '-updated' | '-removed')",
+        "AND a SECOND, PARALLEL subscription to the SAME logical event on the runtime bus — :92 `(window as any).runtime?.events?.on('bim-stair-updated', ...)` tagged F.events.15",
+        "packages/command-registry/src/stair/GenerateStairGeometryCommand.ts:96/:247 `stairMeshBuilder.updateStair(...)` and :249 `.removeStair(...)` — DIRECT calls, bypassing the events",
+        "packages/command-registry/src/stair/DeleteStairCommand.ts:275/:385 — via the eventBus"
+      ],
+      "proof_command": "grep -rn '\\.(updateStair|removeStair|buildStair)\\(' --include=*.ts apps packages plugins | grep -v node_modules | grep -v __tests__",
+      "⚠ THREE_INVOCATION_PATHS_FOR_ONE_BUILDER": "window CustomEvent + runtime.events + a direct command call. StairRailingBuilder does the same (:117 runtime.events.on('bim-stair-updated') AND :125 window.addEventListener('bim-stair-updated')) — a DOUBLE subscription to one event name on two buses. Whether both fire is not measured here; if both do, the stair rebuilds twice per update.",
+      "NO_CEB_CHANNEL": "Deliberate. CommandEventBridge ~L1235: 'stair: uses Path C (legacy commandManager bridge) — no CEB bridge needed.' Unlike door/window, this rationale is still TRUE — the legacy path is the live one.",
+      "rivals": [
+        {"candidate": "plugins/stair/src/committer/stair-committer.ts + packages/geometry-kernel/src/producers/stair.ts", "verdict": "RIVAL, UNREACHABLE (not among the four in bootstrap.render.everything.ts)."},
+        {"candidate": "packages/core-app-model/src/scene/StairPlanSymbolRegistry.ts AND packages/scene-committer/src/StairPlanSymbolRegistry.ts", "verdict": "⛔ TWO FILES WITH THE SAME NAME AND PURPOSE, at L2 and L4. `find packages -name 'StairPlanSymbolRegistry.ts'` → 2. This is the 'vgCategoryForLayer existed twice and the copies DIVERGED' shape SymbolInjectionGate.ts:54-56 warns about, live, for the stair plan symbol."}
+      ],
+      "robustness": {
+        "degenerate_input": "ZERO isFinite/isNaN, ZERO `throw new`.",
+        "disposal": "PRESENT — 9 dispose sites; dispose() :365, clearProjectGeometry() :384, removeStair :232.",
+        "preview_hygiene": "GOOD — buildPreview/clearPreview are a separate pair, so a cancelled stair drag cannot leak a preview mesh into the committed scene."
+      },
+      "fidelity": {
+        "authored_L0_fields": ["provenance","confidence","levelId","topLevelId","shape","origin","rotation","treadDepth","riserHeight","width","numRisers","materialId"],
+        "authored_count": 12,
+        "measurement_method": "no CEB channel, so the chokepoint is the legacy StairData record. Counted each L0 field in packages/core-app-model/src/stores/StairTypes.ts and in StairMeshBuilder.ts.",
+        "survives_to_the_mesh": {"treadDepth":"3 / 4 — YES","riserHeight":"1 / 5 — YES","shape":"4 / 6 — YES","width":"2 / 27 — YES","rotation":"0 / 9 — read by the builder from elsewhere in the record","origin":"0 / 1","topLevelId":"1 / 1 — YES, and stair is the ONLY family that actually reads topLevelId"},
+        "⛔ AUTHORED_WITH_NO_DESTINATION": ["numRisers — 0 in StairTypes.ts, 0 in StairMeshBuilder.ts", "materialId — 0 in StairTypes.ts, 0 in StairMeshBuilder.ts"],
+        "consequence": "A stair is drawn in the builder's default material regardless of the authored materialId, and its riser COUNT is re-derived rather than honoured — so `numRisers` is an input the geometry cannot be made to obey.",
+        "draws_what_the_user_authored": "MOSTLY — 6 of 12 drawn; numRisers and materialId have no destination."
+      }
+    },
+    {
+      "member": "stair-landing",
+      "surface": "3d",
+      "builder_file": "packages/geometry-stair/src/StairLandingBuilder.ts",
+      "entry_fn": "self-subscribing in its constructor — :21 addEventListener('bim-stair-landing-added'), :30 ('bim-stair-landing-removed'), :36 ('bim-stair-removed')",
+      "invoked_by": "apps/editor/src/engine/initBuilders.ts:982 `new StairLandingBuilder(stairLandingStore, scene)`",
+      "REACHABILITY_NOTE": "`grep -rn 'stairLandingBuilder\\.'` → ZERO hits repo-wide. Like beamBuilder, it is reachable only by the capability it registers (its own constructor listeners), never by its handle. Searching by handle would report ABSENT.",
+      "own_store": "YES — apps/editor/src/engine/initStores.ts:106 r('stair-landing', stores.stairLandingStore)",
+      "plan": "YES — 'stair-landing' IS in GEOMETRY_ELEMENT_TYPES (ViewDependencyTracker.ts:82)",
+      "⚠ SPELLING_DRIFT_CONFIRMED": "THE TRACKER AND THE EVENTS DISAGREE — and both are live. GEOMETRY_ELEMENT_TYPES and the initStores type-key use the HYPHENATED `stair-landing`; the store's own DOM events use the CAMEL form inside a hyphenated envelope (`bim-stair-landing-added`); the ALL_PLUGINS/initBuilders handle is `stairLandingStore`. The brief predicted exactly this shape. MEASURED CONSEQUENCE HERE: NONE — because the invalidation key and the render key are looked up by DIFFERENT mechanisms (a Set membership test vs an event name), the two spellings never meet. This is drift WITHOUT a current defect, which is the dangerous kind: the next code that gates rendering on the tracker's spelling, or invalidation on the event's, will find only one of them.",
+      "drawn": "YES"
+    },
+    {
+      "member": "stair-railing",
+      "surface": "3d",
+      "builder_file": "packages/geometry-stair/src/StairRailingBuilder.ts",
+      "entry_fn": "self-subscribing — :61 'bim-stair-railing-added', :94 '-updated', :102 '-removed', :109 'bim-stair-removed', :117 runtime.events 'bim-stair-updated', :125 window 'bim-stair-updated'",
+      "invoked_by": "apps/editor/src/engine/initBuilders.ts:987 `new StairRailingBuilder(stairRailingStore, scene, stairStore)` + :1001 setInstanceBridge",
+      "plan": "YES — 'stair-railing' IS in GEOMETRY_ELEMENT_TYPES (ViewDependencyTracker.ts:82)",
+      "⛔ DOUBLE_SUBSCRIPTION": "Lines 117 and 125 subscribe to the SAME event name 'bim-stair-updated' on TWO buses (runtime.events and window). If both are dispatched the railing rebuilds twice per stair edit.",
+      "drawn": "YES"
+    },
+    {
+      "member": "stair-type",
+      "surface": "n/a",
+      "builder_file": "NONE — it is a TYPE store, not a drawn element",
+      "own_store": "YES — initStores type-key 'stair-type' (census families.json: in_S9 only)",
+      "drawn": "NO",
+      "honest_about_it": "YES — it is absent from GEOMETRY_ELEMENT_TYPES and from every builder registry. A type definition correctly claims no surface."
+    },
+    {
+      "member": "stair flight",
+      "surface": "plan",
+      "builder_file": "StairSymbolTechnicalDrawingBridge (one of the fifteen in SymbolInjectionGate.ts:26)",
+      "invoked_by": "apps/editor/src/engine/views/EdgeProjectorService.ts:4006 — `if (_symbolGate('stair')) stairSymbolTechnicalDrawingBridge.inject(drawing, viewDef);`",
+      "drawn": "YES — the walking line + break line",
+      "rivals": ["the two StairPlanSymbolRegistry.ts files, above"]
+    },
+    {"member": "stair flight", "surface": "section", "builder_file": "derived from the 3D mesh", "drawn": "YES"},
+    {"member": "stair flight", "surface": "export", "builder_file": "packages/file-format/src/export/ifc/readers/StairReader.ts (L3, FragmentReader.ts:41)", "rivals": ["the UNREACHABLE plugins/ifc-export has NO stair exporter"]}
+  ]
+}

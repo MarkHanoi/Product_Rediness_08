@@ -1,0 +1,73 @@
+{
+  "family": "window",
+  "head": "d91d30d4af51bc67317ef8afc0b46b1dbef94038",
+  "members": ["window (frame + glazing)", "window reveal / splay", "window opening (host void)", "window plan symbol"],
+  "rows": [
+    {
+      "member": "window (frame + glazing)",
+      "surface": "3d",
+      "builder_file": "packages/geometry-window/src/WindowBuilder.ts (2086 lines)",
+      "entry_fn": "activate() :498  ·  rebuildForWall(wallId) :673  ·  deactivate() :641  ·  clearProjectGeometry() :1985  ·  setInstanceBridge :447",
+      "package": "@pryzm/geometry-window",
+      "layer": "L2",
+      "layer_proof": "eslint.config.js:159",
+      "invoked_by": [
+        "apps/editor/src/engine/initBuilders.ts:746 `new WindowBuilder(scene, wallStore)`",
+        "SELF-SUBSCRIBING — WindowBuilder.ts:502 `this.unsubscribe = windowStore.subscribe(...)`, :514 storeEventBus.subscribe. Header :353: 'pure subscriber — reads wallStore for positioning only.'",
+        "apps/editor/src/engine/WallRebuildCoordinator.ts:699 / :1526 / :2698 `this._windowBuilder.rebuildForWall(wallId)`",
+        "packages/command-registry/src/windows/SetWindowOffsetCommand.ts:65 — 'WindowBuilder.rebuildForWall() reads the new offset when it calls [positionGroup]'"
+      ],
+      "NO_CEB_CHANNEL": "Same deliberate removal as door (CommandEventBridge ~L1235). Same stale rationale — see door.json.",
+      "rivals": [
+        {"candidate": "plugins/window/src/committer/window-committer.ts + packages/geometry-kernel/src/producers/window.ts (produceWindow)", "verdict": "RIVAL, UNREACHABLE. WindowCommitter is constructed at bootstrap.render.everything.ts:144 and that bootstrap never runs. `produceWindow` production call sites: ZERO."}
+      ],
+      "robustness": {
+        "degenerate_input": "ZERO isFinite/isNaN; 2 `throw new`. Explicit bail-outs on tessellation failure: :224 and :252 `if (!arc) { addBox(...); return; }`, :279 `if (!geo) return false`.",
+        "disposal": "STRONGEST OF THE OPENING BUILDERS — 16 dispose sites. WindowBuilder.ts:1999-2000 documents the exact ordering hazard it guards: '1. windowStore.add() -> subscribe \"add\" -> _enqueue() (a LATER frame); 2. Ctrl+Z -> subscribe \"remove\" -> dispose() -> NO-OP, because [the enqueued build has not run yet]'. An undo-before-build race, handled explicitly.",
+        "double_unsubscribe": "PRESENT — :647-651 tears down both subscriptions."
+      },
+      "fidelity": {
+        "authored_L0_fields": ["provenance","confidence","wallId","openingId","windowType","width","height","sillHeight","offset","frameThickness","frameWidth","revealDirection","revealProjection","revealSplayHead","revealSplaySill","revealSplayJambLeft","revealSplayJambRight","frameMaterialId","glassMaterialId","frameColor","fireRating"],
+        "authored_count": 21,
+        "ceb_channel": "NONE — by design",
+        "⭐ REFUTATION_RECORDED": "A naive field-name count over WindowBuilder.ts scored the SIX reveal fields (revealDirection, revealProjection, revealSplayHead, revealSplaySill, revealSplayJambLeft, revealSplayJambRight) at ZERO and would have reported them as never drawn. THAT IS WRONG. WindowBuilder.ts:839 `const reveal = resolveWindowReveal(win, wallData.thickness ?? 0.2);` — every reveal read is ENCAPSULATED in packages/geometry-window/src/WindowReveal.ts (27 mentions of those field names in that file). Its header at :11-13 says so: 'splay insets are all read from resolveWindowReveal, so the 3D leaf and the plan symbol [share one source]'. The reveal axis is not merely drawn, it is the best-encapsulated authored geometry in the repo, with a refusal gate (windowRevealRefusal / isRevealAuthored, consumed by UpdateWindowParameterCommand.ts:217 and UpdateElementParameterCommand.ts:430). GREP SILENCE HAS THREE CAUSES — this was cause three, encapsulation.",
+        "survives_to_the_mesh": {
+          "windowType": "WindowTypes 1 / WindowBuilder 0 — but drawn via the type store, same encapsulation caveat",
+          "sillHeight": "1 / 6 — YES",
+          "frameThickness": "1 / 2 — YES",
+          "frameColor": "2 / 4 — YES",
+          "reveal (all six)": "YES via resolveWindowReveal",
+          "fireRating": "1 / 1 — carried, not drawn"
+        },
+        "⛔ AUTHORED_WITH_NO_DESTINATION": ["frameWidth — 0 in WindowTypes.ts, 0 in WindowBuilder.ts", "frameMaterialId — 0 / 0", "glassMaterialId — 0 / 0"],
+        "where_those_ARE_read": "packages/geometry-kernel/src/producers/window.ts and packages/geometry-lift/src/LiftAssembly.ts — the UNREACHABLE side. glassMaterialId repo-wide count 18, frameMaterialId 27, all producer/UI/AI vocabulary.",
+        "the_same_shape_as_door": "The COLOUR half is drawn (frameColor). The MATERIAL-MASTER half (frameMaterialId, glassMaterialId) has no reader on the shipped path. A window can be tinted but not given a glazing material.",
+        "draws_what_the_user_authored": "MOSTLY — the reveal/splay geometry, dimensions and frame colour all survive; the two material-master ids and frameWidth do not."
+      }
+    },
+    {
+      "member": "window reveal / splay",
+      "surface": "3d + plan",
+      "builder_file": "packages/geometry-window/src/WindowReveal.ts (resolveWindowReveal, revealOutwardSign, REVEAL_SIDES, isRevealAuthored, windowRevealRefusal)",
+      "layer": "L2",
+      "drawn": "YES, and SHARED between the 3D leaf and the plan symbol from ONE resolver — WindowBuilder.ts:1728 'Nothing here re-derives an inset or a plane. rev came from resolveWindowReveal'.",
+      "refusal_surface": "EXPLICIT — `windowRevealRefusal` + `isRevealAuthored` are consumed by BOTH UpdateWindowParameterCommand.ts:217 and the generic UpdateElementParameterCommand.ts:430, so an unauthorable reveal is REFUSED at the command, not silently substituted at the mesh. This is the C84 standard met."
+    },
+    {
+      "member": "window opening (host void)",
+      "surface": "3d",
+      "builder_file": "packages/geometry-window/src/WindowOpeningFactory.ts → cut by WallFragmentBuilder",
+      "channel": "'wall.opening.created' (field-lossless)",
+      "note": "packages/core-app-model/src/geometry/NativeElementMeshExporter.ts:348 records an asymmetry: an opening MISSING from childrenIds still shows in PLAN, 'because WindowPlanSymbolBuilder reads the [store directly]'. Plan and 3D disagree about which openings exist."
+    },
+    {
+      "member": "window plan symbol",
+      "surface": "plan",
+      "builder_file": "packages/geometry-window/src/WindowPlanSymbolBuilder.ts",
+      "invoked_by": "apps/editor/src/engine/views/EdgeProjectorService.ts:3992 — `if (_symbolGate('window')) windowPlanSymbolBuilder.inject(drawing, viewDef);` (import at :103)",
+      "note": "packages/core-app-model/src/drawing/SymbolicRuleRenderer.ts:169 — 'Geometry is already injected by WindowPlanSymbolBuilder.inject().'"
+    },
+    {"member": "window", "surface": "section", "builder_file": "packages/geometry-window/src/WindowSection.ts", "drawn": "YES — dedicated section module. Also OpeningElevationSymbolBuilder at EdgeProjectorService.ts:4106 for the elevation."},
+    {"member": "window", "surface": "export", "builder_file": "packages/file-format/src/export/ifc/readers/WindowDoorReader.ts (L3)", "rivals": ["plugins/ifc-export/src/exporters/window.ts + pset-window-common.ts — UNREACHABLE"]}
+  ]
+}

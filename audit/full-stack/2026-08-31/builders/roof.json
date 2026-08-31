@@ -1,0 +1,74 @@
+{
+  "family": "roof",
+  "head": "d91d30d4af51bc67317ef8afc0b46b1dbef94038",
+  "members": ["roof (solid)", "skylight / hosted roof opening", "roof slope symbol (plan)"],
+  "rows": [
+    {
+      "member": "roof (solid)",
+      "surface": "3d",
+      "builder_file": "packages/geometry-roof/src/RoofFragmentBuilder.ts (373 lines) + RoofGeometryBuilder.ts",
+      "entry_fn": "updateRoof(data) :246  ·  removeRoof :352  ·  clearProjectGeometry :369  ·  setDeps :121",
+      "package": "@pryzm/geometry-roof",
+      "layer": "L2",
+      "layer_proof": "eslint.config.js:155",
+      "invoked_by": [
+        "apps/editor/src/engine/initBuilders.ts:616 `new RoofFragmentBuilder(scene, bimManager, undefined, _roofMaterialMap)`",
+        "apps/editor/src/engine/initBuilders.ts:624/:630/:636 — window.addEventListener('bim-roof-added' | 'bim-roof-updated' | 'bim-roof-removed')",
+        "BUS LEG: CommandEventBridge roof.create → 'roof.created' → apps/editor/src/engine/initTools.ts:2217 → roofRecordFromCreatedEvent() (apps/editor/src/engine/roofCreatedMirror.ts) → roofStore.add() → bim-roof-added"
+      ],
+      "proof_command": "grep -nE \"runtime.events.on\\('\" apps/editor/src/engine/initTools.ts → :2217 'roof.created'",
+      "rivals": [],
+      "robustness": {
+        "degenerate_input": "ZERO isFinite/isNaN and ZERO `throw new` in RoofFragmentBuilder.ts. The guard is one arity check UPSTREAM, in the initTools handler: `!ev.boundary || ev.boundary.length < 3` (:2221) and again in roofCreatedMirror.ts:168. A boundary of 3 NaN points passes both.",
+        "explicit_refusals_ELSEWHERE": "GOOD, and unusually so — packages/geometry-roof/src/pure/roofFaces.ts:631 and :691 REFUSE a straddling skylight with a message naming both slopes and offering three remedies. That is the C84 refusal standard, and it exists in this family only for the skylight axis.",
+        "disposal": "PRESENT AND SELF-AWARE — `_disposeChildren(root)` :231, called at :302 and :356 before scene.remove(). Its comment at :233 names the exact inversion it fixed ('WAS: safeDisposeObject3D(root); root.clear();'). This is the pattern PlumbingFragmentBuilder still lacks."
+      },
+      "fidelity": {
+        "authored_L0_fields": ["provenance","confidence","levelId","boundary","shape","pitch","overhang","thickness","materialId","materialColor","skylights","joinedToRoofIds","boundingWallIds"],
+        "authored_count": 13,
+        "ceb_channel": "roof.created",
+        "ceb_emit_sites": ["~L1357 (roof.create)"],
+        "ceb_emitted_keys": ["commandId","commandType","levelId","id","boundary","shape","overhang","thickness","pitch","materialId","materialColor","boundingWallIds"],
+        "dropped_at_ceb": ["skylights","joinedToRoofIds","provenance","confidence"],
+        "PRIOR_CLAIM_UNDER_TEST": "'roof drops materialId and materialColor while counting renders_3d = YES' — and the brief says it was PARTIALLY FIXED on 2026-08-30.",
+        "VERDICT_ON_THAT_CLAIM": "⭐ REFUTED AT THIS HEAD — the material half is CLOSED END TO END, in all three legs.",
+        "chain_proof": [
+          "EMIT — CommandEventBridge roof.create emit (~L1357) now names `materialId` and `materialColor` as top-level keys (verified by an AST-ish top-level-key extraction over the comment-stripped source, not by eyeballing: audit/.../builders/_raw/ceb-emit-fields.json).",
+          "MIRROR — apps/editor/src/engine/roofCreatedMirror.ts:234-235 `...(ev.materialId !== undefined ? { materialId: ev.materialId } : {})` and the same for materialColor. The conditional spread is DELIBERATE and documented at :228-233: writing `undefined` would assert 'the user chose no material', a different fact from 'no material was stated' (C100 §2.1).",
+          "CONSUME — packages/geometry-roof/src/RoofFragmentBuilder.ts:161 `new THREE.Color(data.materialColor || DEFAULT_MATERIAL_COLOR)` and :196-215 resolves `data.materialId` against the injected `_materialMap`, with materialColor honoured as a tint when the matDef sets no colour."
+        ],
+        "REMAINING_GAP": "`skylights` and `joinedToRoofIds` still do not survive the CEB emit.",
+        "skylight_gap_assessed": "NOT A SILENT LOSS — the roof's hosted openings do not travel on roof.created BY DESIGN. RoofFragmentBuilder._openingHoles(roofId) (:134-146) reads them from an INJECTED openingStore, and the method's own comment names the failure mode precisely: 'Returns an empty array when the store is absent — and that is the one place this method can LIE by omission, which is precisely why setDeps is called at wiring time and warned about above.' So the risk is a WIRING risk (setDeps not called), not a payload risk. The L0 `Roof.skylights` array is therefore a SECOND, PARALLEL home for the same fact as OpeningStore — a latent rival vocabulary, not a live defect.",
+        "draws_what_the_user_authored": "YES for boundary/shape/pitch/overhang/thickness/materialId/materialColor. UNPROVEN for skylights (depends on setDeps having run). NO for joinedToRoofIds on the bus leg.",
+        "translation_layer_is_exemplary": "roofCreatedMirror.ts exports legacyRoofTypeFromShape() :107 (L0 `mono` → legacy `shed`) and legacyRoofSlopeFromPitch() :136 (radians → rise/run via tan), each as a NAMED EXPORTED PURE FUNCTION so a test can execute the mapping. The header (:12-26) states why: as a closure inside initTools it was unreachable from any suite, so the mapping was proven only by transcribing it into a test — 'the copy passing, not the product'. This is the only family where the L0→legacy translation is separately testable."
+      }
+    },
+    {
+      "member": "skylight / hosted roof opening",
+      "surface": "3d",
+      "builder_file": "packages/geometry-roof/src/RoofGeometryBuilder.ts (:102 'build the roof mesh, optionally with skylight ...', :391 'the void reveals — the sides of every skylight, slot 0')",
+      "drawn": "YES — void + reveal sides, slot 0",
+      "source_of_truth": "OpeningStore via RoofFragmentBuilder.setDeps({ openingStore }), NOT the L0 Roof.skylights array",
+      "command": "packages/command-registry/src/roofs/CreateRoofOpeningCommand.ts",
+      "honest_about_undrawn_state": "YES — RoofGeometryBuilder.ts:242 explicitly distinguishes 'this roof has no skylights' from a failure, and RoofFragmentBuilder.ts:321 records the non-vacuity of the no-skylight path."
+    },
+    {
+      "member": "roof slope symbol",
+      "surface": "plan",
+      "builder_file": "packages/geometry-roof/src/RoofSlopeSymbolBuilder.ts",
+      "package": "@pryzm/geometry-roof",
+      "layer": "L2",
+      "invoked_by": "apps/editor/src/engine/views/EdgeProjectorService.ts:4017 — `if (_symbolGate('roof')) this._roofSlopeSymbolBuilder?.inject(drawing, viewDef);`",
+      "wiring_risk": "⚠ CONSTRUCTOR-DI VIA A SETTER, and OPTIONAL-CHAINED at the call site. `_roofSlopeSymbolBuilder` is `private ... | null = null` (:1913) and set post-bootstrap by setRoofSlopeSymbolBuilder() (:2077). The `?.` at :4017 means an unset builder produces NO slope arrow and NO warning — silent absence, the class of defect BoundaryLinePlanSymbolBuilder:158 guards against with an explicit console warning. This is the ONE symbol injector of the fifteen that can no-op silently.",
+      "proof_command": "grep -nE 'RoofSlopeSymbolBuilder|_roofSlopeSymbolBuilder' apps/editor/src/engine/views/EdgeProjectorService.ts → :99, :1909, :1913, :2074, :2077, :4017"
+    },
+    {
+      "member": "roof (solid)",
+      "surface": "export",
+      "builder_file": "packages/file-format/src/export/ifc/readers/RoofReader.ts",
+      "layer": "L3",
+      "invoked_by": "FragmentReader.ts:42",
+      "note": "The UNREACHABLE rival exporter (plugins/ifc-export) has NO roof exporter at all — `ls plugins/ifc-export/src/exporters/` → beam, column, door, slab, wall, window, space, zone only."
+    }
+  ]
+}

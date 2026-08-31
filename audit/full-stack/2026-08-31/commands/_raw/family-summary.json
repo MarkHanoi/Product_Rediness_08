@@ -1,0 +1,2213 @@
+{
+ "annotation": {
+  "verbs": 9,
+  "by_kind": {
+   "create": 1,
+   "delete": 1,
+   "move": 1,
+   "update": 6
+  },
+  "mirror_coverage": {
+   "with_any_mirror": 1,
+   "of": 9
+  },
+  "readback": {
+   "proven_positive_class_c": 0,
+   "measured_negative_class_c": 0,
+   "of": 9
+  },
+  "undo": {
+   "ring_buffer": 9,
+   "legacy_commandManager": 0,
+   "stranded": 0,
+   "none_or_unknown": 0,
+   "of": 9
+  },
+  "liveness": {
+   "UNKNOWN": 9
+  },
+  "contract_clause_TRUE_counts": {
+   "validates_before_mutation": 9,
+   "typed_DomainError_or_refusal": 7,
+   "mutates_only_via_immer_draft": 9,
+   "affectedStores_declared": 9,
+   "withHandlerSpan": 9,
+   "emits_a_typed_domain_event": 0,
+   "geometry_deferred_to_FrameScheduler": 0
+  },
+  "must_not_BREACH_counts": {
+   "commandManager.execute": 0,
+   "cascading dispatch": 0,
+   "window.dispatchEvent": 0,
+   "DOM access": 0,
+   "direct rAF": 0
+  }
+ },
+ "balcony": {
+  "verbs": 3,
+  "by_kind": {
+   "create": 1,
+   "delete": 1,
+   "update": 1
+  },
+  "mirror_coverage": {
+   "with_any_mirror": 1,
+   "of": 3
+  },
+  "readback": {
+   "proven_positive_class_c": 0,
+   "measured_negative_class_c": 0,
+   "of": 3
+  },
+  "undo": {
+   "ring_buffer": 0,
+   "legacy_commandManager": 0,
+   "stranded": 3,
+   "none_or_unknown": 0,
+   "of": 3
+  },
+  "liveness": {
+   "UNKNOWN": 3
+  },
+  "contract_clause_TRUE_counts": {
+   "validates_before_mutation": 3,
+   "typed_DomainError_or_refusal": 1,
+   "mutates_only_via_immer_draft": 3,
+   "affectedStores_declared": 3,
+   "withHandlerSpan": 3,
+   "emits_a_typed_domain_event": 0,
+   "geometry_deferred_to_FrameScheduler": 0
+  },
+  "must_not_BREACH_counts": {
+   "commandManager.execute": 0,
+   "cascading dispatch": 0,
+   "window.dispatchEvent": 0,
+   "DOM access": 0,
+   "direct rAF": 0
+  }
+ },
+ "bathroomPod": {
+  "verbs": 2,
+  "by_kind": {
+   "create": 1,
+   "delete": 1
+  },
+  "mirror_coverage": {
+   "with_any_mirror": 0,
+   "of": 2
+  },
+  "readback": {
+   "proven_positive_class_c": 2,
+   "measured_negative_class_c": 0,
+   "of": 2
+  },
+  "undo": {
+   "ring_buffer": 2,
+   "legacy_commandManager": 0,
+   "stranded": 0,
+   "none_or_unknown": 0,
+   "of": 2
+  },
+  "liveness": {
+   "UNKNOWN": 2
+  },
+  "contract_clause_TRUE_counts": {
+   "validates_before_mutation": 2,
+   "typed_DomainError_or_refusal": 1,
+   "mutates_only_via_immer_draft": 2,
+   "affectedStores_declared": 2,
+   "withHandlerSpan": 2,
+   "emits_a_typed_domain_event": 0,
+   "geometry_deferred_to_FrameScheduler": 0
+  },
+  "must_not_BREACH_counts": {
+   "commandManager.execute": 0,
+   "cascading dispatch": 0,
+   "window.dispatchEvent": 0,
+   "DOM access": 0,
+   "direct rAF": 0
+  }
+ },
+ "beam": {
+  "verbs": 9,
+  "by_kind": {
+   "batch.create": 1,
+   "move": 2,
+   "create": 1,
+   "delete": 1,
+   "update": 4
+  },
+  "mirror_coverage": {
+   "with_any_mirror": 3,
+   "of": 9
+  },
+  "readback": {
+   "proven_positive_class_c": 0,
+   "measured_negative_class_c": 0,
+   "of": 9
+  },
+  "undo": {
+   "ring_buffer": 8,
+   "legacy_commandManager": 0,
+   "stranded": 0,
+   "none_or_unknown": 1,
+   "of": 9
+  },
+  "liveness": {
+   "UNKNOWN": 5,
+   "LIVE": 2,
+   "REFUSES": 2
+  },
+  "contract_clause_TRUE_counts": {
+   "validates_before_mutation": 9,
+   "typed_DomainError_or_refusal": 3,
+   "mutates_only_via_immer_draft": 8,
+   "affectedStores_declared": 8,
+   "withHandlerSpan": 8,
+   "emits_a_typed_domain_event": 0,
+   "geometry_deferred_to_FrameScheduler": 0
+  },
+  "must_not_BREACH_counts": {
+   "commandManager.execute": 1,
+   "cascading dispatch": 1,
+   "window.dispatchEvent": 0,
+   "DOM access": 1,
+   "direct rAF": 0
+  }
+ },
+ "boundaryLine": {
+  "verbs": 6,
+  "by_kind": {
+   "update": 3,
+   "create": 1,
+   "delete": 1,
+   "move": 1
+  },
+  "mirror_coverage": {
+   "with_any_mirror": 6,
+   "of": 6
+  },
+  "readback": {
+   "proven_positive_class_c": 1,
+   "measured_negative_class_c": 0,
+   "of": 6
+  },
+  "undo": {
+   "ring_buffer": 5,
+   "legacy_commandManager": 1,
+   "stranded": 0,
+   "none_or_unknown": 0,
+   "of": 6
+  },
+  "liveness": {
+   "UNKNOWN": 5,
+   "LIVE": 1
+  },
+  "contract_clause_TRUE_counts": {
+   "validates_before_mutation": 6,
+   "typed_DomainError_or_refusal": 2,
+   "mutates_only_via_immer_draft": 6,
+   "affectedStores_declared": 5,
+   "withHandlerSpan": 5,
+   "emits_a_typed_domain_event": 0,
+   "geometry_deferred_to_FrameScheduler": 0
+  },
+  "must_not_BREACH_counts": {
+   "commandManager.execute": 0,
+   "cascading dispatch": 0,
+   "window.dispatchEvent": 0,
+   "DOM access": 0,
+   "direct rAF": 0
+  }
+ },
+ "ceiling": {
+  "verbs": 10,
+  "by_kind": {
+   "batch.create": 1,
+   "move": 1,
+   "create": 1,
+   "delete": 1,
+   "update": 6
+  },
+  "mirror_coverage": {
+   "with_any_mirror": 4,
+   "of": 10
+  },
+  "readback": {
+   "proven_positive_class_c": 1,
+   "measured_negative_class_c": 0,
+   "of": 10
+  },
+  "undo": {
+   "ring_buffer": 8,
+   "legacy_commandManager": 2,
+   "stranded": 0,
+   "none_or_unknown": 0,
+   "of": 10
+  },
+  "liveness": {
+   "UNKNOWN": 6,
+   "LIVE": 3,
+   "REFUSES": 1
+  },
+  "contract_clause_TRUE_counts": {
+   "validates_before_mutation": 10,
+   "typed_DomainError_or_refusal": 2,
+   "mutates_only_via_immer_draft": 9,
+   "affectedStores_declared": 9,
+   "withHandlerSpan": 9,
+   "emits_a_typed_domain_event": 0,
+   "geometry_deferred_to_FrameScheduler": 0
+  },
+  "must_not_BREACH_counts": {
+   "commandManager.execute": 0,
+   "cascading dispatch": 0,
+   "window.dispatchEvent": 1,
+   "DOM access": 1,
+   "direct rAF": 0
+  }
+ },
+ "column": {
+  "verbs": 9,
+  "by_kind": {
+   "batch.create": 1,
+   "move": 2,
+   "create": 1,
+   "delete": 1,
+   "update": 4
+  },
+  "mirror_coverage": {
+   "with_any_mirror": 4,
+   "of": 9
+  },
+  "readback": {
+   "proven_positive_class_c": 0,
+   "measured_negative_class_c": 0,
+   "of": 9
+  },
+  "undo": {
+   "ring_buffer": 8,
+   "legacy_commandManager": 0,
+   "stranded": 0,
+   "none_or_unknown": 1,
+   "of": 9
+  },
+  "liveness": {
+   "UNKNOWN": 5,
+   "LIVE": 2,
+   "REFUSES": 2
+  },
+  "contract_clause_TRUE_counts": {
+   "validates_before_mutation": 9,
+   "typed_DomainError_or_refusal": 2,
+   "mutates_only_via_immer_draft": 8,
+   "affectedStores_declared": 8,
+   "withHandlerSpan": 8,
+   "emits_a_typed_domain_event": 0,
+   "geometry_deferred_to_FrameScheduler": 0
+  },
+  "must_not_BREACH_counts": {
+   "commandManager.execute": 0,
+   "cascading dispatch": 0,
+   "window.dispatchEvent": 0,
+   "DOM access": 0,
+   "direct rAF": 0
+  }
+ },
+ "copy-selection": {
+  "verbs": 1,
+  "by_kind": {
+   "other": 1
+  },
+  "mirror_coverage": {
+   "with_any_mirror": 0,
+   "of": 1
+  },
+  "readback": {
+   "proven_positive_class_c": 0,
+   "measured_negative_class_c": 0,
+   "of": 1
+  },
+  "undo": {
+   "ring_buffer": 0,
+   "legacy_commandManager": 0,
+   "stranded": 0,
+   "none_or_unknown": 1,
+   "of": 1
+  },
+  "liveness": {
+   "UNKNOWN": 1
+  },
+  "contract_clause_TRUE_counts": {
+   "validates_before_mutation": 1,
+   "typed_DomainError_or_refusal": 0,
+   "mutates_only_via_immer_draft": 0,
+   "affectedStores_declared": 1,
+   "withHandlerSpan": 1,
+   "emits_a_typed_domain_event": 0,
+   "geometry_deferred_to_FrameScheduler": 0
+  },
+  "must_not_BREACH_counts": {
+   "commandManager.execute": 0,
+   "cascading dispatch": 0,
+   "window.dispatchEvent": 0,
+   "DOM access": 0,
+   "direct rAF": 0
+  }
+ },
+ "cube": {
+  "verbs": 1,
+  "by_kind": {
+   "move": 1
+  },
+  "mirror_coverage": {
+   "with_any_mirror": 0,
+   "of": 1
+  },
+  "readback": {
+   "proven_positive_class_c": 0,
+   "measured_negative_class_c": 0,
+   "of": 1
+  },
+  "undo": {
+   "ring_buffer": 0,
+   "legacy_commandManager": 0,
+   "stranded": 1,
+   "none_or_unknown": 0,
+   "of": 1
+  },
+  "liveness": {
+   "UNKNOWN": 1
+  },
+  "contract_clause_TRUE_counts": {
+   "validates_before_mutation": 1,
+   "typed_DomainError_or_refusal": 0,
+   "mutates_only_via_immer_draft": 1,
+   "affectedStores_declared": 1,
+   "withHandlerSpan": 0,
+   "emits_a_typed_domain_event": 0,
+   "geometry_deferred_to_FrameScheduler": 0
+  },
+  "must_not_BREACH_counts": {
+   "commandManager.execute": 0,
+   "cascading dispatch": 0,
+   "window.dispatchEvent": 0,
+   "DOM access": 0,
+   "direct rAF": 0
+  }
+ },
+ "curtain-wall": {
+  "verbs": 24,
+  "by_kind": {
+   "update": 9,
+   "batch.create": 1,
+   "delete": 4,
+   "other": 6,
+   "move": 2,
+   "create": 2
+  },
+  "mirror_coverage": {
+   "with_any_mirror": 3,
+   "of": 24
+  },
+  "readback": {
+   "proven_positive_class_c": 0,
+   "measured_negative_class_c": 1,
+   "of": 24
+  },
+  "undo": {
+   "ring_buffer": 20,
+   "legacy_commandManager": 3,
+   "stranded": 0,
+   "none_or_unknown": 1,
+   "of": 24
+  },
+  "liveness": {
+   "UNKNOWN": 19,
+   "LIVE": 4,
+   "REFUSES": 1
+  },
+  "contract_clause_TRUE_counts": {
+   "validates_before_mutation": 24,
+   "typed_DomainError_or_refusal": 1,
+   "mutates_only_via_immer_draft": 21,
+   "affectedStores_declared": 24,
+   "withHandlerSpan": 24,
+   "emits_a_typed_domain_event": 1,
+   "geometry_deferred_to_FrameScheduler": 0
+  },
+  "must_not_BREACH_counts": {
+   "commandManager.execute": 0,
+   "cascading dispatch": 0,
+   "window.dispatchEvent": 2,
+   "DOM access": 3,
+   "direct rAF": 0
+  }
+ },
+ "data": {
+  "verbs": 3,
+  "by_kind": {
+   "other": 2,
+   "update": 1
+  },
+  "mirror_coverage": {
+   "with_any_mirror": 0,
+   "of": 3
+  },
+  "readback": {
+   "proven_positive_class_c": 0,
+   "measured_negative_class_c": 0,
+   "of": 3
+  },
+  "undo": {
+   "ring_buffer": 0,
+   "legacy_commandManager": 3,
+   "stranded": 0,
+   "none_or_unknown": 0,
+   "of": 3
+  },
+  "liveness": {
+   "LIVE": 3
+  },
+  "contract_clause_TRUE_counts": {
+   "validates_before_mutation": 3,
+   "typed_DomainError_or_refusal": 0,
+   "mutates_only_via_immer_draft": 0,
+   "affectedStores_declared": 0,
+   "withHandlerSpan": 0,
+   "emits_a_typed_domain_event": 0,
+   "geometry_deferred_to_FrameScheduler": 0
+  },
+  "must_not_BREACH_counts": {
+   "commandManager.execute": 0,
+   "cascading dispatch": 0,
+   "window.dispatchEvent": 0,
+   "DOM access": 0,
+   "direct rAF": 0
+  }
+ },
+ "dimension": {
+  "verbs": 7,
+  "by_kind": {
+   "create": 2,
+   "delete": 1,
+   "move": 1,
+   "update": 3
+  },
+  "mirror_coverage": {
+   "with_any_mirror": 1,
+   "of": 7
+  },
+  "readback": {
+   "proven_positive_class_c": 0,
+   "measured_negative_class_c": 0,
+   "of": 7
+  },
+  "undo": {
+   "ring_buffer": 0,
+   "legacy_commandManager": 0,
+   "stranded": 7,
+   "none_or_unknown": 0,
+   "of": 7
+  },
+  "liveness": {
+   "UNKNOWN": 6,
+   "REFUSES": 1
+  },
+  "contract_clause_TRUE_counts": {
+   "validates_before_mutation": 7,
+   "typed_DomainError_or_refusal": 1,
+   "mutates_only_via_immer_draft": 7,
+   "affectedStores_declared": 7,
+   "withHandlerSpan": 7,
+   "emits_a_typed_domain_event": 0,
+   "geometry_deferred_to_FrameScheduler": 0
+  },
+  "must_not_BREACH_counts": {
+   "commandManager.execute": 0,
+   "cascading dispatch": 0,
+   "window.dispatchEvent": 0,
+   "DOM access": 0,
+   "direct rAF": 0
+  }
+ },
+ "door": {
+  "verbs": 14,
+  "by_kind": {
+   "batch.create": 1,
+   "create": 1,
+   "delete": 1,
+   "move": 1,
+   "update": 10
+  },
+  "mirror_coverage": {
+   "with_any_mirror": 0,
+   "of": 14
+  },
+  "readback": {
+   "proven_positive_class_c": 1,
+   "measured_negative_class_c": 0,
+   "of": 14
+  },
+  "undo": {
+   "ring_buffer": 0,
+   "legacy_commandManager": 14,
+   "stranded": 0,
+   "none_or_unknown": 0,
+   "of": 14
+  },
+  "liveness": {
+   "UNKNOWN": 6,
+   "REFUSES": 2,
+   "LIVE": 6
+  },
+  "contract_clause_TRUE_counts": {
+   "validates_before_mutation": 14,
+   "typed_DomainError_or_refusal": 2,
+   "mutates_only_via_immer_draft": 8,
+   "affectedStores_declared": 9,
+   "withHandlerSpan": 9,
+   "emits_a_typed_domain_event": 0,
+   "geometry_deferred_to_FrameScheduler": 0
+  },
+  "must_not_BREACH_counts": {
+   "commandManager.execute": 0,
+   "cascading dispatch": 0,
+   "window.dispatchEvent": 1,
+   "DOM access": 1,
+   "direct rAF": 0
+  }
+ },
+ "element": {
+  "verbs": 10,
+  "by_kind": {
+   "other": 3,
+   "delete": 2,
+   "update": 5
+  },
+  "mirror_coverage": {
+   "with_any_mirror": 0,
+   "of": 10
+  },
+  "readback": {
+   "proven_positive_class_c": 0,
+   "measured_negative_class_c": 0,
+   "of": 10
+  },
+  "undo": {
+   "ring_buffer": 1,
+   "legacy_commandManager": 9,
+   "stranded": 0,
+   "none_or_unknown": 0,
+   "of": 10
+  },
+  "liveness": {
+   "LIVE": 10
+  },
+  "contract_clause_TRUE_counts": {
+   "validates_before_mutation": 10,
+   "typed_DomainError_or_refusal": 5,
+   "mutates_only_via_immer_draft": 1,
+   "affectedStores_declared": 8,
+   "withHandlerSpan": 7,
+   "emits_a_typed_domain_event": 0,
+   "geometry_deferred_to_FrameScheduler": 0
+  },
+  "must_not_BREACH_counts": {
+   "commandManager.execute": 0,
+   "cascading dispatch": 1,
+   "window.dispatchEvent": 3,
+   "DOM access": 8,
+   "direct rAF": 0
+  }
+ },
+ "elementType": {
+  "verbs": 4,
+  "by_kind": {
+   "create": 1,
+   "delete": 1,
+   "other": 1,
+   "update": 1
+  },
+  "mirror_coverage": {
+   "with_any_mirror": 0,
+   "of": 4
+  },
+  "readback": {
+   "proven_positive_class_c": 0,
+   "measured_negative_class_c": 0,
+   "of": 4
+  },
+  "undo": {
+   "ring_buffer": 0,
+   "legacy_commandManager": 1,
+   "stranded": 0,
+   "none_or_unknown": 3,
+   "of": 4
+  },
+  "liveness": {
+   "LIVE": 4
+  },
+  "contract_clause_TRUE_counts": {
+   "validates_before_mutation": 4,
+   "typed_DomainError_or_refusal": 0,
+   "mutates_only_via_immer_draft": 0,
+   "affectedStores_declared": 0,
+   "withHandlerSpan": 0,
+   "emits_a_typed_domain_event": 0,
+   "geometry_deferred_to_FrameScheduler": 0
+  },
+  "must_not_BREACH_counts": {
+   "commandManager.execute": 0,
+   "cascading dispatch": 0,
+   "window.dispatchEvent": 0,
+   "DOM access": 1,
+   "direct rAF": 0
+  }
+ },
+ "elevation": {
+  "verbs": 1,
+  "by_kind": {
+   "create": 1
+  },
+  "mirror_coverage": {
+   "with_any_mirror": 0,
+   "of": 1
+  },
+  "readback": {
+   "proven_positive_class_c": 0,
+   "measured_negative_class_c": 0,
+   "of": 1
+  },
+  "undo": {
+   "ring_buffer": 0,
+   "legacy_commandManager": 1,
+   "stranded": 0,
+   "none_or_unknown": 0,
+   "of": 1
+  },
+  "liveness": {
+   "LIVE": 1
+  },
+  "contract_clause_TRUE_counts": {
+   "validates_before_mutation": 1,
+   "typed_DomainError_or_refusal": 0,
+   "mutates_only_via_immer_draft": 0,
+   "affectedStores_declared": 0,
+   "withHandlerSpan": 0,
+   "emits_a_typed_domain_event": 0,
+   "geometry_deferred_to_FrameScheduler": 0
+  },
+  "must_not_BREACH_counts": {
+   "commandManager.execute": 0,
+   "cascading dispatch": 0,
+   "window.dispatchEvent": 0,
+   "DOM access": 0,
+   "direct rAF": 0
+  }
+ },
+ "floor": {
+  "verbs": 6,
+  "by_kind": {
+   "move": 1,
+   "create": 1,
+   "update": 4
+  },
+  "mirror_coverage": {
+   "with_any_mirror": 3,
+   "of": 6
+  },
+  "readback": {
+   "proven_positive_class_c": 0,
+   "measured_negative_class_c": 0,
+   "of": 6
+  },
+  "undo": {
+   "ring_buffer": 4,
+   "legacy_commandManager": 1,
+   "stranded": 0,
+   "none_or_unknown": 1,
+   "of": 6
+  },
+  "liveness": {
+   "LIVE": 3,
+   "UNKNOWN": 2,
+   "REFUSES": 1
+  },
+  "contract_clause_TRUE_counts": {
+   "validates_before_mutation": 6,
+   "typed_DomainError_or_refusal": 1,
+   "mutates_only_via_immer_draft": 3,
+   "affectedStores_declared": 5,
+   "withHandlerSpan": 5,
+   "emits_a_typed_domain_event": 0,
+   "geometry_deferred_to_FrameScheduler": 0
+  },
+  "must_not_BREACH_counts": {
+   "commandManager.execute": 0,
+   "cascading dispatch": 0,
+   "window.dispatchEvent": 1,
+   "DOM access": 1,
+   "direct rAF": 0
+  }
+ },
+ "furniture": {
+  "verbs": 12,
+  "by_kind": {
+   "batch.create": 1,
+   "other": 2,
+   "move": 2,
+   "create": 1,
+   "delete": 1,
+   "update": 5
+  },
+  "mirror_coverage": {
+   "with_any_mirror": 3,
+   "of": 12
+  },
+  "readback": {
+   "proven_positive_class_c": 0,
+   "measured_negative_class_c": 0,
+   "of": 12
+  },
+  "undo": {
+   "ring_buffer": 10,
+   "legacy_commandManager": 1,
+   "stranded": 0,
+   "none_or_unknown": 1,
+   "of": 12
+  },
+  "liveness": {
+   "UNKNOWN": 7,
+   "LIVE": 2,
+   "REFUSES": 3
+  },
+  "contract_clause_TRUE_counts": {
+   "validates_before_mutation": 12,
+   "typed_DomainError_or_refusal": 5,
+   "mutates_only_via_immer_draft": 10,
+   "affectedStores_declared": 12,
+   "withHandlerSpan": 12,
+   "emits_a_typed_domain_event": 0,
+   "geometry_deferred_to_FrameScheduler": 0
+  },
+  "must_not_BREACH_counts": {
+   "commandManager.execute": 0,
+   "cascading dispatch": 0,
+   "window.dispatchEvent": 1,
+   "DOM access": 3,
+   "direct rAF": 0
+  }
+ },
+ "generation": {
+  "verbs": 4,
+  "by_kind": {
+   "other": 4
+  },
+  "mirror_coverage": {
+   "with_any_mirror": 0,
+   "of": 4
+  },
+  "readback": {
+   "proven_positive_class_c": 0,
+   "measured_negative_class_c": 0,
+   "of": 4
+  },
+  "undo": {
+   "ring_buffer": 0,
+   "legacy_commandManager": 0,
+   "stranded": 0,
+   "none_or_unknown": 4,
+   "of": 4
+  },
+  "liveness": {
+   "LIVE": 4
+  },
+  "contract_clause_TRUE_counts": {
+   "validates_before_mutation": 4,
+   "typed_DomainError_or_refusal": 1,
+   "mutates_only_via_immer_draft": 0,
+   "affectedStores_declared": 1,
+   "withHandlerSpan": 1,
+   "emits_a_typed_domain_event": 0,
+   "geometry_deferred_to_FrameScheduler": 0
+  },
+  "must_not_BREACH_counts": {
+   "commandManager.execute": 0,
+   "cascading dispatch": 0,
+   "window.dispatchEvent": 0,
+   "DOM access": 0,
+   "direct rAF": 0
+  }
+ },
+ "generative": {
+  "verbs": 1,
+  "by_kind": {
+   "update": 1
+  },
+  "mirror_coverage": {
+   "with_any_mirror": 0,
+   "of": 1
+  },
+  "readback": {
+   "proven_positive_class_c": 0,
+   "measured_negative_class_c": 0,
+   "of": 1
+  },
+  "undo": {
+   "ring_buffer": 0,
+   "legacy_commandManager": 1,
+   "stranded": 0,
+   "none_or_unknown": 0,
+   "of": 1
+  },
+  "liveness": {
+   "LIVE": 1
+  },
+  "contract_clause_TRUE_counts": {
+   "validates_before_mutation": 1,
+   "typed_DomainError_or_refusal": 0,
+   "mutates_only_via_immer_draft": 0,
+   "affectedStores_declared": 1,
+   "withHandlerSpan": 1,
+   "emits_a_typed_domain_event": 1,
+   "geometry_deferred_to_FrameScheduler": 0
+  },
+  "must_not_BREACH_counts": {
+   "commandManager.execute": 0,
+   "cascading dispatch": 1,
+   "window.dispatchEvent": 0,
+   "DOM access": 1,
+   "direct rAF": 0
+  }
+ },
+ "graph": {
+  "verbs": 3,
+  "by_kind": {
+   "other": 3
+  },
+  "mirror_coverage": {
+   "with_any_mirror": 0,
+   "of": 3
+  },
+  "readback": {
+   "proven_positive_class_c": 0,
+   "measured_negative_class_c": 0,
+   "of": 3
+  },
+  "undo": {
+   "ring_buffer": 0,
+   "legacy_commandManager": 0,
+   "stranded": 0,
+   "none_or_unknown": 3,
+   "of": 3
+  },
+  "liveness": {
+   "LIVE": 3
+  },
+  "contract_clause_TRUE_counts": {
+   "validates_before_mutation": 3,
+   "typed_DomainError_or_refusal": 1,
+   "mutates_only_via_immer_draft": 0,
+   "affectedStores_declared": 3,
+   "withHandlerSpan": 0,
+   "emits_a_typed_domain_event": 0,
+   "geometry_deferred_to_FrameScheduler": 0
+  },
+  "must_not_BREACH_counts": {
+   "commandManager.execute": 0,
+   "cascading dispatch": 1,
+   "window.dispatchEvent": 0,
+   "DOM access": 0,
+   "direct rAF": 0
+  }
+ },
+ "grid": {
+  "verbs": 6,
+  "by_kind": {
+   "other": 1,
+   "create": 1,
+   "delete": 1,
+   "update": 3
+  },
+  "mirror_coverage": {
+   "with_any_mirror": 1,
+   "of": 6
+  },
+  "readback": {
+   "proven_positive_class_c": 0,
+   "measured_negative_class_c": 0,
+   "of": 6
+  },
+  "undo": {
+   "ring_buffer": 4,
+   "legacy_commandManager": 2,
+   "stranded": 0,
+   "none_or_unknown": 0,
+   "of": 6
+  },
+  "liveness": {
+   "LIVE": 2,
+   "UNKNOWN": 4
+  },
+  "contract_clause_TRUE_counts": {
+   "validates_before_mutation": 6,
+   "typed_DomainError_or_refusal": 0,
+   "mutates_only_via_immer_draft": 4,
+   "affectedStores_declared": 4,
+   "withHandlerSpan": 4,
+   "emits_a_typed_domain_event": 0,
+   "geometry_deferred_to_FrameScheduler": 0
+  },
+  "must_not_BREACH_counts": {
+   "commandManager.execute": 0,
+   "cascading dispatch": 0,
+   "window.dispatchEvent": 0,
+   "DOM access": 0,
+   "direct rAF": 0
+  }
+ },
+ "handrail": {
+  "verbs": 10,
+  "by_kind": {
+   "move": 1,
+   "create": 1,
+   "delete": 1,
+   "other": 2,
+   "update": 5
+  },
+  "mirror_coverage": {
+   "with_any_mirror": 2,
+   "of": 10
+  },
+  "readback": {
+   "proven_positive_class_c": 0,
+   "measured_negative_class_c": 0,
+   "of": 10
+  },
+  "undo": {
+   "ring_buffer": 8,
+   "legacy_commandManager": 1,
+   "stranded": 0,
+   "none_or_unknown": 1,
+   "of": 10
+  },
+  "liveness": {
+   "LIVE": 3,
+   "UNKNOWN": 6,
+   "REFUSES": 1
+  },
+  "contract_clause_TRUE_counts": {
+   "validates_before_mutation": 10,
+   "typed_DomainError_or_refusal": 1,
+   "mutates_only_via_immer_draft": 9,
+   "affectedStores_declared": 8,
+   "withHandlerSpan": 8,
+   "emits_a_typed_domain_event": 0,
+   "geometry_deferred_to_FrameScheduler": 0
+  },
+  "must_not_BREACH_counts": {
+   "commandManager.execute": 0,
+   "cascading dispatch": 0,
+   "window.dispatchEvent": 0,
+   "DOM access": 2,
+   "direct rAF": 0
+  }
+ },
+ "hierarchy": {
+  "verbs": 5,
+  "by_kind": {
+   "create": 4,
+   "update": 1
+  },
+  "mirror_coverage": {
+   "with_any_mirror": 0,
+   "of": 5
+  },
+  "readback": {
+   "proven_positive_class_c": 0,
+   "measured_negative_class_c": 0,
+   "of": 5
+  },
+  "undo": {
+   "ring_buffer": 0,
+   "legacy_commandManager": 5,
+   "stranded": 0,
+   "none_or_unknown": 0,
+   "of": 5
+  },
+  "liveness": {
+   "LIVE": 5
+  },
+  "contract_clause_TRUE_counts": {
+   "validates_before_mutation": 5,
+   "typed_DomainError_or_refusal": 0,
+   "mutates_only_via_immer_draft": 0,
+   "affectedStores_declared": 0,
+   "withHandlerSpan": 0,
+   "emits_a_typed_domain_event": 0,
+   "geometry_deferred_to_FrameScheduler": 0
+  },
+  "must_not_BREACH_counts": {
+   "commandManager.execute": 0,
+   "cascading dispatch": 0,
+   "window.dispatchEvent": 0,
+   "DOM access": 0,
+   "direct rAF": 0
+  }
+ },
+ "level": {
+  "verbs": 3,
+  "by_kind": {
+   "other": 2,
+   "update": 1
+  },
+  "mirror_coverage": {
+   "with_any_mirror": 0,
+   "of": 3
+  },
+  "readback": {
+   "proven_positive_class_c": 0,
+   "measured_negative_class_c": 0,
+   "of": 3
+  },
+  "undo": {
+   "ring_buffer": 0,
+   "legacy_commandManager": 3,
+   "stranded": 0,
+   "none_or_unknown": 0,
+   "of": 3
+  },
+  "liveness": {
+   "LIVE": 3
+  },
+  "contract_clause_TRUE_counts": {
+   "validates_before_mutation": 3,
+   "typed_DomainError_or_refusal": 0,
+   "mutates_only_via_immer_draft": 0,
+   "affectedStores_declared": 1,
+   "withHandlerSpan": 1,
+   "emits_a_typed_domain_event": 0,
+   "geometry_deferred_to_FrameScheduler": 0
+  },
+  "must_not_BREACH_counts": {
+   "commandManager.execute": 0,
+   "cascading dispatch": 0,
+   "window.dispatchEvent": 0,
+   "DOM access": 1,
+   "direct rAF": 0
+  }
+ },
+ "lift": {
+  "verbs": 2,
+  "by_kind": {
+   "create": 1,
+   "delete": 1
+  },
+  "mirror_coverage": {
+   "with_any_mirror": 1,
+   "of": 2
+  },
+  "readback": {
+   "proven_positive_class_c": 1,
+   "measured_negative_class_c": 0,
+   "of": 2
+  },
+  "undo": {
+   "ring_buffer": 0,
+   "legacy_commandManager": 2,
+   "stranded": 0,
+   "none_or_unknown": 0,
+   "of": 2
+  },
+  "liveness": {
+   "UNKNOWN": 2
+  },
+  "contract_clause_TRUE_counts": {
+   "validates_before_mutation": 2,
+   "typed_DomainError_or_refusal": 0,
+   "mutates_only_via_immer_draft": 2,
+   "affectedStores_declared": 2,
+   "withHandlerSpan": 2,
+   "emits_a_typed_domain_event": 0,
+   "geometry_deferred_to_FrameScheduler": 0
+  },
+  "must_not_BREACH_counts": {
+   "commandManager.execute": 0,
+   "cascading dispatch": 0,
+   "window.dispatchEvent": 0,
+   "DOM access": 0,
+   "direct rAF": 0
+  }
+ },
+ "lighting": {
+  "verbs": 8,
+  "by_kind": {
+   "move": 2,
+   "create": 1,
+   "delete": 1,
+   "other": 1,
+   "update": 3
+  },
+  "mirror_coverage": {
+   "with_any_mirror": 2,
+   "of": 8
+  },
+  "readback": {
+   "proven_positive_class_c": 0,
+   "measured_negative_class_c": 0,
+   "of": 8
+  },
+  "undo": {
+   "ring_buffer": 7,
+   "legacy_commandManager": 1,
+   "stranded": 0,
+   "none_or_unknown": 0,
+   "of": 8
+  },
+  "liveness": {
+   "LIVE": 2,
+   "UNKNOWN": 4,
+   "REFUSES": 2
+  },
+  "contract_clause_TRUE_counts": {
+   "validates_before_mutation": 8,
+   "typed_DomainError_or_refusal": 2,
+   "mutates_only_via_immer_draft": 7,
+   "affectedStores_declared": 7,
+   "withHandlerSpan": 7,
+   "emits_a_typed_domain_event": 0,
+   "geometry_deferred_to_FrameScheduler": 0
+  },
+  "must_not_BREACH_counts": {
+   "commandManager.execute": 0,
+   "cascading dispatch": 0,
+   "window.dispatchEvent": 0,
+   "DOM access": 0,
+   "direct rAF": 0
+  }
+ },
+ "opening": {
+  "verbs": 1,
+  "by_kind": {
+   "create": 1
+  },
+  "mirror_coverage": {
+   "with_any_mirror": 0,
+   "of": 1
+  },
+  "readback": {
+   "proven_positive_class_c": 0,
+   "measured_negative_class_c": 0,
+   "of": 1
+  },
+  "undo": {
+   "ring_buffer": 0,
+   "legacy_commandManager": 1,
+   "stranded": 0,
+   "none_or_unknown": 0,
+   "of": 1
+  },
+  "liveness": {
+   "LIVE": 1
+  },
+  "contract_clause_TRUE_counts": {
+   "validates_before_mutation": 1,
+   "typed_DomainError_or_refusal": 0,
+   "mutates_only_via_immer_draft": 0,
+   "affectedStores_declared": 0,
+   "withHandlerSpan": 0,
+   "emits_a_typed_domain_event": 0,
+   "geometry_deferred_to_FrameScheduler": 0
+  },
+  "must_not_BREACH_counts": {
+   "commandManager.execute": 0,
+   "cascading dispatch": 0,
+   "window.dispatchEvent": 0,
+   "DOM access": 0,
+   "direct rAF": 0
+  }
+ },
+ "paste-clipboard": {
+  "verbs": 1,
+  "by_kind": {
+   "other": 1
+  },
+  "mirror_coverage": {
+   "with_any_mirror": 0,
+   "of": 1
+  },
+  "readback": {
+   "proven_positive_class_c": 0,
+   "measured_negative_class_c": 1,
+   "of": 1
+  },
+  "undo": {
+   "ring_buffer": 0,
+   "legacy_commandManager": 0,
+   "stranded": 0,
+   "none_or_unknown": 1,
+   "of": 1
+  },
+  "liveness": {
+   "UNKNOWN": 1
+  },
+  "contract_clause_TRUE_counts": {
+   "validates_before_mutation": 1,
+   "typed_DomainError_or_refusal": 0,
+   "mutates_only_via_immer_draft": 0,
+   "affectedStores_declared": 1,
+   "withHandlerSpan": 1,
+   "emits_a_typed_domain_event": 0,
+   "geometry_deferred_to_FrameScheduler": 0
+  },
+  "must_not_BREACH_counts": {
+   "commandManager.execute": 0,
+   "cascading dispatch": 0,
+   "window.dispatchEvent": 0,
+   "DOM access": 0,
+   "direct rAF": 0
+  }
+ },
+ "plumbing": {
+  "verbs": 8,
+  "by_kind": {
+   "move": 2,
+   "create": 2,
+   "delete": 1,
+   "other": 1,
+   "update": 2
+  },
+  "mirror_coverage": {
+   "with_any_mirror": 2,
+   "of": 8
+  },
+  "readback": {
+   "proven_positive_class_c": 0,
+   "measured_negative_class_c": 0,
+   "of": 8
+  },
+  "undo": {
+   "ring_buffer": 6,
+   "legacy_commandManager": 2,
+   "stranded": 0,
+   "none_or_unknown": 0,
+   "of": 8
+  },
+  "liveness": {
+   "LIVE": 3,
+   "UNKNOWN": 3,
+   "REFUSES": 2
+  },
+  "contract_clause_TRUE_counts": {
+   "validates_before_mutation": 8,
+   "typed_DomainError_or_refusal": 2,
+   "mutates_only_via_immer_draft": 6,
+   "affectedStores_declared": 7,
+   "withHandlerSpan": 7,
+   "emits_a_typed_domain_event": 0,
+   "geometry_deferred_to_FrameScheduler": 0
+  },
+  "must_not_BREACH_counts": {
+   "commandManager.execute": 0,
+   "cascading dispatch": 0,
+   "window.dispatchEvent": 0,
+   "DOM access": 1,
+   "direct rAF": 0
+  }
+ },
+ "pool": {
+  "verbs": 2,
+  "by_kind": {
+   "create": 1,
+   "delete": 1
+  },
+  "mirror_coverage": {
+   "with_any_mirror": 1,
+   "of": 2
+  },
+  "readback": {
+   "proven_positive_class_c": 1,
+   "measured_negative_class_c": 0,
+   "of": 2
+  },
+  "undo": {
+   "ring_buffer": 2,
+   "legacy_commandManager": 0,
+   "stranded": 0,
+   "none_or_unknown": 0,
+   "of": 2
+  },
+  "liveness": {
+   "UNKNOWN": 2
+  },
+  "contract_clause_TRUE_counts": {
+   "validates_before_mutation": 2,
+   "typed_DomainError_or_refusal": 0,
+   "mutates_only_via_immer_draft": 2,
+   "affectedStores_declared": 2,
+   "withHandlerSpan": 2,
+   "emits_a_typed_domain_event": 0,
+   "geometry_deferred_to_FrameScheduler": 0
+  },
+  "must_not_BREACH_counts": {
+   "commandManager.execute": 0,
+   "cascading dispatch": 0,
+   "window.dispatchEvent": 0,
+   "DOM access": 0,
+   "direct rAF": 0
+  }
+ },
+ "projectOrigin": {
+  "verbs": 2,
+  "by_kind": {
+   "move": 1,
+   "update": 1
+  },
+  "mirror_coverage": {
+   "with_any_mirror": 0,
+   "of": 2
+  },
+  "readback": {
+   "proven_positive_class_c": 0,
+   "measured_negative_class_c": 0,
+   "of": 2
+  },
+  "undo": {
+   "ring_buffer": 0,
+   "legacy_commandManager": 0,
+   "stranded": 1,
+   "none_or_unknown": 1,
+   "of": 2
+  },
+  "liveness": {
+   "LIVE": 2
+  },
+  "contract_clause_TRUE_counts": {
+   "validates_before_mutation": 2,
+   "typed_DomainError_or_refusal": 1,
+   "mutates_only_via_immer_draft": 1,
+   "affectedStores_declared": 1,
+   "withHandlerSpan": 1,
+   "emits_a_typed_domain_event": 0,
+   "geometry_deferred_to_FrameScheduler": 0
+  },
+  "must_not_BREACH_counts": {
+   "commandManager.execute": 0,
+   "cascading dispatch": 0,
+   "window.dispatchEvent": 1,
+   "DOM access": 1,
+   "direct rAF": 0
+  }
+ },
+ "rhino": {
+  "verbs": 2,
+  "by_kind": {
+   "other": 1,
+   "update": 1
+  },
+  "mirror_coverage": {
+   "with_any_mirror": 0,
+   "of": 2
+  },
+  "readback": {
+   "proven_positive_class_c": 0,
+   "measured_negative_class_c": 0,
+   "of": 2
+  },
+  "undo": {
+   "ring_buffer": 0,
+   "legacy_commandManager": 0,
+   "stranded": 0,
+   "none_or_unknown": 2,
+   "of": 2
+  },
+  "liveness": {
+   "LIVE": 2
+  },
+  "contract_clause_TRUE_counts": {
+   "validates_before_mutation": 1,
+   "typed_DomainError_or_refusal": 0,
+   "mutates_only_via_immer_draft": 1,
+   "affectedStores_declared": 0,
+   "withHandlerSpan": 0,
+   "emits_a_typed_domain_event": 0,
+   "geometry_deferred_to_FrameScheduler": 0
+  },
+  "must_not_BREACH_counts": {
+   "commandManager.execute": 0,
+   "cascading dispatch": 0,
+   "window.dispatchEvent": 0,
+   "DOM access": 0,
+   "direct rAF": 0
+  }
+ },
+ "roof": {
+  "verbs": 13,
+  "by_kind": {
+   "update": 7,
+   "move": 2,
+   "create": 1,
+   "delete": 2,
+   "join": 1
+  },
+  "mirror_coverage": {
+   "with_any_mirror": 6,
+   "of": 13
+  },
+  "readback": {
+   "proven_positive_class_c": 4,
+   "measured_negative_class_c": 0,
+   "of": 13
+  },
+  "undo": {
+   "ring_buffer": 12,
+   "legacy_commandManager": 1,
+   "stranded": 0,
+   "none_or_unknown": 0,
+   "of": 13
+  },
+  "liveness": {
+   "UNKNOWN": 9,
+   "LIVE": 2,
+   "REFUSES": 2
+  },
+  "contract_clause_TRUE_counts": {
+   "validates_before_mutation": 13,
+   "typed_DomainError_or_refusal": 1,
+   "mutates_only_via_immer_draft": 12,
+   "affectedStores_declared": 12,
+   "withHandlerSpan": 12,
+   "emits_a_typed_domain_event": 0,
+   "geometry_deferred_to_FrameScheduler": 0
+  },
+  "must_not_BREACH_counts": {
+   "commandManager.execute": 0,
+   "cascading dispatch": 0,
+   "window.dispatchEvent": 0,
+   "DOM access": 0,
+   "direct rAF": 0
+  }
+ },
+ "room": {
+  "verbs": 18,
+  "by_kind": {
+   "other": 4,
+   "create": 1,
+   "delete": 1,
+   "move": 1,
+   "regenerate": 1,
+   "update": 10
+  },
+  "mirror_coverage": {
+   "with_any_mirror": 1,
+   "of": 18
+  },
+  "readback": {
+   "proven_positive_class_c": 0,
+   "measured_negative_class_c": 1,
+   "of": 18
+  },
+  "undo": {
+   "ring_buffer": 0,
+   "legacy_commandManager": 14,
+   "stranded": 0,
+   "none_or_unknown": 4,
+   "of": 18
+  },
+  "liveness": {
+   "LIVE": 14,
+   "REFUSES": 2,
+   "UNKNOWN": 2
+  },
+  "contract_clause_TRUE_counts": {
+   "validates_before_mutation": 18,
+   "typed_DomainError_or_refusal": 7,
+   "mutates_only_via_immer_draft": 0,
+   "affectedStores_declared": 17,
+   "withHandlerSpan": 17,
+   "emits_a_typed_domain_event": 0,
+   "geometry_deferred_to_FrameScheduler": 0
+  },
+  "must_not_BREACH_counts": {
+   "commandManager.execute": 0,
+   "cascading dispatch": 0,
+   "window.dispatchEvent": 1,
+   "DOM access": 3,
+   "direct rAF": 0
+  }
+ },
+ "schedule": {
+  "verbs": 7,
+  "by_kind": {
+   "other": 2,
+   "create": 1,
+   "delete": 1,
+   "update": 3
+  },
+  "mirror_coverage": {
+   "with_any_mirror": 0,
+   "of": 7
+  },
+  "readback": {
+   "proven_positive_class_c": 0,
+   "measured_negative_class_c": 0,
+   "of": 7
+  },
+  "undo": {
+   "ring_buffer": 1,
+   "legacy_commandManager": 0,
+   "stranded": 4,
+   "none_or_unknown": 2,
+   "of": 7
+  },
+  "liveness": {
+   "UNKNOWN": 6,
+   "LIVE": 1
+  },
+  "contract_clause_TRUE_counts": {
+   "validates_before_mutation": 7,
+   "typed_DomainError_or_refusal": 0,
+   "mutates_only_via_immer_draft": 6,
+   "affectedStores_declared": 7,
+   "withHandlerSpan": 6,
+   "emits_a_typed_domain_event": 0,
+   "geometry_deferred_to_FrameScheduler": 0
+  },
+  "must_not_BREACH_counts": {
+   "commandManager.execute": 0,
+   "cascading dispatch": 0,
+   "window.dispatchEvent": 0,
+   "DOM access": 1,
+   "direct rAF": 0
+  }
+ },
+ "section": {
+  "verbs": 7,
+  "by_kind": {
+   "create": 2,
+   "delete": 1,
+   "other": 1,
+   "update": 3
+  },
+  "mirror_coverage": {
+   "with_any_mirror": 0,
+   "of": 7
+  },
+  "readback": {
+   "proven_positive_class_c": 0,
+   "measured_negative_class_c": 0,
+   "of": 7
+  },
+  "undo": {
+   "ring_buffer": 0,
+   "legacy_commandManager": 1,
+   "stranded": 6,
+   "none_or_unknown": 0,
+   "of": 7
+  },
+  "liveness": {
+   "UNKNOWN": 5,
+   "LIVE": 1,
+   "REFUSES": 1
+  },
+  "contract_clause_TRUE_counts": {
+   "validates_before_mutation": 7,
+   "typed_DomainError_or_refusal": 1,
+   "mutates_only_via_immer_draft": 6,
+   "affectedStores_declared": 6,
+   "withHandlerSpan": 6,
+   "emits_a_typed_domain_event": 0,
+   "geometry_deferred_to_FrameScheduler": 0
+  },
+  "must_not_BREACH_counts": {
+   "commandManager.execute": 0,
+   "cascading dispatch": 0,
+   "window.dispatchEvent": 0,
+   "DOM access": 0,
+   "direct rAF": 0
+  }
+ },
+ "selection": {
+  "verbs": 3,
+  "by_kind": {
+   "other": 3
+  },
+  "mirror_coverage": {
+   "with_any_mirror": 0,
+   "of": 3
+  },
+  "readback": {
+   "proven_positive_class_c": 3,
+   "measured_negative_class_c": 0,
+   "of": 3
+  },
+  "undo": {
+   "ring_buffer": 0,
+   "legacy_commandManager": 0,
+   "stranded": 0,
+   "none_or_unknown": 3,
+   "of": 3
+  },
+  "liveness": {
+   "UNKNOWN": 3
+  },
+  "contract_clause_TRUE_counts": {
+   "validates_before_mutation": 3,
+   "typed_DomainError_or_refusal": 0,
+   "mutates_only_via_immer_draft": 0,
+   "affectedStores_declared": 3,
+   "withHandlerSpan": 3,
+   "emits_a_typed_domain_event": 0,
+   "geometry_deferred_to_FrameScheduler": 0
+  },
+  "must_not_BREACH_counts": {
+   "commandManager.execute": 0,
+   "cascading dispatch": 0,
+   "window.dispatchEvent": 0,
+   "DOM access": 0,
+   "direct rAF": 0
+  }
+ },
+ "sheet": {
+  "verbs": 12,
+  "by_kind": {
+   "update": 6,
+   "create": 1,
+   "delete": 3,
+   "other": 2
+  },
+  "mirror_coverage": {
+   "with_any_mirror": 0,
+   "of": 12
+  },
+  "readback": {
+   "proven_positive_class_c": 1,
+   "measured_negative_class_c": 0,
+   "of": 12
+  },
+  "undo": {
+   "ring_buffer": 0,
+   "legacy_commandManager": 2,
+   "stranded": 10,
+   "none_or_unknown": 0,
+   "of": 12
+  },
+  "liveness": {
+   "LIVE": 2,
+   "UNKNOWN": 9,
+   "SHADOWED": 1
+  },
+  "contract_clause_TRUE_counts": {
+   "validates_before_mutation": 12,
+   "typed_DomainError_or_refusal": 0,
+   "mutates_only_via_immer_draft": 10,
+   "affectedStores_declared": 10,
+   "withHandlerSpan": 10,
+   "emits_a_typed_domain_event": 0,
+   "geometry_deferred_to_FrameScheduler": 0
+  },
+  "must_not_BREACH_counts": {
+   "commandManager.execute": 0,
+   "cascading dispatch": 0,
+   "window.dispatchEvent": 0,
+   "DOM access": 0,
+   "direct rAF": 0
+  }
+ },
+ "slab": {
+  "verbs": 18,
+  "by_kind": {
+   "update": 10,
+   "batch.create": 1,
+   "move": 2,
+   "create": 2,
+   "delete": 2,
+   "other": 1
+  },
+  "mirror_coverage": {
+   "with_any_mirror": 9,
+   "of": 18
+  },
+  "readback": {
+   "proven_positive_class_c": 2,
+   "measured_negative_class_c": 1,
+   "of": 18
+  },
+  "undo": {
+   "ring_buffer": 14,
+   "legacy_commandManager": 3,
+   "stranded": 0,
+   "none_or_unknown": 1,
+   "of": 18
+  },
+  "liveness": {
+   "UNKNOWN": 11,
+   "LIVE": 5,
+   "REFUSES": 2
+  },
+  "contract_clause_TRUE_counts": {
+   "validates_before_mutation": 18,
+   "typed_DomainError_or_refusal": 3,
+   "mutates_only_via_immer_draft": 14,
+   "affectedStores_declared": 16,
+   "withHandlerSpan": 16,
+   "emits_a_typed_domain_event": 0,
+   "geometry_deferred_to_FrameScheduler": 0
+  },
+  "must_not_BREACH_counts": {
+   "commandManager.execute": 0,
+   "cascading dispatch": 0,
+   "window.dispatchEvent": 1,
+   "DOM access": 2,
+   "direct rAF": 0
+  }
+ },
+ "stair": {
+  "verbs": 13,
+  "by_kind": {
+   "batch.create": 1,
+   "create": 2,
+   "delete": 1,
+   "move": 1,
+   "other": 1,
+   "update": 7
+  },
+  "mirror_coverage": {
+   "with_any_mirror": 0,
+   "of": 13
+  },
+  "readback": {
+   "proven_positive_class_c": 2,
+   "measured_negative_class_c": 0,
+   "of": 13
+  },
+  "undo": {
+   "ring_buffer": 9,
+   "legacy_commandManager": 3,
+   "stranded": 0,
+   "none_or_unknown": 1,
+   "of": 13
+  },
+  "liveness": {
+   "UNKNOWN": 8,
+   "LIVE": 3,
+   "REFUSES": 2
+  },
+  "contract_clause_TRUE_counts": {
+   "validates_before_mutation": 13,
+   "typed_DomainError_or_refusal": 1,
+   "mutates_only_via_immer_draft": 10,
+   "affectedStores_declared": 12,
+   "withHandlerSpan": 12,
+   "emits_a_typed_domain_event": 0,
+   "geometry_deferred_to_FrameScheduler": 0
+  },
+  "must_not_BREACH_counts": {
+   "commandManager.execute": 0,
+   "cascading dispatch": 0,
+   "window.dispatchEvent": 0,
+   "DOM access": 2,
+   "direct rAF": 0
+  }
+ },
+ "structural": {
+  "verbs": 7,
+  "by_kind": {
+   "create": 1,
+   "delete": 1,
+   "move": 1,
+   "update": 4
+  },
+  "mirror_coverage": {
+   "with_any_mirror": 1,
+   "of": 7
+  },
+  "readback": {
+   "proven_positive_class_c": 0,
+   "measured_negative_class_c": 0,
+   "of": 7
+  },
+  "undo": {
+   "ring_buffer": 0,
+   "legacy_commandManager": 0,
+   "stranded": 7,
+   "none_or_unknown": 0,
+   "of": 7
+  },
+  "liveness": {
+   "UNKNOWN": 5,
+   "REFUSES": 2
+  },
+  "contract_clause_TRUE_counts": {
+   "validates_before_mutation": 7,
+   "typed_DomainError_or_refusal": 1,
+   "mutates_only_via_immer_draft": 7,
+   "affectedStores_declared": 7,
+   "withHandlerSpan": 7,
+   "emits_a_typed_domain_event": 0,
+   "geometry_deferred_to_FrameScheduler": 0
+  },
+  "must_not_BREACH_counts": {
+   "commandManager.execute": 0,
+   "cascading dispatch": 0,
+   "window.dispatchEvent": 0,
+   "DOM access": 0,
+   "direct rAF": 0
+  }
+ },
+ "template": {
+  "verbs": 3,
+  "by_kind": {
+   "update": 1,
+   "create": 1,
+   "other": 1
+  },
+  "mirror_coverage": {
+   "with_any_mirror": 0,
+   "of": 3
+  },
+  "readback": {
+   "proven_positive_class_c": 0,
+   "measured_negative_class_c": 0,
+   "of": 3
+  },
+  "undo": {
+   "ring_buffer": 0,
+   "legacy_commandManager": 3,
+   "stranded": 0,
+   "none_or_unknown": 0,
+   "of": 3
+  },
+  "liveness": {
+   "LIVE": 3
+  },
+  "contract_clause_TRUE_counts": {
+   "validates_before_mutation": 3,
+   "typed_DomainError_or_refusal": 1,
+   "mutates_only_via_immer_draft": 0,
+   "affectedStores_declared": 1,
+   "withHandlerSpan": 1,
+   "emits_a_typed_domain_event": 0,
+   "geometry_deferred_to_FrameScheduler": 0
+  },
+  "must_not_BREACH_counts": {
+   "commandManager.execute": 0,
+   "cascading dispatch": 0,
+   "window.dispatchEvent": 0,
+   "DOM access": 1,
+   "direct rAF": 0
+  }
+ },
+ "vg": {
+  "verbs": 4,
+  "by_kind": {
+   "update": 2,
+   "create": 1,
+   "other": 1
+  },
+  "mirror_coverage": {
+   "with_any_mirror": 0,
+   "of": 4
+  },
+  "readback": {
+   "proven_positive_class_c": 0,
+   "measured_negative_class_c": 0,
+   "of": 4
+  },
+  "undo": {
+   "ring_buffer": 0,
+   "legacy_commandManager": 4,
+   "stranded": 0,
+   "none_or_unknown": 0,
+   "of": 4
+  },
+  "liveness": {
+   "LIVE": 4
+  },
+  "contract_clause_TRUE_counts": {
+   "validates_before_mutation": 4,
+   "typed_DomainError_or_refusal": 0,
+   "mutates_only_via_immer_draft": 0,
+   "affectedStores_declared": 0,
+   "withHandlerSpan": 0,
+   "emits_a_typed_domain_event": 0,
+   "geometry_deferred_to_FrameScheduler": 0
+  },
+  "must_not_BREACH_counts": {
+   "commandManager.execute": 0,
+   "cascading dispatch": 0,
+   "window.dispatchEvent": 0,
+   "DOM access": 0,
+   "direct rAF": 0
+  }
+ },
+ "view": {
+  "verbs": 19,
+  "by_kind": {
+   "other": 5,
+   "create": 2,
+   "delete": 2,
+   "update": 10
+  },
+  "mirror_coverage": {
+   "with_any_mirror": 0,
+   "of": 19
+  },
+  "readback": {
+   "proven_positive_class_c": 0,
+   "measured_negative_class_c": 0,
+   "of": 19
+  },
+  "undo": {
+   "ring_buffer": 0,
+   "legacy_commandManager": 11,
+   "stranded": 8,
+   "none_or_unknown": 0,
+   "of": 19
+  },
+  "liveness": {
+   "LIVE": 11,
+   "UNKNOWN": 8
+  },
+  "contract_clause_TRUE_counts": {
+   "validates_before_mutation": 19,
+   "typed_DomainError_or_refusal": 0,
+   "mutates_only_via_immer_draft": 0,
+   "affectedStores_declared": 9,
+   "withHandlerSpan": 9,
+   "emits_a_typed_domain_event": 0,
+   "geometry_deferred_to_FrameScheduler": 0
+  },
+  "must_not_BREACH_counts": {
+   "commandManager.execute": 0,
+   "cascading dispatch": 0,
+   "window.dispatchEvent": 0,
+   "DOM access": 2,
+   "direct rAF": 0
+  }
+ },
+ "viewTemplate": {
+  "verbs": 3,
+  "by_kind": {
+   "create": 1,
+   "delete": 1,
+   "update": 1
+  },
+  "mirror_coverage": {
+   "with_any_mirror": 0,
+   "of": 3
+  },
+  "readback": {
+   "proven_positive_class_c": 0,
+   "measured_negative_class_c": 0,
+   "of": 3
+  },
+  "undo": {
+   "ring_buffer": 0,
+   "legacy_commandManager": 3,
+   "stranded": 0,
+   "none_or_unknown": 0,
+   "of": 3
+  },
+  "liveness": {
+   "LIVE": 3
+  },
+  "contract_clause_TRUE_counts": {
+   "validates_before_mutation": 3,
+   "typed_DomainError_or_refusal": 0,
+   "mutates_only_via_immer_draft": 0,
+   "affectedStores_declared": 0,
+   "withHandlerSpan": 0,
+   "emits_a_typed_domain_event": 0,
+   "geometry_deferred_to_FrameScheduler": 0
+  },
+  "must_not_BREACH_counts": {
+   "commandManager.execute": 0,
+   "cascading dispatch": 0,
+   "window.dispatchEvent": 0,
+   "DOM access": 1,
+   "direct rAF": 0
+  }
+ },
+ "wall": {
+  "verbs": 31,
+  "by_kind": {
+   "update": 15,
+   "batch.create": 1,
+   "other": 4,
+   "move": 2,
+   "create": 6,
+   "delete": 1,
+   "join": 1,
+   "split": 1
+  },
+  "mirror_coverage": {
+   "with_any_mirror": 5,
+   "of": 31
+  },
+  "readback": {
+   "proven_positive_class_c": 2,
+   "measured_negative_class_c": 0,
+   "of": 31
+  },
+  "undo": {
+   "ring_buffer": 19,
+   "legacy_commandManager": 11,
+   "stranded": 0,
+   "none_or_unknown": 1,
+   "of": 31
+  },
+  "liveness": {
+   "LIVE": 13,
+   "UNKNOWN": 12,
+   "REFUSES": 6
+  },
+  "contract_clause_TRUE_counts": {
+   "validates_before_mutation": 31,
+   "typed_DomainError_or_refusal": 10,
+   "mutates_only_via_immer_draft": 16,
+   "affectedStores_declared": 29,
+   "withHandlerSpan": 28,
+   "emits_a_typed_domain_event": 0,
+   "geometry_deferred_to_FrameScheduler": 0
+  },
+  "must_not_BREACH_counts": {
+   "commandManager.execute": 0,
+   "cascading dispatch": 0,
+   "window.dispatchEvent": 6,
+   "DOM access": 11,
+   "direct rAF": 0
+  }
+ },
+ "window": {
+  "verbs": 12,
+  "by_kind": {
+   "batch.create": 1,
+   "create": 1,
+   "delete": 1,
+   "move": 1,
+   "other": 1,
+   "update": 7
+  },
+  "mirror_coverage": {
+   "with_any_mirror": 0,
+   "of": 12
+  },
+  "readback": {
+   "proven_positive_class_c": 1,
+   "measured_negative_class_c": 0,
+   "of": 12
+  },
+  "undo": {
+   "ring_buffer": 0,
+   "legacy_commandManager": 12,
+   "stranded": 0,
+   "none_or_unknown": 0,
+   "of": 12
+  },
+  "liveness": {
+   "UNKNOWN": 4,
+   "REFUSES": 2,
+   "LIVE": 6
+  },
+  "contract_clause_TRUE_counts": {
+   "validates_before_mutation": 12,
+   "typed_DomainError_or_refusal": 3,
+   "mutates_only_via_immer_draft": 6,
+   "affectedStores_declared": 8,
+   "withHandlerSpan": 8,
+   "emits_a_typed_domain_event": 0,
+   "geometry_deferred_to_FrameScheduler": 0
+  },
+  "must_not_BREACH_counts": {
+   "commandManager.execute": 0,
+   "cascading dispatch": 1,
+   "window.dispatchEvent": 2,
+   "DOM access": 12,
+   "direct rAF": 0
+  }
+ },
+ "zoom-fit": {
+  "verbs": 1,
+  "by_kind": {
+   "other": 1
+  },
+  "mirror_coverage": {
+   "with_any_mirror": 0,
+   "of": 1
+  },
+  "readback": {
+   "proven_positive_class_c": 0,
+   "measured_negative_class_c": 0,
+   "of": 1
+  },
+  "undo": {
+   "ring_buffer": 0,
+   "legacy_commandManager": 0,
+   "stranded": 0,
+   "none_or_unknown": 1,
+   "of": 1
+  },
+  "liveness": {
+   "LIVE": 1
+  },
+  "contract_clause_TRUE_counts": {
+   "validates_before_mutation": 1,
+   "typed_DomainError_or_refusal": 0,
+   "mutates_only_via_immer_draft": 0,
+   "affectedStores_declared": 1,
+   "withHandlerSpan": 0,
+   "emits_a_typed_domain_event": 0,
+   "geometry_deferred_to_FrameScheduler": 0
+  },
+  "must_not_BREACH_counts": {
+   "commandManager.execute": 0,
+   "cascading dispatch": 0,
+   "window.dispatchEvent": 0,
+   "DOM access": 0,
+   "direct rAF": 0
+  }
+ },
+ "zoom-selected": {
+  "verbs": 1,
+  "by_kind": {
+   "other": 1
+  },
+  "mirror_coverage": {
+   "with_any_mirror": 0,
+   "of": 1
+  },
+  "readback": {
+   "proven_positive_class_c": 0,
+   "measured_negative_class_c": 0,
+   "of": 1
+  },
+  "undo": {
+   "ring_buffer": 0,
+   "legacy_commandManager": 1,
+   "stranded": 0,
+   "none_or_unknown": 0,
+   "of": 1
+  },
+  "liveness": {
+   "LIVE": 1
+  },
+  "contract_clause_TRUE_counts": {
+   "validates_before_mutation": 1,
+   "typed_DomainError_or_refusal": 1,
+   "mutates_only_via_immer_draft": 0,
+   "affectedStores_declared": 1,
+   "withHandlerSpan": 0,
+   "emits_a_typed_domain_event": 0,
+   "geometry_deferred_to_FrameScheduler": 0
+  },
+  "must_not_BREACH_counts": {
+   "commandManager.execute": 1,
+   "cascading dispatch": 1,
+   "window.dispatchEvent": 0,
+   "DOM access": 1,
+   "direct rAF": 0
+  }
+ }
+}

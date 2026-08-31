@@ -1,0 +1,2172 @@
+{
+ "date": "2026-08-31",
+ "head": "d91d30d4af51bc67317ef8afc0b46b1dbef94038",
+ "count": 84,
+ "families": {
+  "ai-floorplan": {
+   "in_S1_plugin_dir": true,
+   "in_S2_ALL_PLUGINS": false,
+   "in_S4_ELEMENT_PLUGIN_IDS": false,
+   "in_S5_GEOMETRY_ELEMENT_TYPES": false,
+   "in_S6_CEB_case": false,
+   "in_S7_initTools_bridge": false,
+   "in_S8_schema": false,
+   "in_S9_initStores_typekey": false,
+   "had_a_2026_08_29_family_row": false,
+   "verbs_total": 0,
+   "verb_kinds": {},
+   "liveness": {},
+   "verbs": [],
+   "channels_emitted_by_CEB": {}
+  },
+  "ai-generative": {
+   "in_S1_plugin_dir": true,
+   "in_S2_ALL_PLUGINS": false,
+   "in_S4_ELEMENT_PLUGIN_IDS": false,
+   "in_S5_GEOMETRY_ELEMENT_TYPES": false,
+   "in_S6_CEB_case": false,
+   "in_S7_initTools_bridge": false,
+   "in_S8_schema": false,
+   "in_S9_initStores_typekey": false,
+   "had_a_2026_08_29_family_row": false,
+   "verbs_total": 0,
+   "verb_kinds": {},
+   "liveness": {},
+   "verbs": [],
+   "channels_emitted_by_CEB": {}
+  },
+  "ai-query": {
+   "in_S1_plugin_dir": true,
+   "in_S2_ALL_PLUGINS": false,
+   "in_S4_ELEMENT_PLUGIN_IDS": false,
+   "in_S5_GEOMETRY_ELEMENT_TYPES": false,
+   "in_S6_CEB_case": false,
+   "in_S7_initTools_bridge": false,
+   "in_S8_schema": false,
+   "in_S9_initStores_typekey": false,
+   "had_a_2026_08_29_family_row": false,
+   "verbs_total": 0,
+   "verb_kinds": {},
+   "liveness": {},
+   "verbs": [],
+   "channels_emitted_by_CEB": {}
+  },
+  "ai-rules": {
+   "in_S1_plugin_dir": true,
+   "in_S2_ALL_PLUGINS": false,
+   "in_S4_ELEMENT_PLUGIN_IDS": false,
+   "in_S5_GEOMETRY_ELEMENT_TYPES": false,
+   "in_S6_CEB_case": false,
+   "in_S7_initTools_bridge": false,
+   "in_S8_schema": false,
+   "in_S9_initStores_typekey": false,
+   "had_a_2026_08_29_family_row": false,
+   "verbs_total": 0,
+   "verb_kinds": {},
+   "liveness": {},
+   "verbs": [],
+   "channels_emitted_by_CEB": {}
+  },
+  "ai-voice": {
+   "in_S1_plugin_dir": true,
+   "in_S2_ALL_PLUGINS": false,
+   "in_S4_ELEMENT_PLUGIN_IDS": false,
+   "in_S5_GEOMETRY_ELEMENT_TYPES": false,
+   "in_S6_CEB_case": false,
+   "in_S7_initTools_bridge": false,
+   "in_S8_schema": false,
+   "in_S9_initStores_typekey": false,
+   "had_a_2026_08_29_family_row": false,
+   "verbs_total": 0,
+   "verb_kinds": {},
+   "liveness": {},
+   "verbs": [],
+   "channels_emitted_by_CEB": {}
+  },
+  "annotation": {
+   "in_S1_plugin_dir": true,
+   "in_S2_ALL_PLUGINS": true,
+   "in_S4_ELEMENT_PLUGIN_IDS": true,
+   "in_S5_GEOMETRY_ELEMENT_TYPES": false,
+   "in_S6_CEB_case": true,
+   "in_S7_initTools_bridge": false,
+   "in_S8_schema": true,
+   "in_S9_initStores_typekey": true,
+   "had_a_2026_08_29_family_row": true,
+   "verbs_total": 9,
+   "verb_kinds": {
+    "create": 1,
+    "delete": 1,
+    "move": 1,
+    "update": 6
+   },
+   "liveness": {
+    "UNKNOWN": 9
+   },
+   "verbs": [
+    "annotation.create",
+    "annotation.delete",
+    "annotation.move",
+    "annotation.setColor",
+    "annotation.setKind",
+    "annotation.setRotation",
+    "annotation.setText",
+    "annotation.setTextHeight",
+    "annotation.update"
+   ],
+   "channels_emitted_by_CEB": {
+    "annotation.created": 0
+   }
+  },
+  "balcony": {
+   "in_S1_plugin_dir": true,
+   "in_S2_ALL_PLUGINS": true,
+   "in_S4_ELEMENT_PLUGIN_IDS": true,
+   "in_S5_GEOMETRY_ELEMENT_TYPES": false,
+   "in_S6_CEB_case": true,
+   "in_S7_initTools_bridge": false,
+   "in_S8_schema": true,
+   "in_S9_initStores_typekey": false,
+   "had_a_2026_08_29_family_row": true,
+   "verbs_total": 3,
+   "verb_kinds": {
+    "create": 1,
+    "delete": 1,
+    "update": 1
+   },
+   "liveness": {
+    "UNKNOWN": 3
+   },
+   "verbs": [
+    "balcony.create",
+    "balcony.delete",
+    "balcony.updateProfile"
+   ],
+   "channels_emitted_by_CEB": {}
+  },
+  "bathroomPod": {
+   "in_S1_plugin_dir": false,
+   "in_S2_ALL_PLUGINS": true,
+   "in_S4_ELEMENT_PLUGIN_IDS": true,
+   "in_S5_GEOMETRY_ELEMENT_TYPES": false,
+   "in_S6_CEB_case": false,
+   "in_S7_initTools_bridge": false,
+   "in_S8_schema": false,
+   "in_S9_initStores_typekey": false,
+   "had_a_2026_08_29_family_row": true,
+   "verbs_total": 2,
+   "verb_kinds": {
+    "create": 1,
+    "delete": 1
+   },
+   "liveness": {
+    "UNKNOWN": 2
+   },
+   "verbs": [
+    "bathroomPod.create",
+    "bathroomPod.delete"
+   ],
+   "channels_emitted_by_CEB": {}
+  },
+  "bcf": {
+   "in_S1_plugin_dir": true,
+   "in_S2_ALL_PLUGINS": false,
+   "in_S4_ELEMENT_PLUGIN_IDS": false,
+   "in_S5_GEOMETRY_ELEMENT_TYPES": false,
+   "in_S6_CEB_case": false,
+   "in_S7_initTools_bridge": false,
+   "in_S8_schema": false,
+   "in_S9_initStores_typekey": false,
+   "had_a_2026_08_29_family_row": false,
+   "verbs_total": 0,
+   "verb_kinds": {},
+   "liveness": {},
+   "verbs": [],
+   "channels_emitted_by_CEB": {}
+  },
+  "beam": {
+   "in_S1_plugin_dir": true,
+   "in_S2_ALL_PLUGINS": true,
+   "in_S4_ELEMENT_PLUGIN_IDS": true,
+   "in_S5_GEOMETRY_ELEMENT_TYPES": true,
+   "in_S6_CEB_case": true,
+   "in_S7_initTools_bridge": true,
+   "in_S8_schema": true,
+   "in_S9_initStores_typekey": true,
+   "had_a_2026_08_29_family_row": true,
+   "verbs_total": 9,
+   "verb_kinds": {
+    "batch.create": 1,
+    "update": 5,
+    "create": 1,
+    "delete": 1,
+    "move": 1
+   },
+   "liveness": {
+    "UNKNOWN": 5,
+    "LIVE": 2,
+    "REFUSES": 2
+   },
+   "verbs": [
+    "beam.batch.create",
+    "beam.changeLevel",
+    "beam.create",
+    "beam.delete",
+    "beam.move",
+    "beam.setMaterial",
+    "beam.setSection",
+    "beam.setType",
+    "beam.update"
+   ],
+   "channels_emitted_by_CEB": {
+    "beam.created": 1
+   }
+  },
+  "boundaryLine": {
+   "in_S1_plugin_dir": true,
+   "in_S2_ALL_PLUGINS": true,
+   "in_S4_ELEMENT_PLUGIN_IDS": true,
+   "in_S5_GEOMETRY_ELEMENT_TYPES": false,
+   "in_S6_CEB_case": true,
+   "in_S7_initTools_bridge": true,
+   "in_S8_schema": true,
+   "in_S9_initStores_typekey": false,
+   "had_a_2026_08_29_family_row": true,
+   "verbs_total": 6,
+   "verb_kinds": {
+    "update": 3,
+    "create": 1,
+    "delete": 1,
+    "move": 1
+   },
+   "liveness": {
+    "UNKNOWN": 5,
+    "LIVE": 1
+   },
+   "verbs": [
+    "boundaryLine.attach",
+    "boundaryLine.create",
+    "boundaryLine.delete",
+    "boundaryLine.detach",
+    "boundaryLine.move",
+    "boundaryLine.update"
+   ],
+   "channels_emitted_by_CEB": {
+    "boundaryLine.updated": 1,
+    "boundaryLine.deleted": 1,
+    "boundaryLine.created": 1
+   }
+  },
+  "ceiling": {
+   "in_S1_plugin_dir": true,
+   "in_S2_ALL_PLUGINS": true,
+   "in_S4_ELEMENT_PLUGIN_IDS": true,
+   "in_S5_GEOMETRY_ELEMENT_TYPES": true,
+   "in_S6_CEB_case": true,
+   "in_S7_initTools_bridge": true,
+   "in_S8_schema": true,
+   "in_S9_initStores_typekey": true,
+   "had_a_2026_08_29_family_row": true,
+   "verbs_total": 10,
+   "verb_kinds": {
+    "batch.create": 1,
+    "update": 7,
+    "create": 1,
+    "delete": 1
+   },
+   "liveness": {
+    "UNKNOWN": 6,
+    "LIVE": 3,
+    "REFUSES": 1
+   },
+   "verbs": [
+    "ceiling.batch.create",
+    "ceiling.changeLevel",
+    "ceiling.create",
+    "ceiling.delete",
+    "ceiling.setBoundary",
+    "ceiling.setHeight",
+    "ceiling.setMaterial",
+    "ceiling.update",
+    "ceiling.updateLayers",
+    "ceiling.updateSystemTypeBatch"
+   ],
+   "channels_emitted_by_CEB": {
+    "ceiling.created": 1,
+    "ceiling.layer-updated": 0
+   }
+  },
+  "column": {
+   "in_S1_plugin_dir": true,
+   "in_S2_ALL_PLUGINS": true,
+   "in_S4_ELEMENT_PLUGIN_IDS": true,
+   "in_S5_GEOMETRY_ELEMENT_TYPES": true,
+   "in_S6_CEB_case": true,
+   "in_S7_initTools_bridge": true,
+   "in_S8_schema": true,
+   "in_S9_initStores_typekey": true,
+   "had_a_2026_08_29_family_row": true,
+   "verbs_total": 9,
+   "verb_kinds": {
+    "batch.create": 1,
+    "update": 5,
+    "create": 1,
+    "delete": 1,
+    "move": 1
+   },
+   "liveness": {
+    "UNKNOWN": 5,
+    "LIVE": 2,
+    "REFUSES": 2
+   },
+   "verbs": [
+    "column.batch.create",
+    "column.changeLevel",
+    "column.create",
+    "column.delete",
+    "column.move",
+    "column.setHeight",
+    "column.setMaterial",
+    "column.setType",
+    "column.update"
+   ],
+   "channels_emitted_by_CEB": {
+    "column.created": 1
+   }
+  },
+  "copy-selection": {
+   "in_S1_plugin_dir": false,
+   "in_S2_ALL_PLUGINS": false,
+   "in_S4_ELEMENT_PLUGIN_IDS": false,
+   "in_S5_GEOMETRY_ELEMENT_TYPES": false,
+   "in_S6_CEB_case": false,
+   "in_S7_initTools_bridge": false,
+   "in_S8_schema": false,
+   "in_S9_initStores_typekey": false,
+   "had_a_2026_08_29_family_row": false,
+   "verbs_total": 1,
+   "verb_kinds": {
+    "other": 1
+   },
+   "liveness": {
+    "UNKNOWN": 1
+   },
+   "verbs": [
+    "copy-selection"
+   ],
+   "channels_emitted_by_CEB": {}
+  },
+  "cross": {
+   "in_S1_plugin_dir": true,
+   "in_S2_ALL_PLUGINS": false,
+   "in_S4_ELEMENT_PLUGIN_IDS": false,
+   "in_S5_GEOMETRY_ELEMENT_TYPES": false,
+   "in_S6_CEB_case": false,
+   "in_S7_initTools_bridge": false,
+   "in_S8_schema": false,
+   "in_S9_initStores_typekey": false,
+   "had_a_2026_08_29_family_row": false,
+   "verbs_total": 0,
+   "verb_kinds": {},
+   "liveness": {},
+   "verbs": [],
+   "channels_emitted_by_CEB": {}
+  },
+  "cube": {
+   "in_S1_plugin_dir": false,
+   "in_S2_ALL_PLUGINS": false,
+   "in_S4_ELEMENT_PLUGIN_IDS": false,
+   "in_S5_GEOMETRY_ELEMENT_TYPES": false,
+   "in_S6_CEB_case": false,
+   "in_S7_initTools_bridge": false,
+   "in_S8_schema": false,
+   "in_S9_initStores_typekey": false,
+   "had_a_2026_08_29_family_row": false,
+   "verbs_total": 1,
+   "verb_kinds": {
+    "move": 1
+   },
+   "liveness": {
+    "UNKNOWN": 1
+   },
+   "verbs": [
+    "cube.move"
+   ],
+   "channels_emitted_by_CEB": {}
+  },
+  "curtain-panel": {
+   "in_S1_plugin_dir": false,
+   "in_S2_ALL_PLUGINS": false,
+   "in_S4_ELEMENT_PLUGIN_IDS": false,
+   "in_S5_GEOMETRY_ELEMENT_TYPES": true,
+   "in_S6_CEB_case": false,
+   "in_S7_initTools_bridge": false,
+   "in_S8_schema": false,
+   "in_S9_initStores_typekey": true,
+   "had_a_2026_08_29_family_row": false,
+   "verbs_total": 0,
+   "verb_kinds": {},
+   "liveness": {},
+   "verbs": [],
+   "channels_emitted_by_CEB": {}
+  },
+  "curtainPanelVocabulary": {
+   "in_S1_plugin_dir": false,
+   "in_S2_ALL_PLUGINS": false,
+   "in_S4_ELEMENT_PLUGIN_IDS": false,
+   "in_S5_GEOMETRY_ELEMENT_TYPES": false,
+   "in_S6_CEB_case": false,
+   "in_S7_initTools_bridge": false,
+   "in_S8_schema": true,
+   "in_S9_initStores_typekey": false,
+   "had_a_2026_08_29_family_row": false,
+   "verbs_total": 0,
+   "verb_kinds": {},
+   "liveness": {},
+   "verbs": [],
+   "channels_emitted_by_CEB": {}
+  },
+  "curtainWall": {
+   "in_S1_plugin_dir": true,
+   "in_S2_ALL_PLUGINS": true,
+   "in_S4_ELEMENT_PLUGIN_IDS": true,
+   "in_S5_GEOMETRY_ELEMENT_TYPES": true,
+   "in_S6_CEB_case": true,
+   "in_S7_initTools_bridge": true,
+   "in_S8_schema": true,
+   "in_S9_initStores_typekey": true,
+   "had_a_2026_08_29_family_row": true,
+   "verbs_total": 24,
+   "verb_kinds": {
+    "update": 14,
+    "batch.create": 1,
+    "other": 3,
+    "create": 1,
+    "create-variant": 1,
+    "delete": 3,
+    "move": 1
+   },
+   "liveness": {
+    "UNKNOWN": 19,
+    "LIVE": 4,
+    "REFUSES": 1
+   },
+   "verbs": [
+    "curtain-wall.addGridLine",
+    "curtain-wall.addPanel",
+    "curtain-wall.batch.create",
+    "curtain-wall.batch.delete",
+    "curtain-wall.batch.update",
+    "curtain-wall.bulkUpdatePanels",
+    "curtain-wall.bulkUpdateParameter",
+    "curtain-wall.changeLevel",
+    "curtain-wall.create",
+    "curtain-wall.create-on-all-slabs",
+    "curtain-wall.delete",
+    "curtain-wall.move",
+    "curtain-wall.removeGridLine",
+    "curtain-wall.removePanel",
+    "curtain-wall.replacePanel",
+    "curtain-wall.resize",
+    "curtain-wall.rotatePanel",
+    "curtain-wall.setGrid",
+    "curtain-wall.setMaterial",
+    "curtain-wall.setMullionType",
+    "curtain-wall.setOutline",
+    "curtain-wall.setPanelType",
+    "curtain-wall.setTransomType",
+    "curtain-wall.swapPanel"
+   ],
+   "channels_emitted_by_CEB": {
+    "curtain-wall.created": 2
+   }
+  },
+  "data": {
+   "in_S1_plugin_dir": false,
+   "in_S2_ALL_PLUGINS": false,
+   "in_S4_ELEMENT_PLUGIN_IDS": false,
+   "in_S5_GEOMETRY_ELEMENT_TYPES": false,
+   "in_S6_CEB_case": false,
+   "in_S7_initTools_bridge": false,
+   "in_S8_schema": false,
+   "in_S9_initStores_typekey": false,
+   "had_a_2026_08_29_family_row": false,
+   "verbs_total": 3,
+   "verb_kinds": {
+    "update": 2,
+    "other": 1
+   },
+   "liveness": {
+    "LIVE": 3
+   },
+   "verbs": [
+    "data.clearPropertyDerived",
+    "data.markPropertyDerived",
+    "data.setDerivation"
+   ],
+   "channels_emitted_by_CEB": {}
+  },
+  "dimension": {
+   "in_S1_plugin_dir": true,
+   "in_S2_ALL_PLUGINS": true,
+   "in_S4_ELEMENT_PLUGIN_IDS": true,
+   "in_S5_GEOMETRY_ELEMENT_TYPES": false,
+   "in_S6_CEB_case": true,
+   "in_S7_initTools_bridge": false,
+   "in_S8_schema": true,
+   "in_S9_initStores_typekey": false,
+   "had_a_2026_08_29_family_row": true,
+   "verbs_total": 7,
+   "verb_kinds": {
+    "create": 1,
+    "batch.create": 1,
+    "delete": 1,
+    "move": 1,
+    "update": 3
+   },
+   "liveness": {
+    "UNKNOWN": 6,
+    "REFUSES": 1
+   },
+   "verbs": [
+    "dimension.create",
+    "dimension.createMany",
+    "dimension.delete",
+    "dimension.move",
+    "dimension.setPrecision",
+    "dimension.setText",
+    "dimension.setUnit"
+   ],
+   "channels_emitted_by_CEB": {
+    "dimension.created": 0
+   }
+  },
+  "door": {
+   "in_S1_plugin_dir": true,
+   "in_S2_ALL_PLUGINS": true,
+   "in_S4_ELEMENT_PLUGIN_IDS": true,
+   "in_S5_GEOMETRY_ELEMENT_TYPES": true,
+   "in_S6_CEB_case": false,
+   "in_S7_initTools_bridge": false,
+   "in_S8_schema": true,
+   "in_S9_initStores_typekey": true,
+   "had_a_2026_08_29_family_row": true,
+   "verbs_total": 14,
+   "verb_kinds": {
+    "batch.create": 1,
+    "create": 1,
+    "delete": 1,
+    "move": 1,
+    "update": 10
+   },
+   "liveness": {
+    "UNKNOWN": 6,
+    "REFUSES": 2,
+    "LIVE": 6
+   },
+   "verbs": [
+    "door.batch.create",
+    "door.create",
+    "door.delete",
+    "door.move",
+    "door.setAccessibility",
+    "door.setFireRating",
+    "door.setFrameColor",
+    "door.setHeight",
+    "door.setOffset",
+    "door.setSillHeight",
+    "door.setSwing",
+    "door.setType",
+    "door.setWidth",
+    "door.updateSystemTypeBatch"
+   ],
+   "channels_emitted_by_CEB": {}
+  },
+  "dxf": {
+   "in_S1_plugin_dir": true,
+   "in_S2_ALL_PLUGINS": false,
+   "in_S4_ELEMENT_PLUGIN_IDS": false,
+   "in_S5_GEOMETRY_ELEMENT_TYPES": false,
+   "in_S6_CEB_case": false,
+   "in_S7_initTools_bridge": false,
+   "in_S8_schema": false,
+   "in_S9_initStores_typekey": false,
+   "had_a_2026_08_29_family_row": false,
+   "verbs_total": 0,
+   "verb_kinds": {},
+   "liveness": {},
+   "verbs": [],
+   "channels_emitted_by_CEB": {}
+  },
+  "element": {
+   "in_S1_plugin_dir": false,
+   "in_S2_ALL_PLUGINS": false,
+   "in_S4_ELEMENT_PLUGIN_IDS": false,
+   "in_S5_GEOMETRY_ELEMENT_TYPES": false,
+   "in_S6_CEB_case": false,
+   "in_S7_initTools_bridge": false,
+   "in_S8_schema": false,
+   "in_S9_initStores_typekey": false,
+   "had_a_2026_08_29_family_row": false,
+   "verbs_total": 10,
+   "verb_kinds": {
+    "update": 6,
+    "delete": 2,
+    "other": 2
+   },
+   "liveness": {
+    "LIVE": 10
+   },
+   "verbs": [
+    "element.changeType",
+    "element.delete",
+    "element.deleteBatch",
+    "element.hideInView",
+    "element.isolateInView",
+    "element.setGraphicOverride",
+    "element.updateDimensionsBatch",
+    "element.updateMark",
+    "element.updateOpeningProfileBatch",
+    "element.updateParameters"
+   ],
+   "channels_emitted_by_CEB": {
+    "element.updated": 1,
+    "element.level-changed": 1
+   }
+  },
+  "elementType": {
+   "in_S1_plugin_dir": false,
+   "in_S2_ALL_PLUGINS": false,
+   "in_S4_ELEMENT_PLUGIN_IDS": false,
+   "in_S5_GEOMETRY_ELEMENT_TYPES": false,
+   "in_S6_CEB_case": false,
+   "in_S7_initTools_bridge": false,
+   "in_S8_schema": false,
+   "in_S9_initStores_typekey": false,
+   "had_a_2026_08_29_family_row": false,
+   "verbs_total": 4,
+   "verb_kinds": {
+    "create": 1,
+    "delete": 1,
+    "other": 1,
+    "update": 1
+   },
+   "liveness": {
+    "LIVE": 4
+   },
+   "verbs": [
+    "elementType.create",
+    "elementType.delete",
+    "elementType.duplicate",
+    "elementType.update"
+   ],
+   "channels_emitted_by_CEB": {}
+  },
+  "elevation": {
+   "in_S1_plugin_dir": false,
+   "in_S2_ALL_PLUGINS": false,
+   "in_S4_ELEMENT_PLUGIN_IDS": false,
+   "in_S5_GEOMETRY_ELEMENT_TYPES": false,
+   "in_S6_CEB_case": false,
+   "in_S7_initTools_bridge": false,
+   "in_S8_schema": false,
+   "in_S9_initStores_typekey": false,
+   "had_a_2026_08_29_family_row": false,
+   "verbs_total": 1,
+   "verb_kinds": {
+    "create": 1
+   },
+   "liveness": {
+    "LIVE": 1
+   },
+   "verbs": [
+    "elevation.create"
+   ],
+   "channels_emitted_by_CEB": {}
+  },
+  "export-pdf": {
+   "in_S1_plugin_dir": true,
+   "in_S2_ALL_PLUGINS": false,
+   "in_S4_ELEMENT_PLUGIN_IDS": false,
+   "in_S5_GEOMETRY_ELEMENT_TYPES": false,
+   "in_S6_CEB_case": false,
+   "in_S7_initTools_bridge": false,
+   "in_S8_schema": false,
+   "in_S9_initStores_typekey": false,
+   "had_a_2026_08_29_family_row": false,
+   "verbs_total": 0,
+   "verb_kinds": {},
+   "liveness": {},
+   "verbs": [],
+   "channels_emitted_by_CEB": {}
+  },
+  "family-editor": {
+   "in_S1_plugin_dir": true,
+   "in_S2_ALL_PLUGINS": false,
+   "in_S4_ELEMENT_PLUGIN_IDS": false,
+   "in_S5_GEOMETRY_ELEMENT_TYPES": false,
+   "in_S6_CEB_case": false,
+   "in_S7_initTools_bridge": false,
+   "in_S8_schema": false,
+   "in_S9_initStores_typekey": false,
+   "had_a_2026_08_29_family_row": false,
+   "verbs_total": 0,
+   "verb_kinds": {},
+   "liveness": {},
+   "verbs": [],
+   "channels_emitted_by_CEB": {}
+  },
+  "floor": {
+   "in_S1_plugin_dir": true,
+   "in_S2_ALL_PLUGINS": true,
+   "in_S4_ELEMENT_PLUGIN_IDS": false,
+   "in_S5_GEOMETRY_ELEMENT_TYPES": true,
+   "in_S6_CEB_case": true,
+   "in_S7_initTools_bridge": true,
+   "in_S8_schema": true,
+   "in_S9_initStores_typekey": true,
+   "had_a_2026_08_29_family_row": true,
+   "verbs_total": 6,
+   "verb_kinds": {
+    "update": 5,
+    "create": 1
+   },
+   "liveness": {
+    "LIVE": 3,
+    "UNKNOWN": 2,
+    "REFUSES": 1
+   },
+   "verbs": [
+    "floor.changeLevel",
+    "floor.create",
+    "floor.setFinishBatch",
+    "floor.setMaterial",
+    "floor.update",
+    "floor.updateLayers"
+   ],
+   "channels_emitted_by_CEB": {
+    "floor.created": 1,
+    "floor.layer-updated": 0
+   }
+  },
+  "furniture": {
+   "in_S1_plugin_dir": true,
+   "in_S2_ALL_PLUGINS": true,
+   "in_S4_ELEMENT_PLUGIN_IDS": true,
+   "in_S5_GEOMETRY_ELEMENT_TYPES": true,
+   "in_S6_CEB_case": true,
+   "in_S7_initTools_bridge": true,
+   "in_S8_schema": true,
+   "in_S9_initStores_typekey": true,
+   "had_a_2026_08_29_family_row": true,
+   "verbs_total": 12,
+   "verb_kinds": {
+    "batch.create": 1,
+    "update": 8,
+    "create": 1,
+    "delete": 1,
+    "move": 1
+   },
+   "liveness": {
+    "UNKNOWN": 7,
+    "LIVE": 2,
+    "REFUSES": 3
+   },
+   "verbs": [
+    "furniture.batch.create",
+    "furniture.bulkUpdateKitchenMaterial",
+    "furniture.changeLevel",
+    "furniture.create",
+    "furniture.delete",
+    "furniture.move",
+    "furniture.rotate",
+    "furniture.setActiveLod",
+    "furniture.setMaterial",
+    "furniture.setRepresentation",
+    "furniture.setScale",
+    "furniture.updateParameters"
+   ],
+   "channels_emitted_by_CEB": {
+    "furniture.created": 1
+   }
+  },
+  "generation": {
+   "in_S1_plugin_dir": false,
+   "in_S2_ALL_PLUGINS": false,
+   "in_S4_ELEMENT_PLUGIN_IDS": false,
+   "in_S5_GEOMETRY_ELEMENT_TYPES": false,
+   "in_S6_CEB_case": false,
+   "in_S7_initTools_bridge": false,
+   "in_S8_schema": false,
+   "in_S9_initStores_typekey": false,
+   "had_a_2026_08_29_family_row": false,
+   "verbs_total": 4,
+   "verb_kinds": {
+    "other": 4
+   },
+   "liveness": {
+    "LIVE": 4
+   },
+   "verbs": [
+    "generation.apartment",
+    "generation.building",
+    "generation.finish-chain",
+    "generation.rooms"
+   ],
+   "channels_emitted_by_CEB": {}
+  },
+  "generative": {
+   "in_S1_plugin_dir": false,
+   "in_S2_ALL_PLUGINS": false,
+   "in_S4_ELEMENT_PLUGIN_IDS": false,
+   "in_S5_GEOMETRY_ELEMENT_TYPES": false,
+   "in_S6_CEB_case": false,
+   "in_S7_initTools_bridge": false,
+   "in_S8_schema": false,
+   "in_S9_initStores_typekey": false,
+   "had_a_2026_08_29_family_row": false,
+   "verbs_total": 1,
+   "verb_kinds": {
+    "update": 1
+   },
+   "liveness": {
+    "LIVE": 1
+   },
+   "verbs": [
+    "generative.applyLayout"
+   ],
+   "channels_emitted_by_CEB": {}
+  },
+  "geospatial": {
+   "in_S1_plugin_dir": true,
+   "in_S2_ALL_PLUGINS": false,
+   "in_S4_ELEMENT_PLUGIN_IDS": false,
+   "in_S5_GEOMETRY_ELEMENT_TYPES": false,
+   "in_S6_CEB_case": false,
+   "in_S7_initTools_bridge": false,
+   "in_S8_schema": false,
+   "in_S9_initStores_typekey": false,
+   "had_a_2026_08_29_family_row": false,
+   "verbs_total": 0,
+   "verb_kinds": {},
+   "liveness": {},
+   "verbs": [],
+   "channels_emitted_by_CEB": {}
+  },
+  "graph": {
+   "in_S1_plugin_dir": false,
+   "in_S2_ALL_PLUGINS": false,
+   "in_S4_ELEMENT_PLUGIN_IDS": false,
+   "in_S5_GEOMETRY_ELEMENT_TYPES": false,
+   "in_S6_CEB_case": false,
+   "in_S7_initTools_bridge": false,
+   "in_S8_schema": false,
+   "in_S9_initStores_typekey": false,
+   "had_a_2026_08_29_family_row": false,
+   "verbs_total": 3,
+   "verb_kinds": {
+    "other": 3
+   },
+   "liveness": {
+    "LIVE": 3
+   },
+   "verbs": [
+    "graph.neighbors",
+    "graph.path",
+    "graph.query"
+   ],
+   "channels_emitted_by_CEB": {}
+  },
+  "grid": {
+   "in_S1_plugin_dir": true,
+   "in_S2_ALL_PLUGINS": true,
+   "in_S4_ELEMENT_PLUGIN_IDS": true,
+   "in_S5_GEOMETRY_ELEMENT_TYPES": false,
+   "in_S6_CEB_case": true,
+   "in_S7_initTools_bridge": false,
+   "in_S8_schema": true,
+   "in_S9_initStores_typekey": true,
+   "had_a_2026_08_29_family_row": true,
+   "verbs_total": 6,
+   "verb_kinds": {
+    "update": 4,
+    "create": 1,
+    "delete": 1
+   },
+   "liveness": {
+    "LIVE": 2,
+    "UNKNOWN": 4
+   },
+   "verbs": [
+    "grid.add",
+    "grid.create",
+    "grid.delete",
+    "grid.setExtent",
+    "grid.setSpacing",
+    "grid.update"
+   ],
+   "channels_emitted_by_CEB": {
+    "grid.created": 0
+   }
+  },
+  "handrail": {
+   "in_S1_plugin_dir": true,
+   "in_S2_ALL_PLUGINS": true,
+   "in_S4_ELEMENT_PLUGIN_IDS": true,
+   "in_S5_GEOMETRY_ELEMENT_TYPES": true,
+   "in_S6_CEB_case": true,
+   "in_S7_initTools_bridge": true,
+   "in_S8_schema": true,
+   "in_S9_initStores_typekey": true,
+   "had_a_2026_08_29_family_row": true,
+   "verbs_total": 10,
+   "verb_kinds": {
+    "update": 6,
+    "create": 1,
+    "delete": 1,
+    "move": 1,
+    "other": 1
+   },
+   "liveness": {
+    "LIVE": 3,
+    "UNKNOWN": 6,
+    "REFUSES": 1
+   },
+   "verbs": [
+    "handrail.changeLevel",
+    "handrail.create",
+    "handrail.delete",
+    "handrail.moveBaseLine",
+    "handrail.recompute",
+    "handrail.setHost",
+    "handrail.setMaterial",
+    "handrail.setPath",
+    "handrail.setShape",
+    "handrail.updateColor"
+   ],
+   "channels_emitted_by_CEB": {
+    "handrail.created": 1
+   }
+  },
+  "hierarchy": {
+   "in_S1_plugin_dir": false,
+   "in_S2_ALL_PLUGINS": false,
+   "in_S4_ELEMENT_PLUGIN_IDS": false,
+   "in_S5_GEOMETRY_ELEMENT_TYPES": false,
+   "in_S6_CEB_case": false,
+   "in_S7_initTools_bridge": false,
+   "in_S8_schema": false,
+   "in_S9_initStores_typekey": false,
+   "had_a_2026_08_29_family_row": false,
+   "verbs_total": 5,
+   "verb_kinds": {
+    "create-variant": 4,
+    "update": 1
+   },
+   "liveness": {
+    "LIVE": 5
+   },
+   "verbs": [
+    "hierarchy.createBuilding",
+    "hierarchy.createLevel",
+    "hierarchy.createSite",
+    "hierarchy.createUnit",
+    "hierarchy.updateNode"
+   ],
+   "channels_emitted_by_CEB": {}
+  },
+  "ifc-export": {
+   "in_S1_plugin_dir": true,
+   "in_S2_ALL_PLUGINS": false,
+   "in_S4_ELEMENT_PLUGIN_IDS": false,
+   "in_S5_GEOMETRY_ELEMENT_TYPES": false,
+   "in_S6_CEB_case": false,
+   "in_S7_initTools_bridge": false,
+   "in_S8_schema": false,
+   "in_S9_initStores_typekey": false,
+   "had_a_2026_08_29_family_row": false,
+   "verbs_total": 0,
+   "verb_kinds": {},
+   "liveness": {},
+   "verbs": [],
+   "channels_emitted_by_CEB": {}
+  },
+  "ifc-import": {
+   "in_S1_plugin_dir": true,
+   "in_S2_ALL_PLUGINS": false,
+   "in_S4_ELEMENT_PLUGIN_IDS": false,
+   "in_S5_GEOMETRY_ELEMENT_TYPES": false,
+   "in_S6_CEB_case": false,
+   "in_S7_initTools_bridge": false,
+   "in_S8_schema": false,
+   "in_S9_initStores_typekey": false,
+   "had_a_2026_08_29_family_row": false,
+   "verbs_total": 0,
+   "verb_kinds": {},
+   "liveness": {},
+   "verbs": [],
+   "channels_emitted_by_CEB": {}
+  },
+  "ifc-inspector": {
+   "in_S1_plugin_dir": true,
+   "in_S2_ALL_PLUGINS": false,
+   "in_S4_ELEMENT_PLUGIN_IDS": false,
+   "in_S5_GEOMETRY_ELEMENT_TYPES": false,
+   "in_S6_CEB_case": false,
+   "in_S7_initTools_bridge": false,
+   "in_S8_schema": false,
+   "in_S9_initStores_typekey": false,
+   "had_a_2026_08_29_family_row": false,
+   "verbs_total": 0,
+   "verb_kinds": {},
+   "liveness": {},
+   "verbs": [],
+   "channels_emitted_by_CEB": {}
+  },
+  "level": {
+   "in_S1_plugin_dir": false,
+   "in_S2_ALL_PLUGINS": false,
+   "in_S4_ELEMENT_PLUGIN_IDS": false,
+   "in_S5_GEOMETRY_ELEMENT_TYPES": false,
+   "in_S6_CEB_case": false,
+   "in_S7_initTools_bridge": false,
+   "in_S8_schema": false,
+   "in_S9_initStores_typekey": false,
+   "had_a_2026_08_29_family_row": false,
+   "verbs_total": 3,
+   "verb_kinds": {
+    "update": 2,
+    "other": 1
+   },
+   "liveness": {
+    "LIVE": 3
+   },
+   "verbs": [
+    "level.add",
+    "level.duplicate-floor-plan",
+    "level.update"
+   ],
+   "channels_emitted_by_CEB": {}
+  },
+  "levels": {
+   "in_S1_plugin_dir": true,
+   "in_S2_ALL_PLUGINS": false,
+   "in_S4_ELEMENT_PLUGIN_IDS": false,
+   "in_S5_GEOMETRY_ELEMENT_TYPES": false,
+   "in_S6_CEB_case": false,
+   "in_S7_initTools_bridge": false,
+   "in_S8_schema": false,
+   "in_S9_initStores_typekey": false,
+   "had_a_2026_08_29_family_row": false,
+   "verbs_total": 0,
+   "verb_kinds": {},
+   "liveness": {},
+   "verbs": [],
+   "channels_emitted_by_CEB": {}
+  },
+  "lift": {
+   "in_S1_plugin_dir": true,
+   "in_S2_ALL_PLUGINS": true,
+   "in_S4_ELEMENT_PLUGIN_IDS": true,
+   "in_S5_GEOMETRY_ELEMENT_TYPES": false,
+   "in_S6_CEB_case": true,
+   "in_S7_initTools_bridge": true,
+   "in_S8_schema": false,
+   "in_S9_initStores_typekey": false,
+   "had_a_2026_08_29_family_row": true,
+   "verbs_total": 2,
+   "verb_kinds": {
+    "create": 1,
+    "delete": 1
+   },
+   "liveness": {
+    "UNKNOWN": 2
+   },
+   "verbs": [
+    "lift.create",
+    "lift.delete"
+   ],
+   "channels_emitted_by_CEB": {
+    "lift.created": 1
+   }
+  },
+  "lift-type": {
+   "in_S1_plugin_dir": false,
+   "in_S2_ALL_PLUGINS": false,
+   "in_S4_ELEMENT_PLUGIN_IDS": false,
+   "in_S5_GEOMETRY_ELEMENT_TYPES": false,
+   "in_S6_CEB_case": false,
+   "in_S7_initTools_bridge": false,
+   "in_S8_schema": false,
+   "in_S9_initStores_typekey": true,
+   "had_a_2026_08_29_family_row": false,
+   "verbs_total": 0,
+   "verb_kinds": {},
+   "liveness": {},
+   "verbs": [],
+   "channels_emitted_by_CEB": {}
+  },
+  "liftPart": {
+   "in_S1_plugin_dir": false,
+   "in_S2_ALL_PLUGINS": true,
+   "in_S4_ELEMENT_PLUGIN_IDS": true,
+   "in_S5_GEOMETRY_ELEMENT_TYPES": false,
+   "in_S6_CEB_case": false,
+   "in_S7_initTools_bridge": false,
+   "in_S8_schema": false,
+   "in_S9_initStores_typekey": false,
+   "had_a_2026_08_29_family_row": true,
+   "verbs_total": 0,
+   "verb_kinds": {},
+   "liveness": {},
+   "verbs": [],
+   "channels_emitted_by_CEB": {}
+  },
+  "lighting": {
+   "in_S1_plugin_dir": true,
+   "in_S2_ALL_PLUGINS": true,
+   "in_S4_ELEMENT_PLUGIN_IDS": false,
+   "in_S5_GEOMETRY_ELEMENT_TYPES": true,
+   "in_S6_CEB_case": true,
+   "in_S7_initTools_bridge": true,
+   "in_S8_schema": true,
+   "in_S9_initStores_typekey": true,
+   "had_a_2026_08_29_family_row": true,
+   "verbs_total": 8,
+   "verb_kinds": {
+    "update": 4,
+    "create": 1,
+    "delete": 1,
+    "move": 2
+   },
+   "liveness": {
+    "LIVE": 2,
+    "UNKNOWN": 4,
+    "REFUSES": 2
+   },
+   "verbs": [
+    "lighting.changeLevel",
+    "lighting.create",
+    "lighting.delete",
+    "lighting.move",
+    "lighting.moveFixture",
+    "lighting.setEmergency",
+    "lighting.setIntensity",
+    "lighting.setMaterial"
+   ],
+   "channels_emitted_by_CEB": {
+    "lighting.created": 1
+   }
+  },
+  "multiplayer": {
+   "in_S1_plugin_dir": true,
+   "in_S2_ALL_PLUGINS": false,
+   "in_S4_ELEMENT_PLUGIN_IDS": false,
+   "in_S5_GEOMETRY_ELEMENT_TYPES": false,
+   "in_S6_CEB_case": false,
+   "in_S7_initTools_bridge": false,
+   "in_S8_schema": false,
+   "in_S9_initStores_typekey": false,
+   "had_a_2026_08_29_family_row": false,
+   "verbs_total": 0,
+   "verb_kinds": {},
+   "liveness": {},
+   "verbs": [],
+   "channels_emitted_by_CEB": {}
+  },
+  "navigate": {
+   "in_S1_plugin_dir": true,
+   "in_S2_ALL_PLUGINS": false,
+   "in_S4_ELEMENT_PLUGIN_IDS": false,
+   "in_S5_GEOMETRY_ELEMENT_TYPES": false,
+   "in_S6_CEB_case": false,
+   "in_S7_initTools_bridge": false,
+   "in_S8_schema": false,
+   "in_S9_initStores_typekey": false,
+   "had_a_2026_08_29_family_row": false,
+   "verbs_total": 0,
+   "verb_kinds": {},
+   "liveness": {},
+   "verbs": [],
+   "channels_emitted_by_CEB": {}
+  },
+  "opening": {
+   "in_S1_plugin_dir": false,
+   "in_S2_ALL_PLUGINS": false,
+   "in_S4_ELEMENT_PLUGIN_IDS": false,
+   "in_S5_GEOMETRY_ELEMENT_TYPES": true,
+   "in_S6_CEB_case": false,
+   "in_S7_initTools_bridge": false,
+   "in_S8_schema": false,
+   "in_S9_initStores_typekey": true,
+   "had_a_2026_08_29_family_row": false,
+   "verbs_total": 1,
+   "verb_kinds": {
+    "create": 1
+   },
+   "liveness": {
+    "LIVE": 1
+   },
+   "verbs": [
+    "opening.create"
+   ],
+   "channels_emitted_by_CEB": {}
+  },
+  "paste-clipboard": {
+   "in_S1_plugin_dir": false,
+   "in_S2_ALL_PLUGINS": false,
+   "in_S4_ELEMENT_PLUGIN_IDS": false,
+   "in_S5_GEOMETRY_ELEMENT_TYPES": false,
+   "in_S6_CEB_case": false,
+   "in_S7_initTools_bridge": false,
+   "in_S8_schema": false,
+   "in_S9_initStores_typekey": false,
+   "had_a_2026_08_29_family_row": false,
+   "verbs_total": 1,
+   "verb_kinds": {
+    "other": 1
+   },
+   "liveness": {
+    "UNKNOWN": 1
+   },
+   "verbs": [
+    "paste-clipboard"
+   ],
+   "channels_emitted_by_CEB": {}
+  },
+  "plan-view": {
+   "in_S1_plugin_dir": true,
+   "in_S2_ALL_PLUGINS": false,
+   "in_S4_ELEMENT_PLUGIN_IDS": false,
+   "in_S5_GEOMETRY_ELEMENT_TYPES": false,
+   "in_S6_CEB_case": false,
+   "in_S7_initTools_bridge": false,
+   "in_S8_schema": false,
+   "in_S9_initStores_typekey": false,
+   "had_a_2026_08_29_family_row": false,
+   "verbs_total": 0,
+   "verb_kinds": {},
+   "liveness": {},
+   "verbs": [],
+   "channels_emitted_by_CEB": {}
+  },
+  "plumbing": {
+   "in_S1_plugin_dir": true,
+   "in_S2_ALL_PLUGINS": true,
+   "in_S4_ELEMENT_PLUGIN_IDS": true,
+   "in_S5_GEOMETRY_ELEMENT_TYPES": true,
+   "in_S6_CEB_case": true,
+   "in_S7_initTools_bridge": false,
+   "in_S8_schema": true,
+   "in_S9_initStores_typekey": true,
+   "had_a_2026_08_29_family_row": true,
+   "verbs_total": 8,
+   "verb_kinds": {
+    "update": 3,
+    "create": 1,
+    "create-variant": 1,
+    "delete": 1,
+    "move": 2
+   },
+   "liveness": {
+    "LIVE": 3,
+    "UNKNOWN": 3,
+    "REFUSES": 2
+   },
+   "verbs": [
+    "plumbing.changeLevel",
+    "plumbing.create",
+    "plumbing.createFixture",
+    "plumbing.delete",
+    "plumbing.move",
+    "plumbing.moveFixture",
+    "plumbing.setMaterial",
+    "plumbing.setSystem"
+   ],
+   "channels_emitted_by_CEB": {
+    "plumbing.created": 0
+   }
+  },
+  "pool": {
+   "in_S1_plugin_dir": true,
+   "in_S2_ALL_PLUGINS": true,
+   "in_S4_ELEMENT_PLUGIN_IDS": true,
+   "in_S5_GEOMETRY_ELEMENT_TYPES": false,
+   "in_S6_CEB_case": true,
+   "in_S7_initTools_bridge": false,
+   "in_S8_schema": true,
+   "in_S9_initStores_typekey": false,
+   "had_a_2026_08_29_family_row": true,
+   "verbs_total": 2,
+   "verb_kinds": {
+    "create": 1,
+    "delete": 1
+   },
+   "liveness": {
+    "UNKNOWN": 2
+   },
+   "verbs": [
+    "pool.create",
+    "pool.delete"
+   ],
+   "channels_emitted_by_CEB": {}
+  },
+  "project": {
+   "in_S1_plugin_dir": false,
+   "in_S2_ALL_PLUGINS": false,
+   "in_S4_ELEMENT_PLUGIN_IDS": false,
+   "in_S5_GEOMETRY_ELEMENT_TYPES": false,
+   "in_S6_CEB_case": false,
+   "in_S7_initTools_bridge": false,
+   "in_S8_schema": true,
+   "in_S9_initStores_typekey": false,
+   "had_a_2026_08_29_family_row": false,
+   "verbs_total": 0,
+   "verb_kinds": {},
+   "liveness": {},
+   "verbs": [],
+   "channels_emitted_by_CEB": {}
+  },
+  "projectOrigin": {
+   "in_S1_plugin_dir": false,
+   "in_S2_ALL_PLUGINS": false,
+   "in_S4_ELEMENT_PLUGIN_IDS": false,
+   "in_S5_GEOMETRY_ELEMENT_TYPES": false,
+   "in_S6_CEB_case": false,
+   "in_S7_initTools_bridge": false,
+   "in_S8_schema": true,
+   "in_S9_initStores_typekey": false,
+   "had_a_2026_08_29_family_row": false,
+   "verbs_total": 2,
+   "verb_kinds": {
+    "update": 2
+   },
+   "liveness": {
+    "LIVE": 2
+   },
+   "verbs": [
+    "projectOrigin.setPosition",
+    "projectOrigin.setVisible"
+   ],
+   "channels_emitted_by_CEB": {}
+  },
+  "render": {
+   "in_S1_plugin_dir": true,
+   "in_S2_ALL_PLUGINS": false,
+   "in_S4_ELEMENT_PLUGIN_IDS": false,
+   "in_S5_GEOMETRY_ELEMENT_TYPES": false,
+   "in_S6_CEB_case": false,
+   "in_S7_initTools_bridge": false,
+   "in_S8_schema": false,
+   "in_S9_initStores_typekey": false,
+   "had_a_2026_08_29_family_row": false,
+   "verbs_total": 0,
+   "verb_kinds": {},
+   "liveness": {},
+   "verbs": [],
+   "channels_emitted_by_CEB": {}
+  },
+  "rhino": {
+   "in_S1_plugin_dir": false,
+   "in_S2_ALL_PLUGINS": false,
+   "in_S4_ELEMENT_PLUGIN_IDS": false,
+   "in_S5_GEOMETRY_ELEMENT_TYPES": false,
+   "in_S6_CEB_case": false,
+   "in_S7_initTools_bridge": false,
+   "in_S8_schema": false,
+   "in_S9_initStores_typekey": false,
+   "had_a_2026_08_29_family_row": false,
+   "verbs_total": 2,
+   "verb_kinds": {
+    "other": 1,
+    "update": 1
+   },
+   "liveness": {
+    "LIVE": 2
+   },
+   "verbs": [
+    "rhino.resetMaterial",
+    "rhino.setMaterial"
+   ],
+   "channels_emitted_by_CEB": {}
+  },
+  "rhino-import": {
+   "in_S1_plugin_dir": true,
+   "in_S2_ALL_PLUGINS": false,
+   "in_S4_ELEMENT_PLUGIN_IDS": false,
+   "in_S5_GEOMETRY_ELEMENT_TYPES": false,
+   "in_S6_CEB_case": false,
+   "in_S7_initTools_bridge": false,
+   "in_S8_schema": false,
+   "in_S9_initStores_typekey": false,
+   "had_a_2026_08_29_family_row": false,
+   "verbs_total": 0,
+   "verb_kinds": {},
+   "liveness": {},
+   "verbs": [],
+   "channels_emitted_by_CEB": {}
+  },
+  "roof": {
+   "in_S1_plugin_dir": true,
+   "in_S2_ALL_PLUGINS": true,
+   "in_S4_ELEMENT_PLUGIN_IDS": true,
+   "in_S5_GEOMETRY_ELEMENT_TYPES": true,
+   "in_S6_CEB_case": true,
+   "in_S7_initTools_bridge": true,
+   "in_S8_schema": true,
+   "in_S9_initStores_typekey": true,
+   "had_a_2026_08_29_family_row": true,
+   "verbs_total": 13,
+   "verb_kinds": {
+    "update": 8,
+    "create": 1,
+    "delete": 2,
+    "join": 1,
+    "move": 1
+   },
+   "liveness": {
+    "UNKNOWN": 9,
+    "LIVE": 2,
+    "REFUSES": 2
+   },
+   "verbs": [
+    "roof.addSkylight",
+    "roof.changeLevel",
+    "roof.create",
+    "roof.delete",
+    "roof.joinRoofs",
+    "roof.move",
+    "roof.removeSkylight",
+    "roof.setMaterial",
+    "roof.setOverhang",
+    "roof.setPitch",
+    "roof.setShape",
+    "roof.setThickness",
+    "roof.update"
+   ],
+   "channels_emitted_by_CEB": {
+    "roof.created": 1
+   }
+  },
+  "room": {
+   "in_S1_plugin_dir": true,
+   "in_S2_ALL_PLUGINS": true,
+   "in_S4_ELEMENT_PLUGIN_IDS": true,
+   "in_S5_GEOMETRY_ELEMENT_TYPES": true,
+   "in_S6_CEB_case": true,
+   "in_S7_initTools_bridge": false,
+   "in_S8_schema": true,
+   "in_S9_initStores_typekey": true,
+   "had_a_2026_08_29_family_row": true,
+   "verbs_total": 18,
+   "verb_kinds": {
+    "other": 4,
+    "create": 1,
+    "delete": 1,
+    "move": 1,
+    "regenerate": 1,
+    "update": 10
+   },
+   "liveness": {
+    "LIVE": 14,
+    "REFUSES": 2,
+    "UNKNOWN": 2
+   },
+   "verbs": [
+    "room.autoClassify.batch",
+    "room.create",
+    "room.delete",
+    "room.move",
+    "room.recomputeBoundary",
+    "room.redetect",
+    "room.regenerate",
+    "room.rename",
+    "room.restoreMeaning",
+    "room.setColourMode",
+    "room.setDepartment",
+    "room.setFinish",
+    "room.setHeightOffset",
+    "room.setMaterial",
+    "room.setName",
+    "room.setNumber",
+    "room.setOccupancy",
+    "room.updateBoundary"
+   ],
+   "channels_emitted_by_CEB": {
+    "room.created": 0
+   }
+  },
+  "schedule": {
+   "in_S1_plugin_dir": false,
+   "in_S2_ALL_PLUGINS": false,
+   "in_S4_ELEMENT_PLUGIN_IDS": false,
+   "in_S5_GEOMETRY_ELEMENT_TYPES": false,
+   "in_S6_CEB_case": false,
+   "in_S7_initTools_bridge": false,
+   "in_S8_schema": true,
+   "in_S9_initStores_typekey": false,
+   "had_a_2026_08_29_family_row": false,
+   "verbs_total": 7,
+   "verb_kinds": {
+    "other": 2,
+    "create": 1,
+    "delete": 1,
+    "update": 3
+   },
+   "liveness": {
+    "UNKNOWN": 6,
+    "LIVE": 1
+   },
+   "verbs": [
+    "schedule.column.add",
+    "schedule.column.remove",
+    "schedule.create",
+    "schedule.delete",
+    "schedule.setFilter",
+    "schedule.setGroupBy",
+    "schedule.update"
+   ],
+   "channels_emitted_by_CEB": {}
+  },
+  "schedules": {
+   "in_S1_plugin_dir": true,
+   "in_S2_ALL_PLUGINS": false,
+   "in_S4_ELEMENT_PLUGIN_IDS": false,
+   "in_S5_GEOMETRY_ELEMENT_TYPES": false,
+   "in_S6_CEB_case": false,
+   "in_S7_initTools_bridge": false,
+   "in_S8_schema": false,
+   "in_S9_initStores_typekey": false,
+   "had_a_2026_08_29_family_row": false,
+   "verbs_total": 0,
+   "verb_kinds": {},
+   "liveness": {},
+   "verbs": [],
+   "channels_emitted_by_CEB": {}
+  },
+  "section": {
+   "in_S1_plugin_dir": true,
+   "in_S2_ALL_PLUGINS": true,
+   "in_S4_ELEMENT_PLUGIN_IDS": true,
+   "in_S5_GEOMETRY_ELEMENT_TYPES": false,
+   "in_S6_CEB_case": false,
+   "in_S7_initTools_bridge": false,
+   "in_S8_schema": true,
+   "in_S9_initStores_typekey": false,
+   "had_a_2026_08_29_family_row": true,
+   "verbs_total": 7,
+   "verb_kinds": {
+    "create": 1,
+    "delete": 1,
+    "other": 1,
+    "move": 1,
+    "update": 3
+   },
+   "liveness": {
+    "UNKNOWN": 5,
+    "LIVE": 1,
+    "REFUSES": 1
+   },
+   "verbs": [
+    "section.create",
+    "section.delete",
+    "section.mark.create",
+    "section.moveLine",
+    "section.setDepth",
+    "section.setMark",
+    "section.setScale"
+   ],
+   "channels_emitted_by_CEB": {}
+  },
+  "selection": {
+   "in_S1_plugin_dir": true,
+   "in_S2_ALL_PLUGINS": true,
+   "in_S4_ELEMENT_PLUGIN_IDS": true,
+   "in_S5_GEOMETRY_ELEMENT_TYPES": false,
+   "in_S6_CEB_case": false,
+   "in_S7_initTools_bridge": false,
+   "in_S8_schema": false,
+   "in_S9_initStores_typekey": false,
+   "had_a_2026_08_29_family_row": true,
+   "verbs_total": 3,
+   "verb_kinds": {
+    "update": 1,
+    "other": 2
+   },
+   "liveness": {
+    "UNKNOWN": 3
+   },
+   "verbs": [
+    "selection.clear",
+    "selection.deselect",
+    "selection.select"
+   ],
+   "channels_emitted_by_CEB": {}
+  },
+  "sheet": {
+   "in_S1_plugin_dir": false,
+   "in_S2_ALL_PLUGINS": false,
+   "in_S4_ELEMENT_PLUGIN_IDS": false,
+   "in_S5_GEOMETRY_ELEMENT_TYPES": false,
+   "in_S6_CEB_case": false,
+   "in_S7_initTools_bridge": false,
+   "in_S8_schema": true,
+   "in_S9_initStores_typekey": false,
+   "had_a_2026_08_29_family_row": false,
+   "verbs_total": 12,
+   "verb_kinds": {
+    "update": 7,
+    "create": 1,
+    "delete": 3,
+    "move": 1
+   },
+   "liveness": {
+    "LIVE": 2,
+    "UNKNOWN": 9,
+    "SHADOWED": 1
+   },
+   "verbs": [
+    "sheet.addViewport",
+    "sheet.addWidget",
+    "sheet.create",
+    "sheet.delete",
+    "sheet.moveViewport",
+    "sheet.removeViewport",
+    "sheet.removeWidget",
+    "sheet.rename",
+    "sheet.reorder",
+    "sheet.setSheetMetadata",
+    "sheet.setTitleBlock",
+    "sheet.setViewportScale"
+   ],
+   "channels_emitted_by_CEB": {}
+  },
+  "sheets": {
+   "in_S1_plugin_dir": true,
+   "in_S2_ALL_PLUGINS": false,
+   "in_S4_ELEMENT_PLUGIN_IDS": false,
+   "in_S5_GEOMETRY_ELEMENT_TYPES": false,
+   "in_S6_CEB_case": false,
+   "in_S7_initTools_bridge": false,
+   "in_S8_schema": false,
+   "in_S9_initStores_typekey": false,
+   "had_a_2026_08_29_family_row": false,
+   "verbs_total": 0,
+   "verb_kinds": {},
+   "liveness": {},
+   "verbs": [],
+   "channels_emitted_by_CEB": {}
+  },
+  "slab": {
+   "in_S1_plugin_dir": true,
+   "in_S2_ALL_PLUGINS": true,
+   "in_S4_ELEMENT_PLUGIN_IDS": true,
+   "in_S5_GEOMETRY_ELEMENT_TYPES": true,
+   "in_S6_CEB_case": true,
+   "in_S7_initTools_bridge": true,
+   "in_S8_schema": true,
+   "in_S9_initStores_typekey": true,
+   "had_a_2026_08_29_family_row": true,
+   "verbs_total": 18,
+   "verb_kinds": {
+    "update": 11,
+    "batch.create": 1,
+    "create": 1,
+    "create-variant": 1,
+    "delete": 2,
+    "move": 2
+   },
+   "liveness": {
+    "UNKNOWN": 11,
+    "LIVE": 5,
+    "REFUSES": 2
+   },
+   "verbs": [
+    "slab.addHole",
+    "slab.batch.create",
+    "slab.changeLevel",
+    "slab.create",
+    "slab.create-on-all-floors",
+    "slab.delete",
+    "slab.move",
+    "slab.movePolygon",
+    "slab.removeHole",
+    "slab.setBaseOffset",
+    "slab.setMaterial",
+    "slab.setThickness",
+    "slab.setType",
+    "slab.update",
+    "slab.updateDimensions",
+    "slab.updateLayers",
+    "slab.updatePolygon",
+    "slab.updateSystemTypeBatch"
+   ],
+   "channels_emitted_by_CEB": {
+    "slab.created": 3,
+    "slab.layer-updated": 0
+   }
+  },
+  "stair": {
+   "in_S1_plugin_dir": true,
+   "in_S2_ALL_PLUGINS": true,
+   "in_S4_ELEMENT_PLUGIN_IDS": true,
+   "in_S5_GEOMETRY_ELEMENT_TYPES": true,
+   "in_S6_CEB_case": false,
+   "in_S7_initTools_bridge": false,
+   "in_S8_schema": true,
+   "in_S9_initStores_typekey": true,
+   "had_a_2026_08_29_family_row": true,
+   "verbs_total": 13,
+   "verb_kinds": {
+    "batch.create": 1,
+    "create": 1,
+    "create-variant": 1,
+    "delete": 1,
+    "move": 1,
+    "update": 8
+   },
+   "liveness": {
+    "UNKNOWN": 8,
+    "LIVE": 3,
+    "REFUSES": 2
+   },
+   "verbs": [
+    "stair.batch.create",
+    "stair.create",
+    "stair.createRailing",
+    "stair.delete",
+    "stair.move",
+    "stair.rotate",
+    "stair.setMaterial",
+    "stair.setRiserHeight",
+    "stair.setShape",
+    "stair.setTreadCount",
+    "stair.setType",
+    "stair.setWidth",
+    "stair.updateParameters"
+   ],
+   "channels_emitted_by_CEB": {}
+  },
+  "stair-landing": {
+   "in_S1_plugin_dir": false,
+   "in_S2_ALL_PLUGINS": false,
+   "in_S4_ELEMENT_PLUGIN_IDS": false,
+   "in_S5_GEOMETRY_ELEMENT_TYPES": true,
+   "in_S6_CEB_case": false,
+   "in_S7_initTools_bridge": false,
+   "in_S8_schema": false,
+   "in_S9_initStores_typekey": true,
+   "had_a_2026_08_29_family_row": false,
+   "verbs_total": 0,
+   "verb_kinds": {},
+   "liveness": {},
+   "verbs": [],
+   "channels_emitted_by_CEB": {}
+  },
+  "stair-railing": {
+   "in_S1_plugin_dir": false,
+   "in_S2_ALL_PLUGINS": false,
+   "in_S4_ELEMENT_PLUGIN_IDS": false,
+   "in_S5_GEOMETRY_ELEMENT_TYPES": true,
+   "in_S6_CEB_case": false,
+   "in_S7_initTools_bridge": false,
+   "in_S8_schema": false,
+   "in_S9_initStores_typekey": true,
+   "had_a_2026_08_29_family_row": false,
+   "verbs_total": 0,
+   "verb_kinds": {},
+   "liveness": {},
+   "verbs": [],
+   "channels_emitted_by_CEB": {}
+  },
+  "stair-type": {
+   "in_S1_plugin_dir": false,
+   "in_S2_ALL_PLUGINS": false,
+   "in_S4_ELEMENT_PLUGIN_IDS": false,
+   "in_S5_GEOMETRY_ELEMENT_TYPES": false,
+   "in_S6_CEB_case": false,
+   "in_S7_initTools_bridge": false,
+   "in_S8_schema": false,
+   "in_S9_initStores_typekey": true,
+   "had_a_2026_08_29_family_row": false,
+   "verbs_total": 0,
+   "verb_kinds": {},
+   "liveness": {},
+   "verbs": [],
+   "channels_emitted_by_CEB": {}
+  },
+  "structural": {
+   "in_S1_plugin_dir": true,
+   "in_S2_ALL_PLUGINS": true,
+   "in_S4_ELEMENT_PLUGIN_IDS": true,
+   "in_S5_GEOMETRY_ELEMENT_TYPES": false,
+   "in_S6_CEB_case": true,
+   "in_S7_initTools_bridge": false,
+   "in_S8_schema": true,
+   "in_S9_initStores_typekey": false,
+   "had_a_2026_08_29_family_row": true,
+   "verbs_total": 7,
+   "verb_kinds": {
+    "create": 1,
+    "delete": 1,
+    "move": 1,
+    "update": 4
+   },
+   "liveness": {
+    "UNKNOWN": 5,
+    "REFUSES": 2
+   },
+   "verbs": [
+    "structural.create",
+    "structural.delete",
+    "structural.move",
+    "structural.setBraceEndOffset",
+    "structural.setDimensions",
+    "structural.setKind",
+    "structural.setMaterial"
+   ],
+   "channels_emitted_by_CEB": {
+    "structural.created": 0
+   }
+  },
+  "template": {
+   "in_S1_plugin_dir": false,
+   "in_S2_ALL_PLUGINS": false,
+   "in_S4_ELEMENT_PLUGIN_IDS": false,
+   "in_S5_GEOMETRY_ELEMENT_TYPES": false,
+   "in_S6_CEB_case": false,
+   "in_S7_initTools_bridge": false,
+   "in_S8_schema": false,
+   "in_S9_initStores_typekey": false,
+   "had_a_2026_08_29_family_row": false,
+   "verbs_total": 3,
+   "verb_kinds": {
+    "update": 1,
+    "create": 1,
+    "other": 1
+   },
+   "liveness": {
+    "LIVE": 3
+   },
+   "verbs": [
+    "template.assignToNode",
+    "template.create",
+    "template.unassign"
+   ],
+   "channels_emitted_by_CEB": {}
+  },
+  "toy-cube": {
+   "in_S1_plugin_dir": true,
+   "in_S2_ALL_PLUGINS": false,
+   "in_S4_ELEMENT_PLUGIN_IDS": false,
+   "in_S5_GEOMETRY_ELEMENT_TYPES": false,
+   "in_S6_CEB_case": false,
+   "in_S7_initTools_bridge": false,
+   "in_S8_schema": false,
+   "in_S9_initStores_typekey": false,
+   "had_a_2026_08_29_family_row": false,
+   "verbs_total": 0,
+   "verb_kinds": {},
+   "liveness": {},
+   "verbs": [],
+   "channels_emitted_by_CEB": {}
+  },
+  "verticalCirculation": {
+   "in_S1_plugin_dir": false,
+   "in_S2_ALL_PLUGINS": false,
+   "in_S4_ELEMENT_PLUGIN_IDS": false,
+   "in_S5_GEOMETRY_ELEMENT_TYPES": true,
+   "in_S6_CEB_case": false,
+   "in_S7_initTools_bridge": false,
+   "in_S8_schema": true,
+   "in_S9_initStores_typekey": true,
+   "had_a_2026_08_29_family_row": false,
+   "verbs_total": 0,
+   "verb_kinds": {},
+   "liveness": {},
+   "verbs": [],
+   "channels_emitted_by_CEB": {}
+  },
+  "vg": {
+   "in_S1_plugin_dir": false,
+   "in_S2_ALL_PLUGINS": false,
+   "in_S4_ELEMENT_PLUGIN_IDS": false,
+   "in_S5_GEOMETRY_ELEMENT_TYPES": false,
+   "in_S6_CEB_case": false,
+   "in_S7_initTools_bridge": false,
+   "in_S8_schema": false,
+   "in_S9_initStores_typekey": false,
+   "had_a_2026_08_29_family_row": false,
+   "verbs_total": 4,
+   "verb_kinds": {
+    "update": 2,
+    "create-variant": 1,
+    "other": 1
+   },
+   "liveness": {
+    "LIVE": 4
+   },
+   "verbs": [
+    "vg.assignIntent",
+    "vg.createVisibilityIntent",
+    "vg.takeLatestIntentVersion",
+    "vg.updateVisibilityIntent"
+   ],
+   "channels_emitted_by_CEB": {}
+  },
+  "view": {
+   "in_S1_plugin_dir": true,
+   "in_S2_ALL_PLUGINS": true,
+   "in_S4_ELEMENT_PLUGIN_IDS": false,
+   "in_S5_GEOMETRY_ELEMENT_TYPES": false,
+   "in_S6_CEB_case": false,
+   "in_S7_initTools_bridge": false,
+   "in_S8_schema": true,
+   "in_S9_initStores_typekey": false,
+   "had_a_2026_08_29_family_row": false,
+   "verbs_total": 19,
+   "verb_kinds": {
+    "update": 12,
+    "create": 1,
+    "create-variant": 1,
+    "delete": 2,
+    "other": 3
+   },
+   "liveness": {
+    "LIVE": 11,
+    "UNKNOWN": 8
+   },
+   "verbs": [
+    "view.clearAllOverrides",
+    "view.clearOverride",
+    "view.create",
+    "view.createDefinition",
+    "view.delete",
+    "view.deleteDefinition",
+    "view.hideElement",
+    "view.isolateElement",
+    "view.rename",
+    "view.setCategoryVisibility",
+    "view.setCrop",
+    "view.setGraphicOverride",
+    "view.setOutput",
+    "view.setProjection",
+    "view.setRange",
+    "view.setUnderlay",
+    "view.switch",
+    "view.updateCamera",
+    "view.updateDefinition"
+   ],
+   "channels_emitted_by_CEB": {}
+  },
+  "viewTemplate": {
+   "in_S1_plugin_dir": false,
+   "in_S2_ALL_PLUGINS": false,
+   "in_S4_ELEMENT_PLUGIN_IDS": false,
+   "in_S5_GEOMETRY_ELEMENT_TYPES": false,
+   "in_S6_CEB_case": false,
+   "in_S7_initTools_bridge": false,
+   "in_S8_schema": false,
+   "in_S9_initStores_typekey": false,
+   "had_a_2026_08_29_family_row": false,
+   "verbs_total": 3,
+   "verb_kinds": {
+    "create": 1,
+    "delete": 1,
+    "update": 1
+   },
+   "liveness": {
+    "LIVE": 3
+   },
+   "verbs": [
+    "viewTemplate.create",
+    "viewTemplate.delete",
+    "viewTemplate.update"
+   ],
+   "channels_emitted_by_CEB": {}
+  },
+  "visibility-intent": {
+   "in_S1_plugin_dir": true,
+   "in_S2_ALL_PLUGINS": false,
+   "in_S4_ELEMENT_PLUGIN_IDS": false,
+   "in_S5_GEOMETRY_ELEMENT_TYPES": false,
+   "in_S6_CEB_case": false,
+   "in_S7_initTools_bridge": false,
+   "in_S8_schema": false,
+   "in_S9_initStores_typekey": false,
+   "had_a_2026_08_29_family_row": false,
+   "verbs_total": 0,
+   "verb_kinds": {},
+   "liveness": {},
+   "verbs": [],
+   "channels_emitted_by_CEB": {}
+  },
+  "wall": {
+   "in_S1_plugin_dir": true,
+   "in_S2_ALL_PLUGINS": true,
+   "in_S4_ELEMENT_PLUGIN_IDS": true,
+   "in_S5_GEOMETRY_ELEMENT_TYPES": true,
+   "in_S6_CEB_case": true,
+   "in_S7_initTools_bridge": true,
+   "in_S8_schema": true,
+   "in_S9_initStores_typekey": true,
+   "had_a_2026_08_29_family_row": true,
+   "verbs_total": 31,
+   "verb_kinds": {
+    "update": 17,
+    "batch.create": 2,
+    "other": 4,
+    "create": 1,
+    "create-variant": 3,
+    "delete": 1,
+    "join": 1,
+    "move": 1,
+    "split": 1
+   },
+   "liveness": {
+    "LIVE": 13,
+    "UNKNOWN": 12,
+    "REFUSES": 6
+   },
+   "verbs": [
+    "wall.addLayerBatch",
+    "wall.batch.create",
+    "wall.bulkSetVisuals",
+    "wall.cascadeBaseline",
+    "wall.changeLevel",
+    "wall.create",
+    "wall.create-on-all-slabs",
+    "wall.createBetweenMarks",
+    "wall.createFromSlab",
+    "wall.createOpening",
+    "wall.cut",
+    "wall.delete",
+    "wall.join",
+    "wall.move",
+    "wall.opening.create",
+    "wall.setColor",
+    "wall.setDimensions",
+    "wall.setLayers",
+    "wall.setSideFinishBatch",
+    "wall.setSystemType",
+    "wall.split",
+    "wall.transform",
+    "wall.updateBaseline",
+    "wall.updateColor",
+    "wall.updateColorBatch",
+    "wall.updateCurtainWall",
+    "wall.updateDimensions",
+    "wall.updateHeightBatch",
+    "wall.updateRakeBatch",
+    "wall.updateSystemType",
+    "wall.updateSystemTypeBatch"
+   ],
+   "channels_emitted_by_CEB": {
+    "wall.created": 6,
+    "wall.opening.created": 2
+   }
+  },
+  "water": {
+   "in_S1_plugin_dir": false,
+   "in_S2_ALL_PLUGINS": true,
+   "in_S4_ELEMENT_PLUGIN_IDS": true,
+   "in_S5_GEOMETRY_ELEMENT_TYPES": false,
+   "in_S6_CEB_case": false,
+   "in_S7_initTools_bridge": true,
+   "in_S8_schema": true,
+   "in_S9_initStores_typekey": false,
+   "had_a_2026_08_29_family_row": true,
+   "verbs_total": 0,
+   "verb_kinds": {},
+   "liveness": {},
+   "verbs": [],
+   "channels_emitted_by_CEB": {
+    "water.created": 1
+   }
+  },
+  "window": {
+   "in_S1_plugin_dir": true,
+   "in_S2_ALL_PLUGINS": true,
+   "in_S4_ELEMENT_PLUGIN_IDS": true,
+   "in_S5_GEOMETRY_ELEMENT_TYPES": true,
+   "in_S6_CEB_case": false,
+   "in_S7_initTools_bridge": false,
+   "in_S8_schema": true,
+   "in_S9_initStores_typekey": true,
+   "had_a_2026_08_29_family_row": true,
+   "verbs_total": 12,
+   "verb_kinds": {
+    "batch.create": 1,
+    "create": 1,
+    "delete": 1,
+    "move": 1,
+    "other": 1,
+    "update": 7
+   },
+   "liveness": {
+    "UNKNOWN": 4,
+    "REFUSES": 2,
+    "LIVE": 6
+   },
+   "verbs": [
+    "window.batch.create",
+    "window.create",
+    "window.delete",
+    "window.move",
+    "window.parametricCreate",
+    "window.setFireRating",
+    "window.setFrameColor",
+    "window.setOffset",
+    "window.setSillHeight",
+    "window.setSize",
+    "window.setType",
+    "window.updateSystemTypeBatch"
+   ],
+   "channels_emitted_by_CEB": {}
+  },
+  "zoom-fit": {
+   "in_S1_plugin_dir": false,
+   "in_S2_ALL_PLUGINS": false,
+   "in_S4_ELEMENT_PLUGIN_IDS": false,
+   "in_S5_GEOMETRY_ELEMENT_TYPES": false,
+   "in_S6_CEB_case": false,
+   "in_S7_initTools_bridge": false,
+   "in_S8_schema": false,
+   "in_S9_initStores_typekey": false,
+   "had_a_2026_08_29_family_row": false,
+   "verbs_total": 1,
+   "verb_kinds": {
+    "other": 1
+   },
+   "liveness": {
+    "LIVE": 1
+   },
+   "verbs": [
+    "zoom-fit"
+   ],
+   "channels_emitted_by_CEB": {}
+  },
+  "zoom-selected": {
+   "in_S1_plugin_dir": false,
+   "in_S2_ALL_PLUGINS": false,
+   "in_S4_ELEMENT_PLUGIN_IDS": false,
+   "in_S5_GEOMETRY_ELEMENT_TYPES": false,
+   "in_S6_CEB_case": false,
+   "in_S7_initTools_bridge": false,
+   "in_S8_schema": false,
+   "in_S9_initStores_typekey": false,
+   "had_a_2026_08_29_family_row": false,
+   "verbs_total": 1,
+   "verb_kinds": {
+    "other": 1
+   },
+   "liveness": {
+    "LIVE": 1
+   },
+   "verbs": [
+    "zoom-selected"
+   ],
+   "channels_emitted_by_CEB": {}
+  }
+ }
+}

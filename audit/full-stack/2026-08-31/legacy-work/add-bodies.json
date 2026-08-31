@@ -1,0 +1,223 @@
+{
+ "wall": {
+  "file": "packages/geometry-wall/src/WallStore.ts",
+  "add_line": 344,
+  "add_end": 617,
+  "storeEventBus_in_add": [],
+  "dom_event_in_add": []
+ },
+ "slab": {
+  "file": "packages/geometry-slab/src/SlabStore.ts",
+  "add_line": 197,
+  "add_end": 242,
+  "storeEventBus_in_add": [],
+  "dom_event_in_add": []
+ },
+ "column": {
+  "file": "packages/geometry-column/src/ColumnStore.ts",
+  "add_line": 140,
+  "add_end": 175,
+  "storeEventBus_in_add": [],
+  "dom_event_in_add": []
+ },
+ "beam": {
+  "file": "packages/core-app-model/src/stores/BeamStore.ts",
+  "add_line": 66,
+  "add_end": 93,
+  "storeEventBus_in_add": [
+   [
+    91,
+    "storeEventBus.emit({ elementId: beam.id, elementType: 'beam', operation: 'create', timestamp: Date.now() });"
+   ]
+  ],
+  "dom_event_in_add": []
+ },
+ "roof": {
+  "file": "packages/geometry-roof/src/RoofStore.ts",
+  "add_line": 42,
+  "add_end": 91,
+  "storeEventBus_in_add": [
+   [
+    90,
+    "storeEventBus.emit({ elementId: frozen.id, elementType: 'roof', operation: 'create', timestamp: Date.now() });"
+   ]
+  ],
+  "dom_event_in_add": [
+   [
+    89,
+    "_bus.emit('bim-roof-added', { id: frozen.id }); // F.events.18"
+   ]
+  ]
+ },
+ "ceiling": {
+  "file": "packages/core-app-model/src/stores/CeilingStore.ts",
+  "add_line": 88,
+  "add_end": 167,
+  "storeEventBus_in_add": [
+   [
+    159,
+    "storeEventBus.emit({"
+   ]
+  ],
+  "dom_event_in_add": [
+   [
+    156,
+    "_bus.emit('bim-ceiling-added', { id: clone.id });"
+   ]
+  ]
+ },
+ "floor": {
+  "file": "packages/core-app-model/src/stores/FloorStore.ts",
+  "add_line": 61,
+  "add_end": 130,
+  "storeEventBus_in_add": [
+   [
+    128,
+    "storeEventBus.emit({ elementId: clone.id, elementType: 'floor', operation: 'create', timestamp: Date.now() });"
+   ]
+  ],
+  "dom_event_in_add": [
+   [
+    127,
+    "_bus.emit('bim-floor-added', { id: clone.id }); // F.events.17"
+   ]
+  ]
+ },
+ "handrail": {
+  "file": "packages/core-app-model/src/stores/HandrailStore.ts",
+  "add_line": 37,
+  "add_end": 54,
+  "storeEventBus_in_add": [],
+  "dom_event_in_add": []
+ },
+ "curtain-wall": {
+  "file": "packages/geometry-curtain-wall/src/CurtainWallStore.ts",
+  "add_line": 325,
+  "add_end": 355,
+  "storeEventBus_in_add": [],
+  "dom_event_in_add": []
+ },
+ "door": {
+  "file": "packages/geometry-door/src/DoorStore.ts",
+  "add_line": 49,
+  "add_end": 65,
+  "storeEventBus_in_add": [
+   [
+    64,
+    "storeEventBus.emit({ elementId: frozen.id, elementType: 'door', operation: 'create', timestamp: Date.now() });"
+   ]
+  ],
+  "dom_event_in_add": []
+ },
+ "window": {
+  "file": "packages/geometry-window/src/WindowStore.ts",
+  "add_line": 35,
+  "add_end": 51,
+  "storeEventBus_in_add": [
+   [
+    50,
+    "storeEventBus.emit({ elementId: frozen.id, elementType: 'window', operation: 'create', timestamp: Date.now() });"
+   ]
+  ],
+  "dom_event_in_add": []
+ },
+ "furniture": {
+  "file": "packages/geometry-furniture/src/FurnitureStore.ts",
+  "add_line": 48,
+  "add_end": 53,
+  "storeEventBus_in_add": [
+   [
+    52,
+    "storeEventBus.emit({ elementId: snap.id, elementType: 'furniture', operation: 'create', timestamp: Date.now() });"
+   ]
+  ],
+  "dom_event_in_add": [
+   [
+    51,
+    "_bus.emit('bim-furniture-added', { id: snap.id }); // F.events.18"
+   ]
+  ]
+ },
+ "lighting": {
+  "file": "packages/geometry-lighting/src/LightingStore.ts",
+  "add_line": 85,
+  "add_end": 93,
+  "storeEventBus_in_add": [
+   [
+    89,
+    "storeEventBus.emit({"
+   ]
+  ],
+  "dom_event_in_add": [
+   [
+    88,
+    "_bus.emit('bim-lighting-added', { id: data.id }); // F.events.18"
+   ]
+  ]
+ },
+ "plumbing": {
+  "file": "packages/geometry-plumbing/src/PlumbingStore.ts",
+  "add_line": 37,
+  "add_end": 42,
+  "storeEventBus_in_add": [
+   [
+    40,
+    "storeEventBus.emit({ elementId: data.id, elementType: 'plumbing', operation: 'create', timestamp: Date.now() });"
+   ]
+  ],
+  "dom_event_in_add": [
+   [
+    39,
+    "_bus.emit('bim-plumbing-added', { id: data.id }); // F.events.18"
+   ]
+  ]
+ },
+ "lift": {
+  "file": "packages/geometry-lift/src/LiftStore.ts",
+  "add_line": 39,
+  "add_end": 65,
+  "storeEventBus_in_add": [],
+  "dom_event_in_add": [
+   [
+    61,
+    "_bus.emit('bim-lift-added', { id: cloned.id }); // F.events.18"
+   ]
+  ]
+ },
+ "room": {
+  "file": "packages/room-topology/src/RoomStore.ts",
+  "add_line": 204,
+  "add_end": 279,
+  "storeEventBus_in_add": [
+   [
+    273,
+    "storeEventBus.emit({"
+   ]
+  ],
+  "dom_event_in_add": []
+ },
+ "grid": {
+  "file": "packages/core-app-model/src/stores/GridStore.ts",
+  "add_line": 28,
+  "add_end": 60,
+  "storeEventBus_in_add": [
+   [
+    54,
+    "storeEventBus.emit({"
+   ]
+  ],
+  "dom_event_in_add": []
+ },
+ "stair": {
+  "file": "packages/geometry-stair/src/StairStore.ts",
+  "add_line": 37,
+  "add_end": 64,
+  "storeEventBus_in_add": [],
+  "dom_event_in_add": [
+   [
+    60,
+    "_bus.emit('bim-stair-added', { id: cloned.id }); // F.events.18"
+   ]
+  ]
+ }
+}

@@ -1,0 +1,45 @@
+[ga-gate/run-all] ❌ RATCHET EXCEEDED (exit 3, never excusable as debt): structuredclone-commands (OI-050/E.undo)
+[ga-gate/run-all] ❌ RATCHET EXCEEDED (exit 3, never excusable as debt): xss-sink-scan (P0/OI-051/L-407)
+[custom-event-apps] FAIL (ratchet): 28 > baseline 4.
+  gate-debt.json declares that this gate FAILS. It does not declare that the debt may GROW.
+[ga-gate/run-all] ❌ RATCHET EXCEEDED (exit 3, never excusable as debt): custom-event-apps (OI-050/F.events.2)
+[check-layer-boundaries] FAIL — 124 banned third-party import(s), baseline 113.
+[ga-gate/run-all] ❌ RATCHET EXCEEDED (exit 3, never excusable as debt): layer-boundaries (L-809)
+[domain-purity] ✓ packages/schemas is pure — 0 impurities across 192 files. HARD-FAIL AT ZERO.
+[check-chat-capability-coverage] FAIL — 13 undeclared bus command(s), baseline 0.
+[check-chat-capability-coverage] FAIL — 3 unresolvable parameter source(s):
+[check-chat-capability-coverage] FAIL — 1 scope mode(s) declared but not honoured.
+[check-chat-capability-coverage] FAIL — 5 spatial mode(s) the ARM honours without declaring, baseline 2.
+[check-chat-capability-coverage] FAIL — 47 panel-editable propert(ies) the chat cannot reach, baseline 42.
+[ga-gate/run-all] ❌ RATCHET EXCEEDED (exit 3, never excusable as debt): chat-capability-coverage (ADR-0313)
+[tool-activator-coverage] FAIL ARM-A — 4 declared tool id(s) have NO registered activator (baseline 0):
+[material-maps-tiling] PASS — every textured row has a real-world scale; every file-backed one a rewritable path and a decodable format; every procedural one a live generator that agrees about its size. HARD-FAIL AT ZERO. Controls: arms proven to fire [F1, F2, F3, A, B, C, D, E].
+[ga-gate/run-all] ❌ RATCHET EXCEEDED (exit 3, never excusable as debt): refusal-identity (C58 §1.13/§6)
+[cast-unknown] FAIL: window-as-unknown-as count = 256 > baseline 210.
+[ga-gate/run-all] ❌ RATCHET EXCEEDED (exit 3, never excusable as debt): cast-unknown (P4/L-845)
+[ga-gate/run-all] ❌ RATCHET EXCEEDED (exit 3, never excusable as debt): provenance-not-invented (C75 §2.1)
+   → [3] RATCHET EXCEEDED — check-epsilon-policy: 395 finding(s) against a declared level of 318. The ledger is SHRINK-ONLY: fix the finding, or prove it was already there and lower the ledger — never raise it.
+[ga-gate/run-all] ❌ RATCHET EXCEEDED (exit 3, never excusable as debt): epsilon-policy (C73 §5.1)
+   → [3] RATCHET EXCEEDED — check-suppression-is-reversible: 87 finding(s) against a declared level of 41. The ledger is SHRINK-ONLY: fix the finding, or prove it was already there and lower the ledger — never raise it.
+[ga-gate/run-all] ❌ RATCHET EXCEEDED (exit 3, never excusable as debt): suppression-is-reversible (C72 §4, §6.3)
+   → [3] RATCHET EXCEEDED — check-no-hidden-mock: 2 finding(s) against a declared level of 0. The ledger is SHRINK-ONLY: fix the finding, or prove it was already there and lower the ledger — never raise it.
+[ga-gate/run-all] ❌ RATCHET EXCEEDED (exit 3, never excusable as debt): no-hidden-mock (C74 §3.2/§3.4/§3.5)
+   → [3] RATCHET EXCEEDED — check-secrets-register: 13 finding(s) against a declared level of 12. The ledger is SHRINK-ONLY: fix the finding, or prove it was already there and lower the ledger — never raise it.
+[ga-gate/run-all] ❌ RATCHET EXCEEDED (exit 3, never excusable as debt): secrets-register (C77 §6)
+   → [3] RATCHET EXCEEDED — check-no-dark-test-files: 35 finding(s) against a declared level of 13. The ledger is SHRINK-ONLY: fix the finding, or prove it was already there and lower the ledger — never raise it.
+[ga-gate/run-all] ❌ RATCHET EXCEEDED (exit 3, never excusable as debt): no-dark-test-files (C70 §4.2 · L-849/L-851)
+[ga-gate/run-all] ❌ RATCHET EXCEEDED (exit 3, never excusable as debt): generator-circulation (SPEC-49 CI-1/CI-2/CI-4)
+[ga-gate/run-all] ❌ RATCHET EXCEEDED (exit 3, never excusable as debt): predicate-canonical (C73 §3.1/§3.3)
+[ga-gate/run-all] ❌ RATCHET EXCEEDED (exit 3, never excusable as debt): deterministic-regeneration (C73 §1.3/§6 · GE-07)
+   → [3] RATCHET EXCEEDED — check-no-empty-means-unknown (C78 §20 · U-INV-4 · §1.4/§5): 68 finding(s) against a declared level of 58. The ledger is SHRINK-ONLY: fix the finding, or prove it was already there and lower the ledger — never raise it.
+[ga-gate/run-all] ❌ RATCHET EXCEEDED (exit 3, never excusable as debt): no-empty-means-unknown (C78 §20 · U-INV-4 · GR-14)
+       ✓ ARM E: the silent-drop deserialize shape FAILS the arm and the counting shape PASSES it
+[check-property-rac-matrix] FAIL — see above.
+[ga-gate/run-all] ❌ RATCHET EXCEEDED (exit 3, never excusable as debt): property-rac-matrix (C67 · C68 · ADR-0345)
+[gate-subject-floors] FAIL: 1 gate(s) lack a subject floor; the shrink-only ceiling is 0.
+[ga-gate/run-all] ❌ RATCHET EXCEEDED (exit 3, never excusable as debt): gate-subject-floors (R5/L-811)
+[contract-cited-paths] [3] RATCHET EXCEEDED — 502 unresolved cited paths against a declared level of 490.
+[ga-gate/run-all] ❌ RATCHET EXCEEDED (exit 3, never excusable as debt): contract-cited-paths (L-960 · REGISTER §0)
+⛔ [shear-transport] ARM A FAIL — UNREGISTERED TRANSPORT DECOMPOSE
+⛔ [shear-transport] ARM D — RATCHET EXCEEDED: 4 > 3.
+[shear-transport] FAIL — see the arms above. C04 §PROJECTION-FIDELITY · L-10140 / L-10142.

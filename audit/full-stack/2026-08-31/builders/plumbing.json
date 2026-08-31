@@ -1,0 +1,69 @@
+{
+  "family": "plumbing",
+  "head": "d91d30d4af51bc67317ef8afc0b46b1dbef94038",
+  "members": ["fixture (sink, toilet, shower, bath, accessory)", "bathroomPod (compound parent)"],
+  "rows": [
+    {
+      "member": "fixture",
+      "surface": "3d",
+      "builder_file": "packages/geometry-plumbing/src/PlumbingFragmentBuilder.ts (355 lines)",
+      "entry_fn": "updateFixture(data) :16  ·  removeFixture(id) :338  ·  clearProjectGeometry() :352  ·  five private mesh factories: createSinkMesh :95, createToiletMesh :196, createShowerMesh :220, createAccessoryMesh :241, createBathMesh :256",
+      "package": "@pryzm/geometry-plumbing",
+      "layer": "L2",
+      "layer_proof": "eslint.config.js:153",
+      "invoked_by": [
+        "apps/editor/src/engine/initBuilders.ts:652 `new PlumbingFragmentBuilder(scene)`",
+        "apps/editor/src/engine/initBuilders.ts:679/:684/:688 — window.addEventListener('bim-plumbing-added' | '-updated' | '-removed')",
+        "apps/editor/src/engine/bathroomPodMemberMirror.ts — the compound leg"
+      ],
+      "rivals": [
+        {"candidate": "plugins/plumbing/src/committer/plumbing-committer.ts + packages/geometry-kernel/src/producers/plumbing.ts", "verdict": "RIVAL, UNREACHABLE — and the only consumers of L0 Plumbing.systemTag and Plumbing.bendRadius."}
+      ],
+      "robustness": {
+        "degenerate_input": "ZERO isFinite/isNaN, ZERO `throw new`. The fixtureType dispatch at :49-58 is an if/else chain whose FINAL ELSE is `createToiletMesh` — an unrecognised fixtureType silently becomes a toilet. That is silent substitution, which C84/C100 prohibit.",
+        "⛔ DISPOSAL — ABSENT. THE ONLY BUILDER MEASURED WITH ZERO DISPOSE CALLS.": "`grep -cE 'dispose\\(\\)|safeDispose' packages/geometry-plumbing/src/PlumbingFragmentBuilder.ts` → 0. Two leak sites: (a) UPDATE — :46 `root.clear()` detaches every child THREE.Mesh without disposing its geometry or material, and updateFixture is called on every architect edit; (b) DELETE — :338-344 removeFixture does `this.scene.remove(root); this.fixtureRoots.delete(id); elementRegistry.unregisterRoot(id);` and never disposes. So every create/delete cycle and every edit leaks GPU memory.",
+        "the_fix_exists_next_door": "packages/geometry-roof/src/RoofFragmentBuilder.ts:231 `_disposeChildren(root)`, whose comment at :233 names the exact inversion it corrected: 'WAS: safeDisposeObject3D(root); root.clear();'. Plumbing is that pattern's un-fixed sibling. There is no `clearProjectGeometry` gap — :352 exists and calls removeFixture — the gap is that removeFixture itself frees nothing.",
+        "REFUTATION_RECORDED": "An earlier read of :49-59 appeared to show `mesh` assigned and never added to `root` — i.e. a builder producing an empty group. FALSE: :84 `root.add(mesh);` after the userData traverse at :62-83. Reading a fragment of the implementation produced a wrong conclusion; reading the whole function refuted it."
+      },
+      "fidelity": {
+        "authored_L0_fields": ["provenance","confidence","levelId","kind","origin","diameter","wallThickness","length","rotation","bendRadius","baseOffset","systemTag","materialId"],
+        "authored_count": 13,
+        "ceb_channel": "plumbing.created",
+        "ceb_emit_sites": ["~L1257 (plumbing.create) — THREE keys"],
+        "ceb_emitted_keys": ["commandId","commandType","levelId"],
+        "dropped_at_ceb": "ALL THIRTEEN. The event carries no id and no geometry.",
+        "⛔ AND NOTHING SUBSCRIBES TO IT": "`grep -rn 'plumbing.created' --include=*.ts apps packages plugins | grep -v node_modules` → the emitter (CommandEventBridge.ts:1485), its type declaration (runtime-composer/src/types.ts:951), and THREE COMMENTS that already recorded this. apps/editor/src/engine/views/plantools/copyPayloads.ts:1415-1416: 'no subscriber to plumbing.created exists in the tree (grep -rn \"plumbing.created\" → two hits, both the emitter and its type declaration)'. Also duplicateToLevel.ts:365 and CopyPlanToolHandler.ts:652. RE-MEASURED AT THIS HEAD: STILL TRUE.",
+        "so_how_does_it_draw": "Through the LEGACY leg only — a command writes PlumbingStore, the store fires 'bim-plumbing-added', initBuilders' listener calls updateFixture. The CEB channel is a notification with no payload and no listener; it is not a render path at all.",
+        "consequence": "Any leg that reaches plumbing ONLY through the bus event draws nothing. The repo's own comments cite this at three copy/duplicate call sites, which is why copy-to-level for plumbing had to be special-cased.",
+        "systemTag_and_bendRadius": "AUTHORED, consumed ONLY by packages/geometry-kernel/src/producers/plumbing.ts + its geometry hash + apps/editor/src/engine/bathroomPodMemberMirror.ts — i.e. the unreachable producer half plus the compound mirror. PlumbingFragmentBuilder reads neither.",
+        "draws_what_the_user_authored": "NO on the bus leg (nothing is drawn at all). PARTIAL on the legacy leg — fixtureType, position, rotation, baseOffset survive; systemTag, bendRadius, diameter, wallThickness, materialId do not reach the mesh factories."
+      }
+    },
+    {
+      "member": "bathroomPod (compound parent)",
+      "surface": "3d",
+      "builder_file": "NO BUILDER OF ITS OWN — apps/editor/src/engine/bathroomPodMemberMirror.ts hand-builds a render sink for the members",
+      "own_store": "YES — storeKey 'bathroomPod', inline ALL_PLUGINS descriptor (census S2)",
+      "own_schema": "NO — there is no BathroomPod.ts in packages/schemas/src/elements/",
+      "own_channel": "NO",
+      "drawn": "VIA MEMBERS ONLY (plumbing fixtures + walls)",
+      "honest_about_it": "YES — bathroomPodMemberMirror.ts:10 names the three surfaces it must feed: 'PlumbingFragmentBuilder (3-D), PlumbingPlanSymbolBuilder, [PlumbingElevationSymbolBuilder]'. It exists BECAUSE there is no channel to relay on (:30-32 records the same absence for lift)."
+    },
+    {
+      "member": "fixture",
+      "surface": "plan",
+      "builder_file": "packages/geometry-plumbing/src/PlumbingPlanSymbolBuilder.ts",
+      "invoked_by": "apps/editor/src/engine/views/EdgeProjectorService.ts:3980 — `if (_symbolGate('plumbing')) plumbingPlanSymbolBuilder.inject(drawing, viewDef);` (import at :132)",
+      "drawn": "YES — an authored architectural symbol, and the 3D mesh is SUPPRESSED from the projection: PlumbingFragmentBuilder.ts:73-80 stamps `skipInPlan: true` on every child mesh, with the measured reason — 'EdgeProjectorService projects every triangulation edge (~55 ms + ~10.8 k HLR segments for ONE toilet)'.",
+      "invalidation": "`plumbing` IS in GEOMETRY_ELEMENT_TYPES (ViewDependencyTracker.ts:86)."
+    },
+    {
+      "member": "fixture",
+      "surface": "section",
+      "builder_file": "packages/geometry-plumbing/src/PlumbingElevationSymbolBuilder (exported from the package)",
+      "invoked_by": "apps/editor/src/engine/views/EdgeProjectorService.ts:4068 — `if (_symbolGate('plumbing')) plumbingElevationSymbolBuilder.inject(drawing, viewDef);`",
+      "drawn": "YES — one of only three families with a dedicated elevation/section symbol (with window's OpeningElevationSymbolBuilder and furniture's TreeElevationSymbolBuilder). `skipInElevation: true` is stamped alongside skipInPlan (:78-79, L-221 P2)."
+    },
+    {"member": "fixture", "surface": "export", "builder_file": "packages/file-format/src/export/ifc/readers/PlumbingReader.ts (L3, FragmentReader.ts:45)"}
+  ]
+}

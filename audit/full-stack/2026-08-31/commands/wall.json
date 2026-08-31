@@ -1,0 +1,3254 @@
+{
+ "family": "wall",
+ "date": "2026-08-31",
+ "phase": "P3 AXIS C - COMMANDS",
+ "head_at_start": "d91d30d4af51bc67317ef8afc0b46b1dbef94038",
+ "head_note": "HEAD moved to 6590ac1c mid-phase. git diff --name-only d91d30d4..6590ac1c -> ONE file, audit/full-stack/BRIEF-QUEUED.md (docs only). No production file this phase measured changed.",
+ "discovery": "The verb set was reproduced INDEPENDENTLY by audit/full-stack/2026-08-31/commands/_tools/scan.mjs, which re-implements check-verb-register.ts TYPE_DECL_RE + handlerish() over the same three HANDLER_ROOTS. It read 1408 files and found 361 verbs in 50 families - IDENTICAL to the gate on all three numbers. That agreement is a control on DISCOVERY ONLY; it says nothing about any column below.",
+ "evidence_classes": "a = a gate or the generated register says so. b = a gate that can prove it would fire says so. c = an executed read-back I ran myself. 59 of 99 gates here are BLIND COMPARATORS (P0), so NO row upgrades (a) to (c) by wording.",
+ "verbs": 31,
+ "kinds": {
+  "update": 15,
+  "batch.create": 1,
+  "other": 4,
+  "move": 2,
+  "create": 6,
+  "delete": 1,
+  "join": 1,
+  "split": 1
+ },
+ "rollup": {
+  "by_kind": {
+   "update": 15,
+   "batch.create": 1,
+   "other": 4,
+   "move": 2,
+   "create": 6,
+   "delete": 1,
+   "join": 1,
+   "split": 1
+  },
+  "mirror_coverage": {
+   "with_any_mirror": 5,
+   "of": 31
+  },
+  "readback": {
+   "proven_positive_class_c": 2,
+   "measured_negative_class_c": 0,
+   "of": 31
+  },
+  "undo": {
+   "ring_buffer": 19,
+   "legacy_commandManager": 11,
+   "stranded": 0,
+   "none_or_unknown": 1,
+   "of": 31
+  },
+  "liveness": {
+   "LIVE": 13,
+   "UNKNOWN": 12,
+   "REFUSES": 6
+  },
+  "contract_clause_TRUE_counts": {
+   "validates_before_mutation": 31,
+   "typed_DomainError_or_refusal": 10,
+   "mutates_only_via_immer_draft": 16,
+   "affectedStores_declared": 29,
+   "withHandlerSpan": 28,
+   "emits_a_typed_domain_event": 0,
+   "geometry_deferred_to_FrameScheduler": 0
+  },
+  "must_not_BREACH_counts": {
+   "commandManager.execute": 0,
+   "cascading dispatch": 0,
+   "window.dispatchEvent": 6,
+   "DOM access": 11,
+   "direct rAF": 0
+  },
+  "dispatch": {
+   "zero_literal_dispatch_site": 13,
+   "of": 31
+  },
+  "no_consequence": {
+   "measured_class_c": 0,
+   "shadowed": 0,
+   "refuses_by_design": 6,
+   "quadruple_negative_candidates": 3,
+   "undo_stranded": 0,
+   "of": 31
+  }
+ },
+ "rows": [
+  {
+   "verb": "wall.addLayerBatch",
+   "kind": "update",
+   "handler": {
+    "file": "plugins/wall/src/handlers/AddWallLayerBatch.ts:69",
+    "all_sites": [
+     "plugins/wall/src/handlers/AddWallLayerBatch.ts:69"
+    ],
+    "site_count": 1,
+    "layer": "L6 plugin",
+    "registered_where": "plugins/wall",
+    "liveness_per_register": "LIVE"
+   },
+   "contract": {
+    "validates_before_mutation": true,
+    "typed_DomainError_or_refusal": true,
+    "mutates_only_via_immer_draft": false,
+    "affectedStores_declared": true,
+    "declared_stores": [],
+    "storeKey_matches_ctx_stores": "no store declared",
+    "no_store_singleton_import": true,
+    "withHandlerSpan": true,
+    "emits_a_typed_domain_event": false,
+    "geometry_deferred_to_FrameScheduler": false,
+    "caveat": "REGEX OVER THE HANDLER DECLARATION SLICE, class (a). TRUE means the token is present in the slice, NOT that it runs on the mutation path. FALSE is the stronger reading: the token is absent, so the clause cannot be satisfied."
+   },
+   "must_nots": {
+    "no_commandManager_execute": true,
+    "no_cascading_dispatch": true,
+    "no_window_dispatchEvent": false,
+    "no_DOM_access": false,
+    "no_direct_rAF": true,
+    "caveat": "same slice-regex caveat. no_DOM_access counts any document. / window. token including type-only casts, so a FALSE here is a candidate, not a conviction."
+   },
+   "mirror": {
+    "channel": "NO CommandEventBridge case",
+    "CEB_case_present": false,
+    "in_ELEMENT_UPDATE_VERBS": false,
+    "in_LEVEL_CHANGE_VERBS": false,
+    "table_driven_not_a_case_block": "n/a - no mirror at all",
+    "evidence_class": "a - grep over CommandEventBridge.ts (38 strict case labels) and the two verb tables (LEVEL_CHANGE_VERBS 12, ELEMENT_UPDATE_VERBS 10). Per the P0 constraint I do NOT write \"the mirror gate is green therefore this verb mirrors\"."
+   },
+   "payload": {
+    "field_names_match_live_caller": null,
+    "id_pre_generated_by_caller": null,
+    "note": "NOT MEASURED PER VERB at this scale. The three measured cases are in _ROLLUPS.json payload_defects (slab.create boundary-vs-polygon, roof.create id minting, column.batch.create id-less members) and all three were re-proven by MY executed run of CommittedPatchReachesTheStore.test.ts, RC=0."
+   },
+   "undo": {
+    "unit_registered": "legacy-stack (no affectedStores)",
+    "backend": "B-legacy-commandManager",
+    "backend_note": "legacy-stack (no affectedStores)",
+    "reverts_geometry": "UNPROVEN",
+    "evidence_class": "a - declared shape plus a key-set comparison against buildUndoStoreMap(). The register itself says of this column: \"Declared shape, not an executed proof.\""
+   },
+   "batch": {
+    "mode": "atomic-or-unreported",
+    "reports_completed_and_failed": false,
+    "reports_notAttempted": false,
+    "reports_undoUnits": false
+   },
+   "readback": {
+    "proven": "NO",
+    "evidence_class": "a",
+    "note": "1 test file(s) name this verb; none of them both composes the real runtime and reads a store."
+   },
+   "rival_dispatch": {
+    "handler_internal": [
+     "the HANDLER ITSELF calls dispatchEvent"
+    ],
+    "family_named_commandManager_sites": 27,
+    "family_named_windowDispatchEvent_sites": 21,
+    "sample_commandManager": [
+     "apps/editor/src/engine/initTools.ts:897:        // instead of commandManager.execute(CreateWallCommand).",
+     "apps/editor/src/engine/initTools.ts:1248:            // when WallTool's legacy `commandManager.execute(CreateWallCommand)`",
+     "packages/ai-host/src/WallTerminatorDoorDetector.ts:6: *  - NEVER mutates stores. NEVER calls builders. NEVER calls commandManager.execute().",
+     "packages/command-registry/src/curtainwall/ReplacePanelTypeCommand.ts:12: *   commandManager.execute(ReplacePanelTypeCommand)"
+    ],
+    "sample_windowDispatchEvent": [
+     "packages/command-registry/src/curtainwall/CreateCurtainWallCommand.ts:17: *   Gated window.dispatchEvent('bim-curtainwall-added') behind batchCoordinator.isBatching.",
+     "packages/command-registry/src/curtainwall/CreateCurtainWallsOnAllSlabsCommand.ts:1154:        // NOTE: window.dispatchEvent is a C11 §5.3 known gap (system-wide, 131 sites),",
+     "packages/geometry-curtain-wall/src/CurtainWallBuilder.ts:568:     * event falls through to a direct `window.dispatchEvent` so we never"
+    ],
+    "caveat": "family_named_* is a NAME match over the two site files, not a resolved dispatch graph. 27 of the 227 commandManager.execute sites pass a VARIABLE (cmd/command/step) and cannot be resolved by name at all. See _ROLLUPS.json rival_dispatch."
+   },
+   "ladder": {
+    "AUTHORED": "YES",
+    "REACHABLE": "YES (register: LIVE)",
+    "COMPOSABLE": "UNPROVEN",
+    "CERTIFIED": "NO"
+   },
+   "findings": [],
+   "dispatch_reachability": {
+    "literal_dispatch_sites_outside_own_handler": 0,
+    "sites": [],
+    "method": "verb literal inside a 400-char window around executeCommand( / dispatch( / .execute( / runBatch( across 5120 production .ts/.tsx files under apps/ packages/ plugins/ (node_modules, dist, __tests__/, *.test.*, *.spec.*, *.d.ts excluded).",
+    "NON_BLIND": "This probe carries a POSITIVE CONTROL that fires: wall.batch.create = 5 sites. It also independently reproduces the two negatives asserted by DoorBatchCreateLiveness.probe.test.ts and WindowBatchCreateLiveness.probe.test.ts, both of which I EXECUTED at RC=0 (door.batch.create 0, window.batch.create 0). Evidence class (b) for this column.",
+    "CALIBRATED_FALSE_ZERO_RATE": "A zero is NOT proof of unreachability. Table-driven and variable dispatch is invisible to a literal scan. MEASURED: 9 of the 22 verbs for which I hold a class-(c) POSITIVE read-back are in the zero set (bathroomPod.delete, door.batch.create, roof.setOverhang, roof.setPitch, roof.setShape, selection.deselect, slab.addHole, slab.setThickness, window.batch.create) = a 41% false-zero rate among verbs known to work. Read a zero as UNPROVEN-DISPATCH, never as ABSENT."
+   },
+   "consequence": {
+    "verdict": "UNDETERMINED",
+    "undo_has_no_consequence": "no (or undetermined)"
+   }
+  },
+  {
+   "verb": "wall.batch.create",
+   "kind": "batch.create",
+   "handler": {
+    "file": "plugins/wall/src/handlers/CreateWallBatch.ts:57",
+    "all_sites": [
+     "plugins/wall/src/handlers/CreateWallBatch.ts:57"
+    ],
+    "site_count": 1,
+    "layer": "L6 plugin",
+    "registered_where": "plugins/wall",
+    "liveness_per_register": "UNKNOWN"
+   },
+   "contract": {
+    "validates_before_mutation": true,
+    "typed_DomainError_or_refusal": false,
+    "mutates_only_via_immer_draft": true,
+    "affectedStores_declared": true,
+    "declared_stores": [
+     "wall"
+    ],
+    "storeKey_matches_ctx_stores": "declared: wall - NOT resolved against the composed ctx.stores in this phase except where readback is class (c)",
+    "no_store_singleton_import": true,
+    "withHandlerSpan": true,
+    "emits_a_typed_domain_event": false,
+    "geometry_deferred_to_FrameScheduler": false,
+    "caveat": "REGEX OVER THE HANDLER DECLARATION SLICE, class (a). TRUE means the token is present in the slice, NOT that it runs on the mutation path. FALSE is the stronger reading: the token is absent, so the clause cannot be satisfied."
+   },
+   "must_nots": {
+    "no_commandManager_execute": true,
+    "no_cascading_dispatch": true,
+    "no_window_dispatchEvent": true,
+    "no_DOM_access": true,
+    "no_direct_rAF": true,
+    "caveat": "same slice-regex caveat. no_DOM_access counts any document. / window. token including type-only casts, so a FALSE here is a candidate, not a conviction."
+   },
+   "mirror": {
+    "channel": "CommandEventBridge switch case PRESENT",
+    "CEB_case_present": true,
+    "in_ELEMENT_UPDATE_VERBS": false,
+    "in_LEVEL_CHANGE_VERBS": false,
+    "table_driven_not_a_case_block": "HAND-WRITTEN CASE BLOCK (38 of them)",
+    "evidence_class": "a - grep over CommandEventBridge.ts (38 strict case labels) and the two verb tables (LEVEL_CHANGE_VERBS 12, ELEMENT_UPDATE_VERBS 10). Per the P0 constraint I do NOT write \"the mirror gate is green therefore this verb mirrors\"."
+   },
+   "payload": {
+    "field_names_match_live_caller": null,
+    "id_pre_generated_by_caller": null,
+    "note": "NOT MEASURED PER VERB at this scale. The three measured cases are in _ROLLUPS.json payload_defects (slab.create boundary-vs-polygon, roof.create id minting, column.batch.create id-less members) and all three were re-proven by MY executed run of CommittedPatchReachesTheStore.test.ts, RC=0."
+   },
+   "undo": {
+    "unit_registered": "patch-pair → wall",
+    "backend": "A-ring-buffer(patch-pair)",
+    "backend_note": "all 1 declared store key(s) are covered by buildUndoStoreMap()",
+    "reverts_geometry": "UNPROVEN",
+    "evidence_class": "a - declared shape plus a key-set comparison against buildUndoStoreMap(). The register itself says of this column: \"Declared shape, not an executed proof.\""
+   },
+   "batch": {
+    "mode": "atomic-or-unreported",
+    "reports_completed_and_failed": false,
+    "reports_notAttempted": false,
+    "reports_undoUnits": false
+   },
+   "readback": {
+    "proven": "NO",
+    "evidence_class": "a",
+    "note": "7 test file(s) name this verb; none of them both composes the real runtime and reads a store."
+   },
+   "rival_dispatch": {
+    "handler_internal": [],
+    "family_named_commandManager_sites": 27,
+    "family_named_windowDispatchEvent_sites": 21,
+    "sample_commandManager": [
+     "apps/editor/src/engine/initTools.ts:897:        // instead of commandManager.execute(CreateWallCommand).",
+     "apps/editor/src/engine/initTools.ts:1248:            // when WallTool's legacy `commandManager.execute(CreateWallCommand)`",
+     "packages/ai-host/src/WallTerminatorDoorDetector.ts:6: *  - NEVER mutates stores. NEVER calls builders. NEVER calls commandManager.execute().",
+     "packages/command-registry/src/curtainwall/ReplacePanelTypeCommand.ts:12: *   commandManager.execute(ReplacePanelTypeCommand)"
+    ],
+    "sample_windowDispatchEvent": [
+     "packages/command-registry/src/curtainwall/CreateCurtainWallCommand.ts:17: *   Gated window.dispatchEvent('bim-curtainwall-added') behind batchCoordinator.isBatching.",
+     "packages/command-registry/src/curtainwall/CreateCurtainWallsOnAllSlabsCommand.ts:1154:        // NOTE: window.dispatchEvent is a C11 §5.3 known gap (system-wide, 131 sites),",
+     "packages/geometry-curtain-wall/src/CurtainWallBuilder.ts:568:     * event falls through to a direct `window.dispatchEvent` so we never"
+    ],
+    "caveat": "family_named_* is a NAME match over the two site files, not a resolved dispatch graph. 27 of the 227 commandManager.execute sites pass a VARIABLE (cmd/command/step) and cannot be resolved by name at all. See _ROLLUPS.json rival_dispatch."
+   },
+   "ladder": {
+    "AUTHORED": "YES",
+    "REACHABLE": "UNPROVEN (register: UNKNOWN - a lone plugin produceCommand handler)",
+    "COMPOSABLE": "UNPROVEN",
+    "CERTIFIED": "NO"
+   },
+   "findings": [],
+   "dispatch_reachability": {
+    "literal_dispatch_sites_outside_own_handler": 5,
+    "sites": [
+     "apps/editor/src/ui/house-layout/HouseLayoutExecutor.ts",
+     "apps/editor/src/ui/office-building/OfficeBuildingExecutor.ts",
+     "apps/editor/src/ui/residential-building/ResidentialBuildingExecutor.ts",
+     "packages/command-registry/src/walls/CreateWallsFromSlabCommand.ts",
+     "packages/command-registry/src/walls/CreateWallsOnAllSlabsCommand.ts"
+    ],
+    "method": "verb literal inside a 400-char window around executeCommand( / dispatch( / .execute( / runBatch( across 5120 production .ts/.tsx files under apps/ packages/ plugins/ (node_modules, dist, __tests__/, *.test.*, *.spec.*, *.d.ts excluded).",
+    "NON_BLIND": "This probe carries a POSITIVE CONTROL that fires: wall.batch.create = 5 sites. It also independently reproduces the two negatives asserted by DoorBatchCreateLiveness.probe.test.ts and WindowBatchCreateLiveness.probe.test.ts, both of which I EXECUTED at RC=0 (door.batch.create 0, window.batch.create 0). Evidence class (b) for this column.",
+    "CALIBRATED_FALSE_ZERO_RATE": "A zero is NOT proof of unreachability. Table-driven and variable dispatch is invisible to a literal scan. MEASURED: 9 of the 22 verbs for which I hold a class-(c) POSITIVE read-back are in the zero set (bathroomPod.delete, door.batch.create, roof.setOverhang, roof.setPitch, roof.setShape, selection.deselect, slab.addHole, slab.setThickness, window.batch.create) = a 41% false-zero rate among verbs known to work. Read a zero as UNPROVEN-DISPATCH, never as ABSENT."
+   },
+   "consequence": {
+    "verdict": "UNDETERMINED",
+    "undo_has_no_consequence": "no (or undetermined)"
+   }
+  },
+  {
+   "verb": "wall.bulkSetVisuals",
+   "kind": "other",
+   "handler": {
+    "file": "plugins/wall/src/handlers/BulkSetWallVisuals.ts:80",
+    "all_sites": [
+     "plugins/wall/src/handlers/BulkSetWallVisuals.ts:80"
+    ],
+    "site_count": 1,
+    "layer": "L6 plugin",
+    "registered_where": "plugins/wall",
+    "liveness_per_register": "REFUSES"
+   },
+   "contract": {
+    "validates_before_mutation": true,
+    "typed_DomainError_or_refusal": false,
+    "mutates_only_via_immer_draft": true,
+    "affectedStores_declared": true,
+    "declared_stores": [
+     "wall"
+    ],
+    "storeKey_matches_ctx_stores": "declared: wall - NOT resolved against the composed ctx.stores in this phase except where readback is class (c)",
+    "no_store_singleton_import": true,
+    "withHandlerSpan": true,
+    "emits_a_typed_domain_event": false,
+    "geometry_deferred_to_FrameScheduler": false,
+    "caveat": "REGEX OVER THE HANDLER DECLARATION SLICE, class (a). TRUE means the token is present in the slice, NOT that it runs on the mutation path. FALSE is the stronger reading: the token is absent, so the clause cannot be satisfied."
+   },
+   "must_nots": {
+    "no_commandManager_execute": true,
+    "no_cascading_dispatch": true,
+    "no_window_dispatchEvent": true,
+    "no_DOM_access": true,
+    "no_direct_rAF": true,
+    "caveat": "same slice-regex caveat. no_DOM_access counts any document. / window. token including type-only casts, so a FALSE here is a candidate, not a conviction."
+   },
+   "mirror": {
+    "channel": "NO CommandEventBridge case",
+    "CEB_case_present": false,
+    "in_ELEMENT_UPDATE_VERBS": false,
+    "in_LEVEL_CHANGE_VERBS": false,
+    "table_driven_not_a_case_block": "n/a - no mirror at all",
+    "evidence_class": "a - grep over CommandEventBridge.ts (38 strict case labels) and the two verb tables (LEVEL_CHANGE_VERBS 12, ELEMENT_UPDATE_VERBS 10). Per the P0 constraint I do NOT write \"the mirror gate is green therefore this verb mirrors\"."
+   },
+   "payload": {
+    "field_names_match_live_caller": null,
+    "id_pre_generated_by_caller": null,
+    "note": "NOT MEASURED PER VERB at this scale. The three measured cases are in _ROLLUPS.json payload_defects (slab.create boundary-vs-polygon, roof.create id minting, column.batch.create id-less members) and all three were re-proven by MY executed run of CommittedPatchReachesTheStore.test.ts, RC=0."
+   },
+   "undo": {
+    "unit_registered": "patch-pair → wall",
+    "backend": "A-ring-buffer(patch-pair)",
+    "backend_note": "all 1 declared store key(s) are covered by buildUndoStoreMap()",
+    "reverts_geometry": "UNPROVEN",
+    "evidence_class": "a - declared shape plus a key-set comparison against buildUndoStoreMap(). The register itself says of this column: \"Declared shape, not an executed proof.\""
+   },
+   "batch": {
+    "mode": "none"
+   },
+   "readback": {
+    "proven": "NO",
+    "evidence_class": "a",
+    "note": "2 test file(s) name this verb; none of them both composes the real runtime and reads a store."
+   },
+   "rival_dispatch": {
+    "handler_internal": [],
+    "family_named_commandManager_sites": 27,
+    "family_named_windowDispatchEvent_sites": 21,
+    "sample_commandManager": [
+     "apps/editor/src/engine/initTools.ts:897:        // instead of commandManager.execute(CreateWallCommand).",
+     "apps/editor/src/engine/initTools.ts:1248:            // when WallTool's legacy `commandManager.execute(CreateWallCommand)`",
+     "packages/ai-host/src/WallTerminatorDoorDetector.ts:6: *  - NEVER mutates stores. NEVER calls builders. NEVER calls commandManager.execute().",
+     "packages/command-registry/src/curtainwall/ReplacePanelTypeCommand.ts:12: *   commandManager.execute(ReplacePanelTypeCommand)"
+    ],
+    "sample_windowDispatchEvent": [
+     "packages/command-registry/src/curtainwall/CreateCurtainWallCommand.ts:17: *   Gated window.dispatchEvent('bim-curtainwall-added') behind batchCoordinator.isBatching.",
+     "packages/command-registry/src/curtainwall/CreateCurtainWallsOnAllSlabsCommand.ts:1154:        // NOTE: window.dispatchEvent is a C11 §5.3 known gap (system-wide, 131 sites),",
+     "packages/geometry-curtain-wall/src/CurtainWallBuilder.ts:568:     * event falls through to a direct `window.dispatchEvent` so we never"
+    ],
+    "caveat": "family_named_* is a NAME match over the two site files, not a resolved dispatch graph. 27 of the 227 commandManager.execute sites pass a VARIABLE (cmd/command/step) and cannot be resolved by name at all. See _ROLLUPS.json rival_dispatch."
+   },
+   "ladder": {
+    "AUTHORED": "YES",
+    "REACHABLE": "REFUSES IN THE OPEN (registered, answers that it will not act)",
+    "COMPOSABLE": "UNPROVEN",
+    "CERTIFIED": "NO"
+   },
+   "findings": [],
+   "dispatch_reachability": {
+    "literal_dispatch_sites_outside_own_handler": 0,
+    "sites": [],
+    "method": "verb literal inside a 400-char window around executeCommand( / dispatch( / .execute( / runBatch( across 5120 production .ts/.tsx files under apps/ packages/ plugins/ (node_modules, dist, __tests__/, *.test.*, *.spec.*, *.d.ts excluded).",
+    "NON_BLIND": "This probe carries a POSITIVE CONTROL that fires: wall.batch.create = 5 sites. It also independently reproduces the two negatives asserted by DoorBatchCreateLiveness.probe.test.ts and WindowBatchCreateLiveness.probe.test.ts, both of which I EXECUTED at RC=0 (door.batch.create 0, window.batch.create 0). Evidence class (b) for this column.",
+    "CALIBRATED_FALSE_ZERO_RATE": "A zero is NOT proof of unreachability. Table-driven and variable dispatch is invisible to a literal scan. MEASURED: 9 of the 22 verbs for which I hold a class-(c) POSITIVE read-back are in the zero set (bathroomPod.delete, door.batch.create, roof.setOverhang, roof.setPitch, roof.setShape, selection.deselect, slab.addHole, slab.setThickness, window.batch.create) = a 41% false-zero rate among verbs known to work. Read a zero as UNPROVEN-DISPATCH, never as ABSENT."
+   },
+   "consequence": {
+    "verdict": "BY DESIGN NO MUTATION - the verb refuses in the open (this is the honest form, not a defect)",
+    "undo_has_no_consequence": "no (or undetermined)"
+   }
+  },
+  {
+   "verb": "wall.cascadeBaseline",
+   "kind": "other",
+   "handler": {
+    "file": "plugins/wall/src/handlers/CascadeWallBaseline.ts:33",
+    "all_sites": [
+     "plugins/wall/src/handlers/CascadeWallBaseline.ts:33"
+    ],
+    "site_count": 1,
+    "layer": "L6 plugin",
+    "registered_where": "plugins/wall",
+    "liveness_per_register": "LIVE"
+   },
+   "contract": {
+    "validates_before_mutation": true,
+    "typed_DomainError_or_refusal": false,
+    "mutates_only_via_immer_draft": false,
+    "affectedStores_declared": true,
+    "declared_stores": [],
+    "storeKey_matches_ctx_stores": "no store declared",
+    "no_store_singleton_import": true,
+    "withHandlerSpan": true,
+    "emits_a_typed_domain_event": false,
+    "geometry_deferred_to_FrameScheduler": false,
+    "caveat": "REGEX OVER THE HANDLER DECLARATION SLICE, class (a). TRUE means the token is present in the slice, NOT that it runs on the mutation path. FALSE is the stronger reading: the token is absent, so the clause cannot be satisfied."
+   },
+   "must_nots": {
+    "no_commandManager_execute": true,
+    "no_cascading_dispatch": true,
+    "no_window_dispatchEvent": true,
+    "no_DOM_access": false,
+    "no_direct_rAF": true,
+    "caveat": "same slice-regex caveat. no_DOM_access counts any document. / window. token including type-only casts, so a FALSE here is a candidate, not a conviction."
+   },
+   "mirror": {
+    "channel": "NO CommandEventBridge case",
+    "CEB_case_present": false,
+    "in_ELEMENT_UPDATE_VERBS": false,
+    "in_LEVEL_CHANGE_VERBS": false,
+    "table_driven_not_a_case_block": "n/a - no mirror at all",
+    "evidence_class": "a - grep over CommandEventBridge.ts (38 strict case labels) and the two verb tables (LEVEL_CHANGE_VERBS 12, ELEMENT_UPDATE_VERBS 10). Per the P0 constraint I do NOT write \"the mirror gate is green therefore this verb mirrors\"."
+   },
+   "payload": {
+    "field_names_match_live_caller": null,
+    "id_pre_generated_by_caller": null,
+    "note": "NOT MEASURED PER VERB at this scale. The three measured cases are in _ROLLUPS.json payload_defects (slab.create boundary-vs-polygon, roof.create id minting, column.batch.create id-less members) and all three were re-proven by MY executed run of CommittedPatchReachesTheStore.test.ts, RC=0."
+   },
+   "undo": {
+    "unit_registered": "legacy-stack (no affectedStores)",
+    "backend": "B-legacy-commandManager",
+    "backend_note": "legacy-stack (no affectedStores)",
+    "reverts_geometry": "UNPROVEN",
+    "evidence_class": "a - declared shape plus a key-set comparison against buildUndoStoreMap(). The register itself says of this column: \"Declared shape, not an executed proof.\""
+   },
+   "batch": {
+    "mode": "none"
+   },
+   "readback": {
+    "proven": "NO",
+    "evidence_class": "a",
+    "note": "ZERO test files under apps/ packages/ plugins/ tools/ name this verb literal alongside an executeCommand/.execute call. Absence measured by _tools/readback2.mjs over every *.test.ts / *.spec.ts in those four roots, node_modules excluded."
+   },
+   "rival_dispatch": {
+    "handler_internal": [],
+    "family_named_commandManager_sites": 27,
+    "family_named_windowDispatchEvent_sites": 21,
+    "sample_commandManager": [
+     "apps/editor/src/engine/initTools.ts:897:        // instead of commandManager.execute(CreateWallCommand).",
+     "apps/editor/src/engine/initTools.ts:1248:            // when WallTool's legacy `commandManager.execute(CreateWallCommand)`",
+     "packages/ai-host/src/WallTerminatorDoorDetector.ts:6: *  - NEVER mutates stores. NEVER calls builders. NEVER calls commandManager.execute().",
+     "packages/command-registry/src/curtainwall/ReplacePanelTypeCommand.ts:12: *   commandManager.execute(ReplacePanelTypeCommand)"
+    ],
+    "sample_windowDispatchEvent": [
+     "packages/command-registry/src/curtainwall/CreateCurtainWallCommand.ts:17: *   Gated window.dispatchEvent('bim-curtainwall-added') behind batchCoordinator.isBatching.",
+     "packages/command-registry/src/curtainwall/CreateCurtainWallsOnAllSlabsCommand.ts:1154:        // NOTE: window.dispatchEvent is a C11 §5.3 known gap (system-wide, 131 sites),",
+     "packages/geometry-curtain-wall/src/CurtainWallBuilder.ts:568:     * event falls through to a direct `window.dispatchEvent` so we never"
+    ],
+    "caveat": "family_named_* is a NAME match over the two site files, not a resolved dispatch graph. 27 of the 227 commandManager.execute sites pass a VARIABLE (cmd/command/step) and cannot be resolved by name at all. See _ROLLUPS.json rival_dispatch."
+   },
+   "ladder": {
+    "AUTHORED": "YES",
+    "REACHABLE": "YES (register: LIVE)",
+    "COMPOSABLE": "UNPROVEN",
+    "CERTIFIED": "NO"
+   },
+   "findings": [],
+   "dispatch_reachability": {
+    "literal_dispatch_sites_outside_own_handler": 1,
+    "sites": [
+     "apps/editor/src/engine/views/plantools/MovePlanToolHandler.ts"
+    ],
+    "method": "verb literal inside a 400-char window around executeCommand( / dispatch( / .execute( / runBatch( across 5120 production .ts/.tsx files under apps/ packages/ plugins/ (node_modules, dist, __tests__/, *.test.*, *.spec.*, *.d.ts excluded).",
+    "NON_BLIND": "This probe carries a POSITIVE CONTROL that fires: wall.batch.create = 5 sites. It also independently reproduces the two negatives asserted by DoorBatchCreateLiveness.probe.test.ts and WindowBatchCreateLiveness.probe.test.ts, both of which I EXECUTED at RC=0 (door.batch.create 0, window.batch.create 0). Evidence class (b) for this column.",
+    "CALIBRATED_FALSE_ZERO_RATE": "A zero is NOT proof of unreachability. Table-driven and variable dispatch is invisible to a literal scan. MEASURED: 9 of the 22 verbs for which I hold a class-(c) POSITIVE read-back are in the zero set (bathroomPod.delete, door.batch.create, roof.setOverhang, roof.setPitch, roof.setShape, selection.deselect, slab.addHole, slab.setThickness, window.batch.create) = a 41% false-zero rate among verbs known to work. Read a zero as UNPROVEN-DISPATCH, never as ABSENT."
+   },
+   "consequence": {
+    "verdict": "UNDETERMINED",
+    "undo_has_no_consequence": "no (or undetermined)"
+   }
+  },
+  {
+   "verb": "wall.changeLevel",
+   "kind": "move",
+   "handler": {
+    "file": "plugins/wall/src/handlers/ChangeWallLevel.ts:36",
+    "all_sites": [
+     "plugins/wall/src/handlers/ChangeWallLevel.ts:36"
+    ],
+    "site_count": 1,
+    "layer": "L6 plugin",
+    "registered_where": "plugins/wall",
+    "liveness_per_register": "LIVE"
+   },
+   "contract": {
+    "validates_before_mutation": true,
+    "typed_DomainError_or_refusal": false,
+    "mutates_only_via_immer_draft": true,
+    "affectedStores_declared": true,
+    "declared_stores": [
+     "wall"
+    ],
+    "storeKey_matches_ctx_stores": "declared: wall - NOT resolved against the composed ctx.stores in this phase except where readback is class (c)",
+    "no_store_singleton_import": true,
+    "withHandlerSpan": true,
+    "emits_a_typed_domain_event": false,
+    "geometry_deferred_to_FrameScheduler": false,
+    "caveat": "REGEX OVER THE HANDLER DECLARATION SLICE, class (a). TRUE means the token is present in the slice, NOT that it runs on the mutation path. FALSE is the stronger reading: the token is absent, so the clause cannot be satisfied."
+   },
+   "must_nots": {
+    "no_commandManager_execute": true,
+    "no_cascading_dispatch": true,
+    "no_window_dispatchEvent": true,
+    "no_DOM_access": true,
+    "no_direct_rAF": true,
+    "caveat": "same slice-regex caveat. no_DOM_access counts any document. / window. token including type-only casts, so a FALSE here is a candidate, not a conviction."
+   },
+   "mirror": {
+    "channel": "NO CommandEventBridge case",
+    "CEB_case_present": false,
+    "in_ELEMENT_UPDATE_VERBS": false,
+    "in_LEVEL_CHANGE_VERBS": true,
+    "table_driven_not_a_case_block": "TABLE-DRIVEN",
+    "evidence_class": "a - grep over CommandEventBridge.ts (38 strict case labels) and the two verb tables (LEVEL_CHANGE_VERBS 12, ELEMENT_UPDATE_VERBS 10). Per the P0 constraint I do NOT write \"the mirror gate is green therefore this verb mirrors\"."
+   },
+   "payload": {
+    "field_names_match_live_caller": null,
+    "id_pre_generated_by_caller": null,
+    "note": "NOT MEASURED PER VERB at this scale. The three measured cases are in _ROLLUPS.json payload_defects (slab.create boundary-vs-polygon, roof.create id minting, column.batch.create id-less members) and all three were re-proven by MY executed run of CommittedPatchReachesTheStore.test.ts, RC=0."
+   },
+   "undo": {
+    "unit_registered": "patch-pair → wall",
+    "backend": "A-ring-buffer(patch-pair)",
+    "backend_note": "all 1 declared store key(s) are covered by buildUndoStoreMap()",
+    "reverts_geometry": "UNPROVEN",
+    "evidence_class": "a - declared shape plus a key-set comparison against buildUndoStoreMap(). The register itself says of this column: \"Declared shape, not an executed proof.\""
+   },
+   "batch": {
+    "mode": "none"
+   },
+   "readback": {
+    "proven": "NO",
+    "evidence_class": "a",
+    "note": "2 test file(s) name this verb; none of them both composes the real runtime and reads a store."
+   },
+   "rival_dispatch": {
+    "handler_internal": [],
+    "family_named_commandManager_sites": 27,
+    "family_named_windowDispatchEvent_sites": 21,
+    "sample_commandManager": [
+     "apps/editor/src/engine/initTools.ts:897:        // instead of commandManager.execute(CreateWallCommand).",
+     "apps/editor/src/engine/initTools.ts:1248:            // when WallTool's legacy `commandManager.execute(CreateWallCommand)`",
+     "packages/ai-host/src/WallTerminatorDoorDetector.ts:6: *  - NEVER mutates stores. NEVER calls builders. NEVER calls commandManager.execute().",
+     "packages/command-registry/src/curtainwall/ReplacePanelTypeCommand.ts:12: *   commandManager.execute(ReplacePanelTypeCommand)"
+    ],
+    "sample_windowDispatchEvent": [
+     "packages/command-registry/src/curtainwall/CreateCurtainWallCommand.ts:17: *   Gated window.dispatchEvent('bim-curtainwall-added') behind batchCoordinator.isBatching.",
+     "packages/command-registry/src/curtainwall/CreateCurtainWallsOnAllSlabsCommand.ts:1154:        // NOTE: window.dispatchEvent is a C11 §5.3 known gap (system-wide, 131 sites),",
+     "packages/geometry-curtain-wall/src/CurtainWallBuilder.ts:568:     * event falls through to a direct `window.dispatchEvent` so we never"
+    ],
+    "caveat": "family_named_* is a NAME match over the two site files, not a resolved dispatch graph. 27 of the 227 commandManager.execute sites pass a VARIABLE (cmd/command/step) and cannot be resolved by name at all. See _ROLLUPS.json rival_dispatch."
+   },
+   "ladder": {
+    "AUTHORED": "YES",
+    "REACHABLE": "YES (register: LIVE)",
+    "COMPOSABLE": "UNPROVEN",
+    "CERTIFIED": "NO"
+   },
+   "findings": [],
+   "dispatch_reachability": {
+    "literal_dispatch_sites_outside_own_handler": 0,
+    "sites": [],
+    "method": "verb literal inside a 400-char window around executeCommand( / dispatch( / .execute( / runBatch( across 5120 production .ts/.tsx files under apps/ packages/ plugins/ (node_modules, dist, __tests__/, *.test.*, *.spec.*, *.d.ts excluded).",
+    "NON_BLIND": "This probe carries a POSITIVE CONTROL that fires: wall.batch.create = 5 sites. It also independently reproduces the two negatives asserted by DoorBatchCreateLiveness.probe.test.ts and WindowBatchCreateLiveness.probe.test.ts, both of which I EXECUTED at RC=0 (door.batch.create 0, window.batch.create 0). Evidence class (b) for this column.",
+    "CALIBRATED_FALSE_ZERO_RATE": "A zero is NOT proof of unreachability. Table-driven and variable dispatch is invisible to a literal scan. MEASURED: 9 of the 22 verbs for which I hold a class-(c) POSITIVE read-back are in the zero set (bathroomPod.delete, door.batch.create, roof.setOverhang, roof.setPitch, roof.setShape, selection.deselect, slab.addHole, slab.setThickness, window.batch.create) = a 41% false-zero rate among verbs known to work. Read a zero as UNPROVEN-DISPATCH, never as ABSENT."
+   },
+   "consequence": {
+    "verdict": "UNDETERMINED",
+    "undo_has_no_consequence": "no (or undetermined)"
+   }
+  },
+  {
+   "verb": "wall.create",
+   "kind": "create",
+   "handler": {
+    "file": "plugins/wall/src/handlers/CreateWall.ts:164",
+    "all_sites": [
+     "plugins/wall/src/handlers/CreateWall.ts:164"
+    ],
+    "site_count": 1,
+    "layer": "L6 plugin",
+    "registered_where": "plugins/wall",
+    "liveness_per_register": "UNKNOWN"
+   },
+   "contract": {
+    "validates_before_mutation": true,
+    "typed_DomainError_or_refusal": false,
+    "mutates_only_via_immer_draft": true,
+    "affectedStores_declared": true,
+    "declared_stores": [
+     "wall"
+    ],
+    "storeKey_matches_ctx_stores": "declared: wall - NOT resolved against the composed ctx.stores in this phase except where readback is class (c)",
+    "no_store_singleton_import": true,
+    "withHandlerSpan": true,
+    "emits_a_typed_domain_event": false,
+    "geometry_deferred_to_FrameScheduler": false,
+    "caveat": "REGEX OVER THE HANDLER DECLARATION SLICE, class (a). TRUE means the token is present in the slice, NOT that it runs on the mutation path. FALSE is the stronger reading: the token is absent, so the clause cannot be satisfied."
+   },
+   "must_nots": {
+    "no_commandManager_execute": true,
+    "no_cascading_dispatch": true,
+    "no_window_dispatchEvent": true,
+    "no_DOM_access": true,
+    "no_direct_rAF": true,
+    "caveat": "same slice-regex caveat. no_DOM_access counts any document. / window. token including type-only casts, so a FALSE here is a candidate, not a conviction."
+   },
+   "mirror": {
+    "channel": "CommandEventBridge switch case PRESENT",
+    "CEB_case_present": true,
+    "in_ELEMENT_UPDATE_VERBS": false,
+    "in_LEVEL_CHANGE_VERBS": false,
+    "table_driven_not_a_case_block": "HAND-WRITTEN CASE BLOCK (38 of them)",
+    "evidence_class": "a - grep over CommandEventBridge.ts (38 strict case labels) and the two verb tables (LEVEL_CHANGE_VERBS 12, ELEMENT_UPDATE_VERBS 10). Per the P0 constraint I do NOT write \"the mirror gate is green therefore this verb mirrors\"."
+   },
+   "payload": {
+    "field_names_match_live_caller": null,
+    "id_pre_generated_by_caller": null,
+    "note": "NOT MEASURED PER VERB at this scale. The three measured cases are in _ROLLUPS.json payload_defects (slab.create boundary-vs-polygon, roof.create id minting, column.batch.create id-less members) and all three were re-proven by MY executed run of CommittedPatchReachesTheStore.test.ts, RC=0."
+   },
+   "undo": {
+    "unit_registered": "patch-pair → wall",
+    "backend": "A-ring-buffer(patch-pair)",
+    "backend_note": "all 1 declared store key(s) are covered by buildUndoStoreMap()",
+    "reverts_geometry": "UNPROVEN",
+    "evidence_class": "a - declared shape plus a key-set comparison against buildUndoStoreMap(). The register itself says of this column: \"Declared shape, not an executed proof.\""
+   },
+   "batch": {
+    "mode": "none"
+   },
+   "readback": {
+    "proven": "YES-POSITIVE",
+    "evidence_class": "c",
+    "against": "the module-singleton WallStore ProjectSerializer reads (identity asserted at :100)",
+    "proof": "apps/editor/__tests__/composedBusElementReadback.test.ts:131 A-3 - dispatch on the REAL composeRuntime() bus, then authoritative('wall').getById(wallId) returns the record with id/levelId/thickness/height/baseLine[1].x all asserted."
+   },
+   "rival_dispatch": {
+    "handler_internal": [],
+    "family_named_commandManager_sites": 27,
+    "family_named_windowDispatchEvent_sites": 21,
+    "sample_commandManager": [
+     "apps/editor/src/engine/initTools.ts:897:        // instead of commandManager.execute(CreateWallCommand).",
+     "apps/editor/src/engine/initTools.ts:1248:            // when WallTool's legacy `commandManager.execute(CreateWallCommand)`",
+     "packages/ai-host/src/WallTerminatorDoorDetector.ts:6: *  - NEVER mutates stores. NEVER calls builders. NEVER calls commandManager.execute().",
+     "packages/command-registry/src/curtainwall/ReplacePanelTypeCommand.ts:12: *   commandManager.execute(ReplacePanelTypeCommand)"
+    ],
+    "sample_windowDispatchEvent": [
+     "packages/command-registry/src/curtainwall/CreateCurtainWallCommand.ts:17: *   Gated window.dispatchEvent('bim-curtainwall-added') behind batchCoordinator.isBatching.",
+     "packages/command-registry/src/curtainwall/CreateCurtainWallsOnAllSlabsCommand.ts:1154:        // NOTE: window.dispatchEvent is a C11 §5.3 known gap (system-wide, 131 sites),",
+     "packages/geometry-curtain-wall/src/CurtainWallBuilder.ts:568:     * event falls through to a direct `window.dispatchEvent` so we never"
+    ],
+    "caveat": "family_named_* is a NAME match over the two site files, not a resolved dispatch graph. 27 of the 227 commandManager.execute sites pass a VARIABLE (cmd/command/step) and cannot be resolved by name at all. See _ROLLUPS.json rival_dispatch."
+   },
+   "ladder": {
+    "AUTHORED": "YES",
+    "REACHABLE": "UNPROVEN (register: UNKNOWN - a lone plugin produceCommand handler)",
+    "COMPOSABLE": "YES - proven on the real composeRuntime() bus",
+    "CERTIFIED": "read-back CERTIFIED at the store. NOT certified at a pixel."
+   },
+   "findings": [],
+   "dispatch_reachability": {
+    "literal_dispatch_sites_outside_own_handler": 12,
+    "sites": [
+     "apps/bench/src/benches/tool-latency.bench.ts",
+     "apps/bench/src/benches/wall-handlers.bench.ts",
+     "apps/editor/src/engine/consequence/ConsequencePreviewService.ts",
+     "apps/editor/src/engine/initTools.ts",
+     "apps/editor/src/engine/preview/PreviewManager.ts",
+     "apps/editor/src/engine/views/plantools/CopyPlanToolHandler.ts"
+    ],
+    "method": "verb literal inside a 400-char window around executeCommand( / dispatch( / .execute( / runBatch( across 5120 production .ts/.tsx files under apps/ packages/ plugins/ (node_modules, dist, __tests__/, *.test.*, *.spec.*, *.d.ts excluded).",
+    "NON_BLIND": "This probe carries a POSITIVE CONTROL that fires: wall.batch.create = 5 sites. It also independently reproduces the two negatives asserted by DoorBatchCreateLiveness.probe.test.ts and WindowBatchCreateLiveness.probe.test.ts, both of which I EXECUTED at RC=0 (door.batch.create 0, window.batch.create 0). Evidence class (b) for this column.",
+    "CALIBRATED_FALSE_ZERO_RATE": "A zero is NOT proof of unreachability. Table-driven and variable dispatch is invisible to a literal scan. MEASURED: 9 of the 22 verbs for which I hold a class-(c) POSITIVE read-back are in the zero set (bathroomPod.delete, door.batch.create, roof.setOverhang, roof.setPitch, roof.setShape, selection.deselect, slab.addHole, slab.setThickness, window.batch.create) = a 41% false-zero rate among verbs known to work. Read a zero as UNPROVEN-DISPATCH, never as ABSENT."
+   },
+   "consequence": {
+    "verdict": "HAS A MEASURED CONSEQUENCE (class c store read-back)",
+    "undo_has_no_consequence": "no (or undetermined)"
+   }
+  },
+  {
+   "verb": "wall.create-on-all-slabs",
+   "kind": "create",
+   "handler": {
+    "file": "plugins/wall/src/handlers/CreateWallsOnAllSlabs.ts:33",
+    "all_sites": [
+     "plugins/wall/src/handlers/CreateWallsOnAllSlabs.ts:33"
+    ],
+    "site_count": 1,
+    "layer": "L6 plugin",
+    "registered_where": "plugins/wall",
+    "liveness_per_register": "LIVE"
+   },
+   "contract": {
+    "validates_before_mutation": true,
+    "typed_DomainError_or_refusal": false,
+    "mutates_only_via_immer_draft": false,
+    "affectedStores_declared": true,
+    "declared_stores": [],
+    "storeKey_matches_ctx_stores": "no store declared",
+    "no_store_singleton_import": true,
+    "withHandlerSpan": true,
+    "emits_a_typed_domain_event": false,
+    "geometry_deferred_to_FrameScheduler": false,
+    "caveat": "REGEX OVER THE HANDLER DECLARATION SLICE, class (a). TRUE means the token is present in the slice, NOT that it runs on the mutation path. FALSE is the stronger reading: the token is absent, so the clause cannot be satisfied."
+   },
+   "must_nots": {
+    "no_commandManager_execute": true,
+    "no_cascading_dispatch": true,
+    "no_window_dispatchEvent": true,
+    "no_DOM_access": false,
+    "no_direct_rAF": true,
+    "caveat": "same slice-regex caveat. no_DOM_access counts any document. / window. token including type-only casts, so a FALSE here is a candidate, not a conviction."
+   },
+   "mirror": {
+    "channel": "NO CommandEventBridge case",
+    "CEB_case_present": false,
+    "in_ELEMENT_UPDATE_VERBS": false,
+    "in_LEVEL_CHANGE_VERBS": false,
+    "table_driven_not_a_case_block": "n/a - no mirror at all",
+    "evidence_class": "a - grep over CommandEventBridge.ts (38 strict case labels) and the two verb tables (LEVEL_CHANGE_VERBS 12, ELEMENT_UPDATE_VERBS 10). Per the P0 constraint I do NOT write \"the mirror gate is green therefore this verb mirrors\"."
+   },
+   "payload": {
+    "field_names_match_live_caller": null,
+    "id_pre_generated_by_caller": null,
+    "note": "NOT MEASURED PER VERB at this scale. The three measured cases are in _ROLLUPS.json payload_defects (slab.create boundary-vs-polygon, roof.create id minting, column.batch.create id-less members) and all three were re-proven by MY executed run of CommittedPatchReachesTheStore.test.ts, RC=0."
+   },
+   "undo": {
+    "unit_registered": "legacy-stack (no affectedStores)",
+    "backend": "B-legacy-commandManager",
+    "backend_note": "legacy-stack (no affectedStores)",
+    "reverts_geometry": "UNPROVEN",
+    "evidence_class": "a - declared shape plus a key-set comparison against buildUndoStoreMap(). The register itself says of this column: \"Declared shape, not an executed proof.\""
+   },
+   "batch": {
+    "mode": "none"
+   },
+   "readback": {
+    "proven": "NO",
+    "evidence_class": "a",
+    "note": "ZERO test files under apps/ packages/ plugins/ tools/ name this verb literal alongside an executeCommand/.execute call. Absence measured by _tools/readback2.mjs over every *.test.ts / *.spec.ts in those four roots, node_modules excluded."
+   },
+   "rival_dispatch": {
+    "handler_internal": [],
+    "family_named_commandManager_sites": 27,
+    "family_named_windowDispatchEvent_sites": 21,
+    "sample_commandManager": [
+     "apps/editor/src/engine/initTools.ts:897:        // instead of commandManager.execute(CreateWallCommand).",
+     "apps/editor/src/engine/initTools.ts:1248:            // when WallTool's legacy `commandManager.execute(CreateWallCommand)`",
+     "packages/ai-host/src/WallTerminatorDoorDetector.ts:6: *  - NEVER mutates stores. NEVER calls builders. NEVER calls commandManager.execute().",
+     "packages/command-registry/src/curtainwall/ReplacePanelTypeCommand.ts:12: *   commandManager.execute(ReplacePanelTypeCommand)"
+    ],
+    "sample_windowDispatchEvent": [
+     "packages/command-registry/src/curtainwall/CreateCurtainWallCommand.ts:17: *   Gated window.dispatchEvent('bim-curtainwall-added') behind batchCoordinator.isBatching.",
+     "packages/command-registry/src/curtainwall/CreateCurtainWallsOnAllSlabsCommand.ts:1154:        // NOTE: window.dispatchEvent is a C11 §5.3 known gap (system-wide, 131 sites),",
+     "packages/geometry-curtain-wall/src/CurtainWallBuilder.ts:568:     * event falls through to a direct `window.dispatchEvent` so we never"
+    ],
+    "caveat": "family_named_* is a NAME match over the two site files, not a resolved dispatch graph. 27 of the 227 commandManager.execute sites pass a VARIABLE (cmd/command/step) and cannot be resolved by name at all. See _ROLLUPS.json rival_dispatch."
+   },
+   "ladder": {
+    "AUTHORED": "YES",
+    "REACHABLE": "YES (register: LIVE)",
+    "COMPOSABLE": "UNPROVEN",
+    "CERTIFIED": "NO"
+   },
+   "findings": [],
+   "dispatch_reachability": {
+    "literal_dispatch_sites_outside_own_handler": 2,
+    "sites": [
+     "apps/editor/src/ui/layout/ToolsAreaLayout.ts",
+     "packages/command-bus/src/commands.ts"
+    ],
+    "method": "verb literal inside a 400-char window around executeCommand( / dispatch( / .execute( / runBatch( across 5120 production .ts/.tsx files under apps/ packages/ plugins/ (node_modules, dist, __tests__/, *.test.*, *.spec.*, *.d.ts excluded).",
+    "NON_BLIND": "This probe carries a POSITIVE CONTROL that fires: wall.batch.create = 5 sites. It also independently reproduces the two negatives asserted by DoorBatchCreateLiveness.probe.test.ts and WindowBatchCreateLiveness.probe.test.ts, both of which I EXECUTED at RC=0 (door.batch.create 0, window.batch.create 0). Evidence class (b) for this column.",
+    "CALIBRATED_FALSE_ZERO_RATE": "A zero is NOT proof of unreachability. Table-driven and variable dispatch is invisible to a literal scan. MEASURED: 9 of the 22 verbs for which I hold a class-(c) POSITIVE read-back are in the zero set (bathroomPod.delete, door.batch.create, roof.setOverhang, roof.setPitch, roof.setShape, selection.deselect, slab.addHole, slab.setThickness, window.batch.create) = a 41% false-zero rate among verbs known to work. Read a zero as UNPROVEN-DISPATCH, never as ABSENT."
+   },
+   "consequence": {
+    "verdict": "UNDETERMINED",
+    "undo_has_no_consequence": "no (or undetermined)"
+   }
+  },
+  {
+   "verb": "wall.createBetweenMarks",
+   "kind": "create",
+   "handler": {
+    "file": "plugins/wall/src/handlers/CreateWallBetweenMarks.ts:62",
+    "all_sites": [
+     "plugins/wall/src/handlers/CreateWallBetweenMarks.ts:62"
+    ],
+    "site_count": 1,
+    "layer": "L6 plugin",
+    "registered_where": "plugins/wall",
+    "liveness_per_register": "UNKNOWN"
+   },
+   "contract": {
+    "validates_before_mutation": true,
+    "typed_DomainError_or_refusal": false,
+    "mutates_only_via_immer_draft": true,
+    "affectedStores_declared": true,
+    "declared_stores": [
+     "wall"
+    ],
+    "storeKey_matches_ctx_stores": "declared: wall - NOT resolved against the composed ctx.stores in this phase except where readback is class (c)",
+    "no_store_singleton_import": true,
+    "withHandlerSpan": true,
+    "emits_a_typed_domain_event": false,
+    "geometry_deferred_to_FrameScheduler": false,
+    "caveat": "REGEX OVER THE HANDLER DECLARATION SLICE, class (a). TRUE means the token is present in the slice, NOT that it runs on the mutation path. FALSE is the stronger reading: the token is absent, so the clause cannot be satisfied."
+   },
+   "must_nots": {
+    "no_commandManager_execute": true,
+    "no_cascading_dispatch": true,
+    "no_window_dispatchEvent": true,
+    "no_DOM_access": true,
+    "no_direct_rAF": true,
+    "caveat": "same slice-regex caveat. no_DOM_access counts any document. / window. token including type-only casts, so a FALSE here is a candidate, not a conviction."
+   },
+   "mirror": {
+    "channel": "NO CommandEventBridge case",
+    "CEB_case_present": false,
+    "in_ELEMENT_UPDATE_VERBS": false,
+    "in_LEVEL_CHANGE_VERBS": false,
+    "table_driven_not_a_case_block": "n/a - no mirror at all",
+    "evidence_class": "a - grep over CommandEventBridge.ts (38 strict case labels) and the two verb tables (LEVEL_CHANGE_VERBS 12, ELEMENT_UPDATE_VERBS 10). Per the P0 constraint I do NOT write \"the mirror gate is green therefore this verb mirrors\"."
+   },
+   "payload": {
+    "field_names_match_live_caller": null,
+    "id_pre_generated_by_caller": null,
+    "note": "NOT MEASURED PER VERB at this scale. The three measured cases are in _ROLLUPS.json payload_defects (slab.create boundary-vs-polygon, roof.create id minting, column.batch.create id-less members) and all three were re-proven by MY executed run of CommittedPatchReachesTheStore.test.ts, RC=0."
+   },
+   "undo": {
+    "unit_registered": "patch-pair → wall",
+    "backend": "A-ring-buffer(patch-pair)",
+    "backend_note": "all 1 declared store key(s) are covered by buildUndoStoreMap()",
+    "reverts_geometry": "UNPROVEN",
+    "evidence_class": "a - declared shape plus a key-set comparison against buildUndoStoreMap(). The register itself says of this column: \"Declared shape, not an executed proof.\""
+   },
+   "batch": {
+    "mode": "none"
+   },
+   "readback": {
+    "proven": "NO",
+    "evidence_class": "a",
+    "note": "1 test file(s) name this verb; none of them both composes the real runtime and reads a store."
+   },
+   "rival_dispatch": {
+    "handler_internal": [],
+    "family_named_commandManager_sites": 27,
+    "family_named_windowDispatchEvent_sites": 21,
+    "sample_commandManager": [
+     "apps/editor/src/engine/initTools.ts:897:        // instead of commandManager.execute(CreateWallCommand).",
+     "apps/editor/src/engine/initTools.ts:1248:            // when WallTool's legacy `commandManager.execute(CreateWallCommand)`",
+     "packages/ai-host/src/WallTerminatorDoorDetector.ts:6: *  - NEVER mutates stores. NEVER calls builders. NEVER calls commandManager.execute().",
+     "packages/command-registry/src/curtainwall/ReplacePanelTypeCommand.ts:12: *   commandManager.execute(ReplacePanelTypeCommand)"
+    ],
+    "sample_windowDispatchEvent": [
+     "packages/command-registry/src/curtainwall/CreateCurtainWallCommand.ts:17: *   Gated window.dispatchEvent('bim-curtainwall-added') behind batchCoordinator.isBatching.",
+     "packages/command-registry/src/curtainwall/CreateCurtainWallsOnAllSlabsCommand.ts:1154:        // NOTE: window.dispatchEvent is a C11 §5.3 known gap (system-wide, 131 sites),",
+     "packages/geometry-curtain-wall/src/CurtainWallBuilder.ts:568:     * event falls through to a direct `window.dispatchEvent` so we never"
+    ],
+    "caveat": "family_named_* is a NAME match over the two site files, not a resolved dispatch graph. 27 of the 227 commandManager.execute sites pass a VARIABLE (cmd/command/step) and cannot be resolved by name at all. See _ROLLUPS.json rival_dispatch."
+   },
+   "ladder": {
+    "AUTHORED": "YES",
+    "REACHABLE": "UNPROVEN (register: UNKNOWN - a lone plugin produceCommand handler)",
+    "COMPOSABLE": "UNPROVEN",
+    "CERTIFIED": "NO"
+   },
+   "findings": [],
+   "dispatch_reachability": {
+    "literal_dispatch_sites_outside_own_handler": 0,
+    "sites": [],
+    "method": "verb literal inside a 400-char window around executeCommand( / dispatch( / .execute( / runBatch( across 5120 production .ts/.tsx files under apps/ packages/ plugins/ (node_modules, dist, __tests__/, *.test.*, *.spec.*, *.d.ts excluded).",
+    "NON_BLIND": "This probe carries a POSITIVE CONTROL that fires: wall.batch.create = 5 sites. It also independently reproduces the two negatives asserted by DoorBatchCreateLiveness.probe.test.ts and WindowBatchCreateLiveness.probe.test.ts, both of which I EXECUTED at RC=0 (door.batch.create 0, window.batch.create 0). Evidence class (b) for this column.",
+    "CALIBRATED_FALSE_ZERO_RATE": "A zero is NOT proof of unreachability. Table-driven and variable dispatch is invisible to a literal scan. MEASURED: 9 of the 22 verbs for which I hold a class-(c) POSITIVE read-back are in the zero set (bathroomPod.delete, door.batch.create, roof.setOverhang, roof.setPitch, roof.setShape, selection.deselect, slab.addHole, slab.setThickness, window.batch.create) = a 41% false-zero rate among verbs known to work. Read a zero as UNPROVEN-DISPATCH, never as ABSENT."
+   },
+   "consequence": {
+    "verdict": "CANDIDATE - QUADRUPLE-NEGATIVE (no mirror + no proven read-back + UNKNOWN liveness + zero literal dispatch site). Not a conviction: the false-zero calibration above applies.",
+    "undo_has_no_consequence": "no (or undetermined)"
+   }
+  },
+  {
+   "verb": "wall.createFromSlab",
+   "kind": "create",
+   "handler": {
+    "file": "plugins/wall/src/handlers/CreateWallsFromSlab.ts:73",
+    "all_sites": [
+     "plugins/wall/src/handlers/CreateWallsFromSlab.ts:73"
+    ],
+    "site_count": 1,
+    "layer": "L6 plugin",
+    "registered_where": "plugins/wall",
+    "liveness_per_register": "UNKNOWN"
+   },
+   "contract": {
+    "validates_before_mutation": true,
+    "typed_DomainError_or_refusal": false,
+    "mutates_only_via_immer_draft": true,
+    "affectedStores_declared": true,
+    "declared_stores": [
+     "wall"
+    ],
+    "storeKey_matches_ctx_stores": "declared: wall - NOT resolved against the composed ctx.stores in this phase except where readback is class (c)",
+    "no_store_singleton_import": true,
+    "withHandlerSpan": true,
+    "emits_a_typed_domain_event": false,
+    "geometry_deferred_to_FrameScheduler": false,
+    "caveat": "REGEX OVER THE HANDLER DECLARATION SLICE, class (a). TRUE means the token is present in the slice, NOT that it runs on the mutation path. FALSE is the stronger reading: the token is absent, so the clause cannot be satisfied."
+   },
+   "must_nots": {
+    "no_commandManager_execute": true,
+    "no_cascading_dispatch": true,
+    "no_window_dispatchEvent": true,
+    "no_DOM_access": true,
+    "no_direct_rAF": true,
+    "caveat": "same slice-regex caveat. no_DOM_access counts any document. / window. token including type-only casts, so a FALSE here is a candidate, not a conviction."
+   },
+   "mirror": {
+    "channel": "NO CommandEventBridge case",
+    "CEB_case_present": false,
+    "in_ELEMENT_UPDATE_VERBS": false,
+    "in_LEVEL_CHANGE_VERBS": false,
+    "table_driven_not_a_case_block": "n/a - no mirror at all",
+    "evidence_class": "a - grep over CommandEventBridge.ts (38 strict case labels) and the two verb tables (LEVEL_CHANGE_VERBS 12, ELEMENT_UPDATE_VERBS 10). Per the P0 constraint I do NOT write \"the mirror gate is green therefore this verb mirrors\"."
+   },
+   "payload": {
+    "field_names_match_live_caller": null,
+    "id_pre_generated_by_caller": null,
+    "note": "NOT MEASURED PER VERB at this scale. The three measured cases are in _ROLLUPS.json payload_defects (slab.create boundary-vs-polygon, roof.create id minting, column.batch.create id-less members) and all three were re-proven by MY executed run of CommittedPatchReachesTheStore.test.ts, RC=0."
+   },
+   "undo": {
+    "unit_registered": "patch-pair → wall",
+    "backend": "A-ring-buffer(patch-pair)",
+    "backend_note": "all 1 declared store key(s) are covered by buildUndoStoreMap()",
+    "reverts_geometry": "UNPROVEN",
+    "evidence_class": "a - declared shape plus a key-set comparison against buildUndoStoreMap(). The register itself says of this column: \"Declared shape, not an executed proof.\""
+   },
+   "batch": {
+    "mode": "none"
+   },
+   "readback": {
+    "proven": "NO",
+    "evidence_class": "a",
+    "note": "1 test file(s) name this verb; none of them both composes the real runtime and reads a store."
+   },
+   "rival_dispatch": {
+    "handler_internal": [],
+    "family_named_commandManager_sites": 27,
+    "family_named_windowDispatchEvent_sites": 21,
+    "sample_commandManager": [
+     "apps/editor/src/engine/initTools.ts:897:        // instead of commandManager.execute(CreateWallCommand).",
+     "apps/editor/src/engine/initTools.ts:1248:            // when WallTool's legacy `commandManager.execute(CreateWallCommand)`",
+     "packages/ai-host/src/WallTerminatorDoorDetector.ts:6: *  - NEVER mutates stores. NEVER calls builders. NEVER calls commandManager.execute().",
+     "packages/command-registry/src/curtainwall/ReplacePanelTypeCommand.ts:12: *   commandManager.execute(ReplacePanelTypeCommand)"
+    ],
+    "sample_windowDispatchEvent": [
+     "packages/command-registry/src/curtainwall/CreateCurtainWallCommand.ts:17: *   Gated window.dispatchEvent('bim-curtainwall-added') behind batchCoordinator.isBatching.",
+     "packages/command-registry/src/curtainwall/CreateCurtainWallsOnAllSlabsCommand.ts:1154:        // NOTE: window.dispatchEvent is a C11 §5.3 known gap (system-wide, 131 sites),",
+     "packages/geometry-curtain-wall/src/CurtainWallBuilder.ts:568:     * event falls through to a direct `window.dispatchEvent` so we never"
+    ],
+    "caveat": "family_named_* is a NAME match over the two site files, not a resolved dispatch graph. 27 of the 227 commandManager.execute sites pass a VARIABLE (cmd/command/step) and cannot be resolved by name at all. See _ROLLUPS.json rival_dispatch."
+   },
+   "ladder": {
+    "AUTHORED": "YES",
+    "REACHABLE": "UNPROVEN (register: UNKNOWN - a lone plugin produceCommand handler)",
+    "COMPOSABLE": "UNPROVEN",
+    "CERTIFIED": "NO"
+   },
+   "findings": [],
+   "dispatch_reachability": {
+    "literal_dispatch_sites_outside_own_handler": 2,
+    "sites": [
+     "apps/editor/src/engine/initTools.ts",
+     "packages/geometry-wall/src/WallTool.ts"
+    ],
+    "method": "verb literal inside a 400-char window around executeCommand( / dispatch( / .execute( / runBatch( across 5120 production .ts/.tsx files under apps/ packages/ plugins/ (node_modules, dist, __tests__/, *.test.*, *.spec.*, *.d.ts excluded).",
+    "NON_BLIND": "This probe carries a POSITIVE CONTROL that fires: wall.batch.create = 5 sites. It also independently reproduces the two negatives asserted by DoorBatchCreateLiveness.probe.test.ts and WindowBatchCreateLiveness.probe.test.ts, both of which I EXECUTED at RC=0 (door.batch.create 0, window.batch.create 0). Evidence class (b) for this column.",
+    "CALIBRATED_FALSE_ZERO_RATE": "A zero is NOT proof of unreachability. Table-driven and variable dispatch is invisible to a literal scan. MEASURED: 9 of the 22 verbs for which I hold a class-(c) POSITIVE read-back are in the zero set (bathroomPod.delete, door.batch.create, roof.setOverhang, roof.setPitch, roof.setShape, selection.deselect, slab.addHole, slab.setThickness, window.batch.create) = a 41% false-zero rate among verbs known to work. Read a zero as UNPROVEN-DISPATCH, never as ABSENT."
+   },
+   "consequence": {
+    "verdict": "UNDETERMINED",
+    "undo_has_no_consequence": "no (or undetermined)"
+   }
+  },
+  {
+   "verb": "wall.createOpening",
+   "kind": "create",
+   "handler": {
+    "file": "plugins/wall/src/handlers/CreateWallOpening.ts:105",
+    "all_sites": [
+     "plugins/wall/src/handlers/CreateWallOpening.ts:105"
+    ],
+    "site_count": 1,
+    "layer": "L6 plugin",
+    "registered_where": "plugins/wall",
+    "liveness_per_register": "UNKNOWN"
+   },
+   "contract": {
+    "validates_before_mutation": true,
+    "typed_DomainError_or_refusal": false,
+    "mutates_only_via_immer_draft": true,
+    "affectedStores_declared": true,
+    "declared_stores": [
+     "wall"
+    ],
+    "storeKey_matches_ctx_stores": "declared: wall - NOT resolved against the composed ctx.stores in this phase except where readback is class (c)",
+    "no_store_singleton_import": false,
+    "withHandlerSpan": true,
+    "emits_a_typed_domain_event": false,
+    "geometry_deferred_to_FrameScheduler": false,
+    "caveat": "REGEX OVER THE HANDLER DECLARATION SLICE, class (a). TRUE means the token is present in the slice, NOT that it runs on the mutation path. FALSE is the stronger reading: the token is absent, so the clause cannot be satisfied."
+   },
+   "must_nots": {
+    "no_commandManager_execute": true,
+    "no_cascading_dispatch": true,
+    "no_window_dispatchEvent": true,
+    "no_DOM_access": true,
+    "no_direct_rAF": true,
+    "caveat": "same slice-regex caveat. no_DOM_access counts any document. / window. token including type-only casts, so a FALSE here is a candidate, not a conviction."
+   },
+   "mirror": {
+    "channel": "CommandEventBridge switch case PRESENT",
+    "CEB_case_present": true,
+    "in_ELEMENT_UPDATE_VERBS": false,
+    "in_LEVEL_CHANGE_VERBS": false,
+    "table_driven_not_a_case_block": "HAND-WRITTEN CASE BLOCK (38 of them)",
+    "evidence_class": "a - grep over CommandEventBridge.ts (38 strict case labels) and the two verb tables (LEVEL_CHANGE_VERBS 12, ELEMENT_UPDATE_VERBS 10). Per the P0 constraint I do NOT write \"the mirror gate is green therefore this verb mirrors\"."
+   },
+   "payload": {
+    "field_names_match_live_caller": null,
+    "id_pre_generated_by_caller": null,
+    "note": "NOT MEASURED PER VERB at this scale. The three measured cases are in _ROLLUPS.json payload_defects (slab.create boundary-vs-polygon, roof.create id minting, column.batch.create id-less members) and all three were re-proven by MY executed run of CommittedPatchReachesTheStore.test.ts, RC=0."
+   },
+   "undo": {
+    "unit_registered": "patch-pair → wall",
+    "backend": "A-ring-buffer(patch-pair)",
+    "backend_note": "all 1 declared store key(s) are covered by buildUndoStoreMap()",
+    "reverts_geometry": "UNPROVEN",
+    "evidence_class": "a - declared shape plus a key-set comparison against buildUndoStoreMap(). The register itself says of this column: \"Declared shape, not an executed proof.\""
+   },
+   "batch": {
+    "mode": "none"
+   },
+   "readback": {
+    "proven": "NOT-PROVEN-BY-ME",
+    "evidence_class": "a",
+    "note": "a test file both calls the real composeRuntime() and reads a store AND names this verb: apps/editor/__tests__/hello-12-elements.test.ts. CO-OCCURRENCE ONLY. I did not run it and did not confirm the assertion is about this verb. Class (a)."
+   },
+   "rival_dispatch": {
+    "handler_internal": [],
+    "family_named_commandManager_sites": 27,
+    "family_named_windowDispatchEvent_sites": 21,
+    "sample_commandManager": [
+     "apps/editor/src/engine/initTools.ts:897:        // instead of commandManager.execute(CreateWallCommand).",
+     "apps/editor/src/engine/initTools.ts:1248:            // when WallTool's legacy `commandManager.execute(CreateWallCommand)`",
+     "packages/ai-host/src/WallTerminatorDoorDetector.ts:6: *  - NEVER mutates stores. NEVER calls builders. NEVER calls commandManager.execute().",
+     "packages/command-registry/src/curtainwall/ReplacePanelTypeCommand.ts:12: *   commandManager.execute(ReplacePanelTypeCommand)"
+    ],
+    "sample_windowDispatchEvent": [
+     "packages/command-registry/src/curtainwall/CreateCurtainWallCommand.ts:17: *   Gated window.dispatchEvent('bim-curtainwall-added') behind batchCoordinator.isBatching.",
+     "packages/command-registry/src/curtainwall/CreateCurtainWallsOnAllSlabsCommand.ts:1154:        // NOTE: window.dispatchEvent is a C11 §5.3 known gap (system-wide, 131 sites),",
+     "packages/geometry-curtain-wall/src/CurtainWallBuilder.ts:568:     * event falls through to a direct `window.dispatchEvent` so we never"
+    ],
+    "caveat": "family_named_* is a NAME match over the two site files, not a resolved dispatch graph. 27 of the 227 commandManager.execute sites pass a VARIABLE (cmd/command/step) and cannot be resolved by name at all. See _ROLLUPS.json rival_dispatch."
+   },
+   "ladder": {
+    "AUTHORED": "YES",
+    "REACHABLE": "UNPROVEN (register: UNKNOWN - a lone plugin produceCommand handler)",
+    "COMPOSABLE": "UNPROVEN",
+    "CERTIFIED": "NO"
+   },
+   "findings": [],
+   "dispatch_reachability": {
+    "literal_dispatch_sites_outside_own_handler": 3,
+    "sites": [
+     "plugins/door/src/handlers/CreateDoor.ts",
+     "plugins/door/src/tool.ts",
+     "plugins/window/src/tool.ts"
+    ],
+    "method": "verb literal inside a 400-char window around executeCommand( / dispatch( / .execute( / runBatch( across 5120 production .ts/.tsx files under apps/ packages/ plugins/ (node_modules, dist, __tests__/, *.test.*, *.spec.*, *.d.ts excluded).",
+    "NON_BLIND": "This probe carries a POSITIVE CONTROL that fires: wall.batch.create = 5 sites. It also independently reproduces the two negatives asserted by DoorBatchCreateLiveness.probe.test.ts and WindowBatchCreateLiveness.probe.test.ts, both of which I EXECUTED at RC=0 (door.batch.create 0, window.batch.create 0). Evidence class (b) for this column.",
+    "CALIBRATED_FALSE_ZERO_RATE": "A zero is NOT proof of unreachability. Table-driven and variable dispatch is invisible to a literal scan. MEASURED: 9 of the 22 verbs for which I hold a class-(c) POSITIVE read-back are in the zero set (bathroomPod.delete, door.batch.create, roof.setOverhang, roof.setPitch, roof.setShape, selection.deselect, slab.addHole, slab.setThickness, window.batch.create) = a 41% false-zero rate among verbs known to work. Read a zero as UNPROVEN-DISPATCH, never as ABSENT."
+   },
+   "consequence": {
+    "verdict": "UNDETERMINED",
+    "undo_has_no_consequence": "no (or undetermined)"
+   }
+  },
+  {
+   "verb": "wall.cut",
+   "kind": "other",
+   "handler": {
+    "file": "plugins/wall/src/handlers/CutWall.ts:86",
+    "all_sites": [
+     "plugins/wall/src/handlers/CutWall.ts:86"
+    ],
+    "site_count": 1,
+    "layer": "L6 plugin",
+    "registered_where": "plugins/wall",
+    "liveness_per_register": "UNKNOWN"
+   },
+   "contract": {
+    "validates_before_mutation": true,
+    "typed_DomainError_or_refusal": true,
+    "mutates_only_via_immer_draft": true,
+    "affectedStores_declared": true,
+    "declared_stores": [
+     "wall"
+    ],
+    "storeKey_matches_ctx_stores": "declared: wall - NOT resolved against the composed ctx.stores in this phase except where readback is class (c)",
+    "no_store_singleton_import": true,
+    "withHandlerSpan": true,
+    "emits_a_typed_domain_event": false,
+    "geometry_deferred_to_FrameScheduler": false,
+    "caveat": "REGEX OVER THE HANDLER DECLARATION SLICE, class (a). TRUE means the token is present in the slice, NOT that it runs on the mutation path. FALSE is the stronger reading: the token is absent, so the clause cannot be satisfied."
+   },
+   "must_nots": {
+    "no_commandManager_execute": true,
+    "no_cascading_dispatch": true,
+    "no_window_dispatchEvent": true,
+    "no_DOM_access": true,
+    "no_direct_rAF": true,
+    "caveat": "same slice-regex caveat. no_DOM_access counts any document. / window. token including type-only casts, so a FALSE here is a candidate, not a conviction."
+   },
+   "mirror": {
+    "channel": "NO CommandEventBridge case",
+    "CEB_case_present": false,
+    "in_ELEMENT_UPDATE_VERBS": false,
+    "in_LEVEL_CHANGE_VERBS": false,
+    "table_driven_not_a_case_block": "n/a - no mirror at all",
+    "evidence_class": "a - grep over CommandEventBridge.ts (38 strict case labels) and the two verb tables (LEVEL_CHANGE_VERBS 12, ELEMENT_UPDATE_VERBS 10). Per the P0 constraint I do NOT write \"the mirror gate is green therefore this verb mirrors\"."
+   },
+   "payload": {
+    "field_names_match_live_caller": null,
+    "id_pre_generated_by_caller": null,
+    "note": "NOT MEASURED PER VERB at this scale. The three measured cases are in _ROLLUPS.json payload_defects (slab.create boundary-vs-polygon, roof.create id minting, column.batch.create id-less members) and all three were re-proven by MY executed run of CommittedPatchReachesTheStore.test.ts, RC=0."
+   },
+   "undo": {
+    "unit_registered": "patch-pair → wall",
+    "backend": "A-ring-buffer(patch-pair)",
+    "backend_note": "all 1 declared store key(s) are covered by buildUndoStoreMap()",
+    "reverts_geometry": "UNPROVEN",
+    "evidence_class": "a - declared shape plus a key-set comparison against buildUndoStoreMap(). The register itself says of this column: \"Declared shape, not an executed proof.\""
+   },
+   "batch": {
+    "mode": "none"
+   },
+   "readback": {
+    "proven": "NO",
+    "evidence_class": "a",
+    "note": "2 test file(s) name this verb; none of them both composes the real runtime and reads a store."
+   },
+   "rival_dispatch": {
+    "handler_internal": [],
+    "family_named_commandManager_sites": 27,
+    "family_named_windowDispatchEvent_sites": 21,
+    "sample_commandManager": [
+     "apps/editor/src/engine/initTools.ts:897:        // instead of commandManager.execute(CreateWallCommand).",
+     "apps/editor/src/engine/initTools.ts:1248:            // when WallTool's legacy `commandManager.execute(CreateWallCommand)`",
+     "packages/ai-host/src/WallTerminatorDoorDetector.ts:6: *  - NEVER mutates stores. NEVER calls builders. NEVER calls commandManager.execute().",
+     "packages/command-registry/src/curtainwall/ReplacePanelTypeCommand.ts:12: *   commandManager.execute(ReplacePanelTypeCommand)"
+    ],
+    "sample_windowDispatchEvent": [
+     "packages/command-registry/src/curtainwall/CreateCurtainWallCommand.ts:17: *   Gated window.dispatchEvent('bim-curtainwall-added') behind batchCoordinator.isBatching.",
+     "packages/command-registry/src/curtainwall/CreateCurtainWallsOnAllSlabsCommand.ts:1154:        // NOTE: window.dispatchEvent is a C11 §5.3 known gap (system-wide, 131 sites),",
+     "packages/geometry-curtain-wall/src/CurtainWallBuilder.ts:568:     * event falls through to a direct `window.dispatchEvent` so we never"
+    ],
+    "caveat": "family_named_* is a NAME match over the two site files, not a resolved dispatch graph. 27 of the 227 commandManager.execute sites pass a VARIABLE (cmd/command/step) and cannot be resolved by name at all. See _ROLLUPS.json rival_dispatch."
+   },
+   "ladder": {
+    "AUTHORED": "YES",
+    "REACHABLE": "UNPROVEN (register: UNKNOWN - a lone plugin produceCommand handler)",
+    "COMPOSABLE": "UNPROVEN",
+    "CERTIFIED": "NO"
+   },
+   "findings": [],
+   "dispatch_reachability": {
+    "literal_dispatch_sites_outside_own_handler": 1,
+    "sites": [
+     "apps/editor/src/ui/SelectionOverlay.ts"
+    ],
+    "method": "verb literal inside a 400-char window around executeCommand( / dispatch( / .execute( / runBatch( across 5120 production .ts/.tsx files under apps/ packages/ plugins/ (node_modules, dist, __tests__/, *.test.*, *.spec.*, *.d.ts excluded).",
+    "NON_BLIND": "This probe carries a POSITIVE CONTROL that fires: wall.batch.create = 5 sites. It also independently reproduces the two negatives asserted by DoorBatchCreateLiveness.probe.test.ts and WindowBatchCreateLiveness.probe.test.ts, both of which I EXECUTED at RC=0 (door.batch.create 0, window.batch.create 0). Evidence class (b) for this column.",
+    "CALIBRATED_FALSE_ZERO_RATE": "A zero is NOT proof of unreachability. Table-driven and variable dispatch is invisible to a literal scan. MEASURED: 9 of the 22 verbs for which I hold a class-(c) POSITIVE read-back are in the zero set (bathroomPod.delete, door.batch.create, roof.setOverhang, roof.setPitch, roof.setShape, selection.deselect, slab.addHole, slab.setThickness, window.batch.create) = a 41% false-zero rate among verbs known to work. Read a zero as UNPROVEN-DISPATCH, never as ABSENT."
+   },
+   "consequence": {
+    "verdict": "UNDETERMINED",
+    "undo_has_no_consequence": "no (or undetermined)"
+   }
+  },
+  {
+   "verb": "wall.delete",
+   "kind": "delete",
+   "handler": {
+    "file": "plugins/wall/src/handlers/DeleteWall.ts:39",
+    "all_sites": [
+     "plugins/wall/src/handlers/DeleteWall.ts:39"
+    ],
+    "site_count": 1,
+    "layer": "L6 plugin",
+    "registered_where": "plugins/wall",
+    "liveness_per_register": "UNKNOWN"
+   },
+   "contract": {
+    "validates_before_mutation": true,
+    "typed_DomainError_or_refusal": false,
+    "mutates_only_via_immer_draft": true,
+    "affectedStores_declared": true,
+    "declared_stores": [
+     "wall"
+    ],
+    "storeKey_matches_ctx_stores": "declared: wall - NOT resolved against the composed ctx.stores in this phase except where readback is class (c)",
+    "no_store_singleton_import": true,
+    "withHandlerSpan": true,
+    "emits_a_typed_domain_event": false,
+    "geometry_deferred_to_FrameScheduler": false,
+    "caveat": "REGEX OVER THE HANDLER DECLARATION SLICE, class (a). TRUE means the token is present in the slice, NOT that it runs on the mutation path. FALSE is the stronger reading: the token is absent, so the clause cannot be satisfied."
+   },
+   "must_nots": {
+    "no_commandManager_execute": true,
+    "no_cascading_dispatch": true,
+    "no_window_dispatchEvent": true,
+    "no_DOM_access": true,
+    "no_direct_rAF": true,
+    "caveat": "same slice-regex caveat. no_DOM_access counts any document. / window. token including type-only casts, so a FALSE here is a candidate, not a conviction."
+   },
+   "mirror": {
+    "channel": "NO CommandEventBridge case",
+    "CEB_case_present": false,
+    "in_ELEMENT_UPDATE_VERBS": false,
+    "in_LEVEL_CHANGE_VERBS": false,
+    "table_driven_not_a_case_block": "n/a - no mirror at all",
+    "evidence_class": "a - grep over CommandEventBridge.ts (38 strict case labels) and the two verb tables (LEVEL_CHANGE_VERBS 12, ELEMENT_UPDATE_VERBS 10). Per the P0 constraint I do NOT write \"the mirror gate is green therefore this verb mirrors\"."
+   },
+   "payload": {
+    "field_names_match_live_caller": null,
+    "id_pre_generated_by_caller": null,
+    "note": "NOT MEASURED PER VERB at this scale. The three measured cases are in _ROLLUPS.json payload_defects (slab.create boundary-vs-polygon, roof.create id minting, column.batch.create id-less members) and all three were re-proven by MY executed run of CommittedPatchReachesTheStore.test.ts, RC=0."
+   },
+   "undo": {
+    "unit_registered": "patch-pair → wall",
+    "backend": "A-ring-buffer(patch-pair)",
+    "backend_note": "all 1 declared store key(s) are covered by buildUndoStoreMap()",
+    "reverts_geometry": "UNPROVEN",
+    "evidence_class": "a - declared shape plus a key-set comparison against buildUndoStoreMap(). The register itself says of this column: \"Declared shape, not an executed proof.\""
+   },
+   "batch": {
+    "mode": "none"
+   },
+   "readback": {
+    "proven": "NO",
+    "evidence_class": "a",
+    "note": "2 test file(s) name this verb; none of them both composes the real runtime and reads a store."
+   },
+   "rival_dispatch": {
+    "handler_internal": [],
+    "family_named_commandManager_sites": 27,
+    "family_named_windowDispatchEvent_sites": 21,
+    "sample_commandManager": [
+     "apps/editor/src/engine/initTools.ts:897:        // instead of commandManager.execute(CreateWallCommand).",
+     "apps/editor/src/engine/initTools.ts:1248:            // when WallTool's legacy `commandManager.execute(CreateWallCommand)`",
+     "packages/ai-host/src/WallTerminatorDoorDetector.ts:6: *  - NEVER mutates stores. NEVER calls builders. NEVER calls commandManager.execute().",
+     "packages/command-registry/src/curtainwall/ReplacePanelTypeCommand.ts:12: *   commandManager.execute(ReplacePanelTypeCommand)"
+    ],
+    "sample_windowDispatchEvent": [
+     "packages/command-registry/src/curtainwall/CreateCurtainWallCommand.ts:17: *   Gated window.dispatchEvent('bim-curtainwall-added') behind batchCoordinator.isBatching.",
+     "packages/command-registry/src/curtainwall/CreateCurtainWallsOnAllSlabsCommand.ts:1154:        // NOTE: window.dispatchEvent is a C11 §5.3 known gap (system-wide, 131 sites),",
+     "packages/geometry-curtain-wall/src/CurtainWallBuilder.ts:568:     * event falls through to a direct `window.dispatchEvent` so we never"
+    ],
+    "caveat": "family_named_* is a NAME match over the two site files, not a resolved dispatch graph. 27 of the 227 commandManager.execute sites pass a VARIABLE (cmd/command/step) and cannot be resolved by name at all. See _ROLLUPS.json rival_dispatch."
+   },
+   "ladder": {
+    "AUTHORED": "YES",
+    "REACHABLE": "UNPROVEN (register: UNKNOWN - a lone plugin produceCommand handler)",
+    "COMPOSABLE": "UNPROVEN",
+    "CERTIFIED": "NO"
+   },
+   "findings": [],
+   "dispatch_reachability": {
+    "literal_dispatch_sites_outside_own_handler": 1,
+    "sites": [
+     "apps/bench/src/benches/wall-handlers.bench.ts"
+    ],
+    "method": "verb literal inside a 400-char window around executeCommand( / dispatch( / .execute( / runBatch( across 5120 production .ts/.tsx files under apps/ packages/ plugins/ (node_modules, dist, __tests__/, *.test.*, *.spec.*, *.d.ts excluded).",
+    "NON_BLIND": "This probe carries a POSITIVE CONTROL that fires: wall.batch.create = 5 sites. It also independently reproduces the two negatives asserted by DoorBatchCreateLiveness.probe.test.ts and WindowBatchCreateLiveness.probe.test.ts, both of which I EXECUTED at RC=0 (door.batch.create 0, window.batch.create 0). Evidence class (b) for this column.",
+    "CALIBRATED_FALSE_ZERO_RATE": "A zero is NOT proof of unreachability. Table-driven and variable dispatch is invisible to a literal scan. MEASURED: 9 of the 22 verbs for which I hold a class-(c) POSITIVE read-back are in the zero set (bathroomPod.delete, door.batch.create, roof.setOverhang, roof.setPitch, roof.setShape, selection.deselect, slab.addHole, slab.setThickness, window.batch.create) = a 41% false-zero rate among verbs known to work. Read a zero as UNPROVEN-DISPATCH, never as ABSENT."
+   },
+   "consequence": {
+    "verdict": "UNDETERMINED",
+    "undo_has_no_consequence": "no (or undetermined)"
+   }
+  },
+  {
+   "verb": "wall.join",
+   "kind": "join",
+   "handler": {
+    "file": "plugins/wall/src/handlers/JoinWall.ts:52",
+    "all_sites": [
+     "plugins/wall/src/handlers/JoinWall.ts:52"
+    ],
+    "site_count": 1,
+    "layer": "L6 plugin",
+    "registered_where": "plugins/wall",
+    "liveness_per_register": "UNKNOWN"
+   },
+   "contract": {
+    "validates_before_mutation": true,
+    "typed_DomainError_or_refusal": false,
+    "mutates_only_via_immer_draft": true,
+    "affectedStores_declared": true,
+    "declared_stores": [
+     "wall"
+    ],
+    "storeKey_matches_ctx_stores": "declared: wall - NOT resolved against the composed ctx.stores in this phase except where readback is class (c)",
+    "no_store_singleton_import": true,
+    "withHandlerSpan": true,
+    "emits_a_typed_domain_event": false,
+    "geometry_deferred_to_FrameScheduler": false,
+    "caveat": "REGEX OVER THE HANDLER DECLARATION SLICE, class (a). TRUE means the token is present in the slice, NOT that it runs on the mutation path. FALSE is the stronger reading: the token is absent, so the clause cannot be satisfied."
+   },
+   "must_nots": {
+    "no_commandManager_execute": true,
+    "no_cascading_dispatch": true,
+    "no_window_dispatchEvent": true,
+    "no_DOM_access": true,
+    "no_direct_rAF": true,
+    "caveat": "same slice-regex caveat. no_DOM_access counts any document. / window. token including type-only casts, so a FALSE here is a candidate, not a conviction."
+   },
+   "mirror": {
+    "channel": "NO CommandEventBridge case",
+    "CEB_case_present": false,
+    "in_ELEMENT_UPDATE_VERBS": false,
+    "in_LEVEL_CHANGE_VERBS": false,
+    "table_driven_not_a_case_block": "n/a - no mirror at all",
+    "evidence_class": "a - grep over CommandEventBridge.ts (38 strict case labels) and the two verb tables (LEVEL_CHANGE_VERBS 12, ELEMENT_UPDATE_VERBS 10). Per the P0 constraint I do NOT write \"the mirror gate is green therefore this verb mirrors\"."
+   },
+   "payload": {
+    "field_names_match_live_caller": null,
+    "id_pre_generated_by_caller": null,
+    "note": "NOT MEASURED PER VERB at this scale. The three measured cases are in _ROLLUPS.json payload_defects (slab.create boundary-vs-polygon, roof.create id minting, column.batch.create id-less members) and all three were re-proven by MY executed run of CommittedPatchReachesTheStore.test.ts, RC=0."
+   },
+   "undo": {
+    "unit_registered": "patch-pair → wall",
+    "backend": "A-ring-buffer(patch-pair)",
+    "backend_note": "all 1 declared store key(s) are covered by buildUndoStoreMap()",
+    "reverts_geometry": "UNPROVEN",
+    "evidence_class": "a - declared shape plus a key-set comparison against buildUndoStoreMap(). The register itself says of this column: \"Declared shape, not an executed proof.\""
+   },
+   "batch": {
+    "mode": "none"
+   },
+   "readback": {
+    "proven": "NO",
+    "evidence_class": "a",
+    "note": "1 test file(s) name this verb; none of them both composes the real runtime and reads a store."
+   },
+   "rival_dispatch": {
+    "handler_internal": [],
+    "family_named_commandManager_sites": 27,
+    "family_named_windowDispatchEvent_sites": 21,
+    "sample_commandManager": [
+     "apps/editor/src/engine/initTools.ts:897:        // instead of commandManager.execute(CreateWallCommand).",
+     "apps/editor/src/engine/initTools.ts:1248:            // when WallTool's legacy `commandManager.execute(CreateWallCommand)`",
+     "packages/ai-host/src/WallTerminatorDoorDetector.ts:6: *  - NEVER mutates stores. NEVER calls builders. NEVER calls commandManager.execute().",
+     "packages/command-registry/src/curtainwall/ReplacePanelTypeCommand.ts:12: *   commandManager.execute(ReplacePanelTypeCommand)"
+    ],
+    "sample_windowDispatchEvent": [
+     "packages/command-registry/src/curtainwall/CreateCurtainWallCommand.ts:17: *   Gated window.dispatchEvent('bim-curtainwall-added') behind batchCoordinator.isBatching.",
+     "packages/command-registry/src/curtainwall/CreateCurtainWallsOnAllSlabsCommand.ts:1154:        // NOTE: window.dispatchEvent is a C11 §5.3 known gap (system-wide, 131 sites),",
+     "packages/geometry-curtain-wall/src/CurtainWallBuilder.ts:568:     * event falls through to a direct `window.dispatchEvent` so we never"
+    ],
+    "caveat": "family_named_* is a NAME match over the two site files, not a resolved dispatch graph. 27 of the 227 commandManager.execute sites pass a VARIABLE (cmd/command/step) and cannot be resolved by name at all. See _ROLLUPS.json rival_dispatch."
+   },
+   "ladder": {
+    "AUTHORED": "YES",
+    "REACHABLE": "UNPROVEN (register: UNKNOWN - a lone plugin produceCommand handler)",
+    "COMPOSABLE": "UNPROVEN",
+    "CERTIFIED": "NO"
+   },
+   "findings": [],
+   "dispatch_reachability": {
+    "literal_dispatch_sites_outside_own_handler": 1,
+    "sites": [
+     "apps/editor/src/ui/SelectionOverlay.ts"
+    ],
+    "method": "verb literal inside a 400-char window around executeCommand( / dispatch( / .execute( / runBatch( across 5120 production .ts/.tsx files under apps/ packages/ plugins/ (node_modules, dist, __tests__/, *.test.*, *.spec.*, *.d.ts excluded).",
+    "NON_BLIND": "This probe carries a POSITIVE CONTROL that fires: wall.batch.create = 5 sites. It also independently reproduces the two negatives asserted by DoorBatchCreateLiveness.probe.test.ts and WindowBatchCreateLiveness.probe.test.ts, both of which I EXECUTED at RC=0 (door.batch.create 0, window.batch.create 0). Evidence class (b) for this column.",
+    "CALIBRATED_FALSE_ZERO_RATE": "A zero is NOT proof of unreachability. Table-driven and variable dispatch is invisible to a literal scan. MEASURED: 9 of the 22 verbs for which I hold a class-(c) POSITIVE read-back are in the zero set (bathroomPod.delete, door.batch.create, roof.setOverhang, roof.setPitch, roof.setShape, selection.deselect, slab.addHole, slab.setThickness, window.batch.create) = a 41% false-zero rate among verbs known to work. Read a zero as UNPROVEN-DISPATCH, never as ABSENT."
+   },
+   "consequence": {
+    "verdict": "UNDETERMINED",
+    "undo_has_no_consequence": "no (or undetermined)"
+   }
+  },
+  {
+   "verb": "wall.move",
+   "kind": "move",
+   "handler": {
+    "file": "plugins/wall/src/handlers/MoveWall.ts:82",
+    "all_sites": [
+     "plugins/wall/src/handlers/MoveWall.ts:82"
+    ],
+    "site_count": 1,
+    "layer": "L6 plugin",
+    "registered_where": "plugins/wall",
+    "liveness_per_register": "REFUSES"
+   },
+   "contract": {
+    "validates_before_mutation": true,
+    "typed_DomainError_or_refusal": true,
+    "mutates_only_via_immer_draft": false,
+    "affectedStores_declared": true,
+    "declared_stores": [
+     "wall"
+    ],
+    "storeKey_matches_ctx_stores": "declared: wall - NOT resolved against the composed ctx.stores in this phase except where readback is class (c)",
+    "no_store_singleton_import": true,
+    "withHandlerSpan": true,
+    "emits_a_typed_domain_event": false,
+    "geometry_deferred_to_FrameScheduler": false,
+    "caveat": "REGEX OVER THE HANDLER DECLARATION SLICE, class (a). TRUE means the token is present in the slice, NOT that it runs on the mutation path. FALSE is the stronger reading: the token is absent, so the clause cannot be satisfied."
+   },
+   "must_nots": {
+    "no_commandManager_execute": true,
+    "no_cascading_dispatch": true,
+    "no_window_dispatchEvent": true,
+    "no_DOM_access": true,
+    "no_direct_rAF": true,
+    "caveat": "same slice-regex caveat. no_DOM_access counts any document. / window. token including type-only casts, so a FALSE here is a candidate, not a conviction."
+   },
+   "mirror": {
+    "channel": "NO CommandEventBridge case",
+    "CEB_case_present": false,
+    "in_ELEMENT_UPDATE_VERBS": false,
+    "in_LEVEL_CHANGE_VERBS": false,
+    "table_driven_not_a_case_block": "n/a - no mirror at all",
+    "evidence_class": "a - grep over CommandEventBridge.ts (38 strict case labels) and the two verb tables (LEVEL_CHANGE_VERBS 12, ELEMENT_UPDATE_VERBS 10). Per the P0 constraint I do NOT write \"the mirror gate is green therefore this verb mirrors\"."
+   },
+   "payload": {
+    "field_names_match_live_caller": null,
+    "id_pre_generated_by_caller": null,
+    "note": "NOT MEASURED PER VERB at this scale. The three measured cases are in _ROLLUPS.json payload_defects (slab.create boundary-vs-polygon, roof.create id minting, column.batch.create id-less members) and all three were re-proven by MY executed run of CommittedPatchReachesTheStore.test.ts, RC=0."
+   },
+   "undo": {
+    "unit_registered": "UNKNOWN (declares wall)",
+    "backend": "A-ring-buffer(patch-pair)",
+    "backend_note": "all 1 declared store key(s) are covered by buildUndoStoreMap()",
+    "reverts_geometry": "UNPROVEN",
+    "evidence_class": "a - declared shape plus a key-set comparison against buildUndoStoreMap(). The register itself says of this column: \"Declared shape, not an executed proof.\""
+   },
+   "batch": {
+    "mode": "none"
+   },
+   "readback": {
+    "proven": "NO",
+    "evidence_class": "a",
+    "note": "8 test file(s) name this verb; none of them both composes the real runtime and reads a store."
+   },
+   "rival_dispatch": {
+    "handler_internal": [],
+    "family_named_commandManager_sites": 27,
+    "family_named_windowDispatchEvent_sites": 21,
+    "sample_commandManager": [
+     "apps/editor/src/engine/initTools.ts:897:        // instead of commandManager.execute(CreateWallCommand).",
+     "apps/editor/src/engine/initTools.ts:1248:            // when WallTool's legacy `commandManager.execute(CreateWallCommand)`",
+     "packages/ai-host/src/WallTerminatorDoorDetector.ts:6: *  - NEVER mutates stores. NEVER calls builders. NEVER calls commandManager.execute().",
+     "packages/command-registry/src/curtainwall/ReplacePanelTypeCommand.ts:12: *   commandManager.execute(ReplacePanelTypeCommand)"
+    ],
+    "sample_windowDispatchEvent": [
+     "packages/command-registry/src/curtainwall/CreateCurtainWallCommand.ts:17: *   Gated window.dispatchEvent('bim-curtainwall-added') behind batchCoordinator.isBatching.",
+     "packages/command-registry/src/curtainwall/CreateCurtainWallsOnAllSlabsCommand.ts:1154:        // NOTE: window.dispatchEvent is a C11 §5.3 known gap (system-wide, 131 sites),",
+     "packages/geometry-curtain-wall/src/CurtainWallBuilder.ts:568:     * event falls through to a direct `window.dispatchEvent` so we never"
+    ],
+    "caveat": "family_named_* is a NAME match over the two site files, not a resolved dispatch graph. 27 of the 227 commandManager.execute sites pass a VARIABLE (cmd/command/step) and cannot be resolved by name at all. See _ROLLUPS.json rival_dispatch."
+   },
+   "ladder": {
+    "AUTHORED": "YES",
+    "REACHABLE": "REFUSES IN THE OPEN (registered, answers that it will not act)",
+    "COMPOSABLE": "UNPROVEN",
+    "CERTIFIED": "NO"
+   },
+   "findings": [],
+   "dispatch_reachability": {
+    "literal_dispatch_sites_outside_own_handler": 2,
+    "sites": [
+     "apps/bench/src/benches/wall-handlers.bench.ts",
+     "apps/editor/src/engine/consequence/ConsequencePreviewService.ts"
+    ],
+    "method": "verb literal inside a 400-char window around executeCommand( / dispatch( / .execute( / runBatch( across 5120 production .ts/.tsx files under apps/ packages/ plugins/ (node_modules, dist, __tests__/, *.test.*, *.spec.*, *.d.ts excluded).",
+    "NON_BLIND": "This probe carries a POSITIVE CONTROL that fires: wall.batch.create = 5 sites. It also independently reproduces the two negatives asserted by DoorBatchCreateLiveness.probe.test.ts and WindowBatchCreateLiveness.probe.test.ts, both of which I EXECUTED at RC=0 (door.batch.create 0, window.batch.create 0). Evidence class (b) for this column.",
+    "CALIBRATED_FALSE_ZERO_RATE": "A zero is NOT proof of unreachability. Table-driven and variable dispatch is invisible to a literal scan. MEASURED: 9 of the 22 verbs for which I hold a class-(c) POSITIVE read-back are in the zero set (bathroomPod.delete, door.batch.create, roof.setOverhang, roof.setPitch, roof.setShape, selection.deselect, slab.addHole, slab.setThickness, window.batch.create) = a 41% false-zero rate among verbs known to work. Read a zero as UNPROVEN-DISPATCH, never as ABSENT."
+   },
+   "consequence": {
+    "verdict": "BY DESIGN NO MUTATION - the verb refuses in the open (this is the honest form, not a defect)",
+    "undo_has_no_consequence": "no (or undetermined)"
+   }
+  },
+  {
+   "verb": "wall.opening.create",
+   "kind": "create",
+   "handler": {
+    "file": "plugins/wall/src/handlers/CreateWallOpeningLegacyAdapter.ts:46",
+    "all_sites": [
+     "plugins/wall/src/handlers/CreateWallOpeningLegacyAdapter.ts:46"
+    ],
+    "site_count": 1,
+    "layer": "L6 plugin",
+    "registered_where": "plugins/wall",
+    "liveness_per_register": "UNKNOWN"
+   },
+   "contract": {
+    "validates_before_mutation": true,
+    "typed_DomainError_or_refusal": false,
+    "mutates_only_via_immer_draft": true,
+    "affectedStores_declared": true,
+    "declared_stores": [
+     "wall"
+    ],
+    "storeKey_matches_ctx_stores": "declared: wall - NOT resolved against the composed ctx.stores in this phase except where readback is class (c)",
+    "no_store_singleton_import": true,
+    "withHandlerSpan": true,
+    "emits_a_typed_domain_event": false,
+    "geometry_deferred_to_FrameScheduler": false,
+    "caveat": "REGEX OVER THE HANDLER DECLARATION SLICE, class (a). TRUE means the token is present in the slice, NOT that it runs on the mutation path. FALSE is the stronger reading: the token is absent, so the clause cannot be satisfied."
+   },
+   "must_nots": {
+    "no_commandManager_execute": true,
+    "no_cascading_dispatch": true,
+    "no_window_dispatchEvent": true,
+    "no_DOM_access": true,
+    "no_direct_rAF": true,
+    "caveat": "same slice-regex caveat. no_DOM_access counts any document. / window. token including type-only casts, so a FALSE here is a candidate, not a conviction."
+   },
+   "mirror": {
+    "channel": "CommandEventBridge switch case PRESENT",
+    "CEB_case_present": true,
+    "in_ELEMENT_UPDATE_VERBS": false,
+    "in_LEVEL_CHANGE_VERBS": false,
+    "table_driven_not_a_case_block": "HAND-WRITTEN CASE BLOCK (38 of them)",
+    "evidence_class": "a - grep over CommandEventBridge.ts (38 strict case labels) and the two verb tables (LEVEL_CHANGE_VERBS 12, ELEMENT_UPDATE_VERBS 10). Per the P0 constraint I do NOT write \"the mirror gate is green therefore this verb mirrors\"."
+   },
+   "payload": {
+    "field_names_match_live_caller": null,
+    "id_pre_generated_by_caller": null,
+    "note": "NOT MEASURED PER VERB at this scale. The three measured cases are in _ROLLUPS.json payload_defects (slab.create boundary-vs-polygon, roof.create id minting, column.batch.create id-less members) and all three were re-proven by MY executed run of CommittedPatchReachesTheStore.test.ts, RC=0."
+   },
+   "undo": {
+    "unit_registered": "patch-pair → wall",
+    "backend": "A-ring-buffer(patch-pair)",
+    "backend_note": "all 1 declared store key(s) are covered by buildUndoStoreMap()",
+    "reverts_geometry": "UNPROVEN",
+    "evidence_class": "a - declared shape plus a key-set comparison against buildUndoStoreMap(). The register itself says of this column: \"Declared shape, not an executed proof.\""
+   },
+   "batch": {
+    "mode": "none"
+   },
+   "readback": {
+    "proven": "NO",
+    "evidence_class": "a",
+    "note": "1 test file(s) name this verb; none of them both composes the real runtime and reads a store."
+   },
+   "rival_dispatch": {
+    "handler_internal": [],
+    "family_named_commandManager_sites": 27,
+    "family_named_windowDispatchEvent_sites": 21,
+    "sample_commandManager": [
+     "apps/editor/src/engine/initTools.ts:897:        // instead of commandManager.execute(CreateWallCommand).",
+     "apps/editor/src/engine/initTools.ts:1248:            // when WallTool's legacy `commandManager.execute(CreateWallCommand)`",
+     "packages/ai-host/src/WallTerminatorDoorDetector.ts:6: *  - NEVER mutates stores. NEVER calls builders. NEVER calls commandManager.execute().",
+     "packages/command-registry/src/curtainwall/ReplacePanelTypeCommand.ts:12: *   commandManager.execute(ReplacePanelTypeCommand)"
+    ],
+    "sample_windowDispatchEvent": [
+     "packages/command-registry/src/curtainwall/CreateCurtainWallCommand.ts:17: *   Gated window.dispatchEvent('bim-curtainwall-added') behind batchCoordinator.isBatching.",
+     "packages/command-registry/src/curtainwall/CreateCurtainWallsOnAllSlabsCommand.ts:1154:        // NOTE: window.dispatchEvent is a C11 §5.3 known gap (system-wide, 131 sites),",
+     "packages/geometry-curtain-wall/src/CurtainWallBuilder.ts:568:     * event falls through to a direct `window.dispatchEvent` so we never"
+    ],
+    "caveat": "family_named_* is a NAME match over the two site files, not a resolved dispatch graph. 27 of the 227 commandManager.execute sites pass a VARIABLE (cmd/command/step) and cannot be resolved by name at all. See _ROLLUPS.json rival_dispatch."
+   },
+   "ladder": {
+    "AUTHORED": "YES",
+    "REACHABLE": "UNPROVEN (register: UNKNOWN - a lone plugin produceCommand handler)",
+    "COMPOSABLE": "UNPROVEN",
+    "CERTIFIED": "NO"
+   },
+   "findings": [],
+   "dispatch_reachability": {
+    "literal_dispatch_sites_outside_own_handler": 3,
+    "sites": [
+     "apps/editor/src/engine/views/plantools/CopyPlanToolHandler.ts",
+     "apps/editor/src/engine/views/plantools/DoorPlanToolHandler.ts",
+     "apps/editor/src/engine/views/plantools/WindowPlanToolHandler.ts"
+    ],
+    "method": "verb literal inside a 400-char window around executeCommand( / dispatch( / .execute( / runBatch( across 5120 production .ts/.tsx files under apps/ packages/ plugins/ (node_modules, dist, __tests__/, *.test.*, *.spec.*, *.d.ts excluded).",
+    "NON_BLIND": "This probe carries a POSITIVE CONTROL that fires: wall.batch.create = 5 sites. It also independently reproduces the two negatives asserted by DoorBatchCreateLiveness.probe.test.ts and WindowBatchCreateLiveness.probe.test.ts, both of which I EXECUTED at RC=0 (door.batch.create 0, window.batch.create 0). Evidence class (b) for this column.",
+    "CALIBRATED_FALSE_ZERO_RATE": "A zero is NOT proof of unreachability. Table-driven and variable dispatch is invisible to a literal scan. MEASURED: 9 of the 22 verbs for which I hold a class-(c) POSITIVE read-back are in the zero set (bathroomPod.delete, door.batch.create, roof.setOverhang, roof.setPitch, roof.setShape, selection.deselect, slab.addHole, slab.setThickness, window.batch.create) = a 41% false-zero rate among verbs known to work. Read a zero as UNPROVEN-DISPATCH, never as ABSENT."
+   },
+   "consequence": {
+    "verdict": "UNDETERMINED",
+    "undo_has_no_consequence": "no (or undetermined)"
+   }
+  },
+  {
+   "verb": "wall.setColor",
+   "kind": "update",
+   "handler": {
+    "file": "plugins/wall/src/handlers/SetWallColor.ts:71",
+    "all_sites": [
+     "plugins/wall/src/handlers/SetWallColor.ts:71"
+    ],
+    "site_count": 1,
+    "layer": "L6 plugin",
+    "registered_where": "plugins/wall",
+    "liveness_per_register": "REFUSES"
+   },
+   "contract": {
+    "validates_before_mutation": true,
+    "typed_DomainError_or_refusal": false,
+    "mutates_only_via_immer_draft": true,
+    "affectedStores_declared": true,
+    "declared_stores": [
+     "wall"
+    ],
+    "storeKey_matches_ctx_stores": "declared: wall - NOT resolved against the composed ctx.stores in this phase except where readback is class (c)",
+    "no_store_singleton_import": true,
+    "withHandlerSpan": true,
+    "emits_a_typed_domain_event": false,
+    "geometry_deferred_to_FrameScheduler": false,
+    "caveat": "REGEX OVER THE HANDLER DECLARATION SLICE, class (a). TRUE means the token is present in the slice, NOT that it runs on the mutation path. FALSE is the stronger reading: the token is absent, so the clause cannot be satisfied."
+   },
+   "must_nots": {
+    "no_commandManager_execute": true,
+    "no_cascading_dispatch": true,
+    "no_window_dispatchEvent": true,
+    "no_DOM_access": true,
+    "no_direct_rAF": true,
+    "caveat": "same slice-regex caveat. no_DOM_access counts any document. / window. token including type-only casts, so a FALSE here is a candidate, not a conviction."
+   },
+   "mirror": {
+    "channel": "NO CommandEventBridge case",
+    "CEB_case_present": false,
+    "in_ELEMENT_UPDATE_VERBS": false,
+    "in_LEVEL_CHANGE_VERBS": false,
+    "table_driven_not_a_case_block": "n/a - no mirror at all",
+    "evidence_class": "a - grep over CommandEventBridge.ts (38 strict case labels) and the two verb tables (LEVEL_CHANGE_VERBS 12, ELEMENT_UPDATE_VERBS 10). Per the P0 constraint I do NOT write \"the mirror gate is green therefore this verb mirrors\"."
+   },
+   "payload": {
+    "field_names_match_live_caller": null,
+    "id_pre_generated_by_caller": null,
+    "note": "NOT MEASURED PER VERB at this scale. The three measured cases are in _ROLLUPS.json payload_defects (slab.create boundary-vs-polygon, roof.create id minting, column.batch.create id-less members) and all three were re-proven by MY executed run of CommittedPatchReachesTheStore.test.ts, RC=0."
+   },
+   "undo": {
+    "unit_registered": "patch-pair → wall",
+    "backend": "A-ring-buffer(patch-pair)",
+    "backend_note": "all 1 declared store key(s) are covered by buildUndoStoreMap()",
+    "reverts_geometry": "UNPROVEN",
+    "evidence_class": "a - declared shape plus a key-set comparison against buildUndoStoreMap(). The register itself says of this column: \"Declared shape, not an executed proof.\""
+   },
+   "batch": {
+    "mode": "none"
+   },
+   "readback": {
+    "proven": "NO",
+    "evidence_class": "a",
+    "note": "5 test file(s) name this verb; none of them both composes the real runtime and reads a store."
+   },
+   "rival_dispatch": {
+    "handler_internal": [],
+    "family_named_commandManager_sites": 27,
+    "family_named_windowDispatchEvent_sites": 21,
+    "sample_commandManager": [
+     "apps/editor/src/engine/initTools.ts:897:        // instead of commandManager.execute(CreateWallCommand).",
+     "apps/editor/src/engine/initTools.ts:1248:            // when WallTool's legacy `commandManager.execute(CreateWallCommand)`",
+     "packages/ai-host/src/WallTerminatorDoorDetector.ts:6: *  - NEVER mutates stores. NEVER calls builders. NEVER calls commandManager.execute().",
+     "packages/command-registry/src/curtainwall/ReplacePanelTypeCommand.ts:12: *   commandManager.execute(ReplacePanelTypeCommand)"
+    ],
+    "sample_windowDispatchEvent": [
+     "packages/command-registry/src/curtainwall/CreateCurtainWallCommand.ts:17: *   Gated window.dispatchEvent('bim-curtainwall-added') behind batchCoordinator.isBatching.",
+     "packages/command-registry/src/curtainwall/CreateCurtainWallsOnAllSlabsCommand.ts:1154:        // NOTE: window.dispatchEvent is a C11 §5.3 known gap (system-wide, 131 sites),",
+     "packages/geometry-curtain-wall/src/CurtainWallBuilder.ts:568:     * event falls through to a direct `window.dispatchEvent` so we never"
+    ],
+    "caveat": "family_named_* is a NAME match over the two site files, not a resolved dispatch graph. 27 of the 227 commandManager.execute sites pass a VARIABLE (cmd/command/step) and cannot be resolved by name at all. See _ROLLUPS.json rival_dispatch."
+   },
+   "ladder": {
+    "AUTHORED": "YES",
+    "REACHABLE": "REFUSES IN THE OPEN (registered, answers that it will not act)",
+    "COMPOSABLE": "UNPROVEN",
+    "CERTIFIED": "NO"
+   },
+   "findings": [],
+   "dispatch_reachability": {
+    "literal_dispatch_sites_outside_own_handler": 1,
+    "sites": [
+     "apps/bench/src/benches/wall-handlers.bench.ts"
+    ],
+    "method": "verb literal inside a 400-char window around executeCommand( / dispatch( / .execute( / runBatch( across 5120 production .ts/.tsx files under apps/ packages/ plugins/ (node_modules, dist, __tests__/, *.test.*, *.spec.*, *.d.ts excluded).",
+    "NON_BLIND": "This probe carries a POSITIVE CONTROL that fires: wall.batch.create = 5 sites. It also independently reproduces the two negatives asserted by DoorBatchCreateLiveness.probe.test.ts and WindowBatchCreateLiveness.probe.test.ts, both of which I EXECUTED at RC=0 (door.batch.create 0, window.batch.create 0). Evidence class (b) for this column.",
+    "CALIBRATED_FALSE_ZERO_RATE": "A zero is NOT proof of unreachability. Table-driven and variable dispatch is invisible to a literal scan. MEASURED: 9 of the 22 verbs for which I hold a class-(c) POSITIVE read-back are in the zero set (bathroomPod.delete, door.batch.create, roof.setOverhang, roof.setPitch, roof.setShape, selection.deselect, slab.addHole, slab.setThickness, window.batch.create) = a 41% false-zero rate among verbs known to work. Read a zero as UNPROVEN-DISPATCH, never as ABSENT."
+   },
+   "consequence": {
+    "verdict": "BY DESIGN NO MUTATION - the verb refuses in the open (this is the honest form, not a defect)",
+    "undo_has_no_consequence": "no (or undetermined)"
+   }
+  },
+  {
+   "verb": "wall.setDimensions",
+   "kind": "update",
+   "handler": {
+    "file": "plugins/wall/src/handlers/SetWallDimensions.ts:73",
+    "all_sites": [
+     "plugins/wall/src/handlers/SetWallDimensions.ts:73"
+    ],
+    "site_count": 1,
+    "layer": "L6 plugin",
+    "registered_where": "plugins/wall",
+    "liveness_per_register": "REFUSES"
+   },
+   "contract": {
+    "validates_before_mutation": true,
+    "typed_DomainError_or_refusal": false,
+    "mutates_only_via_immer_draft": true,
+    "affectedStores_declared": true,
+    "declared_stores": [
+     "wall"
+    ],
+    "storeKey_matches_ctx_stores": "declared: wall - NOT resolved against the composed ctx.stores in this phase except where readback is class (c)",
+    "no_store_singleton_import": true,
+    "withHandlerSpan": true,
+    "emits_a_typed_domain_event": false,
+    "geometry_deferred_to_FrameScheduler": false,
+    "caveat": "REGEX OVER THE HANDLER DECLARATION SLICE, class (a). TRUE means the token is present in the slice, NOT that it runs on the mutation path. FALSE is the stronger reading: the token is absent, so the clause cannot be satisfied."
+   },
+   "must_nots": {
+    "no_commandManager_execute": true,
+    "no_cascading_dispatch": true,
+    "no_window_dispatchEvent": true,
+    "no_DOM_access": true,
+    "no_direct_rAF": true,
+    "caveat": "same slice-regex caveat. no_DOM_access counts any document. / window. token including type-only casts, so a FALSE here is a candidate, not a conviction."
+   },
+   "mirror": {
+    "channel": "NO CommandEventBridge case",
+    "CEB_case_present": false,
+    "in_ELEMENT_UPDATE_VERBS": false,
+    "in_LEVEL_CHANGE_VERBS": false,
+    "table_driven_not_a_case_block": "n/a - no mirror at all",
+    "evidence_class": "a - grep over CommandEventBridge.ts (38 strict case labels) and the two verb tables (LEVEL_CHANGE_VERBS 12, ELEMENT_UPDATE_VERBS 10). Per the P0 constraint I do NOT write \"the mirror gate is green therefore this verb mirrors\"."
+   },
+   "payload": {
+    "field_names_match_live_caller": null,
+    "id_pre_generated_by_caller": null,
+    "note": "NOT MEASURED PER VERB at this scale. The three measured cases are in _ROLLUPS.json payload_defects (slab.create boundary-vs-polygon, roof.create id minting, column.batch.create id-less members) and all three were re-proven by MY executed run of CommittedPatchReachesTheStore.test.ts, RC=0."
+   },
+   "undo": {
+    "unit_registered": "patch-pair → wall",
+    "backend": "A-ring-buffer(patch-pair)",
+    "backend_note": "all 1 declared store key(s) are covered by buildUndoStoreMap()",
+    "reverts_geometry": "UNPROVEN",
+    "evidence_class": "a - declared shape plus a key-set comparison against buildUndoStoreMap(). The register itself says of this column: \"Declared shape, not an executed proof.\""
+   },
+   "batch": {
+    "mode": "none"
+   },
+   "readback": {
+    "proven": "NO",
+    "evidence_class": "a",
+    "note": "3 test file(s) name this verb; none of them both composes the real runtime and reads a store."
+   },
+   "rival_dispatch": {
+    "handler_internal": [],
+    "family_named_commandManager_sites": 27,
+    "family_named_windowDispatchEvent_sites": 21,
+    "sample_commandManager": [
+     "apps/editor/src/engine/initTools.ts:897:        // instead of commandManager.execute(CreateWallCommand).",
+     "apps/editor/src/engine/initTools.ts:1248:            // when WallTool's legacy `commandManager.execute(CreateWallCommand)`",
+     "packages/ai-host/src/WallTerminatorDoorDetector.ts:6: *  - NEVER mutates stores. NEVER calls builders. NEVER calls commandManager.execute().",
+     "packages/command-registry/src/curtainwall/ReplacePanelTypeCommand.ts:12: *   commandManager.execute(ReplacePanelTypeCommand)"
+    ],
+    "sample_windowDispatchEvent": [
+     "packages/command-registry/src/curtainwall/CreateCurtainWallCommand.ts:17: *   Gated window.dispatchEvent('bim-curtainwall-added') behind batchCoordinator.isBatching.",
+     "packages/command-registry/src/curtainwall/CreateCurtainWallsOnAllSlabsCommand.ts:1154:        // NOTE: window.dispatchEvent is a C11 §5.3 known gap (system-wide, 131 sites),",
+     "packages/geometry-curtain-wall/src/CurtainWallBuilder.ts:568:     * event falls through to a direct `window.dispatchEvent` so we never"
+    ],
+    "caveat": "family_named_* is a NAME match over the two site files, not a resolved dispatch graph. 27 of the 227 commandManager.execute sites pass a VARIABLE (cmd/command/step) and cannot be resolved by name at all. See _ROLLUPS.json rival_dispatch."
+   },
+   "ladder": {
+    "AUTHORED": "YES",
+    "REACHABLE": "REFUSES IN THE OPEN (registered, answers that it will not act)",
+    "COMPOSABLE": "UNPROVEN",
+    "CERTIFIED": "NO"
+   },
+   "findings": [],
+   "dispatch_reachability": {
+    "literal_dispatch_sites_outside_own_handler": 1,
+    "sites": [
+     "apps/bench/src/benches/wall-handlers.bench.ts"
+    ],
+    "method": "verb literal inside a 400-char window around executeCommand( / dispatch( / .execute( / runBatch( across 5120 production .ts/.tsx files under apps/ packages/ plugins/ (node_modules, dist, __tests__/, *.test.*, *.spec.*, *.d.ts excluded).",
+    "NON_BLIND": "This probe carries a POSITIVE CONTROL that fires: wall.batch.create = 5 sites. It also independently reproduces the two negatives asserted by DoorBatchCreateLiveness.probe.test.ts and WindowBatchCreateLiveness.probe.test.ts, both of which I EXECUTED at RC=0 (door.batch.create 0, window.batch.create 0). Evidence class (b) for this column.",
+    "CALIBRATED_FALSE_ZERO_RATE": "A zero is NOT proof of unreachability. Table-driven and variable dispatch is invisible to a literal scan. MEASURED: 9 of the 22 verbs for which I hold a class-(c) POSITIVE read-back are in the zero set (bathroomPod.delete, door.batch.create, roof.setOverhang, roof.setPitch, roof.setShape, selection.deselect, slab.addHole, slab.setThickness, window.batch.create) = a 41% false-zero rate among verbs known to work. Read a zero as UNPROVEN-DISPATCH, never as ABSENT."
+   },
+   "consequence": {
+    "verdict": "BY DESIGN NO MUTATION - the verb refuses in the open (this is the honest form, not a defect)",
+    "undo_has_no_consequence": "no (or undetermined)"
+   }
+  },
+  {
+   "verb": "wall.setLayers",
+   "kind": "update",
+   "handler": {
+    "file": "plugins/wall/src/handlers/SetWallLayers.ts:119",
+    "all_sites": [
+     "plugins/wall/src/handlers/SetWallLayers.ts:119"
+    ],
+    "site_count": 1,
+    "layer": "L6 plugin",
+    "registered_where": "plugins/wall",
+    "liveness_per_register": "REFUSES"
+   },
+   "contract": {
+    "validates_before_mutation": true,
+    "typed_DomainError_or_refusal": false,
+    "mutates_only_via_immer_draft": true,
+    "affectedStores_declared": true,
+    "declared_stores": [
+     "wall"
+    ],
+    "storeKey_matches_ctx_stores": "declared: wall - NOT resolved against the composed ctx.stores in this phase except where readback is class (c)",
+    "no_store_singleton_import": true,
+    "withHandlerSpan": true,
+    "emits_a_typed_domain_event": false,
+    "geometry_deferred_to_FrameScheduler": false,
+    "caveat": "REGEX OVER THE HANDLER DECLARATION SLICE, class (a). TRUE means the token is present in the slice, NOT that it runs on the mutation path. FALSE is the stronger reading: the token is absent, so the clause cannot be satisfied."
+   },
+   "must_nots": {
+    "no_commandManager_execute": true,
+    "no_cascading_dispatch": true,
+    "no_window_dispatchEvent": true,
+    "no_DOM_access": true,
+    "no_direct_rAF": true,
+    "caveat": "same slice-regex caveat. no_DOM_access counts any document. / window. token including type-only casts, so a FALSE here is a candidate, not a conviction."
+   },
+   "mirror": {
+    "channel": "NO CommandEventBridge case",
+    "CEB_case_present": false,
+    "in_ELEMENT_UPDATE_VERBS": false,
+    "in_LEVEL_CHANGE_VERBS": false,
+    "table_driven_not_a_case_block": "n/a - no mirror at all",
+    "evidence_class": "a - grep over CommandEventBridge.ts (38 strict case labels) and the two verb tables (LEVEL_CHANGE_VERBS 12, ELEMENT_UPDATE_VERBS 10). Per the P0 constraint I do NOT write \"the mirror gate is green therefore this verb mirrors\"."
+   },
+   "payload": {
+    "field_names_match_live_caller": null,
+    "id_pre_generated_by_caller": null,
+    "note": "NOT MEASURED PER VERB at this scale. The three measured cases are in _ROLLUPS.json payload_defects (slab.create boundary-vs-polygon, roof.create id minting, column.batch.create id-less members) and all three were re-proven by MY executed run of CommittedPatchReachesTheStore.test.ts, RC=0."
+   },
+   "undo": {
+    "unit_registered": "patch-pair → wall",
+    "backend": "A-ring-buffer(patch-pair)",
+    "backend_note": "all 1 declared store key(s) are covered by buildUndoStoreMap()",
+    "reverts_geometry": "UNPROVEN",
+    "evidence_class": "a - declared shape plus a key-set comparison against buildUndoStoreMap(). The register itself says of this column: \"Declared shape, not an executed proof.\""
+   },
+   "batch": {
+    "mode": "none"
+   },
+   "readback": {
+    "proven": "NO",
+    "evidence_class": "a",
+    "note": "3 test file(s) name this verb; none of them both composes the real runtime and reads a store."
+   },
+   "rival_dispatch": {
+    "handler_internal": [],
+    "family_named_commandManager_sites": 27,
+    "family_named_windowDispatchEvent_sites": 21,
+    "sample_commandManager": [
+     "apps/editor/src/engine/initTools.ts:897:        // instead of commandManager.execute(CreateWallCommand).",
+     "apps/editor/src/engine/initTools.ts:1248:            // when WallTool's legacy `commandManager.execute(CreateWallCommand)`",
+     "packages/ai-host/src/WallTerminatorDoorDetector.ts:6: *  - NEVER mutates stores. NEVER calls builders. NEVER calls commandManager.execute().",
+     "packages/command-registry/src/curtainwall/ReplacePanelTypeCommand.ts:12: *   commandManager.execute(ReplacePanelTypeCommand)"
+    ],
+    "sample_windowDispatchEvent": [
+     "packages/command-registry/src/curtainwall/CreateCurtainWallCommand.ts:17: *   Gated window.dispatchEvent('bim-curtainwall-added') behind batchCoordinator.isBatching.",
+     "packages/command-registry/src/curtainwall/CreateCurtainWallsOnAllSlabsCommand.ts:1154:        // NOTE: window.dispatchEvent is a C11 §5.3 known gap (system-wide, 131 sites),",
+     "packages/geometry-curtain-wall/src/CurtainWallBuilder.ts:568:     * event falls through to a direct `window.dispatchEvent` so we never"
+    ],
+    "caveat": "family_named_* is a NAME match over the two site files, not a resolved dispatch graph. 27 of the 227 commandManager.execute sites pass a VARIABLE (cmd/command/step) and cannot be resolved by name at all. See _ROLLUPS.json rival_dispatch."
+   },
+   "ladder": {
+    "AUTHORED": "YES",
+    "REACHABLE": "REFUSES IN THE OPEN (registered, answers that it will not act)",
+    "COMPOSABLE": "UNPROVEN",
+    "CERTIFIED": "NO"
+   },
+   "findings": [],
+   "dispatch_reachability": {
+    "literal_dispatch_sites_outside_own_handler": 0,
+    "sites": [],
+    "method": "verb literal inside a 400-char window around executeCommand( / dispatch( / .execute( / runBatch( across 5120 production .ts/.tsx files under apps/ packages/ plugins/ (node_modules, dist, __tests__/, *.test.*, *.spec.*, *.d.ts excluded).",
+    "NON_BLIND": "This probe carries a POSITIVE CONTROL that fires: wall.batch.create = 5 sites. It also independently reproduces the two negatives asserted by DoorBatchCreateLiveness.probe.test.ts and WindowBatchCreateLiveness.probe.test.ts, both of which I EXECUTED at RC=0 (door.batch.create 0, window.batch.create 0). Evidence class (b) for this column.",
+    "CALIBRATED_FALSE_ZERO_RATE": "A zero is NOT proof of unreachability. Table-driven and variable dispatch is invisible to a literal scan. MEASURED: 9 of the 22 verbs for which I hold a class-(c) POSITIVE read-back are in the zero set (bathroomPod.delete, door.batch.create, roof.setOverhang, roof.setPitch, roof.setShape, selection.deselect, slab.addHole, slab.setThickness, window.batch.create) = a 41% false-zero rate among verbs known to work. Read a zero as UNPROVEN-DISPATCH, never as ABSENT."
+   },
+   "consequence": {
+    "verdict": "BY DESIGN NO MUTATION - the verb refuses in the open (this is the honest form, not a defect)",
+    "undo_has_no_consequence": "no (or undetermined)"
+   }
+  },
+  {
+   "verb": "wall.setSideFinishBatch",
+   "kind": "update",
+   "handler": {
+    "file": "plugins/wall/src/handlers/SetWallSideFinishBatch.ts:131",
+    "all_sites": [
+     "plugins/wall/src/handlers/SetWallSideFinishBatch.ts:131"
+    ],
+    "site_count": 1,
+    "layer": "L6 plugin",
+    "registered_where": "plugins/wall",
+    "liveness_per_register": "LIVE"
+   },
+   "contract": {
+    "validates_before_mutation": true,
+    "typed_DomainError_or_refusal": true,
+    "mutates_only_via_immer_draft": false,
+    "affectedStores_declared": true,
+    "declared_stores": [],
+    "storeKey_matches_ctx_stores": "no store declared",
+    "no_store_singleton_import": true,
+    "withHandlerSpan": true,
+    "emits_a_typed_domain_event": false,
+    "geometry_deferred_to_FrameScheduler": false,
+    "caveat": "REGEX OVER THE HANDLER DECLARATION SLICE, class (a). TRUE means the token is present in the slice, NOT that it runs on the mutation path. FALSE is the stronger reading: the token is absent, so the clause cannot be satisfied."
+   },
+   "must_nots": {
+    "no_commandManager_execute": true,
+    "no_cascading_dispatch": true,
+    "no_window_dispatchEvent": false,
+    "no_DOM_access": false,
+    "no_direct_rAF": true,
+    "caveat": "same slice-regex caveat. no_DOM_access counts any document. / window. token including type-only casts, so a FALSE here is a candidate, not a conviction."
+   },
+   "mirror": {
+    "channel": "NO CommandEventBridge case",
+    "CEB_case_present": false,
+    "in_ELEMENT_UPDATE_VERBS": false,
+    "in_LEVEL_CHANGE_VERBS": false,
+    "table_driven_not_a_case_block": "n/a - no mirror at all",
+    "evidence_class": "a - grep over CommandEventBridge.ts (38 strict case labels) and the two verb tables (LEVEL_CHANGE_VERBS 12, ELEMENT_UPDATE_VERBS 10). Per the P0 constraint I do NOT write \"the mirror gate is green therefore this verb mirrors\"."
+   },
+   "payload": {
+    "field_names_match_live_caller": null,
+    "id_pre_generated_by_caller": null,
+    "note": "NOT MEASURED PER VERB at this scale. The three measured cases are in _ROLLUPS.json payload_defects (slab.create boundary-vs-polygon, roof.create id minting, column.batch.create id-less members) and all three were re-proven by MY executed run of CommittedPatchReachesTheStore.test.ts, RC=0."
+   },
+   "undo": {
+    "unit_registered": "legacy-stack (no affectedStores)",
+    "backend": "B-legacy-commandManager",
+    "backend_note": "legacy-stack (no affectedStores)",
+    "reverts_geometry": "UNPROVEN",
+    "evidence_class": "a - declared shape plus a key-set comparison against buildUndoStoreMap(). The register itself says of this column: \"Declared shape, not an executed proof.\""
+   },
+   "batch": {
+    "mode": "atomic-or-unreported",
+    "reports_completed_and_failed": false,
+    "reports_notAttempted": false,
+    "reports_undoUnits": false
+   },
+   "readback": {
+    "proven": "NO",
+    "evidence_class": "a",
+    "note": "1 test file(s) name this verb; none of them both composes the real runtime and reads a store."
+   },
+   "rival_dispatch": {
+    "handler_internal": [
+     "the HANDLER ITSELF calls dispatchEvent"
+    ],
+    "family_named_commandManager_sites": 27,
+    "family_named_windowDispatchEvent_sites": 21,
+    "sample_commandManager": [
+     "apps/editor/src/engine/initTools.ts:897:        // instead of commandManager.execute(CreateWallCommand).",
+     "apps/editor/src/engine/initTools.ts:1248:            // when WallTool's legacy `commandManager.execute(CreateWallCommand)`",
+     "packages/ai-host/src/WallTerminatorDoorDetector.ts:6: *  - NEVER mutates stores. NEVER calls builders. NEVER calls commandManager.execute().",
+     "packages/command-registry/src/curtainwall/ReplacePanelTypeCommand.ts:12: *   commandManager.execute(ReplacePanelTypeCommand)"
+    ],
+    "sample_windowDispatchEvent": [
+     "packages/command-registry/src/curtainwall/CreateCurtainWallCommand.ts:17: *   Gated window.dispatchEvent('bim-curtainwall-added') behind batchCoordinator.isBatching.",
+     "packages/command-registry/src/curtainwall/CreateCurtainWallsOnAllSlabsCommand.ts:1154:        // NOTE: window.dispatchEvent is a C11 §5.3 known gap (system-wide, 131 sites),",
+     "packages/geometry-curtain-wall/src/CurtainWallBuilder.ts:568:     * event falls through to a direct `window.dispatchEvent` so we never"
+    ],
+    "caveat": "family_named_* is a NAME match over the two site files, not a resolved dispatch graph. 27 of the 227 commandManager.execute sites pass a VARIABLE (cmd/command/step) and cannot be resolved by name at all. See _ROLLUPS.json rival_dispatch."
+   },
+   "ladder": {
+    "AUTHORED": "YES",
+    "REACHABLE": "YES (register: LIVE)",
+    "COMPOSABLE": "UNPROVEN",
+    "CERTIFIED": "NO"
+   },
+   "findings": [],
+   "dispatch_reachability": {
+    "literal_dispatch_sites_outside_own_handler": 0,
+    "sites": [],
+    "method": "verb literal inside a 400-char window around executeCommand( / dispatch( / .execute( / runBatch( across 5120 production .ts/.tsx files under apps/ packages/ plugins/ (node_modules, dist, __tests__/, *.test.*, *.spec.*, *.d.ts excluded).",
+    "NON_BLIND": "This probe carries a POSITIVE CONTROL that fires: wall.batch.create = 5 sites. It also independently reproduces the two negatives asserted by DoorBatchCreateLiveness.probe.test.ts and WindowBatchCreateLiveness.probe.test.ts, both of which I EXECUTED at RC=0 (door.batch.create 0, window.batch.create 0). Evidence class (b) for this column.",
+    "CALIBRATED_FALSE_ZERO_RATE": "A zero is NOT proof of unreachability. Table-driven and variable dispatch is invisible to a literal scan. MEASURED: 9 of the 22 verbs for which I hold a class-(c) POSITIVE read-back are in the zero set (bathroomPod.delete, door.batch.create, roof.setOverhang, roof.setPitch, roof.setShape, selection.deselect, slab.addHole, slab.setThickness, window.batch.create) = a 41% false-zero rate among verbs known to work. Read a zero as UNPROVEN-DISPATCH, never as ABSENT."
+   },
+   "consequence": {
+    "verdict": "UNDETERMINED",
+    "undo_has_no_consequence": "no (or undetermined)"
+   }
+  },
+  {
+   "verb": "wall.setSystemType",
+   "kind": "update",
+   "handler": {
+    "file": "plugins/wall/src/handlers/SetWallSystemType.ts:44",
+    "all_sites": [
+     "plugins/wall/src/handlers/SetWallSystemType.ts:44"
+    ],
+    "site_count": 1,
+    "layer": "L6 plugin",
+    "registered_where": "plugins/wall",
+    "liveness_per_register": "UNKNOWN"
+   },
+   "contract": {
+    "validates_before_mutation": true,
+    "typed_DomainError_or_refusal": false,
+    "mutates_only_via_immer_draft": true,
+    "affectedStores_declared": true,
+    "declared_stores": [
+     "wall"
+    ],
+    "storeKey_matches_ctx_stores": "declared: wall - NOT resolved against the composed ctx.stores in this phase except where readback is class (c)",
+    "no_store_singleton_import": true,
+    "withHandlerSpan": true,
+    "emits_a_typed_domain_event": false,
+    "geometry_deferred_to_FrameScheduler": false,
+    "caveat": "REGEX OVER THE HANDLER DECLARATION SLICE, class (a). TRUE means the token is present in the slice, NOT that it runs on the mutation path. FALSE is the stronger reading: the token is absent, so the clause cannot be satisfied."
+   },
+   "must_nots": {
+    "no_commandManager_execute": true,
+    "no_cascading_dispatch": true,
+    "no_window_dispatchEvent": true,
+    "no_DOM_access": true,
+    "no_direct_rAF": true,
+    "caveat": "same slice-regex caveat. no_DOM_access counts any document. / window. token including type-only casts, so a FALSE here is a candidate, not a conviction."
+   },
+   "mirror": {
+    "channel": "NO CommandEventBridge case",
+    "CEB_case_present": false,
+    "in_ELEMENT_UPDATE_VERBS": false,
+    "in_LEVEL_CHANGE_VERBS": false,
+    "table_driven_not_a_case_block": "n/a - no mirror at all",
+    "evidence_class": "a - grep over CommandEventBridge.ts (38 strict case labels) and the two verb tables (LEVEL_CHANGE_VERBS 12, ELEMENT_UPDATE_VERBS 10). Per the P0 constraint I do NOT write \"the mirror gate is green therefore this verb mirrors\"."
+   },
+   "payload": {
+    "field_names_match_live_caller": null,
+    "id_pre_generated_by_caller": null,
+    "note": "NOT MEASURED PER VERB at this scale. The three measured cases are in _ROLLUPS.json payload_defects (slab.create boundary-vs-polygon, roof.create id minting, column.batch.create id-less members) and all three were re-proven by MY executed run of CommittedPatchReachesTheStore.test.ts, RC=0."
+   },
+   "undo": {
+    "unit_registered": "patch-pair → wall",
+    "backend": "A-ring-buffer(patch-pair)",
+    "backend_note": "all 1 declared store key(s) are covered by buildUndoStoreMap()",
+    "reverts_geometry": "UNPROVEN",
+    "evidence_class": "a - declared shape plus a key-set comparison against buildUndoStoreMap(). The register itself says of this column: \"Declared shape, not an executed proof.\""
+   },
+   "batch": {
+    "mode": "none"
+   },
+   "readback": {
+    "proven": "NO",
+    "evidence_class": "a",
+    "note": "1 test file(s) name this verb; none of them both composes the real runtime and reads a store."
+   },
+   "rival_dispatch": {
+    "handler_internal": [],
+    "family_named_commandManager_sites": 27,
+    "family_named_windowDispatchEvent_sites": 21,
+    "sample_commandManager": [
+     "apps/editor/src/engine/initTools.ts:897:        // instead of commandManager.execute(CreateWallCommand).",
+     "apps/editor/src/engine/initTools.ts:1248:            // when WallTool's legacy `commandManager.execute(CreateWallCommand)`",
+     "packages/ai-host/src/WallTerminatorDoorDetector.ts:6: *  - NEVER mutates stores. NEVER calls builders. NEVER calls commandManager.execute().",
+     "packages/command-registry/src/curtainwall/ReplacePanelTypeCommand.ts:12: *   commandManager.execute(ReplacePanelTypeCommand)"
+    ],
+    "sample_windowDispatchEvent": [
+     "packages/command-registry/src/curtainwall/CreateCurtainWallCommand.ts:17: *   Gated window.dispatchEvent('bim-curtainwall-added') behind batchCoordinator.isBatching.",
+     "packages/command-registry/src/curtainwall/CreateCurtainWallsOnAllSlabsCommand.ts:1154:        // NOTE: window.dispatchEvent is a C11 §5.3 known gap (system-wide, 131 sites),",
+     "packages/geometry-curtain-wall/src/CurtainWallBuilder.ts:568:     * event falls through to a direct `window.dispatchEvent` so we never"
+    ],
+    "caveat": "family_named_* is a NAME match over the two site files, not a resolved dispatch graph. 27 of the 227 commandManager.execute sites pass a VARIABLE (cmd/command/step) and cannot be resolved by name at all. See _ROLLUPS.json rival_dispatch."
+   },
+   "ladder": {
+    "AUTHORED": "YES",
+    "REACHABLE": "UNPROVEN (register: UNKNOWN - a lone plugin produceCommand handler)",
+    "COMPOSABLE": "UNPROVEN",
+    "CERTIFIED": "NO"
+   },
+   "findings": [],
+   "dispatch_reachability": {
+    "literal_dispatch_sites_outside_own_handler": 0,
+    "sites": [],
+    "method": "verb literal inside a 400-char window around executeCommand( / dispatch( / .execute( / runBatch( across 5120 production .ts/.tsx files under apps/ packages/ plugins/ (node_modules, dist, __tests__/, *.test.*, *.spec.*, *.d.ts excluded).",
+    "NON_BLIND": "This probe carries a POSITIVE CONTROL that fires: wall.batch.create = 5 sites. It also independently reproduces the two negatives asserted by DoorBatchCreateLiveness.probe.test.ts and WindowBatchCreateLiveness.probe.test.ts, both of which I EXECUTED at RC=0 (door.batch.create 0, window.batch.create 0). Evidence class (b) for this column.",
+    "CALIBRATED_FALSE_ZERO_RATE": "A zero is NOT proof of unreachability. Table-driven and variable dispatch is invisible to a literal scan. MEASURED: 9 of the 22 verbs for which I hold a class-(c) POSITIVE read-back are in the zero set (bathroomPod.delete, door.batch.create, roof.setOverhang, roof.setPitch, roof.setShape, selection.deselect, slab.addHole, slab.setThickness, window.batch.create) = a 41% false-zero rate among verbs known to work. Read a zero as UNPROVEN-DISPATCH, never as ABSENT."
+   },
+   "consequence": {
+    "verdict": "CANDIDATE - QUADRUPLE-NEGATIVE (no mirror + no proven read-back + UNKNOWN liveness + zero literal dispatch site). Not a conviction: the false-zero calibration above applies.",
+    "undo_has_no_consequence": "no (or undetermined)"
+   }
+  },
+  {
+   "verb": "wall.split",
+   "kind": "split",
+   "handler": {
+    "file": "plugins/wall/src/handlers/SplitWall.ts:45",
+    "all_sites": [
+     "plugins/wall/src/handlers/SplitWall.ts:45"
+    ],
+    "site_count": 1,
+    "layer": "L6 plugin",
+    "registered_where": "plugins/wall",
+    "liveness_per_register": "UNKNOWN"
+   },
+   "contract": {
+    "validates_before_mutation": true,
+    "typed_DomainError_or_refusal": false,
+    "mutates_only_via_immer_draft": false,
+    "affectedStores_declared": true,
+    "declared_stores": [
+     "wall"
+    ],
+    "storeKey_matches_ctx_stores": "declared: wall - NOT resolved against the composed ctx.stores in this phase except where readback is class (c)",
+    "no_store_singleton_import": true,
+    "withHandlerSpan": true,
+    "emits_a_typed_domain_event": false,
+    "geometry_deferred_to_FrameScheduler": false,
+    "caveat": "REGEX OVER THE HANDLER DECLARATION SLICE, class (a). TRUE means the token is present in the slice, NOT that it runs on the mutation path. FALSE is the stronger reading: the token is absent, so the clause cannot be satisfied."
+   },
+   "must_nots": {
+    "no_commandManager_execute": true,
+    "no_cascading_dispatch": true,
+    "no_window_dispatchEvent": true,
+    "no_DOM_access": true,
+    "no_direct_rAF": true,
+    "caveat": "same slice-regex caveat. no_DOM_access counts any document. / window. token including type-only casts, so a FALSE here is a candidate, not a conviction."
+   },
+   "mirror": {
+    "channel": "NO CommandEventBridge case",
+    "CEB_case_present": false,
+    "in_ELEMENT_UPDATE_VERBS": false,
+    "in_LEVEL_CHANGE_VERBS": false,
+    "table_driven_not_a_case_block": "n/a - no mirror at all",
+    "evidence_class": "a - grep over CommandEventBridge.ts (38 strict case labels) and the two verb tables (LEVEL_CHANGE_VERBS 12, ELEMENT_UPDATE_VERBS 10). Per the P0 constraint I do NOT write \"the mirror gate is green therefore this verb mirrors\"."
+   },
+   "payload": {
+    "field_names_match_live_caller": null,
+    "id_pre_generated_by_caller": null,
+    "note": "NOT MEASURED PER VERB at this scale. The three measured cases are in _ROLLUPS.json payload_defects (slab.create boundary-vs-polygon, roof.create id minting, column.batch.create id-less members) and all three were re-proven by MY executed run of CommittedPatchReachesTheStore.test.ts, RC=0."
+   },
+   "undo": {
+    "unit_registered": "UNKNOWN (declares wall)",
+    "backend": "A-ring-buffer(patch-pair)",
+    "backend_note": "all 1 declared store key(s) are covered by buildUndoStoreMap()",
+    "reverts_geometry": "UNPROVEN",
+    "evidence_class": "a - declared shape plus a key-set comparison against buildUndoStoreMap(). The register itself says of this column: \"Declared shape, not an executed proof.\""
+   },
+   "batch": {
+    "mode": "none"
+   },
+   "readback": {
+    "proven": "NO",
+    "evidence_class": "a",
+    "note": "1 test file(s) name this verb; none of them both composes the real runtime and reads a store."
+   },
+   "rival_dispatch": {
+    "handler_internal": [],
+    "family_named_commandManager_sites": 27,
+    "family_named_windowDispatchEvent_sites": 21,
+    "sample_commandManager": [
+     "apps/editor/src/engine/initTools.ts:897:        // instead of commandManager.execute(CreateWallCommand).",
+     "apps/editor/src/engine/initTools.ts:1248:            // when WallTool's legacy `commandManager.execute(CreateWallCommand)`",
+     "packages/ai-host/src/WallTerminatorDoorDetector.ts:6: *  - NEVER mutates stores. NEVER calls builders. NEVER calls commandManager.execute().",
+     "packages/command-registry/src/curtainwall/ReplacePanelTypeCommand.ts:12: *   commandManager.execute(ReplacePanelTypeCommand)"
+    ],
+    "sample_windowDispatchEvent": [
+     "packages/command-registry/src/curtainwall/CreateCurtainWallCommand.ts:17: *   Gated window.dispatchEvent('bim-curtainwall-added') behind batchCoordinator.isBatching.",
+     "packages/command-registry/src/curtainwall/CreateCurtainWallsOnAllSlabsCommand.ts:1154:        // NOTE: window.dispatchEvent is a C11 §5.3 known gap (system-wide, 131 sites),",
+     "packages/geometry-curtain-wall/src/CurtainWallBuilder.ts:568:     * event falls through to a direct `window.dispatchEvent` so we never"
+    ],
+    "caveat": "family_named_* is a NAME match over the two site files, not a resolved dispatch graph. 27 of the 227 commandManager.execute sites pass a VARIABLE (cmd/command/step) and cannot be resolved by name at all. See _ROLLUPS.json rival_dispatch."
+   },
+   "ladder": {
+    "AUTHORED": "YES",
+    "REACHABLE": "UNPROVEN (register: UNKNOWN - a lone plugin produceCommand handler)",
+    "COMPOSABLE": "UNPROVEN",
+    "CERTIFIED": "NO"
+   },
+   "findings": [],
+   "dispatch_reachability": {
+    "literal_dispatch_sites_outside_own_handler": 0,
+    "sites": [],
+    "method": "verb literal inside a 400-char window around executeCommand( / dispatch( / .execute( / runBatch( across 5120 production .ts/.tsx files under apps/ packages/ plugins/ (node_modules, dist, __tests__/, *.test.*, *.spec.*, *.d.ts excluded).",
+    "NON_BLIND": "This probe carries a POSITIVE CONTROL that fires: wall.batch.create = 5 sites. It also independently reproduces the two negatives asserted by DoorBatchCreateLiveness.probe.test.ts and WindowBatchCreateLiveness.probe.test.ts, both of which I EXECUTED at RC=0 (door.batch.create 0, window.batch.create 0). Evidence class (b) for this column.",
+    "CALIBRATED_FALSE_ZERO_RATE": "A zero is NOT proof of unreachability. Table-driven and variable dispatch is invisible to a literal scan. MEASURED: 9 of the 22 verbs for which I hold a class-(c) POSITIVE read-back are in the zero set (bathroomPod.delete, door.batch.create, roof.setOverhang, roof.setPitch, roof.setShape, selection.deselect, slab.addHole, slab.setThickness, window.batch.create) = a 41% false-zero rate among verbs known to work. Read a zero as UNPROVEN-DISPATCH, never as ABSENT."
+   },
+   "consequence": {
+    "verdict": "CANDIDATE - QUADRUPLE-NEGATIVE (no mirror + no proven read-back + UNKNOWN liveness + zero literal dispatch site). Not a conviction: the false-zero calibration above applies.",
+    "undo_has_no_consequence": "no (or undetermined)"
+   }
+  },
+  {
+   "verb": "wall.transform",
+   "kind": "other",
+   "handler": {
+    "file": "plugins/wall/src/handlers/TransformWall.ts:296",
+    "all_sites": [
+     "plugins/wall/src/handlers/TransformWall.ts:296"
+    ],
+    "site_count": 1,
+    "layer": "L6 plugin",
+    "registered_where": "plugins/wall",
+    "liveness_per_register": "REFUSES"
+   },
+   "contract": {
+    "validates_before_mutation": true,
+    "typed_DomainError_or_refusal": true,
+    "mutates_only_via_immer_draft": true,
+    "affectedStores_declared": true,
+    "declared_stores": [
+     "wall"
+    ],
+    "storeKey_matches_ctx_stores": "declared: wall - NOT resolved against the composed ctx.stores in this phase except where readback is class (c)",
+    "no_store_singleton_import": true,
+    "withHandlerSpan": true,
+    "emits_a_typed_domain_event": false,
+    "geometry_deferred_to_FrameScheduler": false,
+    "caveat": "REGEX OVER THE HANDLER DECLARATION SLICE, class (a). TRUE means the token is present in the slice, NOT that it runs on the mutation path. FALSE is the stronger reading: the token is absent, so the clause cannot be satisfied."
+   },
+   "must_nots": {
+    "no_commandManager_execute": true,
+    "no_cascading_dispatch": true,
+    "no_window_dispatchEvent": true,
+    "no_DOM_access": true,
+    "no_direct_rAF": true,
+    "caveat": "same slice-regex caveat. no_DOM_access counts any document. / window. token including type-only casts, so a FALSE here is a candidate, not a conviction."
+   },
+   "mirror": {
+    "channel": "NO CommandEventBridge case",
+    "CEB_case_present": false,
+    "in_ELEMENT_UPDATE_VERBS": false,
+    "in_LEVEL_CHANGE_VERBS": false,
+    "table_driven_not_a_case_block": "n/a - no mirror at all",
+    "evidence_class": "a - grep over CommandEventBridge.ts (38 strict case labels) and the two verb tables (LEVEL_CHANGE_VERBS 12, ELEMENT_UPDATE_VERBS 10). Per the P0 constraint I do NOT write \"the mirror gate is green therefore this verb mirrors\"."
+   },
+   "payload": {
+    "field_names_match_live_caller": null,
+    "id_pre_generated_by_caller": null,
+    "note": "NOT MEASURED PER VERB at this scale. The three measured cases are in _ROLLUPS.json payload_defects (slab.create boundary-vs-polygon, roof.create id minting, column.batch.create id-less members) and all three were re-proven by MY executed run of CommittedPatchReachesTheStore.test.ts, RC=0."
+   },
+   "undo": {
+    "unit_registered": "patch-pair → wall",
+    "backend": "A-ring-buffer(patch-pair)",
+    "backend_note": "all 1 declared store key(s) are covered by buildUndoStoreMap()",
+    "reverts_geometry": "UNPROVEN",
+    "evidence_class": "a - declared shape plus a key-set comparison against buildUndoStoreMap(). The register itself says of this column: \"Declared shape, not an executed proof.\""
+   },
+   "batch": {
+    "mode": "none"
+   },
+   "readback": {
+    "proven": "NO",
+    "evidence_class": "a",
+    "note": "2 test file(s) name this verb; none of them both composes the real runtime and reads a store."
+   },
+   "rival_dispatch": {
+    "handler_internal": [],
+    "family_named_commandManager_sites": 27,
+    "family_named_windowDispatchEvent_sites": 21,
+    "sample_commandManager": [
+     "apps/editor/src/engine/initTools.ts:897:        // instead of commandManager.execute(CreateWallCommand).",
+     "apps/editor/src/engine/initTools.ts:1248:            // when WallTool's legacy `commandManager.execute(CreateWallCommand)`",
+     "packages/ai-host/src/WallTerminatorDoorDetector.ts:6: *  - NEVER mutates stores. NEVER calls builders. NEVER calls commandManager.execute().",
+     "packages/command-registry/src/curtainwall/ReplacePanelTypeCommand.ts:12: *   commandManager.execute(ReplacePanelTypeCommand)"
+    ],
+    "sample_windowDispatchEvent": [
+     "packages/command-registry/src/curtainwall/CreateCurtainWallCommand.ts:17: *   Gated window.dispatchEvent('bim-curtainwall-added') behind batchCoordinator.isBatching.",
+     "packages/command-registry/src/curtainwall/CreateCurtainWallsOnAllSlabsCommand.ts:1154:        // NOTE: window.dispatchEvent is a C11 §5.3 known gap (system-wide, 131 sites),",
+     "packages/geometry-curtain-wall/src/CurtainWallBuilder.ts:568:     * event falls through to a direct `window.dispatchEvent` so we never"
+    ],
+    "caveat": "family_named_* is a NAME match over the two site files, not a resolved dispatch graph. 27 of the 227 commandManager.execute sites pass a VARIABLE (cmd/command/step) and cannot be resolved by name at all. See _ROLLUPS.json rival_dispatch."
+   },
+   "ladder": {
+    "AUTHORED": "YES",
+    "REACHABLE": "REFUSES IN THE OPEN (registered, answers that it will not act)",
+    "COMPOSABLE": "UNPROVEN",
+    "CERTIFIED": "NO"
+   },
+   "findings": [],
+   "dispatch_reachability": {
+    "literal_dispatch_sites_outside_own_handler": 0,
+    "sites": [],
+    "method": "verb literal inside a 400-char window around executeCommand( / dispatch( / .execute( / runBatch( across 5120 production .ts/.tsx files under apps/ packages/ plugins/ (node_modules, dist, __tests__/, *.test.*, *.spec.*, *.d.ts excluded).",
+    "NON_BLIND": "This probe carries a POSITIVE CONTROL that fires: wall.batch.create = 5 sites. It also independently reproduces the two negatives asserted by DoorBatchCreateLiveness.probe.test.ts and WindowBatchCreateLiveness.probe.test.ts, both of which I EXECUTED at RC=0 (door.batch.create 0, window.batch.create 0). Evidence class (b) for this column.",
+    "CALIBRATED_FALSE_ZERO_RATE": "A zero is NOT proof of unreachability. Table-driven and variable dispatch is invisible to a literal scan. MEASURED: 9 of the 22 verbs for which I hold a class-(c) POSITIVE read-back are in the zero set (bathroomPod.delete, door.batch.create, roof.setOverhang, roof.setPitch, roof.setShape, selection.deselect, slab.addHole, slab.setThickness, window.batch.create) = a 41% false-zero rate among verbs known to work. Read a zero as UNPROVEN-DISPATCH, never as ABSENT."
+   },
+   "consequence": {
+    "verdict": "BY DESIGN NO MUTATION - the verb refuses in the open (this is the honest form, not a defect)",
+    "undo_has_no_consequence": "no (or undetermined)"
+   }
+  },
+  {
+   "verb": "wall.updateBaseline",
+   "kind": "update",
+   "handler": {
+    "file": "plugins/wall/src/handlers/UpdateWallBaseline.ts:71",
+    "all_sites": [
+     "plugins/wall/src/handlers/UpdateWallBaseline.ts:71"
+    ],
+    "site_count": 1,
+    "layer": "L6 plugin",
+    "registered_where": "plugins/wall",
+    "liveness_per_register": "UNKNOWN"
+   },
+   "contract": {
+    "validates_before_mutation": true,
+    "typed_DomainError_or_refusal": false,
+    "mutates_only_via_immer_draft": false,
+    "affectedStores_declared": true,
+    "declared_stores": [
+     "wall"
+    ],
+    "storeKey_matches_ctx_stores": "declared: wall - NOT resolved against the composed ctx.stores in this phase except where readback is class (c)",
+    "no_store_singleton_import": true,
+    "withHandlerSpan": true,
+    "emits_a_typed_domain_event": false,
+    "geometry_deferred_to_FrameScheduler": false,
+    "caveat": "REGEX OVER THE HANDLER DECLARATION SLICE, class (a). TRUE means the token is present in the slice, NOT that it runs on the mutation path. FALSE is the stronger reading: the token is absent, so the clause cannot be satisfied."
+   },
+   "must_nots": {
+    "no_commandManager_execute": true,
+    "no_cascading_dispatch": true,
+    "no_window_dispatchEvent": true,
+    "no_DOM_access": false,
+    "no_direct_rAF": true,
+    "caveat": "same slice-regex caveat. no_DOM_access counts any document. / window. token including type-only casts, so a FALSE here is a candidate, not a conviction."
+   },
+   "mirror": {
+    "channel": "NO CommandEventBridge case",
+    "CEB_case_present": false,
+    "in_ELEMENT_UPDATE_VERBS": false,
+    "in_LEVEL_CHANGE_VERBS": false,
+    "table_driven_not_a_case_block": "n/a - no mirror at all",
+    "evidence_class": "a - grep over CommandEventBridge.ts (38 strict case labels) and the two verb tables (LEVEL_CHANGE_VERBS 12, ELEMENT_UPDATE_VERBS 10). Per the P0 constraint I do NOT write \"the mirror gate is green therefore this verb mirrors\"."
+   },
+   "payload": {
+    "field_names_match_live_caller": null,
+    "id_pre_generated_by_caller": null,
+    "note": "NOT MEASURED PER VERB at this scale. The three measured cases are in _ROLLUPS.json payload_defects (slab.create boundary-vs-polygon, roof.create id minting, column.batch.create id-less members) and all three were re-proven by MY executed run of CommittedPatchReachesTheStore.test.ts, RC=0."
+   },
+   "undo": {
+    "unit_registered": "NONE (empty patch pair)",
+    "backend": "NONE",
+    "backend_note": "register declares no undo shape",
+    "reverts_geometry": "UNPROVEN",
+    "evidence_class": "a - declared shape plus a key-set comparison against buildUndoStoreMap(). The register itself says of this column: \"Declared shape, not an executed proof.\""
+   },
+   "batch": {
+    "mode": "none"
+   },
+   "readback": {
+    "proven": "NO",
+    "evidence_class": "a",
+    "note": "11 test file(s) name this verb; none of them both composes the real runtime and reads a store."
+   },
+   "rival_dispatch": {
+    "handler_internal": [],
+    "family_named_commandManager_sites": 27,
+    "family_named_windowDispatchEvent_sites": 21,
+    "sample_commandManager": [
+     "apps/editor/src/engine/initTools.ts:897:        // instead of commandManager.execute(CreateWallCommand).",
+     "apps/editor/src/engine/initTools.ts:1248:            // when WallTool's legacy `commandManager.execute(CreateWallCommand)`",
+     "packages/ai-host/src/WallTerminatorDoorDetector.ts:6: *  - NEVER mutates stores. NEVER calls builders. NEVER calls commandManager.execute().",
+     "packages/command-registry/src/curtainwall/ReplacePanelTypeCommand.ts:12: *   commandManager.execute(ReplacePanelTypeCommand)"
+    ],
+    "sample_windowDispatchEvent": [
+     "packages/command-registry/src/curtainwall/CreateCurtainWallCommand.ts:17: *   Gated window.dispatchEvent('bim-curtainwall-added') behind batchCoordinator.isBatching.",
+     "packages/command-registry/src/curtainwall/CreateCurtainWallsOnAllSlabsCommand.ts:1154:        // NOTE: window.dispatchEvent is a C11 §5.3 known gap (system-wide, 131 sites),",
+     "packages/geometry-curtain-wall/src/CurtainWallBuilder.ts:568:     * event falls through to a direct `window.dispatchEvent` so we never"
+    ],
+    "caveat": "family_named_* is a NAME match over the two site files, not a resolved dispatch graph. 27 of the 227 commandManager.execute sites pass a VARIABLE (cmd/command/step) and cannot be resolved by name at all. See _ROLLUPS.json rival_dispatch."
+   },
+   "ladder": {
+    "AUTHORED": "YES",
+    "REACHABLE": "UNPROVEN (register: UNKNOWN - a lone plugin produceCommand handler)",
+    "COMPOSABLE": "UNPROVEN",
+    "CERTIFIED": "NO"
+   },
+   "findings": [],
+   "dispatch_reachability": {
+    "literal_dispatch_sites_outside_own_handler": 6,
+    "sites": [
+     "apps/editor/src/engine/consequence/ConsequencePreviewService.ts",
+     "apps/editor/src/engine/views/plantools/AlignPlanToolHandler.ts",
+     "apps/editor/src/ui/ai/WallMoveClashProposal.ts",
+     "apps/editor/src/ui/property-panel/PropertyPanelAnnotations.ts",
+     "apps/editor/src/ui/property-panel/PropertyPanelSections.ts",
+     "packages/core-app-model/src/views/PlanElementDragController.ts"
+    ],
+    "method": "verb literal inside a 400-char window around executeCommand( / dispatch( / .execute( / runBatch( across 5120 production .ts/.tsx files under apps/ packages/ plugins/ (node_modules, dist, __tests__/, *.test.*, *.spec.*, *.d.ts excluded).",
+    "NON_BLIND": "This probe carries a POSITIVE CONTROL that fires: wall.batch.create = 5 sites. It also independently reproduces the two negatives asserted by DoorBatchCreateLiveness.probe.test.ts and WindowBatchCreateLiveness.probe.test.ts, both of which I EXECUTED at RC=0 (door.batch.create 0, window.batch.create 0). Evidence class (b) for this column.",
+    "CALIBRATED_FALSE_ZERO_RATE": "A zero is NOT proof of unreachability. Table-driven and variable dispatch is invisible to a literal scan. MEASURED: 9 of the 22 verbs for which I hold a class-(c) POSITIVE read-back are in the zero set (bathroomPod.delete, door.batch.create, roof.setOverhang, roof.setPitch, roof.setShape, selection.deselect, slab.addHole, slab.setThickness, window.batch.create) = a 41% false-zero rate among verbs known to work. Read a zero as UNPROVEN-DISPATCH, never as ABSENT."
+   },
+   "consequence": {
+    "verdict": "UNDETERMINED",
+    "undo_has_no_consequence": "no (or undetermined)"
+   }
+  },
+  {
+   "verb": "wall.updateColor",
+   "kind": "update",
+   "handler": {
+    "file": "apps/editor/src/engine/initBusHandlers.ts:1254",
+    "all_sites": [
+     "apps/editor/src/engine/initBusHandlers.ts:1254"
+    ],
+    "site_count": 1,
+    "layer": "L7 apps/editor (execution-authority root)",
+    "registered_where": "apps/editor",
+    "liveness_per_register": "LIVE"
+   },
+   "contract": {
+    "validates_before_mutation": true,
+    "typed_DomainError_or_refusal": false,
+    "mutates_only_via_immer_draft": false,
+    "affectedStores_declared": false,
+    "declared_stores": [],
+    "storeKey_matches_ctx_stores": "no store declared",
+    "no_store_singleton_import": false,
+    "withHandlerSpan": false,
+    "emits_a_typed_domain_event": false,
+    "geometry_deferred_to_FrameScheduler": false,
+    "caveat": "REGEX OVER THE HANDLER DECLARATION SLICE, class (a). TRUE means the token is present in the slice, NOT that it runs on the mutation path. FALSE is the stronger reading: the token is absent, so the clause cannot be satisfied."
+   },
+   "must_nots": {
+    "no_commandManager_execute": true,
+    "no_cascading_dispatch": true,
+    "no_window_dispatchEvent": true,
+    "no_DOM_access": true,
+    "no_direct_rAF": true,
+    "caveat": "same slice-regex caveat. no_DOM_access counts any document. / window. token including type-only casts, so a FALSE here is a candidate, not a conviction."
+   },
+   "mirror": {
+    "channel": "NO CommandEventBridge case",
+    "CEB_case_present": false,
+    "in_ELEMENT_UPDATE_VERBS": false,
+    "in_LEVEL_CHANGE_VERBS": false,
+    "table_driven_not_a_case_block": "n/a - no mirror at all",
+    "evidence_class": "a - grep over CommandEventBridge.ts (38 strict case labels) and the two verb tables (LEVEL_CHANGE_VERBS 12, ELEMENT_UPDATE_VERBS 10). Per the P0 constraint I do NOT write \"the mirror gate is green therefore this verb mirrors\"."
+   },
+   "payload": {
+    "field_names_match_live_caller": null,
+    "id_pre_generated_by_caller": null,
+    "note": "NOT MEASURED PER VERB at this scale. The three measured cases are in _ROLLUPS.json payload_defects (slab.create boundary-vs-polygon, roof.create id minting, column.batch.create id-less members) and all three were re-proven by MY executed run of CommittedPatchReachesTheStore.test.ts, RC=0."
+   },
+   "undo": {
+    "unit_registered": "legacy-stack (no affectedStores)",
+    "backend": "B-legacy-commandManager",
+    "backend_note": "legacy-stack (no affectedStores)",
+    "reverts_geometry": "UNPROVEN",
+    "evidence_class": "a - declared shape plus a key-set comparison against buildUndoStoreMap(). The register itself says of this column: \"Declared shape, not an executed proof.\""
+   },
+   "batch": {
+    "mode": "none"
+   },
+   "readback": {
+    "proven": "NO",
+    "evidence_class": "a",
+    "note": "1 test file(s) name this verb; none of them both composes the real runtime and reads a store."
+   },
+   "rival_dispatch": {
+    "handler_internal": [],
+    "family_named_commandManager_sites": 27,
+    "family_named_windowDispatchEvent_sites": 21,
+    "sample_commandManager": [
+     "apps/editor/src/engine/initTools.ts:897:        // instead of commandManager.execute(CreateWallCommand).",
+     "apps/editor/src/engine/initTools.ts:1248:            // when WallTool's legacy `commandManager.execute(CreateWallCommand)`",
+     "packages/ai-host/src/WallTerminatorDoorDetector.ts:6: *  - NEVER mutates stores. NEVER calls builders. NEVER calls commandManager.execute().",
+     "packages/command-registry/src/curtainwall/ReplacePanelTypeCommand.ts:12: *   commandManager.execute(ReplacePanelTypeCommand)"
+    ],
+    "sample_windowDispatchEvent": [
+     "packages/command-registry/src/curtainwall/CreateCurtainWallCommand.ts:17: *   Gated window.dispatchEvent('bim-curtainwall-added') behind batchCoordinator.isBatching.",
+     "packages/command-registry/src/curtainwall/CreateCurtainWallsOnAllSlabsCommand.ts:1154:        // NOTE: window.dispatchEvent is a C11 §5.3 known gap (system-wide, 131 sites),",
+     "packages/geometry-curtain-wall/src/CurtainWallBuilder.ts:568:     * event falls through to a direct `window.dispatchEvent` so we never"
+    ],
+    "caveat": "family_named_* is a NAME match over the two site files, not a resolved dispatch graph. 27 of the 227 commandManager.execute sites pass a VARIABLE (cmd/command/step) and cannot be resolved by name at all. See _ROLLUPS.json rival_dispatch."
+   },
+   "ladder": {
+    "AUTHORED": "YES",
+    "REACHABLE": "YES (register: LIVE)",
+    "COMPOSABLE": "UNPROVEN",
+    "CERTIFIED": "NO"
+   },
+   "findings": [],
+   "dispatch_reachability": {
+    "literal_dispatch_sites_outside_own_handler": 0,
+    "sites": [],
+    "method": "verb literal inside a 400-char window around executeCommand( / dispatch( / .execute( / runBatch( across 5120 production .ts/.tsx files under apps/ packages/ plugins/ (node_modules, dist, __tests__/, *.test.*, *.spec.*, *.d.ts excluded).",
+    "NON_BLIND": "This probe carries a POSITIVE CONTROL that fires: wall.batch.create = 5 sites. It also independently reproduces the two negatives asserted by DoorBatchCreateLiveness.probe.test.ts and WindowBatchCreateLiveness.probe.test.ts, both of which I EXECUTED at RC=0 (door.batch.create 0, window.batch.create 0). Evidence class (b) for this column.",
+    "CALIBRATED_FALSE_ZERO_RATE": "A zero is NOT proof of unreachability. Table-driven and variable dispatch is invisible to a literal scan. MEASURED: 9 of the 22 verbs for which I hold a class-(c) POSITIVE read-back are in the zero set (bathroomPod.delete, door.batch.create, roof.setOverhang, roof.setPitch, roof.setShape, selection.deselect, slab.addHole, slab.setThickness, window.batch.create) = a 41% false-zero rate among verbs known to work. Read a zero as UNPROVEN-DISPATCH, never as ABSENT."
+   },
+   "consequence": {
+    "verdict": "UNDETERMINED",
+    "undo_has_no_consequence": "no (or undetermined)"
+   }
+  },
+  {
+   "verb": "wall.updateColorBatch",
+   "kind": "update",
+   "handler": {
+    "file": "plugins/wall/src/handlers/UpdateWallsColorBatch.ts:74",
+    "all_sites": [
+     "plugins/wall/src/handlers/UpdateWallsColorBatch.ts:74"
+    ],
+    "site_count": 1,
+    "layer": "L6 plugin",
+    "registered_where": "plugins/wall",
+    "liveness_per_register": "LIVE"
+   },
+   "contract": {
+    "validates_before_mutation": true,
+    "typed_DomainError_or_refusal": true,
+    "mutates_only_via_immer_draft": false,
+    "affectedStores_declared": true,
+    "declared_stores": [],
+    "storeKey_matches_ctx_stores": "no store declared",
+    "no_store_singleton_import": true,
+    "withHandlerSpan": true,
+    "emits_a_typed_domain_event": false,
+    "geometry_deferred_to_FrameScheduler": false,
+    "caveat": "REGEX OVER THE HANDLER DECLARATION SLICE, class (a). TRUE means the token is present in the slice, NOT that it runs on the mutation path. FALSE is the stronger reading: the token is absent, so the clause cannot be satisfied."
+   },
+   "must_nots": {
+    "no_commandManager_execute": true,
+    "no_cascading_dispatch": true,
+    "no_window_dispatchEvent": false,
+    "no_DOM_access": false,
+    "no_direct_rAF": true,
+    "caveat": "same slice-regex caveat. no_DOM_access counts any document. / window. token including type-only casts, so a FALSE here is a candidate, not a conviction."
+   },
+   "mirror": {
+    "channel": "NO CommandEventBridge case",
+    "CEB_case_present": false,
+    "in_ELEMENT_UPDATE_VERBS": false,
+    "in_LEVEL_CHANGE_VERBS": false,
+    "table_driven_not_a_case_block": "n/a - no mirror at all",
+    "evidence_class": "a - grep over CommandEventBridge.ts (38 strict case labels) and the two verb tables (LEVEL_CHANGE_VERBS 12, ELEMENT_UPDATE_VERBS 10). Per the P0 constraint I do NOT write \"the mirror gate is green therefore this verb mirrors\"."
+   },
+   "payload": {
+    "field_names_match_live_caller": null,
+    "id_pre_generated_by_caller": null,
+    "note": "NOT MEASURED PER VERB at this scale. The three measured cases are in _ROLLUPS.json payload_defects (slab.create boundary-vs-polygon, roof.create id minting, column.batch.create id-less members) and all three were re-proven by MY executed run of CommittedPatchReachesTheStore.test.ts, RC=0."
+   },
+   "undo": {
+    "unit_registered": "legacy-stack (no affectedStores)",
+    "backend": "B-legacy-commandManager",
+    "backend_note": "legacy-stack (no affectedStores)",
+    "reverts_geometry": "UNPROVEN",
+    "evidence_class": "a - declared shape plus a key-set comparison against buildUndoStoreMap(). The register itself says of this column: \"Declared shape, not an executed proof.\""
+   },
+   "batch": {
+    "mode": "atomic-or-unreported",
+    "reports_completed_and_failed": false,
+    "reports_notAttempted": false,
+    "reports_undoUnits": false
+   },
+   "readback": {
+    "proven": "NO",
+    "evidence_class": "a",
+    "note": "2 test file(s) name this verb; none of them both composes the real runtime and reads a store."
+   },
+   "rival_dispatch": {
+    "handler_internal": [
+     "the HANDLER ITSELF calls dispatchEvent"
+    ],
+    "family_named_commandManager_sites": 27,
+    "family_named_windowDispatchEvent_sites": 21,
+    "sample_commandManager": [
+     "apps/editor/src/engine/initTools.ts:897:        // instead of commandManager.execute(CreateWallCommand).",
+     "apps/editor/src/engine/initTools.ts:1248:            // when WallTool's legacy `commandManager.execute(CreateWallCommand)`",
+     "packages/ai-host/src/WallTerminatorDoorDetector.ts:6: *  - NEVER mutates stores. NEVER calls builders. NEVER calls commandManager.execute().",
+     "packages/command-registry/src/curtainwall/ReplacePanelTypeCommand.ts:12: *   commandManager.execute(ReplacePanelTypeCommand)"
+    ],
+    "sample_windowDispatchEvent": [
+     "packages/command-registry/src/curtainwall/CreateCurtainWallCommand.ts:17: *   Gated window.dispatchEvent('bim-curtainwall-added') behind batchCoordinator.isBatching.",
+     "packages/command-registry/src/curtainwall/CreateCurtainWallsOnAllSlabsCommand.ts:1154:        // NOTE: window.dispatchEvent is a C11 §5.3 known gap (system-wide, 131 sites),",
+     "packages/geometry-curtain-wall/src/CurtainWallBuilder.ts:568:     * event falls through to a direct `window.dispatchEvent` so we never"
+    ],
+    "caveat": "family_named_* is a NAME match over the two site files, not a resolved dispatch graph. 27 of the 227 commandManager.execute sites pass a VARIABLE (cmd/command/step) and cannot be resolved by name at all. See _ROLLUPS.json rival_dispatch."
+   },
+   "ladder": {
+    "AUTHORED": "YES",
+    "REACHABLE": "YES (register: LIVE)",
+    "COMPOSABLE": "UNPROVEN",
+    "CERTIFIED": "NO"
+   },
+   "findings": [],
+   "dispatch_reachability": {
+    "literal_dispatch_sites_outside_own_handler": 0,
+    "sites": [],
+    "method": "verb literal inside a 400-char window around executeCommand( / dispatch( / .execute( / runBatch( across 5120 production .ts/.tsx files under apps/ packages/ plugins/ (node_modules, dist, __tests__/, *.test.*, *.spec.*, *.d.ts excluded).",
+    "NON_BLIND": "This probe carries a POSITIVE CONTROL that fires: wall.batch.create = 5 sites. It also independently reproduces the two negatives asserted by DoorBatchCreateLiveness.probe.test.ts and WindowBatchCreateLiveness.probe.test.ts, both of which I EXECUTED at RC=0 (door.batch.create 0, window.batch.create 0). Evidence class (b) for this column.",
+    "CALIBRATED_FALSE_ZERO_RATE": "A zero is NOT proof of unreachability. Table-driven and variable dispatch is invisible to a literal scan. MEASURED: 9 of the 22 verbs for which I hold a class-(c) POSITIVE read-back are in the zero set (bathroomPod.delete, door.batch.create, roof.setOverhang, roof.setPitch, roof.setShape, selection.deselect, slab.addHole, slab.setThickness, window.batch.create) = a 41% false-zero rate among verbs known to work. Read a zero as UNPROVEN-DISPATCH, never as ABSENT."
+   },
+   "consequence": {
+    "verdict": "UNDETERMINED",
+    "undo_has_no_consequence": "no (or undetermined)"
+   }
+  },
+  {
+   "verb": "wall.updateCurtainWall",
+   "kind": "update",
+   "handler": {
+    "file": "apps/editor/src/engine/initBusHandlers.ts:1009",
+    "all_sites": [
+     "apps/editor/src/engine/initBusHandlers.ts:1009"
+    ],
+    "site_count": 1,
+    "layer": "L7 apps/editor (execution-authority root)",
+    "registered_where": "apps/editor",
+    "liveness_per_register": "LIVE"
+   },
+   "contract": {
+    "validates_before_mutation": true,
+    "typed_DomainError_or_refusal": false,
+    "mutates_only_via_immer_draft": false,
+    "affectedStores_declared": false,
+    "declared_stores": [],
+    "storeKey_matches_ctx_stores": "no store declared",
+    "no_store_singleton_import": false,
+    "withHandlerSpan": false,
+    "emits_a_typed_domain_event": false,
+    "geometry_deferred_to_FrameScheduler": false,
+    "caveat": "REGEX OVER THE HANDLER DECLARATION SLICE, class (a). TRUE means the token is present in the slice, NOT that it runs on the mutation path. FALSE is the stronger reading: the token is absent, so the clause cannot be satisfied."
+   },
+   "must_nots": {
+    "no_commandManager_execute": true,
+    "no_cascading_dispatch": true,
+    "no_window_dispatchEvent": true,
+    "no_DOM_access": true,
+    "no_direct_rAF": true,
+    "caveat": "same slice-regex caveat. no_DOM_access counts any document. / window. token including type-only casts, so a FALSE here is a candidate, not a conviction."
+   },
+   "mirror": {
+    "channel": "NO CommandEventBridge case",
+    "CEB_case_present": false,
+    "in_ELEMENT_UPDATE_VERBS": false,
+    "in_LEVEL_CHANGE_VERBS": false,
+    "table_driven_not_a_case_block": "n/a - no mirror at all",
+    "evidence_class": "a - grep over CommandEventBridge.ts (38 strict case labels) and the two verb tables (LEVEL_CHANGE_VERBS 12, ELEMENT_UPDATE_VERBS 10). Per the P0 constraint I do NOT write \"the mirror gate is green therefore this verb mirrors\"."
+   },
+   "payload": {
+    "field_names_match_live_caller": null,
+    "id_pre_generated_by_caller": null,
+    "note": "NOT MEASURED PER VERB at this scale. The three measured cases are in _ROLLUPS.json payload_defects (slab.create boundary-vs-polygon, roof.create id minting, column.batch.create id-less members) and all three were re-proven by MY executed run of CommittedPatchReachesTheStore.test.ts, RC=0."
+   },
+   "undo": {
+    "unit_registered": "legacy-stack (no affectedStores)",
+    "backend": "B-legacy-commandManager",
+    "backend_note": "legacy-stack (no affectedStores)",
+    "reverts_geometry": "UNPROVEN",
+    "evidence_class": "a - declared shape plus a key-set comparison against buildUndoStoreMap(). The register itself says of this column: \"Declared shape, not an executed proof.\""
+   },
+   "batch": {
+    "mode": "none"
+   },
+   "readback": {
+    "proven": "YES-POSITIVE",
+    "evidence_class": "c",
+    "against": "geometry curtain-wall record",
+    "proof": "CurtainWallUpdateReachesGeometryStore.test.ts:148 baseLine MOVE + :170 property/material"
+   },
+   "rival_dispatch": {
+    "handler_internal": [],
+    "family_named_commandManager_sites": 27,
+    "family_named_windowDispatchEvent_sites": 21,
+    "sample_commandManager": [
+     "apps/editor/src/engine/initTools.ts:897:        // instead of commandManager.execute(CreateWallCommand).",
+     "apps/editor/src/engine/initTools.ts:1248:            // when WallTool's legacy `commandManager.execute(CreateWallCommand)`",
+     "packages/ai-host/src/WallTerminatorDoorDetector.ts:6: *  - NEVER mutates stores. NEVER calls builders. NEVER calls commandManager.execute().",
+     "packages/command-registry/src/curtainwall/ReplacePanelTypeCommand.ts:12: *   commandManager.execute(ReplacePanelTypeCommand)"
+    ],
+    "sample_windowDispatchEvent": [
+     "packages/command-registry/src/curtainwall/CreateCurtainWallCommand.ts:17: *   Gated window.dispatchEvent('bim-curtainwall-added') behind batchCoordinator.isBatching.",
+     "packages/command-registry/src/curtainwall/CreateCurtainWallsOnAllSlabsCommand.ts:1154:        // NOTE: window.dispatchEvent is a C11 §5.3 known gap (system-wide, 131 sites),",
+     "packages/geometry-curtain-wall/src/CurtainWallBuilder.ts:568:     * event falls through to a direct `window.dispatchEvent` so we never"
+    ],
+    "caveat": "family_named_* is a NAME match over the two site files, not a resolved dispatch graph. 27 of the 227 commandManager.execute sites pass a VARIABLE (cmd/command/step) and cannot be resolved by name at all. See _ROLLUPS.json rival_dispatch."
+   },
+   "ladder": {
+    "AUTHORED": "YES",
+    "REACHABLE": "YES (register: LIVE)",
+    "COMPOSABLE": "YES - proven on the real composeRuntime() bus",
+    "CERTIFIED": "read-back CERTIFIED at the store. NOT certified at a pixel."
+   },
+   "findings": [],
+   "dispatch_reachability": {
+    "literal_dispatch_sites_outside_own_handler": 2,
+    "sites": [
+     "apps/editor/src/engine/views/plantools/AlignPlanToolHandler.ts",
+     "apps/editor/src/ui/property-inspector/PropertyInspectorApply.ts"
+    ],
+    "method": "verb literal inside a 400-char window around executeCommand( / dispatch( / .execute( / runBatch( across 5120 production .ts/.tsx files under apps/ packages/ plugins/ (node_modules, dist, __tests__/, *.test.*, *.spec.*, *.d.ts excluded).",
+    "NON_BLIND": "This probe carries a POSITIVE CONTROL that fires: wall.batch.create = 5 sites. It also independently reproduces the two negatives asserted by DoorBatchCreateLiveness.probe.test.ts and WindowBatchCreateLiveness.probe.test.ts, both of which I EXECUTED at RC=0 (door.batch.create 0, window.batch.create 0). Evidence class (b) for this column.",
+    "CALIBRATED_FALSE_ZERO_RATE": "A zero is NOT proof of unreachability. Table-driven and variable dispatch is invisible to a literal scan. MEASURED: 9 of the 22 verbs for which I hold a class-(c) POSITIVE read-back are in the zero set (bathroomPod.delete, door.batch.create, roof.setOverhang, roof.setPitch, roof.setShape, selection.deselect, slab.addHole, slab.setThickness, window.batch.create) = a 41% false-zero rate among verbs known to work. Read a zero as UNPROVEN-DISPATCH, never as ABSENT."
+   },
+   "consequence": {
+    "verdict": "HAS A MEASURED CONSEQUENCE (class c store read-back)",
+    "undo_has_no_consequence": "no (or undetermined)"
+   }
+  },
+  {
+   "verb": "wall.updateDimensions",
+   "kind": "update",
+   "handler": {
+    "file": "apps/editor/src/engine/initBusHandlers.ts:1340",
+    "all_sites": [
+     "apps/editor/src/engine/initBusHandlers.ts:1340"
+    ],
+    "site_count": 1,
+    "layer": "L7 apps/editor (execution-authority root)",
+    "registered_where": "apps/editor",
+    "liveness_per_register": "LIVE"
+   },
+   "contract": {
+    "validates_before_mutation": true,
+    "typed_DomainError_or_refusal": true,
+    "mutates_only_via_immer_draft": false,
+    "affectedStores_declared": true,
+    "declared_stores": [
+     "wall"
+    ],
+    "storeKey_matches_ctx_stores": "declared: wall - NOT resolved against the composed ctx.stores in this phase except where readback is class (c)",
+    "no_store_singleton_import": false,
+    "withHandlerSpan": false,
+    "emits_a_typed_domain_event": false,
+    "geometry_deferred_to_FrameScheduler": false,
+    "caveat": "REGEX OVER THE HANDLER DECLARATION SLICE, class (a). TRUE means the token is present in the slice, NOT that it runs on the mutation path. FALSE is the stronger reading: the token is absent, so the clause cannot be satisfied."
+   },
+   "must_nots": {
+    "no_commandManager_execute": true,
+    "no_cascading_dispatch": true,
+    "no_window_dispatchEvent": true,
+    "no_DOM_access": false,
+    "no_direct_rAF": true,
+    "caveat": "same slice-regex caveat. no_DOM_access counts any document. / window. token including type-only casts, so a FALSE here is a candidate, not a conviction."
+   },
+   "mirror": {
+    "channel": "NO CommandEventBridge case",
+    "CEB_case_present": false,
+    "in_ELEMENT_UPDATE_VERBS": false,
+    "in_LEVEL_CHANGE_VERBS": false,
+    "table_driven_not_a_case_block": "n/a - no mirror at all",
+    "evidence_class": "a - grep over CommandEventBridge.ts (38 strict case labels) and the two verb tables (LEVEL_CHANGE_VERBS 12, ELEMENT_UPDATE_VERBS 10). Per the P0 constraint I do NOT write \"the mirror gate is green therefore this verb mirrors\"."
+   },
+   "payload": {
+    "field_names_match_live_caller": null,
+    "id_pre_generated_by_caller": null,
+    "note": "NOT MEASURED PER VERB at this scale. The three measured cases are in _ROLLUPS.json payload_defects (slab.create boundary-vs-polygon, roof.create id minting, column.batch.create id-less members) and all three were re-proven by MY executed run of CommittedPatchReachesTheStore.test.ts, RC=0."
+   },
+   "undo": {
+    "unit_registered": "legacy-stack (no affectedStores)",
+    "backend": "A-ring-buffer(patch-pair)",
+    "backend_note": "all 1 declared store key(s) are covered by buildUndoStoreMap()",
+    "reverts_geometry": "UNPROVEN",
+    "evidence_class": "a - declared shape plus a key-set comparison against buildUndoStoreMap(). The register itself says of this column: \"Declared shape, not an executed proof.\""
+   },
+   "batch": {
+    "mode": "none"
+   },
+   "readback": {
+    "proven": "NO",
+    "evidence_class": "a",
+    "note": "2 test file(s) name this verb; none of them both composes the real runtime and reads a store."
+   },
+   "rival_dispatch": {
+    "handler_internal": [],
+    "family_named_commandManager_sites": 27,
+    "family_named_windowDispatchEvent_sites": 21,
+    "sample_commandManager": [
+     "apps/editor/src/engine/initTools.ts:897:        // instead of commandManager.execute(CreateWallCommand).",
+     "apps/editor/src/engine/initTools.ts:1248:            // when WallTool's legacy `commandManager.execute(CreateWallCommand)`",
+     "packages/ai-host/src/WallTerminatorDoorDetector.ts:6: *  - NEVER mutates stores. NEVER calls builders. NEVER calls commandManager.execute().",
+     "packages/command-registry/src/curtainwall/ReplacePanelTypeCommand.ts:12: *   commandManager.execute(ReplacePanelTypeCommand)"
+    ],
+    "sample_windowDispatchEvent": [
+     "packages/command-registry/src/curtainwall/CreateCurtainWallCommand.ts:17: *   Gated window.dispatchEvent('bim-curtainwall-added') behind batchCoordinator.isBatching.",
+     "packages/command-registry/src/curtainwall/CreateCurtainWallsOnAllSlabsCommand.ts:1154:        // NOTE: window.dispatchEvent is a C11 §5.3 known gap (system-wide, 131 sites),",
+     "packages/geometry-curtain-wall/src/CurtainWallBuilder.ts:568:     * event falls through to a direct `window.dispatchEvent` so we never"
+    ],
+    "caveat": "family_named_* is a NAME match over the two site files, not a resolved dispatch graph. 27 of the 227 commandManager.execute sites pass a VARIABLE (cmd/command/step) and cannot be resolved by name at all. See _ROLLUPS.json rival_dispatch."
+   },
+   "ladder": {
+    "AUTHORED": "YES",
+    "REACHABLE": "YES (register: LIVE)",
+    "COMPOSABLE": "UNPROVEN",
+    "CERTIFIED": "NO"
+   },
+   "findings": [],
+   "dispatch_reachability": {
+    "literal_dispatch_sites_outside_own_handler": 1,
+    "sites": [
+     "apps/editor/src/ui/property-inspector/PropertyInspectorApply.ts"
+    ],
+    "method": "verb literal inside a 400-char window around executeCommand( / dispatch( / .execute( / runBatch( across 5120 production .ts/.tsx files under apps/ packages/ plugins/ (node_modules, dist, __tests__/, *.test.*, *.spec.*, *.d.ts excluded).",
+    "NON_BLIND": "This probe carries a POSITIVE CONTROL that fires: wall.batch.create = 5 sites. It also independently reproduces the two negatives asserted by DoorBatchCreateLiveness.probe.test.ts and WindowBatchCreateLiveness.probe.test.ts, both of which I EXECUTED at RC=0 (door.batch.create 0, window.batch.create 0). Evidence class (b) for this column.",
+    "CALIBRATED_FALSE_ZERO_RATE": "A zero is NOT proof of unreachability. Table-driven and variable dispatch is invisible to a literal scan. MEASURED: 9 of the 22 verbs for which I hold a class-(c) POSITIVE read-back are in the zero set (bathroomPod.delete, door.batch.create, roof.setOverhang, roof.setPitch, roof.setShape, selection.deselect, slab.addHole, slab.setThickness, window.batch.create) = a 41% false-zero rate among verbs known to work. Read a zero as UNPROVEN-DISPATCH, never as ABSENT."
+   },
+   "consequence": {
+    "verdict": "UNDETERMINED",
+    "undo_has_no_consequence": "no (or undetermined)"
+   }
+  },
+  {
+   "verb": "wall.updateHeightBatch",
+   "kind": "update",
+   "handler": {
+    "file": "plugins/wall/src/handlers/UpdateWallsHeightBatch.ts:116",
+    "all_sites": [
+     "plugins/wall/src/handlers/UpdateWallsHeightBatch.ts:116"
+    ],
+    "site_count": 1,
+    "layer": "L6 plugin",
+    "registered_where": "plugins/wall",
+    "liveness_per_register": "LIVE"
+   },
+   "contract": {
+    "validates_before_mutation": true,
+    "typed_DomainError_or_refusal": true,
+    "mutates_only_via_immer_draft": false,
+    "affectedStores_declared": true,
+    "declared_stores": [],
+    "storeKey_matches_ctx_stores": "no store declared",
+    "no_store_singleton_import": true,
+    "withHandlerSpan": true,
+    "emits_a_typed_domain_event": false,
+    "geometry_deferred_to_FrameScheduler": false,
+    "caveat": "REGEX OVER THE HANDLER DECLARATION SLICE, class (a). TRUE means the token is present in the slice, NOT that it runs on the mutation path. FALSE is the stronger reading: the token is absent, so the clause cannot be satisfied."
+   },
+   "must_nots": {
+    "no_commandManager_execute": true,
+    "no_cascading_dispatch": true,
+    "no_window_dispatchEvent": false,
+    "no_DOM_access": false,
+    "no_direct_rAF": true,
+    "caveat": "same slice-regex caveat. no_DOM_access counts any document. / window. token including type-only casts, so a FALSE here is a candidate, not a conviction."
+   },
+   "mirror": {
+    "channel": "NO CommandEventBridge case",
+    "CEB_case_present": false,
+    "in_ELEMENT_UPDATE_VERBS": false,
+    "in_LEVEL_CHANGE_VERBS": false,
+    "table_driven_not_a_case_block": "n/a - no mirror at all",
+    "evidence_class": "a - grep over CommandEventBridge.ts (38 strict case labels) and the two verb tables (LEVEL_CHANGE_VERBS 12, ELEMENT_UPDATE_VERBS 10). Per the P0 constraint I do NOT write \"the mirror gate is green therefore this verb mirrors\"."
+   },
+   "payload": {
+    "field_names_match_live_caller": null,
+    "id_pre_generated_by_caller": null,
+    "note": "NOT MEASURED PER VERB at this scale. The three measured cases are in _ROLLUPS.json payload_defects (slab.create boundary-vs-polygon, roof.create id minting, column.batch.create id-less members) and all three were re-proven by MY executed run of CommittedPatchReachesTheStore.test.ts, RC=0."
+   },
+   "undo": {
+    "unit_registered": "legacy-stack (no affectedStores)",
+    "backend": "B-legacy-commandManager",
+    "backend_note": "legacy-stack (no affectedStores)",
+    "reverts_geometry": "UNPROVEN",
+    "evidence_class": "a - declared shape plus a key-set comparison against buildUndoStoreMap(). The register itself says of this column: \"Declared shape, not an executed proof.\""
+   },
+   "batch": {
+    "mode": "atomic-or-unreported",
+    "reports_completed_and_failed": false,
+    "reports_notAttempted": false,
+    "reports_undoUnits": false
+   },
+   "readback": {
+    "proven": "NO",
+    "evidence_class": "a",
+    "note": "2 test file(s) name this verb; none of them both composes the real runtime and reads a store."
+   },
+   "rival_dispatch": {
+    "handler_internal": [
+     "the HANDLER ITSELF calls dispatchEvent"
+    ],
+    "family_named_commandManager_sites": 27,
+    "family_named_windowDispatchEvent_sites": 21,
+    "sample_commandManager": [
+     "apps/editor/src/engine/initTools.ts:897:        // instead of commandManager.execute(CreateWallCommand).",
+     "apps/editor/src/engine/initTools.ts:1248:            // when WallTool's legacy `commandManager.execute(CreateWallCommand)`",
+     "packages/ai-host/src/WallTerminatorDoorDetector.ts:6: *  - NEVER mutates stores. NEVER calls builders. NEVER calls commandManager.execute().",
+     "packages/command-registry/src/curtainwall/ReplacePanelTypeCommand.ts:12: *   commandManager.execute(ReplacePanelTypeCommand)"
+    ],
+    "sample_windowDispatchEvent": [
+     "packages/command-registry/src/curtainwall/CreateCurtainWallCommand.ts:17: *   Gated window.dispatchEvent('bim-curtainwall-added') behind batchCoordinator.isBatching.",
+     "packages/command-registry/src/curtainwall/CreateCurtainWallsOnAllSlabsCommand.ts:1154:        // NOTE: window.dispatchEvent is a C11 §5.3 known gap (system-wide, 131 sites),",
+     "packages/geometry-curtain-wall/src/CurtainWallBuilder.ts:568:     * event falls through to a direct `window.dispatchEvent` so we never"
+    ],
+    "caveat": "family_named_* is a NAME match over the two site files, not a resolved dispatch graph. 27 of the 227 commandManager.execute sites pass a VARIABLE (cmd/command/step) and cannot be resolved by name at all. See _ROLLUPS.json rival_dispatch."
+   },
+   "ladder": {
+    "AUTHORED": "YES",
+    "REACHABLE": "YES (register: LIVE)",
+    "COMPOSABLE": "UNPROVEN",
+    "CERTIFIED": "NO"
+   },
+   "findings": [],
+   "dispatch_reachability": {
+    "literal_dispatch_sites_outside_own_handler": 0,
+    "sites": [],
+    "method": "verb literal inside a 400-char window around executeCommand( / dispatch( / .execute( / runBatch( across 5120 production .ts/.tsx files under apps/ packages/ plugins/ (node_modules, dist, __tests__/, *.test.*, *.spec.*, *.d.ts excluded).",
+    "NON_BLIND": "This probe carries a POSITIVE CONTROL that fires: wall.batch.create = 5 sites. It also independently reproduces the two negatives asserted by DoorBatchCreateLiveness.probe.test.ts and WindowBatchCreateLiveness.probe.test.ts, both of which I EXECUTED at RC=0 (door.batch.create 0, window.batch.create 0). Evidence class (b) for this column.",
+    "CALIBRATED_FALSE_ZERO_RATE": "A zero is NOT proof of unreachability. Table-driven and variable dispatch is invisible to a literal scan. MEASURED: 9 of the 22 verbs for which I hold a class-(c) POSITIVE read-back are in the zero set (bathroomPod.delete, door.batch.create, roof.setOverhang, roof.setPitch, roof.setShape, selection.deselect, slab.addHole, slab.setThickness, window.batch.create) = a 41% false-zero rate among verbs known to work. Read a zero as UNPROVEN-DISPATCH, never as ABSENT."
+   },
+   "consequence": {
+    "verdict": "UNDETERMINED",
+    "undo_has_no_consequence": "no (or undetermined)"
+   }
+  },
+  {
+   "verb": "wall.updateRakeBatch",
+   "kind": "update",
+   "handler": {
+    "file": "plugins/wall/src/handlers/UpdateWallsRakeBatch.ts:66",
+    "all_sites": [
+     "plugins/wall/src/handlers/UpdateWallsRakeBatch.ts:66"
+    ],
+    "site_count": 1,
+    "layer": "L6 plugin",
+    "registered_where": "plugins/wall",
+    "liveness_per_register": "LIVE"
+   },
+   "contract": {
+    "validates_before_mutation": true,
+    "typed_DomainError_or_refusal": true,
+    "mutates_only_via_immer_draft": false,
+    "affectedStores_declared": true,
+    "declared_stores": [],
+    "storeKey_matches_ctx_stores": "no store declared",
+    "no_store_singleton_import": true,
+    "withHandlerSpan": true,
+    "emits_a_typed_domain_event": false,
+    "geometry_deferred_to_FrameScheduler": false,
+    "caveat": "REGEX OVER THE HANDLER DECLARATION SLICE, class (a). TRUE means the token is present in the slice, NOT that it runs on the mutation path. FALSE is the stronger reading: the token is absent, so the clause cannot be satisfied."
+   },
+   "must_nots": {
+    "no_commandManager_execute": true,
+    "no_cascading_dispatch": true,
+    "no_window_dispatchEvent": false,
+    "no_DOM_access": false,
+    "no_direct_rAF": true,
+    "caveat": "same slice-regex caveat. no_DOM_access counts any document. / window. token including type-only casts, so a FALSE here is a candidate, not a conviction."
+   },
+   "mirror": {
+    "channel": "NO CommandEventBridge case",
+    "CEB_case_present": false,
+    "in_ELEMENT_UPDATE_VERBS": false,
+    "in_LEVEL_CHANGE_VERBS": false,
+    "table_driven_not_a_case_block": "n/a - no mirror at all",
+    "evidence_class": "a - grep over CommandEventBridge.ts (38 strict case labels) and the two verb tables (LEVEL_CHANGE_VERBS 12, ELEMENT_UPDATE_VERBS 10). Per the P0 constraint I do NOT write \"the mirror gate is green therefore this verb mirrors\"."
+   },
+   "payload": {
+    "field_names_match_live_caller": null,
+    "id_pre_generated_by_caller": null,
+    "note": "NOT MEASURED PER VERB at this scale. The three measured cases are in _ROLLUPS.json payload_defects (slab.create boundary-vs-polygon, roof.create id minting, column.batch.create id-less members) and all three were re-proven by MY executed run of CommittedPatchReachesTheStore.test.ts, RC=0."
+   },
+   "undo": {
+    "unit_registered": "legacy-stack (no affectedStores)",
+    "backend": "B-legacy-commandManager",
+    "backend_note": "legacy-stack (no affectedStores)",
+    "reverts_geometry": "UNPROVEN",
+    "evidence_class": "a - declared shape plus a key-set comparison against buildUndoStoreMap(). The register itself says of this column: \"Declared shape, not an executed proof.\""
+   },
+   "batch": {
+    "mode": "atomic-or-unreported",
+    "reports_completed_and_failed": false,
+    "reports_notAttempted": false,
+    "reports_undoUnits": false
+   },
+   "readback": {
+    "proven": "NO",
+    "evidence_class": "a",
+    "note": "1 test file(s) name this verb; none of them both composes the real runtime and reads a store."
+   },
+   "rival_dispatch": {
+    "handler_internal": [
+     "the HANDLER ITSELF calls dispatchEvent"
+    ],
+    "family_named_commandManager_sites": 27,
+    "family_named_windowDispatchEvent_sites": 21,
+    "sample_commandManager": [
+     "apps/editor/src/engine/initTools.ts:897:        // instead of commandManager.execute(CreateWallCommand).",
+     "apps/editor/src/engine/initTools.ts:1248:            // when WallTool's legacy `commandManager.execute(CreateWallCommand)`",
+     "packages/ai-host/src/WallTerminatorDoorDetector.ts:6: *  - NEVER mutates stores. NEVER calls builders. NEVER calls commandManager.execute().",
+     "packages/command-registry/src/curtainwall/ReplacePanelTypeCommand.ts:12: *   commandManager.execute(ReplacePanelTypeCommand)"
+    ],
+    "sample_windowDispatchEvent": [
+     "packages/command-registry/src/curtainwall/CreateCurtainWallCommand.ts:17: *   Gated window.dispatchEvent('bim-curtainwall-added') behind batchCoordinator.isBatching.",
+     "packages/command-registry/src/curtainwall/CreateCurtainWallsOnAllSlabsCommand.ts:1154:        // NOTE: window.dispatchEvent is a C11 §5.3 known gap (system-wide, 131 sites),",
+     "packages/geometry-curtain-wall/src/CurtainWallBuilder.ts:568:     * event falls through to a direct `window.dispatchEvent` so we never"
+    ],
+    "caveat": "family_named_* is a NAME match over the two site files, not a resolved dispatch graph. 27 of the 227 commandManager.execute sites pass a VARIABLE (cmd/command/step) and cannot be resolved by name at all. See _ROLLUPS.json rival_dispatch."
+   },
+   "ladder": {
+    "AUTHORED": "YES",
+    "REACHABLE": "YES (register: LIVE)",
+    "COMPOSABLE": "UNPROVEN",
+    "CERTIFIED": "NO"
+   },
+   "findings": [],
+   "dispatch_reachability": {
+    "literal_dispatch_sites_outside_own_handler": 0,
+    "sites": [],
+    "method": "verb literal inside a 400-char window around executeCommand( / dispatch( / .execute( / runBatch( across 5120 production .ts/.tsx files under apps/ packages/ plugins/ (node_modules, dist, __tests__/, *.test.*, *.spec.*, *.d.ts excluded).",
+    "NON_BLIND": "This probe carries a POSITIVE CONTROL that fires: wall.batch.create = 5 sites. It also independently reproduces the two negatives asserted by DoorBatchCreateLiveness.probe.test.ts and WindowBatchCreateLiveness.probe.test.ts, both of which I EXECUTED at RC=0 (door.batch.create 0, window.batch.create 0). Evidence class (b) for this column.",
+    "CALIBRATED_FALSE_ZERO_RATE": "A zero is NOT proof of unreachability. Table-driven and variable dispatch is invisible to a literal scan. MEASURED: 9 of the 22 verbs for which I hold a class-(c) POSITIVE read-back are in the zero set (bathroomPod.delete, door.batch.create, roof.setOverhang, roof.setPitch, roof.setShape, selection.deselect, slab.addHole, slab.setThickness, window.batch.create) = a 41% false-zero rate among verbs known to work. Read a zero as UNPROVEN-DISPATCH, never as ABSENT."
+   },
+   "consequence": {
+    "verdict": "UNDETERMINED",
+    "undo_has_no_consequence": "no (or undetermined)"
+   }
+  },
+  {
+   "verb": "wall.updateSystemType",
+   "kind": "update",
+   "handler": {
+    "file": "plugins/wall/src/handlers/UpdateWallSystemType.ts:24",
+    "all_sites": [
+     "plugins/wall/src/handlers/UpdateWallSystemType.ts:24"
+    ],
+    "site_count": 1,
+    "layer": "L6 plugin",
+    "registered_where": "plugins/wall",
+    "liveness_per_register": "LIVE"
+   },
+   "contract": {
+    "validates_before_mutation": true,
+    "typed_DomainError_or_refusal": false,
+    "mutates_only_via_immer_draft": false,
+    "affectedStores_declared": true,
+    "declared_stores": [],
+    "storeKey_matches_ctx_stores": "no store declared",
+    "no_store_singleton_import": true,
+    "withHandlerSpan": true,
+    "emits_a_typed_domain_event": false,
+    "geometry_deferred_to_FrameScheduler": false,
+    "caveat": "REGEX OVER THE HANDLER DECLARATION SLICE, class (a). TRUE means the token is present in the slice, NOT that it runs on the mutation path. FALSE is the stronger reading: the token is absent, so the clause cannot be satisfied."
+   },
+   "must_nots": {
+    "no_commandManager_execute": true,
+    "no_cascading_dispatch": true,
+    "no_window_dispatchEvent": true,
+    "no_DOM_access": false,
+    "no_direct_rAF": true,
+    "caveat": "same slice-regex caveat. no_DOM_access counts any document. / window. token including type-only casts, so a FALSE here is a candidate, not a conviction."
+   },
+   "mirror": {
+    "channel": "NO CommandEventBridge case",
+    "CEB_case_present": false,
+    "in_ELEMENT_UPDATE_VERBS": false,
+    "in_LEVEL_CHANGE_VERBS": false,
+    "table_driven_not_a_case_block": "n/a - no mirror at all",
+    "evidence_class": "a - grep over CommandEventBridge.ts (38 strict case labels) and the two verb tables (LEVEL_CHANGE_VERBS 12, ELEMENT_UPDATE_VERBS 10). Per the P0 constraint I do NOT write \"the mirror gate is green therefore this verb mirrors\"."
+   },
+   "payload": {
+    "field_names_match_live_caller": null,
+    "id_pre_generated_by_caller": null,
+    "note": "NOT MEASURED PER VERB at this scale. The three measured cases are in _ROLLUPS.json payload_defects (slab.create boundary-vs-polygon, roof.create id minting, column.batch.create id-less members) and all three were re-proven by MY executed run of CommittedPatchReachesTheStore.test.ts, RC=0."
+   },
+   "undo": {
+    "unit_registered": "legacy-stack (no affectedStores)",
+    "backend": "B-legacy-commandManager",
+    "backend_note": "legacy-stack (no affectedStores)",
+    "reverts_geometry": "UNPROVEN",
+    "evidence_class": "a - declared shape plus a key-set comparison against buildUndoStoreMap(). The register itself says of this column: \"Declared shape, not an executed proof.\""
+   },
+   "batch": {
+    "mode": "none"
+   },
+   "readback": {
+    "proven": "NO",
+    "evidence_class": "a",
+    "note": "ZERO test files under apps/ packages/ plugins/ tools/ name this verb literal alongside an executeCommand/.execute call. Absence measured by _tools/readback2.mjs over every *.test.ts / *.spec.ts in those four roots, node_modules excluded."
+   },
+   "rival_dispatch": {
+    "handler_internal": [],
+    "family_named_commandManager_sites": 27,
+    "family_named_windowDispatchEvent_sites": 21,
+    "sample_commandManager": [
+     "apps/editor/src/engine/initTools.ts:897:        // instead of commandManager.execute(CreateWallCommand).",
+     "apps/editor/src/engine/initTools.ts:1248:            // when WallTool's legacy `commandManager.execute(CreateWallCommand)`",
+     "packages/ai-host/src/WallTerminatorDoorDetector.ts:6: *  - NEVER mutates stores. NEVER calls builders. NEVER calls commandManager.execute().",
+     "packages/command-registry/src/curtainwall/ReplacePanelTypeCommand.ts:12: *   commandManager.execute(ReplacePanelTypeCommand)"
+    ],
+    "sample_windowDispatchEvent": [
+     "packages/command-registry/src/curtainwall/CreateCurtainWallCommand.ts:17: *   Gated window.dispatchEvent('bim-curtainwall-added') behind batchCoordinator.isBatching.",
+     "packages/command-registry/src/curtainwall/CreateCurtainWallsOnAllSlabsCommand.ts:1154:        // NOTE: window.dispatchEvent is a C11 §5.3 known gap (system-wide, 131 sites),",
+     "packages/geometry-curtain-wall/src/CurtainWallBuilder.ts:568:     * event falls through to a direct `window.dispatchEvent` so we never"
+    ],
+    "caveat": "family_named_* is a NAME match over the two site files, not a resolved dispatch graph. 27 of the 227 commandManager.execute sites pass a VARIABLE (cmd/command/step) and cannot be resolved by name at all. See _ROLLUPS.json rival_dispatch."
+   },
+   "ladder": {
+    "AUTHORED": "YES",
+    "REACHABLE": "YES (register: LIVE)",
+    "COMPOSABLE": "UNPROVEN",
+    "CERTIFIED": "NO"
+   },
+   "findings": [],
+   "dispatch_reachability": {
+    "literal_dispatch_sites_outside_own_handler": 1,
+    "sites": [
+     "apps/editor/src/ui/property-inspector/WallLayerSection.ts"
+    ],
+    "method": "verb literal inside a 400-char window around executeCommand( / dispatch( / .execute( / runBatch( across 5120 production .ts/.tsx files under apps/ packages/ plugins/ (node_modules, dist, __tests__/, *.test.*, *.spec.*, *.d.ts excluded).",
+    "NON_BLIND": "This probe carries a POSITIVE CONTROL that fires: wall.batch.create = 5 sites. It also independently reproduces the two negatives asserted by DoorBatchCreateLiveness.probe.test.ts and WindowBatchCreateLiveness.probe.test.ts, both of which I EXECUTED at RC=0 (door.batch.create 0, window.batch.create 0). Evidence class (b) for this column.",
+    "CALIBRATED_FALSE_ZERO_RATE": "A zero is NOT proof of unreachability. Table-driven and variable dispatch is invisible to a literal scan. MEASURED: 9 of the 22 verbs for which I hold a class-(c) POSITIVE read-back are in the zero set (bathroomPod.delete, door.batch.create, roof.setOverhang, roof.setPitch, roof.setShape, selection.deselect, slab.addHole, slab.setThickness, window.batch.create) = a 41% false-zero rate among verbs known to work. Read a zero as UNPROVEN-DISPATCH, never as ABSENT."
+   },
+   "consequence": {
+    "verdict": "UNDETERMINED",
+    "undo_has_no_consequence": "no (or undetermined)"
+   }
+  },
+  {
+   "verb": "wall.updateSystemTypeBatch",
+   "kind": "update",
+   "handler": {
+    "file": "plugins/wall/src/handlers/UpdateWallsSystemTypeBatch.ts:68",
+    "all_sites": [
+     "plugins/wall/src/handlers/UpdateWallsSystemTypeBatch.ts:68"
+    ],
+    "site_count": 1,
+    "layer": "L6 plugin",
+    "registered_where": "plugins/wall",
+    "liveness_per_register": "LIVE"
+   },
+   "contract": {
+    "validates_before_mutation": true,
+    "typed_DomainError_or_refusal": true,
+    "mutates_only_via_immer_draft": false,
+    "affectedStores_declared": true,
+    "declared_stores": [],
+    "storeKey_matches_ctx_stores": "no store declared",
+    "no_store_singleton_import": true,
+    "withHandlerSpan": true,
+    "emits_a_typed_domain_event": false,
+    "geometry_deferred_to_FrameScheduler": false,
+    "caveat": "REGEX OVER THE HANDLER DECLARATION SLICE, class (a). TRUE means the token is present in the slice, NOT that it runs on the mutation path. FALSE is the stronger reading: the token is absent, so the clause cannot be satisfied."
+   },
+   "must_nots": {
+    "no_commandManager_execute": true,
+    "no_cascading_dispatch": true,
+    "no_window_dispatchEvent": false,
+    "no_DOM_access": false,
+    "no_direct_rAF": true,
+    "caveat": "same slice-regex caveat. no_DOM_access counts any document. / window. token including type-only casts, so a FALSE here is a candidate, not a conviction."
+   },
+   "mirror": {
+    "channel": "NO CommandEventBridge case",
+    "CEB_case_present": false,
+    "in_ELEMENT_UPDATE_VERBS": false,
+    "in_LEVEL_CHANGE_VERBS": false,
+    "table_driven_not_a_case_block": "n/a - no mirror at all",
+    "evidence_class": "a - grep over CommandEventBridge.ts (38 strict case labels) and the two verb tables (LEVEL_CHANGE_VERBS 12, ELEMENT_UPDATE_VERBS 10). Per the P0 constraint I do NOT write \"the mirror gate is green therefore this verb mirrors\"."
+   },
+   "payload": {
+    "field_names_match_live_caller": null,
+    "id_pre_generated_by_caller": null,
+    "note": "NOT MEASURED PER VERB at this scale. The three measured cases are in _ROLLUPS.json payload_defects (slab.create boundary-vs-polygon, roof.create id minting, column.batch.create id-less members) and all three were re-proven by MY executed run of CommittedPatchReachesTheStore.test.ts, RC=0."
+   },
+   "undo": {
+    "unit_registered": "legacy-stack (no affectedStores)",
+    "backend": "B-legacy-commandManager",
+    "backend_note": "legacy-stack (no affectedStores)",
+    "reverts_geometry": "UNPROVEN",
+    "evidence_class": "a - declared shape plus a key-set comparison against buildUndoStoreMap(). The register itself says of this column: \"Declared shape, not an executed proof.\""
+   },
+   "batch": {
+    "mode": "atomic-or-unreported",
+    "reports_completed_and_failed": false,
+    "reports_notAttempted": false,
+    "reports_undoUnits": false
+   },
+   "readback": {
+    "proven": "NO",
+    "evidence_class": "a",
+    "note": "1 test file(s) name this verb; none of them both composes the real runtime and reads a store."
+   },
+   "rival_dispatch": {
+    "handler_internal": [
+     "the HANDLER ITSELF calls dispatchEvent"
+    ],
+    "family_named_commandManager_sites": 27,
+    "family_named_windowDispatchEvent_sites": 21,
+    "sample_commandManager": [
+     "apps/editor/src/engine/initTools.ts:897:        // instead of commandManager.execute(CreateWallCommand).",
+     "apps/editor/src/engine/initTools.ts:1248:            // when WallTool's legacy `commandManager.execute(CreateWallCommand)`",
+     "packages/ai-host/src/WallTerminatorDoorDetector.ts:6: *  - NEVER mutates stores. NEVER calls builders. NEVER calls commandManager.execute().",
+     "packages/command-registry/src/curtainwall/ReplacePanelTypeCommand.ts:12: *   commandManager.execute(ReplacePanelTypeCommand)"
+    ],
+    "sample_windowDispatchEvent": [
+     "packages/command-registry/src/curtainwall/CreateCurtainWallCommand.ts:17: *   Gated window.dispatchEvent('bim-curtainwall-added') behind batchCoordinator.isBatching.",
+     "packages/command-registry/src/curtainwall/CreateCurtainWallsOnAllSlabsCommand.ts:1154:        // NOTE: window.dispatchEvent is a C11 §5.3 known gap (system-wide, 131 sites),",
+     "packages/geometry-curtain-wall/src/CurtainWallBuilder.ts:568:     * event falls through to a direct `window.dispatchEvent` so we never"
+    ],
+    "caveat": "family_named_* is a NAME match over the two site files, not a resolved dispatch graph. 27 of the 227 commandManager.execute sites pass a VARIABLE (cmd/command/step) and cannot be resolved by name at all. See _ROLLUPS.json rival_dispatch."
+   },
+   "ladder": {
+    "AUTHORED": "YES",
+    "REACHABLE": "YES (register: LIVE)",
+    "COMPOSABLE": "UNPROVEN",
+    "CERTIFIED": "NO"
+   },
+   "findings": [],
+   "dispatch_reachability": {
+    "literal_dispatch_sites_outside_own_handler": 1,
+    "sites": [
+     "apps/editor/src/ui/ai/AIPanel.ts"
+    ],
+    "method": "verb literal inside a 400-char window around executeCommand( / dispatch( / .execute( / runBatch( across 5120 production .ts/.tsx files under apps/ packages/ plugins/ (node_modules, dist, __tests__/, *.test.*, *.spec.*, *.d.ts excluded).",
+    "NON_BLIND": "This probe carries a POSITIVE CONTROL that fires: wall.batch.create = 5 sites. It also independently reproduces the two negatives asserted by DoorBatchCreateLiveness.probe.test.ts and WindowBatchCreateLiveness.probe.test.ts, both of which I EXECUTED at RC=0 (door.batch.create 0, window.batch.create 0). Evidence class (b) for this column.",
+    "CALIBRATED_FALSE_ZERO_RATE": "A zero is NOT proof of unreachability. Table-driven and variable dispatch is invisible to a literal scan. MEASURED: 9 of the 22 verbs for which I hold a class-(c) POSITIVE read-back are in the zero set (bathroomPod.delete, door.batch.create, roof.setOverhang, roof.setPitch, roof.setShape, selection.deselect, slab.addHole, slab.setThickness, window.batch.create) = a 41% false-zero rate among verbs known to work. Read a zero as UNPROVEN-DISPATCH, never as ABSENT."
+   },
+   "consequence": {
+    "verdict": "UNDETERMINED",
+    "undo_has_no_consequence": "no (or undetermined)"
+   }
+  }
+ ]
+}

@@ -1,0 +1,1976 @@
+{
+  "audit": "full-stack P1 CENSUS",
+  "date": "2026-08-31",
+  "head_at_start": "d91d30d4af51bc67317ef8afc0b46b1dbef94038",
+  "repo": "c:/Users/LENOVO/OneDrive/Desktop/PRYZM/Product_Rediness_08",
+  "sources": {
+    "S1": {
+      "name": "plugins/ directories on disk",
+      "command": "ls plugins/ | sort",
+      "count": 51,
+      "members": [
+        "ai-floorplan",
+        "ai-generative",
+        "ai-query",
+        "ai-rules",
+        "ai-voice",
+        "annotations",
+        "balcony",
+        "bcf",
+        "beam",
+        "boundary-line",
+        "ceiling",
+        "column",
+        "cross",
+        "curtain-wall",
+        "dimensions",
+        "door",
+        "dxf",
+        "export-pdf",
+        "family-editor",
+        "floor",
+        "furniture",
+        "geospatial",
+        "grid",
+        "handrail",
+        "ifc-export",
+        "ifc-import",
+        "ifc-inspector",
+        "levels",
+        "lift",
+        "lighting",
+        "multiplayer",
+        "navigate",
+        "plan-view",
+        "plumbing",
+        "pool",
+        "render",
+        "rhino-import",
+        "roof",
+        "rooms",
+        "schedules",
+        "section-view",
+        "selection",
+        "sheets",
+        "slab",
+        "stair",
+        "structural",
+        "toy-cube",
+        "view",
+        "visibility-intent",
+        "wall",
+        "window"
+      ]
+    },
+    "S2": {
+      "name": "ALL_PLUGINS inline descriptor ids",
+      "command": "sed -n '296,840p' apps/editor/src/PluginRegistry.ts | grep -nE \"^s*(id|storeKey):\"",
+      "count": 29,
+      "members": [
+        "wall",
+        "slab",
+        "pool",
+        "water",
+        "door",
+        "window",
+        "roof",
+        "curtain-wall",
+        "grid",
+        "column",
+        "beam",
+        "stair",
+        "handrail",
+        "ceiling",
+        "floor",
+        "balcony",
+        "lift",
+        "liftPart",
+        "boundary-line",
+        "furniture",
+        "plumbing",
+        "bathroomPod",
+        "lighting",
+        "rooms",
+        "structural",
+        "dimensions",
+        "selection",
+        "annotations",
+        "view"
+      ],
+      "storeKeys": [
+        "wall",
+        "slab",
+        "pool",
+        "water",
+        "door",
+        "window",
+        "roof",
+        "curtainwall",
+        "grid",
+        "column",
+        "beam",
+        "stair",
+        "handrail",
+        "ceiling",
+        "floor",
+        "balcony",
+        "lift",
+        "liftPart",
+        "boundaryLine",
+        "furniture",
+        "plumbing",
+        "bathroomPod",
+        "lighting",
+        "rooms",
+        "structural",
+        "dimension",
+        "selection",
+        "annotation",
+        "view"
+      ],
+      "note": "29 INLINE descriptors. 'section-view' is registered by plugins/section-view/src/registration.ts, NOT inline — it is in ELEMENT_PLUGIN_IDS but not in this list."
+    },
+    "S3": {
+      "name": "command-registry verb families (from the GENERATED C69 register)",
+      "command": "npx tsx tools/ga-gate/check-verb-register.ts",
+      "verbs_total": 361,
+      "family_count": 50,
+      "members": [
+        "annotation",
+        "balcony",
+        "bathroomPod",
+        "beam",
+        "boundaryLine",
+        "ceiling",
+        "column",
+        "copy-selection",
+        "cube",
+        "curtain-wall",
+        "data",
+        "dimension",
+        "door",
+        "element",
+        "elementType",
+        "elevation",
+        "floor",
+        "furniture",
+        "generation",
+        "generative",
+        "graph",
+        "grid",
+        "handrail",
+        "hierarchy",
+        "level",
+        "lift",
+        "lighting",
+        "opening",
+        "paste-clipboard",
+        "plumbing",
+        "pool",
+        "projectOrigin",
+        "rhino",
+        "roof",
+        "room",
+        "schedule",
+        "section",
+        "selection",
+        "sheet",
+        "slab",
+        "stair",
+        "structural",
+        "template",
+        "vg",
+        "view",
+        "viewTemplate",
+        "wall",
+        "window",
+        "zoom-fit",
+        "zoom-selected"
+      ]
+    },
+    "S4": {
+      "name": "ELEMENT_PLUGIN_IDS",
+      "command": "sed -n '843,900p' apps/editor/src/PluginRegistry.ts",
+      "count": 27,
+      "members": [
+        "wall",
+        "slab",
+        "pool",
+        "water",
+        "balcony",
+        "lift",
+        "liftPart",
+        "boundary-line",
+        "door",
+        "window",
+        "roof",
+        "curtain-wall",
+        "grid",
+        "column",
+        "beam",
+        "stair",
+        "handrail",
+        "ceiling",
+        "furniture",
+        "plumbing",
+        "bathroomPod",
+        "rooms",
+        "structural",
+        "dimensions",
+        "selection",
+        "annotations",
+        "section-view"
+      ],
+      "store_only": [
+        "water",
+        "liftPart",
+        "bathroomPod"
+      ]
+    },
+    "S5": {
+      "name": "GEOMETRY_ELEMENT_TYPES",
+      "command": "sed -n '80,135p' packages/core-app-model/src/views/ViewDependencyTracker.ts",
+      "count": 21,
+      "members": [
+        "wall",
+        "slab",
+        "column",
+        "beam",
+        "curtainwall",
+        "curtain-panel",
+        "window",
+        "door",
+        "roof",
+        "stair",
+        "stair-landing",
+        "stair-railing",
+        "verticalCirculation",
+        "opening",
+        "ceiling",
+        "floor",
+        "handrail",
+        "furniture",
+        "plumbing",
+        "lighting",
+        "room"
+      ],
+      "note": "RE-MEASURED 21, NOT the 19 the 2026-08-29 census recorded. 'lighting' (§PLAN-MEMBERSHIP-LIGHTING Wave 4a) and 'room' (§PLAN-MEMBERSHIP-ROOM Wave 4e) were added since. The 2026-08-29 pool.json row states 'the 19-member set (ViewDependencyTracker.ts:42-48)' — both the COUNT and the LINE RANGE are now stale."
+    },
+    "S6": {
+      "name": "CommandEventBridge case labels",
+      "command": "grep -nE \"^s*case '\" packages/runtime-composer/src/CommandEventBridge.ts",
+      "count": 38,
+      "members": [
+        "wall.create",
+        "wall.batch.create",
+        "wall.opening.create",
+        "wall.createOpening",
+        "slab.create",
+        "slab.batch.create",
+        "curtain-wall.create",
+        "curtain-wall.batch.create",
+        "column.create",
+        "column.batch.create",
+        "beam.create",
+        "beam.batch.create",
+        "ceiling.create",
+        "ceiling.batch.create",
+        "room.create",
+        "grid.create",
+        "handrail.create",
+        "furniture.create",
+        "furniture.batch.create",
+        "lighting.create",
+        "plumbing.create",
+        "structural.create",
+        "annotation.create",
+        "dimension.create",
+        "roof.create",
+        "slab.updateLayers",
+        "ceiling.updateLayers",
+        "floor.updateLayers",
+        "floor.create",
+        "balcony.create",
+        "lift.create",
+        "pool.create",
+        "boundaryLine.create",
+        "boundaryLine.update",
+        "boundaryLine.attach",
+        "boundaryLine.detach",
+        "boundaryLine.move",
+        "boundaryLine.delete"
+      ],
+      "families": [
+        "annotation",
+        "balcony",
+        "beam",
+        "boundaryLine",
+        "ceiling",
+        "column",
+        "curtain-wall",
+        "dimension",
+        "floor",
+        "furniture",
+        "grid",
+        "handrail",
+        "lift",
+        "lighting",
+        "plumbing",
+        "pool",
+        "roof",
+        "room",
+        "slab",
+        "structural",
+        "wall"
+      ]
+    },
+    "S7": {
+      "name": "initTools runtime.events.on element bridges",
+      "command": "grep -nE \"runtime.events.on(\" apps/editor/src/engine/initTools.ts",
+      "count_total_events_on": 19,
+      "count_element": 17,
+      "members": [
+        "wall.created",
+        "wall.opening.created",
+        "lift.created",
+        "boundaryLine.created",
+        "boundaryLine.updated",
+        "boundaryLine.deleted",
+        "water.created",
+        "curtain-wall.created",
+        "ceiling.created",
+        "roof.created",
+        "column.created",
+        "slab.created",
+        "beam.created",
+        "floor.created",
+        "handrail.created",
+        "lighting.created",
+        "furniture.created"
+      ],
+      "families": [
+        "beam",
+        "boundaryLine",
+        "ceiling",
+        "column",
+        "curtain-wall",
+        "floor",
+        "furniture",
+        "handrail",
+        "lift",
+        "lighting",
+        "roof",
+        "slab",
+        "wall",
+        "water"
+      ],
+      "note": "19 total .events.on() calls; 2 are non-element ('pryzm-project-loaded' :3134, 'view-activated' :3156). 15 are *.created, 1 *.updated, 1 *.deleted — all three of the update/delete channels belong to ONE family, boundaryLine."
+    },
+    "S8": {
+      "name": "packages/schemas/src/elements/",
+      "command": "ls packages/schemas/src/elements/",
+      "count": 32,
+      "members": [
+        "Annotation",
+        "Balcony",
+        "Beam",
+        "BoundaryLine",
+        "Ceiling",
+        "Column",
+        "CurtainPanelVocabulary",
+        "CurtainWall",
+        "Dimension",
+        "Door",
+        "Floor",
+        "Furniture",
+        "Grid",
+        "Handrail",
+        "Lighting",
+        "Plumbing",
+        "Pool",
+        "Project",
+        "ProjectOrigin",
+        "Roof",
+        "Room",
+        "Schedule",
+        "Section",
+        "Sheet",
+        "Slab",
+        "Stair",
+        "Structural",
+        "VerticalCirculation",
+        "View",
+        "Wall",
+        "Water",
+        "Window"
+      ]
+    }
+  },
+  "drift": [
+    {
+      "id": "D1",
+      "left": "S1 plugins/ dirs",
+      "right": "S2 ALL_PLUGINS(+section-view)",
+      "left_size": 51,
+      "right_size": 30,
+      "left_minus_right": [
+        "ai-floorplan",
+        "ai-generative",
+        "ai-query",
+        "ai-rules",
+        "ai-voice",
+        "bcf",
+        "cross",
+        "dxf",
+        "export-pdf",
+        "family-editor",
+        "geospatial",
+        "ifc-export",
+        "ifc-import",
+        "ifc-inspector",
+        "levels",
+        "multiplayer",
+        "navigate",
+        "plan-view",
+        "render",
+        "rhino-import",
+        "schedules",
+        "sheets",
+        "toy-cube",
+        "visibility-intent"
+      ],
+      "right_minus_left": [
+        "bathroomPod",
+        "liftPart",
+        "water"
+      ]
+    },
+    {
+      "id": "D2",
+      "left": "S2 ALL_PLUGINS",
+      "right": "S4 ELEMENT_PLUGIN_IDS",
+      "left_size": 30,
+      "right_size": 27,
+      "left_minus_right": [
+        "floor",
+        "lighting",
+        "view"
+      ],
+      "right_minus_left": []
+    },
+    {
+      "id": "D3",
+      "left": "S3 verb families (361 verbs)",
+      "right": "S2 ALL_PLUGINS",
+      "left_size": 50,
+      "right_size": 30,
+      "left_minus_right": [
+        "copy-selection",
+        "cube",
+        "data",
+        "element",
+        "elementType",
+        "elevation",
+        "generation",
+        "generative",
+        "graph",
+        "hierarchy",
+        "level",
+        "opening",
+        "paste-clipboard",
+        "projectOrigin",
+        "rhino",
+        "schedule",
+        "sheet",
+        "template",
+        "vg",
+        "viewTemplate",
+        "zoom-fit",
+        "zoom-selected"
+      ],
+      "right_minus_left": [
+        "liftPart",
+        "water"
+      ]
+    },
+    {
+      "id": "D4",
+      "left": "S5 GEOMETRY_ELEMENT_TYPES",
+      "right": "S2 ALL_PLUGINS",
+      "left_size": 21,
+      "right_size": 30,
+      "left_minus_right": [
+        "curtain-panel",
+        "opening",
+        "stair-landing",
+        "stair-railing",
+        "verticalCirculation"
+      ],
+      "right_minus_left": [
+        "annotation",
+        "balcony",
+        "bathroomPod",
+        "boundaryLine",
+        "dimension",
+        "grid",
+        "lift",
+        "liftPart",
+        "pool",
+        "section",
+        "selection",
+        "structural",
+        "view",
+        "water"
+      ]
+    },
+    {
+      "id": "D5",
+      "left": "S6 CEB case families",
+      "right": "S3 verb families",
+      "left_size": 21,
+      "right_size": 50,
+      "left_minus_right": [],
+      "right_minus_left": [
+        "bathroomPod",
+        "copy-selection",
+        "cube",
+        "data",
+        "door",
+        "element",
+        "elementType",
+        "elevation",
+        "generation",
+        "generative",
+        "graph",
+        "hierarchy",
+        "level",
+        "opening",
+        "paste-clipboard",
+        "projectOrigin",
+        "rhino",
+        "schedule",
+        "section",
+        "selection",
+        "sheet",
+        "stair",
+        "template",
+        "vg",
+        "view",
+        "viewTemplate",
+        "window",
+        "zoom-fit",
+        "zoom-selected"
+      ]
+    },
+    {
+      "id": "D6",
+      "left": "S7 initTools bridge families",
+      "right": "S6 CEB case families",
+      "left_size": 14,
+      "right_size": 21,
+      "left_minus_right": [
+        "water"
+      ],
+      "right_minus_left": [
+        "annotation",
+        "balcony",
+        "dimension",
+        "grid",
+        "plumbing",
+        "pool",
+        "room",
+        "structural"
+      ]
+    },
+    {
+      "id": "D7",
+      "left": "S8 schemas/src/elements",
+      "right": "S2 ALL_PLUGINS",
+      "left_size": 32,
+      "right_size": 30,
+      "left_minus_right": [
+        "curtainPanelVocabulary",
+        "project",
+        "projectOrigin",
+        "schedule",
+        "sheet",
+        "verticalCirculation"
+      ],
+      "right_minus_left": [
+        "bathroomPod",
+        "lift",
+        "liftPart",
+        "selection"
+      ]
+    },
+    {
+      "id": "D8",
+      "left": "S9 initStores type keys",
+      "right": "S5 GEOMETRY_ELEMENT_TYPES",
+      "left_size": 25,
+      "right_size": 21,
+      "left_minus_right": [
+        "annotation",
+        "grid",
+        "lift-type",
+        "stair-type"
+      ],
+      "right_minus_left": []
+    }
+  ],
+  "channel_subscribers": {
+    "command_shape": "per channel: grep -rn for the quoted channel literal preceded by events.on( or .on( over apps/editor/src packages/runtime-composer/src plugins --include=*.ts, filtered through grep -v node_modules and grep -vE for __tests__ / .test. / .spec., then wc -l",
+    "channels_enumerated_by": "grep -noE for events.emit(<quoted literal>) over packages/runtime-composer/src/CommandEventBridge.ts",
+    "subscribers": {
+      "wall.created": 6,
+      "slab.created": 3,
+      "wall.opening.created": 2,
+      "element.updated": 1,
+      "curtain-wall.created": 2,
+      "column.created": 1,
+      "handrail.created": 1,
+      "furniture.created": 1,
+      "floor.created": 1,
+      "ceiling.created": 1,
+      "beam.created": 1,
+      "water.created": 1,
+      "roof.created": 1,
+      "lighting.created": 1,
+      "lift.created": 1,
+      "element.level-changed": 1,
+      "boundaryLine.updated": 1,
+      "boundaryLine.deleted": 1,
+      "boundaryLine.created": 1,
+      "structural.created": 0,
+      "slab.layer-updated": 0,
+      "room.created": 0,
+      "plumbing.created": 0,
+      "grid.created": 0,
+      "floor.layer-updated": 0,
+      "dimension.created": 0,
+      "ceiling.layer-updated": 0,
+      "annotation.created": 0
+    },
+    "zero_subscriber_channels": [
+      "structural.created",
+      "slab.layer-updated",
+      "room.created",
+      "plumbing.created",
+      "grid.created",
+      "floor.layer-updated",
+      "dimension.created",
+      "ceiling.layer-updated",
+      "annotation.created"
+    ],
+    "zero_subscriber_count": 9,
+    "absence_confirmed_by": "grep -rn for the quoted channel literal over apps/editor/src packages plugins --include=*.ts (node_modules, .test., .spec. excluded), then collapsing to file names. EIGHT of the nine appear ONLY in CommandEventBridge.ts (the emit) and packages/runtime-composer/src/types.ts (the RuntimeEvents key declaration) — nothing else in the repository names them. The ninth, room.created, has three further sites and NONE is a subscription: initCollaboration.ts:68 is a human-readable label map; PlatformProjectBrowser.ts:991 is a webhook event-name allowlist; packages/stores/src/aggregate-commands/roomCreate.ts:111 and types.ts:347 declare a SAME-NAMED event on a DIFFERENT bus. That is a cross-bus name collision, not a subscriber.",
+    "what_this_does_NOT_establish": "That the 19 non-zero channels reach the screen. This is a static count of .on() sites, not a proof any handler body writes anything. Literal-only: a subscription built from a variable would be missed; none was found.",
+    "three_of_the_nine_are_the_bridges_ONLY_update_arm": "slab.layer-updated, ceiling.layer-updated and floor.layer-updated are emitted by CommandEventBridge cases slab.updateLayers (:1613), ceiling.updateLayers (:1633) and floor.updateLayers (:1653) — three of only four non-create cases in the whole switch. All three emit into zero subscribers."
+  },
+  "verbs_by_family": {
+    "annotation": {
+      "total": 9,
+      "kinds": {
+        "create": 1,
+        "delete": 1,
+        "move": 1,
+        "update": 6
+      },
+      "liveness": {
+        "UNKNOWN": 9
+      },
+      "others": [],
+      "verbs": [
+        "annotation.create",
+        "annotation.delete",
+        "annotation.move",
+        "annotation.setColor",
+        "annotation.setKind",
+        "annotation.setRotation",
+        "annotation.setText",
+        "annotation.setTextHeight",
+        "annotation.update"
+      ]
+    },
+    "balcony": {
+      "total": 3,
+      "kinds": {
+        "create": 1,
+        "delete": 1,
+        "update": 1
+      },
+      "liveness": {
+        "UNKNOWN": 3
+      },
+      "others": [],
+      "verbs": [
+        "balcony.create",
+        "balcony.delete",
+        "balcony.updateProfile"
+      ]
+    },
+    "bathroomPod": {
+      "total": 2,
+      "kinds": {
+        "create": 1,
+        "delete": 1
+      },
+      "liveness": {
+        "UNKNOWN": 2
+      },
+      "others": [],
+      "verbs": [
+        "bathroomPod.create",
+        "bathroomPod.delete"
+      ]
+    },
+    "beam": {
+      "total": 9,
+      "kinds": {
+        "batch.create": 1,
+        "update": 5,
+        "create": 1,
+        "delete": 1,
+        "move": 1
+      },
+      "liveness": {
+        "UNKNOWN": 5,
+        "LIVE": 2,
+        "REFUSES": 2
+      },
+      "others": [],
+      "verbs": [
+        "beam.batch.create",
+        "beam.changeLevel",
+        "beam.create",
+        "beam.delete",
+        "beam.move",
+        "beam.setMaterial",
+        "beam.setSection",
+        "beam.setType",
+        "beam.update"
+      ]
+    },
+    "boundaryLine": {
+      "total": 6,
+      "kinds": {
+        "update": 3,
+        "create": 1,
+        "delete": 1,
+        "move": 1
+      },
+      "liveness": {
+        "UNKNOWN": 5,
+        "LIVE": 1
+      },
+      "others": [],
+      "verbs": [
+        "boundaryLine.attach",
+        "boundaryLine.create",
+        "boundaryLine.delete",
+        "boundaryLine.detach",
+        "boundaryLine.move",
+        "boundaryLine.update"
+      ]
+    },
+    "ceiling": {
+      "total": 10,
+      "kinds": {
+        "batch.create": 1,
+        "update": 7,
+        "create": 1,
+        "delete": 1
+      },
+      "liveness": {
+        "UNKNOWN": 6,
+        "LIVE": 3,
+        "REFUSES": 1
+      },
+      "others": [],
+      "verbs": [
+        "ceiling.batch.create",
+        "ceiling.changeLevel",
+        "ceiling.create",
+        "ceiling.delete",
+        "ceiling.setBoundary",
+        "ceiling.setHeight",
+        "ceiling.setMaterial",
+        "ceiling.update",
+        "ceiling.updateLayers",
+        "ceiling.updateSystemTypeBatch"
+      ]
+    },
+    "column": {
+      "total": 9,
+      "kinds": {
+        "batch.create": 1,
+        "update": 5,
+        "create": 1,
+        "delete": 1,
+        "move": 1
+      },
+      "liveness": {
+        "UNKNOWN": 5,
+        "LIVE": 2,
+        "REFUSES": 2
+      },
+      "others": [],
+      "verbs": [
+        "column.batch.create",
+        "column.changeLevel",
+        "column.create",
+        "column.delete",
+        "column.move",
+        "column.setHeight",
+        "column.setMaterial",
+        "column.setType",
+        "column.update"
+      ]
+    },
+    "copy-selection": {
+      "total": 1,
+      "kinds": {
+        "other": 1
+      },
+      "liveness": {
+        "UNKNOWN": 1
+      },
+      "others": [
+        "copy-selection"
+      ],
+      "verbs": [
+        "copy-selection"
+      ]
+    },
+    "cube": {
+      "total": 1,
+      "kinds": {
+        "move": 1
+      },
+      "liveness": {
+        "UNKNOWN": 1
+      },
+      "others": [],
+      "verbs": [
+        "cube.move"
+      ]
+    },
+    "curtain-wall": {
+      "total": 24,
+      "kinds": {
+        "update": 14,
+        "batch.create": 1,
+        "other": 3,
+        "create": 1,
+        "create-variant": 1,
+        "delete": 3,
+        "move": 1
+      },
+      "liveness": {
+        "UNKNOWN": 19,
+        "LIVE": 4,
+        "REFUSES": 1
+      },
+      "others": [
+        "curtain-wall.batch.delete",
+        "curtain-wall.batch.update",
+        "curtain-wall.swapPanel"
+      ],
+      "verbs": [
+        "curtain-wall.addGridLine",
+        "curtain-wall.addPanel",
+        "curtain-wall.batch.create",
+        "curtain-wall.batch.delete",
+        "curtain-wall.batch.update",
+        "curtain-wall.bulkUpdatePanels",
+        "curtain-wall.bulkUpdateParameter",
+        "curtain-wall.changeLevel",
+        "curtain-wall.create",
+        "curtain-wall.create-on-all-slabs",
+        "curtain-wall.delete",
+        "curtain-wall.move",
+        "curtain-wall.removeGridLine",
+        "curtain-wall.removePanel",
+        "curtain-wall.replacePanel",
+        "curtain-wall.resize",
+        "curtain-wall.rotatePanel",
+        "curtain-wall.setGrid",
+        "curtain-wall.setMaterial",
+        "curtain-wall.setMullionType",
+        "curtain-wall.setOutline",
+        "curtain-wall.setPanelType",
+        "curtain-wall.setTransomType",
+        "curtain-wall.swapPanel"
+      ]
+    },
+    "data": {
+      "total": 3,
+      "kinds": {
+        "update": 2,
+        "other": 1
+      },
+      "liveness": {
+        "LIVE": 3
+      },
+      "others": [
+        "data.markPropertyDerived"
+      ],
+      "verbs": [
+        "data.clearPropertyDerived",
+        "data.markPropertyDerived",
+        "data.setDerivation"
+      ]
+    },
+    "dimension": {
+      "total": 7,
+      "kinds": {
+        "create": 1,
+        "batch.create": 1,
+        "delete": 1,
+        "move": 1,
+        "update": 3
+      },
+      "liveness": {
+        "UNKNOWN": 6,
+        "REFUSES": 1
+      },
+      "others": [],
+      "verbs": [
+        "dimension.create",
+        "dimension.createMany",
+        "dimension.delete",
+        "dimension.move",
+        "dimension.setPrecision",
+        "dimension.setText",
+        "dimension.setUnit"
+      ]
+    },
+    "door": {
+      "total": 14,
+      "kinds": {
+        "batch.create": 1,
+        "create": 1,
+        "delete": 1,
+        "move": 1,
+        "update": 10
+      },
+      "liveness": {
+        "UNKNOWN": 6,
+        "REFUSES": 2,
+        "LIVE": 6
+      },
+      "others": [],
+      "verbs": [
+        "door.batch.create",
+        "door.create",
+        "door.delete",
+        "door.move",
+        "door.setAccessibility",
+        "door.setFireRating",
+        "door.setFrameColor",
+        "door.setHeight",
+        "door.setOffset",
+        "door.setSillHeight",
+        "door.setSwing",
+        "door.setType",
+        "door.setWidth",
+        "door.updateSystemTypeBatch"
+      ]
+    },
+    "element": {
+      "total": 10,
+      "kinds": {
+        "update": 6,
+        "delete": 2,
+        "other": 2
+      },
+      "liveness": {
+        "LIVE": 10
+      },
+      "others": [
+        "element.hideInView",
+        "element.isolateInView"
+      ],
+      "verbs": [
+        "element.changeType",
+        "element.delete",
+        "element.deleteBatch",
+        "element.hideInView",
+        "element.isolateInView",
+        "element.setGraphicOverride",
+        "element.updateDimensionsBatch",
+        "element.updateMark",
+        "element.updateOpeningProfileBatch",
+        "element.updateParameters"
+      ]
+    },
+    "elementType": {
+      "total": 4,
+      "kinds": {
+        "create": 1,
+        "delete": 1,
+        "other": 1,
+        "update": 1
+      },
+      "liveness": {
+        "LIVE": 4
+      },
+      "others": [
+        "elementType.duplicate"
+      ],
+      "verbs": [
+        "elementType.create",
+        "elementType.delete",
+        "elementType.duplicate",
+        "elementType.update"
+      ]
+    },
+    "elevation": {
+      "total": 1,
+      "kinds": {
+        "create": 1
+      },
+      "liveness": {
+        "LIVE": 1
+      },
+      "others": [],
+      "verbs": [
+        "elevation.create"
+      ]
+    },
+    "floor": {
+      "total": 6,
+      "kinds": {
+        "update": 5,
+        "create": 1
+      },
+      "liveness": {
+        "LIVE": 3,
+        "UNKNOWN": 2,
+        "REFUSES": 1
+      },
+      "others": [],
+      "verbs": [
+        "floor.changeLevel",
+        "floor.create",
+        "floor.setFinishBatch",
+        "floor.setMaterial",
+        "floor.update",
+        "floor.updateLayers"
+      ]
+    },
+    "furniture": {
+      "total": 12,
+      "kinds": {
+        "batch.create": 1,
+        "update": 8,
+        "create": 1,
+        "delete": 1,
+        "move": 1
+      },
+      "liveness": {
+        "UNKNOWN": 7,
+        "LIVE": 2,
+        "REFUSES": 3
+      },
+      "others": [],
+      "verbs": [
+        "furniture.batch.create",
+        "furniture.bulkUpdateKitchenMaterial",
+        "furniture.changeLevel",
+        "furniture.create",
+        "furniture.delete",
+        "furniture.move",
+        "furniture.rotate",
+        "furniture.setActiveLod",
+        "furniture.setMaterial",
+        "furniture.setRepresentation",
+        "furniture.setScale",
+        "furniture.updateParameters"
+      ]
+    },
+    "generation": {
+      "total": 4,
+      "kinds": {
+        "other": 4
+      },
+      "liveness": {
+        "LIVE": 4
+      },
+      "others": [
+        "generation.apartment",
+        "generation.building",
+        "generation.finish-chain",
+        "generation.rooms"
+      ],
+      "verbs": [
+        "generation.apartment",
+        "generation.building",
+        "generation.finish-chain",
+        "generation.rooms"
+      ]
+    },
+    "generative": {
+      "total": 1,
+      "kinds": {
+        "update": 1
+      },
+      "liveness": {
+        "LIVE": 1
+      },
+      "others": [],
+      "verbs": [
+        "generative.applyLayout"
+      ]
+    },
+    "graph": {
+      "total": 3,
+      "kinds": {
+        "other": 3
+      },
+      "liveness": {
+        "LIVE": 3
+      },
+      "others": [
+        "graph.neighbors",
+        "graph.path",
+        "graph.query"
+      ],
+      "verbs": [
+        "graph.neighbors",
+        "graph.path",
+        "graph.query"
+      ]
+    },
+    "grid": {
+      "total": 6,
+      "kinds": {
+        "update": 4,
+        "create": 1,
+        "delete": 1
+      },
+      "liveness": {
+        "LIVE": 2,
+        "UNKNOWN": 4
+      },
+      "others": [],
+      "verbs": [
+        "grid.add",
+        "grid.create",
+        "grid.delete",
+        "grid.setExtent",
+        "grid.setSpacing",
+        "grid.update"
+      ]
+    },
+    "handrail": {
+      "total": 10,
+      "kinds": {
+        "update": 6,
+        "create": 1,
+        "delete": 1,
+        "move": 1,
+        "other": 1
+      },
+      "liveness": {
+        "LIVE": 3,
+        "UNKNOWN": 6,
+        "REFUSES": 1
+      },
+      "others": [
+        "handrail.recompute"
+      ],
+      "verbs": [
+        "handrail.changeLevel",
+        "handrail.create",
+        "handrail.delete",
+        "handrail.moveBaseLine",
+        "handrail.recompute",
+        "handrail.setHost",
+        "handrail.setMaterial",
+        "handrail.setPath",
+        "handrail.setShape",
+        "handrail.updateColor"
+      ]
+    },
+    "hierarchy": {
+      "total": 5,
+      "kinds": {
+        "create-variant": 4,
+        "update": 1
+      },
+      "liveness": {
+        "LIVE": 5
+      },
+      "others": [],
+      "verbs": [
+        "hierarchy.createBuilding",
+        "hierarchy.createLevel",
+        "hierarchy.createSite",
+        "hierarchy.createUnit",
+        "hierarchy.updateNode"
+      ]
+    },
+    "level": {
+      "total": 3,
+      "kinds": {
+        "update": 2,
+        "other": 1
+      },
+      "liveness": {
+        "LIVE": 3
+      },
+      "others": [
+        "level.duplicate-floor-plan"
+      ],
+      "verbs": [
+        "level.add",
+        "level.duplicate-floor-plan",
+        "level.update"
+      ]
+    },
+    "lift": {
+      "total": 2,
+      "kinds": {
+        "create": 1,
+        "delete": 1
+      },
+      "liveness": {
+        "UNKNOWN": 2
+      },
+      "others": [],
+      "verbs": [
+        "lift.create",
+        "lift.delete"
+      ]
+    },
+    "lighting": {
+      "total": 8,
+      "kinds": {
+        "update": 4,
+        "create": 1,
+        "delete": 1,
+        "move": 2
+      },
+      "liveness": {
+        "LIVE": 2,
+        "UNKNOWN": 4,
+        "REFUSES": 2
+      },
+      "others": [],
+      "verbs": [
+        "lighting.changeLevel",
+        "lighting.create",
+        "lighting.delete",
+        "lighting.move",
+        "lighting.moveFixture",
+        "lighting.setEmergency",
+        "lighting.setIntensity",
+        "lighting.setMaterial"
+      ]
+    },
+    "opening": {
+      "total": 1,
+      "kinds": {
+        "create": 1
+      },
+      "liveness": {
+        "LIVE": 1
+      },
+      "others": [],
+      "verbs": [
+        "opening.create"
+      ]
+    },
+    "paste-clipboard": {
+      "total": 1,
+      "kinds": {
+        "other": 1
+      },
+      "liveness": {
+        "UNKNOWN": 1
+      },
+      "others": [
+        "paste-clipboard"
+      ],
+      "verbs": [
+        "paste-clipboard"
+      ]
+    },
+    "plumbing": {
+      "total": 8,
+      "kinds": {
+        "update": 3,
+        "create": 1,
+        "create-variant": 1,
+        "delete": 1,
+        "move": 2
+      },
+      "liveness": {
+        "LIVE": 3,
+        "UNKNOWN": 3,
+        "REFUSES": 2
+      },
+      "others": [],
+      "verbs": [
+        "plumbing.changeLevel",
+        "plumbing.create",
+        "plumbing.createFixture",
+        "plumbing.delete",
+        "plumbing.move",
+        "plumbing.moveFixture",
+        "plumbing.setMaterial",
+        "plumbing.setSystem"
+      ]
+    },
+    "pool": {
+      "total": 2,
+      "kinds": {
+        "create": 1,
+        "delete": 1
+      },
+      "liveness": {
+        "UNKNOWN": 2
+      },
+      "others": [],
+      "verbs": [
+        "pool.create",
+        "pool.delete"
+      ]
+    },
+    "projectOrigin": {
+      "total": 2,
+      "kinds": {
+        "update": 2
+      },
+      "liveness": {
+        "LIVE": 2
+      },
+      "others": [],
+      "verbs": [
+        "projectOrigin.setPosition",
+        "projectOrigin.setVisible"
+      ]
+    },
+    "rhino": {
+      "total": 2,
+      "kinds": {
+        "other": 1,
+        "update": 1
+      },
+      "liveness": {
+        "LIVE": 2
+      },
+      "others": [
+        "rhino.resetMaterial"
+      ],
+      "verbs": [
+        "rhino.resetMaterial",
+        "rhino.setMaterial"
+      ]
+    },
+    "roof": {
+      "total": 13,
+      "kinds": {
+        "update": 8,
+        "create": 1,
+        "delete": 2,
+        "join": 1,
+        "move": 1
+      },
+      "liveness": {
+        "UNKNOWN": 9,
+        "LIVE": 2,
+        "REFUSES": 2
+      },
+      "others": [],
+      "verbs": [
+        "roof.addSkylight",
+        "roof.changeLevel",
+        "roof.create",
+        "roof.delete",
+        "roof.joinRoofs",
+        "roof.move",
+        "roof.removeSkylight",
+        "roof.setMaterial",
+        "roof.setOverhang",
+        "roof.setPitch",
+        "roof.setShape",
+        "roof.setThickness",
+        "roof.update"
+      ]
+    },
+    "room": {
+      "total": 18,
+      "kinds": {
+        "other": 4,
+        "create": 1,
+        "delete": 1,
+        "move": 1,
+        "regenerate": 1,
+        "update": 10
+      },
+      "liveness": {
+        "LIVE": 14,
+        "REFUSES": 2,
+        "UNKNOWN": 2
+      },
+      "others": [
+        "room.autoClassify.batch",
+        "room.recomputeBoundary",
+        "room.redetect",
+        "room.restoreMeaning"
+      ],
+      "verbs": [
+        "room.autoClassify.batch",
+        "room.create",
+        "room.delete",
+        "room.move",
+        "room.recomputeBoundary",
+        "room.redetect",
+        "room.regenerate",
+        "room.rename",
+        "room.restoreMeaning",
+        "room.setColourMode",
+        "room.setDepartment",
+        "room.setFinish",
+        "room.setHeightOffset",
+        "room.setMaterial",
+        "room.setName",
+        "room.setNumber",
+        "room.setOccupancy",
+        "room.updateBoundary"
+      ]
+    },
+    "schedule": {
+      "total": 7,
+      "kinds": {
+        "other": 2,
+        "create": 1,
+        "delete": 1,
+        "update": 3
+      },
+      "liveness": {
+        "UNKNOWN": 6,
+        "LIVE": 1
+      },
+      "others": [
+        "schedule.column.add",
+        "schedule.column.remove"
+      ],
+      "verbs": [
+        "schedule.column.add",
+        "schedule.column.remove",
+        "schedule.create",
+        "schedule.delete",
+        "schedule.setFilter",
+        "schedule.setGroupBy",
+        "schedule.update"
+      ]
+    },
+    "section": {
+      "total": 7,
+      "kinds": {
+        "create": 1,
+        "delete": 1,
+        "other": 1,
+        "move": 1,
+        "update": 3
+      },
+      "liveness": {
+        "UNKNOWN": 5,
+        "LIVE": 1,
+        "REFUSES": 1
+      },
+      "others": [
+        "section.mark.create"
+      ],
+      "verbs": [
+        "section.create",
+        "section.delete",
+        "section.mark.create",
+        "section.moveLine",
+        "section.setDepth",
+        "section.setMark",
+        "section.setScale"
+      ]
+    },
+    "selection": {
+      "total": 3,
+      "kinds": {
+        "update": 1,
+        "other": 2
+      },
+      "liveness": {
+        "UNKNOWN": 3
+      },
+      "others": [
+        "selection.deselect",
+        "selection.select"
+      ],
+      "verbs": [
+        "selection.clear",
+        "selection.deselect",
+        "selection.select"
+      ]
+    },
+    "sheet": {
+      "total": 12,
+      "kinds": {
+        "update": 7,
+        "create": 1,
+        "delete": 3,
+        "move": 1
+      },
+      "liveness": {
+        "LIVE": 2,
+        "UNKNOWN": 9,
+        "SHADOWED": 1
+      },
+      "others": [],
+      "verbs": [
+        "sheet.addViewport",
+        "sheet.addWidget",
+        "sheet.create",
+        "sheet.delete",
+        "sheet.moveViewport",
+        "sheet.removeViewport",
+        "sheet.removeWidget",
+        "sheet.rename",
+        "sheet.reorder",
+        "sheet.setSheetMetadata",
+        "sheet.setTitleBlock",
+        "sheet.setViewportScale"
+      ]
+    },
+    "slab": {
+      "total": 18,
+      "kinds": {
+        "update": 11,
+        "batch.create": 1,
+        "create": 1,
+        "create-variant": 1,
+        "delete": 2,
+        "move": 2
+      },
+      "liveness": {
+        "UNKNOWN": 11,
+        "LIVE": 5,
+        "REFUSES": 2
+      },
+      "others": [],
+      "verbs": [
+        "slab.addHole",
+        "slab.batch.create",
+        "slab.changeLevel",
+        "slab.create",
+        "slab.create-on-all-floors",
+        "slab.delete",
+        "slab.move",
+        "slab.movePolygon",
+        "slab.removeHole",
+        "slab.setBaseOffset",
+        "slab.setMaterial",
+        "slab.setThickness",
+        "slab.setType",
+        "slab.update",
+        "slab.updateDimensions",
+        "slab.updateLayers",
+        "slab.updatePolygon",
+        "slab.updateSystemTypeBatch"
+      ]
+    },
+    "stair": {
+      "total": 13,
+      "kinds": {
+        "batch.create": 1,
+        "create": 1,
+        "create-variant": 1,
+        "delete": 1,
+        "move": 1,
+        "update": 8
+      },
+      "liveness": {
+        "UNKNOWN": 8,
+        "LIVE": 3,
+        "REFUSES": 2
+      },
+      "others": [],
+      "verbs": [
+        "stair.batch.create",
+        "stair.create",
+        "stair.createRailing",
+        "stair.delete",
+        "stair.move",
+        "stair.rotate",
+        "stair.setMaterial",
+        "stair.setRiserHeight",
+        "stair.setShape",
+        "stair.setTreadCount",
+        "stair.setType",
+        "stair.setWidth",
+        "stair.updateParameters"
+      ]
+    },
+    "structural": {
+      "total": 7,
+      "kinds": {
+        "create": 1,
+        "delete": 1,
+        "move": 1,
+        "update": 4
+      },
+      "liveness": {
+        "UNKNOWN": 5,
+        "REFUSES": 2
+      },
+      "others": [],
+      "verbs": [
+        "structural.create",
+        "structural.delete",
+        "structural.move",
+        "structural.setBraceEndOffset",
+        "structural.setDimensions",
+        "structural.setKind",
+        "structural.setMaterial"
+      ]
+    },
+    "template": {
+      "total": 3,
+      "kinds": {
+        "update": 1,
+        "create": 1,
+        "other": 1
+      },
+      "liveness": {
+        "LIVE": 3
+      },
+      "others": [
+        "template.unassign"
+      ],
+      "verbs": [
+        "template.assignToNode",
+        "template.create",
+        "template.unassign"
+      ]
+    },
+    "vg": {
+      "total": 4,
+      "kinds": {
+        "update": 2,
+        "create-variant": 1,
+        "other": 1
+      },
+      "liveness": {
+        "LIVE": 4
+      },
+      "others": [
+        "vg.takeLatestIntentVersion"
+      ],
+      "verbs": [
+        "vg.assignIntent",
+        "vg.createVisibilityIntent",
+        "vg.takeLatestIntentVersion",
+        "vg.updateVisibilityIntent"
+      ]
+    },
+    "view": {
+      "total": 19,
+      "kinds": {
+        "update": 12,
+        "create": 1,
+        "create-variant": 1,
+        "delete": 2,
+        "other": 3
+      },
+      "liveness": {
+        "LIVE": 11,
+        "UNKNOWN": 8
+      },
+      "others": [
+        "view.hideElement",
+        "view.isolateElement",
+        "view.switch"
+      ],
+      "verbs": [
+        "view.clearAllOverrides",
+        "view.clearOverride",
+        "view.create",
+        "view.createDefinition",
+        "view.delete",
+        "view.deleteDefinition",
+        "view.hideElement",
+        "view.isolateElement",
+        "view.rename",
+        "view.setCategoryVisibility",
+        "view.setCrop",
+        "view.setGraphicOverride",
+        "view.setOutput",
+        "view.setProjection",
+        "view.setRange",
+        "view.setUnderlay",
+        "view.switch",
+        "view.updateCamera",
+        "view.updateDefinition"
+      ]
+    },
+    "viewTemplate": {
+      "total": 3,
+      "kinds": {
+        "create": 1,
+        "delete": 1,
+        "update": 1
+      },
+      "liveness": {
+        "LIVE": 3
+      },
+      "others": [],
+      "verbs": [
+        "viewTemplate.create",
+        "viewTemplate.delete",
+        "viewTemplate.update"
+      ]
+    },
+    "wall": {
+      "total": 31,
+      "kinds": {
+        "update": 17,
+        "batch.create": 2,
+        "other": 4,
+        "create": 1,
+        "create-variant": 3,
+        "delete": 1,
+        "join": 1,
+        "move": 1,
+        "split": 1
+      },
+      "liveness": {
+        "LIVE": 13,
+        "UNKNOWN": 12,
+        "REFUSES": 6
+      },
+      "others": [
+        "wall.cascadeBaseline",
+        "wall.cut",
+        "wall.opening.create",
+        "wall.transform"
+      ],
+      "verbs": [
+        "wall.addLayerBatch",
+        "wall.batch.create",
+        "wall.bulkSetVisuals",
+        "wall.cascadeBaseline",
+        "wall.changeLevel",
+        "wall.create",
+        "wall.create-on-all-slabs",
+        "wall.createBetweenMarks",
+        "wall.createFromSlab",
+        "wall.createOpening",
+        "wall.cut",
+        "wall.delete",
+        "wall.join",
+        "wall.move",
+        "wall.opening.create",
+        "wall.setColor",
+        "wall.setDimensions",
+        "wall.setLayers",
+        "wall.setSideFinishBatch",
+        "wall.setSystemType",
+        "wall.split",
+        "wall.transform",
+        "wall.updateBaseline",
+        "wall.updateColor",
+        "wall.updateColorBatch",
+        "wall.updateCurtainWall",
+        "wall.updateDimensions",
+        "wall.updateHeightBatch",
+        "wall.updateRakeBatch",
+        "wall.updateSystemType",
+        "wall.updateSystemTypeBatch"
+      ]
+    },
+    "window": {
+      "total": 12,
+      "kinds": {
+        "batch.create": 1,
+        "create": 1,
+        "delete": 1,
+        "move": 1,
+        "other": 1,
+        "update": 7
+      },
+      "liveness": {
+        "UNKNOWN": 4,
+        "REFUSES": 2,
+        "LIVE": 6
+      },
+      "others": [
+        "window.parametricCreate"
+      ],
+      "verbs": [
+        "window.batch.create",
+        "window.create",
+        "window.delete",
+        "window.move",
+        "window.parametricCreate",
+        "window.setFireRating",
+        "window.setFrameColor",
+        "window.setOffset",
+        "window.setSillHeight",
+        "window.setSize",
+        "window.setType",
+        "window.updateSystemTypeBatch"
+      ]
+    },
+    "zoom-fit": {
+      "total": 1,
+      "kinds": {
+        "other": 1
+      },
+      "liveness": {
+        "LIVE": 1
+      },
+      "others": [
+        "zoom-fit"
+      ],
+      "verbs": [
+        "zoom-fit"
+      ]
+    },
+    "zoom-selected": {
+      "total": 1,
+      "kinds": {
+        "other": 1
+      },
+      "liveness": {
+        "LIVE": 1
+      },
+      "others": [
+        "zoom-selected"
+      ],
+      "verbs": [
+        "zoom-selected"
+      ]
+    }
+  },
+  "gate_readings": [
+    {
+      "gate": "tools/ga-gate/check-verb-register.ts",
+      "command": "NODE_OPTIONS=--max-old-space-size=8192 npx tsx tools/ga-gate/check-verb-register.ts",
+      "rc": 1,
+      "status": "FAIL",
+      "printed": {
+        "handler_files_read": 1408,
+        "floor": 900,
+        "verbs": 361,
+        "LIVE": 142,
+        "REFUSES": 37,
+        "SHADOWED": 1,
+        "UNKNOWN": 181,
+        "live_via_mirror": "12 of 12 level-change verbs",
+        "authoritative_store_NONE_or_UNKNOWN": 219,
+        "sync_UNDECLARED": 2,
+        "chat_UNDECLARED": 15
+      },
+      "failures": [
+        "V2 docs/04-reference/API-VERB-REGISTER.md STALE on exactly ONE line (18): committed \"1407 files read\", code says 1408. The 361 VERB ROWS THEMSELVES MATCH — which is why this file is usable as the verb authority.",
+        "V4 1 NEW SHADOWED verb: sheet.create — a second registration site cannot register; initBusHandlers.ts:2202 skips it.",
+        "V4 13 NEW UNKNOWN-liveness verbs: balcony.create, balcony.delete, balcony.updateProfile, bathroomPod.create, bathroomPod.delete, boundaryLine.attach, boundaryLine.create, boundaryLine.delete, boundaryLine.detach, boundaryLine.update, lift.create, lift.delete, room.setColourMode.",
+        "V4 5 baseline UNKNOWN verbs no longer qualify: beam.changeLevel, furniture.changeLevel, lighting.changeLevel, plumbing.changeLevel, sheet.create."
+      ],
+      "interpretation": "RC=1 is a REAL FAIL, not a ratchet. Note the shape: the GENERATED artefact is in sync with the code on every verb row, while the gate’s own IN-SOURCE named baselines (the SHADOWED and UNKNOWN lists inside check-verb-register.ts) are 18 rows out of date in BOTH directions. The list that rots is the hand-maintained one, exactly as C69 §3 predicts — it is simply inside the gate rather than inside a markdown table."
+    }
+  ],
+  "head_at_end": "d91d30d4af51bc67317ef8afc0b46b1dbef94038",
+  "head_moved_mid_phase": false,
+  "production_files_written": "NONE. git status --porcelain at end shows only packages/command-registry/tsconfig.tsbuildinfo and tools/rac-conformance/certification/results/graphruntime.json, and BOTH were already modified in the git status taken before this lane started. All writes were inside audit/full-stack/2026-08-31.",
+  "sibling_lane_note": "audit/full-stack/2026-08-31/ also contains gate-snapshot.json, run-all.log, registration-findings.txt and several *.mjs written by ANOTHER lane in this engagement. Nothing in this census depends on them; every number here was produced by a command recorded in this file.",
+  "companion_files": {
+    "families.json": "84 canonical families, each with its membership in all 9 sources, verb count by kind, liveness split, CEB channels + subscriber counts, and whether the 2026-08-29 audit gave it a row.",
+    "members.json": "12 compound members, each stating own store / own schema / own verbs / own channel / what it rides / plan membership.",
+    "raw/verbs-parsed.json": "all 361 verb rows parsed from the generated C69 register, with a derived kind.",
+    "raw/verbs-by-family.json": "the 50 verb families with per-kind and per-liveness counts.",
+    "raw/census-drift.json": "the eight set comparisons, both directions.",
+    "raw/channel-subscribers.json": "subscriber count for all 28 channels CommandEventBridge emits.",
+    "raw/check-verb-register.log": "the RC=1 gate run this census is built on."
+  },
+  "findings": [
+    {
+      "id": "P1-F1",
+      "title": "The DELETE column: 39 delete verbs, 6 LIVE, and 27 per-family deleters are rivals to the one live route",
+      "measured": "node over raw/verbs-parsed.json filtering kind=delete, cross-read against docs/04-reference/API-VERB-REGISTER.md.",
+      "detail": "39 of the 361 verbs are delete-shaped. Exactly SIX carry LIVE liveness: element.delete, element.deleteBatch (both owner plugins/view, both routed through the legacy commandManager, chat capabilities delete-selected and delete-furniture-scoped), elementType.delete, room.delete, view.deleteDefinition, viewTemplate.delete. The other 33 are UNKNOWN. NOT ONE delete verb is classified REFUSES — so none of them answers in the open that it will not act.",
+      "the_point": "Every per-family deleter — wall.delete, slab.delete, door.delete, window.delete, roof.delete, column.delete, beam.delete, ceiling.delete, stair.delete, curtain-wall.delete, furniture.delete, lighting.delete, plumbing.delete, structural.delete, handrail.delete, grid.delete, dimension.delete, annotation.delete, balcony.delete, lift.delete, pool.delete, bathroomPod.delete, boundaryLine.delete, section.delete, sheet.delete, schedule.delete, view.delete — is UNKNOWN, while element.delete IS live. These are not 27 gaps. They are 27 RIVALS to a working route, already minted.",
+      "why_it_has_never_been_measured_here": "The 2026-08-29 audit measured ONE verb per family, and that verb was create.",
+      "ladder": "AUTHORED yes / REACHABLE unproven for 33 of 39 / COMPOSABLE not established / CERTIFIED no.",
+      "corroboration": "tools/ga-gate/mirror-debt.json (quoted in the 2026-08-29 pool row): \"~23 rows on this ledger are *.delete and they all need the same one thing — an element.deleted channel plus a per-family remove(id) adapter.\" Consistent with, and independent of, this measurement."
+    },
+    {
+      "id": "P1-F2",
+      "title": "Nine channels the CommandEventBridge emits have ZERO subscribers — and three of them are the bridge’s only update arm",
+      "measured": "Channels enumerated from grep -noE for events.emit(<literal>) over CommandEventBridge.ts; subscribers counted per channel over apps/editor/src, packages/runtime-composer/src and plugins, node_modules and tests excluded.",
+      "detail": "structural.created 0 · slab.layer-updated 0 · room.created 0 · plumbing.created 0 · grid.created 0 · floor.layer-updated 0 · dimension.created 0 · ceiling.layer-updated 0 · annotation.created 0. Eight of the nine appear nowhere in the repository except the emit site and the RuntimeEvents key declaration in packages/runtime-composer/src/types.ts.",
+      "the_point": "slab.layer-updated, ceiling.layer-updated and floor.layer-updated are emitted by the CEB cases slab.updateLayers (:1613), ceiling.updateLayers (:1633) and floor.updateLayers (:1653) — three of only four non-create cases in the entire switch. The bridge’s update arm exists, is reached, and emits into nothing.",
+      "the_ninth": "room.created is the interesting one. It has three further sites and none is a subscription: initCollaboration.ts:68 is a label map, PlatformProjectBrowser.ts:991 is a webhook allowlist, and packages/stores/src/aggregate-commands/roomCreate.ts:111 + types.ts:347 declare a SAME-NAMED event on a DIFFERENT bus. A cross-bus name collision, not a listener.",
+      "ladder": "AUTHORED yes / REACHABLE yes (the emit runs) / COMPOSABLE no — nothing consumes it / CERTIFIED no."
+    },
+    {
+      "id": "P1-F3",
+      "title": "REFUTATION — the DeleteStairCommand opening defect the code still cites as current is CLOSED, but the fix lives on the legacy side of a rival pair",
+      "measured": "grep -n for opening/Opening over packages/command-registry/src/stair/DeleteStairCommand.ts, comment lines excluded → 22 non-comment references; and the full text of plugins/stair/src/handlers/DeleteStair.ts (37 lines).",
+      "the_claim": "apps/editor/src/engine/bathroomPodMemberMirror.ts:44 names \"the DeleteStairCommand defect (zero references to openings, void left punched through the plate forever)\" in the present tense.",
+      "the_measurement": "FALSE as written. DeleteStairCommand.ts declares affectedStores = [\"stair\",\"opening\",\"slab\",\"handrail\",\"floor\",\"ceiling\"] (:54), collects its auto-openings via isStairAutoOpeningId (:354-356), removes them and unregisters them from bimManager and elementRegistry (:360-363), and RESTORES them from _openingSnapshots on undo (:421-429). The cascade is there and it is undo-symmetric.",
+      "the_part_that_survives": "That fix is in the LEGACY packages/command-registry command. plugins/stair/src/handlers/DeleteStair.ts — the handler that owns the BUS verb stair.delete (UNKNOWN liveness) — is 37 lines, declares affectedStores = [\"stair\"], and contains ZERO references to openings. So there are two stair deleters: one that cascades correctly and one that leaves the void. This is P1-F1 in miniature, with the correct behaviour on the side the new architecture is migrating AWAY from.",
+      "doctrine": "A refutation is a success mode. Reported, cited, and not padded into a finding it is not."
+    },
+    {
+      "id": "P1-F4",
+      "title": "The `opening` member has THREE create verbs on TWO execution authorities, and no delete, update or move verb at all",
+      "measured": "raw/verbs-parsed.json + docs/04-reference/API-VERB-REGISTER.md rows + grep for case labels in CommandEventBridge.ts.",
+      "detail": "opening.create (LIVE, owner apps/editor, \"legacy geometry store (via commandManager)\"), wall.createOpening (UNKNOWN, plugins/wall, patch-pair → wall) and wall.opening.create (UNKNOWN, plugins/wall, patch-pair → wall). TWO of the 38 CEB cases feed the same channel: :721 wall.opening.create and :731 wall.createOpening. The channel wall.opening.created has 2 subscribers. There is no opening.delete, no opening.update and no opening.move among the 361.",
+      "the_point": "The brief warned that an ordered fix here would create a rival. For openings the rival set already exists and is three deep. Minting an opening.delete before collapsing the three creates would make it four."
+    },
+    {
+      "id": "P1-F5",
+      "title": "Whole families carry ZERO live verbs",
+      "measured": "liveness column of the generated C69 register, grouped by family.",
+      "detail": "annotation 9 verbs / 0 LIVE (9 UNKNOWN) · dimension 7 / 0 LIVE (6 UNKNOWN + 1 REFUSES) · structural 7 / 0 LIVE (5 UNKNOWN + 2 REFUSES) · selection 3 / 0 LIVE · balcony 3 / 0 LIVE · pool 2 / 0 LIVE · lift 2 / 0 LIVE · bathroomPod 2 / 0 LIVE. Of these, annotation, dimension and structural DO have a CEB case — and all three of those cases emit into a channel with ZERO subscribers (P1-F2).",
+      "caveat": "UNKNOWN is not a proof of deadness. The gate says so in its own words: \"a lone plugin produceCommand handler; nobody has proven either way.\" Reported as UNPROVEN, not as broken. But 181 of 361 verbs sitting at UNKNOWN is itself the measurement."
+    },
+    {
+      "id": "P1-F6",
+      "title": "door, window and stair own 39 verbs between them and have NO CommandEventBridge case",
+      "measured": "set difference D5: CEB case families (21) vs verb families (50).",
+      "detail": "door (14 verbs, 6 LIVE), window (12, 6 LIVE) and stair (13, 3 LIVE) appear in no case label in CommandEventBridge.ts. Their LIVE verbs run through the legacy commandManager instead. They are in GEOMETRY_ELEMENT_TYPES and in initStores, so they render — the absence is of a BUS mirror, not of the element.",
+      "also": "The CEB’s own lift.create case comments record the same shape from the other direction: \"‘door.created’ -> 0 subscribers ❌ typed event exists, nothing listens\" and \"‘curtainwall.created’ -> 0 subscribers, AND NO SUCH EVENT IS DECLARED\"."
+    },
+    {
+      "id": "P1-F7",
+      "title": "Four verbs have no family at all",
+      "measured": "family = the segment before the first dot; these four contain no dot.",
+      "detail": "copy-selection (UNKNOWN), paste-clipboard (UNKNOWN), zoom-fit (LIVE), zoom-selected (LIVE). They are wire identifiers in project_command_log exactly like every other row (C69 §2), so they are persistence-breaking to rename, and they sit outside every family-keyed gate in the repo — mirror-debt, the census equivalence gate, and the per-family snapshot coverage gate all key on a family prefix these rows do not have.",
+      "also_unresolvable_to_an_element_family": "cube (1), data (3), generation (4), generative (1), graph (3), hierarchy (5), level (3), rhino (2), template (3), vg (4), element (10), elementType (4), projectOrigin (2), elevation (1). These DO have a prefix, but the prefix names no element family in any of the nine sources."
+    },
+    {
+      "id": "P1-F8",
+      "title": "The 2026-08-29 audit’s 29 family rows omit 23 verb-bearing families carrying 88 verbs",
+      "measured": "ls audit/element-creation/2026-08-29/families/ (29 rows) vs the 50 verb families, alias-normalised.",
+      "detail": "view (19 verbs), sheet (12), element (10), schedule (7), hierarchy (5), elementType (4), generation (4), vg (4), data (3), graph (3), level (3), template (3), viewTemplate (3), projectOrigin (2), rhino (2), copy-selection, cube, elevation, generative, opening, paste-clipboard, zoom-fit, zoom-selected.",
+      "the_sharpest_one": "view is an inline ALL_PLUGINS descriptor with storeKey \"view\" and 19 verbs (11 LIVE, 8 UNKNOWN, 2 delete verbs) and it had no family row. opening has its own store, its own type key, its own channel and three create verbs, and it had no family row."
+    },
+    {
+      "id": "P1-F9",
+      "title": "GEOMETRY_ELEMENT_TYPES is 21, not the 19 the previous audit recorded — and two of the 21 are declared-dead",
+      "measured": "sed -n '80,135p' packages/core-app-model/src/views/ViewDependencyTracker.ts",
+      "detail": "The set now carries 'lighting' (§PLAN-MEMBERSHIP-LIGHTING, Wave 4a) and 'room' (§PLAN-MEMBERSHIP-ROOM, Wave 4e). The 2026-08-29 pool.json row cites 'the 19-member set (ViewDependencyTracker.ts:42-48)' — both the count AND the line range are stale.",
+      "the_dead_two": "'stair-landing' and 'stair-railing' are in the set and match nothing: StairLandingStore.ts:42/66/90 emit 'stairLanding' and StairRailingStore.ts:70/97/115/126 emit 'stairRailing' (re-measured by executed grep 2026-08-31). ViewDependencyTracker.ts:66-79 DECLARES this and explains why it is left in place — correcting the spelling without first adding a registerElement site would route a 31-segment railing run into 31 §G3-STALE all-views sweeps. This is an honest declaration that survives re-measurement, not a stale one."
+    },
+    {
+      "id": "P1-F10",
+      "title": "check-verb-register.ts is RED, and the list that rotted is inside the gate",
+      "measured": "NODE_OPTIONS=--max-old-space-size=8192 npx tsx tools/ga-gate/check-verb-register.ts → RC=1.",
+      "detail": "Four failures. V2 finds the committed register STALE on exactly ONE line — line 18, \"1407 files read\" vs 1408 — while all 361 verb rows match, which is why that artefact is usable as the verb authority here. V4 finds the gate’s OWN in-source named baselines 18 rows out of date in both directions: 1 new SHADOWED (sheet.create — a second registration site that initBusHandlers.ts:2202 skips), 13 new UNKNOWN (balcony ×3, bathroomPod ×2, boundaryLine ×5, lift ×2, room.setColourMode), and 5 rows that no longer qualify (beam/furniture/lighting/plumbing .changeLevel, sheet.create).",
+      "the_point": "C69 §3 forbids a transcribed verb list because such lists rot. The GENERATED artefact held. The hand-maintained list that rotted is the one INSIDE the gate that enforces the rule."
+    }
+  ]
+}

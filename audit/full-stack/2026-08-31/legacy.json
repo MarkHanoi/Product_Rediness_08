@@ -1,0 +1,1396 @@
+{
+ "audit": "full-stack 2026-08-31 — PHASE P4, AXIS L (legacy plugins and the legacy path)",
+ "date": "2026-08-31",
+ "repo": "c:/Users/LENOVO/OneDrive/Desktop/PRYZM/Product_Rediness_08",
+ "head_at_start": "d91d30d4af51bc67317ef8afc0b46b1dbef94038",
+ "head_at_end": "6590ac1ca2202c1ed238cba7ef7af62d8c6a29ce",
+ "head_moved_mid_phase": true,
+ "head_move_note": "HEAD MOVED DURING THIS LANE (d91d30d4 -> 6590ac1c) — a sibling lane committed while I was measuring. Every file:line in this document was read after the move EXCEPT the initTools.ts bridge scan (audit/full-stack/2026-08-31/legacy-work/bridges.txt), which was produced early. The bridge scan was NOT re-run against 6590ac1c. Re-run legacy-work/scan-bridges.mjs before quoting any initTools.ts line number.",
+ "production_files_written": "NONE. Only audit/full-stack/2026-08-31/legacy.json and audit/full-stack/2026-08-31/legacy-work/**. Two files show as modified in git status (packages/command-registry/tsconfig.tsbuildinfo, mtime 2026-08-30 18:42; tools/rac-conformance/certification/results/graphruntime.json, mtime 2026-08-31 13:48) — both predate this lane and are not mine.",
+ "sibling_lane_note": "Axis C lane owns audit/full-stack/2026-08-31/commands/ — not touched.",
+ "evidence_classes": {
+  "a": "a gate says so",
+  "b": "a gate that can PROVE it would fire says so",
+  "c": "an executed measurement I ran in this lane",
+  "note": "Every row below carries its command. Where a figure is QUOTED from a source comment or another lane rather than re-counted here, it says so."
+ },
+ "HEADLINE": {
+  "families_measured": 29,
+  "families_that_still_double_write": 21,
+  "families_that_do_not": 8,
+  "families_that_do_not_list": [
+   "lift",
+   "boundary-line",
+   "water",
+   "liftPart",
+   "dimension",
+   "structural",
+   "selection",
+   "section-view"
+  ],
+  "double_write_definition": "the family write path puts the same element into BOTH a plugin/Immer DTO store AND a separate legacy store (or a legacy builder fed by the legacy store) that the renderer and/or plan-view actually read.",
+  "bridges_against_the_C11_10_3_target_of_ZERO": 169,
+  "bridges_breakdown": "22 Layer-1 bus->legacy mirror registrations (17 runtime.events.on element mirrors in initTools.ts + element.level-changed + element.updated + the FT-ROOM-PLAN DOM bridge + bathroomPodMemberMirror + balconyProfileBridge) PLUS 147 Layer-2 bim-* DOM listeners across 45 files.",
+  "legacy_artifacts_dispositioned": 44,
+  "WIRE": 17,
+  "REPLACE": 8,
+  "REMOVE": 11,
+  "KEEP_WITH_REASON": 8,
+  "the_order_trap": {
+   "REGISTER_BEFORE_ADD": [
+    "wall",
+    "curtain-wall",
+    "lighting"
+   ],
+   "ADD_BEFORE_REGISTER": [
+    "ceiling",
+    "roof",
+    "column",
+    "slab",
+    "beam",
+    "floor",
+    "handrail",
+    "furniture"
+   ],
+   "NO_REGISTRATION_AT_ALL_ON_THE_BUS_PATH": [
+    "door",
+    "window",
+    "bathroomPod",
+    "liftPart",
+    "grid",
+    "annotation",
+    "dimension",
+    "structural",
+    "plumbing",
+    "stair"
+   ],
+   "verdict": "EIGHT families follow the C11 §10.2 inv.7 / §11 legend LITERALLY (add, then register). Per the brief and per §G3-STALE-FIX that is the ORDER THAT CAUSED THE BUG. THREE families do it the other way and are the ones the legend would mark non-compliant. ONE family — wall — is the only one whose registration is UNCONDITIONAL (its dedup guard gates the add() only; every other guarded family early-returns BEFORE registering, so a dedup hit skips VDT and bimManager too). The widest add->register window measured is floor at 56 lines (initTools.ts:2496 -> :2552)."
+  }
+ },
+ "part1_double_write_ledger": [
+  {
+   "family": "wall",
+   "immer_store_write": "plugins/wall/src/handlers/CreateWall.ts — produceCommand; 36 produceCommand sites in plugins/wall/src (grep -rn produceCommand plugins/wall/src --include=*.ts | grep -vE '__tests__|\\.test\\.|\\.spec\\.' | wc -l -> 36)",
+   "legacy_store_add": {
+    "present": true,
+    "site": "apps/editor/src/engine/initTools.ts:1313 _legacyWallStoreForBridge.add({",
+    "store_class": "packages/geometry-wall/src/WallStore.ts:344 add()"
+   },
+   "vdt_register": "apps/editor/src/engine/initTools.ts:1304",
+   "bim_manager_register": {
+    "site": "apps/editor/src/engine/initTools.ts:1306",
+    "via_window_any": false,
+    "swallow": "try{...}catch{ /* non-fatal */ } — EMPTY catch; a bimManager failure is silent in a headless run"
+   },
+   "order": "REGISTER-BEFORE-ADD",
+   "order_verdict": "§G3-STALE-FIX order. CONTRADICTS the C11 §10.2 inv.7 wording ('immediately after LegacyStore.add()') and the §11 column legend ('after LegacyStore.add()'). Correct against the bug; non-compliant with the legend.",
+   "dedup_guard": "initTools.ts:1310-1311 — `const alreadyMirrored = !!getById(id); if (!alreadyMirrored) { add }`. Gates the add() ONLY. The ONLY family measured where VDT+bimManager registration is UNCONDITIONAL.",
+   "storeEventBus_on_legacy_add": "YES — WallStore.add() -> this.emit('add') -> WallStore.ts:1814 storeEventBus.emit({elementType:'wall'})",
+   "ceb_case": "wall.create CEB:628 · wall.batch.create CEB:668 · wall.opening.create CEB:721 · wall.createOpening CEB:731",
+   "bridge_count": 1,
+   "double_writes": true,
+   "removal_criteria_met": "NO — criterion 1 FAILS: WallFragmentBuilder builds off the legacy store / storeEventBus, not the Immer store. Criterion 2 FAILS: plan-view goes through storeEventBus -> ViewDependencyTracker. Criterion 3 FAILS: bimManager.registerElement lives in the bridge (initTools:1306), not in the handler."
+  },
+  {
+   "family": "curtain-wall",
+   "immer_store_write": "plugins/curtain-wall/src/handlers/CreateCurtainWall.ts — 57 produceCommand sites in plugins/curtain-wall/src",
+   "legacy_store_add": {
+    "present": true,
+    "site": "initTools.ts:2104 curtainWallStoreInstance.add(cwRecord as CurtainWallData)",
+    "store_class": "packages/geometry-curtain-wall/src/CurtainWallStore.ts:325 add()"
+   },
+   "vdt_register": "initTools.ts:2092",
+   "bim_manager_register": {
+    "site": "initTools.ts:2094",
+    "via_window_any": false,
+    "swallow": "catch — non-fatal comment only"
+   },
+   "order": "REGISTER-BEFORE-ADD",
+   "order_verdict": "§G3-STALE-FIX-CW order (initTools:2134-2135 says the registration 'moved ABOVE the add() call'). CONTRADICTS the legend.",
+   "dedup_guard": "initTools.ts:2085 `if (curtainWallStoreInstance.has(cwRecord.id)) return;` — EARLY RETURN placed BEFORE the registration, so a dedup hit skips VDT + bimManager as well as the add.",
+   "storeEventBus_on_legacy_add": "YES, AND TWICE. CurtainWallStore.add():354 -> private emit():540 -> storeEventBus.emit at CurtainWallStore.ts:546 (elementType 'curtainwall'), PLUS a second explicit emit at initTools.ts:2127.",
+   "TWO_CANONICAL_DOCUMENTS_DISAGREE": "C11 §10.2 invariant 3 still reads: 'The confirmed exception is CurtainWallStore.add() (tracked: TODO-CW-STORE-BUS, Wave A16) — the initTools.ts §P3.1 bridge compensates with an explicit storeEventBus.emit() call.' The initTools.ts §P3.1-CW-PLAN-FIX comment at :2105-2126 states that premise is FALSE (measured 2026-08-19, §L-1056) and that the bridge emit is a DUPLICATE deliberately left in place. My own measurement (sed -n '536,552p' CurtainWallStore.ts) confirms the store DOES emit. REPORTED, NOT RESOLVED — the contract is the stronger document but is the one contradicted by executed evidence.",
+   "ceb_case": "curtain-wall.create CEB:875 · curtain-wall.batch.create CEB:939",
+   "bridge_count": 1,
+   "double_writes": true,
+   "removal_criteria_met": "NO — all three criteria fail (builder reads legacy store; plan-view via storeEventBus; bimManager call in the bridge)."
+  },
+  {
+   "family": "lighting",
+   "immer_store_write": "plugins/lighting/src/handlers/* — 14 produceCommand sites",
+   "legacy_store_add": {
+    "present": true,
+    "site": "initTools.ts:2851 _ls.add(_data)  (+ :2871 _builder.add(_data))",
+    "store_class": "packages/geometry-lighting/src/LightingStore.ts:85 add()"
+   },
+   "vdt_register": "initTools.ts:2846 (second arm at :2937)",
+   "bim_manager_register": {
+    "site": "initTools.ts:2848",
+    "via_window_any": false,
+    "swallow": "try/catch"
+   },
+   "order": "REGISTER-BEFORE-ADD",
+   "order_verdict": "§FIX-LIGHT-PLAN-INVALIDATION (Wave 4a) order. CONTRADICTS the legend.",
+   "REFUTATION": "C11 §11 matrix row 'lighting' reads: 'bimManager ✅ · VDT ❌ → Bridge Inv. 7 NOT satisfied'. REFUTED by executed measurement: viewDependencyTracker.registerElement IS called at initTools.ts:2846, four lines before the add(). Command: node scan-bridges.mjs over initTools.ts, range [2781-2968]. The matrix row is stale.",
+   "dedup_guard": "initTools.ts:2790 `if (_ls.has(ev.id)) return;` — early return before registration",
+   "storeEventBus_on_legacy_add": "YES — LightingStore.ts:89 (inside add(), + DOM bim-lighting-added)",
+   "ceb_case": "lighting.create CEB:1462",
+   "bridge_count": 1,
+   "double_writes": true,
+   "removal_criteria_met": "NO — three criteria fail."
+  },
+  {
+   "family": "ceiling",
+   "immer_store_write": "plugins/ceiling/src/handlers/* — 19 produceCommand sites",
+   "legacy_store_add": {
+    "present": true,
+    "site": "initTools.ts:2186 ceilingStore.add(ceilingRecord)",
+    "store_class": "packages/core-app-model/src/stores/CeilingStore.ts:88 add()"
+   },
+   "vdt_register": "initTools.ts:2192",
+   "bim_manager_register": {
+    "site": "initTools.ts:2193",
+    "via_window_any": false,
+    "swallow": "catch { /* non-fatal */ } — EMPTY"
+   },
+   "order": "ADD-BEFORE-REGISTER",
+   "order_verdict": "FINDING — follows the C11 legend LITERALLY. 6-line §G3-STALE-EVENT window between the add() and the VDT registration.",
+   "dedup_guard": "initTools.ts:2184 `if (ceilingStore.has(ceilingRecord.id)) return;` — early return before BOTH",
+   "storeEventBus_on_legacy_add": "YES — CeilingStore.ts:159",
+   "ceb_case": "ceiling.create CEB:1242 · ceiling.batch.create CEB:1275 · ceiling.updateLayers CEB:1633 (ZERO subscribers — P1)",
+   "bridge_count": 1,
+   "double_writes": true,
+   "removal_criteria_met": "NO — three criteria fail."
+  },
+  {
+   "family": "roof",
+   "immer_store_write": "plugins/roof/src/handlers/* — 25 produceCommand sites",
+   "legacy_store_add": {
+    "present": true,
+    "site": "initTools.ts:2263 roofStore.add(record as RoofData)",
+    "store_class": "packages/geometry-roof/src/RoofStore.ts:42 add()"
+   },
+   "vdt_register": "initTools.ts:2266",
+   "bim_manager_register": {
+    "site": "initTools.ts:2267",
+    "via_window_any": false,
+    "swallow": "catch{} — EMPTY"
+   },
+   "order": "ADD-BEFORE-REGISTER",
+   "order_verdict": "FINDING — legend order. 3-line stale window.",
+   "dedup_guard": "initTools.ts:2224 `if (roofStore.getById(ev.id)) return;`",
+   "storeEventBus_on_legacy_add": "YES — RoofStore.ts:90 (+ DOM _bus.emit('bim-roof-added') :89)",
+   "ceb_case": "roof.create CEB:1523",
+   "bridge_count": 1,
+   "double_writes": true,
+   "removal_criteria_met": "NO — three criteria fail."
+  },
+  {
+   "family": "column",
+   "immer_store_write": "plugins/column/src/handlers/* — 16 produceCommand sites",
+   "legacy_store_add": {
+    "present": true,
+    "site": "initTools.ts:2311 (columnStore as any).add({",
+    "store_class": "packages/geometry-column/src/ColumnStore.ts:140 add()"
+   },
+   "vdt_register": "initTools.ts:2332",
+   "bim_manager_register": {
+    "site": "initTools.ts:2333",
+    "via_window_any": false,
+    "swallow": "catch{} — EMPTY"
+   },
+   "order": "ADD-BEFORE-REGISTER",
+   "order_verdict": "FINDING — legend order. 21-line stale window. Also note the `as any` on the store handle at :2311, so the add() payload is unchecked.",
+   "dedup_guard": "initTools.ts:2308 `if (columnStore.get(ev.id)) return;`",
+   "storeEventBus_on_legacy_add": "YES — ColumnStore.ts:132 via this.emit() at :174",
+   "ceb_case": "column.create CEB:994 · column.batch.create CEB:1027",
+   "bridge_count": 1,
+   "double_writes": true,
+   "removal_criteria_met": "NO — three criteria fail."
+  },
+  {
+   "family": "slab",
+   "immer_store_write": "plugins/slab/src/handlers/* — 33 produceCommand sites",
+   "legacy_store_add": {
+    "present": true,
+    "site": "initTools.ts:2376 slabStore.add({",
+    "store_class": "packages/geometry-slab/src/SlabStore.ts:197 add()"
+   },
+   "vdt_register": "initTools.ts:2398",
+   "bim_manager_register": {
+    "site": "initTools.ts:2399",
+    "via_window_any": false,
+    "swallow": "catch{} — EMPTY"
+   },
+   "order": "ADD-BEFORE-REGISTER",
+   "order_verdict": "FINDING — legend order. 22-line stale window.",
+   "dedup_guard": "initTools.ts:2374 `if (slabStore.getById(ev.id)) return;`",
+   "storeEventBus_on_legacy_add": "YES — SlabStore.ts:179 via this.emit('add') at :241",
+   "ceb_case": "slab.create CEB:747 · slab.batch.create CEB:835 · slab.updateLayers CEB:1613 (ZERO subscribers — P1)",
+   "bridge_count": 1,
+   "double_writes": true,
+   "removal_criteria_met": "NO — three criteria fail."
+  },
+  {
+   "family": "beam",
+   "immer_store_write": "plugins/beam/src/handlers/* — 16 produceCommand sites",
+   "legacy_store_add": {
+    "present": true,
+    "site": "initTools.ts:2449 beamStore.add(record)",
+    "store_class": "packages/core-app-model/src/stores/BeamStore.ts:66 add()"
+   },
+   "vdt_register": "initTools.ts:2454",
+   "bim_manager_register": {
+    "site": "initTools.ts:2455",
+    "via_window_any": false,
+    "swallow": "catch{} — EMPTY. initTools:2452-2453 records that BeamStore §3.5 REMOVED bimManager.registerElement from the store, so this empty catch is the ONLY registration path for a beam."
+   },
+   "order": "ADD-BEFORE-REGISTER",
+   "order_verdict": "FINDING — legend order.",
+   "dedup_guard": "initTools.ts:2435 `if (beamStore.get(ev.id)) return;`",
+   "storeEventBus_on_legacy_add": "YES — BeamStore.ts:91 (inside add()). NOTE: packages/geometry-beam has ZERO storeEventBus sites; the live BeamStore is the core-app-model one.",
+   "ceb_case": "beam.create CEB:1124 · beam.batch.create CEB:1184",
+   "bridge_count": 1,
+   "double_writes": true,
+   "removal_criteria_met": "NO — three criteria fail; criterion 3 is the sharpest here (bimManager was moved OUT of the store INTO the bridge, i.e. the opposite direction to the removal criterion)."
+  },
+  {
+   "family": "floor",
+   "immer_store_write": "plugins/floor/src/handlers/* — 10 produceCommand sites",
+   "legacy_store_add": {
+    "present": true,
+    "site": "initTools.ts:2496 (floorStore as any).add({",
+    "store_class": "packages/core-app-model/src/stores/FloorStore.ts:61 add()"
+   },
+   "vdt_register": "initTools.ts:2552",
+   "bim_manager_register": {
+    "site": "initTools.ts:2553",
+    "via_window_any": "FIXED-BUT-RECORDED",
+    "swallow": "catch{} — EMPTY",
+    "history": "initTools.ts:2547-2549 records that this call PREVIOUSLY read `(window as any).bimManager?.registerElement?.(...)` — a C14 §LP-01 P4 violation whose `?.` swallowed the failure silently in headless runs. It now uses the scoped, imported `bimManager`."
+   },
+   "order": "ADD-BEFORE-REGISTER",
+   "order_verdict": "FINDING — legend order, and the WIDEST stale window measured: 56 lines between add()(:2496) and VDT(:2552).",
+   "dedup_guard": "initTools.ts:2487 `if (floorStore.getById(ev.floorId)) return;`",
+   "storeEventBus_on_legacy_add": "YES — FloorStore.ts:128",
+   "ceb_case": "floor.create CEB:1673 · floor.updateLayers CEB:1653 (ZERO subscribers — P1)",
+   "bridge_count": 1,
+   "double_writes": true,
+   "removal_criteria_met": "NO — three criteria fail."
+  },
+  {
+   "family": "handrail",
+   "immer_store_write": "plugins/handrail/src/handlers/* — 16 produceCommand sites",
+   "legacy_store_add": {
+    "present": true,
+    "site": "initTools.ts:2639 handrailStore.add({",
+    "store_class": "packages/core-app-model/src/stores/HandrailStore.ts:37 add()"
+   },
+   "vdt_register": "initTools.ts:2672",
+   "bim_manager_register": {
+    "site": "initTools.ts:2673",
+    "via_window_any": false,
+    "swallow": "catch{} — EMPTY"
+   },
+   "order": "ADD-BEFORE-REGISTER",
+   "order_verdict": "FINDING — legend order. 33-line stale window.",
+   "dedup_guard": "initTools.ts:2582 `if (handrailStore.getById(ev.id)) return;`",
+   "storeEventBus_on_legacy_add": "YES — HandrailStore.ts:193 via private emit(). NOTE: there is no packages/geometry-handrail storeEventBus site; the live store is core-app-model's.",
+   "ceb_case": "handrail.create CEB:1332",
+   "bridge_count": 1,
+   "double_writes": true,
+   "removal_criteria_met": "NO — three criteria fail."
+  },
+  {
+   "family": "furniture",
+   "immer_store_write": "plugins/furniture/src/handlers/* — 22 produceCommand sites",
+   "legacy_store_add": {
+    "present": true,
+    "site": "initTools.ts:3018 _fs.add({",
+    "store_class": "packages/geometry-furniture/src/FurnitureStore.ts:48 add()"
+   },
+   "vdt_register": "initTools.ts:3064",
+   "bim_manager_register": {
+    "site": "initTools.ts:3065",
+    "via_window_any": false,
+    "swallow": "catch{} — EMPTY"
+   },
+   "order": "ADD-BEFORE-REGISTER",
+   "order_verdict": "FINDING — legend order. 46-line stale window.",
+   "dedup_guard": "initTools.ts:2975 `if (_fs.get(ev.id)) return;`",
+   "storeEventBus_on_legacy_add": "YES — FurnitureStore.ts:52 (+ DOM bim-furniture-added)",
+   "ceb_case": "furniture.create CEB:1362 · furniture.batch.create CEB:1408",
+   "bridge_count": 1,
+   "double_writes": true,
+   "removal_criteria_met": "NO — three criteria fail. RIVAL STORE: packages/core-app-model/src/stores/FurnitureStore.ts is a SECOND, structurally distinct FurnitureStore class (55 lines, its own storeEventBus emit)."
+  },
+  {
+   "family": "door",
+   "immer_store_write": "plugins/door/src/handlers/CreateDoor.ts — 18 produceCommand sites in plugins/door/src",
+   "legacy_store_add": {
+    "present": true,
+    "site": "apps/editor/src/engine/initTools.ts:1591 doorStore.add(buildDoorStoreRecord({...}))",
+    "store_class": "packages/geometry-door/src/DoorStore.ts:49 add()"
+   },
+   "vdt_register": "NONE on the bus path — grep of the whole §P2.3 bridge body (initTools.ts:1530-1686) for `registerElement` returns 0 hits.",
+   "bim_manager_register": {
+    "site": "NONE on the bus path. On the LEGACY path: packages/command-registry/src/walls/CreateWallOpeningCommand.ts:182 `bimManager.registerElement(opening.elementId, updatedWall.levelId)`.",
+    "via_window_any": false,
+    "swallow": "n/a"
+   },
+   "order": "N/A — no registration on the bus path at all",
+   "order_verdict": "BRIDGE INVARIANT 7 VIOLATED on the bus path. The bridge subscribes to `wall.opening.created`, not `door.created`.",
+   "dedup_guard": "none of the getById form in the door arm; the arm is guarded by opening-kind discrimination",
+   "storeEventBus_on_legacy_add": "YES — DoorStore.ts:64 inside add()",
+   "ceb_case": "NO `door.create` case (removed at CEB :998-1002 region, TASK-13). Carried by `wall.opening.create` CEB:721 / `wall.createOpening` CEB:731.",
+   "bridge_count": 1,
+   "double_writes": true,
+   "removal_criteria_met": "NO — criterion 3 fails in the sharpest way: bimManager.registerElement for a door exists ONLY inside the legacy CreateWallOpeningCommand, i.e. the legacy command path is load-bearing for plan-view visibility of doors."
+  },
+  {
+   "family": "window",
+   "immer_store_write": "plugins/window/src/handlers/CreateWindow.ts — 13 produceCommand sites",
+   "legacy_store_add": {
+    "present": true,
+    "site": "initTools.ts:1635 windowStore.add(buildWindowStoreRecord({...}))",
+    "store_class": "packages/geometry-window/src/WindowStore.ts:35 add()"
+   },
+   "vdt_register": "NONE on the bus path (same 0-hit grep over 1530-1686)",
+   "bim_manager_register": {
+    "site": "NONE on the bus path; legacy CreateWallOpeningCommand.ts:182",
+    "via_window_any": false,
+    "swallow": "n/a"
+   },
+   "order": "N/A",
+   "order_verdict": "BRIDGE INVARIANT 7 VIOLATED on the bus path.",
+   "dedup_guard": "opening-kind discrimination only",
+   "storeEventBus_on_legacy_add": "YES — WindowStore.ts:50",
+   "ceb_case": "NO `window.create` case. Carried by wall.opening.create.",
+   "bridge_count": 1,
+   "double_writes": true,
+   "removal_criteria_met": "NO — same as door."
+  },
+  {
+   "family": "lift",
+   "immer_store_write": "plugins/lift/src/handlers/CreateLift.ts — 1 produceCommand site",
+   "legacy_store_add": {
+    "present": false,
+    "site": "NONE — the §FT-LIFT bridge (initTools.ts:1687-1882) calls liftCompoundMeshBuilder.updateLift(...) directly off the event payload. Scan of the range for `.add(` returns 0 store adds.",
+    "store_class": "packages/geometry-lift/src/LiftStore.ts EXISTS with add():39 but is fed by the LEGACY packages/command-registry/src/verticalCirculation/CreateVerticalCirculationCommand.ts:195 path (the LOD-200 massing lift), constructed at apps/editor/src/engine/initBuilders.ts:1013 and published as `window.liftStore` at :1014."
+   },
+   "vdt_register": "initTools.ts:1705",
+   "bim_manager_register": {
+    "site": "initTools.ts:1706",
+    "via_window_any": false,
+    "swallow": "catch{} — EMPTY"
+   },
+   "order": "REGISTER-ONLY (no legacy add to order against)",
+   "order_verdict": "NOT A DOUBLE-WRITE on the bus path — the LOD-300 compound goes bus -> mesh builder. But the family carries TWO stores and TWO builders (C104 §13.1), only one of which is on the bus.",
+   "dedup_guard": "none",
+   "storeEventBus_on_legacy_add": "N/A on the bus path. LiftStore.add() -> this.emit -> LiftStore.ts:165 storeEventBus.emit (legacy path only).",
+   "ceb_case": "lift.create CEB:1851",
+   "bridge_count": 1,
+   "double_writes": false,
+   "double_writes_note": "The LOD-300 compound does not double-write. The FAMILY still has a rival legacy store fed by a rival legacy command.",
+   "removal_criteria_met": "PARTIAL — criterion 1 MET (builder reads the event, not the legacy store). Criterion 3 FAILS (bimManager call is in the bridge). Criterion 2 not applicable / unmeasured."
+  },
+  {
+   "family": "boundary-line",
+   "immer_store_write": "plugins/boundary-line/src/handlers/* — 11 produceCommand sites",
+   "legacy_store_add": {
+    "present": false,
+    "site": "NONE — `_drawBoundaryLine` (initTools.ts:1828-1880) calls boundaryLineMeshBuilder.updateBoundaryLine(...) off the commit record or runtime.stores.boundaryLine.",
+    "store_class": "no legacy store"
+   },
+   "vdt_register": "initTools.ts:1857 (inside _drawBoundaryLine, so it fires on CREATE and on UPDATE)",
+   "bim_manager_register": {
+    "site": "initTools.ts:1858",
+    "via_window_any": false,
+    "swallow": "catch{} — EMPTY"
+   },
+   "order": "REGISTER-AFTER-BUILD, no legacy add",
+   "order_verdict": "NOT A DOUBLE-WRITE. The ONLY family measured whose registration also runs on the UPDATE channel.",
+   "dedup_guard": "`if (!ev.boundaryLineId) return;` only",
+   "storeEventBus_on_legacy_add": "N/A — no legacy store",
+   "ceb_case": "boundaryLine.create :2393 · .update :2394 · .attach :2395 · .detach :2396 · .move :2397 · .delete :2478 — SIX cases, the largest non-create CEB footprint of any family",
+   "bridge_count": 3,
+   "bridge_count_note": "three runtime.events.on subscriptions (created/updated/deleted) at initTools.ts:1883/1887/1891, all routed through one _drawBoundaryLine helper",
+   "double_writes": false,
+   "removal_criteria_met": "PARTIAL — criterion 1 MET (builder reads the commit record / the plugin store). Criterion 3 FAILS. This family is the closest measured to the C11 §10.3 target."
+  },
+  {
+   "family": "water",
+   "immer_store_write": "no plugins/water directory (STORE_ONLY_PLUGIN_IDS member of pool). Descriptor at apps/editor/src/PluginRegistry.ts:364.",
+   "legacy_store_add": {
+    "present": false,
+    "site": "NONE — §FT-WATER (initTools.ts:1943-2063) calls a registered water render sink / WaterMeshBuilder.",
+    "store_class": "no packages/geometry-water directory (`ls packages/geometry-water` -> No such file)"
+   },
+   "vdt_register": "initTools.ts:1982 — GUARDED: skipped entirely when levelId is empty (initTools.ts:1965-1970 warns and skips 'to avoid bleeding it onto the ground plan')",
+   "bim_manager_register": {
+    "site": "initTools.ts:1984",
+    "via_window_any": false,
+    "swallow": "catch{} — EMPTY"
+   },
+   "order": "REGISTER-ONLY",
+   "order_verdict": "NOT A DOUBLE-WRITE.",
+   "dedup_guard": "none",
+   "storeEventBus_on_legacy_add": "N/A",
+   "ceb_case": "⛔ NO `case 'water.create'` — `grep -n \"case '\" CommandEventBridge.ts` lists 38 cases and water is not among them. The bridge listens for an own-name event that the CEB switch never emits; water is emitted from inside `case 'pool.create'`.",
+   "bridge_count": 1,
+   "double_writes": false,
+   "removal_criteria_met": "NOT APPLICABLE AS ASKED — this bridge has no legacy store to unbind from. Its defect is the opposite shape: a subscriber for a channel with no own-name emitter."
+  },
+  {
+   "family": "pool",
+   "immer_store_write": "plugins/pool/src/handlers/CreatePool.ts — 4 produceCommand sites",
+   "legacy_store_add": {
+    "present": "BY MEMBER",
+    "site": "no `pool.created` subscription in initTools (`grep -n \"runtime.events.on('pool\" initTools.ts` -> 0). Members mirror through §P2.1 (walls), §FT1 (slab) and §FT-WATER.",
+    "store_class": "packages/geometry-pool has ZERO storeEventBus sites"
+   },
+   "vdt_register": "by member only; the pool PARENT id is registered nowhere",
+   "bim_manager_register": {
+    "site": "by member only",
+    "via_window_any": false,
+    "swallow": "n/a"
+   },
+   "order": "N/A",
+   "order_verdict": "Composite. Inherits each member's order — so a pool inherits BOTH orders at once (wall = register-before-add, slab = add-before-register).",
+   "dedup_guard": "per member",
+   "storeEventBus_on_legacy_add": "per member",
+   "ceb_case": "pool.create CEB:2162",
+   "bridge_count": 0,
+   "double_writes": true,
+   "double_writes_note": "true transitively, through the member families",
+   "removal_criteria_met": "NO — inherits every member's failing criterion."
+  },
+  {
+   "family": "balcony",
+   "immer_store_write": "plugins/balcony/src/handlers/CreateBalcony.ts — 2 produceCommand sites",
+   "legacy_store_add": {
+    "present": "BY MEMBER",
+    "site": "no `balcony.created` subscription. Members ride §FT1 (slab plate), §P3.2-FL (floor finish), §FT-HANDRAIL (railings).",
+    "store_class": "packages/geometry-balcony has ZERO storeEventBus sites"
+   },
+   "vdt_register": "by member",
+   "bim_manager_register": {
+    "site": "by member",
+    "via_window_any": false,
+    "swallow": "n/a"
+   },
+   "order": "N/A (composite)",
+   "order_verdict": "Composite.",
+   "dedup_guard": "per member",
+   "storeEventBus_on_legacy_add": "per member",
+   "ceb_case": "balcony.create CEB:1713",
+   "bridge_count": 1,
+   "bridge_count_note": "a FOURTH bridge shape not in the C11 §10.1 diagram: apps/editor/src/engine/balconyProfileBridge.ts, attached at initTools.ts:2693. It subscribes to the LEGACY `bim-slab-updated` DOM event emitted by SlabStore, asks whether the slab is a balcony's plate, and if so re-dispatches `balcony.updateProfile`. That is legacy-DOM -> bus, i.e. the bridge running BACKWARDS relative to §10.1's two layers.",
+   "double_writes": true,
+   "removal_criteria_met": "NO. And balconyProfileBridge makes criterion 1 worse, not better: a bus command is now triggered BY a legacy store's DOM event."
+  },
+  {
+   "family": "bathroomPod",
+   "immer_store_write": "no plugins/bathroomPod directory (STORE_ONLY_PLUGIN_IDS). Descriptor at PluginRegistry.ts:657.",
+   "legacy_store_add": {
+    "present": true,
+    "site": "apps/editor/src/engine/bathroomPodMemberMirror.ts:224 `store.add(fixtureRecordFor(pod, m))`, attached at initTools.ts:1758 `attachBathroomPodMemberMirror(podStore)`",
+    "store_class": "the plumbing fixture store"
+   },
+   "vdt_register": "NONE — `grep -c registerElement apps/editor/src/engine/bathroomPodMemberMirror.ts` -> 0",
+   "bim_manager_register": {
+    "site": "NONE — same 0-count grep",
+    "via_window_any": false,
+    "swallow": "n/a"
+   },
+   "order": "N/A — nothing to order",
+   "order_verdict": "BRIDGE INVARIANT 7 VIOLATED, both halves.",
+   "dedup_guard": "n/a — the mirror is driven by Store.subscribeDirty() diffs, not by an event",
+   "storeEventBus_on_legacy_add": "inherited from the fixture store's add()",
+   "ceb_case": "⛔ NONE — no CEB case at all; a deliberate bypass (§BATH102).",
+   "bridge_count": 1,
+   "bridge_count_note": "a FIFTH bridge shape: a STORE-SUBSCRIPTION mirror (`subscribeDirty`), not an event subscriber. It is the only mirror in the repo that survives UNDO/REDO by construction, per its own header.",
+   "double_writes": true,
+   "removal_criteria_met": "NO on criterion 3 (no bimManager call exists anywhere for a pod member). Criterion 1 is arguably MET in spirit — the mirror reads the Immer store directly, which is what §10.3 asks for. This is the only family where the bridge mechanism is the TARGET mechanism and the registration spine is the thing missing."
+  },
+  {
+   "family": "liftPart",
+   "immer_store_write": "no plugins/liftPart directory (STORE_ONLY_PLUGIN_IDS). Descriptor at PluginRegistry.ts:551.",
+   "legacy_store_add": {
+    "present": false,
+    "site": "parts ride `case 'lift.create'`; the §FT-LIFT bridge passes ev.parts into liftCompoundMeshBuilder.updateLift",
+    "store_class": "none"
+   },
+   "vdt_register": "NONE per part — initTools.ts:1705 registers the PARENT liftId only",
+   "bim_manager_register": {
+    "site": "NONE per part — :1706 registers the parent only",
+    "via_window_any": false,
+    "swallow": "n/a"
+   },
+   "order": "N/A",
+   "order_verdict": "Zero per-part registration.",
+   "dedup_guard": "n/a",
+   "storeEventBus_on_legacy_add": "N/A",
+   "ceb_case": "NONE of its own",
+   "bridge_count": 0,
+   "double_writes": false,
+   "removal_criteria_met": "N/A — there is no liftPart bridge to remove."
+  },
+  {
+   "family": "stair",
+   "immer_store_write": "plugins/stair/src/handlers/* — 21 produceCommand sites",
+   "legacy_store_add": {
+    "present": true,
+    "site": "NOT via any initTools bridge (`grep -n \"runtime.events.on('stair\" initTools.ts` -> 0). Via the LEGACY packages/command-registry/src/stair/CreateStairCommand.ts.",
+    "store_class": "packages/geometry-stair/src/StairStore.ts:37 add()"
+   },
+   "vdt_register": "NONE",
+   "bim_manager_register": {
+    "site": "packages/command-registry/src/stair/CreateStairCommand.ts:340 `ctx.bimManager.registerElement(stairId, baseLevelId)` — in the LEGACY command, not a bridge",
+    "via_window_any": false,
+    "swallow": "no"
+   },
+   "order": "N/A — no bridge",
+   "order_verdict": "The family works through the legacy commandManager route that C11 §5.3 forbids.",
+   "dedup_guard": "n/a",
+   "storeEventBus_on_legacy_add": "YES — StairStore.add():37 -> this.emit -> StairStore.ts:183 (+ DOM bim-stair-added)",
+   "ceb_case": "⛔ NONE — no `stair.*` case in the 38-case CEB switch.",
+   "bridge_count": 0,
+   "double_writes": true,
+   "double_writes_note": "the plugin writes an Immer store (21 produceCommand sites) that no CEB case reads; the legacy command writes the store the renderer reads. Two writes, no relay between them.",
+   "removal_criteria_met": "N/A INVERTED — there is no bridge to remove because the bus half was never connected. Criterion 3 is nominally 'met' (bimManager is in a command) but it is the LEGACY command, which is the opposite of what §10.3 intends."
+  },
+  {
+   "family": "room",
+   "immer_store_write": "plugins/rooms/src/handlers/* — 2 produceCommand sites (SetRoomFinish + one more)",
+   "legacy_store_add": {
+    "present": true,
+    "site": "not from a runtime.events bridge; RoomStore.add() is driven by the legacy CreateRoomCommand / DetectAllRoomsCommand family in packages/command-registry/src/rooms/",
+    "store_class": "packages/room-topology/src/RoomStore.ts:204 add()"
+   },
+   "vdt_register": "apps/editor/src/engine/initTools.ts:2937 — via the §FT-ROOM-PLAN DOM bridge (window.addEventListener bim-room-added :2941, bim-room-updated :2947, both to _registerRoom; unregisterElement on bim-room-removed :2948-2951). GUARDED: skipped when levelId is empty.",
+   "bim_manager_register": {
+    "site": "packages/command-registry/src/rooms/CreateRoomCommand.ts:65 (+ BatchCreateRoomsCommand:71, DetectAllRoomsCommand:137/281/291, DetectRoomFromWallsCommand:101, ReDetectRoomsCommand:190, GenerativeDesignApplyCommand:206, DeleteRoomCommand:80)",
+    "via_window_any": false,
+    "swallow": "DetectAllRoomsCommand:137 and ReDetectRoomsCommand:190 both wrap it in `catch { /* §SWALLOW-SIDE-INDEX */ }`"
+   },
+   "order": "N/A — no bus bridge",
+   "order_verdict": "A SIXTH bridge shape: a DOM-event -> VDT-only bridge. It registers in the VDT but never in bimManager, and it is the only bridge measured that also UNREGISTERS.",
+   "dedup_guard": "none",
+   "storeEventBus_on_legacy_add": "YES — RoomStore.ts:273",
+   "ceb_case": "room.create CEB:1312 — and `room.created` is one of the NINE ZERO-SUBSCRIBER channels (P1). The three other repo sites for that literal are a label map, a webhook allowlist and a SAME-NAMED event on a DIFFERENT bus (packages/stores/src/aggregate-commands/roomCreate.ts:111).",
+   "bridge_count": 1,
+   "double_writes": true,
+   "removal_criteria_met": "NO — criterion 2 fails hard: the plan-view invalidation link for rooms is exactly the DOM bridge."
+  },
+  {
+   "family": "plumbing",
+   "immer_store_write": "plugins/plumbing/src/handlers/* — 17 produceCommand sites",
+   "legacy_store_add": {
+    "present": true,
+    "site": "no initTools bridge (`grep -n \"runtime.events.on('plumbing\" initTools.ts` -> 0). Legacy: packages/command-registry/src/plumbing/CreatePlumbingFixtureCommand.ts.",
+    "store_class": "packages/geometry-plumbing/src/PlumbingStore.ts:37 add() — AND a rival packages/core-app-model/src/stores/PlumbingStore.ts:9 add()"
+   },
+   "vdt_register": "NONE",
+   "bim_manager_register": {
+    "site": "packages/command-registry/src/plumbing/CreatePlumbingFixtureCommand.ts:64",
+    "via_window_any": false,
+    "swallow": "no"
+   },
+   "order": "N/A",
+   "order_verdict": "No bus bridge; the working verb is the legacy `plumbing.createFixture`.",
+   "dedup_guard": "n/a",
+   "storeEventBus_on_legacy_add": "YES — PlumbingStore.ts:40 (+ DOM bim-plumbing-added, consumed at initBuilders.ts:679)",
+   "ceb_case": "plumbing.create CEB:1483 — and `plumbing.created` is one of the NINE ZERO-SUBSCRIBER channels.",
+   "bridge_count": 0,
+   "double_writes": true,
+   "removal_criteria_met": "N/A INVERTED — no bridge exists; the DTO verb writes an Immer store whose event nothing consumes."
+  },
+  {
+   "family": "grid",
+   "immer_store_write": "plugins/grid/src/handlers/* — 8 produceCommand sites",
+   "legacy_store_add": {
+    "present": true,
+    "site": "no initTools bridge. GridStore is constructed and fed on the legacy side.",
+    "store_class": "packages/core-app-model/src/stores/GridStore.ts:28 add()"
+   },
+   "vdt_register": "NONE",
+   "bim_manager_register": {
+    "site": "NONE — `grep bimManager.registerElement` over the whole repo returns no grid site",
+    "via_window_any": false,
+    "swallow": "n/a"
+   },
+   "order": "N/A",
+   "order_verdict": "No bridge, no registration.",
+   "dedup_guard": "n/a",
+   "storeEventBus_on_legacy_add": "YES — GridStore.ts:54",
+   "ceb_case": "grid.create CEB:1322 — `grid.created` is one of the NINE ZERO-SUBSCRIBER channels.",
+   "bridge_count": 0,
+   "double_writes": true,
+   "removal_criteria_met": "N/A INVERTED."
+  },
+  {
+   "family": "annotation",
+   "immer_store_write": "plugins/annotations/src/handlers/canonicalAnnotationSink.ts — 21 produceCommand sites",
+   "legacy_store_add": {
+    "present": true,
+    "site": "plugins/annotations/src/subsystem/AnnotationStore.ts — imported directly into initTools.ts:171",
+    "store_class": "plugins/annotations/src/subsystem/AnnotationStore.ts"
+   },
+   "vdt_register": "NONE",
+   "bim_manager_register": {
+    "site": "NONE",
+    "via_window_any": false,
+    "swallow": "n/a"
+   },
+   "order": "N/A",
+   "order_verdict": "No bridge, no registration.",
+   "dedup_guard": "n/a",
+   "storeEventBus_on_legacy_add": "not measured at the store; the family is not in GEOMETRY_ELEMENT_TYPES",
+   "ceb_case": "annotation.create CEB:1503 — `annotation.created` is one of the NINE ZERO-SUBSCRIBER channels.",
+   "bridge_count": 0,
+   "double_writes": true,
+   "removal_criteria_met": "N/A INVERTED — the CEB emits into nothing."
+  },
+  {
+   "family": "dimension",
+   "immer_store_write": "plugins/dimensions/src/handlers/CreateDimension.ts — 15 produceCommand sites",
+   "legacy_store_add": {
+    "present": false,
+    "site": "no initTools bridge, no legacy dimension store add measured",
+    "store_class": "none found"
+   },
+   "vdt_register": "NONE",
+   "bim_manager_register": {
+    "site": "NONE",
+    "via_window_any": false,
+    "swallow": "n/a"
+   },
+   "order": "N/A",
+   "order_verdict": "No bridge.",
+   "dedup_guard": "n/a",
+   "storeEventBus_on_legacy_add": "N/A",
+   "ceb_case": "dimension.create CEB:1513 — `dimension.created` is one of the NINE ZERO-SUBSCRIBER channels.",
+   "bridge_count": 0,
+   "double_writes": false,
+   "double_writes_note": "single-write (Immer only) — but the write reaches nothing.",
+   "removal_criteria_met": "N/A INVERTED."
+  },
+  {
+   "family": "structural",
+   "immer_store_write": "plugins/structural/src/handlers/CreateStructural.ts — 14 produceCommand sites",
+   "legacy_store_add": {
+    "present": false,
+    "site": "none",
+    "store_class": "none"
+   },
+   "vdt_register": "NONE",
+   "bim_manager_register": {
+    "site": "NONE",
+    "via_window_any": false,
+    "swallow": "n/a"
+   },
+   "order": "N/A",
+   "order_verdict": "No bridge.",
+   "dedup_guard": "n/a",
+   "storeEventBus_on_legacy_add": "N/A",
+   "ceb_case": "structural.create CEB:1493 — `structural.created` is one of the NINE ZERO-SUBSCRIBER channels.",
+   "bridge_count": 0,
+   "double_writes": false,
+   "reachability": "CONFIRMED UNREACHABLE, re-measured 2026-08-31: `grep -rn 'new StructuralCommitter(' apps packages plugins --include=*.ts | grep -v node_modules | grep -vE '\\.test\\.|__tests__'` -> 0. The class is exported from plugins/structural/src/index.ts:42 and from its committer barrel, and constructed NOWHERE — tests included.",
+   "removal_criteria_met": "N/A INVERTED — nothing to remove; the consumer was never built."
+  },
+  {
+   "family": "selection",
+   "not_an_element_family": true,
+   "note": "In ELEMENT_PLUGIN_IDS (PluginRegistry.ts:752) and in ALL_PLUGINS, but has no create verb and no defineElement schema (C11 §11 records this explicitly). 2 produceCommand sites in plugins/selection/src. No bridge, no legacy store, no registration. Included so the 29-family set reconciles.",
+   "bridge_count": 0,
+   "double_writes": false
+  },
+  {
+   "family": "section-view",
+   "not_an_element_family": true,
+   "note": "In ELEMENT_PLUGIN_IDS (:896) and joins ALL_PLUGINS via `sectionViewPluginRegistration` (PluginRegistry.ts:831) — the ONLY non-object-literal member of that array, and the only descriptor authored inside the plugin (§PLUGIN-DESCRIPTOR-AT-L5, ADR-0367). storeKey is `section`, NOT `section-view`. 12 produceCommand sites. No CEB case, no bridge.",
+   "bridge_count": 0,
+   "double_writes": false
+  }
+ ],
+ "part2_repo_wide_legacy_inventory": {
+  "bridge_census_against_C11_10_3_target_of_ZERO": {
+   "layer_1_bus_to_legacy_mirrors": {
+    "count": 22,
+    "breakdown": {
+     "runtime.events.on create/update mirrors in initTools.ts": 17,
+     "registerElementLevelChangeBridge (element.level-changed) initTools.ts:1420": 1,
+     "registerElementUpdateBridge (element.updated) initTools.ts:1487": 1,
+     "§FT-ROOM-PLAN DOM->VDT bridge initTools.ts:2941/2947/2948": 1,
+     "bathroomPodMemberMirror (Store.subscribeDirty) initTools.ts:1758": 1,
+     "balconyProfileBridge (legacy DOM -> bus, RUNS BACKWARDS) initTools.ts:2693": 1
+    },
+    "command": "grep -n \"runtime.events.on(\" apps/editor/src/engine/initTools.ts -> 19 hits; two of them (pryzm-project-loaded :3134, view-activated :3156) are not element mirrors, leaving 17. Plus the five named single sites.",
+    "note": "C11 §10.1's diagram shows ONE bridge shape. Measurement finds SIX distinct shapes: (a) runtime.events -> LegacyStore.add, (b) runtime.events -> mesh builder with no store, (c) extracted mirror module invoked with typed deps, (d) DOM CustomEvent -> VDT only, (e) Store.subscribeDirty diff mirror, (f) legacy DOM event -> bus dispatch (balconyProfileBridge — the arrow reversed)."
+   },
+   "layer_2_legacy_DOM_listeners": {
+    "count": 147,
+    "files": 45,
+    "command": "grep -rn \"addEventListener('bim-\" apps packages plugins --include=*.ts | grep -v node_modules | grep -vE \"__tests__|\\.test\\.|\\.spec\\.\" | wc -l -> 147; cut -d: -f1 | sort -u | wc -l -> 45",
+    "largest_holders": "initBuilders.ts 28 · UnifiedBrowserPanel.ts 24 · initScene.ts 8 · StairRailingBuilder.ts 5 · RoomGraphPanel.ts 5 · initTools.ts 5",
+    "note": "C11 §10.1 draws Bridge Layer 2 as living inside the legacy stores' add(). It does not: 147 listeners in 45 files subscribe to it, including 24 in a UI browser panel and 11 in `*LevelCleanupHandler` classes across seven geometry packages."
+   },
+   "TOTAL_BRIDGES": 169,
+   "target": 0
+  },
+  "five_overlapping_consequence_systems": [
+   {
+    "system": "SpeculativeEngine",
+    "artifact": "packages/speculative-engine/src/SpeculativeEngine.ts",
+    "who_calls_it_in_production": "NOBODY. `grep -rn 'new SpeculativeEngine(' apps packages plugins --include=*.ts | grep -v node_modules | grep -vE '\\.test\\.|__tests__'` -> 0.",
+    "planner_or_mechanism": "WAS a rival planner. Its violation core (clone -> apply -> constraintEngine.validateAll before/after -> diff by ruleId:elementId) was MINED into WallMoveConsequencePlanner.violationsBranch and into @pryzm/constraint-solver; its preview() and 4-verb SpeculativeAction vocabulary were DELETED.",
+    "disposition": "REMOVE",
+    "disposition_evidence": "Its own file header, lines 1-9: '⛔ RETIRED — 2026-08-12 (BIM30 R3, ADR-0322 §8 / ADR-0323). Scheduled deletion of this package: **2026-11-12** ... The package directory is retained until then ONLY to avoid a pnpm-lock churn that would desync every agent sharing this tree; it exports nothing runnable.' DATE AND REASON BOTH PRESENT — this is the one artifact in the whole inventory that is correctly dispositioned in place.",
+    "date": "2026-08-12 retired · 2026-11-12 scheduled deletion"
+   },
+   {
+    "system": "ImpactEngine",
+    "artifact": "DOES NOT EXIST. Absence measured by capability, not by name: `grep -rn 'ImpactEngine' apps packages plugins --include=*.ts | grep -v node_modules` -> 2 hits, BOTH the same sentence in a comment ('No generic ImpactEngine before ...') at packages/command-bus/src/consequence.ts:1239 and its emitted d.ts:434. No class, no interface, no file.",
+    "who_calls_it_in_production": "n/a",
+    "planner_or_mechanism": "The capability it names IS implemented, under a different name: `ImpactDetermination` / `UndeterminedImpact` in packages/command-bus/src/consequence.ts (the generalised SemanticReadRefusal idiom).",
+    "disposition": "KEEP-WITH-REASON — as a NAME ONLY, deliberately never built. STR-06 §70 lists it among the systems the review flagged; the codebase answered by refusing to build a generic engine and doing it per-operation instead.",
+    "date": "2026-08-12 (R2/R3 of BIM30-REASONING-LOOP-PLAN)"
+   },
+   {
+    "system": "CascadeRunner",
+    "artifact": "packages/command-bus/src/cascade.ts:156 `export class CascadeRunner`",
+    "who_calls_it_in_production": "NOBODY. `grep -rn 'new CascadeRunner' apps packages plugins --include=*.ts | grep -v node_modules` -> 12 hits, ALL in __tests__ (packages/command-bus/__tests__/cascade.test.ts ×9, cascade-promotion.test.ts ×1, plugins/cross/__tests__/handlers.test.ts ×3). ZERO production constructions.",
+    "planner_or_mechanism": "A MECHANISM (Kahn-style BFS over registered cascade rules), not the planner. It is re-exported from packages/command-bus/src/index.ts:164 and from packages/plugin-sdk/src/index.ts:156 — so it is on the CURATED PUBLIC SDK SURFACE while being reachable from nothing.",
+    "disposition": "WIRE or REMOVE — REFUSED TO CHOOSE HERE, because the choice is a design decision, not a measurement. What is NOT permitted is the status quo: plugins/beam/src/handlers/MoveBeam.ts:37 already says in a source comment that it is 'inert: CascadeRunner is registered nowhere in production (only in [tests])', i.e. the code KNOWS and ships anyway. That is precisely 'typed, tested, exported, not reachable'.",
+    "date": "no dated header on the file — S10-T6 provenance only. NEEDS A DATE."
+   },
+   {
+    "system": "ConsequencePreview",
+    "artifact": "apps/editor/src/engine/consequence/ConsequencePreviewService.ts:815 + consequencePreviewServiceComposition.ts:153 createConsequencePreviewService()",
+    "who_calls_it_in_production": "REACHABLE, ONE call site: apps/editor/src/engine/initDataPlatform.ts:434 `new ConsequencePreviewOverlay(window.runtime ?? null, createConsequencePreviewService())`, and initDataPlatform is invoked from engineLauncher.ts:1096. ⚠ Note the `window.runtime ?? null` — a (window) reach-around in the composition of the preview surface itself.",
+    "planner_or_mechanism": "THE PLANNER FRONT DOOR. resolveConsequencePreview() (ConsequencePreviewService.ts:777) is the ONE implementation; ConsequencePreviewService.preview and ConfirmationFlow.planNow both delegate to it.",
+    "disposition": "KEEP-WITH-REASON, but the TRIGGER half is WIRE. Measured: `wireToolForConsequencePreview` has ZERO callers repo-wide (asserted in TWO source files that both re-derive it — floorFinishGate.ts:49 and wallPlacementGate.ts:19 — and confirmed by grep: the only non-comment hit is its own definition at ConsequencePreviewOverlay.ts:368). `triggerConsequencePreview` has exactly ONE production caller: MovePlanToolHandler.ts:258. So the service is composed at boot and reachable from ONE gesture (plan-view move).",
+    "date": "R3 of docs/03-execution/plans/BIM30-REASONING-LOOP-PLAN.md — no calendar date in the file header"
+   },
+   {
+    "system": "CommandImpact",
+    "artifact": "DOES NOT EXIST AS CODE. `grep -rni 'commandimpact' apps packages plugins docs --include=*.ts --include=*.md | grep -v node_modules` -> 1 hit, and it is a DOC: docs/01-strategy/STR-06-bim30-reasoning-loop-directive.md:70, listing it alongside ConsequencePreview as 'the exact pattern the review uncovered'.",
+    "who_calls_it_in_production": "n/a",
+    "planner_or_mechanism": "n/a",
+    "disposition": "KEEP-WITH-REASON — a name in a strategy document that was deliberately not minted. It should be struck from STR-06's list of systems, or STR-06 should say it was never built; today a reader of STR-06 §70 would look for five systems and find three.",
+    "date": "STR-06 undated at that line"
+   }
+  ],
+  "five_systems_headline": "FIVE NAMED, THREE EXIST. One (SpeculativeEngine) is correctly retired with a dated removal header. One (ConsequencePreviewService) is the live planner front door but is triggered by exactly ONE gesture. One (CascadeRunner) is exported on the L5 public SDK facade and constructed only by tests. Two (ImpactEngine, CommandImpact) were never built and survive only as names in comments and STR-06.",
+  "two_undo_backends": {
+   "backend_A": "CommandBus ring buffer — RingBufferUndoStack (packages/runtime-undo-stack), pushed at packages/command-bus/src/CommandBus.ts:591 on every successful dispatch that produced patches. Inverse Immer patches are applied through apps/editor/src/engine/undo/elementUndoStoreAdapter.ts.",
+   "backend_B": "Legacy commandManager history — each packages/command-registry/src/**/*Command.ts carries its own undo(); pushed at CommandBus.ts:581 `this.undoStack.push(record)` and by the legacy commandManager itself.",
+   "single_entry_point": "apps/editor/src/engine/undo/performUndoRedo.ts (C03 §4.6 U-5). Before it there were FOUR divergent triggers that did not agree on which stack to consult (SaveUndoRedoHUD, initUI Ctrl+Z, BimService.undo, ContextualEditBar).",
+   "which_verbs_use_which": {
+    "backend_A_only": "every PLAN-VIEW created element — every PlanToolHandler dispatches runtime.bus.executeCommand only, so a plan-created wall exists ONLY in the ring buffer.",
+    "BOTH (dual-dispatch)": "the 3-D tools — WallTool, Slab, Roof, Furniture, Plumbing, Stair, Handrail, Beam — dispatch the bus AND commandManager.execute(CreateXCommand), so a 3-D element is in BOTH stacks.",
+    "backend_B_only": "levels, hosted door/window openings, auto room-tag annotations (named in performUndoRedo.ts:44-46). Also the founder-reported wall rake/rake/profile edits."
+   },
+   "what_happens_AT_THE_SEAM": [
+    "1. RING-BUFFER FIRST, but only when the entry's affectedStores are ALL covered by the live store map. If not covered the cursor is deliberately NOT stepped (no desync) and it falls through to B.",
+    "2. SHADOW-DROP — after a successful ring-buffer undo, matching commandManager entries are dropped by target id (commandManager.dropEntriesForTargets), or the orphaned legacy CreateXCommand causes a PHANTOM second Ctrl+Z.",
+    "3. CROSS-STACK CHRONOLOGICAL ORDERING (§UNDO-CROSS-STACK-ORDER) — both stacks now carry commit timestamps and undo reverts the newest pending entry across both.",
+    "4. ⚠ THE SEAM'S OWN CORRECTION, still on the file: §UNDO-ORDERING-KEY / L-7300 (2026-08-23) records that 'missing timestamp ⇒ ring-buffer first' was not a fallback but THE ROUTING RULE, because SIX of the EIGHT production ring-buffer push sites minted entries with no timestamp (initBusHandlers.ts :825, :1596, :1647, :1703, :1798 and commitAnnotationSet.ts; only CommandBus.ts:591 and initBusHandlers.ts:1335 stamped one). RingBufferUndoStack.push() now stamps at push.",
+    "5. §UNDO-GESTURE-ID (C03 §4.6 U-10) — chronological ordering must not re-route a DUAL-DISPATCH TWIN; the old test was a wall-clock guess (|Δt| ≤ 250 ms), i.e. a property of the machine, not of the user's intent."
+   ],
+   "disposition": "backend_B = REPLACE (target end state is ADR-0251: one store, derived geometry, one timeline). performUndoRedo.ts itself = KEEP-WITH-REASON.",
+   "evidence_class": "(c) executed reads of performUndoRedo.ts, CommandBus.ts and the grep of bimManager/commandManager sites — plus (a) for the six-of-eight push-site figure, which is quoted from the file's own correction box and was NOT independently re-counted by this lane."
+  },
+  "the_16_intentional_stubs": {
+   "provenance": "Named in docs/archive/pryzm3-internal/03-CURRENT-STATE-ARCHIVED-2026-05-16.md:94 and 04-PLAN-FORWARD/archive/19-WAVES-16-20-FULL-WIRE.md:542, both dated 2026-05-01/02: ai-floorplan, ai-generative, ai-query, ai-rules, ai-voice, dxf, export-pdf, floor, geospatial, levels, navigate, render, visibility-intent, ifc-import, ifc-inspector, rhino-import.",
+   "the_verifier_re_run_TODAY": {
+    "command": "for p in plugins/*/; do [ -f $p/src/store.ts ] && [ -d $p/src/handlers ] && [ -f $p/src/tool.ts ] && [ -f $p/src/intent.ts ] || echo \"INCOMPLETE: $p\"; done | wc -l",
+    "result": "21, not 16",
+    "verdict": "THE VERIFIER IS NOW A BLIND COMPARATOR FOR STUB-NESS. It prints five families that are fully wired element plugins — balcony, boundary-line, lift, pool (all four in ALL_PLUGINS *and* PLUGIN_CATALOG, all with real handlers, 569–964 lines each) — plus family-editor. And it STILL prints `floor`, which has 799 lines, 6 handlers, a descriptor at PluginRegistry.ts:463, a PLUGIN_CATALOG row, and the live §P3.2-FL bridge. The 4-file recipe is no longer the shape a wired element plugin has."
+   },
+   "dispositions": [
+    {
+     "artifact": "plugins/floor",
+     "lines": 799,
+     "handlers": 6,
+     "in_ALL_PLUGINS": true,
+     "in_PLUGIN_CATALOG": true,
+     "disposition": "KEEP-WITH-REASON — NOT A STUB ANY MORE. Delist it from the stub set.",
+     "date": "wired by §P3.2-FL; stale on the list since at least the 2026-08-23 PLUGIN_CATALOG edit",
+     "reason": "the list is stale, not the code"
+    },
+    {
+     "artifact": "plugins/ai-floorplan",
+     "lines": 289,
+     "handlers": 1,
+     "in_ALL_PLUGINS": false,
+     "in_PLUGIN_CATALOG": true,
+     "disposition": "WIRE or REMOVE — ADVERTISED BUT NOT REGISTERED. PLUGIN_CATALOG says runtime.plugins.list() offers it; ALL_PLUGINS never registers a store or handlers for it. That is the INVERSE of the ARM-E defect the catalog comment describes, and the catalog's own comment (PluginHost.ts:86-90) says lane PLUGIN2 refused to advertise seven plugins whose handlers only console.debug — these five AI rows were advertised anyway.",
+     "date": "NEEDS A DATE",
+     "reason": "unstated"
+    },
+    {
+     "artifact": "plugins/ai-generative",
+     "lines": 74,
+     "handlers": 0,
+     "in_ALL_PLUGINS": false,
+     "in_PLUGIN_CATALOG": true,
+     "disposition": "WIRE or REMOVE — same shape",
+     "date": "NEEDS A DATE",
+     "reason": "unstated"
+    },
+    {
+     "artifact": "plugins/ai-query",
+     "lines": 51,
+     "handlers": 0,
+     "in_ALL_PLUGINS": false,
+     "in_PLUGIN_CATALOG": true,
+     "disposition": "WIRE or REMOVE — same shape",
+     "date": "NEEDS A DATE",
+     "reason": "unstated"
+    },
+    {
+     "artifact": "plugins/ai-rules",
+     "lines": 39,
+     "handlers": 0,
+     "in_ALL_PLUGINS": false,
+     "in_PLUGIN_CATALOG": true,
+     "disposition": "WIRE or REMOVE — same shape",
+     "date": "NEEDS A DATE",
+     "reason": "unstated"
+    },
+    {
+     "artifact": "plugins/ai-voice",
+     "lines": 45,
+     "handlers": 0,
+     "in_ALL_PLUGINS": false,
+     "in_PLUGIN_CATALOG": true,
+     "disposition": "WIRE or REMOVE — same shape",
+     "date": "NEEDS A DATE",
+     "reason": "unstated"
+    },
+    {
+     "artifact": "plugins/ifc-import",
+     "lines": 950,
+     "handlers": 1,
+     "in_ALL_PLUGINS": false,
+     "in_PLUGIN_CATALOG": true,
+     "disposition": "WIRE — 950 lines and a handler, advertised, unregistered",
+     "date": "NEEDS A DATE",
+     "reason": "unstated"
+    },
+    {
+     "artifact": "plugins/ifc-inspector",
+     "lines": 3168,
+     "handlers": 0,
+     "in_ALL_PLUGINS": false,
+     "in_PLUGIN_CATALOG": true,
+     "disposition": "WIRE — the LARGEST artifact in the whole stub set (3168 lines) and it registers nothing",
+     "date": "NEEDS A DATE",
+     "reason": "unstated"
+    },
+    {
+     "artifact": "plugins/rhino-import",
+     "lines": 380,
+     "handlers": 0,
+     "in_ALL_PLUGINS": false,
+     "in_PLUGIN_CATALOG": true,
+     "disposition": "WIRE or REMOVE",
+     "date": "NEEDS A DATE",
+     "reason": "unstated"
+    },
+    {
+     "artifact": "plugins/dxf",
+     "lines": 66,
+     "handlers": 0,
+     "in_ALL_PLUGINS": false,
+     "in_PLUGIN_CATALOG": false,
+     "disposition": "REMOVE — ARM-A: on disk, contributing NOTHING at boot, advertised nowhere. 66 lines.",
+     "date": "NEEDS A DATE",
+     "reason": "PluginHost.ts:92-96 names exactly these eight as ARM-A and says advertising them 'would ratchet a gate green by shipping a claim'. It does not say what happens to them instead. That is the missing half."
+    },
+    {
+     "artifact": "plugins/export-pdf",
+     "lines": 68,
+     "handlers": 0,
+     "in_ALL_PLUGINS": false,
+     "in_PLUGIN_CATALOG": false,
+     "disposition": "REMOVE — ARM-A",
+     "date": "NEEDS A DATE",
+     "reason": "same"
+    },
+    {
+     "artifact": "plugins/geospatial",
+     "lines": 488,
+     "handlers": 1,
+     "in_ALL_PLUGINS": false,
+     "in_PLUGIN_CATALOG": false,
+     "disposition": "REPLACE — ARM-A on disk, but its CesiumThreeBridge.ts is a RIVAL of packages/renderer-three/src/geospatial/CesiumThreeBridge.ts (see rival_registries below)",
+     "date": "NEEDS A DATE",
+     "reason": "same"
+    },
+    {
+     "artifact": "plugins/levels",
+     "lines": 133,
+     "handlers": 2,
+     "in_ALL_PLUGINS": false,
+     "in_PLUGIN_CATALOG": false,
+     "disposition": "WIRE or REMOVE — ARM-A but it has TWO handlers, so something was written to be dispatched and never was",
+     "date": "NEEDS A DATE",
+     "reason": "same"
+    },
+    {
+     "artifact": "plugins/navigate",
+     "lines": 170,
+     "handlers": 1,
+     "in_ALL_PLUGINS": false,
+     "in_PLUGIN_CATALOG": false,
+     "disposition": "WIRE or REMOVE — ARM-A with one handler",
+     "date": "NEEDS A DATE",
+     "reason": "same"
+    },
+    {
+     "artifact": "plugins/render",
+     "lines": 27,
+     "handlers": 0,
+     "in_ALL_PLUGINS": false,
+     "in_PLUGIN_CATALOG": false,
+     "disposition": "REMOVE — 27 lines, ARM-A",
+     "date": "NEEDS A DATE",
+     "reason": "same"
+    },
+    {
+     "artifact": "plugins/visibility-intent",
+     "lines": 146,
+     "handlers": 0,
+     "in_ALL_PLUGINS": false,
+     "in_PLUGIN_CATALOG": false,
+     "disposition": "REMOVE or REPLACE — ARM-A. Note packages/visibility (P7) is the live implementation of the same concept; this is a second one.",
+     "date": "NEEDS A DATE",
+     "reason": "same"
+    },
+    {
+     "artifact": "plugins/family-editor",
+     "lines": 27,
+     "handlers": 0,
+     "in_ALL_PLUGINS": false,
+     "in_PLUGIN_CATALOG": false,
+     "disposition": "REMOVE — 27 lines, one file, ARM-A. NOT on the 2026-05 list of 16; it appeared later and nobody added it.",
+     "date": "NEEDS A DATE",
+     "reason": "none recorded anywhere"
+    }
+   ],
+   "headline": "Of the 16, ONE (floor) is no longer a stub, EIGHT are advertised-but-unregistered, SEVEN are ARM-A (on disk, contributing nothing at boot, advertised nowhere), and none of the fifteen still-open ones carries a DATE or a REASON in code. Only SpeculativeEngine — which is not on this list — has a dated removal header."
+  },
+  "window_as_any_reach_arounds": {
+   "total_non_test_production": 217,
+   "command": "grep -rn '(window as any)' apps/editor/src --include=*.ts --include=*.tsx | grep -vE '__tests__|\\.test\\.|\\.spec\\.' -> 89; same over packages plugins (node_modules excluded) -> 128; total 217",
+   "with_optional_chain_after_the_cast": 56,
+   "optional_chain_command": "grep -cE '\\(window as any\\)[^;]*\\?\\.' over the combined file -> 56",
+   "THE_SWALLOW": "56 of the 217 are of the form `(window as any).X?.Y(...)`. In a headless run — any vitest/node suite, any SSR pass, any prerender — `window.X` is undefined and `?.` returns undefined WITHOUT THROWING. The call never happens and NOTHING reports it. Sample sites: HierarchyTreeAddActions.ts:154/180/223/257 `await (window as any).runtime?.bus?.executeCommand('hierarchy.createSite'|'createBuilding'|'createLevel'|'createUnit', ...)` — four element-creating dispatches that silently no-op; SyncStateDetailDrawer.ts:541 `data.setDerivation`; KitchenRunInspector.ts:457 and KitchenUnitInspector.ts:657 `furniture.updateParameters`; ConstraintEngine.ts:113 `(window as any).runtime?.events?.on('pryzm-sync-state-changed', ...)` — a SUBSCRIPTION that silently never registers; GhostOverlayRenderer.ts:129/133; ComparisonEngine.ts:373 (an emit that silently never fires); StairMeshBuilder.ts:92 and StairRailingBuilder.ts:117 `(window as any).runtime?.events?.on('bim-stair-updated', ...)`.",
+   "bimManager_specific": {
+    "live_window_reach_arounds": [
+     "apps/editor/src/engine/initFurnitureInteraction.ts:39 `if (window.bimManager) window.bimManager.registerElement(id, levelId);`",
+     "apps/editor/src/engine/initFurnitureInteraction.ts:59 — same shape",
+     "packages/room-topology/src/RoomBoundaryBuilder.ts:188 `const bm = this.bimManager ?? (window as any).bimManager as BimManager | undefined;`",
+     "packages/room-topology/src/RoomLabelRenderer.ts:94 and :145 — same `?? (window as any).bimManager` fallback"
+    ],
+    "note": "The `if (window.bimManager)` form in initFurnitureInteraction is not `?.` but has the IDENTICAL failure mode: headless, the guard is false and the registration is skipped silently. C14 §LP-01 P4 forbids exactly this; the floor bridge was fixed for it (initTools.ts:2547) and these four were not.",
+    "undo_adapter": "apps/editor/src/engine/undo/elementUndoStoreAdapter.ts:171 and :592 use `_bim()?.registerElement?.(id, ...)` — DOUBLE optional chaining, but both wrapped in try/catch with a console.warn, so these two DO report."
+   },
+   "rival_counter_note": "CLAUDE.md's P4 bullet quotes `tools/ga-gate/check-cast-count.ts` at 'repo-wide 4821 files · 100 / 100'. My raw sweep over apps/editor/src + packages + plugins (tests excluded) counts 217 MATCHING LINES. These are different denominators (the gate counts FILES against a ratcheted baseline and applies its own exclusions; I count LINES). Both readings stand; neither refutes the other. Reported, not resolved."
+  },
+  "rival_counters_and_rival_registries": {
+   "A_commandManager_counters_RE_MEASURED_2026-08-31": {
+    "verdict": "NOT CONVERGED. Three counters, three denominators, two different verdicts, measured today.",
+    "counter_1": {
+     "command": "npm run check:commandmanager (resolves to scripts/check/ci-check-no-commandmanager.mjs)",
+     "RC": 1,
+     "reading": "Files scanned 5650 (floor 3000) · arms literal 52 / alias 87 / indirect 14 · non-comment call count 153 · threshold 136 · FAIL +17"
+    },
+    "counter_2": {
+     "command": "npx tsx tools/ga-gate/check-no-commandmanager.ts",
+     "RC": 1,
+     "reading": "literal 11/11 · window 59/62 · converged 111/111 · terminal line: 'OK (converged): 111 / 111' followed by 'failing at its DECLARED level ... absorbable via gate-debt.json'"
+    },
+    "counter_3": {
+     "command": "npx tsx tools/ga-gate/check-commandmanager-any.ts",
+     "RC": 0,
+     "reading": "files scanned 4668 (floor 2500) · dir: packages · comments stripped · OK: 25 / 25"
+    },
+    "structural_blindness": "Counter 3 scans `packages` ONLY. It structurally CANNOT see the sites counter 1 reports in plugins/wall/src/handlers/*.ts and apps/editor/src/ui/**. Its RC=0 is therefore not evidence about the repo — evidence class (a), and a blind comparator for two thirds of the tree.",
+    "drift_against_CLAUDE_md": "CLAUDE.md (measured 2026-08-18) records counter 1 at 'count 139 exceeds threshold 136 (+3)' and counter 2 as 'literal 11/11 · window 62/62 · cm.execute 62/62'. TODAY counter 1 reads 153/136 (+17) — the count moved UP by 14 in thirteen days — and counter 2's arms are named differently (window 59/62 · converged 111/111). The brief's premise that these 'were converged yesterday' is REFUTED by execution.",
+    "disposition": "REPLACE — one counter, one denominator, one threshold. Three is the defect."
+   },
+   "B_rival_plugin_registries": {
+    "sets_and_sizes": {
+     "ls plugins/": 51,
+     "ALL_PLUGINS (apps/editor/src/PluginRegistry.ts:296-832)": 30,
+     "PLUGIN_CATALOG (packages/runtime-composer/src/PluginHost.ts:53)": 43,
+     "ELEMENT_PLUGIN_IDS (:843-899)": 27,
+     "STORE_ONLY_PLUGIN_IDS (:922)": 3
+    },
+    "differences_BOTH_directions": {
+     "disk \\ ALL_PLUGINS (24)": [
+      "ai-floorplan",
+      "ai-generative",
+      "ai-query",
+      "ai-rules",
+      "ai-voice",
+      "bcf",
+      "cross",
+      "dxf",
+      "export-pdf",
+      "family-editor",
+      "geospatial",
+      "ifc-export",
+      "ifc-import",
+      "ifc-inspector",
+      "levels",
+      "multiplayer",
+      "navigate",
+      "plan-view",
+      "render",
+      "rhino-import",
+      "schedules",
+      "sheets",
+      "toy-cube",
+      "visibility-intent"
+     ],
+     "ALL_PLUGINS \\ disk (3)": [
+      "bathroomPod",
+      "liftPart",
+      "water"
+     ],
+     "disk \\ PLUGIN_CATALOG (8)": [
+      "dxf",
+      "export-pdf",
+      "family-editor",
+      "geospatial",
+      "levels",
+      "navigate",
+      "render",
+      "visibility-intent"
+     ],
+     "PLUGIN_CATALOG \\ disk (0)": [],
+     "PLUGIN_CATALOG \\ ALL_PLUGINS (16)": [
+      "ai-floorplan",
+      "ai-generative",
+      "ai-query",
+      "ai-rules",
+      "ai-voice",
+      "bcf",
+      "cross",
+      "ifc-export",
+      "ifc-import",
+      "ifc-inspector",
+      "multiplayer",
+      "plan-view",
+      "rhino-import",
+      "schedules",
+      "sheets",
+      "toy-cube"
+     ],
+     "ALL_PLUGINS \\ PLUGIN_CATALOG (3)": [
+      "bathroomPod",
+      "liftPart",
+      "water"
+     ],
+     "ALL_PLUGINS \\ ELEMENT_PLUGIN_IDS (3)": [
+      "floor",
+      "lighting",
+      "view"
+     ],
+     "ELEMENT_PLUGIN_IDS \\ ALL_PLUGINS (0)": [],
+     "ELEMENT_PLUGIN_IDS \\ disk (3)": [
+      "bathroomPod",
+      "liftPart",
+      "water"
+     ],
+     "ELEMENT_PLUGIN_IDS \\ PLUGIN_CATALOG (3)": [
+      "bathroomPod",
+      "liftPart",
+      "water"
+     ],
+     "PLUGIN_CATALOG \\ ELEMENT_PLUGIN_IDS (19)": [
+      "ai-floorplan",
+      "ai-generative",
+      "ai-query",
+      "ai-rules",
+      "ai-voice",
+      "bcf",
+      "cross",
+      "floor",
+      "ifc-export",
+      "ifc-import",
+      "ifc-inspector",
+      "lighting",
+      "multiplayer",
+      "plan-view",
+      "rhino-import",
+      "schedules",
+      "sheets",
+      "toy-cube",
+      "view"
+     ],
+     "STORE_ONLY \\ ELEMENT_PLUGIN_IDS (0)": []
+    },
+    "THE_SHARPEST_TWO": [
+     "PLUGIN_CATALOG ADVERTISES 16 PLUGINS ALL_PLUGINS NEVER REGISTERS. `runtime.plugins.list()` returns rows for ai-floorplan/generative/query/rules/voice, bcf, cross, ifc-export/import/inspector, multiplayer, plan-view, rhino-import, schedules, sheets, toy-cube — none of which contributes a store or a handler through the boot registry. The catalog's own comment (PluginHost.ts:88-90) warns that 'a row here is a CLAIM that the runtime advertises a REAL plugin' and that lane PLUGIN2 refused to add seven such rows. Sixteen are there anyway.",
+     "PLUGIN_CATALOG'S HEADER COMMENT IS FALSIFIED BY ITS OWN BODY. PluginHost.ts:43-44 reads 'Static plugin catalog — one entry per directory under `plugins/`. Order matches `ls plugins/` (alphabetical)'. Measured: 43 entries against 51 directories, EIGHT missing (the ARM-A set), and a later comment in the SAME FILE (:92-96) explains that those eight are deliberately excluded. Two comments in one file, contradicting each other, sixty lines apart."
+    ],
+    "third": "ALL_PLUGINS has 30 members but only 29 object literals — the 30th is `sectionViewPluginRegistration`, imported from @pryzm/plugin-section-view at PluginRegistry.ts:117 and spread in at :831. Any regex that counts `id: '` in that array reads 29 and misses section-view. That is the same 'count vs set' failure shape CLAUDE.md records five times for the contract range.",
+    "disposition": "REPLACE — one manifest, derived. PluginHost.ts:47-50 already says so: 'The S81-WIRE F.4.x sub-phase replaces this static array with a manifest-driven loader so this file becomes a no-op transition.' It has not happened."
+   },
+   "C_rival_store_classes": {
+    "command": "grep -rn \"^export class [A-Za-z]*Store\\b\" packages plugins apps --include=*.ts | grep -v node_modules | grep -vE '__tests__|\\.test\\.' then group by class name",
+    "duplicate_names": 26,
+    "TRIPLE_names": [
+     "StairStore",
+     "RoofStore",
+     "PlumbingStore",
+     "LightingStore",
+     "FurnitureStore",
+     "AnnotationStore"
+    ],
+    "the_two_per_family_pattern_IS_the_double_write": "For 18 element families the pair is (plugins/<x>/src/store.ts extends Store<T> — the Immer/DTO store) + (packages/geometry-<x>/ or packages/core-app-model/src/stores/ — the legacy store the renderer reads). That pair is not a naming accident; it is the double-write, one class per side.",
+    "the_SIX_TRIPLES_are_the_real_finding": {
+     "StairStore": [
+      "packages/core-app-model/src/stores/StairStore.ts:23",
+      "packages/geometry-stair/src/StairStore.ts:22",
+      "plugins/stair/src/store.ts:22"
+     ],
+     "RoofStore": [
+      "packages/core-app-model/src/stores/RoofStore.ts:10",
+      "packages/geometry-roof/src/RoofStore.ts:9",
+      "plugins/roof/src/store.ts:13"
+     ],
+     "PlumbingStore": [
+      "packages/core-app-model/src/stores/PlumbingStore.ts:6",
+      "packages/geometry-plumbing/src/PlumbingStore.ts:34",
+      "plugins/plumbing/src/store.ts:10"
+     ],
+     "LightingStore": [
+      "packages/core-app-model/src/stores/LightingStore.ts:16",
+      "packages/geometry-lighting/src/LightingStore.ts:49",
+      "plugins/lighting/src/store.ts:10"
+     ],
+     "FurnitureStore": [
+      "packages/core-app-model/src/stores/FurnitureStore.ts:7",
+      "packages/geometry-furniture/src/FurnitureStore.ts:35",
+      "plugins/furniture/src/store.ts:10"
+     ],
+     "AnnotationStore": [
+      "packages/stores/src/AnnotationStore.ts:24",
+      "plugins/annotations/src/store.ts:35",
+      "plugins/annotations/src/subsystem/AnnotationStore.ts:86"
+     ]
+    },
+    "RoomStore_is_a_documented_triple": "packages/stores/src/RoomStore.ts:3-12 says it in its own header: '⚠ GE-04 (measured 2026-08-14) — DEPRECATED-AS-NAMED, unwired-as-built. This class was one of THREE named RoomStore. The one shipping paths execute is packages/room-topology/src/RoomStore.ts ... THIS store's runtime slot — runtime.stores.roomStore, constructed by composeRuntime — has ZERO readers anywhere in the repo.' DISPOSITION: REMOVE — and it has a DATE (2026-08-14) but no removal date.",
+    "other_rival_pairs_not_element_stores": [
+     "StairTypeStore (core-app-model + geometry-stair)",
+     "LevelStore (packages/stores + plugins/plan-view)",
+     "SectionStore (packages/stores + plugins/section-view)",
+     "DimensionStore (packages/stores + plugins/dimensions)",
+     "CubeStore (packages/stores + plugins/toy-cube)",
+     "WallOccupancyStore (geometry-wall:350 + plugins/wall/src/occupancy.ts:150)",
+     "WallSystemTypeStore (geometry-wall:191 + plugins/wall/src/system-type-store.ts:150)",
+     "IndexedDBStore (persistence-client + packages/stores)",
+     "GeometryCacheStore (see below)"
+    ],
+    "GeometryCacheStore_BYTE_IDENTICAL_AND_UNREACHABLE": {
+     "files": [
+      "packages/persistence-client/src/loader/GeometryCacheStore.ts",
+      "apps/editor/src/engine/persistence/GeometryCacheStore.ts"
+     ],
+     "diff": "`diff -q` -> RC=0, IDENTICAL. 330 lines each, 660 total.",
+     "importers": "ZERO. `grep -rn 'GeometryCacheStore' apps packages plugins --include=*.ts` excluding the two definition files returns THREE hits and all three are COMMENTS ('mirrors GeometryCacheStore.ts, the codebase's existing IDB pattern') in UnderlayRasterStore.ts:21, ThumbnailCacheStore.ts:27, VersionCacheStore.ts:23. Neither copy is exported from a barrel that anything imports; `getGeometryCacheStore()` (:327) has no caller.",
+     "disposition": "REMOVE — both copies. This is the cleanest 'typed, exported, not reachable' artifact found: 660 lines, zero call sites, and the only thing keeping the name alive is three comments telling future authors to imitate it."
+    },
+    "D_rival_CesiumThreeBridge": {
+     "files": [
+      "packages/renderer-three/src/geospatial/CesiumThreeBridge.ts",
+      "plugins/geospatial/src/CesiumThreeBridge.ts"
+     ],
+     "note": "plugins/geospatial is an ARM-A plugin (on disk, in neither registry). Two classes of the same name for the same concept, one of them in a plugin that boots nothing.",
+     "disposition": "REMOVE the plugin copy or WIRE the plugin — but not both names."
+    }
+   }
+  },
+  "events_with_no_consumer": {
+   "source": "P1 measured NINE zero-subscriber CEB channels (census.json.channel_subscribers). This lane dispositions them; it does not re-derive the count.",
+   "rows": [
+    {
+     "channel": "slab.layer-updated",
+     "emitted_at": "CommandEventBridge.ts case slab.updateLayers :1613",
+     "subscribers": 0,
+     "disposition": "WIRE",
+     "reason": "This is one of only FOUR non-create cases in the entire 38-case CEB switch, and one of the THREE that are the bridge's ONLY update arm. Layer edits are a real user gesture with a real legacy store (SlabStore) that would need the relay. An emit with no listener here is a missing listener, not dead architecture."
+    },
+    {
+     "channel": "ceiling.layer-updated",
+     "emitted_at": "case ceiling.updateLayers :1633",
+     "subscribers": 0,
+     "disposition": "WIRE",
+     "reason": "same"
+    },
+    {
+     "channel": "floor.layer-updated",
+     "emitted_at": "case floor.updateLayers :1653",
+     "subscribers": 0,
+     "disposition": "WIRE",
+     "reason": "same"
+    },
+    {
+     "channel": "room.created",
+     "emitted_at": "case room.create :1312",
+     "subscribers": 0,
+     "disposition": "REPLACE",
+     "reason": "Rooms DO reach the plan view — through the §FT-ROOM-PLAN DOM bridge on `bim-room-added` (initTools.ts:2941), driven by the LEGACY CreateRoomCommand. So this is not a missing listener; it is a SECOND, unused channel for a path that already works by another route. P1 also found the name collides with a same-named event on a DIFFERENT bus (packages/stores/src/aggregate-commands/roomCreate.ts:111) — a name collision is a reason to retire the name, not to subscribe to it."
+    },
+    {
+     "channel": "plumbing.created",
+     "emitted_at": "case plumbing.create :1483",
+     "subscribers": 0,
+     "disposition": "REPLACE",
+     "reason": "C11 §11 records TWO create verbs for one family with opposite verdicts: `plumbing.createFixture` (legacy, works, reaches exports) and `plumbing.create` (DTO, zero subscribers repo-wide). The channel is the DTO verb's, and the DTO verb is the rival. Converge on one verb, then the channel is either needed or gone."
+    },
+    {
+     "channel": "grid.created",
+     "emitted_at": "case grid.create :1322",
+     "subscribers": 0,
+     "disposition": "WIRE",
+     "reason": "C11 §11 marks grid AUTHORED + DISPATCHABLE + UNREACHABLE — `'grid:tool'` is never activated and the 3-D grid reads a DIFFERENT store. The channel is downstream of a tool that never fires; wiring the channel alone would not help, so this row is WIRE-BLOCKED-ON the tool activation. Recording it as WIRE rather than REMOVE because the store, the verb and the case all exist."
+    },
+    {
+     "channel": "annotation.created",
+     "emitted_at": "case annotation.create :1503",
+     "subscribers": 0,
+     "disposition": "WIRE",
+     "reason": "C11 §11 says annotations render on their own layer but are carried by NO IFC/PDF/DXF surface. The channel is the natural relay for that."
+    },
+    {
+     "channel": "dimension.created",
+     "emitted_at": "case dimension.create :1513",
+     "subscribers": 0,
+     "disposition": "REMOVE",
+     "reason": "C11 §11: AUTHORED + DISPATCHABLE + UNREACHABLE — `DimensionTool` is not exported from the plugin barrel, so nothing can dispatch dimension.create in production. An emit downstream of an undispatchable verb is dead architecture until the barrel export lands; if the barrel export lands, re-mint the channel with a subscriber in the same commit."
+    },
+    {
+     "channel": "structural.created",
+     "emitted_at": "case structural.create :1493",
+     "subscribers": 0,
+     "disposition": "REMOVE",
+     "reason": "Re-measured 2026-08-31: `grep -rn 'new StructuralCommitter(' apps packages plugins --include=*.ts | grep -v node_modules | grep -vE '\\.test\\.|__tests__'` -> 0. The intended consumer class is exported from plugins/structural/src/index.ts:42 and constructed NOWHERE, tests included. This is dead architecture on both ends — an emitter with no listener AND a listener class with no constructor call."
+    }
+   ],
+   "TENTH_ROW_NOT_IN_P1s_NINE": {
+    "channel": "water.created",
+    "subscribers": 1,
+    "why_it_belongs_here": "The INVERSE defect, and P1's subscriber count cannot see it. §FT-WATER (initTools.ts:1943) subscribes to `water.created`, but `grep -n \"case '\" packages/runtime-composer/src/CommandEventBridge.ts` lists 38 cases and there is NO `case 'water.create'`. A LISTENER FOR A CHANNEL WITH NO OWN-NAME EMITTER. Water reaches the screen only because it is emitted from inside `case 'pool.create'`. Counting subscribers per emitted channel structurally cannot find this class; it needs the set difference in the other direction.",
+    "disposition": "KEEP-WITH-REASON — water is a STORE_ONLY member of the pool compound and has no independent create verb by design (ADR-0124). The reason must be written at the subscription site; today it is not."
+   },
+   "ELEMENT_UPDATE_VERBS_the_deliberate_narrow_gate": {
+    "site": "packages/runtime-composer/src/CommandEventBridge.ts:241",
+    "members": 10,
+    "list": [
+     "slab.addHole",
+     "slab.removeHole",
+     "slab.setThickness",
+     "slab.setBaseOffset",
+     "slab.setType",
+     "roof.setOverhang",
+     "roof.setThickness",
+     "roof.setShape",
+     "roof.setPitch",
+     "column.setHeight"
+    ],
+    "reading": "TEN verbs of the 361 in census.json may cross the §MIRROR-UPDATE bridge. The bridge's own comment (initTools.ts:1472-1479) names the consequence of the other 351: '123 bus verbs that write a plugin DTO store and relay to NOTHING, the 13 *.setMaterial verbs that had to be turned into refusals because a refusal was the only honest answer left, the lift shaft that penetrates the floor plate in the model and not on screen (L-9403), and the pool's void in its host slab.'",
+    "disposition": "KEEP-WITH-REASON as a gate (it must not become a general relay, per its own comment) — but the 351 non-members need their own ledger, and that ledger is tools/ga-gate/mirror-debt.json, not this file."
+   }
+  },
+  "legacy_artifact_inventory_dispositions": {
+   "counting_rule": "One row per named artifact dispositioned above. Every artifact has exactly one of WIRE / REPLACE / REMOVE / KEEP-WITH-REASON. Where a disposition is a genuine either/or (WIRE-or-REMOVE) it is counted under WIRE, and flagged.",
+   "WIRE": [
+    "CascadeRunner (packages/command-bus/src/cascade.ts) — or REMOVE",
+    "wireToolForConsequencePreview (ConsequencePreviewOverlay.ts:368) — zero callers repo-wide",
+    "plugins/ai-floorplan — advertised, unregistered",
+    "plugins/ai-generative — advertised, unregistered",
+    "plugins/ai-query — advertised, unregistered",
+    "plugins/ai-rules — advertised, unregistered",
+    "plugins/ai-voice — advertised, unregistered",
+    "plugins/ifc-import (950 lines, 1 handler) — advertised, unregistered",
+    "plugins/ifc-inspector (3168 lines) — advertised, unregistered",
+    "plugins/rhino-import — advertised, unregistered",
+    "plugins/levels (2 handlers) — ARM-A",
+    "plugins/navigate (1 handler) — ARM-A",
+    "channel slab.layer-updated",
+    "channel ceiling.layer-updated",
+    "channel floor.layer-updated",
+    "channel grid.created (blocked on 'grid:tool' activation)",
+    "channel annotation.created"
+   ],
+   "REPLACE": [
+    "the three commandManager counters -> one counter, one denominator",
+    "PLUGIN_CATALOG + ALL_PLUGINS + ELEMENT_PLUGIN_IDS + STORE_ONLY_PLUGIN_IDS -> the manifest-driven loader PluginHost.ts:47-50 already promises",
+    "legacy commandManager undo backend -> ADR-0251 single timeline",
+    "plugins/geospatial CesiumThreeBridge -> the renderer-three one",
+    "plugins/visibility-intent -> packages/visibility (P7)",
+    "channel room.created -> the working §FT-ROOM-PLAN DOM path",
+    "channel plumbing.created -> converge plumbing.create and plumbing.createFixture",
+    "the 26 duplicate Store class names -> one store per family (this IS the double-write)"
+   ],
+   "REMOVE": [
+    "packages/speculative-engine (dated: delete 2026-11-12)",
+    "packages/persistence-client/src/loader/GeometryCacheStore.ts (330 lines, 0 importers)",
+    "apps/editor/src/engine/persistence/GeometryCacheStore.ts (byte-identical duplicate, 0 importers)",
+    "packages/stores/src/RoomStore.ts (self-declared DEPRECATED-AS-NAMED, zero readers, GE-04 2026-08-14)",
+    "plugins/dxf (66 lines, ARM-A)",
+    "plugins/export-pdf (68 lines, ARM-A)",
+    "plugins/render (27 lines, ARM-A)",
+    "plugins/family-editor (27 lines, ARM-A, never even listed as a stub)",
+    "channel dimension.created (verb undispatchable — DimensionTool not exported from the barrel)",
+    "channel structural.created (consumer class never constructed)",
+    "the duplicate storeEventBus.emit at initTools.ts:2127 (L-1056) — deliberately deferred, but it is a REMOVE with a reason, not a KEEP"
+   ],
+   "KEEP_WITH_REASON": [
+    "ImpactEngine — a name deliberately never minted; the capability is ImpactDetermination/UndeterminedImpact",
+    "CommandImpact — a name in STR-06 §70 only; strike it from STR-06 or annotate it",
+    "ConsequencePreviewService — the one live planner front door",
+    "performUndoRedo.ts — the single undo entry point (C03 §4.6 U-5)",
+    "plugins/floor — NOT A STUB; delist from the 16",
+    "ELEMENT_UPDATE_VERBS as a narrow allowlist (must not become a general relay)",
+    "channel water.created — a STORE_ONLY member with no independent create verb by design (ADR-0124); the reason must be written at the subscription site and today is not",
+    "the wall/curtain-wall/lighting REGISTER-BEFORE-ADD order — correct against §G3-STALE, and it is C11's legend that must change"
+   ],
+   "totals": {
+    "WIRE": 17,
+    "REPLACE": 8,
+    "REMOVE": 11,
+    "KEEP_WITH_REASON": 8,
+    "TOTAL": 44
+   }
+  }
+ },
+ "what_this_does_NOT_establish": [
+  "That any of the 169 bridges FIRES. Every count here is static (grep / brace-balance over source). No browser, no runtime read-back. Evidence class (c) for the counts, NOT for behaviour.",
+  "That the 21 double-writing families are the complete set. The set is the 29 element families from audit/element-creation/2026-08-29/families/, reconciled against census.json. A family with no prior audit row would not appear.",
+  "That the disposition column is a decision. It is a proposal with a command attached. WIRE-or-REMOVE rows are genuine either/ors and are counted under WIRE; they need a person.",
+  "That check-plugin-census-equivalence.ts agrees with my set differences. I computed the sets from source (ls plugins/, the ALL_PLUGINS array, PLUGIN_CATALOG, ELEMENT_PLUGIN_IDS) and did NOT run that gate in this lane.",
+  "The six-of-eight untimestamped ring-buffer push sites is QUOTED from performUndoRedo.ts:63-72, not re-counted here."
+ ],
+ "companion_files": {
+  "legacy-work/bridges.txt": "per-bridge scan of initTools.ts (ADD / REGISTER / SEB / DEDUP with line numbers) — the order-trap evidence",
+  "legacy-work/bridges.json": "the same, machine-readable",
+  "legacy-work/scan-bridges.mjs": "the script that produced them — re-run it, do not trust the line numbers",
+  "legacy-work/add-bodies.json": "per legacy store: add() span, storeEventBus lines inside it, DOM emits inside it",
+  "legacy-work/addbody.mjs": "the script",
+  "legacy-work/census-drift-P4.json": "all plugin-set differences, both directions",
+  "legacy-work/s_*.txt": "the five raw sets",
+  "legacy-work/winany-all.txt": "all 217 (window as any) production sites",
+  "legacy-work/stub-verifier.txt": "the Wave-12 stub verifier re-run (21 lines, not 16)",
+  "legacy-work/ceb-cases.txt": "the 38 CommandEventBridge case arms with line numbers"
+ }
+}

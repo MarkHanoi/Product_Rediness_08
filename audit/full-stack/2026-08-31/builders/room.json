@@ -1,0 +1,70 @@
+{
+  "family": "room",
+  "head": "d91d30d4af51bc67317ef8afc0b46b1dbef94038",
+  "members": ["room boundary volume", "room label", "room bounding line"],
+  "rows": [
+    {
+      "member": "room boundary volume",
+      "surface": "3d",
+      "builder_file": "packages/room-topology/src/RoomBoundaryBuilder.ts",
+      "entry_fn": "updateRoom(room)  ·  removeRoom(roomId)  ·  attachDependencies({...})",
+      "package": "@pryzm/room-topology",
+      "layer": "L2",
+      "layer_proof": "eslint.config.js:167 { type: 'L2', pattern: 'packages/room-topology/**' } — annotated '[forced ceiling] imported BY ai-host'",
+      "invoked_by": [
+        "apps/editor/src/engine/initBuilders.ts:469 `new RoomBoundaryBuilder(scene, bimManager)` → :470 `window.roomBoundaryBuilder = ...` → :480 attachDependencies",
+        "apps/editor/src/engine/initBuilders.ts:496/:503/:510 — window.addEventListener('bim-room-added' | '-updated' | '-removed'), each calling BOTH roomBoundaryBuilder.updateRoom(room) AND roomLabelRenderer.updateRoom(room)"
+      ],
+      "rivals": [
+        {
+          "candidate": "⛔ TWO EMITTERS OF THE CHANNEL 'room.created'",
+          "detail": "packages/runtime-composer/src/CommandEventBridge.ts:1314 emits `{commandId, commandType, levelId}` — three keys, no id, no room. packages/stores/src/aggregate-commands/roomCreate.ts:111 RETURNS `{ type: 'room.created', room }` — a DIFFERENT payload shape carrying the whole room, declared as a type at packages/stores/src/aggregate-commands/types.ts:347. Two producers, two shapes, one channel name. Nothing subscribes to the CEB one (see below), so the collision is latent rather than live — but a subscriber written against either shape would be wrong for the other.",
+          "verdict": "RIVAL CHANNEL, LATENT"
+        },
+        {"candidate": "plugins/rooms/src/committer/room-committer.ts + packages/geometry-kernel/src/producers/room.ts", "verdict": "RIVAL, UNREACHABLE. `produceRoom` production call sites: ZERO — the only non-bench mention is a NOTE in apps/editor/src/ui/analysis/areaStandards.ts:224 describing Room.area as 'produced by produceRoom', which at this head nothing calls."}
+      ],
+      "robustness": {
+        "dependency_injection": "attachDependencies() (initBuilders.ts:480) — the builder is late-bound to stores that do not exist at its construction. Same wiring risk class as RoofSlopeSymbolBuilder: if it is never attached, the builder is silent.",
+        "level_cleanup": "RoomLevelCleanupHandler (initBuilders.ts:71)."
+      },
+      "fidelity": {
+        "authored_L0_fields": ["provenance","confidence","levelId","name","number","boundaryMode","seedPoint","heightOffset","occupancy","multiLevelSpan","boundingElementIds","boundary","area","volume","perimeter","boundingWallIds","materialColor","materialId"],
+        "authored_count": 18,
+        "ceb_channel": "room.created",
+        "ceb_emit_sites": ["~L1086 (room.create) — THREE keys"],
+        "ceb_emitted_keys": ["commandId","commandType","levelId"],
+        "dropped_at_ceb": "ALL EIGHTEEN, including the id.",
+        "and_nothing_subscribes": "`grep -rn \"'room.created'\" --include=*.ts apps packages plugins | grep -v node_modules | grep -v __tests__` → the CEB emitter, the rival emitter in packages/stores, two type declarations, and apps/editor/src/ui/platform/PlatformProjectBrowser.ts:991, which lists 'room.created' among event NAMES in a UI diagnostic string, not a render subscription. NO RENDER SUBSCRIBER.",
+        "so_how_does_it_draw": "Legacy leg only — a command writes RoomStore, the store fires 'bim-room-added', initBuilders' listener drives both the boundary builder and the label renderer.",
+        "⛔ AUTHORED_WITH_NO_READER_ANYWHERE": "`multiLevelSpan` — ZERO mentions in the entire repo outside packages/schemas (measured over 4927 non-test source files). It is authored in L0 and read by nothing, on either the reachable or the unreachable side. The only field of the 29 element schemas in that state alongside Sheet.customSize and View.visibilityRulesetId.",
+        "seedPoint": "AUTHORED, read ONLY by packages/geometry-kernel/src/producers/room.ts + its hash + plugins/rooms/boundaryRecomputeDetermination.ts — i.e. the unreachable half plus one plugin determination.",
+        "draws_what_the_user_authored": "NO on the bus leg (nothing at all). NOT MEASURED field-by-field on the legacy leg — the room record reaches the builder whole, so the CEB loss is a bus-leg-only defect."
+      }
+    },
+    {
+      "member": "room label",
+      "surface": "3d + plan",
+      "builder_file": "packages/room-topology/src/RoomLabelRenderer.ts",
+      "invoked_by": "apps/editor/src/engine/initBuilders.ts:489 `new RoomLabelRenderer(scene, bimManager)`, :490 window.roomLabelRenderer, driven by the same three bim-room-* listeners",
+      "drawn": "YES",
+      "note": "A SECOND builder for the same family and surface, but for a distinct member (text vs volume) — DECLARED, not a rival."
+    },
+    {
+      "member": "room bounding line",
+      "surface": "3d",
+      "builder_file": "packages/geometry-wall/src/RoomBoundingLineBuilder.ts — note the room member's builder lives in geometry-WALL, not room-topology",
+      "invoked_by": "apps/editor/src/engine/initBuilders.ts:1090 `new RoomBoundingLineBuilder(scene, bimManager)`, :1101/:1108/:1115 window.addEventListener('bim-room-bounding-line-added' | '-updated' | '-removed')",
+      "own_store": "YES — roomBoundingLineStore (packages/core-app-model/src/stores, initBuilders.ts:147)",
+      "own_verbs": "YES — packages/command-registry/src/roomBoundingLines/",
+      "drawn": "YES"
+    },
+    {
+      "member": "room boundary volume",
+      "surface": "plan",
+      "builder_file": "EdgeProjectorService true-edge projection + the label renderer. No room plan-symbol builder among the fifteen.",
+      "invalidation": "`room` IS in GEOMETRY_ELEMENT_TYPES — added in Wave 4e (ViewDependencyTracker.ts:110)."
+    },
+    {"member": "room", "surface": "section", "builder_file": "derived", "drawn": "PARTIAL"},
+    {"member": "room", "surface": "export", "builder_file": "packages/file-format/src/export/ifc/readers/RoomReader.ts (L3, FragmentReader.ts:47)", "rivals": ["plugins/ifc-export/src/exporters/space.ts + zone.ts → IfcSpace / IfcZone — UNREACHABLE. IFC4X3Exporter.ts:400 'IFC-α-2: Rooms → IfcSpace'. The reachable RoomReader and the unreachable space.ts are the two halves of the one family that BOTH exporters cover."]}
+  ]
+}

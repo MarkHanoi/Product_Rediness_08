@@ -1,0 +1,140 @@
+{
+  "date": "2026-08-31",
+  "head": "d91d30d4af51bc67317ef8afc0b46b1dbef94038",
+  "doctrine": "A MEMBER WITH NO CHANNEL OF ITS OWN IS NAMED, NOT SMUGGLED. Each row states: own store / own schema / own verbs / own channel / what it rides / plan membership.",
+  "count": 12,
+  "members": [
+    {
+      "member": "water body",
+      "parent": "pool",
+      "own_store": "YES - storeKey 'water', inline ALL_PLUGINS descriptor in apps/editor/src/PluginRegistry.ts (id 'water', storeKey 'water')",
+      "own_schema": "YES - packages/schemas/src/elements/Water.ts",
+      "own_verbs": "NONE - declared exempt in STORE_ONLY_PLUGIN_IDS: 'ADR-0124 s4 - water is created and destroyed only by pool.* ; it owns no verb of its own.'",
+      "own_channel": "YES - 'water.created', emitted inside the CEB pool.create case. 1 subscriber: initTools.ts:1943 (FT-WATER). Registers in VDT (:1982) and bimManager (:1984) and REFUSES to register on an empty levelId.",
+      "rides": "nothing - it has its own channel",
+      "plan": "NO - 'water' is absent from GEOMETRY_ELEMENT_TYPES (21-member set, re-measured 2026-08-31). 3D only.",
+      "verdict": "NAMED, NOT SMUGGLED. The strongest member row in the repo: own store, own schema, own channel, and a WRITTEN reason for owning no verb."
+    },
+    {
+      "member": "basin walls",
+      "parent": "pool",
+      "own_store": "NO - they ARE walls, written into the wall store",
+      "own_schema": "NO",
+      "own_verbs": "NONE",
+      "own_channel": "NO",
+      "rides": "'wall.created', restamped by the CEB pool.create case, guarded on wall.parentId === p.poolId, commandType kept as 'pool.create'",
+      "plan": "YES via wall",
+      "verdict": "RIDES A PARENT CHANNEL, DECLARED. CommandEventBridge.ts states its refusal to smuggle the water onto slab.created in its own words (C84 EI-9)."
+    },
+    {
+      "member": "pool floor slab",
+      "parent": "pool",
+      "own_store": "NO",
+      "own_schema": "NO",
+      "own_verbs": "NONE",
+      "own_channel": "NO",
+      "rides": "'slab.created', with the plan-convention polygon conversion",
+      "plan": "YES via slab",
+      "verdict": "RIDES A PARENT CHANNEL, DECLARED."
+    },
+    {
+      "member": "host-slab void",
+      "parent": "pool",
+      "own_store": "NO",
+      "own_schema": "NO",
+      "own_verbs": "NONE",
+      "own_channel": "NO",
+      "rides": "'element.updated' (elementKind 'slab', changedFields ['holes']), emitted ONLY when the replace patch is actually on the commit",
+      "plan": "YES via slab",
+      "verdict": "RIDES A PARENT CHANNEL, DECLARED. This is the only compound MUTATION in the repo measured to reach a mirror."
+    },
+    {
+      "member": "liftPart (cabin parts)",
+      "parent": "lift",
+      "own_store": "YES - storeKey 'liftPart', its own inline ALL_PLUGINS descriptor",
+      "own_schema": "NO - there is no LiftPart.ts in packages/schemas/src/elements/",
+      "own_verbs": "NONE - declared exempt in STORE_ONLY_PLUGIN_IDS (C104 s2)",
+      "own_channel": "NO",
+      "rides": "the PARENT's 'lift.created'. Parts travel as ev.parts[] and are drawn by liftCompoundMeshBuilder.updateLift (initTools.ts:1687-1701). initTools.ts:1665 states liftPart 'has no legacy store to mirror INTO - liftPart is a new family (C104 R-3)'.",
+      "plan": "NO. 'liftPart' is not in GEOMETRY_ELEMENT_TYPES. 'verticalCirculation' IS - but that is the OTHER lift (the LOD-200 massing lift in @pryzm/geometry-lift), not this compound.",
+      "verdict": "NAMED, RIDES PARENT. There is NO 'lift.deleted' key in RuntimeEvents - stated by apps/editor/src/engine/bathroomPodMemberMirror.ts:30-32 as the reason the lift had to hand-build a render sink. So lift.delete (UNKNOWN liveness) has no channel to relay on, for the parent or the parts."
+    },
+    {
+      "member": "stair-landing",
+      "parent": "stair",
+      "own_store": "YES - apps/editor/src/engine/initStores.ts:106  r('stair-landing', stores.stairLandingStore)",
+      "own_schema": "NO",
+      "own_verbs": "NONE - no landing verb exists among the 361",
+      "own_channel": "NO",
+      "rides": "nothing on the bus - it is built by StairMeshBuilder from the parent stair (declaredProjectScopes.ts:661)",
+      "plan": "CLAIMED AND DEAD. 'stair-landing' IS in GEOMETRY_ELEMENT_TYPES (ViewDependencyTracker.ts:82), but StairLandingStore emits the CAMEL-CASE spelling. RE-MEASURED 2026-08-31: StairLandingStore.ts:42/66/90 all emit elementType:'stairLanding'. The hyphenated member matches nothing.",
+      "verdict": "DEAD ENTRY - AND THE CODE SAYS SO FIRST. ViewDependencyTracker.ts:66-79 declares it a 'MEASURED DEAD ENTRY' and explains it is left in place deliberately, because correcting the spelling without a registerElement site first would route a 31-segment railing run into 31 G3-STALE all-views sweeps. I re-measured; it holds. This is an HONEST declaration, not a stale one."
+    },
+    {
+      "member": "stair-railing",
+      "parent": "stair",
+      "own_store": "YES - initStores.ts:107  r('stair-railing', stores.stairRailingStore)",
+      "own_schema": "NO",
+      "own_verbs": "ONE, AND IT IS ON THE PARENT'S PREFIX - 'stair.createRailing' (LIVE, via the legacy commandManager). There is no stair-railing.* verb, and no railing delete or update verb anywhere.",
+      "own_channel": "NO",
+      "rides": "the parent stair's mesh build",
+      "plan": "CLAIMED AND DEAD - same mechanism as stair-landing. RE-MEASURED: StairRailingStore.ts:70/97/115/126 emit 'stairRailing'.",
+      "verdict": "DEAD ENTRY (declared) PLUS A THREE-WAY REPRESENTATION SPLIT. A railing exists as (a) the verb stair.createRailing, (b) the store key 'stair-railing', and (c) the entirely separate top-level FAMILY 'handrail'. Three vocabularies for one physical thing."
+    },
+    {
+      "member": "handrail",
+      "parent": "listed by the brief under stair - MEASURED, it is a TOP-LEVEL family",
+      "own_store": "YES - storeKey 'handrail', its own inline ALL_PLUGINS descriptor",
+      "own_schema": "YES - packages/schemas/src/elements/Handrail.ts",
+      "own_verbs": "10 - handrail.create, .delete, .changeLevel, .moveBaseLine, .recompute, .setHost, .setMaterial, .setPath, .setShape, .updateColor. Liveness: 3 LIVE / 6 UNKNOWN / 1 REFUSES.",
+      "own_channel": "YES - CEB case 'handrail.create' (:1332); 1 subscriber (initTools.ts:2575)",
+      "rides": "nothing",
+      "plan": "YES - 'handrail' is in GEOMETRY_ELEMENT_TYPES",
+      "verdict": "NOT A MEMBER - A FULL FAMILY. Recorded here because the brief listed it as a stair member. Measured, it is independent of the stair, and it is the third rival to 'railing' above."
+    },
+    {
+      "member": "bathroomPod",
+      "parent": "plumbing (the DESCRIPTOR that registers its two verbs)",
+      "own_store": "YES - storeKey 'bathroomPod', its own inline ALL_PLUGINS descriptor",
+      "own_schema": "NO - no BathroomPod.ts in packages/schemas/src/elements/",
+      "own_verbs": "TWO - bathroomPod.create, bathroomPod.delete. BOTH UNKNOWN liveness. STORE_ONLY_PLUGIN_IDS carries a written note that this exemption's reason DIFFERS from water's and liftPart's, because the pod DOES own verbs; they are simply registered by the plumbing descriptor (a descriptor carries exactly one storeKey).",
+      "own_channel": "NO - there is no CEB case and no *.created event for the pod or its members.",
+      "rides": "NOTHING ON THE BUS. Members are projected into the LEGACY @pryzm/geometry-plumbing fixture store through Store.subscribeDirty() - apps/editor/src/engine/bathroomPodMemberMirror.ts, attached at initTools.ts:1758. ctx.stores.plumbing is a DIFFERENT store (the plugin DTO pipe store); the mirror header states this explicitly.",
+      "plan": "members YES via plumbing; the POD ITSELF is deliberately not drawn (C109 s1)",
+      "verdict": "NAMED, AND THE ONLY MEMBER SET THAT USES A STORE SUBSCRIPTION RATHER THAN A CHANNEL - which is why create, undo, redo and delete all arrive through ONE road and cannot drift. Its own header names what it does NOT close: ProjectSerializer knows nothing about pods, so a save-and-reload keeps every MEMBER and LOSES THE PARENT (childrenIds, drill-in and delete-reap do not survive). L-11485 OPEN: there is no bathroomPod.update verb, and minting one blindly would silently discard an architect's plumbing.move."
+    },
+    {
+      "member": "curtain-panel",
+      "parent": "curtain-wall",
+      "own_store": "YES - initStores.ts:126  r('curtain-panel', stores.curtainPanelStore)",
+      "own_schema": "PARTIAL - packages/schemas/src/elements/CurtainPanelVocabulary.ts is a VOCABULARY file, not a defineElement row",
+      "own_verbs": "NONE OF ITS OWN. All seven panel verbs carry the PARENT prefix: curtain-wall.addPanel, .removePanel, .replacePanel, .swapPanel, .rotatePanel, .bulkUpdatePanels, .setPanelType",
+      "own_channel": "NO",
+      "rides": "'curtain-wall.created' (2 subscribers)",
+      "plan": "YES - 'curtain-panel' IS in GEOMETRY_ELEMENT_TYPES",
+      "verdict": "RIDES PARENT. It has a store AND a plan membership but no verb and no channel of its own - addressable as geometry and as a plan symbol, never as a command subject."
+    },
+    {
+      "member": "mullions / transoms",
+      "parent": "curtain-wall",
+      "own_store": "NO",
+      "own_schema": "NO",
+      "own_verbs": "NONE OF ITS OWN - only curtain-wall.setMullionType and curtain-wall.setTransomType",
+      "own_channel": "NO",
+      "rides": "'curtain-wall.created' entirely",
+      "plan": "no type key of its own",
+      "verdict": "FULLY SUBSUMED. Named because the brief asked. There is no mullion element anywhere in the census - not a store, not a schema, not a type key, not a verb subject. It exists only as a TYPE-ID PROPERTY of its parent. That is a defensible design, but it is a fact nobody had written down."
+    },
+    {
+      "member": "opening",
+      "parent": "wall",
+      "own_store": "YES - initStores.ts r('opening', ...). openingStore is read directly by packages/command-registry/src/stair/DeleteStairCommand.ts:349",
+      "own_schema": "NO - there is no Opening.ts in packages/schemas/src/elements/",
+      "own_verbs": "THREE CREATE VERBS, AND NOTHING ELSE. 'opening.create' (LIVE, owner apps/editor, routed through the legacy commandManager), 'wall.createOpening' (UNKNOWN, plugins/wall), 'wall.opening.create' (UNKNOWN, plugins/wall). There is NO opening.delete, NO opening.update and NO opening.move among the 361.",
+      "own_channel": "YES - 'wall.opening.created', 2 subscribers (initTools.ts:1530 among them). TWO CEB cases feed it: :721 wall.opening.create and :731 wall.createOpening.",
+      "rides": "nothing - it has its own channel",
+      "plan": "YES - 'opening' is in GEOMETRY_ELEMENT_TYPES",
+      "verdict": "THE RIVAL ROW. Three creation verbs on TWO different execution authorities for one member, and zero verbs for the whole rest of its lifecycle. Deletion is reached only indirectly - through DeleteStairCommand's auto-opening cascade (legacy) and OpeningDeleteConsequencePlanner. Minting an opening.delete without first collapsing the three creates would make it a fourth rival, not a fix."
+    }
+  ]
+}

@@ -1,0 +1,1308 @@
+{
+ "family": "roof",
+ "date": "2026-08-31",
+ "phase": "P3 AXIS C - COMMANDS",
+ "head_at_start": "d91d30d4af51bc67317ef8afc0b46b1dbef94038",
+ "head_note": "HEAD moved to 6590ac1c mid-phase. git diff --name-only d91d30d4..6590ac1c -> ONE file, audit/full-stack/BRIEF-QUEUED.md (docs only). No production file this phase measured changed.",
+ "discovery": "The verb set was reproduced INDEPENDENTLY by audit/full-stack/2026-08-31/commands/_tools/scan.mjs, which re-implements check-verb-register.ts TYPE_DECL_RE + handlerish() over the same three HANDLER_ROOTS. It read 1408 files and found 361 verbs in 50 families - IDENTICAL to the gate on all three numbers. That agreement is a control on DISCOVERY ONLY; it says nothing about any column below.",
+ "evidence_classes": "a = a gate or the generated register says so. b = a gate that can prove it would fire says so. c = an executed read-back I ran myself. 59 of 99 gates here are BLIND COMPARATORS (P0), so NO row upgrades (a) to (c) by wording.",
+ "verbs": 13,
+ "kinds": {
+  "update": 7,
+  "move": 2,
+  "create": 1,
+  "delete": 2,
+  "join": 1
+ },
+ "rollup": {
+  "by_kind": {
+   "update": 7,
+   "move": 2,
+   "create": 1,
+   "delete": 2,
+   "join": 1
+  },
+  "mirror_coverage": {
+   "with_any_mirror": 6,
+   "of": 13
+  },
+  "readback": {
+   "proven_positive_class_c": 4,
+   "measured_negative_class_c": 0,
+   "of": 13
+  },
+  "undo": {
+   "ring_buffer": 12,
+   "legacy_commandManager": 1,
+   "stranded": 0,
+   "none_or_unknown": 0,
+   "of": 13
+  },
+  "liveness": {
+   "UNKNOWN": 9,
+   "LIVE": 2,
+   "REFUSES": 2
+  },
+  "contract_clause_TRUE_counts": {
+   "validates_before_mutation": 13,
+   "typed_DomainError_or_refusal": 1,
+   "mutates_only_via_immer_draft": 12,
+   "affectedStores_declared": 12,
+   "withHandlerSpan": 12,
+   "emits_a_typed_domain_event": 0,
+   "geometry_deferred_to_FrameScheduler": 0
+  },
+  "must_not_BREACH_counts": {
+   "commandManager.execute": 0,
+   "cascading dispatch": 0,
+   "window.dispatchEvent": 0,
+   "DOM access": 0,
+   "direct rAF": 0
+  },
+  "dispatch": {
+   "zero_literal_dispatch_site": 11,
+   "of": 13
+  },
+  "no_consequence": {
+   "measured_class_c": 0,
+   "shadowed": 0,
+   "refuses_by_design": 2,
+   "quadruple_negative_candidates": 4,
+   "undo_stranded": 0,
+   "of": 13
+  }
+ },
+ "rows": [
+  {
+   "verb": "roof.addSkylight",
+   "kind": "update",
+   "handler": {
+    "file": "plugins/roof/src/handlers/AddSkylight.ts:31",
+    "all_sites": [
+     "plugins/roof/src/handlers/AddSkylight.ts:31"
+    ],
+    "site_count": 1,
+    "layer": "L6 plugin",
+    "registered_where": "plugins/roof",
+    "liveness_per_register": "UNKNOWN"
+   },
+   "contract": {
+    "validates_before_mutation": true,
+    "typed_DomainError_or_refusal": false,
+    "mutates_only_via_immer_draft": true,
+    "affectedStores_declared": true,
+    "declared_stores": [
+     "roof"
+    ],
+    "storeKey_matches_ctx_stores": "declared: roof - NOT resolved against the composed ctx.stores in this phase except where readback is class (c)",
+    "no_store_singleton_import": true,
+    "withHandlerSpan": true,
+    "emits_a_typed_domain_event": false,
+    "geometry_deferred_to_FrameScheduler": false,
+    "caveat": "REGEX OVER THE HANDLER DECLARATION SLICE, class (a). TRUE means the token is present in the slice, NOT that it runs on the mutation path. FALSE is the stronger reading: the token is absent, so the clause cannot be satisfied."
+   },
+   "must_nots": {
+    "no_commandManager_execute": true,
+    "no_cascading_dispatch": true,
+    "no_window_dispatchEvent": true,
+    "no_DOM_access": true,
+    "no_direct_rAF": true,
+    "caveat": "same slice-regex caveat. no_DOM_access counts any document. / window. token including type-only casts, so a FALSE here is a candidate, not a conviction."
+   },
+   "mirror": {
+    "channel": "NO CommandEventBridge case",
+    "CEB_case_present": false,
+    "in_ELEMENT_UPDATE_VERBS": false,
+    "in_LEVEL_CHANGE_VERBS": false,
+    "table_driven_not_a_case_block": "n/a - no mirror at all",
+    "evidence_class": "a - grep over CommandEventBridge.ts (38 strict case labels) and the two verb tables (LEVEL_CHANGE_VERBS 12, ELEMENT_UPDATE_VERBS 10). Per the P0 constraint I do NOT write \"the mirror gate is green therefore this verb mirrors\"."
+   },
+   "payload": {
+    "field_names_match_live_caller": null,
+    "id_pre_generated_by_caller": null,
+    "note": "NOT MEASURED PER VERB at this scale. The three measured cases are in _ROLLUPS.json payload_defects (slab.create boundary-vs-polygon, roof.create id minting, column.batch.create id-less members) and all three were re-proven by MY executed run of CommittedPatchReachesTheStore.test.ts, RC=0."
+   },
+   "undo": {
+    "unit_registered": "patch-pair → roof",
+    "backend": "A-ring-buffer(patch-pair)",
+    "backend_note": "all 1 declared store key(s) are covered by buildUndoStoreMap()",
+    "reverts_geometry": "UNPROVEN",
+    "evidence_class": "a - declared shape plus a key-set comparison against buildUndoStoreMap(). The register itself says of this column: \"Declared shape, not an executed proof.\""
+   },
+   "batch": {
+    "mode": "none"
+   },
+   "readback": {
+    "proven": "NO",
+    "evidence_class": "a",
+    "note": "ZERO test files under apps/ packages/ plugins/ tools/ name this verb literal alongside an executeCommand/.execute call. Absence measured by _tools/readback2.mjs over every *.test.ts / *.spec.ts in those four roots, node_modules excluded."
+   },
+   "rival_dispatch": {
+    "handler_internal": [],
+    "family_named_commandManager_sites": 2,
+    "family_named_windowDispatchEvent_sites": 0,
+    "sample_commandManager": [
+     "packages/geometry-roof/src/RoofSlopeSymbolBuilder.ts:206:                this.commandManager.execute(new CreateAnnotationCommand(ann));",
+     "packages/geometry-roof/src/RoofTool.ts:398:        const result = this._commandManager.execute(command);"
+    ],
+    "sample_windowDispatchEvent": [],
+    "caveat": "family_named_* is a NAME match over the two site files, not a resolved dispatch graph. 27 of the 227 commandManager.execute sites pass a VARIABLE (cmd/command/step) and cannot be resolved by name at all. See _ROLLUPS.json rival_dispatch."
+   },
+   "ladder": {
+    "AUTHORED": "YES",
+    "REACHABLE": "UNPROVEN (register: UNKNOWN - a lone plugin produceCommand handler)",
+    "COMPOSABLE": "UNPROVEN",
+    "CERTIFIED": "NO"
+   },
+   "findings": [],
+   "dispatch_reachability": {
+    "literal_dispatch_sites_outside_own_handler": 0,
+    "sites": [],
+    "method": "verb literal inside a 400-char window around executeCommand( / dispatch( / .execute( / runBatch( across 5120 production .ts/.tsx files under apps/ packages/ plugins/ (node_modules, dist, __tests__/, *.test.*, *.spec.*, *.d.ts excluded).",
+    "NON_BLIND": "This probe carries a POSITIVE CONTROL that fires: wall.batch.create = 5 sites. It also independently reproduces the two negatives asserted by DoorBatchCreateLiveness.probe.test.ts and WindowBatchCreateLiveness.probe.test.ts, both of which I EXECUTED at RC=0 (door.batch.create 0, window.batch.create 0). Evidence class (b) for this column.",
+    "CALIBRATED_FALSE_ZERO_RATE": "A zero is NOT proof of unreachability. Table-driven and variable dispatch is invisible to a literal scan. MEASURED: 9 of the 22 verbs for which I hold a class-(c) POSITIVE read-back are in the zero set (bathroomPod.delete, door.batch.create, roof.setOverhang, roof.setPitch, roof.setShape, selection.deselect, slab.addHole, slab.setThickness, window.batch.create) = a 41% false-zero rate among verbs known to work. Read a zero as UNPROVEN-DISPATCH, never as ABSENT."
+   },
+   "consequence": {
+    "verdict": "CANDIDATE - QUADRUPLE-NEGATIVE (no mirror + no proven read-back + UNKNOWN liveness + zero literal dispatch site). Not a conviction: the false-zero calibration above applies.",
+    "undo_has_no_consequence": "no (or undetermined)"
+   }
+  },
+  {
+   "verb": "roof.changeLevel",
+   "kind": "move",
+   "handler": {
+    "file": "plugins/roof/src/handlers/ChangeRoofLevel.ts:24",
+    "all_sites": [
+     "plugins/roof/src/handlers/ChangeRoofLevel.ts:24"
+    ],
+    "site_count": 1,
+    "layer": "L6 plugin",
+    "registered_where": "plugins/roof",
+    "liveness_per_register": "LIVE"
+   },
+   "contract": {
+    "validates_before_mutation": true,
+    "typed_DomainError_or_refusal": false,
+    "mutates_only_via_immer_draft": true,
+    "affectedStores_declared": true,
+    "declared_stores": [
+     "roof"
+    ],
+    "storeKey_matches_ctx_stores": "declared: roof - NOT resolved against the composed ctx.stores in this phase except where readback is class (c)",
+    "no_store_singleton_import": true,
+    "withHandlerSpan": true,
+    "emits_a_typed_domain_event": false,
+    "geometry_deferred_to_FrameScheduler": false,
+    "caveat": "REGEX OVER THE HANDLER DECLARATION SLICE, class (a). TRUE means the token is present in the slice, NOT that it runs on the mutation path. FALSE is the stronger reading: the token is absent, so the clause cannot be satisfied."
+   },
+   "must_nots": {
+    "no_commandManager_execute": true,
+    "no_cascading_dispatch": true,
+    "no_window_dispatchEvent": true,
+    "no_DOM_access": true,
+    "no_direct_rAF": true,
+    "caveat": "same slice-regex caveat. no_DOM_access counts any document. / window. token including type-only casts, so a FALSE here is a candidate, not a conviction."
+   },
+   "mirror": {
+    "channel": "NO CommandEventBridge case",
+    "CEB_case_present": false,
+    "in_ELEMENT_UPDATE_VERBS": false,
+    "in_LEVEL_CHANGE_VERBS": true,
+    "table_driven_not_a_case_block": "TABLE-DRIVEN",
+    "evidence_class": "a - grep over CommandEventBridge.ts (38 strict case labels) and the two verb tables (LEVEL_CHANGE_VERBS 12, ELEMENT_UPDATE_VERBS 10). Per the P0 constraint I do NOT write \"the mirror gate is green therefore this verb mirrors\"."
+   },
+   "payload": {
+    "field_names_match_live_caller": null,
+    "id_pre_generated_by_caller": null,
+    "note": "NOT MEASURED PER VERB at this scale. The three measured cases are in _ROLLUPS.json payload_defects (slab.create boundary-vs-polygon, roof.create id minting, column.batch.create id-less members) and all three were re-proven by MY executed run of CommittedPatchReachesTheStore.test.ts, RC=0."
+   },
+   "undo": {
+    "unit_registered": "patch-pair → roof",
+    "backend": "A-ring-buffer(patch-pair)",
+    "backend_note": "all 1 declared store key(s) are covered by buildUndoStoreMap()",
+    "reverts_geometry": "UNPROVEN",
+    "evidence_class": "a - declared shape plus a key-set comparison against buildUndoStoreMap(). The register itself says of this column: \"Declared shape, not an executed proof.\""
+   },
+   "batch": {
+    "mode": "none"
+   },
+   "readback": {
+    "proven": "NO",
+    "evidence_class": "a",
+    "note": "2 test file(s) name this verb; none of them both composes the real runtime and reads a store."
+   },
+   "rival_dispatch": {
+    "handler_internal": [],
+    "family_named_commandManager_sites": 2,
+    "family_named_windowDispatchEvent_sites": 0,
+    "sample_commandManager": [
+     "packages/geometry-roof/src/RoofSlopeSymbolBuilder.ts:206:                this.commandManager.execute(new CreateAnnotationCommand(ann));",
+     "packages/geometry-roof/src/RoofTool.ts:398:        const result = this._commandManager.execute(command);"
+    ],
+    "sample_windowDispatchEvent": [],
+    "caveat": "family_named_* is a NAME match over the two site files, not a resolved dispatch graph. 27 of the 227 commandManager.execute sites pass a VARIABLE (cmd/command/step) and cannot be resolved by name at all. See _ROLLUPS.json rival_dispatch."
+   },
+   "ladder": {
+    "AUTHORED": "YES",
+    "REACHABLE": "YES (register: LIVE)",
+    "COMPOSABLE": "UNPROVEN",
+    "CERTIFIED": "NO"
+   },
+   "findings": [],
+   "dispatch_reachability": {
+    "literal_dispatch_sites_outside_own_handler": 0,
+    "sites": [],
+    "method": "verb literal inside a 400-char window around executeCommand( / dispatch( / .execute( / runBatch( across 5120 production .ts/.tsx files under apps/ packages/ plugins/ (node_modules, dist, __tests__/, *.test.*, *.spec.*, *.d.ts excluded).",
+    "NON_BLIND": "This probe carries a POSITIVE CONTROL that fires: wall.batch.create = 5 sites. It also independently reproduces the two negatives asserted by DoorBatchCreateLiveness.probe.test.ts and WindowBatchCreateLiveness.probe.test.ts, both of which I EXECUTED at RC=0 (door.batch.create 0, window.batch.create 0). Evidence class (b) for this column.",
+    "CALIBRATED_FALSE_ZERO_RATE": "A zero is NOT proof of unreachability. Table-driven and variable dispatch is invisible to a literal scan. MEASURED: 9 of the 22 verbs for which I hold a class-(c) POSITIVE read-back are in the zero set (bathroomPod.delete, door.batch.create, roof.setOverhang, roof.setPitch, roof.setShape, selection.deselect, slab.addHole, slab.setThickness, window.batch.create) = a 41% false-zero rate among verbs known to work. Read a zero as UNPROVEN-DISPATCH, never as ABSENT."
+   },
+   "consequence": {
+    "verdict": "UNDETERMINED",
+    "undo_has_no_consequence": "no (or undetermined)"
+   }
+  },
+  {
+   "verb": "roof.create",
+   "kind": "create",
+   "handler": {
+    "file": "plugins/roof/src/handlers/CreateRoof.ts:31",
+    "all_sites": [
+     "plugins/roof/src/handlers/CreateRoof.ts:31"
+    ],
+    "site_count": 1,
+    "layer": "L6 plugin",
+    "registered_where": "plugins/roof",
+    "liveness_per_register": "UNKNOWN"
+   },
+   "contract": {
+    "validates_before_mutation": true,
+    "typed_DomainError_or_refusal": false,
+    "mutates_only_via_immer_draft": true,
+    "affectedStores_declared": true,
+    "declared_stores": [
+     "roof"
+    ],
+    "storeKey_matches_ctx_stores": "declared: roof - NOT resolved against the composed ctx.stores in this phase except where readback is class (c)",
+    "no_store_singleton_import": true,
+    "withHandlerSpan": true,
+    "emits_a_typed_domain_event": false,
+    "geometry_deferred_to_FrameScheduler": false,
+    "caveat": "REGEX OVER THE HANDLER DECLARATION SLICE, class (a). TRUE means the token is present in the slice, NOT that it runs on the mutation path. FALSE is the stronger reading: the token is absent, so the clause cannot be satisfied."
+   },
+   "must_nots": {
+    "no_commandManager_execute": true,
+    "no_cascading_dispatch": true,
+    "no_window_dispatchEvent": true,
+    "no_DOM_access": true,
+    "no_direct_rAF": true,
+    "caveat": "same slice-regex caveat. no_DOM_access counts any document. / window. token including type-only casts, so a FALSE here is a candidate, not a conviction."
+   },
+   "mirror": {
+    "channel": "CommandEventBridge switch case PRESENT",
+    "CEB_case_present": true,
+    "in_ELEMENT_UPDATE_VERBS": false,
+    "in_LEVEL_CHANGE_VERBS": false,
+    "table_driven_not_a_case_block": "HAND-WRITTEN CASE BLOCK (38 of them)",
+    "evidence_class": "a - grep over CommandEventBridge.ts (38 strict case labels) and the two verb tables (LEVEL_CHANGE_VERBS 12, ELEMENT_UPDATE_VERBS 10). Per the P0 constraint I do NOT write \"the mirror gate is green therefore this verb mirrors\"."
+   },
+   "payload": {
+    "field_names_match_live_caller": null,
+    "id_pre_generated_by_caller": null,
+    "note": "NOT MEASURED PER VERB at this scale. The three measured cases are in _ROLLUPS.json payload_defects (slab.create boundary-vs-polygon, roof.create id minting, column.batch.create id-less members) and all three were re-proven by MY executed run of CommittedPatchReachesTheStore.test.ts, RC=0."
+   },
+   "undo": {
+    "unit_registered": "patch-pair → roof",
+    "backend": "A-ring-buffer(patch-pair)",
+    "backend_note": "all 1 declared store key(s) are covered by buildUndoStoreMap()",
+    "reverts_geometry": "UNPROVEN",
+    "evidence_class": "a - declared shape plus a key-set comparison against buildUndoStoreMap(). The register itself says of this column: \"Declared shape, not an executed proof.\""
+   },
+   "batch": {
+    "mode": "none"
+   },
+   "readback": {
+    "proven": "YES-POSITIVE",
+    "evidence_class": "c",
+    "against": "legacy RoofStore (fragment builder + plan projector + IFC exporter + ProjectSerializer all read it)",
+    "proof": "CommittedPatchReachesTheStore.test.ts:154 ARM 1 READ-BACK - materialId + materialColor reach the LEGACY RoofStore"
+   },
+   "rival_dispatch": {
+    "handler_internal": [],
+    "family_named_commandManager_sites": 2,
+    "family_named_windowDispatchEvent_sites": 0,
+    "sample_commandManager": [
+     "packages/geometry-roof/src/RoofSlopeSymbolBuilder.ts:206:                this.commandManager.execute(new CreateAnnotationCommand(ann));",
+     "packages/geometry-roof/src/RoofTool.ts:398:        const result = this._commandManager.execute(command);"
+    ],
+    "sample_windowDispatchEvent": [],
+    "caveat": "family_named_* is a NAME match over the two site files, not a resolved dispatch graph. 27 of the 227 commandManager.execute sites pass a VARIABLE (cmd/command/step) and cannot be resolved by name at all. See _ROLLUPS.json rival_dispatch."
+   },
+   "ladder": {
+    "AUTHORED": "YES",
+    "REACHABLE": "UNPROVEN (register: UNKNOWN - a lone plugin produceCommand handler)",
+    "COMPOSABLE": "YES - proven on the real composeRuntime() bus",
+    "CERTIFIED": "read-back CERTIFIED at the store. NOT certified at a pixel."
+   },
+   "findings": [],
+   "dispatch_reachability": {
+    "literal_dispatch_sites_outside_own_handler": 3,
+    "sites": [
+     "apps/editor/src/engine/views/plantools/CopyPlanToolHandler.ts",
+     "apps/editor/src/engine/views/plantools/RoofPlanToolHandler.ts",
+     "plugins/roof/src/tool.ts"
+    ],
+    "method": "verb literal inside a 400-char window around executeCommand( / dispatch( / .execute( / runBatch( across 5120 production .ts/.tsx files under apps/ packages/ plugins/ (node_modules, dist, __tests__/, *.test.*, *.spec.*, *.d.ts excluded).",
+    "NON_BLIND": "This probe carries a POSITIVE CONTROL that fires: wall.batch.create = 5 sites. It also independently reproduces the two negatives asserted by DoorBatchCreateLiveness.probe.test.ts and WindowBatchCreateLiveness.probe.test.ts, both of which I EXECUTED at RC=0 (door.batch.create 0, window.batch.create 0). Evidence class (b) for this column.",
+    "CALIBRATED_FALSE_ZERO_RATE": "A zero is NOT proof of unreachability. Table-driven and variable dispatch is invisible to a literal scan. MEASURED: 9 of the 22 verbs for which I hold a class-(c) POSITIVE read-back are in the zero set (bathroomPod.delete, door.batch.create, roof.setOverhang, roof.setPitch, roof.setShape, selection.deselect, slab.addHole, slab.setThickness, window.batch.create) = a 41% false-zero rate among verbs known to work. Read a zero as UNPROVEN-DISPATCH, never as ABSENT."
+   },
+   "consequence": {
+    "verdict": "HAS A MEASURED CONSEQUENCE (class c store read-back)",
+    "undo_has_no_consequence": "no (or undetermined)"
+   }
+  },
+  {
+   "verb": "roof.delete",
+   "kind": "delete",
+   "handler": {
+    "file": "plugins/roof/src/handlers/DeleteRoof.ts:20",
+    "all_sites": [
+     "plugins/roof/src/handlers/DeleteRoof.ts:20"
+    ],
+    "site_count": 1,
+    "layer": "L6 plugin",
+    "registered_where": "plugins/roof",
+    "liveness_per_register": "UNKNOWN"
+   },
+   "contract": {
+    "validates_before_mutation": true,
+    "typed_DomainError_or_refusal": false,
+    "mutates_only_via_immer_draft": true,
+    "affectedStores_declared": true,
+    "declared_stores": [
+     "roof"
+    ],
+    "storeKey_matches_ctx_stores": "declared: roof - NOT resolved against the composed ctx.stores in this phase except where readback is class (c)",
+    "no_store_singleton_import": true,
+    "withHandlerSpan": true,
+    "emits_a_typed_domain_event": false,
+    "geometry_deferred_to_FrameScheduler": false,
+    "caveat": "REGEX OVER THE HANDLER DECLARATION SLICE, class (a). TRUE means the token is present in the slice, NOT that it runs on the mutation path. FALSE is the stronger reading: the token is absent, so the clause cannot be satisfied."
+   },
+   "must_nots": {
+    "no_commandManager_execute": true,
+    "no_cascading_dispatch": true,
+    "no_window_dispatchEvent": true,
+    "no_DOM_access": true,
+    "no_direct_rAF": true,
+    "caveat": "same slice-regex caveat. no_DOM_access counts any document. / window. token including type-only casts, so a FALSE here is a candidate, not a conviction."
+   },
+   "mirror": {
+    "channel": "NO CommandEventBridge case",
+    "CEB_case_present": false,
+    "in_ELEMENT_UPDATE_VERBS": false,
+    "in_LEVEL_CHANGE_VERBS": false,
+    "table_driven_not_a_case_block": "n/a - no mirror at all",
+    "evidence_class": "a - grep over CommandEventBridge.ts (38 strict case labels) and the two verb tables (LEVEL_CHANGE_VERBS 12, ELEMENT_UPDATE_VERBS 10). Per the P0 constraint I do NOT write \"the mirror gate is green therefore this verb mirrors\"."
+   },
+   "payload": {
+    "field_names_match_live_caller": null,
+    "id_pre_generated_by_caller": null,
+    "note": "NOT MEASURED PER VERB at this scale. The three measured cases are in _ROLLUPS.json payload_defects (slab.create boundary-vs-polygon, roof.create id minting, column.batch.create id-less members) and all three were re-proven by MY executed run of CommittedPatchReachesTheStore.test.ts, RC=0."
+   },
+   "undo": {
+    "unit_registered": "patch-pair → roof",
+    "backend": "A-ring-buffer(patch-pair)",
+    "backend_note": "all 1 declared store key(s) are covered by buildUndoStoreMap()",
+    "reverts_geometry": "UNPROVEN",
+    "evidence_class": "a - declared shape plus a key-set comparison against buildUndoStoreMap(). The register itself says of this column: \"Declared shape, not an executed proof.\""
+   },
+   "batch": {
+    "mode": "none"
+   },
+   "readback": {
+    "proven": "NO",
+    "evidence_class": "a",
+    "note": "1 test file(s) name this verb; none of them both composes the real runtime and reads a store."
+   },
+   "rival_dispatch": {
+    "handler_internal": [],
+    "family_named_commandManager_sites": 2,
+    "family_named_windowDispatchEvent_sites": 0,
+    "sample_commandManager": [
+     "packages/geometry-roof/src/RoofSlopeSymbolBuilder.ts:206:                this.commandManager.execute(new CreateAnnotationCommand(ann));",
+     "packages/geometry-roof/src/RoofTool.ts:398:        const result = this._commandManager.execute(command);"
+    ],
+    "sample_windowDispatchEvent": [],
+    "caveat": "family_named_* is a NAME match over the two site files, not a resolved dispatch graph. 27 of the 227 commandManager.execute sites pass a VARIABLE (cmd/command/step) and cannot be resolved by name at all. See _ROLLUPS.json rival_dispatch."
+   },
+   "ladder": {
+    "AUTHORED": "YES",
+    "REACHABLE": "UNPROVEN (register: UNKNOWN - a lone plugin produceCommand handler)",
+    "COMPOSABLE": "UNPROVEN",
+    "CERTIFIED": "NO"
+   },
+   "findings": [],
+   "dispatch_reachability": {
+    "literal_dispatch_sites_outside_own_handler": 0,
+    "sites": [],
+    "method": "verb literal inside a 400-char window around executeCommand( / dispatch( / .execute( / runBatch( across 5120 production .ts/.tsx files under apps/ packages/ plugins/ (node_modules, dist, __tests__/, *.test.*, *.spec.*, *.d.ts excluded).",
+    "NON_BLIND": "This probe carries a POSITIVE CONTROL that fires: wall.batch.create = 5 sites. It also independently reproduces the two negatives asserted by DoorBatchCreateLiveness.probe.test.ts and WindowBatchCreateLiveness.probe.test.ts, both of which I EXECUTED at RC=0 (door.batch.create 0, window.batch.create 0). Evidence class (b) for this column.",
+    "CALIBRATED_FALSE_ZERO_RATE": "A zero is NOT proof of unreachability. Table-driven and variable dispatch is invisible to a literal scan. MEASURED: 9 of the 22 verbs for which I hold a class-(c) POSITIVE read-back are in the zero set (bathroomPod.delete, door.batch.create, roof.setOverhang, roof.setPitch, roof.setShape, selection.deselect, slab.addHole, slab.setThickness, window.batch.create) = a 41% false-zero rate among verbs known to work. Read a zero as UNPROVEN-DISPATCH, never as ABSENT."
+   },
+   "consequence": {
+    "verdict": "CANDIDATE - QUADRUPLE-NEGATIVE (no mirror + no proven read-back + UNKNOWN liveness + zero literal dispatch site). Not a conviction: the false-zero calibration above applies.",
+    "undo_has_no_consequence": "no (or undetermined)"
+   }
+  },
+  {
+   "verb": "roof.joinRoofs",
+   "kind": "join",
+   "handler": {
+    "file": "plugins/roof/src/handlers/JoinRoofs.ts:26",
+    "all_sites": [
+     "plugins/roof/src/handlers/JoinRoofs.ts:26"
+    ],
+    "site_count": 1,
+    "layer": "L6 plugin",
+    "registered_where": "plugins/roof",
+    "liveness_per_register": "UNKNOWN"
+   },
+   "contract": {
+    "validates_before_mutation": true,
+    "typed_DomainError_or_refusal": false,
+    "mutates_only_via_immer_draft": true,
+    "affectedStores_declared": true,
+    "declared_stores": [
+     "roof"
+    ],
+    "storeKey_matches_ctx_stores": "declared: roof - NOT resolved against the composed ctx.stores in this phase except where readback is class (c)",
+    "no_store_singleton_import": true,
+    "withHandlerSpan": true,
+    "emits_a_typed_domain_event": false,
+    "geometry_deferred_to_FrameScheduler": false,
+    "caveat": "REGEX OVER THE HANDLER DECLARATION SLICE, class (a). TRUE means the token is present in the slice, NOT that it runs on the mutation path. FALSE is the stronger reading: the token is absent, so the clause cannot be satisfied."
+   },
+   "must_nots": {
+    "no_commandManager_execute": true,
+    "no_cascading_dispatch": true,
+    "no_window_dispatchEvent": true,
+    "no_DOM_access": true,
+    "no_direct_rAF": true,
+    "caveat": "same slice-regex caveat. no_DOM_access counts any document. / window. token including type-only casts, so a FALSE here is a candidate, not a conviction."
+   },
+   "mirror": {
+    "channel": "NO CommandEventBridge case",
+    "CEB_case_present": false,
+    "in_ELEMENT_UPDATE_VERBS": false,
+    "in_LEVEL_CHANGE_VERBS": false,
+    "table_driven_not_a_case_block": "n/a - no mirror at all",
+    "evidence_class": "a - grep over CommandEventBridge.ts (38 strict case labels) and the two verb tables (LEVEL_CHANGE_VERBS 12, ELEMENT_UPDATE_VERBS 10). Per the P0 constraint I do NOT write \"the mirror gate is green therefore this verb mirrors\"."
+   },
+   "payload": {
+    "field_names_match_live_caller": null,
+    "id_pre_generated_by_caller": null,
+    "note": "NOT MEASURED PER VERB at this scale. The three measured cases are in _ROLLUPS.json payload_defects (slab.create boundary-vs-polygon, roof.create id minting, column.batch.create id-less members) and all three were re-proven by MY executed run of CommittedPatchReachesTheStore.test.ts, RC=0."
+   },
+   "undo": {
+    "unit_registered": "patch-pair → roof",
+    "backend": "A-ring-buffer(patch-pair)",
+    "backend_note": "all 1 declared store key(s) are covered by buildUndoStoreMap()",
+    "reverts_geometry": "UNPROVEN",
+    "evidence_class": "a - declared shape plus a key-set comparison against buildUndoStoreMap(). The register itself says of this column: \"Declared shape, not an executed proof.\""
+   },
+   "batch": {
+    "mode": "none"
+   },
+   "readback": {
+    "proven": "NO",
+    "evidence_class": "a",
+    "note": "ZERO test files under apps/ packages/ plugins/ tools/ name this verb literal alongside an executeCommand/.execute call. Absence measured by _tools/readback2.mjs over every *.test.ts / *.spec.ts in those four roots, node_modules excluded."
+   },
+   "rival_dispatch": {
+    "handler_internal": [],
+    "family_named_commandManager_sites": 2,
+    "family_named_windowDispatchEvent_sites": 0,
+    "sample_commandManager": [
+     "packages/geometry-roof/src/RoofSlopeSymbolBuilder.ts:206:                this.commandManager.execute(new CreateAnnotationCommand(ann));",
+     "packages/geometry-roof/src/RoofTool.ts:398:        const result = this._commandManager.execute(command);"
+    ],
+    "sample_windowDispatchEvent": [],
+    "caveat": "family_named_* is a NAME match over the two site files, not a resolved dispatch graph. 27 of the 227 commandManager.execute sites pass a VARIABLE (cmd/command/step) and cannot be resolved by name at all. See _ROLLUPS.json rival_dispatch."
+   },
+   "ladder": {
+    "AUTHORED": "YES",
+    "REACHABLE": "UNPROVEN (register: UNKNOWN - a lone plugin produceCommand handler)",
+    "COMPOSABLE": "UNPROVEN",
+    "CERTIFIED": "NO"
+   },
+   "findings": [],
+   "dispatch_reachability": {
+    "literal_dispatch_sites_outside_own_handler": 0,
+    "sites": [],
+    "method": "verb literal inside a 400-char window around executeCommand( / dispatch( / .execute( / runBatch( across 5120 production .ts/.tsx files under apps/ packages/ plugins/ (node_modules, dist, __tests__/, *.test.*, *.spec.*, *.d.ts excluded).",
+    "NON_BLIND": "This probe carries a POSITIVE CONTROL that fires: wall.batch.create = 5 sites. It also independently reproduces the two negatives asserted by DoorBatchCreateLiveness.probe.test.ts and WindowBatchCreateLiveness.probe.test.ts, both of which I EXECUTED at RC=0 (door.batch.create 0, window.batch.create 0). Evidence class (b) for this column.",
+    "CALIBRATED_FALSE_ZERO_RATE": "A zero is NOT proof of unreachability. Table-driven and variable dispatch is invisible to a literal scan. MEASURED: 9 of the 22 verbs for which I hold a class-(c) POSITIVE read-back are in the zero set (bathroomPod.delete, door.batch.create, roof.setOverhang, roof.setPitch, roof.setShape, selection.deselect, slab.addHole, slab.setThickness, window.batch.create) = a 41% false-zero rate among verbs known to work. Read a zero as UNPROVEN-DISPATCH, never as ABSENT."
+   },
+   "consequence": {
+    "verdict": "CANDIDATE - QUADRUPLE-NEGATIVE (no mirror + no proven read-back + UNKNOWN liveness + zero literal dispatch site). Not a conviction: the false-zero calibration above applies.",
+    "undo_has_no_consequence": "no (or undetermined)"
+   }
+  },
+  {
+   "verb": "roof.move",
+   "kind": "move",
+   "handler": {
+    "file": "plugins/roof/src/handlers/MoveRoof.ts:74",
+    "all_sites": [
+     "plugins/roof/src/handlers/MoveRoof.ts:74"
+    ],
+    "site_count": 1,
+    "layer": "L6 plugin",
+    "registered_where": "plugins/roof",
+    "liveness_per_register": "REFUSES"
+   },
+   "contract": {
+    "validates_before_mutation": true,
+    "typed_DomainError_or_refusal": true,
+    "mutates_only_via_immer_draft": true,
+    "affectedStores_declared": true,
+    "declared_stores": [
+     "roof"
+    ],
+    "storeKey_matches_ctx_stores": "declared: roof - NOT resolved against the composed ctx.stores in this phase except where readback is class (c)",
+    "no_store_singleton_import": true,
+    "withHandlerSpan": true,
+    "emits_a_typed_domain_event": false,
+    "geometry_deferred_to_FrameScheduler": false,
+    "caveat": "REGEX OVER THE HANDLER DECLARATION SLICE, class (a). TRUE means the token is present in the slice, NOT that it runs on the mutation path. FALSE is the stronger reading: the token is absent, so the clause cannot be satisfied."
+   },
+   "must_nots": {
+    "no_commandManager_execute": true,
+    "no_cascading_dispatch": true,
+    "no_window_dispatchEvent": true,
+    "no_DOM_access": true,
+    "no_direct_rAF": true,
+    "caveat": "same slice-regex caveat. no_DOM_access counts any document. / window. token including type-only casts, so a FALSE here is a candidate, not a conviction."
+   },
+   "mirror": {
+    "channel": "NO CommandEventBridge case",
+    "CEB_case_present": false,
+    "in_ELEMENT_UPDATE_VERBS": false,
+    "in_LEVEL_CHANGE_VERBS": false,
+    "table_driven_not_a_case_block": "n/a - no mirror at all",
+    "evidence_class": "a - grep over CommandEventBridge.ts (38 strict case labels) and the two verb tables (LEVEL_CHANGE_VERBS 12, ELEMENT_UPDATE_VERBS 10). Per the P0 constraint I do NOT write \"the mirror gate is green therefore this verb mirrors\"."
+   },
+   "payload": {
+    "field_names_match_live_caller": null,
+    "id_pre_generated_by_caller": null,
+    "note": "NOT MEASURED PER VERB at this scale. The three measured cases are in _ROLLUPS.json payload_defects (slab.create boundary-vs-polygon, roof.create id minting, column.batch.create id-less members) and all three were re-proven by MY executed run of CommittedPatchReachesTheStore.test.ts, RC=0."
+   },
+   "undo": {
+    "unit_registered": "patch-pair → roof",
+    "backend": "A-ring-buffer(patch-pair)",
+    "backend_note": "all 1 declared store key(s) are covered by buildUndoStoreMap()",
+    "reverts_geometry": "UNPROVEN",
+    "evidence_class": "a - declared shape plus a key-set comparison against buildUndoStoreMap(). The register itself says of this column: \"Declared shape, not an executed proof.\""
+   },
+   "batch": {
+    "mode": "none"
+   },
+   "readback": {
+    "proven": "NO",
+    "evidence_class": "a",
+    "note": "2 test file(s) name this verb; none of them both composes the real runtime and reads a store."
+   },
+   "rival_dispatch": {
+    "handler_internal": [],
+    "family_named_commandManager_sites": 2,
+    "family_named_windowDispatchEvent_sites": 0,
+    "sample_commandManager": [
+     "packages/geometry-roof/src/RoofSlopeSymbolBuilder.ts:206:                this.commandManager.execute(new CreateAnnotationCommand(ann));",
+     "packages/geometry-roof/src/RoofTool.ts:398:        const result = this._commandManager.execute(command);"
+    ],
+    "sample_windowDispatchEvent": [],
+    "caveat": "family_named_* is a NAME match over the two site files, not a resolved dispatch graph. 27 of the 227 commandManager.execute sites pass a VARIABLE (cmd/command/step) and cannot be resolved by name at all. See _ROLLUPS.json rival_dispatch."
+   },
+   "ladder": {
+    "AUTHORED": "YES",
+    "REACHABLE": "REFUSES IN THE OPEN (registered, answers that it will not act)",
+    "COMPOSABLE": "UNPROVEN",
+    "CERTIFIED": "NO"
+   },
+   "findings": [],
+   "dispatch_reachability": {
+    "literal_dispatch_sites_outside_own_handler": 0,
+    "sites": [],
+    "method": "verb literal inside a 400-char window around executeCommand( / dispatch( / .execute( / runBatch( across 5120 production .ts/.tsx files under apps/ packages/ plugins/ (node_modules, dist, __tests__/, *.test.*, *.spec.*, *.d.ts excluded).",
+    "NON_BLIND": "This probe carries a POSITIVE CONTROL that fires: wall.batch.create = 5 sites. It also independently reproduces the two negatives asserted by DoorBatchCreateLiveness.probe.test.ts and WindowBatchCreateLiveness.probe.test.ts, both of which I EXECUTED at RC=0 (door.batch.create 0, window.batch.create 0). Evidence class (b) for this column.",
+    "CALIBRATED_FALSE_ZERO_RATE": "A zero is NOT proof of unreachability. Table-driven and variable dispatch is invisible to a literal scan. MEASURED: 9 of the 22 verbs for which I hold a class-(c) POSITIVE read-back are in the zero set (bathroomPod.delete, door.batch.create, roof.setOverhang, roof.setPitch, roof.setShape, selection.deselect, slab.addHole, slab.setThickness, window.batch.create) = a 41% false-zero rate among verbs known to work. Read a zero as UNPROVEN-DISPATCH, never as ABSENT."
+   },
+   "consequence": {
+    "verdict": "BY DESIGN NO MUTATION - the verb refuses in the open (this is the honest form, not a defect)",
+    "undo_has_no_consequence": "no (or undetermined)"
+   }
+  },
+  {
+   "verb": "roof.removeSkylight",
+   "kind": "delete",
+   "handler": {
+    "file": "plugins/roof/src/handlers/RemoveSkylight.ts:23",
+    "all_sites": [
+     "plugins/roof/src/handlers/RemoveSkylight.ts:23"
+    ],
+    "site_count": 1,
+    "layer": "L6 plugin",
+    "registered_where": "plugins/roof",
+    "liveness_per_register": "UNKNOWN"
+   },
+   "contract": {
+    "validates_before_mutation": true,
+    "typed_DomainError_or_refusal": false,
+    "mutates_only_via_immer_draft": true,
+    "affectedStores_declared": true,
+    "declared_stores": [
+     "roof"
+    ],
+    "storeKey_matches_ctx_stores": "declared: roof - NOT resolved against the composed ctx.stores in this phase except where readback is class (c)",
+    "no_store_singleton_import": true,
+    "withHandlerSpan": true,
+    "emits_a_typed_domain_event": false,
+    "geometry_deferred_to_FrameScheduler": false,
+    "caveat": "REGEX OVER THE HANDLER DECLARATION SLICE, class (a). TRUE means the token is present in the slice, NOT that it runs on the mutation path. FALSE is the stronger reading: the token is absent, so the clause cannot be satisfied."
+   },
+   "must_nots": {
+    "no_commandManager_execute": true,
+    "no_cascading_dispatch": true,
+    "no_window_dispatchEvent": true,
+    "no_DOM_access": true,
+    "no_direct_rAF": true,
+    "caveat": "same slice-regex caveat. no_DOM_access counts any document. / window. token including type-only casts, so a FALSE here is a candidate, not a conviction."
+   },
+   "mirror": {
+    "channel": "NO CommandEventBridge case",
+    "CEB_case_present": false,
+    "in_ELEMENT_UPDATE_VERBS": false,
+    "in_LEVEL_CHANGE_VERBS": false,
+    "table_driven_not_a_case_block": "n/a - no mirror at all",
+    "evidence_class": "a - grep over CommandEventBridge.ts (38 strict case labels) and the two verb tables (LEVEL_CHANGE_VERBS 12, ELEMENT_UPDATE_VERBS 10). Per the P0 constraint I do NOT write \"the mirror gate is green therefore this verb mirrors\"."
+   },
+   "payload": {
+    "field_names_match_live_caller": null,
+    "id_pre_generated_by_caller": null,
+    "note": "NOT MEASURED PER VERB at this scale. The three measured cases are in _ROLLUPS.json payload_defects (slab.create boundary-vs-polygon, roof.create id minting, column.batch.create id-less members) and all three were re-proven by MY executed run of CommittedPatchReachesTheStore.test.ts, RC=0."
+   },
+   "undo": {
+    "unit_registered": "patch-pair → roof",
+    "backend": "A-ring-buffer(patch-pair)",
+    "backend_note": "all 1 declared store key(s) are covered by buildUndoStoreMap()",
+    "reverts_geometry": "UNPROVEN",
+    "evidence_class": "a - declared shape plus a key-set comparison against buildUndoStoreMap(). The register itself says of this column: \"Declared shape, not an executed proof.\""
+   },
+   "batch": {
+    "mode": "none"
+   },
+   "readback": {
+    "proven": "NO",
+    "evidence_class": "a",
+    "note": "ZERO test files under apps/ packages/ plugins/ tools/ name this verb literal alongside an executeCommand/.execute call. Absence measured by _tools/readback2.mjs over every *.test.ts / *.spec.ts in those four roots, node_modules excluded."
+   },
+   "rival_dispatch": {
+    "handler_internal": [],
+    "family_named_commandManager_sites": 2,
+    "family_named_windowDispatchEvent_sites": 0,
+    "sample_commandManager": [
+     "packages/geometry-roof/src/RoofSlopeSymbolBuilder.ts:206:                this.commandManager.execute(new CreateAnnotationCommand(ann));",
+     "packages/geometry-roof/src/RoofTool.ts:398:        const result = this._commandManager.execute(command);"
+    ],
+    "sample_windowDispatchEvent": [],
+    "caveat": "family_named_* is a NAME match over the two site files, not a resolved dispatch graph. 27 of the 227 commandManager.execute sites pass a VARIABLE (cmd/command/step) and cannot be resolved by name at all. See _ROLLUPS.json rival_dispatch."
+   },
+   "ladder": {
+    "AUTHORED": "YES",
+    "REACHABLE": "UNPROVEN (register: UNKNOWN - a lone plugin produceCommand handler)",
+    "COMPOSABLE": "UNPROVEN",
+    "CERTIFIED": "NO"
+   },
+   "findings": [],
+   "dispatch_reachability": {
+    "literal_dispatch_sites_outside_own_handler": 0,
+    "sites": [],
+    "method": "verb literal inside a 400-char window around executeCommand( / dispatch( / .execute( / runBatch( across 5120 production .ts/.tsx files under apps/ packages/ plugins/ (node_modules, dist, __tests__/, *.test.*, *.spec.*, *.d.ts excluded).",
+    "NON_BLIND": "This probe carries a POSITIVE CONTROL that fires: wall.batch.create = 5 sites. It also independently reproduces the two negatives asserted by DoorBatchCreateLiveness.probe.test.ts and WindowBatchCreateLiveness.probe.test.ts, both of which I EXECUTED at RC=0 (door.batch.create 0, window.batch.create 0). Evidence class (b) for this column.",
+    "CALIBRATED_FALSE_ZERO_RATE": "A zero is NOT proof of unreachability. Table-driven and variable dispatch is invisible to a literal scan. MEASURED: 9 of the 22 verbs for which I hold a class-(c) POSITIVE read-back are in the zero set (bathroomPod.delete, door.batch.create, roof.setOverhang, roof.setPitch, roof.setShape, selection.deselect, slab.addHole, slab.setThickness, window.batch.create) = a 41% false-zero rate among verbs known to work. Read a zero as UNPROVEN-DISPATCH, never as ABSENT."
+   },
+   "consequence": {
+    "verdict": "CANDIDATE - QUADRUPLE-NEGATIVE (no mirror + no proven read-back + UNKNOWN liveness + zero literal dispatch site). Not a conviction: the false-zero calibration above applies.",
+    "undo_has_no_consequence": "no (or undetermined)"
+   }
+  },
+  {
+   "verb": "roof.setMaterial",
+   "kind": "update",
+   "handler": {
+    "file": "plugins/roof/src/handlers/SetRoofMaterial.ts:61",
+    "all_sites": [
+     "plugins/roof/src/handlers/SetRoofMaterial.ts:61"
+    ],
+    "site_count": 1,
+    "layer": "L6 plugin",
+    "registered_where": "plugins/roof",
+    "liveness_per_register": "REFUSES"
+   },
+   "contract": {
+    "validates_before_mutation": true,
+    "typed_DomainError_or_refusal": false,
+    "mutates_only_via_immer_draft": true,
+    "affectedStores_declared": true,
+    "declared_stores": [
+     "roof"
+    ],
+    "storeKey_matches_ctx_stores": "declared: roof - NOT resolved against the composed ctx.stores in this phase except where readback is class (c)",
+    "no_store_singleton_import": true,
+    "withHandlerSpan": true,
+    "emits_a_typed_domain_event": false,
+    "geometry_deferred_to_FrameScheduler": false,
+    "caveat": "REGEX OVER THE HANDLER DECLARATION SLICE, class (a). TRUE means the token is present in the slice, NOT that it runs on the mutation path. FALSE is the stronger reading: the token is absent, so the clause cannot be satisfied."
+   },
+   "must_nots": {
+    "no_commandManager_execute": true,
+    "no_cascading_dispatch": true,
+    "no_window_dispatchEvent": true,
+    "no_DOM_access": true,
+    "no_direct_rAF": true,
+    "caveat": "same slice-regex caveat. no_DOM_access counts any document. / window. token including type-only casts, so a FALSE here is a candidate, not a conviction."
+   },
+   "mirror": {
+    "channel": "NO CommandEventBridge case",
+    "CEB_case_present": false,
+    "in_ELEMENT_UPDATE_VERBS": false,
+    "in_LEVEL_CHANGE_VERBS": false,
+    "table_driven_not_a_case_block": "n/a - no mirror at all",
+    "evidence_class": "a - grep over CommandEventBridge.ts (38 strict case labels) and the two verb tables (LEVEL_CHANGE_VERBS 12, ELEMENT_UPDATE_VERBS 10). Per the P0 constraint I do NOT write \"the mirror gate is green therefore this verb mirrors\"."
+   },
+   "payload": {
+    "field_names_match_live_caller": null,
+    "id_pre_generated_by_caller": null,
+    "note": "NOT MEASURED PER VERB at this scale. The three measured cases are in _ROLLUPS.json payload_defects (slab.create boundary-vs-polygon, roof.create id minting, column.batch.create id-less members) and all three were re-proven by MY executed run of CommittedPatchReachesTheStore.test.ts, RC=0."
+   },
+   "undo": {
+    "unit_registered": "patch-pair → roof",
+    "backend": "A-ring-buffer(patch-pair)",
+    "backend_note": "all 1 declared store key(s) are covered by buildUndoStoreMap()",
+    "reverts_geometry": "UNPROVEN",
+    "evidence_class": "a - declared shape plus a key-set comparison against buildUndoStoreMap(). The register itself says of this column: \"Declared shape, not an executed proof.\""
+   },
+   "batch": {
+    "mode": "none"
+   },
+   "readback": {
+    "proven": "NO",
+    "evidence_class": "a",
+    "note": "1 test file(s) name this verb; none of them both composes the real runtime and reads a store."
+   },
+   "rival_dispatch": {
+    "handler_internal": [],
+    "family_named_commandManager_sites": 2,
+    "family_named_windowDispatchEvent_sites": 0,
+    "sample_commandManager": [
+     "packages/geometry-roof/src/RoofSlopeSymbolBuilder.ts:206:                this.commandManager.execute(new CreateAnnotationCommand(ann));",
+     "packages/geometry-roof/src/RoofTool.ts:398:        const result = this._commandManager.execute(command);"
+    ],
+    "sample_windowDispatchEvent": [],
+    "caveat": "family_named_* is a NAME match over the two site files, not a resolved dispatch graph. 27 of the 227 commandManager.execute sites pass a VARIABLE (cmd/command/step) and cannot be resolved by name at all. See _ROLLUPS.json rival_dispatch."
+   },
+   "ladder": {
+    "AUTHORED": "YES",
+    "REACHABLE": "REFUSES IN THE OPEN (registered, answers that it will not act)",
+    "COMPOSABLE": "UNPROVEN",
+    "CERTIFIED": "NO"
+   },
+   "findings": [],
+   "dispatch_reachability": {
+    "literal_dispatch_sites_outside_own_handler": 0,
+    "sites": [],
+    "method": "verb literal inside a 400-char window around executeCommand( / dispatch( / .execute( / runBatch( across 5120 production .ts/.tsx files under apps/ packages/ plugins/ (node_modules, dist, __tests__/, *.test.*, *.spec.*, *.d.ts excluded).",
+    "NON_BLIND": "This probe carries a POSITIVE CONTROL that fires: wall.batch.create = 5 sites. It also independently reproduces the two negatives asserted by DoorBatchCreateLiveness.probe.test.ts and WindowBatchCreateLiveness.probe.test.ts, both of which I EXECUTED at RC=0 (door.batch.create 0, window.batch.create 0). Evidence class (b) for this column.",
+    "CALIBRATED_FALSE_ZERO_RATE": "A zero is NOT proof of unreachability. Table-driven and variable dispatch is invisible to a literal scan. MEASURED: 9 of the 22 verbs for which I hold a class-(c) POSITIVE read-back are in the zero set (bathroomPod.delete, door.batch.create, roof.setOverhang, roof.setPitch, roof.setShape, selection.deselect, slab.addHole, slab.setThickness, window.batch.create) = a 41% false-zero rate among verbs known to work. Read a zero as UNPROVEN-DISPATCH, never as ABSENT."
+   },
+   "consequence": {
+    "verdict": "BY DESIGN NO MUTATION - the verb refuses in the open (this is the honest form, not a defect)",
+    "undo_has_no_consequence": "no (or undetermined)"
+   }
+  },
+  {
+   "verb": "roof.setOverhang",
+   "kind": "update",
+   "handler": {
+    "file": "plugins/roof/src/handlers/SetRoofOverhang.ts:23",
+    "all_sites": [
+     "plugins/roof/src/handlers/SetRoofOverhang.ts:23"
+    ],
+    "site_count": 1,
+    "layer": "L6 plugin",
+    "registered_where": "plugins/roof",
+    "liveness_per_register": "UNKNOWN"
+   },
+   "contract": {
+    "validates_before_mutation": true,
+    "typed_DomainError_or_refusal": false,
+    "mutates_only_via_immer_draft": true,
+    "affectedStores_declared": true,
+    "declared_stores": [
+     "roof"
+    ],
+    "storeKey_matches_ctx_stores": "declared: roof - NOT resolved against the composed ctx.stores in this phase except where readback is class (c)",
+    "no_store_singleton_import": true,
+    "withHandlerSpan": true,
+    "emits_a_typed_domain_event": false,
+    "geometry_deferred_to_FrameScheduler": false,
+    "caveat": "REGEX OVER THE HANDLER DECLARATION SLICE, class (a). TRUE means the token is present in the slice, NOT that it runs on the mutation path. FALSE is the stronger reading: the token is absent, so the clause cannot be satisfied."
+   },
+   "must_nots": {
+    "no_commandManager_execute": true,
+    "no_cascading_dispatch": true,
+    "no_window_dispatchEvent": true,
+    "no_DOM_access": true,
+    "no_direct_rAF": true,
+    "caveat": "same slice-regex caveat. no_DOM_access counts any document. / window. token including type-only casts, so a FALSE here is a candidate, not a conviction."
+   },
+   "mirror": {
+    "channel": "NO CommandEventBridge case",
+    "CEB_case_present": false,
+    "in_ELEMENT_UPDATE_VERBS": true,
+    "in_LEVEL_CHANGE_VERBS": false,
+    "table_driven_not_a_case_block": "TABLE-DRIVEN",
+    "evidence_class": "a - grep over CommandEventBridge.ts (38 strict case labels) and the two verb tables (LEVEL_CHANGE_VERBS 12, ELEMENT_UPDATE_VERBS 10). Per the P0 constraint I do NOT write \"the mirror gate is green therefore this verb mirrors\"."
+   },
+   "payload": {
+    "field_names_match_live_caller": null,
+    "id_pre_generated_by_caller": null,
+    "note": "NOT MEASURED PER VERB at this scale. The three measured cases are in _ROLLUPS.json payload_defects (slab.create boundary-vs-polygon, roof.create id minting, column.batch.create id-less members) and all three were re-proven by MY executed run of CommittedPatchReachesTheStore.test.ts, RC=0."
+   },
+   "undo": {
+    "unit_registered": "patch-pair → roof",
+    "backend": "A-ring-buffer(patch-pair)",
+    "backend_note": "all 1 declared store key(s) are covered by buildUndoStoreMap()",
+    "reverts_geometry": "UNPROVEN",
+    "evidence_class": "a - declared shape plus a key-set comparison against buildUndoStoreMap(). The register itself says of this column: \"Declared shape, not an executed proof.\""
+   },
+   "batch": {
+    "mode": "none"
+   },
+   "readback": {
+    "proven": "YES-POSITIVE",
+    "evidence_class": "c",
+    "against": "geometry roof record",
+    "proof": "RoofUpdateReachesGeometryStore.test.ts:134 - changing the overhang mutates the GEOMETRY record the renderer and serializer read"
+   },
+   "rival_dispatch": {
+    "handler_internal": [],
+    "family_named_commandManager_sites": 2,
+    "family_named_windowDispatchEvent_sites": 0,
+    "sample_commandManager": [
+     "packages/geometry-roof/src/RoofSlopeSymbolBuilder.ts:206:                this.commandManager.execute(new CreateAnnotationCommand(ann));",
+     "packages/geometry-roof/src/RoofTool.ts:398:        const result = this._commandManager.execute(command);"
+    ],
+    "sample_windowDispatchEvent": [],
+    "caveat": "family_named_* is a NAME match over the two site files, not a resolved dispatch graph. 27 of the 227 commandManager.execute sites pass a VARIABLE (cmd/command/step) and cannot be resolved by name at all. See _ROLLUPS.json rival_dispatch."
+   },
+   "ladder": {
+    "AUTHORED": "YES",
+    "REACHABLE": "UNPROVEN (register: UNKNOWN - a lone plugin produceCommand handler)",
+    "COMPOSABLE": "YES - proven on the real composeRuntime() bus",
+    "CERTIFIED": "read-back CERTIFIED at the store. NOT certified at a pixel."
+   },
+   "findings": [],
+   "dispatch_reachability": {
+    "literal_dispatch_sites_outside_own_handler": 0,
+    "sites": [],
+    "method": "verb literal inside a 400-char window around executeCommand( / dispatch( / .execute( / runBatch( across 5120 production .ts/.tsx files under apps/ packages/ plugins/ (node_modules, dist, __tests__/, *.test.*, *.spec.*, *.d.ts excluded).",
+    "NON_BLIND": "This probe carries a POSITIVE CONTROL that fires: wall.batch.create = 5 sites. It also independently reproduces the two negatives asserted by DoorBatchCreateLiveness.probe.test.ts and WindowBatchCreateLiveness.probe.test.ts, both of which I EXECUTED at RC=0 (door.batch.create 0, window.batch.create 0). Evidence class (b) for this column.",
+    "CALIBRATED_FALSE_ZERO_RATE": "A zero is NOT proof of unreachability. Table-driven and variable dispatch is invisible to a literal scan. MEASURED: 9 of the 22 verbs for which I hold a class-(c) POSITIVE read-back are in the zero set (bathroomPod.delete, door.batch.create, roof.setOverhang, roof.setPitch, roof.setShape, selection.deselect, slab.addHole, slab.setThickness, window.batch.create) = a 41% false-zero rate among verbs known to work. Read a zero as UNPROVEN-DISPATCH, never as ABSENT."
+   },
+   "consequence": {
+    "verdict": "HAS A MEASURED CONSEQUENCE (class c store read-back)",
+    "undo_has_no_consequence": "no (or undetermined)"
+   }
+  },
+  {
+   "verb": "roof.setPitch",
+   "kind": "update",
+   "handler": {
+    "file": "plugins/roof/src/handlers/SetRoofPitch.ts:29",
+    "all_sites": [
+     "plugins/roof/src/handlers/SetRoofPitch.ts:29"
+    ],
+    "site_count": 1,
+    "layer": "L6 plugin",
+    "registered_where": "plugins/roof",
+    "liveness_per_register": "UNKNOWN"
+   },
+   "contract": {
+    "validates_before_mutation": true,
+    "typed_DomainError_or_refusal": false,
+    "mutates_only_via_immer_draft": true,
+    "affectedStores_declared": true,
+    "declared_stores": [
+     "roof"
+    ],
+    "storeKey_matches_ctx_stores": "declared: roof - NOT resolved against the composed ctx.stores in this phase except where readback is class (c)",
+    "no_store_singleton_import": true,
+    "withHandlerSpan": true,
+    "emits_a_typed_domain_event": false,
+    "geometry_deferred_to_FrameScheduler": false,
+    "caveat": "REGEX OVER THE HANDLER DECLARATION SLICE, class (a). TRUE means the token is present in the slice, NOT that it runs on the mutation path. FALSE is the stronger reading: the token is absent, so the clause cannot be satisfied."
+   },
+   "must_nots": {
+    "no_commandManager_execute": true,
+    "no_cascading_dispatch": true,
+    "no_window_dispatchEvent": true,
+    "no_DOM_access": true,
+    "no_direct_rAF": true,
+    "caveat": "same slice-regex caveat. no_DOM_access counts any document. / window. token including type-only casts, so a FALSE here is a candidate, not a conviction."
+   },
+   "mirror": {
+    "channel": "NO CommandEventBridge case",
+    "CEB_case_present": false,
+    "in_ELEMENT_UPDATE_VERBS": true,
+    "in_LEVEL_CHANGE_VERBS": false,
+    "table_driven_not_a_case_block": "TABLE-DRIVEN",
+    "evidence_class": "a - grep over CommandEventBridge.ts (38 strict case labels) and the two verb tables (LEVEL_CHANGE_VERBS 12, ELEMENT_UPDATE_VERBS 10). Per the P0 constraint I do NOT write \"the mirror gate is green therefore this verb mirrors\"."
+   },
+   "payload": {
+    "field_names_match_live_caller": null,
+    "id_pre_generated_by_caller": null,
+    "note": "NOT MEASURED PER VERB at this scale. The three measured cases are in _ROLLUPS.json payload_defects (slab.create boundary-vs-polygon, roof.create id minting, column.batch.create id-less members) and all three were re-proven by MY executed run of CommittedPatchReachesTheStore.test.ts, RC=0."
+   },
+   "undo": {
+    "unit_registered": "patch-pair → roof",
+    "backend": "A-ring-buffer(patch-pair)",
+    "backend_note": "all 1 declared store key(s) are covered by buildUndoStoreMap()",
+    "reverts_geometry": "UNPROVEN",
+    "evidence_class": "a - declared shape plus a key-set comparison against buildUndoStoreMap(). The register itself says of this column: \"Declared shape, not an executed proof.\""
+   },
+   "batch": {
+    "mode": "none"
+   },
+   "readback": {
+    "proven": "YES-POSITIVE",
+    "evidence_class": "c",
+    "against": "legacy roof record",
+    "proof": "CommittedPatchReachesTheStore.test.ts:249 - writes legacy slope = tan(pitch)"
+   },
+   "rival_dispatch": {
+    "handler_internal": [],
+    "family_named_commandManager_sites": 2,
+    "family_named_windowDispatchEvent_sites": 0,
+    "sample_commandManager": [
+     "packages/geometry-roof/src/RoofSlopeSymbolBuilder.ts:206:                this.commandManager.execute(new CreateAnnotationCommand(ann));",
+     "packages/geometry-roof/src/RoofTool.ts:398:        const result = this._commandManager.execute(command);"
+    ],
+    "sample_windowDispatchEvent": [],
+    "caveat": "family_named_* is a NAME match over the two site files, not a resolved dispatch graph. 27 of the 227 commandManager.execute sites pass a VARIABLE (cmd/command/step) and cannot be resolved by name at all. See _ROLLUPS.json rival_dispatch."
+   },
+   "ladder": {
+    "AUTHORED": "YES",
+    "REACHABLE": "UNPROVEN (register: UNKNOWN - a lone plugin produceCommand handler)",
+    "COMPOSABLE": "YES - proven on the real composeRuntime() bus",
+    "CERTIFIED": "read-back CERTIFIED at the store. NOT certified at a pixel."
+   },
+   "findings": [],
+   "dispatch_reachability": {
+    "literal_dispatch_sites_outside_own_handler": 0,
+    "sites": [],
+    "method": "verb literal inside a 400-char window around executeCommand( / dispatch( / .execute( / runBatch( across 5120 production .ts/.tsx files under apps/ packages/ plugins/ (node_modules, dist, __tests__/, *.test.*, *.spec.*, *.d.ts excluded).",
+    "NON_BLIND": "This probe carries a POSITIVE CONTROL that fires: wall.batch.create = 5 sites. It also independently reproduces the two negatives asserted by DoorBatchCreateLiveness.probe.test.ts and WindowBatchCreateLiveness.probe.test.ts, both of which I EXECUTED at RC=0 (door.batch.create 0, window.batch.create 0). Evidence class (b) for this column.",
+    "CALIBRATED_FALSE_ZERO_RATE": "A zero is NOT proof of unreachability. Table-driven and variable dispatch is invisible to a literal scan. MEASURED: 9 of the 22 verbs for which I hold a class-(c) POSITIVE read-back are in the zero set (bathroomPod.delete, door.batch.create, roof.setOverhang, roof.setPitch, roof.setShape, selection.deselect, slab.addHole, slab.setThickness, window.batch.create) = a 41% false-zero rate among verbs known to work. Read a zero as UNPROVEN-DISPATCH, never as ABSENT."
+   },
+   "consequence": {
+    "verdict": "HAS A MEASURED CONSEQUENCE (class c store read-back)",
+    "undo_has_no_consequence": "no (or undetermined)"
+   }
+  },
+  {
+   "verb": "roof.setShape",
+   "kind": "update",
+   "handler": {
+    "file": "plugins/roof/src/handlers/SetRoofShape.ts:30",
+    "all_sites": [
+     "plugins/roof/src/handlers/SetRoofShape.ts:30"
+    ],
+    "site_count": 1,
+    "layer": "L6 plugin",
+    "registered_where": "plugins/roof",
+    "liveness_per_register": "UNKNOWN"
+   },
+   "contract": {
+    "validates_before_mutation": true,
+    "typed_DomainError_or_refusal": false,
+    "mutates_only_via_immer_draft": true,
+    "affectedStores_declared": true,
+    "declared_stores": [
+     "roof"
+    ],
+    "storeKey_matches_ctx_stores": "declared: roof - NOT resolved against the composed ctx.stores in this phase except where readback is class (c)",
+    "no_store_singleton_import": true,
+    "withHandlerSpan": true,
+    "emits_a_typed_domain_event": false,
+    "geometry_deferred_to_FrameScheduler": false,
+    "caveat": "REGEX OVER THE HANDLER DECLARATION SLICE, class (a). TRUE means the token is present in the slice, NOT that it runs on the mutation path. FALSE is the stronger reading: the token is absent, so the clause cannot be satisfied."
+   },
+   "must_nots": {
+    "no_commandManager_execute": true,
+    "no_cascading_dispatch": true,
+    "no_window_dispatchEvent": true,
+    "no_DOM_access": true,
+    "no_direct_rAF": true,
+    "caveat": "same slice-regex caveat. no_DOM_access counts any document. / window. token including type-only casts, so a FALSE here is a candidate, not a conviction."
+   },
+   "mirror": {
+    "channel": "NO CommandEventBridge case",
+    "CEB_case_present": false,
+    "in_ELEMENT_UPDATE_VERBS": true,
+    "in_LEVEL_CHANGE_VERBS": false,
+    "table_driven_not_a_case_block": "TABLE-DRIVEN",
+    "evidence_class": "a - grep over CommandEventBridge.ts (38 strict case labels) and the two verb tables (LEVEL_CHANGE_VERBS 12, ELEMENT_UPDATE_VERBS 10). Per the P0 constraint I do NOT write \"the mirror gate is green therefore this verb mirrors\"."
+   },
+   "payload": {
+    "field_names_match_live_caller": null,
+    "id_pre_generated_by_caller": null,
+    "note": "NOT MEASURED PER VERB at this scale. The three measured cases are in _ROLLUPS.json payload_defects (slab.create boundary-vs-polygon, roof.create id minting, column.batch.create id-less members) and all three were re-proven by MY executed run of CommittedPatchReachesTheStore.test.ts, RC=0."
+   },
+   "undo": {
+    "unit_registered": "patch-pair → roof",
+    "backend": "A-ring-buffer(patch-pair)",
+    "backend_note": "all 1 declared store key(s) are covered by buildUndoStoreMap()",
+    "reverts_geometry": "UNPROVEN",
+    "evidence_class": "a - declared shape plus a key-set comparison against buildUndoStoreMap(). The register itself says of this column: \"Declared shape, not an executed proof.\""
+   },
+   "batch": {
+    "mode": "none"
+   },
+   "readback": {
+    "proven": "YES-POSITIVE",
+    "evidence_class": "c",
+    "against": "legacy roof record",
+    "proof": "CommittedPatchReachesTheStore.test.ts:260 - writes legacy roofType; mono becomes shed"
+   },
+   "rival_dispatch": {
+    "handler_internal": [],
+    "family_named_commandManager_sites": 2,
+    "family_named_windowDispatchEvent_sites": 0,
+    "sample_commandManager": [
+     "packages/geometry-roof/src/RoofSlopeSymbolBuilder.ts:206:                this.commandManager.execute(new CreateAnnotationCommand(ann));",
+     "packages/geometry-roof/src/RoofTool.ts:398:        const result = this._commandManager.execute(command);"
+    ],
+    "sample_windowDispatchEvent": [],
+    "caveat": "family_named_* is a NAME match over the two site files, not a resolved dispatch graph. 27 of the 227 commandManager.execute sites pass a VARIABLE (cmd/command/step) and cannot be resolved by name at all. See _ROLLUPS.json rival_dispatch."
+   },
+   "ladder": {
+    "AUTHORED": "YES",
+    "REACHABLE": "UNPROVEN (register: UNKNOWN - a lone plugin produceCommand handler)",
+    "COMPOSABLE": "YES - proven on the real composeRuntime() bus",
+    "CERTIFIED": "read-back CERTIFIED at the store. NOT certified at a pixel."
+   },
+   "findings": [],
+   "dispatch_reachability": {
+    "literal_dispatch_sites_outside_own_handler": 0,
+    "sites": [],
+    "method": "verb literal inside a 400-char window around executeCommand( / dispatch( / .execute( / runBatch( across 5120 production .ts/.tsx files under apps/ packages/ plugins/ (node_modules, dist, __tests__/, *.test.*, *.spec.*, *.d.ts excluded).",
+    "NON_BLIND": "This probe carries a POSITIVE CONTROL that fires: wall.batch.create = 5 sites. It also independently reproduces the two negatives asserted by DoorBatchCreateLiveness.probe.test.ts and WindowBatchCreateLiveness.probe.test.ts, both of which I EXECUTED at RC=0 (door.batch.create 0, window.batch.create 0). Evidence class (b) for this column.",
+    "CALIBRATED_FALSE_ZERO_RATE": "A zero is NOT proof of unreachability. Table-driven and variable dispatch is invisible to a literal scan. MEASURED: 9 of the 22 verbs for which I hold a class-(c) POSITIVE read-back are in the zero set (bathroomPod.delete, door.batch.create, roof.setOverhang, roof.setPitch, roof.setShape, selection.deselect, slab.addHole, slab.setThickness, window.batch.create) = a 41% false-zero rate among verbs known to work. Read a zero as UNPROVEN-DISPATCH, never as ABSENT."
+   },
+   "consequence": {
+    "verdict": "HAS A MEASURED CONSEQUENCE (class c store read-back)",
+    "undo_has_no_consequence": "no (or undetermined)"
+   }
+  },
+  {
+   "verb": "roof.setThickness",
+   "kind": "update",
+   "handler": {
+    "file": "plugins/roof/src/handlers/SetRoofThickness.ts:23",
+    "all_sites": [
+     "plugins/roof/src/handlers/SetRoofThickness.ts:23"
+    ],
+    "site_count": 1,
+    "layer": "L6 plugin",
+    "registered_where": "plugins/roof",
+    "liveness_per_register": "UNKNOWN"
+   },
+   "contract": {
+    "validates_before_mutation": true,
+    "typed_DomainError_or_refusal": false,
+    "mutates_only_via_immer_draft": true,
+    "affectedStores_declared": true,
+    "declared_stores": [
+     "roof"
+    ],
+    "storeKey_matches_ctx_stores": "declared: roof - NOT resolved against the composed ctx.stores in this phase except where readback is class (c)",
+    "no_store_singleton_import": true,
+    "withHandlerSpan": true,
+    "emits_a_typed_domain_event": false,
+    "geometry_deferred_to_FrameScheduler": false,
+    "caveat": "REGEX OVER THE HANDLER DECLARATION SLICE, class (a). TRUE means the token is present in the slice, NOT that it runs on the mutation path. FALSE is the stronger reading: the token is absent, so the clause cannot be satisfied."
+   },
+   "must_nots": {
+    "no_commandManager_execute": true,
+    "no_cascading_dispatch": true,
+    "no_window_dispatchEvent": true,
+    "no_DOM_access": true,
+    "no_direct_rAF": true,
+    "caveat": "same slice-regex caveat. no_DOM_access counts any document. / window. token including type-only casts, so a FALSE here is a candidate, not a conviction."
+   },
+   "mirror": {
+    "channel": "NO CommandEventBridge case",
+    "CEB_case_present": false,
+    "in_ELEMENT_UPDATE_VERBS": true,
+    "in_LEVEL_CHANGE_VERBS": false,
+    "table_driven_not_a_case_block": "TABLE-DRIVEN",
+    "evidence_class": "a - grep over CommandEventBridge.ts (38 strict case labels) and the two verb tables (LEVEL_CHANGE_VERBS 12, ELEMENT_UPDATE_VERBS 10). Per the P0 constraint I do NOT write \"the mirror gate is green therefore this verb mirrors\"."
+   },
+   "payload": {
+    "field_names_match_live_caller": null,
+    "id_pre_generated_by_caller": null,
+    "note": "NOT MEASURED PER VERB at this scale. The three measured cases are in _ROLLUPS.json payload_defects (slab.create boundary-vs-polygon, roof.create id minting, column.batch.create id-less members) and all three were re-proven by MY executed run of CommittedPatchReachesTheStore.test.ts, RC=0."
+   },
+   "undo": {
+    "unit_registered": "patch-pair → roof",
+    "backend": "A-ring-buffer(patch-pair)",
+    "backend_note": "all 1 declared store key(s) are covered by buildUndoStoreMap()",
+    "reverts_geometry": "UNPROVEN",
+    "evidence_class": "a - declared shape plus a key-set comparison against buildUndoStoreMap(). The register itself says of this column: \"Declared shape, not an executed proof.\""
+   },
+   "batch": {
+    "mode": "none"
+   },
+   "readback": {
+    "proven": "NO",
+    "evidence_class": "a",
+    "note": "1 test file(s) name this verb; none of them both composes the real runtime and reads a store."
+   },
+   "rival_dispatch": {
+    "handler_internal": [],
+    "family_named_commandManager_sites": 2,
+    "family_named_windowDispatchEvent_sites": 0,
+    "sample_commandManager": [
+     "packages/geometry-roof/src/RoofSlopeSymbolBuilder.ts:206:                this.commandManager.execute(new CreateAnnotationCommand(ann));",
+     "packages/geometry-roof/src/RoofTool.ts:398:        const result = this._commandManager.execute(command);"
+    ],
+    "sample_windowDispatchEvent": [],
+    "caveat": "family_named_* is a NAME match over the two site files, not a resolved dispatch graph. 27 of the 227 commandManager.execute sites pass a VARIABLE (cmd/command/step) and cannot be resolved by name at all. See _ROLLUPS.json rival_dispatch."
+   },
+   "ladder": {
+    "AUTHORED": "YES",
+    "REACHABLE": "UNPROVEN (register: UNKNOWN - a lone plugin produceCommand handler)",
+    "COMPOSABLE": "UNPROVEN",
+    "CERTIFIED": "NO"
+   },
+   "findings": [],
+   "dispatch_reachability": {
+    "literal_dispatch_sites_outside_own_handler": 0,
+    "sites": [],
+    "method": "verb literal inside a 400-char window around executeCommand( / dispatch( / .execute( / runBatch( across 5120 production .ts/.tsx files under apps/ packages/ plugins/ (node_modules, dist, __tests__/, *.test.*, *.spec.*, *.d.ts excluded).",
+    "NON_BLIND": "This probe carries a POSITIVE CONTROL that fires: wall.batch.create = 5 sites. It also independently reproduces the two negatives asserted by DoorBatchCreateLiveness.probe.test.ts and WindowBatchCreateLiveness.probe.test.ts, both of which I EXECUTED at RC=0 (door.batch.create 0, window.batch.create 0). Evidence class (b) for this column.",
+    "CALIBRATED_FALSE_ZERO_RATE": "A zero is NOT proof of unreachability. Table-driven and variable dispatch is invisible to a literal scan. MEASURED: 9 of the 22 verbs for which I hold a class-(c) POSITIVE read-back are in the zero set (bathroomPod.delete, door.batch.create, roof.setOverhang, roof.setPitch, roof.setShape, selection.deselect, slab.addHole, slab.setThickness, window.batch.create) = a 41% false-zero rate among verbs known to work. Read a zero as UNPROVEN-DISPATCH, never as ABSENT."
+   },
+   "consequence": {
+    "verdict": "UNDETERMINED",
+    "undo_has_no_consequence": "no (or undetermined)"
+   }
+  },
+  {
+   "verb": "roof.update",
+   "kind": "update",
+   "handler": {
+    "file": "apps/editor/src/engine/initBusHandlers.ts:935",
+    "all_sites": [
+     "apps/editor/src/engine/initBusHandlers.ts:935"
+    ],
+    "site_count": 1,
+    "layer": "L7 apps/editor (execution-authority root)",
+    "registered_where": "apps/editor",
+    "liveness_per_register": "LIVE"
+   },
+   "contract": {
+    "validates_before_mutation": true,
+    "typed_DomainError_or_refusal": false,
+    "mutates_only_via_immer_draft": false,
+    "affectedStores_declared": false,
+    "declared_stores": [],
+    "storeKey_matches_ctx_stores": "no store declared",
+    "no_store_singleton_import": false,
+    "withHandlerSpan": false,
+    "emits_a_typed_domain_event": false,
+    "geometry_deferred_to_FrameScheduler": false,
+    "caveat": "REGEX OVER THE HANDLER DECLARATION SLICE, class (a). TRUE means the token is present in the slice, NOT that it runs on the mutation path. FALSE is the stronger reading: the token is absent, so the clause cannot be satisfied."
+   },
+   "must_nots": {
+    "no_commandManager_execute": true,
+    "no_cascading_dispatch": true,
+    "no_window_dispatchEvent": true,
+    "no_DOM_access": true,
+    "no_direct_rAF": true,
+    "caveat": "same slice-regex caveat. no_DOM_access counts any document. / window. token including type-only casts, so a FALSE here is a candidate, not a conviction."
+   },
+   "mirror": {
+    "channel": "NO CommandEventBridge case",
+    "CEB_case_present": false,
+    "in_ELEMENT_UPDATE_VERBS": false,
+    "in_LEVEL_CHANGE_VERBS": false,
+    "table_driven_not_a_case_block": "n/a - no mirror at all",
+    "evidence_class": "a - grep over CommandEventBridge.ts (38 strict case labels) and the two verb tables (LEVEL_CHANGE_VERBS 12, ELEMENT_UPDATE_VERBS 10). Per the P0 constraint I do NOT write \"the mirror gate is green therefore this verb mirrors\"."
+   },
+   "payload": {
+    "field_names_match_live_caller": null,
+    "id_pre_generated_by_caller": null,
+    "note": "NOT MEASURED PER VERB at this scale. The three measured cases are in _ROLLUPS.json payload_defects (slab.create boundary-vs-polygon, roof.create id minting, column.batch.create id-less members) and all three were re-proven by MY executed run of CommittedPatchReachesTheStore.test.ts, RC=0."
+   },
+   "undo": {
+    "unit_registered": "legacy-stack (no affectedStores)",
+    "backend": "B-legacy-commandManager",
+    "backend_note": "legacy-stack (no affectedStores)",
+    "reverts_geometry": "UNPROVEN",
+    "evidence_class": "a - declared shape plus a key-set comparison against buildUndoStoreMap(). The register itself says of this column: \"Declared shape, not an executed proof.\""
+   },
+   "batch": {
+    "mode": "none"
+   },
+   "readback": {
+    "proven": "NO",
+    "evidence_class": "a",
+    "note": "5 test file(s) name this verb; none of them both composes the real runtime and reads a store."
+   },
+   "rival_dispatch": {
+    "handler_internal": [],
+    "family_named_commandManager_sites": 2,
+    "family_named_windowDispatchEvent_sites": 0,
+    "sample_commandManager": [
+     "packages/geometry-roof/src/RoofSlopeSymbolBuilder.ts:206:                this.commandManager.execute(new CreateAnnotationCommand(ann));",
+     "packages/geometry-roof/src/RoofTool.ts:398:        const result = this._commandManager.execute(command);"
+    ],
+    "sample_windowDispatchEvent": [],
+    "caveat": "family_named_* is a NAME match over the two site files, not a resolved dispatch graph. 27 of the 227 commandManager.execute sites pass a VARIABLE (cmd/command/step) and cannot be resolved by name at all. See _ROLLUPS.json rival_dispatch."
+   },
+   "ladder": {
+    "AUTHORED": "YES",
+    "REACHABLE": "YES (register: LIVE)",
+    "COMPOSABLE": "UNPROVEN",
+    "CERTIFIED": "NO"
+   },
+   "findings": [],
+   "dispatch_reachability": {
+    "literal_dispatch_sites_outside_own_handler": 2,
+    "sites": [
+     "apps/editor/src/ui/property-inspector/PropertyInspectorApply.ts",
+     "apps/editor/src/ui/property-panel/RoofPropertySheet.ts"
+    ],
+    "method": "verb literal inside a 400-char window around executeCommand( / dispatch( / .execute( / runBatch( across 5120 production .ts/.tsx files under apps/ packages/ plugins/ (node_modules, dist, __tests__/, *.test.*, *.spec.*, *.d.ts excluded).",
+    "NON_BLIND": "This probe carries a POSITIVE CONTROL that fires: wall.batch.create = 5 sites. It also independently reproduces the two negatives asserted by DoorBatchCreateLiveness.probe.test.ts and WindowBatchCreateLiveness.probe.test.ts, both of which I EXECUTED at RC=0 (door.batch.create 0, window.batch.create 0). Evidence class (b) for this column.",
+    "CALIBRATED_FALSE_ZERO_RATE": "A zero is NOT proof of unreachability. Table-driven and variable dispatch is invisible to a literal scan. MEASURED: 9 of the 22 verbs for which I hold a class-(c) POSITIVE read-back are in the zero set (bathroomPod.delete, door.batch.create, roof.setOverhang, roof.setPitch, roof.setShape, selection.deselect, slab.addHole, slab.setThickness, window.batch.create) = a 41% false-zero rate among verbs known to work. Read a zero as UNPROVEN-DISPATCH, never as ABSENT."
+   },
+   "consequence": {
+    "verdict": "UNDETERMINED",
+    "undo_has_no_consequence": "no (or undetermined)"
+   }
+  }
+ ]
+}

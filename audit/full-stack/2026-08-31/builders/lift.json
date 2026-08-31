@@ -1,0 +1,81 @@
+{
+  "family": "lift (+ liftPart, + verticalCirculation)",
+  "head": "d91d30d4af51bc67317ef8afc0b46b1dbef94038",
+  "members": ["lift compound (cabin, steel frame, guide rails)", "liftPart", "lift shaft walls / curtain wall", "verticalCirculation (the OTHER lift)"],
+  "rows": [
+    {
+      "member": "lift compound",
+      "surface": "3d",
+      "builder_file": "packages/geometry-lift/src/LiftCompoundMeshBuilder.ts (354 lines)",
+      "entry_fn": "updateLift(lift, isPreview=false): THREE.Group :197  ·  removeLift(liftId) :313  ·  getRoot :333  ·  ids() :338  ·  clearProjectGeometry() :347  ·  dispose() :351  ·  setScene :185",
+      "package": "@pryzm/geometry-lift",
+      "layer": "L2",
+      "layer_proof": "eslint.config.js:151",
+      "invoked_by": [
+        "apps/editor/src/engine/initBuilders.ts:1028 `new LiftCompoundMeshBuilder(scene)`",
+        "apps/editor/src/engine/initTools.ts:1687 runtime.events.on('lift.created') → :1691 `liftCompoundMeshBuilder.updateLift({...})`; :1733 an update adapter; :1734 a remove adapter"
+      ],
+      "⭐ RIVAL_BUILDER_FOR_THE_SAME_FAMILY — DECLARED, ARGUED, AND CONTRACT-BACKED": {
+        "the_two": "LiftMeshBuilder.ts (226 lines) draws the LOD-200 MASSING lift from LiftStore, self-subscribing at :73-75 to window events bim-lift-added / -updated / -removed. LiftCompoundMeshBuilder.ts draws the LOD-300 COMPOUND — cabin, steel frame, guide rails — from the lift.created event.",
+        "the_declaration": "apps/editor/src/engine/initBuilders.ts:255-263, verbatim: 'FEAT-LIFT-OBSERVATION-FRAME (L-9400) — the LOD-300 COMPOUND's renderer. DELIBERATELY A SECOND BUILDER, NOT A BRANCH INSIDE liftMeshBuilder. That one draws the LOD-200 MASSING lift from LiftStore; this one draws the compound's cabin, steel frame and guide rails from lift.created. C104 section 1 / R-8 forbid merging the two ELEMENTS, and one builder reading two stores would be that merge arriving through the renderer (C104 section 13.1 records the trap).'",
+        "verdict": "THE ONLY RIVAL PAIR IN THE REPO THAT IS DELIBERATE, DOCUMENTED, CONTRACT-CITED AND NAMES THE TRAP IT AVOIDS. This is what a legitimate second builder looks like, and it is the yardstick every other rival in this audit fails.",
+        "residual_risk": "Two builders, two element kinds, one word 'lift' in the UI. A user who cannot see which they authored cannot predict which renders. Not measured here."
+      },
+      "rivals_that_are_NOT_declared": [
+        {"candidate": "packages/geometry-kernel/src/producers/ — there is NO lift producer (`ls packages/geometry-kernel/src/producers/` → 26 files, no lift.ts) and NO lift committer among the 19.", "verdict": "REFUTATION — lift is one of the few families the unreachable rival system never authored, so it has no third path."}
+      ],
+      "robustness": {
+        "material_refusal": "PRESENT — :164 `if (r.state === 'unresolved')` handles an unresolved material explicitly rather than substituting.",
+        "disposal": "PRESENT AND PRECISE — :118 'Geometries ARE per-part and ARE disposed.'; :325-327 names the defect it avoids by naming it ('§BEAM-AUDIT-2026-C3 defect, avoided by naming it. disposeMaterials = false [because materials are shared]'); :344-347 distinguishes the TERMINAL dispose() from the project-switch clearProjectGeometry(), the same distinction WaterMeshBuilder makes.",
+        "degenerate_input": "ZERO isFinite/isNaN, ZERO `throw new`."
+      },
+      "fidelity": {
+        "authored_L0_fields": "NONE — there is no Lift.ts in packages/schemas/src/elements/ (32 files, verified). The lift compound has NO L0 schema, so there is no authored baseline to lose. `verticalCirculation` is a DIFFERENT element (see below).",
+        "ceb_channel": "lift.created",
+        "ceb_emit_sites": ["~L1857 (lift.create)"],
+        "ceb_emitted_keys": ["commandId","commandType","levelId","liftId","origin","rotation","enclosureType","carParkOffsetY","mark","parts"],
+        "assessment": "The emit carries `parts` as a whole array — field-lossless for the members, the same design as wall.opening.created and the opposite of every named-subset emit. The compound's own fields (origin, rotation, enclosureType, carParkOffsetY, mark) all travel.",
+        "⛔ THE_DELETE_LEG_HAS_NO_CHANNEL": "There is NO 'lift.deleted' key in RuntimeEvents. apps/editor/src/engine/bathroomPodMemberMirror.ts:30-32 states this by name as the reason the lift had to hand-build a render sink (members.json). So lift.delete (liveness UNKNOWN in the P1 census) has no channel to relay on, for the parent OR the parts. The builder HAS removeLift (:313) and the initTools adapter wires it (:1734) — the gap is upstream, in the event vocabulary.",
+        "draws_what_the_user_authored": "YES — but the authored baseline is the command payload, not an L0 schema."
+      }
+    },
+    {
+      "member": "liftPart (cabin parts)",
+      "surface": "3d",
+      "builder_file": "packages/geometry-lift/src/LiftCompoundMeshBuilder.ts (same builder — parts travel as ev.parts[] and are drawn inside updateLift)",
+      "invoked_by": "apps/editor/src/engine/initTools.ts:1687-1701",
+      "own_store": "YES — storeKey 'liftPart', its own inline ALL_PLUGINS descriptor",
+      "own_schema": "NO — no LiftPart.ts in packages/schemas/src/elements/",
+      "own_verbs": "NONE — declared exempt in STORE_ONLY_PLUGIN_IDS (C104 §2)",
+      "own_channel": "NO — rides the parent's lift.created",
+      "plan": "NO — 'liftPart' is not in GEOMETRY_ELEMENT_TYPES",
+      "⭐ THE_BRIEF_SAID_liftPart_HAS_NO_BUILDER — REFUTED": "It has no builder OF ITS OWN, which is a different fact. Its parts ARE drawn, by the parent's builder, from ev.parts[]. initTools.ts:1665 states the wiring rationale: liftPart 'has no legacy store to mirror INTO — liftPart is a new family (C104 R-3)'. So: NO OWN BUILDER, YES DRAWN, and the arrangement is declared in three places (ALL_PLUGINS, STORE_ONLY_PLUGIN_IDS, C104).",
+      "drawn": "YES",
+      "honest_about_it": "YES — named in ALL_PLUGINS, exempted by name from verb ownership, and its parent's builder is documented as its renderer."
+    },
+    {
+      "member": "lift shaft walls / curtain wall",
+      "surface": "3d",
+      "builder_file": "WallFragmentBuilder + CurtainWallBuilder (rides those families)",
+      "rides": "the lift.create case fans out to wall.created (~L1733) and curtain-wall.created (~L1764)",
+      "drawn": "YES",
+      "⛔ FIDELITY_LOSS_ON_THE_RIDE": "wall.created from the lift fan-out emits 9 keys — no systemTypeId, no materialColor, no layers, no curve. curtain-wall.created from the lift fan-out emits 14 of the 18 keys the primary site emits — losing systemTypeId, mullionMaterialId, mullionColor, glazingMaterialId. A lift shaft's glazing therefore always renders in the builder's defaults.",
+      "honest_about_it": "NO — no warning is emitted on either narrowed fan-out. Contrast curtainWallCreatedMirror, which warns per element on a smaller loss."
+    },
+    {
+      "member": "verticalCirculation (the OTHER lift)",
+      "surface": "3d",
+      "builder_file": "packages/geometry-lift/src/LiftMeshBuilder.ts (226 lines) — LOD-200 massing",
+      "entry_fn": "self-subscribing in the constructor at :73-75 (window 'bim-lift-added' / '-updated' / '-removed')",
+      "invoked_by": "apps/editor/src/engine/initBuilders.ts:1016 `new LiftMeshBuilder(liftStore, scene)`",
+      "REACHABILITY_NOTE": "`grep -rn 'liftMeshBuilder\\.'` → ZERO hits repo-wide. Reachable ONLY through its own constructor listeners — the same false-ABSENT shape as beamBuilder and stairLandingBuilder. Three of the twenty-one builders are invisible to a handle search.",
+      "own_schema": "YES — packages/schemas/src/elements/VerticalCirculation.ts (12 fields: provenance, confidence, levelId, topLevelId, kind, origin, rotation, shaftWidth, shaftDepth, carCapacityPersons, doorWidth, materialId)",
+      "own_channel": "NONE — verticalCirculation has no CEB case and no *.created channel",
+      "plan": "YES — 'verticalCirculation' IS in GEOMETRY_ELEMENT_TYPES (ViewDependencyTracker.ts:85), with a comment: 'Residential-building §4: lift carries 3D geometry → re-project plan/section on change, exactly like the stair.'",
+      "⚠ ONE_WORD_TWO_ELEMENTS": "ViewDependencyTracker.ts:85 lists `verticalCirculation`; members.json records that this is 'the OTHER lift (the LOD-200 massing lift in @pryzm/geometry-lift), not this compound'. The plan view therefore invalidates on the MASSING lift and NOT on the COMPOUND — the compound (`lift`/`liftPart`) is absent from GEOMETRY_ELEMENT_TYPES entirely. An LOD-300 lift edited in 3D does not dirty the plan.",
+      "drawn": "YES in 3D; plan invalidation is wired for this member and NOT for the compound."
+    },
+    {"member": "lift", "surface": "plan", "builder_file": "EdgeProjectorService projection of whichever lift's mesh exists. No lift plan-symbol builder among the fifteen.", "drawn": "PARTIAL — see the verticalCirculation note above."},
+    {"member": "lift", "surface": "export", "builder_file": "packages/file-format/src/export/ifc/readers/LiftReader.ts (L3, FragmentReader.ts:50)", "note": "⭐ THIS READER'S HEADER IS THE PROOF FOR THE RIVAL-EXPORTER FINDING — LiftReader.ts:8-9 quotes an earlier audit's \"grep -c 'snapshot.lifts' … in IFC4X3Exporter.ts → 0\" and answers it: 'plugins/ifc-export/, which is NOT the exporter the Export IFC button runs.' A correction to an audit, written into the file the audit was wrong about."}
+  ]
+}

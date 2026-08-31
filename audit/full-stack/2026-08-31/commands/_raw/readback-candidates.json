@@ -1,0 +1,3138 @@
+{
+ "verbs": 248,
+ "rows": [
+  {
+   "verb": "annotation.create",
+   "tests": [
+    "apps/editor/src/engine/views/plantools/__tests__/lineardim-p6-migration-probe.spec.ts",
+    "plugins/annotations/__tests__/handlers.test.ts",
+    "plugins/annotations/__tests__/one-store-and-type.test.ts"
+   ],
+   "composedTests": [],
+   "storeReadTests": [
+    "plugins/annotations/__tests__/handlers.test.ts",
+    "plugins/annotations/__tests__/one-store-and-type.test.ts"
+   ],
+   "composedAndRead": []
+  },
+  {
+   "verb": "annotation.delete",
+   "tests": [
+    "apps/editor/src/engine/__tests__/dimensionSelectionPanel.spec.ts",
+    "plugins/annotations/__tests__/handlers.test.ts",
+    "plugins/annotations/__tests__/one-store-and-type.test.ts"
+   ],
+   "composedTests": [],
+   "storeReadTests": [
+    "apps/editor/src/engine/__tests__/dimensionSelectionPanel.spec.ts",
+    "plugins/annotations/__tests__/handlers.test.ts",
+    "plugins/annotations/__tests__/one-store-and-type.test.ts"
+   ],
+   "composedAndRead": []
+  },
+  {
+   "verb": "annotation.move",
+   "tests": [
+    "plugins/annotations/__tests__/handlers.test.ts",
+    "plugins/annotations/__tests__/one-store-and-type.test.ts"
+   ],
+   "composedTests": [],
+   "storeReadTests": [
+    "plugins/annotations/__tests__/handlers.test.ts",
+    "plugins/annotations/__tests__/one-store-and-type.test.ts"
+   ],
+   "composedAndRead": []
+  },
+  {
+   "verb": "annotation.setColor",
+   "tests": [
+    "apps/editor/src/engine/__tests__/dimensionSelectionPanel.spec.ts",
+    "plugins/annotations/__tests__/handlers.test.ts",
+    "plugins/annotations/__tests__/one-store-and-type.test.ts"
+   ],
+   "composedTests": [],
+   "storeReadTests": [
+    "apps/editor/src/engine/__tests__/dimensionSelectionPanel.spec.ts",
+    "plugins/annotations/__tests__/handlers.test.ts",
+    "plugins/annotations/__tests__/one-store-and-type.test.ts"
+   ],
+   "composedAndRead": []
+  },
+  {
+   "verb": "annotation.setKind",
+   "tests": [
+    "plugins/annotations/__tests__/handlers.test.ts"
+   ],
+   "composedTests": [],
+   "storeReadTests": [
+    "plugins/annotations/__tests__/handlers.test.ts"
+   ],
+   "composedAndRead": []
+  },
+  {
+   "verb": "annotation.setRotation",
+   "tests": [
+    "plugins/annotations/__tests__/handlers.test.ts"
+   ],
+   "composedTests": [],
+   "storeReadTests": [
+    "plugins/annotations/__tests__/handlers.test.ts"
+   ],
+   "composedAndRead": []
+  },
+  {
+   "verb": "annotation.setText",
+   "tests": [
+    "plugins/annotations/__tests__/handlers.test.ts",
+    "plugins/annotations/__tests__/one-store-and-type.test.ts"
+   ],
+   "composedTests": [],
+   "storeReadTests": [
+    "plugins/annotations/__tests__/handlers.test.ts",
+    "plugins/annotations/__tests__/one-store-and-type.test.ts"
+   ],
+   "composedAndRead": []
+  },
+  {
+   "verb": "annotation.setTextHeight",
+   "tests": [
+    "apps/editor/src/engine/__tests__/dimensionSelectionPanel.spec.ts",
+    "plugins/annotations/__tests__/handlers.test.ts",
+    "plugins/annotations/__tests__/one-store-and-type.test.ts"
+   ],
+   "composedTests": [],
+   "storeReadTests": [
+    "apps/editor/src/engine/__tests__/dimensionSelectionPanel.spec.ts",
+    "plugins/annotations/__tests__/handlers.test.ts",
+    "plugins/annotations/__tests__/one-store-and-type.test.ts"
+   ],
+   "composedAndRead": []
+  },
+  {
+   "verb": "annotation.update",
+   "tests": [
+    "apps/editor/src/engine/__tests__/dimensionSelectionPanel.spec.ts",
+    "plugins/annotations/__tests__/one-store-and-type.test.ts"
+   ],
+   "composedTests": [],
+   "storeReadTests": [
+    "apps/editor/src/engine/__tests__/dimensionSelectionPanel.spec.ts",
+    "plugins/annotations/__tests__/one-store-and-type.test.ts"
+   ],
+   "composedAndRead": []
+  },
+  {
+   "verb": "balcony.create",
+   "tests": [
+    "apps/editor/__tests__/balconyReachableThroughComposedRuntime.test.ts",
+    "plugins/balcony/__tests__/balconyCompound.test.ts"
+   ],
+   "composedTests": [],
+   "storeReadTests": [
+    "apps/editor/__tests__/balconyReachableThroughComposedRuntime.test.ts"
+   ],
+   "composedAndRead": []
+  },
+  {
+   "verb": "balcony.delete",
+   "tests": [
+    "apps/editor/__tests__/balconyReachableThroughComposedRuntime.test.ts",
+    "plugins/balcony/__tests__/balconyCompound.test.ts"
+   ],
+   "composedTests": [],
+   "storeReadTests": [
+    "apps/editor/__tests__/balconyReachableThroughComposedRuntime.test.ts"
+   ],
+   "composedAndRead": []
+  },
+  {
+   "verb": "balcony.updateProfile",
+   "tests": [
+    "apps/editor/__tests__/balconyReachableThroughComposedRuntime.test.ts",
+    "plugins/balcony/__tests__/balconyCompound.test.ts"
+   ],
+   "composedTests": [],
+   "storeReadTests": [
+    "apps/editor/__tests__/balconyReachableThroughComposedRuntime.test.ts"
+   ],
+   "composedAndRead": []
+  },
+  {
+   "verb": "bathroomPod.create",
+   "tests": [
+    "apps/editor/__tests__/bathroomPodReachableThroughComposedRuntime.test.ts"
+   ],
+   "composedTests": [
+    "apps/editor/__tests__/bathroomPodReachableThroughComposedRuntime.test.ts"
+   ],
+   "storeReadTests": [
+    "apps/editor/__tests__/bathroomPodReachableThroughComposedRuntime.test.ts"
+   ],
+   "composedAndRead": [
+    "apps/editor/__tests__/bathroomPodReachableThroughComposedRuntime.test.ts"
+   ]
+  },
+  {
+   "verb": "bathroomPod.delete",
+   "tests": [
+    "apps/editor/__tests__/bathroomPodReachableThroughComposedRuntime.test.ts"
+   ],
+   "composedTests": [
+    "apps/editor/__tests__/bathroomPodReachableThroughComposedRuntime.test.ts"
+   ],
+   "storeReadTests": [
+    "apps/editor/__tests__/bathroomPodReachableThroughComposedRuntime.test.ts"
+   ],
+   "composedAndRead": [
+    "apps/editor/__tests__/bathroomPodReachableThroughComposedRuntime.test.ts"
+   ]
+  },
+  {
+   "verb": "beam.create",
+   "tests": [
+    "apps/editor/__tests__/CommittedPatchReachesTheStore.test.ts",
+    "apps/editor/__tests__/CopiedSteelBeamStaysSteel.test.ts",
+    "apps/editor/__tests__/hello-12-elements.test.ts",
+    "plugins/beam/__tests__/handlers.test.ts"
+   ],
+   "composedTests": [
+    "apps/editor/__tests__/hello-12-elements.test.ts"
+   ],
+   "storeReadTests": [
+    "apps/editor/__tests__/CommittedPatchReachesTheStore.test.ts",
+    "apps/editor/__tests__/CopiedSteelBeamStaysSteel.test.ts",
+    "apps/editor/__tests__/hello-12-elements.test.ts",
+    "plugins/beam/__tests__/handlers.test.ts"
+   ],
+   "composedAndRead": [
+    "apps/editor/__tests__/hello-12-elements.test.ts"
+   ]
+  },
+  {
+   "verb": "beam.move",
+   "tests": [
+    "apps/editor/__tests__/deadMoveVerbAuthoritativeState.test.ts",
+    "apps/editor/__tests__/transformDragUndoCapture.matrix.test.ts",
+    "plugins/beam/__tests__/handlers.test.ts"
+   ],
+   "composedTests": [],
+   "storeReadTests": [
+    "plugins/beam/__tests__/handlers.test.ts"
+   ],
+   "composedAndRead": []
+  },
+  {
+   "verb": "beam.setMaterial",
+   "tests": [
+    "apps/editor/__tests__/deadVerbAuthoritativeState.test.ts"
+   ],
+   "composedTests": [],
+   "storeReadTests": [
+    "apps/editor/__tests__/deadVerbAuthoritativeState.test.ts"
+   ],
+   "composedAndRead": []
+  },
+  {
+   "verb": "beam.setSection",
+   "tests": [
+    "plugins/beam/__tests__/handlers.test.ts"
+   ],
+   "composedTests": [],
+   "storeReadTests": [
+    "plugins/beam/__tests__/handlers.test.ts"
+   ],
+   "composedAndRead": []
+  },
+  {
+   "verb": "beam.setType",
+   "tests": [
+    "plugins/beam/__tests__/handlers.test.ts"
+   ],
+   "composedTests": [],
+   "storeReadTests": [
+    "plugins/beam/__tests__/handlers.test.ts"
+   ],
+   "composedAndRead": []
+  },
+  {
+   "verb": "beam.update",
+   "tests": [
+    "apps/editor/src/engine/views/plantools/__tests__/planMoveParity.spec.ts",
+    "apps/editor/__tests__/deadMoveVerbAuthoritativeState.test.ts",
+    "apps/editor/__tests__/transformDragUndoCapture.matrix.test.ts"
+   ],
+   "composedTests": [],
+   "storeReadTests": [],
+   "composedAndRead": []
+  },
+  {
+   "verb": "boundaryLine.attach",
+   "tests": [
+    "apps/editor/__tests__/boundaryLineReachableThroughComposedRuntime.test.ts"
+   ],
+   "composedTests": [],
+   "storeReadTests": [
+    "apps/editor/__tests__/boundaryLineReachableThroughComposedRuntime.test.ts"
+   ],
+   "composedAndRead": []
+  },
+  {
+   "verb": "boundaryLine.create",
+   "tests": [
+    "apps/editor/__tests__/boundaryLineFootprintThroughComposedRuntime.test.ts",
+    "apps/editor/__tests__/boundaryLineReachableThroughComposedRuntime.test.ts",
+    "apps/editor/__tests__/curvedShellWallReachesTheStore.test.ts",
+    "apps/editor/__tests__/generationFootprintAsk.test.ts",
+    "apps/editor/__tests__/persistedFamiliesReachTheSerializerChannel.test.ts"
+   ],
+   "composedTests": [
+    "apps/editor/__tests__/boundaryLineFootprintThroughComposedRuntime.test.ts",
+    "apps/editor/__tests__/curvedShellWallReachesTheStore.test.ts",
+    "apps/editor/__tests__/generationFootprintAsk.test.ts",
+    "apps/editor/__tests__/persistedFamiliesReachTheSerializerChannel.test.ts"
+   ],
+   "storeReadTests": [
+    "apps/editor/__tests__/boundaryLineFootprintThroughComposedRuntime.test.ts",
+    "apps/editor/__tests__/boundaryLineReachableThroughComposedRuntime.test.ts",
+    "apps/editor/__tests__/curvedShellWallReachesTheStore.test.ts",
+    "apps/editor/__tests__/generationFootprintAsk.test.ts",
+    "apps/editor/__tests__/persistedFamiliesReachTheSerializerChannel.test.ts"
+   ],
+   "composedAndRead": [
+    "apps/editor/__tests__/boundaryLineFootprintThroughComposedRuntime.test.ts",
+    "apps/editor/__tests__/curvedShellWallReachesTheStore.test.ts",
+    "apps/editor/__tests__/generationFootprintAsk.test.ts",
+    "apps/editor/__tests__/persistedFamiliesReachTheSerializerChannel.test.ts"
+   ]
+  },
+  {
+   "verb": "boundaryLine.delete",
+   "tests": [
+    "apps/editor/__tests__/boundaryLineReachableThroughComposedRuntime.test.ts"
+   ],
+   "composedTests": [],
+   "storeReadTests": [
+    "apps/editor/__tests__/boundaryLineReachableThroughComposedRuntime.test.ts"
+   ],
+   "composedAndRead": []
+  },
+  {
+   "verb": "boundaryLine.detach",
+   "tests": [
+    "apps/editor/__tests__/boundaryLineReachableThroughComposedRuntime.test.ts"
+   ],
+   "composedTests": [],
+   "storeReadTests": [
+    "apps/editor/__tests__/boundaryLineReachableThroughComposedRuntime.test.ts"
+   ],
+   "composedAndRead": []
+  },
+  {
+   "verb": "boundaryLine.update",
+   "tests": [
+    "apps/editor/__tests__/boundaryLineReachableThroughComposedRuntime.test.ts"
+   ],
+   "composedTests": [],
+   "storeReadTests": [
+    "apps/editor/__tests__/boundaryLineReachableThroughComposedRuntime.test.ts"
+   ],
+   "composedAndRead": []
+  },
+  {
+   "verb": "ceiling.create",
+   "tests": [
+    "apps/editor/__tests__/hello-12-elements.test.ts",
+    "plugins/ceiling/__tests__/handlers.test.ts"
+   ],
+   "composedTests": [
+    "apps/editor/__tests__/hello-12-elements.test.ts"
+   ],
+   "storeReadTests": [
+    "apps/editor/__tests__/hello-12-elements.test.ts",
+    "plugins/ceiling/__tests__/handlers.test.ts"
+   ],
+   "composedAndRead": [
+    "apps/editor/__tests__/hello-12-elements.test.ts"
+   ]
+  },
+  {
+   "verb": "ceiling.setBoundary",
+   "tests": [
+    "plugins/ceiling/__tests__/handlers.test.ts"
+   ],
+   "composedTests": [],
+   "storeReadTests": [
+    "plugins/ceiling/__tests__/handlers.test.ts"
+   ],
+   "composedAndRead": []
+  },
+  {
+   "verb": "ceiling.setHeight",
+   "tests": [
+    "plugins/ceiling/__tests__/handlers.test.ts"
+   ],
+   "composedTests": [],
+   "storeReadTests": [
+    "plugins/ceiling/__tests__/handlers.test.ts"
+   ],
+   "composedAndRead": []
+  },
+  {
+   "verb": "ceiling.setMaterial",
+   "tests": [
+    "apps/editor/__tests__/deadVerbAuthoritativeState.test.ts"
+   ],
+   "composedTests": [],
+   "storeReadTests": [
+    "apps/editor/__tests__/deadVerbAuthoritativeState.test.ts"
+   ],
+   "composedAndRead": []
+  },
+  {
+   "verb": "ceiling.update",
+   "tests": [
+    "apps/editor/src/engine/views/plantools/__tests__/planMoveParity.spec.ts",
+    "apps/editor/__tests__/CeilingUpdateReachesGeometryStore.test.ts",
+    "apps/editor/__tests__/MaterialDispatch.test.ts"
+   ],
+   "composedTests": [],
+   "storeReadTests": [
+    "apps/editor/__tests__/CeilingUpdateReachesGeometryStore.test.ts",
+    "apps/editor/__tests__/MaterialDispatch.test.ts"
+   ],
+   "composedAndRead": []
+  },
+  {
+   "verb": "ceiling.updateSystemTypeBatch",
+   "tests": [
+    "apps/editor/src/ui/ai/__tests__/ZeroTokenNoLlm.spec.ts"
+   ],
+   "composedTests": [],
+   "storeReadTests": [],
+   "composedAndRead": []
+  },
+  {
+   "verb": "column.batch.create",
+   "tests": [
+    "apps/editor/__tests__/CommittedPatchReachesTheStore.test.ts"
+   ],
+   "composedTests": [],
+   "storeReadTests": [
+    "apps/editor/__tests__/CommittedPatchReachesTheStore.test.ts"
+   ],
+   "composedAndRead": []
+  },
+  {
+   "verb": "column.create",
+   "tests": [
+    "apps/editor/__tests__/hello-12-elements.test.ts",
+    "plugins/column/__tests__/handlers.test.ts"
+   ],
+   "composedTests": [
+    "apps/editor/__tests__/hello-12-elements.test.ts"
+   ],
+   "storeReadTests": [
+    "apps/editor/__tests__/hello-12-elements.test.ts",
+    "plugins/column/__tests__/handlers.test.ts"
+   ],
+   "composedAndRead": [
+    "apps/editor/__tests__/hello-12-elements.test.ts"
+   ]
+  },
+  {
+   "verb": "column.move",
+   "tests": [
+    "apps/editor/__tests__/deadMoveVerbAuthoritativeState.test.ts",
+    "apps/editor/__tests__/transformDragUndoCapture.matrix.test.ts",
+    "plugins/column/__tests__/handlers.test.ts"
+   ],
+   "composedTests": [],
+   "storeReadTests": [
+    "plugins/column/__tests__/handlers.test.ts"
+   ],
+   "composedAndRead": []
+  },
+  {
+   "verb": "column.setHeight",
+   "tests": [
+    "plugins/column/__tests__/handlers.test.ts"
+   ],
+   "composedTests": [],
+   "storeReadTests": [
+    "plugins/column/__tests__/handlers.test.ts"
+   ],
+   "composedAndRead": []
+  },
+  {
+   "verb": "column.setMaterial",
+   "tests": [
+    "apps/editor/__tests__/deadVerbAuthoritativeState.test.ts",
+    "plugins/column/__tests__/handlers.test.ts"
+   ],
+   "composedTests": [],
+   "storeReadTests": [
+    "apps/editor/__tests__/deadVerbAuthoritativeState.test.ts",
+    "plugins/column/__tests__/handlers.test.ts"
+   ],
+   "composedAndRead": []
+  },
+  {
+   "verb": "column.setType",
+   "tests": [
+    "plugins/column/__tests__/handlers.test.ts"
+   ],
+   "composedTests": [],
+   "storeReadTests": [
+    "plugins/column/__tests__/handlers.test.ts"
+   ],
+   "composedAndRead": []
+  },
+  {
+   "verb": "column.update",
+   "tests": [
+    "apps/editor/src/engine/views/plantools/__tests__/planMoveParity.spec.ts",
+    "apps/editor/__tests__/deadMoveVerbAuthoritativeState.test.ts",
+    "apps/editor/__tests__/MaterialDispatch.test.ts",
+    "apps/editor/__tests__/transformDragUndoCapture.matrix.test.ts"
+   ],
+   "composedTests": [],
+   "storeReadTests": [
+    "apps/editor/__tests__/MaterialDispatch.test.ts"
+   ],
+   "composedAndRead": []
+  },
+  {
+   "verb": "cube.move",
+   "tests": [
+    "packages/command-bus/__tests__/move-cube.test.ts",
+    "packages/persistence-client/__tests__/attach-to-bus.test.ts",
+    "packages/scene-committer/__tests__/cube-committer-e2e.test.ts"
+   ],
+   "composedTests": [],
+   "storeReadTests": [
+    "packages/persistence-client/__tests__/attach-to-bus.test.ts",
+    "packages/scene-committer/__tests__/cube-committer-e2e.test.ts"
+   ],
+   "composedAndRead": []
+  },
+  {
+   "verb": "curtain-wall.addGridLine",
+   "tests": [
+    "plugins/curtain-wall/__tests__/handlers/GridLineIdentity.test.ts"
+   ],
+   "composedTests": [],
+   "storeReadTests": [
+    "plugins/curtain-wall/__tests__/handlers/GridLineIdentity.test.ts"
+   ],
+   "composedAndRead": []
+  },
+  {
+   "verb": "curtain-wall.addPanel",
+   "tests": [
+    "plugins/curtain-wall/__tests__/handlers/AddPanel.test.ts",
+    "plugins/curtain-wall/__tests__/handlers/RemovePanel.test.ts",
+    "plugins/curtain-wall/__tests__/handlers/RotatePanel.test.ts",
+    "plugins/curtain-wall/__tests__/handlers/SwapPanel.test.ts"
+   ],
+   "composedTests": [],
+   "storeReadTests": [
+    "plugins/curtain-wall/__tests__/handlers/AddPanel.test.ts",
+    "plugins/curtain-wall/__tests__/handlers/RemovePanel.test.ts",
+    "plugins/curtain-wall/__tests__/handlers/RotatePanel.test.ts",
+    "plugins/curtain-wall/__tests__/handlers/SwapPanel.test.ts"
+   ],
+   "composedAndRead": []
+  },
+  {
+   "verb": "curtain-wall.batch.create",
+   "tests": [
+    "packages/command-bus/__tests__/command-aliases.test.ts"
+   ],
+   "composedTests": [],
+   "storeReadTests": [
+    "packages/command-bus/__tests__/command-aliases.test.ts"
+   ],
+   "composedAndRead": []
+  },
+  {
+   "verb": "curtain-wall.batch.update",
+   "tests": [
+    "packages/command-bus/__tests__/command-aliases.test.ts"
+   ],
+   "composedTests": [],
+   "storeReadTests": [
+    "packages/command-bus/__tests__/command-aliases.test.ts"
+   ],
+   "composedAndRead": []
+  },
+  {
+   "verb": "curtain-wall.create",
+   "tests": [
+    "apps/editor/__tests__/CopiedElementKeepsPlaceAndProperties.test.ts",
+    "apps/editor/__tests__/hello-12-elements.test.ts",
+    "apps/editor/__tests__/liftReachesTheRenderMirror.test.ts",
+    "packages/command-bus/__tests__/command-aliases.test.ts",
+    "plugins/curtain-wall/__tests__/handlers/AddPanel.test.ts",
+    "plugins/curtain-wall/__tests__/handlers/GridLineIdentity.test.ts",
+    "plugins/curtain-wall/__tests__/handlers/RemovePanel.test.ts",
+    "plugins/curtain-wall/__tests__/handlers/RotatePanel.test.ts",
+    "plugins/curtain-wall/__tests__/handlers/SwapPanel.test.ts",
+    "plugins/curtain-wall/__tests__/handlers.test.ts"
+   ],
+   "composedTests": [
+    "apps/editor/__tests__/hello-12-elements.test.ts"
+   ],
+   "storeReadTests": [
+    "apps/editor/__tests__/CopiedElementKeepsPlaceAndProperties.test.ts",
+    "apps/editor/__tests__/hello-12-elements.test.ts",
+    "apps/editor/__tests__/liftReachesTheRenderMirror.test.ts",
+    "packages/command-bus/__tests__/command-aliases.test.ts",
+    "plugins/curtain-wall/__tests__/handlers/AddPanel.test.ts",
+    "plugins/curtain-wall/__tests__/handlers/GridLineIdentity.test.ts",
+    "plugins/curtain-wall/__tests__/handlers/RemovePanel.test.ts",
+    "plugins/curtain-wall/__tests__/handlers/RotatePanel.test.ts",
+    "plugins/curtain-wall/__tests__/handlers/SwapPanel.test.ts",
+    "plugins/curtain-wall/__tests__/handlers.test.ts"
+   ],
+   "composedAndRead": [
+    "apps/editor/__tests__/hello-12-elements.test.ts"
+   ]
+  },
+  {
+   "verb": "curtain-wall.move",
+   "tests": [
+    "apps/editor/src/engine/views/plantools/__tests__/planMoveParity.spec.ts",
+    "plugins/curtain-wall/__tests__/handlers.test.ts"
+   ],
+   "composedTests": [],
+   "storeReadTests": [
+    "plugins/curtain-wall/__tests__/handlers.test.ts"
+   ],
+   "composedAndRead": []
+  },
+  {
+   "verb": "curtain-wall.removeGridLine",
+   "tests": [
+    "plugins/curtain-wall/__tests__/handlers/GridLineIdentity.test.ts"
+   ],
+   "composedTests": [],
+   "storeReadTests": [
+    "plugins/curtain-wall/__tests__/handlers/GridLineIdentity.test.ts"
+   ],
+   "composedAndRead": []
+  },
+  {
+   "verb": "curtain-wall.removePanel",
+   "tests": [
+    "plugins/curtain-wall/__tests__/handlers/RemovePanel.test.ts"
+   ],
+   "composedTests": [],
+   "storeReadTests": [
+    "plugins/curtain-wall/__tests__/handlers/RemovePanel.test.ts"
+   ],
+   "composedAndRead": []
+  },
+  {
+   "verb": "curtain-wall.resize",
+   "tests": [
+    "plugins/curtain-wall/__tests__/handlers.test.ts"
+   ],
+   "composedTests": [],
+   "storeReadTests": [
+    "plugins/curtain-wall/__tests__/handlers.test.ts"
+   ],
+   "composedAndRead": []
+  },
+  {
+   "verb": "curtain-wall.rotatePanel",
+   "tests": [
+    "plugins/curtain-wall/__tests__/handlers/RotatePanel.test.ts"
+   ],
+   "composedTests": [],
+   "storeReadTests": [
+    "plugins/curtain-wall/__tests__/handlers/RotatePanel.test.ts"
+   ],
+   "composedAndRead": []
+  },
+  {
+   "verb": "curtain-wall.setGrid",
+   "tests": [
+    "plugins/curtain-wall/__tests__/handlers.test.ts"
+   ],
+   "composedTests": [],
+   "storeReadTests": [
+    "plugins/curtain-wall/__tests__/handlers.test.ts"
+   ],
+   "composedAndRead": []
+  },
+  {
+   "verb": "curtain-wall.setMaterial",
+   "tests": [
+    "apps/editor/__tests__/deadVerbAuthoritativeState.test.ts"
+   ],
+   "composedTests": [],
+   "storeReadTests": [
+    "apps/editor/__tests__/deadVerbAuthoritativeState.test.ts"
+   ],
+   "composedAndRead": []
+  },
+  {
+   "verb": "curtain-wall.setMullionType",
+   "tests": [
+    "plugins/curtain-wall/__tests__/handlers.test.ts"
+   ],
+   "composedTests": [],
+   "storeReadTests": [
+    "plugins/curtain-wall/__tests__/handlers.test.ts"
+   ],
+   "composedAndRead": []
+  },
+  {
+   "verb": "curtain-wall.setOutline",
+   "tests": [
+    "plugins/curtain-wall/__tests__/handlers.test.ts"
+   ],
+   "composedTests": [],
+   "storeReadTests": [
+    "plugins/curtain-wall/__tests__/handlers.test.ts"
+   ],
+   "composedAndRead": []
+  },
+  {
+   "verb": "curtain-wall.setPanelType",
+   "tests": [
+    "plugins/curtain-wall/__tests__/handlers.test.ts"
+   ],
+   "composedTests": [],
+   "storeReadTests": [
+    "plugins/curtain-wall/__tests__/handlers.test.ts"
+   ],
+   "composedAndRead": []
+  },
+  {
+   "verb": "curtain-wall.setTransomType",
+   "tests": [
+    "plugins/curtain-wall/__tests__/handlers.test.ts"
+   ],
+   "composedTests": [],
+   "storeReadTests": [
+    "plugins/curtain-wall/__tests__/handlers.test.ts"
+   ],
+   "composedAndRead": []
+  },
+  {
+   "verb": "curtain-wall.swapPanel",
+   "tests": [
+    "plugins/curtain-wall/__tests__/handlers/SwapPanel.test.ts"
+   ],
+   "composedTests": [],
+   "storeReadTests": [
+    "plugins/curtain-wall/__tests__/handlers/SwapPanel.test.ts"
+   ],
+   "composedAndRead": []
+  },
+  {
+   "verb": "dimension.create",
+   "tests": [
+    "plugins/dimensions/__tests__/handlers.test.ts"
+   ],
+   "composedTests": [],
+   "storeReadTests": [
+    "plugins/dimensions/__tests__/handlers.test.ts"
+   ],
+   "composedAndRead": []
+  },
+  {
+   "verb": "dimension.createMany",
+   "tests": [
+    "plugins/dimensions/__tests__/handlers.test.ts"
+   ],
+   "composedTests": [],
+   "storeReadTests": [
+    "plugins/dimensions/__tests__/handlers.test.ts"
+   ],
+   "composedAndRead": []
+  },
+  {
+   "verb": "dimension.delete",
+   "tests": [
+    "plugins/dimensions/__tests__/handlers.test.ts"
+   ],
+   "composedTests": [],
+   "storeReadTests": [
+    "plugins/dimensions/__tests__/handlers.test.ts"
+   ],
+   "composedAndRead": []
+  },
+  {
+   "verb": "dimension.move",
+   "tests": [
+    "apps/editor/__tests__/deadMoveVerbAuthoritativeState.test.ts",
+    "plugins/dimensions/__tests__/handlers.test.ts"
+   ],
+   "composedTests": [],
+   "storeReadTests": [
+    "plugins/dimensions/__tests__/handlers.test.ts"
+   ],
+   "composedAndRead": []
+  },
+  {
+   "verb": "dimension.setPrecision",
+   "tests": [
+    "plugins/dimensions/__tests__/handlers.test.ts"
+   ],
+   "composedTests": [],
+   "storeReadTests": [
+    "plugins/dimensions/__tests__/handlers.test.ts"
+   ],
+   "composedAndRead": []
+  },
+  {
+   "verb": "dimension.setText",
+   "tests": [
+    "plugins/dimensions/__tests__/handlers.test.ts"
+   ],
+   "composedTests": [],
+   "storeReadTests": [
+    "plugins/dimensions/__tests__/handlers.test.ts"
+   ],
+   "composedAndRead": []
+  },
+  {
+   "verb": "dimension.setUnit",
+   "tests": [
+    "plugins/dimensions/__tests__/handlers.test.ts"
+   ],
+   "composedTests": [],
+   "storeReadTests": [
+    "plugins/dimensions/__tests__/handlers.test.ts"
+   ],
+   "composedAndRead": []
+  },
+  {
+   "verb": "door.batch.create",
+   "tests": [
+    "apps/editor/__tests__/DoorBatchCreateLiveness.probe.test.ts"
+   ],
+   "composedTests": [],
+   "storeReadTests": [
+    "apps/editor/__tests__/DoorBatchCreateLiveness.probe.test.ts"
+   ],
+   "composedAndRead": []
+  },
+  {
+   "verb": "door.create",
+   "tests": [
+    "apps/editor/__tests__/hello-12-elements.test.ts",
+    "plugins/door/__tests__/handlers.test.ts"
+   ],
+   "composedTests": [
+    "apps/editor/__tests__/hello-12-elements.test.ts"
+   ],
+   "storeReadTests": [
+    "apps/editor/__tests__/hello-12-elements.test.ts",
+    "plugins/door/__tests__/handlers.test.ts"
+   ],
+   "composedAndRead": [
+    "apps/editor/__tests__/hello-12-elements.test.ts"
+   ]
+  },
+  {
+   "verb": "door.delete",
+   "tests": [
+    "plugins/door/__tests__/handlers.test.ts"
+   ],
+   "composedTests": [],
+   "storeReadTests": [
+    "plugins/door/__tests__/handlers.test.ts"
+   ],
+   "composedAndRead": []
+  },
+  {
+   "verb": "door.move",
+   "tests": [
+    "apps/editor/__tests__/deadMoveVerbAuthoritativeState.test.ts",
+    "plugins/door/__tests__/handlers.test.ts"
+   ],
+   "composedTests": [],
+   "storeReadTests": [
+    "plugins/door/__tests__/handlers.test.ts"
+   ],
+   "composedAndRead": []
+  },
+  {
+   "verb": "door.setHeight",
+   "tests": [
+    "plugins/door/__tests__/handlers.test.ts"
+   ],
+   "composedTests": [],
+   "storeReadTests": [
+    "plugins/door/__tests__/handlers.test.ts"
+   ],
+   "composedAndRead": []
+  },
+  {
+   "verb": "door.setOffset",
+   "tests": [
+    "apps/editor/src/engine/views/plantools/__tests__/planMoveParity.spec.ts",
+    "apps/editor/__tests__/deadMoveVerbAuthoritativeState.test.ts",
+    "apps/editor/__tests__/OpeningMoveConsequenceReachability.test.ts",
+    "apps/editor/__tests__/PlanHostedDragParity.test.ts"
+   ],
+   "composedTests": [],
+   "storeReadTests": [
+    "apps/editor/__tests__/OpeningMoveConsequenceReachability.test.ts"
+   ],
+   "composedAndRead": []
+  },
+  {
+   "verb": "door.setSwing",
+   "tests": [
+    "plugins/door/__tests__/handlers.test.ts"
+   ],
+   "composedTests": [],
+   "storeReadTests": [
+    "plugins/door/__tests__/handlers.test.ts"
+   ],
+   "composedAndRead": []
+  },
+  {
+   "verb": "door.setType",
+   "tests": [
+    "plugins/door/__tests__/handlers.test.ts"
+   ],
+   "composedTests": [],
+   "storeReadTests": [
+    "plugins/door/__tests__/handlers.test.ts"
+   ],
+   "composedAndRead": []
+  },
+  {
+   "verb": "door.setWidth",
+   "tests": [
+    "plugins/door/__tests__/handlers.test.ts"
+   ],
+   "composedTests": [],
+   "storeReadTests": [
+    "plugins/door/__tests__/handlers.test.ts"
+   ],
+   "composedAndRead": []
+  },
+  {
+   "verb": "door.updateSystemTypeBatch",
+   "tests": [
+    "apps/editor/src/ui/ai/__tests__/ZeroTokenNoLlm.spec.ts"
+   ],
+   "composedTests": [],
+   "storeReadTests": [],
+   "composedAndRead": []
+  },
+  {
+   "verb": "element.changeType",
+   "tests": [
+    "apps/editor/src/engine/__tests__/elementChangeTypeCoverage.spec.ts",
+    "apps/editor/__tests__/CurtainWallBulkTypeSwapPreservesLevelIsolation.test.ts",
+    "apps/editor/__tests__/CurtainWallPanelMaterialSurvivesGridChange.test.ts",
+    "apps/editor/__tests__/CurtainWallTypeApplyReachesPlanView.test.ts",
+    "apps/editor/__tests__/CurtainWallTypeSwapReachesGeometryStore.test.ts",
+    "apps/editor/__tests__/floorTypeSwap.test.ts",
+    "apps/editor/__tests__/slabTypeSwap.test.ts",
+    "apps/editor/__tests__/wallLayerEditRouting.test.ts",
+    "packages/ai-host/__tests__/lighting-chat-acceptance.test.ts"
+   ],
+   "composedTests": [],
+   "storeReadTests": [
+    "apps/editor/src/engine/__tests__/elementChangeTypeCoverage.spec.ts",
+    "apps/editor/__tests__/CurtainWallBulkTypeSwapPreservesLevelIsolation.test.ts",
+    "apps/editor/__tests__/CurtainWallPanelMaterialSurvivesGridChange.test.ts",
+    "apps/editor/__tests__/CurtainWallTypeApplyReachesPlanView.test.ts",
+    "apps/editor/__tests__/CurtainWallTypeSwapReachesGeometryStore.test.ts",
+    "apps/editor/__tests__/floorTypeSwap.test.ts",
+    "apps/editor/__tests__/slabTypeSwap.test.ts",
+    "apps/editor/__tests__/wallLayerEditRouting.test.ts",
+    "packages/ai-host/__tests__/lighting-chat-acceptance.test.ts"
+   ],
+   "composedAndRead": []
+  },
+  {
+   "verb": "element.delete",
+   "tests": [
+    "apps/editor/src/ui/ai/__tests__/ZeroTokenNoLlm.spec.ts"
+   ],
+   "composedTests": [],
+   "storeReadTests": [],
+   "composedAndRead": []
+  },
+  {
+   "verb": "element.deleteBatch",
+   "tests": [
+    "apps/editor/src/ui/ai/__tests__/ZeroTokenNoLlm.spec.ts"
+   ],
+   "composedTests": [],
+   "storeReadTests": [],
+   "composedAndRead": []
+  },
+  {
+   "verb": "element.updateDimensionsBatch",
+   "tests": [
+    "apps/editor/src/ui/ai/__tests__/ZeroTokenNoLlm.spec.ts"
+   ],
+   "composedTests": [],
+   "storeReadTests": [],
+   "composedAndRead": []
+  },
+  {
+   "verb": "element.updateParameters",
+   "tests": [
+    "apps/editor/src/ui/ai/__tests__/ZeroTokenNoLlm.spec.ts"
+   ],
+   "composedTests": [],
+   "storeReadTests": [],
+   "composedAndRead": []
+  },
+  {
+   "verb": "floor.create",
+   "tests": [
+    "apps/editor/src/engine/views/plantools/__tests__/planAutoModeReachability.spec.ts",
+    "apps/editor/__tests__/floorCreationParity.test.ts"
+   ],
+   "composedTests": [],
+   "storeReadTests": [
+    "apps/editor/src/engine/views/plantools/__tests__/planAutoModeReachability.spec.ts",
+    "apps/editor/__tests__/floorCreationParity.test.ts"
+   ],
+   "composedAndRead": []
+  },
+  {
+   "verb": "floor.setMaterial",
+   "tests": [
+    "apps/editor/__tests__/deadVerbAuthoritativeState.test.ts"
+   ],
+   "composedTests": [],
+   "storeReadTests": [
+    "apps/editor/__tests__/deadVerbAuthoritativeState.test.ts"
+   ],
+   "composedAndRead": []
+  },
+  {
+   "verb": "floor.update",
+   "tests": [
+    "apps/editor/src/engine/views/plantools/__tests__/planMoveParity.spec.ts",
+    "apps/editor/__tests__/MaterialDispatch.test.ts",
+    "apps/editor/__tests__/transformDragUndoCapture.matrix.test.ts"
+   ],
+   "composedTests": [],
+   "storeReadTests": [
+    "apps/editor/__tests__/MaterialDispatch.test.ts"
+   ],
+   "composedAndRead": []
+  },
+  {
+   "verb": "floor.updateLayers",
+   "tests": [
+    "apps/editor/__tests__/floorTypeSwap.test.ts"
+   ],
+   "composedTests": [],
+   "storeReadTests": [
+    "apps/editor/__tests__/floorTypeSwap.test.ts"
+   ],
+   "composedAndRead": []
+  },
+  {
+   "verb": "furniture.batch.create",
+   "tests": [
+    "plugins/furniture/__tests__/createFurnitureBatch.test.ts",
+    "plugins/furniture/__tests__/furnishBatchPerf.bench.test.ts"
+   ],
+   "composedTests": [],
+   "storeReadTests": [
+    "plugins/furniture/__tests__/createFurnitureBatch.test.ts"
+   ],
+   "composedAndRead": []
+  },
+  {
+   "verb": "furniture.create",
+   "tests": [
+    "apps/editor/__tests__/CopiedElementKeepsPlaceAndProperties.test.ts",
+    "plugins/furniture/__tests__/furnishBatchPerf.bench.test.ts",
+    "plugins/furniture/__tests__/handlers.test.ts",
+    "plugins/furniture/__tests__/wardrobeHeightRefusesAtBusGate.test.ts"
+   ],
+   "composedTests": [],
+   "storeReadTests": [
+    "apps/editor/__tests__/CopiedElementKeepsPlaceAndProperties.test.ts",
+    "plugins/furniture/__tests__/handlers.test.ts",
+    "plugins/furniture/__tests__/wardrobeHeightRefusesAtBusGate.test.ts"
+   ],
+   "composedAndRead": []
+  },
+  {
+   "verb": "furniture.delete",
+   "tests": [
+    "plugins/furniture/__tests__/handlers.test.ts"
+   ],
+   "composedTests": [],
+   "storeReadTests": [
+    "plugins/furniture/__tests__/handlers.test.ts"
+   ],
+   "composedAndRead": []
+  },
+  {
+   "verb": "furniture.move",
+   "tests": [
+    "apps/editor/__tests__/deadMoveVerbAuthoritativeState.test.ts",
+    "apps/editor/__tests__/transformDragUndoCapture.matrix.test.ts",
+    "plugins/furniture/__tests__/handlers.test.ts"
+   ],
+   "composedTests": [],
+   "storeReadTests": [
+    "plugins/furniture/__tests__/handlers.test.ts"
+   ],
+   "composedAndRead": []
+  },
+  {
+   "verb": "furniture.rotate",
+   "tests": [
+    "apps/editor/__tests__/deadMoveVerbAuthoritativeState.test.ts",
+    "apps/editor/__tests__/transformDragUndoCapture.matrix.test.ts",
+    "plugins/furniture/__tests__/handlers.test.ts"
+   ],
+   "composedTests": [],
+   "storeReadTests": [
+    "plugins/furniture/__tests__/handlers.test.ts"
+   ],
+   "composedAndRead": []
+  },
+  {
+   "verb": "furniture.setActiveLod",
+   "tests": [
+    "plugins/furniture/__tests__/handlers.test.ts"
+   ],
+   "composedTests": [],
+   "storeReadTests": [
+    "plugins/furniture/__tests__/handlers.test.ts"
+   ],
+   "composedAndRead": []
+  },
+  {
+   "verb": "furniture.setMaterial",
+   "tests": [
+    "apps/editor/__tests__/deadVerbAuthoritativeState.test.ts",
+    "plugins/furniture/__tests__/handlers.test.ts"
+   ],
+   "composedTests": [],
+   "storeReadTests": [
+    "apps/editor/__tests__/deadVerbAuthoritativeState.test.ts",
+    "plugins/furniture/__tests__/handlers.test.ts"
+   ],
+   "composedAndRead": []
+  },
+  {
+   "verb": "furniture.setRepresentation",
+   "tests": [
+    "plugins/furniture/__tests__/handlers.test.ts"
+   ],
+   "composedTests": [],
+   "storeReadTests": [
+    "plugins/furniture/__tests__/handlers.test.ts"
+   ],
+   "composedAndRead": []
+  },
+  {
+   "verb": "furniture.setScale",
+   "tests": [
+    "plugins/furniture/__tests__/handlers.test.ts"
+   ],
+   "composedTests": [],
+   "storeReadTests": [
+    "plugins/furniture/__tests__/handlers.test.ts"
+   ],
+   "composedAndRead": []
+  },
+  {
+   "verb": "furniture.updateParameters",
+   "tests": [
+    "apps/editor/src/engine/views/plantools/__tests__/planMoveParity.spec.ts",
+    "apps/editor/__tests__/deadMoveVerbAuthoritativeState.test.ts",
+    "apps/editor/__tests__/MaterialDispatch.test.ts",
+    "plugins/furniture/__tests__/updateParameters-undo-capture.test.ts",
+    "plugins/furniture/__tests__/wardrobeHeightRefusesAtBusGate.test.ts"
+   ],
+   "composedTests": [],
+   "storeReadTests": [
+    "apps/editor/__tests__/MaterialDispatch.test.ts",
+    "plugins/furniture/__tests__/wardrobeHeightRefusesAtBusGate.test.ts"
+   ],
+   "composedAndRead": []
+  },
+  {
+   "verb": "generation.apartment",
+   "tests": [
+    "apps/editor/src/ui/ai/__tests__/ZeroTokenNoLlm.spec.ts"
+   ],
+   "composedTests": [],
+   "storeReadTests": [],
+   "composedAndRead": []
+  },
+  {
+   "verb": "generation.building",
+   "tests": [
+    "apps/editor/src/ui/ai/__tests__/ZeroTokenNoLlm.spec.ts"
+   ],
+   "composedTests": [],
+   "storeReadTests": [],
+   "composedAndRead": []
+  },
+  {
+   "verb": "generation.finish-chain",
+   "tests": [
+    "apps/editor/src/ui/ai/__tests__/ZeroTokenNoLlm.spec.ts"
+   ],
+   "composedTests": [],
+   "storeReadTests": [],
+   "composedAndRead": []
+  },
+  {
+   "verb": "generation.rooms",
+   "tests": [
+    "apps/editor/src/ui/ai/__tests__/FloorFinishRefusalHonesty.spec.ts",
+    "apps/editor/src/ui/ai/__tests__/ZeroTokenNoLlm.spec.ts"
+   ],
+   "composedTests": [],
+   "storeReadTests": [],
+   "composedAndRead": []
+  },
+  {
+   "verb": "graph.neighbors",
+   "tests": [
+    "apps/editor/src/engine/__tests__/graphQueryBusHandlers.spec.ts"
+   ],
+   "composedTests": [],
+   "storeReadTests": [],
+   "composedAndRead": []
+  },
+  {
+   "verb": "graph.path",
+   "tests": [
+    "apps/editor/src/engine/__tests__/graphQueryBusHandlers.spec.ts"
+   ],
+   "composedTests": [],
+   "storeReadTests": [],
+   "composedAndRead": []
+  },
+  {
+   "verb": "graph.query",
+   "tests": [
+    "apps/editor/src/engine/__tests__/graphQueryBusHandlers.spec.ts"
+   ],
+   "composedTests": [],
+   "storeReadTests": [],
+   "composedAndRead": []
+  },
+  {
+   "verb": "grid.create",
+   "tests": [
+    "apps/editor/__tests__/hello-12-elements.test.ts",
+    "plugins/grid/__tests__/handlers.test.ts"
+   ],
+   "composedTests": [
+    "apps/editor/__tests__/hello-12-elements.test.ts"
+   ],
+   "storeReadTests": [
+    "apps/editor/__tests__/hello-12-elements.test.ts",
+    "plugins/grid/__tests__/handlers.test.ts"
+   ],
+   "composedAndRead": [
+    "apps/editor/__tests__/hello-12-elements.test.ts"
+   ]
+  },
+  {
+   "verb": "grid.setExtent",
+   "tests": [
+    "plugins/grid/__tests__/handlers.test.ts"
+   ],
+   "composedTests": [],
+   "storeReadTests": [
+    "plugins/grid/__tests__/handlers.test.ts"
+   ],
+   "composedAndRead": []
+  },
+  {
+   "verb": "grid.setSpacing",
+   "tests": [
+    "plugins/grid/__tests__/handlers.test.ts"
+   ],
+   "composedTests": [],
+   "storeReadTests": [
+    "plugins/grid/__tests__/handlers.test.ts"
+   ],
+   "composedAndRead": []
+  },
+  {
+   "verb": "handrail.create",
+   "tests": [
+    "apps/editor/__tests__/hello-12-elements.test.ts",
+    "plugins/handrail/__tests__/handlers.test.ts"
+   ],
+   "composedTests": [
+    "apps/editor/__tests__/hello-12-elements.test.ts"
+   ],
+   "storeReadTests": [
+    "apps/editor/__tests__/hello-12-elements.test.ts",
+    "plugins/handrail/__tests__/handlers.test.ts"
+   ],
+   "composedAndRead": [
+    "apps/editor/__tests__/hello-12-elements.test.ts"
+   ]
+  },
+  {
+   "verb": "handrail.moveBaseLine",
+   "tests": [
+    "apps/editor/src/engine/views/plantools/__tests__/planMoveParity.spec.ts"
+   ],
+   "composedTests": [],
+   "storeReadTests": [],
+   "composedAndRead": []
+  },
+  {
+   "verb": "handrail.recompute",
+   "tests": [
+    "plugins/handrail/__tests__/handlers.test.ts"
+   ],
+   "composedTests": [],
+   "storeReadTests": [
+    "plugins/handrail/__tests__/handlers.test.ts"
+   ],
+   "composedAndRead": []
+  },
+  {
+   "verb": "handrail.setHost",
+   "tests": [
+    "plugins/handrail/__tests__/handlers.test.ts"
+   ],
+   "composedTests": [],
+   "storeReadTests": [
+    "plugins/handrail/__tests__/handlers.test.ts"
+   ],
+   "composedAndRead": []
+  },
+  {
+   "verb": "handrail.setMaterial",
+   "tests": [
+    "apps/editor/__tests__/deadVerbAuthoritativeState.test.ts"
+   ],
+   "composedTests": [],
+   "storeReadTests": [
+    "apps/editor/__tests__/deadVerbAuthoritativeState.test.ts"
+   ],
+   "composedAndRead": []
+  },
+  {
+   "verb": "handrail.setPath",
+   "tests": [
+    "plugins/handrail/__tests__/handlers.test.ts"
+   ],
+   "composedTests": [],
+   "storeReadTests": [
+    "plugins/handrail/__tests__/handlers.test.ts"
+   ],
+   "composedAndRead": []
+  },
+  {
+   "verb": "handrail.setShape",
+   "tests": [
+    "plugins/handrail/__tests__/handlers.test.ts"
+   ],
+   "composedTests": [],
+   "storeReadTests": [
+    "plugins/handrail/__tests__/handlers.test.ts"
+   ],
+   "composedAndRead": []
+  },
+  {
+   "verb": "handrail.updateColor",
+   "tests": [
+    "apps/editor/__tests__/MaterialDispatch.test.ts"
+   ],
+   "composedTests": [],
+   "storeReadTests": [
+    "apps/editor/__tests__/MaterialDispatch.test.ts"
+   ],
+   "composedAndRead": []
+  },
+  {
+   "verb": "level.add",
+   "tests": [
+    "apps/editor/__tests__/PlanViewLevelAddReachesBimManager.test.ts"
+   ],
+   "composedTests": [],
+   "storeReadTests": [],
+   "composedAndRead": []
+  },
+  {
+   "verb": "lift.create",
+   "tests": [
+    "apps/editor/__tests__/liftReachableThroughComposedRuntime.test.ts",
+    "apps/editor/__tests__/liftReachesTheRenderMirror.test.ts",
+    "apps/editor/__tests__/liftUndoRoundTrip.test.ts"
+   ],
+   "composedTests": [],
+   "storeReadTests": [
+    "apps/editor/__tests__/liftReachableThroughComposedRuntime.test.ts",
+    "apps/editor/__tests__/liftReachesTheRenderMirror.test.ts",
+    "apps/editor/__tests__/liftUndoRoundTrip.test.ts"
+   ],
+   "composedAndRead": []
+  },
+  {
+   "verb": "lift.delete",
+   "tests": [
+    "apps/editor/__tests__/liftReachableThroughComposedRuntime.test.ts"
+   ],
+   "composedTests": [],
+   "storeReadTests": [
+    "apps/editor/__tests__/liftReachableThroughComposedRuntime.test.ts"
+   ],
+   "composedAndRead": []
+  },
+  {
+   "verb": "lighting.create",
+   "tests": [
+    "apps/editor/__tests__/LightingLayoutExecutor.test.ts",
+    "plugins/lighting/__tests__/handlers.test.ts"
+   ],
+   "composedTests": [],
+   "storeReadTests": [
+    "apps/editor/__tests__/LightingLayoutExecutor.test.ts",
+    "plugins/lighting/__tests__/handlers.test.ts"
+   ],
+   "composedAndRead": []
+  },
+  {
+   "verb": "lighting.delete",
+   "tests": [
+    "plugins/lighting/__tests__/handlers.test.ts"
+   ],
+   "composedTests": [],
+   "storeReadTests": [
+    "plugins/lighting/__tests__/handlers.test.ts"
+   ],
+   "composedAndRead": []
+  },
+  {
+   "verb": "lighting.move",
+   "tests": [
+    "apps/editor/__tests__/deadMoveVerbAuthoritativeState.test.ts",
+    "plugins/lighting/__tests__/handlers.test.ts"
+   ],
+   "composedTests": [],
+   "storeReadTests": [
+    "plugins/lighting/__tests__/handlers.test.ts"
+   ],
+   "composedAndRead": []
+  },
+  {
+   "verb": "lighting.moveFixture",
+   "tests": [
+    "apps/editor/src/engine/views/plantools/__tests__/planMoveParity.spec.ts"
+   ],
+   "composedTests": [],
+   "storeReadTests": [],
+   "composedAndRead": []
+  },
+  {
+   "verb": "lighting.setEmergency",
+   "tests": [
+    "plugins/lighting/__tests__/handlers.test.ts"
+   ],
+   "composedTests": [],
+   "storeReadTests": [
+    "plugins/lighting/__tests__/handlers.test.ts"
+   ],
+   "composedAndRead": []
+  },
+  {
+   "verb": "lighting.setIntensity",
+   "tests": [
+    "plugins/lighting/__tests__/handlers.test.ts"
+   ],
+   "composedTests": [],
+   "storeReadTests": [
+    "plugins/lighting/__tests__/handlers.test.ts"
+   ],
+   "composedAndRead": []
+  },
+  {
+   "verb": "lighting.setMaterial",
+   "tests": [
+    "apps/editor/__tests__/deadVerbAuthoritativeState.test.ts"
+   ],
+   "composedTests": [],
+   "storeReadTests": [
+    "apps/editor/__tests__/deadVerbAuthoritativeState.test.ts"
+   ],
+   "composedAndRead": []
+  },
+  {
+   "verb": "plumbing.create",
+   "tests": [
+    "plugins/plumbing/__tests__/handlers.test.ts"
+   ],
+   "composedTests": [],
+   "storeReadTests": [
+    "plugins/plumbing/__tests__/handlers.test.ts"
+   ],
+   "composedAndRead": []
+  },
+  {
+   "verb": "plumbing.delete",
+   "tests": [
+    "plugins/plumbing/__tests__/handlers.test.ts"
+   ],
+   "composedTests": [],
+   "storeReadTests": [
+    "plugins/plumbing/__tests__/handlers.test.ts"
+   ],
+   "composedAndRead": []
+  },
+  {
+   "verb": "plumbing.move",
+   "tests": [
+    "apps/editor/src/engine/views/plantools/__tests__/planMoveParity.spec.ts",
+    "apps/editor/__tests__/deadMoveVerbAuthoritativeState.test.ts",
+    "apps/editor/__tests__/MaterialDispatch.test.ts",
+    "apps/editor/__tests__/transformDragUndoCapture.matrix.test.ts",
+    "plugins/plumbing/__tests__/handlers.test.ts"
+   ],
+   "composedTests": [],
+   "storeReadTests": [
+    "apps/editor/__tests__/MaterialDispatch.test.ts",
+    "plugins/plumbing/__tests__/handlers.test.ts"
+   ],
+   "composedAndRead": []
+  },
+  {
+   "verb": "plumbing.moveFixture",
+   "tests": [
+    "apps/editor/src/engine/views/plantools/__tests__/planMoveParity.spec.ts",
+    "apps/editor/__tests__/deadMoveVerbAuthoritativeState.test.ts",
+    "apps/editor/__tests__/transformDragUndoCapture.matrix.test.ts"
+   ],
+   "composedTests": [],
+   "storeReadTests": [],
+   "composedAndRead": []
+  },
+  {
+   "verb": "plumbing.setMaterial",
+   "tests": [
+    "apps/editor/__tests__/deadVerbAuthoritativeState.test.ts"
+   ],
+   "composedTests": [],
+   "storeReadTests": [
+    "apps/editor/__tests__/deadVerbAuthoritativeState.test.ts"
+   ],
+   "composedAndRead": []
+  },
+  {
+   "verb": "plumbing.setSystem",
+   "tests": [
+    "plugins/plumbing/__tests__/handlers.test.ts"
+   ],
+   "composedTests": [],
+   "storeReadTests": [
+    "plugins/plumbing/__tests__/handlers.test.ts"
+   ],
+   "composedAndRead": []
+  },
+  {
+   "verb": "pool.create",
+   "tests": [
+    "apps/editor/src/engine/views/plantools/__tests__/poolHostFromGeometry.spec.ts",
+    "apps/editor/__tests__/liftReachesTheRenderMirror.test.ts",
+    "apps/editor/__tests__/PoolAndSlabUpdateReachTheRenderStore.test.ts",
+    "apps/editor/__tests__/poolReachableThroughComposedRuntime.test.ts",
+    "plugins/pool/__tests__/poolOneUndoEntry.test.ts"
+   ],
+   "composedTests": [],
+   "storeReadTests": [
+    "apps/editor/src/engine/views/plantools/__tests__/poolHostFromGeometry.spec.ts",
+    "apps/editor/__tests__/liftReachesTheRenderMirror.test.ts",
+    "apps/editor/__tests__/PoolAndSlabUpdateReachTheRenderStore.test.ts",
+    "apps/editor/__tests__/poolReachableThroughComposedRuntime.test.ts"
+   ],
+   "composedAndRead": []
+  },
+  {
+   "verb": "pool.delete",
+   "tests": [
+    "apps/editor/__tests__/poolReachableThroughComposedRuntime.test.ts",
+    "plugins/pool/__tests__/poolOneUndoEntry.test.ts"
+   ],
+   "composedTests": [],
+   "storeReadTests": [
+    "apps/editor/__tests__/poolReachableThroughComposedRuntime.test.ts"
+   ],
+   "composedAndRead": []
+  },
+  {
+   "verb": "roof.changeLevel",
+   "tests": [
+    "apps/editor/__tests__/ElementLevelChangeReachesLegacyStore.test.ts",
+    "plugins/roof/__tests__/handlers.test.ts"
+   ],
+   "composedTests": [],
+   "storeReadTests": [
+    "apps/editor/__tests__/ElementLevelChangeReachesLegacyStore.test.ts",
+    "plugins/roof/__tests__/handlers.test.ts"
+   ],
+   "composedAndRead": []
+  },
+  {
+   "verb": "roof.create",
+   "tests": [
+    "apps/editor/__tests__/CommittedPatchReachesTheStore.test.ts",
+    "apps/editor/__tests__/D3ForwardPatchThroughAdapter.probe.test.ts",
+    "apps/editor/__tests__/ElementLevelChangeReachesLegacyStore.test.ts",
+    "apps/editor/__tests__/hello-12-elements.test.ts",
+    "apps/editor/__tests__/OpeningMoveConsequenceReachability.test.ts",
+    "apps/editor/__tests__/RoofFollowsWallReachesStore.test.ts",
+    "apps/editor/__tests__/RoofPlanSeatingParity.test.ts",
+    "apps/editor/__tests__/RoofUpdateReachesGeometryStore.test.ts",
+    "apps/editor/__tests__/WallCreateConsequenceReachability.test.ts",
+    "plugins/roof/__tests__/handlers.test.ts"
+   ],
+   "composedTests": [
+    "apps/editor/__tests__/hello-12-elements.test.ts"
+   ],
+   "storeReadTests": [
+    "apps/editor/__tests__/CommittedPatchReachesTheStore.test.ts",
+    "apps/editor/__tests__/D3ForwardPatchThroughAdapter.probe.test.ts",
+    "apps/editor/__tests__/ElementLevelChangeReachesLegacyStore.test.ts",
+    "apps/editor/__tests__/hello-12-elements.test.ts",
+    "apps/editor/__tests__/OpeningMoveConsequenceReachability.test.ts",
+    "apps/editor/__tests__/RoofFollowsWallReachesStore.test.ts",
+    "apps/editor/__tests__/RoofUpdateReachesGeometryStore.test.ts",
+    "apps/editor/__tests__/WallCreateConsequenceReachability.test.ts",
+    "plugins/roof/__tests__/handlers.test.ts"
+   ],
+   "composedAndRead": [
+    "apps/editor/__tests__/hello-12-elements.test.ts"
+   ]
+  },
+  {
+   "verb": "roof.delete",
+   "tests": [
+    "plugins/roof/__tests__/handlers.test.ts"
+   ],
+   "composedTests": [],
+   "storeReadTests": [
+    "plugins/roof/__tests__/handlers.test.ts"
+   ],
+   "composedAndRead": []
+  },
+  {
+   "verb": "roof.move",
+   "tests": [
+    "apps/editor/__tests__/deadMoveVerbAuthoritativeState.test.ts",
+    "plugins/roof/__tests__/handlers.test.ts"
+   ],
+   "composedTests": [],
+   "storeReadTests": [
+    "plugins/roof/__tests__/handlers.test.ts"
+   ],
+   "composedAndRead": []
+  },
+  {
+   "verb": "roof.setMaterial",
+   "tests": [
+    "apps/editor/__tests__/deadVerbAuthoritativeState.test.ts"
+   ],
+   "composedTests": [],
+   "storeReadTests": [
+    "apps/editor/__tests__/deadVerbAuthoritativeState.test.ts"
+   ],
+   "composedAndRead": []
+  },
+  {
+   "verb": "roof.setOverhang",
+   "tests": [
+    "plugins/roof/__tests__/handlers.test.ts"
+   ],
+   "composedTests": [],
+   "storeReadTests": [
+    "plugins/roof/__tests__/handlers.test.ts"
+   ],
+   "composedAndRead": []
+  },
+  {
+   "verb": "roof.setPitch",
+   "tests": [
+    "apps/editor/__tests__/D3ForwardPatchThroughAdapter.probe.test.ts",
+    "plugins/roof/__tests__/handlers.test.ts"
+   ],
+   "composedTests": [],
+   "storeReadTests": [
+    "apps/editor/__tests__/D3ForwardPatchThroughAdapter.probe.test.ts",
+    "plugins/roof/__tests__/handlers.test.ts"
+   ],
+   "composedAndRead": []
+  },
+  {
+   "verb": "roof.setShape",
+   "tests": [
+    "plugins/roof/__tests__/handlers.test.ts"
+   ],
+   "composedTests": [],
+   "storeReadTests": [
+    "plugins/roof/__tests__/handlers.test.ts"
+   ],
+   "composedAndRead": []
+  },
+  {
+   "verb": "roof.setThickness",
+   "tests": [
+    "plugins/roof/__tests__/handlers.test.ts"
+   ],
+   "composedTests": [],
+   "storeReadTests": [
+    "plugins/roof/__tests__/handlers.test.ts"
+   ],
+   "composedAndRead": []
+  },
+  {
+   "verb": "roof.update",
+   "tests": [
+    "apps/editor/src/engine/views/plantools/__tests__/planMoveParity.spec.ts",
+    "apps/editor/__tests__/bridgeRefusalReachesTheCaller.test.ts",
+    "apps/editor/__tests__/deadMoveVerbAuthoritativeState.test.ts",
+    "apps/editor/__tests__/MaterialDispatch.test.ts",
+    "apps/editor/__tests__/RoofUpdateReachesGeometryStore.test.ts"
+   ],
+   "composedTests": [],
+   "storeReadTests": [
+    "apps/editor/__tests__/MaterialDispatch.test.ts",
+    "apps/editor/__tests__/RoofUpdateReachesGeometryStore.test.ts"
+   ],
+   "composedAndRead": []
+  },
+  {
+   "verb": "room.create",
+   "tests": [
+    "apps/editor/__tests__/composedBusElementReadback.test.ts",
+    "plugins/rooms/__tests__/handlers.test.ts"
+   ],
+   "composedTests": [
+    "apps/editor/__tests__/composedBusElementReadback.test.ts"
+   ],
+   "storeReadTests": [
+    "apps/editor/__tests__/composedBusElementReadback.test.ts"
+   ],
+   "composedAndRead": [
+    "apps/editor/__tests__/composedBusElementReadback.test.ts"
+   ]
+  },
+  {
+   "verb": "room.delete",
+   "tests": [
+    "plugins/rooms/__tests__/handlers.test.ts"
+   ],
+   "composedTests": [],
+   "storeReadTests": [],
+   "composedAndRead": []
+  },
+  {
+   "verb": "room.move",
+   "tests": [
+    "apps/editor/__tests__/deadMoveVerbAuthoritativeState.test.ts",
+    "plugins/rooms/__tests__/handlers.test.ts"
+   ],
+   "composedTests": [],
+   "storeReadTests": [],
+   "composedAndRead": []
+  },
+  {
+   "verb": "room.recomputeBoundary",
+   "tests": [
+    "plugins/rooms/__tests__/handlers.test.ts",
+    "plugins/rooms/__tests__/recomputeRoomBoundary.test.ts"
+   ],
+   "composedTests": [],
+   "storeReadTests": [],
+   "composedAndRead": []
+  },
+  {
+   "verb": "room.redetect",
+   "tests": [
+    "packages/room-topology/src/__tests__/loadRedetectThrash.test.ts"
+   ],
+   "composedTests": [],
+   "storeReadTests": [],
+   "composedAndRead": []
+  },
+  {
+   "verb": "room.regenerate",
+   "tests": [
+    "plugins/rooms/__tests__/roomRegenerate.test.ts"
+   ],
+   "composedTests": [],
+   "storeReadTests": [],
+   "composedAndRead": []
+  },
+  {
+   "verb": "room.setDepartment",
+   "tests": [
+    "plugins/rooms/__tests__/handlers.test.ts"
+   ],
+   "composedTests": [],
+   "storeReadTests": [],
+   "composedAndRead": []
+  },
+  {
+   "verb": "room.setFinish",
+   "tests": [
+    "plugins/rooms/__tests__/set-room-finish.test.ts"
+   ],
+   "composedTests": [],
+   "storeReadTests": [
+    "plugins/rooms/__tests__/set-room-finish.test.ts"
+   ],
+   "composedAndRead": []
+  },
+  {
+   "verb": "room.setHeightOffset",
+   "tests": [
+    "plugins/rooms/__tests__/handlers.test.ts"
+   ],
+   "composedTests": [],
+   "storeReadTests": [],
+   "composedAndRead": []
+  },
+  {
+   "verb": "room.setMaterial",
+   "tests": [
+    "apps/editor/__tests__/deadVerbAuthoritativeState.test.ts",
+    "apps/editor/__tests__/MaterialDispatch.test.ts",
+    "plugins/rooms/__tests__/handlers.test.ts"
+   ],
+   "composedTests": [],
+   "storeReadTests": [
+    "apps/editor/__tests__/deadVerbAuthoritativeState.test.ts",
+    "apps/editor/__tests__/MaterialDispatch.test.ts"
+   ],
+   "composedAndRead": []
+  },
+  {
+   "verb": "room.setName",
+   "tests": [
+    "plugins/rooms/__tests__/handlers.test.ts"
+   ],
+   "composedTests": [],
+   "storeReadTests": [],
+   "composedAndRead": []
+  },
+  {
+   "verb": "room.setNumber",
+   "tests": [
+    "plugins/rooms/__tests__/handlers.test.ts"
+   ],
+   "composedTests": [],
+   "storeReadTests": [],
+   "composedAndRead": []
+  },
+  {
+   "verb": "room.setOccupancy",
+   "tests": [
+    "plugins/rooms/__tests__/handlers.test.ts"
+   ],
+   "composedTests": [],
+   "storeReadTests": [],
+   "composedAndRead": []
+  },
+  {
+   "verb": "room.updateBoundary",
+   "tests": [
+    "apps/editor/src/engine/views/plantools/__tests__/planMoveParity.spec.ts"
+   ],
+   "composedTests": [],
+   "storeReadTests": [],
+   "composedAndRead": []
+  },
+  {
+   "verb": "schedule.update",
+   "tests": [
+    "apps/editor/__tests__/scheduleViewEdit.test.ts"
+   ],
+   "composedTests": [],
+   "storeReadTests": [],
+   "composedAndRead": []
+  },
+  {
+   "verb": "section.create",
+   "tests": [
+    "apps/editor/__tests__/sectionViewReachableThroughComposedRuntime.test.ts",
+    "plugins/annotations/__tests__/section-elevation-mark.test.ts"
+   ],
+   "composedTests": [],
+   "storeReadTests": [
+    "apps/editor/__tests__/sectionViewReachableThroughComposedRuntime.test.ts",
+    "plugins/annotations/__tests__/section-elevation-mark.test.ts"
+   ],
+   "composedAndRead": []
+  },
+  {
+   "verb": "section.delete",
+   "tests": [
+    "apps/editor/__tests__/sectionViewReachableThroughComposedRuntime.test.ts"
+   ],
+   "composedTests": [],
+   "storeReadTests": [
+    "apps/editor/__tests__/sectionViewReachableThroughComposedRuntime.test.ts"
+   ],
+   "composedAndRead": []
+  },
+  {
+   "verb": "section.mark.create",
+   "tests": [
+    "plugins/annotations/__tests__/section-elevation-mark.test.ts"
+   ],
+   "composedTests": [],
+   "storeReadTests": [
+    "plugins/annotations/__tests__/section-elevation-mark.test.ts"
+   ],
+   "composedAndRead": []
+  },
+  {
+   "verb": "section.moveLine",
+   "tests": [
+    "apps/editor/__tests__/deadMoveVerbAuthoritativeState.test.ts",
+    "apps/editor/__tests__/sectionViewReachableThroughComposedRuntime.test.ts"
+   ],
+   "composedTests": [],
+   "storeReadTests": [
+    "apps/editor/__tests__/sectionViewReachableThroughComposedRuntime.test.ts"
+   ],
+   "composedAndRead": []
+  },
+  {
+   "verb": "section.setDepth",
+   "tests": [
+    "apps/editor/__tests__/sectionViewReachableThroughComposedRuntime.test.ts"
+   ],
+   "composedTests": [],
+   "storeReadTests": [
+    "apps/editor/__tests__/sectionViewReachableThroughComposedRuntime.test.ts"
+   ],
+   "composedAndRead": []
+  },
+  {
+   "verb": "section.setMark",
+   "tests": [
+    "apps/editor/__tests__/sectionViewReachableThroughComposedRuntime.test.ts"
+   ],
+   "composedTests": [],
+   "storeReadTests": [
+    "apps/editor/__tests__/sectionViewReachableThroughComposedRuntime.test.ts"
+   ],
+   "composedAndRead": []
+  },
+  {
+   "verb": "section.setScale",
+   "tests": [
+    "apps/editor/__tests__/sectionViewReachableThroughComposedRuntime.test.ts"
+   ],
+   "composedTests": [],
+   "storeReadTests": [
+    "apps/editor/__tests__/sectionViewReachableThroughComposedRuntime.test.ts"
+   ],
+   "composedAndRead": []
+  },
+  {
+   "verb": "selection.clear",
+   "tests": [
+    "apps/editor/__tests__/selectionVerbsReachTheComposedSelectionStore.test.ts",
+    "plugins/selection/__tests__/handlers/ClearSelection.test.ts"
+   ],
+   "composedTests": [
+    "apps/editor/__tests__/selectionVerbsReachTheComposedSelectionStore.test.ts"
+   ],
+   "storeReadTests": [
+    "apps/editor/__tests__/selectionVerbsReachTheComposedSelectionStore.test.ts"
+   ],
+   "composedAndRead": [
+    "apps/editor/__tests__/selectionVerbsReachTheComposedSelectionStore.test.ts"
+   ]
+  },
+  {
+   "verb": "selection.deselect",
+   "tests": [
+    "apps/editor/__tests__/selectionVerbsReachTheComposedSelectionStore.test.ts",
+    "plugins/selection/__tests__/handlers/Deselect.test.ts"
+   ],
+   "composedTests": [
+    "apps/editor/__tests__/selectionVerbsReachTheComposedSelectionStore.test.ts"
+   ],
+   "storeReadTests": [
+    "apps/editor/__tests__/selectionVerbsReachTheComposedSelectionStore.test.ts"
+   ],
+   "composedAndRead": [
+    "apps/editor/__tests__/selectionVerbsReachTheComposedSelectionStore.test.ts"
+   ]
+  },
+  {
+   "verb": "selection.select",
+   "tests": [
+    "apps/editor/__tests__/selectionVerbsReachTheComposedSelectionStore.test.ts",
+    "plugins/selection/__tests__/handlers/Select.test.ts"
+   ],
+   "composedTests": [
+    "apps/editor/__tests__/selectionVerbsReachTheComposedSelectionStore.test.ts"
+   ],
+   "storeReadTests": [
+    "apps/editor/__tests__/selectionVerbsReachTheComposedSelectionStore.test.ts"
+   ],
+   "composedAndRead": [
+    "apps/editor/__tests__/selectionVerbsReachTheComposedSelectionStore.test.ts"
+   ]
+  },
+  {
+   "verb": "sheet.addViewport",
+   "tests": [
+    "apps/editor/__tests__/SheetAddViewportReachesSheetStore.test.ts"
+   ],
+   "composedTests": [],
+   "storeReadTests": [
+    "apps/editor/__tests__/SheetAddViewportReachesSheetStore.test.ts"
+   ],
+   "composedAndRead": []
+  },
+  {
+   "verb": "slab.addHole",
+   "tests": [
+    "apps/editor/__tests__/PoolAndSlabUpdateReachTheRenderStore.test.ts",
+    "plugins/slab/__tests__/handlers.test.ts"
+   ],
+   "composedTests": [],
+   "storeReadTests": [
+    "apps/editor/__tests__/PoolAndSlabUpdateReachTheRenderStore.test.ts",
+    "plugins/slab/__tests__/handlers.test.ts"
+   ],
+   "composedAndRead": []
+  },
+  {
+   "verb": "slab.create",
+   "tests": [
+    "apps/editor/src/engine/views/plantools/__tests__/slabPlanGesturesPinned.spec.ts",
+    "apps/editor/__tests__/CommittedPatchReachesTheStore.test.ts",
+    "apps/editor/__tests__/composedBusElementReadback.test.ts",
+    "apps/editor/__tests__/hello-12-elements.test.ts",
+    "apps/editor/__tests__/liftReachableThroughComposedRuntime.test.ts",
+    "apps/editor/__tests__/liftReachesTheRenderMirror.test.ts",
+    "apps/editor/__tests__/liftUndoRoundTrip.test.ts",
+    "apps/editor/__tests__/PoolAndSlabUpdateReachTheRenderStore.test.ts",
+    "apps/editor/__tests__/poolReachableThroughComposedRuntime.test.ts",
+    "apps/editor/__tests__/SlabLevelChangeReachesLegacyStore.test.ts",
+    "plugins/slab/__tests__/handlers.test.ts"
+   ],
+   "composedTests": [
+    "apps/editor/__tests__/composedBusElementReadback.test.ts",
+    "apps/editor/__tests__/hello-12-elements.test.ts"
+   ],
+   "storeReadTests": [
+    "apps/editor/__tests__/CommittedPatchReachesTheStore.test.ts",
+    "apps/editor/__tests__/composedBusElementReadback.test.ts",
+    "apps/editor/__tests__/hello-12-elements.test.ts",
+    "apps/editor/__tests__/liftReachableThroughComposedRuntime.test.ts",
+    "apps/editor/__tests__/liftReachesTheRenderMirror.test.ts",
+    "apps/editor/__tests__/liftUndoRoundTrip.test.ts",
+    "apps/editor/__tests__/PoolAndSlabUpdateReachTheRenderStore.test.ts",
+    "apps/editor/__tests__/poolReachableThroughComposedRuntime.test.ts",
+    "apps/editor/__tests__/SlabLevelChangeReachesLegacyStore.test.ts",
+    "plugins/slab/__tests__/handlers.test.ts"
+   ],
+   "composedAndRead": [
+    "apps/editor/__tests__/composedBusElementReadback.test.ts",
+    "apps/editor/__tests__/hello-12-elements.test.ts"
+   ]
+  },
+  {
+   "verb": "slab.create-on-all-floors",
+   "tests": [
+    "plugins/slab/__tests__/batchRefusalReachesTheCaller.test.ts"
+   ],
+   "composedTests": [],
+   "storeReadTests": [
+    "plugins/slab/__tests__/batchRefusalReachesTheCaller.test.ts"
+   ],
+   "composedAndRead": []
+  },
+  {
+   "verb": "slab.delete",
+   "tests": [
+    "plugins/slab/__tests__/handlers.test.ts"
+   ],
+   "composedTests": [],
+   "storeReadTests": [
+    "plugins/slab/__tests__/handlers.test.ts"
+   ],
+   "composedAndRead": []
+  },
+  {
+   "verb": "slab.move",
+   "tests": [
+    "apps/editor/__tests__/deadMoveVerbAuthoritativeState.test.ts",
+    "apps/editor/__tests__/transformDragUndoCapture.matrix.test.ts",
+    "plugins/slab/__tests__/handlers.test.ts"
+   ],
+   "composedTests": [],
+   "storeReadTests": [
+    "plugins/slab/__tests__/handlers.test.ts"
+   ],
+   "composedAndRead": []
+  },
+  {
+   "verb": "slab.movePolygon",
+   "tests": [
+    "apps/editor/src/engine/views/plantools/__tests__/planMoveParity.spec.ts",
+    "apps/editor/__tests__/deadMoveVerbAuthoritativeState.test.ts"
+   ],
+   "composedTests": [],
+   "storeReadTests": [],
+   "composedAndRead": []
+  },
+  {
+   "verb": "slab.removeHole",
+   "tests": [
+    "plugins/slab/__tests__/handlers.test.ts"
+   ],
+   "composedTests": [],
+   "storeReadTests": [
+    "plugins/slab/__tests__/handlers.test.ts"
+   ],
+   "composedAndRead": []
+  },
+  {
+   "verb": "slab.setBaseOffset",
+   "tests": [
+    "plugins/slab/__tests__/handlers.test.ts"
+   ],
+   "composedTests": [],
+   "storeReadTests": [
+    "plugins/slab/__tests__/handlers.test.ts"
+   ],
+   "composedAndRead": []
+  },
+  {
+   "verb": "slab.setMaterial",
+   "tests": [
+    "apps/editor/src/engine/views/plantools/__tests__/planMoveParity.spec.ts",
+    "apps/editor/__tests__/deadVerbAuthoritativeState.test.ts",
+    "apps/editor/__tests__/MaterialDispatch.test.ts",
+    "plugins/slab/__tests__/handlers.test.ts"
+   ],
+   "composedTests": [],
+   "storeReadTests": [
+    "apps/editor/__tests__/deadVerbAuthoritativeState.test.ts",
+    "apps/editor/__tests__/MaterialDispatch.test.ts",
+    "plugins/slab/__tests__/handlers.test.ts"
+   ],
+   "composedAndRead": []
+  },
+  {
+   "verb": "slab.setThickness",
+   "tests": [
+    "apps/editor/__tests__/D3ForwardPatchThroughAdapter.probe.test.ts",
+    "apps/editor/__tests__/PoolAndSlabUpdateReachTheRenderStore.test.ts",
+    "plugins/slab/__tests__/handlers.test.ts"
+   ],
+   "composedTests": [],
+   "storeReadTests": [
+    "apps/editor/__tests__/D3ForwardPatchThroughAdapter.probe.test.ts",
+    "apps/editor/__tests__/PoolAndSlabUpdateReachTheRenderStore.test.ts",
+    "plugins/slab/__tests__/handlers.test.ts"
+   ],
+   "composedAndRead": []
+  },
+  {
+   "verb": "slab.setType",
+   "tests": [
+    "plugins/slab/__tests__/handlers.test.ts"
+   ],
+   "composedTests": [],
+   "storeReadTests": [
+    "plugins/slab/__tests__/handlers.test.ts"
+   ],
+   "composedAndRead": []
+  },
+  {
+   "verb": "slab.update",
+   "tests": [
+    "apps/editor/src/engine/views/plantools/__tests__/planMoveParity.spec.ts",
+    "apps/editor/__tests__/MaterialDispatch.test.ts",
+    "apps/editor/__tests__/slabTypeSwap.test.ts"
+   ],
+   "composedTests": [],
+   "storeReadTests": [
+    "apps/editor/__tests__/MaterialDispatch.test.ts",
+    "apps/editor/__tests__/slabTypeSwap.test.ts"
+   ],
+   "composedAndRead": []
+  },
+  {
+   "verb": "slab.updateDimensions",
+   "tests": [
+    "apps/editor/__tests__/MaterialDispatch.test.ts"
+   ],
+   "composedTests": [],
+   "storeReadTests": [
+    "apps/editor/__tests__/MaterialDispatch.test.ts"
+   ],
+   "composedAndRead": []
+  },
+  {
+   "verb": "slab.updateLayers",
+   "tests": [
+    "apps/editor/__tests__/slabTypeSwap.test.ts"
+   ],
+   "composedTests": [],
+   "storeReadTests": [
+    "apps/editor/__tests__/slabTypeSwap.test.ts"
+   ],
+   "composedAndRead": []
+  },
+  {
+   "verb": "slab.updatePolygon",
+   "tests": [
+    "apps/editor/src/engine/views/plantools/__tests__/planMoveParity.spec.ts",
+    "apps/editor/__tests__/MaterialDispatch.test.ts"
+   ],
+   "composedTests": [],
+   "storeReadTests": [
+    "apps/editor/__tests__/MaterialDispatch.test.ts"
+   ],
+   "composedAndRead": []
+  },
+  {
+   "verb": "slab.updateSystemTypeBatch",
+   "tests": [
+    "apps/editor/src/ui/ai/__tests__/ZeroTokenNoLlm.spec.ts",
+    "plugins/slab/__tests__/batchRefusalReachesTheCaller.test.ts"
+   ],
+   "composedTests": [],
+   "storeReadTests": [
+    "plugins/slab/__tests__/batchRefusalReachesTheCaller.test.ts"
+   ],
+   "composedAndRead": []
+  },
+  {
+   "verb": "stair.create",
+   "tests": [
+    "apps/editor/__tests__/hello-12-elements.test.ts",
+    "apps/editor/__tests__/StairCreateReachesGeometryStore.test.ts"
+   ],
+   "composedTests": [
+    "apps/editor/__tests__/hello-12-elements.test.ts"
+   ],
+   "storeReadTests": [
+    "apps/editor/__tests__/hello-12-elements.test.ts",
+    "apps/editor/__tests__/StairCreateReachesGeometryStore.test.ts"
+   ],
+   "composedAndRead": [
+    "apps/editor/__tests__/hello-12-elements.test.ts"
+   ]
+  },
+  {
+   "verb": "stair.delete",
+   "tests": [
+    "plugins/stair/__tests__/handlers.test.ts"
+   ],
+   "composedTests": [],
+   "storeReadTests": [
+    "plugins/stair/__tests__/handlers.test.ts"
+   ],
+   "composedAndRead": []
+  },
+  {
+   "verb": "stair.move",
+   "tests": [
+    "apps/editor/src/engine/views/plantools/__tests__/planMoveParity.spec.ts",
+    "apps/editor/__tests__/StairMoveReachesGeometryStore.test.ts",
+    "apps/editor/__tests__/transformDragUndoCapture.matrix.test.ts",
+    "plugins/stair/__tests__/handlers.test.ts"
+   ],
+   "composedTests": [],
+   "storeReadTests": [
+    "plugins/stair/__tests__/handlers.test.ts"
+   ],
+   "composedAndRead": []
+  },
+  {
+   "verb": "stair.rotate",
+   "tests": [
+    "apps/editor/__tests__/deadMoveVerbAuthoritativeState.test.ts",
+    "apps/editor/__tests__/transformDragUndoCapture.matrix.test.ts",
+    "plugins/stair/__tests__/handlers.test.ts"
+   ],
+   "composedTests": [],
+   "storeReadTests": [
+    "plugins/stair/__tests__/handlers.test.ts"
+   ],
+   "composedAndRead": []
+  },
+  {
+   "verb": "stair.setMaterial",
+   "tests": [
+    "apps/editor/__tests__/deadVerbAuthoritativeState.test.ts"
+   ],
+   "composedTests": [],
+   "storeReadTests": [
+    "apps/editor/__tests__/deadVerbAuthoritativeState.test.ts"
+   ],
+   "composedAndRead": []
+  },
+  {
+   "verb": "stair.setRiserHeight",
+   "tests": [
+    "plugins/stair/__tests__/handlers.test.ts"
+   ],
+   "composedTests": [],
+   "storeReadTests": [
+    "plugins/stair/__tests__/handlers.test.ts"
+   ],
+   "composedAndRead": []
+  },
+  {
+   "verb": "stair.setShape",
+   "tests": [
+    "plugins/stair/__tests__/handlers.test.ts"
+   ],
+   "composedTests": [],
+   "storeReadTests": [
+    "plugins/stair/__tests__/handlers.test.ts"
+   ],
+   "composedAndRead": []
+  },
+  {
+   "verb": "stair.setTreadCount",
+   "tests": [
+    "plugins/stair/__tests__/handlers.test.ts"
+   ],
+   "composedTests": [],
+   "storeReadTests": [
+    "plugins/stair/__tests__/handlers.test.ts"
+   ],
+   "composedAndRead": []
+  },
+  {
+   "verb": "stair.setType",
+   "tests": [
+    "plugins/stair/__tests__/handlers.test.ts"
+   ],
+   "composedTests": [],
+   "storeReadTests": [
+    "plugins/stair/__tests__/handlers.test.ts"
+   ],
+   "composedAndRead": []
+  },
+  {
+   "verb": "stair.setWidth",
+   "tests": [
+    "plugins/stair/__tests__/handlers.test.ts"
+   ],
+   "composedTests": [],
+   "storeReadTests": [
+    "plugins/stair/__tests__/handlers.test.ts"
+   ],
+   "composedAndRead": []
+  },
+  {
+   "verb": "structural.create",
+   "tests": [
+    "plugins/structural/__tests__/handlers.test.ts"
+   ],
+   "composedTests": [],
+   "storeReadTests": [
+    "plugins/structural/__tests__/handlers.test.ts"
+   ],
+   "composedAndRead": []
+  },
+  {
+   "verb": "structural.delete",
+   "tests": [
+    "plugins/structural/__tests__/handlers.test.ts"
+   ],
+   "composedTests": [],
+   "storeReadTests": [
+    "plugins/structural/__tests__/handlers.test.ts"
+   ],
+   "composedAndRead": []
+  },
+  {
+   "verb": "structural.move",
+   "tests": [
+    "apps/editor/__tests__/deadMoveVerbAuthoritativeState.test.ts",
+    "apps/editor/__tests__/transformDragUndoCapture.matrix.test.ts",
+    "plugins/structural/__tests__/handlers.test.ts"
+   ],
+   "composedTests": [],
+   "storeReadTests": [
+    "plugins/structural/__tests__/handlers.test.ts"
+   ],
+   "composedAndRead": []
+  },
+  {
+   "verb": "structural.setBraceEndOffset",
+   "tests": [
+    "plugins/structural/__tests__/handlers.test.ts"
+   ],
+   "composedTests": [],
+   "storeReadTests": [
+    "plugins/structural/__tests__/handlers.test.ts"
+   ],
+   "composedAndRead": []
+  },
+  {
+   "verb": "structural.setDimensions",
+   "tests": [
+    "plugins/structural/__tests__/handlers.test.ts"
+   ],
+   "composedTests": [],
+   "storeReadTests": [
+    "plugins/structural/__tests__/handlers.test.ts"
+   ],
+   "composedAndRead": []
+  },
+  {
+   "verb": "structural.setKind",
+   "tests": [
+    "plugins/structural/__tests__/handlers.test.ts"
+   ],
+   "composedTests": [],
+   "storeReadTests": [
+    "plugins/structural/__tests__/handlers.test.ts"
+   ],
+   "composedAndRead": []
+  },
+  {
+   "verb": "structural.setMaterial",
+   "tests": [
+    "apps/editor/__tests__/deadVerbAuthoritativeState.test.ts",
+    "plugins/structural/__tests__/handlers.test.ts"
+   ],
+   "composedTests": [],
+   "storeReadTests": [
+    "apps/editor/__tests__/deadVerbAuthoritativeState.test.ts",
+    "plugins/structural/__tests__/handlers.test.ts"
+   ],
+   "composedAndRead": []
+  },
+  {
+   "verb": "vg.assignIntent",
+   "tests": [
+    "apps/editor/src/ui/__tests__/overridePanelDispatchReach.spec.ts"
+   ],
+   "composedTests": [],
+   "storeReadTests": [],
+   "composedAndRead": []
+  },
+  {
+   "verb": "view.clearAllOverrides",
+   "tests": [
+    "apps/editor/src/ui/ViewBrowser/panels/unified-browser/__tests__/elementFilterWritesIntent.spec.ts"
+   ],
+   "composedTests": [],
+   "storeReadTests": [
+    "apps/editor/src/ui/ViewBrowser/panels/unified-browser/__tests__/elementFilterWritesIntent.spec.ts"
+   ],
+   "composedAndRead": []
+  },
+  {
+   "verb": "view.clearOverride",
+   "tests": [
+    "apps/editor/src/ui/ViewBrowser/panels/unified-browser/__tests__/elementFilterWritesIntent.spec.ts"
+   ],
+   "composedTests": [],
+   "storeReadTests": [
+    "apps/editor/src/ui/ViewBrowser/panels/unified-browser/__tests__/elementFilterWritesIntent.spec.ts"
+   ],
+   "composedAndRead": []
+  },
+  {
+   "verb": "view.create",
+   "tests": [
+    "apps/editor/__tests__/hello-12-elements.test.ts"
+   ],
+   "composedTests": [
+    "apps/editor/__tests__/hello-12-elements.test.ts"
+   ],
+   "storeReadTests": [
+    "apps/editor/__tests__/hello-12-elements.test.ts"
+   ],
+   "composedAndRead": [
+    "apps/editor/__tests__/hello-12-elements.test.ts"
+   ]
+  },
+  {
+   "verb": "view.createDefinition",
+   "tests": [
+    "apps/editor/__tests__/viewBusLifecycle.test.ts"
+   ],
+   "composedTests": [],
+   "storeReadTests": [
+    "apps/editor/__tests__/viewBusLifecycle.test.ts"
+   ],
+   "composedAndRead": []
+  },
+  {
+   "verb": "view.delete",
+   "tests": [
+    "apps/editor/__tests__/hello-12-elements.test.ts"
+   ],
+   "composedTests": [
+    "apps/editor/__tests__/hello-12-elements.test.ts"
+   ],
+   "storeReadTests": [
+    "apps/editor/__tests__/hello-12-elements.test.ts"
+   ],
+   "composedAndRead": [
+    "apps/editor/__tests__/hello-12-elements.test.ts"
+   ]
+  },
+  {
+   "verb": "view.deleteDefinition",
+   "tests": [
+    "apps/editor/__tests__/viewBusLifecycle.test.ts"
+   ],
+   "composedTests": [],
+   "storeReadTests": [
+    "apps/editor/__tests__/viewBusLifecycle.test.ts"
+   ],
+   "composedAndRead": []
+  },
+  {
+   "verb": "view.hideElement",
+   "tests": [
+    "apps/editor/src/ui/ViewBrowser/panels/unified-browser/__tests__/elementFilterWritesIntent.spec.ts"
+   ],
+   "composedTests": [],
+   "storeReadTests": [
+    "apps/editor/src/ui/ViewBrowser/panels/unified-browser/__tests__/elementFilterWritesIntent.spec.ts"
+   ],
+   "composedAndRead": []
+  },
+  {
+   "verb": "view.rename",
+   "tests": [
+    "apps/editor/__tests__/hello-12-elements.test.ts"
+   ],
+   "composedTests": [
+    "apps/editor/__tests__/hello-12-elements.test.ts"
+   ],
+   "storeReadTests": [
+    "apps/editor/__tests__/hello-12-elements.test.ts"
+   ],
+   "composedAndRead": [
+    "apps/editor/__tests__/hello-12-elements.test.ts"
+   ]
+  },
+  {
+   "verb": "view.setCategoryVisibility",
+   "tests": [
+    "apps/editor/src/ui/__tests__/overridePanelDispatchReach.spec.ts"
+   ],
+   "composedTests": [],
+   "storeReadTests": [],
+   "composedAndRead": []
+  },
+  {
+   "verb": "view.switch",
+   "tests": [
+    "apps/editor/__tests__/hello-12-elements.test.ts"
+   ],
+   "composedTests": [
+    "apps/editor/__tests__/hello-12-elements.test.ts"
+   ],
+   "storeReadTests": [
+    "apps/editor/__tests__/hello-12-elements.test.ts"
+   ],
+   "composedAndRead": [
+    "apps/editor/__tests__/hello-12-elements.test.ts"
+   ]
+  },
+  {
+   "verb": "view.updateCamera",
+   "tests": [
+    "apps/editor/__tests__/hello-12-elements.test.ts"
+   ],
+   "composedTests": [
+    "apps/editor/__tests__/hello-12-elements.test.ts"
+   ],
+   "storeReadTests": [
+    "apps/editor/__tests__/hello-12-elements.test.ts"
+   ],
+   "composedAndRead": [
+    "apps/editor/__tests__/hello-12-elements.test.ts"
+   ]
+  },
+  {
+   "verb": "view.updateDefinition",
+   "tests": [
+    "apps/editor/__tests__/ElevMarkMoveOrigin.test.ts",
+    "apps/editor/__tests__/viewBusLifecycle.test.ts"
+   ],
+   "composedTests": [],
+   "storeReadTests": [
+    "apps/editor/__tests__/ElevMarkMoveOrigin.test.ts",
+    "apps/editor/__tests__/viewBusLifecycle.test.ts"
+   ],
+   "composedAndRead": []
+  },
+  {
+   "verb": "wall.addLayerBatch",
+   "tests": [
+    "apps/editor/src/ui/ai/__tests__/ZeroTokenNoLlm.spec.ts"
+   ],
+   "composedTests": [],
+   "storeReadTests": [],
+   "composedAndRead": []
+  },
+  {
+   "verb": "wall.batch.create",
+   "tests": [
+    "apps/editor/__tests__/batchNestingUndo.test.ts",
+    "apps/editor/__tests__/residentialFacadeAllFloors.test.ts",
+    "apps/editor/__tests__/undoRedoAtScale.test.ts",
+    "apps/editor/__tests__/wallCurveChokepoint.test.ts",
+    "apps/editor/__tests__/wallLayersChokepoint.test.ts",
+    "packages/command-registry/__tests__/L965CurvedSlabMakesCurvedWalls.test.ts",
+    "packages/command-registry/__tests__/L965WallsBySlabBrandedId.test.ts"
+   ],
+   "composedTests": [],
+   "storeReadTests": [
+    "apps/editor/__tests__/batchNestingUndo.test.ts",
+    "apps/editor/__tests__/residentialFacadeAllFloors.test.ts",
+    "apps/editor/__tests__/undoRedoAtScale.test.ts",
+    "apps/editor/__tests__/wallCurveChokepoint.test.ts",
+    "apps/editor/__tests__/wallLayersChokepoint.test.ts",
+    "packages/command-registry/__tests__/L965CurvedSlabMakesCurvedWalls.test.ts",
+    "packages/command-registry/__tests__/L965WallsBySlabBrandedId.test.ts"
+   ],
+   "composedAndRead": []
+  },
+  {
+   "verb": "wall.bulkSetVisuals",
+   "tests": [
+    "apps/editor/__tests__/deadVerbAuthoritativeState.test.ts",
+    "plugins/wall/__tests__/s10-handlers.test.ts"
+   ],
+   "composedTests": [],
+   "storeReadTests": [
+    "apps/editor/__tests__/deadVerbAuthoritativeState.test.ts",
+    "plugins/wall/__tests__/s10-handlers.test.ts"
+   ],
+   "composedAndRead": []
+  },
+  {
+   "verb": "wall.changeLevel",
+   "tests": [
+    "apps/editor/__tests__/ElementLevelChangeReachesLegacyStore.test.ts",
+    "plugins/wall/__tests__/s10-handlers.test.ts"
+   ],
+   "composedTests": [],
+   "storeReadTests": [
+    "apps/editor/__tests__/ElementLevelChangeReachesLegacyStore.test.ts",
+    "plugins/wall/__tests__/s10-handlers.test.ts"
+   ],
+   "composedAndRead": []
+  },
+  {
+   "verb": "wall.create",
+   "tests": [
+    "apps/editor/__tests__/batchNestingUndo.test.ts",
+    "apps/editor/__tests__/bootstrap.data.test.ts",
+    "apps/editor/__tests__/composedBusElementReadback.test.ts",
+    "apps/editor/__tests__/ElementLevelChangeReachesLegacyStore.test.ts",
+    "apps/editor/__tests__/hello-12-elements.test.ts",
+    "apps/editor/__tests__/liftReachableThroughComposedRuntime.test.ts",
+    "apps/editor/__tests__/liftReachesTheRenderMirror.test.ts",
+    "apps/editor/__tests__/liftUndoRoundTrip.test.ts",
+    "apps/editor/__tests__/OpeningMoveConsequenceReachability.test.ts",
+    "apps/editor/__tests__/PoolAndSlabUpdateReachTheRenderStore.test.ts",
+    "apps/editor/__tests__/undoGestureIdPlumbing.test.ts",
+    "apps/editor/__tests__/undoGestureOrdering.test.ts",
+    "apps/editor/__tests__/undoRedoAtScale.test.ts",
+    "apps/editor/__tests__/WallCreateConsequenceReachability.test.ts",
+    "apps/editor/__tests__/wallCurveChokepoint.test.ts",
+    "apps/editor/__tests__/wallLayersChokepoint.test.ts",
+    "apps/editor/__tests__/wallTypeCatalogueUnified.test.ts",
+    "packages/command-bus/__tests__/clash-capability.test.ts",
+    "packages/command-bus/__tests__/command-aliases.test.ts",
+    "plugins/door/__tests__/tool.test.ts",
+    "plugins/wall/__tests__/baseline-fixtures.test.ts",
+    "plugins/wall/__tests__/handlers.test.ts",
+    "plugins/wall/__tests__/playwright/integration.spec.ts",
+    "plugins/wall/__tests__/reload-persistence.test.ts",
+    "plugins/wall/__tests__/s10-handlers.test.ts",
+    "plugins/wall/__tests__/s10-transform-wall.test.ts",
+    "plugins/wall/__tests__/tool.test.ts",
+    "plugins/wall/__tests__/wallSplitId.test.ts",
+    "plugins/window/__tests__/tool.test.ts"
+   ],
+   "composedTests": [
+    "apps/editor/__tests__/composedBusElementReadback.test.ts",
+    "apps/editor/__tests__/hello-12-elements.test.ts"
+   ],
+   "storeReadTests": [
+    "apps/editor/__tests__/batchNestingUndo.test.ts",
+    "apps/editor/__tests__/bootstrap.data.test.ts",
+    "apps/editor/__tests__/composedBusElementReadback.test.ts",
+    "apps/editor/__tests__/ElementLevelChangeReachesLegacyStore.test.ts",
+    "apps/editor/__tests__/hello-12-elements.test.ts",
+    "apps/editor/__tests__/liftReachableThroughComposedRuntime.test.ts",
+    "apps/editor/__tests__/liftReachesTheRenderMirror.test.ts",
+    "apps/editor/__tests__/liftUndoRoundTrip.test.ts",
+    "apps/editor/__tests__/OpeningMoveConsequenceReachability.test.ts",
+    "apps/editor/__tests__/PoolAndSlabUpdateReachTheRenderStore.test.ts",
+    "apps/editor/__tests__/undoGestureIdPlumbing.test.ts",
+    "apps/editor/__tests__/undoGestureOrdering.test.ts",
+    "apps/editor/__tests__/undoRedoAtScale.test.ts",
+    "apps/editor/__tests__/WallCreateConsequenceReachability.test.ts",
+    "apps/editor/__tests__/wallCurveChokepoint.test.ts",
+    "apps/editor/__tests__/wallLayersChokepoint.test.ts",
+    "apps/editor/__tests__/wallTypeCatalogueUnified.test.ts",
+    "packages/command-bus/__tests__/command-aliases.test.ts",
+    "plugins/door/__tests__/tool.test.ts",
+    "plugins/wall/__tests__/handlers.test.ts",
+    "plugins/wall/__tests__/playwright/integration.spec.ts",
+    "plugins/wall/__tests__/reload-persistence.test.ts",
+    "plugins/wall/__tests__/s10-handlers.test.ts",
+    "plugins/wall/__tests__/s10-transform-wall.test.ts",
+    "plugins/wall/__tests__/wallSplitId.test.ts",
+    "plugins/window/__tests__/tool.test.ts"
+   ],
+   "composedAndRead": [
+    "apps/editor/__tests__/composedBusElementReadback.test.ts",
+    "apps/editor/__tests__/hello-12-elements.test.ts"
+   ]
+  },
+  {
+   "verb": "wall.createBetweenMarks",
+   "tests": [
+    "plugins/wall/__tests__/s10-handlers.test.ts"
+   ],
+   "composedTests": [],
+   "storeReadTests": [
+    "plugins/wall/__tests__/s10-handlers.test.ts"
+   ],
+   "composedAndRead": []
+  },
+  {
+   "verb": "wall.createFromSlab",
+   "tests": [
+    "plugins/wall/__tests__/s10-handlers.test.ts"
+   ],
+   "composedTests": [],
+   "storeReadTests": [
+    "plugins/wall/__tests__/s10-handlers.test.ts"
+   ],
+   "composedAndRead": []
+  },
+  {
+   "verb": "wall.createOpening",
+   "tests": [
+    "apps/editor/__tests__/hello-12-elements.test.ts",
+    "plugins/wall/__tests__/s10-handlers.test.ts",
+    "plugins/wall/__tests__/wallSplitId.test.ts"
+   ],
+   "composedTests": [
+    "apps/editor/__tests__/hello-12-elements.test.ts"
+   ],
+   "storeReadTests": [
+    "apps/editor/__tests__/hello-12-elements.test.ts",
+    "plugins/wall/__tests__/s10-handlers.test.ts",
+    "plugins/wall/__tests__/wallSplitId.test.ts"
+   ],
+   "composedAndRead": [
+    "apps/editor/__tests__/hello-12-elements.test.ts"
+   ]
+  },
+  {
+   "verb": "wall.cut",
+   "tests": [
+    "plugins/wall/__tests__/s10-handlers.test.ts",
+    "plugins/wall/__tests__/wallSplitId.test.ts"
+   ],
+   "composedTests": [],
+   "storeReadTests": [
+    "plugins/wall/__tests__/s10-handlers.test.ts",
+    "plugins/wall/__tests__/wallSplitId.test.ts"
+   ],
+   "composedAndRead": []
+  },
+  {
+   "verb": "wall.delete",
+   "tests": [
+    "plugins/wall/__tests__/baseline-fixtures.test.ts",
+    "plugins/wall/__tests__/handlers.test.ts"
+   ],
+   "composedTests": [],
+   "storeReadTests": [
+    "plugins/wall/__tests__/handlers.test.ts"
+   ],
+   "composedAndRead": []
+  },
+  {
+   "verb": "wall.join",
+   "tests": [
+    "plugins/wall/__tests__/s10-handlers.test.ts"
+   ],
+   "composedTests": [],
+   "storeReadTests": [
+    "plugins/wall/__tests__/s10-handlers.test.ts"
+   ],
+   "composedAndRead": []
+  },
+  {
+   "verb": "wall.move",
+   "tests": [
+    "apps/editor/__tests__/ConsequenceExecutionService.test.ts",
+    "apps/editor/__tests__/deadMoveVerbAuthoritativeState.test.ts",
+    "apps/editor/__tests__/OpeningMoveConsequenceReachability.test.ts",
+    "apps/editor/__tests__/safeModeRoomReshape.test.ts",
+    "apps/editor/__tests__/WallCreateConsequenceReachability.test.ts",
+    "plugins/rooms/__tests__/handlers.test.ts",
+    "plugins/wall/__tests__/baseline-fixtures.test.ts",
+    "plugins/wall/__tests__/handlers.test.ts"
+   ],
+   "composedTests": [],
+   "storeReadTests": [
+    "apps/editor/__tests__/ConsequenceExecutionService.test.ts",
+    "apps/editor/__tests__/OpeningMoveConsequenceReachability.test.ts",
+    "apps/editor/__tests__/safeModeRoomReshape.test.ts",
+    "apps/editor/__tests__/WallCreateConsequenceReachability.test.ts",
+    "plugins/wall/__tests__/handlers.test.ts"
+   ],
+   "composedAndRead": []
+  },
+  {
+   "verb": "wall.opening.create",
+   "tests": [
+    "apps/editor/src/engine/views/plantools/__tests__/DoorPlanCreateRealBus.spec.ts"
+   ],
+   "composedTests": [],
+   "storeReadTests": [
+    "apps/editor/src/engine/views/plantools/__tests__/DoorPlanCreateRealBus.spec.ts"
+   ],
+   "composedAndRead": []
+  },
+  {
+   "verb": "wall.setColor",
+   "tests": [
+    "apps/editor/src/engine/views/plantools/__tests__/planMoveParity.spec.ts",
+    "apps/editor/__tests__/deadVerbAuthoritativeState.test.ts",
+    "apps/editor/__tests__/MaterialDispatch.test.ts",
+    "plugins/wall/__tests__/baseline-fixtures.test.ts",
+    "plugins/wall/__tests__/handlers.test.ts"
+   ],
+   "composedTests": [],
+   "storeReadTests": [
+    "apps/editor/__tests__/deadVerbAuthoritativeState.test.ts",
+    "apps/editor/__tests__/MaterialDispatch.test.ts",
+    "plugins/wall/__tests__/handlers.test.ts"
+   ],
+   "composedAndRead": []
+  },
+  {
+   "verb": "wall.setDimensions",
+   "tests": [
+    "apps/editor/__tests__/deadVerbAuthoritativeState.test.ts",
+    "plugins/wall/__tests__/baseline-fixtures.test.ts",
+    "plugins/wall/__tests__/handlers.test.ts"
+   ],
+   "composedTests": [],
+   "storeReadTests": [
+    "apps/editor/__tests__/deadVerbAuthoritativeState.test.ts",
+    "plugins/wall/__tests__/handlers.test.ts"
+   ],
+   "composedAndRead": []
+  },
+  {
+   "verb": "wall.setLayers",
+   "tests": [
+    "apps/editor/__tests__/deadVerbAuthoritativeState.test.ts",
+    "apps/editor/__tests__/wallLayerEditRouting.test.ts",
+    "plugins/wall/__tests__/s10-handlers.test.ts"
+   ],
+   "composedTests": [],
+   "storeReadTests": [
+    "apps/editor/__tests__/deadVerbAuthoritativeState.test.ts",
+    "apps/editor/__tests__/wallLayerEditRouting.test.ts",
+    "plugins/wall/__tests__/s10-handlers.test.ts"
+   ],
+   "composedAndRead": []
+  },
+  {
+   "verb": "wall.setSideFinishBatch",
+   "tests": [
+    "apps/editor/src/ui/ai/__tests__/ZeroTokenNoLlm.spec.ts"
+   ],
+   "composedTests": [],
+   "storeReadTests": [],
+   "composedAndRead": []
+  },
+  {
+   "verb": "wall.setSystemType",
+   "tests": [
+    "plugins/wall/__tests__/s10-handlers.test.ts"
+   ],
+   "composedTests": [],
+   "storeReadTests": [
+    "plugins/wall/__tests__/s10-handlers.test.ts"
+   ],
+   "composedAndRead": []
+  },
+  {
+   "verb": "wall.split",
+   "tests": [
+    "plugins/wall/__tests__/wallSplitId.test.ts"
+   ],
+   "composedTests": [],
+   "storeReadTests": [
+    "plugins/wall/__tests__/wallSplitId.test.ts"
+   ],
+   "composedAndRead": []
+  },
+  {
+   "verb": "wall.transform",
+   "tests": [
+    "apps/editor/__tests__/deadMoveVerbAuthoritativeState.test.ts",
+    "plugins/wall/__tests__/s10-transform-wall.test.ts"
+   ],
+   "composedTests": [],
+   "storeReadTests": [
+    "plugins/wall/__tests__/s10-transform-wall.test.ts"
+   ],
+   "composedAndRead": []
+  },
+  {
+   "verb": "wall.updateBaseline",
+   "tests": [
+    "apps/editor/src/engine/views/plantools/__tests__/planMoveParity.spec.ts",
+    "apps/editor/__tests__/ConsequenceExecutionService.test.ts",
+    "apps/editor/__tests__/deadMoveVerbAuthoritativeState.test.ts",
+    "apps/editor/__tests__/OpeningMoveConsequenceReachability.test.ts",
+    "apps/editor/__tests__/safeModeRoomReshape.test.ts",
+    "apps/editor/__tests__/WallCreateConsequenceReachability.test.ts",
+    "apps/editor/__tests__/wallMoveAcceptHalfExecuted.test.ts",
+    "apps/editor/__tests__/WallMoveClashProposal.test.ts",
+    "packages/command-registry/__tests__/moveBoundaryLineCascade.test.ts",
+    "packages/core-app-model/src/views/__tests__/planWallTransform.test.ts",
+    "plugins/wall/__tests__/updateBaseline-undo-capture.test.ts"
+   ],
+   "composedTests": [],
+   "storeReadTests": [
+    "apps/editor/__tests__/ConsequenceExecutionService.test.ts",
+    "apps/editor/__tests__/OpeningMoveConsequenceReachability.test.ts",
+    "apps/editor/__tests__/safeModeRoomReshape.test.ts",
+    "apps/editor/__tests__/WallCreateConsequenceReachability.test.ts",
+    "apps/editor/__tests__/wallMoveAcceptHalfExecuted.test.ts",
+    "packages/command-registry/__tests__/moveBoundaryLineCascade.test.ts"
+   ],
+   "composedAndRead": []
+  },
+  {
+   "verb": "wall.updateColor",
+   "tests": [
+    "apps/editor/__tests__/MaterialDispatch.test.ts"
+   ],
+   "composedTests": [],
+   "storeReadTests": [
+    "apps/editor/__tests__/MaterialDispatch.test.ts"
+   ],
+   "composedAndRead": []
+  },
+  {
+   "verb": "wall.updateColorBatch",
+   "tests": [
+    "apps/editor/src/ui/ai/__tests__/LlmPlannerBridge.spec.ts",
+    "apps/editor/src/ui/ai/__tests__/ZeroTokenNoLlm.spec.ts"
+   ],
+   "composedTests": [],
+   "storeReadTests": [],
+   "composedAndRead": []
+  },
+  {
+   "verb": "wall.updateCurtainWall",
+   "tests": [
+    "apps/editor/src/engine/views/plantools/__tests__/planMoveParity.spec.ts",
+    "apps/editor/__tests__/CurtainWallPanelMaterialSurvivesGridChange.test.ts",
+    "apps/editor/__tests__/CurtainWallUpdateReachesGeometryStore.test.ts",
+    "apps/editor/__tests__/MaterialDispatch.test.ts"
+   ],
+   "composedTests": [],
+   "storeReadTests": [
+    "apps/editor/__tests__/CurtainWallPanelMaterialSurvivesGridChange.test.ts",
+    "apps/editor/__tests__/CurtainWallUpdateReachesGeometryStore.test.ts",
+    "apps/editor/__tests__/MaterialDispatch.test.ts"
+   ],
+   "composedAndRead": []
+  },
+  {
+   "verb": "wall.updateDimensions",
+   "tests": [
+    "apps/editor/src/ui/ai/__tests__/ZeroTokenNoLlm.spec.ts",
+    "apps/editor/__tests__/bridgeRefusalReachesTheCaller.test.ts"
+   ],
+   "composedTests": [],
+   "storeReadTests": [],
+   "composedAndRead": []
+  },
+  {
+   "verb": "wall.updateHeightBatch",
+   "tests": [
+    "apps/editor/src/ui/ai/__tests__/ZeroTokenNoLlm.spec.ts",
+    "plugins/wall/__tests__/update-walls-height-batch.test.ts"
+   ],
+   "composedTests": [],
+   "storeReadTests": [
+    "plugins/wall/__tests__/update-walls-height-batch.test.ts"
+   ],
+   "composedAndRead": []
+  },
+  {
+   "verb": "wall.updateRakeBatch",
+   "tests": [
+    "apps/editor/src/ui/ai/__tests__/ZeroTokenNoLlm.spec.ts"
+   ],
+   "composedTests": [],
+   "storeReadTests": [],
+   "composedAndRead": []
+  },
+  {
+   "verb": "wall.updateSystemTypeBatch",
+   "tests": [
+    "apps/editor/src/ui/ai/__tests__/ZeroTokenNoLlm.spec.ts"
+   ],
+   "composedTests": [],
+   "storeReadTests": [],
+   "composedAndRead": []
+  },
+  {
+   "verb": "window.batch.create",
+   "tests": [
+    "apps/editor/__tests__/WindowBatchCreateLiveness.probe.test.ts"
+   ],
+   "composedTests": [],
+   "storeReadTests": [
+    "apps/editor/__tests__/WindowBatchCreateLiveness.probe.test.ts"
+   ],
+   "composedAndRead": []
+  },
+  {
+   "verb": "window.create",
+   "tests": [
+    "apps/editor/__tests__/hello-12-elements.test.ts",
+    "apps/editor/__tests__/WindowBatchCreateLiveness.probe.test.ts",
+    "plugins/window/__tests__/handlers.test.ts"
+   ],
+   "composedTests": [
+    "apps/editor/__tests__/hello-12-elements.test.ts"
+   ],
+   "storeReadTests": [
+    "apps/editor/__tests__/hello-12-elements.test.ts",
+    "apps/editor/__tests__/WindowBatchCreateLiveness.probe.test.ts",
+    "plugins/window/__tests__/handlers.test.ts"
+   ],
+   "composedAndRead": [
+    "apps/editor/__tests__/hello-12-elements.test.ts"
+   ]
+  },
+  {
+   "verb": "window.delete",
+   "tests": [
+    "plugins/window/__tests__/handlers.test.ts"
+   ],
+   "composedTests": [],
+   "storeReadTests": [
+    "plugins/window/__tests__/handlers.test.ts"
+   ],
+   "composedAndRead": []
+  },
+  {
+   "verb": "window.move",
+   "tests": [
+    "apps/editor/__tests__/deadMoveVerbAuthoritativeState.test.ts",
+    "plugins/window/__tests__/handlers.test.ts"
+   ],
+   "composedTests": [],
+   "storeReadTests": [
+    "plugins/window/__tests__/handlers.test.ts"
+   ],
+   "composedAndRead": []
+  },
+  {
+   "verb": "window.parametricCreate",
+   "tests": [
+    "apps/editor/src/ui/ai/__tests__/ZeroTokenNoLlm.spec.ts"
+   ],
+   "composedTests": [],
+   "storeReadTests": [],
+   "composedAndRead": []
+  },
+  {
+   "verb": "window.setOffset",
+   "tests": [
+    "apps/editor/src/engine/views/plantools/__tests__/planMoveParity.spec.ts",
+    "apps/editor/__tests__/deadMoveVerbAuthoritativeState.test.ts",
+    "apps/editor/__tests__/OpeningMoveConsequenceReachability.test.ts",
+    "apps/editor/__tests__/PlanHostedDragParity.test.ts"
+   ],
+   "composedTests": [],
+   "storeReadTests": [
+    "apps/editor/__tests__/OpeningMoveConsequenceReachability.test.ts"
+   ],
+   "composedAndRead": []
+  },
+  {
+   "verb": "window.setSillHeight",
+   "tests": [
+    "plugins/window/__tests__/handlers.test.ts"
+   ],
+   "composedTests": [],
+   "storeReadTests": [
+    "plugins/window/__tests__/handlers.test.ts"
+   ],
+   "composedAndRead": []
+  },
+  {
+   "verb": "window.setSize",
+   "tests": [
+    "plugins/window/__tests__/handlers.test.ts"
+   ],
+   "composedTests": [],
+   "storeReadTests": [
+    "plugins/window/__tests__/handlers.test.ts"
+   ],
+   "composedAndRead": []
+  },
+  {
+   "verb": "window.setType",
+   "tests": [
+    "plugins/window/__tests__/handlers.test.ts"
+   ],
+   "composedTests": [],
+   "storeReadTests": [
+    "plugins/window/__tests__/handlers.test.ts"
+   ],
+   "composedAndRead": []
+  },
+  {
+   "verb": "window.updateSystemTypeBatch",
+   "tests": [
+    "apps/editor/src/ui/ai/__tests__/ZeroTokenNoLlm.spec.ts"
+   ],
+   "composedTests": [],
+   "storeReadTests": [],
+   "composedAndRead": []
+  }
+ ]
+}

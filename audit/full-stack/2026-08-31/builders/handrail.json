@@ -1,0 +1,50 @@
+{
+  "family": "handrail",
+  "head": "d91d30d4af51bc67317ef8afc0b46b1dbef94038",
+  "members": ["handrail run (rail + balusters)"],
+  "rows": [
+    {
+      "member": "handrail run",
+      "surface": "3d",
+      "builder_file": "packages/geometry-handrail/src/HandrailFragmentBuilder.ts (632 lines)",
+      "entry_fn": "updateHandrail(handrail) :133  ·  removeHandrail(id) :137  ·  dispose() :167  ·  setInstanceBridge :91  ·  flushUnresolvedMaterialReports() :255",
+      "package": "@pryzm/geometry-handrail",
+      "layer": "L2",
+      "layer_proof": "eslint.config.js:150 — with a VERIFIED note dated 2026-08-30: 'imports schemas/snapping/renderer-three (L0/L1) + core-app-model/command-registry/geometry-stair/geometry-wall (L2) — no upward edge'",
+      "invoked_by": [
+        "apps/editor/src/engine/initBuilders.ts:926 `new HandrailFragmentBuilder(scene, bimManager)`",
+        "apps/editor/src/engine/initBuilders.ts:962/:964/:966 — window.addEventListener('bim-handrail-added' | '-updated' | '-removed')",
+        "BUS LEG: CommandEventBridge handrail.create → 'handrail.created' → apps/editor/src/engine/initTools.ts:2575"
+      ],
+      "rivals": [
+        {"candidate": "plugins/handrail/src/committer/handrail-committer.ts + packages/geometry-kernel/src/producers/handrail.ts", "verdict": "RIVAL, UNREACHABLE."}
+      ],
+      "robustness": {
+        "degenerate_input": "ZERO isFinite/isNaN, ZERO `throw new`.",
+        "⭐ UNRESOLVED_MATERIAL_REPORTING": "UNIQUE IN THE REPO — `flushUnresolvedMaterialReports(): number` (:255) accumulates and drains the materials it could NOT resolve, returning a COUNT. No other builder can tell you how many of its elements fell back to a default. Every other family's fallback is invisible.",
+        "material_precedence_declared": ":195 '`materialColor` is an explicit tint and always wins. `materialId` was [the fallback]' → :215 `resolveMaterialColour(handrail.materialId, handrail.materialColor)`. One resolver, stated precedence.",
+        "disposal": "PRESENT — 4 dispose sites; dispose() :167, removeHandrail :137. HandrailLevelCleanupHandler wired at initBuilders.ts:108."
+      },
+      "fidelity": {
+        "authored_L0_fields": ["provenance","confidence","levelId","hostId","path","shape","height","diameter","materialId"],
+        "authored_count": 9,
+        "ceb_channel": "handrail.created",
+        "ceb_emit_sites": ["~L1119 (handrail.create)","~L1606 (balcony.create fan-out) — IDENTICAL 10-key set"],
+        "ceb_emitted_keys": ["commandId","commandType","levelId","id","path","height","diameter","shape","hostId","materialId"],
+        "dropped_at_ceb": ["provenance","confidence"],
+        "VERDICT": "⭐ FULL FIDELITY, AND THE ONLY FAMILY WHOSE FAN-OUT EMIT IS IDENTICAL TO ITS PRIMARY EMIT. Every geometric and material field the L0 schema authors reaches the event, including on the balcony compound path — the exact place wall, slab and floor all lose fields.",
+        "materialColor_note": "The BUILDER accepts `handrail.materialColor` (:215) but the L0 Handrail schema does not author one. So the builder is wider than the schema — the opposite of every defect above, and harmless.",
+        "draws_what_the_user_authored": "YES"
+      }
+    },
+    {
+      "member": "handrail run",
+      "surface": "plan",
+      "builder_file": "EdgeProjectorService true-edge projection. No handrail plan-symbol builder among the fifteen.",
+      "invalidation": "`handrail` IS in GEOMETRY_ELEMENT_TYPES (ViewDependencyTracker.ts:86).",
+      "fidelity": "INHERITS 3D (lossless)."
+    },
+    {"member": "handrail run", "surface": "section", "builder_file": "derived from the 3D mesh", "fidelity": "INHERITS 3D"},
+    {"member": "handrail run", "surface": "export", "builder_file": "packages/file-format/src/export/ifc/readers/HandrailReader.ts (L3, FragmentReader.ts:44)"}
+  ]
+}

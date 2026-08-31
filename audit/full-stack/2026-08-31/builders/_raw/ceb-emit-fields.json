@@ -1,0 +1,724 @@
+[
+ {
+  "channel": "element.level-changed",
+  "line_stripped": 109,
+  "keys": [
+   "commandId",
+   "commandType",
+   "elementKind",
+   "elementId (shorthand)",
+   "newLevelId (shorthand)",
+   "newElevationY (conditional-spread)"
+  ]
+ },
+ {
+  "channel": "element.updated",
+  "line_stripped": 241,
+  "keys": [
+   "commandId",
+   "commandType",
+   "elementKind",
+   "elementId (shorthand)",
+   "changedFields"
+  ]
+ },
+ {
+  "channel": "command.executed",
+  "line_stripped": 357,
+  "keys": [
+   "id",
+   "type",
+   "affectedStores",
+   "actorId",
+   "projectId"
+  ]
+ },
+ {
+  "channel": "wall.created",
+  "line_stripped": 413,
+  "keys": [
+   "commandId",
+   "commandType",
+   "levelId",
+   "wallCount",
+   "wallId",
+   "baseLine",
+   "height",
+   "thickness",
+   "baseOffset",
+   "systemTypeId",
+   "materialColor",
+   "materialId",
+   "layers",
+   "curve"
+  ]
+ },
+ {
+  "channel": "wall.created",
+  "line_stripped": 461,
+  "keys": [
+   "commandId",
+   "commandType",
+   "levelId",
+   "wallCount",
+   "wallId",
+   "baseLine (shorthand)",
+   "height",
+   "thickness",
+   "baseOffset",
+   "systemTypeId",
+   "materialColor",
+   "materialId",
+   "layers",
+   "curve"
+  ]
+ },
+ {
+  "channel": "wall.opening.created",
+  "line_stripped": 495,
+  "keys": [
+   "commandId",
+   "commandType",
+   "wallId",
+   "opening"
+  ]
+ },
+ {
+  "channel": "wall.opening.created",
+  "line_stripped": 505,
+  "keys": [
+   "commandId",
+   "commandType",
+   "wallId",
+   "opening"
+  ]
+ },
+ {
+  "channel": "slab.created",
+  "line_stripped": 587,
+  "keys": [
+   "commandId",
+   "commandType",
+   "levelId",
+   "elementCount",
+   "id",
+   "ifcGuid",
+   "polygon",
+   "position",
+   "width",
+   "depth",
+   "thickness",
+   "baseOffset",
+   "materialId"
+  ]
+ },
+ {
+  "channel": "slab.created",
+  "line_stripped": 630,
+  "keys": [
+   "commandId",
+   "commandType",
+   "levelId",
+   "elementCount",
+   "id",
+   "ifcGuid",
+   "polygon",
+   "position",
+   "thickness",
+   "baseOffset",
+   "materialId"
+  ]
+ },
+ {
+  "channel": "curtain-wall.created",
+  "line_stripped": 680,
+  "keys": [
+   "commandId",
+   "commandType",
+   "levelId",
+   "elementCount",
+   "id",
+   "baseLine",
+   "height",
+   "baseOffset",
+   "bayWidth",
+   "bayHeight",
+   "mullionThickness",
+   "panelThickness",
+   "materialId",
+   "panels",
+   "systemTypeId",
+   "mullionMaterialId",
+   "mullionColor",
+   "glazingMaterialId"
+  ]
+ },
+ {
+  "channel": "curtain-wall.created",
+  "line_stripped": 741,
+  "keys": [
+   "commandId",
+   "commandType",
+   "levelId",
+   "elementCount",
+   "id",
+   "baseLine",
+   "height",
+   "baseOffset",
+   "bayWidth",
+   "bayHeight",
+   "mullionThickness",
+   "panelThickness",
+   "materialId",
+   "panels",
+   "systemTypeId",
+   "mullionMaterialId",
+   "mullionColor",
+   "glazingMaterialId"
+  ]
+ },
+ {
+  "channel": "column.created",
+  "line_stripped": 781,
+  "keys": [
+   "commandId",
+   "commandType",
+   "levelId",
+   "elementCount",
+   "id",
+   "origin",
+   "shape",
+   "width",
+   "depth",
+   "height",
+   "baseOffset",
+   "rotation",
+   "materialId"
+  ]
+ },
+ {
+  "channel": "column.created",
+  "line_stripped": 840,
+  "keys": [
+   "commandId",
+   "commandType",
+   "levelId",
+   "elementCount",
+   "id",
+   "origin",
+   "shape",
+   "width",
+   "depth",
+   "height",
+   "baseOffset",
+   "rotation",
+   "materialId"
+  ]
+ },
+ {
+  "channel": "column.created",
+  "line_stripped": 877,
+  "keys": [
+   "commandId",
+   "commandType",
+   "levelId",
+   "elementCount",
+   "id",
+   "origin",
+   "shape",
+   "width",
+   "depth",
+   "height",
+   "baseOffset",
+   "rotation",
+   "materialId"
+  ]
+ },
+ {
+  "channel": "beam.created",
+  "line_stripped": 937,
+  "keys": [
+   "commandId",
+   "commandType",
+   "levelId",
+   "elementCount",
+   "id",
+   "startPoint",
+   "endPoint",
+   "shape",
+   "width",
+   "depth",
+   "materialId",
+   "loadBearing",
+   "fireRating",
+   "steelProfileName"
+  ]
+ },
+ {
+  "channel": "beam.created",
+  "line_stripped": 990,
+  "keys": [
+   "commandId",
+   "commandType",
+   "levelId",
+   "elementCount",
+   "id",
+   "startPoint",
+   "endPoint",
+   "shape",
+   "width",
+   "depth",
+   "materialId"
+  ]
+ },
+ {
+  "channel": "ceiling.created",
+  "line_stripped": 1032,
+  "keys": [
+   "commandId",
+   "commandType",
+   "levelId",
+   "elementCount",
+   "id",
+   "boundary",
+   "ceilingHeight",
+   "thickness",
+   "materialId",
+   "materialColor"
+  ]
+ },
+ {
+  "channel": "ceiling.created",
+  "line_stripped": 1065,
+  "keys": [
+   "commandId",
+   "commandType",
+   "levelId",
+   "elementCount",
+   "id",
+   "boundary",
+   "ceilingHeight",
+   "thickness",
+   "materialId",
+   "materialColor"
+  ]
+ },
+ {
+  "channel": "room.created",
+  "line_stripped": 1086,
+  "keys": [
+   "commandId",
+   "commandType",
+   "levelId"
+  ]
+ },
+ {
+  "channel": "grid.created",
+  "line_stripped": 1096,
+  "keys": [
+   "commandId",
+   "commandType",
+   "levelId"
+  ]
+ },
+ {
+  "channel": "handrail.created",
+  "line_stripped": 1119,
+  "keys": [
+   "commandId",
+   "commandType",
+   "levelId",
+   "id",
+   "path",
+   "height",
+   "diameter",
+   "shape",
+   "hostId",
+   "materialId"
+  ]
+ },
+ {
+  "channel": "furniture.created",
+  "line_stripped": 1158,
+  "keys": [
+   "commandId",
+   "commandType",
+   "levelId",
+   "id",
+   "furnitureType",
+   "position",
+   "rotation",
+   "baseOffset",
+   "width",
+   "length",
+   "height",
+   "material",
+   "materialId",
+   "color",
+   "furnitureCategory",
+   "kitchenConfig",
+   "wardrobeCabinetConfig"
+  ]
+ },
+ {
+  "channel": "furniture.created",
+  "line_stripped": 1211,
+  "keys": [
+   "commandId",
+   "commandType",
+   "levelId",
+   "id",
+   "furnitureType",
+   "position",
+   "rotation",
+   "baseOffset",
+   "width",
+   "length",
+   "height",
+   "material",
+   "materialId",
+   "color",
+   "furnitureCategory",
+   "kitchenConfig",
+   "wardrobeCabinetConfig"
+  ]
+ },
+ {
+  "channel": "lighting.created",
+  "line_stripped": 1244,
+  "keys": [
+   "commandId",
+   "commandType",
+   "levelId",
+   "id",
+   "kind",
+   "origin"
+  ]
+ },
+ {
+  "channel": "plumbing.created",
+  "line_stripped": 1257,
+  "keys": [
+   "commandId",
+   "commandType",
+   "levelId"
+  ]
+ },
+ {
+  "channel": "structural.created",
+  "line_stripped": 1267,
+  "keys": [
+   "commandId",
+   "commandType",
+   "levelId"
+  ]
+ },
+ {
+  "channel": "annotation.created",
+  "line_stripped": 1277,
+  "keys": [
+   "commandId",
+   "commandType",
+   "levelId"
+  ]
+ },
+ {
+  "channel": "dimension.created",
+  "line_stripped": 1287,
+  "keys": [
+   "commandId",
+   "commandType",
+   "levelId"
+  ]
+ },
+ {
+  "channel": "roof.created",
+  "line_stripped": 1357,
+  "keys": [
+   "commandId",
+   "commandType",
+   "levelId",
+   "id",
+   "boundary",
+   "shape",
+   "overhang",
+   "thickness",
+   "pitch",
+   "materialId",
+   "materialColor",
+   "boundingWallIds"
+  ]
+ },
+ {
+  "channel": "slab.layer-updated",
+  "line_stripped": 1393,
+  "keys": [
+   "commandId",
+   "commandType",
+   "slabId",
+   "systemTypeId",
+   "layerCount",
+   "thickness"
+  ]
+ },
+ {
+  "channel": "ceiling.layer-updated",
+  "line_stripped": 1413,
+  "keys": [
+   "commandId",
+   "commandType",
+   "ceilingId",
+   "systemTypeId",
+   "layerCount",
+   "thickness"
+  ]
+ },
+ {
+  "channel": "floor.layer-updated",
+  "line_stripped": 1433,
+  "keys": [
+   "commandId",
+   "commandType",
+   "floorId",
+   "systemTypeId",
+   "layerCount",
+   "thickness"
+  ]
+ },
+ {
+  "channel": "floor.created",
+  "line_stripped": 1463,
+  "keys": [
+   "commandId",
+   "commandType",
+   "levelId",
+   "floorId",
+   "ifcGuid",
+   "polygon",
+   "baseOffset",
+   "thickness",
+   "label",
+   "systemTypeId",
+   "layers",
+   "finishSpec",
+   "serviceHoles",
+   "hostSlabId",
+   "hostRoomId",
+   "createdBy"
+  ]
+ },
+ {
+  "channel": "slab.created",
+  "line_stripped": 1559,
+  "keys": [
+   "commandId",
+   "commandType",
+   "levelId",
+   "elementCount",
+   "id",
+   "ifcGuid",
+   "polygon",
+   "position",
+   "thickness",
+   "baseOffset",
+   "materialId"
+  ]
+ },
+ {
+  "channel": "floor.created",
+  "line_stripped": 1585,
+  "keys": [
+   "commandId",
+   "commandType",
+   "levelId",
+   "floorId",
+   "ifcGuid",
+   "polygon",
+   "baseOffset",
+   "thickness",
+   "hostSlabId",
+   "createdBy"
+  ]
+ },
+ {
+  "channel": "handrail.created",
+  "line_stripped": 1606,
+  "keys": [
+   "commandId",
+   "commandType",
+   "levelId",
+   "id",
+   "path",
+   "height",
+   "diameter",
+   "shape",
+   "hostId",
+   "materialId"
+  ]
+ },
+ {
+  "channel": "wall.created",
+  "line_stripped": 1733,
+  "keys": [
+   "commandId",
+   "commandType",
+   "levelId",
+   "wallCount",
+   "wallId (shorthand)",
+   "baseLine",
+   "height",
+   "thickness",
+   "baseOffset",
+   "materialId"
+  ]
+ },
+ {
+  "channel": "curtain-wall.created",
+  "line_stripped": 1764,
+  "keys": [
+   "commandId",
+   "commandType",
+   "levelId",
+   "elementCount",
+   "id",
+   "baseLine",
+   "height",
+   "baseOffset",
+   "bayWidth",
+   "bayHeight",
+   "mullionThickness",
+   "panelThickness",
+   "materialId",
+   "panels"
+  ]
+ },
+ {
+  "channel": "wall.opening.created",
+  "line_stripped": 1810,
+  "keys": [
+   "commandId",
+   "commandType",
+   "wallId",
+   "opening"
+  ]
+ },
+ {
+  "channel": "lift.created",
+  "line_stripped": 1857,
+  "keys": [
+   "commandId",
+   "commandType",
+   "levelId",
+   "liftId",
+   "origin",
+   "rotation",
+   "enclosureType",
+   "carParkOffsetY",
+   "mark",
+   "parts"
+  ]
+ },
+ {
+  "channel": "element.updated",
+  "line_stripped": 1909,
+  "keys": [
+   "commandId",
+   "commandType",
+   "elementKind",
+   "elementId",
+   "changedFields"
+  ]
+ },
+ {
+  "channel": "wall.created",
+  "line_stripped": 2002,
+  "keys": [
+   "commandId",
+   "commandType",
+   "levelId",
+   "wallCount",
+   "wallId (shorthand)",
+   "baseLine",
+   "height",
+   "thickness",
+   "baseOffset",
+   "materialId",
+   "materialColor (conditional-spread)"
+  ]
+ },
+ {
+  "channel": "slab.created",
+  "line_stripped": 2035,
+  "keys": [
+   "commandId",
+   "commandType",
+   "levelId",
+   "elementCount",
+   "id",
+   "ifcGuid",
+   "polygon",
+   "position",
+   "thickness",
+   "baseOffset",
+   "materialId"
+  ]
+ },
+ {
+  "channel": "element.updated",
+  "line_stripped": 2075,
+  "keys": [
+   "commandId",
+   "commandType",
+   "elementKind",
+   "elementId",
+   "changedFields"
+  ]
+ },
+ {
+  "channel": "water.created",
+  "line_stripped": 2113,
+  "keys": [
+   "commandId",
+   "commandType",
+   "levelId",
+   "waterId (shorthand)",
+   "poolId",
+   "boundary",
+   "surfaceElevation",
+   "bottomElevation",
+   "color",
+   "opacity"
+  ]
+ },
+ {
+  "channel": "boundaryLine.created",
+  "line_stripped": 2230,
+  "keys": [
+   "commandId",
+   "commandType",
+   "levelId",
+   "boundaryLineId",
+   "line (conditional-spread)"
+  ]
+ },
+ {
+  "channel": "boundaryLine.updated",
+  "line_stripped": 2238,
+  "keys": [
+   "commandId",
+   "commandType",
+   "levelId",
+   "boundaryLineId",
+   "line (conditional-spread)"
+  ]
+ },
+ {
+  "channel": "boundaryLine.deleted",
+  "line_stripped": 2261,
+  "keys": [
+   "commandId",
+   "commandType",
+   "boundaryLineId"
+  ]
+ }
+]

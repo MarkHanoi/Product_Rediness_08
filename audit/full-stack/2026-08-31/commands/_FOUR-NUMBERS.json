@@ -1,0 +1,65 @@
+{
+  "phase": "P3 - AXIS C - COMMANDS",
+  "date": "2026-08-31",
+  "denominator": 361,
+  "denominator_note": "MEASURED, NOT EXTRAPOLATED. All 361 verbs have a row on disk under audit/full-stack/2026-08-31/commands/<family>.json across 50 family files. The verb set was reproduced independently of the canonical generator and agrees with it exactly (1408 files read, 361 verbs, 50 families).",
+
+  "i_HAS_A_HANDLER": {
+    "n": 361,
+    "of": 361,
+    "pct": "100%",
+    "what_it_means": "A `type: 'x.y'` declaration in a handler-shaped file under one of the three HANDLER_ROOTS, admitted by the same handlerish() test the canonical generator uses.",
+    "the_qualifier_that_matters": "ONE of the 361 (sheet.create) is SHADOWED: it has TWO registration sites (plugins/sheets/src/handlers/CreateSheet.ts:51 and apps/editor/src/engine/initBusHandlers.ts:2641) and the boot-order guard means the plugin one wins and the bridge one never registers. So 360 CAN register. Exactly one verb of 361 has more than one registration site.",
+    "the_second_qualifier": "'Has a handler' is not 'is registered at runtime'. The generator's own header says so: a handler that is AUTHORED but never added to a handler set counts here. This column is the weakest of the four by construction.",
+    "evidence_class": "a"
+  },
+
+  "ii_HAS_A_MIRROR_CHANNEL": {
+    "n": 60,
+    "of": 361,
+    "pct": "16.6%",
+    "composition": "38 hand-written CommandEventBridge switch cases + 12 LEVEL_CHANGE_VERBS rows + 10 ELEMENT_UPDATE_VERBS rows, de-duplicated to 60 distinct verbs.",
+    "the_honest_number_is_lower": 51,
+    "why": "NINE of the 60 emit into a channel with ZERO subscribers (P1's count, re-cited): structural.create, slab.updateLayers, room.create, plumbing.create, grid.create, floor.updateLayers, dimension.create, ceiling.updateLayers, annotation.create. THREE of those nine - the updateLayers trio - are the bridge's ONLY update arm besides the two tables.",
+    "by_kind": { "create": "23/51 = 45%", "batch.create": "7/10 = 70%", "update": "15/166 = 9%", "delete": "2/40 = 5%", "move": "13/31 = 42%", "split": "0/1", "join": "0/2", "regenerate": "0/1", "other": "0/59" },
+    "evidence_class": "a"
+  },
+
+  "iii_HAS_AN_UNDO_UNIT": {
+    "n_declared": 326,
+    "of": 361,
+    "pct_declared": "90.3%",
+    "n_that_can_actually_apply": 157,
+    "pct_that_can_actually_apply": "43.5%",
+    "breakdown": { "A_ring_buffer_patch_pair_with_every_store_key_covered": 157, "B_legacy_commandManager_stack": 123, "STRANDED_declared_but_uncoverable": 47, "NONE_or_UNKNOWN": 34 },
+    "method": "Each verb's affectedStores set compared against the key set of buildUndoStoreMap() (apps/editor/src/engine/undo/performUndoRedo.ts:398-514) and against UNMAPPED_BUS_STORE_KEYS (:567+). _covered() is ALL-OR-NOTHING, so ONE uncovered key strands the whole entry: performUndo declines it, does not step the ring cursor, and falls through to a commandManager that owns nothing for those keys.",
+    "the_gap_between_326_and_157": "169 verbs declare an undo shape that cannot be applied by the backend it names, or name no backend at all. That gap IS this column's product.",
+    "evidence_class": "a - and the generated register says of this column, in its own words: 'Declared shape, not an executed proof.' The ONE executed undo proof this phase holds is liftUndoRoundTrip.test.ts (R-3..R-7, RC=0), which also proves that entry is still one key short (door)."
+  },
+
+  "iv_HAS_A_PROVEN_READ_BACK": {
+    "n": 22,
+    "of": 361,
+    "pct": "6.1%",
+    "fraction": "22/361",
+    "families": "13 of 50 (26.0%)",
+    "what_counts": "EVIDENCE CLASS (c) ONLY - a vitest file I executed in THIS session at RC=0 whose assertion reads a store or a legacy record back after a dispatch. 16 test files, 101 tests, all passing.",
+    "verbs": ["wall.create", "roof.create", "roof.setPitch", "roof.setShape", "roof.setOverhang", "ceiling.update", "wall.updateCurtainWall", "stair.create", "stair.move", "slab.addHole", "slab.setThickness", "pool.create", "sheet.addViewport", "selection.select", "selection.deselect", "selection.clear", "bathroomPod.create", "bathroomPod.delete", "boundaryLine.create", "lift.create", "door.batch.create", "window.batch.create"],
+    "by_kind": { "create": "7/51 = 13.7%", "batch.create": "2/10 = 20.0%", "update": "8/166 = 4.8%", "delete": "1/40 = 2.5%", "move": "1/31 = 3.2%", "other": "3/59 = 5.1%", "split/join/regenerate": "0/4" },
+    "REFUTATION_of_the_briefed_figure": "The brief carried 7 verbs / 3 families. The real figure is 22 / 13. The low number was an artefact of counting the tests the previous audit happened to cite rather than running the ones the repo already has.",
+    "not_in_the_numerator": "12 further verbs sit in a test file that BOTH calls the real composeRuntime() AND reads a store - a co-occurrence, class (a). They are recorded per-row as NOT-PROVEN-BY-ME and deliberately excluded.",
+    "evidence_class": "c"
+  },
+
+  "THE_GAPS_BETWEEN_THEM": [
+    "361 -> 60: 301 verbs have a handler and NO mirror channel. A patch that no bridge case reads is a write the renderer never hears about.",
+    "60 -> 51: nine of the sixty mirror into zero subscribers, three of them being the bridge's only update arm. A mirror that reaches nobody counts in column (ii) and is worth nothing.",
+    "326 -> 157: 169 verbs declare an undo unit the backend cannot apply. 47 of them are STRANDED outright - Ctrl+Z is a measured no-op for those.",
+    "157 -> 22: 135 verbs have an applicable undo unit and no proof anyone has ever dispatched them and read the result back.",
+    "361 -> 22: 93.9% of the command surface has never been proven to write anything.",
+    "AND THE ONE THAT IS NOT A GAP BUT AN INVERSION: 18 of the 22 verbs I PROVED read-back-positive are classed UNKNOWN by the canonical register, whose definition of UNKNOWN is 'a lone plugin produceCommand handler; nobody has proven either way'. Somebody had proven it - in a vitest file the register cannot see. Meanwhile room.create is classed LIVE and my executed run proves it throws 'legacy command manager is not available' and writes nothing. LIVE and UNKNOWN are not ordered by how well the verb works."
+  ],
+
+  "head_at_start": "d91d30d4af51bc67317ef8afc0b46b1dbef94038",
+  "head_moved_mid_phase": "YES - to 6590ac1ca2202c1ed238cba7ef7af62d8c6a29ce. git diff --name-only d91d30d4..6590ac1c -> ONE file, audit/full-stack/BRIEF-QUEUED.md, a docs commit by another lane. No production file this phase measured changed."
+}

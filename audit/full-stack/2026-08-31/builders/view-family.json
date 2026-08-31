@@ -1,0 +1,69 @@
+{
+  "families": ["section", "sheet", "schedule", "view", "projectOrigin", "project"],
+  "head": "d91d30d4af51bc67317ef8afc0b46b1dbef94038",
+  "why_grouped": "None of the six is a modelled element. They have L0 schemas and verbs but no mesh, and they are the SURFACES the other families are drawn onto. Included because the brief asks for every member and whether the undrawn ones are HONEST about it.",
+  "rows": [
+    {
+      "family": "section",
+      "surface": "section (it IS the surface)",
+      "builder_file": "plugins/section-view/src/SectionViewRenderer.ts + section-cut-producer.ts + SectionViewCanvasHost.ts",
+      "package": "@pryzm/plugin-section-view",
+      "layer": "L6",
+      "invoked_by": "apps/editor/src/engine/engineLauncher.ts:122 `import { registerSectionHandlers } from '@pryzm/plugin-section-view'`. Registered by plugins/section-view/src/registration.ts, NOT by an inline ALL_PLUGINS descriptor (apps/editor/src/PluginRegistry.ts:112 and census.json S2 both record this).",
+      "drawn": "YES — it is the only family whose plugin owns a whole render surface.",
+      "⛔ KNOWN_OPEN_DEFECT_ON_RECORD": "apps/editor/src/engine/persistence/snapshotFamilyCoverage.ts:168 — 'L-11524 (OPEN) — SectionStore (plugins/section-view) has no snapshot key, so every section view the user cuts is lost on reload. Sibling of `view`, whose ViewRegistry DOES persist via `viewDefinitions`; the asymmetry is real and undeclared until now.'",
+      "no_legacy_store": "performUndoRedo.ts:575 — `section: { owner: 'nothing', reason: 'No legacy section store exists. Registered at engineLauncher.ts:619.' }` — Ctrl+Z after a section cut is a no-op.",
+      "honest_about_it": "YES on both — each gap is a named, dated register row in the file that would otherwise have hidden it."
+    },
+    {
+      "family": "sheet",
+      "surface": "export (paper)",
+      "builder_file": "packages/file-format/src/export/sheets/ — SheetExportService.ts, PdfExportService.ts, DxfExportService.ts, SVGCompositeRenderer.ts, ViewportSvgComposer.ts, SheetRenderTarget.ts, TitleBlockValues.ts, HatchPatternLibrary.ts, PaperTextStandard.ts, AnnotationDxfBridge.ts, ViewportResize.ts",
+      "package": "@pryzm/file-format",
+      "layer": "L3",
+      "drawn": "YES — PDF, DXF and SVG. This is the THIRD export pipeline (with the reachable IFC one and the unreachable plugins/ifc-export one) and, unlike the other two, it has no rival.",
+      "fidelity": {
+        "authored_L0_fields": ["provenance","number","title","size","orientation","customSize","viewports","titleBlockId","revision"],
+        "⛔ AUTHORED_WITH_NO_READER_ANYWHERE": "`customSize` — ZERO mentions across all 4927 non-test source files outside packages/schemas. A sheet can be authored at a custom paper size and nothing will ever read it."
+      },
+      "no_legacy_store": "performUndoRedo.ts:577 — 'window.sheetStore exists (initUI.ts:439) but holds the SHEET record, not the plugin DTO the patch was minted against — adapting it needs a shape bridge first.' A precise, non-hand-waving statement of a shape mismatch."
+    },
+    {
+      "family": "schedule",
+      "surface": "export / panel",
+      "builder_file": "plugins/schedules/ + ScheduleExtractor (referenced at engineLauncher.ts:1138)",
+      "drawn": "N/A — a schedule is tabular, not geometric",
+      "no_legacy_store": "performUndoRedo.ts:578 — 'window.scheduleStore exists (initUI.ts:460); same shape mismatch as sheet.'",
+      "honest_about_it": "YES"
+    },
+    {
+      "family": "view",
+      "surface": "all (it defines them)",
+      "builder_file": "packages/core-app-model/src/views/ — ViewDefinitionStore, ViewDependencyTracker, PlanViewCanvas, ViewScope, ViewPlane, ViewTechnicalDrawingCache, ElevationScopeFrame",
+      "layer": "L2",
+      "drawn": "N/A",
+      "fidelity": {
+        "⛔ AUTHORED_WITH_NO_READER_ANYWHERE": "`visibilityRulesetId` — ZERO mentions outside packages/schemas across 4927 source files. The L0 View schema authors a pointer to a visibility ruleset and nothing resolves it. Note that P7 (visibility intent) is one of the eight principles and its gate's own output says the per-view scoping axis is NOT CHECKED — this is that gap, visible in the schema."
+      },
+      "no_legacy_store": "performUndoRedo.ts:579 — 'window.viewDefinitionStore exists (initUI.ts:675); same shape mismatch as sheet.' Plus :580 `'active-view': { owner: 'nothing', reason: 'view.switch — the active-view pointer has no store record at all; NOT named in C84 §3 EI-7c, found by the 2026-08-18 sweep.' }`"
+    },
+    {
+      "family": "projectOrigin",
+      "surface": "3d",
+      "builder_file": "packages/renderer-three/src/ProjectOriginMarker.ts",
+      "package": "@pryzm/renderer-three",
+      "layer": "L1",
+      "layer_proof": "eslint.config.js:125 — 'the ONE THREE owner (P2)'",
+      "invoked_by": "apps/editor/src/engine/initProjectOrigin.ts:42 (import), :59 `initProjectOrigin(scene): ProjectOriginMarker`",
+      "drawn": "YES — a blue sphere",
+      "⭐ NOTE": "THE ONLY ELEMENT BUILDER AT L1, and initProjectOrigin.ts:37 states why: 'P2: no `import * as THREE` — the THREE work lives inside ProjectOriginMarker'. A composition-layer file that needs THREE and pushes it down to the one legal owner instead of importing it. This is P2 observed rather than merely gated."
+    },
+    {
+      "family": "project",
+      "surface": "n/a",
+      "builder_file": "NONE — it is the container",
+      "drawn": "NO",
+      "honest_about_it": "YES — absent from GEOMETRY_ELEMENT_TYPES, from every builder registry, and from every render channel."
+    }
+  ]
+}

@@ -479,6 +479,81 @@ interface CommittedSlab {
   baseOffset?: number;
   materialId?: string;
   systemTypeId?: string;
+  /** §REFUSE-SLAB-HOLES-AND-COLOUR — read ONLY to announce the refusal below.
+   *  Neither field is emitted; see `announceSlabFieldsWithNoDestination`. */
+  holes?: ReadonlyArray<unknown>;
+  /** §REFUSE-SLAB-HOLES-AND-COLOUR — as above. Not emitted. */
+  materialColor?: string;
+}
+
+/**
+ * §REFUSE-SLAB-HOLES-AND-COLOUR (C74 / CA-18 · C84 EI-9 · C100 §2.1)
+ *
+ * ─── THE DEFECT, AND WHY THIS IS A REFUSAL RATHER THAN A CARRY ──────────────
+ * The 2026-08-31 builders audit measured slab as *"THE ROOF DEFECT, UNFIXED, IN
+ * SLAB"*: `holes` and `materialColor` are on the L0 `Slab` schema, ACCEPTED by
+ * `CreateSlab.ts:112/116`, VALIDATED ring-by-ring at `:141-143`, COMMITTED at
+ * `:176-178` — and then dropped twice before the mesh, while
+ * `SlabFragmentBuilder` reads `data.holes` (`:551`, `:939`) and
+ * `data.materialColor` (`:520`, `:579`, `:804`) and is fully capable of drawing
+ * both. Its verdict: *"a slab with an authored void and an authored colour
+ * renders as a SOLID slab in the DEFAULT colour, and it counts as
+ * renders_3d = YES."*
+ *
+ * ⛔ ADDING THE TWO KEYS TO `slab.created` HERE WOULD NOT FIX IT, AND WOULD
+ *    REPORT THAT IT HAD. The second drop is the one that decides: the §FT1
+ *    mirror's `slabStore.add({...})` (`initTools.ts:2377-2392`) copies
+ *    id/levelId/polygon/position/width/depth/thickness/baseOffset and a
+ *    conditional `materialId`, and reads NEITHER field —
+ *      grep -n 'ev\.holes\|ev\.materialColor' apps/editor/src/engine/initTools.ts
+ *    returns the FLOOR and CEILING sites only, never a slab one. An emitted key
+ *    nothing reads is the authored-but-unwired shape this audit exists to find.
+ *    So the pair — `SlabCreatedEvent.holes` / `.materialColor` plus the §FT1
+ *    read — must land together, in one change, in a lane that owns both files.
+ *
+ * ⭐ WHAT THIS DOES INSTEAD is the disposition `curtainWallCreatedMirror.ts:147`
+ * set and the audit called "THE HONESTY BAR": the loss is ANNOUNCED at runtime,
+ * per command, naming the field, the value, the reason and the visible
+ * consequence — so a founder who draws a slab with a void learns why it is solid
+ * from the console instead of from a screenshot. It fires ONLY when a value is
+ * really present, so a plain slab is silent; and it never suppresses the emit,
+ * because a slab that draws solid is still better than a slab that does not draw.
+ */
+function announceSlabFieldsWithNoDestination(
+  commandType: string,
+  records: ReadonlyArray<{ readonly id: string; readonly rec: CommittedSlab | undefined }>,
+): void {
+  const withHoles: string[] = [];
+  const withColour: string[] = [];
+  for (const { id, rec } of records) {
+    if (!rec) continue;
+    if (Array.isArray(rec.holes) && rec.holes.length > 0) withHoles.push(`${id} (${rec.holes.length})`);
+    if (typeof rec.materialColor === 'string' && rec.materialColor.length > 0) {
+      withColour.push(`${id} (${rec.materialColor})`);
+    }
+  }
+  if (withHoles.length === 0 && withColour.length === 0) return;
+  const parts: string[] = [];
+  if (withHoles.length > 0) {
+    parts.push(
+      `\`holes\` on ${withHoles.length} slab(s) — ${withHoles.slice(0, 5).join(', ')}` +
+      `${withHoles.length > 5 ? ', …' : ''}. Each authored void will NOT be punched: the slab renders SOLID.`,
+    );
+  }
+  if (withColour.length > 0) {
+    parts.push(
+      `\`materialColor\` on ${withColour.length} slab(s) — ${withColour.slice(0, 5).join(', ')}` +
+      `${withColour.length > 5 ? ', …' : ''}. Each renders in SlabFragmentBuilder's default colour.`,
+    );
+  }
+  console.warn(
+    `[CommandEventBridge] §REFUSE-SLAB-HOLES-AND-COLOUR: ${commandType} committed ` +
+    parts.join(' ') +
+    ` REASON: \`slab.created\` declares no slot for either field and the §FT1 mirror ` +
+    `(initTools.ts:2377-2392 \`slabStore.add\`) reads neither, so emitting them would ` +
+    `mint keys nothing consumes. SlabFragmentBuilder CAN draw both (holes :551/:939, ` +
+    `materialColor :520/:579/:804) — the missing hop is the mirror, not the builder.`,
+  );
 }
 
 /**
@@ -829,6 +904,10 @@ export function wireCommandEventBridge(
             // record it commits, so the commit is the one place both spellings agree.
             materialId:   _slabCommitted?.materialId ?? p.materialId ?? p.systemTypeId,
           });
+          // §REFUSE-SLAB-HOLES-AND-COLOUR — after the emit, never instead of it.
+          announceSlabFieldsWithNoDestination('slab.create', [
+            { id: _slabId, rec: _slabCommitted },
+          ]);
           break;
         }
 
@@ -852,6 +931,16 @@ export function wireCommandEventBridge(
             levelId?: string;
           };
           const _batchSlabLevelId = p.levelId ?? '';
+          // §REFUSE-SLAB-HOLES-AND-COLOUR — the batch arm of the same refusal. Read
+          // from the COMMIT rather than the request, because `CreateSlabBatch` is
+          // where the ring validation and the id minting happen; a batch is also
+          // where an AI or generator run puts fifty slabs through at once, which is
+          // exactly the case a per-element warn would drown.
+          const _batchSlabCommits = indexCommittedById<CommittedSlab>(record.forward ?? []);
+          announceSlabFieldsWithNoDestination(
+            'slab.batch.create',
+            [..._batchSlabCommits.entries()].map(([id, rec]) => ({ id, rec })),
+          );
           for (const s of (p.slabs ?? [])) {
             const _slabPolygon = s.polygon ?? s.boundary;
             if (!s.id || !_slabPolygon || _slabPolygon.length < 3) continue;
@@ -1195,6 +1284,15 @@ export function wireCommandEventBridge(
               depth?: number;
               materialId?: string;
               systemTypeId?: string;
+              // §FIX-BEAM-BATCH-CEB-STEEL — declared here because
+              // `CreateBeamBatchPayload.beams` IS `readonly CreateBeamPayload[]`
+              // (`CreateBeamBatch.ts:38`), and `CreateBeamPayload` has carried all
+              // three since §FIX-BEAM-CEB-STEEL (`CreateBeam.ts:43-45`). They were
+              // absent from THIS local view only, so a producer that sent them had
+              // no way to reach the emit below.
+              loadBearing?: boolean;
+              fireRating?: string;
+              steelProfileName?: string;
             }>;
             levelId?: string;
           };
@@ -1227,6 +1325,43 @@ export function wireCommandEventBridge(
               width:        b.width,
               depth:        b.depth,
               materialId:   b.materialId ?? b.systemTypeId,
+              // ── §FIX-BEAM-BATCH-CEB-STEEL (C84 EI-2a · C100) ─────────────────
+              // ⛔ THE SINGLE EMIT AND THE BATCH EMIT DISAGREED, AND THE BATCH ONE
+              // WAS WRONG. `beam.create` (~L1165 above) has relayed `loadBearing`,
+              // `fireRating` and `steelProfileName` since §FIX-BEAM-CEB-STEEL
+              // (L-974); this loop listed none of them. `BeamData.sectionType`
+              // branches `'rectangular' | 'UB' | 'UC'` on `steelProfileName`
+              // (`beamCreatedMirror.ts:155`), so THE SAME steel beam drew as a
+              // rolled UB when placed one at a time and as a plain concrete
+              // rectangle when placed by an AI structural batch or
+              // `CreateBeamsOnAllLevels`. Column is the counter-example the audit
+              // named: all three of ITS emit sites carry one identical key set.
+              //
+              // ⭐ THE READER ALREADY EXISTED — this is a WIRING fix, not a new
+              // carrier. `beamCreatedMirror.ts:177-181` reads all three off the
+              // event (`loadBearing ?? BEAM_LOAD_BEARING_DEFAULT`, then the two
+              // conditional spreads), and `types.ts:714+` has declared them on
+              // `'beam.created'` all along. Only this hop was silent.
+              //
+              // ⚠ THE REQUEST, NOT THE COMMIT — the one place this case must NOT
+              // copy `beam.create`. `CreateBeamBatchHandler.execute` builds its
+              // seed from EIGHT fields (`CreateBeamBatch.ts:101-108`:
+              // id/levelId/shape/width/depth/rotation/materialId/baseLine) and
+              // omits these three, so the committed record's `loadBearing` is
+              // `Beam.parse`'s own `.default(true)` (`Beam.ts:75`) — a SCHEMA
+              // DEFAULT, not an authored value. Reading the commit first would
+              // therefore convert an authored `loadBearing: false` into `true` and
+              // report it as fidelity. The batch handler's own drop is a SECOND,
+              // upstream half of this defect and is NOT fixed here (that file is
+              // not this lane's); closing this hop is what puts the profile on the
+              // MESH, because the mirror builds `BeamData` from the EVENT.
+              //
+              // Conditional spread, the §FIX-ROOF-CEB-MATERIAL / C100 §2.1 idiom:
+              // an unstated value stays UNSTATED rather than being asserted as
+              // `undefined`, so the mirror's own default owns the unstated case.
+              ...(b.loadBearing      !== undefined ? { loadBearing:      b.loadBearing }      : {}),
+              ...(b.fireRating       !== undefined ? { fireRating:       b.fireRating }       : {}),
+              ...(b.steelProfileName !== undefined ? { steelProfileName: b.steelProfileName } : {}),
             });
           }
           break;
@@ -1364,6 +1499,34 @@ export function wireCommandEventBridge(
           // geometry payload so the initTools.ts §FT-FURNITURE bridge can mirror
           // the item into the legacy FurnitureStore → furniture builder 3D mesh.
           // Mirrors the §FT-HANDRAIL / §FT-LIGHTING enrichment.
+          //
+          // ── §REFUSE-FURNITURE-L0-VOCABULARY ────────────────────────────────
+          // ⛔ DO NOT ADD `catalogId` / `activeLod` / `representations` /
+          // `materialSlots` / `scale` / `size` TO THIS EMIT. The 2026-08-31 audit
+          // scored them dropped, and they are — but the mechanism is RIVAL
+          // VOCABULARY, not a narrow subset, and widening this emit would fix
+          // nothing while reporting that it had:
+          //  · The L0 schema says {catalogId, origin, scale, size, activeLod,
+          //    representations, materialSlots} (ADR-0027 §2, written by
+          //    `CreateFurniture.ts:98-104`). The legacy `FurnitureData` and every
+          //    shipped builder say {furnitureType, position, w/l/h, material,
+          //    color, furnitureCategory, kitchenConfig, wardrobeCabinetConfig}.
+          //    `FurnitureTypes.ts` and `FurnitureFragmentBuilder.ts` score ZERO
+          //    mentions of all four L0 names.
+          //  · The only geometry consumers of the L0 vocabulary are
+          //    `packages/geometry-kernel/src/producers/furniture.ts` and
+          //    `plugins/furniture/src/committer/furniture-committer.ts` — the
+          //    committer half, which `_RIVAL-SYSTEM-committers-vs-fragment-builders.json`
+          //    measured as NOT REACHABLE (its bootstrap needs a canvas;
+          //    `src/main.ts:421` passes null).
+          // So the destination for these six is the COMMITTER pipeline, and the fix
+          // is to make that reachable — not to smuggle L0 nouns onto a legacy
+          // channel whose subscriber returns early on `!ev.furnitureType`
+          // (`initTools.ts:2970`). ⚠ THAT EARLY RETURN IS THE REAL DEFECT AND IT IS
+          // SILENT: an ADR-0027-shaped furniture.create (catalogId, no
+          // furnitureType) yields no store record, no mesh and no warning. It is in
+          // `initTools.ts`, which this lane does not own; recorded here by name so
+          // the next reader of THIS file is not sent to widen the wrong hop.
           const p = record.payload as {
             id?: string;
             levelId?: string;
@@ -1459,10 +1622,75 @@ export function wireCommandEventBridge(
           break;
         }
 
+        // ═════════════════════════════════════════════════════════════════════
+        // §REFUSE-NARROW-CHANNELS — the six cases below, and `lighting.create`,
+        // measured 2026-08-31 (audit/full-stack/2026-08-31/builders). READ THIS
+        // BEFORE WIDENING ANY OF THEM.
+        // ═════════════════════════════════════════════════════════════════════
+        // The audit scored `lighting` as the widest fidelity gap in the repo (3 of
+        // 18 authored fields survive) and `room` / `grid` / `plumbing` /
+        // `structural` / `annotation` / `dimension` as DEAD CHANNELS — three
+        // envelope keys each, and nothing subscribes. The tempting fix is to widen
+        // all seven emits. It would be wrong, and the audit's own closing sentence
+        // says why: *"'wire the committers' and 'widen the CEB emit' are RIVAL
+        // remedies for the same symptoms, and applying both would mint a third
+        // geometry path."*
+        //
+        // REFUSED BY NAME, with the measured reason per family:
+        //
+        //  · `lighting` — the loss PREDATES this hop. `CreateLightingCommand.ts:124-132`
+        //    writes six fields (fixtureType, position, rotation, hostId, tags,
+        //    properties); thirteen of the eighteen L0 fields have no slot in the
+        //    COMMAND, so there is nothing at this bridge to relay. Of the two that
+        //    do reach here, `rotation` has no destination either: the §FT-LIGHTING
+        //    mirror builds `LightingData` from FIVE fields (`initTools.ts:2818-2824`
+        //    — id, type, levelId, fixtureType, position) and has no rotation slot.
+        //    And the SUBSTITUTION downstream is deliberate and declared:
+        //    `LightingFragmentBuilder.ts:334` — *"Lens tint, DERIVED from the row's
+        //    kelvin — never authored"* — so widening this emit would put authored
+        //    photometry on a bus whose consumer has committed, in writing, to the
+        //    catalogue instead. The honest gap is that the L0 schema authors
+        //    kelvin / lumens / beamAngleDeg / dropLength / isEmergency as if they
+        //    were settable while the LOD-200 builder declares they are not. That is
+        //    a SCHEMA-vs-RENDERER contract to settle (C84), not a payload to widen.
+        //
+        //  · `room`, `grid`, `plumbing`, `structural`, `annotation`, `dimension` —
+        //    NOTHING SUBSCRIBES. Re-measured at this head:
+        //      grep -rn "'plumbing.created'" --include=*.ts apps packages plugins \
+        //        | grep -v node_modules | grep -v __tests__
+        //    returns the emitter, its `types.ts` declaration, and three COMMENTS in
+        //    `copyPayloads.ts:1415`, `duplicateToLevel.ts:365` and
+        //    `CopyPlanToolHandler.ts:652` that already recorded exactly this. Every
+        //    one of the six draws — where it draws at all — through its LEGACY leg:
+        //    a command writes the plugin/legacy store, the store fires its own DOM
+        //    event, and `initBuilders`' listener meshes it. Widening a payload no
+        //    listener reads cannot change a pixel; it can only make the census say
+        //    the channel is rich. `room.created` is the sharpest case — it has TWO
+        //    emitters with DIFFERENT shapes (this file, and
+        //    `packages/stores/src/aggregate-commands/roomCreate.ts:111`), a latent
+        //    collision that only stays latent because nobody listens.
+        //
+        //  ⭐ THE THIRD OPTION, ALREADY PROVEN IN THIS FILE. `boundaryLine.created`
+        //    emits FIVE keys — the narrowest event of any family — and loses
+        //    NOTHING, because its mirror reads the RECORD (`initTools.ts:1839
+        //    _boundaryLineRecord`) and uses the event only to name which id changed,
+        //    refusing BY NAME when neither the commit nor the store can answer. A
+        //    narrow event plus a store read cannot go stale and cannot arrive half
+        //    populated. Whoever closes these six should copy THAT, not this file's
+        //    named-subset idiom.
+        //
+        //  · `provenance` / `confidence` — dropped on EVERY channel here, by design.
+        //    They are C79 authorship metadata, not geometry; no mirror, builder or
+        //    plan symbol reads either (`grep -n 'ev\.provenance\|ev\.confidence'`
+        //    over apps/editor/src/engine -> RC=1, 0 hits). Counted as "dropped" by
+        //    the audit's field-set difference, but there is no consumer to starve.
+        //    Named here so the zero is a measured zero rather than an oversight.
+
         case 'lighting.create': {
           // §FT-LIGHTING (LIGHTING-BUS-MIGRATION, C11 §11.11): forward the geometry
           // so the initTools §FT-LIGHTING bridge can mirror the fixture into the
           // legacy LightingStore → LightingFragmentBuilder 3D mesh.
+          // ⛔ DO NOT WIDEN — see §REFUSE-NARROW-CHANNELS directly above.
           const p = record.payload as {
             id?: string;
             levelId?: string;
@@ -1826,6 +2054,28 @@ export function wireCommandEventBridge(
               // that did not carry it would detach the first time the plate moved.
               hostSlabId:   p.slabId,
               createdBy:    'balcony.create',
+              // ── REFUSED BY NAME: the six keys `floor.create` carries and this
+              //    fan-out does not — `label`, `systemTypeId`, `layers`,
+              //    `finishSpec`, `serviceHoles`, `hostRoomId` ─────────────────────
+              // The 2026-08-31 builders audit calls this "the worst-fidelity member
+              // in the repo" and attributes the loss to this narrowed emit. Measured
+              // at the source, the attribution is wrong: `BalconyAssembly.ts:232-247`
+              // builds the finish `Floor` from boundary / baseOffset / thickness plus
+              // conditional `materialId` and `materialColor`, and authors NONE of the
+              // six. There is no value at this bridge to carry.
+              //
+              // ⛔ THE HALF THAT IS REAL, AND WHERE IT LIVES. The assembly DOES author
+              // `materialColor` (`:245`) — and `'floor.created'` declares no
+              // `materialColor` key, while the §P3.2-FL mirror substitutes a hardcoded
+              // `finishColor: '#D4C4A8'` whenever `ev.finishSpec` is absent
+              // (`initTools.ts:2491-2495`). So a balcony's authored finish colour is
+              // lost, but it is lost between an event that has no slot for it and a
+              // mirror that reads only the legacy blob — the SAME shape
+              // §FIX-CEILING-BRIDGE-FINISH closed for ceilings by teaching the mirror
+              // `ev.materialColor ?? DEFAULT`. Adding the key here alone would mint a
+              // key nothing reads. Named rather than half-done: the pair is
+              // `floor.created.materialColor` + the §P3.2-FL read, and they must land
+              // together.
             });
           }
 
@@ -1972,6 +2222,26 @@ export function wireCommandEventBridge(
               // ⭐ C100 §2.1 — the MASTER id, forwarded so the shaft can say what it is
               // made OF rather than arriving at the render store with only a hex.
               materialId:   (wall['materialId'] as string | undefined) ?? p.materialId,
+              // ── §FIX-LIFT-CEB-GLAZING sibling: REFUSED BY NAME ───────────────
+              // The 2026-08-31 builders audit records this fan-out as emitting 9
+              // keys against `wall.create`'s 14, losing `systemTypeId`,
+              // `materialColor`, `layers` and `curve` — "a LAYERED wall created as
+              // part of a lift shaft loses its layer stack at the bridge".
+              //
+              // ⭐ MEASURED, AND THE AUDIT'S MECHANISM IS WRONG FOR THIS SITE. The
+              // loss is not at this relay. `LiftAssembly.ts:449-469` constructs the
+              // enclosure-side wall record from `base` (id, parentId, childrenIds,
+              // levelId, baseLine, height, baseOffset) plus `type`, `thickness`,
+              // `openings` and a conditional `materialId`. It authors NO
+              // `systemTypeId`, NO `materialColor`, NO `layers` and NO `curve` —
+              //   grep -nE 'systemTypeId|layers|curve|materialColor' \
+              //        packages/geometry-lift/src/LiftAssembly.ts  ->  RC=1, 0 hits.
+              // A shaft side is a straight, unlayered, untyped wall by construction,
+              // so relaying those four would add keys that are `undefined` on every
+              // lift and report a fidelity gain that does not exist. If shaft walls
+              // are ever to carry a wall TYPE, the field must first be authored in
+              // `LiftAssembly` — and this relay then needs the four lines, not
+              // before.
             });
             _liftWallSides++;
           }
@@ -1987,6 +2257,35 @@ export function wireCommandEventBridge(
           //     value nothing emits cannot survive as a dead arm). Stamping
           //     `'lift.create'` here would emit three events nothing accepts —
           //     activation reported, nothing activated.
+          // ── §FIX-LIFT-CEB-GLAZING (C84 EI-2a · C100 §2.1) ──────────────────
+          // ⛔ A GLASS LIFT LOST ITS GLASS MATERIAL, AND THE MIRROR SAID SO EVERY
+          // TIME. `LiftAssembly.ts:446-448` folds the AUTHORED `lift.glassMaterialId`
+          // into the enclosure side's generic `materialId`; this fan-out then
+          // relayed that generic id and nothing else. `curtainWallCreatedMirror.ts:147`
+          // warns per element on exactly that shape — *"carries materialId … which
+          // has no unambiguous slot in the legacy CurtainWallData (mullionMaterialId
+          // | glazingMaterialId | systemTypeId). The wall is mirrored WITHOUT it"* —
+          // so every standalone-glass lift glazed in the builder's default.
+          //
+          // ⭐ THE DESTINATION ALREADY EXISTS AND IS UNAMBIGUOUS. `glazingMaterialId`
+          // is declared on `'curtain-wall.created'` (`types.ts`, §CW90-PLAN-TYPE-PARITY),
+          // is read at `curtainWallCreatedMirror.ts:194` into
+          // `CurtainWallData.glazingMaterialId`, and is documented there as "the
+          // wall's default panel material, inherited by every synced cell" — which
+          // is precisely what a lift's glass is. Wiring, not a new carrier.
+          //
+          // ⚠ THE AUTHORED FIELD, NOT THE ASSEMBLY'S FALLBACK. It is read from the
+          // COMMITTED LIFT record's own `glassMaterialId` (`CreateLift.ts:449`
+          // spreads it only when the caller stated one) rather than from the side's
+          // folded `materialId`, because the latter is `lift.glassMaterialId ??
+          // LIFT_GLASS_MATERIAL_ID` — relaying that would assert a library id the
+          // user never chose. Unstated stays unstated (C100 §2.1).
+          const _liftGlassMaterialId = (() => {
+            const lifts = _liftCommitted.get('lift');
+            const rec = p.liftId ? lifts?.get(p.liftId) : undefined;
+            const v = rec?.['glassMaterialId'];
+            return typeof v === 'string' && v.length > 0 ? v : undefined;
+          })();
           let _liftGlassSides = 0;
           for (const [cwId, cw] of _liftCommitted.get('curtainwall') ?? []) {
             if (cw['parentId'] !== p.liftId) continue;
@@ -2009,9 +2308,36 @@ export function wireCommandEventBridge(
               panelThickness:   cw['panelThickness']   as number | undefined,
               materialId:       (cw['materialId'] as string | undefined) ?? p.materialId,
               panels:           cw['panels'] as ReadonlyArray<{ id: string }> | undefined,
+              // §FIX-LIFT-CEB-GLAZING — see the block above the loop.
+              ...(_liftGlassMaterialId !== undefined
+                ? { glazingMaterialId: _liftGlassMaterialId }
+                : {}),
             });
             _liftGlassSides++;
           }
+
+          // ── §FIX-LIFT-CEB-GLAZING, THE HALF THIS HOP CANNOT CLOSE ───────────
+          // REFUSED BY NAME, both numbers stated, per C74/CA-18. The audit
+          // (2026-08-31, `builders/lift.json`) records this fan-out as losing FOUR
+          // material fields against the primary `curtain-wall.create` emit; ONE of
+          // them is carried above and THREE ARE NOT, and the reason is not this
+          // file:
+          //
+          //   · `systemTypeId`       — `LiftAssembly.ts:428-449` builds the
+          //   · `mullionMaterialId`    enclosure-side record from `base` +
+          //   · `mullionColor`         seven keys (type, mullionThickness,
+          //                            panelThickness, bayWidth, bayHeight,
+          //                            panels, materialId). None of the three is
+          //                            among them, and the L0 `Lift` payload
+          //                            (`CreateLift.ts:118-127`) authors no
+          //                            curtain-wall system type at all.
+          //
+          // So there is NO VALUE AT THIS BRIDGE to carry: forwarding
+          // `cw['systemTypeId']` would emit a key that is `undefined` on every
+          // lift ever created and would report a fix that changed nothing. The
+          // shortfall is at the ASSEMBLY (an authored shaft-glazing TYPE does not
+          // exist yet), not at the relay. Stated here so the next reader measures
+          // `LiftAssembly` rather than re-auditing this emit.
 
           // (3) THE LANDING DOORS — AS C15 OPENINGS IN THE LANDING SIDE.
           //     ⭐ THIS IS THE CHANNEL, AND IT IS NOT `door.created`. §P2.3 does BOTH
@@ -2244,6 +2570,18 @@ export function wireCommandEventBridge(
               ...(typeof wall['materialColor'] === 'string'
                 ? { materialColor: wall['materialColor'] as string }
                 : {}),
+              // ── REFUSED BY NAME: `systemTypeId`, `layers`, `curve` ───────────
+              // The 2026-08-31 builders audit records this fan-out as losing those
+              // three against `wall.create`. Measured at the source rather than
+              // assumed: `PoolAssembly.ts:140-170` builds the basin wall from
+              // baseLine / height / thickness / baseOffset / openings plus the two
+              // conditional material fields, and authors none of the three. The
+              // pool's OWN `systemTypeId` IS authored — but the assembly spreads it
+              // onto the FLOOR SLAB (`:195`) and the WATER (`:221`), never onto the
+              // basin walls, so there is no value here to relay. Smuggling
+              // `pool.systemTypeId` onto a wall would be the R-12 breach the water
+              // refusal below already names: a wall arriving typed as something it
+              // is not. The gap is one hop upstream, in the assembly.
             });
             _poolWallSides++;
           }
@@ -2353,6 +2691,21 @@ export function wireCommandEventBridge(
               bottomElevation:  water['bottomElevation']  as number | undefined,
               color:            water['color']   as string | undefined,
               opacity:          water['opacity'] as number | undefined,
+              // ── REFUSED BY NAME: `materialId`, `systemTypeId` ─────────────────
+              // The 2026-08-31 builders audit records both as dropped here, and
+              // rates it "the mildest instance — the appearance is correct, only
+              // the material-library link is lost". Measured before acting:
+              //  · `systemTypeId` IS on the committed record (`PoolAssembly.ts:221`
+              //    spreads `pool.systemTypeId` onto the water) — so the value
+              //    exists. `materialId` is NOT: the assembly never authors one.
+              //  · NEITHER HAS A DESTINATION. The §FT-WATER subscriber calls
+              //    `waterMeshBuilder.updateWater({...})` with eight fields
+              //    (`initTools.ts:1946-1953`) and `WaterMeshBuilder`'s input type
+              //    declares no material slot at all. Emitting `systemTypeId` would
+              //    add a key the one and only subscriber cannot pass on.
+              // The C100 §2.1 half-implementation is real — the resolved CACHE
+              // (`color`, `opacity`) draws and the MASTER id does not — but closing
+              // it needs a material slot on `WaterMeshBuilder`, not a wider event.
             });
             _poolWaterMirrored++;
           }

@@ -1,0 +1,1162 @@
+{
+ "phase": "P3 - AXIS C - COMMANDS",
+ "date": "2026-08-31",
+ "head_at_start": "d91d30d4af51bc67317ef8afc0b46b1dbef94038",
+ "head_at_end": "6590ac1ca2202c1ed238cba7ef7af62d8c6a29ce",
+ "head_moved": "YES - to 6590ac1ca2202c1ed238cba7ef7af62d8c6a29ce. git diff --name-only d91d30d4..6590ac1c -> exactly ONE file: audit/full-stack/BRIEF-QUEUED.md (a docs commit by another lane). NO production file this phase measured changed between the two SHAs.",
+ "denominator": {
+  "verbs_measured": 361,
+  "families": 50,
+  "extrapolated": "NONE. Every number here is over 361 rows actually emitted to disk."
+ },
+ "ROLLUP_1_verbs_by_kind": {
+  "totals": {
+   "create": 51,
+   "batch.create": 10,
+   "update": 166,
+   "delete": 40,
+   "move": 31,
+   "split": 1,
+   "join": 2,
+   "regenerate": 1,
+   "other": 59
+  },
+  "per_family": {
+   "annotation": {
+    "total": 9,
+    "create": 1,
+    "delete": 1,
+    "move": 1,
+    "update": 6
+   },
+   "balcony": {
+    "total": 3,
+    "create": 1,
+    "delete": 1,
+    "update": 1
+   },
+   "bathroomPod": {
+    "total": 2,
+    "create": 1,
+    "delete": 1
+   },
+   "beam": {
+    "total": 9,
+    "batch.create": 1,
+    "move": 2,
+    "create": 1,
+    "delete": 1,
+    "update": 4
+   },
+   "boundaryLine": {
+    "total": 6,
+    "update": 3,
+    "create": 1,
+    "delete": 1,
+    "move": 1
+   },
+   "ceiling": {
+    "total": 10,
+    "batch.create": 1,
+    "move": 1,
+    "create": 1,
+    "delete": 1,
+    "update": 6
+   },
+   "column": {
+    "total": 9,
+    "batch.create": 1,
+    "move": 2,
+    "create": 1,
+    "delete": 1,
+    "update": 4
+   },
+   "copy-selection": {
+    "total": 1,
+    "other": 1
+   },
+   "cube": {
+    "total": 1,
+    "move": 1
+   },
+   "curtain-wall": {
+    "total": 24,
+    "update": 9,
+    "batch.create": 1,
+    "delete": 4,
+    "other": 6,
+    "move": 2,
+    "create": 2
+   },
+   "data": {
+    "total": 3,
+    "other": 2,
+    "update": 1
+   },
+   "dimension": {
+    "total": 7,
+    "create": 2,
+    "delete": 1,
+    "move": 1,
+    "update": 3
+   },
+   "door": {
+    "total": 14,
+    "batch.create": 1,
+    "create": 1,
+    "delete": 1,
+    "move": 1,
+    "update": 10
+   },
+   "element": {
+    "total": 10,
+    "other": 3,
+    "delete": 2,
+    "update": 5
+   },
+   "elementType": {
+    "total": 4,
+    "create": 1,
+    "delete": 1,
+    "other": 1,
+    "update": 1
+   },
+   "elevation": {
+    "total": 1,
+    "create": 1
+   },
+   "floor": {
+    "total": 6,
+    "move": 1,
+    "create": 1,
+    "update": 4
+   },
+   "furniture": {
+    "total": 12,
+    "batch.create": 1,
+    "other": 2,
+    "move": 2,
+    "create": 1,
+    "delete": 1,
+    "update": 5
+   },
+   "generation": {
+    "total": 4,
+    "other": 4
+   },
+   "generative": {
+    "total": 1,
+    "update": 1
+   },
+   "graph": {
+    "total": 3,
+    "other": 3
+   },
+   "grid": {
+    "total": 6,
+    "other": 1,
+    "create": 1,
+    "delete": 1,
+    "update": 3
+   },
+   "handrail": {
+    "total": 10,
+    "move": 1,
+    "create": 1,
+    "delete": 1,
+    "other": 2,
+    "update": 5
+   },
+   "hierarchy": {
+    "total": 5,
+    "create": 4,
+    "update": 1
+   },
+   "level": {
+    "total": 3,
+    "other": 2,
+    "update": 1
+   },
+   "lift": {
+    "total": 2,
+    "create": 1,
+    "delete": 1
+   },
+   "lighting": {
+    "total": 8,
+    "move": 2,
+    "create": 1,
+    "delete": 1,
+    "other": 1,
+    "update": 3
+   },
+   "opening": {
+    "total": 1,
+    "create": 1
+   },
+   "paste-clipboard": {
+    "total": 1,
+    "other": 1
+   },
+   "plumbing": {
+    "total": 8,
+    "move": 2,
+    "create": 2,
+    "delete": 1,
+    "other": 1,
+    "update": 2
+   },
+   "pool": {
+    "total": 2,
+    "create": 1,
+    "delete": 1
+   },
+   "projectOrigin": {
+    "total": 2,
+    "move": 1,
+    "update": 1
+   },
+   "rhino": {
+    "total": 2,
+    "other": 1,
+    "update": 1
+   },
+   "roof": {
+    "total": 13,
+    "update": 7,
+    "move": 2,
+    "create": 1,
+    "delete": 2,
+    "join": 1
+   },
+   "room": {
+    "total": 18,
+    "other": 4,
+    "create": 1,
+    "delete": 1,
+    "move": 1,
+    "regenerate": 1,
+    "update": 10
+   },
+   "schedule": {
+    "total": 7,
+    "other": 2,
+    "create": 1,
+    "delete": 1,
+    "update": 3
+   },
+   "section": {
+    "total": 7,
+    "create": 2,
+    "delete": 1,
+    "other": 1,
+    "update": 3
+   },
+   "selection": {
+    "total": 3,
+    "other": 3
+   },
+   "sheet": {
+    "total": 12,
+    "update": 6,
+    "create": 1,
+    "delete": 3,
+    "other": 2
+   },
+   "slab": {
+    "total": 18,
+    "update": 10,
+    "batch.create": 1,
+    "move": 2,
+    "create": 2,
+    "delete": 2,
+    "other": 1
+   },
+   "stair": {
+    "total": 13,
+    "batch.create": 1,
+    "create": 2,
+    "delete": 1,
+    "move": 1,
+    "other": 1,
+    "update": 7
+   },
+   "structural": {
+    "total": 7,
+    "create": 1,
+    "delete": 1,
+    "move": 1,
+    "update": 4
+   },
+   "template": {
+    "total": 3,
+    "update": 1,
+    "create": 1,
+    "other": 1
+   },
+   "vg": {
+    "total": 4,
+    "update": 2,
+    "create": 1,
+    "other": 1
+   },
+   "view": {
+    "total": 19,
+    "other": 5,
+    "create": 2,
+    "delete": 2,
+    "update": 10
+   },
+   "viewTemplate": {
+    "total": 3,
+    "create": 1,
+    "delete": 1,
+    "update": 1
+   },
+   "wall": {
+    "total": 31,
+    "update": 15,
+    "batch.create": 1,
+    "other": 4,
+    "move": 2,
+    "create": 6,
+    "delete": 1,
+    "join": 1,
+    "split": 1
+   },
+   "window": {
+    "total": 12,
+    "batch.create": 1,
+    "create": 1,
+    "delete": 1,
+    "move": 1,
+    "other": 1,
+    "update": 7
+   },
+   "zoom-fit": {
+    "total": 1,
+    "other": 1
+   },
+   "zoom-selected": {
+    "total": 1,
+    "other": 1
+   }
+  },
+  "classifier_note": "delete=40 by this classifier vs 39 in P1. The one-verb difference is slab.removeHole, which this pass classes delete by its remove* shape while it is simultaneously a row in ELEMENT_UPDATE_VERBS. Six of the 40 are sub-element removals (removeHole, removeSkylight, removeGridLine, removePanel, removeViewport, removeWidget); the pure *.delete suffix count is 33. Both numbers are stated so neither is mistaken for the other."
+ },
+ "ROLLUP_2_mirror_coverage": {
+  "by_kind": {
+   "create": {
+    "verbs": 51,
+    "CEB_case": 23,
+    "ELEMENT_UPDATE_VERBS": 0,
+    "LEVEL_CHANGE_VERBS": 0,
+    "any_mirror": 23,
+    "pct": "45%",
+    "of_those_emitting_into_ZERO_subscribers": 6
+   },
+   "batch.create": {
+    "verbs": 10,
+    "CEB_case": 7,
+    "ELEMENT_UPDATE_VERBS": 0,
+    "LEVEL_CHANGE_VERBS": 0,
+    "any_mirror": 7,
+    "pct": "70%",
+    "of_those_emitting_into_ZERO_subscribers": 0
+   },
+   "update": {
+    "verbs": 166,
+    "CEB_case": 6,
+    "ELEMENT_UPDATE_VERBS": 9,
+    "LEVEL_CHANGE_VERBS": 0,
+    "any_mirror": 15,
+    "pct": "9%",
+    "of_those_emitting_into_ZERO_subscribers": 3
+   },
+   "delete": {
+    "verbs": 40,
+    "CEB_case": 1,
+    "ELEMENT_UPDATE_VERBS": 1,
+    "LEVEL_CHANGE_VERBS": 0,
+    "any_mirror": 2,
+    "pct": "5%",
+    "of_those_emitting_into_ZERO_subscribers": 0
+   },
+   "move": {
+    "verbs": 31,
+    "CEB_case": 1,
+    "ELEMENT_UPDATE_VERBS": 0,
+    "LEVEL_CHANGE_VERBS": 12,
+    "any_mirror": 13,
+    "pct": "42%",
+    "of_those_emitting_into_ZERO_subscribers": 0
+   },
+   "split": {
+    "verbs": 1,
+    "CEB_case": 0,
+    "ELEMENT_UPDATE_VERBS": 0,
+    "LEVEL_CHANGE_VERBS": 0,
+    "any_mirror": 0,
+    "pct": "0%",
+    "of_those_emitting_into_ZERO_subscribers": 0
+   },
+   "join": {
+    "verbs": 2,
+    "CEB_case": 0,
+    "ELEMENT_UPDATE_VERBS": 0,
+    "LEVEL_CHANGE_VERBS": 0,
+    "any_mirror": 0,
+    "pct": "0%",
+    "of_those_emitting_into_ZERO_subscribers": 0
+   },
+   "regenerate": {
+    "verbs": 1,
+    "CEB_case": 0,
+    "ELEMENT_UPDATE_VERBS": 0,
+    "LEVEL_CHANGE_VERBS": 0,
+    "any_mirror": 0,
+    "pct": "0%",
+    "of_those_emitting_into_ZERO_subscribers": 0
+   },
+   "other": {
+    "verbs": 59,
+    "CEB_case": 0,
+    "ELEMENT_UPDATE_VERBS": 0,
+    "LEVEL_CHANGE_VERBS": 0,
+    "any_mirror": 0,
+    "pct": "0%",
+    "of_those_emitting_into_ZERO_subscribers": 0
+   }
+  },
+  "headline": "THE CREATION AUDIT FOUND 17 CREATES AND 0 UPDATES. THE CURRENT NUMBERS: create 23/51 (45%), batch.create 7/10 (70%), update 15/166 (9%), delete 2/40 (5%), move 13/31 (42%), split 0/1, join 0/2, regenerate 0/1, other 0/59.",
+  "the_update_column": "The 15 update-kind mirrors are NOT 15 hand-written bridge cases. NINE are rows in ELEMENT_UPDATE_VERBS (slab.addHole, slab.removeHole, slab.setThickness, slab.setBaseOffset, slab.setType, roof.setOverhang, roof.setThickness, roof.setShape, roof.setPitch, column.setHeight - ten rows, one of which this pass classes delete) and SIX are hand-written cases (slab.updateLayers, ceiling.updateLayers, floor.updateLayers, boundaryLine.update, boundaryLine.attach, boundaryLine.detach). THREE of those six - the updateLayers trio - emit into ZERO SUBSCRIBERS.",
+  "the_delete_column": "TWO of 40 delete verbs have any mirror at all: boundaryLine.delete (a hand-written case at CommandEventBridge.ts:2478) and slab.removeHole (an ELEMENT_UPDATE_VERBS row). There is no element.deleted channel. 38 delete verbs emit nothing.",
+  "zero_subscriber_overlay": "NINE verbs have a mirror that reaches nobody: annotation.create -> annotation.created | ceiling.updateLayers -> ceiling.layer-updated | dimension.create -> dimension.created | floor.updateLayers -> floor.layer-updated | grid.create -> grid.created | plumbing.create -> plumbing.created | room.create -> room.created | slab.updateLayers -> slab.layer-updated | structural.create -> structural.created. So the honest mirror number is 60 verbs with a channel, of which 51 have a channel with at least one .on() site.",
+  "evidence_class": "a - grep over CommandEventBridge.ts and the two tables, plus P1 subscriber counts. NOT class b: nothing here demonstrates a planted violation would be caught."
+ },
+ "ROLLUP_3_readback_coverage": {
+  "numerator": 22,
+  "denominator": 361,
+  "pct": "6.1%",
+  "fraction": "22/361",
+  "families": {
+   "with_at_least_one": 13,
+   "of": 50,
+   "pct": "26.0%"
+  },
+  "prior_reading": "The brief carried 7 verbs / 3 families. This pass measures 22 verbs / 13 families - a REFUTATION of the low figure, arrived at by running 16 test files rather than counting the ones the last audit happened to cite.",
+  "by_kind": {
+   "create": {
+    "verbs": 51,
+    "proven_positive_class_c": 7,
+    "measured_negative_class_c": 2,
+    "pct_proven": "13.7%"
+   },
+   "batch.create": {
+    "verbs": 10,
+    "proven_positive_class_c": 2,
+    "measured_negative_class_c": 0,
+    "pct_proven": "20.0%"
+   },
+   "update": {
+    "verbs": 166,
+    "proven_positive_class_c": 8,
+    "measured_negative_class_c": 0,
+    "pct_proven": "4.8%"
+   },
+   "delete": {
+    "verbs": 40,
+    "proven_positive_class_c": 1,
+    "measured_negative_class_c": 0,
+    "pct_proven": "2.5%"
+   },
+   "move": {
+    "verbs": 31,
+    "proven_positive_class_c": 1,
+    "measured_negative_class_c": 0,
+    "pct_proven": "3.2%"
+   },
+   "split": {
+    "verbs": 1,
+    "proven_positive_class_c": 0,
+    "measured_negative_class_c": 0,
+    "pct_proven": "0.0%"
+   },
+   "join": {
+    "verbs": 2,
+    "proven_positive_class_c": 0,
+    "measured_negative_class_c": 0,
+    "pct_proven": "0.0%"
+   },
+   "regenerate": {
+    "verbs": 1,
+    "proven_positive_class_c": 0,
+    "measured_negative_class_c": 0,
+    "pct_proven": "0.0%"
+   },
+   "other": {
+    "verbs": 59,
+    "proven_positive_class_c": 3,
+    "measured_negative_class_c": 2,
+    "pct_proven": "5.1%"
+   }
+  },
+  "by_family": {
+   "annotation": {
+    "verbs": 9,
+    "proven": 0,
+    "pct": "0.0%"
+   },
+   "balcony": {
+    "verbs": 3,
+    "proven": 0,
+    "pct": "0.0%"
+   },
+   "bathroomPod": {
+    "verbs": 2,
+    "proven": 2,
+    "pct": "100.0%"
+   },
+   "beam": {
+    "verbs": 9,
+    "proven": 0,
+    "pct": "0.0%"
+   },
+   "boundaryLine": {
+    "verbs": 6,
+    "proven": 1,
+    "pct": "16.7%"
+   },
+   "ceiling": {
+    "verbs": 10,
+    "proven": 1,
+    "pct": "10.0%"
+   },
+   "column": {
+    "verbs": 9,
+    "proven": 0,
+    "pct": "0.0%"
+   },
+   "copy-selection": {
+    "verbs": 1,
+    "proven": 0,
+    "pct": "0.0%"
+   },
+   "cube": {
+    "verbs": 1,
+    "proven": 0,
+    "pct": "0.0%"
+   },
+   "curtain-wall": {
+    "verbs": 24,
+    "proven": 0,
+    "pct": "0.0%"
+   },
+   "data": {
+    "verbs": 3,
+    "proven": 0,
+    "pct": "0.0%"
+   },
+   "dimension": {
+    "verbs": 7,
+    "proven": 0,
+    "pct": "0.0%"
+   },
+   "door": {
+    "verbs": 14,
+    "proven": 1,
+    "pct": "7.1%"
+   },
+   "element": {
+    "verbs": 10,
+    "proven": 0,
+    "pct": "0.0%"
+   },
+   "elementType": {
+    "verbs": 4,
+    "proven": 0,
+    "pct": "0.0%"
+   },
+   "elevation": {
+    "verbs": 1,
+    "proven": 0,
+    "pct": "0.0%"
+   },
+   "floor": {
+    "verbs": 6,
+    "proven": 0,
+    "pct": "0.0%"
+   },
+   "furniture": {
+    "verbs": 12,
+    "proven": 0,
+    "pct": "0.0%"
+   },
+   "generation": {
+    "verbs": 4,
+    "proven": 0,
+    "pct": "0.0%"
+   },
+   "generative": {
+    "verbs": 1,
+    "proven": 0,
+    "pct": "0.0%"
+   },
+   "graph": {
+    "verbs": 3,
+    "proven": 0,
+    "pct": "0.0%"
+   },
+   "grid": {
+    "verbs": 6,
+    "proven": 0,
+    "pct": "0.0%"
+   },
+   "handrail": {
+    "verbs": 10,
+    "proven": 0,
+    "pct": "0.0%"
+   },
+   "hierarchy": {
+    "verbs": 5,
+    "proven": 0,
+    "pct": "0.0%"
+   },
+   "level": {
+    "verbs": 3,
+    "proven": 0,
+    "pct": "0.0%"
+   },
+   "lift": {
+    "verbs": 2,
+    "proven": 1,
+    "pct": "50.0%"
+   },
+   "lighting": {
+    "verbs": 8,
+    "proven": 0,
+    "pct": "0.0%"
+   },
+   "opening": {
+    "verbs": 1,
+    "proven": 0,
+    "pct": "0.0%"
+   },
+   "paste-clipboard": {
+    "verbs": 1,
+    "proven": 0,
+    "pct": "0.0%"
+   },
+   "plumbing": {
+    "verbs": 8,
+    "proven": 0,
+    "pct": "0.0%"
+   },
+   "pool": {
+    "verbs": 2,
+    "proven": 1,
+    "pct": "50.0%"
+   },
+   "projectOrigin": {
+    "verbs": 2,
+    "proven": 0,
+    "pct": "0.0%"
+   },
+   "rhino": {
+    "verbs": 2,
+    "proven": 0,
+    "pct": "0.0%"
+   },
+   "roof": {
+    "verbs": 13,
+    "proven": 4,
+    "pct": "30.8%"
+   },
+   "room": {
+    "verbs": 18,
+    "proven": 0,
+    "pct": "0.0%"
+   },
+   "schedule": {
+    "verbs": 7,
+    "proven": 0,
+    "pct": "0.0%"
+   },
+   "section": {
+    "verbs": 7,
+    "proven": 0,
+    "pct": "0.0%"
+   },
+   "selection": {
+    "verbs": 3,
+    "proven": 3,
+    "pct": "100.0%"
+   },
+   "sheet": {
+    "verbs": 12,
+    "proven": 1,
+    "pct": "8.3%"
+   },
+   "slab": {
+    "verbs": 18,
+    "proven": 2,
+    "pct": "11.1%"
+   },
+   "stair": {
+    "verbs": 13,
+    "proven": 2,
+    "pct": "15.4%"
+   },
+   "structural": {
+    "verbs": 7,
+    "proven": 0,
+    "pct": "0.0%"
+   },
+   "template": {
+    "verbs": 3,
+    "proven": 0,
+    "pct": "0.0%"
+   },
+   "vg": {
+    "verbs": 4,
+    "proven": 0,
+    "pct": "0.0%"
+   },
+   "view": {
+    "verbs": 19,
+    "proven": 0,
+    "pct": "0.0%"
+   },
+   "viewTemplate": {
+    "verbs": 3,
+    "proven": 0,
+    "pct": "0.0%"
+   },
+   "wall": {
+    "verbs": 31,
+    "proven": 2,
+    "pct": "6.5%"
+   },
+   "window": {
+    "verbs": 12,
+    "proven": 1,
+    "pct": "8.3%"
+   },
+   "zoom-fit": {
+    "verbs": 1,
+    "proven": 0,
+    "pct": "0.0%"
+   },
+   "zoom-selected": {
+    "verbs": 1,
+    "proven": 0,
+    "pct": "0.0%"
+   }
+  },
+  "what_counts": "ONLY class (c): a vitest file I executed in this session at RC=0 whose assertion reads a store (or the legacy record) back after a dispatch. Co-occurrence between a composeRuntime() call and a store read in the same file is recorded per-row as class (a) NOT-PROVEN-BY-ME and is NOT in the numerator - 12 further verbs sit there.",
+  "what_it_does_not_establish": "Not one of the 22 is proven to a PIXEL. Every proof stops at a store record or an emitted event."
+ },
+ "ROLLUP_4_rival_dispatch": {
+  "the_legitimate_path": {
+   "executeCommand_production_sites": 638,
+   "command": "grep -rn \"executeCommand(\" --include=*.ts --include=*.tsx apps/editor/src packages plugins | grep -v node_modules | grep -v \"__tests__|.test.|.spec.\" | wc -l"
+  },
+  "rival_1_commandManager": {
+   "production_sites": 227,
+   "command": "grep -rn \"commandManager\\.execute|commandManager\\?\\.execute|\\[.commandManager.\\]\" --include=*.ts --include=*.tsx apps/editor/src packages plugins | grep -v node_modules | grep -v tests -> audit/.../_raw/commandmanager-sites.txt",
+   "distinct_callee_tokens": 42,
+   "UNRESOLVABLE_BY_NAME": "THIRTY-NINE of the 227 pass a VARIABLE, not a class literal: cmd x27, command x9, step x2, layersCmd, createCommand, build. A name-keyed rival census cannot see those, which is the same name-blindness CLAUDE.md records for check:commandmanager (a gate defeated by renaming).",
+   "top_named_classes": "CreateAnnotationCommand 8, ReDetectRoomsCommand 5, CreateWallCommand 3, CreateRoomCommand 3, CreatePlumbingFixtureCommand 3, AddLevelCommand 3, RenameRoomCommand 2, DeleteOpeningCommand 2, CreateStairRailingCommand 2, CreateFurnitureCommand 2.",
+   "THE_HEADLINE": "ONE HUNDRED AND THIRTY of the 361 verbs (36%) are declared in a handler FILE that references commandManager outside a comment - 58 distinct files. By kind: {\"update\":67,\"move\":4,\"other\":32,\"create\":21,\"delete\":6}. These are not 130 breaches; most are DECLARED legacy delegation, and the register credits them as LIVE for exactly that reason. They are the measurement of how much of the bus is a facade over the legacy authority.",
+   "verbs": [
+    "beam.update",
+    "boundaryLine.move",
+    "ceiling.update",
+    "ceiling.updateSystemTypeBatch",
+    "column.update",
+    "curtain-wall.bulkUpdatePanels",
+    "curtain-wall.bulkUpdateParameter",
+    "curtain-wall.create-on-all-slabs",
+    "data.clearPropertyDerived",
+    "data.markPropertyDerived",
+    "data.setDerivation",
+    "door.setFrameColor",
+    "door.setHeight",
+    "door.setOffset",
+    "door.setSillHeight",
+    "door.setWidth",
+    "door.updateSystemTypeBatch",
+    "element.changeType",
+    "element.delete",
+    "element.deleteBatch",
+    "element.hideInView",
+    "element.isolateInView",
+    "element.setGraphicOverride",
+    "element.updateDimensionsBatch",
+    "element.updateMark",
+    "element.updateOpeningProfileBatch",
+    "element.updateParameters",
+    "elementType.create",
+    "elementType.delete",
+    "elementType.duplicate",
+    "elementType.update",
+    "elevation.create",
+    "floor.setFinishBatch",
+    "floor.update",
+    "furniture.bulkUpdateKitchenMaterial",
+    "furniture.create",
+    "furniture.updateParameters",
+    "generation.apartment",
+    "generation.building",
+    "generation.finish-chain",
+    "generation.rooms",
+    "generative.applyLayout",
+    "grid.add",
+    "grid.update",
+    "handrail.moveBaseLine",
+    "handrail.updateColor",
+    "hierarchy.createBuilding",
+    "hierarchy.createLevel",
+    "hierarchy.createSite",
+    "hierarchy.createUnit",
+    "hierarchy.updateNode",
+    "level.add",
+    "level.duplicate-floor-plan",
+    "level.update",
+    "lighting.moveFixture",
+    "opening.create",
+    "plumbing.createFixture",
+    "plumbing.moveFixture",
+    "projectOrigin.setPosition",
+    "projectOrigin.setVisible",
+    "rhino.resetMaterial",
+    "rhino.setMaterial",
+    "roof.update",
+    "room.autoClassify.batch",
+    "room.create",
+    "room.delete",
+    "room.move",
+    "room.rename",
+    "room.restoreMeaning",
+    "room.setDepartment",
+    "room.setFinish",
+    "room.setHeightOffset",
+    "room.setMaterial",
+    "room.setName",
+    "room.setNumber",
+    "room.setOccupancy",
+    "room.updateBoundary",
+    "schedule.update",
+    "section.mark.create",
+    "sheet.addViewport",
+    "sheet.create",
+    "sheet.moveViewport",
+    "slab.create-on-all-floors",
+    "slab.movePolygon",
+    "slab.updateDimensions",
+    "slab.updateSystemTypeBatch",
+    "stair.create",
+    "stair.createRailing",
+    "stair.move",
+    "stair.updateParameters",
+    "template.assignToNode",
+    "template.create",
+    "template.unassign",
+    "vg.assignIntent",
+    "vg.createVisibilityIntent",
+    "vg.takeLatestIntentVersion",
+    "vg.updateVisibilityIntent",
+    "view.clearAllOverrides",
+    "view.clearOverride",
+    "view.createDefinition",
+    "view.deleteDefinition",
+    "view.hideElement",
+    "view.isolateElement",
+    "view.setCategoryVisibility",
+    "view.setCrop",
+    "view.setGraphicOverride",
+    "view.setProjection",
+    "view.updateDefinition",
+    "viewTemplate.create",
+    "viewTemplate.delete",
+    "viewTemplate.update",
+    "wall.addLayerBatch",
+    "wall.cascadeBaseline",
+    "wall.create-on-all-slabs",
+    "wall.setSideFinishBatch",
+    "wall.updateBaseline",
+    "wall.updateColor",
+    "wall.updateColorBatch",
+    "wall.updateCurtainWall",
+    "wall.updateDimensions",
+    "wall.updateHeightBatch",
+    "wall.updateRakeBatch",
+    "wall.updateSystemType",
+    "wall.updateSystemTypeBatch",
+    "window.parametricCreate",
+    "window.setFrameColor",
+    "window.setOffset",
+    "window.setSillHeight",
+    "window.setSize",
+    "window.updateSystemTypeBatch"
+   ]
+  },
+  "rival_2_window_dispatchEvent": {
+   "production_sites": 205,
+   "inside_a_bus_handler_file": 20,
+   "worst": "plugins/wall/src/handlers/UpdateWallsHeightBatch.ts fires window.dispatchEvent(new CustomEvent(WALL_HEIGHT_BATCH_REPORT_EVENT)) at :177, :231 and :290 - a batch REPORT delivered on the DOM event bus rather than as a HandlerResult. Top non-handler holders: packages/ai-host/src/QueryEngine.ts 15, packages/input-host/src/FloorPlanUnderlayTool.ts 11, packages/input-host/src/SelectionManager.ts 9."
+  },
+  "rival_3_second_registration_site": {
+   "count": 1,
+   "verb": "sheet.create",
+   "sites": "plugins/sheets/src/handlers/CreateSheet.ts:51 AND apps/editor/src/engine/initBusHandlers.ts:2641. The register classes it SHADOWED - the boot-order guard means the plugin one wins and the live bridge never registers. Exactly ONE verb of 361 has two registration sites."
+  },
+  "rival_4_per_family_deleters": "P1 measured 27 per-family deleters as rivals to the LIVE element.delete / element.deleteBatch. This pass confirms the shape and adds the reachability column: 29 of the 40 delete verbs have ZERO literal dispatch site outside their own handler, and 24 of them are quadruple-negative."
+ },
+ "ROLLUP_5_verbs_with_no_consequence": {
+  "measured_class_c": [
+   "curtain-wall.replacePanel",
+   "paste-clipboard",
+   "room.create",
+   "slab.create"
+  ],
+  "shadowed": [
+   "sheet.create"
+  ],
+  "refuses_by_design": 37,
+  "refuses_by_design_verbs": [
+   "beam.move",
+   "beam.setMaterial",
+   "ceiling.setMaterial",
+   "column.move",
+   "column.setMaterial",
+   "curtain-wall.setMaterial",
+   "dimension.move",
+   "door.create",
+   "door.move",
+   "floor.setMaterial",
+   "furniture.move",
+   "furniture.rotate",
+   "furniture.setMaterial",
+   "handrail.setMaterial",
+   "lighting.move",
+   "lighting.setMaterial",
+   "plumbing.move",
+   "plumbing.setMaterial",
+   "roof.move",
+   "roof.setMaterial",
+   "room.recomputeBoundary",
+   "room.regenerate",
+   "section.moveLine",
+   "slab.move",
+   "slab.setMaterial",
+   "stair.rotate",
+   "stair.setMaterial",
+   "structural.move",
+   "structural.setMaterial",
+   "wall.bulkSetVisuals",
+   "wall.move",
+   "wall.setColor",
+   "wall.setDimensions",
+   "wall.setLayers",
+   "wall.transform",
+   "window.create",
+   "window.move"
+  ],
+  "quadruple_negative_candidates": [
+   "annotation.move",
+   "annotation.setColor",
+   "annotation.setKind",
+   "annotation.setRotation",
+   "annotation.setText",
+   "annotation.setTextHeight",
+   "balcony.delete",
+   "beam.delete",
+   "beam.setSection",
+   "beam.setType",
+   "ceiling.delete",
+   "ceiling.setBoundary",
+   "ceiling.setHeight",
+   "column.delete",
+   "column.setType",
+   "copy-selection",
+   "curtain-wall.addPanel",
+   "curtain-wall.batch.update",
+   "curtain-wall.removePanel",
+   "curtain-wall.resize",
+   "curtain-wall.rotatePanel",
+   "curtain-wall.setMullionType",
+   "curtain-wall.setOutline",
+   "curtain-wall.setPanelType",
+   "curtain-wall.setTransomType",
+   "curtain-wall.swapPanel",
+   "dimension.createMany",
+   "dimension.delete",
+   "dimension.setPrecision",
+   "dimension.setText",
+   "dimension.setUnit",
+   "door.delete",
+   "door.setType",
+   "furniture.delete",
+   "furniture.setActiveLod",
+   "furniture.setRepresentation",
+   "furniture.setScale",
+   "grid.delete",
+   "grid.setExtent",
+   "grid.setSpacing",
+   "handrail.delete",
+   "handrail.recompute",
+   "handrail.setHost",
+   "handrail.setPath",
+   "handrail.setShape",
+   "lift.delete",
+   "lighting.delete",
+   "lighting.setEmergency",
+   "lighting.setIntensity",
+   "plumbing.delete",
+   "plumbing.setSystem",
+   "pool.delete",
+   "roof.addSkylight",
+   "roof.delete",
+   "roof.joinRoofs",
+   "roof.removeSkylight",
+   "schedule.column.add",
+   "schedule.column.remove",
+   "schedule.delete",
+   "schedule.setFilter",
+   "schedule.setGroupBy",
+   "section.delete",
+   "section.setDepth",
+   "section.setMark",
+   "section.setScale",
+   "sheet.addWidget",
+   "sheet.removeViewport",
+   "sheet.removeWidget",
+   "sheet.setSheetMetadata",
+   "sheet.setTitleBlock",
+   "sheet.setViewportScale",
+   "slab.delete",
+   "structural.delete",
+   "structural.setBraceEndOffset",
+   "structural.setDimensions",
+   "structural.setKind",
+   "view.create",
+   "view.delete",
+   "view.rename",
+   "view.setOutput",
+   "view.updateCamera",
+   "wall.createBetweenMarks",
+   "wall.setSystemType",
+   "wall.split",
+   "window.delete",
+   "window.setType"
+  ],
+  "undo_stranded": [
+   "balcony.create",
+   "balcony.delete",
+   "balcony.updateProfile",
+   "cube.move",
+   "dimension.create",
+   "dimension.createMany",
+   "dimension.delete",
+   "dimension.move",
+   "dimension.setPrecision",
+   "dimension.setText",
+   "dimension.setUnit",
+   "projectOrigin.setVisible",
+   "schedule.column.add",
+   "schedule.column.remove",
+   "schedule.create",
+   "schedule.delete",
+   "section.create",
+   "section.delete",
+   "section.moveLine",
+   "section.setDepth",
+   "section.setMark",
+   "section.setScale",
+   "sheet.addWidget",
+   "sheet.create",
+   "sheet.delete",
+   "sheet.removeViewport",
+   "sheet.removeWidget",
+   "sheet.rename",
+   "sheet.reorder",
+   "sheet.setSheetMetadata",
+   "sheet.setTitleBlock",
+   "sheet.setViewportScale",
+   "structural.create",
+   "structural.delete",
+   "structural.move",
+   "structural.setBraceEndOffset",
+   "structural.setDimensions",
+   "structural.setKind",
+   "structural.setMaterial",
+   "view.create",
+   "view.delete",
+   "view.rename",
+   "view.setOutput",
+   "view.setRange",
+   "view.setUnderlay",
+   "view.switch",
+   "view.updateCamera"
+  ],
+  "mirror_that_reaches_nobody": [
+   "annotation.create -> annotation.created",
+   "ceiling.updateLayers -> ceiling.layer-updated",
+   "dimension.create -> dimension.created",
+   "floor.updateLayers -> floor.layer-updated",
+   "grid.create -> grid.created",
+   "plumbing.create -> plumbing.created",
+   "room.create -> room.created",
+   "slab.updateLayers -> slab.layer-updated",
+   "structural.create -> structural.created"
+  ],
+  "counts": {
+   "measured_class_c": 4,
+   "shadowed": 1,
+   "refuses_by_design": 37,
+   "quadruple_negative_candidates": 86,
+   "undo_stranded": 47,
+   "mirror_that_reaches_nobody": 9
+  },
+  "reading_rule": "These five sets OVERLAP and must not be summed. The only convictions are the four in measured_class_c plus the one SHADOWED. refuses_by_design is the HONEST form and is reported so nobody counts it as a defect. quadruple_negative is a CANDIDATE set carrying a measured 41% false-zero rate on its dispatch leg."
+ },
+ "CONTRACT_CONFORMANCE_over_all_361": {
+  "validates_before_mutation": 360,
+  "typed_DomainError_or_refusal": 70,
+  "mutates_only_via_immer_draft": 215,
+  "affectedStores_declared": 288,
+  "no_store_singleton_import_in_file": 267,
+  "withHandlerSpan": 279,
+  "emits_a_typed_domain_event": 2,
+  "geometry_deferred_to_FrameScheduler": 0,
+  "reading": "The last two are NOT 359 and 361 defects. Emission is architecturally the CommandEventBridge job, not the handler job - which is precisely why ROLLUP 2 matters: a handler that emits nothing is CORRECT, and a bridge with no case for it is the gap. FrameScheduler deferral at 0 of 361 is the honest reading that no handler in this repo defers geometry by naming the scheduler; whether geometry is deferred DOWNSTREAM of the patch is an AXIS-B question this phase did not measure.",
+  "evidence_class": "a - regex over the handler declaration slice. A TRUE means the token is present, not that it runs on the mutation path.",
+  "CALIBRATION_CORRECTION": {
+   "clause": "typed_DomainError_or_refusal",
+   "slice_regex_reading": 70,
+   "capability_search_reading": 314,
+   "how_the_gap_was_found": "SPOT-CHECK. plugins/wall/src/handlers/CreateWall.ts scores FALSE on the slice regex, yet throws WallSystemTypeNotFoundError (:232), WallSchemaError (:303) and WallDimensionsError (:319) OUTWARD from execute. The slice regex looked for the literal tokens DomainError / CommandValidationError / CapabilityRefusal / refusal, and this repo names its typed errors after the FAMILY, not after the base class.",
+   "the_honest_number": "Re-measured by capability rather than by name: the registration FILE of 314 of 361 verbs names a typed *Error class or a refusal value. Read 70 as a NAME-MATCH FLOOR and 314 as the capability reading. The same false-negative risk applies to every other clause in this block and is NOT separately calibrated - only this one was spot-checked.",
+   "doctrine": "This is the memory note grep-silence-has-three-causes and bulk-vs-query-endpoint-false-refusals in one: a negative produced by searching for the wrong NAME is not a measurement of absence."
+  }
+ },
+ "MUST_NOT_BREACHES_over_all_361": {
+  "commandManager_execute_literal_in_slice": 2,
+  "cascading_dispatch": 6,
+  "window_dispatchEvent": 20,
+  "DOM_access": 61,
+  "direct_rAF": 0,
+  "reading": "direct rAF = 0 of 361 is a CLEAN result and corroborates P3 (single rAF owner) from a different subject - though note check-raf-count is one of the 59 BLIND COMPARATORS, so this is an independent look at the same invariant, not a re-run of its word. DOM_access 61 counts any document./window. token including type-only casts and is a candidate list, not a conviction list. The commandManager literal count of 2 is a SLICE count and is NOT the real figure - see ROLLUP 4, where the FILE-level measurement is 130 verbs across 58 files."
+ },
+ "UNDO_BACKENDS_over_all_361": {
+  "A_ring_buffer_patch_pair_fully_covered": 157,
+  "B_legacy_commandManager": 123,
+  "STRANDED": 47,
+  "NONE_or_UNKNOWN": 34,
+  "method": "Each verb affectedStores set was compared against the key set of buildUndoStoreMap() (apps/editor/src/engine/undo/performUndoRedo.ts:398-514) and against UNMAPPED_BUS_STORE_KEYS (:567+). _covered() is ALL-OR-NOTHING, so one uncovered key strands the whole entry.",
+  "STRANDED_means": "performUndo declines the ring entry, does NOT step the cursor, and falls through to commandManager - which for these keys owns nothing. Ctrl+Z is a no-op. 47 of 361 verbs.",
+  "caveat": "class (a). The undo column of the generated register says of itself: \"Declared shape, not an executed proof.\" The ONE executed undo proof in this phase is liftUndoRoundTrip.test.ts (R-3..R-7), which I ran at RC=0 and which ALSO proves the lift entry is still one key short (door)."
+ },
+ "working_tree_at_end": "git status --porcelain -> M packages/command-registry/tsconfig.tsbuildinfo (mtime 2026-08-30 18:42, PRE-DATES this lane) and M tools/rac-conformance/certification/results/graphruntime.json (mtime 2026-08-31 13:48, written by the P0/P1 gate run-all BEFORE this lane started at ~14:20). THIS LANE CHANGED NO PRODUCTION CODE. Its only writes are under audit/full-stack/2026-08-31/commands/."
+}

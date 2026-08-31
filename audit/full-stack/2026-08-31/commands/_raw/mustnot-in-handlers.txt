@@ -1,0 +1,120 @@
+plugins/ceiling/src/handlers/UpdateCeilingsSystemTypeBatch.ts:94:        const cm = window.commandManager as
+plugins/ceiling/src/handlers/UpdateCeilingsSystemTypeBatch.ts:118:            window.dispatchEvent(new CustomEvent(CEILING_TYPE_BATCH_REPORT_EVENT, { detail: report }));
+plugins/ceiling/src/handlers/UpdateCeilingsSystemTypeBatch.ts:155:            window.dispatchEvent(
+plugins/curtain-wall/src/handlers/BulkUpdateCurtainPanels.ts:125:        const cm = window.commandManager as
+plugins/curtain-wall/src/handlers/BulkUpdateCurtainPanels.ts:144:            window.dispatchEvent(new CustomEvent(CURTAIN_PANEL_BATCH_REPORT_EVENT, { detail: report }));
+plugins/curtain-wall/src/handlers/BulkUpdateCurtainPanels.ts:174:            window.dispatchEvent(
+plugins/curtain-wall/src/handlers/BulkUpdateCurtainWallParameter.ts:120:        const cm = window.commandManager as
+plugins/curtain-wall/src/handlers/BulkUpdateCurtainWallParameter.ts:139:            window.dispatchEvent(new CustomEvent(CURTAIN_WALL_PARAMETER_BATCH_REPORT_EVENT, { detail: report }));
+plugins/curtain-wall/src/handlers/BulkUpdateCurtainWallParameter.ts:173:            window.dispatchEvent(
+plugins/curtain-wall/src/handlers/CreateCurtainWallsOnAllSlabs.ts:49:      const cm = window.commandManager as { execute(cmd: unknown, options?: unknown): void } | undefined;
+plugins/door/src/handlers/UpdateDoorsSystemTypeBatch.ts:98:        const cm = window.commandManager as
+plugins/door/src/handlers/UpdateDoorsSystemTypeBatch.ts:122:            window.dispatchEvent(new CustomEvent(DOOR_TYPE_BATCH_REPORT_EVENT, { detail: report }));
+plugins/door/src/handlers/UpdateDoorsSystemTypeBatch.ts:171:            window.dispatchEvent(
+plugins/floor/src/handlers/SetFloorFinishBatch.ts:106:        const cm = window.commandManager as
+plugins/floor/src/handlers/SetFloorFinishBatch.ts:126:            window.dispatchEvent(
+plugins/floor/src/handlers/SetFloorFinishBatch.ts:173:          window.dispatchEvent(
+plugins/furniture/src/handlers/BulkUpdateKitchenMaterial.ts:114:        const cm = window.commandManager as
+plugins/furniture/src/handlers/BulkUpdateKitchenMaterial.ts:133:            window.dispatchEvent(new CustomEvent(KITCHEN_MATERIAL_BATCH_REPORT_EVENT, { detail: report }));
+plugins/furniture/src/handlers/BulkUpdateKitchenMaterial.ts:167:            window.dispatchEvent(
+plugins/furniture/src/handlers/CreateFurniture.ts:73:      const cm = window.commandManager as { getContext?(): unknown } | undefined;
+plugins/furniture/src/handlers/UpdateFurnitureParameters.ts:72:  const cm = window.commandManager as { getContext?(): unknown } | undefined;
+plugins/furniture/src/handlers/UpdateFurnitureParameters.ts:135:      const cm = window.commandManager as { execute(cmd: unknown, options?: unknown): void } | undefined;
+plugins/levels/src/handlers/DuplicateFloorPlan.ts:56:      const cm = window.commandManager as { execute(cmd: unknown, options?: unknown): void } | undefined;
+plugins/plumbing/src/handlers/CreatePlumbingFixture.ts:49:      const cm = window.commandManager as { execute(cmd: unknown, options?: unknown): void } | undefined;
+plugins/rooms/src/handlers/BulkAutoClassifyRooms.ts:73:      const cm = (window as unknown as { commandManager?: { execute(cmd: unknown, options?: unknown): { success?: boolean; info?: string[]; error?: string } | void } })
+plugins/rooms/src/handlers/BulkAutoClassifyRooms.ts:74:        .commandManager;
+plugins/rooms/src/handlers/CreateRoom.ts:168:          : (window.commandManager as
+plugins/rooms/src/handlers/CreateTemplate.ts:55:  "template.create reaches the authoritative templateStore only through the legacy commandManager bridge (window.commandManager → CreateTemplateCommand), and that bridge is not present in this process. It is absent in every headless runtime and in any browser frame before the engine boots. Refusing here is the honest answer: the previous behaviour returned an empty patch pair, which the bus reads as SUCCESS, so the caller was told a template existed that was never created.";
+plugins/rooms/src/handlers/CreateTemplate.ts:76:    if (typeof window === 'undefined' || !(window.commandManager as unknown)) {
+plugins/rooms/src/handlers/CreateTemplate.ts:87:      const cm = window.commandManager as { execute(cmd: unknown, options?: unknown): void } | undefined;
+plugins/rooms/src/handlers/DeleteRoom.ts:59:      const cm = (window as unknown as { commandManager?: { execute(cmd: unknown, options?: unknown): void } })
+plugins/rooms/src/handlers/DeleteRoom.ts:60:        .commandManager;
+plugins/rooms/src/handlers/MoveRoom.ts:86:        commandManager?: { execute(cmd: unknown, options?: unknown): void };
+plugins/rooms/src/handlers/MoveRoom.ts:97:      const cm = w.commandManager;
+plugins/rooms/src/handlers/RedetectRooms.ts:82:      window.dispatchEvent(
+plugins/rooms/src/handlers/RenameRoom.ts:54:      const cm = window.commandManager as {
+plugins/rooms/src/handlers/RestoreRoomMeaning.ts:100:      const cm = (window as unknown as { commandManager?: { execute(cmd: unknown, options?: unknown): void } })
+plugins/rooms/src/handlers/RestoreRoomMeaning.ts:101:        .commandManager;
+plugins/rooms/src/handlers/SetRoomDepartment.ts:79:      const cm = (window as unknown as { commandManager?: { execute(cmd: unknown, options?: unknown): void } })
+plugins/rooms/src/handlers/SetRoomDepartment.ts:80:        .commandManager;
+plugins/rooms/src/handlers/SetRoomFinish.ts:128:  commandManager?: {
+plugins/rooms/src/handlers/SetRoomFinish.ts:230:      const cm = w.commandManager;
+plugins/rooms/src/handlers/SetRoomHeightOffset.ts:83:        commandManager?: { execute(cmd: unknown, options?: unknown): void };
+plugins/rooms/src/handlers/SetRoomHeightOffset.ts:96:      const cm = w.commandManager;
+plugins/rooms/src/handlers/SetRoomMaterial.ts:113:      const cm = (window as unknown as { commandManager?: { execute(cmd: unknown, options?: unknown): void } })
+plugins/rooms/src/handlers/SetRoomMaterial.ts:114:        .commandManager;
+plugins/rooms/src/handlers/SetRoomName.ts:88:        commandManager?: {
+plugins/rooms/src/handlers/SetRoomName.ts:92:      }).commandManager;
+plugins/rooms/src/handlers/SetRoomNumber.ts:78:      const cm = (window as unknown as { commandManager?: { execute(cmd: unknown, options?: unknown): void } })
+plugins/rooms/src/handlers/SetRoomNumber.ts:79:        .commandManager;
+plugins/rooms/src/handlers/SetRoomOccupancy.ts:72:      const cm = (window as unknown as { commandManager?: { execute(cmd: unknown, options?: unknown): void } })
+plugins/rooms/src/handlers/SetRoomOccupancy.ts:73:        .commandManager;
+plugins/slab/src/handlers/CreateSlabsOnAllFloors.ts:81:      const cm = window.commandManager as
+plugins/slab/src/handlers/UpdateSlabsSystemTypeBatch.ts:138:        const cm = window.commandManager as
+plugins/slab/src/handlers/UpdateSlabsSystemTypeBatch.ts:162:            window.dispatchEvent(new CustomEvent(SLAB_TYPE_BATCH_REPORT_EVENT, { detail: report }));
+plugins/slab/src/handlers/UpdateSlabsSystemTypeBatch.ts:184:            window.dispatchEvent(
+plugins/stair/src/handlers/CreateStairRailing.ts:72:      const cm = window.commandManager as { execute(cmd: unknown, options?: unknown): void } | undefined;
+plugins/stair/src/handlers/CreateStairRailing.ts:78:          '[stair.createRailing.handler] window.commandManager is undefined — ',
+plugins/stair/src/handlers/CreateStairRailing.ts:81:          'window.commandManager (race condition); check initialisation order.',
+plugins/stair/src/handlers/MoveStair.ts:106:  const cm = window.commandManager as { execute(c: unknown, options?: unknown): void } | undefined;
+plugins/stair/src/handlers/MoveStair.ts:108:    console.error('[stair.move.handler] geometry stair exists but commandManager is unavailable — move not persisted.');
+plugins/stair/src/handlers/UpdateStairParameters.ts:36:      const cm = window.commandManager as { execute(cmd: unknown, options?: unknown): void } | undefined;
+plugins/view/src/handlers/DeleteElement.ts:110:      const cm = window.commandManager as CommandManagerLike | undefined;
+plugins/view/src/handlers/DeleteElementsBatch.ts:90:        const cm = window.commandManager as
+plugins/view/src/handlers/DeleteElementsBatch.ts:114:            window.dispatchEvent(new CustomEvent(DELETE_BATCH_REPORT_EVENT, { detail: report }));
+plugins/view/src/handlers/DeleteElementsBatch.ts:131:            window.dispatchEvent(
+plugins/view/src/handlers/HideElementInView.ts:36:      const cm = window.commandManager as { execute(cmd: unknown, options?: unknown): void } | undefined;
+plugins/view/src/handlers/IsolateElementInView.ts:36:      const cm = window.commandManager as { execute(cmd: unknown, options?: unknown): void } | undefined;
+plugins/view/src/handlers/SetElementGraphicOverride.ts:39:      const cm = window.commandManager as { execute(cmd: unknown, options?: unknown): void } | undefined;
+plugins/view/src/handlers/SetViewProjection.ts:44:      const cm = window.commandManager as { execute(cmd: unknown, options?: unknown): void } | undefined;
+plugins/view/src/handlers/UpdateElementDimensionsBatch.ts:160:        const cm = window.commandManager as
+plugins/view/src/handlers/UpdateElementDimensionsBatch.ts:186:            window.dispatchEvent(new CustomEvent(DIMENSIONS_BATCH_REPORT_EVENT, { detail: report }));
+plugins/view/src/handlers/UpdateElementDimensionsBatch.ts:227:          window.dispatchEvent(new CustomEvent(DIMENSIONS_BATCH_REPORT_EVENT, { detail: report }));
+plugins/view/src/handlers/UpdateOpeningProfileBatch.ts:160:        const cm = window.commandManager as
+plugins/view/src/handlers/UpdateOpeningProfileBatch.ts:185:            window.dispatchEvent(
+plugins/view/src/handlers/UpdateOpeningProfileBatch.ts:226:          window.dispatchEvent(new CustomEvent(OPENING_PROFILE_BATCH_REPORT_EVENT, { detail: report }));
+plugins/wall/src/handlers/AddWallLayerBatch.ts:100:        const cm = window.commandManager as
+plugins/wall/src/handlers/AddWallLayerBatch.ts:124:            window.dispatchEvent(new CustomEvent(WALL_LAYER_BATCH_REPORT_EVENT, { detail: report }));
+plugins/wall/src/handlers/AddWallLayerBatch.ts:164:            window.dispatchEvent(
+plugins/wall/src/handlers/CascadeWallBaseline.ts:55:      const cm = window.commandManager as { execute(cmd: unknown, options?: unknown): void } | undefined;
+plugins/wall/src/handlers/CreateWallsOnAllSlabs.ts:49:      const cm = window.commandManager as { execute(cmd: unknown, options?: unknown): void } | undefined;
+plugins/wall/src/handlers/SetWallSideFinishBatch.ts:162:        const cm = window.commandManager as
+plugins/wall/src/handlers/SetWallSideFinishBatch.ts:182:            window.dispatchEvent(
+plugins/wall/src/handlers/SetWallSideFinishBatch.ts:242:          window.dispatchEvent(
+plugins/wall/src/handlers/UpdateWallBaseline.ts:119:      const cm = window.commandManager as { execute(cmd: unknown, options?: unknown): void } | undefined;
+plugins/wall/src/handlers/UpdateWallsColorBatch.ts:111:        const cm = window.commandManager as
+plugins/wall/src/handlers/UpdateWallsColorBatch.ts:135:            window.dispatchEvent(new CustomEvent(WALL_COLOR_BATCH_REPORT_EVENT, { detail: report }));
+plugins/wall/src/handlers/UpdateWallsColorBatch.ts:177:            window.dispatchEvent(
+plugins/wall/src/handlers/UpdateWallsHeightBatch.ts:99:  commandManager?: {
+plugins/wall/src/handlers/UpdateWallsHeightBatch.ts:177:            window.dispatchEvent(new CustomEvent(WALL_HEIGHT_BATCH_REPORT_EVENT, { detail: report }));
+plugins/wall/src/handlers/UpdateWallsHeightBatch.ts:183:        const cm = w.commandManager;
+plugins/wall/src/handlers/UpdateWallsHeightBatch.ts:231:            window.dispatchEvent(new CustomEvent(WALL_HEIGHT_BATCH_REPORT_EVENT, { detail: report }));
+plugins/wall/src/handlers/UpdateWallsHeightBatch.ts:290:          window.dispatchEvent(new CustomEvent(WALL_HEIGHT_BATCH_REPORT_EVENT, { detail: report }));
+plugins/wall/src/handlers/UpdateWallsRakeBatch.ts:95:        const cm = window.commandManager as
+plugins/wall/src/handlers/UpdateWallsRakeBatch.ts:119:            window.dispatchEvent(new CustomEvent(WALL_RAKE_BATCH_REPORT_EVENT, { detail: report }));
+plugins/wall/src/handlers/UpdateWallsRakeBatch.ts:156:            window.dispatchEvent(
+plugins/wall/src/handlers/UpdateWallsSystemTypeBatch.ts:95:        const cm = window.commandManager as
+plugins/wall/src/handlers/UpdateWallsSystemTypeBatch.ts:119:            window.dispatchEvent(new CustomEvent(WALL_TYPE_BATCH_REPORT_EVENT, { detail: report }));
+plugins/wall/src/handlers/UpdateWallsSystemTypeBatch.ts:159:            window.dispatchEvent(
+plugins/wall/src/handlers/UpdateWallSystemType.ts:41:      const cm = window.commandManager as { execute(cmd: unknown, options?: unknown): void } | undefined;
+plugins/window/src/handlers/CreateWindowsParametricBatch.ts:91:        const cm = window.commandManager as
+plugins/window/src/handlers/CreateWindowsParametricBatch.ts:115:            window.dispatchEvent(new CustomEvent(WINDOW_PARAMETRIC_REPORT_EVENT, { detail: report }));
+plugins/window/src/handlers/CreateWindowsParametricBatch.ts:137:            window.dispatchEvent(
+plugins/window/src/handlers/UpdateWindowsSystemTypeBatch.ts:98:        const cm = window.commandManager as
+plugins/window/src/handlers/UpdateWindowsSystemTypeBatch.ts:122:            window.dispatchEvent(new CustomEvent(WINDOW_TYPE_BATCH_REPORT_EVENT, { detail: report }));
+plugins/window/src/handlers/UpdateWindowsSystemTypeBatch.ts:179:            window.dispatchEvent(
+packages/command-registry/src/annotations/AnnotateViewCommand.ts:203:        const _cmdMgr = ctx?.commandManager
+packages/command-registry/src/annotations/AnnotateViewCommand.ts:207:            ?? (typeof window !== 'undefined' ? window.commandManager : null); // TODO(TASK-06)
+packages/command-registry/src/annotations/AnnotateViewCommand.ts:213:            const msg = '[AnnotateViewCommand] commandManager or annotationStore not initialised';
+packages/command-registry/src/attachments/WallAnchorDependencyTracker.ts:92:        private readonly commandManagerRef: WallAnchorCommandManagerRef,
+packages/command-registry/src/attachments/WallAnchorDependencyTracker.ts:107:        return this.commandManagerRef.current?.isReverting?.() === true;
+packages/command-registry/src/attachments/WallAnchorDependencyTracker.ts:229:        const cm = this.commandManagerRef.current;
+packages/command-registry/src/attachments/WallAnchorDependencyTracker.ts:233:                `${TAG} commandManager not available — ${payload.items.length} element(s) anchored to ${kind} ` +
+packages/command-registry/src/boundaryLine/MoveBoundaryLineCommand.ts:535:        const mgr = context.commandManager as unknown as {
+packages/command-registry/src/global-window-augment.d.ts:3:    commandManager?: any;
+packages/command-registry/src/plans/BeamCommandPlan.ts:344:        commandManager: any
+packages/command-registry/src/plans/BeamCommandPlan.ts:356:            const result = commandManager.execute(step.command, {
+packages/command-registry/src/plans/StairCommandPlan.ts:292:        commandManager: any
+packages/command-registry/src/plans/StairCommandPlan.ts:304:            const result = commandManager.execute(step.command, { 
+packages/command-registry/src/types.ts:572:    commandManager: import('./CommandManagerImpl').CommandManager;

@@ -1,0 +1,57 @@
+{
+  "family": "boundaryLine",
+  "head": "d91d30d4af51bc67317ef8afc0b46b1dbef94038",
+  "members": ["boundary line (linework)", "boundary line (solid, when hasVolume)"],
+  "rows": [
+    {
+      "member": "boundary line",
+      "surface": "3d",
+      "builder_file": "apps/editor/src/engine/BoundaryLineMeshBuilder.ts (340 lines)",
+      "entry_fn": "updateBoundaryLine(line, levelElevation=0): BoundaryLineRenderOutcome :202  ·  removeBoundaryLine(id): boolean :273  ·  getGroup :283  ·  ids() :288  ·  dispose() :294  ·  _disposeGroup",
+      "package": "apps/editor",
+      "layer": "L7",
+      "⚠ LAYER_NOTE": "Another geometry builder at L7 over a pure L2 package. Its header at :22 is titled 'WHY IT LIVES IN apps/editor AND NOT IN @pryzm/geometry-boundary-line' and :24 gives 'one measured reason'. The placement is argued. Same shape as WaterMeshBuilder.",
+      "invoked_by": [
+        "apps/editor/src/engine/initTools.ts:1883 runtime.events.on('boundaryLine.created'), :1887 ('boundaryLine.updated'), :1891 ('boundaryLine.deleted') — all three legs wired, which most families do not manage",
+        "each of the first two calls the shared closure `_drawBoundaryLine` (initTools.ts:1833)"
+      ],
+      "rivals": [],
+      "robustness": {
+        "⭐ DEGENERATE_INPUT — JOINT BEST IN THE REPO (with WaterMeshBuilder)": "updateBoundaryLine returns a THREE-ARM discriminated union (:136-148): `{drew:'…'} | {drew:'linework-material-refused', reason} | {drew:'nothing', reason}`. :210 refuses with both numbers: 'has N vertex/vertices — a line needs at least 2'. The header at :66 states the contract: 'the refusal is returned to the caller BY NAME' and :69 names 'behaviour this refuses to copy'. The middle arm is the subtle one — an unresolved MATERIAL does not delete the element: 'linework is drawn instead — the record stays visible — and reason is the resolver's [message]' (:141-146).",
+        "⭐ THE_DELETE_LEG_IS_HONEST": "removeBoundaryLine returns a boolean and initTools.ts:1893-1898 uses it to keep two facts apart: `(had ? 'group disposed' : 'nothing was drawn for it')`, with the comment 'so \"gone\" and \"was never drawn\" stay different facts'. No other family's delete leg distinguishes these.",
+        "disposal": "PRESENT — :192-193 'disposed first, so a create followed by ten updates leaves ONE group in the scene and ten disposed geometries'. ⚠ ONE DECLARED EXCEPTION, at :156-159: 'removeBoundaryLine does NOT dispose materials — they are shared [and so are not] disposed.' A named, reasoned exception, not an oversight."
+      },
+      "fidelity": {
+        "authored_L0_fields": ["provenance","confidence","levelId","vertices","closed","drawMode","hasVolume","attachments","thickness","baseOffset","systemTypeId","materialId","materialColor","name","pinned"],
+        "authored_count": 15,
+        "ceb_channel": "boundaryLine.created / .updated / .deleted",
+        "ceb_emit_sites": ["~L2230 created — 5 keys","updated — 5 keys","deleted — 3 keys"],
+        "ceb_emitted_keys": ["commandId","commandType","levelId","boundaryLineId","line (conditional spread: `...(_blLine ? { line: _blLine } : {})`)"],
+        "apparent_drop": "14 of 15 authored fields are not named on the event.",
+        "⭐ VERDICT — REFUTED. THIS IS NOT A FIDELITY LOSS, AND THE PATTERN IS THE ONE EVERY OTHER FAMILY SHOULD COPY.": "The mirror does not trust the event. `_drawBoundaryLine` calls `_boundaryLineRecord(id, fromEvent)` (initTools.ts:1839), which reads the RECORD — from the commit, or from `runtime.stores.boundaryLine` — and uses the event's `line` only as a fallback. When NEITHER can answer it REFUSES by name (:1842-1844: 'neither the commit nor runtime.stores.boundaryLine could answer, so the [line is not drawn]'). The full record therefore reaches the builder including thickness, hasVolume, drawMode, closed, materialId and materialColor. A narrow event plus a store read beats a wide event: it cannot go stale, it cannot be half-populated, and its failure mode is a named refusal rather than a default.",
+        "contrast": "slab, floor, lighting and furniture all take the OPPOSITE approach — trust the event's named subset, substitute a default when a key is absent — and all four lose authored data. boundaryLine emits the FEWEST keys of any family and loses the LEAST.",
+        "draws_what_the_user_authored": "YES"
+      }
+    },
+    {
+      "member": "boundary line (solid, when hasVolume)",
+      "surface": "3d",
+      "builder_file": "same builder — the solid arm; `hasVolume` selects it",
+      "drawn": "YES, or an explicit refusal — :129 records that the builder 'refuses an unresolved solid at the door'",
+      "honest_about_it": "YES"
+    },
+    {
+      "member": "boundary line",
+      "surface": "plan",
+      "builder_file": "apps/editor/src/engine/BoundaryLinePlanSymbolBuilder.ts",
+      "layer": "L7",
+      "invoked_by": "apps/editor/src/engine/views/EdgeProjectorService.ts:4059 — `if (_symbolGate('boundary-line')) boundaryLinePlanSymbolBuilder.inject(drawing, viewDef);` (import at :112)",
+      "wiring": "a mutable module singleton set by installBoundaryLinePlanSymbolBuilder(reader) (:307-311), the columnPlanSymbolBuilder idiom",
+      "⭐ THE_UNWIRED_STATE_IS_ANNOUNCED": "BoundaryLinePlanSymbolBuilder.ts:158-159 — 'no reader installed — boundary lines will be ABSENT from plan. installBoundaryLinePlanSymbolBuilder() was not called.' It also logs a positive count on success (:192, 'Injected N boundary line(s)'). This is the guard RoofSlopeSymbolBuilder's `?.` at EdgeProjectorService.ts:4017 does NOT have.",
+      "⚠ SPELLING_DRIFT": "The symbol gate is asked about `'boundary-line'` (hyphenated); the CEB channel and store key are `boundaryLine` (camel); the plugin directory is `plugins/boundary-line`. Three spellings. `boundaryLine` is ABSENT from GEOMETRY_ELEMENT_TYPES under EITHER spelling — so a boundary-line edit does not dirty the plan through the tracker, and the symbol appears only when something else forces a reprojection. THE SAME SHAPE AS THE LIGHTING INVALIDATION GAP that ViewDependencyTracker.ts:97-107 fixed in Wave 4a, still open here.",
+      "drawn": "YES when installed; ABSENT and ANNOUNCED when not; invalidation NOT wired."
+    },
+    {"member": "boundary line", "surface": "section", "builder_file": "NONE MEASURED", "drawn": "NO"},
+    {"member": "boundary line", "surface": "export", "builder_file": "NONE — no boundary-line reader among the 16 in packages/file-format/src/export/ifc/readers/", "drawn": "NO"}
+  ]
+}

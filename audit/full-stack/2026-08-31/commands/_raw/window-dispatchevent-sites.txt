@@ -1,0 +1,205 @@
+apps/editor/src/engine/createSiteOverlayUnderlay.ts:185:        try { window.dispatchEvent(new CustomEvent('underlay:transform-changed')); } catch { /* ignore */ }
+apps/editor/src/engine/engineLauncher.ts:591:    // store mutation. The parallel window.dispatchEvent(CustomEvent) path in the
+apps/editor/src/engine/ensureApartmentLayoutRegistered.ts:67:            // P4 — cross-cutting event via runtime.events, no window.dispatchEvent.
+apps/editor/src/engine/initBatchLifecycle.ts:74:                    window.dispatchEvent(new CustomEvent('pryzm-batch-started'));
+apps/editor/src/engine/initBatchLifecycle.ts:93:                    window.dispatchEvent(new CustomEvent('pryzm-batch-ended'));
+apps/editor/src/engine/initBusHandlers.ts:756:            window.dispatchEvent(new CustomEvent('pryzm-rhino-material-report', { detail: { success, info } }));
+apps/editor/src/engine/initScene.ts:730:    // `DOMEventBus` -> `window.dispatchEvent`) on every project-entry path.
+apps/editor/src/engine/initScene.ts:1688:                    window.dispatchEvent(new CustomEvent('pryzm-render-registry-isolation-leak', {
+apps/editor/src/engine/links/LinkedModelStore.ts:144:            window.dispatchEvent(new CustomEvent(LINKED_MODELS_CHANGED_EVENT));
+apps/editor/src/engine/persistence/ProjectLoader.ts:517:                window.dispatchEvent(new CustomEvent('pryzm-load-progress', {
+apps/editor/src/engine/persistence/ProjectLoader.ts:612:                window.dispatchEvent(new CustomEvent('pryzm-load-progress', {
+apps/editor/src/engine/persistence/ProjectLoader.ts:641:            try { window.dispatchEvent(new CustomEvent('pryzm-load-suppress-end')); } catch { /* SSR — no-op */ }
+apps/editor/src/engine/persistence/ProjectLoader.ts:646:        try { window.dispatchEvent(new CustomEvent('pryzm-load-suppress-begin')); } catch { /* SSR — no-op */ }
+apps/editor/src/engine/triggerWindowResize.ts:4: * Uses `globalThis.dispatchEvent` rather than `window.dispatchEvent` so this
+apps/editor/src/engine/triggerWindowResize.ts:9: * F.events.16 — replaces 7 raw `window.dispatchEvent(new Event('resize'))` sites.
+apps/editor/src/engine/ViewController.ts:1592:            // `emit()` never calls `window.dispatchEvent` — while the applicator
+apps/editor/src/ui/ai/ZeroTokenChatBridge.ts:921:        window.dispatchEvent(new CustomEvent('pryzm-visibility-command', {
+apps/editor/src/ui/analysis/graphViewState.ts:104:  if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent(GRAPH_VIEW_EVENT));
+apps/editor/src/ui/analysis/selectionFacets.ts:199:  window.dispatchEvent(new CustomEvent(FACETS_EVENT));
+apps/editor/src/ui/analysis/selectionFacets.ts:264:  window.dispatchEvent(new CustomEvent(FACETS_EVENT));
+apps/editor/src/ui/analysis/widgetRenderers.ts:401:      window.dispatchEvent(new CustomEvent(AREA_STANDARD_EVENT));
+apps/editor/src/ui/analysis/widgetRenderers.ts:959:      window.dispatchEvent(new CustomEvent(GRAPH_SCOPE_EVENT));
+apps/editor/src/ui/analysis/widgetRenderers.ts:2023:      window.dispatchEvent(new CustomEvent(GRAPH_VIEW_EVENT));
+apps/editor/src/ui/ContextualEditBar.ts:1193:        window.dispatchEvent(new CustomEvent('bim-operation-error', { detail: { msg } }));
+apps/editor/src/ui/dataworkbench/buckets/MedicionesTimeCarbon.ts:892:    window.dispatchEvent(new CustomEvent('pryzm-visibility-command', {
+apps/editor/src/ui/furnish-layout/furnishLayoutTrigger.ts:204:    // `window.dispatchEvent`, synchronously, and between them they drive:
+apps/editor/src/ui/generation/buildingGenerationLifecycle.ts:259:            window.dispatchEvent(new CustomEvent(BUILDING_GENERATION_ENDED_EVENT));
+apps/editor/src/ui/generation/generationChatSeam.ts:139:        window.dispatchEvent(new CustomEvent(REPORT_EVENT, { detail: { success, info: [...info] } }));
+apps/editor/src/ui/generation/roomFinishChatSeam.ts:82:        window.dispatchEvent(new CustomEvent(REPORT_EVENT, {
+apps/editor/src/ui/platform/EngineLoadingOverlay.ts:178:            window.runtime?.events?.emit('pryzm-go-hub', {}); window.dispatchEvent(new Event('pryzm-go-hub')); // F.events.12 + §33-NAV-FIX
+apps/editor/src/ui/platform/PlatformProjectBrowser.ts:565:                window.runtime?.events?.emit('pryzm-go-hub', {}); window.dispatchEvent(new Event('pryzm-go-hub')); // F.events.12 + §33-NAV-FIX (PlatformRouter listens on the platform-lifetime window bus)
+apps/editor/src/ui/platform/PlatformProjectBrowser.ts:648:                window.runtime?.events?.emit('pryzm-sign-out', {}); window.dispatchEvent(new Event('pryzm-sign-out')); // F.events.15 + §33-NAV-FIX (PlatformRouter listens on the platform-lifetime window bus)
+apps/editor/src/ui/platform/PlatformRouter.ts:291:        // `window` bus; every emitter also `window.dispatchEvent`s them.
+apps/editor/src/ui/ViewBrowser/ExistingProjectsPanel.ts:140:            window.runtime?.events?.emit('pryzm-go-hub', {}); window.dispatchEvent(new Event('pryzm-go-hub')); // F.events.12 + §33-NAV-FIX
+apps/editor/src/ui/ViewBrowser/ProjectBrowserPanel.ts:404:                window.dispatchEvent(new Event('pryzm-go-hub'));
+apps/editor/src/ui/ViewBrowser/ProjectBrowserPanel.ts:407:                window.dispatchEvent(new Event('pryzm-sign-out'));
+packages/ai-host/src/AIElementFactory.ts:217:            window.dispatchEvent(new CustomEvent('pryzm-upgrade-required', { // TODO(TASK-12)
+packages/ai-host/src/FloorPlanBatchExecutor.ts:246:        window.dispatchEvent(new CustomEvent('model-updated')); // TODO(TASK-12)
+packages/ai-host/src/FloorPlanBatchExecutor.ts:247:        window.dispatchEvent(new CustomEvent('ai-model-update')); // TODO(TASK-12)
+packages/ai-host/src/FloorPlanBatchExecutor.ts:248:        window.dispatchEvent(new CustomEvent('update-view-browser')); // TODO(TASK-12)
+packages/ai-host/src/QueryEngine.ts:301:            window.dispatchEvent(new CustomEvent('ai-proposal-added', {  // TODO(TASK-11)
+packages/ai-host/src/QueryEngine.ts:610:                        window.dispatchEvent(new CustomEvent('ai-proposal-added', {  // TODO(TASK-11)
+packages/ai-host/src/QueryEngine.ts:704:                        window.dispatchEvent(new CustomEvent('ai-proposal-added', {  // TODO(TASK-11)
+packages/ai-host/src/QueryEngine.ts:753:                        window.dispatchEvent(new CustomEvent('ai-proposal-added', { detail: { proposal: uniqueProposal } })); // TODO(TASK-11)
+packages/ai-host/src/QueryEngine.ts:790:                        window.dispatchEvent(new CustomEvent('ai-proposal-added', { detail: { proposal: uniqueProposal } })); // TODO(TASK-11)
+packages/ai-host/src/QueryEngine.ts:985:                            window.dispatchEvent(new CustomEvent('ai-proposal-added', { detail: { proposal: uniqueProposal } })); // TODO(TASK-11)
+packages/ai-host/src/QueryEngine.ts:1168:                        window.dispatchEvent(new CustomEvent('ai-proposal-added', { detail: { proposal: uniqueProposal } })); // TODO(TASK-11)
+packages/ai-host/src/QueryEngine.ts:1393:                        window.dispatchEvent(new CustomEvent('ai-proposal-added', { detail: { proposal: uniqueProposal } })); // TODO(TASK-11)
+packages/ai-host/src/QueryEngine.ts:1462:                    window.dispatchEvent(new CustomEvent('pryzm-visibility-command', { // TODO(TASK-11)
+packages/ai-host/src/QueryEngine.ts:1486:                    window.dispatchEvent(new CustomEvent('pryzm-visibility-command', { // TODO(TASK-11)
+packages/ai-host/src/QueryEngine.ts:1510:                    window.dispatchEvent(new CustomEvent('pryzm-visibility-command', { // TODO(TASK-11)
+packages/ai-host/src/QueryEngine.ts:1553:                    window.dispatchEvent(new CustomEvent('pryzm-visibility-command', { // TODO(TASK-11)
+packages/ai-host/src/QueryEngine.ts:1596:                    window.dispatchEvent(new CustomEvent('pryzm-visibility-command', { // TODO(TASK-11)
+packages/ai-host/src/QueryEngine.ts:1628:                    window.dispatchEvent(new CustomEvent('pryzm-visibility-command', { // TODO(TASK-11)
+packages/ai-host/src/QueryEngine.ts:1652:                    window.dispatchEvent(new CustomEvent('pryzm-visibility-command', { // TODO(TASK-11)
+packages/ai-host/src/VoiceSpatialInterface.ts:250:                window.dispatchEvent(new CustomEvent('pryzm-workbench-select', { detail: { nodeId: id, nodeType: 'room' } })); // TODO(TASK-11)
+packages/ai-host/src/VoiceSpatialInterface.ts:251:                window.dispatchEvent(new CustomEvent('pryzm-navigate-to', { detail: { elementId: id } })); // TODO(TASK-11)
+packages/command-registry/src/curtainwall/CreateCurtainWallCommand.ts:17: *   Gated window.dispatchEvent('bim-curtainwall-added') behind batchCoordinator.isBatching.
+packages/command-registry/src/curtainwall/CreateCurtainWallsOnAllSlabsCommand.ts:1154:        // NOTE: window.dispatchEvent is a C11 §5.3 known gap (system-wide, 131 sites),
+packages/core-app-model/src/ai/VoiceSpatialInterface.ts:254:                window.dispatchEvent(new CustomEvent('pryzm-workbench-select', { detail: { nodeId: id, nodeType: 'room' } })); // TODO(TASK-11)
+packages/core-app-model/src/ai/VoiceSpatialInterface.ts:255:                window.dispatchEvent(new CustomEvent('pryzm-navigate-to', { detail: { elementId: id } })); // TODO(TASK-11)
+packages/core-app-model/src/batch/BatchCoordinator.ts:880:     * Call this from commands instead of `window.dispatchEvent()` when `isBatching`
+packages/core-app-model/src/batch/BatchCoordinator.ts:886:     * (same behaviour as direct window.dispatchEvent).
+packages/core-app-model/src/batch/BatchCoordinator.ts:893:            window.dispatchEvent(new CustomEvent(eventName, detail ? { detail } : undefined)); // TODO(TASK-15)
+packages/core-app-model/src/batch/BatchCoordinator.ts:2137:                            window.dispatchEvent(new CustomEvent(name)); // TODO(TASK-15)
+packages/core-app-model/src/BimKernel.ts:373:            window.dispatchEvent(new CustomEvent('spatial-authority-reconcile', { // TODO(TASK-10)
+packages/core-app-model/src/BimKernel.ts:387:        window.dispatchEvent(new CustomEvent('bim-level-removed', { detail: { levelId: id } })); // TODO(TASK-10)
+packages/core-app-model/src/context/ProjectContext.ts:26:            // SYNCHRONOUSLY into a subscriber list AND a `window.dispatchEvent`, and
+packages/core-app-model/src/context/ProjectContext.ts:59:        window.dispatchEvent(new CustomEvent(event, { detail: data })); // TODO(TASK-15)
+packages/core-app-model/src/DependencyResolver.ts:172:    window.dispatchEvent(new CustomEvent('pryzm-dep-cascade', {
+packages/core-app-model/src/hierarchy/HierarchyStore.ts:137:        window.dispatchEvent(new CustomEvent('pryzm-sync-state-changed', { // TODO(TASK-15)
+packages/core-app-model/src/navigation/FirstPersonController.ts:227:        window.dispatchEvent(new CustomEvent('fw-mode-changed', { detail: { active: true } })); // TODO(TASK-15)
+packages/core-app-model/src/navigation/FirstPersonController.ts:267:        window.dispatchEvent(new CustomEvent('fw-mode-changed', { detail: { active: false } })); // TODO(TASK-15)
+packages/core-app-model/src/navigation/ViewNavigationManager.ts:253:    window.dispatchEvent(new CustomEvent('view-activated', { // TODO(TASK-15)
+packages/core-app-model/src/persistence/ProjectIsolationAudit.ts:1474:            window.dispatchEvent(new CustomEvent('pryzm-project-isolation-leak', { detail: report }));
+packages/core-app-model/src/presentation/PresentationEngine.ts:48:        window.dispatchEvent(new CustomEvent('presentation-mode-changed', { detail: { mode } })); // TODO(TASK-15)
+packages/core-app-model/src/presentation/VGGovernanceStore.ts:277:        window.dispatchEvent(new CustomEvent(eventName, { detail })); // TODO(TASK-15)
+packages/core-app-model/src/presentation/VGInstanceOverrideStore.ts:24:        window.dispatchEvent(new CustomEvent(eventName, { detail })); // TODO(TASK-15)
+packages/core-app-model/src/presentation/VGSceneApplicator.ts:485:     * `window.dispatchEvent`. This class subscribes with
+packages/core-app-model/src/presentation/ViewIntentInstanceStore.ts:41:            window.dispatchEvent(new CustomEvent(eventName, { detail })); // TODO(TASK-15)
+packages/core-app-model/src/presentation/VisibilityIntentStore.ts:29:            window.dispatchEvent(new CustomEvent(eventName, { detail })); // TODO(TASK-15)
+packages/core-app-model/src/presentation/VisibilityRuleEngine.ts:68:        window.dispatchEvent(new CustomEvent(eventName, { detail })); // TODO(TASK-15)
+packages/core-app-model/src/rendering/RealSunService.ts:612:            window.dispatchEvent(new CustomEvent('rsc-sun-updated', { // TODO(TASK-12)
+packages/core-app-model/src/rendering/SharedRenderingState.ts:56:    window.dispatchEvent(new CustomEvent('pryzm-rendering-state-changed', {
+packages/core-app-model/src/rendering/SharedRenderingState.ts:63:    window.dispatchEvent(new CustomEvent('pryzm-rendering-state-changed', { // TODO(TASK-15)
+packages/core-app-model/src/rendering/SharedRenderingState.ts:70:    window.dispatchEvent(new CustomEvent('pryzm-rendering-state-changed', { // TODO(TASK-15)
+packages/core-app-model/src/rendering/SharedRenderingState.ts:78:    window.dispatchEvent(new CustomEvent('pryzm-rendering-state-changed', { // TODO(TASK-15)
+packages/core-app-model/src/rendering/ViewportPathTracer.ts:169:            window.dispatchEvent(new CustomEvent('render-status-notice', { // TODO(TASK-15)
+packages/core-app-model/src/stores/UserMaterialStore.ts:86:            window.dispatchEvent(new CustomEvent(eventName, { detail })); // TODO(TASK-15)
+packages/core-app-model/src/sync/SyncStateEngine.ts:1260:        window.dispatchEvent(new CustomEvent('pryzm-room-sync-state-changed', { // TODO(TASK-15)
+packages/core-app-model/src/ui/UiPreferences.ts:65:            window.dispatchEvent(new CustomEvent('pryzm-ui-pref-changed', { detail: { key, value } })); // TODO(TASK-15)
+packages/core-app-model/src/views/IFCProjectionStore.ts:158:        window.dispatchEvent(new CustomEvent<{ viewId: string | null }>( // TODO(TASK-15)
+packages/core-app-model/src/views/PhaseFilterStore.ts:96:        window.dispatchEvent(new CustomEvent(eventName, { detail })); // TODO(TASK-15)
+packages/core-app-model/src/views/ScheduleStore.ts:34:        window.dispatchEvent(new CustomEvent(eventName, { detail })); // TODO(TASK-15)
+packages/core-app-model/src/views/SheetStore.ts:40:        window.dispatchEvent(new CustomEvent(eventName, { detail })); // TODO(TASK-15)
+packages/core-app-model/src/views/TitleBlockStore.ts:282:            window.dispatchEvent(new CustomEvent(eventName, { detail }));
+packages/core-app-model/src/views/ViewDefinitionStore.ts:43:        window.dispatchEvent(new CustomEvent(eventName, { detail })); // TODO(TASK-15)
+packages/core-app-model/src/views/ViewTechnicalDrawingCache.ts:623:            window.dispatchEvent(new CustomEvent('vd:reprojection-required', {
+packages/core-app-model/src/views/ViewTechnicalDrawingCache.ts:1001:                window.dispatchEvent(new CustomEvent('vd:projection-stale', { // TODO(TASK-15)
+packages/core-app-model/src/views/ViewTemplateStore.ts:51:        window.dispatchEvent(new CustomEvent(eventName, { detail })); // TODO(TASK-15)
+packages/editor-ui/src/types/IPreviewManager.ts:72: * Events dispatched (via `window.dispatchEvent`):
+packages/event-bus/src/DOMEventBus.ts:2: * DOMEventBus — forwards typed events to/from window.dispatchEvent during
+packages/event-bus/src/EventBus.ts:10: *   DOMEventBus         — forwards to window.dispatchEvent (transition period)
+packages/file-format/src/import/ifc/deleteIfcElement.ts:69:    window.dispatchEvent(new CustomEvent('bim-selection-changed', { detail: { object: null, deletedId: elementId } })); // keep DOM for plugins
+packages/geometry-column/src/ColumnTool.ts:165:        setTimeout(() => { window.dispatchEvent(new Event('resize')); }, 100);
+packages/geometry-curtain-wall/src/CurtainWallBuilder.ts:568:     * event falls through to a direct `window.dispatchEvent` so we never
+packages/geometry-lift/src/LiftTool.ts:163:        setTimeout(() => { window.dispatchEvent(new Event('resize')); }, 100);
+packages/geometry-plumbing/src/PlumbingTool.ts:93:            window.dispatchEvent(new Event('resize'));
+packages/geometry-slab/src/SlabStore.ts:26: *   3. `window.dispatchEvent('bim-slab-{added,updated,removed}')` (legacy
+packages/geometry-wall/src/WallStore.ts:1776:     *   3. `window.dispatchEvent('bim-wall-{added,updated,removed}')`
+packages/input-host/src/FloorPlanUnderlayTool.ts:156:        window.dispatchEvent(new CustomEvent('underlay:transform-changed')); // TODO(TASK-11)
+packages/input-host/src/FloorPlanUnderlayTool.ts:162:        window.dispatchEvent(new CustomEvent('underlay:transform-changed')); // TODO(TASK-11)
+packages/input-host/src/FloorPlanUnderlayTool.ts:172:        window.dispatchEvent(new CustomEvent('underlay:transform-changed')); // TODO(TASK-11)
+packages/input-host/src/FloorPlanUnderlayTool.ts:201:        window.dispatchEvent(new CustomEvent('bim-selection-changed', { detail: { object: this.state.mesh } })); // keep DOM for plugins
+packages/input-host/src/FloorPlanUnderlayTool.ts:204:        window.dispatchEvent(new CustomEvent('underlay:selected')); // TODO(TASK-11)
+packages/input-host/src/FloorPlanUnderlayTool.ts:215:        window.dispatchEvent(new CustomEvent('bim-selection-changed', { detail: { object: null } })); // keep DOM for plugins
+packages/input-host/src/FloorPlanUnderlayTool.ts:218:        window.dispatchEvent(new CustomEvent('underlay:deselected')); // TODO(TASK-11)
+packages/input-host/src/FloorPlanUnderlayTool.ts:311:            window.dispatchEvent(new CustomEvent('bim-selection-changed', { detail: { object: null } })); // keep DOM for plugins
+packages/input-host/src/FloorPlanUnderlayTool.ts:581:            window.dispatchEvent(new CustomEvent('underlay:transform-changed')); // TODO(TASK-11)
+packages/input-host/src/FloorPlanUnderlayTool.ts:643:            window.dispatchEvent(new CustomEvent('underlay:transform-changed')); // TODO(TASK-11)
+packages/input-host/src/FloorPlanUnderlayTool.ts:650:            window.dispatchEvent(new CustomEvent('underlay:delete-requested')); // TODO(TASK-11)
+packages/input-host/src/operations/CopyPasteTool.ts:86:        window.dispatchEvent(new CustomEvent('bim-clipboard-updated', { // TODO(TASK-12)
+packages/input-host/src/operations/CopyPasteTool.ts:152:            window.dispatchEvent(new CustomEvent('bim-operation-error', { detail: { msg: info } })); // TODO(TASK-12)
+packages/input-host/src/operations/CutTool.ts:109:            window.dispatchEvent(new CustomEvent('bim-operation-error', { detail: { msg: info } })); // TODO(TASK-12)
+packages/input-host/src/operations/JoinTool.ts:99:        window.dispatchEvent(new CustomEvent('bim-operation-error', { detail: { msg } })); // TODO(TASK-12)
+packages/input-host/src/operations/MirrorTool.ts:120:            window.dispatchEvent(new CustomEvent('bim-operation-error', { detail: { msg: info } })); // TODO(TASK-12)
+packages/input-host/src/operations/OffsetTool.ts:149:            window.dispatchEvent(new CustomEvent('bim-operation-error', { detail: { msg: info } })); // TODO(TASK-12)
+packages/input-host/src/operations/OperationToolBase.ts:85:        window.dispatchEvent(new CustomEvent('bim-operation-cancelled', { // TODO(TASK-12)
+packages/input-host/src/operations/OperationToolBase.ts:105:        window.dispatchEvent(new CustomEvent('bim-operation-completed', { // TODO(TASK-12)
+packages/input-host/src/operations/OperationToolBase.ts:124:        window.dispatchEvent(new CustomEvent('bim-operation-instructions', { // TODO(TASK-12)
+packages/input-host/src/operations/OperationToolBase.ts:297:        window.dispatchEvent(new CustomEvent('bim-operation-state-changed', { // TODO(TASK-12)
+packages/input-host/src/operations/ReferenceEditTool.ts:98:            window.dispatchEvent(new CustomEvent('bim-operation-error', { // TODO(TASK-12)
+packages/input-host/src/operations/ReferenceEditTool.ts:109:            window.dispatchEvent(new CustomEvent('bim-operation-error', { // TODO(TASK-12)
+packages/input-host/src/operations/ReferenceEditTool.ts:128:            window.dispatchEvent(new CustomEvent('bim-operation-error', { // TODO(TASK-12)
+packages/input-host/src/operations/ScaleTool.ts:122:            window.dispatchEvent(new CustomEvent('bim-operation-error', { detail: { msg: info } })); // TODO(TASK-12)
+packages/input-host/src/SelectionManager.ts:1867:                window.dispatchEvent(new CustomEvent('bim-canvas-world-click', { // TODO(TASK-11)
+packages/input-host/src/SelectionManager.ts:2034:                            window.dispatchEvent(new CustomEvent('bim-canvas-world-click', { // TODO(TASK-11)
+packages/input-host/src/SelectionManager.ts:2086:                    window.dispatchEvent(new CustomEvent('bim-canvas-world-click', { // TODO(TASK-11)
+packages/input-host/src/SelectionManager.ts:2122:            window.dispatchEvent(new CustomEvent('bim-canvas-world-click', { // TODO(TASK-11)
+packages/input-host/src/SelectionManager.ts:2365:        window.dispatchEvent(new CustomEvent('bim-selection-changed', {
+packages/input-host/src/SelectionManager.ts:2943:            window.dispatchEvent(new CustomEvent('bim-selection-changed', { detail: { object: null } })); // keep DOM for plugins
+packages/input-host/src/SelectionManager.ts:4001:            window.dispatchEvent(new CustomEvent('bim-canvas-mouse-move', { // TODO(TASK-11)
+packages/input-host/src/SelectionManager.ts:4056:        window.dispatchEvent(new CustomEvent('bim-hover-changed', { // TODO(TASK-11)
+packages/input-host/src/SelectionManager.ts:4165:                    window.dispatchEvent(new CustomEvent('bim-hover-changed', { detail: { object: hoveredRoot } })); // TODO(TASK-11)
+packages/input-host/src/ToolManager.ts:560:            window.dispatchEvent(new CustomEvent('tool:activated', { detail: toolName })); // TODO(TASK-15)
+packages/input-host/src/ToolManager.ts:1105:                window.dispatchEvent(new CustomEvent('stair-path:shape-hint', { // TODO(TASK-15)
+packages/input-host/src/ToolManager.ts:1173:            window.dispatchEvent(new CustomEvent('tool:deactivated', { detail: deactivatedTool })); // TODO(TASK-15)
+packages/input-host/src/UnderlayReferenceRotateTool.ts:187:        window.dispatchEvent(new CustomEvent('pryzm:underlay-hud:show', { // TODO(TASK-11)
+packages/input-host/src/UnderlayReferenceRotateTool.ts:624:        window.dispatchEvent(new CustomEvent('underlay:rotation-applied', { // TODO(TASK-11)
+packages/input-host/src/UnderlayReferenceRotateTool.ts:628:        window.dispatchEvent(new CustomEvent('underlay:scale-applied', { // TODO(TASK-11)
+packages/input-host/src/UnderlayReferenceRotateTool.ts:644:            window.dispatchEvent(new CustomEvent('bim-operation-cancelled', { // TODO(TASK-11)
+packages/input-host/src/UnderlayReferenceRotateTool.ts:647:            window.dispatchEvent(new CustomEvent('underlay:reference-rotate-done')); // TODO(TASK-11)
+packages/input-host/src/UnderlayReferenceRotateTool.ts:653:                window.dispatchEvent(new CustomEvent('bim-selection-changed', { detail: { object: mesh } })); // keep DOM for plugins
+packages/input-host/src/UnderlayReferenceRotateTool.ts:663:        window.dispatchEvent(new CustomEvent('bim-operation-cancelled', { // TODO(TASK-11)
+packages/input-host/src/UnderlayReferenceRotateTool.ts:675:        window.dispatchEvent(new CustomEvent('pryzm:underlay-hud:dismiss')); // TODO(TASK-11)
+packages/input-host/src/UnderlayReferenceScaleTool.ts:172:        window.dispatchEvent(new CustomEvent('pryzm:underlay-hud:show', { // TODO(TASK-11)
+packages/input-host/src/UnderlayReferenceScaleTool.ts:713:        window.dispatchEvent(new CustomEvent('underlay:scale-applied', { detail: { factor } })); // TODO(TASK-11)
+packages/input-host/src/UnderlayReferenceScaleTool.ts:727:            window.dispatchEvent(new CustomEvent('bim-operation-cancelled', { // TODO(TASK-11)
+packages/input-host/src/UnderlayReferenceScaleTool.ts:730:            window.dispatchEvent(new CustomEvent('underlay:reference-scale-done')); // TODO(TASK-11)
+packages/input-host/src/UnderlayReferenceScaleTool.ts:736:                window.dispatchEvent(new CustomEvent('bim-selection-changed', { detail: { object: mesh } })); // keep DOM for plugins
+packages/input-host/src/UnderlayReferenceScaleTool.ts:748:        window.dispatchEvent(new CustomEvent('bim-operation-cancelled', { // TODO(TASK-11)
+packages/input-host/src/UnderlayReferenceScaleTool.ts:761:        window.dispatchEvent(new CustomEvent('pryzm:underlay-hud:dismiss')); // TODO(TASK-11)
+packages/runtime-composer/src/composeRuntime.ts:993:    // typed event bus.  Replaces ad-hoc window.dispatchEvent(CustomEvent)
+packages/runtime-composer/src/types.ts:136:   *  Replaces a `window.dispatchEvent` (P4). */
+packages/runtime-composer/src/types.ts:289:  // Replaces ad-hoc window.dispatchEvent(new CustomEvent(...)) calls in the
+plugins/annotations/src/subsystem/AnnotationStore.ts:20: *   carry (`window.dispatchEvent(...) // TODO(TASK-15)`), and it retires the same
+plugins/annotations/src/subsystem/AnnotationStore.ts:405:            window.dispatchEvent(new CustomEvent('bim-store-mutated', { detail: {} }));
+plugins/ceiling/src/handlers/UpdateCeilingsSystemTypeBatch.ts:118:            window.dispatchEvent(new CustomEvent(CEILING_TYPE_BATCH_REPORT_EVENT, { detail: report }));
+plugins/ceiling/src/handlers/UpdateCeilingsSystemTypeBatch.ts:155:            window.dispatchEvent(
+plugins/curtain-wall/src/handlers/BulkUpdateCurtainPanels.ts:144:            window.dispatchEvent(new CustomEvent(CURTAIN_PANEL_BATCH_REPORT_EVENT, { detail: report }));
+plugins/curtain-wall/src/handlers/BulkUpdateCurtainPanels.ts:174:            window.dispatchEvent(
+plugins/curtain-wall/src/handlers/BulkUpdateCurtainWallParameter.ts:139:            window.dispatchEvent(new CustomEvent(CURTAIN_WALL_PARAMETER_BATCH_REPORT_EVENT, { detail: report }));
+plugins/curtain-wall/src/handlers/BulkUpdateCurtainWallParameter.ts:173:            window.dispatchEvent(
+plugins/door/src/handlers/UpdateDoorsSystemTypeBatch.ts:122:            window.dispatchEvent(new CustomEvent(DOOR_TYPE_BATCH_REPORT_EVENT, { detail: report }));
+plugins/door/src/handlers/UpdateDoorsSystemTypeBatch.ts:171:            window.dispatchEvent(
+plugins/floor/src/handlers/SetFloorFinishBatch.ts:126:            window.dispatchEvent(
+plugins/floor/src/handlers/SetFloorFinishBatch.ts:173:          window.dispatchEvent(
+plugins/furniture/src/handlers/BulkUpdateKitchenMaterial.ts:133:            window.dispatchEvent(new CustomEvent(KITCHEN_MATERIAL_BATCH_REPORT_EVENT, { detail: report }));
+plugins/furniture/src/handlers/BulkUpdateKitchenMaterial.ts:167:            window.dispatchEvent(
+plugins/rooms/src/handlers/RedetectRooms.ts:82:      window.dispatchEvent(
+plugins/slab/src/handlers/UpdateSlabsSystemTypeBatch.ts:162:            window.dispatchEvent(new CustomEvent(SLAB_TYPE_BATCH_REPORT_EVENT, { detail: report }));
+plugins/slab/src/handlers/UpdateSlabsSystemTypeBatch.ts:184:            window.dispatchEvent(
+plugins/view/src/handlers/DeleteElementsBatch.ts:114:            window.dispatchEvent(new CustomEvent(DELETE_BATCH_REPORT_EVENT, { detail: report }));
+plugins/view/src/handlers/DeleteElementsBatch.ts:131:            window.dispatchEvent(
+plugins/view/src/handlers/UpdateElementDimensionsBatch.ts:186:            window.dispatchEvent(new CustomEvent(DIMENSIONS_BATCH_REPORT_EVENT, { detail: report }));
+plugins/view/src/handlers/UpdateElementDimensionsBatch.ts:227:          window.dispatchEvent(new CustomEvent(DIMENSIONS_BATCH_REPORT_EVENT, { detail: report }));
+plugins/view/src/handlers/UpdateOpeningProfileBatch.ts:185:            window.dispatchEvent(
+plugins/view/src/handlers/UpdateOpeningProfileBatch.ts:226:          window.dispatchEvent(new CustomEvent(OPENING_PROFILE_BATCH_REPORT_EVENT, { detail: report }));
+plugins/wall/src/handlers/AddWallLayerBatch.ts:124:            window.dispatchEvent(new CustomEvent(WALL_LAYER_BATCH_REPORT_EVENT, { detail: report }));
+plugins/wall/src/handlers/AddWallLayerBatch.ts:164:            window.dispatchEvent(
+plugins/wall/src/handlers/SetWallSideFinishBatch.ts:182:            window.dispatchEvent(
+plugins/wall/src/handlers/SetWallSideFinishBatch.ts:242:          window.dispatchEvent(
+plugins/wall/src/handlers/UpdateWallsColorBatch.ts:135:            window.dispatchEvent(new CustomEvent(WALL_COLOR_BATCH_REPORT_EVENT, { detail: report }));
+plugins/wall/src/handlers/UpdateWallsColorBatch.ts:177:            window.dispatchEvent(
+plugins/wall/src/handlers/UpdateWallsHeightBatch.ts:177:            window.dispatchEvent(new CustomEvent(WALL_HEIGHT_BATCH_REPORT_EVENT, { detail: report }));
+plugins/wall/src/handlers/UpdateWallsHeightBatch.ts:231:            window.dispatchEvent(new CustomEvent(WALL_HEIGHT_BATCH_REPORT_EVENT, { detail: report }));
+plugins/wall/src/handlers/UpdateWallsHeightBatch.ts:290:          window.dispatchEvent(new CustomEvent(WALL_HEIGHT_BATCH_REPORT_EVENT, { detail: report }));
+plugins/wall/src/handlers/UpdateWallsRakeBatch.ts:119:            window.dispatchEvent(new CustomEvent(WALL_RAKE_BATCH_REPORT_EVENT, { detail: report }));
+plugins/wall/src/handlers/UpdateWallsRakeBatch.ts:156:            window.dispatchEvent(
+plugins/wall/src/handlers/UpdateWallsSystemTypeBatch.ts:119:            window.dispatchEvent(new CustomEvent(WALL_TYPE_BATCH_REPORT_EVENT, { detail: report }));
+plugins/wall/src/handlers/UpdateWallsSystemTypeBatch.ts:159:            window.dispatchEvent(
+plugins/window/src/handlers/CreateWindowsParametricBatch.ts:115:            window.dispatchEvent(new CustomEvent(WINDOW_PARAMETRIC_REPORT_EVENT, { detail: report }));
+plugins/window/src/handlers/CreateWindowsParametricBatch.ts:137:            window.dispatchEvent(
+plugins/window/src/handlers/UpdateWindowsSystemTypeBatch.ts:122:            window.dispatchEvent(new CustomEvent(WINDOW_TYPE_BATCH_REPORT_EVENT, { detail: report }));
+plugins/window/src/handlers/UpdateWindowsSystemTypeBatch.ts:179:            window.dispatchEvent(

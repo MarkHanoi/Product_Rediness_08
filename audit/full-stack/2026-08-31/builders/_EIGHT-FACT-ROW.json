@@ -1,0 +1,164 @@
+{
+  "phase": "P2 — AXIS B, BUILDERS",
+  "head_at_start": "d91d30d4af51bc67317ef8afc0b46b1dbef94038",
+  "head_at_end": "d91d30d4af51bc67317ef8afc0b46b1dbef94038",
+  "head_moved": false,
+  "rows_written": 114,
+  "files": 22,
+  "production_files_written": 0,
+
+  "THE_EIGHTH_FACT": {
+    "the_seven": ["authored", "dispatchable", "reachable", "renders_3d", "renders_plan", "persists", "exports"],
+    "source_of_the_seven": "audit/element-creation/2026-08-29/families/wall.json → D_seven_facts",
+    "the_eighth": "FIDELITY — of the fields the L0 schema authors, how many reach the mesh or the symbol.",
+    "why_the_seven_cannot_see_it": "Every one of the seven is a PRESENCE test. `renders_3d = YES` is true of a mesh that is the wrong colour, the wrong size, missing its voids and drawn from catalogue defaults. The 2026-08-29 pass said so in its own words: '21 → 21 (renders 3D) … What this number hides is FIDELITY, not presence: roof drops materialId/materialColor through the bridge and still counts YES, because the seven-fact chain has no fidelity axis.' This phase supplies that axis.",
+    "definition_used": "FIDELITY = YES only when every field the L0 element schema authors either (a) reaches the builder, or (b) is explicitly refused or announced at runtime. A field silently defaulted, silently renamed away, or read only by unreachable code is FIDELITY = NO."
+  },
+
+  "THE_TWO_NUMBERS": {
+    "denominator": "26 — the L0 element schemas in packages/schemas/src/elements/ that describe a drawable thing (30 defineElement kinds, minus project / schedule / sheet / view, which are containers and surfaces).",
+    "HOW_MANY_DRAW": 24,
+    "HOW_MANY_DRAW_WHAT_THE_USER_AUTHORED": 6,
+    "THE_GAP": 18,
+    "draw_but_not_faithfully": 18,
+    "do_not_draw_at_all": ["structural — no builder, no legacy store, and its only geometry path (produceStructural via StructuralCommitter) has zero production call sites"],
+    "unproven": ["grid — GridStore is constructed (initBuilders.ts:1082) and listed in the BuilderRegistry, but NO grid builder is; its only geometry consumers found are GridEditVariants.ts and PlanSnapEngine.ts. Not measured to a mesh either way, so reported UNPROVEN, not NO."],
+
+    "THE_SIX_THAT_DRAW_WHAT_WAS_AUTHORED": [
+      {"family": "wall", "note": "on wall.create / wall.batch.create. NOT on the lift or pool fan-outs, which drop layers, systemTypeId and curve."},
+      {"family": "column", "note": "the only family whose three emit sites carry an identical key set. topLevelId has no reader anywhere, but nothing else is lost."},
+      {"family": "ceiling", "note": "the family where this defect was FOUND and CLOSED — §FIX-CEILING-BRIDGE-FINISH, L-973, C84 EI-2a. Its ceilingCreatedMirror.ts is the template."},
+      {"family": "roof", "note": "REFUTATION of the brief's premise — the materialId/materialColor half is closed end to end at this head, in all three legs."},
+      {"family": "handrail", "note": "the ONLY family whose compound fan-out emit is identical to its primary emit."},
+      {"family": "boundaryLine", "note": "and it does it with the NARROWEST event of any family — 5 keys — because the mirror reads the store instead of trusting the event."}
+    ],
+
+    "THE_EIGHTEEN_THAT_DRAW_SOMETHING_ELSE": [
+      {"family": "slab", "loses": "holes, materialColor", "announced": false, "severity": "an authored void renders solid"},
+      {"family": "floor", "loses": "materialId, materialColor → substituted with a hardcoded '#D4C4A8'", "announced": false, "severity": "wrong colour, always"},
+      {"family": "lighting", "loses": "15 of 18 authored fields", "announced": "partly — the builder says colour/brightness are 'never authored'; the schema does not", "severity": "widest gap measured"},
+      {"family": "furniture", "loses": "catalogId, activeLod, representations, materialSlots, scale, size — the whole L0 vocabulary", "announced": false, "severity": "a catalogue-authored item is SILENTLY DROPPED at initTools.ts:2970"},
+      {"family": "beam", "loses": "steelProfileName, fireRating, loadBearing on the BATCH emit only; rotation has no destination at all", "announced": false, "severity": "a batch-created steel beam draws as a rectangle"},
+      {"family": "door", "loses": "frameMaterialId, leafMaterialId, frameWidth", "announced": false, "severity": "colour half drawn, material-master half nowhere"},
+      {"family": "window", "loses": "frameMaterialId, glassMaterialId, frameWidth", "announced": false, "severity": "same shape as door; the reveal axis is exemplary"},
+      {"family": "stair", "loses": "numRisers, materialId", "announced": false},
+      {"family": "curtainWall", "loses": "materialId, panels[]", "announced": "⭐ YES — two per-element runtime console.warn's naming field, reason and visible consequence", "severity": "the honest form of this defect"},
+      {"family": "water", "loses": "materialId, systemTypeId", "announced": false, "severity": "appearance correct, material-library link lost"},
+      {"family": "plumbing", "loses": "everything on the bus leg (dead channel); systemTag, bendRadius, diameter, wallThickness, materialId on the legacy leg", "announced": false},
+      {"family": "room", "loses": "all 18 on the bus leg (dead channel)", "announced": false},
+      {"family": "annotation", "loses": "all 9 on the bus leg (dead channel)", "announced": false},
+      {"family": "dimension", "loses": "all 10 on the bus leg (dead channel)", "announced": false},
+      {"family": "grid", "loses": "rotation and lines — the grid itself — on the bus leg (dead channel)", "announced": false},
+      {"family": "balcony", "loses": "finish/type identity on two of three member legs; its floor leg is the narrowest emit in the repo", "announced": false},
+      {"family": "pool", "loses": "layers/systemTypeId/curve on its basin walls; holes/materialColor on its floor slab", "announced": "partly — the CEB names its refusal to smuggle water onto slab.created, and says nothing about the narrowed wall payload"},
+      {"family": "lift", "loses": "on the fan-out only — its shaft walls lose layers/systemTypeId/curve, its shaft glazing loses all four material fields", "announced": false}
+    ]
+  },
+
+  "FIDELITY_HAS_EXACTLY_FOUR_MECHANISMS": [
+    {"mechanism": "1. NARROW EMIT — the CommandEventBridge writes a NAMED SUBSET of fields per channel, and any field not named is gone.", "families": "slab, floor, lighting, beam(batch), water, and every compound fan-out", "measurement": "audit/.../builders/_raw/ceb-emit-fields.json — top-level keys of all 48 events.emit(...) sites, extracted from the comment-stripped source"},
+    {"mechanism": "2. DEAD CHANNEL — the emit carries three envelope keys and nothing subscribes.", "families": "room, grid, plumbing, structural, annotation, dimension — SIX of the nineteen *.created channels", "measurement": "negative grep over apps/packages/plugins excluding node_modules and tests"},
+    {"mechanism": "3. RIVAL VOCABULARY — the L0 schema and the shipped renderer describe the family in different languages, and only the unreachable half speaks L0.", "families": "furniture (catalogId/representations/activeLod), lighting (kelvin/lumens/dropLength), door+window (frameMaterialId/glassMaterialId), plumbing (systemTag/bendRadius), structural (endOffset), room (seedPoint), dimension (overrideText)", "measurement": "_RIVAL-SYSTEM-committers-vs-fragment-builders.json"},
+    {"mechanism": "4. NO DESTINATION — the legacy record has no field for it, so it is lost even on the path that works.", "families": "beam.rotation (0 mentions in BeamTypes.ts), stair.numRisers, stair.materialId, door/window.frameWidth", "measurement": "field-name counts over a 4927-file identifier index, packages/schemas and tests excluded"}
+  ],
+
+  "THREE_FIELDS_AUTHORED_AND_READ_BY_NOTHING_AT_ALL": {
+    "fields": ["Room.multiLevelSpan", "Sheet.customSize", "View.visibilityRulesetId"],
+    "measurement": "ZERO occurrences across 4927 non-test source files under packages/ apps/ plugins/, with packages/schemas excluded. Index at audit/.../builders/_raw/word-index.json.",
+    "note": "Every other authored field in all 30 schemas has at least one reader somewhere — the question for those is only WHICH SIDE the reader is on."
+  },
+
+  "RIVAL_BUILDERS_FOUND": [
+    {"rank": 1, "rival": "The whole committer/producer pipeline — 26 geometry-kernel producers + 19 plugin committers + CommitterHost — versus the legacy fragment builders.", "verdict": "AUTHORED · COMPOSABLE (4 of 19 wired) · NOT REACHABLE (the bootstrap requires a canvas; src/main.ts:421 passes null). See _RIVAL-SYSTEM json.", "already_partly_on_record": "PropertyInspectorApply.ts:200-211 §L-1040, for DoorCommitter only; generalised and re-verified here."},
+    {"rank": 2, "rival": "TWO IFC EXPORTERS — packages/file-format/src/export/ifc (16 readers, REACHABLE) vs plugins/ifc-export/src/exporters/IFC4X3Exporter.ts (7 snapshot arrays, UNREACHABLE — its only route, ImportExportSlots.ts:74, throws RuntimeNotWiredError('ifc.export.run','F.12.4')).", "verdict": "The unreachable one is a STRICT SUBSET, so no family loses its export to this. The repo already says so: LiftReader.ts:9 — 'plugins/ifc-export/, which is NOT the exporter the Export IFC button runs.'"},
+    {"rank": 3, "rival": "LiftMeshBuilder (LOD-200 massing, from LiftStore) vs LiftCompoundMeshBuilder (LOD-300 compound, from lift.created).", "verdict": "⭐ THE ONLY LEGITIMATE RIVAL PAIR — deliberate, documented at initBuilders.ts:255-263, C104 §1/R-8 cited, and it NAMES THE TRAP it avoids ('one builder reading two stores would be that merge arriving through the renderer'). This is the yardstick the others fail."},
+    {"rank": 4, "rival": "TWO StairPlanSymbolRegistry.ts — packages/core-app-model/src/scene/ (L2) and packages/scene-committer/src/ (L4).", "verdict": "SAME NAME, SAME PURPOSE, TWO LAYERS. Exactly the divergent-copy shape SymbolInjectionGate.ts:54-56 warns about. Not adjudicated here."},
+    {"rank": 5, "rival": "TWO annotation renderers — plugins/annotations/src/AnnotationRenderLayer.ts (L6) and packages/core-app-model/src/views/PlanViewAnnotationRenderer.ts (L2), plus plugins/plan-view/src/annotation-committer.ts as a third.", "verdict": "NOT ADJUDICATED — flagged by name."},
+    {"rank": 6, "rival": "TWO EMITTERS of the channel 'room.created' with DIFFERENT payload shapes — CommandEventBridge.ts:1314 ({commandId, commandType, levelId}) and packages/stores/src/aggregate-commands/roomCreate.ts:111 ({type, room}).", "verdict": "LATENT — nothing subscribes, so the collision cannot bite yet."},
+    {"rank": "REFUTED", "rival": "singleVolumeWallProducer vs WallFragmentBuilder", "verdict": "NOT A RIVAL — a DI strategy injected into the one builder at initTools.ts:930, default-off behind window.__wallSingleVolume."},
+    {"rank": "REFUTED", "rival": "ElementInstanceBridge / FurnitureInstanceBridge for wall/column/beam/furniture", "verdict": "NOT RIVALS — second render paths inside the SAME builder, flag-gated default-off (__pryzmElementInstancingV1), declared at each wiring site."}
+  ],
+
+  "MEMBERS_WITHOUT_BUILDERS_OF_THEIR_OWN": {
+    "doctrine_applied": "A member with no builder is not automatically a defect. The question is whether the family is HONEST about it — a family that claims a surface and draws nothing is worse than an honest NO.",
+    "honest_and_drawn_by_a_parent": [
+      {"member": "liftPart", "parent": "lift", "drawn_by": "LiftCompoundMeshBuilder.updateLift, from ev.parts[]", "honest": "YES — named in ALL_PLUGINS, exempted by name in STORE_ONLY_PLUGIN_IDS (C104 §2), absent from GEOMETRY_ELEMENT_TYPES so it claims no plan surface. THE BRIEF'S 'liftPart has none' IS REFUTED as stated: it has no builder OF ITS OWN, and it IS drawn."},
+      {"member": "basin walls / pool floor slab / host-slab void", "parent": "pool", "drawn_by": "WallFragmentBuilder / SlabFragmentBuilder", "honest": "YES — CommandEventBridge states its refusal to smuggle the water onto slab.created (C84 EI-9)"},
+      {"member": "balcony slab / floor finish / railing", "parent": "balcony", "drawn_by": "SlabFragmentBuilder / FloorPanelBuilder / HandrailFragmentBuilder", "honest": "YES on the compound pattern; NO on the narrowed payloads"},
+      {"member": "curtain-panel", "parent": "curtainWall", "drawn_by": "CurtainPanelBuilder via CurtainPanelSyncHandler", "honest": "⭐ YES — and the mirror WARNS per element when authored panels are discarded"},
+      {"member": "kitchen run / wardrobe cabinets / tree", "parent": "furniture", "drawn_by": "the furniture builders + six plan-symbol builders", "honest": "YES — each rides furniture.created via its own config key, emitted at BOTH sites"},
+      {"member": "bathroomPod", "parent": "—", "drawn_by": "its members, via a hand-built render sink (bathroomPodMemberMirror.ts)", "honest": "YES — the mirror names the three surfaces it must feed and exists BECAUSE there is no channel to relay on"}
+    ],
+    "have_their_own_builders_but_are_invisible_to_a_handle_search": [
+      {"member": "stair-landing", "builder": "StairLandingBuilder — self-subscribes in its constructor; `grep -rn 'stairLandingBuilder\\.'` → ZERO hits"},
+      {"member": "verticalCirculation", "builder": "LiftMeshBuilder — self-subscribes at :73-75; `grep -rn 'liftMeshBuilder\\.'` → ZERO hits"},
+      {"member": "beam", "builder": "BeamFragmentBuilder — injected via beamStore.setBuilder(); reachable only through BeamStore.ts:55"}
+    ],
+    "claims_a_surface_and_draws_nothing": [
+      {"family": "structural", "claims": "an L0 schema, verbs, a plugin, a committer", "draws": "NOTHING in 3D on the shipped path", "honest": "PARTIALLY — performUndoRedo.ts:573 names the missing store and tells the user Ctrl+Z is a no-op. Nothing says the element has no renderer."},
+      {"family": "water", "claims": "3D only", "plan": "correctly NO — absent from GEOMETRY_ELEMENT_TYPES", "honest": "⭐ YES — members.json records '3D only' by name"},
+      {"family": "boundaryLine", "claims": "a plan symbol builder", "plan_invalidation": "NOT WIRED — absent from GEOMETRY_ELEMENT_TYPES under either spelling", "honest": "⭐ PARTIALLY, AND WELL — BoundaryLinePlanSymbolBuilder.ts:158 announces 'no reader installed — boundary lines will be ABSENT from plan'. The INVALIDATION gap is not announced."},
+      {"family": "lift compound", "claims": "3D", "plan_invalidation": "NOT WIRED — GEOMETRY_ELEMENT_TYPES carries `verticalCirculation` (the OTHER lift) and neither `lift` nor `liftPart`", "honest": "NO — one word, two elements, and the plan dirties on the wrong one"}
+    ]
+  },
+
+  "DEGENERATE_INPUT_LEAGUE_TABLE": {
+    "method": "grep -cE 'isFinite|isNaN' and 'throw new' per builder file, plus a read of the return type.",
+    "BEST": [
+      {"builder": "apps/editor/src/engine/WaterMeshBuilder.ts", "why": "returns {drew:'volume'} | {drew:'nothing', reason} — THREE named refusals each carrying both numbers, e.g. 'an empty pool is the ABSENCE of water, not water with no depth'"},
+      {"builder": "apps/editor/src/engine/BoundaryLineMeshBuilder.ts", "why": "a THREE-arm outcome including 'linework-material-refused' — an unresolved material downgrades the render instead of deleting the element"},
+      {"builder": "packages/geometry-wall/src/WallFragmentBuilder.ts", "why": "21 finite guards + 3 throws — TWENTY-ONE MORE THAN EVERY OTHER FRAGMENT BUILDER COMBINED"},
+      {"builder": "packages/geometry-slab/src/SlabFragmentBuilder.ts", "why": "getBuildVerdict(id) / getBuildReport() — a per-element build verdict a caller can read back"},
+      {"builder": "packages/geometry-column/src/ColumnFragmentBuilder.ts", "why": "throws SpatialAuthorityError on a dangling levelId"},
+      {"builder": "packages/geometry-handrail/src/HandrailFragmentBuilder.ts", "why": "flushUnresolvedMaterialReports(): number — the only builder that can COUNT its own fallbacks"}
+    ],
+    "MEASURED_ZERO_FINITE_GUARDS_AND_ZERO_THROWS": ["RoofFragmentBuilder", "BeamFragmentBuilder", "FurnitureFragmentBuilder", "LightingFragmentBuilder (3232 lines)", "PlumbingFragmentBuilder", "HandrailFragmentBuilder", "StairMeshBuilder", "LiftMeshBuilder", "LiftCompoundMeshBuilder", "CurtainWallBuilder (2314 lines)"],
+    "SILENT_SUBSTITUTION_FOUND": [
+      {"site": "packages/geometry-plumbing/src/PlumbingFragmentBuilder.ts:49-58", "what": "the fixtureType if/else chain's FINAL ELSE is createToiletMesh — an unrecognised fixtureType silently becomes a toilet"},
+      {"site": "apps/editor/src/engine/initTools.ts:2491", "what": "floor finishSpec defaults to a hardcoded '#D4C4A8'"},
+      {"site": "apps/editor/src/engine/initTools.ts:3038-3041", "what": "furniture width/length/height default to 0.6/0.6/0.9 and material to 'wood'"}
+    ]
+  },
+
+  "DISPOSAL": {
+    "method": "grep -cE 'dispose\\(\\)|safeDispose' per builder + a read of the DELETE leg.",
+    "⛔ THE_ONE_LEAK": {
+      "builder": "packages/geometry-plumbing/src/PlumbingFragmentBuilder.ts",
+      "dispose_call_count": 0,
+      "leak_on_update": ":46 root.clear() detaches every child mesh without disposing geometry or material — and updateFixture runs on every edit",
+      "leak_on_delete": ":338-344 removeFixture does scene.remove(root) + Map.delete + elementRegistry.unregisterRoot, and frees nothing",
+      "the_fix_exists_next_door": "packages/geometry-roof/src/RoofFragmentBuilder.ts:231 _disposeChildren(), whose comment at :233 names the exact inversion it corrected: 'WAS: safeDisposeObject3D(root); root.clear();'",
+      "note": "clearProjectGeometry() DOES exist (:352) and calls removeFixture — the gap is that removeFixture frees nothing, so the project sweep does not help."
+    },
+    "EVERY_OTHER_BUILDER_MEASURED_DISPOSES": "WallFragmentBuilder 20 · WindowBuilder 16 · CurtainWallBuilder 13 · LightingFragmentBuilder 9 · StairMeshBuilder 9 · FurnitureFragmentBuilder 7 · SlabFragmentBuilder 5 · BeamFragmentBuilder 5 · DoorBuilder 5 · HandrailFragmentBuilder 4 · RoofFragmentBuilder 2 · ColumnFragmentBuilder 2 · LiftMeshBuilder 2 · LiftCompoundMeshBuilder 2 · WaterMeshBuilder 2 · BoundaryLineMeshBuilder 1",
+    "BEST_REASONED": ["LiftCompoundMeshBuilder:325 — 'disposeMaterials = false' with the §BEAM-AUDIT-2026-C3 defect named as the reason", "WaterMeshBuilder:276 — the TERMINAL dispose() vs the project-switch sweep distinction, and why calling the wrong one 'leaves the next project with a dead builder'", "BoundaryLineMeshBuilder:156 — a NAMED exception ('does NOT dispose materials — they are shared')"]
+  },
+
+  "SPELLING_DRIFT_MEASURED": [
+    {"family": "stair-landing", "spellings": ["GEOMETRY_ELEMENT_TYPES + initStores key: 'stair-landing'", "DOM events: 'bim-stair-landing-added'", "handle: stairLandingStore"], "bites_today": false, "why_not": "the invalidation key and the render key are looked up by DIFFERENT mechanisms (a Set membership test vs an event name), so the two spellings never meet. THE BRIEF PREDICTED THIS FAMILY AND THE PREDICTION IS HALF RIGHT: the drift is real, the consequence is not — yet."},
+    {"family": "curtainWall", "spellings": ["GEOMETRY_ELEMENT_TYPES: 'curtainwall'", "channel + verbs: 'curtain-wall'", "ALL_PLUGINS id 'curtain-wall' / storeKey 'curtainwall'"], "bites_today": false, "why_not": "the symbol gate is never asked about this family"},
+    {"family": "boundaryLine", "spellings": ["symbol gate: 'boundary-line'", "channel + storeKey: 'boundaryLine'", "directory: plugins/boundary-line"], "bites_today": "⚠ ADJACENT — boundaryLine is absent from GEOMETRY_ELEMENT_TYPES under BOTH spellings, so its plan symbol has no invalidation trigger. Whether that absence is the drift or an independent omission is not separable from the evidence here."},
+    {"family": "lift", "spellings": ["GEOMETRY_ELEMENT_TYPES: 'verticalCirculation' (the LOD-200 massing lift)", "compound channel: 'lift' + 'liftPart' (absent from the set)"], "bites_today": true, "consequence": "an LOD-300 lift compound edited in 3D does not dirty the plan; the LOD-200 massing lift does."}
+  ],
+
+  "REFUTATIONS_THIS_PHASE_OWES_ITSELF": [
+    "The brief's headline case — 'roof dropping materialId and materialColor while counting renders_3d = YES' — IS CLOSED at this head, in all three legs (emit, mirror, builder). Verified, not assumed.",
+    "'liftPart has none [no builder]' — it has no builder OF ITS OWN and IS drawn, by its parent, from ev.parts[]. Stated as 'no builder' it reads as 'undrawn', which is wrong.",
+    "'pool draws the water body only' — pool draws FOUR members (water, basin walls, floor slab, host-slab void); it is the compound that has no mesh, correctly and by declaration.",
+    "'lift draws the cabin only' — the compound draws cabin, steel frame AND guide rails, and a SECOND, deliberately separate builder draws the LOD-200 massing lift.",
+    "A field-name grep scored window's six reveal fields at ZERO in WindowBuilder.ts and would have reported them never drawn. FALSE — every read is encapsulated in resolveWindowReveal (WindowBuilder.ts:839). Grep silence, cause three.",
+    "PlumbingFragmentBuilder.updateFixture appeared, on a partial read of :49-59, to build a mesh and never add it to the root. FALSE — :84 root.add(mesh). Reading a fragment of an implementation produced a wrong conclusion; reading the whole function refuted it. (The disposal finding in the same file survives, and was measured, not inferred.)",
+    "Lighting has no *PlanSymbolBuilder CLASS, so a class-name grep reports its plan symbol ABSENT. It is a store-driven pass instead (LightingPlanSymbolRenderer.renderLightingSymbols). ViewDependencyTracker.ts:97-107 records the identical discovery."
+  ],
+
+  "WHAT_THIS_PHASE_DID_NOT_MEASURE": [
+    "Whether the double subscriptions in StairRailingBuilder (:117 runtime.events AND :125 window, same event name) both fire. If they do, the railing rebuilds twice per stair edit.",
+    "Which of the two annotation renderers wins, and whether they have diverged.",
+    "Whether the two StairPlanSymbolRegistry.ts files have diverged.",
+    "Whether grid reaches a mesh at all — no builder was found and no negative proof was obtained.",
+    "Field-by-field fidelity on the LEGACY (non-bus) leg for room, plumbing, annotation, dimension and grid — only the bus leg was measured for those five.",
+    "The persists and exports facts, which belong to other axes of this audit."
+  ],
+
+  "NOT_A_RECOMMENDATION": "This phase proposes no fix. It records one hazard for whoever does: 'wire the committers' and 'widen the CEB emit' are RIVAL remedies for the same symptoms, and applying both would mint a third geometry path. boundaryLine already demonstrates a third option — a narrow event plus a store read — that costs nothing and loses nothing."
+}

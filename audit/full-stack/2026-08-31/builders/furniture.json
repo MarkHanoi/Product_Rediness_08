@@ -1,0 +1,78 @@
+{
+  "family": "furniture",
+  "head": "d91d30d4af51bc67317ef8afc0b46b1dbef94038",
+  "members": ["furniture item", "kitchen run", "wardrobe cabinets", "tree / landscape"],
+  "rows": [
+    {
+      "member": "furniture item",
+      "surface": "3d",
+      "builder_file": "packages/geometry-furniture/src/FurnitureFragmentBuilder.ts (429 lines) + packages/geometry-furniture/src/builders/* + engines/",
+      "entry_fn": "updateFurniture(data) :79  ·  removeFurniture(id) :388  ·  dispose() :411  ·  clearProjectGeometry() :427  ·  setInstanceBridge :74  ·  getMaterialService() :384",
+      "package": "@pryzm/geometry-furniture",
+      "layer": "L2",
+      "layer_proof": "eslint.config.js:149",
+      "invoked_by": [
+        "apps/editor/src/engine/initBuilders.ts:778 `new FurnitureFragmentBuilder(scene)`",
+        "apps/editor/src/engine/initBuilders.ts:852/:857/:861 — window.addEventListener('bim-furniture-added' | '-updated' | '-removed')",
+        "BUS LEG: CommandEventBridge furniture.create / furniture.batch.create → 'furniture.created' → apps/editor/src/engine/initTools.ts:2969"
+      ],
+      "rivals": [
+        {"candidate": "FurnitureInstanceBridge / isFurnitureInstancingEnabled (initBuilders.ts:52)", "verdict": "SECOND RENDER PATH, FLAG-GATED, DECLARED — furniture has its OWN instance bridge, separate from the shared ElementInstanceBridge wall/column/beam use."},
+        {"candidate": "plugins/furniture/src/committer/furniture-committer.ts + packages/geometry-kernel/src/producers/furniture.ts", "verdict": "RIVAL, UNREACHABLE — and for furniture this is the WHOLE L0 vocabulary's only consumer. See the fidelity row."}
+      ],
+      "robustness": {
+        "degenerate_input": "ZERO isFinite/isNaN, ZERO `throw new`.",
+        "disposal": "PRESENT — 7 dispose sites; dispose() :411, clearProjectGeometry() :427, removeFurniture :388.",
+        "guard": "initTools.ts:2970 `if (ev.commandType !== 'furniture.create' || !ev.id || !ev.furnitureType || !ev.position) return;` — see the SILENT DROP below."
+      },
+      "fidelity": {
+        "authored_L0_fields": ["provenance","confidence","levelId","catalogId","origin","rotation","scale","size","activeLod","representations","materialSlots","materialId"],
+        "authored_count": 12,
+        "ceb_channel": "furniture.created",
+        "ceb_emit_sites": ["~L1158 (furniture.create) — 17 keys","~L1211 (furniture.batch.create) — 17 keys, IDENTICAL, and it RESTAMPS commandType to 'furniture.create' so the bridge guard passes"],
+        "ceb_emitted_keys": ["commandId","commandType","levelId","id","furnitureType","position","rotation","baseOffset","width","length","height","material","materialId","color","furnitureCategory","kitchenConfig","wardrobeCabinetConfig"],
+        "dropped_at_ceb": ["catalogId","origin","scale","size","activeLod","representations","materialSlots","provenance","confidence"],
+        "⛔ VERDICT — TWO RIVAL VOCABULARIES FOR ONE FAMILY, AND THE RENDERER SPEAKS THE OTHER ONE": "This is not a field-drop. The L0 schema and the shipped renderer describe furniture in DIFFERENT LANGUAGES, and the CEB emit is written entirely in the renderer's. L0 says {catalogId, origin, scale, size, activeLod, representations, materialSlots}; the event and the legacy FurnitureData say {furnitureType, position, width, length, height, material, color, furnitureCategory, kitchenConfig, wardrobeCabinetConfig}. There is NO translation between them anywhere on the shipped path.",
+        "chain_proof": [
+          "AUTHORED AND VALIDATED — plugins/furniture/src/handlers/CreateFurniture.ts:26 `readonly catalogId?: string`, :31 activeLod, :32 representations; :55-56 validates activeLod ('must be one of {0,1,2,3,4}'); :98/:103/:104 writes `catalogId: cmd.catalogId ?? ''`, `activeLod: cmd.activeLod ?? 2`, `representations: cmd.representations ?? {}` into the Immer store. Its header at :3-6 states 'Per ADR-0027 §2 the Furniture DTO carries its representations directly … passes representations and catalogId into the payload.'",
+          "NOT EMITTED — the CEB furniture.create case (~L1158) reads a payload typed with `furnitureType?: string` and emits 17 keys; catalogId, activeLod, representations, materialSlots, scale and size are not among them.",
+          "⛔ SILENTLY DROPPED — apps/editor/src/engine/initTools.ts:2970 guards `|| !ev.furnitureType` and RETURNS. A furniture.create authored the ADR-0027 way (catalogId + representations, no furnitureType) produces NO store record, NO mesh, and NO warning. The bridge is silent; compare curtainWallCreatedMirror, which console.warns per element on a lesser loss.",
+          "THE ONLY CONSUMERS OF THE L0 VOCABULARY ARE UNREACHABLE — repo-wide (excluding packages/schemas and tests): catalogId 47, activeLod 39, representations 44, materialSlots 26 mentions, and the geometry consumers among them are packages/geometry-kernel/src/producers/furniture.ts, its composeFurnitureGeometryHash, and plugins/furniture/src/committer/furniture-committer.ts — all on the unreachable side (see _RIVAL-SYSTEM json). FurnitureTypes.ts and FurnitureFragmentBuilder.ts score ZERO on all four.",
+          "SUBSTITUTED — even when furnitureType IS present, initTools.ts:3038-3041 defaults `width ?? 0.6`, `length ?? 0.6`, `height ?? 0.9` and `material ?? 'wood'`. An item whose size lives in L0 `size`/`scale` renders as a 0.6 × 0.6 × 0.9 wooden box."
+        ],
+        "draws_what_the_user_authored": "NO on the L0/ADR-0027 vocabulary. YES on the legacy vocabulary (furnitureType + explicit w/l/h + color + kitchenConfig + wardrobeCabinetConfig all survive both emit sites)."
+      }
+    },
+    {
+      "member": "kitchen run",
+      "surface": "3d + plan",
+      "builder_file": "packages/geometry-furniture/src/KitchenTypes.ts + builders/KitchenPlanSymbolBuilder.ts",
+      "rides": "'furniture.created' via the `kitchenConfig` key (emitted at BOTH sites)",
+      "drawn": "YES — 3D and a dedicated plan symbol (EdgeProjectorService.ts:3968)"
+    },
+    {
+      "member": "wardrobe cabinets",
+      "surface": "3d + plan",
+      "builder_file": "packages/geometry-furniture/src/WardrobeCabinetTypes.ts + builders/WardrobePlanSymbolBuilder.ts",
+      "rides": "'furniture.created' via `wardrobeCabinetConfig`",
+      "drawn": "YES — 3D and plan (EdgeProjectorService.ts:3955)"
+    },
+    {
+      "member": "tree / landscape",
+      "surface": "3d + plan + section",
+      "builder_file": "packages/geometry-furniture/src/TreeTypes.ts + LandscapeCatalogue.ts + builders/TreePlanSymbolBuilder.ts + TreeElevationSymbolBuilder",
+      "drawn": "YES on ALL THREE — plan at EdgeProjectorService.ts:3975 and elevation/section at :4078. §TREE135 (L-12180). The ONLY furniture member with a dedicated section symbol.",
+      "note": "EdgeProjectorService.ts:2896-2898 explains why: a section plane legitimately cuts a fixture, so TreeElevationSymbolBuilder draws a drafted symbol instead of the cut mesh."
+    },
+    {
+      "member": "furniture item",
+      "surface": "plan",
+      "builder_file": "SIX dedicated plan-symbol builders in packages/geometry-furniture/src/builders/ — Bed, Chair, Kitchen, Sofa, Tree, Wardrobe",
+      "invoked_by": "apps/editor/src/engine/views/EdgeProjectorService.ts:3942 (sofa), :3947 (bed), :3955 (wardrobe), :3963 (chair), :3968 (kitchen), :3975 (tree) — all six behind `_symbolGate('furniture')`",
+      "note": "MORE PLAN-SYMBOL BUILDERS THAN ANY OTHER FAMILY — six of the fifteen injectors are furniture. A furniture item with no matching symbol builder falls back to true-edge projection of its mesh unless it carries `skipInPlan`.",
+      "invalidation": "`furniture` IS in GEOMETRY_ELEMENT_TYPES (ViewDependencyTracker.ts:86) but NOT in PLAN_INCREMENTAL_SAFE_TYPES — furniture edits take the slow full-reprojection path."
+    },
+    {"member": "furniture item", "surface": "section", "builder_file": "packages/geometry-furniture/src/furnitureElevation.ts + TreeElevationSymbolBuilder", "drawn": "PARTIAL — only the tree has a dedicated elevation symbol; everything else is the cut mesh"},
+    {"member": "furniture item", "surface": "export", "builder_file": "packages/file-format/src/export/ifc/readers/FurnitureReader.ts (L3, FragmentReader.ts:43)", "rivals": ["the UNREACHABLE plugins/ifc-export has NO furniture exporter"]}
+  ]
+}

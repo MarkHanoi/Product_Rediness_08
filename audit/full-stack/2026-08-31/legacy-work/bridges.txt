@@ -1,0 +1,79 @@
+=== wall.created [1225-1529]
+  1304 REGISTER :: try { viewDependencyTracker.registerElement(ev.wallId, resolvedLevelId); }
+  1306 REGISTER :: try { bimManager.registerElement(ev.wallId, resolvedLevelId); }
+  1310 DEDUP :: const alreadyMirrored = !!_legacyWallStoreForBridge.getById(ev.wallId);
+  1311 DEDUP :: if (!alreadyMirrored) {
+  1313 ADD :: _legacyWallStoreForBridge.add({
+=== wall.opening.created [1530-1686]
+  1591 ADD :: doorStore.add(buildDoorStoreRecord({
+  1635 ADD :: windowStore.add(buildWindowStoreRecord({
+=== lift.created [1687-1882]
+  1705 REGISTER :: viewDependencyTracker.registerElement(ev.liftId, ev.levelId ?? '');
+  1706 REGISTER :: try { bimManager.registerElement(ev.liftId, ev.levelId ?? ''); }
+  1857 REGISTER :: viewDependencyTracker.registerElement(id, levelId);
+  1858 REGISTER :: try { bimManager.registerElement(id, levelId); }
+=== boundaryLine.created [1883-1886]
+=== boundaryLine.updated [1887-1890]
+=== boundaryLine.deleted [1891-1942]
+=== water.created [1943-2063]
+  1982 REGISTER :: try { viewDependencyTracker.registerElement(ev.waterId, levelId); }
+  1984 REGISTER :: try { bimManager.registerElement(ev.waterId, levelId); }
+=== curtain-wall.created [2064-2160]
+  2085 RET :: if (curtainWallStoreInstance.has(cwRecord.id)) return;
+  2092 REGISTER :: try { viewDependencyTracker.registerElement(cwRecord.id, cwRecord.levelId); }
+  2094 REGISTER :: try { bimManager.registerElement(cwRecord.id, cwRecord.levelId); }
+  2104 ADD :: curtainWallStoreInstance.add(cwRecord as CurtainWallData);
+  2127 SEB :: storeEventBus.emit({
+  2141 SEB :: console.log('[initTools] §P3.1-CW: curtain wall mirrored to legacy store + storeEventBus fired', cwRecord.id);
+=== ceiling.created [2161-2216]
+  2184 RET :: if (ceilingStore.has(ceilingRecord.id)) return;
+  2186 ADD :: ceilingStore.add(ceilingRecord);
+  2192 REGISTER :: viewDependencyTracker.registerElement(ceilingRecord.id, ceilingRecord.levelId);
+  2193 REGISTER :: try { bimManager.registerElement(ceilingRecord.id, ceilingRecord.levelId); } catch { /* non-fatal */ }
+=== roof.created [2217-2290]
+  2224 DEDUP :: if (roofStore.getById(ev.id)) return; // dedup guard
+  2263 ADD :: roofStore.add(record as RoofData);
+  2266 REGISTER :: viewDependencyTracker.registerElement(ev.id, ev.levelId ?? '');
+  2267 REGISTER :: try { bimManager.registerElement(ev.id, ev.levelId ?? ''); } catch { /* non-fatal */ }
+=== column.created [2291-2362]
+  2308 DEDUP :: if (columnStore.get(ev.id)) return; // dedup guard
+  2311 ADD :: (columnStore as any).add({
+  2332 REGISTER :: viewDependencyTracker.registerElement(ev.id, ev.levelId ?? '');
+  2333 REGISTER :: try { bimManager.registerElement(ev.id, ev.levelId ?? ''); } catch { /* non-fatal */ }
+=== slab.created [2363-2427]
+  2374 DEDUP :: if (slabStore.getById(ev.id)) return; // dedup guard
+  2376 ADD :: slabStore.add({
+  2398 REGISTER :: viewDependencyTracker.registerElement(ev.id, ev.levelId ?? '');
+  2399 REGISTER :: try { bimManager.registerElement(ev.id, ev.levelId ?? ''); } catch { /* non-fatal */ }
+=== beam.created [2428-2479]
+  2435 DEDUP :: if (beamStore.get(ev.id)) return; // dedup guard
+  2449 ADD :: beamStore.add(record);
+  2454 REGISTER :: viewDependencyTracker.registerElement(ev.id, ev.levelId ?? '');
+  2455 REGISTER :: try { bimManager.registerElement(ev.id, ev.levelId ?? ''); } catch { /* non-fatal */ }
+=== floor.created [2480-2574]
+  2487 DEDUP :: if (floorStore.getById(ev.floorId)) return; // dedup guard
+  2496 ADD :: (floorStore as any).add({
+  2552 REGISTER :: viewDependencyTracker.registerElement(ev.floorId, ev.levelId ?? '');
+  2553 REGISTER :: try { bimManager.registerElement(ev.floorId, ev.levelId ?? ''); } catch { /* non-fatal */ }
+=== handrail.created [2575-2780]
+  2582 DEDUP :: if (handrailStore.getById(ev.id)) return; // dedup guard
+  2639 ADD :: handrailStore.add({
+  2672 REGISTER :: viewDependencyTracker.registerElement(ev.id, ev.levelId ?? '');
+  2673 REGISTER :: try { bimManager.registerElement(ev.id, ev.levelId ?? ''); } catch { /* non-fatal */ }
+  2718 RET :: return w ?? undefined;
+=== lighting.created [2781-2968]
+  2790 DEDUP :: if (_ls.has(ev.id)) return; // dedup guard
+  2846 REGISTER :: try { viewDependencyTracker.registerElement(ev.id, _regLevelId); }
+  2848 REGISTER :: try { bimManager.registerElement(ev.id, _regLevelId); }
+  2851 ADD :: _ls.add(_data);
+  2871 ADD :: _builder.add(_data);
+  2937 REGISTER :: try { viewDependencyTracker.registerElement(id, _lvl); }
+=== furniture.created [2969-3133]
+  2975 DEDUP :: if (_fs.get(ev.id)) return; // dedup guard
+  3018 ADD :: _fs.add({
+  3064 REGISTER :: viewDependencyTracker.registerElement(ev.id, ev.levelId ?? '');
+  3065 REGISTER :: try { bimManager.registerElement(ev.id, ev.levelId ?? ''); } catch { /* non-fatal */ }
+=== pryzm-project-loaded [3134-3155]
+=== view-activated [3156-3697]
+  3337 RET :: if (level) return (level as any).elevation ?? 0;
+  3341 RET :: if (levels.length > 0) return levels[0].elevation ?? 0;

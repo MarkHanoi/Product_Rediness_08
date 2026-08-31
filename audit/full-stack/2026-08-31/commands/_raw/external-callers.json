@@ -1,0 +1,5605 @@
+{
+ "filesScanned": 5120,
+ "exclusions": "node_modules, dist, __tests__/, *.test.ts(x), *.spec.ts(x), *.d.ts. Roots: apps/, packages/, plugins/. A verb assembled from a template literal would be invisible; none is known.",
+ "rows": [
+  {
+   "verb": "annotation.create",
+   "kind": "create",
+   "liveness": "UNKNOWN",
+   "ownFiles": [
+    "plugins/annotations/src/handlers/CreateAnnotation.ts"
+   ],
+   "externalMentionCount": 9,
+   "externalMentions": [
+    "apps/editor/src/engine/initBusHandlers.ts",
+    "apps/editor/src/engine/views/plantools/GridPlanToolHandler.ts",
+    "packages/ai-host/src/capabilities/ChatCommandClassification.ts",
+    "packages/geometry-roof/src/RoofSlopeSymbolBuilder.ts",
+    "packages/runtime-composer/src/CommandEventBridge.ts",
+    "packages/runtime-composer/src/types.ts",
+    "packages/sync-client/src/syncDisposition.ts",
+    "plugins/annotations/src/handlers/index.ts"
+   ]
+  },
+  {
+   "verb": "annotation.delete",
+   "kind": "delete",
+   "liveness": "UNKNOWN",
+   "ownFiles": [
+    "plugins/annotations/src/handlers/DeleteAnnotation.ts"
+   ],
+   "externalMentionCount": 4,
+   "externalMentions": [
+    "packages/ai-host/src/capabilities/ChatCommandClassification.ts",
+    "packages/sync-client/src/syncDisposition.ts",
+    "plugins/annotations/src/DimensionPropertiesPanel.ts",
+    "plugins/annotations/src/handlers/index.ts"
+   ]
+  },
+  {
+   "verb": "annotation.move",
+   "kind": "move",
+   "liveness": "UNKNOWN",
+   "ownFiles": [
+    "plugins/annotations/src/handlers/MoveAnnotation.ts"
+   ],
+   "externalMentionCount": 3,
+   "externalMentions": [
+    "packages/ai-host/src/capabilities/ChatCommandClassification.ts",
+    "packages/sync-client/src/syncDisposition.ts",
+    "plugins/annotations/src/handlers/index.ts"
+   ]
+  },
+  {
+   "verb": "annotation.setColor",
+   "kind": "update",
+   "liveness": "UNKNOWN",
+   "ownFiles": [
+    "plugins/annotations/src/handlers/SetAnnotationColor.ts"
+   ],
+   "externalMentionCount": 3,
+   "externalMentions": [
+    "packages/ai-host/src/capabilities/ChatCommandClassification.ts",
+    "packages/sync-client/src/syncDisposition.ts",
+    "plugins/annotations/src/handlers/index.ts"
+   ]
+  },
+  {
+   "verb": "annotation.setKind",
+   "kind": "update",
+   "liveness": "UNKNOWN",
+   "ownFiles": [
+    "plugins/annotations/src/handlers/SetAnnotationKind.ts"
+   ],
+   "externalMentionCount": 3,
+   "externalMentions": [
+    "packages/ai-host/src/capabilities/ChatCommandClassification.ts",
+    "packages/sync-client/src/syncDisposition.ts",
+    "plugins/annotations/src/handlers/index.ts"
+   ]
+  },
+  {
+   "verb": "annotation.setRotation",
+   "kind": "update",
+   "liveness": "UNKNOWN",
+   "ownFiles": [
+    "plugins/annotations/src/handlers/SetAnnotationRotation.ts"
+   ],
+   "externalMentionCount": 3,
+   "externalMentions": [
+    "packages/ai-host/src/capabilities/ChatCommandClassification.ts",
+    "packages/sync-client/src/syncDisposition.ts",
+    "plugins/annotations/src/handlers/index.ts"
+   ]
+  },
+  {
+   "verb": "annotation.setText",
+   "kind": "update",
+   "liveness": "UNKNOWN",
+   "ownFiles": [
+    "plugins/annotations/src/handlers/SetAnnotationText.ts"
+   ],
+   "externalMentionCount": 3,
+   "externalMentions": [
+    "packages/ai-host/src/capabilities/ChatCommandClassification.ts",
+    "packages/sync-client/src/syncDisposition.ts",
+    "plugins/annotations/src/handlers/index.ts"
+   ]
+  },
+  {
+   "verb": "annotation.setTextHeight",
+   "kind": "update",
+   "liveness": "UNKNOWN",
+   "ownFiles": [
+    "plugins/annotations/src/handlers/SetAnnotationTextHeight.ts"
+   ],
+   "externalMentionCount": 3,
+   "externalMentions": [
+    "packages/ai-host/src/capabilities/ChatCommandClassification.ts",
+    "packages/sync-client/src/syncDisposition.ts",
+    "plugins/annotations/src/handlers/index.ts"
+   ]
+  },
+  {
+   "verb": "annotation.update",
+   "kind": "update",
+   "liveness": "UNKNOWN",
+   "ownFiles": [
+    "plugins/annotations/src/handlers/UpdateAnnotation.ts"
+   ],
+   "externalMentionCount": 5,
+   "externalMentions": [
+    "apps/editor/src/ui/documentation/autoTagActiveView.ts",
+    "apps/editor/src/ui/property-panel/PropertyPanelAnnotations.ts",
+    "packages/ai-host/src/capabilities/ChatCommandClassification.ts",
+    "packages/sync-client/src/syncDisposition.ts",
+    "plugins/annotations/src/handlers/index.ts"
+   ]
+  },
+  {
+   "verb": "balcony.create",
+   "kind": "create",
+   "liveness": "UNKNOWN",
+   "ownFiles": [
+    "plugins/balcony/src/handlers/CreateBalcony.ts"
+   ],
+   "externalMentionCount": 4,
+   "externalMentions": [
+    "apps/editor/src/engine/views/plantools/BalconyPlanToolHandler.ts",
+    "packages/runtime-composer/src/CommandEventBridge.ts",
+    "packages/sync-client/src/syncDisposition.ts",
+    "plugins/balcony/src/handlers/index.ts"
+   ]
+  },
+  {
+   "verb": "balcony.delete",
+   "kind": "delete",
+   "liveness": "UNKNOWN",
+   "ownFiles": [
+    "plugins/balcony/src/handlers/DeleteBalcony.ts"
+   ],
+   "externalMentionCount": 2,
+   "externalMentions": [
+    "packages/sync-client/src/syncDisposition.ts",
+    "plugins/balcony/src/handlers/index.ts"
+   ]
+  },
+  {
+   "verb": "balcony.updateProfile",
+   "kind": "update",
+   "liveness": "UNKNOWN",
+   "ownFiles": [
+    "plugins/balcony/src/handlers/UpdateBalconyProfile.ts"
+   ],
+   "externalMentionCount": 3,
+   "externalMentions": [
+    "apps/editor/src/engine/balconyProfileBridge.ts",
+    "packages/sync-client/src/syncDisposition.ts",
+    "plugins/balcony/src/handlers/index.ts"
+   ]
+  },
+  {
+   "verb": "bathroomPod.create",
+   "kind": "create",
+   "liveness": "UNKNOWN",
+   "ownFiles": [
+    "plugins/plumbing/src/handlers/CreateBathroomPod.ts"
+   ],
+   "externalMentionCount": 2,
+   "externalMentions": [
+    "apps/editor/src/engine/views/plantools/BathroomPodPlanToolHandler.ts",
+    "plugins/plumbing/src/handlers/index.ts"
+   ]
+  },
+  {
+   "verb": "bathroomPod.delete",
+   "kind": "delete",
+   "liveness": "UNKNOWN",
+   "ownFiles": [
+    "plugins/plumbing/src/handlers/DeleteBathroomPod.ts"
+   ],
+   "externalMentionCount": 1,
+   "externalMentions": [
+    "plugins/plumbing/src/handlers/index.ts"
+   ]
+  },
+  {
+   "verb": "beam.batch.create",
+   "kind": "batch.create",
+   "liveness": "UNKNOWN",
+   "ownFiles": [
+    "plugins/beam/src/handlers/CreateBeamBatch.ts"
+   ],
+   "externalMentionCount": 8,
+   "externalMentions": [
+    "apps/editor/src/engine/initBusHandlers.ts",
+    "apps/editor/src/engine/views/plantools/duplicateToLevel.ts",
+    "packages/ai-host/src/capabilities/ChatCommandClassification.ts",
+    "packages/command-bus/src/commands.ts",
+    "packages/runtime-composer/src/CommandEventBridge.ts",
+    "packages/runtime-composer/src/types.ts",
+    "packages/sync-client/src/syncDisposition.ts",
+    "plugins/beam/src/handlers/index.ts"
+   ]
+  },
+  {
+   "verb": "beam.changeLevel",
+   "kind": "move",
+   "liveness": "LIVE",
+   "ownFiles": [
+    "plugins/beam/src/handlers/ChangeBeamLevel.ts"
+   ],
+   "externalMentionCount": 3,
+   "externalMentions": [
+    "packages/command-bus/src/levelChangeVerbs.ts",
+    "packages/sync-client/src/syncDisposition.ts",
+    "plugins/beam/src/handlers/index.ts"
+   ]
+  },
+  {
+   "verb": "beam.create",
+   "kind": "create",
+   "liveness": "UNKNOWN",
+   "ownFiles": [
+    "plugins/beam/src/handlers/CreateBeam.ts"
+   ],
+   "externalMentionCount": 12,
+   "externalMentions": [
+    "apps/editor/src/engine/initTools.ts",
+    "apps/editor/src/engine/views/plantools/BeamPlanToolHandler.ts",
+    "apps/editor/src/engine/views/plantools/CopyPlanToolHandler.ts",
+    "apps/editor/src/engine/views/plantools/duplicateToLevel.ts",
+    "packages/ai-host/src/capabilities/ChatCommandClassification.ts",
+    "packages/command-bus/src/commands.ts",
+    "packages/input-host/src/BeamTool.ts",
+    "packages/runtime-composer/src/CommandEventBridge.ts"
+   ]
+  },
+  {
+   "verb": "beam.delete",
+   "kind": "delete",
+   "liveness": "UNKNOWN",
+   "ownFiles": [
+    "plugins/beam/src/handlers/DeleteBeam.ts"
+   ],
+   "externalMentionCount": 3,
+   "externalMentions": [
+    "packages/ai-host/src/capabilities/ChatCommandClassification.ts",
+    "packages/sync-client/src/syncDisposition.ts",
+    "plugins/beam/src/handlers/index.ts"
+   ]
+  },
+  {
+   "verb": "beam.move",
+   "kind": "move",
+   "liveness": "REFUSES",
+   "ownFiles": [
+    "plugins/beam/src/handlers/MoveBeam.ts"
+   ],
+   "externalMentionCount": 3,
+   "externalMentions": [
+    "packages/ai-host/src/capabilities/ChatCapabilityRegistry.ts",
+    "packages/sync-client/src/syncDisposition.ts",
+    "plugins/beam/src/handlers/index.ts"
+   ]
+  },
+  {
+   "verb": "beam.setMaterial",
+   "kind": "update",
+   "liveness": "REFUSES",
+   "ownFiles": [
+    "plugins/beam/src/handlers/SetBeamMaterial.ts"
+   ],
+   "externalMentionCount": 3,
+   "externalMentions": [
+    "packages/ai-host/src/capabilities/ChatCapabilityRegistry.ts",
+    "packages/sync-client/src/syncDisposition.ts",
+    "plugins/beam/src/handlers/index.ts"
+   ]
+  },
+  {
+   "verb": "beam.setSection",
+   "kind": "update",
+   "liveness": "UNKNOWN",
+   "ownFiles": [
+    "plugins/beam/src/handlers/SetBeamSection.ts"
+   ],
+   "externalMentionCount": 3,
+   "externalMentions": [
+    "packages/ai-host/src/capabilities/ChatCommandClassification.ts",
+    "packages/sync-client/src/syncDisposition.ts",
+    "plugins/beam/src/handlers/index.ts"
+   ]
+  },
+  {
+   "verb": "beam.setType",
+   "kind": "update",
+   "liveness": "UNKNOWN",
+   "ownFiles": [
+    "plugins/beam/src/handlers/SetBeamType.ts"
+   ],
+   "externalMentionCount": 3,
+   "externalMentions": [
+    "packages/ai-host/src/capabilities/ChatCommandClassification.ts",
+    "packages/sync-client/src/syncDisposition.ts",
+    "plugins/beam/src/handlers/index.ts"
+   ]
+  },
+  {
+   "verb": "beam.update",
+   "kind": "update",
+   "liveness": "LIVE",
+   "ownFiles": [
+    "apps/editor/src/engine/initBusHandlers.ts"
+   ],
+   "externalMentionCount": 8,
+   "externalMentions": [
+    "apps/editor/src/engine/registerTransformDragHandler.ts",
+    "apps/editor/src/engine/transforms/elementMove.ts",
+    "apps/editor/src/engine/views/plantools/AlignPlanToolHandler.ts",
+    "apps/editor/src/ui/property-panel/PropertyPanelTypeSelector.ts",
+    "packages/ai-host/src/capabilities/ChatCommandClassification.ts",
+    "packages/command-bus/src/commands.ts",
+    "packages/geometry-boundary-line/src/BoundaryLinePropagation.ts",
+    "packages/sync-client/src/syncDisposition.ts"
+   ]
+  },
+  {
+   "verb": "boundaryLine.attach",
+   "kind": "update",
+   "liveness": "UNKNOWN",
+   "ownFiles": [
+    "plugins/boundary-line/src/handlers/AttachToBoundaryLine.ts"
+   ],
+   "externalMentionCount": 4,
+   "externalMentions": [
+    "packages/ai-host/src/capabilities/ChatCapabilityRegistry.ts",
+    "packages/runtime-composer/src/CommandEventBridge.ts",
+    "packages/sync-client/src/syncDisposition.ts",
+    "plugins/boundary-line/src/handlers/index.ts"
+   ]
+  },
+  {
+   "verb": "boundaryLine.create",
+   "kind": "create",
+   "liveness": "UNKNOWN",
+   "ownFiles": [
+    "plugins/boundary-line/src/handlers/CreateBoundaryLine.ts"
+   ],
+   "externalMentionCount": 8,
+   "externalMentions": [
+    "apps/editor/src/engine/BoundaryLineMeshBuilder.ts",
+    "apps/editor/src/engine/undo/pluginStoreUndoAdapter.ts",
+    "apps/editor/src/engine/views/plantools/BoundaryLinePlanToolHandler.ts",
+    "packages/ai-host/src/capabilities/ChatCapabilityRegistry.ts",
+    "packages/runtime-composer/src/CommandEventBridge.ts",
+    "packages/runtime-composer/src/types.ts",
+    "packages/sync-client/src/syncDisposition.ts",
+    "plugins/boundary-line/src/handlers/index.ts"
+   ]
+  },
+  {
+   "verb": "boundaryLine.delete",
+   "kind": "delete",
+   "liveness": "UNKNOWN",
+   "ownFiles": [
+    "plugins/boundary-line/src/handlers/UpdateBoundaryLine.ts"
+   ],
+   "externalMentionCount": 6,
+   "externalMentions": [
+    "apps/editor/src/engine/undo/pluginStoreUndoAdapter.ts",
+    "packages/ai-host/src/capabilities/ChatCapabilityRegistry.ts",
+    "packages/runtime-composer/src/CommandEventBridge.ts",
+    "packages/runtime-composer/src/types.ts",
+    "packages/sync-client/src/syncDisposition.ts",
+    "plugins/boundary-line/src/handlers/index.ts"
+   ]
+  },
+  {
+   "verb": "boundaryLine.detach",
+   "kind": "update",
+   "liveness": "UNKNOWN",
+   "ownFiles": [
+    "plugins/boundary-line/src/handlers/AttachToBoundaryLine.ts"
+   ],
+   "externalMentionCount": 4,
+   "externalMentions": [
+    "packages/ai-host/src/capabilities/ChatCapabilityRegistry.ts",
+    "packages/runtime-composer/src/CommandEventBridge.ts",
+    "packages/sync-client/src/syncDisposition.ts",
+    "plugins/boundary-line/src/handlers/index.ts"
+   ]
+  },
+  {
+   "verb": "boundaryLine.move",
+   "kind": "move",
+   "liveness": "LIVE",
+   "ownFiles": [
+    "apps/editor/src/engine/initBusHandlers.ts"
+   ],
+   "externalMentionCount": 4,
+   "externalMentions": [
+    "packages/ai-host/src/capabilities/ChatCapabilityRegistry.ts",
+    "packages/command-bus/src/commands.ts",
+    "packages/runtime-composer/src/CommandEventBridge.ts",
+    "packages/sync-client/src/syncDisposition.ts"
+   ]
+  },
+  {
+   "verb": "boundaryLine.update",
+   "kind": "update",
+   "liveness": "UNKNOWN",
+   "ownFiles": [
+    "plugins/boundary-line/src/handlers/UpdateBoundaryLine.ts"
+   ],
+   "externalMentionCount": 5,
+   "externalMentions": [
+    "apps/editor/src/engine/undo/pluginStoreUndoAdapter.ts",
+    "packages/ai-host/src/capabilities/ChatCapabilityRegistry.ts",
+    "packages/runtime-composer/src/CommandEventBridge.ts",
+    "packages/sync-client/src/syncDisposition.ts",
+    "plugins/boundary-line/src/handlers/index.ts"
+   ]
+  },
+  {
+   "verb": "ceiling.batch.create",
+   "kind": "batch.create",
+   "liveness": "UNKNOWN",
+   "ownFiles": [
+    "plugins/ceiling/src/handlers/CreateCeilingBatch.ts"
+   ],
+   "externalMentionCount": 8,
+   "externalMentions": [
+    "apps/editor/src/engine/views/plantools/duplicateToLevel.ts",
+    "packages/ai-host/src/capabilities/ChatCommandClassification.ts",
+    "packages/ai-host/src/workflows/ceilingLayout/buildCeilingCommands.ts",
+    "packages/command-bus/src/commands.ts",
+    "packages/runtime-composer/src/CommandEventBridge.ts",
+    "packages/runtime-composer/src/types.ts",
+    "packages/sync-client/src/syncDisposition.ts",
+    "plugins/ceiling/src/handlers/index.ts"
+   ]
+  },
+  {
+   "verb": "ceiling.changeLevel",
+   "kind": "move",
+   "liveness": "LIVE",
+   "ownFiles": [
+    "plugins/ceiling/src/handlers/ChangeCeilingLevel.ts"
+   ],
+   "externalMentionCount": 3,
+   "externalMentions": [
+    "packages/command-bus/src/levelChangeVerbs.ts",
+    "packages/sync-client/src/syncDisposition.ts",
+    "plugins/ceiling/src/handlers/index.ts"
+   ]
+  },
+  {
+   "verb": "ceiling.create",
+   "kind": "create",
+   "liveness": "UNKNOWN",
+   "ownFiles": [
+    "plugins/ceiling/src/handlers/CreateCeiling.ts"
+   ],
+   "externalMentionCount": 10,
+   "externalMentions": [
+    "apps/editor/src/engine/ceilingCreatedMirror.ts",
+    "apps/editor/src/engine/views/plantools/CeilingPlanToolHandler.ts",
+    "apps/editor/src/engine/views/plantools/CopyPlanToolHandler.ts",
+    "apps/editor/src/engine/views/plantools/duplicateToLevel.ts",
+    "packages/ai-host/src/capabilities/ChatCommandClassification.ts",
+    "packages/runtime-composer/src/CommandEventBridge.ts",
+    "packages/runtime-composer/src/types.ts",
+    "packages/sync-client/src/syncDisposition.ts"
+   ]
+  },
+  {
+   "verb": "ceiling.delete",
+   "kind": "delete",
+   "liveness": "UNKNOWN",
+   "ownFiles": [
+    "plugins/ceiling/src/handlers/DeleteCeiling.ts"
+   ],
+   "externalMentionCount": 3,
+   "externalMentions": [
+    "packages/ai-host/src/capabilities/ChatCommandClassification.ts",
+    "packages/sync-client/src/syncDisposition.ts",
+    "plugins/ceiling/src/handlers/index.ts"
+   ]
+  },
+  {
+   "verb": "ceiling.setBoundary",
+   "kind": "update",
+   "liveness": "UNKNOWN",
+   "ownFiles": [
+    "plugins/ceiling/src/handlers/SetCeilingBoundary.ts"
+   ],
+   "externalMentionCount": 3,
+   "externalMentions": [
+    "packages/ai-host/src/capabilities/ChatCommandClassification.ts",
+    "packages/sync-client/src/syncDisposition.ts",
+    "plugins/ceiling/src/handlers/index.ts"
+   ]
+  },
+  {
+   "verb": "ceiling.setHeight",
+   "kind": "update",
+   "liveness": "UNKNOWN",
+   "ownFiles": [
+    "plugins/ceiling/src/handlers/SetCeilingHeight.ts"
+   ],
+   "externalMentionCount": 3,
+   "externalMentions": [
+    "packages/ai-host/src/capabilities/ChatCommandClassification.ts",
+    "packages/sync-client/src/syncDisposition.ts",
+    "plugins/ceiling/src/handlers/index.ts"
+   ]
+  },
+  {
+   "verb": "ceiling.setMaterial",
+   "kind": "update",
+   "liveness": "REFUSES",
+   "ownFiles": [
+    "plugins/ceiling/src/handlers/SetCeilingMaterial.ts"
+   ],
+   "externalMentionCount": 3,
+   "externalMentions": [
+    "packages/ai-host/src/capabilities/ChatCapabilityRegistry.ts",
+    "packages/sync-client/src/syncDisposition.ts",
+    "plugins/ceiling/src/handlers/index.ts"
+   ]
+  },
+  {
+   "verb": "ceiling.update",
+   "kind": "update",
+   "liveness": "LIVE",
+   "ownFiles": [
+    "apps/editor/src/engine/initBusHandlers.ts"
+   ],
+   "externalMentionCount": 10,
+   "externalMentions": [
+    "apps/editor/src/engine/registerTransformDragHandler.ts",
+    "apps/editor/src/engine/transforms/elementMove.ts",
+    "apps/editor/src/engine/views/plantools/AlignPlanToolHandler.ts",
+    "apps/editor/src/ui/property-inspector/CeilingPropertySection.ts",
+    "apps/editor/src/ui/property-inspector/MaterialDispatch.ts",
+    "packages/ai-host/src/capabilities/ChatCapabilityRegistry.ts",
+    "packages/ai-host/src/intents/ZeroTokenResolver.ts",
+    "packages/command-bus/src/commands.ts"
+   ]
+  },
+  {
+   "verb": "ceiling.updateLayers",
+   "kind": "update",
+   "liveness": "UNKNOWN",
+   "ownFiles": [
+    "plugins/ceiling/src/handlers/UpdateCeilingLayers.ts"
+   ],
+   "externalMentionCount": 8,
+   "externalMentions": [
+    "apps/editor/src/engine/initBusHandlers.ts",
+    "apps/editor/src/ui/property-panel/PropertyPanelTypeSelector.ts",
+    "packages/ai-host/src/capabilities/ChatCommandClassification.ts",
+    "packages/command-bus/src/commands.ts",
+    "packages/runtime-composer/src/CommandEventBridge.ts",
+    "packages/runtime-composer/src/types.ts",
+    "packages/sync-client/src/syncDisposition.ts",
+    "plugins/ceiling/src/handlers/index.ts"
+   ]
+  },
+  {
+   "verb": "ceiling.updateSystemTypeBatch",
+   "kind": "update",
+   "liveness": "LIVE",
+   "ownFiles": [
+    "plugins/ceiling/src/handlers/UpdateCeilingsSystemTypeBatch.ts"
+   ],
+   "externalMentionCount": 5,
+   "externalMentions": [
+    "apps/editor/src/ui/ai/ZeroTokenChatBridge.ts",
+    "packages/ai-host/src/capabilities/ChatCapabilityRegistry.ts",
+    "packages/ai-host/src/intents/CatalogueFamilies.ts",
+    "packages/sync-client/src/syncDisposition.ts",
+    "plugins/ceiling/src/handlers/index.ts"
+   ]
+  },
+  {
+   "verb": "column.batch.create",
+   "kind": "batch.create",
+   "liveness": "UNKNOWN",
+   "ownFiles": [
+    "plugins/column/src/handlers/CreateColumnBatch.ts"
+   ],
+   "externalMentionCount": 9,
+   "externalMentions": [
+    "apps/editor/src/engine/initBusHandlers.ts",
+    "apps/editor/src/engine/initTools.ts",
+    "apps/editor/src/engine/views/plantools/duplicateToLevel.ts",
+    "packages/ai-host/src/capabilities/ChatCommandClassification.ts",
+    "packages/command-bus/src/commands.ts",
+    "packages/runtime-composer/src/CommandEventBridge.ts",
+    "packages/runtime-composer/src/types.ts",
+    "packages/sync-client/src/syncDisposition.ts"
+   ]
+  },
+  {
+   "verb": "column.changeLevel",
+   "kind": "move",
+   "liveness": "LIVE",
+   "ownFiles": [
+    "plugins/column/src/handlers/ChangeColumnLevel.ts"
+   ],
+   "externalMentionCount": 3,
+   "externalMentions": [
+    "packages/command-bus/src/levelChangeVerbs.ts",
+    "packages/sync-client/src/syncDisposition.ts",
+    "plugins/column/src/handlers/index.ts"
+   ]
+  },
+  {
+   "verb": "column.create",
+   "kind": "create",
+   "liveness": "UNKNOWN",
+   "ownFiles": [
+    "plugins/column/src/handlers/CreateColumn.ts"
+   ],
+   "externalMentionCount": 10,
+   "externalMentions": [
+    "apps/editor/src/engine/initTools.ts",
+    "apps/editor/src/engine/views/plantools/ColumnPlanToolHandler.ts",
+    "apps/editor/src/engine/views/plantools/CopyPlanToolHandler.ts",
+    "apps/editor/src/engine/views/plantools/duplicateToLevel.ts",
+    "packages/ai-host/src/capabilities/ChatCommandClassification.ts",
+    "packages/runtime-composer/src/CommandEventBridge.ts",
+    "packages/runtime-composer/src/types.ts",
+    "packages/sync-client/src/syncDisposition.ts"
+   ]
+  },
+  {
+   "verb": "column.delete",
+   "kind": "delete",
+   "liveness": "UNKNOWN",
+   "ownFiles": [
+    "plugins/column/src/handlers/DeleteColumn.ts"
+   ],
+   "externalMentionCount": 3,
+   "externalMentions": [
+    "packages/ai-host/src/capabilities/ChatCommandClassification.ts",
+    "packages/sync-client/src/syncDisposition.ts",
+    "plugins/column/src/handlers/index.ts"
+   ]
+  },
+  {
+   "verb": "column.move",
+   "kind": "move",
+   "liveness": "REFUSES",
+   "ownFiles": [
+    "plugins/column/src/handlers/MoveColumn.ts"
+   ],
+   "externalMentionCount": 3,
+   "externalMentions": [
+    "packages/ai-host/src/capabilities/ChatCapabilityRegistry.ts",
+    "packages/sync-client/src/syncDisposition.ts",
+    "plugins/column/src/handlers/index.ts"
+   ]
+  },
+  {
+   "verb": "column.setHeight",
+   "kind": "update",
+   "liveness": "UNKNOWN",
+   "ownFiles": [
+    "plugins/column/src/handlers/SetColumnHeight.ts"
+   ],
+   "externalMentionCount": 4,
+   "externalMentions": [
+    "packages/ai-host/src/capabilities/ChatCommandClassification.ts",
+    "packages/runtime-composer/src/CommandEventBridge.ts",
+    "packages/sync-client/src/syncDisposition.ts",
+    "plugins/column/src/handlers/index.ts"
+   ]
+  },
+  {
+   "verb": "column.setMaterial",
+   "kind": "update",
+   "liveness": "REFUSES",
+   "ownFiles": [
+    "plugins/column/src/handlers/SetColumnMaterial.ts"
+   ],
+   "externalMentionCount": 3,
+   "externalMentions": [
+    "packages/ai-host/src/capabilities/ChatCapabilityRegistry.ts",
+    "packages/sync-client/src/syncDisposition.ts",
+    "plugins/column/src/handlers/index.ts"
+   ]
+  },
+  {
+   "verb": "column.setType",
+   "kind": "update",
+   "liveness": "UNKNOWN",
+   "ownFiles": [
+    "plugins/column/src/handlers/SetColumnType.ts"
+   ],
+   "externalMentionCount": 3,
+   "externalMentions": [
+    "packages/ai-host/src/capabilities/ChatCommandClassification.ts",
+    "packages/sync-client/src/syncDisposition.ts",
+    "plugins/column/src/handlers/index.ts"
+   ]
+  },
+  {
+   "verb": "column.update",
+   "kind": "update",
+   "liveness": "LIVE",
+   "ownFiles": [
+    "apps/editor/src/engine/initBusHandlers.ts"
+   ],
+   "externalMentionCount": 12,
+   "externalMentions": [
+    "apps/editor/src/engine/registerTransformDragHandler.ts",
+    "apps/editor/src/engine/transforms/elementMove.ts",
+    "apps/editor/src/engine/transforms/elementYawRotate.ts",
+    "apps/editor/src/engine/views/plantools/AlignPlanToolHandler.ts",
+    "apps/editor/src/engine/views/plantools/RotatePlanToolHandler.ts",
+    "apps/editor/src/ui/property-inspector/MaterialDispatch.ts",
+    "apps/editor/src/ui/property-inspector/PropertyInspectorApply.ts",
+    "apps/editor/src/ui/property-panel/PropertyPanelTypeSelector.ts"
+   ]
+  },
+  {
+   "verb": "copy-selection",
+   "kind": "other",
+   "liveness": "UNKNOWN",
+   "ownFiles": [
+    "plugins/selection/src/handlers/CopySelectionHandler.ts"
+   ],
+   "externalMentionCount": 6,
+   "externalMentions": [
+    "apps/editor/src/ui/toolbar/commandBacking.ts",
+    "apps/editor/src/ui/toolbar/MainToolbar.ts",
+    "packages/ai-host/src/capabilities/ChatCommandClassification.ts",
+    "packages/command-bus/src/commands.ts",
+    "packages/sync-client/src/syncDisposition.ts",
+    "plugins/selection/src/handlers/index.ts"
+   ]
+  },
+  {
+   "verb": "cube.move",
+   "kind": "move",
+   "liveness": "UNKNOWN",
+   "ownFiles": [
+    "plugins/toy-cube/src/MoveCubeCommand.ts"
+   ],
+   "externalMentionCount": 7,
+   "externalMentions": [
+    "apps/bench/src/benches/cmd-execute-latency.bench.ts",
+    "apps/bench/src/benches/full-pipeline.bench.ts",
+    "packages/sync-client/src/syncDisposition.ts",
+    "plugins/toy-cube/src/handlers/index.ts",
+    "plugins/toy-cube/src/HelloCubeBoot.ts",
+    "plugins/toy-cube/src/intent.ts",
+    "plugins/toy-cube/src/tool.ts"
+   ]
+  },
+  {
+   "verb": "curtain-wall.addGridLine",
+   "kind": "update",
+   "liveness": "UNKNOWN",
+   "ownFiles": [
+    "plugins/curtain-wall/src/handlers/AddCurtainGridLine.ts"
+   ],
+   "externalMentionCount": 4,
+   "externalMentions": [
+    "apps/editor/src/ui/property-panel/CurtainGridEditor.ts",
+    "packages/ai-host/src/capabilities/ChatCommandClassification.ts",
+    "packages/sync-client/src/syncDisposition.ts",
+    "plugins/curtain-wall/src/handlers/index.ts"
+   ]
+  },
+  {
+   "verb": "curtain-wall.addPanel",
+   "kind": "update",
+   "liveness": "UNKNOWN",
+   "ownFiles": [
+    "plugins/curtain-wall/src/handlers/AddPanel.ts"
+   ],
+   "externalMentionCount": 3,
+   "externalMentions": [
+    "packages/ai-host/src/capabilities/ChatCommandClassification.ts",
+    "packages/sync-client/src/syncDisposition.ts",
+    "plugins/curtain-wall/src/handlers/index.ts"
+   ]
+  },
+  {
+   "verb": "curtain-wall.batch.create",
+   "kind": "batch.create",
+   "liveness": "UNKNOWN",
+   "ownFiles": [
+    "plugins/curtain-wall/src/handlers/CreateCurtainWallBatch.ts"
+   ],
+   "externalMentionCount": 10,
+   "externalMentions": [
+    "apps/editor/src/engine/views/plantools/duplicateToLevel.ts",
+    "packages/ai-host/src/capabilities/ChatCommandClassification.ts",
+    "packages/command-bus/src/commands.ts",
+    "packages/command-registry/src/curtainwall/CreateCurtainWallsFromSlabCommand.ts",
+    "packages/command-registry/src/curtainwall/CreateCurtainWallsOnAllSlabsCommand.ts",
+    "packages/runtime-composer/src/CommandEventBridge.ts",
+    "packages/runtime-composer/src/types.ts",
+    "packages/sync-client/src/syncDisposition.ts"
+   ]
+  },
+  {
+   "verb": "curtain-wall.batch.delete",
+   "kind": "delete",
+   "liveness": "UNKNOWN",
+   "ownFiles": [
+    "plugins/curtain-wall/src/handlers/DeleteCurtainWallBatch.ts"
+   ],
+   "externalMentionCount": 6,
+   "externalMentions": [
+    "packages/ai-host/src/capabilities/ChatCommandClassification.ts",
+    "packages/command-bus/src/commands.ts",
+    "packages/command-registry/src/curtainwall/CreateCurtainWallsFromSlabCommand.ts",
+    "packages/command-registry/src/curtainwall/CreateCurtainWallsOnAllSlabsCommand.ts",
+    "packages/sync-client/src/syncDisposition.ts",
+    "plugins/curtain-wall/src/handlers/index.ts"
+   ]
+  },
+  {
+   "verb": "curtain-wall.batch.update",
+   "kind": "update",
+   "liveness": "UNKNOWN",
+   "ownFiles": [
+    "plugins/curtain-wall/src/handlers/UpdateCurtainWallBatch.ts"
+   ],
+   "externalMentionCount": 4,
+   "externalMentions": [
+    "packages/ai-host/src/capabilities/ChatCommandClassification.ts",
+    "packages/command-bus/src/commands.ts",
+    "packages/sync-client/src/syncDisposition.ts",
+    "plugins/curtain-wall/src/handlers/index.ts"
+   ]
+  },
+  {
+   "verb": "curtain-wall.bulkUpdatePanels",
+   "kind": "other",
+   "liveness": "LIVE",
+   "ownFiles": [
+    "plugins/curtain-wall/src/handlers/BulkUpdateCurtainPanels.ts"
+   ],
+   "externalMentionCount": 2,
+   "externalMentions": [
+    "packages/ai-host/src/capabilities/ChatCapabilityRegistry.ts",
+    "plugins/curtain-wall/src/handlers/index.ts"
+   ]
+  },
+  {
+   "verb": "curtain-wall.bulkUpdateParameter",
+   "kind": "other",
+   "liveness": "LIVE",
+   "ownFiles": [
+    "plugins/curtain-wall/src/handlers/BulkUpdateCurtainWallParameter.ts"
+   ],
+   "externalMentionCount": 3,
+   "externalMentions": [
+    "packages/ai-host/src/capabilities/ChatCapabilityRegistry.ts",
+    "packages/ai-host/src/intents/ZeroTokenResolver.ts",
+    "plugins/curtain-wall/src/handlers/index.ts"
+   ]
+  },
+  {
+   "verb": "curtain-wall.changeLevel",
+   "kind": "move",
+   "liveness": "LIVE",
+   "ownFiles": [
+    "plugins/curtain-wall/src/handlers/ChangeCurtainWallLevel.ts"
+   ],
+   "externalMentionCount": 3,
+   "externalMentions": [
+    "packages/command-bus/src/levelChangeVerbs.ts",
+    "packages/sync-client/src/syncDisposition.ts",
+    "plugins/curtain-wall/src/handlers/index.ts"
+   ]
+  },
+  {
+   "verb": "curtain-wall.create",
+   "kind": "create",
+   "liveness": "UNKNOWN",
+   "ownFiles": [
+    "plugins/curtain-wall/src/handlers/CreateCurtainWall.ts"
+   ],
+   "externalMentionCount": 14,
+   "externalMentions": [
+    "apps/bench/src/benches/curtain-wall-handlers.bench.ts",
+    "apps/editor/src/engine/curtainWallCreatedMirror.ts",
+    "apps/editor/src/engine/initBusHandlers.ts",
+    "apps/editor/src/engine/initTools.ts",
+    "apps/editor/src/engine/views/plantools/CopyPlanToolHandler.ts",
+    "apps/editor/src/engine/views/plantools/CurtainWallPlanToolHandler.ts",
+    "apps/editor/src/engine/views/plantools/duplicateToLevel.ts",
+    "packages/ai-host/src/capabilities/ChatCommandClassification.ts"
+   ]
+  },
+  {
+   "verb": "curtain-wall.create-on-all-slabs",
+   "kind": "create",
+   "liveness": "LIVE",
+   "ownFiles": [
+    "plugins/curtain-wall/src/handlers/CreateCurtainWallsOnAllSlabs.ts"
+   ],
+   "externalMentionCount": 5,
+   "externalMentions": [
+    "packages/ai-host/src/capabilities/ChatCommandClassification.ts",
+    "packages/command-bus/src/commands.ts",
+    "packages/sync-client/src/syncDisposition.ts",
+    "packages/sync-client/src/YjsDocAdapter.ts",
+    "plugins/curtain-wall/src/handlers/index.ts"
+   ]
+  },
+  {
+   "verb": "curtain-wall.delete",
+   "kind": "delete",
+   "liveness": "UNKNOWN",
+   "ownFiles": [
+    "plugins/curtain-wall/src/handlers/DeleteCurtainWall.ts"
+   ],
+   "externalMentionCount": 4,
+   "externalMentions": [
+    "apps/bench/src/benches/curtain-wall-handlers.bench.ts",
+    "packages/ai-host/src/capabilities/ChatCommandClassification.ts",
+    "packages/sync-client/src/syncDisposition.ts",
+    "plugins/curtain-wall/src/handlers/index.ts"
+   ]
+  },
+  {
+   "verb": "curtain-wall.move",
+   "kind": "move",
+   "liveness": "UNKNOWN",
+   "ownFiles": [
+    "plugins/curtain-wall/src/handlers/MoveCurtainWall.ts"
+   ],
+   "externalMentionCount": 4,
+   "externalMentions": [
+    "apps/bench/src/benches/curtain-wall-handlers.bench.ts",
+    "packages/ai-host/src/capabilities/ChatCapabilityRegistry.ts",
+    "packages/sync-client/src/syncDisposition.ts",
+    "plugins/curtain-wall/src/handlers/index.ts"
+   ]
+  },
+  {
+   "verb": "curtain-wall.removeGridLine",
+   "kind": "delete",
+   "liveness": "UNKNOWN",
+   "ownFiles": [
+    "plugins/curtain-wall/src/handlers/RemoveCurtainGridLine.ts"
+   ],
+   "externalMentionCount": 4,
+   "externalMentions": [
+    "apps/editor/src/ui/property-panel/CurtainGridEditor.ts",
+    "packages/ai-host/src/capabilities/ChatCommandClassification.ts",
+    "packages/sync-client/src/syncDisposition.ts",
+    "plugins/curtain-wall/src/handlers/index.ts"
+   ]
+  },
+  {
+   "verb": "curtain-wall.removePanel",
+   "kind": "delete",
+   "liveness": "UNKNOWN",
+   "ownFiles": [
+    "plugins/curtain-wall/src/handlers/RemovePanel.ts"
+   ],
+   "externalMentionCount": 3,
+   "externalMentions": [
+    "packages/ai-host/src/capabilities/ChatCommandClassification.ts",
+    "packages/sync-client/src/syncDisposition.ts",
+    "plugins/curtain-wall/src/handlers/index.ts"
+   ]
+  },
+  {
+   "verb": "curtain-wall.replacePanel",
+   "kind": "other",
+   "liveness": "UNKNOWN",
+   "ownFiles": [
+    "plugins/curtain-wall/src/handlers/ReplacePanel.ts"
+   ],
+   "externalMentionCount": 4,
+   "externalMentions": [
+    "apps/editor/src/ui/property-panel/CurtainSubElementPanel.ts",
+    "packages/ai-host/src/capabilities/ChatCommandClassification.ts",
+    "packages/sync-client/src/syncDisposition.ts",
+    "plugins/curtain-wall/src/handlers/index.ts"
+   ]
+  },
+  {
+   "verb": "curtain-wall.resize",
+   "kind": "other",
+   "liveness": "UNKNOWN",
+   "ownFiles": [
+    "plugins/curtain-wall/src/handlers/ResizeCurtainWall.ts"
+   ],
+   "externalMentionCount": 3,
+   "externalMentions": [
+    "packages/ai-host/src/capabilities/ChatCommandClassification.ts",
+    "packages/sync-client/src/syncDisposition.ts",
+    "plugins/curtain-wall/src/handlers/index.ts"
+   ]
+  },
+  {
+   "verb": "curtain-wall.rotatePanel",
+   "kind": "other",
+   "liveness": "UNKNOWN",
+   "ownFiles": [
+    "plugins/curtain-wall/src/handlers/RotatePanel.ts"
+   ],
+   "externalMentionCount": 3,
+   "externalMentions": [
+    "packages/ai-host/src/capabilities/ChatCommandClassification.ts",
+    "packages/sync-client/src/syncDisposition.ts",
+    "plugins/curtain-wall/src/handlers/index.ts"
+   ]
+  },
+  {
+   "verb": "curtain-wall.setGrid",
+   "kind": "update",
+   "liveness": "UNKNOWN",
+   "ownFiles": [
+    "plugins/curtain-wall/src/handlers/SetCurtainWallGrid.ts"
+   ],
+   "externalMentionCount": 4,
+   "externalMentions": [
+    "apps/bench/src/benches/curtain-wall-handlers.bench.ts",
+    "packages/ai-host/src/capabilities/ChatCommandClassification.ts",
+    "packages/sync-client/src/syncDisposition.ts",
+    "plugins/curtain-wall/src/handlers/index.ts"
+   ]
+  },
+  {
+   "verb": "curtain-wall.setMaterial",
+   "kind": "update",
+   "liveness": "REFUSES",
+   "ownFiles": [
+    "plugins/curtain-wall/src/handlers/SetCurtainWallMaterial.ts"
+   ],
+   "externalMentionCount": 3,
+   "externalMentions": [
+    "packages/ai-host/src/capabilities/ChatCapabilityRegistry.ts",
+    "packages/sync-client/src/syncDisposition.ts",
+    "plugins/curtain-wall/src/handlers/index.ts"
+   ]
+  },
+  {
+   "verb": "curtain-wall.setMullionType",
+   "kind": "update",
+   "liveness": "UNKNOWN",
+   "ownFiles": [
+    "plugins/curtain-wall/src/handlers/SetCurtainWallMullionType.ts"
+   ],
+   "externalMentionCount": 3,
+   "externalMentions": [
+    "packages/ai-host/src/capabilities/ChatCommandClassification.ts",
+    "packages/sync-client/src/syncDisposition.ts",
+    "plugins/curtain-wall/src/handlers/index.ts"
+   ]
+  },
+  {
+   "verb": "curtain-wall.setOutline",
+   "kind": "update",
+   "liveness": "UNKNOWN",
+   "ownFiles": [
+    "plugins/curtain-wall/src/handlers/SetCurtainWallOutline.ts"
+   ],
+   "externalMentionCount": 3,
+   "externalMentions": [
+    "packages/ai-host/src/capabilities/ChatCommandClassification.ts",
+    "packages/sync-client/src/syncDisposition.ts",
+    "plugins/curtain-wall/src/handlers/index.ts"
+   ]
+  },
+  {
+   "verb": "curtain-wall.setPanelType",
+   "kind": "update",
+   "liveness": "UNKNOWN",
+   "ownFiles": [
+    "plugins/curtain-wall/src/handlers/SetCurtainWallPanelType.ts"
+   ],
+   "externalMentionCount": 3,
+   "externalMentions": [
+    "packages/ai-host/src/capabilities/ChatCommandClassification.ts",
+    "packages/sync-client/src/syncDisposition.ts",
+    "plugins/curtain-wall/src/handlers/index.ts"
+   ]
+  },
+  {
+   "verb": "curtain-wall.setTransomType",
+   "kind": "update",
+   "liveness": "UNKNOWN",
+   "ownFiles": [
+    "plugins/curtain-wall/src/handlers/SetCurtainWallTransomType.ts"
+   ],
+   "externalMentionCount": 3,
+   "externalMentions": [
+    "packages/ai-host/src/capabilities/ChatCommandClassification.ts",
+    "packages/sync-client/src/syncDisposition.ts",
+    "plugins/curtain-wall/src/handlers/index.ts"
+   ]
+  },
+  {
+   "verb": "curtain-wall.swapPanel",
+   "kind": "other",
+   "liveness": "UNKNOWN",
+   "ownFiles": [
+    "plugins/curtain-wall/src/handlers/SwapPanel.ts"
+   ],
+   "externalMentionCount": 3,
+   "externalMentions": [
+    "packages/ai-host/src/capabilities/ChatCommandClassification.ts",
+    "packages/sync-client/src/syncDisposition.ts",
+    "plugins/curtain-wall/src/handlers/index.ts"
+   ]
+  },
+  {
+   "verb": "data.clearPropertyDerived",
+   "kind": "other",
+   "liveness": "LIVE",
+   "ownFiles": [
+    "apps/editor/src/engine/initBusHandlers.ts"
+   ],
+   "externalMentionCount": 3,
+   "externalMentions": [
+    "apps/editor/src/ui/dataworkbench/DataSheetPanel.ts",
+    "packages/ai-host/src/capabilities/ChatCommandClassification.ts",
+    "packages/sync-client/src/syncDisposition.ts"
+   ]
+  },
+  {
+   "verb": "data.markPropertyDerived",
+   "kind": "other",
+   "liveness": "LIVE",
+   "ownFiles": [
+    "apps/editor/src/engine/initBusHandlers.ts"
+   ],
+   "externalMentionCount": 3,
+   "externalMentions": [
+    "apps/editor/src/ui/dataworkbench/DataSheetPanel.ts",
+    "packages/ai-host/src/capabilities/ChatCommandClassification.ts",
+    "packages/sync-client/src/syncDisposition.ts"
+   ]
+  },
+  {
+   "verb": "data.setDerivation",
+   "kind": "update",
+   "liveness": "LIVE",
+   "ownFiles": [
+    "apps/editor/src/engine/initBusHandlers.ts"
+   ],
+   "externalMentionCount": 3,
+   "externalMentions": [
+    "apps/editor/src/ui/dataworkbench/SyncStateDetailDrawer.ts",
+    "packages/ai-host/src/capabilities/ChatCommandClassification.ts",
+    "packages/sync-client/src/syncDisposition.ts"
+   ]
+  },
+  {
+   "verb": "dimension.create",
+   "kind": "create",
+   "liveness": "UNKNOWN",
+   "ownFiles": [
+    "plugins/dimensions/src/handlers/CreateDimension.ts"
+   ],
+   "externalMentionCount": 6,
+   "externalMentions": [
+    "packages/ai-host/src/capabilities/ChatCommandClassification.ts",
+    "packages/runtime-composer/src/CommandEventBridge.ts",
+    "packages/runtime-composer/src/types.ts",
+    "packages/sync-client/src/syncDisposition.ts",
+    "plugins/dimensions/src/handlers/index.ts",
+    "plugins/dimensions/src/tool.ts"
+   ]
+  },
+  {
+   "verb": "dimension.createMany",
+   "kind": "create",
+   "liveness": "UNKNOWN",
+   "ownFiles": [
+    "plugins/dimensions/src/handlers/CreateManyDimensions.ts"
+   ],
+   "externalMentionCount": 3,
+   "externalMentions": [
+    "packages/ai-host/src/capabilities/ChatCommandClassification.ts",
+    "packages/sync-client/src/syncDisposition.ts",
+    "plugins/dimensions/src/handlers/index.ts"
+   ]
+  },
+  {
+   "verb": "dimension.delete",
+   "kind": "delete",
+   "liveness": "UNKNOWN",
+   "ownFiles": [
+    "plugins/dimensions/src/handlers/DeleteDimension.ts"
+   ],
+   "externalMentionCount": 3,
+   "externalMentions": [
+    "packages/ai-host/src/capabilities/ChatCommandClassification.ts",
+    "packages/sync-client/src/syncDisposition.ts",
+    "plugins/dimensions/src/handlers/index.ts"
+   ]
+  },
+  {
+   "verb": "dimension.move",
+   "kind": "move",
+   "liveness": "REFUSES",
+   "ownFiles": [
+    "plugins/dimensions/src/handlers/MoveDimension.ts"
+   ],
+   "externalMentionCount": 3,
+   "externalMentions": [
+    "packages/ai-host/src/capabilities/ChatCommandClassification.ts",
+    "packages/sync-client/src/syncDisposition.ts",
+    "plugins/dimensions/src/handlers/index.ts"
+   ]
+  },
+  {
+   "verb": "dimension.setPrecision",
+   "kind": "update",
+   "liveness": "UNKNOWN",
+   "ownFiles": [
+    "plugins/dimensions/src/handlers/SetDimensionPrecision.ts"
+   ],
+   "externalMentionCount": 3,
+   "externalMentions": [
+    "packages/ai-host/src/capabilities/ChatCommandClassification.ts",
+    "packages/sync-client/src/syncDisposition.ts",
+    "plugins/dimensions/src/handlers/index.ts"
+   ]
+  },
+  {
+   "verb": "dimension.setText",
+   "kind": "update",
+   "liveness": "UNKNOWN",
+   "ownFiles": [
+    "plugins/dimensions/src/handlers/SetDimensionText.ts"
+   ],
+   "externalMentionCount": 3,
+   "externalMentions": [
+    "packages/ai-host/src/capabilities/ChatCommandClassification.ts",
+    "packages/sync-client/src/syncDisposition.ts",
+    "plugins/dimensions/src/handlers/index.ts"
+   ]
+  },
+  {
+   "verb": "dimension.setUnit",
+   "kind": "update",
+   "liveness": "UNKNOWN",
+   "ownFiles": [
+    "plugins/dimensions/src/handlers/SetDimensionUnit.ts"
+   ],
+   "externalMentionCount": 3,
+   "externalMentions": [
+    "packages/ai-host/src/capabilities/ChatCommandClassification.ts",
+    "packages/sync-client/src/syncDisposition.ts",
+    "plugins/dimensions/src/handlers/index.ts"
+   ]
+  },
+  {
+   "verb": "door.batch.create",
+   "kind": "batch.create",
+   "liveness": "UNKNOWN",
+   "ownFiles": [
+    "plugins/door/src/handlers/CreateDoorBatch.ts"
+   ],
+   "externalMentionCount": 6,
+   "externalMentions": [
+    "packages/ai-host/src/capabilities/ChatCommandClassification.ts",
+    "packages/ai-host/src/workflows/apartmentLayout/executePlan.ts",
+    "packages/command-bus/src/commands.ts",
+    "packages/runtime-composer/src/types.ts",
+    "packages/sync-client/src/syncDisposition.ts",
+    "plugins/door/src/handlers/index.ts"
+   ]
+  },
+  {
+   "verb": "door.create",
+   "kind": "create",
+   "liveness": "REFUSES",
+   "ownFiles": [
+    "plugins/door/src/handlers/CreateDoor.ts"
+   ],
+   "externalMentionCount": 7,
+   "externalMentions": [
+    "apps/editor/src/engine/consequence/ConsequencePreviewService.ts",
+    "apps/sync-server/src/collab-gate/collabGraphIntegrity.ts",
+    "packages/ai-host/src/capabilities/ChatCapabilityRegistry.ts",
+    "packages/runtime-composer/src/types.ts",
+    "packages/sync-client/src/syncDisposition.ts",
+    "plugins/door/src/handlers/index.ts",
+    "plugins/door/src/tool.ts"
+   ]
+  },
+  {
+   "verb": "door.delete",
+   "kind": "delete",
+   "liveness": "UNKNOWN",
+   "ownFiles": [
+    "plugins/door/src/handlers/DeleteDoor.ts"
+   ],
+   "externalMentionCount": 4,
+   "externalMentions": [
+    "apps/editor/src/engine/consequence/ConsequencePreviewService.ts",
+    "packages/ai-host/src/capabilities/ChatCommandClassification.ts",
+    "packages/sync-client/src/syncDisposition.ts",
+    "plugins/door/src/handlers/index.ts"
+   ]
+  },
+  {
+   "verb": "door.move",
+   "kind": "move",
+   "liveness": "REFUSES",
+   "ownFiles": [
+    "plugins/door/src/handlers/MoveDoor.ts"
+   ],
+   "externalMentionCount": 5,
+   "externalMentions": [
+    "apps/editor/src/engine/consequence/ConsequencePreviewService.ts",
+    "packages/ai-host/src/capabilities/CapabilityRefusal.ts",
+    "packages/ai-host/src/capabilities/ChatCapabilityRegistry.ts",
+    "packages/sync-client/src/syncDisposition.ts",
+    "plugins/door/src/handlers/index.ts"
+   ]
+  },
+  {
+   "verb": "door.setAccessibility",
+   "kind": "update",
+   "liveness": "UNKNOWN",
+   "ownFiles": [
+    "plugins/door/src/handlers/SetDoorAccessibility.ts"
+   ],
+   "externalMentionCount": 5,
+   "externalMentions": [
+    "apps/editor/src/ui/property-inspector/PropertyInspectorApply.ts",
+    "packages/ai-host/src/capabilities/ChatCommandClassification.ts",
+    "packages/command-bus/src/commands.ts",
+    "packages/sync-client/src/syncDisposition.ts",
+    "plugins/door/src/handlers/index.ts"
+   ]
+  },
+  {
+   "verb": "door.setFireRating",
+   "kind": "update",
+   "liveness": "UNKNOWN",
+   "ownFiles": [
+    "plugins/door/src/handlers/SetDoorFireRating.ts"
+   ],
+   "externalMentionCount": 5,
+   "externalMentions": [
+    "apps/editor/src/ui/property-inspector/PropertyInspectorApply.ts",
+    "packages/ai-host/src/capabilities/ChatCommandClassification.ts",
+    "packages/command-bus/src/commands.ts",
+    "packages/sync-client/src/syncDisposition.ts",
+    "plugins/door/src/handlers/index.ts"
+   ]
+  },
+  {
+   "verb": "door.setFrameColor",
+   "kind": "update",
+   "liveness": "LIVE",
+   "ownFiles": [
+    "apps/editor/src/engine/initBusHandlers.ts"
+   ],
+   "externalMentionCount": 4,
+   "externalMentions": [
+    "apps/editor/src/ui/property-inspector/PropertyInspectorApply.ts",
+    "packages/ai-host/src/capabilities/ChatCapabilityRegistry.ts",
+    "packages/command-bus/src/commands.ts",
+    "packages/sync-client/src/syncDisposition.ts"
+   ]
+  },
+  {
+   "verb": "door.setHeight",
+   "kind": "update",
+   "liveness": "LIVE",
+   "ownFiles": [
+    "apps/editor/src/engine/initBusHandlers.ts"
+   ],
+   "externalMentionCount": 5,
+   "externalMentions": [
+    "apps/editor/src/ui/property-inspector/PropertyInspectorApply.ts",
+    "packages/ai-host/src/capabilities/ChatCommandClassification.ts",
+    "packages/command-bus/src/commands.ts",
+    "packages/sync-client/src/syncDisposition.ts",
+    "plugins/door/src/handlers/index.ts"
+   ]
+  },
+  {
+   "verb": "door.setOffset",
+   "kind": "update",
+   "liveness": "LIVE",
+   "ownFiles": [
+    "apps/editor/src/engine/initBusHandlers.ts"
+   ],
+   "externalMentionCount": 8,
+   "externalMentions": [
+    "apps/editor/src/engine/consequence/ConsequencePreviewService.ts",
+    "apps/editor/src/engine/transforms/elementMove.ts",
+    "apps/editor/src/engine/views/plantools/MovePlanToolHandler.ts",
+    "apps/sync-server/src/collab-gate/collabGraphIntegrity.ts",
+    "packages/ai-host/src/capabilities/ChatCapabilityRegistry.ts",
+    "packages/core-app-model/src/views/PlanElementDragController.ts",
+    "packages/input-host/src/HostedElementDragController.ts",
+    "packages/sync-client/src/syncDisposition.ts"
+   ]
+  },
+  {
+   "verb": "door.setSillHeight",
+   "kind": "update",
+   "liveness": "LIVE",
+   "ownFiles": [
+    "apps/editor/src/engine/initBusHandlers.ts"
+   ],
+   "externalMentionCount": 3,
+   "externalMentions": [
+    "apps/editor/src/ui/property-inspector/PropertyInspectorApply.ts",
+    "packages/ai-host/src/capabilities/ChatCommandClassification.ts",
+    "packages/sync-client/src/syncDisposition.ts"
+   ]
+  },
+  {
+   "verb": "door.setSwing",
+   "kind": "update",
+   "liveness": "UNKNOWN",
+   "ownFiles": [
+    "plugins/door/src/handlers/SetDoorSwing.ts"
+   ],
+   "externalMentionCount": 5,
+   "externalMentions": [
+    "apps/editor/src/ui/property-inspector/PropertyInspectorApply.ts",
+    "packages/ai-host/src/capabilities/ChatCommandClassification.ts",
+    "packages/command-bus/src/commands.ts",
+    "packages/sync-client/src/syncDisposition.ts",
+    "plugins/door/src/handlers/index.ts"
+   ]
+  },
+  {
+   "verb": "door.setType",
+   "kind": "update",
+   "liveness": "UNKNOWN",
+   "ownFiles": [
+    "plugins/door/src/handlers/SetDoorType.ts"
+   ],
+   "externalMentionCount": 4,
+   "externalMentions": [
+    "apps/editor/src/engine/initBusHandlers.ts",
+    "packages/ai-host/src/capabilities/ChatCommandClassification.ts",
+    "packages/sync-client/src/syncDisposition.ts",
+    "plugins/door/src/handlers/index.ts"
+   ]
+  },
+  {
+   "verb": "door.setWidth",
+   "kind": "update",
+   "liveness": "LIVE",
+   "ownFiles": [
+    "apps/editor/src/engine/initBusHandlers.ts"
+   ],
+   "externalMentionCount": 6,
+   "externalMentions": [
+    "apps/editor/src/ui/property-inspector/PropertyInspectorApply.ts",
+    "apps/sync-server/src/collab-gate/collabGraphIntegrity.ts",
+    "packages/ai-host/src/capabilities/ChatCommandClassification.ts",
+    "packages/command-bus/src/commands.ts",
+    "packages/sync-client/src/syncDisposition.ts",
+    "plugins/door/src/handlers/index.ts"
+   ]
+  },
+  {
+   "verb": "door.updateSystemTypeBatch",
+   "kind": "update",
+   "liveness": "LIVE",
+   "ownFiles": [
+    "plugins/door/src/handlers/UpdateDoorsSystemTypeBatch.ts"
+   ],
+   "externalMentionCount": 5,
+   "externalMentions": [
+    "apps/editor/src/ui/ai/ZeroTokenChatBridge.ts",
+    "packages/ai-host/src/capabilities/ChatCapabilityRegistry.ts",
+    "packages/ai-host/src/intents/CatalogueFamilies.ts",
+    "packages/sync-client/src/syncDisposition.ts",
+    "plugins/door/src/handlers/index.ts"
+   ]
+  },
+  {
+   "verb": "element.changeType",
+   "kind": "other",
+   "liveness": "LIVE",
+   "ownFiles": [
+    "apps/editor/src/engine/initBusHandlers.ts"
+   ],
+   "externalMentionCount": 5,
+   "externalMentions": [
+    "apps/editor/src/ui/property-panel/PropertyPanelBodyRenderer.ts",
+    "apps/editor/src/ui/property-panel/PropertyPanelTypeSelector.ts",
+    "packages/ai-host/src/capabilities/ChatCapabilityRegistry.ts",
+    "packages/ai-host/src/intents/CatalogueFamilies.ts",
+    "packages/sync-client/src/syncDisposition.ts"
+   ]
+  },
+  {
+   "verb": "element.delete",
+   "kind": "delete",
+   "liveness": "LIVE",
+   "ownFiles": [
+    "plugins/view/src/handlers/DeleteElement.ts"
+   ],
+   "externalMentionCount": 8,
+   "externalMentions": [
+    "apps/editor/src/engine/initUI.ts",
+    "apps/editor/src/engine/views/canvasSubjectDelete.ts",
+    "apps/editor/src/ui/property-panel/PropertyPanel.ts",
+    "packages/ai-host/src/capabilities/ChatCapabilityRegistry.ts",
+    "packages/ai-host/src/intents/ZeroTokenResolver.ts",
+    "packages/command-bus/src/commands.ts",
+    "packages/input-host/src/SelectionManager.ts",
+    "packages/sync-client/src/syncDisposition.ts"
+   ]
+  },
+  {
+   "verb": "element.deleteBatch",
+   "kind": "delete",
+   "liveness": "LIVE",
+   "ownFiles": [
+    "plugins/view/src/handlers/DeleteElementsBatch.ts"
+   ],
+   "externalMentionCount": 6,
+   "externalMentions": [
+    "apps/editor/src/engine/consequence/WallDeleteConsequencePlanner.ts",
+    "apps/editor/src/ui/ai/ZeroTokenChatBridge.ts",
+    "apps/editor/src/ui/ContextualEditBar.ts",
+    "packages/ai-host/src/capabilities/ChatCapabilityRegistry.ts",
+    "packages/ai-host/src/intents/DeleteFamilies.ts",
+    "packages/sync-client/src/syncDisposition.ts"
+   ]
+  },
+  {
+   "verb": "element.hideInView",
+   "kind": "other",
+   "liveness": "LIVE",
+   "ownFiles": [
+    "plugins/view/src/handlers/HideElementInView.ts"
+   ],
+   "externalMentionCount": 4,
+   "externalMentions": [
+    "apps/editor/src/engine/initUI.ts",
+    "packages/ai-host/src/capabilities/ChatCommandClassification.ts",
+    "packages/command-bus/src/commands.ts",
+    "packages/sync-client/src/syncDisposition.ts"
+   ]
+  },
+  {
+   "verb": "element.isolateInView",
+   "kind": "other",
+   "liveness": "LIVE",
+   "ownFiles": [
+    "plugins/view/src/handlers/IsolateElementInView.ts"
+   ],
+   "externalMentionCount": 4,
+   "externalMentions": [
+    "apps/editor/src/engine/initUI.ts",
+    "packages/ai-host/src/capabilities/ChatCommandClassification.ts",
+    "packages/command-bus/src/commands.ts",
+    "packages/sync-client/src/syncDisposition.ts"
+   ]
+  },
+  {
+   "verb": "element.setGraphicOverride",
+   "kind": "update",
+   "liveness": "LIVE",
+   "ownFiles": [
+    "plugins/view/src/handlers/SetElementGraphicOverride.ts"
+   ],
+   "externalMentionCount": 4,
+   "externalMentions": [
+    "apps/editor/src/engine/initUI.ts",
+    "packages/ai-host/src/capabilities/ChatCommandClassification.ts",
+    "packages/command-bus/src/commands.ts",
+    "packages/sync-client/src/syncDisposition.ts"
+   ]
+  },
+  {
+   "verb": "element.updateDimensionsBatch",
+   "kind": "update",
+   "liveness": "LIVE",
+   "ownFiles": [
+    "plugins/view/src/handlers/UpdateElementDimensionsBatch.ts"
+   ],
+   "externalMentionCount": 3,
+   "externalMentions": [
+    "apps/editor/src/ui/ai/ZeroTokenChatBridge.ts",
+    "packages/ai-host/src/intents/DimensionFamilies.ts",
+    "packages/sync-client/src/syncDisposition.ts"
+   ]
+  },
+  {
+   "verb": "element.updateMark",
+   "kind": "update",
+   "liveness": "LIVE",
+   "ownFiles": [
+    "apps/editor/src/engine/initBusHandlers.ts"
+   ],
+   "externalMentionCount": 6,
+   "externalMentions": [
+    "apps/editor/src/ui/property-inspector/PropertyInspectorApply.ts",
+    "apps/editor/src/ui/property-panel/PropertyPanel.ts",
+    "packages/ai-host/src/capabilities/ChatCommandClassification.ts",
+    "packages/command-bus/src/commands.ts",
+    "packages/sync-client/src/syncDisposition.ts",
+    "plugins/selection/src/handlers/index.ts"
+   ]
+  },
+  {
+   "verb": "element.updateOpeningProfileBatch",
+   "kind": "update",
+   "liveness": "LIVE",
+   "ownFiles": [
+    "plugins/view/src/handlers/UpdateOpeningProfileBatch.ts"
+   ],
+   "externalMentionCount": 4,
+   "externalMentions": [
+    "apps/editor/src/ui/ai/ZeroTokenChatBridge.ts",
+    "packages/ai-host/src/capabilities/ChatCapabilityRegistry.ts",
+    "packages/ai-host/src/intents/OpeningShapeFamilies.ts",
+    "packages/sync-client/src/syncDisposition.ts"
+   ]
+  },
+  {
+   "verb": "element.updateParameters",
+   "kind": "update",
+   "liveness": "LIVE",
+   "ownFiles": [
+    "apps/editor/src/engine/initBusHandlers.ts"
+   ],
+   "externalMentionCount": 11,
+   "externalMentions": [
+    "apps/editor/src/engine/engineLauncher.ts",
+    "apps/editor/src/engine/initRemoteElementSync.ts",
+    "apps/editor/src/ui/property-panel/PropertyPanel.ts",
+    "apps/editor/src/ui/property-panel/PropertyPanelAnnotations.ts",
+    "apps/sync-server/src/collab-gate/collabGraphIntegrity.ts",
+    "packages/ai-host/src/capabilities/ChatCapabilityRegistry.ts",
+    "packages/ai-host/src/intents/PropertyVocabulary.ts",
+    "packages/ai-host/src/intents/ZeroTokenResolver.ts"
+   ]
+  },
+  {
+   "verb": "elementType.create",
+   "kind": "create",
+   "liveness": "LIVE",
+   "ownFiles": [
+    "apps/editor/src/engine/initBusHandlers.ts"
+   ],
+   "externalMentionCount": 8,
+   "externalMentions": [
+    "apps/editor/src/ui/property-panel/CeilingTypeSelectorWidget.ts",
+    "apps/editor/src/ui/property-panel/FinishTypeAuthoringActions.ts",
+    "apps/editor/src/ui/property-panel/FinishTypeChatStrip.ts",
+    "apps/editor/src/ui/property-panel/FloorTypeSelectorWidget.ts",
+    "apps/editor/src/ui/property-panel/SlabTypeSelectorWidget.ts",
+    "apps/editor/src/ui/property-panel/WallTypeSelectorWidget.ts",
+    "packages/ai-host/src/capabilities/ChatCommandClassification.ts",
+    "packages/sync-client/src/syncDisposition.ts"
+   ]
+  },
+  {
+   "verb": "elementType.delete",
+   "kind": "delete",
+   "liveness": "LIVE",
+   "ownFiles": [
+    "apps/editor/src/engine/initBusHandlers.ts"
+   ],
+   "externalMentionCount": 2,
+   "externalMentions": [
+    "packages/ai-host/src/capabilities/ChatCommandClassification.ts",
+    "packages/sync-client/src/syncDisposition.ts"
+   ]
+  },
+  {
+   "verb": "elementType.duplicate",
+   "kind": "other",
+   "liveness": "LIVE",
+   "ownFiles": [
+    "apps/editor/src/engine/initBusHandlers.ts"
+   ],
+   "externalMentionCount": 4,
+   "externalMentions": [
+    "apps/editor/src/ui/property-panel/FinishTypeAuthoringActions.ts",
+    "apps/editor/src/ui/property-panel/WallTypeSelectorWidget.ts",
+    "packages/ai-host/src/capabilities/ChatCommandClassification.ts",
+    "packages/sync-client/src/syncDisposition.ts"
+   ]
+  },
+  {
+   "verb": "elementType.update",
+   "kind": "update",
+   "liveness": "LIVE",
+   "ownFiles": [
+    "apps/editor/src/engine/initBusHandlers.ts"
+   ],
+   "externalMentionCount": 3,
+   "externalMentions": [
+    "apps/editor/src/ui/dataworkbench/buckets/MaterialsBucket.ts",
+    "packages/ai-host/src/capabilities/ChatCommandClassification.ts",
+    "packages/sync-client/src/syncDisposition.ts"
+   ]
+  },
+  {
+   "verb": "elevation.create",
+   "kind": "create",
+   "liveness": "LIVE",
+   "ownFiles": [
+    "apps/editor/src/engine/initBusHandlers.ts"
+   ],
+   "externalMentionCount": 3,
+   "externalMentions": [
+    "apps/editor/src/engine/views/plantools/ElevationPlanToolHandler.ts",
+    "packages/ai-host/src/capabilities/ChatCommandClassification.ts",
+    "packages/sync-client/src/syncDisposition.ts"
+   ]
+  },
+  {
+   "verb": "floor.changeLevel",
+   "kind": "move",
+   "liveness": "LIVE",
+   "ownFiles": [
+    "plugins/floor/src/handlers/ChangeFloorLevel.ts"
+   ],
+   "externalMentionCount": 3,
+   "externalMentions": [
+    "packages/command-bus/src/levelChangeVerbs.ts",
+    "packages/sync-client/src/syncDisposition.ts",
+    "plugins/floor/src/handlers/index.ts"
+   ]
+  },
+  {
+   "verb": "floor.create",
+   "kind": "create",
+   "liveness": "UNKNOWN",
+   "ownFiles": [
+    "plugins/floor/src/handlers/CreateFloor.ts"
+   ],
+   "externalMentionCount": 12,
+   "externalMentions": [
+    "apps/editor/src/engine/engineLauncher.ts",
+    "apps/editor/src/engine/initBusHandlers.ts",
+    "apps/editor/src/engine/initTools.ts",
+    "apps/editor/src/engine/views/plantools/CopyPlanToolHandler.ts",
+    "apps/editor/src/engine/views/plantools/duplicateToLevel.ts",
+    "apps/editor/src/engine/views/plantools/FloorPlanToolHandler.ts",
+    "packages/ai-host/src/capabilities/ChatCommandClassification.ts",
+    "packages/runtime-composer/src/CommandEventBridge.ts"
+   ]
+  },
+  {
+   "verb": "floor.setFinishBatch",
+   "kind": "update",
+   "liveness": "LIVE",
+   "ownFiles": [
+    "plugins/floor/src/handlers/SetFloorFinishBatch.ts"
+   ],
+   "externalMentionCount": 5,
+   "externalMentions": [
+    "apps/editor/src/ui/ai/ZeroTokenChatBridge.ts",
+    "packages/ai-host/src/capabilities/ChatCapabilityRegistry.ts",
+    "packages/ai-host/src/intents/CapabilityExecutionSpec.ts",
+    "packages/sync-client/src/syncDisposition.ts",
+    "plugins/floor/src/handlers/index.ts"
+   ]
+  },
+  {
+   "verb": "floor.setMaterial",
+   "kind": "update",
+   "liveness": "REFUSES",
+   "ownFiles": [
+    "plugins/floor/src/handlers/SetFloorMaterial.ts"
+   ],
+   "externalMentionCount": 3,
+   "externalMentions": [
+    "packages/ai-host/src/capabilities/ChatCapabilityRegistry.ts",
+    "packages/sync-client/src/syncDisposition.ts",
+    "plugins/floor/src/handlers/index.ts"
+   ]
+  },
+  {
+   "verb": "floor.update",
+   "kind": "update",
+   "liveness": "LIVE",
+   "ownFiles": [
+    "apps/editor/src/engine/initBusHandlers.ts"
+   ],
+   "externalMentionCount": 8,
+   "externalMentions": [
+    "apps/editor/src/engine/registerTransformDragHandler.ts",
+    "apps/editor/src/engine/transforms/elementMove.ts",
+    "apps/editor/src/engine/views/plantools/AlignPlanToolHandler.ts",
+    "apps/editor/src/ui/property-inspector/FloorPropertySection.ts",
+    "apps/editor/src/ui/property-inspector/MaterialDispatch.ts",
+    "packages/ai-host/src/capabilities/ChatCommandClassification.ts",
+    "packages/command-bus/src/commands.ts",
+    "packages/sync-client/src/syncDisposition.ts"
+   ]
+  },
+  {
+   "verb": "floor.updateLayers",
+   "kind": "update",
+   "liveness": "UNKNOWN",
+   "ownFiles": [
+    "plugins/floor/src/handlers/UpdateFloorLayers.ts"
+   ],
+   "externalMentionCount": 8,
+   "externalMentions": [
+    "apps/editor/src/engine/initBusHandlers.ts",
+    "apps/editor/src/ui/property-panel/PropertyPanelTypeSelector.ts",
+    "packages/ai-host/src/capabilities/ChatCommandClassification.ts",
+    "packages/command-bus/src/commands.ts",
+    "packages/runtime-composer/src/CommandEventBridge.ts",
+    "packages/runtime-composer/src/types.ts",
+    "packages/sync-client/src/syncDisposition.ts",
+    "plugins/floor/src/handlers/index.ts"
+   ]
+  },
+  {
+   "verb": "furniture.batch.create",
+   "kind": "batch.create",
+   "liveness": "UNKNOWN",
+   "ownFiles": [
+    "plugins/furniture/src/handlers/CreateFurnitureBatch.ts"
+   ],
+   "externalMentionCount": 7,
+   "externalMentions": [
+    "apps/editor/src/engine/views/plantools/duplicateToLevel.ts",
+    "apps/editor/src/ui/furnish-layout/FurnishLayoutExecutor.ts",
+    "packages/ai-host/src/capabilities/ChatCommandClassification.ts",
+    "packages/command-bus/src/commands.ts",
+    "packages/runtime-composer/src/CommandEventBridge.ts",
+    "packages/sync-client/src/syncDisposition.ts",
+    "plugins/furniture/src/handlers/index.ts"
+   ]
+  },
+  {
+   "verb": "furniture.bulkUpdateKitchenMaterial",
+   "kind": "other",
+   "liveness": "LIVE",
+   "ownFiles": [
+    "plugins/furniture/src/handlers/BulkUpdateKitchenMaterial.ts"
+   ],
+   "externalMentionCount": 3,
+   "externalMentions": [
+    "packages/ai-host/src/capabilities/ChatCapabilityRegistry.ts",
+    "plugins/curtain-wall/src/handlers/index.ts",
+    "plugins/furniture/src/handlers/index.ts"
+   ]
+  },
+  {
+   "verb": "furniture.changeLevel",
+   "kind": "move",
+   "liveness": "LIVE",
+   "ownFiles": [
+    "plugins/furniture/src/handlers/ChangeFurnitureLevel.ts"
+   ],
+   "externalMentionCount": 3,
+   "externalMentions": [
+    "packages/command-bus/src/levelChangeVerbs.ts",
+    "packages/sync-client/src/syncDisposition.ts",
+    "plugins/furniture/src/handlers/index.ts"
+   ]
+  },
+  {
+   "verb": "furniture.create",
+   "kind": "create",
+   "liveness": "UNKNOWN",
+   "ownFiles": [
+    "plugins/furniture/src/handlers/CreateFurniture.ts"
+   ],
+   "externalMentionCount": 16,
+   "externalMentions": [
+    "apps/editor/src/engine/initTools.ts",
+    "apps/editor/src/engine/views/plantools/CopyPlanToolHandler.ts",
+    "apps/editor/src/engine/views/plantools/duplicateToLevel.ts",
+    "apps/editor/src/engine/views/plantools/FurniturePlanToolHandler.ts",
+    "apps/editor/src/ui/furniture-carousel/FurnitureDragDropHandler.ts",
+    "apps/editor/src/ui/kitchen/KitchenCabinetTool.ts",
+    "apps/editor/src/ui/wardrobe/WardrobeCabinetTool.ts",
+    "packages/ai-host/src/capabilities/ChatCommandClassification.ts"
+   ]
+  },
+  {
+   "verb": "furniture.delete",
+   "kind": "delete",
+   "liveness": "UNKNOWN",
+   "ownFiles": [
+    "plugins/furniture/src/handlers/DeleteFurniture.ts"
+   ],
+   "externalMentionCount": 3,
+   "externalMentions": [
+    "packages/ai-host/src/capabilities/ChatCommandClassification.ts",
+    "packages/sync-client/src/syncDisposition.ts",
+    "plugins/furniture/src/handlers/index.ts"
+   ]
+  },
+  {
+   "verb": "furniture.move",
+   "kind": "move",
+   "liveness": "REFUSES",
+   "ownFiles": [
+    "plugins/furniture/src/handlers/MoveFurniture.ts"
+   ],
+   "externalMentionCount": 3,
+   "externalMentions": [
+    "packages/ai-host/src/capabilities/ChatCapabilityRegistry.ts",
+    "packages/sync-client/src/syncDisposition.ts",
+    "plugins/furniture/src/handlers/index.ts"
+   ]
+  },
+  {
+   "verb": "furniture.rotate",
+   "kind": "other",
+   "liveness": "REFUSES",
+   "ownFiles": [
+    "plugins/furniture/src/handlers/RotateFurniture.ts"
+   ],
+   "externalMentionCount": 3,
+   "externalMentions": [
+    "packages/ai-host/src/capabilities/ChatCapabilityRegistry.ts",
+    "packages/sync-client/src/syncDisposition.ts",
+    "plugins/furniture/src/handlers/index.ts"
+   ]
+  },
+  {
+   "verb": "furniture.setActiveLod",
+   "kind": "update",
+   "liveness": "UNKNOWN",
+   "ownFiles": [
+    "plugins/furniture/src/handlers/SetActiveLod.ts"
+   ],
+   "externalMentionCount": 3,
+   "externalMentions": [
+    "packages/ai-host/src/capabilities/ChatCommandClassification.ts",
+    "packages/sync-client/src/syncDisposition.ts",
+    "plugins/furniture/src/handlers/index.ts"
+   ]
+  },
+  {
+   "verb": "furniture.setMaterial",
+   "kind": "update",
+   "liveness": "REFUSES",
+   "ownFiles": [
+    "plugins/furniture/src/handlers/SetFurnitureMaterial.ts"
+   ],
+   "externalMentionCount": 3,
+   "externalMentions": [
+    "packages/ai-host/src/capabilities/ChatCapabilityRegistry.ts",
+    "packages/sync-client/src/syncDisposition.ts",
+    "plugins/furniture/src/handlers/index.ts"
+   ]
+  },
+  {
+   "verb": "furniture.setRepresentation",
+   "kind": "update",
+   "liveness": "UNKNOWN",
+   "ownFiles": [
+    "plugins/furniture/src/handlers/SetFurnitureRepresentation.ts"
+   ],
+   "externalMentionCount": 3,
+   "externalMentions": [
+    "packages/ai-host/src/capabilities/ChatCommandClassification.ts",
+    "packages/sync-client/src/syncDisposition.ts",
+    "plugins/furniture/src/handlers/index.ts"
+   ]
+  },
+  {
+   "verb": "furniture.setScale",
+   "kind": "update",
+   "liveness": "UNKNOWN",
+   "ownFiles": [
+    "plugins/furniture/src/handlers/SetFurnitureScale.ts"
+   ],
+   "externalMentionCount": 3,
+   "externalMentions": [
+    "packages/ai-host/src/capabilities/ChatCommandClassification.ts",
+    "packages/sync-client/src/syncDisposition.ts",
+    "plugins/furniture/src/handlers/index.ts"
+   ]
+  },
+  {
+   "verb": "furniture.updateParameters",
+   "kind": "update",
+   "liveness": "UNKNOWN",
+   "ownFiles": [
+    "plugins/furniture/src/handlers/UpdateFurnitureParameters.ts"
+   ],
+   "externalMentionCount": 17,
+   "externalMentions": [
+    "apps/editor/src/engine/initBusHandlers.ts",
+    "apps/editor/src/engine/registerTransformDragHandler.ts",
+    "apps/editor/src/engine/transforms/elementMove.ts",
+    "apps/editor/src/engine/transforms/elementYawRotate.ts",
+    "apps/editor/src/engine/views/plantools/AlignPlanToolHandler.ts",
+    "apps/editor/src/engine/views/plantools/RotatePlanToolHandler.ts",
+    "apps/editor/src/ui/kitchen/KitchenRunInspector.ts",
+    "apps/editor/src/ui/kitchen/KitchenUnitInspector.ts"
+   ]
+  },
+  {
+   "verb": "generation.apartment",
+   "kind": "other",
+   "liveness": "LIVE",
+   "ownFiles": [
+    "apps/editor/src/engine/initBusHandlers.ts"
+   ],
+   "externalMentionCount": 4,
+   "externalMentions": [
+    "apps/editor/src/ui/ai/ZeroTokenChatBridge.ts",
+    "packages/ai-host/src/capabilities/ChatCapabilityRegistry.ts",
+    "packages/ai-host/src/intents/ZeroTokenResolver.ts",
+    "packages/sync-client/src/syncDisposition.ts"
+   ]
+  },
+  {
+   "verb": "generation.building",
+   "kind": "other",
+   "liveness": "LIVE",
+   "ownFiles": [
+    "apps/editor/src/engine/initBusHandlers.ts"
+   ],
+   "externalMentionCount": 4,
+   "externalMentions": [
+    "apps/editor/src/ui/ai/ZeroTokenChatBridge.ts",
+    "packages/ai-host/src/capabilities/ChatCapabilityRegistry.ts",
+    "packages/ai-host/src/intents/ZeroTokenResolver.ts",
+    "packages/sync-client/src/syncDisposition.ts"
+   ]
+  },
+  {
+   "verb": "generation.finish-chain",
+   "kind": "other",
+   "liveness": "LIVE",
+   "ownFiles": [
+    "apps/editor/src/engine/initBusHandlers.ts"
+   ],
+   "externalMentionCount": 4,
+   "externalMentions": [
+    "apps/editor/src/ui/ai/ZeroTokenChatBridge.ts",
+    "packages/ai-host/src/capabilities/ChatCapabilityRegistry.ts",
+    "packages/ai-host/src/intents/ZeroTokenResolver.ts",
+    "packages/sync-client/src/syncDisposition.ts"
+   ]
+  },
+  {
+   "verb": "generation.rooms",
+   "kind": "other",
+   "liveness": "LIVE",
+   "ownFiles": [
+    "apps/editor/src/engine/initBusHandlers.ts"
+   ],
+   "externalMentionCount": 4,
+   "externalMentions": [
+    "apps/editor/src/ui/ai/ZeroTokenChatBridge.ts",
+    "packages/ai-host/src/capabilities/ChatCapabilityRegistry.ts",
+    "packages/ai-host/src/intents/ZeroTokenResolver.ts",
+    "packages/sync-client/src/syncDisposition.ts"
+   ]
+  },
+  {
+   "verb": "generative.applyLayout",
+   "kind": "update",
+   "liveness": "LIVE",
+   "ownFiles": [
+    "apps/editor/src/engine/initBusHandlers.ts"
+   ],
+   "externalMentionCount": 3,
+   "externalMentions": [
+    "apps/editor/src/ui/generative/VariantBrowserPanel.ts",
+    "packages/ai-host/src/capabilities/ChatCommandClassification.ts",
+    "packages/sync-client/src/syncDisposition.ts"
+   ]
+  },
+  {
+   "verb": "graph.neighbors",
+   "kind": "other",
+   "liveness": "LIVE",
+   "ownFiles": [
+    "apps/editor/src/engine/graphQueryBusHandlers.ts"
+   ],
+   "externalMentionCount": 2,
+   "externalMentions": [
+    "packages/ai-host/src/graph/GraphQueryService.ts",
+    "packages/sync-client/src/syncDisposition.ts"
+   ]
+  },
+  {
+   "verb": "graph.path",
+   "kind": "other",
+   "liveness": "LIVE",
+   "ownFiles": [
+    "apps/editor/src/engine/graphQueryBusHandlers.ts"
+   ],
+   "externalMentionCount": 1,
+   "externalMentions": [
+    "packages/sync-client/src/syncDisposition.ts"
+   ]
+  },
+  {
+   "verb": "graph.query",
+   "kind": "other",
+   "liveness": "LIVE",
+   "ownFiles": [
+    "apps/editor/src/engine/graphQueryBusHandlers.ts"
+   ],
+   "externalMentionCount": 2,
+   "externalMentions": [
+    "packages/ai-host/src/graph/GraphQueryService.ts",
+    "packages/sync-client/src/syncDisposition.ts"
+   ]
+  },
+  {
+   "verb": "grid.add",
+   "kind": "other",
+   "liveness": "LIVE",
+   "ownFiles": [
+    "apps/editor/src/engine/initBusHandlers.ts"
+   ],
+   "externalMentionCount": 3,
+   "externalMentions": [
+    "apps/editor/src/engine/views/plantools/GridPlanToolHandler.ts",
+    "packages/ai-host/src/capabilities/ChatCommandClassification.ts",
+    "packages/sync-client/src/syncDisposition.ts"
+   ]
+  },
+  {
+   "verb": "grid.create",
+   "kind": "create",
+   "liveness": "UNKNOWN",
+   "ownFiles": [
+    "plugins/grid/src/handlers/CreateGrid.ts"
+   ],
+   "externalMentionCount": 6,
+   "externalMentions": [
+    "packages/ai-host/src/capabilities/ChatCommandClassification.ts",
+    "packages/runtime-composer/src/CommandEventBridge.ts",
+    "packages/runtime-composer/src/types.ts",
+    "packages/sync-client/src/syncDisposition.ts",
+    "plugins/grid/src/handlers/index.ts",
+    "plugins/grid/src/tool.ts"
+   ]
+  },
+  {
+   "verb": "grid.delete",
+   "kind": "delete",
+   "liveness": "UNKNOWN",
+   "ownFiles": [
+    "plugins/grid/src/handlers/DeleteGrid.ts"
+   ],
+   "externalMentionCount": 3,
+   "externalMentions": [
+    "packages/ai-host/src/capabilities/ChatCommandClassification.ts",
+    "packages/sync-client/src/syncDisposition.ts",
+    "plugins/grid/src/handlers/index.ts"
+   ]
+  },
+  {
+   "verb": "grid.setExtent",
+   "kind": "update",
+   "liveness": "UNKNOWN",
+   "ownFiles": [
+    "plugins/grid/src/handlers/SetGridExtent.ts"
+   ],
+   "externalMentionCount": 3,
+   "externalMentions": [
+    "packages/ai-host/src/capabilities/ChatCommandClassification.ts",
+    "packages/sync-client/src/syncDisposition.ts",
+    "plugins/grid/src/handlers/index.ts"
+   ]
+  },
+  {
+   "verb": "grid.setSpacing",
+   "kind": "update",
+   "liveness": "UNKNOWN",
+   "ownFiles": [
+    "plugins/grid/src/handlers/SetGridSpacing.ts"
+   ],
+   "externalMentionCount": 3,
+   "externalMentions": [
+    "packages/ai-host/src/capabilities/ChatCommandClassification.ts",
+    "packages/sync-client/src/syncDisposition.ts",
+    "plugins/grid/src/handlers/index.ts"
+   ]
+  },
+  {
+   "verb": "grid.update",
+   "kind": "update",
+   "liveness": "LIVE",
+   "ownFiles": [
+    "apps/editor/src/engine/initBusHandlers.ts"
+   ],
+   "externalMentionCount": 3,
+   "externalMentions": [
+    "apps/editor/src/engine/views/PlanViewInteraction.ts",
+    "packages/ai-host/src/capabilities/ChatCommandClassification.ts",
+    "packages/sync-client/src/syncDisposition.ts"
+   ]
+  },
+  {
+   "verb": "handrail.changeLevel",
+   "kind": "move",
+   "liveness": "LIVE",
+   "ownFiles": [
+    "plugins/handrail/src/handlers/ChangeHandrailLevel.ts"
+   ],
+   "externalMentionCount": 3,
+   "externalMentions": [
+    "packages/command-bus/src/levelChangeVerbs.ts",
+    "packages/sync-client/src/syncDisposition.ts",
+    "plugins/handrail/src/handlers/index.ts"
+   ]
+  },
+  {
+   "verb": "handrail.create",
+   "kind": "create",
+   "liveness": "UNKNOWN",
+   "ownFiles": [
+    "plugins/handrail/src/handlers/CreateHandrail.ts"
+   ],
+   "externalMentionCount": 12,
+   "externalMentions": [
+    "apps/editor/src/engine/engineLauncher.ts",
+    "apps/editor/src/engine/initTools.ts",
+    "apps/editor/src/engine/views/plantools/CopyPlanToolHandler.ts",
+    "apps/editor/src/engine/views/plantools/duplicateToLevel.ts",
+    "apps/editor/src/engine/views/plantools/RailingPlanToolHandler.ts",
+    "packages/ai-host/src/capabilities/ChatCommandClassification.ts",
+    "packages/command-bus/src/commands.ts",
+    "packages/runtime-composer/src/CommandEventBridge.ts"
+   ]
+  },
+  {
+   "verb": "handrail.delete",
+   "kind": "delete",
+   "liveness": "UNKNOWN",
+   "ownFiles": [
+    "plugins/handrail/src/handlers/DeleteHandrail.ts"
+   ],
+   "externalMentionCount": 3,
+   "externalMentions": [
+    "packages/ai-host/src/capabilities/ChatCommandClassification.ts",
+    "packages/sync-client/src/syncDisposition.ts",
+    "plugins/handrail/src/handlers/index.ts"
+   ]
+  },
+  {
+   "verb": "handrail.moveBaseLine",
+   "kind": "other",
+   "liveness": "LIVE",
+   "ownFiles": [
+    "apps/editor/src/engine/initBusHandlers.ts"
+   ],
+   "externalMentionCount": 6,
+   "externalMentions": [
+    "apps/editor/src/engine/registerTransformDragHandler.ts",
+    "apps/editor/src/engine/transforms/elementMove.ts",
+    "packages/ai-host/src/capabilities/ChatCommandClassification.ts",
+    "packages/command-bus/src/commands.ts",
+    "packages/geometry-boundary-line/src/BoundaryLinePropagation.ts",
+    "packages/sync-client/src/syncDisposition.ts"
+   ]
+  },
+  {
+   "verb": "handrail.recompute",
+   "kind": "other",
+   "liveness": "UNKNOWN",
+   "ownFiles": [
+    "plugins/handrail/src/handlers/RecomputeHandrail.ts"
+   ],
+   "externalMentionCount": 4,
+   "externalMentions": [
+    "packages/ai-host/src/capabilities/ChatCommandClassification.ts",
+    "packages/sync-client/src/syncDisposition.ts",
+    "plugins/cross/src/stair-handrail.ts",
+    "plugins/handrail/src/handlers/index.ts"
+   ]
+  },
+  {
+   "verb": "handrail.setHost",
+   "kind": "update",
+   "liveness": "UNKNOWN",
+   "ownFiles": [
+    "plugins/handrail/src/handlers/SetHandrailHost.ts"
+   ],
+   "externalMentionCount": 3,
+   "externalMentions": [
+    "packages/ai-host/src/capabilities/ChatCommandClassification.ts",
+    "packages/sync-client/src/syncDisposition.ts",
+    "plugins/handrail/src/handlers/index.ts"
+   ]
+  },
+  {
+   "verb": "handrail.setMaterial",
+   "kind": "update",
+   "liveness": "REFUSES",
+   "ownFiles": [
+    "plugins/handrail/src/handlers/SetHandrailMaterial.ts"
+   ],
+   "externalMentionCount": 3,
+   "externalMentions": [
+    "packages/ai-host/src/capabilities/ChatCapabilityRegistry.ts",
+    "packages/sync-client/src/syncDisposition.ts",
+    "plugins/handrail/src/handlers/index.ts"
+   ]
+  },
+  {
+   "verb": "handrail.setPath",
+   "kind": "update",
+   "liveness": "UNKNOWN",
+   "ownFiles": [
+    "plugins/handrail/src/handlers/SetHandrailPath.ts"
+   ],
+   "externalMentionCount": 3,
+   "externalMentions": [
+    "packages/ai-host/src/capabilities/ChatCommandClassification.ts",
+    "packages/sync-client/src/syncDisposition.ts",
+    "plugins/handrail/src/handlers/index.ts"
+   ]
+  },
+  {
+   "verb": "handrail.setShape",
+   "kind": "update",
+   "liveness": "UNKNOWN",
+   "ownFiles": [
+    "plugins/handrail/src/handlers/SetHandrailShape.ts"
+   ],
+   "externalMentionCount": 3,
+   "externalMentions": [
+    "packages/ai-host/src/capabilities/ChatCommandClassification.ts",
+    "packages/sync-client/src/syncDisposition.ts",
+    "plugins/handrail/src/handlers/index.ts"
+   ]
+  },
+  {
+   "verb": "handrail.updateColor",
+   "kind": "update",
+   "liveness": "LIVE",
+   "ownFiles": [
+    "apps/editor/src/engine/initBusHandlers.ts"
+   ],
+   "externalMentionCount": 4,
+   "externalMentions": [
+    "apps/editor/src/ui/property-inspector/MaterialDispatch.ts",
+    "packages/ai-host/src/capabilities/ChatCapabilityRegistry.ts",
+    "packages/command-bus/src/commands.ts",
+    "packages/sync-client/src/syncDisposition.ts"
+   ]
+  },
+  {
+   "verb": "hierarchy.createBuilding",
+   "kind": "create",
+   "liveness": "LIVE",
+   "ownFiles": [
+    "apps/editor/src/engine/initBusHandlers.ts"
+   ],
+   "externalMentionCount": 5,
+   "externalMentions": [
+    "apps/editor/src/ui/dataworkbench/HierarchyTreeAddActions.ts",
+    "apps/editor/src/ui/dataworkbench/HierarchyTreePanel.ts",
+    "apps/editor/src/ui/residential-building/residentialUnitHierarchy.ts",
+    "packages/ai-host/src/capabilities/ChatCommandClassification.ts",
+    "packages/sync-client/src/syncDisposition.ts"
+   ]
+  },
+  {
+   "verb": "hierarchy.createLevel",
+   "kind": "create",
+   "liveness": "LIVE",
+   "ownFiles": [
+    "apps/editor/src/engine/initBusHandlers.ts"
+   ],
+   "externalMentionCount": 5,
+   "externalMentions": [
+    "apps/editor/src/ui/dataworkbench/HierarchyTreeAddActions.ts",
+    "apps/editor/src/ui/dataworkbench/HierarchyTreePanel.ts",
+    "apps/editor/src/ui/residential-building/residentialUnitHierarchy.ts",
+    "packages/ai-host/src/capabilities/ChatCommandClassification.ts",
+    "packages/sync-client/src/syncDisposition.ts"
+   ]
+  },
+  {
+   "verb": "hierarchy.createSite",
+   "kind": "create",
+   "liveness": "LIVE",
+   "ownFiles": [
+    "apps/editor/src/engine/initBusHandlers.ts"
+   ],
+   "externalMentionCount": 5,
+   "externalMentions": [
+    "apps/editor/src/ui/dataworkbench/HierarchyTreeAddActions.ts",
+    "apps/editor/src/ui/dataworkbench/HierarchyTreePanel.ts",
+    "apps/editor/src/ui/residential-building/residentialUnitHierarchy.ts",
+    "packages/ai-host/src/capabilities/ChatCommandClassification.ts",
+    "packages/sync-client/src/syncDisposition.ts"
+   ]
+  },
+  {
+   "verb": "hierarchy.createUnit",
+   "kind": "create",
+   "liveness": "LIVE",
+   "ownFiles": [
+    "apps/editor/src/engine/initBusHandlers.ts"
+   ],
+   "externalMentionCount": 4,
+   "externalMentions": [
+    "apps/editor/src/ui/dataworkbench/HierarchyTreeAddActions.ts",
+    "apps/editor/src/ui/residential-building/residentialUnitHierarchy.ts",
+    "packages/ai-host/src/capabilities/ChatCommandClassification.ts",
+    "packages/sync-client/src/syncDisposition.ts"
+   ]
+  },
+  {
+   "verb": "hierarchy.updateNode",
+   "kind": "update",
+   "liveness": "LIVE",
+   "ownFiles": [
+    "apps/editor/src/engine/initBusHandlers.ts"
+   ],
+   "externalMentionCount": 4,
+   "externalMentions": [
+    "apps/editor/src/ui/dataworkbench/DataSheetPanel.ts",
+    "apps/editor/src/ui/residential-building/residentialUnitHierarchy.ts",
+    "packages/ai-host/src/capabilities/ChatCommandClassification.ts",
+    "packages/sync-client/src/syncDisposition.ts"
+   ]
+  },
+  {
+   "verb": "level.add",
+   "kind": "other",
+   "liveness": "LIVE",
+   "ownFiles": [
+    "apps/editor/src/engine/initBusHandlers.ts"
+   ],
+   "externalMentionCount": 11,
+   "externalMentions": [
+    "apps/editor/src/engine/views/PlanViewToolOverlay.ts",
+    "apps/editor/src/ui/StairLevelRequiredPanel.ts",
+    "apps/editor/src/ui/tools-panel/panels/GridsLevelsRailPanel.ts",
+    "apps/editor/src/ui/ViewBrowser/panels/unified-browser/ProjectTreeSection.ts",
+    "apps/editor/src/ui/ViewBrowser/panels/UnifiedBrowserPanel.ts",
+    "packages/ai-host/src/capabilities/ChatCapabilityRegistry.ts",
+    "packages/ai-host/src/intents/SemanticPlan.ts",
+    "packages/ai-host/src/intents/ZeroTokenResolver.ts"
+   ]
+  },
+  {
+   "verb": "level.duplicate-floor-plan",
+   "kind": "other",
+   "liveness": "LIVE",
+   "ownFiles": [
+    "plugins/levels/src/handlers/DuplicateFloorPlan.ts"
+   ],
+   "externalMentionCount": 4,
+   "externalMentions": [
+    "packages/ai-host/src/capabilities/ChatCapabilityRegistry.ts",
+    "packages/ai-host/src/intents/ZeroTokenResolver.ts",
+    "packages/sync-client/src/syncDisposition.ts",
+    "plugins/levels/src/handlers/index.ts"
+   ]
+  },
+  {
+   "verb": "level.update",
+   "kind": "update",
+   "liveness": "LIVE",
+   "ownFiles": [
+    "apps/editor/src/engine/initBusHandlers.ts"
+   ],
+   "externalMentionCount": 4,
+   "externalMentions": [
+    "apps/editor/src/engine/views/PlanViewInteraction.ts",
+    "packages/ai-host/src/capabilities/ChatCommandClassification.ts",
+    "packages/sync-client/src/syncDisposition.ts",
+    "packages/sync-client/src/YjsDocAdapter.ts"
+   ]
+  },
+  {
+   "verb": "lift.create",
+   "kind": "create",
+   "liveness": "UNKNOWN",
+   "ownFiles": [
+    "plugins/lift/src/handlers/CreateLift.ts"
+   ],
+   "externalMentionCount": 6,
+   "externalMentions": [
+    "apps/editor/src/engine/initTools.ts",
+    "apps/editor/src/engine/views/plantools/LiftPlanToolHandler.ts",
+    "packages/runtime-composer/src/CommandEventBridge.ts",
+    "packages/runtime-composer/src/types.ts",
+    "packages/sync-client/src/syncDisposition.ts",
+    "plugins/lift/src/handlers/index.ts"
+   ]
+  },
+  {
+   "verb": "lift.delete",
+   "kind": "delete",
+   "liveness": "UNKNOWN",
+   "ownFiles": [
+    "plugins/lift/src/handlers/DeleteLift.ts"
+   ],
+   "externalMentionCount": 2,
+   "externalMentions": [
+    "packages/sync-client/src/syncDisposition.ts",
+    "plugins/lift/src/handlers/index.ts"
+   ]
+  },
+  {
+   "verb": "lighting.changeLevel",
+   "kind": "move",
+   "liveness": "LIVE",
+   "ownFiles": [
+    "plugins/lighting/src/handlers/ChangeLightingLevel.ts"
+   ],
+   "externalMentionCount": 3,
+   "externalMentions": [
+    "packages/command-bus/src/levelChangeVerbs.ts",
+    "packages/sync-client/src/syncDisposition.ts",
+    "plugins/lighting/src/handlers/index.ts"
+   ]
+  },
+  {
+   "verb": "lighting.create",
+   "kind": "create",
+   "liveness": "UNKNOWN",
+   "ownFiles": [
+    "plugins/lighting/src/handlers/CreateLighting.ts"
+   ],
+   "externalMentionCount": 12,
+   "externalMentions": [
+    "apps/editor/src/engine/initBusHandlers.ts",
+    "apps/editor/src/engine/initTools.ts",
+    "apps/editor/src/engine/views/plantools/CopyPlanToolHandler.ts",
+    "apps/editor/src/engine/views/plantools/duplicateToLevel.ts",
+    "apps/editor/src/engine/views/plantools/LightingPlanToolHandler.ts",
+    "packages/ai-host/src/capabilities/ChatCommandClassification.ts",
+    "packages/ai-host/src/workflows/lightingLayout/buildLightingCommands.ts",
+    "packages/runtime-composer/src/CommandEventBridge.ts"
+   ]
+  },
+  {
+   "verb": "lighting.delete",
+   "kind": "delete",
+   "liveness": "UNKNOWN",
+   "ownFiles": [
+    "plugins/lighting/src/handlers/DeleteLighting.ts"
+   ],
+   "externalMentionCount": 3,
+   "externalMentions": [
+    "packages/ai-host/src/capabilities/ChatCommandClassification.ts",
+    "packages/sync-client/src/syncDisposition.ts",
+    "plugins/lighting/src/handlers/index.ts"
+   ]
+  },
+  {
+   "verb": "lighting.move",
+   "kind": "move",
+   "liveness": "REFUSES",
+   "ownFiles": [
+    "plugins/lighting/src/handlers/MoveLighting.ts"
+   ],
+   "externalMentionCount": 3,
+   "externalMentions": [
+    "packages/ai-host/src/capabilities/ChatCapabilityRegistry.ts",
+    "packages/sync-client/src/syncDisposition.ts",
+    "plugins/lighting/src/handlers/index.ts"
+   ]
+  },
+  {
+   "verb": "lighting.moveFixture",
+   "kind": "other",
+   "liveness": "LIVE",
+   "ownFiles": [
+    "apps/editor/src/engine/initBusHandlers.ts"
+   ],
+   "externalMentionCount": 6,
+   "externalMentions": [
+    "apps/editor/src/engine/registerTransformDragHandler.ts",
+    "apps/editor/src/engine/transforms/elementMove.ts",
+    "packages/ai-host/src/capabilities/ChatCommandClassification.ts",
+    "packages/command-bus/src/commands.ts",
+    "packages/geometry-boundary-line/src/BoundaryLinePropagation.ts",
+    "packages/sync-client/src/syncDisposition.ts"
+   ]
+  },
+  {
+   "verb": "lighting.setEmergency",
+   "kind": "update",
+   "liveness": "UNKNOWN",
+   "ownFiles": [
+    "plugins/lighting/src/handlers/SetLightingEmergency.ts"
+   ],
+   "externalMentionCount": 3,
+   "externalMentions": [
+    "packages/ai-host/src/capabilities/ChatCommandClassification.ts",
+    "packages/sync-client/src/syncDisposition.ts",
+    "plugins/lighting/src/handlers/index.ts"
+   ]
+  },
+  {
+   "verb": "lighting.setIntensity",
+   "kind": "update",
+   "liveness": "UNKNOWN",
+   "ownFiles": [
+    "plugins/lighting/src/handlers/SetLightingIntensity.ts"
+   ],
+   "externalMentionCount": 3,
+   "externalMentions": [
+    "packages/ai-host/src/capabilities/ChatCommandClassification.ts",
+    "packages/sync-client/src/syncDisposition.ts",
+    "plugins/lighting/src/handlers/index.ts"
+   ]
+  },
+  {
+   "verb": "lighting.setMaterial",
+   "kind": "update",
+   "liveness": "REFUSES",
+   "ownFiles": [
+    "plugins/lighting/src/handlers/SetLightingMaterial.ts"
+   ],
+   "externalMentionCount": 3,
+   "externalMentions": [
+    "packages/ai-host/src/capabilities/ChatCapabilityRegistry.ts",
+    "packages/sync-client/src/syncDisposition.ts",
+    "plugins/lighting/src/handlers/index.ts"
+   ]
+  },
+  {
+   "verb": "opening.create",
+   "kind": "create",
+   "liveness": "LIVE",
+   "ownFiles": [
+    "apps/editor/src/engine/initBusHandlers.ts"
+   ],
+   "externalMentionCount": 3,
+   "externalMentions": [
+    "apps/editor/src/engine/views/plantools/OpeningPlanToolHandler.ts",
+    "packages/ai-host/src/capabilities/ChatCapabilityRegistry.ts",
+    "packages/sync-client/src/syncDisposition.ts"
+   ]
+  },
+  {
+   "verb": "paste-clipboard",
+   "kind": "other",
+   "liveness": "UNKNOWN",
+   "ownFiles": [
+    "plugins/selection/src/handlers/PasteClipboardHandler.ts"
+   ],
+   "externalMentionCount": 6,
+   "externalMentions": [
+    "apps/editor/src/ui/toolbar/commandBacking.ts",
+    "apps/editor/src/ui/toolbar/MainToolbar.ts",
+    "packages/ai-host/src/capabilities/ChatCommandClassification.ts",
+    "packages/command-bus/src/commands.ts",
+    "packages/sync-client/src/syncDisposition.ts",
+    "plugins/selection/src/handlers/index.ts"
+   ]
+  },
+  {
+   "verb": "plumbing.changeLevel",
+   "kind": "move",
+   "liveness": "LIVE",
+   "ownFiles": [
+    "plugins/plumbing/src/handlers/ChangePlumbingLevel.ts"
+   ],
+   "externalMentionCount": 3,
+   "externalMentions": [
+    "packages/command-bus/src/levelChangeVerbs.ts",
+    "packages/sync-client/src/syncDisposition.ts",
+    "plugins/plumbing/src/handlers/index.ts"
+   ]
+  },
+  {
+   "verb": "plumbing.create",
+   "kind": "create",
+   "liveness": "UNKNOWN",
+   "ownFiles": [
+    "plugins/plumbing/src/handlers/CreatePlumbing.ts"
+   ],
+   "externalMentionCount": 9,
+   "externalMentions": [
+    "apps/editor/src/engine/initBusHandlers.ts",
+    "packages/ai-host/src/capabilities/ChatCommandClassification.ts",
+    "packages/command-bus/src/commands.ts",
+    "packages/geometry-plumbing/src/PlumbingTool.ts",
+    "packages/runtime-composer/src/CommandEventBridge.ts",
+    "packages/runtime-composer/src/types.ts",
+    "packages/sync-client/src/syncDisposition.ts",
+    "plugins/plumbing/src/handlers/index.ts"
+   ]
+  },
+  {
+   "verb": "plumbing.createFixture",
+   "kind": "create",
+   "liveness": "LIVE",
+   "ownFiles": [
+    "plugins/plumbing/src/handlers/CreatePlumbingFixture.ts"
+   ],
+   "externalMentionCount": 8,
+   "externalMentions": [
+    "apps/editor/src/engine/views/plantools/CopyPlanToolHandler.ts",
+    "apps/editor/src/engine/views/plantools/duplicateToLevel.ts",
+    "apps/editor/src/engine/views/plantools/PlumbingPlanToolHandler.ts",
+    "apps/editor/src/ui/furniture-carousel/FurnitureDragDropHandler.ts",
+    "packages/ai-host/src/capabilities/ChatCommandClassification.ts",
+    "packages/command-bus/src/commands.ts",
+    "packages/sync-client/src/syncDisposition.ts",
+    "plugins/plumbing/src/handlers/index.ts"
+   ]
+  },
+  {
+   "verb": "plumbing.delete",
+   "kind": "delete",
+   "liveness": "UNKNOWN",
+   "ownFiles": [
+    "plugins/plumbing/src/handlers/DeletePlumbing.ts"
+   ],
+   "externalMentionCount": 3,
+   "externalMentions": [
+    "packages/ai-host/src/capabilities/ChatCommandClassification.ts",
+    "packages/sync-client/src/syncDisposition.ts",
+    "plugins/plumbing/src/handlers/index.ts"
+   ]
+  },
+  {
+   "verb": "plumbing.move",
+   "kind": "move",
+   "liveness": "REFUSES",
+   "ownFiles": [
+    "plugins/plumbing/src/handlers/MovePlumbing.ts"
+   ],
+   "externalMentionCount": 5,
+   "externalMentions": [
+    "apps/editor/src/engine/initBusHandlers.ts",
+    "apps/editor/src/engine/registerTransformDragHandler.ts",
+    "packages/ai-host/src/capabilities/ChatCapabilityRegistry.ts",
+    "packages/sync-client/src/syncDisposition.ts",
+    "plugins/plumbing/src/handlers/index.ts"
+   ]
+  },
+  {
+   "verb": "plumbing.moveFixture",
+   "kind": "other",
+   "liveness": "LIVE",
+   "ownFiles": [
+    "apps/editor/src/engine/initBusHandlers.ts"
+   ],
+   "externalMentionCount": 6,
+   "externalMentions": [
+    "apps/editor/src/engine/registerTransformDragHandler.ts",
+    "apps/editor/src/engine/transforms/elementMove.ts",
+    "packages/ai-host/src/capabilities/ChatCapabilityRegistry.ts",
+    "packages/command-bus/src/commands.ts",
+    "packages/geometry-boundary-line/src/BoundaryLinePropagation.ts",
+    "packages/sync-client/src/syncDisposition.ts"
+   ]
+  },
+  {
+   "verb": "plumbing.setMaterial",
+   "kind": "update",
+   "liveness": "REFUSES",
+   "ownFiles": [
+    "plugins/plumbing/src/handlers/SetPlumbingMaterial.ts"
+   ],
+   "externalMentionCount": 3,
+   "externalMentions": [
+    "packages/ai-host/src/capabilities/ChatCapabilityRegistry.ts",
+    "packages/sync-client/src/syncDisposition.ts",
+    "plugins/plumbing/src/handlers/index.ts"
+   ]
+  },
+  {
+   "verb": "plumbing.setSystem",
+   "kind": "update",
+   "liveness": "UNKNOWN",
+   "ownFiles": [
+    "plugins/plumbing/src/handlers/SetPlumbingSystem.ts"
+   ],
+   "externalMentionCount": 5,
+   "externalMentions": [
+    "apps/editor/src/engine/initBusHandlers.ts",
+    "apps/editor/src/ui/property-panel/PropertyPanelTypeSelector.ts",
+    "packages/ai-host/src/capabilities/ChatCommandClassification.ts",
+    "packages/sync-client/src/syncDisposition.ts",
+    "plugins/plumbing/src/handlers/index.ts"
+   ]
+  },
+  {
+   "verb": "pool.create",
+   "kind": "create",
+   "liveness": "UNKNOWN",
+   "ownFiles": [
+    "plugins/pool/src/handlers/CreatePool.ts"
+   ],
+   "externalMentionCount": 6,
+   "externalMentions": [
+    "apps/editor/src/engine/views/plantools/PoolPlanToolHandler.ts",
+    "packages/ai-host/src/capabilities/ChatCommandClassification.ts",
+    "packages/runtime-composer/src/CommandEventBridge.ts",
+    "packages/runtime-composer/src/types.ts",
+    "packages/sync-client/src/syncDisposition.ts",
+    "plugins/pool/src/handlers/index.ts"
+   ]
+  },
+  {
+   "verb": "pool.delete",
+   "kind": "delete",
+   "liveness": "UNKNOWN",
+   "ownFiles": [
+    "plugins/pool/src/handlers/DeletePool.ts"
+   ],
+   "externalMentionCount": 3,
+   "externalMentions": [
+    "packages/ai-host/src/capabilities/ChatCommandClassification.ts",
+    "packages/sync-client/src/syncDisposition.ts",
+    "plugins/pool/src/handlers/index.ts"
+   ]
+  },
+  {
+   "verb": "projectOrigin.setPosition",
+   "kind": "move",
+   "liveness": "LIVE",
+   "ownFiles": [
+    "apps/editor/src/engine/initBusHandlers.ts"
+   ],
+   "externalMentionCount": 2,
+   "externalMentions": [
+    "packages/ai-host/src/capabilities/ChatCommandClassification.ts",
+    "packages/sync-client/src/syncDisposition.ts"
+   ]
+  },
+  {
+   "verb": "projectOrigin.setVisible",
+   "kind": "update",
+   "liveness": "LIVE",
+   "ownFiles": [
+    "apps/editor/src/engine/initBusHandlers.ts"
+   ],
+   "externalMentionCount": 2,
+   "externalMentions": [
+    "packages/ai-host/src/capabilities/ChatCommandClassification.ts",
+    "packages/sync-client/src/syncDisposition.ts"
+   ]
+  },
+  {
+   "verb": "rhino.resetMaterial",
+   "kind": "other",
+   "liveness": "LIVE",
+   "ownFiles": [
+    "apps/editor/src/engine/initBusHandlers.ts"
+   ],
+   "externalMentionCount": 4,
+   "externalMentions": [
+    "apps/editor/src/ui/ai/ZeroTokenChatBridge.ts",
+    "packages/ai-host/src/capabilities/ChatCapabilityRegistry.ts",
+    "packages/ai-host/src/intents/ZeroTokenResolver.ts",
+    "packages/sync-client/src/syncDisposition.ts"
+   ]
+  },
+  {
+   "verb": "rhino.setMaterial",
+   "kind": "update",
+   "liveness": "LIVE",
+   "ownFiles": [
+    "apps/editor/src/engine/initBusHandlers.ts"
+   ],
+   "externalMentionCount": 4,
+   "externalMentions": [
+    "apps/editor/src/ui/ai/ZeroTokenChatBridge.ts",
+    "packages/ai-host/src/capabilities/ChatCapabilityRegistry.ts",
+    "packages/ai-host/src/intents/ZeroTokenResolver.ts",
+    "packages/sync-client/src/syncDisposition.ts"
+   ]
+  },
+  {
+   "verb": "roof.addSkylight",
+   "kind": "update",
+   "liveness": "UNKNOWN",
+   "ownFiles": [
+    "plugins/roof/src/handlers/AddSkylight.ts"
+   ],
+   "externalMentionCount": 3,
+   "externalMentions": [
+    "packages/ai-host/src/capabilities/ChatCommandClassification.ts",
+    "packages/sync-client/src/syncDisposition.ts",
+    "plugins/roof/src/handlers/index.ts"
+   ]
+  },
+  {
+   "verb": "roof.changeLevel",
+   "kind": "move",
+   "liveness": "LIVE",
+   "ownFiles": [
+    "plugins/roof/src/handlers/ChangeRoofLevel.ts"
+   ],
+   "externalMentionCount": 3,
+   "externalMentions": [
+    "packages/command-bus/src/levelChangeVerbs.ts",
+    "packages/sync-client/src/syncDisposition.ts",
+    "plugins/roof/src/handlers/index.ts"
+   ]
+  },
+  {
+   "verb": "roof.create",
+   "kind": "create",
+   "liveness": "UNKNOWN",
+   "ownFiles": [
+    "plugins/roof/src/handlers/CreateRoof.ts"
+   ],
+   "externalMentionCount": 12,
+   "externalMentions": [
+    "apps/editor/src/engine/engineLauncher.ts",
+    "apps/editor/src/engine/initBusHandlers.ts",
+    "apps/editor/src/engine/initTools.ts",
+    "apps/editor/src/engine/views/plantools/CopyPlanToolHandler.ts",
+    "apps/editor/src/engine/views/plantools/duplicateToLevel.ts",
+    "apps/editor/src/engine/views/plantools/RoofPlanToolHandler.ts",
+    "packages/ai-host/src/capabilities/ChatCommandClassification.ts",
+    "packages/runtime-composer/src/CommandEventBridge.ts"
+   ]
+  },
+  {
+   "verb": "roof.delete",
+   "kind": "delete",
+   "liveness": "UNKNOWN",
+   "ownFiles": [
+    "plugins/roof/src/handlers/DeleteRoof.ts"
+   ],
+   "externalMentionCount": 3,
+   "externalMentions": [
+    "packages/ai-host/src/capabilities/ChatCommandClassification.ts",
+    "packages/sync-client/src/syncDisposition.ts",
+    "plugins/roof/src/handlers/index.ts"
+   ]
+  },
+  {
+   "verb": "roof.joinRoofs",
+   "kind": "join",
+   "liveness": "UNKNOWN",
+   "ownFiles": [
+    "plugins/roof/src/handlers/JoinRoofs.ts"
+   ],
+   "externalMentionCount": 3,
+   "externalMentions": [
+    "packages/ai-host/src/capabilities/ChatCommandClassification.ts",
+    "packages/sync-client/src/syncDisposition.ts",
+    "plugins/roof/src/handlers/index.ts"
+   ]
+  },
+  {
+   "verb": "roof.move",
+   "kind": "move",
+   "liveness": "REFUSES",
+   "ownFiles": [
+    "plugins/roof/src/handlers/MoveRoof.ts"
+   ],
+   "externalMentionCount": 3,
+   "externalMentions": [
+    "packages/ai-host/src/capabilities/ChatCapabilityRegistry.ts",
+    "packages/sync-client/src/syncDisposition.ts",
+    "plugins/roof/src/handlers/index.ts"
+   ]
+  },
+  {
+   "verb": "roof.removeSkylight",
+   "kind": "delete",
+   "liveness": "UNKNOWN",
+   "ownFiles": [
+    "plugins/roof/src/handlers/RemoveSkylight.ts"
+   ],
+   "externalMentionCount": 3,
+   "externalMentions": [
+    "packages/ai-host/src/capabilities/ChatCommandClassification.ts",
+    "packages/sync-client/src/syncDisposition.ts",
+    "plugins/roof/src/handlers/index.ts"
+   ]
+  },
+  {
+   "verb": "roof.setMaterial",
+   "kind": "update",
+   "liveness": "REFUSES",
+   "ownFiles": [
+    "plugins/roof/src/handlers/SetRoofMaterial.ts"
+   ],
+   "externalMentionCount": 4,
+   "externalMentions": [
+    "packages/ai-host/src/capabilities/CapabilityRefusal.ts",
+    "packages/ai-host/src/capabilities/ChatCapabilityRegistry.ts",
+    "packages/sync-client/src/syncDisposition.ts",
+    "plugins/roof/src/handlers/index.ts"
+   ]
+  },
+  {
+   "verb": "roof.setOverhang",
+   "kind": "update",
+   "liveness": "UNKNOWN",
+   "ownFiles": [
+    "plugins/roof/src/handlers/SetRoofOverhang.ts"
+   ],
+   "externalMentionCount": 4,
+   "externalMentions": [
+    "packages/ai-host/src/capabilities/ChatCommandClassification.ts",
+    "packages/runtime-composer/src/CommandEventBridge.ts",
+    "packages/sync-client/src/syncDisposition.ts",
+    "plugins/roof/src/handlers/index.ts"
+   ]
+  },
+  {
+   "verb": "roof.setPitch",
+   "kind": "update",
+   "liveness": "UNKNOWN",
+   "ownFiles": [
+    "plugins/roof/src/handlers/SetRoofPitch.ts"
+   ],
+   "externalMentionCount": 4,
+   "externalMentions": [
+    "packages/ai-host/src/capabilities/ChatCommandClassification.ts",
+    "packages/runtime-composer/src/CommandEventBridge.ts",
+    "packages/sync-client/src/syncDisposition.ts",
+    "plugins/roof/src/handlers/index.ts"
+   ]
+  },
+  {
+   "verb": "roof.setShape",
+   "kind": "update",
+   "liveness": "UNKNOWN",
+   "ownFiles": [
+    "plugins/roof/src/handlers/SetRoofShape.ts"
+   ],
+   "externalMentionCount": 4,
+   "externalMentions": [
+    "packages/ai-host/src/capabilities/ChatCommandClassification.ts",
+    "packages/runtime-composer/src/CommandEventBridge.ts",
+    "packages/sync-client/src/syncDisposition.ts",
+    "plugins/roof/src/handlers/index.ts"
+   ]
+  },
+  {
+   "verb": "roof.setThickness",
+   "kind": "update",
+   "liveness": "UNKNOWN",
+   "ownFiles": [
+    "plugins/roof/src/handlers/SetRoofThickness.ts"
+   ],
+   "externalMentionCount": 4,
+   "externalMentions": [
+    "packages/ai-host/src/capabilities/ChatCommandClassification.ts",
+    "packages/runtime-composer/src/CommandEventBridge.ts",
+    "packages/sync-client/src/syncDisposition.ts",
+    "plugins/roof/src/handlers/index.ts"
+   ]
+  },
+  {
+   "verb": "roof.update",
+   "kind": "update",
+   "liveness": "LIVE",
+   "ownFiles": [
+    "apps/editor/src/engine/initBusHandlers.ts"
+   ],
+   "externalMentionCount": 11,
+   "externalMentions": [
+    "apps/editor/src/engine/registerTransformDragHandler.ts",
+    "apps/editor/src/engine/transforms/elementMove.ts",
+    "apps/editor/src/ui/property-inspector/MaterialDispatch.ts",
+    "apps/editor/src/ui/property-inspector/PropertyInspectorApply.ts",
+    "apps/editor/src/ui/property-panel/RoofPropertySheet.ts",
+    "packages/ai-host/src/capabilities/ChatCapabilityRegistry.ts",
+    "packages/ai-host/src/intents/PropertyVocabulary.ts",
+    "packages/ai-host/src/intents/ZeroTokenResolver.ts"
+   ]
+  },
+  {
+   "verb": "room.autoClassify.batch",
+   "kind": "other",
+   "liveness": "LIVE",
+   "ownFiles": [
+    "plugins/rooms/src/handlers/BulkAutoClassifyRooms.ts"
+   ],
+   "externalMentionCount": 4,
+   "externalMentions": [
+    "apps/editor/src/ui/property-inspector/RoomAutoOrganiser.ts",
+    "packages/command-bus/src/commands.ts",
+    "packages/sync-client/src/syncDisposition.ts",
+    "plugins/rooms/src/handlers/index.ts"
+   ]
+  },
+  {
+   "verb": "room.create",
+   "kind": "create",
+   "liveness": "LIVE",
+   "ownFiles": [
+    "plugins/rooms/src/handlers/CreateRoom.ts"
+   ],
+   "externalMentionCount": 12,
+   "externalMentions": [
+    "apps/editor/src/engine/views/plantools/RoomPlanToolHandler.ts",
+    "packages/ai-host/src/capabilities/ChatCommandClassification.ts",
+    "packages/ai-host/src/rooms/RoomAIAssistant.ts",
+    "packages/ai-host/src/workflows/apartmentLayout/executePlan.ts",
+    "packages/command-bus/src/commands.ts",
+    "packages/room-topology/src/RoomTool.ts",
+    "packages/runtime-composer/src/authoritativeElementMirror.ts",
+    "packages/runtime-composer/src/CommandEventBridge.ts"
+   ]
+  },
+  {
+   "verb": "room.delete",
+   "kind": "delete",
+   "liveness": "LIVE",
+   "ownFiles": [
+    "plugins/rooms/src/handlers/DeleteRoom.ts"
+   ],
+   "externalMentionCount": 6,
+   "externalMentions": [
+    "apps/editor/src/engine/provenance/ElementProvenanceIndex.ts",
+    "apps/editor/src/ui/apartment-layout/nameDetectedRooms.ts",
+    "apps/editor/src/ui/house-layout/HouseLayoutExecutor.ts",
+    "packages/ai-host/src/capabilities/ChatCommandClassification.ts",
+    "packages/sync-client/src/syncDisposition.ts",
+    "plugins/rooms/src/handlers/index.ts"
+   ]
+  },
+  {
+   "verb": "room.move",
+   "kind": "move",
+   "liveness": "LIVE",
+   "ownFiles": [
+    "plugins/rooms/src/handlers/MoveRoom.ts"
+   ],
+   "externalMentionCount": 4,
+   "externalMentions": [
+    "packages/ai-host/src/capabilities/CapabilityRefusal.ts",
+    "packages/ai-host/src/capabilities/ChatCapabilityRegistry.ts",
+    "packages/sync-client/src/syncDisposition.ts",
+    "plugins/rooms/src/handlers/index.ts"
+   ]
+  },
+  {
+   "verb": "room.recomputeBoundary",
+   "kind": "other",
+   "liveness": "REFUSES",
+   "ownFiles": [
+    "plugins/rooms/src/handlers/RecomputeRoomBoundary.ts"
+   ],
+   "externalMentionCount": 4,
+   "externalMentions": [
+    "packages/ai-host/src/capabilities/ChatCommandClassification.ts",
+    "packages/sync-client/src/syncDisposition.ts",
+    "plugins/cross/src/wall-room.ts",
+    "plugins/rooms/src/handlers/index.ts"
+   ]
+  },
+  {
+   "verb": "room.redetect",
+   "kind": "other",
+   "liveness": "UNKNOWN",
+   "ownFiles": [
+    "plugins/rooms/src/handlers/RedetectRooms.ts"
+   ],
+   "externalMentionCount": 9,
+   "externalMentions": [
+    "apps/editor/src/engine/engineLauncher.ts",
+    "apps/editor/src/engine/persistence/ProjectLoader.ts",
+    "packages/ai-host/src/capabilities/ChatCommandClassification.ts",
+    "packages/command-bus/src/commands.ts",
+    "packages/core-app-model/src/batch/BatchCoordinator.ts",
+    "packages/room-topology/src/RoomTopologyObserver.ts",
+    "packages/sync-client/src/syncDisposition.ts",
+    "plugins/rooms/src/contributions.ts"
+   ]
+  },
+  {
+   "verb": "room.regenerate",
+   "kind": "regenerate",
+   "liveness": "REFUSES",
+   "ownFiles": [
+    "plugins/rooms/src/handlers/RegenerateRooms.ts"
+   ],
+   "externalMentionCount": 4,
+   "externalMentions": [
+    "packages/ai-host/src/capabilities/ChatCommandClassification.ts",
+    "packages/command-bus/src/consequence.ts",
+    "packages/sync-client/src/syncDisposition.ts",
+    "plugins/rooms/src/handlers/index.ts"
+   ]
+  },
+  {
+   "verb": "room.rename",
+   "kind": "update",
+   "liveness": "LIVE",
+   "ownFiles": [
+    "plugins/rooms/src/handlers/RenameRoom.ts"
+   ],
+   "externalMentionCount": 8,
+   "externalMentions": [
+    "apps/editor/src/ui/apartment-layout/nameDetectedRooms.ts",
+    "apps/editor/src/ui/property-inspector/RoomAutoOrganiser.ts",
+    "packages/ai-host/src/capabilities/ChatCapabilityRegistry.ts",
+    "packages/ai-host/src/intents/roomAutoLabel.ts",
+    "packages/ai-host/src/intents/ZeroTokenResolver.ts",
+    "packages/command-bus/src/commands.ts",
+    "packages/sync-client/src/syncDisposition.ts",
+    "plugins/rooms/src/handlers/index.ts"
+   ]
+  },
+  {
+   "verb": "room.restoreMeaning",
+   "kind": "other",
+   "liveness": "LIVE",
+   "ownFiles": [
+    "plugins/rooms/src/handlers/RestoreRoomMeaning.ts"
+   ],
+   "externalMentionCount": 2,
+   "externalMentions": [
+    "apps/editor/src/ui/ai/RoomMeaningRestoreProposal.ts",
+    "plugins/rooms/src/handlers/index.ts"
+   ]
+  },
+  {
+   "verb": "room.setColourMode",
+   "kind": "update",
+   "liveness": "UNKNOWN",
+   "ownFiles": [
+    "plugins/rooms/src/handlers/SetRoomColourMode.ts"
+   ],
+   "externalMentionCount": 3,
+   "externalMentions": [
+    "apps/editor/src/ui/property-inspector/RoomPropertySection.ts",
+    "packages/command-bus/src/commands.ts",
+    "plugins/rooms/src/handlers/index.ts"
+   ]
+  },
+  {
+   "verb": "room.setDepartment",
+   "kind": "update",
+   "liveness": "LIVE",
+   "ownFiles": [
+    "plugins/rooms/src/handlers/SetRoomDepartment.ts"
+   ],
+   "externalMentionCount": 4,
+   "externalMentions": [
+    "apps/editor/src/ui/property-inspector/RoomPropertySection.ts",
+    "packages/ai-host/src/capabilities/ChatCapabilityRegistry.ts",
+    "packages/sync-client/src/syncDisposition.ts",
+    "plugins/rooms/src/handlers/index.ts"
+   ]
+  },
+  {
+   "verb": "room.setFinish",
+   "kind": "update",
+   "liveness": "LIVE",
+   "ownFiles": [
+    "plugins/rooms/src/handlers/SetRoomFinish.ts"
+   ],
+   "externalMentionCount": 3,
+   "externalMentions": [
+    "packages/ai-host/src/capabilities/ChatCommandClassification.ts",
+    "packages/sync-client/src/syncDisposition.ts",
+    "plugins/rooms/src/handlers/index.ts"
+   ]
+  },
+  {
+   "verb": "room.setHeightOffset",
+   "kind": "update",
+   "liveness": "LIVE",
+   "ownFiles": [
+    "plugins/rooms/src/handlers/SetRoomHeightOffset.ts"
+   ],
+   "externalMentionCount": 5,
+   "externalMentions": [
+    "packages/ai-host/src/capabilities/ChatCapabilityRegistry.ts",
+    "packages/ai-host/src/intents/ZeroTokenResolver.ts",
+    "packages/command-bus/src/commands.ts",
+    "packages/sync-client/src/syncDisposition.ts",
+    "plugins/rooms/src/handlers/index.ts"
+   ]
+  },
+  {
+   "verb": "room.setMaterial",
+   "kind": "update",
+   "liveness": "LIVE",
+   "ownFiles": [
+    "plugins/rooms/src/handlers/SetRoomMaterial.ts"
+   ],
+   "externalMentionCount": 7,
+   "externalMentions": [
+    "apps/editor/src/ui/property-inspector/MaterialDispatch.ts",
+    "apps/editor/src/ui/property-inspector/RoomPropertySection.ts",
+    "packages/ai-host/src/capabilities/CapabilityRefusal.ts",
+    "packages/ai-host/src/capabilities/ChatCapabilityRegistry.ts",
+    "packages/command-bus/src/commands.ts",
+    "packages/sync-client/src/syncDisposition.ts",
+    "plugins/rooms/src/handlers/index.ts"
+   ]
+  },
+  {
+   "verb": "room.setName",
+   "kind": "update",
+   "liveness": "LIVE",
+   "ownFiles": [
+    "plugins/rooms/src/handlers/SetRoomName.ts"
+   ],
+   "externalMentionCount": 7,
+   "externalMentions": [
+    "apps/editor/src/engine/initUI.ts",
+    "apps/editor/src/ui/property-inspector/RoomPropertySection.ts",
+    "packages/ai-host/src/capabilities/ChatCommandClassification.ts",
+    "packages/ai-host/src/rooms/RoomAIAssistant.ts",
+    "packages/command-bus/src/commands.ts",
+    "packages/sync-client/src/syncDisposition.ts",
+    "plugins/rooms/src/handlers/index.ts"
+   ]
+  },
+  {
+   "verb": "room.setNumber",
+   "kind": "update",
+   "liveness": "LIVE",
+   "ownFiles": [
+    "plugins/rooms/src/handlers/SetRoomNumber.ts"
+   ],
+   "externalMentionCount": 7,
+   "externalMentions": [
+    "apps/editor/src/engine/initUI.ts",
+    "apps/editor/src/ui/property-inspector/RoomPropertySection.ts",
+    "packages/ai-host/src/capabilities/ChatCapabilityRegistry.ts",
+    "packages/ai-host/src/intents/ZeroTokenResolver.ts",
+    "packages/command-bus/src/commands.ts",
+    "packages/sync-client/src/syncDisposition.ts",
+    "plugins/rooms/src/handlers/index.ts"
+   ]
+  },
+  {
+   "verb": "room.setOccupancy",
+   "kind": "update",
+   "liveness": "LIVE",
+   "ownFiles": [
+    "plugins/rooms/src/handlers/SetRoomOccupancy.ts"
+   ],
+   "externalMentionCount": 8,
+   "externalMentions": [
+    "apps/editor/src/ui/property-inspector/RoomAutoOrganiser.ts",
+    "apps/editor/src/ui/property-inspector/RoomPropertySection.ts",
+    "packages/ai-host/src/capabilities/ChatCapabilityRegistry.ts",
+    "packages/ai-host/src/intents/CapabilityExecutionSpec.ts",
+    "packages/ai-host/src/intents/roomAutoLabel.ts",
+    "packages/command-bus/src/commands.ts",
+    "packages/sync-client/src/syncDisposition.ts",
+    "plugins/rooms/src/handlers/index.ts"
+   ]
+  },
+  {
+   "verb": "room.updateBoundary",
+   "kind": "update",
+   "liveness": "LIVE",
+   "ownFiles": [
+    "apps/editor/src/engine/initBusHandlers.ts"
+   ],
+   "externalMentionCount": 4,
+   "externalMentions": [
+    "apps/editor/src/engine/transforms/elementMove.ts",
+    "packages/ai-host/src/capabilities/ChatCommandClassification.ts",
+    "packages/command-bus/src/commands.ts",
+    "packages/sync-client/src/syncDisposition.ts"
+   ]
+  },
+  {
+   "verb": "schedule.column.add",
+   "kind": "other",
+   "liveness": "UNKNOWN",
+   "ownFiles": [
+    "plugins/schedules/src/handlers/AddColumn.ts"
+   ],
+   "externalMentionCount": 2,
+   "externalMentions": [
+    "packages/ai-host/src/capabilities/ChatCommandClassification.ts",
+    "packages/sync-client/src/syncDisposition.ts"
+   ]
+  },
+  {
+   "verb": "schedule.column.remove",
+   "kind": "other",
+   "liveness": "UNKNOWN",
+   "ownFiles": [
+    "plugins/schedules/src/handlers/RemoveColumn.ts"
+   ],
+   "externalMentionCount": 2,
+   "externalMentions": [
+    "packages/ai-host/src/capabilities/ChatCommandClassification.ts",
+    "packages/sync-client/src/syncDisposition.ts"
+   ]
+  },
+  {
+   "verb": "schedule.create",
+   "kind": "create",
+   "liveness": "UNKNOWN",
+   "ownFiles": [
+    "plugins/schedules/src/handlers/CreateSchedule.ts"
+   ],
+   "externalMentionCount": 3,
+   "externalMentions": [
+    "packages/ai-host/src/capabilities/ChatCommandClassification.ts",
+    "packages/sync-client/src/syncDisposition.ts",
+    "plugins/schedules/src/tool.ts"
+   ]
+  },
+  {
+   "verb": "schedule.delete",
+   "kind": "delete",
+   "liveness": "UNKNOWN",
+   "ownFiles": [
+    "plugins/schedules/src/handlers/DeleteSchedule.ts"
+   ],
+   "externalMentionCount": 2,
+   "externalMentions": [
+    "packages/ai-host/src/capabilities/ChatCommandClassification.ts",
+    "packages/sync-client/src/syncDisposition.ts"
+   ]
+  },
+  {
+   "verb": "schedule.setFilter",
+   "kind": "update",
+   "liveness": "UNKNOWN",
+   "ownFiles": [
+    "plugins/schedules/src/handlers/SetFilter.ts"
+   ],
+   "externalMentionCount": 2,
+   "externalMentions": [
+    "packages/ai-host/src/capabilities/ChatCommandClassification.ts",
+    "packages/sync-client/src/syncDisposition.ts"
+   ]
+  },
+  {
+   "verb": "schedule.setGroupBy",
+   "kind": "update",
+   "liveness": "UNKNOWN",
+   "ownFiles": [
+    "plugins/schedules/src/handlers/SetGroupBy.ts"
+   ],
+   "externalMentionCount": 2,
+   "externalMentions": [
+    "packages/ai-host/src/capabilities/ChatCommandClassification.ts",
+    "packages/sync-client/src/syncDisposition.ts"
+   ]
+  },
+  {
+   "verb": "schedule.update",
+   "kind": "update",
+   "liveness": "LIVE",
+   "ownFiles": [
+    "apps/editor/src/engine/initBusHandlers.ts"
+   ],
+   "externalMentionCount": 3,
+   "externalMentions": [
+    "apps/editor/src/ui/SchedulePanel/scheduleViewModel.ts",
+    "packages/ai-host/src/capabilities/ChatCommandClassification.ts",
+    "packages/sync-client/src/syncDisposition.ts"
+   ]
+  },
+  {
+   "verb": "section.create",
+   "kind": "create",
+   "liveness": "UNKNOWN",
+   "ownFiles": [
+    "plugins/section-view/src/handlers/CreateSection.ts"
+   ],
+   "externalMentionCount": 7,
+   "externalMentions": [
+    "apps/editor/src/engine/initBusHandlers.ts",
+    "apps/editor/src/engine/views/plantools/SectionPlanToolHandler.ts",
+    "packages/ai-host/src/capabilities/ChatCommandClassification.ts",
+    "packages/sync-client/src/syncDisposition.ts",
+    "plugins/section-view/src/handlers/index.ts",
+    "plugins/section-view/src/intent.ts",
+    "plugins/section-view/src/tool.ts"
+   ]
+  },
+  {
+   "verb": "section.delete",
+   "kind": "delete",
+   "liveness": "UNKNOWN",
+   "ownFiles": [
+    "plugins/section-view/src/handlers/DeleteSection.ts"
+   ],
+   "externalMentionCount": 4,
+   "externalMentions": [
+    "packages/ai-host/src/capabilities/ChatCommandClassification.ts",
+    "packages/sync-client/src/syncDisposition.ts",
+    "plugins/section-view/src/handlers/index.ts",
+    "plugins/section-view/src/intent.ts"
+   ]
+  },
+  {
+   "verb": "section.mark.create",
+   "kind": "create",
+   "liveness": "LIVE",
+   "ownFiles": [
+    "apps/editor/src/engine/initBusHandlers.ts"
+   ],
+   "externalMentionCount": 3,
+   "externalMentions": [
+    "apps/editor/src/engine/views/plantools/SectionPlanToolHandler.ts",
+    "packages/ai-host/src/capabilities/ChatCommandClassification.ts",
+    "packages/sync-client/src/syncDisposition.ts"
+   ]
+  },
+  {
+   "verb": "section.moveLine",
+   "kind": "other",
+   "liveness": "REFUSES",
+   "ownFiles": [
+    "plugins/section-view/src/handlers/MoveSectionLine.ts"
+   ],
+   "externalMentionCount": 4,
+   "externalMentions": [
+    "packages/ai-host/src/capabilities/ChatCommandClassification.ts",
+    "packages/sync-client/src/syncDisposition.ts",
+    "plugins/section-view/src/handlers/index.ts",
+    "plugins/section-view/src/intent.ts"
+   ]
+  },
+  {
+   "verb": "section.setDepth",
+   "kind": "update",
+   "liveness": "UNKNOWN",
+   "ownFiles": [
+    "plugins/section-view/src/handlers/SetSectionDepth.ts"
+   ],
+   "externalMentionCount": 4,
+   "externalMentions": [
+    "packages/ai-host/src/capabilities/ChatCommandClassification.ts",
+    "packages/sync-client/src/syncDisposition.ts",
+    "plugins/section-view/src/handlers/index.ts",
+    "plugins/section-view/src/intent.ts"
+   ]
+  },
+  {
+   "verb": "section.setMark",
+   "kind": "update",
+   "liveness": "UNKNOWN",
+   "ownFiles": [
+    "plugins/section-view/src/handlers/SetSectionMark.ts"
+   ],
+   "externalMentionCount": 4,
+   "externalMentions": [
+    "packages/ai-host/src/capabilities/ChatCommandClassification.ts",
+    "packages/sync-client/src/syncDisposition.ts",
+    "plugins/section-view/src/handlers/index.ts",
+    "plugins/section-view/src/intent.ts"
+   ]
+  },
+  {
+   "verb": "section.setScale",
+   "kind": "update",
+   "liveness": "UNKNOWN",
+   "ownFiles": [
+    "plugins/section-view/src/handlers/SetSectionScale.ts"
+   ],
+   "externalMentionCount": 4,
+   "externalMentions": [
+    "packages/ai-host/src/capabilities/ChatCommandClassification.ts",
+    "packages/sync-client/src/syncDisposition.ts",
+    "plugins/section-view/src/handlers/index.ts",
+    "plugins/section-view/src/intent.ts"
+   ]
+  },
+  {
+   "verb": "selection.clear",
+   "kind": "other",
+   "liveness": "UNKNOWN",
+   "ownFiles": [
+    "plugins/selection/src/handlers/ClearSelection.ts"
+   ],
+   "externalMentionCount": 7,
+   "externalMentions": [
+    "apps/editor/src/PluginRegistry.ts",
+    "packages/ai-host/src/capabilities/ChatCapabilityRegistry.ts",
+    "packages/sync-client/src/syncDisposition.ts",
+    "plugins/plan-view/src/selection.ts",
+    "plugins/selection/src/handlers/index.ts",
+    "plugins/selection/src/intent.ts",
+    "plugins/selection/src/tool.ts"
+   ]
+  },
+  {
+   "verb": "selection.deselect",
+   "kind": "other",
+   "liveness": "UNKNOWN",
+   "ownFiles": [
+    "plugins/selection/src/handlers/Deselect.ts"
+   ],
+   "externalMentionCount": 4,
+   "externalMentions": [
+    "packages/ai-host/src/capabilities/ChatCapabilityRegistry.ts",
+    "packages/sync-client/src/syncDisposition.ts",
+    "plugins/selection/src/handlers/index.ts",
+    "plugins/selection/src/intent.ts"
+   ]
+  },
+  {
+   "verb": "selection.select",
+   "kind": "other",
+   "liveness": "UNKNOWN",
+   "ownFiles": [
+    "plugins/selection/src/handlers/Select.ts"
+   ],
+   "externalMentionCount": 6,
+   "externalMentions": [
+    "packages/ai-host/src/capabilities/ChatCapabilityRegistry.ts",
+    "packages/sync-client/src/syncDisposition.ts",
+    "plugins/plan-view/src/selection.ts",
+    "plugins/selection/src/handlers/index.ts",
+    "plugins/selection/src/intent.ts",
+    "plugins/selection/src/tool.ts"
+   ]
+  },
+  {
+   "verb": "sheet.addViewport",
+   "kind": "update",
+   "liveness": "LIVE",
+   "ownFiles": [
+    "apps/editor/src/engine/initBusHandlers.ts"
+   ],
+   "externalMentionCount": 5,
+   "externalMentions": [
+    "apps/editor/src/ui/ViewBrowser/panels/ViewsRailPanel.ts",
+    "packages/ai-host/src/capabilities/ChatCommandClassification.ts",
+    "packages/sync-client/src/syncDisposition.ts",
+    "plugins/sheets/src/handlers/index.ts",
+    "plugins/sheets/src/viewport.ts"
+   ]
+  },
+  {
+   "verb": "sheet.addWidget",
+   "kind": "update",
+   "liveness": "UNKNOWN",
+   "ownFiles": [
+    "plugins/sheets/src/handlers/AddWidget.ts"
+   ],
+   "externalMentionCount": 3,
+   "externalMentions": [
+    "packages/ai-host/src/capabilities/ChatCommandClassification.ts",
+    "packages/sync-client/src/syncDisposition.ts",
+    "plugins/sheets/src/handlers/index.ts"
+   ]
+  },
+  {
+   "verb": "sheet.create",
+   "kind": "create",
+   "liveness": "SHADOWED",
+   "ownFiles": [
+    "plugins/sheets/src/handlers/CreateSheet.ts",
+    "apps/editor/src/engine/initBusHandlers.ts"
+   ],
+   "externalMentionCount": 6,
+   "externalMentions": [
+    "apps/editor/src/ui/ViewBrowser/panels/SheetsRailPanel.ts",
+    "packages/ai-host/src/capabilities/ChatCommandClassification.ts",
+    "packages/sync-client/src/syncDisposition.ts",
+    "plugins/sheets/src/handlers/index.ts",
+    "plugins/sheets/src/sheet-list.ts",
+    "plugins/sheets/src/tool.ts"
+   ]
+  },
+  {
+   "verb": "sheet.delete",
+   "kind": "delete",
+   "liveness": "UNKNOWN",
+   "ownFiles": [
+    "plugins/sheets/src/handlers/DeleteSheet.ts"
+   ],
+   "externalMentionCount": 4,
+   "externalMentions": [
+    "packages/ai-host/src/capabilities/ChatCommandClassification.ts",
+    "packages/sync-client/src/syncDisposition.ts",
+    "plugins/sheets/src/handlers/index.ts",
+    "plugins/sheets/src/sheet-list.ts"
+   ]
+  },
+  {
+   "verb": "sheet.moveViewport",
+   "kind": "other",
+   "liveness": "LIVE",
+   "ownFiles": [
+    "apps/editor/src/engine/initBusHandlers.ts"
+   ],
+   "externalMentionCount": 2,
+   "externalMentions": [
+    "packages/ai-host/src/capabilities/ChatCommandClassification.ts",
+    "packages/sync-client/src/syncDisposition.ts"
+   ]
+  },
+  {
+   "verb": "sheet.removeViewport",
+   "kind": "delete",
+   "liveness": "UNKNOWN",
+   "ownFiles": [
+    "plugins/sheets/src/handlers/RemoveViewport.ts"
+   ],
+   "externalMentionCount": 3,
+   "externalMentions": [
+    "packages/ai-host/src/capabilities/ChatCommandClassification.ts",
+    "packages/sync-client/src/syncDisposition.ts",
+    "plugins/sheets/src/handlers/index.ts"
+   ]
+  },
+  {
+   "verb": "sheet.removeWidget",
+   "kind": "delete",
+   "liveness": "UNKNOWN",
+   "ownFiles": [
+    "plugins/sheets/src/handlers/RemoveWidget.ts"
+   ],
+   "externalMentionCount": 3,
+   "externalMentions": [
+    "packages/ai-host/src/capabilities/ChatCommandClassification.ts",
+    "packages/sync-client/src/syncDisposition.ts",
+    "plugins/sheets/src/handlers/index.ts"
+   ]
+  },
+  {
+   "verb": "sheet.rename",
+   "kind": "update",
+   "liveness": "UNKNOWN",
+   "ownFiles": [
+    "plugins/sheets/src/handlers/RenameSheet.ts"
+   ],
+   "externalMentionCount": 4,
+   "externalMentions": [
+    "packages/ai-host/src/capabilities/ChatCommandClassification.ts",
+    "packages/sync-client/src/syncDisposition.ts",
+    "plugins/sheets/src/handlers/index.ts",
+    "plugins/sheets/src/sheet-list.ts"
+   ]
+  },
+  {
+   "verb": "sheet.reorder",
+   "kind": "other",
+   "liveness": "UNKNOWN",
+   "ownFiles": [
+    "plugins/sheets/src/handlers/ReorderSheet.ts"
+   ],
+   "externalMentionCount": 4,
+   "externalMentions": [
+    "packages/ai-host/src/capabilities/ChatCommandClassification.ts",
+    "packages/sync-client/src/syncDisposition.ts",
+    "plugins/sheets/src/handlers/index.ts",
+    "plugins/sheets/src/sheet-list.ts"
+   ]
+  },
+  {
+   "verb": "sheet.setSheetMetadata",
+   "kind": "update",
+   "liveness": "UNKNOWN",
+   "ownFiles": [
+    "plugins/sheets/src/handlers/SetSheetMetadata.ts"
+   ],
+   "externalMentionCount": 3,
+   "externalMentions": [
+    "packages/ai-host/src/capabilities/ChatCommandClassification.ts",
+    "packages/sync-client/src/syncDisposition.ts",
+    "plugins/sheets/src/handlers/index.ts"
+   ]
+  },
+  {
+   "verb": "sheet.setTitleBlock",
+   "kind": "update",
+   "liveness": "UNKNOWN",
+   "ownFiles": [
+    "plugins/sheets/src/handlers/SetTitleBlock.ts"
+   ],
+   "externalMentionCount": 3,
+   "externalMentions": [
+    "packages/ai-host/src/capabilities/ChatCommandClassification.ts",
+    "packages/sync-client/src/syncDisposition.ts",
+    "plugins/sheets/src/handlers/index.ts"
+   ]
+  },
+  {
+   "verb": "sheet.setViewportScale",
+   "kind": "update",
+   "liveness": "UNKNOWN",
+   "ownFiles": [
+    "plugins/sheets/src/handlers/SetViewportScale.ts"
+   ],
+   "externalMentionCount": 3,
+   "externalMentions": [
+    "packages/ai-host/src/capabilities/ChatCommandClassification.ts",
+    "packages/sync-client/src/syncDisposition.ts",
+    "plugins/sheets/src/handlers/index.ts"
+   ]
+  },
+  {
+   "verb": "slab.addHole",
+   "kind": "update",
+   "liveness": "UNKNOWN",
+   "ownFiles": [
+    "plugins/slab/src/handlers/AddSlabHole.ts"
+   ],
+   "externalMentionCount": 4,
+   "externalMentions": [
+    "packages/ai-host/src/capabilities/ChatCommandClassification.ts",
+    "packages/runtime-composer/src/CommandEventBridge.ts",
+    "packages/sync-client/src/syncDisposition.ts",
+    "plugins/slab/src/handlers/index.ts"
+   ]
+  },
+  {
+   "verb": "slab.batch.create",
+   "kind": "batch.create",
+   "liveness": "UNKNOWN",
+   "ownFiles": [
+    "plugins/slab/src/handlers/CreateSlabBatch.ts"
+   ],
+   "externalMentionCount": 9,
+   "externalMentions": [
+    "apps/editor/src/engine/initTools.ts",
+    "apps/editor/src/engine/views/plantools/duplicateToLevel.ts",
+    "packages/ai-host/src/capabilities/ChatCommandClassification.ts",
+    "packages/command-bus/src/commands.ts",
+    "packages/runtime-composer/src/authoritativeElementMirror.ts",
+    "packages/runtime-composer/src/CommandEventBridge.ts",
+    "packages/runtime-composer/src/types.ts",
+    "packages/sync-client/src/syncDisposition.ts"
+   ]
+  },
+  {
+   "verb": "slab.changeLevel",
+   "kind": "move",
+   "liveness": "LIVE",
+   "ownFiles": [
+    "plugins/slab/src/handlers/ChangeSlabLevel.ts"
+   ],
+   "externalMentionCount": 3,
+   "externalMentions": [
+    "packages/command-bus/src/levelChangeVerbs.ts",
+    "packages/sync-client/src/syncDisposition.ts",
+    "plugins/slab/src/handlers/index.ts"
+   ]
+  },
+  {
+   "verb": "slab.create",
+   "kind": "create",
+   "liveness": "UNKNOWN",
+   "ownFiles": [
+    "plugins/slab/src/handlers/CreateSlab.ts"
+   ],
+   "externalMentionCount": 12,
+   "externalMentions": [
+    "apps/editor/src/engine/initTools.ts",
+    "apps/editor/src/engine/preview/PreviewManager.ts",
+    "apps/editor/src/engine/views/plantools/CopyPlanToolHandler.ts",
+    "apps/editor/src/engine/views/plantools/duplicateToLevel.ts",
+    "apps/editor/src/engine/views/plantools/SlabPlanToolHandler.ts",
+    "packages/ai-host/src/capabilities/ChatCommandClassification.ts",
+    "packages/runtime-composer/src/authoritativeElementMirror.ts",
+    "packages/runtime-composer/src/CommandEventBridge.ts"
+   ]
+  },
+  {
+   "verb": "slab.create-on-all-floors",
+   "kind": "create",
+   "liveness": "LIVE",
+   "ownFiles": [
+    "plugins/slab/src/handlers/CreateSlabsOnAllFloors.ts"
+   ],
+   "externalMentionCount": 4,
+   "externalMentions": [
+    "packages/ai-host/src/capabilities/ChatCommandClassification.ts",
+    "packages/command-bus/src/commands.ts",
+    "packages/sync-client/src/syncDisposition.ts",
+    "plugins/slab/src/handlers/index.ts"
+   ]
+  },
+  {
+   "verb": "slab.delete",
+   "kind": "delete",
+   "liveness": "UNKNOWN",
+   "ownFiles": [
+    "plugins/slab/src/handlers/DeleteSlab.ts"
+   ],
+   "externalMentionCount": 3,
+   "externalMentions": [
+    "packages/ai-host/src/capabilities/ChatCommandClassification.ts",
+    "packages/sync-client/src/syncDisposition.ts",
+    "plugins/slab/src/handlers/index.ts"
+   ]
+  },
+  {
+   "verb": "slab.move",
+   "kind": "move",
+   "liveness": "REFUSES",
+   "ownFiles": [
+    "plugins/slab/src/handlers/MoveSlab.ts"
+   ],
+   "externalMentionCount": 4,
+   "externalMentions": [
+    "packages/ai-host/src/capabilities/ChatCapabilityRegistry.ts",
+    "packages/sync-client/src/syncDisposition.ts",
+    "plugins/cross/src/slab-wall.ts",
+    "plugins/slab/src/handlers/index.ts"
+   ]
+  },
+  {
+   "verb": "slab.movePolygon",
+   "kind": "other",
+   "liveness": "LIVE",
+   "ownFiles": [
+    "apps/editor/src/engine/initBusHandlers.ts"
+   ],
+   "externalMentionCount": 6,
+   "externalMentions": [
+    "apps/editor/src/engine/registerTransformDragHandler.ts",
+    "apps/editor/src/engine/transforms/elementMove.ts",
+    "packages/ai-host/src/capabilities/ChatCommandClassification.ts",
+    "packages/command-bus/src/commands.ts",
+    "packages/geometry-boundary-line/src/BoundaryLinePropagation.ts",
+    "packages/sync-client/src/syncDisposition.ts"
+   ]
+  },
+  {
+   "verb": "slab.removeHole",
+   "kind": "delete",
+   "liveness": "UNKNOWN",
+   "ownFiles": [
+    "plugins/slab/src/handlers/RemoveSlabHole.ts"
+   ],
+   "externalMentionCount": 4,
+   "externalMentions": [
+    "packages/ai-host/src/capabilities/ChatCommandClassification.ts",
+    "packages/runtime-composer/src/CommandEventBridge.ts",
+    "packages/sync-client/src/syncDisposition.ts",
+    "plugins/slab/src/handlers/index.ts"
+   ]
+  },
+  {
+   "verb": "slab.setBaseOffset",
+   "kind": "update",
+   "liveness": "UNKNOWN",
+   "ownFiles": [
+    "plugins/slab/src/handlers/SetSlabBaseOffset.ts"
+   ],
+   "externalMentionCount": 5,
+   "externalMentions": [
+    "packages/ai-host/src/capabilities/ChatCommandClassification.ts",
+    "packages/runtime-composer/src/CommandEventBridge.ts",
+    "packages/sync-client/src/syncDisposition.ts",
+    "plugins/cross/src/slab-wall.ts",
+    "plugins/slab/src/handlers/index.ts"
+   ]
+  },
+  {
+   "verb": "slab.setMaterial",
+   "kind": "update",
+   "liveness": "REFUSES",
+   "ownFiles": [
+    "plugins/slab/src/handlers/SetSlabMaterial.ts"
+   ],
+   "externalMentionCount": 4,
+   "externalMentions": [
+    "packages/ai-host/src/capabilities/CapabilityRefusal.ts",
+    "packages/ai-host/src/capabilities/ChatCapabilityRegistry.ts",
+    "packages/sync-client/src/syncDisposition.ts",
+    "plugins/slab/src/handlers/index.ts"
+   ]
+  },
+  {
+   "verb": "slab.setThickness",
+   "kind": "update",
+   "liveness": "UNKNOWN",
+   "ownFiles": [
+    "plugins/slab/src/handlers/SetSlabThickness.ts"
+   ],
+   "externalMentionCount": 6,
+   "externalMentions": [
+    "packages/ai-host/src/capabilities/ChatCommandClassification.ts",
+    "packages/runtime-composer/src/CommandEventBridge.ts",
+    "packages/runtime-composer/src/types.ts",
+    "packages/sync-client/src/syncDisposition.ts",
+    "plugins/cross/src/slab-wall.ts",
+    "plugins/slab/src/handlers/index.ts"
+   ]
+  },
+  {
+   "verb": "slab.setType",
+   "kind": "update",
+   "liveness": "UNKNOWN",
+   "ownFiles": [
+    "plugins/slab/src/handlers/SetSlabType.ts"
+   ],
+   "externalMentionCount": 4,
+   "externalMentions": [
+    "packages/ai-host/src/capabilities/ChatCommandClassification.ts",
+    "packages/runtime-composer/src/CommandEventBridge.ts",
+    "packages/sync-client/src/syncDisposition.ts",
+    "plugins/slab/src/handlers/index.ts"
+   ]
+  },
+  {
+   "verb": "slab.update",
+   "kind": "update",
+   "liveness": "UNKNOWN",
+   "ownFiles": [
+    "plugins/slab/src/handlers/UpdateSlab.ts"
+   ],
+   "externalMentionCount": 11,
+   "externalMentions": [
+    "apps/editor/src/engine/views/plantools/SlabPlanToolHandler.ts",
+    "apps/editor/src/ui/property-inspector/PropertyInspectorApply.ts",
+    "apps/editor/src/ui/property-inspector/SlabLayerSection.ts",
+    "apps/editor/src/ui/property-panel/PropertyPanelBodyRenderer.ts",
+    "packages/ai-host/src/capabilities/ChatCommandClassification.ts",
+    "packages/command-bus/src/commands.ts",
+    "packages/geometry-slab/src/SlabPickWallsController.ts",
+    "packages/geometry-slab/src/SlabTool.ts"
+   ]
+  },
+  {
+   "verb": "slab.updateDimensions",
+   "kind": "update",
+   "liveness": "LIVE",
+   "ownFiles": [
+    "apps/editor/src/engine/initBusHandlers.ts"
+   ],
+   "externalMentionCount": 6,
+   "externalMentions": [
+    "apps/editor/src/ui/property-inspector/MaterialDispatch.ts",
+    "apps/editor/src/ui/property-inspector/PropertyInspectorApply.ts",
+    "packages/ai-host/src/capabilities/ChatCapabilityRegistry.ts",
+    "packages/ai-host/src/intents/ZeroTokenResolver.ts",
+    "packages/command-bus/src/commands.ts",
+    "packages/sync-client/src/syncDisposition.ts"
+   ]
+  },
+  {
+   "verb": "slab.updateLayers",
+   "kind": "update",
+   "liveness": "UNKNOWN",
+   "ownFiles": [
+    "plugins/slab/src/handlers/UpdateSlabLayers.ts"
+   ],
+   "externalMentionCount": 8,
+   "externalMentions": [
+    "apps/editor/src/engine/initBusHandlers.ts",
+    "apps/editor/src/ui/property-panel/PropertyPanelTypeSelector.ts",
+    "packages/ai-host/src/capabilities/ChatCommandClassification.ts",
+    "packages/command-bus/src/commands.ts",
+    "packages/runtime-composer/src/CommandEventBridge.ts",
+    "packages/runtime-composer/src/types.ts",
+    "packages/sync-client/src/syncDisposition.ts",
+    "plugins/slab/src/handlers/index.ts"
+   ]
+  },
+  {
+   "verb": "slab.updatePolygon",
+   "kind": "update",
+   "liveness": "UNKNOWN",
+   "ownFiles": [
+    "plugins/slab/src/handlers/UpdateSlabPolygon.ts"
+   ],
+   "externalMentionCount": 6,
+   "externalMentions": [
+    "apps/editor/src/engine/views/plantools/AlignPlanToolHandler.ts",
+    "apps/editor/src/ui/property-panel/SlabDimensionsEditor.ts",
+    "packages/ai-host/src/capabilities/ChatCommandClassification.ts",
+    "packages/command-bus/src/commands.ts",
+    "packages/sync-client/src/syncDisposition.ts",
+    "plugins/slab/src/handlers/index.ts"
+   ]
+  },
+  {
+   "verb": "slab.updateSystemTypeBatch",
+   "kind": "update",
+   "liveness": "LIVE",
+   "ownFiles": [
+    "plugins/slab/src/handlers/UpdateSlabsSystemTypeBatch.ts"
+   ],
+   "externalMentionCount": 5,
+   "externalMentions": [
+    "apps/editor/src/ui/ai/ZeroTokenChatBridge.ts",
+    "packages/ai-host/src/capabilities/ChatCapabilityRegistry.ts",
+    "packages/ai-host/src/intents/CatalogueFamilies.ts",
+    "packages/sync-client/src/syncDisposition.ts",
+    "plugins/slab/src/handlers/index.ts"
+   ]
+  },
+  {
+   "verb": "stair.batch.create",
+   "kind": "batch.create",
+   "liveness": "UNKNOWN",
+   "ownFiles": [
+    "plugins/stair/src/handlers/CreateStairBatch.ts"
+   ],
+   "externalMentionCount": 6,
+   "externalMentions": [
+    "apps/editor/src/engine/initBusHandlers.ts",
+    "packages/ai-host/src/capabilities/ChatCommandClassification.ts",
+    "packages/command-bus/src/commands.ts",
+    "packages/runtime-composer/src/types.ts",
+    "packages/sync-client/src/syncDisposition.ts",
+    "plugins/stair/src/handlers/index.ts"
+   ]
+  },
+  {
+   "verb": "stair.create",
+   "kind": "create",
+   "liveness": "LIVE",
+   "ownFiles": [
+    "apps/editor/src/engine/initBusHandlers.ts"
+   ],
+   "externalMentionCount": 9,
+   "externalMentions": [
+    "apps/editor/src/engine/views/plantools/StairPlanToolHandler.ts",
+    "packages/ai-host/src/capabilities/ChatCommandClassification.ts",
+    "packages/command-bus/src/commands.ts",
+    "packages/geometry-stair/src/stairPath/StairPathToolController.ts",
+    "packages/geometry-stair/src/StairTool.ts",
+    "packages/runtime-composer/src/types.ts",
+    "packages/sync-client/src/syncDisposition.ts",
+    "plugins/stair/src/handlers/index.ts"
+   ]
+  },
+  {
+   "verb": "stair.createRailing",
+   "kind": "create",
+   "liveness": "LIVE",
+   "ownFiles": [
+    "plugins/stair/src/handlers/CreateStairRailing.ts"
+   ],
+   "externalMentionCount": 6,
+   "externalMentions": [
+    "apps/editor/src/engine/initTools.ts",
+    "packages/ai-host/src/capabilities/ChatCommandClassification.ts",
+    "packages/command-bus/src/commands.ts",
+    "packages/command-registry/src/stair/CreateStairCommand.ts",
+    "packages/sync-client/src/syncDisposition.ts",
+    "plugins/stair/src/handlers/index.ts"
+   ]
+  },
+  {
+   "verb": "stair.delete",
+   "kind": "delete",
+   "liveness": "UNKNOWN",
+   "ownFiles": [
+    "plugins/stair/src/handlers/DeleteStair.ts"
+   ],
+   "externalMentionCount": 3,
+   "externalMentions": [
+    "packages/ai-host/src/capabilities/ChatCommandClassification.ts",
+    "packages/sync-client/src/syncDisposition.ts",
+    "plugins/stair/src/handlers/index.ts"
+   ]
+  },
+  {
+   "verb": "stair.move",
+   "kind": "move",
+   "liveness": "UNKNOWN",
+   "ownFiles": [
+    "plugins/stair/src/handlers/MoveStair.ts"
+   ],
+   "externalMentionCount": 9,
+   "externalMentions": [
+    "apps/editor/src/engine/initBusHandlers.ts",
+    "apps/editor/src/engine/registerTransformDragHandler.ts",
+    "apps/editor/src/engine/transforms/elementMove.ts",
+    "packages/ai-host/src/capabilities/ChatCapabilityRegistry.ts",
+    "packages/command-bus/src/commands.ts",
+    "packages/geometry-boundary-line/src/BoundaryLinePropagation.ts",
+    "packages/sync-client/src/syncDisposition.ts",
+    "plugins/cross/src/stair-handrail.ts"
+   ]
+  },
+  {
+   "verb": "stair.rotate",
+   "kind": "other",
+   "liveness": "REFUSES",
+   "ownFiles": [
+    "plugins/stair/src/handlers/RotateStair.ts"
+   ],
+   "externalMentionCount": 4,
+   "externalMentions": [
+    "packages/ai-host/src/capabilities/ChatCapabilityRegistry.ts",
+    "packages/sync-client/src/syncDisposition.ts",
+    "plugins/cross/src/stair-handrail.ts",
+    "plugins/stair/src/handlers/index.ts"
+   ]
+  },
+  {
+   "verb": "stair.setMaterial",
+   "kind": "update",
+   "liveness": "REFUSES",
+   "ownFiles": [
+    "plugins/stair/src/handlers/SetStairMaterial.ts"
+   ],
+   "externalMentionCount": 3,
+   "externalMentions": [
+    "packages/ai-host/src/capabilities/ChatCapabilityRegistry.ts",
+    "packages/sync-client/src/syncDisposition.ts",
+    "plugins/stair/src/handlers/index.ts"
+   ]
+  },
+  {
+   "verb": "stair.setRiserHeight",
+   "kind": "update",
+   "liveness": "UNKNOWN",
+   "ownFiles": [
+    "plugins/stair/src/handlers/SetRiserHeight.ts"
+   ],
+   "externalMentionCount": 4,
+   "externalMentions": [
+    "packages/ai-host/src/capabilities/ChatCommandClassification.ts",
+    "packages/sync-client/src/syncDisposition.ts",
+    "plugins/cross/src/stair-handrail.ts",
+    "plugins/stair/src/handlers/index.ts"
+   ]
+  },
+  {
+   "verb": "stair.setShape",
+   "kind": "update",
+   "liveness": "UNKNOWN",
+   "ownFiles": [
+    "plugins/stair/src/handlers/SetStairShape.ts"
+   ],
+   "externalMentionCount": 4,
+   "externalMentions": [
+    "packages/ai-host/src/capabilities/ChatCommandClassification.ts",
+    "packages/sync-client/src/syncDisposition.ts",
+    "plugins/cross/src/stair-handrail.ts",
+    "plugins/stair/src/handlers/index.ts"
+   ]
+  },
+  {
+   "verb": "stair.setTreadCount",
+   "kind": "update",
+   "liveness": "UNKNOWN",
+   "ownFiles": [
+    "plugins/stair/src/handlers/SetTreadCount.ts"
+   ],
+   "externalMentionCount": 4,
+   "externalMentions": [
+    "packages/ai-host/src/capabilities/ChatCommandClassification.ts",
+    "packages/sync-client/src/syncDisposition.ts",
+    "plugins/cross/src/stair-handrail.ts",
+    "plugins/stair/src/handlers/index.ts"
+   ]
+  },
+  {
+   "verb": "stair.setType",
+   "kind": "update",
+   "liveness": "UNKNOWN",
+   "ownFiles": [
+    "plugins/stair/src/handlers/SetStairType.ts"
+   ],
+   "externalMentionCount": 3,
+   "externalMentions": [
+    "packages/ai-host/src/capabilities/ChatCommandClassification.ts",
+    "packages/sync-client/src/syncDisposition.ts",
+    "plugins/stair/src/handlers/index.ts"
+   ]
+  },
+  {
+   "verb": "stair.setWidth",
+   "kind": "update",
+   "liveness": "UNKNOWN",
+   "ownFiles": [
+    "plugins/stair/src/handlers/SetWidth.ts"
+   ],
+   "externalMentionCount": 4,
+   "externalMentions": [
+    "packages/ai-host/src/capabilities/ChatCommandClassification.ts",
+    "packages/sync-client/src/syncDisposition.ts",
+    "plugins/cross/src/stair-handrail.ts",
+    "plugins/stair/src/handlers/index.ts"
+   ]
+  },
+  {
+   "verb": "stair.updateParameters",
+   "kind": "update",
+   "liveness": "LIVE",
+   "ownFiles": [
+    "plugins/stair/src/handlers/UpdateStairParameters.ts"
+   ],
+   "externalMentionCount": 10,
+   "externalMentions": [
+    "apps/editor/src/ui/property-inspector/PropertyInspectorApply.ts",
+    "apps/editor/src/ui/property-panel/PropertyPanelTypeSelector.ts",
+    "apps/editor/src/ui/property-panel/StairLevelSpanWidget.ts",
+    "apps/editor/src/ui/property-panel/StairSecondRunWidget.ts",
+    "packages/ai-host/src/capabilities/ChatCapabilityRegistry.ts",
+    "packages/ai-host/src/intents/CatalogueFamilies.ts",
+    "packages/ai-host/src/intents/ZeroTokenResolver.ts",
+    "packages/command-bus/src/commands.ts"
+   ]
+  },
+  {
+   "verb": "structural.create",
+   "kind": "create",
+   "liveness": "UNKNOWN",
+   "ownFiles": [
+    "plugins/structural/src/handlers/CreateStructural.ts"
+   ],
+   "externalMentionCount": 6,
+   "externalMentions": [
+    "packages/ai-host/src/capabilities/ChatCommandClassification.ts",
+    "packages/runtime-composer/src/CommandEventBridge.ts",
+    "packages/runtime-composer/src/types.ts",
+    "packages/sync-client/src/syncDisposition.ts",
+    "plugins/structural/src/handlers/index.ts",
+    "plugins/structural/src/tool.ts"
+   ]
+  },
+  {
+   "verb": "structural.delete",
+   "kind": "delete",
+   "liveness": "UNKNOWN",
+   "ownFiles": [
+    "plugins/structural/src/handlers/DeleteStructural.ts"
+   ],
+   "externalMentionCount": 3,
+   "externalMentions": [
+    "packages/ai-host/src/capabilities/ChatCommandClassification.ts",
+    "packages/sync-client/src/syncDisposition.ts",
+    "plugins/structural/src/handlers/index.ts"
+   ]
+  },
+  {
+   "verb": "structural.move",
+   "kind": "move",
+   "liveness": "REFUSES",
+   "ownFiles": [
+    "plugins/structural/src/handlers/MoveStructural.ts"
+   ],
+   "externalMentionCount": 3,
+   "externalMentions": [
+    "packages/ai-host/src/capabilities/ChatCapabilityRegistry.ts",
+    "packages/sync-client/src/syncDisposition.ts",
+    "plugins/structural/src/handlers/index.ts"
+   ]
+  },
+  {
+   "verb": "structural.setBraceEndOffset",
+   "kind": "update",
+   "liveness": "UNKNOWN",
+   "ownFiles": [
+    "plugins/structural/src/handlers/SetBraceEndOffset.ts"
+   ],
+   "externalMentionCount": 3,
+   "externalMentions": [
+    "packages/ai-host/src/capabilities/ChatCommandClassification.ts",
+    "packages/sync-client/src/syncDisposition.ts",
+    "plugins/structural/src/handlers/index.ts"
+   ]
+  },
+  {
+   "verb": "structural.setDimensions",
+   "kind": "update",
+   "liveness": "UNKNOWN",
+   "ownFiles": [
+    "plugins/structural/src/handlers/SetStructuralDimensions.ts"
+   ],
+   "externalMentionCount": 3,
+   "externalMentions": [
+    "packages/ai-host/src/capabilities/ChatCommandClassification.ts",
+    "packages/sync-client/src/syncDisposition.ts",
+    "plugins/structural/src/handlers/index.ts"
+   ]
+  },
+  {
+   "verb": "structural.setKind",
+   "kind": "update",
+   "liveness": "UNKNOWN",
+   "ownFiles": [
+    "plugins/structural/src/handlers/SetStructuralKind.ts"
+   ],
+   "externalMentionCount": 3,
+   "externalMentions": [
+    "packages/ai-host/src/capabilities/ChatCommandClassification.ts",
+    "packages/sync-client/src/syncDisposition.ts",
+    "plugins/structural/src/handlers/index.ts"
+   ]
+  },
+  {
+   "verb": "structural.setMaterial",
+   "kind": "update",
+   "liveness": "REFUSES",
+   "ownFiles": [
+    "plugins/structural/src/handlers/SetStructuralMaterial.ts"
+   ],
+   "externalMentionCount": 3,
+   "externalMentions": [
+    "packages/ai-host/src/capabilities/ChatCapabilityRegistry.ts",
+    "packages/sync-client/src/syncDisposition.ts",
+    "plugins/structural/src/handlers/index.ts"
+   ]
+  },
+  {
+   "verb": "template.assignToNode",
+   "kind": "update",
+   "liveness": "LIVE",
+   "ownFiles": [
+    "apps/editor/src/engine/initBusHandlers.ts"
+   ],
+   "externalMentionCount": 6,
+   "externalMentions": [
+    "apps/editor/src/ui/dataworkbench/DataSheetPanel.ts",
+    "apps/editor/src/ui/generative/BriefInputPanel.ts",
+    "packages/ai-host/src/capabilities/ChatCommandClassification.ts",
+    "packages/command-bus/src/commands.ts",
+    "packages/sync-client/src/syncDisposition.ts",
+    "plugins/rooms/src/handlers/index.ts"
+   ]
+  },
+  {
+   "verb": "template.create",
+   "kind": "create",
+   "liveness": "LIVE",
+   "ownFiles": [
+    "plugins/rooms/src/handlers/CreateTemplate.ts"
+   ],
+   "externalMentionCount": 5,
+   "externalMentions": [
+    "apps/editor/src/ui/generative/BriefInputPanel.ts",
+    "packages/ai-host/src/capabilities/ChatCommandClassification.ts",
+    "packages/command-bus/src/commands.ts",
+    "packages/sync-client/src/syncDisposition.ts",
+    "plugins/rooms/src/handlers/index.ts"
+   ]
+  },
+  {
+   "verb": "template.unassign",
+   "kind": "other",
+   "liveness": "LIVE",
+   "ownFiles": [
+    "apps/editor/src/engine/initBusHandlers.ts"
+   ],
+   "externalMentionCount": 3,
+   "externalMentions": [
+    "apps/editor/src/ui/dataworkbench/DataSheetPanel.ts",
+    "packages/ai-host/src/capabilities/ChatCommandClassification.ts",
+    "packages/sync-client/src/syncDisposition.ts"
+   ]
+  },
+  {
+   "verb": "vg.assignIntent",
+   "kind": "update",
+   "liveness": "LIVE",
+   "ownFiles": [
+    "apps/editor/src/engine/initBusHandlers.ts"
+   ],
+   "externalMentionCount": 6,
+   "externalMentions": [
+    "apps/editor/src/engine/engineLauncher.ts",
+    "apps/editor/src/ui/intent/HeaderIntentPicker.ts",
+    "apps/editor/src/ui/OverridePanel.ts",
+    "apps/editor/src/ui/ViewPropertiesPanel.ts",
+    "packages/ai-host/src/capabilities/ChatCommandClassification.ts",
+    "packages/sync-client/src/syncDisposition.ts"
+   ]
+  },
+  {
+   "verb": "vg.createVisibilityIntent",
+   "kind": "create",
+   "liveness": "LIVE",
+   "ownFiles": [
+    "apps/editor/src/engine/initBusHandlers.ts"
+   ],
+   "externalMentionCount": 4,
+   "externalMentions": [
+    "apps/editor/src/ui/OverridePanel.ts",
+    "apps/editor/src/ui/views/VisibilityIntentManagerPanel.ts",
+    "packages/ai-host/src/capabilities/ChatCommandClassification.ts",
+    "packages/sync-client/src/syncDisposition.ts"
+   ]
+  },
+  {
+   "verb": "vg.takeLatestIntentVersion",
+   "kind": "other",
+   "liveness": "LIVE",
+   "ownFiles": [
+    "apps/editor/src/engine/initBusHandlers.ts"
+   ],
+   "externalMentionCount": 3,
+   "externalMentions": [
+    "apps/editor/src/ui/ViewPropertiesPanelBuilders.ts",
+    "packages/ai-host/src/capabilities/ChatCommandClassification.ts",
+    "packages/sync-client/src/syncDisposition.ts"
+   ]
+  },
+  {
+   "verb": "vg.updateVisibilityIntent",
+   "kind": "update",
+   "liveness": "LIVE",
+   "ownFiles": [
+    "apps/editor/src/engine/initBusHandlers.ts"
+   ],
+   "externalMentionCount": 4,
+   "externalMentions": [
+    "apps/editor/src/ui/OverridePanel.ts",
+    "apps/editor/src/ui/views/VisibilityIntentManagerPanel.ts",
+    "packages/ai-host/src/capabilities/ChatCommandClassification.ts",
+    "packages/sync-client/src/syncDisposition.ts"
+   ]
+  },
+  {
+   "verb": "view.clearAllOverrides",
+   "kind": "other",
+   "liveness": "LIVE",
+   "ownFiles": [
+    "apps/editor/src/engine/initBusHandlers.ts"
+   ],
+   "externalMentionCount": 7,
+   "externalMentions": [
+    "apps/editor/src/engine/views/PlanViewManager.ts",
+    "apps/editor/src/ui/intent/SpineOverrideList.ts",
+    "apps/editor/src/ui/OverridePanel.ts",
+    "apps/editor/src/ui/ViewBrowser/panels/unified-browser/ProjectVisibilitySection.ts",
+    "apps/editor/src/ui/views/ViewHeaderButtons.ts",
+    "packages/ai-host/src/capabilities/ChatCommandClassification.ts",
+    "packages/sync-client/src/syncDisposition.ts"
+   ]
+  },
+  {
+   "verb": "view.clearOverride",
+   "kind": "other",
+   "liveness": "LIVE",
+   "ownFiles": [
+    "apps/editor/src/engine/initBusHandlers.ts"
+   ],
+   "externalMentionCount": 7,
+   "externalMentions": [
+    "apps/editor/src/engine/views/PlanViewInteraction.ts",
+    "apps/editor/src/ui/intent/SpineOverrideList.ts",
+    "apps/editor/src/ui/OverridePanel.ts",
+    "apps/editor/src/ui/RadialMenu.ts",
+    "apps/editor/src/ui/ViewBrowser/panels/unified-browser/ProjectVisibilitySection.ts",
+    "packages/ai-host/src/capabilities/ChatCommandClassification.ts",
+    "packages/sync-client/src/syncDisposition.ts"
+   ]
+  },
+  {
+   "verb": "view.create",
+   "kind": "create",
+   "liveness": "UNKNOWN",
+   "ownFiles": [
+    "plugins/view/src/handlers/CreateView.ts"
+   ],
+   "externalMentionCount": 3,
+   "externalMentions": [
+    "packages/ai-host/src/capabilities/ChatCommandClassification.ts",
+    "packages/sync-client/src/syncDisposition.ts",
+    "plugins/view/src/intent.ts"
+   ]
+  },
+  {
+   "verb": "view.createDefinition",
+   "kind": "create",
+   "liveness": "LIVE",
+   "ownFiles": [
+    "apps/editor/src/engine/initBusHandlers.ts"
+   ],
+   "externalMentionCount": 6,
+   "externalMentions": [
+    "apps/editor/src/ui/documentation/generateDocumentationSet.ts",
+    "apps/editor/src/ui/documentation/generateRoomInteriorElevations.ts",
+    "apps/editor/src/ui/house-layout/HouseLayoutExecutor.ts",
+    "apps/editor/src/ui/ViewBrowser/panels/ViewsRailPanel.ts",
+    "packages/ai-host/src/capabilities/ChatCommandClassification.ts",
+    "packages/sync-client/src/syncDisposition.ts"
+   ]
+  },
+  {
+   "verb": "view.delete",
+   "kind": "delete",
+   "liveness": "UNKNOWN",
+   "ownFiles": [
+    "plugins/view/src/handlers/DeleteView.ts"
+   ],
+   "externalMentionCount": 3,
+   "externalMentions": [
+    "packages/ai-host/src/capabilities/ChatCommandClassification.ts",
+    "packages/sync-client/src/syncDisposition.ts",
+    "plugins/view/src/intent.ts"
+   ]
+  },
+  {
+   "verb": "view.deleteDefinition",
+   "kind": "delete",
+   "liveness": "LIVE",
+   "ownFiles": [
+    "apps/editor/src/engine/initBusHandlers.ts"
+   ],
+   "externalMentionCount": 3,
+   "externalMentions": [
+    "apps/editor/src/ui/ViewBrowser/panels/ViewsRailPanel.ts",
+    "packages/ai-host/src/capabilities/ChatCommandClassification.ts",
+    "packages/sync-client/src/syncDisposition.ts"
+   ]
+  },
+  {
+   "verb": "view.hideElement",
+   "kind": "other",
+   "liveness": "LIVE",
+   "ownFiles": [
+    "apps/editor/src/engine/initBusHandlers.ts"
+   ],
+   "externalMentionCount": 5,
+   "externalMentions": [
+    "apps/editor/src/engine/views/PlanViewInteraction.ts",
+    "apps/editor/src/ui/RadialMenu.ts",
+    "apps/editor/src/ui/ViewBrowser/panels/unified-browser/ProjectVisibilitySection.ts",
+    "packages/ai-host/src/capabilities/ChatCommandClassification.ts",
+    "packages/sync-client/src/syncDisposition.ts"
+   ]
+  },
+  {
+   "verb": "view.isolateElement",
+   "kind": "other",
+   "liveness": "LIVE",
+   "ownFiles": [
+    "apps/editor/src/engine/initBusHandlers.ts"
+   ],
+   "externalMentionCount": 4,
+   "externalMentions": [
+    "apps/editor/src/engine/views/PlanViewInteraction.ts",
+    "apps/editor/src/ui/RadialMenu.ts",
+    "packages/ai-host/src/capabilities/ChatCommandClassification.ts",
+    "packages/sync-client/src/syncDisposition.ts"
+   ]
+  },
+  {
+   "verb": "view.rename",
+   "kind": "update",
+   "liveness": "UNKNOWN",
+   "ownFiles": [
+    "plugins/view/src/handlers/RenameView.ts"
+   ],
+   "externalMentionCount": 3,
+   "externalMentions": [
+    "packages/ai-host/src/capabilities/ChatCommandClassification.ts",
+    "packages/sync-client/src/syncDisposition.ts",
+    "plugins/view/src/intent.ts"
+   ]
+  },
+  {
+   "verb": "view.setCategoryVisibility",
+   "kind": "update",
+   "liveness": "LIVE",
+   "ownFiles": [
+    "apps/editor/src/engine/initBusHandlers.ts"
+   ],
+   "externalMentionCount": 1,
+   "externalMentions": [
+    "apps/editor/src/ui/OverridePanel.ts"
+   ]
+  },
+  {
+   "verb": "view.setCrop",
+   "kind": "update",
+   "liveness": "LIVE",
+   "ownFiles": [
+    "apps/editor/src/engine/initBusHandlers.ts"
+   ],
+   "externalMentionCount": 6,
+   "externalMentions": [
+    "apps/editor/src/engine/views/PlanViewInteraction.ts",
+    "apps/editor/src/ui/ViewPropertiesPanel.ts",
+    "packages/ai-host/src/capabilities/ChatCommandClassification.ts",
+    "packages/command-bus/src/commands.ts",
+    "packages/sync-client/src/syncDisposition.ts",
+    "plugins/view/src/handlers/index.ts"
+   ]
+  },
+  {
+   "verb": "view.setGraphicOverride",
+   "kind": "update",
+   "liveness": "LIVE",
+   "ownFiles": [
+    "apps/editor/src/engine/initBusHandlers.ts"
+   ],
+   "externalMentionCount": 4,
+   "externalMentions": [
+    "apps/editor/src/engine/views/PlanViewInteraction.ts",
+    "apps/editor/src/ui/RadialMenu.ts",
+    "packages/ai-host/src/capabilities/ChatCommandClassification.ts",
+    "packages/sync-client/src/syncDisposition.ts"
+   ]
+  },
+  {
+   "verb": "view.setOutput",
+   "kind": "update",
+   "liveness": "UNKNOWN",
+   "ownFiles": [
+    "plugins/view/src/handlers/SetViewOutput.ts"
+   ],
+   "externalMentionCount": 3,
+   "externalMentions": [
+    "packages/ai-host/src/capabilities/ChatCommandClassification.ts",
+    "packages/command-bus/src/commands.ts",
+    "packages/sync-client/src/syncDisposition.ts"
+   ]
+  },
+  {
+   "verb": "view.setProjection",
+   "kind": "update",
+   "liveness": "LIVE",
+   "ownFiles": [
+    "plugins/view/src/handlers/SetViewProjection.ts"
+   ],
+   "externalMentionCount": 4,
+   "externalMentions": [
+    "apps/editor/src/engine/initUI.ts",
+    "packages/ai-host/src/capabilities/ChatCommandClassification.ts",
+    "packages/command-bus/src/commands.ts",
+    "packages/sync-client/src/syncDisposition.ts"
+   ]
+  },
+  {
+   "verb": "view.setRange",
+   "kind": "update",
+   "liveness": "UNKNOWN",
+   "ownFiles": [
+    "plugins/view/src/handlers/SetViewRange.ts"
+   ],
+   "externalMentionCount": 4,
+   "externalMentions": [
+    "apps/editor/src/ui/ViewPropertiesPanel.ts",
+    "packages/ai-host/src/capabilities/ChatCommandClassification.ts",
+    "packages/command-bus/src/commands.ts",
+    "packages/sync-client/src/syncDisposition.ts"
+   ]
+  },
+  {
+   "verb": "view.setUnderlay",
+   "kind": "update",
+   "liveness": "UNKNOWN",
+   "ownFiles": [
+    "plugins/view/src/handlers/SetViewUnderlay.ts"
+   ],
+   "externalMentionCount": 4,
+   "externalMentions": [
+    "apps/editor/src/ui/ViewPropertiesPanel.ts",
+    "packages/ai-host/src/capabilities/ChatCommandClassification.ts",
+    "packages/command-bus/src/commands.ts",
+    "packages/sync-client/src/syncDisposition.ts"
+   ]
+  },
+  {
+   "verb": "view.switch",
+   "kind": "other",
+   "liveness": "UNKNOWN",
+   "ownFiles": [
+    "plugins/view/src/handlers/SwitchView.ts"
+   ],
+   "externalMentionCount": 5,
+   "externalMentions": [
+    "apps/editor/src/PluginRegistry.ts",
+    "packages/ai-host/src/capabilities/ChatCapabilityRegistry.ts",
+    "packages/sync-client/src/syncDisposition.ts",
+    "plugins/view/src/intent.ts",
+    "plugins/view/src/tool.ts"
+   ]
+  },
+  {
+   "verb": "view.updateCamera",
+   "kind": "update",
+   "liveness": "UNKNOWN",
+   "ownFiles": [
+    "plugins/view/src/handlers/UpdateViewCamera.ts"
+   ],
+   "externalMentionCount": 3,
+   "externalMentions": [
+    "packages/ai-host/src/capabilities/ChatCommandClassification.ts",
+    "packages/sync-client/src/syncDisposition.ts",
+    "plugins/view/src/intent.ts"
+   ]
+  },
+  {
+   "verb": "view.updateDefinition",
+   "kind": "update",
+   "liveness": "LIVE",
+   "ownFiles": [
+    "apps/editor/src/engine/initBusHandlers.ts"
+   ],
+   "externalMentionCount": 5,
+   "externalMentions": [
+    "apps/editor/src/engine/views/PlanViewInteraction.ts",
+    "apps/editor/src/ui/ViewPropertiesPanel.ts",
+    "packages/ai-host/src/capabilities/ChatCommandClassification.ts",
+    "packages/command-bus/src/commands.ts",
+    "packages/sync-client/src/syncDisposition.ts"
+   ]
+  },
+  {
+   "verb": "viewTemplate.create",
+   "kind": "create",
+   "liveness": "LIVE",
+   "ownFiles": [
+    "apps/editor/src/engine/initBusHandlers.ts"
+   ],
+   "externalMentionCount": 2,
+   "externalMentions": [
+    "packages/ai-host/src/capabilities/ChatCommandClassification.ts",
+    "packages/sync-client/src/syncDisposition.ts"
+   ]
+  },
+  {
+   "verb": "viewTemplate.delete",
+   "kind": "delete",
+   "liveness": "LIVE",
+   "ownFiles": [
+    "apps/editor/src/engine/initBusHandlers.ts"
+   ],
+   "externalMentionCount": 2,
+   "externalMentions": [
+    "packages/ai-host/src/capabilities/ChatCommandClassification.ts",
+    "packages/sync-client/src/syncDisposition.ts"
+   ]
+  },
+  {
+   "verb": "viewTemplate.update",
+   "kind": "update",
+   "liveness": "LIVE",
+   "ownFiles": [
+    "apps/editor/src/engine/initBusHandlers.ts"
+   ],
+   "externalMentionCount": 2,
+   "externalMentions": [
+    "packages/ai-host/src/capabilities/ChatCommandClassification.ts",
+    "packages/sync-client/src/syncDisposition.ts"
+   ]
+  },
+  {
+   "verb": "wall.addLayerBatch",
+   "kind": "update",
+   "liveness": "LIVE",
+   "ownFiles": [
+    "plugins/wall/src/handlers/AddWallLayerBatch.ts"
+   ],
+   "externalMentionCount": 5,
+   "externalMentions": [
+    "apps/editor/src/ui/ai/ZeroTokenChatBridge.ts",
+    "packages/ai-host/src/capabilities/ChatCapabilityRegistry.ts",
+    "packages/ai-host/src/intents/CapabilityExecutionSpec.ts",
+    "packages/sync-client/src/syncDisposition.ts",
+    "plugins/wall/src/handlers/index.ts"
+   ]
+  },
+  {
+   "verb": "wall.batch.create",
+   "kind": "batch.create",
+   "liveness": "UNKNOWN",
+   "ownFiles": [
+    "plugins/wall/src/handlers/CreateWallBatch.ts"
+   ],
+   "externalMentionCount": 18,
+   "externalMentions": [
+    "apps/editor/src/engine/consequence/ConsequencePreviewService.ts",
+    "apps/editor/src/engine/consequence/consequencePreviewServiceComposition.ts",
+    "apps/editor/src/engine/consequence/WallBatchCreateConsequencePlanner.ts",
+    "apps/editor/src/engine/initTools.ts",
+    "apps/editor/src/engine/views/plantools/duplicateToLevel.ts",
+    "apps/editor/src/ui/house-layout/HouseLayoutExecutor.ts",
+    "apps/editor/src/ui/office-building/OfficeBuildingExecutor.ts",
+    "apps/editor/src/ui/residential-building/ResidentialBuildingExecutor.ts"
+   ]
+  },
+  {
+   "verb": "wall.bulkSetVisuals",
+   "kind": "other",
+   "liveness": "REFUSES",
+   "ownFiles": [
+    "plugins/wall/src/handlers/BulkSetWallVisuals.ts"
+   ],
+   "externalMentionCount": 4,
+   "externalMentions": [
+    "packages/ai-host/src/capabilities/CapabilityRefusal.ts",
+    "packages/ai-host/src/capabilities/ChatCapabilityRegistry.ts",
+    "packages/sync-client/src/syncDisposition.ts",
+    "plugins/wall/src/handlers/index.ts"
+   ]
+  },
+  {
+   "verb": "wall.cascadeBaseline",
+   "kind": "other",
+   "liveness": "LIVE",
+   "ownFiles": [
+    "plugins/wall/src/handlers/CascadeWallBaseline.ts"
+   ],
+   "externalMentionCount": 5,
+   "externalMentions": [
+    "apps/editor/src/engine/transforms/elementMove.ts",
+    "apps/editor/src/engine/views/plantools/MovePlanToolHandler.ts",
+    "packages/ai-host/src/capabilities/ChatCommandClassification.ts",
+    "packages/sync-client/src/syncDisposition.ts",
+    "plugins/wall/src/handlers/index.ts"
+   ]
+  },
+  {
+   "verb": "wall.changeLevel",
+   "kind": "move",
+   "liveness": "LIVE",
+   "ownFiles": [
+    "plugins/wall/src/handlers/ChangeWallLevel.ts"
+   ],
+   "externalMentionCount": 6,
+   "externalMentions": [
+    "packages/ai-host/src/capabilities/ChatCapabilityRegistry.ts",
+    "packages/command-bus/src/levelChangeVerbs.ts",
+    "packages/runtime-composer/src/types.ts",
+    "packages/sync-client/src/syncDisposition.ts",
+    "plugins/cross/src/wall-room.ts",
+    "plugins/wall/src/handlers/index.ts"
+   ]
+  },
+  {
+   "verb": "wall.create",
+   "kind": "create",
+   "liveness": "UNKNOWN",
+   "ownFiles": [
+    "plugins/wall/src/handlers/CreateWall.ts"
+   ],
+   "externalMentionCount": 38,
+   "externalMentions": [
+    "apps/bench/src/benches/bake-incremental.bench.ts",
+    "apps/bench/src/benches/codec-spike.bench.ts",
+    "apps/bench/src/benches/pack-unpack.bench.ts",
+    "apps/bench/src/benches/persistence-stress.bench.ts",
+    "apps/bench/src/benches/save-edit.bench.ts",
+    "apps/bench/src/benches/save-reload.bench.ts",
+    "apps/bench/src/benches/sync-roundtrip.bench.ts",
+    "apps/bench/src/benches/tool-latency.bench.ts"
+   ]
+  },
+  {
+   "verb": "wall.create-on-all-slabs",
+   "kind": "create",
+   "liveness": "LIVE",
+   "ownFiles": [
+    "plugins/wall/src/handlers/CreateWallsOnAllSlabs.ts"
+   ],
+   "externalMentionCount": 5,
+   "externalMentions": [
+    "apps/editor/src/ui/layout/ToolsAreaLayout.ts",
+    "packages/ai-host/src/capabilities/ChatCommandClassification.ts",
+    "packages/command-bus/src/commands.ts",
+    "packages/sync-client/src/syncDisposition.ts",
+    "plugins/wall/src/handlers/index.ts"
+   ]
+  },
+  {
+   "verb": "wall.createBetweenMarks",
+   "kind": "create",
+   "liveness": "UNKNOWN",
+   "ownFiles": [
+    "plugins/wall/src/handlers/CreateWallBetweenMarks.ts"
+   ],
+   "externalMentionCount": 3,
+   "externalMentions": [
+    "packages/ai-host/src/capabilities/ChatCommandClassification.ts",
+    "packages/sync-client/src/syncDisposition.ts",
+    "plugins/wall/src/handlers/index.ts"
+   ]
+  },
+  {
+   "verb": "wall.createFromSlab",
+   "kind": "create",
+   "liveness": "UNKNOWN",
+   "ownFiles": [
+    "plugins/wall/src/handlers/CreateWallsFromSlab.ts"
+   ],
+   "externalMentionCount": 6,
+   "externalMentions": [
+    "apps/editor/src/engine/initTools.ts",
+    "packages/ai-host/src/capabilities/ChatCommandClassification.ts",
+    "packages/command-bus/src/commands.ts",
+    "packages/geometry-wall/src/WallTool.ts",
+    "packages/sync-client/src/syncDisposition.ts",
+    "plugins/wall/src/handlers/index.ts"
+   ]
+  },
+  {
+   "verb": "wall.createOpening",
+   "kind": "create",
+   "liveness": "UNKNOWN",
+   "ownFiles": [
+    "plugins/wall/src/handlers/CreateWallOpening.ts"
+   ],
+   "externalMentionCount": 11,
+   "externalMentions": [
+    "apps/editor/src/engine/consequence/ConsequencePreviewService.ts",
+    "packages/ai-host/src/capabilities/CapabilityRefusal.ts",
+    "packages/ai-host/src/capabilities/ChatCapabilityRegistry.ts",
+    "packages/ai-host/src/workflows/apartmentLayout/executePlan.ts",
+    "packages/runtime-composer/src/CommandEventBridge.ts",
+    "packages/runtime-composer/src/types.ts",
+    "packages/sync-client/src/syncDisposition.ts",
+    "plugins/door/src/handlers/CreateDoor.ts"
+   ]
+  },
+  {
+   "verb": "wall.cut",
+   "kind": "other",
+   "liveness": "UNKNOWN",
+   "ownFiles": [
+    "plugins/wall/src/handlers/CutWall.ts"
+   ],
+   "externalMentionCount": 4,
+   "externalMentions": [
+    "apps/editor/src/ui/SelectionOverlay.ts",
+    "packages/ai-host/src/capabilities/ChatCapabilityRegistry.ts",
+    "packages/sync-client/src/syncDisposition.ts",
+    "plugins/wall/src/handlers/index.ts"
+   ]
+  },
+  {
+   "verb": "wall.delete",
+   "kind": "delete",
+   "liveness": "UNKNOWN",
+   "ownFiles": [
+    "plugins/wall/src/handlers/DeleteWall.ts"
+   ],
+   "externalMentionCount": 9,
+   "externalMentions": [
+    "apps/bench/src/benches/pack-unpack.bench.ts",
+    "apps/bench/src/benches/wall-handlers.bench.ts",
+    "apps/editor/src/engine/consequence/ConsequencePreviewService.ts",
+    "apps/editor/src/engine/consequence/consequencePreviewServiceComposition.ts",
+    "apps/editor/src/engine/consequence/WallDeleteConsequencePlanner.ts",
+    "packages/ai-host/src/capabilities/ChatCommandClassification.ts",
+    "packages/sync-client/src/syncDisposition.ts",
+    "plugins/cross/src/wall-room.ts"
+   ]
+  },
+  {
+   "verb": "wall.join",
+   "kind": "join",
+   "liveness": "UNKNOWN",
+   "ownFiles": [
+    "plugins/wall/src/handlers/JoinWall.ts"
+   ],
+   "externalMentionCount": 4,
+   "externalMentions": [
+    "apps/editor/src/ui/SelectionOverlay.ts",
+    "packages/ai-host/src/capabilities/ChatCapabilityRegistry.ts",
+    "packages/sync-client/src/syncDisposition.ts",
+    "plugins/wall/src/handlers/index.ts"
+   ]
+  },
+  {
+   "verb": "wall.move",
+   "kind": "move",
+   "liveness": "REFUSES",
+   "ownFiles": [
+    "plugins/wall/src/handlers/MoveWall.ts"
+   ],
+   "externalMentionCount": 13,
+   "externalMentions": [
+    "apps/bench/src/benches/pack-unpack.bench.ts",
+    "apps/bench/src/benches/wall-handlers.bench.ts",
+    "apps/editor/src/engine/consequence/ConsequenceExecutionService.ts",
+    "apps/editor/src/engine/consequence/ConsequencePreviewService.ts",
+    "apps/editor/src/engine/consequence/consequencePreviewServiceComposition.ts",
+    "apps/editor/src/engine/consequence/WallMoveConsequencePlanner.ts",
+    "apps/editor/src/ui/consequence/ConfirmationFlow.ts",
+    "packages/ai-host/src/capabilities/CapabilityRefusal.ts"
+   ]
+  },
+  {
+   "verb": "wall.opening.create",
+   "kind": "create",
+   "liveness": "UNKNOWN",
+   "ownFiles": [
+    "plugins/wall/src/handlers/CreateWallOpeningLegacyAdapter.ts"
+   ],
+   "externalMentionCount": 12,
+   "externalMentions": [
+    "apps/editor/src/engine/consequence/ConsequencePreviewService.ts",
+    "apps/editor/src/engine/consequence/consequencePreviewServiceComposition.ts",
+    "apps/editor/src/engine/consequence/WallOpeningCreateConsequencePlanner.ts",
+    "apps/editor/src/engine/views/plantools/CopyPlanToolHandler.ts",
+    "apps/editor/src/engine/views/plantools/DoorPlanToolHandler.ts",
+    "apps/editor/src/engine/views/plantools/WindowPlanToolHandler.ts",
+    "packages/ai-host/src/capabilities/CapabilityRefusal.ts",
+    "packages/ai-host/src/capabilities/ChatCapabilityRegistry.ts"
+   ]
+  },
+  {
+   "verb": "wall.setColor",
+   "kind": "update",
+   "liveness": "REFUSES",
+   "ownFiles": [
+    "plugins/wall/src/handlers/SetWallColor.ts"
+   ],
+   "externalMentionCount": 5,
+   "externalMentions": [
+    "apps/bench/src/benches/wall-handlers.bench.ts",
+    "packages/ai-host/src/capabilities/CapabilityRefusal.ts",
+    "packages/ai-host/src/capabilities/ChatCapabilityRegistry.ts",
+    "packages/sync-client/src/syncDisposition.ts",
+    "plugins/wall/src/handlers/index.ts"
+   ]
+  },
+  {
+   "verb": "wall.setDimensions",
+   "kind": "update",
+   "liveness": "REFUSES",
+   "ownFiles": [
+    "plugins/wall/src/handlers/SetWallDimensions.ts"
+   ],
+   "externalMentionCount": 5,
+   "externalMentions": [
+    "apps/bench/src/benches/wall-handlers.bench.ts",
+    "packages/ai-host/src/capabilities/ChatCommandClassification.ts",
+    "packages/sync-client/src/syncDisposition.ts",
+    "plugins/cross/src/wall-room.ts",
+    "plugins/wall/src/handlers/index.ts"
+   ]
+  },
+  {
+   "verb": "wall.setLayers",
+   "kind": "update",
+   "liveness": "REFUSES",
+   "ownFiles": [
+    "plugins/wall/src/handlers/SetWallLayers.ts"
+   ],
+   "externalMentionCount": 4,
+   "externalMentions": [
+    "apps/editor/src/ui/property-panel/PropertyPanelBodyRenderer.ts",
+    "packages/ai-host/src/capabilities/ChatCommandClassification.ts",
+    "packages/sync-client/src/syncDisposition.ts",
+    "plugins/wall/src/handlers/index.ts"
+   ]
+  },
+  {
+   "verb": "wall.setSideFinishBatch",
+   "kind": "update",
+   "liveness": "LIVE",
+   "ownFiles": [
+    "plugins/wall/src/handlers/SetWallSideFinishBatch.ts"
+   ],
+   "externalMentionCount": 5,
+   "externalMentions": [
+    "apps/editor/src/ui/ai/ZeroTokenChatBridge.ts",
+    "packages/ai-host/src/capabilities/ChatCapabilityRegistry.ts",
+    "packages/ai-host/src/intents/CapabilityExecutionSpec.ts",
+    "packages/sync-client/src/syncDisposition.ts",
+    "plugins/wall/src/handlers/index.ts"
+   ]
+  },
+  {
+   "verb": "wall.setSystemType",
+   "kind": "update",
+   "liveness": "UNKNOWN",
+   "ownFiles": [
+    "plugins/wall/src/handlers/SetWallSystemType.ts"
+   ],
+   "externalMentionCount": 4,
+   "externalMentions": [
+    "apps/editor/src/ui/property-panel/PropertyPanelTypeSelector.ts",
+    "packages/ai-host/src/capabilities/ChatCommandClassification.ts",
+    "packages/sync-client/src/syncDisposition.ts",
+    "plugins/wall/src/handlers/index.ts"
+   ]
+  },
+  {
+   "verb": "wall.split",
+   "kind": "split",
+   "liveness": "UNKNOWN",
+   "ownFiles": [
+    "plugins/wall/src/handlers/SplitWall.ts"
+   ],
+   "externalMentionCount": 3,
+   "externalMentions": [
+    "packages/ai-host/src/capabilities/ChatCapabilityRegistry.ts",
+    "packages/sync-client/src/syncDisposition.ts",
+    "plugins/wall/src/handlers/index.ts"
+   ]
+  },
+  {
+   "verb": "wall.transform",
+   "kind": "other",
+   "liveness": "REFUSES",
+   "ownFiles": [
+    "plugins/wall/src/handlers/TransformWall.ts"
+   ],
+   "externalMentionCount": 6,
+   "externalMentions": [
+    "packages/ai-host/src/capabilities/CapabilityRefusal.ts",
+    "packages/ai-host/src/capabilities/ChatCapabilityRegistry.ts",
+    "packages/sync-client/src/syncDisposition.ts",
+    "plugins/cross/src/slab-wall.ts",
+    "plugins/cross/src/wall-room.ts",
+    "plugins/wall/src/handlers/index.ts"
+   ]
+  },
+  {
+   "verb": "wall.updateBaseline",
+   "kind": "update",
+   "liveness": "UNKNOWN",
+   "ownFiles": [
+    "plugins/wall/src/handlers/UpdateWallBaseline.ts"
+   ],
+   "externalMentionCount": 15,
+   "externalMentions": [
+    "apps/editor/src/engine/consequence/ConsequencePreviewService.ts",
+    "apps/editor/src/engine/registerTransformDragHandler.ts",
+    "apps/editor/src/engine/transforms/elementMove.ts",
+    "apps/editor/src/engine/views/plantools/AlignPlanToolHandler.ts",
+    "apps/editor/src/engine/views/plantools/MovePlanToolHandler.ts",
+    "apps/editor/src/ui/ai/WallMoveClashProposal.ts",
+    "apps/editor/src/ui/canvas/ConsequencePreviewOverlay.ts",
+    "apps/editor/src/ui/property-panel/PropertyPanelAnnotations.ts"
+   ]
+  },
+  {
+   "verb": "wall.updateColor",
+   "kind": "update",
+   "liveness": "LIVE",
+   "ownFiles": [
+    "apps/editor/src/engine/initBusHandlers.ts"
+   ],
+   "externalMentionCount": 5,
+   "externalMentions": [
+    "apps/editor/src/ui/property-inspector/MaterialDispatch.ts",
+    "packages/ai-host/src/capabilities/CapabilityRefusal.ts",
+    "packages/ai-host/src/capabilities/ChatCapabilityRegistry.ts",
+    "packages/command-bus/src/commands.ts",
+    "packages/sync-client/src/syncDisposition.ts"
+   ]
+  },
+  {
+   "verb": "wall.updateColorBatch",
+   "kind": "update",
+   "liveness": "LIVE",
+   "ownFiles": [
+    "plugins/wall/src/handlers/UpdateWallsColorBatch.ts"
+   ],
+   "externalMentionCount": 5,
+   "externalMentions": [
+    "apps/editor/src/ui/ai/ZeroTokenChatBridge.ts",
+    "packages/ai-host/src/capabilities/ChatCapabilityRegistry.ts",
+    "packages/ai-host/src/intents/CapabilityExecutionSpec.ts",
+    "packages/sync-client/src/syncDisposition.ts",
+    "plugins/wall/src/handlers/index.ts"
+   ]
+  },
+  {
+   "verb": "wall.updateCurtainWall",
+   "kind": "update",
+   "liveness": "LIVE",
+   "ownFiles": [
+    "apps/editor/src/engine/initBusHandlers.ts"
+   ],
+   "externalMentionCount": 12,
+   "externalMentions": [
+    "apps/editor/src/engine/registerTransformDragHandler.ts",
+    "apps/editor/src/engine/transforms/elementMove.ts",
+    "apps/editor/src/engine/views/plantools/AlignPlanToolHandler.ts",
+    "apps/editor/src/ui/property-inspector/MaterialDispatch.ts",
+    "apps/editor/src/ui/property-inspector/PropertyInspectorApply.ts",
+    "packages/ai-host/src/capabilities/ChatCapabilityRegistry.ts",
+    "packages/ai-host/src/capabilities/ChatCommandClassification.ts",
+    "packages/ai-host/src/intents/PropertyVocabulary.ts"
+   ]
+  },
+  {
+   "verb": "wall.updateDimensions",
+   "kind": "update",
+   "liveness": "LIVE",
+   "ownFiles": [
+    "apps/editor/src/engine/initBusHandlers.ts"
+   ],
+   "externalMentionCount": 7,
+   "externalMentions": [
+    "apps/editor/src/ui/property-inspector/PropertyInspectorApply.ts",
+    "apps/sync-server/src/collab-gate/collabGraphIntegrity.ts",
+    "packages/ai-host/src/capabilities/ChatCapabilityRegistry.ts",
+    "packages/ai-host/src/intents/ZeroTokenResolver.ts",
+    "packages/command-bus/src/commands.ts",
+    "packages/sync-client/src/syncDisposition.ts",
+    "plugins/wall/src/handlers/index.ts"
+   ]
+  },
+  {
+   "verb": "wall.updateHeightBatch",
+   "kind": "update",
+   "liveness": "LIVE",
+   "ownFiles": [
+    "plugins/wall/src/handlers/UpdateWallsHeightBatch.ts"
+   ],
+   "externalMentionCount": 4,
+   "externalMentions": [
+    "apps/editor/src/ui/ai/ZeroTokenChatBridge.ts",
+    "packages/ai-host/src/intents/DimensionFamilies.ts",
+    "packages/sync-client/src/syncDisposition.ts",
+    "plugins/wall/src/handlers/index.ts"
+   ]
+  },
+  {
+   "verb": "wall.updateRakeBatch",
+   "kind": "update",
+   "liveness": "LIVE",
+   "ownFiles": [
+    "plugins/wall/src/handlers/UpdateWallsRakeBatch.ts"
+   ],
+   "externalMentionCount": 5,
+   "externalMentions": [
+    "apps/editor/src/ui/ai/ZeroTokenChatBridge.ts",
+    "packages/ai-host/src/capabilities/ChatCapabilityRegistry.ts",
+    "packages/ai-host/src/intents/CapabilityExecutionSpec.ts",
+    "packages/sync-client/src/syncDisposition.ts",
+    "plugins/wall/src/handlers/index.ts"
+   ]
+  },
+  {
+   "verb": "wall.updateSystemType",
+   "kind": "update",
+   "liveness": "LIVE",
+   "ownFiles": [
+    "plugins/wall/src/handlers/UpdateWallSystemType.ts"
+   ],
+   "externalMentionCount": 5,
+   "externalMentions": [
+    "apps/editor/src/ui/property-inspector/WallLayerSection.ts",
+    "packages/ai-host/src/capabilities/ChatCommandClassification.ts",
+    "packages/command-bus/src/commands.ts",
+    "packages/sync-client/src/syncDisposition.ts",
+    "plugins/wall/src/handlers/index.ts"
+   ]
+  },
+  {
+   "verb": "wall.updateSystemTypeBatch",
+   "kind": "update",
+   "liveness": "LIVE",
+   "ownFiles": [
+    "plugins/wall/src/handlers/UpdateWallsSystemTypeBatch.ts"
+   ],
+   "externalMentionCount": 6,
+   "externalMentions": [
+    "apps/editor/src/ui/ai/AIPanel.ts",
+    "apps/editor/src/ui/ai/ZeroTokenChatBridge.ts",
+    "packages/ai-host/src/capabilities/ChatCapabilityRegistry.ts",
+    "packages/ai-host/src/intents/CapabilityExecutionSpec.ts",
+    "packages/sync-client/src/syncDisposition.ts",
+    "plugins/wall/src/handlers/index.ts"
+   ]
+  },
+  {
+   "verb": "window.batch.create",
+   "kind": "batch.create",
+   "liveness": "UNKNOWN",
+   "ownFiles": [
+    "plugins/window/src/handlers/CreateWindowBatch.ts"
+   ],
+   "externalMentionCount": 6,
+   "externalMentions": [
+    "packages/ai-host/src/capabilities/ChatCommandClassification.ts",
+    "packages/ai-host/src/workflows/apartmentLayout/executePlan.ts",
+    "packages/command-bus/src/commands.ts",
+    "packages/runtime-composer/src/types.ts",
+    "packages/sync-client/src/syncDisposition.ts",
+    "plugins/window/src/handlers/index.ts"
+   ]
+  },
+  {
+   "verb": "window.create",
+   "kind": "create",
+   "liveness": "REFUSES",
+   "ownFiles": [
+    "plugins/window/src/handlers/CreateWindow.ts"
+   ],
+   "externalMentionCount": 5,
+   "externalMentions": [
+    "apps/editor/src/engine/consequence/ConsequencePreviewService.ts",
+    "packages/ai-host/src/capabilities/ChatCapabilityRegistry.ts",
+    "packages/runtime-composer/src/types.ts",
+    "packages/sync-client/src/syncDisposition.ts",
+    "plugins/window/src/handlers/index.ts"
+   ]
+  },
+  {
+   "verb": "window.delete",
+   "kind": "delete",
+   "liveness": "UNKNOWN",
+   "ownFiles": [
+    "plugins/window/src/handlers/DeleteWindow.ts"
+   ],
+   "externalMentionCount": 4,
+   "externalMentions": [
+    "apps/editor/src/engine/consequence/ConsequencePreviewService.ts",
+    "packages/ai-host/src/capabilities/ChatCommandClassification.ts",
+    "packages/sync-client/src/syncDisposition.ts",
+    "plugins/window/src/handlers/index.ts"
+   ]
+  },
+  {
+   "verb": "window.move",
+   "kind": "move",
+   "liveness": "REFUSES",
+   "ownFiles": [
+    "plugins/window/src/handlers/MoveWindow.ts"
+   ],
+   "externalMentionCount": 5,
+   "externalMentions": [
+    "apps/editor/src/engine/consequence/ConsequencePreviewService.ts",
+    "packages/ai-host/src/capabilities/CapabilityRefusal.ts",
+    "packages/ai-host/src/capabilities/ChatCapabilityRegistry.ts",
+    "packages/sync-client/src/syncDisposition.ts",
+    "plugins/window/src/handlers/index.ts"
+   ]
+  },
+  {
+   "verb": "window.parametricCreate",
+   "kind": "other",
+   "liveness": "LIVE",
+   "ownFiles": [
+    "plugins/window/src/handlers/CreateWindowsParametricBatch.ts"
+   ],
+   "externalMentionCount": 5,
+   "externalMentions": [
+    "apps/editor/src/ui/ai/ZeroTokenChatBridge.ts",
+    "packages/ai-host/src/capabilities/ChatCapabilityRegistry.ts",
+    "packages/ai-host/src/intents/ZeroTokenResolver.ts",
+    "packages/sync-client/src/syncDisposition.ts",
+    "plugins/window/src/handlers/index.ts"
+   ]
+  },
+  {
+   "verb": "window.setFireRating",
+   "kind": "update",
+   "liveness": "UNKNOWN",
+   "ownFiles": [
+    "plugins/window/src/handlers/SetWindowFireRating.ts"
+   ],
+   "externalMentionCount": 5,
+   "externalMentions": [
+    "apps/editor/src/ui/property-inspector/PropertyInspectorApply.ts",
+    "packages/ai-host/src/capabilities/ChatCommandClassification.ts",
+    "packages/command-bus/src/commands.ts",
+    "packages/sync-client/src/syncDisposition.ts",
+    "plugins/window/src/handlers/index.ts"
+   ]
+  },
+  {
+   "verb": "window.setFrameColor",
+   "kind": "update",
+   "liveness": "LIVE",
+   "ownFiles": [
+    "apps/editor/src/engine/initBusHandlers.ts"
+   ],
+   "externalMentionCount": 4,
+   "externalMentions": [
+    "apps/editor/src/ui/property-inspector/PropertyInspectorApply.ts",
+    "packages/ai-host/src/capabilities/ChatCapabilityRegistry.ts",
+    "packages/command-bus/src/commands.ts",
+    "packages/sync-client/src/syncDisposition.ts"
+   ]
+  },
+  {
+   "verb": "window.setOffset",
+   "kind": "update",
+   "liveness": "LIVE",
+   "ownFiles": [
+    "apps/editor/src/engine/initBusHandlers.ts"
+   ],
+   "externalMentionCount": 7,
+   "externalMentions": [
+    "apps/editor/src/engine/consequence/ConsequencePreviewService.ts",
+    "apps/editor/src/engine/transforms/elementMove.ts",
+    "apps/editor/src/engine/views/plantools/MovePlanToolHandler.ts",
+    "packages/ai-host/src/capabilities/ChatCapabilityRegistry.ts",
+    "packages/core-app-model/src/views/PlanElementDragController.ts",
+    "packages/input-host/src/HostedElementDragController.ts",
+    "packages/sync-client/src/syncDisposition.ts"
+   ]
+  },
+  {
+   "verb": "window.setSillHeight",
+   "kind": "update",
+   "liveness": "LIVE",
+   "ownFiles": [
+    "apps/editor/src/engine/initBusHandlers.ts"
+   ],
+   "externalMentionCount": 5,
+   "externalMentions": [
+    "apps/editor/src/ui/property-inspector/PropertyInspectorApply.ts",
+    "packages/ai-host/src/capabilities/ChatCommandClassification.ts",
+    "packages/command-bus/src/commands.ts",
+    "packages/sync-client/src/syncDisposition.ts",
+    "plugins/window/src/handlers/index.ts"
+   ]
+  },
+  {
+   "verb": "window.setSize",
+   "kind": "update",
+   "liveness": "LIVE",
+   "ownFiles": [
+    "apps/editor/src/engine/initBusHandlers.ts"
+   ],
+   "externalMentionCount": 5,
+   "externalMentions": [
+    "apps/editor/src/ui/property-inspector/PropertyInspectorApply.ts",
+    "packages/ai-host/src/capabilities/ChatCommandClassification.ts",
+    "packages/command-bus/src/commands.ts",
+    "packages/sync-client/src/syncDisposition.ts",
+    "plugins/window/src/handlers/index.ts"
+   ]
+  },
+  {
+   "verb": "window.setType",
+   "kind": "update",
+   "liveness": "UNKNOWN",
+   "ownFiles": [
+    "plugins/window/src/handlers/SetWindowType.ts"
+   ],
+   "externalMentionCount": 4,
+   "externalMentions": [
+    "apps/editor/src/engine/initBusHandlers.ts",
+    "packages/ai-host/src/capabilities/ChatCommandClassification.ts",
+    "packages/sync-client/src/syncDisposition.ts",
+    "plugins/window/src/handlers/index.ts"
+   ]
+  },
+  {
+   "verb": "window.updateSystemTypeBatch",
+   "kind": "update",
+   "liveness": "LIVE",
+   "ownFiles": [
+    "plugins/window/src/handlers/UpdateWindowsSystemTypeBatch.ts"
+   ],
+   "externalMentionCount": 5,
+   "externalMentions": [
+    "apps/editor/src/ui/ai/ZeroTokenChatBridge.ts",
+    "packages/ai-host/src/capabilities/ChatCapabilityRegistry.ts",
+    "packages/ai-host/src/intents/CatalogueFamilies.ts",
+    "packages/sync-client/src/syncDisposition.ts",
+    "plugins/window/src/handlers/index.ts"
+   ]
+  },
+  {
+   "verb": "zoom-fit",
+   "kind": "other",
+   "liveness": "LIVE",
+   "ownFiles": [
+    "apps/editor/src/engine/engineLauncher.ts"
+   ],
+   "externalMentionCount": 10,
+   "externalMentions": [
+    "apps/editor/src/engine/views/SplitViewManager.ts",
+    "apps/editor/src/ui/FamilyPreviewPanel.ts",
+    "apps/editor/src/ui/toolbar/commandBacking.ts",
+    "apps/editor/src/ui/toolbar/MainToolbar.ts",
+    "packages/ai-host/src/capabilities/CapabilityRefusal.ts",
+    "packages/ai-host/src/capabilities/ChatCapabilityRegistry.ts",
+    "packages/ai-host/src/intents/LocalNaturalLanguageResolver.ts",
+    "packages/ai-host/src/intents/ZeroTokenResolver.ts"
+   ]
+  },
+  {
+   "verb": "zoom-selected",
+   "kind": "other",
+   "liveness": "LIVE",
+   "ownFiles": [
+    "apps/editor/src/engine/engineLauncher.ts"
+   ],
+   "externalMentionCount": 10,
+   "externalMentions": [
+    "apps/editor/src/engine/scheduleClickZoom.ts",
+    "apps/editor/src/ui/FamilyPreviewPanel.ts",
+    "apps/editor/src/ui/toolbar/commandBacking.ts",
+    "apps/editor/src/ui/toolbar/MainToolbar.ts",
+    "packages/ai-host/src/capabilities/CapabilityRefusal.ts",
+    "packages/ai-host/src/capabilities/ChatCapabilityRegistry.ts",
+    "packages/ai-host/src/intents/LocalNaturalLanguageResolver.ts",
+    "packages/ai-host/src/intents/ZeroTokenResolver.ts"
+   ]
+  }
+ ]
+}

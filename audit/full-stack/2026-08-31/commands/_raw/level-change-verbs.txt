@@ -1,0 +1,12 @@
+wall.changeLevel
+roof.changeLevel
+slab.changeLevel
+column.changeLevel
+ceiling.changeLevel
+floor.changeLevel
+handrail.changeLevel
+curtain-wall.changeLevel
+beam.changeLevel
+furniture.changeLevel
+lighting.changeLevel
+plumbing.changeLevel

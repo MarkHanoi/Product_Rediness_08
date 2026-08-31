@@ -1,0 +1,84 @@
+{
+  "family": "slab",
+  "head": "d91d30d4af51bc67317ef8afc0b46b1dbef94038",
+  "members": ["slab (plate)", "slab holes / voids", "slab layers (LAYERED build-up)"],
+  "rows": [
+    {
+      "member": "slab (plate)",
+      "surface": "3d",
+      "builder_file": "packages/geometry-slab/src/SlabFragmentBuilder.ts (2148 lines)",
+      "entry_fn": "updateSlab(data) :388  ·  removeSlab :1175  ·  clearProjectGeometry :1169  ·  dispose :1153  ·  pause/resumeAndFlush :601/:633",
+      "package": "@pryzm/geometry-slab",
+      "layer": "L2",
+      "layer_proof": "eslint.config.js:156 { type: 'L2', pattern: 'packages/geometry-slab/**' }",
+      "invoked_by": [
+        "apps/editor/src/engine/initBuilders.ts:360 `new SlabFragmentBuilder(scene, bimManager)`",
+        "apps/editor/src/engine/initBuilders.ts:379/:385/:391 — window.addEventListener('bim-slab-added' | 'bim-slab-updated' | 'bim-slab-removed')"
+      ],
+      "proof_command": "grep -nE \"addEventListener\\('\" apps/editor/src/engine/initBuilders.ts → :379,:385,:391",
+      "rivals": [
+        {
+          "candidate": "packages/geometry-slab/src/CeilingPanelBuilder.ts and FloorPanelBuilder.ts (same package)",
+          "verdict": "NOT RIVALS — they serve the DISTINCT `ceiling` and `floor` families, each with its own store, channel and GEOMETRY_ELEMENT_TYPES entry. Co-located, not competing."
+        }
+      ],
+      "robustness": {
+        "degenerate_input": "3 `throw new`, but ZERO isFinite/isNaN guards (grep -cE 'isFinite|isNaN' → 0) across 2148 lines. A NaN vertex in `polygon` is not refused here.",
+        "refusal_surface": "GOOD — getBuildVerdict(id) :329 and getBuildReport() :338 expose a per-slab verdict, so a failed build is INSPECTABLE rather than silent. This is the best refusal-reporting surface of any builder measured.",
+        "disposal": "PRESENT — 5 dispose sites, explicit dispose() :1153 and clearProjectGeometry() :1169."
+      },
+      "fidelity": {
+        "authored_L0_fields": ["provenance","confidence","levelId","boundary","holes","thickness","baseOffset","materialId","materialColor","systemTypeId"],
+        "authored_count": 10,
+        "ceb_channel": "slab.created",
+        "ceb_emit_sites": ["~L587 (slab.create)","~L630 (slab.batch.create)","~L1559 (balcony.create fan-out)","~L2035 (pool.create fan-out — pool floor slab)"],
+        "ceb_emitted_keys": ["commandId","commandType","levelId","elementCount","id","ifcGuid","polygon","position","width","depth","thickness","baseOffset","materialId"],
+        "dropped_at_ceb": ["holes","materialColor","systemTypeId","provenance","confidence"],
+        "renames_not_drops": ["boundary (L0 Vec3[]) → polygon (plan {x,y}[] convention) — DECLARED in the CEB case comment; the batch case reads `s.polygon ?? s.boundary`"],
+        "VERDICT": "⛔ THE ROOF DEFECT, UNFIXED, IN SLAB. `holes` and `materialColor` are AUTHORED, VALIDATED, WRITTEN — and then dropped twice before the mesh, while the builder is fully capable of drawing both.",
+        "chain_proof": [
+          "AUTHORED — packages/schemas/src/elements/Slab.ts declares `holes` and `materialColor`.",
+          "ACCEPTED — plugins/slab/src/handlers/CreateSlab.ts:112 `readonly holes?: SlabData['holes']`, :116 `readonly materialColor?: string`.",
+          "VALIDATED — CreateSlab.ts:141-143 validates every hole ring with validateSlabBoundary().",
+          "COMMITTED — CreateSlab.ts:176-178 `holes: cmd.holes ?? []`, `materialColor: cmd.materialColor`.",
+          "DROPPED #1 — CommandEventBridge slab.create emit (~L587) names 13 keys; neither `holes` nor `materialColor` is among them.",
+          "DROPPED #2 — apps/editor/src/engine/initTools.ts:2377-2392 mirror copies id/levelId/polygon/position/width/depth/thickness/baseOffset and `...(ev.materialId ? { materialId } : {})`. No holes. No materialColor.",
+          "CONSUMED-IF-PRESENT — SlabFragmentBuilder reads `data.materialColor` at :520, :579, :804 and `data.holes` at :551 and :939 (`const holes = data.holes ?? []` inside the punch loop; :923 carries a NAMED GAP comment about it)."
+        ],
+        "user_visible_consequence": "A slab drawn in PLAN, created by AI, or created in a batch, with an authored void and an authored colour, renders as a SOLID slab in the DEFAULT colour. It counts as renders_3d = YES.",
+        "draws_what_the_user_authored": "NO"
+      }
+    },
+    {
+      "member": "slab holes / voids",
+      "surface": "3d",
+      "builder_file": "same builder (:923-:960 punch loop)",
+      "drawn": "YES only when `SlabData.holes` is populated on the LEGACY store record",
+      "reaches_the_store_via": "the 3-D command path (CreateSlabCommand.ts:239 maps payload.holes) and the pool host-slab void, which rides `element.updated` with elementKind 'slab' / changedFields ['holes'] (members.json row 'host-slab void'). NOT via slab.created.",
+      "honest_about_it": "PARTIALLY — SlabFragmentBuilder.ts:923 carries an explicit '⚠ NAMED GAP, not silent (C79 §7.4): only data.holes are punched'. The CEB emit carries NO such note."
+    },
+    {
+      "member": "slab (plate)",
+      "surface": "plan",
+      "builder_file": "apps/editor/src/engine/views/EdgeProjectorService.ts — true-edge HLR projection of the 3D mesh. NO dedicated slab plan-symbol builder.",
+      "layer": "L7",
+      "invalidation": "`slab` IS in GEOMETRY_ELEMENT_TYPES (ViewDependencyTracker.ts:81) and also in PLAN_INCREMENTAL_SAFE_TYPES (:151), so slab edits take the fast graft path.",
+      "fidelity": "INHERITS THE 3D LOSS. A hole dropped before the mesh is a hole missing from the plan drawing too — and a plan slab void is a drafting-critical omission."
+    },
+    {
+      "member": "slab (plate)",
+      "surface": "section",
+      "builder_file": "derived from the same 3D mesh via plugins/section-view + EdgeProjectorService",
+      "fidelity": "INHERITS THE 3D LOSS."
+    },
+    {
+      "member": "slab (plate)",
+      "surface": "export",
+      "builder_file": "packages/file-format/src/export/ifc/readers/SlabReader.ts",
+      "package": "@pryzm/file-format",
+      "layer": "L3",
+      "invoked_by": "FragmentReader.ts:38 ← IfcExporter ← ExportIFC ← initUI.ts:1044",
+      "rivals": ["plugins/ifc-export/src/exporters/slab.ts — the UNREACHABLE rival exporter (see wall.json)"]
+    }
+  ]
+}

@@ -1,0 +1,389 @@
+{
+ "wall": {
+  "extension_contract_layer": "CONTRACT AT L5 — ok. DECLARATION SITE STILL L7. The contract is declared exactly once repo-wide, at packages/plugin-sdk/src/registration.ts:121 (grep -rn \"interface PluginRegistration|type PluginRegistration\" packages plugins apps --include=*.ts -> 2 hits, both in that one file: :82 PluginRegistrationDeps, :121 PluginRegistration). No rival contract at L6 or L7 — apps/editor/src/PluginRegistry.ts:198 is an ALIAS (`export type PluginDescriptor = PluginRegistration<PluginContribution, RoomEventRuntime>`), not a second declaration. This family's own registration is still an inline object literal in the L7 file at PluginRegistry.ts:299, which is the arrangement ADR-0367 exists to end, not a violation of the layer rule (L7 may import downward).",
+  "l7_surface": {
+   "tool_file_L6": "WallCreationTool",
+   "tool_file_L2_geometry": "packages/geometry-wall/src/WallTool.ts + OpeningTool.ts + RoomBoundingLineTool.ts",
+   "PluginRegistry_entry": "apps/editor/src/PluginRegistry.ts:299 — inline ALL_PLUGINS descriptor, id 'wall'",
+   "initTools_bridge": "apps/editor/src/engine/initTools.ts:879 `new WallTool` · §WALL-AUDIT-2026-M2; :3552 `new OpeningTool` · §A",
+   "tool_activator_L7": "NONE — no runtime.tools.register(...) for this family (grep -n 'runtime.tools.register(' apps/editor/src/PluginRegistry.ts -> 26 registrations, none for this family)",
+   "L6_tool_reachability": "NAMED OUTSIDE plugins/ ONLY IN COMMENTS — no import statement, no `new X(`. AUTHORED-BUT-UNREACHABLE with a comment that reads as if it were wired.",
+   "read_but_never_assigned_symbols": []
+  },
+  "findings": []
+ },
+ "slab": {
+  "extension_contract_layer": "CONTRACT AT L5 — ok. DECLARATION SITE STILL L7. The contract is declared exactly once repo-wide, at packages/plugin-sdk/src/registration.ts:121 (grep -rn \"interface PluginRegistration|type PluginRegistration\" packages plugins apps --include=*.ts -> 2 hits, both in that one file: :82 PluginRegistrationDeps, :121 PluginRegistration). No rival contract at L6 or L7 — apps/editor/src/PluginRegistry.ts:198 is an ALIAS (`export type PluginDescriptor = PluginRegistration<PluginContribution, RoomEventRuntime>`), not a second declaration. This family's own registration is still an inline object literal in the L7 file at PluginRegistry.ts:318, which is the arrangement ADR-0367 exists to end, not a violation of the layer rule (L7 may import downward).",
+  "l7_surface": {
+   "tool_file_L6": "SlabPlacementTool",
+   "tool_file_L2_geometry": "packages/geometry-slab/src/SlabTool.ts",
+   "PluginRegistry_entry": "apps/editor/src/PluginRegistry.ts:318 — inline ALL_PLUGINS descriptor, id 'slab'",
+   "initTools_bridge": "apps/editor/src/engine/initTools.ts:590 `new SlabTool` · §-tag NONE",
+   "tool_activator_L7": "NONE — no runtime.tools.register(...) for this family (grep -n 'runtime.tools.register(' apps/editor/src/PluginRegistry.ts -> 26 registrations, none for this family)",
+   "L6_tool_reachability": "NEVER NAMED outside plugins/ — the class name does not appear in apps/, packages/ or src/ at all (non-test, non-dist). AUTHORED-BUT-UNREACHABLE.",
+   "read_but_never_assigned_symbols": []
+  },
+  "findings": []
+ },
+ "pool": {
+  "extension_contract_layer": "CONTRACT AT L5 — ok. DECLARATION SITE STILL L7. The contract is declared exactly once repo-wide, at packages/plugin-sdk/src/registration.ts:121 (grep -rn \"interface PluginRegistration|type PluginRegistration\" packages plugins apps --include=*.ts -> 2 hits, both in that one file: :82 PluginRegistrationDeps, :121 PluginRegistration). No rival contract at L6 or L7 — apps/editor/src/PluginRegistry.ts:198 is an ALIAS (`export type PluginDescriptor = PluginRegistration<PluginContribution, RoomEventRuntime>`), not a second declaration. This family's own registration is still an inline object literal in the L7 file at PluginRegistry.ts:355, which is the arrangement ADR-0367 exists to end, not a violation of the layer rule (L7 may import downward).",
+  "l7_surface": {
+   "tool_file_L6": "NONE — `git ls-files plugins/pool/**/*Tool*.ts plugins/pool/src/tool.ts` -> 0 files.",
+   "tool_file_L2_geometry": null,
+   "PluginRegistry_entry": "apps/editor/src/PluginRegistry.ts:355 — inline ALL_PLUGINS descriptor, id 'pool'",
+   "initTools_bridge": "NONE — no `new <X>Tool` for this family in apps/editor/src/engine/initTools.ts (grep -on \"new [A-Z][A-Za-z]*Tool\\b\", 25 hits, none for this family)",
+   "tool_activator_L7": "NONE — no runtime.tools.register(...) for this family (grep -n 'runtime.tools.register(' apps/editor/src/PluginRegistry.ts -> 26 registrations, none for this family)",
+   "L6_tool_reachability": "n/a",
+   "read_but_never_assigned_symbols": []
+  },
+  "findings": []
+ },
+ "water": {
+  "extension_contract_layer": "CONTRACT AT L5 — ok. DECLARATION SITE STILL L7. The contract is declared exactly once repo-wide, at packages/plugin-sdk/src/registration.ts:121 (grep -rn \"interface PluginRegistration|type PluginRegistration\" packages plugins apps --include=*.ts -> 2 hits, both in that one file: :82 PluginRegistrationDeps, :121 PluginRegistration). No rival contract at L6 or L7 — apps/editor/src/PluginRegistry.ts:198 is an ALIAS (`export type PluginDescriptor = PluginRegistration<PluginContribution, RoomEventRuntime>`), not a second declaration. This family's own registration is still an inline object literal in the L7 file at PluginRegistry.ts:364, which is the arrangement ADR-0367 exists to end, not a violation of the layer rule (L7 may import downward).",
+  "l7_surface": {
+   "tool_file_L6": "NONE — water has no directory of its own (members.json: store authored in plugins/pool/src/store.ts).",
+   "tool_file_L2_geometry": null,
+   "PluginRegistry_entry": "apps/editor/src/PluginRegistry.ts:364 — inline ALL_PLUGINS descriptor, id 'water'",
+   "initTools_bridge": "NONE — no `new <X>Tool` for this family in apps/editor/src/engine/initTools.ts (grep -on \"new [A-Z][A-Za-z]*Tool\\b\", 25 hits, none for this family)",
+   "tool_activator_L7": "NONE — no runtime.tools.register(...) for this family (grep -n 'runtime.tools.register(' apps/editor/src/PluginRegistry.ts -> 26 registrations, none for this family)",
+   "L6_tool_reachability": "n/a",
+   "read_but_never_assigned_symbols": []
+  },
+  "findings": []
+ },
+ "door": {
+  "extension_contract_layer": "CONTRACT AT L5 — ok. DECLARATION SITE STILL L7. The contract is declared exactly once repo-wide, at packages/plugin-sdk/src/registration.ts:121 (grep -rn \"interface PluginRegistration|type PluginRegistration\" packages plugins apps --include=*.ts -> 2 hits, both in that one file: :82 PluginRegistrationDeps, :121 PluginRegistration). No rival contract at L6 or L7 — apps/editor/src/PluginRegistry.ts:198 is an ALIAS (`export type PluginDescriptor = PluginRegistration<PluginContribution, RoomEventRuntime>`), not a second declaration. This family's own registration is still an inline object literal in the L7 file at PluginRegistry.ts:379, which is the arrangement ADR-0367 exists to end, not a violation of the layer rule (L7 may import downward).",
+  "l7_surface": {
+   "tool_file_L6": "DoorPlacementTool",
+   "tool_file_L2_geometry": "packages/geometry-door/src/DoorTool.ts",
+   "PluginRegistry_entry": "apps/editor/src/PluginRegistry.ts:379 — inline ALL_PLUGINS descriptor, id 'door'",
+   "initTools_bridge": "apps/editor/src/engine/initTools.ts:1110 `new DoorTool` · §-tag NONE within 30 lines above",
+   "tool_activator_L7": "NONE — no runtime.tools.register(...) for this family (grep -n 'runtime.tools.register(' apps/editor/src/PluginRegistry.ts -> 26 registrations, none for this family)",
+   "L6_tool_reachability": "NEVER NAMED outside plugins/ — the class name does not appear in apps/, packages/ or src/ at all (non-test, non-dist). AUTHORED-BUT-UNREACHABLE.",
+   "read_but_never_assigned_symbols": []
+  },
+  "findings": []
+ },
+ "window": {
+  "extension_contract_layer": "CONTRACT AT L5 — ok. DECLARATION SITE STILL L7. The contract is declared exactly once repo-wide, at packages/plugin-sdk/src/registration.ts:121 (grep -rn \"interface PluginRegistration|type PluginRegistration\" packages plugins apps --include=*.ts -> 2 hits, both in that one file: :82 PluginRegistrationDeps, :121 PluginRegistration). No rival contract at L6 or L7 — apps/editor/src/PluginRegistry.ts:198 is an ALIAS (`export type PluginDescriptor = PluginRegistration<PluginContribution, RoomEventRuntime>`), not a second declaration. This family's own registration is still an inline object literal in the L7 file at PluginRegistry.ts:387, which is the arrangement ADR-0367 exists to end, not a violation of the layer rule (L7 may import downward).",
+  "l7_surface": {
+   "tool_file_L6": "WindowPlacementTool",
+   "tool_file_L2_geometry": "packages/geometry-window/src/WindowTool.ts",
+   "PluginRegistry_entry": "apps/editor/src/PluginRegistry.ts:387 — inline ALL_PLUGINS descriptor, id 'window'",
+   "initTools_bridge": "apps/editor/src/engine/initTools.ts:1109 `new WindowTool` · §-tag NONE",
+   "tool_activator_L7": "NONE — no runtime.tools.register(...) for this family (grep -n 'runtime.tools.register(' apps/editor/src/PluginRegistry.ts -> 26 registrations, none for this family)",
+   "L6_tool_reachability": "NEVER NAMED outside plugins/ — the class name does not appear in apps/, packages/ or src/ at all (non-test, non-dist). AUTHORED-BUT-UNREACHABLE.",
+   "read_but_never_assigned_symbols": []
+  },
+  "findings": []
+ },
+ "roof": {
+  "extension_contract_layer": "CONTRACT AT L5 — ok. DECLARATION SITE STILL L7. The contract is declared exactly once repo-wide, at packages/plugin-sdk/src/registration.ts:121 (grep -rn \"interface PluginRegistration|type PluginRegistration\" packages plugins apps --include=*.ts -> 2 hits, both in that one file: :82 PluginRegistrationDeps, :121 PluginRegistration). No rival contract at L6 or L7 — apps/editor/src/PluginRegistry.ts:198 is an ALIAS (`export type PluginDescriptor = PluginRegistration<PluginContribution, RoomEventRuntime>`), not a second declaration. This family's own registration is still an inline object literal in the L7 file at PluginRegistry.ts:395, which is the arrangement ADR-0367 exists to end, not a violation of the layer rule (L7 may import downward).",
+  "l7_surface": {
+   "tool_file_L6": "RoofPlacementTool",
+   "tool_file_L2_geometry": "packages/geometry-roof/src/RoofTool.ts",
+   "PluginRegistry_entry": "apps/editor/src/PluginRegistry.ts:395 — inline ALL_PLUGINS descriptor, id 'roof'",
+   "initTools_bridge": "apps/editor/src/engine/initTools.ts:739 `new RoofTool` · §WALL-AUDIT-2026-W2",
+   "tool_activator_L7": "NONE — no runtime.tools.register(...) for this family (grep -n 'runtime.tools.register(' apps/editor/src/PluginRegistry.ts -> 26 registrations, none for this family)",
+   "L6_tool_reachability": "NEVER NAMED outside plugins/ — the class name does not appear in apps/, packages/ or src/ at all (non-test, non-dist). AUTHORED-BUT-UNREACHABLE.",
+   "read_but_never_assigned_symbols": []
+  },
+  "findings": []
+ },
+ "curtainWall": {
+  "extension_contract_layer": "CONTRACT AT L5 — ok. DECLARATION SITE STILL L7. The contract is declared exactly once repo-wide, at packages/plugin-sdk/src/registration.ts:121 (grep -rn \"interface PluginRegistration|type PluginRegistration\" packages plugins apps --include=*.ts -> 2 hits, both in that one file: :82 PluginRegistrationDeps, :121 PluginRegistration). No rival contract at L6 or L7 — apps/editor/src/PluginRegistry.ts:198 is an ALIAS (`export type PluginDescriptor = PluginRegistration<PluginContribution, RoomEventRuntime>`), not a second declaration. This family's own registration is still an inline object literal in the L7 file at PluginRegistry.ts:403, which is the arrangement ADR-0367 exists to end, not a violation of the layer rule (L7 may import downward).",
+  "l7_surface": {
+   "tool_file_L6": "CurtainWallPlacementTool",
+   "tool_file_L2_geometry": "packages/geometry-curtain-wall/src/CurtainWallTool.ts",
+   "PluginRegistry_entry": "apps/editor/src/PluginRegistry.ts:403 — inline ALL_PLUGINS descriptor, id 'curtain-wall'",
+   "initTools_bridge": "apps/editor/src/engine/initTools.ts:1119 `new CurtainWallTool` · §MT-05",
+   "tool_activator_L7": "NONE — no runtime.tools.register(...) for this family (grep -n 'runtime.tools.register(' apps/editor/src/PluginRegistry.ts -> 26 registrations, none for this family)",
+   "L6_tool_reachability": "NEVER NAMED outside plugins/ — the class name does not appear in apps/, packages/ or src/ at all (non-test, non-dist). AUTHORED-BUT-UNREACHABLE.",
+   "read_but_never_assigned_symbols": []
+  },
+  "findings": []
+ },
+ "grid": {
+  "extension_contract_layer": "CONTRACT AT L5 — ok. DECLARATION SITE STILL L7. The contract is declared exactly once repo-wide, at packages/plugin-sdk/src/registration.ts:121 (grep -rn \"interface PluginRegistration|type PluginRegistration\" packages plugins apps --include=*.ts -> 2 hits, both in that one file: :82 PluginRegistrationDeps, :121 PluginRegistration). No rival contract at L6 or L7 — apps/editor/src/PluginRegistry.ts:198 is an ALIAS (`export type PluginDescriptor = PluginRegistration<PluginContribution, RoomEventRuntime>`), not a second declaration. This family's own registration is still an inline object literal in the L7 file at PluginRegistry.ts:411, which is the arrangement ADR-0367 exists to end, not a violation of the layer rule (L7 may import downward).",
+  "l7_surface": {
+   "tool_file_L6": "GridPlacementTool",
+   "tool_file_L2_geometry": null,
+   "PluginRegistry_entry": "apps/editor/src/PluginRegistry.ts:411 — inline ALL_PLUGINS descriptor, id 'grid'",
+   "initTools_bridge": "NONE — no `new <X>Tool` for this family in apps/editor/src/engine/initTools.ts (grep -on \"new [A-Z][A-Za-z]*Tool\\b\", 25 hits, none for this family)",
+   "tool_activator_L7": "runtime.tools.register('grid:tool') at apps/editor/src/PluginRegistry.ts:1173",
+   "L6_tool_reachability": "IMPORTED AND CONSTRUCTED at L7 (apps/editor/src/PluginRegistry.ts) — but see read_but_never_assigned: its screenToWorld dependency resolves to a global assigned nowhere.",
+   "read_but_never_assigned_symbols": [
+    "window.__pryzmScreenToWorld — READ at apps/editor/src/PluginRegistry.ts:1063 (inside eventScreenToWorld, handed to this family's tool at :1182/:1197/:1212), ASSIGNED NOWHERE repo-wide. Consequence: onPointerDown's `if (!isFiniteVec3(p)) return undefined` / `if (!p) return undefined` guard is PERMANENT, so the tool can never dispatch its create verb."
+   ]
+  },
+  "findings": []
+ },
+ "column": {
+  "extension_contract_layer": "CONTRACT AT L5 — ok. DECLARATION SITE STILL L7. The contract is declared exactly once repo-wide, at packages/plugin-sdk/src/registration.ts:121 (grep -rn \"interface PluginRegistration|type PluginRegistration\" packages plugins apps --include=*.ts -> 2 hits, both in that one file: :82 PluginRegistrationDeps, :121 PluginRegistration). No rival contract at L6 or L7 — apps/editor/src/PluginRegistry.ts:198 is an ALIAS (`export type PluginDescriptor = PluginRegistration<PluginContribution, RoomEventRuntime>`), not a second declaration. This family's own registration is still an inline object literal in the L7 file at PluginRegistry.ts:419, which is the arrangement ADR-0367 exists to end, not a violation of the layer rule (L7 may import downward).",
+  "l7_surface": {
+   "tool_file_L6": "ColumnPlacementTool",
+   "tool_file_L2_geometry": "packages/geometry-column/src/ColumnTool.ts",
+   "PluginRegistry_entry": "apps/editor/src/PluginRegistry.ts:419 — inline ALL_PLUGINS descriptor, id 'column'",
+   "initTools_bridge": "apps/editor/src/engine/initTools.ts:1125 `new ColumnTool` · §W6",
+   "tool_activator_L7": "NONE — no runtime.tools.register(...) for this family (grep -n 'runtime.tools.register(' apps/editor/src/PluginRegistry.ts -> 26 registrations, none for this family)",
+   "L6_tool_reachability": "NEVER NAMED outside plugins/ — the class name does not appear in apps/, packages/ or src/ at all (non-test, non-dist). AUTHORED-BUT-UNREACHABLE.",
+   "read_but_never_assigned_symbols": []
+  },
+  "findings": []
+ },
+ "beam": {
+  "extension_contract_layer": "CONTRACT AT L5 — ok. DECLARATION SITE STILL L7. The contract is declared exactly once repo-wide, at packages/plugin-sdk/src/registration.ts:121 (grep -rn \"interface PluginRegistration|type PluginRegistration\" packages plugins apps --include=*.ts -> 2 hits, both in that one file: :82 PluginRegistrationDeps, :121 PluginRegistration). No rival contract at L6 or L7 — apps/editor/src/PluginRegistry.ts:198 is an ALIAS (`export type PluginDescriptor = PluginRegistration<PluginContribution, RoomEventRuntime>`), not a second declaration. This family's own registration is still an inline object literal in the L7 file at PluginRegistry.ts:427, which is the arrangement ADR-0367 exists to end, not a violation of the layer rule (L7 may import downward).",
+  "l7_surface": {
+   "tool_file_L6": "BeamPlacementTool",
+   "tool_file_L2_geometry": "packages/input-host/src/BeamTool.ts (L2)",
+   "PluginRegistry_entry": "apps/editor/src/PluginRegistry.ts:427 — inline ALL_PLUGINS descriptor, id 'beam'",
+   "initTools_bridge": "apps/editor/src/engine/initTools.ts:3376 `new BeamTool` · §-tag NONE within 30 lines above",
+   "tool_activator_L7": "NONE — no runtime.tools.register(...) for this family (grep -n 'runtime.tools.register(' apps/editor/src/PluginRegistry.ts -> 26 registrations, none for this family)",
+   "L6_tool_reachability": "NEVER NAMED outside plugins/ — the class name does not appear in apps/, packages/ or src/ at all (non-test, non-dist). AUTHORED-BUT-UNREACHABLE.",
+   "read_but_never_assigned_symbols": []
+  },
+  "findings": []
+ },
+ "stair": {
+  "extension_contract_layer": "CONTRACT AT L5 — ok. DECLARATION SITE STILL L7. The contract is declared exactly once repo-wide, at packages/plugin-sdk/src/registration.ts:121 (grep -rn \"interface PluginRegistration|type PluginRegistration\" packages plugins apps --include=*.ts -> 2 hits, both in that one file: :82 PluginRegistrationDeps, :121 PluginRegistration). No rival contract at L6 or L7 — apps/editor/src/PluginRegistry.ts:198 is an ALIAS (`export type PluginDescriptor = PluginRegistration<PluginContribution, RoomEventRuntime>`), not a second declaration. This family's own registration is still an inline object literal in the L7 file at PluginRegistry.ts:435, which is the arrangement ADR-0367 exists to end, not a violation of the layer rule (L7 may import downward).",
+  "l7_surface": {
+   "tool_file_L6": "StairPlacementTool",
+   "tool_file_L2_geometry": "packages/geometry-stair/src/StairTool.ts",
+   "PluginRegistry_entry": "apps/editor/src/PluginRegistry.ts:435 — inline ALL_PLUGINS descriptor, id 'stair'",
+   "initTools_bridge": "apps/editor/src/engine/initTools.ts:3377 `new StairTool` · §-tag NONE",
+   "tool_activator_L7": "NONE — no runtime.tools.register(...) for this family (grep -n 'runtime.tools.register(' apps/editor/src/PluginRegistry.ts -> 26 registrations, none for this family)",
+   "L6_tool_reachability": "NEVER NAMED outside plugins/ — the class name does not appear in apps/, packages/ or src/ at all (non-test, non-dist). AUTHORED-BUT-UNREACHABLE.",
+   "read_but_never_assigned_symbols": []
+  },
+  "findings": []
+ },
+ "handrail": {
+  "extension_contract_layer": "CONTRACT AT L5 — ok. DECLARATION SITE STILL L7. The contract is declared exactly once repo-wide, at packages/plugin-sdk/src/registration.ts:121 (grep -rn \"interface PluginRegistration|type PluginRegistration\" packages plugins apps --include=*.ts -> 2 hits, both in that one file: :82 PluginRegistrationDeps, :121 PluginRegistration). No rival contract at L6 or L7 — apps/editor/src/PluginRegistry.ts:198 is an ALIAS (`export type PluginDescriptor = PluginRegistration<PluginContribution, RoomEventRuntime>`), not a second declaration. This family's own registration is still an inline object literal in the L7 file at PluginRegistry.ts:443, which is the arrangement ADR-0367 exists to end, not a violation of the layer rule (L7 may import downward).",
+  "l7_surface": {
+   "tool_file_L6": "HandrailPlacementTool",
+   "tool_file_L2_geometry": "packages/geometry-handrail/src/HandrailTool.ts",
+   "PluginRegistry_entry": "apps/editor/src/PluginRegistry.ts:443 — inline ALL_PLUGINS descriptor, id 'handrail'",
+   "initTools_bridge": "apps/editor/src/engine/initTools.ts:752 `new HandrailTool` · §WALL-AUDIT-2026-W2",
+   "tool_activator_L7": "NONE — no runtime.tools.register(...) for this family (grep -n 'runtime.tools.register(' apps/editor/src/PluginRegistry.ts -> 26 registrations, none for this family)",
+   "L6_tool_reachability": "NEVER NAMED outside plugins/ — the class name does not appear in apps/, packages/ or src/ at all (non-test, non-dist). AUTHORED-BUT-UNREACHABLE.",
+   "read_but_never_assigned_symbols": []
+  },
+  "findings": []
+ },
+ "ceiling": {
+  "extension_contract_layer": "CONTRACT AT L5 — ok. DECLARATION SITE STILL L7. The contract is declared exactly once repo-wide, at packages/plugin-sdk/src/registration.ts:121 (grep -rn \"interface PluginRegistration|type PluginRegistration\" packages plugins apps --include=*.ts -> 2 hits, both in that one file: :82 PluginRegistrationDeps, :121 PluginRegistration). No rival contract at L6 or L7 — apps/editor/src/PluginRegistry.ts:198 is an ALIAS (`export type PluginDescriptor = PluginRegistration<PluginContribution, RoomEventRuntime>`), not a second declaration. This family's own registration is still an inline object literal in the L7 file at PluginRegistry.ts:451, which is the arrangement ADR-0367 exists to end, not a violation of the layer rule (L7 may import downward).",
+  "l7_surface": {
+   "tool_file_L6": "CeilingPlacementTool",
+   "tool_file_L2_geometry": "packages/geometry-slab/src/ceiling/CeilingTool.ts",
+   "PluginRegistry_entry": "apps/editor/src/PluginRegistry.ts:451 — inline ALL_PLUGINS descriptor, id 'ceiling'",
+   "initTools_bridge": "apps/editor/src/engine/initTools.ts:607 `new CeilingTool` · §SLAB-SYSTEM-AUDIT-2026",
+   "tool_activator_L7": "NONE — no runtime.tools.register(...) for this family (grep -n 'runtime.tools.register(' apps/editor/src/PluginRegistry.ts -> 26 registrations, none for this family)",
+   "L6_tool_reachability": "NEVER NAMED outside plugins/ — the class name does not appear in apps/, packages/ or src/ at all (non-test, non-dist). AUTHORED-BUT-UNREACHABLE.",
+   "read_but_never_assigned_symbols": []
+  },
+  "findings": []
+ },
+ "floor": {
+  "extension_contract_layer": "CONTRACT AT L5 — ok. DECLARATION SITE STILL L7. The contract is declared exactly once repo-wide, at packages/plugin-sdk/src/registration.ts:121 (grep -rn \"interface PluginRegistration|type PluginRegistration\" packages plugins apps --include=*.ts -> 2 hits, both in that one file: :82 PluginRegistrationDeps, :121 PluginRegistration). No rival contract at L6 or L7 — apps/editor/src/PluginRegistry.ts:198 is an ALIAS (`export type PluginDescriptor = PluginRegistration<PluginContribution, RoomEventRuntime>`), not a second declaration. This family's own registration is still an inline object literal in the L7 file at PluginRegistry.ts:463, which is the arrangement ADR-0367 exists to end, not a violation of the layer rule (L7 may import downward).",
+  "l7_surface": {
+   "tool_file_L6": "NONE at L6. The tool is L2: packages/geometry-slab/src/floor/FloorTool.ts, instantiated at initTools.ts:623.",
+   "tool_file_L2_geometry": "packages/geometry-slab/src/floor/FloorTool.ts",
+   "PluginRegistry_entry": "apps/editor/src/PluginRegistry.ts:463 — inline ALL_PLUGINS descriptor, id 'floor'",
+   "initTools_bridge": "apps/editor/src/engine/initTools.ts:623 `new FloorTool` · §FIX-FLOOR-FINISH-CREATION-PARITY",
+   "tool_activator_L7": "NONE — no runtime.tools.register(...) for this family (grep -n 'runtime.tools.register(' apps/editor/src/PluginRegistry.ts -> 26 registrations, none for this family)",
+   "L6_tool_reachability": "n/a",
+   "read_but_never_assigned_symbols": []
+  },
+  "findings": []
+ },
+ "balcony": {
+  "extension_contract_layer": "CONTRACT AT L5 — ok. DECLARATION SITE STILL L7. The contract is declared exactly once repo-wide, at packages/plugin-sdk/src/registration.ts:121 (grep -rn \"interface PluginRegistration|type PluginRegistration\" packages plugins apps --include=*.ts -> 2 hits, both in that one file: :82 PluginRegistrationDeps, :121 PluginRegistration). No rival contract at L6 or L7 — apps/editor/src/PluginRegistry.ts:198 is an ALIAS (`export type PluginDescriptor = PluginRegistration<PluginContribution, RoomEventRuntime>`), not a second declaration. This family's own registration is still an inline object literal in the L7 file at PluginRegistry.ts:498, which is the arrangement ADR-0367 exists to end, not a violation of the layer rule (L7 may import downward).",
+  "l7_surface": {
+   "tool_file_L6": "NONE — `git ls-files plugins/balcony/**/*Tool*.ts plugins/balcony/src/tool.ts` -> 0 files.",
+   "tool_file_L2_geometry": null,
+   "PluginRegistry_entry": "apps/editor/src/PluginRegistry.ts:498 — inline ALL_PLUGINS descriptor, id 'balcony'",
+   "initTools_bridge": "NONE — no `new <X>Tool` for this family in apps/editor/src/engine/initTools.ts (grep -on \"new [A-Z][A-Za-z]*Tool\\b\", 25 hits, none for this family)",
+   "tool_activator_L7": "NONE — no runtime.tools.register(...) for this family (grep -n 'runtime.tools.register(' apps/editor/src/PluginRegistry.ts -> 26 registrations, none for this family)",
+   "L6_tool_reachability": "n/a",
+   "read_but_never_assigned_symbols": []
+  },
+  "findings": []
+ },
+ "lift": {
+  "extension_contract_layer": "CONTRACT AT L5 — ok. DECLARATION SITE STILL L7. The contract is declared exactly once repo-wide, at packages/plugin-sdk/src/registration.ts:121 (grep -rn \"interface PluginRegistration|type PluginRegistration\" packages plugins apps --include=*.ts -> 2 hits, both in that one file: :82 PluginRegistrationDeps, :121 PluginRegistration). No rival contract at L6 or L7 — apps/editor/src/PluginRegistry.ts:198 is an ALIAS (`export type PluginDescriptor = PluginRegistration<PluginContribution, RoomEventRuntime>`), not a second declaration. This family's own registration is still an inline object literal in the L7 file at PluginRegistry.ts:545, which is the arrangement ADR-0367 exists to end, not a violation of the layer rule (L7 may import downward).",
+  "l7_surface": {
+   "tool_file_L6": "NONE at L6. The tool is L2: packages/geometry-lift/src/LiftTool.ts.",
+   "tool_file_L2_geometry": "packages/geometry-lift/src/LiftTool.ts",
+   "PluginRegistry_entry": "apps/editor/src/PluginRegistry.ts:545 — inline ALL_PLUGINS descriptor, id 'lift'",
+   "initTools_bridge": "apps/editor/src/engine/initTools.ts:3395 `new LiftTool` · §LIFT-CREATE-TOOL",
+   "tool_activator_L7": "NONE — no runtime.tools.register(...) for this family (grep -n 'runtime.tools.register(' apps/editor/src/PluginRegistry.ts -> 26 registrations, none for this family)",
+   "L6_tool_reachability": "n/a",
+   "read_but_never_assigned_symbols": []
+  },
+  "findings": []
+ },
+ "liftPart": {
+  "extension_contract_layer": "CONTRACT AT L5 — ok. DECLARATION SITE STILL L7. The contract is declared exactly once repo-wide, at packages/plugin-sdk/src/registration.ts:121 (grep -rn \"interface PluginRegistration|type PluginRegistration\" packages plugins apps --include=*.ts -> 2 hits, both in that one file: :82 PluginRegistrationDeps, :121 PluginRegistration). No rival contract at L6 or L7 — apps/editor/src/PluginRegistry.ts:198 is an ALIAS (`export type PluginDescriptor = PluginRegistration<PluginContribution, RoomEventRuntime>`), not a second declaration. This family's own registration is still an inline object literal in the L7 file at PluginRegistry.ts:551, which is the arrangement ADR-0367 exists to end, not a violation of the layer rule (L7 may import downward).",
+  "l7_surface": {
+   "tool_file_L6": "NONE at L6 (rides lift).",
+   "tool_file_L2_geometry": "packages/geometry-lift/src/LiftTool.ts",
+   "PluginRegistry_entry": "apps/editor/src/PluginRegistry.ts:551 — inline ALL_PLUGINS descriptor, id 'liftPart'",
+   "initTools_bridge": "apps/editor/src/engine/initTools.ts:3395 `new LiftTool` (shared with lift) · §LIFT-CREATE-TOOL",
+   "tool_activator_L7": "NONE — no runtime.tools.register(...) for this family (grep -n 'runtime.tools.register(' apps/editor/src/PluginRegistry.ts -> 26 registrations, none for this family)",
+   "L6_tool_reachability": "n/a",
+   "read_but_never_assigned_symbols": []
+  },
+  "findings": []
+ },
+ "boundaryLine": {
+  "extension_contract_layer": "CONTRACT AT L5 — ok. DECLARATION SITE STILL L7. The contract is declared exactly once repo-wide, at packages/plugin-sdk/src/registration.ts:121 (grep -rn \"interface PluginRegistration|type PluginRegistration\" packages plugins apps --include=*.ts -> 2 hits, both in that one file: :82 PluginRegistrationDeps, :121 PluginRegistration). No rival contract at L6 or L7 — apps/editor/src/PluginRegistry.ts:198 is an ALIAS (`export type PluginDescriptor = PluginRegistration<PluginContribution, RoomEventRuntime>`), not a second declaration. This family's own registration is still an inline object literal in the L7 file at PluginRegistry.ts:595, which is the arrangement ADR-0367 exists to end, not a violation of the layer rule (L7 may import downward).",
+  "l7_surface": {
+   "tool_file_L6": "NONE at L6. The tool is L2: packages/geometry-wall/src/RoomBoundingLineTool.ts, instantiated at initTools.ts:3366.",
+   "tool_file_L2_geometry": "packages/geometry-wall/src/RoomBoundingLineTool.ts",
+   "PluginRegistry_entry": "apps/editor/src/PluginRegistry.ts:595 — inline ALL_PLUGINS descriptor, id 'boundary-line'",
+   "initTools_bridge": "apps/editor/src/engine/initTools.ts:3366 `new RoomBoundingLineTool` · §-tag NONE",
+   "tool_activator_L7": "NONE — no runtime.tools.register(...) for this family (grep -n 'runtime.tools.register(' apps/editor/src/PluginRegistry.ts -> 26 registrations, none for this family)",
+   "L6_tool_reachability": "n/a",
+   "read_but_never_assigned_symbols": []
+  },
+  "findings": []
+ },
+ "furniture": {
+  "extension_contract_layer": "CONTRACT AT L5 — ok. DECLARATION SITE STILL L7. The contract is declared exactly once repo-wide, at packages/plugin-sdk/src/registration.ts:121 (grep -rn \"interface PluginRegistration|type PluginRegistration\" packages plugins apps --include=*.ts -> 2 hits, both in that one file: :82 PluginRegistrationDeps, :121 PluginRegistration). No rival contract at L6 or L7 — apps/editor/src/PluginRegistry.ts:198 is an ALIAS (`export type PluginDescriptor = PluginRegistration<PluginContribution, RoomEventRuntime>`), not a second declaration. This family's own registration is still an inline object literal in the L7 file at PluginRegistry.ts:603, which is the arrangement ADR-0367 exists to end, not a violation of the layer rule (L7 may import downward).",
+  "l7_surface": {
+   "tool_file_L6": "FurniturePlacementTool",
+   "tool_file_L2_geometry": "packages/geometry-furniture/src/FurnitureTool.ts",
+   "PluginRegistry_entry": "apps/editor/src/PluginRegistry.ts:603 — inline ALL_PLUGINS descriptor, id 'furniture'",
+   "initTools_bridge": "apps/editor/src/engine/initTools.ts:689 `new FurnitureTool`, :690 `window.furnitureTool = furnitureTool` · §-tag NONE",
+   "tool_activator_L7": "runtime.tools.register('furniture') at apps/editor/src/PluginRegistry.ts:1157",
+   "L6_tool_reachability": "NAMED OUTSIDE plugins/ ONLY IN COMMENTS — no import statement, no `new X(`. AUTHORED-BUT-UNREACHABLE with a comment that reads as if it were wired.",
+   "read_but_never_assigned_symbols": []
+  },
+  "findings": []
+ },
+ "plumbing": {
+  "extension_contract_layer": "CONTRACT AT L5 — ok. DECLARATION SITE STILL L7. The contract is declared exactly once repo-wide, at packages/plugin-sdk/src/registration.ts:121 (grep -rn \"interface PluginRegistration|type PluginRegistration\" packages plugins apps --include=*.ts -> 2 hits, both in that one file: :82 PluginRegistrationDeps, :121 PluginRegistration). No rival contract at L6 or L7 — apps/editor/src/PluginRegistry.ts:198 is an ALIAS (`export type PluginDescriptor = PluginRegistration<PluginContribution, RoomEventRuntime>`), not a second declaration. This family's own registration is still an inline object literal in the L7 file at PluginRegistry.ts:618, which is the arrangement ADR-0367 exists to end, not a violation of the layer rule (L7 may import downward).",
+  "l7_surface": {
+   "tool_file_L6": "PlumbingPlacementTool",
+   "tool_file_L2_geometry": "packages/geometry-plumbing/src/PlumbingTool.ts",
+   "PluginRegistry_entry": "apps/editor/src/PluginRegistry.ts:618 — inline ALL_PLUGINS descriptor, id 'plumbing'",
+   "initTools_bridge": "apps/editor/src/engine/initTools.ts:685 `new PlumbingTool` · §-tag NONE",
+   "tool_activator_L7": "NONE — no runtime.tools.register(...) for this family (grep -n 'runtime.tools.register(' apps/editor/src/PluginRegistry.ts -> 26 registrations, none for this family)",
+   "L6_tool_reachability": "NEVER NAMED outside plugins/ — the class name does not appear in apps/, packages/ or src/ at all (non-test, non-dist). AUTHORED-BUT-UNREACHABLE.",
+   "read_but_never_assigned_symbols": []
+  },
+  "findings": []
+ },
+ "bathroomPod": {
+  "extension_contract_layer": "CONTRACT AT L5 — ok. DECLARATION SITE STILL L7. The contract is declared exactly once repo-wide, at packages/plugin-sdk/src/registration.ts:121 (grep -rn \"interface PluginRegistration|type PluginRegistration\" packages plugins apps --include=*.ts -> 2 hits, both in that one file: :82 PluginRegistrationDeps, :121 PluginRegistration). No rival contract at L6 or L7 — apps/editor/src/PluginRegistry.ts:198 is an ALIAS (`export type PluginDescriptor = PluginRegistration<PluginContribution, RoomEventRuntime>`), not a second declaration. This family's own registration is still an inline object literal in the L7 file at PluginRegistry.ts:657, which is the arrangement ADR-0367 exists to end, not a violation of the layer rule (L7 may import downward).",
+  "l7_surface": {
+   "tool_file_L6": "PlumbingPlacementTool (rides plumbing)",
+   "tool_file_L2_geometry": "packages/geometry-plumbing/src/PlumbingTool.ts",
+   "PluginRegistry_entry": "apps/editor/src/PluginRegistry.ts:657 — inline ALL_PLUGINS descriptor, id 'bathroomPod'",
+   "initTools_bridge": "NONE — no `new <X>Tool` for this family in apps/editor/src/engine/initTools.ts (grep -on \"new [A-Z][A-Za-z]*Tool\\b\", 25 hits, none for this family)",
+   "tool_activator_L7": "NONE — no runtime.tools.register(...) for this family (grep -n 'runtime.tools.register(' apps/editor/src/PluginRegistry.ts -> 26 registrations, none for this family)",
+   "L6_tool_reachability": "NEVER NAMED outside plugins/ — the class name does not appear in apps/, packages/ or src/ at all (non-test, non-dist). AUTHORED-BUT-UNREACHABLE.",
+   "read_but_never_assigned_symbols": []
+  },
+  "findings": []
+ },
+ "lighting": {
+  "extension_contract_layer": "CONTRACT AT L5 — ok. DECLARATION SITE STILL L7. The contract is declared exactly once repo-wide, at packages/plugin-sdk/src/registration.ts:121 (grep -rn \"interface PluginRegistration|type PluginRegistration\" packages plugins apps --include=*.ts -> 2 hits, both in that one file: :82 PluginRegistrationDeps, :121 PluginRegistration). No rival contract at L6 or L7 — apps/editor/src/PluginRegistry.ts:198 is an ALIAS (`export type PluginDescriptor = PluginRegistration<PluginContribution, RoomEventRuntime>`), not a second declaration. This family's own registration is still an inline object literal in the L7 file at PluginRegistry.ts:677, which is the arrangement ADR-0367 exists to end, not a violation of the layer rule (L7 may import downward).",
+  "l7_surface": {
+   "tool_file_L6": "LightingPlacementTool",
+   "tool_file_L2_geometry": "packages/geometry-lighting/src/LightingTool.ts",
+   "PluginRegistry_entry": "apps/editor/src/PluginRegistry.ts:677 — inline ALL_PLUGINS descriptor, id 'lighting'",
+   "initTools_bridge": "apps/editor/src/engine/initTools.ts:842 `new LightingTool`, :843 `window.lightingTool = lightingTool` · §-tag NONE",
+   "tool_activator_L7": "runtime.tools.register('lighting') at apps/editor/src/PluginRegistry.ts:1188",
+   "L6_tool_reachability": "IMPORTED AND CONSTRUCTED at L7 (apps/editor/src/PluginRegistry.ts) — but see read_but_never_assigned: its screenToWorld dependency resolves to a global assigned nowhere.",
+   "read_but_never_assigned_symbols": [
+    "window.__pryzmScreenToWorld — READ at apps/editor/src/PluginRegistry.ts:1063 (inside eventScreenToWorld, handed to this family's tool at :1182/:1197/:1212), ASSIGNED NOWHERE repo-wide. Consequence: onPointerDown's `if (!isFiniteVec3(p)) return undefined` / `if (!p) return undefined` guard is PERMANENT, so the tool can never dispatch its create verb."
+   ]
+  },
+  "findings": []
+ },
+ "room": {
+  "extension_contract_layer": "CONTRACT AT L5 — ok. DECLARATION SITE STILL L7. The contract is declared exactly once repo-wide, at packages/plugin-sdk/src/registration.ts:121 (grep -rn \"interface PluginRegistration|type PluginRegistration\" packages plugins apps --include=*.ts -> 2 hits, both in that one file: :82 PluginRegistrationDeps, :121 PluginRegistration). No rival contract at L6 or L7 — apps/editor/src/PluginRegistry.ts:198 is an ALIAS (`export type PluginDescriptor = PluginRegistration<PluginContribution, RoomEventRuntime>`), not a second declaration. This family's own registration is still an inline object literal in the L7 file at PluginRegistry.ts:691, which is the arrangement ADR-0367 exists to end, not a violation of the layer rule (L7 may import downward).",
+  "l7_surface": {
+   "tool_file_L6": "RoomSeedTool",
+   "tool_file_L2_geometry": null,
+   "PluginRegistry_entry": "apps/editor/src/PluginRegistry.ts:691 — inline ALL_PLUGINS descriptor, id 'rooms'",
+   "initTools_bridge": "apps/editor/src/engine/initTools.ts:3323 `new RoomTool`, :3358 `window.roomTool = roomTool` · §ROOM-LOSS-NOTICE",
+   "tool_activator_L7": "runtime.tools.register('rooms') at apps/editor/src/PluginRegistry.ts:1273",
+   "L6_tool_reachability": "NAMED OUTSIDE plugins/ ONLY IN COMMENTS — no import statement, no `new X(`. AUTHORED-BUT-UNREACHABLE with a comment that reads as if it were wired.",
+   "read_but_never_assigned_symbols": []
+  },
+  "findings": []
+ },
+ "structural": {
+  "extension_contract_layer": "CONTRACT AT L5 — ok. DECLARATION SITE STILL L7. The contract is declared exactly once repo-wide, at packages/plugin-sdk/src/registration.ts:121 (grep -rn \"interface PluginRegistration|type PluginRegistration\" packages plugins apps --include=*.ts -> 2 hits, both in that one file: :82 PluginRegistrationDeps, :121 PluginRegistration). No rival contract at L6 or L7 — apps/editor/src/PluginRegistry.ts:198 is an ALIAS (`export type PluginDescriptor = PluginRegistration<PluginContribution, RoomEventRuntime>`), not a second declaration. This family's own registration is still an inline object literal in the L7 file at PluginRegistry.ts:700, which is the arrangement ADR-0367 exists to end, not a violation of the layer rule (L7 may import downward).",
+  "l7_surface": {
+   "tool_file_L6": "StructuralPlacementTool",
+   "tool_file_L2_geometry": null,
+   "PluginRegistry_entry": "apps/editor/src/PluginRegistry.ts:700 — inline ALL_PLUGINS descriptor, id 'structural'",
+   "initTools_bridge": "NONE — no `new <X>Tool` for this family in apps/editor/src/engine/initTools.ts (grep -on \"new [A-Z][A-Za-z]*Tool\\b\", 25 hits, none for this family)",
+   "tool_activator_L7": "runtime.tools.register('structural') at apps/editor/src/PluginRegistry.ts:1203",
+   "L6_tool_reachability": "IMPORTED AND CONSTRUCTED at L7 (apps/editor/src/PluginRegistry.ts) — but see read_but_never_assigned: its screenToWorld dependency resolves to a global assigned nowhere.",
+   "read_but_never_assigned_symbols": [
+    "window.__pryzmScreenToWorld — READ at apps/editor/src/PluginRegistry.ts:1063 (inside eventScreenToWorld, handed to this family's tool at :1182/:1197/:1212), ASSIGNED NOWHERE repo-wide. Consequence: onPointerDown's `if (!isFiniteVec3(p)) return undefined` / `if (!p) return undefined` guard is PERMANENT, so the tool can never dispatch its create verb."
+   ]
+  },
+  "findings": []
+ },
+ "dimension": {
+  "extension_contract_layer": "CONTRACT AT L5 — ok. DECLARATION SITE STILL L7. The contract is declared exactly once repo-wide, at packages/plugin-sdk/src/registration.ts:121 (grep -rn \"interface PluginRegistration|type PluginRegistration\" packages plugins apps --include=*.ts -> 2 hits, both in that one file: :82 PluginRegistrationDeps, :121 PluginRegistration). No rival contract at L6 or L7 — apps/editor/src/PluginRegistry.ts:198 is an ALIAS (`export type PluginDescriptor = PluginRegistration<PluginContribution, RoomEventRuntime>`), not a second declaration. This family's own registration is still an inline object literal in the L7 file at PluginRegistry.ts:715, which is the arrangement ADR-0367 exists to end, not a violation of the layer rule (L7 may import downward).",
+  "l7_surface": {
+   "tool_file_L6": "DimensionTool",
+   "tool_file_L2_geometry": null,
+   "PluginRegistry_entry": "apps/editor/src/PluginRegistry.ts:715 — inline ALL_PLUGINS descriptor, id 'dimensions'",
+   "initTools_bridge": "NONE — no `new <X>Tool` for this family in apps/editor/src/engine/initTools.ts (grep -on \"new [A-Z][A-Za-z]*Tool\\b\", 25 hits, none for this family)",
+   "tool_activator_L7": "NONE — no runtime.tools.register(...) for this family (grep -n 'runtime.tools.register(' apps/editor/src/PluginRegistry.ts -> 26 registrations, none for this family)",
+   "L6_tool_reachability": "NAMED OUTSIDE plugins/ ONLY IN COMMENTS — no import statement, no `new X(`. AUTHORED-BUT-UNREACHABLE with a comment that reads as if it were wired.",
+   "read_but_never_assigned_symbols": []
+  },
+  "findings": []
+ },
+ "selection": {
+  "extension_contract_layer": "CONTRACT AT L5 — ok. DECLARATION SITE STILL L7. The contract is declared exactly once repo-wide, at packages/plugin-sdk/src/registration.ts:121 (grep -rn \"interface PluginRegistration|type PluginRegistration\" packages plugins apps --include=*.ts -> 2 hits, both in that one file: :82 PluginRegistrationDeps, :121 PluginRegistration). No rival contract at L6 or L7 — apps/editor/src/PluginRegistry.ts:198 is an ALIAS (`export type PluginDescriptor = PluginRegistration<PluginContribution, RoomEventRuntime>`), not a second declaration. This family's own registration is still an inline object literal in the L7 file at PluginRegistry.ts:752, which is the arrangement ADR-0367 exists to end, not a violation of the layer rule (L7 may import downward).",
+  "l7_surface": {
+   "tool_file_L6": "SelectionTool",
+   "tool_file_L2_geometry": null,
+   "PluginRegistry_entry": "apps/editor/src/PluginRegistry.ts:752 — inline ALL_PLUGINS descriptor, id 'selection'",
+   "initTools_bridge": "NONE — no `new <X>Tool` for this family in apps/editor/src/engine/initTools.ts (grep -on \"new [A-Z][A-Za-z]*Tool\\b\", 25 hits, none for this family)",
+   "tool_activator_L7": "runtime.tools.register('selection') at apps/editor/src/PluginRegistry.ts:1314",
+   "L6_tool_reachability": "n/a",
+   "read_but_never_assigned_symbols": []
+  },
+  "findings": []
+ },
+ "annotation": {
+  "extension_contract_layer": "CONTRACT AT L5 — ok. DECLARATION SITE STILL L7. The contract is declared exactly once repo-wide, at packages/plugin-sdk/src/registration.ts:121 (grep -rn \"interface PluginRegistration|type PluginRegistration\" packages plugins apps --include=*.ts -> 2 hits, both in that one file: :82 PluginRegistrationDeps, :121 PluginRegistration). No rival contract at L6 or L7 — apps/editor/src/PluginRegistry.ts:198 is an ALIAS (`export type PluginDescriptor = PluginRegistration<PluginContribution, RoomEventRuntime>`), not a second declaration. This family's own registration is still an inline object literal in the L7 file at PluginRegistry.ts:773, which is the arrangement ADR-0367 exists to end, not a violation of the layer rule (L7 may import downward).",
+  "l7_surface": {
+   "tool_file_L6": "TextNoteTool (plugins/annotations/src/tool.ts)",
+   "tool_file_L2_geometry": null,
+   "PluginRegistry_entry": "apps/editor/src/PluginRegistry.ts:773 — inline ALL_PLUGINS descriptor, id 'annotations'",
+   "initTools_bridge": "NONE — no `new <X>Tool` for this family in apps/editor/src/engine/initTools.ts (grep -on \"new [A-Z][A-Za-z]*Tool\\b\", 25 hits, none for this family)",
+   "tool_activator_L7": "runtime.tools.register('annotation') at apps/editor/src/PluginRegistry.ts:1073",
+   "L6_tool_reachability": "IMPORTED AND CONSTRUCTED at L7 (apps/editor/src/PluginRegistry.ts) — but see read_but_never_assigned: its screenToWorld dependency resolves to a global assigned nowhere.",
+   "read_but_never_assigned_symbols": [
+    "window.__pryzmScreenToWorld — READ at apps/editor/src/PluginRegistry.ts:1055 (inside annotationScreenToWorld, handed to TextNoteTool at :1088), ASSIGNED NOWHERE repo-wide. TextNoteTool's anchor (plugins/annotations/src/tool.ts:108) is therefore always null and :112 raises 'screenToWorld returned non-finite anchor'."
+   ]
+  },
+  "findings": []
+ },
+ "section": {
+  "extension_contract_layer": "COMPLIANT with ADR-0367 and the ONLY family that is. The contract is L5 (packages/plugin-sdk/src/registration.ts:121, `export interface PluginRegistration`). The DECLARATION is L6: plugins/section-view/src/registration.ts:48 imports the type from @pryzm/plugin-sdk and :69-74 declares `sectionViewPluginRegistration ... satisfies PluginRegistration`. `ls plugins/*/src/registration.ts` -> 1 file, this one.",
+  "l7_surface": {
+   "tool_file_L6": "SectionTool",
+   "tool_file_L2_geometry": null,
+   "PluginRegistry_entry": "NOT an inline ALL_PLUGINS descriptor. Imported as a bare value: apps/editor/src/PluginRegistry.ts:117 `import { sectionViewPluginRegistration } from '@pryzm/plugin-section-view'`; PluginRegistry.ts:807-808 states in source that 'nothing about section-view is described here'.",
+   "initTools_bridge": "NONE — no `new <X>Tool` for this family in apps/editor/src/engine/initTools.ts (grep -on \"new [A-Z][A-Za-z]*Tool\\b\", 25 hits, none for this family)",
+   "tool_activator_L7": "runtime.tools.register('section-view') at apps/editor/src/PluginRegistry.ts:1299",
+   "L6_tool_reachability": "NAMED OUTSIDE plugins/ ONLY IN COMMENTS — no import statement, no `new X(`. AUTHORED-BUT-UNREACHABLE with a comment that reads as if it were wired.",
+   "read_but_never_assigned_symbols": [
+    "window.sectionTool — READ at apps/editor/src/PluginRegistry.ts:1300, ASSIGNED NOWHERE. `grep -rn sectionTool apps packages plugins src --include=*.ts` -> 2 hits: the read, and apps/editor/__tests__/sectionViewReachableThroughComposedRuntime.test.ts:47 which says so in prose. The `t?.activate` branch is PERMANENTLY dead; the else-branch (busAdapter 'section.panel.open') always runs."
+   ]
+  },
+  "findings": []
+ }
+}

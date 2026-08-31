@@ -1,0 +1,539 @@
+{
+ "annotation": {
+  "file": "packages/schemas/src/elements/Annotation.ts",
+  "count": 9,
+  "fields": [
+   "provenance",
+   "viewId",
+   "kind",
+   "anchor",
+   "hostElementId",
+   "text",
+   "rotation",
+   "textHeightMm",
+   "color"
+  ]
+ },
+ "balcony": {
+  "file": "packages/schemas/src/elements/Balcony.ts",
+  "count": 16,
+  "fields": [
+   "provenance",
+   "confidence",
+   "levelId",
+   "hostWallId",
+   "hostOffset",
+   "boundary",
+   "width",
+   "projection",
+   "railingHeight",
+   "slabThickness",
+   "finishThickness",
+   "systemTypeId",
+   "railingTypeId",
+   "finishTypeId",
+   "materialId",
+   "materialColor"
+  ]
+ },
+ "beam": {
+  "file": "packages/schemas/src/elements/Beam.ts",
+  "count": 12,
+  "fields": [
+   "provenance",
+   "confidence",
+   "levelId",
+   "baseLine",
+   "shape",
+   "width",
+   "depth",
+   "rotation",
+   "materialId",
+   "loadBearing",
+   "fireRating",
+   "steelProfileName"
+  ]
+ },
+ "boundaryLine": {
+  "file": "packages/schemas/src/elements/BoundaryLine.ts",
+  "count": 15,
+  "fields": [
+   "provenance",
+   "confidence",
+   "levelId",
+   "vertices",
+   "closed",
+   "drawMode",
+   "hasVolume",
+   "attachments",
+   "thickness",
+   "baseOffset",
+   "systemTypeId",
+   "materialId",
+   "materialColor",
+   "name",
+   "pinned"
+  ]
+ },
+ "ceiling": {
+  "file": "packages/schemas/src/elements/Ceiling.ts",
+  "count": 8,
+  "fields": [
+   "provenance",
+   "confidence",
+   "levelId",
+   "boundary",
+   "ceilingHeight",
+   "thickness",
+   "materialId",
+   "materialColor"
+  ]
+ },
+ "column": {
+  "file": "packages/schemas/src/elements/Column.ts",
+  "count": 12,
+  "fields": [
+   "provenance",
+   "confidence",
+   "levelId",
+   "topLevelId",
+   "origin",
+   "shape",
+   "width",
+   "depth",
+   "height",
+   "baseOffset",
+   "rotation",
+   "materialId"
+  ]
+ },
+ "curtainwall": {
+  "file": "packages/schemas/src/elements/CurtainWall.ts",
+  "count": 12,
+  "fields": [
+   "provenance",
+   "confidence",
+   "levelId",
+   "baseLine",
+   "height",
+   "baseOffset",
+   "mullionThickness",
+   "panelThickness",
+   "bayWidth",
+   "bayHeight",
+   "panels",
+   "materialId"
+  ]
+ },
+ "dimension": {
+  "file": "packages/schemas/src/elements/Dimension.ts",
+  "count": 11,
+  "fields": [
+   "provenance",
+   "levelId",
+   "viewId",
+   "kind",
+   "points",
+   "offsetMm",
+   "units",
+   "precision",
+   "style",
+   "overridden",
+   "overrideText"
+  ]
+ },
+ "door": {
+  "file": "packages/schemas/src/elements/Door.ts",
+  "count": 18,
+  "fields": [
+   "provenance",
+   "confidence",
+   "wallId",
+   "openingId",
+   "doorType",
+   "width",
+   "height",
+   "sillHeight",
+   "offset",
+   "frameThickness",
+   "frameWidth",
+   "frameMaterialId",
+   "leafMaterialId",
+   "frameColor",
+   "leafColor",
+   "fireRating",
+   "accessibilityType",
+   "swing"
+  ]
+ },
+ "floor": {
+  "file": "packages/schemas/src/elements/Floor.ts",
+  "count": 8,
+  "fields": [
+   "provenance",
+   "confidence",
+   "levelId",
+   "boundary",
+   "baseOffset",
+   "thickness",
+   "materialId",
+   "materialColor"
+  ]
+ },
+ "furniture": {
+  "file": "packages/schemas/src/elements/Furniture.ts",
+  "count": 12,
+  "fields": [
+   "provenance",
+   "confidence",
+   "levelId",
+   "catalogId",
+   "origin",
+   "rotation",
+   "scale",
+   "size",
+   "activeLod",
+   "representations",
+   "materialSlots",
+   "materialId"
+  ]
+ },
+ "grid": {
+  "file": "packages/schemas/src/elements/Grid.ts",
+  "count": 5,
+  "fields": [
+   "provenance",
+   "confidence",
+   "levelId",
+   "rotation",
+   "lines"
+  ]
+ },
+ "handrail": {
+  "file": "packages/schemas/src/elements/Handrail.ts",
+  "count": 9,
+  "fields": [
+   "provenance",
+   "confidence",
+   "levelId",
+   "hostId",
+   "path",
+   "shape",
+   "height",
+   "diameter",
+   "materialId"
+  ]
+ },
+ "lighting": {
+  "file": "packages/schemas/src/elements/Lighting.ts",
+  "count": 18,
+  "fields": [
+   "provenance",
+   "confidence",
+   "levelId",
+   "kind",
+   "origin",
+   "rotation",
+   "width",
+   "depth",
+   "thickness",
+   "dropLength",
+   "range",
+   "lumens",
+   "kelvin",
+   "beamAngleDeg",
+   "intensity",
+   "color",
+   "isEmergency",
+   "materialId"
+  ]
+ },
+ "plumbing": {
+  "file": "packages/schemas/src/elements/Plumbing.ts",
+  "count": 13,
+  "fields": [
+   "provenance",
+   "confidence",
+   "levelId",
+   "kind",
+   "origin",
+   "diameter",
+   "wallThickness",
+   "length",
+   "rotation",
+   "bendRadius",
+   "baseOffset",
+   "systemTag",
+   "materialId"
+  ]
+ },
+ "pool": {
+  "file": "packages/schemas/src/elements/Pool.ts",
+  "count": 14,
+  "fields": [
+   "provenance",
+   "confidence",
+   "levelId",
+   "hostSlabId",
+   "boundary",
+   "depth",
+   "wallThickness",
+   "floorThickness",
+   "freeboard",
+   "waterColor",
+   "waterOpacity",
+   "systemTypeId",
+   "materialId",
+   "materialColor"
+  ]
+ },
+ "project": {
+  "file": "packages/schemas/src/elements/Project.ts",
+  "count": 10,
+  "fields": [
+   "provenance",
+   "confidence",
+   "name",
+   "number",
+   "client",
+   "units",
+   "location",
+   "levels",
+   "activeViewId",
+   "schemaVersion"
+  ]
+ },
+ "projectOrigin": {
+  "file": "packages/schemas/src/elements/ProjectOrigin.ts",
+  "count": 5,
+  "fields": [
+   "provenance",
+   "confidence",
+   "position",
+   "visible",
+   "label"
+  ]
+ },
+ "roof": {
+  "file": "packages/schemas/src/elements/Roof.ts",
+  "count": 13,
+  "fields": [
+   "provenance",
+   "confidence",
+   "levelId",
+   "boundary",
+   "shape",
+   "pitch",
+   "overhang",
+   "thickness",
+   "materialId",
+   "materialColor",
+   "skylights",
+   "joinedToRoofIds",
+   "boundingWallIds"
+  ]
+ },
+ "room": {
+  "file": "packages/schemas/src/elements/Room.ts",
+  "count": 18,
+  "fields": [
+   "provenance",
+   "confidence",
+   "levelId",
+   "name",
+   "number",
+   "boundaryMode",
+   "seedPoint",
+   "heightOffset",
+   "occupancy",
+   "multiLevelSpan",
+   "boundingElementIds",
+   "boundary",
+   "area",
+   "volume",
+   "perimeter",
+   "boundingWallIds",
+   "materialColor",
+   "materialId"
+  ]
+ },
+ "schedule": {
+  "file": "packages/schemas/src/elements/Schedule.ts",
+  "count": 7,
+  "fields": [
+   "provenance",
+   "kind",
+   "title",
+   "source",
+   "columns",
+   "sort",
+   "filter"
+  ]
+ },
+ "sheet": {
+  "file": "packages/schemas/src/elements/Sheet.ts",
+  "count": 9,
+  "fields": [
+   "provenance",
+   "number",
+   "title",
+   "size",
+   "orientation",
+   "customSize",
+   "viewports",
+   "titleBlockId",
+   "revision"
+  ]
+ },
+ "slab": {
+  "file": "packages/schemas/src/elements/Slab.ts",
+  "count": 10,
+  "fields": [
+   "provenance",
+   "confidence",
+   "levelId",
+   "boundary",
+   "holes",
+   "thickness",
+   "baseOffset",
+   "materialId",
+   "materialColor",
+   "systemTypeId"
+  ]
+ },
+ "stair": {
+  "file": "packages/schemas/src/elements/Stair.ts",
+  "count": 12,
+  "fields": [
+   "provenance",
+   "confidence",
+   "levelId",
+   "topLevelId",
+   "shape",
+   "origin",
+   "rotation",
+   "treadDepth",
+   "riserHeight",
+   "width",
+   "numRisers",
+   "materialId"
+  ]
+ },
+ "structural": {
+  "file": "packages/schemas/src/elements/Structural.ts",
+  "count": 13,
+  "fields": [
+   "provenance",
+   "confidence",
+   "levelId",
+   "kind",
+   "origin",
+   "endOffset",
+   "width",
+   "depth",
+   "thickness",
+   "radius",
+   "rotation",
+   "baseOffset",
+   "materialId"
+  ]
+ },
+ "verticalCirculation": {
+  "file": "packages/schemas/src/elements/VerticalCirculation.ts",
+  "count": 12,
+  "fields": [
+   "provenance",
+   "confidence",
+   "levelId",
+   "topLevelId",
+   "kind",
+   "origin",
+   "rotation",
+   "shaftWidth",
+   "shaftDepth",
+   "carCapacityPersons",
+   "doorWidth",
+   "materialId"
+  ]
+ },
+ "view": {
+  "file": "packages/schemas/src/elements/View.ts",
+  "count": 8,
+  "fields": [
+   "provenance",
+   "name",
+   "kind",
+   "levelId",
+   "scale",
+   "cutPlane",
+   "camera",
+   "visibilityRulesetId"
+  ]
+ },
+ "wall": {
+  "file": "packages/schemas/src/elements/Wall.ts",
+  "count": 16,
+  "fields": [
+   "provenance",
+   "confidence",
+   "levelId",
+   "baseLine",
+   "curve",
+   "height",
+   "thickness",
+   "baseOffset",
+   "openings",
+   "materialId",
+   "materialColor",
+   "systemTypeId",
+   "layers",
+   "frontSide",
+   "backSide",
+   "joinIntent"
+  ]
+ },
+ "water": {
+  "file": "packages/schemas/src/elements/Water.ts",
+  "count": 11,
+  "fields": [
+   "provenance",
+   "confidence",
+   "levelId",
+   "poolId",
+   "boundary",
+   "surfaceElevation",
+   "bottomElevation",
+   "color",
+   "opacity",
+   "materialId",
+   "systemTypeId"
+  ]
+ },
+ "window": {
+  "file": "packages/schemas/src/elements/Window.ts",
+  "count": 21,
+  "fields": [
+   "provenance",
+   "confidence",
+   "wallId",
+   "openingId",
+   "windowType",
+   "width",
+   "height",
+   "sillHeight",
+   "offset",
+   "frameThickness",
+   "frameWidth",
+   "revealDirection",
+   "revealProjection",
+   "revealSplayHead",
+   "revealSplaySill",
+   "revealSplayJambLeft",
+   "revealSplayJambRight",
+   "frameMaterialId",
+   "glassMaterialId",
+   "frameColor",
+   "fireRating"
+  ]
+ }
+}

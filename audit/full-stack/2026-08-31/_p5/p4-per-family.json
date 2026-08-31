@@ -1,0 +1,237 @@
+{
+ "annotation": {
+  "gate_counted_window_as_any": 1,
+  "NOT_counted_window_as_unknown_as": 1,
+  "sitesA": [
+   "plugins/annotations/src/subsystem/ViewLinkResolver.ts:36"
+  ],
+  "sitesU": [
+   "plugins/annotations/src/tools/ElementTagTool.ts:169"
+  ]
+ },
+ "balcony": {
+  "gate_counted_window_as_any": 0,
+  "NOT_counted_window_as_unknown_as": 0,
+  "sitesA": [],
+  "sitesU": []
+ },
+ "bathroomPod": {
+  "gate_counted_window_as_any": 0,
+  "NOT_counted_window_as_unknown_as": 0,
+  "sitesA": [],
+  "sitesU": []
+ },
+ "beam": {
+  "gate_counted_window_as_any": 0,
+  "NOT_counted_window_as_unknown_as": 0,
+  "sitesA": [],
+  "sitesU": []
+ },
+ "boundaryLine": {
+  "gate_counted_window_as_any": 0,
+  "NOT_counted_window_as_unknown_as": 0,
+  "sitesA": [],
+  "sitesU": []
+ },
+ "ceiling": {
+  "gate_counted_window_as_any": 0,
+  "NOT_counted_window_as_unknown_as": 0,
+  "sitesA": [],
+  "sitesU": []
+ },
+ "column": {
+  "gate_counted_window_as_any": 0,
+  "NOT_counted_window_as_unknown_as": 1,
+  "sitesA": [],
+  "sitesU": [
+   "packages/geometry-column/src/ColumnTool.ts:104"
+  ]
+ },
+ "curtainWall": {
+  "gate_counted_window_as_any": 0,
+  "NOT_counted_window_as_unknown_as": 0,
+  "sitesA": [],
+  "sitesU": []
+ },
+ "dimension": {
+  "gate_counted_window_as_any": 0,
+  "NOT_counted_window_as_unknown_as": 0,
+  "sitesA": [],
+  "sitesU": []
+ },
+ "door": {
+  "gate_counted_window_as_any": 0,
+  "NOT_counted_window_as_unknown_as": 1,
+  "sitesA": [],
+  "sitesU": [
+   "plugins/door/src/handlers/UpdateDoorsSystemTypeBatch.ts:159"
+  ]
+ },
+ "floor": {
+  "gate_counted_window_as_any": 0,
+  "NOT_counted_window_as_unknown_as": 0,
+  "sitesA": [],
+  "sitesU": []
+ },
+ "furniture": {
+  "gate_counted_window_as_any": 0,
+  "NOT_counted_window_as_unknown_as": 3,
+  "sitesA": [],
+  "sitesU": [
+   "packages/geometry-furniture/src/builders/BedPlanSymbolBuilder.ts:88",
+   "packages/geometry-furniture/src/builders/TreeElevationSymbolBuilder.ts:79",
+   "packages/geometry-furniture/src/builders/TreePlanSymbolBuilder.ts:142"
+  ]
+ },
+ "grid": {
+  "gate_counted_window_as_any": 0,
+  "NOT_counted_window_as_unknown_as": 0,
+  "sitesA": [],
+  "sitesU": []
+ },
+ "handrail": {
+  "gate_counted_window_as_any": 0,
+  "NOT_counted_window_as_unknown_as": 0,
+  "sitesA": [],
+  "sitesU": []
+ },
+ "lift": {
+  "gate_counted_window_as_any": 1,
+  "NOT_counted_window_as_unknown_as": 1,
+  "sitesA": [
+   "packages/geometry-lift/src/LiftTool.ts:24"
+  ],
+  "sitesU": [
+   "packages/geometry-lift/src/LiftTool.ts:111"
+  ]
+ },
+ "liftPart": {
+  "gate_counted_window_as_any": 1,
+  "NOT_counted_window_as_unknown_as": 1,
+  "sitesA": [
+   "packages/geometry-lift/src/LiftTool.ts:24"
+  ],
+  "sitesU": [
+   "packages/geometry-lift/src/LiftTool.ts:111"
+  ]
+ },
+ "lighting": {
+  "gate_counted_window_as_any": 1,
+  "NOT_counted_window_as_unknown_as": 0,
+  "sitesA": [
+   "packages/geometry-lighting/src/LightingFragmentBuilder.ts:579"
+  ],
+  "sitesU": []
+ },
+ "plumbing": {
+  "gate_counted_window_as_any": 0,
+  "NOT_counted_window_as_unknown_as": 0,
+  "sitesA": [],
+  "sitesU": []
+ },
+ "pool": {
+  "gate_counted_window_as_any": 0,
+  "NOT_counted_window_as_unknown_as": 0,
+  "sitesA": [],
+  "sitesU": []
+ },
+ "roof": {
+  "gate_counted_window_as_any": 0,
+  "NOT_counted_window_as_unknown_as": 0,
+  "sitesA": [],
+  "sitesU": []
+ },
+ "room": {
+  "gate_counted_window_as_any": 1,
+  "NOT_counted_window_as_unknown_as": 22,
+  "sitesA": [
+   "plugins/rooms/src/handlers/RenameRoom.ts:43"
+  ],
+  "sitesU": [
+   "plugins/rooms/src/handlers/BulkAutoClassifyRooms.ts:67",
+   "plugins/rooms/src/handlers/BulkAutoClassifyRooms.ts:73",
+   "plugins/rooms/src/handlers/DeleteRoom.ts:48",
+   "plugins/rooms/src/handlers/DeleteRoom.ts:59",
+   "plugins/rooms/src/handlers/MoveRoom.ts:74",
+   "plugins/rooms/src/handlers/MoveRoom.ts:85",
+   "plugins/rooms/src/handlers/RestoreRoomMeaning.ts:94",
+   "plugins/rooms/src/handlers/RestoreRoomMeaning.ts:100",
+   "plugins/rooms/src/handlers/SetRoomColourMode.ts:51",
+   "plugins/rooms/src/handlers/SetRoomColourMode.ts:56",
+   "plugins/rooms/src/handlers/SetRoomDepartment.ts:68",
+   "plugins/rooms/src/handlers/SetRoomDepartment.ts:79",
+   "plugins/rooms/src/handlers/SetRoomHeightOffset.ts:71",
+   "plugins/rooms/src/handlers/SetRoomHeightOffset.ts:82",
+   "plugins/rooms/src/handlers/SetRoomMaterial.ts:97",
+   "plugins/rooms/src/handlers/SetRoomMaterial.ts:113",
+   "plugins/rooms/src/handlers/SetRoomName.ts:73",
+   "plugins/rooms/src/handlers/SetRoomName.ts:87",
+   "plugins/rooms/src/handlers/SetRoomNumber.ts:67",
+   "plugins/rooms/src/handlers/SetRoomNumber.ts:78",
+   "plugins/rooms/src/handlers/SetRoomOccupancy.ts:61",
+   "plugins/rooms/src/handlers/SetRoomOccupancy.ts:72"
+  ]
+ },
+ "section": {
+  "gate_counted_window_as_any": 0,
+  "NOT_counted_window_as_unknown_as": 0,
+  "sitesA": [],
+  "sitesU": []
+ },
+ "selection": {
+  "gate_counted_window_as_any": 0,
+  "NOT_counted_window_as_unknown_as": 0,
+  "sitesA": [],
+  "sitesU": []
+ },
+ "slab": {
+  "gate_counted_window_as_any": 0,
+  "NOT_counted_window_as_unknown_as": 1,
+  "sitesA": [],
+  "sitesU": [
+   "packages/geometry-slab/src/WallFaceResolver.ts:102"
+  ]
+ },
+ "stair": {
+  "gate_counted_window_as_any": 2,
+  "NOT_counted_window_as_unknown_as": 0,
+  "sitesA": [
+   "packages/geometry-stair/src/StairMeshBuilder.ts:92",
+   "packages/geometry-stair/src/StairRailingBuilder.ts:117"
+  ],
+  "sitesU": []
+ },
+ "structural": {
+  "gate_counted_window_as_any": 0,
+  "NOT_counted_window_as_unknown_as": 0,
+  "sitesA": [],
+  "sitesU": []
+ },
+ "wall": {
+  "gate_counted_window_as_any": 2,
+  "NOT_counted_window_as_unknown_as": 3,
+  "sitesA": [
+   "plugins/wall/src/system-type-store.ts:12",
+   "plugins/wall/src/tool.ts:48"
+  ],
+  "sitesU": [
+   "packages/geometry-wall/src/WallLayerPlanSymbolBuilder.ts:106",
+   "packages/geometry-wall/src/WallMoveReweldService.ts:595",
+   "plugins/wall/src/handlers/SetWallSideFinishBatch.ts:107"
+  ]
+ },
+ "water": {
+  "gate_counted_window_as_any": 0,
+  "NOT_counted_window_as_unknown_as": 0,
+  "sitesA": [],
+  "sitesU": []
+ },
+ "window": {
+  "gate_counted_window_as_any": 0,
+  "NOT_counted_window_as_unknown_as": 1,
+  "sitesA": [],
+  "sitesU": [
+   "plugins/window/src/handlers/UpdateWindowsSystemTypeBatch.ts:167"
+  ]
+ }
+}

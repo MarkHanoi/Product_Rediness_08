@@ -1,0 +1,89 @@
+apps/editor/src/dev/installPryzmTestFunctions.ts:19://   • No `(window as any)` — uses the typed Window augmentation in
+apps/editor/src/engine/buildingGraphMaintainer.ts:80: * P2 — no THREE. P4 — no `(window as any)`; typed structural interfaces only.
+apps/editor/src/engine/eagerGlobeStart.ts:66:// WHY A MODULE SEAM, NOT A WINDOW GLOBAL: P4 forbids `(window as any)`, and the parties are all
+apps/editor/src/engine/engineLauncher.ts:470:    // These calls eliminate all `(window as any).selectionManager` reads in
+apps/editor/src/engine/engineLauncher.ts:472:    // `(window as any).selectionManager?.world?.scene?.three` read in
+apps/editor/src/engine/engineLauncher.ts:605:    // level.duplicate-floor-plan) use (window as any).commandManager internally.
+apps/editor/src/engine/initTools.ts:2547:                // Previously used `(window as any).bimManager?.registerElement?.(...)` — a C14
+apps/editor/src/engine/persistence/ProjectLoader.ts:1072:            // completely as `(window as any)` — it was one of the two sites that
+apps/editor/src/engine/postFxRouting.ts:37: *   P4 — no `(window as any)`; all deps arrive as narrow typed interfaces.
+apps/editor/src/engine/scheduleClickZoom.ts:23: * P4 — no `(window as any)`; the bus and selection are passed in as typed deps.
+apps/editor/src/engine/ViewController.ts:933:        // file (`window.runtime?.events?.emit`), not a `(window as any)` escape hatch.
+apps/editor/src/engine/views/autoframeGuard.ts:53: * editor's `window.toolManager` (typed inline — no `(window as any)`, P4-safe)
+apps/editor/src/engine/views/LevelPlanViewBinder.ts:52: *   P4 — no `(window as any)`; every global read is a narrow structural type.
+apps/editor/src/engine/views/plantools/DoorPlanToolHandler.ts:203:        // §P4.1: ctx.runtime is now typed — no unsafe (window as any) cast needed.
+apps/editor/src/engine/views/plantools/PlanToolHandler.ts:78:     * `(window as any).runtime`.  Optional so existing handlers that do not need
+apps/editor/src/engine/views/plantools/WindowPlanToolHandler.ts:159:        // §P4.1: ctx.runtime is now typed — no unsafe (window as any) cast needed.
+apps/editor/src/engine/views/PlanViewToolOverlay.ts:497:            runtime:           window.runtime ?? undefined, // §P4.1 — typed injection; eliminates (window as any).runtime in handlers
+apps/editor/src/engine/views/SvpPlanToolOverlay.ts:575:            runtime:           window.runtime ?? undefined, // §P4.1 — typed injection; eliminates (window as any).runtime in handlers
+apps/editor/src/PluginRegistry.ts:223: * cast (NOT `(window as any)`, so P4-compliant),
+apps/editor/src/PluginRegistry.ts:248:  // TS2339 in 23 of their compiles. Still NOT `(window as any)` — P4-compliant.
+apps/editor/src/rendering/autoWebGLHeavyScene.ts:73: *   P4 — no `(window as any)`; a typed `globalThis` cast (the same pattern
+apps/editor/src/rendering/renderQualityPin.ts:46: *   P4  — no `(window as any)`; the coordinator is reached through a narrow structural type.
+apps/editor/src/rendering/renderQualityPin.ts:120: * P4 — a structural type, not `(window as any)`: `window.renderingPipelineCoordinator` is
+apps/editor/src/types/globals.d.ts:504:                 *  end-to-end without `(window as any)`. Optional because the
+apps/editor/src/types/globals.d.ts:578:         * backend. Typed here so the toggle needs no `(window as any)` (P4).
+apps/editor/src/types/globals.d.ts:587:         * Typed here so the toggle needs no `(window as any)` (P4).
+apps/editor/src/ui/ai/chatPlacementActivation.ts:222:// defeats the Window type just as completely as `(window as any)` and merely takes
+apps/editor/src/ui/ai/ZeroTokenChatBridge.ts:104:// ─── Minimal window facets (P4: typed casts, no `(window as any)`) ───────────
+apps/editor/src/ui/analysis/analysisLayout.ts:39: * L7 file. No THREE (P2), no rAF (P3), no `(window as any)` (P4), no store
+apps/editor/src/ui/analysis/analysisReadModel.ts:72: * L7 file. No THREE (P2), no rAF (P3), no `(window as any)` (P4) — the store
+apps/editor/src/ui/analysis/analysisRelatedHighlight.ts:67: * L7 file. No THREE (P2), no rAF (P3), no `(window as any)` (P4), no store
+apps/editor/src/ui/analysis/AnalysisSurface.ts:42: * L7 file. No THREE (P2), no rAF (P3), no `(window as any)` (P4), no store
+apps/editor/src/ui/analysis/AnalysisTypes.ts:38: * L7 file. No THREE (P2), no rAF (P3), no `(window as any)` (P4), no store
+apps/editor/src/ui/analysis/areaStandards.ts:66: * `(window as any)` (P4), no store writes (P6) — it reads no store at all;
+apps/editor/src/ui/analysis/forceLayoutND.ts:54: * L7 file. No THREE (P2), no rAF (P3), no `(window as any)` (P4), no store
+apps/editor/src/ui/analysis/graphReadModel.ts:29: * L7 file. No THREE (P2), no rAF (P3), no `(window as any)` (P4), no store
+apps/editor/src/ui/analysis/graphViewState.ts:21: * L7 file. No THREE (P2), no rAF (P3), no `(window as any)` (P4), no store
+apps/editor/src/ui/analysis/selectionFacets.ts:86: * L7 file. No THREE (P2), no rAF (P3), no `(window as any)` (P4), no store
+apps/editor/src/ui/analysis/seriesFocus.ts:47: * L7 file. No THREE (P2), no rAF (P3), no `(window as any)` (P4), no store
+apps/editor/src/ui/analysis/widgetCatalogue.ts:26: * L7 file. No THREE (P2), no rAF (P3), no `(window as any)` (P4), no store
+apps/editor/src/ui/analysis/widgetRenderers.ts:65: * this surface never schedules a frame. No `(window as any)` (P4), no store
+apps/editor/src/ui/bottom-menu/levelCoverageCensus.ts:7: *                    no `(window as any)` (P4), no store writes (P6). The CALLER
+apps/editor/src/ui/dataworkbench/buckets/MedicionesTimeCarbon.ts:82:// A narrow structural interface, NOT `(window as any)` (P4). It names exactly the
+apps/editor/src/ui/dataworkbench/HierarchyTreeAddActions.ts:154:            await (window as any).runtime?.bus?.executeCommand('hierarchy.createSite', { id, name: values.name, code: values.code, address: values.address });
+apps/editor/src/ui/dataworkbench/HierarchyTreeAddActions.ts:180:            await (window as any).runtime?.bus?.executeCommand('hierarchy.createBuilding', { id, siteId: values.siteId, name: values.name, code: values.code });
+apps/editor/src/ui/dataworkbench/HierarchyTreeAddActions.ts:223:            await (window as any).runtime?.bus?.executeCommand('hierarchy.createLevel', {
+apps/editor/src/ui/dataworkbench/HierarchyTreeAddActions.ts:257:            await (window as any).runtime?.bus?.executeCommand('hierarchy.createUnit', {
+apps/editor/src/ui/dataworkbench/syncStateColours.ts:32: * `(window as any)` (P4), no store writes (P6).
+apps/editor/src/ui/dataworkbench/SyncStateDetailDrawer.ts:541:        (window as any).runtime?.bus?.executeCommand('data.setDerivation', { nodeId, keys, reason });
+apps/editor/src/ui/dev/apartmentDataTestModal.ts:21: *   • No `(window as any)`; the runtime is read through the typed
+apps/editor/src/ui/dev/apartmentDataTestModal.ts:300: *                 globals augmentation — no `(window as any)` cast.
+apps/editor/src/ui/dev/familyPlatformTestModal.ts:15: *   • No `(window as any)`; `openFamilyPlatformTestModal` is a local helper.
+apps/editor/src/ui/dev/modelTreeTestModal.ts:18: *   • No `(window as any)`; the runtime is read through the typed
+apps/editor/src/ui/dev/modelTreeTestModal.ts:215: *                 globals augmentation — no `(window as any)` cast.
+apps/editor/src/ui/dev/pdfExportTestModal.ts:16: *   • No `(window as any)`; the runtime is accessed defensively through
+apps/editor/src/ui/dev/sheetGeneratorTestModal.ts:16: *   • No `(window as any)`; the runtime is accessed defensively through
+apps/editor/src/ui/dev/validateLayoutTestModal.ts:15: *   • No `(window as any)`; `openValidateLayoutTestModal` is a local helper.
+apps/editor/src/ui/documentation/applyAutoDimensions.ts:92: * (no `(window as any)`, P4).
+apps/editor/src/ui/documentation/commitAnnotationSet.ts:96: * shape — no `(window as any)` (P4). Best-effort: absent in headless/test (no
+apps/editor/src/ui/facade/FacadeReconstructionPanel.ts:44: *   P2       — no THREE; P4 — no `(window as any)`, the console opener is typed
+apps/editor/src/ui/inspect/audit/heatRamp.ts:24: * L7 file. No THREE (P2), no rAF (P3), no `(window as any)` (P4), no store
+apps/editor/src/ui/inspect/audit/inspectCategories.ts:7: *                    (P2), no rAF (P3), no `(window as any)` (P4), no store
+apps/editor/src/ui/inspect/audit/projectTreeModel.ts:8: *                    `(window as any)` (P4), no store writes (P6).
+apps/editor/src/ui/inspect/InspectPanel.ts:33: *     `requestAnimationFrame` (P3), no `(window as any)` (P4).
+apps/editor/src/ui/inspect/ModelTree.ts:35:// no `(window as any)`.
+apps/editor/src/ui/inspect/ModelTreeNode.ts:14:// `(window as any)`.  Defensive against missing optional metadata.
+apps/editor/src/ui/inspect/resolveLevelAuthority.ts:58:/** Structural check for the live authority. No `(window as any)` — P4 is a
+apps/editor/src/ui/intent/HeaderIntentPicker.ts:95:        (window as any).runtime?.bus
+apps/editor/src/ui/intent/SpineOverrideList.ts:64:            (window as any).runtime?.bus
+apps/editor/src/ui/intent/SpineOverrideList.ts:99:            (window as any).runtime?.bus
+apps/editor/src/ui/kitchen/KitchenRunInspector.ts:457:        (window as any).runtime?.bus?.executeCommand('furniture.updateParameters', {
+apps/editor/src/ui/kitchen/KitchenUnitInspector.ts:657:        (window as any).runtime?.bus?.executeCommand('furniture.updateParameters', {
+apps/editor/src/ui/layout/GISAreaLayout.ts:3158:                    // A declared global, not `(window as any)` — P4 holds.
+apps/editor/src/ui/living-graph/livingGraphSelection.ts:23:// `(window as any)` outside the allowlisted file.
+apps/editor/src/ui/office-building/officeShowFullDetail.ts:29:// P4: no `(window as any)` — the culling service owns the typed `globalThis` writes. P8: no new
+apps/editor/src/ui/overlays/RendererBackendToggle.ts:26: * global (declared in apps/editor/src/types/globals.d.ts) — no `(window as any)`.
+apps/editor/src/ui/platform/workspaceModes.ts:40: * L7 file. No THREE (P2), no rAF (P3), no `(window as any)` (P4), no store
+apps/editor/src/ui/property-panel/CurtainPanelEditor.ts:257:            commandManager: ctx?.commandManager ?? (window as any).commandManager, // TODO(E.curtain-wall.S): legacy commandManager
+apps/editor/src/ui/property-panel/CurtainSubElementPanel.ts:44:    return ctx?.commandManager ?? (window as any).commandManager; // TODO(E.curtain-wall.S): legacy commandManager — retire with the CurtainPanelStore -> Store<CurtainPanelData> migration
+apps/editor/src/ui/property-panel/PropertyPanel.ts:956:                curtainWallStore:  (window as any).curtainWallStore,  // TODO(E.curtain-wall.S): legacy store handle
+apps/editor/src/ui/property-panel/PropertyPanel.ts:957:                curtainPanelStore: (window as any).curtainPanelStore, // TODO(E.curtain-wall.S): legacy store handle
+apps/editor/src/ui/property-panel/RoofPropertySheet.ts:316:        (this.runtime?.bus ?? (window as any).runtime?.bus) // TODO(TASK-08)
+apps/editor/src/ui/RadialMenu.ts:262:            (this.runtime ?? (window as any).runtime)?.bus
+apps/editor/src/ui/site/designMeasurement.ts:63:// P4 — no `(window as any)`: this module touches no globals at all; every source is INJECTED.
+apps/editor/src/ui/styles/categoricalPalette.ts:7: * Layer: L7 UI (apps/editor). No THREE (P2), no rAF (P3), no `(window as any)`
+apps/editor/src/ui/tools-panel/panels/GridsLevelsRailPanel.ts:270:        (this.runtime ?? (window as any).runtime)?.bus
+apps/editor/src/ui/tools-panel/panels/RenderRailPanel.ts:210:            // P4 — a narrow structural type, not `(window as any)`.
+apps/editor/src/ui/ViewBrowser/panels/unified-browser/BrowserDataHelpers.ts:480:    if (storeKey && !(window as any)[storeKey]) {
+apps/editor/src/ui/views/ViewHeaderButtons.ts:199:        (window as any).runtime?.bus

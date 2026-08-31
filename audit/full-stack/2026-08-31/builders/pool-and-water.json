@@ -1,0 +1,75 @@
+{
+  "family": "pool (+ water)",
+  "head": "d91d30d4af51bc67317ef8afc0b46b1dbef94038",
+  "members": ["water body", "basin walls", "pool floor slab", "host-slab void"],
+  "rows": [
+    {
+      "member": "pool (the compound itself)",
+      "surface": "3d",
+      "builder_file": "NONE — AND THAT IS CORRECT AND DECLARED.",
+      "package": "@pryzm/geometry-pool (pure assembly only: PoolAssembly.ts, PoolDimensions.ts — no builder, no THREE)",
+      "layer": "L2 (eslint.config.js:154, '[family] verified: imports schemas only')",
+      "entry_fn": "buildPoolAssembly() — packages/geometry-pool/src/PoolAssembly.ts, consumed by plugins/pool/src/handlers/CreatePool.ts:60 and apps/editor/.../plantools/PoolPlanToolHandler.ts",
+      "own_channel": "NO 'pool.created' channel exists. The CEB pool.create case (~L2035 region) FANS OUT into wall.created, slab.created, water.created and element.updated.",
+      "honest_about_it": "⭐ YES, EXPLICITLY. packages/schemas/src/elements/Pool.ts:33 — 'ONE place, resolvePoolDimensions() in @pryzm/geometry-pool. No builder, [...]'. members.json records CommandEventBridge stating its own refusal to smuggle the water onto slab.created (C84 EI-9). A compound with no mesh of its own that says so is the honest form.",
+      "drawn": "VIA MEMBERS",
+      "fidelity": {
+        "authored_L0_fields": ["provenance","confidence","levelId","hostSlabId","boundary","depth","wallThickness","floorThickness","freeboard","waterColor","waterOpacity","systemTypeId","materialId","materialColor"],
+        "authored_count": 14,
+        "note": "The pool's own fields are consumed by buildPoolAssembly at COMMAND time and baked into the member records. They do not need to survive an event because there is no pool event. This is the compound pattern working."
+      }
+    },
+    {
+      "member": "water body",
+      "surface": "3d",
+      "builder_file": "apps/editor/src/engine/WaterMeshBuilder.ts (305 lines)",
+      "entry_fn": "updateWater(water): WaterRenderOutcome :103  ·  removeWater(waterId): boolean :253  ·  has(waterId) :262  ·  clearProjectGeometry() :278  ·  dispose() :284  ·  _disposeGroup :288",
+      "package": "apps/editor",
+      "layer": "L7",
+      "⚠ LAYER_NOTE": "A geometry builder at L7. Its sibling BoundaryLineMeshBuilder.ts:22 carries a header section titled 'WHY IT LIVES IN apps/editor AND NOT IN @pryzm/geometry-boundary-line' — so the placement is argued, not accidental. Both are L7 builders over L2 pure packages that deliberately hold no THREE.",
+      "invoked_by": "apps/editor/src/engine/initTools.ts:1943 — runtime.events.on('water.created'). Registers in ViewDependencyTracker (:1982) and bimManager (:1984), and REFUSES to register on an empty levelId (members.json, FT-WATER).",
+      "rivals": [],
+      "robustness": {
+        "⭐ DEGENERATE_INPUT — THE BEST IN THE REPO": "updateWater returns a DISCRIMINATED UNION, not void: `{drew:'volume', id} | {drew:'nothing', id, reason}` (:73-75). Three named refusals, each carrying both numbers: :111 'has N boundary vertex/vertices — a surface needs at least MIN_LOOP_VERTS'; :125 'carries no absolute elevations (surface=X, bottom=Y) — refusing to guess a water level'; :138 'has non-positive depth (D m: surface X is not above bottom Y) — an empty pool is the ABSENCE of water, not water with no depth'. The header at :70 states the contract: 'the subscriber logs the reason, so an invisible pool says why'. THIS IS THE C84/RAC REFUSAL STANDARD, MET.",
+        "⭐ DISPOSAL — EXPLICIT AND REASONED": ":98-101 'disposed first, so a create followed by ten updates leaves ONE group in the scene and ten disposed geometries — not eleven overlapping translucent [surfaces]'. removeWater disposes (:257), clearProjectGeometry disposes every group (:279), and :276 warns that calling dispose() in the project sweep 'leaves the next project with a dead builder' — the terminal/sweep distinction, named."
+      },
+      "fidelity": {
+        "authored_L0_fields": ["provenance","confidence","levelId","poolId","boundary","surfaceElevation","bottomElevation","color","opacity","materialId","systemTypeId"],
+        "authored_count": 11,
+        "ceb_channel": "water.created",
+        "ceb_emit_sites": ["~L2113 (inside the pool.create case)"],
+        "ceb_emitted_keys": ["commandId","commandType","levelId","waterId","poolId","boundary","surfaceElevation","bottomElevation","color","opacity"],
+        "dropped_at_ceb": ["materialId","systemTypeId","provenance","confidence"],
+        "assessment": "The two dropped fields are the MATERIAL-MASTER pair; `color` and `opacity` (the resolved-value pair, fed from the pool's waterColor/waterOpacity) DO survive. Same C100 §2.1 half-implementation as door and window: the cache half is drawn, the master half is not. For water this is the mildest instance — the appearance is correct, only the material-library link is lost.",
+        "draws_what_the_user_authored": "YES for appearance; NO for the material-master link."
+      }
+    },
+    {
+      "member": "basin walls",
+      "surface": "3d",
+      "builder_file": "packages/geometry-wall/src/WallFragmentBuilder.ts (rides the wall family)",
+      "rides": "'wall.created' restamped by the CEB pool.create case (~L2002), guarded on wall.parentId === p.poolId, commandType kept as 'pool.create'",
+      "drawn": "YES",
+      "⛔ FIDELITY_LOSS_ON_THE_RIDE": "The pool fan-out's wall.created emit carries 10 keys and drops `systemTypeId`, `layers` and `curve`; `materialColor` survives only through a conditional spread. A LAYERED basin wall loses its build-up. See wall.json.",
+      "honest_about_it": "PARTIALLY — the CEB names its refusal to smuggle the water onto slab.created, but says nothing about the narrower wall payload."
+    },
+    {
+      "member": "pool floor slab",
+      "surface": "3d",
+      "builder_file": "packages/geometry-slab/src/SlabFragmentBuilder.ts (rides the slab family)",
+      "rides": "'slab.created' (~L2035) with the plan-convention polygon conversion",
+      "drawn": "YES",
+      "fidelity_loss_on_the_ride": "inherits slab's dropped `holes` and `materialColor` — see slab.json"
+    },
+    {
+      "member": "host-slab void",
+      "surface": "3d",
+      "builder_file": "SlabFragmentBuilder's hole-punch loop (:923-:960)",
+      "rides": "'element.updated' with elementKind 'slab' and changedFields ['holes'], emitted ONLY when the replace patch is actually on the commit",
+      "drawn": "YES",
+      "note": "members.json calls this 'the only compound MUTATION in the repo measured to reach a mirror'. It is also the ONLY route by which a slab hole reaches the mesh on a bus path — slab.created cannot carry one."
+    },
+    {"member": "pool", "surface": "plan", "builder_file": "via members — 'water' is NOT in GEOMETRY_ELEMENT_TYPES (members.json, re-verified: the set is 21 members and water is absent). The basin walls and floor slab ARE, via wall/slab.", "drawn": "PARTIAL — the pool appears in plan as its walls and slab; the water surface does not.", "honest_about_it": "YES — members.json states '3D only' for water, by name."},
+    {"member": "pool", "surface": "export", "builder_file": "NONE — no pool or water reader in packages/file-format/src/export/ifc/readers/ (16 readers). The basin walls and floor slab export via WallReader/SlabReader; the water body does not export at all.", "drawn": "PARTIAL"}
+  ]
+}

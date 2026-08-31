@@ -1,0 +1,50 @@
+{
+  "family": "ceiling",
+  "head": "d91d30d4af51bc67317ef8afc0b46b1dbef94038",
+  "members": ["ceiling panel"],
+  "rows": [
+    {
+      "member": "ceiling panel",
+      "surface": "3d",
+      "builder_file": "packages/geometry-slab/src/ceiling/CeilingPanelBuilder.ts",
+      "package": "@pryzm/geometry-slab",
+      "layer": "L2",
+      "layer_proof": "eslint.config.js:156",
+      "invoked_by": [
+        "apps/editor/src/engine/initBuilders.ts:403 `new CeilingPanelBuilder(scene, bimManager)`",
+        "apps/editor/src/engine/initBuilders.ts:410/:416/:422 — window.addEventListener('bim-ceiling-added' | '-updated' | '-removed')",
+        "BUS LEG: CommandEventBridge ceiling.create / ceiling.batch.create → 'ceiling.created' → apps/editor/src/engine/initTools.ts:2161 → ceilingRecordFromCreatedEvent() (apps/editor/src/engine/ceilingCreatedMirror.ts) → ceilingStore.add()"
+      ],
+      "rivals": [
+        {"candidate": "plugins/ceiling/src/committer/ceiling-committer.ts + packages/geometry-kernel/src/producers/ceiling.ts", "verdict": "RIVAL, UNREACHABLE — see _RIVAL-SYSTEM-committers-vs-fragment-builders.json. Ceiling is not even one of the four committers bootstrap.render.everything.ts constructs."}
+      ],
+      "fidelity": {
+        "authored_L0_fields": ["provenance","confidence","levelId","boundary","ceilingHeight","thickness","materialId","materialColor"],
+        "authored_count": 8,
+        "ceb_channel": "ceiling.created",
+        "ceb_emit_sites": ["~L1032 (ceiling.create)","~L1065 (ceiling.batch.create)"],
+        "ceb_emitted_keys": ["commandId","commandType","levelId","elementCount","id","boundary","ceilingHeight","thickness","materialId","materialColor"],
+        "dropped_at_ceb": ["provenance","confidence"],
+        "VERDICT": "⭐ REFUTATION — FULL GEOMETRIC AND FINISH FIDELITY, both emit sites identical. Ceiling is the family where the CEB-drop defect was FOUND AND CLOSED, and its fix is the template the other families have not copied.",
+        "chain_proof": [
+          "EMIT — both ceiling.created sites carry the identical 10-key set including materialId AND materialColor.",
+          "TRANSLATE — apps/editor/src/engine/ceilingCreatedMirror.ts:156 `soffitColor: ev.materialColor ?? CEILING_MIRROR_DEFAULTS.soffitColor` and :161 `...(ev.materialId ? { soffitMaterialId: ev.materialId } : {})`. The L0→legacy vocabulary translation is DECLARED in the field docs at :25-28 ('L0 Ceiling.materialId → legacy CeilingFinishSpec.soffitMaterialId').",
+          "THE DEFECT IT FIXED, IN THE REPO'S OWN WORDS — initTools.ts:2162-2168: 'As a closure here the mapping was unreachable from any suite, which is how the ENTIRE finish specification came to be hardcoded — label, ceilingNumber, baseOffset, soffitColor, soffitPattern, exposedStructure — over an L0 schema that carries materialId and materialColor.' Tagged §FIX-CEILING-BRIDGE-FINISH (L-973 · C84 EI-2a)."
+        ],
+        "draws_what_the_user_authored": "YES"
+      },
+      "robustness": {
+        "note": "Guard lives in ceilingCreatedMirror.ts (returns null on a bad record; initTools :2176 `if (!ceilingRecord) return;`) plus a `ceilingStore.has()` dedup. The ordinal (`ceilingNumber`) is read at the call site so the mirror stays store-free and matches CreateCeilingCommand.ts:188 — plan-drawn and 3-D-drawn ceilings are numbered by the same rule."
+      }
+    },
+    {
+      "member": "ceiling panel",
+      "surface": "plan",
+      "builder_file": "EdgeProjectorService true-edge projection. NO ceiling plan-symbol builder (not among the fifteen in SymbolInjectionGate.ts:22-26).",
+      "invalidation": "`ceiling` IS in GEOMETRY_ELEMENT_TYPES (ViewDependencyTracker.ts:86) and in PLAN_INCREMENTAL_SAFE_TYPES (:151).",
+      "fidelity": "INHERITS 3D (lossless)."
+    },
+    {"member": "ceiling panel", "surface": "section", "builder_file": "derived from the 3D mesh", "fidelity": "INHERITS 3D"},
+    {"member": "ceiling panel", "surface": "export", "builder_file": "packages/file-format/src/export/ifc/readers/CeilingReader.ts (L3, FragmentReader.ts:49)", "rivals": ["the UNREACHABLE plugins/ifc-export has NO ceiling exporter"]}
+  ]
+}

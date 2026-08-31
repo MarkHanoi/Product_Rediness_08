@@ -1,0 +1,9 @@
+P5 AXIS 7 — REPLICA CROSS-CHECK (evidence class c, validated against a)
+cmd: node audit/full-stack/2026-08-31/_p5/scan.mjs   RC=0
+replica totals : scanned_files 5245 · workspace_packages 167 · unreadable 0
+                 upward_imports 102 · sdk_bypasses 171 · banned_third_party 124 · unclassified 13
+gate  totals   : (gate-snapshot.json, check-layer-boundaries.ts rc=3)
+                 packages 167 · classified 154 · UNCLASSIFIED 13
+                 upward imports 102 · SDK bypasses 171 · banned third-party 124
+VERDICT: ALL FOUR NUMBERS IDENTICAL. The replica reproduces the gate exactly and adds file:LINE,
+so every per-family attribution below is an executed measurement, not a reading of the gate's prose.

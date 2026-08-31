@@ -1,0 +1,31 @@
+REG-1  tools/ga-gate/check-*.ts on disk = 74; registered in run-all.ts GATES = 74. SET-EQUAL, both directions. No unregistered ga-gate file.
+       cmd: comm -23 <(ls tools/ga-gate/check-*.ts|xargs -n1 basename|sort) <(grep -oE "script: '[^']+'" tools/ga-gate/run-all.ts | sed "s/script: '//;s/'$//" | grep '^check-' | sort) -> EMPTY
+
+REG-2  tools/rac-conformance/certification/gates/check-*.ts on disk = 46. run-all.ts registers 25 of them by relative path.
+       The other 21 are invoked by tools/rac-conformance/certification/certify.ts (npm script `certify:bim20`, ci.yml:576)
+       from a HARDCODED array at certify.ts:464 (21 names).  25 + 21 = 46 -- but the two sets do not partition cleanly:
+
+REG-3  *** FINDING (authored-but-UNREACHABLE) ***
+       tools/rac-conformance/certification/gates/check-suppression-is-reversible.ts is registered in NEITHER runner.
+       - not in run-all.ts GATES (that runner registers tools/ga-gate/check-suppression-is-reversible.ts, the real impl)
+       - not in certify.ts:464's hardcoded `gates` array (21 names; this one absent)
+       Its OWN HEADER states: "this file only makes the gate reachable from certify.ts's `gates/` loop and
+       forwards the implementation's exit code untouched."  That loop is a hardcoded list that does not name it.
+       -> The shim is a NO-OP.  MITIGATION: the SUBJECT is still measured, because the real 37KB implementation at
+          tools/ga-gate/check-suppression-is-reversible.ts IS registered in run-all.ts.  So this is a dead file,
+          not an unmeasured invariant.  C72 6.3 names the rac path as the gate's home; that path executes nothing.
+       cmd: grep -n "^const gates = " tools/rac-conformance/certification/certify.ts
+            grep -c "suppression" <(sed -n '464p' tools/rac-conformance/certification/certify.ts)  -> 0
+
+REG-4  *** FINDING (BLIND COMPARATOR, in the RUNNER's own inventory pre-flight) ***
+       run-all.ts:1128-1146 has an orphan check that is SUPPOSED to catch exactly REG-3.
+       It builds  runAllBasenames = new Set(GATES.map(g => g.script.split('/').pop()))
+       -- i.e. it strips the DIRECTORY.  run-all registers the ga-gate implementation as
+       'check-suppression-is-reversible.ts'.  The rac shim has the SAME BASENAME in a DIFFERENT
+       directory, so `runAllBasenames.has(f)` returns true for it and it is filtered out of `orphans`.
+       EXECUTED PROOF (not inference): the run at HEAD d91d30d4 printed the BOTH-runners line
+       and printed ZERO "registered in NEITHER runner" lines.
+         cmd: grep -c "registered in NEITHER runner" run-all.log  -> 0
+       The pre-flight's stated purpose is "Registered in neither is a finding". It cannot see the
+       one file in the tree that is registered in neither, because its key is name, not path.
+       (Same class as the CLAUDE.md note that a gate keying on NAME is satisfied by RENAMING.)

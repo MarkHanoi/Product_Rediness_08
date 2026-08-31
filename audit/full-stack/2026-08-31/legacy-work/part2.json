@@ -1,0 +1,286 @@
+{
+ "bridge_census_against_C11_10_3_target_of_ZERO": {
+  "layer_1_bus_to_legacy_mirrors": {
+   "count": 22,
+   "breakdown": {
+    "runtime.events.on create/update mirrors in initTools.ts": 17,
+    "registerElementLevelChangeBridge (element.level-changed) initTools.ts:1420": 1,
+    "registerElementUpdateBridge (element.updated) initTools.ts:1487": 1,
+    "§FT-ROOM-PLAN DOM->VDT bridge initTools.ts:2941/2947/2948": 1,
+    "bathroomPodMemberMirror (Store.subscribeDirty) initTools.ts:1758": 1,
+    "balconyProfileBridge (legacy DOM -> bus, RUNS BACKWARDS) initTools.ts:2693": 1
+   },
+   "command": "grep -n \"runtime.events.on(\" apps/editor/src/engine/initTools.ts -> 19 hits; two of them (pryzm-project-loaded :3134, view-activated :3156) are not element mirrors, leaving 17. Plus the five named single sites.",
+   "note": "C11 §10.1's diagram shows ONE bridge shape. Measurement finds SIX distinct shapes: (a) runtime.events -> LegacyStore.add, (b) runtime.events -> mesh builder with no store, (c) extracted mirror module invoked with typed deps, (d) DOM CustomEvent -> VDT only, (e) Store.subscribeDirty diff mirror, (f) legacy DOM event -> bus dispatch (balconyProfileBridge — the arrow reversed)."
+  },
+  "layer_2_legacy_DOM_listeners": {
+   "count": 147,
+   "files": 45,
+   "command": "grep -rn \"addEventListener('bim-\" apps packages plugins --include=*.ts | grep -v node_modules | grep -vE \"__tests__|\\.test\\.|\\.spec\\.\" | wc -l -> 147; cut -d: -f1 | sort -u | wc -l -> 45",
+   "largest_holders": "initBuilders.ts 28 · UnifiedBrowserPanel.ts 24 · initScene.ts 8 · StairRailingBuilder.ts 5 · RoomGraphPanel.ts 5 · initTools.ts 5",
+   "note": "C11 §10.1 draws Bridge Layer 2 as living inside the legacy stores' add(). It does not: 147 listeners in 45 files subscribe to it, including 24 in a UI browser panel and 11 in `*LevelCleanupHandler` classes across seven geometry packages."
+  },
+  "TOTAL_BRIDGES": 169,
+  "target": 0
+ },
+
+ "five_overlapping_consequence_systems": [
+  {
+   "system": "SpeculativeEngine",
+   "artifact": "packages/speculative-engine/src/SpeculativeEngine.ts",
+   "who_calls_it_in_production": "NOBODY. `grep -rn 'new SpeculativeEngine(' apps packages plugins --include=*.ts | grep -v node_modules | grep -vE '\\.test\\.|__tests__'` -> 0.",
+   "planner_or_mechanism": "WAS a rival planner. Its violation core (clone -> apply -> constraintEngine.validateAll before/after -> diff by ruleId:elementId) was MINED into WallMoveConsequencePlanner.violationsBranch and into @pryzm/constraint-solver; its preview() and 4-verb SpeculativeAction vocabulary were DELETED.",
+   "disposition": "REMOVE",
+   "disposition_evidence": "Its own file header, lines 1-9: '⛔ RETIRED — 2026-08-12 (BIM30 R3, ADR-0322 §8 / ADR-0323). Scheduled deletion of this package: **2026-11-12** ... The package directory is retained until then ONLY to avoid a pnpm-lock churn that would desync every agent sharing this tree; it exports nothing runnable.' DATE AND REASON BOTH PRESENT — this is the one artifact in the whole inventory that is correctly dispositioned in place.",
+   "date": "2026-08-12 retired · 2026-11-12 scheduled deletion"
+  },
+  {
+   "system": "ImpactEngine",
+   "artifact": "DOES NOT EXIST. Absence measured by capability, not by name: `grep -rn 'ImpactEngine' apps packages plugins --include=*.ts | grep -v node_modules` -> 2 hits, BOTH the same sentence in a comment ('No generic ImpactEngine before ...') at packages/command-bus/src/consequence.ts:1239 and its emitted d.ts:434. No class, no interface, no file.",
+   "who_calls_it_in_production": "n/a",
+   "planner_or_mechanism": "The capability it names IS implemented, under a different name: `ImpactDetermination` / `UndeterminedImpact` in packages/command-bus/src/consequence.ts (the generalised SemanticReadRefusal idiom).",
+   "disposition": "KEEP-WITH-REASON — as a NAME ONLY, deliberately never built. STR-06 §70 lists it among the systems the review flagged; the codebase answered by refusing to build a generic engine and doing it per-operation instead.",
+   "date": "2026-08-12 (R2/R3 of BIM30-REASONING-LOOP-PLAN)"
+  },
+  {
+   "system": "CascadeRunner",
+   "artifact": "packages/command-bus/src/cascade.ts:156 `export class CascadeRunner`",
+   "who_calls_it_in_production": "NOBODY. `grep -rn 'new CascadeRunner' apps packages plugins --include=*.ts | grep -v node_modules` -> 12 hits, ALL in __tests__ (packages/command-bus/__tests__/cascade.test.ts ×9, cascade-promotion.test.ts ×1, plugins/cross/__tests__/handlers.test.ts ×3). ZERO production constructions.",
+   "planner_or_mechanism": "A MECHANISM (Kahn-style BFS over registered cascade rules), not the planner. It is re-exported from packages/command-bus/src/index.ts:164 and from packages/plugin-sdk/src/index.ts:156 — so it is on the CURATED PUBLIC SDK SURFACE while being reachable from nothing.",
+   "disposition": "WIRE or REMOVE — REFUSED TO CHOOSE HERE, because the choice is a design decision, not a measurement. What is NOT permitted is the status quo: plugins/beam/src/handlers/MoveBeam.ts:37 already says in a source comment that it is 'inert: CascadeRunner is registered nowhere in production (only in [tests])', i.e. the code KNOWS and ships anyway. That is precisely 'typed, tested, exported, not reachable'.",
+   "date": "no dated header on the file — S10-T6 provenance only. NEEDS A DATE."
+  },
+  {
+   "system": "ConsequencePreview",
+   "artifact": "apps/editor/src/engine/consequence/ConsequencePreviewService.ts:815 + consequencePreviewServiceComposition.ts:153 createConsequencePreviewService()",
+   "who_calls_it_in_production": "REACHABLE, ONE call site: apps/editor/src/engine/initDataPlatform.ts:434 `new ConsequencePreviewOverlay(window.runtime ?? null, createConsequencePreviewService())`, and initDataPlatform is invoked from engineLauncher.ts:1096. ⚠ Note the `window.runtime ?? null` — a (window) reach-around in the composition of the preview surface itself.",
+   "planner_or_mechanism": "THE PLANNER FRONT DOOR. resolveConsequencePreview() (ConsequencePreviewService.ts:777) is the ONE implementation; ConsequencePreviewService.preview and ConfirmationFlow.planNow both delegate to it.",
+   "disposition": "KEEP-WITH-REASON, but the TRIGGER half is WIRE. Measured: `wireToolForConsequencePreview` has ZERO callers repo-wide (asserted in TWO source files that both re-derive it — floorFinishGate.ts:49 and wallPlacementGate.ts:19 — and confirmed by grep: the only non-comment hit is its own definition at ConsequencePreviewOverlay.ts:368). `triggerConsequencePreview` has exactly ONE production caller: MovePlanToolHandler.ts:258. So the service is composed at boot and reachable from ONE gesture (plan-view move).",
+   "date": "R3 of docs/03-execution/plans/BIM30-REASONING-LOOP-PLAN.md — no calendar date in the file header"
+  },
+  {
+   "system": "CommandImpact",
+   "artifact": "DOES NOT EXIST AS CODE. `grep -rni 'commandimpact' apps packages plugins docs --include=*.ts --include=*.md | grep -v node_modules` -> 1 hit, and it is a DOC: docs/01-strategy/STR-06-bim30-reasoning-loop-directive.md:70, listing it alongside ConsequencePreview as 'the exact pattern the review uncovered'.",
+   "who_calls_it_in_production": "n/a",
+   "planner_or_mechanism": "n/a",
+   "disposition": "KEEP-WITH-REASON — a name in a strategy document that was deliberately not minted. It should be struck from STR-06's list of systems, or STR-06 should say it was never built; today a reader of STR-06 §70 would look for five systems and find three.",
+   "date": "STR-06 undated at that line"
+  }
+ ],
+ "five_systems_headline": "FIVE NAMED, THREE EXIST. One (SpeculativeEngine) is correctly retired with a dated removal header. One (ConsequencePreviewService) is the live planner front door but is triggered by exactly ONE gesture. One (CascadeRunner) is exported on the L5 public SDK facade and constructed only by tests. Two (ImpactEngine, CommandImpact) were never built and survive only as names in comments and STR-06.",
+
+ "two_undo_backends": {
+  "backend_A": "CommandBus ring buffer — RingBufferUndoStack (packages/runtime-undo-stack), pushed at packages/command-bus/src/CommandBus.ts:591 on every successful dispatch that produced patches. Inverse Immer patches are applied through apps/editor/src/engine/undo/elementUndoStoreAdapter.ts.",
+  "backend_B": "Legacy commandManager history — each packages/command-registry/src/**/*Command.ts carries its own undo(); pushed at CommandBus.ts:581 `this.undoStack.push(record)` and by the legacy commandManager itself.",
+  "single_entry_point": "apps/editor/src/engine/undo/performUndoRedo.ts (C03 §4.6 U-5). Before it there were FOUR divergent triggers that did not agree on which stack to consult (SaveUndoRedoHUD, initUI Ctrl+Z, BimService.undo, ContextualEditBar).",
+  "which_verbs_use_which": {
+   "backend_A_only": "every PLAN-VIEW created element — every PlanToolHandler dispatches runtime.bus.executeCommand only, so a plan-created wall exists ONLY in the ring buffer.",
+   "BOTH (dual-dispatch)": "the 3-D tools — WallTool, Slab, Roof, Furniture, Plumbing, Stair, Handrail, Beam — dispatch the bus AND commandManager.execute(CreateXCommand), so a 3-D element is in BOTH stacks.",
+   "backend_B_only": "levels, hosted door/window openings, auto room-tag annotations (named in performUndoRedo.ts:44-46). Also the founder-reported wall rake/rake/profile edits."
+  },
+  "what_happens_AT_THE_SEAM": [
+   "1. RING-BUFFER FIRST, but only when the entry's affectedStores are ALL covered by the live store map. If not covered the cursor is deliberately NOT stepped (no desync) and it falls through to B.",
+   "2. SHADOW-DROP — after a successful ring-buffer undo, matching commandManager entries are dropped by target id (commandManager.dropEntriesForTargets), or the orphaned legacy CreateXCommand causes a PHANTOM second Ctrl+Z.",
+   "3. CROSS-STACK CHRONOLOGICAL ORDERING (§UNDO-CROSS-STACK-ORDER) — both stacks now carry commit timestamps and undo reverts the newest pending entry across both.",
+   "4. ⚠ THE SEAM'S OWN CORRECTION, still on the file: §UNDO-ORDERING-KEY / L-7300 (2026-08-23) records that 'missing timestamp ⇒ ring-buffer first' was not a fallback but THE ROUTING RULE, because SIX of the EIGHT production ring-buffer push sites minted entries with no timestamp (initBusHandlers.ts :825, :1596, :1647, :1703, :1798 and commitAnnotationSet.ts; only CommandBus.ts:591 and initBusHandlers.ts:1335 stamped one). RingBufferUndoStack.push() now stamps at push.",
+   "5. §UNDO-GESTURE-ID (C03 §4.6 U-10) — chronological ordering must not re-route a DUAL-DISPATCH TWIN; the old test was a wall-clock guess (|Δt| ≤ 250 ms), i.e. a property of the machine, not of the user's intent."
+  ],
+  "disposition": "backend_B = REPLACE (target end state is ADR-0251: one store, derived geometry, one timeline). performUndoRedo.ts itself = KEEP-WITH-REASON.",
+  "evidence_class": "(c) executed reads of performUndoRedo.ts, CommandBus.ts and the grep of bimManager/commandManager sites — plus (a) for the six-of-eight push-site figure, which is quoted from the file's own correction box and was NOT independently re-counted by this lane."
+ },
+
+ "the_16_intentional_stubs": {
+  "provenance": "Named in docs/archive/pryzm3-internal/03-CURRENT-STATE-ARCHIVED-2026-05-16.md:94 and 04-PLAN-FORWARD/archive/19-WAVES-16-20-FULL-WIRE.md:542, both dated 2026-05-01/02: ai-floorplan, ai-generative, ai-query, ai-rules, ai-voice, dxf, export-pdf, floor, geospatial, levels, navigate, render, visibility-intent, ifc-import, ifc-inspector, rhino-import.",
+  "the_verifier_re_run_TODAY": {
+   "command": "for p in plugins/*/; do [ -f $p/src/store.ts ] && [ -d $p/src/handlers ] && [ -f $p/src/tool.ts ] && [ -f $p/src/intent.ts ] || echo \"INCOMPLETE: $p\"; done | wc -l",
+   "result": "21, not 16",
+   "verdict": "THE VERIFIER IS NOW A BLIND COMPARATOR FOR STUB-NESS. It prints five families that are fully wired element plugins — balcony, boundary-line, lift, pool (all four in ALL_PLUGINS *and* PLUGIN_CATALOG, all with real handlers, 569–964 lines each) — plus family-editor. And it STILL prints `floor`, which has 799 lines, 6 handlers, a descriptor at PluginRegistry.ts:463, a PLUGIN_CATALOG row, and the live §P3.2-FL bridge. The 4-file recipe is no longer the shape a wired element plugin has."
+  },
+  "dispositions": [
+   { "artifact": "plugins/floor", "lines": 799, "handlers": 6, "in_ALL_PLUGINS": true, "in_PLUGIN_CATALOG": true, "disposition": "KEEP-WITH-REASON — NOT A STUB ANY MORE. Delist it from the stub set.", "date": "wired by §P3.2-FL; stale on the list since at least the 2026-08-23 PLUGIN_CATALOG edit", "reason": "the list is stale, not the code" },
+   { "artifact": "plugins/ai-floorplan", "lines": 289, "handlers": 1, "in_ALL_PLUGINS": false, "in_PLUGIN_CATALOG": true, "disposition": "WIRE or REMOVE — ADVERTISED BUT NOT REGISTERED. PLUGIN_CATALOG says runtime.plugins.list() offers it; ALL_PLUGINS never registers a store or handlers for it. That is the INVERSE of the ARM-E defect the catalog comment describes, and the catalog's own comment (PluginHost.ts:86-90) says lane PLUGIN2 refused to advertise seven plugins whose handlers only console.debug — these five AI rows were advertised anyway.", "date": "NEEDS A DATE", "reason": "unstated" },
+   { "artifact": "plugins/ai-generative", "lines": 74, "handlers": 0, "in_ALL_PLUGINS": false, "in_PLUGIN_CATALOG": true, "disposition": "WIRE or REMOVE — same shape", "date": "NEEDS A DATE", "reason": "unstated" },
+   { "artifact": "plugins/ai-query", "lines": 51, "handlers": 0, "in_ALL_PLUGINS": false, "in_PLUGIN_CATALOG": true, "disposition": "WIRE or REMOVE — same shape", "date": "NEEDS A DATE", "reason": "unstated" },
+   { "artifact": "plugins/ai-rules", "lines": 39, "handlers": 0, "in_ALL_PLUGINS": false, "in_PLUGIN_CATALOG": true, "disposition": "WIRE or REMOVE — same shape", "date": "NEEDS A DATE", "reason": "unstated" },
+   { "artifact": "plugins/ai-voice", "lines": 45, "handlers": 0, "in_ALL_PLUGINS": false, "in_PLUGIN_CATALOG": true, "disposition": "WIRE or REMOVE — same shape", "date": "NEEDS A DATE", "reason": "unstated" },
+   { "artifact": "plugins/ifc-import", "lines": 950, "handlers": 1, "in_ALL_PLUGINS": false, "in_PLUGIN_CATALOG": true, "disposition": "WIRE — 950 lines and a handler, advertised, unregistered", "date": "NEEDS A DATE", "reason": "unstated" },
+   { "artifact": "plugins/ifc-inspector", "lines": 3168, "handlers": 0, "in_ALL_PLUGINS": false, "in_PLUGIN_CATALOG": true, "disposition": "WIRE — the LARGEST artifact in the whole stub set (3168 lines) and it registers nothing", "date": "NEEDS A DATE", "reason": "unstated" },
+   { "artifact": "plugins/rhino-import", "lines": 380, "handlers": 0, "in_ALL_PLUGINS": false, "in_PLUGIN_CATALOG": true, "disposition": "WIRE or REMOVE", "date": "NEEDS A DATE", "reason": "unstated" },
+   { "artifact": "plugins/dxf", "lines": 66, "handlers": 0, "in_ALL_PLUGINS": false, "in_PLUGIN_CATALOG": false, "disposition": "REMOVE — ARM-A: on disk, contributing NOTHING at boot, advertised nowhere. 66 lines.", "date": "NEEDS A DATE", "reason": "PluginHost.ts:92-96 names exactly these eight as ARM-A and says advertising them 'would ratchet a gate green by shipping a claim'. It does not say what happens to them instead. That is the missing half." },
+   { "artifact": "plugins/export-pdf", "lines": 68, "handlers": 0, "in_ALL_PLUGINS": false, "in_PLUGIN_CATALOG": false, "disposition": "REMOVE — ARM-A", "date": "NEEDS A DATE", "reason": "same" },
+   { "artifact": "plugins/geospatial", "lines": 488, "handlers": 1, "in_ALL_PLUGINS": false, "in_PLUGIN_CATALOG": false, "disposition": "REPLACE — ARM-A on disk, but its CesiumThreeBridge.ts is a RIVAL of packages/renderer-three/src/geospatial/CesiumThreeBridge.ts (see rival_registries below)", "date": "NEEDS A DATE", "reason": "same" },
+   { "artifact": "plugins/levels", "lines": 133, "handlers": 2, "in_ALL_PLUGINS": false, "in_PLUGIN_CATALOG": false, "disposition": "WIRE or REMOVE — ARM-A but it has TWO handlers, so something was written to be dispatched and never was", "date": "NEEDS A DATE", "reason": "same" },
+   { "artifact": "plugins/navigate", "lines": 170, "handlers": 1, "in_ALL_PLUGINS": false, "in_PLUGIN_CATALOG": false, "disposition": "WIRE or REMOVE — ARM-A with one handler", "date": "NEEDS A DATE", "reason": "same" },
+   { "artifact": "plugins/render", "lines": 27, "handlers": 0, "in_ALL_PLUGINS": false, "in_PLUGIN_CATALOG": false, "disposition": "REMOVE — 27 lines, ARM-A", "date": "NEEDS A DATE", "reason": "same" },
+   { "artifact": "plugins/visibility-intent", "lines": 146, "handlers": 0, "in_ALL_PLUGINS": false, "in_PLUGIN_CATALOG": false, "disposition": "REMOVE or REPLACE — ARM-A. Note packages/visibility (P7) is the live implementation of the same concept; this is a second one.", "date": "NEEDS A DATE", "reason": "same" },
+   { "artifact": "plugins/family-editor", "lines": 27, "handlers": 0, "in_ALL_PLUGINS": false, "in_PLUGIN_CATALOG": false, "disposition": "REMOVE — 27 lines, one file, ARM-A. NOT on the 2026-05 list of 16; it appeared later and nobody added it.", "date": "NEEDS A DATE", "reason": "none recorded anywhere" }
+  ],
+  "headline": "Of the 16, ONE (floor) is no longer a stub, EIGHT are advertised-but-unregistered, SEVEN are ARM-A (on disk, contributing nothing at boot, advertised nowhere), and none of the fifteen still-open ones carries a DATE or a REASON in code. Only SpeculativeEngine — which is not on this list — has a dated removal header."
+ },
+
+ "window_as_any_reach_arounds": {
+  "total_non_test_production": 217,
+  "command": "grep -rn '(window as any)' apps/editor/src --include=*.ts --include=*.tsx | grep -vE '__tests__|\\.test\\.|\\.spec\\.' -> 89; same over packages plugins (node_modules excluded) -> 128; total 217",
+  "with_optional_chain_after_the_cast": 56,
+  "optional_chain_command": "grep -cE '\\(window as any\\)[^;]*\\?\\.' over the combined file -> 56",
+  "THE_SWALLOW": "56 of the 217 are of the form `(window as any).X?.Y(...)`. In a headless run — any vitest/node suite, any SSR pass, any prerender — `window.X` is undefined and `?.` returns undefined WITHOUT THROWING. The call never happens and NOTHING reports it. Sample sites: HierarchyTreeAddActions.ts:154/180/223/257 `await (window as any).runtime?.bus?.executeCommand('hierarchy.createSite'|'createBuilding'|'createLevel'|'createUnit', ...)` — four element-creating dispatches that silently no-op; SyncStateDetailDrawer.ts:541 `data.setDerivation`; KitchenRunInspector.ts:457 and KitchenUnitInspector.ts:657 `furniture.updateParameters`; ConstraintEngine.ts:113 `(window as any).runtime?.events?.on('pryzm-sync-state-changed', ...)` — a SUBSCRIPTION that silently never registers; GhostOverlayRenderer.ts:129/133; ComparisonEngine.ts:373 (an emit that silently never fires); StairMeshBuilder.ts:92 and StairRailingBuilder.ts:117 `(window as any).runtime?.events?.on('bim-stair-updated', ...)`.",
+  "bimManager_specific": {
+   "live_window_reach_arounds": [
+    "apps/editor/src/engine/initFurnitureInteraction.ts:39 `if (window.bimManager) window.bimManager.registerElement(id, levelId);`",
+    "apps/editor/src/engine/initFurnitureInteraction.ts:59 — same shape",
+    "packages/room-topology/src/RoomBoundaryBuilder.ts:188 `const bm = this.bimManager ?? (window as any).bimManager as BimManager | undefined;`",
+    "packages/room-topology/src/RoomLabelRenderer.ts:94 and :145 — same `?? (window as any).bimManager` fallback"
+   ],
+   "note": "The `if (window.bimManager)` form in initFurnitureInteraction is not `?.` but has the IDENTICAL failure mode: headless, the guard is false and the registration is skipped silently. C14 §LP-01 P4 forbids exactly this; the floor bridge was fixed for it (initTools.ts:2547) and these four were not.",
+   "undo_adapter": "apps/editor/src/engine/undo/elementUndoStoreAdapter.ts:171 and :592 use `_bim()?.registerElement?.(id, ...)` — DOUBLE optional chaining, but both wrapped in try/catch with a console.warn, so these two DO report."
+  },
+  "rival_counter_note": "CLAUDE.md's P4 bullet quotes `tools/ga-gate/check-cast-count.ts` at 'repo-wide 4821 files · 100 / 100'. My raw sweep over apps/editor/src + packages + plugins (tests excluded) counts 217 MATCHING LINES. These are different denominators (the gate counts FILES against a ratcheted baseline and applies its own exclusions; I count LINES). Both readings stand; neither refutes the other. Reported, not resolved."
+ },
+
+ "rival_counters_and_rival_registries": {
+  "A_commandManager_counters_RE_MEASURED_2026-08-31": {
+   "verdict": "NOT CONVERGED. Three counters, three denominators, two different verdicts, measured today.",
+   "counter_1": { "command": "npm run check:commandmanager (resolves to scripts/check/ci-check-no-commandmanager.mjs)", "RC": 1, "reading": "Files scanned 5650 (floor 3000) · arms literal 52 / alias 87 / indirect 14 · non-comment call count 153 · threshold 136 · FAIL +17" },
+   "counter_2": { "command": "npx tsx tools/ga-gate/check-no-commandmanager.ts", "RC": 1, "reading": "literal 11/11 · window 59/62 · converged 111/111 · terminal line: 'OK (converged): 111 / 111' followed by 'failing at its DECLARED level ... absorbable via gate-debt.json'" },
+   "counter_3": { "command": "npx tsx tools/ga-gate/check-commandmanager-any.ts", "RC": 0, "reading": "files scanned 4668 (floor 2500) · dir: packages · comments stripped · OK: 25 / 25" },
+   "structural_blindness": "Counter 3 scans `packages` ONLY. It structurally CANNOT see the sites counter 1 reports in plugins/wall/src/handlers/*.ts and apps/editor/src/ui/**. Its RC=0 is therefore not evidence about the repo — evidence class (a), and a blind comparator for two thirds of the tree.",
+   "drift_against_CLAUDE_md": "CLAUDE.md (measured 2026-08-18) records counter 1 at 'count 139 exceeds threshold 136 (+3)' and counter 2 as 'literal 11/11 · window 62/62 · cm.execute 62/62'. TODAY counter 1 reads 153/136 (+17) — the count moved UP by 14 in thirteen days — and counter 2's arms are named differently (window 59/62 · converged 111/111). The brief's premise that these 'were converged yesterday' is REFUTED by execution.",
+   "disposition": "REPLACE — one counter, one denominator, one threshold. Three is the defect."
+  },
+  "B_rival_plugin_registries": {
+   "sets_and_sizes": { "ls plugins/": 51, "ALL_PLUGINS (apps/editor/src/PluginRegistry.ts:296-832)": 30, "PLUGIN_CATALOG (packages/runtime-composer/src/PluginHost.ts:53)": 43, "ELEMENT_PLUGIN_IDS (:843-899)": 27, "STORE_ONLY_PLUGIN_IDS (:922)": 3 },
+   "differences_BOTH_directions": {
+    "disk \\ ALL_PLUGINS (24)": ["ai-floorplan","ai-generative","ai-query","ai-rules","ai-voice","bcf","cross","dxf","export-pdf","family-editor","geospatial","ifc-export","ifc-import","ifc-inspector","levels","multiplayer","navigate","plan-view","render","rhino-import","schedules","sheets","toy-cube","visibility-intent"],
+    "ALL_PLUGINS \\ disk (3)": ["bathroomPod","liftPart","water"],
+    "disk \\ PLUGIN_CATALOG (8)": ["dxf","export-pdf","family-editor","geospatial","levels","navigate","render","visibility-intent"],
+    "PLUGIN_CATALOG \\ disk (0)": [],
+    "PLUGIN_CATALOG \\ ALL_PLUGINS (16)": ["ai-floorplan","ai-generative","ai-query","ai-rules","ai-voice","bcf","cross","ifc-export","ifc-import","ifc-inspector","multiplayer","plan-view","rhino-import","schedules","sheets","toy-cube"],
+    "ALL_PLUGINS \\ PLUGIN_CATALOG (3)": ["bathroomPod","liftPart","water"],
+    "ALL_PLUGINS \\ ELEMENT_PLUGIN_IDS (3)": ["floor","lighting","view"],
+    "ELEMENT_PLUGIN_IDS \\ ALL_PLUGINS (0)": [],
+    "ELEMENT_PLUGIN_IDS \\ disk (3)": ["bathroomPod","liftPart","water"],
+    "ELEMENT_PLUGIN_IDS \\ PLUGIN_CATALOG (3)": ["bathroomPod","liftPart","water"],
+    "PLUGIN_CATALOG \\ ELEMENT_PLUGIN_IDS (19)": ["ai-floorplan","ai-generative","ai-query","ai-rules","ai-voice","bcf","cross","floor","ifc-export","ifc-import","ifc-inspector","lighting","multiplayer","plan-view","rhino-import","schedules","sheets","toy-cube","view"],
+    "STORE_ONLY \\ ELEMENT_PLUGIN_IDS (0)": []
+   },
+   "THE_SHARPEST_TWO": [
+    "PLUGIN_CATALOG ADVERTISES 16 PLUGINS ALL_PLUGINS NEVER REGISTERS. `runtime.plugins.list()` returns rows for ai-floorplan/generative/query/rules/voice, bcf, cross, ifc-export/import/inspector, multiplayer, plan-view, rhino-import, schedules, sheets, toy-cube — none of which contributes a store or a handler through the boot registry. The catalog's own comment (PluginHost.ts:88-90) warns that 'a row here is a CLAIM that the runtime advertises a REAL plugin' and that lane PLUGIN2 refused to add seven such rows. Sixteen are there anyway.",
+    "PLUGIN_CATALOG'S HEADER COMMENT IS FALSIFIED BY ITS OWN BODY. PluginHost.ts:43-44 reads 'Static plugin catalog — one entry per directory under `plugins/`. Order matches `ls plugins/` (alphabetical)'. Measured: 43 entries against 51 directories, EIGHT missing (the ARM-A set), and a later comment in the SAME FILE (:92-96) explains that those eight are deliberately excluded. Two comments in one file, contradicting each other, sixty lines apart."
+   ],
+   "third": "ALL_PLUGINS has 30 members but only 29 object literals — the 30th is `sectionViewPluginRegistration`, imported from @pryzm/plugin-section-view at PluginRegistry.ts:117 and spread in at :831. Any regex that counts `id: '` in that array reads 29 and misses section-view. That is the same 'count vs set' failure shape CLAUDE.md records five times for the contract range.",
+   "disposition": "REPLACE — one manifest, derived. PluginHost.ts:47-50 already says so: 'The S81-WIRE F.4.x sub-phase replaces this static array with a manifest-driven loader so this file becomes a no-op transition.' It has not happened."
+  },
+  "C_rival_store_classes": {
+   "command": "grep -rn \"^export class [A-Za-z]*Store\\b\" packages plugins apps --include=*.ts | grep -v node_modules | grep -vE '__tests__|\\.test\\.' then group by class name",
+   "duplicate_names": 26,
+   "TRIPLE_names": ["StairStore","RoofStore","PlumbingStore","LightingStore","FurnitureStore","AnnotationStore"],
+   "the_two_per_family_pattern_IS_the_double_write": "For 18 element families the pair is (plugins/<x>/src/store.ts extends Store<T> — the Immer/DTO store) + (packages/geometry-<x>/ or packages/core-app-model/src/stores/ — the legacy store the renderer reads). That pair is not a naming accident; it is the double-write, one class per side.",
+   "the_SIX_TRIPLES_are_the_real_finding": {
+    "StairStore": ["packages/core-app-model/src/stores/StairStore.ts:23","packages/geometry-stair/src/StairStore.ts:22","plugins/stair/src/store.ts:22"],
+    "RoofStore": ["packages/core-app-model/src/stores/RoofStore.ts:10","packages/geometry-roof/src/RoofStore.ts:9","plugins/roof/src/store.ts:13"],
+    "PlumbingStore": ["packages/core-app-model/src/stores/PlumbingStore.ts:6","packages/geometry-plumbing/src/PlumbingStore.ts:34","plugins/plumbing/src/store.ts:10"],
+    "LightingStore": ["packages/core-app-model/src/stores/LightingStore.ts:16","packages/geometry-lighting/src/LightingStore.ts:49","plugins/lighting/src/store.ts:10"],
+    "FurnitureStore": ["packages/core-app-model/src/stores/FurnitureStore.ts:7","packages/geometry-furniture/src/FurnitureStore.ts:35","plugins/furniture/src/store.ts:10"],
+    "AnnotationStore": ["packages/stores/src/AnnotationStore.ts:24","plugins/annotations/src/store.ts:35","plugins/annotations/src/subsystem/AnnotationStore.ts:86"]
+   },
+   "RoomStore_is_a_documented_triple": "packages/stores/src/RoomStore.ts:3-12 says it in its own header: '⚠ GE-04 (measured 2026-08-14) — DEPRECATED-AS-NAMED, unwired-as-built. This class was one of THREE named RoomStore. The one shipping paths execute is packages/room-topology/src/RoomStore.ts ... THIS store's runtime slot — runtime.stores.roomStore, constructed by composeRuntime — has ZERO readers anywhere in the repo.' DISPOSITION: REMOVE — and it has a DATE (2026-08-14) but no removal date.",
+   "other_rival_pairs_not_element_stores": ["StairTypeStore (core-app-model + geometry-stair)","LevelStore (packages/stores + plugins/plan-view)","SectionStore (packages/stores + plugins/section-view)","DimensionStore (packages/stores + plugins/dimensions)","CubeStore (packages/stores + plugins/toy-cube)","WallOccupancyStore (geometry-wall:350 + plugins/wall/src/occupancy.ts:150)","WallSystemTypeStore (geometry-wall:191 + plugins/wall/src/system-type-store.ts:150)","IndexedDBStore (persistence-client + packages/stores)","GeometryCacheStore (see below)"],
+   "GeometryCacheStore_BYTE_IDENTICAL_AND_UNREACHABLE": {
+    "files": ["packages/persistence-client/src/loader/GeometryCacheStore.ts","apps/editor/src/engine/persistence/GeometryCacheStore.ts"],
+    "diff": "`diff -q` -> RC=0, IDENTICAL. 330 lines each, 660 total.",
+    "importers": "ZERO. `grep -rn 'GeometryCacheStore' apps packages plugins --include=*.ts` excluding the two definition files returns THREE hits and all three are COMMENTS ('mirrors GeometryCacheStore.ts, the codebase's existing IDB pattern') in UnderlayRasterStore.ts:21, ThumbnailCacheStore.ts:27, VersionCacheStore.ts:23. Neither copy is exported from a barrel that anything imports; `getGeometryCacheStore()` (:327) has no caller.",
+    "disposition": "REMOVE — both copies. This is the cleanest 'typed, exported, not reachable' artifact found: 660 lines, zero call sites, and the only thing keeping the name alive is three comments telling future authors to imitate it."
+   },
+   "D_rival_CesiumThreeBridge": {
+    "files": ["packages/renderer-three/src/geospatial/CesiumThreeBridge.ts","plugins/geospatial/src/CesiumThreeBridge.ts"],
+    "note": "plugins/geospatial is an ARM-A plugin (on disk, in neither registry). Two classes of the same name for the same concept, one of them in a plugin that boots nothing.",
+    "disposition": "REMOVE the plugin copy or WIRE the plugin — but not both names."
+   }
+  }
+ },
+
+ "events_with_no_consumer": {
+  "source": "P1 measured NINE zero-subscriber CEB channels (census.json.channel_subscribers). This lane dispositions them; it does not re-derive the count.",
+  "rows": [
+   { "channel": "slab.layer-updated", "emitted_at": "CommandEventBridge.ts case slab.updateLayers :1613", "subscribers": 0, "disposition": "WIRE", "reason": "This is one of only FOUR non-create cases in the entire 38-case CEB switch, and one of the THREE that are the bridge's ONLY update arm. Layer edits are a real user gesture with a real legacy store (SlabStore) that would need the relay. An emit with no listener here is a missing listener, not dead architecture." },
+   { "channel": "ceiling.layer-updated", "emitted_at": "case ceiling.updateLayers :1633", "subscribers": 0, "disposition": "WIRE", "reason": "same" },
+   { "channel": "floor.layer-updated", "emitted_at": "case floor.updateLayers :1653", "subscribers": 0, "disposition": "WIRE", "reason": "same" },
+   { "channel": "room.created", "emitted_at": "case room.create :1312", "subscribers": 0, "disposition": "REPLACE", "reason": "Rooms DO reach the plan view — through the §FT-ROOM-PLAN DOM bridge on `bim-room-added` (initTools.ts:2941), driven by the LEGACY CreateRoomCommand. So this is not a missing listener; it is a SECOND, unused channel for a path that already works by another route. P1 also found the name collides with a same-named event on a DIFFERENT bus (packages/stores/src/aggregate-commands/roomCreate.ts:111) — a name collision is a reason to retire the name, not to subscribe to it." },
+   { "channel": "plumbing.created", "emitted_at": "case plumbing.create :1483", "subscribers": 0, "disposition": "REPLACE", "reason": "C11 §11 records TWO create verbs for one family with opposite verdicts: `plumbing.createFixture` (legacy, works, reaches exports) and `plumbing.create` (DTO, zero subscribers repo-wide). The channel is the DTO verb's, and the DTO verb is the rival. Converge on one verb, then the channel is either needed or gone." },
+   { "channel": "grid.created", "emitted_at": "case grid.create :1322", "subscribers": 0, "disposition": "WIRE", "reason": "C11 §11 marks grid AUTHORED + DISPATCHABLE + UNREACHABLE — `'grid:tool'` is never activated and the 3-D grid reads a DIFFERENT store. The channel is downstream of a tool that never fires; wiring the channel alone would not help, so this row is WIRE-BLOCKED-ON the tool activation. Recording it as WIRE rather than REMOVE because the store, the verb and the case all exist." },
+   { "channel": "annotation.created", "emitted_at": "case annotation.create :1503", "subscribers": 0, "disposition": "WIRE", "reason": "C11 §11 says annotations render on their own layer but are carried by NO IFC/PDF/DXF surface. The channel is the natural relay for that." },
+   { "channel": "dimension.created", "emitted_at": "case dimension.create :1513", "subscribers": 0, "disposition": "REMOVE", "reason": "C11 §11: AUTHORED + DISPATCHABLE + UNREACHABLE — `DimensionTool` is not exported from the plugin barrel, so nothing can dispatch dimension.create in production. An emit downstream of an undispatchable verb is dead architecture until the barrel export lands; if the barrel export lands, re-mint the channel with a subscriber in the same commit." },
+   { "channel": "structural.created", "emitted_at": "case structural.create :1493", "subscribers": 0, "disposition": "REMOVE", "reason": "Re-measured 2026-08-31: `grep -rn 'new StructuralCommitter(' apps packages plugins --include=*.ts | grep -v node_modules | grep -vE '\\.test\\.|__tests__'` -> 0. The intended consumer class is exported from plugins/structural/src/index.ts:42 and constructed NOWHERE, tests included. This is dead architecture on both ends — an emitter with no listener AND a listener class with no constructor call." }
+  ],
+  "TENTH_ROW_NOT_IN_P1s_NINE": {
+   "channel": "water.created",
+   "subscribers": 1,
+   "why_it_belongs_here": "The INVERSE defect, and P1's subscriber count cannot see it. §FT-WATER (initTools.ts:1943) subscribes to `water.created`, but `grep -n \"case '\" packages/runtime-composer/src/CommandEventBridge.ts` lists 38 cases and there is NO `case 'water.create'`. A LISTENER FOR A CHANNEL WITH NO OWN-NAME EMITTER. Water reaches the screen only because it is emitted from inside `case 'pool.create'`. Counting subscribers per emitted channel structurally cannot find this class; it needs the set difference in the other direction.",
+   "disposition": "KEEP-WITH-REASON — water is a STORE_ONLY member of the pool compound and has no independent create verb by design (ADR-0124). The reason must be written at the subscription site; today it is not."
+  },
+  "ELEMENT_UPDATE_VERBS_the_deliberate_narrow_gate": {
+   "site": "packages/runtime-composer/src/CommandEventBridge.ts:241",
+   "members": 10,
+   "list": ["slab.addHole","slab.removeHole","slab.setThickness","slab.setBaseOffset","slab.setType","roof.setOverhang","roof.setThickness","roof.setShape","roof.setPitch","column.setHeight"],
+   "reading": "TEN verbs of the 361 in census.json may cross the §MIRROR-UPDATE bridge. The bridge's own comment (initTools.ts:1472-1479) names the consequence of the other 351: '123 bus verbs that write a plugin DTO store and relay to NOTHING, the 13 *.setMaterial verbs that had to be turned into refusals because a refusal was the only honest answer left, the lift shaft that penetrates the floor plate in the model and not on screen (L-9403), and the pool's void in its host slab.'",
+   "disposition": "KEEP-WITH-REASON as a gate (it must not become a general relay, per its own comment) — but the 351 non-members need their own ledger, and that ledger is tools/ga-gate/mirror-debt.json, not this file."
+  }
+ },
+
+ "legacy_artifact_inventory_dispositions": {
+  "counting_rule": "One row per named artifact dispositioned above. Every artifact has exactly one of WIRE / REPLACE / REMOVE / KEEP-WITH-REASON. Where a disposition is a genuine either/or (WIRE-or-REMOVE) it is counted under WIRE, and flagged.",
+  "WIRE": [
+   "CascadeRunner (packages/command-bus/src/cascade.ts) — or REMOVE",
+   "wireToolForConsequencePreview (ConsequencePreviewOverlay.ts:368) — zero callers repo-wide",
+   "plugins/ai-floorplan — advertised, unregistered",
+   "plugins/ai-generative — advertised, unregistered",
+   "plugins/ai-query — advertised, unregistered",
+   "plugins/ai-rules — advertised, unregistered",
+   "plugins/ai-voice — advertised, unregistered",
+   "plugins/ifc-import (950 lines, 1 handler) — advertised, unregistered",
+   "plugins/ifc-inspector (3168 lines) — advertised, unregistered",
+   "plugins/rhino-import — advertised, unregistered",
+   "plugins/levels (2 handlers) — ARM-A",
+   "plugins/navigate (1 handler) — ARM-A",
+   "channel slab.layer-updated",
+   "channel ceiling.layer-updated",
+   "channel floor.layer-updated",
+   "channel grid.created (blocked on 'grid:tool' activation)",
+   "channel annotation.created"
+  ],
+  "REPLACE": [
+   "the three commandManager counters -> one counter, one denominator",
+   "PLUGIN_CATALOG + ALL_PLUGINS + ELEMENT_PLUGIN_IDS + STORE_ONLY_PLUGIN_IDS -> the manifest-driven loader PluginHost.ts:47-50 already promises",
+   "legacy commandManager undo backend -> ADR-0251 single timeline",
+   "plugins/geospatial CesiumThreeBridge -> the renderer-three one",
+   "plugins/visibility-intent -> packages/visibility (P7)",
+   "channel room.created -> the working §FT-ROOM-PLAN DOM path",
+   "channel plumbing.created -> converge plumbing.create and plumbing.createFixture",
+   "the 26 duplicate Store class names -> one store per family (this IS the double-write)"
+  ],
+  "REMOVE": [
+   "packages/speculative-engine (dated: delete 2026-11-12)",
+   "packages/persistence-client/src/loader/GeometryCacheStore.ts (330 lines, 0 importers)",
+   "apps/editor/src/engine/persistence/GeometryCacheStore.ts (byte-identical duplicate, 0 importers)",
+   "packages/stores/src/RoomStore.ts (self-declared DEPRECATED-AS-NAMED, zero readers, GE-04 2026-08-14)",
+   "plugins/dxf (66 lines, ARM-A)",
+   "plugins/export-pdf (68 lines, ARM-A)",
+   "plugins/render (27 lines, ARM-A)",
+   "plugins/family-editor (27 lines, ARM-A, never even listed as a stub)",
+   "channel dimension.created (verb undispatchable — DimensionTool not exported from the barrel)",
+   "channel structural.created (consumer class never constructed)",
+   "the duplicate storeEventBus.emit at initTools.ts:2127 (L-1056) — deliberately deferred, but it is a REMOVE with a reason, not a KEEP"
+  ],
+  "KEEP_WITH_REASON": [
+   "ImpactEngine — a name deliberately never minted; the capability is ImpactDetermination/UndeterminedImpact",
+   "CommandImpact — a name in STR-06 §70 only; strike it from STR-06 or annotate it",
+   "ConsequencePreviewService — the one live planner front door",
+   "performUndoRedo.ts — the single undo entry point (C03 §4.6 U-5)",
+   "plugins/floor — NOT A STUB; delist from the 16",
+   "ELEMENT_UPDATE_VERBS as a narrow allowlist (must not become a general relay)",
+   "channel water.created — a STORE_ONLY member with no independent create verb by design (ADR-0124); the reason must be written at the subscription site and today is not",
+   "the wall/curtain-wall/lighting REGISTER-BEFORE-ADD order — correct against §G3-STALE, and it is C11's legend that must change"
+  ],
+  "totals": { "WIRE": 17, "REPLACE": 8, "REMOVE": 11, "KEEP_WITH_REASON": 8, "TOTAL": 44 }
+ }
+}

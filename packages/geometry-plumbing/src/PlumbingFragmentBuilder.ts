@@ -1,13 +1,138 @@
 import * as THREE from '@pryzm/renderer-three/three';
-import { PlumbingFixtureData } from './PlumbingTypes';
+// §FIX-PLUMB-DISPOSE (L-11961) — the canonical ELEMENT-MUTATION teardown. See
+// RoofFragmentBuilder._disposeChildren, whose comment names the inversion this
+// helper corrects (dispose-then-detach destroys GPU buffers while the meshes are
+// still parented to the scene).
+import { detachAndReleaseChildren } from '@pryzm/renderer-three';
+import { PlumbingFixtureData, PlumbingFixtureType } from './PlumbingTypes';
 import { elementRegistry } from '@pryzm/core-app-model/element-registry';
 import { createToiletGeometry, DEFAULT_TOILET_VARIANT, ToiletVariant } from './ToiletGeometry';
 import { createShowerGeometry, DEFAULT_SHOWER_VARIANT, ShowerVariant } from './ShowerGeometry';
 import { createAccessoryGeometry, DEFAULT_ACCESSORY_VARIANT, BathroomAccessoryVariant } from './BathroomAccessoryGeometry';
 
+/**
+ * §FIX-PLUMB-SUBSTITUTION (L-11960) — what this builder ACTUALLY drew for one
+ * fixture, as opposed to what the record asked for.
+ *
+ *   · 'exact'       — the authored fixtureType has a geometry factory of its own
+ *                     and that factory built the mesh.
+ *   · 'substituted' — the authored fixtureType has NO factory in this builder, so
+ *                     a NAMED stand-in was drawn. Both values are carried, because
+ *                     a substitution reported without the requested value is the
+ *                     same silence it replaces (C74 / CA-18).
+ *
+ * `refusals` names every AUTHORED FIELD this build could not honour, one line per
+ * field, each carrying the authored value and the value actually used. An empty
+ * array means every field the record carried reached the geometry.
+ */
+export type PlumbingBuildOutcome = 'exact' | 'substituted';
+
+export interface PlumbingBuildVerdict {
+    fixtureId: string;
+    drew: PlumbingBuildOutcome;
+    /** what the record asked for — NOT narrowed to PlumbingFixtureType, because a
+     *  persisted record can carry a value this build of the app has never heard of,
+     *  and that case is precisely the one worth naming. */
+    requestedFixtureType: string;
+    /** the factory that actually ran. */
+    drawnGeometry: PlumbingFixtureType;
+    refusals: string[];
+    at: number;
+}
+
+/**
+ * §FIX-PLUMB-SUBSTITUTION — the fixture families that have a geometry factory of
+ * their own in THIS builder. `PlumbingFixtureType` is wider: 'urinal' and 'bidet'
+ * are authored, persisted and schedulable, and have no LOD400 factory here. They
+ * are drawn as a toilet AND SAID SO, rather than becoming one silently.
+ */
+const FIXTURE_TYPES_WITH_A_FACTORY: ReadonlySet<string> = new Set<PlumbingFixtureType>([
+    'sink', 'bath', 'shower', 'accessory', 'toilet',
+]);
+
+/** §FIX-PLUMB-DEGENERATE — catalogue defaults for the bath, named once so the
+ *  refusal lines below can quote the number they fell back to. */
+const BATH_DEFAULTS = { width: 1.7, length: 0.75, height: 0.6 } as const;
+
+/**
+ * §FIX-PLUMB-DEGENERATE — resolve one authored dimension.
+ *
+ * WAS: `data.width || 1.7`. That is silent substitution three ways over — an
+ * authored 0, an authored negative and an authored NaN all became 1.7 with no
+ * trace, and a negative that survived (`-1 || 1.7` is -1) reached BoxGeometry and
+ * produced inside-out geometry that reads as an invisible bath. This returns the
+ * authored value when it is usable and PUSHES A NAMED REFUSAL when it is not.
+ */
+function resolveDimension(
+    field: 'width' | 'length' | 'height',
+    authored: number | undefined,
+    fallback: number,
+    refusals: string[],
+): number {
+    if (authored === undefined || authored === null) return fallback;
+    if (!Number.isFinite(authored) || authored <= 0) {
+        refusals.push(
+            `${field}: authored ${String(authored)} is not a positive finite length — drew ${fallback} m instead`,
+        );
+        return fallback;
+    }
+    return authored;
+}
+
+/**
+ * §FIX-PLUMB-DEGENERATE — parse an authored hex colour.
+ *
+ * WAS: `data.color ? parseInt(data.color.replace('#','0x')) : 0xffffff`. An
+ * authored colour that is not hex ('red', 'rgb(1,2,3)', a material id) yields NaN,
+ * and THREE.Color built from NaN is not white — it is undefined behaviour that
+ * renders black. The authored value is either used or REFUSED BY NAME.
+ */
+function resolveColor(authored: string | undefined, refusals: string[]): number {
+    if (authored === undefined || authored === null || authored === '') return 0xffffff;
+    const hex = authored.trim().replace(/^#/, '');
+    if (!/^[0-9a-fA-F]{6}$/.test(hex)) {
+        refusals.push(`color: authored "${authored}" is not a 6-digit hex colour — drew #ffffff instead`);
+        return 0xffffff;
+    }
+    const parsed = Number.parseInt(hex, 16);
+    if (!Number.isFinite(parsed)) {
+        refusals.push(`color: authored "${authored}" did not parse — drew #ffffff instead`);
+        return 0xffffff;
+    }
+    return parsed;
+}
+
 export class PlumbingFragmentBuilder {
     private scene: THREE.Scene;
     public fixtureRoots = new Map<string, THREE.Group>();
+
+    /**
+     * §FIX-PLUMB-SUBSTITUTION — the LAST build outcome per fixture id, cleared on
+     * removeFixture so a verdict can never outlive the element it describes. Same
+     * channel shape as SlabFragmentBuilder._buildVerdict / getBuildReport(): read
+     * from the console via the builder handle, with NO new global (P4).
+     */
+    private _buildVerdict = new Map<string, PlumbingBuildVerdict>();
+
+    /** The last build outcome for one fixture, or undefined if this builder has
+     *  never been asked to build it — which is itself the answer: the record never
+     *  reached the builder, so look UPSTREAM (store, bridge or command). */
+    getBuildVerdict(id: string): PlumbingBuildVerdict | undefined {
+        return this._buildVerdict.get(id);
+    }
+
+    /** Every fixture this builder has an opinion about, substitutions and refusals
+     *  first. `hasRoot` is measured from the live scene-graph map, not from the
+     *  verdict, so a verdict claiming a build with no root is itself visible. */
+    getBuildReport(): Array<PlumbingBuildVerdict & { hasRoot: boolean }> {
+        return [...this._buildVerdict.values()]
+            .map(v => ({ ...v, hasRoot: this.fixtureRoots.has(v.fixtureId) }))
+            .sort((a, b) => {
+                const rank = (r: PlumbingBuildVerdict) =>
+                    (r.drew === 'substituted' ? 0 : 1) + (r.refusals.length > 0 ? 0 : 1);
+                return rank(a) - rank(b);
+            });
+    }
 
     constructor(scene: THREE.Scene) {
         this.scene = scene;
@@ -44,20 +169,96 @@ export class PlumbingFragmentBuilder {
         }
         elementRegistry.registerRoot(data.id, root);
 
-        root.clear();
+        // §FIX-PLUMB-DISPOSE (L-11961) — WAS `root.clear()`, which detached every
+        // child THREE.Mesh and freed NOTHING. updateFixture runs on every architect
+        // edit, so each edit leaked one fixture's geometry and materials. This is the
+        // same call RoofFragmentBuilder._disposeChildren makes, in the order
+        // §GPU-RESOURCE-LIFETIME (ADR-0297, INVARIANT L2) requires: detach now,
+        // release at the frame boundary.
+        detachAndReleaseChildren(root);
+
+        // §FIX-PLUMB-SUBSTITUTION (L-11960, C84 EI-2a / C100) — the dispatch WAS an
+        // if/else chain whose FINAL ELSE was createToiletMesh. PlumbingFixtureType
+        // carries seven members; five have a factory here. So an authored 'urinal' or
+        // 'bidet' — and any fixtureType a newer document carries that this build has
+        // never heard of — drew a TOILET and announced nothing, which is the silent
+        // substitution C84/C100 prohibit. The stand-in is UNCHANGED (removing it would
+        // make a fixture that draws today draw nothing); what is added is that the
+        // substitution is named, with both values, on the mesh and in the verdict.
+        const requestedFixtureType: string = data.fixtureType;
+        const refusals: string[] = [];
         let mesh: THREE.Group;
+        let drawnGeometry: PlumbingFixtureType;
         if (data.fixtureType === 'sink') {
             mesh = this.createSinkMesh(data);
+            drawnGeometry = 'sink';
         } else if (data.fixtureType === 'bath') {
-            mesh = this.createBathMesh(data);
+            mesh = this.createBathMesh(data, refusals);
+            drawnGeometry = 'bath';
         } else if (data.fixtureType === 'shower') {
             mesh = this.createShowerMesh(data);
+            drawnGeometry = 'shower';
         } else if (data.fixtureType === 'accessory') {
             mesh = this.createAccessoryMesh(data);
+            drawnGeometry = 'accessory';
         } else {
             mesh = this.createToiletMesh(data);
+            drawnGeometry = 'toilet';
         }
-        
+        const drew: PlumbingBuildOutcome =
+            FIXTURE_TYPES_WITH_A_FACTORY.has(requestedFixtureType) ? 'exact' : 'substituted';
+        if (drew === 'substituted') {
+            refusals.push(
+                `fixtureType: authored "${requestedFixtureType}" has no LOD400 factory in ` +
+                `PlumbingFragmentBuilder — drew "${drawnGeometry}" geometry instead`,
+            );
+        }
+        // updateFixture runs on EVERY architect edit, so announce on a CHANGE of
+        // outcome, not on every rebuild. A drag that moves a bidet must not print
+        // sixty identical lines — a warning nobody reads is silence with extra steps.
+        // Computed AFTER the push above, so the two refusal lists are comparable.
+        const _prior = this._buildVerdict.get(data.id);
+        const _isNews =
+            _prior === undefined ||
+            _prior.drew !== drew ||
+            _prior.requestedFixtureType !== requestedFixtureType ||
+            _prior.refusals.join('|') !== refusals.join('|');
+        if (drew === 'substituted' && _isNews) {
+            console.warn(
+                '[PlumbingFragmentBuilder] §FIX-PLUMB-SUBSTITUTION — fixture ' + data.id +
+                ': authored fixtureType "' + requestedFixtureType + '" has no geometry factory; ' +
+                'drew "' + drawnGeometry + '" instead. The plan/elevation symbol and the schedule ' +
+                'still read the authored type, so the 3-D view and the drawing disagree.',
+            );
+        }
+        this._buildVerdict.set(data.id, {
+            fixtureId: data.id,
+            drew,
+            requestedFixtureType,
+            drawnGeometry,
+            refusals,
+            at: Date.now(),
+        });
+        if (refusals.length > 0 && drew === 'exact' && _isNews) {
+            console.warn(
+                '[PlumbingFragmentBuilder] §FIX-PLUMB-DEGENERATE — fixture ' + data.id +
+                ' drew with ' + refusals.length + ' refused field(s): ' + refusals.join(' | '),
+            );
+        }
+        // §FIX-PLUMB-SUBSTITUTION — the root's fixtureType WAS stamped only on the
+        // first build (inside the `if (!root)` arm above) and never refreshed, so a
+        // fixture whose type changed kept the OLD type in userData for every reader
+        // that goes through elementRegistry. Re-stamped on every update, alongside the
+        // verdict, so the substitution is readable from the built geometry itself.
+        root.userData.fixtureType = requestedFixtureType;
+        root.userData.drawnGeometry = drawnGeometry;
+        // Primitives only on userData: the NMEexporter proxy cache and the IFC
+        // readers walk this bag, so the RICH verdict stays in _buildVerdict and only
+        // the human-readable lines are stamped — and the key is REMOVED, not set to
+        // undefined, when a rebuild has nothing to refuse.
+        if (refusals.length > 0) root.userData.buildRefusals = refusals.join(' | ');
+        else delete root.userData.buildRefusals;
+
         // Ensure the mesh itself is selectable and carries the ID
         mesh.traverse((child) => {
             if (child instanceof THREE.Mesh) {
@@ -253,13 +454,46 @@ export class PlumbingFragmentBuilder {
         return group;
     }
 
-    private createBathMesh(data: PlumbingFixtureData): THREE.Group {
+    private createBathMesh(data: PlumbingFixtureData, refusals: string[] = []): THREE.Group {
         const group = new THREE.Group();
-        const width = data.width || 1.7;
-        const length = data.length || 0.75;
-        const height = data.height || 0.6;
-        const color = data.color ? parseInt(data.color.replace('#', '0x')) : 0xffffff;
-        
+        // §FIX-PLUMB-DEGENERATE (L-11962) — the four authored fields this factory reads
+        // are the only ones in the whole builder that come from the record rather than
+        // from a variant enum, and all four were read with `||` / a bare parseInt. See
+        // resolveDimension / resolveColor for the exact substitutions that were silent.
+        const authoredWidth = resolveDimension('width', data.width, BATH_DEFAULTS.width, refusals);
+        const authoredLength = resolveDimension('length', data.length, BATH_DEFAULTS.length, refusals);
+        const authoredHeight = resolveDimension('height', data.height, BATH_DEFAULTS.height, refusals);
+        const color = resolveColor(data.color, refusals);
+        // A bath shorter than its own 0.05 m rim has no interior to extrude: the tub
+        // walls would come out with a negative internal height and the mesh would be
+        // inside-out — present in the scene graph, invisible on screen. Refuse the
+        // authored height by name and draw the catalogue depth.
+        const rimThickness = 0.05;
+        const height = authoredHeight - rimThickness > 0 ? authoredHeight : BATH_DEFAULTS.height;
+        if (authoredHeight - rimThickness <= 0) {
+            refusals.push(
+                `height: authored ${authoredHeight} m leaves no interior above the ${rimThickness} m rim ` +
+                `— drew ${BATH_DEFAULTS.height} m instead`,
+            );
+        }
+        // Likewise a bath narrower than twice the wall thickness: the short-wall span
+        // (length - 2 * 0.05) and the rim hole (half - 0.05) both go negative.
+        const minPlan = rimThickness * 2 + 0.01;
+        const width = authoredWidth > minPlan ? authoredWidth : BATH_DEFAULTS.width;
+        const length = authoredLength > minPlan ? authoredLength : BATH_DEFAULTS.length;
+        if (authoredWidth <= minPlan) {
+            refusals.push(
+                `width: authored ${authoredWidth} m is not wider than the ${minPlan} m rim pair ` +
+                `— drew ${BATH_DEFAULTS.width} m instead`,
+            );
+        }
+        if (authoredLength <= minPlan) {
+            refusals.push(
+                `length: authored ${authoredLength} m is not wider than the ${minPlan} m rim pair ` +
+                `— drew ${BATH_DEFAULTS.length} m instead`,
+            );
+        }
+
         const mat = new THREE.MeshStandardMaterial({ 
             color: color,
             roughness: 0.1,
@@ -338,9 +572,19 @@ export class PlumbingFragmentBuilder {
     removeFixture(id: string): void {
         const root = this.fixtureRoots.get(id);
         if (root) {
+            // §FIX-PLUMB-DISPOSE (L-11961) — the DELETE leg freed nothing: it removed
+            // the root from the scene, dropped the map entry and unregistered the id,
+            // leaving every child geometry and material resident on the GPU for the
+            // life of the session. Detach the children (which schedules their release
+            // at the frame boundary) BEFORE the root leaves the scene graph, exactly as
+            // RoofFragmentBuilder does. clearProjectGeometry() routes through here, so
+            // the project sweep is fixed by the same line.
+            detachAndReleaseChildren(root);
             this.scene.remove(root);
             this.fixtureRoots.delete(id);
             elementRegistry.unregisterRoot(id);
+            // A verdict must never outlive the element it describes.
+            this._buildVerdict.delete(id);
         }
     }
 

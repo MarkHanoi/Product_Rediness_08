@@ -1,0 +1,2890 @@
+{
+ "annotation.create": {
+  "owner": "plugins/annotations",
+  "liveness": "UNKNOWN",
+  "store": "UNKNOWN",
+  "undo": "patch-pair → annotation",
+  "sync": "synced via 'id' (disclose)",
+  "chat": "classified B"
+ },
+ "annotation.delete": {
+  "owner": "plugins/annotations",
+  "liveness": "UNKNOWN",
+  "store": "UNKNOWN",
+  "undo": "patch-pair → annotation",
+  "sync": "not-synced (reason declared)",
+  "chat": "classified B"
+ },
+ "annotation.move": {
+  "owner": "plugins/annotations",
+  "liveness": "UNKNOWN",
+  "store": "UNKNOWN",
+  "undo": "patch-pair → annotation",
+  "sync": "not-synced (reason declared)",
+  "chat": "classified B"
+ },
+ "annotation.setColor": {
+  "owner": "plugins/annotations",
+  "liveness": "UNKNOWN",
+  "store": "UNKNOWN",
+  "undo": "patch-pair → annotation",
+  "sync": "synced via 'annotationId' (disclose)",
+  "chat": "classified B"
+ },
+ "annotation.setKind": {
+  "owner": "plugins/annotations",
+  "liveness": "UNKNOWN",
+  "store": "UNKNOWN",
+  "undo": "patch-pair → annotation",
+  "sync": "synced via 'annotationId' (disclose)",
+  "chat": "classified B"
+ },
+ "annotation.setRotation": {
+  "owner": "plugins/annotations",
+  "liveness": "UNKNOWN",
+  "store": "UNKNOWN",
+  "undo": "patch-pair → annotation",
+  "sync": "synced via 'annotationId' (disclose)",
+  "chat": "classified B"
+ },
+ "annotation.setText": {
+  "owner": "plugins/annotations",
+  "liveness": "UNKNOWN",
+  "store": "UNKNOWN",
+  "undo": "patch-pair → annotation",
+  "sync": "synced via 'annotationId' (disclose)",
+  "chat": "classified B"
+ },
+ "annotation.setTextHeight": {
+  "owner": "plugins/annotations",
+  "liveness": "UNKNOWN",
+  "store": "UNKNOWN",
+  "undo": "patch-pair → annotation",
+  "sync": "synced via 'annotationId' (disclose)",
+  "chat": "classified B"
+ },
+ "annotation.update": {
+  "owner": "plugins/annotations",
+  "liveness": "UNKNOWN",
+  "store": "UNKNOWN",
+  "undo": "patch-pair → annotation",
+  "sync": "synced via 'annotationId' (disclose)",
+  "chat": "classified B"
+ },
+ "balcony.create": {
+  "owner": "plugins/balcony",
+  "liveness": "UNKNOWN",
+  "store": "UNKNOWN",
+  "undo": "patch-pair → balcony + slab + floor + handrail",
+  "sync": "synced via 'balconyId' (disclose)",
+  "chat": "UNDECLARED"
+ },
+ "balcony.delete": {
+  "owner": "plugins/balcony",
+  "liveness": "UNKNOWN",
+  "store": "UNKNOWN",
+  "undo": "patch-pair → balcony + slab + floor + handrail",
+  "sync": "not-synced (reason declared)",
+  "chat": "UNDECLARED"
+ },
+ "balcony.updateProfile": {
+  "owner": "plugins/balcony",
+  "liveness": "UNKNOWN",
+  "store": "UNKNOWN",
+  "undo": "patch-pair → balcony + slab + floor + handrail",
+  "sync": "synced via 'balconyId' (disclose)",
+  "chat": "UNDECLARED"
+ },
+ "bathroomPod.create": {
+  "owner": "plugins/plumbing",
+  "liveness": "UNKNOWN",
+  "store": "UNKNOWN",
+  "undo": "patch-pair → bathroomPod",
+  "sync": "n/a (not a property verb)",
+  "chat": "UNDECLARED"
+ },
+ "bathroomPod.delete": {
+  "owner": "plugins/plumbing",
+  "liveness": "UNKNOWN",
+  "store": "UNKNOWN",
+  "undo": "patch-pair → bathroomPod",
+  "sync": "n/a (not a property verb)",
+  "chat": "UNDECLARED"
+ },
+ "beam.batch.create": {
+  "owner": "plugins/beam",
+  "liveness": "UNKNOWN",
+  "store": "UNKNOWN",
+  "undo": "patch-pair → beam",
+  "sync": "not-synced (reason declared)",
+  "chat": "classified C"
+ },
+ "beam.changeLevel": {
+  "owner": "plugins/beam",
+  "liveness": "LIVE",
+  "store": "legacy beamStore (via element.level-changed mirror)",
+  "undo": "patch-pair → beam",
+  "sync": "not-synced (reason declared)",
+  "chat": "capability: move-to-level"
+ },
+ "beam.create": {
+  "owner": "plugins/beam",
+  "liveness": "UNKNOWN",
+  "store": "UNKNOWN",
+  "undo": "patch-pair → beam",
+  "sync": "synced via 'id' (disclose)",
+  "chat": "classified B"
+ },
+ "beam.delete": {
+  "owner": "plugins/beam",
+  "liveness": "UNKNOWN",
+  "store": "UNKNOWN",
+  "undo": "patch-pair → beam",
+  "sync": "not-synced (reason declared)",
+  "chat": "classified D"
+ },
+ "beam.move": {
+  "owner": "plugins/beam",
+  "liveness": "REFUSES",
+  "store": "NONE",
+  "undo": "patch-pair → beam",
+  "sync": "not-synced (reason declared)",
+  "chat": "deferred (CHAT_UNAVAILABLE)"
+ },
+ "beam.setMaterial": {
+  "owner": "plugins/beam",
+  "liveness": "REFUSES",
+  "store": "NONE",
+  "undo": "patch-pair → beam",
+  "sync": "not-synced (reason declared)",
+  "chat": "deferred (CHAT_UNAVAILABLE)"
+ },
+ "beam.setSection": {
+  "owner": "plugins/beam",
+  "liveness": "UNKNOWN",
+  "store": "UNKNOWN",
+  "undo": "patch-pair → beam",
+  "sync": "synced via 'beamId' (disclose)",
+  "chat": "classified B"
+ },
+ "beam.setType": {
+  "owner": "plugins/beam",
+  "liveness": "UNKNOWN",
+  "store": "UNKNOWN",
+  "undo": "patch-pair → beam",
+  "sync": "synced via 'beamId' (disclose)",
+  "chat": "classified B"
+ },
+ "beam.update": {
+  "owner": "apps/editor",
+  "liveness": "LIVE",
+  "store": "beam",
+  "undo": "UNKNOWN (declares beam)",
+  "sync": "synced via 'beamId' (disclose)",
+  "chat": "classified D"
+ },
+ "boundaryLine.attach": {
+  "owner": "plugins/boundary-line",
+  "liveness": "UNKNOWN",
+  "store": "UNKNOWN",
+  "undo": "patch-pair → boundaryLine",
+  "sync": "synced via 'boundaryLineId' (disclose)",
+  "chat": "deferred (CHAT_UNAVAILABLE)"
+ },
+ "boundaryLine.create": {
+  "owner": "plugins/boundary-line",
+  "liveness": "UNKNOWN",
+  "store": "UNKNOWN",
+  "undo": "patch-pair → boundaryLine",
+  "sync": "synced via 'boundaryLineId' (disclose)",
+  "chat": "deferred (CHAT_UNAVAILABLE)"
+ },
+ "boundaryLine.delete": {
+  "owner": "plugins/boundary-line",
+  "liveness": "UNKNOWN",
+  "store": "UNKNOWN",
+  "undo": "patch-pair → boundaryLine",
+  "sync": "not-synced (reason declared)",
+  "chat": "deferred (CHAT_UNAVAILABLE)"
+ },
+ "boundaryLine.detach": {
+  "owner": "plugins/boundary-line",
+  "liveness": "UNKNOWN",
+  "store": "UNKNOWN",
+  "undo": "patch-pair → boundaryLine",
+  "sync": "synced via 'boundaryLineId' (disclose)",
+  "chat": "deferred (CHAT_UNAVAILABLE)"
+ },
+ "boundaryLine.move": {
+  "owner": "apps/editor",
+  "liveness": "LIVE",
+  "store": "legacy geometry store (via commandManager)",
+  "undo": "legacy-stack (no affectedStores)",
+  "sync": "synced via 'boundaryLineId' (disclose)",
+  "chat": "deferred (CHAT_UNAVAILABLE)"
+ },
+ "boundaryLine.update": {
+  "owner": "plugins/boundary-line",
+  "liveness": "UNKNOWN",
+  "store": "UNKNOWN",
+  "undo": "patch-pair → boundaryLine",
+  "sync": "synced via 'boundaryLineId' (disclose)",
+  "chat": "deferred (CHAT_UNAVAILABLE)"
+ },
+ "ceiling.batch.create": {
+  "owner": "plugins/ceiling",
+  "liveness": "UNKNOWN",
+  "store": "UNKNOWN",
+  "undo": "patch-pair → ceiling",
+  "sync": "not-synced (reason declared)",
+  "chat": "classified C"
+ },
+ "ceiling.changeLevel": {
+  "owner": "plugins/ceiling",
+  "liveness": "LIVE",
+  "store": "legacy ceilingStore (via element.level-changed mirror)",
+  "undo": "patch-pair → ceiling",
+  "sync": "not-synced (reason declared)",
+  "chat": "capability: move-to-level"
+ },
+ "ceiling.create": {
+  "owner": "plugins/ceiling",
+  "liveness": "UNKNOWN",
+  "store": "UNKNOWN",
+  "undo": "patch-pair → ceiling",
+  "sync": "synced via 'id' (disclose)",
+  "chat": "classified B"
+ },
+ "ceiling.delete": {
+  "owner": "plugins/ceiling",
+  "liveness": "UNKNOWN",
+  "store": "UNKNOWN",
+  "undo": "patch-pair → ceiling",
+  "sync": "not-synced (reason declared)",
+  "chat": "classified D"
+ },
+ "ceiling.setBoundary": {
+  "owner": "plugins/ceiling",
+  "liveness": "UNKNOWN",
+  "store": "UNKNOWN",
+  "undo": "patch-pair → ceiling",
+  "sync": "synced via 'ceilingId' (disclose)",
+  "chat": "classified B"
+ },
+ "ceiling.setHeight": {
+  "owner": "plugins/ceiling",
+  "liveness": "UNKNOWN",
+  "store": "UNKNOWN",
+  "undo": "patch-pair → ceiling",
+  "sync": "synced via 'ceilingId' (disclose)",
+  "chat": "classified D"
+ },
+ "ceiling.setMaterial": {
+  "owner": "plugins/ceiling",
+  "liveness": "REFUSES",
+  "store": "NONE",
+  "undo": "patch-pair → ceiling",
+  "sync": "not-synced (reason declared)",
+  "chat": "deferred (CHAT_UNAVAILABLE)"
+ },
+ "ceiling.update": {
+  "owner": "apps/editor",
+  "liveness": "LIVE",
+  "store": "legacy geometry store (via commandManager)",
+  "undo": "legacy-stack (no affectedStores)",
+  "sync": "synced via 'ceilingId' (disclose)",
+  "chat": "capability: set-height"
+ },
+ "ceiling.updateLayers": {
+  "owner": "plugins/ceiling",
+  "liveness": "UNKNOWN",
+  "store": "UNKNOWN",
+  "undo": "patch-pair → ceiling",
+  "sync": "synced via 'ceilingId' (disclose)",
+  "chat": "classified B"
+ },
+ "ceiling.updateSystemTypeBatch": {
+  "owner": "plugins/ceiling",
+  "liveness": "LIVE",
+  "store": "legacy geometry store (via commandManager)",
+  "undo": "legacy-stack (no affectedStores)",
+  "sync": "not-synced (reason declared)",
+  "chat": "capability: set-ceiling-type"
+ },
+ "column.batch.create": {
+  "owner": "plugins/column",
+  "liveness": "UNKNOWN",
+  "store": "UNKNOWN",
+  "undo": "patch-pair → column",
+  "sync": "not-synced (reason declared)",
+  "chat": "classified C"
+ },
+ "column.changeLevel": {
+  "owner": "plugins/column",
+  "liveness": "LIVE",
+  "store": "legacy columnStore (via element.level-changed mirror)",
+  "undo": "patch-pair → column",
+  "sync": "not-synced (reason declared)",
+  "chat": "capability: move-to-level"
+ },
+ "column.create": {
+  "owner": "plugins/column",
+  "liveness": "UNKNOWN",
+  "store": "UNKNOWN",
+  "undo": "patch-pair → column",
+  "sync": "synced via 'id' (disclose)",
+  "chat": "classified B"
+ },
+ "column.delete": {
+  "owner": "plugins/column",
+  "liveness": "UNKNOWN",
+  "store": "UNKNOWN",
+  "undo": "patch-pair → column",
+  "sync": "not-synced (reason declared)",
+  "chat": "classified D"
+ },
+ "column.move": {
+  "owner": "plugins/column",
+  "liveness": "REFUSES",
+  "store": "NONE",
+  "undo": "patch-pair → column",
+  "sync": "not-synced (reason declared)",
+  "chat": "deferred (CHAT_UNAVAILABLE)"
+ },
+ "column.setHeight": {
+  "owner": "plugins/column",
+  "liveness": "UNKNOWN",
+  "store": "UNKNOWN",
+  "undo": "patch-pair → column",
+  "sync": "synced via 'columnId' (disclose)",
+  "chat": "classified D"
+ },
+ "column.setMaterial": {
+  "owner": "plugins/column",
+  "liveness": "REFUSES",
+  "store": "NONE",
+  "undo": "patch-pair → column",
+  "sync": "not-synced (reason declared)",
+  "chat": "deferred (CHAT_UNAVAILABLE)"
+ },
+ "column.setType": {
+  "owner": "plugins/column",
+  "liveness": "UNKNOWN",
+  "store": "UNKNOWN",
+  "undo": "patch-pair → column",
+  "sync": "synced via 'columnId' (disclose)",
+  "chat": "classified B"
+ },
+ "column.update": {
+  "owner": "apps/editor",
+  "liveness": "LIVE",
+  "store": "column",
+  "undo": "UNKNOWN (declares column)",
+  "sync": "synced via 'id' (disclose)",
+  "chat": "classified D"
+ },
+ "copy-selection": {
+  "owner": "plugins/selection",
+  "liveness": "UNKNOWN",
+  "store": "UNKNOWN",
+  "undo": "NONE (empty patch pair)",
+  "sync": "not-synced (reason declared)",
+  "chat": "classified B"
+ },
+ "cube.move": {
+  "owner": "plugins/toy-cube",
+  "liveness": "UNKNOWN",
+  "store": "UNKNOWN",
+  "undo": "patch-pair → cube",
+  "sync": "not-synced (reason declared)",
+  "chat": "UNDECLARED"
+ },
+ "curtain-wall.addGridLine": {
+  "owner": "plugins/curtain-wall",
+  "liveness": "UNKNOWN",
+  "store": "UNKNOWN",
+  "undo": "patch-pair → curtainwall",
+  "sync": "synced via 'curtainWallId' (disclose)",
+  "chat": "classified B"
+ },
+ "curtain-wall.addPanel": {
+  "owner": "plugins/curtain-wall",
+  "liveness": "UNKNOWN",
+  "store": "UNKNOWN",
+  "undo": "patch-pair → curtainwall",
+  "sync": "not-synced (reason declared)",
+  "chat": "classified B"
+ },
+ "curtain-wall.batch.create": {
+  "owner": "plugins/curtain-wall",
+  "liveness": "UNKNOWN",
+  "store": "UNKNOWN",
+  "undo": "patch-pair → curtainwall",
+  "sync": "not-synced (reason declared)",
+  "chat": "classified C"
+ },
+ "curtain-wall.batch.delete": {
+  "owner": "plugins/curtain-wall",
+  "liveness": "UNKNOWN",
+  "store": "UNKNOWN",
+  "undo": "patch-pair → curtainwall",
+  "sync": "not-synced (reason declared)",
+  "chat": "classified C"
+ },
+ "curtain-wall.batch.update": {
+  "owner": "plugins/curtain-wall",
+  "liveness": "UNKNOWN",
+  "store": "UNKNOWN",
+  "undo": "patch-pair → curtainwall",
+  "sync": "not-synced (reason declared)",
+  "chat": "classified C"
+ },
+ "curtain-wall.bulkUpdatePanels": {
+  "owner": "plugins/curtain-wall",
+  "liveness": "LIVE",
+  "store": "legacy geometry store (via commandManager)",
+  "undo": "legacy-stack (no affectedStores)",
+  "sync": "n/a (not a property verb)",
+  "chat": "deferred (CHAT_UNAVAILABLE)"
+ },
+ "curtain-wall.bulkUpdateParameter": {
+  "owner": "plugins/curtain-wall",
+  "liveness": "LIVE",
+  "store": "legacy geometry store (via commandManager)",
+  "undo": "legacy-stack (no affectedStores)",
+  "sync": "n/a (not a property verb)",
+  "chat": "capability: set-curtain-wall-parameter"
+ },
+ "curtain-wall.changeLevel": {
+  "owner": "plugins/curtain-wall",
+  "liveness": "LIVE",
+  "store": "legacy curtainWallStore (via element.level-changed mirror)",
+  "undo": "patch-pair → curtainwall",
+  "sync": "not-synced (reason declared)",
+  "chat": "capability: move-to-level"
+ },
+ "curtain-wall.create": {
+  "owner": "plugins/curtain-wall",
+  "liveness": "UNKNOWN",
+  "store": "UNKNOWN",
+  "undo": "patch-pair → curtainwall",
+  "sync": "synced via 'id' (disclose)",
+  "chat": "classified B"
+ },
+ "curtain-wall.create-on-all-slabs": {
+  "owner": "plugins/curtain-wall",
+  "liveness": "LIVE",
+  "store": "legacy geometry store (via commandManager)",
+  "undo": "legacy-stack (no affectedStores)",
+  "sync": "not-synced (reason declared)",
+  "chat": "classified E"
+ },
+ "curtain-wall.delete": {
+  "owner": "plugins/curtain-wall",
+  "liveness": "UNKNOWN",
+  "store": "UNKNOWN",
+  "undo": "patch-pair → curtainwall",
+  "sync": "not-synced (reason declared)",
+  "chat": "classified D"
+ },
+ "curtain-wall.move": {
+  "owner": "plugins/curtain-wall",
+  "liveness": "UNKNOWN",
+  "store": "UNKNOWN",
+  "undo": "patch-pair → curtainwall",
+  "sync": "not-synced (reason declared)",
+  "chat": "deferred (CHAT_UNAVAILABLE)"
+ },
+ "curtain-wall.removeGridLine": {
+  "owner": "plugins/curtain-wall",
+  "liveness": "UNKNOWN",
+  "store": "UNKNOWN",
+  "undo": "patch-pair → curtainwall",
+  "sync": "synced via 'curtainWallId' (disclose)",
+  "chat": "classified B"
+ },
+ "curtain-wall.removePanel": {
+  "owner": "plugins/curtain-wall",
+  "liveness": "UNKNOWN",
+  "store": "UNKNOWN",
+  "undo": "patch-pair → curtainwall",
+  "sync": "not-synced (reason declared)",
+  "chat": "classified B"
+ },
+ "curtain-wall.replacePanel": {
+  "owner": "plugins/curtain-wall",
+  "liveness": "UNKNOWN",
+  "store": "UNKNOWN",
+  "undo": "NONE (empty patch pair)",
+  "sync": "synced via 'panelId' (disclose)",
+  "chat": "classified B"
+ },
+ "curtain-wall.resize": {
+  "owner": "plugins/curtain-wall",
+  "liveness": "UNKNOWN",
+  "store": "UNKNOWN",
+  "undo": "patch-pair → curtainwall",
+  "sync": "synced via 'curtainWallId' (disclose)",
+  "chat": "classified B"
+ },
+ "curtain-wall.rotatePanel": {
+  "owner": "plugins/curtain-wall",
+  "liveness": "UNKNOWN",
+  "store": "UNKNOWN",
+  "undo": "patch-pair → curtainwall",
+  "sync": "not-synced (reason declared)",
+  "chat": "classified B"
+ },
+ "curtain-wall.setGrid": {
+  "owner": "plugins/curtain-wall",
+  "liveness": "UNKNOWN",
+  "store": "UNKNOWN",
+  "undo": "patch-pair → curtainwall",
+  "sync": "synced via 'curtainWallId' (disclose)",
+  "chat": "classified B"
+ },
+ "curtain-wall.setMaterial": {
+  "owner": "plugins/curtain-wall",
+  "liveness": "REFUSES",
+  "store": "NONE",
+  "undo": "patch-pair → curtainwall",
+  "sync": "not-synced (reason declared)",
+  "chat": "deferred (CHAT_UNAVAILABLE)"
+ },
+ "curtain-wall.setMullionType": {
+  "owner": "plugins/curtain-wall",
+  "liveness": "UNKNOWN",
+  "store": "UNKNOWN",
+  "undo": "patch-pair → curtainwall",
+  "sync": "synced via 'curtainWallId' (disclose)",
+  "chat": "classified B"
+ },
+ "curtain-wall.setOutline": {
+  "owner": "plugins/curtain-wall",
+  "liveness": "UNKNOWN",
+  "store": "UNKNOWN",
+  "undo": "patch-pair → curtainwall",
+  "sync": "synced via 'curtainWallId' (disclose)",
+  "chat": "classified B"
+ },
+ "curtain-wall.setPanelType": {
+  "owner": "plugins/curtain-wall",
+  "liveness": "UNKNOWN",
+  "store": "UNKNOWN",
+  "undo": "patch-pair → curtainwall",
+  "sync": "not-synced (reason declared)",
+  "chat": "classified B"
+ },
+ "curtain-wall.setTransomType": {
+  "owner": "plugins/curtain-wall",
+  "liveness": "UNKNOWN",
+  "store": "UNKNOWN",
+  "undo": "patch-pair → curtainwall",
+  "sync": "synced via 'curtainWallId' (disclose)",
+  "chat": "classified B"
+ },
+ "curtain-wall.swapPanel": {
+  "owner": "plugins/curtain-wall",
+  "liveness": "UNKNOWN",
+  "store": "UNKNOWN",
+  "undo": "patch-pair → curtainwall",
+  "sync": "not-synced (reason declared)",
+  "chat": "classified B"
+ },
+ "data.clearPropertyDerived": {
+  "owner": "apps/editor",
+  "liveness": "LIVE",
+  "store": "legacy geometry store (via commandManager)",
+  "undo": "legacy-stack (no affectedStores)",
+  "sync": "not-synced (reason declared)",
+  "chat": "classified C"
+ },
+ "data.markPropertyDerived": {
+  "owner": "apps/editor",
+  "liveness": "LIVE",
+  "store": "legacy geometry store (via commandManager)",
+  "undo": "legacy-stack (no affectedStores)",
+  "sync": "not-synced (reason declared)",
+  "chat": "classified C"
+ },
+ "data.setDerivation": {
+  "owner": "apps/editor",
+  "liveness": "LIVE",
+  "store": "legacy geometry store (via commandManager)",
+  "undo": "legacy-stack (no affectedStores)",
+  "sync": "not-synced (reason declared)",
+  "chat": "classified C"
+ },
+ "dimension.create": {
+  "owner": "plugins/dimensions",
+  "liveness": "UNKNOWN",
+  "store": "UNKNOWN",
+  "undo": "patch-pair → dimension",
+  "sync": "synced via 'id' (disclose)",
+  "chat": "classified B"
+ },
+ "dimension.createMany": {
+  "owner": "plugins/dimensions",
+  "liveness": "UNKNOWN",
+  "store": "UNKNOWN",
+  "undo": "patch-pair → dimension",
+  "sync": "not-synced (reason declared)",
+  "chat": "classified B"
+ },
+ "dimension.delete": {
+  "owner": "plugins/dimensions",
+  "liveness": "UNKNOWN",
+  "store": "UNKNOWN",
+  "undo": "patch-pair → dimension",
+  "sync": "not-synced (reason declared)",
+  "chat": "classified B"
+ },
+ "dimension.move": {
+  "owner": "plugins/dimensions",
+  "liveness": "REFUSES",
+  "store": "NONE",
+  "undo": "patch-pair → dimension",
+  "sync": "not-synced (reason declared)",
+  "chat": "classified B"
+ },
+ "dimension.setPrecision": {
+  "owner": "plugins/dimensions",
+  "liveness": "UNKNOWN",
+  "store": "UNKNOWN",
+  "undo": "patch-pair → dimension",
+  "sync": "synced via 'dimensionId' (disclose)",
+  "chat": "classified B"
+ },
+ "dimension.setText": {
+  "owner": "plugins/dimensions",
+  "liveness": "UNKNOWN",
+  "store": "UNKNOWN",
+  "undo": "patch-pair → dimension",
+  "sync": "synced via 'dimensionId' (disclose)",
+  "chat": "classified B"
+ },
+ "dimension.setUnit": {
+  "owner": "plugins/dimensions",
+  "liveness": "UNKNOWN",
+  "store": "UNKNOWN",
+  "undo": "patch-pair → dimension",
+  "sync": "synced via 'dimensionId' (disclose)",
+  "chat": "classified B"
+ },
+ "door.batch.create": {
+  "owner": "plugins/door",
+  "liveness": "UNKNOWN",
+  "store": "UNKNOWN",
+  "undo": "patch-pair → door",
+  "sync": "not-synced (reason declared)",
+  "chat": "classified C"
+ },
+ "door.create": {
+  "owner": "plugins/door",
+  "liveness": "REFUSES",
+  "store": "NONE",
+  "undo": "patch-pair → door",
+  "sync": "synced via 'id' (disclose)",
+  "chat": "deferred (CHAT_UNAVAILABLE)"
+ },
+ "door.delete": {
+  "owner": "plugins/door",
+  "liveness": "UNKNOWN",
+  "store": "UNKNOWN",
+  "undo": "patch-pair → door",
+  "sync": "not-synced (reason declared)",
+  "chat": "classified D"
+ },
+ "door.move": {
+  "owner": "plugins/door",
+  "liveness": "REFUSES",
+  "store": "NONE",
+  "undo": "patch-pair → door",
+  "sync": "synced via 'doorId' (disclose)",
+  "chat": "deferred (CHAT_UNAVAILABLE)"
+ },
+ "door.setAccessibility": {
+  "owner": "plugins/door",
+  "liveness": "UNKNOWN",
+  "store": "UNKNOWN",
+  "undo": "patch-pair → door",
+  "sync": "synced via 'doorId' (disclose)",
+  "chat": "classified B"
+ },
+ "door.setFireRating": {
+  "owner": "plugins/door",
+  "liveness": "UNKNOWN",
+  "store": "UNKNOWN",
+  "undo": "patch-pair → door",
+  "sync": "synced via 'doorId' (disclose)",
+  "chat": "classified B"
+ },
+ "door.setFrameColor": {
+  "owner": "apps/editor",
+  "liveness": "LIVE",
+  "store": "legacy geometry store (via commandManager)",
+  "undo": "legacy-stack (no affectedStores)",
+  "sync": "synced via 'doorId' (disclose)",
+  "chat": "deferred (CHAT_UNAVAILABLE)"
+ },
+ "door.setHeight": {
+  "owner": "apps/editor",
+  "liveness": "LIVE",
+  "store": "legacy geometry store (via commandManager)",
+  "undo": "legacy-stack (no affectedStores)",
+  "sync": "synced via 'doorId' (disclose)",
+  "chat": "classified D"
+ },
+ "door.setOffset": {
+  "owner": "apps/editor",
+  "liveness": "LIVE",
+  "store": "legacy geometry store (via commandManager)",
+  "undo": "legacy-stack (no affectedStores)",
+  "sync": "synced via 'doorId' (disclose)",
+  "chat": "deferred (CHAT_UNAVAILABLE)"
+ },
+ "door.setSillHeight": {
+  "owner": "apps/editor",
+  "liveness": "LIVE",
+  "store": "legacy geometry store (via commandManager)",
+  "undo": "legacy-stack (no affectedStores)",
+  "sync": "synced via 'doorId' (disclose)",
+  "chat": "classified D"
+ },
+ "door.setSwing": {
+  "owner": "plugins/door",
+  "liveness": "UNKNOWN",
+  "store": "UNKNOWN",
+  "undo": "patch-pair → door",
+  "sync": "synced via 'doorId' (disclose)",
+  "chat": "classified B"
+ },
+ "door.setType": {
+  "owner": "plugins/door",
+  "liveness": "UNKNOWN",
+  "store": "UNKNOWN",
+  "undo": "patch-pair → door",
+  "sync": "synced via 'doorId' (disclose)",
+  "chat": "classified B"
+ },
+ "door.setWidth": {
+  "owner": "apps/editor",
+  "liveness": "LIVE",
+  "store": "legacy geometry store (via commandManager)",
+  "undo": "legacy-stack (no affectedStores)",
+  "sync": "synced via 'doorId' (disclose)",
+  "chat": "classified D"
+ },
+ "door.updateSystemTypeBatch": {
+  "owner": "plugins/door",
+  "liveness": "LIVE",
+  "store": "legacy geometry store (via commandManager)",
+  "undo": "legacy-stack (no affectedStores)",
+  "sync": "not-synced (reason declared)",
+  "chat": "capability: set-door-type"
+ },
+ "element.changeType": {
+  "owner": "apps/editor",
+  "liveness": "LIVE",
+  "store": "legacy geometry store (via commandManager)",
+  "undo": "legacy-stack (no affectedStores)",
+  "sync": "synced via 'elementId' (disclose)",
+  "chat": "capability: set-stair-railing-type"
+ },
+ "element.delete": {
+  "owner": "plugins/view",
+  "liveness": "LIVE",
+  "store": "legacy geometry store (via commandManager)",
+  "undo": "legacy-stack (no affectedStores)",
+  "sync": "not-synced (reason declared)",
+  "chat": "capability: delete-selected"
+ },
+ "element.deleteBatch": {
+  "owner": "plugins/view",
+  "liveness": "LIVE",
+  "store": "legacy geometry store (via commandManager)",
+  "undo": "legacy-stack (no affectedStores)",
+  "sync": "not-synced (reason declared)",
+  "chat": "capability: delete-furniture-scoped"
+ },
+ "element.hideInView": {
+  "owner": "plugins/view",
+  "liveness": "LIVE",
+  "store": "legacy geometry store (via commandManager)",
+  "undo": "legacy-stack (no affectedStores)",
+  "sync": "not-synced (reason declared)",
+  "chat": "classified B"
+ },
+ "element.isolateInView": {
+  "owner": "plugins/view",
+  "liveness": "LIVE",
+  "store": "legacy geometry store (via commandManager)",
+  "undo": "legacy-stack (no affectedStores)",
+  "sync": "not-synced (reason declared)",
+  "chat": "classified B"
+ },
+ "element.setGraphicOverride": {
+  "owner": "plugins/view",
+  "liveness": "LIVE",
+  "store": "legacy geometry store (via commandManager)",
+  "undo": "legacy-stack (no affectedStores)",
+  "sync": "not-synced (reason declared)",
+  "chat": "classified B"
+ },
+ "element.updateDimensionsBatch": {
+  "owner": "plugins/view",
+  "liveness": "LIVE",
+  "store": "legacy geometry store (via commandManager)",
+  "undo": "legacy-stack (no affectedStores)",
+  "sync": "not-synced (reason declared)",
+  "chat": "capability: set-curtain-wall-dimensions"
+ },
+ "element.updateMark": {
+  "owner": "apps/editor",
+  "liveness": "LIVE",
+  "store": "legacy geometry store (via commandManager)",
+  "undo": "legacy-stack (no affectedStores)",
+  "sync": "synced via 'elementId' (disclose)",
+  "chat": "classified D"
+ },
+ "element.updateOpeningProfileBatch": {
+  "owner": "plugins/view",
+  "liveness": "LIVE",
+  "store": "legacy geometry store (via commandManager)",
+  "undo": "legacy-stack (no affectedStores)",
+  "sync": "not-synced (reason declared)",
+  "chat": "capability: set-window-shape"
+ },
+ "element.updateParameters": {
+  "owner": "apps/editor",
+  "liveness": "LIVE",
+  "store": "legacy geometry store (via commandManager)",
+  "undo": "legacy-stack (no affectedStores)",
+  "sync": "synced via 'elementId' (disclose)",
+  "chat": "capability: set-height"
+ },
+ "elementType.create": {
+  "owner": "apps/editor",
+  "liveness": "LIVE",
+  "store": "legacy geometry store (via commandManager)",
+  "undo": "UNKNOWN",
+  "sync": "not-synced (reason declared)",
+  "chat": "classified C"
+ },
+ "elementType.delete": {
+  "owner": "apps/editor",
+  "liveness": "LIVE",
+  "store": "legacy geometry store (via commandManager)",
+  "undo": "legacy-stack (no affectedStores)",
+  "sync": "not-synced (reason declared)",
+  "chat": "classified C"
+ },
+ "elementType.duplicate": {
+  "owner": "apps/editor",
+  "liveness": "LIVE",
+  "store": "legacy geometry store (via commandManager)",
+  "undo": "UNKNOWN",
+  "sync": "not-synced (reason declared)",
+  "chat": "classified C"
+ },
+ "elementType.update": {
+  "owner": "apps/editor",
+  "liveness": "LIVE",
+  "store": "legacy geometry store (via commandManager)",
+  "undo": "UNKNOWN",
+  "sync": "not-synced (reason declared)",
+  "chat": "classified C"
+ },
+ "elevation.create": {
+  "owner": "apps/editor",
+  "liveness": "LIVE",
+  "store": "legacy geometry store (via commandManager)",
+  "undo": "legacy-stack (no affectedStores)",
+  "sync": "not-synced (reason declared)",
+  "chat": "classified B"
+ },
+ "floor.changeLevel": {
+  "owner": "plugins/floor",
+  "liveness": "LIVE",
+  "store": "legacy floorStore (via element.level-changed mirror)",
+  "undo": "patch-pair → floor",
+  "sync": "not-synced (reason declared)",
+  "chat": "capability: move-to-level"
+ },
+ "floor.create": {
+  "owner": "plugins/floor",
+  "liveness": "UNKNOWN",
+  "store": "UNKNOWN",
+  "undo": "UNKNOWN (declares floor)",
+  "sync": "synced via 'floorId' (disclose)",
+  "chat": "classified B"
+ },
+ "floor.setFinishBatch": {
+  "owner": "plugins/floor",
+  "liveness": "LIVE",
+  "store": "legacy geometry store (via commandManager)",
+  "undo": "legacy-stack (no affectedStores)",
+  "sync": "not-synced (reason declared)",
+  "chat": "capability: set-floor-finish"
+ },
+ "floor.setMaterial": {
+  "owner": "plugins/floor",
+  "liveness": "REFUSES",
+  "store": "NONE",
+  "undo": "patch-pair → floor",
+  "sync": "synced via 'floorId' (disclose)",
+  "chat": "deferred (CHAT_UNAVAILABLE)"
+ },
+ "floor.update": {
+  "owner": "apps/editor",
+  "liveness": "LIVE",
+  "store": "floor",
+  "undo": "UNKNOWN (declares floor)",
+  "sync": "synced via 'floorId' (disclose)",
+  "chat": "classified D"
+ },
+ "floor.updateLayers": {
+  "owner": "plugins/floor",
+  "liveness": "UNKNOWN",
+  "store": "UNKNOWN",
+  "undo": "patch-pair → floor",
+  "sync": "synced via 'floorId' (disclose)",
+  "chat": "classified B"
+ },
+ "furniture.batch.create": {
+  "owner": "plugins/furniture",
+  "liveness": "UNKNOWN",
+  "store": "UNKNOWN",
+  "undo": "patch-pair → furniture",
+  "sync": "not-synced (reason declared)",
+  "chat": "classified C"
+ },
+ "furniture.bulkUpdateKitchenMaterial": {
+  "owner": "plugins/furniture",
+  "liveness": "LIVE",
+  "store": "legacy geometry store (via commandManager)",
+  "undo": "legacy-stack (no affectedStores)",
+  "sync": "n/a (not a property verb)",
+  "chat": "deferred (CHAT_UNAVAILABLE)"
+ },
+ "furniture.changeLevel": {
+  "owner": "plugins/furniture",
+  "liveness": "LIVE",
+  "store": "legacy furnitureStore (via element.level-changed mirror)",
+  "undo": "patch-pair → furniture",
+  "sync": "not-synced (reason declared)",
+  "chat": "capability: move-to-level"
+ },
+ "furniture.create": {
+  "owner": "plugins/furniture",
+  "liveness": "UNKNOWN",
+  "store": "UNKNOWN",
+  "undo": "patch-pair → furniture",
+  "sync": "synced via 'id' (disclose)",
+  "chat": "classified B"
+ },
+ "furniture.delete": {
+  "owner": "plugins/furniture",
+  "liveness": "UNKNOWN",
+  "store": "UNKNOWN",
+  "undo": "patch-pair → furniture",
+  "sync": "not-synced (reason declared)",
+  "chat": "classified D"
+ },
+ "furniture.move": {
+  "owner": "plugins/furniture",
+  "liveness": "REFUSES",
+  "store": "NONE",
+  "undo": "patch-pair → furniture",
+  "sync": "not-synced (reason declared)",
+  "chat": "deferred (CHAT_UNAVAILABLE)"
+ },
+ "furniture.rotate": {
+  "owner": "plugins/furniture",
+  "liveness": "REFUSES",
+  "store": "NONE",
+  "undo": "patch-pair → furniture",
+  "sync": "synced via 'furnitureId' (disclose)",
+  "chat": "deferred (CHAT_UNAVAILABLE)"
+ },
+ "furniture.setActiveLod": {
+  "owner": "plugins/furniture",
+  "liveness": "UNKNOWN",
+  "store": "UNKNOWN",
+  "undo": "patch-pair → furniture",
+  "sync": "synced via 'furnitureId' (disclose)",
+  "chat": "classified C"
+ },
+ "furniture.setMaterial": {
+  "owner": "plugins/furniture",
+  "liveness": "REFUSES",
+  "store": "NONE",
+  "undo": "patch-pair → furniture",
+  "sync": "not-synced (reason declared)",
+  "chat": "deferred (CHAT_UNAVAILABLE)"
+ },
+ "furniture.setRepresentation": {
+  "owner": "plugins/furniture",
+  "liveness": "UNKNOWN",
+  "store": "UNKNOWN",
+  "undo": "patch-pair → furniture",
+  "sync": "synced via 'furnitureId' (disclose)",
+  "chat": "classified C"
+ },
+ "furniture.setScale": {
+  "owner": "plugins/furniture",
+  "liveness": "UNKNOWN",
+  "store": "UNKNOWN",
+  "undo": "patch-pair → furniture",
+  "sync": "synced via 'furnitureId' (disclose)",
+  "chat": "classified B"
+ },
+ "furniture.updateParameters": {
+  "owner": "plugins/furniture",
+  "liveness": "UNKNOWN",
+  "store": "UNKNOWN",
+  "undo": "NONE (empty patch pair)",
+  "sync": "synced via 'id' (disclose)",
+  "chat": "classified D"
+ },
+ "generation.apartment": {
+  "owner": "apps/editor",
+  "liveness": "LIVE",
+  "store": "legacy geometry store (via commandManager)",
+  "undo": "UNKNOWN",
+  "sync": "not-synced (reason declared)",
+  "chat": "capability: generate-apartment-layout"
+ },
+ "generation.building": {
+  "owner": "apps/editor",
+  "liveness": "LIVE",
+  "store": "legacy geometry store (via commandManager)",
+  "undo": "UNKNOWN",
+  "sync": "not-synced (reason declared)",
+  "chat": "capability: generate-building"
+ },
+ "generation.finish-chain": {
+  "owner": "apps/editor",
+  "liveness": "LIVE",
+  "store": "legacy geometry store (via commandManager)",
+  "undo": "NONE (empty patch pair)",
+  "sync": "not-synced (reason declared)",
+  "chat": "capability: finish-apartment-chain"
+ },
+ "generation.rooms": {
+  "owner": "apps/editor",
+  "liveness": "LIVE",
+  "store": "legacy geometry store (via commandManager)",
+  "undo": "UNKNOWN",
+  "sync": "not-synced (reason declared)",
+  "chat": "capability: generate-room-finishes"
+ },
+ "generative.applyLayout": {
+  "owner": "apps/editor",
+  "liveness": "LIVE",
+  "store": "legacy geometry store (via commandManager)",
+  "undo": "legacy-stack (no affectedStores)",
+  "sync": "not-synced (reason declared)",
+  "chat": "classified C"
+ },
+ "graph.neighbors": {
+  "owner": "apps/editor",
+  "liveness": "LIVE",
+  "store": "legacy geometry store (via commandManager)",
+  "undo": "UNKNOWN",
+  "sync": "not-synced (reason declared)",
+  "chat": "UNDECLARED"
+ },
+ "graph.path": {
+  "owner": "apps/editor",
+  "liveness": "LIVE",
+  "store": "legacy geometry store (via commandManager)",
+  "undo": "UNKNOWN",
+  "sync": "not-synced (reason declared)",
+  "chat": "UNDECLARED"
+ },
+ "graph.query": {
+  "owner": "apps/editor",
+  "liveness": "LIVE",
+  "store": "legacy geometry store (via commandManager)",
+  "undo": "UNKNOWN",
+  "sync": "not-synced (reason declared)",
+  "chat": "UNDECLARED"
+ },
+ "grid.add": {
+  "owner": "apps/editor",
+  "liveness": "LIVE",
+  "store": "legacy geometry store (via commandManager)",
+  "undo": "legacy-stack (no affectedStores)",
+  "sync": "not-synced (reason declared)",
+  "chat": "classified D"
+ },
+ "grid.create": {
+  "owner": "plugins/grid",
+  "liveness": "UNKNOWN",
+  "store": "UNKNOWN",
+  "undo": "patch-pair → grid",
+  "sync": "synced via 'id' (disclose)",
+  "chat": "classified B"
+ },
+ "grid.delete": {
+  "owner": "plugins/grid",
+  "liveness": "UNKNOWN",
+  "store": "UNKNOWN",
+  "undo": "patch-pair → grid",
+  "sync": "not-synced (reason declared)",
+  "chat": "classified B"
+ },
+ "grid.setExtent": {
+  "owner": "plugins/grid",
+  "liveness": "UNKNOWN",
+  "store": "UNKNOWN",
+  "undo": "patch-pair → grid",
+  "sync": "synced via 'gridId' (disclose)",
+  "chat": "classified B"
+ },
+ "grid.setSpacing": {
+  "owner": "plugins/grid",
+  "liveness": "UNKNOWN",
+  "store": "UNKNOWN",
+  "undo": "patch-pair → grid",
+  "sync": "synced via 'gridId' (disclose)",
+  "chat": "classified B"
+ },
+ "grid.update": {
+  "owner": "apps/editor",
+  "liveness": "LIVE",
+  "store": "legacy geometry store (via commandManager)",
+  "undo": "legacy-stack (no affectedStores)",
+  "sync": "synced via 'gridId' (disclose)",
+  "chat": "classified D"
+ },
+ "handrail.changeLevel": {
+  "owner": "plugins/handrail",
+  "liveness": "LIVE",
+  "store": "legacy handrailStore (via element.level-changed mirror)",
+  "undo": "patch-pair → handrail",
+  "sync": "not-synced (reason declared)",
+  "chat": "capability: move-to-level"
+ },
+ "handrail.create": {
+  "owner": "plugins/handrail",
+  "liveness": "UNKNOWN",
+  "store": "UNKNOWN",
+  "undo": "patch-pair → handrail",
+  "sync": "synced via 'id' (disclose)",
+  "chat": "classified B"
+ },
+ "handrail.delete": {
+  "owner": "plugins/handrail",
+  "liveness": "UNKNOWN",
+  "store": "UNKNOWN",
+  "undo": "patch-pair → handrail",
+  "sync": "not-synced (reason declared)",
+  "chat": "classified D"
+ },
+ "handrail.moveBaseLine": {
+  "owner": "apps/editor",
+  "liveness": "LIVE",
+  "store": "handrail",
+  "undo": "patch-pair → handrail",
+  "sync": "synced via 'id' (disclose)",
+  "chat": "classified B"
+ },
+ "handrail.recompute": {
+  "owner": "plugins/handrail",
+  "liveness": "UNKNOWN",
+  "store": "UNKNOWN",
+  "undo": "patch-pair → handrail",
+  "sync": "synced via 'handrailId' (disclose)",
+  "chat": "classified C"
+ },
+ "handrail.setHost": {
+  "owner": "plugins/handrail",
+  "liveness": "UNKNOWN",
+  "store": "UNKNOWN",
+  "undo": "patch-pair → handrail",
+  "sync": "synced via 'handrailId' (disclose)",
+  "chat": "classified B"
+ },
+ "handrail.setMaterial": {
+  "owner": "plugins/handrail",
+  "liveness": "REFUSES",
+  "store": "NONE",
+  "undo": "patch-pair → handrail",
+  "sync": "not-synced (reason declared)",
+  "chat": "deferred (CHAT_UNAVAILABLE)"
+ },
+ "handrail.setPath": {
+  "owner": "plugins/handrail",
+  "liveness": "UNKNOWN",
+  "store": "UNKNOWN",
+  "undo": "patch-pair → handrail",
+  "sync": "synced via 'handrailId' (disclose)",
+  "chat": "classified B"
+ },
+ "handrail.setShape": {
+  "owner": "plugins/handrail",
+  "liveness": "UNKNOWN",
+  "store": "UNKNOWN",
+  "undo": "patch-pair → handrail",
+  "sync": "synced via 'handrailId' (disclose)",
+  "chat": "classified B"
+ },
+ "handrail.updateColor": {
+  "owner": "apps/editor",
+  "liveness": "LIVE",
+  "store": "legacy geometry store (via commandManager)",
+  "undo": "legacy-stack (no affectedStores)",
+  "sync": "synced via 'id' (disclose)",
+  "chat": "deferred (CHAT_UNAVAILABLE)"
+ },
+ "hierarchy.createBuilding": {
+  "owner": "apps/editor",
+  "liveness": "LIVE",
+  "store": "legacy geometry store (via commandManager)",
+  "undo": "legacy-stack (no affectedStores)",
+  "sync": "not-synced (reason declared)",
+  "chat": "classified C"
+ },
+ "hierarchy.createLevel": {
+  "owner": "apps/editor",
+  "liveness": "LIVE",
+  "store": "legacy geometry store (via commandManager)",
+  "undo": "legacy-stack (no affectedStores)",
+  "sync": "not-synced (reason declared)",
+  "chat": "classified C"
+ },
+ "hierarchy.createSite": {
+  "owner": "apps/editor",
+  "liveness": "LIVE",
+  "store": "legacy geometry store (via commandManager)",
+  "undo": "legacy-stack (no affectedStores)",
+  "sync": "not-synced (reason declared)",
+  "chat": "classified C"
+ },
+ "hierarchy.createUnit": {
+  "owner": "apps/editor",
+  "liveness": "LIVE",
+  "store": "legacy geometry store (via commandManager)",
+  "undo": "legacy-stack (no affectedStores)",
+  "sync": "not-synced (reason declared)",
+  "chat": "classified C"
+ },
+ "hierarchy.updateNode": {
+  "owner": "apps/editor",
+  "liveness": "LIVE",
+  "store": "legacy geometry store (via commandManager)",
+  "undo": "legacy-stack (no affectedStores)",
+  "sync": "not-synced (reason declared)",
+  "chat": "classified C"
+ },
+ "level.add": {
+  "owner": "apps/editor",
+  "liveness": "LIVE",
+  "store": "legacy geometry store (via commandManager)",
+  "undo": "legacy-stack (no affectedStores)",
+  "sync": "not-synced (reason declared)",
+  "chat": "capability: add-level"
+ },
+ "level.duplicate-floor-plan": {
+  "owner": "plugins/levels",
+  "liveness": "LIVE",
+  "store": "legacy geometry store (via commandManager)",
+  "undo": "legacy-stack (no affectedStores)",
+  "sync": "not-synced (reason declared)",
+  "chat": "capability: duplicate-level"
+ },
+ "level.update": {
+  "owner": "apps/editor",
+  "liveness": "LIVE",
+  "store": "legacy geometry store (via commandManager)",
+  "undo": "legacy-stack (no affectedStores)",
+  "sync": "not-synced (reason declared)",
+  "chat": "classified B"
+ },
+ "lift.create": {
+  "owner": "plugins/lift",
+  "liveness": "UNKNOWN",
+  "store": "UNKNOWN",
+  "undo": "patch-pair → lift + liftPart + wall + curtainwall + door + slab",
+  "sync": "synced via 'liftId' (disclose)",
+  "chat": "UNDECLARED"
+ },
+ "lift.delete": {
+  "owner": "plugins/lift",
+  "liveness": "UNKNOWN",
+  "store": "UNKNOWN",
+  "undo": "patch-pair → lift + liftPart + wall + curtainwall + door + slab",
+  "sync": "not-synced (reason declared)",
+  "chat": "UNDECLARED"
+ },
+ "lighting.changeLevel": {
+  "owner": "plugins/lighting",
+  "liveness": "LIVE",
+  "store": "legacy lightingStore (via element.level-changed mirror)",
+  "undo": "patch-pair → lighting",
+  "sync": "not-synced (reason declared)",
+  "chat": "capability: move-to-level"
+ },
+ "lighting.create": {
+  "owner": "plugins/lighting",
+  "liveness": "UNKNOWN",
+  "store": "UNKNOWN",
+  "undo": "patch-pair → lighting",
+  "sync": "synced via 'id' (disclose)",
+  "chat": "classified B"
+ },
+ "lighting.delete": {
+  "owner": "plugins/lighting",
+  "liveness": "UNKNOWN",
+  "store": "UNKNOWN",
+  "undo": "patch-pair → lighting",
+  "sync": "not-synced (reason declared)",
+  "chat": "classified D"
+ },
+ "lighting.move": {
+  "owner": "plugins/lighting",
+  "liveness": "REFUSES",
+  "store": "NONE",
+  "undo": "patch-pair → lighting",
+  "sync": "not-synced (reason declared)",
+  "chat": "deferred (CHAT_UNAVAILABLE)"
+ },
+ "lighting.moveFixture": {
+  "owner": "apps/editor",
+  "liveness": "LIVE",
+  "store": "legacy geometry store (via commandManager)",
+  "undo": "legacy-stack (no affectedStores)",
+  "sync": "synced via 'id' (disclose)",
+  "chat": "classified B"
+ },
+ "lighting.setEmergency": {
+  "owner": "plugins/lighting",
+  "liveness": "UNKNOWN",
+  "store": "UNKNOWN",
+  "undo": "patch-pair → lighting",
+  "sync": "synced via 'lightingId' (disclose)",
+  "chat": "classified B"
+ },
+ "lighting.setIntensity": {
+  "owner": "plugins/lighting",
+  "liveness": "UNKNOWN",
+  "store": "UNKNOWN",
+  "undo": "patch-pair → lighting",
+  "sync": "synced via 'lightingId' (disclose)",
+  "chat": "classified D"
+ },
+ "lighting.setMaterial": {
+  "owner": "plugins/lighting",
+  "liveness": "REFUSES",
+  "store": "NONE",
+  "undo": "patch-pair → lighting",
+  "sync": "not-synced (reason declared)",
+  "chat": "deferred (CHAT_UNAVAILABLE)"
+ },
+ "opening.create": {
+  "owner": "apps/editor",
+  "liveness": "LIVE",
+  "store": "legacy geometry store (via commandManager)",
+  "undo": "legacy-stack (no affectedStores)",
+  "sync": "synced via 'id' (disclose)",
+  "chat": "deferred (CHAT_UNAVAILABLE)"
+ },
+ "paste-clipboard": {
+  "owner": "plugins/selection",
+  "liveness": "UNKNOWN",
+  "store": "UNKNOWN",
+  "undo": "NONE (empty patch pair)",
+  "sync": "not-synced (reason declared)",
+  "chat": "classified B"
+ },
+ "plumbing.changeLevel": {
+  "owner": "plugins/plumbing",
+  "liveness": "LIVE",
+  "store": "legacy plumbingStore (via element.level-changed mirror)",
+  "undo": "patch-pair → plumbing",
+  "sync": "not-synced (reason declared)",
+  "chat": "capability: move-to-level"
+ },
+ "plumbing.create": {
+  "owner": "plugins/plumbing",
+  "liveness": "UNKNOWN",
+  "store": "UNKNOWN",
+  "undo": "patch-pair → plumbing",
+  "sync": "synced via 'id' (disclose)",
+  "chat": "classified B"
+ },
+ "plumbing.createFixture": {
+  "owner": "plugins/plumbing",
+  "liveness": "LIVE",
+  "store": "legacy geometry store (via commandManager)",
+  "undo": "legacy-stack (no affectedStores)",
+  "sync": "not-synced (reason declared)",
+  "chat": "classified B"
+ },
+ "plumbing.delete": {
+  "owner": "plugins/plumbing",
+  "liveness": "UNKNOWN",
+  "store": "UNKNOWN",
+  "undo": "patch-pair → plumbing",
+  "sync": "not-synced (reason declared)",
+  "chat": "classified D"
+ },
+ "plumbing.move": {
+  "owner": "plugins/plumbing",
+  "liveness": "REFUSES",
+  "store": "NONE",
+  "undo": "patch-pair → plumbing",
+  "sync": "not-synced (reason declared)",
+  "chat": "deferred (CHAT_UNAVAILABLE)"
+ },
+ "plumbing.moveFixture": {
+  "owner": "apps/editor",
+  "liveness": "LIVE",
+  "store": "legacy geometry store (via commandManager)",
+  "undo": "legacy-stack (no affectedStores)",
+  "sync": "synced via 'id' (disclose)",
+  "chat": "deferred (CHAT_UNAVAILABLE)"
+ },
+ "plumbing.setMaterial": {
+  "owner": "plugins/plumbing",
+  "liveness": "REFUSES",
+  "store": "NONE",
+  "undo": "patch-pair → plumbing",
+  "sync": "not-synced (reason declared)",
+  "chat": "deferred (CHAT_UNAVAILABLE)"
+ },
+ "plumbing.setSystem": {
+  "owner": "plugins/plumbing",
+  "liveness": "UNKNOWN",
+  "store": "UNKNOWN",
+  "undo": "patch-pair → plumbing",
+  "sync": "synced via 'plumbingId' (disclose)",
+  "chat": "classified B"
+ },
+ "pool.create": {
+  "owner": "plugins/pool",
+  "liveness": "UNKNOWN",
+  "store": "UNKNOWN",
+  "undo": "patch-pair → pool + wall + slab + water",
+  "sync": "synced via 'poolId' (disclose)",
+  "chat": "classified B"
+ },
+ "pool.delete": {
+  "owner": "plugins/pool",
+  "liveness": "UNKNOWN",
+  "store": "UNKNOWN",
+  "undo": "patch-pair → pool + wall + slab + water",
+  "sync": "not-synced (reason declared)",
+  "chat": "classified D"
+ },
+ "projectOrigin.setPosition": {
+  "owner": "apps/editor",
+  "liveness": "LIVE",
+  "store": "legacy geometry store (via commandManager)",
+  "undo": "UNKNOWN",
+  "sync": "not-synced (reason declared)",
+  "chat": "classified C"
+ },
+ "projectOrigin.setVisible": {
+  "owner": "apps/editor",
+  "liveness": "LIVE",
+  "store": "projectOrigin",
+  "undo": "patch-pair → projectOrigin",
+  "sync": "not-synced (reason declared)",
+  "chat": "classified C"
+ },
+ "rhino.resetMaterial": {
+  "owner": "apps/editor",
+  "liveness": "LIVE",
+  "store": "legacy geometry store (via commandManager)",
+  "undo": "patch-pair → NONE declared",
+  "sync": "not-synced (reason declared)",
+  "chat": "capability: set-rhino-material"
+ },
+ "rhino.setMaterial": {
+  "owner": "apps/editor",
+  "liveness": "LIVE",
+  "store": "legacy geometry store (via commandManager)",
+  "undo": "UNKNOWN",
+  "sync": "not-synced (reason declared)",
+  "chat": "capability: set-rhino-material"
+ },
+ "roof.addSkylight": {
+  "owner": "plugins/roof",
+  "liveness": "UNKNOWN",
+  "store": "UNKNOWN",
+  "undo": "patch-pair → roof",
+  "sync": "not-synced (reason declared)",
+  "chat": "classified B"
+ },
+ "roof.changeLevel": {
+  "owner": "plugins/roof",
+  "liveness": "LIVE",
+  "store": "legacy roofStore (via element.level-changed mirror)",
+  "undo": "patch-pair → roof",
+  "sync": "not-synced (reason declared)",
+  "chat": "capability: move-to-level"
+ },
+ "roof.create": {
+  "owner": "plugins/roof",
+  "liveness": "UNKNOWN",
+  "store": "UNKNOWN",
+  "undo": "patch-pair → roof",
+  "sync": "synced via 'id' (disclose)",
+  "chat": "classified B"
+ },
+ "roof.delete": {
+  "owner": "plugins/roof",
+  "liveness": "UNKNOWN",
+  "store": "UNKNOWN",
+  "undo": "patch-pair → roof",
+  "sync": "not-synced (reason declared)",
+  "chat": "classified D"
+ },
+ "roof.joinRoofs": {
+  "owner": "plugins/roof",
+  "liveness": "UNKNOWN",
+  "store": "UNKNOWN",
+  "undo": "patch-pair → roof",
+  "sync": "not-synced (reason declared)",
+  "chat": "classified B"
+ },
+ "roof.move": {
+  "owner": "plugins/roof",
+  "liveness": "REFUSES",
+  "store": "NONE",
+  "undo": "patch-pair → roof",
+  "sync": "not-synced (reason declared)",
+  "chat": "deferred (CHAT_UNAVAILABLE)"
+ },
+ "roof.removeSkylight": {
+  "owner": "plugins/roof",
+  "liveness": "UNKNOWN",
+  "store": "UNKNOWN",
+  "undo": "patch-pair → roof",
+  "sync": "not-synced (reason declared)",
+  "chat": "classified B"
+ },
+ "roof.setMaterial": {
+  "owner": "plugins/roof",
+  "liveness": "REFUSES",
+  "store": "NONE",
+  "undo": "patch-pair → roof",
+  "sync": "not-synced (reason declared)",
+  "chat": "deferred (CHAT_UNAVAILABLE)"
+ },
+ "roof.setOverhang": {
+  "owner": "plugins/roof",
+  "liveness": "UNKNOWN",
+  "store": "UNKNOWN",
+  "undo": "patch-pair → roof",
+  "sync": "synced via 'roofId' (disclose)",
+  "chat": "classified D"
+ },
+ "roof.setPitch": {
+  "owner": "plugins/roof",
+  "liveness": "UNKNOWN",
+  "store": "UNKNOWN",
+  "undo": "patch-pair → roof",
+  "sync": "synced via 'roofId' (disclose)",
+  "chat": "classified D"
+ },
+ "roof.setShape": {
+  "owner": "plugins/roof",
+  "liveness": "UNKNOWN",
+  "store": "UNKNOWN",
+  "undo": "patch-pair → roof",
+  "sync": "synced via 'roofId' (disclose)",
+  "chat": "classified B"
+ },
+ "roof.setThickness": {
+  "owner": "plugins/roof",
+  "liveness": "UNKNOWN",
+  "store": "UNKNOWN",
+  "undo": "patch-pair → roof",
+  "sync": "synced via 'roofId' (disclose)",
+  "chat": "classified D"
+ },
+ "roof.update": {
+  "owner": "apps/editor",
+  "liveness": "LIVE",
+  "store": "legacy geometry store (via commandManager)",
+  "undo": "legacy-stack (no affectedStores)",
+  "sync": "synced via 'id' (disclose)",
+  "chat": "capability: set-thickness"
+ },
+ "room.autoClassify.batch": {
+  "owner": "plugins/rooms",
+  "liveness": "LIVE",
+  "store": "legacy geometry store (via commandManager)",
+  "undo": "legacy-stack (no affectedStores)",
+  "sync": "not-synced (reason declared)",
+  "chat": "UNDECLARED"
+ },
+ "room.create": {
+  "owner": "plugins/rooms",
+  "liveness": "LIVE",
+  "store": "legacy geometry store (via commandManager)",
+  "undo": "legacy-stack (no affectedStores)",
+  "sync": "synced via 'id' (disclose)",
+  "chat": "classified B"
+ },
+ "room.delete": {
+  "owner": "plugins/rooms",
+  "liveness": "LIVE",
+  "store": "legacy geometry store (via commandManager)",
+  "undo": "legacy-stack (no affectedStores)",
+  "sync": "not-synced (reason declared)",
+  "chat": "classified D"
+ },
+ "room.move": {
+  "owner": "plugins/rooms",
+  "liveness": "LIVE",
+  "store": "legacy geometry store (via commandManager)",
+  "undo": "legacy-stack (no affectedStores)",
+  "sync": "not-synced (reason declared)",
+  "chat": "deferred (CHAT_UNAVAILABLE)"
+ },
+ "room.recomputeBoundary": {
+  "owner": "plugins/rooms",
+  "liveness": "REFUSES",
+  "store": "NONE",
+  "undo": "NONE (empty patch pair)",
+  "sync": "not-synced (reason declared)",
+  "chat": "classified C"
+ },
+ "room.redetect": {
+  "owner": "plugins/rooms",
+  "liveness": "UNKNOWN",
+  "store": "UNKNOWN",
+  "undo": "NONE (empty patch pair)",
+  "sync": "not-synced (reason declared)",
+  "chat": "classified C"
+ },
+ "room.regenerate": {
+  "owner": "plugins/rooms",
+  "liveness": "REFUSES",
+  "store": "NONE",
+  "undo": "NONE (empty patch pair)",
+  "sync": "not-synced (reason declared)",
+  "chat": "classified E"
+ },
+ "room.rename": {
+  "owner": "plugins/rooms",
+  "liveness": "LIVE",
+  "store": "legacy geometry store (via commandManager)",
+  "undo": "legacy-stack (no affectedStores)",
+  "sync": "synced via 'roomId' (last-writer-wins)",
+  "chat": "capability: rename-room"
+ },
+ "room.restoreMeaning": {
+  "owner": "plugins/rooms",
+  "liveness": "LIVE",
+  "store": "legacy geometry store (via commandManager)",
+  "undo": "legacy-stack (no affectedStores)",
+  "sync": "n/a (not a property verb)",
+  "chat": "UNDECLARED"
+ },
+ "room.setColourMode": {
+  "owner": "plugins/rooms",
+  "liveness": "UNKNOWN",
+  "store": "UNKNOWN",
+  "undo": "NONE (empty patch pair)",
+  "sync": "UNDECLARED",
+  "chat": "UNDECLARED"
+ },
+ "room.setDepartment": {
+  "owner": "plugins/rooms",
+  "liveness": "LIVE",
+  "store": "legacy geometry store (via commandManager)",
+  "undo": "legacy-stack (no affectedStores)",
+  "sync": "synced via 'roomId' (disclose)",
+  "chat": "deferred (CHAT_UNAVAILABLE)"
+ },
+ "room.setFinish": {
+  "owner": "plugins/rooms",
+  "liveness": "LIVE",
+  "store": "legacy geometry store (via commandManager)",
+  "undo": "legacy-stack (no affectedStores)",
+  "sync": "not-synced (reason declared)",
+  "chat": "classified B"
+ },
+ "room.setHeightOffset": {
+  "owner": "plugins/rooms",
+  "liveness": "LIVE",
+  "store": "legacy geometry store (via commandManager)",
+  "undo": "legacy-stack (no affectedStores)",
+  "sync": "synced via 'roomId' (disclose)",
+  "chat": "capability: set-room-height-offset"
+ },
+ "room.setMaterial": {
+  "owner": "plugins/rooms",
+  "liveness": "LIVE",
+  "store": "legacy geometry store (via commandManager)",
+  "undo": "legacy-stack (no affectedStores)",
+  "sync": "synced via 'roomId' (disclose)",
+  "chat": "deferred (CHAT_UNAVAILABLE)"
+ },
+ "room.setName": {
+  "owner": "plugins/rooms",
+  "liveness": "LIVE",
+  "store": "legacy geometry store (via commandManager)",
+  "undo": "legacy-stack (no affectedStores)",
+  "sync": "synced via 'roomId' (last-writer-wins)",
+  "chat": "classified D"
+ },
+ "room.setNumber": {
+  "owner": "plugins/rooms",
+  "liveness": "LIVE",
+  "store": "legacy geometry store (via commandManager)",
+  "undo": "legacy-stack (no affectedStores)",
+  "sync": "synced via 'roomId' (disclose)",
+  "chat": "capability: set-room-number"
+ },
+ "room.setOccupancy": {
+  "owner": "plugins/rooms",
+  "liveness": "LIVE",
+  "store": "legacy geometry store (via commandManager)",
+  "undo": "legacy-stack (no affectedStores)",
+  "sync": "synced via 'roomId' (disclose)",
+  "chat": "capability: set-room-occupancy"
+ },
+ "room.updateBoundary": {
+  "owner": "apps/editor",
+  "liveness": "LIVE",
+  "store": "legacy geometry store (via commandManager)",
+  "undo": "legacy-stack (no affectedStores)",
+  "sync": "synced via 'id' (disclose)",
+  "chat": "classified C"
+ },
+ "schedule.column.add": {
+  "owner": "plugins/schedules",
+  "liveness": "UNKNOWN",
+  "store": "UNKNOWN",
+  "undo": "patch-pair → schedule",
+  "sync": "not-synced (reason declared)",
+  "chat": "classified B"
+ },
+ "schedule.column.remove": {
+  "owner": "plugins/schedules",
+  "liveness": "UNKNOWN",
+  "store": "UNKNOWN",
+  "undo": "patch-pair → schedule",
+  "sync": "not-synced (reason declared)",
+  "chat": "classified B"
+ },
+ "schedule.create": {
+  "owner": "plugins/schedules",
+  "liveness": "UNKNOWN",
+  "store": "UNKNOWN",
+  "undo": "patch-pair → schedule",
+  "sync": "not-synced (reason declared)",
+  "chat": "classified B"
+ },
+ "schedule.delete": {
+  "owner": "plugins/schedules",
+  "liveness": "UNKNOWN",
+  "store": "UNKNOWN",
+  "undo": "patch-pair → schedule",
+  "sync": "not-synced (reason declared)",
+  "chat": "classified B"
+ },
+ "schedule.setFilter": {
+  "owner": "plugins/schedules",
+  "liveness": "UNKNOWN",
+  "store": "UNKNOWN",
+  "undo": "NONE (empty patch pair)",
+  "sync": "not-synced (reason declared)",
+  "chat": "classified B"
+ },
+ "schedule.setGroupBy": {
+  "owner": "plugins/schedules",
+  "liveness": "UNKNOWN",
+  "store": "UNKNOWN",
+  "undo": "NONE (empty patch pair)",
+  "sync": "not-synced (reason declared)",
+  "chat": "classified B"
+ },
+ "schedule.update": {
+  "owner": "apps/editor",
+  "liveness": "LIVE",
+  "store": "legacy geometry store (via commandManager)",
+  "undo": "legacy-stack (no affectedStores)",
+  "sync": "not-synced (reason declared)",
+  "chat": "classified D"
+ },
+ "section.create": {
+  "owner": "plugins/section-view",
+  "liveness": "UNKNOWN",
+  "store": "UNKNOWN",
+  "undo": "patch-pair → section",
+  "sync": "not-synced (reason declared)",
+  "chat": "classified B"
+ },
+ "section.delete": {
+  "owner": "plugins/section-view",
+  "liveness": "UNKNOWN",
+  "store": "UNKNOWN",
+  "undo": "patch-pair → section",
+  "sync": "not-synced (reason declared)",
+  "chat": "classified B"
+ },
+ "section.mark.create": {
+  "owner": "apps/editor",
+  "liveness": "LIVE",
+  "store": "legacy geometry store (via commandManager)",
+  "undo": "legacy-stack (no affectedStores)",
+  "sync": "not-synced (reason declared)",
+  "chat": "classified C"
+ },
+ "section.moveLine": {
+  "owner": "plugins/section-view",
+  "liveness": "REFUSES",
+  "store": "NONE",
+  "undo": "patch-pair → section",
+  "sync": "not-synced (reason declared)",
+  "chat": "classified B"
+ },
+ "section.setDepth": {
+  "owner": "plugins/section-view",
+  "liveness": "UNKNOWN",
+  "store": "UNKNOWN",
+  "undo": "patch-pair → section",
+  "sync": "not-synced (reason declared)",
+  "chat": "classified B"
+ },
+ "section.setMark": {
+  "owner": "plugins/section-view",
+  "liveness": "UNKNOWN",
+  "store": "UNKNOWN",
+  "undo": "patch-pair → section",
+  "sync": "not-synced (reason declared)",
+  "chat": "classified B"
+ },
+ "section.setScale": {
+  "owner": "plugins/section-view",
+  "liveness": "UNKNOWN",
+  "store": "UNKNOWN",
+  "undo": "patch-pair → section",
+  "sync": "not-synced (reason declared)",
+  "chat": "classified B"
+ },
+ "selection.clear": {
+  "owner": "plugins/selection",
+  "liveness": "UNKNOWN",
+  "store": "UNKNOWN",
+  "undo": "NONE (empty patch pair)",
+  "sync": "not-synced (reason declared)",
+  "chat": "deferred (CHAT_UNAVAILABLE)"
+ },
+ "selection.deselect": {
+  "owner": "plugins/selection",
+  "liveness": "UNKNOWN",
+  "store": "UNKNOWN",
+  "undo": "NONE (empty patch pair)",
+  "sync": "not-synced (reason declared)",
+  "chat": "deferred (CHAT_UNAVAILABLE)"
+ },
+ "selection.select": {
+  "owner": "plugins/selection",
+  "liveness": "UNKNOWN",
+  "store": "UNKNOWN",
+  "undo": "NONE (empty patch pair)",
+  "sync": "not-synced (reason declared)",
+  "chat": "deferred (CHAT_UNAVAILABLE)"
+ },
+ "sheet.addViewport": {
+  "owner": "apps/editor",
+  "liveness": "LIVE",
+  "store": "legacy geometry store (via commandManager)",
+  "undo": "legacy-stack (no affectedStores)",
+  "sync": "not-synced (reason declared)",
+  "chat": "classified B"
+ },
+ "sheet.addWidget": {
+  "owner": "plugins/sheets",
+  "liveness": "UNKNOWN",
+  "store": "UNKNOWN",
+  "undo": "patch-pair → sheet",
+  "sync": "not-synced (reason declared)",
+  "chat": "classified B"
+ },
+ "sheet.create": {
+  "owner": "plugins/sheets",
+  "liveness": "SHADOWED",
+  "store": "UNKNOWN",
+  "undo": "patch-pair → sheet",
+  "sync": "not-synced (reason declared)",
+  "chat": "classified B"
+ },
+ "sheet.delete": {
+  "owner": "plugins/sheets",
+  "liveness": "UNKNOWN",
+  "store": "UNKNOWN",
+  "undo": "patch-pair → sheet",
+  "sync": "not-synced (reason declared)",
+  "chat": "classified B"
+ },
+ "sheet.moveViewport": {
+  "owner": "apps/editor",
+  "liveness": "LIVE",
+  "store": "legacy geometry store (via commandManager)",
+  "undo": "legacy-stack (no affectedStores)",
+  "sync": "not-synced (reason declared)",
+  "chat": "classified B"
+ },
+ "sheet.removeViewport": {
+  "owner": "plugins/sheets",
+  "liveness": "UNKNOWN",
+  "store": "UNKNOWN",
+  "undo": "patch-pair → sheet",
+  "sync": "not-synced (reason declared)",
+  "chat": "classified B"
+ },
+ "sheet.removeWidget": {
+  "owner": "plugins/sheets",
+  "liveness": "UNKNOWN",
+  "store": "UNKNOWN",
+  "undo": "patch-pair → sheet",
+  "sync": "not-synced (reason declared)",
+  "chat": "classified B"
+ },
+ "sheet.rename": {
+  "owner": "plugins/sheets",
+  "liveness": "UNKNOWN",
+  "store": "UNKNOWN",
+  "undo": "patch-pair → sheet",
+  "sync": "not-synced (reason declared)",
+  "chat": "classified F"
+ },
+ "sheet.reorder": {
+  "owner": "plugins/sheets",
+  "liveness": "UNKNOWN",
+  "store": "UNKNOWN",
+  "undo": "patch-pair → sheet",
+  "sync": "not-synced (reason declared)",
+  "chat": "classified B"
+ },
+ "sheet.setSheetMetadata": {
+  "owner": "plugins/sheets",
+  "liveness": "UNKNOWN",
+  "store": "UNKNOWN",
+  "undo": "patch-pair → sheet",
+  "sync": "not-synced (reason declared)",
+  "chat": "classified B"
+ },
+ "sheet.setTitleBlock": {
+  "owner": "plugins/sheets",
+  "liveness": "UNKNOWN",
+  "store": "UNKNOWN",
+  "undo": "patch-pair → sheet",
+  "sync": "not-synced (reason declared)",
+  "chat": "classified B"
+ },
+ "sheet.setViewportScale": {
+  "owner": "plugins/sheets",
+  "liveness": "UNKNOWN",
+  "store": "UNKNOWN",
+  "undo": "patch-pair → sheet",
+  "sync": "not-synced (reason declared)",
+  "chat": "classified B"
+ },
+ "slab.addHole": {
+  "owner": "plugins/slab",
+  "liveness": "UNKNOWN",
+  "store": "UNKNOWN",
+  "undo": "patch-pair → slab",
+  "sync": "not-synced (reason declared)",
+  "chat": "classified B"
+ },
+ "slab.batch.create": {
+  "owner": "plugins/slab",
+  "liveness": "UNKNOWN",
+  "store": "UNKNOWN",
+  "undo": "patch-pair → slab",
+  "sync": "not-synced (reason declared)",
+  "chat": "classified C"
+ },
+ "slab.changeLevel": {
+  "owner": "plugins/slab",
+  "liveness": "LIVE",
+  "store": "legacy slabStore (via element.level-changed mirror)",
+  "undo": "patch-pair → slab",
+  "sync": "not-synced (reason declared)",
+  "chat": "capability: move-to-level"
+ },
+ "slab.create": {
+  "owner": "plugins/slab",
+  "liveness": "UNKNOWN",
+  "store": "UNKNOWN",
+  "undo": "patch-pair → slab",
+  "sync": "synced via 'id' (disclose)",
+  "chat": "classified B"
+ },
+ "slab.create-on-all-floors": {
+  "owner": "plugins/slab",
+  "liveness": "LIVE",
+  "store": "legacy geometry store (via commandManager)",
+  "undo": "legacy-stack (no affectedStores)",
+  "sync": "not-synced (reason declared)",
+  "chat": "classified E"
+ },
+ "slab.delete": {
+  "owner": "plugins/slab",
+  "liveness": "UNKNOWN",
+  "store": "UNKNOWN",
+  "undo": "patch-pair → slab",
+  "sync": "not-synced (reason declared)",
+  "chat": "classified D"
+ },
+ "slab.move": {
+  "owner": "plugins/slab",
+  "liveness": "REFUSES",
+  "store": "NONE",
+  "undo": "patch-pair → slab",
+  "sync": "not-synced (reason declared)",
+  "chat": "deferred (CHAT_UNAVAILABLE)"
+ },
+ "slab.movePolygon": {
+  "owner": "apps/editor",
+  "liveness": "LIVE",
+  "store": "slab",
+  "undo": "UNKNOWN (declares slab)",
+  "sync": "synced via 'slabId' (disclose)",
+  "chat": "classified B"
+ },
+ "slab.removeHole": {
+  "owner": "plugins/slab",
+  "liveness": "UNKNOWN",
+  "store": "UNKNOWN",
+  "undo": "patch-pair → slab",
+  "sync": "not-synced (reason declared)",
+  "chat": "classified B"
+ },
+ "slab.setBaseOffset": {
+  "owner": "plugins/slab",
+  "liveness": "UNKNOWN",
+  "store": "UNKNOWN",
+  "undo": "patch-pair → slab",
+  "sync": "synced via 'slabId' (disclose)",
+  "chat": "classified D"
+ },
+ "slab.setMaterial": {
+  "owner": "plugins/slab",
+  "liveness": "REFUSES",
+  "store": "NONE",
+  "undo": "patch-pair → slab",
+  "sync": "not-synced (reason declared)",
+  "chat": "deferred (CHAT_UNAVAILABLE)"
+ },
+ "slab.setThickness": {
+  "owner": "plugins/slab",
+  "liveness": "UNKNOWN",
+  "store": "UNKNOWN",
+  "undo": "patch-pair → slab",
+  "sync": "synced via 'slabId' (disclose)",
+  "chat": "classified D"
+ },
+ "slab.setType": {
+  "owner": "plugins/slab",
+  "liveness": "UNKNOWN",
+  "store": "UNKNOWN",
+  "undo": "patch-pair → slab",
+  "sync": "synced via 'slabId' (disclose)",
+  "chat": "classified B"
+ },
+ "slab.update": {
+  "owner": "plugins/slab",
+  "liveness": "UNKNOWN",
+  "store": "UNKNOWN",
+  "undo": "patch-pair → slab",
+  "sync": "synced via 'id' (disclose)",
+  "chat": "classified D"
+ },
+ "slab.updateDimensions": {
+  "owner": "apps/editor",
+  "liveness": "LIVE",
+  "store": "legacy geometry store (via commandManager)",
+  "undo": "legacy-stack (no affectedStores)",
+  "sync": "synced via 'slabId' (disclose)",
+  "chat": "capability: set-thickness"
+ },
+ "slab.updateLayers": {
+  "owner": "plugins/slab",
+  "liveness": "UNKNOWN",
+  "store": "UNKNOWN",
+  "undo": "patch-pair → slab",
+  "sync": "synced via 'slabId' (disclose)",
+  "chat": "classified B"
+ },
+ "slab.updatePolygon": {
+  "owner": "plugins/slab",
+  "liveness": "UNKNOWN",
+  "store": "UNKNOWN",
+  "undo": "patch-pair → slab",
+  "sync": "synced via 'slabId' (disclose)",
+  "chat": "classified B"
+ },
+ "slab.updateSystemTypeBatch": {
+  "owner": "plugins/slab",
+  "liveness": "LIVE",
+  "store": "legacy geometry store (via commandManager)",
+  "undo": "legacy-stack (no affectedStores)",
+  "sync": "not-synced (reason declared)",
+  "chat": "capability: set-slab-type"
+ },
+ "stair.batch.create": {
+  "owner": "plugins/stair",
+  "liveness": "UNKNOWN",
+  "store": "UNKNOWN",
+  "undo": "patch-pair → stair",
+  "sync": "not-synced (reason declared)",
+  "chat": "classified C"
+ },
+ "stair.create": {
+  "owner": "apps/editor",
+  "liveness": "LIVE",
+  "store": "legacy geometry store (via commandManager)",
+  "undo": "legacy-stack (no affectedStores)",
+  "sync": "synced via 'id' (disclose)",
+  "chat": "classified B"
+ },
+ "stair.createRailing": {
+  "owner": "plugins/stair",
+  "liveness": "LIVE",
+  "store": "legacy geometry store (via commandManager)",
+  "undo": "legacy-stack (no affectedStores)",
+  "sync": "not-synced (reason declared)",
+  "chat": "classified B"
+ },
+ "stair.delete": {
+  "owner": "plugins/stair",
+  "liveness": "UNKNOWN",
+  "store": "UNKNOWN",
+  "undo": "patch-pair → stair",
+  "sync": "not-synced (reason declared)",
+  "chat": "classified D"
+ },
+ "stair.move": {
+  "owner": "plugins/stair",
+  "liveness": "UNKNOWN",
+  "store": "UNKNOWN",
+  "undo": "NONE (empty patch pair)",
+  "sync": "not-synced (reason declared)",
+  "chat": "deferred (CHAT_UNAVAILABLE)"
+ },
+ "stair.rotate": {
+  "owner": "plugins/stair",
+  "liveness": "REFUSES",
+  "store": "NONE",
+  "undo": "patch-pair → stair",
+  "sync": "synced via 'stairId' (disclose)",
+  "chat": "deferred (CHAT_UNAVAILABLE)"
+ },
+ "stair.setMaterial": {
+  "owner": "plugins/stair",
+  "liveness": "REFUSES",
+  "store": "NONE",
+  "undo": "patch-pair → stair",
+  "sync": "not-synced (reason declared)",
+  "chat": "deferred (CHAT_UNAVAILABLE)"
+ },
+ "stair.setRiserHeight": {
+  "owner": "plugins/stair",
+  "liveness": "UNKNOWN",
+  "store": "UNKNOWN",
+  "undo": "patch-pair → stair",
+  "sync": "synced via 'stairId' (disclose)",
+  "chat": "classified D"
+ },
+ "stair.setShape": {
+  "owner": "plugins/stair",
+  "liveness": "UNKNOWN",
+  "store": "UNKNOWN",
+  "undo": "patch-pair → stair",
+  "sync": "synced via 'stairId' (disclose)",
+  "chat": "classified B"
+ },
+ "stair.setTreadCount": {
+  "owner": "plugins/stair",
+  "liveness": "UNKNOWN",
+  "store": "UNKNOWN",
+  "undo": "patch-pair → stair",
+  "sync": "synced via 'stairId' (disclose)",
+  "chat": "classified D"
+ },
+ "stair.setType": {
+  "owner": "plugins/stair",
+  "liveness": "UNKNOWN",
+  "store": "UNKNOWN",
+  "undo": "patch-pair → stair",
+  "sync": "synced via 'stairId' (disclose)",
+  "chat": "classified B"
+ },
+ "stair.setWidth": {
+  "owner": "plugins/stair",
+  "liveness": "UNKNOWN",
+  "store": "UNKNOWN",
+  "undo": "patch-pair → stair",
+  "sync": "synced via 'stairId' (disclose)",
+  "chat": "classified D"
+ },
+ "stair.updateParameters": {
+  "owner": "plugins/stair",
+  "liveness": "LIVE",
+  "store": "legacy geometry store (via commandManager)",
+  "undo": "legacy-stack (no affectedStores)",
+  "sync": "synced via 'stairId' (disclose)",
+  "chat": "capability: set-width"
+ },
+ "structural.create": {
+  "owner": "plugins/structural",
+  "liveness": "UNKNOWN",
+  "store": "UNKNOWN",
+  "undo": "patch-pair → structural",
+  "sync": "synced via 'id' (disclose)",
+  "chat": "classified B"
+ },
+ "structural.delete": {
+  "owner": "plugins/structural",
+  "liveness": "UNKNOWN",
+  "store": "UNKNOWN",
+  "undo": "patch-pair → structural",
+  "sync": "not-synced (reason declared)",
+  "chat": "classified D"
+ },
+ "structural.move": {
+  "owner": "plugins/structural",
+  "liveness": "REFUSES",
+  "store": "NONE",
+  "undo": "patch-pair → structural",
+  "sync": "not-synced (reason declared)",
+  "chat": "deferred (CHAT_UNAVAILABLE)"
+ },
+ "structural.setBraceEndOffset": {
+  "owner": "plugins/structural",
+  "liveness": "UNKNOWN",
+  "store": "UNKNOWN",
+  "undo": "patch-pair → structural",
+  "sync": "synced via 'structuralId' (disclose)",
+  "chat": "classified B"
+ },
+ "structural.setDimensions": {
+  "owner": "plugins/structural",
+  "liveness": "UNKNOWN",
+  "store": "UNKNOWN",
+  "undo": "patch-pair → structural",
+  "sync": "synced via 'structuralId' (disclose)",
+  "chat": "classified F"
+ },
+ "structural.setKind": {
+  "owner": "plugins/structural",
+  "liveness": "UNKNOWN",
+  "store": "UNKNOWN",
+  "undo": "patch-pair → structural",
+  "sync": "synced via 'structuralId' (disclose)",
+  "chat": "classified B"
+ },
+ "structural.setMaterial": {
+  "owner": "plugins/structural",
+  "liveness": "REFUSES",
+  "store": "NONE",
+  "undo": "patch-pair → structural",
+  "sync": "not-synced (reason declared)",
+  "chat": "deferred (CHAT_UNAVAILABLE)"
+ },
+ "template.assignToNode": {
+  "owner": "apps/editor",
+  "liveness": "LIVE",
+  "store": "legacy geometry store (via commandManager)",
+  "undo": "legacy-stack (no affectedStores)",
+  "sync": "not-synced (reason declared)",
+  "chat": "classified C"
+ },
+ "template.create": {
+  "owner": "plugins/rooms",
+  "liveness": "LIVE",
+  "store": "legacy geometry store (via commandManager)",
+  "undo": "legacy-stack (no affectedStores)",
+  "sync": "not-synced (reason declared)",
+  "chat": "classified C"
+ },
+ "template.unassign": {
+  "owner": "apps/editor",
+  "liveness": "LIVE",
+  "store": "legacy geometry store (via commandManager)",
+  "undo": "legacy-stack (no affectedStores)",
+  "sync": "not-synced (reason declared)",
+  "chat": "classified C"
+ },
+ "vg.assignIntent": {
+  "owner": "apps/editor",
+  "liveness": "LIVE",
+  "store": "legacy geometry store (via commandManager)",
+  "undo": "legacy-stack (no affectedStores)",
+  "sync": "not-synced (reason declared)",
+  "chat": "classified C"
+ },
+ "vg.createVisibilityIntent": {
+  "owner": "apps/editor",
+  "liveness": "LIVE",
+  "store": "legacy geometry store (via commandManager)",
+  "undo": "legacy-stack (no affectedStores)",
+  "sync": "not-synced (reason declared)",
+  "chat": "classified C"
+ },
+ "vg.takeLatestIntentVersion": {
+  "owner": "apps/editor",
+  "liveness": "LIVE",
+  "store": "legacy geometry store (via commandManager)",
+  "undo": "legacy-stack (no affectedStores)",
+  "sync": "not-synced (reason declared)",
+  "chat": "classified C"
+ },
+ "vg.updateVisibilityIntent": {
+  "owner": "apps/editor",
+  "liveness": "LIVE",
+  "store": "legacy geometry store (via commandManager)",
+  "undo": "legacy-stack (no affectedStores)",
+  "sync": "not-synced (reason declared)",
+  "chat": "classified C"
+ },
+ "view.clearAllOverrides": {
+  "owner": "apps/editor",
+  "liveness": "LIVE",
+  "store": "legacy geometry store (via commandManager)",
+  "undo": "legacy-stack (no affectedStores)",
+  "sync": "not-synced (reason declared)",
+  "chat": "classified B"
+ },
+ "view.clearOverride": {
+  "owner": "apps/editor",
+  "liveness": "LIVE",
+  "store": "legacy geometry store (via commandManager)",
+  "undo": "legacy-stack (no affectedStores)",
+  "sync": "not-synced (reason declared)",
+  "chat": "classified B"
+ },
+ "view.create": {
+  "owner": "plugins/view",
+  "liveness": "UNKNOWN",
+  "store": "UNKNOWN",
+  "undo": "patch-pair → view",
+  "sync": "not-synced (reason declared)",
+  "chat": "classified B"
+ },
+ "view.createDefinition": {
+  "owner": "apps/editor",
+  "liveness": "LIVE",
+  "store": "legacy geometry store (via commandManager)",
+  "undo": "legacy-stack (no affectedStores)",
+  "sync": "not-synced (reason declared)",
+  "chat": "classified C"
+ },
+ "view.delete": {
+  "owner": "plugins/view",
+  "liveness": "UNKNOWN",
+  "store": "UNKNOWN",
+  "undo": "patch-pair → view",
+  "sync": "not-synced (reason declared)",
+  "chat": "classified B"
+ },
+ "view.deleteDefinition": {
+  "owner": "apps/editor",
+  "liveness": "LIVE",
+  "store": "legacy geometry store (via commandManager)",
+  "undo": "legacy-stack (no affectedStores)",
+  "sync": "not-synced (reason declared)",
+  "chat": "classified C"
+ },
+ "view.hideElement": {
+  "owner": "apps/editor",
+  "liveness": "LIVE",
+  "store": "legacy geometry store (via commandManager)",
+  "undo": "legacy-stack (no affectedStores)",
+  "sync": "not-synced (reason declared)",
+  "chat": "classified B"
+ },
+ "view.isolateElement": {
+  "owner": "apps/editor",
+  "liveness": "LIVE",
+  "store": "legacy geometry store (via commandManager)",
+  "undo": "legacy-stack (no affectedStores)",
+  "sync": "not-synced (reason declared)",
+  "chat": "classified B"
+ },
+ "view.rename": {
+  "owner": "plugins/view",
+  "liveness": "UNKNOWN",
+  "store": "UNKNOWN",
+  "undo": "patch-pair → view",
+  "sync": "not-synced (reason declared)",
+  "chat": "classified F"
+ },
+ "view.setCategoryVisibility": {
+  "owner": "apps/editor",
+  "liveness": "LIVE",
+  "store": "legacy geometry store (via commandManager)",
+  "undo": "legacy-stack (no affectedStores)",
+  "sync": "UNDECLARED",
+  "chat": "UNDECLARED"
+ },
+ "view.setCrop": {
+  "owner": "apps/editor",
+  "liveness": "LIVE",
+  "store": "legacy geometry store (via commandManager)",
+  "undo": "legacy-stack (no affectedStores)",
+  "sync": "not-synced (reason declared)",
+  "chat": "classified B"
+ },
+ "view.setGraphicOverride": {
+  "owner": "apps/editor",
+  "liveness": "LIVE",
+  "store": "legacy geometry store (via commandManager)",
+  "undo": "legacy-stack (no affectedStores)",
+  "sync": "not-synced (reason declared)",
+  "chat": "classified B"
+ },
+ "view.setOutput": {
+  "owner": "plugins/view",
+  "liveness": "UNKNOWN",
+  "store": "UNKNOWN",
+  "undo": "patch-pair → view",
+  "sync": "not-synced (reason declared)",
+  "chat": "classified B"
+ },
+ "view.setProjection": {
+  "owner": "plugins/view",
+  "liveness": "LIVE",
+  "store": "legacy geometry store (via commandManager)",
+  "undo": "legacy-stack (no affectedStores)",
+  "sync": "not-synced (reason declared)",
+  "chat": "classified B"
+ },
+ "view.setRange": {
+  "owner": "plugins/view",
+  "liveness": "UNKNOWN",
+  "store": "UNKNOWN",
+  "undo": "patch-pair → view",
+  "sync": "not-synced (reason declared)",
+  "chat": "classified B"
+ },
+ "view.setUnderlay": {
+  "owner": "plugins/view",
+  "liveness": "UNKNOWN",
+  "store": "UNKNOWN",
+  "undo": "patch-pair → view",
+  "sync": "not-synced (reason declared)",
+  "chat": "classified B"
+ },
+ "view.switch": {
+  "owner": "plugins/view",
+  "liveness": "UNKNOWN",
+  "store": "UNKNOWN",
+  "undo": "patch-pair → active-view",
+  "sync": "not-synced (reason declared)",
+  "chat": "deferred (CHAT_UNAVAILABLE)"
+ },
+ "view.updateCamera": {
+  "owner": "plugins/view",
+  "liveness": "UNKNOWN",
+  "store": "UNKNOWN",
+  "undo": "patch-pair → view",
+  "sync": "not-synced (reason declared)",
+  "chat": "classified B"
+ },
+ "view.updateDefinition": {
+  "owner": "apps/editor",
+  "liveness": "LIVE",
+  "store": "legacy geometry store (via commandManager)",
+  "undo": "legacy-stack (no affectedStores)",
+  "sync": "not-synced (reason declared)",
+  "chat": "classified C"
+ },
+ "viewTemplate.create": {
+  "owner": "apps/editor",
+  "liveness": "LIVE",
+  "store": "legacy geometry store (via commandManager)",
+  "undo": "legacy-stack (no affectedStores)",
+  "sync": "not-synced (reason declared)",
+  "chat": "classified C"
+ },
+ "viewTemplate.delete": {
+  "owner": "apps/editor",
+  "liveness": "LIVE",
+  "store": "legacy geometry store (via commandManager)",
+  "undo": "legacy-stack (no affectedStores)",
+  "sync": "not-synced (reason declared)",
+  "chat": "classified C"
+ },
+ "viewTemplate.update": {
+  "owner": "apps/editor",
+  "liveness": "LIVE",
+  "store": "legacy geometry store (via commandManager)",
+  "undo": "legacy-stack (no affectedStores)",
+  "sync": "not-synced (reason declared)",
+  "chat": "classified C"
+ },
+ "wall.addLayerBatch": {
+  "owner": "plugins/wall",
+  "liveness": "LIVE",
+  "store": "legacy geometry store (via commandManager)",
+  "undo": "legacy-stack (no affectedStores)",
+  "sync": "not-synced (reason declared)",
+  "chat": "capability: add-wall-layer"
+ },
+ "wall.batch.create": {
+  "owner": "plugins/wall",
+  "liveness": "UNKNOWN",
+  "store": "UNKNOWN",
+  "undo": "patch-pair → wall",
+  "sync": "not-synced (reason declared)",
+  "chat": "classified C"
+ },
+ "wall.bulkSetVisuals": {
+  "owner": "plugins/wall",
+  "liveness": "REFUSES",
+  "store": "NONE",
+  "undo": "patch-pair → wall",
+  "sync": "not-synced (reason declared)",
+  "chat": "deferred (CHAT_UNAVAILABLE)"
+ },
+ "wall.cascadeBaseline": {
+  "owner": "plugins/wall",
+  "liveness": "LIVE",
+  "store": "legacy geometry store (via commandManager)",
+  "undo": "legacy-stack (no affectedStores)",
+  "sync": "not-synced (reason declared)",
+  "chat": "classified C"
+ },
+ "wall.changeLevel": {
+  "owner": "plugins/wall",
+  "liveness": "LIVE",
+  "store": "legacy wallStore (via element.level-changed mirror)",
+  "undo": "patch-pair → wall",
+  "sync": "not-synced (reason declared)",
+  "chat": "capability: move-to-level"
+ },
+ "wall.create": {
+  "owner": "plugins/wall",
+  "liveness": "UNKNOWN",
+  "store": "UNKNOWN",
+  "undo": "patch-pair → wall",
+  "sync": "synced via 'id' (disclose)",
+  "chat": "capability: create-wall"
+ },
+ "wall.create-on-all-slabs": {
+  "owner": "plugins/wall",
+  "liveness": "LIVE",
+  "store": "legacy geometry store (via commandManager)",
+  "undo": "legacy-stack (no affectedStores)",
+  "sync": "not-synced (reason declared)",
+  "chat": "classified E"
+ },
+ "wall.createBetweenMarks": {
+  "owner": "plugins/wall",
+  "liveness": "UNKNOWN",
+  "store": "UNKNOWN",
+  "undo": "patch-pair → wall",
+  "sync": "synced via 'id' (disclose)",
+  "chat": "classified B"
+ },
+ "wall.createFromSlab": {
+  "owner": "plugins/wall",
+  "liveness": "UNKNOWN",
+  "store": "UNKNOWN",
+  "undo": "patch-pair → wall",
+  "sync": "not-synced (reason declared)",
+  "chat": "classified C"
+ },
+ "wall.createOpening": {
+  "owner": "plugins/wall",
+  "liveness": "UNKNOWN",
+  "store": "UNKNOWN",
+  "undo": "patch-pair → wall",
+  "sync": "not-synced (reason declared)",
+  "chat": "deferred (CHAT_UNAVAILABLE)"
+ },
+ "wall.cut": {
+  "owner": "plugins/wall",
+  "liveness": "UNKNOWN",
+  "store": "UNKNOWN",
+  "undo": "patch-pair → wall",
+  "sync": "not-synced (reason declared)",
+  "chat": "deferred (CHAT_UNAVAILABLE)"
+ },
+ "wall.delete": {
+  "owner": "plugins/wall",
+  "liveness": "UNKNOWN",
+  "store": "UNKNOWN",
+  "undo": "patch-pair → wall",
+  "sync": "not-synced (reason declared)",
+  "chat": "classified D"
+ },
+ "wall.join": {
+  "owner": "plugins/wall",
+  "liveness": "UNKNOWN",
+  "store": "UNKNOWN",
+  "undo": "patch-pair → wall",
+  "sync": "not-synced (reason declared)",
+  "chat": "deferred (CHAT_UNAVAILABLE)"
+ },
+ "wall.move": {
+  "owner": "plugins/wall",
+  "liveness": "REFUSES",
+  "store": "NONE",
+  "undo": "UNKNOWN (declares wall)",
+  "sync": "synced via 'id' (disclose)",
+  "chat": "deferred (CHAT_UNAVAILABLE)"
+ },
+ "wall.opening.create": {
+  "owner": "plugins/wall",
+  "liveness": "UNKNOWN",
+  "store": "UNKNOWN",
+  "undo": "patch-pair → wall",
+  "sync": "not-synced (reason declared)",
+  "chat": "deferred (CHAT_UNAVAILABLE)"
+ },
+ "wall.setColor": {
+  "owner": "plugins/wall",
+  "liveness": "REFUSES",
+  "store": "NONE",
+  "undo": "patch-pair → wall",
+  "sync": "not-synced (reason declared)",
+  "chat": "deferred (CHAT_UNAVAILABLE)"
+ },
+ "wall.setDimensions": {
+  "owner": "plugins/wall",
+  "liveness": "REFUSES",
+  "store": "NONE",
+  "undo": "patch-pair → wall",
+  "sync": "not-synced (reason declared)",
+  "chat": "classified D"
+ },
+ "wall.setLayers": {
+  "owner": "plugins/wall",
+  "liveness": "REFUSES",
+  "store": "NONE",
+  "undo": "patch-pair → wall",
+  "sync": "not-synced (reason declared)",
+  "chat": "classified B"
+ },
+ "wall.setSideFinishBatch": {
+  "owner": "plugins/wall",
+  "liveness": "LIVE",
+  "store": "legacy geometry store (via commandManager)",
+  "undo": "legacy-stack (no affectedStores)",
+  "sync": "not-synced (reason declared)",
+  "chat": "capability: set-wall-side-finish"
+ },
+ "wall.setSystemType": {
+  "owner": "plugins/wall",
+  "liveness": "UNKNOWN",
+  "store": "UNKNOWN",
+  "undo": "patch-pair → wall",
+  "sync": "synced via 'id' (disclose)",
+  "chat": "classified D"
+ },
+ "wall.split": {
+  "owner": "plugins/wall",
+  "liveness": "UNKNOWN",
+  "store": "UNKNOWN",
+  "undo": "UNKNOWN (declares wall)",
+  "sync": "not-synced (reason declared)",
+  "chat": "deferred (CHAT_UNAVAILABLE)"
+ },
+ "wall.transform": {
+  "owner": "plugins/wall",
+  "liveness": "REFUSES",
+  "store": "NONE",
+  "undo": "patch-pair → wall",
+  "sync": "not-synced (reason declared)",
+  "chat": "deferred (CHAT_UNAVAILABLE)"
+ },
+ "wall.updateBaseline": {
+  "owner": "plugins/wall",
+  "liveness": "UNKNOWN",
+  "store": "UNKNOWN",
+  "undo": "NONE (empty patch pair)",
+  "sync": "synced via 'wallId' (disclose)",
+  "chat": "classified B"
+ },
+ "wall.updateColor": {
+  "owner": "apps/editor",
+  "liveness": "LIVE",
+  "store": "legacy geometry store (via commandManager)",
+  "undo": "legacy-stack (no affectedStores)",
+  "sync": "synced via 'wallId' (disclose)",
+  "chat": "deferred (CHAT_UNAVAILABLE)"
+ },
+ "wall.updateColorBatch": {
+  "owner": "plugins/wall",
+  "liveness": "LIVE",
+  "store": "legacy geometry store (via commandManager)",
+  "undo": "legacy-stack (no affectedStores)",
+  "sync": "not-synced (reason declared)",
+  "chat": "capability: set-wall-color"
+ },
+ "wall.updateCurtainWall": {
+  "owner": "apps/editor",
+  "liveness": "LIVE",
+  "store": "legacy geometry store (via commandManager)",
+  "undo": "legacy-stack (no affectedStores)",
+  "sync": "synced via 'id' (disclose)",
+  "chat": "capability: set-post-spacing"
+ },
+ "wall.updateDimensions": {
+  "owner": "apps/editor",
+  "liveness": "LIVE",
+  "store": "legacy geometry store (via commandManager)",
+  "undo": "legacy-stack (no affectedStores)",
+  "sync": "synced via 'wallId' (disclose)",
+  "chat": "capability: set-height"
+ },
+ "wall.updateHeightBatch": {
+  "owner": "plugins/wall",
+  "liveness": "LIVE",
+  "store": "legacy geometry store (via commandManager)",
+  "undo": "legacy-stack (no affectedStores)",
+  "sync": "not-synced (reason declared)",
+  "chat": "capability: set-wall-dimensions"
+ },
+ "wall.updateRakeBatch": {
+  "owner": "plugins/wall",
+  "liveness": "LIVE",
+  "store": "legacy geometry store (via commandManager)",
+  "undo": "legacy-stack (no affectedStores)",
+  "sync": "not-synced (reason declared)",
+  "chat": "capability: set-wall-rake"
+ },
+ "wall.updateSystemType": {
+  "owner": "plugins/wall",
+  "liveness": "LIVE",
+  "store": "legacy geometry store (via commandManager)",
+  "undo": "legacy-stack (no affectedStores)",
+  "sync": "synced via 'wallId' (disclose)",
+  "chat": "classified D"
+ },
+ "wall.updateSystemTypeBatch": {
+  "owner": "plugins/wall",
+  "liveness": "LIVE",
+  "store": "legacy geometry store (via commandManager)",
+  "undo": "legacy-stack (no affectedStores)",
+  "sync": "not-synced (reason declared)",
+  "chat": "capability: set-wall-type"
+ },
+ "window.batch.create": {
+  "owner": "plugins/window",
+  "liveness": "UNKNOWN",
+  "store": "UNKNOWN",
+  "undo": "patch-pair → window",
+  "sync": "not-synced (reason declared)",
+  "chat": "classified C"
+ },
+ "window.create": {
+  "owner": "plugins/window",
+  "liveness": "REFUSES",
+  "store": "NONE",
+  "undo": "patch-pair → window",
+  "sync": "synced via 'id' (disclose)",
+  "chat": "deferred (CHAT_UNAVAILABLE)"
+ },
+ "window.delete": {
+  "owner": "plugins/window",
+  "liveness": "UNKNOWN",
+  "store": "UNKNOWN",
+  "undo": "patch-pair → window",
+  "sync": "not-synced (reason declared)",
+  "chat": "classified D"
+ },
+ "window.move": {
+  "owner": "plugins/window",
+  "liveness": "REFUSES",
+  "store": "NONE",
+  "undo": "patch-pair → window",
+  "sync": "synced via 'windowId' (disclose)",
+  "chat": "deferred (CHAT_UNAVAILABLE)"
+ },
+ "window.parametricCreate": {
+  "owner": "plugins/window",
+  "liveness": "LIVE",
+  "store": "legacy geometry store (via commandManager)",
+  "undo": "legacy-stack (no affectedStores)",
+  "sync": "not-synced (reason declared)",
+  "chat": "capability: create-windows-parametric"
+ },
+ "window.setFireRating": {
+  "owner": "plugins/window",
+  "liveness": "UNKNOWN",
+  "store": "UNKNOWN",
+  "undo": "patch-pair → window",
+  "sync": "synced via 'windowId' (disclose)",
+  "chat": "classified B"
+ },
+ "window.setFrameColor": {
+  "owner": "apps/editor",
+  "liveness": "LIVE",
+  "store": "legacy geometry store (via commandManager)",
+  "undo": "legacy-stack (no affectedStores)",
+  "sync": "synced via 'windowId' (disclose)",
+  "chat": "deferred (CHAT_UNAVAILABLE)"
+ },
+ "window.setOffset": {
+  "owner": "apps/editor",
+  "liveness": "LIVE",
+  "store": "legacy geometry store (via commandManager)",
+  "undo": "legacy-stack (no affectedStores)",
+  "sync": "synced via 'windowId' (disclose)",
+  "chat": "deferred (CHAT_UNAVAILABLE)"
+ },
+ "window.setSillHeight": {
+  "owner": "apps/editor",
+  "liveness": "LIVE",
+  "store": "legacy geometry store (via commandManager)",
+  "undo": "legacy-stack (no affectedStores)",
+  "sync": "synced via 'windowId' (disclose)",
+  "chat": "classified D"
+ },
+ "window.setSize": {
+  "owner": "apps/editor",
+  "liveness": "LIVE",
+  "store": "legacy geometry store (via commandManager)",
+  "undo": "legacy-stack (no affectedStores)",
+  "sync": "synced via 'windowId' (disclose)",
+  "chat": "classified D"
+ },
+ "window.setType": {
+  "owner": "plugins/window",
+  "liveness": "UNKNOWN",
+  "store": "UNKNOWN",
+  "undo": "patch-pair → window",
+  "sync": "synced via 'windowId' (disclose)",
+  "chat": "classified B"
+ },
+ "window.updateSystemTypeBatch": {
+  "owner": "plugins/window",
+  "liveness": "LIVE",
+  "store": "legacy geometry store (via commandManager)",
+  "undo": "legacy-stack (no affectedStores)",
+  "sync": "not-synced (reason declared)",
+  "chat": "capability: set-window-type"
+ },
+ "zoom-fit": {
+  "owner": "apps/editor",
+  "liveness": "LIVE",
+  "store": "legacy geometry store (via commandManager)",
+  "undo": "NONE (empty patch pair)",
+  "sync": "not-synced (reason declared)",
+  "chat": "capability: zoom-fit"
+ },
+ "zoom-selected": {
+  "owner": "apps/editor",
+  "liveness": "LIVE",
+  "store": "legacy geometry store (via commandManager)",
+  "undo": "legacy-stack (no affectedStores)",
+  "sync": "not-synced (reason declared)",
+  "chat": "capability: zoom-selected"
+ }
+}

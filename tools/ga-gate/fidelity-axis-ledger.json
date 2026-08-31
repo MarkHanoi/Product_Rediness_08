@@ -1,0 +1,1070 @@
+{
+  "note": "THE FIDELITY LEDGER — every L0 authored field that does NOT reach the CommandEventBridge emit for its family, named with the mechanism, the reason and the user-visible consequence. SHRINK-ONLY: a new drop with no row here fails the gate at exit 3, and a row whose drop has been fixed must LEAVE in the commit that fixes it (arm A5, also exit 3). Rows are derived from audit/full-stack/2026-08-31/builders/, which measured 26 drawable families: 24 DRAW, 6 draw what the user authored. This file is the migration backlog for the other 18, not absolution for them.",
+  "drops": [
+    {
+      "family": "*",
+      "field": "provenance",
+      "kind": "authorship-metadata",
+      "reason": "C75 provenance is authored at L0 on every element kind and is carried by NO *.created emit. It is not a geometry input: `grep -rn \"\\.provenance\" packages/geometry-slab/src packages/geometry-wall/src packages/geometry-roof/src` returns ZERO — no fragment builder reads it. It rides the PERSISTENCE leg (C13), which is a different axis than this gate measures, and check-provenance-coverage is the gate that owns it.",
+      "consequence": "none at the mesh. A reader must NOT infer from this row that provenance survives a save — that is check-snapshot-family-coverage’s question, not this one."
+    },
+    {
+      "family": "*",
+      "field": "confidence",
+      "kind": "authorship-metadata",
+      "reason": "C75 confidence, the same shape as provenance above and measured the same way: authored at L0, read by no fragment builder, carried on the persistence leg.",
+      "consequence": "none at the mesh; the same caveat about the persistence leg applies."
+    },
+    {
+      "family": "annotation",
+      "field": "viewId",
+      "kind": "dead-channel",
+      "channel": "annotation.created",
+      "reason": "'annotation.created' is a DEAD CHANNEL: the bridge case raises three envelope keys (commandId, commandType, levelId) and a negative grep over apps/ packages/ plugins/ (tests and node_modules excluded) finds NO subscriber. Widening this emit would carry the field to nobody; the honest remedy is to give the family a reader first, and the field then leaves this ledger with the commit that adds one.",
+      "consequence": "annotation is created, validated and written to its DTO store, and the render layer never hears about it — the founder's boundary-line and swimming-pool shape (L-9940)."
+    },
+    {
+      "family": "annotation",
+      "field": "kind",
+      "kind": "dead-channel",
+      "channel": "annotation.created",
+      "reason": "'annotation.created' is a DEAD CHANNEL: the bridge case raises three envelope keys (commandId, commandType, levelId) and a negative grep over apps/ packages/ plugins/ (tests and node_modules excluded) finds NO subscriber. Widening this emit would carry the field to nobody; the honest remedy is to give the family a reader first, and the field then leaves this ledger with the commit that adds one.",
+      "consequence": "annotation is created, validated and written to its DTO store, and the render layer never hears about it — the founder's boundary-line and swimming-pool shape (L-9940)."
+    },
+    {
+      "family": "annotation",
+      "field": "anchor",
+      "kind": "dead-channel",
+      "channel": "annotation.created",
+      "reason": "'annotation.created' is a DEAD CHANNEL: the bridge case raises three envelope keys (commandId, commandType, levelId) and a negative grep over apps/ packages/ plugins/ (tests and node_modules excluded) finds NO subscriber. Widening this emit would carry the field to nobody; the honest remedy is to give the family a reader first, and the field then leaves this ledger with the commit that adds one.",
+      "consequence": "annotation is created, validated and written to its DTO store, and the render layer never hears about it — the founder's boundary-line and swimming-pool shape (L-9940)."
+    },
+    {
+      "family": "annotation",
+      "field": "hostElementId",
+      "kind": "dead-channel",
+      "channel": "annotation.created",
+      "reason": "'annotation.created' is a DEAD CHANNEL: the bridge case raises three envelope keys (commandId, commandType, levelId) and a negative grep over apps/ packages/ plugins/ (tests and node_modules excluded) finds NO subscriber. Widening this emit would carry the field to nobody; the honest remedy is to give the family a reader first, and the field then leaves this ledger with the commit that adds one.",
+      "consequence": "annotation is created, validated and written to its DTO store, and the render layer never hears about it — the founder's boundary-line and swimming-pool shape (L-9940)."
+    },
+    {
+      "family": "annotation",
+      "field": "text",
+      "kind": "dead-channel",
+      "channel": "annotation.created",
+      "reason": "'annotation.created' is a DEAD CHANNEL: the bridge case raises three envelope keys (commandId, commandType, levelId) and a negative grep over apps/ packages/ plugins/ (tests and node_modules excluded) finds NO subscriber. Widening this emit would carry the field to nobody; the honest remedy is to give the family a reader first, and the field then leaves this ledger with the commit that adds one.",
+      "consequence": "annotation is created, validated and written to its DTO store, and the render layer never hears about it — the founder's boundary-line and swimming-pool shape (L-9940)."
+    },
+    {
+      "family": "annotation",
+      "field": "rotation",
+      "kind": "dead-channel",
+      "channel": "annotation.created",
+      "reason": "'annotation.created' is a DEAD CHANNEL: the bridge case raises three envelope keys (commandId, commandType, levelId) and a negative grep over apps/ packages/ plugins/ (tests and node_modules excluded) finds NO subscriber. Widening this emit would carry the field to nobody; the honest remedy is to give the family a reader first, and the field then leaves this ledger with the commit that adds one.",
+      "consequence": "annotation is created, validated and written to its DTO store, and the render layer never hears about it — the founder's boundary-line and swimming-pool shape (L-9940)."
+    },
+    {
+      "family": "annotation",
+      "field": "textHeightMm",
+      "kind": "dead-channel",
+      "channel": "annotation.created",
+      "reason": "'annotation.created' is a DEAD CHANNEL: the bridge case raises three envelope keys (commandId, commandType, levelId) and a negative grep over apps/ packages/ plugins/ (tests and node_modules excluded) finds NO subscriber. Widening this emit would carry the field to nobody; the honest remedy is to give the family a reader first, and the field then leaves this ledger with the commit that adds one.",
+      "consequence": "annotation is created, validated and written to its DTO store, and the render layer never hears about it — the founder's boundary-line and swimming-pool shape (L-9940)."
+    },
+    {
+      "family": "annotation",
+      "field": "color",
+      "kind": "dead-channel",
+      "channel": "annotation.created",
+      "reason": "'annotation.created' is a DEAD CHANNEL: the bridge case raises three envelope keys (commandId, commandType, levelId) and a negative grep over apps/ packages/ plugins/ (tests and node_modules excluded) finds NO subscriber. Widening this emit would carry the field to nobody; the honest remedy is to give the family a reader first, and the field then leaves this ledger with the commit that adds one.",
+      "consequence": "annotation is created, validated and written to its DTO store, and the render layer never hears about it — the founder's boundary-line and swimming-pool shape (L-9940)."
+    },
+    {
+      "family": "beam",
+      "field": "rotation",
+      "kind": "no-destination",
+      "channel": "beam.created",
+      "reason": "a field-name count over the 4927-file identifier index finds ZERO mentions of `rotation` in BeamTypes.ts: the legacy beam record has nowhere to put it. This is the (b) case — it must be REFUSED BY NAME at runtime with both numbers (C74/CA-18), and that refusal is the fix, not a mirror row that writes a key nothing reads.",
+      "consequence": "a rotated beam draws unrotated, on every path, including the one that works."
+    },
+    {
+      "family": "beam",
+      "field": "loadBearing",
+      "kind": "narrow-emit",
+      "channel": "beam.created",
+      "reason": "carried by the beam.create emit (14 keys) and dropped by beam.batch.create (11 keys); CARRIED here is the INTERSECTION, so the batch leg governs.",
+      "consequence": "a batch-created beam loses its load-bearing flag while a hand-placed one keeps it."
+    },
+    {
+      "family": "beam",
+      "field": "fireRating",
+      "kind": "narrow-emit",
+      "channel": "beam.created",
+      "reason": "carried by beam.create and dropped by beam.batch.create — the same intersection defect as loadBearing.",
+      "consequence": "a batch-created beam loses its fire rating, which is a schedule and compliance value, not a cosmetic one."
+    },
+    {
+      "family": "beam",
+      "field": "steelProfileName",
+      "kind": "narrow-emit",
+      "channel": "beam.created",
+      "reason": "carried by beam.create and dropped by beam.batch.create.",
+      "consequence": "a batch-created steel beam draws as a plain rectangle instead of its profile."
+    },
+    {
+      "family": "boundaryLine",
+      "field": "vertices",
+      "kind": "store-read",
+      "channel": "boundaryLine.created",
+      "reason": "boundaryLine.created is the NARROWEST event of any family — five keys — DELIBERATELY: its mirror reads BoundaryLineStore instead of trusting the event. The 2026-08-31 measurement scores boundaryLine FIDELITY = YES for exactly this reason, and singles the pattern out as the third option that \"costs nothing and loses nothing\".",
+      "consequence": "none — the field reaches the builder through the store read, not through the event."
+    },
+    {
+      "family": "boundaryLine",
+      "field": "closed",
+      "kind": "store-read",
+      "channel": "boundaryLine.created",
+      "reason": "boundaryLine.created is the NARROWEST event of any family — five keys — DELIBERATELY: its mirror reads BoundaryLineStore instead of trusting the event. The 2026-08-31 measurement scores boundaryLine FIDELITY = YES for exactly this reason, and singles the pattern out as the third option that \"costs nothing and loses nothing\".",
+      "consequence": "none — the field reaches the builder through the store read, not through the event."
+    },
+    {
+      "family": "boundaryLine",
+      "field": "drawMode",
+      "kind": "store-read",
+      "channel": "boundaryLine.created",
+      "reason": "boundaryLine.created is the NARROWEST event of any family — five keys — DELIBERATELY: its mirror reads BoundaryLineStore instead of trusting the event. The 2026-08-31 measurement scores boundaryLine FIDELITY = YES for exactly this reason, and singles the pattern out as the third option that \"costs nothing and loses nothing\".",
+      "consequence": "none — the field reaches the builder through the store read, not through the event."
+    },
+    {
+      "family": "boundaryLine",
+      "field": "hasVolume",
+      "kind": "store-read",
+      "channel": "boundaryLine.created",
+      "reason": "boundaryLine.created is the NARROWEST event of any family — five keys — DELIBERATELY: its mirror reads BoundaryLineStore instead of trusting the event. The 2026-08-31 measurement scores boundaryLine FIDELITY = YES for exactly this reason, and singles the pattern out as the third option that \"costs nothing and loses nothing\".",
+      "consequence": "none — the field reaches the builder through the store read, not through the event."
+    },
+    {
+      "family": "boundaryLine",
+      "field": "attachments",
+      "kind": "store-read",
+      "channel": "boundaryLine.created",
+      "reason": "boundaryLine.created is the NARROWEST event of any family — five keys — DELIBERATELY: its mirror reads BoundaryLineStore instead of trusting the event. The 2026-08-31 measurement scores boundaryLine FIDELITY = YES for exactly this reason, and singles the pattern out as the third option that \"costs nothing and loses nothing\".",
+      "consequence": "none — the field reaches the builder through the store read, not through the event."
+    },
+    {
+      "family": "boundaryLine",
+      "field": "thickness",
+      "kind": "store-read",
+      "channel": "boundaryLine.created",
+      "reason": "boundaryLine.created is the NARROWEST event of any family — five keys — DELIBERATELY: its mirror reads BoundaryLineStore instead of trusting the event. The 2026-08-31 measurement scores boundaryLine FIDELITY = YES for exactly this reason, and singles the pattern out as the third option that \"costs nothing and loses nothing\".",
+      "consequence": "none — the field reaches the builder through the store read, not through the event."
+    },
+    {
+      "family": "boundaryLine",
+      "field": "baseOffset",
+      "kind": "store-read",
+      "channel": "boundaryLine.created",
+      "reason": "boundaryLine.created is the NARROWEST event of any family — five keys — DELIBERATELY: its mirror reads BoundaryLineStore instead of trusting the event. The 2026-08-31 measurement scores boundaryLine FIDELITY = YES for exactly this reason, and singles the pattern out as the third option that \"costs nothing and loses nothing\".",
+      "consequence": "none — the field reaches the builder through the store read, not through the event."
+    },
+    {
+      "family": "boundaryLine",
+      "field": "systemTypeId",
+      "kind": "store-read",
+      "channel": "boundaryLine.created",
+      "reason": "boundaryLine.created is the NARROWEST event of any family — five keys — DELIBERATELY: its mirror reads BoundaryLineStore instead of trusting the event. The 2026-08-31 measurement scores boundaryLine FIDELITY = YES for exactly this reason, and singles the pattern out as the third option that \"costs nothing and loses nothing\".",
+      "consequence": "none — the field reaches the builder through the store read, not through the event."
+    },
+    {
+      "family": "boundaryLine",
+      "field": "materialId",
+      "kind": "store-read",
+      "channel": "boundaryLine.created",
+      "reason": "boundaryLine.created is the NARROWEST event of any family — five keys — DELIBERATELY: its mirror reads BoundaryLineStore instead of trusting the event. The 2026-08-31 measurement scores boundaryLine FIDELITY = YES for exactly this reason, and singles the pattern out as the third option that \"costs nothing and loses nothing\".",
+      "consequence": "none — the field reaches the builder through the store read, not through the event."
+    },
+    {
+      "family": "boundaryLine",
+      "field": "materialColor",
+      "kind": "store-read",
+      "channel": "boundaryLine.created",
+      "reason": "boundaryLine.created is the NARROWEST event of any family — five keys — DELIBERATELY: its mirror reads BoundaryLineStore instead of trusting the event. The 2026-08-31 measurement scores boundaryLine FIDELITY = YES for exactly this reason, and singles the pattern out as the third option that \"costs nothing and loses nothing\".",
+      "consequence": "none — the field reaches the builder through the store read, not through the event."
+    },
+    {
+      "family": "boundaryLine",
+      "field": "name",
+      "kind": "store-read",
+      "channel": "boundaryLine.created",
+      "reason": "boundaryLine.created is the NARROWEST event of any family — five keys — DELIBERATELY: its mirror reads BoundaryLineStore instead of trusting the event. The 2026-08-31 measurement scores boundaryLine FIDELITY = YES for exactly this reason, and singles the pattern out as the third option that \"costs nothing and loses nothing\".",
+      "consequence": "none — the field reaches the builder through the store read, not through the event."
+    },
+    {
+      "family": "boundaryLine",
+      "field": "pinned",
+      "kind": "store-read",
+      "channel": "boundaryLine.created",
+      "reason": "boundaryLine.created is the NARROWEST event of any family — five keys — DELIBERATELY: its mirror reads BoundaryLineStore instead of trusting the event. The 2026-08-31 measurement scores boundaryLine FIDELITY = YES for exactly this reason, and singles the pattern out as the third option that \"costs nothing and loses nothing\".",
+      "consequence": "none — the field reaches the builder through the store read, not through the event."
+    },
+    {
+      "family": "column",
+      "field": "topLevelId",
+      "kind": "no-destination",
+      "channel": "column.created",
+      "reason": "the identifier index finds no reader for column.topLevelId anywhere outside packages/schemas. Column is otherwise the ONLY family whose three emit sites carry an identical key set; this is its single gap.",
+      "consequence": "a column authored to run to a named upper level is drawn to its own height instead."
+    },
+    {
+      "family": "dimension",
+      "field": "viewId",
+      "kind": "dead-channel",
+      "channel": "dimension.created",
+      "reason": "'dimension.created' is a DEAD CHANNEL: the bridge case raises three envelope keys (commandId, commandType, levelId) and a negative grep over apps/ packages/ plugins/ (tests and node_modules excluded) finds NO subscriber. Widening this emit would carry the field to nobody; the honest remedy is to give the family a reader first, and the field then leaves this ledger with the commit that adds one.",
+      "consequence": "dimension is created, validated and written to its DTO store, and the render layer never hears about it — the founder's boundary-line and swimming-pool shape (L-9940)."
+    },
+    {
+      "family": "dimension",
+      "field": "kind",
+      "kind": "dead-channel",
+      "channel": "dimension.created",
+      "reason": "'dimension.created' is a DEAD CHANNEL: the bridge case raises three envelope keys (commandId, commandType, levelId) and a negative grep over apps/ packages/ plugins/ (tests and node_modules excluded) finds NO subscriber. Widening this emit would carry the field to nobody; the honest remedy is to give the family a reader first, and the field then leaves this ledger with the commit that adds one.",
+      "consequence": "dimension is created, validated and written to its DTO store, and the render layer never hears about it — the founder's boundary-line and swimming-pool shape (L-9940)."
+    },
+    {
+      "family": "dimension",
+      "field": "points",
+      "kind": "dead-channel",
+      "channel": "dimension.created",
+      "reason": "'dimension.created' is a DEAD CHANNEL: the bridge case raises three envelope keys (commandId, commandType, levelId) and a negative grep over apps/ packages/ plugins/ (tests and node_modules excluded) finds NO subscriber. Widening this emit would carry the field to nobody; the honest remedy is to give the family a reader first, and the field then leaves this ledger with the commit that adds one.",
+      "consequence": "dimension is created, validated and written to its DTO store, and the render layer never hears about it — the founder's boundary-line and swimming-pool shape (L-9940)."
+    },
+    {
+      "family": "dimension",
+      "field": "offsetMm",
+      "kind": "dead-channel",
+      "channel": "dimension.created",
+      "reason": "'dimension.created' is a DEAD CHANNEL: the bridge case raises three envelope keys (commandId, commandType, levelId) and a negative grep over apps/ packages/ plugins/ (tests and node_modules excluded) finds NO subscriber. Widening this emit would carry the field to nobody; the honest remedy is to give the family a reader first, and the field then leaves this ledger with the commit that adds one.",
+      "consequence": "dimension is created, validated and written to its DTO store, and the render layer never hears about it — the founder's boundary-line and swimming-pool shape (L-9940)."
+    },
+    {
+      "family": "dimension",
+      "field": "units",
+      "kind": "dead-channel",
+      "channel": "dimension.created",
+      "reason": "'dimension.created' is a DEAD CHANNEL: the bridge case raises three envelope keys (commandId, commandType, levelId) and a negative grep over apps/ packages/ plugins/ (tests and node_modules excluded) finds NO subscriber. Widening this emit would carry the field to nobody; the honest remedy is to give the family a reader first, and the field then leaves this ledger with the commit that adds one.",
+      "consequence": "dimension is created, validated and written to its DTO store, and the render layer never hears about it — the founder's boundary-line and swimming-pool shape (L-9940)."
+    },
+    {
+      "family": "dimension",
+      "field": "precision",
+      "kind": "dead-channel",
+      "channel": "dimension.created",
+      "reason": "'dimension.created' is a DEAD CHANNEL: the bridge case raises three envelope keys (commandId, commandType, levelId) and a negative grep over apps/ packages/ plugins/ (tests and node_modules excluded) finds NO subscriber. Widening this emit would carry the field to nobody; the honest remedy is to give the family a reader first, and the field then leaves this ledger with the commit that adds one.",
+      "consequence": "dimension is created, validated and written to its DTO store, and the render layer never hears about it — the founder's boundary-line and swimming-pool shape (L-9940)."
+    },
+    {
+      "family": "dimension",
+      "field": "style",
+      "kind": "dead-channel",
+      "channel": "dimension.created",
+      "reason": "'dimension.created' is a DEAD CHANNEL: the bridge case raises three envelope keys (commandId, commandType, levelId) and a negative grep over apps/ packages/ plugins/ (tests and node_modules excluded) finds NO subscriber. Widening this emit would carry the field to nobody; the honest remedy is to give the family a reader first, and the field then leaves this ledger with the commit that adds one.",
+      "consequence": "dimension is created, validated and written to its DTO store, and the render layer never hears about it — the founder's boundary-line and swimming-pool shape (L-9940)."
+    },
+    {
+      "family": "dimension",
+      "field": "overridden",
+      "kind": "dead-channel",
+      "channel": "dimension.created",
+      "reason": "'dimension.created' is a DEAD CHANNEL: the bridge case raises three envelope keys (commandId, commandType, levelId) and a negative grep over apps/ packages/ plugins/ (tests and node_modules excluded) finds NO subscriber. Widening this emit would carry the field to nobody; the honest remedy is to give the family a reader first, and the field then leaves this ledger with the commit that adds one.",
+      "consequence": "dimension is created, validated and written to its DTO store, and the render layer never hears about it — the founder's boundary-line and swimming-pool shape (L-9940)."
+    },
+    {
+      "family": "dimension",
+      "field": "overrideText",
+      "kind": "dead-channel",
+      "channel": "dimension.created",
+      "reason": "'dimension.created' is a DEAD CHANNEL: the bridge case raises three envelope keys (commandId, commandType, levelId) and a negative grep over apps/ packages/ plugins/ (tests and node_modules excluded) finds NO subscriber. Widening this emit would carry the field to nobody; the honest remedy is to give the family a reader first, and the field then leaves this ledger with the commit that adds one.",
+      "consequence": "dimension is created, validated and written to its DTO store, and the render layer never hears about it — the founder's boundary-line and swimming-pool shape (L-9940)."
+    },
+    {
+      "family": "floor",
+      "field": "materialId",
+      "kind": "narrow-emit",
+      "channel": "floor.created",
+      "reason": "the floor.created emit names systemTypeId, layers and finishSpec but no materialId; initTools.ts:2491 then substitutes a hardcoded finishSpec colour.",
+      "consequence": "the material-library link is lost, so a later material edit has nothing to bind to."
+    },
+    {
+      "family": "floor",
+      "field": "materialColor",
+      "kind": "narrow-emit",
+      "channel": "floor.created",
+      "reason": "initTools.ts:2491 defaults the floor finishSpec to a hardcoded '#D4C4A8'. The authored colour is not on the event, so the substitution cannot even be detected at the mirror.",
+      "consequence": "a floor renders in that one beige, always, whatever the user authored."
+    },
+    {
+      "family": "furniture",
+      "field": "catalogId",
+      "kind": "rival-vocabulary",
+      "channel": "furniture.created",
+      "reason": "furniture.created speaks a RIVAL VOCABULARY: it carries furnitureType / furnitureCategory / width / length / height / material, while the L0 schema authors catalogId / representations / activeLod / materialSlots / scale / size. Only the unreachable half speaks L0 — initTools.ts:2970 drops a catalogue-authored item outright, and :3038-3041 substitutes 0.6/0.6/0.9 and \"wood\".",
+      "consequence": "a catalogue-authored furniture item is silently dropped, or drawn as a 0.6 x 0.6 x 0.9 wooden box."
+    },
+    {
+      "family": "furniture",
+      "field": "scale",
+      "kind": "rival-vocabulary",
+      "channel": "furniture.created",
+      "reason": "furniture.created speaks a RIVAL VOCABULARY: it carries furnitureType / furnitureCategory / width / length / height / material, while the L0 schema authors catalogId / representations / activeLod / materialSlots / scale / size. Only the unreachable half speaks L0 — initTools.ts:2970 drops a catalogue-authored item outright, and :3038-3041 substitutes 0.6/0.6/0.9 and \"wood\".",
+      "consequence": "a catalogue-authored furniture item is silently dropped, or drawn as a 0.6 x 0.6 x 0.9 wooden box."
+    },
+    {
+      "family": "furniture",
+      "field": "size",
+      "kind": "rival-vocabulary",
+      "channel": "furniture.created",
+      "reason": "furniture.created speaks a RIVAL VOCABULARY: it carries furnitureType / furnitureCategory / width / length / height / material, while the L0 schema authors catalogId / representations / activeLod / materialSlots / scale / size. Only the unreachable half speaks L0 — initTools.ts:2970 drops a catalogue-authored item outright, and :3038-3041 substitutes 0.6/0.6/0.9 and \"wood\".",
+      "consequence": "a catalogue-authored furniture item is silently dropped, or drawn as a 0.6 x 0.6 x 0.9 wooden box."
+    },
+    {
+      "family": "furniture",
+      "field": "activeLod",
+      "kind": "rival-vocabulary",
+      "channel": "furniture.created",
+      "reason": "furniture.created speaks a RIVAL VOCABULARY: it carries furnitureType / furnitureCategory / width / length / height / material, while the L0 schema authors catalogId / representations / activeLod / materialSlots / scale / size. Only the unreachable half speaks L0 — initTools.ts:2970 drops a catalogue-authored item outright, and :3038-3041 substitutes 0.6/0.6/0.9 and \"wood\".",
+      "consequence": "a catalogue-authored furniture item is silently dropped, or drawn as a 0.6 x 0.6 x 0.9 wooden box."
+    },
+    {
+      "family": "furniture",
+      "field": "representations",
+      "kind": "rival-vocabulary",
+      "channel": "furniture.created",
+      "reason": "furniture.created speaks a RIVAL VOCABULARY: it carries furnitureType / furnitureCategory / width / length / height / material, while the L0 schema authors catalogId / representations / activeLod / materialSlots / scale / size. Only the unreachable half speaks L0 — initTools.ts:2970 drops a catalogue-authored item outright, and :3038-3041 substitutes 0.6/0.6/0.9 and \"wood\".",
+      "consequence": "a catalogue-authored furniture item is silently dropped, or drawn as a 0.6 x 0.6 x 0.9 wooden box."
+    },
+    {
+      "family": "furniture",
+      "field": "materialSlots",
+      "kind": "rival-vocabulary",
+      "channel": "furniture.created",
+      "reason": "furniture.created speaks a RIVAL VOCABULARY: it carries furnitureType / furnitureCategory / width / length / height / material, while the L0 schema authors catalogId / representations / activeLod / materialSlots / scale / size. Only the unreachable half speaks L0 — initTools.ts:2970 drops a catalogue-authored item outright, and :3038-3041 substitutes 0.6/0.6/0.9 and \"wood\".",
+      "consequence": "a catalogue-authored furniture item is silently dropped, or drawn as a 0.6 x 0.6 x 0.9 wooden box."
+    },
+    {
+      "family": "grid",
+      "field": "rotation",
+      "kind": "dead-channel",
+      "channel": "grid.created",
+      "reason": "'grid.created' is a DEAD CHANNEL: the bridge case raises three envelope keys (commandId, commandType, levelId) and a negative grep over apps/ packages/ plugins/ (tests and node_modules excluded) finds NO subscriber. Widening this emit would carry the field to nobody; the honest remedy is to give the family a reader first, and the field then leaves this ledger with the commit that adds one.",
+      "consequence": "grid is created, validated and written to its DTO store, and the render layer never hears about it — the founder's boundary-line and swimming-pool shape (L-9940)."
+    },
+    {
+      "family": "grid",
+      "field": "lines",
+      "kind": "dead-channel",
+      "channel": "grid.created",
+      "reason": "'grid.created' is a DEAD CHANNEL: the bridge case raises three envelope keys (commandId, commandType, levelId) and a negative grep over apps/ packages/ plugins/ (tests and node_modules excluded) finds NO subscriber. Widening this emit would carry the field to nobody; the honest remedy is to give the family a reader first, and the field then leaves this ledger with the commit that adds one.",
+      "consequence": "grid is created, validated and written to its DTO store, and the render layer never hears about it — the founder's boundary-line and swimming-pool shape (L-9940)."
+    },
+    {
+      "family": "lighting",
+      "field": "rotation",
+      "kind": "rival-vocabulary",
+      "channel": "lighting.created",
+      "reason": "lighting.created carries SIX keys (commandId, commandType, levelId, id, kind, origin) against 18 authored fields — the widest gap measured. LightingFragmentBuilder speaks a rival vocabulary and states in its own source that colour and brightness are \"never authored\"; the L0 schema says otherwise, and the schema is the authority (C84 EI-1).",
+      "consequence": "an authored luminaire draws at catalogue defaults — wrong colour temperature, wrong output, wrong drop."
+    },
+    {
+      "family": "lighting",
+      "field": "width",
+      "kind": "rival-vocabulary",
+      "channel": "lighting.created",
+      "reason": "lighting.created carries SIX keys (commandId, commandType, levelId, id, kind, origin) against 18 authored fields — the widest gap measured. LightingFragmentBuilder speaks a rival vocabulary and states in its own source that colour and brightness are \"never authored\"; the L0 schema says otherwise, and the schema is the authority (C84 EI-1).",
+      "consequence": "an authored luminaire draws at catalogue defaults — wrong colour temperature, wrong output, wrong drop."
+    },
+    {
+      "family": "lighting",
+      "field": "depth",
+      "kind": "rival-vocabulary",
+      "channel": "lighting.created",
+      "reason": "lighting.created carries SIX keys (commandId, commandType, levelId, id, kind, origin) against 18 authored fields — the widest gap measured. LightingFragmentBuilder speaks a rival vocabulary and states in its own source that colour and brightness are \"never authored\"; the L0 schema says otherwise, and the schema is the authority (C84 EI-1).",
+      "consequence": "an authored luminaire draws at catalogue defaults — wrong colour temperature, wrong output, wrong drop."
+    },
+    {
+      "family": "lighting",
+      "field": "thickness",
+      "kind": "rival-vocabulary",
+      "channel": "lighting.created",
+      "reason": "lighting.created carries SIX keys (commandId, commandType, levelId, id, kind, origin) against 18 authored fields — the widest gap measured. LightingFragmentBuilder speaks a rival vocabulary and states in its own source that colour and brightness are \"never authored\"; the L0 schema says otherwise, and the schema is the authority (C84 EI-1).",
+      "consequence": "an authored luminaire draws at catalogue defaults — wrong colour temperature, wrong output, wrong drop."
+    },
+    {
+      "family": "lighting",
+      "field": "dropLength",
+      "kind": "rival-vocabulary",
+      "channel": "lighting.created",
+      "reason": "lighting.created carries SIX keys (commandId, commandType, levelId, id, kind, origin) against 18 authored fields — the widest gap measured. LightingFragmentBuilder speaks a rival vocabulary and states in its own source that colour and brightness are \"never authored\"; the L0 schema says otherwise, and the schema is the authority (C84 EI-1).",
+      "consequence": "an authored luminaire draws at catalogue defaults — wrong colour temperature, wrong output, wrong drop."
+    },
+    {
+      "family": "lighting",
+      "field": "range",
+      "kind": "rival-vocabulary",
+      "channel": "lighting.created",
+      "reason": "lighting.created carries SIX keys (commandId, commandType, levelId, id, kind, origin) against 18 authored fields — the widest gap measured. LightingFragmentBuilder speaks a rival vocabulary and states in its own source that colour and brightness are \"never authored\"; the L0 schema says otherwise, and the schema is the authority (C84 EI-1).",
+      "consequence": "an authored luminaire draws at catalogue defaults — wrong colour temperature, wrong output, wrong drop."
+    },
+    {
+      "family": "lighting",
+      "field": "lumens",
+      "kind": "rival-vocabulary",
+      "channel": "lighting.created",
+      "reason": "lighting.created carries SIX keys (commandId, commandType, levelId, id, kind, origin) against 18 authored fields — the widest gap measured. LightingFragmentBuilder speaks a rival vocabulary and states in its own source that colour and brightness are \"never authored\"; the L0 schema says otherwise, and the schema is the authority (C84 EI-1).",
+      "consequence": "an authored luminaire draws at catalogue defaults — wrong colour temperature, wrong output, wrong drop."
+    },
+    {
+      "family": "lighting",
+      "field": "kelvin",
+      "kind": "rival-vocabulary",
+      "channel": "lighting.created",
+      "reason": "lighting.created carries SIX keys (commandId, commandType, levelId, id, kind, origin) against 18 authored fields — the widest gap measured. LightingFragmentBuilder speaks a rival vocabulary and states in its own source that colour and brightness are \"never authored\"; the L0 schema says otherwise, and the schema is the authority (C84 EI-1).",
+      "consequence": "an authored luminaire draws at catalogue defaults — wrong colour temperature, wrong output, wrong drop."
+    },
+    {
+      "family": "lighting",
+      "field": "beamAngleDeg",
+      "kind": "rival-vocabulary",
+      "channel": "lighting.created",
+      "reason": "lighting.created carries SIX keys (commandId, commandType, levelId, id, kind, origin) against 18 authored fields — the widest gap measured. LightingFragmentBuilder speaks a rival vocabulary and states in its own source that colour and brightness are \"never authored\"; the L0 schema says otherwise, and the schema is the authority (C84 EI-1).",
+      "consequence": "an authored luminaire draws at catalogue defaults — wrong colour temperature, wrong output, wrong drop."
+    },
+    {
+      "family": "lighting",
+      "field": "intensity",
+      "kind": "rival-vocabulary",
+      "channel": "lighting.created",
+      "reason": "lighting.created carries SIX keys (commandId, commandType, levelId, id, kind, origin) against 18 authored fields — the widest gap measured. LightingFragmentBuilder speaks a rival vocabulary and states in its own source that colour and brightness are \"never authored\"; the L0 schema says otherwise, and the schema is the authority (C84 EI-1).",
+      "consequence": "an authored luminaire draws at catalogue defaults — wrong colour temperature, wrong output, wrong drop."
+    },
+    {
+      "family": "lighting",
+      "field": "color",
+      "kind": "rival-vocabulary",
+      "channel": "lighting.created",
+      "reason": "lighting.created carries SIX keys (commandId, commandType, levelId, id, kind, origin) against 18 authored fields — the widest gap measured. LightingFragmentBuilder speaks a rival vocabulary and states in its own source that colour and brightness are \"never authored\"; the L0 schema says otherwise, and the schema is the authority (C84 EI-1).",
+      "consequence": "an authored luminaire draws at catalogue defaults — wrong colour temperature, wrong output, wrong drop."
+    },
+    {
+      "family": "lighting",
+      "field": "isEmergency",
+      "kind": "rival-vocabulary",
+      "channel": "lighting.created",
+      "reason": "lighting.created carries SIX keys (commandId, commandType, levelId, id, kind, origin) against 18 authored fields — the widest gap measured. LightingFragmentBuilder speaks a rival vocabulary and states in its own source that colour and brightness are \"never authored\"; the L0 schema says otherwise, and the schema is the authority (C84 EI-1).",
+      "consequence": "an authored luminaire draws at catalogue defaults — wrong colour temperature, wrong output, wrong drop."
+    },
+    {
+      "family": "lighting",
+      "field": "materialId",
+      "kind": "rival-vocabulary",
+      "channel": "lighting.created",
+      "reason": "lighting.created carries SIX keys (commandId, commandType, levelId, id, kind, origin) against 18 authored fields — the widest gap measured. LightingFragmentBuilder speaks a rival vocabulary and states in its own source that colour and brightness are \"never authored\"; the L0 schema says otherwise, and the schema is the authority (C84 EI-1).",
+      "consequence": "an authored luminaire draws at catalogue defaults — wrong colour temperature, wrong output, wrong drop."
+    },
+    {
+      "family": "plumbing",
+      "field": "kind",
+      "kind": "dead-channel",
+      "channel": "plumbing.created",
+      "reason": "'plumbing.created' is a DEAD CHANNEL: the bridge case raises three envelope keys (commandId, commandType, levelId) and a negative grep over apps/ packages/ plugins/ (tests and node_modules excluded) finds NO subscriber. Widening this emit would carry the field to nobody; the honest remedy is to give the family a reader first, and the field then leaves this ledger with the commit that adds one.",
+      "consequence": "plumbing is created, validated and written to its DTO store, and the render layer never hears about it — the founder's boundary-line and swimming-pool shape (L-9940)."
+    },
+    {
+      "family": "plumbing",
+      "field": "origin",
+      "kind": "dead-channel",
+      "channel": "plumbing.created",
+      "reason": "'plumbing.created' is a DEAD CHANNEL: the bridge case raises three envelope keys (commandId, commandType, levelId) and a negative grep over apps/ packages/ plugins/ (tests and node_modules excluded) finds NO subscriber. Widening this emit would carry the field to nobody; the honest remedy is to give the family a reader first, and the field then leaves this ledger with the commit that adds one.",
+      "consequence": "plumbing is created, validated and written to its DTO store, and the render layer never hears about it — the founder's boundary-line and swimming-pool shape (L-9940)."
+    },
+    {
+      "family": "plumbing",
+      "field": "diameter",
+      "kind": "dead-channel",
+      "channel": "plumbing.created",
+      "reason": "'plumbing.created' is a DEAD CHANNEL: the bridge case raises three envelope keys (commandId, commandType, levelId) and a negative grep over apps/ packages/ plugins/ (tests and node_modules excluded) finds NO subscriber. Widening this emit would carry the field to nobody; the honest remedy is to give the family a reader first, and the field then leaves this ledger with the commit that adds one.",
+      "consequence": "plumbing is created, validated and written to its DTO store, and the render layer never hears about it — the founder's boundary-line and swimming-pool shape (L-9940)."
+    },
+    {
+      "family": "plumbing",
+      "field": "wallThickness",
+      "kind": "dead-channel",
+      "channel": "plumbing.created",
+      "reason": "'plumbing.created' is a DEAD CHANNEL: the bridge case raises three envelope keys (commandId, commandType, levelId) and a negative grep over apps/ packages/ plugins/ (tests and node_modules excluded) finds NO subscriber. Widening this emit would carry the field to nobody; the honest remedy is to give the family a reader first, and the field then leaves this ledger with the commit that adds one.",
+      "consequence": "plumbing is created, validated and written to its DTO store, and the render layer never hears about it — the founder's boundary-line and swimming-pool shape (L-9940)."
+    },
+    {
+      "family": "plumbing",
+      "field": "length",
+      "kind": "dead-channel",
+      "channel": "plumbing.created",
+      "reason": "'plumbing.created' is a DEAD CHANNEL: the bridge case raises three envelope keys (commandId, commandType, levelId) and a negative grep over apps/ packages/ plugins/ (tests and node_modules excluded) finds NO subscriber. Widening this emit would carry the field to nobody; the honest remedy is to give the family a reader first, and the field then leaves this ledger with the commit that adds one.",
+      "consequence": "plumbing is created, validated and written to its DTO store, and the render layer never hears about it — the founder's boundary-line and swimming-pool shape (L-9940)."
+    },
+    {
+      "family": "plumbing",
+      "field": "rotation",
+      "kind": "dead-channel",
+      "channel": "plumbing.created",
+      "reason": "'plumbing.created' is a DEAD CHANNEL: the bridge case raises three envelope keys (commandId, commandType, levelId) and a negative grep over apps/ packages/ plugins/ (tests and node_modules excluded) finds NO subscriber. Widening this emit would carry the field to nobody; the honest remedy is to give the family a reader first, and the field then leaves this ledger with the commit that adds one.",
+      "consequence": "plumbing is created, validated and written to its DTO store, and the render layer never hears about it — the founder's boundary-line and swimming-pool shape (L-9940)."
+    },
+    {
+      "family": "plumbing",
+      "field": "bendRadius",
+      "kind": "dead-channel",
+      "channel": "plumbing.created",
+      "reason": "'plumbing.created' is a DEAD CHANNEL: the bridge case raises three envelope keys (commandId, commandType, levelId) and a negative grep over apps/ packages/ plugins/ (tests and node_modules excluded) finds NO subscriber. Widening this emit would carry the field to nobody; the honest remedy is to give the family a reader first, and the field then leaves this ledger with the commit that adds one.",
+      "consequence": "plumbing is created, validated and written to its DTO store, and the render layer never hears about it — the founder's boundary-line and swimming-pool shape (L-9940)."
+    },
+    {
+      "family": "plumbing",
+      "field": "baseOffset",
+      "kind": "dead-channel",
+      "channel": "plumbing.created",
+      "reason": "'plumbing.created' is a DEAD CHANNEL: the bridge case raises three envelope keys (commandId, commandType, levelId) and a negative grep over apps/ packages/ plugins/ (tests and node_modules excluded) finds NO subscriber. Widening this emit would carry the field to nobody; the honest remedy is to give the family a reader first, and the field then leaves this ledger with the commit that adds one.",
+      "consequence": "plumbing is created, validated and written to its DTO store, and the render layer never hears about it — the founder's boundary-line and swimming-pool shape (L-9940)."
+    },
+    {
+      "family": "plumbing",
+      "field": "systemTag",
+      "kind": "dead-channel",
+      "channel": "plumbing.created",
+      "reason": "'plumbing.created' is a DEAD CHANNEL: the bridge case raises three envelope keys (commandId, commandType, levelId) and a negative grep over apps/ packages/ plugins/ (tests and node_modules excluded) finds NO subscriber. Widening this emit would carry the field to nobody; the honest remedy is to give the family a reader first, and the field then leaves this ledger with the commit that adds one.",
+      "consequence": "plumbing is created, validated and written to its DTO store, and the render layer never hears about it — the founder's boundary-line and swimming-pool shape (L-9940)."
+    },
+    {
+      "family": "plumbing",
+      "field": "materialId",
+      "kind": "dead-channel",
+      "channel": "plumbing.created",
+      "reason": "'plumbing.created' is a DEAD CHANNEL: the bridge case raises three envelope keys (commandId, commandType, levelId) and a negative grep over apps/ packages/ plugins/ (tests and node_modules excluded) finds NO subscriber. Widening this emit would carry the field to nobody; the honest remedy is to give the family a reader first, and the field then leaves this ledger with the commit that adds one.",
+      "consequence": "plumbing is created, validated and written to its DTO store, and the render layer never hears about it — the founder's boundary-line and swimming-pool shape (L-9940)."
+    },
+    {
+      "family": "roof",
+      "field": "skylights",
+      "kind": "narrow-emit",
+      "channel": "roof.created",
+      "reason": "the roof.created emit names 12 keys — the materialId/materialColor half of the historic roof defect is CLOSED end to end at this head, in all three legs — and `skylights` is the residue.",
+      "consequence": "an authored skylight is absent from the roof mesh and from the plan drawing derived from it."
+    },
+    {
+      "family": "roof",
+      "field": "joinedToRoofIds",
+      "kind": "narrow-emit",
+      "channel": "roof.created",
+      "reason": "the roof.created emit carries boundingWallIds but not joinedToRoofIds, so the join relation is not on the event.",
+      "consequence": "two roofs authored as joined draw as two independent roofs."
+    },
+    {
+      "family": "room",
+      "field": "name",
+      "kind": "dead-channel",
+      "channel": "room.created",
+      "reason": "'room.created' is a DEAD CHANNEL: the bridge case raises three envelope keys (commandId, commandType, levelId) and a negative grep over apps/ packages/ plugins/ (tests and node_modules excluded) finds NO subscriber. Widening this emit would carry the field to nobody; the honest remedy is to give the family a reader first, and the field then leaves this ledger with the commit that adds one.",
+      "consequence": "room is created, validated and written to its DTO store, and the render layer never hears about it — the founder's boundary-line and swimming-pool shape (L-9940)."
+    },
+    {
+      "family": "room",
+      "field": "number",
+      "kind": "dead-channel",
+      "channel": "room.created",
+      "reason": "'room.created' is a DEAD CHANNEL: the bridge case raises three envelope keys (commandId, commandType, levelId) and a negative grep over apps/ packages/ plugins/ (tests and node_modules excluded) finds NO subscriber. Widening this emit would carry the field to nobody; the honest remedy is to give the family a reader first, and the field then leaves this ledger with the commit that adds one.",
+      "consequence": "room is created, validated and written to its DTO store, and the render layer never hears about it — the founder's boundary-line and swimming-pool shape (L-9940)."
+    },
+    {
+      "family": "room",
+      "field": "boundaryMode",
+      "kind": "dead-channel",
+      "channel": "room.created",
+      "reason": "'room.created' is a DEAD CHANNEL: the bridge case raises three envelope keys (commandId, commandType, levelId) and a negative grep over apps/ packages/ plugins/ (tests and node_modules excluded) finds NO subscriber. Widening this emit would carry the field to nobody; the honest remedy is to give the family a reader first, and the field then leaves this ledger with the commit that adds one.",
+      "consequence": "room is created, validated and written to its DTO store, and the render layer never hears about it — the founder's boundary-line and swimming-pool shape (L-9940)."
+    },
+    {
+      "family": "room",
+      "field": "seedPoint",
+      "kind": "dead-channel",
+      "channel": "room.created",
+      "reason": "'room.created' is a DEAD CHANNEL: the bridge case raises three envelope keys (commandId, commandType, levelId) and a negative grep over apps/ packages/ plugins/ (tests and node_modules excluded) finds NO subscriber. Widening this emit would carry the field to nobody; the honest remedy is to give the family a reader first, and the field then leaves this ledger with the commit that adds one.",
+      "consequence": "room is created, validated and written to its DTO store, and the render layer never hears about it — the founder's boundary-line and swimming-pool shape (L-9940)."
+    },
+    {
+      "family": "room",
+      "field": "heightOffset",
+      "kind": "dead-channel",
+      "channel": "room.created",
+      "reason": "'room.created' is a DEAD CHANNEL: the bridge case raises three envelope keys (commandId, commandType, levelId) and a negative grep over apps/ packages/ plugins/ (tests and node_modules excluded) finds NO subscriber. Widening this emit would carry the field to nobody; the honest remedy is to give the family a reader first, and the field then leaves this ledger with the commit that adds one.",
+      "consequence": "room is created, validated and written to its DTO store, and the render layer never hears about it — the founder's boundary-line and swimming-pool shape (L-9940)."
+    },
+    {
+      "family": "room",
+      "field": "occupancy",
+      "kind": "dead-channel",
+      "channel": "room.created",
+      "reason": "'room.created' is a DEAD CHANNEL: the bridge case raises three envelope keys (commandId, commandType, levelId) and a negative grep over apps/ packages/ plugins/ (tests and node_modules excluded) finds NO subscriber. Widening this emit would carry the field to nobody; the honest remedy is to give the family a reader first, and the field then leaves this ledger with the commit that adds one.",
+      "consequence": "room is created, validated and written to its DTO store, and the render layer never hears about it — the founder's boundary-line and swimming-pool shape (L-9940)."
+    },
+    {
+      "family": "room",
+      "field": "multiLevelSpan",
+      "kind": "dead-channel",
+      "channel": "room.created",
+      "reason": "'room.created' is a DEAD CHANNEL: the bridge case raises three envelope keys (commandId, commandType, levelId) and a negative grep over apps/ packages/ plugins/ (tests and node_modules excluded) finds NO subscriber. Widening this emit would carry the field to nobody; the honest remedy is to give the family a reader first, and the field then leaves this ledger with the commit that adds one.",
+      "consequence": "room is created, validated and written to its DTO store, and the render layer never hears about it — the founder's boundary-line and swimming-pool shape (L-9940)."
+    },
+    {
+      "family": "room",
+      "field": "boundingElementIds",
+      "kind": "dead-channel",
+      "channel": "room.created",
+      "reason": "'room.created' is a DEAD CHANNEL: the bridge case raises three envelope keys (commandId, commandType, levelId) and a negative grep over apps/ packages/ plugins/ (tests and node_modules excluded) finds NO subscriber. Widening this emit would carry the field to nobody; the honest remedy is to give the family a reader first, and the field then leaves this ledger with the commit that adds one.",
+      "consequence": "room is created, validated and written to its DTO store, and the render layer never hears about it — the founder's boundary-line and swimming-pool shape (L-9940)."
+    },
+    {
+      "family": "room",
+      "field": "boundary",
+      "kind": "dead-channel",
+      "channel": "room.created",
+      "reason": "'room.created' is a DEAD CHANNEL: the bridge case raises three envelope keys (commandId, commandType, levelId) and a negative grep over apps/ packages/ plugins/ (tests and node_modules excluded) finds NO subscriber. Widening this emit would carry the field to nobody; the honest remedy is to give the family a reader first, and the field then leaves this ledger with the commit that adds one.",
+      "consequence": "room is created, validated and written to its DTO store, and the render layer never hears about it — the founder's boundary-line and swimming-pool shape (L-9940)."
+    },
+    {
+      "family": "room",
+      "field": "area",
+      "kind": "dead-channel",
+      "channel": "room.created",
+      "reason": "'room.created' is a DEAD CHANNEL: the bridge case raises three envelope keys (commandId, commandType, levelId) and a negative grep over apps/ packages/ plugins/ (tests and node_modules excluded) finds NO subscriber. Widening this emit would carry the field to nobody; the honest remedy is to give the family a reader first, and the field then leaves this ledger with the commit that adds one.",
+      "consequence": "room is created, validated and written to its DTO store, and the render layer never hears about it — the founder's boundary-line and swimming-pool shape (L-9940)."
+    },
+    {
+      "family": "room",
+      "field": "volume",
+      "kind": "dead-channel",
+      "channel": "room.created",
+      "reason": "'room.created' is a DEAD CHANNEL: the bridge case raises three envelope keys (commandId, commandType, levelId) and a negative grep over apps/ packages/ plugins/ (tests and node_modules excluded) finds NO subscriber. Widening this emit would carry the field to nobody; the honest remedy is to give the family a reader first, and the field then leaves this ledger with the commit that adds one.",
+      "consequence": "room is created, validated and written to its DTO store, and the render layer never hears about it — the founder's boundary-line and swimming-pool shape (L-9940)."
+    },
+    {
+      "family": "room",
+      "field": "perimeter",
+      "kind": "dead-channel",
+      "channel": "room.created",
+      "reason": "'room.created' is a DEAD CHANNEL: the bridge case raises three envelope keys (commandId, commandType, levelId) and a negative grep over apps/ packages/ plugins/ (tests and node_modules excluded) finds NO subscriber. Widening this emit would carry the field to nobody; the honest remedy is to give the family a reader first, and the field then leaves this ledger with the commit that adds one.",
+      "consequence": "room is created, validated and written to its DTO store, and the render layer never hears about it — the founder's boundary-line and swimming-pool shape (L-9940)."
+    },
+    {
+      "family": "room",
+      "field": "boundingWallIds",
+      "kind": "dead-channel",
+      "channel": "room.created",
+      "reason": "'room.created' is a DEAD CHANNEL: the bridge case raises three envelope keys (commandId, commandType, levelId) and a negative grep over apps/ packages/ plugins/ (tests and node_modules excluded) finds NO subscriber. Widening this emit would carry the field to nobody; the honest remedy is to give the family a reader first, and the field then leaves this ledger with the commit that adds one.",
+      "consequence": "room is created, validated and written to its DTO store, and the render layer never hears about it — the founder's boundary-line and swimming-pool shape (L-9940)."
+    },
+    {
+      "family": "room",
+      "field": "materialColor",
+      "kind": "dead-channel",
+      "channel": "room.created",
+      "reason": "'room.created' is a DEAD CHANNEL: the bridge case raises three envelope keys (commandId, commandType, levelId) and a negative grep over apps/ packages/ plugins/ (tests and node_modules excluded) finds NO subscriber. Widening this emit would carry the field to nobody; the honest remedy is to give the family a reader first, and the field then leaves this ledger with the commit that adds one.",
+      "consequence": "room is created, validated and written to its DTO store, and the render layer never hears about it — the founder's boundary-line and swimming-pool shape (L-9940)."
+    },
+    {
+      "family": "room",
+      "field": "materialId",
+      "kind": "dead-channel",
+      "channel": "room.created",
+      "reason": "'room.created' is a DEAD CHANNEL: the bridge case raises three envelope keys (commandId, commandType, levelId) and a negative grep over apps/ packages/ plugins/ (tests and node_modules excluded) finds NO subscriber. Widening this emit would carry the field to nobody; the honest remedy is to give the family a reader first, and the field then leaves this ledger with the commit that adds one.",
+      "consequence": "room is created, validated and written to its DTO store, and the render layer never hears about it — the founder's boundary-line and swimming-pool shape (L-9940)."
+    },
+    {
+      "family": "slab",
+      "field": "holes",
+      "kind": "narrow-emit",
+      "channel": "slab.created",
+      "reason": "CreateSlab.ts:141-143 validates every hole ring and CreateSlab.ts:176 commits `holes: cmd.holes ?? []`, and SlabFragmentBuilder punches them at :939 — the capability is present at both ends. The bridge slab.create emit names 13 keys and `holes` is not among them, and the initTools mirror drops it a second time.",
+      "consequence": "a slab drawn in plan, by AI, or in a batch with an authored void renders SOLID, and counts renders_3d = YES."
+    },
+    {
+      "family": "slab",
+      "field": "materialColor",
+      "kind": "narrow-emit",
+      "channel": "slab.created",
+      "reason": "authored, accepted at CreateSlab.ts:116, committed at :178, and READ by SlabFragmentBuilder at :520/:579/:804 — dropped twice before the mesh, at the emit and again at the initTools mirror.",
+      "consequence": "the slab renders in the default colour whatever the user chose."
+    },
+    {
+      "family": "slab",
+      "field": "systemTypeId",
+      "kind": "narrow-emit",
+      "channel": "slab.created",
+      "reason": "the slab.created emit carries materialId but not systemTypeId; the layered build-up reaches the builder only through the separate slab.layer-updated channel, which a freshly created slab does not raise.",
+      "consequence": "a slab created with a system type draws as a plain single-volume plate until something re-emits its layers."
+    },
+    {
+      "family": "structural",
+      "field": "kind",
+      "kind": "dead-channel",
+      "channel": "structural.created",
+      "reason": "'structural.created' is a DEAD CHANNEL: the bridge case raises three envelope keys (commandId, commandType, levelId) and a negative grep over apps/ packages/ plugins/ (tests and node_modules excluded) finds NO subscriber. Widening this emit would carry the field to nobody; the honest remedy is to give the family a reader first, and the field then leaves this ledger with the commit that adds one.",
+      "consequence": "structural is created, validated and written to its DTO store, and the render layer never hears about it — the founder's boundary-line and swimming-pool shape (L-9940)."
+    },
+    {
+      "family": "structural",
+      "field": "origin",
+      "kind": "dead-channel",
+      "channel": "structural.created",
+      "reason": "'structural.created' is a DEAD CHANNEL: the bridge case raises three envelope keys (commandId, commandType, levelId) and a negative grep over apps/ packages/ plugins/ (tests and node_modules excluded) finds NO subscriber. Widening this emit would carry the field to nobody; the honest remedy is to give the family a reader first, and the field then leaves this ledger with the commit that adds one.",
+      "consequence": "structural is created, validated and written to its DTO store, and the render layer never hears about it — the founder's boundary-line and swimming-pool shape (L-9940)."
+    },
+    {
+      "family": "structural",
+      "field": "endOffset",
+      "kind": "dead-channel",
+      "channel": "structural.created",
+      "reason": "'structural.created' is a DEAD CHANNEL: the bridge case raises three envelope keys (commandId, commandType, levelId) and a negative grep over apps/ packages/ plugins/ (tests and node_modules excluded) finds NO subscriber. Widening this emit would carry the field to nobody; the honest remedy is to give the family a reader first, and the field then leaves this ledger with the commit that adds one.",
+      "consequence": "structural is created, validated and written to its DTO store, and the render layer never hears about it — the founder's boundary-line and swimming-pool shape (L-9940)."
+    },
+    {
+      "family": "structural",
+      "field": "width",
+      "kind": "dead-channel",
+      "channel": "structural.created",
+      "reason": "'structural.created' is a DEAD CHANNEL: the bridge case raises three envelope keys (commandId, commandType, levelId) and a negative grep over apps/ packages/ plugins/ (tests and node_modules excluded) finds NO subscriber. Widening this emit would carry the field to nobody; the honest remedy is to give the family a reader first, and the field then leaves this ledger with the commit that adds one.",
+      "consequence": "structural is created, validated and written to its DTO store, and the render layer never hears about it — the founder's boundary-line and swimming-pool shape (L-9940)."
+    },
+    {
+      "family": "structural",
+      "field": "depth",
+      "kind": "dead-channel",
+      "channel": "structural.created",
+      "reason": "'structural.created' is a DEAD CHANNEL: the bridge case raises three envelope keys (commandId, commandType, levelId) and a negative grep over apps/ packages/ plugins/ (tests and node_modules excluded) finds NO subscriber. Widening this emit would carry the field to nobody; the honest remedy is to give the family a reader first, and the field then leaves this ledger with the commit that adds one.",
+      "consequence": "structural is created, validated and written to its DTO store, and the render layer never hears about it — the founder's boundary-line and swimming-pool shape (L-9940)."
+    },
+    {
+      "family": "structural",
+      "field": "thickness",
+      "kind": "dead-channel",
+      "channel": "structural.created",
+      "reason": "'structural.created' is a DEAD CHANNEL: the bridge case raises three envelope keys (commandId, commandType, levelId) and a negative grep over apps/ packages/ plugins/ (tests and node_modules excluded) finds NO subscriber. Widening this emit would carry the field to nobody; the honest remedy is to give the family a reader first, and the field then leaves this ledger with the commit that adds one.",
+      "consequence": "structural is created, validated and written to its DTO store, and the render layer never hears about it — the founder's boundary-line and swimming-pool shape (L-9940)."
+    },
+    {
+      "family": "structural",
+      "field": "radius",
+      "kind": "dead-channel",
+      "channel": "structural.created",
+      "reason": "'structural.created' is a DEAD CHANNEL: the bridge case raises three envelope keys (commandId, commandType, levelId) and a negative grep over apps/ packages/ plugins/ (tests and node_modules excluded) finds NO subscriber. Widening this emit would carry the field to nobody; the honest remedy is to give the family a reader first, and the field then leaves this ledger with the commit that adds one.",
+      "consequence": "structural is created, validated and written to its DTO store, and the render layer never hears about it — the founder's boundary-line and swimming-pool shape (L-9940)."
+    },
+    {
+      "family": "structural",
+      "field": "rotation",
+      "kind": "dead-channel",
+      "channel": "structural.created",
+      "reason": "'structural.created' is a DEAD CHANNEL: the bridge case raises three envelope keys (commandId, commandType, levelId) and a negative grep over apps/ packages/ plugins/ (tests and node_modules excluded) finds NO subscriber. Widening this emit would carry the field to nobody; the honest remedy is to give the family a reader first, and the field then leaves this ledger with the commit that adds one.",
+      "consequence": "structural is created, validated and written to its DTO store, and the render layer never hears about it — the founder's boundary-line and swimming-pool shape (L-9940)."
+    },
+    {
+      "family": "structural",
+      "field": "baseOffset",
+      "kind": "dead-channel",
+      "channel": "structural.created",
+      "reason": "'structural.created' is a DEAD CHANNEL: the bridge case raises three envelope keys (commandId, commandType, levelId) and a negative grep over apps/ packages/ plugins/ (tests and node_modules excluded) finds NO subscriber. Widening this emit would carry the field to nobody; the honest remedy is to give the family a reader first, and the field then leaves this ledger with the commit that adds one.",
+      "consequence": "structural is created, validated and written to its DTO store, and the render layer never hears about it — the founder's boundary-line and swimming-pool shape (L-9940)."
+    },
+    {
+      "family": "structural",
+      "field": "materialId",
+      "kind": "dead-channel",
+      "channel": "structural.created",
+      "reason": "'structural.created' is a DEAD CHANNEL: the bridge case raises three envelope keys (commandId, commandType, levelId) and a negative grep over apps/ packages/ plugins/ (tests and node_modules excluded) finds NO subscriber. Widening this emit would carry the field to nobody; the honest remedy is to give the family a reader first, and the field then leaves this ledger with the commit that adds one.",
+      "consequence": "structural is created, validated and written to its DTO store, and the render layer never hears about it — the founder's boundary-line and swimming-pool shape (L-9940)."
+    },
+    {
+      "family": "wall",
+      "field": "openings",
+      "kind": "separate-channel",
+      "channel": "wall.created",
+      "reason": "wall.openings is NOT lost: `wall.opening.created` is its own channel, raised at three bridge sites, and it is the channel the void cut in WallFragmentBuilder actually rides (C15 §8.1 dual-write). Recorded here so the absence from wall.created reads as a design, not an oversight.",
+      "consequence": "none on this axis — the openings arrive on their own channel; what this gate cannot see is whether the two stay in step, which is check-hosted-dual-write."
+    },
+    {
+      "family": "wall",
+      "field": "frontSide",
+      "kind": "narrow-emit",
+      "channel": "wall.created",
+      "reason": "the wall.created emit carries layers and systemTypeId but not the per-side finish records.",
+      "consequence": "an authored per-side finish is absent from the wall render and from the section it derives."
+    },
+    {
+      "family": "wall",
+      "field": "backSide",
+      "kind": "narrow-emit",
+      "channel": "wall.created",
+      "reason": "the wall.created emit carries layers and systemTypeId but not the per-side finish records.",
+      "consequence": "an authored per-side finish is absent from the wall render and from the section it derives."
+    },
+    {
+      "family": "wall",
+      "field": "joinIntent",
+      "kind": "narrow-emit",
+      "channel": "wall.created",
+      "reason": "joinIntent is consumed by the join resolver against the wall STORE, not by the render event; it is absent from wall.created by construction.",
+      "consequence": "no render consequence measured; recorded so a future reader does not mistake the absence for a loss."
+    }
+  ],
+  "unchannelled": [
+    {
+      "family": "balcony",
+      "field": "*",
+      "kind": "compound-fan-out",
+      "reason": "balcony is a COMPOUND with no mesh of its own, by declaration: case balcony.create fans out to slab.created (the plate), floor.created (the finish) and handrail.created (the railing), and the compound itself has nothing to draw. Its member losses are ledgered per leg in fanOut below, which is where the remedy lives.",
+      "consequence": "none for the compound; the member legs are where the finish and type identity are lost, and those rows say so."
+    },
+    {
+      "family": "pool",
+      "field": "*",
+      "kind": "compound-fan-out",
+      "reason": "pool is a COMPOUND with no mesh of its own: case pool.create fans out to wall.created (basin walls), slab.created (floor slab), element.updated (host-slab void) and water.created (the body). The bridge NAMES its refusal to smuggle the water onto slab.created (C84 EI-9), which is the honest half; the narrowed wall payload it does not name is ledgered in fanOut below.",
+      "consequence": "none for the compound; the basin walls lose layers/systemTypeId/curve, which the fanOut rows carry."
+    }
+  ],
+  "fanOut": [
+    {
+      "family": "balcony",
+      "host": "balcony",
+      "channel": "floor.created",
+      "field": "systemTypeId",
+      "kind": "narrow-emit",
+      "reason": "the balcony floor-finish leg is the NARROWEST emit in the repo: it carries 9 keys where floor.create carries 16, so the finish panel is created without its system type, layers, finish spec, service holes or host room.",
+      "consequence": "a balcony finish authored with a type draws as an untyped plain panel, while the same finish placed directly keeps its identity."
+    },
+    {
+      "family": "balcony",
+      "host": "balcony",
+      "channel": "floor.created",
+      "field": "layers",
+      "kind": "narrow-emit",
+      "reason": "the balcony floor-finish leg is the NARROWEST emit in the repo: it carries 9 keys where floor.create carries 16, so the finish panel is created without its system type, layers, finish spec, service holes or host room.",
+      "consequence": "a balcony finish authored with a type draws as an untyped plain panel, while the same finish placed directly keeps its identity."
+    },
+    {
+      "family": "balcony",
+      "host": "balcony",
+      "channel": "floor.created",
+      "field": "finishSpec",
+      "kind": "narrow-emit",
+      "reason": "the balcony floor-finish leg is the NARROWEST emit in the repo: it carries 9 keys where floor.create carries 16, so the finish panel is created without its system type, layers, finish spec, service holes or host room.",
+      "consequence": "a balcony finish authored with a type draws as an untyped plain panel, while the same finish placed directly keeps its identity."
+    },
+    {
+      "family": "balcony",
+      "host": "balcony",
+      "channel": "floor.created",
+      "field": "serviceHoles",
+      "kind": "narrow-emit",
+      "reason": "the balcony floor-finish leg is the NARROWEST emit in the repo: it carries 9 keys where floor.create carries 16, so the finish panel is created without its system type, layers, finish spec, service holes or host room.",
+      "consequence": "a balcony finish authored with a type draws as an untyped plain panel, while the same finish placed directly keeps its identity."
+    },
+    {
+      "family": "balcony",
+      "host": "balcony",
+      "channel": "floor.created",
+      "field": "hostRoomId",
+      "kind": "narrow-emit",
+      "reason": "the balcony floor-finish leg is the NARROWEST emit in the repo: it carries 9 keys where floor.create carries 16, so the finish panel is created without its system type, layers, finish spec, service holes or host room.",
+      "consequence": "a balcony finish authored with a type draws as an untyped plain panel, while the same finish placed directly keeps its identity."
+    },
+    {
+      "family": "lift",
+      "host": "lift",
+      "channel": "wall.created",
+      "field": "systemTypeId",
+      "kind": "narrow-emit",
+      "reason": "the lift shaft-wall leg raises wall.created with 10 keys where wall.create raises 14 — the shaft walls are built without layers, system type, curve or colour.",
+      "consequence": "a shaft wall drawn as part of a lift is a plain single-volume wall; the identical wall drawn by hand is layered."
+    },
+    {
+      "family": "lift",
+      "host": "lift",
+      "channel": "wall.created",
+      "field": "materialColor",
+      "kind": "narrow-emit",
+      "reason": "the lift shaft-wall leg raises wall.created with 10 keys where wall.create raises 14 — the shaft walls are built without layers, system type, curve or colour.",
+      "consequence": "a shaft wall drawn as part of a lift is a plain single-volume wall; the identical wall drawn by hand is layered."
+    },
+    {
+      "family": "lift",
+      "host": "lift",
+      "channel": "wall.created",
+      "field": "layers",
+      "kind": "narrow-emit",
+      "reason": "the lift shaft-wall leg raises wall.created with 10 keys where wall.create raises 14 — the shaft walls are built without layers, system type, curve or colour.",
+      "consequence": "a shaft wall drawn as part of a lift is a plain single-volume wall; the identical wall drawn by hand is layered."
+    },
+    {
+      "family": "lift",
+      "host": "lift",
+      "channel": "wall.created",
+      "field": "curve",
+      "kind": "narrow-emit",
+      "reason": "the lift shaft-wall leg raises wall.created with 10 keys where wall.create raises 14 — the shaft walls are built without layers, system type, curve or colour.",
+      "consequence": "a shaft wall drawn as part of a lift is a plain single-volume wall; the identical wall drawn by hand is layered."
+    },
+    {
+      "family": "lift",
+      "host": "lift",
+      "channel": "curtain-wall.created",
+      "field": "systemTypeId",
+      "kind": "narrow-emit",
+      "reason": "the lift shaft-glazing leg raises curtain-wall.created with 14 keys where curtain-wall.create raises 18 — all four material fields are absent.",
+      "consequence": "lift shaft glazing draws in default glass and default mullions whatever the lift type specifies."
+    },
+    {
+      "family": "lift",
+      "host": "lift",
+      "channel": "curtain-wall.created",
+      "field": "mullionMaterialId",
+      "kind": "narrow-emit",
+      "reason": "the lift shaft-glazing leg raises curtain-wall.created with 14 keys where curtain-wall.create raises 18 — all four material fields are absent.",
+      "consequence": "lift shaft glazing draws in default glass and default mullions whatever the lift type specifies."
+    },
+    {
+      "family": "lift",
+      "host": "lift",
+      "channel": "curtain-wall.created",
+      "field": "mullionColor",
+      "kind": "narrow-emit",
+      "reason": "the lift shaft-glazing leg raises curtain-wall.created with 14 keys where curtain-wall.create raises 18 — all four material fields are absent.",
+      "consequence": "lift shaft glazing draws in default glass and default mullions whatever the lift type specifies."
+    },
+    {
+      "family": "lift",
+      "host": "lift",
+      "channel": "curtain-wall.created",
+      "field": "glazingMaterialId",
+      "kind": "narrow-emit",
+      "reason": "the lift shaft-glazing leg raises curtain-wall.created with 14 keys where curtain-wall.create raises 18 — all four material fields are absent.",
+      "consequence": "lift shaft glazing draws in default glass and default mullions whatever the lift type specifies."
+    },
+    {
+      "family": "pool",
+      "host": "pool",
+      "channel": "wall.created",
+      "field": "systemTypeId",
+      "kind": "narrow-emit",
+      "reason": "the pool basin-wall leg raises wall.created with 10 keys where wall.create raises 14 — the basin walls are built without layers, system type, curve or colour.",
+      "consequence": "a pool basin wall is a plain single-volume wall; the identical wall drawn by hand is layered."
+    },
+    {
+      "family": "pool",
+      "host": "pool",
+      "channel": "wall.created",
+      "field": "materialColor",
+      "kind": "narrow-emit",
+      "reason": "the pool basin-wall leg raises wall.created with 10 keys where wall.create raises 14 — the basin walls are built without layers, system type, curve or colour.",
+      "consequence": "a pool basin wall is a plain single-volume wall; the identical wall drawn by hand is layered."
+    },
+    {
+      "family": "pool",
+      "host": "pool",
+      "channel": "wall.created",
+      "field": "layers",
+      "kind": "narrow-emit",
+      "reason": "the pool basin-wall leg raises wall.created with 10 keys where wall.create raises 14 — the basin walls are built without layers, system type, curve or colour.",
+      "consequence": "a pool basin wall is a plain single-volume wall; the identical wall drawn by hand is layered."
+    },
+    {
+      "family": "pool",
+      "host": "pool",
+      "channel": "wall.created",
+      "field": "curve",
+      "kind": "narrow-emit",
+      "reason": "the pool basin-wall leg raises wall.created with 10 keys where wall.create raises 14 — the basin walls are built without layers, system type, curve or colour.",
+      "consequence": "a pool basin wall is a plain single-volume wall; the identical wall drawn by hand is layered."
+    }
+  ],
+  "unbound": [
+    {
+      "family": "door",
+      "field": "*",
+      "kind": "other-create-verb",
+      "reason": "door IS created and IS drawn — under `wall.createOpening` / `wall.opening.create`, whose emit is the dual-write channel of C15 §8.1, not under a `door.create` case. This gate therefore measures the OPENING payload, not the door’s own 18 authored fields; the door-specific losses (frameMaterialId, leafMaterialId, frameWidth) are recorded in audit/.../builders/door.json and are NOT visible here.",
+      "consequence": "the colour half of a door is drawn and the material-master half is nowhere — a real defect this gate cannot see, named so its silence is not read as coverage."
+    },
+    {
+      "family": "project",
+      "field": "*",
+      "kind": "not-a-drawable-element",
+      "reason": "a project is the CONTAINER for elements, not an element: it has no builder and no *.created channel by declaration. Outside the 2026-08-31 measurement’s denominator of 26 for the same reason.",
+      "consequence": "nothing renders for it and nothing should."
+    },
+    {
+      "family": "projectOrigin",
+      "field": "*",
+      "kind": "not-a-drawable-element",
+      "reason": "the project origin is a datum, drawn by the site/datum overlay rather than by an element builder, and has no create verb on the bus.",
+      "consequence": "nothing renders through this pipeline; the datum overlay owns its own drawing."
+    },
+    {
+      "family": "schedule",
+      "field": "*",
+      "kind": "not-a-drawable-element",
+      "reason": "a schedule is a TABULAR VIEW over elements, not an element. It has no geometry and no *.created channel by declaration.",
+      "consequence": "nothing renders for it in 3D; it renders as a table on a sheet."
+    },
+    {
+      "family": "sheet",
+      "field": "*",
+      "kind": "not-a-drawable-element",
+      "reason": "a sheet is a DRAWING SURFACE that hosts viewports; its contents render through the views it hosts, not through an element builder.",
+      "consequence": "nothing renders for it directly, which is correct."
+    },
+    {
+      "family": "stair",
+      "field": "*",
+      "kind": "other-create-verb",
+      "reason": "stair has no `stair.create` case in the bridge at all: StairMeshBuilder is driven from the stair store, not from a *.created event.",
+      "consequence": "numRisers and materialId have no destination on the legacy record (audit/.../builders/stair.json); this gate cannot see either."
+    },
+    {
+      "family": "verticalCirculation",
+      "field": "*",
+      "kind": "other-create-verb",
+      "reason": "⚠ SPELLING DRIFT, MEASURED: the bridge case is `lift.create` and the channel is `lift.created`, while the L0 kind is `verticalCirculation`. GEOMETRY_ELEMENT_TYPES carries `verticalCirculation` (the LOD-200 massing lift) and neither `lift` nor `liftPart`, so an LOD-300 lift compound edited in 3D does not dirty the plan while the LOD-200 massing lift does. One word, two elements.",
+      "consequence": "the plan view dirties on the wrong lift; and this gate cannot intersect the family because the two halves are spelled differently."
+    },
+    {
+      "family": "view",
+      "field": "*",
+      "kind": "not-a-drawable-element",
+      "reason": "a view is a SURFACE onto the model, not an element in it. C102 owns view integrity; this axis does not apply.",
+      "consequence": "nothing renders for it directly."
+    },
+    {
+      "family": "water",
+      "field": "*",
+      "kind": "other-create-verb",
+      "reason": "water is created only as a MEMBER of `pool.create`, which raises `water.created` as a fan-out. There is no `water.create` case, so the family has no primary emit for this gate to intersect against; the fan-out is the only leg and it is measured under pool.",
+      "consequence": "water renders correctly (WaterMeshBuilder has the best refusal surface measured); materialId and systemTypeId are lost, which is recorded in pool-and-water.json."
+    },
+    {
+      "family": "window",
+      "field": "*",
+      "kind": "other-create-verb",
+      "reason": "window rides `wall.createOpening` for the same reason as door. Its six reveal fields ARE read, inside resolveWindowReveal (WindowBuilder.ts:839) — a field-name grep scores them zero and is wrong, which is why this row says so.",
+      "consequence": "frameMaterialId, glassMaterialId and frameWidth are lost on the same shape as door, and this gate cannot see it."
+    }
+  ]
+}

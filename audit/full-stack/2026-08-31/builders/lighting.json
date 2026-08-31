@@ -1,0 +1,63 @@
+{
+  "family": "lighting",
+  "head": "d91d30d4af51bc67317ef8afc0b46b1dbef94038",
+  "members": ["luminaire (20 LOD-200 families)", "lighting plan symbol"],
+  "rows": [
+    {
+      "member": "luminaire",
+      "surface": "3d",
+      "builder_file": "packages/geometry-lighting/src/LightingFragmentBuilder.ts (3232 lines — the second-largest builder in the repo)",
+      "entry_fn": "add(...)  ·  remove(...)  ·  setScene(scene)  ·  setFocusProvider(...)  ·  setQualityTier(...)",
+      "package": "@pryzm/geometry-lighting",
+      "layer": "L2",
+      "layer_proof": "eslint.config.js:152",
+      "invoked_by": [
+        "apps/editor/src/engine/initBuilders.ts:884 `new LightingFragmentBuilder()` → :885 setScene(scene) → :886 `window.lightingBuilder = lightingBuilder` → :911 setFocusProvider",
+        "packages/command-registry/src/lighting/CreateLightingCommand.ts:140 and :181 — `const builder = window.lightingFragmentBuilder ?? window.lightingBuilder;`",
+        "BUS LEG: CommandEventBridge lighting.create → 'lighting.created' → apps/editor/src/engine/initTools.ts:2781, which calls `_builder.add` DIRECTLY (:2869-2870)",
+        "apps/editor/src/engine/initScene.ts:2935 — setQualityTier"
+      ],
+      "⚠ WINDOW_ONLY_HANDLE": "Reached ONLY through `window.lightingBuilder`. `grep -rn 'lightingBuilder\\.'` returns 3 hits, all in initBuilders (setScene/setFocusProvider). Same seam class as curtainWallBuilder. Note the CreateLightingCommand fallback chain `window.lightingFragmentBuilder ?? window.lightingBuilder` — initTools.ts:2864-2867 records that `window.lightingFragmentBuilder` is 'a command-registry-only alias never populated here', so the first arm of that `??` is always undefined in the editor. A dead alias kept live in a fallback.",
+      "⭐ ALREADY_FIXED_DEFECT_WORTH_QUOTING": "initTools.ts:2871-2880 (§LIGHT121, L-11902): 'build the 3-D mesh HERE, not via an event listener that never existed. LightingStore.add() fires bim-lighting-added, but no production subscriber to that event ever called LightingFragmentBuilder.add … the comment that used to claim otherwise was fiction. Every bus-created fixture (PLAN tool, copy/duplicate, AI lighting-layout) got a store record and a plan symbol but NO scene mesh, so SelectionManager.selectById found nothing and keyboard/plan/3-D Delete all refused silently.' — the canonical AUTHORED-BUT-UNWIRED failure in this repo, found and closed.",
+      "rivals": [
+        {"candidate": "plugins/lighting/src/committer/lighting-committer.ts + packages/geometry-kernel/src/producers/lighting.ts", "verdict": "RIVAL, UNREACHABLE — and it is the ONLY consumer of L0 Lighting.dropLength."}
+      ],
+      "robustness": {
+        "degenerate_input": "ZERO isFinite/isNaN, ZERO `throw new` across 3232 lines.",
+        "level_refusal": "⭐ EXPLICIT AND CORRECT — initTools.ts:2836-2846 refuses SPATIAL REGISTRATION on an empty levelId with a named warning ('skipping spatial registration to avoid bleeding it onto the ground plan'), while still writing the store record. The comment states the rule: \"'' ?? 'L0' is '', so an UNKNOWN storey must be REFUSED, not defaulted\". Only the wall, water and lighting bridges do this.",
+        "disposal": "PRESENT — 9 dispose sites. LightingFragmentBuilder.ts:3225 names the class it guards: 'the L-224 dead-listener class of bug'. The day/night subscription (:580 `this._unsubDayNight = window.runtime?.events?.on(...)`) is captured for teardown."
+      },
+      "fidelity": {
+        "authored_L0_fields": ["provenance","confidence","levelId","kind","origin","rotation","width","depth","thickness","dropLength","range","lumens","kelvin","beamAngleDeg","intensity","color","isEmergency","materialId"],
+        "authored_count": 18,
+        "ceb_channel": "lighting.created",
+        "ceb_emit_sites": ["~L1244 (lighting.create) — SIX keys"],
+        "ceb_emitted_keys": ["commandId","commandType","levelId","id","kind","origin"],
+        "dropped_at_ceb": ["rotation","width","depth","thickness","dropLength","range","lumens","kelvin","beamAngleDeg","intensity","color","isEmergency","materialId","provenance","confidence"],
+        "⛔ VERDICT": "THE WIDEST FIDELITY GAP MEASURED — 3 of 18 authored fields survive the bridge (kind, origin, levelId).",
+        "chain_proof": [
+          "DROPPED #1 (the CEB) — the lighting.created emit names six keys total, four of which are envelope (commandId, commandType, levelId, id). Only `kind` and `origin` are element data.",
+          "DROPPED #2 (the command itself) — packages/command-registry/src/lighting/CreateLightingCommand.ts writes only fixtureType, position, rotation, hostId, tags, properties (:124-132). Thirteen of the L0 fields have no slot in the command payload at all, so the loss predates the bridge.",
+          "DROPPED #3 (the mirror) — apps/editor/src/engine/initTools.ts:2818-2824 builds `_data: LightingData` with FIVE fields: id, type, levelId, fixtureType, position. Not even `rotation`, which the command does carry.",
+          "SUBSTITUTED — LightingFragmentBuilder does not read the authored photometry. It looks the fixture up in a CATALOGUE: :1986 `const intensity = data.emission?.intensity ?? sceneIntensityFor(photo, this._isNight);` and :1989 `const colorHex = kelvinToHex(photo.kelvin);` where `photo` comes from `photometryForFixture` (FixturePhotometry.ts). Line 334 states it outright: 'Lens tint, DERIVED from the row's kelvin — never authored.'"
+        ],
+        "honesty_verdict": "SPLIT. The SUBSTITUTION is honest — the builder says in its own comments that colour and brightness come from the catalogue row and are 'never authored', and that is a defensible LOD-200 design (LightingTypes.ts:250-261 defends ONE `lod200Overrides` block over twenty param interfaces, precisely to avoid twenty chances to drop a field on load). The DROP is not — the L0 schema authors kelvin, lumens, beamAngleDeg, intensity, colour, dropLength and isEmergency as if they were settable, no gate refuses them, and nothing warns that they will be ignored.",
+        "user_visible_consequence": "A pendant authored at 2700 K with a 3 m drop and 1200 lm renders at the catalogue's kelvin, the catalogue's lumens and no drop. An emergency luminaire (`isEmergency`) is indistinguishable from a normal one.",
+        "draws_what_the_user_authored": "NO — 3 of 18."
+      }
+    },
+    {
+      "member": "lighting plan symbol",
+      "surface": "plan",
+      "builder_file": "packages/core-app-model/src/views/symbols/LightingPlanSymbolRenderer.ts — `renderLightingSymbols`",
+      "package": "@pryzm/core-app-model",
+      "layer": "L2",
+      "invoked_by": "PlanViewCanvas._renderLightingPlanSymbols() (:2292, called at :660 and :2092) and apps/editor/.../plan-canvas/PlanViewSymbolRenderer.ts",
+      "⭐ REFUTATION_ON_RECORD": "Lighting is NOT one of the fifteen `*PlanSymbolBuilder` CLASSES, so a class-name grep reports its plan symbol as ABSENT. It is a STORE-DRIVEN PASS instead. ViewDependencyTracker.ts:97-107 records the same discovery: 'Precondition (1) HOLDS and was the part the audit could not see: lighting has no *PlanSymbolBuilder CLASS, so a class-name grep reports absence.' Prefer UNREACHABLE over ABSENT — here the correct answer was neither: it was DIFFERENTLY SHAPED.",
+      "drawn": "YES — but it contributes ZERO LineSegments to the technical drawing (ViewDependencyTracker.ts:103, §FIX-LIGHT-PLAN-UNSELECTABLE / L-10081), so it paints and is not selectable through the drawing index.",
+      "invalidation": "`lighting` IS in GEOMETRY_ELEMENT_TYPES (ViewDependencyTracker.ts:109) — added in Wave 4a. The tracker's comment records that painting was already wired and only the INVALIDATION leg was missing, 'which is exactly why a fixture only appeared when some unrelated edit happened to repaint'."
+    },
+    {"member": "luminaire", "surface": "section", "builder_file": "NONE MEASURED — no lighting elevation/section symbol among the injectors at EdgeProjectorService.ts:4059-4110", "drawn": "NO (cut mesh only)"},
+    {"member": "luminaire", "surface": "export", "builder_file": "NONE — there is no LightingReader in packages/file-format/src/export/ifc/readers/ (16 readers, none for lighting)", "drawn": "NO", "honest_about_it": "NOT MEASURED — no refusal message found; lighting simply does not appear in the export."}
+  ]
+}

@@ -1,0 +1,200 @@
+{
+ "annotation": {
+  "files_scanned": 77,
+  "P2_raw_three": [],
+  "P3_raf": [],
+  "P4_window_cast": [
+   "plugins/annotations/src/subsystem/ViewLinkResolver.ts:36",
+   "plugins/annotations/src/tools/ElementTagTool.ts:169"
+  ]
+ },
+ "balcony": {
+  "files_scanned": 13,
+  "P2_raw_three": [],
+  "P3_raf": [],
+  "P4_window_cast": []
+ },
+ "bathroomPod": {
+  "files_scanned": 21,
+  "P2_raw_three": [],
+  "P3_raf": [],
+  "P4_window_cast": []
+ },
+ "beam": {
+  "files_scanned": 23,
+  "P2_raw_three": [],
+  "P3_raf": [],
+  "P4_window_cast": []
+ },
+ "boundaryLine": {
+  "files_scanned": 14,
+  "P2_raw_three": [],
+  "P3_raf": [],
+  "P4_window_cast": []
+ },
+ "ceiling": {
+  "files_scanned": 20,
+  "P2_raw_three": [],
+  "P3_raf": [],
+  "P4_window_cast": []
+ },
+ "column": {
+  "files_scanned": 30,
+  "P2_raw_three": [],
+  "P3_raf": [],
+  "P4_window_cast": [
+   "packages/geometry-column/src/ColumnTool.ts:104"
+  ]
+ },
+ "curtainWall": {
+  "files_scanned": 57,
+  "P2_raw_three": [],
+  "P3_raf": [],
+  "P4_window_cast": [
+   "packages/geometry-curtain-wall/src/CurtainPanelStore.ts:271"
+  ]
+ },
+ "dimension": {
+  "files_scanned": 18,
+  "P2_raw_three": [],
+  "P3_raf": [],
+  "P4_window_cast": []
+ },
+ "door": {
+  "files_scanned": 41,
+  "P2_raw_three": [],
+  "P3_raf": [],
+  "P4_window_cast": []
+ },
+ "floor": {
+  "files_scanned": 10,
+  "P2_raw_three": [],
+  "P3_raf": [],
+  "P4_window_cast": []
+ },
+ "furniture": {
+  "files_scanned": 119,
+  "P2_raw_three": [],
+  "P3_raf": [],
+  "P4_window_cast": []
+ },
+ "grid": {
+  "files_scanned": 15,
+  "P2_raw_three": [],
+  "P3_raf": [],
+  "P4_window_cast": []
+ },
+ "handrail": {
+  "files_scanned": 34,
+  "P2_raw_three": [],
+  "P3_raf": [],
+  "P4_window_cast": []
+ },
+ "lift": {
+  "files_scanned": 22,
+  "P2_raw_three": [],
+  "P3_raf": [],
+  "P4_window_cast": [
+   "packages/geometry-lift/src/LiftTool.ts:111"
+  ]
+ },
+ "liftPart": {
+  "files_scanned": 22,
+  "P2_raw_three": [],
+  "P3_raf": [],
+  "P4_window_cast": [
+   "packages/geometry-lift/src/LiftTool.ts:111"
+  ]
+ },
+ "lighting": {
+  "files_scanned": 27,
+  "P2_raw_three": [],
+  "P3_raf": [],
+  "P4_window_cast": []
+ },
+ "plumbing": {
+  "files_scanned": 38,
+  "P2_raw_three": [],
+  "P3_raf": [],
+  "P4_window_cast": []
+ },
+ "pool": {
+  "files_scanned": 11,
+  "P2_raw_three": [],
+  "P3_raf": [],
+  "P4_window_cast": []
+ },
+ "roof": {
+  "files_scanned": 49,
+  "P2_raw_three": [],
+  "P3_raf": [],
+  "P4_window_cast": []
+ },
+ "room": {
+  "files_scanned": 32,
+  "P2_raw_three": [],
+  "P3_raf": [],
+  "P4_window_cast": [
+   "plugins/rooms/src/handlers/RenameRoom.ts:43"
+  ]
+ },
+ "section": {
+  "files_scanned": 16,
+  "P2_raw_three": [],
+  "P3_raf": [],
+  "P4_window_cast": []
+ },
+ "selection": {
+  "files_scanned": 13,
+  "P2_raw_three": [],
+  "P3_raf": [],
+  "P4_window_cast": []
+ },
+ "slab": {
+  "files_scanned": 66,
+  "P2_raw_three": [],
+  "P3_raf": [],
+  "P4_window_cast": []
+ },
+ "stair": {
+  "files_scanned": 70,
+  "P2_raw_three": [],
+  "P3_raf": [],
+  "P4_window_cast": [
+   "packages/geometry-stair/src/StairMeshBuilder.ts:92",
+   "packages/geometry-stair/src/StairRailingBuilder.ts:117"
+  ]
+ },
+ "structural": {
+  "files_scanned": 20,
+  "P2_raw_three": [],
+  "P3_raf": [],
+  "P4_window_cast": []
+ },
+ "wall": {
+  "files_scanned": 117,
+  "P2_raw_three": [],
+  "P3_raf": [],
+  "P4_window_cast": [
+   "packages/geometry-wall/src/WallJoinResolver.ts:977",
+   "packages/geometry-wall/src/WallJoinResolver.ts:1422",
+   "packages/geometry-wall/src/WallJoinResolver.ts:1537",
+   "packages/geometry-wall/src/WallJoinResolver.ts:1676",
+   "packages/geometry-wall/src/WallJoinResolver.ts:2029",
+   "packages/geometry-wall/src/WallJoinResolver.ts:2147",
+   "packages/geometry-wall/src/WallJunctionClustering.ts:124"
+  ]
+ },
+ "water": {
+  "files_scanned": 11,
+  "P2_raw_three": [],
+  "P3_raf": [],
+  "P4_window_cast": []
+ },
+ "window": {
+  "files_scanned": 38,
+  "P2_raw_three": [],
+  "P3_raf": [],
+  "P4_window_cast": []
+ }
+}

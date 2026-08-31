@@ -1,0 +1,1186 @@
+{
+ "annotation": {
+  "total": 9,
+  "kinds": {
+   "create": 1,
+   "delete": 1,
+   "move": 1,
+   "update": 6
+  },
+  "liveness": {
+   "UNKNOWN": 9
+  },
+  "others": [],
+  "verbs": [
+   "annotation.create",
+   "annotation.delete",
+   "annotation.move",
+   "annotation.setColor",
+   "annotation.setKind",
+   "annotation.setRotation",
+   "annotation.setText",
+   "annotation.setTextHeight",
+   "annotation.update"
+  ]
+ },
+ "balcony": {
+  "total": 3,
+  "kinds": {
+   "create": 1,
+   "delete": 1,
+   "update": 1
+  },
+  "liveness": {
+   "UNKNOWN": 3
+  },
+  "others": [],
+  "verbs": [
+   "balcony.create",
+   "balcony.delete",
+   "balcony.updateProfile"
+  ]
+ },
+ "bathroomPod": {
+  "total": 2,
+  "kinds": {
+   "create": 1,
+   "delete": 1
+  },
+  "liveness": {
+   "UNKNOWN": 2
+  },
+  "others": [],
+  "verbs": [
+   "bathroomPod.create",
+   "bathroomPod.delete"
+  ]
+ },
+ "beam": {
+  "total": 9,
+  "kinds": {
+   "batch.create": 1,
+   "update": 5,
+   "create": 1,
+   "delete": 1,
+   "move": 1
+  },
+  "liveness": {
+   "UNKNOWN": 5,
+   "LIVE": 2,
+   "REFUSES": 2
+  },
+  "others": [],
+  "verbs": [
+   "beam.batch.create",
+   "beam.changeLevel",
+   "beam.create",
+   "beam.delete",
+   "beam.move",
+   "beam.setMaterial",
+   "beam.setSection",
+   "beam.setType",
+   "beam.update"
+  ]
+ },
+ "boundaryLine": {
+  "total": 6,
+  "kinds": {
+   "update": 3,
+   "create": 1,
+   "delete": 1,
+   "move": 1
+  },
+  "liveness": {
+   "UNKNOWN": 5,
+   "LIVE": 1
+  },
+  "others": [],
+  "verbs": [
+   "boundaryLine.attach",
+   "boundaryLine.create",
+   "boundaryLine.delete",
+   "boundaryLine.detach",
+   "boundaryLine.move",
+   "boundaryLine.update"
+  ]
+ },
+ "ceiling": {
+  "total": 10,
+  "kinds": {
+   "batch.create": 1,
+   "update": 7,
+   "create": 1,
+   "delete": 1
+  },
+  "liveness": {
+   "UNKNOWN": 6,
+   "LIVE": 3,
+   "REFUSES": 1
+  },
+  "others": [],
+  "verbs": [
+   "ceiling.batch.create",
+   "ceiling.changeLevel",
+   "ceiling.create",
+   "ceiling.delete",
+   "ceiling.setBoundary",
+   "ceiling.setHeight",
+   "ceiling.setMaterial",
+   "ceiling.update",
+   "ceiling.updateLayers",
+   "ceiling.updateSystemTypeBatch"
+  ]
+ },
+ "column": {
+  "total": 9,
+  "kinds": {
+   "batch.create": 1,
+   "update": 5,
+   "create": 1,
+   "delete": 1,
+   "move": 1
+  },
+  "liveness": {
+   "UNKNOWN": 5,
+   "LIVE": 2,
+   "REFUSES": 2
+  },
+  "others": [],
+  "verbs": [
+   "column.batch.create",
+   "column.changeLevel",
+   "column.create",
+   "column.delete",
+   "column.move",
+   "column.setHeight",
+   "column.setMaterial",
+   "column.setType",
+   "column.update"
+  ]
+ },
+ "copy-selection": {
+  "total": 1,
+  "kinds": {
+   "other": 1
+  },
+  "liveness": {
+   "UNKNOWN": 1
+  },
+  "others": [
+   "copy-selection"
+  ],
+  "verbs": [
+   "copy-selection"
+  ]
+ },
+ "cube": {
+  "total": 1,
+  "kinds": {
+   "move": 1
+  },
+  "liveness": {
+   "UNKNOWN": 1
+  },
+  "others": [],
+  "verbs": [
+   "cube.move"
+  ]
+ },
+ "curtain-wall": {
+  "total": 24,
+  "kinds": {
+   "update": 14,
+   "batch.create": 1,
+   "other": 3,
+   "create": 1,
+   "create-variant": 1,
+   "delete": 3,
+   "move": 1
+  },
+  "liveness": {
+   "UNKNOWN": 19,
+   "LIVE": 4,
+   "REFUSES": 1
+  },
+  "others": [
+   "curtain-wall.batch.delete",
+   "curtain-wall.batch.update",
+   "curtain-wall.swapPanel"
+  ],
+  "verbs": [
+   "curtain-wall.addGridLine",
+   "curtain-wall.addPanel",
+   "curtain-wall.batch.create",
+   "curtain-wall.batch.delete",
+   "curtain-wall.batch.update",
+   "curtain-wall.bulkUpdatePanels",
+   "curtain-wall.bulkUpdateParameter",
+   "curtain-wall.changeLevel",
+   "curtain-wall.create",
+   "curtain-wall.create-on-all-slabs",
+   "curtain-wall.delete",
+   "curtain-wall.move",
+   "curtain-wall.removeGridLine",
+   "curtain-wall.removePanel",
+   "curtain-wall.replacePanel",
+   "curtain-wall.resize",
+   "curtain-wall.rotatePanel",
+   "curtain-wall.setGrid",
+   "curtain-wall.setMaterial",
+   "curtain-wall.setMullionType",
+   "curtain-wall.setOutline",
+   "curtain-wall.setPanelType",
+   "curtain-wall.setTransomType",
+   "curtain-wall.swapPanel"
+  ]
+ },
+ "data": {
+  "total": 3,
+  "kinds": {
+   "update": 2,
+   "other": 1
+  },
+  "liveness": {
+   "LIVE": 3
+  },
+  "others": [
+   "data.markPropertyDerived"
+  ],
+  "verbs": [
+   "data.clearPropertyDerived",
+   "data.markPropertyDerived",
+   "data.setDerivation"
+  ]
+ },
+ "dimension": {
+  "total": 7,
+  "kinds": {
+   "create": 1,
+   "batch.create": 1,
+   "delete": 1,
+   "move": 1,
+   "update": 3
+  },
+  "liveness": {
+   "UNKNOWN": 6,
+   "REFUSES": 1
+  },
+  "others": [],
+  "verbs": [
+   "dimension.create",
+   "dimension.createMany",
+   "dimension.delete",
+   "dimension.move",
+   "dimension.setPrecision",
+   "dimension.setText",
+   "dimension.setUnit"
+  ]
+ },
+ "door": {
+  "total": 14,
+  "kinds": {
+   "batch.create": 1,
+   "create": 1,
+   "delete": 1,
+   "move": 1,
+   "update": 10
+  },
+  "liveness": {
+   "UNKNOWN": 6,
+   "REFUSES": 2,
+   "LIVE": 6
+  },
+  "others": [],
+  "verbs": [
+   "door.batch.create",
+   "door.create",
+   "door.delete",
+   "door.move",
+   "door.setAccessibility",
+   "door.setFireRating",
+   "door.setFrameColor",
+   "door.setHeight",
+   "door.setOffset",
+   "door.setSillHeight",
+   "door.setSwing",
+   "door.setType",
+   "door.setWidth",
+   "door.updateSystemTypeBatch"
+  ]
+ },
+ "element": {
+  "total": 10,
+  "kinds": {
+   "update": 6,
+   "delete": 2,
+   "other": 2
+  },
+  "liveness": {
+   "LIVE": 10
+  },
+  "others": [
+   "element.hideInView",
+   "element.isolateInView"
+  ],
+  "verbs": [
+   "element.changeType",
+   "element.delete",
+   "element.deleteBatch",
+   "element.hideInView",
+   "element.isolateInView",
+   "element.setGraphicOverride",
+   "element.updateDimensionsBatch",
+   "element.updateMark",
+   "element.updateOpeningProfileBatch",
+   "element.updateParameters"
+  ]
+ },
+ "elementType": {
+  "total": 4,
+  "kinds": {
+   "create": 1,
+   "delete": 1,
+   "other": 1,
+   "update": 1
+  },
+  "liveness": {
+   "LIVE": 4
+  },
+  "others": [
+   "elementType.duplicate"
+  ],
+  "verbs": [
+   "elementType.create",
+   "elementType.delete",
+   "elementType.duplicate",
+   "elementType.update"
+  ]
+ },
+ "elevation": {
+  "total": 1,
+  "kinds": {
+   "create": 1
+  },
+  "liveness": {
+   "LIVE": 1
+  },
+  "others": [],
+  "verbs": [
+   "elevation.create"
+  ]
+ },
+ "floor": {
+  "total": 6,
+  "kinds": {
+   "update": 5,
+   "create": 1
+  },
+  "liveness": {
+   "LIVE": 3,
+   "UNKNOWN": 2,
+   "REFUSES": 1
+  },
+  "others": [],
+  "verbs": [
+   "floor.changeLevel",
+   "floor.create",
+   "floor.setFinishBatch",
+   "floor.setMaterial",
+   "floor.update",
+   "floor.updateLayers"
+  ]
+ },
+ "furniture": {
+  "total": 12,
+  "kinds": {
+   "batch.create": 1,
+   "update": 8,
+   "create": 1,
+   "delete": 1,
+   "move": 1
+  },
+  "liveness": {
+   "UNKNOWN": 7,
+   "LIVE": 2,
+   "REFUSES": 3
+  },
+  "others": [],
+  "verbs": [
+   "furniture.batch.create",
+   "furniture.bulkUpdateKitchenMaterial",
+   "furniture.changeLevel",
+   "furniture.create",
+   "furniture.delete",
+   "furniture.move",
+   "furniture.rotate",
+   "furniture.setActiveLod",
+   "furniture.setMaterial",
+   "furniture.setRepresentation",
+   "furniture.setScale",
+   "furniture.updateParameters"
+  ]
+ },
+ "generation": {
+  "total": 4,
+  "kinds": {
+   "other": 4
+  },
+  "liveness": {
+   "LIVE": 4
+  },
+  "others": [
+   "generation.apartment",
+   "generation.building",
+   "generation.finish-chain",
+   "generation.rooms"
+  ],
+  "verbs": [
+   "generation.apartment",
+   "generation.building",
+   "generation.finish-chain",
+   "generation.rooms"
+  ]
+ },
+ "generative": {
+  "total": 1,
+  "kinds": {
+   "update": 1
+  },
+  "liveness": {
+   "LIVE": 1
+  },
+  "others": [],
+  "verbs": [
+   "generative.applyLayout"
+  ]
+ },
+ "graph": {
+  "total": 3,
+  "kinds": {
+   "other": 3
+  },
+  "liveness": {
+   "LIVE": 3
+  },
+  "others": [
+   "graph.neighbors",
+   "graph.path",
+   "graph.query"
+  ],
+  "verbs": [
+   "graph.neighbors",
+   "graph.path",
+   "graph.query"
+  ]
+ },
+ "grid": {
+  "total": 6,
+  "kinds": {
+   "update": 4,
+   "create": 1,
+   "delete": 1
+  },
+  "liveness": {
+   "LIVE": 2,
+   "UNKNOWN": 4
+  },
+  "others": [],
+  "verbs": [
+   "grid.add",
+   "grid.create",
+   "grid.delete",
+   "grid.setExtent",
+   "grid.setSpacing",
+   "grid.update"
+  ]
+ },
+ "handrail": {
+  "total": 10,
+  "kinds": {
+   "update": 6,
+   "create": 1,
+   "delete": 1,
+   "move": 1,
+   "other": 1
+  },
+  "liveness": {
+   "LIVE": 3,
+   "UNKNOWN": 6,
+   "REFUSES": 1
+  },
+  "others": [
+   "handrail.recompute"
+  ],
+  "verbs": [
+   "handrail.changeLevel",
+   "handrail.create",
+   "handrail.delete",
+   "handrail.moveBaseLine",
+   "handrail.recompute",
+   "handrail.setHost",
+   "handrail.setMaterial",
+   "handrail.setPath",
+   "handrail.setShape",
+   "handrail.updateColor"
+  ]
+ },
+ "hierarchy": {
+  "total": 5,
+  "kinds": {
+   "create-variant": 4,
+   "update": 1
+  },
+  "liveness": {
+   "LIVE": 5
+  },
+  "others": [],
+  "verbs": [
+   "hierarchy.createBuilding",
+   "hierarchy.createLevel",
+   "hierarchy.createSite",
+   "hierarchy.createUnit",
+   "hierarchy.updateNode"
+  ]
+ },
+ "level": {
+  "total": 3,
+  "kinds": {
+   "update": 2,
+   "other": 1
+  },
+  "liveness": {
+   "LIVE": 3
+  },
+  "others": [
+   "level.duplicate-floor-plan"
+  ],
+  "verbs": [
+   "level.add",
+   "level.duplicate-floor-plan",
+   "level.update"
+  ]
+ },
+ "lift": {
+  "total": 2,
+  "kinds": {
+   "create": 1,
+   "delete": 1
+  },
+  "liveness": {
+   "UNKNOWN": 2
+  },
+  "others": [],
+  "verbs": [
+   "lift.create",
+   "lift.delete"
+  ]
+ },
+ "lighting": {
+  "total": 8,
+  "kinds": {
+   "update": 4,
+   "create": 1,
+   "delete": 1,
+   "move": 2
+  },
+  "liveness": {
+   "LIVE": 2,
+   "UNKNOWN": 4,
+   "REFUSES": 2
+  },
+  "others": [],
+  "verbs": [
+   "lighting.changeLevel",
+   "lighting.create",
+   "lighting.delete",
+   "lighting.move",
+   "lighting.moveFixture",
+   "lighting.setEmergency",
+   "lighting.setIntensity",
+   "lighting.setMaterial"
+  ]
+ },
+ "opening": {
+  "total": 1,
+  "kinds": {
+   "create": 1
+  },
+  "liveness": {
+   "LIVE": 1
+  },
+  "others": [],
+  "verbs": [
+   "opening.create"
+  ]
+ },
+ "paste-clipboard": {
+  "total": 1,
+  "kinds": {
+   "other": 1
+  },
+  "liveness": {
+   "UNKNOWN": 1
+  },
+  "others": [
+   "paste-clipboard"
+  ],
+  "verbs": [
+   "paste-clipboard"
+  ]
+ },
+ "plumbing": {
+  "total": 8,
+  "kinds": {
+   "update": 3,
+   "create": 1,
+   "create-variant": 1,
+   "delete": 1,
+   "move": 2
+  },
+  "liveness": {
+   "LIVE": 3,
+   "UNKNOWN": 3,
+   "REFUSES": 2
+  },
+  "others": [],
+  "verbs": [
+   "plumbing.changeLevel",
+   "plumbing.create",
+   "plumbing.createFixture",
+   "plumbing.delete",
+   "plumbing.move",
+   "plumbing.moveFixture",
+   "plumbing.setMaterial",
+   "plumbing.setSystem"
+  ]
+ },
+ "pool": {
+  "total": 2,
+  "kinds": {
+   "create": 1,
+   "delete": 1
+  },
+  "liveness": {
+   "UNKNOWN": 2
+  },
+  "others": [],
+  "verbs": [
+   "pool.create",
+   "pool.delete"
+  ]
+ },
+ "projectOrigin": {
+  "total": 2,
+  "kinds": {
+   "update": 2
+  },
+  "liveness": {
+   "LIVE": 2
+  },
+  "others": [],
+  "verbs": [
+   "projectOrigin.setPosition",
+   "projectOrigin.setVisible"
+  ]
+ },
+ "rhino": {
+  "total": 2,
+  "kinds": {
+   "other": 1,
+   "update": 1
+  },
+  "liveness": {
+   "LIVE": 2
+  },
+  "others": [
+   "rhino.resetMaterial"
+  ],
+  "verbs": [
+   "rhino.resetMaterial",
+   "rhino.setMaterial"
+  ]
+ },
+ "roof": {
+  "total": 13,
+  "kinds": {
+   "update": 8,
+   "create": 1,
+   "delete": 2,
+   "join": 1,
+   "move": 1
+  },
+  "liveness": {
+   "UNKNOWN": 9,
+   "LIVE": 2,
+   "REFUSES": 2
+  },
+  "others": [],
+  "verbs": [
+   "roof.addSkylight",
+   "roof.changeLevel",
+   "roof.create",
+   "roof.delete",
+   "roof.joinRoofs",
+   "roof.move",
+   "roof.removeSkylight",
+   "roof.setMaterial",
+   "roof.setOverhang",
+   "roof.setPitch",
+   "roof.setShape",
+   "roof.setThickness",
+   "roof.update"
+  ]
+ },
+ "room": {
+  "total": 18,
+  "kinds": {
+   "other": 4,
+   "create": 1,
+   "delete": 1,
+   "move": 1,
+   "regenerate": 1,
+   "update": 10
+  },
+  "liveness": {
+   "LIVE": 14,
+   "REFUSES": 2,
+   "UNKNOWN": 2
+  },
+  "others": [
+   "room.autoClassify.batch",
+   "room.recomputeBoundary",
+   "room.redetect",
+   "room.restoreMeaning"
+  ],
+  "verbs": [
+   "room.autoClassify.batch",
+   "room.create",
+   "room.delete",
+   "room.move",
+   "room.recomputeBoundary",
+   "room.redetect",
+   "room.regenerate",
+   "room.rename",
+   "room.restoreMeaning",
+   "room.setColourMode",
+   "room.setDepartment",
+   "room.setFinish",
+   "room.setHeightOffset",
+   "room.setMaterial",
+   "room.setName",
+   "room.setNumber",
+   "room.setOccupancy",
+   "room.updateBoundary"
+  ]
+ },
+ "schedule": {
+  "total": 7,
+  "kinds": {
+   "other": 2,
+   "create": 1,
+   "delete": 1,
+   "update": 3
+  },
+  "liveness": {
+   "UNKNOWN": 6,
+   "LIVE": 1
+  },
+  "others": [
+   "schedule.column.add",
+   "schedule.column.remove"
+  ],
+  "verbs": [
+   "schedule.column.add",
+   "schedule.column.remove",
+   "schedule.create",
+   "schedule.delete",
+   "schedule.setFilter",
+   "schedule.setGroupBy",
+   "schedule.update"
+  ]
+ },
+ "section": {
+  "total": 7,
+  "kinds": {
+   "create": 1,
+   "delete": 1,
+   "other": 1,
+   "move": 1,
+   "update": 3
+  },
+  "liveness": {
+   "UNKNOWN": 5,
+   "LIVE": 1,
+   "REFUSES": 1
+  },
+  "others": [
+   "section.mark.create"
+  ],
+  "verbs": [
+   "section.create",
+   "section.delete",
+   "section.mark.create",
+   "section.moveLine",
+   "section.setDepth",
+   "section.setMark",
+   "section.setScale"
+  ]
+ },
+ "selection": {
+  "total": 3,
+  "kinds": {
+   "update": 1,
+   "other": 2
+  },
+  "liveness": {
+   "UNKNOWN": 3
+  },
+  "others": [
+   "selection.deselect",
+   "selection.select"
+  ],
+  "verbs": [
+   "selection.clear",
+   "selection.deselect",
+   "selection.select"
+  ]
+ },
+ "sheet": {
+  "total": 12,
+  "kinds": {
+   "update": 7,
+   "create": 1,
+   "delete": 3,
+   "move": 1
+  },
+  "liveness": {
+   "LIVE": 2,
+   "UNKNOWN": 9,
+   "SHADOWED": 1
+  },
+  "others": [],
+  "verbs": [
+   "sheet.addViewport",
+   "sheet.addWidget",
+   "sheet.create",
+   "sheet.delete",
+   "sheet.moveViewport",
+   "sheet.removeViewport",
+   "sheet.removeWidget",
+   "sheet.rename",
+   "sheet.reorder",
+   "sheet.setSheetMetadata",
+   "sheet.setTitleBlock",
+   "sheet.setViewportScale"
+  ]
+ },
+ "slab": {
+  "total": 18,
+  "kinds": {
+   "update": 11,
+   "batch.create": 1,
+   "create": 1,
+   "create-variant": 1,
+   "delete": 2,
+   "move": 2
+  },
+  "liveness": {
+   "UNKNOWN": 11,
+   "LIVE": 5,
+   "REFUSES": 2
+  },
+  "others": [],
+  "verbs": [
+   "slab.addHole",
+   "slab.batch.create",
+   "slab.changeLevel",
+   "slab.create",
+   "slab.create-on-all-floors",
+   "slab.delete",
+   "slab.move",
+   "slab.movePolygon",
+   "slab.removeHole",
+   "slab.setBaseOffset",
+   "slab.setMaterial",
+   "slab.setThickness",
+   "slab.setType",
+   "slab.update",
+   "slab.updateDimensions",
+   "slab.updateLayers",
+   "slab.updatePolygon",
+   "slab.updateSystemTypeBatch"
+  ]
+ },
+ "stair": {
+  "total": 13,
+  "kinds": {
+   "batch.create": 1,
+   "create": 1,
+   "create-variant": 1,
+   "delete": 1,
+   "move": 1,
+   "update": 8
+  },
+  "liveness": {
+   "UNKNOWN": 8,
+   "LIVE": 3,
+   "REFUSES": 2
+  },
+  "others": [],
+  "verbs": [
+   "stair.batch.create",
+   "stair.create",
+   "stair.createRailing",
+   "stair.delete",
+   "stair.move",
+   "stair.rotate",
+   "stair.setMaterial",
+   "stair.setRiserHeight",
+   "stair.setShape",
+   "stair.setTreadCount",
+   "stair.setType",
+   "stair.setWidth",
+   "stair.updateParameters"
+  ]
+ },
+ "structural": {
+  "total": 7,
+  "kinds": {
+   "create": 1,
+   "delete": 1,
+   "move": 1,
+   "update": 4
+  },
+  "liveness": {
+   "UNKNOWN": 5,
+   "REFUSES": 2
+  },
+  "others": [],
+  "verbs": [
+   "structural.create",
+   "structural.delete",
+   "structural.move",
+   "structural.setBraceEndOffset",
+   "structural.setDimensions",
+   "structural.setKind",
+   "structural.setMaterial"
+  ]
+ },
+ "template": {
+  "total": 3,
+  "kinds": {
+   "update": 1,
+   "create": 1,
+   "other": 1
+  },
+  "liveness": {
+   "LIVE": 3
+  },
+  "others": [
+   "template.unassign"
+  ],
+  "verbs": [
+   "template.assignToNode",
+   "template.create",
+   "template.unassign"
+  ]
+ },
+ "vg": {
+  "total": 4,
+  "kinds": {
+   "update": 2,
+   "create-variant": 1,
+   "other": 1
+  },
+  "liveness": {
+   "LIVE": 4
+  },
+  "others": [
+   "vg.takeLatestIntentVersion"
+  ],
+  "verbs": [
+   "vg.assignIntent",
+   "vg.createVisibilityIntent",
+   "vg.takeLatestIntentVersion",
+   "vg.updateVisibilityIntent"
+  ]
+ },
+ "view": {
+  "total": 19,
+  "kinds": {
+   "update": 12,
+   "create": 1,
+   "create-variant": 1,
+   "delete": 2,
+   "other": 3
+  },
+  "liveness": {
+   "LIVE": 11,
+   "UNKNOWN": 8
+  },
+  "others": [
+   "view.hideElement",
+   "view.isolateElement",
+   "view.switch"
+  ],
+  "verbs": [
+   "view.clearAllOverrides",
+   "view.clearOverride",
+   "view.create",
+   "view.createDefinition",
+   "view.delete",
+   "view.deleteDefinition",
+   "view.hideElement",
+   "view.isolateElement",
+   "view.rename",
+   "view.setCategoryVisibility",
+   "view.setCrop",
+   "view.setGraphicOverride",
+   "view.setOutput",
+   "view.setProjection",
+   "view.setRange",
+   "view.setUnderlay",
+   "view.switch",
+   "view.updateCamera",
+   "view.updateDefinition"
+  ]
+ },
+ "viewTemplate": {
+  "total": 3,
+  "kinds": {
+   "create": 1,
+   "delete": 1,
+   "update": 1
+  },
+  "liveness": {
+   "LIVE": 3
+  },
+  "others": [],
+  "verbs": [
+   "viewTemplate.create",
+   "viewTemplate.delete",
+   "viewTemplate.update"
+  ]
+ },
+ "wall": {
+  "total": 31,
+  "kinds": {
+   "update": 17,
+   "batch.create": 2,
+   "other": 4,
+   "create": 1,
+   "create-variant": 3,
+   "delete": 1,
+   "join": 1,
+   "move": 1,
+   "split": 1
+  },
+  "liveness": {
+   "LIVE": 13,
+   "UNKNOWN": 12,
+   "REFUSES": 6
+  },
+  "others": [
+   "wall.cascadeBaseline",
+   "wall.cut",
+   "wall.opening.create",
+   "wall.transform"
+  ],
+  "verbs": [
+   "wall.addLayerBatch",
+   "wall.batch.create",
+   "wall.bulkSetVisuals",
+   "wall.cascadeBaseline",
+   "wall.changeLevel",
+   "wall.create",
+   "wall.create-on-all-slabs",
+   "wall.createBetweenMarks",
+   "wall.createFromSlab",
+   "wall.createOpening",
+   "wall.cut",
+   "wall.delete",
+   "wall.join",
+   "wall.move",
+   "wall.opening.create",
+   "wall.setColor",
+   "wall.setDimensions",
+   "wall.setLayers",
+   "wall.setSideFinishBatch",
+   "wall.setSystemType",
+   "wall.split",
+   "wall.transform",
+   "wall.updateBaseline",
+   "wall.updateColor",
+   "wall.updateColorBatch",
+   "wall.updateCurtainWall",
+   "wall.updateDimensions",
+   "wall.updateHeightBatch",
+   "wall.updateRakeBatch",
+   "wall.updateSystemType",
+   "wall.updateSystemTypeBatch"
+  ]
+ },
+ "window": {
+  "total": 12,
+  "kinds": {
+   "batch.create": 1,
+   "create": 1,
+   "delete": 1,
+   "move": 1,
+   "other": 1,
+   "update": 7
+  },
+  "liveness": {
+   "UNKNOWN": 4,
+   "REFUSES": 2,
+   "LIVE": 6
+  },
+  "others": [
+   "window.parametricCreate"
+  ],
+  "verbs": [
+   "window.batch.create",
+   "window.create",
+   "window.delete",
+   "window.move",
+   "window.parametricCreate",
+   "window.setFireRating",
+   "window.setFrameColor",
+   "window.setOffset",
+   "window.setSillHeight",
+   "window.setSize",
+   "window.setType",
+   "window.updateSystemTypeBatch"
+  ]
+ },
+ "zoom-fit": {
+  "total": 1,
+  "kinds": {
+   "other": 1
+  },
+  "liveness": {
+   "LIVE": 1
+  },
+  "others": [
+   "zoom-fit"
+  ],
+  "verbs": [
+   "zoom-fit"
+  ]
+ },
+ "zoom-selected": {
+  "total": 1,
+  "kinds": {
+   "other": 1
+  },
+  "liveness": {
+   "LIVE": 1
+  },
+  "others": [
+   "zoom-selected"
+  ],
+  "verbs": [
+   "zoom-selected"
+  ]
+ }
+}

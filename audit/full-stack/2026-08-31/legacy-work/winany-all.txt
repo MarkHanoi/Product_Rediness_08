@@ -1,0 +1,217 @@
+apps/editor/src/dev/installPryzmTestFunctions.ts:19://   • No `(window as any)` — uses the typed Window augmentation in
+apps/editor/src/engine/buildingGraphMaintainer.ts:80: * P2 — no THREE. P4 — no `(window as any)`; typed structural interfaces only.
+apps/editor/src/engine/eagerGlobeStart.ts:66:// WHY A MODULE SEAM, NOT A WINDOW GLOBAL: P4 forbids `(window as any)`, and the parties are all
+apps/editor/src/engine/engineLauncher.ts:470:    // These calls eliminate all `(window as any).selectionManager` reads in
+apps/editor/src/engine/engineLauncher.ts:472:    // `(window as any).selectionManager?.world?.scene?.three` read in
+apps/editor/src/engine/engineLauncher.ts:605:    // level.duplicate-floor-plan) use (window as any).commandManager internally.
+apps/editor/src/engine/initTools.ts:2547:                // Previously used `(window as any).bimManager?.registerElement?.(...)` — a C14
+apps/editor/src/engine/persistence/ProjectLoader.ts:1072:            // completely as `(window as any)` — it was one of the two sites that
+apps/editor/src/engine/postFxRouting.ts:37: *   P4 — no `(window as any)`; all deps arrive as narrow typed interfaces.
+apps/editor/src/engine/scheduleClickZoom.ts:23: * P4 — no `(window as any)`; the bus and selection are passed in as typed deps.
+apps/editor/src/engine/ViewController.ts:933:        // file (`window.runtime?.events?.emit`), not a `(window as any)` escape hatch.
+apps/editor/src/engine/views/autoframeGuard.ts:53: * editor's `window.toolManager` (typed inline — no `(window as any)`, P4-safe)
+apps/editor/src/engine/views/LevelPlanViewBinder.ts:52: *   P4 — no `(window as any)`; every global read is a narrow structural type.
+apps/editor/src/engine/views/plantools/DoorPlanToolHandler.ts:203:        // §P4.1: ctx.runtime is now typed — no unsafe (window as any) cast needed.
+apps/editor/src/engine/views/plantools/PlanToolHandler.ts:78:     * `(window as any).runtime`.  Optional so existing handlers that do not need
+apps/editor/src/engine/views/plantools/WindowPlanToolHandler.ts:159:        // §P4.1: ctx.runtime is now typed — no unsafe (window as any) cast needed.
+apps/editor/src/engine/views/PlanViewToolOverlay.ts:497:            runtime:           window.runtime ?? undefined, // §P4.1 — typed injection; eliminates (window as any).runtime in handlers
+apps/editor/src/engine/views/SvpPlanToolOverlay.ts:575:            runtime:           window.runtime ?? undefined, // §P4.1 — typed injection; eliminates (window as any).runtime in handlers
+apps/editor/src/PluginRegistry.ts:223: * cast (NOT `(window as any)`, so P4-compliant),
+apps/editor/src/PluginRegistry.ts:248:  // TS2339 in 23 of their compiles. Still NOT `(window as any)` — P4-compliant.
+apps/editor/src/rendering/autoWebGLHeavyScene.ts:73: *   P4 — no `(window as any)`; a typed `globalThis` cast (the same pattern
+apps/editor/src/rendering/renderQualityPin.ts:46: *   P4  — no `(window as any)`; the coordinator is reached through a narrow structural type.
+apps/editor/src/rendering/renderQualityPin.ts:120: * P4 — a structural type, not `(window as any)`: `window.renderingPipelineCoordinator` is
+apps/editor/src/types/globals.d.ts:504:                 *  end-to-end without `(window as any)`. Optional because the
+apps/editor/src/types/globals.d.ts:578:         * backend. Typed here so the toggle needs no `(window as any)` (P4).
+apps/editor/src/types/globals.d.ts:587:         * Typed here so the toggle needs no `(window as any)` (P4).
+apps/editor/src/ui/ai/chatPlacementActivation.ts:222:// defeats the Window type just as completely as `(window as any)` and merely takes
+apps/editor/src/ui/ai/ZeroTokenChatBridge.ts:104:// ─── Minimal window facets (P4: typed casts, no `(window as any)`) ───────────
+apps/editor/src/ui/analysis/analysisLayout.ts:39: * L7 file. No THREE (P2), no rAF (P3), no `(window as any)` (P4), no store
+apps/editor/src/ui/analysis/analysisReadModel.ts:72: * L7 file. No THREE (P2), no rAF (P3), no `(window as any)` (P4) — the store
+apps/editor/src/ui/analysis/analysisRelatedHighlight.ts:67: * L7 file. No THREE (P2), no rAF (P3), no `(window as any)` (P4), no store
+apps/editor/src/ui/analysis/AnalysisSurface.ts:42: * L7 file. No THREE (P2), no rAF (P3), no `(window as any)` (P4), no store
+apps/editor/src/ui/analysis/AnalysisTypes.ts:38: * L7 file. No THREE (P2), no rAF (P3), no `(window as any)` (P4), no store
+apps/editor/src/ui/analysis/areaStandards.ts:66: * `(window as any)` (P4), no store writes (P6) — it reads no store at all;
+apps/editor/src/ui/analysis/forceLayoutND.ts:54: * L7 file. No THREE (P2), no rAF (P3), no `(window as any)` (P4), no store
+apps/editor/src/ui/analysis/graphReadModel.ts:29: * L7 file. No THREE (P2), no rAF (P3), no `(window as any)` (P4), no store
+apps/editor/src/ui/analysis/graphViewState.ts:21: * L7 file. No THREE (P2), no rAF (P3), no `(window as any)` (P4), no store
+apps/editor/src/ui/analysis/selectionFacets.ts:86: * L7 file. No THREE (P2), no rAF (P3), no `(window as any)` (P4), no store
+apps/editor/src/ui/analysis/seriesFocus.ts:47: * L7 file. No THREE (P2), no rAF (P3), no `(window as any)` (P4), no store
+apps/editor/src/ui/analysis/widgetCatalogue.ts:26: * L7 file. No THREE (P2), no rAF (P3), no `(window as any)` (P4), no store
+apps/editor/src/ui/analysis/widgetRenderers.ts:65: * this surface never schedules a frame. No `(window as any)` (P4), no store
+apps/editor/src/ui/bottom-menu/levelCoverageCensus.ts:7: *                    no `(window as any)` (P4), no store writes (P6). The CALLER
+apps/editor/src/ui/dataworkbench/buckets/MedicionesTimeCarbon.ts:82:// A narrow structural interface, NOT `(window as any)` (P4). It names exactly the
+apps/editor/src/ui/dataworkbench/HierarchyTreeAddActions.ts:154:            await (window as any).runtime?.bus?.executeCommand('hierarchy.createSite', { id, name: values.name, code: values.code, address: values.address });
+apps/editor/src/ui/dataworkbench/HierarchyTreeAddActions.ts:180:            await (window as any).runtime?.bus?.executeCommand('hierarchy.createBuilding', { id, siteId: values.siteId, name: values.name, code: values.code });
+apps/editor/src/ui/dataworkbench/HierarchyTreeAddActions.ts:223:            await (window as any).runtime?.bus?.executeCommand('hierarchy.createLevel', {
+apps/editor/src/ui/dataworkbench/HierarchyTreeAddActions.ts:257:            await (window as any).runtime?.bus?.executeCommand('hierarchy.createUnit', {
+apps/editor/src/ui/dataworkbench/syncStateColours.ts:32: * `(window as any)` (P4), no store writes (P6).
+apps/editor/src/ui/dataworkbench/SyncStateDetailDrawer.ts:541:        (window as any).runtime?.bus?.executeCommand('data.setDerivation', { nodeId, keys, reason });
+apps/editor/src/ui/dev/apartmentDataTestModal.ts:21: *   • No `(window as any)`; the runtime is read through the typed
+apps/editor/src/ui/dev/apartmentDataTestModal.ts:300: *                 globals augmentation — no `(window as any)` cast.
+apps/editor/src/ui/dev/familyPlatformTestModal.ts:15: *   • No `(window as any)`; `openFamilyPlatformTestModal` is a local helper.
+apps/editor/src/ui/dev/modelTreeTestModal.ts:18: *   • No `(window as any)`; the runtime is read through the typed
+apps/editor/src/ui/dev/modelTreeTestModal.ts:215: *                 globals augmentation — no `(window as any)` cast.
+apps/editor/src/ui/dev/pdfExportTestModal.ts:16: *   • No `(window as any)`; the runtime is accessed defensively through
+apps/editor/src/ui/dev/sheetGeneratorTestModal.ts:16: *   • No `(window as any)`; the runtime is accessed defensively through
+apps/editor/src/ui/dev/validateLayoutTestModal.ts:15: *   • No `(window as any)`; `openValidateLayoutTestModal` is a local helper.
+apps/editor/src/ui/documentation/applyAutoDimensions.ts:92: * (no `(window as any)`, P4).
+apps/editor/src/ui/documentation/commitAnnotationSet.ts:96: * shape — no `(window as any)` (P4). Best-effort: absent in headless/test (no
+apps/editor/src/ui/facade/FacadeReconstructionPanel.ts:44: *   P2       — no THREE; P4 — no `(window as any)`, the console opener is typed
+apps/editor/src/ui/inspect/audit/heatRamp.ts:24: * L7 file. No THREE (P2), no rAF (P3), no `(window as any)` (P4), no store
+apps/editor/src/ui/inspect/audit/inspectCategories.ts:7: *                    (P2), no rAF (P3), no `(window as any)` (P4), no store
+apps/editor/src/ui/inspect/audit/projectTreeModel.ts:8: *                    `(window as any)` (P4), no store writes (P6).
+apps/editor/src/ui/inspect/InspectPanel.ts:33: *     `requestAnimationFrame` (P3), no `(window as any)` (P4).
+apps/editor/src/ui/inspect/ModelTree.ts:35:// no `(window as any)`.
+apps/editor/src/ui/inspect/ModelTreeNode.ts:14:// `(window as any)`.  Defensive against missing optional metadata.
+apps/editor/src/ui/inspect/resolveLevelAuthority.ts:58:/** Structural check for the live authority. No `(window as any)` — P4 is a
+apps/editor/src/ui/intent/HeaderIntentPicker.ts:95:        (window as any).runtime?.bus
+apps/editor/src/ui/intent/SpineOverrideList.ts:64:            (window as any).runtime?.bus
+apps/editor/src/ui/intent/SpineOverrideList.ts:99:            (window as any).runtime?.bus
+apps/editor/src/ui/kitchen/KitchenRunInspector.ts:457:        (window as any).runtime?.bus?.executeCommand('furniture.updateParameters', {
+apps/editor/src/ui/kitchen/KitchenUnitInspector.ts:657:        (window as any).runtime?.bus?.executeCommand('furniture.updateParameters', {
+apps/editor/src/ui/layout/GISAreaLayout.ts:3158:                    // A declared global, not `(window as any)` — P4 holds.
+apps/editor/src/ui/living-graph/livingGraphSelection.ts:23:// `(window as any)` outside the allowlisted file.
+apps/editor/src/ui/office-building/officeShowFullDetail.ts:29:// P4: no `(window as any)` — the culling service owns the typed `globalThis` writes. P8: no new
+apps/editor/src/ui/overlays/RendererBackendToggle.ts:26: * global (declared in apps/editor/src/types/globals.d.ts) — no `(window as any)`.
+apps/editor/src/ui/platform/workspaceModes.ts:40: * L7 file. No THREE (P2), no rAF (P3), no `(window as any)` (P4), no store
+apps/editor/src/ui/property-panel/CurtainPanelEditor.ts:257:            commandManager: ctx?.commandManager ?? (window as any).commandManager, // TODO(E.curtain-wall.S): legacy commandManager
+apps/editor/src/ui/property-panel/CurtainSubElementPanel.ts:44:    return ctx?.commandManager ?? (window as any).commandManager; // TODO(E.curtain-wall.S): legacy commandManager — retire with the CurtainPanelStore -> Store<CurtainPanelData> migration
+apps/editor/src/ui/property-panel/PropertyPanel.ts:956:                curtainWallStore:  (window as any).curtainWallStore,  // TODO(E.curtain-wall.S): legacy store handle
+apps/editor/src/ui/property-panel/PropertyPanel.ts:957:                curtainPanelStore: (window as any).curtainPanelStore, // TODO(E.curtain-wall.S): legacy store handle
+apps/editor/src/ui/property-panel/RoofPropertySheet.ts:316:        (this.runtime?.bus ?? (window as any).runtime?.bus) // TODO(TASK-08)
+apps/editor/src/ui/RadialMenu.ts:262:            (this.runtime ?? (window as any).runtime)?.bus
+apps/editor/src/ui/site/designMeasurement.ts:63:// P4 — no `(window as any)`: this module touches no globals at all; every source is INJECTED.
+apps/editor/src/ui/styles/categoricalPalette.ts:7: * Layer: L7 UI (apps/editor). No THREE (P2), no rAF (P3), no `(window as any)`
+apps/editor/src/ui/tools-panel/panels/GridsLevelsRailPanel.ts:270:        (this.runtime ?? (window as any).runtime)?.bus
+apps/editor/src/ui/tools-panel/panels/RenderRailPanel.ts:210:            // P4 — a narrow structural type, not `(window as any)`.
+apps/editor/src/ui/ViewBrowser/panels/unified-browser/BrowserDataHelpers.ts:480:    if (storeKey && !(window as any)[storeKey]) {
+apps/editor/src/ui/views/ViewHeaderButtons.ts:199:        (window as any).runtime?.bus
+packages/ai-host/src/AIService.ts:61:   *  `(window as any).selectionManager`.  Called from `engineLauncher.ts`
+packages/ai-host/src/QueryEngine.ts:77:    /** Injected scene accessor — replaces `(window as any).selectionManager?.world?.scene?.three`.
+packages/ai-host/src/QueryEngine.ts:92:    /** Wire a scene accessor so this package never reads `(window as any).selectionManager`.
+packages/ai-host/src/QueryEngine.ts:1646:                    const scene = this._sceneAccessor?.() ?? (window as any).selectionManager?.world?.scene?.three;
+packages/ai-host/src/workflows/apartmentLayout/entranceDoor/entranceDoor.ts:31: * template-string build. P4: cast through `globalThis`, never `(window as any)`.
+packages/ai-host/src/workflows/apartmentLayout/tgl/bubbleGraph.ts:25: * template-string build. P4: cast through `globalThis`, never `(window as any)`.
+packages/ai-host/src/workflows/apartmentLayout/tgl/enumerate.ts:56: * through `globalThis`, never `(window as any)`.
+packages/ai-host/src/workflows/apartmentLayout/tgl/runDeterministicLayout.ts:26: * through `globalThis`, never `(window as any)`.
+packages/ai-host/src/workflows/apartmentLayout/tgl/subdivide.ts:42: * through `globalThis`, never `(window as any)`.
+packages/ai-host/src/workflows/apartmentLayout/tgl/subdivideViaSpine.ts:22: * through `globalThis`, never `(window as any)`.
+packages/ai-host/src/workflows/apartmentLayout/tgl/wallsAndDoors.ts:33: * the template-string build. P4: cast through `globalThis`, never `(window as any)`.
+packages/ai-host/src/workflows/apartmentLayout/windowEmission/emitWindows.ts:76: * through `globalThis`, never `(window as any)`.
+packages/ai-host/src/workflows/apartmentLayout/windowEmission/shellWallMatch.ts:26: * template-string build. P4: cast through `globalThis`, never `(window as any)`.
+packages/ai-host/src/workflows/residentialBuilding/residentialBuildingOrchestrator.ts:80: * cast through `globalThis`, never `(window as any)`.
+packages/command-bus/dist/CommandBus.d.ts:134:     * key — no `(window as any)` fallback, ever.
+packages/command-bus/dist/types.d.ts:44: * from the materialised `stores` map (no `(window as any)` fallback —
+packages/command-bus/src/CommandBus.ts:16://     from `ctx.stores` — explicitly outlaws the PRYZM-1 `(window as any)`
+packages/command-bus/src/CommandBus.ts:279:   * key — no `(window as any)` fallback, ever.
+packages/command-bus/src/types.ts:74: * from the materialised `stores` map (no `(window as any)` fallback —
+packages/constraint-solver/src/ConstraintEngine.ts:113:        (window as any).runtime?.events?.on('pryzm-sync-state-changed', () => this._scheduleRun());
+packages/core-app-model/src/BimKernel.ts:108:    /** Injected GridStore reference — replaces `(window as any).gridStore` reads.
+packages/core-app-model/src/BimKernel.ts:124:     *  reads `(window as any).gridStore` in production. OI-044 fix. */
+packages/core-app-model/src/BimKernel.ts:176:        const gridStore = (this._gridStore ?? (window as any).gridStore) as
+packages/core-app-model/src/BimKernel.ts:432:        const gridStore = this._gridStore ?? (window as any).gridStore;
+packages/core-app-model/src/BimKernel.ts:450:        const gridStore = this._gridStore ?? (window as any).gridStore;
+packages/core-app-model/src/BimKernel.ts:472:        const gridStore = this._gridStore ?? (window as any).gridStore;
+packages/core-app-model/src/comparison/ComparisonEngine.ts:372:    // Uses (window as any) bridge because packages/ cannot import from apps/.
+packages/core-app-model/src/comparison/ComparisonEngine.ts:373:    (window as any).runtime?.events?.emit('pryzm-delta-updated', { deltaMap: this._deltaMap });
+packages/core-app-model/src/persistence/ProjectScopedStorage.ts:189:    (window as any).__projectScopedStorage = projectScopedStorage;
+packages/core-app-model/src/persistence/ProjectScopeRegistry.ts:155:    (window as any).__projectScopeRegistry = projectScopeRegistry;
+packages/core-app-model/src/presentation/GhostOverlayRenderer.ts:129:    (window as any).runtime?.events?.on('pryzm-history-ghost-activate', ({ timestamp }: { timestamp: number }) => {
+packages/core-app-model/src/presentation/GhostOverlayRenderer.ts:133:    (window as any).runtime?.events?.on('pryzm-history-ghost-deactivate', () => {
+packages/core-app-model/src/presentation/ViewIntentInstanceStore.ts:195:    (window as any).viewIntentInstanceStore = viewIntentInstanceStore;
+packages/core-app-model/src/rendering/LevelScoped3DCullingService.ts:65: *   P4 — no `(window as any)`; typed `globalThis` casts (perfTrace / SharedMaterialCache pattern).
+packages/core-app-model/src/SelectionBus.ts:61:    /** Injected SelectionManager — replaces `(window as any).selectionManager` reads.
+packages/core-app-model/src/SelectionBus.ts:70:    /** Wire the SelectionManager so this package never reads `(window as any)`
+packages/core-app-model/src/SelectionBus.ts:101:            const sm = this._selectionManager ?? (window as any).selectionManager;
+packages/core-app-model/src/SelectionBus.ts:155:            const sm = this._selectionManager ?? (window as any).selectionManager;
+packages/core-app-model/src/SelectionBus.ts:176:            const sm = this._selectionManager ?? (window as any).selectionManager;
+packages/file-format/src/import/ifc/deleteIfcElement.ts:70:    (window as any).runtime?.events?.emit('bim-selection-changed', { object: null, deletedId: elementId }); // F.events.16 bridge
+packages/frame-scheduler/src/FrameProfiler.ts:63:// FLAG (typed global, P4 — no `(window as any)`):
+packages/frame-scheduler/src/PerfCounters.ts:56:// FLAG (typed global, P4 — no `(window as any)`):
+packages/geometry-lift/src/LiftTool.ts:24: *   - P4: no `(window as any)`; window globals are read through typed deps with a
+packages/geometry-lighting/src/LightingFragmentBuilder.ts:579:        // `(window as any).runtime` cast was a P4 violation and hid the null case.
+packages/geometry-stair/src/StairMeshBuilder.ts:92:        const _unsubStairUpdated = (window as any).runtime?.events?.on('bim-stair-updated', (payload: { id?: string; stair?: unknown }) => { // F.events.15
+packages/geometry-stair/src/StairRailingBuilder.ts:117:        (window as any).runtime?.events?.on('bim-stair-updated', (payload: { id?: string; stair?: StairData }) => {
+packages/input-host/src/FloorPlanUnderlayTool.ts:202:        (window as any).runtime?.events?.emit('bim-selection-changed', { object: this.state.mesh }); // F.events.16 bridge
+packages/input-host/src/FloorPlanUnderlayTool.ts:216:        (window as any).runtime?.events?.emit('bim-selection-changed', { object: null }); // F.events.16 bridge
+packages/input-host/src/FloorPlanUnderlayTool.ts:312:            (window as any).runtime?.events?.emit('bim-selection-changed', { object: null }); // F.events.16 bridge
+packages/input-host/src/SelectionManager.ts:2368:        (window as any).runtime?.events?.emit('bim-selection-changed', {
+packages/input-host/src/SelectionManager.ts:2402:            (window as any).runtime?.events?.emit('pryzm-element-selected', {
+packages/input-host/src/SelectionManager.ts:2944:            (window as any).runtime?.events?.emit('bim-selection-changed', { object: null }); // F.events.16 bridge
+packages/input-host/src/StairTransformController.ts:82:            if ((window as any).__viewSwitchInProgress) return;
+packages/input-host/src/UnderlayReferenceRotateTool.ts:131:        (window as any).runtime?.events?.on('underlay:reference-rotate-activate', (detail: { underlayTool: unknown }) => {
+packages/input-host/src/UnderlayReferenceRotateTool.ts:654:                (window as any).runtime?.events?.emit('bim-selection-changed', { object: mesh }); // F.events.16 bridge
+packages/input-host/src/UnderlayReferenceScaleTool.ts:114:        (window as any).runtime?.events?.on('underlay:reference-scale-activate', (detail: { underlayTool: unknown }) => {
+packages/input-host/src/UnderlayReferenceScaleTool.ts:737:                (window as any).runtime?.events?.emit('bim-selection-changed', { object: mesh }); // F.events.16 bridge
+packages/renderer-three/src/EmptyDrawGuard.ts:64:// by r183's inheritance) without a cast to `any`. P4: no `(window as any)`, and
+packages/renderer-three/src/EmptyDrawGuard.ts:108: * `window` deliberately — P4 forbids `(window as any)`, and a package that
+packages/renderer-three/src/geospatial/CesiumThreeBridge.ts:98:    this._cesiumTransformUnsub = (window as any).runtime?.events?.on('cesium-model-transformed', this.handleModelTransform); // F.events.15
+packages/renderer-three/src/index.ts:6:// `(window as any).platformShell.setProjectContext(...)` cast in
+packages/renderer-three/src/index.ts:92:// has ever fired without a `(window as any)` publication (P4).
+packages/room-topology/src/RoomBoundaryBuilder.ts:82:    return this._roomStore ?? (window as any).roomStore;
+packages/room-topology/src/RoomBoundaryBuilder.ts:85:    return this._workspaceController ?? (window as any).workspaceController;
+packages/room-topology/src/RoomBoundaryBuilder.ts:88:    return this._hierarchyStore ?? (window as any).hierarchyStore;
+packages/room-topology/src/RoomBoundaryBuilder.ts:123:    // Uses (window as any) bridge because packages/ cannot import from apps/.
+packages/room-topology/src/RoomBoundaryBuilder.ts:124:    (window as any).runtime?.events?.on('pryzm-workspace-mode', () => {
+packages/room-topology/src/RoomBoundaryBuilder.ts:147:    (window as any).runtime?.events?.on('pryzm-ui-pref-changed', ({ key, value }: { key: string; value: unknown }) => {
+packages/room-topology/src/RoomBoundaryBuilder.ts:188:    const bm = this.bimManager ?? (window as any).bimManager as BimManager | undefined;
+packages/room-topology/src/RoomContentsService.ts:714:  private _wallStore():        MinReadable | undefined { return this.deps.wallStore        ?? (typeof window !== 'undefined' ? (window as any).wallStore        : undefined); }
+packages/room-topology/src/RoomContentsService.ts:715:  private _doorStore():        MinReadable | undefined { return this.deps.doorStore        ?? (typeof window !== 'undefined' ? (window as any).doorStore        : undefined); }
+packages/room-topology/src/RoomContentsService.ts:716:  private _windowStore():      MinReadable | undefined { return this.deps.windowStore      ?? (typeof window !== 'undefined' ? (window as any).windowStore      : undefined); }
+packages/room-topology/src/RoomContentsService.ts:717:  private _openingStore():     MinReadable | undefined { return this.deps.openingStore     ?? (typeof window !== 'undefined' ? (window as any).openingStore     : undefined); }
+packages/room-topology/src/RoomContentsService.ts:718:  private _slabStore():        MinReadable | undefined { return this.deps.slabStore        ?? (typeof window !== 'undefined' ? (window as any).slabStore        : undefined); }
+packages/room-topology/src/RoomContentsService.ts:719:  private _columnStore():      MinReadable | undefined { return this.deps.columnStore      ?? (typeof window !== 'undefined' ? (window as any).columnStore      : undefined); }
+packages/room-topology/src/RoomContentsService.ts:720:  private _curtainWallStore(): MinReadable | undefined { return this.deps.curtainWallStore ?? (typeof window !== 'undefined' ? (window as any).curtainWallStore : undefined); }
+packages/room-topology/src/RoomContentsService.ts:721:  private _furnitureStore():   MinReadable | undefined { return this.deps.furnitureStore   ?? (typeof window !== 'undefined' ? (window as any).furnitureStore   : undefined); }
+packages/room-topology/src/RoomContentsService.ts:722:  private _plumbingStore():    MinReadable | undefined { return this.deps.plumbingStore    ?? (typeof window !== 'undefined' ? (window as any).plumbingStore    : undefined); }
+packages/room-topology/src/RoomContentsService.ts:723:  private _lightingStore():    MinReadable | undefined { return this.deps.lightingStore    ?? (typeof window !== 'undefined' ? (window as any).lightingStore    : undefined); }
+packages/room-topology/src/RoomContentsService.ts:724:  private _beamStore():        MinReadable | undefined { return this.deps.beamStore        ?? (typeof window !== 'undefined' ? (window as any).beamStore        : undefined); }
+packages/room-topology/src/RoomContentsService.ts:725:  private _handrailStore():    MinReadable | undefined { return this.deps.handrailStore    ?? (typeof window !== 'undefined' ? (window as any).handrailStore    : undefined); }
+packages/room-topology/src/RoomContentsService.ts:726:  private _stairStore():       MinReadable | undefined { return this.deps.stairStore       ?? (typeof window !== 'undefined' ? (window as any).stairStore       : undefined); }
+packages/room-topology/src/RoomContentsService.ts:727:  private _annotationStore():  MinReadable | undefined { return this.deps.annotationStore  ?? (typeof window !== 'undefined' ? (window as any).annotationStore  : undefined); }
+packages/room-topology/src/RoomLabelRenderer.ts:94:        const bm = this._bimManager ?? (window as any).bimManager;
+packages/room-topology/src/RoomLabelRenderer.ts:95:        const roomStore = (window as any).roomStore as
+packages/room-topology/src/RoomLabelRenderer.ts:116:        const roomStore = (window as any).roomStore as
+packages/room-topology/src/RoomLabelRenderer.ts:145:        const bm = this._bimManager ?? (window as any).bimManager as BimManager | undefined;
+packages/room-topology/src/RoomRelationshipService.ts:46:    return RoomRelationshipService._roomStore ?? (window as any).roomStore;
+packages/room-topology/src/RoomTagAutoPopulator.ts:66:        const roomStore       = this._roomStore       ?? (window as any).roomStore;
+packages/room-topology/src/RoomTagAutoPopulator.ts:67:        const annotationStore = this._annotationStore ?? (window as any).annotationStore;
+packages/room-topology/src/RoomTool.ts:224:        if ((window as any).runtime?.bus) { (window as any).runtime.bus.executeCommand('room.create', { ...(roomData as unknown as Record<string, unknown>) }).catch(() => {}); }
+packages/room-topology/src/RoomTool.ts:229:            (window as any).runtime?.events?.emit('pryzm-element-selected', { elementId: roomId, elementType: 'room', source: 'room-tool-manual-boundary' });
+packages/room-topology/src/RoomTool.ts:376:            (window as any).runtime?.events?.emit('pryzm-element-selected', { elementId: roomId, elementType: 'room', source: 'room-tool-point-pick' });
+packages/room-topology/src/RoomTool.ts:379:            (window as any).runtime?.events?.emit('pryzm-inspect-room-focus', { roomId });
+packages/room-topology/src/RoomTool.ts:380:            const bus = (window as any).selectionBus;
+packages/room-topology/src/RoomTool.ts:387:        if ((window as any).runtime?.bus) { (window as any).runtime.bus.executeCommand('room.create', {}).catch(() => {}); }
+packages/room-topology/src/RoomTopologyObserver.ts:469:    const _unsubWallMutation = (window as any).runtime?.events?.on('bim-wall-mutation-committed', this._onWallMutationCommitted);
+packages/room-topology/src/RoomTopologyObserver.ts:958:      if ((window as any).runtime?.bus) { (window as any).runtime.bus.executeCommand('room.update', {}).catch(() => {}); }
+packages/runtime-composer/src/composeRuntime.ts:274:   *  `(window as any).commandManager` if one exists, else a no-op
+packages/runtime-composer/src/composeRuntime.ts:461:  // service + toolManager are ready.  Closures read (window as any).xxxTool
+packages/runtime-composer/src/composeRuntime.ts:801: *  `(window as any).commandManager` global if one exists at compose
+packages/runtime-composer/src/composeRuntime.ts:1195:    // Read via a narrow typed lookup on globalThis (NOT `(window as any)`, so P4-clean).
+packages/runtime-composer/src/composeRuntime.ts:1215:    // globalThis (NOT `(window as any)`, so P4-clean).
+packages/runtime-composer/src/ProjectLifecycleController.ts:115:        const wallWasPaused     = (window as any).__engineTeardown?.isWallRebuildPaused     ?? false;
+packages/runtime-composer/src/ProjectLifecycleController.ts:116:        const wallWasDiscarding = (window as any).__engineTeardown?.isWallRebuildDiscarding  ?? false;
+packages/runtime-composer/src/ProjectLifecycleController.ts:117:        const pendingWallCount  = (window as any).__engineTeardown?.pendingWallEventCount    ?? 0;
+packages/runtime-composer/src/ProjectLifecycleController.ts:118:        const cwWasPaused       = (window as any).__curtainWallRebuildControl?.isPaused?.()  ?? false;
+packages/runtime-composer/src/ProjectLifecycleController.ts:119:        const slabWasPaused     = (window as any).__slabRebuildControl?.isPaused?.()         ?? false;
+packages/runtime-composer/src/ProjectLifecycleController.ts:121:        const span = (window as any).runtime?.tracer?.startSpan?.('project.session.teardown') ?? null;
+packages/runtime-composer/src/ProjectLifecycleController.ts:133:            (window as any).__engineTeardown?.resetWallRebuildState();
+packages/runtime-composer/src/ProjectLifecycleController.ts:136:            try { (window as any).__curtainWallRebuildControl?.resumeAndFlush?.(); }
+packages/runtime-composer/src/ProjectLifecycleController.ts:140:            try { (window as any).__slabRebuildControl?.resumeAndFlush?.(); }
+packages/runtime-composer/src/types.ts:10:// or `(window as any)`.
+packages/runtime-composer/src/types.ts:2639: *  `(window as any).platformShell.currentProjectName` reads scattered
+packages/runtime-composer/src/types.ts:3707: *  `(window as any).platformShell.show(mode)`, gets a typed home
+packages/runtime-composer/src/types.ts:3730:   *  `(window as any).platformShell.setProjectContext(...)` cast.
+packages/runtime-undo-stack/src/index.ts:6:// the legacy `(window as any).commandManager`; Phase D replaces the
+packages/runtime-undo-stack/src/UndoStack.ts:7:// `(window as any).commandManager.{undo,redo}` so platform UI can flip
+packages/runtime-undo-stack/src/UndoStack.ts:14:// `(window as any).commandManager` global entirely.
+packages/runtime-undo-stack/src/UndoStack.ts:158:      const unsub = (window as any).runtime?.events?.on('bim-store-mutated', handler as () => void);
+packages/snapping/src/SnapManager.ts:333:        const wallStoreGlobal = (typeof window !== 'undefined' ? (window as any) : undefined)?.wallStore;
+packages/ui-base/src/Panel.ts:16:// without performing any `(window as any)` cast — the entire purpose of
+packages/ui-base/src/Panel.ts:48:   *  field — never via `(window as any)`. */
+packages/visibility/src/legacyGovernanceStore.ts:35: *  - §07: no `(window as any)` access; pure module singleton.
+plugins/annotations/src/subsystem/ViewLinkResolver.ts:36:        const sheetStore: any = typeof window !== 'undefined' ? (window as any).sheetStore : null;
+plugins/rooms/src/handlers/RenameRoom.ts:43:      if (!(window as any).__pryzmInitComplete) {
+plugins/wall/src/system-type-store.ts:12:// handlers (no global lookup, no `(window as any)` antipattern).
+plugins/wall/src/tool.ts:48://   No `(window as any)` fallback.  This is what lets the toolbar safely

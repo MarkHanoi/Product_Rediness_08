@@ -156,6 +156,26 @@ function resolveBeamMaterial(beam: BeamData): THREE.MeshStandardMaterial {
 // Local Z axis constant
 const _localZ = new THREE.Vector3(0, 0, 1);
 
+/**
+ * §FIX-BEAM-DEGENERATE (L-11963) — what this builder ACTUALLY did with one beam.
+ *
+ *   · 'built'              — a mesh (or an instance slot) carrying real geometry.
+ *   · 'refused-degenerate' — the record could not be drawn; `detail` names the
+ *                            field AND the value that made it undrawable.
+ *
+ * Two states on purpose. "No mesh" and "a mesh whose vertices are NaN" look
+ * identical on screen and are different defects with different fixes, which is
+ * the same reasoning SlabFragmentBuilder's verdict channel records.
+ */
+export type BeamBuildVerdictState = 'built' | 'refused-degenerate';
+
+export interface BeamBuildVerdict {
+    beamId: string;
+    state: BeamBuildVerdictState;
+    detail: string;
+    at: number;
+}
+
 export class BeamFragmentBuilder {
     private scene: THREE.Scene;
     private meshes: Map<string, THREE.Object3D> = new Map();
@@ -178,6 +198,61 @@ export class BeamFragmentBuilder {
     private _buildsPerFrame = 5;
     private static readonly _MAX_BUILDS = 12;
     private static readonly _MIN_BUILDS = 2;
+
+    /**
+     * §FIX-BEAM-DEGENERATE (L-11963) — the last build outcome per beam id, cleared
+     * on remove(). Same channel shape as SlabFragmentBuilder.getBuildReport():
+     * read from the console through the builder handle, with NO new global (P4).
+     * `undefined` for an id is itself the answer — the record never reached this
+     * builder, so look UPSTREAM (store, bridge or command).
+     */
+    private _buildVerdict = new Map<string, BeamBuildVerdict>();
+
+    getBuildVerdict(id: string): BeamBuildVerdict | undefined {
+        return this._buildVerdict.get(id);
+    }
+
+    /** Every beam this builder has an opinion about, refusals first. `hasMesh` is
+     *  measured from the live mesh map, not from the verdict. */
+    getBuildReport(): Array<BeamBuildVerdict & { hasMesh: boolean }> {
+        return [...this._buildVerdict.values()]
+            .map(v => ({ ...v, hasMesh: this.meshes.has(v.beamId) }))
+            .sort((a, b) => (a.state === 'built' ? 1 : 0) - (b.state === 'built' ? 1 : 0));
+    }
+
+    /**
+     * §FIX-BEAM-DEGENERATE — the ONE place that decides a beam cannot be drawn,
+     * and the reason it returns is the text the user is shown. Every arm names the
+     * field AND the value, because a refusal without the number it refused is the
+     * same silence it replaces (C74 / CA-18).
+     *
+     * Returns null when the record is drawable.
+     */
+    private static _degenerateReason(
+        beam: BeamData,
+        start: THREE.Vector3,
+        end: THREE.Vector3,
+        length: number,
+    ): string | null {
+        const bad = (label: string, v: number) => !Number.isFinite(v)
+            ? label + ' is ' + String(v)
+            : null;
+        const coord =
+            bad('startPoint.x', start.x) ?? bad('startPoint.y', start.y) ?? bad('startPoint.z', start.z) ??
+            bad('endPoint.x', end.x)     ?? bad('endPoint.y', end.y)     ?? bad('endPoint.z', end.z);
+        if (coord) return 'baseLine ' + coord + ' — a non-finite endpoint makes every vertex NaN';
+        if (!Number.isFinite(beam.width) || beam.width <= 0) {
+            return 'width is ' + String(beam.width) + ' — a beam with no section is the ABSENCE of a beam, not a beam of zero breadth';
+        }
+        if (!Number.isFinite(beam.depth) || beam.depth <= 0) {
+            return 'depth is ' + String(beam.depth) + ' — a beam with no section is the ABSENCE of a beam, not a beam of zero height';
+        }
+        if (!Number.isFinite(length)) return 'baseLine length is ' + String(length);
+        if (length < 0.001) {
+            return 'baseLine length is ' + length.toFixed(6) + ' m (start and end are the same point, tolerance 0.001 m)';
+        }
+        return null;
+    }
 
     constructor(scene: THREE.Scene) {
         this.scene = scene;
@@ -262,6 +337,8 @@ export class BeamFragmentBuilder {
             this.meshes.delete(id);
             elementRegistry.unregisterRoot(id);
         }
+        // §FIX-BEAM-DEGENERATE — a verdict must never outlive the element it describes.
+        this._buildVerdict.delete(id);
     }
 
     /**
@@ -334,13 +411,60 @@ export class BeamFragmentBuilder {
         const dir   = new THREE.Vector3().subVectors(end, start);
         const length = dir.length();
 
-        if (length < 0.001) {
+        // §FIX-BEAM-DEGENERATE (L-11963, C84 EI-2a / C100) — measured at head
+        // d91d30d4: this builder had ZERO isFinite/isNaN checks across 634 lines.
+        // Two consequences, of which only the first was visible in the source:
+        //
+        //  (a) a ZERO-LENGTH beam returned the bare dummy below — registered in
+        //      elementRegistry exactly like a beam that drew, with NOTHING said.
+        //      An element that is present to every registry and absent from the
+        //      screen is the "valid-looking build" this audit axis exists to find.
+        //  (b) a NON-FINITE endpoint or section was WORSE: `dir.length()` is NaN,
+        //      `NaN < 0.001` is FALSE, so the guard below let it through and
+        //      BoxGeometry(NaN, NaN, NaN) produced a mesh whose every vertex is
+        //      NaN — invisible, un-pickable, and indistinguishable from a beam
+        //      that simply had not built yet.
+        //
+        // The scene-graph OUTCOME for (a) is deliberately unchanged — the dummy is
+        // still added and still registered, because downstream selection and the
+        // level-cleanup handler look the id up there. What is added is that the
+        // refusal is NAMED, carries both numbers, and is readable back through
+        // getBuildVerdict(id) and off the root itself.
+        const degenerate = BeamFragmentBuilder._degenerateReason(beam, start, end, length);
+        if (degenerate) {
+            // A beam that WAS drawable and has just been edited into a degenerate
+            // one must release its GPU instance slot, or the instanced renderer
+            // keeps drawing the last good box at the last good place — a ghost the
+            // element registry says nothing about.
+            if (this._instanceBridge?.isInstanced(beam.id)) {
+                this._instanceBridge.unregister(beam.id);
+            }
             const dummy = new THREE.Object3D();
+            dummy.userData = { id: beam.id, degenerate: true, buildRefusal: degenerate };
             this.scene.add(dummy);
             this.meshes.set(beam.id, dummy);
             elementRegistry.registerRoot(beam.id, dummy);
+            // build() runs on every edit and the drain replays queued records, so
+            // announce on a CHANGE of reason, not on every rebuild — sixty identical
+            // lines during a drag is silence with extra steps.
+            const prior = this._buildVerdict.get(beam.id);
+            const isNews = prior === undefined || prior.state !== 'refused-degenerate' || prior.detail !== degenerate;
+            this._buildVerdict.set(beam.id, {
+                beamId: beam.id, state: 'refused-degenerate', detail: degenerate, at: Date.now(),
+            });
+            if (isNews) {
+                console.warn(
+                    '[BeamFragmentBuilder] §FIX-BEAM-DEGENERATE — beam ' + beam.id +
+                    ' NOT DRAWN: ' + degenerate +
+                    '. The record, the plan projector and the schedule still carry it, so the ' +
+                    'element exists everywhere except the 3-D view.',
+                );
+            }
             return dummy;
         }
+        this._buildVerdict.set(beam.id, {
+            beamId: beam.id, state: 'built', detail: 'length ' + length.toFixed(4) + ' m', at: Date.now(),
+        });
 
         // ── ADR-0076 Axis 3 (§PERF-BEAM-INSTANCING) — GPU-instanced path ──────
         // Default-off (bridge null OR flag off OR steel-LOD OR inclined →

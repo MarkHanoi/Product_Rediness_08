@@ -1,0 +1,4639 @@
+{
+ "annotation": {
+  "schema_file": "packages/schemas/src/elements/Annotation.ts",
+  "authored_count": 9,
+  "ceb_channel": "annotation.created",
+  "ceb_emit_sites": [
+   1277
+  ],
+  "ceb_emitted_keys": [
+   "commandId",
+   "commandType",
+   "levelId"
+  ],
+  "never_mentioned_outside_schemas": [],
+  "not_on_ceb_event": [
+   "provenance",
+   "viewId",
+   "kind",
+   "anchor",
+   "hostElementId",
+   "text",
+   "rotation",
+   "textHeightMm",
+   "color"
+  ],
+  "fields": [
+   {
+    "field": "provenance",
+    "repo_mentions": 797,
+    "example_files": [
+     "packages/ai-host/src/byom/ByomRoute.ts",
+     "packages/ai-host/src/byom/ByomVault.ts",
+     "packages/ai-host/src/capabilities/ChatCommandClassification.ts",
+     "packages/ai-host/src/index.ts"
+    ],
+    "on_ceb_event": false
+   },
+   {
+    "field": "viewId",
+    "repo_mentions": 2602,
+    "example_files": [
+     "packages/ai-host/src/AIReadModel.ts",
+     "packages/ai-host/src/intents/types.ts",
+     "packages/ai-host/src/vg/ViewAuthoringIntentMapper.ts",
+     "packages/ai-host/src/workflows/PlanCritique.ts"
+    ],
+    "on_ceb_event": false
+   },
+   {
+    "field": "kind",
+    "repo_mentions": 6865,
+    "example_files": [
+     "packages/admin-overrides/src/store.ts",
+     "packages/admin-overrides/src/types.ts",
+     "packages/ai-host/src/AiBus.ts",
+     "packages/ai-host/src/AiPlane.ts"
+    ],
+    "on_ceb_event": false
+   },
+   {
+    "field": "anchor",
+    "repo_mentions": 1528,
+    "example_files": [
+     "packages/ai-host/src/AIElementFactory.ts",
+     "packages/ai-host/src/capabilities/ChatCommandClassification.ts",
+     "packages/ai-host/src/FloorPlanDiagnostics.ts",
+     "packages/ai-host/src/FloorPlanImageEnhancer.ts"
+    ],
+    "on_ceb_event": false
+   },
+   {
+    "field": "hostElementId",
+    "repo_mentions": 14,
+    "example_files": [
+     "packages/command-bus/src/commands.ts",
+     "packages/stores/src/AnnotationStore.ts",
+     "plugins/annotations/src/handlers/canonicalAnnotationSink.ts",
+     "plugins/annotations/src/handlers/CreateAnnotation.ts"
+    ],
+    "on_ceb_event": false
+   },
+   {
+    "field": "text",
+    "repo_mentions": 6580,
+    "example_files": [
+     "packages/a11y-tokens/src/contrast.ts",
+     "packages/a11y-tokens/src/tokens.ts",
+     "packages/ai-host/src/AIElementFactory.ts",
+     "packages/ai-host/src/AIResponseParser.ts"
+    ],
+    "on_ceb_event": false
+   },
+   {
+    "field": "rotation",
+    "repo_mentions": 1608,
+    "example_files": [
+     "packages/ai-host/src/AIElementFactory.ts",
+     "packages/ai-host/src/capabilities/CapabilityRefusal.ts",
+     "packages/ai-host/src/FloorPlanCommandBatcher.ts",
+     "packages/ai-host/src/workflows/apartmentLayout/dimensions/validateFrontage.ts"
+    ],
+    "on_ceb_event": false
+   },
+   {
+    "field": "textHeightMm",
+    "repo_mentions": 42,
+    "example_files": [
+     "plugins/annotations/src/handlers/canonicalAnnotationSink.ts",
+     "plugins/annotations/src/handlers/CreateAnnotation.ts",
+     "plugins/annotations/src/handlers/SetAnnotationTextHeight.ts",
+     "plugins/annotations/src/intent.ts"
+    ],
+    "on_ceb_event": false
+   },
+   {
+    "field": "color",
+    "repo_mentions": 8667,
+    "example_files": [
+     "packages/a11y-tokens/src/index.ts",
+     "packages/a11y-tokens/src/tokens.ts",
+     "packages/ai-host/src/AIElementFactory.ts",
+     "packages/ai-host/src/AIService.ts"
+    ],
+    "on_ceb_event": false
+   }
+  ]
+ },
+ "balcony": {
+  "schema_file": "packages/schemas/src/elements/Balcony.ts",
+  "authored_count": 16,
+  "ceb_channel": null,
+  "ceb_emit_sites": [],
+  "ceb_emitted_keys": null,
+  "never_mentioned_outside_schemas": [],
+  "not_on_ceb_event": null,
+  "fields": [
+   {
+    "field": "provenance",
+    "repo_mentions": 797,
+    "example_files": [
+     "packages/ai-host/src/byom/ByomRoute.ts",
+     "packages/ai-host/src/byom/ByomVault.ts",
+     "packages/ai-host/src/capabilities/ChatCommandClassification.ts",
+     "packages/ai-host/src/index.ts"
+    ],
+    "on_ceb_event": null
+   },
+   {
+    "field": "confidence",
+    "repo_mentions": 960,
+    "example_files": [
+     "packages/ai-host/src/AIApprovalRecord.ts",
+     "packages/ai-host/src/AIElementFactory.ts",
+     "packages/ai-host/src/AIService.ts",
+     "packages/ai-host/src/AITypes.ts"
+    ],
+    "on_ceb_event": null
+   },
+   {
+    "field": "levelId",
+    "repo_mentions": 7406,
+    "example_files": [
+     "packages/ai-host/src/AIElementFactory.ts",
+     "packages/ai-host/src/AIReadModel.ts",
+     "packages/ai-host/src/AIResponseParser.ts",
+     "packages/ai-host/src/AIService.ts"
+    ],
+    "on_ceb_event": null
+   },
+   {
+    "field": "hostWallId",
+    "repo_mentions": 188,
+    "example_files": [
+     "packages/ai-host/src/FloorPlanAIFactory.ts",
+     "packages/ai-host/src/FloorPlanCommandBatcher.ts",
+     "packages/ai-host/src/FloorPlanDiagnostics.ts",
+     "packages/ai-host/src/PdfToBimConstraints.ts"
+    ],
+    "on_ceb_event": null
+   },
+   {
+    "field": "hostOffset",
+    "repo_mentions": 7,
+    "example_files": [
+     "apps/editor/src/engine/views/plantools/BalconyPlanToolHandler.ts",
+     "plugins/balcony/src/handlers/CreateBalcony.ts"
+    ],
+    "on_ceb_event": null
+   },
+   {
+    "field": "boundary",
+    "repo_mentions": 4753,
+    "example_files": [
+     "packages/ai-host/src/AiHost.ts",
+     "packages/ai-host/src/AnthropicRelay.ts",
+     "packages/ai-host/src/byom/ByomRedaction.ts",
+     "packages/ai-host/src/byom/ByomRoute.ts"
+    ],
+    "on_ceb_event": null
+   },
+   {
+    "field": "width",
+    "repo_mentions": 11016,
+    "example_files": [
+     "packages/ai-host/src/AIElementFactory.ts",
+     "packages/ai-host/src/AIReadModel.ts",
+     "packages/ai-host/src/AIService.ts",
+     "packages/ai-host/src/AITypes.ts"
+    ],
+    "on_ceb_event": null
+   },
+   {
+    "field": "projection",
+    "repo_mentions": 1914,
+    "example_files": [
+     "packages/ai-host/src/capabilities/ChatCapabilityRegistry.ts",
+     "packages/ai-host/src/graph/GraphQueryService.ts",
+     "packages/ai-host/src/intents/CatalogueFamilies.ts",
+     "packages/ai-host/src/intents/LlmPlanner.ts"
+    ],
+    "on_ceb_event": null
+   },
+   {
+    "field": "railingHeight",
+    "repo_mentions": 32,
+    "example_files": [
+     "packages/geometry-balcony/src/BalconyAssembly.ts",
+     "packages/geometry-balcony/src/BalconyDimensions.ts",
+     "apps/editor/src/engine/views/plantools/activeBalconyPlacement.ts",
+     "apps/editor/src/engine/views/plantools/BalconyPlanToolHandler.ts"
+    ],
+    "on_ceb_event": null
+   },
+   {
+    "field": "slabThickness",
+    "repo_mentions": 22,
+    "example_files": [
+     "packages/ai-host/src/workflows/houseLayout/houseVertical.ts",
+     "packages/geometry-balcony/src/BalconyAssembly.ts",
+     "packages/geometry-balcony/src/BalconyDimensions.ts",
+     "packages/geometry-slab/src/floor/FloorSlabBindingHandler.ts"
+    ],
+    "on_ceb_event": null
+   },
+   {
+    "field": "finishThickness",
+    "repo_mentions": 24,
+    "example_files": [
+     "packages/geometry-balcony/src/BalconyAssembly.ts",
+     "packages/geometry-balcony/src/BalconyDimensions.ts",
+     "packages/geometry-slab/src/SlabTypeCatalogue.ts",
+     "plugins/balcony/src/handlers/CreateBalcony.ts"
+    ],
+    "on_ceb_event": null
+   },
+   {
+    "field": "systemTypeId",
+    "repo_mentions": 1261,
+    "example_files": [
+     "packages/ai-host/src/intents/CatalogueFamilies.ts",
+     "packages/ai-host/src/workflows/apartmentLayout/entranceDoor/entranceDoor.ts",
+     "packages/ai-host/src/workflows/apartmentLayout/executePlan.ts",
+     "packages/command-bus/src/commands.ts"
+    ],
+    "on_ceb_event": null
+   },
+   {
+    "field": "railingTypeId",
+    "repo_mentions": 5,
+    "example_files": [
+     "packages/geometry-balcony/src/BalconyDimensions.ts",
+     "plugins/balcony/src/handlers/CreateBalcony.ts"
+    ],
+    "on_ceb_event": null
+   },
+   {
+    "field": "finishTypeId",
+    "repo_mentions": 5,
+    "example_files": [
+     "packages/geometry-balcony/src/BalconyDimensions.ts",
+     "plugins/balcony/src/handlers/CreateBalcony.ts"
+    ],
+    "on_ceb_event": null
+   },
+   {
+    "field": "materialId",
+    "repo_mentions": 1928,
+    "example_files": [
+     "packages/ai-host/src/capabilities/CapabilityRefusal.ts",
+     "packages/ai-host/src/capabilities/ChatCapabilityRegistry.ts",
+     "packages/ai-host/src/intents/CapabilityExecutionSpec.ts",
+     "packages/ai-host/src/intents/finishRef.ts"
+    ],
+    "on_ceb_event": null
+   },
+   {
+    "field": "materialColor",
+    "repo_mentions": 1293,
+    "example_files": [
+     "packages/ai-host/src/AIService.ts",
+     "packages/ai-host/src/capabilities/ChatCapabilityRegistry.ts",
+     "packages/ai-host/src/capabilities/ChatCommandClassification.ts",
+     "packages/ai-host/src/intents/CapabilityExecutionSpec.ts"
+    ],
+    "on_ceb_event": null
+   }
+  ]
+ },
+ "beam": {
+  "schema_file": "packages/schemas/src/elements/Beam.ts",
+  "authored_count": 12,
+  "ceb_channel": "beam.created",
+  "ceb_emit_sites": [
+   937,
+   990
+  ],
+  "ceb_emitted_keys": [
+   "commandId",
+   "commandType",
+   "levelId",
+   "elementCount",
+   "id",
+   "startPoint",
+   "endPoint",
+   "shape",
+   "width",
+   "depth",
+   "materialId",
+   "loadBearing",
+   "fireRating",
+   "steelProfileName"
+  ],
+  "never_mentioned_outside_schemas": [],
+  "not_on_ceb_event": [
+   "provenance",
+   "confidence",
+   "baseLine",
+   "rotation"
+  ],
+  "fields": [
+   {
+    "field": "provenance",
+    "repo_mentions": 797,
+    "example_files": [
+     "packages/ai-host/src/byom/ByomRoute.ts",
+     "packages/ai-host/src/byom/ByomVault.ts",
+     "packages/ai-host/src/capabilities/ChatCommandClassification.ts",
+     "packages/ai-host/src/index.ts"
+    ],
+    "on_ceb_event": false
+   },
+   {
+    "field": "confidence",
+    "repo_mentions": 960,
+    "example_files": [
+     "packages/ai-host/src/AIApprovalRecord.ts",
+     "packages/ai-host/src/AIElementFactory.ts",
+     "packages/ai-host/src/AIService.ts",
+     "packages/ai-host/src/AITypes.ts"
+    ],
+    "on_ceb_event": false
+   },
+   {
+    "field": "levelId",
+    "repo_mentions": 7406,
+    "example_files": [
+     "packages/ai-host/src/AIElementFactory.ts",
+     "packages/ai-host/src/AIReadModel.ts",
+     "packages/ai-host/src/AIResponseParser.ts",
+     "packages/ai-host/src/AIService.ts"
+    ],
+    "on_ceb_event": true
+   },
+   {
+    "field": "baseLine",
+    "repo_mentions": 2297,
+    "example_files": [
+     "packages/ai-host/src/AIReadModel.ts",
+     "packages/ai-host/src/intents/LevelChangeIntents.ts",
+     "packages/ai-host/src/WallRegionExtractor.ts",
+     "packages/ai-host/src/workflows/apartmentLayout/executePlan.ts"
+    ],
+    "on_ceb_event": false
+   },
+   {
+    "field": "shape",
+    "repo_mentions": 4556,
+    "example_files": [
+     "packages/ai-host/src/AiBus.ts",
+     "packages/ai-host/src/AIElementFactory.ts",
+     "packages/ai-host/src/AnthropicRelay.ts",
+     "packages/ai-host/src/byom/ByomProviders.ts"
+    ],
+    "on_ceb_event": true
+   },
+   {
+    "field": "width",
+    "repo_mentions": 11016,
+    "example_files": [
+     "packages/ai-host/src/AIElementFactory.ts",
+     "packages/ai-host/src/AIReadModel.ts",
+     "packages/ai-host/src/AIService.ts",
+     "packages/ai-host/src/AITypes.ts"
+    ],
+    "on_ceb_event": true
+   },
+   {
+    "field": "depth",
+    "repo_mentions": 3977,
+    "example_files": [
+     "packages/ai-host/src/AIElementFactory.ts",
+     "packages/ai-host/src/AIReadModel.ts",
+     "packages/ai-host/src/AIService.ts",
+     "packages/ai-host/src/AITypes.ts"
+    ],
+    "on_ceb_event": true
+   },
+   {
+    "field": "rotation",
+    "repo_mentions": 1608,
+    "example_files": [
+     "packages/ai-host/src/AIElementFactory.ts",
+     "packages/ai-host/src/capabilities/CapabilityRefusal.ts",
+     "packages/ai-host/src/FloorPlanCommandBatcher.ts",
+     "packages/ai-host/src/workflows/apartmentLayout/dimensions/validateFrontage.ts"
+    ],
+    "on_ceb_event": false
+   },
+   {
+    "field": "materialId",
+    "repo_mentions": 1928,
+    "example_files": [
+     "packages/ai-host/src/capabilities/CapabilityRefusal.ts",
+     "packages/ai-host/src/capabilities/ChatCapabilityRegistry.ts",
+     "packages/ai-host/src/intents/CapabilityExecutionSpec.ts",
+     "packages/ai-host/src/intents/finishRef.ts"
+    ],
+    "on_ceb_event": true
+   },
+   {
+    "field": "loadBearing",
+    "repo_mentions": 89,
+    "example_files": [
+     "packages/ai-host/src/AIReadModel.ts",
+     "packages/ai-host/src/AITypes.ts",
+     "packages/ai-host/src/RuleEngine.ts",
+     "packages/building-graph/src/discipline.ts"
+    ],
+    "on_ceb_event": true
+   },
+   {
+    "field": "fireRating",
+    "repo_mentions": 260,
+    "example_files": [
+     "packages/ai-host/src/AIReadModel.ts",
+     "packages/ai-host/src/AIService.ts",
+     "packages/ai-host/src/AITypes.ts",
+     "packages/ai-host/src/intents/StairNotYet.ts"
+    ],
+    "on_ceb_event": true
+   },
+   {
+    "field": "steelProfileName",
+    "repo_mentions": 118,
+    "example_files": [
+     "packages/command-registry/src/beam/CreateBeamCommand.ts",
+     "packages/command-registry/src/columns/CreateColumnCommand.ts",
+     "packages/command-registry/src/levels/DuplicateFloorPlanCommand.ts",
+     "packages/core-app-model/src/stores/BeamTypes.ts"
+    ],
+    "on_ceb_event": true
+   }
+  ]
+ },
+ "boundaryLine": {
+  "schema_file": "packages/schemas/src/elements/BoundaryLine.ts",
+  "authored_count": 15,
+  "ceb_channel": "boundaryLine.created",
+  "ceb_emit_sites": [
+   2230
+  ],
+  "ceb_emitted_keys": [
+   "commandId",
+   "commandType",
+   "levelId",
+   "boundaryLineId",
+   "line"
+  ],
+  "never_mentioned_outside_schemas": [],
+  "not_on_ceb_event": [
+   "provenance",
+   "confidence",
+   "vertices",
+   "closed",
+   "drawMode",
+   "hasVolume",
+   "attachments",
+   "thickness",
+   "baseOffset",
+   "systemTypeId",
+   "materialId",
+   "materialColor",
+   "name",
+   "pinned"
+  ],
+  "fields": [
+   {
+    "field": "provenance",
+    "repo_mentions": 797,
+    "example_files": [
+     "packages/ai-host/src/byom/ByomRoute.ts",
+     "packages/ai-host/src/byom/ByomVault.ts",
+     "packages/ai-host/src/capabilities/ChatCommandClassification.ts",
+     "packages/ai-host/src/index.ts"
+    ],
+    "on_ceb_event": false
+   },
+   {
+    "field": "confidence",
+    "repo_mentions": 960,
+    "example_files": [
+     "packages/ai-host/src/AIApprovalRecord.ts",
+     "packages/ai-host/src/AIElementFactory.ts",
+     "packages/ai-host/src/AIService.ts",
+     "packages/ai-host/src/AITypes.ts"
+    ],
+    "on_ceb_event": false
+   },
+   {
+    "field": "levelId",
+    "repo_mentions": 7406,
+    "example_files": [
+     "packages/ai-host/src/AIElementFactory.ts",
+     "packages/ai-host/src/AIReadModel.ts",
+     "packages/ai-host/src/AIResponseParser.ts",
+     "packages/ai-host/src/AIService.ts"
+    ],
+    "on_ceb_event": true
+   },
+   {
+    "field": "vertices",
+    "repo_mentions": 1022,
+    "example_files": [
+     "packages/ai-host/src/capabilities/ChatCapabilityRegistry.ts",
+     "packages/ai-host/src/FloorPlanCommandBatcher.ts",
+     "packages/ai-host/src/FloorPlanDiagnostics.ts",
+     "packages/ai-host/src/workflows/apartmentLayout/dimensions/validateFrontage.ts"
+    ],
+    "on_ceb_event": false
+   },
+   {
+    "field": "closed",
+    "repo_mentions": 1486,
+    "example_files": [
+     "packages/ai-host/src/byom/ByomRoute.ts",
+     "packages/ai-host/src/capabilities/CapabilityRefusal.ts",
+     "packages/ai-host/src/capabilities/ChatCapabilityRegistry.ts",
+     "packages/ai-host/src/FloorPlanDiagnostics.ts"
+    ],
+    "on_ceb_event": false
+   },
+   {
+    "field": "drawMode",
+    "repo_mentions": 72,
+    "example_files": [
+     "packages/geometry-boundary-line/src/BoundaryLineTypes.ts",
+     "packages/geometry-slab/src/SlabTool.ts",
+     "apps/editor/src/engine/views/plantools/BoundaryLinePlanToolHandler.ts",
+     "apps/editor/src/engine/views/plantools/SlabPlanToolHandler.ts"
+    ],
+    "on_ceb_event": false
+   },
+   {
+    "field": "hasVolume",
+    "repo_mentions": 23,
+    "example_files": [
+     "packages/core-app-model/src/drawing/DrawingZone.ts",
+     "packages/core-app-model/src/presentation/VisibilityIntentTypes.ts",
+     "packages/geometry-boundary-line/src/BoundaryLineDimensions.ts",
+     "packages/geometry-boundary-line/src/BoundaryLineGeometry.ts"
+    ],
+    "on_ceb_event": false
+   },
+   {
+    "field": "attachments",
+    "repo_mentions": 57,
+    "example_files": [
+     "packages/ai-host/src/intents/FacadePhotoReference.ts",
+     "packages/command-registry/src/boundaryLine/MoveBoundaryLineCommand.ts",
+     "packages/command-registry/src/index.ts",
+     "packages/command-registry/src/plumbing/CreatePlumbingFixtureCommand.ts"
+    ],
+    "on_ceb_event": false
+   },
+   {
+    "field": "thickness",
+    "repo_mentions": 3585,
+    "example_files": [
+     "packages/ai-host/src/AIReadModel.ts",
+     "packages/ai-host/src/AIService.ts",
+     "packages/ai-host/src/AITypes.ts",
+     "packages/ai-host/src/capabilities/CapabilityRefusal.ts"
+    ],
+    "on_ceb_event": false
+   },
+   {
+    "field": "baseOffset",
+    "repo_mentions": 1849,
+    "example_files": [
+     "packages/ai-host/src/AIElementFactory.ts",
+     "packages/ai-host/src/AIReadModel.ts",
+     "packages/ai-host/src/AIService.ts",
+     "packages/ai-host/src/AITypes.ts"
+    ],
+    "on_ceb_event": false
+   },
+   {
+    "field": "systemTypeId",
+    "repo_mentions": 1261,
+    "example_files": [
+     "packages/ai-host/src/intents/CatalogueFamilies.ts",
+     "packages/ai-host/src/workflows/apartmentLayout/entranceDoor/entranceDoor.ts",
+     "packages/ai-host/src/workflows/apartmentLayout/executePlan.ts",
+     "packages/command-bus/src/commands.ts"
+    ],
+    "on_ceb_event": false
+   },
+   {
+    "field": "materialId",
+    "repo_mentions": 1928,
+    "example_files": [
+     "packages/ai-host/src/capabilities/CapabilityRefusal.ts",
+     "packages/ai-host/src/capabilities/ChatCapabilityRegistry.ts",
+     "packages/ai-host/src/intents/CapabilityExecutionSpec.ts",
+     "packages/ai-host/src/intents/finishRef.ts"
+    ],
+    "on_ceb_event": false
+   },
+   {
+    "field": "materialColor",
+    "repo_mentions": 1293,
+    "example_files": [
+     "packages/ai-host/src/AIService.ts",
+     "packages/ai-host/src/capabilities/ChatCapabilityRegistry.ts",
+     "packages/ai-host/src/capabilities/ChatCommandClassification.ts",
+     "packages/ai-host/src/intents/CapabilityExecutionSpec.ts"
+    ],
+    "on_ceb_event": false
+   },
+   {
+    "field": "name",
+    "repo_mentions": 9002,
+    "example_files": [
+     "packages/admin-overrides/src/store.ts",
+     "packages/admin-overrides/src/types.ts",
+     "packages/ai-host/src/AIElementFactory.ts",
+     "packages/ai-host/src/AIReadModel.ts"
+    ],
+    "on_ceb_event": false
+   },
+   {
+    "field": "pinned",
+    "repo_mentions": 549,
+    "example_files": [
+     "packages/ai-host/src/capabilities/ChatCapabilityRegistry.ts",
+     "packages/ai-host/src/capabilities/ChatCommandClassification.ts",
+     "packages/ai-host/src/graph/GraphQueryService.ts",
+     "packages/ai-host/src/intents/CapabilityExecutionSpec.ts"
+    ],
+    "on_ceb_event": false
+   }
+  ]
+ },
+ "ceiling": {
+  "schema_file": "packages/schemas/src/elements/Ceiling.ts",
+  "authored_count": 8,
+  "ceb_channel": "ceiling.created",
+  "ceb_emit_sites": [
+   1032,
+   1065
+  ],
+  "ceb_emitted_keys": [
+   "commandId",
+   "commandType",
+   "levelId",
+   "elementCount",
+   "id",
+   "boundary",
+   "ceilingHeight",
+   "thickness",
+   "materialId",
+   "materialColor"
+  ],
+  "never_mentioned_outside_schemas": [],
+  "not_on_ceb_event": [
+   "provenance",
+   "confidence"
+  ],
+  "fields": [
+   {
+    "field": "provenance",
+    "repo_mentions": 797,
+    "example_files": [
+     "packages/ai-host/src/byom/ByomRoute.ts",
+     "packages/ai-host/src/byom/ByomVault.ts",
+     "packages/ai-host/src/capabilities/ChatCommandClassification.ts",
+     "packages/ai-host/src/index.ts"
+    ],
+    "on_ceb_event": false
+   },
+   {
+    "field": "confidence",
+    "repo_mentions": 960,
+    "example_files": [
+     "packages/ai-host/src/AIApprovalRecord.ts",
+     "packages/ai-host/src/AIElementFactory.ts",
+     "packages/ai-host/src/AIService.ts",
+     "packages/ai-host/src/AITypes.ts"
+    ],
+    "on_ceb_event": false
+   },
+   {
+    "field": "levelId",
+    "repo_mentions": 7406,
+    "example_files": [
+     "packages/ai-host/src/AIElementFactory.ts",
+     "packages/ai-host/src/AIReadModel.ts",
+     "packages/ai-host/src/AIResponseParser.ts",
+     "packages/ai-host/src/AIService.ts"
+    ],
+    "on_ceb_event": true
+   },
+   {
+    "field": "boundary",
+    "repo_mentions": 4753,
+    "example_files": [
+     "packages/ai-host/src/AiHost.ts",
+     "packages/ai-host/src/AnthropicRelay.ts",
+     "packages/ai-host/src/byom/ByomRedaction.ts",
+     "packages/ai-host/src/byom/ByomRoute.ts"
+    ],
+    "on_ceb_event": true
+   },
+   {
+    "field": "ceilingHeight",
+    "repo_mentions": 105,
+    "example_files": [
+     "packages/ai-host/src/workflows/ceilingLayout/buildCeilingCommands.ts",
+     "packages/ai-host/src/workflows/ceilingLayout/types.ts",
+     "packages/command-bus/src/commands.ts",
+     "packages/geometry-kernel/src/producers/ceiling.ts"
+    ],
+    "on_ceb_event": true
+   },
+   {
+    "field": "thickness",
+    "repo_mentions": 3585,
+    "example_files": [
+     "packages/ai-host/src/AIReadModel.ts",
+     "packages/ai-host/src/AIService.ts",
+     "packages/ai-host/src/AITypes.ts",
+     "packages/ai-host/src/capabilities/CapabilityRefusal.ts"
+    ],
+    "on_ceb_event": true
+   },
+   {
+    "field": "materialId",
+    "repo_mentions": 1928,
+    "example_files": [
+     "packages/ai-host/src/capabilities/CapabilityRefusal.ts",
+     "packages/ai-host/src/capabilities/ChatCapabilityRegistry.ts",
+     "packages/ai-host/src/intents/CapabilityExecutionSpec.ts",
+     "packages/ai-host/src/intents/finishRef.ts"
+    ],
+    "on_ceb_event": true
+   },
+   {
+    "field": "materialColor",
+    "repo_mentions": 1293,
+    "example_files": [
+     "packages/ai-host/src/AIService.ts",
+     "packages/ai-host/src/capabilities/ChatCapabilityRegistry.ts",
+     "packages/ai-host/src/capabilities/ChatCommandClassification.ts",
+     "packages/ai-host/src/intents/CapabilityExecutionSpec.ts"
+    ],
+    "on_ceb_event": true
+   }
+  ]
+ },
+ "column": {
+  "schema_file": "packages/schemas/src/elements/Column.ts",
+  "authored_count": 12,
+  "ceb_channel": "column.created",
+  "ceb_emit_sites": [
+   781,
+   840,
+   877
+  ],
+  "ceb_emitted_keys": [
+   "commandId",
+   "commandType",
+   "levelId",
+   "elementCount",
+   "id",
+   "origin",
+   "shape",
+   "width",
+   "depth",
+   "height",
+   "baseOffset",
+   "rotation",
+   "materialId"
+  ],
+  "never_mentioned_outside_schemas": [],
+  "not_on_ceb_event": [
+   "provenance",
+   "confidence",
+   "topLevelId"
+  ],
+  "fields": [
+   {
+    "field": "provenance",
+    "repo_mentions": 797,
+    "example_files": [
+     "packages/ai-host/src/byom/ByomRoute.ts",
+     "packages/ai-host/src/byom/ByomVault.ts",
+     "packages/ai-host/src/capabilities/ChatCommandClassification.ts",
+     "packages/ai-host/src/index.ts"
+    ],
+    "on_ceb_event": false
+   },
+   {
+    "field": "confidence",
+    "repo_mentions": 960,
+    "example_files": [
+     "packages/ai-host/src/AIApprovalRecord.ts",
+     "packages/ai-host/src/AIElementFactory.ts",
+     "packages/ai-host/src/AIService.ts",
+     "packages/ai-host/src/AITypes.ts"
+    ],
+    "on_ceb_event": false
+   },
+   {
+    "field": "levelId",
+    "repo_mentions": 7406,
+    "example_files": [
+     "packages/ai-host/src/AIElementFactory.ts",
+     "packages/ai-host/src/AIReadModel.ts",
+     "packages/ai-host/src/AIResponseParser.ts",
+     "packages/ai-host/src/AIService.ts"
+    ],
+    "on_ceb_event": true
+   },
+   {
+    "field": "topLevelId",
+    "repo_mentions": 338,
+    "example_files": [
+     "packages/ai-host/src/AIReadModel.ts",
+     "packages/ai-host/src/AITypes.ts",
+     "packages/ai-host/src/intents/StairNotYet.ts",
+     "packages/ai-host/src/RuleEngine.ts"
+    ],
+    "on_ceb_event": false
+   },
+   {
+    "field": "origin",
+    "repo_mentions": 2516,
+    "example_files": [
+     "packages/ai-host/src/byom/ByomProviders.ts",
+     "packages/ai-host/src/byom/ByomRoute.ts",
+     "packages/ai-host/src/byom/ByomVault.ts",
+     "packages/ai-host/src/CfWorkerRelay.ts"
+    ],
+    "on_ceb_event": true
+   },
+   {
+    "field": "shape",
+    "repo_mentions": 4556,
+    "example_files": [
+     "packages/ai-host/src/AiBus.ts",
+     "packages/ai-host/src/AIElementFactory.ts",
+     "packages/ai-host/src/AnthropicRelay.ts",
+     "packages/ai-host/src/byom/ByomProviders.ts"
+    ],
+    "on_ceb_event": true
+   },
+   {
+    "field": "width",
+    "repo_mentions": 11016,
+    "example_files": [
+     "packages/ai-host/src/AIElementFactory.ts",
+     "packages/ai-host/src/AIReadModel.ts",
+     "packages/ai-host/src/AIService.ts",
+     "packages/ai-host/src/AITypes.ts"
+    ],
+    "on_ceb_event": true
+   },
+   {
+    "field": "depth",
+    "repo_mentions": 3977,
+    "example_files": [
+     "packages/ai-host/src/AIElementFactory.ts",
+     "packages/ai-host/src/AIReadModel.ts",
+     "packages/ai-host/src/AIService.ts",
+     "packages/ai-host/src/AITypes.ts"
+    ],
+    "on_ceb_event": true
+   },
+   {
+    "field": "height",
+    "repo_mentions": 11719,
+    "example_files": [
+     "packages/ai-host/src/AIElementFactory.ts",
+     "packages/ai-host/src/AIReadModel.ts",
+     "packages/ai-host/src/AIService.ts",
+     "packages/ai-host/src/AITypes.ts"
+    ],
+    "on_ceb_event": true
+   },
+   {
+    "field": "baseOffset",
+    "repo_mentions": 1849,
+    "example_files": [
+     "packages/ai-host/src/AIElementFactory.ts",
+     "packages/ai-host/src/AIReadModel.ts",
+     "packages/ai-host/src/AIService.ts",
+     "packages/ai-host/src/AITypes.ts"
+    ],
+    "on_ceb_event": true
+   },
+   {
+    "field": "rotation",
+    "repo_mentions": 1608,
+    "example_files": [
+     "packages/ai-host/src/AIElementFactory.ts",
+     "packages/ai-host/src/capabilities/CapabilityRefusal.ts",
+     "packages/ai-host/src/FloorPlanCommandBatcher.ts",
+     "packages/ai-host/src/workflows/apartmentLayout/dimensions/validateFrontage.ts"
+    ],
+    "on_ceb_event": true
+   },
+   {
+    "field": "materialId",
+    "repo_mentions": 1928,
+    "example_files": [
+     "packages/ai-host/src/capabilities/CapabilityRefusal.ts",
+     "packages/ai-host/src/capabilities/ChatCapabilityRegistry.ts",
+     "packages/ai-host/src/intents/CapabilityExecutionSpec.ts",
+     "packages/ai-host/src/intents/finishRef.ts"
+    ],
+    "on_ceb_event": true
+   }
+  ]
+ },
+ "curtainwall": {
+  "schema_file": "packages/schemas/src/elements/CurtainWall.ts",
+  "authored_count": 12,
+  "ceb_channel": "curtain-wall.created",
+  "ceb_emit_sites": [
+   680,
+   741,
+   1764
+  ],
+  "ceb_emitted_keys": [
+   "commandId",
+   "commandType",
+   "levelId",
+   "elementCount",
+   "id",
+   "baseLine",
+   "height",
+   "baseOffset",
+   "bayWidth",
+   "bayHeight",
+   "mullionThickness",
+   "panelThickness",
+   "materialId",
+   "panels",
+   "systemTypeId",
+   "mullionMaterialId",
+   "mullionColor",
+   "glazingMaterialId"
+  ],
+  "never_mentioned_outside_schemas": [],
+  "not_on_ceb_event": [
+   "provenance",
+   "confidence"
+  ],
+  "fields": [
+   {
+    "field": "provenance",
+    "repo_mentions": 797,
+    "example_files": [
+     "packages/ai-host/src/byom/ByomRoute.ts",
+     "packages/ai-host/src/byom/ByomVault.ts",
+     "packages/ai-host/src/capabilities/ChatCommandClassification.ts",
+     "packages/ai-host/src/index.ts"
+    ],
+    "on_ceb_event": false
+   },
+   {
+    "field": "confidence",
+    "repo_mentions": 960,
+    "example_files": [
+     "packages/ai-host/src/AIApprovalRecord.ts",
+     "packages/ai-host/src/AIElementFactory.ts",
+     "packages/ai-host/src/AIService.ts",
+     "packages/ai-host/src/AITypes.ts"
+    ],
+    "on_ceb_event": false
+   },
+   {
+    "field": "levelId",
+    "repo_mentions": 7406,
+    "example_files": [
+     "packages/ai-host/src/AIElementFactory.ts",
+     "packages/ai-host/src/AIReadModel.ts",
+     "packages/ai-host/src/AIResponseParser.ts",
+     "packages/ai-host/src/AIService.ts"
+    ],
+    "on_ceb_event": true
+   },
+   {
+    "field": "baseLine",
+    "repo_mentions": 2297,
+    "example_files": [
+     "packages/ai-host/src/AIReadModel.ts",
+     "packages/ai-host/src/intents/LevelChangeIntents.ts",
+     "packages/ai-host/src/WallRegionExtractor.ts",
+     "packages/ai-host/src/workflows/apartmentLayout/executePlan.ts"
+    ],
+    "on_ceb_event": true
+   },
+   {
+    "field": "height",
+    "repo_mentions": 11719,
+    "example_files": [
+     "packages/ai-host/src/AIElementFactory.ts",
+     "packages/ai-host/src/AIReadModel.ts",
+     "packages/ai-host/src/AIService.ts",
+     "packages/ai-host/src/AITypes.ts"
+    ],
+    "on_ceb_event": true
+   },
+   {
+    "field": "baseOffset",
+    "repo_mentions": 1849,
+    "example_files": [
+     "packages/ai-host/src/AIElementFactory.ts",
+     "packages/ai-host/src/AIReadModel.ts",
+     "packages/ai-host/src/AIService.ts",
+     "packages/ai-host/src/AITypes.ts"
+    ],
+    "on_ceb_event": true
+   },
+   {
+    "field": "mullionThickness",
+    "repo_mentions": 79,
+    "example_files": [
+     "packages/command-bus/src/commands.ts",
+     "packages/command-registry/src/curtainwall/CreateCurtainWallsFromSlabCommand.ts",
+     "packages/command-registry/src/curtainwall/CreateCurtainWallsOnAllSlabsCommand.ts",
+     "packages/core-app-model/src/views/ViewDefinitionTypes.ts"
+    ],
+    "on_ceb_event": true
+   },
+   {
+    "field": "panelThickness",
+    "repo_mentions": 176,
+    "example_files": [
+     "packages/ai-host/src/AIService.ts",
+     "packages/ai-host/src/capabilities/ChatCapabilityRegistry.ts",
+     "packages/ai-host/src/intents/CurtainWallParameterFamily.ts",
+     "packages/ai-host/src/intents/PropertyQuery.ts"
+    ],
+    "on_ceb_event": true
+   },
+   {
+    "field": "bayWidth",
+    "repo_mentions": 94,
+    "example_files": [
+     "packages/command-bus/src/commands.ts",
+     "packages/command-registry/src/curtainwall/CreateCurtainWallsFromSlabCommand.ts",
+     "packages/command-registry/src/curtainwall/CreateCurtainWallsOnAllSlabsCommand.ts",
+     "packages/core-app-model/src/stores/CurtainWallTypeStore.ts"
+    ],
+    "on_ceb_event": true
+   },
+   {
+    "field": "bayHeight",
+    "repo_mentions": 79,
+    "example_files": [
+     "packages/command-bus/src/commands.ts",
+     "packages/command-registry/src/curtainwall/CreateCurtainWallsFromSlabCommand.ts",
+     "packages/command-registry/src/curtainwall/CreateCurtainWallsOnAllSlabsCommand.ts",
+     "packages/geometry-curtain-wall/src/CurtainGridSystem.ts"
+    ],
+    "on_ceb_event": true
+   },
+   {
+    "field": "panels",
+    "repo_mentions": 814,
+    "example_files": [
+     "packages/a11y-tokens/src/tokens.ts",
+     "packages/ai-host/src/AIReadModel.ts",
+     "packages/ai-host/src/AITypes.ts",
+     "packages/ai-host/src/capabilities/CapabilityRefusal.ts"
+    ],
+    "on_ceb_event": true
+   },
+   {
+    "field": "materialId",
+    "repo_mentions": 1928,
+    "example_files": [
+     "packages/ai-host/src/capabilities/CapabilityRefusal.ts",
+     "packages/ai-host/src/capabilities/ChatCapabilityRegistry.ts",
+     "packages/ai-host/src/intents/CapabilityExecutionSpec.ts",
+     "packages/ai-host/src/intents/finishRef.ts"
+    ],
+    "on_ceb_event": true
+   }
+  ]
+ },
+ "dimension": {
+  "schema_file": "packages/schemas/src/elements/Dimension.ts",
+  "authored_count": 11,
+  "ceb_channel": "dimension.created",
+  "ceb_emit_sites": [
+   1287
+  ],
+  "ceb_emitted_keys": [
+   "commandId",
+   "commandType",
+   "levelId"
+  ],
+  "never_mentioned_outside_schemas": [],
+  "not_on_ceb_event": [
+   "provenance",
+   "viewId",
+   "kind",
+   "points",
+   "offsetMm",
+   "units",
+   "precision",
+   "style",
+   "overridden",
+   "overrideText"
+  ],
+  "fields": [
+   {
+    "field": "provenance",
+    "repo_mentions": 797,
+    "example_files": [
+     "packages/ai-host/src/byom/ByomRoute.ts",
+     "packages/ai-host/src/byom/ByomVault.ts",
+     "packages/ai-host/src/capabilities/ChatCommandClassification.ts",
+     "packages/ai-host/src/index.ts"
+    ],
+    "on_ceb_event": false
+   },
+   {
+    "field": "levelId",
+    "repo_mentions": 7406,
+    "example_files": [
+     "packages/ai-host/src/AIElementFactory.ts",
+     "packages/ai-host/src/AIReadModel.ts",
+     "packages/ai-host/src/AIResponseParser.ts",
+     "packages/ai-host/src/AIService.ts"
+    ],
+    "on_ceb_event": true
+   },
+   {
+    "field": "viewId",
+    "repo_mentions": 2602,
+    "example_files": [
+     "packages/ai-host/src/AIReadModel.ts",
+     "packages/ai-host/src/intents/types.ts",
+     "packages/ai-host/src/vg/ViewAuthoringIntentMapper.ts",
+     "packages/ai-host/src/workflows/PlanCritique.ts"
+    ],
+    "on_ceb_event": false
+   },
+   {
+    "field": "kind",
+    "repo_mentions": 6865,
+    "example_files": [
+     "packages/admin-overrides/src/store.ts",
+     "packages/admin-overrides/src/types.ts",
+     "packages/ai-host/src/AiBus.ts",
+     "packages/ai-host/src/AiPlane.ts"
+    ],
+    "on_ceb_event": false
+   },
+   {
+    "field": "points",
+    "repo_mentions": 2144,
+    "example_files": [
+     "packages/ai-host/src/byom/ByomRedaction.ts",
+     "packages/ai-host/src/capabilities/CapabilityRefusal.ts",
+     "packages/ai-host/src/capabilities/ChatCapabilityRegistry.ts",
+     "packages/ai-host/src/DoorGeometricValidator.ts"
+    ],
+    "on_ceb_event": false
+   },
+   {
+    "field": "offsetMm",
+    "repo_mentions": 85,
+    "example_files": [
+     "packages/ai-host/src/workflows/apartmentLayout/tgl/emitGeometry.ts",
+     "packages/ai-host/src/workflows/apartmentLayout/windowEmission/emitWindows.ts",
+     "packages/ai-host/src/workflows/apartmentLayout/windowEmission/types.ts",
+     "packages/auto-dimension/src/conflicts.ts"
+    ],
+    "on_ceb_event": false
+   },
+   {
+    "field": "units",
+    "repo_mentions": 475,
+    "example_files": [
+     "packages/ai-host/src/DoorGeometricValidator.ts",
+     "packages/ai-host/src/intents/ZeroTokenResolver.ts",
+     "packages/ai-host/src/QueryEngine.ts",
+     "packages/ai-host/src/workflows/apartmentLayout/dimensions/validateApartmentEnvelope.ts"
+    ],
+    "on_ceb_event": false
+   },
+   {
+    "field": "precision",
+    "repo_mentions": 121,
+    "example_files": [
+     "packages/ai-host/src/WallTerminatorDoorDetector.ts",
+     "packages/ai-spend/src/aggregations.ts",
+     "packages/command-bus/src/consequence.ts",
+     "packages/core-app-model/src/drawing/ElevationViewBasis.ts"
+    ],
+    "on_ceb_event": false
+   },
+   {
+    "field": "style",
+    "repo_mentions": 8317,
+    "example_files": [
+     "packages/admin-overrides/src/resolution.ts",
+     "packages/admin-overrides/src/store.ts",
+     "packages/ai-host/src/AiBus.ts",
+     "packages/ai-host/src/AIReadModel.ts"
+    ],
+    "on_ceb_event": false
+   },
+   {
+    "field": "overridden",
+    "repo_mentions": 112,
+    "example_files": [
+     "packages/admin-overrides/src/types.ts",
+     "packages/ai-cost/src/CostMeter.ts",
+     "packages/ai-host/src/intents/DimensionFamilies.ts",
+     "packages/ai-host/src/intents/ZeroTokenResolver.ts"
+    ],
+    "on_ceb_event": false
+   },
+   {
+    "field": "overrideText",
+    "repo_mentions": 21,
+    "example_files": [
+     "packages/geometry-kernel/src/producers/dimension.ts",
+     "packages/geometry-kernel/src/producers/_internal/composeDimensionGeometryHash.ts",
+     "plugins/dimensions/src/handlers/CreateDimension.ts",
+     "plugins/dimensions/src/handlers/CreateManyDimensions.ts"
+    ],
+    "on_ceb_event": false
+   }
+  ]
+ },
+ "door": {
+  "schema_file": "packages/schemas/src/elements/Door.ts",
+  "authored_count": 18,
+  "ceb_channel": null,
+  "ceb_emit_sites": [],
+  "ceb_emitted_keys": null,
+  "never_mentioned_outside_schemas": [],
+  "not_on_ceb_event": null,
+  "fields": [
+   {
+    "field": "provenance",
+    "repo_mentions": 797,
+    "example_files": [
+     "packages/ai-host/src/byom/ByomRoute.ts",
+     "packages/ai-host/src/byom/ByomVault.ts",
+     "packages/ai-host/src/capabilities/ChatCommandClassification.ts",
+     "packages/ai-host/src/index.ts"
+    ],
+    "on_ceb_event": null
+   },
+   {
+    "field": "confidence",
+    "repo_mentions": 960,
+    "example_files": [
+     "packages/ai-host/src/AIApprovalRecord.ts",
+     "packages/ai-host/src/AIElementFactory.ts",
+     "packages/ai-host/src/AIService.ts",
+     "packages/ai-host/src/AITypes.ts"
+    ],
+    "on_ceb_event": null
+   },
+   {
+    "field": "wallId",
+    "repo_mentions": 2679,
+    "example_files": [
+     "packages/ai-host/src/AIReadModel.ts",
+     "packages/ai-host/src/AIService.ts",
+     "packages/ai-host/src/AITypes.ts",
+     "packages/ai-host/src/capabilities/ChatCapabilityRegistry.ts"
+    ],
+    "on_ceb_event": null
+   },
+   {
+    "field": "openingId",
+    "repo_mentions": 271,
+    "example_files": [
+     "packages/ai-host/src/capabilities/ChatCapabilityRegistry.ts",
+     "packages/ai-host/src/graph/GraphQueryService.ts",
+     "packages/ai-host/src/workflows/apartmentLayout/executePlan.ts",
+     "packages/ai-host/src/workflows/apartmentLayout/tgl/semanticGraph.ts"
+    ],
+    "on_ceb_event": null
+   },
+   {
+    "field": "doorType",
+    "repo_mentions": 238,
+    "example_files": [
+     "packages/ai-host/src/AIReadModel.ts",
+     "packages/ai-host/src/AITypes.ts",
+     "packages/ai-host/src/FloorPlanCommandBatcher.ts",
+     "packages/ai-host/src/intents/LocalNaturalLanguageResolver.ts"
+    ],
+    "on_ceb_event": null
+   },
+   {
+    "field": "width",
+    "repo_mentions": 11016,
+    "example_files": [
+     "packages/ai-host/src/AIElementFactory.ts",
+     "packages/ai-host/src/AIReadModel.ts",
+     "packages/ai-host/src/AIService.ts",
+     "packages/ai-host/src/AITypes.ts"
+    ],
+    "on_ceb_event": null
+   },
+   {
+    "field": "height",
+    "repo_mentions": 11719,
+    "example_files": [
+     "packages/ai-host/src/AIElementFactory.ts",
+     "packages/ai-host/src/AIReadModel.ts",
+     "packages/ai-host/src/AIService.ts",
+     "packages/ai-host/src/AITypes.ts"
+    ],
+    "on_ceb_event": null
+   },
+   {
+    "field": "sillHeight",
+    "repo_mentions": 711,
+    "example_files": [
+     "packages/ai-host/src/AIReadModel.ts",
+     "packages/ai-host/src/AIService.ts",
+     "packages/ai-host/src/AITypes.ts",
+     "packages/ai-host/src/capabilities/ChatCapabilityRegistry.ts"
+    ],
+    "on_ceb_event": null
+   },
+   {
+    "field": "offset",
+    "repo_mentions": 3493,
+    "example_files": [
+     "packages/ai-host/src/AnthropicRelay.ts",
+     "packages/ai-host/src/capabilities/CapabilityRefusal.ts",
+     "packages/ai-host/src/capabilities/ChatCapabilityRegistry.ts",
+     "packages/ai-host/src/DoorGeometricValidator.ts"
+    ],
+    "on_ceb_event": null
+   },
+   {
+    "field": "frameThickness",
+    "repo_mentions": 163,
+    "example_files": [
+     "packages/command-bus/src/commands.ts",
+     "packages/command-registry/src/project/projectLoaderUtils.ts",
+     "packages/core-app-model/src/quantities/QuantityTakeoff.ts",
+     "packages/geometry-curtain-wall/src/CurtainPanelFactory.ts"
+    ],
+    "on_ceb_event": null
+   },
+   {
+    "field": "frameWidth",
+    "repo_mentions": 158,
+    "example_files": [
+     "packages/command-bus/src/commands.ts",
+     "packages/command-registry/src/project/projectLoaderUtils.ts",
+     "packages/core-app-model/src/drawing/OpeningElevationSymbol.ts",
+     "packages/core-app-model/src/quantities/QuantityTakeoff.ts"
+    ],
+    "on_ceb_event": null
+   },
+   {
+    "field": "frameMaterialId",
+    "repo_mentions": 27,
+    "example_files": [
+     "packages/geometry-kernel/src/producers/door.ts",
+     "packages/geometry-kernel/src/producers/window.ts",
+     "packages/geometry-lift/src/LiftAssembly.ts",
+     "packages/geometry-lift/src/LiftCompoundTypes.ts"
+    ],
+    "on_ceb_event": null
+   },
+   {
+    "field": "leafMaterialId",
+    "repo_mentions": 8,
+    "example_files": [
+     "packages/geometry-kernel/src/producers/door.ts",
+     "packages/geometry-lift/src/LiftAssembly.ts",
+     "packages/runtime-composer/src/CommandEventBridge.ts"
+    ],
+    "on_ceb_event": null
+   },
+   {
+    "field": "frameColor",
+    "repo_mentions": 206,
+    "example_files": [
+     "packages/ai-host/src/AIService.ts",
+     "packages/ai-host/src/workflows/furnishLayout/style/StyleRegistry.ts",
+     "packages/command-bus/src/commands.ts",
+     "packages/command-registry/src/doors/UpdateDoorFrameColorCommand.ts"
+    ],
+    "on_ceb_event": null
+   },
+   {
+    "field": "leafColor",
+    "repo_mentions": 79,
+    "example_files": [
+     "packages/ai-host/src/AIService.ts",
+     "packages/ai-host/src/workflows/furnishLayout/style/StyleRegistry.ts",
+     "packages/command-bus/src/commands.ts",
+     "packages/command-registry/src/doors/UpdateDoorLeafColorCommand.ts"
+    ],
+    "on_ceb_event": null
+   },
+   {
+    "field": "fireRating",
+    "repo_mentions": 260,
+    "example_files": [
+     "packages/ai-host/src/AIReadModel.ts",
+     "packages/ai-host/src/AIService.ts",
+     "packages/ai-host/src/AITypes.ts",
+     "packages/ai-host/src/intents/StairNotYet.ts"
+    ],
+    "on_ceb_event": null
+   },
+   {
+    "field": "accessibilityType",
+    "repo_mentions": 99,
+    "example_files": [
+     "packages/ai-host/src/AIService.ts",
+     "packages/ai-host/src/intents/StairNotYet.ts",
+     "packages/ai-host/src/RuleEngine.ts",
+     "packages/ai-host/src/StairComplianceReporter.ts"
+    ],
+    "on_ceb_event": null
+   },
+   {
+    "field": "swing",
+    "repo_mentions": 328,
+    "example_files": [
+     "packages/ai-host/src/AnthropicRelay.ts",
+     "packages/ai-host/src/capabilities/ChatCommandClassification.ts",
+     "packages/ai-host/src/DoorGapInpainter.ts",
+     "packages/ai-host/src/FloorPlanAIFactory.ts"
+    ],
+    "on_ceb_event": null
+   }
+  ]
+ },
+ "floor": {
+  "schema_file": "packages/schemas/src/elements/Floor.ts",
+  "authored_count": 8,
+  "ceb_channel": "floor.created",
+  "ceb_emit_sites": [
+   1463,
+   1585
+  ],
+  "ceb_emitted_keys": [
+   "commandId",
+   "commandType",
+   "levelId",
+   "floorId",
+   "ifcGuid",
+   "polygon",
+   "baseOffset",
+   "thickness",
+   "label",
+   "systemTypeId",
+   "layers",
+   "finishSpec",
+   "serviceHoles",
+   "hostSlabId",
+   "hostRoomId",
+   "createdBy"
+  ],
+  "never_mentioned_outside_schemas": [],
+  "not_on_ceb_event": [
+   "provenance",
+   "confidence",
+   "boundary",
+   "materialId",
+   "materialColor"
+  ],
+  "fields": [
+   {
+    "field": "provenance",
+    "repo_mentions": 797,
+    "example_files": [
+     "packages/ai-host/src/byom/ByomRoute.ts",
+     "packages/ai-host/src/byom/ByomVault.ts",
+     "packages/ai-host/src/capabilities/ChatCommandClassification.ts",
+     "packages/ai-host/src/index.ts"
+    ],
+    "on_ceb_event": false
+   },
+   {
+    "field": "confidence",
+    "repo_mentions": 960,
+    "example_files": [
+     "packages/ai-host/src/AIApprovalRecord.ts",
+     "packages/ai-host/src/AIElementFactory.ts",
+     "packages/ai-host/src/AIService.ts",
+     "packages/ai-host/src/AITypes.ts"
+    ],
+    "on_ceb_event": false
+   },
+   {
+    "field": "levelId",
+    "repo_mentions": 7406,
+    "example_files": [
+     "packages/ai-host/src/AIElementFactory.ts",
+     "packages/ai-host/src/AIReadModel.ts",
+     "packages/ai-host/src/AIResponseParser.ts",
+     "packages/ai-host/src/AIService.ts"
+    ],
+    "on_ceb_event": true
+   },
+   {
+    "field": "boundary",
+    "repo_mentions": 4753,
+    "example_files": [
+     "packages/ai-host/src/AiHost.ts",
+     "packages/ai-host/src/AnthropicRelay.ts",
+     "packages/ai-host/src/byom/ByomRedaction.ts",
+     "packages/ai-host/src/byom/ByomRoute.ts"
+    ],
+    "on_ceb_event": false
+   },
+   {
+    "field": "baseOffset",
+    "repo_mentions": 1849,
+    "example_files": [
+     "packages/ai-host/src/AIElementFactory.ts",
+     "packages/ai-host/src/AIReadModel.ts",
+     "packages/ai-host/src/AIService.ts",
+     "packages/ai-host/src/AITypes.ts"
+    ],
+    "on_ceb_event": true
+   },
+   {
+    "field": "thickness",
+    "repo_mentions": 3585,
+    "example_files": [
+     "packages/ai-host/src/AIReadModel.ts",
+     "packages/ai-host/src/AIService.ts",
+     "packages/ai-host/src/AITypes.ts",
+     "packages/ai-host/src/capabilities/CapabilityRefusal.ts"
+    ],
+    "on_ceb_event": true
+   },
+   {
+    "field": "materialId",
+    "repo_mentions": 1928,
+    "example_files": [
+     "packages/ai-host/src/capabilities/CapabilityRefusal.ts",
+     "packages/ai-host/src/capabilities/ChatCapabilityRegistry.ts",
+     "packages/ai-host/src/intents/CapabilityExecutionSpec.ts",
+     "packages/ai-host/src/intents/finishRef.ts"
+    ],
+    "on_ceb_event": false
+   },
+   {
+    "field": "materialColor",
+    "repo_mentions": 1293,
+    "example_files": [
+     "packages/ai-host/src/AIService.ts",
+     "packages/ai-host/src/capabilities/ChatCapabilityRegistry.ts",
+     "packages/ai-host/src/capabilities/ChatCommandClassification.ts",
+     "packages/ai-host/src/intents/CapabilityExecutionSpec.ts"
+    ],
+    "on_ceb_event": false
+   }
+  ]
+ },
+ "furniture": {
+  "schema_file": "packages/schemas/src/elements/Furniture.ts",
+  "authored_count": 12,
+  "ceb_channel": "furniture.created",
+  "ceb_emit_sites": [
+   1158,
+   1211
+  ],
+  "ceb_emitted_keys": [
+   "commandId",
+   "commandType",
+   "levelId",
+   "id",
+   "furnitureType",
+   "position",
+   "rotation",
+   "baseOffset",
+   "width",
+   "length",
+   "height",
+   "material",
+   "materialId",
+   "color",
+   "furnitureCategory",
+   "kitchenConfig",
+   "wardrobeCabinetConfig"
+  ],
+  "never_mentioned_outside_schemas": [],
+  "not_on_ceb_event": [
+   "provenance",
+   "confidence",
+   "catalogId",
+   "origin",
+   "scale",
+   "size",
+   "activeLod",
+   "representations",
+   "materialSlots"
+  ],
+  "fields": [
+   {
+    "field": "provenance",
+    "repo_mentions": 797,
+    "example_files": [
+     "packages/ai-host/src/byom/ByomRoute.ts",
+     "packages/ai-host/src/byom/ByomVault.ts",
+     "packages/ai-host/src/capabilities/ChatCommandClassification.ts",
+     "packages/ai-host/src/index.ts"
+    ],
+    "on_ceb_event": false
+   },
+   {
+    "field": "confidence",
+    "repo_mentions": 960,
+    "example_files": [
+     "packages/ai-host/src/AIApprovalRecord.ts",
+     "packages/ai-host/src/AIElementFactory.ts",
+     "packages/ai-host/src/AIService.ts",
+     "packages/ai-host/src/AITypes.ts"
+    ],
+    "on_ceb_event": false
+   },
+   {
+    "field": "levelId",
+    "repo_mentions": 7406,
+    "example_files": [
+     "packages/ai-host/src/AIElementFactory.ts",
+     "packages/ai-host/src/AIReadModel.ts",
+     "packages/ai-host/src/AIResponseParser.ts",
+     "packages/ai-host/src/AIService.ts"
+    ],
+    "on_ceb_event": true
+   },
+   {
+    "field": "catalogId",
+    "repo_mentions": 47,
+    "example_files": [
+     "packages/geometry-kernel/src/producers/furniture.ts",
+     "packages/geometry-kernel/src/producers/_internal/composeFurnitureGeometryHash.ts",
+     "apps/editor/src/engine/initTools.ts",
+     "apps/editor/src/ui/create/batchCatalogue.ts"
+    ],
+    "on_ceb_event": false
+   },
+   {
+    "field": "origin",
+    "repo_mentions": 2516,
+    "example_files": [
+     "packages/ai-host/src/byom/ByomProviders.ts",
+     "packages/ai-host/src/byom/ByomRoute.ts",
+     "packages/ai-host/src/byom/ByomVault.ts",
+     "packages/ai-host/src/CfWorkerRelay.ts"
+    ],
+    "on_ceb_event": false
+   },
+   {
+    "field": "rotation",
+    "repo_mentions": 1608,
+    "example_files": [
+     "packages/ai-host/src/AIElementFactory.ts",
+     "packages/ai-host/src/capabilities/CapabilityRefusal.ts",
+     "packages/ai-host/src/FloorPlanCommandBatcher.ts",
+     "packages/ai-host/src/workflows/apartmentLayout/dimensions/validateFrontage.ts"
+    ],
+    "on_ceb_event": true
+   },
+   {
+    "field": "scale",
+    "repo_mentions": 2084,
+    "example_files": [
+     "packages/ai-host/src/capabilities/ChatCapabilityRegistry.ts",
+     "packages/ai-host/src/capabilities/ChatCommandClassification.ts",
+     "packages/ai-host/src/DoorGeometricValidator.ts",
+     "packages/ai-host/src/FloorPlanAIFactory.ts"
+    ],
+    "on_ceb_event": false
+   },
+   {
+    "field": "size",
+    "repo_mentions": 6784,
+    "example_files": [
+     "packages/a11y-tokens/src/contrast.ts",
+     "packages/a11y-tokens/src/tokens.ts",
+     "packages/admin-overrides/src/store.ts",
+     "packages/ai-host/src/AIApprovalStore.ts"
+    ],
+    "on_ceb_event": false
+   },
+   {
+    "field": "activeLod",
+    "repo_mentions": 39,
+    "example_files": [
+     "packages/geometry-kernel/src/producers/furniture.ts",
+     "packages/geometry-kernel/src/producers/_internal/composeFurnitureGeometryHash.ts",
+     "plugins/furniture/src/committer/furniture-committer.ts",
+     "plugins/furniture/src/handlers/CreateFurniture.ts"
+    ],
+    "on_ceb_event": false
+   },
+   {
+    "field": "representations",
+    "repo_mentions": 44,
+    "example_files": [
+     "packages/facade-reconstruction/src/reconstruction/facadePlane/hough.ts",
+     "packages/file-format/src/export/ifc/index.ts",
+     "packages/geometry-kernel/src/producers/furniture.ts",
+     "packages/geometry-kernel/src/producers/_internal/composeFurnitureGeometryHash.ts"
+    ],
+    "on_ceb_event": false
+   },
+   {
+    "field": "materialSlots",
+    "repo_mentions": 26,
+    "example_files": [
+     "packages/file-format/src/family-migrations/ops/merge-material-slots.ts",
+     "packages/file-format/src/family-schema.ts",
+     "packages/geometry-kernel/src/producers/furniture.ts",
+     "packages/geometry-kernel/src/producers/_internal/composeFurnitureGeometryHash.ts"
+    ],
+    "on_ceb_event": false
+   },
+   {
+    "field": "materialId",
+    "repo_mentions": 1928,
+    "example_files": [
+     "packages/ai-host/src/capabilities/CapabilityRefusal.ts",
+     "packages/ai-host/src/capabilities/ChatCapabilityRegistry.ts",
+     "packages/ai-host/src/intents/CapabilityExecutionSpec.ts",
+     "packages/ai-host/src/intents/finishRef.ts"
+    ],
+    "on_ceb_event": true
+   }
+  ]
+ },
+ "grid": {
+  "schema_file": "packages/schemas/src/elements/Grid.ts",
+  "authored_count": 5,
+  "ceb_channel": "grid.created",
+  "ceb_emit_sites": [
+   1096
+  ],
+  "ceb_emitted_keys": [
+   "commandId",
+   "commandType",
+   "levelId"
+  ],
+  "never_mentioned_outside_schemas": [],
+  "not_on_ceb_event": [
+   "provenance",
+   "confidence",
+   "rotation",
+   "lines"
+  ],
+  "fields": [
+   {
+    "field": "provenance",
+    "repo_mentions": 797,
+    "example_files": [
+     "packages/ai-host/src/byom/ByomRoute.ts",
+     "packages/ai-host/src/byom/ByomVault.ts",
+     "packages/ai-host/src/capabilities/ChatCommandClassification.ts",
+     "packages/ai-host/src/index.ts"
+    ],
+    "on_ceb_event": false
+   },
+   {
+    "field": "confidence",
+    "repo_mentions": 960,
+    "example_files": [
+     "packages/ai-host/src/AIApprovalRecord.ts",
+     "packages/ai-host/src/AIElementFactory.ts",
+     "packages/ai-host/src/AIService.ts",
+     "packages/ai-host/src/AITypes.ts"
+    ],
+    "on_ceb_event": false
+   },
+   {
+    "field": "levelId",
+    "repo_mentions": 7406,
+    "example_files": [
+     "packages/ai-host/src/AIElementFactory.ts",
+     "packages/ai-host/src/AIReadModel.ts",
+     "packages/ai-host/src/AIResponseParser.ts",
+     "packages/ai-host/src/AIService.ts"
+    ],
+    "on_ceb_event": true
+   },
+   {
+    "field": "rotation",
+    "repo_mentions": 1608,
+    "example_files": [
+     "packages/ai-host/src/AIElementFactory.ts",
+     "packages/ai-host/src/capabilities/CapabilityRefusal.ts",
+     "packages/ai-host/src/FloorPlanCommandBatcher.ts",
+     "packages/ai-host/src/workflows/apartmentLayout/dimensions/validateFrontage.ts"
+    ],
+    "on_ceb_event": false
+   },
+   {
+    "field": "lines",
+    "repo_mentions": 2422,
+    "example_files": [
+     "packages/ai-cost/src/CostMeter.ts",
+     "packages/ai-host/src/AiBus.ts",
+     "packages/ai-host/src/AiHost.impl.ts",
+     "packages/ai-host/src/AiHost.ts"
+    ],
+    "on_ceb_event": false
+   }
+  ]
+ },
+ "handrail": {
+  "schema_file": "packages/schemas/src/elements/Handrail.ts",
+  "authored_count": 9,
+  "ceb_channel": "handrail.created",
+  "ceb_emit_sites": [
+   1119,
+   1606
+  ],
+  "ceb_emitted_keys": [
+   "commandId",
+   "commandType",
+   "levelId",
+   "id",
+   "path",
+   "height",
+   "diameter",
+   "shape",
+   "hostId",
+   "materialId"
+  ],
+  "never_mentioned_outside_schemas": [],
+  "not_on_ceb_event": [
+   "provenance",
+   "confidence"
+  ],
+  "fields": [
+   {
+    "field": "provenance",
+    "repo_mentions": 797,
+    "example_files": [
+     "packages/ai-host/src/byom/ByomRoute.ts",
+     "packages/ai-host/src/byom/ByomVault.ts",
+     "packages/ai-host/src/capabilities/ChatCommandClassification.ts",
+     "packages/ai-host/src/index.ts"
+    ],
+    "on_ceb_event": false
+   },
+   {
+    "field": "confidence",
+    "repo_mentions": 960,
+    "example_files": [
+     "packages/ai-host/src/AIApprovalRecord.ts",
+     "packages/ai-host/src/AIElementFactory.ts",
+     "packages/ai-host/src/AIService.ts",
+     "packages/ai-host/src/AITypes.ts"
+    ],
+    "on_ceb_event": false
+   },
+   {
+    "field": "levelId",
+    "repo_mentions": 7406,
+    "example_files": [
+     "packages/ai-host/src/AIElementFactory.ts",
+     "packages/ai-host/src/AIReadModel.ts",
+     "packages/ai-host/src/AIResponseParser.ts",
+     "packages/ai-host/src/AIService.ts"
+    ],
+    "on_ceb_event": true
+   },
+   {
+    "field": "hostId",
+    "repo_mentions": 464,
+    "example_files": [
+     "packages/ai-host/src/workflows/apartmentLayout/tgl/bubbleGraph.ts",
+     "packages/ai-host/src/workflows/apartmentLayout/tgl/subdivide.ts",
+     "packages/ai-host/src/workflows/apartmentLayout/tgl/subdivideViaSpine.ts",
+     "packages/ai-host/src/workflows/apartmentLayout/tgl/wallsAndDoors.ts"
+    ],
+    "on_ceb_event": true
+   },
+   {
+    "field": "path",
+    "repo_mentions": 7536,
+    "example_files": [
+     "packages/admin-overrides/src/resolution.ts",
+     "packages/ai-cost/src/CostMeter.ts",
+     "packages/ai-host/src/AIApprovalStore.ts",
+     "packages/ai-host/src/AIElementFactory.ts"
+    ],
+    "on_ceb_event": true
+   },
+   {
+    "field": "shape",
+    "repo_mentions": 4556,
+    "example_files": [
+     "packages/ai-host/src/AiBus.ts",
+     "packages/ai-host/src/AIElementFactory.ts",
+     "packages/ai-host/src/AnthropicRelay.ts",
+     "packages/ai-host/src/byom/ByomProviders.ts"
+    ],
+    "on_ceb_event": true
+   },
+   {
+    "field": "height",
+    "repo_mentions": 11719,
+    "example_files": [
+     "packages/ai-host/src/AIElementFactory.ts",
+     "packages/ai-host/src/AIReadModel.ts",
+     "packages/ai-host/src/AIService.ts",
+     "packages/ai-host/src/AITypes.ts"
+    ],
+    "on_ceb_event": true
+   },
+   {
+    "field": "diameter",
+    "repo_mentions": 181,
+    "example_files": [
+     "packages/ai-host/src/capabilities/ChatCapabilityRegistry.ts",
+     "packages/ai-host/src/intents/FacadeOpeningProgram.ts",
+     "packages/ai-host/src/workflows/apartmentLayout/rules/habitability/standards.ts",
+     "packages/ai-host/src/workflows/apartmentLayout/score.ts"
+    ],
+    "on_ceb_event": true
+   },
+   {
+    "field": "materialId",
+    "repo_mentions": 1928,
+    "example_files": [
+     "packages/ai-host/src/capabilities/CapabilityRefusal.ts",
+     "packages/ai-host/src/capabilities/ChatCapabilityRegistry.ts",
+     "packages/ai-host/src/intents/CapabilityExecutionSpec.ts",
+     "packages/ai-host/src/intents/finishRef.ts"
+    ],
+    "on_ceb_event": true
+   }
+  ]
+ },
+ "lighting": {
+  "schema_file": "packages/schemas/src/elements/Lighting.ts",
+  "authored_count": 18,
+  "ceb_channel": "lighting.created",
+  "ceb_emit_sites": [
+   1244
+  ],
+  "ceb_emitted_keys": [
+   "commandId",
+   "commandType",
+   "levelId",
+   "id",
+   "kind",
+   "origin"
+  ],
+  "never_mentioned_outside_schemas": [],
+  "not_on_ceb_event": [
+   "provenance",
+   "confidence",
+   "rotation",
+   "width",
+   "depth",
+   "thickness",
+   "dropLength",
+   "range",
+   "lumens",
+   "kelvin",
+   "beamAngleDeg",
+   "intensity",
+   "color",
+   "isEmergency",
+   "materialId"
+  ],
+  "fields": [
+   {
+    "field": "provenance",
+    "repo_mentions": 797,
+    "example_files": [
+     "packages/ai-host/src/byom/ByomRoute.ts",
+     "packages/ai-host/src/byom/ByomVault.ts",
+     "packages/ai-host/src/capabilities/ChatCommandClassification.ts",
+     "packages/ai-host/src/index.ts"
+    ],
+    "on_ceb_event": false
+   },
+   {
+    "field": "confidence",
+    "repo_mentions": 960,
+    "example_files": [
+     "packages/ai-host/src/AIApprovalRecord.ts",
+     "packages/ai-host/src/AIElementFactory.ts",
+     "packages/ai-host/src/AIService.ts",
+     "packages/ai-host/src/AITypes.ts"
+    ],
+    "on_ceb_event": false
+   },
+   {
+    "field": "levelId",
+    "repo_mentions": 7406,
+    "example_files": [
+     "packages/ai-host/src/AIElementFactory.ts",
+     "packages/ai-host/src/AIReadModel.ts",
+     "packages/ai-host/src/AIResponseParser.ts",
+     "packages/ai-host/src/AIService.ts"
+    ],
+    "on_ceb_event": true
+   },
+   {
+    "field": "kind",
+    "repo_mentions": 6865,
+    "example_files": [
+     "packages/admin-overrides/src/store.ts",
+     "packages/admin-overrides/src/types.ts",
+     "packages/ai-host/src/AiBus.ts",
+     "packages/ai-host/src/AiPlane.ts"
+    ],
+    "on_ceb_event": true
+   },
+   {
+    "field": "origin",
+    "repo_mentions": 2516,
+    "example_files": [
+     "packages/ai-host/src/byom/ByomProviders.ts",
+     "packages/ai-host/src/byom/ByomRoute.ts",
+     "packages/ai-host/src/byom/ByomVault.ts",
+     "packages/ai-host/src/CfWorkerRelay.ts"
+    ],
+    "on_ceb_event": true
+   },
+   {
+    "field": "rotation",
+    "repo_mentions": 1608,
+    "example_files": [
+     "packages/ai-host/src/AIElementFactory.ts",
+     "packages/ai-host/src/capabilities/CapabilityRefusal.ts",
+     "packages/ai-host/src/FloorPlanCommandBatcher.ts",
+     "packages/ai-host/src/workflows/apartmentLayout/dimensions/validateFrontage.ts"
+    ],
+    "on_ceb_event": false
+   },
+   {
+    "field": "width",
+    "repo_mentions": 11016,
+    "example_files": [
+     "packages/ai-host/src/AIElementFactory.ts",
+     "packages/ai-host/src/AIReadModel.ts",
+     "packages/ai-host/src/AIService.ts",
+     "packages/ai-host/src/AITypes.ts"
+    ],
+    "on_ceb_event": false
+   },
+   {
+    "field": "depth",
+    "repo_mentions": 3977,
+    "example_files": [
+     "packages/ai-host/src/AIElementFactory.ts",
+     "packages/ai-host/src/AIReadModel.ts",
+     "packages/ai-host/src/AIService.ts",
+     "packages/ai-host/src/AITypes.ts"
+    ],
+    "on_ceb_event": false
+   },
+   {
+    "field": "thickness",
+    "repo_mentions": 3585,
+    "example_files": [
+     "packages/ai-host/src/AIReadModel.ts",
+     "packages/ai-host/src/AIService.ts",
+     "packages/ai-host/src/AITypes.ts",
+     "packages/ai-host/src/capabilities/CapabilityRefusal.ts"
+    ],
+    "on_ceb_event": false
+   },
+   {
+    "field": "dropLength",
+    "repo_mentions": 7,
+    "example_files": [
+     "packages/geometry-kernel/src/producers/lighting.ts",
+     "packages/geometry-kernel/src/producers/_internal/composeLightingGeometryHash.ts",
+     "plugins/lighting/src/committer/lighting-committer.ts",
+     "plugins/lighting/src/handlers/CreateLighting.ts"
+    ],
+    "on_ceb_event": false
+   },
+   {
+    "field": "range",
+    "repo_mentions": 744,
+    "example_files": [
+     "packages/ai-host/src/AmbientIntelligence.ts",
+     "packages/ai-host/src/capabilities/ChatCapabilityRegistry.ts",
+     "packages/ai-host/src/FloorPlanCommandBatcher.ts",
+     "packages/ai-host/src/intents/CapabilityExecutionSpec.ts"
+    ],
+    "on_ceb_event": false
+   },
+   {
+    "field": "lumens",
+    "repo_mentions": 46,
+    "example_files": [
+     "packages/core-app-model/src/index.ts",
+     "packages/core-app-model/src/lighting/FixturePhotometry.ts",
+     "packages/geometry-kernel/src/producers/lighting.ts",
+     "packages/geometry-lighting/src/LightingFragmentBuilder.ts"
+    ],
+    "on_ceb_event": false
+   },
+   {
+    "field": "kelvin",
+    "repo_mentions": 60,
+    "example_files": [
+     "packages/core-app-model/src/index.ts",
+     "packages/core-app-model/src/lighting/FixturePhotometry.ts",
+     "packages/core-app-model/src/rendering/RealSunService.ts",
+     "packages/geometry-furniture/src/builders/LampBuilder.ts"
+    ],
+    "on_ceb_event": false
+   },
+   {
+    "field": "beamAngleDeg",
+    "repo_mentions": 24,
+    "example_files": [
+     "packages/core-app-model/src/lighting/FixturePhotometry.ts"
+    ],
+    "on_ceb_event": false
+   },
+   {
+    "field": "intensity",
+    "repo_mentions": 351,
+    "example_files": [
+     "packages/ai-host/src/capabilities/ChatCommandClassification.ts",
+     "packages/ai-host/src/intents/CatalogueFamilies.ts",
+     "packages/climate-host/src/epwParser.ts",
+     "packages/command-registry/src/views/SetViewLightingCommand.ts"
+    ],
+    "on_ceb_event": false
+   },
+   {
+    "field": "color",
+    "repo_mentions": 8667,
+    "example_files": [
+     "packages/a11y-tokens/src/index.ts",
+     "packages/a11y-tokens/src/tokens.ts",
+     "packages/ai-host/src/AIElementFactory.ts",
+     "packages/ai-host/src/AIService.ts"
+    ],
+    "on_ceb_event": false
+   },
+   {
+    "field": "isEmergency",
+    "repo_mentions": 20,
+    "example_files": [
+     "packages/core-app-model/src/lighting/FixturePhotometry.ts",
+     "packages/geometry-kernel/src/producers/lighting.ts",
+     "packages/geometry-kernel/src/producers/_internal/composeLightingGeometryHash.ts",
+     "apps/editor/src/ui/platform/PlatformVersionController.ts"
+    ],
+    "on_ceb_event": false
+   },
+   {
+    "field": "materialId",
+    "repo_mentions": 1928,
+    "example_files": [
+     "packages/ai-host/src/capabilities/CapabilityRefusal.ts",
+     "packages/ai-host/src/capabilities/ChatCapabilityRegistry.ts",
+     "packages/ai-host/src/intents/CapabilityExecutionSpec.ts",
+     "packages/ai-host/src/intents/finishRef.ts"
+    ],
+    "on_ceb_event": false
+   }
+  ]
+ },
+ "plumbing": {
+  "schema_file": "packages/schemas/src/elements/Plumbing.ts",
+  "authored_count": 13,
+  "ceb_channel": "plumbing.created",
+  "ceb_emit_sites": [
+   1257
+  ],
+  "ceb_emitted_keys": [
+   "commandId",
+   "commandType",
+   "levelId"
+  ],
+  "never_mentioned_outside_schemas": [],
+  "not_on_ceb_event": [
+   "provenance",
+   "confidence",
+   "kind",
+   "origin",
+   "diameter",
+   "wallThickness",
+   "length",
+   "rotation",
+   "bendRadius",
+   "baseOffset",
+   "systemTag",
+   "materialId"
+  ],
+  "fields": [
+   {
+    "field": "provenance",
+    "repo_mentions": 797,
+    "example_files": [
+     "packages/ai-host/src/byom/ByomRoute.ts",
+     "packages/ai-host/src/byom/ByomVault.ts",
+     "packages/ai-host/src/capabilities/ChatCommandClassification.ts",
+     "packages/ai-host/src/index.ts"
+    ],
+    "on_ceb_event": false
+   },
+   {
+    "field": "confidence",
+    "repo_mentions": 960,
+    "example_files": [
+     "packages/ai-host/src/AIApprovalRecord.ts",
+     "packages/ai-host/src/AIElementFactory.ts",
+     "packages/ai-host/src/AIService.ts",
+     "packages/ai-host/src/AITypes.ts"
+    ],
+    "on_ceb_event": false
+   },
+   {
+    "field": "levelId",
+    "repo_mentions": 7406,
+    "example_files": [
+     "packages/ai-host/src/AIElementFactory.ts",
+     "packages/ai-host/src/AIReadModel.ts",
+     "packages/ai-host/src/AIResponseParser.ts",
+     "packages/ai-host/src/AIService.ts"
+    ],
+    "on_ceb_event": true
+   },
+   {
+    "field": "kind",
+    "repo_mentions": 6865,
+    "example_files": [
+     "packages/admin-overrides/src/store.ts",
+     "packages/admin-overrides/src/types.ts",
+     "packages/ai-host/src/AiBus.ts",
+     "packages/ai-host/src/AiPlane.ts"
+    ],
+    "on_ceb_event": false
+   },
+   {
+    "field": "origin",
+    "repo_mentions": 2516,
+    "example_files": [
+     "packages/ai-host/src/byom/ByomProviders.ts",
+     "packages/ai-host/src/byom/ByomRoute.ts",
+     "packages/ai-host/src/byom/ByomVault.ts",
+     "packages/ai-host/src/CfWorkerRelay.ts"
+    ],
+    "on_ceb_event": false
+   },
+   {
+    "field": "diameter",
+    "repo_mentions": 181,
+    "example_files": [
+     "packages/ai-host/src/capabilities/ChatCapabilityRegistry.ts",
+     "packages/ai-host/src/intents/FacadeOpeningProgram.ts",
+     "packages/ai-host/src/workflows/apartmentLayout/rules/habitability/standards.ts",
+     "packages/ai-host/src/workflows/apartmentLayout/score.ts"
+    ],
+    "on_ceb_event": false
+   },
+   {
+    "field": "wallThickness",
+    "repo_mentions": 134,
+    "example_files": [
+     "packages/ai-host/src/AIService.ts",
+     "packages/ai-host/src/workflows/apartmentLayout/executePlan.ts",
+     "packages/ai-host/src/workflows/apartmentLayout/generate.ts",
+     "packages/ai-host/src/workflows/apartmentLayout/tgl/runDeterministicLayout.ts"
+    ],
+    "on_ceb_event": false
+   },
+   {
+    "field": "length",
+    "repo_mentions": 18078,
+    "example_files": [
+     "packages/a11y-tokens/src/contrast.ts",
+     "packages/a11y-tokens/src/tokens.ts",
+     "packages/ai-host/src/AIApprovalStore.ts",
+     "packages/ai-host/src/AiPlane.ts"
+    ],
+    "on_ceb_event": false
+   },
+   {
+    "field": "rotation",
+    "repo_mentions": 1608,
+    "example_files": [
+     "packages/ai-host/src/AIElementFactory.ts",
+     "packages/ai-host/src/capabilities/CapabilityRefusal.ts",
+     "packages/ai-host/src/FloorPlanCommandBatcher.ts",
+     "packages/ai-host/src/workflows/apartmentLayout/dimensions/validateFrontage.ts"
+    ],
+    "on_ceb_event": false
+   },
+   {
+    "field": "bendRadius",
+    "repo_mentions": 13,
+    "example_files": [
+     "packages/geometry-kernel/src/producers/plumbing.ts",
+     "packages/geometry-kernel/src/producers/_internal/composePlumbingGeometryHash.ts",
+     "apps/editor/src/engine/bathroomPodMemberMirror.ts",
+     "apps/editor/src/engine/views/plantools/copyPayloads.ts"
+    ],
+    "on_ceb_event": false
+   },
+   {
+    "field": "baseOffset",
+    "repo_mentions": 1849,
+    "example_files": [
+     "packages/ai-host/src/AIElementFactory.ts",
+     "packages/ai-host/src/AIReadModel.ts",
+     "packages/ai-host/src/AIService.ts",
+     "packages/ai-host/src/AITypes.ts"
+    ],
+    "on_ceb_event": false
+   },
+   {
+    "field": "systemTag",
+    "repo_mentions": 38,
+    "example_files": [
+     "packages/geometry-kernel/src/producers/plumbing.ts",
+     "packages/geometry-kernel/src/producers/_internal/composePlumbingGeometryHash.ts",
+     "apps/editor/src/engine/initBusHandlers.ts",
+     "apps/editor/src/engine/views/plantools/copyPayloads.ts"
+    ],
+    "on_ceb_event": false
+   },
+   {
+    "field": "materialId",
+    "repo_mentions": 1928,
+    "example_files": [
+     "packages/ai-host/src/capabilities/CapabilityRefusal.ts",
+     "packages/ai-host/src/capabilities/ChatCapabilityRegistry.ts",
+     "packages/ai-host/src/intents/CapabilityExecutionSpec.ts",
+     "packages/ai-host/src/intents/finishRef.ts"
+    ],
+    "on_ceb_event": false
+   }
+  ]
+ },
+ "pool": {
+  "schema_file": "packages/schemas/src/elements/Pool.ts",
+  "authored_count": 14,
+  "ceb_channel": null,
+  "ceb_emit_sites": [],
+  "ceb_emitted_keys": null,
+  "never_mentioned_outside_schemas": [],
+  "not_on_ceb_event": null,
+  "fields": [
+   {
+    "field": "provenance",
+    "repo_mentions": 797,
+    "example_files": [
+     "packages/ai-host/src/byom/ByomRoute.ts",
+     "packages/ai-host/src/byom/ByomVault.ts",
+     "packages/ai-host/src/capabilities/ChatCommandClassification.ts",
+     "packages/ai-host/src/index.ts"
+    ],
+    "on_ceb_event": null
+   },
+   {
+    "field": "confidence",
+    "repo_mentions": 960,
+    "example_files": [
+     "packages/ai-host/src/AIApprovalRecord.ts",
+     "packages/ai-host/src/AIElementFactory.ts",
+     "packages/ai-host/src/AIService.ts",
+     "packages/ai-host/src/AITypes.ts"
+    ],
+    "on_ceb_event": null
+   },
+   {
+    "field": "levelId",
+    "repo_mentions": 7406,
+    "example_files": [
+     "packages/ai-host/src/AIElementFactory.ts",
+     "packages/ai-host/src/AIReadModel.ts",
+     "packages/ai-host/src/AIResponseParser.ts",
+     "packages/ai-host/src/AIService.ts"
+    ],
+    "on_ceb_event": null
+   },
+   {
+    "field": "hostSlabId",
+    "repo_mentions": 111,
+    "example_files": [
+     "packages/command-registry/src/floors/CreateFloorCommand.ts",
+     "packages/command-registry/src/levels/DuplicateFloorPlanCommand.ts",
+     "packages/command-registry/src/project/ImportProjectCommand.ts",
+     "packages/command-registry/src/stair/CreateStairCommand.ts"
+    ],
+    "on_ceb_event": null
+   },
+   {
+    "field": "boundary",
+    "repo_mentions": 4753,
+    "example_files": [
+     "packages/ai-host/src/AiHost.ts",
+     "packages/ai-host/src/AnthropicRelay.ts",
+     "packages/ai-host/src/byom/ByomRedaction.ts",
+     "packages/ai-host/src/byom/ByomRoute.ts"
+    ],
+    "on_ceb_event": null
+   },
+   {
+    "field": "depth",
+    "repo_mentions": 3977,
+    "example_files": [
+     "packages/ai-host/src/AIElementFactory.ts",
+     "packages/ai-host/src/AIReadModel.ts",
+     "packages/ai-host/src/AIService.ts",
+     "packages/ai-host/src/AITypes.ts"
+    ],
+    "on_ceb_event": null
+   },
+   {
+    "field": "wallThickness",
+    "repo_mentions": 134,
+    "example_files": [
+     "packages/ai-host/src/AIService.ts",
+     "packages/ai-host/src/workflows/apartmentLayout/executePlan.ts",
+     "packages/ai-host/src/workflows/apartmentLayout/generate.ts",
+     "packages/ai-host/src/workflows/apartmentLayout/tgl/runDeterministicLayout.ts"
+    ],
+    "on_ceb_event": null
+   },
+   {
+    "field": "floorThickness",
+    "repo_mentions": 23,
+    "example_files": [
+     "packages/geometry-lift/src/LiftAssembly.ts",
+     "packages/geometry-lift/src/LiftDimensions.ts",
+     "packages/geometry-pool/src/PoolAssembly.ts",
+     "packages/geometry-pool/src/PoolDimensions.ts"
+    ],
+    "on_ceb_event": null
+   },
+   {
+    "field": "freeboard",
+    "repo_mentions": 22,
+    "example_files": [
+     "packages/geometry-pool/src/PoolAssembly.ts",
+     "packages/geometry-pool/src/PoolDimensions.ts",
+     "packages/runtime-composer/src/CommandEventBridge.ts",
+     "apps/editor/src/engine/undo/poolUndoAdapter.ts"
+    ],
+    "on_ceb_event": null
+   },
+   {
+    "field": "waterColor",
+    "repo_mentions": 14,
+    "example_files": [
+     "packages/geometry-pool/src/PoolAssembly.ts",
+     "packages/geometry-pool/src/PoolDimensions.ts",
+     "plugins/pool/src/handlers/CreatePool.ts"
+    ],
+    "on_ceb_event": null
+   },
+   {
+    "field": "waterOpacity",
+    "repo_mentions": 16,
+    "example_files": [
+     "packages/geometry-pool/src/PoolAssembly.ts",
+     "packages/geometry-pool/src/PoolDimensions.ts",
+     "plugins/pool/src/handlers/CreatePool.ts"
+    ],
+    "on_ceb_event": null
+   },
+   {
+    "field": "systemTypeId",
+    "repo_mentions": 1261,
+    "example_files": [
+     "packages/ai-host/src/intents/CatalogueFamilies.ts",
+     "packages/ai-host/src/workflows/apartmentLayout/entranceDoor/entranceDoor.ts",
+     "packages/ai-host/src/workflows/apartmentLayout/executePlan.ts",
+     "packages/command-bus/src/commands.ts"
+    ],
+    "on_ceb_event": null
+   },
+   {
+    "field": "materialId",
+    "repo_mentions": 1928,
+    "example_files": [
+     "packages/ai-host/src/capabilities/CapabilityRefusal.ts",
+     "packages/ai-host/src/capabilities/ChatCapabilityRegistry.ts",
+     "packages/ai-host/src/intents/CapabilityExecutionSpec.ts",
+     "packages/ai-host/src/intents/finishRef.ts"
+    ],
+    "on_ceb_event": null
+   },
+   {
+    "field": "materialColor",
+    "repo_mentions": 1293,
+    "example_files": [
+     "packages/ai-host/src/AIService.ts",
+     "packages/ai-host/src/capabilities/ChatCapabilityRegistry.ts",
+     "packages/ai-host/src/capabilities/ChatCommandClassification.ts",
+     "packages/ai-host/src/intents/CapabilityExecutionSpec.ts"
+    ],
+    "on_ceb_event": null
+   }
+  ]
+ },
+ "project": {
+  "schema_file": "packages/schemas/src/elements/Project.ts",
+  "authored_count": 10,
+  "ceb_channel": null,
+  "ceb_emit_sites": [],
+  "ceb_emitted_keys": null,
+  "never_mentioned_outside_schemas": [],
+  "not_on_ceb_event": null,
+  "fields": [
+   {
+    "field": "provenance",
+    "repo_mentions": 797,
+    "example_files": [
+     "packages/ai-host/src/byom/ByomRoute.ts",
+     "packages/ai-host/src/byom/ByomVault.ts",
+     "packages/ai-host/src/capabilities/ChatCommandClassification.ts",
+     "packages/ai-host/src/index.ts"
+    ],
+    "on_ceb_event": null
+   },
+   {
+    "field": "confidence",
+    "repo_mentions": 960,
+    "example_files": [
+     "packages/ai-host/src/AIApprovalRecord.ts",
+     "packages/ai-host/src/AIElementFactory.ts",
+     "packages/ai-host/src/AIService.ts",
+     "packages/ai-host/src/AITypes.ts"
+    ],
+    "on_ceb_event": null
+   },
+   {
+    "field": "name",
+    "repo_mentions": 9002,
+    "example_files": [
+     "packages/admin-overrides/src/store.ts",
+     "packages/admin-overrides/src/types.ts",
+     "packages/ai-host/src/AIElementFactory.ts",
+     "packages/ai-host/src/AIReadModel.ts"
+    ],
+    "on_ceb_event": null
+   },
+   {
+    "field": "number",
+    "repo_mentions": 37036,
+    "example_files": [
+     "packages/a11y-tokens/src/contrast.ts",
+     "packages/a11y-tokens/src/tokens.ts",
+     "packages/admin-overrides/src/resolution.ts",
+     "packages/admin-overrides/src/store.ts"
+    ],
+    "on_ceb_event": null
+   },
+   {
+    "field": "client",
+    "repo_mentions": 806,
+    "example_files": [
+     "packages/ai-host/src/byom/ByomProviders.ts",
+     "packages/ai-host/src/index.ts",
+     "packages/ai-host/src/intents/FacadePhotoBrief.ts",
+     "packages/ai-host/src/intents/FacadePhotoReference.ts"
+    ],
+    "on_ceb_event": null
+   },
+   {
+    "field": "units",
+    "repo_mentions": 475,
+    "example_files": [
+     "packages/ai-host/src/DoorGeometricValidator.ts",
+     "packages/ai-host/src/intents/ZeroTokenResolver.ts",
+     "packages/ai-host/src/QueryEngine.ts",
+     "packages/ai-host/src/workflows/apartmentLayout/dimensions/validateApartmentEnvelope.ts"
+    ],
+    "on_ceb_event": null
+   },
+   {
+    "field": "location",
+    "repo_mentions": 666,
+    "example_files": [
+     "packages/ai-host/src/DoorGapInpainter.ts",
+     "packages/ai-host/src/FloorPlanAIFactory.ts",
+     "packages/ai-host/src/index.ts",
+     "packages/ai-host/src/workflows/apartmentLayout/rules/habitability/resolve.ts"
+    ],
+    "on_ceb_event": null
+   },
+   {
+    "field": "levels",
+    "repo_mentions": 1873,
+    "example_files": [
+     "packages/ai-host/src/AIReadModel.ts",
+     "packages/ai-host/src/AIService.ts",
+     "packages/ai-host/src/AITypes.ts",
+     "packages/ai-host/src/capabilities/CapabilityRefusal.ts"
+    ],
+    "on_ceb_event": null
+   },
+   {
+    "field": "activeViewId",
+    "repo_mentions": 148,
+    "example_files": [
+     "packages/core-app-model/src/presentation/RoomColourIntent.ts",
+     "packages/core-app-model/src/presentation/VGSceneApplicator.ts",
+     "packages/geometry-wall/src/WallFragmentBuilder.ts",
+     "packages/runtime-composer/src/buildViewRegistrySlot.ts"
+    ],
+    "on_ceb_event": null
+   },
+   {
+    "field": "schemaVersion",
+    "repo_mentions": 149,
+    "example_files": [
+     "packages/ai-host/src/FloorPlanDiagnostics.ts",
+     "packages/command-registry/src/vg/CreateIntentFromViewCommand.ts",
+     "packages/core-app-model/src/persistence/DelegateTypes.ts",
+     "packages/core-app-model/src/presentation/migrations/IntentSchemaMigrations.ts"
+    ],
+    "on_ceb_event": null
+   }
+  ]
+ },
+ "projectOrigin": {
+  "schema_file": "packages/schemas/src/elements/ProjectOrigin.ts",
+  "authored_count": 5,
+  "ceb_channel": null,
+  "ceb_emit_sites": [],
+  "ceb_emitted_keys": null,
+  "never_mentioned_outside_schemas": [],
+  "not_on_ceb_event": null,
+  "fields": [
+   {
+    "field": "provenance",
+    "repo_mentions": 797,
+    "example_files": [
+     "packages/ai-host/src/byom/ByomRoute.ts",
+     "packages/ai-host/src/byom/ByomVault.ts",
+     "packages/ai-host/src/capabilities/ChatCommandClassification.ts",
+     "packages/ai-host/src/index.ts"
+    ],
+    "on_ceb_event": null
+   },
+   {
+    "field": "confidence",
+    "repo_mentions": 960,
+    "example_files": [
+     "packages/ai-host/src/AIApprovalRecord.ts",
+     "packages/ai-host/src/AIElementFactory.ts",
+     "packages/ai-host/src/AIService.ts",
+     "packages/ai-host/src/AITypes.ts"
+    ],
+    "on_ceb_event": null
+   },
+   {
+    "field": "position",
+    "repo_mentions": 5769,
+    "example_files": [
+     "packages/ai-host/src/AIElementFactory.ts",
+     "packages/ai-host/src/capabilities/CapabilityRefusal.ts",
+     "packages/ai-host/src/capabilities/ChatCapabilityRegistry.ts",
+     "packages/ai-host/src/capabilities/ChatCommandClassification.ts"
+    ],
+    "on_ceb_event": null
+   },
+   {
+    "field": "visible",
+    "repo_mentions": 3008,
+    "example_files": [
+     "packages/a11y-tokens/src/tokens.ts",
+     "packages/ai-host/src/AIElementFactory.ts",
+     "packages/ai-host/src/byom/ByomRoute.ts",
+     "packages/ai-host/src/byom/ByomVault.ts"
+    ],
+    "on_ceb_event": null
+   },
+   {
+    "field": "label",
+    "repo_mentions": 10466,
+    "example_files": [
+     "packages/a11y-tokens/src/tokens.ts",
+     "packages/ai-host/src/AIElementFactory.ts",
+     "packages/ai-host/src/AIReadModel.ts",
+     "packages/ai-host/src/byom/ByomProviders.ts"
+    ],
+    "on_ceb_event": null
+   }
+  ]
+ },
+ "roof": {
+  "schema_file": "packages/schemas/src/elements/Roof.ts",
+  "authored_count": 13,
+  "ceb_channel": "roof.created",
+  "ceb_emit_sites": [
+   1357
+  ],
+  "ceb_emitted_keys": [
+   "commandId",
+   "commandType",
+   "levelId",
+   "id",
+   "boundary",
+   "shape",
+   "overhang",
+   "thickness",
+   "pitch",
+   "materialId",
+   "materialColor",
+   "boundingWallIds"
+  ],
+  "never_mentioned_outside_schemas": [],
+  "not_on_ceb_event": [
+   "provenance",
+   "confidence",
+   "skylights",
+   "joinedToRoofIds"
+  ],
+  "fields": [
+   {
+    "field": "provenance",
+    "repo_mentions": 797,
+    "example_files": [
+     "packages/ai-host/src/byom/ByomRoute.ts",
+     "packages/ai-host/src/byom/ByomVault.ts",
+     "packages/ai-host/src/capabilities/ChatCommandClassification.ts",
+     "packages/ai-host/src/index.ts"
+    ],
+    "on_ceb_event": false
+   },
+   {
+    "field": "confidence",
+    "repo_mentions": 960,
+    "example_files": [
+     "packages/ai-host/src/AIApprovalRecord.ts",
+     "packages/ai-host/src/AIElementFactory.ts",
+     "packages/ai-host/src/AIService.ts",
+     "packages/ai-host/src/AITypes.ts"
+    ],
+    "on_ceb_event": false
+   },
+   {
+    "field": "levelId",
+    "repo_mentions": 7406,
+    "example_files": [
+     "packages/ai-host/src/AIElementFactory.ts",
+     "packages/ai-host/src/AIReadModel.ts",
+     "packages/ai-host/src/AIResponseParser.ts",
+     "packages/ai-host/src/AIService.ts"
+    ],
+    "on_ceb_event": true
+   },
+   {
+    "field": "boundary",
+    "repo_mentions": 4753,
+    "example_files": [
+     "packages/ai-host/src/AiHost.ts",
+     "packages/ai-host/src/AnthropicRelay.ts",
+     "packages/ai-host/src/byom/ByomRedaction.ts",
+     "packages/ai-host/src/byom/ByomRoute.ts"
+    ],
+    "on_ceb_event": true
+   },
+   {
+    "field": "shape",
+    "repo_mentions": 4556,
+    "example_files": [
+     "packages/ai-host/src/AiBus.ts",
+     "packages/ai-host/src/AIElementFactory.ts",
+     "packages/ai-host/src/AnthropicRelay.ts",
+     "packages/ai-host/src/byom/ByomProviders.ts"
+    ],
+    "on_ceb_event": true
+   },
+   {
+    "field": "pitch",
+    "repo_mentions": 548,
+    "example_files": [
+     "packages/ai-host/src/capabilities/CapabilityRefusal.ts",
+     "packages/ai-host/src/capabilities/ChatCapabilityRegistry.ts",
+     "packages/ai-host/src/intents/CapabilityExecutionSpec.ts",
+     "packages/ai-host/src/intents/DimensionFamilies.ts"
+    ],
+    "on_ceb_event": true
+   },
+   {
+    "field": "overhang",
+    "repo_mentions": 340,
+    "example_files": [
+     "packages/ai-host/src/AIService.ts",
+     "packages/ai-host/src/capabilities/ChatCapabilityRegistry.ts",
+     "packages/ai-host/src/capabilities/ChatCommandClassification.ts",
+     "packages/ai-host/src/intents/PropertyQuery.ts"
+    ],
+    "on_ceb_event": true
+   },
+   {
+    "field": "thickness",
+    "repo_mentions": 3585,
+    "example_files": [
+     "packages/ai-host/src/AIReadModel.ts",
+     "packages/ai-host/src/AIService.ts",
+     "packages/ai-host/src/AITypes.ts",
+     "packages/ai-host/src/capabilities/CapabilityRefusal.ts"
+    ],
+    "on_ceb_event": true
+   },
+   {
+    "field": "materialId",
+    "repo_mentions": 1928,
+    "example_files": [
+     "packages/ai-host/src/capabilities/CapabilityRefusal.ts",
+     "packages/ai-host/src/capabilities/ChatCapabilityRegistry.ts",
+     "packages/ai-host/src/intents/CapabilityExecutionSpec.ts",
+     "packages/ai-host/src/intents/finishRef.ts"
+    ],
+    "on_ceb_event": true
+   },
+   {
+    "field": "materialColor",
+    "repo_mentions": 1293,
+    "example_files": [
+     "packages/ai-host/src/AIService.ts",
+     "packages/ai-host/src/capabilities/ChatCapabilityRegistry.ts",
+     "packages/ai-host/src/capabilities/ChatCommandClassification.ts",
+     "packages/ai-host/src/intents/CapabilityExecutionSpec.ts"
+    ],
+    "on_ceb_event": true
+   },
+   {
+    "field": "skylights",
+    "repo_mentions": 10,
+    "example_files": [
+     "packages/ai-host/src/intents/DeleteFamilies.ts",
+     "packages/geometry-roof/src/pure/roofFaces.ts",
+     "packages/geometry-roof/src/RoofFragmentBuilder.ts",
+     "packages/geometry-roof/src/RoofGeometryBuilder.ts"
+    ],
+    "on_ceb_event": false
+   },
+   {
+    "field": "joinedToRoofIds",
+    "repo_mentions": 8,
+    "example_files": [
+     "plugins/roof/src/handlers/JoinRoofs.ts"
+    ],
+    "on_ceb_event": false
+   },
+   {
+    "field": "boundingWallIds",
+    "repo_mentions": 433,
+    "example_files": [
+     "packages/ai-host/src/graph/GraphQueryService.ts",
+     "packages/ai-host/src/rooms/RoomAIAssistant.ts",
+     "packages/ai-host/src/rooms/RoomWorldModelAdapter.ts",
+     "packages/ai-host/src/SemanticQueryEngine.ts"
+    ],
+    "on_ceb_event": true
+   }
+  ]
+ },
+ "room": {
+  "schema_file": "packages/schemas/src/elements/Room.ts",
+  "authored_count": 18,
+  "ceb_channel": "room.created",
+  "ceb_emit_sites": [
+   1086
+  ],
+  "ceb_emitted_keys": [
+   "commandId",
+   "commandType",
+   "levelId"
+  ],
+  "never_mentioned_outside_schemas": [
+   "multiLevelSpan"
+  ],
+  "not_on_ceb_event": [
+   "provenance",
+   "confidence",
+   "name",
+   "number",
+   "boundaryMode",
+   "seedPoint",
+   "heightOffset",
+   "occupancy",
+   "multiLevelSpan",
+   "boundingElementIds",
+   "boundary",
+   "area",
+   "volume",
+   "perimeter",
+   "boundingWallIds",
+   "materialColor",
+   "materialId"
+  ],
+  "fields": [
+   {
+    "field": "provenance",
+    "repo_mentions": 797,
+    "example_files": [
+     "packages/ai-host/src/byom/ByomRoute.ts",
+     "packages/ai-host/src/byom/ByomVault.ts",
+     "packages/ai-host/src/capabilities/ChatCommandClassification.ts",
+     "packages/ai-host/src/index.ts"
+    ],
+    "on_ceb_event": false
+   },
+   {
+    "field": "confidence",
+    "repo_mentions": 960,
+    "example_files": [
+     "packages/ai-host/src/AIApprovalRecord.ts",
+     "packages/ai-host/src/AIElementFactory.ts",
+     "packages/ai-host/src/AIService.ts",
+     "packages/ai-host/src/AITypes.ts"
+    ],
+    "on_ceb_event": false
+   },
+   {
+    "field": "levelId",
+    "repo_mentions": 7406,
+    "example_files": [
+     "packages/ai-host/src/AIElementFactory.ts",
+     "packages/ai-host/src/AIReadModel.ts",
+     "packages/ai-host/src/AIResponseParser.ts",
+     "packages/ai-host/src/AIService.ts"
+    ],
+    "on_ceb_event": true
+   },
+   {
+    "field": "name",
+    "repo_mentions": 9002,
+    "example_files": [
+     "packages/admin-overrides/src/store.ts",
+     "packages/admin-overrides/src/types.ts",
+     "packages/ai-host/src/AIElementFactory.ts",
+     "packages/ai-host/src/AIReadModel.ts"
+    ],
+    "on_ceb_event": false
+   },
+   {
+    "field": "number",
+    "repo_mentions": 37036,
+    "example_files": [
+     "packages/a11y-tokens/src/contrast.ts",
+     "packages/a11y-tokens/src/tokens.ts",
+     "packages/admin-overrides/src/resolution.ts",
+     "packages/admin-overrides/src/store.ts"
+    ],
+    "on_ceb_event": false
+   },
+   {
+    "field": "boundaryMode",
+    "repo_mentions": 12,
+    "example_files": [
+     "packages/geometry-kernel/src/producers/room.ts",
+     "packages/geometry-kernel/src/producers/_internal/composeRoomGeometryHash.ts",
+     "plugins/rooms/src/boundaryRecomputeDetermination.ts",
+     "plugins/rooms/src/committer/room-committer.ts"
+    ],
+    "on_ceb_event": false
+   },
+   {
+    "field": "seedPoint",
+    "repo_mentions": 21,
+    "example_files": [
+     "packages/geometry-kernel/src/producers/room.ts",
+     "packages/geometry-kernel/src/producers/_internal/composeRoomGeometryHash.ts",
+     "plugins/rooms/src/boundaryRecomputeDetermination.ts",
+     "plugins/rooms/src/committer/room-committer.ts"
+    ],
+    "on_ceb_event": false
+   },
+   {
+    "field": "heightOffset",
+    "repo_mentions": 18,
+    "example_files": [
+     "packages/ai-host/src/capabilities/ChatCapabilityRegistry.ts",
+     "packages/ai-host/src/intents/PropertyQuery.ts",
+     "packages/ai-host/src/intents/ZeroTokenResolver.ts",
+     "packages/command-bus/src/commands.ts"
+    ],
+    "on_ceb_event": false
+   },
+   {
+    "field": "occupancy",
+    "repo_mentions": 851,
+    "example_files": [
+     "packages/ai-host/src/capabilities/ChatCapabilityRegistry.ts",
+     "packages/ai-host/src/capabilities/ChatCommandClassification.ts",
+     "packages/ai-host/src/generative/LayoutGenerator.ts",
+     "packages/ai-host/src/index.ts"
+    ],
+    "on_ceb_event": false
+   },
+   {
+    "field": "multiLevelSpan",
+    "repo_mentions": 0,
+    "example_files": [],
+    "on_ceb_event": false
+   },
+   {
+    "field": "boundingElementIds",
+    "repo_mentions": 7,
+    "example_files": [
+     "packages/geometry-kernel/src/producers/room.ts",
+     "apps/editor/src/ui/analysis/analysisReadModel.ts",
+     "plugins/rooms/src/intent.ts"
+    ],
+    "on_ceb_event": false
+   },
+   {
+    "field": "boundary",
+    "repo_mentions": 4753,
+    "example_files": [
+     "packages/ai-host/src/AiHost.ts",
+     "packages/ai-host/src/AnthropicRelay.ts",
+     "packages/ai-host/src/byom/ByomRedaction.ts",
+     "packages/ai-host/src/byom/ByomRoute.ts"
+    ],
+    "on_ceb_event": false
+   },
+   {
+    "field": "area",
+    "repo_mentions": 3968,
+    "example_files": [
+     "packages/ai-host/src/AIReadModel.ts",
+     "packages/ai-host/src/AITypes.ts",
+     "packages/ai-host/src/AnthropicRelay.ts",
+     "packages/ai-host/src/byom/ByomVault.ts"
+    ],
+    "on_ceb_event": false
+   },
+   {
+    "field": "volume",
+    "repo_mentions": 637,
+    "example_files": [
+     "packages/ai-host/src/capabilities/ChatCapabilityRegistry.ts",
+     "packages/ai-host/src/rooms/RoomWorldModelAdapter.ts",
+     "packages/ai-host/src/RuleEngine.ts",
+     "packages/ai-host/src/workflows/apartmentLayout/dimensions/validateRoomHierarchy.ts"
+    ],
+    "on_ceb_event": false
+   },
+   {
+    "field": "perimeter",
+    "repo_mentions": 1245,
+    "example_files": [
+     "packages/ai-host/src/FloorPlanAIFactory.ts",
+     "packages/ai-host/src/index.ts",
+     "packages/ai-host/src/QueryEngine.ts",
+     "packages/ai-host/src/rooms/RoomWorldModelAdapter.ts"
+    ],
+    "on_ceb_event": false
+   },
+   {
+    "field": "boundingWallIds",
+    "repo_mentions": 433,
+    "example_files": [
+     "packages/ai-host/src/graph/GraphQueryService.ts",
+     "packages/ai-host/src/rooms/RoomAIAssistant.ts",
+     "packages/ai-host/src/rooms/RoomWorldModelAdapter.ts",
+     "packages/ai-host/src/SemanticQueryEngine.ts"
+    ],
+    "on_ceb_event": false
+   },
+   {
+    "field": "materialColor",
+    "repo_mentions": 1293,
+    "example_files": [
+     "packages/ai-host/src/AIService.ts",
+     "packages/ai-host/src/capabilities/ChatCapabilityRegistry.ts",
+     "packages/ai-host/src/capabilities/ChatCommandClassification.ts",
+     "packages/ai-host/src/intents/CapabilityExecutionSpec.ts"
+    ],
+    "on_ceb_event": false
+   },
+   {
+    "field": "materialId",
+    "repo_mentions": 1928,
+    "example_files": [
+     "packages/ai-host/src/capabilities/CapabilityRefusal.ts",
+     "packages/ai-host/src/capabilities/ChatCapabilityRegistry.ts",
+     "packages/ai-host/src/intents/CapabilityExecutionSpec.ts",
+     "packages/ai-host/src/intents/finishRef.ts"
+    ],
+    "on_ceb_event": false
+   }
+  ]
+ },
+ "schedule": {
+  "schema_file": "packages/schemas/src/elements/Schedule.ts",
+  "authored_count": 7,
+  "ceb_channel": null,
+  "ceb_emit_sites": [],
+  "ceb_emitted_keys": null,
+  "never_mentioned_outside_schemas": [],
+  "not_on_ceb_event": null,
+  "fields": [
+   {
+    "field": "provenance",
+    "repo_mentions": 797,
+    "example_files": [
+     "packages/ai-host/src/byom/ByomRoute.ts",
+     "packages/ai-host/src/byom/ByomVault.ts",
+     "packages/ai-host/src/capabilities/ChatCommandClassification.ts",
+     "packages/ai-host/src/index.ts"
+    ],
+    "on_ceb_event": null
+   },
+   {
+    "field": "kind",
+    "repo_mentions": 6865,
+    "example_files": [
+     "packages/admin-overrides/src/store.ts",
+     "packages/admin-overrides/src/types.ts",
+     "packages/ai-host/src/AiBus.ts",
+     "packages/ai-host/src/AiPlane.ts"
+    ],
+    "on_ceb_event": null
+   },
+   {
+    "field": "title",
+    "repo_mentions": 3315,
+    "example_files": [
+     "packages/ai-host/src/AITypes.ts",
+     "packages/ai-host/src/generative/GenerativeTypes.ts",
+     "packages/ai-host/src/GenerativeDesignAdvisor.ts",
+     "packages/ai-host/src/intents/roomAutoLabel.ts"
+    ],
+    "on_ceb_event": null
+   },
+   {
+    "field": "source",
+    "repo_mentions": 3906,
+    "example_files": [
+     "packages/admin-overrides/src/types.ts",
+     "packages/ai-cost/src/CostMeter.ts",
+     "packages/ai-host/src/AiBus.ts",
+     "packages/ai-host/src/AIElementFactory.ts"
+    ],
+    "on_ceb_event": null
+   },
+   {
+    "field": "columns",
+    "repo_mentions": 866,
+    "example_files": [
+     "packages/ai-host/src/AITypes.ts",
+     "packages/ai-host/src/capabilities/CapabilityRefusal.ts",
+     "packages/ai-host/src/ImagePreprocessor.ts",
+     "packages/ai-host/src/intents/DeleteFamilies.ts"
+    ],
+    "on_ceb_event": null
+   },
+   {
+    "field": "sort",
+    "repo_mentions": 950,
+    "example_files": [
+     "packages/admin-overrides/src/store.ts",
+     "packages/ai-host/src/AIService.ts",
+     "packages/ai-host/src/FloorPlanCommandBatcher.ts",
+     "packages/ai-host/src/generative/LayoutGenerator.ts"
+    ],
+    "on_ceb_event": null
+   },
+   {
+    "field": "filter",
+    "repo_mentions": 3149,
+    "example_files": [
+     "packages/ai-host/src/AIElementFactory.ts",
+     "packages/ai-host/src/AIReadModel.ts",
+     "packages/ai-host/src/AIResponseParser.ts",
+     "packages/ai-host/src/AIService.ts"
+    ],
+    "on_ceb_event": null
+   }
+  ]
+ },
+ "sheet": {
+  "schema_file": "packages/schemas/src/elements/Sheet.ts",
+  "authored_count": 9,
+  "ceb_channel": null,
+  "ceb_emit_sites": [],
+  "ceb_emitted_keys": null,
+  "never_mentioned_outside_schemas": [
+   "customSize"
+  ],
+  "not_on_ceb_event": null,
+  "fields": [
+   {
+    "field": "provenance",
+    "repo_mentions": 797,
+    "example_files": [
+     "packages/ai-host/src/byom/ByomRoute.ts",
+     "packages/ai-host/src/byom/ByomVault.ts",
+     "packages/ai-host/src/capabilities/ChatCommandClassification.ts",
+     "packages/ai-host/src/index.ts"
+    ],
+    "on_ceb_event": null
+   },
+   {
+    "field": "number",
+    "repo_mentions": 37036,
+    "example_files": [
+     "packages/a11y-tokens/src/contrast.ts",
+     "packages/a11y-tokens/src/tokens.ts",
+     "packages/admin-overrides/src/resolution.ts",
+     "packages/admin-overrides/src/store.ts"
+    ],
+    "on_ceb_event": null
+   },
+   {
+    "field": "title",
+    "repo_mentions": 3315,
+    "example_files": [
+     "packages/ai-host/src/AITypes.ts",
+     "packages/ai-host/src/generative/GenerativeTypes.ts",
+     "packages/ai-host/src/GenerativeDesignAdvisor.ts",
+     "packages/ai-host/src/intents/roomAutoLabel.ts"
+    ],
+    "on_ceb_event": null
+   },
+   {
+    "field": "size",
+    "repo_mentions": 6784,
+    "example_files": [
+     "packages/a11y-tokens/src/contrast.ts",
+     "packages/a11y-tokens/src/tokens.ts",
+     "packages/admin-overrides/src/store.ts",
+     "packages/ai-host/src/AIApprovalStore.ts"
+    ],
+    "on_ceb_event": null
+   },
+   {
+    "field": "orientation",
+    "repo_mentions": 734,
+    "example_files": [
+     "packages/ai-host/src/AIElementFactory.ts",
+     "packages/ai-host/src/capabilities/ChatCapabilityRegistry.ts",
+     "packages/ai-host/src/FloorPlanDiagnostics.ts",
+     "packages/ai-host/src/ImagePreprocessor.ts"
+    ],
+    "on_ceb_event": null
+   },
+   {
+    "field": "customSize",
+    "repo_mentions": 0,
+    "example_files": [],
+    "on_ceb_event": null
+   },
+   {
+    "field": "viewports",
+    "repo_mentions": 203,
+    "example_files": [
+     "packages/ai-host/src/AIReadModel.ts",
+     "packages/ai-host/src/QueryEngine.ts",
+     "packages/command-registry/src/views/AddViewportToSheetCommand.ts",
+     "packages/command-registry/src/views/ApplySheetLayoutPresetCommand.ts"
+    ],
+    "on_ceb_event": null
+   },
+   {
+    "field": "titleBlockId",
+    "repo_mentions": 15,
+    "example_files": [
+     "plugins/sheets/src/handlers/CreateSheet.ts",
+     "plugins/sheets/src/handlers/SetTitleBlock.ts",
+     "plugins/sheets/src/sheet-editor-host.ts"
+    ],
+    "on_ceb_event": null
+   },
+   {
+    "field": "revision",
+    "repo_mentions": 300,
+    "example_files": [
+     "packages/ai-host/src/AIReadModel.ts",
+     "packages/ai-host/src/intents/LocalNaturalLanguageResolver.ts",
+     "packages/ai-host/src/intents/types.ts",
+     "packages/ai-host/src/vg/ViewAuthoringIntentMapper.ts"
+    ],
+    "on_ceb_event": null
+   }
+  ]
+ },
+ "slab": {
+  "schema_file": "packages/schemas/src/elements/Slab.ts",
+  "authored_count": 10,
+  "ceb_channel": "slab.created",
+  "ceb_emit_sites": [
+   587,
+   630,
+   1559,
+   2035
+  ],
+  "ceb_emitted_keys": [
+   "commandId",
+   "commandType",
+   "levelId",
+   "elementCount",
+   "id",
+   "ifcGuid",
+   "polygon",
+   "position",
+   "width",
+   "depth",
+   "thickness",
+   "baseOffset",
+   "materialId"
+  ],
+  "never_mentioned_outside_schemas": [],
+  "not_on_ceb_event": [
+   "provenance",
+   "confidence",
+   "boundary",
+   "holes",
+   "materialColor",
+   "systemTypeId"
+  ],
+  "fields": [
+   {
+    "field": "provenance",
+    "repo_mentions": 797,
+    "example_files": [
+     "packages/ai-host/src/byom/ByomRoute.ts",
+     "packages/ai-host/src/byom/ByomVault.ts",
+     "packages/ai-host/src/capabilities/ChatCommandClassification.ts",
+     "packages/ai-host/src/index.ts"
+    ],
+    "on_ceb_event": false
+   },
+   {
+    "field": "confidence",
+    "repo_mentions": 960,
+    "example_files": [
+     "packages/ai-host/src/AIApprovalRecord.ts",
+     "packages/ai-host/src/AIElementFactory.ts",
+     "packages/ai-host/src/AIService.ts",
+     "packages/ai-host/src/AITypes.ts"
+    ],
+    "on_ceb_event": false
+   },
+   {
+    "field": "levelId",
+    "repo_mentions": 7406,
+    "example_files": [
+     "packages/ai-host/src/AIElementFactory.ts",
+     "packages/ai-host/src/AIReadModel.ts",
+     "packages/ai-host/src/AIResponseParser.ts",
+     "packages/ai-host/src/AIService.ts"
+    ],
+    "on_ceb_event": true
+   },
+   {
+    "field": "boundary",
+    "repo_mentions": 4753,
+    "example_files": [
+     "packages/ai-host/src/AiHost.ts",
+     "packages/ai-host/src/AnthropicRelay.ts",
+     "packages/ai-host/src/byom/ByomRedaction.ts",
+     "packages/ai-host/src/byom/ByomRoute.ts"
+    ],
+    "on_ceb_event": false
+   },
+   {
+    "field": "holes",
+    "repo_mentions": 529,
+    "example_files": [
+     "packages/ai-host/src/workflows/apartmentLayout/tgl/rectDecomposition.ts",
+     "packages/ai-host/src/workflows/houseLayout/houseOrchestrator.ts",
+     "packages/ai-host/src/workflows/houseLayout/stairPosition.ts",
+     "packages/command-bus/src/commands.ts"
+    ],
+    "on_ceb_event": false
+   },
+   {
+    "field": "thickness",
+    "repo_mentions": 3585,
+    "example_files": [
+     "packages/ai-host/src/AIReadModel.ts",
+     "packages/ai-host/src/AIService.ts",
+     "packages/ai-host/src/AITypes.ts",
+     "packages/ai-host/src/capabilities/CapabilityRefusal.ts"
+    ],
+    "on_ceb_event": true
+   },
+   {
+    "field": "baseOffset",
+    "repo_mentions": 1849,
+    "example_files": [
+     "packages/ai-host/src/AIElementFactory.ts",
+     "packages/ai-host/src/AIReadModel.ts",
+     "packages/ai-host/src/AIService.ts",
+     "packages/ai-host/src/AITypes.ts"
+    ],
+    "on_ceb_event": true
+   },
+   {
+    "field": "materialId",
+    "repo_mentions": 1928,
+    "example_files": [
+     "packages/ai-host/src/capabilities/CapabilityRefusal.ts",
+     "packages/ai-host/src/capabilities/ChatCapabilityRegistry.ts",
+     "packages/ai-host/src/intents/CapabilityExecutionSpec.ts",
+     "packages/ai-host/src/intents/finishRef.ts"
+    ],
+    "on_ceb_event": true
+   },
+   {
+    "field": "materialColor",
+    "repo_mentions": 1293,
+    "example_files": [
+     "packages/ai-host/src/AIService.ts",
+     "packages/ai-host/src/capabilities/ChatCapabilityRegistry.ts",
+     "packages/ai-host/src/capabilities/ChatCommandClassification.ts",
+     "packages/ai-host/src/intents/CapabilityExecutionSpec.ts"
+    ],
+    "on_ceb_event": false
+   },
+   {
+    "field": "systemTypeId",
+    "repo_mentions": 1261,
+    "example_files": [
+     "packages/ai-host/src/intents/CatalogueFamilies.ts",
+     "packages/ai-host/src/workflows/apartmentLayout/entranceDoor/entranceDoor.ts",
+     "packages/ai-host/src/workflows/apartmentLayout/executePlan.ts",
+     "packages/command-bus/src/commands.ts"
+    ],
+    "on_ceb_event": false
+   }
+  ]
+ },
+ "stair": {
+  "schema_file": "packages/schemas/src/elements/Stair.ts",
+  "authored_count": 12,
+  "ceb_channel": null,
+  "ceb_emit_sites": [],
+  "ceb_emitted_keys": null,
+  "never_mentioned_outside_schemas": [],
+  "not_on_ceb_event": null,
+  "fields": [
+   {
+    "field": "provenance",
+    "repo_mentions": 797,
+    "example_files": [
+     "packages/ai-host/src/byom/ByomRoute.ts",
+     "packages/ai-host/src/byom/ByomVault.ts",
+     "packages/ai-host/src/capabilities/ChatCommandClassification.ts",
+     "packages/ai-host/src/index.ts"
+    ],
+    "on_ceb_event": null
+   },
+   {
+    "field": "confidence",
+    "repo_mentions": 960,
+    "example_files": [
+     "packages/ai-host/src/AIApprovalRecord.ts",
+     "packages/ai-host/src/AIElementFactory.ts",
+     "packages/ai-host/src/AIService.ts",
+     "packages/ai-host/src/AITypes.ts"
+    ],
+    "on_ceb_event": null
+   },
+   {
+    "field": "levelId",
+    "repo_mentions": 7406,
+    "example_files": [
+     "packages/ai-host/src/AIElementFactory.ts",
+     "packages/ai-host/src/AIReadModel.ts",
+     "packages/ai-host/src/AIResponseParser.ts",
+     "packages/ai-host/src/AIService.ts"
+    ],
+    "on_ceb_event": null
+   },
+   {
+    "field": "topLevelId",
+    "repo_mentions": 338,
+    "example_files": [
+     "packages/ai-host/src/AIReadModel.ts",
+     "packages/ai-host/src/AITypes.ts",
+     "packages/ai-host/src/intents/StairNotYet.ts",
+     "packages/ai-host/src/RuleEngine.ts"
+    ],
+    "on_ceb_event": null
+   },
+   {
+    "field": "shape",
+    "repo_mentions": 4556,
+    "example_files": [
+     "packages/ai-host/src/AiBus.ts",
+     "packages/ai-host/src/AIElementFactory.ts",
+     "packages/ai-host/src/AnthropicRelay.ts",
+     "packages/ai-host/src/byom/ByomProviders.ts"
+    ],
+    "on_ceb_event": null
+   },
+   {
+    "field": "origin",
+    "repo_mentions": 2516,
+    "example_files": [
+     "packages/ai-host/src/byom/ByomProviders.ts",
+     "packages/ai-host/src/byom/ByomRoute.ts",
+     "packages/ai-host/src/byom/ByomVault.ts",
+     "packages/ai-host/src/CfWorkerRelay.ts"
+    ],
+    "on_ceb_event": null
+   },
+   {
+    "field": "rotation",
+    "repo_mentions": 1608,
+    "example_files": [
+     "packages/ai-host/src/AIElementFactory.ts",
+     "packages/ai-host/src/capabilities/CapabilityRefusal.ts",
+     "packages/ai-host/src/FloorPlanCommandBatcher.ts",
+     "packages/ai-host/src/workflows/apartmentLayout/dimensions/validateFrontage.ts"
+    ],
+    "on_ceb_event": null
+   },
+   {
+    "field": "treadDepth",
+    "repo_mentions": 331,
+    "example_files": [
+     "packages/ai-host/src/capabilities/ChatCapabilityRegistry.ts",
+     "packages/ai-host/src/intents/PropertyQuery.ts",
+     "packages/ai-host/src/intents/StairNotYet.ts",
+     "packages/ai-host/src/intents/ZeroTokenResolver.ts"
+    ],
+    "on_ceb_event": null
+   },
+   {
+    "field": "riserHeight",
+    "repo_mentions": 345,
+    "example_files": [
+     "packages/ai-host/src/capabilities/ChatCapabilityRegistry.ts",
+     "packages/ai-host/src/intents/DimensionFamilies.ts",
+     "packages/ai-host/src/intents/ElementReplication.ts",
+     "packages/ai-host/src/intents/PropertyQuery.ts"
+    ],
+    "on_ceb_event": null
+   },
+   {
+    "field": "width",
+    "repo_mentions": 11016,
+    "example_files": [
+     "packages/ai-host/src/AIElementFactory.ts",
+     "packages/ai-host/src/AIReadModel.ts",
+     "packages/ai-host/src/AIService.ts",
+     "packages/ai-host/src/AITypes.ts"
+    ],
+    "on_ceb_event": null
+   },
+   {
+    "field": "numRisers",
+    "repo_mentions": 47,
+    "example_files": [
+     "packages/ai-host/src/capabilities/ChatCapabilityRegistry.ts",
+     "packages/ai-host/src/capabilities/ChatCommandClassification.ts",
+     "packages/ai-host/src/intents/ZeroTokenResolver.ts",
+     "packages/geometry-kernel/src/producers/stair.ts"
+    ],
+    "on_ceb_event": null
+   },
+   {
+    "field": "materialId",
+    "repo_mentions": 1928,
+    "example_files": [
+     "packages/ai-host/src/capabilities/CapabilityRefusal.ts",
+     "packages/ai-host/src/capabilities/ChatCapabilityRegistry.ts",
+     "packages/ai-host/src/intents/CapabilityExecutionSpec.ts",
+     "packages/ai-host/src/intents/finishRef.ts"
+    ],
+    "on_ceb_event": null
+   }
+  ]
+ },
+ "structural": {
+  "schema_file": "packages/schemas/src/elements/Structural.ts",
+  "authored_count": 13,
+  "ceb_channel": "structural.created",
+  "ceb_emit_sites": [
+   1267
+  ],
+  "ceb_emitted_keys": [
+   "commandId",
+   "commandType",
+   "levelId"
+  ],
+  "never_mentioned_outside_schemas": [],
+  "not_on_ceb_event": [
+   "provenance",
+   "confidence",
+   "kind",
+   "origin",
+   "endOffset",
+   "width",
+   "depth",
+   "thickness",
+   "radius",
+   "rotation",
+   "baseOffset",
+   "materialId"
+  ],
+  "fields": [
+   {
+    "field": "provenance",
+    "repo_mentions": 797,
+    "example_files": [
+     "packages/ai-host/src/byom/ByomRoute.ts",
+     "packages/ai-host/src/byom/ByomVault.ts",
+     "packages/ai-host/src/capabilities/ChatCommandClassification.ts",
+     "packages/ai-host/src/index.ts"
+    ],
+    "on_ceb_event": false
+   },
+   {
+    "field": "confidence",
+    "repo_mentions": 960,
+    "example_files": [
+     "packages/ai-host/src/AIApprovalRecord.ts",
+     "packages/ai-host/src/AIElementFactory.ts",
+     "packages/ai-host/src/AIService.ts",
+     "packages/ai-host/src/AITypes.ts"
+    ],
+    "on_ceb_event": false
+   },
+   {
+    "field": "levelId",
+    "repo_mentions": 7406,
+    "example_files": [
+     "packages/ai-host/src/AIElementFactory.ts",
+     "packages/ai-host/src/AIReadModel.ts",
+     "packages/ai-host/src/AIResponseParser.ts",
+     "packages/ai-host/src/AIService.ts"
+    ],
+    "on_ceb_event": true
+   },
+   {
+    "field": "kind",
+    "repo_mentions": 6865,
+    "example_files": [
+     "packages/admin-overrides/src/store.ts",
+     "packages/admin-overrides/src/types.ts",
+     "packages/ai-host/src/AiBus.ts",
+     "packages/ai-host/src/AiPlane.ts"
+    ],
+    "on_ceb_event": false
+   },
+   {
+    "field": "origin",
+    "repo_mentions": 2516,
+    "example_files": [
+     "packages/ai-host/src/byom/ByomProviders.ts",
+     "packages/ai-host/src/byom/ByomRoute.ts",
+     "packages/ai-host/src/byom/ByomVault.ts",
+     "packages/ai-host/src/CfWorkerRelay.ts"
+    ],
+    "on_ceb_event": false
+   },
+   {
+    "field": "endOffset",
+    "repo_mentions": 29,
+    "example_files": [
+     "packages/geometry-kernel/src/producers/structural.ts",
+     "packages/geometry-kernel/src/producers/_internal/composeStructuralGeometryHash.ts",
+     "plugins/plan-view/src/projection.ts",
+     "plugins/structural/src/committer/structural-committer.ts"
+    ],
+    "on_ceb_event": false
+   },
+   {
+    "field": "width",
+    "repo_mentions": 11016,
+    "example_files": [
+     "packages/ai-host/src/AIElementFactory.ts",
+     "packages/ai-host/src/AIReadModel.ts",
+     "packages/ai-host/src/AIService.ts",
+     "packages/ai-host/src/AITypes.ts"
+    ],
+    "on_ceb_event": false
+   },
+   {
+    "field": "depth",
+    "repo_mentions": 3977,
+    "example_files": [
+     "packages/ai-host/src/AIElementFactory.ts",
+     "packages/ai-host/src/AIReadModel.ts",
+     "packages/ai-host/src/AIService.ts",
+     "packages/ai-host/src/AITypes.ts"
+    ],
+    "on_ceb_event": false
+   },
+   {
+    "field": "thickness",
+    "repo_mentions": 3585,
+    "example_files": [
+     "packages/ai-host/src/AIReadModel.ts",
+     "packages/ai-host/src/AIService.ts",
+     "packages/ai-host/src/AITypes.ts",
+     "packages/ai-host/src/capabilities/CapabilityRefusal.ts"
+    ],
+    "on_ceb_event": false
+   },
+   {
+    "field": "radius",
+    "repo_mentions": 4015,
+    "example_files": [
+     "packages/ai-host/src/AIElementFactory.ts",
+     "packages/ai-host/src/capabilities/ChatCapabilityRegistry.ts",
+     "packages/ai-host/src/capabilities/ChatCommandClassification.ts",
+     "packages/ai-host/src/FloorPlanAIFactory.ts"
+    ],
+    "on_ceb_event": false
+   },
+   {
+    "field": "rotation",
+    "repo_mentions": 1608,
+    "example_files": [
+     "packages/ai-host/src/AIElementFactory.ts",
+     "packages/ai-host/src/capabilities/CapabilityRefusal.ts",
+     "packages/ai-host/src/FloorPlanCommandBatcher.ts",
+     "packages/ai-host/src/workflows/apartmentLayout/dimensions/validateFrontage.ts"
+    ],
+    "on_ceb_event": false
+   },
+   {
+    "field": "baseOffset",
+    "repo_mentions": 1849,
+    "example_files": [
+     "packages/ai-host/src/AIElementFactory.ts",
+     "packages/ai-host/src/AIReadModel.ts",
+     "packages/ai-host/src/AIService.ts",
+     "packages/ai-host/src/AITypes.ts"
+    ],
+    "on_ceb_event": false
+   },
+   {
+    "field": "materialId",
+    "repo_mentions": 1928,
+    "example_files": [
+     "packages/ai-host/src/capabilities/CapabilityRefusal.ts",
+     "packages/ai-host/src/capabilities/ChatCapabilityRegistry.ts",
+     "packages/ai-host/src/intents/CapabilityExecutionSpec.ts",
+     "packages/ai-host/src/intents/finishRef.ts"
+    ],
+    "on_ceb_event": false
+   }
+  ]
+ },
+ "verticalCirculation": {
+  "schema_file": "packages/schemas/src/elements/VerticalCirculation.ts",
+  "authored_count": 12,
+  "ceb_channel": null,
+  "ceb_emit_sites": [],
+  "ceb_emitted_keys": null,
+  "never_mentioned_outside_schemas": [],
+  "not_on_ceb_event": null,
+  "fields": [
+   {
+    "field": "provenance",
+    "repo_mentions": 797,
+    "example_files": [
+     "packages/ai-host/src/byom/ByomRoute.ts",
+     "packages/ai-host/src/byom/ByomVault.ts",
+     "packages/ai-host/src/capabilities/ChatCommandClassification.ts",
+     "packages/ai-host/src/index.ts"
+    ],
+    "on_ceb_event": null
+   },
+   {
+    "field": "confidence",
+    "repo_mentions": 960,
+    "example_files": [
+     "packages/ai-host/src/AIApprovalRecord.ts",
+     "packages/ai-host/src/AIElementFactory.ts",
+     "packages/ai-host/src/AIService.ts",
+     "packages/ai-host/src/AITypes.ts"
+    ],
+    "on_ceb_event": null
+   },
+   {
+    "field": "levelId",
+    "repo_mentions": 7406,
+    "example_files": [
+     "packages/ai-host/src/AIElementFactory.ts",
+     "packages/ai-host/src/AIReadModel.ts",
+     "packages/ai-host/src/AIResponseParser.ts",
+     "packages/ai-host/src/AIService.ts"
+    ],
+    "on_ceb_event": null
+   },
+   {
+    "field": "topLevelId",
+    "repo_mentions": 338,
+    "example_files": [
+     "packages/ai-host/src/AIReadModel.ts",
+     "packages/ai-host/src/AITypes.ts",
+     "packages/ai-host/src/intents/StairNotYet.ts",
+     "packages/ai-host/src/RuleEngine.ts"
+    ],
+    "on_ceb_event": null
+   },
+   {
+    "field": "kind",
+    "repo_mentions": 6865,
+    "example_files": [
+     "packages/admin-overrides/src/store.ts",
+     "packages/admin-overrides/src/types.ts",
+     "packages/ai-host/src/AiBus.ts",
+     "packages/ai-host/src/AiPlane.ts"
+    ],
+    "on_ceb_event": null
+   },
+   {
+    "field": "origin",
+    "repo_mentions": 2516,
+    "example_files": [
+     "packages/ai-host/src/byom/ByomProviders.ts",
+     "packages/ai-host/src/byom/ByomRoute.ts",
+     "packages/ai-host/src/byom/ByomVault.ts",
+     "packages/ai-host/src/CfWorkerRelay.ts"
+    ],
+    "on_ceb_event": null
+   },
+   {
+    "field": "rotation",
+    "repo_mentions": 1608,
+    "example_files": [
+     "packages/ai-host/src/AIElementFactory.ts",
+     "packages/ai-host/src/capabilities/CapabilityRefusal.ts",
+     "packages/ai-host/src/FloorPlanCommandBatcher.ts",
+     "packages/ai-host/src/workflows/apartmentLayout/dimensions/validateFrontage.ts"
+    ],
+    "on_ceb_event": null
+   },
+   {
+    "field": "shaftWidth",
+    "repo_mentions": 60,
+    "example_files": [
+     "packages/ai-host/src/workflows/residentialBuilding/coreSizing.ts",
+     "packages/command-registry/src/verticalCirculation/CreateVerticalCirculationCommand.ts",
+     "packages/geometry-lift/src/LiftAssembly.ts",
+     "packages/geometry-lift/src/LiftCompoundTypes.ts"
+    ],
+    "on_ceb_event": null
+   },
+   {
+    "field": "shaftDepth",
+    "repo_mentions": 54,
+    "example_files": [
+     "packages/ai-host/src/workflows/residentialBuilding/coreSizing.ts",
+     "packages/command-registry/src/verticalCirculation/CreateVerticalCirculationCommand.ts",
+     "packages/geometry-lift/src/LiftAssembly.ts",
+     "packages/geometry-lift/src/LiftCompoundTypes.ts"
+    ],
+    "on_ceb_event": null
+   },
+   {
+    "field": "carCapacityPersons",
+    "repo_mentions": 29,
+    "example_files": [
+     "packages/command-registry/src/verticalCirculation/CreateVerticalCirculationCommand.ts",
+     "packages/geometry-lift/src/LiftCompoundTypes.ts",
+     "packages/geometry-lift/src/LiftDimensions.ts",
+     "packages/geometry-lift/src/LiftMeshBuilder.ts"
+    ],
+    "on_ceb_event": null
+   },
+   {
+    "field": "doorWidth",
+    "repo_mentions": 103,
+    "example_files": [
+     "packages/ai-host/src/workflows/residentialBuilding/apartmentEntryDoorOffset.ts",
+     "packages/ai-host/src/workflows/residentialBuilding/platePartition.ts",
+     "packages/building-graph/src/adapters/inputs.ts",
+     "packages/building-graph/src/adapters/roomGraphAdapter.ts"
+    ],
+    "on_ceb_event": null
+   },
+   {
+    "field": "materialId",
+    "repo_mentions": 1928,
+    "example_files": [
+     "packages/ai-host/src/capabilities/CapabilityRefusal.ts",
+     "packages/ai-host/src/capabilities/ChatCapabilityRegistry.ts",
+     "packages/ai-host/src/intents/CapabilityExecutionSpec.ts",
+     "packages/ai-host/src/intents/finishRef.ts"
+    ],
+    "on_ceb_event": null
+   }
+  ]
+ },
+ "view": {
+  "schema_file": "packages/schemas/src/elements/View.ts",
+  "authored_count": 8,
+  "ceb_channel": null,
+  "ceb_emit_sites": [],
+  "ceb_emitted_keys": null,
+  "never_mentioned_outside_schemas": [
+   "visibilityRulesetId"
+  ],
+  "not_on_ceb_event": null,
+  "fields": [
+   {
+    "field": "provenance",
+    "repo_mentions": 797,
+    "example_files": [
+     "packages/ai-host/src/byom/ByomRoute.ts",
+     "packages/ai-host/src/byom/ByomVault.ts",
+     "packages/ai-host/src/capabilities/ChatCommandClassification.ts",
+     "packages/ai-host/src/index.ts"
+    ],
+    "on_ceb_event": null
+   },
+   {
+    "field": "name",
+    "repo_mentions": 9002,
+    "example_files": [
+     "packages/admin-overrides/src/store.ts",
+     "packages/admin-overrides/src/types.ts",
+     "packages/ai-host/src/AIElementFactory.ts",
+     "packages/ai-host/src/AIReadModel.ts"
+    ],
+    "on_ceb_event": null
+   },
+   {
+    "field": "kind",
+    "repo_mentions": 6865,
+    "example_files": [
+     "packages/admin-overrides/src/store.ts",
+     "packages/admin-overrides/src/types.ts",
+     "packages/ai-host/src/AiBus.ts",
+     "packages/ai-host/src/AiPlane.ts"
+    ],
+    "on_ceb_event": null
+   },
+   {
+    "field": "levelId",
+    "repo_mentions": 7406,
+    "example_files": [
+     "packages/ai-host/src/AIElementFactory.ts",
+     "packages/ai-host/src/AIReadModel.ts",
+     "packages/ai-host/src/AIResponseParser.ts",
+     "packages/ai-host/src/AIService.ts"
+    ],
+    "on_ceb_event": null
+   },
+   {
+    "field": "scale",
+    "repo_mentions": 2084,
+    "example_files": [
+     "packages/ai-host/src/capabilities/ChatCapabilityRegistry.ts",
+     "packages/ai-host/src/capabilities/ChatCommandClassification.ts",
+     "packages/ai-host/src/DoorGeometricValidator.ts",
+     "packages/ai-host/src/FloorPlanAIFactory.ts"
+    ],
+    "on_ceb_event": null
+   },
+   {
+    "field": "cutPlane",
+    "repo_mentions": 22,
+    "example_files": [
+     "packages/geometry-kernel/src/edge-projection.ts",
+     "packages/geometry-kernel/src/poche.ts",
+     "apps/editor/src/ui/SheetEditor/SheetEditorSidebar.ts"
+    ],
+    "on_ceb_event": null
+   },
+   {
+    "field": "camera",
+    "repo_mentions": 2895,
+    "example_files": [
+     "packages/ai-host/src/capabilities/CapabilityRefusal.ts",
+     "packages/ai-host/src/VoiceSpatialInterface.ts",
+     "packages/ai-host/src/workflows/houseLayout/weldPartitionsToShell.ts",
+     "packages/command-bus/src/commands.ts"
+    ],
+    "on_ceb_event": null
+   },
+   {
+    "field": "visibilityRulesetId",
+    "repo_mentions": 0,
+    "example_files": [],
+    "on_ceb_event": null
+   }
+  ]
+ },
+ "wall": {
+  "schema_file": "packages/schemas/src/elements/Wall.ts",
+  "authored_count": 16,
+  "ceb_channel": "wall.created",
+  "ceb_emit_sites": [
+   413,
+   461,
+   1733,
+   2002
+  ],
+  "ceb_emitted_keys": [
+   "commandId",
+   "commandType",
+   "levelId",
+   "wallCount",
+   "wallId",
+   "baseLine",
+   "height",
+   "thickness",
+   "baseOffset",
+   "systemTypeId",
+   "materialColor",
+   "materialId",
+   "layers",
+   "curve"
+  ],
+  "never_mentioned_outside_schemas": [],
+  "not_on_ceb_event": [
+   "provenance",
+   "confidence",
+   "openings",
+   "frontSide",
+   "backSide",
+   "joinIntent"
+  ],
+  "fields": [
+   {
+    "field": "provenance",
+    "repo_mentions": 797,
+    "example_files": [
+     "packages/ai-host/src/byom/ByomRoute.ts",
+     "packages/ai-host/src/byom/ByomVault.ts",
+     "packages/ai-host/src/capabilities/ChatCommandClassification.ts",
+     "packages/ai-host/src/index.ts"
+    ],
+    "on_ceb_event": false
+   },
+   {
+    "field": "confidence",
+    "repo_mentions": 960,
+    "example_files": [
+     "packages/ai-host/src/AIApprovalRecord.ts",
+     "packages/ai-host/src/AIElementFactory.ts",
+     "packages/ai-host/src/AIService.ts",
+     "packages/ai-host/src/AITypes.ts"
+    ],
+    "on_ceb_event": false
+   },
+   {
+    "field": "levelId",
+    "repo_mentions": 7406,
+    "example_files": [
+     "packages/ai-host/src/AIElementFactory.ts",
+     "packages/ai-host/src/AIReadModel.ts",
+     "packages/ai-host/src/AIResponseParser.ts",
+     "packages/ai-host/src/AIService.ts"
+    ],
+    "on_ceb_event": true
+   },
+   {
+    "field": "baseLine",
+    "repo_mentions": 2297,
+    "example_files": [
+     "packages/ai-host/src/AIReadModel.ts",
+     "packages/ai-host/src/intents/LevelChangeIntents.ts",
+     "packages/ai-host/src/WallRegionExtractor.ts",
+     "packages/ai-host/src/workflows/apartmentLayout/executePlan.ts"
+    ],
+    "on_ceb_event": true
+   },
+   {
+    "field": "curve",
+    "repo_mentions": 692,
+    "example_files": [
+     "packages/climate-host/src/bundledNormals.ts",
+     "packages/command-bus/src/commands.ts",
+     "packages/command-registry/src/generic/UpdateElementParameterCommand.ts",
+     "packages/command-registry/src/generic/UpdateOpeningProfileBatchCommand.ts"
+    ],
+    "on_ceb_event": true
+   },
+   {
+    "field": "height",
+    "repo_mentions": 11719,
+    "example_files": [
+     "packages/ai-host/src/AIElementFactory.ts",
+     "packages/ai-host/src/AIReadModel.ts",
+     "packages/ai-host/src/AIService.ts",
+     "packages/ai-host/src/AITypes.ts"
+    ],
+    "on_ceb_event": true
+   },
+   {
+    "field": "thickness",
+    "repo_mentions": 3585,
+    "example_files": [
+     "packages/ai-host/src/AIReadModel.ts",
+     "packages/ai-host/src/AIService.ts",
+     "packages/ai-host/src/AITypes.ts",
+     "packages/ai-host/src/capabilities/CapabilityRefusal.ts"
+    ],
+    "on_ceb_event": true
+   },
+   {
+    "field": "baseOffset",
+    "repo_mentions": 1849,
+    "example_files": [
+     "packages/ai-host/src/AIElementFactory.ts",
+     "packages/ai-host/src/AIReadModel.ts",
+     "packages/ai-host/src/AIService.ts",
+     "packages/ai-host/src/AITypes.ts"
+    ],
+    "on_ceb_event": true
+   },
+   {
+    "field": "openings",
+    "repo_mentions": 2112,
+    "example_files": [
+     "packages/ai-host/src/AIReadModel.ts",
+     "packages/ai-host/src/capabilities/CapabilityRefusal.ts",
+     "packages/ai-host/src/capabilities/ChatCapabilityRegistry.ts",
+     "packages/ai-host/src/FloorPlanAIFactory.ts"
+    ],
+    "on_ceb_event": false
+   },
+   {
+    "field": "materialId",
+    "repo_mentions": 1928,
+    "example_files": [
+     "packages/ai-host/src/capabilities/CapabilityRefusal.ts",
+     "packages/ai-host/src/capabilities/ChatCapabilityRegistry.ts",
+     "packages/ai-host/src/intents/CapabilityExecutionSpec.ts",
+     "packages/ai-host/src/intents/finishRef.ts"
+    ],
+    "on_ceb_event": true
+   },
+   {
+    "field": "materialColor",
+    "repo_mentions": 1293,
+    "example_files": [
+     "packages/ai-host/src/AIService.ts",
+     "packages/ai-host/src/capabilities/ChatCapabilityRegistry.ts",
+     "packages/ai-host/src/capabilities/ChatCommandClassification.ts",
+     "packages/ai-host/src/intents/CapabilityExecutionSpec.ts"
+    ],
+    "on_ceb_event": true
+   },
+   {
+    "field": "systemTypeId",
+    "repo_mentions": 1261,
+    "example_files": [
+     "packages/ai-host/src/intents/CatalogueFamilies.ts",
+     "packages/ai-host/src/workflows/apartmentLayout/entranceDoor/entranceDoor.ts",
+     "packages/ai-host/src/workflows/apartmentLayout/executePlan.ts",
+     "packages/command-bus/src/commands.ts"
+    ],
+    "on_ceb_event": true
+   },
+   {
+    "field": "layers",
+    "repo_mentions": 1814,
+    "example_files": [
+     "packages/ai-host/src/capabilities/CapabilityRefusal.ts",
+     "packages/ai-host/src/intents/CapabilityExecutionSpec.ts",
+     "packages/ai-host/src/intents/finishRef.ts",
+     "packages/ai-host/src/intents/LlmPlanner.ts"
+    ],
+    "on_ceb_event": true
+   },
+   {
+    "field": "frontSide",
+    "repo_mentions": 23,
+    "example_files": [
+     "packages/ai-host/src/capabilities/ChatCapabilityRegistry.ts",
+     "packages/ai-host/src/intents/CapabilityExecutionSpec.ts",
+     "packages/ai-host/src/intents/WallSideFinishIntent.ts",
+     "packages/ai-host/src/intents/ZeroTokenResolver.ts"
+    ],
+    "on_ceb_event": false
+   },
+   {
+    "field": "backSide",
+    "repo_mentions": 26,
+    "example_files": [
+     "packages/ai-host/src/capabilities/ChatCapabilityRegistry.ts",
+     "packages/ai-host/src/intents/CapabilityExecutionSpec.ts",
+     "packages/ai-host/src/intents/WallSideFinishIntent.ts",
+     "packages/ai-host/src/intents/ZeroTokenResolver.ts"
+    ],
+    "on_ceb_event": false
+   },
+   {
+    "field": "joinIntent",
+    "repo_mentions": 54,
+    "example_files": [
+     "packages/command-registry/src/operations/CopyElementCommand.ts",
+     "packages/command-registry/src/operations/MirrorElementCommand.ts",
+     "packages/command-registry/src/operations/OffsetElementCommand.ts",
+     "packages/command-registry/src/project/ImportProjectCommand.ts"
+    ],
+    "on_ceb_event": false
+   }
+  ]
+ },
+ "water": {
+  "schema_file": "packages/schemas/src/elements/Water.ts",
+  "authored_count": 11,
+  "ceb_channel": "water.created",
+  "ceb_emit_sites": [
+   2113
+  ],
+  "ceb_emitted_keys": [
+   "commandId",
+   "commandType",
+   "levelId",
+   "waterId",
+   "poolId",
+   "boundary",
+   "surfaceElevation",
+   "bottomElevation",
+   "color",
+   "opacity"
+  ],
+  "never_mentioned_outside_schemas": [],
+  "not_on_ceb_event": [
+   "provenance",
+   "confidence",
+   "materialId",
+   "systemTypeId"
+  ],
+  "fields": [
+   {
+    "field": "provenance",
+    "repo_mentions": 797,
+    "example_files": [
+     "packages/ai-host/src/byom/ByomRoute.ts",
+     "packages/ai-host/src/byom/ByomVault.ts",
+     "packages/ai-host/src/capabilities/ChatCommandClassification.ts",
+     "packages/ai-host/src/index.ts"
+    ],
+    "on_ceb_event": false
+   },
+   {
+    "field": "confidence",
+    "repo_mentions": 960,
+    "example_files": [
+     "packages/ai-host/src/AIApprovalRecord.ts",
+     "packages/ai-host/src/AIElementFactory.ts",
+     "packages/ai-host/src/AIService.ts",
+     "packages/ai-host/src/AITypes.ts"
+    ],
+    "on_ceb_event": false
+   },
+   {
+    "field": "levelId",
+    "repo_mentions": 7406,
+    "example_files": [
+     "packages/ai-host/src/AIElementFactory.ts",
+     "packages/ai-host/src/AIReadModel.ts",
+     "packages/ai-host/src/AIResponseParser.ts",
+     "packages/ai-host/src/AIService.ts"
+    ],
+    "on_ceb_event": true
+   },
+   {
+    "field": "poolId",
+    "repo_mentions": 42,
+    "example_files": [
+     "packages/command-bus/src/produceCommand.ts",
+     "packages/geometry-pool/src/PoolAssembly.ts",
+     "packages/runtime-composer/src/CommandEventBridge.ts",
+     "packages/runtime-composer/src/types.ts"
+    ],
+    "on_ceb_event": true
+   },
+   {
+    "field": "boundary",
+    "repo_mentions": 4753,
+    "example_files": [
+     "packages/ai-host/src/AiHost.ts",
+     "packages/ai-host/src/AnthropicRelay.ts",
+     "packages/ai-host/src/byom/ByomRedaction.ts",
+     "packages/ai-host/src/byom/ByomRoute.ts"
+    ],
+    "on_ceb_event": true
+   },
+   {
+    "field": "surfaceElevation",
+    "repo_mentions": 19,
+    "example_files": [
+     "packages/geometry-pool/src/PoolAssembly.ts",
+     "packages/runtime-composer/src/CommandEventBridge.ts",
+     "packages/runtime-composer/src/types.ts",
+     "apps/editor/src/engine/initTools.ts"
+    ],
+    "on_ceb_event": true
+   },
+   {
+    "field": "bottomElevation",
+    "repo_mentions": 17,
+    "example_files": [
+     "packages/geometry-pool/src/PoolAssembly.ts",
+     "packages/runtime-composer/src/CommandEventBridge.ts",
+     "packages/runtime-composer/src/types.ts",
+     "apps/editor/src/engine/initTools.ts"
+    ],
+    "on_ceb_event": true
+   },
+   {
+    "field": "color",
+    "repo_mentions": 8667,
+    "example_files": [
+     "packages/a11y-tokens/src/index.ts",
+     "packages/a11y-tokens/src/tokens.ts",
+     "packages/ai-host/src/AIElementFactory.ts",
+     "packages/ai-host/src/AIService.ts"
+    ],
+    "on_ceb_event": true
+   },
+   {
+    "field": "opacity",
+    "repo_mentions": 1975,
+    "example_files": [
+     "packages/ai-host/src/AIElementFactory.ts",
+     "packages/ai-host/src/capabilities/CapabilityRefusal.ts",
+     "packages/ai-host/src/intents/CapabilityExecutionSpec.ts",
+     "packages/command-registry/src/curtainwall/CreateCurtainWallsOnAllSlabsCommand.ts"
+    ],
+    "on_ceb_event": true
+   },
+   {
+    "field": "materialId",
+    "repo_mentions": 1928,
+    "example_files": [
+     "packages/ai-host/src/capabilities/CapabilityRefusal.ts",
+     "packages/ai-host/src/capabilities/ChatCapabilityRegistry.ts",
+     "packages/ai-host/src/intents/CapabilityExecutionSpec.ts",
+     "packages/ai-host/src/intents/finishRef.ts"
+    ],
+    "on_ceb_event": false
+   },
+   {
+    "field": "systemTypeId",
+    "repo_mentions": 1261,
+    "example_files": [
+     "packages/ai-host/src/intents/CatalogueFamilies.ts",
+     "packages/ai-host/src/workflows/apartmentLayout/entranceDoor/entranceDoor.ts",
+     "packages/ai-host/src/workflows/apartmentLayout/executePlan.ts",
+     "packages/command-bus/src/commands.ts"
+    ],
+    "on_ceb_event": false
+   }
+  ]
+ },
+ "window": {
+  "schema_file": "packages/schemas/src/elements/Window.ts",
+  "authored_count": 21,
+  "ceb_channel": null,
+  "ceb_emit_sites": [],
+  "ceb_emitted_keys": null,
+  "never_mentioned_outside_schemas": [],
+  "not_on_ceb_event": null,
+  "fields": [
+   {
+    "field": "provenance",
+    "repo_mentions": 797,
+    "example_files": [
+     "packages/ai-host/src/byom/ByomRoute.ts",
+     "packages/ai-host/src/byom/ByomVault.ts",
+     "packages/ai-host/src/capabilities/ChatCommandClassification.ts",
+     "packages/ai-host/src/index.ts"
+    ],
+    "on_ceb_event": null
+   },
+   {
+    "field": "confidence",
+    "repo_mentions": 960,
+    "example_files": [
+     "packages/ai-host/src/AIApprovalRecord.ts",
+     "packages/ai-host/src/AIElementFactory.ts",
+     "packages/ai-host/src/AIService.ts",
+     "packages/ai-host/src/AITypes.ts"
+    ],
+    "on_ceb_event": null
+   },
+   {
+    "field": "wallId",
+    "repo_mentions": 2679,
+    "example_files": [
+     "packages/ai-host/src/AIReadModel.ts",
+     "packages/ai-host/src/AIService.ts",
+     "packages/ai-host/src/AITypes.ts",
+     "packages/ai-host/src/capabilities/ChatCapabilityRegistry.ts"
+    ],
+    "on_ceb_event": null
+   },
+   {
+    "field": "openingId",
+    "repo_mentions": 271,
+    "example_files": [
+     "packages/ai-host/src/capabilities/ChatCapabilityRegistry.ts",
+     "packages/ai-host/src/graph/GraphQueryService.ts",
+     "packages/ai-host/src/workflows/apartmentLayout/executePlan.ts",
+     "packages/ai-host/src/workflows/apartmentLayout/tgl/semanticGraph.ts"
+    ],
+    "on_ceb_event": null
+   },
+   {
+    "field": "windowType",
+    "repo_mentions": 165,
+    "example_files": [
+     "packages/ai-host/src/AIReadModel.ts",
+     "packages/ai-host/src/AITypes.ts",
+     "packages/ai-host/src/FloorPlanCommandBatcher.ts",
+     "packages/ai-host/src/intents/LocalNaturalLanguageResolver.ts"
+    ],
+    "on_ceb_event": null
+   },
+   {
+    "field": "width",
+    "repo_mentions": 11016,
+    "example_files": [
+     "packages/ai-host/src/AIElementFactory.ts",
+     "packages/ai-host/src/AIReadModel.ts",
+     "packages/ai-host/src/AIService.ts",
+     "packages/ai-host/src/AITypes.ts"
+    ],
+    "on_ceb_event": null
+   },
+   {
+    "field": "height",
+    "repo_mentions": 11719,
+    "example_files": [
+     "packages/ai-host/src/AIElementFactory.ts",
+     "packages/ai-host/src/AIReadModel.ts",
+     "packages/ai-host/src/AIService.ts",
+     "packages/ai-host/src/AITypes.ts"
+    ],
+    "on_ceb_event": null
+   },
+   {
+    "field": "sillHeight",
+    "repo_mentions": 711,
+    "example_files": [
+     "packages/ai-host/src/AIReadModel.ts",
+     "packages/ai-host/src/AIService.ts",
+     "packages/ai-host/src/AITypes.ts",
+     "packages/ai-host/src/capabilities/ChatCapabilityRegistry.ts"
+    ],
+    "on_ceb_event": null
+   },
+   {
+    "field": "offset",
+    "repo_mentions": 3493,
+    "example_files": [
+     "packages/ai-host/src/AnthropicRelay.ts",
+     "packages/ai-host/src/capabilities/CapabilityRefusal.ts",
+     "packages/ai-host/src/capabilities/ChatCapabilityRegistry.ts",
+     "packages/ai-host/src/DoorGeometricValidator.ts"
+    ],
+    "on_ceb_event": null
+   },
+   {
+    "field": "frameThickness",
+    "repo_mentions": 163,
+    "example_files": [
+     "packages/command-bus/src/commands.ts",
+     "packages/command-registry/src/project/projectLoaderUtils.ts",
+     "packages/core-app-model/src/quantities/QuantityTakeoff.ts",
+     "packages/geometry-curtain-wall/src/CurtainPanelFactory.ts"
+    ],
+    "on_ceb_event": null
+   },
+   {
+    "field": "frameWidth",
+    "repo_mentions": 158,
+    "example_files": [
+     "packages/command-bus/src/commands.ts",
+     "packages/command-registry/src/project/projectLoaderUtils.ts",
+     "packages/core-app-model/src/drawing/OpeningElevationSymbol.ts",
+     "packages/core-app-model/src/quantities/QuantityTakeoff.ts"
+    ],
+    "on_ceb_event": null
+   },
+   {
+    "field": "revealDirection",
+    "repo_mentions": 12,
+    "example_files": [
+     "packages/ai-host/src/capabilities/ChatCapabilityRegistry.ts",
+     "packages/ai-host/src/intents/PropertyQuery.ts",
+     "packages/ai-host/src/intents/PropertyVocabulary.ts",
+     "packages/geometry-window/src/WindowReveal.ts"
+    ],
+    "on_ceb_event": null
+   },
+   {
+    "field": "revealProjection",
+    "repo_mentions": 18,
+    "example_files": [
+     "packages/ai-host/src/capabilities/ChatCapabilityRegistry.ts",
+     "packages/ai-host/src/intents/PropertyQuery.ts",
+     "packages/ai-host/src/intents/PropertyVocabulary.ts",
+     "packages/command-registry/src/generic/UpdateElementParameterCommand.ts"
+    ],
+    "on_ceb_event": null
+   },
+   {
+    "field": "revealSplayHead",
+    "repo_mentions": 15,
+    "example_files": [
+     "packages/ai-host/src/capabilities/ChatCapabilityRegistry.ts",
+     "packages/ai-host/src/intents/PropertyQuery.ts",
+     "packages/ai-host/src/intents/PropertyVocabulary.ts",
+     "packages/command-registry/src/generic/UpdateElementParameterCommand.ts"
+    ],
+    "on_ceb_event": null
+   },
+   {
+    "field": "revealSplaySill",
+    "repo_mentions": 14,
+    "example_files": [
+     "packages/ai-host/src/capabilities/ChatCapabilityRegistry.ts",
+     "packages/ai-host/src/intents/PropertyQuery.ts",
+     "packages/ai-host/src/intents/PropertyVocabulary.ts",
+     "packages/command-registry/src/generic/UpdateElementParameterCommand.ts"
+    ],
+    "on_ceb_event": null
+   },
+   {
+    "field": "revealSplayJambLeft",
+    "repo_mentions": 15,
+    "example_files": [
+     "packages/ai-host/src/capabilities/ChatCapabilityRegistry.ts",
+     "packages/ai-host/src/intents/PropertyQuery.ts",
+     "packages/ai-host/src/intents/PropertyVocabulary.ts",
+     "packages/command-registry/src/generic/UpdateElementParameterCommand.ts"
+    ],
+    "on_ceb_event": null
+   },
+   {
+    "field": "revealSplayJambRight",
+    "repo_mentions": 14,
+    "example_files": [
+     "packages/ai-host/src/capabilities/ChatCapabilityRegistry.ts",
+     "packages/ai-host/src/intents/PropertyQuery.ts",
+     "packages/ai-host/src/intents/PropertyVocabulary.ts",
+     "packages/command-registry/src/generic/UpdateElementParameterCommand.ts"
+    ],
+    "on_ceb_event": null
+   },
+   {
+    "field": "frameMaterialId",
+    "repo_mentions": 27,
+    "example_files": [
+     "packages/geometry-kernel/src/producers/door.ts",
+     "packages/geometry-kernel/src/producers/window.ts",
+     "packages/geometry-lift/src/LiftAssembly.ts",
+     "packages/geometry-lift/src/LiftCompoundTypes.ts"
+    ],
+    "on_ceb_event": null
+   },
+   {
+    "field": "glassMaterialId",
+    "repo_mentions": 18,
+    "example_files": [
+     "packages/geometry-kernel/src/producers/window.ts",
+     "packages/geometry-lift/src/LiftAssembly.ts",
+     "packages/geometry-lift/src/LiftCompoundTypes.ts",
+     "packages/geometry-slab/src/SlabTypeCatalogue.ts"
+    ],
+    "on_ceb_event": null
+   },
+   {
+    "field": "frameColor",
+    "repo_mentions": 206,
+    "example_files": [
+     "packages/ai-host/src/AIService.ts",
+     "packages/ai-host/src/workflows/furnishLayout/style/StyleRegistry.ts",
+     "packages/command-bus/src/commands.ts",
+     "packages/command-registry/src/doors/UpdateDoorFrameColorCommand.ts"
+    ],
+    "on_ceb_event": null
+   },
+   {
+    "field": "fireRating",
+    "repo_mentions": 260,
+    "example_files": [
+     "packages/ai-host/src/AIReadModel.ts",
+     "packages/ai-host/src/AIService.ts",
+     "packages/ai-host/src/AITypes.ts",
+     "packages/ai-host/src/intents/StairNotYet.ts"
+    ],
+    "on_ceb_event": null
+   }
+  ]
+ }
+}

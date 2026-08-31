@@ -1,0 +1,107 @@
+{
+  "family": "wall",
+  "head": "d91d30d4af51bc67317ef8afc0b46b1dbef94038",
+  "phase": "P2 AXIS B BUILDERS",
+  "members": ["wall (body)", "wall opening (void)", "wall layers", "junction/join geometry"],
+  "rows": [
+    {
+      "member": "wall (body)",
+      "surface": "3d",
+      "builder_file": "packages/geometry-wall/src/WallFragmentBuilder.ts",
+      "entry_fn": "updateWall(wall, joinData?, renderMap?, slabBaseOffset?, forceRebuild?) :763  ·  buildWall :1069  ·  removeWall :971  ·  dispose :5239",
+      "package": "@pryzm/geometry-wall",
+      "layer": "L2",
+      "layer_proof": "eslint.config.js:159  { type: 'L2', pattern: 'packages/geometry-wall/**' }",
+      "invoked_by": [
+        "packages/geometry-wall/src/WallTool.ts:319 — `this.fragmentBuilder = new WallFragmentBuilder(` (the ONE production construction site; every other `new WallFragmentBuilder` hit is a __tests__ file)",
+        "apps/editor/src/engine/WallRebuildCoordinator.ts — the rebuild driver (also drives doorBuilder/windowBuilder.rebuildForWall at :698-699, :1525-1526, :2697-2698)"
+      ],
+      "proof_command": "grep -rn 'new WallFragmentBuilder' --include=*.ts apps packages plugins | grep -v node_modules  →  10 hits, 9 under __tests__, 1 production (WallTool.ts:319)",
+      "rivals": [
+        {
+          "candidate": "apps/editor/src/engine/singleVolumeWallProducer.ts",
+          "verdict": "NOT A RIVAL — REFUTED. It is a DI seam injected INTO WallFragmentBuilder via setSingleVolumeProducer (:472), wired once at apps/editor/src/engine/initTools.ts:930, and default-off behind window.__wallSingleVolume. One builder, two interior strategies (plain->CSG single volume, LAYERED->segment grid).",
+          "proof": "grep -rn 'singleVolumeWallProducer' → initTools.ts:140 (import), :930 (`wallTool.getFragmentBuilder().setSingleVolumeProducer?.(...)`)"
+        },
+        {
+          "candidate": "WallInstanceBridge / instancedElementRenderer (ADR-0076 Axis 3)",
+          "verdict": "SECOND RENDER PATH, FLAG-GATED, DECLARED. setInstanceBridge :690. Default-off behind globalThis.__pryzmElementInstancingV1. Same builder owns both."
+        }
+      ],
+      "robustness": {
+        "degenerate_input": "STRONGEST IN THE REPO. 21 isFinite/isNaN sites and 3 `throw new` in one file (grep -cE 'isFinite|isNaN' → 21; 'throw new' → 3). Compare: EVERY other fragment builder measured returns 0 finite guards.",
+        "optional_field_null_checks": "materialColor/materialId/curve/layers all read through `??` defaults at the CEB emit and in the builder.",
+        "disposal": "PRESENT AND STRONGEST — 20 dispose()/safeDispose call sites; explicit dispose() :5239, removeWall :971, removeOpening :1001, removeWallFragments :5157."
+      },
+      "fidelity": {
+        "authored_L0_fields": ["provenance","confidence","levelId","baseLine","curve","height","thickness","baseOffset","openings","materialId","materialColor","systemTypeId","layers","frontSide","backSide","joinIntent"],
+        "authored_count": 16,
+        "ceb_channel": "wall.created",
+        "ceb_emit_sites": ["~L413 (wall.create)","~L461 (wall.batch.create)","~L1733 (lift.create fan-out)","~L2002 (pool.create fan-out, basin walls)"],
+        "ceb_emitted_keys": ["commandId","commandType","levelId","wallCount","wallId","baseLine","height","thickness","baseOffset","systemTypeId","materialColor","materialId","layers","curve"],
+        "dropped_at_ceb": ["openings","frontSide","backSide","joinIntent","provenance","confidence"],
+        "verdict": "HIGH FIDELITY on the primary path. The four geometry drops are structurally defensible: `openings` arrives on its OWN channel (wall.opening.created, 3 emit sites), and frontSide/backSide/joinIntent are finish/join INTENT read from the store by WallRebuildCoordinator, not from the event. NOT DEFENSIBLE at the SECONDARY emit sites: the lift fan-out (~L1733) emits only 9 keys — no systemTypeId, no materialColor, no layers, no curve; the pool basin fan-out (~L2002) emits materialColor only through a conditional spread. A LAYERED wall created as part of a lift shaft loses its layer stack at the bridge.",
+        "draws_what_the_user_authored": "YES for wall.create / wall.batch.create. NO for walls smuggled out of lift.create (layers + systemTypeId + curve dropped)."
+      }
+    },
+    {
+      "member": "wall opening (void)",
+      "surface": "3d",
+      "builder_file": "packages/geometry-wall/src/WallFragmentBuilder.ts (same builder — voids are cut into the wall solid)",
+      "entry_fn": "updateWall(..., renderMap: OpeningRenderMap) / removeOpening :1001",
+      "package": "@pryzm/geometry-wall",
+      "layer": "L2",
+      "invoked_by": "CommandEventBridge `wall.opening.create` / `wall.createOpening` → 'wall.opening.created' → apps/editor/src/engine/initTools.ts:1530",
+      "proof_command": "grep -nE \"runtime.events.on\\('\" apps/editor/src/engine/initTools.ts → :1530 'wall.opening.created'",
+      "rivals": [],
+      "fidelity": {
+        "ceb_emitted_keys": ["commandId","commandType","wallId","opening"],
+        "note": "`opening` is emitted as ONE opaque object, so this channel is field-lossless by construction — the opposite design from every other family's named-subset emit. 3 emit sites (~L495, ~L505, ~L1810)."
+      }
+    },
+    {
+      "member": "wall (body)",
+      "surface": "plan",
+      "builder_file": "packages/geometry-wall/src/WallLayerPlanSymbolBuilder.ts (+ true-edge projection of the 3D mesh by apps/editor/src/engine/views/EdgeProjectorService.ts)",
+      "entry_fn": "wallLayerPlanSymbolBuilder.inject(drawing, viewDef)",
+      "package": "@pryzm/geometry-wall",
+      "layer": "L2",
+      "invoked_by": "apps/editor/src/engine/views/EdgeProjectorService.ts:4042 — `if (_symbolGate('wall')) wallLayerPlanSymbolBuilder.inject(drawing, viewDef);`",
+      "proof_command": "grep -nE 'SymbolBuilder|\\.inject\\(' apps/editor/src/engine/views/EdgeProjectorService.ts → :106 import, :4042 call",
+      "rivals": [],
+      "fidelity": {
+        "note": "Plan is DERIVED from the 3D mesh (true-edge HLR projection) plus the layer-boundary symbol. Anything that survives to 3D survives to plan; anything dropped before the mesh is dropped in plan too. `wall` IS in GEOMETRY_ELEMENT_TYPES (ViewDependencyTracker.ts:81) so mutations invalidate the plan.",
+        "known_defect_class": "DrawingLayerIdentity.ts:35 states WallLayerPlanSymbolBuilder's layer-pattern lines never stamped drawing-layer identity."
+      }
+    },
+    {
+      "member": "wall (body)",
+      "surface": "section",
+      "builder_file": "same EdgeProjectorService pipeline; plugins/section-view/src/section-cut-producer.ts drives the cut",
+      "layer": "L6 (plugins/section-view) over L7 (EdgeProjectorService in apps/editor)",
+      "invoked_by": "plugins/section-view/src/registration.ts (NOT an inline ALL_PLUGINS descriptor — census.json S2 note)",
+      "fidelity": { "note": "Derived from the same 3D mesh. No wall-specific section builder exists; a section is a cut through the projection." }
+    },
+    {
+      "member": "wall (body)",
+      "surface": "export",
+      "builder_file": "packages/file-format/src/export/ifc/readers/WallReader.ts",
+      "package": "@pryzm/file-format",
+      "layer": "L3",
+      "layer_proof": "eslint.config.js:196 { type: 'L3', pattern: 'packages/file-format/**' }",
+      "invoked_by": "packages/file-format/src/export/ifc/FragmentReader.ts:36 (import) ← IfcExporter.ts:93/:188 `new FragmentReader(...)` ← ExportIFC.ts ← apps/editor/src/engine/initUI.ts:1044 `const exportIFC = await _getExportIFC()` (dynamic import of '@pryzm/file-format', initUI.ts:570) ← runtime.events.on('export-ifc') :997 ← BimService.exportIfc :301",
+      "proof_command": "grep -rn \"'export-ifc'\" --include=*.ts apps packages plugins | grep -v node_modules",
+      "rivals": [
+        {
+          "candidate": "plugins/ifc-export/src/exporters/IFC4X3Exporter.ts — exportProjectToIFC4X3",
+          "verdict": "RIVAL EXPORTER, AUTHORED, UNREACHABLE — and the repo says so in its own words.",
+          "proof": "packages/file-format/src/export/ifc/readers/LiftReader.ts:9 — 'plugins/ifc-export/, which is NOT the exporter the Export IFC button runs.'  ·  The only production route to it is packages/runtime-composer/src/ImportExportSlots.ts:74, whose `export.run` body ends in `throw new RuntimeNotWiredError('ifc.export.run', 'F.12.4 (S81-WIRE)')` — it CANNOT run.  ·  grep -rn 'exportProjectToIFC4X3' → 3 hits: the definition, the barrel re-export, and a comment.",
+          "honesty": "HONEST. The unreachable arm refuses explicitly with a named phase tag rather than silently producing an empty file."
+        }
+      ],
+      "fidelity": {
+        "note": "The reachable exporter covers 16 readers (wall, window+door, slab, column, beam, stair, roof, furniture, handrail, plumbing, curtain-wall, room, floor, ceiling, lift). The UNREACHABLE rival covers 7 snapshot arrays (walls, slabs, columns, beams, doors, windows, rooms + apartments/zones). The rival is a STRICT SUBSET — so its unreachability costs no family."
+      }
+    }
+  ]
+}

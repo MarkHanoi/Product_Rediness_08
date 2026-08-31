@@ -1,0 +1,66 @@
+{
+  "family": "beam",
+  "head": "d91d30d4af51bc67317ef8afc0b46b1dbef94038",
+  "members": ["beam (solid)"],
+  "rows": [
+    {
+      "member": "beam (solid)",
+      "surface": "3d",
+      "builder_file": "packages/geometry-beam/src/BeamFragmentBuilder.ts (634 lines)",
+      "entry_fn": "updateBeam(beam) :244  ·  build(beam) :315  ·  remove(id) :251  ·  clearProjectGeometry :278  ·  setInstanceBridge :192",
+      "package": "@pryzm/geometry-beam",
+      "layer": "L2",
+      "layer_proof": "eslint.config.js:144",
+      "invoked_by": [
+        "apps/editor/src/engine/initBuilders.ts:1039 `new BeamFragmentBuilder(scene)` then :1050 `beamStore.setBuilder(beamBuilder)`",
+        "packages/core-app-model/src/stores/BeamStore.ts:55 `if (beam) builder.updateBeam(beam);`",
+        "BUS LEG: CommandEventBridge beam.create → 'beam.created' → apps/editor/src/engine/initTools.ts:2428"
+      ],
+      "proof_command": "grep -rnE '\\.(updateBeam|buildBeam|addBeam|removeBeam)\\(' --include=*.ts apps packages plugins | grep -v node_modules | grep -v __tests__  →  EXACTLY ONE production call site: packages/core-app-model/src/stores/BeamStore.ts:55",
+      "REACHABILITY_NOTE": "This one nearly read as ABSENT. `grep -rn 'beamBuilder\\.' ` returns ONE hit repo-wide (initBuilders.ts:1046, setInstanceBridge), and `window.beamBuilder` returns ZERO — so a call-site search by the variable name finds no invocation at all. It is reachable by INJECTION: `beamStore.setBuilder(beamBuilder)` hands the builder to the store, which calls `builder.updateBeam`. Searching by CAPABILITY (the method name) rather than by the handle found it. Recorded because this is exactly the shape that produces a false ABSENT.",
+      "rivals": [
+        {
+          "candidate": "ElementInstanceBridge (§PERF-BEAM-INSTANCING, ADR-0076 Axis 3)",
+          "verdict": "SECOND RENDER PATH, FLAG-GATED, DECLARED. initBuilders.ts:1045 wires it in a try/catch; default-off unless globalThis.__pryzmElementInstancingV1. 'simple concrete rectangular beams only'."
+        }
+      ],
+      "robustness": {
+        "degenerate_input": "ZERO isFinite/isNaN, ZERO `throw new` across 634 lines. A zero-length beam (startPoint === endPoint) gives `Math.atan2(0, 0)` = 0 at :457 and a degenerate extrusion — no refusal, no warning.",
+        "disposal": "PRESENT — 5 dispose sites; remove(id) :251, clearProjectGeometry() :278.",
+        "level_cleanup": "BeamLevelCleanupHandler (initBuilders.ts:1037)."
+      },
+      "fidelity": {
+        "authored_L0_fields": ["provenance","confidence","levelId","baseLine","shape","width","depth","rotation","materialId","loadBearing","fireRating","steelProfileName"],
+        "authored_count": 12,
+        "ceb_channel": "beam.created",
+        "ceb_emit_sites": ["~L937 (beam.create) — 14 keys","~L990 (beam.batch.create) — 11 keys"],
+        "ceb_emitted_keys_union": ["commandId","commandType","levelId","elementCount","id","startPoint","endPoint","shape","width","depth","materialId","loadBearing","fireRating","steelProfileName"],
+        "dropped_at_ceb": ["rotation","provenance","confidence"],
+        "renames_not_drops": ["baseLine (L0) → startPoint + endPoint (BeamData convention, declared in the initTools §FT2 comment at :2472: 'BeamData uses startPoint/endPoint (3D Vec3) matching BeamPlanToolHandler dispatch')"],
+        "⛔ ASYMMETRIC_BATCH_EMIT": "THE SINGLE EMIT AND THE BATCH EMIT DISAGREE. beam.create (~L937) carries `loadBearing`, `fireRating` and `steelProfileName`; beam.batch.create (~L990) carries 11 keys and DROPS all three. A steel UB beam created one at a time keeps its profile name; the SAME beam created in a batch (AI structural placement, CreateBeamsOnAllLevels) arrives with `steelProfileName: undefined` — and BeamData.sectionType (:56) branches 'rectangular' | 'UB' | 'UC' on it. So a batch-created steel beam is drawn as a RECTANGLE. Column is the counter-example: all three of ITS emit sites carry an identical key set.",
+        "rotation_assessed": "AUTHORED, NO DESTINATION AT ALL — worse than dropped. `grep -c rotation packages/core-app-model/src/stores/BeamTypes.ts` → 0. The legacy BeamData record has no rotation field, and BeamFragmentBuilder DERIVES `rotationY = Math.atan2(dx, dz)` from the baseline (:457, applied at :521) with a further correction for horizontal beams (:544). A rolled/canted beam is not representable past L0.",
+        "materialId_history": "ALREADY FIXED, and the repo names the defect shape in its own words — BeamTypes.ts:22-27: 'The L0 Beam.ts schema has carried materialId all along; this record — the one ProjectSerializer, BeamFragmentBuilder, the plan projector and the IFC exporter actually read — did not. So the id existed where nothing persists and was absent where everything does.' `material` (:17) survives as a free-form descriptive string that 'nothing resolves against the master and nothing renders from' — a DECLARED dead field, which is the honest form.",
+        "draws_what_the_user_authored": "YES for beam.create.  NO for beam.batch.create (steelProfileName / fireRating / loadBearing lost).  NEVER for rotation."
+      }
+    },
+    {
+      "member": "beam (solid)",
+      "surface": "plan",
+      "builder_file": "EdgeProjectorService true-edge projection. NO beam plan-symbol builder (not among the fifteen listed in packages/core-app-model/src/presentation/SymbolInjectionGate.ts:22-26).",
+      "invalidation": "`beam` is in GEOMETRY_ELEMENT_TYPES (ViewDependencyTracker.ts:81) AND in PLAN_INCREMENTAL_SAFE_TYPES (:151).",
+      "fidelity": "INHERITS 3D."
+    },
+    {
+      "member": "beam (solid)",
+      "surface": "section",
+      "builder_file": "derived from the 3D mesh",
+      "fidelity": "INHERITS 3D."
+    },
+    {
+      "member": "beam (solid)",
+      "surface": "export",
+      "builder_file": "packages/file-format/src/export/ifc/readers/BeamReader.ts (L3, FragmentReader.ts:40)",
+      "rivals": ["plugins/ifc-export/src/exporters/beam.ts — 'emits IfcBeam extruded along the centreline length', UNREACHABLE (see wall.json)"]
+    }
+  ]
+}

@@ -1,0 +1,66 @@
+{
+  "family": "column",
+  "head": "d91d30d4af51bc67317ef8afc0b46b1dbef94038",
+  "members": ["column (solid)", "column plan crosshair symbol"],
+  "rows": [
+    {
+      "member": "column (solid)",
+      "surface": "3d",
+      "builder_file": "packages/geometry-column/src/ColumnFragmentBuilder.ts (572 lines)",
+      "entry_fn": "updateColumn(column) :146  ·  build(column) :212  ·  remove(id) :153  ·  clearProjectGeometry :175  ·  setSpatialDeps :101  ·  setInstanceBridge :112",
+      "package": "@pryzm/geometry-column",
+      "layer": "L2",
+      "layer_proof": "eslint.config.js:146",
+      "invoked_by": [
+        "apps/editor/src/engine/initBuilders.ts:310 `new ColumnFragmentBuilder(scene, bimManager, null)`",
+        "apps/editor/src/engine/initBuilders.ts:325-330 storeEventBus.subscribe(event => { if (event.elementType !== 'column') return; if (event.operation === 'delete') columnBuilder.remove(...) ... })  — the ONLY family in initBuilders wired through storeEventBus rather than window CustomEvents",
+        "BUS LEG: CommandEventBridge column.create / column.batch.create → 'column.created' → apps/editor/src/engine/initTools.ts:2291"
+      ],
+      "proof_command": "grep -nE 'storeEventBus.subscribe|elementType !== ' apps/editor/src/engine/initBuilders.ts → :325, :326",
+      "rivals": [
+        {
+          "candidate": "ElementInstanceBridge / instancedElementRenderer",
+          "verdict": "SECOND RENDER PATH, FLAG-GATED, DECLARED (ADR-0076 Axis 3 §PERF-WEBGPU-FRAGMENT). initBuilders.ts:315 wires it inside a try/catch; DEFAULT-OFF unless globalThis.__pryzmElementInstancingV1 === true. Wall, column and beam all share ONE instanced renderer, which is why this is a shared path and not three rivals."
+        }
+      ],
+      "robustness": {
+        "degenerate_input": "ZERO isFinite/isNaN. ONE `throw new` — and it is the right one: `SpatialAuthorityError` on a dangling levelId (initBuilders.ts:312-315 documents it: BimManager + slabStore are constructor-injected so build() re-resolves world Y from level.elevation + slab top on every call).",
+        "disposal": "PRESENT — 2 dispose sites, remove(id) :153 and clearProjectGeometry() :175.",
+        "level_cleanup": "ColumnLevelCleanupHandler dispatches RemoveColumnsOnLevelCommand through the lazy commandManagerRef, so level deletion is UNDOABLE (initBuilders.ts:305-307, §COLUMN-AUDIT-2026 §C1). Only three families do this."
+      },
+      "fidelity": {
+        "authored_L0_fields": ["provenance","confidence","levelId","topLevelId","origin","shape","width","depth","height","baseOffset","rotation","materialId"],
+        "authored_count": 12,
+        "ceb_channel": "column.created",
+        "ceb_emit_sites": ["~L781 (column.create)","~L840","~L877 (column.batch.create fan-out, two arms)"],
+        "ceb_emitted_keys": ["commandId","commandType","levelId","elementCount","id","origin","shape","width","depth","height","baseOffset","rotation","materialId"],
+        "dropped_at_ceb": ["topLevelId","provenance","confidence"],
+        "VERDICT": "⭐ THE HIGHEST-FIDELITY FAMILY MEASURED. Every geometric field the L0 schema authors reaches the event, and all three emit sites carry the IDENTICAL 13-key set — the only family where batch and single agree key-for-key.",
+        "topLevelId_assessed": "AUTHORED, NEVER READ — and NOT a render defect. `grep -rn topLevelId packages/geometry-column/src` → 0 hits. The only consumers of `topLevelId` in the repo are StairStore.ts (:64, :148, :157, :160-162) and StairTypes.ts:127, i.e. the STAIR family. A multi-storey column (one that should rise to `topLevelId`) is drawn by `height` alone. So L0 `Column.topLevelId` is a field with no reader: it can be authored and it changes nothing.",
+        "draws_what_the_user_authored": "YES"
+      }
+    },
+    {
+      "member": "column plan crosshair symbol",
+      "surface": "plan",
+      "builder_file": "packages/geometry-column/src/ColumnPlanSymbolBuilder.ts",
+      "package": "@pryzm/geometry-column",
+      "layer": "L2",
+      "invoked_by": "apps/editor/src/engine/views/EdgeProjectorService.ts:4028 — `if (_symbolGate('column')) columnPlanSymbolBuilder.inject(drawing, viewDef);`",
+      "wiring": "installColumnPlanSymbolBuilder(columnStore) at initBuilders.ts:322 — a mutable module singleton (the '§COLUMN-AUDIT-2026 §W8' idiom that BoundaryLinePlanSymbolBuilder later copied).",
+      "drawing_layer": "writes S-COLS, NOT A-* (packages/core-app-model/src/drawing/DrawingLayerIdentity.ts:91 — a documented and deliberate exception)"
+    },
+    {
+      "member": "column (solid)",
+      "surface": "section",
+      "builder_file": "derived from the 3D mesh; no column-specific section builder",
+      "fidelity": "INHERITS 3D (which is lossless here)"
+    },
+    {
+      "member": "column (solid)",
+      "surface": "export",
+      "builder_file": "packages/file-format/src/export/ifc/readers/ColumnReader.ts (L3, FragmentReader.ts:39)",
+      "rivals": ["plugins/ifc-export/src/exporters/column.ts — IfcColumn, UNREACHABLE (see wall.json)"]
+    }
+  ]
+}

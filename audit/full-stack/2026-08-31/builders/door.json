@@ -1,0 +1,74 @@
+{
+  "family": "door",
+  "head": "d91d30d4af51bc67317ef8afc0b46b1dbef94038",
+  "members": ["door (frame + leaf)", "door opening (host void)", "door plan swing symbol"],
+  "rows": [
+    {
+      "member": "door (frame + leaf)",
+      "surface": "3d",
+      "builder_file": "packages/geometry-door/src/DoorBuilder.ts (1448 lines)",
+      "entry_fn": "activate() :288 (installs the subscriptions)  ·  rebuildForWall(wallId) :458  ·  deactivate() :436  ·  clearProjectGeometry() :1404  ·  setMeshConsolidation :708",
+      "package": "@pryzm/geometry-door",
+      "layer": "L2",
+      "layer_proof": "eslint.config.js:148",
+      "invoked_by": [
+        "apps/editor/src/engine/initBuilders.ts:743 `new DoorBuilder(scene, wallStore)` then :744 `doorBuilder.activate()`",
+        "SELF-SUBSCRIBING — DoorBuilder.ts:293 `this.unsubscribe = doorStore.subscribe((event, door, prev) => {...})` and :308 `storeEventBus.subscribe(...)` for view/detail-level changes. Its own header (:238) states the architecture: 'pure subscriber — reads wallStore for positioning only.'",
+        "apps/editor/src/engine/WallRebuildCoordinator.ts:698 / :1525 / :2697 `this._doorBuilder.rebuildForWall(wallId)` — host-wall geometry changes"
+      ],
+      "proof_command": "grep -nE 'addEventListener|subscribe' packages/geometry-door/src/DoorBuilder.ts → :293 doorStore.subscribe, :308 storeEventBus.subscribe",
+      "NO_CEB_CHANNEL_AND_THAT_IS_DELIBERATE": "There is NO `door.created` case in CommandEventBridge, and the file says why at ~L1235: 'TASK-13 … door/window/stair CEB cases removed — no initTools.ts subscribers exist for door.created, window.created, or stair.created (confirmed grep returned 0 hits). • door / window: use the Committer architecture (Path A) — no CEB bridge needed. • stair: uses Path C (legacy commandManager bridge).'  ⛔ THE STATED REASON IS FALSE AT THIS HEAD: the Committer architecture is UNREACHABLE (see _RIVAL-SYSTEM-committers-vs-fragment-builders.json — DoorCommitter is constructed only at bootstrap.render.everything.ts:140, behind a canvas that src/main.ts:421 passes as null). Door in fact draws through the LEGACY store-subscriber path, which works — so the outcome is fine and the RATIONALE is stale. A reader trusting that comment would conclude the committer is the live path.",
+      "rivals": [
+        {
+          "candidate": "plugins/door/src/committer/door-committer.ts + packages/geometry-kernel/src/producers/door.ts (produceDoor)",
+          "verdict": "RIVAL, AUTHORED, COMPOSABLE, UNREACHABLE. It is one of the four bootstrap.render.everything.ts constructs (:140), and it is the ONE case the repo has already measured and corrected in writing (PropertyInspectorApply.ts:200-211, §L-1040).",
+          "proof": "grep -rn 'produceDoor' --include=*.ts apps packages plugins | grep -v node_modules | grep -v __tests__ | grep -v geometry-kernel/src  →  benches + the plugin-sdk barrel + 1 comment. ZERO production call sites."
+        }
+      ],
+      "robustness": {
+        "degenerate_input": "ZERO isFinite/isNaN; 2 `throw new`.",
+        "optional_field_null_checks": "GOOD — the arc/curved-host helpers all bail explicitly: :110 `if (!arc) return addBox(...)`, :148 same, :176 `if (!geo) return null`. A curved host that fails to tessellate falls back to a box rather than emitting a NaN geometry.",
+        "disposal": "PRESENT — 5 dispose sites; deactivate() :436 tears BOTH subscriptions down (`this.unsubscribe?.(); this.unsubscribe = null; this._unsubscribeViews?.(); this._unsubscribeViews = null;`) — the correct double-unsubscribe that avoids the L-224 dead-listener class."
+      },
+      "fidelity": {
+        "authored_L0_fields": ["provenance","confidence","wallId","openingId","doorType","width","height","sillHeight","offset","frameThickness","frameWidth","frameMaterialId","leafMaterialId","frameColor","leafColor","fireRating","accessibilityType","swing"],
+        "authored_count": 18,
+        "ceb_channel": "NONE — by design",
+        "measurement_method": "Because there is no bridge, the chokepoint is the LEGACY RECORD, not an event. Measured by counting each L0 field name in DoorTypes.ts (the legacy DoorData) and in DoorBuilder.ts.",
+        "survives_to_the_mesh": {
+          "doorType": "DoorTypes 1 / DoorBuilder 4 — YES",
+          "sillHeight": "2 / 5 — YES",
+          "frameThickness": "1 / 2 — YES",
+          "frameColor": "2 / 5 — YES",
+          "leafColor": "2 / 3 — YES",
+          "fireRating": "1 / 1 — carried, not drawn (metadata)",
+          "accessibilityType": "1 / 1 — carried, not drawn (metadata)",
+          "swing": "1 / 2 — YES"
+        },
+        "⛔ AUTHORED_WITH_NO_DESTINATION": ["frameWidth — 0 in DoorTypes.ts, 0 in DoorBuilder.ts", "frameMaterialId — 0 / 0", "leafMaterialId — 0 / 0"],
+        "where_those_three_ARE_read": "packages/geometry-kernel/src/producers/door.ts and packages/geometry-lift/src/LiftAssembly.ts — i.e. `frameMaterialId` and `leafMaterialId` have exactly one geometry consumer each and it is ON THE UNREACHABLE SIDE. Repo-wide counts (excluding packages/schemas and tests): frameMaterialId 27, leafMaterialId 8 — all in the producer half, the CEB's lift fan-out, and UI/AI vocabulary files.",
+        "the_shape_of_the_defect": "C100 §2.1's split is 'materialId is the master id, materialColor the resolved hex cache'. Door implements the CACHE half (frameColor, leafColor → drawn) and not the MASTER half (frameMaterialId, leafMaterialId → nowhere). So a door can be given a colour but not a material: change the master material library and the door does not follow.",
+        "draws_what_the_user_authored": "MOSTLY — 8 of 18 fields drawn, 2 carried as metadata, 3 with no destination at all, 5 provenance/host ids."
+      }
+    },
+    {
+      "member": "door opening (host void)",
+      "surface": "3d",
+      "builder_file": "packages/geometry-door/src/DoorOpeningFactory.ts → the void is cut by WallFragmentBuilder",
+      "channel": "'wall.opening.created' (field-lossless — the whole `opening` object travels)",
+      "drawn": "YES"
+    },
+    {
+      "member": "door plan swing symbol",
+      "surface": "plan",
+      "builder_file": "packages/geometry-door/src/DoorPlanSymbolBuilder.ts",
+      "package": "@pryzm/geometry-door",
+      "layer": "L2",
+      "invoked_by": "apps/editor/src/engine/views/EdgeProjectorService.ts:3937 — `if (_symbolGate('door')) doorPlanSymbolBuilder.inject(drawing, viewDef);` (import at :77)",
+      "note": "EdgeProjectorService.ts:2852 and :2865 record that the 3D door meshes are SUPPRESSED from the plan projection entirely — 'DoorBuilder's group + DoorPlanSymbolBuilder already [cover it]'. So plan door geometry is authored 2D, not derived. It has three dedicated test suites (DoorPlanSymbolBuilder.detailLevel, DoorPlanSymbolPurity, CurvedHostPlanSymbolParity) — the best-tested symbol builder measured.",
+      "drawing_layer": "authors the hyphenated `-CUT` sub-layer (HiddenLineRemoval.planPoche.test.ts:158)"
+    },
+    {"member": "door", "surface": "section", "builder_file": "packages/geometry-door/src/DoorSection.ts", "drawn": "YES — a dedicated section module, one of only two families with one (window is the other)"},
+    {"member": "door", "surface": "export", "builder_file": "packages/file-format/src/export/ifc/readers/WindowDoorReader.ts (L3, FragmentReader.ts:37)", "rivals": ["plugins/ifc-export/src/exporters/door.ts + pset-door-common.ts — the UNREACHABLE rival. Its opening-profile-declaration.ts:4 admits 'An IfcWindow / IfcDoor leaves this exporter as a BOX'."]}
+  ]
+}

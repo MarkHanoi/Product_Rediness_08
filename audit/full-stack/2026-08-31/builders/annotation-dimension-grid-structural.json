@@ -1,0 +1,91 @@
+{
+  "families": ["annotation", "dimension", "grid", "structural"],
+  "head": "d91d30d4af51bc67317ef8afc0b46b1dbef94038",
+  "why_grouped": "All four share ONE measured property that dominates every other fact about them: their CEB `*.created` channel carries exactly {commandId, commandType, levelId} — no id, no geometry — and NOTHING SUBSCRIBES TO IT. They are notification stubs, not render paths. Each still draws, through a legacy or plugin-local path.",
+  "THE_SIX_DEAD_CHANNELS": {
+    "channels": ["room.created", "grid.created", "plumbing.created", "structural.created", "annotation.created", "dimension.created"],
+    "payload": "{commandId, commandType, levelId} — three keys, identical in all six",
+    "emit_sites": ["CommandEventBridge.ts:1314 room", ":1324 grid", ":1485 plumbing", ":1495 structural", ":1505 annotation", ":1515 dimension"],
+    "subscriber_count": 0,
+    "proof_command": "grep -rn \"'room.created'|'grid.created'|'plumbing.created'|'structural.created'|'annotation.created'|'dimension.created'\" --include=*.ts apps packages plugins | grep -v node_modules | grep -v __tests__  →  the six emitters, six type declarations in packages/runtime-composer/src/types.ts (:872, :879, :951, :958, :965, :972), one rival room emitter in packages/stores/src/aggregate-commands/roomCreate.ts:111, three COMMENTS that already recorded the plumbing case, and one UI diagnostic string. NO RENDER SUBSCRIBER FOR ANY OF THE SIX.",
+    "already_on_record": "apps/editor/src/engine/views/plantools/copyPayloads.ts:1415-1416 — 'no subscriber to plumbing.created exists in the tree (grep -rn \"plumbing.created\" → two hits, both the emitter and its type declaration)'. Also duplicateToLevel.ts:365 and CopyPlanToolHandler.ts:652. RE-MEASURED AT THIS HEAD: still true, and true for five more channels the comments did not name.",
+    "consequence": "Six of the nineteen `*.created` channels are dead ends. Any feature that reaches an element through the bus event alone — copy/paste, duplicate-to-level, remote sync, a future plan mirror — draws nothing for these six, and the CEB emits no warning. C84's element-integrity axis reads these as 'the family emits a creation event', which is true and useless."
+  },
+  "rows": [
+    {
+      "family": "annotation",
+      "member": "annotation (text, leader, cloud)",
+      "surface": "plan (primary) + 3d",
+      "builder_file": "plugins/annotations/src/AnnotationRenderLayer.ts + AnnotationManager.ts + OBCAnnotationAdapter.ts + plan-view-adapter.ts",
+      "package": "@pryzm/plugin-annotations",
+      "layer": "L6",
+      "invoked_by": "apps/editor/src/engine/initAnnotationTools.ts; annotationStore is statically imported into initBuilders.ts:159 (with a comment defending the static import over a lazy one)",
+      "rivals": [
+        {"candidate": "packages/core-app-model/src/views/PlanViewAnnotationRenderer.ts", "verdict": "⛔ SECOND ANNOTATION RENDERER, at L2, in a different package from the L6 one. Both draw annotations into the plan. Not measured which wins; the NAMES alone are the L-1600 'seven copies of which layer is this line on' shape."},
+        {"candidate": "plugins/plan-view/src/annotation-committer.ts", "verdict": "THIRD path — the unreachable committer half. It is the only *-committer.ts NOT under a plugins/*/src/committer/ directory."}
+      ],
+      "fidelity": {
+        "authored_L0_fields": ["provenance","viewId","kind","anchor","hostElementId","text","rotation","textHeightMm","color"],
+        "authored_count": 9,
+        "dropped_at_ceb": "ALL NINE (the channel carries three envelope keys)",
+        "survives_via": "the plugin store — plugins/annotations/src/handlers/CreateAnnotation.ts and canonicalAnnotationSink.ts both carry textHeightMm (repo-wide count 42, concentrated in plugins/annotations)",
+        "draws_what_the_user_authored": "YES on the plugin path; NOT AT ALL on the bus-event path."
+      }
+    },
+    {
+      "family": "dimension",
+      "member": "dimension string",
+      "surface": "plan",
+      "builder_file": "plugins/annotations/src/subsystem/WallDimensionRenderer.ts + plugins/annotations/src/DimensionPropertiesPanel.ts",
+      "layer": "L6",
+      "⚠ THE_DIMENSION_FAMILY_LIVES_IN_THE_ANNOTATIONS_PLUGIN": "`find … -iname '*Dimension*Render*' -o -iname '*Dimension*Builder*'` → ONE hit, and it is under plugins/annotations, not plugins/dimensions. plugins/dimensions/ owns the handlers and a committer; the renderer is next door.",
+      "rivals": [{"candidate": "plugins/dimensions/src/committer/dimension-committer.ts + packages/geometry-kernel/src/producers/dimension.ts", "verdict": "RIVAL, UNREACHABLE — and the ONLY consumer of L0 Dimension.overrideText (repo-wide 21 mentions: producers/dimension.ts, its hash, and plugins/dimensions/src/handlers/CreateDimension.ts)."}],
+      "fidelity": {
+        "authored_L0_fields": ["provenance","levelId","viewId","kind","points","offsetMm","units","precision","style","overridden","overrideText"],
+        "authored_count": 11,
+        "dropped_at_ceb": "ALL TEN element fields",
+        "no_legacy_store": "⛔ performUndoRedo.ts:574 — `dimension: { owner: 'nothing', reason: 'No legacy dimension store exists. Registered at engineLauncher.ts:606.' }`. So Ctrl+Z after a dimension is a NO-OP, and the repo says so and tells the user.",
+        "draws_what_the_user_authored": "NOT MEASURED end-to-end; the bus leg draws nothing and the undo leg is declared stranded."
+      }
+    },
+    {
+      "family": "grid",
+      "member": "grid lines + bubbles",
+      "surface": "plan (primary) + 3d",
+      "builder_file": "NO DEDICATED BUILDER FOUND. GridStore is constructed at initBuilders.ts:1082 and exposed as window.gridStore; the BuilderRegistry (:231) lists `gridStore` but NO gridBuilder. Its geometry consumers are packages/core-app-model/src/grids/GridEditVariants.ts and packages/core-app-model/src/views/PlanSnapEngine.ts.",
+      "package": "@pryzm/core-app-model",
+      "layer": "L2",
+      "rivals": [{"candidate": "plugins/grid/src/committer/grid-committer.ts + packages/geometry-kernel/src/producers/grid.ts", "verdict": "RIVAL, UNREACHABLE."}],
+      "fidelity": {
+        "authored_L0_fields": ["provenance","confidence","levelId","rotation","lines"],
+        "authored_count": 5,
+        "ceb_emitted_keys": ["commandId","commandType","levelId"],
+        "dropped_at_ceb": ["rotation","lines","provenance","confidence"] ,
+        "note": "`lines` IS the grid — dropping it leaves an event that says 'a grid happened on this level' and nothing more.",
+        "plan_membership": "`grid` is NOT in GEOMETRY_ELEMENT_TYPES. Consistent with it being drafting furniture rather than modelled geometry — an honest NO.",
+        "draws_what_the_user_authored": "NOT ON THE BUS LEG."
+      }
+    },
+    {
+      "family": "structural",
+      "member": "structural member (wall/column/beam/pad, per `kind`)",
+      "surface": "3d",
+      "builder_file": "⛔ NO BUILDER AND NO LEGACY STORE. plugins/structural/src/ has ISectionGenerator.ts, SteelProfileLibrary.ts, handlers/, store.ts, tool.ts and a committer/ — but no fragment builder, and nothing constructs a legacy structural store.",
+      "package": "@pryzm/plugin-structural",
+      "layer": "L6",
+      "proof": "apps/editor/src/engine/undo/performUndoRedo.ts:573 — `structural: { owner: 'nothing', reason: 'No legacy structural store exists (no window.structuralStore assignment site). Registered at engineLauncher.ts:588.' }`. `structuralStore` scores 10 repo-wide mentions, all in undo bookkeeping, MaterialDispatch, PlanViewCanvasHost and the plugin's own handlers — never a construction site.",
+      "rivals": [{"candidate": "plugins/structural/src/committer/structural-committer.ts → produceStructural (packages/geometry-kernel/src/producers/structural.ts)", "verdict": "⛔ THIS IS THE FAMILY'S ONLY GEOMETRY PATH, AND IT IS UNREACHABLE. `produceStructural` scores 8 mentions: the producer, the kernel barrel, the plugin-sdk barrel, and the committer. No production call site. StructuralCommitter scores 5, all inside plugins/structural. It is not among the four in bootstrap.render.everything.ts."}],
+      "⭐ THE_ONE_PART_THAT_IS_REACHABLE": "ISectionGenerator (steel I-section profiles) IS used — by packages/geometry-beam/src/BeamFragmentBuilder.ts and packages/geometry-column/src/ColumnFragmentBuilder.ts. So the structural PLUGIN's geometry library serves beam and column on the shipped path, while the structural ELEMENT itself has no renderer. SteelProfileLibrary scores 72 and is read by BeamTypes, ColumnTypes, both fragment builders, ColumnPlanSymbolBuilder and ColumnSectionGeometry.",
+      "fidelity": {
+        "authored_L0_fields": ["provenance","confidence","levelId","kind","origin","endOffset","width","depth","thickness","radius","rotation","baseOffset","materialId"],
+        "authored_count": 13,
+        "ceb_emitted_keys": ["commandId","commandType","levelId"],
+        "dropped_at_ceb": "ALL TWELVE element fields",
+        "endOffset": "AUTHORED, read ONLY by producers/structural.ts + its hash + plugins/plan-view/src/projection.ts — the unreachable half plus one projector.",
+        "LADDER": "AUTHORED yes · REACHABLE (as an element with a mesh) NO · COMPOSABLE yes (the committer exists) · CERTIFIED no",
+        "draws_what_the_user_authored": "NO — and, on the evidence measured here, structural draws NOTHING in 3D at all.",
+        "honest_about_it": "PARTIALLY — performUndoRedo names the missing store and tells the user Ctrl+Z is a no-op. Nothing says the element has no renderer."
+      }
+    }
+  ]
+}

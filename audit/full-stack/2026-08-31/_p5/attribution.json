@@ -1,0 +1,1498 @@
+{
+ "rows": {
+  "annotation": {
+   "packages_participating": [
+    {
+     "dir": "plugins/annotations",
+     "exists": true,
+     "pkg": "@pryzm/plugin-annotations",
+     "layer": "L6"
+    }
+   ],
+   "upward_imports": {
+    "count": 0,
+    "sites": []
+   },
+   "upward_imports_INTO_family": {
+    "count": 45,
+    "sites": [
+     "packages/command-registry/src/annotations/AnnotateViewCommand.ts:18 -> @pryzm/plugin-annotations [L2 -> L6]",
+     "packages/command-registry/src/annotations/AnnotateViewCommand.ts:19 -> @pryzm/plugin-annotations [L2 -> L6]",
+     "packages/command-registry/src/annotations/CreateAnnotationCommand.ts:1 -> @pryzm/plugin-annotations [L2 -> L6]",
+     "packages/command-registry/src/annotations/CreateCalloutDetailCommand.ts:1 -> @pryzm/plugin-annotations [L2 -> L6]",
+     "packages/command-registry/src/annotations/CreateCalloutDetailCommand.ts:2 -> @pryzm/plugin-annotations [L2 -> L6]",
+     "packages/command-registry/src/annotations/CreateElevationMarkCommand.ts:1 -> @pryzm/plugin-annotations [L2 -> L6]",
+     "packages/command-registry/src/annotations/CreateElevationMarkCommand.ts:2 -> @pryzm/plugin-annotations [L2 -> L6]",
+     "packages/command-registry/src/annotations/CreateManyAnnotationsCommand.ts:15 -> @pryzm/plugin-annotations [L2 -> L6]",
+     "packages/command-registry/src/annotations/CreateSectionMarkCommand.ts:1 -> @pryzm/plugin-annotations [L2 -> L6]",
+     "packages/command-registry/src/annotations/CreateSectionMarkCommand.ts:2 -> @pryzm/plugin-annotations [L2 -> L6]",
+     "packages/command-registry/src/annotations/DeleteAnnotationCommand.ts:1 -> @pryzm/plugin-annotations [L2 -> L6]",
+     "packages/command-registry/src/annotations/LockAnnotationCommand.ts:1 -> @pryzm/plugin-annotations [L2 -> L6]",
+     "packages/command-registry/src/annotations/LockAnnotationCommand.ts:2 -> @pryzm/plugin-annotations [L2 -> L6]",
+     "packages/command-registry/src/annotations/UpdateAnnotationCommand.ts:1 -> @pryzm/plugin-annotations [L2 -> L6]",
+     "packages/command-registry/src/annotations/UpdateConstraintCommand.ts:1 -> @pryzm/plugin-annotations [L2 -> L6]",
+     "packages/command-registry/src/project/ClearProjectCommand.ts:37 -> @pryzm/plugin-annotations [L2 -> L6]",
+     "packages/command-registry/src/types.ts:565 -> @pryzm/plugin-annotations [L2 -> L6]",
+     "packages/command-registry/src/types.ts:566 -> @pryzm/plugin-annotations [L2 -> L6]",
+     "packages/command-registry/src/types.ts:567 -> @pryzm/plugin-annotations [L2 -> L6]",
+     "packages/command-registry/src/types.ts:580 -> @pryzm/plugin-annotations [L2 -> L6]",
+     "packages/command-registry/src/types.ts:586 -> @pryzm/plugin-annotations [L2 -> L6]",
+     "packages/command-registry/src/types.ts:592 -> @pryzm/plugin-annotations [L2 -> L6]",
+     "packages/core-app-model/src/views/PlanViewAnnotationRenderer.ts:22 -> @pryzm/plugin-annotations [L2 -> L6]",
+     "packages/core-app-model/src/views/PlanViewAnnotationRenderer.ts:28 -> @pryzm/plugin-annotations [L2 -> L6]",
+     "packages/core-app-model/src/views/PlanViewAnnotationRenderer.ts:29 -> @pryzm/plugin-annotations [L2 -> L6]",
+     "packages/core-app-model/src/views/PlanViewCanvas.ts:4 -> @pryzm/plugin-annotations [L2 -> L6]",
+     "packages/file-format/src/export/sheets/AnnotationDxfBridge.ts:3 -> @pryzm/plugin-annotations [L3 -> L6]",
+     "packages/file-format/src/export/sheets/AnnotationDxfBridge.ts:4 -> @pryzm/plugin-annotations [L3 -> L6]",
+     "packages/file-format/src/export/sheets/SVGCompositeRenderer.ts:27 -> @pryzm/plugin-annotations [L3 -> L6]",
+     "packages/file-format/src/export/sheets/ViewportSvgComposer.ts:55 -> @pryzm/plugin-annotations [L3 -> L6]",
+     "packages/file-format/src/export/sheets/ViewportSvgComposer.ts:56 -> @pryzm/plugin-annotations [L3 -> L6]",
+     "packages/geometry-roof/src/RoofSlopeSymbolBuilder.ts:39 -> @pryzm/plugin-annotations [L2 -> L6]",
+     "packages/geometry-roof/src/RoofSlopeSymbolBuilder.ts:40 -> @pryzm/plugin-annotations [L2 -> L6]",
+     "packages/input-host/src/ToolManager.ts:34 -> @pryzm/plugin-annotations [L2 -> L6]",
+     "packages/persistence-client/src/loader/ProjectLoader.ts:68 -> @pryzm/plugin-annotations [L4 -> L6]",
+     "packages/persistence-client/src/loader/ProjectLoader.ts:1427 -> @pryzm/plugin-annotations [L4 -> L6]",
+     "packages/persistence-client/src/loader/ProjectLoader.ts:1430 -> @pryzm/plugin-annotations [L4 -> L6]",
+     "packages/persistence-client/src/loader/ProjectLoader.ts:1439 -> @pryzm/plugin-annotations [L4 -> L6]",
+     "packages/persistence-client/src/loader/ProjectLoader.ts:1452 -> @pryzm/plugin-annotations [L4 -> L6]",
+     "packages/persistence-client/src/loader/ProjectSerializer.ts:78 -> @pryzm/plugin-annotations [L4 -> L6]",
+     "packages/persistence-client/src/loader/ProjectSerializer.ts:80 -> @pryzm/plugin-annotations [L4 -> L6]",
+     "packages/persistence-client/src/loader/ProjectSerializer.ts:81 -> @pryzm/plugin-annotations [L4 -> L6]",
+     "packages/persistence-client/src/loader/ProjectSerializer.ts:82 -> @pryzm/plugin-annotations [L4 -> L6]",
+     "packages/room-topology/src/RoomTagAutoPopulator.ts:25 -> @pryzm/plugin-annotations [L2 -> L6]",
+     "packages/room-topology/src/RoomTagAutoPopulator.ts:26 -> @pryzm/plugin-annotations [L2 -> L6]"
+    ]
+   },
+   "sdk_bypasses": {
+    "count": 49,
+    "by_target": {
+     "packages/renderer-three": 25,
+     "packages/core-app-model": 24
+    },
+    "sites": [
+     "plugins/annotations/src/AnnotationManager.ts:15 -> @pryzm/renderer-three/three [L6 -> L1]",
+     "plugins/annotations/src/AnnotationManager.ts:33 -> @pryzm/core-app-model [L6 -> L2]",
+     "plugins/annotations/src/AnnotationRenderLayer.ts:20 -> @pryzm/renderer-three/three [L6 -> L1]",
+     "plugins/annotations/src/AnnotationRenderLayer.ts:28 -> @pryzm/core-app-model [L6 -> L2]",
+     "plugins/annotations/src/AnnotationRenderLayer.ts:32 -> @pryzm/core-app-model [L6 -> L2]",
+     "plugins/annotations/src/commands/CreateCalloutDetailCommand.ts:13 -> @pryzm/core-app-model [L6 -> L2]",
+     "plugins/annotations/src/commands/CreateCalloutDetailCommand.ts:14 -> @pryzm/core-app-model [L6 -> L2]",
+     "plugins/annotations/src/commands/CreateElevationMarkCommand.ts:14 -> @pryzm/core-app-model [L6 -> L2]",
+     "plugins/annotations/src/commands/CreateElevationMarkCommand.ts:15 -> @pryzm/core-app-model [L6 -> L2]",
+     "plugins/annotations/src/commands/CreateElevationMarkCommand.ts:16 -> @pryzm/core-app-model [L6 -> L2]",
+     "plugins/annotations/src/commands/CreateSectionMarkCommand.ts:17 -> @pryzm/core-app-model [L6 -> L2]",
+     "plugins/annotations/src/commands/CreateSectionMarkCommand.ts:18 -> @pryzm/core-app-model [L6 -> L2]",
+     "plugins/annotations/src/commands/CreateSectionMarkCommand.ts:19 -> @pryzm/core-app-model [L6 -> L2]",
+     "plugins/annotations/src/plantools/WallFaceDetector.ts:11 -> @pryzm/renderer-three/three [L6 -> L1]",
+     "plugins/annotations/src/subsystem/AnnotationDependencyGraph.ts:27 -> @pryzm/core-app-model [L6 -> L2]",
+     "plugins/annotations/src/subsystem/AnnotationReference.ts:16 -> @pryzm/renderer-three/three [L6 -> L1]",
+     "plugins/annotations/src/subsystem/AnnotationStore.ts:26 -> @pryzm/core-app-model [L6 -> L2]",
+     "plugins/annotations/src/subsystem/AnnotationStore.ts:442 -> @pryzm/core-app-model [L6 -> L2]",
+     "plugins/annotations/src/subsystem/AnnotationSystemTypeStore.ts:33 -> @pryzm/core-app-model [L6 -> L2]",
+     "plugins/annotations/src/subsystem/AnnotationSystemTypeStore.ts:234 -> @pryzm/core-app-model [L6 -> L2]",
+     "plugins/annotations/src/subsystem/AnnotationVisibilityStore.ts:152 -> @pryzm/core-app-model [L6 -> L2]",
+     "plugins/annotations/src/subsystem/ConstraintStore.ts:216 -> @pryzm/core-app-model [L6 -> L2]",
+     "plugins/annotations/src/subsystem/ViewLinkResolver.ts:15 -> @pryzm/core-app-model [L6 -> L2]",
+     "plugins/annotations/src/tools/AngularDimensionAnnotationTool.ts:20 -> @pryzm/renderer-three/three [L6 -> L1]",
+     "plugins/annotations/src/tools/CalloutDetailTool.ts:21 -> @pryzm/renderer-three/three [L6 -> L1]",
+     "plugins/annotations/src/tools/DiameterDimensionTool.ts:23 -> @pryzm/renderer-three/three [L6 -> L1]",
+     "plugins/annotations/src/tools/DoorTagTool.ts:20 -> @pryzm/renderer-three/three [L6 -> L1]",
+     "plugins/annotations/src/tools/ElementTagTool.ts:20 -> @pryzm/renderer-three/three [L6 -> L1]",
+     "plugins/annotations/src/tools/ElevationMarkTool.ts:21 -> @pryzm/renderer-three/three [L6 -> L1]",
+     "plugins/annotations/src/tools/GridBubbleTool.ts:31 -> @pryzm/core-app-model [L6 -> L2]",
+     "plugins/annotations/src/tools/KeynoteTool.ts:18 -> @pryzm/renderer-three/three [L6 -> L1]",
+     "plugins/annotations/src/tools/LevelDatumLineBuilder.ts:30 -> @pryzm/renderer-three/three [L6 -> L1]",
+     "plugins/annotations/src/tools/LevelDatumLineBuilder.ts:32 -> @pryzm/core-app-model [L6 -> L2]",
+     "plugins/annotations/src/tools/LevelTagTool.ts:24 -> @pryzm/renderer-three/three [L6 -> L1]",
+     "plugins/annotations/src/tools/LevelTagTool.ts:29 -> @pryzm/core-app-model [L6 -> L2]",
+     "plugins/annotations/src/tools/LinearDimensionAnnotationTool.ts:32 -> @pryzm/renderer-three/three [L6 -> L1]",
+     "plugins/annotations/src/tools/MatchlineTool.ts:20 -> @pryzm/renderer-three/three [L6 -> L1]",
+     "plugins/annotations/src/tools/NorthArrowTool.ts:17 -> @pryzm/renderer-three/three [L6 -> L1]",
+     "plugins/annotations/src/tools/RadiusDimensionTool.ts:23 -> @pryzm/renderer-three/three [L6 -> L1]",
+     "plugins/annotations/src/tools/RevisionCloudTool.ts:19 -> @pryzm/renderer-three/three [L6 -> L1]",
+     "plugins/annotations/src/tools/ScaleBarTool.ts:17 -> @pryzm/renderer-three/three [L6 -> L1]",
+     "plugins/annotations/src/tools/SectionGridLineBuilder.ts:35 -> @pryzm/renderer-three/three [L6 -> L1]",
+     "plugins/annotations/src/tools/SectionGridLineBuilder.ts:37 -> @pryzm/core-app-model [L6 -> L2]",
+     "plugins/annotations/src/tools/SectionGridLineBuilder.ts:38 -> @pryzm/core-app-model [L6 -> L2]",
+     "plugins/annotations/src/tools/SectionMarkTool.ts:21 -> @pryzm/renderer-three/three [L6 -> L1]",
+     "plugins/annotations/src/tools/SlopeDimensionTool.ts:24 -> @pryzm/renderer-three/three [L6 -> L1]",
+     "plugins/annotations/src/tools/SpotElevationAnnotationTool.ts:16 -> @pryzm/renderer-three/three [L6 -> L1]",
+     "plugins/annotations/src/tools/TextNoteTool.ts:13 -> @pryzm/renderer-three/three [L6 -> L1]",
+     "plugins/annotations/src/tools/WindowTagTool.ts:20 -> @pryzm/renderer-three/three [L6 -> L1]"
+    ]
+   },
+   "banned_third_party": {
+    "count": 24,
+    "sites": [
+     "plugins/annotations/src/AnnotationManager.ts:16 -> @thatopen/components",
+     "plugins/annotations/src/OBCAnnotationAdapter.ts:9 -> @thatopen/components",
+     "plugins/annotations/src/tools/AngularDimensionAnnotationTool.ts:21 -> @thatopen/components",
+     "plugins/annotations/src/tools/CalloutDetailTool.ts:22 -> @thatopen/components",
+     "plugins/annotations/src/tools/DiameterDimensionTool.ts:24 -> @thatopen/components",
+     "plugins/annotations/src/tools/DoorTagTool.ts:21 -> @thatopen/components",
+     "plugins/annotations/src/tools/ElementTagTool.ts:21 -> @thatopen/components",
+     "plugins/annotations/src/tools/ElevationMarkTool.ts:22 -> @thatopen/components",
+     "plugins/annotations/src/tools/GridBubbleTool.ts:26 -> @thatopen/components",
+     "plugins/annotations/src/tools/KeynoteTool.ts:19 -> @thatopen/components",
+     "plugins/annotations/src/tools/LevelDatumLineBuilder.ts:31 -> @thatopen/components",
+     "plugins/annotations/src/tools/LevelTagTool.ts:25 -> @thatopen/components",
+     "plugins/annotations/src/tools/LinearDimensionAnnotationTool.ts:33 -> @thatopen/components",
+     "plugins/annotations/src/tools/MatchlineTool.ts:21 -> @thatopen/components",
+     "plugins/annotations/src/tools/NorthArrowTool.ts:18 -> @thatopen/components",
+     "plugins/annotations/src/tools/RadiusDimensionTool.ts:24 -> @thatopen/components",
+     "plugins/annotations/src/tools/RevisionCloudTool.ts:20 -> @thatopen/components",
+     "plugins/annotations/src/tools/ScaleBarTool.ts:18 -> @thatopen/components",
+     "plugins/annotations/src/tools/SectionGridLineBuilder.ts:36 -> @thatopen/components",
+     "plugins/annotations/src/tools/SectionMarkTool.ts:22 -> @thatopen/components",
+     "plugins/annotations/src/tools/SlopeDimensionTool.ts:25 -> @thatopen/components",
+     "plugins/annotations/src/tools/SpotElevationAnnotationTool.ts:17 -> @thatopen/components",
+     "plugins/annotations/src/tools/TextNoteTool.ts:14 -> @thatopen/components",
+     "plugins/annotations/src/tools/WindowTagTool.ts:21 -> @thatopen/components"
+    ]
+   }
+  },
+  "balcony": {
+   "packages_participating": [
+    {
+     "dir": "packages/geometry-balcony",
+     "exists": true,
+     "pkg": "@pryzm/geometry-balcony",
+     "layer": "L2"
+    },
+    {
+     "dir": "plugins/balcony",
+     "exists": true,
+     "pkg": "@pryzm/plugin-balcony",
+     "layer": "L6"
+    }
+   ],
+   "upward_imports": {
+    "count": 0,
+    "sites": []
+   },
+   "upward_imports_INTO_family": {
+    "count": 0,
+    "sites": []
+   },
+   "sdk_bypasses": {
+    "count": 2,
+    "by_target": {
+     "packages/geometry-balcony": 2
+    },
+    "sites": [
+     "plugins/balcony/src/handlers/CreateBalcony.ts:69 -> @pryzm/geometry-balcony [L6 -> L2]",
+     "plugins/balcony/src/handlers/UpdateBalconyProfile.ts:68 -> @pryzm/geometry-balcony [L6 -> L2]"
+    ]
+   },
+   "banned_third_party": {
+    "count": 0,
+    "sites": []
+   }
+  },
+  "bathroomPod": {
+   "packages_participating": [
+    {
+     "dir": "plugins/plumbing",
+     "exists": true,
+     "pkg": "@pryzm/plugin-plumbing",
+     "layer": "L6"
+    }
+   ],
+   "upward_imports": {
+    "count": 0,
+    "sites": []
+   },
+   "upward_imports_INTO_family": {
+    "count": 0,
+    "sites": []
+   },
+   "sdk_bypasses": {
+    "count": 6,
+    "by_target": {
+     "packages/geometry-plumbing": 2,
+     "packages/renderer-three": 3,
+     "packages/command-registry": 1
+    },
+    "sites": [
+     "plugins/plumbing/src/bathroomPodStore.ts:36 -> @pryzm/geometry-plumbing [L6 -> L2]",
+     "plugins/plumbing/src/committer/geometry-bridge.ts:3 -> @pryzm/renderer-three/three [L6 -> L1]",
+     "plugins/plumbing/src/committer/material-bridge.ts:6 -> @pryzm/renderer-three/three [L6 -> L1]",
+     "plugins/plumbing/src/committer/plumbing-committer.ts:3 -> @pryzm/renderer-three/three [L6 -> L1]",
+     "plugins/plumbing/src/handlers/CreateBathroomPod.ts:80 -> @pryzm/geometry-plumbing [L6 -> L2]",
+     "plugins/plumbing/src/handlers/CreatePlumbingFixture.ts:14 -> @pryzm/command-registry [L6 -> L2]"
+    ]
+   },
+   "banned_third_party": {
+    "count": 0,
+    "sites": []
+   }
+  },
+  "beam": {
+   "packages_participating": [
+    {
+     "dir": "packages/geometry-beam",
+     "exists": true,
+     "pkg": "@pryzm/geometry-beam",
+     "layer": "L2"
+    },
+    {
+     "dir": "plugins/beam",
+     "exists": true,
+     "pkg": "@pryzm/plugin-beam",
+     "layer": "L6"
+    }
+   ],
+   "upward_imports": {
+    "count": 2,
+    "sites": [
+     "packages/geometry-beam/src/BeamFragmentBuilder.ts:33 -> @pryzm/plugin-structural [L2 -> L6]",
+     "packages/geometry-beam/src/BeamFragmentBuilder.ts:34 -> @pryzm/plugin-structural [L2 -> L6]"
+    ]
+   },
+   "upward_imports_INTO_family": {
+    "count": 0,
+    "sites": []
+   },
+   "sdk_bypasses": {
+    "count": 3,
+    "by_target": {
+     "packages/renderer-three": 3
+    },
+    "sites": [
+     "plugins/beam/src/committer/beam-committer.ts:3 -> @pryzm/renderer-three/three [L6 -> L1]",
+     "plugins/beam/src/committer/geometry-bridge.ts:3 -> @pryzm/renderer-three/three [L6 -> L1]",
+     "plugins/beam/src/committer/material-bridge.ts:3 -> @pryzm/renderer-three/three [L6 -> L1]"
+    ]
+   },
+   "banned_third_party": {
+    "count": 0,
+    "sites": []
+   }
+  },
+  "boundaryLine": {
+   "packages_participating": [
+    {
+     "dir": "packages/geometry-boundary-line",
+     "exists": true,
+     "pkg": "@pryzm/geometry-boundary-line",
+     "layer": "L2"
+    },
+    {
+     "dir": "plugins/boundary-line",
+     "exists": true,
+     "pkg": "@pryzm/plugin-boundary-line",
+     "layer": "L6"
+    }
+   ],
+   "upward_imports": {
+    "count": 0,
+    "sites": []
+   },
+   "upward_imports_INTO_family": {
+    "count": 0,
+    "sites": []
+   },
+   "sdk_bypasses": {
+    "count": 4,
+    "by_target": {
+     "packages/geometry-boundary-line": 4
+    },
+    "sites": [
+     "plugins/boundary-line/src/handlers/AttachToBoundaryLine.ts:52 -> @pryzm/geometry-boundary-line [L6 -> L2]",
+     "plugins/boundary-line/src/handlers/CreateBoundaryLine.ts:28 -> @pryzm/geometry-boundary-line [L6 -> L2]",
+     "plugins/boundary-line/src/handlers/UpdateBoundaryLine.ts:13 -> @pryzm/geometry-boundary-line [L6 -> L2]",
+     "plugins/boundary-line/src/store.ts:41 -> @pryzm/geometry-boundary-line [L6 -> L2]"
+    ]
+   },
+   "banned_third_party": {
+    "count": 0,
+    "sites": []
+   }
+  },
+  "ceiling": {
+   "packages_participating": [
+    {
+     "dir": "plugins/ceiling",
+     "exists": true,
+     "pkg": "@pryzm/plugin-ceiling",
+     "layer": "L6"
+    }
+   ],
+   "upward_imports": {
+    "count": 0,
+    "sites": []
+   },
+   "upward_imports_INTO_family": {
+    "count": 0,
+    "sites": []
+   },
+   "sdk_bypasses": {
+    "count": 4,
+    "by_target": {
+     "packages/renderer-three": 3,
+     "packages/command-registry": 1
+    },
+    "sites": [
+     "plugins/ceiling/src/committer/ceiling-committer.ts:3 -> @pryzm/renderer-three/three [L6 -> L1]",
+     "plugins/ceiling/src/committer/geometry-bridge.ts:1 -> @pryzm/renderer-three/three [L6 -> L1]",
+     "plugins/ceiling/src/committer/material-bridge.ts:1 -> @pryzm/renderer-three/three [L6 -> L1]",
+     "plugins/ceiling/src/handlers/UpdateCeilingsSystemTypeBatch.ts:35 -> @pryzm/command-registry [L6 -> L2]"
+    ]
+   },
+   "banned_third_party": {
+    "count": 0,
+    "sites": []
+   }
+  },
+  "column": {
+   "packages_participating": [
+    {
+     "dir": "packages/geometry-column",
+     "exists": true,
+     "pkg": "@pryzm/geometry-column",
+     "layer": "L2"
+    },
+    {
+     "dir": "plugins/column",
+     "exists": true,
+     "pkg": "@pryzm/plugin-column",
+     "layer": "L6"
+    }
+   ],
+   "upward_imports": {
+    "count": 6,
+    "sites": [
+     "packages/geometry-column/src/ColumnFragmentBuilder.ts:48 -> @pryzm/plugin-structural [L2 -> L6]",
+     "packages/geometry-column/src/ColumnFragmentBuilder.ts:49 -> @pryzm/plugin-structural [L2 -> L6]",
+     "packages/geometry-column/src/ColumnPlanSymbolBuilder.ts:42 -> @pryzm/plugin-structural [L2 -> L6]",
+     "packages/geometry-column/src/ColumnTool.ts:20 -> @pryzm/plugin-structural [L2 -> L6]",
+     "packages/geometry-column/src/ColumnTool.ts:21 -> @pryzm/plugin-structural [L2 -> L6]",
+     "packages/geometry-column/src/ColumnValidator.ts:2 -> @pryzm/plugin-structural [L2 -> L6]"
+    ]
+   },
+   "upward_imports_INTO_family": {
+    "count": 0,
+    "sites": []
+   },
+   "sdk_bypasses": {
+    "count": 3,
+    "by_target": {
+     "packages/renderer-three": 3
+    },
+    "sites": [
+     "plugins/column/src/committer/column-committer.ts:3 -> @pryzm/renderer-three/three [L6 -> L1]",
+     "plugins/column/src/committer/geometry-bridge.ts:3 -> @pryzm/renderer-three/three [L6 -> L1]",
+     "plugins/column/src/committer/material-bridge.ts:7 -> @pryzm/renderer-three/three [L6 -> L1]"
+    ]
+   },
+   "banned_third_party": {
+    "count": 2,
+    "sites": [
+     "packages/geometry-column/src/ColumnPlanSymbolBuilder.ts:35 -> @thatopen/components",
+     "packages/geometry-column/src/ColumnTool.ts:17 -> @thatopen/components"
+    ]
+   }
+  },
+  "curtainWall": {
+   "packages_participating": [
+    {
+     "dir": "packages/geometry-curtain-wall",
+     "exists": true,
+     "pkg": "@pryzm/geometry-curtain-wall",
+     "layer": "L2"
+    },
+    {
+     "dir": "plugins/curtain-wall",
+     "exists": true,
+     "pkg": "@pryzm/plugin-curtain-wall",
+     "layer": "L6"
+    }
+   ],
+   "upward_imports": {
+    "count": 0,
+    "sites": []
+   },
+   "upward_imports_INTO_family": {
+    "count": 0,
+    "sites": []
+   },
+   "sdk_bypasses": {
+    "count": 9,
+    "by_target": {
+     "packages/renderer-three": 3,
+     "packages/geometry-curtain-wall": 3,
+     "packages/command-registry": 3
+    },
+    "sites": [
+     "plugins/curtain-wall/src/committer/curtain-wall-committer.ts:3 -> @pryzm/renderer-three/three [L6 -> L1]",
+     "plugins/curtain-wall/src/committer/geometry-bridge.ts:3 -> @pryzm/renderer-three/three [L6 -> L1]",
+     "plugins/curtain-wall/src/committer/material-bridge.ts:52 -> @pryzm/renderer-three/three [L6 -> L1]",
+     "plugins/curtain-wall/src/handlers/AddCurtainGridLine.ts:29 -> @pryzm/geometry-curtain-wall [L6 -> L2]",
+     "plugins/curtain-wall/src/handlers/BulkUpdateCurtainPanels.ts:52 -> @pryzm/command-registry [L6 -> L2]",
+     "plugins/curtain-wall/src/handlers/BulkUpdateCurtainWallParameter.ts:54 -> @pryzm/command-registry [L6 -> L2]",
+     "plugins/curtain-wall/src/handlers/CreateCurtainWallsOnAllSlabs.ts:23 -> @pryzm/command-registry [L6 -> L2]",
+     "plugins/curtain-wall/src/handlers/RemoveCurtainGridLine.ts:29 -> @pryzm/geometry-curtain-wall [L6 -> L2]",
+     "plugins/curtain-wall/src/handlers/ReplacePanel.ts:69 -> @pryzm/geometry-curtain-wall [L6 -> L2]"
+    ]
+   },
+   "banned_third_party": {
+    "count": 1,
+    "sites": [
+     "packages/geometry-curtain-wall/src/CurtainWallTool.ts:43 -> @thatopen/components"
+    ]
+   }
+  },
+  "dimension": {
+   "packages_participating": [
+    {
+     "dir": "plugins/dimensions",
+     "exists": true,
+     "pkg": "@pryzm/plugin-dimensions",
+     "layer": "L6"
+    }
+   ],
+   "upward_imports": {
+    "count": 0,
+    "sites": []
+   },
+   "upward_imports_INTO_family": {
+    "count": 0,
+    "sites": []
+   },
+   "sdk_bypasses": {
+    "count": 3,
+    "by_target": {
+     "packages/renderer-three": 3
+    },
+    "sites": [
+     "plugins/dimensions/src/committer/dimension-committer.ts:20 -> @pryzm/renderer-three/three [L6 -> L1]",
+     "plugins/dimensions/src/committer/geometry-bridge.ts:13 -> @pryzm/renderer-three/three [L6 -> L1]",
+     "plugins/dimensions/src/committer/material-bridge.ts:9 -> @pryzm/renderer-three/three [L6 -> L1]"
+    ]
+   },
+   "banned_third_party": {
+    "count": 0,
+    "sites": []
+   }
+  },
+  "door": {
+   "packages_participating": [
+    {
+     "dir": "packages/geometry-door",
+     "exists": true,
+     "pkg": "@pryzm/geometry-door",
+     "layer": "L2"
+    },
+    {
+     "dir": "plugins/door",
+     "exists": true,
+     "pkg": "@pryzm/plugin-door",
+     "layer": "L6"
+    }
+   ],
+   "upward_imports": {
+    "count": 0,
+    "sites": []
+   },
+   "upward_imports_INTO_family": {
+    "count": 0,
+    "sites": []
+   },
+   "sdk_bypasses": {
+    "count": 4,
+    "by_target": {
+     "packages/renderer-three": 3,
+     "packages/command-registry": 1
+    },
+    "sites": [
+     "plugins/door/src/committer/door-committer.ts:24 -> @pryzm/renderer-three/three [L6 -> L1]",
+     "plugins/door/src/committer/geometry-bridge.ts:6 -> @pryzm/renderer-three/three [L6 -> L1]",
+     "plugins/door/src/committer/material-bridge.ts:8 -> @pryzm/renderer-three/three [L6 -> L1]",
+     "plugins/door/src/handlers/UpdateDoorsSystemTypeBatch.ts:36 -> @pryzm/command-registry [L6 -> L2]"
+    ]
+   },
+   "banned_third_party": {
+    "count": 2,
+    "sites": [
+     "packages/geometry-door/src/DoorPlanSymbolBuilder.ts:27 -> @thatopen/components",
+     "packages/geometry-door/src/DoorTool.ts:2 -> @thatopen/components"
+    ]
+   }
+  },
+  "floor": {
+   "packages_participating": [
+    {
+     "dir": "plugins/floor",
+     "exists": true,
+     "pkg": "@pryzm/plugin-floor",
+     "layer": "L6"
+    }
+   ],
+   "upward_imports": {
+    "count": 0,
+    "sites": []
+   },
+   "upward_imports_INTO_family": {
+    "count": 0,
+    "sites": []
+   },
+   "sdk_bypasses": {
+    "count": 4,
+    "by_target": {
+     "packages/core-app-model": 3,
+     "packages/command-registry": 1
+    },
+    "sites": [
+     "plugins/floor/src/handlers/CreateFloor.ts:29 -> @pryzm/core-app-model [L6 -> L2]",
+     "plugins/floor/src/handlers/CreateFloor.ts:31 -> @pryzm/core-app-model [L6 -> L2]",
+     "plugins/floor/src/handlers/SetFloorFinishBatch.ts:45 -> @pryzm/command-registry [L6 -> L2]",
+     "plugins/floor/src/store.ts:17 -> @pryzm/core-app-model [L6 -> L2]"
+    ]
+   },
+   "banned_third_party": {
+    "count": 0,
+    "sites": []
+   }
+  },
+  "furniture": {
+   "packages_participating": [
+    {
+     "dir": "packages/geometry-furniture",
+     "exists": true,
+     "pkg": "@pryzm/geometry-furniture",
+     "layer": "L2"
+    },
+    {
+     "dir": "plugins/furniture",
+     "exists": true,
+     "pkg": "@pryzm/plugin-furniture",
+     "layer": "L6"
+    }
+   ],
+   "upward_imports": {
+    "count": 0,
+    "sites": []
+   },
+   "upward_imports_INTO_family": {
+    "count": 0,
+    "sites": []
+   },
+   "sdk_bypasses": {
+    "count": 6,
+    "by_target": {
+     "packages/renderer-three": 3,
+     "packages/command-registry": 3
+    },
+    "sites": [
+     "plugins/furniture/src/committer/furniture-committer.ts:9 -> @pryzm/renderer-three/three [L6 -> L1]",
+     "plugins/furniture/src/committer/geometry-bridge.ts:3 -> @pryzm/renderer-three/three [L6 -> L1]",
+     "plugins/furniture/src/committer/material-bridge.ts:35 -> @pryzm/renderer-three/three [L6 -> L1]",
+     "plugins/furniture/src/handlers/BulkUpdateKitchenMaterial.ts:40 -> @pryzm/command-registry [L6 -> L2]",
+     "plugins/furniture/src/handlers/CreateFurniture.ts:18 -> @pryzm/command-registry [L6 -> L2]",
+     "plugins/furniture/src/handlers/UpdateFurnitureParameters.ts:13 -> @pryzm/command-registry [L6 -> L2]"
+    ]
+   },
+   "banned_third_party": {
+    "count": 8,
+    "sites": [
+     "packages/geometry-furniture/src/FurnitureTool.ts:2 -> @thatopen/components",
+     "packages/geometry-furniture/src/builders/BedPlanSymbolBuilder.ts:41 -> @thatopen/components",
+     "packages/geometry-furniture/src/builders/ChairPlanSymbolBuilder.ts:41 -> @thatopen/components",
+     "packages/geometry-furniture/src/builders/KitchenPlanSymbolBuilder.ts:37 -> @thatopen/components",
+     "packages/geometry-furniture/src/builders/SofaPlanSymbolBuilder.ts:41 -> @thatopen/components",
+     "packages/geometry-furniture/src/builders/TreeElevationSymbolBuilder.ts:59 -> @thatopen/components",
+     "packages/geometry-furniture/src/builders/TreePlanSymbolBuilder.ts:35 -> @thatopen/components",
+     "packages/geometry-furniture/src/builders/WardrobePlanSymbolBuilder.ts:34 -> @thatopen/components"
+    ]
+   }
+  },
+  "grid": {
+   "packages_participating": [
+    {
+     "dir": "plugins/grid",
+     "exists": true,
+     "pkg": "@pryzm/plugin-grid",
+     "layer": "L6"
+    }
+   ],
+   "upward_imports": {
+    "count": 0,
+    "sites": []
+   },
+   "upward_imports_INTO_family": {
+    "count": 0,
+    "sites": []
+   },
+   "sdk_bypasses": {
+    "count": 3,
+    "by_target": {
+     "packages/renderer-three": 3
+    },
+    "sites": [
+     "plugins/grid/src/committer/geometry-bridge.ts:3 -> @pryzm/renderer-three/three [L6 -> L1]",
+     "plugins/grid/src/committer/grid-committer.ts:3 -> @pryzm/renderer-three/three [L6 -> L1]",
+     "plugins/grid/src/committer/material-bridge.ts:6 -> @pryzm/renderer-three/three [L6 -> L1]"
+    ]
+   },
+   "banned_third_party": {
+    "count": 0,
+    "sites": []
+   }
+  },
+  "handrail": {
+   "packages_participating": [
+    {
+     "dir": "packages/geometry-handrail",
+     "exists": true,
+     "pkg": "@pryzm/geometry-handrail",
+     "layer": "L2"
+    },
+    {
+     "dir": "plugins/handrail",
+     "exists": true,
+     "pkg": "@pryzm/plugin-handrail",
+     "layer": "L6"
+    }
+   ],
+   "upward_imports": {
+    "count": 0,
+    "sites": []
+   },
+   "upward_imports_INTO_family": {
+    "count": 0,
+    "sites": []
+   },
+   "sdk_bypasses": {
+    "count": 3,
+    "by_target": {
+     "packages/renderer-three": 3
+    },
+    "sites": [
+     "plugins/handrail/src/committer/geometry-bridge.ts:1 -> @pryzm/renderer-three/three [L6 -> L1]",
+     "plugins/handrail/src/committer/handrail-committer.ts:3 -> @pryzm/renderer-three/three [L6 -> L1]",
+     "plugins/handrail/src/committer/material-bridge.ts:24 -> @pryzm/renderer-three/three [L6 -> L1]"
+    ]
+   },
+   "banned_third_party": {
+    "count": 1,
+    "sites": [
+     "packages/geometry-handrail/src/HandrailTool.ts:42 -> @thatopen/components"
+    ]
+   }
+  },
+  "lift": {
+   "packages_participating": [
+    {
+     "dir": "packages/geometry-lift",
+     "exists": true,
+     "pkg": "@pryzm/geometry-lift",
+     "layer": "L2"
+    },
+    {
+     "dir": "plugins/lift",
+     "exists": true,
+     "pkg": "@pryzm/plugin-lift",
+     "layer": "L6"
+    }
+   ],
+   "upward_imports": {
+    "count": 0,
+    "sites": []
+   },
+   "upward_imports_INTO_family": {
+    "count": 0,
+    "sites": []
+   },
+   "sdk_bypasses": {
+    "count": 3,
+    "by_target": {
+     "packages/geometry-lift": 3
+    },
+    "sites": [
+     "plugins/lift/src/handlers/CreateLift.ts:72 -> @pryzm/geometry-lift [L6 -> L2]",
+     "plugins/lift/src/handlers/DeleteLift.ts:40 -> @pryzm/geometry-lift [L6 -> L2]",
+     "plugins/lift/src/store.ts:23 -> @pryzm/geometry-lift [L6 -> L2]"
+    ]
+   },
+   "banned_third_party": {
+    "count": 1,
+    "sites": [
+     "packages/geometry-lift/src/LiftTool.ts:36 -> @thatopen/components"
+    ]
+   }
+  },
+  "liftPart": {
+   "packages_participating": [
+    {
+     "dir": "packages/geometry-lift",
+     "exists": true,
+     "pkg": "@pryzm/geometry-lift",
+     "layer": "L2"
+    },
+    {
+     "dir": "plugins/lift",
+     "exists": true,
+     "pkg": "@pryzm/plugin-lift",
+     "layer": "L6"
+    }
+   ],
+   "upward_imports": {
+    "count": 0,
+    "sites": []
+   },
+   "upward_imports_INTO_family": {
+    "count": 0,
+    "sites": []
+   },
+   "sdk_bypasses": {
+    "count": 3,
+    "by_target": {
+     "packages/geometry-lift": 3
+    },
+    "sites": [
+     "plugins/lift/src/handlers/CreateLift.ts:72 -> @pryzm/geometry-lift [L6 -> L2]",
+     "plugins/lift/src/handlers/DeleteLift.ts:40 -> @pryzm/geometry-lift [L6 -> L2]",
+     "plugins/lift/src/store.ts:23 -> @pryzm/geometry-lift [L6 -> L2]"
+    ]
+   },
+   "banned_third_party": {
+    "count": 1,
+    "sites": [
+     "packages/geometry-lift/src/LiftTool.ts:36 -> @thatopen/components"
+    ]
+   }
+  },
+  "lighting": {
+   "packages_participating": [
+    {
+     "dir": "packages/geometry-lighting",
+     "exists": true,
+     "pkg": "@pryzm/geometry-lighting",
+     "layer": "L2"
+    },
+    {
+     "dir": "plugins/lighting",
+     "exists": true,
+     "pkg": "@pryzm/plugin-lighting",
+     "layer": "L6"
+    }
+   ],
+   "upward_imports": {
+    "count": 0,
+    "sites": []
+   },
+   "upward_imports_INTO_family": {
+    "count": 0,
+    "sites": []
+   },
+   "sdk_bypasses": {
+    "count": 3,
+    "by_target": {
+     "packages/renderer-three": 3
+    },
+    "sites": [
+     "plugins/lighting/src/committer/geometry-bridge.ts:3 -> @pryzm/renderer-three/three [L6 -> L1]",
+     "plugins/lighting/src/committer/lighting-committer.ts:8 -> @pryzm/renderer-three/three [L6 -> L1]",
+     "plugins/lighting/src/committer/material-bridge.ts:11 -> @pryzm/renderer-three/three [L6 -> L1]"
+    ]
+   },
+   "banned_third_party": {
+    "count": 1,
+    "sites": [
+     "packages/geometry-lighting/src/LightingTool.ts:26 -> @thatopen/components"
+    ]
+   }
+  },
+  "plumbing": {
+   "packages_participating": [
+    {
+     "dir": "packages/geometry-plumbing",
+     "exists": true,
+     "pkg": "@pryzm/geometry-plumbing",
+     "layer": "L2"
+    },
+    {
+     "dir": "plugins/plumbing",
+     "exists": true,
+     "pkg": "@pryzm/plugin-plumbing",
+     "layer": "L6"
+    }
+   ],
+   "upward_imports": {
+    "count": 0,
+    "sites": []
+   },
+   "upward_imports_INTO_family": {
+    "count": 0,
+    "sites": []
+   },
+   "sdk_bypasses": {
+    "count": 6,
+    "by_target": {
+     "packages/geometry-plumbing": 2,
+     "packages/renderer-three": 3,
+     "packages/command-registry": 1
+    },
+    "sites": [
+     "plugins/plumbing/src/bathroomPodStore.ts:36 -> @pryzm/geometry-plumbing [L6 -> L2]",
+     "plugins/plumbing/src/committer/geometry-bridge.ts:3 -> @pryzm/renderer-three/three [L6 -> L1]",
+     "plugins/plumbing/src/committer/material-bridge.ts:6 -> @pryzm/renderer-three/three [L6 -> L1]",
+     "plugins/plumbing/src/committer/plumbing-committer.ts:3 -> @pryzm/renderer-three/three [L6 -> L1]",
+     "plugins/plumbing/src/handlers/CreateBathroomPod.ts:80 -> @pryzm/geometry-plumbing [L6 -> L2]",
+     "plugins/plumbing/src/handlers/CreatePlumbingFixture.ts:14 -> @pryzm/command-registry [L6 -> L2]"
+    ]
+   },
+   "banned_third_party": {
+    "count": 3,
+    "sites": [
+     "packages/geometry-plumbing/src/PlumbingElevationSymbolBuilder.ts:28 -> @thatopen/components",
+     "packages/geometry-plumbing/src/PlumbingPlanSymbolBuilder.ts:30 -> @thatopen/components",
+     "packages/geometry-plumbing/src/PlumbingTool.ts:2 -> @thatopen/components"
+    ]
+   }
+  },
+  "pool": {
+   "packages_participating": [
+    {
+     "dir": "packages/geometry-pool",
+     "exists": true,
+     "pkg": "@pryzm/geometry-pool",
+     "layer": "L2"
+    },
+    {
+     "dir": "plugins/pool",
+     "exists": true,
+     "pkg": "@pryzm/plugin-pool",
+     "layer": "L6"
+    }
+   ],
+   "upward_imports": {
+    "count": 0,
+    "sites": []
+   },
+   "upward_imports_INTO_family": {
+    "count": 0,
+    "sites": []
+   },
+   "sdk_bypasses": {
+    "count": 1,
+    "by_target": {
+     "packages/geometry-pool": 1
+    },
+    "sites": [
+     "plugins/pool/src/handlers/CreatePool.ts:60 -> @pryzm/geometry-pool [L6 -> L2]"
+    ]
+   },
+   "banned_third_party": {
+    "count": 0,
+    "sites": []
+   }
+  },
+  "roof": {
+   "packages_participating": [
+    {
+     "dir": "packages/geometry-roof",
+     "exists": true,
+     "pkg": "@pryzm/geometry-roof",
+     "layer": "L2"
+    },
+    {
+     "dir": "plugins/roof",
+     "exists": true,
+     "pkg": "@pryzm/plugin-roof",
+     "layer": "L6"
+    }
+   ],
+   "upward_imports": {
+    "count": 2,
+    "sites": [
+     "packages/geometry-roof/src/RoofSlopeSymbolBuilder.ts:39 -> @pryzm/plugin-annotations [L2 -> L6]",
+     "packages/geometry-roof/src/RoofSlopeSymbolBuilder.ts:40 -> @pryzm/plugin-annotations [L2 -> L6]"
+    ]
+   },
+   "upward_imports_INTO_family": {
+    "count": 0,
+    "sites": []
+   },
+   "sdk_bypasses": {
+    "count": 3,
+    "by_target": {
+     "packages/renderer-three": 3
+    },
+    "sites": [
+     "plugins/roof/src/committer/geometry-bridge.ts:3 -> @pryzm/renderer-three/three [L6 -> L1]",
+     "plugins/roof/src/committer/material-bridge.ts:9 -> @pryzm/renderer-three/three [L6 -> L1]",
+     "plugins/roof/src/committer/roof-committer.ts:9 -> @pryzm/renderer-three/three [L6 -> L1]"
+    ]
+   },
+   "banned_third_party": {
+    "count": 2,
+    "sites": [
+     "packages/geometry-roof/src/RoofSlopeSymbolBuilder.ts:36 -> @thatopen/components",
+     "packages/geometry-roof/src/RoofTool.ts:2 -> @thatopen/components"
+    ]
+   }
+  },
+  "room": {
+   "packages_participating": [
+    {
+     "dir": "plugins/rooms",
+     "exists": true,
+     "pkg": "@pryzm/plugin-rooms",
+     "layer": "L6"
+    }
+   ],
+   "upward_imports": {
+    "count": 0,
+    "sites": []
+   },
+   "upward_imports_INTO_family": {
+    "count": 0,
+    "sites": []
+   },
+   "sdk_bypasses": {
+    "count": 4,
+    "by_target": {
+     "packages/renderer-three": 3,
+     "packages/command-registry": 1
+    },
+    "sites": [
+     "plugins/rooms/src/committer/geometry-bridge.ts:5 -> @pryzm/renderer-three/three [L6 -> L1]",
+     "plugins/rooms/src/committer/material-bridge.ts:8 -> @pryzm/renderer-three/three [L6 -> L1]",
+     "plugins/rooms/src/committer/room-committer.ts:10 -> @pryzm/renderer-three/three [L6 -> L1]",
+     "plugins/rooms/src/handlers/legacyCommands.ts:51 -> @pryzm/command-registry [L6 -> L2]"
+    ]
+   },
+   "banned_third_party": {
+    "count": 0,
+    "sites": []
+   }
+  },
+  "section": {
+   "packages_participating": [
+    {
+     "dir": "plugins/section-view",
+     "exists": true,
+     "pkg": "@pryzm/plugin-section-view",
+     "layer": "L6"
+    }
+   ],
+   "upward_imports": {
+    "count": 0,
+    "sites": []
+   },
+   "upward_imports_INTO_family": {
+    "count": 0,
+    "sites": []
+   },
+   "sdk_bypasses": {
+    "count": 0,
+    "by_target": {},
+    "sites": []
+   },
+   "banned_third_party": {
+    "count": 0,
+    "sites": []
+   }
+  },
+  "selection": {
+   "packages_participating": [
+    {
+     "dir": "plugins/selection",
+     "exists": true,
+     "pkg": "@pryzm/plugin-selection",
+     "layer": "L6"
+    }
+   ],
+   "upward_imports": {
+    "count": 0,
+    "sites": []
+   },
+   "upward_imports_INTO_family": {
+    "count": 0,
+    "sites": []
+   },
+   "sdk_bypasses": {
+    "count": 0,
+    "by_target": {},
+    "sites": []
+   },
+   "banned_third_party": {
+    "count": 0,
+    "sites": []
+   }
+  },
+  "slab": {
+   "packages_participating": [
+    {
+     "dir": "packages/geometry-slab",
+     "exists": true,
+     "pkg": "@pryzm/geometry-slab",
+     "layer": "L2"
+    },
+    {
+     "dir": "plugins/slab",
+     "exists": true,
+     "pkg": "@pryzm/plugin-slab",
+     "layer": "L6"
+    }
+   ],
+   "upward_imports": {
+    "count": 0,
+    "sites": []
+   },
+   "upward_imports_INTO_family": {
+    "count": 0,
+    "sites": []
+   },
+   "sdk_bypasses": {
+    "count": 5,
+    "by_target": {
+     "packages/renderer-three": 3,
+     "packages/command-registry": 2
+    },
+    "sites": [
+     "plugins/slab/src/committer/geometry-bridge.ts:5 -> @pryzm/renderer-three/three [L6 -> L1]",
+     "plugins/slab/src/committer/material-bridge.ts:8 -> @pryzm/renderer-three/three [L6 -> L1]",
+     "plugins/slab/src/committer/slab-committer.ts:8 -> @pryzm/renderer-three/three [L6 -> L1]",
+     "plugins/slab/src/handlers/CreateSlabsOnAllFloors.ts:43 -> @pryzm/command-registry [L6 -> L2]",
+     "plugins/slab/src/handlers/UpdateSlabsSystemTypeBatch.ts:79 -> @pryzm/command-registry [L6 -> L2]"
+    ]
+   },
+   "banned_third_party": {
+    "count": 5,
+    "sites": [
+     "packages/geometry-slab/src/SlabPickWallsController.ts:2 -> @thatopen/components",
+     "packages/geometry-slab/src/SlabProfileEditor.ts:2 -> @thatopen/components",
+     "packages/geometry-slab/src/SlabTool.ts:2 -> @thatopen/components",
+     "packages/geometry-slab/src/ceiling/CeilingTool.ts:28 -> @thatopen/components",
+     "packages/geometry-slab/src/floor/FloorTool.ts:33 -> @thatopen/components"
+    ]
+   }
+  },
+  "stair": {
+   "packages_participating": [
+    {
+     "dir": "packages/geometry-stair",
+     "exists": true,
+     "pkg": "@pryzm/geometry-stair",
+     "layer": "L2"
+    },
+    {
+     "dir": "plugins/stair",
+     "exists": true,
+     "pkg": "@pryzm/plugin-stair",
+     "layer": "L6"
+    }
+   ],
+   "upward_imports": {
+    "count": 2,
+    "sites": [
+     "packages/geometry-stair/src/StairMeshBuilder.ts:17 -> @pryzm/scene-committer [L2 -> L4]",
+     "packages/geometry-stair/src/StairSymbolTechnicalDrawingBridge.ts:29 -> @pryzm/scene-committer [L2 -> L4]"
+    ]
+   },
+   "upward_imports_INTO_family": {
+    "count": 0,
+    "sites": []
+   },
+   "sdk_bypasses": {
+    "count": 6,
+    "by_target": {
+     "packages/renderer-three": 3,
+     "packages/command-registry": 3
+    },
+    "sites": [
+     "plugins/stair/src/committer/geometry-bridge.ts:3 -> @pryzm/renderer-three/three [L6 -> L1]",
+     "plugins/stair/src/committer/material-bridge.ts:23 -> @pryzm/renderer-three/three [L6 -> L1]",
+     "plugins/stair/src/committer/stair-committer.ts:5 -> @pryzm/renderer-three/three [L6 -> L1]",
+     "plugins/stair/src/handlers/CreateStairRailing.ts:12 -> @pryzm/command-registry [L6 -> L2]",
+     "plugins/stair/src/handlers/MoveStair.ts:63 -> @pryzm/command-registry [L6 -> L2]",
+     "plugins/stair/src/handlers/UpdateStairParameters.ts:12 -> @pryzm/command-registry [L6 -> L2]"
+    ]
+   },
+   "banned_third_party": {
+    "count": 1,
+    "sites": [
+     "packages/geometry-stair/src/StairSymbolTechnicalDrawingBridge.ts:28 -> @thatopen/components"
+    ]
+   }
+  },
+  "structural": {
+   "packages_participating": [
+    {
+     "dir": "plugins/structural",
+     "exists": true,
+     "pkg": "@pryzm/plugin-structural",
+     "layer": "L6"
+    }
+   ],
+   "upward_imports": {
+    "count": 0,
+    "sites": []
+   },
+   "upward_imports_INTO_family": {
+    "count": 9,
+    "sites": [
+     "packages/geometry-beam/src/BeamFragmentBuilder.ts:33 -> @pryzm/plugin-structural [L2 -> L6]",
+     "packages/geometry-beam/src/BeamFragmentBuilder.ts:34 -> @pryzm/plugin-structural [L2 -> L6]",
+     "packages/geometry-column/src/ColumnFragmentBuilder.ts:48 -> @pryzm/plugin-structural [L2 -> L6]",
+     "packages/geometry-column/src/ColumnFragmentBuilder.ts:49 -> @pryzm/plugin-structural [L2 -> L6]",
+     "packages/geometry-column/src/ColumnPlanSymbolBuilder.ts:42 -> @pryzm/plugin-structural [L2 -> L6]",
+     "packages/geometry-column/src/ColumnTool.ts:20 -> @pryzm/plugin-structural [L2 -> L6]",
+     "packages/geometry-column/src/ColumnTool.ts:21 -> @pryzm/plugin-structural [L2 -> L6]",
+     "packages/geometry-column/src/ColumnValidator.ts:2 -> @pryzm/plugin-structural [L2 -> L6]",
+     "packages/input-host/src/BeamTool.ts:13 -> @pryzm/plugin-structural [L2 -> L6]"
+    ]
+   },
+   "sdk_bypasses": {
+    "count": 4,
+    "by_target": {
+     "packages/renderer-three": 4
+    },
+    "sites": [
+     "plugins/structural/src/ISectionGenerator.ts:20 -> @pryzm/renderer-three/three [L6 -> L1]",
+     "plugins/structural/src/committer/geometry-bridge.ts:3 -> @pryzm/renderer-three/three [L6 -> L1]",
+     "plugins/structural/src/committer/material-bridge.ts:6 -> @pryzm/renderer-three/three [L6 -> L1]",
+     "plugins/structural/src/committer/structural-committer.ts:3 -> @pryzm/renderer-three/three [L6 -> L1]"
+    ]
+   },
+   "banned_third_party": {
+    "count": 0,
+    "sites": []
+   }
+  },
+  "wall": {
+   "packages_participating": [
+    {
+     "dir": "packages/geometry-wall",
+     "exists": true,
+     "pkg": "@pryzm/geometry-wall",
+     "layer": "L2"
+    },
+    {
+     "dir": "plugins/wall",
+     "exists": true,
+     "pkg": "@pryzm/plugin-wall",
+     "layer": "L6"
+    }
+   ],
+   "upward_imports": {
+    "count": 0,
+    "sites": []
+   },
+   "upward_imports_INTO_family": {
+    "count": 0,
+    "sites": []
+   },
+   "sdk_bypasses": {
+    "count": 14,
+    "by_target": {
+     "packages/renderer-three": 4,
+     "packages/command-registry": 10
+    },
+    "sites": [
+     "plugins/wall/src/committer/geometry-bridge.ts:17 -> @pryzm/renderer-three/three [L6 -> L1]",
+     "plugins/wall/src/committer/material-bridge.ts:21 -> @pryzm/renderer-three/three [L6 -> L1]",
+     "plugins/wall/src/committer/selection-highlight.ts:26 -> @pryzm/renderer-three/three [L6 -> L1]",
+     "plugins/wall/src/committer/wall-committer.ts:63 -> @pryzm/renderer-three/three [L6 -> L1]",
+     "plugins/wall/src/handlers/AddWallLayerBatch.ts:31 -> @pryzm/command-registry [L6 -> L2]",
+     "plugins/wall/src/handlers/CascadeWallBaseline.ts:12 -> @pryzm/command-registry [L6 -> L2]",
+     "plugins/wall/src/handlers/CreateWallsOnAllSlabs.ts:24 -> @pryzm/command-registry [L6 -> L2]",
+     "plugins/wall/src/handlers/SetWallSideFinishBatch.ts:56 -> @pryzm/command-registry [L6 -> L2]",
+     "plugins/wall/src/handlers/UpdateWallBaseline.ts:13 -> @pryzm/command-registry [L6 -> L2]",
+     "plugins/wall/src/handlers/UpdateWallSystemType.ts:15 -> @pryzm/command-registry [L6 -> L2]",
+     "plugins/wall/src/handlers/UpdateWallsColorBatch.ts:35 -> @pryzm/command-registry [L6 -> L2]",
+     "plugins/wall/src/handlers/UpdateWallsHeightBatch.ts:70 -> @pryzm/command-registry [L6 -> L2]",
+     "plugins/wall/src/handlers/UpdateWallsRakeBatch.ts:31 -> @pryzm/command-registry [L6 -> L2]",
+     "plugins/wall/src/handlers/UpdateWallsSystemTypeBatch.ts:32 -> @pryzm/command-registry [L6 -> L2]"
+    ]
+   },
+   "banned_third_party": {
+    "count": 3,
+    "sites": [
+     "packages/geometry-wall/src/OpeningTool.ts:30 -> @thatopen/components",
+     "packages/geometry-wall/src/WallLayerPlanSymbolBuilder.ts:21 -> @thatopen/components",
+     "packages/geometry-wall/src/WallTool.ts:3 -> @thatopen/components"
+    ]
+   }
+  },
+  "water": {
+   "packages_participating": [
+    {
+     "dir": "packages/geometry-pool",
+     "exists": true,
+     "pkg": "@pryzm/geometry-pool",
+     "layer": "L2"
+    },
+    {
+     "dir": "plugins/pool",
+     "exists": true,
+     "pkg": "@pryzm/plugin-pool",
+     "layer": "L6"
+    }
+   ],
+   "upward_imports": {
+    "count": 0,
+    "sites": []
+   },
+   "upward_imports_INTO_family": {
+    "count": 0,
+    "sites": []
+   },
+   "sdk_bypasses": {
+    "count": 1,
+    "by_target": {
+     "packages/geometry-pool": 1
+    },
+    "sites": [
+     "plugins/pool/src/handlers/CreatePool.ts:60 -> @pryzm/geometry-pool [L6 -> L2]"
+    ]
+   },
+   "banned_third_party": {
+    "count": 0,
+    "sites": []
+   }
+  },
+  "window": {
+   "packages_participating": [
+    {
+     "dir": "packages/geometry-window",
+     "exists": true,
+     "pkg": "@pryzm/geometry-window",
+     "layer": "L2"
+    },
+    {
+     "dir": "plugins/window",
+     "exists": true,
+     "pkg": "@pryzm/plugin-window",
+     "layer": "L6"
+    }
+   ],
+   "upward_imports": {
+    "count": 0,
+    "sites": []
+   },
+   "upward_imports_INTO_family": {
+    "count": 0,
+    "sites": []
+   },
+   "sdk_bypasses": {
+    "count": 5,
+    "by_target": {
+     "packages/renderer-three": 3,
+     "packages/command-registry": 2
+    },
+    "sites": [
+     "plugins/window/src/committer/geometry-bridge.ts:5 -> @pryzm/renderer-three/three [L6 -> L1]",
+     "plugins/window/src/committer/material-bridge.ts:7 -> @pryzm/renderer-three/three [L6 -> L1]",
+     "plugins/window/src/committer/window-committer.ts:5 -> @pryzm/renderer-three/three [L6 -> L1]",
+     "plugins/window/src/handlers/CreateWindowsParametricBatch.ts:26 -> @pryzm/command-registry [L6 -> L2]",
+     "plugins/window/src/handlers/UpdateWindowsSystemTypeBatch.ts:36 -> @pryzm/command-registry [L6 -> L2]"
+    ]
+   },
+   "banned_third_party": {
+    "count": 2,
+    "sites": [
+     "packages/geometry-window/src/WindowPlanSymbolBuilder.ts:65 -> @thatopen/components",
+     "packages/geometry-window/src/WindowTool.ts:2 -> @thatopen/components"
+    ]
+   }
+  }
+ },
+ "residual": {
+  "upward_imports": [
+   "packages/ai-host/src/FloorPlanAIFactory.ts:27 -> @pryzm/file-format [L2 -> L3]",
+   "packages/command-registry/src/annotations/AnnotateViewCommand.ts:17 -> @pryzm/persistence-client [L2 -> L4]",
+   "packages/command-registry/src/annotations/AnnotateViewCommand.ts:18 -> @pryzm/plugin-annotations [L2 -> L6]",
+   "packages/command-registry/src/annotations/AnnotateViewCommand.ts:19 -> @pryzm/plugin-annotations [L2 -> L6]",
+   "packages/command-registry/src/annotations/CreateAnnotationCommand.ts:1 -> @pryzm/plugin-annotations [L2 -> L6]",
+   "packages/command-registry/src/annotations/CreateCalloutDetailCommand.ts:1 -> @pryzm/plugin-annotations [L2 -> L6]",
+   "packages/command-registry/src/annotations/CreateCalloutDetailCommand.ts:2 -> @pryzm/plugin-annotations [L2 -> L6]",
+   "packages/command-registry/src/annotations/CreateElevationMarkCommand.ts:1 -> @pryzm/plugin-annotations [L2 -> L6]",
+   "packages/command-registry/src/annotations/CreateElevationMarkCommand.ts:2 -> @pryzm/plugin-annotations [L2 -> L6]",
+   "packages/command-registry/src/annotations/CreateManyAnnotationsCommand.ts:15 -> @pryzm/plugin-annotations [L2 -> L6]",
+   "packages/command-registry/src/annotations/CreateSectionMarkCommand.ts:1 -> @pryzm/plugin-annotations [L2 -> L6]",
+   "packages/command-registry/src/annotations/CreateSectionMarkCommand.ts:2 -> @pryzm/plugin-annotations [L2 -> L6]",
+   "packages/command-registry/src/annotations/DeleteAnnotationCommand.ts:1 -> @pryzm/plugin-annotations [L2 -> L6]",
+   "packages/command-registry/src/annotations/LockAnnotationCommand.ts:1 -> @pryzm/plugin-annotations [L2 -> L6]",
+   "packages/command-registry/src/annotations/LockAnnotationCommand.ts:2 -> @pryzm/plugin-annotations [L2 -> L6]",
+   "packages/command-registry/src/annotations/UpdateAnnotationCommand.ts:1 -> @pryzm/plugin-annotations [L2 -> L6]",
+   "packages/command-registry/src/annotations/UpdateConstraintCommand.ts:1 -> @pryzm/plugin-annotations [L2 -> L6]",
+   "packages/command-registry/src/project/ClearProjectCommand.ts:37 -> @pryzm/plugin-annotations [L2 -> L6]",
+   "packages/command-registry/src/types.ts:565 -> @pryzm/plugin-annotations [L2 -> L6]",
+   "packages/command-registry/src/types.ts:566 -> @pryzm/plugin-annotations [L2 -> L6]",
+   "packages/command-registry/src/types.ts:567 -> @pryzm/plugin-annotations [L2 -> L6]",
+   "packages/command-registry/src/types.ts:580 -> @pryzm/plugin-annotations [L2 -> L6]",
+   "packages/command-registry/src/types.ts:586 -> @pryzm/plugin-annotations [L2 -> L6]",
+   "packages/command-registry/src/types.ts:592 -> @pryzm/plugin-annotations [L2 -> L6]",
+   "packages/core-app-model/src/scene/PreviewRegistry.ts:8 -> @pryzm/scene-committer [L2 -> L4]",
+   "packages/core-app-model/src/scene/SceneBoundsCache.ts:8 -> @pryzm/scene-committer [L2 -> L4]",
+   "packages/core-app-model/src/scene/SceneLayers.ts:14 -> @pryzm/scene-committer [L2 -> L4]",
+   "packages/core-app-model/src/scene/SceneObjectClassifier.ts:8 -> @pryzm/scene-committer [L2 -> L4]",
+   "packages/core-app-model/src/scene/StairPlanSymbolRegistry.ts:8 -> @pryzm/scene-committer [L2 -> L4]",
+   "packages/core-app-model/src/scene/index.ts:14 -> @pryzm/scene-committer [L2 -> L4]",
+   "packages/core-app-model/src/scene/index.ts:16 -> @pryzm/scene-committer [L2 -> L4]",
+   "packages/core-app-model/src/scene/index.ts:17 -> @pryzm/scene-committer [L2 -> L4]",
+   "packages/core-app-model/src/scene/index.ts:18 -> @pryzm/scene-committer [L2 -> L4]",
+   "packages/core-app-model/src/scene/index.ts:19 -> @pryzm/scene-committer [L2 -> L4]",
+   "packages/core-app-model/src/views/PlanViewAnnotationRenderer.ts:22 -> @pryzm/plugin-annotations [L2 -> L6]",
+   "packages/core-app-model/src/views/PlanViewAnnotationRenderer.ts:28 -> @pryzm/plugin-annotations [L2 -> L6]",
+   "packages/core-app-model/src/views/PlanViewAnnotationRenderer.ts:29 -> @pryzm/plugin-annotations [L2 -> L6]",
+   "packages/core-app-model/src/views/PlanViewCanvas.ts:4 -> @pryzm/plugin-annotations [L2 -> L6]",
+   "packages/file-format/src/export/sheets/AnnotationDxfBridge.ts:3 -> @pryzm/plugin-annotations [L3 -> L6]",
+   "packages/file-format/src/export/sheets/AnnotationDxfBridge.ts:4 -> @pryzm/plugin-annotations [L3 -> L6]",
+   "packages/file-format/src/export/sheets/SVGCompositeRenderer.ts:27 -> @pryzm/plugin-annotations [L3 -> L6]",
+   "packages/file-format/src/export/sheets/ViewportSvgComposer.ts:55 -> @pryzm/plugin-annotations [L3 -> L6]",
+   "packages/file-format/src/export/sheets/ViewportSvgComposer.ts:56 -> @pryzm/plugin-annotations [L3 -> L6]",
+   "packages/file-format/src/migrations/index.ts:16 -> @pryzm/persistence-client [L3 -> L4]",
+   "packages/file-format/src/pack.ts:11 -> @pryzm/persistence-client [L3 -> L4]",
+   "packages/file-format/src/types.ts:21 -> @pryzm/persistence-client [L3 -> L4]",
+   "packages/file-format/src/types.ts:22 -> @pryzm/persistence-client [L3 -> L4]",
+   "packages/file-format/src/unpack.ts:13 -> @pryzm/persistence-client [L3 -> L4]",
+   "packages/headless/src/minimalHeadlessBootstrap.ts:40 -> @pryzm/scene-committer [L3 -> L4]",
+   "packages/input-host/src/BeamTool.ts:13 -> @pryzm/plugin-structural [L2 -> L6]",
+   "packages/input-host/src/DxfUnderlayTool.ts:17 -> @pryzm/file-format [L2 -> L3]",
+   "packages/input-host/src/DxfUnderlayTool.ts:18 -> @pryzm/file-format [L2 -> L3]",
+   "packages/input-host/src/DxfUnderlayTool.ts:19 -> @pryzm/file-format [L2 -> L3]",
+   "packages/input-host/src/SelectionManager.ts:16 -> @pryzm/scene-committer [L2 -> L4]",
+   "packages/input-host/src/SelectionManager.ts:46 -> @pryzm/engine [L2 -> L3]",
+   "packages/input-host/src/ToolManager.ts:34 -> @pryzm/plugin-annotations [L2 -> L6]",
+   "packages/persistence-client/src/loader/ProjectLoader.ts:68 -> @pryzm/plugin-annotations [L4 -> L6]",
+   "packages/persistence-client/src/loader/ProjectLoader.ts:1427 -> @pryzm/plugin-annotations [L4 -> L6]",
+   "packages/persistence-client/src/loader/ProjectLoader.ts:1430 -> @pryzm/plugin-annotations [L4 -> L6]",
+   "packages/persistence-client/src/loader/ProjectLoader.ts:1439 -> @pryzm/plugin-annotations [L4 -> L6]",
+   "packages/persistence-client/src/loader/ProjectLoader.ts:1452 -> @pryzm/plugin-annotations [L4 -> L6]",
+   "packages/persistence-client/src/loader/ProjectSerializer.ts:78 -> @pryzm/plugin-annotations [L4 -> L6]",
+   "packages/persistence-client/src/loader/ProjectSerializer.ts:80 -> @pryzm/plugin-annotations [L4 -> L6]",
+   "packages/persistence-client/src/loader/ProjectSerializer.ts:81 -> @pryzm/plugin-annotations [L4 -> L6]",
+   "packages/persistence-client/src/loader/ProjectSerializer.ts:82 -> @pryzm/plugin-annotations [L4 -> L6]",
+   "packages/room-topology/src/RoomTagAutoPopulator.ts:25 -> @pryzm/plugin-annotations [L2 -> L6]",
+   "packages/room-topology/src/RoomTagAutoPopulator.ts:26 -> @pryzm/plugin-annotations [L2 -> L6]",
+   "packages/runtime-composer/src/ImportExportSlots.ts:51 -> @pryzm/plugin-ifc-import [L3 -> L6]",
+   "packages/runtime-composer/src/ImportExportSlots.ts:74 -> @pryzm/plugin-ifc-export [L3 -> L6]",
+   "packages/runtime-composer/src/ImportExportSlots.ts:93 -> @pryzm/plugin-ifc-inspector [L3 -> L6]",
+   "packages/runtime-composer/src/ImportExportSlots.ts:116 -> @pryzm/plugin-rhino-import [L3 -> L6]",
+   "packages/runtime-composer/src/ImportExportSlots.ts:153 -> @pryzm/plugin-bcf [L3 -> L6]",
+   "packages/runtime-composer/src/ImportExportSlots.ts:165 -> @pryzm/plugin-bcf [L3 -> L6]",
+   "packages/runtime-composer/src/buildCameraControllerSlot.ts:25 -> @pryzm/renderer [L3 -> L4]",
+   "packages/runtime-composer/src/buildPersistence.ts:51 -> @pryzm/persistence-client [L3 -> L4]",
+   "packages/runtime-composer/src/buildPersistence.ts:371 -> @pryzm/persistence-client [L3 -> L4]",
+   "packages/runtime-composer/src/composeRuntime.ts:43 -> @pryzm/renderer [L3 -> L4]",
+   "packages/runtime-composer/src/composeRuntime.ts:1491 -> @pryzm/editor/bootstrap.render.everything [L3 -> L7]",
+   "packages/runtime-composer/src/types.ts:36 -> @pryzm/renderer [L3 -> L4]",
+   "packages/spatial-index/src/FacadeOrientationService.ts:14 -> @pryzm/core-app-model [L1 -> L2]",
+   "packages/spatial-index/src/RoomGraphService.ts:29 -> @pryzm/room-topology [L1 -> L2]",
+   "packages/spatial-index/src/RoomGraphService.ts:30 -> @pryzm/core-app-model [L1 -> L2]",
+   "packages/spatial-index/src/RoomQueryService.ts:33 -> @pryzm/room-topology [L1 -> L2]",
+   "packages/spatial-index/src/RoomQueryService.ts:34 -> @pryzm/room-topology [L1 -> L2]",
+   "packages/spatial-index/src/RoomQueryService.ts:35 -> @pryzm/core-app-model [L1 -> L2]",
+   "packages/spatial-index/src/RoomTypeInferenceEngine.ts:36 -> @pryzm/room-topology [L1 -> L2]",
+   "packages/spatial-index/src/RoomTypeInferenceEngine.ts:43 -> @pryzm/core-app-model [L1 -> L2]",
+   "packages/spatial-index/src/RoomValidationService.ts:33 -> @pryzm/core-app-model [L1 -> L2]",
+   "packages/view-state/src/ViewController.ts:28 -> @pryzm/renderer [L3 -> L4]",
+   "plugins/toy-cube/src/HelloCubeBoot.ts:26 -> @pryzm/editor [L6 -> L7]"
+  ],
+  "sdk_bypasses": [
+   "plugins/ai-floorplan/src/handlers/index.ts:37 -> @pryzm/ai-host [L6 -> L2]",
+   "plugins/ai-floorplan/src/handlers/index.ts:60 -> @pryzm/ai-host [L6 -> L2]",
+   "plugins/geospatial/src/CesiumThreeBridge.ts:18 -> @pryzm/renderer-three/three [L6 -> L1]",
+   "plugins/ifc-export/src/exporters/revit-variant.ts:46 -> @pryzm/schemas [L6 -> L0]",
+   "plugins/ifc-export/src/guid.ts:34 -> @pryzm/schemas/ifc [L6 -> L0]",
+   "plugins/ifc-export/src/provenance.ts:44 -> @pryzm/schemas/provenance [L6 -> L0]",
+   "plugins/ifc-import/src/IfcProjectedCRSReader.ts:16 -> @pryzm/geospatial [L6 -> L1]",
+   "plugins/levels/src/handlers/DuplicateFloorPlan.ts:21 -> @pryzm/command-registry [L6 -> L2]",
+   "plugins/plan-view/src/PlanViewCanvasHost.ts:52 -> @pryzm/drawing-primitives/dimensions [L6 -> L2]",
+   "plugins/schedules/src/view.ts:220 -> @pryzm/schemas/schedule [L6 -> L0]",
+   "plugins/toy-cube/src/HelloCubeBoot.ts:26 -> @pryzm/editor [L6 -> L7]",
+   "plugins/toy-cube/src/committer.ts:13 -> @pryzm/renderer-three/three [L6 -> L1]",
+   "plugins/view/src/handlers/DeleteElement.ts:64 -> @pryzm/command-registry [L6 -> L2]",
+   "plugins/view/src/handlers/DeleteElementsBatch.ts:30 -> @pryzm/command-registry [L6 -> L2]",
+   "plugins/view/src/handlers/HideElementInView.ts:11 -> @pryzm/command-registry [L6 -> L2]",
+   "plugins/view/src/handlers/IsolateElementInView.ts:11 -> @pryzm/command-registry [L6 -> L2]",
+   "plugins/view/src/handlers/SetElementGraphicOverride.ts:11 -> @pryzm/command-registry [L6 -> L2]",
+   "plugins/view/src/handlers/SetViewProjection.ts:11 -> @pryzm/command-registry [L6 -> L2]",
+   "plugins/view/src/handlers/UpdateElementDimensionsBatch.ts:69 -> @pryzm/command-registry [L6 -> L2]",
+   "plugins/view/src/handlers/UpdateOpeningProfileBatch.ts:81 -> @pryzm/command-registry [L6 -> L2]"
+  ],
+  "banned_third_party": [
+   "apps/editor/src/engine/BoundaryLinePlanSymbolBuilder.ts:77 -> @thatopen/components",
+   "apps/editor/src/engine/EngineContext.ts:17 -> @thatopen/components",
+   "apps/editor/src/engine/EngineContext.ts:18 -> @thatopen/components-front",
+   "apps/editor/src/engine/ViewController.ts:5 -> @thatopen/components",
+   "apps/editor/src/engine/engineLauncher.ts:9 -> @thatopen/components",
+   "apps/editor/src/engine/engineLauncher.ts:10 -> @thatopen/components-front",
+   "apps/editor/src/engine/initPersistence.ts:35 -> @thatopen/components",
+   "apps/editor/src/engine/initScene.ts:51 -> @thatopen/components",
+   "apps/editor/src/engine/initScene.ts:52 -> @thatopen/components-front",
+   "apps/editor/src/engine/initTools.ts:36 -> @thatopen/components",
+   "apps/editor/src/engine/initTools.ts:144 -> @thatopen/components-front",
+   "apps/editor/src/engine/initUI.ts:30 -> @thatopen/components",
+   "apps/editor/src/engine/initUI.ts:31 -> @thatopen/components-front",
+   "apps/editor/src/engine/initViewSetup.ts:2 -> @thatopen/components",
+   "apps/editor/src/engine/initViewpointsPanel.ts:1 -> @thatopen/components",
+   "apps/editor/src/engine/views/EdgeProjectorService.ts:16 -> @thatopen/components",
+   "apps/editor/src/engine/views/PlanViewManager.ts:2 -> @thatopen/components",
+   "apps/editor/src/engine/views/SectionViewService.ts:2 -> @thatopen/components",
+   "apps/editor/src/engine/views/SplitViewManager.ts:30 -> @thatopen/components",
+   "apps/editor/src/ui/Layout.ts:6 -> @thatopen/components",
+   "apps/editor/src/ui/PropertyInspector.ts:3 -> @thatopen/components",
+   "apps/editor/src/ui/ViewPropertiesPanel.ts:2 -> @thatopen/components",
+   "apps/editor/src/ui/furniture-carousel/FurnitureDragDropHandler.ts:38 -> @thatopen/components",
+   "apps/editor/src/ui/kitchen/KitchenCabinetTool.ts:25 -> @thatopen/components",
+   "apps/editor/src/ui/layout/AIAreaLayout.ts:1 -> @thatopen/components",
+   "apps/editor/src/ui/layout/RenderAreaLayout.ts:1 -> @thatopen/components",
+   "apps/editor/src/ui/property-panel/PropertyPanelAdapter.ts:18 -> @thatopen/components",
+   "apps/editor/src/ui/wardrobe/WardrobeCabinetTool.ts:19 -> @thatopen/components",
+   "packages/core-app-model/src/ArchitectureFragments.ts:2 -> @thatopen/components",
+   "packages/core-app-model/src/BimWorld.ts:1 -> @thatopen/components",
+   "packages/core-app-model/src/BimWorld.ts:2 -> @thatopen/components-front",
+   "packages/core-app-model/src/drawing/DrawingPipelineOrchestrator.ts:14 -> @thatopen/components",
+   "packages/core-app-model/src/drawing/DrawingZone.test.ts:50 -> @thatopen/components",
+   "packages/core-app-model/src/drawing/ElevationViewBasis.test.ts:12 -> @thatopen/components",
+   "packages/core-app-model/src/drawing/HiddenLineRemoval.elevationOcclusion.test.ts:38 -> @thatopen/components",
+   "packages/core-app-model/src/drawing/HiddenLineRemoval.facadeSilhouette.test.ts:63 -> @thatopen/components",
+   "packages/core-app-model/src/drawing/HiddenLineRemoval.familyCensus.test.ts:45 -> @thatopen/components",
+   "packages/core-app-model/src/drawing/HiddenLineRemoval.hostReachesTheDrawing.test.ts:73 -> @thatopen/components",
+   "packages/core-app-model/src/drawing/HiddenLineRemoval.planPoche.test.ts:35 -> @thatopen/components",
+   "packages/core-app-model/src/drawing/HiddenLineRemoval.trueProjection.test.ts:57 -> @thatopen/components",
+   "packages/core-app-model/src/drawing/HiddenLineRemoval.ts:130 -> @thatopen/components",
+   "packages/core-app-model/src/drawing/OpeningElevationSymbol.probe.test.ts:52 -> @thatopen/components",
+   "packages/core-app-model/src/drawing/OpeningElevationSymbolBuilder.test.ts:31 -> @thatopen/components",
+   "packages/core-app-model/src/drawing/OpeningElevationSymbolBuilder.ts:51 -> @thatopen/components",
+   "packages/core-app-model/src/drawing/WallElevationSymbol.probe.test.ts:23 -> @thatopen/components",
+   "packages/core-app-model/src/navigation/CameraFramingUtils.ts:2 -> @thatopen/components",
+   "packages/core-app-model/src/navigation/FirstPersonController.ts:35 -> @thatopen/components",
+   "packages/core-app-model/src/navigation/MultiViewCameraManager.ts:39 -> @thatopen/components",
+   "packages/core-app-model/src/navigation/ViewNavigationManager.ts:2 -> @thatopen/components",
+   "packages/core-app-model/src/presentation/VGSceneApplicator.ts:38 -> @thatopen/components",
+   "packages/core-app-model/src/views/ActivePlanDrawingRef.ts:37 -> @thatopen/components",
+   "packages/core-app-model/src/views/GroundFloorPlanController.ts:21 -> @thatopen/components",
+   "packages/core-app-model/src/views/OrthoPlanCameraLockController.ts:2 -> @thatopen/components",
+   "packages/core-app-model/src/views/PlanView2DSnapService.ts:28 -> @thatopen/components",
+   "packages/core-app-model/src/views/PlanViewService.ts:2 -> @thatopen/components",
+   "packages/core-app-model/src/views/TechnicalDrawingBounds.ts:72 -> @thatopen/components",
+   "packages/core-app-model/src/views/ViewCameraStateStore.ts:1 -> @thatopen/components",
+   "packages/core-app-model/src/views/ViewTechnicalDrawingCache.displayGenMonotonic.test.ts:26 -> @thatopen/components",
+   "packages/core-app-model/src/views/ViewTechnicalDrawingCache.genSelfSupersede.test.ts:38 -> @thatopen/components",
+   "packages/core-app-model/src/views/ViewTechnicalDrawingCache.ts:21 -> @thatopen/components",
+   "packages/file-format/src/export/ifc/ExportIFC.ts:20 -> @thatopen/components",
+   "packages/file-format/src/export/sheets/AnnotationDxfBridge.ts:2 -> @thatopen/components",
+   "packages/file-format/src/export/sheets/DxfExportService.ts:55 -> @thatopen/components",
+   "packages/input-host/src/BaseTool.ts:2 -> @thatopen/components",
+   "packages/input-host/src/BeamTool.ts:2 -> @thatopen/components",
+   "packages/input-host/src/OpeningTool.ts:30 -> @thatopen/components",
+   "packages/input-host/src/SelectionManager.ts:3 -> @thatopen/components",
+   "packages/input-host/src/types.ts:2 -> @thatopen/components"
+  ]
+ },
+ "totals": {
+  "scanned_files": 5245,
+  "workspace_packages": 167,
+  "unreadable": 0,
+  "upward_imports": 102,
+  "sdk_bypasses": 171,
+  "banned_third_party": 124,
+  "unclassified": 13
+ }
+}

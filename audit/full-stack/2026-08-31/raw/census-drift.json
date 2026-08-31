@@ -1,0 +1,212 @@
+[
+ {
+  "id": "D1",
+  "left": "S1 plugins/ dirs",
+  "right": "S2 ALL_PLUGINS(+section-view)",
+  "left_size": 51,
+  "right_size": 30,
+  "left_minus_right": [
+   "ai-floorplan",
+   "ai-generative",
+   "ai-query",
+   "ai-rules",
+   "ai-voice",
+   "bcf",
+   "cross",
+   "dxf",
+   "export-pdf",
+   "family-editor",
+   "geospatial",
+   "ifc-export",
+   "ifc-import",
+   "ifc-inspector",
+   "levels",
+   "multiplayer",
+   "navigate",
+   "plan-view",
+   "render",
+   "rhino-import",
+   "schedules",
+   "sheets",
+   "toy-cube",
+   "visibility-intent"
+  ],
+  "right_minus_left": [
+   "bathroomPod",
+   "liftPart",
+   "water"
+  ]
+ },
+ {
+  "id": "D2",
+  "left": "S2 ALL_PLUGINS",
+  "right": "S4 ELEMENT_PLUGIN_IDS",
+  "left_size": 30,
+  "right_size": 27,
+  "left_minus_right": [
+   "floor",
+   "lighting",
+   "view"
+  ],
+  "right_minus_left": []
+ },
+ {
+  "id": "D3",
+  "left": "S3 verb families (361 verbs)",
+  "right": "S2 ALL_PLUGINS",
+  "left_size": 50,
+  "right_size": 30,
+  "left_minus_right": [
+   "copy-selection",
+   "cube",
+   "data",
+   "element",
+   "elementType",
+   "elevation",
+   "generation",
+   "generative",
+   "graph",
+   "hierarchy",
+   "level",
+   "opening",
+   "paste-clipboard",
+   "projectOrigin",
+   "rhino",
+   "schedule",
+   "sheet",
+   "template",
+   "vg",
+   "viewTemplate",
+   "zoom-fit",
+   "zoom-selected"
+  ],
+  "right_minus_left": [
+   "liftPart",
+   "water"
+  ]
+ },
+ {
+  "id": "D4",
+  "left": "S5 GEOMETRY_ELEMENT_TYPES",
+  "right": "S2 ALL_PLUGINS",
+  "left_size": 21,
+  "right_size": 30,
+  "left_minus_right": [
+   "curtain-panel",
+   "opening",
+   "stair-landing",
+   "stair-railing",
+   "verticalCirculation"
+  ],
+  "right_minus_left": [
+   "annotation",
+   "balcony",
+   "bathroomPod",
+   "boundaryLine",
+   "dimension",
+   "grid",
+   "lift",
+   "liftPart",
+   "pool",
+   "section",
+   "selection",
+   "structural",
+   "view",
+   "water"
+  ]
+ },
+ {
+  "id": "D5",
+  "left": "S6 CEB case families",
+  "right": "S3 verb families",
+  "left_size": 21,
+  "right_size": 50,
+  "left_minus_right": [],
+  "right_minus_left": [
+   "bathroomPod",
+   "copy-selection",
+   "cube",
+   "data",
+   "door",
+   "element",
+   "elementType",
+   "elevation",
+   "generation",
+   "generative",
+   "graph",
+   "hierarchy",
+   "level",
+   "opening",
+   "paste-clipboard",
+   "projectOrigin",
+   "rhino",
+   "schedule",
+   "section",
+   "selection",
+   "sheet",
+   "stair",
+   "template",
+   "vg",
+   "view",
+   "viewTemplate",
+   "window",
+   "zoom-fit",
+   "zoom-selected"
+  ]
+ },
+ {
+  "id": "D6",
+  "left": "S7 initTools bridge families",
+  "right": "S6 CEB case families",
+  "left_size": 14,
+  "right_size": 21,
+  "left_minus_right": [
+   "water"
+  ],
+  "right_minus_left": [
+   "annotation",
+   "balcony",
+   "dimension",
+   "grid",
+   "plumbing",
+   "pool",
+   "room",
+   "structural"
+  ]
+ },
+ {
+  "id": "D7",
+  "left": "S8 schemas/src/elements",
+  "right": "S2 ALL_PLUGINS",
+  "left_size": 32,
+  "right_size": 30,
+  "left_minus_right": [
+   "curtainPanelVocabulary",
+   "project",
+   "projectOrigin",
+   "schedule",
+   "sheet",
+   "verticalCirculation"
+  ],
+  "right_minus_left": [
+   "bathroomPod",
+   "lift",
+   "liftPart",
+   "selection"
+  ]
+ },
+ {
+  "id": "D8",
+  "left": "S9 initStores type keys",
+  "right": "S5 GEOMETRY_ELEMENT_TYPES",
+  "left_size": 25,
+  "right_size": 21,
+  "left_minus_right": [
+   "annotation",
+   "grid",
+   "lift-type",
+   "stair-type"
+  ],
+  "right_minus_left": []
+ }
+]

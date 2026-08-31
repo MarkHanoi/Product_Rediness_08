@@ -1,0 +1,38 @@
+628:        case 'wall.create': {
+668:        case 'wall.batch.create': {
+721:        case 'wall.opening.create': {
+731:        case 'wall.createOpening': {
+747:        case 'slab.create': {
+835:        case 'slab.batch.create': {
+875:        case 'curtain-wall.create': {
+939:        case 'curtain-wall.batch.create': {
+994:        case 'column.create': {
+1027:        case 'column.batch.create': {
+1124:        case 'beam.create': {
+1184:        case 'beam.batch.create': {
+1242:        case 'ceiling.create': {
+1275:        case 'ceiling.batch.create': {
+1312:        case 'room.create': {
+1322:        case 'grid.create': {
+1332:        case 'handrail.create': {
+1362:        case 'furniture.create': {
+1408:        case 'furniture.batch.create': {
+1462:        case 'lighting.create': {
+1483:        case 'plumbing.create': {
+1493:        case 'structural.create': {
+1503:        case 'annotation.create': {
+1513:        case 'dimension.create': {
+1523:        case 'roof.create': {
+1613:        case 'slab.updateLayers': {
+1633:        case 'ceiling.updateLayers': {
+1653:        case 'floor.updateLayers': {
+1673:        case 'floor.create': {
+1713:        case 'balcony.create': {
+1851:        case 'lift.create': {
+2162:        case 'pool.create': {
+2393:        case 'boundaryLine.create':
+2394:        case 'boundaryLine.update':
+2395:        case 'boundaryLine.attach':
+2396:        case 'boundaryLine.detach':
+2397:        case 'boundaryLine.move': {
+2478:        case 'boundaryLine.delete': {

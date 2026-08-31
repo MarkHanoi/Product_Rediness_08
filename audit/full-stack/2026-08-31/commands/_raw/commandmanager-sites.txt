@@ -1,0 +1,227 @@
+apps/editor/src/engine/consequence/ConsequenceExecutionService.ts:471:      // legacy `commandManager.execute` reached from the applier inherits it too
+apps/editor/src/engine/engineLauncher.ts:754:                    const res = commandManager.execute(
+apps/editor/src/engine/engineLauncher.ts:1444:    // the CustomEvent into a LEGACY commandManager.execute(ReDetectRoomsCommand) call.
+apps/editor/src/engine/engineLauncher.ts:1451:    //   Fix: use commandManager.execute(ReDetectRoomsCommand) — the legacy path that
+apps/editor/src/engine/engineLauncher.ts:1458:            commandManager.execute(
+apps/editor/src/engine/engineLauncher.ts:1462:            console.error('[EngineBootstrap] pryzm-bus-rooms-redetect: commandManager.execute failed:', err);
+apps/editor/src/engine/initTools.ts:897:        // instead of commandManager.execute(CreateWallCommand).
+apps/editor/src/engine/initTools.ts:1248:            // when WallTool's legacy `commandManager.execute(CreateWallCommand)`
+apps/editor/src/engine/persistence/ProjectLoader.ts:655:        const exec = (cmd: any) => this.commandManager.execute(cmd, LOAD_META); // PROJECT_LOAD fast-path: bypasses bus/undo-stack by design (see CommandManager PROJECT_LOAD comment); OI-023
+apps/editor/src/engine/persistence/ProjectLoader.ts:869:                    importResult = await this.commandManager.executeChunked(importCmd, yieldFrame);
+apps/editor/src/engine/persistence/ProjectLoader.ts:2930:            // synchronous `commandManager.execute(ReDetectRoomsCommand)` whose
+apps/editor/src/engine/registerTransformDragHandler.ts:234:                        // which calls initBusHandlers bridge → commandManager.execute() so
+apps/editor/src/engine/RemoteCommandDispatcher.ts:361:            // `commandManager.execute()` remains the authoritative replay path.
+apps/editor/src/engine/RemoteCommandDispatcher.ts:371:            // are covered, the commandManager.execute() line below can be removed
+apps/editor/src/engine/RemoteCommandDispatcher.ts:392:                        this.commandManager.execute(command);
+apps/editor/src/engine/undo/performUndoRedo.ts:19:// `commandManager.execute(CreateXCommand)`, so a 3D element lives in BOTH stacks.
+apps/editor/src/engine/views/MoveMarkOriginCommand.ts:31: * P6: dispatched through the command path (`commandManager.execute`), never a raw
+apps/editor/src/engine/views/MoveMarkOriginCommand.ts:73: * Minimal legacy-Command shape consumed by `window.commandManager.execute()`
+apps/editor/src/engine/views/plantools/AlignPlanToolHandler.ts:341:        // which calls initBusHandlers bridge → commandManager.execute() (undo-stack + voids).
+apps/editor/src/engine/views/plantools/copyPayloads.ts:1423: * and does its work through `window.commandManager.execute(...)`
+apps/editor/src/engine/views/plantools/duplicateToLevel.ts:142:     * `window.commandManager.execute(...)`
+apps/editor/src/engine/views/plantools/LinearDimPlanToolHandler.ts:273:            commandManager.execute(new CreateAnnotationCommand(annotation));
+apps/editor/src/engine/views/plantools/MovePlanToolHandler.ts:513:            // which calls initBusHandlers bridge → commandManager.execute() (undo-stack entry).
+apps/editor/src/engine/views/plantools/StairPath3DToolHandler.ts:560:            this._deps.commandManager.execute(new AddLevelCommand({ levelId, name, elevation, height }));
+apps/editor/src/PluginRegistry.ts:689:  // rather than via imperative commandManager.execute() calls.
+apps/editor/src/ui/ai/AIPanel.ts:63:// dispatched through the SAME path (dispatchBatchEntry → Path-A commandManager.execute).
+apps/editor/src/ui/ai/AIPanel.ts:1454:        commandManager: (window.commandManager as unknown as BatchDeps['commandManager']) ?? null,
+apps/editor/src/ui/apartment-layout/ApartmentLayoutExecutor.ts:364:            // a SEPARATE commandManager.execute(...) call, and CommandManagerImpl.execute
+apps/editor/src/ui/create/batchCatalogue.ts:12: *                EXACT path the AI panel uses today — `commandManager.execute(
+apps/editor/src/ui/create/batchCatalogue.ts:22: * `commandManager.execute` is therefore one undo unit with full coalescing —
+apps/editor/src/ui/create/batchCatalogue.ts:556: * `commandManager.execute(build(deps), { source: 'CREATE_PANEL_BATCH' })`.
+apps/editor/src/ui/create/batchCatalogue.ts:592:        const res = deps.commandManager.execute(cmd, { source: 'CREATE_PANEL_BATCH' });
+apps/editor/src/ui/documentation/commitAnnotationSet.ts:154:      for (const el of removals) commandManager.execute(new DeleteAnnotationCommand(el.id));
+apps/editor/src/ui/documentation/commitAnnotationSet.ts:156:        commandManager.execute(new CreateManyAnnotationsCommand(annotations));
+apps/editor/src/ui/documentation/reconcileDimensions.ts:268:      commandManager.execute(new UpdateAnnotationCommand(tagId, {
+apps/editor/src/ui/floor-layout/floorLayoutTrigger.ts:96:            console.warn('[floor-layout] commandManager.execute not available — skipping floor finish.');
+apps/editor/src/ui/generation/buildingGenerationLifecycle.ts:104:        // batch for the WHOLE generation. While open, every legacy `commandManager.execute(...)` a
+apps/editor/src/ui/layout/CreatePanelLayout.ts:485:        commandManager: (window.commandManager as unknown as BatchDeps['commandManager']) ?? null,
+apps/editor/src/ui/layout/ToolsAreaLayout.ts:565:        // legacy commandManager.execute(). F-1.4: bus-primary dispatch
+apps/editor/src/ui/Layout.ts:4:// P6 fix applied: 3 × commandManager.execute() → runtime.commandBus.dispatch().
+apps/editor/src/ui/property-panel/replaceCurtainPanelType.ts:110:    const r = args.commandManager.execute(cmd);
+apps/editor/src/ui/StairLevelRequiredPanel.ts:140:                // AUTHORITATIVE WRITE — call commandManager.execute() FIRST.
+apps/editor/src/ui/StairLevelRequiredPanel.ts:151:                // §E.5.x-literal-fix: extract to alias so `commandManager.execute` literal
+apps/editor/src/ui/StairLevelRequiredPanel.ts:157:                // commandManager.execute() for the same levelId, which would be
+apps/editor/src/ui/ViewBrowser/panels/unified-browser/ProjectTreeSection.ts:8: *   BEFORE: `window.commandManager.execute(cmd)` (P6 violation).
+apps/editor/src/ui/ViewBrowser/panels/unified-browser/ProjectTreeSection.ts:147:        // P6b fix (Wave 14): window.commandManager.execute() → runtime.bus.executeCommand()
+apps/editor/src/ui/ViewBrowser/panels/UnifiedBrowserPanel.ts:35: *   BEFORE: `window.commandManager.execute(cmd)` (P6 violation).
+apps/editor/src/ui/ViewPropertiesPanel.ts:1001:        // commandManager.execute() dual-write removed.
+apps/editor/src/ui/ViewPropertiesPanel.ts:1007:        // commandManager.execute() dual-write removed.
+apps/editor/src/ui/ViewPropertiesPanel.ts:1013:        // commandManager.execute() dual-write removed.
+packages/ai-host/src/AIElementFactory.ts:8: *  - NEVER mutates stores. NEVER calls builders. NEVER calls commandManager.execute().
+packages/ai-host/src/AIResponseParser.ts:7: *   §01: Read-only. No store writes. No commandManager.execute().
+packages/ai-host/src/AmbientIntelligence.ts:280:            const commandManager  = win['commandManager'] as {
+packages/ai-host/src/DoorGapInpainter.ts:7: *  - NEVER mutates stores. NEVER calls builders. NEVER calls commandManager.execute().
+packages/ai-host/src/DoorGeometricValidator.ts:6: *  - NEVER mutates stores. NEVER calls builders. NEVER calls commandManager.execute().
+packages/ai-host/src/FloorPlanAIFactory.ts:6: *  - NEVER mutates stores. NEVER calls builders. NEVER calls commandManager.execute().
+packages/ai-host/src/PdfToBimConstraints.ts:6: *  - NEVER mutates stores. NEVER calls builders. NEVER calls commandManager.execute().
+packages/ai-host/src/rooms/RoomAIAssistant.ts:18: * All AI mutations go through commandManager.execute() — never write
+packages/ai-host/src/rooms/RoomAIAssistant.ts:104:        this.commandManager.execute(new RenameRoomCommand(roomId, { name: result.name }));
+packages/ai-host/src/rooms/RoomAIAssistant.ts:136:        this.commandManager.execute(new UpdateRoomFinishesCommand(roomId, result));
+packages/ai-host/src/rooms/RoomAIAssistant.ts:166:                this.commandManager.execute(new CreateRoomCommand(roomSpec));
+packages/ai-host/src/VoiceSpatialInterface.ts:19: *   - All executed commands go through commandManager.execute() and are undoable
+packages/ai-host/src/WallTerminatorDoorDetector.ts:6: *  - NEVER mutates stores. NEVER calls builders. NEVER calls commandManager.execute().
+packages/command-bus/dist/commands.d.ts:720: * migrated from the legacy `commandManager.execute()` mutation API.
+packages/command-bus/dist/commands.d.ts:1383:     * `commandManager.execute(AddLevelCommand)` directly (the §3.4 dual-write
+packages/command-bus/dist/commands.d.ts:1384:     * pattern), the bus handler must skip its own `commandManager.execute()` call
+packages/command-bus/dist/commands.d.ts:1663:     * Existing call site still uses commandManager.execute() (dual-write pattern, E.5.x P2).
+packages/command-bus/dist/commands.d.ts:1674:     * Existing call site still uses commandManager.execute() (dual-write pattern, E.5.x P2).
+packages/command-bus/dist/commands.d.ts:1689:     * Existing call site still uses commandManager.execute() (dual-write pattern, E.5.x P2).
+packages/command-bus/src/CommandBus.ts:362:    // 81 `initBusHandlers` bridges synchronously run `commandManager.execute`.
+packages/command-bus/src/CommandBus.ts:445:        // The bridges called below run `commandManager.execute(new XCommand(...))`
+packages/command-bus/src/commands.ts:530:// paths being migrated from the legacy commandManager.execute() API.
+packages/command-bus/src/commands.ts:569: * migrated from the legacy `commandManager.execute()` mutation API.
+packages/command-bus/src/commands.ts:968:     * `commandManager.execute(AddLevelCommand)` directly (the §3.4 dual-write
+packages/command-bus/src/commands.ts:969:     * pattern), the bus handler must skip its own `commandManager.execute()` call
+packages/command-bus/src/commands.ts:1183:     * Existing call site still uses commandManager.execute() (dual-write pattern, E.5.x P2).
+packages/command-bus/src/commands.ts:1194:     * Existing call site still uses commandManager.execute() (dual-write pattern, E.5.x P2).
+packages/command-bus/src/commands.ts:1209:     * Existing call site still uses commandManager.execute() (dual-write pattern, E.5.x P2).
+packages/command-bus/src/gestureScope.ts:39://      statement, `commandManager.execute(...)` for the same action. The bus call
+packages/command-registry/src/annotations/AnnotateViewCommand.ts:200:        // this file is in packages/ and the literal "commandManager.execute" is counted by the
+packages/command-registry/src/catalog/AddAssetCatalogEntryCommand.ts:12: * NEVER called directly from UI — always dispatched via commandManager.execute().
+packages/command-registry/src/catalog/DeleteAssetCatalogEntryCommand.ts:12: * NEVER called directly from UI — always dispatched via commandManager.execute().
+packages/command-registry/src/catalog/UpdateAssetCatalogEntryCommand.ts:12: * NEVER called directly from UI — always dispatched via commandManager.execute().
+packages/command-registry/src/CommandManagerImpl.ts:102: *   **202 `commandManager.execute(...)` reaches across 121 files** that must
+packages/command-registry/src/CommandManagerImpl.ts:115: *   `commandManager.execute` reaches in `src/`, this class is deletable
+packages/command-registry/src/CommandManagerImpl.ts:1261:     * (→ CommandBus ring buffer) AND `commandManager.execute(CreateXCommand)`
+packages/command-registry/src/CommandManagerImpl.ts:1282:     * `commandManager.execute` sites — was deleted from BOTH the history and the redo
+packages/command-registry/src/composite/CompositeCommand.ts:7:// `commandManager.execute(new CreateXCommand(...))` calls (stairs, lifts, slabs,
+packages/command-registry/src/composite/CompositeCommand.ts:31:// This command is NOT dispatched through `commandManager.execute()`. Its children
+packages/command-registry/src/curtainwall/ReplacePanelTypeCommand.ts:12: *   commandManager.execute(ReplacePanelTypeCommand)
+packages/command-registry/src/curtainwall/ReplacePanelTypeCommand.ts:24: * §2.7  — commandManager.execute() is the ONLY path for panel type changes
+packages/command-registry/src/curtainwall/ReplacePanelWithDoorCommand.ts:15: *   commandManager.execute(ReplacePanelWithDoorCommand)
+packages/command-registry/src/curtainwall/ReplacePanelWithDoorCommand.ts:28: *   §2.7  — commandManager.execute() is the ONLY mutation path
+packages/command-registry/src/generic/UpdateElementParameterCommand.ts:19: *   commandManager.execute(cmd);
+packages/command-registry/src/handrails/CreateHandrailRunCommand.ts:17: * through `commandManager.execute()`"* — it exists to be pushed onto the history
+packages/command-registry/src/levels/CreateMultipleLevelsCommand.ts:61:                // commandManager.execute() — this eliminates 20 full store structuredClone snapshots
+packages/command-registry/src/levels/CreateMultipleLevelsCommand.ts:62:                // (one per commandManager.execute() call) that block the main thread for 200–800 ms.
+packages/command-registry/src/plans/BeamCommandPlan.ts:356:            const result = commandManager.execute(step.command, {
+packages/command-registry/src/plans/StairCommandPlan.ts:304:            const result = commandManager.execute(step.command, { 
+packages/command-registry/src/requirements/DeleteRequirementCommand.ts:11: * NEVER called directly from UI — always dispatched via commandManager.execute().
+packages/command-registry/src/requirements/SetRoomRequirementCommand.ts:12: * NEVER called directly from UI — always dispatched via commandManager.execute().
+packages/command-registry/src/requirements/UpdateRequirementCommand.ts:12: * NEVER called directly from UI — always dispatched via commandManager.execute().
+packages/command-registry/src/roomBoundingLines/CreateRoomBoundingLinesBatchCommand.ts:7:// `batchCoordinator.runBatch`. Each `commandManager.execute(...)` snapshots the
+packages/command-registry/src/slabs/CreateAllSlabsFromLevelToAllFloorsCommand.ts:106:                    // commandManager.execute(). This is an internal batch-orchestration pattern.
+packages/command-registry/src/slabs/CreateSlabOnLevelSimilarToSelectedCommand.ts:84:        // commandManager.execute(). This is an internal batch-orchestration pattern.
+packages/command-registry/src/slabs/CreateSlabsOnAllFloorsCommand.ts:100:                // commandManager.execute(). This is an internal batch-orchestration pattern.
+packages/command-registry/src/slabs/UpdateSlabPolygonCommand.ts:49: *   command via `commandManager.execute()`.
+packages/command-registry/src/stair/CreateStairCommand.ts:604:     * `window.commandManager.execute(new CreateStairRailingCommand(...))` with NO
+packages/command-registry/src/stair/CreateStairCommand.ts:650:     * ⛔ NOT `commandManager.execute(cmd, {source:'STRUCTURAL_CASCADE'})`, which is
+packages/command-registry/src/vg/SetInstanceVGOverrideCommand.ts:9: *   commandManager.execute(
+packages/command-registry/src/vg/SetInstanceVGOverrideCommand.ts:15: *   commandManager.execute(
+packages/command-registry/src/views/SetViewDesignOptionCommand.ts:10: *   commandManager.execute(new SetViewDesignOptionCommand({
+packages/command-registry/src/views/SetViewLightingCommand.ts:10: *   commandManager.execute(new SetViewLightingCommand({
+packages/command-registry/src/views/SetViewSemanticsCommand.ts:9: *   commandManager.execute(new SetViewSemanticsCommand({
+packages/command-registry/src/walls/CreateWallOpeningsBatchCommand.ts:13:// `commandManager.execute(...)` call still ran `CommandManagerImpl.createSnapshot`
+packages/core-app-model/src/ai/DoorGapInpainter.ts:7: *  - NEVER mutates stores. NEVER calls builders. NEVER calls commandManager.execute().
+packages/core-app-model/src/ai/PdfToBimConstraints.ts:6: *  - NEVER mutates stores. NEVER calls builders. NEVER calls commandManager.execute().
+packages/core-app-model/src/ai/VoiceSpatialInterface.ts:19: *   - All executed commands go through commandManager.execute() and are undoable
+packages/core-app-model/src/batch/BatchCoordinator.ts:655:     * object that `commandManager.execute()` can run.
+packages/core-app-model/src/batch/BatchCoordinator.ts:2239:                    // Fallback: legacy commandManager.execute(ReDetectRoomsCommand) path.
+packages/core-app-model/src/comparison/ComparisonEngine.ts:13: *   - READ ONLY — never calls commandManager.execute(), never mutates any store
+packages/core-app-model/src/views/PlanElementDragController.ts:624:            // bridge) calls commandManager.execute for the WallRebuildCoordinator —
+packages/core-app-model/src/views/PlanElementDragController.ts:627:            // `commandManager.execute(new UpdateWallBaselineCommand(...))` directly,
+packages/core-app-model/src/views/PlanElementDragController.ts:652:        // called `window.commandManager.execute(new Set*OffsetCommand(...))`
+packages/core-app-model/src/views/PlanElementDragController.ts:655:        //     forbids `commandManager.execute()` anywhere under `packages/`
+packages/file-format/src/import/dxf/DxfToBimTracer.ts:11: *   - No direct commandManager.execute() calls.
+packages/file-format/src/import/ifc/conversion/IfcConversionContext.ts:20:  if (!commandManager || typeof commandManager.execute !== 'function') {
+packages/file-format/src/import/ifc/conversion/IfcConversionContext.ts:25:  return commandManager.execute(command, { source: 'HUMAN_DIRECT' });
+packages/file-format/src/import/ifc/IfcLevelImporter.ts:97:            return (commandManager.execute(cmd, { source: 'HUMAN_DIRECT' }) ?? { success: false }) as { success: boolean };
+packages/geometry-curtain-wall/src/CurtainWallTool.ts:24: *   §2.7  Tool must use commandManager.execute() exclusively — no direct builder calls.
+packages/geometry-curtain-wall/src/CurtainWallTool.ts:960:     * §2.7: commandManager.execute() is the ONLY creation path.
+packages/geometry-furniture/src/FurnitureTool.ts:626:                    commandManager.execute(new CreateFurnitureCommand({
+packages/geometry-furniture/src/FurnitureTool.ts:707:                    commandManager.execute(cmd);
+packages/geometry-furniture/src/FurnitureTool.ts:754:                commandManager.execute(new CreateFurnitureCommand({
+packages/geometry-lift/src/LiftTool.ts:26: *   - P6: the ONLY mutation is `commandManager.execute(createCommand(payload))`.
+packages/geometry-plumbing/src/PlumbingTool.ts:415:                commandManager.execute(new CreatePlumbingFixtureCommand({
+packages/geometry-plumbing/src/PlumbingTool.ts:456:                commandManager.execute(new CreatePlumbingFixtureCommand({
+packages/geometry-roof/src/RoofSlopeSymbolBuilder.ts:206:                this.commandManager.execute(new CreateAnnotationCommand(ann));
+packages/geometry-roof/src/RoofTool.ts:398:        const result = this._commandManager.execute(command);
+packages/geometry-slab/src/SlabDependencyTracker.ts:55: *   DegradeSlabSketchCommand via commandManager.execute() instead of
+packages/geometry-slab/src/SlabDependencyTracker.ts:404:     * and executes it via commandManager.execute().
+packages/geometry-slab/src/SlabPickWallsController.ts:257:        const result = commandManager.execute(command);
+packages/geometry-slab/src/SlabTool.ts:85: *   `commandManager.execute` reaches** in this file (CreateSlabCommand,
+packages/geometry-slab/src/SlabTool.ts:97: *        each of the 4 `commandManager.execute(...)` reaches in this file
+packages/geometry-slab/src/SlabTool.ts:487:        const result = commandManager.execute(command);
+packages/geometry-slab/src/SlabTool.ts:513:                    commandManager.execute(layersCmd);
+packages/geometry-slab/src/SlabTool.ts:1914:        commandManager.execute(cmd);
+packages/geometry-slab/src/SlabTool.ts:2078:        const result = commandManager.execute(cmd);
+packages/geometry-slab/src/SlabWallConnectivityService.ts:1238:                result = this.commandManager.execute(
+packages/geometry-stair/src/stairPath/StairPathToolController.ts:781:     * `commandManager.execute(cmd)` and never called `onComplete`, so the owning
+packages/geometry-stair/src/stairPath/StairPathToolController.ts:794:            this._config.commandManager.execute(cmd);
+packages/geometry-stair/src/StairTool.ts:292:                commandManager.execute(command);
+packages/geometry-wall/src/RoomBoundingLineTool.ts:170:    this._commandManager.execute(cmd);
+packages/geometry-wall/src/WallTool.ts:115: *   is gated on E-bus.1 (S79) retiring the 2 residual `commandManager.execute`
+packages/geometry-wall/src/WallTool.ts:123: *     2. E-bus.1: replace `commandManager.execute(new CreateWallCommand(...))`
+packages/geometry-wall/src/WallTool.ts:1984:        const result = commandManager.execute(command);
+packages/geometry-wall/src/WallTool.ts:2138:            const result = commandManager.execute(command);
+packages/geometry-wall/src/WallTool.ts:2414:     * same seam the property panel uses; the legacy `commandManager.execute` path is the
+packages/geometry-wall/src/WallTool.ts:2476:                this.commandManager.execute(
+packages/geometry-wall/src/WallTypes.ts:670:     * runtime.bus.executeCommand() instead of the legacy commandManager.execute()
+packages/geometry-wall/src/WallTypes.ts:672:     * registered in the bus), WallTool falls back to commandManager.execute().
+packages/input-host/src/BeamTool.ts:223:        const result = this.commandManager.execute(command);
+packages/input-host/src/DetailViewTool.ts:167:        if (commandManager && typeof commandManager.execute === 'function') {
+packages/input-host/src/DetailViewTool.ts:170:            commandManager.execute(cmd);
+packages/input-host/src/operations/CopyPasteTool.ts:17: *   §01 §2.1  — mutations via commandManager.execute() only
+packages/input-host/src/operations/CutTool.ts:17: *   §01 §2.1 — mutations via commandManager.execute() only
+packages/input-host/src/operations/JoinTool.ts:14: *   §01 §2.1 — no direct store writes; all mutations via commandManager.execute()
+packages/input-host/src/operations/MirrorTool.ts:19: *   §01 §2.1  — mutations via commandManager.execute() only
+packages/input-host/src/operations/OffsetTool.ts:18: *   §01 §2.1  — mutations via commandManager.execute() only
+packages/input-host/src/operations/OperationToolBase.ts:14: *                      go through commandManager.execute().
+packages/input-host/src/operations/ReferenceEditTool.ts:25: *   §01 §2.1 — mutations via commandManager.execute() only
+packages/input-host/src/operations/ScaleTool.ts:20: *   §01 §2.1 — mutations via commandManager.execute() only
+packages/input-host/src/SelectionManager.ts:1352:            // Opening and lighting used to go through legacy commandManager.execute()
+packages/input-host/src/SelectionManager.ts:1356:            //       → commandManager.execute(DeleteOpeningCommand | DeleteLightingCommand)
+packages/input-host/src/SelectionManager.ts:1377:                            if (type === 'opening') commandManager.execute(new DeleteOpeningCommand(id));
+packages/input-host/src/SelectionManager.ts:1378:                            else                    commandManager.execute(new DeleteLightingCommand(id));
+packages/persistence-client/src/loader/ProjectLoader.ts:22: *   BEFORE: Each commandManager.execute() fires StoreEventBus → DependencyResolver →
+packages/persistence-client/src/loader/ProjectLoader.ts:289:        const exec = (cmd: any) => this.commandManager.execute(cmd, LOAD_META);
+packages/persistence-client/src/loader/ProjectLoader.ts:1532:                            this.commandManager.execute(
+packages/room-topology/src/RoomTagAutoPopulator.ts:93:            if (cmd.canExecute({} as any).ok) { commandManager.execute(cmd); removedOrphans++; }
+packages/room-topology/src/RoomTagAutoPopulator.ts:99:            if (cmd.canExecute({} as any).ok) { commandManager.execute(cmd); removedDuplicates++; }
+packages/room-topology/src/RoomTagAutoPopulator.ts:131:            if (cmd.canExecute({} as any).ok) { commandManager.execute(cmd); refreshed++; }
+packages/room-topology/src/RoomTagAutoPopulator.ts:145:        // This loop used to `commandManager.execute(new CreateAnnotationCommand(ann))`
+packages/room-topology/src/RoomTagAutoPopulator.ts:190:                commandManager.execute(cmd);
+packages/room-topology/src/RoomTool.ts:225:        const result = this.commandManager.execute(cmd);
+packages/room-topology/src/RoomTool.ts:388:        const result = this.commandManager.execute(cmd);
+packages/room-topology/src/RoomTopologyObserver.ts:920:    // An EXPLICIT redetect (commandManager.execute(new ReDetectRoomsCommand)) is
+packages/room-topology/src/RoomTopologyObserver.ts:968:      this.commandManager.execute(cmd);
+packages/runtime-composer/src/authoritativeElementMirror.ts:140:      '`{forward: [], inverse: []}` — it delegates to `window.commandManager.execute(new CreateRoomCommand)`. ' +
+packages/runtime-composer/src/CommandEventBridge.ts:631:          // WallStore without a second commandManager.execute() dual-write.
+packages/runtime-undo-stack/src/RingBufferUndoStack.ts:267:   * command was CONSTRUCTED before the push (`_cmExec` / `commandManager.execute`
+plugins/annotations/src/DimensionPropertiesPanel.ts:158:        this._commandManager.execute(cmd);
+plugins/annotations/src/DimensionPropertiesPanel.ts:167:        this._commandManager.execute(cmd);
+plugins/annotations/src/tools/CalloutDetailTool.ts:180:        this._commandManager.execute(new CreateCalloutDetailCommand({
+plugins/annotations/src/tools/ElevationMarkTool.ts:152:            this._commandManager.execute(new CreateElevationMarkCommand({
+plugins/annotations/src/tools/LevelDatumLineBuilder.ts:112:            if (commandManager && typeof commandManager.execute === 'function') {
+plugins/annotations/src/tools/LevelDatumLineBuilder.ts:131:                    commandManager.execute(new CreateAnnotationCommand(ann));
+plugins/annotations/src/tools/LinearDimensionAnnotationTool.ts:832:        this._commandManager.execute(cmd);
+plugins/annotations/src/tools/LinearDimensionAnnotationTool.ts:910:        this._commandManager.execute(cmd);
+plugins/annotations/src/tools/MatchlineTool.ts:142:        const result = this._commandManager.execute(new CreateAnnotationCommand(ann));
+plugins/annotations/src/tools/NorthArrowTool.ts:115:        const result = this._commandManager.execute(new CreateAnnotationCommand(ann));
+plugins/annotations/src/tools/ScaleBarTool.ts:129:        const result = this._commandManager.execute(new CreateAnnotationCommand(ann));
+plugins/annotations/src/tools/SectionGridLineBuilder.ts:110:            if (commandManager && typeof commandManager.execute === 'function') {
+plugins/annotations/src/tools/SectionGridLineBuilder.ts:130:                    commandManager.execute(new CreateAnnotationCommand(ann));
+plugins/annotations/src/tools/SectionMarkTool.ts:155:            this._commandManager.execute(new CreateSectionMarkCommand({
+plugins/beam/src/handlers/CreateBeam.ts:115:    // `commandManager.execute(new CreateBeamCommand(...))` and additionally fires
+plugins/ceiling/src/handlers/UpdateCeilingLayers.ts:8:// Contract compliance: C11 §5 (handler MUST/MUST NOT), C14 §2.1 (no commandManager.execute).
+plugins/curtain-wall/src/handlers/CreateCurtainWallsOnAllSlabs.ts:3:// Migration bridge: exfiltrates commandManager.execute(CreateCurtainWallsOnAllSlabsCommand)
+plugins/floor/src/handlers/CreateFloor.ts:12:// Governing contracts: C11 §5 (handler MUST/MUST NOT), C14 §2.1 (no commandManager.execute).
+plugins/floor/src/handlers/UpdateFloorLayers.ts:8:// Contract compliance: C11 §5 (handler MUST/MUST NOT), C14 §2.1 (no commandManager.execute).
+plugins/furniture/src/handlers/UpdateFurnitureParameters.ts:2:// Exfiltrates commandManager.execute(UpdateFurnitureParametersCommand) from apps/editor/src/.
+plugins/levels/src/handlers/DuplicateFloorPlan.ts:3:// Migration bridge: exfiltrates commandManager.execute(DuplicateFloorPlanCommand)
+plugins/plumbing/src/handlers/CreatePlumbingFixture.ts:2:// Exfiltrates commandManager.execute(CreatePlumbingFixtureCommand) from apps/editor/src/.
+plugins/rooms/src/contributions.ts:5:// `runtime.events`), not an imperative `commandManager.execute()` call.
+plugins/rooms/src/handlers/CreateRoom.ts:31:// `commandManager.execute(new CreateRoomCommand(...))` two lines below.)
+plugins/rooms/src/handlers/CreateTemplate.ts:2:// Exfiltrates commandManager.execute(CreateTemplateCommand) from apps/editor/src/.
+plugins/rooms/src/handlers/RenameRoom.ts:2:// Exfiltrates commandManager.execute(RenameRoomCommand) from apps/editor/src/.
+plugins/slab/src/handlers/CreateSlabsOnAllFloors.ts:3:// Migration bridge: exfiltrates commandManager.execute(CreateSlabsOnAllFloorsCommand)
+plugins/slab/src/handlers/UpdateSlabLayers.ts:8:// Contract compliance: C11 §5 (handler MUST/MUST NOT), C14 §2.1 (no commandManager.execute), P6.
+plugins/stair/src/handlers/CreateStairRailing.ts:2:// Exfiltrates commandManager.execute(CreateStairRailingCommand) from apps/editor/src/.
+plugins/stair/src/handlers/UpdateStairParameters.ts:2:// Exfiltrates commandManager.execute(UpdateStairParametersCommand) from apps/editor/src/.
+plugins/view/src/handlers/DeleteElement.ts:2:// Exfiltrates commandManager.execute(DeleteElementCommand) from apps/editor/src/
+plugins/view/src/handlers/SetViewOutput.ts:4:// The legacy SetViewOutputCommand / commandManager.execute() dual-write in
+plugins/view/src/handlers/SetViewRange.ts:4:// The legacy SetViewRangeCommand / commandManager.execute() dual-write in
+plugins/view/src/handlers/SetViewUnderlay.ts:4:// The legacy SetViewUnderlayCommand / commandManager.execute() dual-write in
+plugins/wall/src/handlers/CreateWallsOnAllSlabs.ts:3:// Migration bridge: exfiltrates commandManager.execute(CreateWallsOnAllSlabsCommand)
+plugins/wall/src/handlers/UpdateWallSystemType.ts:4:// Exfiltrates commandManager.execute() from apps/editor/src/.

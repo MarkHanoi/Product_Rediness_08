@@ -1,0 +1,55 @@
+{
+  "family": "floor",
+  "head": "d91d30d4af51bc67317ef8afc0b46b1dbef94038",
+  "members": ["floor finish panel"],
+  "rows": [
+    {
+      "member": "floor finish panel",
+      "surface": "3d",
+      "builder_file": "packages/geometry-slab/src/floor/FloorPanelBuilder.ts",
+      "package": "@pryzm/geometry-slab",
+      "layer": "L2",
+      "invoked_by": [
+        "apps/editor/src/engine/initBuilders.ts:434 `new FloorPanelBuilder(scene, bimManager)`",
+        "apps/editor/src/engine/initBuilders.ts:440/:446/:452 — window.addEventListener('bim-floor-added' | '-updated' | '-removed')",
+        "BUS LEG: CommandEventBridge floor.create → 'floor.created' → apps/editor/src/engine/initTools.ts:2480 (§P3.2-FL)",
+        "ALSO: FloorSlabBindingHandler (initBuilders.ts:62) binds the finish to its host slab"
+      ],
+      "rivals": [
+        {"candidate": "packages/geometry-kernel producers + a floor committer", "verdict": "NO floor committer exists (`ls plugins/` has a `floor` plugin but `find plugins -name '*-committer.ts'` lists 19 and floor is NOT among them). So floor is one of the families the rival system never even authored."}
+      ],
+      "fidelity": {
+        "authored_L0_fields": ["provenance","confidence","levelId","boundary","baseOffset","thickness","materialId","materialColor"],
+        "authored_count": 8,
+        "ceb_channel": "floor.created",
+        "ceb_emit_sites": ["~L1463 (floor.create) — 16 keys","~L1585 (balcony.create fan-out) — 10 keys"],
+        "ceb_emitted_keys_primary": ["commandId","commandType","levelId","floorId","ifcGuid","polygon","baseOffset","thickness","label","systemTypeId","layers","finishSpec","serviceHoles","hostSlabId","hostRoomId","createdBy"],
+        "dropped_at_ceb": ["materialId","materialColor","provenance","confidence"],
+        "renames_not_drops": ["boundary → polygon (plan convention, same as slab)"],
+        "⛔ VERDICT": "THE CEILING DEFECT, UNFIXED, IN FLOOR — its sibling in the SAME PACKAGE got the fix and it did not. L0 authors `materialId` + `materialColor`; the CEB emits neither. It emits a legacy `finishSpec` blob instead, and when the payload has none, initTools.ts:2491-2495 substitutes a HARDCODED default: `const finishSpec = ev.finishSpec ?? { finishColor: '#D4C4A8', finishPattern: 'none', exposedScreed: false }`. That literal is the exact shape ceilingCreatedMirror.ts:47-52 was written to eliminate for ceilings ('THE WHOLE FINISH SPECIFICATION USED TO BE HARDCODED HERE').",
+        "chain_proof": [
+          "AUTHORED — packages/schemas/src/elements/Floor.ts declares materialId and materialColor.",
+          "DROPPED #1 — CommandEventBridge floor.create emit (~L1463) names 16 keys; neither materialId nor materialColor is among them (`sed -n '1673,1715p' CommandEventBridge.ts | grep -nE 'material'` → 0 hits).",
+          "SUBSTITUTED — apps/editor/src/engine/initTools.ts:2491 hardcodes finishColor '#D4C4A8' when the event carries no finishSpec. Silent substitution, which C84/C100 prohibit — the ceiling mirror's equivalent line reads `ev.materialColor ?? DEFAULT`, i.e. the authored value FIRST.",
+          "CONSUMED-IF-PRESENT — FloorPanelBuilder.ts:148 and :444 read `floor.finishSpec?.finishPattern`; :225 carries an explicit note that 'without this third argument `floor.materialId` resolves to nothing', so materialId is load-bearing in the builder and it never arrives."
+        ],
+        "user_visible_consequence": "A floor finish drawn in PLAN, or created by AI, or created as part of a balcony, renders in the hardcoded beige #D4C4A8 regardless of the authored material.",
+        "draws_what_the_user_authored": "NO",
+        "ASYMMETRIC_BATCH_EMIT": "The balcony fan-out emit (~L1585) carries 10 keys and additionally drops `label`, `systemTypeId`, `layers`, `finishSpec`, `serviceHoles`, `hostRoomId`. A balcony's floor finish therefore always lands on the hardcoded default AND loses its layer build-up."
+      },
+      "robustness": {
+        "degenerate_input": "Guarded upstream only (`!ev.polygon` style checks in the initTools handler). No isFinite/NaN guard measured in the builder.",
+        "disposal": "co-located with the slab family builders in geometry-slab; see slab.json."
+      }
+    },
+    {
+      "member": "floor finish panel",
+      "surface": "plan",
+      "builder_file": "EdgeProjectorService true-edge projection; no floor plan-symbol builder",
+      "invalidation": "`floor` IS in GEOMETRY_ELEMENT_TYPES (ViewDependencyTracker.ts:86) and PLAN_INCREMENTAL_SAFE_TYPES (:151)",
+      "fidelity": "INHERITS the 3D colour loss — a plan finish hatch keyed off the wrong colour."
+    },
+    {"member": "floor finish panel", "surface": "section", "builder_file": "derived from the 3D mesh", "fidelity": "INHERITS 3D"},
+    {"member": "floor finish panel", "surface": "export", "builder_file": "packages/file-format/src/export/ifc/readers/FloorReader.ts (L3, FragmentReader.ts:48)"}
+  ]
+}

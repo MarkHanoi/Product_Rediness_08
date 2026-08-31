@@ -1,0 +1,33 @@
+{
+  "family": "balcony",
+  "head": "d91d30d4af51bc67317ef8afc0b46b1dbef94038",
+  "members": ["balcony slab plate", "balcony floor finish", "balcony railing"],
+  "rows": [
+    {
+      "member": "balcony (the compound itself)",
+      "surface": "3d",
+      "builder_file": "NONE — pure assembly only: packages/geometry-balcony/src/{BalconyAssembly,BalconyDimensions,BalconyGeometry}.ts. No THREE, no builder.",
+      "package": "@pryzm/geometry-balcony",
+      "layer": "L2",
+      "layer_proof": "eslint.config.js:143 — '[family] verified: imports schemas + @opentelemetry/api only'",
+      "entry_fn": "buildBalconyAssembly() — packages/geometry-balcony/src/BalconyAssembly.ts:82",
+      "invoked_by": "apps/editor/src/engine/views/plantools/BalconyPlanToolHandler.ts:55 and apps/editor/src/engine/balconyProfileBridge.ts:55 (resolveFreeEdges)",
+      "own_channel": "NO 'balcony.created' channel. The CEB balcony.create case (~L1465 region) fans out to slab.created (~L1559), floor.created (~L1585) and handrail.created (~L1606).",
+      "honest_about_it": "YES — packages/schemas/src/elements/Balcony.ts:32 'ONE polygon … There is no second polygon anywhere in the compound' and :43 'nothing about them is stored'. The compound pattern, declared.",
+      "drawn": "VIA MEMBERS",
+      "fidelity": {
+        "authored_L0_fields": ["provenance","confidence","levelId","hostWallId","hostOffset","boundary","width","projection","railingHeight","slabThickness","finishThickness","systemTypeId","railingTypeId","finishTypeId","materialId","materialColor"],
+        "authored_count": 16,
+        "⛔ VERDICT — THE COMPOUND WHOSE FAN-OUT LOSES THE MOST": "The three fan-out emits are the NARROWEST of their channels. slab.created from balcony (~L1559) emits 11 keys but drops materialColor, holes and systemTypeId like every slab emit; floor.created from balcony (~L1585) emits 10 of the 16 keys the primary floor emit carries, ADDITIONALLY dropping label, systemTypeId, layers, finishSpec, serviceHoles and hostRoomId — so a balcony's floor finish ALWAYS lands on initTools' hardcoded '#D4C4A8' AND loses its layer build-up; handrail.created from balcony (~L1606) is the ONE exception, IDENTICAL to the primary emit.",
+        "authored_fields_with_nowhere_to_land": "`materialId`, `materialColor`, `systemTypeId`, `finishTypeId` and `railingTypeId` are authored on the balcony and must be carried by the members. The railing carries its material (handrail's emit is complete); the slab and floor legs do not.",
+        "draws_what_the_user_authored": "PARTIAL — geometry (boundary, width, projection, railingHeight, thicknesses) survives via the members; the finish/type identity does not, on two of three legs.",
+        "honest_about_the_loss": "NO — no warning is emitted on either narrowed fan-out."
+      }
+    },
+    {"member": "balcony slab plate", "surface": "3d", "builder_file": "packages/geometry-slab/src/SlabFragmentBuilder.ts (rides slab)", "drawn": "YES", "fidelity": "inherits slab's losses"},
+    {"member": "balcony floor finish", "surface": "3d", "builder_file": "packages/geometry-slab/src/floor/FloorPanelBuilder.ts (rides floor)", "drawn": "YES", "fidelity": "inherits floor's losses AND the extra six-key narrowing above — the worst-fidelity member in the repo"},
+    {"member": "balcony railing", "surface": "3d", "builder_file": "packages/geometry-handrail/src/HandrailFragmentBuilder.ts (rides handrail)", "drawn": "YES", "fidelity": "⭐ LOSSLESS — the only compound member measured whose fan-out emit equals its primary emit"},
+    {"member": "balcony", "surface": "plan", "builder_file": "via members (slab, floor, handrail all in GEOMETRY_ELEMENT_TYPES). 'balcony' itself is NOT in GEOMETRY_ELEMENT_TYPES.", "drawn": "VIA MEMBERS", "honest_about_it": "consistent with the compound pattern — the compound claims no plan surface of its own"},
+    {"member": "balcony", "surface": "export", "builder_file": "NONE of its own; exports as its members via SlabReader / FloorReader / HandrailReader"}
+  ]
+}

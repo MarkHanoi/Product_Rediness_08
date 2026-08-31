@@ -1,0 +1,431 @@
+[
+ {
+  "channel": "wall.created",
+  "start": 1225,
+  "end": 1529,
+  "marks": [
+   [
+    1304,
+    "REGISTER",
+    "try { viewDependencyTracker.registerElement(ev.wallId, resolvedLevelId); }"
+   ],
+   [
+    1306,
+    "REGISTER",
+    "try { bimManager.registerElement(ev.wallId, resolvedLevelId); }"
+   ],
+   [
+    1310,
+    "DEDUP",
+    "const alreadyMirrored = !!_legacyWallStoreForBridge.getById(ev.wallId);"
+   ],
+   [
+    1311,
+    "DEDUP",
+    "if (!alreadyMirrored) {"
+   ],
+   [
+    1313,
+    "ADD",
+    "_legacyWallStoreForBridge.add({"
+   ]
+  ]
+ },
+ {
+  "channel": "wall.opening.created",
+  "start": 1530,
+  "end": 1686,
+  "marks": [
+   [
+    1591,
+    "ADD",
+    "doorStore.add(buildDoorStoreRecord({"
+   ],
+   [
+    1635,
+    "ADD",
+    "windowStore.add(buildWindowStoreRecord({"
+   ]
+  ]
+ },
+ {
+  "channel": "lift.created",
+  "start": 1687,
+  "end": 1882,
+  "marks": [
+   [
+    1705,
+    "REGISTER",
+    "viewDependencyTracker.registerElement(ev.liftId, ev.levelId ?? '');"
+   ],
+   [
+    1706,
+    "REGISTER",
+    "try { bimManager.registerElement(ev.liftId, ev.levelId ?? ''); }"
+   ],
+   [
+    1857,
+    "REGISTER",
+    "viewDependencyTracker.registerElement(id, levelId);"
+   ],
+   [
+    1858,
+    "REGISTER",
+    "try { bimManager.registerElement(id, levelId); }"
+   ]
+  ]
+ },
+ {
+  "channel": "boundaryLine.created",
+  "start": 1883,
+  "end": 1886,
+  "marks": []
+ },
+ {
+  "channel": "boundaryLine.updated",
+  "start": 1887,
+  "end": 1890,
+  "marks": []
+ },
+ {
+  "channel": "boundaryLine.deleted",
+  "start": 1891,
+  "end": 1942,
+  "marks": []
+ },
+ {
+  "channel": "water.created",
+  "start": 1943,
+  "end": 2063,
+  "marks": [
+   [
+    1982,
+    "REGISTER",
+    "try { viewDependencyTracker.registerElement(ev.waterId, levelId); }"
+   ],
+   [
+    1984,
+    "REGISTER",
+    "try { bimManager.registerElement(ev.waterId, levelId); }"
+   ]
+  ]
+ },
+ {
+  "channel": "curtain-wall.created",
+  "start": 2064,
+  "end": 2160,
+  "marks": [
+   [
+    2085,
+    "RET",
+    "if (curtainWallStoreInstance.has(cwRecord.id)) return;"
+   ],
+   [
+    2092,
+    "REGISTER",
+    "try { viewDependencyTracker.registerElement(cwRecord.id, cwRecord.levelId); }"
+   ],
+   [
+    2094,
+    "REGISTER",
+    "try { bimManager.registerElement(cwRecord.id, cwRecord.levelId); }"
+   ],
+   [
+    2104,
+    "ADD",
+    "curtainWallStoreInstance.add(cwRecord as CurtainWallData);"
+   ],
+   [
+    2127,
+    "SEB",
+    "storeEventBus.emit({"
+   ],
+   [
+    2141,
+    "SEB",
+    "console.log('[initTools] §P3.1-CW: curtain wall mirrored to legacy store + storeEventBus fired', cwRecord.id);"
+   ]
+  ]
+ },
+ {
+  "channel": "ceiling.created",
+  "start": 2161,
+  "end": 2216,
+  "marks": [
+   [
+    2184,
+    "RET",
+    "if (ceilingStore.has(ceilingRecord.id)) return;"
+   ],
+   [
+    2186,
+    "ADD",
+    "ceilingStore.add(ceilingRecord);"
+   ],
+   [
+    2192,
+    "REGISTER",
+    "viewDependencyTracker.registerElement(ceilingRecord.id, ceilingRecord.levelId);"
+   ],
+   [
+    2193,
+    "REGISTER",
+    "try { bimManager.registerElement(ceilingRecord.id, ceilingRecord.levelId); } catch { /* non-fatal */ }"
+   ]
+  ]
+ },
+ {
+  "channel": "roof.created",
+  "start": 2217,
+  "end": 2290,
+  "marks": [
+   [
+    2224,
+    "DEDUP",
+    "if (roofStore.getById(ev.id)) return; // dedup guard"
+   ],
+   [
+    2263,
+    "ADD",
+    "roofStore.add(record as RoofData);"
+   ],
+   [
+    2266,
+    "REGISTER",
+    "viewDependencyTracker.registerElement(ev.id, ev.levelId ?? '');"
+   ],
+   [
+    2267,
+    "REGISTER",
+    "try { bimManager.registerElement(ev.id, ev.levelId ?? ''); } catch { /* non-fatal */ }"
+   ]
+  ]
+ },
+ {
+  "channel": "column.created",
+  "start": 2291,
+  "end": 2362,
+  "marks": [
+   [
+    2308,
+    "DEDUP",
+    "if (columnStore.get(ev.id)) return; // dedup guard"
+   ],
+   [
+    2311,
+    "ADD",
+    "(columnStore as any).add({"
+   ],
+   [
+    2332,
+    "REGISTER",
+    "viewDependencyTracker.registerElement(ev.id, ev.levelId ?? '');"
+   ],
+   [
+    2333,
+    "REGISTER",
+    "try { bimManager.registerElement(ev.id, ev.levelId ?? ''); } catch { /* non-fatal */ }"
+   ]
+  ]
+ },
+ {
+  "channel": "slab.created",
+  "start": 2363,
+  "end": 2427,
+  "marks": [
+   [
+    2374,
+    "DEDUP",
+    "if (slabStore.getById(ev.id)) return; // dedup guard"
+   ],
+   [
+    2376,
+    "ADD",
+    "slabStore.add({"
+   ],
+   [
+    2398,
+    "REGISTER",
+    "viewDependencyTracker.registerElement(ev.id, ev.levelId ?? '');"
+   ],
+   [
+    2399,
+    "REGISTER",
+    "try { bimManager.registerElement(ev.id, ev.levelId ?? ''); } catch { /* non-fatal */ }"
+   ]
+  ]
+ },
+ {
+  "channel": "beam.created",
+  "start": 2428,
+  "end": 2479,
+  "marks": [
+   [
+    2435,
+    "DEDUP",
+    "if (beamStore.get(ev.id)) return; // dedup guard"
+   ],
+   [
+    2449,
+    "ADD",
+    "beamStore.add(record);"
+   ],
+   [
+    2454,
+    "REGISTER",
+    "viewDependencyTracker.registerElement(ev.id, ev.levelId ?? '');"
+   ],
+   [
+    2455,
+    "REGISTER",
+    "try { bimManager.registerElement(ev.id, ev.levelId ?? ''); } catch { /* non-fatal */ }"
+   ]
+  ]
+ },
+ {
+  "channel": "floor.created",
+  "start": 2480,
+  "end": 2574,
+  "marks": [
+   [
+    2487,
+    "DEDUP",
+    "if (floorStore.getById(ev.floorId)) return; // dedup guard"
+   ],
+   [
+    2496,
+    "ADD",
+    "(floorStore as any).add({"
+   ],
+   [
+    2552,
+    "REGISTER",
+    "viewDependencyTracker.registerElement(ev.floorId, ev.levelId ?? '');"
+   ],
+   [
+    2553,
+    "REGISTER",
+    "try { bimManager.registerElement(ev.floorId, ev.levelId ?? ''); } catch { /* non-fatal */ }"
+   ]
+  ]
+ },
+ {
+  "channel": "handrail.created",
+  "start": 2575,
+  "end": 2780,
+  "marks": [
+   [
+    2582,
+    "DEDUP",
+    "if (handrailStore.getById(ev.id)) return; // dedup guard"
+   ],
+   [
+    2639,
+    "ADD",
+    "handrailStore.add({"
+   ],
+   [
+    2672,
+    "REGISTER",
+    "viewDependencyTracker.registerElement(ev.id, ev.levelId ?? '');"
+   ],
+   [
+    2673,
+    "REGISTER",
+    "try { bimManager.registerElement(ev.id, ev.levelId ?? ''); } catch { /* non-fatal */ }"
+   ],
+   [
+    2718,
+    "RET",
+    "return w ?? undefined;"
+   ]
+  ]
+ },
+ {
+  "channel": "lighting.created",
+  "start": 2781,
+  "end": 2968,
+  "marks": [
+   [
+    2790,
+    "DEDUP",
+    "if (_ls.has(ev.id)) return; // dedup guard"
+   ],
+   [
+    2846,
+    "REGISTER",
+    "try { viewDependencyTracker.registerElement(ev.id, _regLevelId); }"
+   ],
+   [
+    2848,
+    "REGISTER",
+    "try { bimManager.registerElement(ev.id, _regLevelId); }"
+   ],
+   [
+    2851,
+    "ADD",
+    "_ls.add(_data);"
+   ],
+   [
+    2871,
+    "ADD",
+    "_builder.add(_data);"
+   ],
+   [
+    2937,
+    "REGISTER",
+    "try { viewDependencyTracker.registerElement(id, _lvl); }"
+   ]
+  ]
+ },
+ {
+  "channel": "furniture.created",
+  "start": 2969,
+  "end": 3133,
+  "marks": [
+   [
+    2975,
+    "DEDUP",
+    "if (_fs.get(ev.id)) return; // dedup guard"
+   ],
+   [
+    3018,
+    "ADD",
+    "_fs.add({"
+   ],
+   [
+    3064,
+    "REGISTER",
+    "viewDependencyTracker.registerElement(ev.id, ev.levelId ?? '');"
+   ],
+   [
+    3065,
+    "REGISTER",
+    "try { bimManager.registerElement(ev.id, ev.levelId ?? ''); } catch { /* non-fatal */ }"
+   ]
+  ]
+ },
+ {
+  "channel": "pryzm-project-loaded",
+  "start": 3134,
+  "end": 3155,
+  "marks": []
+ },
+ {
+  "channel": "view-activated",
+  "start": 3156,
+  "end": 3697,
+  "marks": [
+   [
+    3337,
+    "RET",
+    "if (level) return (level as any).elevation ?? 0;"
+   ],
+   [
+    3341,
+    "RET",
+    "if (levels.length > 0) return levels[0].elevation ?? 0;"
+   ]
+  ]
+ }
+]

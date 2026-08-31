@@ -1,0 +1,70 @@
+{
+  "family": "curtainWall",
+  "head": "d91d30d4af51bc67317ef8afc0b46b1dbef94038",
+  "members": ["curtain wall (grid + mullions)", "curtain-panel (infill)", "curtain-wall door"],
+  "rows": [
+    {
+      "member": "curtain wall (grid + mullions)",
+      "surface": "3d",
+      "builder_file": "packages/geometry-curtain-wall/src/CurtainWallBuilder.ts (2314 lines)",
+      "entry_fn": "updateCurtainWall(cw) :839  ·  build(cw) :1069  ·  remove(id) :1581  ·  dispose() :1623  ·  setVisualStyle :817  ·  setHdriTexture :824",
+      "package": "@pryzm/geometry-curtain-wall",
+      "layer": "L2",
+      "layer_proof": "eslint.config.js:147",
+      "invoked_by": [
+        "⚠ apps/editor/src/engine/initUI.ts:2311 `window.curtainWallBuilder = new CurtainWallBuilder(world.scene.three as THREE.Scene, { materialMap: _cwMaterialMap })` — the ONLY construction site, and it is NOT in initBuilders.ts. initBuilders' own header (:22) admits this: 'CurtainWallBuilder / ColumnBuilder (internal to their tools) → initTools.ts'. The declared BuilderRegistry (initBuilders.ts:202-270) has NO curtainWallBuilder entry.",
+        "packages/command-registry/src/generic/UpdateElementParameterCommand.ts — triggerGeometryRebuild calls window.curtainWallBuilder.buildCurtainWall on the updated record",
+        "packages/command-registry/src/curtainwall/ReplacePanelTypeCommand.ts:15 — the panelStore subscriber calls curtainWallBuilder.updateCurtainWall(cw)",
+        "BUS LEG: CommandEventBridge curtain-wall.create / .batch.create → 'curtain-wall.created' → apps/editor/src/engine/initTools.ts:2064 → curtainWallRecordFromCreatedEvent() (apps/editor/src/engine/curtainWallCreatedMirror.ts)"
+      ],
+      "proof_command": "grep -rn 'new CurtainWallBuilder' --include=*.ts apps packages plugins | grep -v node_modules | grep -v __tests__  →  1 hit: apps/editor/src/engine/initUI.ts:2311",
+      "REACHABILITY_RISK": "The one builder in the repo reached ONLY through `window.curtainWallBuilder`, constructed in a UI-init file, absent from the builder registry. Every writer is a `window.*` lookup — a P4 `(window as any)`-shaped seam by another name.",
+      "rivals": [
+        {"candidate": "plugins/curtain-wall/src/committer/curtain-wall-committer.ts + packages/geometry-kernel/src/producers/curtainwall.ts", "verdict": "RIVAL, UNREACHABLE. CurtainWallCommitter IS instantiated — but only in apps/bench/src/benches/orbit-fps-cw.bench.ts:81. Not one of the four in bootstrap.render.everything.ts."},
+        {"candidate": "packages/geometry-curtain-wall/src/CurtainWallInstanceManager.ts", "verdict": "instancing path inside the same package, not a rival builder."}
+      ],
+      "robustness": {
+        "degenerate_input": "ZERO isFinite/isNaN and ZERO `throw new` across 2314 lines. Guarding is upstream, in curtainWallCreatedMirror (returns null → initTools :2077 `if (!cwRecord) return;`) plus a `.has()` dedup.",
+        "disposal": "PRESENT — 13 dispose sites, explicit dispose() :1623 and remove(id) :1581."
+      },
+      "fidelity": {
+        "authored_L0_fields": ["provenance","confidence","levelId","baseLine","height","baseOffset","mullionThickness","panelThickness","bayWidth","bayHeight","panels","materialId"],
+        "authored_count": 12,
+        "ceb_channel": "curtain-wall.created",
+        "ceb_emit_sites": ["~L680 (curtain-wall.create) — 18 keys","~L741 (curtain-wall.batch.create) — 18 keys, IDENTICAL","~L1764 (lift.create fan-out) — 14 keys"],
+        "ceb_emitted_keys": ["commandId","commandType","levelId","elementCount","id","baseLine","height","baseOffset","bayWidth","bayHeight","mullionThickness","panelThickness","materialId","panels","systemTypeId","mullionMaterialId","mullionColor","glazingMaterialId"],
+        "dropped_at_ceb": ["provenance","confidence"],
+        "VERDICT": "⭐ NOTHING IS DROPPED AT THE BRIDGE — the emit is a SUPERSET of the L0 schema (it adds four legacy-vocabulary fields the schema does not have). The loss is one hop LATER, at the mirror, and it is the MOST HONEST loss in the repo.",
+        "loss_at_the_mirror": "apps/editor/src/engine/curtainWallCreatedMirror.ts:125-164. TWO authored fields have no unambiguous destination in the legacy CurtainWallData and the mirror says so in its own words: (a) `materialId` — 'a SINGLE generic id. The legacy model has THREE candidate slots — mullionMaterialId, glazingMaterialId and systemTypeId — with different meanings … so the id's intent is not recoverable here'; (b) `panels[]` — 'an authored per-panel override; the legacy model describes panels through gridSystem + CurtainPanelSyncHandler, which derives them from the grid rather than accepting a list'.",
+        "⭐ THE HONESTY BAR, MET": "The mirror does not merely comment. It emits TWO RUNTIME console.warn's naming the element id, the dropped field, the reason and the visible consequence — :147-155 'The wall is mirrored WITHOUT it — its 3-D material comes from the builder's defaults, not from this id.' and :156-164 'the wall is mirrored with its GRID only and those panel overrides are not reflected in 3-D.' It also SUPPRESSES the materialId warning when materialId is merely the handler's fold of systemTypeId (:142-147, §CW90-PLAN-TYPE-PARITY) — so the warning fires only on a real loss. THIS IS THE STANDARD floor.json's hardcoded '#D4C4A8' fails.",
+        "draws_what_the_user_authored": "NO for materialId and panels[] — but the failure is ANNOUNCED at runtime, per element, with the reason. That is a different and far better defect than slab's or floor's silence."
+      }
+    },
+    {
+      "member": "curtain-panel (infill)",
+      "surface": "3d",
+      "builder_file": "packages/geometry-curtain-wall/src/CurtainPanelBuilder.ts + CurtainPanelFactory.ts, driven by CurtainPanelSyncHandler.ts",
+      "own_store": "YES — CurtainPanelStore (initBuilders.ts:143)",
+      "own_channel": "NO — panels are DERIVED from the parent's gridSystem, not authored as a list",
+      "plan": "YES — 'curtain-panel' IS in GEOMETRY_ELEMENT_TYPES (ViewDependencyTracker.ts:81), and it is one of only four member-level entries there (with stair-landing, stair-railing, opening)",
+      "honest_about_it": "YES — the mirror warns per-element when authored panels are discarded (above)."
+    },
+    {
+      "member": "curtain-wall door",
+      "surface": "3d",
+      "builder_file": "packages/geometry-curtain-wall/src/curtainWallDoors.ts",
+      "drawn": "YES",
+      "note": "A member with its own module and no channel of its own; rides the parent's rebuild."
+    },
+    {
+      "member": "curtain wall (grid + mullions)",
+      "surface": "plan",
+      "builder_file": "EdgeProjectorService true-edge projection. NO curtain-wall plan-symbol builder among the fifteen.",
+      "invalidation": "`curtainwall` (unhyphenated) IS in GEOMETRY_ELEMENT_TYPES (ViewDependencyTracker.ts:81).",
+      "⚠ SPELLING_DRIFT": "THREE spellings are live for one family and they do not all agree. GEOMETRY_ELEMENT_TYPES uses `curtainwall`; the CEB channel and command verbs use `curtain-wall`; the ALL_PLUGINS descriptor id is `curtain-wall` while its storeKey is `curtainwall` (census.json S2). The EdgeProjectorService symbol gate is never asked about this family so the drift does not bite THERE — but any new code that gates on the family name has three chances to pick the wrong one.",
+      "fidelity": "INHERITS 3D."
+    },
+    {"member": "curtain wall", "surface": "section", "builder_file": "derived from the 3D mesh", "fidelity": "INHERITS 3D"},
+    {"member": "curtain wall", "surface": "export", "builder_file": "packages/file-format/src/export/ifc/readers/CurtainWallReader.ts (L3, FragmentReader.ts:46)", "rivals": ["the UNREACHABLE plugins/ifc-export has NO curtain-wall exporter"]}
+  ]
+}

@@ -1,0 +1,12 @@
+door legacy-stack
+window legacy-stack
+level legacy-stack
+structural nothing
+dimension nothing
+section nothing
+selection nothing
+sheet nothing
+schedule nothing
+view nothing
+active-view nothing
+balcony nothing

@@ -1,0 +1,160 @@
+{
+ "phase": "P3 - AXIS C - COMMANDS",
+ "date": "2026-08-31",
+ "doctrine": "Every row names its evidence class: (a) a gate or the generated register says so; (b) a comparator that can prove it would fire says so; (c) an executed measurement I ran myself. 59 of 99 gates in this repo are BLIND COMPARATORS (P0), so no row upgrades (a) to (c) by wording.",
+ "findings": [
+  {
+   "id": "P3-C1",
+   "severity": "CRITICAL",
+   "evidence_class": "c",
+   "claim": "slab.create returns OK and writes NOTHING to the authoritative store.",
+   "command": "cd apps/editor && npx vitest run __tests__/composedBusElementReadback.test.ts  ->  RC=0, 4 tests passed",
+   "detail": "composedBusElementReadback.test.ts:205-206 asserts expect(slabOutcome).toBe('OK') AND expect(authoritative('slab').getById(slabId)).toBeUndefined(), on the REAL composeRuntime() bus with the REAL ProjectContext singleton attached. The committed plugin record carries `boundary`; the authoritative SlabStore demands `polygon`/`position`. A SHAPE defect, not a wiring one. This is the exact class of defect the memory note `verbs-with-no-consequence` was written for: success reported, nothing changed.",
+   "ladder": "AUTHORED yes / REACHABLE yes / COMPOSABLE yes / CERTIFIED NO - and measured negative, which is stronger than unproven."
+  },
+  {
+   "id": "P3-C2",
+   "severity": "CRITICAL",
+   "evidence_class": "a+c",
+   "claim": "THE DELETE COLUMN HAS NO CHANNEL. Of 32 element channels declared in the RuntimeEvents contract, exactly ONE is a delete channel.",
+   "command": "grep -cE \"^\\s+'[a-zA-Z.-]+\\.deleted'\" packages/runtime-composer/src/types.ts  ->  1   (boundaryLine.deleted, types.ts:520)",
+   "detail": "26 of the 32 declared channels are `.created`. There is no `element.deleted`, and no per-family deleted channel except boundaryLine's. 38 of the 40 delete verbs therefore emit nothing at all; the two exceptions are boundaryLine.delete (a hand-written case at CommandEventBridge.ts:2478) and slab.removeHole (an ELEMENT_UPDATE_VERBS row). Corroborated independently by tools/ga-gate/mirror-debt.json, which says ~23 rows on that ledger are *.delete and all need one thing: an element.deleted channel plus a per-family remove(id) adapter.",
+   "ladder": "The delete surface is AUTHORED at 40 verbs and MIRRORED at 2."
+  },
+  {
+   "id": "P3-C3",
+   "severity": "CRITICAL",
+   "evidence_class": "c",
+   "claim": "room.create is classed LIVE by the canonical register and my executed run proves it writes nothing.",
+   "command": "cd apps/editor && npx vitest run __tests__/composedBusElementReadback.test.ts  ->  RC=0",
+   "detail": "composedBusElementReadback.test.ts:234-236: roomOutcome is NOT 'OK', it matches /legacy command manager is not available/, and authoritative('room').getById(...) is undefined. CreateRoomHandler declares affectedStores: [] and delegates to window.commandManager, so there is no patch pair to mirror and no authoritative write available in a composed process. It throws BY NAME rather than lying, which is the part that is already right. But LIVE, as the register defines it ('declared in an execution-authority root, OR delegates to the legacy commandManager'), is satisfied by delegation alone.",
+   "the_generalisation": "LIVE does not mean the write happens. 137 of the 142 LIVE verbs have no proven read-back."
+  },
+  {
+   "id": "P3-C4",
+   "severity": "HIGH",
+   "evidence_class": "c",
+   "claim": "REFUTATION - the register's UNKNOWN class is not 'unproven'. 18 of the 22 verbs I proved read-back-positive are classed UNKNOWN by it.",
+   "command": "the four vitest runs recorded in _EXECUTED-READBACKS.json (RC=0 each), cross-read against docs/04-reference/API-VERB-REGISTER.md",
+   "detail": "UNKNOWN-and-PROVEN: bathroomPod.create, bathroomPod.delete, boundaryLine.create, door.batch.create, lift.create, pool.create, roof.create, roof.setOverhang, roof.setPitch, roof.setShape, selection.clear, selection.deselect, selection.select, slab.addHole, slab.setThickness, stair.move, wall.create, window.batch.create. The register defines UNKNOWN as 'a lone plugin produceCommand handler; nobody has proven either way'. Somebody had - in vitest files sitting in the same repository. The register is a STATIC scan and cannot see an executed proof; that is not a bug in the register, it is the ceiling of its evidence class, and it is why this phase ran the tests instead of quoting it.",
+   "consequence": "V4's shrink-only UNKNOWN baseline is being paid down in an order that has nothing to do with which verbs work."
+  },
+  {
+   "id": "P3-C5",
+   "severity": "HIGH",
+   "evidence_class": "c",
+   "claim": "door.batch.create and window.batch.create are READBACK-POSITIVE and DISPATCHED NOWHERE.",
+   "command": "cd apps/editor && npx vitest run __tests__/DoorBatchCreateLiveness.probe.test.ts __tests__/WindowBatchCreateLiveness.probe.test.ts  ->  RC=0 (part of the 6-file run, 45 tests passed)",
+   "detail": "Both probes prove one dispatch stores every member and it reads back from the store, AND that there are ZERO production dispatch sites. Each carries a POSITIVE CONTROL (wall.batch.create IS found dispatched), so the negative is not a blind scan. My own independent literal-dispatch probe (_tools/callers2.mjs, 5120 production files) reproduces all three numbers exactly: wall.batch.create 5 sites, door.batch.create 0, window.batch.create 0.",
+   "ladder": "AUTHORED yes / COMPOSABLE yes (proven) / REACHABLE NO. This is 'authored-but-unwired' with a read-back attached, which is the most expensive form: it will pass every store-level test forever."
+  },
+  {
+   "id": "P3-C6",
+   "severity": "HIGH",
+   "evidence_class": "a",
+   "claim": "THREE fully-typed RuntimeEvents channels have NEITHER an emitter NOR a subscriber anywhere in the repository: door.created, window.created, stair.created.",
+   "command": "comm -23 <declared .created/.updated/.deleted keys in packages/runtime-composer/src/types.ts> <events.emit('...') literals in CommandEventBridge.ts>  ->  door.created, site.created, stair.created, window.created; then grep -rn for each literal over apps/editor/src packages/runtime-composer/src plugins (tests excluded)",
+   "detail": "site.created is a false positive - it is emitted three times and subscribed once outside the bridge (apps/editor/src/ui/site/*). The other three are dead in BOTH directions. CommandEventBridge.ts:1236-1237 states the cause in its own comment: 'cases removed - no initTools.ts subscribers exist for door.created, window.created, or stair.created (confirmed grep returned 0 hits)'. So the contract declares a payload type for three of the most fundamental element families and nothing on either side of the channel exists. Combined with the NINE channels that are emitted into zero subscribers (P1), TWELVE of the 32 declared element channels carry no traffic in at least one direction.",
+   "note": "door.create and window.create are additionally classed REFUSES by the register - the two hosted families refuse at the bus AND have a dead channel."
+  },
+  {
+   "id": "P3-C7",
+   "severity": "HIGH",
+   "evidence_class": "a",
+   "claim": "47 verbs have an undo unit that CANNOT APPLY - Ctrl+Z is a no-op for them.",
+   "command": "per-verb affectedStores compared against buildUndoStoreMap() key set (apps/editor/src/engine/undo/performUndoRedo.ts:398-514) and UNMAPPED_BUS_STORE_KEYS (:567+)",
+   "detail": "_covered() is ALL-OR-NOTHING: one uncovered store key strands the whole entry, performUndo declines it WITHOUT stepping the ring cursor, and falls through to a commandManager that owns nothing for those keys. 326 verbs DECLARE an undo shape; only 157 have every declared key covered. The gap of 169 is the difference between an undo column that reads well and an undo that runs.",
+   "the_repo_already_knows": "UNMAPPED_BUS_STORE_KEYS names structural, dimension, section, selection, sheet, schedule, view, active-view and balcony as owner:'nothing', with the reason attached. That table is the honest half. The 47 figure is what it costs at verb granularity."
+  },
+  {
+   "id": "P3-C8",
+   "severity": "HIGH",
+   "evidence_class": "a",
+   "claim": "130 of 361 verbs (36%) are declared in a handler FILE that references commandManager outside a comment, across 58 distinct files.",
+   "command": "grep -rn commandManager --include=*.ts plugins/*/src/handlers packages/command-registry/src apps/editor/src/engine/initBusHandlers.ts | grep -v tests | grep -vE ':\\s*(//|\\*|/\\*)'  ->  101 lines, 58 files; joined against the 361 registration sites",
+   "detail": "By kind: update 67, other 32, create 21, delete 6, move 4. The whole rooms/ handler directory, the whole view/ batch directory, and every *SystemTypeBatch handler across wall/window/door/slab/ceiling are in it. These are mostly DECLARED legacy delegation and the register credits them as LIVE for exactly that reason - so this is not 130 breaches, it is the measurement of how much of the bus is a facade over the legacy authority.",
+   "the_name_blindness": "227 production commandManager.execute sites resolve to 42 distinct callee tokens, and THIRTY-NINE of those calls pass a VARIABLE (cmd x27, command x9, step x2, layersCmd, createCommand, build). A name-keyed rival census cannot see them. That is the same defeat-by-renaming CLAUDE.md records for check:commandmanager."
+  },
+  {
+   "id": "P3-C9",
+   "severity": "MEDIUM",
+   "evidence_class": "b",
+   "claim": "198 of 361 verbs have ZERO literal dispatch site outside their own handler file - and the probe that says so carries a control that fires and a MEASURED 41% false-zero rate.",
+   "command": "node audit/full-stack/2026-08-31/commands/_tools/callers2.mjs  ->  5120 production files scanned; POSITIVE CONTROL wall.batch.create = 5 sites; door.batch.create = 0; window.batch.create = 0",
+   "detail": "By kind: update 96, delete 29, other 32, move 27, batch.create 6, create 5, join 1, split 1, regenerate 1. The probe is NON-BLIND: its positive control fires, and it independently reproduces the two negatives asserted by the two liveness probe tests I executed at RC=0. BUT it is a LITERAL scan and table-driven dispatch is invisible to it: NINE of the 22 verbs I proved read-back-positive are in the zero set (bathroomPod.delete, door.batch.create, roof.setOverhang, roof.setPitch, roof.setShape, selection.deselect, slab.addHole, slab.setThickness, window.batch.create), a 41% false-zero rate among verbs known to work. Read a zero as UNPROVEN-DISPATCH, never as ABSENT.",
+   "why_it_is_still_worth_reporting": "Calibrated at 41% false zeros, 198 zeros still implies a large majority of the command surface has no literal caller, and the 29 zero-dispatch DELETE verbs line up exactly with P1's 27 rival deleters."
+  },
+  {
+   "id": "P3-C10",
+   "severity": "MEDIUM",
+   "evidence_class": "a",
+   "claim": "86 verbs are QUADRUPLE-NEGATIVE: no mirror, no proven read-back, UNKNOWN liveness, and zero literal dispatch site.",
+   "command": "intersection over the 361 emitted rows; enumerated in _ROLLUPS.json ROLLUP_5.quadruple_negative_candidates",
+   "detail": "By kind: update 49, delete 24, other 8, create 3, move 1, join 1, split 1. Twenty-four of the forty delete verbs are in it, and so is the entire annotation property set (setColor/setKind/setRotation/setText/setTextHeight), the entire curtain-wall panel set, the entire dimension set and the entire schedule set. THIS IS A CANDIDATE SET, NOT A CONVICTION SET - the dispatch leg carries the 41% false-zero rate from P3-C9, and the liveness leg is refuted for 18 verbs by P3-C4. It is the right place for the next lane to start, not a verdict."
+  },
+  {
+   "id": "P3-C11",
+   "severity": "MEDIUM",
+   "evidence_class": "a",
+   "claim": "A bus handler delivers its batch REPORT on the DOM event bus.",
+   "command": "grep -n 'window.dispatchEvent' plugins/wall/src/handlers/UpdateWallsHeightBatch.ts  ->  :177, :231, :290",
+   "detail": "window.dispatchEvent(new CustomEvent(WALL_HEIGHT_BATCH_REPORT_EVENT, { detail: report })) fires at three points inside a registered bus handler, rather than the report travelling back as a HandlerResult the caller reads. TWENTY of the 361 verbs are declared in a file that calls dispatchEvent; 205 production sites exist repo-wide, the largest holders being packages/ai-host/src/QueryEngine.ts (15) and packages/input-host/src/FloorPlanUnderlayTool.ts (11). C16 CA-18's whole point is that a decision the caller can ignore is a decision that reaches nobody; a DOM CustomEvent is one step further away than a swallowed throw."
+  },
+  {
+   "id": "P3-C12",
+   "severity": "MEDIUM",
+   "evidence_class": "a",
+   "claim": "Zero of 361 handlers defer geometry to the FrameScheduler by name, and only 2 of 361 emit a domain event themselves.",
+   "command": "regex over each handler's declaration slice for frameScheduler|FrameScheduler|scheduleGeometry|onFrame|requestFrame  ->  0/361; and for events.emit|emitDomainEvent  ->  2/361",
+   "detail": "NEITHER of these is 359 defects. Emission is architecturally the CommandEventBridge's job - which is exactly why ROLLUP 2 is the load-bearing number: a handler that emits nothing is CORRECT and a bridge with no case for it is the gap. The FrameScheduler zero is the honest reading that no handler names the scheduler; whether geometry is deferred DOWNSTREAM of the patch is an AXIS-B question this phase did not measure. Reported so the contract clause is not silently scored as satisfied.",
+   "clean_result_worth_recording": "direct requestAnimationFrame in a handler slice: 0 of 361. That is an independent look at P3 (single rAF owner) from a different subject - not a re-run of check-raf-count, which is one of the 59 blind comparators."
+  },
+  {
+   "id": "P3-C13",
+   "severity": "LOW",
+   "evidence_class": "c",
+   "claim": "REFUTATION - the read-back coverage figure carried into this phase was too low by 3x.",
+   "command": "16 test files executed across four vitest runs, all RC=0, 101 tests passing",
+   "detail": "The brief and the 2026-08-29 synthesis carried 7 verbs / 3 families. The measured figure is 22 verbs / 13 families (6.1% of 361, 26% of families). The low number was an artefact of counting the tests the previous audit cited rather than running the ones the repo already contains: apps/editor/__tests__ alone holds 30 files that call the real composeRuntime(). A refutation is a success mode; reported and not padded."
+  },
+  {
+   "id": "P3-C14",
+   "severity": "LOW",
+   "evidence_class": "c",
+   "claim": "curtain-wall.replacePanel is DEAD, proven three ways in one executed file.",
+   "command": "cd apps/editor && npx vitest run __tests__/CurtainReplacePanelIsDead.test.ts  ->  RC=0",
+   "detail": "ARM 1: no plugin descriptor contributes a curtainPanelStore key. ARM 2: the REAL handler refuses when handed a production-shaped context. ARM 3: it is not the payload validation refusing - a VALID type still fails. Three arms, and the third is the control that rules out the obvious alternative explanation. Note the tension with buildUndoStoreMap(), which DOES carry a `curtainPanel` key pointing at w.curtainPanelStore: a key whose store nothing contributes is the same 'costume of a fix' that L-980 found for pool and water."
+  },
+  {
+   "id": "P3-C15",
+   "severity": "LOW",
+   "evidence_class": "a",
+   "claim": "Exactly ONE verb of 361 has two registration sites, and it is the one the register already flags.",
+   "command": "the 361 emitted rows, filtered on site_count > 1",
+   "detail": "sheet.create at plugins/sheets/src/handlers/CreateSheet.ts:51 and apps/editor/src/engine/initBusHandlers.ts:2641. SHADOWED - the boot-order guard means the plugin one wins and the live bridge never registers. This is a REFUTATION of a reasonable prior: a repo mid-migration with 48 plugins and two execution authorities has ONE duplicate registration, not dozens. The rival-dispatch problem here is NOT duplicate bus registration; it is the 227 commandManager.execute sites and the 205 window.dispatchEvent sites running beside the bus."
+  },
+  {
+   "id": "P3-C16",
+   "severity": "MEDIUM",
+   "evidence_class": "c",
+   "claim": "SELF-CALIBRATION - my own contract regex under-reports typed errors by 4x, and I caught it by spot-check rather than by trusting it.",
+   "command": "grep -n 'Error\b' plugins/wall/src/handlers/CreateWall.ts ; then a capability re-scan of all 361 registration files for /\b[A-Z][A-Za-z]*Error\b|CapabilityRefusal|capabilityRefused|refusal/",
+   "detail": "The slice regex scores typed_DomainError_or_refusal at 70 of 361. CreateWall.ts scores FALSE on it and throws WallSystemTypeNotFoundError (:232), WallSchemaError (:303) and WallDimensionsError (:319) outward from execute. Re-measured BY CAPABILITY instead of by name: 314 of 361 registration files name a typed *Error class or a refusal value. Both numbers are published; 70 is a name-match floor, 314 is the capability reading. No other clause in that block was spot-checked, so all of them should be read as floors.",
+   "doctrine": "An absence claim is a measurement. This one was wrong for the classic reason - it searched for the base-class name in a repo that names its errors after the element family."
+  }
+ ],
+ "REFUTATIONS_SUMMARY": [
+  "P3-C13 - read-back coverage is 22/361, not 7/361.",
+  "P3-C4 - the register's UNKNOWN class contains 18 verbs with an executed read-back proof.",
+  "P3-C15 - duplicate bus registration is 1 verb of 361, not a cluster.",
+  "P3-C12 - two contract clauses that score near-zero are NOT near-total failures; the architecture assigns them elsewhere.",
+  "P3-C16 - my own typed-error clause was a 4x under-count; corrected in place rather than shipped."
+ ],
+ "WHAT_THIS_PHASE_DID_NOT_MEASURE": [
+  "PAYLOAD field-name agreement per verb. Only three cases are measured (slab.create boundary-vs-polygon, roof.create id minting, column.batch.create id-less members), all re-proven by my executed run of CommittedPatchReachesTheStore.test.ts. The remaining 358 carry payload: null with the reason stated, never a favourable default.",
+  "Whether ANY of the 22 proven verbs reaches a pixel. Every proof stops at a store record or an emitted event.",
+  "The 39 commandManager.execute sites that pass a variable. Unresolvable by a name scan; stated as a limit, not smoothed over.",
+  "Runtime registration. Like the canonical generator, discovery here is static.",
+  "Whether the contract-clause regexes fire on the MUTATION path. A TRUE means the token is present in the declaration slice."
+ ]
+}
