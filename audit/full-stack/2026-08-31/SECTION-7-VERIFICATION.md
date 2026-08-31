@@ -33,3 +33,19 @@
 - [x] Wave A verified + committed (1234ca9b) + input-host (83979ad3): banned-3p 124 -> 86/113, check-layer-boundaries RC=0 — the SECOND red->green flip of the session
 - [x] Full run-all re-read at 83979ad3: 64 passing / 36 failing / 1 declared debt / 22 ratchet exceeded / 4 regression-class (all four red in the MORNING baseline too) / 0 misconfigured. The 36 are the morning 38 minus verb-register minus layer-boundaries. ZERO new reds all session.
 - [ ] Deploy per DEPLOY-CONTRACT-MANUAL-FLY.md (push already done for C + L)
+
+## CLOSE-OUT (2026-09-01, post-7B2)
+| Gate arm | Morning baseline | Final |
+|---|---|---|
+| check-layer-boundaries upward | 102/102 (zero headroom) | **48/102** (7B2 inversion, −54) |
+| check-layer-boundaries banned-3p | 124/113 **RED** | **86/113 GREEN** (OBC seam) |
+| check-layer-boundaries sdk-bypass | 171/182 | **156/182** |
+| check-verb-register | RC=1 (1 SHADOWED) | **RC=0** (0 SHADOWED) |
+| check-fidelity-axis | did not exist | **RC=0, registered** |
+
+B/C/L/7 in-repo campaign COMPLETE at `62efae06`. Deployed via the manual Fly
+contract (Actions billing-blocked; run log `/tmp/fly-deploy-62efae06.log`;
+rollback tag `deployment-01M19WWXFSY0R8508FCYYKVG4H` = v1410 captured per §5.3).
+Known successors, each owned: check-contract-cited-paths 507/490 (pre-existing,
+7B2 improved it by 2 — needs an owner); the C11 §10.3 bridge-migration program;
+the per-package strictness swamp (Aug 25 provenance); L-12868/12869 rulings.
