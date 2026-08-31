@@ -75,11 +75,11 @@ import { assetCatalogStore } from '@pryzm/core-app-model';
 import { dxfOverlayStore } from '@pryzm/file-format';
 import { sheetStore } from '@pryzm/core-app-model';
 import { scheduleStore } from '@pryzm/core-app-model';
-import { annotationStore } from '@pryzm/plugin-annotations';
+import { annotationStore } from '@pryzm/core-app-model';
 // ANNOTATION-SYSTEM-AUDIT-2026 A4 / B8 / B9 — additional annotation slices
-import { constraintStore } from '@pryzm/plugin-annotations';
-import { annotationVisibilityStore } from '@pryzm/plugin-annotations';
-import { obcAnnotationAdapter } from '@pryzm/plugin-annotations';
+import { constraintStore } from '@pryzm/core-app-model';
+import { annotationVisibilityStore } from '@pryzm/core-app-model';
+import { obcAnnotationIdMap } from '@pryzm/core-app-model';
 
 export const SNAPSHOT_SCHEMA_VERSION = 5;
 
@@ -964,7 +964,7 @@ export class ProjectSerializer {
 
             // ANNOTATION-SYSTEM-AUDIT-2026 B9 — OBC uuid → annotationId bridge map.
             obcAnnotationMap: (() => {
-                const snap = obcAnnotationAdapter.serialize();
+                const snap = obcAnnotationIdMap.serialize();
                 return snap.entries.length > 0
                     ? snap as ProjectSnapshot['obcAnnotationMap']
                     : undefined;

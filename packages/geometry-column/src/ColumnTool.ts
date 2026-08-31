@@ -16,8 +16,8 @@
 import * as THREE from '@pryzm/renderer-three/three';
 import { createId } from '@pryzm/schemas';
 import { ColumnStore } from './ColumnStore.js';
-import { SteelProfileLibrary } from '@pryzm/plugin-structural';
-import { generateColumnISection } from '@pryzm/plugin-structural';
+import { SteelProfileLibrary } from '@pryzm/geometry-kernel';
+import { generateColumnISection } from './ISectionGenerator';
 import { CreateColumnCommand } from '@pryzm/command-registry';
 import { elementRegistry } from '@pryzm/core-app-model/element-registry';
 import { resolveSlabBaseOffsetForPoint } from './SlabColumnCoupling.js';

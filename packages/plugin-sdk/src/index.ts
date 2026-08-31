@@ -369,6 +369,10 @@ export {
   pointInRingEvenOdd,
   pointInPolygonXZ,
   pointInPolygonXY,
+  // F-P5-04 inversion (2026-08-31): steel section catalogue — real home is now
+  // geometry-kernel (moved down from plugins/structural); surfaced through the
+  // SDK facade so plugins reach it without a direct kernel import.
+  SteelProfileLibrary,
 } from '@pryzm/geometry-kernel';
 
 export type {
@@ -440,7 +444,26 @@ export type {
   SectionCutResult,
   SectionEdge2D,
   SectionLine,
+  SteelProfile,
+  SectionSeries,
 } from '@pryzm/geometry-kernel';
+
+// ── @pryzm/geometry-column ─────────────────────────────────────────────────
+// F-P5-04 inversion (2026-08-31): I/H-section generator — real home is now
+// geometry-column (moved down from plugins/structural; THREE-bearing, so the
+// THREE-free kernel could not take it). Surfaced through the SDK facade so
+// plugins/structural's barrel keeps its public surface without an upward edge.
+export {
+  generateColumnISection,
+  generateBeamISection,
+  createColumnLOD,
+  createBeamLOD,
+  invalidateProfileCache,
+  clearSectionCache,
+  columnSnapTargets,
+  beamSnapTargets,
+} from '@pryzm/geometry-column';
+export type { LODLevel } from '@pryzm/geometry-column';
 
 // ── @pryzm/view-state ──────────────────────────────────────────────────────
 export {
@@ -785,3 +808,28 @@ export {
   ObcAnnotationIdMap,
   obcAnnotationIdMap,
 } from '@pryzm/core-app-model/annotations';
+
+// ── §7B2-LANE-B — the 9 annotation command classes (F-P5-04 inversion) ───────
+// The class bodies moved DOWN from `plugins/annotations/src/commands/` into
+// `packages/command-registry/src/annotations/` (protocol: command-registry's
+// canonical `types.ts`; the plugin's `legacy-command-protocol` copy declared
+// its enum literals string-identical by design). The SDK is the ONLY sanctioned
+// route for a plugin to reach them (`plugins/annotations`' same-path command
+// shims re-export from here), so the sdk-bypass ratchet moves DOWN, never up.
+// L5 → L2 — a downward edge, like every other re-export in this facade.
+// No aliases needed: none of these names collided at this barrel (verified).
+export {
+  CreateAnnotationCommand,
+  CreateManyAnnotationsCommand,
+  CreateCalloutDetailCommand,
+  type CreateCalloutDetailParams,
+  CreateElevationMarkCommand,
+  type CreateElevationMarkParams,
+  CreateSectionMarkCommand,
+  type CreateSectionMarkParams,
+  DeleteAnnotationCommand,
+  LockAnnotationCommand,
+  type LockAnnotationOptions,
+  UpdateAnnotationCommand,
+  UpdateConstraintCommand,
+} from '@pryzm/command-registry';

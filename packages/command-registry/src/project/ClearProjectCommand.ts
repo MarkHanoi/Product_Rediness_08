@@ -34,7 +34,7 @@ import { visibilityRuleEngine } from '@pryzm/core-app-model';
 import { sheetStore } from '@pryzm/core-app-model';
 import { scheduleStore } from '@pryzm/core-app-model';
 import { roomBoundingLineStore } from '@pryzm/core-app-model';
-import { annotationStore } from '@pryzm/plugin-annotations';
+import { annotationStore } from '@pryzm/core-app-model';
 import { projectScopeRegistry } from '@pryzm/core-app-model';
 import { storeEventBus } from '@pryzm/core-app-model';
 import { DOMEventBus } from '@pryzm/event-bus';

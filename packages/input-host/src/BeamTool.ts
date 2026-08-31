@@ -10,7 +10,7 @@ import {
 import { BeamStore } from '@pryzm/core-app-model/stores';
 import { CreateBeamCommand } from '@pryzm/command-registry';
 import { CommandManager } from '@pryzm/command-registry';
-import { SteelProfileLibrary } from '@pryzm/plugin-structural';
+import { SteelProfileLibrary } from '@pryzm/geometry-kernel';
 
 export interface BeamTypeConfig {
     id:               string;

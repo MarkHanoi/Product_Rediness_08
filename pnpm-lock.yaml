@@ -1653,9 +1653,6 @@ importers:
       '@pryzm/persistence-client':
         specifier: workspace:*
         version: link:../persistence-client
-      '@pryzm/plugin-annotations':
-        specifier: workspace:*
-        version: link:../../plugins/annotations
       '@pryzm/renderer-three':
         specifier: workspace:*
         version: link:../renderer-three
@@ -1993,9 +1990,6 @@ importers:
       '@pryzm/persistence-client':
         specifier: workspace:*
         version: link:../persistence-client
-      '@pryzm/plugin-annotations':
-        specifier: workspace:*
-        version: link:../../plugins/annotations
       '@pryzm/renderer-three':
         specifier: workspace:*
         version: link:../renderer-three
@@ -2108,9 +2102,12 @@ importers:
       '@pryzm/frame-scheduler':
         specifier: workspace:*
         version: link:../frame-scheduler
-      '@pryzm/plugin-structural':
+      '@pryzm/geometry-column':
         specifier: workspace:*
-        version: link:../../plugins/structural
+        version: link:../geometry-column
+      '@pryzm/geometry-kernel':
+        specifier: workspace:*
+        version: link:../geometry-kernel
       '@pryzm/renderer-three':
         specifier: workspace:*
         version: link:../renderer-three
@@ -2149,9 +2146,9 @@ importers:
       '@pryzm/geometry-slab':
         specifier: workspace:*
         version: link:../geometry-slab
-      '@pryzm/plugin-structural':
+      '@pryzm/renderer-three':
         specifier: workspace:*
-        version: link:../../plugins/structural
+        version: link:../renderer-three
       zod:
         specifier: ^4.3.6
         version: 4.4.3
@@ -2364,9 +2361,6 @@ importers:
       '@pryzm/geometry-slab':
         specifier: workspace:*
         version: link:../geometry-slab
-      '@pryzm/plugin-annotations':
-        specifier: workspace:*
-        version: link:../../plugins/annotations
       '@pryzm/renderer-three':
         specifier: workspace:*
         version: link:../renderer-three
@@ -2570,6 +2564,9 @@ importers:
       '@pryzm/geometry-door':
         specifier: workspace:*
         version: link:../geometry-door
+      '@pryzm/geometry-kernel':
+        specifier: workspace:*
+        version: link:../geometry-kernel
       '@pryzm/geometry-lift':
         specifier: workspace:*
         version: link:../geometry-lift
@@ -2591,12 +2588,6 @@ importers:
       '@pryzm/picking':
         specifier: workspace:*
         version: link:../picking
-      '@pryzm/plugin-annotations':
-        specifier: workspace:*
-        version: link:../../plugins/annotations
-      '@pryzm/plugin-structural':
-        specifier: workspace:*
-        version: link:../../plugins/structural
       '@pryzm/renderer-three':
         specifier: workspace:*
         version: link:../renderer-three
@@ -2816,12 +2807,18 @@ importers:
       '@pryzm/command-bus':
         specifier: workspace:*
         version: link:../command-bus
+      '@pryzm/command-registry':
+        specifier: workspace:*
+        version: link:../command-registry
       '@pryzm/core-app-model':
         specifier: workspace:*
         version: link:../core-app-model
       '@pryzm/frame-scheduler':
         specifier: workspace:*
         version: link:../frame-scheduler
+      '@pryzm/geometry-column':
+        specifier: workspace:*
+        version: link:../geometry-column
       '@pryzm/geometry-kernel':
         specifier: workspace:*
         version: link:../geometry-kernel

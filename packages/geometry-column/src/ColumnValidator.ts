@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { SteelProfileLibrary } from '@pryzm/plugin-structural';
+import { SteelProfileLibrary } from '@pryzm/geometry-kernel';
 
 const xYZPoint = z.object({ x: z.number(), y: z.number(), z: z.number() });
 const HEX_COLOR = /^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/;

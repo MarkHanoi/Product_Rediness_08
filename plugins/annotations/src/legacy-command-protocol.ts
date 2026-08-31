@@ -9,6 +9,15 @@
  * IMPORTANT: Only annotation-related CommandType values are defined here.
  * The string literals are intentionally identical to the originals so that
  * CommandManager (still in src/) can dispatch them transparently.
+ *
+ * F-P5-04 inversion (LANE B, 2026-08-31) — COMPAT COPY ONLY. The 9 annotation
+ * command classes moved DOWN to `packages/command-registry/src/annotations/`
+ * and now implement command-registry's canonical `types.ts` protocol (whose
+ * enum literals are string-identical to these by this file's own design).
+ * This copy stays behind ONLY for the plugin-side code that still types
+ * against it (UpdateAnnotationPresentationCommand, panels, tools, the barrel's
+ * public `CommandType` re-export). Do NOT make new code implement THIS
+ * interface — implement `@pryzm/command-registry`'s `types.ts` instead.
  */
 
 export enum CommandType {

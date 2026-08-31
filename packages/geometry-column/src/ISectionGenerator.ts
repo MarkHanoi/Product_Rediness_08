@@ -18,7 +18,7 @@
  */
 
 import * as THREE from '@pryzm/renderer-three/three';
-import { SteelProfile, SteelProfileLibrary } from './SteelProfileLibrary';
+import { SteelProfile, SteelProfileLibrary } from '@pryzm/geometry-kernel';
 
 export type LODLevel = 'close' | 'medium' | 'far';
 

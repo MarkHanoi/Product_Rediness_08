@@ -15,8 +15,8 @@
  */
 
 import { apiFetch } from '@pryzm/persistence-client';
-import { makeAnnotationElement, AnnotationSemantics, AnnotationType } from '@pryzm/plugin-annotations';
-import { makePointRef, makeRef } from '@pryzm/plugin-annotations';
+import { makeAnnotationElement, AnnotationSemantics, AnnotationType } from '@pryzm/core-app-model';
+import { makePointRef, makeRef } from '@pryzm/core-app-model';
 import { CreateAnnotationCommand } from './CreateAnnotationCommand';
 import * as THREE from '@pryzm/renderer-three/three';
 

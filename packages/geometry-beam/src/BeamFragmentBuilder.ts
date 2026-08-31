@@ -30,8 +30,8 @@ import { BeamData } from '@pryzm/core-app-model/stores';
 // eight rival material vocabularies in this repository.
 import { resolveMaterialColour } from '@pryzm/core-app-model';
 import { elementRegistry } from '@pryzm/core-app-model/element-registry';
-import { SteelProfileLibrary } from '@pryzm/plugin-structural';
-import { createBeamLOD } from '@pryzm/plugin-structural';
+import { SteelProfileLibrary } from '@pryzm/geometry-kernel';
+import { createBeamLOD } from '@pryzm/geometry-column';
 // ADR-0076 Axis 3 (§PERF-WEBGPU-FRAGMENT / §PERF-BEAM-INSTANCING) — optional
 // GPU-instancing bridge. Mirrors ColumnFragmentBuilder exactly: when injected
 // AND the `__pryzmElementInstancingV1` flag is on AND the beam is a SIMPLE

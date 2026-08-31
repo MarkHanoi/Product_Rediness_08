@@ -11,27 +11,10 @@ import { OpeningTool } from './OpeningTool.js';
 import { RoofTool, RoofToolState } from '@pryzm/geometry-roof';
 import { FloorTool } from '@pryzm/geometry-slab';
 import { CeilingTool } from '@pryzm/geometry-slab';
-import { ToolName, ToolEventEmitter, ToolState } from './types.js';
+import { ToolName, ToolEventEmitter, ToolState, InjectedAnnotationTool } from './types.js';
 import { CommandManager } from '@pryzm/command-registry';
 import { StairShape } from '@pryzm/geometry-stair';
 
-// §ANN — All annotation tools → @pryzm/plugin-annotations (Sprint C)
-import {
-    LinearDimensionAnnotationTool,
-    TextNoteTool,
-    ElementTagTool,
-    AngularDimensionAnnotationTool,
-    SpotElevationAnnotationTool,
-    KeynoteTool,
-    RadiusDimensionTool,
-    DiameterDimensionTool,
-    SlopeDimensionTool,
-    DoorTagTool,
-    WindowTagTool,
-    LevelTagTool,
-    GridBubbleTool,
-    RevisionCloudTool,
-} from '@pryzm/plugin-annotations';
 import { RoomTool } from '@pryzm/room-topology';
 import { SelectionManager } from './SelectionManager.js';
 import { drawingEditorService } from '@pryzm/core-app-model/views';
@@ -89,28 +72,28 @@ export class ToolManager {
     private columnTool: ColumnTool | null = null;
     private beamTool: BeamTool | null = null;
     // §DIM-IV-3 — New annotation-system linear dim (Class A tool)
-    private _linearDimAnnotationTool: LinearDimensionAnnotationTool | null = null;
+    private _linearDimAnnotationTool: InjectedAnnotationTool | null = null;
     private stairTool: StairTool | null = null;
     private liftTool: LiftTool | null = null;
     private openingTool: OpeningTool | null = null;
     // §ANN-B3/B4 — new annotation tools
-    private textNoteTool: TextNoteTool | null = null;
-    private elementTagTool: ElementTagTool | null = null;
+    private textNoteTool: InjectedAnnotationTool | null = null;
+    private elementTagTool: InjectedAnnotationTool | null = null;
     // §ANN-Phase-IV — additional annotation tools (instances owned by AnnotationManager)
-    private angularDimensionTool: AngularDimensionAnnotationTool | null = null;
-    private spotElevationTool: SpotElevationAnnotationTool | null = null;
-    private keynoteTool: KeynoteTool | null = null;
+    private angularDimensionTool: InjectedAnnotationTool | null = null;
+    private spotElevationTool: InjectedAnnotationTool | null = null;
+    private keynoteTool: InjectedAnnotationTool | null = null;
     // DOC-2.4 — New dimension tools
-    private radiusDimensionTool: RadiusDimensionTool | null = null;
-    private diameterDimensionTool: DiameterDimensionTool | null = null;
-    private slopeDimensionTool: SlopeDimensionTool | null = null;
+    private radiusDimensionTool: InjectedAnnotationTool | null = null;
+    private diameterDimensionTool: InjectedAnnotationTool | null = null;
+    private slopeDimensionTool: InjectedAnnotationTool | null = null;
     // DOC-2.5 — Specialised tag tools
-    private doorTagTool: DoorTagTool | null = null;
-    private windowTagTool: WindowTagTool | null = null;
-    private levelTagTool: LevelTagTool | null = null;
-    private gridBubbleTool: GridBubbleTool | null = null;
+    private doorTagTool: InjectedAnnotationTool | null = null;
+    private windowTagTool: InjectedAnnotationTool | null = null;
+    private levelTagTool: InjectedAnnotationTool | null = null;
+    private gridBubbleTool: InjectedAnnotationTool | null = null;
     // DOC-2.8 — Revision cloud tool
-    private revisionCloudTool: RevisionCloudTool | null = null;
+    private revisionCloudTool: InjectedAnnotationTool | null = null;
     // DOC-2.7/2.8 — Section mark, elevation mark, callout detail
     private sectionMarkTool:   any | null = null;
     private elevationMarkTool: any | null = null;
@@ -228,7 +211,7 @@ export class ToolManager {
     }
 
     // §DIM-IV-3 — Register the new annotation-system linear dimension tool
-    setLinearDimAnnotationTool(tool: LinearDimensionAnnotationTool): void {
+    setLinearDimAnnotationTool(tool: InjectedAnnotationTool): void {
         this._linearDimAnnotationTool = tool;
         this.registerTool({
             tool: tool,
@@ -297,7 +280,7 @@ export class ToolManager {
     }
 
     // §ANN-B3 — Text Note Tool
-    setTextNoteTool(tool: TextNoteTool): void {
+    setTextNoteTool(tool: InjectedAnnotationTool): void {
         this.textNoteTool = tool;
         this.registerTool({
             tool: tool,
@@ -309,7 +292,7 @@ export class ToolManager {
     }
 
     // §ANN-B4 — Element Tag Tool
-    setElementTagTool(tool: ElementTagTool): void {
+    setElementTagTool(tool: InjectedAnnotationTool): void {
         this.elementTagTool = tool;
         this.registerTool({
             tool: tool,
@@ -321,7 +304,7 @@ export class ToolManager {
     }
 
     // §ANN-Phase-IV — Angular Dimension Tool
-    setAngularDimensionTool(tool: AngularDimensionAnnotationTool): void {
+    setAngularDimensionTool(tool: InjectedAnnotationTool): void {
         this.angularDimensionTool = tool;
         this.registerTool({
             tool: tool,
@@ -333,7 +316,7 @@ export class ToolManager {
     }
 
     // §ANN-Phase-IV — Spot Elevation Tool
-    setSpotElevationTool(tool: SpotElevationAnnotationTool): void {
+    setSpotElevationTool(tool: InjectedAnnotationTool): void {
         this.spotElevationTool = tool;
         this.registerTool({
             tool: tool,
@@ -345,7 +328,7 @@ export class ToolManager {
     }
 
     // §ANN-Phase-IV — Keynote Tool
-    setKeynoteTool(tool: KeynoteTool): void {
+    setKeynoteTool(tool: InjectedAnnotationTool): void {
         this.keynoteTool = tool;
         this.registerTool({
             tool: tool,
@@ -357,7 +340,7 @@ export class ToolManager {
     }
 
     // DOC-2.4 — Radius Dimension Tool
-    setRadiusDimensionTool(tool: RadiusDimensionTool): void {
+    setRadiusDimensionTool(tool: InjectedAnnotationTool): void {
         this.radiusDimensionTool = tool;
         this.registerTool({
             tool: tool,
@@ -369,7 +352,7 @@ export class ToolManager {
     }
 
     // DOC-2.4 — Diameter Dimension Tool
-    setDiameterDimensionTool(tool: DiameterDimensionTool): void {
+    setDiameterDimensionTool(tool: InjectedAnnotationTool): void {
         this.diameterDimensionTool = tool;
         this.registerTool({
             tool: tool,
@@ -381,7 +364,7 @@ export class ToolManager {
     }
 
     // DOC-2.4 — Slope Dimension Tool
-    setSlopeDimensionTool(tool: SlopeDimensionTool): void {
+    setSlopeDimensionTool(tool: InjectedAnnotationTool): void {
         this.slopeDimensionTool = tool;
         this.registerTool({
             tool: tool,
@@ -393,7 +376,7 @@ export class ToolManager {
     }
 
     // DOC-2.5 — Door Tag Tool
-    setDoorTagTool(tool: DoorTagTool): void {
+    setDoorTagTool(tool: InjectedAnnotationTool): void {
         this.doorTagTool = tool;
         this.registerTool({
             tool: tool,
@@ -405,7 +388,7 @@ export class ToolManager {
     }
 
     // DOC-2.5 — Window Tag Tool
-    setWindowTagTool(tool: WindowTagTool): void {
+    setWindowTagTool(tool: InjectedAnnotationTool): void {
         this.windowTagTool = tool;
         this.registerTool({
             tool: tool,
@@ -417,7 +400,7 @@ export class ToolManager {
     }
 
     // DOC-2.5 — Level Tag Tool
-    setLevelTagTool(tool: LevelTagTool): void {
+    setLevelTagTool(tool: InjectedAnnotationTool): void {
         this.levelTagTool = tool;
         this.registerTool({
             tool: tool,
@@ -429,7 +412,7 @@ export class ToolManager {
     }
 
     // DOC-2.5 — Grid Bubble Tool
-    setGridBubbleTool(tool: GridBubbleTool): void {
+    setGridBubbleTool(tool: InjectedAnnotationTool): void {
         this.gridBubbleTool = tool;
         this.registerTool({
             tool: tool,
@@ -441,7 +424,7 @@ export class ToolManager {
     }
 
     // DOC-2.8 — Revision Cloud Tool
-    setRevisionCloudTool(tool: RevisionCloudTool): void {
+    setRevisionCloudTool(tool: InjectedAnnotationTool): void {
         this.revisionCloudTool = tool;
         this.registerTool({
             tool: tool,

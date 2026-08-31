@@ -52,8 +52,8 @@ import { viewDefinitionStore } from '@pryzm/core-app-model/views';
 import { resolveViewportScale } from '@pryzm/core-app-model/views';
 import { TechnicalDrawingBounds } from '@pryzm/core-app-model/views';
 import type { VGCategoryStyle } from '@pryzm/core-app-model';
-import { annotationStore } from '@pryzm/plugin-annotations';
-import type { AnnotationElement } from '@pryzm/plugin-annotations';
+import { annotationStore } from '@pryzm/core-app-model';
+import type { AnnotationElement } from '@pryzm/core-app-model';
 
 import { SVGCompositeRenderer } from './SVGCompositeRenderer';
 

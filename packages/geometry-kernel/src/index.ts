@@ -236,6 +236,14 @@ export {
 export {
   composeStructuralGeometryHash,
 } from './producers/_internal/composeStructuralGeometryHash.js';
+// ── F-P5-04 inversion (2026-08-31): steel section catalogue moved down from
+// plugins/structural — pure data (EN 10025 / BS4), zero imports, THREE-free,
+// so it keeps the kernel's no-THREE charter intact.
+export {
+  SteelProfileLibrary,
+  type SteelProfile,
+  type SectionSeries,
+} from './structural/SteelProfileLibrary.js';
 export {
   produceLighting,
   composeLightingMaterialKey,

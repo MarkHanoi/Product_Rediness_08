@@ -24,7 +24,7 @@
 import * as THREE from '@pryzm/renderer-three/three';
 import { PocheFillBuilder, PochePolygon } from '@pryzm/core-app-model/views';
 import type { VGCategoryStyle } from '@pryzm/core-app-model';
-import type { AnnotationElement } from '@pryzm/plugin-annotations';
+import type { AnnotationElement } from '@pryzm/core-app-model';
 import { HatchPatternLibrary, type SvgHatchDef } from './HatchPatternLibrary';
 import {
     letteringHeightMm,

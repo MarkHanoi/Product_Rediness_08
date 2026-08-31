@@ -65,7 +65,7 @@ import { viewIntentInstanceStore } from '@pryzm/core-app-model/presentation';
 import { runVGToIntentMigration, prewarmIntentStyleCache } from './migrations/VGToIntentMigration';
 import { sheetStore } from '@pryzm/core-app-model';
 import { scheduleStore } from '@pryzm/core-app-model';
-import { annotationStore } from '@pryzm/plugin-annotations';
+import { annotationStore } from '@pryzm/core-app-model';
 import { ClearProjectCommand } from '@pryzm/command-registry';
 import { doorStore } from '@pryzm/geometry-door';
 import { windowStore } from '@pryzm/geometry-window';
@@ -1424,10 +1424,10 @@ export class ProjectLoader {
             try {
                 const constraintsSlice = (snapshot as any).annotationConstraints;
                 if (constraintsSlice) {
-                    const { constraintStore } = await import('@pryzm/plugin-annotations');
+                    const { constraintStore } = await import('@pryzm/core-app-model');
                     constraintStore.deserialize(constraintsSlice);
                 } else {
-                    const { constraintStore } = await import('@pryzm/plugin-annotations');
+                    const { constraintStore } = await import('@pryzm/core-app-model');
                     constraintStore.clear();
                 }
             } catch (e) {
@@ -1436,7 +1436,7 @@ export class ProjectLoader {
 
             try {
                 const visibilitySlice = (snapshot as any).annotationVisibility;
-                const { annotationVisibilityStore } = await import('@pryzm/plugin-annotations');
+                const { annotationVisibilityStore } = await import('@pryzm/core-app-model');
                 // fromJSON({}) wipes the internal hide map, so we use it both to
                 // restore an empty payload and to apply a non-empty one.
                 annotationVisibilityStore.fromJSON(
@@ -1449,11 +1449,11 @@ export class ProjectLoader {
             try {
                 const obcSlice = (snapshot as any).obcAnnotationMap;
                 if (obcSlice) {
-                    const { obcAnnotationAdapter } = await import('@pryzm/plugin-annotations');
-                    obcAnnotationAdapter.deserialize(obcSlice);
+                    const { obcAnnotationIdMap } = await import('@pryzm/core-app-model');
+                    obcAnnotationIdMap.deserialize(obcSlice);
                 }
             } catch (e) {
-                console.warn('[ProjectLoader] OBCAnnotationAdapter restore failed (non-fatal):', e);
+                console.warn('[ProjectLoader] ObcAnnotationIdMap restore failed (non-fatal):', e);
             }
 
             try {

@@ -43,7 +43,7 @@
 
 import { describe, it, expect, beforeEach } from 'vitest';
 import { GridStore } from '@pryzm/core-app-model';
-import { AnnotationStore, makeAnnotationElement } from '@pryzm/plugin-annotations';
+import { AnnotationStore, makeAnnotationElement } from '@pryzm/core-app-model';
 import { RemoveGridCommand } from '../src/grids/RemoveGridCommand';
 import type { CommandContext } from '../src/types';
 

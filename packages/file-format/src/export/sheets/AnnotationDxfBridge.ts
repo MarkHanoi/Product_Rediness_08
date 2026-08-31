@@ -1,7 +1,7 @@
 import * as THREE from '@pryzm/renderer-three/three';
 import * as OBC from '@thatopen/components';
-import { annotationStore, AnnotationStore } from '@pryzm/plugin-annotations';
-import { AnnotationElement } from '@pryzm/plugin-annotations';
+import { annotationStore, AnnotationStore } from '@pryzm/core-app-model';
+import { AnnotationElement } from '@pryzm/core-app-model';
 
 const ANNOTATION_LAYER = 'A-ANNO';
 

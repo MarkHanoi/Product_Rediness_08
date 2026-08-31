@@ -37,8 +37,8 @@ import * as THREE from '@pryzm/renderer-three/three';
 import { projectToDrawingSpace, type DrawingSurface } from '@pryzm/core-app-model';
 import type { ViewDefinition } from '@pryzm/core-app-model';
 import type { RoofData } from './RoofTypes.js';
-import { makeAnnotationElement } from '@pryzm/plugin-annotations';
-import { makePointRef } from '@pryzm/plugin-annotations';
+import { makeAnnotationElement } from '@pryzm/core-app-model';
+import { makePointRef } from '@pryzm/core-app-model';
 import { CreateAnnotationCommand } from '@pryzm/command-registry';
 
 /** ISO 13567 DXF layer for roof slope annotations. */

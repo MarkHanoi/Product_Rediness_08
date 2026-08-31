@@ -38,7 +38,6 @@
     "@pryzm/geometry-plumbing": "workspace:*",
     "@pryzm/persistence-client": "workspace:*",
     "@pryzm/ai-host": "workspace:*",
-    "@pryzm/plugin-annotations": "workspace:*",
     "@pryzm/renderer-three": "workspace:*",
     "uuid": "^9.0.0",
     "zod": "*"

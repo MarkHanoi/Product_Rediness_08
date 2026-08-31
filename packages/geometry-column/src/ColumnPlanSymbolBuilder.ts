@@ -38,7 +38,7 @@ import type { ViewDefinition } from '@pryzm/core-app-model';
 // `detailed` flag, no `resolveColumnDetailLevel`.
 import { resolveEffectiveDetailLevel, projectToDrawingSpace, type DetailLevel, type DrawingSurface } from '@pryzm/core-app-model';
 import type { ColumnData } from './ColumnTypes';
-import { SteelProfileLibrary } from '@pryzm/plugin-structural';
+import { SteelProfileLibrary } from '@pryzm/geometry-kernel';
 import {
     computeColumnSectionPolygon, computeSectionHatch, polygonEdges,
     type Pt, type Seg,

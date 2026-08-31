@@ -22,8 +22,8 @@
  */
 
 import * as THREE from '@pryzm/renderer-three/three';
-import { makeAnnotationElement } from '@pryzm/plugin-annotations';
-import { makePointRef } from '@pryzm/plugin-annotations';
+import { makeAnnotationElement } from '@pryzm/core-app-model';
+import { makePointRef } from '@pryzm/core-app-model';
 import { DeleteAnnotationCommand } from '@pryzm/command-registry';
 import { UpdateAnnotationCommand } from '@pryzm/command-registry';
 // §ROOMTAG-ONE-COMMAND (L-1396) — the composite that already existed. See `populate`.

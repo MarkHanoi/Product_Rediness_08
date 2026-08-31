@@ -31,7 +31,6 @@
     "@pryzm/command-registry": "workspace:*",
     "@pryzm/frame-scheduler": "workspace:*",
     "@pryzm/input-host": "workspace:*",
-    "@pryzm/plugin-annotations": "workspace:*",
     "@pryzm/geometry-column": "workspace:*",
     "@pryzm/geometry-curtain-wall": "workspace:*",
     "@pryzm/geometry-furniture": "workspace:*",

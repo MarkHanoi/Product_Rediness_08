@@ -41,9 +41,11 @@
   "dependencies": {
     "zod": "^3.23.8",
     "@pryzm/command-bus": "workspace:*",
+    "@pryzm/command-registry": "workspace:*",
     "@pryzm/stores": "workspace:*",
     "@pryzm/schemas": "workspace:*",
     "@pryzm/scene-committer": "workspace:*",
+    "@pryzm/geometry-column": "workspace:*",
     "@pryzm/geometry-kernel": "workspace:*",
     "@pryzm/view-state": "workspace:*",
     "@pryzm/frame-scheduler": "workspace:*",

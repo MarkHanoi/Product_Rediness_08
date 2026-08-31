@@ -2,6 +2,9 @@ interface Window {
     runtime?: any;
     commandManager?: any;
     annotationStore?: any;
+    constraintStore?: any;
+    constraintSolver?: any;
+    vgGovernanceStore?: any;
     wallStore?: any;
     slabStore?: any;
     columnStore?: any;

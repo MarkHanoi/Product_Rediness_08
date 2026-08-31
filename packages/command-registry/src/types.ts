@@ -562,9 +562,9 @@ export interface CommandContext {
         // resolve their dependencies from `ctx.stores`. Optional during
         // migration: when absent (e.g. legacy tests), commands fall back to
         // the legacy window globals to remain backwards-compatible.
-        annotationStore?: import('@pryzm/plugin-annotations').AnnotationStore;
-        annotationVisibilityStore?: import('@pryzm/plugin-annotations').AnnotationVisibilityStore;
-        constraintStore?: import('@pryzm/plugin-annotations').ConstraintStore;
+        annotationStore?: import('@pryzm/core-app-model').AnnotationStore;
+        annotationVisibilityStore?: import('@pryzm/core-app-model').AnnotationVisibilityStore;
+        constraintStore?: import('@pryzm/core-app-model').ConstraintStore;
         viewDefinitionStore?: typeof import('@pryzm/core-app-model').viewDefinitionStore;
         viewIntentInstanceStore?: typeof import('@pryzm/core-app-model').viewIntentInstanceStore;
         vgGovernanceStore?: typeof import('@pryzm/core-app-model').vgGovernanceStore;
@@ -577,19 +577,19 @@ export interface CommandContext {
      * run a solver pass after rebuilding constraint records. Falls back to
      * window.constraintSolver for legacy callers.
      */
-    constraintSolver?: import('@pryzm/plugin-annotations').ConstraintSolver;
+    constraintSolver?: import('@pryzm/core-app-model').ConstraintSolver;
     /**
      * Optional resolver stores bag used by the annotation dependency graph and
      * the constraint solver to convert StableReferences into world-space points.
      * Mirrors the annotation system's `_resolverStores` singleton.
      */
-    resolverStores?: import('@pryzm/plugin-annotations').ResolverStores;
+    resolverStores?: import('@pryzm/core-app-model').ResolverStores;
     /**
      * Optional dependency graph. ProjectLoader calls `rebuild()` after a
      * project deserialise so the reverse index reflects the loaded annotations
      * (audit fix A5).
      */
-    annotationDependencyGraph?: import('@pryzm/plugin-annotations').AnnotationDependencyGraph;
+    annotationDependencyGraph?: import('@pryzm/core-app-model').AnnotationDependencyGraph;
     /**
      * §WALL-AUDIT-2026-W2 (RESOLVED 2026-04-24): the FurnitureFragmentBuilder
      * is now exposed on `CommandContext` so `DeleteElementCommand`'s `furniture`

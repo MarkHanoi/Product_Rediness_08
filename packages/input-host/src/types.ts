@@ -108,6 +108,25 @@ export interface ITool extends ToolLifecycle {
     dispose(): void;
 }
 
+/**
+ * F-P5-04 / LANE D (2026-08-31) - structural injection contract for the
+ * annotation tools ToolManager receives from the L7 composition root
+ * (apps/editor initTools.ts / PluginRegistry.ts). ToolManager used to import
+ * the 14 concrete tool classes from the L6 annotations plugin purely as
+ * TYPES - an upward import counted by check-layer-boundaries. The measured
+ * member set actually used on the injected instances (set*Tool registration
+ * closures + activate* methods) is: `.isActive` read, `.activate()`,
+ * `.deactivate()` - nothing else; the classes are never constructed and never
+ * instanceof-checked here. This interface is exactly that measured set (a
+ * structural subset of ITool). The concrete classes stay in
+ * plugins/annotations and are injected through the existing set*Tool seam.
+ */
+export interface InjectedAnnotationTool {
+    readonly isActive: boolean;
+    activate(options?: Record<string, unknown>): void | Promise<void>;
+    deactivate(): void;
+}
+
 export interface ToolManagerEvents {
     'tool:activated': { tool: ToolName; previous: ToolName };
     'tool:deactivated': { tool: ToolName };

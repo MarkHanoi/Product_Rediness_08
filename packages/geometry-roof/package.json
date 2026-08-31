@@ -25,7 +25,6 @@
     "@pryzm/geometry-slab": "workspace:*",
     "@pryzm/renderer-three": "workspace:*",
     "@pryzm/command-registry": "workspace:*",
-    "@pryzm/frame-scheduler": "workspace:*",
-    "@pryzm/plugin-annotations": "workspace:*"
+    "@pryzm/frame-scheduler": "workspace:*"
   }
 }
