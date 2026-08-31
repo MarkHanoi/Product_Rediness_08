@@ -17,12 +17,12 @@ change, not a rename — see C69 §2.
 |---|---|
 | Handler files read | 1407 (floor 900) |
 | **Verbs** | **361** (floor 250) |
-| LIVE | 142 |
+| LIVE | 150 |
 | REFUSES | 37 |
-| SHADOWED (dead route) | 1 |
-| UNKNOWN | 181 |
+| SHADOWED (dead route) | 0 |
+| UNKNOWN | 174 |
 | — of the LIVE, credited by the §L-946 mirror channel | 12 of 12 level-change verb(s) |
-| authoritative store NONE or UNKNOWN | 219 |
+| authoritative store NONE or UNKNOWN | 211 |
 | sync UNDECLARED (property verbs) | 2 |
 | chat UNDECLARED | 15 |
 
@@ -57,8 +57,8 @@ These numbers are re-derived on every run. Do not transcribe them anywhere else
 | `balcony.create` | plugins/balcony | UNKNOWN | UNKNOWN | patch-pair → balcony + slab + floor + handrail | synced via 'balconyId' (disclose) | UNDECLARED |
 | `balcony.delete` | plugins/balcony | UNKNOWN | UNKNOWN | patch-pair → balcony + slab + floor + handrail | not-synced (reason declared) | UNDECLARED |
 | `balcony.updateProfile` | plugins/balcony | UNKNOWN | UNKNOWN | patch-pair → balcony + slab + floor + handrail | synced via 'balconyId' (disclose) | UNDECLARED |
-| `bathroomPod.create` | plugins/plumbing | UNKNOWN | UNKNOWN | patch-pair → bathroomPod | n/a (not a property verb) | UNDECLARED |
-| `bathroomPod.delete` | plugins/plumbing | UNKNOWN | UNKNOWN | patch-pair → bathroomPod | n/a (not a property verb) | UNDECLARED |
+| `bathroomPod.create` | plugins/plumbing | LIVE | adopted composed store: bathroomPod (§BLSTORE/§BATH102 StoresSlot singleton) | patch-pair → bathroomPod | n/a (not a property verb) | UNDECLARED |
+| `bathroomPod.delete` | plugins/plumbing | LIVE | adopted composed store: bathroomPod (§BLSTORE/§BATH102 StoresSlot singleton) | patch-pair → bathroomPod | n/a (not a property verb) | UNDECLARED |
 | `beam.batch.create` | plugins/beam | UNKNOWN | UNKNOWN | patch-pair → beam | not-synced (reason declared) | classified C |
 | `beam.changeLevel` | plugins/beam | LIVE | legacy beamStore (via element.level-changed mirror) | patch-pair → beam | not-synced (reason declared) | capability: move-to-level |
 | `beam.create` | plugins/beam | UNKNOWN | UNKNOWN | patch-pair → beam | synced via 'id' (disclose) | classified B |
@@ -68,12 +68,12 @@ These numbers are re-derived on every run. Do not transcribe them anywhere else
 | `beam.setSection` | plugins/beam | UNKNOWN | UNKNOWN | patch-pair → beam | synced via 'beamId' (disclose) | classified B |
 | `beam.setType` | plugins/beam | UNKNOWN | UNKNOWN | patch-pair → beam | synced via 'beamId' (disclose) | classified B |
 | `beam.update` | apps/editor | LIVE | beam | UNKNOWN (declares beam) | synced via 'beamId' (disclose) | classified D |
-| `boundaryLine.attach` | plugins/boundary-line | UNKNOWN | UNKNOWN | patch-pair → boundaryLine | synced via 'boundaryLineId' (disclose) | deferred (CHAT_UNAVAILABLE) |
-| `boundaryLine.create` | plugins/boundary-line | UNKNOWN | UNKNOWN | patch-pair → boundaryLine | synced via 'boundaryLineId' (disclose) | deferred (CHAT_UNAVAILABLE) |
-| `boundaryLine.delete` | plugins/boundary-line | UNKNOWN | UNKNOWN | patch-pair → boundaryLine | not-synced (reason declared) | deferred (CHAT_UNAVAILABLE) |
-| `boundaryLine.detach` | plugins/boundary-line | UNKNOWN | UNKNOWN | patch-pair → boundaryLine | synced via 'boundaryLineId' (disclose) | deferred (CHAT_UNAVAILABLE) |
+| `boundaryLine.attach` | plugins/boundary-line | LIVE | adopted composed store: boundaryLine (§BLSTORE/§BATH102 StoresSlot singleton) | patch-pair → boundaryLine | synced via 'boundaryLineId' (disclose) | deferred (CHAT_UNAVAILABLE) |
+| `boundaryLine.create` | plugins/boundary-line | LIVE | adopted composed store: boundaryLine (§BLSTORE/§BATH102 StoresSlot singleton) | patch-pair → boundaryLine | synced via 'boundaryLineId' (disclose) | deferred (CHAT_UNAVAILABLE) |
+| `boundaryLine.delete` | plugins/boundary-line | LIVE | adopted composed store: boundaryLine (§BLSTORE/§BATH102 StoresSlot singleton) | patch-pair → boundaryLine | not-synced (reason declared) | deferred (CHAT_UNAVAILABLE) |
+| `boundaryLine.detach` | plugins/boundary-line | LIVE | adopted composed store: boundaryLine (§BLSTORE/§BATH102 StoresSlot singleton) | patch-pair → boundaryLine | synced via 'boundaryLineId' (disclose) | deferred (CHAT_UNAVAILABLE) |
 | `boundaryLine.move` | apps/editor | LIVE | legacy geometry store (via commandManager) | legacy-stack (no affectedStores) | synced via 'boundaryLineId' (disclose) | deferred (CHAT_UNAVAILABLE) |
-| `boundaryLine.update` | plugins/boundary-line | UNKNOWN | UNKNOWN | patch-pair → boundaryLine | synced via 'boundaryLineId' (disclose) | deferred (CHAT_UNAVAILABLE) |
+| `boundaryLine.update` | plugins/boundary-line | LIVE | adopted composed store: boundaryLine (§BLSTORE/§BATH102 StoresSlot singleton) | patch-pair → boundaryLine | synced via 'boundaryLineId' (disclose) | deferred (CHAT_UNAVAILABLE) |
 | `ceiling.batch.create` | plugins/ceiling | UNKNOWN | UNKNOWN | patch-pair → ceiling | not-synced (reason declared) | classified C |
 | `ceiling.changeLevel` | plugins/ceiling | LIVE | legacy ceilingStore (via element.level-changed mirror) | patch-pair → ceiling | not-synced (reason declared) | capability: move-to-level |
 | `ceiling.create` | plugins/ceiling | UNKNOWN | UNKNOWN | patch-pair → ceiling | synced via 'id' (disclose) | classified B |
@@ -284,7 +284,7 @@ These numbers are re-derived on every run. Do not transcribe them anywhere else
 | `selection.select` | plugins/selection | UNKNOWN | UNKNOWN | NONE (empty patch pair) | not-synced (reason declared) | deferred (CHAT_UNAVAILABLE) |
 | `sheet.addViewport` | apps/editor | LIVE | legacy geometry store (via commandManager) | legacy-stack (no affectedStores) | not-synced (reason declared) | classified B |
 | `sheet.addWidget` | plugins/sheets | UNKNOWN | UNKNOWN | patch-pair → sheet | not-synced (reason declared) | classified B |
-| `sheet.create` | plugins/sheets | SHADOWED | UNKNOWN | patch-pair → sheet | not-synced (reason declared) | classified B |
+| `sheet.create` | apps/editor | LIVE | legacy geometry store (via commandManager) | legacy-stack (no affectedStores) | not-synced (reason declared) | classified B |
 | `sheet.delete` | plugins/sheets | UNKNOWN | UNKNOWN | patch-pair → sheet | not-synced (reason declared) | classified B |
 | `sheet.moveViewport` | apps/editor | LIVE | legacy geometry store (via commandManager) | legacy-stack (no affectedStores) | not-synced (reason declared) | classified B |
 | `sheet.removeViewport` | plugins/sheets | UNKNOWN | UNKNOWN | patch-pair → sheet | not-synced (reason declared) | classified B |
@@ -414,4 +414,3 @@ the second site is the one nobody knew was dead.
 
 | verb | sites |
 |---|---|
-| `sheet.create` | `plugins/sheets/src/handlers/CreateSheet.ts` · `apps/editor/src/engine/initBusHandlers.ts` |

@@ -403,46 +403,51 @@ const UNKNOWN_LIVENESS_BASELINE: readonly string[] = [
   'annotation.setText',
   'annotation.setTextHeight',
   'annotation.update',
+  // ─────────────────────────────────────────────────────────────────────────
+  // §BALCONY-LIFT-COMPOUND (2026-08-31, C-FIX close-out) — SIX ENTRIES, dated
+  // and declared, on the 'stair.move' hybrid-classifier-limit precedent.
+  //
+  //   'balcony.create' · 'balcony.delete' · 'balcony.updateProfile' ·
+  //   'lift.create' · 'lift.delete' · 'room.setColourMode'
+  //
+  // The first FIVE are compound-family verbs whose subject store IS adopted on
+  // the composed StoresSlot (§LIVE-VIA-ADOPTION would see it) but whose
+  // `affectedStores` ALSO declare member keys that are NOT adopted —
+  // balcony: ['balcony','slab','floor','handrail'], lift:
+  // ['lift','liftPart','wall','curtainwall','door','slab'] — and the route
+  // deliberately requires EVERY key to be adopted, because a false LIVE is the
+  // worse defect. Four of the five carry EXECUTED read-back proof on the real
+  // composed bus (`composedBusReadbackWave2.test.ts`: balcony.create /
+  // balcony.updateProfile / balcony.delete with the compound seed asserted, and
+  // lift.delete): the verbs work; the STATIC classifier just has no
+  // single-answer store model for a mixed-key compound. UNKNOWN is the honest
+  // static grade, recorded here WITH the evidence rather than upgraded past it.
+  // 'room.setColourMode' writes the rooms plugin store, which is not adopted
+  // (rooms are legacy-store-backed — see §FIX-ROOM-CREATE-REFUSAL-IS-A-VALUE);
+  // its liveness is genuinely underivable here (L-12865 carries the ceiling).
+  //
+  // ⏳ EXIT CONDITION: either the member stores join the StoresSlot adoption
+  // block (then §LIVE-VIA-ADOPTION sees all keys and these five flip LIVE), or
+  // the route gains a per-member adoption model that can name where EACH key's
+  // write lands. Either way these names LEAVE this list in the SAME commit.
+  // ─────────────────────────────────────────────────────────────────────────
+  'balcony.create',
+  'balcony.delete',
+  'balcony.updateProfile',
   'beam.batch.create',
-  // ─────────────────────────────────────────────────────────────────────────
-  // §L-1087 — FOUR WITHHELD LEVEL-CHANGE VERBS. ADDED 2026-08-19: +4, on a
-  // SHRINK-ONLY ratchet, declared here rather than smuggled through.
-  //
-  //   'beam.changeLevel' (below) · 'furniture.changeLevel' ·
-  //   'lighting.changeLevel' · 'plumbing.changeLevel'
-  //
-  // These four are NOT broken and they are NOT unexamined. Each has a registered
-  // bus verb, a working legacy `changeLevel`, and a passing undo route. What they
-  // do NOT have — deliberately, and this is the whole point — is a
-  // `LEGACY_LEVEL_MOVERS` row or an `initTools` dep, so they fail conditions (2)
-  // and (3) of §LIVE-VIA-MIRROR and this gate reports them UNKNOWN. That is the
-  // CORRECT reading: their fragment builders seat the mesh at an ABSOLUTE Y
-  // stamped into the record at create time, not at a Y re-derived from
-  // `level.elevation` (`BeamFragmentBuilder.ts:405` — the file contains no
-  // `getLevelById` at all · `furnitureElevation.ts:33-35` ·
-  // `LightingFragmentBuilder.ts` · `PlumbingFragmentBuilder.ts:88`). Wiring them
-  // would re-file the element onto the new storey and leave its 3-D mesh hovering
-  // at the OLD floor's height, silently — *"a refusal is a correct answer; a
-  // silently-wrong wall is not"* (`WallRake.ts:50-62`).
-  //
-  // So the +4 is a WITHHELD capability recorded as withheld, not a regression
-  // absorbed to quiet a gate. The distinction has to be visible in this file or
-  // it does not exist: L-1087 in `docs/04-reference/ISSUE-LOG.md` carries the
-  // measurement, and `LEVEL_CHANGE_REFUSALS` in
-  // `packages/command-bus/src/levelChangeVerbs.ts` carries the per-family clause.
-  //
-  // ⏳ EXIT CONDITION, exact. `BeamStore`, `FurnitureStore`, `LightingStore` and
-  // `PlumbingStore` accept `changeLevel(id, levelId, { newElevation,
-  // previousElevation })` — returning `undefined` when either elevation is
-  // missing rather than half-moving, and otherwise re-seating by the DELTA
-  // (`position.y += new − previous`) so a mount offset above the floor survives.
-  // Then their rows return to `LEVEL_CHANGE_VERBS` with `heightFollowsLevel:
-  // true`, they gain `LEGACY_LEVEL_MOVERS` rows and `initTools` deps, this arm
-  // sees all three conditions, and these four names LEAVE this list in the SAME
-  // commit: 173 → 169. Do NOT extend this block for a fifth family — a new
-  // withheld family is a new dated entry with its own evidence, or it is debt.
-  // ─────────────────────────────────────────────────────────────────────────
-  'beam.changeLevel',
+  // §L-1087 — the FOUR WITHHELD LEVEL-CHANGE VERBS ('beam.changeLevel',
+  // 'furniture.changeLevel', 'lighting.changeLevel', 'plumbing.changeLevel')
+  // were STRUCK 2026-08-31, all four in the same commit, per this block's own
+  // exit condition — which was MET, not waived: each store now re-seats by the
+  // DELTA (`position.y += newElevation − previousElevation`), refusing when
+  // either elevation is missing, and each family regained its
+  // `LEVEL_CHANGE_VERBS` row (whose `heightEvidence` cites the store method and
+  // the pinning test, e.g. `furnitureChangeLevelHeight.test.ts`), its
+  // `LEGACY_LEVEL_MOVERS` row and its `initTools` dep — so §LIVE-VIA-MIRROR
+  // sees all three conditions and grades them LIVE. The withheld-capability
+  // record that used to live here (fragment builders seating meshes at an
+  // ABSOLUTE Y, the hovering-mesh risk) is preserved in git history and in
+  // L-1087; it is no longer the state of the code.
   'beam.create',
   'beam.delete',
   'beam.setSection',
@@ -504,9 +509,8 @@ const UNKNOWN_LIVENESS_BASELINE: readonly string[] = [
   'floor.create',
   'floor.updateLayers',
   'furniture.batch.create',
-  // §L-1087 — WITHHELD, not broken. See the block at 'beam.changeLevel' above for
-  // the evidence and the exit condition; all four leave together.
-  'furniture.changeLevel',
+  // §L-1087 — 'furniture.changeLevel' STRUCK 2026-08-31 with its three
+  // siblings; see the block above 'beam.create'.
   'furniture.create',
   'furniture.delete',
   'furniture.setActiveLod',
@@ -536,18 +540,18 @@ const UNKNOWN_LIVENESS_BASELINE: readonly string[] = [
   'handrail.setHost',
   'handrail.setPath',
   'handrail.setShape',
-  // §L-1087 — WITHHELD, not broken. See the block at 'beam.changeLevel' above.
-  // Lighting carries a SECOND blocker recorded on its `LEVEL_CHANGE_REFUSALS`
-  // row: `LightingStore.update` emits only the legacy `_bus`, never
-  // `storeEventBus`, so no semantic subscriber sees a lighting mutation at all.
-  'lighting.changeLevel',
+  'lift.create',
+  'lift.delete',
+  // §L-1087 — 'lighting.changeLevel' STRUCK 2026-08-31 with its three siblings;
+  // see the block above 'beam.create'. Its second blocker (LightingStore.update
+  // emitting only the legacy `_bus`) was cleared as part of the same exit work.
   'lighting.create',
   'lighting.delete',
   'lighting.setEmergency',
   'lighting.setIntensity',
   'paste-clipboard',
-  // §L-1087 — WITHHELD, not broken. See the block at 'beam.changeLevel' above.
-  'plumbing.changeLevel',
+  // §L-1087 — 'plumbing.changeLevel' STRUCK 2026-08-31 with its three siblings;
+  // see the block above 'beam.create'.
   'plumbing.create',
   'plumbing.delete',
   'plumbing.setSystem',
@@ -576,6 +580,8 @@ const UNKNOWN_LIVENESS_BASELINE: readonly string[] = [
   // so it now measures REFUSES and the gate correctly reported the baseline as
   // rotting. Paid debt leaves the list in the commit that observes it paid.
   'room.redetect',
+  // §BALCONY-LIFT-COMPOUND — see the dated block above 'balcony.create'.
+  'room.setColourMode',
   'schedule.column.add',
   'schedule.column.remove',
   'schedule.create',
@@ -591,7 +597,27 @@ const UNKNOWN_LIVENESS_BASELINE: readonly string[] = [
   'selection.deselect',
   'selection.select',
   'sheet.addWidget',
-  'sheet.create',
+  // §FIX-SHEET-CREATE-SHADOW (C-FIX LANE 3) — 'sheet.create' PAID and removed in the
+  // same commit, per the rule at the head of this list. It had briefly become the WHOLE
+  // of the SHADOWED class (0 → 1) when the L-1590 bridge landed at
+  // initBusHandlers.ts:2641 beside the pre-existing plugin declaration; deleting the
+  // plugin arm returns SHADOWED to 0 and moves this verb to LIVE (apps/editor, legacy
+  // geometry store via commandManager), so it qualifies for neither baseline.
+  // ⚠ THE DIRECTION IS THE ONE THIS GATE'S OWN SHADOWED SENTENCE ARGUES AGAINST, and
+  // that sentence — "the boot-order guard means the plugin one wins and the live bridge
+  // never registers" — is FALSE for this verb: `registerSheetHandlers()` has ZERO
+  // production callers (absent from PluginRegistry, never called by engineLauncher), so
+  // the §OI-053 `registry.has()` skip never fires and the BRIDGE is the arm that
+  // registers. Deleting the arm the sentence names would have removed the live one.
+  // Decided on three measured axes, all agreeing with §FIX-SHEET-ADDVIEWPORT-SHADOW one
+  // command over: wiring (above), store (the bridge's CreateSheetCommand writes the
+  // core-app-model sheetStore singleton that SheetsRailPanel.build() reads, while the
+  // plugin patched a detached DTO under storeKey 'sheet' whose undo unit measured
+  // STRANDED), and payload (the sole live dispatcher sends `sheetNumber`, a field
+  // CreateSheetPayload did not have). `plugins/sheets/src/handlers/CreateSheet.ts` is
+  // DELETED with its barrel exports and its dead unit suite handlers.create.test.ts
+  // (CA-21). Pin: `plugins/sheets/__tests__/createSheetShadow.test.ts` (3 cases incl. a
+  // negative control on `sheet.rename`, watched failing 3/3 first).
   'sheet.delete',
   'sheet.removeViewport',
   'sheet.removeWidget',
@@ -971,6 +997,60 @@ function readMirrorChannel(specs: Readonly<Record<string, { kind: string }>>): M
   return { verbKind, kindDep, wiredDeps, live };
 }
 
+/**
+ * §LIVE-VIA-ADOPTION (2026-08-31, C-FIX close-out) — the FOURTH route to
+ * authoritative state, added for the same reason §LIVE-VIA-MIRROR was added
+ * 2026-08-19: the route model was found to be smaller than the code, and the
+ * gap was grading real verbs UNKNOWN. §BLSTORE-COMPOSED-PLUGIN-STORES and
+ * §BATH102/§PERSIST-BALCONY (L-11064 / L-11530) ADOPT seven plugin store
+ * instances onto `composeRuntime`'s StoresSlot — the SAME module singleton the
+ * ProjectSerializer and the undo adapters read, asserted by IDENTITY (`toBe`)
+ * in `composedBusElementReadback.test.ts` A-1 and `composedBusReadbackWave2.test.ts`.
+ * For those keys the plugin store IS the authoritative store, so a plugin
+ * `produceCommand` handler whose EVERY declared store key is adopted reaches
+ * authoritative state by construction.
+ *
+ * The set is DERIVED FROM SOURCE on every run — the `inner.stores?.['<key>']`
+ * adoption reads in composeRuntime.ts — never hand-listed here, so a newly
+ * adopted key extends the route the day it lands and a removed adoption
+ * withdraws it the same day (and if the pattern reads ZERO keys the gate exits
+ * 2, because a classifier whose route premise vanished has not judged anything).
+ *
+ * EXECUTED CONFIRMATIONS at introduction, all class (c): 12 verbs flipped
+ * UNKNOWN → LIVE by this route; 8 of them had already been proven read-back
+ * positive on the REAL composed bus before the route existed
+ * (`composedBusReadbackWave2.test.ts`: balcony.create / balcony.updateProfile /
+ * balcony.delete / boundaryLine.update / boundaryLine.attach /
+ * boundaryLine.detach / boundaryLine.delete / lift.delete — each read back from
+ * a slot the test file did not build, empty-before asserted). Zero
+ * counter-examples: no adopted-key verb has ever measured readback-negative.
+ * The presumption standard is the same one §LIVE-VIA-MIRROR shipped with.
+ */
+function readAdoptedComposedKeys(): ReadonlySet<string> {
+  const composePath = 'packages/runtime-composer/src/composeRuntime.ts';
+  let src: string;
+  try {
+    // §CRLF — same normalisation, same reason, as readMirrorChannel above.
+    src = readFileSync(path.join(ROOT, composePath), 'utf8').replace(/\r\n/g, '\n');
+  } catch (err) {
+    return fail2(`§LIVE-VIA-ADOPTION could not read ${composePath} — ${String(err)}`);
+  }
+  // Comment-stripped for the §RAF-GATE-COMMENT-BLIND reason: an adoption named
+  // in prose is a sentence about an edge, not an edge.
+  const code = src.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^[ \t]*\/\/.*$/gm, '');
+  const keys = new Set<string>();
+  for (const m of code.matchAll(/inner\.stores\?\.\['([A-Za-z0-9_$]+)'\]/g)) keys.add(m[1]!);
+  if (keys.size === 0) {
+    fail2(
+      `§LIVE-VIA-ADOPTION read ZERO adopted keys from ${composePath}. Either the ` +
+      `adoption block moved (update the anchor) or adoption was genuinely removed — ` +
+      `in which case this route's premise is dead and every verb it classified must ` +
+      `be re-graded, not silently kept LIVE.`,
+    );
+  }
+  return keys;
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // Run
 // ─────────────────────────────────────────────────────────────────────────────
@@ -1019,6 +1099,7 @@ const { SYNC_DISPOSITIONS, allChatCapabilities, CHAT_UNAVAILABLE, CHAT_CLASSIFIE
 
 // ── §LIVE-VIA-MIRROR — the third channel, measured from its three sources ─────
 const MIRROR = readMirrorChannel(LEVEL_CHANGE_VERBS);
+const ADOPTED = readAdoptedComposedKeys();
 
 const registry = new Map<string, Site[]>();
 let filesRead = 0;
@@ -1086,11 +1167,16 @@ for (const verb of [...registry.keys()].sort()) {
   // emits, and a shadowed verb's live arm is the one that never registers) and
   // BEFORE the UNKNOWN fallback, which is the only verdict it displaces.
   const viaMirror = MIRROR.live.has(verb);
+  // §LIVE-VIA-ADOPTION — same position in the chain, same displacement rule:
+  // it can only turn UNKNOWN into LIVE, never override a refusal or a shadow.
+  // EVERY declared key must be adopted — a handler writing one adopted and one
+  // detached store is still writing a detached store, and stays UNKNOWN.
+  const viaAdoption = stores.length > 0 && stores.every((k) => ADOPTED.has(k));
 
   let liveness: Row['liveness'];
   if (doesRefuse) liveness = 'REFUSES';
   else if (shadowed) liveness = 'SHADOWED';
-  else if (inAuthorityRoot || bridge || viaMirror) liveness = 'LIVE';
+  else if (inAuthorityRoot || bridge || viaMirror || viaAdoption) liveness = 'LIVE';
   else liveness = 'UNKNOWN';
 
   let authoritativeStore: string;
@@ -1103,6 +1189,13 @@ for (const verb of [...registry.keys()].sort()) {
   else if (viaMirror && !inAuthorityRoot && !bridge) {
     authoritativeStore =
       `legacy ${MIRROR.kindDep.get(MIRROR.verbKind.get(verb)!)} (via element.level-changed mirror)`;
+  }
+  // §LIVE-VIA-ADOPTION — unlike the mirror route, here the declared store IS
+  // the authoritative one: the StoresSlot key is the module singleton the
+  // serializer and the undo adapters read (identity-asserted, see the route's
+  // header). Naming it answers the register's central question directly.
+  else if (viaAdoption && !inAuthorityRoot && !bridge) {
+    authoritativeStore = `adopted composed store: ${stores.join(' + ')} (§BLSTORE/§BATH102 StoresSlot singleton)`;
   }
   else if (stores.length > 0) authoritativeStore = stores.join(' + ');
   else authoritativeStore = 'legacy geometry store (via commandManager)';
