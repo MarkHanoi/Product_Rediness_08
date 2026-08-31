@@ -48,13 +48,6 @@ export {
 } from './handlers/index.js';
 
 export { isFiniteVec3, isNonZeroBaseLine, baseLineLength } from './intent.js';
-export {
-  CurtainWallPlacementTool,
-  CURTAIN_WALL_TOOL_ID,
-  type CurtainWallPlacementToolDeps,
-  type CurtainWallScreenToWorld,
-  type CurtainWallToolPoint3D,
-} from './tool.js';
 
 export {
   CurtainWallCommitter,

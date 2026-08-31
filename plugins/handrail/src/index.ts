@@ -22,10 +22,6 @@ export {
   isFiniteVec3, pathTotalLength, validateHandrailPath, type HandrailValidation,
 } from './intent.js';
 
-export {
-  HandrailPlacementTool, HANDRAIL_TOOL_ID,
-  type HandrailPlacementToolDeps, type HandrailScreenToWorld, type HandrailToolPoint3D,
-} from './tool.js';
 
 export {
   HandrailCommitter, buildHandrailBufferGeometry, disposeHandrailGeometry,

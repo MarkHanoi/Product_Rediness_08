@@ -40,12 +40,6 @@ export {
   type RoofPolygonValidation,
 } from './intent.js';
 
-export {
-  RoofPlacementTool,
-  ROOF_TOOL_ID,
-  type RoofPlacementToolDeps,
-  type RoofPlacementInput,
-} from './tool.js';
 
 export {
   RoofCommitter,

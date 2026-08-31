@@ -70,17 +70,6 @@ export {
 // '@pryzm/plugin-wall'` without reaching into a subpath.
 export { WallIntent } from './intent.js';
 
-// S09 — Tool surface (THREE-free; safe for any layer to import).
-export {
-  WallCreationTool,
-  WALL_TOOL_ID,
-  type WallCreationToolDeps,
-  type WallToolState,
-  type ScreenToWorld,
-  type SnapCycle,
-  type PreviewLine,
-  type ToolPoint3D,
-} from './tool.js';
 
 // S09 — Committer surface re-exported from `./committer` subpath so
 // callers can `import { WallCommitter } from '@pryzm/plugin-wall'`

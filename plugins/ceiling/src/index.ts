@@ -21,10 +21,6 @@ export {
   type CeilingValidation,
 } from './intent.js';
 
-export {
-  CeilingPlacementTool, CEILING_TOOL_ID,
-  type CeilingPlacementToolDeps, type CeilingScreenToWorld, type CeilingToolPoint3D,
-} from './tool.js';
 
 export {
   CeilingCommitter, buildCeilingBufferGeometry, disposeCeilingGeometry,

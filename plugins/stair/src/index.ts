@@ -38,13 +38,6 @@ export {
   type StairValidation,
 } from './intent.js';
 
-export {
-  StairPlacementTool,
-  STAIR_TOOL_ID,
-  type StairPlacementToolDeps,
-  type StairScreenToWorld,
-  type StairToolPoint3D,
-} from './tool.js';
 
 export {
   StairCommitter,

@@ -24,13 +24,6 @@ export {
   SetFurnitureRepresentationHandler, type SetFurnitureRepresentationPayload,
 } from './handlers/index.js';
 export {
-  FurniturePlacementTool,
-  FURNITURE_TOOL_ID,
-  type FurniturePlacementToolDeps,
-  type FurnitureScreenToWorld,
-  type FurnitureToolPoint3D,
-} from './tool.js';
-export {
   FurnitureCatalogue,
   SEED_FURNITURE_CATALOGUE,
   type FurnitureCatalogueEntry,

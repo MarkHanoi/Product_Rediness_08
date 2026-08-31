@@ -39,13 +39,6 @@ export {
   type SlabPolygonValidation,
 } from './intent.js';
 
-export {
-  SlabPlacementTool,
-  SLAB_TOOL_ID,
-  type SlabPlacementToolDeps,
-  type SlabScreenToWorld,
-  type SlabToolPoint3D,
-} from './tool.js';
 
 export {
   SlabCommitter,

@@ -11,8 +11,7 @@
     "./store": "./src/store.ts",
     "./errors": "./src/errors.ts",
     "./handlers": "./src/handlers/index.ts",
-    "./intent": "./src/intent.ts",
-    "./tool": "./src/tool.ts"
+    "./intent": "./src/intent.ts"
   },
   "files": [
     "src"

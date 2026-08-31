@@ -21,13 +21,6 @@ export {
 } from './handlers/index.js';
 export { isFiniteVec3 } from './intent.js';
 export {
-  ColumnPlacementTool,
-  COLUMN_TOOL_ID,
-  type ColumnPlacementToolDeps,
-  type ColumnScreenToWorld,
-  type ColumnToolPoint3D,
-} from './tool.js';
-export {
   ColumnCommitter,
   buildColumnBufferGeometry,
   disposeColumnGeometry,

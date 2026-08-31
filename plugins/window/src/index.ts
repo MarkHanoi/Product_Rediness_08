@@ -27,14 +27,6 @@ export {
   type WindowPlacementResult,
 } from './intent.js';
 
-export {
-  WindowPlacementTool,
-  WINDOW_TOOL_ID,
-  type WindowCreationToolDeps,
-  type WindowScreenToWorld,
-  type WindowToolPoint3D,
-  type WallsSnapshot,
-} from './tool.js';
 
 export {
   WindowCommitter,

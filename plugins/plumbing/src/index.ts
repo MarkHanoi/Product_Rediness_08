@@ -39,13 +39,6 @@ export {
   DeleteBathroomPodHandler, type DeleteBathroomPodPayload,
 } from './handlers/index.js';
 export {
-  PlumbingPlacementTool,
-  PLUMBING_TOOL_ID,
-  type PlumbingPlacementToolDeps,
-  type PlumbingScreenToWorld,
-  type PlumbingToolPoint3D,
-} from './tool.js';
-export {
   PlumbingCommitter,
   buildPlumbingBufferGeometry,
   disposePlumbingGeometry,

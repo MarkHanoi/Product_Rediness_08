@@ -1,6 +1,6 @@
 // @pryzm/plugin-door — public surface (S11-T1 deliverable).
 //
-// Headless half lives at the package root (store, errors, intent, tool,
+// Headless half lives at the package root (store, errors, intent,
 // handlers).  THREE-touching surface lives under `src/committer/` and
 // is re-exported here for caller convenience — only the editor
 // bootstrap is expected to instantiate the committer directly.
@@ -35,14 +35,6 @@ export {
   type DoorPlacementResult,
 } from './intent.js';
 
-export {
-  DoorPlacementTool,
-  DOOR_TOOL_ID,
-  type DoorCreationToolDeps,
-  type DoorScreenToWorld,
-  type DoorToolPoint3D,
-  type WallsSnapshot,
-} from './tool.js';
 
 export {
   DoorCommitter,

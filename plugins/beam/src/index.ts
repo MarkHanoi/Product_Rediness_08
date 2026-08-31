@@ -22,13 +22,6 @@ export {
 } from './handlers/index.js';
 export { isFiniteVec3, isNonZeroBaseLine } from './intent.js';
 export {
-  BeamPlacementTool,
-  BEAM_TOOL_ID,
-  type BeamPlacementToolDeps,
-  type BeamScreenToWorld,
-  type BeamToolPoint3D,
-} from './tool.js';
-export {
   BeamCommitter,
   buildBeamBufferGeometry,
   disposeBeamGeometry,

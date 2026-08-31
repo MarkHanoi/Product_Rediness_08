@@ -100,13 +100,6 @@ export {
   type RegenerateRoomsPayload,
 } from './handlers/RegenerateRooms.js';
 
-export {
-  RoomSeedTool,
-  ROOM_TOOL_ID,
-  type RoomSeedToolDeps,
-  type RoomScreenToWorld,
-  type RoomToolPoint3D,
-} from './tool.js';
 
 export {
   wireRoomEventSubscriptions,
