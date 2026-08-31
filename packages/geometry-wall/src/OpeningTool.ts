@@ -27,7 +27,8 @@
  */
 
 import * as THREE from '@pryzm/renderer-three/three';
-import * as OBC   from '@thatopen/components';
+// §OBC-SEAM (Axis 7 Wave A) — type-only seam import; this tool touches no OBC runtime symbol.
+import type { ComponentsHandle, SeamWorld } from '@pryzm/core-app-model';
 import { CreateOpeningCommand } from '@pryzm/command-registry';
 
 export type OpeningDrawingMode = '2point' | 'polyline';
@@ -69,8 +70,8 @@ export class OpeningTool {
     private readonly _raycaster = new THREE.Raycaster();
 
     constructor(
-        _components: OBC.Components,
-        private world: OBC.World,
+        _components: ComponentsHandle,
+        private world: SeamWorld,
     ) {}
 
     get isActive(): boolean { return this._active; }
@@ -181,7 +182,7 @@ export class OpeningTool {
     // ─── Pointer / keyboard listeners ─────────────────────────────────────────
 
     private _attachListeners(): void {
-        const canvas = this.world.renderer?.three.domElement;
+        const canvas = this.world.renderer?.three!.domElement;
         if (!canvas) {
             console.warn('[OpeningTool] No renderer canvas — pointer events will not bind');
             return;
@@ -230,7 +231,7 @@ export class OpeningTool {
     }
 
     private _detachListeners(): void {
-        const canvas = this.world.renderer?.three.domElement;
+        const canvas = this.world.renderer?.three!.domElement;
         if (canvas) {
             if (this._onPointerDown) canvas.removeEventListener('pointerdown', this._onPointerDown);
             if (this._onPointerMove) canvas.removeEventListener('pointermove', this._onPointerMove);
@@ -278,7 +279,7 @@ export class OpeningTool {
 
     private _raycastSlab(e: PointerEvent): THREE.Vector3 | null {
         if (!this._slabMesh) return null;
-        const canvas = this.world.renderer!.three.domElement;
+        const canvas = this.world.renderer!.three!.domElement;
         const rect = canvas.getBoundingClientRect();
         const x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
         const y = -((e.clientY - rect.top) / rect.height) * 2 + 1;

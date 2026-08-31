@@ -1083,3 +1083,26 @@ export {
     titleBlockContentTopMm,
 } from './views/SheetPaperResolution.js';
 export type { ResolvedSheetPaper, SheetPaperPlacement, PaperBearingSheet } from './views/SheetPaperResolution.js';
+
+// §OBC-SEAM (Axis 7 Wave A, 2026-08-31) — THE narrow seam over
+// `@thatopen/components` for geometry-* tools and symbol builders. The runtime
+// members live in ./BimWorld.ts beside the one `OBC.Components` instance owner
+// (zero new restricted imports — §FIX-RESTRICTED-IMPORT-RATCHET is shrink-only
+// and already exceeded at 124/113); ./obc/ObcSeamTypes.ts is `@thatopen`-free
+// by contract. ./obc/ObcSeam.ts is the seam's front door and re-exports both
+// halves. This barrel already exported createBimWorld from ./BimWorld.js, so
+// these rows add no new module-graph edge.
+export {
+    getSceneRaycaster,
+    isManualRenderer,
+    projectToDrawingSpace,
+    requestManualFrame,
+} from './obc/ObcSeam.js';
+export type {
+    ComponentsHandle,
+    DrawingSurface,
+    SeamCamera,
+    SeamCameraControls,
+    SeamDrawingLayer,
+    SeamWorld,
+} from './obc/ObcSeam.js';

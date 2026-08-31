@@ -56,7 +56,7 @@
  */
 
 import * as THREE from '@pryzm/renderer-three/three';
-import * as OBC from '@thatopen/components';
+import { projectToDrawingSpace, type DrawingSurface } from '@pryzm/core-app-model';
 import { ViewDefinition, registerSegmentUUID } from '@pryzm/core-app-model';
 import type { FurnitureData } from '../FurnitureTypes';
 import { TREE_SPECIES_TABLE, isTreeSpeciesId } from '../TreeTypes';
@@ -75,7 +75,7 @@ export class TreeElevationSymbolBuilder {
      * crop rectangle + hidden-line pass do the rest — same convention
      * `PlumbingElevationSymbolBuilder.inject` uses for the same reason.
      */
-    inject(drawing: OBC.TechnicalDrawing, viewDef: ViewDefinition): void {
+    inject(drawing: DrawingSurface, viewDef: ViewDefinition): void {
         const furnitureStore = (window as unknown as {
             furnitureStore?: { getAll: () => FurnitureData[] };
         }).furnitureStore;
@@ -106,7 +106,7 @@ export class TreeElevationSymbolBuilder {
             this._applyTransform(lineSegments, tree);
             lineSegments.updateWorldMatrix(true, false);
 
-            const projected = OBC.TechnicalDrawing.toDrawingSpace(lineSegments, drawing);
+            const projected = projectToDrawingSpace(lineSegments, drawing);
             drawing.addProjectionLines(projected, FURN_LAYER);
             registerSegmentUUID(drawing, projected, tree.id);
             geo.dispose();

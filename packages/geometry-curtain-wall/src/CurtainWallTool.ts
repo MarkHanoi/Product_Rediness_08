@@ -40,7 +40,7 @@
  */
 
 import * as THREE from '@pryzm/renderer-three/three';
-import * as OBC from '@thatopen/components';
+import type { SeamWorld } from '@pryzm/core-app-model';
 import { createId } from '@pryzm/schemas';
 import type { CurtainWallDrawingMode, CurtainWallToolCallbacks } from './CurtainWallTypes.js';
 import { CurtainWallStore } from './CurtainWallStore.js';
@@ -179,7 +179,7 @@ export interface CurtainWallToolDependencies {
 export type SlabPickRequester = (message: string, onSlab: (slabId: string) => void) => void;
 
 export class CurtainWallTool {
-    private world: OBC.World;
+    private world: SeamWorld;
     private callbacks: CurtainWallToolCallbacks;
     private store: CurtainWallStore;
     /** §CURTAIN-WALL-AUDIT-2026 §5.4 — injected deps (optional during migration). */
@@ -246,7 +246,7 @@ export class CurtainWallTool {
     private _polySegmentCount: number = 0;
 
     constructor(
-        world: OBC.World,
+        world: SeamWorld,
         callbacks: CurtainWallToolCallbacks,
         deps: Partial<CurtainWallToolDependencies> = {},
     ) {
@@ -566,13 +566,13 @@ export class CurtainWallTool {
     // ────────────────────────────────────────────────────────────────────────
 
     private attachListeners(): void {
-        const canvas = this.world.renderer!.three.domElement;
+        const canvas = this.world.renderer!.three!.domElement;
         canvas.addEventListener('pointerdown', this.onPointerDown);
         canvas.addEventListener('pointermove', this.onPointerMove);
     }
 
     private detachListeners(): void {
-        const canvas = this.world.renderer!.three.domElement;
+        const canvas = this.world.renderer!.three!.domElement;
         canvas.removeEventListener('pointerdown', this.onPointerDown);
         canvas.removeEventListener('pointermove', this.onPointerMove);
     }
@@ -802,7 +802,7 @@ export class CurtainWallTool {
     // ────────────────────────────────────────────────────────────────────────
 
     private _getRawPoint(e: PointerEvent): THREE.Vector3 | null {
-        const canvas = this.world.renderer!.three.domElement;
+        const canvas = this.world.renderer!.three!.domElement;
         const rect = canvas.getBoundingClientRect();
         const mouse = new THREE.Vector2(
             ((e.clientX - rect.left) / rect.width)  *  2 - 1,

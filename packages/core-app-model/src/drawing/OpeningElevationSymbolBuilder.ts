@@ -48,7 +48,7 @@
  */
 
 import * as THREE from '@pryzm/renderer-three/three';
-import * as OBC from '@thatopen/components';
+import { projectToDrawingSpace, type DrawingSurface } from '../obc/ObcSeam';
 import {
     resolveWallBaseYOrLevel,
     rakeShearPerMetre,
@@ -231,7 +231,7 @@ export class OpeningElevationSymbolBuilder {
      * takes every opening and lets the crop and the occlusion pass cull — the same rule
      * `PlumbingElevationSymbolBuilder` uses, restated rather than re-decided.
      */
-    inject(drawing: OBC.TechnicalDrawing, viewDef: ElevationSymbolViewDef): InjectResult {
+    inject(drawing: DrawingSurface, viewDef: ElevationSymbolViewDef): InjectResult {
         const levelId = viewDef.spatial?.levelId;
         const dir = viewDef.spatial?.projectionDirection ?? { x: 0, y: 0, z: -1 };
         const dirX = Number(dir.x) || 0;
@@ -447,7 +447,7 @@ export class OpeningElevationSymbolBuilder {
  * @returns what was removed, for the caller's diagnosis line.
  */
 export function suppressSymbolisedElementLinework(
-    drawing: OBC.TechnicalDrawing,
+    drawing: DrawingSurface,
     coveredElementIds: ReadonlySet<string>,
 ): { removedLayers: number; removedSegments: number } {
     if (coveredElementIds.size === 0) return { removedLayers: 0, removedSegments: 0 };
@@ -611,7 +611,7 @@ interface EmittablePolyline {
 
 /** Group by zone so each zone's polylines share one LineSegments — one pen resolution each. */
 function _emit(
-    drawing: OBC.TechnicalDrawing,
+    drawing: DrawingSurface,
     baseLayer: string,
     polylines: readonly EmittablePolyline[],
     elementUUID: string,
@@ -656,7 +656,7 @@ function _emit(
         const lines = new THREE.LineSegments(geo, new THREE.LineBasicMaterial({ color: 0x000000 }));
         lines.updateWorldMatrix(true, false);
 
-        const projected = OBC.TechnicalDrawing.toDrawingSpace(lines, drawing);
+        const projected = projectToDrawingSpace(lines, drawing);
         projected.name = layer;
         projected.userData.layerName = layer;
         // The ELEMENT tier (priority 10000) of the graphics-rules chain keys on this. Without

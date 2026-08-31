@@ -39,7 +39,7 @@
  */
 
 import * as THREE from '@pryzm/renderer-three/three';
-import * as OBC from '@thatopen/components';
+import type { SeamWorld } from '@pryzm/core-app-model';
 import { ProjectContext } from '@pryzm/core-app-model';
 import { HandrailStore } from '@pryzm/core-app-model/stores';
 import { SnapManager } from '@pryzm/snapping';
@@ -65,7 +65,7 @@ import type { HandrailRunPoint } from './handrailRunGenerators';
 const GHOST_BODY_SEGMENT_LIMIT = 8;
 
 export class HandrailTool {
-    private world: OBC.World;
+    private world: SeamWorld;
     private projectContext: ProjectContext;
     private commandManager: CommandManager;
     private snapManager: SnapManager | null = null;
@@ -80,7 +80,7 @@ export class HandrailTool {
     private _escListener: ((e: KeyboardEvent) => void) | null = null;
 
     constructor(
-        world: OBC.World,
+        world: SeamWorld,
         _handrailStore: HandrailStore,
         projectContext: ProjectContext,
         commandManager: CommandManager
@@ -245,7 +245,7 @@ export class HandrailTool {
     // ─────────────────────────────────────────────────────────────────────────
 
     private attachEventListeners(): void {
-        const canvas = this.world.renderer!.three.domElement;
+        const canvas = this.world.renderer!.three!.domElement;
         this.pointerDownHandler = (e: PointerEvent) => this.onPointerDown(e);
         this.pointerMoveHandler = (e: PointerEvent) => this.onPointerMove(e);
         this.dblClickHandler = () => this._sketch.onDoubleClick();
@@ -255,7 +255,7 @@ export class HandrailTool {
     }
 
     private detachEventListeners(): void {
-        const canvas = this.world.renderer!.three.domElement;
+        const canvas = this.world.renderer!.three!.domElement;
         if (this.pointerDownHandler) canvas.removeEventListener('pointerdown', this.pointerDownHandler);
         if (this.pointerMoveHandler) canvas.removeEventListener('pointermove', this.pointerMoveHandler);
         if (this.dblClickHandler) canvas.removeEventListener('dblclick', this.dblClickHandler);
@@ -285,7 +285,7 @@ export class HandrailTool {
     }
 
     private getWorldPoint(event: PointerEvent | MouseEvent): THREE.Vector3 | null {
-        const canvas = this.world.renderer!.three.domElement;
+        const canvas = this.world.renderer!.three!.domElement;
         const rect = canvas.getBoundingClientRect();
         const mouse = new THREE.Vector2(((event.clientX - rect.left) / rect.width) * 2 - 1, -((event.clientY - rect.top) / rect.height) * 2 + 1);
         const raycaster = new THREE.Raycaster();

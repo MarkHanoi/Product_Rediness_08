@@ -1,5 +1,4 @@
 import * as THREE from '@pryzm/renderer-three/three';
-import * as OBC from '@thatopen/components';
 import { CreateRoofCommand } from '@pryzm/command-registry';
 import { RoofFootprint, RoofType } from './RoofTypes.js';
 import { CommandManager } from '@pryzm/command-registry';
@@ -7,7 +6,7 @@ import { ProjectContext } from '@pryzm/core-app-model';
 import { traceRoofRegionAtPoint, formatRoofRegionAttributionReport } from './RoofRegionTrace.js';
 import { roofRegionReferenceFromTrace } from './RoofDependencyTracker.js';
 import { RoofSnapEngine } from './RoofSnapEngine.js';
-import { PREVIEW_COLOR, tagPreview, disposePreviewObject } from '@pryzm/core-app-model';
+import { PREVIEW_COLOR, tagPreview, disposePreviewObject, getSceneRaycaster, type ComponentsHandle, type SeamWorld } from '@pryzm/core-app-model';
 
 export enum RoofToolState {
     IDLE        = 'IDLE',
@@ -71,8 +70,8 @@ export class RoofTool {
     private readonly _snapEngine:     RoofSnapEngine;
 
     constructor(
-        private world: OBC.World,
-        private components: OBC.Components,
+        private world: SeamWorld,
+        private components: ComponentsHandle,
         _callbacks: RoofToolCallbacks,
         deps: RoofToolDeps,
     ) {
@@ -168,7 +167,7 @@ export class RoofTool {
     // ──────────────────────────────────────────────────────────────────────────
 
     private _setupEventListeners(): void {
-        const dom    = this.world.renderer!.three.domElement;
+        const dom    = this.world.renderer!.three!.domElement;
         const onDown = (e: PointerEvent)  => this._handlePointerDown(e);
         const onMove = (e: PointerEvent)  => this._handlePointerMove(e);
         const onKey  = (e: KeyboardEvent) => {
@@ -669,13 +668,13 @@ export class RoofTool {
     // ──────────────────────────────────────────────────────────────────────────
 
     private _getRawPlanPoint(e: PointerEvent): THREE.Vector3 | null {
-        const dom  = this.world.renderer!.three.domElement;
+        const dom  = this.world.renderer!.three!.domElement;
         const rect = dom.getBoundingClientRect();
         const x = ((e.clientX - rect.left)  / rect.width)  * 2 - 1;
         const y = -((e.clientY - rect.top)  / rect.height) * 2 + 1;
 
-        const raycasterObj = this.components.get(OBC.Raycasters).get(this.world);
-        const raycaster    = (raycasterObj as any).three;
+        // §OBC-SEAM — the scene-raycaster recipe lives in getSceneRaycaster().
+        const raycaster = getSceneRaycaster(this.components, this.world);
         raycaster.setFromCamera(new THREE.Vector2(x, y), this.world.camera.three);
 
         const planeY = this._getPlaneElevation();

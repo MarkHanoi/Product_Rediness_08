@@ -32,12 +32,11 @@
  */
 
 import * as THREE from '@pryzm/renderer-three/three';
-import * as OBC from '@thatopen/components';
 import type { ViewDefinition } from '@pryzm/core-app-model';
 // §FEAT-COLUMN-PLAN-LOD (L-286) — the column row of ADR-121's LOD matrix. ONE shared
 // resolver (ADR-121 §4.3), the same one the door, window and wall rows call. No private
 // `detailed` flag, no `resolveColumnDetailLevel`.
-import { resolveEffectiveDetailLevel, type DetailLevel } from '@pryzm/core-app-model';
+import { resolveEffectiveDetailLevel, projectToDrawingSpace, type DetailLevel, type DrawingSurface } from '@pryzm/core-app-model';
 import type { ColumnData } from './ColumnTypes';
 import { SteelProfileLibrary } from '@pryzm/plugin-structural';
 import {
@@ -106,7 +105,7 @@ export class ColumnPlanSymbolBuilder {
      * Injects crosshair center marks (and section outlines for steel) for all
      * columns on the active level.
      */
-    inject(drawing: OBC.TechnicalDrawing, viewDef: ViewDefinition): void {
+    inject(drawing: DrawingSurface, viewDef: ViewDefinition): void {
         if (
             viewDef.viewType !== 'plan' &&
             viewDef.viewType !== 'detail' &&
@@ -182,7 +181,7 @@ export class ColumnPlanSymbolBuilder {
      * the outline is byte-identical at coarse, medium and fine.
      */
     private _injectColumnSymbol(
-        drawing: OBC.TechnicalDrawing,
+        drawing: DrawingSurface,
         col: ColumnData,
         lod: ColumnPlanLod,
     ): void {
@@ -233,7 +232,7 @@ export class ColumnPlanSymbolBuilder {
     }
 
     private _injectCrosshair(
-        drawing: OBC.TechnicalDrawing,
+        drawing: DrawingSurface,
         cx: number, cz: number, worldY: number,
         halfLenX: number, halfLenZ: number,
     ): void {
@@ -247,7 +246,7 @@ export class ColumnPlanSymbolBuilder {
     }
 
     private _injectLineSegments(
-        drawing: OBC.TechnicalDrawing,
+        drawing: DrawingSurface,
         positions: number[],
         _worldY: number,
     ): void {
@@ -260,7 +259,7 @@ export class ColumnPlanSymbolBuilder {
         );
         lineSegs.updateWorldMatrix(true, false);
 
-        const projected = OBC.TechnicalDrawing.toDrawingSpace(lineSegs, drawing);
+        const projected = projectToDrawingSpace(lineSegs, drawing);
         drawing.addProjectionLines(projected, COLUMN_LAYER);
     }
 }

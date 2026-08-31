@@ -1,5 +1,4 @@
 import * as THREE from '@pryzm/renderer-three/three';
-import * as OBC from '@thatopen/components';
 import * as BUI from '@thatopen/ui';
 import { CreateSlabCommand } from '@pryzm/command-registry';
 // W3 FIX §01 §2.4: Static import replaces dynamic import().then() to eliminate
@@ -12,7 +11,7 @@ import { SlabProfileEditor } from './SlabProfileEditor.js';
 import { HostReferenceEdge, FreeLineEdge, SketchEdge } from './SketchTypes.js';
 import { WallFaceResolver } from './WallFaceResolver.js';
 import { VisualStyle } from '@pryzm/core-app-model/material-library';
-import { projectContext, PREVIEW_COLOR } from '@pryzm/core-app-model';
+import { projectContext, PREVIEW_COLOR, getSceneRaycaster, type ComponentsHandle, type SeamWorld } from '@pryzm/core-app-model';
 import { DimensionPreview } from '@pryzm/geometry-wall';
 import { SlabPickWallsController } from './SlabPickWallsController.js';
 import { snapToAxisOrDiagonal } from './SlabSnapUtils.js';
@@ -160,8 +159,8 @@ export interface SlabToolDeps {
 }
 
 export class SlabTool {
-    private world: OBC.World;
-    private components: OBC.Components;
+    private world: SeamWorld;
+    private components: ComponentsHandle;
     private callbacks: SlabToolCallbacks;
 
     /** FIX-6: Injected dependencies — replaces all window.* reads in this class. */
@@ -279,8 +278,8 @@ export class SlabTool {
     }
 
     constructor(
-        world: OBC.World,
-        components: OBC.Components,
+        world: SeamWorld,
+        components: ComponentsHandle,
         _container: HTMLElement,
         callbacks: SlabToolCallbacks,
         deps: SlabToolDeps = {}
@@ -294,7 +293,7 @@ export class SlabTool {
             this.dimensionPreview = new DimensionPreview(
                 this.world.scene.three as THREE.Scene,
                 this.world.camera.three,
-                this.world.renderer.three.domElement as HTMLCanvasElement
+                this.world.renderer.three!.domElement as HTMLCanvasElement
             );
         }
     }
@@ -772,7 +771,7 @@ export class SlabTool {
         }
 
         const camera = this.world.camera.three;
-        const canvas = this.world.renderer!.three.domElement;
+        const canvas = this.world.renderer!.three!.domElement;
 
         // ── DOC-5.3: 2D creation mode in plan view ────────────────────────────
         // PlanView2DCreationMode resolves the pointer through the DOC-5.2 snap
@@ -809,8 +808,7 @@ export class SlabTool {
         const x = ((clientX - rect.left) / rect.width) * 2 - 1;
         const y = -((clientY - rect.top) / rect.height) * 2 + 1;
 
-        const raycasterObj = this.components.get(OBC.Raycasters).get(this.world);
-        const raycaster = (raycasterObj as any).three;
+        const raycaster = getSceneRaycaster(this.components, this.world);
         const mouseVec = new THREE.Vector2(x, y);
         raycaster.setFromCamera(mouseVec, camera);
 
@@ -1282,7 +1280,7 @@ export class SlabTool {
             this.dimensionPreview.hide();
         }
 
-        const rendererDom = this.world.renderer?.three.domElement;
+        const rendererDom = this.world.renderer?.three!.domElement;
 
         if (this.currentPointerListeners && rendererDom) {
             this.currentPointerListeners();
@@ -1460,7 +1458,7 @@ export class SlabTool {
         }
         this.isSketching = true;
 
-        const rendererDom = this.world.renderer!.three.domElement;
+        const rendererDom = this.world.renderer!.three!.domElement;
         rendererDom.style.touchAction = "none";
 
         const removeEventListeners = () => {

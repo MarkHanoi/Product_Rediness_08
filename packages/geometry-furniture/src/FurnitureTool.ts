@@ -1,5 +1,5 @@
 import * as THREE from '@pryzm/renderer-three/three';
-import * as OBC from '@thatopen/components';
+import { requestManualFrame, type SeamWorld } from '@pryzm/core-app-model';
 import { CreateFurnitureCommand } from '@pryzm/command-registry';
 import { FurnitureStore } from './FurnitureStore';
 import { FurnitureFragmentBuilder } from './FurnitureFragmentBuilder';
@@ -41,7 +41,7 @@ export class FurnitureTool {
     });
 
     constructor(
-        private world: OBC.World,
+        private world: SeamWorld,
         public store: FurnitureStore,
         public builder: FurnitureFragmentBuilder,
         getDescriptor?: (type: string) => any,
@@ -109,10 +109,7 @@ export class FurnitureTool {
             this.furnitureType === 'wardrobe_glass_door';
         if (isWardrobeGesture) return;
         this.previewMesh.rotation.set(0, this._rotation.rotationY(), 0);
-        const renderer = this.world.renderer as any;
-        if (renderer && renderer.mode === OBC.RendererMode.MANUAL && 'needsUpdate' in renderer && !window.pryzmCanvas) {
-            renderer.needsUpdate = true;
-        }
+        if (!window.pryzmCanvas) requestManualFrame(this.world);
     }
 
     /**
@@ -403,7 +400,7 @@ export class FurnitureTool {
     }
 
     private attachListeners() {
-        const canvas = this.world.renderer!.three.domElement;
+        const canvas = this.world.renderer!.three!.domElement;
         this.pointerMoveHandler = (e) => this.onPointerMove(e);
         this.pointerDownHandler = (e) => this.onPointerDown(e);
         canvas.addEventListener('pointermove', this.pointerMoveHandler, true);
@@ -412,7 +409,7 @@ export class FurnitureTool {
     }
 
     private detachListeners() {
-        const canvas = this.world.renderer!.three.domElement;
+        const canvas = this.world.renderer!.three!.domElement;
         if (this.pointerMoveHandler) canvas.removeEventListener('pointermove', this.pointerMoveHandler, true);
         if (this.pointerDownHandler) canvas.removeEventListener('pointerdown', this.pointerDownHandler, true);
         this.pointerMoveHandler = null;
@@ -573,10 +570,7 @@ export class FurnitureTool {
 
             // Phase 5 guard: skip needsUpdate when WebGPU canvas is active.
             // Triggering OBC's WebGL render in Phase 5 destroys PRYZM's ShadowDepthTexture.
-            const renderer = this.world.renderer as any;
-            if (renderer && renderer.mode === OBC.RendererMode.MANUAL && 'needsUpdate' in renderer && !window.pryzmCanvas) {
-                renderer.needsUpdate = true;
-            }
+            if (!window.pryzmCanvas) requestManualFrame(this.world);
         }
     }
 
@@ -775,15 +769,12 @@ export class FurnitureTool {
             }
 
             // Phase 5 guard: skip needsUpdate when WebGPU canvas is active.
-            const renderer = this.world.renderer as any;
-            if (renderer && renderer.mode === OBC.RendererMode.MANUAL && 'needsUpdate' in renderer && !window.pryzmCanvas) {
-                renderer.needsUpdate = true;
-            }
+            if (!window.pryzmCanvas) requestManualFrame(this.world);
         }
     }
 
     private getWorldPoint(e: PointerEvent): THREE.Vector3 | null {
-        const canvas = this.world.renderer!.three.domElement;
+        const canvas = this.world.renderer!.three!.domElement;
         const rect = canvas.getBoundingClientRect();
         const mouse = new THREE.Vector2(((e.clientX - rect.left) / rect.width) * 2 - 1, -((e.clientY - rect.top) / rect.height) * 2 + 1);
         const raycaster = new THREE.Raycaster();

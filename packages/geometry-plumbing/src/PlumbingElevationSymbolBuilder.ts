@@ -25,7 +25,7 @@
  */
 
 import * as THREE from '@pryzm/renderer-three/three';
-import * as OBC from '@thatopen/components';
+import { projectToDrawingSpace, type DrawingSurface } from '@pryzm/core-app-model';
 import { ViewDefinition, registerSegmentUUID, storeRegistry } from '@pryzm/core-app-model';
 import type { PlumbingFixtureData } from './PlumbingTypes';
 import { buildElevationLinework } from './PlumbingSymbolGeometry';
@@ -44,7 +44,7 @@ export class PlumbingElevationSymbolBuilder {
      * building-wide elevation (no levelId) includes every fixture and lets the
      * view crop / hidden-line pass cull. §01 §5 — no store mutations.
      */
-    inject(drawing: OBC.TechnicalDrawing, viewDef: ViewDefinition): void {
+    inject(drawing: DrawingSurface, viewDef: ViewDefinition): void {
         const store = storeRegistry.getStoreForType('plumbing') as ReadablePlumbingStore | undefined;
         if (!store || typeof store.getAll !== 'function') return;
 
@@ -69,7 +69,7 @@ export class PlumbingElevationSymbolBuilder {
             this._applyTransform(lineSegments, fixture);
             lineSegments.updateWorldMatrix(true, false);
 
-            const projected = OBC.TechnicalDrawing.toDrawingSpace(lineSegments, drawing);
+            const projected = projectToDrawingSpace(lineSegments, drawing);
             drawing.addProjectionLines(projected, PLMB_LAYER);
             registerSegmentUUID(drawing, projected, fixture.id);
             geo.dispose();

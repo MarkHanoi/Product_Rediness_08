@@ -32,7 +32,7 @@
  */
 
 import * as THREE from '@pryzm/renderer-three/three';
-import * as OBC from '@thatopen/components';
+import { projectToDrawingSpace, type DrawingSurface } from '@pryzm/core-app-model';
 import { ViewDefinition } from '@pryzm/core-app-model';
 import { registerSegmentUUID } from '@pryzm/core-app-model';
 import type { FurnitureData } from '../FurnitureTypes';
@@ -135,7 +135,7 @@ class LineworkBuf {
 
 export class TreePlanSymbolBuilder {
 
-    inject(drawing: OBC.TechnicalDrawing, viewDef: ViewDefinition): void {
+    inject(drawing: DrawingSurface, viewDef: ViewDefinition): void {
         const levelId = viewDef.spatial?.levelId;
         if (!levelId) return;
 
@@ -199,7 +199,7 @@ export class TreePlanSymbolBuilder {
                     ));
                 }
                 lineSegments.updateWorldMatrix(true, false);
-                const projected = OBC.TechnicalDrawing.toDrawingSpace(lineSegments, drawing);
+                const projected = projectToDrawingSpace(lineSegments, drawing);
                 drawing.addProjectionLines(projected, layer);
                 registerSegmentUUID(drawing, projected, tree.id);
             };

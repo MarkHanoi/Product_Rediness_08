@@ -1,7 +1,6 @@
 import { createId } from '@pryzm/schemas';
 import * as THREE from '@pryzm/renderer-three/three';
-import * as OBC from '@thatopen/components';
-import { ProjectContext } from '@pryzm/core-app-model';
+import { ProjectContext, type SeamWorld } from '@pryzm/core-app-model';
 import { CreateWallCommand, CreateWallsFromSlabCommand } from '@pryzm/command-registry';
 import { WallToolState, WallToolCallbacks, WallDrawingMode } from './WallTypes';
 // §FIX-ORTHO-CANNOT-FALL-BACK-TO-LINEAR (founder 2026-08-24) — the drawing-mode
@@ -129,7 +128,7 @@ function __pryzmWallGateSuppressed(): boolean {
  *   See `docs/archive/pryzm3-internal/00_NEW_ARCHITECTURE/phases/audits/PHASES-A-F-RECONCILIATION-2026-04-29/05-phase-E-audit-and-plan.md`.
  */
 export class WallTool {
-    private world: OBC.World;
+    private world: SeamWorld;
     private callbacks: WallToolCallbacks;
     private projectContext: ProjectContext;
 
@@ -260,7 +259,7 @@ export class WallTool {
     private defaultWallThickness = 0.2;
 
     constructor(
-        world: OBC.World,
+        world: SeamWorld,
         callbacks: WallToolCallbacks,
         projectContext: ProjectContext
     ) {
@@ -332,12 +331,12 @@ export class WallTool {
         this.dimensionPreview = new DimensionPreview(
             world.scene.three as THREE.Scene,
             world.camera.three,
-            world.renderer!.three.domElement as HTMLCanvasElement
+            world.renderer!.three!.domElement as HTMLCanvasElement
         );
 
         // §04-12 / §04-13: initialise isolated input modules
         this.dimensionInput = new WallDimensionInput(
-            world.renderer!.three.domElement as HTMLCanvasElement
+            world.renderer!.three!.domElement as HTMLCanvasElement
         );
         this.snapCycler = new WallSnapCycler(this.wallStore);
 
@@ -763,7 +762,7 @@ export class WallTool {
     }
 
     private attachEventListeners(): void {
-        const canvas = this.world.renderer!.three.domElement;
+        const canvas = this.world.renderer!.three!.domElement;
 
         // Ensure we don't double-attach
         this.detachEventListeners();
@@ -780,7 +779,7 @@ export class WallTool {
     }
 
     private detachEventListeners(): void {
-        const canvas = this.world.renderer!.three.domElement;
+        const canvas = this.world.renderer!.three!.domElement;
 
         if (this.pointerDownHandler) {
             canvas.removeEventListener('pointerdown', this.pointerDownHandler);
@@ -1132,7 +1131,7 @@ export class WallTool {
     }
 
     private getRaycastHit(event: PointerEvent): THREE.Intersection | null {
-        const canvas = this.world.renderer!.three.domElement;
+        const canvas = this.world.renderer!.three!.domElement;
         const rect = canvas.getBoundingClientRect();
         const mouse = new THREE.Vector2(
             ((event.clientX - rect.left) / rect.width) * 2 - 1,
@@ -1316,7 +1315,7 @@ export class WallTool {
         const drawing2D = activePlanDrawingRef.drawing;
         const camera = this.world.camera.three;
         if (drawing2D && camera instanceof THREE.OrthographicCamera) {
-            const canvas = this.world.renderer!.three.domElement;
+            const canvas = this.world.renderer!.three!.domElement;
             const snap2D = planView2DSnapService.querySnap(
                 event.clientX, event.clientY,
                 drawing2D, camera, canvas,
@@ -1585,7 +1584,7 @@ export class WallTool {
     }
 
     private getWorldPoint(event: PointerEvent): THREE.Vector3 | null {
-        const canvas = this.world.renderer!.three.domElement;
+        const canvas = this.world.renderer!.three!.domElement;
         const rect = canvas.getBoundingClientRect();
 
         const mouse = new THREE.Vector2(

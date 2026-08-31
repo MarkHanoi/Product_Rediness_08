@@ -14,7 +14,6 @@
  */
 
 import * as THREE from '@pryzm/renderer-three/three';
-import * as OBC from '@thatopen/components';
 import { createId } from '@pryzm/schemas';
 import { ColumnStore } from './ColumnStore.js';
 import { SteelProfileLibrary } from '@pryzm/plugin-structural';
@@ -23,7 +22,7 @@ import { CreateColumnCommand } from '@pryzm/command-registry';
 import { elementRegistry } from '@pryzm/core-app-model/element-registry';
 import { resolveSlabBaseOffsetForPoint } from './SlabColumnCoupling.js';
 import { SpatialAuthorityError } from '@pryzm/core-app-model';
-import { PREVIEW_COLOR, createGhostBodyMaterial, tagPreview, disposePreviewObject } from '@pryzm/core-app-model';
+import { PREVIEW_COLOR, createGhostBodyMaterial, tagPreview, disposePreviewObject, isManualRenderer, requestManualFrame, type SeamWorld } from '@pryzm/core-app-model';
 
 type ProfileMode = 'rectangular' | 'circular' | 'UC' | 'UB';
 
@@ -48,7 +47,7 @@ export interface ColumnToolDeps {
 }
 
 export class ColumnTool {
-    private world: OBC.World;
+    private world: SeamWorld;
     private store: ColumnStore;
     private commandManager: any;
     /** §W6: lazy dependency resolvers — replace direct window.* reads. */
@@ -67,7 +66,7 @@ export class ColumnTool {
     private _rotation = 0;
 
     constructor(
-        world: OBC.World,
+        world: SeamWorld,
         callbacks: any,
         columnStore?: ColumnStore,
         commandManager?: any,
@@ -159,7 +158,7 @@ export class ColumnTool {
         const tm = this._resolve<any>('getToolManager', 'toolManager');
         if (tm) tm.currentTool = null;
 
-        const canvas = this.world.renderer!.three.domElement;
+        const canvas = this.world.renderer!.three!.domElement;
         canvas.style.pointerEvents = 'auto';
 
         setTimeout(() => { window.dispatchEvent(new Event('resize')); }, 100);
@@ -171,13 +170,13 @@ export class ColumnTool {
     // ── Pointer events ─────────────────────────────────────────────────────────
 
     private attachListeners() {
-        const canvas = this.world.renderer!.three.domElement;
+        const canvas = this.world.renderer!.three!.domElement;
         canvas.addEventListener('pointerdown', this.onPointerDown, true);
         canvas.addEventListener('pointermove', this.onPointerMove, true);
     }
 
     private detachListeners() {
-        const canvas = this.world.renderer!.three.domElement;
+        const canvas = this.world.renderer!.three!.domElement;
         canvas.removeEventListener('pointerdown', this.onPointerDown, true);
         canvas.removeEventListener('pointermove', this.onPointerMove, true);
     }
@@ -243,14 +242,14 @@ export class ColumnTool {
             this.callbacks.updateInspector?.(mesh);
         }
 
-        const renderer = this.world.renderer as any;
+        // §OBC-SEAM — the MANUAL-mode redraw recipe lives in requestManualFrame();
+        // the WebGPU-canvas guard stays HERE at the call site (app state — see
+        // the seam doc in core-app-model/BimWorld.ts).
         if (
-            renderer &&
-            renderer.mode === OBC.RendererMode.MANUAL &&
-            'needsUpdate' in renderer &&
+            isManualRenderer(this.world) &&
             !this._resolve<any>('getCanvas', 'pryzmCanvas')
         ) {
-            renderer.needsUpdate = true;
+            requestManualFrame(this.world);
         }
     };
 
@@ -262,7 +261,7 @@ export class ColumnTool {
     };
 
     private getPoint(e: PointerEvent): THREE.Vector3 | null {
-        const canvas = this.world.renderer!.three.domElement;
+        const canvas = this.world.renderer!.three!.domElement;
         const rect = canvas.getBoundingClientRect();
         const mouse = new THREE.Vector2(
             ((e.clientX - rect.left) / rect.width) * 2 - 1,

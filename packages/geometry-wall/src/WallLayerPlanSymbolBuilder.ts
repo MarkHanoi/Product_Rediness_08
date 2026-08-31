@@ -18,13 +18,12 @@
 //   ADR-0055 — plan projection consumes the SAME layered footprint the 3D grid path renders.
 
 import * as THREE from '@pryzm/renderer-three/three';
-import * as OBC from '@thatopen/components';
 import type { ViewDefinition } from '@pryzm/core-app-model';
 // §FEAT-WALL-PLAN-LOD (L-286) — the wall row of ADR-121's LOD matrix. The wall is a
 // consumer of the ONE shared resolver (ADR-121 §4.3: "One resolver, three consumers —
 // NOT a second symbol engine per view type"), exactly as the door and the window are.
 // There is deliberately no private `detailed` flag and no `resolveWallDetailLevel`.
-import { resolveEffectiveDetailLevel, type DetailLevel } from '@pryzm/core-app-model';
+import { resolveEffectiveDetailLevel, projectToDrawingSpace, type DetailLevel, type DrawingSurface } from '@pryzm/core-app-model';
 import {
     computeWallLayerLines,
     computeWallLayerInsulationHatch,
@@ -96,7 +95,7 @@ export class WallLayerPlanSymbolBuilder {
     }
 
     /** Inject internal layer-boundary lines for all layered walls on the active plan level. */
-    inject(drawing: OBC.TechnicalDrawing, viewDef: ViewDefinition): void {
+    inject(drawing: DrawingSurface, viewDef: ViewDefinition): void {
         if (viewDef.viewType !== 'plan' && viewDef.viewType !== 'detail' && viewDef.viewType !== 'structural-plan') return;
         const levelId = viewDef.spatial?.levelId;
         if (!levelId) return;
@@ -152,13 +151,13 @@ export class WallLayerPlanSymbolBuilder {
         }
     }
 
-    private _injectLineSegments(drawing: OBC.TechnicalDrawing, positions: number[]): void {
+    private _injectLineSegments(drawing: DrawingSurface, positions: number[]): void {
         if (positions.length === 0) return;
         const geo = new THREE.BufferGeometry();
         geo.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
         const lineSegs = new THREE.LineSegments(geo, new THREE.LineBasicMaterial({ color: 0x000000 }));
         lineSegs.updateWorldMatrix(true, false);
-        const projected = OBC.TechnicalDrawing.toDrawingSpace(lineSegs, drawing);
+        const projected = projectToDrawingSpace(lineSegs, drawing);
 
         // §FIX-PLAN-AWALL-LAYER-FALLBACK (L-241/L-252 lineage) — CREATE THE LAYER BEFORE
         // DRAWING INTO IT. The founder's console repeats, on every re-projection:

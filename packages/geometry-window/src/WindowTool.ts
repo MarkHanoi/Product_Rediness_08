@@ -1,5 +1,4 @@
 import * as THREE from '@pryzm/renderer-three/three';
-import * as OBC from '@thatopen/components';
 import { CreateWallOpeningCommand } from '@pryzm/command-registry';
 import {
     WallStore, WallFragmentBuilder, wallOccupancyStore,
@@ -13,7 +12,7 @@ import {
     type OpeningProfileKind,
     OPENING_PROFILE_LABELS as PROFILE_LABELS,
 } from '@pryzm/geometry-wall';
-import { PREVIEW_COLOR } from '@pryzm/core-app-model';
+import { PREVIEW_COLOR, type SeamWorld } from '@pryzm/core-app-model';
 // §FIX-DOOR-WINDOW-SYMBOL-PARITY-AND-LOD300 (L-266) — the 3D window tool no longer
 // owns any window state: it reads/writes the ONE WindowToolConfigStore and commits
 // through the ONE `window.create` chokepoint, exactly as DoorTool does (L-260 A).
@@ -37,7 +36,7 @@ type WindowHudState =
     | 'transient-error';
 
 export class WindowTool {
-    private world: OBC.World;
+    private world: SeamWorld;
     private wallStore: WallStore;
     private _isActive = false;
     private previewWindow: THREE.Mesh | null = null;
@@ -76,7 +75,7 @@ export class WindowTool {
     // PLAN-03: injected selectionManager — set via setSelectionManager() after ToolManager is ready.
     private selectionManager: any = null;
 
-    constructor(world: OBC.World, wallStore: WallStore, _fragmentBuilder: WallFragmentBuilder, _callbacks: any, commandManager?: any) {
+    constructor(world: SeamWorld, wallStore: WallStore, _fragmentBuilder: WallFragmentBuilder, _callbacks: any, commandManager?: any) {
         this.world = world;
         this.wallStore = wallStore;
         this.commandManager = commandManager ?? null;
@@ -178,13 +177,13 @@ export class WindowTool {
     }
 
     private attachListeners() {
-        const canvas = this.world.renderer!.three.domElement;
+        const canvas = this.world.renderer!.three!.domElement;
         canvas.addEventListener('pointermove', this.onPointerMove);
         canvas.addEventListener('pointerdown', this.onPointerDown);
     }
 
     private detachListeners() {
-        const canvas = this.world.renderer!.three.domElement;
+        const canvas = this.world.renderer!.three!.domElement;
         canvas.removeEventListener('pointermove', this.onPointerMove);
         canvas.removeEventListener('pointerdown', this.onPointerDown);
     }
@@ -274,7 +273,7 @@ export class WindowTool {
     }
 
     private getWallHit(e: PointerEvent) {
-        const rect = this.world.renderer!.three.domElement.getBoundingClientRect();
+        const rect = this.world.renderer!.three!.domElement.getBoundingClientRect();
         const mouse = new THREE.Vector2(
             ((e.clientX - rect.left) / rect.width) * 2 - 1,
             -((e.clientY - rect.top) / rect.height) * 2 + 1

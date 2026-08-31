@@ -1,5 +1,5 @@
 import * as THREE from '@pryzm/renderer-three/three';
-import * as OBC from '@thatopen/components';
+import { getSceneRaycaster, type ComponentsHandle, type SeamWorld } from '@pryzm/core-app-model';
 import { SlabData } from './SlabTypes';
 import { snapToAxisOrDiagonal, snapToGrid } from './SlabSnapUtils';
 import { lineIntersect2D, signedArea } from './SlabGeomUtils';
@@ -120,8 +120,8 @@ type DragState = VertexDragState | MidpointDragState | EdgeDragState;
 // ─────────────────────────────────────────────────────────────────────────────
 
 export class SlabProfileEditor {
-    private readonly world: OBC.World;
-    private readonly components: OBC.Components;
+    private readonly world: SeamWorld;
+    private readonly components: ComponentsHandle;
     private readonly _onCommit: (polygon: { x: number; y: number }[]) => void;
     private readonly _onCancel: () => void;
 
@@ -169,8 +169,8 @@ export class SlabProfileEditor {
     // ─────────────────────────────────────────────────────────────────────────
 
     constructor(
-        world: OBC.World,
-        components: OBC.Components,
+        world: SeamWorld,
+        components: ComponentsHandle,
         onCommit: (polygon: { x: number; y: number }[]) => void,
         onCancel: () => void
     ) {
@@ -537,7 +537,7 @@ export class SlabProfileEditor {
         const line = this._edgeHighlightLine;
         if (!line) return;
 
-        const dom = this.world.renderer?.three.domElement;
+        const dom = this.world.renderer?.three!.domElement;
 
         if (index === null) {
             line.visible = false;
@@ -783,7 +783,7 @@ export class SlabProfileEditor {
     // ─────────────────────────────────────────────────────────────────────────
 
     private _ndcFromPointerEvent(e: PointerEvent): THREE.Vector2 {
-        const dom  = this.world.renderer!.three.domElement;
+        const dom  = this.world.renderer!.three!.domElement;
         const rect = dom.getBoundingClientRect();
         return new THREE.Vector2(
             ((e.clientX - rect.left) / rect.width)  *  2 - 1,
@@ -793,8 +793,7 @@ export class SlabProfileEditor {
 
     private _buildRaycaster(e: PointerEvent): THREE.Raycaster {
         const ndc           = this._ndcFromPointerEvent(e);
-        const raycasterComp = this.components.get(OBC.Raycasters).get(this.world);
-        const raycaster     = (raycasterComp as any).three as THREE.Raycaster;
+        const raycaster     = getSceneRaycaster(this.components, this.world);
         raycaster.setFromCamera(ndc, this.world.camera.three);
         return raycaster;
     }
@@ -874,7 +873,7 @@ export class SlabProfileEditor {
     // ─────────────────────────────────────────────────────────────────────────
 
     private _attachListeners(): void {
-        const dom = this.world.renderer!.three.domElement;
+        const dom = this.world.renderer!.three!.domElement;
 
         // ── pointerdown ───────────────────────────────────────────────────────
         this._evPointerDown = (e: PointerEvent) => {
@@ -1149,7 +1148,7 @@ export class SlabProfileEditor {
     }
 
     private _detachListeners(): void {
-        const dom = this.world.renderer?.three.domElement;
+        const dom = this.world.renderer?.three!.domElement;
         if (dom) {
             if (this._evPointerDown) dom.removeEventListener('pointerdown', this._evPointerDown, { capture: true });
             if (this._evPointerMove) dom.removeEventListener('pointermove', this._evPointerMove, { capture: true });
@@ -1221,7 +1220,7 @@ export class SlabProfileEditor {
         }
 
         // Restore cursor if it was changed by edge highlight.
-        const dom = this.world.renderer?.three.domElement;
+        const dom = this.world.renderer?.three!.domElement;
         if (dom) dom.style.cursor = '';
     }
 }

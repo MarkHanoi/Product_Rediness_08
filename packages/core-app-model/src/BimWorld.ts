@@ -5,6 +5,7 @@ import { SceneTheme } from './SceneTheme';
 import { InfiniteGrid3D } from './InfiniteGrid3D';
 import { perfTraceOn, perfLog } from './rendering/perfTrace';
 import { getFrameScheduler } from '@pryzm/frame-scheduler';
+import type { ComponentsHandle, DrawingSurface, SeamWorld } from './obc/ObcSeamTypes.js';
 
 export function createBimWorld(container: HTMLElement) {
     const components = new OBC.Components();
@@ -465,4 +466,109 @@ function installIdentityLockAudit(world: { scene: { three: THREE.Object3D } }): 
 
     window.addEventListener('pointerdown', handler, { passive: true });
     return () => window.removeEventListener('pointerdown', handler);
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// §OBC-SEAM (Axis 7 Wave A, 2026-08-31) — the runtime seam over
+// `@thatopen/components`, hosted HERE because this module is the instance
+// owner: `createBimWorld()` above holds the repo's ONLY `new OBC.Components()`
+// (line 10), and this file already imports OBC. Hosting the seam runtime here
+// keeps §FIX-RESTRICTED-IMPORT-RATCHET flat (124 measured at mint time,
+// baseline 113, shrink-only — a new `import * as OBC` anywhere else would
+// GROW an already-exceeded ratchet). This is the scout's zero-new-import
+// variant (audit/full-stack/2026-08-31/_p5/obc-seam-scout.md §seam_design).
+//
+// ⚠ Do NOT move these functions into a file of their own without moving an
+//   existing restricted import out in the same commit — the gate counts
+//   specifiers per file, and the ratchet may only shrink.
+// ⚠ ADOPTION, NEVER CONSTRUCTION (§BLSTORE precedent): every function below
+//   fronts objects the CALLER already owns. Nothing here constructs, caches,
+//   or stores a Components/World/renderer.
+//
+// The structural parameter types live in ./obc/ObcSeamTypes.ts (which is
+// `@thatopen`-free by contract); consumers import both halves through
+// ./obc/ObcSeam.ts or the package barrel.
+// ═══════════════════════════════════════════════════════════════════════════
+
+/**
+ * §OBC-SEAM — project world-space `LineSegments` into a technical drawing's
+ * local XZ plane. Delegates to the REAL `OBC.TechnicalDrawing.toDrawingSpace`
+ * static (the 19-site recipe across 15 symbol-builder files, e.g.
+ * geometry-door/DoorPlanSymbolBuilder, geometry-furniture builders,
+ * geometry-stair/StairSymbolTechnicalDrawingBridge).
+ *
+ * The caller keeps its obligations from the OBC contract: the segments' world
+ * matrix must be up to date (`updateWorldMatrix(true, false)`), and the
+ * returned segments carry no material.
+ */
+export function projectToDrawingSpace(
+    lines: THREE.LineSegments,
+    drawing: DrawingSurface,
+): THREE.LineSegments {
+    return OBC.TechnicalDrawing.toDrawingSpace(
+        lines,
+        drawing as unknown as OBC.TechnicalDrawing,
+    );
+}
+
+/**
+ * §OBC-SEAM — TRUE iff the world's OBC renderer exists and sits in
+ * `OBC.RendererMode.MANUAL`. The comparison uses the real OBC enum member
+ * (MANUAL === 0 — falsy, which is why this is an identity comparison and
+ * never a truthiness check). The declared `BaseRenderer` type carries no
+ * `mode`, so the probe is structural — exactly what every call site does
+ * today.
+ */
+export function isManualRenderer(world: SeamWorld): boolean {
+    const renderer = world.renderer as { mode?: unknown } | null | undefined;
+    return renderer != null && renderer.mode === OBC.RendererMode.MANUAL;
+}
+
+/**
+ * §OBC-SEAM — the 7-site manual-redraw recipe (ColumnTool:249,
+ * FurnitureTool:113/577/779, LiftTool:236, PlumbingTool:372/471): if the
+ * world's renderer is in `OBC.RendererMode.MANUAL` and exposes `needsUpdate`
+ * (`'needsUpdate' in renderer` — the member is undeclared on `BaseRenderer`),
+ * request one repaint. Returns whether a repaint was requested.
+ *
+ * ⚠ THE WEBGPU-CANVAS GUARD STAYS AT THE CALL SITE. Every current site gates
+ * this recipe behind "no PRYZM WebGPU canvas" (`!window.pryzmCanvas`, or the
+ * DI form `!this._resolve('getCanvas', 'pryzmCanvas')`) because triggering
+ * OBC's WebGL render while WebGPU owns the frame destroys PRYZM's
+ * ShadowDepthTexture (see FurnitureTool "Phase 5 guard"). That guard is
+ * app-state, resolved differently per site — the seam does not read `window`
+ * and does NOT absorb it. Converted sites must keep it:
+ * `if (!pryzmCanvas) requestManualFrame(world);`
+ */
+export function requestManualFrame(world: SeamWorld): boolean {
+    const renderer = world.renderer as
+        | { mode?: unknown; needsUpdate?: boolean }
+        | null
+        | undefined;
+    if (renderer == null || renderer.mode !== OBC.RendererMode.MANUAL) return false;
+    if (!('needsUpdate' in renderer)) return false;
+    (renderer as { needsUpdate: boolean }).needsUpdate = true;
+    return true;
+}
+
+/**
+ * §OBC-SEAM — the 5-site scene-raycaster recipe (RoofTool:677,
+ * geometry-slab CeilingTool/FloorTool/SlabProfileEditor/SlabTool):
+ * `components.get(OBC.Raycasters).get(world)` and hand back the underlying
+ * `THREE.Raycaster`. Centralises the one `as any`-equivalent cast the sites
+ * each repeated (`SimpleRaycaster.three` is declared, but against OBC's own
+ * three types — the structural cast keeps the seam honest under d.ts duality).
+ *
+ * ADOPTS the caller's `components` handle — the ONE live instance from
+ * `createBimWorld()` — and passes `world` through by identity, because OBC
+ * keys per-world raycasters on world identity. Constructs nothing; OBC's own
+ * lazy `components.get` semantics apply, exactly as at today's call sites.
+ */
+export function getSceneRaycaster(
+    components: ComponentsHandle,
+    world: SeamWorld,
+): THREE.Raycaster {
+    const raycasters = components.get(OBC.Raycasters) as OBC.Raycasters;
+    const caster = raycasters.get(world as unknown as OBC.World);
+    return (caster as unknown as { three: THREE.Raycaster }).three;
 }

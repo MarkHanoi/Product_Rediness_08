@@ -26,7 +26,7 @@
  *     for wallStore).
  *   - Builds geometry in local sofa space (origin = inside corner of plinth),
  *     applies the sofa's world position + Y rotation, then projects via
- *     OBC.TechnicalDrawing.toDrawingSpace.
+ *     projectToDrawingSpace (the @pryzm/core-app-model OBC seam, §OBC-SEAM).
  *   - Registers the projected lines against the sofa element id so click
  *     selection in plan view still works.
  *
@@ -38,7 +38,7 @@
  */
 
 import * as THREE from '@pryzm/renderer-three/three';
-import * as OBC from '@thatopen/components';
+import { projectToDrawingSpace, type DrawingSurface } from '@pryzm/core-app-model';
 import { ViewDefinition } from '@pryzm/core-app-model';
 import { registerSegmentUUID } from '@pryzm/core-app-model';
 import type { FurnitureData, FurnitureType } from '../FurnitureTypes';
@@ -81,7 +81,7 @@ const PROFILE = {
 } as const;
 
 export class SofaPlanSymbolBuilder {
-    inject(drawing: OBC.TechnicalDrawing, viewDef: ViewDefinition): void {
+    inject(drawing: DrawingSurface, viewDef: ViewDefinition): void {
         const levelId = viewDef.spatial?.levelId;
         if (!levelId) return;
 
@@ -131,7 +131,7 @@ export class SofaPlanSymbolBuilder {
             }
             lineSegments.updateWorldMatrix(true, false);
 
-            const projected = OBC.TechnicalDrawing.toDrawingSpace(lineSegments, drawing);
+            const projected = projectToDrawingSpace(lineSegments, drawing);
             drawing.addProjectionLines(projected, FURN_LAYER);
             registerSegmentUUID(drawing, projected, sofa.id);
             injected++;

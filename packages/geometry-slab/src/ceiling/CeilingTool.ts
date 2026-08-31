@@ -25,12 +25,11 @@
  */
 
 import * as THREE from '@pryzm/renderer-three/three';
-import * as OBC from '@thatopen/components';
 import { pointInPolygonXZ } from '@pryzm/geometry-kernel';
 import { CreateCeilingCommand } from '@pryzm/command-registry';
 import { CeilingVertex, CeilingToolState, CeilingLayer } from '@pryzm/core-app-model/stores';
 import { computeCeilingArea as computeArea } from '@pryzm/core-app-model/stores';
-import { projectContext } from '@pryzm/core-app-model';
+import { projectContext, getSceneRaycaster, type ComponentsHandle, type SeamWorld } from '@pryzm/core-app-model';
 import { ceilingSystemTypeStore } from '@pryzm/core-app-model/stores';
 // §FEAT-BOUNDARY-CURVE-DRAW — the ONE arc model (wall-tool midpoint-Bézier semantics).
 import { arcSegmentThroughMidpoint } from '../boundaryArc';
@@ -113,8 +112,8 @@ export interface CeilingToolDeps {
 }
 
 export class CeilingTool {
-  private readonly _world: OBC.World;
-  private readonly _components: OBC.Components;
+  private readonly _world: SeamWorld;
+  private readonly _components: ComponentsHandle;
   private _deps: CeilingToolDeps;
 
   // State machine
@@ -172,8 +171,8 @@ export class CeilingTool {
   private _onKeyUp: ((e: KeyboardEvent) => void) | null = null;
 
   constructor(
-    world: OBC.World,
-    components: OBC.Components,
+    world: SeamWorld,
+    components: ComponentsHandle,
     deps: CeilingToolDeps = {}
   ) {
     this._world = world;
@@ -994,8 +993,7 @@ export class CeilingTool {
         -((e.clientY - rect.top) / rect.height) * 2 + 1
       );
 
-      const raycasterObj = this._components.get(OBC.Raycasters).get(this._world);
-      const raycaster = (raycasterObj as any).three as THREE.Raycaster;
+      const raycaster = getSceneRaycaster(this._components, this._world);
       raycaster.setFromCamera(mouseVec, this._world.camera.three as THREE.PerspectiveCamera);
 
       const groundY = this._levelElevation;

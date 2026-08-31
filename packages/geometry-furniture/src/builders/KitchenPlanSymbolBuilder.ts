@@ -34,7 +34,7 @@
  */
 
 import * as THREE from '@pryzm/renderer-three/three';
-import * as OBC from '@thatopen/components';
+import { projectToDrawingSpace, type DrawingSurface } from '@pryzm/core-app-model';
 import { ViewDefinition } from '@pryzm/core-app-model';
 import { registerSegmentUUID } from '@pryzm/core-app-model';
 import type { FurnitureData, FurnitureType } from '../FurnitureTypes';
@@ -102,7 +102,7 @@ function _triangleKind(appliance: string | undefined): TriKind | null {
 }
 
 export class KitchenPlanSymbolBuilder {
-    inject(drawing: OBC.TechnicalDrawing, viewDef: ViewDefinition): void {
+    inject(drawing: DrawingSurface, viewDef: ViewDefinition): void {
         const levelId = viewDef.spatial?.levelId;
         if (!levelId) return;
 
@@ -152,7 +152,7 @@ export class KitchenPlanSymbolBuilder {
             }
             lineSegments.updateWorldMatrix(true, false);
 
-            const projected = OBC.TechnicalDrawing.toDrawingSpace(lineSegments, drawing);
+            const projected = projectToDrawingSpace(lineSegments, drawing);
             drawing.addProjectionLines(projected, FURN_LAYER);
             registerSegmentUUID(drawing, projected, k.id);
             injected++;

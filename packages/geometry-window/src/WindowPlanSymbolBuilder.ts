@@ -62,14 +62,13 @@
  */
 
 import * as THREE from '@pryzm/renderer-three/three';
-import * as OBC from '@thatopen/components';
 import type { ViewDefinition } from '@pryzm/core-app-model';
 import { windowStore } from '@pryzm/geometry-window';
 import { registerSegmentUUID } from '@pryzm/core-app-model';
 import { storeRegistry } from '@pryzm/core-app-model';
 // §FEAT-WINDOW-PLAN-SYMBOL-SOUND (L-254) — the window is the SECOND consumer of the
 // SHARED detail-level resolver (the door was the first, L-241). It owns no precedence.
-import { resolveEffectiveDetailLevel, type DetailLevel } from '@pryzm/core-app-model';
+import { resolveEffectiveDetailLevel, projectToDrawingSpace, type DetailLevel, type DrawingSurface } from '@pryzm/core-app-model';
 import { vgGovernanceStore } from '@pryzm/visibility';
 // §FEAT-WINDOW-PLAN-SYMBOL-SOUND (L-254) / L-127 — the ONE dimension authority the
 // 3D builder also reads, so plan symbol ≡ placed window.
@@ -208,7 +207,7 @@ export class WindowPlanSymbolBuilder {
      *   3. Build the symbol in world XZ at that LOD.
      *   4. Register the resulting LineSegments UUIDs for hitTest selection.
      */
-    inject(drawing: OBC.TechnicalDrawing, viewDef: ViewDefinition): void {
+    inject(drawing: DrawingSurface, viewDef: ViewDefinition): void {
         const levelId = viewDef.spatial?.levelId;
         if (!levelId) return;
 
@@ -264,7 +263,7 @@ export class WindowPlanSymbolBuilder {
                 );
                 cutSeg.userData = { lineWeight: LW_CUT, role: 'cut', elementType: 'Window' };
                 cutSeg.updateWorldMatrix(true, false);
-                const projectedCut = OBC.TechnicalDrawing.toDrawingSpace(cutSeg, drawing);
+                const projectedCut = projectToDrawingSpace(cutSeg, drawing);
                 drawing.addProjectionLines(projectedCut, WINDOW_LAYER_CUT);
                 registerSegmentUUID(drawing, projectedCut, win.id);
             }
@@ -277,7 +276,7 @@ export class WindowPlanSymbolBuilder {
                 );
                 projSeg.userData = { lineWeight: LW_PROJ, role: 'projection', elementType: 'Window' };
                 projSeg.updateWorldMatrix(true, false);
-                const projectedProj = OBC.TechnicalDrawing.toDrawingSpace(projSeg, drawing);
+                const projectedProj = projectToDrawingSpace(projSeg, drawing);
                 drawing.addProjectionLines(projectedProj, WINDOW_LAYER_PROJ);
                 registerSegmentUUID(drawing, projectedProj, win.id);
             }

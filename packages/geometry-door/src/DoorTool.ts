@@ -1,5 +1,4 @@
 import * as THREE from '@pryzm/renderer-three/three';
-import * as OBC from '@thatopen/components';
 import { CreateWallOpeningCommand } from '@pryzm/command-registry';
 import {
     WallStore, WallFragmentBuilder, wallOccupancyStore,
@@ -14,7 +13,7 @@ import {
 // DOC-5.2 — 2D snap on projected TechnicalDrawing edges for door placement in plan view
 
 import { activePlanDrawingRef, planView2DSnapService } from '@pryzm/core-app-model';
-import { PREVIEW_COLOR } from '@pryzm/core-app-model';
+import { PREVIEW_COLOR, type SeamWorld } from '@pryzm/core-app-model';
 // §FEAT-DOOR-FLIP-ON-SPACE (L-92, ADR-0107) — shared SPACE-to-flip state (swing
 // in/out × hinge left/right) so 3D door placement matches the plan handler.
 import { DoorPlacementFlip } from '@pryzm/core-app-model';
@@ -52,7 +51,7 @@ type DoorHudState =
     | 'transient-error';
 
 export class DoorTool {
-    private world: OBC.World;
+    private world: SeamWorld;
     private wallStore: WallStore;
     private _isActive = false;
     private previewDoor: THREE.Mesh | null = null;
@@ -79,7 +78,7 @@ export class DoorTool {
     // PLAN-03: injected selectionManager — set via setSelectionManager() after ToolManager is ready.
     private selectionManager: any = null;
 
-    constructor(world: OBC.World, wallStore: WallStore, _fragmentBuilder: WallFragmentBuilder, _callbacks: any, commandManager?: any) {
+    constructor(world: SeamWorld, wallStore: WallStore, _fragmentBuilder: WallFragmentBuilder, _callbacks: any, commandManager?: any) {
         this.world = world;
         this.wallStore = wallStore;
         this.commandManager = commandManager ?? null;
@@ -180,13 +179,13 @@ export class DoorTool {
     }
 
     private attachListeners() {
-        const canvas = this.world.renderer!.three.domElement;
+        const canvas = this.world.renderer!.three!.domElement;
         canvas.addEventListener('pointermove', this.onPointerMove);
         canvas.addEventListener('pointerdown', this.onPointerDown);
     }
 
     private detachListeners() {
-        const canvas = this.world.renderer!.three.domElement;
+        const canvas = this.world.renderer!.three!.domElement;
         canvas.removeEventListener('pointermove', this.onPointerMove);
         canvas.removeEventListener('pointerdown', this.onPointerDown);
     }
@@ -297,7 +296,7 @@ export class DoorTool {
         const camera = this.world.camera.three;
         if (!drawing2D || !(camera instanceof THREE.OrthographicCamera)) return hit;
 
-        const canvas = this.world.renderer!.three.domElement;
+        const canvas = this.world.renderer!.three!.domElement;
 
         // Resolve the level elevation from the wall data via WallStore (no window globals)
         const wallRoot = this.findWallRoot(hit.object);
@@ -332,7 +331,7 @@ export class DoorTool {
     }
 
     private getWallHit(e: PointerEvent) {
-        const rect = this.world.renderer!.three.domElement.getBoundingClientRect();
+        const rect = this.world.renderer!.three!.domElement.getBoundingClientRect();
         const mouse = new THREE.Vector2(
             ((e.clientX - rect.left) / rect.width) * 2 - 1,
             -((e.clientY - rect.top) / rect.height) * 2 + 1

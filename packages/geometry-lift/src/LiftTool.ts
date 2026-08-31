@@ -33,11 +33,13 @@
  */
 
 import * as THREE from '@pryzm/renderer-three/three';
-import * as OBC from '@thatopen/components';
 import { elementRegistry } from '@pryzm/core-app-model/element-registry';
 import {
     PREVIEW_COLOR,
     createGhostBodyMaterial,
+    isManualRenderer,
+    requestManualFrame,
+    type SeamWorld,
     tagPreview,
     disposePreviewObject,
 } from '@pryzm/core-app-model';
@@ -79,7 +81,7 @@ export interface LiftToolDeps {
 }
 
 export class LiftTool {
-    private world: OBC.World;
+    private world: SeamWorld;
     private callbacks: any;
     private _deps: LiftToolDeps;
     private _isActive = false;
@@ -92,7 +94,7 @@ export class LiftTool {
     private _typeId = DEFAULT_TYPE_ID;
     private _rotation = 0;
 
-    constructor(world: OBC.World, callbacks: any, deps: LiftToolDeps) {
+    constructor(world: SeamWorld, callbacks: any, deps: LiftToolDeps) {
         this.world = world;
         this.callbacks = callbacks ?? {};
         this._deps = deps;
@@ -156,7 +158,7 @@ export class LiftTool {
         const tm = this._resolve<any>('getToolManager', 'toolManager');
         if (tm) tm.currentTool = null;
 
-        const canvas = this.world.renderer?.three.domElement;
+        const canvas = this.world.renderer?.three!.domElement;
         if (canvas) canvas.style.pointerEvents = 'auto';
 
         this.callbacks.onCancel?.();
@@ -169,14 +171,14 @@ export class LiftTool {
     // ── Pointer events ───────────────────────────────────────────────────────
 
     private attachListeners(): void {
-        const canvas = this.world.renderer?.three.domElement;
+        const canvas = this.world.renderer?.three!.domElement;
         if (!canvas) return;
         canvas.addEventListener('pointerdown', this.onPointerDown, true);
         canvas.addEventListener('pointermove', this.onPointerMove, true);
     }
 
     private detachListeners(): void {
-        const canvas = this.world.renderer?.three.domElement;
+        const canvas = this.world.renderer?.three!.domElement;
         if (!canvas) return;
         canvas.removeEventListener('pointerdown', this.onPointerDown, true);
         canvas.removeEventListener('pointermove', this.onPointerMove, true);
@@ -230,14 +232,13 @@ export class LiftTool {
             }
         }
 
-        const renderer = this.world.renderer as any;
+        // §OBC-SEAM — mode + needsUpdate probe live in requestManualFrame; the
+        // WebGPU-canvas guard stays HERE at the call site (see BimWorld.ts doc).
         if (
-            renderer &&
-            renderer.mode === OBC.RendererMode.MANUAL &&
-            'needsUpdate' in renderer &&
+            isManualRenderer(this.world) &&
             !this._resolve<any>('getCanvas', 'pryzmCanvas')
         ) {
-            renderer.needsUpdate = true;
+            requestManualFrame(this.world);
         }
     };
 
@@ -249,7 +250,7 @@ export class LiftTool {
     };
 
     private getPoint(e: PointerEvent): THREE.Vector3 | null {
-        const canvas = this.world.renderer?.three.domElement;
+        const canvas = this.world.renderer?.three!.domElement;
         if (!canvas) return null;
         const rect = canvas.getBoundingClientRect();
         const mouse = new THREE.Vector2(

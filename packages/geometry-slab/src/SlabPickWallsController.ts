@@ -1,5 +1,5 @@
 import * as THREE from '@pryzm/renderer-three/three';
-import * as OBC from '@thatopen/components';
+import type { SeamWorld } from '@pryzm/core-app-model';
 import * as BUI from '@thatopen/ui';
 import { CreateSlabCommand } from '@pryzm/command-registry';
 import { HostReferenceEdge } from './SketchTypes.js';
@@ -58,7 +58,7 @@ export interface SlabPickWallsControllerDeps {
  * - W2 §SLAB-SYSTEM-AUDIT-2026: All window.* accesses replaced with injected deps.
  */
 export class SlabPickWallsController {
-    private world: OBC.World;
+    private world: SeamWorld;
     private wallStore: any;
     private _deps: SlabPickWallsControllerDeps = {};
 
@@ -85,7 +85,7 @@ export class SlabPickWallsController {
     private readonly HOVER_COLOR = new THREE.Color(0xff8c00);
     private readonly PICKED_COLOR = new THREE.Color(0x22bb33);
 
-    constructor(world: OBC.World, wallStore: any, deps?: SlabPickWallsControllerDeps) {
+    constructor(world: SeamWorld, wallStore: any, deps?: SlabPickWallsControllerDeps) {
         this.world = world;
         this.wallStore = wallStore;
         if (deps) this._deps = deps;
@@ -109,7 +109,7 @@ export class SlabPickWallsController {
             this.world.camera.controls.enabled = false;
         }
 
-        const canvas = this.world.renderer!.three.domElement;
+        const canvas = this.world.renderer!.three!.domElement;
         canvas.style.touchAction = 'none';
         canvas.addEventListener('pointermove', this.onMoveBound, { passive: true });
         canvas.addEventListener('pointerdown', this.onClickBound, { passive: false });
@@ -126,7 +126,7 @@ export class SlabPickWallsController {
         this.removePreview();
         this.removeHUD();
 
-        const canvas = this.world.renderer!.three.domElement;
+        const canvas = this.world.renderer!.three!.domElement;
         canvas.removeEventListener('pointermove', this.onMoveBound);
         canvas.removeEventListener('pointerdown', this.onClickBound);
         window.removeEventListener('keydown', this.onKeyDownBound);
@@ -141,7 +141,7 @@ export class SlabPickWallsController {
     }
 
     private onMove(event: PointerEvent): void {
-        const canvas = this.world.renderer!.three.domElement;
+        const canvas = this.world.renderer!.three!.domElement;
         const rect = canvas.getBoundingClientRect();
         this.mouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
         this.mouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;

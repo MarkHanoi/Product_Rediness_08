@@ -23,7 +23,7 @@
  */
 
 import * as THREE from '@pryzm/renderer-three/three';
-import * as OBC from '@thatopen/components';
+import type { SeamWorld } from '@pryzm/core-app-model';
 import {
     LightingFixtureType,
     FLOOR_MOUNTED_FIXTURES,
@@ -64,7 +64,7 @@ export class LightingTool {
     private readonly _pointer   = new THREE.Vector2();
 
     constructor(
-        private readonly _world:   OBC.World,
+        private readonly _world:   SeamWorld,
         private readonly _store:   LightingStore,
         private readonly _builder: LightingFragmentBuilder,
     ) {}

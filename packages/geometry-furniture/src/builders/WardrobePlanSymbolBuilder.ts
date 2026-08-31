@@ -31,7 +31,7 @@
  */
 
 import * as THREE from '@pryzm/renderer-three/three';
-import * as OBC from '@thatopen/components';
+import { projectToDrawingSpace, type DrawingSurface } from '@pryzm/core-app-model';
 import { ViewDefinition } from '@pryzm/core-app-model';
 import { registerSegmentUUID } from '@pryzm/core-app-model';
 import type { FurnitureData, FurnitureType } from '../FurnitureTypes';
@@ -95,7 +95,7 @@ function adaptDoor(t: DoorType | WardrobeSectionDoorType | undefined): SymDoor {
 }
 
 export class WardrobePlanSymbolBuilder {
-    inject(drawing: OBC.TechnicalDrawing, viewDef: ViewDefinition): void {
+    inject(drawing: DrawingSurface, viewDef: ViewDefinition): void {
         const levelId = viewDef.spatial?.levelId;
         if (!levelId) return;
 
@@ -145,7 +145,7 @@ export class WardrobePlanSymbolBuilder {
             }
             lineSegments.updateWorldMatrix(true, false);
 
-            const projected = OBC.TechnicalDrawing.toDrawingSpace(lineSegments, drawing);
+            const projected = projectToDrawingSpace(lineSegments, drawing);
             drawing.addProjectionLines(projected, FURN_LAYER);
             registerSegmentUUID(drawing, projected, w.id);
             injected++;

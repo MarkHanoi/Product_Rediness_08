@@ -25,7 +25,7 @@
  */
 
 import * as THREE from '@pryzm/renderer-three/three';
-import * as OBC from '@thatopen/components';
+import { projectToDrawingSpace, type DrawingSurface } from '@pryzm/core-app-model';
 import { stairPlanSymbolRegistry } from '@pryzm/scene-committer';
 import type { ViewDefinition } from '@pryzm/core-app-model';
 
@@ -42,7 +42,7 @@ export class StairSymbolTechnicalDrawingBridge {
      * @param drawing  The TechnicalDrawing being built for this view.
      * @param viewDef  The active ViewDefinition (plan or section).
      */
-    inject(drawing: OBC.TechnicalDrawing, viewDef: ViewDefinition): void {
+    inject(drawing: DrawingSurface, viewDef: ViewDefinition): void {
         if (stairPlanSymbolRegistry.size === 0) return;
 
         if (!drawing.layers.has(STAIR_LAYER)) {
@@ -67,7 +67,7 @@ export class StairSymbolTechnicalDrawingBridge {
                         new THREE.LineBasicMaterial({ color: 0x000000 }),
                     );
                     lineSegs.updateWorldMatrix(true, false);
-                    const projected = OBC.TechnicalDrawing.toDrawingSpace(lineSegs, drawing);
+                    const projected = projectToDrawingSpace(lineSegs, drawing);
                     drawing.addProjectionLines(projected, STAIR_LAYER);
                     injectedLines++;
                 }
@@ -83,7 +83,7 @@ export class StairSymbolTechnicalDrawingBridge {
                         new THREE.LineBasicMaterial({ color: 0x000000 }),
                     );
                     lineSegs.updateWorldMatrix(true, false);
-                    const projected = OBC.TechnicalDrawing.toDrawingSpace(lineSegs, drawing);
+                    const projected = projectToDrawingSpace(lineSegs, drawing);
                     drawing.addProjectionLines(projected, STAIR_LAYER);
                     injectedArrows++;
                 }

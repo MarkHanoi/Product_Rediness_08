@@ -27,7 +27,7 @@
  */
 
 import * as THREE from '@pryzm/renderer-three/three';
-import * as OBC from '@thatopen/components';
+import { projectToDrawingSpace, type DrawingSurface } from '@pryzm/core-app-model';
 import { ViewDefinition, registerSegmentUUID, storeRegistry } from '@pryzm/core-app-model';
 import type { PlumbingFixtureData } from './PlumbingTypes';
 import { buildPlanLinework } from './PlumbingSymbolGeometry';
@@ -45,7 +45,7 @@ export class PlumbingPlanSymbolBuilder {
      * Injects clean plan symbols for all fixtures on the active level.
      * §01 §5 — produces no store mutations.
      */
-    inject(drawing: OBC.TechnicalDrawing, viewDef: ViewDefinition): void {
+    inject(drawing: DrawingSurface, viewDef: ViewDefinition): void {
         const levelId = viewDef.spatial?.levelId;
         if (!levelId) return;
 
@@ -73,7 +73,7 @@ export class PlumbingPlanSymbolBuilder {
             this._applyTransform(lineSegments, fixture);
             lineSegments.updateWorldMatrix(true, false);
 
-            const projected = OBC.TechnicalDrawing.toDrawingSpace(lineSegments, drawing);
+            const projected = projectToDrawingSpace(lineSegments, drawing);
             drawing.addProjectionLines(projected, PLMB_LAYER);
             registerSegmentUUID(drawing, projected, fixture.id);
             geo.dispose();

@@ -33,7 +33,8 @@
  */
 
 import * as THREE from '@pryzm/renderer-three/three';
-import * as OBC from '@thatopen/components';
+// §OBC-SEAM (Axis 7 Wave A) — drawing surface + projection via the core-app-model seam.
+import { projectToDrawingSpace, type DrawingSurface } from '@pryzm/core-app-model';
 import type { ViewDefinition } from '@pryzm/core-app-model';
 import type { RoofData } from './RoofTypes.js';
 import { makeAnnotationElement } from '@pryzm/plugin-annotations';
@@ -91,7 +92,7 @@ export class RoofSlopeSymbolBuilder {
      * @param drawing  The TechnicalDrawing to inject into.
      * @param viewDef  The active ViewDefinition (must be 'plan', 'detail', or 'structural-plan').
      */
-    inject(drawing: OBC.TechnicalDrawing, viewDef: ViewDefinition): void {
+    inject(drawing: DrawingSurface, viewDef: ViewDefinition): void {
         if (
             viewDef.viewType !== 'plan' &&
             viewDef.viewType !== 'detail' &&
@@ -179,7 +180,7 @@ export class RoofSlopeSymbolBuilder {
                 );
                 lineSegs.updateWorldMatrix(true, false);
 
-                const projected = OBC.TechnicalDrawing.toDrawingSpace(lineSegs, drawing);
+                const projected = projectToDrawingSpace(lineSegs, drawing);
                 drawing.addProjectionLines(projected, ROOF_LAYER);
             }
 

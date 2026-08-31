@@ -1,5 +1,5 @@
 import * as THREE from '@pryzm/renderer-three/three';
-import * as OBC from '@thatopen/components';
+import { requestManualFrame, type SeamWorld } from '@pryzm/core-app-model';
 import { CreatePlumbingFixtureCommand, mintWallAnchor, type AnchorHostBaselineLike } from '@pryzm/command-registry';
 import { PlumbingStore } from '@pryzm/geometry-plumbing';
 import { PlumbingFragmentBuilder } from '@pryzm/geometry-plumbing';
@@ -31,7 +31,7 @@ export class PlumbingTool {
     private isDrawing = false;
 
     constructor(
-        private world: OBC.World,
+        private world: SeamWorld,
         public store: PlumbingStore,
         public builder: PlumbingFragmentBuilder
     ) {}
@@ -182,7 +182,7 @@ export class PlumbingTool {
     }
 
     private attachListeners() {
-        const canvas = this.world.renderer!.three.domElement;
+        const canvas = this.world.renderer!.three!.domElement;
         this.pointerMoveHandler = (e) => {
             // Only stop propagation if we are actually interacting with the placement
             // e.stopPropagation(); 
@@ -287,7 +287,7 @@ export class PlumbingTool {
     }
 
     private detachListeners() {
-        const canvas = this.world.renderer!.three.domElement;
+        const canvas = this.world.renderer!.three!.domElement;
         if (this.pointerMoveHandler) canvas.removeEventListener('pointermove', this.pointerMoveHandler, true);
         if (this.pointerDownHandler) canvas.removeEventListener('pointerdown', this.pointerDownHandler, true);
         this.pointerMoveHandler = null;
@@ -368,10 +368,7 @@ export class PlumbingTool {
             
             // Phase 5 guard: skip needsUpdate when WebGPU canvas is active.
             // Triggering OBC's WebGL render in Phase 5 destroys PRYZM's ShadowDepthTexture.
-            const renderer = this.world.renderer as any;
-            if (renderer && renderer.mode === OBC.RendererMode.MANUAL && 'needsUpdate' in renderer && !window.pryzmCanvas) {
-                renderer.needsUpdate = true;
-            }
+            if (!window.pryzmCanvas) requestManualFrame(this.world);
         }
     }
 
@@ -467,14 +464,11 @@ export class PlumbingTool {
         }
 
         // Phase 5 guard: skip needsUpdate when WebGPU canvas is active.
-        const renderer = this.world.renderer as any;
-        if (renderer && renderer.mode === OBC.RendererMode.MANUAL && 'needsUpdate' in renderer && !window.pryzmCanvas) {
-            renderer.needsUpdate = true;
-        }
+        if (!window.pryzmCanvas) requestManualFrame(this.world);
     }
 
     private getSlabPoint(e: PointerEvent): THREE.Vector3 | null {
-        const canvas = this.world.renderer!.three.domElement;
+        const canvas = this.world.renderer!.three!.domElement;
         const rect = canvas.getBoundingClientRect();
         const mouse = new THREE.Vector2(
             ((e.clientX - rect.left) / rect.width) * 2 - 1,
@@ -491,7 +485,7 @@ export class PlumbingTool {
         const slabPoint = this.getSlabPoint(e);
         if (slabPoint) return slabPoint;
 
-        const canvas = this.world.renderer!.three.domElement;
+        const canvas = this.world.renderer!.three!.domElement;
         const rect = canvas.getBoundingClientRect();
         const mouse = new THREE.Vector2(
             ((e.clientX - rect.left) / rect.width) * 2 - 1,

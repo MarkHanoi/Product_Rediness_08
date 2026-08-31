@@ -24,7 +24,6 @@
  */
 
 import * as THREE from '@pryzm/renderer-three/three';
-import * as OBC from '@thatopen/components';
 import { ViewDefinition } from '@pryzm/core-app-model';
 import { doorStore } from '@pryzm/geometry-door';
 // §FIX-HOSTED-PLAN-SYMBOL-ON-CURVED-HOST (2026-08-09) — the ONE hosted-element
@@ -40,7 +39,7 @@ import { registerSegmentUUID } from '@pryzm/core-app-model';
 import { storeRegistry } from '@pryzm/core-app-model';
 // §FEAT-DOOR-PLAN-SYMBOL-DETAIL-LEVEL (L-241) P2/P4 — the door is the FIRST
 // consumer of the SHARED detail-level resolver. It does NOT own the precedence.
-import { resolveEffectiveDetailLevel, type DetailLevel } from '@pryzm/core-app-model';
+import { resolveEffectiveDetailLevel, projectToDrawingSpace, type DetailLevel, type DrawingSurface } from '@pryzm/core-app-model';
 import { vgGovernanceStore } from '@pryzm/visibility';
 
 /** Number of line segments used to approximate the quarter-circle swing arc. */
@@ -253,7 +252,7 @@ export class DoorPlanSymbolBuilder {
      * @param drawing  The TechnicalDrawing being built for this view.
      * @param viewDef  The active ViewDefinition (must be plan/detail/structural-plan).
      */
-    inject(drawing: OBC.TechnicalDrawing, viewDef: ViewDefinition): void {
+    inject(drawing: DrawingSurface, viewDef: ViewDefinition): void {
         const levelId = viewDef.spatial?.levelId;
         if (!levelId) return;
 
@@ -301,7 +300,7 @@ export class DoorPlanSymbolBuilder {
                 );
                 cutSeg.userData = { lineWeight: LW_CUT, role: 'cut', elementType: 'Door' };
                 cutSeg.updateWorldMatrix(true, false);
-                const projectedCut = OBC.TechnicalDrawing.toDrawingSpace(cutSeg, drawing);
+                const projectedCut = projectToDrawingSpace(cutSeg, drawing);
                 drawing.addProjectionLines(projectedCut, DOOR_LAYER_CUT);
                 registerSegmentUUID(drawing, projectedCut, door.id);
             }
@@ -314,7 +313,7 @@ export class DoorPlanSymbolBuilder {
                 );
                 projSeg.userData = { lineWeight: LW_PROJ, role: 'projection', elementType: 'Door' };
                 projSeg.updateWorldMatrix(true, false);
-                const projectedProj = OBC.TechnicalDrawing.toDrawingSpace(projSeg, drawing);
+                const projectedProj = projectToDrawingSpace(projSeg, drawing);
                 drawing.addProjectionLines(projectedProj, DOOR_LAYER_PROJ);
                 registerSegmentUUID(drawing, projectedProj, door.id);
             }
@@ -329,7 +328,7 @@ export class DoorPlanSymbolBuilder {
                 );
                 ghostSeg.userData = { lineWeight: LW_GHOST, role: 'beyond', elementType: 'Door' };
                 ghostSeg.updateWorldMatrix(true, false);
-                const projectedGhost = OBC.TechnicalDrawing.toDrawingSpace(ghostSeg, drawing);
+                const projectedGhost = projectToDrawingSpace(ghostSeg, drawing);
                 drawing.addProjectionLines(projectedGhost, DOOR_LAYER_GHOST);
                 registerSegmentUUID(drawing, projectedGhost, door.id);
             }

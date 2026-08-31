@@ -30,12 +30,11 @@
  */
 
 import * as THREE from '@pryzm/renderer-three/three';
-import * as OBC from '@thatopen/components';
 import { pointInPolygonXZ } from '@pryzm/geometry-kernel';
 import { CreateFloorCommand } from '@pryzm/command-registry';
 import { FloorVertex, FloorToolState } from '@pryzm/core-app-model/stores';
 import { computeFloorArea as computeArea } from '@pryzm/core-app-model/stores';
-import { projectContext } from '@pryzm/core-app-model';
+import { projectContext, getSceneRaycaster, type ComponentsHandle, type SeamWorld } from '@pryzm/core-app-model';
 import { floorSystemTypeStore } from '@pryzm/core-app-model/stores';
 // §FIX-FLOOR-FINISH-CREATION-PARITY (L-255) — the ONE floor-finish chokepoint. The 3D tool
 // no longer holds the architect's choice in its own `_pending*` fields (fields the plan path
@@ -155,8 +154,8 @@ export interface FloorToolDeps {
 }
 
 export class FloorTool {
-  private readonly _world: OBC.World;
-  private readonly _components: OBC.Components;
+  private readonly _world: SeamWorld;
+  private readonly _components: ComponentsHandle;
   private _deps: FloorToolDeps;
 
   // State machine
@@ -220,8 +219,8 @@ export class FloorTool {
   private _onKeyUp: ((e: KeyboardEvent) => void) | null = null;
 
   constructor(
-    world: OBC.World,
-    components: OBC.Components,
+    world: SeamWorld,
+    components: ComponentsHandle,
     deps: FloorToolDeps = {}
   ) {
     this._world = world;
@@ -1097,8 +1096,7 @@ export class FloorTool {
         -((e.clientY - rect.top) / rect.height) * 2 + 1
       );
 
-      const raycasterObj = this._components.get(OBC.Raycasters).get(this._world);
-      const raycaster = (raycasterObj as any).three as THREE.Raycaster;
+      const raycaster = getSceneRaycaster(this._components, this._world);
       raycaster.setFromCamera(mouseVec, this._world.camera.three as THREE.PerspectiveCamera);
 
       // Raycast at FFL elevation
