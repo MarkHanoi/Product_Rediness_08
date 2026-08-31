@@ -265,3 +265,45 @@ No ceiling raised at any point in this pass.
    W2b caller wiring, which is the most valuable uncommitted piece.
 
 ⭐ **Option 1 is right.** The W2b `.ts` caller is the half that TWO dead lanes failed to land.
+
+---
+
+## ⛔ CORRECTION 2026-08-31 — I MISATTRIBUTED banned-3p 124/113 TWICE
+
+Commits `88dab53a` and `61e7e8d1` both state that the banned-3p arm at 124 comes from **"real new
+@thatopen imports from the Wave 4b export lane"**, and contrast it with the Wave 1 classification
+artefact. **That is false. It is the SAME classification artefact, and there were no new imports.**
+
+Measured:
+
+```
+git diff 064a838e..HEAD -- '*.ts' | grep -E "^\+.*@thatopen"
+  -> 7 identical lines, ALL of the form
+     '@thatopen/ui': resolve(EDITOR, './__mocks__/thatopen-ui.node-stub.ts')
+     i.e. vitest ALIAS entries pointing at a node-stub MOCK. Not imports.
+
+git show 064a838e:packages/file-format/src/export/ifc/ExportIFC.ts | grep -c "@thatopen"  -> 1
+grep -c "@thatopen" packages/file-format/src/export/ifc/ExportIFC.ts                      -> 1
+git log --oneline -1 064a838e -- .../ExportIFC.ts
+  -> f361cda7 chore(lint): 270 errors -> ZERO   (PREDATES this continuation entirely)
+```
+
+**The arm moved 123 -> 124 exactly once, in Wave 1, when `geometry-handrail` was classified and its
+pre-existing `@thatopen/components` import came into scope.** It has been 124 since. The export lane
+added nothing.
+
+### How the error happened, because the shape matters
+
+The W4fg lane's blocker note attributed the 124 to "the concurrent
+packages/file-format/src/export/ifc/* lane", reasoning from the fact that the lane was dirty in
+`git status`. **A file being modified is not evidence that it caused a count to move.** I repeated
+that attribution into two commit messages without running the diff.
+
+This is the audit's own defect class — a confident sentence the code contradicts — committed by the
+orchestrator, in commit messages that also claim "no ceiling raised, verified by printed diff". The
+verification I ran was real; the attribution beside it was not measured.
+
+**The honest status of the arm: 124/113, cause = one classification, and the open question is
+unchanged and still the right one — what was the 113 ceiling measured against, and when?** If it
+was set while packages were unclassified, 113 was never the true count and the arm has been
+understated the whole time. That is a measurement question for its own pass, not a code fix.
