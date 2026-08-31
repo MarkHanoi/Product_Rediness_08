@@ -916,11 +916,45 @@ export function wireCommandEventBridge(
           // CreateSlabPayload uses `boundary` (plan polygon) which maps to `polygon` in the
           // initTools §FT1 subscriber and legacy SlabStore.  Also accepts `polygon` directly
           // for callers that use the older field name.
+          // §FIX-SLAB-BATCH-CEB-SHAPE (P3-C1 · B1-SLAB-04) — THE SURVIVING HALF OF
+          // THE ASYMMETRY §FIX-SLAB-CEB-BOUNDARY CLOSED FOR THE SINGLE CASE ABOVE.
+          //
+          // ⛔ TWO DEFECTS, BOTH MEASURED, BOTH THE SHAPE OF THE ONE ABOVE:
+          //
+          //  1. THE MINTED ID WAS DROPPED IN SILENCE. `CreateSlabBatch.ts:101` does
+          //     `const id = (s.id ?? createId("slab"))` — the handler is ALLOWED to
+          //     mint. This loop opened with `if (!s.id ...) continue;`, so an AI or
+          //     generator batch that names no ids COMMITTED N slabs to the plugin
+          //     store and emitted ZERO `slab.created`. No mesh, no plan symbol, no
+          //     snapshot row, and no console line saying so. That is exactly
+          //     B2-COL-01 / B2-BEAM-03 / B1-SLAB-01, in a fourth family.
+          //
+          //  2. THE WORLD Vec3 BOUNDARY WAS RELAYED AS A PLAN RING, KEEPING `y`.
+          //     The cast here DECLARED `boundary` as {x, y}[]; it is
+          //     `SlabData["boundary"]`, a world Vec3 (`CreateSlab.ts:101`), and the
+          //     declaration was wrong in the one direction that hides the defect
+          //     from tsc. `planPolygonFromCommittedBoundary` exists above to state
+          //     the single rule that is correct under BOTH live conventions — the
+          //     plan `y` is taken from `z`, never from `y`. Relaying the ring raw
+          //     takes the LEVEL ELEVATION as the plan depth, so every vertex of a
+          //     true Vec3 batch collapses onto one line: the zero-area sliver that
+          //     function's own header documents. The §FIX-SLAB-ZERO-AREA convention
+          //     (world Z in BOTH `y` and `z`) is why this stayed invisible — it
+          //     hides the defect for the tools that use it and leaves it for every
+          //     other producer.
+          //
+          // ⭐ NO SECOND SLAB PATH IS ADDED. Every part below is machinery the single
+          // case already runs: `indexCommittedById<CommittedSlab>` (already computed
+          // here for the holes/colour refusal, and then NOT read by the emit) and
+          // `planPolygonFromCommittedBoundary`. The resolution ladder is the single
+          // case's, in the same order, so the two cannot drift apart again.
           const p = record.payload as {
             slabs?: Array<{
               id?: string;
               levelId?: string;
-              boundary?: Array<{ x: number; y: number }>;
+              /** WORLD Vec3 — `SlabData["boundary"]`. NOT a plan ring. */
+              boundary?: Array<{ x: number; y: number; z: number }>;
+              /** The plan-tool alias: {x: worldX, y: worldZ} — already plan-shaped. */
               polygon?: Array<{ x: number; y: number }>;
               thickness?: number;
               baseOffset?: number;
@@ -941,22 +975,64 @@ export function wireCommandEventBridge(
             'slab.batch.create',
             [..._batchSlabCommits.entries()].map(([id, rec]) => ({ id, rec })),
           );
-          for (const s of (p.slabs ?? [])) {
-            const _slabPolygon = s.polygon ?? s.boundary;
-            if (!s.id || !_slabPolygon || _slabPolygon.length < 3) continue;
+          type _BatchSlabSpec = NonNullable<typeof p.slabs>[number];
+          const _batchSlabSpecs: ReadonlyArray<_BatchSlabSpec> = p.slabs ?? [];
+          const _batchSlabCommitRows = [..._batchSlabCommits.entries()];
+          // POSITIONAL PAIRING IS USED ONLY WHERE IT IS EXACTLY DETERMINED. The
+          // handler builds its records in payload order and `produceCommand` emits
+          // one `add` per new key in assignment order, so entry i pairs with commit
+          // i — but only while the two lists are the same length. Any other shape
+          // falls back to id lookup alone: degraded, never wrong, which is the
+          // doctrine `indexCommittedById` already states for an empty map.
+          const _batchSlabPositional =
+            _batchSlabSpecs.length > 0 && _batchSlabCommitRows.length === _batchSlabSpecs.length;
+          const _batchSlabPairs: Array<{ spec: _BatchSlabSpec; rec: CommittedSlab | undefined; id: string | undefined }> =
+            _batchSlabSpecs.length > 0
+              ? _batchSlabSpecs.map((spec, i) => {
+                  const byId = spec.id !== undefined ? _batchSlabCommits.get(spec.id) : undefined;
+                  const row = _batchSlabPositional ? _batchSlabCommitRows[i] : undefined;
+                  return { spec, rec: byId ?? row?.[1], id: spec.id ?? row?.[0] };
+                })
+              // A payload carrying no `slabs` list still commits records when the
+              // dispatcher spelled the list differently; relay those rather than none.
+              : _batchSlabCommitRows.map(([id, rec]) => ({ spec: {} as _BatchSlabSpec, rec, id }));
+
+          const _batchSlabDropped: string[] = [];
+          for (const { spec, rec, id } of _batchSlabPairs) {
+            const _slabPolygon =
+              spec.polygon
+              ?? planPolygonFromCommittedBoundary(rec?.boundary)
+              ?? planPolygonFromCommittedBoundary(spec.boundary);
+            if (id === undefined || id.length === 0 || _slabPolygon === undefined) {
+              _batchSlabDropped.push(id === undefined || id.length === 0 ? '<no id>' : id);
+              continue;
+            }
             events.emit('slab.created', {
               commandId:    record.id,
               commandType:  'slab.create',
-              levelId:      s.levelId ?? _batchSlabLevelId,
+              levelId:      rec?.levelId ?? spec.levelId ?? _batchSlabLevelId,
               elementCount: 1,
-              id:           s.id,
-              ifcGuid:      s.ifcGuid,
+              id,
+              ifcGuid:      spec.ifcGuid,
               polygon:      _slabPolygon,
               position:     { x: 0, y: 0, z: 0 },
-              thickness:    s.thickness,
-              baseOffset:   s.baseOffset,
-              materialId:   s.materialId ?? s.systemTypeId,
+              thickness:    rec?.thickness ?? spec.thickness,
+              baseOffset:   rec?.baseOffset ?? spec.baseOffset,
+              materialId:   rec?.materialId ?? spec.materialId ?? spec.systemTypeId,
             });
+          }
+          if (_batchSlabDropped.length > 0) {
+            // REFUSE BY NAME, ONCE PER BATCH — the single case's disposition, sized
+            // for fifty slabs. A bare `continue` is what made defect 1 invisible.
+            console.error(
+              '[CommandEventBridge] §FIX-SLAB-BATCH-CEB-SHAPE: REFUSED ' +
+              _batchSlabDropped.length + ' of ' + _batchSlabPairs.length +
+              ' slab(s) in a slab.batch.create — ' + _batchSlabDropped.slice(0, 5).join(', ') +
+              (_batchSlabDropped.length > 5 ? ', …' : '') + '. Each neither carried nor ' +
+              'committed a usable id AND outline, so no slab.created was emitted and no mesh, ' +
+              'plan symbol or snapshot row will exist for it. The command itself may still ' +
+              'have committed to the plugin store.',
+            );
           }
           break;
         }
