@@ -183,8 +183,21 @@ describe('hello-12-elements — plugin-contribution smoke (W-1C-1)', () => {
     expect((rt.stores.column as unknown as ColumnStore).get(columnId)).toBeDefined();
 
     // ---- 9. beam ----
+    // §FIX-BEAM-PHANTOM-TELEMETRY (lane W4fg) — this dispatch used to carry NO
+    // geometry and passed on the L0 schema's default baseLine. That default is the
+    // mechanism by which `BeamTool.ts:222`'s `{}` telemetry dispatch committed a
+    // phantom 4 m beam at the world origin on every 3-D beam placement, so
+    // `CreateBeamHandler.canExecute` now refuses a beam that describes no line —
+    // the disposition §FIX-STAIR-CREATE-SHADOW already applied to `stair.create`
+    // (see the stair arm below, which asserts a refusal for the same reason).
+    // A smoke test that proves the plumbing must therefore state real geometry,
+    // which is what it should have been asserting all along.
     const beamId = createId('beam');
-    await rt.bus.executeCommand('beam.create', { id: beamId, levelId: 'lvl' });
+    await rt.bus.executeCommand('beam.create', {
+      id: beamId,
+      levelId: 'lvl',
+      baseLine: [{ x: 0, y: 0, z: 0 }, { x: 4, y: 0, z: 0 }],
+    });
     expect((rt.stores.beam as unknown as BeamStore).get(beamId)).toBeDefined();
 
     // ---- 10. stair ----

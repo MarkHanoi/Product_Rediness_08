@@ -80,6 +80,15 @@ describe('W4i-R1 — CEILING renders_3d through the REAL FrameScheduler deferral
     const rec: any = mirrorMod.ceilingRecordFromCreatedEvent(ev, { existingCeilingCount: 0 });
     say('[R-1] mirror returned = ' + (rec === null ? 'NULL (guard rejected)' : 'record'));
     expect(rec, 'the REAL production mirror must accept the REAL event').not.toBeNull();
+    // The prior W4i run logged `record materialId/materialColor = undefined / undefined`
+    // and left it standing as if it were a loss. It is NOT: ceilingCreatedMirror.ts:156/161
+    // maps the L0 fields ONTO finishSpec (soffitColor / soffitMaterialId). Read the keys the
+    // mirror actually writes, so the row does not carry a phantom defect.
+    say('[R-1] authored finish carried: finishSpec.soffitColor = ' + String(rec.finishSpec?.soffitColor) +
+      ' · finishSpec.soffitMaterialId = ' + String(rec.finishSpec?.soffitMaterialId) +
+      ' · (top-level materialId = ' + String(rec.materialId) + ', which is NOT where it lives)');
+    expect(rec.finishSpec.soffitColor, 'the authored colour must survive the mirror').toBe('#eeeeee');
+    expect(rec.finishSpec.soffitMaterialId, 'the authored material must survive the mirror').toBe('MAT-GYPSUM');
     store.add(rec);
     say('[R-1] CeilingStore readback = ' + (store.getById(rec.id) ? 'PRESENT' : 'ABSENT'));
 

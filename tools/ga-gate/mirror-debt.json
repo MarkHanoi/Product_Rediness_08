@@ -798,7 +798,7 @@
       "stores": [
         "roof"
       ],
-      "reason": "SEEDED BACKLOG — writes a plugin DTO store, has no CommandEventBridge case, and does not refuse. Nothing relays it to the legacy geometry store the fragment builders, the 2-D plan projector, the IFC exporter and ProjectSerializer read, so it commits, reports success, and changes nothing the user can see. Fix = a case in CommandEventBridge.ts + a subscriber in initTools.ts, OR replace this text with the measured reason it needs neither."
+      "reason": "MEASURED AND NOT MIRRORABLE AS THE MODEL STANDS (lane W4fg, 2026-08-31). The L0 record holds `skylights: z.array(Skylight).default([])` (packages/schemas/src/elements/Roof.ts:80); the legacy render record has NO counterpart -- `grep -n \"skylight\" packages/geometry-roof/src/RoofTypes.ts` -> 0 hits, and RoofGeometryBuilder punches no roof aperture. Unlike roof.setPitch (whose 0-hit grep was NAME-BLIND -- the concept was there as `slope`), this one was checked for the CONCEPT and not just the word: there is no field, no builder read, and no aperture geometry to carry it. A row in LEGACY_UPDATABLE_STORES would write a key nothing reads and report a fix. Closing it needs RoofData + RoofGeometryBuilder to gain roof apertures first -- a geometry change, not a wiring one."
     },
     {
       "verb": "roof.changeLevel",
@@ -822,7 +822,7 @@
       "stores": [
         "roof"
       ],
-      "reason": "SEEDED BACKLOG — writes a plugin DTO store, has no CommandEventBridge case, and does not refuse. Nothing relays it to the legacy geometry store the fragment builders, the 2-D plan projector, the IFC exporter and ProjectSerializer read, so it commits, reports success, and changes nothing the user can see. Fix = a case in CommandEventBridge.ts + a subscriber in initTools.ts, OR replace this text with the measured reason it needs neither."
+      "reason": "MEASURED AND NOT MIRRORABLE AS THE MODEL STANDS (lane W4fg, 2026-08-31). The L0 record holds `joinedToRoofIds: z.array(z.string()).default([])` (Roof.ts:82); `grep -n \"joinedToRoof\" packages/geometry-roof/src/RoofTypes.ts` -> 0 hits. The legacy record carries NO roof-to-roof reference of any spelling (its nearest neighbours are `segments` and `slopeArrows`, both intra-roof), so there is no field to mirror into and no builder that would re-cut a ridge if there were. Closing it needs the join to become geometry -- the RoofData half of what `boundingWallIds` did for wall attribution."
     },
     {
       "verb": "roof.move",
@@ -838,7 +838,7 @@
       "stores": [
         "roof"
       ],
-      "reason": "SEEDED BACKLOG — writes a plugin DTO store, has no CommandEventBridge case, and does not refuse. Nothing relays it to the legacy geometry store the fragment builders, the 2-D plan projector, the IFC exporter and ProjectSerializer read, so it commits, reports success, and changes nothing the user can see. Fix = a case in CommandEventBridge.ts + a subscriber in initTools.ts, OR replace this text with the measured reason it needs neither."
+      "reason": "MEASURED AND NOT MIRRORABLE AS THE MODEL STANDS (lane W4fg, 2026-08-31). Symmetric with roof.addSkylight and blocked by the same absence: legacy RoofData has no `skylights` field and RoofGeometryBuilder punches no roof aperture. Same 0-hit grep, checked for the CONCEPT and not merely the word."
     },
     {
       "verb": "roof.setMaterial",
@@ -847,22 +847,6 @@
         "roof"
       ],
       "reason": "MEASURED: `canExecute` cannot return valid on any path, or the handler returns the C16 CA-18 refusal-as-a-value shape beside an empty patch pair. The verb is deliberately dead (§FIX-DEAD-VERB-REFUSE). It MUST NOT acquire a mirror while it refuses — a mirror would relay a mutation the handler never makes. It leaves this file when the refusal is lifted."
-    },
-    {
-      "verb": "roof.setPitch",
-      "kind": "UNMIRRORED",
-      "stores": [
-        "roof"
-      ],
-      "reason": "MEASURED AND DELIBERATELY NOT MIRRORED (lane MIRROR3, 2026-08-23). `grep -n \"pitch\" packages/geometry-roof/src/RoofTypes.ts` -> 0 HITS: the legacy roof record has no `pitch` field at all, so there is nothing to mirror INTO. An ELEMENT_UPDATE_VERBS row here would write a key no builder reads and REPORT A FIX. The real work is to establish where a roof's slope lives in the render record and whether `pitch` is derived from it — that is a roof-family question (C97), not a channel question. The channel exists and is waiting."
-    },
-    {
-      "verb": "roof.setShape",
-      "kind": "UNMIRRORED",
-      "stores": [
-        "roof"
-      ],
-      "reason": "SEEDED BACKLOG — writes a plugin DTO store, has no CommandEventBridge case, and does not refuse. Nothing relays it to the legacy geometry store the fragment builders, the 2-D plan projector, the IFC exporter and ProjectSerializer read, so it commits, reports success, and changes nothing the user can see. Fix = a case in CommandEventBridge.ts + a subscriber in initTools.ts, OR replace this text with the measured reason it needs neither."
     },
     {
       "verb": "section.create",

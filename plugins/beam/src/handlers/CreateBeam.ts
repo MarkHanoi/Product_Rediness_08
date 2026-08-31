@@ -106,7 +106,56 @@ export class CreateBeamHandler implements CommandHandler<CreateBeamPayload, Beam
       };
     }
     const baseLine = CreateBeamHandler.resolveBaseLine(cmd);
-    if (baseLine !== undefined) {
+    // §FIX-BEAM-PHANTOM-TELEMETRY (B2-BEAM, lane W4fg) — A BEAM THAT DESCRIBES NO
+    // LINE IS NOT A BEAM. Refused by name, before anything commits.
+    //
+    // ⛔ THE DEFECT WAS NOT IN THE BRIDGE. `packages/input-host/src/BeamTool.ts:222`
+    // — the live 3-D beam tool, constructed in `initTools.ts:3376` and registered
+    // via `toolManager.setBeamTool` — draws the real beam through
+    // `commandManager.execute(new CreateBeamCommand(...))` and additionally fires
+    //
+    //     window.runtime.bus.executeCommand('beam.create', {}).catch(() => {});
+    //
+    // as `[E.5.x]` fire-and-forget migration telemetry. That payload is EMPTY, and
+    // every field of this command is optional, so `canExecute` returned valid,
+    // `execute` minted an id, and `Beam.parse` applied the L0 schema's DEFAULT
+    // baseLine (`Beam.ts:46` → (0,0,0)→(4,0,0)). Every 3-D beam placement therefore
+    // COMMITTED A PHANTOM 4-METRE BEAM AT THE WORLD ORIGIN, on level '', into the
+    // plugin store that `ProjectSerializer` persists.
+    //
+    // ⭐ AND THE BRIDGE WAS RIGHT TO IGNORE IT. `CommandEventBridge`'s `beam.create`
+    // case refuses a payload with no resolvable endpoints, so the phantom never
+    // reached a mesh — which is what "the command commits and the CEB does not
+    // follow" actually was. Teaching the bridge to follow the commit would have
+    // MATERIALISED the phantom beside the real beam the legacy path already draws:
+    // a second producer on one ring, which is the opposite of a fix.
+    //
+    // ⭐ THIS DISPOSITION IS NOT NEW — IT IS THE STAIR FAMILY'S, REUSED. The same
+    // `{}` telemetry shape minted phantom DTO stairs until §FIX-STAIR-CREATE-SHADOW
+    // (MT-03) refused it at validate; `StairCreateReachesGeometryStore.test.ts:197`
+    // pins that with `rejects.toThrow(/baseLevelId/)`. Stair was immune afterwards
+    // only because `baseLevelId` is REQUIRED by its schema; beam's `baseLine` has a
+    // DEFAULT, so the same empty dispatch produced a plausible object instead of an
+    // error. A schema default is what turned one family's loud refusal into
+    // another's silent phantom.
+    //
+    // The refusal is swallowed by the dispatch site's own `.catch(() => {})`, which
+    // is what "fire-and-forget telemetry" is supposed to mean. `beam.batch.create`
+    // is deliberately NOT changed here: no site dispatches it as telemetry, and its
+    // per-member default is load-bearing for `duplicateToLevel`.
+    if (baseLine === undefined) {
+      return {
+        valid: false,
+        reason:
+          'beam.create describes no baseline: neither `baseLine` (the L0 Beam schema field, ' +
+          'dispatched by plugins/beam and by the copy/duplicate paths) nor the ' +
+          '`startPoint`/`endPoint` legacy alias (dispatched by BeamPlanToolHandler) is present. ' +
+          'Refused rather than defaulted, because Beam.baseLine has a schema default and ' +
+          'accepting the command would commit a 4 m beam at the world origin on level "" — ' +
+          'the phantom §FIX-STAIR-CREATE-SHADOW closed for stair (§FIX-BEAM-PHANTOM-TELEMETRY).',
+      };
+    }
+    {
       const [a, b] = baseLine;
       if (!isFiniteVec3(a) || !isFiniteVec3(b)) {
         return { valid: false, reason: 'baseLine endpoints must be finite Vec3' };
