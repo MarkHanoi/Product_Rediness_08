@@ -186,7 +186,7 @@
 
 import { resolve, relative, join } from 'node:path';
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 
 const __dirname = fileURLToPath(new URL('.', import.meta.url));
 // A.U.20 — script lives at scripts/check/; ROOT is two levels up.
@@ -367,6 +367,15 @@ function resolvesToManager(initialiser) {
         if (!op) continue;
         if (/\bnew\s+/.test(op)) continue;                                    // construction ≠ the manager
         if (/^[\w$.[\]'"]*\bcommandManager\b\s*\]?$/.test(op))       return true; // …commandManager / win['commandManager']
+        // §FIX-PARENTHESISED-CAST-RECEIVER (2026-08-31) — the rule above anchors at
+        // the START of the operand, so it fails the moment the receiver is wrapped:
+        //     const cm = (window as unknown as { commandManager?: … }).commandManager;
+        // leaves `(window ) .commandManager` after cast-stripping, which begins with
+        // `(` and matches nothing. That spelling holds 2 of the executors in
+        // apps/editor/src. ENDING in `.commandManager` is the same anti-noise test
+        // ("must END in a manager accessor") without the start anchor; `new …` is
+        // already excluded above, so an injection still cannot reach here.
+        if (/\.\s*commandManager\s*$/.test(op))                       return true;
         if (/\[\s*['"]commandManager['"]\s*\]\s*$/.test(op))          return true; // (window as any)['commandManager']
         if (/\b_commandManager\s*$/.test(op))                         return true;
         if (/commandManagerRef\s*\.\s*current\s*$/.test(op))          return true;
@@ -376,8 +385,44 @@ function resolvesToManager(initialiser) {
     return false;
 }
 
-/** ARM 1 — the spelling this gate has always counted. */
-const LITERAL_RE = /commandManager\s*\.\s*execute\s*\(/g;
+/**
+ * §FIX-OPTIONAL-CALL-INVISIBLE (2026-08-31) — the call tail, shared by every arm.
+ *
+ * ⚠ THIS CLOSED A HOLE THAT WAS ABOUT TO BE INHERITED. Every arm used to require a
+ * literal `(` immediately after `.execute`, so the OPTIONAL-CALL spelling
+ *
+ *     cm.execute?.(new CreateRoofCommand({ … }))
+ *
+ * matched nothing — not arm 1, not arm 2, not arm 3. It is a call. It reaches the
+ * legacy manager. It was invisible.
+ *
+ * Measured, by spelling, before the fix:
+ *
+ *     `.execute?.(`   apps/editor/src  64 lines   ·  packages/ + plugins/  1 (a test)
+ *     `?.execute(`    apps/editor/src   1 line    ·  packages/ + plugins/  1
+ *
+ * The asymmetry is the whole point and it is WHY THIS HAD TO BE FIXED BEFORE THE
+ * CONVERGENCE, not after. `packages/`+`plugins/` barely use the spelling, so this
+ * detector looked complete on its own scope. `apps/editor/src` — the scope
+ * `tools/ga-gate/check-no-commandmanager.ts` is about to hand over — uses it 64
+ * times, and the WEAKER name-enumerating gate it replaces caught them (its
+ * `\bcm\.execute\b` has no call-paren requirement at all). Converging first and
+ * fixing later would have DROPPED ~60 live call sites out of measurement while
+ * calling it a convergence: a narrowed gate wearing a stronger gate's name.
+ *
+ * `\s*\??\s*\.` also admits an optional RECEIVER (`ctx?.commandManager.execute(`),
+ * the same syntax on the other side of the member access. `!` covers the non-null
+ * ASSERTION call `cm.execute!(…)` (3 sites in HouseLayoutExecutor.ts) — three ways
+ * to spell "call it if it is there", all of which call it.
+ *
+ * ⚠ The tail still ENDS at the call paren, so `executeChunked(` cannot match — that
+ * method has no bus equivalent and counting it asserts a violation with no available
+ * fix. There is a negative control for exactly that below.
+ */
+const CALL_TAIL = String.raw`\s*\??\s*\.\s*execute\s*(?:\?\.|!)?\s*\(`;
+
+/** ARM 1 — the spelling this gate has always counted, plus both optional forms. */
+const LITERAL_RE = new RegExp(`commandManager${CALL_TAIL}`, 'g');
 
 /**
  * CAPABILITY-GUARD filter — PRESERVED from the original detector and now applied
@@ -386,9 +431,31 @@ const LITERAL_RE = /commandManager\s*\.\s*execute\s*\(/g;
  */
 const TYPEOF_GUARD_RE = /typeof\s+[\w.$[\]'"?!]*\s*\.\s*execute/;
 
+/**
+ * §FIX-MANAGER-TYPE-SUFFIXES (2026-08-31) — the type-name arm enumerated THREE
+ * spellings and the tree uses NINE. Measured, as type annotations:
+ *
+ *   apps/editor/src        CommandManagerLike 38 · CommandManager 12 ·
+ *                          CommandManagerReadable 2 · CommandManagerImpl 1
+ *   packages/ + plugins/   CommandManager 61 · CommandManagerRef 7 ·
+ *                          ICommandManagerLite 2 · ICommandManager 2 ·
+ *                          CommandManagerLike 1 · CommandManagerImpl 1
+ *
+ * `CommandManagerLike` — the DOMINANT spelling in apps/editor/src, and the one the
+ * old list did not have — is what every `_createSlab(cm: CommandManagerLike, …)` in
+ * the layout executors is typed as. Enumerating type names is the same defect as
+ * enumerating receiver names, one level up, so this matches the FAMILY.
+ *
+ * ⚠ Widening the TYPE pattern cannot manufacture a false positive on its own: an
+ * alias only ever contributes a hit if `<name>.execute(` actually appears inside its
+ * scope. A parameter typed `CommandManagerReadable` that is never `.execute`d still
+ * counts zero.
+ */
+const MGR_TYPE = String.raw`I?CommandManager[A-Za-z]*`;
+
 const BIND_RE       = /\b(?:const|let|var)\s+([A-Za-z_$][\w$]*)\s*(?::[^=;]*)?=\s*/g;
-const CTOR_FIELD_RE = /\b(?:private|protected|public)\s+(?:readonly\s+)?([A-Za-z_$][\w$]*)\s*:\s*(?:CommandManager|ICommandManager|CommandManagerImpl)\b/g;
-const PARAM_RE      = /(?:^|[(,])\s*([A-Za-z_$][\w$]*)\s*\??\s*:\s*(?:CommandManager|ICommandManager|CommandManagerImpl)\b/g;
+const CTOR_FIELD_RE = new RegExp(String.raw`\b(?:private|protected|public)\s+(?:readonly\s+)?([A-Za-z_$][\w$]*)\s*:\s*${MGR_TYPE}\b`, 'g');
+const PARAM_RE      = new RegExp(String.raw`(?:^|[(,])\s*([A-Za-z_$][\w$]*)\s*\??\s*:\s*${MGR_TYPE}\b`, 'g');
 const FN_DECL_RE    = /\b(?:export\s+)?(?:async\s+)?function\s+([A-Za-z_$][\w$]*)\s*\(([^)]*)\)/g;
 const MGR_PARAM_RE  = /\b(?:commandManager|cmdMgr|cmdManager|cm|_cmd)\s*\??\s*:/;
 
@@ -423,6 +490,45 @@ function bodyBlock(braced, from) {
 }
 
 /**
+ * §FIX-PARAM-SCOPE-IS-A-TYPE-LITERAL (2026-08-31) — body block of the function whose
+ * PARAMETER LIST contains `from`.
+ *
+ * ⚠ `bodyBlock` is wrong for a parameter match and it failed SILENTLY, in the worst
+ * direction: it takes the first `{` after the match, and in
+ *
+ *     private _createSlab(cm: CommandManagerLike, poly: ReadonlyArray<{ x: number }>): void {
+ *
+ * that `{` is the INLINE TYPE LITERAL still inside the parameter list. The alias
+ * `cm` was therefore scoped to `{ x: number }` — nine characters — and every
+ * `cm.execute(…)` in the real body fell outside it. The arm did not error; it just
+ * quietly found nothing, which is the shape of every defect in this file's history.
+ * That single mis-scope hid 16 live call sites across the three layout executors.
+ *
+ * The parameter list closes at the `)` that takes paren depth to -1 from the match.
+ * After it a RETURN TYPE may itself be an object literal (`): { ok: boolean } {`), so
+ * a block immediately followed by another `{` is a return type, not a body — walk
+ * past at most three of those.
+ */
+function paramBodyBlock(braced, from) {
+    let p = 0, close = -1;
+    for (let i = from; i < braced.length; i++) {
+        const c = braced[i];
+        if (c === '(') p++;
+        else if (c === ')') { if (--p < 0) { close = i; break; } }
+    }
+    if (close < 0) return null;
+    let cursor = close + 1;
+    for (let attempt = 0; attempt < 3; attempt++) {
+        const blk = bodyBlock(braced, cursor);
+        if (!blk) return null;
+        const after = braced.slice(blk[1] + 1, blk[1] + 40).replace(/\s+/g, '');
+        if (after.startsWith('{')) { cursor = blk[1] + 1; continue; }  // that was a return type
+        return blk;
+    }
+    return null;
+}
+
+/**
  * End of the initialiser starting at `from`.
  *
  * A plain `[^;]+` capture is WRONG and hid real call sites: an inline type
@@ -452,8 +558,13 @@ const isTestPath = p =>
  * ARMS 1 + 2 for a single source. Returns { hits, isTest }.
  * `hits` are de-duplicated per line: one line is one call site, matching the
  * `wc -l` counting unit this ratchet has always used.
+ *
+ * EXPORTED as of §CONVERGE-CM-COUNTERS — see the "one detector" note in the header.
+ * `tools/ga-gate/check-no-commandmanager.ts` calls it (via `scanLegacyManagerCallSites`)
+ * so its own scope is measured by THIS detector rather than by a second, weaker,
+ * name-enumerating one. Do not fork it.
  */
-function analyseSource(raw, relPath) {
+export function analyseSource(raw, relPath) {
     const code   = stripComments(raw);
     const braced = blankStringBodies(code);
     const lines  = raw.split('\n');
@@ -487,14 +598,14 @@ function analyseSource(raw, relPath) {
     }
     for (const m of braced.matchAll(PARAM_RE)) {
         if (m[1] === 'commandManager') continue;
-        const body = bodyBlock(braced, m.index + m[0].length);
+        const body = paramBodyBlock(braced, m.index + m[0].length);
         if (body) aliases.push({ name: m[1], start: body[0], end: body[1], viaThis: false });
     }
 
     for (const a of aliases) {
         const re = a.viaThis
-            ? new RegExp(`this\\s*\\.\\s*${a.name}\\s*\\.\\s*execute\\s*\\(`, 'g')
-            : new RegExp(`(?<![\\w$.])${a.name}\\s*\\.\\s*execute\\s*\\(`, 'g');
+            ? new RegExp(`this\\s*\\??\\s*\\.\\s*${a.name}${CALL_TAIL}`, 'g')
+            : new RegExp(`(?<![\\w$.])${a.name}${CALL_TAIL}`, 'g');
         for (const m of code.slice(a.start, a.end).matchAll(re)) {
             add(lineAt(code, a.start + m.index), 'alias', a.name);
         }
@@ -509,9 +620,9 @@ function analyseSource(raw, relPath) {
  *
  * @returns {{ file: string, lineNo: number, kind: string, alias: string, text: string }[]}
  */
-function findViolations() {
+function findViolations(scanDirs = SCAN_DIRS, minFiles = MIN_FILES) {
     const files = [];
-    for (const dir of SCAN_DIRS) {
+    for (const dir of scanDirs) {
         const absDir = resolve(ROOT, dir);
         if (existsSync(absDir)) walkDir(absDir, files);
     }
@@ -519,10 +630,10 @@ function findViolations() {
     // ⚠ HONESTY FLOOR. Counter arms pass at LOW numbers, so "walked nothing" and
     // "fully migrated" are otherwise the same reading. Below this the scan is
     // MISCONFIGURED (exit 2) — never a pass, never a fail.
-    if (files.length < MIN_FILES) {
+    if (files.length < minFiles) {
         console.error(
             `[ci-check-no-commandmanager] FATAL -- only ${files.length} source files under ` +
-            `${SCAN_DIRS.join(', ')} (floor ${MIN_FILES}). Wrong cwd, or the subject tree vanished.`,
+            `${scanDirs.join(', ')} (floor ${minFiles}). Wrong cwd, or the subject tree vanished.`,
         );
         process.exit(2);
     }
@@ -583,6 +694,41 @@ function findViolations() {
         indirect: production.filter(v => v.kind === 'indirect').length,
     };
     return production;
+}
+
+/**
+ * §CONVERGE-CM-COUNTERS (WAVE 2 LANE B, 2026-08-30) — THE SINGLE DETECTOR.
+ *
+ * The repo carried TWO call-site counters for one concept, over disjoint scopes:
+ *
+ *   THIS gate                              packages/ + plugins/   3 arms, 14 controls
+ *   tools/ga-gate/check-no-commandmanager  apps/editor/src        3 fixed-name regexes
+ *
+ * They were never scope rivals — each header says so. They were METHOD rivals, and
+ * the WEAKER detector owned a scope. `check-no-commandmanager.ts` enumerates the
+ * NAMES `commandManager.execute`, `cmdMgr.execute`, `window.commandManager` and
+ * `cm.execute`; it therefore reports a LOWER number the moment a receiver is bound
+ * to any fifth name — the exact evasion this file's §FIX-GATE-DEFEATABLE-BY-ALIASING
+ * section measured at 85 invisible sites, and the exact defect CLAUDE.md records as
+ * "THIS GATE CLASSIFIES BY NAME, so it can be satisfied by RENAMING".
+ *
+ * Worse than under-counting: a rename LOWERS that gate's `cm.execute` counter, and
+ * its counters auto-ratchet DOWNWARD on improvement. A pure rename therefore banked
+ * a permanent, fake improvement. That is a ratchet paying out for an evasion.
+ *
+ * This export is the convergence. `check-no-commandmanager.ts` now measures its own
+ * scope with the arms below, so there is ONE definition of "a call site reaching the
+ * legacy command manager" in the repo. The two gates keep separate scopes and
+ * separate ceilings — deliberately, because that gate's LITERAL ceiling is a hard 0
+ * that is currently BREACHED, and folding a breached hard-0 into this file's soft
+ * threshold would launder it.
+ *
+ * @param {string[]} scanDirs  repo-relative directories to walk
+ * @param {number}   minFiles  honesty floor; below it the scan exits 2, never 0
+ */
+export function scanLegacyManagerCallSites(scanDirs, minFiles) {
+    const violations = findViolations(scanDirs, minFiles);
+    return { violations, stats: { ...SCAN_STATS } };
 }
 
 // ─── Negative controls (`--self-test`) ────────────────────────────────────────
@@ -662,7 +808,86 @@ const SELF_TESTS = [
             cm.execute(new CreateAnnotationCommand(element));
         }`],
 
+    // §FIX-OPTIONAL-CALL-INVISIBLE — the spelling that dominates apps/editor/src
+    // (64 lines) and that EVERY arm used to miss. Verified by mutation: revert
+    // CALL_TAIL to `\s*\.\s*execute\s*\(` and these three score 0.
+    ['alias — OPTIONAL CALL, the OfficeBuildingExecutor spelling', 1, `
+        function f() {
+            const cm = window.commandManager as { execute?(c: unknown): void } | undefined;
+            cm.execute?.(new CreateRoofCommand({}));
+        }`],
+
+    ['alias — optional receiver AND optional call', 1, `
+        function f() {
+            const cm = window.commandManager;
+            cm?.execute?.(new CreateFloorCommand({}));
+        }`],
+
+    ['literal — optional call on the literal receiver', 1, `
+        function f(ctx) { ctx.commandManager.execute?.(new CreateWallCommand()); }`],
+
+    ['alias — non-null ASSERTION call, the HouseLayoutExecutor spelling', 1, `
+        function f() {
+            const cm = window.commandManager;
+            cm.execute!(new CreateWallOpeningsBatchCommand(mapped));
+        }`],
+
+    // §FIX-MANAGER-TYPE-SUFFIXES — CommandManagerLike is the DOMINANT annotation in
+    // apps/editor/src (38 sites) and the old three-name list did not have it.
+    ['alias — parameter typed CommandManagerLike', 1, `
+        class OfficeBuildingExecutor {
+            private _createRoof(cm: CommandManagerLike, levelId: string): void {
+                cm.execute?.(new CreateRoofCommand(createId('roof'), {}));
+            }
+        }`],
+
+    // §FIX-PARAM-SCOPE-IS-A-TYPE-LITERAL — an inline type literal LATER in the same
+    // parameter list used to become the alias's whole scope. Verified by mutation:
+    // swap paramBodyBlock back to bodyBlock and this fixture scores 0.
+    ['alias — param scope survives an inline type literal in the same param list', 1, `
+        class ResidentialBuildingExecutor {
+            private _createSlab(cm: CommandManagerLike, poly: ReadonlyArray<{ x: number; z: number }>): void {
+                cm.execute?.(new CreateSlabCommand({}));
+            }
+        }`],
+
+    ['alias — param scope survives an object RETURN TYPE', 1, `
+        class E {
+            private _mk(cm: CommandManagerLike, id: string): { ok: boolean } {
+                cm.execute(new CreateStairCommand({}));
+                return { ok: true };
+            }
+        }`],
+
+    // ⚠ NEGATIVE for the same fix: the widened scope must stop at the body's close,
+    // not leak into the NEXT method. Without a bound, one manager-typed parameter
+    // would claim every `.execute(` in the rest of the file.
+    ['NEGATIVE — param alias does not leak into the next method', 1, `
+        class E {
+            private _a(cm: CommandManagerLike): void { cm.execute(new A()); }
+            private _b(cm2: SomethingElse): void { cm.execute(new B()); }
+        }`],
+
+    // §FIX-PARENTHESISED-CAST-RECEIVER — the ApartmentLayoutExecutor spelling.
+    ['alias — parenthesised cast receiver', 1, `
+        function f() {
+            const cm = (window as unknown as { commandManager?: { execute(c: unknown): void } }).commandManager;
+            if (cm) { cm.execute(new BatchCreateRoomsCommand(graphRooms)); }
+        }`],
+
     // ── NEGATIVE: must NOT be caught ────────────────────────────────────────
+
+    // ⚠ THE ANTI-NOISE CONTROL FOR CALL_TAIL. `executeChunked` is a DIFFERENT
+    // method (CommandManagerImpl only) with no bus equivalent, so counting it
+    // asserts a violation that has no available fix — the sibling gate's
+    // §FIX-P6-GATE-PRECISION records the same correction. Widening the tail to
+    // admit `?.` must not widen it to admit a longer method name.
+    ['NEGATIVE — executeChunked is a different method, not execute', 0, `
+        function f() {
+            const cm = window.commandManager;
+            cm.executeChunked(cmds);
+        }`],
+
     ['NEGATIVE — injection, not aliasing (new Foo(commandManager))', 0, `
         function f(ctx) {
             const mapper = new IfcStoreyLevelMapper(ctx.commandManager, ctx.bimManager, []);
@@ -762,80 +987,113 @@ function groupByFile(violations) {
 
 const BANNER = '-'.repeat(66);
 
-if (process.argv.includes('--self-test')) process.exit(runSelfTest());
+/**
+ * §CONVERGE-CM-COUNTERS-CALLER (2026-08-31) — THE ENTRYPOINT GUARD, and it is the
+ * half of the convergence that was MISSING, not a tidy-up.
+ *
+ * §CONVERGE-CM-COUNTERS exported `analyseSource` / `scanLegacyManagerCallSites` so
+ * `tools/ga-gate/check-no-commandmanager.ts` could measure ITS scope with THIS
+ * detector. That export was UNUSABLE as shipped, and the failure was silent-adjacent
+ * rather than obvious: every statement below used to sit at module top level, so
+ *
+ *     import { analyseSource } from '.../ci-check-no-commandmanager.mjs'
+ *
+ * ran the whole packages/+plugins/ scan as an import side effect and then called
+ * `process.exit(1)` — the importer's own code never got a turn. Measured before this
+ * guard: a probe that did nothing but import the module and print the export names
+ * exited 1 having printed this gate's FAIL banner, and never printed the names.
+ *
+ * That is why "the caller half never landed": there was nothing callable to land.
+ *
+ * `import.meta.url` vs the resolved `argv[1]` is the standard ESM main test, and it
+ * is exact here — `pathToFileURL(resolve(entry))` normalises the Windows drive letter
+ * and separators that a raw string compare would get wrong.
+ */
+const IS_DIRECT_RUN = (() => {
+    const entry = process.argv[1];
+    if (!entry) return false;
+    try { return import.meta.url === pathToFileURL(resolve(entry)).href; }
+    catch { return false; }
+})();
 
-console.log('');
-console.log(BANNER);
-console.log('  CI gate: legacy commandManager.execute() -- Phase 3 exit ratchet');
-console.log('  Contract: P3 / C14 s3 / IMPL-PLAN-2026-05-17 s6');
-console.log(BANNER);
-console.log('  Scanning: ' + SCAN_DIRS.join(', '));
-console.log('  Threshold (CM_EXECUTE_THRESHOLD): ' + THRESHOLD);
-console.log('');
+function runGate() {
+    if (process.argv.includes('--self-test')) process.exit(runSelfTest());
 
-let violations;
-try {
-    violations = findViolations();
-} catch (err) {
-    console.error('[ci-check-no-commandmanager] FATAL -- scan failed:', err);
-    process.exit(2);
-}
-
-const byFile = groupByFile(violations);
-const count  = violations.length;
-
-// Print violation list, sorted by per-file count descending.
-if (byFile.size > 0) {
-    console.log('  Call sites reaching the legacy command manager (non-comment):');
     console.log('');
-    const sorted = [...byFile.entries()].sort(([, a], [, b]) => b.length - a.length);
-    for (const [file, lines] of sorted) {
-        console.log('    [' + lines.length + ']  ' + file);
-        for (const { lineNo, text, kind, alias } of lines) {
-            const snippet = text.trim().slice(0, 82);
-            console.log('         L' + lineNo + ' (' + kind + ':' + alias + '): ' + snippet);
+    console.log(BANNER);
+    console.log('  CI gate: legacy commandManager.execute() -- Phase 3 exit ratchet');
+    console.log('  Contract: P3 / C14 s3 / IMPL-PLAN-2026-05-17 s6');
+    console.log(BANNER);
+    console.log('  Scanning: ' + SCAN_DIRS.join(', '));
+    console.log('  Threshold (CM_EXECUTE_THRESHOLD): ' + THRESHOLD);
+    console.log('');
+
+    let violations;
+    try {
+        violations = findViolations();
+    } catch (err) {
+        console.error('[ci-check-no-commandmanager] FATAL -- scan failed:', err);
+        process.exit(2);
+    }
+
+    const byFile = groupByFile(violations);
+    const count  = violations.length;
+
+    // Print violation list, sorted by per-file count descending.
+    if (byFile.size > 0) {
+        console.log('  Call sites reaching the legacy command manager (non-comment):');
+        console.log('');
+        const sorted = [...byFile.entries()].sort(([, a], [, b]) => b.length - a.length);
+        for (const [file, lines] of sorted) {
+            console.log('    [' + lines.length + ']  ' + file);
+            for (const { lineNo, text, kind, alias } of lines) {
+                const snippet = text.trim().slice(0, 82);
+                console.log('         L' + lineNo + ' (' + kind + ':' + alias + '): ' + snippet);
+            }
         }
+        console.log('');
     }
-    console.log('');
-}
 
-// State the subject size and the per-arm split. A gate that prints only its
-// verdict cannot be told apart from a gate that walked nothing — and this gate
-// spent a month printing 51 while 136 were live.
-console.log(BANNER);
-console.log('  Files scanned:           ' + SCAN_STATS.files + '  (floor ' + MIN_FILES + ')');
-console.log('  Arms:                    literal ' + SCAN_STATS.literal +
-            '  ·  alias ' + SCAN_STATS.alias +
-            '  ·  indirect ' + SCAN_STATS.indirect);
-console.log('  Executor helpers:        ' + (SCAN_STATS.helpers.join(', ') || '(none)'));
-console.log('  Excluded test doubles:   ' + SCAN_STATS.testDoubles);
-console.log('  Non-comment call count:  ' + count);
-console.log('  Threshold:               ' + THRESHOLD);
+    // State the subject size and the per-arm split. A gate that prints only its
+    // verdict cannot be told apart from a gate that walked nothing — and this gate
+    // spent a month printing 51 while 136 were live.
+    console.log(BANNER);
+    console.log('  Files scanned:           ' + SCAN_STATS.files + '  (floor ' + MIN_FILES + ')');
+    console.log('  Arms:                    literal ' + SCAN_STATS.literal +
+                '  ·  alias ' + SCAN_STATS.alias +
+                '  ·  indirect ' + SCAN_STATS.indirect);
+    console.log('  Executor helpers:        ' + (SCAN_STATS.helpers.join(', ') || '(none)'));
+    console.log('  Excluded test doubles:   ' + SCAN_STATS.testDoubles);
+    console.log('  Non-comment call count:  ' + count);
+    console.log('  Threshold:               ' + THRESHOLD);
 
-if (count <= THRESHOLD) {
-    const delta = THRESHOLD - count;
-    console.log('');
-    console.log('  PASS -- count ' + count + ' <= threshold ' + THRESHOLD);
-    if (count === 0) {
-        console.log('  Phase 3 exit condition FULLY MET (C14 s3 / zero violations).');
+    if (count <= THRESHOLD) {
+        const delta = THRESHOLD - count;
+        console.log('');
+        console.log('  PASS -- count ' + count + ' <= threshold ' + THRESHOLD);
+        if (count === 0) {
+            console.log('  Phase 3 exit condition FULLY MET (C14 s3 / zero violations).');
+        } else {
+            console.log('  ' + delta + ' headroom remaining.');
+            console.log('  Lower CM_EXECUTE_THRESHOLD to lock in further progress.');
+        }
+        console.log(BANNER);
+        console.log('');
+        process.exit(0);
     } else {
-        console.log('  ' + delta + ' headroom remaining.');
-        console.log('  Lower CM_EXECUTE_THRESHOLD to lock in further progress.');
+        const excess = count - THRESHOLD;
+        console.log('');
+        console.log('  FAIL -- count ' + count + ' exceeds threshold ' + THRESHOLD + ' (+' + excess + ')');
+        console.log('');
+        console.log('  To resolve:');
+        console.log('    1. Migrate each violating call to runtime.bus.executeCommand(...).');
+        console.log('    2. Do NOT raise the threshold -- only lower it.');
+        console.log('');
+        console.log('  Reference: IMPL-PLAN-2026-05-17.md s6 / C14 s3 / P6');
+        console.log(BANNER);
+        console.log('');
+        process.exit(1);
     }
-    console.log(BANNER);
-    console.log('');
-    process.exit(0);
-} else {
-    const excess = count - THRESHOLD;
-    console.log('');
-    console.log('  FAIL -- count ' + count + ' exceeds threshold ' + THRESHOLD + ' (+' + excess + ')');
-    console.log('');
-    console.log('  To resolve:');
-    console.log('    1. Migrate each violating call to runtime.bus.executeCommand(...).');
-    console.log('    2. Do NOT raise the threshold -- only lower it.');
-    console.log('');
-    console.log('  Reference: IMPL-PLAN-2026-05-17.md s6 / C14 s3 / P6');
-    console.log(BANNER);
-    console.log('');
-    process.exit(1);
 }
+
+if (IS_DIRECT_RUN) runGate();

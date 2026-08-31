@@ -1,0 +1,73 @@
+{
+  "report": "INTEGRATION AUDIT - read-only refutation pass over the implementation lanes",
+  "generated": "2026-08-30",
+  "auditor_note": "Every number below is from MY OWN re-run, not from a lane report. Where a lane's number and mine disagree, mine is stated and the delta explained. The tree contains work from more lanes than the four reports supplied to me (the input was truncated mid-W2d); I audited the whole working tree regardless.",
+
+  "1_forbidden_fix_audit": {
+    "verdict": "NO DESTRUCTIVE FORBIDDEN FIX. No ceiling raised, no baseline widened, no gate-debt.json entry added, no shrink-only ledger extended.",
+    "hard_evidence_from_actual_diffs": {
+      "git diff -- .ga-gate/baselines/": "EMPTY - zero bytes changed. No baseline file was rewritten.",
+      "git diff -- tools/ga-gate/gate-debt.json": "EMPTY - zero entries added.",
+      "check-command-naming BASELINE_SPLITS": "still EMPTY, exactly as at HEAD.",
+      "check-single-compose MAX_RIVALS / MAX_PROD_CALLERS": "1 and 2 - byte-identical to HEAD.",
+      "check-gate-subject-floors MAX_UNFLOORED": "0 - unchanged.",
+      ".ga-gate/baselines/cast-count.json": "NOT rewritten. check-cast-count's ratchet WRITER was inverted to opt-in (--ratchet) and its missing-baseline path changed from returning MAX_SAFE_INTEGER (an unconditional pass) to exit 2. Both are TIGHTENINGS."
+    },
+    "only_in_source_ceiling_that_moved": {
+      "file": "tools/ga-gate/check-render-aggregate-seam.ts",
+      "constant": "ARM_B_BASELINE",
+      "movement": "49 -> 43",
+      "direction": "LOWERED (tightened). Lowering a shrink-only ceiling to its measured value is permitted; raising is the forbidden move.",
+      "caveat_flagged": "The entire 7-file drop came from a SUBJECT-DEFINITION NARROWING - a new stripComments pass plus a write-vs-read negative lookahead - NOT from code fixes. Zero production files were changed to earn it. I verified 5 of the 7 departures individually and they are genuine: WaterMeshBuilder :150/:177 and RhinoImporter :269 are WRITES (userData['id'] = ...), initTools :2750/:2810 and InstancedMeshCoalescer :15 are PROSE inside comments. The narrowing is defensible, and the regex also widened in the direction that COSTS (optional-chained bracket reads now count, keeping visibilitySceneApplier on the census). But re-pinning at 43 LOCKS IN the narrower definition: 43-vs-50 is a definitional delta, not a repair, and a later reader will mistake it for one."
+    },
+    "rename_to_satisfy_a_name_based_gate": {
+      "found": true,
+      "severity": "NON-DESTRUCTIVE - no invariant was weakened - but W1b's headline overstates its own work.",
+      "mechanism": "check-gate-subject-floors.ts detects a floor via FLOOR_DECL_RE, which recognises only constants spelled MIN_*, and detects the misconfiguration path via the literal text process.exit(2). Two of W1b's six files were made to match that DETECTOR without gaining any safety.",
+      "instance_a": "tools/ga-gate/check-material-id-required.ts - six constants renamed FLOOR_SCHEMAS/FLOOR_ID_SITES/FLOOR_PRODUCERS/FLOOR_SERIALIZERS/FLOOR_ID_WRITERS/FLOOR_RUNTIME_PAIRS to MIN_*, with values (20/40/8/8/4/12) and every comparison byte-identical. The floors were ALREADY enforced before the rename.",
+      "instance_b": "tools/ga-gate/check-property-rac-matrix.ts - five existing inline min: literals (4/60/40/15/15) extracted into MIN_* constants at the same values, and process.exit(main()) rewritten as: const rc = main(); if (rc === 2) process.exit(2); process.exit(rc). Behaviourally identical, but it makes the literal string process.exit(2) appear so EXIT2_RE matches.",
+      "fair_reading": "Both files were INNOCENTS falsely accused by a name-blind meta-gate - a failure mode that gate's own header admits verbatim ('A meta-gate that judges FLOOR NAMING rather than FLOOR BEHAVIOUR measures spelling'), and which it was already patched once before for (the check-verb-liveness false accusation). So the census is now TRUE where it was previously FALSE. But the correct fix was to widen FLOOR_DECL_RE to accept a compared FLOOR_* constant. Renaming the innocent to match the detector leaves the detector still blind to the NEXT gate that spells it FLOOR_*.",
+      "consequence": "Only 4 of the 6 W1b files (check-material-maps-tiling, check-runtime-arg-omitted, check-tool-activator-coverage, check-batch-creation-coverage) genuinely gained NEW enforced comparisons plus an exit-2 path. W1b's 'floored: 66 -> 72' should read '+4 genuinely floored, +2 falsely-accused-now-correctly-classified'.",
+      "downstream_hazard": "check-gate-subject-floors now prints 'Ratchet reached 0 - retire MAX_UNFLOORED.' Retiring a live ratchet on the strength of two spelling changes would be a real loss of enforcement."
+    },
+    "renames_checked_and_CLEARED": {
+      "curtainWall_to_curtain_wall": "'curtainWall.changeLevel' -> 'curtain-wall.changeLevel' in packages/sync-client/src/syncDisposition.ts and tools/ga-gate/mirror-debt.json is NOT name-gaming - it is a CORRECTNESS fix. The handler's real type is 'curtain-wall.changeLevel' (plugins/curtain-wall/src/handlers/ChangeCurtainWallLevel.ts:105), so the old key was a DEAD entry matching no dispatchable verb.",
+      "four_names_added_to_check_command_naming": "'balcony', 'bathroomPod', 'boundaryLine', 'lift' were added to the CANONICAL-domain set, NOT to BASELINE_SPLITS (the shrink-only debt map), which remains EMPTY. Each is a new single-spelling domain with 0 rival spellings, and curtainWall was explicitly DENIED admission and migrated instead. This is not a widening."
+    }
+  },
+
+  "3_rival_implementation_audit_D2": {
+    "verdict": "NO RIVAL IMPLEMENTATIONS BUILT.",
+    "method": "Enumerated every untracked non-audit file in the tree: exactly ONE exists.",
+    "only_new_file": "apps/editor/__tests__/persistedFamiliesReachTheSerializerChannel.test.ts - a falsifying PROBE, not an implementation. It documents a real production defect: composeRuntime()'s stores slot carried no 'balcony' key, so readPluginStore('balcony') returned undefined and every balcony was destroyed on reload, while the existing snapshotFamilyRoundTrip.spec.ts could not observe it because it supplied window.runtime as an object literal - the fake-more-capable-than-real shape.",
+    "corresponding_fix": "packages/runtime-composer/src/composeRuntime.ts gained three lines binding the already-existing balcony store into the stores map: pure WIRING of an authored-but-unreachable path. Exactly D2-compliant.",
+    "census_crosscheck": "Every family touched (balcony, bathroomPod, boundaryLine, lift, curtain-wall, structural, grid, dimension) is present in census.json. Nothing was built that the census showed already existed unwired."
+  },
+
+  "5_full_gate_sweep": {
+    "command": "npx tsx tools/ga-gate/run-all.ts",
+    "result": "RUNALL_RC=1",
+    "gates_at_exit_3_now": 23,
+    "the_10_to_4_claim_VERIFIES_within_its_scope": "The commit message's 'ten failing gates to four' RECONCILES EXACTLY with my own measurements, and I initially mis-read it as unsupported. Its denominator is the element-creation audit's SCOPED list: 7 exit-3 gates (FINDINGS.md:31) plus 3 exit-1 gates = 10 failing. Now failing: check-graph-write-coverage (3), check-layer-boundaries (3), check-no-commandmanager (1), check-batch-creation-coverage (1) = 4. Confirmed by independent re-run of each. The claim is TRUE as scoped.",
+    "but_the_suite_wide_number_is_23_and_was_never_measured_at_HEAD": "A FULL sweep finds 23 gates at exit 3, not 4. The audit's seven was never a suite tally, so 'ten failing gates to four' must not be read as 'the gate suite is now four gates from green'. For 16 of the 23 nobody measured a HEAD value, so no before/after comparison is possible in either direction. The merge-blocking runner still exits 1.",
+    "of_the_audits_named_seven": {
+      "now_RC_0": ["check-cast-count", "check-gate-subject-floors", "check-command-naming", "check-otel-spans"],
+      "improved_3_to_1": ["check-no-commandmanager - literal 11/11, window 59/62, cm.execute 62/62"],
+      "still_exit_3_unchanged": [
+        "check-graph-write-coverage - 4 findings against a named ledger of 0",
+        "check-layer-boundaries - all four arms IDENTICAL to HEAD: upward 105/102, sdk-bypass 186/182, banned third-party 123/113, unclassified 15/13"
+      ]
+    },
+    "regression_causality_ALL_CLEAR": "The three failing gates that map onto files this session touched were each traced to an UNMODIFIED source and are PRE-EXISTING. (a) check-tool-activator-coverage exit 1, ARM A - 4 declared tool ids with no registered activator (balcony, bathroom-pod, boundary-line, pool) - declared in apps/editor/src/engine/views/plantools/elementCreationMatrix.ts, which is UNMODIFIED and last touched 2026-08-26 in 3095dced. (b) check-sync-disposition exit 1 - failures are furniture.bulkUpdateKitchenMaterial, room.restoreMeaning, room.setColourMode and view.setCategoryVisibility, all in files untouched this session. (c) check-property-rac-matrix exit 3 - a large pre-existing property-coverage shortfall; W1b changed only constant spelling. NO new gate breach is attributable to this session.",
+    "also_red_pre_existing": "per-package-compile: 28 of 98 packages fail (engine, renderer, sync-client, ui-base, and the geometry-* family among them)."
+  },
+
+  "6_new_finding_the_fix_SHIPPED_WITHOUT_ITS_PROOF": {
+    "severity": "HIGH - this is the audit's own recurring shape, committed",
+    "detail": "The orchestrator committed 4a4b35c0 during this audit. It contains the balcony persistence FIX (packages/runtime-composer/src/composeRuntime.ts, three lines binding the balcony store) but NOT the falsifying test that proves it: apps/editor/__tests__/persistedFamiliesReachTheSerializerChannel.test.ts is still UNTRACKED (git status '??') and is not in the commit.",
+    "why_it_matters": "That probe exists precisely because the pre-existing snapshotFamilyRoundTrip.spec.ts was structurally incapable of failing - it supplied window.runtime as an object literal, so it could not observe that composeRuntime never bound the store. Committing the repair while leaving the only test that can detect its regression out of version control restores the exact condition that let every balcony be destroyed on reload for four days while a row read 'persists: YES' with an executed proof attached.",
+    "next_command": "git add apps/editor/__tests__/persistedFamiliesReachTheSerializerChannel.test.ts && npx vitest run apps/editor/__tests__/persistedFamiliesReachTheSerializerChannel.test.ts"
+  },
+
+  "notes_on_method": "The single most valuable check in this pass was re-running the acceptance commands rather than reading the lane reports. Two lanes (W2c, W2d) reported completed:false and I confirmed by git status that they touched nothing at all - their before/after numbers are identical by construction and their blockers are real. The root typecheck is where a false green was waiting; see tsc_first_error."
+}

@@ -1,0 +1,25 @@
+[R-1] ceiling.create outcome = OK
+[R-1] real ceiling.created captured = true
+[R-1] mirror returned = record
+[R-1] CeilingStore readback = PRESENT
+[R-1] scheduler running = true
+[R-1] AFTER enqueue, BEFORE any frame: meshes = 0  (this is the DEFERRAL, not a failure)
+[R-1] pumpCount = 4 · totalTicks = 4
+[R-1] MESHES before/afterEnqueue/afterPump = 0 / 0 / 1  · verts = 36
+[R-1] builder root = PRESENT · root.userData.id = ceiling_01M1BG50XBHS1N2X5ZQJATDCCF · root.userData.elementType = ceiling · root.userData.version = 1
+[R-1c] CONTROL no-pump MESHES = 0 (must be 0)
+[R-2] FragmentReader import = function
+[R-2] elements = 1 · ceiling element = PRESENT
+[R-2] ifcClass = IfcCovering · predefinedType = CEILING · verts = 108
+[R-2c] CONTROL empty-scene elements = 0 (must be 0)
+[R-3] curtain-wall.create outcome = OK
+[R-3] mirror returned = record
+[R-3] storeEventBus curtainwall events = [{"elementId":"curtainwall_01M1BG50Z43HTA4GE458QE977Z","elementType":"curtainwall","operation":"create","timestamp":1788166177768}]
+[R-3] CurtainWallStore readback = true
+[R-3] MESHES = 10 · verts = 240
+[R-3] scene.children[0].userData.id = curtainwall_01M1BG50Z43HTA4GE458QE977Z · elementType = CurtainWall · version = 1
+[R-4] elements = 1
+[R-4] ids = ["curtainwall_01M1BG50Z43HTA4GE458QE977Z"]
+[R-4] classes = ["IfcCurtainWall"]
+[R-4] curtain-wall element = PRESENT ifcClass=IfcCurtainWall
+[R-4c] CONTROL empty-scene elements = 0

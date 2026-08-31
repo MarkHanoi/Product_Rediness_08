@@ -54,10 +54,16 @@ import type { PluginRegistration } from '@pryzm/plugin-sdk';
 // ── C06 §4 — Task 3.1 (Phase 3) — plugin tool activator imports ─────────────
 //
 // Seven plugin tool classes imported via stable `./tool` subpath exports.
-// Two tools (DimensionTool, FurniturePlacementTool) require engine-provided
-// deps (canvas + catalogue) and therefore use the existing window-bridge
-// pattern (same as ToolsAreaLayout's ramp/room/ceiling bridges) until Phase 4
-// lands the runtime.inputHost + runtime.auxiliaries engine bridges.
+// One tool (FurniturePlacementTool) requires engine-provided deps (the
+// catalogue) and therefore uses the existing window-bridge pattern (same as
+// ToolsAreaLayout's ramp/room/ceiling bridges) until Phase 4 lands the
+// runtime.inputHost + runtime.auxiliaries engine bridges. Its assignment site
+// is apps/editor/src/engine/initTools.ts:690 — verified, not assumed.
+//
+// ⚠ This read "Two tools (DimensionTool, FurniturePlacementTool)" until Wave 4c.
+// DimensionTool was never imported here and window.dimensionTool was never
+// assigned anywhere; the dimension bridge has been deleted. See the tombstone
+// in registerAllPluginToolActivators.
 //
 // Phase 2 NOTE: zero `commandManager` call sites introduced here.  All
 // dispatch goes through `runtime.bus.executeCommand`.  Clean of F1–F13.
@@ -253,6 +259,37 @@ export function buildSharedWallCatalogue(): WallSystemTypeStore {
     size: () => sharedWallTypeSingleton()?.getAll?.().length ?? 0,
   } as unknown as WallSystemTypeStore;
 }
+
+/**
+ * §SEL-STORE-IDENTITY (W4d) — the ONE `SelectionStore` of the current bootstrap,
+ * shared between the selection descriptor's `buildStore()` and its
+ * `buildHandlers()`.
+ *
+ * ⛔ WHY THIS HOLDER EXISTS AT ALL. `PluginRegistration` gives `buildHandlers`
+ * a deps bag but gives `buildStore` nothing, so a descriptor cannot otherwise
+ * hand its OWN store to its OWN handlers. Every other family is fine with that:
+ * their handlers use `produceCommand` against the `Record<id,dto>` view the bus
+ * provides. Selection may not (`selectionStoreAccess.ts` states why — a
+ * non-empty patch pair would put every click on the undo ring buffer, against
+ * ADR-0015), so its handlers need the instance itself.
+ *
+ * ⭐ ADOPTED, NEVER A SECOND STORE. `buildHandlers` receives the exact object
+ * `buildStore` returned and that `bootstrapWithEverything` registers as
+ * `stores.selection`. Minting a rival here would fork selection state against
+ * the store the bus's `storesProvider` fronts —  the same defect
+ * §BLSTORE-COMPOSED-PLUGIN-STORES closed for `boundaryLine`.
+ *
+ * ⚠ ORDERING, STATED SO IT IS NOT ASSUMED: `bootstrapWithEverything` runs a
+ * STORES pass over every descriptor and only then a HANDLERS pass
+ * (`bootstrap.everything.ts` §1 and §2), so this is always written before it is
+ * read within one bootstrap. A later bootstrap overwrites it, and its own
+ * stores pass runs before its own handlers pass, so each bootstrap gets its own
+ * consistent pair. Asserted end-to-end by
+ * `apps/editor/__tests__/selectionVerbsReachTheComposedSelectionStore.test.ts`
+ * ARM C, which reads the write back through a DIFFERENT verb on the SAME
+ * provider — i.e. it fails if identity is ever broken.
+ */
+let selectionStoreForThisBootstrap: SelectionStore | null = null;
 
 /** All 13 plugins, in registration order.  Order matters only for the
  *  rare cross-plugin dep (wall handlers consume `wallSystemTypes`). */
@@ -686,16 +723,41 @@ export const ALL_PLUGINS: readonly PluginDescriptor[] = [
   // `SelectionStore` lives in `packages/stores/` (not in the plugin package).
   // `buildSelectionHandlerSet()` takes NO deps and returns the three
   // canonical handlers (selection.select / .deselect / .clear).  Handlers
-  // access `ctx.stores.selection` — the SelectionStore registered here
-  // under storeKey 'selection' satisfies that contract in the legacy
-  // `bootstrapWithEverything()` path.  The `composeRuntime` path exposes
-  // selection state via `runtime.selection` (a built-in stub); handler
-  // registration via the composeRuntime bus is Phase E.5.x scope.
+  // access `ctx.stores.selection`.
+  //
+  // ⛔ §SEL-STORE-IDENTITY (W4d) — THIS COMMENT USED TO END: "the SelectionStore
+  // registered here under storeKey 'selection' satisfies that contract in the
+  // legacy `bootstrapWithEverything()` path". IT DID NOT, AND HAD NOT SINCE THE
+  // BUS SWITCHED TO A RECORD VIEW. Registering the store under the matching key
+  // satisfies the NAME; it does not satisfy the SHAPE. The bus hands handlers
+  // `storesAsRecordView(stores)` — `Object.fromEntries(store.getState())`,
+  // a `Record<id,dto>` with no methods (`bootstrap.ts:94` / `:148-158`) — so
+  // measured at the real composition root, FOUR of the five verbs threw
+  // `ctx.stores.selection.<method> is not a function`, INCLUDING the
+  // `selection.clear` the default pointer tool dispatches at line ~1223 below
+  // into a swallowing `.catch(console.error)`.
+  //
+  // The store is therefore handed to `buildSelectionHandlerSet` directly. Same
+  // instance, both slots — see `selectionStoreForThisBootstrap` above for why a
+  // holder is needed and why a second store would be a rival, not a fix.
+  //
+  // ⚠ STILL NOT TRUE, so it is not implied: nothing POPULATES this store from
+  // the 3-D viewport. `packages/input-host/SelectionManager`,
+  // `runtime.selection` (`composeRuntime.ts:328`) and
+  // `packages/core-app-model/SelectionBus` are the three live selection
+  // authorities; these verbs are a fourth surface that only a `selection.*`
+  // dispatch fills. Making them dispatchable does NOT make the toolbar's Copy
+  // button see the user's 3-D selection.
   {
     id: 'selection',
     storeKey: 'selection',
-    buildStore: () => new SelectionStore() as unknown as Store<object>,
-    buildHandlers: () => buildSelectionHandlerSet() as readonly CommandHandler<unknown>[],
+    buildStore: () => {
+      selectionStoreForThisBootstrap = new SelectionStore();
+      return selectionStoreForThisBootstrap as unknown as Store<object>;
+    },
+    buildHandlers: () => buildSelectionHandlerSet(
+      selectionStoreForThisBootstrap === null ? {} : { store: selectionStoreForThisBootstrap },
+    ) as readonly CommandHandler<unknown>[],
   },
 
   // ---- Annotations (Wave 18 — zero-dep handler registration) ----
@@ -944,11 +1006,15 @@ export interface ToolActivatorRuntime {
 }
 
 /** C06 §4 — Task 3.1 (Phase 3) — Register `runtime.tools` activators for the
- *  9 plugin tools not wired in Phase E (S78-WIRE).
+ *  plugin tools not wired in Phase E (S78-WIRE).
  *
  *  Families registered (none overlap with ToolsAreaLayout.ts registrations):
- *    `annotation` · `bcf` · `cross` · `dimension` · `furniture` ·
+ *    `annotation` · `bcf` · `cross` · `furniture` ·
  *    `grid:tool` · `lighting` · `structural` · `toy-cube`
+ *
+ *  ⚠ This list read NINE and included `dimension` until Wave 4c. That family's
+ *  bridge was deleted, not renamed — see the tombstone at the point where it
+ *  stood, below `cross`. Dimensions reach the user on the ANNOTATION channel.
  *
  *  Design notes:
  *  - `busAdapter` wraps `runtime.bus.executeCommand` (returns `unknown`) in
@@ -958,13 +1024,17 @@ export interface ToolActivatorRuntime {
  *    the engine sets `window.__pryzmScreenToWorld` during `initTools()` once
  *    the THREE camera + raycaster are ready.  Until then both functions return
  *    null / undefined — every tool's `onPointerDown` bails safely, no crash.
- *  - `dimension` and `furniture` activators read `window.dimensionTool` /
- *    `window.furnitureTool` at call-time (same pattern as ToolsAreaLayout's
- *    ramp, room, ceiling bridges) because DimensionTool requires a live canvas
- *    HTMLElement and FurniturePlacementTool requires an initialised catalogue —
- *    both are engine-provided after `initTools()`.
- *    TODO(Phase 4): replace both bridges with `runtime.inputHost` subscription
- *    and `runtime.auxiliaries.furnitureCatalogue` once those slots are wired.
+ *  - the `furniture` activator reads `window.furnitureTool` at call-time (same
+ *    pattern as ToolsAreaLayout's ramp, room, ceiling bridges) because
+ *    FurniturePlacementTool requires an initialised catalogue. That bridge is
+ *    REAL: `apps/editor/src/engine/initTools.ts:690` performs the assignment.
+ *    ⚠ This bullet used to cover `dimension` in the same breath and assert that
+ *    "both are engine-provided after initTools()". That was true of furniture
+ *    and FALSE of dimension — `window.dimensionTool` was assigned nowhere in
+ *    the repo. Do not re-pair them; verify the assignment site before claiming
+ *    a window bridge exists.
+ *    TODO(Phase 4): replace this bridge with `runtime.auxiliaries.furnitureCatalogue`
+ *    once that slot is wired.
  *
  *  Call once immediately after `wireAllPluginSubscriptions(runtime)`. */
 export function registerAllPluginToolActivators(runtime: ToolActivatorRuntime): void {
@@ -1043,21 +1113,43 @@ export function registerAllPluginToolActivators(runtime: ToolActivatorRuntime): 
     console.log('[runtime.tools/cross] cascade rules activated');
   });
 
-  // ─── dimension ────────────────────────────────────────────────────────────
-  // DimensionTool requires a canvas HTMLElement + viewId — engine-provided.
-  // Engine stores ready instance at window.dimensionTool after initTools().
-  // TODO(Phase 4): replace with runtime.inputHost subscription.
-  runtime.tools.register('dimension', () => {
-    const tool = (window as unknown as Record<string, unknown>).dimensionTool as
-      { activate?: () => void } | undefined;
-    if (tool?.activate) {
-      tool.activate();
-    } else {
-      console.warn(
-        '[runtime.tools/dimension] DimensionTool not ready — engine not yet initialised',
-      );
-    }
-  });
+  // ─── dimension ─── REMOVED (Wave 4c, audit B5-DIM-01) ─────────────────────
+  //
+  // ⛔ DO NOT RE-ADD A `runtime.tools.register('dimension', ...)` BRIDGE HERE.
+  //
+  // What stood here read `window.dimensionTool` and, when it was absent, warned
+  // "DimensionTool not ready — engine not yet initialised". That warning named a
+  // STARTUP RACE. There was no race: the property was ASSIGNED NOWHERE IN THE
+  // REPO, so the else-branch was permanent and `activate()` reported `ran=true`
+  // for a tool that was never armed — the exact §CONTEXT-DATA-HONESTY failure
+  // that §FIX-ACTIVATE-REPORTS-WHETHER-ANYTHING-RAN (L-4600) closed one layer
+  // down in `buildToolsStub`. Deleting the registration makes `activate()`
+  // return `ran=false` and warn with the registered set, so a miss looks like a
+  // miss. Contrast `furniture` below, whose bridge is REAL — `initTools.ts:690`
+  // assigns `window.furnitureTool`. The two were described by one comment and
+  // only one of them was ever true.
+  //
+  // The bridge was dead at BOTH ends, measured:
+  //   • SOURCE — `grep -rn 'dimensionTool'` over the repo returned three hits,
+  //     all in THIS file (two comments and the read). Zero assignments.
+  //   • SINK   — `grep "activate('dimension'"` over apps/editor/src, plugins
+  //     and packages returned nothing. No surface ever activated the family.
+  //
+  // THE CAPABILITY IS NOT MISSING — it lives on the ANNOTATION channel, and
+  // that path is fully wired, rendered and persisted:
+  //   AnnotationRailPanel._dispatchTool('linear-dimension')
+  //     → toolManager.activateLinearDimAnnotation()
+  //     → CreateAnnotationCommand(type 'linear-dim') → annotationStore
+  //     → PlanViewAnnotationRenderer (renders) · ProjectSerializer (persists)
+  // `applyAutoDimensions.ts` and `applyElevationAutoDimensions.ts` write the
+  // same 'linear-dim' sink.
+  //
+  // Arming `plugins/dimensions`' DimensionTool instead would have dispatched
+  // `dimension.create` into `ctx.stores.dimension` — a store that
+  // `applyAutoDimensions.ts:12-24` states in production source the plan
+  // renderer NEVER reads, that no exporter carries and that ProjectSerializer
+  // never writes. That is a RIVAL of the live path above, producing
+  // created-but-invisible dimensions. It is not the fix; this deletion is.
 
   // ─── furniture ────────────────────────────────────────────────────────────
   // FurniturePlacementTool requires catalogue — engine-provided after initTools().

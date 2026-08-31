@@ -50,6 +50,13 @@ export async function exportIFC(
             handrailStore:    window.handrailStore ?? undefined, // TODO(TASK-07)
             plumbingStore:    window.plumbingStore ?? undefined, // TODO(TASK-07)
             roomStore:        window.roomStore ?? undefined, // TODO(TASK-07)
+            // §W4B-EXPORT (2026-08-31) — floor, ceiling and lift had readers on
+            // neither end: no Reader in readers/, and no key here. Both halves
+            // were required, which is why adding only one would have changed
+            // nothing measurable. Assigned by initBuilders.ts:431 / :400 / :1014.
+            floorStore:       window.floorStore ?? undefined, // TODO(TASK-07)
+            ceilingStore:     window.ceilingStore ?? undefined, // TODO(TASK-07)
+            liftStore:        window.liftStore ?? undefined, // TODO(TASK-07)
         };
 
         // Try to get a valid Three.js scene — check all registered worlds, not just the first.

@@ -255,6 +255,34 @@ export interface ProjectSnapshot {
     /** §PERSIST103 · C103 — the balcony compound parent (slab + finish + railings are their own families). */
     balconies?: any[];
     /**
+     * §PERSIST-BATHROOM-POD (L-11527 / L-11405) · C109 §8 — the LOD-300 BATHROOM POD
+     * compound parent.
+     *
+     * ⭐ THE MEMBERS ALREADY ROUND-TRIPPED AND THE PARENT DID NOT, WHICH IS WHY THE
+     * LOSS WAS INVISIBLE. A pod's WC, basin, shower and accessories are projected into
+     * the LEGACY fixture store by `bathroomPodMemberMirror` and are saved under
+     * `plumbing`, so a reloaded project still showed sanitaryware — it simply was no
+     * longer a POD. `members[]`, the drill-in, the ownership `parentId` on every member
+     * and the delete-reap were all gone, and the fixtures came back as ordinary
+     * hand-placed ones. That is L-11405, and it is the same shape as the lift / pool /
+     * balcony losses §PERSIST103 closed.
+     *
+     * ⚠ THE POD RECORD IS THE AUTHORITY FOR ITS MEMBERS' PLACEMENT (C109 §2 — they are
+     * a PROJECTION re-derived on every store diff, never independent state). So
+     * restoring the parent also restores the two things the `plumbing` slice cannot
+     * carry: `parentId`, which `serializePlumbing` does not emit, and the per-family
+     * variant slug (`showerVariant` / `accessoryVariant`), which neither
+     * `serializePlumbing` nor `CreatePlumbingFixtureCommand`'s payload carries — a
+     * walk-in shower reloaded as the default one, silently, before this key existed.
+     *
+     * ADDITIVE AND OPTIONAL, omitted entirely when no pod was authored, so no
+     * `SNAPSHOT_SCHEMA_VERSION` bump and no migration step (C47) — the identical
+     * disposition `lifts` / `balconies` / `boundaryLines` carry, for the identical
+     * reason: an old snapshot simply LACKS the key, and "no pods were authored" IS its
+     * correct reading.
+     */
+    bathroomPods?: any[];
+    /**
      * §L-1057 / C87 §13.1 CW-P — SPARSE curtain-panel overrides: only the panels a
      * user AUTHORED away from what the grid regenerates. A 20×10 façade with three
      * doors writes 3 entries, not 200; an untouched façade writes none.
@@ -1517,6 +1545,7 @@ export class ProjectSerializer {
         const pools      = readPluginStore('pool');
         const waters     = readPluginStore('water');
         const balconies  = readPluginStore('balcony');
+        const bathroomPods = readPluginStore('bathroomPod');
 
         // ── C84 EI-6, THE LOUD HALF: say what is about to be destroyed ────────────
         //
@@ -1624,7 +1653,12 @@ export class ProjectSerializer {
             // so only the PARENT and the twin-less parts are added here.
             (lifts?.length ?? 0) + (liftParts?.length ?? 0) +
             (pools?.length ?? 0) + (waters?.length ?? 0) +
-            (balconies?.length ?? 0);
+            (balconies?.length ?? 0) +
+            // ⭐ §PERSIST-BATHROOM-POD — the pod PARENT only. Its members are already
+            // counted in `plumbing` (the mirror projects them into the legacy fixture
+            // store this serializer reads), so adding them here would double them —
+            // the same rule the lift's shaft walls follow four lines up.
+            (bathroomPods?.length ?? 0);
 
         const snapshot: ProjectSnapshot = {
             schemaVersion: SNAPSHOT_SCHEMA_VERSION,
@@ -1651,6 +1685,8 @@ export class ProjectSerializer {
             pools:      pools?.length      ? pools      : undefined,
             waters:     waters?.length     ? waters     : undefined,
             balconies:  balconies?.length  ? balconies  : undefined,
+            // §PERSIST-BATHROOM-POD (L-11527) · C109 §8 — same omit-when-absent rule.
+            bathroomPods: bathroomPods?.length ? bathroomPods : undefined,
             // §L-1057 — omitted entirely when nothing was authored, so an untouched
             // project's snapshot is byte-identical to a pre-fix one.
             curtainPanels: curtainPanels.length > 0 ? curtainPanels : undefined,

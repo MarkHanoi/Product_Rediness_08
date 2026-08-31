@@ -98,6 +98,18 @@
  * an id the substrate does not know REFUSES (`unknown-element`), an id it knows
  * with no parent answers a positive `[]`, and an unreadable room store REFUSES
  * (`hierarchy-substrate-unreadable`) instead of reporting "in no unit".
+ *
+ * ── L-12860: THE SIX FAMILIES THAT HAD THE FIX ALL ALONG ────────────────────
+ *
+ * ADR-0325/0328 closed the confident `[]` for ONE family. Six others —
+ * `hosts` · `boundedBy` · `connectedTo` · `adjacentTo` · `contains` ·
+ * `joinedTo` — already had refusal-bearing typed readers on
+ * `SemanticGraphManager`, with live production consumers, while THIS surface
+ * still answered them from the bare `getTargets` and returned `{ ok: true,
+ * targets: [] }` exactly where those readers say NO ANSWER. They are now
+ * ROUTED to their readers (`TYPED_TARGET_READERS`) — a routing fix, not a new
+ * capability; no seventh reader was written and no refusal reason invented.
+ * See the block above that table for the two families excluded on purpose.
  */
 
 import { trace, type Tracer } from '@opentelemetry/api';
@@ -193,11 +205,154 @@ const PARKED_HIERARCHY_RELATIONSHIPS = new Set<RelationshipType>([
  */
 export type GraphHierarchyUndeterminedReason = 'RELATIONSHIP_NOT_RECORDED';
 
+// ── L-12860 — THE DYNAMIC PATH MUST NOT BE MORE CONFIDENT THAN THE TYPED READER ─
+//
+// STR-06 §6-bis · C71 §4.4 · C78 §1.4 · §CONTEXT-DATA-HONESTY.
+//
+// THE DEFECT. Six of the supported families already HAVE a typed, refusal-bearing
+// reader on `SemanticGraphManager`, each of which can say "NO ANSWER" where the
+// raw edge set says `[]`:
+//
+//   hosts       → getHostedOpenings(wallId)     (a wall the opening writer never covered,
+//                                                or a hosts/hostedBy pair broken at load)
+//   boundedBy   → getBoundingWalls(roomId)      (boundary UNDETERMINED after a move/delete,
+//                                                or a room no boundary writer covered)
+//   connectedTo → getConnectedRooms(roomId)     (region conclusion undetermined, or no
+//                                                completed detection pass over this room)
+//   adjacentTo  → getAdjacentRooms(roomId)      (same two, same one conclusion)
+//   contains    → getContainedElements(roomId)  (a room the furniture writer never covered)
+//   joinedTo    → getJoinedWalls(wallId)        (a wall the junction flush never covered)
+//
+// `GraphQueryService.query` answered ALL of them through the bare
+// `graph.getTargets(id, type)` and returned a CONFIDENT `{ ok: true, targets: [] }`
+// EXACTLY where those readers refuse. That `[]` leaves the type system at the
+// `graph.query` bus verb and becomes English in an AI prompt, where "this wall
+// bounds nothing" and "I could not determine what this wall bounds" are the same
+// sentence — and the model states the first with confidence. It is the same
+// defect ADR-0325 fixed for `partOf`, left live for the six families that had
+// the fix available all along.
+//
+// ⛔ THIS IS A ROUTING FIX, NOT A NEW CAPABILITY (hard stop 3). No seventh reader
+// is introduced and no refusal vocabulary is invented: every reason and every
+// detail string below is the reader's OWN, forwarded verbatim (C84 EI-9 — mirror
+// the refusal shape exactly). Adding a reader here would be the rival; the
+// readers are AUTHORED and REACHABLE (SemanticQueryEngine, WorldModelAdapter,
+// WallDeleteConsequencePlanner, HierarchyTreePanel all call them) and were merely
+// not COMPOSABLE through this surface.
+//
+// ⚠ TWO FAMILIES WITH TYPED READERS ARE DELIBERATELY EXCLUDED, because their
+// reader answers a DIFFERENT QUESTION than `getTargets(id, type)` does and
+// routing them here would silently change the direction of the answer:
+//   · `sitsOn`   — `getElementsSittingOn(levelId)` is the REVERSE traversal
+//                  (level → elements); `getTargets(id,'sitsOn')` is element → level.
+//   · `hostedBy` — `getHostWall(openingId)` returns ONE host (C15 §1) and carries a
+//                  `multiple-hosts` corruption refusal; folding a single-valued
+//                  reader into a list-valued verb needs its own decision, not a
+//                  table row. Both stay on the raw path and keep their existing
+//                  behaviour, which is stated here so the omission is a NAMED
+//                  unproven axis rather than an oversight.
+
+/** A typed reader's answer, flattened to the shape this surface reports. */
+type TypedTargetsOutcome =
+  | { readonly ok: true; readonly targets: readonly string[] }
+  | { readonly ok: false; readonly reason: string; readonly detail: string };
+
+/**
+ * The `reason` literals of the refusal half of a typed reader's result union.
+ *
+ * Written as a DISTRIBUTIVE CONDITIONAL rather than `Extract<T, { ok: false }>['reason']`
+ * because the indexed form does not typecheck over an unconstrained parameter
+ * (TS2536) — and constraining the parameter to make the index legal would have
+ * restated the very shape this alias exists to read off the readers themselves.
+ */
+type RefusalReasonOf<T> = T extends { ok: false; reason: infer R } ? R : never;
+
+/**
+ * Every refusal reason the delegated typed readers can produce, DERIVED from
+ * their own return types rather than restated as literals. A reader that grows a
+ * new refusal reason widens this union automatically; a hand-copied list would
+ * rot the way every other hand-copied vocabulary in this repository has.
+ */
+export type GraphTypedReaderRefusalReason =
+  | RefusalReasonOf<ReturnType<SemanticGraphManager['getHostedOpenings']>>
+  | RefusalReasonOf<ReturnType<SemanticGraphManager['getBoundingWalls']>>
+  | RefusalReasonOf<ReturnType<SemanticGraphManager['getConnectedRooms']>>
+  | RefusalReasonOf<ReturnType<SemanticGraphManager['getAdjacentRooms']>>
+  | RefusalReasonOf<ReturnType<SemanticGraphManager['getContainedElements']>>
+  | RefusalReasonOf<ReturnType<SemanticGraphManager['getJoinedWalls']>>;
+
+/**
+ * The delegation table: relationship → the typed reader that owns the question.
+ * A family in this map is NEVER answered from `getTargets`; the reader decides,
+ * including when it decides it cannot.
+ */
+const TYPED_TARGET_READERS: ReadonlyMap<
+  RelationshipType,
+  (graph: SemanticGraphManager, elementId: string) => TypedTargetsOutcome
+> = new Map<RelationshipType, (graph: SemanticGraphManager, elementId: string) => TypedTargetsOutcome>([
+  [
+    'hosts',
+    (g, id) => {
+      const q = g.getHostedOpenings(id);
+      return q.ok ? { ok: true, targets: q.openingIds } : { ok: false, reason: q.reason, detail: q.detail };
+    },
+  ],
+  [
+    'boundedBy',
+    (g, id) => {
+      const q = g.getBoundingWalls(id);
+      return q.ok ? { ok: true, targets: q.boundingWallIds } : { ok: false, reason: q.reason, detail: q.detail };
+    },
+  ],
+  [
+    'connectedTo',
+    (g, id) => {
+      const q = g.getConnectedRooms(id);
+      return q.ok ? { ok: true, targets: q.connectedRoomIds } : { ok: false, reason: q.reason, detail: q.detail };
+    },
+  ],
+  [
+    'adjacentTo',
+    (g, id) => {
+      const q = g.getAdjacentRooms(id);
+      return q.ok ? { ok: true, targets: q.adjacentRoomIds } : { ok: false, reason: q.reason, detail: q.detail };
+    },
+  ],
+  [
+    'contains',
+    (g, id) => {
+      const q = g.getContainedElements(id);
+      return q.ok ? { ok: true, targets: q.containedIds } : { ok: false, reason: q.reason, detail: q.detail };
+    },
+  ],
+  [
+    'joinedTo',
+    (g, id) => {
+      const q = g.getJoinedWalls(id);
+      return q.ok ? { ok: true, targets: q.joinedWallIds } : { ok: false, reason: q.reason, detail: q.detail };
+    },
+  ],
+]);
+
+/**
+ * The families this surface answers through a typed reader, exported so a gate
+ * or probe can assert the routing rather than infer it.
+ */
+export const GRAPH_QUERY_TYPED_READER_RELATIONSHIPS: readonly RelationshipType[] = [
+  ...TYPED_TARGET_READERS.keys(),
+];
+
 /** The ways a graph read can fail to produce a positive answer. */
 export type GraphRefusalReason =
   | 'graph-unavailable'
   | 'unknown-element'
   | 'unsupported-relationship'
+  /**
+   * L-12860 — the typed reader that owns this family refused, and its reason is
+   * forwarded VERBATIM rather than flattened into a reason of this file's own.
+   * See {@link GraphTypedReaderRefusalReason} and `TYPED_TARGET_READERS`.
+   */
+  | GraphTypedReaderRefusalReason
   /**
    * ADR-0325 — a hierarchy family (`partOf` / `unitOf` / `levelOf`). The
    * SemanticGraph is not the hierarchy substrate; `hierarchyStore` + `parentId`
@@ -261,6 +416,14 @@ export type GraphQueryResult =
        * The C78 §8.1 classification, present ONLY on `hierarchy-not-in-graph`
        * (ADR-0325) so a consequence consumer classifies this refusal with the
        * same closed vocabulary every other producer uses.
+       *
+       * ⚠ L-12860 — the forwarded TYPED-READER refusals deliberately do NOT carry
+       * one. `RELATIONSHIP_NOT_RECORDED` means "no producer writes this family";
+       * `wall-unknown-to-hosts-writer` means the producer exists and has not
+       * covered THIS id, which is a different member of that closed union and this
+       * lane did not establish which. Naming the wrong member would be a rival
+       * vocabulary wearing the right field's name, so the field is absent and the
+       * reader's own `reason` + `detail` carry the account.
        */
       readonly undetermined?: GraphHierarchyUndeterminedReason;
     };
@@ -454,6 +617,52 @@ export class GraphQueryService {
               `${[...SUPPORTED_RELATIONSHIP_TYPES].join(', ')}.`,
           };
         }
+        // L-12860 — DELEGATE before reading the raw edge set. The typed reader is
+        // the authority for its family: it holds the coverage marks and the
+        // undetermined marks that separate "no such edge" from "nobody ever
+        // looked", and `getTargets` holds neither. Placed BEFORE `unknown-element`
+        // for the same reason ADR-0328 places `partOf` there — a positive answer
+        // the authority is entitled to give must not be pre-empted by a check
+        // that only knows the edge set.
+        const delegate = TYPED_TARGET_READERS.get(relationshipType as RelationshipType);
+        if (delegate !== undefined) {
+          const answer = delegate(graph, elementId);
+          if (answer.ok) {
+            return {
+              ok: true,
+              elementId,
+              relationshipType: relationshipType as RelationshipType,
+              targets: answer.targets,
+            };
+          }
+          // The reader refused. An id the graph has never heard of keeps the
+          // PRE-EXISTING `unknown-element` reason — that refusal is not wrong and
+          // callers already branch on it — with the reader's own account appended
+          // so nothing it knew is thrown away. Anything else reports the reader's
+          // reason verbatim.
+          if (!this._isKnown(graph, elementId)) {
+            return {
+              ok: false,
+              elementId,
+              relationshipType,
+              reason: 'unknown-element',
+              detail:
+                `graph.query: element ${elementId} is not a node of the SemanticGraph (it is ` +
+                `neither source nor target of any edge). This is NO ANSWER, not "no ${relationshipType} edges". ` +
+                `The typed ${relationshipType} reader also refused: ${answer.detail}`,
+            };
+          }
+          return {
+            ok: false,
+            elementId,
+            relationshipType,
+            // Narrowed, never cast: the map's outcome type widens `reason` to
+            // `string`, and this union is derived from the readers themselves, so
+            // the assertion is a re-narrowing of a value that came from them.
+            reason: answer.reason as GraphTypedReaderRefusalReason,
+            detail: answer.detail,
+          };
+        }
         if (!this._isKnown(graph, elementId)) {
           return {
             ok: false,
@@ -565,6 +774,41 @@ export class GraphQueryService {
           if (seen.has(key)) continue;
           seen.add(key);
           neighbors.push({ id: other, relationshipType: rel.type });
+        }
+        // L-12860 — an EMPTY typed sweep is the confident `[]` this fix exists to
+        // stop, so it is the one case that must be checked against the reader.
+        //
+        // WHY THIS IS A GATE AND NOT A DELEGATION, unlike `query`: this sweep is
+        // BIDIRECTIONAL and the readers are DIRECTIONAL (`getHostedOpenings` is
+        // wall → openings; `neighbors(openingId,'hosts')` legitimately reports the
+        // hosting wall through the reverse edge). Replacing the sweep with the
+        // reader would drop the reverse half. So a NON-EMPTY sweep is left exactly
+        // as it was — the defect cannot arise there, because the answer is not
+        // empty — and only the empty answer is put to the reader: if the reader
+        // can establish the emptiness it stands, and if the reader refuses, so
+        // does this.
+        //
+        // ⚠ The UNTYPED sweep (`relationshipType === undefined`) is NOT gated: it
+        // spans twelve families with six readers between them, and an "all" answer
+        // is already refused by `unknown-element` when the element has no edges at
+        // all. A per-family verdict for the untyped verb is a NAMED unproven axis,
+        // not something this fix quietly asserts.
+        if (relationshipType !== undefined && neighbors.length === 0) {
+          const delegate = TYPED_TARGET_READERS.get(relationshipType as RelationshipType);
+          if (delegate !== undefined) {
+            const answer = delegate(graph, elementId);
+            if (!answer.ok) {
+              return {
+                ok: false,
+                elementId,
+                relationshipType,
+                reason: answer.reason as GraphTypedReaderRefusalReason,
+                detail:
+                  `graph.neighbors: no ${relationshipType} edge touches ${elementId} in either ` +
+                  `direction, and the typed reader cannot establish that as an answer: ${answer.detail}`,
+              };
+            }
+          }
         }
         return {
           ok: true,

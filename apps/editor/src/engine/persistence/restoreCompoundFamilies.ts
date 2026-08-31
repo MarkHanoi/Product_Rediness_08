@@ -12,8 +12,9 @@
 //    CANNOT SHOW IT. That sentence was written by the boundary-line fix, in
 //    `ProjectLoader.ts`, above a restore that sat on the load path production does
 //    not take — so the family it was written for was one of the families it
-//    described. This module is the other half for all SIX: the five §PERSIST103
-//    gave a snapshot key, and the boundary line whose key was already there.
+//    described. This module is the other half for all SEVEN: the five §PERSIST103
+//    gave a snapshot key, the boundary line whose key was already there, and the
+//    C109 bathroom pod (§PERSIST-BATHROOM-POD, L-11527).
 // ═══════════════════════════════════════════════════════════════════════════════
 //
 // ─── WHY IT DOES NOT RE-DISPATCH `lift.create` / `pool.create` / `balcony.create` ──
@@ -95,6 +96,10 @@ import {
     boundaryLineUndoAdapter,
     resolveBoundaryLineStoreFromWindow,
 } from '../undo/pluginStoreUndoAdapter';
+import {
+    bathroomPodUndoAdapter,
+    resolveBathroomPodStoreFromWindow,
+} from '../undo/bathroomPodUndoAdapter';
 
 /** What the caller gets back, so the loader can roll these into its own tally. */
 export interface CompoundRestoreResult {
@@ -143,7 +148,8 @@ function addPatches(records: readonly SnapRecord[], storeKey: string, errors: st
 }
 
 /**
- * Restore the five compound slices §PERSIST103 added to the snapshot.
+ * Restore the compound slices §PERSIST103 added to the snapshot, plus the C106
+ * boundary line (L-11528) and the C109 bathroom pod (L-11527).
  *
  * ⚠ NEVER THROWS. A load that dies on one malformed lift would lose the whole
  * project, which is a strictly worse outcome than the defect being fixed (C13). Every
@@ -159,12 +165,15 @@ export function restoreCompoundFamilies(snapshot: unknown): CompoundRestoreResul
     const pools     = readSlice(snapshot, 'pools');
     const waters    = readSlice(snapshot, 'waters');
     const balconies = readSlice(snapshot, 'balconies');
+    // §PERSIST-BATHROOM-POD (L-11527 / L-11405) · C109 §8 — the pod PARENT. Its members
+    // round-tripped all along under `plumbing`; the identity that owns them did not.
+    const bathroomPods = readSlice(snapshot, 'bathroomPods');
     // §FIX-BOUNDARY-LINE-RESTORE-STRANDED (L-11528) — see the block at the foot of
     // this function for why the C106 setting-out line moved in here.
     const boundaryLines = readSlice(snapshot, 'boundaryLines');
 
     if (lifts.length + liftParts.length + pools.length + waters.length
-        + balconies.length + boundaryLines.length === 0) {
+        + balconies.length + boundaryLines.length + bathroomPods.length === 0) {
         return { restored, errors, total: 0 };
     }
 
@@ -280,6 +289,72 @@ export function restoreCompoundFamilies(snapshot: unknown): CompoundRestoreResul
             }
         } catch (e) {
             errors.push(`[restoreCompoundFamilies] balcony restore FAILED — the balconies are lost: ${String(e)}`);
+        }
+    }
+
+    // ── BATHROOM POD (C109) — §PERSIST-BATHROOM-POD, L-11527 / L-11405 ───────
+    //
+    // ⭐ THE FAMILY WAS DECLARED UNPERSISTED, WHICH IS HONEST, AND STILL DESTROYED
+    //    WORK SILENTLY. `snapshotFamilyCoverage.ts` carried the row and the gate
+    //    printed it on every run — but nothing said it at AUTHORING time, and the
+    //    reload did not look like a loss: the WC, the basin and the shower all came
+    //    back (they are `plumbing` fixtures the mirror projected and the serializer
+    //    saved), so what the architect saw was a bathroom that had quietly stopped
+    //    being a POD. That is the balcony defect with a note attached.
+    //
+    // ⛔ IT DOES NOT RE-DISPATCH `bathroomPod.create`, for the reason the header
+    //    gives for the five families above AND one more that is specific here: the
+    //    create verb runs the C109 SOLVER, so a re-dispatch would re-fit the pod to
+    //    today's rules rather than restore the pod the architect approved. An `add`
+    //    patch of the serialized record is the only route that returns the SAME pod.
+    //
+    // ⭐ WHY THE UNDO ADAPTER. `bathroomPodUndoAdapter` already owns exactly this
+    //    operation — `Store.applyPatch()`, the very method the bus calls on execute —
+    //    and `bathroomPodMemberMirror` is subscribed to that store's `subscribeDirty`,
+    //    so the members are re-projected into the legacy fixture store by the SAME one
+    //    road CREATE, UNDO and REDO already take. No rival render channel (C84 EI-9).
+    //
+    // ⚠ THE RE-PROJECTION IS WHAT MAKES THE ROUND TRIP LOSSLESS, NOT A SIDE EFFECT.
+    //    `serializePlumbing` emits neither `parentId` nor `showerVariant` /
+    //    `accessoryVariant`, and `CreatePlumbingFixtureCommand` re-seats every restored
+    //    fixture on the FINISHED floor (`resolveFloorSeatingDatum`) while the mirror
+    //    writes `baseOffset: 0` off the solver datum. So the fixtures Step 10 restores
+    //    are missing their ownership link, may be missing their variant, and may sit at
+    //    a different Y. Re-deriving them from the pod record — the C109 §2 authority —
+    //    corrects all three, and is stable across repeated reloads because the pod
+    //    record, not the projection, is the thing being saved.
+    //
+    // ⛔ L-11485 COMES DUE HERE, AND IS NAMED RATHER THAN DISCOVERED. A member an
+    //    architect moved with `plumbing.moveFixture` writes the LEGACY store only; the
+    //    pod record does not learn about it, so that move does NOT survive this
+    //    restore. Per C109 §2 the projection is not independent state and the pod
+    //    record is the authority, so this is the contract's answer rather than a
+    //    regression — but it is a user-visible consequence and the honest fix is to
+    //    give the pod record the move (a `bathroomPod.update` verb, C109 R-1), not to
+    //    merge two producers of one number here.
+    if (bathroomPods.length > 0) {
+        try {
+            const live = resolveBathroomPodStoreFromWindow();
+            if (live === null) {
+                // ⛔ LOUD, NEVER SILENT (C84 EI-6). UNREACHABLE and EMPTY are different
+                // facts and must not arrive as the same value.
+                errors.push(
+                    `[restoreCompoundFamilies] §PERSIST-BATHROOM-POD — runtime.stores.bathroomPod is not ` +
+                    `reachable, so ${bathroomPods.length} bathroom pod(s) are in the file and NOT in the ` +
+                    `model: their members will come back as ordinary hand-placed fixtures (L-11405).`,
+                );
+            } else {
+                const side = addPatches(bathroomPods, 'bathroomPod', errors);
+                if (side.patches.length > 0) {
+                    bathroomPodUndoAdapter(resolveBathroomPodStoreFromWindow).applyPatch(side.patches);
+                    restored['bathroomPod'] = side.ids.length;
+                }
+            }
+        } catch (e) {
+            errors.push(
+                `[restoreCompoundFamilies] §PERSIST-BATHROOM-POD restore FAILED — the pods are lost ` +
+                `and their fixtures are orphaned: ${String(e)}`,
+            );
         }
     }
 

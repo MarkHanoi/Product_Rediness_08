@@ -1,0 +1,234 @@
+{
+  "task": "WAVE 4 — seven-fact recount + verify",
+  "date": "2026-08-31",
+  "head": "cfdb9fee",
+  "audit_head": "064a838e",
+  "tree_state": "DIRTY, UNCOMMITTED — 26 modified + 11 untracked. Root typecheck RED (2 errors).",
+  "headline": "FOUR of the seven numbers moved, and only ONE new family completes the whole chain (floor). renders_3d and reachable did not move at all: no family that could not be seen in 3D before can be seen now. Of the 10 cells that moved, 1 is a pure measurement correction (annotation exports was ALWAYS true — the audit greped four directories that never held the capability) and 2 (balcony, boundary-line persists) moved in commits that landed BEFORE this wave's dirty tree. Wave 4's own product delta is 7 cells across 7 families.",
+
+  "seven_facts": {
+    "order": ["authored", "dispatchable", "reachable", "renders_3d", "renders_plan", "persists", "exports"],
+    "before_audit_2026_08_29": [29, 26, 21, 21, 15, 21, 13],
+    "after_measured_2026_08_31": [29, 27, 21, 21, 17, 24, 17],
+    "delta": [0, 1, 0, 0, 2, 3, 4],
+    "numbers_that_moved": 4,
+    "before_reproduced": "YES — recomputed independently from raw/synthesis.json verdict_table (29 rows, leading-token match on YES, object {v|verdict} values normalised): 29/26/21/21/15/21/13, identical to seven_separate_facts. The BEFORE row is reproducible, so the AFTER row is comparable."
+  },
+
+  "cells_that_moved": [
+    {
+      "family": "floor",
+      "fact": "exports",
+      "from": "NO",
+      "to": "YES",
+      "attribution": "WAVE 4b",
+      "proof": "packages/file-format __tests__/ifc-export-floor-ceiling-lift.test.ts — npx vitest run RC=0, 2 files / 11 tests. FLOOR arm asserts IfcCovering/FLOORING with geometry.vertices.length>0 out of FragmentReader; two CONTROLS assert the same arms fail on an empty scene and on an unsupplied store. The wire is real end to end: initBuilders.ts:431 window.floorStore = floorStore -> ExportIFC.ts:57 -> FragmentReader.ts:141-143 -> readers/FloorReader.ts.",
+      "effect": "floor becomes the NINTH family with all seven facts YES — the only new complete chain in this wave."
+    },
+    {
+      "family": "ceiling",
+      "fact": "exports",
+      "from": "NO",
+      "to": "YES",
+      "attribution": "WAVE 4b",
+      "proof": "same suite, CEILING arm: IfcCovering/CEILING, plus a third arm proving floor and ceiling are DISTINGUISHABLE in one file (same ifcClass, different PredefinedType). initBuilders.ts:400 assigns window.ceilingStore.",
+      "caveat": "ceiling's own reachable/renders_3d remain UNVERIFIED, so the export leg is proven while the family's upstream chain is not: a ceiling that never lands in ceilingStore contributes zero elements."
+    },
+    {
+      "family": "lift",
+      "fact": "exports",
+      "from": "NO",
+      "to": "YES",
+      "attribution": "WAVE 4b",
+      "proof": "same suite, LIFT arm: IfcTransportElement/ELEVATOR, name LF001, guid preserved. IfcTransportElement was ABSENT from IFC_CLASS_MAP before this wave (IfcModelBuilder.ts:75 is new) — without it a lift reaching the writer would have degraded to IfcBuildingElementProxy."
+    },
+    {
+      "family": "annotation",
+      "fact": "exports",
+      "from": "NO",
+      "to": "YES",
+      "attribution": "MEASUREMENT CORRECTION — refuted, not fixed",
+      "proof": "The capability pre-existed on a surface the audit never searched: packages/file-format/src/export/sheets/AnnotationDxfBridge.ts (exported at index.d.ts:188, called at DxfExportService.ts:406) and SVGCompositeRenderer via composeViewportSvg (ViewportSvgComposer.ts:162, consumed by PdfExportService and SheetExportService.ts:382). The audit's four negative greps covered plugins/ifc-export, plugins/export-pdf, plugins/dxf and packages/pdf-export — none of which holds it. Executed: __tests__/sheet-export-carries-dimensions.test.ts, 5 arms including two controls (north-arrow renders nothing; an empty set produces no 2000).",
+      "note": "NO SOURCE WAS WIRED FOR THIS. Counting it as a product improvement would be false."
+    },
+    {
+      "family": "lighting",
+      "fact": "renders_plan",
+      "from": "UNVERIFIED",
+      "to": "YES",
+      "attribution": "WAVE 4a/4e",
+      "proof": "packages/core-app-model src/views/__tests__/lightingAndRoomReachThePlanView.test.ts — RC=0, 10 tests. create/update/delete each reproject the plan view on that storey. Four controls: C1 water is still DROPPED, C2 an unregistered id takes the §G3-STALE all-views fallback, C3 an L0 fixture does not dirty the L1 plan, C4 stairRailing (what the store emits) MISSES the Set that spells it stair-railing.",
+      "caveat": "What is executed is INVALIDATION. The symbol pass itself (renderLightingSymbols, PlanViewCanvas.ts:102/2292) is pre-existing and asserted by citation, not by pixel."
+    },
+    {
+      "family": "room",
+      "fact": "renders_plan",
+      "from": "UNVERIFIED",
+      "to": "YES",
+      "attribution": "WAVE 4a/4e",
+      "proof": "same suite; the new §FT-ROOM-PLAN bridge registers rooms in VDT off the store's own bim-room-added/updated/removed DOM events, so precondition (2) — ids registered — holds and the §G3-STALE all-views storm the audit warned about is not reintroduced."
+    },
+    {
+      "family": "bathroomPod",
+      "fact": "persists",
+      "from": "NO",
+      "to": "YES",
+      "attribution": "WAVE 4 (dirty tree)",
+      "proof": "apps/editor __tests__/persistedFamiliesReachTheSerializerChannel.test.ts ARM G (new): N before 0, saved 1, restored 1, members[] length 3 and the variant slug intact; ARM G2 is the negative control (key stripped -> restored['bathroomPod'] undefined, size 0, no error). RC=0, 15 tests. Gate: check-snapshot-family-coverage RC=0, UNPERSISTED_BASELINE 3 -> 2 (DOWN), 27 persistence claims verified (was 26), 2/2 declared losses remaining (section L-11524, structural L-11523)."
+    },
+    {
+      "family": "balcony",
+      "fact": "persists",
+      "from": "NO",
+      "to": "YES",
+      "attribution": "EARLIER COMMITTED WAVE (post-audit, pre-wave-4)",
+      "proof": "ARM C exists at HEAD (git show HEAD:<test> lists it) and passes now; composeRuntime.ts:1753/1761 exposes the balcony store on StoresSlot at HEAD and has NO working-tree diff. This wave's ProjectSerializer diff is bathroomPod-only."
+    },
+    {
+      "family": "boundary-line",
+      "fact": "persists",
+      "from": "NO",
+      "to": "YES",
+      "attribution": "EARLIER COMMITTED WAVE (post-audit, pre-wave-4)",
+      "proof": "ARM D + ARM E at HEAD, passing now (attachments[] carried; exactly one restore call site, no rival restore left behind)."
+    },
+    {
+      "family": "selection",
+      "fact": "dispatchable",
+      "from": "NO",
+      "to": "YES",
+      "attribution": "WAVE 4d",
+      "proof": "apps/editor __tests__/selectionVerbsReachTheComposedSelectionStore.test.ts, 7 arms, RC=0. The defect is confirmed independently at HEAD: git show HEAD:plugins/selection/src/handlers/Select.ts line 71 calls ctx.stores.selection.select(...) while bootstrap.ts:148-158 storesAsRecordView hands handlers Object.fromEntries(store.getState()) — a methodless Record. ARM C reads the write back through a DIFFERENT verb on the SAME provider, so store IDENTITY is asserted, not assumed.",
+      "caveat": "Four of five verbs. paste-clipboard still has no port; ARM G pins that as a MEASUREMENT rather than letting it read as working paste."
+    }
+  ],
+
+  "claimed_movements_REFUSED": [
+    {
+      "family": "ceiling",
+      "fact": "reachable / renders_3d",
+      "claim": "the W4i probe establishes them",
+      "verdict": "NOT COUNTED",
+      "why": "probe/w4i/w4i.probe.test.ts asserts expect(true).toBe(true) in every arm — it is a LOGGING probe, not a gate. It HAND-JOINS the links the production bridge is supposed to join: it calls ceilingRecordFromCreatedEvent itself and news its own CeilingStore. Its own log says [C-1] COMPOSITION-ROOT readback = ABSENT after a second real ceiling.create. It also records [D-1] MESHES = 0 through the async buildCeiling and 1 only after a direct _buildCeilingSync — a signal AGAINST renders_3d, not for it."
+    },
+    {
+      "family": "curtain-wall",
+      "fact": "reachable / renders_3d",
+      "claim": "same probe",
+      "verdict": "NOT COUNTED",
+      "why": "[C-2] COMPOSITION-ROOT readback = false. D-2's 10 meshes come from calling CurtainWallBuilder.updateCurtainWall directly on a hand-added record, not from the production subscribe chain."
+    },
+    {
+      "family": "selection",
+      "fact": "reachable",
+      "claim": "follows from dispatchable (the audit's own derivation)",
+      "verdict": "NOT COUNTED — conservative",
+      "why": "grep -rn \"tools.activate(\" over apps/editor/src/ui packages/ui-base/src plugins finds NO production caller that activates 'selection'; plugins/plan-view (the other dispatcher) is in the census arm A list as contributing nothing at boot; and the lane's own OPEN item 1 records that nothing populates the canonical SelectionStore from the 3-D viewport. The verb no longer throws — that is dispatchable, not reached."
+    },
+    {
+      "family": "slab",
+      "fact": "reachable / renders_3d",
+      "claim": "implied by §FIX-SLAB-CEB-BOUNDARY in CommandEventBridge.ts",
+      "verdict": "NOT COUNTED",
+      "why": "that lane (4f/4g) is MID-FLIGHT and its file does not compile (see root_typecheck). No executed proof exists on disk. slab's NO is a readback-negative against the authoritative store (probe P-3) — a different link from the CEB emit."
+    },
+    {
+      "family": "dimension",
+      "fact": "exports",
+      "claim": "the sheet-export test shows dimensions reach PDF",
+      "verdict": "NOT COUNTED — and correctly so",
+      "why": "the SVG renderer reads annotationStore.getDimensionsByView, NOT the plugins/dimensions store the dimension row measures. The capability belongs to annotation's row; the dimension plugin store still renders, persists and exports nowhere."
+    }
+  ],
+
+  "complete_chains": {
+    "before": ["beam", "column", "furniture", "handrail", "plumbing", "roof", "stair", "wall"],
+    "after": ["beam", "column", "floor", "furniture", "handrail", "plumbing", "roof", "stair", "wall"],
+    "delta": "+1 (floor)",
+    "note": "counted by leading-token YES on all seven; several carry measured failures OUTSIDE the create chain — the audit's own qualifier stands and is not softened here."
+  },
+
+  "forbidden_fix_audit": {
+    "state_files": "git status --porcelain .ga-gate/ tools/ga-gate/gate-debt.json tools/ga-gate/gate-newly-measured.json -> EMPTY. Nothing absorbed, nothing newly-measured.",
+    "values_that_moved_DOWN": [
+      {
+        "file": "tools/ga-gate/check-snapshot-family-coverage.ts",
+        "const": "UNPERSISTED_BASELINE",
+        "from": 3,
+        "to": 2,
+        "why": "bathroomPod left the declared-loss ledger in the same change that persisted it — the ratchet moved the right way, and the entry's own docblock demanded exactly that."
+      }
+    ],
+    "values_that_moved_UP": [
+      {
+        "file": "tools/ga-gate/check-no-commandmanager.ts",
+        "what": "CM_EXEC_CEILING = 49 (ENFORCED) -> CM_EXEC_CEILING_RETIRED = 49 (printed, NOT enforced); NEW CONVERGED_CEILING = 111 (ENFORCED). LEDGERED_CM_EXEC 62 -> LEDGERED_CONVERGED 111.",
+        "verdict": "FLAGGED — numerically up. Coverage PROVEN not to narrow. Orchestrator call, not this lane's.",
+        "for": "the enforced number rose 49 -> 111 and the ledger 62 -> 111, and an arm that was enforced stopped being enforced. Read literally against HARD STOP 1, that is a raise.",
+        "against": "the 111 counts a DIFFERENT, strictly larger subject (call sites reaching the manager, not lines matching cm.execute), pinned at its first honest reading. The gate runs an EXECUTED superset control before any verdict and printed: 'superset control OK: all 62 cm.execute line(s) are converged hits or typeof capability guards (residual 0)'. Zero sites became invisible; the retired counter is still printed on every run.",
+        "untouched": "LITERAL_CEILING 0, WINDOW_CEILING 2, LEDGERED_LITERAL 11, LEDGERED_WINDOW 62, ci-check-no-commandmanager.mjs THRESHOLD 136, check-commandmanager-any.ts CEILING 25 — each verified identical to git show HEAD:."
+      }
+    ],
+    "gate_readings": {
+      "check-no-commandmanager.ts": "AFTER: RC=1 at its DECLARED level — literal 11/11 · window 59/62 · converged 111/111. BEFORE (CLAUDE.md P4, 2026-08-18): RC=1, literal 11/11 · window 62/62 · cm.execute 62/62. The window arm came DOWN 62 -> 59.",
+      "check-commandmanager-any.ts": "RC=0, OK 25/25, 4668 files scanned — unchanged. The 28-line diff is comments only; a grep for non-comment changed lines returns nothing.",
+      "scripts/check/ci-check-no-commandmanager.mjs": "AFTER: RC=1, count 153 vs THRESHOLD 136 (+17). BEFORE per CLAUDE.md (2026-08-18): 139 vs 136 (+3). THE GATE GOT REDDER WITHOUT NEW DEBT — the detector closed five holes and the threshold was correctly NOT raised. An exact BEFORE could not be re-run: ROOT = resolve(__dirname,'..','..'), so a relocated HEAD copy scans the wrong tree and printed 'FATAL -- only 0 source files'.",
+      "check-snapshot-family-coverage.ts": "RC=0 · 30 families / 30 rows, sets equal in both directions · 27 claims verified · 2/2 declared losses."
+    }
+  },
+
+  "persistence_additivity": {
+    "verdict": "ADDITIVE — C47 holds",
+    "evidence": [
+      "ProjectSerializer.ts adds bathroomPods?: any[] — OPTIONAL, written only when length>0 (bathroomPods: bathroomPods?.length ? bathroomPods : undefined). The only deleted line in the whole serializer diff is a rewritten count expression, (balconies?.length ?? 0).",
+      "ARM F executes the C47 half: a snapshot carrying NONE of these keys reloads without error and invents no records.",
+      "packages/runtime-composer/src/composeRuntime.ts has NO working-tree diff (git diff --stat empty) — StoresSlot is untouched by this wave. bathroomPod, balcony and boundaryLine were already exposed on it at HEAD."
+    ]
+  },
+
+  "rival_audit": {
+    "verdict": "NO RIVAL BUILT — four new source files and one large method-set addition, each checked against a pre-existing equivalent by CAPABILITY, not by name.",
+    "checks": [
+      {
+        "new": "packages/file-format/src/export/ifc/readers/{Floor,Ceiling,Lift}Reader.ts",
+        "rival_search": "grep -rln 'class FloorReader|class CeilingReader|class LiftReader' -> only the three new files. readers/ held 13 readers, none of them these. No other floor/ceiling/lift export capability exists: grep -rn 'floorStore|ceilingStore|liftStore' over packages/file-format/src and plugins/ifc-export/src finds only the new wiring.",
+        "verdict": "NEW CAPABILITY, not a duplicate. FloorReader is a SIBLING of SlabReader (finish vs structure, linked by FloorData.hostSlabId) and reuses ReaderContext/commonPsets rather than re-implementing mesh extraction."
+      },
+      {
+        "new": "plugins/selection/src/handlers/selectionStoreAccess.ts",
+        "rival_search": "grep -rn 'resolveSelectionStore|SelectionStoreUnavailable' -> only the new file and its five importers. The four live selection authorities (input-host SelectionManager, composeRuntime buildSelectionStub, core-app-model SelectionBus, the SelectionStore itself) are all untouched.",
+        "verdict": "A RESOLVER, not a fifth selection authority. PluginRegistry hands buildHandlers the SAME instance buildStore returned."
+      },
+      {
+        "new": "packages/ai-host/src/graph/GraphQueryService.ts (+244)",
+        "rival_search": "the added code DELEGATES to pre-existing SemanticGraphManager readers — getHostedOpenings, getBoundingWalls, getConnectedRooms, getAdjacentRooms, getContainedElements, getJoinedWalls — instead of re-deriving them from getTargets.",
+        "verdict": "THIS IS THE CORRECT RESPONSE TO THE THIRD FALSE-RIVAL LESSON: the readers existed; the gap was that the service answered from the bare getTargets and returned a CONFIDENT {ok:true, targets:[]} where a refusal was due."
+      },
+      {
+        "new": "apps/editor/src/PluginRegistry.ts §SEL-STORE-IDENTITY holder",
+        "rival_search": "adopts the store buildStore returned; the docblock states why minting a second one would fork state, citing the boundaryLine precedent.",
+        "verdict": "ADOPTION, not a rival."
+      }
+    ],
+    "fourth_rival_attempt": "The brief predicted a fourth. Instead there were at least THREE MORE REFUTATIONS, all self-caught by lanes before any code was written: grid (the live verb is grid.add -> AddGridCommand -> BimGridRenderer, and it draws in plan via PlanViewCanvas._renderBimGridDatums:921 — wiring grid.created would have built a SECOND grid path); section-view (the live verb is section.mark.create, rendered by PlanViewAnnotationRenderer._renderSectionMark:1777 and consumed by EdgeProjectorService — a SectionViewRenderer would have been the rival); annotation export (above). None was built."
+  },
+
+  "root_typecheck": {
+    "command": "NODE_OPTIONS=--max-old-space-size=8192 npx tsc --noEmit -p tsconfig.json",
+    "rc": 2,
+    "errors": 2,
+    "detail": [
+      "packages/runtime-composer/src/CommandEventBridge.ts(428,11): error TS6196: 'CommittedRoof' is declared but never used.",
+      "packages/runtime-composer/src/CommandEventBridge.ts(435,11): error TS6196: 'CommittedColumn' is declared but never used."
+    ],
+    "provenance": "NOT at HEAD — git show HEAD:...CommandEventBridge.ts | grep -c 'CommittedRoof|CommittedColumn' -> 0. The file carries 170 uncommitted insertions from the WAVE 4f/4g lane (§FIX-CEB-READ-THE-COMMIT / §FIX-ROOF-CEB-MATERIAL / §FIX-SLAB-CEB-BOUNDARY). Two interfaces were declared and never wired in.",
+    "verdict": "HARD STOP 4 for the 4f/4g owner. The tree MUST NOT be committed in this state. Not clearable here: this recount lane is read-only on source and the file belongs to a lane still in flight."
+  },
+
+  "what_this_wave_did_NOT_move": {
+    "reachable": "21 -> 21. Not one family a user could not reach can be reached now. dimension stays NO — its dead bridge was DELETED, correctly: the deletion proof shows zero assignments of window.dimensionTool, zero callers of tools.activate('dimension'), zero importers of DimensionTool, and the live capability at AnnotationRailPanel.ts:131 untouched. grid, section-view, structural, slab and selection all stay NO.",
+    "renders_3d": "21 -> 21. Nothing became visible in 3-D. ceiling and curtain-wall stay UNVERIFIED, and the W4i probe's own log argues AGAINST ceiling (0 meshes through the async path, 1 only via a direct _buildCeilingSync).",
+    "authored": "29 -> 29. lift and liftPart still have no L0 schema (no defineElement, absent from SCHEMA_REGISTRY) — the batch's headline authoring finding is untouched.",
+    "reading": "A greener gate suite with a flat reachable/renders_3d row means the MEASUREMENT improved. Three of the ten moved cells are measurement corrections or pre-wave commits; the product moved in exactly seven cells, and only floor completed a chain."
+  }
+}

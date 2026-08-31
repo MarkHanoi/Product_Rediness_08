@@ -198,6 +198,41 @@ const BOUNDARY_LINE = {
     attachments: [{ elementId: 'w-1', elementType: 'wall', vertexIndex: 0 }],
 };
 
+/**
+ * §PERSIST-BATHROOM-POD (L-11527 / L-11405) · C109 — a LOD-300 pod parent.
+ *
+ * ⭐ THE TWO FIELDS THAT CARRY THE WHOLE DEFECT ARE `members[]` AND THE VARIANT SLUG.
+ * A pod's members ALREADY round-tripped as `plumbing` fixtures, so a reloaded project
+ * still showed a WC and a shower — which is exactly why nobody saw the loss. What did
+ * not survive was the record that makes them a POD: `members[]` (and therefore
+ * `bathroomPodChildIds`, the drill-in and the delete-reap), and the per-family variant
+ * (`shower_walkin_left`), which `serializePlumbing` does not emit at all.
+ */
+const BATHROOM_POD = {
+    id: 'pod-CH', type: 'bathroomPod', levelId: LEVEL_ID,
+    room: { clearWidth: 2.1, clearDepth: 2.4, origin: { x: 4, y: 0, z: 7 }, rotation: 0 },
+    handedness: 'left',
+    arrangement: 'l-shaped',
+    mark: 'POD-01',
+    members: [
+        {
+            id: 'pod-CH-wc', kind: 'wc', fixtureType: 'toilet', variant: 'toilet_wall_hung',
+            position: { x: 4.4, y: 0, z: 7.3 }, rotationY: 0,
+            footprint: { width: 0.38, length: 0.56, height: 0.4 }, wall: 'primary',
+        },
+        {
+            id: 'pod-CH-basin', kind: 'basin', fixtureType: 'sink',
+            position: { x: 5.1, y: 0.85, z: 7.3 }, rotationY: 0,
+            footprint: { width: 0.55, length: 0.42, height: 0.15 }, wall: 'primary',
+        },
+        {
+            id: 'pod-CH-shower', kind: 'shower', fixtureType: 'shower', variant: 'shower_walkin_left',
+            position: { x: 4.45, y: 0, z: 8.6 }, rotationY: Math.PI / 2,
+            footprint: { width: 0.9, length: 0.9, height: 0.05 }, wall: 'left-return',
+        },
+    ],
+};
+
 describe('§L-11530 / §L-11528 — the persisted families the SERIALIZER reads must exist on the COMPOSED runtime', () => {
 
     it('ARM A — every storeKey the serializer reads off window.runtime.stores RESOLVES on a real composeRuntime()', () => {
@@ -205,9 +240,14 @@ describe('§L-11530 / §L-11528 — the persisted families the SERIALIZER reads 
         // ⛔ A SCAN THAT FINDS NOTHING IS A VACUOUS PASS. Pin the floor so a refactor
         // that renames the helper turns this arm RED instead of silently empty
         // ([[grep-silence-has-three-causes]]).
-        expect(keys.length, 'the source scan must find the read channel').toBeGreaterThanOrEqual(6);
+        expect(keys.length, 'the source scan must find the read channel').toBeGreaterThanOrEqual(7);
         expect(keys).toContain('balcony');
         expect(keys).toContain('boundaryLine');
+        // §PERSIST-BATHROOM-POD (L-11527) — the seventh key. It is asserted HERE rather
+        // than only in ARM G because THIS is the arm that would have caught the balcony
+        // defect: readPluginStore('bathroomPod') reads window.runtime.stores.bathroomPod,
+        // and if StoresSlot ever loses that key the save silently drops the slice again.
+        expect(keys).toContain('bathroomPod');
 
         // THE JOIN NO GATE PERFORMS. `check-snapshot-family-coverage.ts` verifies a
         // snapshot FIELD and a WRITER exist; it does not evaluate the writer's READ
@@ -328,14 +368,78 @@ describe('§L-11530 / §L-11528 — the persisted families the SERIALIZER reads 
         expect(callAt, 'the restore must sit AFTER the two load paths rejoin').toBeGreaterThan(joinAt);
     }, BUDGET);
 
+    it('ARM G — BATHROOM POD (L-11527 / L-11405): N before = 0, saved = 1, restored N after = 1 — members[] and the variant slug intact', () => {
+        // ⛔ RESOLVED BEFORE ANYTHING IS ASSIGNED TO `window`, for ARM C's reason: if
+        // `composeRuntime` did not expose the key this throws HERE, naming the cause,
+        // instead of producing an empty snapshot that reads like "no pod was drawn".
+        const store = composed('bathroomPod');
+        wipe(store);
+        const before = store.getState().size;
+        expect(before, 'the store must start EMPTY or the count below proves nothing').toBe(0);
+
+        (window as unknown as { runtime: unknown }).runtime = rt;
+
+        seed(store, [BATHROOM_POD]);
+        expect(store.getState().size, 'N BEFORE the save').toBe(1);
+
+        const saved = saveAndReadBackText();
+        expect(saved.bathroomPods, 'the pod must be IN THE FILE — this is the half that did not exist').toHaveLength(1);
+        expect(saved.bathroomPods[0].mark).toBe('POD-01');
+        // C109 §3.2 / R-5 — ownership is the record, never a spatial query.
+        expect(saved.bathroomPods[0].members, 'members[] IS the pod').toHaveLength(3);
+        expect(saved.bathroomPods[0].members[2].variant,
+            'the variant slug the plumbing slice cannot carry (serializePlumbing emits no showerVariant)')
+            .toBe('shower_walkin_left');
+
+        // Reload: empty the live model, then read it back out of the TEXT.
+        wipe(store);
+        expect(store.getState().size, 'the reload starts from an empty store').toBe(0);
+
+        const r = restoreCompoundFamilies(saved);
+        expect(r.errors).toEqual([]);
+        expect(r.restored['bathroomPod']).toBe(1);
+
+        const after = store.getState().size;
+        expect(after, 'N AFTER the reload — 0 here is the loss L-11405 recorded').toBe(1);
+
+        const back = store.getState().get('pod-CH') as any;
+        expect(back.members.map((m: any) => m.id),
+            'the ids bathroomPodChildIds derives the drill-in and the delete-reap from')
+            .toEqual(['pod-CH-wc', 'pod-CH-basin', 'pod-CH-shower']);
+        expect(back.members[2].variant, 'a walk-in shower must not reload as the default one').toBe('shower_walkin_left');
+        expect(back.room.clearWidth, 'the room envelope the pod was fitted to').toBe(2.1);
+        expect(back.handedness).toBe('left');
+    }, BUDGET);
+
+    it('ARM G2 — NEGATIVE CONTROL: with the pod key stripped from the file, the restore reports NOTHING rather than passing vacuously', () => {
+        (window as unknown as { runtime: unknown }).runtime = rt;
+        const store = composed('bathroomPod');
+        wipe(store);
+        seed(store, [BATHROOM_POD]);
+        const saved = saveAndReadBackText();
+        expect(saved.bathroomPods).toHaveLength(1);
+
+        // Delete the slice the way a PRE-FIX snapshot lacks it (C47), and confirm the
+        // restore neither errors nor invents a pod. Without this, "restored 1" above
+        // could have come from a store that was simply never wiped.
+        delete saved.bathroomPods;
+        wipe(store);
+        const r = restoreCompoundFamilies(saved);
+        expect(r.errors).toEqual([]);
+        expect(r.restored['bathroomPod']).toBeUndefined();
+        expect(store.getState().size, 'no key, no pod — and no error either').toBe(0);
+    }, BUDGET);
+
     it('ARM F — C47: a snapshot with none of these keys reloads without error and without inventing records', () => {
         (window as unknown as { runtime: unknown }).runtime = rt;
         wipe(composed('balcony'));
         wipe(composed('boundaryLine'));
+        wipe(composed('bathroomPod'));
         const r = restoreCompoundFamilies({ schemaVersion: 5, walls: [], slabs: [] });
         expect(r.errors).toEqual([]);
         expect(r.total).toBe(0);
         expect(composed('balcony').getState().size).toBe(0);
         expect(composed('boundaryLine').getState().size).toBe(0);
+        expect(composed('bathroomPod').getState().size).toBe(0);
     }, BUDGET);
 });

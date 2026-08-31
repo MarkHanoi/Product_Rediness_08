@@ -124,9 +124,24 @@ describe('ADR-0325 — the PARKED hierarchy families refuse instead of answering
   });
 
   it('NEGATIVE CONTROL: a genuinely empty SUPPORTED family is still a positive []', () => {
-    // The gate this test is protecting must not over-fire. `hosts` is supported,
-    // written in production, and room-A genuinely hosts nothing: that IS `[]`.
-    const r = svc().query('room-A', 'hosts');
+    // The gate this test is protecting must not over-fire: an emptiness the
+    // WRITER has declared is a positive answer and must stay one.
+    //
+    // ⚠ REWRITTEN FOR L-12860, AND THE OLD VERSION WAS ITSELF THE DEFECT. It read
+    // `svc().query('room-A', 'hosts')` and asserted `{ok:true, targets:[]}` on the
+    // rationale *"room-A genuinely hosts nothing"*. It does not: `room-A` is a
+    // ROOM, the opening writer has never covered it, and `getHostedOpenings` —
+    // the typed reader that has existed all along — refuses that exact subject
+    // with `wall-unknown-to-hosts-writer`. The old control asserted a CONFIDENT
+    // EMPTY over a question nobody had answered, which is the thing L-12860 names.
+    //
+    // The replacement is the same control done honestly: `connectedTo`, over a
+    // room the adjacency pass has explicitly MARKED as covered, so the `[]` is
+    // established rather than assumed — "a detection pass looked at this room and
+    // no door connects it anywhere", which is a real product answer.
+    const graph = graphWithARealRoom();
+    graph.markAdjacencyCoverage(['room-A']);
+    const r = new GraphQueryService({ graph, rooms, partOf: null }).query('room-A', 'connectedTo');
     expect(r.ok).toBe(true);
     if (r.ok) expect(r.targets).toEqual([]);
   });

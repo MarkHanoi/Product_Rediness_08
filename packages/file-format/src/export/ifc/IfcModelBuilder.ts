@@ -67,6 +67,12 @@ const IFC_CLASS_MAP: Record<string, number> = {
     // round-trips as itself rather than being rewritten.
     'IfcFurniture':            WEBIFC.IFCFURNITURE,
     'IfcSanitaryTerminal':     WEBIFC.IFCSANITARYTERMINAL,
+    // §W4B-LIFT-EXPORTS — `LiftStore.add` has stamped
+    // `ifcData.ifcClass = 'IfcTransportElement'` since the store was written
+    // (LiftStore.ts:52-56), but the class was absent from this map, so any lift
+    // reaching the writer would have been degraded to IfcBuildingElementProxy
+    // with an UNKNOWN_IFC_CLASS diagnostic — the exact L-8520 shape.
+    'IfcTransportElement':     WEBIFC.IFCTRANSPORTELEMENT,
 };
 
 const WALL_IFC_CLASSES = new Set(['IfcWall', 'IfcWallStandardCase']);
@@ -321,6 +327,10 @@ export class IfcModelBuilder {
             case WEBIFC.IFCSTAIRFLIGHT:
             case WEBIFC.IFCRAILING:
             case WEBIFC.IFCCOVERING:
+            // IFCTRANSPORTELEMENT(GlobalId, OwnerHistory, Name, Description, ObjectType,
+            //   ObjectPlacement, Representation, Tag, PredefinedType) — the same
+            //   9-attribute shape as the entities above it.
+            case WEBIFC.IFCTRANSPORTELEMENT:
                 elementRef = this.w(this.api.CreateIfcEntity(this.modelID, ifcType,
                     guid, owner, lb(element.name), null, null, placementRef, shapeRef, null, pdt));
                 break;

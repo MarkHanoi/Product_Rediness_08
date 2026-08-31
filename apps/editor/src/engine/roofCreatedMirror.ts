@@ -32,6 +32,10 @@ export interface RoofCreatedEventLike {
     overhang?: number;
     thickness?: number;
     boundingWallIds?: readonly string[];
+    /** §FIX-ROOF-CEB-MATERIAL (B2-ROOF-01) — the user's chosen finish. Same two
+     *  spellings on both sides: L0 `Roof.ts:77-78`, legacy `RoofTypes.ts:107-108`. */
+    materialId?: string;
+    materialColor?: string;
 }
 
 /**
@@ -81,6 +85,58 @@ export function resolveMirroredRoofBaseOffset(
     return Math.max(...finite, ROOF_AUTO_SEATING_FLOOR_M);
 }
 
+/**
+ * §FIX-ROOF-UPDATE-MIRROR — L0 `Roof.shape` → legacy `RoofData.roofType`.
+ *
+ * ⭐ EXPORTED SO THE UPDATE MIRROR CANNOT MINT A SECOND COPY. This translation
+ * already existed inline in `roofRecordFromCreatedEvent` below, where L-699 paid
+ * for it: `mono` and `shed` are THE SAME ROOF spelled differently by the two
+ * vocabularies, so a `mono` roof fell through `RoofGeometryBuilder.generate`'s
+ * switch to `default:` and rendered FLAT. `roof.setShape` needs the identical
+ * rule, and a hand-copied `mono → shed` in a second file is how that defect comes
+ * back on the update path only.
+ *
+ * The two vocabularies, measured:
+ *   L0 `RoofShape` (Roof.ts:7)      flat gable hip mono mansard              — 5
+ *   legacy `RoofType` (RoofTypes.ts:3) flat shed gable hip dutch gambrel
+ *                                      mansard barrel by_region              — 9
+ * Every L0 member has an exact legacy twin (`mono` ↦ `shed`), so this is TOTAL
+ * and lossless in the direction it runs. It is NOT invertible — four legacy
+ * members have no L0 spelling — which is why there is no reverse function here.
+ */
+export function legacyRoofTypeFromShape(shape: unknown): string {
+    return shape === 'mono' ? 'shed' : (typeof shape === 'string' && shape.length > 0 ? shape : 'flat');
+}
+
+/**
+ * §FIX-ROOF-UPDATE-MIRROR — L0 `Roof.pitch` (RADIANS) → legacy `RoofData.slope`
+ * (RISE/RUN). `slope = tan(pitch)`.
+ *
+ * ⚠ THIS IS THE FUNCTION THE STANDING "roof.setPitch CANNOT BE MIRRORED" NOTE
+ * SAID DID NOT EXIST. That note (CommandEventBridge.ts, elementUpdatedMirror.ts,
+ * and `mirror-debt.json`, all three) rested on one command:
+ *
+ *     grep -n "pitch" packages/geometry-roof/src/RoofTypes.ts   →  0 hits
+ *
+ * The grep is correct and the conclusion drawn from it is not. It searched for a
+ * NAME; the legacy record carries the CONCEPT under a different name and in
+ * different units — `RoofData.slope` (RoofTypes.ts:96) — and the conversion was
+ * already written, already shipped, and already load-bearing eight lines below in
+ * this very file, where L-699 added it for the CREATE path. Reading it back off
+ * the consumer is unambiguous: `roofFaces.ts:521` computes
+ * `cosTheta = 1 / sqrt(1 + slope*slope)`, which is the cosine of the angle whose
+ * TANGENT is `slope`. A name-blind grep is exactly the search that proves an
+ * absence that is not there.
+ *
+ * `pitch === 0` (a flat roof) yields `undefined`, not `0`, matching the create
+ * path verbatim: `RoofDataSchema.ts:149` deletes a non-positive `slope`, and
+ * `RoofGeometryBuilder.ts:1127` branches on `data.slope && data.slope > 0`, so
+ * "flat" is spelled by the field's ABSENCE in this model, not by a zero.
+ */
+export function legacyRoofSlopeFromPitch(pitch: unknown): number | undefined {
+    return typeof pitch === 'number' && pitch > 0 ? Math.tan(pitch) : undefined;
+}
+
 export interface MirroredRoofRecord {
     id: string;
     type: 'roof';
@@ -93,6 +149,12 @@ export interface MirroredRoofRecord {
     thickness: number;
     autoBaseOffset: boolean;
     boundingWallIds?: string[];
+    /** §FIX-ROOF-CEB-MATERIAL (B2-ROOF-01) — `RoofData.materialId` /
+     *  `.materialColor` (RoofTypes.ts:107-108). Optional on BOTH sides, so an
+     *  unstated finish stays unstated and `RoofStore`/`RoofFragmentBuilder` keep
+     *  their own defaults — the absence is preserved, never overwritten with one. */
+    materialId?: string;
+    materialColor?: string;
 }
 
 /**
@@ -126,11 +188,11 @@ export function roofRecordFromCreatedEvent(
         // the SAME roof and were spelled differently in the two vocabularies, so
         // `mono` fell through `RoofGeometryBuilder.generate`'s switch to
         // `default:` and silently rendered FLAT. One line, one whole roof form.
-        roofType: ev.shape === 'mono' ? 'shed' : (ev.shape ?? 'flat'),
+        roofType: legacyRoofTypeFromShape(ev.shape),
         // §FIX-ROOF-PLAN-SHAPE-HARDCODED (L-699) — pitch (RADIANS, L0 schema) →
         // slope (rise/run, geometry package). Previously not forwarded AT ALL, so
         // every plan-created roof was slope-less.
-        slope: typeof ev.pitch === 'number' && ev.pitch > 0 ? Math.tan(ev.pitch) : undefined,
+        slope: legacyRoofSlopeFromPitch(ev.pitch),
         overhang: ev.overhang ?? 0.3,
         // §FIX-ROOF-BRIDGE-SEATING — was `ev.baseOffset ?? 2.7`, whose left arm
         // no emitter can ever populate (see `resolveMirroredRoofBaseOffset`).
@@ -153,5 +215,23 @@ export function roofRecordFromCreatedEvent(
         // no wall" — a different fact, and the one `RoofData.boundingWallIds` is
         // `.optional()` to keep separable.
         ...(ev.boundingWallIds ? { boundingWallIds: [...ev.boundingWallIds] } : {}),
+        // §FIX-ROOF-CEB-MATERIAL (B2-ROOF-01 · C100 §2.1) — THE FOURTH FIELD THIS
+        // ONE MAPPING HAD TO LEARN, after `roofType`/`slope` (L-699) and
+        // `boundingWallIds` (L-924). The pattern is identical every time: a value
+        // the user chose is computed upstream, dispatched correctly, and then
+        // dropped by a hop that relays a NAMED SUBSET of what it was handed. Here
+        // the consequence is a roof that renders — so `renders_3d` reads YES and
+        // the seven-fact chain is satisfied — wearing the DEFAULT finish instead of
+        // the one the user picked. Nothing in that chain asks the fidelity question.
+        //
+        // Spread-conditional for the same reason as `boundingWallIds` above:
+        // `materialId` and `materialColor` are `.optional()` on both records, and
+        // writing an explicit `undefined` into a record `RoofStore.add()` clones
+        // would assert "the user chose no material", which is a different fact from
+        // "no material was stated". C100 §2.1: `materialId` is the master id,
+        // `materialColor` the resolved hex cache, on both sides — so this is a
+        // straight copy with no translation, unlike `shape`→`roofType`.
+        ...(ev.materialId !== undefined ? { materialId: ev.materialId } : {}),
+        ...(ev.materialColor !== undefined ? { materialColor: ev.materialColor } : {}),
     };
 }

@@ -83,19 +83,87 @@
  * initBusHandlers.ts (the authorised legacy bridge) and globals.d.ts (a declaration
  * file); both exclusions are reproduced exactly in `bridgeExcluded()` below.
  *
- * NOTE — a DIFFERENT gate, `scripts/check/ci-check-no-commandmanager.mjs`
- * (`npm run check:commandmanager`), scans `packages/` and `plugins/`. It is not a
- * duplicate and does not cover this gate's subject: apps/editor/src is scanned by
- * THIS gate alone.
+ * ─── §CONVERGE-CM-COUNTERS-CALLER (2026-08-31) — THE CALLER HALF ─────────────
  *
- * Exit: 0 = all three at/under ceiling and baseline · 1 = any over · 2 = misconfigured
+ * The paragraph that stood here said only that `scripts/check/ci-check-no-commandmanager.mjs`
+ * is "a DIFFERENT gate … not a duplicate", and left it there. That was true about
+ * SCOPE and wrong about METHOD, and the method is what mattered:
+ *
+ *     THAT gate    packages/ + plugins/     3 arms, alias-resolving, 25 controls
+ *     THIS gate    apps/editor/src          3 fixed-name regexes, 0 controls
+ *
+ * They were never scope rivals. They were METHOD rivals over ONE concept — "a call
+ * site reaching the legacy command manager" — and the WEAKER detector owned a scope.
+ * A name-enumerating counter can be satisfied by RENAMING the receiver, and because
+ * counters B/C here auto-ratchet DOWNWARD on improvement, a pure rename BANKED a
+ * permanent fake improvement. A ratchet paying out for an evasion is worse than no
+ * ratchet.
+ *
+ * `§CONVERGE-CM-COUNTERS` exported the detector for this file to call. That export
+ * was UNUSABLE as shipped — the .mjs ran its whole scan at module load and called
+ * `process.exit`, so importing it killed the importer — which is why the caller half
+ * never landed. The entrypoint guard there and this import are the two halves.
+ *
+ * ── What changed here, counter by counter ──
+ *
+ *   A) LITERAL   — UNCHANGED pattern, UNCHANGED hard ceiling 0, UNCHANGED ledger 11.
+ *   B) WINDOW    — UNCHANGED. It is a DIFFERENT CONCEPT: `window.commandManager`
+ *                  is a reach-through to the global singleton (`…?.context?.stores?
+ *                  .gridStore` is a STORE READ, not a call). Kept as-is, ceiling 2.
+ *   C) CM_EXEC   — RETIRED as an enforced ceiling and REPLACED by (D). `\bcm\.execute\b`
+ *                  is the name-blind spelling this whole note is about. It is NOT
+ *                  deleted: it is demoted to a runtime SUPERSET CONTROL on (D).
+ *   D) CONVERGED — NEW. The authority's arms (literal + alias + indirect) over THIS
+ *                  scope, with this gate's own bridge exclusions. Pinned at its first
+ *                  honest reading; shrink-only; exit 3 on growth.
+ *
+ * ── Why (D) is not (C)'s ceiling raised ──
+ * (D) is a different, strictly LARGER measurement of a superset, pinned at first
+ * reading — not a re-pin of (C). The proof that it is a superset runs on every
+ * invocation: every line (C) matches must appear in (D) or be a `typeof …execute`
+ * capability guard, which is a feature test and never a call. Measured 2026-08-31:
+ * (C) = 62 lines, of which 60 are in (D) and 2 are capability guards; residual 0.
+ * (C)'s number keeps being PRINTED so nothing became invisible.
+ *
+ * Exit: 0 = all at/under ceiling and baseline · 1 = any over · 2 = misconfigured
+ *       (including: the retired detector found something the authority missed)
  */
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, resolve }                        from 'node:path';
+import { pathToFileURL }                           from 'node:url';
 import { scanFiles, scanFilesStripped, distinctLines, type Match } from './lib/sourceScan.js';
 import { blankStringLiterals }                     from './lib/writeRouteScan.js';
 
 const REPO_ROOT      = process.env.GA_GATE_REPO_ROOT ?? process.cwd();
+
+// ─── The authority detector ───────────────────────────────────────────────────
+//
+// §CONVERGE-CM-COUNTERS-CALLER. One definition of "a call site reaching the legacy
+// command manager" in this repo, and it lives in the .mjs (3 arms, 25 negative and
+// positive controls, `--self-test`). Imported by URL because the module is outside
+// any tsconfig rootDir; the shape is declared locally rather than inferred, so a
+// change to the export signature surfaces here as a type error instead of `any`.
+
+interface AuthorityHit {
+    file:   string;
+    lineNo: number;
+    kind:   'literal' | 'alias' | 'indirect';
+    alias:  string;
+    text:   string;
+}
+interface AuthorityStats {
+    files: number; testDoubles: number; helpers: string[];
+    literal: number; alias: number; indirect: number;
+}
+interface AuthorityModule {
+    scanLegacyManagerCallSites(
+        scanDirs: readonly string[],
+        minFiles: number,
+    ): { violations: AuthorityHit[]; stats: AuthorityStats };
+}
+
+const AUTHORITY_PATH = resolve(REPO_ROOT, 'scripts/check/ci-check-no-commandmanager.mjs');
+const authority = (await import(pathToFileURL(AUTHORITY_PATH).href)) as unknown as AuthorityModule;
 const BASELINE_FILE  = resolve(REPO_ROOT, '.ga-gate/baselines/no-commandmanager.json');
 const NO_RATCHET     = process.argv.includes('--no-ratchet');
 
@@ -113,11 +181,38 @@ const LITERAL_CEILING = 0;
 const WINDOW_CEILING = parseInt(process.env.CMDMGR_WINDOW_CEILING ?? '2', 10);
 
 /**
- * Ceiling for CM_EXEC pattern (cm.execute in apps/editor/src/ excl. bridge).
- * Post-E.5.4 actual: 49 (migration backlog — decreases per E.5.5+ sprint).
- * Override via CMDMGR_CM_EXEC_CEILING env var to step down per-sprint.
+ * ⚠ RETIRED AS AN ENFORCED CEILING (§CONVERGE-CM-COUNTERS-CALLER, 2026-08-31).
+ *
+ * `\bcm\.execute\b` is the name-blind spelling. Enforcing a ratchet on it paid out
+ * for renames: bind the manager to `mgr` instead of `cm` and the counter FELL, the
+ * ratchet wrote the lower number, and the improvement was permanent and fake.
+ *
+ * The pattern is still MEASURED and PRINTED on every run, and it now has a job it
+ * can actually do: it is the SUPERSET CONTROL on the converged counter (D). Kept as
+ * a constant so the historical value is not lost from the file.
  */
-const CM_EXEC_CEILING = parseInt(process.env.CMDMGR_CM_EXEC_CEILING ?? '49', 10);
+const CM_EXEC_CEILING_RETIRED = 49;
+
+/**
+ * (D) CONVERGED — the authority's own arms over this gate's scope and exclusions.
+ *
+ * ⚠ PINNED AT FIRST HONEST READING, 2026-08-31. This is a NEW counter, not a re-pin
+ * of the retired (C): it measures a strict SUPERSET by a stronger method, so the two
+ * numbers are not comparable and 111 is not "49 raised".
+ *
+ *     literal 12 · alias 99 · indirect 0 · bridge-excluded 6 · = 111
+ *
+ * Note literal = 12 here against counter (A)'s 11: the twelfth is
+ * `apps/editor/src/ui/layout/CreatePanelLayout.ts:275`,
+ * `window.commandManager?.execute(new DeleteRoomCommand(r.id))` — a real literal
+ * call that (A)'s `commandManager\.execute\b` never saw because of the `?.`. It was
+ * always there. (A)'s pattern, ceiling and ledger are DELIBERATELY LEFT ALONE; the
+ * site is counted here instead of quietly re-pinning a hard-0 counter's ledger.
+ *
+ * ⚠ SHRINK-ONLY. Above this the exit is 3, which no ledger absorbs. The way down is
+ * migrating call sites to `runtime.bus.executeCommand()` — never editing this line.
+ */
+const CONVERGED_CEILING = parseInt(process.env.CMDMGR_CONVERGED_CEILING ?? '111', 10);
 
 /** The extensions rg's `--type ts` covered. Never narrower than the rg version. */
 const EXTS = ['.ts', '.tsx', '.mts', '.cts'] as const;
@@ -216,8 +311,38 @@ function loadBaseline(): Baseline {
     const data = JSON.parse(readFileSync(BASELINE_FILE, 'utf8'));
     return {
         windowCount:    data.windowCount    ?? data.aliasCount ?? WINDOW_CEILING,
-        cmExecuteCount: data.cmExecuteCount ?? CM_EXEC_CEILING,
+        cmExecuteCount: data.cmExecuteCount ?? CM_EXEC_CEILING_RETIRED,
     };
+}
+
+/**
+ * (D) — call sites in THIS gate's scope, measured by THE authority detector.
+ * Bridge exclusions are this gate's, applied to the authority's output so the two
+ * gates share a detector without sharing a scope or a ceiling.
+ */
+function convergedCallSites(): AuthorityHit[] {
+    const { violations } = authority.scanLegacyManagerCallSites(DIRS, MIN_FILES);
+    return violations.filter(v => !bridgeExcluded(v.file));
+}
+
+/**
+ * THE SUPERSET CONTROL — the retired name detector, run as a check ON the authority.
+ *
+ * ⚠ THIS IS THE PART THAT MAKES THE RETIREMENT SAFE. Folding a detector away on the
+ * assertion that the replacement covers it is exactly how coverage goes missing; so
+ * the assertion is EXECUTED, every run. Every line `\bcm\.execute\b` matches must be
+ * either a converged hit or a `typeof …execute` capability guard (a feature test is
+ * not a call — the authority excludes them by the same rule, and so did this gate).
+ * Anything else means the authority has a hole the weak detector could see, and the
+ * honest response is exit 2 (MISCONFIGURED), not a quietly smaller number.
+ */
+const TYPEOF_GUARD = /typeof\s+[\w.$[\]'"?!]*\s*\.\s*execute/;
+
+function supersetResiduals(cmExecuteM: readonly Match[], converged: readonly AuthorityHit[]): Match[] {
+    const covered = new Set(converged.map(v => `${v.file}:${v.lineNo}`));
+    return cmExecuteM.filter(
+        m => !covered.has(`${m.file}:${m.line}`) && !TYPEOF_GUARD.test(m.text),
+    );
 }
 
 function writeBaseline(windowCount: number, cmExecuteCount: number): void {
@@ -277,6 +402,8 @@ function main(): number {
     const literal    = literalM.length;
     const window_    = windowM.length;
     const cmExecute  = cmExecuteM.length;
+    const convergedM = convergedCallSites();
+    const converged  = convergedM.length;
     const baseline   = loadBaseline();
     let failed = false;
 
@@ -287,10 +414,37 @@ function main(): number {
         `dir: apps/editor/src · unit: matching lines`,
     );
     console.log(
-        `[no-commandmanager] code-only (ENFORCED) literal=${literal} window=${window_} cm.execute=${cmExecute}` +
+        `[no-commandmanager] code-only (ENFORCED) literal=${literal} window=${window_}` +
         `  ·  incl. comments literal=${mentionLines(LITERAL_PATTERN, 'literal')}` +
         ` window=${mentionLines(WINDOW_PATTERN, 'window', bridgeExcluded)}` +
         ` cm.execute=${mentionLines(CM_EXEC_PATTERN, 'cm.execute', bridgeExcluded)}`,
+    );
+    console.log(
+        `[no-commandmanager] converged (ENFORCED, authority detector): ${converged}` +
+        `  ·  retired name counter cm.execute=${cmExecute} (ceiling ${CM_EXEC_CEILING_RETIRED}, NOT enforced)`,
+    );
+
+    // ── THE SUPERSET CONTROL, before any verdict ────────────────────────────
+    // If the retired weak detector can see a call the authority cannot, the
+    // authority has a hole and every number below it is understated. That is a
+    // MISCONFIGURED detector, not a passing gate and not a failing one.
+    const residuals = supersetResiduals(cmExecuteM, convergedM);
+    if (residuals.length > 0) {
+        console.error(
+            `[no-commandmanager] MISCONFIGURED (exit 2): the RETIRED name detector found` +
+            ` ${residuals.length} call site(s) the authority missed. The authority is not a` +
+            ` superset, so retiring the name counter would DROP coverage.`,
+        );
+        console.error(
+            `  Fix the detector in scripts/check/ci-check-no-commandmanager.mjs (add an arm +` +
+            ` a self-test control). Do NOT narrow this control.`,
+        );
+        listSites(residuals);
+        return 2;
+    }
+    console.log(
+        `[no-commandmanager] superset control OK: all ${cmExecute} cm.execute line(s) are` +
+        ` converged hits or typeof capability guards (residual 0).`,
     );
 
     // A) Literal — hard-fail
@@ -331,34 +485,42 @@ function main(): number {
     }
     failed = failed || windowFailed;
 
-    // C) cm.execute ratchet
-    const cmFailed = checkCounter('cm.execute', cmExecute, CM_EXEC_CEILING, baseline.cmExecuteCount, failed);
-    if (cmFailed) listSites(cmExecuteM);
-    if (!cmFailed) {
-        if (cmExecute < baseline.cmExecuteCount) {
-            if (NO_RATCHET) {
-                console.log(
-                    `[no-commandmanager] OK (cm.execute): ${cmExecute}` +
-                    ` (would ratchet ${baseline.cmExecuteCount} → ${cmExecute}; --no-ratchet active).`,
-                );
-            } else {
-                console.log(
-                    `[no-commandmanager] OK (cm.execute): ${cmExecute}` +
-                    ` (ratchet lowered ${baseline.cmExecuteCount} → ${cmExecute}).`,
-                );
-            }
-        } else {
-            console.log(`[no-commandmanager] OK (cm.execute): ${cmExecute} / ${CM_EXEC_CEILING}`);
-        }
+    // D) CONVERGED call sites — replaces the retired (C) name ratchet.
+    //
+    // ⚠ NO AUTO-RATCHET HERE, DELIBERATELY. The auto-ratchet is what made a rename
+    // pay: it wrote the improved number to disk the moment the count dipped, for any
+    // reason. This counter is compared to a constant, so a real migration lowers the
+    // number visibly and someone edits the constant on purpose, with the diff to
+    // point at. Nothing lowers it silently.
+    if (converged > CONVERGED_CEILING) {
+        console.error(
+            `[no-commandmanager] FAIL (converged): ${converged} call sites reaching the legacy` +
+            ` command manager exceeds CEILING ${CONVERGED_CEILING}.`,
+        );
+        console.error(
+            '  Fix: migrate to runtime.bus.executeCommand(). Do NOT raise CONVERGED_CEILING.',
+        );
+        listSites(convergedM.map((v): Match => ({
+            file: v.file, line: v.lineNo, groups: [],
+            text: `(${v.kind}:${v.alias}) ${v.text}`,
+        })));
+        failed = true;
+    } else if (converged < CONVERGED_CEILING) {
+        console.log(
+            `[no-commandmanager] OK (converged): ${converged} / ${CONVERGED_CEILING}` +
+            ` — ${CONVERGED_CEILING - converged} site(s) migrated; lower CONVERGED_CEILING to lock it in.`,
+        );
+    } else {
+        console.log(`[no-commandmanager] OK (converged): ${converged} / ${CONVERGED_CEILING}`);
     }
-    failed = failed || cmFailed;
 
-    // Write unified baseline if any ratchet improved and we're not in --no-ratchet mode
+    // Write unified baseline if the window ratchet improved and we're not in
+    // --no-ratchet mode. `cmExecuteCount` is carried through verbatim: the counter
+    // it belonged to is retired, and rewriting a retired counter's baseline would
+    // be inventing history.
     if (!failed && !NO_RATCHET) {
-        const newWindow   = Math.min(window_,    baseline.windowCount);
-        const newCmExec   = Math.min(cmExecute,  baseline.cmExecuteCount);
-        if (newWindow < baseline.windowCount || newCmExec < baseline.cmExecuteCount) {
-            writeBaseline(newWindow, newCmExec);
+        if (window_ < baseline.windowCount) {
+            writeBaseline(window_, baseline.cmExecuteCount);
         }
     }
 
@@ -380,14 +542,20 @@ function main(): number {
      * the declared level FALLS to 11 in the same breath it starts being enforced.
      * These are a RECORD OF TODAY'S DEBT, not three more ceilings to spend: above
      * any of them the exit is 3, which no ledger absorbs.
+     *
+     * §CONVERGE-CM-COUNTERS-CALLER (2026-08-31): LEDGERED_CM_EXEC is GONE, not
+     * raised — its counter is retired (see (C) above), and a ledgered level for a
+     * counter nobody enforces is a number that can only mislead. LEDGERED_CONVERGED
+     * replaces it at the converged counter's first honest reading. LEDGERED_LITERAL
+     * and LEDGERED_WINDOW are UNTOUCHED at 11 and 62.
      */
     const LEDGERED_LITERAL = 11;
     const LEDGERED_WINDOW = 62;
-    const LEDGERED_CM_EXEC = 62;
+    const LEDGERED_CONVERGED = 111;
     const worse: string[] = [];
     if (literal > LEDGERED_LITERAL) worse.push(`literal ${literal} > ${LEDGERED_LITERAL}`);
     if (window_ > LEDGERED_WINDOW) worse.push(`window ${window_} > ${LEDGERED_WINDOW}`);
-    if (cmExecute > LEDGERED_CM_EXEC) worse.push(`cm.execute ${cmExecute} > ${LEDGERED_CM_EXEC}`);
+    if (converged > LEDGERED_CONVERGED) worse.push(`converged ${converged} > ${LEDGERED_CONVERGED}`);
 
     if (worse.length > 0) {
         console.error(
@@ -401,7 +569,7 @@ function main(): number {
     console.error(
         `\n[no-commandmanager] failing at its DECLARED level`
         + ` (literal ${literal}/${LEDGERED_LITERAL} · window ${window_}/${LEDGERED_WINDOW}`
-        + ` · cm.execute ${cmExecute}/${LEDGERED_CM_EXEC}); absorbable via gate-debt.json.`,
+        + ` · converged ${converged}/${LEDGERED_CONVERGED}); absorbable via gate-debt.json.`,
     );
     return 1;
 }

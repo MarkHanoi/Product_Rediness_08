@@ -32,6 +32,7 @@ import {
   type SelectionClipboard,
   type SelectionPastePort,
 } from '../clipboard.js';
+import { resolveSelectionStore } from './selectionStoreAccess.js';
 
 export type CopySelectionPayload = Record<string, never>;
 
@@ -46,12 +47,15 @@ export class CopySelectionHandler
   constructor(
     private readonly clipboard: SelectionClipboard = selectionClipboard,
     private readonly port: SelectionPastePort | null = null,
+    /** §SEL-STORE-IDENTITY — canonical store ADOPTED from the composition root. */
+    private readonly store: SelectionStore | null = null,
   ) {}
 
   /** Copyable selection entries — filtered by the port's `canCopy` when set. */
   private _copyableEntries(ctx: HandlerContext<CopyStores>): ClipboardEntry[] {
     const out: ClipboardEntry[] = [];
-    for (const dto of ctx.stores.selection.getState().values()) {
+    const selection = resolveSelectionStore(this.store, ctx.stores, this.type);
+    for (const dto of selection.getState().values()) {
       if (this.port !== null && !this.port.canCopy(dto.kind)) continue;
       out.push({ sourceId: dto.id, kind: dto.kind });
     }
@@ -62,7 +66,7 @@ export class CopySelectionHandler
     ctx: HandlerContext<CopyStores>,
     _cmd: CopySelectionPayload,
   ): ValidationResult {
-    if (ctx.stores.selection.getState().size === 0) {
+    if (resolveSelectionStore(this.store, ctx.stores, this.type).getState().size === 0) {
       return { valid: false, reason: 'Nothing selected to copy' };
     }
     if (this._copyableEntries(ctx).length === 0) {

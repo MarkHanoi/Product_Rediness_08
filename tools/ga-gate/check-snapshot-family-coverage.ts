@@ -130,15 +130,24 @@ const PLUGIN_STORE_GLOB_DIR = 'plugins';
  * place they appear):
  *   · structural  — L-11523, OPEN — authored records destroyed on reload TODAY.
  *   · section     — L-11524, OPEN — authored records destroyed on reload TODAY.
- *   · bathroomPod — L-11527, OPEN — ⚠ PENDING, NOT A LIVE LOSS. Lane BATH102's store
- *     exists but is registered in neither `ALL_PLUGINS` nor `runtime.stores`, so no
- *     user can author a pod and nothing is being destroyed. It is on the ledger so
- *     the family cannot go live UNANSWERED — which is the whole point of ARM A.
- *     ⛔ When BATH102 registers the storeKey, this entry LEAVES and the baseline
- *     drops to 2 IN THE SAME COMMIT. The row and the key move together (the rule
- *     CLAUDE.md records failing five times for the contract range).
+ *
+ * ⭐ bathroomPod LEFT THIS LEDGER 2026-08-31 (§PERSIST-BATHROOM-POD, L-11527) AND THE
+ *   BASELINE DROPPED 3 → 2 IN THE SAME COMMIT — which is exactly what the entry that
+ *   used to sit here instructed. It is now `persisted` with snapshotKey `bathroomPods`,
+ *   verified by ARM C against the serializer's own field and writer.
+ *
+ * ⚠ AND ITS STATED RATIONALE HAD GONE STALE IN THE WORST DIRECTION, which is worth
+ *   keeping. It read *"PENDING, NOT A LIVE LOSS … registered in neither `ALL_PLUGINS`
+ *   nor `runtime.stores`, so no user can author a pod"*. All three clauses were false
+ *   when they were last read: `PluginRegistry.ts:619-624` registers the descriptor,
+ *   `composeRuntime.ts:1785` hangs the store on `StoresSlot`, and
+ *   `BathroomPodPlanToolHandler.ts:330` authors a pod from a real plan overlay. So the
+ *   ledger carried a LIVE data loss labelled as a pre-emptive placeholder. The
+ *   CLASSIFICATION was right and the REASON was not — and this gate has no arm over a
+ *   `reason` string, which is how a green run carried three false statements about the
+ *   family it was describing. Named here rather than left for the next reader.
  */
-const UNPERSISTED_BASELINE = 3;
+const UNPERSISTED_BASELINE = 2;
 
 const MIN_STORE_KEYS = 20;
 const MIN_ROWS = 20;

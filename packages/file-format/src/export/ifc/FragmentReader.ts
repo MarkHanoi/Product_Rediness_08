@@ -31,6 +31,7 @@ import { FurnitureStore } from '@pryzm/geometry-furniture';
 import { HandrailStore } from '@pryzm/core-app-model/stores';
 import { PlumbingStore } from '@pryzm/geometry-plumbing';
 import { RoomStore } from '@pryzm/room-topology';
+import { FloorStore, CeilingStore } from '@pryzm/core-app-model/stores';
 import { ReaderContext } from './readers/ReaderContext';
 import { WallReader } from './readers/WallReader';
 import { WindowDoorReader } from './readers/WindowDoorReader';
@@ -44,6 +45,9 @@ import { HandrailReader } from './readers/HandrailReader';
 import { PlumbingReader } from './readers/PlumbingReader';
 import { CurtainWallReader } from './readers/CurtainWallReader';
 import { RoomReader } from './readers/RoomReader';
+import { FloorReader } from './readers/FloorReader';
+import { CeilingReader } from './readers/CeilingReader';
+import { LiftReader, LiftStoreLike } from './readers/LiftReader';
 import { debug } from '@pryzm/core-app-model';
 
 export interface StoreRegistry {
@@ -58,6 +62,11 @@ export interface StoreRegistry {
     handrailStore?: HandrailStore;
     plumbingStore?: PlumbingStore;
     roomStore?: RoomStore;
+    // §W4B — floor/ceiling/lift. Supplied by ExportIFC.ts from the window globals
+    // initBuilders.ts assigns (:431 floorStore / :400 ceilingStore / :1014 liftStore).
+    floorStore?: FloorStore;
+    ceilingStore?: CeilingStore;
+    liftStore?: LiftStoreLike;
 }
 
 export interface SceneRegistry {
@@ -127,6 +136,19 @@ export class FragmentReader implements ReaderContext {
         if (this.stores.roomStore) {
             debug("Reading rooms (IfcSpace)...");
             elements.push(...new RoomReader(this.stores.roomStore).read());
+        }
+
+        if (this.stores.floorStore) {
+            debug("Reading floors (IfcCovering/FLOORING)...");
+            elements.push(...new FloorReader(this.stores.floorStore, this).read());
+        }
+        if (this.stores.ceilingStore) {
+            debug("Reading ceilings (IfcCovering/CEILING)...");
+            elements.push(...new CeilingReader(this.stores.ceilingStore, this).read());
+        }
+        if (this.stores.liftStore) {
+            debug("Reading lifts (IfcTransportElement)...");
+            elements.push(...new LiftReader(this.stores.liftStore, this).read());
         }
 
         model.elements = elements;

@@ -38,7 +38,45 @@ import { bumpPerf, PERF_KEYS } from '@pryzm/frame-scheduler';
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
-/** Element types that carry 3D geometry and therefore affect 2D projections. */
+/**
+ * Element types that carry 3D geometry and therefore affect 2D projections.
+ *
+ * ─── THIS IS A MEMBERSHIP LIST, AND MEMBERSHIP HAS TWO PRECONDITIONS ────────
+ * §PLAN-MEMBERSHIP-RULE (Wave 4a/4e, 2026-08-31). The audit at
+ * `audit/element-creation/2026-08-29/` measured 15 of 29 element families as
+ * reaching plan view, and found that this Set — not a bug — is the mechanism
+ * for most of the other 14. Adding a string here is therefore a product
+ * decision, and it is only sound when BOTH of these hold:
+ *
+ *   (1) SOMETHING DRAWS IT. There must be an existing plan representation —
+ *       either projected linework (the family's builder stamps
+ *       `root.userData.version` and the type is in
+ *       `EdgeProjectorService.CACHEABLE_ELEMENT_TYPES`), or a store-driven
+ *       symbol pass on the plan canvas. ⛔ A member without one ships a family
+ *       that CLAIMS PLAN AND DRAWS NOTHING — strictly worse than an honest NO,
+ *       because the row goes green and the screen does not change.
+ *   (2) ITS IDS ARE REGISTERED. `_onStoreEvent` resolves the level through
+ *       `_elementLevelMap` (populated only by `registerElement`). An id that is
+ *       not in it falls into the §G3-STALE fallback — mark EVERY non-3D view
+ *       dirty, plus a console warn, per event. Adding a chatty family here
+ *       without registering its ids converts a silent no-op into an event
+ *       storm. This is why the wall (§G3-STALE-FIX) and curtain-wall
+ *       (§G3-STALE-FIX-CW) bridges register BEFORE their `store.add()`.
+ *
+ * ⚠ MEASURED DEAD ENTRIES — `'stair-landing'` and `'stair-railing'` MATCH
+ * NOTHING. These strings are `StoreChangeEvent.elementType` values, but the
+ * two stores that own those families emit the CAMEL-CASE spelling:
+ * `StairLandingStore.ts:42/66/90` emits `'stairLanding'` and
+ * `StairRailingStore.ts:70/97/115/126` emits `'stairRailing'`. The hyphenated
+ * spellings exist only as `userData.elementType` on the MESHES
+ * (`StairLandingBuilder.ts:67`, `StairRailingBuilder.ts:288/301`) and in
+ * command payloads — a different vocabulary. They are LEFT IN PLACE rather
+ * than "fixed" to the camel-case spelling, because precondition (2) fails:
+ * no site anywhere calls `viewDependencyTracker.registerElement` for a landing
+ * or a railing, so correcting the spelling alone would route a 31-segment
+ * railing run (C95 §15.5) into 31 §G3-STALE all-views sweeps. Correcting it
+ * requires a registration site first. Logged, not half-fixed.
+ */
 const GEOMETRY_ELEMENT_TYPES = new Set([
     'wall', 'slab', 'column', 'beam', 'curtainwall', 'curtain-panel',
     'window', 'door', 'roof', 'stair', 'stair-landing', 'stair-railing',
@@ -46,6 +84,49 @@ const GEOMETRY_ELEMENT_TYPES = new Set([
     // on change, exactly like the stair.
     'verticalCirculation',
     'opening', 'ceiling', 'floor', 'handrail', 'furniture', 'plumbing',
+    // ── §PLAN-MEMBERSHIP-LIGHTING (Wave 4a) ─────────────────────────────────
+    // THE FOLLOW-UP THIS FILE WAS NAMED IN, BY NAME, TWICE. §L-1087 added the
+    // `storeEventBus` emit to `LightingStore` (`geometry-lighting`) and then
+    // declared the rest rather than half-doing it:
+    //   `LightingStore.ts:75-83` — "⚠ DECLARED, NOT FIXED … adding `'lighting'`
+    //   is the follow-up and it changes plan re-projection behaviour for every
+    //   lighting mutation, which needs its own measurement."
+    //   `__tests__/lightingSemanticBusEmit.test.ts:18-30` — the same sentence,
+    //   and it is why that suite asserts the emit and explicitly "does not
+    //   claim the plan view is dirtied".
+    // Precondition (1) HOLDS and was the part the audit could not see: lighting
+    // has no `*PlanSymbolBuilder` CLASS, so a class-name grep reports absence.
+    // Its symbol is a STORE-DRIVEN pass — `renderLightingSymbols`
+    // (`views/symbols/LightingPlanSymbolRenderer.ts`), painted by
+    // `PlanViewCanvas._renderLightingPlanSymbols()` (:2292, called at :660 and
+    // :2092) and by `apps/editor/.../plan-canvas/PlanViewSymbolRenderer.ts`.
+    // It contributes ZERO LineSegments to the technical drawing (:1524,
+    // §FIX-LIGHT-PLAN-UNSELECTABLE / L-10081) — which is exactly why the
+    // INVALIDATION leg is what was missing: painting was already wired, and a
+    // fixture only appeared when some unrelated edit happened to repaint.
+    // Precondition (2) is met by the §FT-LIGHTING bridge, which now registers
+    // in VDT + bimManager BEFORE `lightingStore.add()` (§G3-STALE-FIX shape).
+    'lighting',
+    // ── §PLAN-MEMBERSHIP-ROOM (Wave 4e) ─────────────────────────────────────
+    // Precondition (1) holds TWICE OVER, which is what made this row odd in the
+    // audit (every link before AND after it held):
+    //   • projected linework — `RoomBoundingLineBuilder.ts:114` stamps
+    //     `userData.version`, and `'room'` is already a member of
+    //     `EdgeProjectorService.CACHEABLE_ELEMENT_TYPES` (:1994-1999);
+    //   • a store-driven fill — `PlanViewCanvas._renderRoomFills()` (:2488,
+    //     called at :383 and :1959) reads the room store on every plan paint.
+    // `RoomStore` has emitted here all along (`RoomStore.ts:273/377/415`), so
+    // this line is the only thing that stood between a room edit and the plan.
+    // Precondition (2) is met by the §FT-ROOM-PLAN registration installed in
+    // `initTools.ts` — rooms are created by DETECTION as often as by the bus,
+    // so it hooks the store's own `bim-room-added/updated/removed` DOM events
+    // (emitted one line BEFORE the `storeEventBus` emit in all three mutators)
+    // rather than a command, and therefore covers every creator.
+    // ⚠ NO FEEDBACK LOOP: the re-projection driver runs
+    // `RoomTagAutoPopulator.populate()` (DOC-2.5b), which was measured to READ
+    // `roomStore` only (`RoomTagAutoPopulator.ts:78`, zero writes) and is
+    // idempotent by §A.21.D25 — so a settled view cannot re-dirty itself.
+    'room',
 ]);
 
 /**

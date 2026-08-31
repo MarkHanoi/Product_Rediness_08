@@ -1,0 +1,49 @@
+[A-1] kinds = ["view","visibility-intent","view-intent-instance","vg-governance","phase-filter","user-material","RoomRequirement","title-block","schedule","sheet","view-template","AssetCatalogEntry","door","window","wall","slab","room"]
+[A-1] elements.get(wall) = WallStore
+[A-1] elements.get(slab) = SlabStore
+[A-1] elements.get(ceiling) = undefined
+[A-1] elements.get(curtainwall) = undefined
+[A-1] elements.get(curtain-wall) = undefined
+[A-1] elements.get(curtain-panel) = undefined
+[A-1] rt.stores.ceiling (plugin DTO) = undefined
+[A-1] rt.stores.curtainwall (plugin DTO) = undefined
+[B-1] ceiling.create outcome = OK
+[B-1] captured ceiling.created = [{"id":"ceiling_01M1BC6A0KJKVN4K8K9WGRMZ0A","levelId":"L0","boundaryLen":4,"ceilingHeight":2.7,"thickness":0.05,"materialId":"MAT-GYPSUM","materialColor":"#eeeeee","commandType":"ceiling.create"}]
+[B-1] plugin DTO readback present = false
+[B-2] curtain-wall.create outcome = OK
+[B-2] captured curtain-wall.created = [{"id":"curtainwall_01M1BC6A14NEGYF91FGJF9J171","levelId":"L0","baseLineLen":2,"height":3,"bayWidth":1.5,"bayHeight":1.5,"mullionThickness":0.05,"materialId":"MAT-GLASS","commandType":"curtain-wall.create"}]
+[C-1] have a real event = true
+[C-1] mirror returned = record
+[C-1] record keys = ["boundary","boundingWallIds","ceilingNumber","coveredRoomIds","finishSpec","holeElements","id","ifcData","label","levelId","metadata","parentId","properties","type","visible"]
+[C-1] record materialId/materialColor = undefined / undefined
+[C-1] AUTHORITATIVE CeilingStore.add() = ACCEPTED VERBATIM
+[C-1] READBACK store.getById = PRESENT
+[C-1] store.has = true
+[C-1] DOM bim-ceiling-added details = [{"id":"ceiling_01M1BC6A0KJKVN4K8K9WGRMZ0A"}]
+[C-1] storeEventBus ceiling events = [{"elementId":"ceiling_01M1BC6A0KJKVN4K8K9WGRMZ0A","elementType":"ceiling","operation":"create","timestamp":1788162025537}]
+[C-1] after register: elements.get(ceiling) === store = true
+[C-1] 2nd ceiling.create outcome = OK
+[C-1] COMPOSITION-ROOT readback = ABSENT
+[C-2] have a real event = true
+[C-2] mirror returned = record
+[C-2] record keys = ["baseLine","baseOffset","gridXSpacing","gridYSpacing","height","id","levelId","mullionSize","panelThickness","type"]
+[C-2] AUTHORITATIVE CurtainWallStore.add() = ACCEPTED VERBATIM
+[C-2] READBACK store.has = true
+[C-2] store.get = PRESENT
+[C-2] subscribe fired = [{"event":"add","id":"curtainwall_01M1BC6A14NEGYF91FGJF9J171"}]
+[C-2] gridSystem cells = no gridSystem
+[C-2] height = 3
+[C-2] after register: elements.get(curtain-wall) === store = true
+[C-2] 2nd curtain-wall.create outcome = OK
+[C-2] COMPOSITION-ROOT readback = false
+[D-1] listener body store.getById = PRESENT
+[D-1] scene.children before/after = 0 / 0
+[D-1] MESHES = 0 · verts = 0
+[D-1] after direct _buildCeilingSync: MESHES = 1 · verts = 36
+[D-2] scene.children before/after = 0 / 1
+[D-2] MESHES = 10 · verts = 240
+[E-1] GEOMETRY_ELEMENT_TYPES = null
+[E-1] PLAN_INCREMENTAL_SAFE_TYPES = ["wall","slab","beam","ceiling","floor"]
+[E-1] viewDependencyTracker singleton = ViewDependencyTracker
+[E-1] VDT.registerElement executed OK for both
+[Z] lines = 48

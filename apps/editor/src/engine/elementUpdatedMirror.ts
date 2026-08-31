@@ -60,6 +60,8 @@
  * than copied hopefully.
  */
 
+import { legacyRoofSlopeFromPitch, legacyRoofTypeFromShape } from './roofCreatedMirror.js';
+
 /** The `element.updated` fields this mirror consumes. Structurally a subset of
  *  `RuntimeEvents['element.updated']`, declared locally so this module stays free
  *  of a `@pryzm/runtime-composer` import (and of the pdfjs-bearing barrel behind
@@ -215,6 +217,17 @@ const LEGACY_UPDATABLE_STORES: Readonly<Record<string, LegacyFamilyAdapter>> = {
         fields: {
             overhang: { to: 'overhang' },   // RoofTypes.ts:84/98, same units.
             thickness: { to: 'thickness' }, // RoofTypes.ts:61/85/101, same units.
+            // §FIX-ROOF-UPDATE-MIRROR — BOTH maps are IMPORTED from
+            // `roofCreatedMirror.ts`, never restated. That module is where L-699
+            // paid for `mono ↦ shed` (a `mono` roof rendered FLAT because the two
+            // vocabularies spell one roof form differently) and for `tan(pitch)`.
+            // A hand-copied second table here is precisely how a create path and an
+            // update path come to disagree about the same roof.
+            shape: { to: 'roofType', map: legacyRoofTypeFromShape },
+            // ⚠ NAME ≠ CONCEPT. The legacy record has no `pitch`; it has `slope`,
+            // in rise/run rather than radians. The standing note that this could
+            // not be mirrored rested on a grep for the WORD.
+            pitch: { to: 'slope', map: legacyRoofSlopeFromPitch },
         },
     },
     column: {

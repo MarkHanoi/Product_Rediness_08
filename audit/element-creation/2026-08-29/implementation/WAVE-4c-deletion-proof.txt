@@ -1,0 +1,17 @@
+WAVE 4c — deletion proof, re-run any time. 2026-08-31T07:10:48Z
+
+[1] ASSIGNMENT SITE (source) — must be ZERO non-comment hits
+  ZERO — no code line assigns or reads window.dimensionTool
+
+[2] ACTIVATION SITE (sink) — must be ZERO
+  ZERO — nothing calls runtime.tools.activate('dimension')
+
+[3] REGISTRATION — must be ZERO live register() calls
+  ZERO — the activator is gone
+
+[4] DimensionTool importers — must be ZERO (never exported from the barrel)
+  ZERO — DimensionTool has no importer anywhere
+
+[5] THE LIVE PATH still stands (this is the capability, and it is untouched)
+apps/editor/src/PluginRegistry.ts:1085:  //     → toolManager.activateLinearDimAnnotation()
+apps/editor/src/ui/tools-panel/panels/AnnotationRailPanel.ts:131:                toolManager.activateLinearDimAnnotation();

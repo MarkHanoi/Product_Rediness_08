@@ -22,6 +22,7 @@ import type {
   SelectionMode,
   SelectionTarget,
 } from '@pryzm/plugin-sdk';
+import { resolveSelectionStore } from './selectionStoreAccess.js';
 
 export interface SelectPayload {
   readonly targets: readonly SelectionTarget[];
@@ -36,6 +37,11 @@ export class SelectSelectionHandler
 {
   readonly type = 'selection.select';
   readonly affectedStores = ['selection'] as const;
+
+  /** §SEL-STORE-IDENTITY — the canonical SelectionStore, ADOPTED from the
+   *  composition root (never constructed here). `null` falls back to
+   *  `ctx.stores.selection` for buses that really do hand store instances. */
+  constructor(private readonly store: SelectionStore | null = null) {}
 
   canExecute(_ctx: HandlerContext<SelectionStores>, cmd: SelectPayload): ValidationResult {
     if (!Array.isArray(cmd.targets)) {
@@ -68,7 +74,8 @@ export class SelectSelectionHandler
     // records an audit event without a meaningful undo entry.  Per
     // ADR-0015 §"Consequences", undoing a selection would be confusing
     // UX; per-spec line 718 selection state is ephemeral by design.
-    ctx.stores.selection.select(cmd.targets, cmd.mode ?? 'replace');
+    resolveSelectionStore(this.store, ctx.stores, this.type)
+      .select(cmd.targets, cmd.mode ?? 'replace');
     return { forward: [], inverse: [] };
     }); // withHandlerSpan — C10 §2
   }

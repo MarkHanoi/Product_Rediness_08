@@ -283,6 +283,29 @@ const ELEMENT_UPDATE_VERBS: Readonly<Record<string, ElementUpdateVerbSpec>> = {
     kind: 'roof', idField: 'roofId', fields: ['thickness'],
     note: 'Legacy `RoofData.thickness` (RoofTypes.ts:61/85/101). Same Partial contract.',
   },
+  // §FIX-ROOF-UPDATE-MIRROR — the two verbs that change what a roof LOOKS LIKE.
+  // Both were on `mirror-debt.json`; `roof.setPitch`'s row named a NAME-BLIND grep
+  // as its reason (see `legacyRoofSlopeFromPitch`), and `roof.setShape`'s was never
+  // investigated at all ("SEEDED BACKLOG"). Neither needed new machinery: the two
+  // translations already existed on the CREATE path and are now exported from
+  // `roofCreatedMirror.ts` and shared, so create and update cannot drift.
+  'roof.setShape': {
+    kind: 'roof', idField: 'roofId', fields: ['shape', 'pitch'],
+    note: 'TWO fields because `SetRoofShapeHandler.execute` writes two: `r.shape = cmd.shape` '
+        + 'AND `if (cmd.shape === "flat") r.pitch = 0`. Declaring only `shape` would leave a '
+        + 'gable→flat roof rendering FLAT with its old slope still in the legacy record — the '
+        + 'half-write this table exists to stop. The intersection against `record.forward` means '
+        + 'a non-flat shape change still announces `shape` alone.',
+  },
+  'roof.setPitch': {
+    kind: 'roof', idField: 'roofId', fields: ['pitch'],
+    note: 'Legacy `RoofData.slope` (RoofTypes.ts:96), via `legacyRoofSlopeFromPitch` — RADIANS '
+        + 'to RISE/RUN. ⚠ This row was ABSENT on the strength of `grep -n "pitch" RoofTypes.ts '
+        + '→ 0 hits`, quoted in three files. The grep is right; the inference is not. The legacy '
+        + 'record holds the concept under a different NAME and different UNITS, and the '
+        + 'conversion was already shipped on the create path (L-699). Searching for the name you '
+        + 'would give a thing cannot find the thing somebody else named.',
+  },
 
   // ── column ──────────────────────────────────────────────────────────────
   'column.setHeight': {
@@ -367,21 +390,127 @@ interface CommittedBeam {
   steelProfileName?: string;
 }
 
+/**
+ * §FIX-CEB-READ-THE-COMMIT (wave 4f/4g) — the ONE indexer every create case reads
+ * its committed records through.
+ *
+ * ⭐ WHY THIS GENERALISED. `indexCommittedBeams` proved the move for beams
+ * (§FIX-BEAM-CEB-STEEL, L-974): read what the handler COMMITTED, not what the
+ * caller REQUESTED, so the handler's own normalisation — alias folding, defaults,
+ * and above all **the id it mints when the payload omits one** — reaches the
+ * bridge instead of being re-derived here. Three more cases needed exactly that
+ * and each was guarding on a payload field the handler is allowed to supply:
+ *
+ *   · `column.batch.create` — `CreateColumnBatch.ts:100` does
+ *     `const id = (c.id ?? createId('column'))`, and this file skipped every
+ *     id-less member with a bare `continue`. N columns committed, ZERO
+ *     `column.created` events, no console line (B2-COL-01).
+ *   · `beam.batch.create`   — same shape, `CreateBeamBatch.ts:92` (B2-BEAM-03).
+ *   · `slab.create`         — `CreateSlab.ts` mints the id AND resolves
+ *     `polygon`/`boundary` into one `boundary`; this case read neither
+ *     (B1-SLAB-01 / B1-SLAB-03).
+ *
+ * ⛔ `op === 'add'` and `path.length === 1` ONLY, deliberately unchanged from the
+ * beam original: that is the shape of `draft[record.id] = record` in a
+ * single-store `produceCommand`, and nothing else. A handler that mutates some
+ * other way yields an EMPTY map and every caller falls back to the payload —
+ * degraded, never wrong.
+ */
+function indexCommittedById<T>(
+  forward: readonly { readonly op: string; readonly path: readonly (string | number)[]; readonly value?: unknown }[],
+): Map<string, T> {
+  const byId = new Map<string, T>();
+  for (const patch of forward) {
+    if (patch.op !== 'add' || patch.path.length !== 1) continue;
+    const value = patch.value as T | undefined;
+    if (!value || typeof value !== 'object') continue;
+    const id = String(patch.path[0]);
+    if (id.length > 0) byId.set(id, value);
+  }
+  return byId;
+}
+
 /** Index the beams this command actually COMMITTED, keyed by id. Empty when the
  *  handler mutated through a different patch shape — callers fall back to the
  *  payload, exactly as the wall path does. */
 function indexCommittedBeams(
   forward: readonly { readonly op: string; readonly path: readonly (string | number)[]; readonly value?: unknown }[],
 ): Map<string, CommittedBeam> {
-  const byId = new Map<string, CommittedBeam>();
-  for (const patch of forward) {
-    if (patch.op !== 'add' || patch.path.length !== 1) continue;
-    const value = patch.value as CommittedBeam | undefined;
-    if (!value || typeof value !== 'object') continue;
-    const id = String(patch.path[0]);
-    if (id.length > 0) byId.set(id, value);
-  }
-  return byId;
+  return indexCommittedById<CommittedBeam>(forward);
+}
+
+/**
+ * §FIX-ROOF-CEB-MATERIAL (B2-ROOF-01) — the committed roof, for the two fields
+ * the emit below used to drop. `RoofData.materialId` / `.materialColor` exist on
+ * BOTH sides (`packages/geometry-roof/src/RoofTypes.ts:107-108` and the L0 `Roof`
+ * schema), and `roofCopyPayload` has been sending both since L-978; only this hop
+ * did not list them, so a copied roof reached the legacy store — the store the
+ * fragment builder, the plan projector, the IFC exporter and persistence all read
+ * — with the default finish. Same mechanism as §FIX-BEAM-CEB-STEEL, one family later.
+ */
+interface CommittedRoof {
+  id?: string;
+  levelId?: string;
+  materialId?: string;
+  materialColor?: string;
+}
+
+/** §FIX-CEB-READ-THE-COMMIT — the committed column, for the id the batch handler mints. */
+interface CommittedColumn {
+  id?: string;
+  levelId?: string;
+  origin?: { x: number; y: number; z: number };
+  shape?: string;
+  width?: number;
+  depth?: number;
+  height?: number;
+  baseOffset?: number;
+  rotation?: number;
+  materialId?: string;
+}
+
+/** §FIX-CEB-READ-THE-COMMIT — the committed slab. `boundary` is the ONE spelling
+ *  `CreateSlabHandler` commits, whichever of `boundary` / `polygon` the caller sent. */
+interface CommittedSlab {
+  id?: string;
+  levelId?: string;
+  boundary?: ReadonlyArray<{ x: number; y: number; z: number }>;
+  thickness?: number;
+  baseOffset?: number;
+  materialId?: string;
+  systemTypeId?: string;
+}
+
+/**
+ * §FIX-SLAB-CEB-BOUNDARY (B1-SLAB-01) — the legacy plan polygon a committed slab
+ * boundary describes: `{x, y}` with **y carrying world Z**, which is what
+ * `SlabStore` / `SlabFragmentBuilder` / the §FT1 bridge in `initTools.ts` read.
+ *
+ * ⭐ THE SECOND COORDINATE IS TAKEN FROM `z`, NOT FROM `y`, AND THAT IS CORRECT
+ * UNDER BOTH LIVE CONVENTIONS — which is the whole reason one rule suffices:
+ *
+ *   · The §FIX-SLAB-ZERO-AREA convention (`SlabPlanToolHandler.ts:438`,
+ *     `copyPayloads.ts` `shift()`) sends world Z in **both** `y` and `z`, so
+ *     `y` and `z` are equal and either reads the same.
+ *   · A true world Vec3 (`{x, y: elevation, z: worldZ}`) has the depth in `z`,
+ *     and reading `y` would put the polygon at the level elevation — a
+ *     degenerate sliver at datum 0 and a hole somewhere else on every other
+ *     level, exactly the failure `vec3RingsToPlanRings` documents for holes.
+ *
+ * And no committed boundary can have a meaningless `z`: `validateSlabBoundary`
+ * measures `signedAreaXZ`, so a boundary whose `z` were all zero would have been
+ * REFUSED before it ever committed.
+ *
+ * ⚠ WHAT THIS DOES NOT DO: unify the convention. `slab.create {polygon:[{x,y}]}`
+ * still refuses with "boundary has zero area", because the handler's own
+ * validation is x-z. C11 §7.4 tracks that as SLAB-BOUNDARY-CONVENTION; this
+ * function makes the BRIDGE convention-agnostic, it does not make the HANDLER so.
+ */
+function planPolygonFromCommittedBoundary(
+  boundary: ReadonlyArray<{ x: number; y: number; z: number }> | undefined,
+): Array<{ x: number; y: number }> | undefined {
+  if (!boundary || boundary.length < 3) return undefined;
+  return boundary.map((p) => ({ x: p.x, y: p.z }));
 }
 
 /** A point as any of the beam producers spell it. */
@@ -621,32 +750,84 @@ export function wireCommandEventBridge(
           // trigger SlabFragmentBuilder mesh rebuild — same pattern as §P3.2-RF roof.create.
           // Fields map directly to SlabData: polygon={x,y}[] (y=worldZ per plan convention),
           // position={0,0,0} (centroid NOT pre-added — SlabFragmentBuilder adds it internally).
+          // §FIX-SLAB-CEB-BOUNDARY (B1-SLAB-01 / B1-SLAB-03) — READ THE COMMIT.
+          //
+          // ⛔ THE DEFECT THIS CLOSES IS A ONE-WORD ASYMMETRY WITH THE BATCH CASE
+          // TWENTY LINES BELOW. This case read `p.polygon` and NEVER `p.boundary`;
+          // the batch case reads `s.polygon ?? s.boundary`. `CreateSlabPayload`
+          // accepts BOTH (`CreateSlab.ts` — `boundary` is the L0 field, `polygon`
+          // the plan-tool alias), and `PreviewManager.ts:330` dispatches the
+          // `boundary` spelling. So an accepted preview slab committed, reported
+          // success, emitted `slab.created` with `polygon: undefined`, and the
+          // §FT1 bridge's `!ev.polygon` guard returned — no legacy record, no
+          // mesh, no plan symbol, no persistence. Dispatchable, invisible.
+          //
+          // Reading the COMMITTED record fixes both halves at once and is the move
+          // `beam.create` already makes (ADR-002 §5): the handler folds `polygon`
+          // and `boundary` into ONE `boundary` and mints the id when the payload
+          // omits one, so relaying the commit means this bridge never has to own a
+          // second copy of either rule. The payload stays as the fallback for the
+          // legacy-mirror-only fields (`ifcGuid`, `position`, `width`, `depth`)
+          // that `SlabData` carries and the L0 schema does not.
           const p = record.payload as {
             id?: string;
             levelId?: string;
             ifcGuid?: string;
             polygon?: Array<{ x: number; y: number }>;
+            boundary?: Array<{ x: number; y: number; z: number }>;
             position?: { x: number; y: number; z: number };
             width?: number;
             depth?: number;
             thickness?: number;
             baseOffset?: number;
             materialId?: string;
+            systemTypeId?: string;
           };
+          const _slabCommits  = indexCommittedById<CommittedSlab>(record.forward ?? []);
+          // The payload id when there is one; otherwise the SINGLE id the command
+          // committed. `size === 1` and not `[0]`: a create that somehow committed
+          // two records must not have one of them silently chosen for it.
+          const _slabId = p.id ?? (_slabCommits.size === 1
+            ? [..._slabCommits.keys()][0]
+            : undefined);
+          const _slabCommitted = _slabId !== undefined ? _slabCommits.get(_slabId) : undefined;
+          const _slabPolygon =
+            p.polygon
+            ?? planPolygonFromCommittedBoundary(_slabCommitted?.boundary)
+            ?? planPolygonFromCommittedBoundary(p.boundary);
+          if (_slabId === undefined || _slabPolygon === undefined) {
+            // REFUSE BY NAME — the §FIX-BEAM-CEB-BASELINE disposition, applied to
+            // the family that needed it most. Emitting a `slab.created` the §FT1
+            // guard will drop IS the silent failure: the command reports success,
+            // the plugin store holds a slab, and nothing anywhere says the user's
+            // floor plate did not arrive.
+            console.error(
+              `[CommandEventBridge] §FIX-SLAB-CEB-BOUNDARY: REFUSED slab ${_slabId ?? '<no id>'} — ` +
+              `its slab.create neither carried nor committed a usable outline ` +
+              `(payload \`polygon\`: ${p.polygon ? p.polygon.length + ' pts' : 'absent'}, ` +
+              `payload \`boundary\`: ${p.boundary ? p.boundary.length + ' pts' : 'absent'}, ` +
+              `committed \`boundary\`: ${_slabCommitted?.boundary ? _slabCommitted.boundary.length + ' pts' : 'absent'}), ` +
+              `so no slab.created was emitted and no mesh, plan symbol or snapshot row will exist for it. ` +
+              `The command itself may still have committed to the plugin store.`,
+            );
+            break;
+          }
           events.emit('slab.created', {
             commandId:    record.id,
             commandType:  'slab.create',
-            levelId:      p.levelId ?? '',
+            levelId:      _slabCommitted?.levelId ?? p.levelId ?? '',
             elementCount: 1,
-            id:           p.id,
+            id:           _slabId,
             ifcGuid:      p.ifcGuid,
-            polygon:      p.polygon,
+            polygon:      _slabPolygon,
             position:     p.position,
             width:        p.width,
             depth:        p.depth,
-            thickness:    p.thickness,
-            baseOffset:   p.baseOffset,
-            materialId:   p.materialId,
+            thickness:    _slabCommitted?.thickness ?? p.thickness,
+            baseOffset:   _slabCommitted?.baseOffset ?? p.baseOffset,
+            // §CW90-style type parity: the handler folds `systemTypeId` into the
+            // record it commits, so the commit is the one place both spellings agree.
+            materialId:   _slabCommitted?.materialId ?? p.materialId ?? p.systemTypeId,
           });
           break;
         }
@@ -863,8 +1044,64 @@ export function wireCommandEventBridge(
             levelId?: string;
           };
           const _batchColLevelId = p.levelId ?? '';
+          // §FIX-CEB-READ-THE-COMMIT (B2-COL-01) — EMIT FROM THE COMMIT, NOT FROM
+          // THE REQUEST. This is the whole column defect and it was ONE guard:
+          //
+          //   `if (!c.id || !c.origin) continue;`
+          //
+          // `CreateColumnBatch.ts:100` mints `const id = (c.id ?? createId('column'))`
+          // and `:113` defaults `origin: c.origin ?? {x:0,y:0,z:0}`, so BOTH halves of
+          // that guard test a field the handler is explicitly allowed to supply. A
+          // batch of N id-less columns committed N records to the plugin store and
+          // emitted ZERO `column.created` events — with no console line, because
+          // `continue` is silent. Single `column.create` was unaffected (its callers
+          // pre-generate), which is exactly why the family read `renders_3d: YES`
+          // while batch creation drew nothing.
+          //
+          // The committed `ColumnData` carries EVERY field this emit needs, already
+          // defaulted and already schema-parsed, so relaying it removes the payload's
+          // second copy of the default table as well. No ordering assumption is made:
+          // the commit is keyed by the id the store actually holds.
+          const _colCommits = indexCommittedById<CommittedColumn>(record.forward ?? []);
+          if (_colCommits.size > 0) {
+            for (const [_colId, c] of _colCommits) {
+              events.emit('column.created', {
+                commandId:    record.id,
+                commandType:  'column.create',
+                levelId:      c.levelId ?? _batchColLevelId,
+                elementCount: 1,
+                id:           _colId,
+                origin:       c.origin,
+                shape:        c.shape,
+                width:        c.width,
+                depth:        c.depth,
+                height:       c.height,
+                baseOffset:   c.baseOffset,
+                rotation:     c.rotation,
+                materialId:   c.materialId,
+              });
+            }
+            break;
+          }
+          // FALLBACK — the handler mutated through some other patch shape, so the
+          // index is empty. Degraded, never wrong: this is the pre-existing payload
+          // relay, with the `!c.id` half of the guard kept (an id-less member cannot
+          // be named without the commit) and a NAMED refusal where it used to be a
+          // bare `continue`.
+          console.warn(
+            '[CommandEventBridge] §FIX-CEB-READ-THE-COMMIT: column.batch.create ' +
+            'committed no indexable records (forward patches: ' +
+            (record.forward?.length ?? 0) + '); falling back to the request payload.',
+          );
           for (const c of (p.columns ?? [])) {
-            if (!c.id || !c.origin) continue;
+            if (!c.id) {
+              console.error(
+                '[CommandEventBridge] §FIX-CEB-READ-THE-COMMIT: SKIPPED an id-less member of ' +
+                'column.batch.create — the commit could not be indexed and the payload names ' +
+                'no id, so no column.created was emitted for it and no mesh will be built.',
+              );
+              continue;
+            }
             events.emit('column.created', {
               commandId:    record.id,
               commandType:  'column.create',
@@ -1297,17 +1534,71 @@ export function wireCommandEventBridge(
             pitch?: number;
             /** §ROOF-FOLLOWS-WALL (L-924) — the walls a REGION-mode roof was traced from. */
             boundingWallIds?: string[];
+            /** §FIX-ROOF-CEB-MATERIAL — present on the payload since L-978
+             *  (roofCopyPayload), read by nothing on this hop until now. */
+            materialId?: string;
+            materialColor?: string;
+            systemTypeId?: string;
           };
+          // §FIX-ROOF-CEB-MATERIAL (B2-ROOF-01) — READ THE COMMIT, for the id and
+          // for the two finish fields this emit dropped.
+          //
+          // ⛔ THE ID HALF IS THE LATENT DROP THE ROOF FAMILY SHARES WITH SLAB,
+          // CEILING AND CURTAIN-WALL. CreateRoof.ts:56 does
+          // `const id = (cmd.id ?? createId('roof'))`, so a dispatcher that omits
+          // the id gets a COMMITTED roof; this case then relayed `id: p.id` ===
+          // undefined and the §P3.2-RF subscriber's `!ev.id` guard returned.
+          // Committed, invisible, silent. Every reachable dispatcher pre-generates
+          // TODAY (RoofPlanToolHandler:258, CopyPlanToolHandler:529,
+          // duplicateToLevel), which is why this is latent rather than an outage —
+          // and exactly why it belongs at the bridge rather than in a note asking
+          // every future dispatcher to remember. Wall is the only family already
+          // immune, for precisely this reason: it reads the committed patch id.
+          //
+          // ⛔ THE MATERIAL HALF IS ALREADY FIRING, AND IT IS A FIDELITY DEFECT,
+          // NOT A REACHABILITY ONE. materialId / materialColor exist on BOTH sides
+          // — L0 `Roof` (Roof.ts:77-78) and legacy `RoofData` (RoofTypes.ts:107-108)
+          // — and `roofCopyPayload` has sent both since L-978. Only this hop failed
+          // to list them, so a copied or AI-authored roof reached the legacy store
+          // (the store RoofFragmentBuilder, the 2-D plan projector, the IFC exporter
+          // and ProjectSerializer all read) wearing the DEFAULT finish, while every
+          // seven-fact milestone for the family still read YES. A chain that asks
+          // only "did something draw?" cannot see this class of defect at all;
+          // "something drew" is not the claim "the user's roof drew".
+          const _roofCommits = indexCommittedById<CommittedRoof>(record.forward ?? []);
+          const _roofId = p.id ?? (_roofCommits.size === 1
+            ? [..._roofCommits.keys()][0]
+            : undefined);
+          const _roofCommitted = _roofId !== undefined ? _roofCommits.get(_roofId) : undefined;
+          if (_roofId === undefined) {
+            // REFUSE BY NAME — the §FIX-BEAM-CEB-BASELINE / §FIX-SLAB-CEB-BOUNDARY
+            // disposition. Emitting an id-less roof.created IS the silent drop:
+            // the subscriber's guard swallows it and nothing says a roof went missing.
+            console.error(
+              '[CommandEventBridge] §FIX-ROOF-CEB-MATERIAL: REFUSED a roof.create — its ' +
+              'payload carried no id and the command committed ' + _roofCommits.size +
+              ' record(s), so no single committed roof could be named. No roof.created was ' +
+              'emitted and no mesh, plan symbol or snapshot row will exist for it. The ' +
+              'command itself may still have committed to the plugin store.',
+            );
+            break;
+          }
           events.emit('roof.created', {
             commandId:   record.id,
             commandType: 'roof.create',
-            levelId:     p.levelId ?? '',
-            id:          p.id,
+            levelId:     _roofCommitted?.levelId ?? p.levelId ?? '',
+            id:          _roofId,
             boundary:    p.boundary,
             shape:       p.shape,
             overhang:    p.overhang,
             thickness:   p.thickness,
             pitch:       p.pitch,
+            // §FIX-ROOF-CEB-MATERIAL — the COMMIT first, because CreateRoofHandler is
+            // where systemTypeId is resolved and where the L0 schema's own defaults
+            // land. `p.systemTypeId` is the last resort, the same ladder beam.create
+            // and slab.create already use in the two cases above.
+            materialId:    _roofCommitted?.materialId ?? p.materialId ?? p.systemTypeId,
+            materialColor: _roofCommitted?.materialColor ?? p.materialColor,
             // §ROOF-FOLLOWS-WALL (L-924) — forwarded UNTOUCHED, absence included.
             // This emit is a NAMED SUBSET of `record.payload`, so a field missing
             // from this list is dropped in flight however correctly the plan tool

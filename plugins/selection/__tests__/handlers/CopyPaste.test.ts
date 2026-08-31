@@ -17,7 +17,12 @@ import {
   SelectionClipboard,
   type ClipboardEntry,
   type SelectionPastePort,
-} from '../../src/handlers/clipboard.js';
+// §SEL-STORE-IDENTITY (W4d) — this was '../../src/handlers/clipboard.js', a path that
+// has NEVER existed (clipboard.ts lives at src/clipboard.ts). The file therefore failed
+// COLLECTION on every run and its five copy/paste cases had NEVER EXECUTED: the plugin
+// suite reported "4 files / 9 tests, all green" while this one silently did not load.
+// Fixed rather than left dark — [[committed-is-not-reachable]], [[grep-silence-has-three-causes]].
+} from '../../src/clipboard.js';
 
 /** Fake port — records paste calls and mints a distinct id per paste. */
 function makeFakePort() {

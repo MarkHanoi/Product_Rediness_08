@@ -46,6 +46,34 @@
  * directory with the same four extensions, and reproduces that one glob as the
  * `excluded()` predicate below.
  *
+ * ─── §CONVERGE-CM-COUNTERS-CALLER (2026-08-31) — WHY THIS IS NOT A THIRD RIVAL ──
+ *
+ * CLAUDE.md records "THREE denominators, three verdicts, ONE subject" for the three
+ * gates whose names contain `commandmanager`. That framing is right about two of them
+ * and WRONG about this one, and the confusion is a naming accident, not a design flaw.
+ *
+ *   scripts/check/ci-check-no-commandmanager.mjs   CALL SITES  packages/ + plugins/
+ *   tools/ga-gate/check-no-commandmanager.ts       CALL SITES  apps/editor/src
+ *   THIS GATE                                      TYPE ERASURE (LP-03)  packages/
+ *
+ * The first two measure ONE concept — "a call site reaching the legacy command
+ * manager" — and were method rivals over it until 2026-08-31, when the .ts gate was
+ * wired to the .mjs detector so there is one definition. THIS gate measures a
+ * DIFFERENT concept: the `any` annotation, which is a type-safety defect whether or
+ * not the parameter is ever `.execute`d. C84 EI-9 asks for one authority per concept,
+ * not one gate per keyword; folding this into a call-site counter would erase a
+ * subject, not converge one.
+ *
+ * VERIFIED, not asserted (2026-08-31): of the 25 matched lines, ZERO are call sites.
+ * The only one containing the substring "execute" is
+ *   packages/file-format/src/import/ifc/conversion/IfcConversionContext.ts:19
+ *   export function executeHumanDirect(commandManager: any, command: any): any
+ * — a parameter annotation on a function whose NAME contains "execute". (It is also,
+ * pleasingly, the exact helper the authority's ARM 3 discovers from the tree, so the
+ * two gates meet here on the same line for two unrelated reasons.)
+ *
+ * DISPOSITION: WIRE — keep, distinct concept, registered in run-all.ts.
+ *
  * Exit: 0 = at/under ceiling and baseline · 1 = over either · 2 = scan misconfigured
  */
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';

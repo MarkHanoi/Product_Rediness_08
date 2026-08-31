@@ -1027,6 +1027,27 @@ export interface RuntimeEvents {
      * that case: `[]` means "traced, and bounded by no wall".
      */
     readonly boundingWallIds?: readonly string[];
+    /**
+     * §FIX-ROOF-CEB-MATERIAL (B2-ROOF-01) — the user's chosen finish, in the two
+     * spellings BOTH records already carry: `materialId` is the master id and
+     * `materialColor` the resolved hex cache, on the L0 `Roof` schema
+     * (`Roof.ts:77-78`) AND on legacy `RoofData` (`RoofTypes.ts:107-108`).
+     *
+     * ⚠ THEIR ABSENCE WAS STRUCTURAL, THE THIRD TIME IN THIS ONE EVENT — after
+     * `pitch` (L-699) and `boundingWallIds` (L-924), each of which was computed
+     * upstream, dispatched, and then dropped by this named subset. `roofCopyPayload`
+     * has sent both fields since L-978; nothing between the payload and
+     * `RoofStore.add()` had a slot for either, so a copied roof arrived wearing the
+     * default finish while every reachability milestone for the family read YES.
+     *
+     * ⭐ THIS IS THE FIDELITY CLASS, NOT THE REACHABILITY CLASS. `renders_3d`
+     * asks whether a mesh appeared; it cannot ask whether the mesh is the one the
+     * user asked for. A named-subset relay makes silent value loss the DEFAULT
+     * failure mode of every hop, and three separate defects in this single event
+     * are the receipt.
+     */
+    readonly materialId?: string;
+    readonly materialColor?: string;
   };
 
   /** Fired after `floor.create` succeeds.

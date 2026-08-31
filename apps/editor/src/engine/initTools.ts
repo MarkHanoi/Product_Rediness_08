@@ -2732,9 +2732,34 @@ export async function initTools(p: ToolsParams): Promise<ToolsResult> {
     // with id/kind/origin. This subscriber translates the PRYZM3 `kind`/`origin` shape
     // into the legacy `LightingData` (`fixtureType`/`position`), calls
     // lightingStore.add() AND builds the 3-D mesh (see the §LIGHT121 correction
-    // below). Lighting is NOT in GEOMETRY_ELEMENT_TYPES (no plan-view projection —
-    // by design), so no viewDependencyTracker registration. Mirrors the §FT-HANDRAIL
-    // bridge.
+    // below). Mirrors the §FT-HANDRAIL bridge.
+    //
+    // ⚠ CORRECTED §FIX-LIGHT-PLAN-INVALIDATION (Wave 4a, 2026-08-31). This
+    // comment used to end *"Lighting is NOT in GEOMETRY_ELEMENT_TYPES (no
+    // plan-view projection — by design), so no viewDependencyTracker
+    // registration."* THE PARENTHESIS WAS FALSE AND THE CONCLUSION FOLLOWED FROM
+    // IT. Lighting DOES have a plan representation — `renderLightingSymbols`
+    // (`core-app-model/src/views/symbols/LightingPlanSymbolRenderer.ts`), painted
+    // by `PlanViewCanvas._renderLightingPlanSymbols()` and by
+    // `views/plan-canvas/PlanViewSymbolRenderer.ts`. What was missing was never
+    // the PAINT, it was the INVALIDATION: placing, moving or deleting a fixture
+    // dirtied no view, so the symbol appeared only when some unrelated edit
+    // happened to repaint the plan. `LightingStore` (§L-1087) and its test suite
+    // each named the two-part fix in writing and deliberately stopped short of
+    // it; both halves land together now — `'lighting'` joins
+    // GEOMETRY_ELEMENT_TYPES (§PLAN-MEMBERSHIP-LIGHTING) and this bridge
+    // registers the id, in that Set's stated order.
+    //
+    // ⚠ ORDER IS LOAD-BEARING, and the C11 §11 column legend has it BACKWARDS.
+    // The registrations go BEFORE `lightingStore.add()`, not after — copying what
+    // the wall bridge DOES (§P2.1 / §G3-STALE-FIX, :1261-1310) rather than what
+    // the legend says. `LightingStore.add()` fires `storeEventBus` SYNCHRONOUSLY;
+    // if the id is not yet in `VDT._elementLevelMap` the event takes the
+    // §G3-STALE fallback — mark EVERY non-3D view dirty, plus a warn, per
+    // fixture. On a 48-fixture auto-furnish run that is 48 all-views sweeps, and
+    // it would be a regression handed over as a fix. The `bimManager` call moved
+    // up with it for the same reason (it was previously the last statement in the
+    // try block). Neither call reads the store, so running them first is safe.
     //
     // ⚠ CORRECTED §LIGHT121 (L-11902, founder: "I can't remove some lighting
     // fixtures — e.g. terracotta lamp table"). This comment used to claim
@@ -2799,6 +2824,30 @@ export async function initTools(p: ToolsParams): Promise<ToolsResult> {
                     fixtureType: _fixtureType,
                     position:    { x: ev.origin.x, y: _seatY, z: ev.origin.z },
                 };
+                // §FIX-LIGHT-PLAN-INVALIDATION (Wave 4a) — VDT + bimManager BEFORE
+                // `add()`. See the §G3-STALE-FIX note in this bridge's header for why
+                // the order is not cosmetic.
+                //
+                // ⚠ Canonical level resolution, the §DIAG-WALL-LEVEL rule (:1288-1300):
+                // `'' ?? 'L0'` is `''`, so an UNKNOWN storey must be REFUSED, not
+                // defaulted — a fixture registered under `''` is an orphan, and one
+                // defaulted to the ground storey bleeds onto the ground plan. The
+                // legacy record below still carries `_levelId` verbatim (an empty
+                // levelId is an S07-allowed store value); it is only the SPATIAL
+                // registration that refuses, exactly as the wall and water bridges do.
+                const _regLevelId = _levelId.trim();
+                if (_regLevelId.length === 0) {
+                    console.warn(
+                        '[initTools] §FT-LIGHTING ⚠ lighting.created with NO levelId — ' +
+                        'skipping spatial registration to avoid bleeding it onto the ground plan. id=',
+                        ev.id,
+                    );
+                } else {
+                    try { viewDependencyTracker.registerElement(ev.id, _regLevelId); }
+                    catch (err) { console.warn('[initTools] §FT-LIGHTING VDT.registerElement failed (non-fatal):', err); }
+                    try { bimManager.registerElement(ev.id, _regLevelId); }
+                    catch { /* non-fatal — may already be registered by CreateLightingCommand */ }
+                }
                 _ls.add(_data);
                 // §LIGHT121 (L-11902) — build the 3-D mesh HERE, not via an event
                 // listener that never existed. `LightingStore.add()` fires
@@ -2823,13 +2872,86 @@ export async function initTools(p: ToolsParams): Promise<ToolsResult> {
                 } else {
                     console.error('[initTools] §FT-LIGHTING: no lightingFragmentBuilder available — fixture', ev.id, 'has a store record but NO mesh and will not be selectable/deletable.');
                 }
-                try { bimManager.registerElement(ev.id, ev.levelId ?? ''); } catch { /* non-fatal */ }
+                // §FIX-LIGHT-PLAN-INVALIDATION — the `bimManager.registerElement` that
+                // used to sit HERE (after add) moved ABOVE the add() call, alongside the
+                // new VDT registration. See the §G3-STALE-FIX note in the bridge header.
                 console.log('[initTools] §FT-LIGHTING: lighting mirrored to legacy store', ev.id);
             } catch (err) {
                 console.error('[initTools] §FT-LIGHTING: failed to mirror lighting to legacy store — mesh may not build:', err);
             }
         });
         console.log('[initTools] §FT-LIGHTING: lighting.created bus→legacy-store bridge registered.');
+    }
+
+    // §FT-ROOM-PLAN (Wave 4e, 2026-08-31) — the room's PLAN-INVALIDATION leg.
+    //
+    // ─── WHY THIS HOOKS THE STORE AND NOT A COMMAND ─────────────────────────────
+    // Every other bridge in this file subscribes to a bus `<family>.created` event.
+    // A room bridge of that shape would be WRONG HERE, and measurably so: rooms are
+    // minted by ROOM DETECTION at least as often as by `room.create`, and detection
+    // writes `RoomStore` directly. A `room.created` subscriber would therefore leave
+    // the dominant creator unregistered, and an unregistered id is exactly what the
+    // §G3-STALE fallback punishes — one all-views sweep per detected room.
+    //
+    // `RoomStore` emits `bim-room-added` / `-updated` / `-removed` from inside all
+    // three mutators (`RoomStore.ts:272`, `:376`, `:414`), and — this is the part
+    // that makes the ordering work without touching that file — it emits the DOM
+    // event ONE LINE BEFORE the `storeEventBus` emit in each. `DOMEventBus.emit`
+    // dispatches a `CustomEvent` on `window`, which is synchronous, so this listener
+    // has always finished registering by the time `ViewDependencyTracker
+    // ._onStoreEvent` sees the semantic event. That is the §G3-STALE-FIX ordering
+    // guarantee (registration BEFORE the store event), obtained from the store's own
+    // emit order rather than by re-ordering a bridge.
+    //
+    // ⚠ THIS IS THE SECOND HALF OF A PAIR. Alone it does nothing: `_onStoreEvent`
+    // drops the event one line in unless `'room'` is in `GEOMETRY_ELEMENT_TYPES`.
+    // The two land together (see §PLAN-MEMBERSHIP-ROOM in `ViewDependencyTracker`),
+    // because either one on its own is a no-op and adding the Set entry FIRST would
+    // ship the storm.
+    //
+    // ⚠ `bimManager.registerElement` is deliberately NOT called here.
+    // `viewDependencyTracker.registerElement` is a pure `Map.set` — idempotent and
+    // O(1), which matters because `bim-room-updated` fires per detection pass
+    // (`geometryMutationEvents.ts` records L-1154/L-1155 measuring hundreds per
+    // batch). `bimManager` maintains `level.childrenIds` as an ARRAY, and the room's
+    // creation commands already register it there; re-registering on every detection
+    // pass is how you grow that array without bound.
+    if (typeof window !== 'undefined') {
+        const _roomLevelOf = (e: Event): { id?: string; levelId?: string } =>
+            ((e as CustomEvent).detail ?? {}) as { id?: string; levelId?: string };
+
+        const _registerRoom = (e: Event): void => {
+            const { id, levelId } = _roomLevelOf(e);
+            if (!id) return;
+            // §DIAG-WALL-LEVEL — refuse an unknown storey rather than defaulting it.
+            // A room registered under '' is an orphan; one defaulted to the ground
+            // storey draws its fill and its bounding lines on the wrong plan.
+            const _lvl = (levelId ?? '').trim();
+            if (_lvl.length === 0) {
+                console.warn(
+                    '[initTools] §FT-ROOM-PLAN ⚠ room store event with NO levelId — skipping ' +
+                    'spatial registration to avoid bleeding it onto the ground plan. roomId=', id,
+                );
+                return;
+            }
+            try { viewDependencyTracker.registerElement(id, _lvl); }
+            catch (err) { console.warn('[initTools] §FT-ROOM-PLAN VDT.registerElement failed (non-fatal):', err); }
+        };
+
+        window.addEventListener('bim-room-added', _registerRoom);
+        // A room's storey is immutable (`RoomStore.update` guards `levelId`), so the
+        // update leg cannot re-home one. It is still registered here because a room
+        // restored by ProjectLoader / undo can reach `update` without this session
+        // having seen its `added` event, and an unregistered id on the update path
+        // is the same §G3-STALE sweep as on the create path.
+        window.addEventListener('bim-room-updated', _registerRoom);
+        window.addEventListener('bim-room-removed', (e: Event) => {
+            const { id } = _roomLevelOf(e);
+            if (!id) return;
+            try { viewDependencyTracker.unregisterElement(id); }
+            catch { /* non-fatal */ }
+        });
+        console.log('[initTools] §FT-ROOM-PLAN: bim-room-added/updated/removed → viewDependencyTracker bridge registered.');
     }
 
     // §FT-FURNITURE (FURNITURE-BUS-MIGRATION — C11 §11.10): bus → legacy-FurnitureStore.

@@ -84,15 +84,48 @@ describe('BIM30 Phase 4 — graph.* read-only bus verbs (D-INV-1/2/3)', () => {
     }
   });
 
-  it('NO-RESULTS ≠ refusal: a known element with no such edge answers ok+empty, not a refusal', async () => {
-    const bus = busWith(new GraphQueryService({ graph: seededGraph(), rooms }));
-    // room-B is a graph node (adjacency) but hosts nothing.
+  it('NO-RESULTS ≠ refusal: an ESTABLISHED empty answers ok+empty, not a refusal', async () => {
+    // ⚠ REWRITTEN FOR L-12860 — the invariant is unchanged, the SUBJECT was wrong.
+    //
+    // This case read `graph.query(room-B, 'hosts')` on the rationale *"room-B is a
+    // graph node (adjacency) but hosts nothing"*. It does not host nothing: room-B
+    // is a ROOM, the opening writer has never covered it, and `getHostedOpenings`
+    // — the typed reader that has existed on `SemanticGraphManager` all along —
+    // refuses that exact subject with `wall-unknown-to-hosts-writer`. So the case
+    // was pinning a CONFIDENT EMPTY over a question nobody had answered, which is
+    // the D-INV-1 defect this very file exists to forbid, asserted as its proof.
+    //
+    // D-INV-1 still needs its positive half — an emptiness that IS an answer must
+    // stay `{ ok: true, targets: [] }`, or the surface refuses everything and the
+    // feature dies. So the subject becomes one the WRITER has declared coverage
+    // over: the adjacency pass looked at room-B and found no door connecting it.
+    const graph = seededGraph();
+    graph.markAdjacencyCoverage(['room-B']);
+    const bus = busWith(new GraphQueryService({ graph, rooms }));
     const r = await dispatchGraphQuery(bus, 'graph.query', {
       elementId: 'room-B',
-      relationshipType: 'hosts',
+      relationshipType: 'connectedTo',
     });
     expect(r.ok).toBe(true);
     if (r.ok) expect(r.targets).toEqual([]);
+  });
+
+  it('L-12860: an UNESTABLISHED empty is a REFUSAL at the bus verb, not ok+empty', async () => {
+    // The other half, over the same composed bus (D-INV-3): the same shaped query
+    // on a subject the writer never covered must reach the AI host as a refusal.
+    // Without the coverage mark above, "no door connects room-B" and "no detection
+    // pass has ever looked at room-B" were the same value at this boundary.
+    const bus = busWith(new GraphQueryService({ graph: seededGraph(), rooms }));
+    const r = await dispatchGraphQuery(bus, 'graph.query', {
+      elementId: 'room-B',
+      relationshipType: 'connectedTo',
+    });
+    expect(r.ok).toBe(false);
+    if (!r.ok) {
+      expect(r.reason).toBe('room-unknown-to-adjacency-writer');
+      expect(r.reason).not.toBe('unknown-element');
+      expect(r.detail).toMatch(/NO ANSWER/);
+    }
   });
 
   it('REFUSAL: unknown element → typed unknown-element, NOT []', async () => {

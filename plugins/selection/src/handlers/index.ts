@@ -11,6 +11,8 @@ import {
   type SelectionClipboard,
   type SelectionPastePort,
 } from '../clipboard.js';
+import type { SelectionStore } from '@pryzm/plugin-sdk';
+import { resolveSelectionStore, SelectionStoreUnavailableError } from './selectionStoreAccess.js';
 
 export {
   SelectSelectionHandler,
@@ -19,6 +21,7 @@ export {
   CopySelectionHandler,
   PasteClipboardHandler,
 };
+export { resolveSelectionStore, SelectionStoreUnavailableError };
 export {
   selectionClipboard,
   SelectionClipboard,
@@ -67,6 +70,21 @@ export const SELECTION_HANDLER_TYPES = [
 export interface SelectionHandlerOptions {
   readonly clipboard?: SelectionClipboard;
   readonly pastePort?: SelectionPastePort;
+  /**
+   * §SEL-STORE-IDENTITY (W4d) — the canonical `SelectionStore` this handler set
+   * must mutate.
+   *
+   * ⭐ REQUIRED IN PRODUCTION. The bus's `storesProvider` hands handlers a
+   * `Record<id,dto>` view (`apps/editor/src/bootstrap.ts` `storesAsRecordView`),
+   * never a store instance, so without this every verb threw
+   * `ctx.stores.selection.<method> is not a function` at the composition root.
+   * `apps/editor/src/PluginRegistry.ts`'s selection descriptor passes the SAME
+   * instance it returns from `buildStore()` — adopted, never a second store.
+   *
+   * Omitted ⇒ the handlers fall back to `ctx.stores.selection` when it is really
+   * a store (the plugin's own suite; the S16-era bus).
+   */
+  readonly store?: SelectionStore;
 }
 
 export function buildSelectionHandlerSet(
@@ -80,11 +98,12 @@ export function buildSelectionHandlerSet(
 ] {
   const clipboard = opts.clipboard ?? selectionClipboard;
   const port = opts.pastePort ?? null;
+  const store = opts.store ?? null;
   return [
-    new SelectSelectionHandler(),
-    new DeselectSelectionHandler(),
-    new ClearSelectionHandler(),
-    new CopySelectionHandler(clipboard, port),
+    new SelectSelectionHandler(store),
+    new DeselectSelectionHandler(store),
+    new ClearSelectionHandler(store),
+    new CopySelectionHandler(clipboard, port, store),
     new PasteClipboardHandler(clipboard, port),
   ];
 }
