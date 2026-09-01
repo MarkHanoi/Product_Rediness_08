@@ -379,11 +379,24 @@ describe('Madrid PGOUM-97 — L-616: no zone yields an envelope BIGGER than the 
         }
     });
 
-    it('no zone is flagged `footprintIsUpperBound` — none has all-null setbacks with no rule', () => {
-        // That flag is the Copenhagen-karré tell (§L-619): the ring is the whole parcel ONLY because
-        // nothing was known. Every Madrid zone here knows at least one edge.
+    it('`footprintIsUpperBound` flags EXACTLY the zones with an unresolved edge (§NEVER-OVERSTATE-A)', () => {
+        // §NEVER-OVERSTATE-A (E2a, 2026-09-01) — this pin used to assert the flag FALSE for every
+        // zone, on the §L-619 all-null semantics ("every Madrid zone knows at least one edge").
+        // But the NZ 5 grados ship `front_m: null` and the pack's OWN block comment says of it:
+        // "the geometric effect is the same: NO front inset. On a narrow street that OVER-STATES."
+        // A partially-unknown setback is the same mechanism-A over-statement one notch narrower,
+        // so those zones now flag as upper-bound with a caveat naming the front axis. NZ 4 keeps
+        // its `alignment` rule (footprint-shaping ⇒ never flagged); every fully-stated setback
+        // zone stays a solved footprint.
+        const EXPECT_FLAGGED = new Set(['5.1', '5.2', '5.3']);
         for (const code of MADRID_PGOUM97_ZONE_CODES) {
-            expect(solve(code).footprintIsUpperBound, code).toBe(false);
+            const env = solve(code);
+            expect(env.footprintIsUpperBound, code).toBe(EXPECT_FLAGGED.has(code));
+            if (EXPECT_FLAGGED.has(code)) {
+                const caveat = env.caveats.find((c) => c.includes('UNKNOWN on the'));
+                expect(caveat, `${code} must name the unresolved axis`).toBeDefined();
+                expect(caveat!).toContain('front');
+            }
         }
     });
 

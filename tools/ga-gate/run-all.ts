@@ -135,6 +135,17 @@ const GATES: Gate[] = [
   { name: 'xss-sink-scan (P0/OI-051/L-407)',          script: 'check-xss-guards.ts' },
   { name: 'custom-event-apps (OI-050/F.events.2)',    script: 'check-custom-event-apps.ts' },
   { name: 'zoning-fidelity-label (C58§6/ADR-0279)',   script: 'check-zoning-fidelity-label.ts' },
+  // §NEVER-OVERSTATE (C58 §1.4/§1.14.4 · REPORT §M · lane E2a, 2026-09-01) — for EVERY
+  // registered rule pack (read live from the registry, never a transcribed list), solve a
+  // canonical parcel through the REAL engine + the REAL envelopeToMassing seam and assert the
+  // envelope never exceeds a legal maximum on ANY axis (height / FAR / coverage / setback /
+  // volume). Hard-fail-at-zero from birth — no baseline, no ratchet, and it must never acquire
+  // one. Self-tests every run with a planted, in-memory overstating pack (engine teeth) AND a
+  // tampered pre-fix envelope (checker teeth → exit 2 if not flagged). Registered beside its
+  // zoning siblings, not appended at the bottom. First reading: RC=0 — 6 jurisdictions ·
+  // 181 zone-solves · 138 solved · 43 refused (a refusal draws nothing and cannot overstate).
+  // Negative-tested against the pre-fix engine: 86 findings, exit 1, both mechanisms named.
+  { name: 'envelope-never-overstates (C58 §1.4/§M E2a)', script: 'check-envelope-never-overstates.ts' },
   { name: 'height-fidelity (L-646/L-647)',            script: 'check-height-fidelity.ts' },
   { name: 'write-route-auth (C08§1.2/L-406)',         script: 'check-write-route-auth.ts' },
   { name: 'command-naming (L-796)',                   script: 'check-command-naming.ts' },

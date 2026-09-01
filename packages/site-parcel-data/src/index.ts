@@ -2221,3 +2221,68 @@ export {
     type SpacmOrdenanzaRow,
     type AdapterContext as MadridSpacmAdapterContext,
 } from './rulepacks/esMadridSpacmAdapter.js';
+// LANE E2b (Wave E2, REPORT §S item 5) — the Polish APP (akt planowania przestrzennego) GML 2.0
+// parser: official-schema POG zone-level envelope attributes (FAR / coverage / height / green
+// share) parsed to plain typed structures, `unspecified` kept distinct from zero/unlimited
+// (E4 control 9). PL preparation ahead of the 2026-11-30 Rejestr Urbanistyczny transition.
+// A PARSER, not a mapper — the later PL country adapter owns the mapping onto canonical.
+export {
+    parseAppGml,
+    APP_2_0_NAMESPACE,
+    type AppGmlParseOutcome,
+    type AppGmlDocument,
+    type AppGmlCollectionInfo,
+    type AppGmlRefusalReason,
+    type AppGmlWarning,
+    type AppDecimal,
+    type AppMeasure,
+    type AppCodeRef,
+    type AppIdentyfikator,
+    type AppSurfaceGeometry,
+    type AppStrefaPlanistyczna,
+    type AppObszarUzupelnieniaZabudowy,
+    type AppObszarZabudowySrodmiejskiej,
+    type AppObszarStandardowDostepnosci,
+    type AppAktPlanowania,
+    type AppDokumentFormalny,
+    type AppRysunekAktu,
+} from './parsers/appGml/index.js';
+
+// E1b — the Source Registry NOW-thin (E1 gate decision §F item 5 · supplement §7): the typed,
+// build-time-validated form of the four prose source registries. Data only — no fetching, no
+// UI, no OME2 rows (verdict §F item 15). Exported here so the registry is REACHABLE (the C63
+// heatmap + E1b/E1c sequencing consumers), not authored-but-unwired.
+export {
+    ALL_SOURCES,
+    BE_SOURCES,
+    CH_SOURCES,
+    DE_SOURCES,
+    DK_SOURCES,
+    ES_SOURCES,
+    FI_SOURCES,
+    FR_SOURCES,
+    GB_SOURCES,
+    IT_SOURCES,
+    LT_SOURCES,
+    NL_SOURCES,
+    NO_SOURCES,
+    PL_SOURCES,
+    PT_SOURCES,
+    REPORT_F_COUNTRIES,
+    REPORT_F_TO_ISO,
+    SOURCE_ABSENCE_REASONS,
+    SOURCE_REGISTRY,
+    coverageByCountry,
+    defineSources,
+    type ReportFCountry,
+    type SourceCoverageRow,
+} from './sourceRegistry/index.js';
+
+// ── LANE E1bc — the declarative rule-pack evaluator + Barcelona pilot ────────
+// (E1 gate decision §F item 3/4: typed deterministic evaluator at L2 over
+// scalar rules + isInForceOn; fact vocabulary as data; C58 derivation; the
+// migrated es-08019 20a document. The full SET is forwarded — no subset.)
+export * from './rulepacks/declarative/factVocabulary.js';
+export * from './rulepacks/declarative/evaluateDeclarative.js';
+export * from './rulepacks/declarative/deriveC58Contract.js';
+export * from './rulepacks/declarative/esBarcelona20aAillada.decl.js';

@@ -1,0 +1,23 @@
+[barcelona-eixample] rawTile HTTP 200 529329B tiff=true {
+  width: 523,
+  height: 505,
+  bboxNative: [ 2.16, 41.39000000000001, 2.1759999999999997, 41.402 ],
+  finiteFrac: 1,
+  meanM: 11.46,
+  maxM: 49,
+  fracAbove2m: 0.578
+}
+[barcelona-eixample] pipeline {"status":"ok","ms":79521,"footprintCount":8421,"measuredCount":3390,"coverage":0.403,"heightStats":{"min":2.5,"median":23.458232047384683,"max":45.79644199683318,"n":3390},"tilesProcessed":1,"tileErrors":0,"catastroErrors":0,"truncated":true,"note":"MDS Edificación (mdsn_e025 P90 over eroded footprint, Catastro footprints) → 3390/8421 footprint(s) got a MEASURED height (tagged); 1 tile(s), 0 raster error(s), 0 Catastro error(s) — partial → APPEND (OSM kept)."}
+[barcelona-eixample] crossCheck {"nBoth":3302,"absDeltaVsFloorsX32_P50":3.67,"absDeltaVsFloorsX32_P90":9.85,"observedMetresPerFloor_P50":3.84,"within3m_frac":0.408}
+[madrid-centro] rawTile HTTP 200 529329B tiff=true {
+  width: 523,
+  height: 505,
+  bboxNative: [ -3.712, 40.418000000000006, -3.6960000000000006, 40.43 ],
+  finiteFrac: 1,
+  meanM: 13.19,
+  maxM: 107,
+  fracAbove2m: 0.681
+}
+[madrid-centro] pipeline {"status":"ok","ms":87439,"footprintCount":9424,"measuredCount":3031,"coverage":0.322,"heightStats":{"min":2.5,"median":19.581201086445642,"max":84.52209713141778,"n":3031},"tilesProcessed":1,"tileErrors":0,"catastroErrors":0,"truncated":true,"note":"MDS Edificación (mdsn_e025 P90 over eroded footprint, Catastro footprints) → 3031/9424 footprint(s) got a MEASURED height (tagged); 1 tile(s), 0 raster error(s), 0 Catastro error(s) — partial → APPEND (OSM kept)."}
+[madrid-centro] crossCheck {"nBoth":2926,"absDeltaVsFloorsX32_P50":3.05,"absDeltaVsFloorsX32_P90":9.05,"observedMetresPerFloor_P50":3.76,"within3m_frac":0.496}
+WROTE e3b-es-results.json

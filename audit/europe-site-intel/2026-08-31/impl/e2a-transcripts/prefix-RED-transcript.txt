@@ -1,0 +1,80 @@
+npm warn Unknown project config "package-manager-strict". This will stop working in the next major version of npm. See `npm help npmrc` for supported config options.
+
+ RUN  v4.1.10 C:/Users/LENOVO/OneDrive/Desktop/PRYZM/Product_Rediness_08/packages/site-parcel-data
+
+ ❯ __tests__/neverOverstateMechanisms.test.ts (7 tests | 4 failed) 18ms
+     × PARTIALLY unknown setbacks (side + rear axes) flag the footprint as an UPPER BOUND 10ms
+     × ONE unknown axis (rear) is enough — and it is the one named 1ms
+     × the Copenhagen shape: FAR 1.5 under a 24 m cap caps the STUDY VOLUME, not just the render 1ms
+     × applyConstructedHeight caps by FAR with the SAME arithmetic (BCN clau-12 shape) 2ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 4 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  __tests__/neverOverstateMechanisms.test.ts > §NEVER-OVERSTATE-A — an UNKNOWN setback is never a silent 0-inset > PARTIALLY unknown setbacks (side + rear axes) flag the footprint as an UPPER BOUND
+AssertionError: side + rear axes unknown ⇒ upper bound: expected false to be true // Object.is equality
+
+- Expected
++ Received
+
+- true
++ false
+
+ ❯ __tests__/neverOverstateMechanisms.test.ts:74:85
+     72|         expect(env.status).toBe('ok');
+     73|         // THE PIN — pre-fix this was false: side/rear were zero-inset…
+     74|         expect(env.footprintIsUpperBound, 'side + rear axes unknown ⇒ …
+       |                                                                                     ^
+     75|         const caveat = env.caveats.find((c) => c.includes('UNKNOWN on …
+     76|         expect(caveat, 'caveat must NAME the unresolved axes').toBeDef…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/4]⎯
+
+ FAIL  __tests__/neverOverstateMechanisms.test.ts > §NEVER-OVERSTATE-A — an UNKNOWN setback is never a silent 0-inset > ONE unknown axis (rear) is enough — and it is the one named
+AssertionError: rear axis unknown ⇒ upper bound: expected false to be true // Object.is equality
+
+- Expected
++ Received
+
+- true
++ false
+
+ ❯ __tests__/neverOverstateMechanisms.test.ts:90:78
+     88|         });
+     89|         expect(env.status).toBe('ok');
+     90|         expect(env.footprintIsUpperBound, 'rear axis unknown ⇒ upper b…
+       |                                                                              ^
+     91|         const caveat = env.caveats.find((c) => c.includes('UNKNOWN on …
+     92|         expect(caveat).toBeDefined();
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/4]⎯
+
+ FAIL  __tests__/neverOverstateMechanisms.test.ts > §NEVER-OVERSTATE-B — maxFAR caps maxVolumeM3 (the FAR axis) > the Copenhagen shape: FAR 1.5 under a 24 m cap caps the STUDY VOLUME, not just the render
+AssertionError: expected 26880 to be close to 5040, received difference is 21840, but expected 5e-7
+ ❯ __tests__/neverOverstateMechanisms.test.ts:140:34
+    138|         // THE PIN — pre-fix this was insetArea × 24 (the full shell),…
+    139|         expect(env.maxVolumeM3, 'FAR axis: maxVolumeM3 must be FAR-cap…
+    140|         expect(env.maxVolumeM3!).toBeCloseTo(env.insetAreaM2 * env.far…
+       |                                  ^
+    141|         expect(env.maxVolumeM3!).toBeLessThan(env.insetAreaM2 * 24 - 1…
+    142|     });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/4]⎯
+
+ FAIL  __tests__/neverOverstateMechanisms.test.ts > §NEVER-OVERSTATE-B — maxFAR caps maxVolumeM3 (the FAR axis) > applyConstructedHeight caps by FAR with the SAME arithmetic (BCN clau-12 shape)
+AssertionError: FAR axis: constructed-height volume must be FAR-capped: expected 3400 to be close to 1700, received difference is 1700, but expected 5e-7
+ ❯ __tests__/neverOverstateMechanisms.test.ts:182:14
+    180|         expect(out.farLimitedHeight_m).toBeCloseTo(8.5, 6);
+    181|         expect(out.maxVolumeM3, 'FAR axis: constructed-height volume m…
+    182|             .toBeCloseTo(1700, 6);
+       |              ^
+    183|         expect(() => BuildableEnvelopeSchema.parse(out)).not.toThrow();
+    184|     });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[4/4]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  4 failed | 3 passed (7)
+   Start at  05:40:31
+   Duration  5.09s (transform 3.64s, setup 0ms, import 4.85s, tests 18ms, environment 0ms)
+

@@ -1,0 +1,888 @@
+{
+ "__label__": "RECORDED LIVE 2026-09-01 from the Estonian national services (gsavalik.envir.ee GeoServer + livekluster.ehr.ee PLANK MapServer) for parcels 78401:101:7194 (Kopli tn 2) and 78401:101:0109 (Raekoja tn 4 // 6). These are FIXTURES: byte-for-byte copies of live WFS bodies, replayed through EeWfsDeps.fetchImpl so the suite runs without the network. Re-record via the probe transcripts in audit/europe-site-intel/2026-08-31/impl/lane-e1d-adapter-rework.md.",
+ "parcelKopli": {
+  "type": "FeatureCollection",
+  "features": [
+   {
+    "type": "Feature",
+    "properties": {
+     "tunnus": "78401:101:7194",
+     "hkood": "0614",
+     "mk_nimi": "Harju maakond",
+     "ov_nimi": "Tallinn",
+     "ay_nimi": "Põhja-Tallinna linnaosa",
+     "l_aadress": "Kopli tn 2",
+     "registr": "2023-06-12Z",
+     "muudet": "2025-03-07Z",
+     "maks_hind": 1769676,
+     "siht1": "ELAMUMAA",
+     "siht2": "ARIMAA",
+     "siht3": null,
+     "so_prts1": 80,
+     "so_prts2": 20,
+     "so_prts3": null,
+     "pindala": 1670,
+     "haritav": null,
+     "rohumaa": null,
+     "mets": null,
+     "ouemaa": 1670,
+     "muumaa": null,
+     "kinnistu": "korteriomand",
+     "muutpohjus": "KÜ liitmine",
+     "oiguslik_alus": "Omaniku avaldus 12.06.2023\r\nTallinna Linnavalitsuse korraldus nr 1075 07.12.2022\r\nTallinna Linnavalitsuse korraldus nr 301 05.04.2023",
+     "omvorm": "Eraomand",
+     "marked": "-",
+     "ads_oid": "CU04041749",
+     "adob_id": 10695795,
+     "kolvik_muudet": "2024-01-29T15:13:41.231Z",
+     "geom_muudet": "2023-06-12Z"
+    },
+    "geometry": {
+     "type": "Polygon",
+     "coordinates": [
+      [
+       [
+        541933.09,
+        6589539.57
+       ],
+       [
+        541934.45,
+        6589536.81
+       ],
+       [
+        541938.65,
+        6589528.42
+       ],
+       [
+        541943.09,
+        6589519.79
+       ],
+       [
+        541963.55,
+        6589531.29
+       ],
+       [
+        541971.03,
+        6589535.62
+       ],
+       [
+        541976.8,
+        6589539.29
+       ],
+       [
+        541980.24,
+        6589541.71
+       ],
+       [
+        541980.79,
+        6589540.95
+       ],
+       [
+        541986.28,
+        6589544.89
+       ],
+       [
+        541985.79,
+        6589545.56
+       ],
+       [
+        541989.26,
+        6589548.05
+       ],
+       [
+        541989.47,
+        6589547.76
+       ],
+       [
+        541991.15,
+        6589548.95
+       ],
+       [
+        541980.45,
+        6589564.36
+       ],
+       [
+        541982.49,
+        6589565.75
+       ],
+       [
+        541976.14,
+        6589577.26
+       ],
+       [
+        541948.68,
+        6589557.11
+       ],
+       [
+        541930.64,
+        6589544.25
+       ],
+       [
+        541933.09,
+        6589539.57
+       ]
+      ]
+     ]
+    }
+   }
+  ]
+ },
+ "parcelRaekoja": {
+  "type": "FeatureCollection",
+  "features": [
+   {
+    "type": "Feature",
+    "properties": {
+     "tunnus": "78401:101:0109",
+     "hkood": "0298",
+     "mk_nimi": "Harju maakond",
+     "ov_nimi": "Tallinn",
+     "ay_nimi": "Kesklinna linnaosa",
+     "l_aadress": "Raekoja tn 4 // 6",
+     "registr": "2007-04-02Z",
+     "muudet": "2025-02-28Z",
+     "maks_hind": 104850,
+     "siht1": "UHISKONDLIKE_EHITISTE_MAA",
+     "siht2": null,
+     "siht3": null,
+     "so_prts1": 100,
+     "so_prts2": null,
+     "so_prts3": null,
+     "pindala": 264,
+     "haritav": null,
+     "rohumaa": null,
+     "mets": null,
+     "ouemaa": 31,
+     "muumaa": 233,
+     "kinnistu": "23806701",
+     "muutpohjus": "KÜ vastavusseviimine seadusega",
+     "oiguslik_alus": "Maakatastriseadus § 13¹ lg 2\r\nMaakatastriseadus § 8 lg 1",
+     "omvorm": "Munitsipaalomand",
+     "marked": "-",
+     "ads_oid": "CU00444039",
+     "adob_id": 6703084,
+     "kolvik_muudet": "2024-01-29T15:39:35.012Z",
+     "geom_muudet": "2020-04-29Z"
+    },
+    "geometry": {
+     "type": "Polygon",
+     "coordinates": [
+      [
+       [
+        542282.99,
+        6589022.94
+       ],
+       [
+        542281.08,
+        6589015.63
+       ],
+       [
+        542293.39,
+        6589011.68
+       ],
+       [
+        542291.07,
+        6589005.03
+       ],
+       [
+        542289.85,
+        6589001.7
+       ],
+       [
+        542294.35,
+        6588999.84
+       ],
+       [
+        542294.2,
+        6588999.39
+       ],
+       [
+        542296.7,
+        6588998.48
+       ],
+       [
+        542297.47,
+        6588998.2
+       ],
+       [
+        542299.26,
+        6589002.22
+       ],
+       [
+        542304.96,
+        6589014.98
+       ],
+       [
+        542295.7,
+        6589018.23
+       ],
+       [
+        542291.75,
+        6589019.76
+       ],
+       [
+        542292.15,
+        6589020.66
+       ],
+       [
+        542288.54,
+        6589021.94
+       ],
+       [
+        542288.24,
+        6589021.21
+       ],
+       [
+        542283.13,
+        6589023.27
+       ],
+       [
+        542282.99,
+        6589022.94
+       ]
+      ]
+     ]
+    }
+   }
+  ]
+ },
+ "hoonestusKopli": {
+  "type": "FeatureCollection",
+  "features": [
+   {
+    "type": "Feature",
+    "properties": {
+     "id": 20311,
+     "sysid": 30100071,
+     "tyvikiht": "dp_hoonestus",
+     "kiht": "dp_hoonestus",
+     "kihi_nimi": "Hoonestusala",
+     "objectid": "5d9d1",
+     "krunt_id": 20310,
+     "kruntoid": "",
+     "krundi_nimi": "Kopli tn 2 või Kesk-Kalamaja tn 1",
+     "ehtyyp_nimi": "",
+     "ehting": "",
+     "arv": "1",
+     "arvabi": "0",
+     "pind": "1000",
+     "pindpealne": "",
+     "pindalune": "",
+     "korgus": "17.4",
+     "korgusabs": "32.64",
+     "sygavus": "",
+     "tihedus": "2.1",
+     "protsent": "61",
+     "sbp": "3500",
+     "sbppealne": "3500",
+     "sbpalune": "",
+     "kujating": "",
+     "tingimus": "Abs kõrgus on EH2000 süsteemis. Ehitusjoonest võivad Kopli tänava poole ulatuda rõdud. Ühe korruse rõdud ei või ületada 30% fassaadi pikkusest."
+    },
+    "geometry": {
+     "type": "Polygon",
+     "coordinates": [
+      [
+       [
+        541942.185622,
+        6589520.925076
+       ],
+       [
+        541962.832797,
+        6589532.549705
+       ],
+       [
+        541970.289533,
+        6589536.820653
+       ],
+       [
+        541975.985767,
+        6589540.453435
+       ],
+       [
+        541990.151728,
+        6589550.400231
+       ],
+       [
+        541979.740232,
+        6589565.206003
+       ],
+       [
+        541965.903977,
+        6589555.490715
+       ],
+       [
+        541960.920633,
+        6589552.313182
+       ],
+       [
+        541953.894779,
+        6589548.289028
+       ],
+       [
+        541933.767323,
+        6589537.216427
+       ],
+       [
+        541942.185622,
+        6589520.925076
+       ]
+      ]
+     ]
+    }
+   },
+   {
+    "type": "Feature",
+    "properties": {
+     "id": 20312,
+     "sysid": 30100071,
+     "tyvikiht": "dp_hoonestus",
+     "kiht": "dp_hoonestus",
+     "kihi_nimi": "Hoonestusala",
+     "objectid": "5d9be",
+     "krunt_id": 20310,
+     "kruntoid": "",
+     "krundi_nimi": "Kopli tn 2 või Kesk-Kalamaja tn 1",
+     "ehtyyp_nimi": "",
+     "ehting": "",
+     "arv": "1",
+     "arvabi": "0",
+     "pind": "1165",
+     "pindpealne": "",
+     "pindalune": "",
+     "korgus": "0",
+     "korgusabs": "",
+     "sygavus": "",
+     "tihedus": "",
+     "protsent": "",
+     "sbp": "1000",
+     "sbppealne": "",
+     "sbpalune": "1000",
+     "kujating": "",
+     "tingimus": ""
+    },
+    "geometry": {
+     "type": "Polygon",
+     "coordinates": [
+      [
+       [
+        541980.603146,
+        6589563.979064
+       ],
+       [
+        541990.958118,
+        6589549.255792
+       ],
+       [
+        541976.754135,
+        6589539.282298
+       ],
+       [
+        541971.004135,
+        6589535.642298
+       ],
+       [
+        541963.524135,
+        6589531.332298
+       ],
+       [
+        541942.82873,
+        6589519.680515
+       ],
+       [
+        541934.560208,
+        6589535.682012
+       ],
+       [
+        541949.808685,
+        6589544.265885
+       ],
+       [
+        541946.493131,
+        6589550.118405
+       ],
+       [
+        541956.643183,
+        6589555.711475
+       ],
+       [
+        541967.850852,
+        6589563.211289
+       ],
+       [
+        541971.504183,
+        6589557.59012
+       ],
+       [
+        541980.603146,
+        6589563.979064
+       ]
+      ]
+     ]
+    }
+   }
+  ]
+ },
+ "kruntKopli": {
+  "type": "FeatureCollection",
+  "features": [
+   {
+    "type": "Feature",
+    "properties": {
+     "id": 20310,
+     "sysid": 30100071,
+     "tyvikiht": "dp_krunt",
+     "kiht": "dp_krunt",
+     "kihi_nimi": "Krunt",
+     "objectid": "5d9a3",
+     "nimetus": "Kopli tn 2 või Kesk-Kalamaja tn 1",
+     "otstarve": "ärimaa; elamumaa",
+     "tahis": "Ä; EK",
+     "maxsoosak": "; 85",
+     "minsoosak": "15; ",
+     "tapsustus": "; ",
+     "pind": "1680",
+     "tingimus": ""
+    },
+    "geometry": {
+     "type": "Polygon",
+     "coordinates": [
+      [
+       [
+        541930.6,
+        6589544.24
+       ],
+       [
+        541948.66,
+        6589557.12
+       ],
+       [
+        541976.12,
+        6589577.25
+       ],
+       [
+        541982.46,
+        6589565.75
+       ],
+       [
+        541980.37,
+        6589564.34
+       ],
+       [
+        541991.18,
+        6589548.94
+       ],
+       [
+        541989.49,
+        6589547.73
+       ],
+       [
+        541989.28,
+        6589548.03
+       ],
+       [
+        541985.8,
+        6589545.55
+       ],
+       [
+        541986.29,
+        6589544.86
+       ],
+       [
+        541980.78,
+        6589540.94
+       ],
+       [
+        541980.25,
+        6589541.67
+       ],
+       [
+        541976.8,
+        6589539.24
+       ],
+       [
+        541971.05,
+        6589535.6
+       ],
+       [
+        541963.57,
+        6589531.29
+       ],
+       [
+        541942.86,
+        6589519.62
+       ],
+       [
+        541932.67,
+        6589539.34
+       ],
+       [
+        541930.6,
+        6589544.24
+       ]
+      ]
+     ]
+    }
+   }
+  ]
+ },
+ "planRegister30100071": {
+  "type": "FeatureCollection",
+  "features": [
+   {
+    "type": "Feature",
+    "properties": {
+     "planala_id": 162,
+     "sysid": 30100071,
+     "planid": 55612,
+     "kovid": "DP041780",
+     "plannim": "Kopli tn 2a // 2b, Vana-Kalamaja tn 2e, Kesk-Kalamaja tn 3 kinnistute detailplaneering",
+     "planseis_nimi": "Osaliselt kehtiv",
+     "planksh": "ei",
+     "muutev": "ei",
+     "planeesm": "Kinnistud ümber kruntida ja määrata moodustatud krundile ehitusõigus kuni 5-korruselise äriruumidega korterelamu ehitamiseks.",
+     "planviide": "https://tpr.tallinn.ee/DetailPlanning/Details/DP041780",
+     "algatkp": "2016-05-11",
+     "vastuvkp": "2021-05-05",
+     "kehtestkp": "2025-07-03",
+     "url": "https://livekluster.ehr.ee/ui/ehr/v1/planning/30100071",
+     "failid": "%planning_files%/30100071"
+    },
+    "geometry": {
+     "type": "Polygon",
+     "coordinates": [
+      [
+       [
+        541930.6,
+        6589544.24
+       ],
+       [
+        541932.67,
+        6589539.34
+       ],
+       [
+        541945.4,
+        6589514.54
+       ],
+       [
+        541961.88,
+        6589523.55
+       ],
+       [
+        541972.67,
+        6589529.85
+       ],
+       [
+        541985.37,
+        6589536.51
+       ],
+       [
+        542000.59,
+        6589545.7
+       ],
+       [
+        542011.31,
+        6589558.46
+       ],
+       [
+        541993.42,
+        6589567.71
+       ],
+       [
+        541990.22,
+        6589571.7
+       ],
+       [
+        541982.16,
+        6589581.81
+       ],
+       [
+        541948.66,
+        6589557.12
+       ],
+       [
+        541930.6,
+        6589544.24
+       ]
+      ]
+     ]
+    }
+   }
+  ]
+ },
+ "buildingsKopli": {
+  "type": "FeatureCollection",
+  "features": [
+   {
+    "type": "Feature",
+    "properties": {
+     "fid": 645023,
+     "etak_id": 5713979,
+     "ehr_gid": null,
+     "kood": 401,
+     "kood_tekst": "Hoone",
+     "tyyp": 20,
+     "tyyp_tekst": "Kõrval- või tootmishoone",
+     "markused": null,
+     "ads_oid": "ME02782295",
+     "ads_lahiaadress": "Kesk-Kalamaja tn 5",
+     "taisaadress": "Harju maakond, Tallinn, Põhja-Tallinna linnaosa, Kesk-Kalamaja tn 5",
+     "korgus_m": 3,
+     "nimetus": null,
+     "esmane_kasutus": null,
+     "max_korruste_arv": null,
+     "min_korruste_arv": null,
+     "korgus": null,
+     "ehitisalune_pind": null,
+     "ehitisalune_maap_pind": null,
+     "suletud_netopind": null,
+     "kaos_kood_peamine": null,
+     "kaos_nimetus_peamine": null,
+     "kaos_kood": null,
+     "kaos_nimetus": null,
+     "seisund": null,
+     "energiaklass": null,
+     "ehr_url": null,
+     "muutmisaeg": "2024-01-17T11:37:23Z"
+    },
+    "geometry": {
+     "type": "Polygon",
+     "coordinates": [
+      [
+       [
+        541942.699,
+        6589565.219,
+        17.216
+       ],
+       [
+        541946.196,
+        6589567.348,
+        16.585
+       ],
+       [
+        541951.359,
+        6589558.868,
+        16.585
+       ],
+       [
+        541947.862,
+        6589556.739,
+        17.216
+       ],
+       [
+        541942.699,
+        6589565.219,
+        17.216
+       ]
+      ]
+     ]
+    }
+   },
+   {
+    "type": "Feature",
+    "properties": {
+     "fid": 828147,
+     "etak_id": 587216,
+     "ehr_gid": "101027666",
+     "kood": 401,
+     "kood_tekst": "Hoone",
+     "tyyp": 10,
+     "tyyp_tekst": "Elu- või ühiskondlik hoone",
+     "markused": null,
+     "ads_oid": "ME00645882",
+     "ads_lahiaadress": "Kopli tn 2a",
+     "taisaadress": "Harju maakond, Tallinn, Põhja-Tallinna linnaosa, Kopli tn 2a",
+     "korgus_m": 13,
+     "nimetus": "hotell",
+     "esmane_kasutus": null,
+     "max_korruste_arv": 2,
+     "min_korruste_arv": 2,
+     "korgus": null,
+     "ehitisalune_pind": 633,
+     "ehitisalune_maap_pind": null,
+     "suletud_netopind": 1499.1,
+     "kaos_kood_peamine": "12111",
+     "kaos_nimetus_peamine": "Hotell, motell, külalistemaja",
+     "kaos_kood": "12319;12111;12132;12319;12132;12111",
+     "kaos_nimetus": "Muu kaubandushoone;Hotell, motell, külalistemaja;Kohvik, baar või söökla;Muu kaubandushoone;Kohvik, baar või söökla;Hotell, motell, külalistemaja",
+     "seisund": "Olemas",
+     "energiaklass": null,
+     "ehr_url": "https://livekluster.ehr.ee/ui/ehr/v1/building/101027666",
+     "muutmisaeg": "2026-03-02T19:30:25Z"
+    },
+    "geometry": {
+     "type": "Polygon",
+     "coordinates": [
+      [
+       [
+        541934.937,
+        6589535.866,
+        27.408
+       ],
+       [
+        541942.416,
+        6589522.007,
+        23.629
+       ],
+       [
+        541943.517,
+        6589519.967,
+        23.067
+       ],
+       [
+        541910.24,
+        6589501.52,
+        23.067
+       ],
+       [
+        541908.23,
+        6589502.38,
+        23.067
+       ],
+       [
+        541904.05,
+        6589523.12,
+        23.067
+       ],
+       [
+        541904.535,
+        6589523.222,
+        22.945
+       ],
+       [
+        541918.71,
+        6589526.2,
+        19.388
+       ],
+       [
+        541918.298,
+        6589528.088,
+        19.388
+       ],
+       [
+        541921.443,
+        6589529.954,
+        19.388
+       ],
+       [
+        541922.442,
+        6589528.032,
+        19.388
+       ],
+       [
+        541923.423,
+        6589522.112,
+        23.067
+       ],
+       [
+        541932.216,
+        6589526.986,
+        23.067
+       ],
+       [
+        541928.603,
+        6589533.89,
+        23.067
+       ],
+       [
+        541934.373,
+        6589536.91,
+        27.693
+       ],
+       [
+        541934.937,
+        6589535.866,
+        27.408
+       ]
+      ]
+     ]
+    }
+   },
+   {
+    "type": "Feature",
+    "properties": {
+     "fid": 911533,
+     "etak_id": 9368512,
+     "ehr_gid": "121395845",
+     "kood": 401,
+     "kood_tekst": "Hoone",
+     "tyyp": 10,
+     "tyyp_tekst": "Elu- või ühiskondlik hoone",
+     "markused": null,
+     "ads_oid": "EE04037618",
+     "ads_lahiaadress": "Kopli tn 2",
+     "taisaadress": "Harju maakond, Tallinn, Põhja-Tallinna linnaosa, Kopli tn 2",
+     "korgus_m": null,
+     "nimetus": "Äripindadega korterelamu",
+     "esmane_kasutus": 2025,
+     "max_korruste_arv": 5,
+     "min_korruste_arv": null,
+     "korgus": 17.4,
+     "ehitisalune_pind": 1019.7,
+     "ehitisalune_maap_pind": 868.9,
+     "suletud_netopind": 3747.5,
+     "kaos_kood_peamine": "11222",
+     "kaos_nimetus_peamine": "Muu kolme või enama korteriga elamu",
+     "kaos_kood": "12319;12201;11222;11222;11222;11222;11222;11222;11222;11222;11222;11222;11222;11222;11222;11222;11222;11222;11222;11222;11222;11222;11222;11222;11222;11222;11222;11222;11222;11222;11222;11222;11222;11",
+     "kaos_nimetus": "Muu kaubandushoone;Büroohoone;Muu kolme või enama korteriga elamu;Muu kolme või enama korteriga elamu;Muu kolme või enama korteriga elamu;Muu kolme või enama korteriga elamu;Muu kolme või enama korteriga elamu;Muu kolme või enama korteriga elamu;Muu kolme või enama korteriga elamu;Muu kolme või enama korteriga elamu;Muu kolme või enama korteriga elamu;Muu kolme või enama korteriga elamu;Muu kolme või enama korteriga elamu;Muu kolme või enama korteriga elamu;Muu kolme või enama korteriga elamu;Mu",
+     "seisund": "Olemas",
+     "energiaklass": "B",
+     "ehr_url": "https://livekluster.ehr.ee/ui/ehr/v1/building/121395845",
+     "muutmisaeg": "2025-10-21T19:30:33Z"
+    },
+    "geometry": {
+     "type": "Polygon",
+     "coordinates": [
+      [
+       [
+        541934.937,
+        6589535.866,
+        25.374
+       ],
+       [
+        541965.29,
+        6589552.96,
+        25.374
+       ],
+       [
+        541980.6,
+        6589563.94,
+        25.374
+       ],
+       [
+        541988,
+        6589553.4,
+        25.374
+       ],
+       [
+        541987.5,
+        6589550.52,
+        25.374
+       ],
+       [
+        541972.62,
+        6589539.52,
+        25.374
+       ],
+       [
+        541959.04,
+        6589531.34,
+        25.374
+       ],
+       [
+        541942.416,
+        6589522.007,
+        25.374
+       ],
+       [
+        541934.937,
+        6589535.866,
+        25.374
+       ]
+      ]
+     ]
+    }
+   }
+  ]
+ }
+}

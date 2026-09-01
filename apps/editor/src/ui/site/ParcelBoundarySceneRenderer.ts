@@ -55,7 +55,10 @@ import { EDITOR_LAYER } from '@pryzm/scene-committer';
 import { projectScopeRegistry } from '@pryzm/core-app-model';
 import type { PryzmRuntime } from '@pryzm/runtime-composer';
 import { getLastBuildableEnvelope, isLastEnvelopeSuggestedPreview } from './siteDispatch';
-import { envelopeRenderStyle } from './envelopeRenderStyle';
+// C58 §1.14 (lane E2a) — the hue HEX constants only: the honesty CLASSIFICATION now arrives on
+// each `MassingSolid.style` (decided in L2 by `envelopeToMassing`); this surface just maps the
+// seam's hue vocabulary to the same three colours the flat card uses.
+import { CONFIDENT_VIOLET_HEX, PROVISIONAL_GREY_HEX, SUGGESTED_AMBER_HEX } from './envelopeRenderStyle';
 // §ENV3D164 (L-12700) — the STUDY MASSING (§MANUALENV159 / §ENVAMS148): a context-derived or
 // user-typed massing, computed ONLY when no normative buildable envelope resolves at all. See
 // `buildContextStudyVolume` below for why it routes through this SAME renderer instead of a new one
@@ -80,10 +83,16 @@ import {
 // ⭐ §ENVELOPE-TWO-AXES (C58 §1.17 / L-1188) — the PURE rule for what the user's two visibility axes
 // mean as geometry. Read HERE rather than re-implemented, so this surface and the Cesium §1.14
 // rasteriser cannot read one preference two different ways (which is the L-1170 shape one level down).
+// C58 §1.14 / STRUCTURAL-SEAM-1 (lane E2a, 2026-09-01) — the ENGINE emits the solids; this
+// renderer only rasterises them. `envelopeToMassing` + `envelopeGroundShade` are the SAME two
+// pure functions the Cesium globe consumes, so the BIM/plan scene and the 3D Site can no
+// longer drift on tiers / FAR split / upper-bound weight / open-top posture.
 import {
-    envelopeDrawMode,
+    envelopeToMassing,
+    envelopeGroundShade,
     GROUND_SHADE_HEIGHT_M,
-    GROUND_SHADE_FILL_ALPHA,
+    type MassingSolid,
+    envelopeDrawMode,
     type EnvelopeDrawMode,
 } from '@pryzm/site-parcel-data';
 // §CESIUMENV167 (L-12760) — the study's hue/fill-alpha constants moved to this shared,
@@ -129,9 +138,6 @@ const GROUND_Y_OFFSET = 0.02;
 const STUDY_DASH_SIZE_M = 0.6;
 const STUDY_DASH_GAP_M = 0.4;
 
-/** §ENVELOPE-VIA-MASSING (L-402d) — the fallback envelope height (m) when the C58
- *  envelope has no `maxHeight_m` resolved. Mirrors the Cesium side's fallback. */
-const ENVELOPE_FALLBACK_HEIGHT_M = 9;
 
 /** A 2D point on the scene ground plane (metres). Matches C19 `Pt`. */
 interface XZPoint {
@@ -399,68 +405,104 @@ export class ParcelBoundarySceneRenderer {
     }
 
     /**
-     * §ENVELOPE-VIA-MASSING (L-402d) — build the buildable-envelope study volume: a
-     * translucent extruded #6600FF prism from the cached C58 `BuildableEnvelope`
-     * inset ring (scene-XZ metres) up to its max height. Returns null when there is
-     * no `ok` envelope (no parcel / degenerate setbacks / no envelope computed yet),
-     * or on any triangulation failure — never throws.
+     * §ENVELOPE-VIA-MASSING (L-402d) → C58 §1.14 / STRUCTURAL-SEAM-1 (lane E2a, 2026-09-01) —
+     * build the buildable-envelope volume by RASTERISING THE SEAM, exactly as the Cesium globe
+     * does. This method used to be the LAST unadopted 4-field projection: it read
+     * `insetPolygon` / `maxHeight_m` / `confidence` / `footprintIsUpperBound` off the cached
+     * envelope and re-derived ONE prism (`ring × maxHeight`, or a 9 m FALLBACK height), which
+     * meant this surface — alone — still discarded `tiers[]` (a multi-tier envelope drew as one
+     * full-ring prism at the principal height: over-statement, C58 §1.7b.4), discarded
+     * `farLimitedHeight_m` (a FAR-capped zone drew the full height shell as the solid:
+     * over-statement, §L-616) and invented a height where none was published (§1.12.6).
      *
-     * Geometry alignment: the inset ring is in the SAME scene-XZ frame as the parcel
-     * polygon + generated walls. We build the 2D shape in (x, −z) and rotate it flat
-     * onto the XZ ground plane extruding UP (+Y) so scene coords land at (p.x, y, p.z)
-     * — aligned with the parcel line + walls.
+     * NOW: the pure L2 `envelopeToMassing` is the single place massing geometry is derived —
+     * the ENGINE emits the solids, this method only extrudes each `[baseHeightM, topHeightM]`
+     * through the same shape/rotate algebra the parcel fill uses, and reads `style` for
+     * hue/fill/open-top. It holds NO per-field knowledge of the envelope. The ground-shade
+     * axis routes through the same seam (`envelopeGroundShade` — a projection of solids that
+     * already exist, so hiding the volume can never mint a new claim, §ENVELOPE-TWO-AXES).
      *
-     * @param drawMode §ENV3D164 — now read ONCE by the caller (`buildOutline`) and passed in, so
+     * Returns null when there is nothing to draw (no `ok` envelope, refused, degenerate ring,
+     * both axes off), or on any triangulation failure — never throws.
+     *
+     * Geometry alignment: each solid's ring is in the SAME scene-XZ frame as the parcel polygon
+     * + generated walls. We build the 2D shape in (x, −z) and rotate it flat onto the XZ ground
+     * plane extruding UP (+Y) so scene coords land at (p.x, y, p.z) — aligned with the parcel
+     * line + walls (see `buildFill`; the algebra is byte-identical to the pre-seam method).
+     *
+     * @param drawMode §ENV3D164 — read ONCE by the caller (`buildOutline`) and passed in, so
      *        the plan-backed volume and the study-massing volume below can never disagree about
      *        what the user's two toggles mean (previously this method read the authority itself).
      */
-    private buildEnvelopeVolume(drawMode: EnvelopeDrawMode): THREE.Mesh | null {
+    private buildEnvelopeVolume(drawMode: EnvelopeDrawMode): THREE.Object3D | null {
         try {
             // ⭐ §ENVELOPE-ONE-VISIBILITY (L-1170) — ask the ONE authority, first, before any
             // geometry exists. Returning null here is what makes the user's "hide" reach the
             // BIM/plan scene at all; `refresh()` is re-driven by the subscription in the
             // constructor, so this is re-evaluated the moment the answer changes.
-            // ⭐ §ENVELOPE-TWO-AXES (C58 §1.17 / L-1188) — TWO AXES, ONE RULE. "Envelope: OFF" hides
-            // the VOLUME ("what mass may I build?"); it does not answer "what AREA may I build on?",
-            // and the flat ground shade is useful precisely then because it occludes nothing.
-            // `envelopeDrawMode` is the SAME pure L2 decision the globe rasteriser makes — this
-            // surface must not have its own idea of what "off" means.
             if (drawMode === 'none') return null;
             const env = getLastBuildableEnvelope();
-            if (!env || env.status !== 'ok') return null;
-            const ring = env.insetPolygon;
-            if (!Array.isArray(ring) || ring.length < 3) return null;
-            const hasRealHeight =
-                typeof env.maxHeight_m === 'number' && env.maxHeight_m > 0;
-            // §ENVELOPE-TWO-AXES — a ground shade is the SAME ring at a sub-visual thickness. It is a
-            // PROJECTION of a volume that already passed every §1.4/§1.16 honesty gate above (an
-            // envelope that refused returns `status !== 'ok'` and we are already gone), so it can
-            // never assert ground the volume would not have.
+            if (!env) return null;
+
+            // C58 §1.14 — the WHOLE envelope goes through the ONE pure function. Every honesty
+            // decision — how many solids, each ring/base/top, hue, fill, upper-bound study
+            // weight, FAR shell-vs-solid split, tiers, flat no-height slab, open-top posture —
+            // is made in L2 and arrives as `MassingSolid[]`. A refused / degenerate envelope
+            // yields `[]` (§1.13.3), which is the `null` the study-massing fallback keys on.
+            // §NEARBY-HEIGHT-SUGGESTION — the admin-only, not-yet-reviewed auto-preview flag
+            // rides the input, exactly as `resolveFormaEnvelope` forwards it to the globe.
+            const volumeSolids = envelopeToMassing({
+                ...env,
+                suggestedPreview: isLastEnvelopeSuggestedPreview(),
+            });
+            // §ENVELOPE-TWO-AXES — "Volume: OFF, Footprint: ON" projects the SAME solids onto
+            // the ground through the seam's own rule, never a locally re-derived slab.
             const groundShade = drawMode === 'ground-shade';
-            const height = groundShade
-                ? GROUND_SHADE_HEIGHT_M
-                : hasRealHeight
-                  ? env.maxHeight_m!
-                  : ENVELOPE_FALLBACK_HEIGHT_M;
-            // §ENVELOPE-CONFIDENCE-COLOUR (L-608) — a confident, complete determination renders in the
-            // unified violet; an estimate or a flat (no-confirmed-height) envelope renders in a muted
-            // grey so a "couldn't complete" fallback can never look like a surveyed answer.
-            // §L-619 — an upper-bound footprint (no published setbacks) forces the provisional grey +
-            // the near-transparent fill below, so the plan/BIM view stays consistent with the globe's
-            // §1.14 rasteriser. Same shared classifier as `envelopeToMassing` — one honesty decision.
-            // §OPEN-TOP-INDICATIVE (ADR-0293) — the publication posture rides on the envelope itself
-            // (the §1.14 carrier), so this surface reads the SAME honesty decision the globe does.
-            // `null` (every envelope shipped before the posture, and every persisted ring) means NOT
-            // STATED and classifies exactly as it always did.
-            const style = envelopeRenderStyle(
-                env.confidence,
-                hasRealHeight,
-                env.footprintIsUpperBound === true,
-                env.publicationPosture ?? null,
-                // §NEARBY-HEIGHT-SUGGESTION — the admin-only, not-yet-reviewed auto-preview flag;
-                // forces the warning amber here too, so the flat/BIM overlay agrees with the globe.
-                isLastEnvelopeSuggestedPreview(),
-            );
+            const solids = groundShade ? envelopeGroundShade(volumeSolids) : volumeSolids;
+            if (solids.length === 0) return null;
+
+            const group = new THREE.Group();
+            group.name = groundShade
+                ? 'pryzm-buildable-envelope-ground-shade'
+                : 'pryzm-buildable-envelope-volume';
+            for (const solid of solids) {
+                const mesh = this.rasteriseMassingSolid(solid);
+                if (mesh) group.add(mesh);
+            }
+            if (group.children.length === 0) return null;
+
+            const lead = solids[0]!;
+            // §ENVELOPE-TWO-AXES — which of the two representations this group IS, readable by a
+            // screenshot test / a11y layer without re-deriving it from the height.
+            group.userData.envelopeGroundShade = groundShade;
+            group.userData.envelopeConfidenceComplete = lead.style.complete;
+            // §OPEN-TOP-INDICATIVE — the posture on the group, so a screenshot test / a11y layer
+            // can assert "this volume claims no buildable right" without re-deriving it.
+            group.userData.envelopeOpenTop = lead.style.openTop;
+            // Distinct flag (NOT the parcel hide flags) — visible in the BIM 3D + plan
+            // design scene; a future view gate can target this without touching the parcel.
+            group.userData.isBuildableEnvelopeVolume = true;
+            return group;
+        } catch (e) {
+            console.warn('[ParcelBoundarySceneRenderer] envelope volume build failed:', e);
+            return null;
+        }
+    }
+
+    /**
+     * C58 §1.14 — extrude ONE `MassingSolid` exactly as the seam instructs: `[baseHeightM,
+     * topHeightM]` on the solid's own ring, `style.fillAlpha` for the fill, `style.hue` mapped
+     * to the SAME three colour constants the flat card uses (`envelopeRenderStyle.ts` — one hue
+     * vocabulary), and `style.openTop` drawn as a literally uncapped shell (the ADR-0293
+     * disclosure channel that survives a greyscale screenshot). NO envelope knowledge here —
+     * a dumb rasteriser, the render-side dual of the engine's §466–507 refinement.
+     */
+    private rasteriseMassingSolid(solid: MassingSolid): THREE.Mesh | null {
+        try {
+            const ring = solid.ring;
+            if (!Array.isArray(ring) || ring.length < 3) return null;
+            const height = solid.topHeightM - solid.baseHeightM;
+            if (!(height > 0)) return null;
 
             const shape = new THREE.Shape();
             shape.moveTo(ring[0]!.x, -ring[0]!.z);
@@ -477,44 +519,40 @@ export class ParcelBoundarySceneRenderer {
             // Lay the extruded shape (XY plane, extruded along +Z) flat onto XZ with the
             // extrusion pointing UP: rotateX(−90°) maps a local (sx, sy, sz) → (sx, sz, −sy),
             // so with the shape built in (x, −z) the scene point is (x, sz∈[0,h], z) — the
-            // ring aligns in X/Z and the volume rises from the ground to `height`.
+            // ring aligns in X/Z and the volume rises from `baseHeightM` to `topHeightM`.
             geo.rotateX(-Math.PI / 2);
-            geo.translate(0, GROUND_Y_OFFSET, 0);
+            geo.translate(0, solid.baseHeightM + GROUND_Y_OFFSET, 0);
 
+            // The SINGLE colour authority — the same three constants the flat card + globe use.
+            const colorHex =
+                solid.style.hue === 'confident'
+                    ? CONFIDENT_VIOLET_HEX
+                    : solid.style.hue === 'suggested-preview'
+                      ? SUGGESTED_AMBER_HEX
+                      : PROVISIONAL_GREY_HEX;
             const mat = new THREE.MeshBasicMaterial({
-                color: style.hex,
+                color: colorHex,
                 transparent: true,
-                // §L-619 — a MAXIMUM-extent footprint (no published setbacks) renders near-wireframe so
-                // it reads as a provisional upper bound, not a solved study fill.
-                // §OPEN-TOP-INDICATIVE — an indicative volume takes the SAME near-wireframe weight:
-                // both are study extents, and giving the posture its own opacity would let the two
-                // drift until one read as confident.
-                // §ENVELOPE-TWO-AXES — the ground shade is the ONLY thing on screen for this
-                // envelope, so it carries its own (heavier) alpha; an upper-bound / open-top
-                // envelope keeps the near-wireframe weight in BOTH modes — the doubt does not
-                // become less doubtful because the volume was hidden.
-                opacity: style.footprintUpperBound || style.openTop
-                    ? 0.05
-                    : groundShade
-                      ? GROUND_SHADE_FILL_ALPHA
-                      : 0.16,
+                // §1.14 — the fill weight is the SEAM's decision (`SOLID_FILL_ALPHA`,
+                // `UPPER_BOUND_FILL_ALPHA`, `SHELL_FILL_ALPHA`, `GROUND_SHADE_FILL_ALPHA` — one
+                // knob set), never a per-surface literal that can drift from the globe's.
+                opacity: solid.style.fillAlpha,
                 depthWrite: false,
                 side: THREE.DoubleSide,
             });
-            // §OPEN-TOP-INDICATIVE (ADR-0293) — ⭐ DRAW IT WITHOUT ITS LIDS. `ExtrudeGeometry` emits
-            // two groups: materialIndex 0 = the caps (lids), 1 = the side walls. Handing it a
-            // material array whose CAP slot is fully transparent leaves an open shell — the literal
-            // open top the ADR requires, and the one channel that survives a greyscale screenshot
-            // (the hue is already provisional grey; an indicative envelope is never `complete`).
-            // ⚠ Guarded on the group count rather than assumed: if a future THREE emits a single
-            // group we fall back to the closed prism, which is merely the pre-existing look, never a
-            // wrong claim — the grey hue and the card's caveats still carry the disclosure.
-            // §OPEN-TOP-INDICATIVE × §ENVELOPE-TWO-AXES — a FLAT SHADE HAS NO TOP TO LEAVE OPEN.
-            // Stripping the cap off a 0.12 m slab would delete the only face anyone can see and
-            // draw nothing at all, turning a disclosure into a disappearance.
-            const capMat = style.openTop && !groundShade
+            // §OPEN-TOP-INDICATIVE (ADR-0293) — ⭐ DRAW IT WITHOUT ITS LIDS. `ExtrudeGeometry`
+            // emits two groups: materialIndex 0 = the caps (lids), 1 = the side walls. A material
+            // array whose CAP slot is fully transparent leaves an open shell — the literal open
+            // top the ADR requires. Guarded on the group count rather than assumed: if a future
+            // THREE emits a single group we fall back to the closed prism, which is merely the
+            // pre-existing look, never a wrong claim — the provisional hue still carries the
+            // disclosure. (A flat ground shade never sets `openTop` on its geometry — the seam's
+            // `envelopeGroundShade` carries the flag but the 0.12 m slab keeps its only visible
+            // face; see §OPEN-TOP-INDICATIVE × §ENVELOPE-TWO-AXES in `envelopeToMassing.ts`.)
+            const wantsOpenTop = solid.style.openTop && solid.role !== 'footprint-slab';
+            const capMat = wantsOpenTop
                 ? new THREE.MeshBasicMaterial({
-                      color: style.hex,
+                      color: colorHex,
                       transparent: true,
                       opacity: 0,
                       depthWrite: false,
@@ -524,23 +562,18 @@ export class ParcelBoundarySceneRenderer {
             const useOpenTop = capMat !== null && geo.groups.length >= 2;
             const mesh = new THREE.Mesh(geo, useOpenTop ? [capMat!, mat] : mat);
             if (capMat !== null && !useOpenTop) capMat.dispose();
-            mesh.name = groundShade
-                ? 'pryzm-buildable-envelope-ground-shade'
-                : 'pryzm-buildable-envelope-volume';
-            // §ENVELOPE-TWO-AXES — which of the two representations this mesh IS, readable by a
-            // screenshot test / a11y layer without re-deriving it from the height.
-            mesh.userData.envelopeGroundShade = groundShade;
-            mesh.userData.envelopeConfidenceComplete = style.complete;
-            // §OPEN-TOP-INDICATIVE — the posture on the mesh, so a screenshot test / a11y layer can
-            // assert "this volume claims no buildable right" without re-deriving it.
-            mesh.userData.envelopeOpenTop = style.openTop;
-            mesh.userData.envelopeOpenTopExpressed = useOpenTop;
-            // Distinct flag (NOT the parcel hide flags) — visible in the BIM 3D + plan
-            // design scene; a future view gate can target this without touching the parcel.
+            // The seam's stable solid id → the mesh name, exactly as the Cesium rasteriser names
+            // its entities, so a name-based consumer reads ONE vocabulary across both surfaces.
+            mesh.name = solid.id;
             mesh.userData.isBuildableEnvelopeVolume = true;
+            mesh.userData.massingSolidRole = solid.role;
+            mesh.userData.envelopeGroundShade = solid.id === 'pryzm-forma-envelope-ground-shade';
+            mesh.userData.envelopeConfidenceComplete = solid.style.complete;
+            mesh.userData.envelopeOpenTop = solid.style.openTop;
+            mesh.userData.envelopeOpenTopExpressed = useOpenTop;
             return mesh;
         } catch (e) {
-            console.warn('[ParcelBoundarySceneRenderer] envelope volume build failed:', e);
+            console.warn('[ParcelBoundarySceneRenderer] massing solid rasterise failed:', e);
             return null;
         }
     }

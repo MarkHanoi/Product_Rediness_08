@@ -31,7 +31,8 @@
     "./materials": "./src/materials/index.ts",
     "./construction": "./src/construction/index.ts",
     "./lighting": "./src/lighting/index.ts",
-    "./link": "./src/link/index.ts"
+    "./link": "./src/link/index.ts",
+    "./siteintel": "./src/siteintel/index.ts"
   },
   "files": [
     "src",

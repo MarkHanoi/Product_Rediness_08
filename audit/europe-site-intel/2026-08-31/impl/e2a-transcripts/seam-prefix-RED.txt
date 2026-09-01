@@ -1,0 +1,61 @@
+npm warn Unknown project config "package-manager-strict". This will stop working in the next major version of npm. See `npm help npmrc` for supported config options.
+
+ RUN  v4.1.10 C:/Users/LENOVO/OneDrive/Desktop/PRYZM/Product_Rediness_08/apps/editor
+
+ ❯ __tests__/parcelBoundarySeamAdoption.test.ts (3 tests | 3 failed) 38ms
+     × §L-616 — a FAR-limited envelope draws a SHELL + a FAR solid, and the solid stops at the FAR height 22ms
+     × §1.7b.4 — a TIERED envelope draws one solid per tier, never one prism 7ms
+     × §1.12.6 — a NULL-height envelope draws the 0.5 m footprint slab, never an invented prism 6ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 3 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  __tests__/parcelBoundarySeamAdoption.test.ts > C58 §1.14 — ParcelBoundarySceneRenderer rasterises envelopeToMassing (Seam-1 adopted) > §L-616 — a FAR-limited envelope draws a SHELL + a FAR solid, and the solid stops at the FAR height
+AssertionError: the translucent legal-ceiling shell must be drawn: expected undefined to be defined
+ ❯ __tests__/parcelBoundarySeamAdoption.test.ts:123:76
+    121|         const shell = meshes.find((m) => m.name === 'pryzm-forma-envel…
+    122|         const far = meshes.find((m) => m.name === 'pryzm-forma-envelop…
+    123|         expect(shell, 'the translucent legal-ceiling shell must be dra…
+       |                                                                            ^
+    124|         expect(far, 'the opaque FAR solid must be drawn inside the she…
+    125|         // The shell is the outer legal bound (20 m); the volume CLAIM…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/3]⎯
+
+ FAIL  __tests__/parcelBoundarySeamAdoption.test.ts > C58 §1.14 — ParcelBoundarySceneRenderer rasterises envelopeToMassing (Seam-1 adopted) > §1.7b.4 — a TIERED envelope draws one solid per tier, never one prism
+AssertionError: a two-tier envelope is never one prism: expected 1 to be 2 // Object.is equality
+
+- Expected
++ Received
+
+- 2
++ 1
+
+ ❯ __tests__/parcelBoundarySeamAdoption.test.ts:156:73
+    154|         const meshes = envelopeMeshes(scene);
+    155|         // PRE-ADOPTION RED: exactly one prism at 17 m over the whole …
+    156|         expect(meshes.length, 'a two-tier envelope is never one prism'…
+       |                                                                         ^
+    157|         const band = meshes.find((m) => m.name === 'pryzm-forma-envelo…
+    158|         const interior = meshes.find((m) => m.name === 'pryzm-forma-en…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/3]⎯
+
+ FAIL  __tests__/parcelBoundarySeamAdoption.test.ts > C58 §1.14 — ParcelBoundarySceneRenderer rasterises envelopeToMassing (Seam-1 adopted) > §1.12.6 — a NULL-height envelope draws the 0.5 m footprint slab, never an invented prism
+AssertionError: expected 9.020000457763672 to be close to 0.52, received difference is 8.500000457763672, but expected 0.0005
+ ❯ __tests__/parcelBoundarySeamAdoption.test.ts:179:34
+    177|         // PRE-ADOPTION RED: a 9 m ENVELOPE_FALLBACK_HEIGHT_M prism — …
+    178|         expect(meshes).toHaveLength(1);
+    179|         expect(topY(meshes[0]!)).toBeCloseTo(FOOTPRINT_ONLY_HEIGHT_M +…
+       |                                  ^
+    180|         expect((meshes[0]!.userData as { massingSolidRole?: string }).…
+    181|     });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/3]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  3 failed (3)
+   Start at  05:58:08
+   Duration  18.82s (transform 13.79s, setup 0ms, import 18.33s, tests 38ms, environment 0ms)
+
+SEAM_PRE_RC=1

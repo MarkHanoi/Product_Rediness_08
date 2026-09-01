@@ -111,7 +111,19 @@ export function applyConstructedHeight(
             ...envelope,
             maxHeight_m: patch.height_m,
             maxFloors: patch.maxFloors,
-            maxVolumeM3: envelope.insetAreaM2 * patch.height_m,
+            // §NEVER-OVERSTATE-B (E2a, 2026-09-01) — the SAME FAR volume cap as the engine's
+            // solve-time site (`ZoningRulesEngine.ts` §NEVER-OVERSTATE-B): `footprintArea ×
+            // farLimitedHeight_m` IS the FAR-permitted volume, min'd so it can only LOWER
+            // (C58 §1.4). Without this, a constructed-height zone with a real FAR (BCN clau 12,
+            // FAR 1,40 — the OVERSTATES-FAR verdict in ENVELOPE-REALISM-MATRIX.md) published
+            // the full height-shell volume while its render honestly drew the smaller solid.
+            maxVolumeM3:
+                far && far.binds && far.farLimitedHeight_m !== null
+                    ? Math.min(
+                          envelope.insetAreaM2 * patch.height_m,
+                          envelope.insetAreaM2 * far.farLimitedHeight_m,
+                      )
+                    : envelope.insetAreaM2 * patch.height_m,
             farLimitedHeight_m: far ? far.farLimitedHeight_m : envelope.farLimitedHeight_m,
             caveats: farCaveat ? [...envelope.caveats, farCaveat] : envelope.caveats,
             derivation,
@@ -165,8 +177,17 @@ export function applyConstructedHeight(
         insetAreaM2: principal.areaM2,
         maxHeight_m: principal.maxHeight_m,
         maxFloors: principal.maxFloors,
+        // §NEVER-OVERSTATE-B (E2a, 2026-09-01) — FAR caps the tiered study volume too, with the
+        // same min-only arithmetic as the two sibling sites (this file above; ZoningRulesEngine).
         maxVolumeM3:
-            principal.maxHeight_m === null ? null : effectiveArea * principal.maxHeight_m,
+            principal.maxHeight_m === null
+                ? null
+                : far && far.binds && far.farLimitedHeight_m !== null
+                  ? Math.min(
+                        effectiveArea * principal.maxHeight_m,
+                        principal.areaM2 * far.farLimitedHeight_m,
+                    )
+                  : effectiveArea * principal.maxHeight_m,
         farLimitedHeight_m: far ? far.farLimitedHeight_m : envelope.farLimitedHeight_m,
         caveats: farCaveat ? [...envelope.caveats, farCaveat] : envelope.caveats,
         derivation,

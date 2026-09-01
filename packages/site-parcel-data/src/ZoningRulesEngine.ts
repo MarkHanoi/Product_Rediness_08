@@ -1110,6 +1110,25 @@ export function computeBuildableEnvelope(
                     const farCaveat = farLimitedHeightCaveat(far, maxFAR.value!, maxHeight.value!);
                     if (farCaveat) caveats.push(farCaveat);
 
+                    // §NEVER-OVERSTATE-B (E2a, 2026-09-01) — maxFAR CAPS THE STUDY VOLUME.
+                    //
+                    // Mechanism B of REPORT §M: `maxFAR` was returned on the envelope and §L-616
+                    // computed `farLimitedHeight_m` for the RENDER split (shell + FAR solid), but
+                    // `maxVolumeM3` itself stayed `effectiveArea × headlineHeight` — the full
+                    // height-shell volume — so every non-render consumer of the study volume (the
+                    // facts card, capacity comparison, an export) read a number FAR forbids
+                    // (Copenhagen: ~5× at FAR 1.5 under a 24 m cap). The cap is the SAME §L-616
+                    // arithmetic — `footprintArea × farLimitedHeight_m` IS the FAR-permitted
+                    // volume (= maxGFA × floorHeight) — taken as a `min` so it can only ever
+                    // LOWER the published volume, never raise it (C58 §1.4: over-statement is the
+                    // one forbidden direction). FAR-null zones (`binds` false) are byte-identical.
+                    if (far.binds && far.farLimitedHeight_m !== null && maxVolumeM3 !== null) {
+                        maxVolumeM3 = Math.min(
+                            maxVolumeM3,
+                            footprintAreaM2 * far.farLimitedHeight_m,
+                        );
+                    }
+
                     // §L-619 / §CONTEXT-DATA-HONESTY — is this full-parcel footprint an UPPER BOUND?
                     //
                     // The plain per-edge inset above collapses an UNKNOWN setback to 0 (`front.value
@@ -1130,13 +1149,35 @@ export function computeBuildableEnvelope(
                         geometricRule?.kind === 'occupation-capped-alignment';
                     const setbacksAllUnknown =
                         front.from === 'none' && side.from === 'none' && rear.from === 'none';
-                    if (setbacksAllUnknown && !footprintShapingRule) {
+                    // §NEVER-OVERSTATE-A (E2a, 2026-09-01) — the SAME mechanism, PARTIALLY unknown.
+                    //
+                    // The all-unknown guard above closed L-619 for Copenhagen, but a zone that
+                    // resolves front=3 m and leaves side/rear UNRESOLVED still zero-insets the
+                    // unknown edges — SILENTLY: no flag, no caveat, and the ring reads as a solved
+                    // footprint while two of its edges were never inset at all. That is the exact
+                    // mechanism-A over-statement REPORT §M names (unknown-setback → 0-inset), one
+                    // notch narrower. `unknown ≠ zero` on EVERY axis, not only when all three are
+                    // missing (E4 control 9). The flag drives the same near-wireframe upper-bound
+                    // rendering; the caveat NAMES the unresolved axes so a reader can audit which
+                    // edges are the doubt. A pack that means "no setback" writes 0 and resolves —
+                    // `from === 'none'` is genuinely "the ordinance value is not held".
+                    const setbackUnknownAxes = [
+                        front.from === 'none' ? 'front' : null,
+                        side.from === 'none' ? 'side' : null,
+                        rear.from === 'none' ? 'rear' : null,
+                    ].filter((a): a is string => a !== null);
+                    if (setbackUnknownAxes.length > 0 && !footprintShapingRule) {
                         footprintIsUpperBound = true;
                         caveats.push(
-                            'Setbacks are UNKNOWN for this zone (none published), so this footprint is ' +
-                                'the WHOLE parcel as an UPPER BOUND — not a solved buildable area. A ' +
-                                'perimeter-block parcel typically leaves a central courtyard; the real ' +
-                                'footprint is smaller (§CONTEXT-DATA-HONESTY, L-619).',
+                            setbacksAllUnknown
+                                ? 'Setbacks are UNKNOWN for this zone (none published), so this footprint is ' +
+                                      'the WHOLE parcel as an UPPER BOUND — not a solved buildable area. A ' +
+                                      'perimeter-block parcel typically leaves a central courtyard; the real ' +
+                                      'footprint is smaller (§CONTEXT-DATA-HONESTY, L-619).'
+                                : `Setback(s) UNKNOWN on the ${setbackUnknownAxes.join(' + ')} axis/axes ` +
+                                      '(unresolved, not zero) — those edges were NOT inset, so this footprint ' +
+                                      'is an UPPER BOUND along the unresolved edge(s), not a solved buildable ' +
+                                      'area (§NEVER-OVERSTATE-A; §CONTEXT-DATA-HONESTY, L-619).',
                         );
                     }
                 }

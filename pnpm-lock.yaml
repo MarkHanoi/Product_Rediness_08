@@ -3180,6 +3180,9 @@ importers:
       '@pryzm/geometry-kernel':
         specifier: workspace:*
         version: link:../geometry-kernel
+      '@pryzm/ordinance-extraction':
+        specifier: workspace:*
+        version: link:../ordinance-extraction
       '@pryzm/schemas':
         specifier: workspace:*
         version: link:../schemas

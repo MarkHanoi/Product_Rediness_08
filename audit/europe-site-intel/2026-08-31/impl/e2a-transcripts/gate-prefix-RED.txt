@@ -1,0 +1,47 @@
+npm warn Unknown project config "package-manager-strict". This will stop working in the next major version of npm. See `npm help npmrc` for supported config options.
+[never-overstate] corpus: 6 pack-bearing jurisdiction(s) · 181 zone-solve(s) walked · 138 solved ok · 43 refused (a refusal draws nothing and cannot overstate — counted, not skipped)
+[never-overstate] axes: height · FAR · coverage · setback · volume — audited on every solved envelope, through the REAL computeBuildableEnvelope + envelopeToMassing (SEAM-1).
+[never-overstate] NOT ESTABLISHED by this gate: jurisdiction-correct rule VALUES (a wrong transcribed number that stays self-consistent passes), live provider data, terrain, or the render pixels — it binds the ENGINE + SEAM arithmetic, not the pack curation (L-449 owns that).
+[never-overstate] FAIL: 86 overstatement finding(s):
+  · [far] es-08019-barcelona / 20a/7/classified — maxVolumeM3 2013.0 m³ exceeds the FAR-permitted 1647.0 m³ (FAR 0.75) — mechanism B, §NEVER-OVERSTATE-B
+  · [far] es-08019-barcelona / 20a/7/unclassified — maxVolumeM3 1976.4 m³ exceeds the FAR-permitted 1647.0 m³ (FAR 0.75) — mechanism B, §NEVER-OVERSTATE-B
+  · [far] es-08019-barcelona / 20a/9/classified — maxVolumeM3 3952.8 m³ exceeds the FAR-permitted 2196.0 m³ (FAR 1) — mechanism B, §NEVER-OVERSTATE-B
+  · [far] es-08019-barcelona / 20a/9/unclassified — maxVolumeM3 3952.8 m³ exceeds the FAR-permitted 2196.0 m³ (FAR 1) — mechanism B, §NEVER-OVERSTATE-B
+  · [far] es-08019-barcelona / 20a/9b/classified — maxVolumeM3 3050.0 m³ exceeds the FAR-permitted 2196.0 m³ (FAR 1) — mechanism B, §NEVER-OVERSTATE-B
+  · [far] es-08019-barcelona / 20a/9b/unclassified — maxVolumeM3 2995.8 m³ exceeds the FAR-permitted 2196.0 m³ (FAR 1) — mechanism B, §NEVER-OVERSTATE-B
+  · [far] es-08019-barcelona / 20a/10/classified — maxVolumeM3 3074.4 m³ exceeds the FAR-permitted 1647.0 m³ (FAR 0.75) — mechanism B, §NEVER-OVERSTATE-B
+  · [far] es-08019-barcelona / 20a/10/unclassified — maxVolumeM3 2993.1 m³ exceeds the FAR-permitted 1647.0 m³ (FAR 0.75) — mechanism B, §NEVER-OVERSTATE-B
+  · [far] es-08019-barcelona / 20a/11/classified — maxVolumeM3 1464.0 m³ exceeds the FAR-permitted 1098.0 m³ (FAR 0.5) — mechanism B, §NEVER-OVERSTATE-B
+  · [far] es-08019-barcelona / 20a/11/unclassified — maxVolumeM3 1464.0 m³ exceeds the FAR-permitted 1098.0 m³ (FAR 0.5) — mechanism B, §NEVER-OVERSTATE-B
+  · [setback] es-28079-madrid / 5.3/classified — setback axis/axes UNRESOLVED (front_m) with no footprint-shaping rule, yet footprintIsUpperBound is not set — the 0-inset is silent (mechanism A, §NEVER-OVERSTATE-A / §L-619: unknown ≠ zero)
+  · [setback] es-28079-madrid / 5.3/unclassified — setback axis/axes UNRESOLVED (front_m) with no footprint-shaping rule, yet footprintIsUpperBound is not set — the 0-inset is silent (mechanism A, §NEVER-OVERSTATE-A / §L-619: unknown ≠ zero)
+  · [far] es-28079-madrid / 7.1.a/classified — maxVolumeM3 5104.0 m³ exceeds the FAR-permitted 2088.0 m³ (FAR 0.8) — mechanism B, §NEVER-OVERSTATE-B
+  · [far] es-28079-madrid / 7.1.a/unclassified — maxVolumeM3 5104.0 m³ exceeds the FAR-permitted 2088.0 m³ (FAR 0.8) — mechanism B, §NEVER-OVERSTATE-B
+  · [far] es-28079-madrid / 7.1.b/classified — maxVolumeM3 5104.0 m³ exceeds the FAR-permitted 2088.0 m³ (FAR 0.8) — mechanism B, §NEVER-OVERSTATE-B
+  · [far] es-28079-madrid / 7.1.b/unclassified — maxVolumeM3 5104.0 m³ exceeds the FAR-permitted 2088.0 m³ (FAR 0.8) — mechanism B, §NEVER-OVERSTATE-B
+  · [far] es-28079-madrid / 8.1.a/classified — maxVolumeM3 1176.0 m³ exceeds the FAR-permitted 756.0 m³ (FAR 0.3) — mechanism B, §NEVER-OVERSTATE-B
+  · [far] es-28079-madrid / 8.1.a/unclassified — maxVolumeM3 1176.0 m³ exceeds the FAR-permitted 756.0 m³ (FAR 0.3) — mechanism B, §NEVER-OVERSTATE-B
+  · [far] es-28079-madrid / 8.1.c/classified — maxVolumeM3 1176.0 m³ exceeds the FAR-permitted 756.0 m³ (FAR 0.3) — mechanism B, §NEVER-OVERSTATE-B
+  · [far] es-28079-madrid / 8.1.c/unclassified — maxVolumeM3 1176.0 m³ exceeds the FAR-permitted 756.0 m³ (FAR 0.3) — mechanism B, §NEVER-OVERSTATE-B
+  · [far] es-28079-madrid / 8.2.a/classified — maxVolumeM3 2100.0 m³ exceeds the FAR-permitted 1260.0 m³ (FAR 0.5) — mechanism B, §NEVER-OVERSTATE-B
+  · [far] es-28079-madrid / 8.2.a/unclassified — maxVolumeM3 2062.7 m³ exceeds the FAR-permitted 1260.0 m³ (FAR 0.5) — mechanism B, §NEVER-OVERSTATE-B
+  · [far] es-28079-madrid / 8.2.b/classified — maxVolumeM3 2100.0 m³ exceeds the FAR-permitted 1260.0 m³ (FAR 0.5) — mechanism B, §NEVER-OVERSTATE-B
+  · [far] es-28079-madrid / 8.2.b/unclassified — maxVolumeM3 2062.7 m³ exceeds the FAR-permitted 1260.0 m³ (FAR 0.5) — mechanism B, §NEVER-OVERSTATE-B
+  · [far] es-28079-madrid / 8.2.c/classified — maxVolumeM3 2100.0 m³ exceeds the FAR-permitted 1260.0 m³ (FAR 0.5) — mechanism B, §NEVER-OVERSTATE-B
+  · [far] es-28079-madrid / 8.2.c/unclassified — maxVolumeM3 2062.7 m³ exceeds the FAR-permitted 1260.0 m³ (FAR 0.5) — mechanism B, §NEVER-OVERSTATE-B
+  · [far] es-28079-madrid / 8.3.a/classified — maxVolumeM3 3276.0 m³ exceeds the FAR-permitted 1764.0 m³ (FAR 0.7) — mechanism B, §NEVER-OVERSTATE-B
+  · [far] es-28079-madrid / 8.3.a/unclassified — maxVolumeM3 3182.7 m³ exceeds the FAR-permitted 1764.0 m³ (FAR 0.7) — mechanism B, §NEVER-OVERSTATE-B
+  · [far] es-28079-madrid / 8.3.c/classified — maxVolumeM3 3276.0 m³ exceeds the FAR-permitted 1764.0 m³ (FAR 0.7) — mechanism B, §NEVER-OVERSTATE-B
+  · [far] es-28079-madrid / 8.3.c/unclassified — maxVolumeM3 3182.7 m³ exceeds the FAR-permitted 1764.0 m³ (FAR 0.7) — mechanism B, §NEVER-OVERSTATE-B
+  · [far] es-28079-madrid / 8.4/classified — maxVolumeM3 3276.0 m³ exceeds the FAR-permitted 2520.0 m³ (FAR 1) — mechanism B, §NEVER-OVERSTATE-B
+  · [far] es-28079-madrid / 8.4/unclassified — maxVolumeM3 3182.7 m³ exceeds the FAR-permitted 2520.0 m³ (FAR 1) — mechanism B, §NEVER-OVERSTATE-B
+  · [far] es-28079-madrid / 8.5/classified — maxVolumeM3 2408.0 m³ exceeds the FAR-permitted 2016.0 m³ (FAR 0.8) — mechanism B, §NEVER-OVERSTATE-B
+  · [far] es-28079-madrid / 8.5/unclassified — maxVolumeM3 2347.2 m³ exceeds the FAR-permitted 2016.0 m³ (FAR 0.8) — mechanism B, §NEVER-OVERSTATE-B
+  · [far] es-28079-madrid / 8.6/classified — maxVolumeM3 2661.8 m³ exceeds the FAR-permitted 1260.0 m³ (FAR 0.5) — mechanism B, §NEVER-OVERSTATE-B
+  · [far] es-28079-madrid / 8.6/unclassified — maxVolumeM3 2649.8 m³ exceeds the FAR-permitted 1260.0 m³ (FAR 0.5) — mechanism B, §NEVER-OVERSTATE-B
+  · [far] es-28079-madrid / 9.3/classified — maxVolumeM3 14112.0 m³ exceeds the FAR-permitted 4608.0 m³ (FAR 1.6) — mechanism B, §NEVER-OVERSTATE-B
+  · [far] es-28079-madrid / 9.3/unclassified — maxVolumeM3 12096.0 m³ exceeds the FAR-permitted 4608.0 m³ (FAR 1.6) — mechanism B, §NEVER-OVERSTATE-B
+  · [far] es-28079-madrid / 9.4.a/classified — maxVolumeM3 10080.0 m³ exceeds the FAR-permitted 6912.0 m³ (FAR 2.4) — mechanism B, §NEVER-OVERSTATE-B
+  · [far] es-28079-madrid / 9.4.a/unclassified — maxVolumeM3 8640.0 m³ exceeds the FAR-permitted 6912.0 m³ (FAR 2.4) — mechanism B, §NEVER-OVERSTATE-B
+  … and 46 more
+RC=1

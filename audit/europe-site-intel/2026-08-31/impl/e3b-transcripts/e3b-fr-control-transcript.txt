@@ -1,0 +1,2 @@
+ALIGNED  (shift 0)      : {"n":1032,"absP50":3.26,"within3m":0.458}
+SCRAMBLED(shift +73 m E): {"n":799,"absP50":4.71,"within3m":0.32}

@@ -19,6 +19,7 @@
   "dependencies": {
     "@pryzm/geometry-kernel": "workspace:*",
     "@opentelemetry/api": "^1.9.1",
+    "@pryzm/ordinance-extraction": "workspace:*",
     "@pryzm/schemas": "workspace:*",
     "@pryzm/site-validators": "workspace:*"
   },

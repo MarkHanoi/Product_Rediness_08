@@ -1,0 +1,2986 @@
+{
+  "formatVersion": 1,
+  "plan": {
+    "id": "plan-es-08019-pgm-1976",
+    "kind": "pgm",
+    "status": "vigent",
+    "adoptedDate": "1976-07-14",
+    "inForceFrom": "1976-07-14",
+    "inForceTo": null,
+    "documents": [
+      "doc-es-08019-pgm-nnuu-mmamb"
+    ],
+    "geometryRef": null,
+    "source": "src-es-08019-pgm-corpus",
+    "version": null
+  },
+  "packs": [
+    {
+      "meta": {
+        "jurisdictionId": "es-08019-barcelona",
+        "displayName": "Barcelona — Ordenació en edificació aïllada (PGM clau 20a)",
+        "source": "catastro-muc",
+        "crs": "EPSG:4326",
+        "lastReviewed": "2026-07-22",
+        "defaultConfidence": "estimated-ruleset"
+      },
+      "zones": [
+        {
+          "code": "20a/6",
+          "label": "Ordenació en edificació aïllada — subzona I, plurifamiliar (clau 20a/6)",
+          "permittedUse": [
+            "residential"
+          ],
+          "fieldProvenance": {
+            "setback.front": "ordinance-pdf",
+            "setback.side": "ordinance-pdf",
+            "setback.rear": "ordinance-pdf",
+            "maxCoverage": "ordinance-pdf",
+            "permittedUse": "ordinance-pdf",
+            "maxHeight": "ordinance-pdf",
+            "maxFloors": "ordinance-pdf",
+            "maxFAR": "ordinance-pdf"
+          },
+          "ordinanceRef": "PGM-1976 NNUU, clau 20a/6 — Zona d'ordenació en edificació aïllada (20a), subzona I, plurifamiliar (Art. 338.2). Tipus d'ordenació: edificació aïllada (Art. 339). Separacions front–lateral–fons 12–8–10 m: Art. 342.7 Ocupació màxima 15 %: Art. 342.2 (measured per Barcelona Art. 249.1 as the orthogonal projection of the whole volume, above or below grade, cossos sortints included). Superfície mínima de parcel·la 2000 m² / façana mínima 30 m: Art. 342.1. Alçada màxima 9.15 m / PB+2: Art. 342.3. Índex d'edificabilitat neta 0,25 m²st/m²s: Art. 340.1 (not Barcelona-modified). ⚠ Art. 255 (Barcelona) reduces the edificabilitat on parcels of average slope > 30 % and makes those above 100 % inedificables — PRYZM holds no terrain model and does NOT apply it. Arts. 342 and 343 are read from \"Modificació de les Normes urbanístiques del PGM per a l'ordenació de l'edificació aïllada, de Barcelona\", approved by the Subcomissió d'Urbanisme del municipi de Barcelona on 20-10-2004 (DOGC núm. 4277 of 10-12-2004), whose articles are headed \"(d'aplicació al municipi de Barcelona exclusivament)\" — NOT from the base metropolitan text, which those articles' own footnotes 55 and 56 redirect away from. Arts. 337, 338, 339 and 340 are NOT Barcelona-modified (footnote 54 attaches to Art. 341). Source: PGM-1976 NNUU as re-edited by the MMAMB (Normativa Urbanística Metropolitana), committed at docs/04-reference/jurisdictions/es/es-ct/08019-barcelona/PGM-NNUU-metropolitana.pdf and read with text coordinates (printed pp. 109–114 for the base text, pp. 177–188 for the Barcelona-exclusive modifications). ⚠ This is a RE-EDITION of the 1988 text refós — manually re-typeset, with documented transcription errors elsewhere in the same volume (Arts. 251.3a, 330, 331) — not the DOGC original and not Barcelona's own 08019 consolidation. Confidence estimated-ruleset; nothing in this pack is certified (L-590, L-591).",
+          "inheritsFromZoneCode": null,
+          "rules": [
+            {
+              "id": "rule-es-08019-20a-6-maxheightm",
+              "body": null,
+              "applicability": {
+                "basis": [
+                  {
+                    "kind": "plan",
+                    "ref": "plan-es-08019-pgm-1976"
+                  }
+                ],
+                "geometry": null,
+                "useScope": [],
+                "rank": null,
+                "condition": null
+              },
+              "provenance": {
+                "parameter": "maxHeight_m",
+                "value": 9.15,
+                "unit": "m",
+                "source": {
+                  "country": "ES",
+                  "authority": "MMAMB — Normativa Urbanística Metropolitana (re-edition of the PGM-1976 NNUU / 1988 text refós)",
+                  "dataset": "PGM-NNUU-metropolitana.pdf",
+                  "plan_id": "PGM-1976",
+                  "object_id": "clau 20a/6 (subzona I)",
+                  "document": "docs/04-reference/jurisdictions/es/es-ct/08019-barcelona/PGM-NNUU-metropolitana.pdf",
+                  "article": "Art. 342.3",
+                  "page": null
+                },
+                "derivation": "AI_EXTRACTED",
+                "valueLocation": "in-document-text",
+                "confidence": {
+                  "tier": 4
+                },
+                "normativeForce": null,
+                "validityBasis": "legal",
+                "valid_from": "2004-12-10",
+                "valid_to": null
+              }
+            },
+            {
+              "id": "rule-es-08019-20a-6-maxfloors",
+              "body": null,
+              "applicability": {
+                "basis": [
+                  {
+                    "kind": "plan",
+                    "ref": "plan-es-08019-pgm-1976"
+                  }
+                ],
+                "geometry": null,
+                "useScope": [],
+                "rank": null,
+                "condition": null
+              },
+              "provenance": {
+                "parameter": "maxFloors",
+                "value": 3,
+                "unit": null,
+                "source": {
+                  "country": "ES",
+                  "authority": "MMAMB — Normativa Urbanística Metropolitana (re-edition of the PGM-1976 NNUU / 1988 text refós)",
+                  "dataset": "PGM-NNUU-metropolitana.pdf",
+                  "plan_id": "PGM-1976",
+                  "object_id": "clau 20a/6 (subzona I)",
+                  "document": "docs/04-reference/jurisdictions/es/es-ct/08019-barcelona/PGM-NNUU-metropolitana.pdf",
+                  "article": "Art. 342.3",
+                  "page": null
+                },
+                "derivation": "DERIVED",
+                "confidence": {
+                  "tier": 3,
+                  "note": "PB+N convention: the ordinance states PB+2; C58 maxFloors counts total levels = N+1 (the L5 dispatcher convention the TS pack applies)"
+                },
+                "normativeForce": null,
+                "validityBasis": "legal",
+                "valid_from": "2004-12-10",
+                "valid_to": null
+              }
+            },
+            {
+              "id": "rule-es-08019-20a-6-plotratiofar",
+              "body": null,
+              "applicability": {
+                "basis": [
+                  {
+                    "kind": "plan",
+                    "ref": "plan-es-08019-pgm-1976"
+                  }
+                ],
+                "geometry": null,
+                "useScope": [],
+                "rank": null,
+                "condition": null
+              },
+              "provenance": {
+                "parameter": "plotRatioFAR",
+                "value": 0.25,
+                "unit": "m²st/m²s",
+                "source": {
+                  "country": "ES",
+                  "authority": "MMAMB — Normativa Urbanística Metropolitana (re-edition of the PGM-1976 NNUU / 1988 text refós)",
+                  "dataset": "PGM-NNUU-metropolitana.pdf",
+                  "plan_id": "PGM-1976",
+                  "object_id": "clau 20a/6 (subzona I)",
+                  "document": "docs/04-reference/jurisdictions/es/es-ct/08019-barcelona/PGM-NNUU-metropolitana.pdf",
+                  "article": "Art. 340.1",
+                  "page": null
+                },
+                "derivation": "AI_EXTRACTED",
+                "valueLocation": "in-document-text",
+                "valueBasis": {
+                  "scheme": "es-pgm-edificabilitat",
+                  "code": "neta"
+                },
+                "confidence": {
+                  "tier": 4
+                },
+                "normativeForce": null,
+                "validityBasis": "legal",
+                "valid_from": "1976-07-14",
+                "valid_to": null
+              },
+              "rase": {
+                "requirement": "Els índexs d'edificabilitat neta per a cada una de les subzones són els establerts al quadre següent"
+              }
+            },
+            {
+              "id": "rule-es-08019-20a-6-maxcoveragepercent",
+              "body": null,
+              "applicability": {
+                "basis": [
+                  {
+                    "kind": "plan",
+                    "ref": "plan-es-08019-pgm-1976"
+                  }
+                ],
+                "geometry": null,
+                "useScope": [],
+                "rank": null,
+                "condition": null
+              },
+              "provenance": {
+                "parameter": "maxCoveragePercent",
+                "value": 15,
+                "unit": "%",
+                "source": {
+                  "country": "ES",
+                  "authority": "MMAMB — Normativa Urbanística Metropolitana (re-edition of the PGM-1976 NNUU / 1988 text refós)",
+                  "dataset": "PGM-NNUU-metropolitana.pdf",
+                  "plan_id": "PGM-1976",
+                  "object_id": "clau 20a/6 (subzona I)",
+                  "document": "docs/04-reference/jurisdictions/es/es-ct/08019-barcelona/PGM-NNUU-metropolitana.pdf",
+                  "article": "Art. 342.2",
+                  "page": null
+                },
+                "derivation": "AI_EXTRACTED",
+                "valueLocation": "in-document-text",
+                "valueBasis": {
+                  "scheme": "es-pgm-ocupacio-mesura",
+                  "code": "Art. 249.1"
+                },
+                "confidence": {
+                  "tier": 4
+                },
+                "normativeForce": null,
+                "validityBasis": "legal",
+                "valid_from": "2004-12-10",
+                "valid_to": null
+              }
+            },
+            {
+              "id": "rule-es-08019-20a-6-setback-frontm",
+              "body": null,
+              "applicability": {
+                "basis": [
+                  {
+                    "kind": "plan",
+                    "ref": "plan-es-08019-pgm-1976"
+                  }
+                ],
+                "geometry": null,
+                "useScope": [],
+                "rank": null,
+                "condition": null
+              },
+              "provenance": {
+                "parameter": "setback.front_m",
+                "value": 12,
+                "unit": "m",
+                "source": {
+                  "country": "ES",
+                  "authority": "MMAMB — Normativa Urbanística Metropolitana (re-edition of the PGM-1976 NNUU / 1988 text refós)",
+                  "dataset": "PGM-NNUU-metropolitana.pdf",
+                  "plan_id": "PGM-1976",
+                  "object_id": "clau 20a/6 (subzona I)",
+                  "document": "docs/04-reference/jurisdictions/es/es-ct/08019-barcelona/PGM-NNUU-metropolitana.pdf",
+                  "article": "Art. 342.7",
+                  "page": null
+                },
+                "derivation": "AI_EXTRACTED",
+                "valueLocation": "in-document-text",
+                "confidence": {
+                  "tier": 4
+                },
+                "normativeForce": null,
+                "validityBasis": "legal",
+                "valid_from": "2004-12-10",
+                "valid_to": null
+              }
+            },
+            {
+              "id": "rule-es-08019-20a-6-setback-sidem",
+              "body": null,
+              "applicability": {
+                "basis": [
+                  {
+                    "kind": "plan",
+                    "ref": "plan-es-08019-pgm-1976"
+                  }
+                ],
+                "geometry": null,
+                "useScope": [],
+                "rank": null,
+                "condition": null
+              },
+              "provenance": {
+                "parameter": "setback.side_m",
+                "value": 8,
+                "unit": "m",
+                "source": {
+                  "country": "ES",
+                  "authority": "MMAMB — Normativa Urbanística Metropolitana (re-edition of the PGM-1976 NNUU / 1988 text refós)",
+                  "dataset": "PGM-NNUU-metropolitana.pdf",
+                  "plan_id": "PGM-1976",
+                  "object_id": "clau 20a/6 (subzona I)",
+                  "document": "docs/04-reference/jurisdictions/es/es-ct/08019-barcelona/PGM-NNUU-metropolitana.pdf",
+                  "article": "Art. 342.7",
+                  "page": null
+                },
+                "derivation": "AI_EXTRACTED",
+                "valueLocation": "in-document-text",
+                "confidence": {
+                  "tier": 4
+                },
+                "normativeForce": null,
+                "validityBasis": "legal",
+                "valid_from": "2004-12-10",
+                "valid_to": null
+              }
+            },
+            {
+              "id": "rule-es-08019-20a-6-setback-rearm",
+              "body": null,
+              "applicability": {
+                "basis": [
+                  {
+                    "kind": "plan",
+                    "ref": "plan-es-08019-pgm-1976"
+                  }
+                ],
+                "geometry": null,
+                "useScope": [],
+                "rank": null,
+                "condition": null
+              },
+              "provenance": {
+                "parameter": "setback.rear_m",
+                "value": 10,
+                "unit": "m",
+                "source": {
+                  "country": "ES",
+                  "authority": "MMAMB — Normativa Urbanística Metropolitana (re-edition of the PGM-1976 NNUU / 1988 text refós)",
+                  "dataset": "PGM-NNUU-metropolitana.pdf",
+                  "plan_id": "PGM-1976",
+                  "object_id": "clau 20a/6 (subzona I)",
+                  "document": "docs/04-reference/jurisdictions/es/es-ct/08019-barcelona/PGM-NNUU-metropolitana.pdf",
+                  "article": "Art. 342.7",
+                  "page": null
+                },
+                "derivation": "AI_EXTRACTED",
+                "valueLocation": "in-document-text",
+                "confidence": {
+                  "tier": 4
+                },
+                "normativeForce": null,
+                "validityBasis": "legal",
+                "valid_from": "2004-12-10",
+                "valid_to": null
+              }
+            }
+          ]
+        },
+        {
+          "code": "20a/5",
+          "label": "Ordenació en edificació aïllada — subzona II, plurifamiliar (clau 20a/5)",
+          "permittedUse": [
+            "residential"
+          ],
+          "fieldProvenance": {
+            "setback.front": "ordinance-pdf",
+            "setback.side": "ordinance-pdf",
+            "setback.rear": "ordinance-pdf",
+            "maxCoverage": "ordinance-pdf",
+            "permittedUse": "ordinance-pdf",
+            "maxHeight": "ordinance-pdf",
+            "maxFloors": "ordinance-pdf",
+            "maxFAR": "ordinance-pdf"
+          },
+          "ordinanceRef": "PGM-1976 NNUU, clau 20a/5 — Zona d'ordenació en edificació aïllada (20a), subzona II, plurifamiliar (Art. 338.2). Tipus d'ordenació: edificació aïllada (Art. 339). Separacions front–lateral–fons 10–6–8 m: Art. 342.7 Ocupació màxima 20 %: Art. 342.2 (measured per Barcelona Art. 249.1 as the orthogonal projection of the whole volume, above or below grade, cossos sortints included). Superfície mínima de parcel·la 1500 m² / façana mínima 20 m: Art. 342.1. Alçada màxima 9.15 m / PB+2: Art. 342.3. Índex d'edificabilitat neta 0,50 m²st/m²s: Art. 340.1 (not Barcelona-modified). ⚠ Art. 255 (Barcelona) reduces the edificabilitat on parcels of average slope > 30 % and makes those above 100 % inedificables — PRYZM holds no terrain model and does NOT apply it. Arts. 342 and 343 are read from \"Modificació de les Normes urbanístiques del PGM per a l'ordenació de l'edificació aïllada, de Barcelona\", approved by the Subcomissió d'Urbanisme del municipi de Barcelona on 20-10-2004 (DOGC núm. 4277 of 10-12-2004), whose articles are headed \"(d'aplicació al municipi de Barcelona exclusivament)\" — NOT from the base metropolitan text, which those articles' own footnotes 55 and 56 redirect away from. Arts. 337, 338, 339 and 340 are NOT Barcelona-modified (footnote 54 attaches to Art. 341). Source: PGM-1976 NNUU as re-edited by the MMAMB (Normativa Urbanística Metropolitana), committed at docs/04-reference/jurisdictions/es/es-ct/08019-barcelona/PGM-NNUU-metropolitana.pdf and read with text coordinates (printed pp. 109–114 for the base text, pp. 177–188 for the Barcelona-exclusive modifications). ⚠ This is a RE-EDITION of the 1988 text refós — manually re-typeset, with documented transcription errors elsewhere in the same volume (Arts. 251.3a, 330, 331) — not the DOGC original and not Barcelona's own 08019 consolidation. Confidence estimated-ruleset; nothing in this pack is certified (L-590, L-591).",
+          "inheritsFromZoneCode": null,
+          "rules": [
+            {
+              "id": "rule-es-08019-20a-5-maxheightm",
+              "body": null,
+              "applicability": {
+                "basis": [
+                  {
+                    "kind": "plan",
+                    "ref": "plan-es-08019-pgm-1976"
+                  }
+                ],
+                "geometry": null,
+                "useScope": [],
+                "rank": null,
+                "condition": null
+              },
+              "provenance": {
+                "parameter": "maxHeight_m",
+                "value": 9.15,
+                "unit": "m",
+                "source": {
+                  "country": "ES",
+                  "authority": "MMAMB — Normativa Urbanística Metropolitana (re-edition of the PGM-1976 NNUU / 1988 text refós)",
+                  "dataset": "PGM-NNUU-metropolitana.pdf",
+                  "plan_id": "PGM-1976",
+                  "object_id": "clau 20a/5 (subzona II)",
+                  "document": "docs/04-reference/jurisdictions/es/es-ct/08019-barcelona/PGM-NNUU-metropolitana.pdf",
+                  "article": "Art. 342.3",
+                  "page": null
+                },
+                "derivation": "AI_EXTRACTED",
+                "valueLocation": "in-document-text",
+                "confidence": {
+                  "tier": 4
+                },
+                "normativeForce": null,
+                "validityBasis": "legal",
+                "valid_from": "2004-12-10",
+                "valid_to": null
+              }
+            },
+            {
+              "id": "rule-es-08019-20a-5-maxfloors",
+              "body": null,
+              "applicability": {
+                "basis": [
+                  {
+                    "kind": "plan",
+                    "ref": "plan-es-08019-pgm-1976"
+                  }
+                ],
+                "geometry": null,
+                "useScope": [],
+                "rank": null,
+                "condition": null
+              },
+              "provenance": {
+                "parameter": "maxFloors",
+                "value": 3,
+                "unit": null,
+                "source": {
+                  "country": "ES",
+                  "authority": "MMAMB — Normativa Urbanística Metropolitana (re-edition of the PGM-1976 NNUU / 1988 text refós)",
+                  "dataset": "PGM-NNUU-metropolitana.pdf",
+                  "plan_id": "PGM-1976",
+                  "object_id": "clau 20a/5 (subzona II)",
+                  "document": "docs/04-reference/jurisdictions/es/es-ct/08019-barcelona/PGM-NNUU-metropolitana.pdf",
+                  "article": "Art. 342.3",
+                  "page": null
+                },
+                "derivation": "DERIVED",
+                "confidence": {
+                  "tier": 3,
+                  "note": "PB+N convention: the ordinance states PB+2; C58 maxFloors counts total levels = N+1 (the L5 dispatcher convention the TS pack applies)"
+                },
+                "normativeForce": null,
+                "validityBasis": "legal",
+                "valid_from": "2004-12-10",
+                "valid_to": null
+              }
+            },
+            {
+              "id": "rule-es-08019-20a-5-plotratiofar",
+              "body": null,
+              "applicability": {
+                "basis": [
+                  {
+                    "kind": "plan",
+                    "ref": "plan-es-08019-pgm-1976"
+                  }
+                ],
+                "geometry": null,
+                "useScope": [],
+                "rank": null,
+                "condition": null
+              },
+              "provenance": {
+                "parameter": "plotRatioFAR",
+                "value": 0.5,
+                "unit": "m²st/m²s",
+                "source": {
+                  "country": "ES",
+                  "authority": "MMAMB — Normativa Urbanística Metropolitana (re-edition of the PGM-1976 NNUU / 1988 text refós)",
+                  "dataset": "PGM-NNUU-metropolitana.pdf",
+                  "plan_id": "PGM-1976",
+                  "object_id": "clau 20a/5 (subzona II)",
+                  "document": "docs/04-reference/jurisdictions/es/es-ct/08019-barcelona/PGM-NNUU-metropolitana.pdf",
+                  "article": "Art. 340.1",
+                  "page": null
+                },
+                "derivation": "AI_EXTRACTED",
+                "valueLocation": "in-document-text",
+                "valueBasis": {
+                  "scheme": "es-pgm-edificabilitat",
+                  "code": "neta"
+                },
+                "confidence": {
+                  "tier": 4
+                },
+                "normativeForce": null,
+                "validityBasis": "legal",
+                "valid_from": "1976-07-14",
+                "valid_to": null
+              },
+              "rase": {
+                "requirement": "Els índexs d'edificabilitat neta per a cada una de les subzones són els establerts al quadre següent"
+              }
+            },
+            {
+              "id": "rule-es-08019-20a-5-maxcoveragepercent",
+              "body": null,
+              "applicability": {
+                "basis": [
+                  {
+                    "kind": "plan",
+                    "ref": "plan-es-08019-pgm-1976"
+                  }
+                ],
+                "geometry": null,
+                "useScope": [],
+                "rank": null,
+                "condition": null
+              },
+              "provenance": {
+                "parameter": "maxCoveragePercent",
+                "value": 20,
+                "unit": "%",
+                "source": {
+                  "country": "ES",
+                  "authority": "MMAMB — Normativa Urbanística Metropolitana (re-edition of the PGM-1976 NNUU / 1988 text refós)",
+                  "dataset": "PGM-NNUU-metropolitana.pdf",
+                  "plan_id": "PGM-1976",
+                  "object_id": "clau 20a/5 (subzona II)",
+                  "document": "docs/04-reference/jurisdictions/es/es-ct/08019-barcelona/PGM-NNUU-metropolitana.pdf",
+                  "article": "Art. 342.2",
+                  "page": null
+                },
+                "derivation": "AI_EXTRACTED",
+                "valueLocation": "in-document-text",
+                "valueBasis": {
+                  "scheme": "es-pgm-ocupacio-mesura",
+                  "code": "Art. 249.1"
+                },
+                "confidence": {
+                  "tier": 4
+                },
+                "normativeForce": null,
+                "validityBasis": "legal",
+                "valid_from": "2004-12-10",
+                "valid_to": null
+              }
+            },
+            {
+              "id": "rule-es-08019-20a-5-setback-frontm",
+              "body": null,
+              "applicability": {
+                "basis": [
+                  {
+                    "kind": "plan",
+                    "ref": "plan-es-08019-pgm-1976"
+                  }
+                ],
+                "geometry": null,
+                "useScope": [],
+                "rank": null,
+                "condition": null
+              },
+              "provenance": {
+                "parameter": "setback.front_m",
+                "value": 10,
+                "unit": "m",
+                "source": {
+                  "country": "ES",
+                  "authority": "MMAMB — Normativa Urbanística Metropolitana (re-edition of the PGM-1976 NNUU / 1988 text refós)",
+                  "dataset": "PGM-NNUU-metropolitana.pdf",
+                  "plan_id": "PGM-1976",
+                  "object_id": "clau 20a/5 (subzona II)",
+                  "document": "docs/04-reference/jurisdictions/es/es-ct/08019-barcelona/PGM-NNUU-metropolitana.pdf",
+                  "article": "Art. 342.7",
+                  "page": null
+                },
+                "derivation": "AI_EXTRACTED",
+                "valueLocation": "in-document-text",
+                "confidence": {
+                  "tier": 4
+                },
+                "normativeForce": null,
+                "validityBasis": "legal",
+                "valid_from": "2004-12-10",
+                "valid_to": null
+              }
+            },
+            {
+              "id": "rule-es-08019-20a-5-setback-sidem",
+              "body": null,
+              "applicability": {
+                "basis": [
+                  {
+                    "kind": "plan",
+                    "ref": "plan-es-08019-pgm-1976"
+                  }
+                ],
+                "geometry": null,
+                "useScope": [],
+                "rank": null,
+                "condition": null
+              },
+              "provenance": {
+                "parameter": "setback.side_m",
+                "value": 6,
+                "unit": "m",
+                "source": {
+                  "country": "ES",
+                  "authority": "MMAMB — Normativa Urbanística Metropolitana (re-edition of the PGM-1976 NNUU / 1988 text refós)",
+                  "dataset": "PGM-NNUU-metropolitana.pdf",
+                  "plan_id": "PGM-1976",
+                  "object_id": "clau 20a/5 (subzona II)",
+                  "document": "docs/04-reference/jurisdictions/es/es-ct/08019-barcelona/PGM-NNUU-metropolitana.pdf",
+                  "article": "Art. 342.7",
+                  "page": null
+                },
+                "derivation": "AI_EXTRACTED",
+                "valueLocation": "in-document-text",
+                "confidence": {
+                  "tier": 4
+                },
+                "normativeForce": null,
+                "validityBasis": "legal",
+                "valid_from": "2004-12-10",
+                "valid_to": null
+              }
+            },
+            {
+              "id": "rule-es-08019-20a-5-setback-rearm",
+              "body": null,
+              "applicability": {
+                "basis": [
+                  {
+                    "kind": "plan",
+                    "ref": "plan-es-08019-pgm-1976"
+                  }
+                ],
+                "geometry": null,
+                "useScope": [],
+                "rank": null,
+                "condition": null
+              },
+              "provenance": {
+                "parameter": "setback.rear_m",
+                "value": 8,
+                "unit": "m",
+                "source": {
+                  "country": "ES",
+                  "authority": "MMAMB — Normativa Urbanística Metropolitana (re-edition of the PGM-1976 NNUU / 1988 text refós)",
+                  "dataset": "PGM-NNUU-metropolitana.pdf",
+                  "plan_id": "PGM-1976",
+                  "object_id": "clau 20a/5 (subzona II)",
+                  "document": "docs/04-reference/jurisdictions/es/es-ct/08019-barcelona/PGM-NNUU-metropolitana.pdf",
+                  "article": "Art. 342.7",
+                  "page": null
+                },
+                "derivation": "AI_EXTRACTED",
+                "valueLocation": "in-document-text",
+                "confidence": {
+                  "tier": 4
+                },
+                "normativeForce": null,
+                "validityBasis": "legal",
+                "valid_from": "2004-12-10",
+                "valid_to": null
+              }
+            }
+          ]
+        },
+        {
+          "code": "20a/7",
+          "label": "Ordenació en edificació aïllada — subzona III, plurifamiliar (clau 20a/7)",
+          "permittedUse": [
+            "residential"
+          ],
+          "fieldProvenance": {
+            "setback.front": "ordinance-pdf",
+            "setback.side": "ordinance-pdf",
+            "setback.rear": "ordinance-pdf",
+            "maxCoverage": "ordinance-pdf",
+            "permittedUse": "ordinance-pdf",
+            "maxHeight": "ordinance-pdf",
+            "maxFloors": "ordinance-pdf",
+            "maxFAR": "ordinance-pdf"
+          },
+          "ordinanceRef": "PGM-1976 NNUU, clau 20a/7 — Zona d'ordenació en edificació aïllada (20a), subzona III, plurifamiliar (Art. 338.2). Tipus d'ordenació: edificació aïllada (Art. 339). Separacions front–lateral–fons 8–4–6 m: Art. 342.7 Ocupació màxima 30 %: Art. 342.2 (measured per Barcelona Art. 249.1 as the orthogonal projection of the whole volume, above or below grade, cossos sortints included). Superfície mínima de parcel·la 1000 m² / façana mínima 16 m: Art. 342.1. Alçada màxima 9.15 m / PB+2: Art. 342.3. Índex d'edificabilitat neta 0,75 m²st/m²s: Art. 340.1 (not Barcelona-modified). ⚠ Art. 255 (Barcelona) reduces the edificabilitat on parcels of average slope > 30 % and makes those above 100 % inedificables — PRYZM holds no terrain model and does NOT apply it. Arts. 342 and 343 are read from \"Modificació de les Normes urbanístiques del PGM per a l'ordenació de l'edificació aïllada, de Barcelona\", approved by the Subcomissió d'Urbanisme del municipi de Barcelona on 20-10-2004 (DOGC núm. 4277 of 10-12-2004), whose articles are headed \"(d'aplicació al municipi de Barcelona exclusivament)\" — NOT from the base metropolitan text, which those articles' own footnotes 55 and 56 redirect away from. Arts. 337, 338, 339 and 340 are NOT Barcelona-modified (footnote 54 attaches to Art. 341). Source: PGM-1976 NNUU as re-edited by the MMAMB (Normativa Urbanística Metropolitana), committed at docs/04-reference/jurisdictions/es/es-ct/08019-barcelona/PGM-NNUU-metropolitana.pdf and read with text coordinates (printed pp. 109–114 for the base text, pp. 177–188 for the Barcelona-exclusive modifications). ⚠ This is a RE-EDITION of the 1988 text refós — manually re-typeset, with documented transcription errors elsewhere in the same volume (Arts. 251.3a, 330, 331) — not the DOGC original and not Barcelona's own 08019 consolidation. Confidence estimated-ruleset; nothing in this pack is certified (L-590, L-591).",
+          "inheritsFromZoneCode": null,
+          "rules": [
+            {
+              "id": "rule-es-08019-20a-7-maxheightm",
+              "body": null,
+              "applicability": {
+                "basis": [
+                  {
+                    "kind": "plan",
+                    "ref": "plan-es-08019-pgm-1976"
+                  }
+                ],
+                "geometry": null,
+                "useScope": [],
+                "rank": null,
+                "condition": null
+              },
+              "provenance": {
+                "parameter": "maxHeight_m",
+                "value": 9.15,
+                "unit": "m",
+                "source": {
+                  "country": "ES",
+                  "authority": "MMAMB — Normativa Urbanística Metropolitana (re-edition of the PGM-1976 NNUU / 1988 text refós)",
+                  "dataset": "PGM-NNUU-metropolitana.pdf",
+                  "plan_id": "PGM-1976",
+                  "object_id": "clau 20a/7 (subzona III)",
+                  "document": "docs/04-reference/jurisdictions/es/es-ct/08019-barcelona/PGM-NNUU-metropolitana.pdf",
+                  "article": "Art. 342.3",
+                  "page": null
+                },
+                "derivation": "AI_EXTRACTED",
+                "valueLocation": "in-document-text",
+                "confidence": {
+                  "tier": 4
+                },
+                "normativeForce": null,
+                "validityBasis": "legal",
+                "valid_from": "2004-12-10",
+                "valid_to": null
+              }
+            },
+            {
+              "id": "rule-es-08019-20a-7-maxfloors",
+              "body": null,
+              "applicability": {
+                "basis": [
+                  {
+                    "kind": "plan",
+                    "ref": "plan-es-08019-pgm-1976"
+                  }
+                ],
+                "geometry": null,
+                "useScope": [],
+                "rank": null,
+                "condition": null
+              },
+              "provenance": {
+                "parameter": "maxFloors",
+                "value": 3,
+                "unit": null,
+                "source": {
+                  "country": "ES",
+                  "authority": "MMAMB — Normativa Urbanística Metropolitana (re-edition of the PGM-1976 NNUU / 1988 text refós)",
+                  "dataset": "PGM-NNUU-metropolitana.pdf",
+                  "plan_id": "PGM-1976",
+                  "object_id": "clau 20a/7 (subzona III)",
+                  "document": "docs/04-reference/jurisdictions/es/es-ct/08019-barcelona/PGM-NNUU-metropolitana.pdf",
+                  "article": "Art. 342.3",
+                  "page": null
+                },
+                "derivation": "DERIVED",
+                "confidence": {
+                  "tier": 3,
+                  "note": "PB+N convention: the ordinance states PB+2; C58 maxFloors counts total levels = N+1 (the L5 dispatcher convention the TS pack applies)"
+                },
+                "normativeForce": null,
+                "validityBasis": "legal",
+                "valid_from": "2004-12-10",
+                "valid_to": null
+              }
+            },
+            {
+              "id": "rule-es-08019-20a-7-plotratiofar",
+              "body": null,
+              "applicability": {
+                "basis": [
+                  {
+                    "kind": "plan",
+                    "ref": "plan-es-08019-pgm-1976"
+                  }
+                ],
+                "geometry": null,
+                "useScope": [],
+                "rank": null,
+                "condition": null
+              },
+              "provenance": {
+                "parameter": "plotRatioFAR",
+                "value": 0.75,
+                "unit": "m²st/m²s",
+                "source": {
+                  "country": "ES",
+                  "authority": "MMAMB — Normativa Urbanística Metropolitana (re-edition of the PGM-1976 NNUU / 1988 text refós)",
+                  "dataset": "PGM-NNUU-metropolitana.pdf",
+                  "plan_id": "PGM-1976",
+                  "object_id": "clau 20a/7 (subzona III)",
+                  "document": "docs/04-reference/jurisdictions/es/es-ct/08019-barcelona/PGM-NNUU-metropolitana.pdf",
+                  "article": "Art. 340.1",
+                  "page": null
+                },
+                "derivation": "AI_EXTRACTED",
+                "valueLocation": "in-document-text",
+                "valueBasis": {
+                  "scheme": "es-pgm-edificabilitat",
+                  "code": "neta"
+                },
+                "confidence": {
+                  "tier": 4
+                },
+                "normativeForce": null,
+                "validityBasis": "legal",
+                "valid_from": "1976-07-14",
+                "valid_to": null
+              },
+              "rase": {
+                "requirement": "Els índexs d'edificabilitat neta per a cada una de les subzones són els establerts al quadre següent"
+              }
+            },
+            {
+              "id": "rule-es-08019-20a-7-maxcoveragepercent",
+              "body": null,
+              "applicability": {
+                "basis": [
+                  {
+                    "kind": "plan",
+                    "ref": "plan-es-08019-pgm-1976"
+                  }
+                ],
+                "geometry": null,
+                "useScope": [],
+                "rank": null,
+                "condition": null
+              },
+              "provenance": {
+                "parameter": "maxCoveragePercent",
+                "value": 30,
+                "unit": "%",
+                "source": {
+                  "country": "ES",
+                  "authority": "MMAMB — Normativa Urbanística Metropolitana (re-edition of the PGM-1976 NNUU / 1988 text refós)",
+                  "dataset": "PGM-NNUU-metropolitana.pdf",
+                  "plan_id": "PGM-1976",
+                  "object_id": "clau 20a/7 (subzona III)",
+                  "document": "docs/04-reference/jurisdictions/es/es-ct/08019-barcelona/PGM-NNUU-metropolitana.pdf",
+                  "article": "Art. 342.2",
+                  "page": null
+                },
+                "derivation": "AI_EXTRACTED",
+                "valueLocation": "in-document-text",
+                "valueBasis": {
+                  "scheme": "es-pgm-ocupacio-mesura",
+                  "code": "Art. 249.1"
+                },
+                "confidence": {
+                  "tier": 4
+                },
+                "normativeForce": null,
+                "validityBasis": "legal",
+                "valid_from": "2004-12-10",
+                "valid_to": null
+              }
+            },
+            {
+              "id": "rule-es-08019-20a-7-setback-frontm",
+              "body": null,
+              "applicability": {
+                "basis": [
+                  {
+                    "kind": "plan",
+                    "ref": "plan-es-08019-pgm-1976"
+                  }
+                ],
+                "geometry": null,
+                "useScope": [],
+                "rank": null,
+                "condition": null
+              },
+              "provenance": {
+                "parameter": "setback.front_m",
+                "value": 8,
+                "unit": "m",
+                "source": {
+                  "country": "ES",
+                  "authority": "MMAMB — Normativa Urbanística Metropolitana (re-edition of the PGM-1976 NNUU / 1988 text refós)",
+                  "dataset": "PGM-NNUU-metropolitana.pdf",
+                  "plan_id": "PGM-1976",
+                  "object_id": "clau 20a/7 (subzona III)",
+                  "document": "docs/04-reference/jurisdictions/es/es-ct/08019-barcelona/PGM-NNUU-metropolitana.pdf",
+                  "article": "Art. 342.7",
+                  "page": null
+                },
+                "derivation": "AI_EXTRACTED",
+                "valueLocation": "in-document-text",
+                "confidence": {
+                  "tier": 4
+                },
+                "normativeForce": null,
+                "validityBasis": "legal",
+                "valid_from": "2004-12-10",
+                "valid_to": null
+              }
+            },
+            {
+              "id": "rule-es-08019-20a-7-setback-sidem",
+              "body": null,
+              "applicability": {
+                "basis": [
+                  {
+                    "kind": "plan",
+                    "ref": "plan-es-08019-pgm-1976"
+                  }
+                ],
+                "geometry": null,
+                "useScope": [],
+                "rank": null,
+                "condition": null
+              },
+              "provenance": {
+                "parameter": "setback.side_m",
+                "value": 4,
+                "unit": "m",
+                "source": {
+                  "country": "ES",
+                  "authority": "MMAMB — Normativa Urbanística Metropolitana (re-edition of the PGM-1976 NNUU / 1988 text refós)",
+                  "dataset": "PGM-NNUU-metropolitana.pdf",
+                  "plan_id": "PGM-1976",
+                  "object_id": "clau 20a/7 (subzona III)",
+                  "document": "docs/04-reference/jurisdictions/es/es-ct/08019-barcelona/PGM-NNUU-metropolitana.pdf",
+                  "article": "Art. 342.7",
+                  "page": null
+                },
+                "derivation": "AI_EXTRACTED",
+                "valueLocation": "in-document-text",
+                "confidence": {
+                  "tier": 4
+                },
+                "normativeForce": null,
+                "validityBasis": "legal",
+                "valid_from": "2004-12-10",
+                "valid_to": null
+              }
+            },
+            {
+              "id": "rule-es-08019-20a-7-setback-rearm",
+              "body": null,
+              "applicability": {
+                "basis": [
+                  {
+                    "kind": "plan",
+                    "ref": "plan-es-08019-pgm-1976"
+                  }
+                ],
+                "geometry": null,
+                "useScope": [],
+                "rank": null,
+                "condition": null
+              },
+              "provenance": {
+                "parameter": "setback.rear_m",
+                "value": 6,
+                "unit": "m",
+                "source": {
+                  "country": "ES",
+                  "authority": "MMAMB — Normativa Urbanística Metropolitana (re-edition of the PGM-1976 NNUU / 1988 text refós)",
+                  "dataset": "PGM-NNUU-metropolitana.pdf",
+                  "plan_id": "PGM-1976",
+                  "object_id": "clau 20a/7 (subzona III)",
+                  "document": "docs/04-reference/jurisdictions/es/es-ct/08019-barcelona/PGM-NNUU-metropolitana.pdf",
+                  "article": "Art. 342.7",
+                  "page": null
+                },
+                "derivation": "AI_EXTRACTED",
+                "valueLocation": "in-document-text",
+                "confidence": {
+                  "tier": 4
+                },
+                "normativeForce": null,
+                "validityBasis": "legal",
+                "valid_from": "2004-12-10",
+                "valid_to": null
+              }
+            }
+          ]
+        },
+        {
+          "code": "20a/9",
+          "label": "Ordenació en edificació aïllada — subzona IVa, plurifamiliar (clau 20a/9)",
+          "permittedUse": [
+            "residential"
+          ],
+          "fieldProvenance": {
+            "setback.front": "ordinance-pdf",
+            "setback.side": "ordinance-pdf",
+            "setback.rear": "ordinance-pdf",
+            "maxCoverage": "ordinance-pdf",
+            "permittedUse": "ordinance-pdf",
+            "maxHeight": "ordinance-pdf",
+            "maxFloors": "ordinance-pdf",
+            "maxFAR": "ordinance-pdf"
+          },
+          "ordinanceRef": "PGM-1976 NNUU, clau 20a/9 — Zona d'ordenació en edificació aïllada (20a), subzona IVa, plurifamiliar (Art. 338.2). Tipus d'ordenació: edificació aïllada (Art. 339). Separacions front–lateral–fons 3–3–3 m: Art. 342.7 Ocupació màxima 40 %: Art. 342.2 (measured per Barcelona Art. 249.1 as the orthogonal projection of the whole volume, above or below grade, cossos sortints included). Superfície mínima de parcel·la 400 m² / façana mínima 14 m: Art. 342.1. Alçada màxima 9.15 m / PB+2: Art. 342.3. Índex d'edificabilitat neta 1,00 m²st/m²s: Art. 340.1 (not Barcelona-modified). ⚠ Art. 255 (Barcelona) reduces the edificabilitat on parcels of average slope > 30 % and makes those above 100 % inedificables — PRYZM holds no terrain model and does NOT apply it. Arts. 342 and 343 are read from \"Modificació de les Normes urbanístiques del PGM per a l'ordenació de l'edificació aïllada, de Barcelona\", approved by the Subcomissió d'Urbanisme del municipi de Barcelona on 20-10-2004 (DOGC núm. 4277 of 10-12-2004), whose articles are headed \"(d'aplicació al municipi de Barcelona exclusivament)\" — NOT from the base metropolitan text, which those articles' own footnotes 55 and 56 redirect away from. Arts. 337, 338, 339 and 340 are NOT Barcelona-modified (footnote 54 attaches to Art. 341). Source: PGM-1976 NNUU as re-edited by the MMAMB (Normativa Urbanística Metropolitana), committed at docs/04-reference/jurisdictions/es/es-ct/08019-barcelona/PGM-NNUU-metropolitana.pdf and read with text coordinates (printed pp. 109–114 for the base text, pp. 177–188 for the Barcelona-exclusive modifications). ⚠ This is a RE-EDITION of the 1988 text refós — manually re-typeset, with documented transcription errors elsewhere in the same volume (Arts. 251.3a, 330, 331) — not the DOGC original and not Barcelona's own 08019 consolidation. Confidence estimated-ruleset; nothing in this pack is certified (L-590, L-591).",
+          "inheritsFromZoneCode": null,
+          "rules": [
+            {
+              "id": "rule-es-08019-20a-9-maxheightm",
+              "body": null,
+              "applicability": {
+                "basis": [
+                  {
+                    "kind": "plan",
+                    "ref": "plan-es-08019-pgm-1976"
+                  }
+                ],
+                "geometry": null,
+                "useScope": [],
+                "rank": null,
+                "condition": null
+              },
+              "provenance": {
+                "parameter": "maxHeight_m",
+                "value": 9.15,
+                "unit": "m",
+                "source": {
+                  "country": "ES",
+                  "authority": "MMAMB — Normativa Urbanística Metropolitana (re-edition of the PGM-1976 NNUU / 1988 text refós)",
+                  "dataset": "PGM-NNUU-metropolitana.pdf",
+                  "plan_id": "PGM-1976",
+                  "object_id": "clau 20a/9 (subzona IVa)",
+                  "document": "docs/04-reference/jurisdictions/es/es-ct/08019-barcelona/PGM-NNUU-metropolitana.pdf",
+                  "article": "Art. 342.3",
+                  "page": null
+                },
+                "derivation": "AI_EXTRACTED",
+                "valueLocation": "in-document-text",
+                "confidence": {
+                  "tier": 4
+                },
+                "normativeForce": null,
+                "validityBasis": "legal",
+                "valid_from": "2004-12-10",
+                "valid_to": null
+              }
+            },
+            {
+              "id": "rule-es-08019-20a-9-maxfloors",
+              "body": null,
+              "applicability": {
+                "basis": [
+                  {
+                    "kind": "plan",
+                    "ref": "plan-es-08019-pgm-1976"
+                  }
+                ],
+                "geometry": null,
+                "useScope": [],
+                "rank": null,
+                "condition": null
+              },
+              "provenance": {
+                "parameter": "maxFloors",
+                "value": 3,
+                "unit": null,
+                "source": {
+                  "country": "ES",
+                  "authority": "MMAMB — Normativa Urbanística Metropolitana (re-edition of the PGM-1976 NNUU / 1988 text refós)",
+                  "dataset": "PGM-NNUU-metropolitana.pdf",
+                  "plan_id": "PGM-1976",
+                  "object_id": "clau 20a/9 (subzona IVa)",
+                  "document": "docs/04-reference/jurisdictions/es/es-ct/08019-barcelona/PGM-NNUU-metropolitana.pdf",
+                  "article": "Art. 342.3",
+                  "page": null
+                },
+                "derivation": "DERIVED",
+                "confidence": {
+                  "tier": 3,
+                  "note": "PB+N convention: the ordinance states PB+2; C58 maxFloors counts total levels = N+1 (the L5 dispatcher convention the TS pack applies)"
+                },
+                "normativeForce": null,
+                "validityBasis": "legal",
+                "valid_from": "2004-12-10",
+                "valid_to": null
+              }
+            },
+            {
+              "id": "rule-es-08019-20a-9-plotratiofar",
+              "body": null,
+              "applicability": {
+                "basis": [
+                  {
+                    "kind": "plan",
+                    "ref": "plan-es-08019-pgm-1976"
+                  }
+                ],
+                "geometry": null,
+                "useScope": [],
+                "rank": null,
+                "condition": null
+              },
+              "provenance": {
+                "parameter": "plotRatioFAR",
+                "value": 1,
+                "unit": "m²st/m²s",
+                "source": {
+                  "country": "ES",
+                  "authority": "MMAMB — Normativa Urbanística Metropolitana (re-edition of the PGM-1976 NNUU / 1988 text refós)",
+                  "dataset": "PGM-NNUU-metropolitana.pdf",
+                  "plan_id": "PGM-1976",
+                  "object_id": "clau 20a/9 (subzona IVa)",
+                  "document": "docs/04-reference/jurisdictions/es/es-ct/08019-barcelona/PGM-NNUU-metropolitana.pdf",
+                  "article": "Art. 340.1",
+                  "page": null
+                },
+                "derivation": "AI_EXTRACTED",
+                "valueLocation": "in-document-text",
+                "valueBasis": {
+                  "scheme": "es-pgm-edificabilitat",
+                  "code": "neta"
+                },
+                "confidence": {
+                  "tier": 4
+                },
+                "normativeForce": null,
+                "validityBasis": "legal",
+                "valid_from": "1976-07-14",
+                "valid_to": null
+              },
+              "rase": {
+                "requirement": "Els índexs d'edificabilitat neta per a cada una de les subzones són els establerts al quadre següent"
+              }
+            },
+            {
+              "id": "rule-es-08019-20a-9-maxcoveragepercent",
+              "body": null,
+              "applicability": {
+                "basis": [
+                  {
+                    "kind": "plan",
+                    "ref": "plan-es-08019-pgm-1976"
+                  }
+                ],
+                "geometry": null,
+                "useScope": [],
+                "rank": null,
+                "condition": null
+              },
+              "provenance": {
+                "parameter": "maxCoveragePercent",
+                "value": 40,
+                "unit": "%",
+                "source": {
+                  "country": "ES",
+                  "authority": "MMAMB — Normativa Urbanística Metropolitana (re-edition of the PGM-1976 NNUU / 1988 text refós)",
+                  "dataset": "PGM-NNUU-metropolitana.pdf",
+                  "plan_id": "PGM-1976",
+                  "object_id": "clau 20a/9 (subzona IVa)",
+                  "document": "docs/04-reference/jurisdictions/es/es-ct/08019-barcelona/PGM-NNUU-metropolitana.pdf",
+                  "article": "Art. 342.2",
+                  "page": null
+                },
+                "derivation": "AI_EXTRACTED",
+                "valueLocation": "in-document-text",
+                "valueBasis": {
+                  "scheme": "es-pgm-ocupacio-mesura",
+                  "code": "Art. 249.1"
+                },
+                "confidence": {
+                  "tier": 4
+                },
+                "normativeForce": null,
+                "validityBasis": "legal",
+                "valid_from": "2004-12-10",
+                "valid_to": null
+              }
+            },
+            {
+              "id": "rule-es-08019-20a-9-setback-frontm",
+              "body": null,
+              "applicability": {
+                "basis": [
+                  {
+                    "kind": "plan",
+                    "ref": "plan-es-08019-pgm-1976"
+                  }
+                ],
+                "geometry": null,
+                "useScope": [],
+                "rank": null,
+                "condition": null
+              },
+              "provenance": {
+                "parameter": "setback.front_m",
+                "value": 3,
+                "unit": "m",
+                "source": {
+                  "country": "ES",
+                  "authority": "MMAMB — Normativa Urbanística Metropolitana (re-edition of the PGM-1976 NNUU / 1988 text refós)",
+                  "dataset": "PGM-NNUU-metropolitana.pdf",
+                  "plan_id": "PGM-1976",
+                  "object_id": "clau 20a/9 (subzona IVa)",
+                  "document": "docs/04-reference/jurisdictions/es/es-ct/08019-barcelona/PGM-NNUU-metropolitana.pdf",
+                  "article": "Art. 342.7",
+                  "page": null
+                },
+                "derivation": "AI_EXTRACTED",
+                "valueLocation": "in-document-text",
+                "confidence": {
+                  "tier": 4
+                },
+                "normativeForce": null,
+                "validityBasis": "legal",
+                "valid_from": "2004-12-10",
+                "valid_to": null
+              }
+            },
+            {
+              "id": "rule-es-08019-20a-9-setback-sidem",
+              "body": null,
+              "applicability": {
+                "basis": [
+                  {
+                    "kind": "plan",
+                    "ref": "plan-es-08019-pgm-1976"
+                  }
+                ],
+                "geometry": null,
+                "useScope": [],
+                "rank": null,
+                "condition": null
+              },
+              "provenance": {
+                "parameter": "setback.side_m",
+                "value": 3,
+                "unit": "m",
+                "source": {
+                  "country": "ES",
+                  "authority": "MMAMB — Normativa Urbanística Metropolitana (re-edition of the PGM-1976 NNUU / 1988 text refós)",
+                  "dataset": "PGM-NNUU-metropolitana.pdf",
+                  "plan_id": "PGM-1976",
+                  "object_id": "clau 20a/9 (subzona IVa)",
+                  "document": "docs/04-reference/jurisdictions/es/es-ct/08019-barcelona/PGM-NNUU-metropolitana.pdf",
+                  "article": "Art. 342.7",
+                  "page": null
+                },
+                "derivation": "AI_EXTRACTED",
+                "valueLocation": "in-document-text",
+                "confidence": {
+                  "tier": 4
+                },
+                "normativeForce": null,
+                "validityBasis": "legal",
+                "valid_from": "2004-12-10",
+                "valid_to": null
+              }
+            },
+            {
+              "id": "rule-es-08019-20a-9-setback-rearm",
+              "body": null,
+              "applicability": {
+                "basis": [
+                  {
+                    "kind": "plan",
+                    "ref": "plan-es-08019-pgm-1976"
+                  }
+                ],
+                "geometry": null,
+                "useScope": [],
+                "rank": null,
+                "condition": null
+              },
+              "provenance": {
+                "parameter": "setback.rear_m",
+                "value": 3,
+                "unit": "m",
+                "source": {
+                  "country": "ES",
+                  "authority": "MMAMB — Normativa Urbanística Metropolitana (re-edition of the PGM-1976 NNUU / 1988 text refós)",
+                  "dataset": "PGM-NNUU-metropolitana.pdf",
+                  "plan_id": "PGM-1976",
+                  "object_id": "clau 20a/9 (subzona IVa)",
+                  "document": "docs/04-reference/jurisdictions/es/es-ct/08019-barcelona/PGM-NNUU-metropolitana.pdf",
+                  "article": "Art. 342.7",
+                  "page": null
+                },
+                "derivation": "AI_EXTRACTED",
+                "valueLocation": "in-document-text",
+                "confidence": {
+                  "tier": 4
+                },
+                "normativeForce": null,
+                "validityBasis": "legal",
+                "valid_from": "2004-12-10",
+                "valid_to": null
+              }
+            }
+          ]
+        },
+        {
+          "code": "20a/9b",
+          "label": "Ordenació en edificació aïllada — subzona IVb, plurifamiliar (clau 20a/9b)",
+          "permittedUse": [
+            "residential"
+          ],
+          "fieldProvenance": {
+            "setback.front": "ordinance-pdf",
+            "setback.side": "ordinance-pdf",
+            "setback.rear": "ordinance-pdf",
+            "maxCoverage": "ordinance-pdf",
+            "permittedUse": "ordinance-pdf",
+            "maxHeight": "ordinance-pdf",
+            "maxFloors": "ordinance-pdf",
+            "maxFAR": "ordinance-pdf"
+          },
+          "ordinanceRef": "PGM-1976 NNUU, clau 20a/9b — Zona d'ordenació en edificació aïllada (20a), subzona IVb, plurifamiliar (Art. 338.2). Tipus d'ordenació: edificació aïllada (Art. 339). Separacions front–lateral–fons 8–5–6 m: Art. 342.7 Ocupació màxima 25 %: Art. 342.2 (measured per Barcelona Art. 249.1 as the orthogonal projection of the whole volume, above or below grade, cossos sortints included). Superfície mínima de parcel·la 1500 m² / façana mínima 20 m: Art. 342.1. Alçada màxima 15.25 m / PB+4: Art. 342.3. Índex d'edificabilitat neta 1,00 m²st/m²s: Art. 340.1 (not Barcelona-modified). ⚠ Art. 255 (Barcelona) reduces the edificabilitat on parcels of average slope > 30 % and makes those above 100 % inedificables — PRYZM holds no terrain model and does NOT apply it. Arts. 342 and 343 are read from \"Modificació de les Normes urbanístiques del PGM per a l'ordenació de l'edificació aïllada, de Barcelona\", approved by the Subcomissió d'Urbanisme del municipi de Barcelona on 20-10-2004 (DOGC núm. 4277 of 10-12-2004), whose articles are headed \"(d'aplicació al municipi de Barcelona exclusivament)\" — NOT from the base metropolitan text, which those articles' own footnotes 55 and 56 redirect away from. Arts. 337, 338, 339 and 340 are NOT Barcelona-modified (footnote 54 attaches to Art. 341). Source: PGM-1976 NNUU as re-edited by the MMAMB (Normativa Urbanística Metropolitana), committed at docs/04-reference/jurisdictions/es/es-ct/08019-barcelona/PGM-NNUU-metropolitana.pdf and read with text coordinates (printed pp. 109–114 for the base text, pp. 177–188 for the Barcelona-exclusive modifications). ⚠ This is a RE-EDITION of the 1988 text refós — manually re-typeset, with documented transcription errors elsewhere in the same volume (Arts. 251.3a, 330, 331) — not the DOGC original and not Barcelona's own 08019 consolidation. Confidence estimated-ruleset; nothing in this pack is certified (L-590, L-591).",
+          "inheritsFromZoneCode": null,
+          "rules": [
+            {
+              "id": "rule-es-08019-20a-9b-maxheightm",
+              "body": null,
+              "applicability": {
+                "basis": [
+                  {
+                    "kind": "plan",
+                    "ref": "plan-es-08019-pgm-1976"
+                  }
+                ],
+                "geometry": null,
+                "useScope": [],
+                "rank": null,
+                "condition": null
+              },
+              "provenance": {
+                "parameter": "maxHeight_m",
+                "value": 15.25,
+                "unit": "m",
+                "source": {
+                  "country": "ES",
+                  "authority": "MMAMB — Normativa Urbanística Metropolitana (re-edition of the PGM-1976 NNUU / 1988 text refós)",
+                  "dataset": "PGM-NNUU-metropolitana.pdf",
+                  "plan_id": "PGM-1976",
+                  "object_id": "clau 20a/9b (subzona IVb)",
+                  "document": "docs/04-reference/jurisdictions/es/es-ct/08019-barcelona/PGM-NNUU-metropolitana.pdf",
+                  "article": "Art. 342.3",
+                  "page": null
+                },
+                "derivation": "AI_EXTRACTED",
+                "valueLocation": "in-document-text",
+                "confidence": {
+                  "tier": 4
+                },
+                "normativeForce": null,
+                "validityBasis": "legal",
+                "valid_from": "2004-12-10",
+                "valid_to": null
+              },
+              "rase": {
+                "requirement": "A la subzona IV, subtipus b (20a/9b) l'alçada màxima serà de 15,25 m. i el nombre límit de plantes, el de planta baixa més quatre plantes pis."
+              }
+            },
+            {
+              "id": "rule-es-08019-20a-9b-maxfloors",
+              "body": null,
+              "applicability": {
+                "basis": [
+                  {
+                    "kind": "plan",
+                    "ref": "plan-es-08019-pgm-1976"
+                  }
+                ],
+                "geometry": null,
+                "useScope": [],
+                "rank": null,
+                "condition": null
+              },
+              "provenance": {
+                "parameter": "maxFloors",
+                "value": 5,
+                "unit": null,
+                "source": {
+                  "country": "ES",
+                  "authority": "MMAMB — Normativa Urbanística Metropolitana (re-edition of the PGM-1976 NNUU / 1988 text refós)",
+                  "dataset": "PGM-NNUU-metropolitana.pdf",
+                  "plan_id": "PGM-1976",
+                  "object_id": "clau 20a/9b (subzona IVb)",
+                  "document": "docs/04-reference/jurisdictions/es/es-ct/08019-barcelona/PGM-NNUU-metropolitana.pdf",
+                  "article": "Art. 342.3",
+                  "page": null
+                },
+                "derivation": "DERIVED",
+                "confidence": {
+                  "tier": 3,
+                  "note": "PB+N convention: the ordinance states PB+4; C58 maxFloors counts total levels = N+1 (the L5 dispatcher convention the TS pack applies)"
+                },
+                "normativeForce": null,
+                "validityBasis": "legal",
+                "valid_from": "2004-12-10",
+                "valid_to": null
+              },
+              "rase": {
+                "requirement": "A la subzona IV, subtipus b (20a/9b) l'alçada màxima serà de 15,25 m. i el nombre límit de plantes, el de planta baixa més quatre plantes pis."
+              }
+            },
+            {
+              "id": "rule-es-08019-20a-9b-plotratiofar",
+              "body": null,
+              "applicability": {
+                "basis": [
+                  {
+                    "kind": "plan",
+                    "ref": "plan-es-08019-pgm-1976"
+                  }
+                ],
+                "geometry": null,
+                "useScope": [],
+                "rank": null,
+                "condition": null
+              },
+              "provenance": {
+                "parameter": "plotRatioFAR",
+                "value": 1,
+                "unit": "m²st/m²s",
+                "source": {
+                  "country": "ES",
+                  "authority": "MMAMB — Normativa Urbanística Metropolitana (re-edition of the PGM-1976 NNUU / 1988 text refós)",
+                  "dataset": "PGM-NNUU-metropolitana.pdf",
+                  "plan_id": "PGM-1976",
+                  "object_id": "clau 20a/9b (subzona IVb)",
+                  "document": "docs/04-reference/jurisdictions/es/es-ct/08019-barcelona/PGM-NNUU-metropolitana.pdf",
+                  "article": "Art. 340.1",
+                  "page": null
+                },
+                "derivation": "AI_EXTRACTED",
+                "valueLocation": "in-document-text",
+                "valueBasis": {
+                  "scheme": "es-pgm-edificabilitat",
+                  "code": "neta"
+                },
+                "confidence": {
+                  "tier": 4
+                },
+                "normativeForce": null,
+                "validityBasis": "legal",
+                "valid_from": "1976-07-14",
+                "valid_to": null
+              },
+              "rase": {
+                "requirement": "Els índexs d'edificabilitat neta per a cada una de les subzones són els establerts al quadre següent"
+              }
+            },
+            {
+              "id": "rule-es-08019-20a-9b-maxcoveragepercent",
+              "body": null,
+              "applicability": {
+                "basis": [
+                  {
+                    "kind": "plan",
+                    "ref": "plan-es-08019-pgm-1976"
+                  }
+                ],
+                "geometry": null,
+                "useScope": [],
+                "rank": null,
+                "condition": null
+              },
+              "provenance": {
+                "parameter": "maxCoveragePercent",
+                "value": 25,
+                "unit": "%",
+                "source": {
+                  "country": "ES",
+                  "authority": "MMAMB — Normativa Urbanística Metropolitana (re-edition of the PGM-1976 NNUU / 1988 text refós)",
+                  "dataset": "PGM-NNUU-metropolitana.pdf",
+                  "plan_id": "PGM-1976",
+                  "object_id": "clau 20a/9b (subzona IVb)",
+                  "document": "docs/04-reference/jurisdictions/es/es-ct/08019-barcelona/PGM-NNUU-metropolitana.pdf",
+                  "article": "Art. 342.2",
+                  "page": null
+                },
+                "derivation": "AI_EXTRACTED",
+                "valueLocation": "in-document-text",
+                "valueBasis": {
+                  "scheme": "es-pgm-ocupacio-mesura",
+                  "code": "Art. 249.1"
+                },
+                "confidence": {
+                  "tier": 4
+                },
+                "normativeForce": null,
+                "validityBasis": "legal",
+                "valid_from": "2004-12-10",
+                "valid_to": null
+              }
+            },
+            {
+              "id": "rule-es-08019-20a-9b-setback-frontm",
+              "body": null,
+              "applicability": {
+                "basis": [
+                  {
+                    "kind": "plan",
+                    "ref": "plan-es-08019-pgm-1976"
+                  }
+                ],
+                "geometry": null,
+                "useScope": [],
+                "rank": null,
+                "condition": null
+              },
+              "provenance": {
+                "parameter": "setback.front_m",
+                "value": 8,
+                "unit": "m",
+                "source": {
+                  "country": "ES",
+                  "authority": "MMAMB — Normativa Urbanística Metropolitana (re-edition of the PGM-1976 NNUU / 1988 text refós)",
+                  "dataset": "PGM-NNUU-metropolitana.pdf",
+                  "plan_id": "PGM-1976",
+                  "object_id": "clau 20a/9b (subzona IVb)",
+                  "document": "docs/04-reference/jurisdictions/es/es-ct/08019-barcelona/PGM-NNUU-metropolitana.pdf",
+                  "article": "Art. 342.7",
+                  "page": null
+                },
+                "derivation": "AI_EXTRACTED",
+                "valueLocation": "in-document-text",
+                "confidence": {
+                  "tier": 4
+                },
+                "normativeForce": null,
+                "validityBasis": "legal",
+                "valid_from": "2004-12-10",
+                "valid_to": null
+              }
+            },
+            {
+              "id": "rule-es-08019-20a-9b-setback-sidem",
+              "body": null,
+              "applicability": {
+                "basis": [
+                  {
+                    "kind": "plan",
+                    "ref": "plan-es-08019-pgm-1976"
+                  }
+                ],
+                "geometry": null,
+                "useScope": [],
+                "rank": null,
+                "condition": null
+              },
+              "provenance": {
+                "parameter": "setback.side_m",
+                "value": 5,
+                "unit": "m",
+                "source": {
+                  "country": "ES",
+                  "authority": "MMAMB — Normativa Urbanística Metropolitana (re-edition of the PGM-1976 NNUU / 1988 text refós)",
+                  "dataset": "PGM-NNUU-metropolitana.pdf",
+                  "plan_id": "PGM-1976",
+                  "object_id": "clau 20a/9b (subzona IVb)",
+                  "document": "docs/04-reference/jurisdictions/es/es-ct/08019-barcelona/PGM-NNUU-metropolitana.pdf",
+                  "article": "Art. 342.7",
+                  "page": null
+                },
+                "derivation": "AI_EXTRACTED",
+                "valueLocation": "in-document-text",
+                "confidence": {
+                  "tier": 4
+                },
+                "normativeForce": null,
+                "validityBasis": "legal",
+                "valid_from": "2004-12-10",
+                "valid_to": null
+              }
+            },
+            {
+              "id": "rule-es-08019-20a-9b-setback-rearm",
+              "body": null,
+              "applicability": {
+                "basis": [
+                  {
+                    "kind": "plan",
+                    "ref": "plan-es-08019-pgm-1976"
+                  }
+                ],
+                "geometry": null,
+                "useScope": [],
+                "rank": null,
+                "condition": null
+              },
+              "provenance": {
+                "parameter": "setback.rear_m",
+                "value": 6,
+                "unit": "m",
+                "source": {
+                  "country": "ES",
+                  "authority": "MMAMB — Normativa Urbanística Metropolitana (re-edition of the PGM-1976 NNUU / 1988 text refós)",
+                  "dataset": "PGM-NNUU-metropolitana.pdf",
+                  "plan_id": "PGM-1976",
+                  "object_id": "clau 20a/9b (subzona IVb)",
+                  "document": "docs/04-reference/jurisdictions/es/es-ct/08019-barcelona/PGM-NNUU-metropolitana.pdf",
+                  "article": "Art. 342.7",
+                  "page": null
+                },
+                "derivation": "AI_EXTRACTED",
+                "valueLocation": "in-document-text",
+                "confidence": {
+                  "tier": 4
+                },
+                "normativeForce": null,
+                "validityBasis": "legal",
+                "valid_from": "2004-12-10",
+                "valid_to": null
+              }
+            }
+          ]
+        },
+        {
+          "code": "20a/8",
+          "label": "Ordenació en edificació aïllada — subzona V, plurifamiliar (clau 20a/8)",
+          "permittedUse": [
+            "residential"
+          ],
+          "fieldProvenance": {
+            "setback.front": "ordinance-pdf",
+            "setback.side": "ordinance-pdf",
+            "setback.rear": "ordinance-pdf",
+            "maxCoverage": "ordinance-pdf",
+            "permittedUse": "ordinance-pdf"
+          },
+          "ordinanceRef": "PGM-1976 NNUU, clau 20a/8 — Zona d'ordenació en edificació aïllada (20a), subzona V, plurifamiliar (Art. 338.2). Tipus d'ordenació: edificació aïllada (Art. 339). Separacions front–lateral–fons 4–4–5 m: Art. 342.7 Ocupació màxima 30 %: Art. 342.2 (measured per Barcelona Art. 249.1 as the orthogonal projection of the whole volume, above or below grade, cossos sortints included). Superfície mínima de parcel·la 800 m² / façana mínima 15 m: Art. 342.1. Alçada + nombre de plantes + edificabilitat realitzable: Art. 342.5 (Barcelona Taula 10/11), a function of the amplada de vial — NOT a subzone scalar, hence the nulls in this pack. Índex d'edificabilitat neta: Art. 340.1 states 1,50 for this subzone, but it is a CONSTRUCTION here (Art. 342.5 makes it a function of the amplada de vial, 0,60–1,50), so this pack ships plotRatioFAR: null and resolve20aEdificabilitat() answers it. ⚠ Art. 255 (Barcelona) reduces the edificabilitat on parcels of average slope > 30 % and makes those above 100 % inedificables — PRYZM holds no terrain model and does NOT apply it. Arts. 342 and 343 are read from \"Modificació de les Normes urbanístiques del PGM per a l'ordenació de l'edificació aïllada, de Barcelona\", approved by the Subcomissió d'Urbanisme del municipi de Barcelona on 20-10-2004 (DOGC núm. 4277 of 10-12-2004), whose articles are headed \"(d'aplicació al municipi de Barcelona exclusivament)\" — NOT from the base metropolitan text, which those articles' own footnotes 55 and 56 redirect away from. Arts. 337, 338, 339 and 340 are NOT Barcelona-modified (footnote 54 attaches to Art. 341). Source: PGM-1976 NNUU as re-edited by the MMAMB (Normativa Urbanística Metropolitana), committed at docs/04-reference/jurisdictions/es/es-ct/08019-barcelona/PGM-NNUU-metropolitana.pdf and read with text coordinates (printed pp. 109–114 for the base text, pp. 177–188 for the Barcelona-exclusive modifications). ⚠ This is a RE-EDITION of the 1988 text refós — manually re-typeset, with documented transcription errors elsewhere in the same volume (Arts. 251.3a, 330, 331) — not the DOGC original and not Barcelona's own 08019 consolidation. Confidence estimated-ruleset; nothing in this pack is certified (L-590, L-591).",
+          "inheritsFromZoneCode": null,
+          "rules": [
+            {
+              "id": "rule-es-08019-20a-8-maxcoveragepercent",
+              "body": null,
+              "applicability": {
+                "basis": [
+                  {
+                    "kind": "plan",
+                    "ref": "plan-es-08019-pgm-1976"
+                  }
+                ],
+                "geometry": null,
+                "useScope": [],
+                "rank": null,
+                "condition": null
+              },
+              "provenance": {
+                "parameter": "maxCoveragePercent",
+                "value": 30,
+                "unit": "%",
+                "source": {
+                  "country": "ES",
+                  "authority": "MMAMB — Normativa Urbanística Metropolitana (re-edition of the PGM-1976 NNUU / 1988 text refós)",
+                  "dataset": "PGM-NNUU-metropolitana.pdf",
+                  "plan_id": "PGM-1976",
+                  "object_id": "clau 20a/8 (subzona V)",
+                  "document": "docs/04-reference/jurisdictions/es/es-ct/08019-barcelona/PGM-NNUU-metropolitana.pdf",
+                  "article": "Art. 342.2",
+                  "page": null
+                },
+                "derivation": "AI_EXTRACTED",
+                "valueLocation": "in-document-text",
+                "valueBasis": {
+                  "scheme": "es-pgm-ocupacio-mesura",
+                  "code": "Art. 249.1"
+                },
+                "confidence": {
+                  "tier": 4
+                },
+                "normativeForce": null,
+                "validityBasis": "legal",
+                "valid_from": "2004-12-10",
+                "valid_to": null
+              }
+            },
+            {
+              "id": "rule-es-08019-20a-8-setback-frontm",
+              "body": null,
+              "applicability": {
+                "basis": [
+                  {
+                    "kind": "plan",
+                    "ref": "plan-es-08019-pgm-1976"
+                  }
+                ],
+                "geometry": null,
+                "useScope": [],
+                "rank": null,
+                "condition": null
+              },
+              "provenance": {
+                "parameter": "setback.front_m",
+                "value": 4,
+                "unit": "m",
+                "source": {
+                  "country": "ES",
+                  "authority": "MMAMB — Normativa Urbanística Metropolitana (re-edition of the PGM-1976 NNUU / 1988 text refós)",
+                  "dataset": "PGM-NNUU-metropolitana.pdf",
+                  "plan_id": "PGM-1976",
+                  "object_id": "clau 20a/8 (subzona V)",
+                  "document": "docs/04-reference/jurisdictions/es/es-ct/08019-barcelona/PGM-NNUU-metropolitana.pdf",
+                  "article": "Art. 342.7",
+                  "page": null
+                },
+                "derivation": "AI_EXTRACTED",
+                "valueLocation": "in-document-text",
+                "confidence": {
+                  "tier": 4
+                },
+                "normativeForce": null,
+                "validityBasis": "legal",
+                "valid_from": "2004-12-10",
+                "valid_to": null
+              }
+            },
+            {
+              "id": "rule-es-08019-20a-8-setback-sidem",
+              "body": null,
+              "applicability": {
+                "basis": [
+                  {
+                    "kind": "plan",
+                    "ref": "plan-es-08019-pgm-1976"
+                  }
+                ],
+                "geometry": null,
+                "useScope": [],
+                "rank": null,
+                "condition": null
+              },
+              "provenance": {
+                "parameter": "setback.side_m",
+                "value": 4,
+                "unit": "m",
+                "source": {
+                  "country": "ES",
+                  "authority": "MMAMB — Normativa Urbanística Metropolitana (re-edition of the PGM-1976 NNUU / 1988 text refós)",
+                  "dataset": "PGM-NNUU-metropolitana.pdf",
+                  "plan_id": "PGM-1976",
+                  "object_id": "clau 20a/8 (subzona V)",
+                  "document": "docs/04-reference/jurisdictions/es/es-ct/08019-barcelona/PGM-NNUU-metropolitana.pdf",
+                  "article": "Art. 342.7",
+                  "page": null
+                },
+                "derivation": "AI_EXTRACTED",
+                "valueLocation": "in-document-text",
+                "confidence": {
+                  "tier": 4
+                },
+                "normativeForce": null,
+                "validityBasis": "legal",
+                "valid_from": "2004-12-10",
+                "valid_to": null
+              }
+            },
+            {
+              "id": "rule-es-08019-20a-8-setback-rearm",
+              "body": null,
+              "applicability": {
+                "basis": [
+                  {
+                    "kind": "plan",
+                    "ref": "plan-es-08019-pgm-1976"
+                  }
+                ],
+                "geometry": null,
+                "useScope": [],
+                "rank": null,
+                "condition": null
+              },
+              "provenance": {
+                "parameter": "setback.rear_m",
+                "value": 5,
+                "unit": "m",
+                "source": {
+                  "country": "ES",
+                  "authority": "MMAMB — Normativa Urbanística Metropolitana (re-edition of the PGM-1976 NNUU / 1988 text refós)",
+                  "dataset": "PGM-NNUU-metropolitana.pdf",
+                  "plan_id": "PGM-1976",
+                  "object_id": "clau 20a/8 (subzona V)",
+                  "document": "docs/04-reference/jurisdictions/es/es-ct/08019-barcelona/PGM-NNUU-metropolitana.pdf",
+                  "article": "Art. 342.7",
+                  "page": null
+                },
+                "derivation": "AI_EXTRACTED",
+                "valueLocation": "in-document-text",
+                "confidence": {
+                  "tier": 4
+                },
+                "normativeForce": null,
+                "validityBasis": "legal",
+                "valid_from": "2004-12-10",
+                "valid_to": null
+              }
+            }
+          ]
+        },
+        {
+          "code": "20a/9u",
+          "label": "Ordenació en edificació aïllada — subzona VI, unifamiliar (clau 20a/9u)",
+          "permittedUse": [
+            "residential"
+          ],
+          "fieldProvenance": {
+            "setback.front": "ordinance-pdf",
+            "setback.side": "ordinance-pdf",
+            "setback.rear": "ordinance-pdf",
+            "maxCoverage": "ordinance-pdf",
+            "permittedUse": "ordinance-pdf",
+            "maxHeight": "ordinance-pdf",
+            "maxFloors": "ordinance-pdf"
+          },
+          "ordinanceRef": "PGM-1976 NNUU, clau 20a/9u — Zona d'ordenació en edificació aïllada (20a), subzona VI, unifamiliar (Art. 338.2). Tipus d'ordenació: edificació aïllada (Art. 339). Separacions front–lateral–fons 3–3–3 m: Art. 343.3 Ocupació màxima 40 %: Art. 343.1 (measured per Barcelona Art. 249.1 as the orthogonal projection of the whole volume, above or below grade, cossos sortints included). Superfície mínima de parcel·la 400 m² / façana mínima 14 m: Art. 343.1. Alçada màxima 9.15 m / PB+2: Art. 343.2. Índex d'edificabilitat neta: Art. 340.1 states 1,00 for this subzone, but it is a CONSTRUCTION here (Art. 340.2 reduces it to 0,75 below the 400 m² minimum, and Barcelona's Art. 343.1 conditions the reduced index on ≥ 200 m² and ≥ 10 m of façana), so this pack ships plotRatioFAR: null and resolve20aEdificabilitat() answers it. ⚠ Art. 255 (Barcelona) reduces the edificabilitat on parcels of average slope > 30 % and makes those above 100 % inedificables — PRYZM holds no terrain model and does NOT apply it. Arts. 342 and 343 are read from \"Modificació de les Normes urbanístiques del PGM per a l'ordenació de l'edificació aïllada, de Barcelona\", approved by the Subcomissió d'Urbanisme del municipi de Barcelona on 20-10-2004 (DOGC núm. 4277 of 10-12-2004), whose articles are headed \"(d'aplicació al municipi de Barcelona exclusivament)\" — NOT from the base metropolitan text, which those articles' own footnotes 55 and 56 redirect away from. Arts. 337, 338, 339 and 340 are NOT Barcelona-modified (footnote 54 attaches to Art. 341). Source: PGM-1976 NNUU as re-edited by the MMAMB (Normativa Urbanística Metropolitana), committed at docs/04-reference/jurisdictions/es/es-ct/08019-barcelona/PGM-NNUU-metropolitana.pdf and read with text coordinates (printed pp. 109–114 for the base text, pp. 177–188 for the Barcelona-exclusive modifications). ⚠ This is a RE-EDITION of the 1988 text refós — manually re-typeset, with documented transcription errors elsewhere in the same volume (Arts. 251.3a, 330, 331) — not the DOGC original and not Barcelona's own 08019 consolidation. Confidence estimated-ruleset; nothing in this pack is certified (L-590, L-591).",
+          "inheritsFromZoneCode": null,
+          "rules": [
+            {
+              "id": "rule-es-08019-20a-9u-maxheightm",
+              "body": null,
+              "applicability": {
+                "basis": [
+                  {
+                    "kind": "plan",
+                    "ref": "plan-es-08019-pgm-1976"
+                  }
+                ],
+                "geometry": null,
+                "useScope": [],
+                "rank": null,
+                "condition": null
+              },
+              "provenance": {
+                "parameter": "maxHeight_m",
+                "value": 9.15,
+                "unit": "m",
+                "source": {
+                  "country": "ES",
+                  "authority": "MMAMB — Normativa Urbanística Metropolitana (re-edition of the PGM-1976 NNUU / 1988 text refós)",
+                  "dataset": "PGM-NNUU-metropolitana.pdf",
+                  "plan_id": "PGM-1976",
+                  "object_id": "clau 20a/9u (subzona VI)",
+                  "document": "docs/04-reference/jurisdictions/es/es-ct/08019-barcelona/PGM-NNUU-metropolitana.pdf",
+                  "article": "Art. 343.2",
+                  "page": null
+                },
+                "derivation": "AI_EXTRACTED",
+                "valueLocation": "in-document-text",
+                "confidence": {
+                  "tier": 4
+                },
+                "normativeForce": null,
+                "validityBasis": "legal",
+                "valid_from": "2004-12-10",
+                "valid_to": null
+              }
+            },
+            {
+              "id": "rule-es-08019-20a-9u-maxfloors",
+              "body": null,
+              "applicability": {
+                "basis": [
+                  {
+                    "kind": "plan",
+                    "ref": "plan-es-08019-pgm-1976"
+                  }
+                ],
+                "geometry": null,
+                "useScope": [],
+                "rank": null,
+                "condition": null
+              },
+              "provenance": {
+                "parameter": "maxFloors",
+                "value": 3,
+                "unit": null,
+                "source": {
+                  "country": "ES",
+                  "authority": "MMAMB — Normativa Urbanística Metropolitana (re-edition of the PGM-1976 NNUU / 1988 text refós)",
+                  "dataset": "PGM-NNUU-metropolitana.pdf",
+                  "plan_id": "PGM-1976",
+                  "object_id": "clau 20a/9u (subzona VI)",
+                  "document": "docs/04-reference/jurisdictions/es/es-ct/08019-barcelona/PGM-NNUU-metropolitana.pdf",
+                  "article": "Art. 343.2",
+                  "page": null
+                },
+                "derivation": "DERIVED",
+                "confidence": {
+                  "tier": 3,
+                  "note": "PB+N convention: the ordinance states PB+2; C58 maxFloors counts total levels = N+1 (the L5 dispatcher convention the TS pack applies)"
+                },
+                "normativeForce": null,
+                "validityBasis": "legal",
+                "valid_from": "2004-12-10",
+                "valid_to": null
+              }
+            },
+            {
+              "id": "rule-es-08019-20a-9u-maxcoveragepercent",
+              "body": null,
+              "applicability": {
+                "basis": [
+                  {
+                    "kind": "plan",
+                    "ref": "plan-es-08019-pgm-1976"
+                  }
+                ],
+                "geometry": null,
+                "useScope": [],
+                "rank": null,
+                "condition": null
+              },
+              "provenance": {
+                "parameter": "maxCoveragePercent",
+                "value": 40,
+                "unit": "%",
+                "source": {
+                  "country": "ES",
+                  "authority": "MMAMB — Normativa Urbanística Metropolitana (re-edition of the PGM-1976 NNUU / 1988 text refós)",
+                  "dataset": "PGM-NNUU-metropolitana.pdf",
+                  "plan_id": "PGM-1976",
+                  "object_id": "clau 20a/9u (subzona VI)",
+                  "document": "docs/04-reference/jurisdictions/es/es-ct/08019-barcelona/PGM-NNUU-metropolitana.pdf",
+                  "article": "Art. 343.1",
+                  "page": null
+                },
+                "derivation": "AI_EXTRACTED",
+                "valueLocation": "in-document-text",
+                "valueBasis": {
+                  "scheme": "es-pgm-ocupacio-mesura",
+                  "code": "Art. 249.1"
+                },
+                "confidence": {
+                  "tier": 4
+                },
+                "normativeForce": null,
+                "validityBasis": "legal",
+                "valid_from": "2004-12-10",
+                "valid_to": null
+              }
+            },
+            {
+              "id": "rule-es-08019-20a-9u-setback-frontm",
+              "body": null,
+              "applicability": {
+                "basis": [
+                  {
+                    "kind": "plan",
+                    "ref": "plan-es-08019-pgm-1976"
+                  }
+                ],
+                "geometry": null,
+                "useScope": [],
+                "rank": null,
+                "condition": null
+              },
+              "provenance": {
+                "parameter": "setback.front_m",
+                "value": 3,
+                "unit": "m",
+                "source": {
+                  "country": "ES",
+                  "authority": "MMAMB — Normativa Urbanística Metropolitana (re-edition of the PGM-1976 NNUU / 1988 text refós)",
+                  "dataset": "PGM-NNUU-metropolitana.pdf",
+                  "plan_id": "PGM-1976",
+                  "object_id": "clau 20a/9u (subzona VI)",
+                  "document": "docs/04-reference/jurisdictions/es/es-ct/08019-barcelona/PGM-NNUU-metropolitana.pdf",
+                  "article": "Art. 343.3",
+                  "page": null
+                },
+                "derivation": "AI_EXTRACTED",
+                "valueLocation": "in-document-text",
+                "confidence": {
+                  "tier": 4
+                },
+                "normativeForce": null,
+                "validityBasis": "legal",
+                "valid_from": "2004-12-10",
+                "valid_to": null
+              }
+            },
+            {
+              "id": "rule-es-08019-20a-9u-setback-sidem",
+              "body": null,
+              "applicability": {
+                "basis": [
+                  {
+                    "kind": "plan",
+                    "ref": "plan-es-08019-pgm-1976"
+                  }
+                ],
+                "geometry": null,
+                "useScope": [],
+                "rank": null,
+                "condition": null
+              },
+              "provenance": {
+                "parameter": "setback.side_m",
+                "value": 3,
+                "unit": "m",
+                "source": {
+                  "country": "ES",
+                  "authority": "MMAMB — Normativa Urbanística Metropolitana (re-edition of the PGM-1976 NNUU / 1988 text refós)",
+                  "dataset": "PGM-NNUU-metropolitana.pdf",
+                  "plan_id": "PGM-1976",
+                  "object_id": "clau 20a/9u (subzona VI)",
+                  "document": "docs/04-reference/jurisdictions/es/es-ct/08019-barcelona/PGM-NNUU-metropolitana.pdf",
+                  "article": "Art. 343.3",
+                  "page": null
+                },
+                "derivation": "AI_EXTRACTED",
+                "valueLocation": "in-document-text",
+                "confidence": {
+                  "tier": 4
+                },
+                "normativeForce": null,
+                "validityBasis": "legal",
+                "valid_from": "2004-12-10",
+                "valid_to": null
+              }
+            },
+            {
+              "id": "rule-es-08019-20a-9u-setback-rearm",
+              "body": null,
+              "applicability": {
+                "basis": [
+                  {
+                    "kind": "plan",
+                    "ref": "plan-es-08019-pgm-1976"
+                  }
+                ],
+                "geometry": null,
+                "useScope": [],
+                "rank": null,
+                "condition": null
+              },
+              "provenance": {
+                "parameter": "setback.rear_m",
+                "value": 3,
+                "unit": "m",
+                "source": {
+                  "country": "ES",
+                  "authority": "MMAMB — Normativa Urbanística Metropolitana (re-edition of the PGM-1976 NNUU / 1988 text refós)",
+                  "dataset": "PGM-NNUU-metropolitana.pdf",
+                  "plan_id": "PGM-1976",
+                  "object_id": "clau 20a/9u (subzona VI)",
+                  "document": "docs/04-reference/jurisdictions/es/es-ct/08019-barcelona/PGM-NNUU-metropolitana.pdf",
+                  "article": "Art. 343.3",
+                  "page": null
+                },
+                "derivation": "AI_EXTRACTED",
+                "valueLocation": "in-document-text",
+                "confidence": {
+                  "tier": 4
+                },
+                "normativeForce": null,
+                "validityBasis": "legal",
+                "valid_from": "2004-12-10",
+                "valid_to": null
+              }
+            }
+          ]
+        },
+        {
+          "code": "20a/10",
+          "label": "Ordenació en edificació aïllada — subzona VII, unifamiliar (clau 20a/10)",
+          "permittedUse": [
+            "residential"
+          ],
+          "fieldProvenance": {
+            "setback.front": "ordinance-pdf",
+            "setback.side": "ordinance-pdf",
+            "setback.rear": "ordinance-pdf",
+            "maxCoverage": "ordinance-pdf",
+            "permittedUse": "ordinance-pdf",
+            "maxHeight": "ordinance-pdf",
+            "maxFloors": "ordinance-pdf",
+            "maxFAR": "ordinance-pdf"
+          },
+          "ordinanceRef": "PGM-1976 NNUU, clau 20a/10 — Zona d'ordenació en edificació aïllada (20a), subzona VII, unifamiliar (Art. 338.2). Tipus d'ordenació: edificació aïllada (Art. 339). Separacions front–lateral–fons 5–3–5 m: Art. 343.3 Ocupació màxima 30 %: Art. 343.1 (measured per Barcelona Art. 249.1 as the orthogonal projection of the whole volume, above or below grade, cossos sortints included). Superfície mínima de parcel·la 600 m² / façana mínima 16 m: Art. 343.1. Alçada màxima 9.15 m / PB+2: Art. 343.2. Índex d'edificabilitat neta 0,75 m²st/m²s: Art. 340.1 (not Barcelona-modified). ⚠ Art. 255 (Barcelona) reduces the edificabilitat on parcels of average slope > 30 % and makes those above 100 % inedificables — PRYZM holds no terrain model and does NOT apply it. Arts. 342 and 343 are read from \"Modificació de les Normes urbanístiques del PGM per a l'ordenació de l'edificació aïllada, de Barcelona\", approved by the Subcomissió d'Urbanisme del municipi de Barcelona on 20-10-2004 (DOGC núm. 4277 of 10-12-2004), whose articles are headed \"(d'aplicació al municipi de Barcelona exclusivament)\" — NOT from the base metropolitan text, which those articles' own footnotes 55 and 56 redirect away from. Arts. 337, 338, 339 and 340 are NOT Barcelona-modified (footnote 54 attaches to Art. 341). Source: PGM-1976 NNUU as re-edited by the MMAMB (Normativa Urbanística Metropolitana), committed at docs/04-reference/jurisdictions/es/es-ct/08019-barcelona/PGM-NNUU-metropolitana.pdf and read with text coordinates (printed pp. 109–114 for the base text, pp. 177–188 for the Barcelona-exclusive modifications). ⚠ This is a RE-EDITION of the 1988 text refós — manually re-typeset, with documented transcription errors elsewhere in the same volume (Arts. 251.3a, 330, 331) — not the DOGC original and not Barcelona's own 08019 consolidation. Confidence estimated-ruleset; nothing in this pack is certified (L-590, L-591).",
+          "inheritsFromZoneCode": null,
+          "rules": [
+            {
+              "id": "rule-es-08019-20a-10-maxheightm",
+              "body": null,
+              "applicability": {
+                "basis": [
+                  {
+                    "kind": "plan",
+                    "ref": "plan-es-08019-pgm-1976"
+                  }
+                ],
+                "geometry": null,
+                "useScope": [],
+                "rank": null,
+                "condition": null
+              },
+              "provenance": {
+                "parameter": "maxHeight_m",
+                "value": 9.15,
+                "unit": "m",
+                "source": {
+                  "country": "ES",
+                  "authority": "MMAMB — Normativa Urbanística Metropolitana (re-edition of the PGM-1976 NNUU / 1988 text refós)",
+                  "dataset": "PGM-NNUU-metropolitana.pdf",
+                  "plan_id": "PGM-1976",
+                  "object_id": "clau 20a/10 (subzona VII)",
+                  "document": "docs/04-reference/jurisdictions/es/es-ct/08019-barcelona/PGM-NNUU-metropolitana.pdf",
+                  "article": "Art. 343.2",
+                  "page": null
+                },
+                "derivation": "AI_EXTRACTED",
+                "valueLocation": "in-document-text",
+                "confidence": {
+                  "tier": 4
+                },
+                "normativeForce": null,
+                "validityBasis": "legal",
+                "valid_from": "2004-12-10",
+                "valid_to": null
+              }
+            },
+            {
+              "id": "rule-es-08019-20a-10-maxfloors",
+              "body": null,
+              "applicability": {
+                "basis": [
+                  {
+                    "kind": "plan",
+                    "ref": "plan-es-08019-pgm-1976"
+                  }
+                ],
+                "geometry": null,
+                "useScope": [],
+                "rank": null,
+                "condition": null
+              },
+              "provenance": {
+                "parameter": "maxFloors",
+                "value": 3,
+                "unit": null,
+                "source": {
+                  "country": "ES",
+                  "authority": "MMAMB — Normativa Urbanística Metropolitana (re-edition of the PGM-1976 NNUU / 1988 text refós)",
+                  "dataset": "PGM-NNUU-metropolitana.pdf",
+                  "plan_id": "PGM-1976",
+                  "object_id": "clau 20a/10 (subzona VII)",
+                  "document": "docs/04-reference/jurisdictions/es/es-ct/08019-barcelona/PGM-NNUU-metropolitana.pdf",
+                  "article": "Art. 343.2",
+                  "page": null
+                },
+                "derivation": "DERIVED",
+                "confidence": {
+                  "tier": 3,
+                  "note": "PB+N convention: the ordinance states PB+2; C58 maxFloors counts total levels = N+1 (the L5 dispatcher convention the TS pack applies)"
+                },
+                "normativeForce": null,
+                "validityBasis": "legal",
+                "valid_from": "2004-12-10",
+                "valid_to": null
+              }
+            },
+            {
+              "id": "rule-es-08019-20a-10-plotratiofar",
+              "body": null,
+              "applicability": {
+                "basis": [
+                  {
+                    "kind": "plan",
+                    "ref": "plan-es-08019-pgm-1976"
+                  }
+                ],
+                "geometry": null,
+                "useScope": [],
+                "rank": null,
+                "condition": null
+              },
+              "provenance": {
+                "parameter": "plotRatioFAR",
+                "value": 0.75,
+                "unit": "m²st/m²s",
+                "source": {
+                  "country": "ES",
+                  "authority": "MMAMB — Normativa Urbanística Metropolitana (re-edition of the PGM-1976 NNUU / 1988 text refós)",
+                  "dataset": "PGM-NNUU-metropolitana.pdf",
+                  "plan_id": "PGM-1976",
+                  "object_id": "clau 20a/10 (subzona VII)",
+                  "document": "docs/04-reference/jurisdictions/es/es-ct/08019-barcelona/PGM-NNUU-metropolitana.pdf",
+                  "article": "Art. 340.1",
+                  "page": null
+                },
+                "derivation": "AI_EXTRACTED",
+                "valueLocation": "in-document-text",
+                "valueBasis": {
+                  "scheme": "es-pgm-edificabilitat",
+                  "code": "neta"
+                },
+                "confidence": {
+                  "tier": 4
+                },
+                "normativeForce": null,
+                "validityBasis": "legal",
+                "valid_from": "1976-07-14",
+                "valid_to": null
+              },
+              "rase": {
+                "requirement": "Els índexs d'edificabilitat neta per a cada una de les subzones són els establerts al quadre següent"
+              }
+            },
+            {
+              "id": "rule-es-08019-20a-10-maxcoveragepercent",
+              "body": null,
+              "applicability": {
+                "basis": [
+                  {
+                    "kind": "plan",
+                    "ref": "plan-es-08019-pgm-1976"
+                  }
+                ],
+                "geometry": null,
+                "useScope": [],
+                "rank": null,
+                "condition": null
+              },
+              "provenance": {
+                "parameter": "maxCoveragePercent",
+                "value": 30,
+                "unit": "%",
+                "source": {
+                  "country": "ES",
+                  "authority": "MMAMB — Normativa Urbanística Metropolitana (re-edition of the PGM-1976 NNUU / 1988 text refós)",
+                  "dataset": "PGM-NNUU-metropolitana.pdf",
+                  "plan_id": "PGM-1976",
+                  "object_id": "clau 20a/10 (subzona VII)",
+                  "document": "docs/04-reference/jurisdictions/es/es-ct/08019-barcelona/PGM-NNUU-metropolitana.pdf",
+                  "article": "Art. 343.1",
+                  "page": null
+                },
+                "derivation": "AI_EXTRACTED",
+                "valueLocation": "in-document-text",
+                "valueBasis": {
+                  "scheme": "es-pgm-ocupacio-mesura",
+                  "code": "Art. 249.1"
+                },
+                "confidence": {
+                  "tier": 4
+                },
+                "normativeForce": null,
+                "validityBasis": "legal",
+                "valid_from": "2004-12-10",
+                "valid_to": null
+              }
+            },
+            {
+              "id": "rule-es-08019-20a-10-setback-frontm",
+              "body": null,
+              "applicability": {
+                "basis": [
+                  {
+                    "kind": "plan",
+                    "ref": "plan-es-08019-pgm-1976"
+                  }
+                ],
+                "geometry": null,
+                "useScope": [],
+                "rank": null,
+                "condition": null
+              },
+              "provenance": {
+                "parameter": "setback.front_m",
+                "value": 5,
+                "unit": "m",
+                "source": {
+                  "country": "ES",
+                  "authority": "MMAMB — Normativa Urbanística Metropolitana (re-edition of the PGM-1976 NNUU / 1988 text refós)",
+                  "dataset": "PGM-NNUU-metropolitana.pdf",
+                  "plan_id": "PGM-1976",
+                  "object_id": "clau 20a/10 (subzona VII)",
+                  "document": "docs/04-reference/jurisdictions/es/es-ct/08019-barcelona/PGM-NNUU-metropolitana.pdf",
+                  "article": "Art. 343.3",
+                  "page": null
+                },
+                "derivation": "AI_EXTRACTED",
+                "valueLocation": "in-document-text",
+                "confidence": {
+                  "tier": 4
+                },
+                "normativeForce": null,
+                "validityBasis": "legal",
+                "valid_from": "2004-12-10",
+                "valid_to": null
+              }
+            },
+            {
+              "id": "rule-es-08019-20a-10-setback-sidem",
+              "body": null,
+              "applicability": {
+                "basis": [
+                  {
+                    "kind": "plan",
+                    "ref": "plan-es-08019-pgm-1976"
+                  }
+                ],
+                "geometry": null,
+                "useScope": [],
+                "rank": null,
+                "condition": null
+              },
+              "provenance": {
+                "parameter": "setback.side_m",
+                "value": 3,
+                "unit": "m",
+                "source": {
+                  "country": "ES",
+                  "authority": "MMAMB — Normativa Urbanística Metropolitana (re-edition of the PGM-1976 NNUU / 1988 text refós)",
+                  "dataset": "PGM-NNUU-metropolitana.pdf",
+                  "plan_id": "PGM-1976",
+                  "object_id": "clau 20a/10 (subzona VII)",
+                  "document": "docs/04-reference/jurisdictions/es/es-ct/08019-barcelona/PGM-NNUU-metropolitana.pdf",
+                  "article": "Art. 343.3",
+                  "page": null
+                },
+                "derivation": "AI_EXTRACTED",
+                "valueLocation": "in-document-text",
+                "confidence": {
+                  "tier": 4
+                },
+                "normativeForce": null,
+                "validityBasis": "legal",
+                "valid_from": "2004-12-10",
+                "valid_to": null
+              }
+            },
+            {
+              "id": "rule-es-08019-20a-10-setback-rearm",
+              "body": null,
+              "applicability": {
+                "basis": [
+                  {
+                    "kind": "plan",
+                    "ref": "plan-es-08019-pgm-1976"
+                  }
+                ],
+                "geometry": null,
+                "useScope": [],
+                "rank": null,
+                "condition": null
+              },
+              "provenance": {
+                "parameter": "setback.rear_m",
+                "value": 5,
+                "unit": "m",
+                "source": {
+                  "country": "ES",
+                  "authority": "MMAMB — Normativa Urbanística Metropolitana (re-edition of the PGM-1976 NNUU / 1988 text refós)",
+                  "dataset": "PGM-NNUU-metropolitana.pdf",
+                  "plan_id": "PGM-1976",
+                  "object_id": "clau 20a/10 (subzona VII)",
+                  "document": "docs/04-reference/jurisdictions/es/es-ct/08019-barcelona/PGM-NNUU-metropolitana.pdf",
+                  "article": "Art. 343.3",
+                  "page": null
+                },
+                "derivation": "AI_EXTRACTED",
+                "valueLocation": "in-document-text",
+                "confidence": {
+                  "tier": 4
+                },
+                "normativeForce": null,
+                "validityBasis": "legal",
+                "valid_from": "2004-12-10",
+                "valid_to": null
+              }
+            }
+          ]
+        },
+        {
+          "code": "20a/11",
+          "label": "Ordenació en edificació aïllada — subzona VIII, unifamiliar (clau 20a/11)",
+          "permittedUse": [
+            "residential"
+          ],
+          "fieldProvenance": {
+            "setback.front": "ordinance-pdf",
+            "setback.side": "ordinance-pdf",
+            "setback.rear": "ordinance-pdf",
+            "maxCoverage": "ordinance-pdf",
+            "permittedUse": "ordinance-pdf",
+            "maxHeight": "ordinance-pdf",
+            "maxFloors": "ordinance-pdf",
+            "maxFAR": "ordinance-pdf"
+          },
+          "ordinanceRef": "PGM-1976 NNUU, clau 20a/11 — Zona d'ordenació en edificació aïllada (20a), subzona VIII, unifamiliar (Art. 338.2). Tipus d'ordenació: edificació aïllada (Art. 339). Separacions front–lateral–fons 8–5–8 m: Art. 343.3 Ocupació màxima 20 %: Art. 343.1 (measured per Barcelona Art. 249.1 as the orthogonal projection of the whole volume, above or below grade, cossos sortints included). Superfície mínima de parcel·la 1000 m² / façana mínima 18 m: Art. 343.1. Alçada màxima 9.15 m / PB+2: Art. 343.2. Índex d'edificabilitat neta 0,50 m²st/m²s: Art. 340.1 (not Barcelona-modified). ⚠ Art. 255 (Barcelona) reduces the edificabilitat on parcels of average slope > 30 % and makes those above 100 % inedificables — PRYZM holds no terrain model and does NOT apply it. Arts. 342 and 343 are read from \"Modificació de les Normes urbanístiques del PGM per a l'ordenació de l'edificació aïllada, de Barcelona\", approved by the Subcomissió d'Urbanisme del municipi de Barcelona on 20-10-2004 (DOGC núm. 4277 of 10-12-2004), whose articles are headed \"(d'aplicació al municipi de Barcelona exclusivament)\" — NOT from the base metropolitan text, which those articles' own footnotes 55 and 56 redirect away from. Arts. 337, 338, 339 and 340 are NOT Barcelona-modified (footnote 54 attaches to Art. 341). Source: PGM-1976 NNUU as re-edited by the MMAMB (Normativa Urbanística Metropolitana), committed at docs/04-reference/jurisdictions/es/es-ct/08019-barcelona/PGM-NNUU-metropolitana.pdf and read with text coordinates (printed pp. 109–114 for the base text, pp. 177–188 for the Barcelona-exclusive modifications). ⚠ This is a RE-EDITION of the 1988 text refós — manually re-typeset, with documented transcription errors elsewhere in the same volume (Arts. 251.3a, 330, 331) — not the DOGC original and not Barcelona's own 08019 consolidation. Confidence estimated-ruleset; nothing in this pack is certified (L-590, L-591).",
+          "inheritsFromZoneCode": null,
+          "rules": [
+            {
+              "id": "rule-es-08019-20a-11-maxheightm",
+              "body": null,
+              "applicability": {
+                "basis": [
+                  {
+                    "kind": "plan",
+                    "ref": "plan-es-08019-pgm-1976"
+                  }
+                ],
+                "geometry": null,
+                "useScope": [],
+                "rank": null,
+                "condition": null
+              },
+              "provenance": {
+                "parameter": "maxHeight_m",
+                "value": 9.15,
+                "unit": "m",
+                "source": {
+                  "country": "ES",
+                  "authority": "MMAMB — Normativa Urbanística Metropolitana (re-edition of the PGM-1976 NNUU / 1988 text refós)",
+                  "dataset": "PGM-NNUU-metropolitana.pdf",
+                  "plan_id": "PGM-1976",
+                  "object_id": "clau 20a/11 (subzona VIII)",
+                  "document": "docs/04-reference/jurisdictions/es/es-ct/08019-barcelona/PGM-NNUU-metropolitana.pdf",
+                  "article": "Art. 343.2",
+                  "page": null
+                },
+                "derivation": "AI_EXTRACTED",
+                "valueLocation": "in-document-text",
+                "confidence": {
+                  "tier": 4
+                },
+                "normativeForce": null,
+                "validityBasis": "legal",
+                "valid_from": "2004-12-10",
+                "valid_to": null
+              }
+            },
+            {
+              "id": "rule-es-08019-20a-11-maxfloors",
+              "body": null,
+              "applicability": {
+                "basis": [
+                  {
+                    "kind": "plan",
+                    "ref": "plan-es-08019-pgm-1976"
+                  }
+                ],
+                "geometry": null,
+                "useScope": [],
+                "rank": null,
+                "condition": null
+              },
+              "provenance": {
+                "parameter": "maxFloors",
+                "value": 3,
+                "unit": null,
+                "source": {
+                  "country": "ES",
+                  "authority": "MMAMB — Normativa Urbanística Metropolitana (re-edition of the PGM-1976 NNUU / 1988 text refós)",
+                  "dataset": "PGM-NNUU-metropolitana.pdf",
+                  "plan_id": "PGM-1976",
+                  "object_id": "clau 20a/11 (subzona VIII)",
+                  "document": "docs/04-reference/jurisdictions/es/es-ct/08019-barcelona/PGM-NNUU-metropolitana.pdf",
+                  "article": "Art. 343.2",
+                  "page": null
+                },
+                "derivation": "DERIVED",
+                "confidence": {
+                  "tier": 3,
+                  "note": "PB+N convention: the ordinance states PB+2; C58 maxFloors counts total levels = N+1 (the L5 dispatcher convention the TS pack applies)"
+                },
+                "normativeForce": null,
+                "validityBasis": "legal",
+                "valid_from": "2004-12-10",
+                "valid_to": null
+              }
+            },
+            {
+              "id": "rule-es-08019-20a-11-plotratiofar",
+              "body": null,
+              "applicability": {
+                "basis": [
+                  {
+                    "kind": "plan",
+                    "ref": "plan-es-08019-pgm-1976"
+                  }
+                ],
+                "geometry": null,
+                "useScope": [],
+                "rank": null,
+                "condition": null
+              },
+              "provenance": {
+                "parameter": "plotRatioFAR",
+                "value": 0.5,
+                "unit": "m²st/m²s",
+                "source": {
+                  "country": "ES",
+                  "authority": "MMAMB — Normativa Urbanística Metropolitana (re-edition of the PGM-1976 NNUU / 1988 text refós)",
+                  "dataset": "PGM-NNUU-metropolitana.pdf",
+                  "plan_id": "PGM-1976",
+                  "object_id": "clau 20a/11 (subzona VIII)",
+                  "document": "docs/04-reference/jurisdictions/es/es-ct/08019-barcelona/PGM-NNUU-metropolitana.pdf",
+                  "article": "Art. 340.1",
+                  "page": null
+                },
+                "derivation": "AI_EXTRACTED",
+                "valueLocation": "in-document-text",
+                "valueBasis": {
+                  "scheme": "es-pgm-edificabilitat",
+                  "code": "neta"
+                },
+                "confidence": {
+                  "tier": 4
+                },
+                "normativeForce": null,
+                "validityBasis": "legal",
+                "valid_from": "1976-07-14",
+                "valid_to": null
+              },
+              "rase": {
+                "requirement": "Els índexs d'edificabilitat neta per a cada una de les subzones són els establerts al quadre següent"
+              }
+            },
+            {
+              "id": "rule-es-08019-20a-11-maxcoveragepercent",
+              "body": null,
+              "applicability": {
+                "basis": [
+                  {
+                    "kind": "plan",
+                    "ref": "plan-es-08019-pgm-1976"
+                  }
+                ],
+                "geometry": null,
+                "useScope": [],
+                "rank": null,
+                "condition": null
+              },
+              "provenance": {
+                "parameter": "maxCoveragePercent",
+                "value": 20,
+                "unit": "%",
+                "source": {
+                  "country": "ES",
+                  "authority": "MMAMB — Normativa Urbanística Metropolitana (re-edition of the PGM-1976 NNUU / 1988 text refós)",
+                  "dataset": "PGM-NNUU-metropolitana.pdf",
+                  "plan_id": "PGM-1976",
+                  "object_id": "clau 20a/11 (subzona VIII)",
+                  "document": "docs/04-reference/jurisdictions/es/es-ct/08019-barcelona/PGM-NNUU-metropolitana.pdf",
+                  "article": "Art. 343.1",
+                  "page": null
+                },
+                "derivation": "AI_EXTRACTED",
+                "valueLocation": "in-document-text",
+                "valueBasis": {
+                  "scheme": "es-pgm-ocupacio-mesura",
+                  "code": "Art. 249.1"
+                },
+                "confidence": {
+                  "tier": 4
+                },
+                "normativeForce": null,
+                "validityBasis": "legal",
+                "valid_from": "2004-12-10",
+                "valid_to": null
+              }
+            },
+            {
+              "id": "rule-es-08019-20a-11-setback-frontm",
+              "body": null,
+              "applicability": {
+                "basis": [
+                  {
+                    "kind": "plan",
+                    "ref": "plan-es-08019-pgm-1976"
+                  }
+                ],
+                "geometry": null,
+                "useScope": [],
+                "rank": null,
+                "condition": null
+              },
+              "provenance": {
+                "parameter": "setback.front_m",
+                "value": 8,
+                "unit": "m",
+                "source": {
+                  "country": "ES",
+                  "authority": "MMAMB — Normativa Urbanística Metropolitana (re-edition of the PGM-1976 NNUU / 1988 text refós)",
+                  "dataset": "PGM-NNUU-metropolitana.pdf",
+                  "plan_id": "PGM-1976",
+                  "object_id": "clau 20a/11 (subzona VIII)",
+                  "document": "docs/04-reference/jurisdictions/es/es-ct/08019-barcelona/PGM-NNUU-metropolitana.pdf",
+                  "article": "Art. 343.3",
+                  "page": null
+                },
+                "derivation": "AI_EXTRACTED",
+                "valueLocation": "in-document-text",
+                "confidence": {
+                  "tier": 4
+                },
+                "normativeForce": null,
+                "validityBasis": "legal",
+                "valid_from": "2004-12-10",
+                "valid_to": null
+              }
+            },
+            {
+              "id": "rule-es-08019-20a-11-setback-sidem",
+              "body": null,
+              "applicability": {
+                "basis": [
+                  {
+                    "kind": "plan",
+                    "ref": "plan-es-08019-pgm-1976"
+                  }
+                ],
+                "geometry": null,
+                "useScope": [],
+                "rank": null,
+                "condition": null
+              },
+              "provenance": {
+                "parameter": "setback.side_m",
+                "value": 5,
+                "unit": "m",
+                "source": {
+                  "country": "ES",
+                  "authority": "MMAMB — Normativa Urbanística Metropolitana (re-edition of the PGM-1976 NNUU / 1988 text refós)",
+                  "dataset": "PGM-NNUU-metropolitana.pdf",
+                  "plan_id": "PGM-1976",
+                  "object_id": "clau 20a/11 (subzona VIII)",
+                  "document": "docs/04-reference/jurisdictions/es/es-ct/08019-barcelona/PGM-NNUU-metropolitana.pdf",
+                  "article": "Art. 343.3",
+                  "page": null
+                },
+                "derivation": "AI_EXTRACTED",
+                "valueLocation": "in-document-text",
+                "confidence": {
+                  "tier": 4
+                },
+                "normativeForce": null,
+                "validityBasis": "legal",
+                "valid_from": "2004-12-10",
+                "valid_to": null
+              }
+            },
+            {
+              "id": "rule-es-08019-20a-11-setback-rearm",
+              "body": null,
+              "applicability": {
+                "basis": [
+                  {
+                    "kind": "plan",
+                    "ref": "plan-es-08019-pgm-1976"
+                  }
+                ],
+                "geometry": null,
+                "useScope": [],
+                "rank": null,
+                "condition": null
+              },
+              "provenance": {
+                "parameter": "setback.rear_m",
+                "value": 8,
+                "unit": "m",
+                "source": {
+                  "country": "ES",
+                  "authority": "MMAMB — Normativa Urbanística Metropolitana (re-edition of the PGM-1976 NNUU / 1988 text refós)",
+                  "dataset": "PGM-NNUU-metropolitana.pdf",
+                  "plan_id": "PGM-1976",
+                  "object_id": "clau 20a/11 (subzona VIII)",
+                  "document": "docs/04-reference/jurisdictions/es/es-ct/08019-barcelona/PGM-NNUU-metropolitana.pdf",
+                  "article": "Art. 343.3",
+                  "page": null
+                },
+                "derivation": "AI_EXTRACTED",
+                "valueLocation": "in-document-text",
+                "confidence": {
+                  "tier": 4
+                },
+                "normativeForce": null,
+                "validityBasis": "legal",
+                "valid_from": "2004-12-10",
+                "valid_to": null
+              }
+            }
+          ]
+        },
+        {
+          "code": "20a/12",
+          "label": "Ordenació en edificació aïllada — subzona IX, unifamiliar (clau 20a/12)",
+          "permittedUse": [
+            "residential"
+          ],
+          "fieldProvenance": {
+            "setback.front": "ordinance-pdf",
+            "setback.side": "ordinance-pdf",
+            "setback.rear": "ordinance-pdf",
+            "maxCoverage": "ordinance-pdf",
+            "permittedUse": "ordinance-pdf",
+            "maxHeight": "ordinance-pdf",
+            "maxFloors": "ordinance-pdf",
+            "maxFAR": "ordinance-pdf"
+          },
+          "ordinanceRef": "PGM-1976 NNUU, clau 20a/12 — Zona d'ordenació en edificació aïllada (20a), subzona IX, unifamiliar (Art. 338.2). Tipus d'ordenació: edificació aïllada (Art. 339). Separacions front–lateral–fons 12–10–12 m: Art. 343.3 Ocupació màxima 10 %: Art. 343.1 (measured per Barcelona Art. 249.1 as the orthogonal projection of the whole volume, above or below grade, cossos sortints included). Superfície mínima de parcel·la 2000 m² / façana mínima 24 m: Art. 343.1. Alçada màxima 9.15 m / PB+2: Art. 343.2. Índex d'edificabilitat neta 0,25 m²st/m²s: Art. 340.1 (not Barcelona-modified). ⚠ Art. 255 (Barcelona) reduces the edificabilitat on parcels of average slope > 30 % and makes those above 100 % inedificables — PRYZM holds no terrain model and does NOT apply it. Arts. 342 and 343 are read from \"Modificació de les Normes urbanístiques del PGM per a l'ordenació de l'edificació aïllada, de Barcelona\", approved by the Subcomissió d'Urbanisme del municipi de Barcelona on 20-10-2004 (DOGC núm. 4277 of 10-12-2004), whose articles are headed \"(d'aplicació al municipi de Barcelona exclusivament)\" — NOT from the base metropolitan text, which those articles' own footnotes 55 and 56 redirect away from. Arts. 337, 338, 339 and 340 are NOT Barcelona-modified (footnote 54 attaches to Art. 341). Source: PGM-1976 NNUU as re-edited by the MMAMB (Normativa Urbanística Metropolitana), committed at docs/04-reference/jurisdictions/es/es-ct/08019-barcelona/PGM-NNUU-metropolitana.pdf and read with text coordinates (printed pp. 109–114 for the base text, pp. 177–188 for the Barcelona-exclusive modifications). ⚠ This is a RE-EDITION of the 1988 text refós — manually re-typeset, with documented transcription errors elsewhere in the same volume (Arts. 251.3a, 330, 331) — not the DOGC original and not Barcelona's own 08019 consolidation. Confidence estimated-ruleset; nothing in this pack is certified (L-590, L-591).",
+          "inheritsFromZoneCode": null,
+          "rules": [
+            {
+              "id": "rule-es-08019-20a-12-maxheightm",
+              "body": null,
+              "applicability": {
+                "basis": [
+                  {
+                    "kind": "plan",
+                    "ref": "plan-es-08019-pgm-1976"
+                  }
+                ],
+                "geometry": null,
+                "useScope": [],
+                "rank": null,
+                "condition": null
+              },
+              "provenance": {
+                "parameter": "maxHeight_m",
+                "value": 9.15,
+                "unit": "m",
+                "source": {
+                  "country": "ES",
+                  "authority": "MMAMB — Normativa Urbanística Metropolitana (re-edition of the PGM-1976 NNUU / 1988 text refós)",
+                  "dataset": "PGM-NNUU-metropolitana.pdf",
+                  "plan_id": "PGM-1976",
+                  "object_id": "clau 20a/12 (subzona IX)",
+                  "document": "docs/04-reference/jurisdictions/es/es-ct/08019-barcelona/PGM-NNUU-metropolitana.pdf",
+                  "article": "Art. 343.2",
+                  "page": null
+                },
+                "derivation": "AI_EXTRACTED",
+                "valueLocation": "in-document-text",
+                "confidence": {
+                  "tier": 4
+                },
+                "normativeForce": null,
+                "validityBasis": "legal",
+                "valid_from": "2004-12-10",
+                "valid_to": null
+              }
+            },
+            {
+              "id": "rule-es-08019-20a-12-maxfloors",
+              "body": null,
+              "applicability": {
+                "basis": [
+                  {
+                    "kind": "plan",
+                    "ref": "plan-es-08019-pgm-1976"
+                  }
+                ],
+                "geometry": null,
+                "useScope": [],
+                "rank": null,
+                "condition": null
+              },
+              "provenance": {
+                "parameter": "maxFloors",
+                "value": 3,
+                "unit": null,
+                "source": {
+                  "country": "ES",
+                  "authority": "MMAMB — Normativa Urbanística Metropolitana (re-edition of the PGM-1976 NNUU / 1988 text refós)",
+                  "dataset": "PGM-NNUU-metropolitana.pdf",
+                  "plan_id": "PGM-1976",
+                  "object_id": "clau 20a/12 (subzona IX)",
+                  "document": "docs/04-reference/jurisdictions/es/es-ct/08019-barcelona/PGM-NNUU-metropolitana.pdf",
+                  "article": "Art. 343.2",
+                  "page": null
+                },
+                "derivation": "DERIVED",
+                "confidence": {
+                  "tier": 3,
+                  "note": "PB+N convention: the ordinance states PB+2; C58 maxFloors counts total levels = N+1 (the L5 dispatcher convention the TS pack applies)"
+                },
+                "normativeForce": null,
+                "validityBasis": "legal",
+                "valid_from": "2004-12-10",
+                "valid_to": null
+              }
+            },
+            {
+              "id": "rule-es-08019-20a-12-plotratiofar",
+              "body": null,
+              "applicability": {
+                "basis": [
+                  {
+                    "kind": "plan",
+                    "ref": "plan-es-08019-pgm-1976"
+                  }
+                ],
+                "geometry": null,
+                "useScope": [],
+                "rank": null,
+                "condition": null
+              },
+              "provenance": {
+                "parameter": "plotRatioFAR",
+                "value": 0.25,
+                "unit": "m²st/m²s",
+                "source": {
+                  "country": "ES",
+                  "authority": "MMAMB — Normativa Urbanística Metropolitana (re-edition of the PGM-1976 NNUU / 1988 text refós)",
+                  "dataset": "PGM-NNUU-metropolitana.pdf",
+                  "plan_id": "PGM-1976",
+                  "object_id": "clau 20a/12 (subzona IX)",
+                  "document": "docs/04-reference/jurisdictions/es/es-ct/08019-barcelona/PGM-NNUU-metropolitana.pdf",
+                  "article": "Art. 340.1",
+                  "page": null
+                },
+                "derivation": "AI_EXTRACTED",
+                "valueLocation": "in-document-text",
+                "valueBasis": {
+                  "scheme": "es-pgm-edificabilitat",
+                  "code": "neta"
+                },
+                "confidence": {
+                  "tier": 4
+                },
+                "normativeForce": null,
+                "validityBasis": "legal",
+                "valid_from": "1976-07-14",
+                "valid_to": null
+              },
+              "rase": {
+                "requirement": "Els índexs d'edificabilitat neta per a cada una de les subzones són els establerts al quadre següent"
+              }
+            },
+            {
+              "id": "rule-es-08019-20a-12-maxcoveragepercent",
+              "body": null,
+              "applicability": {
+                "basis": [
+                  {
+                    "kind": "plan",
+                    "ref": "plan-es-08019-pgm-1976"
+                  }
+                ],
+                "geometry": null,
+                "useScope": [],
+                "rank": null,
+                "condition": null
+              },
+              "provenance": {
+                "parameter": "maxCoveragePercent",
+                "value": 10,
+                "unit": "%",
+                "source": {
+                  "country": "ES",
+                  "authority": "MMAMB — Normativa Urbanística Metropolitana (re-edition of the PGM-1976 NNUU / 1988 text refós)",
+                  "dataset": "PGM-NNUU-metropolitana.pdf",
+                  "plan_id": "PGM-1976",
+                  "object_id": "clau 20a/12 (subzona IX)",
+                  "document": "docs/04-reference/jurisdictions/es/es-ct/08019-barcelona/PGM-NNUU-metropolitana.pdf",
+                  "article": "Art. 343.1",
+                  "page": null
+                },
+                "derivation": "AI_EXTRACTED",
+                "valueLocation": "in-document-text",
+                "valueBasis": {
+                  "scheme": "es-pgm-ocupacio-mesura",
+                  "code": "Art. 249.1"
+                },
+                "confidence": {
+                  "tier": 4
+                },
+                "normativeForce": null,
+                "validityBasis": "legal",
+                "valid_from": "2004-12-10",
+                "valid_to": null
+              }
+            },
+            {
+              "id": "rule-es-08019-20a-12-setback-frontm",
+              "body": null,
+              "applicability": {
+                "basis": [
+                  {
+                    "kind": "plan",
+                    "ref": "plan-es-08019-pgm-1976"
+                  }
+                ],
+                "geometry": null,
+                "useScope": [],
+                "rank": null,
+                "condition": null
+              },
+              "provenance": {
+                "parameter": "setback.front_m",
+                "value": 12,
+                "unit": "m",
+                "source": {
+                  "country": "ES",
+                  "authority": "MMAMB — Normativa Urbanística Metropolitana (re-edition of the PGM-1976 NNUU / 1988 text refós)",
+                  "dataset": "PGM-NNUU-metropolitana.pdf",
+                  "plan_id": "PGM-1976",
+                  "object_id": "clau 20a/12 (subzona IX)",
+                  "document": "docs/04-reference/jurisdictions/es/es-ct/08019-barcelona/PGM-NNUU-metropolitana.pdf",
+                  "article": "Art. 343.3",
+                  "page": null
+                },
+                "derivation": "AI_EXTRACTED",
+                "valueLocation": "in-document-text",
+                "confidence": {
+                  "tier": 4
+                },
+                "normativeForce": null,
+                "validityBasis": "legal",
+                "valid_from": "2004-12-10",
+                "valid_to": null
+              }
+            },
+            {
+              "id": "rule-es-08019-20a-12-setback-sidem",
+              "body": null,
+              "applicability": {
+                "basis": [
+                  {
+                    "kind": "plan",
+                    "ref": "plan-es-08019-pgm-1976"
+                  }
+                ],
+                "geometry": null,
+                "useScope": [],
+                "rank": null,
+                "condition": null
+              },
+              "provenance": {
+                "parameter": "setback.side_m",
+                "value": 10,
+                "unit": "m",
+                "source": {
+                  "country": "ES",
+                  "authority": "MMAMB — Normativa Urbanística Metropolitana (re-edition of the PGM-1976 NNUU / 1988 text refós)",
+                  "dataset": "PGM-NNUU-metropolitana.pdf",
+                  "plan_id": "PGM-1976",
+                  "object_id": "clau 20a/12 (subzona IX)",
+                  "document": "docs/04-reference/jurisdictions/es/es-ct/08019-barcelona/PGM-NNUU-metropolitana.pdf",
+                  "article": "Art. 343.3",
+                  "page": null
+                },
+                "derivation": "AI_EXTRACTED",
+                "valueLocation": "in-document-text",
+                "confidence": {
+                  "tier": 4
+                },
+                "normativeForce": null,
+                "validityBasis": "legal",
+                "valid_from": "2004-12-10",
+                "valid_to": null
+              }
+            },
+            {
+              "id": "rule-es-08019-20a-12-setback-rearm",
+              "body": null,
+              "applicability": {
+                "basis": [
+                  {
+                    "kind": "plan",
+                    "ref": "plan-es-08019-pgm-1976"
+                  }
+                ],
+                "geometry": null,
+                "useScope": [],
+                "rank": null,
+                "condition": null
+              },
+              "provenance": {
+                "parameter": "setback.rear_m",
+                "value": 12,
+                "unit": "m",
+                "source": {
+                  "country": "ES",
+                  "authority": "MMAMB — Normativa Urbanística Metropolitana (re-edition of the PGM-1976 NNUU / 1988 text refós)",
+                  "dataset": "PGM-NNUU-metropolitana.pdf",
+                  "plan_id": "PGM-1976",
+                  "object_id": "clau 20a/12 (subzona IX)",
+                  "document": "docs/04-reference/jurisdictions/es/es-ct/08019-barcelona/PGM-NNUU-metropolitana.pdf",
+                  "article": "Art. 343.3",
+                  "page": null
+                },
+                "derivation": "AI_EXTRACTED",
+                "valueLocation": "in-document-text",
+                "confidence": {
+                  "tier": 4
+                },
+                "normativeForce": null,
+                "validityBasis": "legal",
+                "valid_from": "2004-12-10",
+                "valid_to": null
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "constructions": [],
+  "notes": [
+    "SECOND-COPY-DURING-MIGRATION: this document restates the BCN_20A_SUBZONES numbers as data. The golden-parity test (declarativeGoldenParity.test.ts) byte-compares the derived C58 contract against ES_BARCELONA_20A_AILLADA_PACK; any delta is a finding. The one-copy rule's end state is restored when the TS table becomes a thin loader over this document (EUROPE-IMPLEMENTATION-PLAN §E1b).",
+    "VALIDITY (R3): Arts. 342/343 rules carry validityBasis 'legal' with valid_from 2004-12-10 — the DOGC núm. 4277 (10-12-2004) publication of the 'Modificació de les Normes urbanístiques del PGM per a l'ordenació de l'edificació aïllada, de Barcelona' (approved 20-10-2004), the instrument the tables were transcribed from. Art. 340.1 rules carry valid_from 1976-07-14 mirroring the curated effectiveDate in claus/20a/CLAU.md (Art. 340 is NOT Barcelona-modified; footnote 54 attaches to Art. 341).",
+    "NOT MIGRATED (deferred with the body dialect tag, verdict §E LATER): the Art. 342.5 subzona-V amplada-de-vial construction (resolveAlcada20aSubzonaV), the Art. 340.2/343.1 subzona-VI parcel-area construction (resolve20aEdificabilitat), and the Art. 343.1/.2 small-parcel overrides (resolve20aParcelOverrides) stay live in TS — their absence from rules is the pack's deliberate null (a POSITIVE finding), not unknown.",
+    "Art. 255 (Barcelona) slope reductions are NOT applied — PRYZM holds no terrain model (L-584); the per-zone ordinanceRef strings carry the warning verbatim."
+  ]
+}

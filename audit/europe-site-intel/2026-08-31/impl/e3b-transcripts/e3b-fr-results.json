@@ -1,0 +1,115 @@
+{
+  "probedAt": "2026-09-01T03:35:03.627Z",
+  "layer": "IGNF_LIDAR-HD_MNH_ELEVATION.ELEVATIONGRIDCOVERAGE.WGS84G",
+  "endpoint": "https://data.geopf.fr/wms-r/wms",
+  "aoi": {
+    "city": "paris-marais",
+    "bbox": [
+      2.345,
+      48.85,
+      2.357,
+      48.858
+    ]
+  },
+  "pxDims": {
+    "W": 1598,
+    "H": 1619
+  },
+  "fetchAttempts": [
+    {
+      "crs": "CRS:84",
+      "httpStatus": 200,
+      "contentType": "image/geotiff",
+      "bytes": 10349033,
+      "ms": 5143,
+      "raster": {
+        "width": 1598,
+        "height": 1619,
+        "bboxNative": [
+          2.345,
+          48.85,
+          2.357,
+          48.858
+        ],
+        "finiteFrac": 1,
+        "meanM": 8.68,
+        "maxM": 87.65,
+        "fracAbove2m": 0.564,
+        "sample0": 23.731800079345703
+      },
+      "usedAsLonLat": true
+    }
+  ],
+  "bdtopo": {
+    "status": "ok",
+    "ms": 251,
+    "rawCount": 1209,
+    "withHauteur": 1118,
+    "truncated": false
+  },
+  "zonal": {
+    "footprintsWithHauteur": 1118,
+    "mnhSampled": 1032,
+    "mnhNoSample": 86,
+    "comparedN": 1032,
+    "absDelta_P50": 3.26,
+    "absDelta_P90": 6.98,
+    "signedDelta_P50": 2.77,
+    "signedDelta_P10": -1.49,
+    "signedDelta_P90s": 6.36,
+    "within2m_frac": 0.294,
+    "within3m_frac": 0.458,
+    "exampleRows": [
+      {
+        "hauteur": 19.8,
+        "mnhP90": 21.06,
+        "samples": 313
+      },
+      {
+        "hauteur": 17.4,
+        "mnhP90": 22.46,
+        "samples": 47
+      },
+      {
+        "hauteur": 17.9,
+        "mnhP90": 21.84,
+        "samples": 90
+      },
+      {
+        "hauteur": 16.4,
+        "mnhP90": 22.54,
+        "samples": 103
+      },
+      {
+        "hauteur": 19.3,
+        "mnhP90": 21.23,
+        "samples": 78
+      },
+      {
+        "hauteur": 20,
+        "mnhP90": 22.01,
+        "samples": 89
+      },
+      {
+        "hauteur": 18.7,
+        "mnhP90": 22.08,
+        "samples": 154
+      },
+      {
+        "hauteur": 19.2,
+        "mnhP90": 21.47,
+        "samples": 104
+      },
+      {
+        "hauteur": 18.9,
+        "mnhP90": 3.44,
+        "samples": 16
+      },
+      {
+        "hauteur": 18.6,
+        "mnhP90": 21.89,
+        "samples": 205
+      }
+    ]
+  }
+}

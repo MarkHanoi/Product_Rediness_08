@@ -44,7 +44,14 @@ describe('computeBuildableEnvelope — estimated default pack', () => {
         const expectedArea = (40 - 2 * u) * (20 - 2 * u);
         expect(env.insetAreaM2).toBeCloseTo(expectedArea, 4);
         expect(env.maxHeight_m).toBe(12);
-        expect(env.maxVolumeM3).toBeCloseTo(expectedArea * 12, 3);
+        // §NEVER-OVERSTATE-B (E2a, 2026-09-01) — this pin used to read `expectedArea * 12`, the
+        // full height-shell volume. That was the REPORT §M mechanism-B over-statement: FAR 2 over
+        // an 800 m² parcel grants 1,600 m² GFA, which fills ~9.14 m of the 12 m shell over this
+        // footprint — the study volume is FAR-capped to `area × farLimitedHeight_m` now.
+        expect(env.farLimitedHeight_m).not.toBeNull();
+        expect(env.farLimitedHeight_m!).toBeLessThan(12);
+        expect(env.maxVolumeM3).toBeCloseTo(expectedArea * env.farLimitedHeight_m!, 3);
+        expect(env.maxVolumeM3!).toBeLessThan(expectedArea * 12);
         expect(env.maxFAR).toBe(2);
     });
 

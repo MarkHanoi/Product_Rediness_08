@@ -240,8 +240,17 @@ describe('ADR-0273 — ⚠ IT MUST NEVER OVER-STATE (C58 §1.4, the L-586 direct
         const parcelArea = areaOf(SHALLOW_PARCEL);
         expect(env.insetAreaM2).toBeCloseTo(parcelArea, 6);   // the permitted REGION is the plot…
         expect(env.maxCoverage).toBe(0.9);
-        // …but the VOLUME is capped at 90 % of it (ADR-0272 §3.2: coverage caps how much, not where).
-        expect(env.maxVolumeM3).toBeCloseTo(parcelArea * 0.9 * 17, 6);
+        // …but the VOLUME is capped at 90 % of it (ADR-0272 §3.2: coverage caps how much, not where)
+        // — AND, since §NEVER-OVERSTATE-B (E2a, 2026-09-01), by the zone's own FAR when that binds
+        // HARDER: this pin used to stop at the occupation cap (parcelArea × 0.9 × 17 = the
+        // coverage-capped shell), which still over-stated what the declared edificabilitat permits.
+        // The published volume is min(coverage-capped shell, footprint × farLimitedHeight_m).
+        expect(env.maxVolumeM3!).toBeLessThanOrEqual(parcelArea * 0.9 * 17 + 1e-6);
+        expect(env.farLimitedHeight_m).not.toBeNull();
+        expect(env.maxVolumeM3).toBeCloseTo(
+            Math.min(parcelArea * 0.9 * 17, env.insetAreaM2 * env.farLimitedHeight_m!),
+            6,
+        );
         expect(env.maxVolumeM3!).toBeLessThan(env.insetAreaM2 * 17);
     });
 

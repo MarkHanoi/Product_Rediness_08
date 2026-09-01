@@ -236,3 +236,12 @@ export * from './site/GeometricRule';
 // host may set and no family, so the C84/C85-C99 element-integrity obligations
 // must not attach to it. See link/LinkedModelRef.ts's header.
 export * from './link/index.js';
+
+// E1a (EUROPE-IMPLEMENTATION-PLAN §E1a · REPORT §I · BRIEF §11) — the European
+// site-intelligence canonical model: 17 `SiteIntel*` entities, the per-rule
+// provenance JSON shape (`RuleProvenance*`), the six-tier confidence vocabulary
+// (`SiteIntelConfidence*`), and the imported state vocabularies (`Dk*`/`DK_*`,
+// `Nl*`/`NL_*`, `Lt*`/`LT_*`). Every exported name is prefixed, so nothing
+// collides with the existing site substrate (`Parcel*`, `BuildableEnvelope*`,
+// `LandBasis*`, …), which keeps its authorities — see siteintel/index.ts.
+export * from './siteintel/index.js';

@@ -1,0 +1,6 @@
+npm warn Unknown project config "package-manager-strict". This will stop working in the next major version of npm. See `npm help npmrc` for supported config options.
+[never-overstate] corpus: 6 pack-bearing jurisdiction(s) · 181 zone-solve(s) walked · 138 solved ok · 43 refused (a refusal draws nothing and cannot overstate — counted, not skipped)
+[never-overstate] axes: height · FAR · coverage · setback · volume — audited on every solved envelope, through the REAL computeBuildableEnvelope + envelopeToMassing (SEAM-1).
+[never-overstate] NOT ESTABLISHED by this gate: jurisdiction-correct rule VALUES (a wrong transcribed number that stays self-consistent passes), live provider data, terrain, or the render pixels — it binds the ENGINE + SEAM arithmetic, not the pack curation (L-449 owns that).
+[never-overstate] UNPROVEN: tampered pre-fix envelope not fully flagged (setback:false far:false) — the checker cannot see the defect class it polices
+BLIND_RC=2
