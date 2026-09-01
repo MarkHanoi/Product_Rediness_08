@@ -1,0 +1,58 @@
+LANE FED — federation probe, CLEAN RUN (2026-09-01)
+cmd: npx tsx packages/site-parcel-data/fed-probe-tallinn.mts <scratch-dir>
+extracts: overture_tallinn_kopli.json (fed-probe-overture.py) + ee_buildings_kopli.json (fed-probe-ee-wfs.txt)
+RC=0
+----------------------------------------------------------------------
+=== INPUTS ===
+overture rows read      1185
+  non-polygon skipped   0
+  ids failing parseGersId 0
+ee features read        1087
+  non-polygon skipped   0
+  register-only height  28
+=== REPORT ===
+{
+  "crs": "EPSG:3301",
+  "authorityCount": 1087,
+  "backboneCount": 1185,
+  "matchedViaBridge": 0,
+  "matchedViaGers": 0,
+  "matchedViaIou": 1007,
+  "deduped": 1007,
+  "authorityOnly": 80,
+  "backboneOnly": 170,
+  "heightsFilledFromBackbone": 7,
+  "floorsFilledFromBackbone": 12,
+  "gersConflicts": 0,
+  "undecidable": 8,
+  "geometryComparisons": 2797
+}
+federate wall time      212 ms
+pairs                   1288095
+clipper calls           2797
+federated buildings     1257
+undecidable sample: [{"authorityFeatureId":"588520","backboneFeatureId":"3d469d3d-0c87-4b9e-887f-d95e3abd29ce","reason":"unresolved-topology"},{"authorityFeatureId":"8950486","backboneFeatureId":"3dac5946-b464-40da-b2d8-9762dff68914","reason":"unresolved-topology"},{"authorityFeatureId":"9155446","backboneFeatureId":"a18aab24-269e-4e25-9e50-793ff7c01f68","reason":"unresolved-topology"},{"authorityFeatureId":"573219","backboneFeatureId":"ec1da2b6-6464-4662-9a0c-d90d1068aec8","reason":"unresolved-topology"},{"authorityFeatureId":"569345","backboneFeatureId":"144770d2-5a19-43d1-bed9-a54ed8d9577b","reason":"unresolved-topology"}]
+=== PER-ATTRIBUTE PROVENANCE CENSUS ===
+  711  shape=fed-ee-etak-ehr-hooned height=fed-ee-etak-ehr-hooned/SURVEYED floors=fed-ee-etak-ehr-hooned/STATED lic=odbl-share-alike
+  228  shape=fed-ee-etak-ehr-hooned height=fed-ee-etak-ehr-hooned/SURVEYED floors=fed-ee-etak-ehr-hooned/UNKNOWN lic=odbl-share-alike
+  104  shape=fed-overture-buildings height=fed-overture-buildings/UNKNOWN floors=fed-overture-buildings/UNKNOWN lic=odbl-share-alike
+   51  shape=fed-overture-buildings height=fed-overture-buildings/MODELLED floors=fed-overture-buildings/UNKNOWN lic=odbl-share-alike
+   35  shape=fed-ee-etak-ehr-hooned height=fed-ee-etak-ehr-hooned/SURVEYED floors=fed-ee-etak-ehr-hooned/UNKNOWN lic=open-non-share-alike
+   34  shape=fed-ee-etak-ehr-hooned height=fed-ee-etak-ehr-hooned/SURVEYED floors=fed-ee-etak-ehr-hooned/STATED lic=open-non-share-alike
+   23  shape=fed-ee-etak-ehr-hooned height=fed-ee-etak-ehr-hooned/UNKNOWN floors=fed-ee-etak-ehr-hooned/UNKNOWN lic=odbl-share-alike
+   23  shape=fed-ee-etak-ehr-hooned height=fed-ee-etak-ehr-hooned/MODELLED floors=fed-ee-etak-ehr-hooned/STATED lic=odbl-share-alike
+   12  shape=fed-ee-etak-ehr-hooned height=fed-ee-etak-ehr-hooned/SURVEYED floors=fed-overture-buildings/STATED lic=odbl-share-alike
+    8  shape=fed-overture-buildings height=fed-overture-buildings/UNKNOWN floors=fed-overture-buildings/STATED lic=odbl-share-alike
+    7  shape=fed-overture-buildings height=fed-overture-buildings/MODELLED floors=fed-overture-buildings/STATED lic=odbl-share-alike
+    6  shape=fed-ee-etak-ehr-hooned height=fed-ee-etak-ehr-hooned/UNKNOWN floors=fed-ee-etak-ehr-hooned/UNKNOWN lic=open-non-share-alike
+    4  shape=fed-ee-etak-ehr-hooned height=fed-ee-etak-ehr-hooned/MODELLED floors=fed-ee-etak-ehr-hooned/STATED lic=open-non-share-alike
+    4  shape=fed-ee-etak-ehr-hooned height=fed-overture-buildings/MODELLED floors=fed-ee-etak-ehr-hooned/STATED lic=odbl-share-alike
+    3  shape=fed-ee-etak-ehr-hooned height=fed-overture-buildings/MODELLED floors=fed-ee-etak-ehr-hooned/UNKNOWN lic=odbl-share-alike
+    2  shape=fed-ee-etak-ehr-hooned height=fed-ee-etak-ehr-hooned/UNKNOWN floors=fed-ee-etak-ehr-hooned/STATED lic=odbl-share-alike
+    1  shape=fed-ee-etak-ehr-hooned height=fed-ee-etak-ehr-hooned/UNKNOWN floors=fed-ee-etak-ehr-hooned/STATED lic=open-non-share-alike
+    1  shape=fed-ee-etak-ehr-hooned height=fed-ee-etak-ehr-hooned/MODELLED floors=fed-ee-etak-ehr-hooned/UNKNOWN lic=odbl-share-alike
+=== ODbL SEPARABILITY, AT SCALE ===
+odbl store rows         1257
+non-odbl accepted       80
+non-odbl REFUSED        1177
+non-odbl store rows     80

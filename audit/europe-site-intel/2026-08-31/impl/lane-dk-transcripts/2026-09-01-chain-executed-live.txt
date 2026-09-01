@@ -1,0 +1,56 @@
+# LANE DK - EXECUTED end-to-end chain, LIVE keyless, 2026-09-01T14:48:51.607Z
+# sources(): dk-dawa-jordstykker gate=null | dk-plandata-wfs gate=null
+# ladder: 1:byggefelt -> 2:lokalplandelomraade -> 3:lokalplan -> 4:kommuneplanramme -> 5:BR18
+
+==============================================================================
+## DK-A  Copenhagen Noerrebro, matr. 4801 Udenbys Klaedebo Kvarter (BFE 6021259)
+   point lat=55.694 lon=12.553
+
+### parcel leg (DAWA, keyless) -> found
+   matrikelnr=4801 ejerlav=2000173/Udenbys Klædebo Kvarter, København kommune=0101/København
+   BFE=6021259 registreretArealM2=3776 vejArealM2=0
+
+### the 4-layer precedence ladder (every rung VISIBLE, absent included)
+   [rank 1] byggefelt            ABSENT - no-feature: pdk:theme_pdk_byggefelt_vedtaget @ 55.694,12.553 (both bbox axis orders)
+   [rank 2] lokalplandelomraade  ABSENT - no-feature: pdk:theme_pdk_lokalplandelomraade_vedtaget @ 55.694,12.553 (both bbox axis orders)
+   [rank 3] lokalplan            ABSENT - no-feature: pdk:theme_pdk_lokalplan_vedtaget @ 55.694,12.553 (both bbox axis orders)
+   [rank 4] kommuneplanramme     FOUND plan=dk-plan-11363461 kind=kommuneplanramme status="V" adopted=2024-12-12 inForce=2024-12-12
+        - bebygpct    value=150 unit="%" tier=1 valueBasis={dk-bygberegnaf:4} rank={dk-plan-ladder:4} validityBasis=legal valid_from=2024-12-12 normativeForce=null
+              note: beregnes af: Det enkelte jordstykke (the individual cadastral parcel)
+          >>> GFA CONSUMER: COMPUTED gfaM2=5664
+              GFA = 150 % × 3776 m² = 5664 m² — valid because bebygpctaf=4 (Det enkelte jordstykke — the individual cadastral parcel) is parcel-scoped (L-449)
+        - maxbygnhjd  value=24 unit="m" tier=1 valueBasis=ABSENT rank={dk-plan-ladder:4} validityBasis=legal valid_from=2024-12-12 normativeForce=null
+        - maxetager   value=null unit=null tier=6 valueBasis=ABSENT rank={dk-plan-ladder:4} validityBasis=legal valid_from=2024-12-12 normativeForce=null
+              note: Plandata declares maxetager on kommuneplanramme but this feature serves "null" — UNKNOWN, never 0 and never no-limit (lane 2 §DK-1 fill rates; REPORT §I)
+
+==============================================================================
+## DK-B  Aarhus Midtby, matr. 7000ad Aarhus Bygrunde (BFE 5625716, road parcel)
+   point lat=56.1572 lon=10.2107
+
+### parcel leg (DAWA, keyless) -> found
+   matrikelnr=7000ad ejerlav=2006351/Århus Bygrunde kommune=0751/Aarhus
+   BFE=5625716 registreretArealM2=8293 vejArealM2=8293
+
+### the 4-layer precedence ladder (every rung VISIBLE, absent included)
+   [rank 1] byggefelt            ABSENT - no-feature: pdk:theme_pdk_byggefelt_vedtaget @ 56.1572,10.2107 (both bbox axis orders)
+   [rank 2] lokalplandelomraade  ABSENT - no-feature: pdk:theme_pdk_lokalplandelomraade_vedtaget @ 56.1572,10.2107 (both bbox axis orders)
+   [rank 3] lokalplan            FOUND plan=dk-plan-1213157 kind=lokalplan status="V" adopted=2000-02-02 inForce=2000-03-15
+        - bebygpct    value=null unit="%" tier=6 valueBasis=ABSENT rank={dk-plan-ladder:3} validityBasis=legal valid_from=2000-03-15 normativeForce=null
+              note: Plandata declares bebygpct on lokalplan but this feature serves "null" — UNKNOWN, never 0 and never no-limit (lane 2 §DK-1 fill rates; REPORT §I) · bebygpctaf NOT served — the denominator of this percentage is UNKNOWN; a consumer must refuse a per-parcel multiply, never assume the parcel (C63 / L-449 §DK-DENOMINATOR-BRANCH; UNKNOWN ≠ parcel-scoped)
+          >>> GFA CONSUMER: REFUSED reason=basis-not-served
+              rule dk-1213157-lokalplan-bebygpct: the register served no bebygpctaf denominator code — the basis of this percentage is UNKNOWN, and UNKNOWN is never read as 'parcel' (C63 / L-449 §DK-DENOMINATOR-BRANCH; E4 control 9)
+        - maxbygnhjd  value=null unit="m" tier=6 valueBasis=ABSENT rank={dk-plan-ladder:3} validityBasis=legal valid_from=2000-03-15 normativeForce=null
+              note: Plandata declares maxbygnhjd on lokalplan but this feature serves "null" — UNKNOWN, never 0 and never no-limit (lane 2 §DK-1 fill rates; REPORT §I)
+        - maxetager   value=null unit=null tier=6 valueBasis=ABSENT rank={dk-plan-ladder:3} validityBasis=legal valid_from=2000-03-15 normativeForce=null
+              note: Plandata declares maxetager on lokalplan but this feature serves "null" — UNKNOWN, never 0 and never no-limit (lane 2 §DK-1 fill rates; REPORT §I)
+        - kompleks    value=false unit=null tier=1 valueBasis=ABSENT rank={dk-plan-ladder:3} validityBasis=legal valid_from=2000-03-15 normativeForce=null
+              note: register honesty flag, mirrored verbatim: true = rules too complex to structure (PDF-only — read doklink); false = the plan claims its structured fields are the rules
+   [rank 4] kommuneplanramme     FOUND plan=dk-plan-11714778 kind=kommuneplanramme status="V" adopted=2025-12-17 inForce=2026-01-19
+        - bebygpct    value=180 unit="%" tier=1 valueBasis={dk-bygberegnaf:1} rank={dk-plan-ladder:4} validityBasis=legal valid_from=2026-01-19 normativeForce=null
+              note: beregnes af: Omraadet som helhed (the plan area as a whole)
+          >>> GFA CONSUMER: REFUSED reason=basis-planning-area
+              rule dk-11714778-kommuneplanramme-bebygpct: bebygpct 180 % beregnes af: Omraadet som helhed (bebygpctaf=1 — the plan area as a whole) — NOT the individual parcel; a per-parcel multiply would state a wrong GFA (lane 2 §DK-2), so the computation is refused naming the basis
+              [control] the naive per-parcel multiply would have said 14927.4 m2 - that number is produced NOWHERE
+        - maxbygnhjd  value=null unit="m" tier=6 valueBasis=ABSENT rank={dk-plan-ladder:4} validityBasis=legal valid_from=2026-01-19 normativeForce=null
+              note: Plandata declares maxbygnhjd on kommuneplanramme but this feature serves "null" — UNKNOWN, never 0 and never no-limit (lane 2 §DK-1 fill rates; REPORT §I)
+        - maxetager   value=4 unit=null tier=1 valueBasis=ABSENT rank={dk-plan-ladder:4} validityBasis=legal valid_from=2026-01-19 normativeForce=null

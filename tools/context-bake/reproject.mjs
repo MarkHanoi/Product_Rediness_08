@@ -44,6 +44,10 @@ export const PROJ_DEFS = {
   'EPSG:27700': '+proj=tmerc +lat_0=49 +lon_0=-2 +k=0.9996012717 +x_0=400000 +y_0=-100000 +ellps=airy +towgs84=446.448,-125.157,542.06,0.15,0.247,0.842,-20.489 +units=m +no_defs',
   // NL RD-New (also served by terrain.mjs's closed form; registered here for completeness/parity).
   'EPSG:28992': '+proj=sterea +lat_0=52.1561605555556 +lon_0=5.38763888888889 +k=0.9999079 +x_0=155000 +y_0=463000 +ellps=bessel +towgs84=565.417,50.3319,465.552,-0.398957,0.343988,-1.8774,4.0725 +units=m +no_defs',
+  // WebMercator — the native grid of z/x/y raster-dem tile sources (terrain.mjs DTM_FETCH.mapterhorn,
+  // kind 'terrarium-zxy'; E3a ADOPT verdict audit/europe-site-intel/2026-08-31/impl/e3a-mapterhorn-verdict.md §5).
+  // Spherical mercator on the WGS-84 SPHERE (a=b=6378137) — horizontal only, as this whole file is.
+  'EPSG:3857': '+proj=merc +a=6378137 +b=6378137 +lat_ts=0 +lon_0=0 +x_0=0 +y_0=0 +k=1 +units=m +nadgrids=@null +no_defs',
 };
 
 let _registered = false;
@@ -78,6 +82,19 @@ export function getProjector(crs) {
     return { epsg, geographic: true, forward: (lon, lat) => [lon, lat], inverse: (x, y) => [x, y] };
   }
   if (!PROJ_DEFS[epsg]) throw new Error(`reproject: no proj4 def registered for ${epsg} (add it to PROJ_DEFS)`);
+  if (epsg === 'EPSG:3857') {
+    // WebMercator is DEFINED only on |lat| ≤ 85.05113° (the square domain); proj4 returns NaN at
+    // the poles, and the coarse ancestor tiles of the §8c warp span ±90° (measured: NaN rows in the
+    // z0/z1 grids, E3a seam findings). Clamp lat into the domain: a pole sample then forwards to
+    // the domain edge — far outside any city raster — and takes the compiler's honest sea-level
+    // fill (§COARSE-TILE-SEALEVEL / L-639), exactly like every other out-of-raster sample.
+    const MAX_LAT = 85.05112877980659;
+    return {
+      epsg, geographic: false,
+      forward: (lon, lat) => proj4('EPSG:4326', epsg, [lon, Math.max(-MAX_LAT, Math.min(MAX_LAT, lat))]),
+      inverse: (x, y) => proj4(epsg, 'EPSG:4326', [x, y]),
+    };
+  }
   return {
     epsg, geographic: false,
     forward: (lon, lat) => proj4('EPSG:4326', epsg, [lon, lat]),
@@ -97,6 +114,9 @@ const CONTROL_POINTS = [
   ['EPSG:25832',  6.96,  50.94,   356676,  5645134, 5],   // Köln            (ETRS89 UTM32N)
   ['EPSG:32632', 12.5,   41.9,    790335,  4644600, 5],   // Rome (UTM32 ext) (TINITALY)
   ['EPSG:27700', -0.1276, 51.5072, 530043, 180358, 5],    // London          (OSGB36 BNG)
+  // WebMercator: expected from the INDEPENDENT closed form X=R·lon, Y=R·ln(tan(π/4+lat/2)),
+  // R=6378137 — computed by hand 2026-09-01, NOT copied from proj4 output (same point as 25831 row).
+  ['EPSG:3857',   2.178, 41.362,  242454,  5065884, 5],   // Barcelona port  (WebMercator / terrarium-zxy)
 ];
 
 /** Run the control-point + round-trip self-test. Returns { pass, rows }. */

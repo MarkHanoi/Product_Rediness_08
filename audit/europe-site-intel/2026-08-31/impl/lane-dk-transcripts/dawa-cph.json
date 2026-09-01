@@ -1,0 +1,52 @@
+[
+{
+  "matrikelnr": "4801",
+  "bbox": [
+    12.55212769,
+    55.69392856,
+    12.55360971,
+    55.69480342
+  ],
+  "visueltcenter": [
+    12.55292012,
+    55.69432587
+  ],
+  "href": "https://api.dataforsyningen.dk/jordstykker/2000173/4801",
+  "ejerlav": {
+    "kode": 2000173,
+    "navn": "Udenbys Klædebo Kvarter, København",
+    "href": "https://api.dataforsyningen.dk/ejerlav/2000173"
+  },
+  "kommune": {
+    "href": "https://api.dataforsyningen.dk/kommuner/0101",
+    "kode": "0101",
+    "navn": "København"
+  },
+  "esrejendomsnr": "0",
+  "udvidet_esrejendomsnr": "0",
+  "sfeejendomsnr": "6021259",
+  "bfenummer": 6021259,
+  "ændret": "2024-02-22T22:45:44.655Z",
+  "geo_version": 1,
+  "geo_ændret": "2015-02-27T18:56:34.844Z",
+  "fælleslod": false,
+  "moderjordstykke": null,
+  "registreretareal": 3776,
+  "arealberegningsmetode": "k",
+  "vejareal": 0,
+  "vejarealberegningsmetode": "e",
+  "vandarealberegningsmetode": "ukendt",
+  "featureid": "10426582",
+  "region": {
+    "href": "https://api.dataforsyningen.dk/regioner/1084",
+    "kode": "1084",
+    "navn": "Region Hovedstaden"
+  },
+  "sogn": {
+    "href": "https://api.dataforsyningen.dk/sogne/9169",
+    "kode": "9169",
+    "navn": "Simeon-Sankt Johannes"
+  },
+  "retskreds": null
+}
+]

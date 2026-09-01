@@ -3,6 +3,19 @@
 //
 // The mapping is the compliance-critical PURE core (C58 §1.1) — these mocked
 // Plandata responses pin the Danish-field → ZoningRecord contract. No live calls.
+//
+// ⚠ CORRECTED 2026-09-01 (LANE DK, §DK-DENOMINATOR-BRANCH). Eight assertions in this file
+// pinned `plotRatioFAR = bebygpct / 100` UNCONDITIONALLY. That is the wrong-number path:
+// `bebyggelsesprocent` has a legally-variable denominator, Plandata SERVES it as the coded
+// attribute `bebygpctaf`, and `rulepacks/dkPlandataEnvelope.ts` has carried the founder-signed
+// "FAR only at parcel scope" branch since L-449 — dormant, because (its own header) "the
+// ingestion does not YET emit a scope attribute". The mapper now delegates to that resolver.
+// Measured nationally 2026-09-01 (keyless WFS `resulttype=hits`): of features publishing a
+// `bebygpct`, only 15.2 % / 15.5 % / 28.1 % (lokalplan / delområde / ramme) are parcel-scoped;
+// the rest are code 1 (plan area as a whole) or 2 (the ejendom). The two REAL probed features
+// below are a natural control pair — R24.B.4.8 serves `bebygpctaf: 4` and keeps its FAR;
+// Østerbrogade 224 serves `bebygpctaf: 2` and now WITHHOLDS it, naming the basis. Fixtures are
+// untouched; only the expectations moved, and they moved onto the signed mapping.
 
 import { describe, it, expect } from 'vitest';
 import type { Pt, ParcelEdgeClassification } from '@pryzm/schemas';
@@ -42,7 +55,9 @@ const CPH_LOKALPLAN: PlandataZoningResponse = {
         plannavn: 'Lokalplan 123 Indre By',
         anvendelsegenerel: 'Boligområde',
         anvgen: 'Boligområde',
-        bebygpct: 110, // bebyggelsesprocent 110 % → FAR 1.10
+        // bebyggelsesprocent 110 % — and this synthetic feature serves NO `bebygpctaf`, so
+        // the denominator is UNKNOWN and the FAR is withheld (§DK-DENOMINATOR-BRANCH).
+        bebygpct: 110,
         maxbygnhjd: 24, // 24 m
         maxetager: 6, // 6 storeys
         doklink: 'https://dokument.plandata.dk/20_3041234_APPROVED.pdf',
@@ -57,7 +72,12 @@ describe('mapPlandataToZoningRecord — field mapping (C58 §1.2 fidelity 1)', (
         expect(rec!.jurisdictionId).toBe('dk');
         expect(rec!.structuredFields.maxHeight_m).toBe(24);
         expect(rec!.structuredFields.maxFloors).toBe(6);
-        expect(rec!.structuredFields.plotRatioFAR).toBeCloseTo(1.1, 6); // 110 % → 1.10 FAR
+        // §DK-DENOMINATOR-BRANCH: no `bebygpctaf` served ⇒ the denominator is UNKNOWN, and
+        // UNKNOWN is never read as 'parcel'. The FAR is WITHHELD; the pct rides on as a fact.
+        expect(rec!.structuredFields.plotRatioFAR).toBeNull();
+        expect(rec!.overlays.join(' | ')).toContain('Bebyggelsesprocent 110 %');
+        expect(rec!.overlays.join(' | ')).toContain('NOT served');
+        expect(rec!.overlays.join(' | ')).toContain('FAR withheld (scope-unknown');
         // bebyggelsesprocent is FAR, NOT coverage → coverage stays null (no fabrication).
         expect(rec!.structuredFields.maxCoverage).toBeNull();
         // Per-edge setbacks are a separate byggelinjer dataset → honest null.
@@ -85,9 +105,14 @@ describe('mapPlandataToZoningRecord — field mapping (C58 §1.2 fidelity 1)', (
     });
 
     it('a PARTIAL plan keeps present fields + honest nulls for the rest', () => {
+        // WITH the served denominator code (4 = det enkelte jordstykke) the pct IS a per-parcel
+        // FAR and the partial record is usable — this is the 15–28 % parcel-scoped share.
         const partial: PlandataZoningResponse = {
             layer: 'kommuneplanramme',
-            properties: { plannavn: 'Ramme 4.B.12', bebygpct: 45, anvendelsegenerel: 'Blandet bolig og erhverv' },
+            properties: {
+                plannavn: 'Ramme 4.B.12', bebygpct: 45, bebygpctaf: 4,
+                anvendelsegenerel: 'Blandet bolig og erhverv',
+            },
         };
         const rec = mapPlandataToZoningRecord(partial, { fetchDateISO: FETCH_DATE });
         expect(rec).not.toBeNull();
@@ -95,6 +120,19 @@ describe('mapPlandataToZoningRecord — field mapping (C58 §1.2 fidelity 1)', (
         expect(rec!.structuredFields.maxHeight_m).toBeNull();
         expect(rec!.structuredFields.maxFloors).toBeNull();
         expect(rec!.structuredFields.permittedUse).toEqual(['mixed']);
+    });
+
+    it('§DK-DENOMINATOR-BRANCH — a pct-ONLY plan with no served denominator maps to NULL, not a ' +
+        'confident FAR (the caller then takes the §DK-HONEST-REFUSAL path)', () => {
+        // Same feature minus `bebygpctaf`. FAR withheld ⇒ none of {height, floors, FAR} is
+        // published ⇒ "no usable dimensional rule" ⇒ null. An honest refusal beats a study
+        // volume scaled by a percentage of something we cannot name. (Rare in the register:
+        // 28 features nationally publish a bebygpct with no bebygpctaf, measured 2026-09-01.)
+        const noBasis: PlandataZoningResponse = {
+            layer: 'kommuneplanramme',
+            properties: { plannavn: 'Ramme 4.B.12', bebygpct: 45, anvendelsegenerel: 'Blandet bolig og erhverv' },
+        };
+        expect(mapPlandataToZoningRecord(noBasis, { fetchDateISO: FETCH_DATE })).toBeNull();
     });
 
     it('L-608 — a delområde (sub-area) feature maps like a plan + names the sub-area', () => {
@@ -108,6 +146,8 @@ describe('mapPlandataToZoningRecord — field mapping (C58 §1.2 fidelity 1)', (
                 delnr: '3',
                 anvendelsegenerel: 'Blandet bolig og erhverv',
                 bebygpct: 185,
+                // No `bebygpctaf` on this fixture — the sub-area's FAR is therefore withheld
+                // (§DK-DENOMINATOR-BRANCH); the height/storey caps are scope-independent.
                 maxbygnhjd: 42,
                 maxetager: 12,
                 doklink: 'https://dokument.plandata.dk/20_410_delomr3.pdf',
@@ -118,7 +158,8 @@ describe('mapPlandataToZoningRecord — field mapping (C58 §1.2 fidelity 1)', (
         expect(rec).not.toBeNull();
         expect(rec.structuredFields.maxHeight_m).toBe(42);
         expect(rec.structuredFields.maxFloors).toBe(12);
-        expect(rec.structuredFields.plotRatioFAR).toBeCloseTo(1.85, 6);
+        expect(rec.structuredFields.plotRatioFAR).toBeNull(); // denominator not served
+        expect(rec.overlays.join(' | ')).toContain('Bebyggelsesprocent 185 %');
         expect(rec.structuredFields.permittedUse).toEqual(['mixed']);
         // Identity resolved from the lp_* aliases; the sub-area is named.
         expect(rec.zoneLabel).toBe('Lokalplan 410 Ørestad Syd (delområde 3)');
@@ -323,7 +364,11 @@ describe('REAL live-probed Plandata features → structured (L-399a, probed 2026
         const rec = mapPlandataToZoningRecord(REAL_CPH_LOKALPLAN, { fetchDateISO: FETCH_DATE })!;
         expect(rec).not.toBeNull();
         expect(rec.jurisdictionId).toBe('dk');
-        expect(rec.structuredFields.plotRatioFAR).toBeCloseTo(1.5, 6); // bebygpct 150 → FAR 1.50
+        // THE LIVE af=2 CASE: this REAL plan serves `bebygpctaf: 2` — "Den enkelte ejendom",
+        // which may span several matrikler. FAR × parcelArea would mis-scale, so the FAR is
+        // WITHHELD naming the basis (L-449's signed scope-property branch). The old
+        // `plotRatioFAR ≈ 1.5` here WAS the wrong number, on a real probed Danish plan.
+        expect(rec.structuredFields.plotRatioFAR).toBeNull();
         expect(rec.structuredFields.maxFloors).toBe(5); // maxetager 5.5 floored to 5
         expect(rec.structuredFields.maxHeight_m).toBeNull(); // no maxbygnhjd on this plan (honest)
         expect(rec.structuredFields.maxCoverage).toBeNull(); // FAR ≠ coverage
@@ -332,7 +377,13 @@ describe('REAL live-probed Plandata features → structured (L-399a, probed 2026
         expect(rec.zoneCode).toBe('21'); // integer anvgen code coerced to string
         expect(rec.ordinanceRef).toBe('https://dokument.plandata.dk/20_1072569_1483707772194.pdf');
         expect(rec.provenance.source).toBe('plandata-dk');
-        expect(rec.overlays).toEqual([]); // zonestatus null → no overlay (honest)
+        // zonestatus null → no zone overlay; the ONE overlay is the withheld-FAR fact, and it
+        // names the served basis so a reader can see WHY the number is absent.
+        expect(rec.overlays).toHaveLength(1);
+        expect(rec.overlays[0]!).toContain('Bebyggelsesprocent 150 %');
+        expect(rec.overlays[0]!).toContain('bebygpctaf=2');
+        expect(rec.overlays[0]!).toContain('Den enkelte ejendom');
+        expect(rec.overlays[0]!).toContain('FAR withheld (scope-property');
     });
 
     it('a REAL kommuneplanramme (R24.B.4.8) maps its height + FAR, honest null floors', () => {
@@ -358,7 +409,9 @@ describe('REAL live-probed Plandata features → structured (L-399a, probed 2026
             nowISO: FETCH_DATE,
         });
         expect(rec).not.toBeNull();
-        expect(rec!.structuredFields.plotRatioFAR).toBeCloseTo(1.5, 6);
+        // The withhold survives the provider hop — the branch is in the pure mapper, so no
+        // caller can route around it (bebygpctaf=2 on the real feature).
+        expect(rec!.structuredFields.plotRatioFAR).toBeNull();
         expect(rec!.structuredFields.maxFloors).toBe(5);
         expect(rec!.provenance.source).toBe('plandata-dk');
     });
@@ -373,7 +426,9 @@ describe('REAL live-probed Plandata features → structured (L-399a, probed 2026
         });
         expect(env.confidence).toBe('structured'); // numbers came from the feed, not a pack
         expect(env.status).toBe('ok');
-        expect(env.maxFAR).toBeCloseTo(1.5, 6);
+        // The envelope solver multiplies maxFAR by the PARCEL area (farLimitedHeight.ts), so
+        // an ejendom-scoped ratio must never reach it — it does not.
+        expect(env.maxFAR).toBeNull();
         expect(env.maxHeight_m).toBeNull(); // honest absence, not a fabricated height
         for (const d of env.derivation) {
             expect(d.fieldProvenance).toBe('published-structured');
@@ -526,11 +581,13 @@ describe('DkZoningProvider.fetchZoningResultAtPoint — three honest outcomes (�
         ).resolves.toEqual({ kind: 'unreachable' });
     });
 
-    it('§DATA-GAP — a REAL FAR/storeys-only lokalplan (Østerbrogade 224) resolves structured but ' +
+    it('§DATA-GAP — a REAL storeys-only lokalplan (Østerbrogade 224) resolves structured but ' +
         'yields NO renderable height → the caller must refuse, not draw a heightless volume', () => {
-        // This is the exact founder case: Plandata publishes FAR + storeys but not maxbygnhjd, so
-        // the structured envelope has a null height. The dispatch predicate (status ok && height
-        // != null) is therefore FALSE here → the honest cited refusal path fires.
+        // This is the exact founder case: Plandata publishes a bebyggelsesprocent + storeys but
+        // not maxbygnhjd, so the structured envelope has a null height. The dispatch predicate
+        // (status ok && height != null) is therefore FALSE here → the honest cited refusal path
+        // fires. Since 2026-09-01 the gap is WIDER, not narrower: the pct is ejendom-scoped
+        // (bebygpctaf=2), so maxFAR is withheld too and only the storey cap survives.
         const rec = mapPlandataToZoningRecord(REAL_CPH_LOKALPLAN, { fetchDateISO: FETCH_DATE })!;
         const env = computeBuildableEnvelope({
             parcelRing: RECT,
@@ -541,7 +598,9 @@ describe('DkZoningProvider.fetchZoningResultAtPoint — three honest outcomes (�
         expect(env.confidence).toBe('structured');
         expect(env.status).toBe('ok');
         expect(env.maxHeight_m).toBeNull(); // ← no renderable volume; caller refuses honestly
-        expect(env.maxFAR).toBeCloseTo(1.5, 6); // the number that rides in the refusal knownFacts
+        expect(env.maxFAR).toBeNull(); // ejendom-scoped pct → withheld, never a per-parcel FAR
+        // The pct is not LOST — it rides in the record's overlays as a named fact.
+        expect(rec.overlays.join(' | ')).toContain('Bebyggelsesprocent 150 %');
     });
 });
 
@@ -557,7 +616,7 @@ describe('DK structured envelope — the L-399a end-to-end wedge (C58 §6.1)', (
         expect(env.confidence).toBe('structured'); // NOT "estimated-ruleset"
         expect(env.status).toBe('ok');
         expect(env.maxHeight_m).toBe(24);
-        expect(env.maxFAR).toBeCloseTo(1.1, 6);
+        expect(env.maxFAR).toBeNull(); // CPH_LOKALPLAN serves no bebygpctaf → FAR withheld
         // Every constraint is published-structured and cites the plan document (C58 §1.3).
         expect(env.derivation.length).toBeGreaterThan(0);
         for (const d of env.derivation) {

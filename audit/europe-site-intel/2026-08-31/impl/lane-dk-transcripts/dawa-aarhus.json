@@ -1,0 +1,52 @@
+[
+{
+  "matrikelnr": "7000ad",
+  "bbox": [
+    10.2078853,
+    56.15647756,
+    10.21165278,
+    56.1577066
+  ],
+  "visueltcenter": [
+    10.20956492,
+    56.15708943
+  ],
+  "href": "https://api.dataforsyningen.dk/jordstykker/2006351/7000ad",
+  "ejerlav": {
+    "kode": 2006351,
+    "navn": "Århus Bygrunde",
+    "href": "https://api.dataforsyningen.dk/ejerlav/2006351"
+  },
+  "kommune": {
+    "href": "https://api.dataforsyningen.dk/kommuner/0751",
+    "kode": "0751",
+    "navn": "Aarhus"
+  },
+  "esrejendomsnr": "0",
+  "udvidet_esrejendomsnr": "0",
+  "sfeejendomsnr": "5625716",
+  "bfenummer": 5625716,
+  "ændret": "2024-02-22T22:45:44.655Z",
+  "geo_version": 1,
+  "geo_ændret": "2015-02-27T19:53:48.512Z",
+  "fælleslod": false,
+  "moderjordstykke": null,
+  "registreretareal": 8293,
+  "arealberegningsmetode": "k",
+  "vejareal": 8293,
+  "vejarealberegningsmetode": "e",
+  "vandarealberegningsmetode": "ukendt",
+  "featureid": "281836",
+  "region": {
+    "href": "https://api.dataforsyningen.dk/regioner/1082",
+    "kode": "1082",
+    "navn": "Region Midtjylland"
+  },
+  "sogn": {
+    "href": "https://api.dataforsyningen.dk/sogne/8114",
+    "kode": "8114",
+    "navn": "Aarhus Domsogn"
+  },
+  "retskreds": null
+}
+]

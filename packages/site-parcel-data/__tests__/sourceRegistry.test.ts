@@ -30,7 +30,7 @@ import { EE_SOURCES } from '../src/countryAdapters/ee/eeSources.js';
  * either direction is a finding, not noise.
  */
 const EXPECTED_ROWS: Readonly<Record<string, number>> = {
-    DE: 2, DK: 3, CH: 2, ES: 3, FR: 2, PT: 1, NL: 5, PL: 3, LT: 3, EE: 4,
+    DE: 2, DK: 4, CH: 2, ES: 3, FR: 2, PT: 1, NL: 5, PL: 3, LT: 3, EE: 4,
     AT: 0, BE: 2, BG: 0, HR: 0, CY: 0, CZ: 0, FI: 2, GR: 0, HU: 0, IE: 0,
     IT: 1, LV: 0, LU: 0, MT: 0, NO: 1, RO: 0, SI: 0, SK: 0, SE: 0, UK: 1,
 };
@@ -61,7 +61,11 @@ describe('source registry — 30-country coverage vs REPORT §F', () => {
         for (const c of coverage) {
             expect(c.rows, `${c.reportFCode} row count`).toBe(EXPECTED_ROWS[c.reportFCode]);
         }
-        expect(ALL_SOURCES).toHaveLength(35);
+        // 35 -> 36: LANE DK 2026-09-01 seeded `dk-dawa-jordstykker`, the KEYLESS parcel
+        // side-door that is the other half of the DK critical path (probed anonymously at
+        // both baseline parcels). The DK country adapter RESOLVES this row rather than
+        // minting its own copy — see countryAdapters/dk/dkSources.ts.
+        expect(ALL_SOURCES).toHaveLength(36);
     });
 
     it('every zero-row §F country carries an honest lane-file absence reason — absence is a finding, not a blank', () => {
@@ -116,6 +120,16 @@ describe('source registry — row discipline (every value from the lane files)',
             expect(haystack.includes('ome2'), `${row.id} must not seed OME2`).toBe(false);
             expect(haystack.includes('open cadastral map'), `${row.id} must not seed OME2`).toBe(false);
         }
+    });
+
+    it('source ids are UNIQUE across the whole registry — one id, one definition (C84 EI-9)', () => {
+        // LANE DK 2026-09-01: a DK adapter draft minted a SECOND row with id `dk-plandata-wfs`
+        // inside countryAdapters/dk/, divergent from the registry's and unreachable through
+        // SOURCE_REGISTRY. Two definitions of one id is how one source grows two probe logs.
+        const seen = new Map<string, number>();
+        for (const row of ALL_SOURCES) seen.set(row.id, (seen.get(row.id) ?? 0) + 1);
+        const dupes = [...seen.entries()].filter(([, n]) => n > 1).map(([id]) => id);
+        expect(dupes, `duplicate source ids: ${dupes.join(', ')}`).toEqual([]);
     });
 
     it('EE rows are REUSED from the E1d exemplar module, never copied (non-rivalry, C84 EI-9)', () => {

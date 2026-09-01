@@ -1,0 +1,112 @@
+LANE FED — FALSIFICATION TRANSCRIPTS (2026-09-01)
+Each deliverable was SEEN FAILING, then the file was restored and the restore proved
+byte-identical by sha256. Nothing below is still in the tree.
+
+PRE-FALSIFICATION HASHES (sha256, packages/site-parcel-data/)
+  3ce9a96d86ff055055b9b2d11046073cfccb592fd370411128c7f80b012b7512  src/buildingsFederation/conflate.ts
+  9424397e3ab3a8baa0813fcb87fb5ea2b6f0e2889e00569caf95227e0ca879f5  src/buildingsFederation/gersId.ts
+  0f900decfc9d29a73243a45acef53eacc95ccaf1bb58bda00211fa2401d78356  src/buildingsFederation/index.ts
+  13496b395344f99b5cde09a4a915565df722b26a8c9ea3cf91751873d2c9d50e  src/buildingsFederation/odblStore.ts
+  7f55a195d0b51b3f23e8dcc6afd8b86bbc2c91f8dcf7497ecc1acbb294d518cf  src/buildingsFederation/sourcePriority.ts
+  dedbf74ab7b886f5e2a14bb52c6383cd3f4758afd41a62a099c79d5fc700b8fc  __tests__/buildingsFederation.test.ts
+  81a65a612c1d8762ae37b9d80119d1d20ef403d78ae9bddc56cc20d8ef0acd33  fed-probe-tallinn.mts
+
+(conflate.ts was edited ONCE more after F2 — a header correction, see F2's note — so its
+final hash differs from the line above by design; every other file ends on its hash above.)
+
+──────────────────────────────────────────────────────────────────────────────────────────
+F1 — THE GERS KEY.  Patch: GERS_ID_RE → /^[0-9a-f]{32}$/ (the un-measured 32-hex shape the
+inherited suite asserted).
+
+  probe, INPUTS section:
+    overture rows read      1185
+      ids failing parseGersId 1185        ← was 0
+  suite:
+    FAIL  __tests__/buildingsFederation.test.ts [ import failed ]
+    Test Files  1 failed (1)   Tests  no tests
+  (the fixture guard `test fixture GERS ids must parse` throws at import — the whole file
+   cannot even collect, which is the loudest possible failure for a key format.)
+
+  restore → sha256 9424397e3ab3a8baa0813fcb87fb5ea2b6f0e2889e00569caf95227e0ca879f5  ✅ identical
+
+──────────────────────────────────────────────────────────────────────────────────────────
+F2 — THE BOUNDS PREFILTER.  Patch: provablyApart() → `return false && boundsDisjoint(a, b)`.
+
+  probe, prefilter OFF                     probe, prefilter ON
+    geometryComparisons  1,288,095           geometryComparisons  2,797
+    federate wall time   19,756 ms           federate wall time   169 ms  (212 ms on a later run)
+    deduped              1007                deduped              1007
+    backboneOnly         170                 backboneOnly         170
+    undecidable          8                   undecidable          8
+    federated buildings  1257                federated buildings  1257
+
+  ⚠ READ THIS HONESTLY. The OUTPUT is identical; only the cost changed — 460× the clipper
+  calls, 117× the wall time. This AOI therefore demonstrates the COST arm and NOT the
+  correctness arm: the Tallinn extract contains no zero-area authority ring, so the
+  quarantine cascade never fires here. The correctness arm is demonstrated by the unit test
+  "⭐ ONE degenerate authority ring does NOT quarantine the whole backbone", which fails
+  against the pre-prefilter algorithm by construction. conflate.ts's header was corrected
+  after this run to say exactly that, rather than citing the probe for both arms.
+
+  restore → sha256 3ce9a96d… ✅ identical (before the header correction that followed)
+
+──────────────────────────────────────────────────────────────────────────────────────────
+F3 — THE ODbL BOUNDARY, RUNTIME ARM.  Patch: `if (false && store.policy === 'non-odbl' && …)`.
+
+  suite:
+    × runtime: an ODbL-encumbered row is REFUSED from a non-ODbL store, with the refusal named
+    × compile time: a not-narrowed FederatedBuilding does not typecheck against a non-ODbL store
+    AssertionError: expected true to be false   (×2)
+    Test Files  1 failed (1)   Tests  2 failed | 29 passed (31)
+  probe, at scale:
+    non-odbl accepted       1257     ← was 80
+    non-odbl REFUSED           0     ← was 1177
+  i.e. with the arm removed, 1177 ODbL-encumbered buildings silently enter a store declared
+  non-ODbL. That is the exact merge DECISION-SUMMARY row 2 forbids, and it is silent.
+
+  restore → sha256 13496b39… ✅ identical
+
+──────────────────────────────────────────────────────────────────────────────────────────
+F4 — THE ODbL BOUNDARY, COMPILE-TIME ARM.  Patch: the conditional parameter type
+`P extends 'non-odbl' ? NonOdblFederatedBuilding : FederatedBuilding` → `FederatedBuilding`.
+
+  pnpm --filter @pryzm/site-parcel-data typecheck:
+    __tests__/buildingsFederation.test.ts(449,9): error TS2578: Unused '@ts-expect-error' directive.
+
+  i.e. the phantom brand really is what stops the forbidden call at compile time; when it is
+  removed, the test's own @ts-expect-error becomes unused and the build breaks. The guard is
+  self-proving in both directions.
+
+  restore → sha256 13496b39… ✅ identical
+
+──────────────────────────────────────────────────────────────────────────────────────────
+FALSIFICATION CONTROL — DOES ROOT TSC EVEN SEE THIS MODULE?
+tsconfig.json's `include` is ["src", "apps/editor/src/ui", …] — packages/ is NOT listed, so
+a green root tsc would prove nothing unless the module is reached through the import graph.
+Patch: append `const __ROOT_TSC_COVERAGE_CONTROL: number = "deliberate type error";` to
+conflate.ts.
+
+  NODE_OPTIONS=--max-old-space-size=8192 npx tsc --noEmit -p tsconfig.json
+    RC=2
+    packages/site-parcel-data/src/buildingsFederation/conflate.ts(654,7): error TS2322: Type 'string' is not assignable to type 'number'.
+    packages/site-parcel-data/src/buildingsFederation/conflate.ts(654,7): error TS6133: '__ROOT_TSC_COVERAGE_CONTROL' is declared but its value is never read.
+
+  → root tsc DOES reach the module (transitively: apps/editor/src/engine/views/
+    siteEntryCoverage.ts imports @pryzm/site-parcel-data, whose barrel now re-exports
+    buildingsFederation). The clean RC=0 is therefore evidence about THESE files.
+  restore → the control line removed; typecheck RC=0; `grep -c ROOT_TSC_COVERAGE_CONTROL` → 0.
+
+──────────────────────────────────────────────────────────────────────────────────────────
+CLEAN STATE AFTER ALL FOUR (re-run, foreground)
+  npx vitest run __tests__/buildingsFederation.test.ts --root packages/site-parcel-data
+    Test Files  1 passed (1)   Tests  31 passed (31)
+  pnpm --filter @pryzm/site-parcel-data test
+    Test Files  161 passed (161)   Tests  3325 passed (3325)   RC=0
+  pnpm --filter @pryzm/site-parcel-data typecheck                          RC=0
+  NODE_OPTIONS=--max-old-space-size=8192 npx tsc --noEmit -p tsconfig.json  RC=0 (0 error lines)
+  npx tsx tools/ga-gate/check-otel-spans.ts                                 RC=0
+    ZONE A 274/274 · ZONE B 52 uninstrumented of 87 (baseline 52) · site-parcel-data is in
+    neither gated zone
+  npx tsx tools/ga-gate/check-layer-boundaries.ts                           RC=0
+    within baselines (violations 48/102, unclassified 13/13, sdk-bypass 156/182)
+  grep -c FALSIFICATION over src/buildingsFederation/*.ts                   → 0 in every file

@@ -127,8 +127,44 @@ export function parseDkDensityScope(raw: string | null | undefined): DkDensitySc
     return null;
 }
 
-/** Coerce a raw WFS value to a positive finite number, else null (honest absence). Mirrors
- *  `mapPlandataToZoningRecord.ts::posNumberOrNull` so the two agree on what "no number" means. */
+/**
+ * LANE DK (E1 verdict §G DK-parallel, 2026-09-01) — the SERVED denominator code →
+ * the L-449 `DkDensityScope`. Plandata serves the bebyggelsesprocent denominator as the
+ * CODED attribute `bebygpctaf` (codelist `pdk:theme_pdk_codelist_bygberegnaf_v`, imported
+ * verbatim at L0 in `@pryzm/schemas` `vocabularies/dk.ts` — lane 2 §DK-2, probed
+ * 2026-08-31). Mapping the code onto a computation scope is ADAPTER semantics (L-664:
+ * no mapping table at L0), and THIS package is that adapter — so the one mapping lives
+ * here, beside the L-449 signed scope machinery it feeds:
+ *
+ *   1 "Omraadet som helhed"      → 'planningArea'  (the plan area as a whole — the Aarhus
+ *                                   af=1 trap: a naive per-parcel multiply is WRONG)
+ *   2 "Den enkelte ejendom"      → 'property'      (the ejendom may span several matrikler)
+ *   3 "Den enkelte grund"        → 'parcel'        (grundens areal — the BR18 §168–186 basis
+ *                                   `parseDkDensityScope` already signs as parcel scope)
+ *   4 "Det enkelte jordstykke"   → 'parcel'        (the individual cadastral parcel — the
+ *                                   Noerrebro af=4 case: FAR × parcelArea is valid)
+ *
+ * Returns `null` for absent/unrecognised input — NEVER a guessed 'parcel' (a fifth code is
+ * a national schema change and must surface as UNKNOWN scope → FAR withheld, not be
+ * absorbed; `vocabularies/dk.ts` doctrine).
+ */
+export function dkDensityScopeFromBygberegnaf(raw: unknown): DkDensityScope | null {
+    const code =
+        typeof raw === 'number' && Number.isInteger(raw)
+            ? raw
+            : typeof raw === 'string' && /^[0-9]+$/.test(raw.trim())
+              ? Number.parseInt(raw.trim(), 10)
+              : null;
+    if (code === 1) return 'planningArea';
+    if (code === 2) return 'property';
+    if (code === 3 || code === 4) return 'parcel';
+    return null;
+}
+
+/** Coerce a raw WFS value to a positive finite number, else null (honest absence). This is the
+ *  SINGLE coercion for DK plan numbers: `mapPlandataToZoningRecord.ts` used to carry a twin and
+ *  now delegates to `resolveDkPlanEnvelope` instead, so "what counts as no number" is decided
+ *  once (LANE DK 2026-09-01; the twin was how the FAR branch drifted out of this signed pack). */
 function posNumberOrNull(v: unknown): number | null {
     if (v === null || v === undefined || v === '') return null;
     const n = typeof v === 'number' ? v : Number.parseFloat(String(v));

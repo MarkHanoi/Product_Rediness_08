@@ -1,0 +1,19 @@
+# bebygpctaf national fill — measured 2026-09-01T14:37:26.653Z (keyless WFS resulttype=hits)
+
+## lokalplan (pdk:theme_pdk_lokalplan_vedtaget)
+total=37991  bebygpct populated=11616 (30.6%)
+  of those, bebygpctaf ALSO served=11595 (99.8%)  -> af MISSING=21
+  code distribution: 1=6029 (51.9%)  2=3801 (32.7%)  3=1102 (9.5%)  4=663 (5.7%)
+  PARCEL-SCOPED (3+4) = 1765 (15.2% of populated) ; NON-parcel (1+2) = 9830
+
+## delomraade (pdk:theme_pdk_lokalplandelomraade_vedtaget)
+total=66276  bebygpct populated=28557 (43.1%)
+  of those, bebygpctaf ALSO served=28550 (100.0%)  -> af MISSING=7
+  code distribution: 1=13043 (45.7%)  2=11069 (38.8%)  3=2398 (8.4%)  4=2040 (7.1%)
+  PARCEL-SCOPED (3+4) = 4438 (15.5% of populated) ; NON-parcel (1+2) = 24112
+
+## ramme (pdk:theme_pdk_kommuneplanramme_vedtaget_v)
+total=50605  bebygpct populated=30773 (60.8%)
+  of those, bebygpctaf ALSO served=30773 (100.0%)  -> af MISSING=0
+  code distribution: 1=8090 (26.3%)  2=14022 (45.6%)  3=3109 (10.1%)  4=5552 (18.0%)
+  PARCEL-SCOPED (3+4) = 8661 (28.1% of populated) ; NON-parcel (1+2) = 22112

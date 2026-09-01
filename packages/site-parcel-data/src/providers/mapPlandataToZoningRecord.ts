@@ -15,7 +15,13 @@
 // calls `Date`. Same input → byte-identical `ZoningRecord`.
 //
 // FIELD MAP (Plandata `theme_pdk_lokalplan_vedtaget` / `kommuneplanramme_vedtaget_v`):
-//   bebygpct           int      bebyggelsesprocent  → plotRatioFAR = bebygpct / 100
+//   bebygpct           int      bebyggelsesprocent  → plotRatioFAR = bebygpct / 100 — ONLY when
+//                               the SERVED `bebygpctaf` denominator code is parcel-scoped
+//                               (codes 3/4). The branch is NOT re-derived here: this file
+//                               delegates to the L-449 signed `resolveDkPlanEnvelope`
+//                               (rulepacks/dkPlandataEnvelope.ts); see §DK-DENOMINATOR-BRANCH
+//   bebygpctaf         int      beregnes af (codelist bygberegnaf 1–4) — WHAT the % is
+//                               computed OF (lane 2 §DK-2, probed 2026-08-31)
 //   maxbygnhjd         decimal  maks. bygningshøjde → maxHeight_m (metres, passthrough)
 //   maxetager          decimal  maks. antal etager  → maxFloors  (floored to an int)
 //   anvendelsegenerel  string   generel anvendelse  → permittedUse[] (classified)
@@ -57,7 +63,11 @@
 // docs/04-reference/DENMARK-GEOSPATIAL-REFERENCE-ARCHITECTURE.md §2.3.
 
 import type { PermittedUse, ZoningRecord } from '@pryzm/schemas';
-import { ZoningRecordSchema } from '@pryzm/schemas';
+import { DkBygberegnafCodeSchema, ZoningRecordSchema, dkBygberegnafRow } from '@pryzm/schemas';
+import {
+    dkDensityScopeFromBygberegnaf,
+    resolveDkPlanEnvelope,
+} from '../rulepacks/dkPlandataEnvelope.js';
 
 /** Which Plandata layer a feature came from, MOST-SPECIFIC first. A lokalplan's
  *  building field (`byggefelt`) is tighter than a local plan's sub-area
@@ -87,12 +97,41 @@ export interface MapPlandataOpts {
     readonly fetchDateISO: string;
 }
 
-/** Coerce a raw WFS value to a positive finite number, else null (honest absence). */
-function posNumberOrNull(v: unknown): number | null {
-    if (v === null || v === undefined || v === '') return null;
-    const n = typeof v === 'number' ? v : Number.parseFloat(String(v));
-    if (!Number.isFinite(n) || n <= 0) return null;
-    return n;
+/**
+ * Narrow a raw WFS attribute (`unknown`) to the `number | string | null` a `DkPlanFields`
+ * slot accepts. Anything else (boolean, object, array) is "no number" — the same verdict the
+ * signed resolver's own coercion reaches, arrived at one step earlier so the pure mapper does
+ * no arithmetic of its own.
+ */
+function planField(v: unknown): number | string | null {
+    return typeof v === 'number' || typeof v === 'string' ? v : null;
+}
+
+/**
+ * §DK-DENOMINATOR-BRANCH — describe the SERVED `bebygpctaf` value for the withhold overlay,
+ * distinguishing the THREE non-parcel situations that must never read alike
+ * (§CONTEXT-DATA-HONESTY: an absent code, an alien code and a known non-parcel code are
+ * different facts):
+ *   • served + inside the state codelist → the codelist row VERBATIM, code included;
+ *   • served + OUTSIDE {1,2,3,4}         → named as a possible national schema change,
+ *                                          never absorbed into a scope;
+ *   • not served                          → the denominator is UNKNOWN, and UNKNOWN is never
+ *                                          read as 'parcel' (E4 control 9).
+ */
+function describeBygberegnaf(raw: unknown): string {
+    if (raw === null || raw === undefined || raw === '') {
+        return 'denominator code (bebygpctaf) NOT served — the denominator is UNKNOWN';
+    }
+    const codeNum = typeof raw === 'number' ? raw : Number.parseInt(String(raw), 10);
+    const parsed = DkBygberegnafCodeSchema.safeParse(codeNum);
+    if (!parsed.success) {
+        return (
+            `bebygpctaf=${String(raw)} is outside the state bygberegnaf codelist {1,2,3,4} ` +
+            '(national schema change?)'
+        );
+    }
+    const row = dkBygberegnafRow(parsed.data);
+    return `beregnes af: ${row.da} (bebygpctaf=${parsed.data} — ${row.en})`;
 }
 
 /** First non-empty string among the candidates, else null. */
@@ -198,14 +237,48 @@ export function mapPlandataToZoningRecord(
     if (!response || !response.properties) return null;
     const p = response.properties;
 
-    // ── Dimensional numbers (published-structured where present). ────────────
-    const bebygpct = posNumberOrNull(p.bebygpct);
-    const plotRatioFAR = bebygpct !== null ? bebygpct / 100 : null;
-    const maxHeight_m = posNumberOrNull(p.maxbygnhjd);
-    const etager = posNumberOrNull(p.maxetager);
-    // maxetager is a decimal in the source (e.g. "3.5" storeys incl. an attic);
-    // C58 `maxFloors` is an integer — floor it (conservative, never over-stated).
-    const maxFloors = etager !== null ? Math.floor(etager) : null;
+    // ── Dimensional numbers, via the L-449 SIGNED resolver (no second arithmetic). ──
+    // §DK-DENOMINATOR-BRANCH (LANE DK 2026-09-01 · E1 verdict §B.1 · lane 2 §DK-2 · C63) —
+    // `bebyggelsesprocent` is a RATIO whose denominator is legally VARIABLE, and Plandata SERVES
+    // it as the coded attribute `bebygpctaf` (state codelist
+    // `pdk:theme_pdk_codelist_bygberegnaf_v`: 1 = the plan area as a whole · 2 = the ejendom ·
+    // 3 = the grund · 4 = the individual jordstykke).
+    //
+    // `rulepacks/dkPlandataEnvelope.ts` ALREADY carries the founder-signed branch for this
+    // (`resolveDkPlanEnvelope`: FAR ONLY at parcel scope, pct kept as a fact, typed
+    // `farWithheldReason`) and its own header says why it was dormant — "⚠ PROBE-DON'T-ASSUME:
+    // the ingestion does not YET emit a scope attribute (the current mapper reads only
+    // `bebygpct`) … the exact WFS field name must be confirmed at wiring time against the
+    // DescribeFeatureType". THIS IS THAT WIRING: `bebygpctaf` is the field, live-probed
+    // 2026-09-01. The mapper therefore DELEGATES rather than re-deriving the branch — one
+    // signed authority for the FAR arithmetic, no rival (C84 EI-9).
+    //
+    // WHY IT MATTERS, measured nationally 2026-09-01 (keyless WFS `resulttype=hits`): of the
+    // features that publish a `bebygpct`, only 15.2 % (lokalplan) / 15.5 % (delområde) /
+    // 28.1 % (ramme) are parcel-scoped (codes 3+4). The other 72–85 % are codes 1/2 — the
+    // unconditional `bebygpct/100` this replaces stated a per-parcel FAR for every one of them.
+    // `bebygpctaf` is served on 99.8–100 % of populated `bebygpct` values, so withholding on an
+    // ABSENT code costs 28 features nationally, not coverage.
+    const dkEnv = resolveDkPlanEnvelope({
+        bebyggelsesprocent: planField(p.bebygpct),
+        maxHeightM: planField(p.maxbygnhjd),
+        maxStoreys: planField(p.maxetager),
+        // The SERVED code → the signed `DkDensityScope`. null (absent / alien code) is NOT
+        // parcel-confirmed, and the resolver withholds — UNKNOWN is never read as 'parcel'.
+        densityScope: dkDensityScopeFromBygberegnaf(p.bebygpctaf),
+    });
+    const plotRatioFAR = dkEnv.farRatio;
+    const maxHeight_m = dkEnv.maxHeightM;
+    // maxetager is a decimal in the source (e.g. "3.5" storeys incl. an attic); the resolver
+    // floors it to the C58 integer (conservative, never over-stated).
+    const maxFloors = dkEnv.maxStoreys;
+    // A withheld FAR keeps its pct AND its basis VISIBLE as an overlay fact — the record
+    // refuses NAMING the basis; the served number is never silently dropped.
+    const farBasisOverlay = dkEnv.farWithheld
+        ? `Bebyggelsesprocent ${dkEnv.bebyggelsesprocent} % — ${describeBygberegnaf(p.bebygpctaf)}` +
+          ` — not a per-parcel FAR; FAR withheld (${dkEnv.farWithheldReason}, L-449 ` +
+          '§DK-DENOMINATOR-BRANCH)'
+        : null;
 
     const usable = maxHeight_m !== null || maxFloors !== null || plotRatioFAR !== null;
     if (!usable) return null;
@@ -280,6 +353,9 @@ export function mapPlandataToZoningRecord(
         overlays: [
             ...(zonestatus ? [zonestatus] : []),
             ...(bindingByggefelt ? ['Bindende byggefelt'] : []),
+            // §DK-DENOMINATOR-BRANCH — a withheld FAR keeps its pct + basis VISIBLE as a fact
+            // (the record refuses NAMING the basis; the number is never silently dropped).
+            ...(farBasisOverlay ? [farBasisOverlay] : []),
         ],
         // The plan document is the governing-document citation (C58 §1.3).
         ordinanceRef: doklink,

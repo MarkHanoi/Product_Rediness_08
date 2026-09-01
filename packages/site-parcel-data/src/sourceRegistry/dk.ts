@@ -23,11 +23,43 @@ export const DK_SOURCES = defineSources('DK', [
                 date: '2026-08-31',
                 note: 'REPORT §F DK row (L2 lane): keyless Plandata + DAWA; fill measured 30.6/43.1/60.8% by layer + 100% doklink + BR18 defaults; byggefelt geometry unique. Endpoint verbatim from the wired ByggefeltProducer/plandataZoningProxy.',
             },
+            {
+                date: '2026-09-01',
+                note: 'LANE DK re-pin, anonymous (no key, no token, no auth header): both baseline parcels answered. CPH 12.5530,55.6940 -> ramme R24.B.3.40 bebygpct=150 bebygpctaf=4 maxbygnhjd=24 planstatus=V datoikraft=20241212, lokalplan layer 0 features (genuine absence). Aarhus 10.2107,56.1572 -> ramme 010109CY bebygpct=180 bebygpctaf=1 maxetager=4 eareal=16800 datoikraft=20260119 + lokalplan 591 all-dimensional-nulls kompleks=false SERVED. AXIS: a lon,lat bbox answers; the lat,lon bbox returns 0 features SILENTLY on every layer (HTTP 200) - a wrong axis order must never read as "no plan here". Wrong layer name -> HTTP 400 ows:ExceptionReport naming the layer. bebygpctaf national fill (resulttype=hits): served on 99.8/100.0/100.0% of populated bebygpct; parcel-scoped (codes 3+4) only 15.2/15.5/28.1% by layer.',
+            },
         ],
         theme: 'planning',
         coverage: 'national; per-layer numeric fill 30.6/43.1/60.8% (measured, REPORT §F DK row)',
         updateFrequency: null,
         adapterStatus: 'live', // wired: plandataZoningProxy + ByggefeltProducer (signed offline legislation)
+    },
+    {
+        // LANE DK 2026-09-01 — the KEYLESS parcel side-door. The critical path's parcel step
+        // needs no key at all; only Datafordeler (the two rows below) is gated. Seeded here,
+        // and NOT re-minted inside the country adapter — one registry, one row per source.
+        id: 'dk-dawa-jordstykker',
+        country: 'DK',
+        authority: 'SDFI / Dataforsyningen (DAWA - Danmarks Adressers Web API)',
+        dataset: 'jordstykker (cadastral parcel at a WGS84 point: matrikelnr + ejerlav + kommune + BFE + registreretareal + vejareal)',
+        endpoint: 'https://api.dataforsyningen.dk/jordstykker',
+        protocol: 'REST',
+        licence: { id: 'CC-BY-4.0', colour: 'GREEN', verifiedDate: '2026-08-31', textRef: null },
+        accessOption: 1,
+        gate: null, // keyless - probed anonymously twice
+        probes: [
+            {
+                date: '2026-08-31',
+                note: 'lane 2 §DK-4: keyless parcel lookup probed CPH + Aarhus (matrikelnr, ejerlav, kommune, BFE). WARNING its sibling `bygninger` endpoint answered HTTP 200 with an EMPTY array at two central-CPH points - NOT reliable for buildings; buildings come from BBR/GeoDanmark (keyed rows below).',
+            },
+            {
+                date: '2026-09-01',
+                note: 'LANE DK live: x=12.5530&y=55.6940 -> matr. 4801 Udenbys Klaedebo Kvarter (ejerlav 2000173), kommune 0101 Koebenhavn, BFE 6021259, registreretareal 3776 m2, vejareal 0. x=10.2107&y=56.1572 -> matr. 7000ad Aarhus Bygrunde (ejerlav 2006351), kommune 0751, BFE 5625716, registreretareal 8293 m2, vejareal 8293 (vejareal == registreretareal: a ROAD parcel, as the 20-parcel table records).',
+            },
+        ],
+        theme: 'cadastre',
+        coverage: 'national (parcel-at-point); keyless',
+        updateFrequency: null,
+        adapterStatus: 'live', // countryAdapters/dk/dkParcelProvider.ts
     },
     {
         id: 'dk-datafordeler-geodanmark-wfs',

@@ -41,6 +41,8 @@
 //   node terrain.mjs --sample-city barcelona         # fetch real DTM + print control-point elevations
 //   node terrain.mjs --bake-city barcelona \         # fetch national DTM → reproject → quantized-mesh
 //        --out out/terrain/barcelona                 #   (ES/FR/CH/NO/DE/IT/GB wired; NL closed-form)
+//   node terrain.mjs --bake-city barcelona \         # §E3A: SAME compile, ALTERNATIVE visual-DTM
+//        --dtm-source mapterhorn --out out/mh        #   source (switch, DEFAULT OFF — omit = national)
 //   node terrain.mjs --fetch-nl amsterdam.tif        # keyless AHN WCS GetCoverage → a DTM GeoTIFF
 //   node terrain.mjs --tif <file> --country <cc> \   # compile ONE local GeoTIFF → quantized-mesh
 //        --out out/terrain/<city>
@@ -1527,6 +1529,26 @@ export const DTM_FETCH = {
   ch: { kind: 'stac-cog', endpoint: 'https://data.geo.admin.ch/api/stac/v0.9/collections/ch.swisstopo.swissalti3d',
     resToken: '_2_2056_', nativeCrs: 'EPSG:2056', maxExtentM: 4000, maxTiles: 25,
     note: 'swissALTI3D via STAC — per-1km 2 m COG GeoTIFF tiles (EPSG:2056), stitched over a centre block; full-city needs a mosaic job (follow-up).' },
+  // ⭐ §E3A-MAPTERHORN — ALTERNATIVE bake-time DTM source for VISUAL context terrain (ADOPT verdict:
+  // audit/europe-site-intel/2026-08-31/impl/e3a-mapterhorn-verdict.md §5). DEFAULT OFF (§L-1056):
+  // NO REGIONS row routes here — it is reached ONLY via the explicit `--dtm-source mapterhorn` switch
+  // (bakeCity/sampleCity `dtmSource`), so every default bake still uses the national adapters above;
+  // the cutover, if it comes, is its own later superseding commit after visual verification on prod.
+  //   • Everything downstream is UNTOUCHED: same raster shape → §8c warp → MARTINI → quantized-mesh
+  //     encoder → terrain.verify.mjs independent decode → R2. geoidSepM stays the NATIONAL row's
+  //     (ES tiles carry the national orthometric datum — measured ≤0.74 m vs the IGN WCS on 6/7
+  //     probes, verdict §2 — so the existing lift applies unchanged).
+  //   • NEVER the legal sampling source (L-584: façade-rasant/datum sampling stays on the national
+  //     DTM): terrarium declares no per-tile vertical datum and has no nodata channel — gaps are
+  //     GLO-30-FILLED, never UNKNOWN (E4 control 9). NEVER a runtime tile source (L-513; the
+  //     sponsored CDN bandwidth is a commons courtesy, not an SLA).
+  //   • Max served zoom VARIES BY PLACE (measured: BCN z16, MAD z17; z17 404s across Barcelona) —
+  //     z15 is the pinned safe zoom (≈1.8 m/px ground at 41°N, ~25× finer than the wired 25 m ES
+  //     coverage). A missing tile at the pinned z throws honestly — never a fabricated tile.
+  mapterhorn: { kind: 'terrarium-zxy', endpoint: 'https://tiles.mapterhorn.com', z: 15,
+    tileSize: 512, nativeCrs: 'EPSG:3857', maxExtentM: 22000, maxTiles: 512,
+    note: 'Mapterhorn terrarium raster-dem (lossless WebP z/x/y; ES ingests IGN MDT02/05/50 national lidar, global fill GLO-30). '
+      + 'VISUAL bake-time source only, behind --dtm-source (default OFF) — never legal sampling (L-584), never runtime (L-513).' },
 };
 
 /** apikey-gated sources: env var + a human hint. Wired but skip loudly until the founder adds the key. */
@@ -1664,6 +1686,10 @@ export async function fetchDtmRaster(sourceKey, bboxWsen, { geotiffMod, env = pr
     return await fetchSwissAltiStac(cfg, bbox, geotiffMod);
   }
 
+  if (cfg.kind === 'terrarium-zxy') {
+    return await fetchTerrariumZxy(cfg, bbox);
+  }
+
   throw new Error(`unknown fetch kind '${cfg.kind}' for ${sourceKey}`);
 }
 
@@ -1711,6 +1737,80 @@ async function fetchSwissAltiStac(cfg, bbox, geotiffMod) {
   }
   const raster = { width, height, values, bboxNative: [minX, minY, maxX, maxY], resX: res, resY: res };
   return { raster, nativeCrs: cfg.nativeCrs, url: itemsUrl, tiles: hrefs.length };
+}
+
+// ═════════════════════════════════════════════════════════════════════════════
+// §8d — TERRARIUM z/x/y TILE FETCH (§E3A-MAPTERHORN — the E3a ADOPT seam, verdict §5.1)
+// Fetch the clamped bbox's WebMercator z/x/y tiles, decode the lossless WebP, terrarium-decode
+// (R·256 + G + B/256 − 32768, 1/256 m quantisation) into the SAME { values, bboxNative, nativeCrs }
+// raster shape every other adapter returns — so the §8c warp (shared proj4 EPSG:3857 path in
+// reproject.mjs), MARTINI, the quantized-mesh encoder, the datum lift and terrain.verify.mjs are
+// all reached UNCHANGED. Values are orthometric national heights where national lidar is ingested
+// (ES — verdict §2), exactly like a national GeoTIFF, so the caller's geoidSepM lift applies as-is.
+// ═════════════════════════════════════════════════════════════════════════════
+async function fetchTerrariumZxy(cfg, bbox) {
+  // `sharp` is the ONE extra standalone dep (WebP decode; verdict §5.1). Lazy-imported so every
+  // existing bake path runs without it — only a --dtm-source mapterhorn run can reach this line.
+  let sharp;
+  try { sharp = (await import('sharp')).default; }
+  catch {
+    throw new Error("terrarium-zxy needs the 'sharp' WebP decoder — a STANDALONE dep (NOT the pnpm "
+      + 'workspace: npm i sharp@0.33 in a scratch dir and copy node_modules into tools/context-bake, '
+      + 'the same workspace:*-trap pattern as geotiff/martini — see the header + terrain-bake.yml).');
+  }
+  const z = cfg.z, tileSize = cfg.tileSize ?? 512;
+  const proj = getProjector(cfg.nativeCrs); // EPSG:3857 via the shared reproject.mjs path
+  // Padded native (mercator) box over the clamped bbox — same 100 m pad as the wcs2 adapters.
+  const [x0, y0, x1, y1] = nativeBoxForBbox(bbox, proj, 100);
+  const ORIGIN = 20037508.342789244;            // spherical-mercator half-world (metres)
+  const tileSpanM = (2 * ORIGIN) / 2 ** z;      // metres per z-level tile
+  const res = tileSpanM / tileSize;             // metres per pixel at this z
+  const nTiles = 2 ** z, clampT = (v) => Math.min(nTiles - 1, Math.max(0, v));
+  const txMin = clampT(Math.floor((x0 + ORIGIN) / tileSpanM)), txMax = clampT(Math.floor((x1 + ORIGIN) / tileSpanM));
+  const tyMin = clampT(Math.floor((ORIGIN - y1) / tileSpanM)), tyMax = clampT(Math.floor((ORIGIN - y0) / tileSpanM)); // XYZ y: 0 at north
+  const count = (txMax - txMin + 1) * (tyMax - tyMin + 1);
+  const maxTiles = cfg.maxTiles ?? 512;
+  if (count > maxTiles) {
+    throw new Error(`terrarium-zxy: bbox needs ${count} z${z} tiles > maxTiles ${maxTiles} — refusing honestly (shrink the bbox, or raise maxTiles deliberately).`);
+  }
+  // Crop window = the padded native box expressed on the z-level's GLOBAL pixel grid. Writing each
+  // decoded tile's overlap straight into this window (no full-mosaic intermediate, no resample)
+  // keeps the pixels tile-grid-aligned and the memory bounded by the AOI, not the tile block.
+  const gpx0 = Math.max(txMin * tileSize, Math.floor((x0 + ORIGIN) / res));
+  const gpx1 = Math.min((txMax + 1) * tileSize - 1, Math.ceil((x1 + ORIGIN) / res));
+  const gpy0 = Math.max(tyMin * tileSize, Math.floor((ORIGIN - y1) / res));
+  const gpy1 = Math.min((tyMax + 1) * tileSize - 1, Math.ceil((ORIGIN - y0) / res));
+  const width = gpx1 - gpx0 + 1, height = gpy1 - gpy0 + 1;
+  const values = new Float32Array(width * height);
+  const keys = [];
+  for (let ty = tyMin; ty <= tyMax; ty++) for (let tx = txMin; tx <= txMax; tx++) keys.push([tx, ty]);
+  // Bounded concurrency; ANY non-200 (incl. a 404 where the pinned z is not served — max zoom
+  // varies by place, verdict §1) throws honestly via fetchBuffer. Never a filled/fabricated tile.
+  const CONC = 6;
+  for (let i = 0; i < keys.length; i += CONC) {
+    await Promise.all(keys.slice(i, i + CONC).map(async ([tx, ty]) => {
+      const url = `${cfg.endpoint}/${z}/${tx}/${ty}.webp`;
+      const { ab } = await fetchBuffer(url, { accept: 'image/webp' });
+      const { data, info } = await sharp(Buffer.from(ab)).raw().toBuffer({ resolveWithObject: true });
+      if (info.width !== tileSize || info.height !== tileSize) {
+        throw new Error(`terrarium-zxy: ${url} decoded ${info.width}x${info.height}px, expected ${tileSize}x${tileSize}`);
+      }
+      const ch = info.channels;
+      const tileGx = tx * tileSize, tileGy = ty * tileSize;
+      const px0 = Math.max(gpx0, tileGx), px1 = Math.min(gpx1, tileGx + tileSize - 1);
+      const py0 = Math.max(gpy0, tileGy), py1 = Math.min(gpy1, tileGy + tileSize - 1);
+      for (let gy = py0; gy <= py1; gy++) {
+        const srcRow = (gy - tileGy) * tileSize, dstRow = (gy - gpy0) * width;
+        for (let gx = px0; gx <= px1; gx++) {
+          const o = (srcRow + (gx - tileGx)) * ch;
+          values[dstRow + (gx - gpx0)] = data[o] * 256 + data[o + 1] + data[o + 2] / 256 - 32768; // terrarium
+        }
+      }
+    }));
+  }
+  const bboxNative = [-ORIGIN + gpx0 * res, ORIGIN - (gpy1 + 1) * res, -ORIGIN + (gpx1 + 1) * res, ORIGIN - gpy0 * res];
+  const raster = { width, height, values, bboxNative, resX: res, resY: res };
+  return { raster, nativeCrs: cfg.nativeCrs, url: `${cfg.endpoint}/${z}/{x}/{y}.webp (x ${txMin}..${txMax}, y ${tyMin}..${tyMax})`, tiles: count };
 }
 
 // ═════════════════════════════════════════════════════════════════════════════
@@ -1818,31 +1918,38 @@ export async function compileTifToTileset(tifPath, country, outDir, gridSize, ge
 // The honest core of the multi-city bake: resolve city → source → fetch real DTM → warp → tileset.
 // Skips (never fakes) for apikey-gated sources without a key and for BLOCKED cities.
 // ═════════════════════════════════════════════════════════════════════════════
-export async function bakeCity(region, { outDir, gridSize = 257, geotiffMod, Martini, env = process.env, bboxOverride } = {}) {
+export async function bakeCity(region, { outDir, gridSize = 257, geotiffMod, Martini, env = process.env, bboxOverride, dtmSource } = {}) {
   const src = TERRAIN_SOURCES[region.source];
   const bbox = bboxOverride ?? region.bbox;
   if (region.source === 'nl') {
     // NL stays on the shipped closed-form proof path (see the --bake-city CLI branch).
     throw new Error('bakeCity: NL uses the dedicated closed-form path in the CLI, not the generic adapter');
   }
-  const apikey = APIKEY_SOURCES[region.source];
+  // §E3A-DTM-SOURCE-SWITCH — `dtmSource` overrides WHICH ADAPTER FETCHES the raster. DEFAULT OFF:
+  // undefined → region.source, byte-identical to the pre-switch behaviour (§L-1056 — proven by
+  // checksum-equal default bakes, see the E3a seam findings). The DATUM LIFT stays keyed to the
+  // NATIONAL row (`TERRAIN_SOURCES[region.source].geoidSepM`) regardless — verdict §5.2 — and the
+  // L-584 legal sampling path (fitFootprintGroundPlane on the national DTM) is not routed here.
+  const fetchKey = dtmSource ?? region.source;
+  const apikey = APIKEY_SOURCES[fetchKey];
   if (apikey && !env[apikey.env]) {
-    return { status: 'skip-apikey', reason: `${region.source.toUpperCase()} needs ${apikey.env} (${apikey.hint}) — not set; skipping loudly (no fake tile).` };
+    return { status: 'skip-apikey', reason: `${fetchKey.toUpperCase()} needs ${apikey.env} (${apikey.hint}) — not set; skipping loudly (no fake tile).` };
   }
-  if (!DTM_FETCH[region.source]) {
-    return { status: 'skip-unwired', reason: `no DTM fetch adapter for source '${region.source}'.` };
+  if (!DTM_FETCH[fetchKey]) {
+    return { status: 'skip-unwired', reason: `no DTM fetch adapter for source '${fetchKey}'.` };
   }
-  const { raster, nativeCrs, url, tiles } = await fetchDtmRaster(region.source, bbox, { geotiffMod, env });
-  console.log(`  fetched DTM: ${raster.width}x${raster.height}px native ${nativeCrs}${tiles ? ` (${tiles} STAC tiles)` : ''}\n  via ${url}`);
+  const { raster, nativeCrs, url, tiles } = await fetchDtmRaster(fetchKey, bbox, { geotiffMod, env });
+  console.log(`  fetched DTM: ${raster.width}x${raster.height}px native ${nativeCrs}${tiles ? ` (${tiles} source tiles)` : ''}\n  via ${url}`);
   const res = compileWarpToTileset({ raster, nativeCrs, geoidSepM: src.geoidSepM, outDir, gridSize, Martini });
   return { status: 'ok', ...res, nativeCrs, url };
 }
 
 /** Fetch a coarse DTM for a city and print elevations at named control points — the placement +
  *  datum proof (reproducible in CI). Returns the sampled rows so a caller/CI can assert them. */
-export async function sampleCity(region, probes, { geotiffMod, env = process.env } = {}) {
+export async function sampleCity(region, probes, { geotiffMod, env = process.env, dtmSource } = {}) {
   const src = TERRAIN_SOURCES[region.source];
-  const { raster, nativeCrs, url } = await fetchDtmRaster(region.source, region.bbox, { geotiffMod, env });
+  // §E3A-DTM-SOURCE-SWITCH (see bakeCity) — default OFF; geoid lift stays the national row's.
+  const { raster, nativeCrs, url } = await fetchDtmRaster(dtmSource ?? region.source, region.bbox, { geotiffMod, env });
   const [minX, minY, maxX, maxY] = raster.bboxNative;
   const proj = getProjector(nativeCrs);
   let mn = Infinity, mx = -Infinity, sum = 0, cnt = 0;
@@ -1934,15 +2041,16 @@ async function main() {
     if (!region) { console.error(`unknown city '${name}' (see --regions)`); process.exit(1); }
     if (region.blocked) { console.log(`SKIP ${name}: BLOCKED — ${region.blocked}`); return; }
     if (region.source === 'nl') { console.log('use --fetch-nl for the NL proof (RD-New closed form).'); return; }
-    const apk = APIKEY_SOURCES[region.source];
+    const dtmSource = val('--dtm-source') || undefined; // §E3A switch — default OFF (national adapter)
+    const apk = APIKEY_SOURCES[dtmSource ?? region.source];
     if (apk && !process.env[apk.env]) {
-      console.log(`::warning::SKIP ${name}: ${region.source.toUpperCase()} needs ${apk.env} (${apk.hint}) — not set; cannot sample keyless (no fake).`);
+      console.log(`::warning::SKIP ${name}: ${(dtmSource ?? region.source).toUpperCase()} needs ${apk.env} (${apk.hint}) — not set; cannot sample keyless (no fake).`);
       return;
     }
     const geotiffMod = await import('geotiff');
     const probes = SAMPLE_PROBES[name] || [['centroid', (region.bbox[0] + region.bbox[2]) / 2, (region.bbox[1] + region.bbox[3]) / 2]];
-    const r = await sampleCity(region, probes, { geotiffMod });
-    console.log(`═══ SAMPLE ${name} (${region.source.toUpperCase()} ${r.nativeCrs}, geoid lift +${r.geoidSepM} m) ═══`);
+    const r = await sampleCity(region, probes, { geotiffMod, dtmSource });
+    console.log(`═══ SAMPLE ${name} (${(dtmSource ?? region.source).toUpperCase()} ${r.nativeCrs}, geoid lift +${r.geoidSepM} m${dtmSource ? ` — --dtm-source override, lift stays ${region.source.toUpperCase()}'s` : ''}) ═══`);
     console.log(`  DTM query: ${r.url}`);
     console.log(`  raster ${r.raster.w}x${r.raster.h}px · orthometric min/mean/max = ${r.stats.minOrtho}/${r.stats.meanOrtho}/${r.stats.maxOrtho} m (valid ${r.stats.valid}/${r.stats.total})`);
     for (const row of r.rows) {
@@ -1998,8 +2106,10 @@ async function main() {
     const gridSize = Number(val('--grid') || 257);
     const geotiffMod = await import('geotiff');
     const Martini = (await import('@mapbox/martini')).default;
+    const dtmSource = val('--dtm-source') || undefined; // §E3A switch — default OFF (national adapter)
 
     if (region.source === 'nl') {
+      if (dtmSource) console.log(`::warning::--dtm-source ${dtmSource} IGNORED for NL — the shipped closed-form AHN path is not switchable (E3a scope: non-NL §8c warp only).`);
       // Shipped, founder-verified Amsterdam path — unchanged (dependency-free RD-New closed form).
       mkdirSync(outDir, { recursive: true });
       const tifPath = resolve(outDir, `${name}_dtm.tif`);
@@ -2014,8 +2124,9 @@ async function main() {
     }
 
     const bboxOverride = val('--bbox') ? val('--bbox').split(',').map(Number) : undefined;
-    console.log(`bake ${name} (${region.source.toUpperCase()}): ${DTM_FETCH[region.source]?.note ?? ''}`);
-    const res = await bakeCity(region, { outDir, gridSize, geotiffMod, Martini, bboxOverride });
+    const effSrc = dtmSource ?? region.source;
+    console.log(`bake ${name} (${effSrc.toUpperCase()}${dtmSource ? ` — --dtm-source override; datum lift stays ${region.source.toUpperCase()}'s` : ''}): ${DTM_FETCH[effSrc]?.note ?? ''}`);
+    const res = await bakeCity(region, { outDir, gridSize, geotiffMod, Martini, bboxOverride, dtmSource });
     if (res.status !== 'ok') {
       // apikey-gated / unwired sources SKIP LOUDLY (::warning:: → visible CI annotation) but exit 0 so
       // the multi-city bake carries on (never a fake tile). Copenhagen lands here without the key.

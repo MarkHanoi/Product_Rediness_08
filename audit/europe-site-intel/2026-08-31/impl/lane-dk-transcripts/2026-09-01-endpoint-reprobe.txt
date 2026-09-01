@@ -1,0 +1,36 @@
+# LANE DK live re-probe — 2026-09-01T14:28:18.644Z
+# NO key, NO token, NO auth header on any request below.
+
+## DAWA cph GET https://api.dataforsyningen.dk/jordstykker?x=12.553&y=55.694
+HTTP 200 (368 ms)
+matrikelnr=4801 ejerlav=2000173/Udenbys Klædebo Kvarter, København kommune=0101/København bfe=6021259 registreretareal=3776 vejareal=0
+WFS cph byggefelt  lonlat HTTP 200 features=0
+WFS cph byggefelt  latlon HTTP 200 features=0
+WFS cph delomraade lonlat HTTP 200 features=0
+WFS cph delomraade latlon HTTP 200 features=0
+WFS cph lokalplan  lonlat HTTP 200 features=0
+WFS cph lokalplan  latlon HTTP 200 features=0
+WFS cph ramme      lonlat HTTP 200 features=1 | plannr=R24.B.3.40 plannavn=R24.B.3.40 - B4 bebygpct=150 bebygpctaf=4 maxbygnhjd=24 maxetager=null eareal=null status=V kompleks=undefined datovedt=20241212 datoikraft=20241212
+WFS cph ramme      latlon HTTP 200 features=0
+
+## DAWA aar GET https://api.dataforsyningen.dk/jordstykker?x=10.2107&y=56.1572
+HTTP 200 (66 ms)
+matrikelnr=7000ad ejerlav=2006351/Århus Bygrunde kommune=0751/Aarhus bfe=5625716 registreretareal=8293 vejareal=8293
+WFS aar byggefelt  lonlat HTTP 200 features=0
+WFS aar byggefelt  latlon HTTP 200 features=0
+WFS aar delomraade lonlat HTTP 200 features=0
+WFS aar delomraade latlon HTTP 200 features=0
+WFS aar lokalplan  lonlat HTTP 200 features=1 | plannr=591 plannavn=Temaplan om strøggadernes anvendelse og by bebygpct=null bebygpctaf=null maxbygnhjd=null maxetager=null eareal=null status=V kompleks=false datovedt=20000202 datoikraft=20000315
+WFS aar lokalplan  latlon HTTP 200 features=0
+WFS aar ramme      lonlat HTTP 200 features=1 | plannr=010109CY plannavn=Kommuneplan 2025 bebygpct=180 bebygpctaf=1 maxbygnhjd=null maxetager=4 eareal=16800 status=V kompleks=undefined datovedt=20251217 datoikraft=20260119
+WFS aar ramme      latlon HTTP 200 features=0
+
+## CODELIST GET https://geoserver.plandata.dk/geoserver/wfs?service=WFS&version=2.0.0&request=GetFeature&typeNames=pdk%3Atheme_pdk_codelist_bygberegnaf_v&outputFormat=application%2Fjson&count=20
+HTTP 200 (57 ms)
+  {"code":2,"text":"Den enkelte ejendom"}
+  {"code":3,"text":"Den enkelte grund"}
+  {"code":4,"text":"Det enkelte jordstykke"}
+  {"code":1,"text":"Området som helhed"}
+
+## WRONG-LAYER failure shape
+HTTP 400 body[0:260]=<?xml version="1.0" encoding="UTF-8"?><ows:ExceptionReport xmlns:xs="http://www.w3.org/2001/XMLSchema" xmlns:ows="http://www.opengis.net/ows/1.1" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" version="2.0.0" xsi:schemaLocation="http://www.opengis.net/o

@@ -1,0 +1,42 @@
+LANE FED — the AUTHORITY half of the probe extract (EE), fetched 2026-09-01.
+
+Endpoint and layer ADOPTED from the E1d adapter, not reinvented:
+  packages/site-parcel-data/src/countryAdapters/ee/eeWfsClient.ts   EE_GEOSERVER_BASE
+  packages/site-parcel-data/src/countryAdapters/ee/eeBuildingsProvider.ts   EE_BUILDINGS_LAYER
+  Source Registry row: ee-etak-ehr-hooned-wfs (countryAdapters/ee/eeSources.ts)
+
+COMMAND (Git Bash):
+
+  curl -s -G "https://gsavalik.envir.ee/geoserver/etak_tuletis/ows" \
+    --data-urlencode "service=WFS" \
+    --data-urlencode "version=2.0.0" \
+    --data-urlencode "request=GetFeature" \
+    --data-urlencode "typeNames=etak_tuletis:etak_ehr_hooned" \
+    --data-urlencode "count=3000" \
+    --data-urlencode "outputFormat=application/json" \
+    --data-urlencode "bbox=59.440,24.720,59.450,24.740,urn:ogc:def:crs:EPSG::4326" \
+    -o ee_buildings_kopli.json -w "HTTP=%{http_code} bytes=%{size_download}\n"
+
+RESULT
+
+  HTTP=200 bytes=1326672
+  crs served: urn:ogc:def:crs:EPSG::3301   (native — no reprojection anywhere in the chain)
+  totalFeatures 1087 · numberReturned 1087 · all 1087 geometries type=Polygon
+  coordinates are 3-ordinate ([x, y, z]); the probe harness drops z.
+
+ATTRIBUTE COVERAGE over the 1087 (measured, not assumed):
+  korgus_m         (ETAK, ALS-measured → SURVEYED)      1020
+  korgus           (EHR register attribute, declared)     329
+  max_korruste_arv (floors above)                         779
+  korgus_m ABSENT but korgus present                       28   ← register-only height
+
+FIRST FEATURE (verbatim head of the response, for shape):
+  {"type":"Feature","id":"etak_ehr_hooned.2329","geometry":{"type":"Polygon","coordinates":
+  [[[541790.86,6590126.533,13.72],[541795.794,6590123.208,13.72],[541791.42,6590116.717,13.72],
+  [541786.485,6590120.043,13.72],[541790.86,6590126.533,13.72]]]},"geometry_name":"shape",
+  "properties":{"fid":2329,"etak_id":7030756,"ehr_gid":"121337715","kood":401,
+  "kood_tekst":"Hoone","tyyp":20,"tyyp_tekst":"Kõrval- või tootmishoone",…}
+
+NOT COMMITTED: the extract itself stays out of the repo (size, and the symmetric treatment
+of the ODbL half — see fed-probe-overture.py). Re-fetch with the command above; the layer is
+open and unauthenticated (accessOption 1 on the registry row).

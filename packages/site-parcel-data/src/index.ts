@@ -829,6 +829,10 @@ export {
     DK_PLANDATA_DEFAULT_ZONE_CODE,
     DK_BR18_ENVELOPE_REF,
     parseDkDensityScope,
+    // LANE DK 2026-09-01 — the SERVED `bebygpctaf` code → the signed DkDensityScope. The pack
+    // header's "⚠ PROBE-DON'T-ASSUME … confirm the exact WFS field name at wiring time" is
+    // now answered: the field is `bebygpctaf`, live-probed keyless (§DK-DENOMINATOR-BRANCH).
+    dkDensityScopeFromBygberegnaf,
     resolveDkPlanEnvelope,
     dkPlandataResolvedPack,
     type DkDensityScope,
@@ -2286,3 +2290,8 @@ export * from './rulepacks/declarative/factVocabulary.js';
 export * from './rulepacks/declarative/evaluateDeclarative.js';
 export * from './rulepacks/declarative/deriveC58Contract.js';
 export * from './rulepacks/declarative/esBarcelona20aAillada.decl.js';
+
+// LANE FED (E5 partial · DECISION-SUMMARY row 2) — buildings-federation scaffold:
+// GERS conflation key · source-priority model as data · match/dedup/federate over the
+// frozen SiteIntelBuilding record · the ODbL separability boundary.
+export * from './buildingsFederation/index.js';

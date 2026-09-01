@@ -1,0 +1,109 @@
+# LANE DK falsification transcript (sever -> named failing test -> byte-identical restore)
+
+### CONTROL (no sever)
+   Test Files  2 passed (2)
+   Tests  63 passed (63)
+
+### SEVER: D1 axis hedge removed (only the lon,lat order is tried)
+   file: packages\site-parcel-data\src\countryAdapters\dk\dkPlandataClient.ts
+   × AXIS HEDGE (measured): zero on lon,lat retries lat,lon before concluding absent 10ms
+   Test Files  1 failed (1)
+   Tests  1 failed | 32 passed (33)
+   RESTORE: BYTE-IDENTICAL (1d91539aae95de2b)
+
+### SEVER: D1 ows:ExceptionReport no longer classified (200-body exception ignored)
+   file: packages\site-parcel-data\src\countryAdapters\dk\dkPlandataClient.ts
+   × an ows:ExceptionReport (wrong layer) is a SELF-NAMING transient, never "no data" 9ms
+   Test Files  1 failed (1)
+   Tests  1 failed | 32 passed (33)
+   RESTORE: BYTE-IDENTICAL (1d91539aae95de2b)
+
+### SEVER: D1 registry/client endpoint drift (client re-pinned to a stale host)
+   file: packages\site-parcel-data\src\countryAdapters\dk\dkPlandataClient.ts
+   Test Files  1 failed | 1 passed (2)
+   Tests  30 passed (30)
+   Error: [dk-adapter] endpoint drift on 'dk-plandata-wfs': registry says 'https://geoserver.plandata.dk/geoserver/wfs', the client pins 'https://wfs.datafordeler.dk/plandata/wfs'. One re-pin, both places, or the registry is fiction.
+   63|             `[dk-adapter] endpoint drift on '${row.id}': registry says…
+   RESTORE: BYTE-IDENTICAL (1d91539aae95de2b)
+
+### SEVER: D2 valueBasis never emitted (the served bebygpctaf dropped on the way in)
+   file: packages\site-parcel-data\src\countryAdapters\dk\dkRuleMapper.ts
+   × Noerrebro ramme: bebygpct rule carries valueBasis {dk-bygberegnaf, "4"} VERBATIM 10ms
+   × a SERVED denominator survives a tier-6 UNKNOWN percentage (E4 control 8: qualifiers survive normalization) 1ms
+   × Noerrebro (af=4, live parcel 3776 m²): GFA = 150% × 3776 = 5664 m² — the RIGHT number 4ms
+   × THE AARHUS af=1 CASE (live parcel 8293 m²): REFUSED naming the basis — no number exists 2ms
+   × af=2 (ejendom) → refused basis-property; the parcel is not the denominator 2ms
+   × invalid parcel area → refused parcel-area-invalid (never NaN arithmetic) 1ms
+   Test Files  1 failed (1)
+   Tests  6 failed | 27 passed (33)
+   RESTORE: BYTE-IDENTICAL (0d2fa8de65db5733)
+
+### SEVER: D2 GFA consumer stops branching on the basis (multiplies at any scope)
+   file: packages\site-parcel-data\src\countryAdapters\dk\dkGfa.ts
+   × a SERVED denominator survives a tier-6 UNKNOWN percentage (E4 control 8: qualifiers survive normalization) 7ms
+   × THE AARHUS af=1 CASE (live parcel 8293 m²): REFUSED naming the basis — no number exists 1ms
+   × af=2 (ejendom) → refused basis-property; the parcel is not the denominator 1ms
+   Test Files  1 failed (1)
+   Tests  3 failed | 30 passed (33)
+   RESTORE: BYTE-IDENTICAL (60b219298f59f236)
+
+### SEVER: D2 C58 mapper assumes parcel scope again (the pre-lane unconditional bebygpct/100)
+   file: packages\site-parcel-data\src\providers\mapPlandataToZoningRecord.ts
+   × maps a representative Copenhagen plan → structured ZoningRecord 13ms
+   × §DK-DENOMINATOR-BRANCH — a pct-ONLY plan with no served denominator maps to NULL, not a confident FAR (the caller then takes the §DK-HONEST-REFUSAL path) 4ms
+   × L-608 — a delområde (sub-area) feature maps like a plan + names the sub-area 2ms
+   × a REAL lokalplan (Østerbrogade kaserne 224) maps to a structured record 1ms
+   × the REAL lokalplan flows through the provider adapter (injected fetch) → structured 1ms
+   × the REAL lokalplan → computeBuildableEnvelope → confidence "structured", status "ok" 4ms
+   × §DATA-GAP — a REAL storeys-only lokalplan (Østerbrogade 224) resolves structured but yields NO renderable height → the caller must refuse, not draw a heightless volume 1ms
+   × DK plan → computeBuildableEnvelope → confidence "structured" + cited derivation 1ms
+   × THE AARHUS af=1 CASE: the wrong-number path is DEAD — FAR withheld NAMING the basis 7ms
+   × af=2 (ejendom): FAR withheld naming "Den enkelte ejendom" 1ms
+   × bebygpctaf NOT served: UNKNOWN is never read as parcel — FAR withheld naming the gap 1ms
+   × a code OUTSIDE the state codelist: withheld naming the alien code (never absorbed) 1ms
+   Test Files  2 failed (2)
+   Tests  12 failed | 51 passed (63)
+   RESTORE: BYTE-IDENTICAL (f8aec6a4c6e79543)
+
+### SEVER: D3 rank no longer emitted (the ladder rung dropped from applicability)
+   file: packages\site-parcel-data\src\countryAdapters\dk\dkRuleMapper.ts
+   × every rule of every layer carries R1 rank {dk-plan-ladder, <rung>} (deliverable 3) 10ms
+   × byggefelt declares NO bebygpct: field absence ≠ value unknownness; bygvejledende → R5 2ms
+   × a delområde rule (level 2) OUTRANKS its whole-plan rule (level 3); the loser is NAMED 2ms
+   Test Files  1 failed (1)
+   Tests  3 failed | 30 passed (33)
+   RESTORE: BYTE-IDENTICAL (0d2fa8de65db5733)
+
+### SEVER: D3 ladder order inverted (ramme made most-specific)
+   file: packages\site-parcel-data\src\countryAdapters\dk\dkPlandataClient.ts
+   × every rule of every layer carries R1 rank {dk-plan-ladder, <rung>} (deliverable 3) 13ms
+   × byggefelt declares NO bebygpct: field absence ≠ value unknownness; bygvejledende → R5 3ms
+   Test Files  1 failed (1)
+   Tests  2 failed | 31 passed (33)
+   RESTORE: BYTE-IDENTICAL (1d91539aae95de2b)
+
+### SEVER: D4 lifecycle harmonised (served planstatus token replaced by a house word)
+   file: packages\site-parcel-data\src\countryAdapters\dk\dkRuleMapper.ts
+   × lifecycle mirrored VERBATIM (deliverable 4): status "V", datovedt/datoikraft typed 10ms
+   Test Files  1 failed (1)
+   Tests  1 failed | 32 passed (33)
+   RESTORE: BYTE-IDENTICAL (0d2fa8de65db5733)
+
+### SEVER: D4 kompleks flag dropped (the register honesty flag not mirrored)
+   file: packages\site-parcel-data\src\countryAdapters\dk\dkRuleMapper.ts
+   × kompleks mirrored VERBATIM where served — false is a served value, not an absence 6ms
+   Test Files  1 failed (1)
+   Tests  1 failed | 32 passed (33)
+   RESTORE: BYTE-IDENTICAL (0d2fa8de65db5733)
+
+### SEVER: UNKNOWN rows dropped instead of emitted at tier 6
+   file: packages\site-parcel-data\src\countryAdapters\dk\dkRuleMapper.ts
+   × tier-6 UNKNOWN rows are VISIBLE, never dropped (fill is 30–61% by layer, not ~96%) 12ms
+   × a SERVED denominator survives a tier-6 UNKNOWN percentage (E4 control 8: qualifiers survive normalization) 1ms
+   Test Files  1 failed (1)
+   Tests  2 failed | 31 passed (33)
+   RESTORE: BYTE-IDENTICAL (0d2fa8de65db5733)
+
+### FINAL CONTROL (all severs restored)
+   Test Files  2 passed (2)
+   Tests  63 passed (63)
