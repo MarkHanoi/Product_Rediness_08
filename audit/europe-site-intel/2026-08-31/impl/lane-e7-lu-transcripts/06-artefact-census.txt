@@ -1,0 +1,198 @@
+=== E7-LU . THE INDEPENDENT NATIONAL CENSUS, EXECUTED 2026-09-01 ===
+
+--- 0. PROBES ESTABLISHING THAT NO LIVE PAG SERVICE EXISTS ---
+$ curl -s -o /dev/null -w "%{http_code} %{size_download}" "https://wfs.geoportail.lu/pag/service?SERVICE=WFS&REQUEST=GetCapabilities&VERSION=2.0.0"
+  000 0        (DNS resolves; no TLS answer)
+$ curl ... "https://wfs.geoportail.lu/service?SERVICE=WFS&REQUEST=GetCapabilities&VERSION=2.0.0"
+  000 0
+$ curl -s "https://wms.geoportail.lu/opendata/service?SERVICE=WMS&REQUEST=GetCapabilities&VERSION=1.3.0"
+  200 49503 text/xml  -> 58 <Layer> elements, FULL name list read. NO PAG layer of any kind:
+  Ortho ortho_1967..ortho_latest | Topo_maps topo_5k..topomap_gray | Basemap hybrid basemap
+  basemap_3d basemap_3d_hd roadmap roadmap_luxonly | PCN parcels parcels_labels buildings
+  toponymes cadastre addresses | limadmin communes cantons districts sections_cadastrales
+  communes_cadastrales pays arrondissements_judiciaires circonscriptions_legislatives
+  relief lidar_2019_mns_public lidar_2019_mnt_public
+$ curl "https://apiv3.geoportail.lu/themes?version=2&background=background"  (also apiv4, map.geoportail.lu)
+  200 -> every ogcServers entry declares  "wfsSupport": false
+
+--- 1. LICENCE, CONFIRMED AT THE LICENCE PAGE (not inherited from E5) ---
+$ curl "https://data.public.lu/api/1/datasets/pag-geometries-de-tous-les-pag-version-2011-en-vigueur/"
+  license: cc-zero | last_update: 2026-08-31T02:35:29+00:00 | frequency: continuous
+  organization: Ministere des Affaires interieures
+  resource: pag.gpkg.zip | gpkg.zip | 259912001 bytes
+$ curl "https://data.public.lu/api/1/datasets/licenses/"  -> the cc-zero entry:
+  {'id': 'cc-zero', 'title': 'Creative Commons Zero (CC0)', 'maintainer': 'Creative Commons',
+   'url': 'https://creativecommons.org/publicdomain/zero/1.0/'}
+$ curl -L "https://data.public.lu/fr/datasets/pag-geometries-.../"   -> 200, 183127 bytes; carries:
+  "Creative Commons Zero (CC0)"  and  creativecommons.org/publicdomain/zero/1.0/ -> "Creative Commons CC0"
+$ curl -L "https://creativecommons.org/publicdomain/zero/1.0/"  -> 200, 30476 bytes
+  "CC0 1.0 Universal - Creative Commons" / "No Copyright" / "public domain by waiving all of"
+  ==> CC0 CONFIRMED AT THE DEED. licence.verifiedDate set to 2026-09-01.
+
+--- 2. THE ARTEFACT, DOWNLOADED IN FULL ---
+$ curl -L -o pag.gpkg.zip "https://download.data.public.lu/resources/pag-geometries-de-tous-les-pag-version-2011-en-vigueur/20260831-023526/pag.gpkg.zip"
+  code=200 size=259912001 time=4.405464
+  sha256 6d53fda3ce17be37344c23c93fa1d51a7855bf0e05e9f0d275d1ee990c9c15f1
+$ unzip -> pag.gpkg.gpkg  617377792 bytes
+
+--- 3. gpkg_contents (feature classes + srs_id) ---
+    ('PAG_ARTIKEL17_BIOTOPE_LIGNE', 'features', 2169)
+    ('PAG_ARTIKEL17_BIOTOPE_POINT', 'features', 2169)
+    ('PAG_ARTIKEL17_BIOTOPE_POLY', 'features', 2169)
+    ('PAG_INFORMATIONS_SUPPLEMENTAIRES_INFO_SUPP_LIGNE', 'features', 2169)
+    ('PAG_INFORMATIONS_SUPPLEMENTAIRES_INFO_SUPP_POINT', 'features', 2169)
+    ('PAG_INFORMATIONS_SUPPLEMENTAIRES_INFO_SUPP_POLY', 'features', 2169)
+    ('PAG_PAG_ALIGN_A_RESP', 'features', 2169)
+    ('PAG_PAG_BATIMENT', 'features', 2169)
+    ('PAG_PAG_CONST_A_CONS_LIGNE', 'features', 2169)
+    ('PAG_PAG_CONST_A_CONS_POINT', 'features', 2169)
+    ('PAG_PAG_CONST_A_CONS_POLY', 'features', 2169)
+    ('PAG_PAG_COULOIRS_ET_ESP_RES', 'features', 2169)
+    ('PAG_PAG_COULOIRS_ET_ESP_RES_PG', 'features', 2169)
+    ('PAG_PAG_EMPLAC_STAT', 'features', 2169)
+    ('PAG_PAG_FOND_DE_PLAN', 'features', 2169)
+    ('PAG_PAG_GABARIT_A_SAUV_POINT', 'features', 2169)
+    ('PAG_PAG_GABARIT_A_SAUV_POLY', 'features', 2169)
+    ('PAG_PAG_LIMITES_COMMUNALES', 'features', 2169)
+    ('PAG_PAG_MODIFICATION_PAG', 'features', 2169)
+    ('PAG_PAG_NQ_PAP', 'features', 2169)
+    ('PAG_PAG_PAP_APPROUVE', 'features', 2169)
+    ('PAG_PAG_PERIMETRE', 'features', 2169)
+    ('PAG_PAG_ZAD', 'features', 2169)
+    ('PAG_PAG_ZONAGE', 'features', 2169)
+    ('PAG_PAG_ZONES_QE', 'features', 2169)
+    ('PAG_PAG_ZONES_SUPERPOSEES', 'features', 2169)
+    ('PAG_PAG_ZONE_SERV_URB', 'features', 2169)
+   TOTAL feature classes: 27
+
+--- 4. ROW COUNTS (measured by this lane, independent of E5) ---
+   PAG_PAG_NQ_PAP                       3017
+   PAG_PAG_ZONAGE                      46191
+   PAG_PAG_ZONES_QE                    18743
+   PAG_PAG_ZONES_SUPERPOSEES            8027
+   PAG_PAG_ALIGN_A_RESP                 2442
+   PAG_PAG_ZONE_SERV_URB                5743
+   PAG_PAG_PAP_APPROUVE                 2252
+   PAG_PAG_ZAD                           583
+   PAG_PAG_FOND_DE_PLAN               653315
+   PAG_PAG_BATIMENT                   214335
+   PAG_PAG_PERIMETRE                    1418
+   PAG_PAG_MODIFICATION_PAG                1
+
+--- 5. PAG_PAG_NQ_PAP SCHEMA (fifteen columns, NOT ONE OF THEM A DATE) ---
+    id INTEGER
+    geom GEOMETRY
+    CODE_COM TEXT
+    xtf_id TEXT
+    COS_MIN REAL
+    COS_MAX REAL
+    CUS_MIN REAL
+    CUS_MAX REAL
+    CSS_MAX REAL
+    DL_MIN REAL
+    DL_MAX REAL
+    DENOMINATION TEXT
+    NOM_FICHIER_SD_EC TEXT
+    NOM_FICHIER_EC TEXT
+    NOM_FICHIER_SD_GR TEXT
+
+--- 6. THE FILL CENSUS (n=3017) ---
+   n = 3017  distinct CODE_COM = 94
+   COS_MIN  non-null  1389 ( 46.0%)  >0    44 (  1.5%)  ==0 1345  range [0.0 .. 0.55]
+   COS_MAX  non-null  3010 ( 99.8%)  >0  2998 ( 99.4%)  ==0   12  range [0.0 .. 1.0]
+   CUS_MIN  non-null  1557 ( 51.6%)  >0    48 (  1.6%)  ==0 1509  range [0.0 .. 1.25]
+   CUS_MAX  non-null  3010 ( 99.8%)  >0  2998 ( 99.4%)  ==0   12  range [0.0 .. 10.0]
+   CSS_MAX  non-null  3010 ( 99.8%)  >0  3000 ( 99.4%)  ==0   10  range [0.0 .. 1.0]
+   DL_MIN   non-null  1584 ( 52.5%)  >0   139 (  4.6%)  ==0 1445  range [0.0 .. 130.0]
+   DL_MAX   non-null  2950 ( 97.8%)  >0  2827 ( 93.7%)  ==0  123  range [0.0 .. 500.0]
+   ALL FOUR MAXIMA non-null: 2950 = 97.8%
+   ALL FOUR MAXIMA >0      : 2826 = 93.7%
+   ROWS WITH ANY UNKNOWN   : 191 = 6.33%   <- the brief 6.3%
+
+   NULL PATTERN among the four maxima:
+     COSnull=0 CUSnull=0 CSSnull=0 DLnull=0  ->  2950 rows
+     COSnull=0 CUSnull=0 CSSnull=0 DLnull=1  ->  60 rows
+     COSnull=1 CUSnull=1 CSSnull=1 DLnull=1  ->  7 rows
+
+   DOMAIN SANITY (all zero => clipping is never needed; a breach would be a schema change):
+     COS_MIN>COS_MAX 0 | CUS_MIN>CUS_MAX 0 | DL_MIN>DL_MAX 0
+     COS_MAX>1 0 | CSS_MAX>1 0 | any negative 0
+
+--- 7. THE E5 CORRECTION: the 12 COS_MAX=0 rows are NOT all ZAD ---
+    ('C097', 'Beyren B07 - Kallek (ZAD)', 0.0, 0.0, 0.0, 0.0)
+    ('C105', 'Zittig Z01 - Auf dem Kalkef (ZAD)', 0.0, 0.0, 0.0, 0.0)
+    ('C105', 'Zittig Z01 - In den Schenkefeldern (ZAD)', 0.0, 0.0, 0.0, 0.0)
+    ('C022', 'Capellen C9 - Gewännchen II', 0.0, 0.0, 0.0, 0.0)
+    ('C027', 'Junglinster Ju-07b - Nördlich Rue N. Thewes', 0.0, 0.0, 0.5, 0.0)
+    ('C041', 'Kockelscheuer 17 - Parc Luxite', 0.0, 0.0, 0.2, 0.0)
+    ('C066', 'Stadtbredimus ST01 - Kuurzebierg Voirie (PAP approuvé REF19684/66C)', 0.0, 0.0, 0.0, 0.0)
+    ('C019', 'Bridel B/NQ5 - Op der Schanz (Partie voirie Rue des Carrières)', 0.0, 0.0, 0.0, 0.0)
+    ('C019', 'Bridel B/NQ1 - Centre Bridel (Partie voirie Rue Nicolas Goedert)', 0.0, 0.0, 0.0, 0.0)
+    ('C019', 'Bridel B/NQ1 - Centre Bridel (Partie voirie Rue de Schoenfels)', 0.0, 0.0, 0.0, 0.0)
+    ('C019', 'Bridel B/NQ1 - Centre Bridel (Partie voirie Allée Saint Hubert)', 0.0, 0.0, 0.0, 0.0)
+    ('C015', 'Mondorf-les-Bains MNQ7 - Am Park (Partie SPEC) (PAP approuvé REF18273/15C)', 0.0, 0.0, 1.0, 0.0)
+   BREAKDOWN: {'ZAD named': 3, 'neither': 3, 'voirie named': 5, 'SPEC named': 1} of 12
+
+   DL_MAX=0 total 123 , of which beside a POSITIVE COS_MAX: 111
+      ('C070', 'Moersdorf MD03 - Schotterwerk', 0.5, 1.2, 0.75, 0.0)
+      ('C070', 'Rosport R15 - Rue Neuve', 0.35000000000000003, 0.3, 0.8500000000000001, 0.0)
+      ('C018', 'Tétange 09 - Schlackentipp', 0.5, 1.0, 0.8500000000000001, 0.0)
+      ('C061', 'Bertrange - Rue du Chemin de Fer', 0.5, 1.0, 0.8, 0.0)
+      ('C006', 'Strassen - Zone administrative Partie 1', 0.4, 1.4, 0.75, 0.0)
+
+--- 8. NULL-vs-ZERO MINIMA ARE ONE FACT: the commune split ---
+   COS_MIN  always-null communes 28 | always-filled 34 | MIXED 32   (of 94)
+   CUS_MIN  always-null communes 28 | always-filled 37 | MIXED 29   (of 94)
+   DL_MIN   always-null communes 26 | always-filled 36 | MIXED 32   (of 94)
+   rows with an all-ZERO minima triple: 1235
+   rows with an all-NULL minima triple: 1363
+   => NULL and 0 are two municipal encodings of the same fact, not two facts.
+   COS_MIN strictly positive (the statutory anomaly, Art. 26 allows minima for CUS and DL only): 44
+
+--- 9. THE PARCEL-KEY CORRECTION ---
+   rows                          : 653315
+   NUM_CADAST = 'N/A' SENTINEL   : 31777 (4.9%)
+   rows with a real id           : 621538
+   distinct (CODE_COM,NUM_CADAST): 602037
+   DUPLICATE key groups          : 15110
+   worst duplicates:
+       ('C064', '0', 16)
+       ('C056', '0', 14)
+       ('C078', '0', 14)
+       ('C110', '1287/487', 10)
+       ('C110', '1013/270', 9)
+   xtf_id distinct               : 653315 == rows  => xtf_id IS the key
+   NQ_PAP xtf_id distinct        : 3017 / 3017
+   NQ_PAP (CODE_COM,DENOMINATION): 2845 / 3017  => DENOMINATION is NOT a key
+
+--- 10. THE ONLY DATE IN THE WHOLE 27-TABLE MODEL ---
+   PAG_PAG_MODIFICATION_PAG cols: ['id', 'geom', 'xtf_id', 'DATE_MODIF', 'CODE_COM']
+   rows: 1  DATE_MODIF: ['20250129']
+   => No zone layer carries any date. R3 validityBasis is ingestion for every LU rule.
+
+--- 11. THE FIXTURE ROWS, AS READ ---
+    (2, 'bb78fe47-e2f2-4a53-9696-73337ef387ba', 'C116', 'Ell - Um Bierg', None, 0.5, None, 0.7000000000000001, 0.75, None, 30.0, '116_PE_PAP_NQ')
+    (1, '8743a516-ad4d-4b83-a4f4-3e90b09ee993', 'C061', 'Helfent - Route de Longwy-Ouest (PAP approuvé REF16354/61C)', 0.0, 0.75, 0.0, 1.4, 0.9, 0.0, 65.0, '061_PE_PAP_NQ')
+    (122, '2e800bdc-1dab-4ff1-8613-b8e68a91a177', 'C097', 'Beyren B07 - Kallek (ZAD)', None, 0.0, None, 0.0, 0.0, None, 0.0, '097_PE_PAP_NQ')
+    (2087, '94ea25a1-3fc3-480f-83e2-c5f6a9e6ceef', 'C026', 'Hamm - (ZAD)', None, None, None, None, None, None, None, '026_PE_PAP_NQ')
+    (43, 'd0f048e8-2c11-41de-8e4c-66acda6f2981', 'C070', 'Moersdorf MD03 - Schotterwerk', 0.0, 0.5, 0.0, 1.2, 0.75, 0.0, 0.0, '070_PE_PAP_NQ')
+    (1016, '655e91b2-bdce-4955-bace-98add9618c74', 'C041', 'Roeser 23 - Grand-Rue', 0.55, 0.6, 1.25, 1.6, 0.79, 60.0, 87.0, '041_PE_PAP_NQ')
+
+--- 12. THE STATUTORY DEFINITIONS, FETCHED 2026-09-01 ---
+$ curl -L "https://maint.gouvernement.lu/dam-assets/dossiers/documents/pag/loi-acdu-rgd-textes-consolids-octobre2023.pdf"
+  200, 1086381 bytes -> pdftotext -> Annexe II : Terminologie du degre d utilisation du sol
+  A. CUS  = somme des surfaces construites brutes de tous les niveaux / surface totale du
+            TERRAIN A BATIR BRUT (niveaux 5-10 m x2, >10 m x3)
+  B. COS  = surface d emprise au sol des constructions (au niveau du terrain naturel) /
+            surface du TERRAIN A BATIR NET
+  C. CSS  = surface de sol scellee / surface du TERRAIN A BATIR NET
+  D. DL   = nombre d unites de logement / TERRAIN A BATIR BRUT exprime en HECTARES
+  E. terrain a batir brut = fonds en zone urbanisee ou destinee a l etre, non encore ou
+            partiellement viabilises
+  F. terrain a batir net  = les memes, DEDUCTION FAITE de toutes les surfaces privees et
+            publiques necessaires a sa viabilisation      => NET is a subset of BRUT
+  Art. 26 = "les coefficients precites constituent des VALEURS MOYENNES ... Ces coefficients
+            peuvent par consequent etre DEPASSES pour certains lots ou parcelles."
+            "Des valeurs minima peuvent egalement etre definies pour le coefficient d
+            utilisation du sol et pour la densite de logement."   (CUS and DL only)
+  => THREE distinct denominators over FOUR quantities. No conversion exists.

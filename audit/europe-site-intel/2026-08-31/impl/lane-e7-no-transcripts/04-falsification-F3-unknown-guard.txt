@@ -1,0 +1,56 @@
+=== F3 · SEVER THE THREE-WAY UNKNOWN GUARD (drop the Java-array-sentinel branch) ===
+npm warn Unknown project config "package-manager-strict". This will stop working in the next major version of npm. See `npm help npmrc` for supported config options.
+
+ RUN  v4.1.10 C:/Users/LENOVO/OneDrive/Desktop/PRYZM/Product_Rediness_08/packages/site-parcel-data
+
+ ❯ __tests__/noAdapter.test.ts (36 tests | 2 failed) 65ms
+     × F3 · the Java-array leak is UNKNOWN-DESTROYED, never UNKNOWN-NOT-SERVED 6ms
+     × the transport-destroyed value is tier 6 with its OWN note, not the not-served one 1ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 2 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  __tests__/noAdapter.test.ts > E7-NO §3 — the falsification targets > F3 · the Java-array leak is UNKNOWN-DESTROYED, never UNKNOWN-NOT-SERVED
+AssertionError: expected 'unreadable' to be 'transport-destroyed' // Object.is equality
+
+Expected: "transport-destroyed"
+Received: "unreadable"
+
+ ❯ __tests__/noAdapter.test.ts:281:32
+    279|     it('F3 · the Java-array leak is UNKNOWN-DESTROYED, never UNKNOWN-N…
+    280|         const destroyed = readNoUtnyttingNumber('[Ljava.lang.Double;@4…
+    281|         expect(destroyed.kind).toBe('transport-destroyed');
+       |                                ^
+    282|         const notServed = readNoUtnyttingNumber(null);
+    283|         expect(notServed.kind).toBe('not-served');
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/2]⎯
+
+ FAIL  __tests__/noAdapter.test.ts > E7-NO §4 — R2: the denominator refusal carries BOTH numbers (C74) > the transport-destroyed value is tier 6 with its OWN note, not the not-served one
+AssertionError: expected 'UNKNOWN — NAP served "[Ljava.lang.Dou…' to match /TRANSPORT DESTROYED THE VALUE/
+
+- Expected:
+/TRANSPORT DESTROYED THE VALUE/
+
++ Received:
+"UNKNOWN — NAP served \"[Ljava.lang.Double;@493a67bb\" for utnytting.utnyttingstall, which is neither a finite number nor the known transport sentinel. Not coerced. · DENOMINATOR UNKNOWN — a per-parcel multiply MUST be refused. Norway measures degree of utilisation as the SOSI compound Utnytting = {utnyttingstype, utnyttingstall}, and NAP does NOT serve utnyttingstype on rparealformalomrade (the key is absent from the feature type; measured 2026-09-01). The national codelist has 16 members: 6 are a percentage of PLOT area, 2 a percentage of FLOOR area, 6 an ABSOLUTE m2, and 2 (codes 10, 11) are not capacities at all but PROHIBITIONS on building. So the served number has 16 possible meanings, 2 of which mean construction is not permitted. No valueBasis is emitted and none is inferred (E4 control 8, §6-E R2)."
+
+ ❯ __tests__/noAdapter.test.ts:347:46
+    345|         expect(r.provenance.value).toBeNull();
+    346|         expect(r.provenance.confidence.tier).toBe(6);
+    347|         expect(r.provenance.confidence.note).toMatch(/TRANSPORT DESTRO…
+       |                                              ^
+    348|         expect(r.provenance.confidence.note).toMatch(/\[Ljava\.lang\.D…
+    349|         expect(r.provenance.confidence.note).not.toMatch(/NAP served n…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/2]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  2 failed | 34 passed (36)
+   Start at  19:29:57
+   Duration  2.06s (transform 1.28s, setup 0ms, import 1.79s, tests 65ms, environment 0ms)
+
+RC=1
+--- restore, byte-identical:
+88c8451a0f4e4c8ef28393a02a08d8511e99113221d4ff5b0b9ad2f94c0326de *src/countryAdapters/no/noRuleMapper.ts
+?? packages/site-parcel-data/src/countryAdapters/no/noRuleMapper.ts

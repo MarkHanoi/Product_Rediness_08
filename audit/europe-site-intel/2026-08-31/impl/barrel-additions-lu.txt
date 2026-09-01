@@ -1,0 +1,144 @@
+E7-LU — BARREL / REGISTRY ADDITIONS FOR THE ORCHESTRATOR
+========================================================
+Lane: E7-LU (Luxembourg). Written 2026-09-01. The lane owns ONLY
+packages/site-parcel-data/src/countryAdapters/lu/ and
+packages/site-parcel-data/__tests__/luAdapter.test.ts. Everything below is a change to a SHARED
+file the lane may not edit (barrel protocol). Each item states the exact edit and the evidence.
+
+VERIFIED STATE AT WRITING (measured, not assumed):
+  · `npx vitest run luAdapter --root packages/site-parcel-data` → RC=0, 45/45.
+  · `npx tsc -p packages/site-parcel-data/tsconfig.json --noEmit` → the ONLY error is
+    `src/countryAdapters/se/seRuleMapper.ts(108,34): Cannot find module './seSources.js'`,
+    which belongs to the CONCURRENT E7-SE lane (that directory's mtimes were 19:00 while this
+    lane was typechecking). ZERO errors reference `countryAdapters/lu/` or `luAdapter`.
+
+
+────────────────────────────────────────────────────────────────────────────────
+ITEM 1 (REQUIRED) — export the adapter from the package barrel
+────────────────────────────────────────────────────────────────────────────────
+FILE: packages/site-parcel-data/src/index.ts
+
+ADD (one line, alongside the sibling adapter re-exports):
+
+export * from './countryAdapters/lu/index.js';
+
+Note: `lu/index.ts` re-exports an EXPLICIT list (no `export *` from its own leaves), so this
+line has a closed, reviewable surface. Name-collision check run 2026-09-01: every LU symbol is
+`LU_`/`Lu`/`lu`-prefixed or `isInLuxembourg`/`LUXEMBOURG_BBOX`; `grep -n "LU_\|LuNqPap\|isInLuxembourg\|LUXEMBOURG_BBOX"`
+over `src/` outside `countryAdapters/lu/` returns nothing.
+
+
+────────────────────────────────────────────────────────────────────────────────
+ITEM 2 (REQUIRED, and it CLOSES an honest-absence row) — mint sourceRegistry/lu.ts
+────────────────────────────────────────────────────────────────────────────────
+WHY THIS IS NOT OPTIONAL BOOKKEEPING: `sourceRegistry/index.ts` currently carries
+
+    LU: 'L5 sweep LU: all PAGs in ONE national GML model (cheapest structured pilot) — no dated
+         endpoint probe row in the prose registries yet.',
+
+in `SOURCE_ABSENCE_REASONS`. **That reason is now false.** The dated endpoint probe exists: this
+lane fetched the dataset record, downloaded the artefact in full (259,912,001 bytes, sha256
+6d53fda3ce17be37344c23c93fa1d51a7855bf0e05e9f0d275d1ee990c9c15f1), enumerated all 27 feature
+classes and re-censused the national fill, on 2026-09-01. Leaving the absence row in place would
+make the registry assert "nobody looked" about a country that has been measured end to end.
+
+2a. CREATE packages/site-parcel-data/src/sourceRegistry/lu.ts containing the single row that
+    currently lives in `countryAdapters/lu/luSources.ts` as `LU_ADAPTER_SOURCES`, exported as
+    `LU_SOURCES` and built with the same `defineSources('LU', [...])` call. The row is already
+    `defineSources`-validated, so it will pass unchanged. Copy it VERBATIM — the probe note is
+    the evidence and must not be summarised.
+
+2b. FILE: packages/site-parcel-data/src/sourceRegistry/index.ts
+
+    ADD (import block, alphabetical among the siblings):
+      import { LU_SOURCES } from './lu.js';
+
+    ADD (the `export { ... }` block):
+      LU_SOURCES,
+
+    ADD (the `SOURCE_REGISTRY` object literal):
+      LU: LU_SOURCES,
+
+    DELETE (the `SOURCE_ABSENCE_REASONS` object literal) the whole `LU:` entry quoted above.
+    `coverageByCountry()` then reports LU with rows > 0 and `absenceReason: null`, which is the
+    truth. Leaving BOTH would make a country simultaneously present and honestly-absent.
+
+2c. THEN, in packages/site-parcel-data/src/countryAdapters/lu/luSources.ts: delete the
+    `defineSources('LU', [...])` literal and re-export the registry's row instead —
+      export const LU_ADAPTER_SOURCES: readonly SiteIntelSource[] = LU_SOURCES;
+    — keeping `LU_PAG_SOURCE_ID`, `LU_ADAPTER_ENDPOINT_BINDINGS` and the `assertLuEndpoint`
+    module-load drift guard exactly as they are. DO NOT LEAVE TWO COPIES (C84 EI-9); the LT lane
+    left the same instruction for the same reason.
+
+
+────────────────────────────────────────────────────────────────────────────────
+ITEM 3 — ⛔ DO **NOT** APPLY. Parcel-provider registration, deliberately withheld.
+────────────────────────────────────────────────────────────────────────────────
+THE LINE THAT WOULD BE ADDED to packages/site-parcel-data/src/parcelProviders/registry.ts is
+written out here as the brief requires, and it MUST NOT be applied until L-12871 closes:
+
+    // { id: 'lu-pag-fond-de-plan', contains: isInLuxembourg, bbox: LUXEMBOURG_BBOX, … }
+
+THE DATED OVERLAP AUDIT THAT JUSTIFIES WITHHOLDING IT (measured 2026-09-01 against every box in
+`parcelProviders/countryBbox.ts` and every regional box `registry.ts` imports):
+
+    LUXEMBOURG_BBOX          49.44–50.19 N /  5.72–6.54 E   (≈ 0.60 deg²)
+    FRANCE_BBOX              41.30–51.20 N / −5.30–8.30 E   → LU lies ENTIRELY INSIDE IT
+    GERMANY_BBOX             47.20–55.10 N /  5.80–15.10 E  → overlaps LU across 5.80–6.54 E
+    WALLONIA / BE regional boxes                            → share LU's west and north approaches
+    NRW_BBOX                 50.30–52.60 N                  → NO overlap (LU maxLat 50.19 < 50.30)
+    NETHERLANDS_BBOX         50.70–53.70 N                  → NO overlap
+
+The smallest-box specificity resolver WOULD pick LU over FR/DE on area alone. That is exactly
+the reasoning the three already-overlapping boxes (LT/PL/DE) used, and L-12871 records that each
+of those adapters "documented the problem away" instead of establishing precedence. This lane
+declines to become the fourth. Registration waits for PRECEDENCE DATA.
+
+AND THERE IS A SECOND, LU-SPECIFIC REASON THAT IS STRONGER THAN THE FIRST — the LU parcel key
+is not a key. Measured over all 653,315 `PAG_PAG_FOND_DE_PLAN` rows on 2026-09-01:
+    · `NUM_CADAST` is the literal string 'N/A' on 31,777 rows (4.9%) — a sentinel, not an id;
+    · 621,538 rows carry a real value but only 602,037 distinct `(CODE_COM, NUM_CADAST)` pairs
+      exist — 15,110 duplicate groups, and '0' occurs as a value (16× in commune C064);
+    · the cadastral SECTION that disambiguates a Luxembourgish parcel number is NOT served by
+      this layer.
+A parcel provider whose id does not identify a parcel would return the wrong polygon silently.
+`resolveLuParcelByNumCadast` therefore returns EVERY match with an `ambiguous` flag, and that
+shape does not fit the current provider contract. Registering it would be the overstatement.
+
+
+────────────────────────────────────────────────────────────────────────────────
+ITEM 4 — NO SCHEMA CHANGE IS REQUESTED (E4 control 3 held)
+────────────────────────────────────────────────────────────────────────────────
+`packages/schemas/**` was NOT touched and NOTHING in it needs to change for Luxembourg:
+  · `SourceProtocolSchema` already carries `'bulk'` — the exact class of the LU artefact. No
+    frozen enum was extended and no live service was pretended.
+  · `RuleProvenance.valueBasis` `{scheme, code}` carries the three LU statutory denominators
+    without a mapping table at L0, exactly as its own doc comment requires.
+  · `RuleProvenance.normativeForce` carries the Art. 26 zone-average sentence verbatim.
+  · `RuleApplicability.rank: null` expresses "the ladder is not a per-feature fact here".
+  · `TRANSIENT_FETCH_REASONS` already carries `endpoint-unreachable` and `upstream-failed`; no
+    new transient token was invented.
+No parameter was refused for want of a schema seat.
+
+
+────────────────────────────────────────────────────────────────────────────────
+ITEM 5 — DISCOVERIES RECORDED FOR OTHER LANES (E4 control 10: record, do not act)
+────────────────────────────────────────────────────────────────────────────────
+5a. E5-B §A-13 CORRECTION — the 12 `COS_MAX = 0` rows are NOT "all ZAD". Measured: 3 name ZAD,
+    5 name "voirie" (road portions), 1 names "(Partie SPEC)", 3 name neither. The zeros are
+    still meaningful; the stated reason is wrong for 9 of 12. Fix belongs in the E5 report.
+5b. E5-B §A-13 CORRECTION — "parcel → zone → numbers resolves inside one file, without a second
+    provider" overstates. The parcel BASE ships in the file; the parcel KEY is ambiguous (see
+    item 3) and the only spatial join available is a GeoPackage R-tree, i.e. bbox overlap, not
+    polygon intersection. Both halves of that sentence need qualifying.
+5c. THE STATUTORY ANOMALY — RGD 08/03/2017 Art. 26 permits minima only for CUS and DL, yet the
+    artefact ships a `COS_MIN` column and 44 rows nationally carry a strictly positive value in
+    it. Emitted as served with the anomaly named in the rule's note. Whether those 44 are a
+    municipal error, a legacy 2011-regime value, or a reading of Art. 26 this lane has wrong is
+    a QUESTION FOR A HUMAN, not for an adapter.
+5d. THE LU HEIGHT GAP IS CONFIRMED, NOT INFERRED — no max height, no setback, no storey count
+    exists anywhere in the 27-table model. Any LU envelope will need the PAP/DOCX extraction
+    pipeline (tier 4 → 5), and the 18,743 existing-quarter zones need it for everything.
+5e. THE SE LANE IS MID-WRITE — `src/countryAdapters/se/seRuleMapper.ts:108` imports a
+    `./seSources.js` that did not exist at 19:02. Recorded so the orchestrator does not read it
+    as this lane's breakage.

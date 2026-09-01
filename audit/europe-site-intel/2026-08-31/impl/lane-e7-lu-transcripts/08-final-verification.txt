@@ -1,0 +1,45 @@
+=== E7-LU · FINAL VERIFICATION, 2026-09-01T17:09:15Z ===
+
+$ git status --short  (proving NO shared file was edited by this lane)
+ M packages/command-registry/tsconfig.tsbuildinfo
+?? .lane-tmp/
+?? audit/europe-site-intel/2026-08-31/impl/barrel-additions-lu.txt
+?? audit/europe-site-intel/2026-08-31/impl/e7-family-extraction-verdict.md
+?? audit/europe-site-intel/2026-08-31/impl/lane-e7-family-transcripts/
+?? audit/europe-site-intel/2026-08-31/impl/lane-e7-lu-transcripts/
+?? audit/europe-site-intel/2026-08-31/impl/lane-e7-lu.md
+?? audit/europe-site-intel/2026-08-31/impl/record.mts
+?? packages/family-instance/probes/
+?? packages/site-parcel-data/__tests__/fixtures/fi-ryhti-2026-09-01/
+?? packages/site-parcel-data/__tests__/fixtures/no-nap-matrikkel/
+?? packages/site-parcel-data/__tests__/fixtures/se-boverket-pbk-2026-09-01/
+?? packages/site-parcel-data/__tests__/fixtures/se-lantmateriet-ngp-2026-09-01/
+?? packages/site-parcel-data/__tests__/luAdapter.test.ts
+?? packages/site-parcel-data/__tests__/seAdapter.test.ts
+?? packages/site-parcel-data/src/countryAdapters/fi/
+?? packages/site-parcel-data/src/countryAdapters/lu/
+?? packages/site-parcel-data/src/countryAdapters/no/
+?? packages/site-parcel-data/src/countryAdapters/se/
+
+This lane created ONLY:
+  packages/site-parcel-data/src/countryAdapters/lu/   (untracked, new)
+  packages/site-parcel-data/__tests__/luAdapter.test.ts (untracked, new)
+  audit/europe-site-intel/2026-08-31/impl/lane-e7-lu.md
+  audit/europe-site-intel/2026-08-31/impl/barrel-additions-lu.txt
+  audit/europe-site-intel/2026-08-31/impl/lane-e7-lu-transcripts/
+The 'M packages/command-registry/tsconfig.tsbuildinfo' entry PRE-DATES this lane (it is in the
+session-start git status). Every other untracked path belongs to a CONCURRENT sibling lane
+(fi/ no/ se/ family-instance/ and their fixtures) - not this one.
+
+$ npx vitest run luAdapter --root packages/site-parcel-data
+npm warn Unknown project config "package-manager-strict". This will stop working in the next major version of npm. See `npm help npmrc` for supported config options.
+
+ RUN  v4.1.10 C:/Users/LENOVO/OneDrive/Desktop/PRYZM/Product_Rediness_08/packages/site-parcel-data
+
+
+ Test Files  1 passed (1)
+      Tests  45 passed (45)
+   Start at  19:09:17
+   Duration  2.61s (transform 1.49s, setup 0ms, import 2.14s, tests 236ms, environment 0ms)
+
+RC=0

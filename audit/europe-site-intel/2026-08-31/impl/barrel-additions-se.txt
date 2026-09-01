@@ -1,0 +1,130 @@
+LANE E7-SE — barrel / registry additions for the orchestrator.
+This lane touched NO shared file: it created only
+  packages/site-parcel-data/src/countryAdapters/se/**            (8 modules)
+  packages/site-parcel-data/__tests__/seAdapter.test.ts          (1 suite)
+  packages/site-parcel-data/__tests__/fixtures/se-boverket-pbk-2026-09-01/**       (13 files)
+  packages/site-parcel-data/__tests__/fixtures/se-lantmateriet-ngp-2026-09-01/**   (3 files)
+  audit/europe-site-intel/2026-08-31/impl/lane-e7-se.md + lane-e7-se-transcripts/**
+
+Everything below is a change to a file this lane may not edit. They are ordered by how much
+evidence stands behind them: (1) and (2) are ready; (3) is a CORRECTION of a line that is now
+demonstrably half-wrong; (4) is BLOCKED and must NOT be applied; (5) belongs to another lane's
+file and is reported, not patched.
+
+════════════════════════════════════════════════════════════════════════════════════════════
+(1) packages/site-parcel-data/src/index.ts — OPTIONAL, and the exemplar does not have one
+════════════════════════════════════════════════════════════════════════════════════════════
+
+// LANE E7-SE — the Sweden country adapter. HONESTLY GATED: Boverket's Planbestämmelsekatalog
+// (rules vocabulary) is keyless and LIVE; Lantmäteriet's NGP (all geometry + all values) is
+// credential-gated and DEFERRED. Read SE_DEFERRED_LEGS + SE_NGP_DEFERRAL before using it.
+export * from './countryAdapters/se/index.js';
+
+STATE, MEASURED 2026-09-01: `grep -n "countryAdapters" packages/site-parcel-data/src/index.ts`
+→ ZERO hits. Neither EE (the exemplar) nor DK/LT/PL is exported from the package barrel; each
+test imports the module path directly, and `__tests__/seAdapter.test.ts` does the same. So SE
+needs no barrel change to run. Apply the line only if the orchestrator makes the adapters public
+from the barrel — and if so, apply it to EE/DK/LT/PL/SE in ONE commit rather than making SE the
+odd one out.
+
+COLLISION CHECK (run before applying):
+  grep -rn "SWEDEN_BBOX\|isInSweden\|SE_NATIVE_CRS\|SE_ADAPTER_SOURCES\|seCountryAdapter\|SE_SOURCES" \
+    packages/site-parcel-data/src --include=*.ts | grep -v "countryAdapters/se/"
+  → NO OUTPUT (2026-09-01). Every exported name is SE_/se-prefixed and unique in the package.
+
+════════════════════════════════════════════════════════════════════════════════════════════
+(2) packages/site-parcel-data/src/sourceRegistry/se.ts — NEW FILE, then wire it in index.ts
+════════════════════════════════════════════════════════════════════════════════════════════
+
+Sweden is the first adapter in this wave with NO registry module at all (EE mints its own; DK/LT/PL
+resolve rows out of `sourceRegistry/<cc>.ts`). This lane therefore minted its three rows INSIDE the
+adapter, through the registry's own `defineSources` loader, so they get identical build-time
+validation — see `countryAdapters/se/seSources.ts`.
+
+MIGRATION, when the orchestrator wants SE in the registry proper:
+  a. Create `packages/site-parcel-data/src/sourceRegistry/se.ts` exporting
+     `export const SE_SOURCES = SE_ADAPTER_SOURCES_RAW;`  — i.e. MOVE the three row literals
+     out of `countryAdapters/se/seSources.ts` verbatim; do not re-type them.
+  b. In `sourceRegistry/index.ts`, add (alphabetically, beside PT):
+        import { SE_SOURCES } from './se.js';
+     …to the export block:
+        SE_SOURCES,
+     …and to SOURCE_REGISTRY:
+        SE: SE_SOURCES,
+  c. DELETE the `SE:` key from `SOURCE_ABSENCE_REASONS` (see (3) — it becomes false the moment
+     a row exists).
+  d. In `countryAdapters/se/seSources.ts`, replace the three literals with a resolve-from-registry
+     helper on the DK model (`dkRegistryRow()` + `assertEndpoint()`), keeping the SAME
+     `assertEndpoint` guard already written there. Do NOT leave two copies of a row.
+
+THE THREE ROWS (ids, so the orchestrator can diff them):
+  se-boverket-planbestammelsekatalogen-v2   gate: null            adapterStatus: 'live'
+  se-lantmateriet-ngp-detaljplan            gate: HTTP 401/900902 adapterStatus: 'deferred-stub'
+  se-lantmateriet-fastighetsindelning       gate: HTTP 401/900902 adapterStatus: 'deferred-stub'
+
+════════════════════════════════════════════════════════════════════════════════════════════
+(3) ⛔ CORRECTION — sourceRegistry/index.ts, SOURCE_ABSENCE_REASONS['SE'] is now HALF FALSE
+════════════════════════════════════════════════════════════════════════════════════════════
+
+CURRENT TEXT (sourceRegistry/index.ts, the `SE:` entry):
+  'L5 sweep SE: graded GREEN (HVD cadastre 2025 CC BY 4.0 + NGP detaljplan API, 236/290
+   kommuner) but no API endpoint URL captured in the prose registries (OAuth2/org-onboarding
+   gate; heightSources.mjs lidar_se endpoint is prose, not a URL) — rows deferred until the
+   endpoint is probed.'
+
+WHY IT IS HALF FALSE: it applies ONE gate verdict to TWO different authorities. The
+OAuth2/organisational gate is real — for LANTMÄTERIET (geometry + every number). It is NOT true of
+BOVERKET, which serves the national planning-provision vocabulary **keyless**:
+  https://api-portal.boverket.se/developer/apis?api-version=2022-04-01-preview
+    → the `planbestammelsekatalogenv2` row carries "subscriptionRequired": false
+  GET https://api.boverket.se/planbestammelsekatalogen/release/full/platt/aktuell
+    → HTTP 200, 13,176,663 bytes, NO credentials — 3,707 provisions, 908 in force
+The endpoint is now probed, so the clause "rows deferred until the endpoint is probed" has been
+satisfied by this lane. Transcript: impl/lane-e7-se-transcripts/01-discovery-boverket-api.md.
+
+REPLACEMENT — apply this ONLY if (2) is NOT applied in the same commit (if SE gains registry rows,
+the key must be DELETED entirely, not reworded):
+  'L5 sweep SE + lane E7-SE (2026-09-01): the SE gate is per-AUTHORITY, not per-country.
+   Boverket Planbestämmelsekatalogen v2 is KEYLESS and probed live (api.boverket.se, HTTP 200,
+   3,707 provisions) — the rules vocabulary is reachable today and is imported by
+   countryAdapters/se/. Lantmäteriet NGP (detaljplan geometry + every numeric value) and
+   Fastighetsindelning remain client-registration gated: HTTP 401 code 900902, measured
+   2026-09-01, bodies committed as fixtures. Rows live in countryAdapters/se/seSources.ts
+   pending migration to sourceRegistry/se.ts.'
+
+════════════════════════════════════════════════════════════════════════════════════════════
+(4) ⛔ parcelProviders/registry.ts — WRITTEN OUT, AND MUST **NOT** BE APPLIED
+════════════════════════════════════════════════════════════════════════════════════════════
+
+L-12871 is OPEN. This lane makes it strictly worse and the audit is arithmetic, not prose:
+SWEDEN_BBOX {55.3–69.1 lat, 10.9–24.2 lon} intersects FIVE registered/adapter boxes, and each
+intersection contains a NAMED settlement of the other country that a smallest-box resolver would
+route to Sweden:
+
+  DENMARK_BBOX   MUTUAL  — København (55.6761,12.5683) is DANISH and inside SWEDEN_BBOX;
+                           Malmö (55.6050,13.0038) is SWEDISH and inside DENMARK_BBOX. 25 km apart.
+  NORWAY_BBOX    MUTUAL  — Røros (62.5744,11.3842) NO inside SE; Kiruna (67.8558,20.2253) SE inside NO.
+  FINLAND_BBOX   MUTUAL  — Tornio (65.8482,24.1467) FI inside SE; Haparanda (65.8356,24.1345) SE inside FI.
+  ESTONIA_BBOX   ONE-WAY — Kuressaare (58.2528,22.4869) EE inside SE.
+  LITHUANIA_BBOX ONE-WAY — Klaipėda (55.7033,21.1443) LT inside SE.
+  GERMANY_BBOX / POLAND_BBOX — DISJOINT (their maxLat 55.1 / 54.84 < SE minLat 55.3).
+
+Independently sufficient second reason: there is NOTHING BEHIND THE ROUTE. The Swedish cadastre
+answers HTTP 401 to an unregistered client, so a registered row would claim coverage the adapter
+does not have. The line, for whenever L-12871 has precedence data AND the credential lands:
+
+  // LANE E7-SE — Sweden. ⛔ SEE THE OVERLAP AUDIT in countryAdapters/se/seJurisdiction.ts:
+  // SWEDEN_BBOX overlaps DK/NO/FI/EE/LT. Do NOT place by area; SE needs explicit precedence.
+  { id: SE_PARCEL_PROVIDER_ID, label: SE_PARCEL_PROVIDER_LABEL, bbox: SWEDEN_BBOX,
+    contains: isInSweden, resolve: resolveSeParcelAtWgs84Point },
+
+════════════════════════════════════════════════════════════════════════════════════════════
+(5) ⚠ REPORTED, NOT PATCHED — parcelProviders/mmlParcelProvider.ts:86 is FALSIFIED
+════════════════════════════════════════════════════════════════════════════════════════════
+
+That line reads: "(Place the FI row anywhere before the universal fallback — FINLAND_BBOX does not
+overlap any". SWEDEN_BBOX falsifies it the day it is declared: FINLAND_BBOX {59.7–70.1, 20.5–31.6}
+and SWEDEN_BBOX intersect over lat[59.7,69.1] × lon[20.5,24.2], and the intersection contains
+Tornio (FI) and Haparanda (SE) — one bridge apart. This lane does not edit that file (barrel
+protocol). The sentence needs one of: deletion, or a dated qualifier ("…did not overlap any box
+REGISTERED AS OF <date>"). Logged as a proposed issue-log row in impl/lane-e7-se.md §7.

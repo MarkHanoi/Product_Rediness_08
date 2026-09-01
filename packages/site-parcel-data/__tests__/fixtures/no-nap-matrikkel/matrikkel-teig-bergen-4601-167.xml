@@ -1,0 +1,193 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<wfs:FeatureCollection xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.opengis.net/wfs/2.0 http://schemas.opengis.net/wfs/2.0/wfs.xsd http://www.opengis.net/gml/3.2 http://schemas.opengis.net/gml/3.2.1/gml.xsd http://skjema.geonorge.no/SOSI/produktspesifikasjon/Matrikkelen-Eiendomskart-Teig/20211101 https://wfs.geonorge.no/skwms1/wfs.matrikkelen-eiendomskart-teig?SERVICE=WFS&amp;VERSION=2.0.0&amp;REQUEST=DescribeFeatureType&amp;OUTPUTFORMAT=text%2Fxml%3B+subtype%3Dgml%2F3.2.1&amp;TYPENAME=app:Teig&amp;NAMESPACES=xmlns(app,http%3A%2F%2Fskjema.geonorge.no%2FSOSI%2Fproduktspesifikasjon%2FMatrikkelen-Eiendomskart-Teig%2F20211101)" xmlns:wfs="http://www.opengis.net/wfs/2.0" timeStamp="2026-09-01T16:59:44Z" xmlns:gml="http://www.opengis.net/gml/3.2" numberMatched="unknown" numberReturned="0">
+  <!--NOTE: numberReturned attribute should be 'unknown' as well, but this would not validate against the current version of the WFS 2.0 schema (change upcoming). See change request (CR 144): https://portal.opengeospatial.org/files?artifact_id=43925.-->
+  <wfs:member>
+    <app:Teig xmlns:app="http://skjema.geonorge.no/SOSI/produktspesifikasjon/Matrikkelen-Eiendomskart-Teig/20211101" gml:id="teig.261221547">
+      <app:identTeig>
+        <app:IdentTeig>
+          <app:teigId>261221547</app:teigId>
+          <app:navnerom>https://data.geonorge.no/sosi/matrikkel/eiendomskart_teig</app:navnerom>
+          <app:versjonId>3</app:versjonId>
+        </app:IdentTeig>
+      </app:identTeig>
+      <app:datafangstdato>1995-02-26T23:00:00</app:datafangstdato>
+      <app:oppdateringsdato>2020-06-16T05:03:54.904</app:oppdateringsdato>
+      <app:representasjonspunkt>
+        <!--Inlined geometry 'teig.261221547_APP_REPRESENTASJONSPUNKT'-->
+        <gml:Point gml:id="teig.261221547_APP_REPRESENTASJONSPUNKT" srsName="urn:ogc:def:crs:EPSG::25833">
+          <gml:pos>-31841.977 6735304.036</gml:pos>
+        </gml:Point>
+      </app:representasjonspunkt>
+      <app:område>
+        <!--Inlined geometry 'teig.261221547_APP_OMRÅDE'-->
+        <gml:Polygon gml:id="teig.261221547_APP_OMRÅDE" srsName="urn:ogc:def:crs:EPSG::25833">
+          <gml:exterior>
+            <gml:LinearRing>
+              <gml:posList>-31866.543 6735324.024 -31864.596 6735326.142 -31862.460 6735328.796 -31861.521 6735330.362 -31860.701 6735331.828 -31851.298 6735322.667 -31845.612 6735317.010 -31839.693 6735311.260 -31832.477 6735303.952 -31824.474 6735295.987 -31820.730 6735292.219 -31820.205 6735292.242 -31820.206 6735292.333 -31810.559 6735292.425 -31824.549 6735278.469 -31833.784 6735287.705 -31846.948 6735300.010 -31853.647 6735306.818 -31857.711 6735311.149 -31867.535 6735321.446 -31868.998 6735321.519 -31866.543 6735324.024</gml:posList>
+            </gml:LinearRing>
+          </gml:exterior>
+        </gml:Polygon>
+      </app:område>
+      <app:kommunenummer>4601</app:kommunenummer>
+      <app:kommunenavn>BERGEN</app:kommunenavn>
+      <app:matrikkelenhet>
+        <app:Matrikkelenhet>
+          <app:kommunenummer>4601</app:kommunenummer>
+          <app:gardsnummer>167</app:gardsnummer>
+          <app:bruksnummer>714</app:bruksnummer>
+          <app:bruksnavn>BAKKEGATEN</app:bruksnavn>
+          <app:matrikkelenhetstype>Grunneiendom</app:matrikkelenhetstype>
+          <app:punktfeste>false</app:punktfeste>
+          <app:avklartEiere>false</app:avklartEiere>
+          <app:avklartAndeler>false</app:avklartAndeler>
+          <app:harAvtaleGrensePunktfeste>false</app:harAvtaleGrensePunktfeste>
+          <app:harAvtaleStedbundenRettighet>false</app:harAvtaleStedbundenRettighet>
+          <app:harGrunnforurensing>false</app:harGrunnforurensing>
+          <app:harKulturminne>true</app:harKulturminne>
+          <app:harRegistrertGrunnerverv>false</app:harRegistrertGrunnerverv>
+          <app:harRegistrertJordskifteKrevd>false</app:harRegistrertJordskifteKrevd>
+          <app:matrikkelenhetId>255889191</app:matrikkelenhetId>
+          <app:uuidMatrikkelenhet>1795e59b-e890-5301-ac46-998cfcbde97b</app:uuidMatrikkelenhet>
+        </app:Matrikkelenhet>
+      </app:matrikkelenhet>
+      <app:matrikkelnummerTekst>167/714</app:matrikkelnummerTekst>
+      <app:teigMedFlereMatrikkelenheter>false</app:teigMedFlereMatrikkelenheter>
+      <app:tvist>false</app:tvist>
+      <app:uregistrertJordsameie>false</app:uregistrertJordsameie>
+      <app:avklartEiere>false</app:avklartEiere>
+      <app:teigareal>
+        <app:Areal>
+          <app:lagretBeregnetAreal>809.3</app:lagretBeregnetAreal>
+        </app:Areal>
+      </app:teigareal>
+      <app:noyaktighetsklasseTeig>Gult</app:noyaktighetsklasseTeig>
+      <app:uuidTeig>448e54a2-6560-5019-8277-3a5cc510061a</app:uuidTeig>
+    </app:Teig>
+  </wfs:member>
+  <wfs:member>
+    <app:Teig xmlns:app="http://skjema.geonorge.no/SOSI/produktspesifikasjon/Matrikkelen-Eiendomskart-Teig/20211101" gml:id="teig.261221623">
+      <app:identTeig>
+        <app:IdentTeig>
+          <app:teigId>261221623</app:teigId>
+          <app:navnerom>https://data.geonorge.no/sosi/matrikkel/eiendomskart_teig</app:navnerom>
+          <app:versjonId>3</app:versjonId>
+        </app:IdentTeig>
+      </app:identTeig>
+      <app:datafangstdato>1995-02-26T23:00:00</app:datafangstdato>
+      <app:oppdateringsdato>2020-06-16T05:03:54.904</app:oppdateringsdato>
+      <app:representasjonspunkt>
+        <!--Inlined geometry 'teig.261221623_APP_REPRESENTASJONSPUNKT'-->
+        <gml:Point gml:id="teig.261221623_APP_REPRESENTASJONSPUNKT" srsName="urn:ogc:def:crs:EPSG::25833">
+          <gml:pos>-31840.931 6735319.078</gml:pos>
+        </gml:Point>
+      </app:representasjonspunkt>
+      <app:område>
+        <!--Inlined geometry 'teig.261221623_APP_OMRÅDE'-->
+        <gml:Polygon gml:id="teig.261221623_APP_OMRÅDE" srsName="urn:ogc:def:crs:EPSG::25833">
+          <gml:exterior>
+            <gml:LinearRing>
+              <gml:posList>-31838.925 6735323.820 -31831.892 6735330.890 -31827.662 6735328.357 -31824.963 6735326.488 -31839.693 6735311.260 -31845.612 6735317.010 -31838.925 6735323.820</gml:posList>
+            </gml:LinearRing>
+          </gml:exterior>
+        </gml:Polygon>
+      </app:område>
+      <app:kommunenummer>4601</app:kommunenummer>
+      <app:kommunenavn>BERGEN</app:kommunenavn>
+      <app:matrikkelenhet>
+        <app:Matrikkelenhet>
+          <app:kommunenummer>4601</app:kommunenummer>
+          <app:gardsnummer>167</app:gardsnummer>
+          <app:bruksnummer>717</app:bruksnummer>
+          <app:bruksnavn> </app:bruksnavn>
+          <app:matrikkelenhetstype>Grunneiendom</app:matrikkelenhetstype>
+          <app:punktfeste>false</app:punktfeste>
+          <app:avklartEiere>false</app:avklartEiere>
+          <app:avklartAndeler>false</app:avklartAndeler>
+          <app:harAvtaleGrensePunktfeste>false</app:harAvtaleGrensePunktfeste>
+          <app:harAvtaleStedbundenRettighet>false</app:harAvtaleStedbundenRettighet>
+          <app:harGrunnforurensing>false</app:harGrunnforurensing>
+          <app:harKulturminne>true</app:harKulturminne>
+          <app:harRegistrertGrunnerverv>false</app:harRegistrertGrunnerverv>
+          <app:harRegistrertJordskifteKrevd>false</app:harRegistrertJordskifteKrevd>
+          <app:matrikkelenhetId>255889194</app:matrikkelenhetId>
+          <app:uuidMatrikkelenhet>e9eba341-2806-5486-b345-e1f8ca949505</app:uuidMatrikkelenhet>
+        </app:Matrikkelenhet>
+      </app:matrikkelenhet>
+      <app:matrikkelnummerTekst>167/717</app:matrikkelnummerTekst>
+      <app:teigMedFlereMatrikkelenheter>false</app:teigMedFlereMatrikkelenheter>
+      <app:tvist>false</app:tvist>
+      <app:uregistrertJordsameie>false</app:uregistrertJordsameie>
+      <app:avklartEiere>false</app:avklartEiere>
+      <app:teigareal>
+        <app:Areal>
+          <app:lagretBeregnetAreal>165.6</app:lagretBeregnetAreal>
+        </app:Areal>
+      </app:teigareal>
+      <app:noyaktighetsklasseTeig>Gult</app:noyaktighetsklasseTeig>
+      <app:uuidTeig>b2fe3981-b06f-581a-8799-90961f8bb82c</app:uuidTeig>
+    </app:Teig>
+  </wfs:member>
+  <wfs:member>
+    <app:Teig xmlns:app="http://skjema.geonorge.no/SOSI/produktspesifikasjon/Matrikkelen-Eiendomskart-Teig/20211101" gml:id="teig.261221636">
+      <app:identTeig>
+        <app:IdentTeig>
+          <app:teigId>261221636</app:teigId>
+          <app:navnerom>https://data.geonorge.no/sosi/matrikkel/eiendomskart_teig</app:navnerom>
+          <app:versjonId>3</app:versjonId>
+        </app:IdentTeig>
+      </app:identTeig>
+      <app:datafangstdato>1995-02-26T23:00:00</app:datafangstdato>
+      <app:oppdateringsdato>2020-06-16T05:03:54.904</app:oppdateringsdato>
+      <app:representasjonspunkt>
+        <!--Inlined geometry 'teig.261221636_APP_REPRESENTASJONSPUNKT'-->
+        <gml:Point gml:id="teig.261221636_APP_REPRESENTASJONSPUNKT" srsName="urn:ogc:def:crs:EPSG::25833">
+          <gml:pos>-31831.539 6735313.746</gml:pos>
+        </gml:Point>
+      </app:representasjonspunkt>
+      <app:område>
+        <!--Inlined geometry 'teig.261221636_APP_OMRÅDE'-->
+        <gml:Polygon gml:id="teig.261221636_APP_OMRÅDE" srsName="urn:ogc:def:crs:EPSG::25833">
+          <gml:exterior>
+            <gml:LinearRing>
+              <gml:posList>-31832.477 6735303.952 -31839.693 6735311.260 -31824.963 6735326.488 -31822.279 6735324.893 -31816.247 6735321.258 -31819.205 6735317.994 -31832.477 6735303.952</gml:posList>
+            </gml:LinearRing>
+          </gml:exterior>
+        </gml:Polygon>
+      </app:område>
+      <app:kommunenummer>4601</app:kommunenummer>
+      <app:kommunenavn>BERGEN</app:kommunenavn>
+      <app:matrikkelenhet>
+        <app:Matrikkelenhet>
+          <app:kommunenummer>4601</app:kommunenummer>
+          <app:gardsnummer>167</app:gardsnummer>
+          <app:bruksnummer>718</app:bruksnummer>
+          <app:bruksnavn> </app:bruksnavn>
+          <app:matrikkelenhetstype>Grunneiendom</app:matrikkelenhetstype>
+          <app:punktfeste>false</app:punktfeste>
+          <app:avklartEiere>false</app:avklartEiere>
+          <app:avklartAndeler>false</app:avklartAndeler>
+          <app:harAvtaleGrensePunktfeste>false</app:harAvtaleGrensePunktfeste>
+          <app:harAvtaleStedbundenRettighet>false</app:harAvtaleStedbundenRettighet>
+          <app:harGrunnforurensing>false</app:harGrunnforurensing>
+          <app:harKulturminne>true</app:harKulturminne>
+          <app:harRegistrertGrunnerverv>false</app:harRegistrertGrunnerverv>
+          <app:harRegistrertJordskifteKrevd>false</app:harRegistrertJordskifteKrevd>
+          <app:matrikkelenhetId>255889195</app:matrikkelenhetId>
+          <app:uuidMatrikkelenhet>08224911-3a1c-5952-a7fe-36fb471289c0</app:uuidMatrikkelenhet>
+        </app:Matrikkelenhet>
+      </app:matrikkelenhet>
+      <app:matrikkelnummerTekst>167/718</app:matrikkelnummerTekst>
+      <app:teigMedFlereMatrikkelenheter>false</app:teigMedFlereMatrikkelenheter>
+      <app:tvist>false</app:tvist>
+      <app:uregistrertJordsameie>false</app:uregistrertJordsameie>
+      <app:avklartEiere>false</app:avklartEiere>
+      <app:teigareal>
+        <app:Areal>
+          <app:lagretBeregnetAreal>226.3</app:lagretBeregnetAreal>
+        </app:Areal>
+      </app:teigareal>
+      <app:noyaktighetsklasseTeig>Gult</app:noyaktighetsklasseTeig>
+      <app:uuidTeig>ac8454d8-1b2b-5a57-af77-7400ffa5d3ff</app:uuidTeig>
+    </app:Teig>
+  </wfs:member>
+</wfs:FeatureCollection>

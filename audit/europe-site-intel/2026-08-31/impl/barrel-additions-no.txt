@@ -1,0 +1,132 @@
+LANE E7-NO — changes to SHARED files, for the ORCHESTRATOR to apply. This lane edited NOTHING
+outside packages/site-parcel-data/src/countryAdapters/no/,
+packages/site-parcel-data/__tests__/noAdapter.test.ts and
+packages/site-parcel-data/__tests__/fixtures/no-nap-matrikkel/.
+Ordered by consequence, not by file.
+
+═══════════════════════════════════════════════════════════════════════════════════════════
+[1] ⛔ THE BLOCKER — packages/site-parcel-data/src/parsers/appGml/xmlScan.ts, line 84
+═══════════════════════════════════════════════════════════════════════════════════════════
+THIS IS THE ONLY CHANGE THAT UNBLOCKS THE NORWEGIAN CADASTRE, AND IT IS NOT A NORWAY PROBLEM:
+the scanner cannot read ANY national GML whose element names use accented Latin letters —
+NO, DK, SE, IS and DE at minimum.
+
+EXECUTED 2026-09-01 against the pinned fixture
+__tests__/fixtures/no-nap-matrikkel/matrikkel-teig-bergen-4601-167.xml (Kartverket's own bytes):
+    scanXml(...) -> ok: false
+      reason  "malformed-tag"
+      detail  invalid element name "app:område"
+      path    /wfs:FeatureCollection[1]/wfs:member[1]/app:Teig[1]
+      offset  2033
+The document is WELL-FORMED. XML 1.0 §2.3 NameStartChar explicitly admits
+[#xC0-#xD6] | [#xD8-#xF6] | [#xF8-#x2FF] | … — so å ø æ ü ß are legal XML names and the
+scanner's ASCII-only class is simply wrong. `<app:område>` is the container of every teig's
+polygon, so the WHOLE response refuses; there is no partial read.
+
+NO SERVICE-SIDE WORKAROUND EXISTS. WFS `propertyName=` projection to the ASCII-named subset was
+PROBED and is IGNORED by Kartverket: the response still carries `app:område` (measured, same 3
+members, same ~11 KB body). And no other output format changes the element names.
+
+REPLACE (xmlScan.ts:84):
+const NAME_RE = /^[A-Za-z_][A-Za-z0-9_.\-]*$/;
+
+WITH:
+// XML 1.0 §2.3 NameStartChar / NameChar, BMP range (the ":" case is handled by splitQName,
+// and the astral plane [#x10000-#xEFFFF] needs surrogate handling and is deliberately out).
+// The ASCII-only class this replaces refused the WELL-FORMED Norwegian element name
+// `app:område` — see audit/europe-site-intel/2026-08-31/impl/lane-e7-no.md §3.
+const NAME_RE =
+    /^[A-Za-z_À-ÖØ-öø-˿Ͱ-ͽͿ-῿‌-‍⁰-↏Ⰰ-⿯、-퟿豈-﷏ﷰ-�][A-Za-z0-9_.\-·À-ÖØ-öø-˿̀-ͯͰ-ͽͿ-῿‌-‍‿-⁀⁰-↏Ⰰ-⿯、-퟿豈-﷏ﷰ-�]*$/;
+
+VERIFIED BEFORE PROPOSING (node, 2026-09-01): the new class is a STRICT SUPERSET of the old on
+every input tested, so no PL/APP behaviour can change.
+  accepts: "område" "nøyaktighetsklasseTeig" "ærlig" "Größe" "ÅSANE" "Teig"
+           "StrefaPlanistyczna" "a-b.c" "_x"
+  rejects: "1bad" "" "-bad" " bad" "bad name"   (identical to the old class)
+
+AFTER APPLYING, three things must happen together — they are all in the NO lane's own files:
+  (a) delete the pin `⛔ PINS THE SHARED-FILE DEFECT: xmlScan refuses the well-formed name
+      app:område` in __tests__/noAdapter.test.ts §7, which is written to FAIL when the fix
+      lands, and the sibling test `the blocked parcel leg refuses SELF-NAMINGLY`;
+  (b) delete measured-fact 6 in countryAdapters/no/noMatrikkelClient.ts, the
+      `nonAsciiNameFromScanDetail` detector, NO_XMLSCAN_NON_ASCII_BLOCKER_TOKEN and the
+      re-labelling branch in `noWfsGetMembers`;
+  (c) delete the "⛔ THE PARCEL LEG IS BLOCKED TODAY" paragraph in countryAdapters/no/index.ts.
+The parcel arm is then live with NO other change: `parseNoTeigElement` is complete and reads
+`app:område` directly.
+
+═══════════════════════════════════════════════════════════════════════════════════════════
+[2] packages/site-parcel-data/src/index.ts — the barrel line
+═══════════════════════════════════════════════════════════════════════════════════════════
+ADD (beside the ee/dk/lt/pl adapter exports):
+
+export * from './countryAdapters/no/index.js';
+
+`countryAdapters/no/index.ts` uses an EXPLICIT re-export list (the EE/LT/PL shape, not DK's
+five `export *` lines — L-12875), so this one line has a fixed, reviewed surface.
+⚠ Check for collisions first: the NO surface uses the `No`/`NO_` prefix throughout, and the
+only bare-named symbols are `noCountryAdapter`, `isInNorway` and `NORWAY_BBOX`.
+⛔ `isInNorway` / `NORWAY_BBOX` are RE-EXPORTS of parcelProviders/countryBbox.ts, which
+src/index.ts ALREADY exports at line ~2108. If `export *` produces a duplicate-export error,
+drop those two names from the NO index's re-export list rather than adding a second definition.
+
+═══════════════════════════════════════════════════════════════════════════════════════════
+[3] packages/site-parcel-data/src/sourceRegistry/no.ts — migrate the three additive rows
+═══════════════════════════════════════════════════════════════════════════════════════════
+`sourceRegistry/no.ts` carries only the Matrikkelen cadastre row. Its own "HONEST ABSENCES"
+header records the national plan copy as a Norge-digitalt agreement gate with NO row — correct
+on the evidence then available, and now SUPERSEDED BY PROBE: a KEYLESS national plan channel
+exists (NAP's WMS GetFeatureInfo).
+
+MOVE the three rows in `countryAdapters/no/noSourceRefs.ts` -> `NO_ADDITIVE_SOURCES` into
+`NO_SOURCES` verbatim (they are already built with `defineSources('NO', …)`, so they carry
+identical build-time validation):
+  • no-nap-reguleringsplaner-wms   — KEYLESS, gate: null, accessOption 1, 5 dated probes
+  • no-nap-reguleringsplaner-bulk  — the AGREEMENT GATE, machine-declared by the service
+                                     ("accessConstraintRequiredRole": "nd.filnedlasting"),
+                                     accessOption 6, licence YELLOW
+  • no-geonorge-sosi-kodelister    — the national code registers, keyless JSON
+
+AND amend that file's "HONEST ABSENCES" header: the third bullet ("Reguleringsplaner
+(landsdekkende kopi) — Norge-digitalt AGREEMENT gate … no row") is now half-wrong. The BULK arm
+is gated; the WMS arm is not.
+
+Then, in `noSourceRefs.ts`, delete the migrated rows and re-export the registry's — never leave
+two. `NO_ADAPTER_SOURCES` keeps its meaning while `NO_ADDITIVE_SOURCES` empties.
+
+═══════════════════════════════════════════════════════════════════════════════════════════
+[4] ⛔ NO PARCEL-PROVIDER REGISTRATION — deliberately NOT requested (L-12871 is OPEN)
+═══════════════════════════════════════════════════════════════════════════════════════════
+Norway is ALREADY registered: parcelProviders/registry.ts:349 `geonorge-no`, proxy
+/api/parcel/no, keyed on `isInNorway`. This lane adds NO row and changes NO routing.
+
+RECORDED FOR THE L-12871 PRECEDENCE LANE, not for this wave — the measured overlap audit:
+  • FINLAND_BBOX sits ENTIRELY INSIDE NORWAY_BBOX. registry.ts:270 already documents this and
+    orders FI BEFORE NO. UNCHANGED.
+  • SWEDEN is unregistered and lies ENTIRELY inside NORWAY_BBOX. A Stockholm point routes to
+    the Norwegian proxy today. Pre-existing; NOT introduced here. ⚠ The E7-SE lane is running
+    in parallel — whoever registers SE must land ahead of NO, exactly as FI does.
+  • ⛔ THE REGISTERED BOX IS WIDER THAN THE SERVICE. countryBbox.ts:54 declares
+    { 57.8..71.4 N, 4.4..31.3 E }; Kartverket's own GetCapabilities declares
+    ows:WGS84BoundingBox { 58.024832..70.665014 N, 5.114669..23.692099 E } on all 7 feature
+    types (probed 2026-09-01). Points in the difference are inside the ROUTER and outside the
+    SERVICE, and today that reads as "no parcel here".
+    countryAdapters/no/noJurisdiction.ts carries the service extent as
+    NO_MATRIKKEL_SERVICE_BBOX + isInNoMatrikkelServiceExtent + NO_BBOX_SERVICE_GAP so a caller
+    can already tell the two apart. NARROWING the router box is a precedence decision and
+    belongs with L-12871, not with an adapter lane.
+  • SVALBARD (74-81 N) is outside BOTH, and its arealplaner are a separate Geonorge dataset
+    whose distribution is `GEONORGE:OFFLINE` — not served online at all (probed).
+
+═══════════════════════════════════════════════════════════════════════════════════════════
+[5] NOT REQUESTED — recorded so nobody adds them by reflex
+═══════════════════════════════════════════════════════════════════════════════════════════
+• NO new transient token for TRANSIENT_FETCH_REASONS. Every NO refusal uses the existing L0
+  vocabulary: `endpoint-unreachable:` · `upstream-failed:` · `no-parcel:` · `no-feature:` ·
+  `mapper-refused:` (with a d — the three-of-four spelling, per L-12874).
+• NO schema change. packages/schemas/** is untouched (control 3). Nothing in this adapter
+  needed a field the frozen canonical model lacks — R1/R2/R3/R5 + tier 6 carried every
+  Norwegian fact, including the two that have no sibling precedent (a served IN-FORCE date
+  distinct from the adoption date, and a value destroyed in transport rather than absent).
+• NO shared `_shared/` module, no rival FetchOutcome, no rival source registry, no second XML
+  scanner: `parsers/appGml/xmlScan.ts` is ADOPTED (the first consumer it has had outside PL).

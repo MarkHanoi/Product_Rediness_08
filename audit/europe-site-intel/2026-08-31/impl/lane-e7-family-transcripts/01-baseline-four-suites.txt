@@ -1,0 +1,14 @@
+npm warn Unknown project config "package-manager-strict". This will stop working in the next major version of npm. See `npm help npmrc` for supported config options.
+
+ RUN  v4.1.10 C:/Users/LENOVO/OneDrive/Desktop/PRYZM/Product_Rediness_08/packages/site-parcel-data
+
+
+ Test Files  5 passed (5)
+      Tests  122 passed (122)
+   Start at  18:22:00
+   Duration  13.25s (transform 23.73s, setup 0ms, import 31.92s, tests 684ms, environment 1ms)
+
+
+$ npx vitest run __tests__/eeAdapterRework.test.ts __tests__/dkCorrections.test.ts __tests__/ltAsgrAdapter.test.ts __tests__/plAdapter.test.ts __tests__/sourceRegistry.test.ts; echo "RC=$?"
+RC=0
+(run 2026-09-01 18:22 in FOREGROUND against the tree at HEAD de23a59f, packages/site-parcel-data clean)

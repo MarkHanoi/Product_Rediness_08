@@ -1,0 +1,159 @@
+E7-FI — BARREL / REGISTRY ADDITIONS FOR THE ORCHESTRATOR
+========================================================
+Lane: E7-FI (Finland · Ryhti). Written 2026-09-01. NOTHING BELOW WAS APPLIED BY THE LANE —
+`src/index.ts`, `sourceRegistry/*` and `parcelProviders/registry.ts` are shared files under the
+barrel protocol. Everything the lane owns lives in
+`packages/site-parcel-data/src/countryAdapters/fi/` and
+`packages/site-parcel-data/__tests__/fiRyhtiAdapter.test.ts` (+ its fixtures dir).
+
+
+--------------------------------------------------------------------------------------------
+1. THE ONE BARREL LINE — packages/site-parcel-data/src/index.ts
+--------------------------------------------------------------------------------------------
+Append, in the same style as the EE/LT/PL adapter exports (verify the sibling lanes' spelling
+before applying; SE / LU / NO lanes are adding their own lines to the same file):
+
+export * from './countryAdapters/fi/index.js';
+
+⚠ NOTE ON `export *`: three of four committed adapters (EE, LT, PL) use an EXPLICIT re-export
+list inside their own `index.ts`, and this lane follows that — `countryAdapters/fi/index.ts`
+names every symbol it re-exports. So a wildcard at the package barrel re-exports a CURATED set,
+not "whatever happens to be in the directory". (DK is the odd one out, L-12875.)
+
+⛔ NAME-COLLISION CHECK, RUN 2026-09-01 BEFORE PROPOSING THIS LINE — CLEAN TODAY, BUT FRAGILE:
+   `FINLAND_BBOX`, `ALAND_EXCLUSION` and `isInFinland` are re-exported by
+   `countryAdapters/fi/index.ts`, and they are the SAME BINDINGS already exported from
+   `parcelProviders/mmlParcelProvider.ts` (this adapter adopts rather than mints — see item 4).
+   MEASURED on `src/index.ts` (2,297 lines) 2026-09-01:
+       grep -n "mmlParcelProvider|countryAdapters|isInFinland|FINLAND_BBOX"  ->  0 matches
+   So `src/index.ts` re-exports NO country adapter at all today (EE, LT and PL are likewise
+   unexported from the package barrel) and does not re-export `mmlParcelProvider` — the FI
+   wildcard collides with nothing AS OF THIS READING.
+   ⚠ IT IS FRAGILE: the SE / LU / NO lanes are editing the same file in parallel, and a lane
+   that adds `export * from './parcelProviders/mmlParcelProvider.js'` makes the FI wildcard a
+   duplicate-export error. RE-RUN THE GREP BEFORE APPLYING. If it now matches, apply the
+   EXPLICIT form instead and drop the three jurisdiction symbols, which are then already
+   reachable:
+
+export {
+    FI_ADAPTER_ENDPOINT_BINDINGS, FI_ADAPTER_SOURCES, FI_APPLICABILITY_LADDER,
+    FI_ATTACHMENT_KIND_CODES, FI_DIGITAL_ORIGIN_CODES, FI_HSY_SEUTURAMAVA_FINDING,
+    FI_IMPLAUSIBLE_DATE_FLOOR, FI_LIFECYCLE_CODES, FI_MASTER_PLAN_LEGAL_EFFECT_CODES,
+    FI_MML_PARCEL_SOURCE, FI_MML_PARCEL_SOURCE_ID, FI_NATIVE_CRS, FI_NATIVE_CRS_RESPONSE_URN,
+    FI_NATIVE_CRS_URI, FI_PLAN_BOUNDARY_CRS, FI_PLAN_TYPE_CODES, FI_PROVISION_ATTACHMENT_KINDS,
+    FI_RANK_ABSENCE_REASON, FI_RULE_AUTHORITY, FI_RULE_DATASET, FI_RULE_VOCABULARY,
+    FI_RYHTI_ABSENCE_CAVEAT, FI_RYHTI_ATTACHMENT_BASE, FI_RYHTI_ATTACHMENT_SOURCE_ID,
+    FI_RYHTI_ATTACHMENT_SOURCES, FI_RYHTI_COLLECTIONS, FI_RYHTI_OGCAPI_BASE,
+    FI_RYHTI_PAGE_CAP, FI_RYHTI_PLAN_SOURCE, FI_RYHTI_PLAN_SOURCE_ID,
+    FI_RYHTI_UNSERVED_PARAMETERS, FI_SENTINEL_DATE, FI_USESCOPE_ABSENCE_REASON,
+    FI_VALUEBASIS_ABSENCE_REASON, extractRyhtiErrorTitle, fiCodelistCode, fiCountryAdapter,
+    fiDocumentEntityId, fiJsonArray, fiPlanEntityId, fiRyhtiBboxParams, fiRyhtiGetFeatures,
+    fiRyhtiItemsUrl, fiRyhtiMunicipalityCql, fiRyhtiPermanentIdCql, fiStr, fiValidity,
+    mapFiAttachmentsToDocuments, mapFiFeatureToPlan, mapFiPlanIndexFeatureToRules,
+    parseFiPlanIndexFeature, readFiDate, resolveFiCode, resolveFiPlanByPermanentId,
+    resolveFiPlansAtWgs84Point, resolveFiPointChain, resolveFiPointPlans,
+    type FiDateReading, type FiDateReadingKind, type FiMappedRuleSet, type FiPlanAttachment,
+    type FiPlanIndexFeature, type FiPlanIndexResult, type FiPointChain, type FiPointPlans,
+    type FiResolvedPlan, type FiRuleVocabularyEntry, type FiRyhtiCollection,
+    type FiRyhtiDeps, type FiRyhtiFeature, type FiRyhtiFeaturePage, type FiRyhtiItemsQuery,
+    type FiUnservedParameter,
+} from './countryAdapters/fi/index.js';
+
+
+--------------------------------------------------------------------------------------------
+2. SOURCE-REGISTRY MIGRATION — packages/site-parcel-data/src/sourceRegistry/fi.ts
+--------------------------------------------------------------------------------------------
+The adapter mints ONE additive row that the registry lacks (the LT `ribos` pattern). Move it
+into `sourceRegistry/fi.ts` and then DELETE `FI_RYHTI_ATTACHMENT_SOURCES` from
+`countryAdapters/fi/fiSourceRefs.ts`, re-exporting the registry's row instead. Do NOT leave two.
+The row body is in `fiSourceRefs.ts` (`FI_RYHTI_ATTACHMENT_SOURCES`) and is already built with
+the registry's own `defineSources` loader, so it needs no reshaping — append it to the
+`FI_SOURCES` array verbatim:
+
+    id:              'fi-ryhti-plan-attachment-documents'
+    authority:       'SYKE (Ryhti — rakennetun ympariston tietojarjestelma)'
+    endpoint:        'https://uri.rakennetunymparistontietojarjestelma.fi/planattachmentdocument'
+    protocol:        'REST'   (REPORT §I coarse transport class for a plain HTTP file GET)
+    licence:         CC-BY-4.0 (SYKE avoimet aineistot), GREEN, verifiedDate null
+    accessOption:    6
+    gate:            null   (KEYLESS — probed)
+    probes[0].date:  '2026-09-01'
+    theme:           'planning'
+    adapterStatus:   'documented'
+
+After the move, `countryAdapters/fi/fiSourceRefs.ts` keeps `FI_ADAPTER_SOURCES` (its meaning is
+unchanged) while the additive array empties.
+
+
+--------------------------------------------------------------------------------------------
+3. SOURCE-REGISTRY ROW PROPOSED BUT DELIBERATELY NOT MINTED — HSY SeutuRAMAVA
+--------------------------------------------------------------------------------------------
+The lane was briefed to CHECK HSY's reachability and NOT to build a second path for it. It was
+re-verified live and independently (transcript 01 §11) and the finding is carried as data in
+`fiSourceRefs.ts` (`FI_HSY_SEUTURAMAVA_FINDING`). No source row was minted, because a registry
+row for an endpoint no code reads is documentation pretending to be a registry.
+
+For whoever wires the capacity cross-check, the row is ready to seed:
+
+    id:              'fi-hsy-seuturamava-kortteli-wfs'
+    country:         'FI'
+    authority:       'HSY (Helsingin seudun ymparistopalvelut)'
+    dataset:         'asuminen_ja_maankaytto:SeutuRAMAVA_kortteli_<half><year> — per-block
+                      building-land reserve computed by the authority twice yearly from valid
+                      detail plans: laskvar_yh = kala (rakennusoikeus) - karayht (kaytetty
+                      kerrosala), split per use (laskvar_ak/ap/k/t/y/nn); 26 versioned layers'
+    endpoint:        'https://kartta.hsy.fi/geoserver/wfs'
+    protocol:        'WFS2'
+    licence:         CC-BY-4.0 per HRI/avoindata.fi dataset pages (E5 §A-1); verifiedDate null
+    accessOption:    1
+    gate:            null   (KEYLESS — GetCapabilities 200, 349,217 bytes, probed 2026-09-01)
+    probes[0]:       date '2026-09-01', note: 'E7-FI re-verified independently of E5: newest
+                      layer SeutuRAMAVA_kortteli_12026; GetFeature count=1 -> block 0490100001
+                      (Espoo) kala 137777 / karayht 116900 / laskvar_yh 27659 / laskvar_ak
+                      20850 / laskvar_y 6809 / rakerayht 8092 / rekpvm 20251219 — byte-for-byte
+                      the E5 payload. ⛔ AND: ZERO Ryhti valid-DETAIL-plan features exist for
+                      any of HSY four municipalities (Helsinki 091 / Espoo 049 / Vantaa 092 /
+                      Kauniainen 235 all 0), so the cross-check this row would enable has no
+                      overlapping parcel to run on today.'
+    theme:           'development-capacity'
+    coverage:        '4 municipalities (Helsinki, Espoo, Vantaa, Kauniainen); block granularity
+                      in the open tier; finer kaavayksikko level exists in the non-open SeutuCD'
+    updateFrequency: 'twice yearly'
+    adapterStatus:   'documented'
+
+
+--------------------------------------------------------------------------------------------
+4. ⛔ NO PARCEL-PROVIDER REGISTRATION — and NO new jurisdiction predicate
+--------------------------------------------------------------------------------------------
+L-12871 is OPEN and this lane adds nothing to it. Two things to record:
+
+(a) THE FI PARCEL ROUTE ALREADY HAS AN OWNER AND A REGISTRATION NOTE.
+    `parcelProviders/mmlParcelProvider.ts:67` already carries its own `TODO(orchestrator)` for
+    the `PARCEL_JURISDICTIONS` entry (`contains: isInFinland` -> `mml`). That note, not this
+    file, is the FI registration seat. This lane did not touch it and does not ask for it to be
+    applied: `MML_API_KEY` is unset, so the provider resolves to a typed refusal today.
+
+(b) THIS ADAPTER MINTS **NO** JURISDICTION PREDICATE — it adopts the existing one.
+    `countryAdapters/fi/fiJurisdiction.ts` is a pure re-export of `FINLAND_BBOX`,
+    `ALAND_EXCLUSION` and `isInFinland` from `mmlParcelProvider.ts`. Copying the EE/LT/PL shape
+    would have been RECURRENCE SIX of the bbox drift the family verdict logged as three/four/
+    five — and, worse, it would have dropped the Åland exclusion, silently routing Mariehamn to
+    a cadastre that may not serve it.
+
+    ⚠ A NEW OVERLAP, MEASURED AND RECORDED, NOT FIXED: `NORWAY_BBOX`
+    (`parcelProviders/countryBbox.ts:56`, minLat 57.8 / maxLat 71.4 / minLon 4.4 / maxLon 31.3)
+    OVERLAPS `FINLAND_BBOX` (minLat 59.7 / maxLat 70.1 / minLon 20.5 / maxLon 31.6) across the
+    whole Finnish north. Nothing mis-routes today because NO is not registered for a Finnish
+    point, but this is the same class as L-12871 (LT/PL/DE) and belongs with that precedence
+    work. The NO lane running in parallel should be told.
+
+
+--------------------------------------------------------------------------------------------
+5. NOTHING ELSE
+--------------------------------------------------------------------------------------------
+No ceiling raised. No gate disabled. No `gate-debt.json` entry. No schema change requested —
+`packages/schemas/**` was READ and never touched (control 3). No rival FetchOutcome, no rival
+source registry, no rival refusal vocabulary: the adapter imports `fetchFound`/`fetchAbsent`/
+`fetchTransient` from `@pryzm/schemas` and uses only the L0 prefixes
+`endpoint-unreachable:` / `upstream-failed:` / `no-feature:` / `mapper-refused:` (with a d).
+Nothing committed.

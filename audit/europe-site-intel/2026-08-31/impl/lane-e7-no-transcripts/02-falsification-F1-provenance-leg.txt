@@ -1,0 +1,42 @@
+=== F1 · SEVER THE PROVENANCE LEG (noSourceRef.document -> null) ===
+--- the one-line severance:
+--- the suite, seen failing BY NAME:
+npm warn Unknown project config "package-manager-strict". This will stop working in the next major version of npm. See `npm help npmrc` for supported config options.
+
+ RUN  v4.1.10 C:/Users/LENOVO/OneDrive/Desktop/PRYZM/Product_Rediness_08/packages/site-parcel-data
+
+ ❯ __tests__/noAdapter.test.ts (36 tests | 1 failed) 67ms
+     × F1 · every rule carries the plan's bestemmelser document as its provenance address 7ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  __tests__/noAdapter.test.ts > E7-NO §3 — the falsification targets > F1 · every rule carries the plan's bestemmelser document as its provenance address
+AssertionError: expected null to be 'https://www.arealplaner.no/bergen4601…' // Object.is equality
+
+- Expected:
+"https://www.arealplaner.no/bergen4601/gi?funksjon=VisPlan&kommunenummer=4601&planidentifikasjon=65800000"
+
++ Received:
+null
+
+ ❯ __tests__/noAdapter.test.ts:263:50
+    261|         expect(zoneRules.length).toBeGreaterThan(0);
+    262|         for (const r of zoneRules) {
+    263|             expect(r.provenance.source.document).toBe(
+       |                                                  ^
+    264|                 'https://www.arealplaner.no/bergen4601/gi?funksjon=Vis…
+    265|             );
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 35 passed (36)
+   Start at  19:29:17
+   Duration  2.05s (transform 1.26s, setup 0ms, import 1.79s, tests 67ms, environment 0ms)
+
+RC=1
+--- restore, byte-identical:
+88c8451a0f4e4c8ef28393a02a08d8511e99113221d4ff5b0b9ad2f94c0326de *src/countryAdapters/no/noRuleMapper.ts
+88c8451a0f4e4c8ef28393a02a08d8511e99113221d4ff5b0b9ad2f94c0326de *src/countryAdapters/no/noRuleMapper.ts
+?? packages/site-parcel-data/src/countryAdapters/no/noRuleMapper.ts

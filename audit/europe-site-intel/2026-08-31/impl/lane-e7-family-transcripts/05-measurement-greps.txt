@@ -1,0 +1,204 @@
+LANE E7-FAMILY — the executed measurement greps (2026-09-01), verbatim.
+All run from packages/site-parcel-data/src/countryAdapters unless noted.
+
+════════════════════════════════════════════════════════════════════════════
+1. ADAPTER SIZES (wc -l, summed per directory)
+════════════════════════════════════════════════════════════════════════════
+$ for d in ee dk lt pl; do t=0; for f in $d/*.ts; do n=$(wc -l < $f); t=$((t+n)); done; echo "$d total = $t"; done
+ee total = 2175
+dk total = 1114
+lt total = 2360
+pl total = 1833
+                                             ---- TOTAL 7482 ----
+
+Per file:
+174 ./dk/dkGfa.ts               196 ./ee/eeBuildingsProvider.ts
+ 81 ./dk/dkParcelProvider.ts     33 ./ee/eeJurisdiction.ts
+244 ./dk/dkPlandataClient.ts    207 ./ee/eeParcelProvider.ts
+382 ./dk/dkRuleMapper.ts        402 ./ee/eePlanProvider.ts
+ 90 ./dk/dkSources.ts           559 ./ee/eeRuleMapper.ts
+143 ./dk/index.ts               115 ./ee/eeSources.ts
+                                330 ./ee/eeWfsClient.ts
+328 ./lt/index.ts               333 ./ee/index.ts
+372 ./lt/ltArcgisClient.ts
+457 ./lt/ltAsgrProvider.ts      117 ./pl/index.ts
+ 40 ./lt/ltJurisdiction.ts       49 ./pl/plJurisdiction.ts
+276 ./lt/ltParcelProvider.ts    465 ./pl/plPogChain.ts
+768 ./lt/ltRuleMapper.ts        713 ./pl/plRuleMapper.ts
+119 ./lt/ltSourceRefs.ts        162 ./pl/plSources.ts
+                                327 ./pl/plUldkClient.ts
+
+Rule mappers alone: 559 + 382 + 768 + 713 = 2422 lines = 32.4% of the four adapters.
+
+════════════════════════════════════════════════════════════════════════════
+2. THE FOUR SHARED REFUSAL STRINGS (grep -c, literal)
+════════════════════════════════════════════════════════════════════════════
+$ grep -c "endpoint-unreachable: no fetch implementation" ee/eeWfsClient.ts dk/dkPlandataClient.ts lt/ltArcgisClient.ts pl/plUldkClient.ts
+ee:1  dk:1  lt:1  pl:1        <- 4/4
+$ grep -c 'endpoint-unreachable: ${url}'                    (same four files)
+ee:1  dk:1  lt:1  pl:1        <- 4/4
+$ grep -c "res.text().catch(() => '')"                      (same four files)
+ee:1  dk:1  lt:1  pl:1        <- 4/4
+$ grep -c 'upstream-failed: HTTP ${res.status} from ${url}' (same four files)
+ee:1  dk:1  lt:1  pl:1        <- 4/4
+$ grep -c 'upstream-failed: non-JSON body from ${url}'      (same four files)
+ee:1  dk:1  lt:1  pl:0        <- 3/4 (PL is text/plain, not JSON)
+$ grep -c 'upstream-failed: no features array from ${url}'  (same four files)
+ee:1  dk:1  lt:1  pl:0        <- 3/4
+$ grep -c 'fetchAbsent(`no-feature: ${queryLabel}`)'        (same four files)
+ee:1  dk:0  lt:1  pl:0        <- 2/4 (DK's absent is one level up, with a
+                                      different label; PL's is `no-parcel:`)
+
+════════════════════════════════════════════════════════════════════════════
+3. THE 4-WAY IDENTICAL LINE SET of the four fetch-classify functions
+   (comments stripped, whitespace normalised, country tokens folded to CC)
+════════════════════════════════════════════════════════════════════════════
+Function lengths after normalisation: ee 65 · dk 48 · lt 85 · pl 60
+Pairwise identical lines:
+  ee vs lt = 42     dk vs ee = 38     lt vs pl = 32
+  ee vs pl = 31     dk vs pl = 29     dk vs lt = 28
+4-WAY IDENTICAL LINES = 19:
+  | queryLabel: string,
+  | span.setAttribute('CC.query', queryLabel);
+  | try {
+  | const fetchImpl = deps.fetchImpl ?? globalThis.fetch;
+  | if (typeof fetchImpl !== 'function') {
+  | span.setStatus({ code: SpanStatusCode.ERROR, message: 'no-fetch' });
+  | return fetchTransient(`endpoint-unreachable: no fetch implementation (${url})`);
+  | }
+  | let res: Response;
+  | } catch (e) {
+  | span.setStatus({ code: SpanStatusCode.ERROR, message: 'network-error' });
+  | return fetchTransient(
+  | `endpoint-unreachable: ${url} (${e instanceof Error ? e.message : String(e)})`,
+  | );
+  | if (!res.ok) {
+  | span.setStatus({ code: SpanStatusCode.ERROR, message: 'upstream-failed' });
+  | span.setStatus({ code: SpanStatusCode.OK });
+  | } finally {
+  | span.end();
+
+════════════════════════════════════════════════════════════════════════════
+4. extractOwsExceptionText (EE) vs extractDkOwsExceptionText (DK)
+════════════════════════════════════════════════════════════════════════════
+$ sed -n '112,116p' ee/eeWfsClient.ts | sed 's/extractOwsExceptionText/EXTRACT/' > a
+$ sed -n '104,108p' dk/dkPlandataClient.ts | sed 's/extractDkOwsExceptionText/EXTRACT/' > b
+$ diff a b
+IDENTICAL-MODULO-NAME (diff produced no output, RC=0)
+
+════════════════════════════════════════════════════════════════════════════
+5. THE THREE JURISDICTION MODULES — code identical, only prose differs
+════════════════════════════════════════════════════════════════════════════
+ee/eeJurisdiction.ts:9-33   ·  lt/ltJurisdiction.ts:16-40  ·  pl/plJurisdiction.ts:26-49
+After folding the country name and the four bbox numbers, `diff` reports ONLY
+comment-line differences in both EE-vs-LT and EE-vs-PL. The `interface Bbox`
+declaration and the `isInX` body are byte-identical in all three.
+
+*** AND THE AUTHORITY ALREADY EXISTS ELSEWHERE:
+$ grep -rn "countryBbox" packages/site-parcel-data/ | grep -v node_modules
+  src/index.ts:2113                     <- re-exported from the package barrel
+  src/parcelProviders/registry.ts:57    <- the parcel-provider router imports it
+  src/rulepacks/registry.ts:348         <- the rulepack registry imports it
+  src/parcelProviders/agenziaEntrateParcelProvider.ts:595
+      "...or relocate ITALY_BBOX/isInItaly into countryBbox.ts for parity..."
+  src/parcelProviders/dgtParcelProvider.ts:67
+      "...isInPortugal into countryBbox.ts for parity with the other predicates..."
+`parcelProviders/countryBbox.ts:23-33` already declares `interface CountryBbox`
+(field-for-field the same four readonly numbers) and `function within(bbox, lat, lon)`
+(byte-identical body), and the file's own header says these are
+"the SAME shape ({ COUNTRY_BBOX } + isInCountry), one layer coarser".
+EE/LT/PL are recurrences 3, 4 and 5 of a drift the repo already logged TWICE.
+
+════════════════════════════════════════════════════════════════════════════
+6. ringPolygon + ISO_DATE_RE
+════════════════════════════════════════════════════════════════════════════
+$ grep -rn "ISO_DATE_RE = |function ringPolygon" .
+pl/plRuleMapper.ts:196:const ISO_DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
+ee/eeRuleMapper.ts:136:const ISO_DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
+ee/eeRuleMapper.ts:165:function ringPolygon(
+lt/ltRuleMapper.ts:334:const ISO_DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
+lt/ltRuleMapper.ts:388:function ringPolygon(
+-> ISO_DATE_RE: 3 copies (1 line each). ringPolygon: 2 copies (8 lines each,
+   code identical, one comment clause differs).
+*** AND ISO_DATE_RE IS A THIRD SPELLING OF AN L0 EXPORT:
+  packages/schemas/src/siteintel/provenance.ts:34
+    export const IsoDateStringSchema = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, ...)
+  Three adapters re-declare the regex instead of importing the schema they
+  are already validating against three lines later.
+
+════════════════════════════════════════════════════════════════════════════
+7. THE str/num ATTRIBUTE READERS — 11 copies, FOUR DISTINCT BEHAVIOURS
+════════════════════════════════════════════════════════════════════════════
+$ grep -rn "function numOrNull|function strOrNull|function ltNum|function ltStr|function str\(|function num\(|function firstString|function field\(" .
+dk/dkParcelProvider.ts:33    numOrNull      dk/dkParcelProvider.ts:39   strOrNull
+dk/dkRuleMapper.ts:102       firstString
+ee/eeBuildingsProvider.ts:65 str            ee/eeBuildingsProvider.ts:70 num
+ee/eeParcelProvider.ts:71    str            ee/eeParcelProvider.ts:74   num
+ee/eePlanProvider.ts:107     strProp        ee/eePlanProvider.ts:111    numProp
+lt/ltArcgisClient.ts:319     ltStr          lt/ltArcgisClient.ts:330    ltNum
+pl/plUldkClient.ts:130       field
+
+FOUR distinct `str` behaviours, THREE of them inside the EE adapter alone:
+  ee/eeParcelProvider.ts:71    return typeof v === 'string' && v.trim() !== '' ? v : null;
+                               <- tests trimmed, RETURNS UNTRIMMED
+  ee/eePlanProvider.ts:107     ... ? v.trim() : null;              <- returns trimmed
+  ee/eeBuildingsProvider.ts:65 trims AND coerces finite numbers to String(v)
+  lt/ltArcgisClient.ts:319     trims AND coerces, keyed by (attrs, key)
+TWO distinct `num` behaviours:
+  ee/eeParcelProvider.ts:74    number only, NO numeric-string coercion
+  ee/eePlanProvider.ts:111 · ee/eeBuildingsProvider.ts:70 · dk:33 · lt:330
+                               number OR finite numeric string
+
+════════════════════════════════════════════════════════════════════════════
+8. THE REFUSAL-VOCABULARY DRIFT (the standing review rule, already breached)
+════════════════════════════════════════════════════════════════════════════
+$ grep -rn "mapper-refus" packages/site-parcel-data/src
+./countryAdapters/dk/index.ts:132:      `mapper-refusal: ${...}`     <- ONE spelling
+./countryAdapters/ee/index.ts:212:      `mapper-refused: ${...}`
+./countryAdapters/ee/index.ts:238:      `mapper-refused: ${...}`
+./countryAdapters/lt/index.ts:221:      `mapper-refused: ${...}`
+./countryAdapters/pl/plPogChain.ts:259: `mapper-refused: ${...}`     <- the other
+Four adapters, one wave, TWO spellings of one transient reason token. Neither
+is in the L0 closed table `TRANSIENT_FETCH_REASONS`
+(packages/schemas/src/site/zoning/FetchOutcome.ts:74), whose own doctrine reads:
+  "Add a new transient token HERE, once, rather than at a call site."
+
+════════════════════════════════════════════════════════════════════════════
+9. THE nowIso DIVERGENCE (source lines, verbatim)
+════════════════════════════════════════════════════════════════════════════
+$ grep -rn "new Date().toISOString()" countryAdapters/
+dk/index.ts:105       const fetchedAtIso = nowIso ?? new Date().toISOString().slice(0, 10);
+ee/index.ts:157       const fetchedAtIso = (nowIso ?? new Date().toISOString()).slice(0, 10);
+lt/index.ts:160       const fetchedAtIso = (nowIso ?? new Date().toISOString()).slice(0, 10);
+pl/plPogChain.ts:394  const fetchedAtIso = (nowIso ?? new Date().toISOString()).slice(0, 10);
+DK's `.slice(0,10)` binds to `new Date().toISOString()` ONLY — a caller-supplied
+`nowIso` passes through UNSLICED. See transcript 02 for the executed consequence.
+
+════════════════════════════════════════════════════════════════════════════
+10. THE R1/R2/R3/R5 SEATS — how many times each mapper touches each seat
+════════════════════════════════════════════════════════════════════════════
+                        ee        dk        lt        pl
+valueBasis     (R2)      0         9        20         4
+normativeForce (R5)      0         4         2         2
+validityBasis  (R3)      6         4        10         6
+rank           (R1)   null      {dk-plan-ladder,level}   null      null
+EE emits NEITHER R2 nor R5. DK is the ONLY adapter that emits a rank.
+
+════════════════════════════════════════════════════════════════════════════
+11. THE PRE-EXISTING, UNWIRED SHARED SEAM
+════════════════════════════════════════════════════════════════════════════
+$ grep -rln "retryWhileUnreachable" packages/site-parcel-data/src
+./index.ts                        <- the barrel re-export
+./net/retryWhileUnreachable.ts    <- the definition
+-> TWO files. ZERO consumers inside countryAdapters/. It is already generalised
+   over `FetchOutcome`, already tested (__tests__/fetchOutcomeHonesty.test.ts:96),
+   and all four adapters wrote prose about retry instead of importing it.
+
+════════════════════════════════════════════════════════════════════════════
+12. THE HONESTY GATE DOES NOT SEE THE ADAPTERS
+════════════════════════════════════════════════════════════════════════════
+$ grep -n "countryAdapters|readdir|readFileSync|glob" __tests__/fetchOutcomeHonesty.test.ts
+(no matches)
+The one CI gate that pins the transient-vs-absent vocabulary tests Madrid and NL
+behaviourally plus the L0 table. Nothing binds countryAdapters/** to it — which
+is exactly why finding 8 above could drift unnoticed.

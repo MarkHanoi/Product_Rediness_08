@@ -1,0 +1,7 @@
+npm warn Unknown project config "package-manager-strict". This will stop working in the next major version of npm. See `npm help npmrc` for supported config options.
+
+$ NODE_OPTIONS=--max-old-space-size=8192 npx tsc --noEmit -p tsconfig.json > root-tsc.txt 2>&1; echo "ROOT_TSC_RC=$?"
+ROOT_TSC_RC=0
+$ grep -c "countryAdapters" root-tsc.txt
+0
+(the npm warn line above is the entire output; zero diagnostics)

@@ -1,0 +1,75 @@
+=== F2 · SEVER THE R3 LEGAL-VALIDITY LEG (noValidity always 'ingestion') ===
+npm warn Unknown project config "package-manager-strict". This will stop working in the next major version of npm. See `npm help npmrc` for supported config options.
+
+ RUN  v4.1.10 C:/Users/LENOVO/OneDrive/Desktop/PRYZM/Product_Rediness_08/packages/site-parcel-data
+
+ ❯ __tests__/noAdapter.test.ts (36 tests | 3 failed) 68ms
+     × resolves Bergen 4601/65800000 across two vertical levels, from the state's own bytes 18ms
+     × F2 · R3 validityBasis is 'legal' on the served ikrafttredelsesdato 3ms
+     × scramble control · the end-to-end expectations are sensitive to the fixture 3ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 3 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  __tests__/noAdapter.test.ts > E7-NO §2 — a REAL Norwegian zone resolves end to end at the CHAIN layer > resolves Bergen 4601/65800000 across two vertical levels, from the state's own bytes
+AssertionError: expected '2026-09-01' to be '1983-10-10' // Object.is equality
+
+Expected: "1983-10-10"
+Received: "2026-09-01"
+
+ ❯ assertBergenChain __tests__/noAdapter.test.ts:189:23
+    187|     expect(l2PlanName).toBe('BERGENHUS. STØLEN/LADEGÅRDEN/ROTHAUGEN');
+    188|     const l2InForce = lvl2.planRules.status === 'found' ? lvl2.planRul…
+    189|     expect(l2InForce).toBe('1983-10-10');
+       |                       ^
+    190|
+    191|     // ── the hensynssoner / bestemmelsesområder minted as Prescriptio…
+ ❯ __tests__/noAdapter.test.ts:205:9
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/3]⎯
+
+ FAIL  __tests__/noAdapter.test.ts > E7-NO §3 — the falsification targets > F2 · R3 validityBasis is 'legal' on the served ikrafttredelsesdato
+AssertionError: expected 'ingestion' to be 'legal' // Object.is equality
+
+Expected: "legal"
+Received: "ingestion"
+
+ ❯ __tests__/noAdapter.test.ts:274:48
+    272|         const c = await chain({ fetchImpl: makeFakeFetch() });
+    273|         for (const r of zonesOf(c, 1)[0]!.rules) {
+    274|             expect(r.provenance.validityBasis).toBe('legal');
+       |                                                ^
+    275|             expect(r.provenance.valid_from).toBe('2023-05-31');
+    276|         }
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/3]⎯
+
+ FAIL  __tests__/noAdapter.test.ts > E7-NO §8 — the scramble control (§6-G.5, MANDATORY) > scramble control · the end-to-end expectations are sensitive to the fixture
+AssertionError: promise rejected "AssertionError: expected '2026-09-01' to … { …(4) }" instead of resolving
+ ❯ __tests__/noAdapter.test.ts:523:83
+    521|     it('scramble control · the end-to-end expectations are sensitive t…
+    522|         // Sanity: the un-perturbed run passes.
+    523|         await expect(chain({ fetchImpl: makeFakeFetch() }).then(assert…
+       |                                                                                   ^
+    524|
+    525|         const original = read('nap-gfi-vn1-bergen-167-714.json');
+
+Caused by: AssertionError: expected '2026-09-01' to be '1983-10-10' // Object.is equality
+
+Expected: "1983-10-10"
+Received: "2026-09-01"
+
+ ❯ assertBergenChain __tests__/noAdapter.test.ts:189:23
+ ❯ __tests__/noAdapter.test.ts:523:9
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/3]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  3 failed | 33 passed (36)
+   Start at  19:29:36
+   Duration  2.06s (transform 1.26s, setup 0ms, import 1.78s, tests 68ms, environment 0ms)
+
+RC=1
+--- restore, byte-identical:
+88c8451a0f4e4c8ef28393a02a08d8511e99113221d4ff5b0b9ad2f94c0326de *src/countryAdapters/no/noRuleMapper.ts
+?? packages/site-parcel-data/src/countryAdapters/no/noRuleMapper.ts

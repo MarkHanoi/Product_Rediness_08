@@ -1,0 +1,15 @@
+[WARN] The "pnpm" field in package.json is no longer read by pnpm. The following keys were ignored: "pnpm.overrides", "pnpm.onlyBuiltDependencies". See https://pnpm.io/settings for the new home of each setting.
+
+> @pryzm/site-parcel-data@0.1.0 test C:\Users\LENOVO\OneDrive\Desktop\PRYZM\Product_Rediness_08\packages\site-parcel-data
+> vitest run
+
+
+ RUN  v4.1.10 C:/Users/LENOVO/OneDrive/Desktop/PRYZM/Product_Rediness_08/packages/site-parcel-data
+
+
+ Test Files  163 passed (163)
+      Tests  3391 passed (3391)
+   Start at  18:48:43
+   Duration  47.04s (transform 37.94s, setup 0ms, import 226.93s, tests 12.68s, environment 36ms)
+
+RC=0

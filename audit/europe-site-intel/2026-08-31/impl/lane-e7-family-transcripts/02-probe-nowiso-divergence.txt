@@ -1,0 +1,27 @@
+npm warn Unknown project config "package-manager-strict". This will stop working in the next major version of npm. See `npm help npmrc` for supported config options.
+
+ RUN  v4.1.10 C:/Users/LENOVO/OneDrive/Desktop/PRYZM/Product_Rediness_08/packages/site-parcel-data
+
+stdout | __tests__/e7FamilyProbe.test.ts > E7 probe A — the two nowIso forms are NOT the same expression > and the difference is LOAD-BEARING: the DK form fails SiteIntelRuleSchema by name
+PROBE-A-THROW: [
+  {
+    "origin": "string",
+    "code": "invalid_format",
+    "format": "regex",
+    "pattern": "/^\\d{4}-\\d{2}-\\d{2}$/",
+    "path": [
+      "provenance",
+      "valid_from"
+    ],
+    "message": "expected an ISO calendar date (YYYY-MM-DD)"
+  }
+]
+
+ ✓ __tests__/e7FamilyProbe.test.ts > E7 probe A — the two nowIso forms are NOT the same expression > DK form keeps the caller timestamp; EE/LT/PL form slices it to a calendar date 3ms
+ ✓ __tests__/e7FamilyProbe.test.ts > E7 probe A — the two nowIso forms are NOT the same expression > and the difference is LOAD-BEARING: the DK form fails SiteIntelRuleSchema by name 7ms
+
+ Test Files  1 passed (1)
+      Tests  2 passed (2)
+   Start at  18:23:12
+   Duration  2.44s (transform 1.42s, setup 0ms, import 2.10s, tests 11ms, environment 0ms)
+

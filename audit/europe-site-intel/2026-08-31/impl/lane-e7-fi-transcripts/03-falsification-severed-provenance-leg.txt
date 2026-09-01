@@ -1,0 +1,34 @@
+npm warn Unknown project config "package-manager-strict". This will stop working in the next major version of npm. See `npm help npmrc` for supported config options.
+
+ RUN  v4.1.10 C:/Users/LENOVO/OneDrive/Desktop/PRYZM/Product_Rediness_08/packages/site-parcel-data
+
+ ❯ __tests__/fiRyhtiAdapter.test.ts (42 tests | 1 failed) 796ms
+     × THE FALSIFICATION TARGET — every rule carries the FI provenance leg 11ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  __tests__/fiRyhtiAdapter.test.ts > E7-FI · block 6 · every cited referent is RETURNED in the same result > THE FALSIFICATION TARGET — every rule carries the FI provenance leg
+AssertionError: fi-AK-005418-planType must cite the national permanent plan identifier: expected null to be 'AK-005418' // Object.is equality
+
+- Expected:
+"AK-005418"
+
++ Received:
+null
+
+ ❯ __tests__/fiRyhtiAdapter.test.ts:435:19
+    433|                     r.provenance.source.plan_id,
+    434|                     `${r.id} must cite the national permanent plan ide…
+    435|                 ).toBe(rp.feature.permanentPlanIdentifier);
+       |                   ^
+    436|                 expect(r.provenance.source.object_id).toBe(rp.feature.…
+    437|                 // The register addresses no article or page for an at…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 41 passed (42)
+   Start at  19:13:42
+   Duration  2.89s (transform 1.33s, setup 0ms, import 1.90s, tests 796ms, environment 0ms)
+

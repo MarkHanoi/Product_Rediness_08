@@ -1,0 +1,5 @@
+npm warn Unknown project config "package-manager-strict". This will stop working in the next major version of npm. See `npm help npmrc` for supported config options.
+
+$? read immediately, no pipe:
+ROOT TSC RC=0
+fi diagnostics: 0

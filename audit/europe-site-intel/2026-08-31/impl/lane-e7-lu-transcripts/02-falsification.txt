@@ -1,0 +1,133 @@
+=== E7-LU FALSIFICATION — EXECUTED 2026-09-01T17:02:12Z ===
+
+TARGET (named in packages/site-parcel-data/__tests__/luAdapter.test.ts header):
+  sever the rule mapper's provenance leg -> "§R2 · every coefficient rule carries its OWN
+  statutory denominator, verbatim" and "§PROV · the rule's legal address survives into
+  provenance.source" must go RED BY NAME.
+
+sha256 of luRuleMapper.ts BEFORE: ca20c4645ed70b64377c2267985b7adced4018320f96cb025ba5b0541736f20b
+
+── CUT 1: valueBasis removed from buildLuRule ──
+npm warn Unknown project config "package-manager-strict". This will stop working in the next major version of npm. See `npm help npmrc` for supported config options.
+
+ RUN  v4.1.10 C:/Users/LENOVO/OneDrive/Desktop/PRYZM/Product_Rediness_08/packages/site-parcel-data
+
+ ❯ __tests__/luAdapter.test.ts (45 tests | 3 failed) 237ms
+     × THE ANTI-AARHUS ASSERTION: COS/CSS are over terrain à bâtir NET, CUS over BRUT, DL per HECTARE of BRUT — three distinct bases on one zone 7ms
+     × every emitted valueBasis code is inside the closed statutory set — an unknown code is a schema change, not a data point 1ms
+     × a null coefficient becomes a tier-6 rule with value null — the row is never dropped 1ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 3 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  __tests__/luAdapter.test.ts > E7-LU · §R2 · every coefficient rule carries its OWN statutory denominator, verbatim > THE ANTI-AARHUS ASSERTION: COS/CSS are over terrain à bâtir NET, CUS over BRUT, DL per HECTARE of BRUT — three distinct bases on one zone
+AssertionError: expected undefined to deeply equal { …(2) }
+
+- Expected:
+{
+  "code": "terrain-a-batir-net",
+  "scheme": "lu-rgd-2017-03-08-pag-annexe-ii",
+}
+
++ Received:
+undefined
+
+ ❯ __tests__/luAdapter.test.ts:384:43
+    382|         const dl = ruleFor(mapped.rules, 'maxDwellingDensity');
+    383|
+    384|         expect(cos.provenance.valueBasis).toEqual({
+       |                                           ^
+    385|             scheme: LU_VALUE_BASIS_SCHEME,
+    386|             code: 'terrain-a-batir-net',
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/3]⎯
+
+ FAIL  __tests__/luAdapter.test.ts > E7-LU · §R2 · every coefficient rule carries its OWN statutory denominator, verbatim > every emitted valueBasis code is inside the closed statutory set — an unknown code is a schema change, not a data point
+AssertionError: expected undefined to be defined
+ ❯ __tests__/luAdapter.test.ts:414:26
+    412|         for (const rule of mapped.rules) {
+    413|             const code = rule.provenance.valueBasis?.code;
+    414|             expect(code).toBeDefined();
+       |                          ^
+    415|             expect(LU_VALUE_BASIS_CODES as readonly string[]).toContai…
+    416|         }
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/3]⎯
+
+ FAIL  __tests__/luAdapter.test.ts > E7-LU · §UNKNOWN · control 9 — null and zero are tier-6, VISIBLE, and counted > a null coefficient becomes a tier-6 rule with value null — the row is never dropped
+AssertionError: expected undefined to deeply equal { …(2) }
+
+- Expected:
+{
+  "code": "terrain-a-batir-net",
+  "scheme": "lu-rgd-2017-03-08-pag-annexe-ii",
+}
+
++ Received:
+undefined
+
+ ❯ __tests__/luAdapter.test.ts:494:46
+    492|         expect(cosMin.provenance.confidence.note).toContain('served as…
+    493|         // R2 survives a tier-6 row: the denominator is a served fact …
+    494|         expect(cosMin.provenance.valueBasis).toEqual({
+       |                                              ^
+    495|             scheme: LU_VALUE_BASIS_SCHEME,
+    496|             code: 'terrain-a-batir-net',
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/3]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  3 failed | 42 passed (45)
+   Start at  19:02:14
+   Duration  2.41s (transform 1.37s, setup 0ms, import 1.93s, tests 237ms, environment 0ms)
+
+CUT1 RC=1
+
+── CUT 2: statutory article removed from luSourceRef ──
+npm warn Unknown project config "package-manager-strict". This will stop working in the next major version of npm. See `npm help npmrc` for supported config options.
+
+ RUN  v4.1.10 C:/Users/LENOVO/OneDrive/Desktop/PRYZM/Product_Rediness_08/packages/site-parcel-data
+
+ ❯ __tests__/luAdapter.test.ts (45 tests | 1 failed) 211ms
+     × names country, authority, dataset, the commune as plan_id, the zone as object_id and the statutory article 6ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  __tests__/luAdapter.test.ts > E7-LU · §PROV · the rule’s legal address survives into provenance.source > names country, authority, dataset, the commune as plan_id, the zone as object_id and the statutory article
+AssertionError: expected 'x' to contain 'Annexe II'
+
+Expected: "Annexe II"
+Received: "x"
+
+ ❯ __tests__/luAdapter.test.ts:599:47
+    597|         // The partie-écrite FILENAME, verbatim — never dressed up as …
+    598|         expect(cos.provenance.source.document).toBe('116_PE_PAP_NQ');
+    599|         expect(cos.provenance.source.article).toContain('Annexe II');
+       |                                               ^
+    600|         expect(cos.provenance.source.article).toContain('RGD 08/03/201…
+    601|         expect(cos.provenance.derivation).toBe('DIRECT');
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 44 passed (45)
+   Start at  19:02:19
+   Duration  2.59s (transform 1.47s, setup 0ms, import 2.09s, tests 211ms, environment 0ms)
+
+CUT2 RC=1
+
+── RESTORE ──
+sha256 AFTER restore : ca20c4645ed70b64377c2267985b7adced4018320f96cb025ba5b0541736f20b
+BYTE-IDENTICAL: YES
+npm warn Unknown project config "package-manager-strict". This will stop working in the next major version of npm. See `npm help npmrc` for supported config options.
+
+ RUN  v4.1.10 C:/Users/LENOVO/OneDrive/Desktop/PRYZM/Product_Rediness_08/packages/site-parcel-data
+
+
+ Test Files  1 passed (1)
+      Tests  45 passed (45)
+   Start at  19:02:24
+   Duration  2.74s (transform 1.54s, setup 0ms, import 2.21s, tests 260ms, environment 0ms)
+
+RESTORED RC=0
