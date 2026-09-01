@@ -96,3 +96,80 @@ the rule-pack/jurisdiction tree, a new EE adapter dir). Every E-lane brief carri
 file list as a DO-NOT-TOUCH set and refuses on contact. E2/E3 launch when E1 verifies.
 DK corrections, NL adapter, LT ASGR, and the §S 6–12-month items queue behind E1/E2 and the
 founder-gated keys.
+
+---
+
+# THE FULL WAVE LADDER (E4 → E11) — the documented path from E3 to "any address in Europe"
+
+> Added 2026-09-01 on the founder's ask. Sources: REPORT §S (6/12/24-month roadmap),
+> DECISION-SUMMARY rows 2/6, the lane evidence, and the E1 gate findings. Each wave gets its
+> full lane briefs AT LAUNCH TIME from the then-current tree (this session's standing pattern);
+> what is fixed HERE is scope, entry condition, and acceptance. The 20-parcel expected-grade
+> baseline (impl/e1a-gate-supplement.md §10) runs at EVERY wave close and may only improve
+> (shrink-only on MISSING, grow-only on DIRECT) — that table is the product's odometer.
+
+## E4 — GATE FIXES + E1b/E1c COMPLETION (immediately after the E1 gate verdict)
+The gate's minimum changes (expected: typed geometryRef referent contract; a machine-readable
+validityBasis; a typed seat for the DK denominator; the thin Source Registry NOW per §7 of the
+supplement) + resume E1bc (rule envelope, Barcelona golden parity, evidence wiring) and E1d
+(Estonia) against the frozen model. ENTRY: the A–F verdict. ACCEPTANCE: E1's original
+acceptance criteria + the gate's fixes each falsified; Estonia end-to-end on both named parcels.
+
+## E5 — CONTEXT EUROPE (the "real LoD surrounding buildings" wave)
+The buildings federation: Overture GeoParquet backbone + national LoD2 override (DE Länder,
+NL 3D basisbestand, …) + EUBUCCO year/type joins, GERS as the conflation key, ODbL layers kept
+SEPARABLE (the one architectural licence constraint); source-priority/dedup/height-confidence
+rules per REPORT §16; terrain cutover per the E3 Mapterhorn verdict; roofer evaluated where
+states publish no LoD2. ENTRY: E3 trial verdicts + MS GlobalML licence resolved (founder item).
+ACCEPTANCE: any EU address renders parcel + neighbours at P1 (extruded mass) with LoD2 where a
+national source serves it, provenance per building; the 20-parcel contextual rows all DIRECT.
+
+## E6 — STRUCTURED-RULE COUNTRIES II (NL · LT · DK corrections · PL)
+NL dual-regime (IMOW/DSO — ENTRY: the founder's API keys); LT ASGR live+FGDB (ENTRY: the
+MAX_INTENS units resolution the audit named); DK keyless re-pin, denominator branch, 4-layer
+ladder; PL after 2026-11-30 (Rejestr Urbanistyczny transition; APP GML 2.0 parser from E2).
+ACCEPTANCE: each country's two baseline parcels resolve with rules DIRECT; refusals carry both
+numbers; no adapter contains business logic (§9 boundary re-audited per country).
+
+## E7 — THE NORDIC/STRUCTURED FAMILY (SE · FI · NO · LU · LV · SI)
+One adapter FAMILY over the six one-national-channel countries (SE NGP + Planbestämmelse-
+katalog, FI Ryhti, NO planregister+NAP, LU/LV/SI per lane 5) — shared vocabulary, per-country
+mappers only. ACCEPTANCE: a new family member costs a mapper + a source-registry row, nothing
+in core; six countries at Level-2 coverage.
+
+## E8 — THE DOCUMENT-RULE PIPELINE (DE · FR · CH — where half of Europe's rules live)
+ONE extraction pipeline, three corpora: DE XPlanGML fast-path (MV-class Länder) + the NRW 82k-
+plan document index as the first corpus-scale run; FR règlement pipeline keyed on GPU idurba;
+CH seeded from ÖREB's per-parcel law references. Every extracted rule: evidence-addressed
+(page/article), AI-tier confidence, human-validation queue — the gate battery from the
+existing extraction machinery extended, never bypassed. ENTRY: E4's rule format frozen; the
+validation loop staffed (the audit's true scaling constraint). ACCEPTANCE: extraction
+precision measured against a human-labelled sample per corpus BEFORE bulk runs; the DE/FR
+20-parcel rule rows move MISSING→AI→HUMAN, never silently to DIRECT.
+
+## E9 — TIME + PROOF PRODUCTISED
+Evidence graph v2: point-in-time queries ("what applied on 2025-01-01") productised on the
+E4 versioning; the coverage heatmap engine (C63 scorecard extended to the 30×7 matrix, fed
+from the Source Registry, published); "why is max height X?" as a user-facing answer.
+ACCEPTANCE: time-travel answers cite the superseded plan; the heatmap regenerates from data.
+
+## E10 — DEVELOPMENT POTENTIAL (the product)
+permitted − existing: existing GFA from ES DNPRC/wfsBU, EE EHR, DK BBR (all probed
+consumable); the scenario engine (brief §3 scenarios); §34-context inference (DE) as the
+flagship derived-envelope capability, always labelled DERIVED. ENTRY: E5 (existing buildings)
++ per-country envelopes from E6-E8. ACCEPTANCE: the DevelopmentPotential entity carries its
+full evidence chain + time anchor (the gate's §6 finding); never-overstate holds on the
+scenario outputs.
+
+## E11 — EXPANSION TRANCHES (the long tail, by evidence not ambition)
+ES autonomous communities (watch Andalucía/Galicia structured delivery) · PT (CRUS +
+regulamentos; BUPi post-pricing-cliff) · IT northern mosaics · BE (Flanders DSI RDF first) ·
+RO via QMAP partner evaluation · monitor SK/GR/BG/HU/CY. UK stays Product-A only (the audit's
+structural verdict). Each tranche enters only with its lane-file evidence refreshed — the
+audit rots; re-probe before building.
+
+## What "done" means
+The BRIEF §34 sentence, measured: any parcel in Europe → what exists (E5) → what rules apply
+(E6-E8, tiered honestly) → what can be built (E2 engine + E10) → shown source-backed in 3D
+(E9) — owning as little raw data infrastructure as possible. The 20-parcel table at every
+wave close is the only progress claim this plan accepts.
