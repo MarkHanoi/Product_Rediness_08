@@ -173,3 +173,26 @@ The BRIEF §34 sentence, measured: any parcel in Europe → what exists (E5) →
 (E6-E8, tiered honestly) → what can be built (E2 engine + E10) → shown source-backed in 3D
 (E9) — owning as little raw data infrastructure as possible. The 20-parcel table at every
 wave close is the only progress claim this plan accepts.
+
+---
+
+# EXECUTION STATUS (updated 2026-09-01, from the waves themselves — re-read the commits, not this line)
+
+| Wave | State | Evidence |
+|---|---|---|
+| **E1a** canonical model | ✅ landed, then **REVISED and FROZEN** | gate verdict REVISE-BEFORE-E1b → R-batch R1–R5 → `§H` freeze + `§RULEFORMAT-RATIFIED` (`1db0482a`) |
+| **E1b/c** evaluator + evidence | ✅ **Barcelona golden parity 100% byte-identical** (11/11) | `1db0482a`; ratification stamps applied at close |
+| **E1d** Estonia | ✅ live end-to-end on both baseline parcels | minted plan + prescription, `maxGrossFloorArea 3500 m² tier-1 DIRECT legal-dated` |
+| **E2** engine debt | ✅ both overstating mechanisms dead · `check-envelope-never-overstates` registered (181 zone-solves, 6 jurisdictions) · Seam-1 adopted · APP GML 2.0 parser off the official XSD | `1db0482a` |
+| **E3** stop-item trials | ✅ Mapterhorn **ADOPT** (behind the compiler, default OFF, `bd5134de`) · ES already-adopted re-verified · FR MNH **ADOPT** (existing sampler unmodified) | `impl/e3a-*`, `impl/e3b-*` |
+| **E4** gate fixes + completion | ✅ closed with the A–G report | `E1-GATE-DECISION.md`, `1db0482a` |
+| **E5** context Europe | 🔄 **investigation COMPLETE** (`9351eb41` + `cfd952ea`) · federation scaffold + terrain seam landed (`bd5134de`) · the buildings federation itself is the remaining build | 46-row DO-NOT-BUILD inventory; ES `conflation: bridge-file` |
+| **E6** structured-rule II | 🔄 **DK ✅** (`bd5134de` — the denominator defect) · **LT ✅ PL ✅** (`01e27417`) · **NL blocked on the founder's DSO keys** | both LT/PL refusals are the deliverables |
+| **E7** Nordic family | ⏸ entry: E6 landed — now true; generalises from EE/DK/LT as three working adapters. **LU joins it as a near-free member** (E5: CC0 GeoPackage at 93.7% fill) | |
+| **E8** document pipeline | ⏸ entry: rule format frozen (✅) + validation loop staffed. **NREL COMPASS (BSD-3) adopted as the extraction spine** rather than built | E5 §D |
+| **E9–E11** | ⏸ as documented above | |
+
+**Standing blockers, all founder-side:** NL DSO API keys (a form) · MS GlobalML licence
+(gates only the Microsoft leg of federation) · the three phantom names · BUPi.
+**Standing engineering blocker:** L-12871 — three overlapping country bboxes must gain
+precedence data BEFORE any of DE/PL/LT is registered as a parcel provider.
