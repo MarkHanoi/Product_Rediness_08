@@ -120,3 +120,50 @@ by the spec — it would move that gesture, not the ruling.
 - The audit's R1 stands as the standing review rule: **any lane proposing a new
   `ComponentDefinitionSchema`, sketch surface, expression engine, refusal vocabulary or AI tool schema
   is rejected on §1 grounds.**
+
+---
+
+# ADDENDUM (2026-09-01) — D9 and D10, ruled to unblock Phase 4
+
+Same authority (the founder's standing delegation). Both are named by the audit §11.2 as Phase-4
+entry conditions.
+
+## D9 — **YES: mint the `component` element kind.** It is the JOIN, not a rival.
+
+The audit's headline gap is that **no bus verb anywhere places a component into a project**. A
+*placed* component is, by every property that matters, an element occurrence: it needs a stable id,
+a level, a host, selection, persistence, undo, a snapshot row and a graph identity. Those are
+exactly what the element model already provides for twenty-odd families.
+
+**The alternative is worse and must be named so it is not drifted into:** a parallel
+"component instance" concept living outside the element model would create a **second citizenship
+class in the World Model** — two answers to "what is in this project", which is C84 EI-9 at the
+largest possible scale and precisely the rival this whole programme exists to avoid.
+
+**Binding conditions, not optional:** the kind is bound by **C84 §6's twelve mandatory sections**;
+the family census row moves **in the same commit** as the kind (the row-and-range rule, one level
+down — it has now failed on contracts seven times and on the index once today); and its verbs carry
+**C69 register rows from the first commit** with **C16 CA-21 executed read-back from the
+AUTHORITATIVE store**, never the DTO store the handler wrote.
+
+**Falsifier:** if placing a component turns out to require no id, level, host, persistence or undo,
+it is not an element and this ruling is wrong. (It requires all five.)
+
+## D10 — **ATTEMPT the descriptor path for one family; the descope is PRE-AUTHORISED.**
+
+Turning it on makes the component family the first production caller of `runtime.scene.mount` and
+constructs the first committer ever built in a browser (audit §0.2 item 4, R13).
+
+**RULING: attempt it in a lane whose failure is survivable, and the slice's acceptance MUST NOT
+depend on it.** The 3-D leg ships through the existing `*FragmentBuilder` path by default; the
+descriptor path is proven separately, and **if it cannot be made to work for one family the
+migration is DESCOPED, not faked** (spec §75) — that outcome is authorised here in advance, so no
+lane is ever under pressure to report a rendering path working when it is not.
+
+**Why pre-authorising the failure is the sound move:** R13 is a rendering-architecture risk on a
+path that has *never run in production*. A lane that must succeed will fake it; a lane permitted to
+fail honestly will measure it. The acceptance is **a rendered instance, not a passing test** —
+and "not rendered" is an acceptable, reportable result.
+
+**Falsifier:** if the FragmentBuilder fallback cannot carry a component's 3-D at all, the descriptor
+path stops being optional and this ruling must be revisited before Phase 4E ships.
