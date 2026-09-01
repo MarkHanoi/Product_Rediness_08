@@ -1,0 +1,131 @@
+LANE E6-PL — INDEPENDENT VERIFICATION RE-RUN (2026-09-01, adversarial pass)
+Re-measures the lane's OWN load-bearing claims instead of transcribing them.
+
+=== 1. THE 401 NEGATIVE CONTROL — re-run, and STRENGTHENED to sha256 ===
+KrajowaIntegracjaPlanowOgolnych                                  HTTP 401 len=96 ct=text/html;charset=UTF-8 sha256=1ef5b68206afdf9b19e23e624fb0c4f167d877d3e2cf1fd75fbe004de54d6ff3
+KrajowaIntegracjaPlanowOgolnychZZZNONSENSE                       HTTP 401 len=96 ct=text/html;charset=UTF-8 sha256=1ef5b68206afdf9b19e23e624fb0c4f167d877d3e2cf1fd75fbe004de54d6ff3
+ZupelnieNieistniejacaUsluga123                                   HTTP 401 len=96 ct=text/html;charset=UTF-8 sha256=1ef5b68206afdf9b19e23e624fb0c4f167d877d3e2cf1fd75fbe004de54d6ff3
+KrajowaIntegracjaMiejscowychPlanowZagospodarowaniaPrzestrzennego HTTP 200 len=23800 ct=text/xml sha256=59c224c98c59a805fa05493d495d4d9a9790698c3d5786c89827e53edcb8d840
+
+VERDICT: the three 401 bodies are BYTE-IDENTICAL BY SHA256 (the report claimed only equal
+length 96). The 401 is that base path's catch-all and is NOT evidence a POG service exists.
+The positive control (KIMPZP) answers 200 text/xml with a real Title:
+<Title>Krajowa Integracja Miejscowych Planów Zagospodarowania Przestrzennego</Title>
+
+=== 2. ULDK — BOTH 20-PARCEL BASELINE PARCELS, LIVE ===
+--- GetParcelById id=146510_8.0309.24%2F35
+0
+146510_8.0309.24/35|mazowieckie|powiat Warszawa|Warszawa (miasto)|5-03-09|24/35|SRID=2180;POLYGON((636949.912510792 487118.535496397,636951.39488307 487114.826462336,636878.994335615 487085.898157001,
+--- GetParcelById id=126105_9.0001.311
+0
+126105_9.0001.311|małopolskie|powiat Kraków|Kraków (miasto)|S-1|311|SRID=2180;POLYGON((567030.97238269 244208.124474604,567035.0477488 244206.014201979,567034.753034944 244205.446469326,567039.2493
+
+=== 3. THE PINNED FIXTURES vs THE LIVE SERVICE (byte comparison) ===
+BYTE-IDENTICAL : warszawa-146510_8.0309.24-35.txt
+BYTE-IDENTICAL : krakow-126105_9.0001.311.txt
+
+=== 4. THE ULDK HONESTY CONTROLS — both answer HTTP 200 (the trap the code encodes) ===
+--- ABSENCE (nonsense id):
+-1 brak wyników
+błędny format odpowiedzi XML, usługa zwróciła odpowiedźZbiorcza baza danych obsłużyła zapytanie.   [HTTP 200]
+--- BAD PARAMETER:
+niepoprawny parametr NieMaTakiego, specyfikacja usługi jest dostępna pod adresem: https://uldk.gugik.gov.pl/opis.html  [HTTP 200]
+Both HTTP 200. Classifying on res.ok would turn a misconfiguration into 'no parcel here'.
+
+=== 5. THE INDEPENDENT CENSUS OF THE OFFICIAL SAMPLE (raw XML, NOT via the adapter) ===
+The control-9 claim (10/10/10/8 absent of 28) re-derived by splitting the fixture into
+StrefaPlanistyczna blocks and counting element presence per block:
+  strefa blocks: 28
+  FAR       ABSENT on 10 of 28  (present 18)
+  coverage  ABSENT on 10 of 28  (present 18)
+  height    ABSENT on 10 of 28  (present 18)
+  green     ABSENT on  8 of 28  (present 20)
+  profilPodstawowy : elements 172 | zones with >=1: 28
+  profilDodatkowy  : elements 14 | zones with >=1: 6
+  => rules 28*(4 ceilings + zoneKind + profilPodstawowy) + 6 profilDodatkowy = 168 + 6 = 174
+AGREES with the adapter's emitted tier-6 counts (10/10/10/8) and its 174-rule census.
+NOTE the 14-vs-6 trap: 14 profilDodatkowy ELEMENTS live on only 6 ZONES (the mapper joins a
+zone's codes into one rule), so the raw element count is NOT the rule count.
+
+=== 6. EXECUTED VERIFICATION (foreground, RCs captured directly) ===
+npm warn Unknown project config "package-manager-strict". This will stop working in the next major version of npm. See `npm help npmrc` for supported config options.
+
+ RUN  v4.1.10 C:/Users/LENOVO/OneDrive/Desktop/PRYZM/Product_Rediness_08/packages/site-parcel-data
+
+
+ Test Files  1 passed (1)
+      Tests  39 passed (39)
+   Start at  17:27:21
+   Duration  3.48s (transform 1.80s, setup 0ms, import 2.66s, tests 169ms, environment 0ms)
+
+RC=0
+
+  npx vitest run __tests__/plAdapter.test.ts   -> Test Files 1 passed | Tests 39 passed (39) | RC=0
+  npx tsc -p packages/site-parcel-data/tsconfig.json --noEmit -> RC=0  (listFiles: 6 countryAdapters/pl files covered)
+  NODE_OPTIONS=--max-old-space-size=8192 npx tsc --noEmit -p tsconfig.json -> RC=0
+    ^ CAVEAT MEASURED, NOT ASSUMED: --listFiles shows ROOT tsc does NOT reach
+      countryAdapters/pl/* (it reaches parsers/appGml/* only, 4 files). Root RC=0 is TRUE
+      but proves nothing about the adapter; the PACKAGE tsc is the arm that covers it.
+  npx vitest run  (WHOLE PACKAGE, re-run 2026-09-01 17:34)
+    -> Test Files 163 passed (163) | Tests 3391 passed (3391) | RC=0
+    ^ SUPERSEDES the report's earlier 'Tests 2 failed | 3389 passed' reading: those two
+      failures were the DK sibling lane mid-edit and are GONE now that it settled.
+
+=== 7. FALSIFICATION (this pass) — corrupt the MAPPER'S OWN attribute wiring ===
+The brief asks: "corrupt one mapped zone attribute -> a test fails naming it; restore
+byte-identically." The report's falsification #1 corrupted the FIXTURE (a value in the GML);
+this one corrupts the MAPPING ITSELF, which is the stronger arm — it is the code under test,
+and a fixture edit is additionally caught by the sha256 pin (so it cannot isolate the mapper).
+
+TARGET: plRuleMapper.ts:649 — the coverage ceiling's source attribute, rewired to FAR's:
+  -  { entry: vocab('maksUdzialPowierzchniZabudowy'), v: strefa.maksUdzialPowierzchniZabudowy },
+  +  { entry: vocab('maksUdzialPowierzchniZabudowy'), v: strefa.maksNadziemnaIntensywnoscZabudowy },
+
+  sha256 BEFORE   45b2dc79fbe3f7f940be530c6fbd8cea2971fbe8209a05551af04ecd8193a5d7
+  sha256 CORRUPT  806d9881ca439650dcc62878c0645ed4beca7ea5f40a733a49e93c9e7407e603
+
+SEEN FAILING (verbatim):
+  ⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+  
+   FAIL  __tests__/plAdapter.test.ts > APP GML 2.0 POG document → canonical rules > maps strefa 1SZ to the lane-audit values, in the document native CRS
+  AssertionError: expected 0.8 to be 50 // Object.is equality
+  
+  - Expected
+  + Received
+  
+  - 50
+  + 0.8
+  
+   ❯ __tests__/plAdapter.test.ts:182:45
+      180|             z.rules.find((r) => r.provenance.parameter === p)!.provena…
+      181|         expect(value('maxFloorAreaRatioAboveGround')).toBe(0.8);
+      182|         expect(value('maxCoveragePercent')).toBe(50);
+         |                                             ^
+      183|         expect(value('maxHeight')).toBe(15);
+      184|         expect(value('minGreenSharePercent')).toBe(50);
+  
+  ⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+  
+  
+   Test Files  1 failed (1)
+  Tests  1 failed | 38 passed (39)   RC=1
+
+  The failure NAMES the corrupted attribute: `maxCoveragePercent` at plAdapter.test.ts:182.
+
+  WHY ONLY ONE TEST FAILED (checked, not shrugged at): the four ceilings are absent on the
+  SAME zones (FAR/coverage/height each absent on the same 10 of 28), so rewiring coverage to
+  FAR leaves the tier-6 census at 10 and only the 1SZ value assertion moves. That is a
+  property of the ministry sample, not a gap in the suite.
+
+  sha256 AFTER RESTORE 45b2dc79fbe3f7f940be530c6fbd8cea2971fbe8209a05551af04ecd8193a5d7
+  == sha256 BEFORE  -> BYTE-IDENTICAL RESTORE CONFIRMED
+  re-run: npx vitest run __tests__/plAdapter.test.ts + appGmlParser.test.ts
+       -> Test Files 2 passed (2) | Tests 63 passed (63)
+
+=== VERDICT OF THIS PASS ===
+Every load-bearing claim re-measured independently HELD, and two were strengthened:
+  * the 401 catch-all is byte-identical by SHA256, not merely by length;
+  * the pinned ULDK fixtures are byte-identical to what the live service serves TODAY.
+One reading was CORRECTED as stale-pessimistic: the whole-package suite is 3391/3391 GREEN
+(the report's 2 failures were the DK sibling lane mid-edit).
+One caveat was ADDED: root tsc does not cover the adapter; the package tsc is the real arm.

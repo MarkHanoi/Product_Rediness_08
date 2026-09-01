@@ -1,0 +1,8 @@
+https://rejestr-urbanistyczny.gov.pl/api/                                        HTTP 200 ct=text/html len=22530
+https://rejestr-urbanistyczny.gov.pl/geoserver/ows?service=WFS&request=GetCapabilities HTTP 200 ct=text/html len=22530
+https://rejestr-urbanistyczny.gov.pl/wfs?service=WFS&request=GetCapabilities&version=2.0.0 HTTP 200 ct=text/html len=22530
+https://rejestr-urbanistyczny.gov.pl/csw?service=CSW&request=GetCapabilities&version=2.0.2 HTTP 200 ct=text/html len=22530
+https://rejestr-urbanistyczny.gov.pl/wms?service=WMS&request=GetCapabilities     HTTP 200 ct=text/html len=22530
+https://api.rejestr-urbanistyczny.gov.pl/                                        curl: (56) Recv failure: Connection was reset
+HTTP 000 ct= len=0
+CURL-ERR

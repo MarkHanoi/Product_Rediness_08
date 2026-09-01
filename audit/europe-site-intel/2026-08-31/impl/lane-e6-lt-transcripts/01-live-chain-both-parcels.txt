@@ -1,0 +1,316 @@
+npm warn Unknown project config "package-manager-strict". This will stop working in the next major version of npm. See `npm help npmrc` for supported config options.
+
+================ PARCEL 0101/0054:0328 ================
+  [fetch] https://osp-sdg.stat.gov.lt/arcgis/rest/services/ntr_sklypai/FeatureServer/0/query
+          body=f=json&where=kadastro_nr+=+'0101/0054:0328'&outFields=unikalus_nr,kadastro_nr,pask_tipas,pask_tipas_pavad,osta_statusas_pavad,sen_pavad,sav_pavad,skl_plotas,data_rk,pastat_sk,adr_sk,st_p,st_p_pavad,kvr_p,kvr_p_pavad,ntr_
+          HTTP 200 bytes=3467
+  [fetch] https://tpdr.planuojustatau.lt/arcgis/rest/services/duomenu_viesinimas/ASGR/MapServer/0/query
+          body=f=json&geometry={"rings":[[[581967.2000000002,6061688.6],[582014.1699999999,6061673.880000001],[582035.04,6061667.220000001],[582050.7199999997,6061662.289999999],[582087.25,6061650.67],[582092.9400000004,6061648.59],[58
+          HTTP 200 bytes=11648
+  [fetch] https://tpdr.planuojustatau.lt/arcgis/rest/services/duomenu_viesinimas/ribos/MapServer/0/query
+          body=f=json&where=TPD_ID+=+203143899&outFields=TPD_ID,ROOT_ID,EIL_NR,NR,PAVAD,PL_RUSIS,PL_PORUSIS,PL_PORUSIS_APRASYMAS,BUSENA,BUSENA_APRASYMAS,TVIRT_DATA,REGISTRUOTA,ISIGALIOJO,ISREGISTRUOTA,GALIOJA_NUO,GALIOJA_IKI,TPD_URL,AK
+          HTTP 200 bytes=2834
+  [fetch] https://tpdr.planuojustatau.lt/arcgis/rest/services/duomenu_viesinimas/ribos/MapServer/0/query
+          body=f=json&where=TPD_ID+=+123025&outFields=TPD_ID,ROOT_ID,EIL_NR,NR,PAVAD,PL_RUSIS,PL_PORUSIS,PL_PORUSIS_APRASYMAS,BUSENA,BUSENA_APRASYMAS,TVIRT_DATA,REGISTRUOTA,ISIGALIOJO,ISREGISTRUOTA,GALIOJA_NUO,GALIOJA_IKI,TPD_URL,AKTUA
+          HTTP 200 bytes=2819
+chain outcome: found
+PARCEL: kadastro_nr=0101/0054:0328 unikalus_nr=440055970193 areaM2=1544 (raw 0.1544 ha) crs=EPSG:3346 ringPts=18 buildings=0 ntrDate=2026-08-01
+  overlaps: [{"register":"protected-areas","percent":0,"names":null},{"register":"cultural-heritage","percent":100,"names":"Vilniaus miesto istorinė dalis, vad. Naujamiesčiu, Vilniaus senojo miesto ir priemiesčių archeologinė vietovė, Vilniaus miesto istorinė dalis, vad. Naujamiesčiu, Vilniaus senamiestis"}]
+ASGR: found
+
+  --- ASGR OBJECTID 90011 (ring 39 pts) ---
+  classifications: PAGR_PASK=KT[TP 203143899 NR T00086338 D 2021-06-02 TPR B_SAV] | NAUD_BUD=null[TP - NR - D - TPR -] | FUNKC_ZON=U_BZ_I_F[TP 203143899 NR T00086338 D 2021-06-02 TPR B_SAV] | NAUD_TIP=null[TP - NR - D - TPR -]
+  numerics: MAX_AUK_M=null | MAX_INTENS=null | MAX_TANKIS=null | MIN_APZELD=null
+  flags: PILN=null ATN_DOK=null PRIORIT=null
+  minted plans: lt-plan-203143899 kind=B_SAV status="Registruotas" adopted=2021-06-02 inForce=2021-06-08
+  minted zone: lt-asgr-zone-90011 national=U_BZ_I_F planId=lt-plan-203143899
+    RULE lt-asgr-90011-landUseMainPurpose
+      param=landUseMainPurpose value="KT" unit=- tier=1 loc=attribute
+      valueBasis=- force="rekomendacinio pobūdžio"
+      validityBasis=legal valid_from=2021-06-02
+      source.plan_id=T00086338 source.document=https://tpdr.planuojustatau.lt/tpdr-ext/tpd?id=203143899 source.object_id=ASGR polygon OBJECTID 90011
+      basis=[{"kind":"zone","ref":"lt-asgr-zone-90011"}] inlineGeom=no
+      note=per-value provenance served by ASGR: PAGR_PASKTP=203143899, PAGR_PASKNR=T00086338, PAGR_PASKD=2021-06-02 (TPD approval date, proven = ribos.TVIRT_DATA 2026-09-01), PAGR_PASKTPR=B_SAV
+    RULE lt-asgr-90011-landUseMode
+      param=landUseMode value=null unit=- tier=6 loc=attribute
+      valueBasis=- force="rekomendacinio pobūdžio"
+      validityBasis=ingestion valid_from=2026-09-01
+      source.plan_id=- source.document=- source.object_id=ASGR polygon OBJECTID 90011
+      basis=[{"kind":"zone","ref":"lt-asgr-zone-90011"}] inlineGeom=no
+      note=ASGR served no NAUD_BUD for this polygon — UNKNOWN, never an absence of regulation. ASGR served no provenance columns for this classification field
+    RULE lt-asgr-90011-functionalZoneType
+      param=functionalZoneType value="U_BZ_I_F" unit=- tier=1 loc=attribute
+      valueBasis=- force="rekomendacinio pobūdžio"
+      validityBasis=legal valid_from=2021-06-02
+      source.plan_id=T00086338 source.document=https://tpdr.planuojustatau.lt/tpdr-ext/tpd?id=203143899 source.object_id=ASGR polygon OBJECTID 90011
+      basis=[{"kind":"zone","ref":"lt-asgr-zone-90011"}] inlineGeom=no
+      note=per-value provenance served by ASGR: FUNKC_ZONTP=203143899, FUNKC_ZONNR=T00086338, FUNKC_ZOND=2021-06-02 (TPD approval date, proven = ribos.TVIRT_DATA 2026-09-01), FUNKC_ZONTPR=B_SAV
+    RULE lt-asgr-90011-territoryUseType
+      param=territoryUseType value=null unit=- tier=6 loc=attribute
+      valueBasis=- force="rekomendacinio pobūdžio"
+      validityBasis=ingestion valid_from=2026-09-01
+      source.plan_id=- source.document=- source.object_id=ASGR polygon OBJECTID 90011
+      basis=[{"kind":"zone","ref":"lt-asgr-zone-90011"}] inlineGeom=no
+      note=ASGR served no NAUD_TIP for this polygon — UNKNOWN, never an absence of regulation. ASGR served no provenance columns for this classification field
+    RULE lt-asgr-90011-maxHeight
+      param=maxHeight value=null unit=m tier=6 loc=attribute
+      valueBasis=lt-height-basis:above-ground-relative force="rekomendacinio pobūdžio"
+      validityBasis=ingestion valid_from=2026-09-01
+      source.plan_id=- source.document=- source.object_id=ASGR polygon OBJECTID 90011
+      basis=[{"kind":"zone","ref":"lt-asgr-zone-90011"}] inlineGeom=no
+      note=ASGR served no MAX_AUK_M for this polygon — UNKNOWN, never 0 and never no-limit · ASGR serves NO per-value provenance for its numeric regulation columns — the *TP/*NR/*D/*TPR families attach to PAGR_PASK/NAUD_BUD/FUNKC_ZON/NAUD_TIP only (measured against the live layer descriptor 2026-09-01). This value therefore has no served legal address and no served validity date. Candidate documents on this 
+    RULE lt-asgr-90011-floorAreaRatio
+      param=floorAreaRatio value=null unit=- tier=6 loc=attribute
+      valueBasis=lt-asgr-intensity-unit:UNRESOLVED-RATIO-OR-PERCENT force="rekomendacinio pobūdžio"
+      validityBasis=ingestion valid_from=2026-09-01
+      source.plan_id=- source.document=- source.object_id=ASGR polygon OBJECTID 90011
+      basis=[{"kind":"zone","ref":"lt-asgr-zone-90011"}] inlineGeom=no
+      note=MAX_INTENS not served for this polygon. The column is REFUSED regardless: its unit is unresolved (see ltRuleMapper.ts header) — UNKNOWN, never 0 and never no-limit. · ASGR serves NO per-value provenance for its numeric regulation columns — the *TP/*NR/*D/*TPR families attach to PAGR_PASK/NAUD_BUD/FUNKC_ZON/NAUD_TIP only (measured against the live layer descriptor 2026-09-01). This value therefore 
+    RULE lt-asgr-90011-coveragePercent
+      param=coveragePercent value=null unit=% tier=6 loc=attribute
+      valueBasis=lt-denominator:zemes-sklypas force="rekomendacinio pobūdžio"
+      validityBasis=ingestion valid_from=2026-09-01
+      source.plan_id=- source.document=- source.object_id=ASGR polygon OBJECTID 90011
+      basis=[{"kind":"zone","ref":"lt-asgr-zone-90011"}] inlineGeom=no
+      note=ASGR served no MAX_TANKIS for this polygon — UNKNOWN, never 0 and never no-limit · ASGR serves NO per-value provenance for its numeric regulation columns — the *TP/*NR/*D/*TPR families attach to PAGR_PASK/NAUD_BUD/FUNKC_ZON/NAUD_TIP only (measured against the live layer descriptor 2026-09-01). This value therefore has no served legal address and no served validity date. Candidate documents on this
+    RULE lt-asgr-90011-minGreenPercent
+      param=minGreenPercent value=null unit=% tier=6 loc=attribute
+      valueBasis=lt-denominator:zemes-sklypas force="rekomendacinio pobūdžio"
+      validityBasis=ingestion valid_from=2026-09-01
+      source.plan_id=- source.document=- source.object_id=ASGR polygon OBJECTID 90011
+      basis=[{"kind":"zone","ref":"lt-asgr-zone-90011"}] inlineGeom=no
+      note=ASGR served no MIN_APZELD for this polygon — UNKNOWN, never 0 and never no-limit · ASGR serves NO per-value provenance for its numeric regulation columns — the *TP/*NR/*D/*TPR families attach to PAGR_PASK/NAUD_BUD/FUNKC_ZON/NAUD_TIP only (measured against the live layer descriptor 2026-09-01). This value therefore has no served legal address and no served validity date. Candidate documents on this
+    RULE lt-asgr-90011-apibendrinimas
+      param=apibendrinimas value="Teritorijoje nustatyta funkcinė zona: U_BZ_I_F, teritorijų planavimo dokumento 203143899 pagrindu. Registravimo data 2021-06-02. Pagrindinė žemės naudojimo paskirtis: KT." unit=- tier=2 loc=in-document-text
+      valueBasis=- force="rekomendacinio pobūdžio"
+      validityBasis=ingestion valid_from=2026-09-01
+      source.plan_id=- source.document=- source.object_id=ASGR polygon OBJECTID 90011
+      basis=[{"kind":"zone","ref":"lt-asgr-zone-90011"}] inlineGeom=no
+      note=ASGR summarising text (APIBENDR), served verbatim on 175,570 of 175,570 polygons (measured 2026-09-01). ⚠ Its own wording calls the source date "Registravimo data" while the field it restates is the APPROVAL date (proven against ribos.TVIRT_DATA) — do not parse dates out of this prose. Numeric limits inside it require the gated extraction pipeline (tier 4→5), never inline parsing.
+
+  --- ASGR OBJECTID 93189 (ring 21 pts) ---
+  classifications: PAGR_PASK=KT[TP 203143899 NR T00086338 D 2021-06-02 TPR B_SAV] | NAUD_BUD=null[TP - NR - D - TPR -] | FUNKC_ZON=U_SK_F[TP 203143899 NR T00086338 D 2021-06-02 TPR B_SAV] | NAUD_TIP=null[TP - NR - D - TPR -]
+  numerics: MAX_AUK_M=null | MAX_INTENS=null | MAX_TANKIS=null | MIN_APZELD=null
+  flags: PILN=null ATN_DOK=null PRIORIT=null
+  minted plans: lt-plan-203143899 kind=B_SAV status="Registruotas" adopted=2021-06-02 inForce=2021-06-08
+  minted zone: lt-asgr-zone-93189 national=U_SK_F planId=lt-plan-203143899
+    RULE lt-asgr-93189-landUseMainPurpose
+      param=landUseMainPurpose value="KT" unit=- tier=1 loc=attribute
+      valueBasis=- force="rekomendacinio pobūdžio"
+      validityBasis=legal valid_from=2021-06-02
+      source.plan_id=T00086338 source.document=https://tpdr.planuojustatau.lt/tpdr-ext/tpd?id=203143899 source.object_id=ASGR polygon OBJECTID 93189
+      basis=[{"kind":"zone","ref":"lt-asgr-zone-93189"}] inlineGeom=no
+      note=per-value provenance served by ASGR: PAGR_PASKTP=203143899, PAGR_PASKNR=T00086338, PAGR_PASKD=2021-06-02 (TPD approval date, proven = ribos.TVIRT_DATA 2026-09-01), PAGR_PASKTPR=B_SAV
+    RULE lt-asgr-93189-landUseMode
+      param=landUseMode value=null unit=- tier=6 loc=attribute
+      valueBasis=- force="rekomendacinio pobūdžio"
+      validityBasis=ingestion valid_from=2026-09-01
+      source.plan_id=- source.document=- source.object_id=ASGR polygon OBJECTID 93189
+      basis=[{"kind":"zone","ref":"lt-asgr-zone-93189"}] inlineGeom=no
+      note=ASGR served no NAUD_BUD for this polygon — UNKNOWN, never an absence of regulation. ASGR served no provenance columns for this classification field
+    RULE lt-asgr-93189-functionalZoneType
+      param=functionalZoneType value="U_SK_F" unit=- tier=1 loc=attribute
+      valueBasis=- force="rekomendacinio pobūdžio"
+      validityBasis=legal valid_from=2021-06-02
+      source.plan_id=T00086338 source.document=https://tpdr.planuojustatau.lt/tpdr-ext/tpd?id=203143899 source.object_id=ASGR polygon OBJECTID 93189
+      basis=[{"kind":"zone","ref":"lt-asgr-zone-93189"}] inlineGeom=no
+      note=per-value provenance served by ASGR: FUNKC_ZONTP=203143899, FUNKC_ZONNR=T00086338, FUNKC_ZOND=2021-06-02 (TPD approval date, proven = ribos.TVIRT_DATA 2026-09-01), FUNKC_ZONTPR=B_SAV
+    RULE lt-asgr-93189-territoryUseType
+      param=territoryUseType value=null unit=- tier=6 loc=attribute
+      valueBasis=- force="rekomendacinio pobūdžio"
+      validityBasis=ingestion valid_from=2026-09-01
+      source.plan_id=- source.document=- source.object_id=ASGR polygon OBJECTID 93189
+      basis=[{"kind":"zone","ref":"lt-asgr-zone-93189"}] inlineGeom=no
+      note=ASGR served no NAUD_TIP for this polygon — UNKNOWN, never an absence of regulation. ASGR served no provenance columns for this classification field
+    RULE lt-asgr-93189-maxHeight
+      param=maxHeight value=null unit=m tier=6 loc=attribute
+      valueBasis=lt-height-basis:above-ground-relative force="rekomendacinio pobūdžio"
+      validityBasis=ingestion valid_from=2026-09-01
+      source.plan_id=- source.document=- source.object_id=ASGR polygon OBJECTID 93189
+      basis=[{"kind":"zone","ref":"lt-asgr-zone-93189"}] inlineGeom=no
+      note=ASGR served no MAX_AUK_M for this polygon — UNKNOWN, never 0 and never no-limit · ASGR serves NO per-value provenance for its numeric regulation columns — the *TP/*NR/*D/*TPR families attach to PAGR_PASK/NAUD_BUD/FUNKC_ZON/NAUD_TIP only (measured against the live layer descriptor 2026-09-01). This value therefore has no served legal address and no served validity date. Candidate documents on this 
+    RULE lt-asgr-93189-floorAreaRatio
+      param=floorAreaRatio value=null unit=- tier=6 loc=attribute
+      valueBasis=lt-asgr-intensity-unit:UNRESOLVED-RATIO-OR-PERCENT force="rekomendacinio pobūdžio"
+      validityBasis=ingestion valid_from=2026-09-01
+      source.plan_id=- source.document=- source.object_id=ASGR polygon OBJECTID 93189
+      basis=[{"kind":"zone","ref":"lt-asgr-zone-93189"}] inlineGeom=no
+      note=MAX_INTENS not served for this polygon. The column is REFUSED regardless: its unit is unresolved (see ltRuleMapper.ts header) — UNKNOWN, never 0 and never no-limit. · ASGR serves NO per-value provenance for its numeric regulation columns — the *TP/*NR/*D/*TPR families attach to PAGR_PASK/NAUD_BUD/FUNKC_ZON/NAUD_TIP only (measured against the live layer descriptor 2026-09-01). This value therefore 
+    RULE lt-asgr-93189-coveragePercent
+      param=coveragePercent value=null unit=% tier=6 loc=attribute
+      valueBasis=lt-denominator:zemes-sklypas force="rekomendacinio pobūdžio"
+      validityBasis=ingestion valid_from=2026-09-01
+      source.plan_id=- source.document=- source.object_id=ASGR polygon OBJECTID 93189
+      basis=[{"kind":"zone","ref":"lt-asgr-zone-93189"}] inlineGeom=no
+      note=ASGR served no MAX_TANKIS for this polygon — UNKNOWN, never 0 and never no-limit · ASGR serves NO per-value provenance for its numeric regulation columns — the *TP/*NR/*D/*TPR families attach to PAGR_PASK/NAUD_BUD/FUNKC_ZON/NAUD_TIP only (measured against the live layer descriptor 2026-09-01). This value therefore has no served legal address and no served validity date. Candidate documents on this
+    RULE lt-asgr-93189-minGreenPercent
+      param=minGreenPercent value=null unit=% tier=6 loc=attribute
+      valueBasis=lt-denominator:zemes-sklypas force="rekomendacinio pobūdžio"
+      validityBasis=ingestion valid_from=2026-09-01
+      source.plan_id=- source.document=- source.object_id=ASGR polygon OBJECTID 93189
+      basis=[{"kind":"zone","ref":"lt-asgr-zone-93189"}] inlineGeom=no
+      note=ASGR served no MIN_APZELD for this polygon — UNKNOWN, never 0 and never no-limit · ASGR serves NO per-value provenance for its numeric regulation columns — the *TP/*NR/*D/*TPR families attach to PAGR_PASK/NAUD_BUD/FUNKC_ZON/NAUD_TIP only (measured against the live layer descriptor 2026-09-01). This value therefore has no served legal address and no served validity date. Candidate documents on this
+    RULE lt-asgr-93189-apibendrinimas
+      param=apibendrinimas value="Teritorijoje nustatyta funkcinė zona: U_SK_F, teritorijų planavimo dokumento 203143899 pagrindu. Registravimo data 2021-06-02. Pagrindinė žemės naudojimo paskirtis: KT." unit=- tier=2 loc=in-document-text
+      valueBasis=- force="rekomendacinio pobūdžio"
+      validityBasis=ingestion valid_from=2026-09-01
+      source.plan_id=- source.document=- source.object_id=ASGR polygon OBJECTID 93189
+      basis=[{"kind":"zone","ref":"lt-asgr-zone-93189"}] inlineGeom=no
+      note=ASGR summarising text (APIBENDR), served verbatim on 175,570 of 175,570 polygons (measured 2026-09-01). ⚠ Its own wording calls the source date "Registravimo data" while the field it restates is the APPROVAL date (proven against ribos.TVIRT_DATA) — do not parse dates out of this prose. Numeric limits inside it require the gated extraction pipeline (tier 4→5), never inline parsing.
+
+  --- ASGR OBJECTID 97619 (ring 11 pts) ---
+  classifications: PAGR_PASK=KT[TP 123025 NR T00087142 D 2021-12-17 TPR K_D] | NAUD_BUD=V;B[TP 123025 NR T00087142 D 2021-12-17 TPR K_D] | FUNKC_ZON=U_SK_F[TP 203143899 NR T00086338 D 2021-06-02 TPR B_SAV] | NAUD_TIP=SI[TP 123025 NR T00087142 D 2021-12-17 TPR K_D]
+  numerics: MAX_AUK_M=25 | MAX_INTENS=1 | MAX_TANKIS=45 | MIN_APZELD=15
+  flags: PILN=null ATN_DOK=null PRIORIT=null
+  minted plans: lt-plan-123025 kind=K_D status="Registruotas" adopted=2021-12-17 inForce=2021-12-21 ; lt-plan-203143899 kind=B_SAV status="Registruotas" adopted=2021-06-02 inForce=2021-06-08
+  minted zone: lt-asgr-zone-97619 national=U_SK_F planId=lt-plan-203143899
+    RULE lt-asgr-97619-landUseMainPurpose
+      param=landUseMainPurpose value="KT" unit=- tier=1 loc=attribute
+      valueBasis=- force="rekomendacinio pobūdžio"
+      validityBasis=legal valid_from=2021-12-17
+      source.plan_id=T00087142 source.document=https://tpdr.planuojustatau.lt/tpdr-ext/tpd?id=123025 source.object_id=ASGR polygon OBJECTID 97619
+      basis=[{"kind":"zone","ref":"lt-asgr-zone-97619"}] inlineGeom=no
+      note=per-value provenance served by ASGR: PAGR_PASKTP=123025, PAGR_PASKNR=T00087142, PAGR_PASKD=2021-12-17 (TPD approval date, proven = ribos.TVIRT_DATA 2026-09-01), PAGR_PASKTPR=K_D
+    RULE lt-asgr-97619-landUseMode
+      param=landUseMode value="V;B" unit=- tier=1 loc=attribute
+      valueBasis=- force="rekomendacinio pobūdžio"
+      validityBasis=legal valid_from=2021-12-17
+      source.plan_id=T00087142 source.document=https://tpdr.planuojustatau.lt/tpdr-ext/tpd?id=123025 source.object_id=ASGR polygon OBJECTID 97619
+      basis=[{"kind":"zone","ref":"lt-asgr-zone-97619"}] inlineGeom=no
+      note=per-value provenance served by ASGR: NAUD_BUDTP=123025, NAUD_BUDNR=T00087142, NAUD_BUDD=2021-12-17 (TPD approval date, proven = ribos.TVIRT_DATA 2026-09-01), NAUD_BUDTPR=K_D
+    RULE lt-asgr-97619-functionalZoneType
+      param=functionalZoneType value="U_SK_F" unit=- tier=1 loc=attribute
+      valueBasis=- force="rekomendacinio pobūdžio"
+      validityBasis=legal valid_from=2021-06-02
+      source.plan_id=T00086338 source.document=https://tpdr.planuojustatau.lt/tpdr-ext/tpd?id=203143899 source.object_id=ASGR polygon OBJECTID 97619
+      basis=[{"kind":"zone","ref":"lt-asgr-zone-97619"}] inlineGeom=no
+      note=per-value provenance served by ASGR: FUNKC_ZONTP=203143899, FUNKC_ZONNR=T00086338, FUNKC_ZOND=2021-06-02 (TPD approval date, proven = ribos.TVIRT_DATA 2026-09-01), FUNKC_ZONTPR=B_SAV
+    RULE lt-asgr-97619-territoryUseType
+      param=territoryUseType value="SI" unit=- tier=1 loc=attribute
+      valueBasis=- force="rekomendacinio pobūdžio"
+      validityBasis=legal valid_from=2021-12-17
+      source.plan_id=T00087142 source.document=https://tpdr.planuojustatau.lt/tpdr-ext/tpd?id=123025 source.object_id=ASGR polygon OBJECTID 97619
+      basis=[{"kind":"zone","ref":"lt-asgr-zone-97619"}] inlineGeom=no
+      note=per-value provenance served by ASGR: NAUD_TIPTP=123025, NAUD_TIPNR=T00087142, NAUD_TIPD=2021-12-17 (TPD approval date, proven = ribos.TVIRT_DATA 2026-09-01), NAUD_TIPTPR=K_D
+    RULE lt-asgr-97619-maxHeight
+      param=maxHeight value=25 unit=m tier=1 loc=attribute
+      valueBasis=lt-height-basis:above-ground-relative force="rekomendacinio pobūdžio"
+      validityBasis=ingestion valid_from=2026-09-01
+      source.plan_id=- source.document=- source.object_id=ASGR polygon OBJECTID 97619
+      basis=[{"kind":"zone","ref":"lt-asgr-zone-97619"}] inlineGeom=no
+      note=ASGR serves NO per-value provenance for its numeric regulation columns — the *TP/*NR/*D/*TPR families attach to PAGR_PASK/NAUD_BUD/FUNKC_ZON/NAUD_TIP only (measured against the live layer descriptor 2026-09-01). This value therefore has no served legal address and no served validity date. Candidate documents on this polygon: PAGR_PASK←TPD 123025 (T00087142, approved 2021-12-17); NAUD_BUD←TPD 12302
+    RULE lt-asgr-97619-floorAreaRatio
+      param=floorAreaRatio value=null unit=- tier=6 loc=attribute
+      valueBasis=lt-asgr-intensity-unit:UNRESOLVED-RATIO-OR-PERCENT force="rekomendacinio pobūdžio"
+      validityBasis=ingestion valid_from=2026-09-01
+      source.plan_id=- source.document=- source.object_id=ASGR polygon OBJECTID 97619
+      basis=[{"kind":"zone","ref":"lt-asgr-zone-97619"}] inlineGeom=no
+      note=REFUSED — MAX_INTENS unit unresolved. Served value 1. As a floor-area RATIO that is 1; as a PERCENT of a ratio it is 0.01 — a 100x difference in buildable area, and the served column demonstrably contains BOTH encodings (measured 2026-09-01: 22,921 of 23,932 filled values <= 10, 1,011 > 10 incl. 122 > 100; TPD T00071674 serves 59 against 21% coverage over 3 storeys, which is only coherent as a per
+    RULE lt-asgr-97619-coveragePercent
+      param=coveragePercent value=45 unit=% tier=1 loc=attribute
+      valueBasis=lt-denominator:zemes-sklypas force="rekomendacinio pobūdžio"
+      validityBasis=ingestion valid_from=2026-09-01
+      source.plan_id=- source.document=- source.object_id=ASGR polygon OBJECTID 97619
+      basis=[{"kind":"zone","ref":"lt-asgr-zone-97619"}] inlineGeom=no
+      note=ASGR serves NO per-value provenance for its numeric regulation columns — the *TP/*NR/*D/*TPR families attach to PAGR_PASK/NAUD_BUD/FUNKC_ZON/NAUD_TIP only (measured against the live layer descriptor 2026-09-01). This value therefore has no served legal address and no served validity date. Candidate documents on this polygon: PAGR_PASK←TPD 123025 (T00087142, approved 2021-12-17); NAUD_BUD←TPD 12302
+    RULE lt-asgr-97619-minGreenPercent
+      param=minGreenPercent value=15 unit=% tier=1 loc=attribute
+      valueBasis=lt-denominator:zemes-sklypas force="rekomendacinio pobūdžio"
+      validityBasis=ingestion valid_from=2026-09-01
+      source.plan_id=- source.document=- source.object_id=ASGR polygon OBJECTID 97619
+      basis=[{"kind":"zone","ref":"lt-asgr-zone-97619"}] inlineGeom=no
+      note=ASGR serves NO per-value provenance for its numeric regulation columns — the *TP/*NR/*D/*TPR families attach to PAGR_PASK/NAUD_BUD/FUNKC_ZON/NAUD_TIP only (measured against the live layer descriptor 2026-09-01). This value therefore has no served legal address and no served validity date. Candidate documents on this polygon: PAGR_PASK←TPD 123025 (T00087142, approved 2021-12-17); NAUD_BUD←TPD 12302
+    RULE lt-asgr-97619-apibendrinimas
+      param=apibendrinimas value="Teritorijoje nustatytas naudojimo būdas: V;B, teritorijų planavimo dokumento 123025 pagrindu. Registravimo data 2021-12-17. Pagrindinė žemės naudojimo paskirtis: KT." unit=- tier=2 loc=in-document-text
+      valueBasis=- force="rekomendacinio pobūdžio"
+      validityBasis=ingestion valid_from=2026-09-01
+      source.plan_id=- source.document=- source.object_id=ASGR polygon OBJECTID 97619
+      basis=[{"kind":"zone","ref":"lt-asgr-zone-97619"}] inlineGeom=no
+      note=ASGR summarising text (APIBENDR), served verbatim on 175,570 of 175,570 polygons (measured 2026-09-01). ⚠ Its own wording calls the source date "Registravimo data" while the field it restates is the APPROVAL date (proven against ribos.TVIRT_DATA) — do not parse dates out of this prose. Numeric limits inside it require the gated extraction pipeline (tier 4→5), never inline parsing.
+
+================ PARCEL 0101/0054:0345 ================
+  [fetch] https://osp-sdg.stat.gov.lt/arcgis/rest/services/ntr_sklypai/FeatureServer/0/query
+          body=f=json&where=kadastro_nr+=+'0101/0054:0345'&outFields=unikalus_nr,kadastro_nr,pask_tipas,pask_tipas_pavad,osta_statusas_pavad,sen_pavad,sav_pavad,skl_plotas,data_rk,pastat_sk,adr_sk,st_p,st_p_pavad,kvr_p,kvr_p_pavad,ntr_
+          HTTP 200 bytes=2986
+  [fetch] https://tpdr.planuojustatau.lt/arcgis/rest/services/duomenu_viesinimas/ASGR/MapServer/0/query
+          body=f=json&geometry={"rings":[[[581829.2690000003,6061948.359999999],[581826.46,6061931.949999999],[581771.9900000002,6061941.48],[581774.3099999996,6061954.199999999],[581776.4500000002,6061953.890000001],[581815.8099999996
+          HTTP 200 bytes=9888
+  [fetch] https://tpdr.planuojustatau.lt/arcgis/rest/services/duomenu_viesinimas/ribos/MapServer/0/query
+          body=f=json&where=TPD_ID+=+203143899&outFields=TPD_ID,ROOT_ID,EIL_NR,NR,PAVAD,PL_RUSIS,PL_PORUSIS,PL_PORUSIS_APRASYMAS,BUSENA,BUSENA_APRASYMAS,TVIRT_DATA,REGISTRUOTA,ISIGALIOJO,ISREGISTRUOTA,GALIOJA_NUO,GALIOJA_IKI,TPD_URL,AK
+          HTTP 200 bytes=2834
+chain outcome: found
+PARCEL: kadastro_nr=0101/0054:0345 unikalus_nr=440063553760 areaM2=775 (raw 0.0775 ha) crs=EPSG:3346 ringPts=8 buildings=0 ntrDate=2026-08-01
+  overlaps: [{"register":"protected-areas","percent":0,"names":null},{"register":"cultural-heritage","percent":100,"names":"Vilniaus miesto istorinė dalis, vad. Naujamiesčiu, Vilniaus senamiestis"}]
+ASGR: found
+
+  --- ASGR OBJECTID 90028 (ring 66 pts) ---
+  classifications: PAGR_PASK=KT[TP 203143899 NR T00086338 D 2021-06-02 TPR B_SAV] | NAUD_BUD=null[TP - NR - D - TPR -] | FUNKC_ZON=U_BZ_I_F[TP 203143899 NR T00086338 D 2021-06-02 TPR B_SAV] | NAUD_TIP=null[TP - NR - D - TPR -]
+  numerics: MAX_AUK_M=null | MAX_INTENS=null | MAX_TANKIS=null | MIN_APZELD=null
+  flags: PILN=null ATN_DOK=null PRIORIT=null
+  minted plans: lt-plan-203143899 kind=B_SAV status="Registruotas" adopted=2021-06-02 inForce=2021-06-08
+  minted zone: lt-asgr-zone-90028 national=U_BZ_I_F planId=lt-plan-203143899
+    RULE lt-asgr-90028-landUseMainPurpose
+      param=landUseMainPurpose value="KT" unit=- tier=1 loc=attribute
+      valueBasis=- force="rekomendacinio pobūdžio"
+      validityBasis=legal valid_from=2021-06-02
+      source.plan_id=T00086338 source.document=https://tpdr.planuojustatau.lt/tpdr-ext/tpd?id=203143899 source.object_id=ASGR polygon OBJECTID 90028
+      basis=[{"kind":"zone","ref":"lt-asgr-zone-90028"}] inlineGeom=no
+      note=per-value provenance served by ASGR: PAGR_PASKTP=203143899, PAGR_PASKNR=T00086338, PAGR_PASKD=2021-06-02 (TPD approval date, proven = ribos.TVIRT_DATA 2026-09-01), PAGR_PASKTPR=B_SAV
+    RULE lt-asgr-90028-landUseMode
+      param=landUseMode value=null unit=- tier=6 loc=attribute
+      valueBasis=- force="rekomendacinio pobūdžio"
+      validityBasis=ingestion valid_from=2026-09-01
+      source.plan_id=- source.document=- source.object_id=ASGR polygon OBJECTID 90028
+      basis=[{"kind":"zone","ref":"lt-asgr-zone-90028"}] inlineGeom=no
+      note=ASGR served no NAUD_BUD for this polygon — UNKNOWN, never an absence of regulation. ASGR served no provenance columns for this classification field
+    RULE lt-asgr-90028-functionalZoneType
+      param=functionalZoneType value="U_BZ_I_F" unit=- tier=1 loc=attribute
+      valueBasis=- force="rekomendacinio pobūdžio"
+      validityBasis=legal valid_from=2021-06-02
+      source.plan_id=T00086338 source.document=https://tpdr.planuojustatau.lt/tpdr-ext/tpd?id=203143899 source.object_id=ASGR polygon OBJECTID 90028
+      basis=[{"kind":"zone","ref":"lt-asgr-zone-90028"}] inlineGeom=no
+      note=per-value provenance served by ASGR: FUNKC_ZONTP=203143899, FUNKC_ZONNR=T00086338, FUNKC_ZOND=2021-06-02 (TPD approval date, proven = ribos.TVIRT_DATA 2026-09-01), FUNKC_ZONTPR=B_SAV
+    RULE lt-asgr-90028-territoryUseType
+      param=territoryUseType value=null unit=- tier=6 loc=attribute
+      valueBasis=- force="rekomendacinio pobūdžio"
+      validityBasis=ingestion valid_from=2026-09-01
+      source.plan_id=- source.document=- source.object_id=ASGR polygon OBJECTID 90028
+      basis=[{"kind":"zone","ref":"lt-asgr-zone-90028"}] inlineGeom=no
+      note=ASGR served no NAUD_TIP for this polygon — UNKNOWN, never an absence of regulation. ASGR served no provenance columns for this classification field
+    RULE lt-asgr-90028-maxHeight
+      param=maxHeight value=null unit=m tier=6 loc=attribute
+      valueBasis=lt-height-basis:above-ground-relative force="rekomendacinio pobūdžio"
+      validityBasis=ingestion valid_from=2026-09-01
+      source.plan_id=- source.document=- source.object_id=ASGR polygon OBJECTID 90028
+      basis=[{"kind":"zone","ref":"lt-asgr-zone-90028"}] inlineGeom=no
+      note=ASGR served no MAX_AUK_M for this polygon — UNKNOWN, never 0 and never no-limit · ASGR serves NO per-value provenance for its numeric regulation columns — the *TP/*NR/*D/*TPR families attach to PAGR_PASK/NAUD_BUD/FUNKC_ZON/NAUD_TIP only (measured against the live layer descriptor 2026-09-01). This value therefore has no served legal address and no served validity date. Candidate documents on this 
+    RULE lt-asgr-90028-floorAreaRatio
+      param=floorAreaRatio value=null unit=- tier=6 loc=attribute
+      valueBasis=lt-asgr-intensity-unit:UNRESOLVED-RATIO-OR-PERCENT force="rekomendacinio pobūdžio"
+      validityBasis=ingestion valid_from=2026-09-01
+      source.plan_id=- source.document=- source.object_id=ASGR polygon OBJECTID 90028
+      basis=[{"kind":"zone","ref":"lt-asgr-zone-90028"}] inlineGeom=no
+      note=MAX_INTENS not served for this polygon. The column is REFUSED regardless: its unit is unresolved (see ltRuleMapper.ts header) — UNKNOWN, never 0 and never no-limit. · ASGR serves NO per-value provenance for its numeric regulation columns — the *TP/*NR/*D/*TPR families attach to PAGR_PASK/NAUD_BUD/FUNKC_ZON/NAUD_TIP only (measured against the live layer descriptor 2026-09-01). This value therefore 
+    RULE lt-asgr-90028-coveragePercent
+      param=coveragePercent value=null unit=% tier=6 loc=attribute
+      valueBasis=lt-denominator:zemes-sklypas force="rekomendacinio pobūdžio"
+      validityBasis=ingestion valid_from=2026-09-01
+      source.plan_id=- source.document=- source.object_id=ASGR polygon OBJECTID 90028
+      basis=[{"kind":"zone","ref":"lt-asgr-zone-90028"}] inlineGeom=no
+      note=ASGR served no MAX_TANKIS for this polygon — UNKNOWN, never 0 and never no-limit · ASGR serves NO per-value provenance for its numeric regulation columns — the *TP/*NR/*D/*TPR families attach to PAGR_PASK/NAUD_BUD/FUNKC_ZON/NAUD_TIP only (measured against the live layer descriptor 2026-09-01). This value therefore has no served legal address and no served validity date. Candidate documents on this
+    RULE lt-asgr-90028-minGreenPercent
+      param=minGreenPercent value=null unit=% tier=6 loc=attribute
+      valueBasis=lt-denominator:zemes-sklypas force="rekomendacinio pobūdžio"
+      validityBasis=ingestion valid_from=2026-09-01
+      source.plan_id=- source.document=- source.object_id=ASGR polygon OBJECTID 90028
+      basis=[{"kind":"zone","ref":"lt-asgr-zone-90028"}] inlineGeom=no
+      note=ASGR served no MIN_APZELD for this polygon — UNKNOWN, never 0 and never no-limit · ASGR serves NO per-value provenance for its numeric regulation columns — the *TP/*NR/*D/*TPR families attach to PAGR_PASK/NAUD_BUD/FUNKC_ZON/NAUD_TIP only (measured against the live layer descriptor 2026-09-01). This value therefore has no served legal address and no served validity date. Candidate documents on this
+    RULE lt-asgr-90028-apibendrinimas
+      param=apibendrinimas value="Teritorijoje nustatyta funkcinė zona: U_BZ_I_F, teritorijų planavimo dokumento 203143899 pagrindu. Registravimo data 2021-06-02. Pagrindinė žemės naudojimo paskirtis: KT." unit=- tier=2 loc=in-document-text
+      valueBasis=- force="rekomendacinio pobūdžio"
+      validityBasis=ingestion valid_from=2026-09-01
+      source.plan_id=- source.document=- source.object_id=ASGR polygon OBJECTID 90028
+      basis=[{"kind":"zone","ref":"lt-asgr-zone-90028"}] inlineGeom=no
+      note=ASGR summarising text (APIBENDR), served verbatim on 175,570 of 175,570 polygons (measured 2026-09-01). ⚠ Its own wording calls the source date "Registravimo data" while the field it restates is the APPROVAL date (proven against ribos.TVIRT_DATA) — do not parse dates out of this prose. Numeric limits inside it require the gated extraction pipeline (tier 4→5), never inline parsing.
+
+recorded 6 responses

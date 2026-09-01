@@ -1,0 +1,1829 @@
+{
+ "__label__": "RECORDED LIVE 2026-09-01 from the Lithuanian national services (tpdr.planuojustatau.lt ASGR + ribos, osp-sdg.stat.gov.lt ntr_sklypai). Keys are `<url>|<decoded form body>`. Re-record with probe-lt-chain.mts.",
+ "https://osp-sdg.stat.gov.lt/arcgis/rest/services/ntr_sklypai/FeatureServer/0/query|f=json&where=kadastro_nr+=+'0101/0054:0328'&outFields=unikalus_nr,kadastro_nr,pask_tipas,pask_tipas_pavad,osta_statusas_pavad,sen_pavad,sav_pavad,skl_plotas,data_rk,pastat_sk,adr_sk,st_p,st_p_pavad,kvr_p,kvr_p_pavad,ntr_duom_data&returnGeometry=true&outSR=3346": {
+  "objectIdFieldName": "objectid",
+  "globalIdFieldName": "",
+  "geometryType": "esriGeometryPolygon",
+  "spatialReference": {
+   "wkid": 2600,
+   "latestWkid": 3346
+  },
+  "fields": [
+   {
+    "name": "unikalus_nr",
+    "alias": "Unikalus žemės sklypo kodas Nekilnojamojo turto kadastre",
+    "type": "esriFieldTypeString",
+    "length": 12
+   },
+   {
+    "name": "kadastro_nr",
+    "alias": "Žemės sklypui suteikiamas žemės sklypo kadastro numeris",
+    "type": "esriFieldTypeString",
+    "length": 14
+   },
+   {
+    "name": "pask_tipas",
+    "alias": "Objekto (žemės sklypo) paskirtis iš NTR paskirčių tipų klasifikatoriaus",
+    "type": "esriFieldTypeSmallInteger"
+   },
+   {
+    "name": "pask_tipas_pavad",
+    "alias": "Objekto (žemės sklypo) paskirties pavadinimas",
+    "type": "esriFieldTypeString",
+    "length": 150
+   },
+   {
+    "name": "osta_statusas_pavad",
+    "alias": "Objekto (žemės sklypo) statuso pavadinimas",
+    "type": "esriFieldTypeString",
+    "length": 150
+   },
+   {
+    "name": "sen_pavad",
+    "alias": "Savivaldybėje esančios seniūnijos pavadinimas (seniūnija) iš Adresų registro",
+    "type": "esriFieldTypeString",
+    "length": 150
+   },
+   {
+    "name": "sav_pavad",
+    "alias": "Savivaldybės pavadinimas iš Adresų registro",
+    "type": "esriFieldTypeString",
+    "length": 100
+   },
+   {
+    "name": "skl_plotas",
+    "alias": "Nekilnojamojo turto registre įregistruoto žemės sklypo plotas, ha",
+    "type": "esriFieldTypeDouble"
+   },
+   {
+    "name": "data_rk",
+    "alias": "Sklypo ribos koregavimo data",
+    "type": "esriFieldTypeDate",
+    "length": 8
+   },
+   {
+    "name": "pastat_sk",
+    "alias": "Pastatų skaičius sklype",
+    "type": "esriFieldTypeSmallInteger"
+   },
+   {
+    "name": "adr_sk",
+    "alias": "Adresų skaičius sklype",
+    "type": "esriFieldTypeSmallInteger"
+   },
+   {
+    "name": "st_p",
+    "alias": "Sklypo ploto dalis (%) persidengianti su bet kokia saugoma teritorija",
+    "type": "esriFieldTypeSmallInteger"
+   },
+   {
+    "name": "st_p_pavad",
+    "alias": "Saugomų teritorijų pavadinimų ir tipų sąrašas su kuriomis persidengia NTR sklypas",
+    "type": "esriFieldTypeString",
+    "length": 2000
+   },
+   {
+    "name": "kvr_p",
+    "alias": "Sklypo ploto dalis (%) persidengianti su kultūros vertybių registro teritorija",
+    "type": "esriFieldTypeSmallInteger"
+   },
+   {
+    "name": "kvr_p_pavad",
+    "alias": "Kultūros vertybių teritorijų pavadinimų ir tipų sąrašas su kuriomis persidengia NTR sklypas",
+    "type": "esriFieldTypeString",
+    "length": 10000
+   },
+   {
+    "name": "ntr_duom_data",
+    "alias": "Registrų centro Nekilnojamojo turto registro duomenų (sklypų ir pastatų) data",
+    "type": "esriFieldTypeString",
+    "length": 10
+   }
+  ],
+  "features": [
+   {
+    "attributes": {
+     "unikalus_nr": "440055970193",
+     "kadastro_nr": "0101/0054:0328",
+     "pask_tipas": 995,
+     "pask_tipas_pavad": null,
+     "osta_statusas_pavad": null,
+     "sen_pavad": null,
+     "sav_pavad": null,
+     "skl_plotas": 0.1544,
+     "data_rk": 1721606400000,
+     "pastat_sk": 0,
+     "adr_sk": 0,
+     "st_p": 0,
+     "st_p_pavad": null,
+     "kvr_p": 100,
+     "kvr_p_pavad": "Vilniaus miesto istorinė dalis, vad. Naujamiesčiu, Vilniaus senojo miesto ir priemiesčių archeologinė vietovė, Vilniaus miesto istorinė dalis, vad. Naujamiesčiu, Vilniaus senamiestis",
+     "ntr_duom_data": "2026-08-01"
+    },
+    "geometry": {
+     "rings": [
+      [
+       [
+        581967.2000000002,
+        6061688.6
+       ],
+       [
+        582014.1699999999,
+        6061673.880000001
+       ],
+       [
+        582035.04,
+        6061667.220000001
+       ],
+       [
+        582050.7199999997,
+        6061662.289999999
+       ],
+       [
+        582087.25,
+        6061650.67
+       ],
+       [
+        582092.9400000004,
+        6061648.59
+       ],
+       [
+        582093.8799999999,
+        6061648.1899999995
+       ],
+       [
+        582082.2000000002,
+        6061639.390000001
+       ],
+       [
+        582074.4299999997,
+        6061641.9
+       ],
+       [
+        582064.75,
+        6061645.119999999
+       ],
+       [
+        582033.4800000004,
+        6061655.109999999
+       ],
+       [
+        582024.54,
+        6061658
+       ],
+       [
+        582015.1299999999,
+        6061660.960000001
+       ],
+       [
+        582010.4900000002,
+        6061662.449999999
+       ],
+       [
+        582003.6399999997,
+        6061664.66
+       ],
+       [
+        581990.3499999996,
+        6061668.99
+       ],
+       [
+        581963.79,
+        6061677.35
+       ],
+       [
+        581967.2000000002,
+        6061688.6
+       ]
+      ]
+     ]
+    }
+   }
+  ]
+ },
+ "https://tpdr.planuojustatau.lt/arcgis/rest/services/duomenu_viesinimas/ASGR/MapServer/0/query|f=json&geometry={\"rings\":[[[581967.2000000002,6061688.6],[582014.1699999999,6061673.880000001],[582035.04,6061667.220000001],[582050.7199999997,6061662.289999999],[582087.25,6061650.67],[582092.9400000004,6061648.59],[582093.8799999999,6061648.1899999995],[582082.2000000002,6061639.390000001],[582074.4299999997,6061641.9],[582064.75,6061645.119999999],[582033.4800000004,6061655.109999999],[582024.54,6061658],[582015.1299999999,6061660.960000001],[582010.4900000002,6061662.449999999],[582003.6399999997,6061664.66],[581990.3499999996,6061668.99],[581963.79,6061677.35],[581967.2000000002,6061688.6]]],\"spatialReference\":{\"wkid\":3346}}&geometryType=esriGeometryPolygon&spatialRel=esriSpatialRelIntersects&inSR=3346&outSR=3346&outFields=OBJECTID,PAGR_PASK,PAGR_PASKTP,PAGR_PASKNR,PAGR_PASKD,PAGR_PASKTPR,NAUD_BUD,NAUD_BUDTP,NAUD_BUDNR,NAUD_BUDD,NAUD_BUDTPR,FUNKC_ZON,FUNKC_ZONTP,FUNKC_ZONNR,FUNKC_ZOND,FUNKC_ZONTPR,NAUD_TIP,NAUD_TIPTP,NAUD_TIPNR,NAUD_TIPD,NAUD_TIPTPR,MAX_AUK_M,MAX_INTENS,MAX_TANKIS,MIN_APZELD,PILN,ATN_DOK,PRIORIT,APIBENDR,VAIZD&returnGeometry=true": {
+  "displayFieldName": "VAIZD",
+  "fieldAliases": {
+   "OBJECTID": "Objekto GIS identifikatorius",
+   "PAGR_PASK": "Pagrindinė žemės naudojimo paskirtis",
+   "PAGR_PASKTP": "Pagrindinės žemės naudojimo paskirties nustatymo pagrindas (TP dokumento sisteminis identifikatorius)",
+   "PAGR_PASKNR": "Pagrindinės žemės naudojimo paskirties nustatymo dokumento numeris",
+   "PAGR_PASKD": "Pagrindinės žemės naudojimo paskirties nustatymo TP dokumento tvirtinimo data",
+   "PAGR_PASKTPR": "Pagrindinės žemės naudojimo paskirties nustatymo TP dokumento planavimo rūšis/porūšis",
+   "NAUD_BUD": "Žemės naudojimo būdas",
+   "NAUD_BUDTP": "Žemės naudojimo būdo nustatymo pagrindas (TP dokumento sisteminis identifikatorius)",
+   "NAUD_BUDNR": "Žemės naudojimo būdo nustatymo TP dokumento NR",
+   "NAUD_BUDD": "Žemės naudojimo būdo nustatymo TP dokumento tvirtinimo data",
+   "NAUD_BUDTPR": "Žemės naudojimo būdo nustatymo TP dokumento planavimo rūšis/porūšis",
+   "FUNKC_ZON": "Funkcinės zonos tipas",
+   "FUNKC_ZONTP": "Funkcinės zonos nustatymo pagrindas (TP dokumento sisteminis identifikatorius)",
+   "FUNKC_ZONNR": "Funkcinės zonos nustatymo TP dokumento numeris",
+   "FUNKC_ZOND": "Funkcinės zonos nustatymo TP dokumento tvirtinimo data",
+   "FUNKC_ZONTPR": "Funkcinę zoną nusakančio TP dokumento planavimo rūšis/porūšis",
+   "NAUD_TIP": "Teritorijos naudojimo tipas",
+   "NAUD_TIPTP": "Teritorijos naudojimo tipo nustatymo pagrindas (TP dokumento sisteminis identifikatorius)",
+   "NAUD_TIPNR": "Teritorijos naudojimo tipo nustatymo TP dokumento numeris",
+   "NAUD_TIPD": "Teritorijos naudojimo tipo nustatymo TP dokumento tvirtinimo data",
+   "NAUD_TIPTPR": "Teritorijos naudojimo tipą nusakančio TP dokumento planavimo rūšis/porūšis",
+   "MAX_AUK_M": "Didžiausias leistinas pastatų aukštis (metrais)",
+   "MAX_INTENS": "Didžiausias leistinas žemės sklypų  užstatymo intensyvumas",
+   "MAX_TANKIS": "Didžiausias leistinas žemės sklypų užstatymo tankis, procentai",
+   "MIN_APZELD": "Mažiausias žemės sklypo apželdinimas (priklausomųjų želdynų ir želdinių teritorijų dalys procentais)",
+   "PILN": "Informacijos pilnumą nusakantis požymis",
+   "ATN_DOK": "Požymis nusakantis, kad teritorijos reglamentai galėjo būti atnaujinti naudojant neerdvinius duomenis",
+   "PRIORIT": "Įgyvendinimo prioritetas",
+   "APIBENDR": "Apibendrinantis tekstas apie teritorijoje galiojantį reglamentą",
+   "VAIZD": "Atvaizdavimui žemėlapyje naudojamas atributas, apimantis žemės naudojimo būdą, naudojimo tipą, funkcinės zonos tipą"
+  },
+  "geometryType": "esriGeometryPolygon",
+  "spatialReference": {
+   "wkid": 2600,
+   "latestWkid": 3346
+  },
+  "fields": [
+   {
+    "name": "OBJECTID",
+    "type": "esriFieldTypeOID",
+    "alias": "Objekto GIS identifikatorius"
+   },
+   {
+    "name": "PAGR_PASK",
+    "type": "esriFieldTypeString",
+    "alias": "Pagrindinė žemės naudojimo paskirtis",
+    "length": 250
+   },
+   {
+    "name": "PAGR_PASKTP",
+    "type": "esriFieldTypeString",
+    "alias": "Pagrindinės žemės naudojimo paskirties nustatymo pagrindas (TP dokumento sisteminis identifikatorius)",
+    "length": 50
+   },
+   {
+    "name": "PAGR_PASKNR",
+    "type": "esriFieldTypeString",
+    "alias": "Pagrindinės žemės naudojimo paskirties nustatymo dokumento numeris",
+    "length": 20
+   },
+   {
+    "name": "PAGR_PASKD",
+    "type": "esriFieldTypeDate",
+    "alias": "Pagrindinės žemės naudojimo paskirties nustatymo TP dokumento tvirtinimo data",
+    "length": 8
+   },
+   {
+    "name": "PAGR_PASKTPR",
+    "type": "esriFieldTypeString",
+    "alias": "Pagrindinės žemės naudojimo paskirties nustatymo TP dokumento planavimo rūšis/porūšis",
+    "length": 20
+   },
+   {
+    "name": "NAUD_BUD",
+    "type": "esriFieldTypeString",
+    "alias": "Žemės naudojimo būdas",
+    "length": 250
+   },
+   {
+    "name": "NAUD_BUDTP",
+    "type": "esriFieldTypeString",
+    "alias": "Žemės naudojimo būdo nustatymo pagrindas (TP dokumento sisteminis identifikatorius)",
+    "length": 50
+   },
+   {
+    "name": "NAUD_BUDNR",
+    "type": "esriFieldTypeString",
+    "alias": "Žemės naudojimo būdo nustatymo TP dokumento NR",
+    "length": 20
+   },
+   {
+    "name": "NAUD_BUDD",
+    "type": "esriFieldTypeDate",
+    "alias": "Žemės naudojimo būdo nustatymo TP dokumento tvirtinimo data",
+    "length": 8
+   },
+   {
+    "name": "NAUD_BUDTPR",
+    "type": "esriFieldTypeString",
+    "alias": "Žemės naudojimo būdo nustatymo TP dokumento planavimo rūšis/porūšis",
+    "length": 20
+   },
+   {
+    "name": "FUNKC_ZON",
+    "type": "esriFieldTypeString",
+    "alias": "Funkcinės zonos tipas",
+    "length": 250
+   },
+   {
+    "name": "FUNKC_ZONTP",
+    "type": "esriFieldTypeString",
+    "alias": "Funkcinės zonos nustatymo pagrindas (TP dokumento sisteminis identifikatorius)",
+    "length": 50
+   },
+   {
+    "name": "FUNKC_ZONNR",
+    "type": "esriFieldTypeString",
+    "alias": "Funkcinės zonos nustatymo TP dokumento numeris",
+    "length": 20
+   },
+   {
+    "name": "FUNKC_ZOND",
+    "type": "esriFieldTypeDate",
+    "alias": "Funkcinės zonos nustatymo TP dokumento tvirtinimo data",
+    "length": 8
+   },
+   {
+    "name": "FUNKC_ZONTPR",
+    "type": "esriFieldTypeString",
+    "alias": "Funkcinę zoną nusakančio TP dokumento planavimo rūšis/porūšis",
+    "length": 20
+   },
+   {
+    "name": "NAUD_TIP",
+    "type": "esriFieldTypeString",
+    "alias": "Teritorijos naudojimo tipas",
+    "length": 250
+   },
+   {
+    "name": "NAUD_TIPTP",
+    "type": "esriFieldTypeString",
+    "alias": "Teritorijos naudojimo tipo nustatymo pagrindas (TP dokumento sisteminis identifikatorius)",
+    "length": 50
+   },
+   {
+    "name": "NAUD_TIPNR",
+    "type": "esriFieldTypeString",
+    "alias": "Teritorijos naudojimo tipo nustatymo TP dokumento numeris",
+    "length": 20
+   },
+   {
+    "name": "NAUD_TIPD",
+    "type": "esriFieldTypeDate",
+    "alias": "Teritorijos naudojimo tipo nustatymo TP dokumento tvirtinimo data",
+    "length": 8
+   },
+   {
+    "name": "NAUD_TIPTPR",
+    "type": "esriFieldTypeString",
+    "alias": "Teritorijos naudojimo tipą nusakančio TP dokumento planavimo rūšis/porūšis",
+    "length": 20
+   },
+   {
+    "name": "MAX_AUK_M",
+    "type": "esriFieldTypeSingle",
+    "alias": "Didžiausias leistinas pastatų aukštis (metrais)"
+   },
+   {
+    "name": "MAX_INTENS",
+    "type": "esriFieldTypeSingle",
+    "alias": "Didžiausias leistinas žemės sklypų  užstatymo intensyvumas"
+   },
+   {
+    "name": "MAX_TANKIS",
+    "type": "esriFieldTypeSmallInteger",
+    "alias": "Didžiausias leistinas žemės sklypų užstatymo tankis, procentai"
+   },
+   {
+    "name": "MIN_APZELD",
+    "type": "esriFieldTypeSmallInteger",
+    "alias": "Mažiausias žemės sklypo apželdinimas (priklausomųjų želdynų ir želdinių teritorijų dalys procentais)"
+   },
+   {
+    "name": "PILN",
+    "type": "esriFieldTypeString",
+    "alias": "Informacijos pilnumą nusakantis požymis",
+    "length": 2
+   },
+   {
+    "name": "ATN_DOK",
+    "type": "esriFieldTypeString",
+    "alias": "Požymis nusakantis, kad teritorijos reglamentai galėjo būti atnaujinti naudojant neerdvinius duomenis",
+    "length": 2
+   },
+   {
+    "name": "PRIORIT",
+    "type": "esriFieldTypeSmallInteger",
+    "alias": "Įgyvendinimo prioritetas"
+   },
+   {
+    "name": "APIBENDR",
+    "type": "esriFieldTypeString",
+    "alias": "Apibendrinantis tekstas apie teritorijoje galiojantį reglamentą",
+    "length": 2000
+   },
+   {
+    "name": "VAIZD",
+    "type": "esriFieldTypeString",
+    "alias": "Atvaizdavimui žemėlapyje naudojamas atributas, apimantis žemės naudojimo būdą, naudojimo tipą, funkcinės zonos tipą",
+    "length": 50
+   }
+  ],
+  "features": [
+   {
+    "attributes": {
+     "OBJECTID": 90011,
+     "PAGR_PASK": "KT",
+     "PAGR_PASKTP": "203143899",
+     "PAGR_PASKNR": "T00086338",
+     "PAGR_PASKD": 1622592000000,
+     "PAGR_PASKTPR": "B_SAV",
+     "NAUD_BUD": null,
+     "NAUD_BUDTP": null,
+     "NAUD_BUDNR": null,
+     "NAUD_BUDD": null,
+     "NAUD_BUDTPR": null,
+     "FUNKC_ZON": "U_BZ_I_F",
+     "FUNKC_ZONTP": "203143899",
+     "FUNKC_ZONNR": "T00086338",
+     "FUNKC_ZOND": 1622592000000,
+     "FUNKC_ZONTPR": "B_SAV",
+     "NAUD_TIP": null,
+     "NAUD_TIPTP": null,
+     "NAUD_TIPNR": null,
+     "NAUD_TIPD": null,
+     "NAUD_TIPTPR": null,
+     "MAX_AUK_M": null,
+     "MAX_INTENS": null,
+     "MAX_TANKIS": null,
+     "MIN_APZELD": null,
+     "PILN": null,
+     "ATN_DOK": null,
+     "PRIORIT": null,
+     "APIBENDR": "Teritorijoje nustatyta funkcinė zona: U_BZ_I_F, teritorijų planavimo dokumento 203143899 pagrindu. Registravimo data 2021-06-02. Pagrindinė žemės naudojimo paskirtis: KT.",
+     "VAIZD": "--U_BZ_I_F"
+    },
+    "geometry": {
+     "rings": [
+      [
+       [
+        582029.5938999997,
+        6061677.843900001
+       ],
+       [
+        582114.0312999999,
+        6061640.718900001
+       ],
+       [
+        582117.4609000003,
+        6061638.8752999995
+       ],
+       [
+        582120.5526999999,
+        6061636.5315000005
+       ],
+       [
+        582123.2247000001,
+        6061633.7345
+       ],
+       [
+        582125.4183,
+        6061630.5001
+       ],
+       [
+        582127.0334999999,
+        6061627.0001
+       ],
+       [
+        582128.0705000004,
+        6061623.2502999995
+       ],
+       [
+        582128.4905000003,
+        6061619.3751
+       ],
+       [
+        582128.4375,
+        6061618.360300001
+       ],
+       [
+        582128.7682999996,
+        6061615.940300001
+       ],
+       [
+        582128.8252999997,
+        6061615.419299999
+       ],
+       [
+        582128.8551000003,
+        6061614.897299999
+       ],
+       [
+        582128.8350999998,
+        6061613.896299999
+       ],
+       [
+        582128.5601000004,
+        6061609.9351
+       ],
+       [
+        582127.3913000003,
+        6061602.5821
+       ],
+       [
+        582125.8300999999,
+        6061592.7751
+       ],
+       [
+        582124.0371000003,
+        6061581.5041000005
+       ],
+       [
+        582122.0453000003,
+        6061568.9833
+       ],
+       [
+        582119.8661000002,
+        6061555.772299999
+       ],
+       [
+        582119.2216999996,
+        6061555.8695
+       ],
+       [
+        582119.1775000002,
+        6061555.644099999
+       ],
+       [
+        582068.6640999997,
+        6061563.506100001
+       ],
+       [
+        582061.4200999998,
+        6061564.040100001
+       ],
+       [
+        582004.9271,
+        6061568.6241
+       ],
+       [
+        582004.7852999996,
+        6061574.7645
+       ],
+       [
+        582003.4671,
+        6061631.801100001
+       ],
+       [
+        581976.6630999995,
+        6061641.4891
+       ],
+       [
+        581956.8163000001,
+        6061642.431500001
+       ],
+       [
+        581956.8311000001,
+        6061642.6161
+       ],
+       [
+        581954.9373000003,
+        6061642.5209
+       ],
+       [
+        581953.4981000004,
+        6061642.5890999995
+       ],
+       [
+        581950.1385000004,
+        6061644.939300001
+       ],
+       [
+        581953.3000999996,
+        6061642.7301
+       ],
+       [
+        581962.3470999999,
+        6061672.5877
+       ],
+       [
+        582012.3805,
+        6061658.073899999
+       ],
+       [
+        582020.2281,
+        6061683.1252999995
+       ],
+       [
+        582023.1523000002,
+        6061681.203299999
+       ],
+       [
+        582029.5938999997,
+        6061677.843900001
+       ]
+      ]
+     ]
+    }
+   },
+   {
+    "attributes": {
+     "OBJECTID": 93189,
+     "PAGR_PASK": "KT",
+     "PAGR_PASKTP": "203143899",
+     "PAGR_PASKNR": "T00086338",
+     "PAGR_PASKD": 1622592000000,
+     "PAGR_PASKTPR": "B_SAV",
+     "NAUD_BUD": null,
+     "NAUD_BUDTP": null,
+     "NAUD_BUDNR": null,
+     "NAUD_BUDD": null,
+     "NAUD_BUDTPR": null,
+     "FUNKC_ZON": "U_SK_F",
+     "FUNKC_ZONTP": "203143899",
+     "FUNKC_ZONNR": "T00086338",
+     "FUNKC_ZOND": 1622592000000,
+     "FUNKC_ZONTPR": "B_SAV",
+     "NAUD_TIP": null,
+     "NAUD_TIPTP": null,
+     "NAUD_TIPNR": null,
+     "NAUD_TIPD": null,
+     "NAUD_TIPTPR": null,
+     "MAX_AUK_M": null,
+     "MAX_INTENS": null,
+     "MAX_TANKIS": null,
+     "MIN_APZELD": null,
+     "PILN": null,
+     "ATN_DOK": null,
+     "PRIORIT": null,
+     "APIBENDR": "Teritorijoje nustatyta funkcinė zona: U_SK_F, teritorijų planavimo dokumento 203143899 pagrindu. Registravimo data 2021-06-02. Pagrindinė žemės naudojimo paskirtis: KT.",
+     "VAIZD": "--U_SK_F"
+    },
+    "geometry": {
+     "rings": [
+      [
+       [
+        582020.2281,
+        6061683.1252999995
+       ],
+       [
+        582012.3805,
+        6061658.073899999
+       ],
+       [
+        581962.3470999999,
+        6061672.5877
+       ],
+       [
+        581963.7900999999,
+        6061677.350099999
+       ],
+       [
+        581967.2001,
+        6061688.600099999
+       ],
+       [
+        581887.9401000002,
+        6061762.4801
+       ],
+       [
+        581784.2525000004,
+        6061789.4706999995
+       ],
+       [
+        581788.1048999997,
+        6061803.7403
+       ],
+       [
+        581795.4764999999,
+        6061801.556500001
+       ],
+       [
+        581937.2610999998,
+        6061764.8072999995
+       ],
+       [
+        581989.0203,
+        6061763.017100001
+       ],
+       [
+        581990.6464999998,
+        6061734.843699999
+       ],
+       [
+        581991.4045000002,
+        6061727.6252999995
+       ],
+       [
+        581992.9609000003,
+        6061720.531300001
+       ],
+       [
+        581995.2735000001,
+        6061713.6719
+       ],
+       [
+        581998.3243000004,
+        6061707.0781
+       ],
+       [
+        582002.0938999997,
+        6061700.8597
+       ],
+       [
+        582006.5021000002,
+        6061695.1251
+       ],
+       [
+        582011.5273000002,
+        6061689.8597
+       ],
+       [
+        582017.0900999997,
+        6061685.1875
+       ],
+       [
+        582020.2281,
+        6061683.1252999995
+       ]
+      ]
+     ]
+    }
+   },
+   {
+    "attributes": {
+     "OBJECTID": 97619,
+     "PAGR_PASK": "KT",
+     "PAGR_PASKTP": "123025",
+     "PAGR_PASKNR": "T00087142",
+     "PAGR_PASKD": 1639699200000,
+     "PAGR_PASKTPR": "K_D",
+     "NAUD_BUD": "V;B",
+     "NAUD_BUDTP": "123025",
+     "NAUD_BUDNR": "T00087142",
+     "NAUD_BUDD": 1639699200000,
+     "NAUD_BUDTPR": "K_D",
+     "FUNKC_ZON": "U_SK_F",
+     "FUNKC_ZONTP": "203143899",
+     "FUNKC_ZONNR": "T00086338",
+     "FUNKC_ZOND": 1622592000000,
+     "FUNKC_ZONTPR": "B_SAV",
+     "NAUD_TIP": "SI",
+     "NAUD_TIPTP": "123025",
+     "NAUD_TIPNR": "T00087142",
+     "NAUD_TIPD": 1639699200000,
+     "NAUD_TIPTPR": "K_D",
+     "MAX_AUK_M": 25,
+     "MAX_INTENS": 1,
+     "MAX_TANKIS": 45,
+     "MIN_APZELD": 15,
+     "PILN": null,
+     "ATN_DOK": null,
+     "PRIORIT": null,
+     "APIBENDR": "Teritorijoje nustatytas naudojimo būdas: V;B, teritorijų planavimo dokumento 123025 pagrindu. Registravimo data 2021-12-17. Pagrindinė žemės naudojimo paskirtis: KT.",
+     "VAIZD": "V--"
+    },
+    "geometry": {
+     "rings": [
+      [
+       [
+        581962.3470999999,
+        6061672.5877
+       ],
+       [
+        581862.6690999996,
+        6061701.5021
+       ],
+       [
+        581860.3290999997,
+        6061692.684900001
+       ],
+       [
+        581847.3384999996,
+        6061694.852299999
+       ],
+       [
+        581771.1624999996,
+        6061707.561899999
+       ],
+       [
+        581762.5279000001,
+        6061709.0024999995
+       ],
+       [
+        581784.2525000004,
+        6061789.4706999995
+       ],
+       [
+        581887.9401000002,
+        6061762.4801
+       ],
+       [
+        581967.2001,
+        6061688.600099999
+       ],
+       [
+        581963.7900999999,
+        6061677.350099999
+       ],
+       [
+        581962.3470999999,
+        6061672.5877
+       ]
+      ]
+     ]
+    }
+   }
+  ]
+ },
+ "https://tpdr.planuojustatau.lt/arcgis/rest/services/duomenu_viesinimas/ribos/MapServer/0/query|f=json&where=TPD_ID+=+203143899&outFields=TPD_ID,ROOT_ID,EIL_NR,NR,PAVAD,PL_RUSIS,PL_PORUSIS,PL_PORUSIS_APRASYMAS,BUSENA,BUSENA_APRASYMAS,TVIRT_DATA,REGISTRUOTA,ISIGALIOJO,ISREGISTRUOTA,GALIOJA_NUO,GALIOJA_IKI,TPD_URL,AKTUALI,VIESAS&returnGeometry=false": {
+  "displayFieldName": "TPD_NR",
+  "fieldAliases": {
+   "TPD_ID": "TPD versijos sisteminis identifikatorius",
+   "ROOT_ID": "TPD šakninės versijos sisteminis identifikatorius",
+   "EIL_NR": "TPD versija",
+   "NR": "TPD registracijos Nr.",
+   "PAVAD": "Pavadinimas",
+   "PL_RUSIS": "Planavimo rūšis",
+   "PL_PORUSIS": "Porūšis",
+   "PL_PORUSIS_APRASYMAS": "Porūšis",
+   "BUSENA": "Būsena",
+   "BUSENA_APRASYMAS": "Būsena",
+   "TVIRT_DATA": "Tvirtinimo data",
+   "REGISTRUOTA": "Registravimo data",
+   "ISIGALIOJO": "Įsigaliojo",
+   "ISREGISTRUOTA": "Išregistruota",
+   "GALIOJA_NUO": "Versijos galiojimo pradžia",
+   "GALIOJA_IKI": "Versijos galiojimo pabaiga",
+   "TPD_URL": "Nuoroda",
+   "AKTUALI": "Aktualumo požymis",
+   "VIESAS": "VIESAS"
+  },
+  "fields": [
+   {
+    "name": "TPD_ID",
+    "type": "esriFieldTypeInteger",
+    "alias": "TPD versijos sisteminis identifikatorius"
+   },
+   {
+    "name": "ROOT_ID",
+    "type": "esriFieldTypeInteger",
+    "alias": "TPD šakninės versijos sisteminis identifikatorius"
+   },
+   {
+    "name": "EIL_NR",
+    "type": "esriFieldTypeInteger",
+    "alias": "TPD versija"
+   },
+   {
+    "name": "NR",
+    "type": "esriFieldTypeString",
+    "alias": "TPD registracijos Nr.",
+    "length": 50
+   },
+   {
+    "name": "PAVAD",
+    "type": "esriFieldTypeString",
+    "alias": "Pavadinimas",
+    "length": 1500
+   },
+   {
+    "name": "PL_RUSIS",
+    "type": "esriFieldTypeString",
+    "alias": "Planavimo rūšis",
+    "length": 50
+   },
+   {
+    "name": "PL_PORUSIS",
+    "type": "esriFieldTypeString",
+    "alias": "Porūšis",
+    "length": 50
+   },
+   {
+    "name": "PL_PORUSIS_APRASYMAS",
+    "type": "esriFieldTypeString",
+    "alias": "Porūšis",
+    "length": 255
+   },
+   {
+    "name": "BUSENA",
+    "type": "esriFieldTypeString",
+    "alias": "Būsena",
+    "length": 50
+   },
+   {
+    "name": "BUSENA_APRASYMAS",
+    "type": "esriFieldTypeString",
+    "alias": "Būsena",
+    "length": 50
+   },
+   {
+    "name": "TVIRT_DATA",
+    "type": "esriFieldTypeDate",
+    "alias": "Tvirtinimo data",
+    "length": 8
+   },
+   {
+    "name": "REGISTRUOTA",
+    "type": "esriFieldTypeDate",
+    "alias": "Registravimo data",
+    "length": 8
+   },
+   {
+    "name": "ISIGALIOJO",
+    "type": "esriFieldTypeDate",
+    "alias": "Įsigaliojo",
+    "length": 8
+   },
+   {
+    "name": "ISREGISTRUOTA",
+    "type": "esriFieldTypeDate",
+    "alias": "Išregistruota",
+    "length": 8
+   },
+   {
+    "name": "GALIOJA_NUO",
+    "type": "esriFieldTypeDate",
+    "alias": "Versijos galiojimo pradžia",
+    "length": 8
+   },
+   {
+    "name": "GALIOJA_IKI",
+    "type": "esriFieldTypeDate",
+    "alias": "Versijos galiojimo pabaiga",
+    "length": 8
+   },
+   {
+    "name": "TPD_URL",
+    "type": "esriFieldTypeString",
+    "alias": "Nuoroda",
+    "length": 255
+   },
+   {
+    "name": "AKTUALI",
+    "type": "esriFieldTypeSmallInteger",
+    "alias": "Aktualumo požymis"
+   },
+   {
+    "name": "VIESAS",
+    "type": "esriFieldTypeSmallInteger",
+    "alias": "VIESAS"
+   }
+  ],
+  "features": [
+   {
+    "attributes": {
+     "TPD_ID": 203143899,
+     "ROOT_ID": 116473,
+     "EIL_NR": 3,
+     "NR": "T00086338",
+     "PAVAD": "Vilniaus miesto savivaldybės teritorijos bendrasis planas",
+     "PL_RUSIS": "K",
+     "PL_PORUSIS": "B_SAV",
+     "PL_PORUSIS_APRASYMAS": "Savivaldybės bendrasis planas",
+     "BUSENA": "R",
+     "BUSENA_APRASYMAS": "Registruotas",
+     "TVIRT_DATA": 1622592000000,
+     "REGISTRUOTA": 1623110400000,
+     "ISIGALIOJO": 1623110400000,
+     "ISREGISTRUOTA": null,
+     "GALIOJA_NUO": 1739269886000,
+     "GALIOJA_IKI": null,
+     "TPD_URL": "https://tpdr.planuojustatau.lt/tpdr-ext/tpd?id=203143899",
+     "AKTUALI": 1,
+     "VIESAS": 1
+    }
+   }
+  ]
+ },
+ "https://tpdr.planuojustatau.lt/arcgis/rest/services/duomenu_viesinimas/ribos/MapServer/0/query|f=json&where=TPD_ID+=+123025&outFields=TPD_ID,ROOT_ID,EIL_NR,NR,PAVAD,PL_RUSIS,PL_PORUSIS,PL_PORUSIS_APRASYMAS,BUSENA,BUSENA_APRASYMAS,TVIRT_DATA,REGISTRUOTA,ISIGALIOJO,ISREGISTRUOTA,GALIOJA_NUO,GALIOJA_IKI,TPD_URL,AKTUALI,VIESAS&returnGeometry=false": {
+  "displayFieldName": "TPD_NR",
+  "fieldAliases": {
+   "TPD_ID": "TPD versijos sisteminis identifikatorius",
+   "ROOT_ID": "TPD šakninės versijos sisteminis identifikatorius",
+   "EIL_NR": "TPD versija",
+   "NR": "TPD registracijos Nr.",
+   "PAVAD": "Pavadinimas",
+   "PL_RUSIS": "Planavimo rūšis",
+   "PL_PORUSIS": "Porūšis",
+   "PL_PORUSIS_APRASYMAS": "Porūšis",
+   "BUSENA": "Būsena",
+   "BUSENA_APRASYMAS": "Būsena",
+   "TVIRT_DATA": "Tvirtinimo data",
+   "REGISTRUOTA": "Registravimo data",
+   "ISIGALIOJO": "Įsigaliojo",
+   "ISREGISTRUOTA": "Išregistruota",
+   "GALIOJA_NUO": "Versijos galiojimo pradžia",
+   "GALIOJA_IKI": "Versijos galiojimo pabaiga",
+   "TPD_URL": "Nuoroda",
+   "AKTUALI": "Aktualumo požymis",
+   "VIESAS": "VIESAS"
+  },
+  "fields": [
+   {
+    "name": "TPD_ID",
+    "type": "esriFieldTypeInteger",
+    "alias": "TPD versijos sisteminis identifikatorius"
+   },
+   {
+    "name": "ROOT_ID",
+    "type": "esriFieldTypeInteger",
+    "alias": "TPD šakninės versijos sisteminis identifikatorius"
+   },
+   {
+    "name": "EIL_NR",
+    "type": "esriFieldTypeInteger",
+    "alias": "TPD versija"
+   },
+   {
+    "name": "NR",
+    "type": "esriFieldTypeString",
+    "alias": "TPD registracijos Nr.",
+    "length": 50
+   },
+   {
+    "name": "PAVAD",
+    "type": "esriFieldTypeString",
+    "alias": "Pavadinimas",
+    "length": 1500
+   },
+   {
+    "name": "PL_RUSIS",
+    "type": "esriFieldTypeString",
+    "alias": "Planavimo rūšis",
+    "length": 50
+   },
+   {
+    "name": "PL_PORUSIS",
+    "type": "esriFieldTypeString",
+    "alias": "Porūšis",
+    "length": 50
+   },
+   {
+    "name": "PL_PORUSIS_APRASYMAS",
+    "type": "esriFieldTypeString",
+    "alias": "Porūšis",
+    "length": 255
+   },
+   {
+    "name": "BUSENA",
+    "type": "esriFieldTypeString",
+    "alias": "Būsena",
+    "length": 50
+   },
+   {
+    "name": "BUSENA_APRASYMAS",
+    "type": "esriFieldTypeString",
+    "alias": "Būsena",
+    "length": 50
+   },
+   {
+    "name": "TVIRT_DATA",
+    "type": "esriFieldTypeDate",
+    "alias": "Tvirtinimo data",
+    "length": 8
+   },
+   {
+    "name": "REGISTRUOTA",
+    "type": "esriFieldTypeDate",
+    "alias": "Registravimo data",
+    "length": 8
+   },
+   {
+    "name": "ISIGALIOJO",
+    "type": "esriFieldTypeDate",
+    "alias": "Įsigaliojo",
+    "length": 8
+   },
+   {
+    "name": "ISREGISTRUOTA",
+    "type": "esriFieldTypeDate",
+    "alias": "Išregistruota",
+    "length": 8
+   },
+   {
+    "name": "GALIOJA_NUO",
+    "type": "esriFieldTypeDate",
+    "alias": "Versijos galiojimo pradžia",
+    "length": 8
+   },
+   {
+    "name": "GALIOJA_IKI",
+    "type": "esriFieldTypeDate",
+    "alias": "Versijos galiojimo pabaiga",
+    "length": 8
+   },
+   {
+    "name": "TPD_URL",
+    "type": "esriFieldTypeString",
+    "alias": "Nuoroda",
+    "length": 255
+   },
+   {
+    "name": "AKTUALI",
+    "type": "esriFieldTypeSmallInteger",
+    "alias": "Aktualumo požymis"
+   },
+   {
+    "name": "VIESAS",
+    "type": "esriFieldTypeSmallInteger",
+    "alias": "VIESAS"
+   }
+  ],
+  "features": [
+   {
+    "attributes": {
+     "TPD_ID": 123025,
+     "ROOT_ID": 123025,
+     "EIL_NR": 1,
+     "NR": "T00087142",
+     "PAVAD": "ŽEMĖS SKLYPO V. MYKOLAIČIO-PUTINO G. 5 DETALIOJO PLANO KEITIMAS",
+     "PL_RUSIS": "K",
+     "PL_PORUSIS": "K_D",
+     "PL_PORUSIS_APRASYMAS": "Detalusis planas",
+     "BUSENA": "R",
+     "BUSENA_APRASYMAS": "Registruotas",
+     "TVIRT_DATA": 1639699200000,
+     "REGISTRUOTA": 1640044800000,
+     "ISIGALIOJO": 1640044800000,
+     "ISREGISTRUOTA": null,
+     "GALIOJA_NUO": 1640089568000,
+     "GALIOJA_IKI": null,
+     "TPD_URL": "https://tpdr.planuojustatau.lt/tpdr-ext/tpd?id=123025",
+     "AKTUALI": 1,
+     "VIESAS": 1
+    }
+   }
+  ]
+ },
+ "https://osp-sdg.stat.gov.lt/arcgis/rest/services/ntr_sklypai/FeatureServer/0/query|f=json&where=kadastro_nr+=+'0101/0054:0345'&outFields=unikalus_nr,kadastro_nr,pask_tipas,pask_tipas_pavad,osta_statusas_pavad,sen_pavad,sav_pavad,skl_plotas,data_rk,pastat_sk,adr_sk,st_p,st_p_pavad,kvr_p,kvr_p_pavad,ntr_duom_data&returnGeometry=true&outSR=3346": {
+  "objectIdFieldName": "objectid",
+  "globalIdFieldName": "",
+  "geometryType": "esriGeometryPolygon",
+  "spatialReference": {
+   "wkid": 2600,
+   "latestWkid": 3346
+  },
+  "fields": [
+   {
+    "name": "unikalus_nr",
+    "alias": "Unikalus žemės sklypo kodas Nekilnojamojo turto kadastre",
+    "type": "esriFieldTypeString",
+    "length": 12
+   },
+   {
+    "name": "kadastro_nr",
+    "alias": "Žemės sklypui suteikiamas žemės sklypo kadastro numeris",
+    "type": "esriFieldTypeString",
+    "length": 14
+   },
+   {
+    "name": "pask_tipas",
+    "alias": "Objekto (žemės sklypo) paskirtis iš NTR paskirčių tipų klasifikatoriaus",
+    "type": "esriFieldTypeSmallInteger"
+   },
+   {
+    "name": "pask_tipas_pavad",
+    "alias": "Objekto (žemės sklypo) paskirties pavadinimas",
+    "type": "esriFieldTypeString",
+    "length": 150
+   },
+   {
+    "name": "osta_statusas_pavad",
+    "alias": "Objekto (žemės sklypo) statuso pavadinimas",
+    "type": "esriFieldTypeString",
+    "length": 150
+   },
+   {
+    "name": "sen_pavad",
+    "alias": "Savivaldybėje esančios seniūnijos pavadinimas (seniūnija) iš Adresų registro",
+    "type": "esriFieldTypeString",
+    "length": 150
+   },
+   {
+    "name": "sav_pavad",
+    "alias": "Savivaldybės pavadinimas iš Adresų registro",
+    "type": "esriFieldTypeString",
+    "length": 100
+   },
+   {
+    "name": "skl_plotas",
+    "alias": "Nekilnojamojo turto registre įregistruoto žemės sklypo plotas, ha",
+    "type": "esriFieldTypeDouble"
+   },
+   {
+    "name": "data_rk",
+    "alias": "Sklypo ribos koregavimo data",
+    "type": "esriFieldTypeDate",
+    "length": 8
+   },
+   {
+    "name": "pastat_sk",
+    "alias": "Pastatų skaičius sklype",
+    "type": "esriFieldTypeSmallInteger"
+   },
+   {
+    "name": "adr_sk",
+    "alias": "Adresų skaičius sklype",
+    "type": "esriFieldTypeSmallInteger"
+   },
+   {
+    "name": "st_p",
+    "alias": "Sklypo ploto dalis (%) persidengianti su bet kokia saugoma teritorija",
+    "type": "esriFieldTypeSmallInteger"
+   },
+   {
+    "name": "st_p_pavad",
+    "alias": "Saugomų teritorijų pavadinimų ir tipų sąrašas su kuriomis persidengia NTR sklypas",
+    "type": "esriFieldTypeString",
+    "length": 2000
+   },
+   {
+    "name": "kvr_p",
+    "alias": "Sklypo ploto dalis (%) persidengianti su kultūros vertybių registro teritorija",
+    "type": "esriFieldTypeSmallInteger"
+   },
+   {
+    "name": "kvr_p_pavad",
+    "alias": "Kultūros vertybių teritorijų pavadinimų ir tipų sąrašas su kuriomis persidengia NTR sklypas",
+    "type": "esriFieldTypeString",
+    "length": 10000
+   },
+   {
+    "name": "ntr_duom_data",
+    "alias": "Registrų centro Nekilnojamojo turto registro duomenų (sklypų ir pastatų) data",
+    "type": "esriFieldTypeString",
+    "length": 10
+   }
+  ],
+  "features": [
+   {
+    "attributes": {
+     "unikalus_nr": "440063553760",
+     "kadastro_nr": "0101/0054:0345",
+     "pask_tipas": 995,
+     "pask_tipas_pavad": null,
+     "osta_statusas_pavad": null,
+     "sen_pavad": null,
+     "sav_pavad": null,
+     "skl_plotas": 0.0775,
+     "data_rk": 1718668800000,
+     "pastat_sk": 0,
+     "adr_sk": 0,
+     "st_p": 0,
+     "st_p_pavad": null,
+     "kvr_p": 100,
+     "kvr_p_pavad": "Vilniaus miesto istorinė dalis, vad. Naujamiesčiu, Vilniaus senamiestis",
+     "ntr_duom_data": "2026-08-01"
+    },
+    "geometry": {
+     "rings": [
+      [
+       [
+        581829.2690000003,
+        6061948.359999999
+       ],
+       [
+        581826.46,
+        6061931.949999999
+       ],
+       [
+        581771.9900000002,
+        6061941.48
+       ],
+       [
+        581774.3099999996,
+        6061954.199999999
+       ],
+       [
+        581776.4500000002,
+        6061953.890000001
+       ],
+       [
+        581815.8099999996,
+        6061948.289999999
+       ],
+       [
+        581828.9400000004,
+        6061948.369999999
+       ],
+       [
+        581829.2690000003,
+        6061948.359999999
+       ]
+      ]
+     ]
+    }
+   }
+  ]
+ },
+ "https://tpdr.planuojustatau.lt/arcgis/rest/services/duomenu_viesinimas/ASGR/MapServer/0/query|f=json&geometry={\"rings\":[[[581829.2690000003,6061948.359999999],[581826.46,6061931.949999999],[581771.9900000002,6061941.48],[581774.3099999996,6061954.199999999],[581776.4500000002,6061953.890000001],[581815.8099999996,6061948.289999999],[581828.9400000004,6061948.369999999],[581829.2690000003,6061948.359999999]]],\"spatialReference\":{\"wkid\":3346}}&geometryType=esriGeometryPolygon&spatialRel=esriSpatialRelIntersects&inSR=3346&outSR=3346&outFields=OBJECTID,PAGR_PASK,PAGR_PASKTP,PAGR_PASKNR,PAGR_PASKD,PAGR_PASKTPR,NAUD_BUD,NAUD_BUDTP,NAUD_BUDNR,NAUD_BUDD,NAUD_BUDTPR,FUNKC_ZON,FUNKC_ZONTP,FUNKC_ZONNR,FUNKC_ZOND,FUNKC_ZONTPR,NAUD_TIP,NAUD_TIPTP,NAUD_TIPNR,NAUD_TIPD,NAUD_TIPTPR,MAX_AUK_M,MAX_INTENS,MAX_TANKIS,MIN_APZELD,PILN,ATN_DOK,PRIORIT,APIBENDR,VAIZD&returnGeometry=true": {
+  "displayFieldName": "VAIZD",
+  "fieldAliases": {
+   "OBJECTID": "Objekto GIS identifikatorius",
+   "PAGR_PASK": "Pagrindinė žemės naudojimo paskirtis",
+   "PAGR_PASKTP": "Pagrindinės žemės naudojimo paskirties nustatymo pagrindas (TP dokumento sisteminis identifikatorius)",
+   "PAGR_PASKNR": "Pagrindinės žemės naudojimo paskirties nustatymo dokumento numeris",
+   "PAGR_PASKD": "Pagrindinės žemės naudojimo paskirties nustatymo TP dokumento tvirtinimo data",
+   "PAGR_PASKTPR": "Pagrindinės žemės naudojimo paskirties nustatymo TP dokumento planavimo rūšis/porūšis",
+   "NAUD_BUD": "Žemės naudojimo būdas",
+   "NAUD_BUDTP": "Žemės naudojimo būdo nustatymo pagrindas (TP dokumento sisteminis identifikatorius)",
+   "NAUD_BUDNR": "Žemės naudojimo būdo nustatymo TP dokumento NR",
+   "NAUD_BUDD": "Žemės naudojimo būdo nustatymo TP dokumento tvirtinimo data",
+   "NAUD_BUDTPR": "Žemės naudojimo būdo nustatymo TP dokumento planavimo rūšis/porūšis",
+   "FUNKC_ZON": "Funkcinės zonos tipas",
+   "FUNKC_ZONTP": "Funkcinės zonos nustatymo pagrindas (TP dokumento sisteminis identifikatorius)",
+   "FUNKC_ZONNR": "Funkcinės zonos nustatymo TP dokumento numeris",
+   "FUNKC_ZOND": "Funkcinės zonos nustatymo TP dokumento tvirtinimo data",
+   "FUNKC_ZONTPR": "Funkcinę zoną nusakančio TP dokumento planavimo rūšis/porūšis",
+   "NAUD_TIP": "Teritorijos naudojimo tipas",
+   "NAUD_TIPTP": "Teritorijos naudojimo tipo nustatymo pagrindas (TP dokumento sisteminis identifikatorius)",
+   "NAUD_TIPNR": "Teritorijos naudojimo tipo nustatymo TP dokumento numeris",
+   "NAUD_TIPD": "Teritorijos naudojimo tipo nustatymo TP dokumento tvirtinimo data",
+   "NAUD_TIPTPR": "Teritorijos naudojimo tipą nusakančio TP dokumento planavimo rūšis/porūšis",
+   "MAX_AUK_M": "Didžiausias leistinas pastatų aukštis (metrais)",
+   "MAX_INTENS": "Didžiausias leistinas žemės sklypų  užstatymo intensyvumas",
+   "MAX_TANKIS": "Didžiausias leistinas žemės sklypų užstatymo tankis, procentai",
+   "MIN_APZELD": "Mažiausias žemės sklypo apželdinimas (priklausomųjų želdynų ir želdinių teritorijų dalys procentais)",
+   "PILN": "Informacijos pilnumą nusakantis požymis",
+   "ATN_DOK": "Požymis nusakantis, kad teritorijos reglamentai galėjo būti atnaujinti naudojant neerdvinius duomenis",
+   "PRIORIT": "Įgyvendinimo prioritetas",
+   "APIBENDR": "Apibendrinantis tekstas apie teritorijoje galiojantį reglamentą",
+   "VAIZD": "Atvaizdavimui žemėlapyje naudojamas atributas, apimantis žemės naudojimo būdą, naudojimo tipą, funkcinės zonos tipą"
+  },
+  "geometryType": "esriGeometryPolygon",
+  "spatialReference": {
+   "wkid": 2600,
+   "latestWkid": 3346
+  },
+  "fields": [
+   {
+    "name": "OBJECTID",
+    "type": "esriFieldTypeOID",
+    "alias": "Objekto GIS identifikatorius"
+   },
+   {
+    "name": "PAGR_PASK",
+    "type": "esriFieldTypeString",
+    "alias": "Pagrindinė žemės naudojimo paskirtis",
+    "length": 250
+   },
+   {
+    "name": "PAGR_PASKTP",
+    "type": "esriFieldTypeString",
+    "alias": "Pagrindinės žemės naudojimo paskirties nustatymo pagrindas (TP dokumento sisteminis identifikatorius)",
+    "length": 50
+   },
+   {
+    "name": "PAGR_PASKNR",
+    "type": "esriFieldTypeString",
+    "alias": "Pagrindinės žemės naudojimo paskirties nustatymo dokumento numeris",
+    "length": 20
+   },
+   {
+    "name": "PAGR_PASKD",
+    "type": "esriFieldTypeDate",
+    "alias": "Pagrindinės žemės naudojimo paskirties nustatymo TP dokumento tvirtinimo data",
+    "length": 8
+   },
+   {
+    "name": "PAGR_PASKTPR",
+    "type": "esriFieldTypeString",
+    "alias": "Pagrindinės žemės naudojimo paskirties nustatymo TP dokumento planavimo rūšis/porūšis",
+    "length": 20
+   },
+   {
+    "name": "NAUD_BUD",
+    "type": "esriFieldTypeString",
+    "alias": "Žemės naudojimo būdas",
+    "length": 250
+   },
+   {
+    "name": "NAUD_BUDTP",
+    "type": "esriFieldTypeString",
+    "alias": "Žemės naudojimo būdo nustatymo pagrindas (TP dokumento sisteminis identifikatorius)",
+    "length": 50
+   },
+   {
+    "name": "NAUD_BUDNR",
+    "type": "esriFieldTypeString",
+    "alias": "Žemės naudojimo būdo nustatymo TP dokumento NR",
+    "length": 20
+   },
+   {
+    "name": "NAUD_BUDD",
+    "type": "esriFieldTypeDate",
+    "alias": "Žemės naudojimo būdo nustatymo TP dokumento tvirtinimo data",
+    "length": 8
+   },
+   {
+    "name": "NAUD_BUDTPR",
+    "type": "esriFieldTypeString",
+    "alias": "Žemės naudojimo būdo nustatymo TP dokumento planavimo rūšis/porūšis",
+    "length": 20
+   },
+   {
+    "name": "FUNKC_ZON",
+    "type": "esriFieldTypeString",
+    "alias": "Funkcinės zonos tipas",
+    "length": 250
+   },
+   {
+    "name": "FUNKC_ZONTP",
+    "type": "esriFieldTypeString",
+    "alias": "Funkcinės zonos nustatymo pagrindas (TP dokumento sisteminis identifikatorius)",
+    "length": 50
+   },
+   {
+    "name": "FUNKC_ZONNR",
+    "type": "esriFieldTypeString",
+    "alias": "Funkcinės zonos nustatymo TP dokumento numeris",
+    "length": 20
+   },
+   {
+    "name": "FUNKC_ZOND",
+    "type": "esriFieldTypeDate",
+    "alias": "Funkcinės zonos nustatymo TP dokumento tvirtinimo data",
+    "length": 8
+   },
+   {
+    "name": "FUNKC_ZONTPR",
+    "type": "esriFieldTypeString",
+    "alias": "Funkcinę zoną nusakančio TP dokumento planavimo rūšis/porūšis",
+    "length": 20
+   },
+   {
+    "name": "NAUD_TIP",
+    "type": "esriFieldTypeString",
+    "alias": "Teritorijos naudojimo tipas",
+    "length": 250
+   },
+   {
+    "name": "NAUD_TIPTP",
+    "type": "esriFieldTypeString",
+    "alias": "Teritorijos naudojimo tipo nustatymo pagrindas (TP dokumento sisteminis identifikatorius)",
+    "length": 50
+   },
+   {
+    "name": "NAUD_TIPNR",
+    "type": "esriFieldTypeString",
+    "alias": "Teritorijos naudojimo tipo nustatymo TP dokumento numeris",
+    "length": 20
+   },
+   {
+    "name": "NAUD_TIPD",
+    "type": "esriFieldTypeDate",
+    "alias": "Teritorijos naudojimo tipo nustatymo TP dokumento tvirtinimo data",
+    "length": 8
+   },
+   {
+    "name": "NAUD_TIPTPR",
+    "type": "esriFieldTypeString",
+    "alias": "Teritorijos naudojimo tipą nusakančio TP dokumento planavimo rūšis/porūšis",
+    "length": 20
+   },
+   {
+    "name": "MAX_AUK_M",
+    "type": "esriFieldTypeSingle",
+    "alias": "Didžiausias leistinas pastatų aukštis (metrais)"
+   },
+   {
+    "name": "MAX_INTENS",
+    "type": "esriFieldTypeSingle",
+    "alias": "Didžiausias leistinas žemės sklypų  užstatymo intensyvumas"
+   },
+   {
+    "name": "MAX_TANKIS",
+    "type": "esriFieldTypeSmallInteger",
+    "alias": "Didžiausias leistinas žemės sklypų užstatymo tankis, procentai"
+   },
+   {
+    "name": "MIN_APZELD",
+    "type": "esriFieldTypeSmallInteger",
+    "alias": "Mažiausias žemės sklypo apželdinimas (priklausomųjų želdynų ir želdinių teritorijų dalys procentais)"
+   },
+   {
+    "name": "PILN",
+    "type": "esriFieldTypeString",
+    "alias": "Informacijos pilnumą nusakantis požymis",
+    "length": 2
+   },
+   {
+    "name": "ATN_DOK",
+    "type": "esriFieldTypeString",
+    "alias": "Požymis nusakantis, kad teritorijos reglamentai galėjo būti atnaujinti naudojant neerdvinius duomenis",
+    "length": 2
+   },
+   {
+    "name": "PRIORIT",
+    "type": "esriFieldTypeSmallInteger",
+    "alias": "Įgyvendinimo prioritetas"
+   },
+   {
+    "name": "APIBENDR",
+    "type": "esriFieldTypeString",
+    "alias": "Apibendrinantis tekstas apie teritorijoje galiojantį reglamentą",
+    "length": 2000
+   },
+   {
+    "name": "VAIZD",
+    "type": "esriFieldTypeString",
+    "alias": "Atvaizdavimui žemėlapyje naudojamas atributas, apimantis žemės naudojimo būdą, naudojimo tipą, funkcinės zonos tipą",
+    "length": 50
+   }
+  ],
+  "features": [
+   {
+    "attributes": {
+     "OBJECTID": 90028,
+     "PAGR_PASK": "KT",
+     "PAGR_PASKTP": "203143899",
+     "PAGR_PASKNR": "T00086338",
+     "PAGR_PASKD": 1622592000000,
+     "PAGR_PASKTPR": "B_SAV",
+     "NAUD_BUD": null,
+     "NAUD_BUDTP": null,
+     "NAUD_BUDNR": null,
+     "NAUD_BUDD": null,
+     "NAUD_BUDTPR": null,
+     "FUNKC_ZON": "U_BZ_I_F",
+     "FUNKC_ZONTP": "203143899",
+     "FUNKC_ZONNR": "T00086338",
+     "FUNKC_ZOND": 1622592000000,
+     "FUNKC_ZONTPR": "B_SAV",
+     "NAUD_TIP": null,
+     "NAUD_TIPTP": null,
+     "NAUD_TIPNR": null,
+     "NAUD_TIPD": null,
+     "NAUD_TIPTPR": null,
+     "MAX_AUK_M": null,
+     "MAX_INTENS": null,
+     "MAX_TANKIS": null,
+     "MIN_APZELD": null,
+     "PILN": null,
+     "ATN_DOK": null,
+     "PRIORIT": null,
+     "APIBENDR": "Teritorijoje nustatyta funkcinė zona: U_BZ_I_F, teritorijų planavimo dokumento 203143899 pagrindu. Registravimo data 2021-06-02. Pagrindinė žemės naudojimo paskirtis: KT.",
+     "VAIZD": "--U_BZ_I_F"
+    },
+    "geometry": {
+     "rings": [
+      [
+       [
+        581815.1173,
+        6061948.411699999
+       ],
+       [
+        581825.5537,
+        6061948.388699999
+       ],
+       [
+        581841.8167000003,
+        6061948.515900001
+       ],
+       [
+        581843.4929,
+        6061948.1953
+       ],
+       [
+        581844.9188999999,
+        6061947.9493
+       ],
+       [
+        581844.9101,
+        6061947.8901
+       ],
+       [
+        581843.6801000005,
+        6061939.100099999
+       ],
+       [
+        581844.3268999998,
+        6061923.880899999
+       ],
+       [
+        581845.0201000003,
+        6061907.5701
+       ],
+       [
+        581878.3300999999,
+        6061907.530099999
+       ],
+       [
+        581879.9962999998,
+        6061917.7151
+       ],
+       [
+        581883.8400999997,
+        6061941.210100001
+       ],
+       [
+        581883.8447000002,
+        6061941.232899999
+       ],
+       [
+        581883.9633,
+        6061941.212300001
+       ],
+       [
+        581897.8652999997,
+        6061938.0781
+       ],
+       [
+        581936.3359000003,
+        6061930.820699999
+       ],
+       [
+        581944.4649,
+        6061929.2871
+       ],
+       [
+        581967.2893000003,
+        6061924.9813
+       ],
+       [
+        581978.6650999999,
+        6061922.8353
+       ],
+       [
+        581978.6869000001,
+        6061922.446900001
+       ],
+       [
+        581979.6388999997,
+        6061922.265900001
+       ],
+       [
+        581980.5270999996,
+        6061907.8213
+       ],
+       [
+        581982.6699000001,
+        6061872.968699999
+       ],
+       [
+        581983.7407,
+        6061854.448100001
+       ],
+       [
+        581984.9824999999,
+        6061832.968699999
+       ],
+       [
+        581989.0203,
+        6061763.017100001
+       ],
+       [
+        581937.2610999998,
+        6061764.8072999995
+       ],
+       [
+        581795.4764999999,
+        6061801.556500001
+       ],
+       [
+        581788.1048999997,
+        6061803.7403
+       ],
+       [
+        581784.2525000004,
+        6061789.4706999995
+       ],
+       [
+        581783.4101,
+        6061789.690099999
+       ],
+       [
+        581772.3101000004,
+        6061747.700099999
+       ],
+       [
+        581767.4200999998,
+        6061729.130100001
+       ],
+       [
+        581756.4501,
+        6061730.280099999
+       ],
+       [
+        581755.4287,
+        6061710.186899999
+       ],
+       [
+        581754.7138999999,
+        6061696.124299999
+       ],
+       [
+        581751.4801000003,
+        6061697.3401
+       ],
+       [
+        581699.4200999998,
+        6061711.3575
+       ],
+       [
+        581683.2215,
+        6061702.5985
+       ],
+       [
+        581676.8979000002,
+        6061694.7009
+       ],
+       [
+        581670.1074999999,
+        6061686.2205
+       ],
+       [
+        581659.5991000002,
+        6061672.222100001
+       ],
+       [
+        581654.4999000002,
+        6061663.067500001
+       ],
+       [
+        581650.6089000003,
+        6061653.348099999
+       ],
+       [
+        581640.6310999999,
+        6061615.952299999
+       ],
+       [
+        581640.6113,
+        6061615.5297
+       ],
+       [
+        581589.3651,
+        6061612.3651
+       ],
+       [
+        581579.0547000002,
+        6061611.743100001
+       ],
+       [
+        581579.2198999999,
+        6061611.9779
+       ],
+       [
+        581626.1595000001,
+        6061678.7037
+       ],
+       [
+        581713.9845000003,
+        6061802.0693
+       ],
+       [
+        581720.3195000002,
+        6061811.326099999
+       ],
+       [
+        581726.0503000002,
+        6061820.968699999
+       ],
+       [
+        581731.1533000004,
+        6061830.957699999
+       ],
+       [
+        581735.6079000002,
+        6061841.2523
+       ],
+       [
+        581739.3957000002,
+        6061851.8105
+       ],
+       [
+        581742.5012999997,
+        6061862.5889
+       ],
+       [
+        581743.9836999997,
+        6061870.2947
+       ],
+       [
+        581755.9238999998,
+        6061935.390900001
+       ],
+       [
+        581759.6442999998,
+        6061955.6241
+       ],
+       [
+        581759.7663000003,
+        6061956.329700001
+       ],
+       [
+        581759.7666999996,
+        6061956.335899999
+       ],
+       [
+        581759.7673000004,
+        6061956.339299999
+       ],
+       [
+        581761.0292999996,
+        6061956.148700001
+       ],
+       [
+        581774.3271000003,
+        6061954.2465
+       ],
+       [
+        581815.1173,
+        6061948.411699999
+       ]
+      ]
+     ]
+    }
+   }
+  ]
+ }
+}

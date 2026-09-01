@@ -1,0 +1,7 @@
+{
+  "mrit-ru-published-fe": "https://rejestr-urbanistyczny.gov.pl/published-fe/remoteEntry.json",
+  "mrit-ru-eservice-fe": "https://rejestr-urbanistyczny.gov.pl/eservices-fe/remoteEntry.json",
+  "mrit-ru-published-details-fe": "https://rejestr-urbanistyczny.gov.pl/published-details-fe/remoteEntry.json",
+  "mrit-ru-repo-fe": "https://rejestr-urbanistyczny.gov.pl/repo-fe/remoteEntry.json",
+  "mrit-ru-notifications-fe": "https://rejestr-urbanistyczny.gov.pl/notifications-fe/remoteEntry.json"
+}

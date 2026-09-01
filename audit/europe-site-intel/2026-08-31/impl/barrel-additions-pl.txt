@@ -1,0 +1,32 @@
+LANE E6-PL — barrel addition for packages/site-parcel-data/src/index.ts
+(the orchestrator applies this at commit time; this lane touched NO shared file)
+
+── THE ONE LINE, if the adapter is to be public from the package barrel ────────────────────
+
+// LANE E6-PL — the Poland country adapter (APP GML 2.0 POG zones → canonical rules; ULDK
+// parcels). NOT-YET-LIVE by design: read PL_CHAIN_GRADES + PL_RU_ENDPOINT_DISCOVERY first.
+export * from './countryAdapters/pl/index.js';
+
+── HONEST STATE: THIS LINE IS OPTIONAL, AND THE EXEMPLAR DOES NOT HAVE ONE ─────────────────
+
+Measured 2026-09-01: `grep -n "countryAdapters" packages/site-parcel-data/src/index.ts` →
+ZERO hits. The committed Estonia exemplar (`countryAdapters/ee/`) is NOT exported from the
+package barrel; it is reachable through `sourceRegistry/index.ts`, which imports EE_SOURCES
+directly, and its test imports the module path. The in-flight DK and LT sibling lanes' tests
+do the same (`import … from '../src/countryAdapters/dk/index.js'`).
+
+So the PL lane follows the exemplar: `__tests__/plAdapter.test.ts` imports
+`../src/countryAdapters/pl/index.js` directly and needs no barrel change to run. Poland's
+SOURCE rows are already reachable — `sourceRegistry/pl.ts` is committed and this adapter
+imports it by reference rather than re-typing it (one identity per source).
+
+Apply the line only if the orchestrator wants the adapter public from the package barrel; if
+so, apply it to EE/DK/LT in the same commit rather than making PL the odd one out.
+
+── COLLISION CHECK (run before applying) ───────────────────────────────────────────────────
+
+`grep -rn "POLAND_BBOX\|isInPoland\|PL_NATIVE_CRS\|PL_ADAPTER_SOURCES\|plCountryAdapter"
+ packages/site-parcel-data/src --include=*.ts | grep -v countryAdapters/pl/` → no output
+(2026-09-01). Every exported name is PL_/pl-prefixed and unique in the package; the adapter
+does NOT re-export `PL_SOURCES` (the registry keeps that name), so `export *` adds no rival
+spelling of an existing symbol.

@@ -1,0 +1,65 @@
+E6-LT — ASGR fill + domain measurements, run LIVE 2026-09-01 against
+https://tpdr.planuojustatau.lt/arcgis/rest/services/duomenu_viesinimas/ASGR/MapServer/0/query (returnCountOnly=true)
+and .../sprendiniai/MapServer/82/query.
+
+== ASGR layer 0 fill / MAX_INTENS distribution ==
+  175570 | total 
+   23932 | INTENS not null 
+   22921 | INTENS <= 10 
+    1011 | INTENS > 10 
+     889 | INTENS > 10 AND <= 100 
+     122 | INTENS > 100 
+   18759 | INTENS non-integer (has decimals) 
+   31960 | AUK_M not null 
+   30393 | TANKIS not null 
+      16 | TANKIS > 100 
+       0 | PILN = N 
+       0 | PILN = P 
+       0 | PILN not null 
+       0 | ATN_DOK not null 
+
+== ASGR zero + domain ==
+    3045 | AUK_M = 0 
+       0 | AUK_M < 0 
+    3945 | TANKIS = 0 
+    1802 | APZELD = 0 
+    2095 | INTENS = 0 
+       0 | INTENS < 0 
+   28915 | AUK_M >0 valid 
+   26430 | TANKIS 1..100 
+   20806 | APZELD 0..100 
+
+== ASGR zero co-occurrence ==
+    1343 | APZELD=0 AND AUK_M=0 
+     441 | APZELD=0 AND AUK_M>0 
+     406 | APZELD=0 AND TANKIS>0 
+    2570 | AUK_M=0 AND TANKIS=0 
+     249 | AUK_M=0 AND TANKIS>0 
+
+== sprendiniai layer 82 (per-TPD dispositions) ==
+--- TPD_ID 123025 dispositions ---
+{"NR":"01.2","PAGR_PASK":"KT","NAUD_BUD":"V;B","NAUD_TIP":"SI","MAX_INTENS":1,"MAX_TANKIS":82,"MAX_TU_TAN":null,"MAX_AUK_M":17,"MAX_AUK_SK":0,"MIN_APZELD":15,"MAX_SKL_PL":null,"MIN_SKL_PL":null,"APRASYM":null,"TPD_ID":123025,"TPD_NR":"T00087142","TPD_PAVAD":"ŽEMĖS SKLYPO V. MYKOLAIČIO-PUTINO G. 5 DETALIOJO PLANO KEITIMAS","PL_PORUSIS":"K_D","GALIOJA_NUO":"2021-12-21","GALIOJA_IKI":null,"AKTUALI":1}
+{"NR":"01.1","PAGR_PASK":"KT","NAUD_BUD":"V;B","NAUD_TIP":"SI","MAX_INTENS":1,"MAX_TANKIS":45,"MAX_TU_TAN":null,"MAX_AUK_M":25,"MAX_AUK_SK":0,"MIN_APZELD":15,"MAX_SKL_PL":null,"MIN_SKL_PL":null,"APRASYM":null,"TPD_ID":123025,"TPD_NR":"T00087142","TPD_PAVAD":"ŽEMĖS SKLYPO V. MYKOLAIČIO-PUTINO G. 5 DETALIOJO PLANO KEITIMAS","PL_PORUSIS":"K_D","GALIOJA_NUO":"2021-12-21","GALIOJA_IKI":null,"AKTUALI":1}
+--- layer 82 MAX_INTENS distribution ---
+   39727 | total 
+   25270 | INTENS not null 
+   24321 | <=10 
+     949 | >10 
+      56 | >100 
+      11 | TANKIS>100 
+--- sample of MAX_INTENS>10 rows in layer 82 (are they percent-like?) ---
+{"MAX_INTENS":59,"MAX_TANKIS":21,"MAX_AUK_M":8.5,"MAX_AUK_SK":3,"TPD_NR":"T00071674","PL_PORUSIS":"K_D"}
+{"MAX_INTENS":70,"MAX_TANKIS":25,"MAX_AUK_M":8.5,"MAX_AUK_SK":3,"TPD_NR":"T00071674","PL_PORUSIS":"K_D"}
+{"MAX_INTENS":14,"MAX_TANKIS":7,"MAX_AUK_M":12.5,"MAX_AUK_SK":6,"TPD_NR":"T00072401","PL_PORUSIS":"K_D"}
+{"MAX_INTENS":63,"MAX_TANKIS":20,"MAX_AUK_M":12,"MAX_AUK_SK":null,"TPD_NR":"T00072646","PL_PORUSIS":"K_D"}
+{"MAX_INTENS":70,"MAX_TANKIS":20,"MAX_AUK_M":12,"MAX_AUK_SK":null,"TPD_NR":"T00072646","PL_PORUSIS":"K_D"}
+{"MAX_INTENS":100,"MAX_TANKIS":55,"MAX_AUK_M":15,"MAX_AUK_SK":null,"TPD_NR":"T00072732","PL_PORUSIS":"K_D"}
+{"MAX_INTENS":45,"MAX_TANKIS":42,"MAX_AUK_M":10.5,"MAX_AUK_SK":null,"TPD_NR":"T00072732","PL_PORUSIS":"K_D"}
+{"MAX_INTENS":50,"MAX_TANKIS":50,"MAX_AUK_M":8.5,"MAX_AUK_SK":null,"TPD_NR":"T00072732","PL_PORUSIS":"K_D"}
+{"MAX_INTENS":19.3,"MAX_TANKIS":55,"MAX_AUK_M":12,"MAX_AUK_SK":3,"TPD_NR":"T00073313","PL_PORUSIS":"K_D"}
+{"MAX_INTENS":15,"MAX_TANKIS":20,"MAX_AUK_M":8.5,"MAX_AUK_SK":2,"TPD_NR":"T00073343","PL_PORUSIS":"K_D"}
+{"MAX_INTENS":50,"MAX_TANKIS":31,"MAX_AUK_M":8.5,"MAX_AUK_SK":null,"TPD_NR":"T00073554","PL_PORUSIS":"K_D"}
+{"MAX_INTENS":45,"MAX_TANKIS":32,"MAX_AUK_M":8.5,"MAX_AUK_SK":null,"TPD_NR":"T00073685","PL_PORUSIS":"K_D"}
+{"MAX_INTENS":48,"MAX_TANKIS":30,"MAX_AUK_M":8.5,"MAX_AUK_SK":null,"TPD_NR":"T00073685","PL_PORUSIS":"K_D"}
+{"MAX_INTENS":48,"MAX_TANKIS":30,"MAX_AUK_M":8.5,"MAX_AUK_SK":null,"TPD_NR":"T00073685","PL_PORUSIS":"K_D"}
+{"MAX_INTENS":48,"MAX_TANKIS":30,"MAX_AUK_M":8.5,"MAX_AUK_SK":null,"TPD_NR":"T00073685","PL_PORUSIS":"K_D"}

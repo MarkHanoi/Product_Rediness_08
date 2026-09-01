@@ -1,0 +1,159 @@
+E6-LT — RE-VERIFICATION OF THE FINAL ON-DISK STATE (2026-09-01, 17:26-17:31 local)
+================================================================================
+WHY THIS FILE EXISTS. Transcripts 01-06 were written at 17:01-17:02. The file
+src/countryAdapters/lt/ltRuleMapper.ts has mtime 17:17:42 — the adapter was edited AFTER
+its last recorded verification, so at the moment this re-verification began every claim in
+the lane report was UNPROVEN AGAINST THE CODE ON DISK. A green transcript that predates its
+own subject proves nothing. Everything below re-runs against the FINAL state.
+
+--------------------------------------------------------------------------------
+1. TESTS — current on-disk state
+--------------------------------------------------------------------------------
+$ cd packages/site-parcel-data && npx vitest run __tests__/ltAsgrAdapter.test.ts
+ Test Files  1 passed (1)
+      Tests  26 passed (26)
+   Start at  17:26:34
+PIPE_RC=0
+
+$ npx vitest run __tests__/ltAsgrAdapter.test.ts __tests__/eeAdapterRework.test.ts
+ Test Files  2 passed (2)
+      Tests  39 passed (39)
+   Start at  17:31:10
+(EE = the committed exemplar; run to prove the LT lane did not disturb it.)
+
+NOTE on an earlier attempt in this session: `npx vitest run <file> --reporter=basic` exits
+RC=0 while running NOTHING ("Failed to load custom Reporter from basic" — vitest 4 removed
+it). A green RC from that invocation is meaningless. Every run above is plain `vitest run`.
+
+--------------------------------------------------------------------------------
+2. TYPECHECK — both levels, RC captured directly
+--------------------------------------------------------------------------------
+$ NODE_OPTIONS=--max-old-space-size=8192 npx tsc --noEmit -p tsconfig.json   # repo root
+RC=0        (output file 1 line long: the npm "package-manager-strict" warning only)
+
+$ cd packages/site-parcel-data && npx tsc -p tsconfig.json --noEmit
+PKG_TSC_RC=0
+
+--------------------------------------------------------------------------------
+3. THE LIVE CHAIN, RE-RUN — and the fixture proven faithful
+--------------------------------------------------------------------------------
+Ran a scratchpad COPY of probe-lt-chain.mts, redirected to write its recording OUTSIDE the
+repo, so the committed fixture could not be silently re-recorded by its own verification.
+
+$ sha256sum .../recorded-live-2026-09-01.json      # BEFORE
+bcdcbe5b48df8d5e5ba25c1c032ee1ce83a8e119dcb39b33b40a1b4854d8d941
+$ npx tsx <scratchpad copy>                        # drives the REAL resolveLtParcelChain live
+RC=0 · recorded 6 responses
+$ sha256sum .../recorded-live-2026-09-01.json      # AFTER — unchanged, as intended
+bcdcbe5b48df8d5e5ba25c1c032ee1ce83a8e119dcb39b33b40a1b4854d8d941
+
+$ diff <scratchpad fresh recording> .../recorded-live-2026-09-01.json
+DIFF_RC=0        (zero lines of difference)
+
+=> The fixtures the unit tests replay are BYTE-IDENTICAL to what the Lithuanian national
+   services return today. The fixture is a recording, not a hand-built fake.
+
+Both 20-parcel baseline rows resolved END-TO-END LIVE in that run:
+  PARCEL: kadastro_nr=0101/0054:0328 unikalus_nr=440055970193 areaM2=1544 (raw 0.1544 ha)
+          crs=EPSG:3346 ringPts=18 buildings=0 ntrDate=2026-08-01 · chain outcome: found
+          ASGR: found · HTTP 200 on all four calls
+  PARCEL: kadastro_nr=0101/0054:0345 unikalus_nr=440063553760 areaM2=775 (raw 0.0775 ha)
+          crs=EPSG:3346 ringPts=8  buildings=0 ntrDate=2026-08-01 · chain outcome: found
+          ASGR: found · HTTP 200 on all three calls
+
+Per-value provenance visible ON THE RULE, two documents on one polygon, e.g.:
+  note=per-value provenance served by ASGR: FUNKC_ZONTP=203143899, FUNKC_ZONNR=T00086338,
+       FUNKC_ZOND=2021-06-02 (TPD approval date, proven = ribos.TVIRT_DATA), FUNKC_ZONTPR=B_SAV
+  note=per-value provenance served by ASGR: NAUD_TIPTP=123025, NAUD_TIPNR=T00087142,
+       NAUD_TIPD=2021-12-17 (TPD approval date, proven = ribos.TVIRT_DATA), NAUD_TIPTPR=K_D
+
+--------------------------------------------------------------------------------
+4. FALSIFICATIONS RE-EXECUTED AGAINST THE FINAL CODE
+--------------------------------------------------------------------------------
+Baseline sha256 of all seven adapter files taken first; backups kept outside the repo.
+
+F1 — sever the per-value provenance mapping. Patch: every classification rule borrows the
+polygon's FIRST resolvable provenance family instead of its own (the "one document per
+polygon" shape a shared note would give).
+  RC=1 · Tests  2 failed | 24 passed (26)
+  FAIL E6-LT 1 — per-value provenance lands on the RULE, not in a shared note
+       > one polygon, two source documents, two approval dates — carried per rule
+  AssertionError: FUNKC_ZON must cite ITS OWN source document (FUNKC_ZONNR), not the
+                  polygon's other one: expected 'T00087142' to be 'T00086338'
+  FAIL E6-LT 3 — R3 validityBasis separates a legal date from an ingestion date
+       > a classification field with no served provenance falls to ingestion, not a borrowed date
+  AssertionError: expected 'legal' to be 'ingestion'
+  => the failure NAMES THE FIELD, as the brief required.
+  RESTORE: cp from backup, sha256 diff against the before-file => CLEAN (byte-identical).
+
+F2 — sever the MAX_INTENS refusal (guess the unit as a ratio).
+  RC=1 · Tests  3 failed | 23 passed (26)
+  FAIL E6-LT 2 > a SERVED intensity value still produces a tier-6 refusal, never a computable number
+  AssertionError: a refused unit must never become a computable value: expected 1 to be null
+  FAIL E6-LT 2 > the refusal is the rule for the whole column, not a per-row judgement
+  AssertionError: MAX_INTENS=1 must not yield a value: expected 1 to be null
+  FAIL E6-LT 2 > NO rule anywhere in either baseline chain offers a usable floor-area ratio
+  AssertionError: expected 1 to be null
+  RESTORE: cp from backup, sha256 diff => CLEAN (byte-identical). Re-run: 26/26 pass.
+
+  CORRECTION TO THE LANE REPORT §6: it records F2 as "4 tests fail". Re-executed here it is
+  THREE. The fourth failure in transcript 04 was a note-TEXT assertion (E6-LT 5, "expected …
+  to contain 'never 0 and never no-limit'"), which fired because that earlier patch replaced
+  the whole MAX_INTENS branch INCLUDING its null-case note; this patch severs only the VALUE
+  and leaves the note intact. A differently-shaped patch, not different behaviour. The
+  load-bearing failure — a refused unit becoming a computable number — reproduces identically.
+
+--------------------------------------------------------------------------------
+5. THE §2 FINDING RE-PROVEN INDEPENDENTLY (not transcribed)
+--------------------------------------------------------------------------------
+$ node -e "<read asgr-layer0-descriptor-2026-09-01.json>"
+total fields 33
+underscore-suffix matches (/_(TP|NR|D|TPR)$/): 0
+no-underscore suffix family: PAGR_PASKTP, PAGR_PASKNR, PAGR_PASKD, PAGR_PASKTPR,
+  NAUD_BUDTP, NAUD_BUDNR, NAUD_BUDD, NAUD_BUDTPR, FUNKC_ZONTP, FUNKC_ZONNR, FUNKC_ZOND,
+  FUNKC_ZONTPR, NAUD_TIPTP, NAUD_TIPNR, NAUD_TIPD, NAUD_TIPTPR
+
+And packages/schemas/src/siteintel/vocabularies/lt.ts:49 types the helper over
+LtAsgrValueField = the four NUMERIC fields, with a doc comment asserting MAX_AUK_M_TP.
+=> CONFIRMED wrong on both axes (the underscore, and the wrong field family). Reported, not
+   edited (shared L0 file, out of lane scope) — barrel-additions-lt.txt §3a.
+
+--------------------------------------------------------------------------------
+6. THE REFUSAL'S EVIDENCE RE-MEASURED LIVE (the numbers the blocker decision rests on)
+--------------------------------------------------------------------------------
+$ node .../probe-intens-dist.mjs        # re-run 2026-09-01 17:30, ArcGIS returnCountOnly
+  175570 | total
+   23932 | INTENS not null
+   22921 | INTENS <= 10
+    1011 | INTENS > 10
+     889 | INTENS > 10 AND <= 100
+     122 | INTENS > 100
+   18759 | INTENS non-integer (has decimals)
+   31960 | AUK_M not null
+   30393 | TANKIS not null
+      16 | TANKIS > 100
+       0 | PILN = N
+       0 | PILN = P
+       0 | PILN not null
+       0 | ATN_DOK not null
+RC=0
+
+=> Every figure the lane report cites re-measures IDENTICALLY, independently, today.
+=> The mixed-encoding evidence stands: 122 polygons carry MAX_INTENS > 100 (impossible as a
+   floor-area ratio) while the baseline parcel's governing TPD T00087142 carries
+   MAX_INTENS = 1 against MAX_TANKIS = 45 % (impossible as a percentage — 0.01 FAR under
+   45 % permitted coverage). One column, two populations, each coherent only under the
+   OPPOSITE reading, with nothing served to separate them. THE REFUSAL IS CORRECT.
+=> PILN and ATN_DOK are non-null on 0 of 175,570 — confirming that the lane file §LT-1 and
+   the sourceRegistry row are both wrong to advertise PILN as a usable completeness flag.
+
+--------------------------------------------------------------------------------
+7. SCOPE / BARREL PROTOCOL RE-CHECKED
+--------------------------------------------------------------------------------
+$ git diff --stat packages/site-parcel-data/src/index.ts packages/site-parcel-data/sourceRegistry/
+(no output — neither shared file carries any change)
+$ grep -n -i "countryAdapters|/lt/" packages/site-parcel-data/src/index.ts
+(no hits — the package barrel names no country adapter at all, LT included)
+=> The lane's only repo footprint is src/countryAdapters/lt/** (7 files),
+   __tests__/ltAsgrAdapter.test.ts, and audit/.../impl/**. The barrel line stays QUEUED in
+   barrel-additions-lt.txt, unapplied, per the brief.

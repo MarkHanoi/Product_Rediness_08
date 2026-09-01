@@ -1,0 +1,48 @@
+npm warn Unknown project config "package-manager-strict". This will stop working in the next major version of npm. See `npm help npmrc` for supported config options.
+
+ RUN  v4.1.10 C:/Users/LENOVO/OneDrive/Desktop/PRYZM/Product_Rediness_08/packages/site-parcel-data
+
+ ❯ __tests__/ltAsgrAdapter.test.ts (26 tests | 2 failed) 88ms
+     × one polygon, two source documents, two approval dates — carried per rule 25ms
+     × a classification field with no served provenance falls to ingestion, not to a borrowed date 2ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 2 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  __tests__/ltAsgrAdapter.test.ts > E6-LT 1 — per-value provenance lands on the RULE, not in a shared note > one polygon, two source documents, two approval dates — carried per rule
+AssertionError: FUNKC_ZON must cite ITS OWN source document (FUNKC_ZONNR), not the polygon's other one: expected 'T00087142' to be 'T00086338' // Object.is equality
+
+Expected: "T00086338"
+Received: "T00087142"
+
+ ❯ __tests__/ltAsgrAdapter.test.ts:154:126
+    152|         // polygon-wide provenance would give FUNKC_ZON the detail pla…
+    153|         const fz = ruleFor(zone, 'functionalZoneType').provenance;
+    154|         expect(fz.source.plan_id, 'FUNKC_ZON must cite ITS OWN source …
+       |                                                                                                                              ^
+    155|         expect(fz.source.document).toBe('https://tpdr.planuojustatau.l…
+    156|         expect(fz.valid_from, 'FUNKC_ZON must carry ITS OWN approval d…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/2]⎯
+
+ FAIL  __tests__/ltAsgrAdapter.test.ts > E6-LT 3 — R3 validityBasis separates a legal date from an ingestion date > a classification field with no served provenance falls to ingestion, not to a borrowed date
+AssertionError: expected 'legal' to be 'ingestion' // Object.is equality
+
+Expected: "ingestion"
+Received: "legal"
+
+ ❯ __tests__/ltAsgrAdapter.test.ts:290:33
+    288|         expect(p.value).toBeNull();
+    289|         expect(p.confidence.tier).toBe(6);
+    290|         expect(p.validityBasis).toBe('ingestion');
+       |                                 ^
+    291|         expect(p.valid_from).toBe('2026-09-01');
+    292|     });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/2]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  2 failed | 24 passed (26)
+   Start at  16:59:17
+   Duration  2.53s (transform 1.56s, setup 0ms, import 2.22s, tests 88ms, environment 0ms)
+

@@ -1,0 +1,257 @@
+VTPSI LEIP specification 2024-06-18 — the ASGR attribute table, extracted verbatim
+SOURCE: https://www.geoportal.lt/download/Specifikacijos/VTPSI_LEIP_specifikacija_20240628.pdf
+FETCHED: 2026-09-01 · HTTP 200 · 1,191,746 bytes · PDF 1.7 · 21 pages
+EXTRACTOR: pdftotext -enc UTF-8
+
+--- the ASGR dataset card (Table 19) + attribute table (Table 20), pdftotext lines 1370-1620 ---
+
+Nr.
+
+Charakteristika
+
+1. Pavadinimas
+
+Reikšmė
+Aktualios suvestinės galiojančių reglamentų erdvinių duomenų informacijos žemėlapių podėlis
+
+2. Aprašymas
+
+Erdvinių duomenų rinkinys, sudaromas iš galiojančių teritorijų planavimo dokumentų sprendinių funkcinių zonų ir reglamentų. Naujesni ir detalesnio lygmens dokumentai pakeičia senesnius ir mažesnio detalumo. Duomenys yra rekomendacinio pobūdžio, rengiami pagal ASGR sudarymo metodiką.
+
+3. Raktažodžiai 4. Formatas
+
+TPDR, ASGR, reglamentas, funkcinė zona
+ArcGIS REST dinaminė žemėlapio paslauga Peržiūros funkcijos: ExportMap, Identify Duomenų atsisiuntimas: Query
+
+5. Koordinačių sistema
+6. Atnaujinimo dažnumas
+
+LKS-94 24h
+
+7. Rinkinio būsena
+
+Vystomas
+
+8. Duomenų savininko Valstybinė teritorijų planavimo ir statybos inspekcija prie Aplinkos
+
+pavadinimas
+
+ministerijos
+
+9. Duomenų autorinių Valstybinė teritorijų planavimo ir statybos inspekcija prie Aplinkos
+
+teisių tekstas
+
+ministerijos
+
+10. Duomenų naudojimo Duomenys yra vieši. Naudojant būtina nurodyti savininką. sąlygų tekstas
+
+19
+
+Nr. 11.
+12.
+
+Charakteristika
+
+URL
+
+gamybinėje
+
+aplinkoje
+
+URL
+
+testavimo
+
+aplinkoje
+
+Reikšmė
+https://tpdr.planuojustatau.lt/arcgis/rest/services/duomenu_viesinim as/ASGR/MapServer
+https://tpdr.eptptest.lt/arcgis/rest/services/duomenu_viesinimas/AS GR/MapServer
+
+20. Lentelė ASGR sluoksnio atributinė informacija
+
+Nr.
+
+Atributas
+
+Aprašymas
+
+1. APIBENDR
+
+Apibendrinantis tekstas apie teritorijoje galiojantį reglamentą.
+
+2. PAGR_PASK
+
+Pagrindinė žemės naudojimo paskirtis
+
+3. PAGR_PASKTP
+4. PAGR_PASKNR 5. PAGR_PASKD 6. PAGR_PASKTPR
+7. NAUD_BUD
+
+Pagrindinės žemės naudojimo paskirties nustatymo pagrindas (TP dokumento sisteminis identifikatorius) Pagrindinės žemės naudojimo paskirties nustatymo dokumento numeris Pagrindinės žemės naudojimo paskirties nustatymo TP dokumento tvirtinimo data Pagrindinės žemės naudojimo paskirties nustatymo TP dokumento planavimo rūšis/porūšis Žemės naudojimo būdas
+
+8. NAUD_BUDTP
+9. NAUD_BUDNR 10. NAUD_BUDD 11. NAUD_BUDTPR 12. FUNKC_ZON
+
+Žemės naudojimo būdo nustatymo pagrindas (TP dokumento sisteminis identifikatorius) Žemės naudojimo būdo nustatymo TP dokumento NR Žemės naudojimo būdo nustatymo TP dokumento tvirtinimo data Žemės naudojimo būdo nustatymo TP dokumento planavimo rūšis/porūšis Funkcinės zonos tipas
+
+13. PRIORIT 14. FUNKC_ZONTP 15. FUNKC_ZONNR 16. FUNKC_ZOND 17. FUNKC_ZONTPR 18. NAUD_TIP
+
+Įgyvendinimo prioritetas
+Funkcinės zonos nustatymo pagrindas (TP dokumento sisteminis identifikatorius) Funkcinės zonos nustatymo TP dokumento numeris. Funkcinės zonos nustatymo TP dokumento tvirtinimo data Funkcinę zoną nusakančio TP dokumento planavimo rūšis/porūšis Teritorijos naudojimo tipas
+
+Tipas, klasifikatorius Tekstas (2000)
+
+Tekstas (250)
+
+Reikšmės
+
+atskirtos
+
+kabliataškiu.
+
+Klasifikatorius: PAGR_PASK
+
+Tekstas (50)
+
+Tekstas (20) Data, Laikas Tekstas (20)
+
+Tekstas (250)
+
+Reikšmės
+
+atskirtos
+
+kabliataškiu.
+
+Klasifikatorius: NAUD_BUD
+
+Tekstas (50)
+
+Tekstas (20)
+
+Data, Laikas
+
+Tekstas (20)
+
+Tekstas (250)
+
+Reikšmės
+
+atskirtos
+
+kabliataškiu.
+
+Klasifikatorius: FUNKC_ZON
+
+Klasifikatorius: PRIORIT
+
+Tekstas (50)
+
+Tekstas (20)
+
+Data, Laikas
+
+Tekstas (20)
+
+Tekstas (250) Reikšmės kabliataškiu.
+
+atskirtos
+
+20
+
+19. NAUD_TIPTP 20. NAUD_TIPNR 21. NAUD_TIPD 22. NAUD_TIPTPR 23. MAX_AUK_M 24. MAX_INTENS 25. MAX_TANKIS 26. MIN_APZELD 27. VAIZD
+28. PILN
+29. ATN_DOK
+
+Teritorijos naudojimo tipo nustatymo
+
+pagrindas (TP dokumento sisteminis
+
+identifikatorius)
+
+Teritorijos naudojimo tipo nustatymo TP
+
+dokumento numeris
+
+Teritorijos naudojimo tipo nustatymo TP
+
+dokumento tvirtinimo data
+
+Teritorijos naudojimo tipą nusakančio TP
+
+dokumento planavimo rūšis/porūšis
+
+Didžiausias leistinas pastatų aukštis
+
+(metrais)
+
+Didžiausias
+
+leistinas
+
+žemės
+
+sklypų užstatymo intensyvumas
+
+Didžiausias leistinas žemės sklypų
+
+užstatymo tankis, procentai
+
+Mažiausias žemės sklypo apželdinimas
+
+(priklausomųjų želdynų ir želdinių
+
+teritorijų dalys procentais)
+
+Atvaizdavimui žemėlapyje naudojamas
+
+atributas, apimantis žemės naudojimo
+
+būdą, naudojimo tipą, funkcinės zonos
+
+tipą.
+
+Informacijos pilnumą nusakantis požymis.
+
+Požymis nusakantis, kad teritorijos reglamentai galėjo būti atnaujinti naudojant neerdvinius duomenis.
+
+Klasifikatorius: NAUD_TIP Tekstas (50)
+
+Tekstas (20) Data, Laikas Tekstas (20) Skaičius, 2 ženklai po kablelio Skaičius, 1 ženklas po kablelio Sveikas skaičius, 2 ženklai Sveikas skaičius, 2 ženklai
+
+Tekstas (50)
+
+Klasifikatorius:
+
+VAIZD,
+
+nusakomas
+
+šiame
+
+dokumente
+
+Tekstas (2)
+
+Klasifikatorius:
+
+P – Turima pilna (visa)
+
+informacija
+
+N – Galimi pakeitimai dėl
+
+nepilno
+
+erdvinės
+
+informacijos įskaitmeninimo.
+
+Tekstas (2)
+
+Klasifikatorius:
+
+ND – nėra duomenų apie
+

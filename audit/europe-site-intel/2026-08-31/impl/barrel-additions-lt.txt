@@ -1,0 +1,84 @@
+E6-LT — BARREL ADDITIONS (for the orchestrator to apply at commit time).
+This lane touched NO shared file. Everything below is queued, not applied.
+
+=====================================================================
+1. REQUIRED — packages/site-parcel-data/src/index.ts
+=====================================================================
+Append ONE line (the LT adapter's own module index; every export is Lt/LT_-prefixed, so a
+star export cannot collide with the existing barrel):
+
+export * from './countryAdapters/lt/index.js';
+
+NOTE: neither `countryAdapters/ee` nor `countryAdapters/dk` is currently exported from that
+barrel (grep 2026-09-01: `grep -n "countryAdapters" packages/site-parcel-data/src/index.ts`
+→ no hits; both adapters' tests import by directory path). If the orchestrator is keeping
+that convention, SKIP this addition and leave LT consistent with its two siblings — the test
+`__tests__/ltAsgrAdapter.test.ts` imports by path either way. Do not export LT alone.
+
+=====================================================================
+2. RECOMMENDED — packages/site-parcel-data/src/sourceRegistry/lt.ts
+=====================================================================
+MOVE the one additive source row this lane defined in
+`src/countryAdapters/lt/ltSourceRefs.ts` (`LT_TPDR_RIBOS_SOURCES`, id
+`lt-tpdr-ribos-mapserver`) into the registry module, so the registry stays the single
+authority for LT sources. The row is already built through the registry's own
+`defineSources('LT', …)` loader and passes its validation, so the move is a cut-and-paste.
+
+After the move: in `ltSourceRefs.ts` delete the row literal and re-export the registry's, so
+`LT_ADAPTER_SOURCES` keeps its meaning while the additive array empties. Do NOT leave two.
+
+Why it must exist: `SiteIntelPlan.source` must name a `SiteIntelSource.id`, and LT plan
+identity (status, approval date, in-force date, citable TPD card URL) comes from the TPDR
+`ribos` register — for which `LT_SOURCES` has no row. Without it every LT plan entity would
+have to cite the ASGR row, which did not serve it.
+
+=====================================================================
+3. CORRECTIONS TO SHARED FILES — reported, NOT applied (out of lane scope)
+=====================================================================
+Both are measured defects, both are in files this lane may not edit. Evidence:
+audit/europe-site-intel/2026-08-31/impl/lane-e6-lt-adapter.md §2 and the layer descriptor
+transcript lane-e6-lt-transcripts/asgr-layer0-descriptor-2026-09-01.json.
+
+3a. packages/schemas/src/siteintel/vocabularies/lt.ts
+    `ltAsgrProvenanceColumns(field: LtAsgrValueField)` returns column names that DO NOT
+    EXIST on the live service, in two independent ways:
+      (i)  it inserts an underscore before the suffix (`MAX_AUK_M_TP`); the real columns
+           have none (`PAGR_PASKTP`, `PAGR_PASKNR`, `PAGR_PASKD`, `PAGR_PASKTPR`);
+      (ii) it is typed over `LtAsgrValueField` = the four NUMERIC fields, which carry NO
+           provenance columns at all. The suffixed families exist ONLY for the four
+           CLASSIFICATION fields PAGR_PASK / NAUD_BUD / FUNKC_ZON / NAUD_TIP.
+    Any caller that trusts this helper queries non-existent columns and gets an ArcGIS
+    400-in-a-200 body. The adapter does not call it; it uses its own measured
+    `ltAsgrProvenanceColumnsMeasured()` in `ltAsgrProvider.ts`, which is unit-asserted.
+    SUGGESTED FIX (schemas lane, not this one): retype the helper over the four
+    classification fields and drop the underscore. That is a behaviour change to an L0
+    module, so it wants its own lane; it is NOT a canonical-model change (E4 control 3 is
+    not engaged — no entity, field or abstraction moves).
+
+3b. packages/site-parcel-data/src/sourceRegistry/lt.ts
+    The `lt-vtpsi-asgr-mapserver` row's `dataset` string says the four numerics come
+    "with per-value provenance columns (*_TP/*_NR/*_D/*_TPR) + PILN completeness flag".
+    Measured 2026-09-01, both halves are wrong: the provenance families belong to the
+    classification fields (see 3a), and PILN is non-null on 0 of 175,570 polygons
+    nationally (as are ATN_DOK and PRIORIT). The lane file
+    lanes/netherlands-poland-lithuania-estonia.md §LT-1 carries the same claim and should be
+    corrected in the same pass. Suggested replacement text for the row's dataset field:
+
+      'ASGR layer 0, ArcGIS-REST dialect, LKS-94/EPSG:3346 — MAX_AUK_M / MAX_INTENS /
+       MAX_TANKIS / MIN_APZELD (NO per-value provenance on these), plus PAGR_PASK /
+       NAUD_BUD / FUNKC_ZON / NAUD_TIP which DO carry per-value provenance columns
+       (<FIELD>TP/<FIELD>NR/<FIELD>D/<FIELD>TPR, no underscore). PILN/ATN_DOK/PRIORIT are
+       declared but nationally unpopulated (0 non-null of 175,570, measured 2026-09-01).'
+
+    And the same row's probe log should gain the 2026-09-01 re-measurement:
+    175,570 polygons; MAX_AUK_M non-null 31,960 (18.2%); MAX_INTENS 23,932 (13.6%);
+    MAX_TANKIS 30,393; 141,020 (80.3%) carry no numeric regulation at all.
+
+=====================================================================
+4. NOT REQUESTED — parcelProviders/registry.ts
+=====================================================================
+`isInLithuania` / `LITHUANIA_BBOX` are exported but this lane did NOT register an LT parcel
+provider in the runtime click-routing registry. Registration is a separate decision (it
+changes which cadastre a map click hits) and belongs to whoever owns that registry. The
+overlap audit is done and recorded in `ltJurisdiction.ts`: no registered bbox intersects
+Lithuania, and ESTONIA_BBOX's minLat 57.5 does not reach LT's maxLat 56.5.

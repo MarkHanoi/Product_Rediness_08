@@ -1,0 +1,431 @@
+{
+  "codelist" : {
+    "governance level" : {
+      "label" : {
+        "text" : "Legal (EU)",
+        "lang" : "en"
+      },
+      "id" : "http://inspire.ec.europa.eu/registry/governance-level/eu-legal"
+    },
+    "containeditems" : [ {
+      "value" : {
+        "governance level" : {
+          "label" : {
+            "text" : "Legal (EU)",
+            "lang" : "en"
+          },
+          "id" : "http://inspire.ec.europa.eu/registry/governance-level/eu-legal"
+        },
+        "codelist" : {
+          "label" : "Process Step General",
+          "id" : "http://inspire.ec.europa.eu/codelist/ProcessStepGeneralValue"
+        },
+        "created" : "2015-08-18 17:36 PM UTC",
+        "governance-level" : {
+          "label" : {
+            "text" : "eu-legal",
+            "lang" : "en"
+          },
+          "uri" : "http://inspire.ec.europa.eu/registry/governance-level/eu-legal"
+        },
+        "language" : "en",
+        "label" : {
+          "text" : "in the process of adoption",
+          "lang" : "en"
+        },
+        "applicationschema" : {
+          "label" : {
+            "text" : "plu",
+            "lang" : "en"
+          },
+          "uri" : "http://inspire.ec.europa.eu/applicationschema/plu"
+        },
+        "itemclass" : {
+          "label" : {
+            "text" : "CodeListValue",
+            "lang" : "en"
+          },
+          "id" : "CodeListValue"
+        },
+        "application schema" : {
+          "label" : {
+            "text" : "Planned Land Use",
+            "lang" : "en"
+          },
+          "id" : "http://inspire.ec.europa.eu/applicationschema/plu"
+        },
+        "definition" : {
+          "text" : "Plan in the process of being legally adopted.",
+          "lang" : "en"
+        },
+        "theme" : {
+          "label" : {
+            "text" : "lu",
+            "lang" : "en"
+          },
+          "uri" : "http://inspire.ec.europa.eu/theme/lu"
+        },
+        "id" : "http://inspire.ec.europa.eu/codelist/ProcessStepGeneralValue/adoption",
+        "latestversion" : "http://inspire.ec.europa.eu/codelist/ProcessStepGeneralValue/adoption",
+        "thisversion" : "http://inspire.ec.europa.eu/codelist/ProcessStepGeneralValue/adoption:1",
+        "status" : {
+          "label" : {
+            "text" : "Valid",
+            "lang" : "en"
+          },
+          "id" : "http://inspire.ec.europa.eu/registry/status/valid"
+        },
+        "register" : {
+          "registry" : {
+            "label" : {
+              "text" : "INSPIRE registry",
+              "lang" : "en"
+            },
+            "id" : "http://inspire.ec.europa.eu/registry"
+          },
+          "label" : {
+            "text" : "INSPIRE code list register",
+            "lang" : "en"
+          },
+          "id" : "http://inspire.ec.europa.eu/codelist"
+        }
+      }
+    }, {
+      "value" : {
+        "governance level" : {
+          "label" : {
+            "text" : "Legal (EU)",
+            "lang" : "en"
+          },
+          "id" : "http://inspire.ec.europa.eu/registry/governance-level/eu-legal"
+        },
+        "codelist" : {
+          "label" : "Process Step General",
+          "id" : "http://inspire.ec.europa.eu/codelist/ProcessStepGeneralValue"
+        },
+        "created" : "2015-08-18 17:36 PM UTC",
+        "governance-level" : {
+          "label" : {
+            "text" : "eu-legal",
+            "lang" : "en"
+          },
+          "uri" : "http://inspire.ec.europa.eu/registry/governance-level/eu-legal"
+        },
+        "language" : "en",
+        "label" : {
+          "text" : "under elaboration",
+          "lang" : "en"
+        },
+        "applicationschema" : {
+          "label" : {
+            "text" : "plu",
+            "lang" : "en"
+          },
+          "uri" : "http://inspire.ec.europa.eu/applicationschema/plu"
+        },
+        "itemclass" : {
+          "label" : {
+            "text" : "CodeListValue",
+            "lang" : "en"
+          },
+          "id" : "CodeListValue"
+        },
+        "application schema" : {
+          "label" : {
+            "text" : "Planned Land Use",
+            "lang" : "en"
+          },
+          "id" : "http://inspire.ec.europa.eu/applicationschema/plu"
+        },
+        "definition" : {
+          "text" : "Plan under elaboration.",
+          "lang" : "en"
+        },
+        "theme" : {
+          "label" : {
+            "text" : "lu",
+            "lang" : "en"
+          },
+          "uri" : "http://inspire.ec.europa.eu/theme/lu"
+        },
+        "id" : "http://inspire.ec.europa.eu/codelist/ProcessStepGeneralValue/elaboration",
+        "latestversion" : "http://inspire.ec.europa.eu/codelist/ProcessStepGeneralValue/elaboration",
+        "thisversion" : "http://inspire.ec.europa.eu/codelist/ProcessStepGeneralValue/elaboration:1",
+        "status" : {
+          "label" : {
+            "text" : "Valid",
+            "lang" : "en"
+          },
+          "id" : "http://inspire.ec.europa.eu/registry/status/valid"
+        },
+        "register" : {
+          "registry" : {
+            "label" : {
+              "text" : "INSPIRE registry",
+              "lang" : "en"
+            },
+            "id" : "http://inspire.ec.europa.eu/registry"
+          },
+          "label" : {
+            "text" : "INSPIRE code list register",
+            "lang" : "en"
+          },
+          "id" : "http://inspire.ec.europa.eu/codelist"
+        }
+      }
+    }, {
+      "value" : {
+        "governance level" : {
+          "label" : {
+            "text" : "Legal (EU)",
+            "lang" : "en"
+          },
+          "id" : "http://inspire.ec.europa.eu/registry/governance-level/eu-legal"
+        },
+        "codelist" : {
+          "label" : "Process Step General",
+          "id" : "http://inspire.ec.europa.eu/codelist/ProcessStepGeneralValue"
+        },
+        "created" : "2015-08-18 17:36 PM UTC",
+        "governance-level" : {
+          "label" : {
+            "text" : "eu-legal",
+            "lang" : "en"
+          },
+          "uri" : "http://inspire.ec.europa.eu/registry/governance-level/eu-legal"
+        },
+        "language" : "en",
+        "label" : {
+          "text" : "legally binding or active",
+          "lang" : "en"
+        },
+        "applicationschema" : {
+          "label" : {
+            "text" : "plu",
+            "lang" : "en"
+          },
+          "uri" : "http://inspire.ec.europa.eu/applicationschema/plu"
+        },
+        "itemclass" : {
+          "label" : {
+            "text" : "CodeListValue",
+            "lang" : "en"
+          },
+          "id" : "CodeListValue"
+        },
+        "application schema" : {
+          "label" : {
+            "text" : "Planned Land Use",
+            "lang" : "en"
+          },
+          "id" : "http://inspire.ec.europa.eu/applicationschema/plu"
+        },
+        "definition" : {
+          "text" : "Plan already adopted and being legally binding or active.",
+          "lang" : "en"
+        },
+        "theme" : {
+          "label" : {
+            "text" : "lu",
+            "lang" : "en"
+          },
+          "uri" : "http://inspire.ec.europa.eu/theme/lu"
+        },
+        "id" : "http://inspire.ec.europa.eu/codelist/ProcessStepGeneralValue/legalForce",
+        "latestversion" : "http://inspire.ec.europa.eu/codelist/ProcessStepGeneralValue/legalForce",
+        "thisversion" : "http://inspire.ec.europa.eu/codelist/ProcessStepGeneralValue/legalForce:1",
+        "status" : {
+          "label" : {
+            "text" : "Valid",
+            "lang" : "en"
+          },
+          "id" : "http://inspire.ec.europa.eu/registry/status/valid"
+        },
+        "register" : {
+          "registry" : {
+            "label" : {
+              "text" : "INSPIRE registry",
+              "lang" : "en"
+            },
+            "id" : "http://inspire.ec.europa.eu/registry"
+          },
+          "label" : {
+            "text" : "INSPIRE code list register",
+            "lang" : "en"
+          },
+          "id" : "http://inspire.ec.europa.eu/codelist"
+        }
+      }
+    }, {
+      "value" : {
+        "governance level" : {
+          "label" : {
+            "text" : "Legal (EU)",
+            "lang" : "en"
+          },
+          "id" : "http://inspire.ec.europa.eu/registry/governance-level/eu-legal"
+        },
+        "codelist" : {
+          "label" : "Process Step General",
+          "id" : "http://inspire.ec.europa.eu/codelist/ProcessStepGeneralValue"
+        },
+        "created" : "2015-08-18 17:36 PM UTC",
+        "governance-level" : {
+          "label" : {
+            "text" : "eu-legal",
+            "lang" : "en"
+          },
+          "uri" : "http://inspire.ec.europa.eu/registry/governance-level/eu-legal"
+        },
+        "language" : "en",
+        "label" : {
+          "text" : "obsolete",
+          "lang" : "en"
+        },
+        "applicationschema" : {
+          "label" : {
+            "text" : "plu",
+            "lang" : "en"
+          },
+          "uri" : "http://inspire.ec.europa.eu/applicationschema/plu"
+        },
+        "itemclass" : {
+          "label" : {
+            "text" : "CodeListValue",
+            "lang" : "en"
+          },
+          "id" : "CodeListValue"
+        },
+        "application schema" : {
+          "label" : {
+            "text" : "Planned Land Use",
+            "lang" : "en"
+          },
+          "id" : "http://inspire.ec.europa.eu/applicationschema/plu"
+        },
+        "definition" : {
+          "text" : "Plan having been substituted by another plan, or not being any longer in force.",
+          "lang" : "en"
+        },
+        "theme" : {
+          "label" : {
+            "text" : "lu",
+            "lang" : "en"
+          },
+          "uri" : "http://inspire.ec.europa.eu/theme/lu"
+        },
+        "id" : "http://inspire.ec.europa.eu/codelist/ProcessStepGeneralValue/obsolete",
+        "latestversion" : "http://inspire.ec.europa.eu/codelist/ProcessStepGeneralValue/obsolete",
+        "thisversion" : "http://inspire.ec.europa.eu/codelist/ProcessStepGeneralValue/obsolete:1",
+        "status" : {
+          "label" : {
+            "text" : "Valid",
+            "lang" : "en"
+          },
+          "id" : "http://inspire.ec.europa.eu/registry/status/valid"
+        },
+        "register" : {
+          "registry" : {
+            "label" : {
+              "text" : "INSPIRE registry",
+              "lang" : "en"
+            },
+            "id" : "http://inspire.ec.europa.eu/registry"
+          },
+          "label" : {
+            "text" : "INSPIRE code list register",
+            "lang" : "en"
+          },
+          "id" : "http://inspire.ec.europa.eu/codelist"
+        }
+      }
+    } ],
+    "created" : "2015-08-18 17:18 PM UTC",
+    "governance-level" : {
+      "label" : {
+        "text" : "eu-legal",
+        "lang" : "en"
+      },
+      "uri" : "http://inspire.ec.europa.eu/registry/governance-level/eu-legal"
+    },
+    "description" : {
+      "text" : "NOTE This enumeration contains values that are common to most planning systems.",
+      "lang" : "en"
+    },
+    "language" : "en",
+    "label" : {
+      "text" : "Process Step General",
+      "lang" : "en"
+    },
+    "extensibility" : {
+      "label" : {
+        "text" : "none",
+        "lang" : "en"
+      },
+      "uri" : "http://inspire.ec.europa.eu/registry/extensibility/none"
+    },
+    "extensibility item" : {
+      "label" : {
+        "text" : "Not extensible",
+        "lang" : "en"
+      },
+      "id" : "http://inspire.ec.europa.eu/registry/extensibility/none"
+    },
+    "applicationschema" : {
+      "label" : {
+        "text" : "plu",
+        "lang" : "en"
+      },
+      "uri" : "http://inspire.ec.europa.eu/applicationschema/plu"
+    },
+    "itemclass" : {
+      "label" : {
+        "text" : "CodeList",
+        "lang" : "en"
+      },
+      "id" : "CodeList"
+    },
+    "application schema" : {
+      "label" : {
+        "text" : "Planned Land Use",
+        "lang" : "en"
+      },
+      "id" : "http://inspire.ec.europa.eu/applicationschema/plu"
+    },
+    "definition" : {
+      "text" : "General indication of the step in the planning process that the plan is undergoing.",
+      "lang" : "en"
+    },
+    "theme" : {
+      "label" : {
+        "text" : "lu",
+        "lang" : "en"
+      },
+      "uri" : "http://inspire.ec.europa.eu/theme/lu"
+    },
+    "id" : "http://inspire.ec.europa.eu/codelist/ProcessStepGeneralValue",
+    "latestversion" : "http://inspire.ec.europa.eu/codelist/ProcessStepGeneralValue",
+    "thisversion" : "http://inspire.ec.europa.eu/codelist/ProcessStepGeneralValue:1",
+    "status" : {
+      "label" : {
+        "text" : "Valid",
+        "lang" : "en"
+      },
+      "id" : "http://inspire.ec.europa.eu/registry/status/valid"
+    },
+    "register" : {
+      "registry" : {
+        "label" : {
+          "text" : "INSPIRE registry",
+          "lang" : "en"
+        },
+        "id" : "http://inspire.ec.europa.eu/registry"
+      },
+      "label" : {
+        "text" : "INSPIRE code list register",
+        "lang" : "en"
+      },
+      "id" : "http://inspire.ec.europa.eu/codelist"
+    }
+  }
+}

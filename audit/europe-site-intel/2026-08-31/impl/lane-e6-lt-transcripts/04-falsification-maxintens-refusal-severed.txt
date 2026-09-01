@@ -1,0 +1,91 @@
+npm warn Unknown project config "package-manager-strict". This will stop working in the next major version of npm. See `npm help npmrc` for supported config options.
+
+ RUN  v4.1.10 C:/Users/LENOVO/OneDrive/Desktop/PRYZM/Product_Rediness_08/packages/site-parcel-data
+
+ ❯ __tests__/ltAsgrAdapter.test.ts (26 tests | 4 failed) 79ms
+     × a SERVED intensity value still produces a tier-6 refusal, never a computable number 7ms
+     × the refusal is the rule for the whole column, not a per-row judgement 1ms
+     × NO rule anywhere in either baseline chain offers a usable floor-area ratio 4ms
+     × an all-null polygon yields eight tier-6 rules and not one zero 6ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 4 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  __tests__/ltAsgrAdapter.test.ts > E6-LT 2 — MAX_INTENS is refused, visibly, with both numbers > a SERVED intensity value still produces a tier-6 refusal, never a computable number
+AssertionError: a refused unit must never become a computable value: expected 1 to be null
+
+- Expected:
+null
+
++ Received:
+1
+
+ ❯ __tests__/ltAsgrAdapter.test.ts:217:94
+    215|
+    216|         const rule = ruleFor(zone, 'floorAreaRatio');
+    217|         expect(rule.provenance.value, 'a refused unit must never becom…
+       |                                                                                              ^
+    218|         expect(rule.provenance.confidence.tier).toBe(6);
+    219|         expect(rule.provenance.valueBasis).toEqual({
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/4]⎯
+
+ FAIL  __tests__/ltAsgrAdapter.test.ts > E6-LT 2 — MAX_INTENS is refused, visibly, with both numbers > the refusal is the rule for the whole column, not a per-row judgement
+AssertionError: MAX_INTENS=1 must not yield a value: expected 1 to be null
+
+- Expected:
+null
+
++ Received:
+1
+
+ ❯ __tests__/ltAsgrAdapter.test.ts:236:73
+    234|         for (const raw of [1, 0.4, 15, 59, 160, 0, null]) {
+    235|             const r = readLtNumeric('MAX_INTENS', raw);
+    236|             expect(r.value, `MAX_INTENS=${raw} must not yield a value`…
+       |                                                                         ^
+    237|             expect(r.unknown).toBe(true);
+    238|             expect(r.refusalReason).not.toBeNull();
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/4]⎯
+
+ FAIL  __tests__/ltAsgrAdapter.test.ts > E6-LT 2 — MAX_INTENS is refused, visibly, with both numbers > NO rule anywhere in either baseline chain offers a usable floor-area ratio
+AssertionError: expected 1 to be null
+
+- Expected:
+null
+
++ Received:
+1
+
+ ❯ __tests__/ltAsgrAdapter.test.ts:247:55
+    245|                 for (const rule of zone.rules) {
+    246|                     if (rule.provenance.parameter === 'floorAreaRatio'…
+    247|                         expect(rule.provenance.value).toBeNull();
+       |                                                       ^
+    248|                         expect(rule.provenance.confidence.tier).toBe(6…
+    249|                     }
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/4]⎯
+
+ FAIL  __tests__/ltAsgrAdapter.test.ts > E6-LT 5 — UNKNOWN is emitted, distinct from zero and from no-limit > an all-null polygon yields eight tier-6 rules and not one zero
+AssertionError: expected 'not served · ASGR serves NO per-value…' to contain 'never 0 and never no-limit'
+
+Expected: "never 0 and never no-limit"
+Received: "not served · ASGR serves NO per-value provenance for its numeric regulation columns — the *TP/*NR/*D/*TPR families attach to PAGR_PASK/NAUD_BUD/FUNKC_ZON/NAUD_TIP only (measured against the live layer descriptor 2026-09-01). This value therefore has no served legal address and no served validity date. Candidate documents on this polygon: PAGR_PASK←TPD 203143899 (T00086338, approved 2021-06-02); FUNKC_ZON←TPD 203143899 (T00086338, approved 2021-06-02). They are NOT asserted as this value's source; validityBasis is "ingestion" for exactly that reason."
+
+ ❯ __tests__/ltAsgrAdapter.test.ts:349:45
+    347|             expect(p.value, `${parameter} must be null, never 0`).toBe…
+    348|             expect(p.confidence.tier).toBe(6);
+    349|             expect(p.confidence.note ?? '').toContain('never 0 and nev…
+       |                                             ^
+    350|         }
+    351|     });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[4/4]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  4 failed | 22 passed (26)
+   Start at  16:59:44
+   Duration  2.34s (transform 1.42s, setup 0ms, import 2.05s, tests 79ms, environment 0ms)
+
