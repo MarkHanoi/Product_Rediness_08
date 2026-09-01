@@ -192,6 +192,76 @@ Tools are activated via `runtime.tools.activate(toolId, mode?)`. Only one tool m
 - A tool MUST NOT start a geometry build synchronously inside a pointer event handler. Geometry MUST be deferred to the frame scheduler.
 - Commands dispatched with `source: 'user'` MUST be pushed to the undo ring buffer automatically by the command bus (unless `{ undoable: false }` is set).
 - Interactive wall creation of a single wall (user draws one wall segment) MUST complete within one frame budget (≤ 16 ms) for the store mutation. Geometry build is deferred.
+- ⭐ **A tool MUST NOT construct an element id string. Every element id is minted by
+  `createId(<prefix>)` from `@pryzm/schemas`.** *(added 2026-09-01, lane EXT — this is the
+  invariant §7.6 says was MISSING WHILE BEING CITED. See §3.2.1 for the full rule, its two named
+  exceptions, and its gate. **L-666 CLOSED at the contract; the gate half is owed and is dated in
+  §8.1.1.**)*
+
+#### §3.2.1 — ⛔ ELEMENT-ID MINTING (NORMATIVE — closes **L-666**, 2026-09-01, lane EXT · audit §11.3 R10)
+
+> **Why this clause is written here and not somewhere new.** §7.6 records that C11 §7.0's
+> **FIX-WALL-ID** and **FIX-CW-ID** rows both cite *"§3.2 (tools MUST pre-generate branded IDs and
+> pass them in the payload)"* — **a sentence §3.2 did not contain.** The contract has been cited for
+> this rule for months. **This is the rule, written where it was already being cited**, which is why
+> it is an amendment rather than a mint: the citations do not move, they become true.
+
+> **§3.2.1a — MUST. ONE MINTER.** `createId(prefix, ulid?)` from `@pryzm/schemas`
+> (`packages/schemas/src/factory/createId.ts`, ratified by **ADR-0001 §2**) is the **only** way an
+> element id comes into existence. It validates the tail (`^[0-9A-HJKMNP-TV-Z]{26}$`) and throws
+> otherwise, so **the failure is at the mint, not at the commit.** ⚠ The whole cost of L-145 /
+> L-665 was that the only check ran at `Schema.parse` **inside the command handler**, where a
+> rejection surfaces to the user as a **dead click behind a perfect preview** — because the preview
+> path validates nothing.
+
+> **§3.2.1b — MUST NOT.** No code outside `packages/schemas` may build an element id from a
+> template literal, string concatenation, `crypto.randomUUID()`, `Date.now()`, a counter, or a
+> second ULID implementation. ⛔ **Not even a correct-looking one** — see §3.2.1e, where a
+> hand-rolled ULID is the live finding.
+
+> **§3.2.1c — MUST. THE CREATION-PAYLOAD BUILDER OWNS THE ID.** The proven shape is
+> `apps/editor/src/engine/furniture/furnitureCreatePayload.ts`: `id` is **optional**, minted with
+> `createId('furniture')` when absent, and a caller-supplied id is validated with
+> `isId(id,'furniture')` and **rejected loudly at that one convergence point** rather than silently
+> at the bus. ⭐ **This is the pattern to copy for every family**, and it is why the furniture family
+> is closed while the class was not.
+
+> **§3.2.1d — MUST. A DERIVED id is a DECLARED, NAMED CATEGORY — not a violation, and not a
+> loophole.** Some ids are deliberately **derived** from a parent's identity so they are unique by
+> construction, greppable back to the parent, and stable across regeneration. The reference shape is
+> `packages/geometry-lift/src/LiftAssembly.ts` (`derivedShaftPartId`, `derivedLandingOpeningId`),
+> whose own header states the reason and cites C84 EI-8 for keeping the prefix. **A derived id
+> MUST**: (1) be produced by **one named exported function**, never inline; (2) carry the correct
+> `ElementType` prefix; (3) state in that function's header **what it is derived from and why the
+> derivation is total**; and (4) be **listed by name** in the gate's allowlist (§8.1.1).
+> ⛔ **MUST NOT** be minted inline at a call site — an inline derivation is indistinguishable from
+> the defect this section forbids, both to a reader and to a scanner.
+
+> **§3.2.1e — THE MEASURED BASELINE, 2026-09-01.** Scan: every `.ts`/`.tsx` under `packages`,
+> `apps`, `plugins`, `src` (excluding `.d.ts`, `__tests__`, `*.test.*`, `*.spec.*`, and
+> `packages/schemas/**`) for a string opening `<ElementType>_` followed by an interpolation or a
+> concatenation, comments excluded. **5,180 files scanned · 14 candidates · 3 REAL:**
+>
+> | # | Site | What it mints | Verdict |
+> |---|---|---|---|
+> | 1 | `packages/core-app-model/src/views/DefaultViewsManager.ts` — `_annotationId()` | `` `annotation_${_ulid()}` `` against a **hand-written ULID generator in the same file** (`Math.random()`-tailed) | ⛔ **VIOLATION, and a double one** — it bypasses `createId('annotation')` **and** mints a second ULID implementation. Reached from `_addElevationMark(store, _annotationId(), …)`. **This is L-145's exact shape**, in a different file, after L-145 was fixed. |
+> | 2 | `packages/geometry-lift/src/LiftAssembly.ts` — `derivedShaftPartId`, `derivedLandingOpeningId` | `liftPart_<parent-stem>_<tag>`, `opening_<door-stem>_ld` | ✅ **DERIVED, and compliant with §3.2.1d(1)(2)(3)** — one named function each, correct prefix, reason in the header. **Owes only (4)**, the allowlist entry. |
+> | 3 | `packages/room-topology/src/PlanarTopologyEngine.ts` | `` `room_${idx}_${Date.now()}` `` | ⛔ **VIOLATION** — a wall-clock id that cannot satisfy `^room_[0-9A-HJKMNP-TV-Z]{26}$`. ⚠ **Whether it reaches a Zod `Room.parse` is NOT MEASURED** and is not claimed here; the mint is the violation either way, because §1.2/C73 §1.2 forbid wall-clock inputs to derived state independently. |
+>
+> **The other 11 candidates are NOT violations, and are named so the next scan does not re-raise
+> them**: `packages/core-app-model/src/sync/SyncStateEngine.ts` ×4 (`door_${i}` / `window_${i}` are
+> **derivation-map keys**, not ids) · `apps/editor/src/ui/ViewBrowser/panels/unified-browser/BrowserDataHelpers.ts`
+> ×1 (`'floor_'` inside a `t.includes(...)` substring test) · `apps/bench/src/benches/dimension-schema.bench.ts`
+> ×5 (bench fixtures synthesising 26-char tails).
+>
+> ⭐ **And the three violations §7.6 named are all CLOSED** — see the §7.6 banner. **The class was
+> not**: two new members were minted while the three originals were being fixed, which is the
+> argument for the gate rather than for another round of fixes.
+
+> **§3.2.1f — MUST NOT close a future recurrence by loosening a schema id regex.** Non-ULID ids in
+> a store break identity and ordering assumptions elsewhere (ADR-0001 §4 — *"the event-log codec
+> gets free causal ordering: same-millisecond events sort by ULID"*). **The regex is the last honest
+> reader of this rule until §8.1.1's gate exists; widening it removes the only enforcement there is.**
 
 ### §3.3 — UI orchestration sequence (normative)
 
@@ -963,12 +1033,43 @@ with `isId(id,'furniture')` and rejected at that single convergence point. Both 
 their local generators. **No schema regex was weakened** — a test pins that the pre-fix id still throws
 `FurnitureSchemaError` at the handler. This closes the FURNITURE family only.
 
-**Contract status: OPEN (L-666).** The clause itself is NOT yet written. Proposed: add to **§3.2** —
+~~**Contract status: OPEN (L-666).** The clause itself is NOT yet written.~~ Proposed: add to **§3.2** —
 *"every element id MUST be minted by `createId(<prefix>)` from `@pryzm/schemas`; a tool MUST NOT construct an
 id string"* — and reconcile the §7.0 rows that already cite it; then build the §8.1 static gate ADR-0001 §4
 promised (fail on a template-literal id whose prefix matches a known `ElementType` outside
 `packages/schemas`, with an allowlist for non-element entities such as view definitions and render jobs).
-Until that lands, this contract does not govern id minting and must not be cited as though it does.
+~~Until that lands, this contract does not govern id minting and must not be cited as though it does.~~
+
+> ## ✅ **CONTRACT STATUS UPDATED 2026-09-01 (lane EXT) — L-666's CONTRACT HALF IS CLOSED; THE GATE HALF IS OWED AND DATED**
+>
+> **The clause proposed above is now written**, and it was written **where it was already being
+> cited** rather than in a new document: **[§3.2](#32--invariants-for-ui-initiated-commands)** gains
+> the invariant, and **§3.2.1** carries the full rule — one minter, no constructed id strings, the
+> payload-builder pattern, **a declared DERIVED-id category**, and the measured baseline.
+> **This contract now governs id minting**, so the §7.0 **FIX-WALL-ID** / **FIX-CW-ID** citations are
+> true as written for the first time.
+>
+> ⛔ **The gate is NOT built.** It is specified at **§8.1.1**, dated, per C71 §6's authoring rule
+> (*"never write a build status in the present tense — write it dated, or cite the gate's exit
+> code"*). **L-666 does not fully close until §8.1.1's gate exists and is negative-tested.**
+>
+> ### ⚠ AND THE "Instances (three)" TABLE ABOVE IS STALE — ALL THREE ARE FIXED, THE CLASS IS NOT
+>
+> Re-measured 2026-09-01 at HEAD:
+>
+> | Row | Then | Now |
+> |---|---|---|
+> | **L-145** `applyAutoDimensions` | `crypto.randomUUID()` | ✅ **CLOSED** — `apps/editor/src/ui/documentation/applyAutoDimensions.ts` imports `createId` and calls `createId('annotation')`; the sibling elevation/tag paths do the same. The only surviving `randomUUID` mention in those files is a **comment recording the defect**. |
+> | **L-665** `KitchenCabinetTool` | `` `kitchen_${Date.now()}_${n}` `` | ✅ **CLOSED** — the only surviving occurrences of both literals across `packages apps plugins src` are **comments** in `KitchenCabinetTool.ts`, `WardrobeCabinetTool.ts` and `furnitureCreatePayload.ts` describing the fix. |
+> | **L-665** `WardrobeCabinetTool` | `` `wardrobe_cab_${Date.now()}_${n}` `` | ✅ **CLOSED** — same. |
+>
+> ⛔ **AND THE CLASS IS STILL OPEN, WHICH IS THE POINT.** The scan at §3.2.1e finds **two new
+> violations that were not in this table** — a hand-rolled ULID in `DefaultViewsManager.ts` and a
+> `Date.now()` room id in `PlanarTopologyEngine.ts`. ⭐ **Three instances were fixed one at a time
+> and the class produced two more.** That is the argument for §8.1.1 stated as a measurement rather
+> than as a principle, and it is exactly what `pryzm/no-id-casts` *"scheduled for S07"* was supposed
+> to prevent in 2026-04. ⚠ `grep -rn "no-id-casts"` over the repo, 2026-09-01 → **six hits, all in
+> documents. Zero in source.** It was never written.
 
 ### §7.7 — THE DEAD CLICK HAS TWO MORE MECHANISMS, AND NEITHER IS ID MINTING (L-9300..L-9310, lane POOL55, 2026-08-23)
 
@@ -1122,6 +1223,45 @@ rg -l 'requestAnimationFrame\(' . --type ts \
 # TypeScript clean
 pnpm tsc --noEmit                                             # → 0 errors
 ```
+
+#### §8.1.1 — `check-id-minting.ts` — the gate ADR-0001 §4 promised (specified 2026-09-01, lane EXT · **UNBUILT AT STAMP TIME, 2026-09-01**)
+
+> ⛔ **BUILD STATUS IS DATED, NEVER PRESENT-TENSE** (C71 §6's authoring rule — C71, C72 and C73 each
+> wrote the present tense and each became false). **As of 2026-09-01 this gate does not exist**;
+> `tools/ga-gate/check-id-minting.ts` is **PLANNED** — specified, owed, not on disk. It is written here so §3.2.1 is
+> **falsifiable rather than aspirational**, and so that its absence is *stated* rather than inferred
+> from omission. **Whoever builds it: update this line with the exit code, not with the word
+> "built".**
+
+This is the gate ADR-0001 §4 recorded as *"`pryzm/no-id-casts` … scheduled for S07"* — never
+written, and unwritten for four months while the class it would have caught shipped five times
+(§3.2.1e).
+
+| Check | Kind | What it asserts |
+|---|---|---|
+| **I0** | exit **2** | source files scanned ≥ a floor, **and** the `ElementType` union was parsed from `packages/schemas/src/types/Id.ts` with ≥ 30 members. ⛔ **A run that parsed no union found no violations for the wrong reason** — that is MISCONFIGURED, not clean, and it is the failure three of C74 §0's five incidents were. |
+| **I1** | ratchet, **named**, shrink-only | element-id construction outside `packages/schemas`: a string literal opening `<prefix>_` (prefix ∈ `ElementType`) followed by an interpolation or concatenation. **Baseline pinned at the §3.2.1e reading, listed BY FILE AND SYMBOL** — never as a count (C69 §7.c: *a count lets a PR fix one and break another and stay level*). |
+| **I2** | hard | **no second ULID implementation.** A local time-plus-random tail generator producing a 26-char Crockford string outside `packages/schemas` is a finding on sight. `DefaultViewsManager._ulid()` is the live instance and the negative-test fixture. |
+| **I3** | hard | **the DERIVED allowlist is symmetric and by name** (§3.2.1d(4)): every allowlisted entry resolves to a real exported function, and an entry whose site no longer exists is **stale and exits 3**. |
+| **I4** | hard | **`createId` is not re-exported under a second name** and no wrapper re-implements it — one minter means one symbol. |
+
+**Deliberately OUT of subject, stated so the gate is not read as wider than it is:**
+non-element entities — view definitions, render jobs, templates, cache keys, derivation-map keys
+(`SyncStateEngine`'s `door_${i}`), bench fixtures. §7.6's original note observed *"~40 further
+ad-hoc sites; most are non-schema entities … the point is that nothing tells an author which of the
+two worlds they are in."* ⭐ **The `ElementType`-prefix test is what tells them**, and it is why the
+gate keys on the union rather than on the shape of the expression.
+
+> **§8.1.1a — MUST. Every arm is negative-tested before it is trusted, with the failure text
+> recorded here** — C74 §6.2's rule, and C69 §6's worked precedent (a synthetic handler, a
+> fabricated row, a flipped cell, a non-existent root → exit 2). ⛔ **Until that record exists per
+> arm, the arm is UNPROVEN and may not be cited as coverage.**
+>
+> **§8.1.1b — what this gate CANNOT see:** **(a)** an id assembled from variables with no literal
+> prefix — invisible to a source scan, and none is known; **(b)** an id minted correctly and then
+> **mutated**; **(c)** whether a violating id ever reaches a `Schema.parse` — the gate reports the
+> mint, never the blast radius, which is why §3.2.1e marks `PlanarTopologyEngine`'s consequence
+> `NOT MEASURED` rather than guessing it; **(d)** runtime injection.
 
 ### §8.2 — Runtime gates (browser observation, 9-slab curtain-wall batch)
 

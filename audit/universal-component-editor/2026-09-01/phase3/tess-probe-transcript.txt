@@ -1,0 +1,130 @@
+npm warn Unknown project config "package-manager-strict". This will stop working in the next major version of npm. See `npm help npmrc` for supported config options.
+
+==============================================================================
+E1 — Is a FULLY-DETERMINED line/arc/circle profile expressible with constraints: [] ?
+==============================================================================
+  [OK]   ProfileEntitySchema accepts kind:'line' with constraints-free data.
+  [FAIL] ProfileEntitySchema accepts kind:'arc' with an EMPTY data payload — the arc's shape is UNCONTRACTED.
+  [FAIL] ProfileEntitySchema accepts kind:'arc' with data {banana, wheelbase} — no key is required, none is forbidden.
+         ProfileEntitySchema.data is z.record(string, number|string|boolean|null) — see family-schema.ts §ProfileEntitySchema.
+
+==============================================================================
+E2 — What do the sweep / loft / revolve arms of SolidFeatureSchema DEMAND?
+==============================================================================
+  [OK]   SolidFeatureSchema parses 'sweep': keys = id, kind, lod, materialSlotId, pathProfileId, profileId
+  [OK]   SolidFeatureSchema parses 'loft': keys = id, kind, lod, materialSlotId, profileIds
+  [OK]   SolidFeatureSchema parses 'revolve': keys = id, kind, lod, materialSlotId, profileId, segments, sweepDeg
+         ⛔ revolve carries sweepDeg + segments and NO AXIS field.
+         ⛔ loft carries profileIds ONLY — no per-section origin / right / up.
+         ⛔ sweep's path is a ProfileId — i.e. 2-D entities bound to a ReferencePlane, not a 3-D polyline.
+
+==============================================================================
+E3 — BASELINE: bakeFamilyInstance on a fully-determined sweep + loft + revolve document
+==============================================================================
+  [OK]   FamilyDocumentSchema.parse ACCEPTS a document whose profiles carry line+arc entities and constraints: [].
+         → the audit's stated E1 test HOLDS: a fully-determined profile IS expressible with an empty constraints[].
+         bake.ok=false  baked=0  unsupported=3
+           · sweep  reason='unsupported-feature'  [bakeFamilyInstance] solid kind 'sweep' requires the S57 constraint solver to evaluate path/section profiles; v1 supports 'extrude' only.
+           · loft  reason='unsupported-feature'  [bakeFamilyInstance] solid kind 'loft' requires the S57 constraint solver to evaluate path/section profiles; v1 supports 'extrude' only.
+           · revolve  reason='unsupported-feature'  [bakeFamilyInstance] solid kind 'revolve' requires the S57 constraint solver to evaluate path/section profiles; v1 supports 'extrude' only.
+  [OK]   Baseline reproduced: all three kinds refused, zero baked. The refusal is the ONE message in bakeFamilyInstance's tail branch.
+  [OK]   profileToPolygon throws code='profile-needs-solver' on the first non-point entity — §5.3's stated blocker CONFIRMED.
+
+==============================================================================
+E4 — Does the kernel's claimed existing tessellator (arcToPoints) serve a CIRCULAR arc?
+==============================================================================
+  [FAIL] arcToPoints is NOT exported from @pryzm/geometry-kernel — it lives in producers/_internal/WallPath.ts (deep-path import required).
+         segments=   8  max |r-R| = 0.060660 m  → OUTSIDE COINCIDENT_M (0.001 m)  [×61]
+         segments=  32  max |r-R| = 0.060660 m  → OUTSIDE COINCIDENT_M (0.001 m)  [×61]
+         segments= 256  max |r-R| = 0.060660 m  → OUTSIDE COINCIDENT_M (0.001 m)  [×61]
+         segments=4096  max |r-R| = 0.060660 m  → OUTSIDE COINCIDENT_M (0.001 m)  [×61]
+  [FAIL] arcToPoints CANNOT tessellate a circular arc: the residual is 0.060660 m and does NOT shrink with segments — a quadratic Bézier is a different curve, not a coarse sampling of the circle.
+         ⛔ So audit §5.3 fact #2 ("arcToPoints already does it") is FALSE for kind:'arc' and kind:'circle'.
+            It is TRUE only for a quadratic-Bézier 'arc' — the WallPath spelling — which ProfileEntitySchema does not define.
+         SEMICIRCLE (spec §64 "arched top"), R=1 m — BEST symmetric control point k=2.215·R gives max |r-R| = 0.1077 m (108× COINCIDENT_M).
+  [FAIL] No control point makes a SINGLE quadratic Bézier a semicircle — the end tangents are anti-parallel, so the tangent intersection is at infinity. arcToPoints cannot express spec §64's arched top at ANY tolerance without a subdivision routine that does not exist.
+  [OK]   A 6-line closed-form circular tessellator gives max |r-R| = 2.22e-16 m at 16 segments. Claim A's MATH is trivial and needs no solver — confirmed.
+
+==============================================================================
+E5 — Can produceSweep / produceLoft / produceRevolve be driven from a parsed FamilyDocument?
+==============================================================================
+  [FAIL] produceSweep / produceLoft / produceRevolve are NOT exported from @pryzm/geometry-kernel's index — only produceExtrude is. AXIS-1 (import) is BROKEN for all three.
+  [OK]   produceSweep hand-fed → valid descriptor (20 verts, 20 tris).
+  [OK]   produceLoft hand-fed → valid descriptor (16 verts, 12 tris).
+  [OK]   produceRevolve hand-fed → valid descriptor (72 verts, 96 tris).
+
+==============================================================================
+E5b — INPUT-DEMAND LEDGER: producer demand  ×  document supply
+==============================================================================
+         CONVENTION produceSweep   needs profile: {u,v}[] (closed, metres, local cross-section)
+                          doc gives Profile.entities on a ReferencePlane → (x,z)
+         MISSING    produceSweep   needs path: Point3D[] (≥2, WORLD 3-D, metres)
+                          doc gives pathProfileId → a 2-D Profile bound to a plane
+         MISSING    produceSweep   needs options.closed
+                          doc gives (no field on the sweep arm)
+         MISSING    produceLoft    needs section.profile: {u,v}[] — SAME vertex count in every section
+                          doc gives profileIds[] — no arity rule in the schema
+         SUPPLIED   produceLoft    needs section.worldOrigin: Point3D
+                          doc gives ReferencePlane.origin
+         MISSING    produceLoft    needs section.right: Point3D (unit, in-plane +U)
+                          doc gives (ReferencePlane carries origin+normal ONLY)
+         MISSING    produceLoft    needs section.up: Point3D (unit, in-plane +V)
+                          doc gives (ReferencePlane carries origin+normal ONLY)
+         CONVENTION produceRevolve needs profile: {r,y}[] — r = distance from AXIS, r ≥ 0
+                          doc gives Profile.entities → (x,z); which is r and which is y is unrecorded
+         MISSING    produceRevolve needs the AXIS itself (hard-wired to world +Y)
+                          doc gives (no axis field on the revolve arm)
+         SUPPLIED   produceRevolve needs startAngle / endAngle (radians)
+                          doc gives sweepDeg (degrees, default 360)
+         SUPPLIED   produceRevolve needs segments (≥3)
+                          doc gives segments (≥3, default 24)
+         
+TOTAL: 11 demanded inputs — 3 SUPPLIED, 2 CONVENTION-ONLY, 6 MISSING FROM THE SCHEMA.
+
+==============================================================================
+E5c — Is the 2-D→3-D lift determined by ReferencePlane {origin, normal}?
+==============================================================================
+         ReferencePlane keys on disk: id, isHost, name, normal, origin
+         both bases are orthonormal and ⟂ normal: A·n=0, B·n=0.000000000000000
+         same document point (x=2,z=0) lifts to A=(2,0,0) and B=(1.0000,1.7321,0)
+  [FAIL] the SAME document lifts to points 2.0000 m apart (2000× COINCIDENT_M) under two equally-legal bases. The lift is UNDERDETERMINED by one rotation DOF about the normal.
+         ⛔ Consequence: a sweep PATH and every loft SECTION are unplaceable in 3-D from the document as it stands.
+            This is a SCHEMA gap (ReferencePlane has no in-plane basis), not a solver gap and not a tessellation gap.
+
+==============================================================================
+E6 — A derived basis is a THIRD source of truth for orientation
+==============================================================================
+         normal (0, 1, 0) → seed axis {"x":1,"y":0,"z":0}
+         normal (1e-12, 1, 0) → seed axis {"x":0,"y":0,"z":1}
+         normal (0, 1, 1e-12) → seed axis {"x":1,"y":0,"z":0}
+  [FAIL] a DERIVED basis flips discontinuously: two normals 1e-12 apart — a THOUSAND times below PARALLEL_RAD (1e-9) — pick DIFFERENT seed axes, spinning every profile on that plane by 90°. Deriving instead of persisting makes orientation non-deterministic under authoring, and check-deterministic-regeneration is already a RED ratchet.
+
+==============================================================================
+E7 — Tessellate an ARCHED profile (spec §64 "arched top") and drive the REAL bakeFamilyInstance
+==============================================================================
+  [OK]   ARCHED extrude baked through the UNMODIFIED bake: 90 verts, 56 tris, hash=extrude:1|h=2.100000|y=0…
+         ⭐ The ONLY thing standing between §64's "arched top" and this descriptor is profileToPolygon's
+            refusal of a non-point entity. The tessellator's output type IS profileToPolygon's return type.
+            Zero new dependency, zero WASM, zero C74 authorisation, ZERO schema change — for EXTRUDE only.
+
+==============================================================================
+E8 — Four-axis reachability of whatever this lights up
+==============================================================================
+         AXIS 1 import/construction : produceExtrude IS on the kernel index; produceSweep/Loft/Revolve are NOT (measured E5).
+         AXIS 2 bus verb            : no component.* / family.* bus verb dispatches a bake — grep in the verdict.
+         AXIS 3 build graph         : @pryzm/family-instance ← apps/bake-worker only; apps/editor has zero importers.
+         AXIS 4 call                : bakeFamilyInstance has ONE production call site (RebakeFamilyInstanceJob),
+                                      and that job is documented as unfed until "family.instance.placed" exists.
+
+==============================================================================
+PROBE SUMMARY  —  OK 12 · FAIL 8
+==============================================================================
+
+  CLAIM A (tessellation is closed-form, needs no solver) ......... HOLDS
+  CLAIM A's stated MECHANISM (reuse arcToPoints) ................ FAILS  (Bézier ≠ circle; not exported)
+  CLAIM A's stated PRECONDITION (arc data is expressible) ....... HOLDS at the type level,
+                                                                  FAILS as a contract (data is z.record)
+  CLAIM B (routing solid.kind lights up 3 of 4 tools) ........... FAILS  (6 demanded inputs
+                                                                  are absent from the schema)
+
+RC=1

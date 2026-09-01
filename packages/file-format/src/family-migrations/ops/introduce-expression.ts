@@ -5,6 +5,17 @@
 // string that references other parameters by name.  The expression
 // itself is NOT evaluated here — that happens at bake time inside
 // `@pryzm/family-runtime`.
+//
+// ⚠ §SUPERSEDED-DEFAULT (ADR-0376 D4). The word "Replaces" above was
+//   ASPIRATIONAL: `apply` set `expression` and left `defaultValue`
+//   exactly where it was.  Paired with the resolver's then-inverted
+//   precedence (default before expression), that produced a migration
+//   whose entire visible effect was nothing — the document gained an
+//   expression that could never be reached.  The only test arm asserted
+//   `expression === 'Height / 2'` and never looked at the default it
+//   was supposed to have replaced, so both halves of the defect were
+//   green.  `apply` now CLEARS the default and moves it to
+//   `supersededDefault` for provenance.
 
 import type { Migrator, RawFamily } from '../types.js';
 
@@ -15,6 +26,11 @@ export interface IntroduceExpressionParams {
    *  `document.types[*].values` (since the expression now drives it).
    *  Defaults to `false`. */
   readonly clearTypeOverrides?: boolean;
+  /** When `true` (the DEFAULT), a non-null `defaultValue` that the new
+   *  expression supersedes is moved to `supersededDefault` for provenance.
+   *  Set `false` to DROP it instead.  Either way the `defaultValue` is
+   *  cleared — that is not optional, it is ADR-0376 D4. */
+  readonly recordSupersededDefault?: boolean;
 }
 
 export function makeIntroduceExpressionMigrator(
@@ -39,11 +55,21 @@ export function makeIntroduceExpressionMigrator(
         );
       }
 
-      const parameters = input.document.parameters.map((p) =>
-        p.id === params.parameterId
-          ? { ...p, expression: params.expression }
-          : p,
-      );
+      const parameters = input.document.parameters.map((p) => {
+        if (p.id !== params.parameterId) return p;
+        // §SUPERSEDED-DEFAULT — clearing the default is the POINT of this op,
+        // not a nicety. Leaving it behind is what made the migration a no-op.
+        const next = { ...p, expression: params.expression, defaultValue: null };
+        if (p.defaultValue !== null && params.recordSupersededDefault !== false) {
+          return { ...next, supersededDefault: p.defaultValue };
+        }
+        // No default to record — and do not carry a STALE supersededDefault
+        // forward from an earlier op onto a value it never described.
+        // `next` is a fresh spread, so this never mutates `input` (Migrator.apply
+        // is contractually pure — see family-migrations/types.ts).
+        delete (next as { supersededDefault?: number | string }).supersededDefault;
+        return next;
+      });
 
       const types = params.clearTypeOverrides
         ? input.document.types.map((t) => {

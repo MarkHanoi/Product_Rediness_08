@@ -291,6 +291,60 @@ browns because they were placed in different months is the defect this contract 
 
 **MUST NOT**: cite this section to argue materials should be materialised because types are.
 
+### §2.4 — ⭐ A COMPONENT'S **MATERIAL SLOT** JOINS THIS LADDER; IT DOES NOT MINT A SIXTH VOCABULARY (added 2026-09-01, lane EXT · audit §6.2 · ADR-0376 D5)
+
+> **The component model has a materials concept already, and it is the RIGHT concept** — a
+> **slot**, not a colour. `packages/file-format/src/family-schema.ts` declares
+> `MaterialSlotSchema = { id: SlotId, name: string, defaultCategory: string | null }`, and a
+> definition carries `materialSlots: MaterialSlot[]`. **Naming the slot instead of baking a colour
+> is precisely §2.1's discipline, arrived at independently.**
+
+#### ⛔ AND IT CANNOT REACH THE MASTER, BECAUSE IT HAS NO `materialId`. MEASURED 2026-09-01:
+
+```
+grep -rn "defaultCategory" --include=*.ts packages apps plugins src
+   -> 3 hits: family-schema.ts:235 (the declaration) and two lines of its own .d.ts.
+      ZERO consumers.
+grep -rn "materialSlots\|MaterialSlot" --include=*.ts packages apps plugins src
+   -> the schema, its .d.ts, the merge-material-slots migration op, and barrels. NOTHING ELSE.
+```
+
+**`defaultCategory` is a free-text string with no resolver, no consumer and no relationship to
+`MaterialCategory` or to any master row id.** So a component slot today can name a material only in
+the sense that a comment can: **it is a hex's problem one level worse.** §2.1's MUST NOT — *"a
+family may not store only a hex and call it a material; a hex is not a material, it is one attribute
+of one"* — applies with more force to a bare category string, which is not even an attribute.
+
+> **§2.4a — MUST.** A component material slot **binds by `materialId`**, resolved through **the ONE
+> ladder of §2.1** — override, then `materialId` against T2 then T1, then a **NAMED UNRESOLVED
+> state** (§5). ⛔ **A slot MUST NOT grow a private resolution order.** §9's convergence census
+> exists because five vocabularies had to be reconciled after the fact; this is the one family that
+> can join before it has a single consumer to migrate.
+
+> **§2.4b — MUST.** The `defaultCategory` field is either **bound to the same category vocabulary
+> the master uses** or **declared as authoring metadata that resolves nothing** — and said so, in
+> the schema, at the field. ⚠ *"A category that looks like a material reference and resolves
+> nothing"* is `[[context-data-honesty-family]]` in a component file: **"no material chosen" and
+> "the reference could not be resolved" become the same value**, which is the failure §5 forbids
+> everywhere else in this contract.
+
+> **§2.4c — MUST. The DEFINITION declares the slot; the TYPE or the INSTANCE supplies the
+> `materialId`.** That is C65's tier split (T0 declares, T1–T4 configure), and it is what keeps
+> §2.2's *"editing a master row changes every element that references it"* true through a component:
+> the reference lives on the configuration, so the master edit reaches the placed instance without
+> touching the definition.
+
+> **§2.4d — MUST NOT.** Do not solve this by giving the slot a **colour**. A definition that stores
+> a hex is a definition that has *irreversibly lost the name* (§2.1) — and unlike an element, a
+> definition is **shared, versioned and signed**, so the loss is copied into every instance of every
+> type over it, permanently. ⛔ **This is the cheapest defect in the programme to avoid and one of
+> the most expensive to reverse.**
+
+⭐ **Why this is an EXTENSION and not a mint (C84 EI-8):** the slot needs *identity, resolution
+order, an unresolved state and an override rule* — C100 already owns all four. A parallel
+"component material" concept would be a **sixth** vocabulary over one question, and §9's census is
+the record of what reconciling five cost.
+
 ---
 
 ## §3 — Adapters: what one may and may not do

@@ -154,6 +154,58 @@ Destructive resolutions render a Confirm/Cancel card and dispatch nothing until 
 
 ### §1.2 The live measurement — every row with the command that derives it
 
+> ## ⛔ RE-MEASURED 2026-09-01 (lane EXT · audit §6.1) — **EVERY ROW OF THE 2026-08-19 TABLE MOVED, AND THE HARD-0 RATCHET IS BREACHED**
+>
+> The table below is kept **as a dated reading**, which is what §1.2's own header demands. It is
+> **not the current state.** Re-derived at HEAD, gate run in the FOREGROUND, redirected, `$?` read
+> immediately (⚠ piping to `tail` returns `tail`'s exit code):
+>
+> ```
+> npx tsx tools/ga-gate/check-chat-capability-coverage.ts > /tmp/ccc.txt 2>&1; echo "RC=$?" >> /tmp/ccc.txt
+> ```
+>
+> | Measure | **2026-09-01 (HEAD)** | 2026-08-19 `f89c735c` | Direction |
+> |---|---|---|---|
+> | registered bus commands | **361** | 325 | +36 |
+> | chat capabilities | **77**, covering **52** commands | 56 / 35 | +21 / +17 |
+> | explicitly deferred (`CHAT_UNAVAILABLE`) | **61** | 52 | +9 |
+> | classified (`ChatCommandClassification.ts`) | **235** — B 131 · C 49 · D 48 · E 4 · F 3 | 238 — B 133 · C 50 · D 48 · E 4 · F 3 | −3 |
+> | **UNDECLARED** | 🔴 **13** (baseline **0**) | 0 | **A HARD-0 RATCHET IS BREACHED** |
+> | maturity | M2/M3 **77** · M4 **27** · M5 **21** · M6 **1** · M7 **4** | 56 · 17 · 16 · 1 · 4 | up on four of five |
+>
+> **The C68 §6.3 ratchets, same run:** unresolved examples **1/1** · unpinned capabilities **7/9**
+> (below) · undeclared spatial reach **5/2** 🔴 · unclassified global routes **1/1** · resolver case
+> arms **30/30** · unreachable properties **47/42** 🔴.
+>
+> ⚠ **Two of those rows correct the box below in BOTH directions**, which is exactly why a number
+> is never transcribed here: *undeclared spatial reach* fell **26 → 5** while its baseline fell
+> **24 → 2**, so it is **still exceeded** despite improving five-fold; and *unreachable properties*
+> went **40/42 (below)** → **47/42 (exceeded)**, so a row this contract recorded as healthy is now
+> the breach. **A stale-optimistic reading certifies a breach as clean.**
+>
+> #### ⛔ THE 13 UNDECLARED — **two whole element families and two compound systems, shipped chat-invisible**
+>
+> `balcony` · `balcony.create` · `balcony.delete` · `balcony.updateProfile`
+> (`plugins/balcony/src/handlers/`) · `bathroomPod.create` · `bathroomPod.delete`
+> (`plugins/plumbing/src/handlers/`) · `lift` · `lift.create` · `lift.delete`
+> (`plugins/lift/src/handlers/`) · `room.autoClassify.batch` · `room.restoreMeaning` ·
+> `room.setColourMode` (`plugins/rooms/src/handlers/`) · `view.setCategoryVisibility`
+> (`apps/editor/src/engine/initBusHandlers.ts`).
+>
+> **`balcony`, `lift` and `bathroomPod` all carry canonical contracts** — C104 (lift compound),
+> C109 (bathroom pod compound) — and reach the chat as *"I'm not sure how to help with that yet"*,
+> which is the founder-reported defect this gate was built for, recurring against families minted
+> **after** the gate. ⛔ **The fix is a `ChatCapability` or a `CHAT_UNAVAILABLE` reason a user could
+> read — never a raised baseline.** `§RATCHET-EXCEEDED-IS-NEVER-DEBT` (R7 / L-836).
+>
+> The same run reports **3 unresolvable parameter sources**
+> (`set-reveal-direction.revealDirection` → `"enumeration"`; `set-window-shape.shape` and
+> `set-door-shape.shape` → `"opening-shapes"` — *"nothing can resolve it"*) and **1 declared-but-
+> unhonoured scope mode** (`add-wall-layer` declares `"orientation"`, the intent never reaches
+> `ctx.resolveScope`) — **C68 §7.d, the `ElementCapabilities` lie one layer over.**
+>
+> ⛔ **DO NOT TRANSCRIBE ANY NUMBER IN THIS BANNER EITHER — including these. Run the gate.**
+
 **Re-derived 2026-08-19 at `f89c735c`.** ⛔ **Never transcribe a number without its derivation.**
 `G` = `npx tsx tools/ga-gate/check-chat-capability-coverage.ts`.
 

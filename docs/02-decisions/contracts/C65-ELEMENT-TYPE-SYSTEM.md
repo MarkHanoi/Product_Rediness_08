@@ -48,6 +48,69 @@ architecture leaves room for them, and are **explicitly out of scope** until T2 
 implementation that makes T3 impossible later is a design failure; a T2 implementation that does
 not ship T3 today is correct.
 
+### §2.0 — ⭐ **T0 — THE DEFINITION TIER, DECLARED ABOVE T1** (added 2026-09-01, lane EXT · audit §6.2 / §3.2 · ADR-0376 D5)
+
+> **§2.1 extends the architecture's room DOWNWARD, to T3 and T4, and says so.** The same courtesy is
+> owed **upward**, and it was never paid: this contract's four tiers all answer *"where does a type
+> LIVE?"* and none answers *"where does the thing a type is a CONFIGURATION OF live?"* **That is a
+> different question, and leaving it unasked is how the repository ended up with the answer being
+> `WindowBuilder.ts`.**
+
+| Tier | What it is | Lives in | Authorable at runtime |
+|---|---|---|---|
+| **T0 — Definition** | the parametric **thing itself**: its parameters, its geometry rules, its material slots, its host requirements. A Type (T1–T4) is a **named set of VALUES over a Definition.** | ⚠ **for elements: NOWHERE — see below.** For the component model: `packages/file-format/src/family-schema.ts` (`FamilyDocument`) | ⚠ split — see §2.0.2 |
+| **T1–T4** | as §2 | as §2 | as §2 |
+
+#### §2.0.1 — ⛔ MEASURED: elements have **no** definition tier, and that is the whole cost
+
+```
+grep -rl "ComponentDefinition" packages apps plugins --include=*.ts   ->  0
+grep -rl "SemanticClass"       packages apps plugins --include=*.ts   ->  0
+```
+
+**An element kind IS a compiled Zod schema** — not data, not authorable, not versionable per
+project. There is no T0 to sit a T2 type on top of, which is why §3.5's *"ONE abstraction, not N
+stores"* has to be re-argued for every family: `ElementType` is a payload keyed by a family name,
+because the family itself is code.
+
+⭐ **The cost, stated as a number rather than a worry:** the "definition" of a window is
+`WindowBuilder.ts` — **2,086 lines of hand-written TypeScript, one per family** — so *a second
+family costs a second two-thousand-line builder.* **T0's absence is the reason the type system
+scales linearly in engineers.**
+
+#### §2.0.2 — WHERE T0 IS ALREADY BUILT, AND WHY C65 DOES NOT ABSORB IT
+
+A complete, Zod-pure, content-addressed, signed, migrating T0 **exists** — the component document
+model in `packages/file-format/src/family-schema.ts`, with typed parameters, an expression
+resolver, material slots, reference planes and solid features. It is not reachable from
+`apps/editor` (that is the programme's headline gap, not this contract's).
+
+> **§2.0.2a — MUST. C65 declares T0; it does not define it.** The Definition model is the subject of
+> its own contract, **C111**, exactly as T4 is C07/C40's subject rather than C65's. This section
+> exists so that *"is there a tier above Type?"* has a written answer of **yes, and it is somebody
+> else's to specify** — never an answer inferred from C65's silence, which is the inference §2.1
+> was written to prevent one direction over.
+
+> **§2.0.2b — MUST. `Component` is the vocabulary here** (**ADR-0376 D5**). The `family-*` package
+> names and the `.pryzm-family` extension are **FROZEN legacy spellings** — wire/identity names
+> under C69 §1.1, not renamed — and **no NEW symbol in this contract's scope may use `Family`.**
+> ⛔ The equivalence `FamilyDefinition ≡ ComponentDefinition` is declared **once**, in C111, and is
+> deliberately **not restated here** (C84 EI-9: a decision written twice is a decision that will
+> diverge).
+
+> **§2.0.2c — MUST. A T2 type over a T0 definition still obeys every rule in §3.** Project state
+> (§3.1), commands only (§3.2), declared scope (§3.3), **visible unresolved state (§3.4)**, one
+> abstraction (§3.5), edit-propagates-to-instances (§3.6), deep-copy duplicate (§3.7). ⭐ **§3.4 is
+> the one that gets harder and matters most**: a T2 type can dangle its **definition** as well as
+> its id, and *"this component's definition is missing"* MUST be as visible and as
+> non-destructive as *"this type is missing."* **Two unresolved states, both named, neither a
+> silent default.**
+
+> **§2.0.2d — MUST NOT.** No family may gain a *"New definition"* affordance before §3.9's rule is
+> satisfied for it — creation, persistence and restore all wired. **T0 is where an orphan
+> affordance is most expensive**, because a definition is not minutes of a user's work, it is the
+> thing their other work points at.
+
 **§2.2 — A type created by a user in a project is T2 BY DEFAULT.** "Promote to library" (T2 → T3)
 is a later, explicit user action. Silently writing a user's type outside the project is a privacy
 and isolation error ([C22](./C22-PRIVACY-AND-PII-TIER.md), [C13](./C13-PROJECT-LIFECYCLE-AND-ISOLATION.md)).

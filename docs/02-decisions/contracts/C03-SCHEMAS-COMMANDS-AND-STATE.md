@@ -718,3 +718,39 @@ deliberately NOT refused: they are a SPAN rather than a routing key, and
 different reason. Widening the refusal to cover them would be an unmeasured change to stair
 replay.
 
+### §4.10.1 — ⭐ THE RULE GENERALISED: **A ROUTING KEY IS NOT A PARAMETER** (added 2026-09-01, lane EXT · audit §6.2 · ADR-0376)
+
+> §4.10 rules on one field. **The rule it establishes is general, and the component model is about
+> to produce many more fields of the same shape** — a definition reference, a type reference, a host
+> reference, a connector reference. Each of them *looks* like a parameter (a named value on a
+> record, editable in a panel) and **none of them is one.**
+
+> **§4.10.1a — THE TEST, stated so it is applied rather than argued.** A field is a **ROUTING KEY**,
+> not a value, when changing it **re-files the element** — when the write owes effects that the
+> generic `store.update(id, {...existing, ...parameters})` merge does not perform. §4.10's own four
+> effects are the template; for a component the equivalents are the same class:
+>
+> | Field | Changing it owes | Verdict |
+> |---|---|---|
+> | `levelId` | the four effects of §4.10 | ⛔ **REFUSED** (§4.10, shipped) |
+> | a **definition** reference | a re-resolve of every parameter, a geometry regeneration, an `instantiates` edge move (C71 §2.7), and an undo inverse that restores the OLD definition — not the old id string | ⛔ **ROUTING KEY** |
+> | a **type** reference | re-resolution against the new type's values, and C65 §3.6's instance-count disclosure | ⛔ **ROUTING KEY** |
+> | a **host** reference | the host's frame is the hosted thing's frame (C15 §2.2.1) — a bare write leaves the element in the old host's coordinates, the exact shape §4.10 effect (2) describes for elevation | ⛔ **ROUTING KEY** |
+> | a length, an angle, a count, a boolean | a value change and a rebuild | ✅ **PARAMETER** |
+
+> **§4.10.1b — MUST.** A routing key is refused on the generic parameter path, **naming the family's
+> own verb** — §4.10's shape exactly. ⭐ **It is a REFUSAL, not a validator tightening**: it makes
+> *"a property edit cannot re-file an element"* **true**, rather than true-because-the-panel-happens-
+> to-mark-the-field-`READONLY`.
+
+> **§4.10.1c — MUST. Measure before refusing, because an over-refusal in a validator's voice is its
+> own defect (L-1430).** §4.10 did this and recorded it: `levelId` was the sole member of
+> `GLOBAL_PROPERTY_EXCLUDES`, absent from `ChatCapabilityRegistry`, and `READONLY` on every
+> descriptor family — *"there was no legitimate caller to break, which is exactly why the hole
+> stayed open."* **Run the same three checks per key before adding it.**
+
+> **§4.10.1d — MUST NOT "tidy" a deliberate asymmetry.** `baseLevelId` / `topLevelId` are a **SPAN**,
+> not a routing key, and are deliberately NOT refused. ⚠ The component model will grow its own
+> spans and its own near-misses; **the test is §4.10.1a's — does the change re-file the element? —
+> never the field's name or its type.**
+

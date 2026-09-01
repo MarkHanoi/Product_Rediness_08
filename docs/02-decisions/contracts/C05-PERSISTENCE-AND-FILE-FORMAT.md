@@ -2,8 +2,8 @@
 
 > **Stamp**: 2026-05-03 · **Status**: CANONICAL  
 > **Scope**: `packages/persistence-client/` (L4), `packages/file-format/` (L5), project lifecycle, project isolation, render gallery storage, and server-side PostgreSQL routing.  
-> **References**: [ADR-0203] object storage, [ADR-0204] wire format, [SPEC-26] `.pryzm` file format, [ADR-0217] `.pryzm-family` format.  
-> **Changelog**: 2026-08-26 (lane SUSTAIN109) — added **§3.9** (journal retention follows the version ring — the founder's decision, superseding §3.5's "not decided" clause, dated box in place) and the §3.6 req 6 box (the syncStatus sidecar shipped: one container write per save tick); ISSUE-LOG L-11542, L-11545. · 2026-08-22 (lane LOAD30) — added **§3.5** (a snapshot describes state; an append-only journal MUST NOT live inside it) and **§3.6** (a version-history write MUST NOT decode the history it is not changing), per [ADR-0356](../adrs/ADR-0356-a-design-journal-is-not-snapshot-state.md); ISSUE-LOG L-5800 … L-5851. · 2026-05-03 — added §1.3 server-side pgClient routing invariant (`DATABASE_URL` before `SUPABASE_DB_URL`); added §1.3.1 FK-removal invariant (`projects_owner_id_fkey` dropped in mixed-auth deployments); §1.4 renumbered from §1.3.
+> **References**: [ADR-0203] object storage, [ADR-0204] wire format, [SPEC-26] `.pryzm` file format. **`.pryzm-family`: [C111](./C111-COMPONENT-DEFINITION-AND-FAMILY-FORMAT.md) owns the model; §4 of this contract owns the envelope.** ⛔ *This line used to read "[SPEC-26] `.pryzm` file format, [ADR-0217] `.pryzm-family` format". **Neither document mentions `.pryzm-family` at all** — SPEC-26's "family" hits are `ElementFamily`, and ADR-0217 is* Element Type Catalog Scope*. Corrected 2026-09-01 with §4; see the box there for the measurement.*  
+> **Changelog**: 2026-09-01 (lane C111) — ⛔ **§4 CORRECTED IN PLACE**: it described a `family-descriptor.json` and a `metadata.json.type='family'` that **do not exist** (`grep -rn "family-descriptor"` → rc=1, no output), and its header cited two documents that never mention this format. §4 now states the **real** envelope from `FAMILY_PATHS`, adds §4.1/§4.2 invariants, and **defers the MODEL to the newly minted [C111](./C111-COMPONENT-DEFINITION-AND-FAMILY-FORMAT.md)**; the References line is corrected in the same change-set. Audit §0.3 F1 / risk R5, ADR-0376 D5. · 2026-08-26 (lane SUSTAIN109) — added **§3.9** (journal retention follows the version ring — the founder's decision, superseding §3.5's "not decided" clause, dated box in place) and the §3.6 req 6 box (the syncStatus sidecar shipped: one container write per save tick); ISSUE-LOG L-11542, L-11545. · 2026-08-22 (lane LOAD30) — added **§3.5** (a snapshot describes state; an append-only journal MUST NOT live inside it) and **§3.6** (a version-history write MUST NOT decode the history it is not changing), per [ADR-0356](../adrs/ADR-0356-a-design-journal-is-not-snapshot-state.md); ISSUE-LOG L-5800 … L-5851. · 2026-05-03 — added §1.3 server-side pgClient routing invariant (`DATABASE_URL` before `SUPABASE_DB_URL`); added §1.3.1 FK-removal invariant (`projects_owner_id_fkey` dropped in mixed-auth deployments); §1.4 renumbered from §1.3.
 
 ---
 
@@ -694,13 +694,74 @@ bit-for-bit — but the honest label is a UI change and belongs to a UI lane.
 
 ---
 
-## §4 — The `.pryzm-family` File Format (SPEC-26, ADR-0217)
+## §4 — The `.pryzm-family` File Format — **THE ENVELOPE ONLY; the MODEL is [C111](./C111-COMPONENT-DEFINITION-AND-FAMILY-FORMAT.md)**
 
-`.pryzm-family` files define reusable parametric component families (the equivalent of Revit families). They:
-- Are valid `.pryzm` files with `metadata.json.type = "family"`.
-- Contain a `family-descriptor.json` (parameter table, geometry functions, label mappings).
-- Are loaded by `packages/family-loader/` at runtime (lazy, not at boot).
-- Are distributed via the marketplace (C07 §4).
+> ⛔ **CORRECTED IN PLACE 2026-09-01 (lane C111) — THIS SECTION DESCRIBED A FORMAT THAT DOES NOT
+> EXIST, AND IT WAS THE ONLY CANONICAL CONTRACT GOVERNING THIS FILE TYPE.** Four of its five claims
+> were false. **Cite the code, never the old text.** Measured at HEAD, each `rc` read immediately
+> and never through a pipe:
+>
+> | The old claim | Measured | Verdict |
+> |---|---|---|
+> | *"Are valid `.pryzm` files with `metadata.json.type = \"family\"`"* | `.pryzm-family` is its **own** ZIP layout with its **own** entry set (`FAMILY_PATHS`) and its **own** schemas; there is no `metadata.json` in it and no `type` discriminator anywhere | ⛔ **FALSE** |
+> | *"Contain a `family-descriptor.json` (parameter table, geometry functions, label mappings)"* | `grep -rn "family-descriptor" --include=*.ts --include=*.json --include=*.js packages apps plugins src server` → **rc=1, NO OUTPUT.** The string does not exist in this repository. | ⛔ **FALSE** |
+> | *"Are loaded by `packages/family-loader/` at runtime (lazy, not at boot)"* | the package exists and `loadFamily` / `loadFamilyFromBytes` are real — but `grep -rn "@pryzm/family-loader\|@pryzm/family-instance\|@pryzm/family-runtime" --include=*.ts --include=package.json apps/editor` → **rc=1**. **The editor never loads a family, lazily or otherwise.** Its only production caller is a bake-worker job whose own export is called from tests only. | ⚠ **MISLEADING** — true of the package, false of the runtime |
+> | *"Are distributed via the marketplace (C07 §4)"* | ✅ **TRUE, and it is the one live leg** — `server.js` mounts `buildFamilyMarketplaceRouter` at `/api/v1/families`; `POST` verifies an Ed25519 signature through `unpackFamily`, `GET /api/v1/families/:id/download` streams the bytes back | ✅ **CORRECT** |
+> | header citation *"(SPEC-26, ADR-0217)"* | **SPEC-26** (`docs/03-execution/specs/SPEC-26-PRYZM-FILE-FORMAT.md`) contains **no** occurrence of `pryzm-family` — its "family" hits are `ElementFamily`, a different concept. **ADR-0217** is *Element Type Catalog Scope* and contains **no** occurrence of `pryzm-family` either. | ⛔ **BOTH CITATIONS ARE WRONG** |
+>
+> ⭐ **And the format's own cited authority cannot be read.** Every source file in the stack names its
+> spec source as a phase plan, `PHASE-3B-FAMILY-CREATOR-REWRITE-PLAN` — **41 files cite it and it is
+> not in this repository** (no such file, no `phases` directory). A phase plan sits *below* SPECs in
+> the conflict-resolution order and is not in the contract suite at all; an **absent** one is
+> unfalsifiable. **That is why C111 exists**, and it is the same UNMINTED-AND-CITED shape C109 §0.2
+> refuses to reproduce.
+
+`.pryzm-family` files carry reusable parametric **component definitions** (ADR-0376 D5: `Component`
+is the canonical vocabulary; `.pryzm-family` and the `family-*` spellings are **frozen legacy wire
+names** and are not renamed).
+
+**This section governs the ENVELOPE — the container, its entries and its integrity. The MODEL inside
+it (tiers, identity spaces, parameters, constraints, features, representations, versioning) is
+[C111](./C111-COMPONENT-DEFINITION-AND-FAMILY-FORMAT.md)'s subject and is NOT restated here.**
+
+**§4.1 — The envelope (NORMATIVE).** A `.pryzm-family` is a deterministic ZIP whose entry paths are
+declared **once**, by the `FAMILY_PATHS` constant in `packages/file-format/src/family-types.ts`:
+
+| Entry | Required | Schema / content |
+|---|---|---|
+| `manifest.json` | ✅ | `FamilyManifestSchema` |
+| `document.json` | ✅ | `FamilyDocumentSchema` |
+| `ifc-mapping.json` | ✅ | the parameter → `(psetName, propertyName)` projection, sorted by parameter id |
+| `event-log.ndjson` | ✅ (may be empty) | one canonical `FamilyEvent` per line |
+| `signing/schema-hash` | ✅ | `sha256:` over `canonical(document) + canonical(ifc-mapping)` |
+| `signing/signature` | optional | **Ed25519** over the canonical `manifest.json` bytes |
+| `thumbnail.webp` · `icon.svg` | optional | opaque bytes |
+
+**§4.2 — Invariants (NORMATIVE).**
+
+- **§4.2-a** `FAMILY_PATHS` is the **single** declaration of the layout. A second list of these paths
+  — in a reader, a route, a test fixture or a document — is a duplicate source of truth.
+- **§4.2-b** The container is **deterministic**: canonical JSON (RFC 8785 subset), alphabetical ZIP
+  entry order with a frozen mtime, NDJSON order equal to input order. Identical input MUST produce
+  identical bytes; `packages/file-format/__tests__/family-round-trip.test.ts` is the proof
+  obligation. ⚠ **That suite does not run in CI** — `@pryzm/file-format` declares no `test:ci`
+  script and sits on `scripts/check/test-ci-coverage-baseline.json`'s silently-skipped roll, along
+  with every other workspace in this stack (C111 §3.2).
+- **§4.2-c** The signature covers `manifest.json`, and therefore covers `document.json` **only
+  through `schemaHash`**, which `packFamily` stamps into the manifest *before* serialising it. A
+  change that breaks that chain silently unbinds the document and is forbidden.
+- **§4.2-d** ⛔ **`formatVersion` is not comparable and the migration framework cannot complete a
+  version bump.** Both are measured, with executed proofs, in **C111 §8**. **Do not cite
+  [C47](./C47-FILE-FORMAT-VERSIONING.md) §1.1/§1.2 at this field** — C47 is DRAFT and its own §0.0
+  records those clauses as a PROPOSAL that must not be used to change a shipped field.
+- **§4.2-e** Distribution is the marketplace ([C07 §4](./C07-PLUGIN-SDK-AND-MARKETPLACE.md)), and it
+  is the **only live surface this format has**. ⛔ **A file arriving over that route is UNTRUSTED
+  INPUT**: the route MUST Zod-validate through `unpackFamily` and MUST verify the signature before
+  the bytes are stored. It does both today; neither may be relaxed.
+- **§4.2-f** ⛔ **The `.pryzm` project envelope and the `.pryzm-family` envelope are SEPARATE
+  FORMATS with separate readers, separate schemas and separate version fields.** They are not
+  variants of one another. The claim corrected above — that a family is *"a valid `.pryzm` file"* —
+  is what let one contract describe both and be wrong about one.
 
 ---
 

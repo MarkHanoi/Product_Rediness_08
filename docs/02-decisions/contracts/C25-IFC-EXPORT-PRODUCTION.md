@@ -14,9 +14,35 @@
 
 ### §1.1 — IFC4X3 is the target schema
 
-Every export targets **IFC4X3** (the latest official buildingSMART schema), NOT IFC2x3 and NOT IFC4. Every export passes `ifc-validator` in CI; schema errors hard-fail.
+> ## ⛔ CORRECTED IN PLACE 2026-09-01 (lane EXT · audit §6.1) — **THIS SECTION IS FALSE OF THE PIPELINE USERS ACTUALLY RUN, AND IT SAYS SO ONLY IN §1.7**
+>
+> §1.7 has recorded since 2026-08-23 that *"§1.1 … is FALSE of the path users actually use"*
+> (**L-8560, OPEN**). **§1.1 itself carried no marker**, so a reader who lands here — which is what
+> a reader designing a component→IFC mapping does — gets the false claim and the words
+> *"Audit confirms"* underneath it. **A correction recorded only in the section that discovered it
+> is a correction the next reader will not see.** That is the identical shape as C15 §0.1.1
+> (corrected the same day) and as the `plugins/ifc-export` scope line this file's own front-matter
+> already corrects.
+>
+> **Re-measured 2026-09-01 at HEAD, both halves:**
+>
+> | Claim | Reading |
+> |---|---|
+> | *"Every export targets **IFC4X3** … NOT IFC2x3 and NOT IFC4"* | ⛔ **FALSE of Pipeline A, the shipping path.** `packages/file-format/src/export/ifc/IfcExporter.ts` declares `schema?: 'IFC2X3' \| 'IFC4'` and takes `const schema = options.schema \|\| 'IFC4'` into `this.api.CreateModel({ schema })`. `ExportIFC.ts` repeats the same union. **IFC4X3 is not a value this pipeline can express** — migrating it is a geometry-and-entity question, not a flag. |
+> | *"**Current state**: `plugins/ifc-export/…/IFC4X3Exporter.ts` already writes IFC4X3 … Audit confirms"* | ⚠ **TRUE, AND ABOUT THE DEAD PIPELINE.** `grep -rn exportProjectToIFC4X3` over `packages apps plugins src`, non-test → the definition, the barrel re-export, and **one comment**. **Zero callers.** The sentence is a true statement about code no user reaches, printed where it reads as a clearance for the code they do. |
+>
+> ⛔ **BINDING PRECONDITION — read §1.7 before designing ANY new element's IFC mapping**, the
+> component/`.pryzm-family` `ifc-mapping.json` included. **Cite the pipeline by name or do not cite
+> a capability**: the two disagree on schema version, on geometry (real triangulated mesh vs box
+> extrusion) and on openings (present vs absent), so *"the exporter supports X"* is not a
+> proposition until the exporter is named.
+>
+> **WHAT STANDS:** IFC4X3 remains the **target**. This correction retires the present-tense claim
+> that it is the **state**, and nothing more.
 
-**Current state**: `plugins/ifc-export/src/exporters/IFC4X3Exporter.ts` already writes IFC4X3 — including respecting schema differences (e.g. `IFCWALL` not `IFCWALLSTANDARDCASE`). Audit confirms.
+~~Every export targets **IFC4X3** (the latest official buildingSMART schema), NOT IFC2x3 and NOT IFC4.~~ **← see the banner.** IFC4X3 is the TARGET schema. Every export passes `ifc-validator` in CI; schema errors hard-fail.
+
+**Current state**: ~~`plugins/ifc-export/src/exporters/IFC4X3Exporter.ts` already writes IFC4X3 — including respecting schema differences (e.g. `IFCWALL` not `IFCWALLSTANDARDCASE`). Audit confirms.~~ **← TRUE OF PIPELINE B, WHICH NOTHING CALLS.** Pipeline A — the one `ExportRailPanel` → `BimService.exportIfc` → `exportIFC` reaches — writes **IFC4**, selectably IFC2X3. **L-8560, OPEN.**
 
 ### §1.2 — Streaming writer for large models
 
@@ -133,6 +159,49 @@ coincidence.
 
 *Exit condition:* Pipeline A gains IFC4X3, or Pipeline B is wired and Pipeline A retired. Until one
 of those happens, **every claim in this contract must name its pipeline.**
+
+#### §1.7.1 — ⛔ **THE TWO PIPELINES MUST BE RESOLVED BEFORE ANY COMPONENT IFC MAPPING IS DESIGNED** (added 2026-09-01, lane EXT · audit §6.1)
+
+**Why this clause exists now, and why it is a precondition rather than a note.** The component
+format already ships an **authoring-time IFC binding** — `ifc-mapping.json` is a first-class ZIP
+entry (`packages/file-format/src/family-types.ts`) and every parameter carries
+`ifcMapping: { psetName, propertyName } | null` (`family-schema.ts`, `FamilyParameterSchema`). So a
+component author can bind a parameter to a Pset **today**, and the value of that binding is decided
+entirely by which exporter eventually reads it.
+
+> **MUST.** No component→IFC mapping — entity type, Pset authoring, classification, or the
+> `ifc-mapping.json` consumer — may be designed until **L-8560 is resolved and the surviving
+> pipeline is named in this contract.** A mapping authored against Pipeline B inherits **box
+> extrusion and no openings**; a mapping authored against Pipeline A inherits **IFC4, not IFC4X3**.
+> ⛔ **Designing against "the exporter" chooses one of those silently, and the choice becomes
+> permanent the moment a `.pryzm-family` is signed carrying it** (the envelope is content-addressed
+> and signed — `signing/schema-hash`, `signing/signature`).
+
+> **MUST NOT.** The resolution may not be *"support both."* Two exporters reading one
+> `ifc-mapping.json` differently is the split-brain C84 EI-1 forbids, arriving through a file format
+> rather than through a store — and per §1.7's own history, **this file has already recorded the
+> same shape three times.**
+
+⚠ **The honest current answer for anyone who needs one before L-8560 closes — measured, not
+assumed (2026-09-01):**
+
+```
+grep -rn "ifcMapping\|ifc-mapping" --include=*.ts packages/file-format/src/export plugins/ifc-export/src
+   -> NO OUTPUT.  Neither pipeline mentions the binding, in any form.
+```
+
+**Neither exporter reads it.** The only code that carries `ifcMapping` forward is
+`packages/family-loader` (`loadFamily.ts` → `LoadedFamily.ifcMapping`), the eight parameter-level
+migration ops that preserve it, and `packages/family-instance`'s bake input — and
+`@pryzm/family-loader` / `@pryzm/family-instance` have **no importer outside themselves**, on any
+axis (no manifest dependency, no source import).
+
+So the read channel is not merely unproven — **it does not exist**. Treat `ifcMapping` as
+**persisted authoring intent with NO reader**, state it that way wherever it is described (C69 §2.2
+— `UNKNOWN` is never rendered as LIVE), and **do not describe component IFC export as a
+capability.** *A binding whose reader is unnamed is `[[authored-but-unwired]]` with a standards
+logo on it.* ⭐ **This is also the cheapest possible moment to choose the pipeline**: nothing
+downstream has to be migrated, because nothing downstream exists.
 
 ### §1.8 — `IfcGloballyUniqueId` is valid and stable, by construction
 

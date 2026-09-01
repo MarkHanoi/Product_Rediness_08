@@ -201,6 +201,75 @@ describe('introduce-expression', () => {
     expect(out.document.parameters.find((p) => p.id === WIDTH_ID)!.expression).toBe('Height / 2');
     expect(WIDTH_ID in out.document.types[0]!.values).toBe(false);
   });
+
+  /* ------------------------------------------------------------------ *
+   * §SUPERSEDED-DEFAULT — ADR-0376 D4.
+   *
+   * ⛔ The arm above is the ORIGINAL, and it is the reason this defect
+   *    shipped: it asserts the expression was WRITTEN and never asserts
+   *    the `defaultValue` it was meant to replace was REMOVED. WIDTH_ID
+   *    goes in with `defaultValue: 900`; the op left it there; the resolver
+   *    then preferred it. Two green suites, one dead migration.
+   * ------------------------------------------------------------------ */
+  it('CLEARS the superseded defaultValue and keeps it as provenance (ADR-0376 D4)', () => {
+    const fam = makeFamily();
+    // The value that must not survive — asserted so this arm fails loudly if
+    // the fixture ever stops carrying a default and quietly stops testing.
+    expect(fam.document.parameters.find((p) => p.id === WIDTH_ID)!.defaultValue).toBe(900);
+
+    const out = makeIntroduceExpressionMigrator('1.0', '1.0', {
+      parameterId: WIDTH_ID,
+      expression: 'Height / 2',
+    }).apply(fam);
+
+    const after = out.document.parameters.find((p) => p.id === WIDTH_ID)!;
+    expect(after.expression).toBe('Height / 2');
+    expect(after.defaultValue).toBeNull();
+    expect(after.supersededDefault).toBe(900);
+  });
+
+  it('drops the superseded default entirely when recordSupersededDefault is false', () => {
+    const fam = makeFamily();
+    const out = makeIntroduceExpressionMigrator('1.0', '1.0', {
+      parameterId: WIDTH_ID,
+      expression: 'Height / 2',
+      recordSupersededDefault: false,
+    }).apply(fam);
+    const after = out.document.parameters.find((p) => p.id === WIDTH_ID)!;
+    expect(after.defaultValue).toBeNull();
+    expect('supersededDefault' in after).toBe(false);
+  });
+
+  it('records nothing when there was no default to supersede', () => {
+    const fam = makeFamily();
+    fam.document.parameters = fam.document.parameters.map((p) =>
+      p.id === WIDTH_ID ? { ...p, defaultValue: null } : p,
+    );
+    const out = makeIntroduceExpressionMigrator('1.0', '1.0', {
+      parameterId: WIDTH_ID,
+      expression: 'Height / 2',
+    }).apply(fam);
+    const after = out.document.parameters.find((p) => p.id === WIDTH_ID)!;
+    expect(after.defaultValue).toBeNull();
+    expect('supersededDefault' in after).toBe(false);
+  });
+
+  it('does not mutate the input family (Migrator.apply is pure)', () => {
+    const fam = makeFamily();
+    makeIntroduceExpressionMigrator('1.0', '1.0', { parameterId: WIDTH_ID, expression: 'Height / 2' }).apply(fam);
+    const original = fam.document.parameters.find((p) => p.id === WIDTH_ID)!;
+    expect(original.defaultValue).toBe(900);
+    expect(original.expression).toBeNull();
+  });
+
+  it('leaves every OTHER parameter untouched', () => {
+    const fam = makeFamily();
+    const out = makeIntroduceExpressionMigrator('1.0', '1.0', { parameterId: WIDTH_ID, expression: 'Height / 2' }).apply(fam);
+    const height = out.document.parameters.find((p) => p.id === HEIGHT_ID)!;
+    expect(height.defaultValue).toBe(2100);
+    expect(height.expression).toBeNull();
+    expect('supersededDefault' in height).toBe(false);
+  });
 });
 
 /* ---------------------------------------------------------------- */

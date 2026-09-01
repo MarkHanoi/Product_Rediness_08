@@ -126,6 +126,59 @@ none is authored.
 > lowered to make a run green. They are misconfiguration detectors. A scan below its floor
 > exits **2**, never 0 and never 1.
 
+> **§3.6 — MUST. EVERY `component.*` VERB IS REGISTERED FROM ITS FIRST COMMIT.**
+> *(added 2026-09-01, lane EXT · audit §6.2 · **ADR-0376 D5**)*
+>
+> **Measured 2026-09-01 at HEAD — the reason this clause can be written cheaply, and the reason it
+> must be written NOW:**
+>
+> ```
+> grep -rn "'family\.\|\"family\.\|'component\.\|\"component\." --include=*.ts packages apps plugins src
+>    -> every hit is an OTel SPAN ATTRIBUTE ('family.id', 'family.bake.solidCount', …).
+>       ZERO bus verbs. Neither namespace exists on the wire yet.
+> ```
+>
+> ⭐ **Not one component verb has been minted, so not one is permanent yet.** §1.1's rule — a verb
+> is a wire identifier written into `project_command_log` and replayed in collaboration history —
+> means **this is the last free moment.** Every clause below costs nothing today and a C47 migration
+> forever.
+>
+> - **MUST. The namespace is `component.*`.** ⛔ **Never `family.*`.** Per **ADR-0376 D5**
+>   `Component` is the canonical vocabulary and **no NEW symbol may use `Family`**; the `family-*`
+>   package names and the `.pryzm-family` extension are **FROZEN legacy spellings** and are **not**
+>   renamed, precisely because §1.1 makes wire/identity names permanent. **A verb is the most
+>   permanent name in this repository, so it is the one place the frozen spelling must not leak.**
+> - **MUST.** A `component.*` verb lands with its register row in the **same commit** (§3.3), and
+>   the row's `authoritative store` cell is a real store or the literal `UNKNOWN` — **never blank**
+>   (§2.2). ⚠ Note what §2.2 costs: *"an empty cell reads as 'fine' and means 'nobody looked' —
+>   which is precisely the defect that let seventeen verbs report success while writing a store
+>   nothing renders, persists or exports."*
+> - **MUST NOT.** A `component.*` verb may not be introduced with liveness `UNKNOWN` or `SHADOWED`
+>   without its name on the corresponding gate baseline **and a stated reason** (§3.4). Both
+>   baselines are shrink-only and checked in both directions.
+> - ⛔ **MUST. THE DISCOVERY HOLE IS NAMED, BECAUSE THE COMPONENT VERBS FALL STRAIGHT INTO IT.**
+>   §5.4 records that a verb declared outside the plugin **handler roots** is invisible to
+>   `check-chat-capability-coverage` — *"small verb; general hole."* Measured: the existing
+>   component-editor command surface lives at **`apps/component-editor/src/commands/{constraint,
+>   referencePlane,solid}/`**, which is **not** a handler root for any of the three gates in §4.
+>   **A `component.*` verb authored there would be registered by nothing, censused by nothing, and
+>   would read as "0 undeclared" in a gate that never saw it.** So: a `component.*` verb is
+>   declared where the gates look, **or** the gate's roots are widened **in the same commit** — and
+>   *"the gate is green"* about a set that excludes the verbs is the §0 defect this contract exists
+>   to end.
+> - **MUST.** The **AI-invocable** component verbs inherit the same rule. Per C67/C68 each is either
+>   a `ChatCapability` or a `CHAT_UNAVAILABLE` entry with a reason a user could read. ⚠ **C67 §1.2's
+>   2026-09-01 re-measurement is the standing warning**: `UNDECLARED` is at **13 against a hard-0
+>   baseline**, and among them are two element families and two compound systems **that each carry a
+>   canonical contract** and still reach the chat as *"I'm not sure how to help with that yet."*
+>   **Shipping component verbs undeclared would make that 13 larger for a family that has not
+>   shipped anything yet.**
+> - **MUST NOT.** Do not mint a second component verb for one concept because the first was
+>   *"the editor's"* and the second is *"the app's."* ⚠ §5.2's SHADOWED finding — *"every verb in
+>   the register's Declaring sites table is declared twice … the arm that reaches the geometry
+>   stores is unreachable"* — is what two registration sites for one concept produces, and §1.2's
+>   boot-order guard makes it **silent**.
+
 ---
 
 ## §4 — Relationship to the two gates that already own part of this

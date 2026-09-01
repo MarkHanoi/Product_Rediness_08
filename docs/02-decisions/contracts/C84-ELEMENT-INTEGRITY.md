@@ -1720,10 +1720,27 @@ Per `§RATCHET-EXCEEDED-IS-NEVER-DEBT (R7)`: **never raise a threshold to pass.*
 
 ---
 
-## 6. The per-element contracts — C85–C99
+## 6. The per-element contracts — ~~C85–C99~~ **the per-element BLOCK (see §6.1)**
 
-Each family gets its own contract. **The structure below is MANDATORY and identical across all
-fifteen** — a contract that omits a section is incomplete, and a cell that is unknown must read
+> ⚠ **CORRECTED 2026-09-01 (lane EXT).** This heading read **"C85–C99"** and the paragraph below
+> read **"identical across all fifteen"**. **Both were stale, and stale in the direction that
+> demotes real contracts** — the same shape CLAUDE.md's own correction boxes record failing six
+> times against the suite range (C67 → C81 → C84/C85–C99 → C100 → C76 → the C101–C107 block).
+> **Measured, and the list is in §6.1 rather than in this sentence, because a range in prose is the
+> artefact that keeps rotting:**
+>
+> ```
+> ls C8[5-9]*.md C9*.md | wc -l                     -> 15
+> grep -il "^# C1[0-9][0-9] — Element" C1*.md       -> C101, C104, C106, C107, C109
+> ```
+>
+> **Twenty element contracts, not fifteen**, and the five outside the stated range include **two
+> compound systems** (C104 lift, C109 bathroom pod) and **C107 ADAPTIVE COMPONENT**, which is this
+> programme's own already-contracted demand. ⛔ **Do not re-write a range here.** Re-run the two
+> commands; `check-contract-index-equivalence.ts` is the set-comparing authority.
+
+Each family gets its own contract. **The structure below is MANDATORY and identical across every
+member of the block** — a contract that omits a section is incomplete, and a cell that is unknown must read
 `NOT MEASURED`, never blank. *A blank reads as "fine"; that is how every defect in §4 survived.*
 
 Each section carries **AS-IS** (measured, `file:line`) and **TO-BE** (normative), side by side.
@@ -1760,6 +1777,59 @@ Each section carries **AS-IS** (measured, `file:line`) and **TO-BE** (normative)
 | C87 | curtain-wall | C92 | slab | C97 | furniture |
 | C88 | ceiling | C93 | beam | C98 | stair |
 | C89 | floor | C94 | room/space | C99 | plumbing |
+
+### 6.1 — The block beyond C99 (added 2026-09-01, lane EXT)
+
+| # | Family | Note |
+|---|---|---|
+| **C101** | annotation | |
+| **C104** | lift | **compound / aggregate system** — drill-in selection, delete heals every floor plate |
+| **C106** | construction boundary line | |
+| **C107** | adaptive component | ⭐ **honestly UNBUILT and says so** — its §0.1 measures its own absence across all four §3.5.1 axes |
+| **C109** | bathroom pod | **compound / aggregate system** |
+
+⛔ **This table is a POINTER, not the authority.** Re-derive it with the two commands in the §6
+banner before citing it; `check-contract-index-equivalence.ts` compares SETS in both directions and
+is what actually keeps the block honest.
+
+### 6.2 — ⭐ THE `component` FAMILY: THE TWELVE SECTIONS ARE MANDATORY, AND **C107 IS THE WORKED TEMPLATE** (added 2026-09-01, lane EXT · audit §6.2 · ADR-0376)
+
+> **The §4.2 ruling makes a component INSTANCE an element.** The moment it is an element it is a
+> **family**, and this contract binds every PR that touches one. So the twelve sections above are
+> **not optional, not deferred, and not "when it ships"** — they are what admits the family.
+
+> **§6.2a — MUST.** The `component` family's contract carries **all twelve sections**, each with
+> **AS-IS (measured, `file:line`)** beside **TO-BE (normative)**. ⭐ **On the day it is written,
+> almost every AS-IS cell will read `NOT MEASURED` or an honest absence — and that is the correct
+> content, not a reason to postpone the document.** §6's own rule: *a claim you could not verify is
+> `NOT MEASURED`, which is a finding, not a gap in the document.*
+
+> **§6.2b — MUST. C107 is the template, and it is the template for a specific reason.**
+> `C107-ELEMENT-ADAPTIVE-COMPONENT.md` is CANONICAL, ratified by ADR-0370, and **honestly measures
+> its own non-existence** across all four §3.5.1 axes — re-verified 2026-09-01:
+> `grep -rln "adaptiveComponent\|AdaptiveComponent" --include=*.ts packages plugins apps src`
+> → **no output.** It is the proof that a twelve-section contract can be written *before* the code
+> and be **useful rather than aspirational**, which is exactly the position the `component` family
+> is in.
+
+> **§6.2c — MUST. C107's §0.2-a naming-disclosure clause is inherited.** *"A family named for a
+> behaviour it does not have is the naming-vs-behaviour defect this repository logs repeatedly."*
+> ⛔ A `component` family contract may not describe hosting, nesting, connectors, IFC mapping or
+> AI authoring as capabilities on the strength of an authored schema. **`ifcMapping` is the live
+> example** — persisted on every parameter, and measured 2026-09-01 to have **no reader in either
+> IFC pipeline** (C25 §1.7.1).
+
+> **§6.2d — MUST. C107 is a NAMED CONSUMER of this machinery, not a bystander.** It encodes the
+> founder's ask for *"a flexible adaptive element … I define the points from walls, slabs and core
+> systems and it creates a 'wall' which I can then customise."* ⛔ **Building the universal
+> component engine without C107 as a declared consumer risks minting a RIVAL to a canonical
+> contract** — EI-10's *"what a second implementation must earn"*, with a contract already on the
+> other side of the argument.
+
+> **§6.2e — MUST. Section 6 (Verbs) inherits C69 §3.6**: the namespace is `component.*`, never
+> `family.*`, and each verb lands with its register row in the same commit. **Section 2 (Stores)
+> inherits EI-1's one-authority rule against a family that starts with two representations** — a
+> document model and an element record — which is the split-brain shape §3 says goes at the top.
 
 ---
 

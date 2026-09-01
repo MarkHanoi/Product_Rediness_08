@@ -32,10 +32,17 @@ export interface FamilyParameter {
   readonly name: string;
   readonly kind: FamilyParameterKind;
   readonly dataType: FamilyParameterDataType;
-  /** Family-level default. Always in canonical units (mm / rad). */
+  /** Family-level default. Always in canonical units (mm / rad).
+   *  ⚠ RANKED BELOW `expression` — ADR-0376 D4. See `resolveParameter`. */
   readonly defaultValue: number | string | null;
-  /** Optional expression evaluated at resolve-time. */
+  /** Optional expression evaluated at resolve-time. BEATS `defaultValue`
+   *  (ADR-0376 D4); an instance or type override still beats it. */
   readonly expression: string | null;
+  /** Provenance only, never resolved: the `defaultValue` that an
+   *  `introduce-expression` migration pre-empted (ADR-0376 D4). Absent on
+   *  every parameter that never had one — it is NOT defaulted to null, so
+   *  existing documents round-trip byte-identically. */
+  readonly supersededDefault?: number | string;
   /** Optional IFC mapping. */
   readonly ifcMapping: IfcMapping | null;
   /** True if exposed to the host editor's instance inspector. */
@@ -96,6 +103,10 @@ export interface ResolverDiagnostic {
     | 'expression-parse'
     | 'expression-eval'
     | 'invalid-default'
+    /** WARN (never error): the parameter carries BOTH an expression and a
+     *  `defaultValue`. Per ADR-0376 D4 the expression wins and the default is
+     *  dead data — a document predating the `introduce-expression` fix. */
+    | 'superseded-default'
     | 'invalid-override'
     | 'duplicate-name'
     | 'invalid-name';

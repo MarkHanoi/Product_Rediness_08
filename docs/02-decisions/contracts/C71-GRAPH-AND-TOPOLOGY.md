@@ -79,6 +79,35 @@ ratchets over the families that have a **named consumer**, not over the union.
 > required precisely so the gap has a name and a home, and `boundedBy` after a room-boundary
 > change is the row most likely to be wrong.
 
+> **§1.5 — MUST. THE SEVENTH SEMANTIC: `node kind`.** *(added 2026-09-01, lane EXT · audit §6.2 —
+> §1.2's table is EXTENDED, not replaced.)*
+>
+> | # | Semantic | The question it answers |
+> |---|---|---|
+> | 7 | **node kind** | **what KIND of thing each endpoint is** — and whether the graph can tell |
+>
+> **Measured 2026-09-01 at HEAD, which is why this is a semantic and not a nicety:** an edge's
+> identity is `(sourceId, targetId, type)` — widened to `(…, authoredBy)` only where that field is
+> present — and `sourceId`/`targetId` are **bare strings**. `SemanticGraph` has **no node record and
+> no node kind at all.** Every endpoint in the graph is an **element instance id**, by convention
+> and by nothing else.
+>
+> ⛔ **The consequence, and it is why this cannot wait for the first non-instance node to arrive:**
+> the moment an endpoint is something other than an instance — a **definition**, a **type**, a
+> **classification** — `getEdgesFrom(id)` cannot tell the caller what it just handed back, and a
+> typed reader written for instances will consume a definition id as if it were one. **That is not
+> a type error; it is a silently wrong answer**, and the two `[]`-returning read paths of §0 are the
+> proof that this repository does not detect silently wrong graph reads.
+>
+> **MUST.** Any family whose endpoints are **not both element instances** declares, per endpoint,
+> which kind it is, and the reader is written against that declaration. **MUST NOT** infer an
+> endpoint's kind from its id prefix at a call site — that is a second, undeclared vocabulary
+> (C84 EI-8), and the prefix set is `ElementType`, which does not contain *definition* or *type*.
+>
+> ⚠ **The three families §2.7 admits are exactly the first ones with this shape**, which is why the
+> axis is written before they land rather than after — §2.6's own logic (*"the only moment it is
+> cheap"*) applied one level up, to the node instead of the edge.
+
 ---
 
 ## §2 — REQUIRED and PARKED
@@ -132,6 +161,65 @@ written to agree.
 >
 > A PR adding a member without all four is refused by `check-graph-write-coverage` (§6). This is
 > §1.2 made mechanical at the moment of introduction, which is the only moment it is cheap.
+
+> **§2.7 — THE DEFINITION AXIS: `instantiates` · `specializes` · `dependsOnDefinition`**
+> *(added 2026-09-01, lane EXT · audit §6.2 · ADR-0376 D5)*
+>
+> The component programme introduces the first endpoints in this graph that are **not element
+> instances** (§1.5). Three edge families carry that axis. This clause writes their §2.6 four
+> obligations **in advance**, which is the whole of the work §2.6 says is cheap only at the moment
+> of introduction.
+>
+> ⛔ **THEY ARE NOT IN §2.1's REQUIRED SET TODAY, AND THIS CLAUSE DOES NOT PUT THEM THERE.**
+> §2.5 forbids a writer-first unparking and §2.6 requires writer + typed reader in **ONE PR**.
+> Listing a consumer-less family as REQUIRED would make `check-graph-write-coverage` — **already
+> RC=3 at a shrink-only ledger of 0** — fail on three more families **because a document said so**.
+> *A contract clause that turns a gate red without changing any behaviour is a regression with a
+> citation attached.* **Each family joins §2.1 in the PR that lands its writer and its typed reader
+> together, and its row moves in that same commit.**
+>
+> | Family | Endpoints (§1.5 node kinds) | The consumer that will make it REQUIRED |
+> |---|---|---|
+> | **`instantiates`** | *instance* → *definition* | the answer to *"what is this thing?"* for a placed component — the property panel, the schedule (C28), IFC entity resolution (C25), and the **definition-edit propagation** C65 §3.6 already mandates for types. Without it, an instance's definition is recoverable only by reading a field nothing else can traverse. |
+> | **`specializes`** | *type* → *definition*, and *type* → *type* | C65's T1–T4 tiering made traversable: *"which types exist over this definition"*, which is the count C65 §3.6 requires the UI to state **before** an edit propagates. |
+> | **`dependsOnDefinition`** | *definition* → *definition* | the nesting / reuse question (**D6**, OPEN): *"what breaks if this definition changes or is deleted?"* ⛔ It is also the **cycle** question — a definition graph without this edge cannot detect a definition that transitively contains itself, and `family-runtime`'s cycle detection covers **expressions**, not definitions. |
+>
+> **The four §2.6 obligations, per family, stated now so the landing PR is mechanical:**
+>
+> 1. **writer** — the command that creates the relationship, and **only** that command. ⛔ Not the
+>    loader: a rebuild is a *disposition* (obligation 3), never a substitute for a writer, and
+>    `CreateWallCommand` writing **zero** edges (§5.5) is the standing example of what that costs.
+> 2. **typed reader** — a reader for *this family*, not a `getAll()` sweep (§1.3). ⚠ **Note what
+>    §5.2's correction proves:** four REQUIRED families are write-only **today**, and the
+>    allowlist entry in `GraphQueryService` that looked like a reader is disqualified by §1.3.
+>    **Do not repeat that shape here** — an entry in a dynamic dispatcher is not the reader.
+> 3. **rebuild disposition** — ⭐ **PERSIST-ONLY is the expected answer for all three, and that is a
+>    finding, not a detail.** `instantiates` is authored, not derived: nothing about a placed
+>    component's geometry lets a loader re-derive which definition minted it. So each lands **on the
+>    named, shrink-only persist-or-lose ledger by name, in the same commit** (§5.4, §7.k — a ledger
+>    in a document is not a ledger), and a snapshot lacking one **reports the named loss** (C70
+>    I-INV-3). ⛔ **A component instance that loses `instantiates` on load is an element that no
+>    longer knows what it is** — the most expensive silent loss this graph could carry.
+> 4. **delete behaviour on BOTH endpoints, and what undo restores** — and the two endpoints are
+>    **asymmetric**, which is why this obligation is not boilerplate here:
+>    - deleting the **instance** purges its edges, and undo restores them **verbatim** (§5.6's
+>      reference shape — reconstruction is impossible);
+>    - deleting a **definition** with live instances is **not a cascade question, it is a REFUSAL
+>      question**, and it is the same one C65 §3.4 already answers for a missing type: the instances
+>      MUST resolve to a visible, named **unresolved** state, never a silent default, and never a
+>      silent cascade-delete of the user's placed elements. ⛔ **Deleting a definition MUST NOT
+>      delete instances**, and this contract records that here so nobody derives the opposite from
+>      §5.6's purge rule, which is about *edges*, not about *elements*.
+>
+> > **§2.7.1 — MUST NOT overload an existing edge.** `partOf` (unit containment) and `contains` are
+> > **instance→instance**; `instantiates` is instance→definition. Emitting a definition id under
+> > either name poisons the AI world model with no error anywhere — §3.2's measured argument, one
+> > vocabulary over. ⚠ And per §3.3, **a near-miss name is worse than a new name**: do not mint
+> > `instanceOf` beside `instantiates`, or `dependsOn` beside `dependsOnDefinition`.
+>
+> > **§2.7.2 — MUST NOT** add any of the three to `RelationshipType` **before** its landing PR.
+> > A declared member with no writer and no reader is §7.a's manufactured defect, and the gate
+> > counts it.
 
 ---
 
@@ -420,3 +508,12 @@ HEAD** — they are specified here, and until they exist the invariants they dec
 - **§7.j — Widening one copy of `_rebuildSemanticGraph`.** §5.3, §6 arm (d) — the copy left behind
   is the next silent loss.
 - **§7.k — Leaving persist-or-lose as prose.** §5.4 — a ledger in a document is not a ledger.
+- **§7.l — Inferring a node's KIND from its id prefix at a call site.** §1.5 — the prefix set is
+  `ElementType` and it contains no *definition* and no *type*, so the inference is wrong for exactly
+  the endpoints that need it.
+- **§7.m — Promoting a family to REQUIRED in a DOCUMENT.** §2.7 — REQUIRED is earned by a writer
+  and a typed reader landing together; a contract edit that turns a shrink-only gate red without
+  changing behaviour is a regression with a citation attached.
+- **§7.n — Cascading a DEFINITION delete into its instances.** §2.7 obligation 4 — the instances get
+  C65 §3.4's visible unresolved state. Deleting a user's placed elements to tidy a graph edge is the
+  most expensive possible reading of §5.6's purge rule.

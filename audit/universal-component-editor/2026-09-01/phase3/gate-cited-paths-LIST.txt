@@ -1,0 +1,1041 @@
+npm warn Unknown project config "package-manager-strict". This will stop working in the next major version of npm. See `npm help npmrc` for supported config options.
+[contract-cited-paths] contract files read: 112
+[contract-cited-paths] citations: 3582 occurrences -> 1849 distinct
+[contract-cited-paths]   RESOLVE on disk        : 1330
+[contract-cited-paths]   UNRESOLVED (arm A)     : 509  (baseline 490)
+[contract-cited-paths]   UNRESOLVED but EXEMPT  : 10  (arm B — disclosure only)
+
+  Top unresolved citations:
+     23x  scripts/ci-check-spans.ts
+           C01-ARCHITECTURE-AND-GOVERNANCE.md:22, C10-PERFORMANCE-AND-OBSERVABILITY.md:111, C10-PERFORMANCE-AND-OBSERVABILITY.md:461, C23-PROVENANCE-AND-AI-AUDIT.md:20, +19
+     12x  server/parcelZoningProxy.js
+           C57-PARCEL-DATA-LAYER.md:29, C57-PARCEL-DATA-LAYER.md:171, C57-PARCEL-DATA-LAYER.md:295, C57-PARCEL-DATA-LAYER.md:312, +8
+      8x  packages/schedule-4d/
+           C37-SCHEDULE-4D.md:39, C37-SCHEDULE-4D.md:49, C37-SCHEDULE-4D.md:53, C37-SCHEDULE-4D.md:404, +4
+      6x  packages/schemas/src/standards/
+           C34-PRINT-AND-DRAWING-STANDARDS.md:58, C34-PRINT-AND-DRAWING-STANDARDS.md:122, C34-PRINT-AND-DRAWING-STANDARDS.md:126, C34-PRINT-AND-DRAWING-STANDARDS.md:140, +2
+      5x  packages/schemas/src/pii-registry.ts
+           C22-PRIVACY-AND-PII-TIER.md:34, C22-PRIVACY-AND-PII-TIER.md:180, C22-PRIVACY-AND-PII-TIER.md:632, C22-PRIVACY-AND-PII-TIER.md:650, +1
+      5x  src/ui/
+           C01-ARCHITECTURE-AND-GOVERNANCE.md:249, C06-UI-SHELL-AND-TOOLS.md:91, C06-UI-SHELL-AND-TOOLS.md:91, C06-UI-SHELL-AND-TOOLS.md:397, +1
+      4x  apps/editor/__tests__/OneDeletePathAcrossSurfaces.test.ts
+           C84-ELEMENT-INTEGRITY.md:252, C84-ELEMENT-INTEGRITY.md:1676, C84-ELEMENT-INTEGRITY.md:1695, C94-ELEMENT-ROOM-SPACE.md:49
+      4x  packages/browser-support/
+           C45-BROWSER-AND-DEVICE-MATRIX.md:171, C45-BROWSER-AND-DEVICE-MATRIX.md:384, C45-BROWSER-AND-DEVICE-MATRIX.md:419, C45-BROWSER-AND-DEVICE-MATRIX.md:442
+      4x  packages/form-factor/
+           C44-MOBILE-AND-TABLET.md:156, C44-MOBILE-AND-TABLET.md:360, C44-MOBILE-AND-TABLET.md:400, C44-MOBILE-AND-TABLET.md:425
+      4x  packages/i18n/
+           C46-I18N-AND-L10N.md:182, C46-I18N-AND-L10N.md:427, C46-I18N-AND-L10N.md:462, C46-I18N-AND-L10N.md:502
+      4x  packages/marketplace-economics/
+           C40-MARKETPLACE-ECONOMICS.md:110, C40-MARKETPLACE-ECONOMICS.md:329, C40-MARKETPLACE-ECONOMICS.md:371, C40-MARKETPLACE-ECONOMICS.md:421
+      4x  packages/region/
+           C49-MULTI-REGION-AND-SOVEREIGNTY.md:129, C49-MULTI-REGION-AND-SOVEREIGNTY.md:365, C49-MULTI-REGION-AND-SOVEREIGNTY.md:406, C49-MULTI-REGION-AND-SOVEREIGNTY.md:440
+      4x  packages/schemas/src/cost/
+           C38-COST-5D.md:105, C38-COST-5D.md:338, C38-COST-5D.md:422, C38-COST-5D.md:428
+      4x  packages/telemetry/
+           C41-TELEMETRY-AND-ANALYTICS.md:119, C41-TELEMETRY-AND-ANALYTICS.md:377, C41-TELEMETRY-AND-ANALYTICS.md:416, C41-TELEMETRY-AND-ANALYTICS.md:453
+      4x  src/engine/engineLauncher.ts
+           C11-ELEMENT-CREATION-PIPELINE.md:981, C11-ELEMENT-CREATION-PIPELINE.md:983, C11-ELEMENT-CREATION-PIPELINE.md:984, C11-ELEMENT-CREATION-PIPELINE.md:985
+      4x  src/engine/subsystems/walls/WallTool.ts
+           C11-ELEMENT-CREATION-PIPELINE.md:952, C11-ELEMENT-CREATION-PIPELINE.md:953, C11-ELEMENT-CREATION-PIPELINE.md:1342, C11-ELEMENT-CREATION-PIPELINE.md:1615
+      3x  apps/admin-tools/src/support/
+           C42-CUSTOMER-SUPPORT-TIER.md:122, C42-CUSTOMER-SUPPORT-TIER.md:337, C42-CUSTOMER-SUPPORT-TIER.md:405
+      3x  apps/editor/src/ui/onboarding/RACChatbot.tsx
+           C50-TYPOLOGY-PIPELINE.md:6, C50-TYPOLOGY-PIPELINE.md:22, C50-TYPOLOGY-PIPELINE.md:401
+      3x  packages/a11y/
+           C43-ACCESSIBILITY.md:150, C43-ACCESSIBILITY.md:367, C43-ACCESSIBILITY.md:406
+      3x  packages/clash-engine/
+           C36-CLASH-DETECTION-AND-COORDINATION.md:85, C36-CLASH-DETECTION-AND-COORDINATION.md:494, C36-CLASH-DETECTION-AND-COORDINATION.md:523
+      3x  packages/cobie-export/
+           C35-COBIE-FM-HANDOVER.md:249, C35-COBIE-FM-HANDOVER.md:460, C35-COBIE-FM-HANDOVER.md:509
+      3x  packages/kitchen
+           C104-ELEMENT-LIFT-COMPOUND-SYSTEM.md:113, README.md:185, README.md:230
+      3x  packages/pii-redactor/
+           C23-PROVENANCE-AND-AI-AUDIT.md:517, C23-PROVENANCE-AND-AI-AUDIT.md:760, C23-PROVENANCE-AND-AI-AUDIT.md:772
+      3x  packages/schemas/cobie/
+           C35-COBIE-FM-HANDOVER.md:107, C35-COBIE-FM-HANDOVER.md:243, C35-COBIE-FM-HANDOVER.md:461
+      3x  packages/schemas/src/a11y/
+           C43-ACCESSIBILITY.md:154, C43-ACCESSIBILITY.md:366, C43-ACCESSIBILITY.md:430
+      3x  packages/schemas/src/backup/
+           C48-BACKUP-AND-DR.md:246, C48-BACKUP-AND-DR.md:437, C48-BACKUP-AND-DR.md:500
+      3x  packages/schemas/src/billing/
+           C39-PRICING-AND-PLAN-TIERS.md:94, C39-PRICING-AND-PLAN-TIERS.md:322, C39-PRICING-AND-PLAN-TIERS.md:407
+      3x  packages/schemas/src/browser/
+           C45-BROWSER-AND-DEVICE-MATRIX.md:200, C45-BROWSER-AND-DEVICE-MATRIX.md:385, C45-BROWSER-AND-DEVICE-MATRIX.md:441
+      3x  packages/schemas/src/dxf/layer-map-aia.ts
+           C32-DXF-DWG-ROUND-TRIP.md:40, C32-DXF-DWG-ROUND-TRIP.md:57, C32-DXF-DWG-ROUND-TRIP.md:295
+      3x  packages/schemas/src/elements/site/
+           C19-SITE-MODEL-AND-PARCEL.md:8, C19-SITE-MODEL-AND-PARCEL.md:192, C19-SITE-MODEL-AND-PARCEL.md:376
+      3x  packages/schemas/src/elements/site/parcel/
+           C57-PARCEL-DATA-LAYER.md:8, C57-PARCEL-DATA-LAYER.md:196, C57-PARCEL-DATA-LAYER.md:310
+      3x  packages/schemas/src/file-format/
+           C47-FILE-FORMAT-VERSIONING.md:255, C47-FILE-FORMAT-VERSIONING.md:457, C47-FILE-FORMAT-VERSIONING.md:525
+      3x  packages/schemas/src/form-factor/
+           C44-MOBILE-AND-TABLET.md:199, C44-MOBILE-AND-TABLET.md:361, C44-MOBILE-AND-TABLET.md:424
+      3x  packages/schemas/src/i18n/
+           C46-I18N-AND-L10N.md:232, C46-I18N-AND-L10N.md:428, C46-I18N-AND-L10N.md:501
+      3x  packages/schemas/src/marketplace/
+           C40-MARKETPLACE-ECONOMICS.md:122, C40-MARKETPLACE-ECONOMICS.md:330, C40-MARKETPLACE-ECONOMICS.md:420
+      3x  packages/schemas/src/pdf/
+           C29-PDF-VECTOR-EXPORT.md:45, C29-PDF-VECTOR-EXPORT.md:92, C29-PDF-VECTOR-EXPORT.md:115
+      3x  packages/schemas/src/region/
+           C49-MULTI-REGION-AND-SOVEREIGNTY.md:169, C49-MULTI-REGION-AND-SOVEREIGNTY.md:366, C49-MULTI-REGION-AND-SOVEREIGNTY.md:439
+      3x  packages/schemas/src/rhino/
+           C33-RHINO-INTERCHANGE.md:8, C33-RHINO-INTERCHANGE.md:76, C33-RHINO-INTERCHANGE.md:78
+      3x  packages/schemas/src/sheet-set/
+           C30-DRAWING-SET-MANAGEMENT.md:46, C30-DRAWING-SET-MANAGEMENT.md:132, C30-DRAWING-SET-MANAGEMENT.md:164
+      3x  packages/schemas/src/support/
+           C42-CUSTOMER-SUPPORT-TIER.md:148, C42-CUSTOMER-SUPPORT-TIER.md:399, C42-CUSTOMER-SUPPORT-TIER.md:487
+      3x  packages/schemas/src/telemetry/
+           C41-TELEMETRY-AND-ANALYTICS.md:123, C41-TELEMETRY-AND-ANALYTICS.md:378, C41-TELEMETRY-AND-ANALYTICS.md:451
+      3x  packages/support/
+           C42-CUSTOMER-SUPPORT-TIER.md:78, C42-CUSTOMER-SUPPORT-TIER.md:398, C42-CUSTOMER-SUPPORT-TIER.md:439
+      3x  packages/ui-base/src/aria/announcer.ts
+           C43-ACCESSIBILITY.md:45, C43-ACCESSIBILITY.md:213, C43-ACCESSIBILITY.md:431
+      3x  packages/ui-base/src/focus/
+           C43-ACCESSIBILITY.md:84, C43-ACCESSIBILITY.md:359, C43-ACCESSIBILITY.md:432
+      3x  plugins/bcf/src/clash-bridge.ts
+           C36-CLASH-DETECTION-AND-COORDINATION.md:378, C36-CLASH-DETECTION-AND-COORDINATION.md:494, C36-CLASH-DETECTION-AND-COORDINATION.md:539
+      3x  plugins/kitchen
+           C104-ELEMENT-LIFT-COMPOUND-SYSTEM.md:113, README.md:185, README.md:230
+      3x  plugins/stair/src/handlers/AddLevel.ts
+           C02-COMPOSITION-ROOT-AND-BOOT.md:302, C02-COMPOSITION-ROOT-AND-BOOT.md:318, C03-SCHEMAS-COMMANDS-AND-STATE.md:626
+      3x  src/handlers/
+           C69-API-VERB-REGISTER.md:160, C69-API-VERB-REGISTER.md:247, README.md:169
+      3x  tools/ga-gate/check-dxf-tolerance.ts
+           C32-DXF-DWG-ROUND-TRIP.md:21, C32-DXF-DWG-ROUND-TRIP.md:178, C32-DXF-DWG-ROUND-TRIP.md:505
+      3x  tools/ga-gate/check-model-tree-count.ts
+           C27-BIM3-INSPECT-MODEL.md:88, C27-BIM3-INSPECT-MODEL.md:172, C27-BIM3-INSPECT-MODEL.md:323
+      3x  tools/ga-gate/check-vector-pdf.ts
+           C24-SHEET-COMPOSITION-ENGINE.md:184, C29-PDF-VECTOR-EXPORT.md:19, C29-PDF-VECTOR-EXPORT.md:89
+      2x  apps/backup-worker/
+           C22-PRIVACY-AND-PII-TIER.md:502, C22-PRIVACY-AND-PII-TIER.md:709
+      2x  apps/docs-site/src/pages/index.astro
+           C51-APEX-APP-DEPLOYMENT-SPLIT.md:51, C51-APEX-APP-DEPLOYMENT-SPLIT.md:522
+      2x  apps/docs-site/src/supported-browsers.tsx
+           C45-BROWSER-AND-DEVICE-MATRIX.md:347, C45-BROWSER-AND-DEVICE-MATRIX.md:387
+      2x  apps/dsar-worker/
+           C22-PRIVACY-AND-PII-TIER.md:105, C22-PRIVACY-AND-PII-TIER.md:707
+      2x  apps/editor/src/panels/SchedulePanel/
+           C37-SCHEDULE-4D.md:303, C37-SCHEDULE-4D.md:473
+      2x  apps/editor/src/ui/account/PrivacyPanel.tsx
+           C22-PRIVACY-AND-PII-TIER.md:596, C22-PRIVACY-AND-PII-TIER.md:713
+      2x  apps/editor/src/ui/cost/
+           C38-COST-5D.md:248, C38-COST-5D.md:346
+      2x  apps/editor/src/ui/inspect/TypologyDispatchPanel.tsx
+           C50-TYPOLOGY-PIPELINE.md:24, C50-TYPOLOGY-PIPELINE.md:412
+      2x  apps/editor/src/ui/onboarding/TypologyPicker.tsx
+           C50-TYPOLOGY-PIPELINE.md:23, C50-TYPOLOGY-PIPELINE.md:422
+      2x  apps/editor/src/ui/settings/billing/
+           C39-PRICING-AND-PLAN-TIERS.md:280, C39-PRICING-AND-PLAN-TIERS.md:327
+      2x  apps/editor/src/ui/settings/privacy/
+           C41-TELEMETRY-AND-ANALYTICS.md:327, C41-TELEMETRY-AND-ANALYTICS.md:382
+      2x  apps/editor/src/ui/unsupported-browser/
+           C45-BROWSER-AND-DEVICE-MATRIX.md:117, C45-BROWSER-AND-DEVICE-MATRIX.md:334
+      2x  apps/editor/src/ui/unsupported-form-factor/
+           C44-MOBILE-AND-TABLET.md:302, C44-MOBILE-AND-TABLET.md:366
+      2x  apps/editor/src/ui/version-history/
+           C48-BACKUP-AND-DR.md:93, C48-BACKUP-AND-DR.md:381
+      2x  apps/retention-worker/
+           C22-PRIVACY-AND-PII-TIER.md:487, C22-PRIVACY-AND-PII-TIER.md:708
+      2x  packages/ai-host/.../types.ts
+           C52-EDITABLE-BUILDING-GRAPH.md:95, C52-EDITABLE-BUILDING-GRAPH.md:96
+      2x  packages/ai-host/src/handlers/recordArtefactHandler.ts
+           C23-PROVENANCE-AND-AI-AUDIT.md:577, C23-PROVENANCE-AND-AI-AUDIT.md:774
+      2x  packages/backup/
+           C48-BACKUP-AND-DR.md:190, C48-BACKUP-AND-DR.md:436
+      2x  packages/cost-engine
+           C38-COST-5D.md:59, C38-COST-5D.md:337
+      2x  packages/cost-engine/
+           C38-COST-5D.md:388, C38-COST-5D.md:430
+      2x  packages/geometry-roof/src/WallRegionDetector.ts
+           C78-UNIVERSAL-RELATIONSHIP-CONTRACT.md:742, C79-REGION-SEMANTICS.md:59
+      2x  packages/geometry-stair/src/HandrailFragmentBuilder.ts
+           C95-ELEMENT-HANDRAIL.md:79, C95-ELEMENT-HANDRAIL.md:103
+      2x  packages/geometry-stair/src/HandrailRunGeometry.ts
+           C95-ELEMENT-HANDRAIL.md:54, C95-ELEMENT-HANDRAIL.md:609
+      2x  packages/provenance/
+           C23-PROVENANCE-AND-AI-AUDIT.md:760, C23-PROVENANCE-AND-AI-AUDIT.md:772
+      2x  packages/schedule-4d/src/TimelineAnimator.ts
+           C37-SCHEDULE-4D.md:35, C37-SCHEDULE-4D.md:210
+      2x  packages/schemas/src/elements/site/zoning/
+           C58-ZONING-RULES-AND-BUILDABLE-ENVELOPE.md:801, C58-ZONING-RULES-AND-BUILDABLE-ENVELOPE.md:963
+      2x  packages/site-runtime/src/commands/
+           C19-SITE-MODEL-AND-PARCEL.md:38, C19-SITE-MODEL-AND-PARCEL.md:351
+      2x  packages/standards/
+           C34-PRINT-AND-DRAWING-STANDARDS.md:126, C34-PRINT-AND-DRAWING-STANDARDS.md:502
+      2x  packages/stores/src/aggregates/BuildingStore.ts
+           C20-BUILDING-AND-APARTMENT-AGGREGATES.md:302, C20-BUILDING-AND-APARTMENT-AGGREGATES.md:524
+      2x  packages/stores/src/aggregates/LevelStore.ts
+           C20-BUILDING-AND-APARTMENT-AGGREGATES.md:306, C20-BUILDING-AND-APARTMENT-AGGREGATES.md:525
+      2x  packages/ui-base/keyboardRegistry.ts
+           C43-ACCESSIBILITY.md:39, C43-ACCESSIBILITY.md:433
+      2x  packages/ui-base/src/surfaceCapability.ts
+           C44-MOBILE-AND-TABLET.md:44, C44-MOBILE-AND-TABLET.md:239
+      2x  plugins/dxf/src/stores/
+           C32-DXF-DWG-ROUND-TRIP.md:386, C32-DXF-DWG-ROUND-TRIP.md:399
+      2x  plugins/furniture/src/tool.ts
+           C83-SPATIAL-VALIDITY-AND-DESIGN-LOGIC.md:182, C97-ELEMENT-FURNITURE.md:173
+      2x  plugins/handrail/src/tool.ts
+           C95-ELEMENT-HANDRAIL.md:182, C95-ELEMENT-HANDRAIL.md:308
+      2x  plugins/slab/src/material-bridge.ts
+           C92-ELEMENT-SLAB.md:491, C92-ELEMENT-SLAB.md:831
+      2x  plugins/wall/src/tool.ts
+           C11-ELEMENT-CREATION-PIPELINE.md:955, C11-ELEMENT-CREATION-PIPELINE.md:1615
+      2x  scripts/ci-check-domain-purity.ts
+           C01-ARCHITECTURE-AND-GOVERNANCE.md:19, C03-SCHEMAS-COMMANDS-AND-STATE.md:25
+      2x  scripts/ci-check-no-direct-store-writes.ts
+           C01-ARCHITECTURE-AND-GOVERNANCE.md:20, C03-SCHEMAS-COMMANDS-AND-STATE.md:54
+      2x  server/billing/
+           C39-PRICING-AND-PLAN-TIERS.md:387, C39-PRICING-AND-PLAN-TIERS.md:401
+      2x  server/consentStore.js
+           C22-PRIVACY-AND-PII-TIER.md:449, C22-PRIVACY-AND-PII-TIER.md:702
+      2x  server/marketplace/
+           C40-MARKETPLACE-ECONOMICS.md:329, C40-MARKETPLACE-ECONOMICS.md:401
+      2x  server/provenanceStore.js
+           C23-PROVENANCE-AND-AI-AUDIT.md:511, C23-PROVENANCE-AND-AI-AUDIT.md:773
+      2x  server/storageRouter.js
+           C22-PRIVACY-AND-PII-TIER.md:468, C22-PRIVACY-AND-PII-TIER.md:701
+      2x  server/telemetry/PseudoIdBridgeStore.ts
+           C41-TELEMETRY-AND-ANALYTICS.md:230, C41-TELEMETRY-AND-ANALYTICS.md:379
+      2x  src/engine/subsystems/curtainwalls/CurtainWallBuilder.ts
+           C11-ELEMENT-CREATION-PIPELINE.md:657, C13-PROJECT-LIFECYCLE-AND-ISOLATION.md:547
+      2x  src/types/global-window.d.ts
+           C02-COMPOSITION-ROOT-AND-BOOT.md:118, C06-UI-SHELL-AND-TOOLS.md:91
+      2x  src/ui
+           C108-FACADE-RECONSTRUCTION-FROM-IMAGE.md:611, C82-RIBBON-CAPABILITY-SURFACE.md:190
+      2x  src/ui/OfflineBanner.ts
+           C05-PERSISTENCE-AND-FILE-FORMAT.md:43, C05-PERSISTENCE-AND-FILE-FORMAT.md:52
+      2x  tools/ga-gate/check-bcf-roundtrip-fidelity.ts
+           C36-CLASH-DETECTION-AND-COORDINATION.md:33, C36-CLASH-DETECTION-AND-COORDINATION.md:491
+      2x  tools/ga-gate/check-clash-determinism.ts
+           C36-CLASH-DETECTION-AND-COORDINATION.md:23, C36-CLASH-DETECTION-AND-COORDINATION.md:490
+      2x  tools/ga-gate/check-dwg-license.ts
+           C32-DXF-DWG-ROUND-TRIP.md:164, C32-DXF-DWG-ROUND-TRIP.md:506
+      2x  tools/ga-gate/check-issue-state-machine.ts
+           C36-CLASH-DETECTION-AND-COORDINATION.md:59, C36-CLASH-DETECTION-AND-COORDINATION.md:492
+      2x  tools/ga-gate/check-layer-mapping-reversibility.ts
+           C32-DXF-DWG-ROUND-TRIP.md:59, C32-DXF-DWG-ROUND-TRIP.md:507
+      2x  tools/ga-gate/check-line-weight-units.ts
+           C34-PRINT-AND-DRAWING-STANDARDS.md:45, C34-PRINT-AND-DRAWING-STANDARDS.md:509
+      2x  tools/ga-gate/check-no-plan-literal.ts
+           C39-PRICING-AND-PLAN-TIERS.md:317, C39-PRICING-AND-PLAN-TIERS.md:427
+      2x  tools/ga-gate/check-north-arrow-source.ts
+           C34-PRINT-AND-DRAWING-STANDARDS.md:76, C34-PRINT-AND-DRAWING-STANDARDS.md:511
+      2x  tools/ga-gate/check-scale-bar-matches-viewport.ts
+           C34-PRINT-AND-DRAWING-STANDARDS.md:84, C34-PRINT-AND-DRAWING-STANDARDS.md:512
+      2x  tools/ga-gate/check-scale-reversibility.ts
+           C34-PRINT-AND-DRAWING-STANDARDS.md:65, C34-PRINT-AND-DRAWING-STANDARDS.md:510
+      2x  tools/ga-gate/check-schedule-acyclic.ts
+           C37-SCHEDULE-4D.md:27, C37-SCHEDULE-4D.md:403
+      2x  tools/ga-gate/check-sheet-size-registry.ts
+           C34-PRINT-AND-DRAWING-STANDARDS.md:28, C34-PRINT-AND-DRAWING-STANDARDS.md:508
+      2x  tools/ga-gate/check-title-block-revision-binding.ts
+           C34-PRINT-AND-DRAWING-STANDARDS.md:99, C34-PRINT-AND-DRAWING-STANDARDS.md:513
+      1x  apps/admin-tools
+           C46-I18N-AND-L10N.md:54
+      1x  apps/admin-tools/__tests__/curation.test.ts
+           C40-MARKETPLACE-ECONOMICS.md:349
+      1x  apps/admin-tools/src/backup/
+           C48-BACKUP-AND-DR.md:410
+      1x  apps/admin-tools/src/curation/
+           C40-MARKETPLACE-ECONOMICS.md:304
+      1x  apps/admin-tools/src/telemetry/
+           C41-TELEMETRY-AND-ANALYTICS.md:340
+      1x  apps/bake-worker/.../RebakeFamilyInstanceJob.ts
+           C111-COMPONENT-DEFINITION-AND-FAMILY-FORMAT.md:283
+      1x  apps/data-worker/
+           C28-DATA-PANEL-AND-AUTOMATION.md:180
+      1x  apps/docs-site/src/data/pricing.json
+           C51-APEX-APP-DEPLOYMENT-SPLIT.md:55
+      1x  apps/docs-site/src/developer/
+           C40-MARKETPLACE-ECONOMICS.md:337
+      1x  apps/docs-site/src/developer/dashboard/
+           C40-MARKETPLACE-ECONOMICS.md:283
+      1x  apps/docs-site/src/pages/pricing.astro
+           C39-PRICING-AND-PLAN-TIERS.md:84
+      1x  apps/docs-site/src/pricing.tsx
+           C39-PRICING-AND-PLAN-TIERS.md:323
+      1x  apps/docs-site/src/signup/enterprise/
+           C49-MULTI-REGION-AND-SOVEREIGNTY.md:306
+      1x  apps/editor/.../activeRoomAreaOverrides.ts
+           C52-EDITABLE-BUILDING-GRAPH.md:95
+      1x  apps/editor/.../activeRoomTypeOverrides.ts
+           C52-EDITABLE-BUILDING-GRAPH.md:96
+      1x  apps/editor/.../house-layout/houseExecDiagnostics.ts
+           C83-SPATIAL-VALIDITY-AND-DESIGN-LOGIC.md:875
+      1x  apps/editor/src/engine/InspectBridge.ts
+           C27-BIM3-INSPECT-MODEL.md:261
+      1x  apps/editor/src/PluginRegistry.ts:436/484/489
+           C03-SCHEMAS-COMMANDS-AND-STATE.md:541
+      1x  apps/editor/src/typology/loadedWorkflows.ts
+           C50-TYPOLOGY-PIPELINE.md:207
+      1x  apps/editor/src/ui/data/automation/
+           C28-DATA-PANEL-AND-AUTOMATION.md:173
+      1x  apps/editor/src/ui/help/
+           C42-CUSTOMER-SUPPORT-TIER.md:316
+      1x  apps/editor/src/ui/help/tickets/
+           C42-CUSTOMER-SUPPORT-TIER.md:327
+      1x  apps/editor/src/ui/import/RhinoImportWizard.ts
+           C33-RHINO-INTERCHANGE.md:355
+      1x  apps/editor/src/ui/inspect/dashboards/
+           C27-BIM3-INSPECT-MODEL.md:271
+      1x  apps/editor/src/ui/marketplace/
+           C40-MARKETPLACE-ECONOMICS.md:295
+      1x  apps/editor/src/ui/panels/ClashBrowserPanel.tsx
+           C36-CLASH-DETECTION-AND-COORDINATION.md:424
+      1x  apps/editor/src/ui/panels/DataPanel.tsx
+           C36-CLASH-DETECTION-AND-COORDINATION.md:450
+      1x  apps/editor/src/ui/provenance/
+           C23-PROVENANCE-AND-AI-AUDIT.md:775
+      1x  apps/editor/src/ui/settings/accessibility/
+           C43-ACCESSIBILITY.md:290
+      1x  apps/editor/src/ui/settings/i18n/
+           C46-I18N-AND-L10N.md:378
+      1x  apps/editor/src/ui/settings/region/
+           C49-MULTI-REGION-AND-SOVEREIGNTY.md:316
+      1x  apps/editor/src/ui/settings/rendering/
+           C45-BROWSER-AND-DEVICE-MATRIX.md:363
+      1x  apps/editor/src/ui/sheet-sets/
+           C30-DRAWING-SET-MANAGEMENT.md:168
+      1x  apps/editor/src/ui/sheets/
+           C24-SHEET-COMPOSITION-ENGINE.md:134
+      1x  apps/editor/src/ui/trash/
+           C48-BACKUP-AND-DR.md:392
+      1x  apps/headless
+           C84-ELEMENT-INTEGRITY.md:934
+      1x  apps/headless/
+           C02-COMPOSITION-ROOT-AND-BOOT.md:341
+      1x  packages/a11y/src/conformanceStore.ts
+           C43-ACCESSIBILITY.md:209
+      1x  packages/a11y/src/issueTracker.ts
+           C43-ACCESSIBILITY.md:205
+      1x  packages/aec-conventions/
+           C37-SCHEDULE-4D.md:550
+      1x  packages/billing-claims
+           C32-DXF-DWG-ROUND-TRIP.md:160
+      1x  packages/browser-support/__tests__/cutoff-notice.test.ts
+           C45-BROWSER-AND-DEVICE-MATRIX.md:398
+      1x  packages/browser-support/__tests__/detection.test.ts
+           C45-BROWSER-AND-DEVICE-MATRIX.md:394
+      1x  packages/browser-support/__tests__/feature-detection.test.ts
+           C45-BROWSER-AND-DEVICE-MATRIX.md:395
+      1x  packages/browser-support/__tests__/polyfill-conditional.test.ts
+           C45-BROWSER-AND-DEVICE-MATRIX.md:397
+      1x  packages/browser-support/__tests__/webgpu-fallback.test.ts
+           C45-BROWSER-AND-DEVICE-MATRIX.md:396
+      1x  packages/browser-support/polyfills/manifest.ts
+           C45-BROWSER-AND-DEVICE-MATRIX.md:113
+      1x  packages/browser-support/src/featureDetection.ts
+           C45-BROWSER-AND-DEVICE-MATRIX.md:253
+      1x  packages/browser-support/src/polyfillManifest.ts
+           C45-BROWSER-AND-DEVICE-MATRIX.md:261
+      1x  packages/browser-support/src/registry.ts
+           C45-BROWSER-AND-DEVICE-MATRIX.md:257
+      1x  packages/browser-support/src/store.ts
+           C45-BROWSER-AND-DEVICE-MATRIX.md:249
+      1x  packages/clash-engine/__benchmarks__/100k.bench.ts
+           C36-CLASH-DETECTION-AND-COORDINATION.md:505
+      1x  packages/clash-engine/__tests__/
+           C36-CLASH-DETECTION-AND-COORDINATION.md:475
+      1x  packages/clash-engine/src/engine.ts
+           C36-CLASH-DETECTION-AND-COORDINATION.md:327
+      1x  packages/clash-engine/src/issueStore.ts
+           C36-CLASH-DETECTION-AND-COORDINATION.md:314
+      1x  packages/clash-engine/src/lifecycle.ts
+           C36-CLASH-DETECTION-AND-COORDINATION.md:354
+      1x  packages/clash-engine/src/store.ts
+           C36-CLASH-DETECTION-AND-COORDINATION.md:296
+      1x  packages/climate-host/__tests__/integration/
+           C21-CLIMATE-INGESTION.md:582
+      1x  packages/climate-host/src/ClimateStore.ts
+           C21-CLIMATE-INGESTION.md:322
+      1x  packages/climate-host/src/readers/SolarPathReader.ts
+           C21-CLIMATE-INGESTION.md:676
+      1x  packages/cobie-export/__tests__/fixtures/
+           C35-COBIE-FM-HANDOVER.md:465
+      1x  packages/cobie-export/src/builder.ts
+           C35-COBIE-FM-HANDOVER.md:255
+      1x  packages/cobie-export/src/equipment-catalogue.ts
+           C35-COBIE-FM-HANDOVER.md:259
+      1x  packages/cobie-export/src/orchestrator.ts
+           C35-COBIE-FM-HANDOVER.md:260
+      1x  packages/cobie-export/src/otel.ts
+           C35-COBIE-FM-HANDOVER.md:261
+      1x  packages/cobie-export/src/validator.ts
+           C35-COBIE-FM-HANDOVER.md:256
+      1x  packages/cobie-export/src/writers/mvd.ts
+           C35-COBIE-FM-HANDOVER.md:257
+      1x  packages/cobie-export/src/writers/xlsx.ts
+           C35-COBIE-FM-HANDOVER.md:258
+      1x  packages/command-registry/src/beams/
+           C93-ELEMENT-BEAM.md:102
+      1x  packages/command-registry/src/global-bridge.ts
+           C14-LEGACY-ELIMINATION-AND-PRYZM3-ENFORCEMENT.md:167
+      1x  packages/constraint-solver/src/StairValidationAuthority.ts
+           C74-CONSTRAINT-HONESTY.md:120
+      1x  packages/core-app-model/src/stores/ColumnStore.ts
+           C72-PROPAGATION-AND-PREVSTATE.md:61
+      1x  packages/cost-engine/__tests__/
+           C38-COST-5D.md:450
+      1x  packages/cost-engine/__tests__/determinism.test.ts
+           C38-COST-5D.md:358
+      1x  packages/cost-engine/src/takeoffRules.ts
+           C38-COST-5D.md:175
+      1x  packages/data-engine/src/rules/
+           C28-DATA-PANEL-AND-AUTOMATION.md:189
+      1x  packages/data-engine/src/rules/QualityRuleStore.ts
+           C28-DATA-PANEL-AND-AUTOMATION.md:81
+      1x  packages/data-engine/src/ScheduledChecksStore.ts
+           C28-DATA-PANEL-AND-AUTOMATION.md:82
+      1x  packages/data-engine/src/scheduler/
+           C28-DATA-PANEL-AND-AUTOMATION.md:180
+      1x  packages/drawing-primitives/src/backends/dxf.ts
+           C24-SHEET-COMPOSITION-ENGINE.md:133
+      1x  packages/entitlements/__tests__/downgrade.test.ts
+           C39-PRICING-AND-PLAN-TIERS.md:339
+      1x  packages/entitlements/__tests__/quota-optimism.test.ts
+           C39-PRICING-AND-PLAN-TIERS.md:336
+      1x  packages/entitlements/src/quotaStore.ts
+           C39-PRICING-AND-PLAN-TIERS.md:189
+      1x  packages/entitlements/src/store.ts
+           C39-PRICING-AND-PLAN-TIERS.md:185
+      1x  packages/facade-reconstruction/src/bim/
+           C108-FACADE-RECONSTRUCTION-FROM-IMAGE.md:610
+      1x  packages/file-format/__tests__/critical-field-lifecycle.test.ts
+           C47-FILE-FORMAT-VERSIONING.md:474
+      1x  packages/file-format/__tests__/element-migration.test.ts
+           C47-FILE-FORMAT-VERSIONING.md:473
+      1x  packages/file-format/__tests__/forward-compat.test.ts
+           C47-FILE-FORMAT-VERSIONING.md:471
+      1x  packages/file-format/__tests__/migration-chain.test.ts
+           C47-FILE-FORMAT-VERSIONING.md:470
+      1x  packages/file-format/__tests__/plugin-data-preserve.test.ts
+           C47-FILE-FORMAT-VERSIONING.md:476
+      1x  packages/file-format/src/criticalFields.ts
+           C47-FILE-FORMAT-VERSIONING.md:315
+      1x  packages/file-format/src/migrations/registry.ts
+           C47-FILE-FORMAT-VERSIONING.md:307
+      1x  packages/file-format/src/store.ts
+           C47-FILE-FORMAT-VERSIONING.md:303
+      1x  packages/form-factor/__tests__/offline-queue.test.ts
+           C44-MOBILE-AND-TABLET.md:376
+      1x  packages/form-factor/__tests__/orientation-lock.test.ts
+           C44-MOBILE-AND-TABLET.md:375
+      1x  packages/form-factor/__tests__/surface-capability.test.ts
+           C44-MOBILE-AND-TABLET.md:372
+      1x  packages/form-factor/src/offlineQueue.ts
+           C44-MOBILE-AND-TABLET.md:247
+      1x  packages/form-factor/src/orientationLock.ts
+           C44-MOBILE-AND-TABLET.md:243
+      1x  packages/form-factor/src/store.ts
+           C44-MOBILE-AND-TABLET.md:235
+      1x  packages/geodata-layers/
+           C55-GEODATA-ANALYTICAL-LAYERS.md:70
+      1x  packages/geometry-adaptive-component/
+           C107-ELEMENT-ADAPTIVE-COMPONENT.md:81
+      1x  packages/geometry-kernel/producers
+           C84-ELEMENT-INTEGRITY.md:1175
+      1x  packages/geometry-stair/src/__tests__/HandrailWallParity.spec.ts
+           C95-ELEMENT-HANDRAIL.md:68
+      1x  packages/geometry-stair/src/HandrailTool.ts
+           C95-ELEMENT-HANDRAIL.md:261
+      1x  packages/geospatial/LTPENURebase.ts
+           C57-PARCEL-DATA-LAYER.md:23
+      1x  packages/i18n/__tests__/deprecation.test.ts
+           C46-I18N-AND-L10N.md:442
+      1x  packages/i18n/__tests__/detection.test.ts
+           C46-I18N-AND-L10N.md:436
+      1x  packages/i18n/__tests__/drawing-standard.test.ts
+           C46-I18N-AND-L10N.md:443
+      1x  packages/i18n/__tests__/intl-number.test.ts
+           C46-I18N-AND-L10N.md:437
+      1x  packages/i18n/__tests__/translation-memory.test.ts
+           C46-I18N-AND-L10N.md:440
+      1x  packages/i18n/__tests__/unit-display.test.ts
+           C46-I18N-AND-L10N.md:439
+      1x  packages/i18n/src/glossary.ts
+           C46-I18N-AND-L10N.md:293
+      1x  packages/i18n/src/messageBundles.ts
+           C46-I18N-AND-L10N.md:289
+      1x  packages/i18n/src/store.ts
+           C46-I18N-AND-L10N.md:285
+      1x  packages/interop
+           C87-ELEMENT-CURTAIN-WALL.md:1485
+      1x  packages/marketplace-economics/__tests__/chargeback.test.ts
+           C40-MARKETPLACE-ECONOMICS.md:345
+      1x  packages/marketplace-economics/__tests__/established-developer.test.ts
+           C40-MARKETPLACE-ECONOMICS.md:346
+      1x  packages/marketplace-economics/__tests__/payout-formula.test.ts
+           C40-MARKETPLACE-ECONOMICS.md:343
+      1x  packages/marketplace-economics/__tests__/refund-cascade.test.ts
+           C40-MARKETPLACE-ECONOMICS.md:344
+      1x  packages/marketplace-economics/__tests__/review-purchase.test.ts
+           C40-MARKETPLACE-ECONOMICS.md:350
+      1x  packages/marketplace-economics/src/catalogueStore.ts
+           C40-MARKETPLACE-ECONOMICS.md:179
+      1x  packages/persistence/src/migration/v2-to-v3.ts
+           C19-SITE-MODEL-AND-PARCEL.md:389
+      1x  packages/provenance/__tests__/
+           C23-PROVENANCE-AND-AI-AUDIT.md:700
+      1x  packages/provenance/src/IndexedDBProvenanceBackend.ts
+           C23-PROVENANCE-AND-AI-AUDIT.md:513
+      1x  packages/provenance/src/ProvenanceStore.ts
+           C23-PROVENANCE-AND-AI-AUDIT.md:479
+      1x  packages/region/__tests__/cross-region-gate.test.ts
+           C49-MULTI-REGION-AND-SOVEREIGNTY.md:380
+      1x  packages/region/__tests__/failover-routing.test.ts
+           C49-MULTI-REGION-AND-SOVEREIGNTY.md:381
+      1x  packages/region/__tests__/plugin-region.test.ts
+           C49-MULTI-REGION-AND-SOVEREIGNTY.md:386
+      1x  packages/region/__tests__/resolution.test.ts
+           C49-MULTI-REGION-AND-SOVEREIGNTY.md:379
+      1x  packages/region/__tests__/sovereignty-violation.test.ts
+           C49-MULTI-REGION-AND-SOVEREIGNTY.md:385
+      1x  packages/region/__tests__/token-issuer.test.ts
+           C49-MULTI-REGION-AND-SOVEREIGNTY.md:384
+      1x  packages/region/src/store.ts
+           C49-MULTI-REGION-AND-SOVEREIGNTY.md:217
+      1x  packages/renderer-three/src/pipeline/RenderPipelineManager.ts:_submitPauseDepth
+           C72-PROPAGATION-AND-PREVSTATE.md:481
+      1x  packages/renderer-three/src/RenderPipelineService.ts
+           C12-GEOSPATIAL.md:219
+      1x  packages/runtime-composer/__tests__/aggregate-spans.test.ts
+           C20-BUILDING-AND-APARTMENT-AGGREGATES.md:492
+      1x  packages/runtime-composer/__tests__/headless-boot.test.ts
+           C02-COMPOSITION-ROOT-AND-BOOT.md:346
+      1x  packages/schedule-4d/exporters/
+           C37-SCHEDULE-4D.md:472
+      1x  packages/schedule-4d/src/commands/
+           C37-SCHEDULE-4D.md:257
+      1x  packages/schedule-4d/src/CriticalPathCache.ts
+           C37-SCHEDULE-4D.md:178
+      1x  packages/schedule-4d/src/exporters/xer.ts
+           C37-SCHEDULE-4D.md:267
+      1x  packages/schemas/__tests__/cost/ai-suggestion.test.ts
+           C38-COST-5D.md:360
+      1x  packages/schemas/__tests__/cost/override.test.ts
+           C38-COST-5D.md:359
+      1x  packages/schemas/annotation/dimension.ts
+           C56-AUTODIMENSION.md:106
+      1x  packages/schemas/src/aggregates/__tests__/Apartment.test.ts
+           C20-BUILDING-AND-APARTMENT-AGGREGATES.md:484
+      1x  packages/schemas/src/aggregates/__tests__/Building.test.ts
+           C20-BUILDING-AND-APARTMENT-AGGREGATES.md:482
+      1x  packages/schemas/src/aggregates/__tests__/Level.test.ts
+           C20-BUILDING-AND-APARTMENT-AGGREGATES.md:483
+      1x  packages/schemas/src/aggregates/__tests__/Room.test.ts
+           C20-BUILDING-AND-APARTMENT-AGGREGATES.md:485
+      1x  packages/schemas/src/backup/retentionConstants.ts
+           C48-BACKUP-AND-DR.md:280
+      1x  packages/schemas/src/clash/
+           C36-CLASH-DETECTION-AND-COORDINATION.md:103
+      1x  packages/schemas/src/data-tier.ts
+           C22-PRIVACY-AND-PII-TIER.md:697
+      1x  packages/schemas/src/dxf/
+           C32-DXF-DWG-ROUND-TRIP.md:221
+      1x  packages/schemas/src/dxf/dwg-license.ts
+           C32-DXF-DWG-ROUND-TRIP.md:164
+      1x  packages/schemas/src/dxf/plot-styles/ansi-y14-2.ctb.ts
+           C32-DXF-DWG-ROUND-TRIP.md:129
+      1x  packages/schemas/src/dxf/scale-map.ts
+           C32-DXF-DWG-ROUND-TRIP.md:71
+      1x  packages/schemas/src/elements/AdaptiveComponent.ts
+           C107-ELEMENT-ADAPTIVE-COMPONENT.md:79
+      1x  packages/schemas/src/elements/site/SiteLocation.ts
+           C19-SITE-MODEL-AND-PARCEL.md:724
+      1x  packages/sheet-renderer/
+           C24-SHEET-COMPOSITION-ENGINE.md:182
+      1x  packages/site-parcel-data/__tests__/envelope-determinism.test.ts
+           C58-ZONING-RULES-AND-BUILDABLE-ENVELOPE.md:1002
+      1x  packages/site-parcel-data/__tests__/provenance.test.ts
+           C57-PARCEL-DATA-LAYER.md:363
+      1x  packages/site-parcel-data/rulepacks/
+           C58-ZONING-RULES-AND-BUILDABLE-ENVELOPE.md:1063
+      1x  packages/site-runtime
+           C58-ZONING-RULES-AND-BUILDABLE-ENVELOPE.md:965
+      1x  packages/site-runtime/
+           C19-SITE-MODEL-AND-PARCEL.md:377
+      1x  packages/site-runtime/__tests__/context-snapshot.test.ts
+           C19-SITE-MODEL-AND-PARCEL.md:623
+      1x  packages/site-runtime/__tests__/footprint.test.ts
+           C19-SITE-MODEL-AND-PARCEL.md:619
+      1x  packages/site-runtime/__tests__/parcel-immutable.test.ts
+           C19-SITE-MODEL-AND-PARCEL.md:622
+      1x  packages/site-runtime/__tests__/zoning.test.ts
+           C19-SITE-MODEL-AND-PARCEL.md:620
+      1x  packages/site-runtime/src/SiteContextService.ts
+           C19-SITE-MODEL-AND-PARCEL.md:355
+      1x  packages/site-runtime/src/validations/containment.ts
+           C19-SITE-MODEL-AND-PARCEL.md:318
+      1x  packages/spatial-index/src/SpatialRelationshipResolver.ts
+           C27-BIM3-INSPECT-MODEL.md:257
+      1x  packages/standards/src/presets/riba.ts
+           C34-PRINT-AND-DRAWING-STANDARDS.md:556
+      1x  packages/stores/__tests__/aggregates/cascade.test.ts
+           C20-BUILDING-AND-APARTMENT-AGGREGATES.md:486
+      1x  packages/stores/__tests__/aggregates/propagation.test.ts
+           C20-BUILDING-AND-APARTMENT-AGGREGATES.md:487
+      1x  packages/stores/src/aggregates/
+           C20-BUILDING-AND-APARTMENT-AGGREGATES.md:287
+      1x  packages/stores/src/CostStore.ts
+           C38-COST-5D.md:167
+      1x  packages/stores/src/PricingTableStore.ts
+           C38-COST-5D.md:171
+      1x  packages/stores/src/selectorMemo.ts
+           C20-BUILDING-AND-APARTMENT-AGGREGATES.md:132
+      1x  packages/stores/src/SheetSetStore.ts
+           C30-DRAWING-SET-MANAGEMENT.md:60
+      1x  packages/stores/src/site/
+           C19-SITE-MODEL-AND-PARCEL.md:378
+      1x  packages/stores/src/site/SiteModelStore.ts
+           C19-SITE-MODEL-AND-PARCEL.md:329
+      1x  packages/stores/src/TimelineStore.ts
+           C37-SCHEDULE-4D.md:177
+      1x  packages/support/__tests__/sla-matrix.test.ts
+           C42-CUSTOMER-SUPPORT-TIER.md:411
+      1x  packages/support/__tests__/state-machine.test.ts
+           C42-CUSTOMER-SUPPORT-TIER.md:412
+      1x  packages/telemetry/__tests__/consent-state.test.ts
+           C41-TELEMETRY-AND-ANALYTICS.md:388
+      1x  packages/telemetry/__tests__/replication.test.ts
+           C41-TELEMETRY-AND-ANALYTICS.md:390
+      1x  packages/telemetry/__tests__/sink-boundary.test.ts
+           C41-TELEMETRY-AND-ANALYTICS.md:389
+      1x  packages/telemetry/src/consentStore.ts
+           C41-TELEMETRY-AND-ANALYTICS.md:218
+      1x  packages/telemetry/src/eventBuffer.ts
+           C41-TELEMETRY-AND-ANALYTICS.md:222
+      1x  packages/telemetry/src/eventRegistry.ts
+           C41-TELEMETRY-AND-ANALYTICS.md:48
+      1x  packages/telemetry/src/sink.ts
+           C41-TELEMETRY-AND-ANALYTICS.md:54
+      1x  packages/typology-pack-apartment/src/programRules.ts
+           C50-TYPOLOGY-PIPELINE.md:435
+      1x  packages/typology-pack-apartment/src/validators/bathroomCorridorOnly.ts
+           C50-TYPOLOGY-PIPELINE.md:436
+      1x  packages/ui-base/__fixtures__/
+           C43-ACCESSIBILITY.md:355
+      1x  packages/ui-base/__tests__/gesture-handler.test.ts
+           C44-MOBILE-AND-TABLET.md:374
+      1x  packages/ui-base/__tests__/touch-target-size.test.ts
+           C44-MOBILE-AND-TABLET.md:373
+      1x  packages/ui-base/src/aria/
+           C43-ACCESSIBILITY.md:357
+      1x  packages/ui-base/src/keyboardRegistry.ts
+           C43-ACCESSIBILITY.md:217
+      1x  packages/ui-base/src/mobile/bottomSheet.ts
+           C44-MOBILE-AND-TABLET.md:317
+      1x  plugins/adaptive-component/
+           C107-ELEMENT-ADAPTIVE-COMPONENT.md:82
+      1x  plugins/annotations/.../AnnotationStore.ts
+           C102-VIEW-AND-SHEET-INTEGRITY.md:417
+      1x  plugins/bcf/__benchmarks__/roundtrip.bench.ts
+           C36-CLASH-DETECTION-AND-COORDINATION.md:507
+      1x  plugins/bcf/__tests__/clash-bridge.test.ts
+           C36-CLASH-DETECTION-AND-COORDINATION.md:484
+      1x  plugins/door/src/material-bridge.ts
+           C86-ELEMENT-WALL-OPENING.md:713
+      1x  plugins/dxf/__tests__/integration/autocad-roundtrip.spec.ts
+           C32-DXF-DWG-ROUND-TRIP.md:516
+      1x  plugins/dxf/__tests__/integration/draftsight-roundtrip.spec.ts
+           C32-DXF-DWG-ROUND-TRIP.md:517
+      1x  plugins/dxf/__tests__/integration/libredwg-roundtrip.spec.ts
+           C32-DXF-DWG-ROUND-TRIP.md:518
+      1x  plugins/dxf/__tests__/integration/qcad-roundtrip.spec.ts
+           C32-DXF-DWG-ROUND-TRIP.md:519
+      1x  plugins/dxf/src/dwg/
+           C32-DXF-DWG-ROUND-TRIP.md:369
+      1x  plugins/dxf/src/exporter/
+           C32-DXF-DWG-ROUND-TRIP.md:356
+      1x  plugins/dxf/src/importer/
+           C32-DXF-DWG-ROUND-TRIP.md:344
+      1x  plugins/geospatial/CesiumThreeBridge.ts
+           C19-SITE-MODEL-AND-PARCEL.md:729
+      1x  plugins/handrail/.../material-bridge.ts
+           C100-MASTER-MATERIAL-DATABASE.md:447
+      1x  plugins/ifc-export/__tests__/site.test.ts
+           C19-SITE-MODEL-AND-PARCEL.md:625
+      1x  plugins/ifc-export/hierarchy.ts
+           C19-SITE-MODEL-AND-PARCEL.md:728
+      1x  plugins/ifc-import/IfcProjectedCRSReader
+           C19-SITE-MODEL-AND-PARCEL.md:727
+      1x  plugins/plumbing/src/tool.ts
+           C99-ELEMENT-PLUMBING.md:127
+      1x  plugins/rhino-import/__tests__/fixtures/
+           C33-RHINO-INTERCHANGE.md:381
+      1x  plugins/roof/src/tool.ts
+           C90-ELEMENT-ROOF.md:281
+      1x  plugins/wall/.../material-bridge.ts
+           C100-MASTER-MATERIAL-DATABASE.md:452
+      1x  scripts/build/build-apex.mjs
+           C51-APEX-APP-DEPLOYMENT-SPLIT.md:451
+      1x  scripts/build/gen-docs-site-pricing.mjs
+           C51-APEX-APP-DEPLOYMENT-SPLIT.md:55
+      1x  scripts/capture-pryzm1-curtain-wall-references.ts
+           C87-ELEMENT-CURTAIN-WALL.md:925
+      1x  scripts/check-ai-host-lazy.mjs
+           C09-AI-AND-VISIBILITY-INTENT.md:80
+      1x  scripts/check-pryzm3-exists.ts
+           C14-LEGACY-ELIMINATION-AND-PRYZM3-ENFORCEMENT.md:551
+      1x  scripts/check/check-app-strict-csp.mjs
+           C51-APEX-APP-DEPLOYMENT-SPLIT.md:505
+      1x  scripts/codemod-restructure-2026-04-30.mjs
+           C14-LEGACY-ELIMINATION-AND-PRYZM3-ENFORCEMENT.md:546
+      1x  scripts/retarget-todo-b.mjs
+           C14-LEGACY-ELIMINATION-AND-PRYZM3-ENFORCEMENT.md:547
+      1x  scripts/track-window-cast-count.mjs
+           C14-LEGACY-ELIMINATION-AND-PRYZM3-ENFORCEMENT.md:548
+      1x  scripts/wave10-fix-placeholder-stores.mjs
+           C14-LEGACY-ELIMINATION-AND-PRYZM3-ENFORCEMENT.md:544
+      1x  scripts/wave10-migrate-core.mjs
+           C14-LEGACY-ELIMINATION-AND-PRYZM3-ENFORCEMENT.md:545
+      1x  scripts/write-prod-shim.mjs
+           C14-LEGACY-ELIMINATION-AND-PRYZM3-ENFORCEMENT.md:549
+      1x  server/anonymise.js
+           C22-PRIVACY-AND-PII-TIER.md:73
+      1x  server/backup/
+           C48-BACKUP-AND-DR.md:477
+      1x  server/backup/__tests__/dr-drill.test.ts
+           C48-BACKUP-AND-DR.md:456
+      1x  server/backup/__tests__/integrity.test.ts
+           C48-BACKUP-AND-DR.md:449
+      1x  server/backup/__tests__/legal-hold.test.ts
+           C48-BACKUP-AND-DR.md:454
+      1x  server/backup/__tests__/lifecycle.test.ts
+           C48-BACKUP-AND-DR.md:452
+      1x  server/backup/__tests__/plugin-data.test.ts
+           C48-BACKUP-AND-DR.md:453
+      1x  server/backup/__tests__/restore-test-cadence.test.ts
+           C48-BACKUP-AND-DR.md:450
+      1x  server/backup/__tests__/rto-per-class.test.ts
+           C48-BACKUP-AND-DR.md:451
+      1x  server/backup/__tests__/sovereignty.test.ts
+           C48-BACKUP-AND-DR.md:455
+      1x  server/backup/BackupLedger.ts
+           C48-BACKUP-AND-DR.md:286
+      1x  server/backup/DRDrillLog.ts
+           C48-BACKUP-AND-DR.md:298
+      1x  server/backup/IntegrityCheckLedger.ts
+           C48-BACKUP-AND-DR.md:294
+      1x  server/backup/LegalHoldRegistry.ts
+           C48-BACKUP-AND-DR.md:302
+      1x  server/backup/RestoreQueue.ts
+           C48-BACKUP-AND-DR.md:290
+      1x  server/billing/__tests__/bundle-signing.test.ts
+           C39-PRICING-AND-PLAN-TIERS.md:337
+      1x  server/billing/__tests__/dunningMachine.test.ts
+           C39-PRICING-AND-PLAN-TIERS.md:335
+      1x  server/billing/__tests__/trial-fingerprint.test.ts
+           C39-PRICING-AND-PLAN-TIERS.md:338
+      1x  server/billing/dunningMachine.ts
+           C39-PRICING-AND-PLAN-TIERS.md:57
+      1x  server/billing/SubscriptionStore.ts
+           C39-PRICING-AND-PLAN-TIERS.md:193
+      1x  server/breachIncidentLog.js
+           C22-PRIVACY-AND-PII-TIER.md:508
+      1x  server/dsarStore.js
+           C22-PRIVACY-AND-PII-TIER.md:529
+      1x  server/file-format/ImportRejectionLedger.ts
+           C47-FILE-FORMAT-VERSIONING.md:311
+      1x  server/i18n/
+           C46-I18N-AND-L10N.md:486
+      1x  server/i18n/LocalePreferenceStore.ts
+           C46-I18N-AND-L10N.md:297
+      1x  server/i18n/TranslationMissLedger.ts
+           C46-I18N-AND-L10N.md:301
+      1x  server/marketplace/__tests__/fingerprint.test.ts
+           C40-MARKETPLACE-ECONOMICS.md:347
+      1x  server/marketplace/__tests__/tax-form-gate.test.ts
+           C40-MARKETPLACE-ECONOMICS.md:348
+      1x  server/marketplace/DeveloperAccountStore.ts
+           C40-MARKETPLACE-ECONOMICS.md:191
+      1x  server/marketplace/PayoutLedgerStore.ts
+           C40-MARKETPLACE-ECONOMICS.md:187
+      1x  server/marketplace/SalesLedgerStore.ts
+           C40-MARKETPLACE-ECONOMICS.md:183
+      1x  server/mucZoningProxy.js
+           C58-ZONING-RULES-AND-BUILDABLE-ENVELOPE.md:1274
+      1x  server/piiRedactor.config.js
+           C23-PROVENANCE-AND-AI-AUDIT.md:180
+      1x  server/piiRedactor.js
+           C23-PROVENANCE-AND-AI-AUDIT.md:773
+      1x  server/provenanceRoutes.js
+           C23-PROVENANCE-AND-AI-AUDIT.md:775
+      1x  server/region/
+           C49-MULTI-REGION-AND-SOVEREIGNTY.md:423
+      1x  server/region/__tests__/customer-notification.test.ts
+           C49-MULTI-REGION-AND-SOVEREIGNTY.md:383
+      1x  server/region/__tests__/migration-workflow.test.ts
+           C49-MULTI-REGION-AND-SOVEREIGNTY.md:382
+      1x  server/region/CrossRegionAccessLedger.ts
+           C49-MULTI-REGION-AND-SOVEREIGNTY.md:221
+      1x  server/region/RegionHealthMonitor.ts
+           C49-MULTI-REGION-AND-SOVEREIGNTY.md:229
+      1x  server/region/RegionMigrationStore.ts
+           C49-MULTI-REGION-AND-SOVEREIGNTY.md:225
+      1x  server/siuClassificationProxy.js
+           C58-ZONING-RULES-AND-BUILDABLE-ENVELOPE.md:1304
+      1x  server/support/
+           C42-CUSTOMER-SUPPORT-TIER.md:465
+      1x  server/support/__tests__/auto-assign.test.ts
+           C42-CUSTOMER-SUPPORT-TIER.md:415
+      1x  server/support/__tests__/breakglass.test.ts
+           C42-CUSTOMER-SUPPORT-TIER.md:413
+      1x  server/support/__tests__/csat-delivery.test.ts
+           C42-CUSTOMER-SUPPORT-TIER.md:416
+      1x  server/support/__tests__/kb-self-serve.test.ts
+           C42-CUSTOMER-SUPPORT-TIER.md:417
+      1x  server/support/__tests__/pmi-drafting.test.ts
+           C42-CUSTOMER-SUPPORT-TIER.md:418
+      1x  server/support/__tests__/refund-authority.test.ts
+           C42-CUSTOMER-SUPPORT-TIER.md:414
+      1x  server/support/AgentRotaStore.ts
+           C42-CUSTOMER-SUPPORT-TIER.md:213
+      1x  server/support/BreakGlassLedger.ts
+           C42-CUSTOMER-SUPPORT-TIER.md:209
+      1x  server/support/KnowledgeBaseStore.ts
+           C42-CUSTOMER-SUPPORT-TIER.md:217
+      1x  server/support/SupportTicketStore.ts
+           C42-CUSTOMER-SUPPORT-TIER.md:205
+      1x  server/telemetry/
+           C41-TELEMETRY-AND-ANALYTICS.md:434
+      1x  server/telemetry/__tests__/dsar-erasure.test.ts
+           C41-TELEMETRY-AND-ANALYTICS.md:392
+      1x  server/telemetry/__tests__/dsar-export.test.ts
+           C41-TELEMETRY-AND-ANALYTICS.md:391
+      1x  server/telemetry/__tests__/pseudo-id-rotate.test.ts
+           C41-TELEMETRY-AND-ANALYTICS.md:394
+      1x  server/telemetry/__tests__/retention.test.ts
+           C41-TELEMETRY-AND-ANALYTICS.md:393
+      1x  server/telemetry/ConsentLedgerStore.ts
+           C41-TELEMETRY-AND-ANALYTICS.md:226
+      1x  src/bim
+           C108-FACADE-RECONSTRUCTION-FROM-IMAGE.md:610
+      1x  src/builders/
+           C97-ELEMENT-FURNITURE.md:417
+      1x  src/ConstraintEngine.ts
+           C74-CONSTRAINT-HONESTY.md:107
+      1x  src/contracts
+           C108-FACADE-RECONSTRUCTION-FROM-IMAGE.md:608
+      1x  src/engine/
+           C11-ELEMENT-CREATION-PIPELINE.md:494
+      1x  src/engine/EngineBootstrap.ts
+           C02-COMPOSITION-ROOT-AND-BOOT.md:148
+      1x  src/engine/subsystems/commands/project/ClearProjectCommand.ts
+           C13-PROJECT-LIFECYCLE-AND-ISOLATION.md:545
+      1x  src/engine/subsystems/core/batch/BatchCoordinator.ts
+           C11-ELEMENT-CREATION-PIPELINE.md:1341
+      1x  src/engine/subsystems/RemoteCommandDispatcher.ts
+           C11-ELEMENT-CREATION-PIPELINE.md:982
+      1x  src/engine/subsystems/styles/
+           C06-UI-SHELL-AND-TOOLS.md:229
+      1x  src/import/dxf/
+           C32-DXF-DWG-ROUND-TRIP.md:333
+      1x  src/import/dxf/DxfParserExt.ts
+           C32-DXF-DWG-ROUND-TRIP.md:307
+      1x  src/index.ts
+           C17-BATCH-CREATION-CATALOGUE-AND-PANEL-BINDING.md:225
+      1x  src/styles/AppTheme.ts
+           C06-UI-SHELL-AND-TOOLS.md:229
+      1x  src/types/globals.d.ts
+           C59-MULTI-PANE-VIEW-SYSTEM.md:92
+      1x  src/workers
+           C108-FACADE-RECONSTRUCTION-FROM-IMAGE.md:612
+      1x  tools/ga-gate/check-aggregate-spans.ts
+           C20-BUILDING-AND-APARTMENT-AGGREGATES.md:473
+      1x  tools/ga-gate/check-aggregate-uniqueness.ts
+           C20-BUILDING-AND-APARTMENT-AGGREGATES.md:471
+      1x  tools/ga-gate/check-aria-live-via-announcer.ts
+           C43-ACCESSIBILITY.md:357
+      1x  tools/ga-gate/check-axe-no-violations.ts
+           C43-ACCESSIBILITY.md:355
+      1x  tools/ga-gate/check-browser-support-registry-coverage.ts
+           C45-BROWSER-AND-DEVICE-MATRIX.md:380
+      1x  tools/ga-gate/check-bulk-edit-commands.ts
+           C28-DATA-PANEL-AND-AUTOMATION.md:188
+      1x  tools/ga-gate/check-c13-site-teardown.ts
+           C19-SITE-MODEL-AND-PARCEL.md:624
+      1x  tools/ga-gate/check-city-completion.ts
+           C63-CITY-COMPLETION-AND-DOSSIER.md:474
+      1x  tools/ga-gate/check-clash-rule-fp-rate.ts
+           C36-CLASH-DETECTION-AND-COORDINATION.md:493
+      1x  tools/ga-gate/check-clash-spans.ts
+           C36-CLASH-DETECTION-AND-COORDINATION.md:494
+      1x  tools/ga-gate/check-cobie-catalogue-coverage.ts
+           C35-COBIE-FM-HANDOVER.md:459
+      1x  tools/ga-gate/check-cobie-join.ts
+           C35-COBIE-FM-HANDOVER.md:458
+      1x  tools/ga-gate/check-cobie-validity.ts
+           C35-COBIE-FM-HANDOVER.md:455
+      1x  tools/ga-gate/check-cobie-xlsx-schema.ts
+           C35-COBIE-FM-HANDOVER.md:456
+      1x  tools/ga-gate/check-color-contrast.ts
+           C43-ACCESSIBILITY.md:360
+      1x  tools/ga-gate/check-cost-currency-explicit.ts
+           C38-COST-5D.md:336
+      1x  tools/ga-gate/check-cost-source-cited.ts
+           C38-COST-5D.md:334
+      1x  tools/ga-gate/check-cross-region-via-gate.ts
+           C49-MULTI-REGION-AND-SOVEREIGNTY.md:363
+      1x  tools/ga-gate/check-css-logical-properties.ts
+           C46-I18N-AND-L10N.md:423
+      1x  tools/ga-gate/check-curation-category-allowlist.ts
+           C40-MARKETPLACE-ECONOMICS.md:332
+      1x  tools/ga-gate/check-device-fleet-matrix-current.ts
+           C45-BROWSER-AND-DEVICE-MATRIX.md:386
+      1x  tools/ga-gate/check-discipline-neutral-marketplace.ts
+           C40-MARKETPLACE-ECONOMICS.md:336
+      1x  tools/ga-gate/check-doc-naming.ts
+           C31-DOCUMENTATION-AUTHORING-PROTOCOL.md:47
+      1x  tools/ga-gate/check-dxf-otel.ts
+           C32-DXF-DWG-ROUND-TRIP.md:146
+      1x  tools/ga-gate/check-entitlement-append-only.ts
+           C39-PRICING-AND-PLAN-TIERS.md:319
+      1x  tools/ga-gate/check-entitlement-registry-coverage.ts
+           C39-PRICING-AND-PLAN-TIERS.md:318
+      1x  tools/ga-gate/check-event-name-pattern.ts
+           C41-TELEMETRY-AND-ANALYTICS.md:371
+      1x  tools/ga-gate/check-event-no-rename.ts
+           C41-TELEMETRY-AND-ANALYTICS.md:372
+      1x  tools/ga-gate/check-event-registered.ts
+           C41-TELEMETRY-AND-ANALYTICS.md:370
+      1x  tools/ga-gate/check-focus-via-managed.ts
+           C43-ACCESSIBILITY.md:359
+      1x  tools/ga-gate/check-form-labels.ts
+           C43-ACCESSIBILITY.md:362
+      1x  tools/ga-gate/check-format-version-monotonic.ts
+           C47-FILE-FORMAT-VERSIONING.md:452
+      1x  tools/ga-gate/check-gesture-vocabulary.ts
+           C44-MOBILE-AND-TABLET.md:359
+      1x  tools/ga-gate/check-heading-outline.ts
+           C43-ACCESSIBILITY.md:363
+      1x  tools/ga-gate/check-id-minting.ts
+           C11-ELEMENT-CREATION-PIPELINE.md:1231
+      1x  tools/ga-gate/check-ifc-pset-coverage.ts
+           C25-IFC-EXPORT-PRODUCTION.md:460
+      1x  tools/ga-gate/check-ifc-round-trip.ts
+           C25-IFC-EXPORT-PRODUCTION.md:463
+      1x  tools/ga-gate/check-ifc-validate.ts
+           C25-IFC-EXPORT-PRODUCTION.md:459
+      1x  tools/ga-gate/check-intl-only.ts
+           C46-I18N-AND-L10N.md:422
+      1x  tools/ga-gate/check-key-not-renamed.ts
+           C46-I18N-AND-L10N.md:425
+      1x  tools/ga-gate/check-keyboard-registry-coverage.ts
+           C43-ACCESSIBILITY.md:358
+      1x  tools/ga-gate/check-message-key-registered.ts
+           C46-I18N-AND-L10N.md:419
+      1x  tools/ga-gate/check-migration-coverage.ts
+           C47-FILE-FORMAT-VERSIONING.md:453
+      1x  tools/ga-gate/check-migration-fixtures.ts
+           C47-FILE-FORMAT-VERSIONING.md:454
+      1x  tools/ga-gate/check-migration-idempotency.ts
+           C47-FILE-FORMAT-VERSIONING.md:455
+      1x  tools/ga-gate/check-no-imperial-in-storage.ts
+           C46-I18N-AND-L10N.md:424
+      1x  tools/ga-gate/check-no-platform-fee-override.ts
+           C40-MARKETPLACE-ECONOMICS.md:334
+      1x  tools/ga-gate/check-no-rvt-parse.ts
+           C26-REVIT-ROUND-TRIP.md:168
+      1x  tools/ga-gate/check-no-ua-sniff.ts
+           C45-BROWSER-AND-DEVICE-MATRIX.md:379
+      1x  tools/ga-gate/check-orientation-lock-defined.ts
+           C44-MOBILE-AND-TABLET.md:362
+      1x  tools/ga-gate/check-parcel-no-client-secret.ts
+           C57-PARCEL-DATA-LAYER.md:362
+      1x  tools/ga-gate/check-parcel-no-direct-fetch.ts
+           C57-PARCEL-DATA-LAYER.md:361
+      1x  tools/ga-gate/check-parcel-spans.ts
+           C57-PARCEL-DATA-LAYER.md:366
+      1x  tools/ga-gate/check-payout-formula.ts
+           C40-MARKETPLACE-ECONOMICS.md:326
+      1x  tools/ga-gate/check-payout-state-machine.ts
+           C40-MARKETPLACE-ECONOMICS.md:327
+      1x  tools/ga-gate/check-pdf-fonts.ts
+           C29-PDF-VECTOR-EXPORT.md:90
+      1x  tools/ga-gate/check-pii-bridge-restricted.ts
+           C41-TELEMETRY-AND-ANALYTICS.md:379
+      1x  tools/ga-gate/check-pii-redaction.ts
+           C41-TELEMETRY-AND-ANALYTICS.md:373
+      1x  tools/ga-gate/check-plugin-data-backup-coverage.ts
+           C48-BACKUP-AND-DR.md:442
+      1x  tools/ga-gate/check-plugin-uses-ui-base-a11y.ts
+           C43-ACCESSIBILITY.md:368
+      1x  tools/ga-gate/check-polyfill-size-budget.ts
+           C45-BROWSER-AND-DEVICE-MATRIX.md:382
+      1x  tools/ga-gate/check-prefers-reduced-motion.ts
+           C43-ACCESSIBILITY.md:361
+      1x  tools/ga-gate/check-pricing-page-derived.ts
+           C39-PRICING-AND-PLAN-TIERS.md:323
+      1x  tools/ga-gate/check-public-page-derived.ts
+           C45-BROWSER-AND-DEVICE-MATRIX.md:387
+      1x  tools/ga-gate/check-pwa-manifest.ts
+           C44-MOBILE-AND-TABLET.md:364
+      1x  tools/ga-gate/check-quota-no-silent-decrement.ts
+           C39-PRICING-AND-PLAN-TIERS.md:320
+      1x  tools/ga-gate/check-region-host-attribution.ts
+           C79-REGION-SEMANTICS.md:8
+      1x  tools/ga-gate/check-rejection-friendly-error.ts
+           C47-FILE-FORMAT-VERSIONING.md:463
+      1x  tools/ga-gate/check-revit-roundtrip.ts
+           C26-REVIT-ROUND-TRIP.md:144
+      1x  tools/ga-gate/check-room-apartment-coherence.ts
+           C20-BUILDING-AND-APARTMENT-AGGREGATES.md:472
+      1x  tools/ga-gate/check-rule-registry.ts
+           C28-DATA-PANEL-AND-AUTOMATION.md:190
+      1x  tools/ga-gate/check-schedule-critical-path-determinism.ts
+           C37-SCHEDULE-4D.md:67
+      1x  tools/ga-gate/check-schedule-single-assignment.ts
+           C37-SCHEDULE-4D.md:21
+      1x  tools/ga-gate/check-schemas-purity.ts
+           C20-BUILDING-AND-APARTMENT-AGGREGATES.md:126
+      1x  tools/ga-gate/check-share-link-always-renders.ts
+           C44-MOBILE-AND-TABLET.md:357
+      1x  tools/ga-gate/check-single-standards-store.ts
+           C34-PRINT-AND-DRAWING-STANDARDS.md:515
+      1x  tools/ga-gate/check-site-no-direct-writes.ts
+           C19-SITE-MODEL-AND-PARCEL.md:618
+      1x  tools/ga-gate/check-site-spans.ts
+           C19-SITE-MODEL-AND-PARCEL.md:621
+      1x  tools/ga-gate/check-site-uniqueness.ts
+           C19-SITE-MODEL-AND-PARCEL.md:617
+      1x  tools/ga-gate/check-sla-clock-derivation.ts
+           C42-CUSTOMER-SUPPORT-TIER.md:394
+      1x  tools/ga-gate/check-standards-completeness.ts
+           C34-PRINT-AND-DRAWING-STANDARDS.md:514
+      1x  tools/ga-gate/check-surface-matrix-coverage.ts
+           C44-MOBILE-AND-TABLET.md:356
+      1x  tools/ga-gate/check-takeoff-c25-trace.ts
+           C38-COST-5D.md:335
+      1x  tools/ga-gate/check-ticket-state-machine.ts
+           C42-CUSTOMER-SUPPORT-TIER.md:395
+      1x  tools/ga-gate/check-tier1-keys-human-reviewed.ts
+           C46-I18N-AND-L10N.md:421
+      1x  tools/ga-gate/check-tier1-keys-translated.ts
+           C46-I18N-AND-L10N.md:420
+      1x  tools/ga-gate/check-touch-target-size.ts
+           C44-MOBILE-AND-TABLET.md:358
+      1x  tools/ga-gate/check-writer-signature-keys.ts
+           C47-FILE-FORMAT-VERSIONING.md:458
+      1x  tools/ga-gate/check-zoning-purity.ts
+           C58-ZONING-RULES-AND-BUILDABLE-ENVELOPE.md:1007
+      1x  tools/ga-gate/check-zoning-spans.ts
+           C58-ZONING-RULES-AND-BUILDABLE-ENVELOPE.md:1008
+      1x  tools/ga-gate/fixtures/dxf/
+           C32-DXF-DWG-ROUND-TRIP.md:21
+
+  EXEMPT (PLANNED / struck) unresolved citations:
+    [STRUCK] packages/visibility/__tests__/intent-not-ui.test.ts  <- C09-AI-AND-VISIBILITY-INTENT.md:203
+    [PLANNED] tools/ga-gate/check-canonical-length-unit.ts  <- C110-PARAMETER-UNIT-AND-EXPRESSION-MODEL.md:821
+    [PLANNED] tools/ga-gate/check-parameter-precedence.ts  <- C110-PARAMETER-UNIT-AND-EXPRESSION-MODEL.md:822
+    [STRUCK] tools/ga-gate/check-visibility-intent.ts  <- C27-BIM3-INSPECT-MODEL.md:187
+    [STRUCK] tools/ga-gate/check-commandmanager.ts  <- C32-DXF-DWG-ROUND-TRIP.md:211
+    [STRUCK] tools/ga-gate/check-three-import-boundary.ts  <- C32-DXF-DWG-ROUND-TRIP.md:217
+    [STRUCK] tools/ga-gate/check-schema-purity.ts  <- C34-PRINT-AND-DRAWING-STANDARDS.md:500
+    [STRUCK] tools/ga-gate/check-direct-store-writes.ts  <- C34-PRINT-AND-DRAWING-STANDARDS.md:501
+    [STRUCK] tools/ga-gate/check-spans.ts  <- C34-PRINT-AND-DRAWING-STANDARDS.md:502
+    [PLANNED] scripts/check/check-docs-site-tokens.mjs  <- C43-ACCESSIBILITY.md:57
+
+[contract-cited-paths] [3] RATCHET EXCEEDED — 509 unresolved cited paths against a declared level of 490.
+  Fix the citation, or mark it PLANNED with intent. Do NOT raise the baseline.

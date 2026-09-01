@@ -1,0 +1,35 @@
+npm warn Unknown project config "package-manager-strict". This will stop working in the next major version of npm. See `npm help npmrc` for supported config options.
+[contract-index-equivalence] contract FILES on disk : 111
+[contract-index-equivalence] index ROWS in README   : 91  (max id C112)
+[contract-index-equivalence] declared RESERVED ids  : C103, C61
+[contract-index-equivalence]   A FILE WITHOUT ROW   : 21  (baseline 18)
+[contract-index-equivalence]   B ROW WITHOUT FILE   : 0  (hard 0)
+[contract-index-equivalence]   C ROW/LINK MISMATCH  : 0  (hard 0)
+[contract-index-equivalence]   D GAP NOT RESERVED   : 0  (hard 0)
+
+  A — contracts that EXIST but are ordered by NOTHING:
+      C81  C81-DESIGN-EDIT-AND-INTENT-PRESERVATION.md
+      C84  C84-ELEMENT-INTEGRITY.md
+      C85  C85-ELEMENT-WALL.md
+      C86  C86-ELEMENT-WALL-OPENING.md
+      C87  C87-ELEMENT-CURTAIN-WALL.md
+      C88  C88-ELEMENT-CEILING.md
+      C89  C89-ELEMENT-FLOOR.md
+      C90  C90-ELEMENT-ROOF.md
+      C91  C91-ELEMENT-COLUMN.md
+      C92  C92-ELEMENT-SLAB.md
+      C93  C93-ELEMENT-BEAM.md
+      C94  C94-ELEMENT-ROOM-SPACE.md
+      C95  C95-ELEMENT-HANDRAIL.md
+      C96  C96-ELEMENT-LIGHTING.md
+      C97  C97-ELEMENT-FURNITURE.md
+      C98  C98-ELEMENT-STAIR.md
+      C99  C99-ELEMENT-PLUMBING.md
+      C100  C100-MASTER-MATERIAL-DATABASE.md
+      C110  C110-PARAMETER-UNIT-AND-EXPRESSION-MODEL.md
+      C111  C111-COMPONENT-DEFINITION-AND-FAMILY-FORMAT.md
+      C112  C112-CONNECTORS.md
+
+[contract-index-equivalence] [3] ARM A RATCHET EXCEEDED — 21 files with no index row, declared level 18.
+  Add the row in the SAME commit that adds the contract. Do NOT raise the baseline.
+RC=3

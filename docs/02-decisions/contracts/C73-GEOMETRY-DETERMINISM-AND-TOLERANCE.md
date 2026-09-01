@@ -190,6 +190,43 @@ non-canonical, exit target met), oracle-true at 300 mm with spread 0.000.
 > user-visible artefact pass. Widening a tolerance changes what "the same place" means for
 > every consumer of that tolerance, and the change is invisible at the site that made it.
 
+> **§2.6 — MUST. AN ADOPTED KERNEL IS DRIVEN FROM `tolerance.ts`, AND E4's SHRINK-ONLY RULE
+> EXTENDS TO ITS INPUTS.** *(added 2026-09-01, lane EXT · audit §6.2 / §7)*
+>
+> The programme's kernel recommendation is **staged adoption behind an adapter boundary** — a third
+> party evaluator (`manifold-3d` is the named candidate) reached only through
+> `@pryzm/geometry-kernel`, never imported directly. **Every such library ships its own epsilon
+> vocabulary**, and adopting one without this clause is how §0.1's defect — *no tolerance policy,
+> two orders of magnitude inside one question* — returns through a dependency rather than through a
+> call site.
+>
+> - **MUST.** Every tolerance the adapter hands the adopted evaluator is **read from
+>   `packages/geometry-kernel/src/tolerance.ts`** — `EPSILON_ZERO`, `COINCIDENT_M`,
+>   `RECOMPUTE_IDENTITY_M`, `PARALLEL_RAD` and their successors. ⛔ **The library's own default is
+>   not a value this repository chose**, and accepting it silently is §2.2's defect with an
+>   `import` in front of it.
+> - **MUST.** Where the library's parameter is **not expressible** from a declared tolerance — a
+>   different quantity, a different unit, or a unitless "quality" knob — the adapter **declares the
+>   new tolerance in the module** (unit-qualified per §2.3) rather than passing a literal. A literal
+>   at an adapter call site is a literal at a call site.
+> - **MUST. E4 extends to it.** A declared tolerance driving an adopted evaluator **may only shrink
+>   or stay** (§2.5). ⚠ **This is the arm most likely to be attacked**, because a loosened kernel
+>   epsilon is the fastest way to make a failing boolean succeed — and it succeeds by changing what
+>   *"the same point"* means for **every** consumer of that constant, including the ones that have
+>   nothing to do with the kernel. **Loosening it to make a CSG operation close is exactly the
+>   widening §2.5 forbids, arriving with a plausible engineering story attached.**
+> - **MUST NOT.** The adapter may not carry a second, private epsilon table. That is §0.2's
+>   sixty-one-copies defect re-minted at the boundary the adapter exists to prevent it at.
+>
+> ⚠ **What this clause CANNOT give you, stated so it is not read as coverage:** driving a library
+> *from* the declared tolerances does **not** make its results match this repository's predicates —
+> the library may use the value differently, or ignore it. **That is a correctness question and
+> §5.4(a) already says these gates are blind to correctness.** The obligation it creates is
+> §5.4(a)'s: an **oracle fixture at a known answer**, per adopted operation, exactly as offset has
+> at 300 mm. ⛔ **Determinism is a separate obligation again** — `check-deterministic-regeneration`
+> (D1/D2) is what decides whether an adopted evaluator regenerates byte-identically, and a
+> phase that claims determinism while that ratchet is exceeded is claiming what R7 / L-836 forbids.
+
 ---
 
 ## §3 — Predicate canonicalisation — the R3 recipe, one family per PR

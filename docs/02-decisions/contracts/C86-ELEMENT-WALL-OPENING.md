@@ -1000,6 +1000,50 @@ change at all**: `1x1m circular` already parses.
 > in metres, independent of `width`/`height`, would recreate the exact `radius`-alongside-`width`
 > defect PR-8 exists to forbid, just one axis over.
 
+**PR-9 — ⭐ A UNIVERSAL PROFILE SURFACE INHERITS PR-1, PR-2 AND PR-8; IT DOES NOT RE-OPEN THEM.**
+*(added 2026-09-01, lane EXT · audit §6.2 · ADR-0376)*
+
+The component programme brings a **general** profile/sketch surface — one that authors outlines for
+things that are not wall openings. PR-1..PR-8 were ruled for *"a non-rectangular void in a wall"*,
+and the temptation on arrival is to treat them as the wall's local dialect. **They are not, and the
+three that generalise are named here so the generalisation is inherited rather than re-derived:**
+
+- **PR-1 generalises verbatim — ONE outline producer, and no consumer may re-derive an arc.** This
+  is C84 **EI-9** applied before the second derivation exists. ⛔ **A component sketch surface that
+  tessellates its own arc is the second producer**, and the arms table above is the record of what
+  five representations of one shape cost. ⚠ **`CurtainWallTool.ts`'s rival `ARC_SEGMENTS = 10`
+  beside `boundaryArc.ts`'s 16 is the live cautionary case** — already named in §10.6 — and it is
+  the exact defect a new surface repeats by writing its own sampler.
+- **PR-2 generalises verbatim — the trivial case stays byte-identical.** For a rectangular profile
+  the outline **is** the bounding box and no gasket is emitted. A universal surface MUST carry its
+  own equivalent of `WallProfileNonRegressionBaseline.test.ts` §(A2a): *the general path must not
+  change one byte of the rectangle*, pinned, before it is admitted anywhere.
+- **PR-8 generalises as a PRINCIPLE, not as a field list — ONE metres-valued size vocabulary per
+  record.** The wall opening's is `width × height`; a component's will be its own. **The rule that
+  transfers is the prohibition**: no second dimension vocabulary alongside the first, because it
+  mints a nonsense state (both set) and makes every consumer learn two ways to ask one question.
+  ⚠ **`customOutline`'s `{u, v} ∈ [0,1]²` normalisation is the pattern to copy** — it is what makes
+  a free-form ring admissible under PR-8 rather than an exception to it.
+
+> ⛔ **AND THE CLAUSE THAT MUST NOT BE READ PAST: adding a `rise` parameter to a segmental arch
+> AMENDS PR-8. It is a CONTRACT CHANGE, not a feature.** A segmental arch's rise is exactly the
+> second metres-valued size field PR-8 refuses — *"a `radius?` field alongside `width`/`height`
+> would mint three states, one of which is nonsense"*, with `rise` substituted for `radius` and not
+> one word of the argument changed. It is also **not** a hypothetical: a universal profile editor
+> makes *"drag the arch's crown"* the obvious gesture, and the obvious implementation stores the
+> rise. **If the capability is wanted, PR-8 is amended deliberately, in this contract, with the
+> consumer census PR-8 cites re-run** — never added as a field because an editor needed somewhere
+> to put a handle.
+>
+> ⚠ **The cheap alternative exists and should be refuted before PR-8 is amended, not after:**
+> `segmental-arch`'s rise is derivable from `width`, `height` and the profile kind for any fixed
+> convention, exactly as `circular`'s diameter is derived from `width`. **A derived rise costs
+> nothing and preserves PR-8; a stored rise costs PR-8.**
+
+> **MUST.** A universal profile surface that cannot express an opening profile **refuses by name**
+> with the live alternative (C16 CA-18) — PR-5's shape, generalised. ⛔ **A silent fall-back to a
+> rectangle is forbidden on every surface, not only on arm D.**
+
 #### `custom` and the wall-body arms — one new row, ZERO new arm-level rulings
 
 `custom` is a fifth **kind** on the SAME axis PR-1..PR-6 already rule on; it does not reopen any of
@@ -1750,4 +1794,48 @@ window-only editor. Every property this section states about the wall profile ed
 increment, its commit gate, its "no camera guarantees that view" rationale — applies unchanged to the
 window outline section, because it is the same L2 model and the same L7 surface, generalised, not
 duplicated.
+
+#### §10.6.1 — ⭐ **AMENDED 2026-09-01 — D8's "3-D IS PREVIEW" IS SPLIT: IT BINDS PLANE-INFERRING INPUT, NOT AUTHORING GENERALLY** ([ADR-0376](../adrs/ADR-0376-universal-component-editor-founding-rulings.md) **D2**, ruled under the founder's standing delegation)
+
+> **The conflict this resolves, stated before the resolution.** `STR-UNIVERSAL-COMPONENT-EDITOR-MASTER-SPEC` §58
+> says 3-D is a **first-class authoring surface**. §10.6 above says 3-D is the **PREVIEW (D8)**, and
+> gives a measured reason. **A live founder-ratified contract clause said the opposite of a live
+> spec, and one of them had to yield in writing.** ADR-0376 D2 ruled that **neither yields
+> wholesale, because this section's REASON is narrower than its CLAUSE.**
+
+**The reason, quoted from the code this section already cites** —
+`packages/geometry-wall/src/WallProfileEditor.ts`'s own header:
+
+> *"there is no camera in this repo guaranteed to be looking at that plane."*
+
+⭐ **That sentence disqualifies exactly one thing: input whose meaning depends on which plane the
+camera is looking at.** It says nothing about selection, and nothing about manipulating a number.
+
+**THE SPLIT — normative:**
+
+| In 3-D | Verdict | Why the §10.6 reason does or does not reach it |
+|---|---|---|
+| **selection**; **face / edge / feature picking**; **parameter and dimension manipulation**; **material preview**; **host preview** | ✅ **FIRST-CLASS AUTHORING** | none of these **infers a work plane**. Picking a face *names* a plane that already exists; dragging a dimension handle changes a scalar whose axis the model already owns. The camera is irrelevant to the meaning of the result. |
+| **SKETCH INPUT** — placing points, drawing a polyline, setting out an arc, authoring an outline | ⛔ **NOT A 3-D SURFACE.** Stays on the explicit-plane surfaces (this section's SVG elevation surface, the plan tools) | this is precisely plane-**inferring** input: *"where did that click land"* has no answer without a plane, and D8's measured reason is that no camera guarantees one. |
+
+> **§10.6.1a — MUST.** The boundary is **plane inference**, not the letter "3-D". A gesture is
+> admissible in 3-D iff its result is determined **without** inferring a work plane from the camera.
+> ⛔ Do not re-litigate this per gesture from either direction — *"but it's 3-D"* and *"but the spec
+> says first-class"* are both arguments about the clause instead of about the reason.
+
+> **§10.6.1b — the exit, written in advance so it is not negotiated later.** Sketch input becomes
+> admissible in 3-D the day a **camera-plane guarantee** exists: a named mechanism that makes the
+> active work plane explicit and asserts the camera is oriented to it, with a refusal when it is
+> not. **Until that mechanism is built and named, this row does not move** — and building it is a
+> rendering/interaction decision with its own ADR, not a side effect of an editor lane.
+
+> **§10.6.1c — MUST NOT.** Do not satisfy §58 by adding a 3-D sketch surface that *guesses* a plane
+> from the nearest face, the last selection, or the camera's forward axis. **Each of those makes
+> *"the user meant this plane"* and *"this plane happened to be nearest"* the same value** — the
+> refusal shape C15 §2.2.2 axis 3 states as normative (*resolved by containment, never by
+> proximity*), and this repository's signature defect class.
+
+**Falsifier for the ruling** (per ADR-0376's own convention): a 3-D authoring gesture the spec
+requires that **cannot avoid** inferring a plane. It would move **that gesture** into the second
+row — it would not move the ruling.
 

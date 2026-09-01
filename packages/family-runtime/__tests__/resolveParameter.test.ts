@@ -58,6 +58,108 @@ describe('resolveParameter — precedence', () => {
     });
     expect(r.ok && r.values).toEqual({ Width: 800, Half: 400 });
   });
+
+  /* ------------------------------------------------------------------ *
+   * §BOTH-PRESENT — ADR-0376 D4.
+   *
+   * ⛔ THIS IS THE ARM THAT DID NOT EXIST, and its absence is the whole
+   *    story. Read the four arms above: each parameter carries EITHER a
+   *    default OR an expression, never both. The precedence inversion —
+   *    `defaultValue` silently pre-empting `expression` — lived in the gap
+   *    between them for the entire life of this file, under a describe
+   *    block literally titled "precedence", with the arm above it titled
+   *    "expression is used when NO DEFAULT and no override" naming the
+   *    exclusion out loud.
+   * ------------------------------------------------------------------ */
+  it('expression BEATS defaultValue when BOTH are present (ADR-0376 D4)', () => {
+    // The founder's §64 demo, in shape: "make the glass width always the
+    // opening width minus twice the frame width" — applied to a parameter
+    // that was AUTHORED with a default first, which is the only way
+    // progressive parametrisation ever happens.
+    const r = resolveParameter({
+      parameters: [
+        param({ id: 'p_ow', name: 'OpeningWidth', defaultValue: 1200 }),
+        param({ id: 'p_fw', name: 'FrameWidth', defaultValue: 60 }),
+        param({
+          id: 'p_gw',
+          name: 'GlassWidth',
+          defaultValue: 999,
+          expression: 'OpeningWidth - 2 * FrameWidth',
+        }),
+      ],
+      type: null,
+      instanceOverrides: {},
+    });
+    expect(r.ok).toBe(true);
+    // 1200 − 2×60 = 1080. Before the fix this returned GlassWidth: 999,
+    // ok:true, zero diagnostics — the demo failing SILENTLY, which is the
+    // only reason it survived review.
+    expect(r.ok && r.values).toEqual({ OpeningWidth: 1200, FrameWidth: 60, GlassWidth: 1080 });
+  });
+
+  it('WARNS, naming the parameter, when a default was superseded — and stays ok', () => {
+    const r = resolveParameter({
+      parameters: [
+        param({ id: 'p_ow', name: 'OpeningWidth', defaultValue: 1200 }),
+        param({ id: 'p_gw', name: 'GlassWidth', defaultValue: 999, expression: 'OpeningWidth - 120' }),
+      ],
+      type: null,
+      instanceOverrides: {},
+    });
+    // A dead default is a documentation defect, not a resolution failure:
+    // severity 'warn', so ok must stay true.
+    expect(r.ok).toBe(true);
+    const warn = r.diagnostics.find((d) => d.code === 'superseded-default');
+    expect(warn).toBeDefined();
+    expect(warn!.severity).toBe('warn');
+    expect(warn!.parameterId).toBe('p_gw');
+    // It must NAME the parameter — a warning that says "a default was
+    // superseded somewhere" is not actionable.
+    expect(warn!.message).toContain('GlassWidth');
+    // …and it must not fire on the parameter that has no expression.
+    expect(r.diagnostics.filter((d) => d.code === 'superseded-default')).toHaveLength(1);
+  });
+
+  it('type override beats the expression', () => {
+    const type: FamilyType = { id: 't_fix', name: 'Fixed', values: { p_gw: 700 } };
+    const r = resolveParameter({
+      parameters: [
+        param({ id: 'p_ow', name: 'OpeningWidth', defaultValue: 1200 }),
+        param({ id: 'p_gw', name: 'GlassWidth', defaultValue: 999, expression: 'OpeningWidth - 120' }),
+      ],
+      type,
+      instanceOverrides: {},
+    });
+    expect(r.ok && r.values).toEqual({ OpeningWidth: 1200, GlassWidth: 700 });
+  });
+
+  it('instance override beats the expression', () => {
+    const type: FamilyType = { id: 't_fix', name: 'Fixed', values: { p_gw: 700 } };
+    const r = resolveParameter({
+      parameters: [
+        param({ id: 'p_ow', name: 'OpeningWidth', defaultValue: 1200 }),
+        param({ id: 'p_gw', name: 'GlassWidth', defaultValue: 999, expression: 'OpeningWidth - 120' }),
+      ],
+      type,
+      instanceOverrides: { p_gw: 640 },
+    });
+    expect(r.ok && r.values).toEqual({ OpeningWidth: 1200, GlassWidth: 640 });
+  });
+
+  it('a string-typed parameter keeps its default — the evaluator is numeric', () => {
+    // The one shape where the default legitimately survives an expression.
+    // Guarded here so "expression beats default" is never over-applied.
+    const r = resolveParameter({
+      parameters: [
+        param({ id: 'p_w', name: 'Width', defaultValue: 800 }),
+        param({ id: 'p_f', name: 'Finish', dataType: 'string', defaultValue: 'Oak', expression: 'Width / 2' }),
+      ],
+      type: null,
+      instanceOverrides: {},
+    });
+    expect(r.ok && r.values).toEqual({ Width: 800, Finish: 'Oak' });
+    expect(r.diagnostics.filter((d) => d.code === 'superseded-default')).toHaveLength(0);
+  });
 });
 
 describe('resolveParameter — cycles', () => {

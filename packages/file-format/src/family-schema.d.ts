@@ -125,6 +125,7 @@ export declare const FamilyParameterSchema: z.ZodObject<{
     }>;
     defaultValue: z.ZodDefault<z.ZodUnion<readonly [z.ZodNumber, z.ZodString, z.ZodNull]>>;
     expression: z.ZodDefault<z.ZodNullable<z.ZodString>>;
+    supersededDefault: z.ZodOptional<z.ZodUnion<readonly [z.ZodNumber, z.ZodString]>>;
     ifcMapping: z.ZodDefault<z.ZodUnion<readonly [z.ZodObject<{
         psetName: z.ZodString;
         propertyName: z.ZodString;
@@ -298,6 +299,7 @@ export declare const FamilyDocumentSchema: z.ZodObject<{
         }>;
         defaultValue: z.ZodDefault<z.ZodUnion<readonly [z.ZodNumber, z.ZodString, z.ZodNull]>>;
         expression: z.ZodDefault<z.ZodNullable<z.ZodString>>;
+        supersededDefault: z.ZodOptional<z.ZodUnion<readonly [z.ZodNumber, z.ZodString]>>;
         ifcMapping: z.ZodDefault<z.ZodUnion<readonly [z.ZodObject<{
             psetName: z.ZodString;
             propertyName: z.ZodString;

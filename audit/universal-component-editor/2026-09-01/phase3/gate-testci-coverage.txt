@@ -1,0 +1,32 @@
+npm warn Unknown project config "package-manager-strict". This will stop working in the next major version of npm. See `npm help npmrc` for supported config options.
+
+> 3d-view-app@2.0.0 check:testci-coverage
+> node scripts/check/check-test-ci-coverage.mjs
+
+§L-540-CI-GATE — root `pnpm run test:ci` coverage
+  workspaces               : 176
+  ENFORCED (has test:ci)   : 40  (22.7%)
+  SILENTLY SKIPPED         : 122  (declare `test`, no `test:ci` -> --if-present drops them)
+  no test script at all    : 14  (of which 1 STILL CONTAIN TEST FILES)
+
+FAIL — stale baseline entries (workspace gone, or it now HAS `test:ci`):
+  - @pryzm/ai-host
+
+The ratchet only works if it is tightened when it can be. Remove these from
+scripts/check/test-ci-coverage-baseline.json.
+
+§TEST-FILES-WITH-NO-SCRIPT — packages holding tests nothing can invoke
+  packages with test files but NO `test` script : 1
+    @pryzm/bench                         6 test file(s)  [named: Benchmark harness. Its __tests__/ DO have a runner — the `bench` script (vitest.config.ts includes __tests__/**/*.test.ts) — it is simply not named `test`, and CI invokes `nft:ci` instead. Deliberately NOT renamed: `pnpm -r run test` would then fire 60s-timeout benchmarks across the estate. REVISIT (L-950): give it a `test:ci` scoped to __tests__ only, so the 6 files/27 cases are enforced without the benches.]
+
+FAIL — stale `scriptless` reasons (package gone, or it now HAS a `test` script):
+  - @pryzm/geometry-curtain-wall
+
+Remove these from the `scriptless` map — the ratchet only works if it is tightened.
+
+§FILTER-MISSING-SCRIPT-IS-EXIT-0 — CI `pnpm --filter` invocations
+  filtered script invocations : 3
+  resolve to a real script    : 3
+  NAME A MISSING SCRIPT       : 0  (pnpm exits 0 on these — silent green)
+  not statically resolvable   : 0
+RC=1

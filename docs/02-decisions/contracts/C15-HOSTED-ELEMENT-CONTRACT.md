@@ -90,8 +90,8 @@ schema declaring an `openings[]` array is **`packages/schemas/src/elements/Wall.
 |---|---|---|---|
 | **`Wall`** (`WallStore`) | ✅ **YES — the only one** | `door`, `window` (`Wall.ts:37`) | `wall.openings[]` + void cut by `WallFragmentBuilder`, rebuilt by `WallRebuildCoordinator` |
 | **Curtain wall** (`CurtainWallStore`) | ⛔ **NO** | — | Not an opening at all: a **panel kind** on the cell, `hostedDoor` on `CurtainPanelData`. See §0.1. |
-| **Slab / floor** | ⛔ **NO — and there is no rival mechanism either** | — | **No opening model exists.** A slab penetration / shaft is **UNBUILT**, not routed elsewhere. |
-| **Roof** | ⛔ **NO — same** | — | Rooflights / dormers have **no opening model**. UNBUILT. |
+| **Slab / floor** | ⛔ **NO — to C15 openings.** ⚠ **BUT A RIVAL MECHANISM EXISTS — see §0.1.2** | — | ~~**No opening model exists.** A slab penetration / shaft is **UNBUILT**, not routed elsewhere.~~ **← RETRACTED 2026-09-01.** `OpeningData` + `opening.create` → `CreateOpeningCommand`, hole punched by `SlabFragmentBuilder`. |
+| **Roof** | ⛔ **NO — to C15 openings.** ⚠ **BUT A RIVAL MECHANISM EXISTS — see §0.1.2** | — | ~~Rooflights / dormers have **no opening model**. UNBUILT.~~ **← RETRACTED 2026-09-01.** `CreateRoofOpeningCommand` + `roofBuilder.setDeps({ openingStore })`. |
 | **Lift shaft wall** (`VerticalCirculation`) | ✅ **YES — via its wall** | `door` (landing doors) | `VerticalCirculation.ts:12` points at §12: the landing door is hosted on the **shaft wall**, so it is the `Wall` row, not a fifth host. |
 
 ⛔ **THE SLAB AND ROOF ROWS ARE DECLARED ABSENCES, NOT CLEARANCES (C84 EI-6).** They are written
@@ -99,6 +99,62 @@ here because the alternative is that the next lane reads a table containing only
 the others were **considered and routed**. They were not. `grep -rn "penetration\|shaftOpening\|slabOpening"
 packages/schemas/src` → **zero hits**. If a slab penetration is ever built, this table is where the
 decision — generalise C15, or mint a sibling the way the curtain wall did — must be recorded.
+
+### §0.1.2 — ⛔ CORRECTION 2026-09-01: **THE SLAB AND ROOF ROWS WERE FALSE, AND THEY WERE FALSE ON THE DAY THEY WERE WRITTEN** (lane EXT · audit §6.1 · Lane G §G.1.5)
+
+> **This clause corrects §0.1.1 IN PLACE.** Per the standing rule *"when code disagrees with a
+> contract, the code is wrong — unless the contract's own measurement was wrong,"* here the
+> contract's measurement was wrong. **The retracted text, quoted so the correction is auditable:**
+>
+> > **Slab / floor** — ⛔ **NO — and there is no rival mechanism either.** **No opening model
+> > exists.** A slab penetration / shaft is **UNBUILT**, not routed elsewhere.
+> > **Roof** — ⛔ **NO — same.** Rooflights / dormers have **no opening model**. UNBUILT.
+> > *"⛔ THE SLAB AND ROOF ROWS ARE DECLARED ABSENCES, NOT CLEARANCES (C84 EI-6)."*
+
+**A THIRD HOSTING MECHANISM EXISTS. It is `OpeningData`, and it is not in `packages/schemas` at
+all.** Measured 2026-09-01 at HEAD:
+
+`packages/core-app-model/src/stores/OpeningTypes.ts` —
+`interface OpeningData extends Omit<CoreElement,'type'> { type: 'opening'; hostId: string;
+profile: {x,y}[]; depth?; baseOffset? }`. **An explicit `hostId` plus a 2-D profile in the host
+face's own plane** — structurally more general than a C15 opening, not less.
+
+**Four-axis reachability (C84 §3.5.1), per family, because a claim naming fewer than four axes is
+not a claim:**
+
+| Axis | **Slab / floor** | **Roof** |
+|---|---|---|
+| **import / construction** | `packages/input-host/src/OpeningTool.ts` imports `CreateOpeningCommand` from `@pryzm/command-registry` and constructs it; `apps/editor/src/engine/CommandRegistry.ts` maps `['CREATE_OPENING', …]` | `apps/editor/src/engine/CommandRegistry.ts` imports `CreateRoofOpeningCommand` and maps `['CREATE_ROOF_OPENING', …]` |
+| **bus verb** | ✅ **`opening.create`** — registered in `initBusHandlers.ts` (`fn: (cmd) => { _cmExec(new CreateOpeningCommand(cmd)); }`), carries a `syncDisposition.ts` row (`element-property` / `disclose`) and a `ChatCapabilityRegistry` `CHAT_UNAVAILABLE` reason | ⛔ **NONE.** `grep -rn "roof\.opening\|roofOpening\|roof-opening"` over `packages apps plugins src` (non-test) → the only two hits are inside `CreateRoofOpeningCommand.ts` itself (its own command id and a span attribute). **The roof opening is reachable only through the serialized-command registry** |
+| **build graph** | ✅ `@pryzm/command-registry` → `@pryzm/input-host` and → `apps/editor` | ✅ `@pryzm/command-registry` → `apps/editor` |
+| **call** | ✅ `apps/editor/src/engine/views/plantools/OpeningPlanToolHandler.ts` dispatches `opening.create` on plan-tool commit (two sites); `OpeningTool` executes the command from 3-D | ⛔ **NO first-party caller.** The only construction site is the `CommandRegistry` deserialiser |
+
+**And the geometry is wired on both**, which is the half that decides whether the feature exists for
+a user rather than only for a store — `apps/editor/src/engine/initBuilders.ts` injects the SAME
+store into both builders (`slabBuilder.setDeps({ openingStore, materialMap })` and, under
+`§ROOF-HOSTED-OPENINGS`, `roofBuilder.setDeps({ openingStore })`), with the file's own comment
+recording that without the roof line *"the roof renders SOLID while the command reports success."*
+
+⛔ **WHY THE CONTRACT GOT IT WRONG MATTERS MORE THAN THE ERROR.** §0.1.1 cites its own measurement:
+`grep -rn "penetration|shaftOpening|slabOpening" packages/schemas/src` → zero hits. **The grep was
+correct and the vocabulary was wrong.** The mechanism is called neither *penetration* nor
+*shaftOpening*, and it does not live under `packages/schemas`. This is
+`[[grep-silence-has-three-causes]]` recurring **inside a canonical contract clause**, and the cost is
+specific: *a lane that reads §0.1.1 and builds a slab or roof opening model builds the FOURTH one.*
+
+⭐ **THE RULE §0.1.1'S CLOSING PARAGRAPH ALREADY IMPLIED, NOW STATED SO IT BINDS:** a *declared
+absence* is a claim, and a claim is measured or it is not written. **An absence claim MUST name the
+symbol it searched for and the root it searched under, and MUST be re-run before it is cited.** An
+absence proven only over `packages/schemas/src` is an absence *in `packages/schemas/src`* — never an
+absence in the repository.
+
+**What §0.1.1's positive ruling KEEPS, unchanged:** slab and roof openings are **still not C15
+openings**, and the four-requirement test still routes them to a sibling mechanism. They fail three
+of the four: no `openings[]` on the host record (the edge is the opening's own `hostId`), no scalar
+offset along a baseline (a 2-D profile in a face plane), and no participation in the
+`bim-wall-updated` rebuild path. **Only the void is real.** So the correct row was always
+*"⛔ NO — routed to a sibling mechanism, which is `OpeningData`"*, and the defect is that the
+contract wrote *"not routed elsewhere"* about a mechanism two commits older than the clause.
 
 ⭐ **THE RULE THIS TABLE ENCODES, so it survives the next host surface:** a new host surface joins
 the `Wall` row **only** if it can supply all four of §0.1's requirements — a record with `openings[]`,
@@ -178,6 +234,85 @@ Four consequences that are **normative, not implementation notes**:
    matrix, no group leak). ⚠ **The REACH half — that the editor's
    `UPDATE_ELEMENT_PARAMETER → WallRebuildCoordinator._flush → rebuildForWall` chain actually
    fires for a rake-only edit — is NOT MEASURED by that file and is NOT claimed here.**
+
+### §2.2 — ⭐ `HostingCapability` — THE UNIVERSAL INVARIANT, AND THE DECISION IT DELIBERATELY DOES NOT TAKE (added 2026-09-01, lane EXT · audit §6.2 · ADR-0376)
+
+> **This clause is an EXTENSION, not a generalisation.** §0.1.1's closing rule — *"a surface missing
+> any one of the four gets a sibling mechanism, not an amendment to this contract"* — is **KEPT,
+> consciously, and is NOT overturned here.** Overturning it is **D11**, and D11 is OPEN
+> (ADR-0376 ruled D1–D5 only). ⛔ **No lane may read this clause as the overturning.** What it does
+> is separate the two things §0.1.1 fused: the **invariant** every hosting mechanism obeys, and the
+> **membership test** for this contract's own mechanism.
+
+**Why the separation is needed at all, measured:** §0.1.2 establishes there are **three** hosting
+mechanisms in this repository — `wall.openings[]` (this contract), the curtain-wall panel/cell
+(C87), and `OpeningData.hostId` (slab + roof). §0.1.1's four-requirement test correctly says the
+second and third are not C15 openings. It says **nothing** about what they nonetheless share, and
+the component model needs exactly that shared part, because a component is hosted on whatever
+surface accepts it and cannot carry three host vocabularies (C84 EI-8).
+
+#### §2.2.1 — THE UNIVERSAL INVARIANT (normative, and it is §2.1 lifted)
+
+> **A hosted thing's frame IS its host's frame. Every transform the host carries, the hosted thing
+> carries. There is no hosted frame that is an approximation of its host's.**
+
+§2.1 states this for a raked wall and a door. It is stated here **once, without a host kind in it**,
+because it is the one property all three measured mechanisms share and the one a component model
+must be able to rely on before it knows which surface it landed on:
+
+| Mechanism | The host transform | The hosted thing inherits it by |
+|---|---|---|
+| `wall.openings[]` (this contract) | `baseLine` + arc tangent + **rake shear** | §2.1 — `worldCentre` plus `k·y·leftPerp(localTangent)`, the leaf **sheared**, never rotated |
+| curtain-wall cell (C87) | the mullion grid's own frame, cell identity `(uLineId, vLineId)` | the panel infills the cell; there is no independent panel coordinate |
+| `OpeningData.hostId` (slab / roof) | the resolved host **face plane** — `properties.roofFace.index`, resolved BY CONTAINMENT, *"never by proximity"* | the `profile` is authored **in that face's own plane**; the authored face-plane rectangle is retained beside it so *intent survives a slope change* |
+
+⭐ **The third row is the one worth reading twice.** It is the only mechanism in this repository that
+**retains the authored intent alongside the derived geometry**, and it does so for one family. That
+is design-intent retention already shipped — the property a component definition needs everywhere.
+
+#### §2.2.2 — `HostingCapability` is a DECLARATION SHAPE, not a routing decision
+
+> **MUST.** A surface that accepts hosted things **declares** its hosting capability, and the
+> declaration answers all five of the following. A surface that cannot answer one writes
+> `NOT MEASURED` — never a blank, never an omission (C84 EI-6):
+>
+> | # | Axis | The question |
+> |---|---|---|
+> | 1 | **host reference** | how does the hosted thing name its host — membership in the host's record, or an explicit id field? |
+> | 2 | **location frame** | in what coordinates is the hosted thing placed, and what is that frame *of* — a baseline, a grid cell, a face plane? |
+> | 3 | **host sub-part** | is the host the whole element, or one identified sub-part of it (a face, a cell)? If a sub-part, **how is it resolved** — and by containment or by proximity? |
+> | 4 | **void** | does hosting cut a real void in the host's body, and which builder cuts it? |
+> | 5 | **rebuild + invalidation** | which coordinator re-derives the hosted thing when the host changes, and **what makes it fire** — the host's *inputs*, per C85 §10.5, never an event name on a list |
+
+> **MUST NOT.** A declaration may not be inferred from a table row's silence. §0.1.1's slab and roof
+> rows were silent-because-unmeasured for thirteen days and read as *considered and routed* (§0.1.2).
+
+> **MUST.** Axis 3's *"resolved by containment, never by proximity"* is **normative for every
+> mechanism**, not a note about roofs. Proximity resolution makes *"the user meant this face"* and
+> *"this face happened to be nearest"* the same value, which is this repository's signature defect
+> class one layer over.
+
+#### §2.2.3 — ⛔ WHAT THIS CLAUSE DOES NOT DECIDE (**D11**, OPEN)
+
+**Whether a NEW host surface — a component's own hostable surfaces among them — amends this
+contract or gets a sibling mechanism is UNDECIDED.** §0.1.1's closing rule stands until an ADR
+overturns it deliberately.
+
+Both answers have a live cost, and both are recorded here so the decision is taken on them rather
+than on convenience:
+
+- **Sibling** (the status quo): correct so far — the curtain wall got one and §0.1.2 shows
+  `OpeningData` is a second. It is also **how three mechanisms became three, and a fourth would be
+  cheap to add and expensive to reconcile.** C84 EI-8 counts vocabularies, not intentions.
+- **Amend**: gives the component model one host vocabulary, and would have made §0.1.1's error
+  impossible — but it rewrites every word of §1 and §2 while changing **no machinery** in
+  `WallFragmentBuilder` or `WallRebuildCoordinator`, which is precisely the defect §0.1's closing
+  paragraph names: *"a contract amendment no code would implement is worse than no amendment."*
+
+⭐ **The measured input D11 did not have when it was framed:** the third mechanism already exists,
+so the question is **not** *"do we generalise C15 or mint a sibling?"* — it is *"do we generalise
+C15, or CONTRACT the sibling that is already shipping and unowned?"* `OpeningData` is governed by no
+contract today. Whichever way D11 goes, that gap is real and is not closed by this clause.
 
 ---
 

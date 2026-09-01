@@ -1,0 +1,16 @@
+npm warn Unknown project config "package-manager-strict". This will stop working in the next major version of npm. See `npm help npmrc` for supported config options.
+=== CONTROL: a no-op chain (target === source) ===
+  ok = true | steps = 0
+=== PROBE 1: identity migrator 1.0 -> 1.1 (the framework's OWN canonical fixture) ===
+  ok = false | reason = migrator-threw
+  message = exit schema invalid: document.formatVersion: Invalid input: expected "1.0"
+=== PROBE 2: a REAL op (rename-parameter) 1.0 -> 1.1 ===
+  ok = false | reason = migrator-threw
+  message = exit schema invalid: document.formatVersion: Invalid input: expected "1.0"
+=== FALSIFICATION CONTROL: same op with validateExit:false ===
+  ok = true | steps = 1
+  => the op ITSELF works; it is the EXIT GATE that refuses,
+     because FamilyDocumentSchema pins formatVersion to the literal "1.0".
+=== PROBE 3: register a same-version migrator (1.0 -> 1.0)? ===
+  REFUSED: migrator identity-1.0-to-1.0: from=to=1.0 would cause an infinite loop
+RC=0

@@ -1,0 +1,62 @@
+npm warn Unknown project config "package-manager-strict". This will stop working in the next major version of npm. See `npm help npmrc` for supported config options.
+[contract-cited-paths] contract files read: 112
+[contract-cited-paths] citations: 3584 occurrences -> 1848 distinct
+[contract-cited-paths]   RESOLVE on disk        : 1330
+[contract-cited-paths]   UNRESOLVED (arm A)     : 507  (baseline 490)
+[contract-cited-paths]   UNRESOLVED but EXEMPT  : 11  (arm B — disclosure only)
+
+  Top unresolved citations (first 25 — rerun with --list for all):
+     23x  scripts/ci-check-spans.ts
+           C01-ARCHITECTURE-AND-GOVERNANCE.md:22, C10-PERFORMANCE-AND-OBSERVABILITY.md:111, C10-PERFORMANCE-AND-OBSERVABILITY.md:461, C23-PROVENANCE-AND-AI-AUDIT.md:20, +19
+     12x  server/parcelZoningProxy.js
+           C57-PARCEL-DATA-LAYER.md:29, C57-PARCEL-DATA-LAYER.md:171, C57-PARCEL-DATA-LAYER.md:295, C57-PARCEL-DATA-LAYER.md:312, +8
+      8x  packages/schedule-4d/
+           C37-SCHEDULE-4D.md:39, C37-SCHEDULE-4D.md:49, C37-SCHEDULE-4D.md:53, C37-SCHEDULE-4D.md:404, +4
+      6x  packages/schemas/src/standards/
+           C34-PRINT-AND-DRAWING-STANDARDS.md:58, C34-PRINT-AND-DRAWING-STANDARDS.md:122, C34-PRINT-AND-DRAWING-STANDARDS.md:126, C34-PRINT-AND-DRAWING-STANDARDS.md:140, +2
+      5x  packages/schemas/src/pii-registry.ts
+           C22-PRIVACY-AND-PII-TIER.md:34, C22-PRIVACY-AND-PII-TIER.md:180, C22-PRIVACY-AND-PII-TIER.md:632, C22-PRIVACY-AND-PII-TIER.md:650, +1
+      5x  src/ui/
+           C01-ARCHITECTURE-AND-GOVERNANCE.md:249, C06-UI-SHELL-AND-TOOLS.md:91, C06-UI-SHELL-AND-TOOLS.md:91, C06-UI-SHELL-AND-TOOLS.md:397, +1
+      4x  apps/editor/__tests__/OneDeletePathAcrossSurfaces.test.ts
+           C84-ELEMENT-INTEGRITY.md:252, C84-ELEMENT-INTEGRITY.md:1676, C84-ELEMENT-INTEGRITY.md:1695, C94-ELEMENT-ROOM-SPACE.md:49
+      4x  packages/browser-support/
+           C45-BROWSER-AND-DEVICE-MATRIX.md:171, C45-BROWSER-AND-DEVICE-MATRIX.md:384, C45-BROWSER-AND-DEVICE-MATRIX.md:419, C45-BROWSER-AND-DEVICE-MATRIX.md:442
+      4x  packages/form-factor/
+           C44-MOBILE-AND-TABLET.md:156, C44-MOBILE-AND-TABLET.md:360, C44-MOBILE-AND-TABLET.md:400, C44-MOBILE-AND-TABLET.md:425
+      4x  packages/i18n/
+           C46-I18N-AND-L10N.md:182, C46-I18N-AND-L10N.md:427, C46-I18N-AND-L10N.md:462, C46-I18N-AND-L10N.md:502
+      4x  packages/marketplace-economics/
+           C40-MARKETPLACE-ECONOMICS.md:110, C40-MARKETPLACE-ECONOMICS.md:329, C40-MARKETPLACE-ECONOMICS.md:371, C40-MARKETPLACE-ECONOMICS.md:421
+      4x  packages/region/
+           C49-MULTI-REGION-AND-SOVEREIGNTY.md:129, C49-MULTI-REGION-AND-SOVEREIGNTY.md:365, C49-MULTI-REGION-AND-SOVEREIGNTY.md:406, C49-MULTI-REGION-AND-SOVEREIGNTY.md:440
+      4x  packages/schemas/src/cost/
+           C38-COST-5D.md:105, C38-COST-5D.md:338, C38-COST-5D.md:422, C38-COST-5D.md:428
+      4x  packages/telemetry/
+           C41-TELEMETRY-AND-ANALYTICS.md:119, C41-TELEMETRY-AND-ANALYTICS.md:377, C41-TELEMETRY-AND-ANALYTICS.md:416, C41-TELEMETRY-AND-ANALYTICS.md:453
+      4x  src/engine/engineLauncher.ts
+           C11-ELEMENT-CREATION-PIPELINE.md:981, C11-ELEMENT-CREATION-PIPELINE.md:983, C11-ELEMENT-CREATION-PIPELINE.md:984, C11-ELEMENT-CREATION-PIPELINE.md:985
+      4x  src/engine/subsystems/walls/WallTool.ts
+           C11-ELEMENT-CREATION-PIPELINE.md:952, C11-ELEMENT-CREATION-PIPELINE.md:953, C11-ELEMENT-CREATION-PIPELINE.md:1342, C11-ELEMENT-CREATION-PIPELINE.md:1615
+      3x  apps/admin-tools/src/support/
+           C42-CUSTOMER-SUPPORT-TIER.md:122, C42-CUSTOMER-SUPPORT-TIER.md:337, C42-CUSTOMER-SUPPORT-TIER.md:405
+      3x  apps/editor/src/ui/onboarding/RACChatbot.tsx
+           C50-TYPOLOGY-PIPELINE.md:6, C50-TYPOLOGY-PIPELINE.md:22, C50-TYPOLOGY-PIPELINE.md:401
+      3x  packages/a11y/
+           C43-ACCESSIBILITY.md:150, C43-ACCESSIBILITY.md:367, C43-ACCESSIBILITY.md:406
+      3x  packages/clash-engine/
+           C36-CLASH-DETECTION-AND-COORDINATION.md:85, C36-CLASH-DETECTION-AND-COORDINATION.md:494, C36-CLASH-DETECTION-AND-COORDINATION.md:523
+      3x  packages/cobie-export/
+           C35-COBIE-FM-HANDOVER.md:249, C35-COBIE-FM-HANDOVER.md:460, C35-COBIE-FM-HANDOVER.md:509
+      3x  packages/kitchen
+           C104-ELEMENT-LIFT-COMPOUND-SYSTEM.md:113, README.md:185, README.md:230
+      3x  packages/pii-redactor/
+           C23-PROVENANCE-AND-AI-AUDIT.md:517, C23-PROVENANCE-AND-AI-AUDIT.md:760, C23-PROVENANCE-AND-AI-AUDIT.md:772
+      3x  packages/schemas/cobie/
+           C35-COBIE-FM-HANDOVER.md:107, C35-COBIE-FM-HANDOVER.md:243, C35-COBIE-FM-HANDOVER.md:461
+      3x  packages/schemas/src/a11y/
+           C43-ACCESSIBILITY.md:154, C43-ACCESSIBILITY.md:366, C43-ACCESSIBILITY.md:430
+
+[contract-cited-paths] [3] RATCHET EXCEEDED — 507 unresolved cited paths against a declared level of 490.
+  Fix the citation, or mark it PLANNED with intent. Do NOT raise the baseline.
+RC=3

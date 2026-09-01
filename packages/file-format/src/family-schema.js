@@ -104,6 +104,11 @@ export const FamilyParameterSchema = z.object({
     dataType: FamilyParameterDataTypeSchema,
     defaultValue: z.union([z.number().finite(), z.string(), z.null()]).default(null),
     expression: z.string().nullable().default(null),
+    /** ADR-0376 D4 provenance: the `defaultValue` an `introduce-expression`
+     *  migration pre-empted. `.optional()` and NOT `.default(null)` on purpose —
+     *  a defaulted key would appear on every parameter of every existing
+     *  document and change its packed bytes and its signature. */
+    supersededDefault: z.union([z.number().finite(), z.string()]).optional(),
     ifcMapping: z.union([
         z.object({ psetName: z.string().min(1), propertyName: z.string().min(1) }),
         z.null(),

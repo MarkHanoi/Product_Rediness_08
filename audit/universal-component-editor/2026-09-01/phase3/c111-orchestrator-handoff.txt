@@ -1,0 +1,143 @@
+LANE C111 — ORCHESTRATOR HANDOFF (2026-09-01)
+=============================================
+Nothing was committed. Two files written, one file corrected in place.
+
+WRITTEN
+  docs/02-decisions/contracts/C111-COMPONENT-DEFINITION-AND-FAMILY-FORMAT.md   (new, C84 §6 twelve sections)
+  audit/universal-component-editor/2026-09-01/phase3/index-row-C111.txt        (the C00 row — YOU apply it)
+
+CORRECTED IN PLACE
+  docs/02-decisions/contracts/C05-PERSISTENCE-AND-FILE-FORMAT.md
+    - §4 rewritten (was: a `family-descriptor.json` + `metadata.json.type='family'` that do not exist)
+    - the References line's `[SPEC-26] / [ADR-0217] .pryzm-family` mis-citation corrected
+    - a 2026-09-01 changelog entry prepended
+
+  ⚠ OWNERSHIP COLLISION TO SERIALIZE. Audit §12 assigns `contracts/C05-*.md` to lane **3B**; this
+  lane's brief assigned C05 §4 to **C111**. The §4 correction is DONE here. Do not let 3B apply it
+  twice. 3B's remaining C05 work is untouched by this lane, and C65's T0 tier is entirely 3B's.
+
+EVIDENCE ARTEFACTS (the contract's §13 cites these by name)
+  phase3/c111-measurements.txt              M1–M18: every grep, each `rc` read IMMEDIATELY, never
+                                            through a pipe. M7b/M8b/M10b/M11 were re-run without a
+                                            pipe after the first pass returned head's exit code —
+                                            the exact hazard the brief names.
+  phase3/probe-d12-formatversion.txt        executed, with a passing control
+  phase3/probe-migration-framework.txt      executed, with a passing control AND a falsification control
+  phase3/gate-index-BEFORE-c111.txt         RC=0 · 108 files · 91 rows · arm A 18 = baseline
+  phase3/gate-index-AFTER-c111.txt          RC=3 · 111 files · arm A 21 vs 18 (C110+C111+C112 files,
+                                            zero rows) — the three rows close it
+  phase3/gate-cited-paths-AFTER-c111.txt    RC=3 at 507/490 — see PRE-EXISTING BREACHES below
+  phase3/gate-testci-coverage.txt           RC=1 — see PRE-EXISTING BREACHES below
+
+GATE READINGS, WITH THE FALSIFICATION CONTROL
+  check-contract-index-equivalence   BEFORE 18/18 RC=0  ->  AFTER 21/18 RC=3.
+      Arms B (row without file), C (row/link mismatch) and D (gap not reserved) stay HARD-0 CLEAN in
+      both readings. Applying the three rows returns arm A to 18. ⛔ Do not raise the baseline.
+
+  check-contract-cited-paths         PRE-EXISTING RC=3.
+      Falsification control run: C111 moved OUT of contracts/, gate re-run -> UNRESOLVED **508**,
+      RC=3. C111 moved back, with my one elided path (`apps/bake-worker/.../`) fixed to the real
+      `apps/bake-worker/src/jobs/RebakeFamilyInstanceJob.ts` -> **508**. After the C05 §4 rewrite
+      -> **507**. So: this lane adds ZERO unresolved citations and REMOVES one net.
+      ⛔ The 507-vs-490 breach is entirely pre-existing, is a shrink-only ratchet, and per
+      §RATCHET-EXCEEDED-IS-NEVER-DEBT (R7 / L-836) is NOT absorbable via gate-debt.json. It is owned
+      by nobody in this phase. Someone must own it before Phase 4's entry condition can be met.
+
+  check-testci-coverage              PRE-EXISTING RC=1 — fails on STALE BASELINE entries
+      (`@pryzm/ai-host` now has test:ci; `@pryzm/geometry-curtain-wall` now has test). Not this
+      stack's failure; recorded so it is not misattributed. Its census is what proves C111 §3.2.
+
+PROPOSED ISSUE-LOG ROWS — L-NUMBERS NOT ASSIGNED BY THIS LANE
+  Highest L-number at HEAD is L-12872. Three concurrent lanes are running, so this lane does NOT
+  claim numbers. Each row below is anchored by a §-tag inside C111, so the contract is correct
+  whatever number you assign.
+
+  [P1] §C111-FAKE-TYPE-CHECKSUM (C111 §2.4, delta D-2)
+       `FamilyType.checksum` is typed `sha256:` + 64 hex and is produced by `syncChecksumPlaceholder`
+       in file-format/src/family-migrations/ops/split-type.ts — an FNV-1a/32 hash padded to 8 hex
+       chars and REPEATED EIGHT TIMES. It passes the Zod `Sha256` regex, its 64 chars are eight
+       identical blocks, and it COLLIDED on the 200,000th trivial input ({"Width":65613} vs
+       {"Width":77901}). Its own comment says the real sha256 is recomputed by `packFamily`;
+       `grep -n "checksum" family-pack.ts` -> NO MATCH, so the fake is written into the signed bytes.
+       Nothing anywhere verifies a type checksum. Spec §75 at the format layer.
+
+  [P1] §C111-MIGRATION-EXIT-UNSATISFIABLE (C111 §8.2, delta D-1)
+       The `.pryzm-family` migration framework cannot complete a single version bump.
+       `MigratorRegistry.register()` throws when from === to; `migrateFamily()` validates the result
+       against `FamilyDocumentSchema`, whose `formatVersion` is `z.literal('1.0')`, and `validateExit`
+       DEFAULTS TO TRUE. So every legal migrator fails its own exit gate. Executed:
+         identityMigrator('1.0','1.1')            -> ok=false "exit schema invalid: expected \"1.0\""
+         makeRenameParameterMigrator('1.0','1.1') -> ok=false, same
+         same op with { validateExit: false }     -> ok=true, steps=1     (isolates the cause)
+         no-op chain (target === source)          -> ok=true, steps=0     (control)
+       ⚠ The suite's only green end-to-end migration test passes by writing `formatVersion: '1.0'`
+       back into the migrated document, and all eight ops are constructed ('1.0','1.0') and invoked
+       via .apply() without ever being registered. The green test is the workaround, not the proof.
+       This is the sharp half of D12 — much worse than "formatVersion is not comparable".
+
+  [P2] §C111-UNREACHABLE-FUTURE-VERSION-BRANCH (C111 §8.1)
+       `family-unpack.ts` returns `unsupported-future-version` when `formatVersion !== '1.0'`, but
+       `FamilyManifestSchema.safeParse` runs first and already returned `manifest-invalid`. Proven:
+       '2.0' and '1.1' both fail the parse. A user handed a v2 component file is told their file is
+       malformed, not that their PRYZM is old. The one test bearing that name exercises the PROJECT
+       format's `unpack`, not `unpackFamily`.
+
+  [P2] §C111-TWO-DEFAULT-CHANNELS (C111 §5.3, delta D-5)
+       `FamilyDocument.defaults` is maintained by three migration ops (add-parameter seeds it,
+       change-parameter-type converts it, delete-parameter removes from it) and read by NO resolver —
+       `resolveParameter` takes {parameters, type, instanceOverrides} and never sees the document.
+       C84 EI-9, with the dangerous property that the DEAD channel is the one the framework maintains,
+       so it looks alive. Fix = remove the field and the three ops together. Adding a reader is the
+       forbidden fix.
+
+  [P2] §C111-PHANTOM-COMPONENT-INSTANCE-STORE (C111 §0.4, delta D-4)
+       `packages/ai-host/src/AIReadModel.ts` reads `window.componentInstanceStore`; a repo-wide grep
+       returns EXACTLY ONE hit — the reader itself. `getAllGenericComponents()` therefore returns []
+       forever, so the AI cannot distinguish "no components" from "component reads are unavailable".
+       Failure and empty are the same value.
+
+  [P2] §C111-STACK-IS-CI-INVISIBLE (C111 §3.2, delta D-10)
+       `@pryzm/file-format`, `@pryzm/family-runtime`, `@pryzm/family-loader`, `@pryzm/family-instance`,
+       `@pryzm/component-editor`, `@pryzm/test-family-load-into-project` and
+       `@pryzm/test-family-marketplace-publish` are ALL on the `--if-present` silently-skipped roll in
+       scripts/check/test-ci-coverage-baseline.json. The round-trip, signature and migration suites —
+       the only assertions this format has — never run in CI. The audit found this for the APP; it is
+       true of the whole stack.
+
+  [P2] §C111-ABSENT-SPEC-SOURCE
+       41 files (file-format, family-loader, family-instance, family-runtime, geometry-kernel's five
+       producers + KernelCSG, component-editor, bake-worker, and two integration suites) cite
+       `PHASE-3B-FAMILY-CREATOR-REWRITE-PLAN` as their spec source. There is no such file and no
+       `phases` directory in this repository. The audit §0.3 F1 said the authority "sits below SPECs";
+       it is worse — it cannot be read, so it is unfalsifiable. Same shape as C103 UNMINTED-AND-CITED
+       (L-7060), at 41 citations. C111 is the replacement authority for the format half; the
+       geometry-producer citations are NOT this lane's and remain open.
+
+  [P3] §C111-SCHEMA-MIRROR-NARROWING (C111 §5.5, delta D-6)
+       family-runtime's hand-written `FamilyType` narrows the schema twice, undeclared:
+       `values` drops `boolean`, and `checksum` is absent entirely. C84 EI-2.
+
+WHAT THIS LANE DELIBERATELY DID NOT DO (R1 — contract what exists, do not redesign)
+  - No new ComponentDefinitionSchema, sketch surface, expression engine, refusal vocabulary or AI
+    tool schema. C111 §0.3 states the refusal and adopts family-schema.ts's own header as normative.
+  - No placement verb, no payload, no instance record. D9 is OPEN; C111 §1.4-d refuses it explicitly
+    and §4.3 fixes only the two boundaries the decision must respect (the definition/instance split,
+    and `definitionRef = (familyId, schemaHash)` never `familyId` alone).
+  - No nesting mechanism (D6 OPEN, three rival answers), no boolean feature, no Representation[].
+    Each is DECLARED ABSENT in §10 rather than silently omitted.
+  - No edit to README.md, to packages/schemas/src/siteintel/**, to packages/site-parcel-data/**, or
+    to the three serialize-only shared files. No `git stash` at any point.
+  - The metres migration (ADR-0376 D3) is NOT executed here; C111 §9.4-b cites lane U's
+    phase3/d3-unit-migration.md verdict and §9.4-c forbids writing a sketch->profiles producer until
+    it lands.
+
+ONE CORRECTION THIS LANE MADE TO THE AUDIT ITSELF (both measured, both in C111)
+  1. §0.1's "eight PREFIXED-ULID identity spaces" -> eight spaces, SEVEN prefixes. The eighth is a
+     bare `ULID` shared by ProfileEntity.id, ProfileConstraint.id and FamilyEvent.id. The count was
+     right; the adjective was the load-bearing half, because the shared space is the weak one.
+  2. §11.3 R6's "12 persisted, 5 executable" -> "the seven unimplemented kinds". Measured: EIGHT
+     persisted kinds have no solver counterpart (horizontal, vertical, tangent, radius, angle,
+     diameter, equalLength, distancePointLine); the solver's `fixed` has no persisted home; only
+     `parallel`/`perpendicular` share a spelling and `coincident`/`distance` would need a map that
+     does not exist. And ProfileConstraintSchema has ZERO writers and ZERO readers, so the honest
+     number is TWELVE unevaluable the moment a writer appears.

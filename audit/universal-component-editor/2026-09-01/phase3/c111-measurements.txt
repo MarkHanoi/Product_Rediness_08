@@ -1,0 +1,247 @@
+### M1 family-descriptor (C05 §4 claim 2) — expect NO OUTPUT
+rc=1
+
+### M2 metadata.json.type='family' (C05 §4 claim 1)
+rc=0
+
+### M3 FAMILY_PATHS — the real envelope
+packages/file-format/src/family-pack.ts:39:  FAMILY_PATHS,
+packages/file-format/src/family-pack.ts:112:          { path: FAMILY_PATHS.manifest, bytes: enc.encode(manifestJson) },
+packages/file-format/src/family-pack.ts:113:          { path: FAMILY_PATHS.document, bytes: enc.encode(documentJson) },
+packages/file-format/src/family-pack.ts:114:          { path: FAMILY_PATHS.ifcMapping, bytes: enc.encode(ifcJson) },
+packages/file-format/src/family-pack.ts:115:          { path: FAMILY_PATHS.eventLog, bytes: enc.encode(eventLog) },
+packages/file-format/src/family-pack.ts:116:          { path: FAMILY_PATHS.schemaHash, bytes: enc.encode(schemaHashLiteral) },
+packages/file-format/src/family-pack.ts:120:          entries.push({ path: FAMILY_PATHS.thumbnail, bytes: input.thumbnail });
+packages/file-format/src/family-pack.ts:123:          entries.push({ path: FAMILY_PATHS.icon, bytes: input.icon });
+packages/file-format/src/family-pack.ts:150:          entries.push({ path: FAMILY_PATHS.signature, bytes: signatureBytes });
+packages/file-format/src/family-types.ts:8:export const FAMILY_PATHS = {
+packages/file-format/src/family-unpack.ts:24:  FAMILY_PATHS,
+packages/file-format/src/family-unpack.ts:56:        const manifestEntry = zip.file(FAMILY_PATHS.manifest);
+packages/file-format/src/family-unpack.ts:58:          const message = `[unpackFamily] missing required entry ${FAMILY_PATHS.manifest}`;
+packages/file-format/src/family-unpack.ts:87:        const documentEntry = zip.file(FAMILY_PATHS.document);
+packages/file-format/src/family-unpack.ts:89:          const message = `[unpackFamily] missing required entry ${FAMILY_PATHS.document}`;
+packages/file-format/src/family-unpack.ts:117:        const ifcEntry = zip.file(FAMILY_PATHS.ifcMapping);
+packages/file-format/src/family-unpack.ts:131:        const eventLogEntry = zip.file(FAMILY_PATHS.eventLog);
+packages/file-format/src/family-unpack.ts:159:        const schemaHashEntry = zip.file(FAMILY_PATHS.schemaHash);
+packages/file-format/src/family-unpack.ts:189:        const thumbEntry = zip.file(FAMILY_PATHS.thumbnail);
+packages/file-format/src/family-unpack.ts:190:        const iconEntry = zip.file(FAMILY_PATHS.icon);
+
+### M4 ConstraintKind members (constraint-solver)
+// @pryzm/constraint-solver — type surface (S52 §4.1).
+//
+// Spec source:
+//   • `phases/PHASE-3A-Q1-M25-M27-VI-AI-ELEMENT-CREATOR.md` §4.1
+//     (lines 1109-1294) — planegcs WASM + Web Worker integration.
+//   • `[ADR-029-pdf-to-bim-scope.md]` — PDF-to-BIM moat depends on
+//     the same constraint solver for downstream Stage 4 review-queue
+//     consistency checks (S60).
+//
+// PURE — zero deps on @pryzm/command-bus, @pryzm/stores, THREE,
+// DOM, or Node primitives. Bake-worker safe.
+//
+// SHAPE — `ConstraintSet` flows in (variables + constraints +
+// optional parameter values), `SolveResult` flows out (well /
+// under / over-constrained + new variable values + diagnostics).
+
+/** The five first constraint kinds the S52 sketcher integration
+ *  exposes per spec line 1486. The full planegcs catalogue (~30
+ *  kinds) lands incrementally at S53–S55 alongside the sketcher's
+ *  construction-geometry tools. */
+export type ConstraintKind =
+  | 'distance-pp'      // distance between two points
+  | 'parallel'         // two lines parallel
+  | 'perpendicular'    // two lines perpendicular
+  | 'coincident-pp'    // two points share position
+  | 'fixed';           // point pinned to (x, y)
+
+/** Variable id — by convention the sketcher uses `${entityId}-x${i}`
+ *  and `${entityId}-y${i}` so each entity-endpoint gets two
+ *  variables. The solver treats them as opaque strings. */
+export type VariableId = string;
+
+/** Point id — by convention `${entityId}-${vertexIndex}`. The
+ *  solver expands it into the matching `-x` / `-y` variable pair. */
+export type PointId = string;
+
+/** Line id — by convention `${entityId}` for a single-segment line
+ *  primitive. The solver dereferences via the line's two points. */
+export type LineId = string;
+
+
+### M5 — does apps/component-editor import the format? (packFamily/unpackFamily/file-format)
+apps/component-editor/package.json:24:    "@pryzm/file-format": "workspace:*",
+apps/component-editor/src/marketplace/publishFlow.ts:13://   3. `packFamily()` with the author's Ed25519 signing key.  The pack
+apps/component-editor/src/marketplace/publishFlow.ts:28:  packFamily,
+apps/component-editor/src/marketplace/publishFlow.ts:33:} from '@pryzm/file-format';
+apps/component-editor/src/marketplace/publishFlow.ts:132:  const packed: FamilyPackResult = await packFamily({
+apps/component-editor/src/marketplace/signing.ts:10:// already stamped into `manifest.json` by `packFamily()`, so signing
+apps/component-editor/src/marketplace/signing.ts:38: *  by both `unpackFamily({ verifyingKey })` and the server route. */
+apps/component-editor/__tests__/marketplace/publishFlow.test.ts:14:  unpackFamily,
+apps/component-editor/__tests__/marketplace/publishFlow.test.ts:17:} from '@pryzm/file-format';
+apps/component-editor/__tests__/marketplace/publishFlow.test.ts:154:      const verified = await unpackFamily({ bytes: capturedBody, verifyingKey: verifyKey });
+rc=0
+
+### M6 — persisted ProfileConstraint: writers/readers outside its own declaration
+packages/file-format/src/family-migrations/ops/delete-parameter.ts:6://   - `document.profiles[*].constraints[*].parameterRef`
+packages/file-format/src/family-migrations/ops/delete-parameter.ts:56:        constraints: pr.constraints.map((c) =>
+rc=0
+
+### M7 — apps/editor imports of the three family packages (audit §3.1 axis a)
+apps/editor/src/engine/BimService.ts:6:import { deleteIfcImportedElement, isIfcImportedElement } from '@pryzm/file-format';
+apps/editor/src/engine/initBusHandlers.ts:14:} from '@pryzm/file-format';
+apps/editor/src/engine/initUI.ts:51:import type { exportIFC as _exportIFCFn }                 from '@pryzm/file-format';
+apps/editor/src/engine/initUI.ts:52:import type { auditIfcWorkflow as _auditIfcWorkflowFn }   from '@pryzm/file-format';
+apps/editor/src/engine/initUI.ts:53:import type { IfcImportResult }  from '@pryzm/file-format';
+apps/editor/src/engine/initUI.ts:54:import { deleteIfcImportedElement } from '@pryzm/file-format';
+apps/editor/src/engine/initUI.ts:103:import { sheetExportService }    from '@pryzm/file-format';
+apps/editor/src/engine/initUI.ts:104:import { dxfExportService }      from '@pryzm/file-format';
+apps/editor/src/engine/initUI.ts:109:import type { PdfExportServiceImpl as _PdfExportServiceImpl } from '@pryzm/file-format';
+apps/editor/src/engine/initUI.ts:564:        Promise<typeof import('@pryzm/file-format')> | null = null;
+rc=0
+
+### M8 — component.* / family.* bus verbs in the canonical registry (axis b)
+rc=0
+
+### M9 — API-VERB-REGISTER rows for component/family/definition/feature
+0
+
+### M10 — SCHEMA_REGISTRY has a 'component' element kind?
+rc=0
+
+### M7b — apps/editor imports of family-loader/instance/runtime ONLY (no pipe; rc read immediately)
+rc=1  (rc=1 means NO MATCH)
+
+### M8b — component/family/definition/parameter/constraint/feature bus verbs (no pipe)
+rc=1  (rc=1 means NO MATCH)
+
+### M10b — 'component' element kind in packages/schemas/src (no pipe)
+rc=1  (rc=1 means NO MATCH)
+
+### M11 — ComponentDefinition / ComponentInstance / SemanticClass symbols (no pipe)
+packages/ai-host/src/AIReadModel.ts
+rc=0  (rc=1 means NO MATCH)
+
+### M12 — document.defaults readers (a SECOND default channel?)
+packages/file-format/src/family-migrations/ops/add-parameter.ts:34:          ? input.document.defaults
+packages/file-format/src/family-migrations/ops/add-parameter.ts:36:              ...input.document.defaults,
+packages/file-format/src/family-migrations/ops/change-parameter-type.ts:74:      const defaults = (params.parameterId in input.document.defaults)
+packages/file-format/src/family-migrations/ops/change-parameter-type.ts:76:            ...input.document.defaults,
+packages/file-format/src/family-migrations/ops/change-parameter-type.ts:78:              input.document.defaults[params.parameterId] ?? null,
+packages/file-format/src/family-migrations/ops/change-parameter-type.ts:81:        : input.document.defaults;
+packages/file-format/src/family-migrations/ops/delete-parameter.ts:7://   - `document.defaults[parameterId]`
+packages/file-format/src/family-migrations/ops/delete-parameter.ts:66:      const { [params.parameterId]: _d, ...defaults } = input.document.defaults;
+rc=0  (1 = NO MATCH)
+
+### M13 — FamilyType.checksum consumers outside the schema
+packages/file-format/src/family-migrations/ops/split-type.ts:5:// The new type's `checksum` is RECOMPUTED from its values map via the
+packages/file-format/src/family-migrations/ops/split-type.ts:19:// Browser-compatible synchronous checksum placeholder.
+packages/file-format/src/family-migrations/ops/split-type.ts:60:      const checksum = syncChecksumPlaceholder(canonicalise(mergedValues));
+packages/file-format/src/family-migrations/ops/split-type.ts:68:          checksum,
+packages/file-format/src/family-schema.d.ts:265:    checksum: z.ZodString;
+packages/file-format/src/family-schema.d.ts:404:        checksum: z.ZodString;
+packages/file-format/src/family-schema.ts:243:  /** Per-type checksum (canonical-JSON sha256 of the values map).  Allows
+packages/file-format/src/family-schema.ts:245:  checksum: Sha256,
+rc=0  (1 = NO MATCH)
+
+### M14 — any .pryzm-family document in the tree?
+rc=0
+
+### M15 — exposed / isHost / lod readers
+apps/component-editor/src/ai/aiHostBridge.ts:81:  isHostLoaded(): boolean;
+apps/component-editor/src/ai/aiHostBridge.ts:171:    isHostLoaded: () => hostLoaded,
+apps/component-editor/src/ai/toolRegistry.ts:152:  if ('lod' in obj && !isLodBitmask(obj.lod)) {
+apps/component-editor/src/ai/toolRegistry.ts:165:  if (!isLodBitmask(obj.lod)) errs.push('"lod" must be a LodBitmask {coarse,medium,fine: boolean}');
+apps/component-editor/src/commands/solid/index.ts:83:              lod: before.lod,
+apps/component-editor/src/commands/solid/index.ts:101:        const beforeLod = before.lod;
+apps/component-editor/src/commands/solid/index.ts:102:        deps.store.setLodBitmask(args.id, args.lod);
+apps/component-editor/src/stores/solidStore.ts:100:    lod: Object.freeze({ coarse: s.lod.coarse, medium: s.lod.medium, fine: s.lod.fine }),
+apps/component-editor/src/stores/solidStore.ts:148:      const lod = input.lod ?? DEFAULT_LOD_BITMASK;
+rc=0  (1 = NO MATCH)
+
+### M16 — EXECUTED PROOF: syncChecksumPlaceholder is NOT a sha256
+value      : sha256:86e157e786e157e786e157e786e157e786e157e786e157e786e157e786e157e7
+passes Zod Sha256 regex : true
+64 hex chars are 8 identical 8-char blocks : true
+real sha256 of same input: 77580609739172d1792c5e0afd9a7363770e7821cdd30efe1b224c74a02f9827
+collision within 200k trivial inputs : ["{\"Width\":65613}","{\"Width\":77901}","sha256:b777a7d8b777a7d8b777a7d8b777a7d8b777a7d8b777a7d8b777a7d8b777a7d8"]
+node rc=0
+
+### M17 — does family-pack.ts recompute FamilyType.checksum? (the placeholder's own comment claims it does)
+43:} from './family-types.js';
+66:        'family.typeCount': input.document?.types?.length ?? 0,
+rc=0  (1 = NO MATCH — i.e. pack never touches type checksums)
+
+### M18 — FOUR-AXIS reachability of the .pryzm-family format
+-- axis a (import/construction): manifests declaring @pryzm/file-format's family surface
+   packFamily/unpackFamily call sites (production, no tests):
+packages/family-loader/src/loadFamily.ts:7://   2. unpackFamily() — Zod-validates manifest+document.
+packages/family-loader/src/loadFamily.ts:84:  const unpacked = await unpackFamily({ bytes, verifySchemaHash });
+packages/file-format/src/family-types.ts:36:/** Input to `packFamily()`. */
+packages/file-format/src/family-types.ts:50:  /** Optional Ed25519 private key.  When provided, packFamily() signs
+packages/file-format/src/family-types.ts:87:/** Input to `unpackFamily()`. */
+apps/bench/src/benches/family-load.bench.ts:13:// packFamily() and loadFamilyFromBytes() are pure Node (no WASM, no DOM), so
+apps/bench/src/benches/family-load.bench.ts:102:    // packFamily() recomputes and overwrites schemaHash — value here only needs to pass Zod pre-validation.
+apps/bench/src/benches/family-load.bench.ts:115:    const packed = await packFamily({ manifest, document });
+apps/component-editor/src/marketplace/publishFlow.ts:13://   3. `packFamily()` with the author's Ed25519 signing key.  The pack
+apps/component-editor/src/marketplace/publishFlow.ts:132:  const packed: FamilyPackResult = await packFamily({
+apps/component-editor/src/marketplace/signing.ts:10:// already stamped into `manifest.json` by `packFamily()`, so signing
+apps/component-editor/src/marketplace/signing.ts:38: *  by both `unpackFamily({ verifyingKey })` and the server route. */
+apps/marketplace-web/src/pages/detail.ts:44:    const verified = await unpackFamily({ bytes, verifySchemaHash: true });
+   rc=0
+
+-- loadFamily / loadFamilyFromBytes call sites (production, no tests):
+packages/family-loader/src/cache.ts:5://   only — the editor host calls `loadFamily()` lazily on placement;
+packages/family-loader/src/cache.ts:81: *  an explicit `cache` option to `loadFamily()` to test in isolation. */
+packages/family-loader/src/types.ts:48:   *  `loadFamilyFromBytes()`. */
+apps/bake-worker/src/jobs/RebakeFamilyInstanceJob.ts:88:        const loaded = await loadFamilyFromBytes(data.familyBytes, { cache });
+apps/bench/src/benches/family-load.bench.ts:13:// packFamily() and loadFamilyFromBytes() are pure Node (no WASM, no DOM), so
+apps/bench/src/benches/family-load.bench.ts:123:      await loadFamilyFromBytes(bytes, { verifySchemaHash: false });
+apps/bench/src/benches/family-load.bench.ts:129:      const result = await loadFamilyFromBytes(bytes, { verifySchemaHash: false });
+apps/bench/src/benches/family-load.bench.ts:161:          'loadFamilyFromBytes() for a medium family (200 type-parameters, ' +
+apps/marketplace-web/src/api/client.ts:23:  async downloadFamily(downloadUrl: string): Promise<Uint8Array> {
+apps/marketplace-web/src/pages/detail.ts:43:    const bytes = await api.downloadFamily(detail.downloadUrl);
+   rc=0
+
+-- bakeFamilyInstance call sites (production, no tests):
+apps/bake-worker/src/jobs/RebakeFamilyInstanceJob.ts:96:        const bake = await bakeFamilyInstance({
+   rc=0
+
+-- processFamilyInstanceJob call sites:
+apps/bake-worker/src/jobs/RebakeFamilyInstanceJob.ts:67:export async function processFamilyInstanceJob(
+apps/bake-worker/__tests__/RebakeFamilyInstanceJob.test.ts:9:import { processFamilyInstanceJob } from '../src/jobs/RebakeFamilyInstanceJob.js';
+apps/bake-worker/__tests__/RebakeFamilyInstanceJob.test.ts:71:describe('processFamilyInstanceJob', () => {
+apps/bake-worker/__tests__/RebakeFamilyInstanceJob.test.ts:75:    const result = await processFamilyInstanceJob(
+apps/bake-worker/__tests__/RebakeFamilyInstanceJob.test.ts:98:    await processFamilyInstanceJob(
+apps/bake-worker/__tests__/RebakeFamilyInstanceJob.test.ts:105:    const second = await processFamilyInstanceJob(
+apps/bake-worker/__tests__/RebakeFamilyInstanceJob.test.ts:119:    const a = await processFamilyInstanceJob(
+apps/bake-worker/__tests__/RebakeFamilyInstanceJob.test.ts:126:    const b = await processFamilyInstanceJob(
+tests/family-load-into-project/family-load-into-project.test.ts:10://   3. The bake-worker `processFamilyInstanceJob` accepts the same
+tests/family-load-into-project/family-load-into-project.test.ts:32:import { processFamilyInstanceJob } from '@pryzm/bake-worker/jobs/family-instance';
+tests/family-load-into-project/family-load-into-project.test.ts:147:      const result = await processFamilyInstanceJob(
+tests/family-load-into-project/family-load-into-project.test.ts:175:      const r = await processFamilyInstanceJob(
+   rc=0
+
+-- axis b (bus verb): family.* / component.* in packages/schemas/src/registry.ts
+   rc=1  (1 = NO MATCH)
+
+-- axis c (build graph): who declares apps/component-editor or the family packages?
+packages/family-instance/package.json:2:  "name": "@pryzm/family-instance",
+packages/family-instance/package.json:20:    "@pryzm/family-runtime": "workspace:*",
+packages/family-loader/package.json:2:  "name": "@pryzm/family-loader",
+packages/family-loader/package.json:20:    "@pryzm/family-runtime": "workspace:*",
+packages/family-runtime/package.json:2:  "name": "@pryzm/family-runtime",
+apps/bake-worker/package.json:27:    "@pryzm/family-instance": "workspace:*",
+apps/bake-worker/package.json:28:    "@pryzm/family-loader": "workspace:*",
+apps/bench/package.json:38:    "@pryzm/family-loader": "workspace:*",
+   rc=0
+
+-- axis c: is apps/component-editor in any build/CI/deploy config?
+   rc=1  (1 = NO MATCH)
+
+-- axis d (call): server routes serving .pryzm-family
+server.js:449:// auth: anyone on the public internet could publish .pryzm-family packages
+server/familyMarketplaceRoutes.js:7: *   POST   /api/v1/families              — Publish (or republish) a `.pryzm-family` ZIP.
+server/familyMarketplaceRoutes.js:10: *   GET    /api/v1/families/:id/download — Stream the raw `.pryzm-family` bytes.
+server/familyMarketplaceRoutes.js:178:      const headerHash = req.header('x-pryzm-family-schema-hash');
+server/familyMarketplaceRoutes.js:316:      `attachment; filename="${req.params.id}-${semver}.pryzm-family"`,
+   rc=0

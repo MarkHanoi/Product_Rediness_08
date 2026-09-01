@@ -1,5 +1,16 @@
 // resolveParameter — resolves every parameter to a final value with
-// the precedence `instance > type > family default > expression`.
+// the precedence `instance > type > EXPRESSION > definition default`
+// (ADR-0376 D4, §PARAM-PRECEDENCE).
+//
+// ⚠ This header used to read `instance > type > family default >
+//   expression`, and the code below matched it. That order is the
+//   inversion ADR-0376 D4 overturned: a `defaultValue` silently
+//   pre-empted an `expression`, so the founder's §64 demo — "make the
+//   glass width always the opening width minus twice the frame width" —
+//   parsed, dependency-sorted and then NEVER EVALUATED the expression,
+//   returning the authored default with ok:true and zero diagnostics.
+//   A default is a FALLBACK; a fallback that beats design intent is not
+//   a fallback.
 //
 // Per plan §11.2 (instance contract) + §10.2 (validation) + §14 (the
 // `pryzm.family.bake.resolveType` span fires once per resolution
@@ -129,7 +140,8 @@ export function resolveParameter(input: ResolverInput): ResolverResult {
   }
 
   // 4. Resolve in topological order.  Apply the precedence
-  //    (instance > type > default > expression) at each step.
+  //    instance > type > EXPRESSION > definition default at each step
+  //    (ADR-0376 D4).
   const values: Record<string, number | string> = {};
   const compiledById = new Map(compiled.map((c) => [c.param.id, c]));
   for (const id of order) {
@@ -149,20 +161,29 @@ export function resolveParameter(input: ResolverInput): ResolverResult {
       values[p.name] = override;
       continue;
     }
-    if (p.defaultValue !== null) {
-      if (typeof p.defaultValue === 'number' && !Number.isFinite(p.defaultValue)) {
-        diagnostics.push({
-          severity: 'error',
-          code: 'invalid-default',
-          parameterId: p.id,
-          message: `non-finite default value ${p.defaultValue}`,
-        });
-        continue;
-      }
-      values[p.name] = p.defaultValue;
-      continue;
-    }
+    // ⛔ ORDER IS LOAD-BEARING — the expression branch sits ABOVE the default
+    //    branch (ADR-0376 D4). It used to sit below, and `resolveParameter.test.ts`
+    //    could not see the difference because every arm it carried had EITHER a
+    //    default OR an expression, never both. The both-present arm now exists;
+    //    reordering these two blocks fails it by name.
+    //    A `string` parameter never evaluates an expression (the evaluator is
+    //    numeric), so it falls through to its default — unchanged behaviour.
     if (c.ast !== null && p.dataType !== 'string') {
+      // A default an expression pre-empts is DEAD DATA, not a fallback in
+      // waiting. `introduce-expression` now clears it and records it as
+      // `supersededDefault`; a document still carrying both predates that
+      // migrator, so SAY so rather than resolving silently over it.
+      if (p.defaultValue !== null) {
+        diagnostics.push({
+          severity: 'warn',
+          code: 'superseded-default',
+          parameterId: p.id,
+          message:
+            `parameter ${JSON.stringify(p.name)} carries BOTH an expression and a defaultValue ` +
+            `${JSON.stringify(p.defaultValue)}; per ADR-0376 D4 the expression wins and the default ` +
+            `is dead. Re-run introduce-expression to record it as supersededDefault.`,
+        });
+      }
       try {
         const numericScope: Record<string, number> = {};
         for (const [k, v] of Object.entries(values)) {
@@ -179,6 +200,23 @@ export function resolveParameter(input: ResolverInput): ResolverResult {
           message: msg,
         });
       }
+      // An expression that THREW does not fall back to the default. The pass is
+      // already ok:false; a silent fallback is precisely the failure class this
+      // change removes.
+      continue;
+    }
+    if (p.defaultValue !== null) {
+      if (typeof p.defaultValue === 'number' && !Number.isFinite(p.defaultValue)) {
+        diagnostics.push({
+          severity: 'error',
+          code: 'invalid-default',
+          parameterId: p.id,
+          message: `non-finite default value ${p.defaultValue}`,
+        });
+        continue;
+      }
+      values[p.name] = p.defaultValue;
+      continue;
     }
   }
 
