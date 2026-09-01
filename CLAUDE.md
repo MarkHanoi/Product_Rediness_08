@@ -138,7 +138,15 @@ math) and a `plugins/*` package (the user-facing tool, commands, UI).
 
 1. **P1 — Single composition root.** Production code obtains a runtime only via
    `composeRuntime()` in `packages/runtime-composer`. No parallel runtime wiring.
-   → **hard-fail at the invariant** (`tools/ga-gate/check-single-compose.ts`, 1 definition / 0 rivals).
+   → **D1 arm hard-fails at the invariant; R1/C1 are shrink-only ratchets**
+   (`tools/ga-gate/check-single-compose.ts`). Measured 2026-09-01: **1 definition · 1/1 rival
+   (`createFamilyEditorRuntime`, blessed by ADR-0316) · 2/2 production callers**, RC=0.
+   > ⚠ **This line read `1 definition / 0 rivals` until 2026-09-01, and BOTH halves of that were
+   > wrong.** The rival count was transcribed from a terminal line that hard-coded the string
+   > `"0 rivals"` while the gate's own body named one (**L-12830**); that literal was removed from
+   > the gate on **2026-08-30** (`4a4b35c0`), and this doc line was the last uncorrected copy.
+   > And "hard-fail at the invariant" was never true of R1: a rival is BASELINED, not allowlisted,
+   > deliberately — so it stays counted and printed on every run. **Read the gate, never this line.**
 2. **P2 — Single THREE owner.** `import * as THREE` is allowed **only** in
    `packages/renderer-three/`. Anywhere else fails CI.
    → **hard-fail at the invariant** (`tools/ga-gate/check-three-imports.ts`, 0 importers outside).
