@@ -35,6 +35,11 @@ interface ProxyParcel {
     readonly areaSigM2?: unknown;
     readonly pointToParcelM?: unknown;
     readonly candidateMarginM?: unknown;
+    // §L-12893 — the OVC `loine` municipality identity of the CHOSEN candidate (absent on older
+    // proxy builds → null): `<cp>` province + `<cm>` municipality-within-province, composing to
+    // the INE code (the municipality test of record — `murciaBbox.ts` / `composeIneCode`).
+    readonly cp?: unknown;
+    readonly cm?: unknown;
 }
 
 function toFiniteNum(v: unknown): number | null {
@@ -94,7 +99,15 @@ export function parseProxyResponse(json: unknown): ParcelFeature | null {
         candidateMarginM: toFiniteNum(parcel.candidateMarginM),
     });
 
-    return { ring, refcat, areaM2, address, source, metrics, confidence };
+    // §L-12893 — forward the parcel's own municipality identity (OVC `loine` cp/cm) so municipal
+    // routing can decide by INE code rather than bbox chain order. Null when the proxy (or OVC)
+    // did not supply it — the router then treats the click as parcel-less for routing purposes.
+    const catastroCp =
+        typeof parcel.cp === 'string' && parcel.cp.trim().length > 0 ? parcel.cp.trim() : null;
+    const catastroCm =
+        typeof parcel.cm === 'string' && parcel.cm.trim().length > 0 ? parcel.cm.trim() : null;
+
+    return { ring, refcat, areaM2, address, source, metrics, confidence, catastroCp, catastroCm };
 }
 
 /**

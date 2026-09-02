@@ -24,18 +24,29 @@ import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { SiteModelStore, siteCreate } from '@pryzm/stores';
 import type { PryzmRuntime } from '@pryzm/runtime-composer';
 import type { BuildableEnvelope } from '@pryzm/schemas';
+// §L-12893 — the collision premise + the INE routing assertions below.
+import {
+    isInMurcia,
+    isInMolinaDeSegura,
+    MOLINA_DE_SEGURA_JURISDICTION_ID,
+} from '@pryzm/site-parcel-data';
 import {
     dispatchParcelBoundary,
     getLastBuildableEnvelope,
 } from '../src/ui/site/siteDispatch.js';
 
-/** The founder's parcel — Catastro + Murcia GeoServer, both read live on 2026-07-31. */
+/** The founder's parcel — Catastro + Murcia GeoServer, both read live on 2026-07-31.
+ *  `cp`/`cm` are the OVC reverse-geocode's own `<dt><loine><cp>30</cp><cm>30</cm></loine></dt>`
+ *  for THIS refcat (recorded live by `tools/murcia-parcel-probe`, see its test fixture) —
+ *  composed by `composeIneCode` to INE 30030, the municipality test of record (`murciaBbox.ts`). */
 const PARCEL = {
     refcat: '3481104XH6038S',
     lat: 38.0061,
     lon: -1.138028,
     address: 'PL U.A. 5ª DEL P.P. CR-5  P1 MURCIA (CHURRA) (MURCIA)',
     areaOfficialM2: 935,
+    cp: '30',
+    cm: '30',
 } as const;
 
 /** A small plot ring in scene metres — the shape a draw/select commits. */
@@ -98,6 +109,10 @@ function stubProxies(log: RouteLog, murciaBody: unknown): typeof globalThis.fetc
                         address: PARCEL.address,
                         areaM2: PARCEL.areaOfficialM2,
                         areaOfficialM2: PARCEL.areaOfficialM2,
+                        // §L-12893 — the OVC `loine` municipality identity the live proxy now
+                        // forwards; the es-mc INE router composes 30 + 30 → 30030 (Murcia).
+                        cp: PARCEL.cp,
+                        cm: PARCEL.cm,
                         source: 'catastro',
                         ring: [
                             { lat: PARCEL.lat, lon: PARCEL.lon },
@@ -413,5 +428,149 @@ describe('§MURCIA-ENVELOPE-RENDER — PGOU-direct land draws a signed envelope'
         expect(envelope!.refusal!.legallyGrounded).toBe(true);
         expect(envelope!.refusal!.ordinanceRef).toContain('5.25.1');
         expect(envelope!.maxHeight_m).toBeNull();
+    });
+});
+
+// ══════════════════════════════════════════════════════════════════════════════════════════
+// §L-12893 — ES-MC MUNICIPAL ROUTING BY CATASTRO INE, NEVER BY BBOX CHAIN ORDER.
+//
+// `MOLINA_DE_SEGURA_BBOX` (38.00–38.28 × −1.28…−1.13) overlaps `MURCIA_BBOX`'s northern band
+// (37.71–38.12 × −1.39…−0.85): the band lat 38.00–38.12 × lon −1.28…−1.13 is real Murcia-
+// municipality land (the northern pedanías — Churra, El Puntal…), including the founder's
+// parcel. From 2026-08-04 the ordered if-chain in `applyZoning` checked `isInMolinaDeSegura`
+// BEFORE `isInMurcia`, so every click there got Molina's research-pending card and
+// `/api/es/murcia-pgou` was never called — a coverage regression on SIG-MU1-signed land.
+//
+// The fix is L-12871's "bbox = pre-filter only" invariant applied sub-nationally: where a
+// parcel RESOLVES, the DECIDER is the parcel's own Catastro identity — OVC `<cp>`+`<cm>` →
+// `composeIneCode` → the INE municipality code (`murciaBbox.ts` names this the test of
+// record). The bbox union remains the cheap PRE-FILTER, and the pre-INE chain order remains
+// only for the parcel-less click (no cadastral identity exists to route from).
+// ══════════════════════════════════════════════════════════════════════════════════════════
+
+/** Molina de Segura's own centre (Nominatim `38.0572339, -1.2095298` — `molinaDeSeguraBbox.ts`
+ *  provenance), which ALSO sits inside `MURCIA_BBOX` — the other side of the same overlap. */
+const MOLINA_CENTRE = { lat: 38.0572, lon: -1.2095 } as const;
+
+/** A synthetic Molina parcel fixture — the INE fields (`cp` 30 / `cm` 27 → 30027) are the
+ *  subject under test; the refcat/ring are inert unit-test values, not recorded data. */
+const MOLINA_PARCEL_PAYLOAD = {
+    refcat: '0000001XH6100N',
+    address: 'CL MAYOR 1 MOLINA DE SEGURA (MURCIA)',
+    areaM2: 500,
+    source: 'catastro',
+    cp: '30',
+    cm: '27',
+    ring: [
+        { lat: MOLINA_CENTRE.lat, lon: MOLINA_CENTRE.lon },
+        { lat: MOLINA_CENTRE.lat + 0.0002, lon: MOLINA_CENTRE.lon },
+        { lat: MOLINA_CENTRE.lat + 0.0002, lon: MOLINA_CENTRE.lon + 0.0003 },
+        { lat: MOLINA_CENTRE.lat, lon: MOLINA_CENTRE.lon + 0.0003 },
+    ],
+} as const;
+
+/** A point inside `MOLINA_DE_SEGURA_BBOX` ONLY (lat 38.15 > Murcia's maxLat 38.12) — the one
+ *  point class the overlap cannot touch, for the parcel-less pre-filter case. */
+const MOLINA_ONLY_POINT = { lat: 38.15, lon: -1.2 } as const;
+
+async function dispatchAt(
+    at: { lat: number; lon: number },
+    parcelPayload: unknown,
+    murciaBody: unknown,
+): Promise<{ store: SiteModelStore; envelope: BuildableEnvelope | null; urls: string[] }> {
+    const urls: string[] = [];
+    globalThis.fetch = vi.fn(async (input: RequestInfo | URL) => {
+        const url = String(input);
+        urls.push(url);
+        if (url.startsWith('/api/catastro/parcel')) {
+            return { ok: true, status: 200, json: async () => ({ parcel: parcelPayload }) } as unknown as Response;
+        }
+        if (url.startsWith('/api/es/murcia-pgou')) {
+            const body = murciaBody !== null && typeof murciaBody === 'object' && !('crs' in murciaBody)
+                ? { crs: 'EPSG:25830', ...murciaBody }
+                : murciaBody;
+            return { ok: true, status: 200, json: async () => body } as unknown as Response;
+        }
+        throw new TypeError(`unstubbed URL in unit test: ${url}`);
+    }) as unknown as typeof globalThis.fetch;
+    const store = new SiteModelStore();
+    siteCreate({ projectId: 'proj-l12893', location: { latitude: at.lat, longitude: at.lon } }, store);
+    const { ctx, emitted } = ctxFor(store);
+    expect(dispatchParcelBoundary(ctx, { ...BOUNDARY, edgeClassifications: [...BOUNDARY.edgeClassifications] })).toBe(true);
+    await waitForEvent(emitted, 'site.zoning-updated');
+    return { store, envelope: getLastBuildableEnvelope(), urls };
+}
+
+describe('§L-12893 — Murcia-region municipalities route by Catastro INE, never by bbox chain order', () => {
+    let realFetch: typeof globalThis.fetch;
+    beforeEach(() => { realFetch = globalThis.fetch; });
+    afterEach(() => { globalThis.fetch = realFetch; vi.restoreAllMocks(); });
+
+    it('the collision premise is real: the founder Churra parcel sits inside BOTH boxes', () => {
+        expect(isInMurcia(PARCEL.lat, PARCEL.lon)).toBe(true);
+        expect(isInMolinaDeSegura(PARCEL.lat, PARCEL.lon)).toBe(true);
+        // …and so does Molina's own centre — the overlap cuts both ways, which is exactly why
+        // no chain ORDER can be correct for both municipalities at once.
+        expect(isInMurcia(MOLINA_CENTRE.lat, MOLINA_CENTRE.lon)).toBe(true);
+        expect(isInMolinaDeSegura(MOLINA_CENTRE.lat, MOLINA_CENTRE.lon)).toBe(true);
+    });
+
+    it('Churra + Catastro INE 30030 → the MURCIA path, never Molina research-pending card', async () => {
+        const { store, envelope, urls } = await dispatchAt(
+            { lat: PARCEL.lat, lon: PARCEL.lon },
+            {
+                refcat: PARCEL.refcat,
+                address: PARCEL.address,
+                areaM2: PARCEL.areaOfficialM2,
+                areaOfficialM2: PARCEL.areaOfficialM2,
+                cp: PARCEL.cp,
+                cm: PARCEL.cm,
+                source: 'catastro',
+                ring: [
+                    { lat: PARCEL.lat, lon: PARCEL.lon },
+                    { lat: PARCEL.lat + 0.0002, lon: PARCEL.lon },
+                    { lat: PARCEL.lat + 0.0002, lon: PARCEL.lon + 0.0003 },
+                    { lat: PARCEL.lat, lon: PARCEL.lon + 0.0003 },
+                ],
+            },
+            { calificaciones: [CAL_FEATURE], sectores: [SECTOR_FEATURE] },
+        );
+        // THE ROUTING ASSERTION: the Murcia municipal service IS consulted…
+        expect(urls.some((u) => u.startsWith('/api/es/murcia-pgou'))).toBe(true);
+        // …and what lands is Murcia's own answer, not another municipality's coverage card.
+        expect(envelope).not.toBeNull();
+        expect(envelope!.refusal!.code).toBe('derived-plan');
+        expect(envelope!.zoneCode).not.toBe('molina-de-segura-research-pending');
+        expect(store.getSite()!.parcel.zoning.jurisdictionRef).toBe('murcia-pgou');
+    });
+
+    it('Molina centre + Catastro INE 30027 → Molina card BY ITS OWN INE, and no Murcia fetch', async () => {
+        const { store, envelope, urls } = await dispatchAt(
+            MOLINA_CENTRE,
+            MOLINA_PARCEL_PAYLOAD,
+            { calificaciones: [], sectores: [] },
+        );
+        expect(envelope).not.toBeNull();
+        expect(envelope!.status).toBe('none');
+        // The Molina research-pending identity travels as the ZONE CODE; the refusal's own
+        // `code` is the generic `no-rule-pack` (exactly what `molinaDeSeguraSiteDispatch.test.ts` pins).
+        expect(envelope!.zoneCode).toBe('molina-de-segura-research-pending');
+        expect(envelope!.refusal!.code).toBe('no-rule-pack');
+        expect(store.getSite()!.parcel.zoning.jurisdictionRef).toBe(MOLINA_DE_SEGURA_JURISDICTION_ID);
+        // A Molina parcel must not trigger a Murcia-PGOU round trip.
+        expect(urls.some((u) => u.startsWith('/api/es/murcia-pgou'))).toBe(false);
+    });
+
+    it('parcel-less click: the bbox stays the PRE-FILTER (documented chain order, no INE exists)', async () => {
+        const { store, envelope, urls } = await dispatchAt(
+            MOLINA_ONLY_POINT,
+            null, // Catastro answers { parcel: null } — no cadastral identity to route from.
+            { calificaciones: [], sectores: [] },
+        );
+        expect(envelope).not.toBeNull();
+        expect(envelope!.zoneCode).toBe('molina-de-segura-research-pending');
+        expect(envelope!.refusal!.code).toBe('no-rule-pack');
+        expect(store.getSite()!.parcel.zoning.jurisdictionRef).toBe(MOLINA_DE_SEGURA_JURISDICTION_ID);
+        expect(urls.some((u) => u.startsWith('/api/es/murcia-pgou'))).toBe(false);
     });
 });

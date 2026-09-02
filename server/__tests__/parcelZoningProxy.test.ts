@@ -89,6 +89,29 @@ describe('§PARCEL-PROXY parsers', () => {
         expect(parseReverseGeocode('')).toBeNull();
     });
 
+    // §L-12893 — the OVC `loine` municipality identity (`<cp>`+`<cm>` → INE) is parsed per
+    // candidate and null when absent. XML shape recorded live by `tools/murcia-parcel-probe`
+    // (the founder's Churra parcel: cp 30 / cm 30 → INE 30030, Murcia — NOT Molina de Segura).
+    it('§L-12893 parseReverseGeocode carries each candidate\'s `loine` cp/cm; null when absent', () => {
+        const XML_WITH_LOINE = `<?xml version="1.0"?><consulta_coordenadas_distancias><coordenadas_distancias><coordd><lpcd>
+    <pcd><pc><pc1>3481104</pc1><pc2>XH6038S</pc2></pc><dt><loine><cp>30</cp><cm>30</cm></loine></dt>
+      <ldt>PL U.A. 5ª DEL P.P. CR-5  P1 MURCIA (CHURRA) (MURCIA)</ldt><dis>0</dis></pcd>
+    <pcd><pc><pc1>3481602</pc1><pc2>XH6038S</pc2></pc><dt><loine><cp>30</cp><cm>30</cm></loine></dt>
+      <ldt>PL U.A. 5ª DEL P.P. CR-5  CT552 MURCIA (CHURRA) (MURCIA)</ldt><dis>15.53</dis></pcd>
+    </lpcd></coordd></coordenadas_distancias></consulta_coordenadas_distancias>`;
+        const rc = parseReverseGeocode(XML_WITH_LOINE);
+        expect(rc).not.toBeNull();
+        expect(rc!.candidates[0]!.cp).toBe('30');
+        expect(rc!.candidates[0]!.cm).toBe('30');
+        expect(rc!.candidates[1]!.cp).toBe('30');
+        expect(rc!.candidates[1]!.cm).toBe('30');
+        // The Barcelona fixture above carries NO `<dt><loine>` block — cp/cm must be null,
+        // never a guess (L-616: an UNKNOWN municipality must not be coerced into a default).
+        const noLoine = parseReverseGeocode(RCCOOR_XML);
+        expect(noLoine!.candidates[0]!.cp).toBeNull();
+        expect(noLoine!.candidates[0]!.cm).toBeNull();
+    });
+
     it('parseParcelGml → WGS84 lat/lon ring (EPSG:4326 axis order) + areaValue', () => {
         const p = parseParcelGml(GML_XML);
         expect(p).not.toBeNull();

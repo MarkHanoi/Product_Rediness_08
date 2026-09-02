@@ -553,6 +553,17 @@ import {
     isInLasTorresDeCotillas,
     LAS_TORRES_DE_COTILLAS_JURISDICTION_ID,
     lasTorresDeCotillasResearchPendingRefusal,
+    // §ES-MC-INE-ROUTER (L-12893) — the six Región-de-Murcia municipalities route by the
+    // parcel's own Catastro INE municipality code (OVC `<cp>`+`<cm>` → `composeIneCode` — the
+    // test of record per `murciaBbox.ts`), NEVER by bbox chain order: the loose municipal boxes
+    // overlap, so any ordered chain misroutes someone's real land (L-12871 sub-nationally).
+    composeIneCode,
+    MURCIA_INE_CODE,
+    CARTAGENA_INE_CODE,
+    LORCA_INE_CODE,
+    MOLINA_DE_SEGURA_INE_CODE,
+    ALCANTARILLA_INE_CODE,
+    LAS_TORRES_DE_COTILLAS_INE_CODE,
 } from '@pryzm/site-parcel-data';
 import { GeospatialAdapter } from '@pryzm/geospatial';
 // ADR-0271 §BCN-REAL-ENVELOPE — the impure edge providers the Barcelona path injects into the
@@ -568,6 +579,9 @@ import {
     recordSiuGuardOutcome,
 } from './siuLandClassificationGuard.js';
 import { catastroParcelProvider } from './parcel/CatastroParcelProvider.js';
+// §ES-MC-INE-ROUTER (L-12893) — the region router reads the parcel's `catastroCp`/`catastroCm`
+// municipality identity off this type; see `ParcelFeature`'s own field docs.
+import type { ParcelFeature } from './parcel/ParcelProvider.js';
 import { fetchBlockForParcel } from './parcel/CatastroBlockProvider.js';
 // §STARTUP-BUDGET (founder 2026-08-07, 5–10× startup) — passive phase marks; behaviour-free.
 import { markStartupPhase } from '../../engine/startupBudget';
@@ -2147,75 +2161,33 @@ function applyZoning(
             );
             return;
         }
-        // §CARTAGENA-ENVELOPE — a Cartagena (INE 30016) plot. ⚠ REGISTERED BEFORE the Murcia
-        // (capital, INE 30030) branch below — Cartagena is its own municipality, ~50 km from
-        // Murcia's box, and this ORDER is legibility not precedence. `CARTAGENA_ENVELOPE_VERIFIED`
-        // is unsigned, so this ALWAYS resolves the live zone (to name it on the refusal card) then
-        // dispatches a cited structural refusal — the "retranqueos a vial obligatorios" setback is
-        // genuinely unquantified in the source ordinance, never fabricated as `0`.
-        if (qLat != null && qLon != null && isInCartagena(qLat, qLon)) {
-            void applyCartagenaZoningThenFallback(ctx, qLat, qLon, estimated);
-            return;
-        }
-        // §RESEARCH-PENDING (second Murcia-region pass, 2026-08-04) — Lorca (30024), Molina de
-        // Segura (30027), Alcantarilla (30005), Las Torres de Cotillas (30038). None has a
-        // rulepack or a working parcel-level zone resolver — see each city's own module for the
-        // specific confirmed blocker. Checked AFTER Cartagena (the one Murcia-region municipality
-        // with a working resolver) and BEFORE the Murcia-capital branch below, for legibility only.
-        if (qLat != null && qLon != null && isInLorca(qLat, qLon)) {
-            const site = ctx.store.getSite();
-            if (!site) { applyEstimatedZoning(ctx, estimated); return; }
-            dispatchEnvelope(
-                ctx,
-                site.id,
-                buildRefusedEnvelope('lorca-research-pending', lorcaResearchPendingRefusal(), 'none'),
-                LORCA_JURISDICTION_ID,
-            );
-            return;
-        }
-        if (qLat != null && qLon != null && isInMolinaDeSegura(qLat, qLon)) {
-            const site = ctx.store.getSite();
-            if (!site) { applyEstimatedZoning(ctx, estimated); return; }
-            dispatchEnvelope(
-                ctx,
-                site.id,
-                buildRefusedEnvelope(
-                    'molina-de-segura-research-pending',
-                    molinaDeSeguraResearchPendingRefusal(),
-                    'none',
-                ),
-                MOLINA_DE_SEGURA_JURISDICTION_ID,
-            );
-            return;
-        }
-        if (qLat != null && qLon != null && isInAlcantarilla(qLat, qLon)) {
-            void applyAlcantarillaZoningThenFallback(ctx, qLat, qLon, estimated);
-            return;
-        }
-        if (qLat != null && qLon != null && isInLasTorresDeCotillas(qLat, qLon)) {
-            const site = ctx.store.getSite();
-            if (!site) { applyEstimatedZoning(ctx, estimated); return; }
-            dispatchEnvelope(
-                ctx,
-                site.id,
-                buildRefusedEnvelope(
-                    'las-torres-de-cotillas-research-pending',
-                    lasTorresDeCotillasResearchPendingRefusal(),
-                    'none',
-                ),
-                LAS_TORRES_DE_COTILLAS_JURISDICTION_ID,
-            );
-            return;
-        }
-        // §MURCIA-ENVELOPE — a Murcia (INE 30030) plot. ⚠ A REGIONALLY DISTINCT branch, not a
-        // variation on the Catalan ones above: Región de Murcia, PGOU de Murcia, municipal
-        // GeoServer. Its box is ~450 km from every other registered Spanish jurisdiction, so the
-        // ORDER of this test is not load-bearing the way the AMB peel-offs are — it is placed with
-        // the other Spanish branches for legibility, not for precedence. Like Madrid/Córdoba its
-        // fallback is a cited REFUSAL, never the estimated triple: the municipal layers publish no
-        // numeric buildable parameter, so a front/side/rear estimate would be pure invention.
-        if (qLat != null && qLon != null && isInMurcia(qLat, qLon)) {
-            void applyMurciaZoningThenFallback(ctx, boundary, qLat, qLon, estimated);
+        // §ES-MC-INE-ROUTER (L-12893) — the SIX registered Región-de-Murcia municipalities:
+        // Cartagena (INE 30016), Lorca (30024), Molina de Segura (30027), Alcantarilla (30005),
+        // Las Torres de Cotillas (30038) and Murcia capital (30030). ⚠ ONE union-gated branch,
+        // NOT six ordered bbox branches, because the loose municipal boxes OVERLAP — Molina's
+        // southern fringe covers Murcia's northern pedanías (Churra, El Puntal…), Alcantarilla's
+        // and Las Torres' boxes sit wholly inside Murcia's, Cartagena's northern edge crosses
+        // Murcia's southern band — so ANY chain order misroutes someone's real land. From
+        // 2026-08-04 until this fix, the ordered chain checked `isInMolinaDeSegura` before
+        // `isInMurcia` and the founder's own Churra parcel drew Molina's research-pending card
+        // while `/api/es/murcia-pgou` was never called (L-12893).
+        //
+        // WHAT DECIDES vs WHAT PRE-FILTERS (L-12871's "bbox = pre-filter only", sub-nationally):
+        // this union test decides ONLY whether the region router is worth entering — it avoids a
+        // pointless Catastro round trip everywhere else on earth. The router then routes by the
+        // RESOLVED PARCEL'S own Catastro INE municipality code (OVC `<cp>`+`<cm>` →
+        // `composeIneCode` — the municipality test of record, `murciaBbox.ts`); only a
+        // parcel-less click falls back to the old bbox order, inside the router, where it is
+        // documented as an order, not a determination.
+        if (qLat != null && qLon != null && (
+            isInCartagena(qLat, qLon) ||
+            isInLorca(qLat, qLon) ||
+            isInMolinaDeSegura(qLat, qLon) ||
+            isInAlcantarilla(qLat, qLon) ||
+            isInLasTorresDeCotillas(qLat, qLon) ||
+            isInMurcia(qLat, qLon)
+        )) {
+            void applyMurciaRegionZoningByIne(ctx, boundary, qLat, qLon, estimated);
             return;
         }
         // §VALENCIA-ORIGEN-DERIVED-PLAN — a València (INE 46250) plot. ⚠ NEVER publishes a number:
@@ -6449,6 +6421,174 @@ async function applyAlcantarillaZoningThenFallback(
 }
 
 /**
+ * §ES-MC-INE-ROUTER (L-12893) — dispatch a research-pending Murcia-region municipality's cited
+ * refusal. Byte-identical in effect to the four inline blocks the ordered chain used to hold
+ * (site guard → `buildRefusedEnvelope(zoneCode, refusal, 'none')` → `dispatchEnvelope`); factored
+ * so the INE switch and the parcel-less bbox fallback cannot drift apart.
+ */
+function dispatchMurciaRegionResearchPending(
+    ctx: SiteContext,
+    estimated: BuildableEnvelope | null,
+    zoneCode: string,
+    refusal: Parameters<typeof buildRefusedEnvelope>[1],
+    jurisdictionId: string,
+): void {
+    const site = ctx.store.getSite();
+    if (!site) { applyEstimatedZoning(ctx, estimated); return; }
+    dispatchEnvelope(ctx, site.id, buildRefusedEnvelope(zoneCode, refusal, 'none'), jurisdictionId);
+}
+
+/**
+ * §ES-MC-INE-ROUTER (L-12893) — order-independent municipal routing for the Región de Murcia.
+ *
+ * WHY THIS EXISTS. The six registered Murcia-region municipalities are gated by LOOSE bboxes
+ * that genuinely overlap (see the union branch in `applyZoning`), so from 2026-08-04 the ordered
+ * if-chain routed the founder's own Churra parcel (Murcia municipality, INE 30030 — SIG-MU1
+ * signed land) to Molina de Segura's research-pending card: `isInMolinaDeSegura` sat above
+ * `isInMurcia` and Molina's Nominatim box reaches lat 38.00, swallowing Murcia's northern
+ * pedanías. No chain order fixes that — Molina's own centre sits inside `MURCIA_BBOX` too, so
+ * swapping the branches would misroute real Molina land instead. The class fix is L-12871's
+ * invariant applied sub-nationally: **the bbox is a pre-filter; the DECIDER is the parcel's own
+ * Catastro municipality identity** (OVC `<cp>`+`<cm>` → `composeIneCode` → INE — the test of
+ * record `murciaBbox.ts` has documented since the Murcia lane shipped).
+ *
+ * THE CONTRACT, stated at the site:
+ *   1. DECIDER — resolve the parcel (the same national Catastro leg every Spanish click uses);
+ *      a resolved parcel's composed INE code routes it: 30030 Murcia · 30016 Cartagena · 30024
+ *      Lorca · 30027 Molina de Segura · 30005 Alcantarilla · 30038 Las Torres de Cotillas
+ *      (each code is pinned in its municipality's own bbox module and the jurisdiction docs
+ *      folder `docs/04-reference/jurisdictions/es/es-mc/<ine>-<name>/`).
+ *   2. A resolved parcel whose INE is NONE of the six (e.g. Santomera 30035, inside the loose
+ *      union) routes to NO municipal path: `applyEstimatedZoning`'s registered-jurisdiction +
+ *      SIU guards own the honest answer there. Stamping the nearest registered city's card onto
+ *      another municipality's land is the exact defect this router removes.
+ *   3. PRE-FILTER FALLBACK — a parcel-less click (Catastro miss/outage, or an older proxy that
+ *      ships no `cp`/`cm`) has no cadastral identity to route from; it falls back to the
+ *      pre-INE chain order (Cartagena → Lorca → Molina → Alcantarilla → Las Torres → Murcia),
+ *      preserved verbatim as DOCUMENTED ORDER, not as a municipality determination.
+ *
+ * Fully guarded like every sibling: never throws into the commit path; any structural failure
+ * falls back to `applyEstimatedZoning` (whose own guards keep the estimate suppressed on
+ * registered land).
+ */
+async function applyMurciaRegionZoningByIne(
+    ctx: SiteContext,
+    boundary: ZoningBoundary,
+    lat: number,
+    lon: number,
+    estimated: BuildableEnvelope | null,
+): Promise<void> {
+    const TAG = '[gis][c58] §ES-MC-INE-ROUTER';
+    try {
+        // (1) THE DECIDER — the parcel's own Catastro municipality identity. Best-effort: the
+        // provider resolves to null on any failure and never throws (its own contract); the
+        // catch is belt-and-braces so a provider regression cannot break the commit path.
+        let parcel: ParcelFeature | null = null;
+        try {
+            parcel = await catastroParcelProvider.fetchParcelAtPoint(lon, lat);
+        } catch { parcel = null; }
+        const ine = parcel !== null ? composeIneCode(parcel.catastroCp, parcel.catastroCm) : null;
+        if (ine !== null) {
+            console.log(
+                `${TAG} parcel ${parcel!.refcat} → INE ${ine} — routing by the parcel's own ` +
+                    `municipality (the bbox union was only the pre-filter).`,
+            );
+            switch (ine) {
+                case MURCIA_INE_CODE: // 30030
+                    await applyMurciaZoningThenFallback(ctx, boundary, lat, lon, estimated, parcel);
+                    return;
+                case CARTAGENA_INE_CODE: // 30016
+                    await applyCartagenaZoningThenFallback(ctx, lat, lon, estimated);
+                    return;
+                case LORCA_INE_CODE: // 30024
+                    dispatchMurciaRegionResearchPending(
+                        ctx, estimated,
+                        'lorca-research-pending', lorcaResearchPendingRefusal(), LORCA_JURISDICTION_ID,
+                    );
+                    return;
+                case MOLINA_DE_SEGURA_INE_CODE: // 30027
+                    dispatchMurciaRegionResearchPending(
+                        ctx, estimated,
+                        'molina-de-segura-research-pending', molinaDeSeguraResearchPendingRefusal(),
+                        MOLINA_DE_SEGURA_JURISDICTION_ID,
+                    );
+                    return;
+                case ALCANTARILLA_INE_CODE: // 30005
+                    await applyAlcantarillaZoningThenFallback(ctx, lat, lon, estimated);
+                    return;
+                case LAS_TORRES_DE_COTILLAS_INE_CODE: // 30038
+                    dispatchMurciaRegionResearchPending(
+                        ctx, estimated,
+                        'las-torres-de-cotillas-research-pending',
+                        lasTorresDeCotillasResearchPendingRefusal(),
+                        LAS_TORRES_DE_COTILLAS_JURISDICTION_ID,
+                    );
+                    return;
+                default:
+                    // Contract point 2 — a real parcel in a SEVENTH municipality inside the loose
+                    // union. None of the six may claim it; the estimated chokepoint's guards
+                    // (registered-jurisdiction refusal, SIU) give the honest answer.
+                    console.log(
+                        `${TAG} parcel INE ${ine} is none of the six registered es-mc ` +
+                            `municipalities — declining every municipal path (bbox was only a ` +
+                            `pre-filter; a card from the wrong municipality is the L-12893 defect).`,
+                    );
+                    applyEstimatedZoning(ctx, estimated);
+                    return;
+            }
+        }
+        // (2) THE PRE-FILTER FALLBACK — no parcel (or no cp/cm on the payload): no cadastral
+        // identity exists to route from, so the pre-INE chain order answers, preserved verbatim.
+        // This is a DOCUMENTED ORDER for identity-less clicks, not a municipality determination —
+        // in the bbox overlap bands it is an ordering accident either way, which is exactly why
+        // the resolved-parcel path above never uses it.
+        console.log(`${TAG} no parcel identity at ${lat.toFixed(5)},${lon.toFixed(5)} — bbox pre-filter order answers.`);
+        if (isInCartagena(lat, lon)) {
+            await applyCartagenaZoningThenFallback(ctx, lat, lon, estimated);
+            return;
+        }
+        if (isInLorca(lat, lon)) {
+            dispatchMurciaRegionResearchPending(
+                ctx, estimated,
+                'lorca-research-pending', lorcaResearchPendingRefusal(), LORCA_JURISDICTION_ID,
+            );
+            return;
+        }
+        if (isInMolinaDeSegura(lat, lon)) {
+            dispatchMurciaRegionResearchPending(
+                ctx, estimated,
+                'molina-de-segura-research-pending', molinaDeSeguraResearchPendingRefusal(),
+                MOLINA_DE_SEGURA_JURISDICTION_ID,
+            );
+            return;
+        }
+        if (isInAlcantarilla(lat, lon)) {
+            await applyAlcantarillaZoningThenFallback(ctx, lat, lon, estimated);
+            return;
+        }
+        if (isInLasTorresDeCotillas(lat, lon)) {
+            dispatchMurciaRegionResearchPending(
+                ctx, estimated,
+                'las-torres-de-cotillas-research-pending',
+                lasTorresDeCotillasResearchPendingRefusal(),
+                LAS_TORRES_DE_COTILLAS_JURISDICTION_ID,
+            );
+            return;
+        }
+        if (isInMurcia(lat, lon)) {
+            await applyMurciaZoningThenFallback(ctx, boundary, lat, lon, estimated, parcel);
+            return;
+        }
+        // Unreachable while the union gate and this ladder test the same six boxes — but a
+        // silent exit would leave the resolution phase spinning, so the honest tail answers.
+        applyEstimatedZoning(ctx, estimated);
+    } catch (e) {
+        console.warn(`${TAG} region routing failed (non-fatal):`, e);
+        try { applyEstimatedZoning(ctx, estimated); } catch { /* estimated is best-effort too */ }
+    }
+}
+
+/**
  * Envelope Phase 2 §LH-ENVELOPE — the L'Hospitalet de Llobregat (INE 08101) path. The SECOND Catalan
  * municipality, wired to PROVE the "add-a-city = data at five slots" claim.
  *
@@ -6832,7 +6972,9 @@ async function applyCornellaZoningThenFallback(
  * itself is the source of the "no". `status: 'none'` keeps every numeric field null and clears any
  * stale `buildableRing` (`dispatchEnvelope` writes a ring only on `'ok'`).
  *
- * THE CHAIN: `isInMurcia` (S2 gate) → `catastroParcelProvider` (refcat + address, national, already
+ * THE CHAIN: §ES-MC-INE-ROUTER (L-12893: parcel INE 30030 decides; `isInMurcia` is only the
+ * region pre-filter, and only answers alone on a parcel-less click) →
+ * `catastroParcelProvider` (refcat + address, national, already
  * live) → `detectDerivedPlanMarkers` (the instrument named in the address) → `resolveMurciaZoning`
  * (S3, live municipal records via `/api/es/murcia-pgou`) → `murciaEnvelopeDisposition` (PURE, S4) →
  * `buildRefusedEnvelope` → `dispatchEnvelope` (P6 — `site.updateZoning`, never a direct store write).
@@ -6848,6 +6990,10 @@ async function applyMurciaZoningThenFallback(
     lat: number,
     lon: number,
     estimated: BuildableEnvelope | null,
+    // §ES-MC-INE-ROUTER (L-12893) — `undefined` = not prefetched (fetch here, the pre-router
+    // behaviour); `ParcelFeature | null` = the region router already resolved (or definitively
+    // missed) the parcel while deciding the municipality, so a second OVC round trip is waste.
+    prefetchedParcel?: ParcelFeature | null,
 ): Promise<void> {
     const TAG = '[gis][c58] §MURCIA-ENVELOPE';
     const JURISDICTION_REF = 'murcia-pgou';
@@ -6881,11 +7027,16 @@ async function applyMurciaZoningThenFallback(
         // Spanish click uses. It supplies the referencia catastral (an identifier join, not a pin
         // guess) and the cadastral ADDRESS, which is where Murcia happens to publish its
         // derived-plan marker (`PL U.A. 5ª DEL P.P. CR-5 …`). Best-effort: a miss costs the refusal
-        // some specificity and nothing else.
+        // some specificity and nothing else. §ES-MC-INE-ROUTER (L-12893) — the region router has
+        // usually resolved this parcel already (it IS the routing decider), so reuse the prefetch
+        // rather than paying a second OVC round trip; a prefetched `null` is a definitive miss
+        // moments ago and a refetch would miss the same way.
         let refcat: string | null = null;
         let address: string | null = null;
         try {
-            const parcel = await catastroParcelProvider.fetchParcelAtPoint(lon, lat);
+            const parcel = prefetchedParcel !== undefined
+                ? prefetchedParcel
+                : await catastroParcelProvider.fetchParcelAtPoint(lon, lat);
             refcat = parcel?.refcat ?? null;
             address = parcel?.address ?? null;
         } catch { /* the parcel leg is enrichment, never a precondition */ }

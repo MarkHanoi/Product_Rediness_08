@@ -88,6 +88,16 @@ export interface ParcelFeature {
     readonly metrics?: ParcelGeometryMetrics;
     /** §L-640 Phase 1 — cadastral confidence (optional; present when computed). */
     readonly confidence?: ParcelConfidence;
+    /** §L-12893 — the source's own MUNICIPALITY identity for this parcel: Spain = the OVC
+     *  `loine` `<cp>` province code (`'30'` = Murcia province). With `catastroCm` it composes
+     *  to the INE municipality code via `composeIneCode` (`@pryzm/site-parcel-data`) — the
+     *  municipality test of record, which municipal routing decides from where a parcel
+     *  resolves (bbox = pre-filter only, L-12871 sub-nationally). Null/absent = unknown,
+     *  never a guess (L-616). */
+    readonly catastroCp?: string | null;
+    /** §L-12893 — the OVC `loine` `<cm>` municipality-within-province code (`'30'` composes
+     *  with cp `'30'` to INE `30030`, Murcia — NOT `'3030'`; see `composeIneCode`). */
+    readonly catastroCm?: string | null;
 }
 
 /**

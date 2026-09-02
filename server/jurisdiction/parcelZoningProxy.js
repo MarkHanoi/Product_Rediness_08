@@ -69,7 +69,7 @@ export const CATASTRO_UPSTREAM_TIMEOUT_MS = 15_000;
  *  never probes further. K=4 comfortably covers boundary/corner ambiguity between abutting plots. */
 export const PARCEL_CANDIDATE_MAX_K = 4;
 
-/** @typedef {{ ring: {lat:number,lon:number}[], refcat: string, areaM2: number, address: string|null }} ParcelResult */
+/** @typedef {{ ring: {lat:number,lon:number}[], refcat: string, areaM2: number, address: string|null, cp: string|null, cm: string|null }} ParcelResult */
 /** @typedef {{ value: ParcelResult, expires: number }} CacheEntry */
 /** @type {Map<string, CacheEntry>} refcat → normalised parcel. */
 const _cache = new Map();
@@ -128,7 +128,7 @@ export function parcelCacheStats() {
  * values (backward-compat with the L-640 confidence signal).
  *
  * @param {string} xml
- * @returns {{ refcat: string, address: string|null, pointToParcelM: number|null, candidateMarginM: number|null, candidates: {refcat:string,address:string|null,distance:number}[] } | null}
+ * @returns {{ refcat: string, address: string|null, pointToParcelM: number|null, candidateMarginM: number|null, candidates: {refcat:string,address:string|null,distance:number,cp:string|null,cm:string|null}[] } | null}
  */
 export function parseReverseGeocode(xml) {
     if (typeof xml !== 'string' || xml.length === 0) return null;
@@ -148,7 +148,19 @@ export function parseReverseGeocode(xml) {
         const disRaw = (block.match(/<dis\b[^>]*>\s*([^<]*?)\s*<\/dis>/i) || [])[1];
         const dis = disRaw != null ? Number.parseFloat(disRaw) : Number.POSITIVE_INFINITY;
         const distance = Number.isFinite(dis) ? dis : Number.POSITIVE_INFINITY;
-        candidates.push({ refcat, address, distance });
+        // §L-12893 — the OVC candidate's own MUNICIPALITY identity: `<dt><loine><cp>` (province)
+        // + `<cm>` (municipality within the province), which compose to the INE code (e.g. Murcia
+        // `30`+`30` → 30030 — `composeIneCode` in `@pryzm/site-parcel-data`). This is the
+        // municipality test of record (`murciaBbox.ts`); the client's municipal routing decides
+        // from it where a parcel resolves, with the bbox demoted to a pre-filter. Scoped to the
+        // `<loine>` block so the namespaced `<cp:…>` GML tags elsewhere can never be mistaken
+        // for it. Absent/malformed → null, never a guess (L-616).
+        const loine = (block.match(/<loine\b[^>]*>([\s\S]*?)<\/loine>/i) || [])[1] ?? null;
+        const cpRaw = loine !== null ? (loine.match(/<cp\b[^>]*>\s*([^<]*?)\s*<\/cp>/i) || [])[1] : undefined;
+        const cmRaw = loine !== null ? (loine.match(/<cm\b[^>]*>\s*([^<]*?)\s*<\/cm>/i) || [])[1] : undefined;
+        const cp = cpRaw && cpRaw.trim().length > 0 ? cpRaw.trim() : null;
+        const cm = cmRaw && cmRaw.trim().length > 0 ? cmRaw.trim() : null;
+        candidates.push({ refcat, address, distance, cp, cm });
     }
     if (candidates.length === 0) return null;
     // Ascending by OVC `dis` (distance to each parcel's reference point). Nearest first.
@@ -352,6 +364,13 @@ function buildParcelResult(cand, geom, rc, clickInside) {
         // `dis`), carried for transparency/logging. The client already routes on `pointToParcelM`.
         clickInside,
         address: cand.address,
+        // §L-12893 — the CHOSEN candidate's OVC `loine` municipality identity (`<cp>` + `<cm>`,
+        // composing to the INE code). Travels with the candidate that actually won (§L-641
+        // containment-preferred), never with the merely-nearest one, so the municipality the
+        // client routes on is the municipality of the parcel it received. Null on older OVC
+        // shapes — the client treats that like a parcel-less click (bbox pre-filter order).
+        cp: cand.cp ?? null,
+        cm: cand.cm ?? null,
     };
 }
 
