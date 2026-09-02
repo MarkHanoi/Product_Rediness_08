@@ -15,6 +15,29 @@ import { FAMILY_PATHS, } from './family-types.js';
 const tracer = trace.getTracer('@pryzm/file-format');
 const dec = new TextDecoder();
 const enc = new TextEncoder();
+/** §U0-CORRUPT-ENTRY (lane U0, 2026-09-02) — a ZIP whose central directory parses
+ *  but whose ENTRY PAYLOAD is corrupt (a tampered or truncated download) used to
+ *  ESCAPE this function as a raw jszip stream error ("uncompressed data size
+ *  mismatch"), violating the header's own policy: user-recoverable failures
+ *  return `{ ok:false, reason }`. Every entry extraction now goes through
+ *  `extractEntry`, and the outer catch maps this class to the `not-a-zip`
+ *  refusal — the archive's bytes are bad, said in the unpacker's own vocabulary. */
+class CorruptZipEntryError extends Error {
+    entryPath;
+    constructor(entryPath, cause) {
+        super(`entry ${entryPath} is corrupt: ${cause}`);
+        this.entryPath = entryPath;
+        this.name = 'CorruptZipEntryError';
+    }
+}
+async function extractEntry(entry, entryPath) {
+    try {
+        return await entry.async('uint8array');
+    }
+    catch (err) {
+        throw new CorruptZipEntryError(entryPath, err.message);
+    }
+}
 export async function unpackFamily(input) {
     return tracer.startActiveSpan('pryzm.family.persistence.load', {
         attributes: {
@@ -40,7 +63,7 @@ export async function unpackFamily(input) {
                 span.setStatus({ code: SpanStatusCode.ERROR, message });
                 return { ok: false, reason: 'missing-manifest', message };
             }
-            const manifestBytes = await manifestEntry.async('uint8array');
+            const manifestBytes = await extractEntry(manifestEntry, FAMILY_PATHS.manifest);
             let rawManifest;
             try {
                 rawManifest = JSON.parse(dec.decode(manifestBytes));
@@ -82,7 +105,7 @@ export async function unpackFamily(input) {
                 span.setStatus({ code: SpanStatusCode.ERROR, message });
                 return { ok: false, reason: 'missing-document', message };
             }
-            const documentBytes = await documentEntry.async('uint8array');
+            const documentBytes = await extractEntry(documentEntry, FAMILY_PATHS.document);
             const documentText = dec.decode(documentBytes);
             let rawDocument;
             try {
@@ -108,7 +131,7 @@ export async function unpackFamily(input) {
             let ifcMapping;
             const ifcEntry = zip.file(FAMILY_PATHS.ifcMapping);
             if (ifcEntry) {
-                const ifcBytes = await ifcEntry.async('uint8array');
+                const ifcBytes = await extractEntry(ifcEntry, FAMILY_PATHS.ifcMapping);
                 try {
                     ifcMapping = JSON.parse(dec.decode(ifcBytes));
                 }
@@ -123,7 +146,7 @@ export async function unpackFamily(input) {
             const events = [];
             const eventLogEntry = zip.file(FAMILY_PATHS.eventLog);
             if (eventLogEntry) {
-                const eventLogBytes = await eventLogEntry.async('uint8array');
+                const eventLogBytes = await extractEntry(eventLogEntry, FAMILY_PATHS.eventLog);
                 const text = dec.decode(eventLogBytes);
                 let lineIdx = 0;
                 for (const line of text.split('\n')) {
@@ -153,7 +176,7 @@ export async function unpackFamily(input) {
             const schemaHashEntry = zip.file(FAMILY_PATHS.schemaHash);
             let recordedSchemaHash = null;
             if (schemaHashEntry) {
-                const b = await schemaHashEntry.async('uint8array');
+                const b = await extractEntry(schemaHashEntry, FAMILY_PATHS.schemaHash);
                 recordedSchemaHash = dec.decode(b).trim();
             }
             const recomputedHash = await sha256Hex(enc.encode(canonicalise(document) + canonicalise(projectIfcMapping(document))));
@@ -179,9 +202,9 @@ export async function unpackFamily(input) {
             const thumbEntry = zip.file(FAMILY_PATHS.thumbnail);
             const iconEntry = zip.file(FAMILY_PATHS.icon);
             const sigEntry = zip.file(FAMILY_PATHS.signature);
-            const thumbnail = thumbEntry ? await thumbEntry.async('uint8array') : undefined;
-            const icon = iconEntry ? await iconEntry.async('uint8array') : undefined;
-            const signature = sigEntry ? await sigEntry.async('uint8array') : undefined;
+            const thumbnail = thumbEntry ? await extractEntry(thumbEntry, FAMILY_PATHS.thumbnail) : undefined;
+            const icon = iconEntry ? await extractEntry(iconEntry, FAMILY_PATHS.icon) : undefined;
+            const signature = sigEntry ? await extractEntry(sigEntry, FAMILY_PATHS.signature) : undefined;
             // 7. Optional Ed25519 verification — same convention as the
             //    project `unpack()`: signs the canonical manifest.json bytes,
             //    so we re-load that exact buffer and verify against it.
@@ -245,6 +268,14 @@ export async function unpackFamily(input) {
             };
         }
         catch (err) {
+            // §U0-CORRUPT-ENTRY — a corrupt entry payload is a USER-recoverable
+            // failure (bad download, tampered file): refuse with the named reason,
+            // in this unpacker's own vocabulary, never a raw jszip stream error.
+            if (err instanceof CorruptZipEntryError) {
+                const message = `[unpackFamily] not a valid ZIP: ${err.message}`;
+                span.setStatus({ code: SpanStatusCode.ERROR, message });
+                return { ok: false, reason: 'not-a-zip', message };
+            }
             const message = `[unpackFamily] unexpected error: ${err.message}`;
             span.recordException(err);
             span.setStatus({ code: SpanStatusCode.ERROR, message });

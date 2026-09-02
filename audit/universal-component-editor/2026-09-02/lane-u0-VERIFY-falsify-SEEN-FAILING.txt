@@ -1,0 +1,137 @@
+npm warn Unknown project config "package-manager-strict". This will stop working in the next major version of npm. See `npm help npmrc` for supported config options.
+
+ RUN  v4.1.10 C:/Users/LENOVO/OneDrive/Desktop/PRYZM/Product_Rediness_08/apps/editor
+
+Sourcemap for "C:/Users/LENOVO/OneDrive/Desktop/PRYZM/Product_Rediness_08/packages/file-format/src/family-schema.js" points to missing source files
+Sourcemap for "C:/Users/LENOVO/OneDrive/Desktop/PRYZM/Product_Rediness_08/packages/file-format/src/family-types.js" points to missing source files
+Sourcemap for "C:/Users/LENOVO/OneDrive/Desktop/PRYZM/Product_Rediness_08/packages/file-format/src/family-migrations/index.js" points to missing source files
+Sourcemap for "C:/Users/LENOVO/OneDrive/Desktop/PRYZM/Product_Rediness_08/packages/file-format/src/family-migrations/identity.js" points to missing source files
+Sourcemap for "C:/Users/LENOVO/OneDrive/Desktop/PRYZM/Product_Rediness_08/packages/file-format/src/family-migrations/v1_0-to-v1_1.js" points to missing source files
+Sourcemap for "C:/Users/LENOVO/OneDrive/Desktop/PRYZM/Product_Rediness_08/packages/file-format/src/family-migrations/ops/rename-parameter.js" points to missing source files
+Sourcemap for "C:/Users/LENOVO/OneDrive/Desktop/PRYZM/Product_Rediness_08/packages/file-format/src/family-migrations/ops/add-parameter.js" points to missing source files
+Sourcemap for "C:/Users/LENOVO/OneDrive/Desktop/PRYZM/Product_Rediness_08/packages/file-format/src/family-migrations/ops/delete-parameter.js" points to missing source files
+Sourcemap for "C:/Users/LENOVO/OneDrive/Desktop/PRYZM/Product_Rediness_08/packages/file-format/src/family-migrations/ops/change-parameter-type.js" points to missing source files
+Sourcemap for "C:/Users/LENOVO/OneDrive/Desktop/PRYZM/Product_Rediness_08/packages/file-format/src/family-migrations/ops/introduce-expression.js" points to missing source files
+Sourcemap for "C:/Users/LENOVO/OneDrive/Desktop/PRYZM/Product_Rediness_08/packages/file-format/src/family-migrations/ops/rebind-ifc.js" points to missing source files
+Sourcemap for "C:/Users/LENOVO/OneDrive/Desktop/PRYZM/Product_Rediness_08/packages/file-format/src/family-migrations/ops/merge-material-slots.js" points to missing source files
+Sourcemap for "C:/Users/LENOVO/OneDrive/Desktop/PRYZM/Product_Rediness_08/packages/file-format/src/family-migrations/ops/split-type.js" points to missing source files
+stderr | __tests__/componentCatalogSeamThroughComposedRuntime.test.ts
+THREE.WARNING: Multiple instances of Three.js being imported.
+
+stdout | __tests__/componentCatalogSeamThroughComposedRuntime.test.ts
+[CreateCurtainWallsOnAllSlabsCommand] §DEV: window.__resetCwPrewarm() registered. Call it in DevTools to re-enable first-run PSO prewarm for next execute().
+
+stderr | __tests__/componentCatalogSeamThroughComposedRuntime.test.ts
+Warning: Please use the `legacy` build in Node.js environments.
+
+stdout | __tests__/componentCatalogSeamThroughComposedRuntime.test.ts
+[ConstraintEngine] 17 rules registered (7 Tier 1, 5 Tier 2 spatial, 5 Tier 2 physics)
+
+ ❯ __tests__/componentCatalogSeamThroughComposedRuntime.test.ts (7 tests | 5 failed) 382ms
+     × ARM B — ⭐⭐ loading the definition through the ONE loader makes the SAME dispatch succeed; a second load of the same (familyId, schemaHash) hits the cache 21ms
+     × ARM C — swapType: a DECLARED type swaps and reads back; an UNDECLARED type refuses NAMING BOTH ids; an UNLOADED definition refuses naming the definition 4ms
+     × ARM D — instance-kind + unit-kind: a TYPE-kind override, an UNDECLARED parameter and a shape-mismatched value are each refused BY NAME, at placement and at setInstanceParameter 2ms
+     × ARM E — ⭐ PROVENANCE: the resolver answers from project (file-open), marketplace (the LIVE transport contract) and builtin — or refuses honestly 5ms
+     × ARM G — ⭐ ONE RESOLVER: the handlers consult the SAME live catalogue instance (remove → refuse; reload → resolve), and its has() is the committer's ComponentDefinitionSource shape 3ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 5 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  __tests__/componentCatalogSeamThroughComposedRuntime.test.ts > §COMPONENT-CATALOG — the definition seam: a definitionId resolves, or the verb refuses BY NAME > ARM B — ⭐⭐ loading the definition through the ONE loader makes the SAME dispatch succeed; a second load of the same (familyId, schemaHash) hits the cache
+AssertionError: load must succeed: [SEVERED] loader wrap cut for falsification: expected false to be true // Object.is equality
+
+- Expected
++ Received
+
+- true
++ false
+
+ ❯ __tests__/componentCatalogSeamThroughComposedRuntime.test.ts:182:80
+    180|         const bytes = await packedBytes(DEF_ID, 'U0 Window');
+    181|         const first = await componentCatalog.loadFromBytes(bytes, { pr…
+    182|         expect(first.ok, `load must succeed: ${(first as any).message …
+       |                                                                                ^
+    183|         if (!first.ok) return;
+    184|         expect(first.definitionId).toBe(DEF_ID);
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/5]⎯
+
+ FAIL  __tests__/componentCatalogSeamThroughComposedRuntime.test.ts > §COMPONENT-CATALOG — the definition seam: a definitionId resolves, or the verb refuses BY NAME > ARM C — swapType: a DECLARED type swaps and reads back; an UNDECLARED type refuses NAMING BOTH ids; an UNLOADED definition refuses naming the definition
+AssertionError: promise rejected "CommandBusError: component.swapType: canE…" instead of resolving
+ ❯ __tests__/componentCatalogSeamThroughComposedRuntime.test.ts:204:9
+    202|         await expect(
+    203|             rt.bus.executeCommand('component.swapType', { componentId:…
+    204|         ).resolves.toBeDefined();
+       |         ^
+    205|         expect(store().getState().get(COMPONENT_ID).typeId, 'the swap …
+    206|
+
+Caused by: CommandBusError: component.swapType: canExecute rejected — placed component not found: component_01ARZ3NDEKTSV4RRFFQ69G5F18
+ ❯ ../../packages/command-bus/src/CommandBus.ts:429:17
+ ❯ withSpan ../../packages/command-bus/src/otel.ts:24:26
+ ❯ CommandBus.executeCommand ../../packages/command-bus/src/CommandBus.ts:419:12
+ ❯ Object.executeCommand ../../packages/runtime-composer/src/composeRuntime.ts:1877:26
+ ❯ __tests__/componentCatalogSeamThroughComposedRuntime.test.ts:203:20
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/5]⎯
+
+ FAIL  __tests__/componentCatalogSeamThroughComposedRuntime.test.ts > §COMPONENT-CATALOG — the definition seam: a definitionId resolves, or the verb refuses BY NAME > ARM D — instance-kind + unit-kind: a TYPE-kind override, an UNDECLARED parameter and a shape-mismatched value are each refused BY NAME, at placement and at setInstanceParameter
+AssertionError: expected [Function] to throw error matching /kind 'type'/ but got 'component.place: canExecute rejected …'
+
+- Expected:
+/kind 'type'/
+
++ Received:
+"component.place: canExecute rejected — component.place: definitionId fam_01ARZ3NDEKTSV4RRFFQ69G5F19 names no definition loaded in this project's component catalogue (the catalogue is EMPTY). Load the definition (file-open or marketplace download) before placing — a placed occurrence of an unloaded definition would resolve to nothing."
+
+ ❯ __tests__/componentCatalogSeamThroughComposedRuntime.test.ts:238:11
+    236|         await expect(rt.bus.executeCommand('component.place', {
+    237|             ...PLACE, componentId: OCC, instanceParameters: { [PARAM_S…
+    238|         })).rejects.toThrow(/kind 'type'/);
+       |           ^
+    239|         await expect(rt.bus.executeCommand('component.place', {
+    240|             ...PLACE, componentId: OCC, instanceParameters: { [PARAM_A…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/5]⎯
+
+ FAIL  __tests__/componentCatalogSeamThroughComposedRuntime.test.ts > §COMPONENT-CATALOG — the definition seam: a definitionId resolves, or the verb refuses BY NAME > ARM E — ⭐ PROVENANCE: the resolver answers from project (file-open), marketplace (the LIVE transport contract) and builtin — or refuses honestly
+AssertionError: expected false to be true // Object.is equality
+
+- Expected
++ Received
+
+- true
++ false
+
+ ❯ __tests__/componentCatalogSeamThroughComposedRuntime.test.ts:286:29
+    284|             arrayBuffer: async () => projectBytes.buffer.slice(project…
+    285|         });
+    286|         expect(fromFile.ok).toBe(true);
+       |                             ^
+    287|         if (fromFile.ok) expect(fromFile.entry.provenance).toBe('proje…
+    288|
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[4/5]⎯
+
+ FAIL  __tests__/componentCatalogSeamThroughComposedRuntime.test.ts > §COMPONENT-CATALOG — the definition seam: a definitionId resolves, or the verb refuses BY NAME > ARM G — ⭐ ONE RESOLVER: the handlers consult the SAME live catalogue instance (remove → refuse; reload → resolve), and its has() is the committer's ComponentDefinitionSource shape
+CommandBusError: component.place: canExecute rejected — component.place: definitionId fam_01ARZ3NDEKTSV4RRFFQ69G5F19 names no definition loaded in this project's component catalogue (the catalogue is EMPTY). Load the definition (file-open or marketplace download) before placing — a placed occurrence of an unloaded definition would resolve to nothing.
+ ❯ ../../packages/command-bus/src/CommandBus.ts:429:17
+    427|         const validation = handler.canExecute(ctx as HandlerContext<An…
+    428|         if (!validation.valid) {
+    429|           throw new CommandBusError(
+       |                 ^
+    430|             `${handler.type}: canExecute rejected — ${validation.reaso…
+    431|           );
+ ❯ withSpan ../../packages/command-bus/src/otel.ts:24:26
+ ❯ CommandBus.executeCommand ../../packages/command-bus/src/CommandBus.ts:419:12
+ ❯ Object.executeCommand ../../packages/runtime-composer/src/composeRuntime.ts:1877:26
+ ❯ __tests__/componentCatalogSeamThroughComposedRuntime.test.ts:362:22
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[5/5]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  5 failed | 2 passed (7)
+   Start at  13:00:26
+   Duration  33.77s (transform 24.66s, setup 0ms, import 32.19s, tests 382ms, environment 956ms)
+
+RC=1

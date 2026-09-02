@@ -47,12 +47,19 @@
 // (latest explicit load wins) — the LOADER's `(familyId, schemaHash)` cache still
 // dedups identical bytes underneath.
 
-import {
-  defaultFamilyCache,
-  loadFamilyFromBytes,
-  type FamilyCache,
-  type LoadedFamily,
-  type LoadFamilyErrorReason,
+// ⚠ TYPE-ONLY at module scope, LAZY at load time — deliberately. The loader's
+// graph reaches `@pryzm/file-format`'s barrel, which eagerly evaluates
+// `import/PDFToImageConverter.ts` → pdfjs-dist, which dereferences `DOMMatrix`
+// AT MODULE SCOPE. A static value-import here would put that on the COMPOSITION
+// ROOT's module graph (PluginRegistry imports this file) and kill every
+// node-environment boot suite at collection — measured on
+// `bootstrap.everything.test.ts` before this comment existed. The dynamic import
+// in `loadFromBytes()` defers that cost to the first actual LOAD, which is
+// async anyway; type imports are erased and cost nothing.
+import type {
+  FamilyCache,
+  LoadedFamily,
+  LoadFamilyErrorReason,
 } from '@pryzm/family-loader/bytes';
 import type {
   ComponentDefinitionProvenance,
@@ -129,12 +136,15 @@ export interface ComponentCatalogOptions {
 export class ComponentCatalog implements ComponentDefinitionResolver {
   private readonly entries = new Map<string, ComponentCatalogEntry>();
   private readonly listeners = new Set<() => void>();
-  private readonly cache: FamilyCache;
+  /** `undefined` means "the loader's own process-default cache" — resolved by the
+   *  loader itself at load time (`opts.cache ?? defaultFamilyCache`), so this
+   *  class never needs the loader module before the first load. */
+  private readonly cache: FamilyCache | undefined;
   private readonly fetchImpl: CatalogFetch | undefined;
   private readonly baseUrl: string;
 
   constructor(opts: ComponentCatalogOptions = {}) {
-    this.cache = opts.cache ?? defaultFamilyCache;
+    this.cache = opts.cache;
     this.fetchImpl =
       opts.fetchImpl ??
       (typeof globalThis.fetch === 'function'
@@ -193,7 +203,9 @@ export class ComponentCatalog implements ComponentDefinitionResolver {
       readonly expectId?: string;
     },
   ): Promise<ComponentCatalogLoadResult> {
-    const res = await loadFamilyFromBytes(bytes, { cache: this.cache });
+    // ⚠ Lazy — see the import-block comment at the top of this file.
+    const { loadFamilyFromBytes } = await import('@pryzm/family-loader/bytes');
+    const res = await loadFamilyFromBytes(bytes, this.cache !== undefined ? { cache: this.cache } : {});
     if (!res.ok) {
       // ⭐ The LOADER's named error, verbatim — this catalogue adds no vocabulary
       // of its own for load failures (audit R1).

@@ -1,4 +1,15 @@
+/**
+ * @vitest-environment happy-dom
+ */
 // loadFamily — cache hit/miss + load-then-resolve smoke (plan §19.5 D1).
+//
+// ⚠ happy-dom (lane U0, 2026-09-02) — PRE-EXISTING collection failure, fixed in
+// passing: this suite imports `packFamily` from the `@pryzm/file-format` BARREL,
+// whose graph now eagerly evaluates `import/PDFToImageConverter.ts` → pdfjs-dist,
+// which dereferences `DOMMatrix` at module scope and dies under the node
+// environment (`ReferenceError: DOMMatrix is not defined` — reproduced with a
+// bare one-line barrel-import probe, no loader code involved). Every editor
+// suite that imports the same barrel runs happy-dom for the same reason.
 
 import { describe, it, expect, beforeEach } from 'vitest';
 import {

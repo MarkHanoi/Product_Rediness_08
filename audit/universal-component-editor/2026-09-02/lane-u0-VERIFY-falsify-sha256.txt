@@ -1,0 +1,4 @@
+== BEFORE severance (final bytes) ==
+d816a66741485606e787693b9cc7bffb7d98df2a5d5bfc1887a5140bd614dfa3 *apps/editor/src/services/componentCatalog/ComponentCatalog.ts
+== AFTER restore ==
+d816a66741485606e787693b9cc7bffb7d98df2a5d5bfc1887a5140bd614dfa3 *apps/editor/src/services/componentCatalog/ComponentCatalog.ts

@@ -1,9 +1,18 @@
+/**
+ * @vitest-environment happy-dom
+ */
 // family-round-trip — unit tests for packFamily / unpackFamily.
 //
 // Spec source: `phases/PHASE-3B-FAMILY-CREATOR-REWRITE-PLAN.md` §13
 // (`family-round-trip` gate).  This file is the *unit-level* portion of
 // the gate; the larger 50-document corpus drive lives in
 // `tests/family-load-into-project/`.
+//
+// ⚠ happy-dom (lane U0, 2026-09-02) — PRE-EXISTING collection failure, fixed in
+// passing: this suite imports its own package BARREL, whose graph eagerly
+// evaluates `import/PDFToImageConverter.ts` → pdfjs-dist, which dereferences
+// `DOMMatrix` at module scope and dies under the node environment. The gate had
+// been failing at COLLECTION (0 tests run), silently guarding nothing.
 
 import { describe, it, expect } from 'vitest';
 import {
@@ -175,7 +184,21 @@ describe('packFamily / unpackFamily — round-trip', () => {
 
     // Mutate the document fixture so the recomputed hash diverges from
     // the recorded one, then re-pack with the original recorded hash.
-    const mutated = { ...document, defaults: { ...document.defaults, X: 1 } };
+    //
+    // ⚠ Repaired by lane U0 (2026-09-02). This used to mutate `defaults`, which
+    // §C111-TWO-DEFAULT-CHANNELS DELETED in v1.1 — Zod strips the unknown key at
+    // parse, so the mutation had become HASH-INVISIBLE and the arm asserted a
+    // mismatch that no longer existed. Nobody saw it go stale because the whole
+    // suite was failing at COLLECTION (pdfjs-dist/DOMMatrix, see the header) —
+    // a dead gate guarding nothing. The mutation now moves a parameter's
+    // defaultValue, a field every supported version canonicalises.
+    const mutated = {
+      ...document,
+      parameters: [
+        { ...document.parameters[0]!, defaultValue: 9999 },
+        ...document.parameters.slice(1),
+      ],
+    };
     const reusedManifest = { ...manifest, schemaHash: packA.schemaHash };
     // Build the ZIP manually-ish: pack with mutated doc but stomp the
     // signing/schema-hash entry afterwards.  Easier: pack with the
