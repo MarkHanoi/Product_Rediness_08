@@ -1,0 +1,180 @@
+npm warn Unknown project config "package-manager-strict". This will stop working in the next major version of npm. See `npm help npmrc` for supported config options.
+
+ RUN  v4.1.10 C:/Users/LENOVO/OneDrive/Desktop/PRYZM/Product_Rediness_08/apps/editor
+
+Sourcemap for "C:/Users/LENOVO/OneDrive/Desktop/PRYZM/Product_Rediness_08/packages/file-format/src/family-schema.js" points to missing source files
+Sourcemap for "C:/Users/LENOVO/OneDrive/Desktop/PRYZM/Product_Rediness_08/packages/file-format/src/family-types.js" points to missing source files
+Sourcemap for "C:/Users/LENOVO/OneDrive/Desktop/PRYZM/Product_Rediness_08/packages/file-format/src/family-migrations/index.js" points to missing source files
+Sourcemap for "C:/Users/LENOVO/OneDrive/Desktop/PRYZM/Product_Rediness_08/packages/file-format/src/family-migrations/identity.js" points to missing source files
+Sourcemap for "C:/Users/LENOVO/OneDrive/Desktop/PRYZM/Product_Rediness_08/packages/file-format/src/family-migrations/v1_0-to-v1_1.js" points to missing source files
+Sourcemap for "C:/Users/LENOVO/OneDrive/Desktop/PRYZM/Product_Rediness_08/packages/file-format/src/family-migrations/ops/rename-parameter.js" points to missing source files
+Sourcemap for "C:/Users/LENOVO/OneDrive/Desktop/PRYZM/Product_Rediness_08/packages/file-format/src/family-migrations/ops/add-parameter.js" points to missing source files
+Sourcemap for "C:/Users/LENOVO/OneDrive/Desktop/PRYZM/Product_Rediness_08/packages/file-format/src/family-migrations/ops/delete-parameter.js" points to missing source files
+Sourcemap for "C:/Users/LENOVO/OneDrive/Desktop/PRYZM/Product_Rediness_08/packages/file-format/src/family-migrations/ops/change-parameter-type.js" points to missing source files
+Sourcemap for "C:/Users/LENOVO/OneDrive/Desktop/PRYZM/Product_Rediness_08/packages/file-format/src/family-migrations/ops/introduce-expression.js" points to missing source files
+Sourcemap for "C:/Users/LENOVO/OneDrive/Desktop/PRYZM/Product_Rediness_08/packages/file-format/src/family-migrations/ops/rebind-ifc.js" points to missing source files
+Sourcemap for "C:/Users/LENOVO/OneDrive/Desktop/PRYZM/Product_Rediness_08/packages/file-format/src/family-migrations/ops/merge-material-slots.js" points to missing source files
+Sourcemap for "C:/Users/LENOVO/OneDrive/Desktop/PRYZM/Product_Rediness_08/packages/file-format/src/family-migrations/ops/split-type.js" points to missing source files
+stderr | __tests__/componentDefinitionWorkspaceThroughComposedRuntime.test.ts
+THREE.WARNING: Multiple instances of Three.js being imported.
+
+stdout | __tests__/componentDefinitionWorkspaceThroughComposedRuntime.test.ts
+[CreateCurtainWallsOnAllSlabsCommand] §DEV: window.__resetCwPrewarm() registered. Call it in DevTools to re-enable first-run PSO prewarm for next execute().
+
+stderr | __tests__/componentDefinitionWorkspaceThroughComposedRuntime.test.ts
+Warning: Please use the `legacy` build in Node.js environments.
+
+stdout | __tests__/componentDefinitionWorkspaceThroughComposedRuntime.test.ts
+[ConstraintEngine] 17 rules registered (7 Tier 1, 5 Tier 2 spatial, 5 Tier 2 physics)
+
+ ❯ __tests__/componentDefinitionWorkspaceThroughComposedRuntime.test.ts (10 tests | 8 failed) 437ms
+     × ARM 2 — ADD PARAMETER through the family-migrations op: FrameWidth (length, default 75) lands as a new honest row 15ms
+     × ARM 3 — ⭐⭐ THE §64 FORMULA with LIVE diagnostics: type `Width - 2*FrameWidth` → preview clean at 1050 → the superseded default is ANNOUNCED, applied via the DOM button, and recorded as provenance 6ms
+     × ARM 4 — LIVE typed diagnostics for INVALID expressions: `expression-parse`, `unit-mismatch` and `cycle` render in place as the user types — C110 §4.4's closed set, never swallowed 2ms
+     × ARM 5 — an APPLIED invalid formula shows its typed diagnostic AGAINST THE ROW (nothing substituted), and delete-parameter recovers the pass 1ms
+     × ARM 6 — change-parameter-type runs WITH ITS GUARD: same-type refuses with the op's own sentence against the row; a real change lands and the unit label follows the declaration 3ms
+     × ARM 7 — ⭐⭐ SAVE-VIA-PACK, ROUND-TRIP PROVEN: packFamily → the ONE catalogue/loader → the reloaded document carries the §64 formula and resolves IDENTICALLY 1ms
+     × ARM 8 — ⭐⭐ PLACE AND RESOLVE (the §64 finish): `component.place` via the real bus → the instance property section resolves GlassWidth = 1050 mm from the SAVED formula 14ms
+     × ARM 10 — rename is LOUD about G-7, and close-without-save DISCARDS the draft: the document moves ONLY through save-via-pack 1ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 8 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  __tests__/componentDefinitionWorkspaceThroughComposedRuntime.test.ts > §U3-DEFINITION-WORKSPACE — the founder's §64 demo, end to end through the real composed runtime > ARM 2 — ADD PARAMETER through the family-migrations op: FrameWidth (length, default 75) lands as a new honest row
+AssertionError: a well-formed parameter is accepted: expected 'The family-migrations ops could not b…' to be null
+
+- Expected:
+null
+
++ Received:
+"The family-migrations ops could not be loaded from @pryzm/file-format — the edit was NOT applied and the draft is unchanged: SEVERED - the ops gateway was cut for falsification."
+
+ ❯ __tests__/componentDefinitionWorkspaceThroughComposedRuntime.test.ts:210:64
+    208|             name: 'FrameWidth', dataType: 'length', kind: 'instance', …
+    209|         });
+    210|         expect(refusal, 'a well-formed parameter is accepted').toBeNul…
+       |                                                                ^
+    211|
+    212|         const frame = ws.document.parameters.find((p) => p.name === 'F…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/8]⎯
+
+ FAIL  __tests__/componentDefinitionWorkspaceThroughComposedRuntime.test.ts > §U3-DEFINITION-WORKSPACE — the founder's §64 demo, end to end through the real composed runtime > ARM 3 — ⭐⭐ THE §64 FORMULA with LIVE diagnostics: type `Width - 2*FrameWidth` → preview clean at 1050 → the superseded default is ANNOUNCED, applied via the DOM button, and recorded as provenance
+AssertionError: diagnostics CLEAN: expected null not to be null
+ ❯ __tests__/componentDefinitionWorkspaceThroughComposedRuntime.test.ts:232:92
+    230|         input.dispatchEvent(new Event('input'));
+    231|         const preview = ws.root.querySelector(`[data-cdw-expr-preview=…
+    232|         expect(preview.querySelector('[data-cdw-preview-clean]'), 'dia…
+       |                                                                                            ^
+    233|         expect(preview.querySelector('[data-cdw-preview-clean]')?.getA…
+    234|             '1200 − 2×75 under the W-1200 scope').toBe('1050');
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/8]⎯
+
+ FAIL  __tests__/componentDefinitionWorkspaceThroughComposedRuntime.test.ts > §U3-DEFINITION-WORKSPACE — the founder's §64 demo, end to end through the real composed runtime > ARM 4 — LIVE typed diagnostics for INVALID expressions: `expression-parse`, `unit-mismatch` and `cycle` render in place as the user types — C110 §4.4's closed set, never swallowed
+AssertionError: expected null not to be null
+ ❯ __tests__/componentDefinitionWorkspaceThroughComposedRuntime.test.ts:273:76
+    271|         // The already-has-a-formula disclosure renders (the op will r…
+    272|         // one; delete-expression is OWED) — stated up front, not disc…
+    273|         expect(ws.root.querySelector('[data-cdw-expr-existing-note]'))…
+       |                                                                            ^
+    274|         const input = ws.root.querySelector(`[data-cdw-expr-input="${P…
+    275|         const preview = ws.root.querySelector(`[data-cdw-expr-preview=…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/8]⎯
+
+ FAIL  __tests__/componentDefinitionWorkspaceThroughComposedRuntime.test.ts > §U3-DEFINITION-WORKSPACE — the founder's §64 demo, end to end through the real composed runtime > ARM 5 — an APPLIED invalid formula shows its typed diagnostic AGAINST THE ROW (nothing substituted), and delete-parameter recovers the pass
+AssertionError: expected 'The family-migrations ops could not b…' to be null
+
+- Expected:
+null
+
++ Received:
+"The family-migrations ops could not be loaded from @pryzm/file-format — the edit was NOT applied and the draft is unchanged: SEVERED - the ops gateway was cut for falsification."
+
+ ❯ __tests__/componentDefinitionWorkspaceThroughComposedRuntime.test.ts:311:23
+    309|             name: 'Scratch', dataType: 'number', kind: 'instance', def…
+    310|         });
+    311|         expect(added).toBeNull();
+       |                       ^
+    312|         const scratch = ws.document.parameters.find((p) => p.name === …
+    313|
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[4/8]⎯
+
+ FAIL  __tests__/componentDefinitionWorkspaceThroughComposedRuntime.test.ts > §U3-DEFINITION-WORKSPACE — the founder's §64 demo, end to end through the real composed runtime > ARM 6 — change-parameter-type runs WITH ITS GUARD: same-type refuses with the op's own sentence against the row; a real change lands and the unit label follows the declaration
+AssertionError: expected 'The family-migrations ops could not b…' to contain 'already has dataType angle'
+
+Expected: "already has dataType angle"
+Received: "The family-migrations ops could not be loaded from @pryzm/file-format — the edit was NOT applied and the draft is unchanged: SEVERED - the ops gateway was cut for falsification."
+
+ ❯ __tests__/componentDefinitionWorkspaceThroughComposedRuntime.test.ts:335:25
+    333|         const refusal = await ws.applyDataTypeChange(PARAM_TILT, 'angl…
+    334|         expect(refusal, 'the op\'s own guard speaks').not.toBeNull();
+    335|         expect(refusal).toContain('already has dataType angle');
+       |                         ^
+    336|         const rowRefusal = ws.root.querySelector(`[data-cdw-row-refusa…
+    337|         expect(rowRefusal, 'rendered against the row, not swallowed').…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[5/8]⎯
+
+ FAIL  __tests__/componentDefinitionWorkspaceThroughComposedRuntime.test.ts > §U3-DEFINITION-WORKSPACE — the founder's §64 demo, end to end through the real composed runtime > ARM 7 — ⭐⭐ SAVE-VIA-PACK, ROUND-TRIP PROVEN: packFamily → the ONE catalogue/loader → the reloaded document carries the §64 formula and resolves IDENTICALLY
+AssertionError: the save lands: expected 'The packer could not be loaded from @…' to be null
+
+- Expected:
+null
+
++ Received:
+"The packer could not be loaded from @pryzm/file-format — nothing was saved: SEVERED - the ops gateway was cut for falsification."
+
+ ❯ __tests__/componentDefinitionWorkspaceThroughComposedRuntime.test.ts:355:43
+    353|
+    354|         const refusal = await ws.save();
+    355|         expect(refusal, 'the save lands').toBeNull();
+       |                                           ^
+    356|         expect(ws.isDirty()).toBe(false);
+    357|         expect(ws.statusText).toContain('Saved — packed and reloaded t…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[6/8]⎯
+
+ FAIL  __tests__/componentDefinitionWorkspaceThroughComposedRuntime.test.ts > §U3-DEFINITION-WORKSPACE — the founder's §64 demo, end to end through the real composed runtime > ARM 8 — ⭐⭐ PLACE AND RESOLVE (the §64 finish): `component.place` via the real bus → the instance property section resolves GlassWidth = 1050 mm from the SAVED formula
+AssertionError: the formula IS the source: expected 'default' to be 'expression' // Object.is equality
+
+Expected: "expression"
+Received: "default"
+
+ ❯ __tests__/componentDefinitionWorkspaceThroughComposedRuntime.test.ts:401:88
+    399|         const section = createComponentSection({ id: OCC1, type: 'comp…
+    400|         const glassRow = section.root.querySelector(`tr[data-cpt-row="…
+    401|         expect(glassRow?.getAttribute('data-cpt-source'), 'the formula…
+       |                                                                                        ^
+    402|         expect(glassRow?.querySelector('[data-cpt-value]')?.getAttribu…
+    403|         expect(glassRow?.querySelector('[data-cpt-value]')?.getAttribu…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[7/8]⎯
+
+ FAIL  __tests__/componentDefinitionWorkspaceThroughComposedRuntime.test.ts > §U3-DEFINITION-WORKSPACE — the founder's §64 demo, end to end through the real composed runtime > ARM 10 — rename is LOUD about G-7, and close-without-save DISCARDS the draft: the document moves ONLY through save-via-pack
+AssertionError: expected 'The family-migrations ops could not b…' to be null
+
+- Expected:
+null
+
++ Received:
+"The family-migrations ops could not be loaded from @pryzm/file-format — the edit was NOT applied and the draft is unchanged: SEVERED - the ops gateway was cut for falsification."
+
+ ❯ __tests__/componentDefinitionWorkspaceThroughComposedRuntime.test.ts:428:25
+    426|     it('ARM 10 — rename is LOUD about G-7, and close-without-save DISC…
+    427|         const refusal = await ws.applyRename(PARAM_WIDTH, 'OpeningWidt…
+    428|         expect(refusal).toBeNull();
+       |                         ^
+    429|         // ⚠ C110 §1.4/G-7 disclosed by execution: rename-parameter re…
+    430|         // expressions only — GlassWidth's formula still says `Width`,…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[8/8]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  8 failed | 2 passed (10)
+   Start at  21:27:34
+   Duration  29.78s (transform 21.91s, setup 0ms, import 28.73s, tests 437ms, environment 398ms)
+
+RC=1

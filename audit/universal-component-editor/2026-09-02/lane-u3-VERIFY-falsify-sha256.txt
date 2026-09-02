@@ -1,0 +1,2 @@
+481483f990cd69ba8824b994ec54d45bd9f8852aad227c95093ed85911af602d *apps/editor/src/ui/component-editor-workspace/ComponentDefinitionWorkspace.ts
+481483f990cd69ba8824b994ec54d45bd9f8852aad227c95093ed85911af602d *apps/editor/src/ui/component-editor-workspace/ComponentDefinitionWorkspace.ts

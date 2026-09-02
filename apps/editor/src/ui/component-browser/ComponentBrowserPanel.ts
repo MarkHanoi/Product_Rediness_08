@@ -37,6 +37,11 @@ import {
     type ComponentCatalog,
 } from '../../services/componentCatalog/index.js';
 import { armComponentPlaceTool } from './componentPlaceTool';
+// Lane U3 — the definition-editor workspace, opened from this browser's
+// "Edit definition…" entry (UIUX-PLAN §U3's acceptance names this exact seam).
+// Static import is safe: the workspace keeps `@pryzm/file-format` LAZY (the U0
+// §5-D2 pdfjs/DOMMatrix lesson), so nothing heavy lands on this panel's graph.
+import { openComponentDefinitionWorkspace } from '../component-editor-workspace/index.js';
 
 const _tracer = trace.getTracer('@pryzm/editor.component-browser', '0.1.0');
 
@@ -245,7 +250,25 @@ export class ComponentBrowserPanel {
             'border-radius:999px', 'padding:2px 8px', 'margin-left:auto',
         ].join(';');
 
-        head.append(name, semver, chip);
+        // Lane U3 — open the definition-editor workspace for this LOADED definition.
+        // An unloaded definition (a race with remove()) refuses BY NAME into this
+        // panel's own status line — never a silent no-op click (C16 CA-18).
+        const edit = document.createElement('button');
+        edit.type = 'button';
+        edit.setAttribute('data-component-browser-edit', view.definitionId);
+        edit.textContent = 'Edit definition…';
+        edit.style.cssText = [
+            'background:#fff', 'color:#6600FF', 'border:1px solid rgba(102,0,255,0.4)',
+            'padding:3px 10px', 'border-radius:6px',
+            'font-weight:600', 'cursor:pointer', 'font-size:11px',
+        ].join(';');
+        edit.addEventListener('click', () => {
+            const res = openComponentDefinitionWorkspace(view.definitionId);
+            if (!res.ok) { this._status(res.refusal); return; }
+            this._status('');
+        });
+
+        head.append(name, semver, edit, chip);
         card.appendChild(head);
 
         for (const t of view.types) {
