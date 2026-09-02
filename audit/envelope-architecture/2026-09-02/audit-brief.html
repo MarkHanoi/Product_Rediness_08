@@ -1,0 +1,132 @@
+<title>Envelope Architecture Audit</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;700;800&family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,600;1,8..60,400&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+:root{
+  --bg:#FBFAFF; --surface:#F3F0FC; --ink:#2B2440; --muted:#6E678A;
+  --accent:#6600FF; --accent-soft:#EFEAFF; --line:#DDD6F0;
+  --verdict:#B45309; --verdict-bg:#FCF3E8;
+  --ok:#1F7A4D; --ok-bg:#E9F5EE; --no:#B3364B; --no-bg:#F9ECEF;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#17131F; --surface:#211B2E; --ink:#EAE5F6; --muted:#9C93B8;
+    --accent:#A98BFF; --accent-soft:#2C2344; --line:#383050;
+    --verdict:#E8A75D; --verdict-bg:#33261A;
+    --ok:#6FC79A; --ok-bg:#1B2E24; --no:#E38299; --no-bg:#332026;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#17131F; --surface:#211B2E; --ink:#EAE5F6; --muted:#9C93B8;
+  --accent:#A98BFF; --accent-soft:#2C2344; --line:#383050;
+  --verdict:#E8A75D; --verdict-bg:#33261A;
+  --ok:#6FC79A; --ok-bg:#1B2E24; --no:#E38299; --no-bg:#332026;
+}
+body{background:var(--bg); color:var(--ink); font-family:"Source Serif 4",Georgia,serif;
+  font-size:1.02rem; line-height:1.62; margin:0; padding:0 1.25rem 5rem;}
+main{max-width:47rem; margin:0 auto;}
+h1,h2,h3,.chip,.stat-n{font-family:Archivo,"Helvetica Neue",Arial,sans-serif;}
+h1{font-size:2rem; font-weight:800; letter-spacing:-.015em; text-wrap:balance; margin:2.6rem 0 .4rem;}
+h2{font-size:1.22rem; font-weight:700; margin:2.6rem 0 .8rem; letter-spacing:-.01em;}
+.kicker{font-family:Archivo,sans-serif; font-weight:500; font-size:.76rem; letter-spacing:.14em;
+  text-transform:uppercase; color:var(--accent); margin-top:3rem;}
+.meta{color:var(--muted); font-size:.9rem; margin-bottom:2rem;}
+.verdict-block{border:1.5px solid var(--verdict); background:var(--verdict-bg); border-radius:10px;
+  padding:1.3rem 1.5rem; display:flex; gap:1.25rem; align-items:flex-start; flex-wrap:wrap;}
+.chip{font-weight:800; font-size:1.6rem; letter-spacing:.06em; color:var(--verdict); white-space:nowrap;}
+.verdict-block p{margin:.1rem 0 0; flex:1 1 22rem;}
+mark{background:var(--accent-soft); color:var(--ink); padding:0 .15em; border-radius:3px;}
+table{width:100%; border-collapse:collapse; font-size:.92rem; margin:1rem 0;}
+.tablewrap{overflow-x:auto;}
+th{font-family:Archivo,sans-serif; font-size:.72rem; letter-spacing:.1em; text-transform:uppercase;
+  color:var(--muted); text-align:left; font-weight:700; padding:.45rem .7rem .45rem 0; border-bottom:1.5px solid var(--line);}
+td{padding:.55rem .7rem .55rem 0; border-bottom:1px solid var(--line); vertical-align:top;}
+.pill{font-family:Archivo,sans-serif; font-weight:700; font-size:.72rem; letter-spacing:.05em;
+  padding:.14rem .55rem; border-radius:99px; white-space:nowrap;}
+.pill.ok{color:var(--ok); background:var(--ok-bg);}
+.pill.no{color:var(--no); background:var(--no-bg);}
+.pill.mid{color:var(--verdict); background:var(--verdict-bg);}
+.stat{display:flex; gap:1.4rem; align-items:center; border-left:4px solid var(--accent);
+  background:var(--surface); border-radius:0 10px 10px 0; padding:1.1rem 1.4rem; margin:1.6rem 0;}
+.stat-n{font-size:2.4rem; font-weight:800; color:var(--accent); font-variant-numeric:tabular-nums; line-height:1;}
+.stat p{margin:0; font-size:.95rem;}
+ol,ul{padding-left:1.3rem;}
+li{margin:.45rem 0;}
+li::marker{color:var(--accent); font-weight:600;}
+code{font-family:"IBM Plex Mono",Consolas,monospace; font-size:.84em; background:var(--surface);
+  padding:.08em .35em; border-radius:4px;}
+.country{font-family:Archivo,sans-serif; font-size:.7rem; font-weight:700; letter-spacing:.08em;
+  color:var(--muted); text-transform:uppercase; margin-right:.35rem;}
+.dnb{display:flex; flex-wrap:wrap; gap:.5rem; margin:.8rem 0;}
+.dnb span{border:1px solid var(--line); background:var(--surface); border-radius:7px;
+  padding:.3rem .65rem; font-size:.85rem; font-family:Archivo,sans-serif; font-weight:500;}
+.dnb span s{color:var(--no); text-decoration-thickness:2px;}
+.foot{color:var(--muted); font-size:.86rem; border-top:1.5px solid var(--line); margin-top:3rem; padding-top:1rem;}
+a{color:var(--accent);}
+</style>
+<main>
+<p class="kicker">Independent adversarial review · read-only · 3 lanes · HEAD 0c90a2da · 2026-09-02</p>
+<h1>PRYZM European Legal-Envelope Architecture</h1>
+<p class="meta">Proposed: source → country adapter → canonical rules → constraint graph → geometry kernel → legal envelope → development potential. Long version with all evidence: <code>ENVELOPE-ARCHITECTURE-AUDIT-FULL.md</code>.</p>
+
+<div class="verdict-block">
+  <span class="chip">REVISE</span>
+  <p>The proposal's <em>destination</em> is sound and <mark>largely already built</mark>. Its two central novel elements — a general constraint-graph layer and a greenfield 24-token vocabulary — are <strong>rejected as rivals</strong> to shipped and frozen machinery. Exactly <strong>two elements survive as genuinely new work</strong>. Rewrite the proposal as an increment over the as-built system.</p>
+</div>
+
+<h2>Rulings</h2>
+<div class="tablewrap"><table>
+<tr><th>Claim under audit</th><th>Ruling</th><th>Confidence</th></tr>
+<tr><td>"Regulations heterogeneous, geometry less so"</td><td><span class="pill mid">Weak form survives · strong form fails</span></td><td>High</td></tr>
+<tr><td>One universal engine, adapters only interpret</td><td><span class="pill ok">Validated — it is the shipped architecture</span></td><td>High</td></tr>
+<tr><td>"One engine <em>determines</em>"</td><td><span class="pill no">False — real rules yield labelled choices &amp; cited refusals</span></td><td>High</td></tr>
+<tr><td>24-token constraint vocabulary sufficient</td><td><span class="pill no">No — kernel list masquerading as vocabulary</span></td><td>High</td></tr>
+<tr><td>Constraint graph as new pipeline layer</td><td><span class="pill no">Rejected — typed rule kinds + the one engine instead</span></td><td>High</td></tr>
+<tr><td>New geometry kernel</td><td><span class="pill no">Rejected — extend the in-house 2D-first kernel</span></td><td>High</td></tr>
+<tr><td>Full 3D CSG required</td><td><span class="pill ok">No — 2.5D + inclined-plane tops covers the corpus</span></td><td>Med-High</td></tr>
+<tr><td>Proposal vs as-built overall</td><td><span class="pill no">Accidental redesign, not an evolution seam</span></td><td>High</td></tr>
+</table></div>
+
+<div class="stat">
+  <span class="stat-n">6 / 115</span>
+  <p><strong>The most product-critical finding.</strong> The never-overstate gate walks only 6 of 115 registered jurisdictions. Paris, Denmark, the Netherlands, Valencia, Sevilla and Switzerland contribute <em>zero</em> gate solves — <code>computeParisEnvelope</code> is never walked by any gate. Gate-enumerability is the strongest argument for data over procedure, and should drive the migration order.</p>
+</div>
+
+<h2>What the vocabulary is missing — five dimensions, all proven by shipped scars</h2>
+<ul>
+<li><strong>Constructions</strong> — <span class="country">ES</span>Barcelona's block-level implicit solve with a minimum-vs-equality quantifier (Art. 242.2/350.2; the L-581 mitre kernel peaked at 55.4% sound on real rings).</li>
+<li><strong>Datum</strong> — four legal meanings of "height" in one token: rasant-at-façade (L-584), Paris NGF absolute, Estonia EH2000, Porto mean-ground-at-façade.</li>
+<li><strong>Denominator basis</strong> — <span class="country">DK</span>72–85% of plans are non-parcel-scoped; <code>MAX_GFA</code> without <code>valueBasis</code> re-installs a shipped national bug by design.</li>
+<li><strong>Precedence</strong> — rank/overlay/exception structure; <code>ZoningRecord.overlays</code> is currently consumed by nothing.</li>
+<li><strong>Applicability + honesty</strong> — the UNKNOWN lattice and the cited refusal as first-class outputs.</li>
+</ul>
+<p>Headline counter-example: <span class="country">PT</span><strong>Porto's <em>moda da cércea</em></strong> — height = the statistical mode of the block's built frontage. No current kind represents it; it is the audit's #1 missing primitive (<code>CONTEXT_AGGREGATE</code> / <code>fabricDerivedHeight</code>) and the named blocker of the founder-signed Porto pack. A new axis was also found: <strong>nothing certifies "never understate an obligation"</strong> — the honesty gate is one-directional.</p>
+
+<h2>The revision — build this instead</h2>
+<ol>
+<li><strong>Vocabulary as append-only extension</strong> of the two frozen seats — never a third seat. Adopt the 14-row cited primitive table; refuse primitives without a met citation.</li>
+<li><strong>No general constraint graph.</strong> Constructions enter as typed rule kinds through the proven append-only registry; precedence = rank-as-fact + refuse-on-tie (Catala prior art); finish overlay consumption.</li>
+<li><strong>Extend the kernel in priority order</strong>: difference op → holes → inclined tops (unlocks German Abstandsflächen + the Paris crown) → skeleton stage 2.</li>
+<li><strong>The two accepted novel seams</strong>: a true-3D solid stage with <em>per-face rule attribution</em> (or "why this height?" stops tracing to the article), and a versioned evaluation cache.</li>
+<li><strong>Mint the never-understate gate</strong> and check monotonicity per solve, not by assumption.</li>
+<li><strong>Close 6/115 → 115/115</strong>, Paris first — a pack migrates to declarative data exactly when that makes it gate-walkable.</li>
+<li><strong>AS-IS Catastro data</strong> (FXCC, floors, 3D) enters only through the existing typed boundary — subtraction, consolidation, fabric-keyed rules. Never a legal ceiling.</li>
+</ol>
+
+<h2>Do not build</h2>
+<div class="dnb">
+<span><s>new canonical model</s></span><span><s>third vocabulary seat</s></span><span><s>general constraint graph</s></span><span><s>per-country envelope engines</s></span><span><s>kernel plug-in seat</s></span><span><s>new geometry kernel</s></span><span><s>full 3D CSG</s></span><span><s>LLM in determination</s></span><span><s>AS-IS as ceiling</s></span><span><s>grammar sampling as envelope</s></span>
+</div>
+<p>Open-source positions: <strong>XPlanGML as input standard</strong> (Baugrenze/Baulinie map ~1:1 onto existing kinds — the strongest external validation); COMPASS's four verification patterns ported; Catala as the precedence model; CityGML for interchange only. Buildable-envelope OSS for Europe: <strong>empty</strong> — what PRYZM is building does not exist to adopt.</p>
+
+<h2>Roadmap (each phase ships alone)</h2>
+<ol>
+<li><strong>Vocabulary closure</strong> — datum family, <code>valueBasis</code>, <code>CONTEXT_AGGREGATE</code> (unblocks Porto), <code>BANDED_LOOKUP</code>, <code>EXPLICIT_GEOMETRY_REF</code>.</li>
+<li><strong>Kernel gaps</strong> — difference, holes, inclined tops, skeleton 2.</li>
+<li><strong>Gate coverage</strong> 6→115 + the never-understate sibling.</li>
+<li><strong>Precedence completion</strong> — rank-as-fact, overlays, refuse-on-tie.</li>
+<li><strong>3D stage</strong> with per-face attribution + versioned cache.</li>
+<li><strong>XPlanGML input adapter</strong> — Germany at scale rides it.</li>
+</ol>
+
+<p class="foot">Would break this audit: a materially different full proposal text (none exists in the repo — reviewed against the brief's boxes); a met European rule that cannot compile to 2.5D + inclined tops + the 14 primitives; gate machinery the audit missed; a licensing ruling on ODbL/DGC inside legal determinations. Three unabridged lane reports travel with the long version.</p>
+</main>
