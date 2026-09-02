@@ -1,0 +1,12 @@
+== lane-4d VERIFY falsification restore 2026-09-02T11:11:41+02:00 ==
+-- recorded 'mine' hashes (doc §4.2) --
+49c81dbbdff21390f07278a420ac4c5337b24027c1b3cb1bb41fa8d2e00309be  profileToPolygon.ts
+cba4d6b01dabf8debdb51840e52f79cfb872a87e148440e073e1acec61c7f1eb  bakeFamilyInstance.ts
+fc7ebc1262da5132cccb5c64bc4b1b54d1e5cad2c8c1f7dc43cbb61171fa0cda  index.ts
+eb6fd334a12a12e15f390f959f6e3ad8a43cc354569143f09dcbf9ee529a994c  geometry-kernel/index.ts
+-- restored working tree --
+49c81dbbdff21390f07278a420ac4c5337b24027c1b3cb1bb41fa8d2e00309be *packages/family-instance/src/profileToPolygon.ts
+cba4d6b01dabf8debdb51840e52f79cfb872a87e148440e073e1acec61c7f1eb *packages/family-instance/src/bakeFamilyInstance.ts
+fc7ebc1262da5132cccb5c64bc4b1b54d1e5cad2c8c1f7dc43cbb61171fa0cda *packages/family-instance/src/index.ts
+eb6fd334a12a12e15f390f959f6e3ad8a43cc354569143f09dcbf9ee529a994c *packages/geometry-kernel/src/index.ts
+RC=0

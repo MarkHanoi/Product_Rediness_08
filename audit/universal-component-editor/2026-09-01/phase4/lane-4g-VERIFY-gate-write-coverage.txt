@@ -1,0 +1,113 @@
+npm warn Unknown project config "package-manager-strict". This will stop working in the next major version of npm. See `npm help npmrc` for supported config options.
+
+── check-graph-write-coverage (C71 §6 · C70 C-INV-1/C-INV-4) ───
+   floor  declared RelationshipType members parsed from source: measured 29, min 20 ✓
+   floor  REQUIRED families (C71 §2.1) located in the parsed union: measured 9, min 9 ✓
+   floor  production source files scanned: measured 5297, min 1500 ✓
+   floor  rebuild implementations located: measured 1, min 1 ✓
+   floor  refusal-bearing *Query readers located on SemanticGraphManager: measured 15, min 8 ✓
+   floor  executed controls passed: measured 8, min 8 ✓
+   EXECUTED CONTROLS (both directions, every run):
+       ✓ NEGATIVE: planted REQUIRED 'sitsOn' with a writer and NO reader was FLAGGED
+       ✓ POSITIVE: planted fully-covered 'boundedBy' (writer+reader+rebuild+cascade) read CLEAN on all four arms
+       ✓ PARKED: planted writer against parked 'servesZone' was FLAGGED writer-first
+       ✓ PARKED: parked 'supersedes' with a READER only produced NO finding (a reader is the legitimate first unparking step)
+       ✓ COMMENT-BLINDNESS: 'adjacentTo' mentioned ONLY in a // and a /* */ comment scored NO writer and NO reader
+       ✓ DISPOSITION SCOPING: a docblock ABOUT 'joinedTo' that names 'connectedTo' in CONTRAST granted REGENERATED to 'joinedTo' only
+       ✓ RECEIVER QUALIFICATION: 'roomGraphService.getConnectedRooms' (the RIVAL room-topology graph) earned NO connectedTo reader credit, while 'semanticGraphManager.getConnectedRooms' earned exactly one
+       ✓ DEDICATED-READER COMPLETENESS: an UNREGISTERED *Query reader was reported, while a REGISTERED one, the raw non-Query `getTargets`, and a commented-out declaration were not
+   
+   ⚠ 3 union member(s) carry NO C71 §2 classification and were not expected: instantiates, specializes, dependsOnDefinition. A member that is neither REQUIRED nor PARKED nor a known-unclassified circulation/temporal edge is a C71 §2.6 addition that skipped its classification. Reported, not silently absorbed.
+   
+   C-INV-1 — PER-TYPE × PER-OBLIGATION MATRIX (REQUIRED nine, C71 §2.1)
+     ● = present (count of sites) · ✗ = ABSENT · delete: ●=type-aware (d1), ○=cascade only (d2, weak)
+     family           writer reader rebuild delete  disposition
+     hosts            ● 2    ● 3    ● 1      ○53    rebuilt
+     hostedBy         ● 4    ● 1    ● 1      ○53    rebuilt
+     boundedBy        ● 2    ● 3    ● 1      ○53    rebuilt
+     adjacentTo       ● 5    ● 3    ● 2      ○53    rebuilt
+     connectedTo      ● 6    ● 2    ● 2      ○53    rebuilt
+     sitsOn           ●19    ● 1    ● 2      ○53    rebuilt
+     supports         ● 8    ● 2    ● 2      ○53    rebuilt
+     contains         ● 1    ● 3    ● 1      ○53    rebuilt
+     partOf           ● 1    ● 3    ● 1      ○53    rebuilt
+     joinedTo         ● 1    ● 7     ●      ● 1     REGENERATED
+   
+     EVIDENCE (first site per filled cell; run with the file open for the rest):
+       hosts            writer=packages/command-registry/src/handrails/CreateHandrailCommand.ts:215 · reader=packages/ai-host/src/graph/GraphQueryService.ts:328 · rebuild=packages/persistence-client/src/loader/rebuildSemanticGraph.ts:140 · delete=—
+                        ALLOWLIST-ONLY (NOT a reader, C71 §1.3): packages/ai-host/src/graph/GraphQueryService.ts:183 ×2
+       hostedBy         writer=packages/command-registry/src/handrails/CreateHandrailCommand.ts:215 · reader=packages/core-app-model/src/sync/SyncStateEngine.ts:927 · rebuild=packages/persistence-client/src/loader/rebuildSemanticGraph.ts:141 · delete=—
+                        ALLOWLIST-ONLY (NOT a reader, C71 §1.3): packages/ai-host/src/graph/GraphQueryService.ts:184 ×1
+       boundedBy        writer=packages/command-registry/src/rooms/DetectAllRoomsCommand.ts:158 · reader=packages/ai-host/src/graph/GraphQueryService.ts:335 · rebuild=packages/persistence-client/src/loader/rebuildSemanticGraph.ts:163 · delete=—
+                        ALLOWLIST-ONLY (NOT a reader, C71 §1.3): packages/ai-host/src/graph/GraphQueryService.ts:187 ×2
+       adjacentTo       writer=packages/command-registry/src/rooms/DetectAllRoomsCommand.ts:216 · reader=packages/ai-host/src/SemanticQueryEngine.ts:280 · rebuild=packages/persistence-client/src/loader/rebuildSemanticGraph.ts:181 · delete=—
+                        ALLOWLIST-ONLY (NOT a reader, C71 §1.3): packages/ai-host/src/graph/GraphQueryService.ts:186 ×2
+       connectedTo      writer=packages/command-registry/src/rooms/DetectAllRoomsCommand.ts:219 · reader=packages/ai-host/src/SemanticQueryEngine.ts:164 · rebuild=packages/persistence-client/src/loader/rebuildSemanticGraph.ts:184 · delete=—
+                        ALLOWLIST-ONLY (NOT a reader, C71 §1.3): packages/ai-host/src/graph/GraphQueryService.ts:185 ×2
+       sitsOn           writer=packages/command-registry/src/beam/CreateBeamCommand.ts:234 · reader=packages/command-registry/src/levels/DeleteLevelCommand.ts:174 · rebuild=packages/persistence-client/src/loader/rebuildSemanticGraph.ts:203 · delete=—
+                        ALLOWLIST-ONLY (NOT a reader, C71 §1.3): packages/ai-host/src/graph/GraphQueryService.ts:189 ×1
+       supports         writer=packages/command-registry/src/beam/AssignBeamSupportsCommand.ts:143 · reader=packages/command-registry/src/beam/AssignBeamSupportsCommand.ts:128 · rebuild=packages/persistence-client/src/loader/rebuildSemanticGraph.ts:211 · delete=—
+                        ALLOWLIST-ONLY (NOT a reader, C71 §1.3): packages/ai-host/src/graph/GraphQueryService.ts:190 ×1
+       contains         writer=packages/command-registry/src/furniture/CreateFurnitureCommand.ts:266 · reader=packages/ai-host/src/graph/GraphQueryService.ts:356 · rebuild=packages/persistence-client/src/loader/rebuildSemanticGraph.ts:257 · delete=—
+                        ALLOWLIST-ONLY (NOT a reader, C71 §1.3): packages/ai-host/src/graph/GraphQueryService.ts:188 ×2
+       partOf           writer=packages/core-app-model/src/hierarchy/PartOfProjection.ts:341 · reader=packages/core-app-model/src/hierarchy/PartOfProjection.ts:279 · rebuild=packages/persistence-client/src/loader/rebuildSemanticGraph.ts:194 · delete=—
+                        ALLOWLIST-ONLY (NOT a reader, C71 §1.3): packages/ai-host/src/graph/GraphQueryService.ts:182 ×1
+       joinedTo         writer=apps/editor/src/engine/WallRebuildCoordinator.ts:184 · reader=packages/ai-host/src/graph/GraphQueryService.ts:363 · rebuild=— · delete=apps/editor/src/engine/WallRebuildCoordinator.ts:184
+                        ALLOWLIST-ONLY (NOT a reader, C71 §1.3): packages/ai-host/src/graph/GraphQueryService.ts:191 ×2
+   
+   PARKED twelve (C71 §2.2) — REPORTED, NOT FINDINGS. Parked ≠ gap (C71 §2.3/§7.b).
+     Ratcheted in ONE direction only: a writer against a parked family is WRITER-FIRST and IS a finding.
+     unitOf                 writer  0 · reader  0
+     levelOf                writer  0 · reader  0
+     servesZone             writer  0 · reader  0
+     precededBy             writer  0 · reader  0
+     supersedes             writer  0 · reader  0
+     branchedFrom           writer  0 · reader  0
+     causedFailureOf        writer  0 · reader  0
+     wasMitigatedBy         writer  0 · reader  0
+     exceededBenchmark      writer  0 · reader  0
+     replacedBy             writer  0 · reader  0
+     maintainedBy           writer  0 · reader  0
+     decommissionedBefore   writer  0 · reader  0
+     → 0 parked famil(ies) have acquired a writer.
+   
+   UNCLASSIFIED (7) — in the union, in NEITHER C71 §2.1 nor §2.2.
+     Not findings: a gate that invents a classification the contract did not make is
+     inventing vocabulary. Named here so the C71 §2 gap has a home.
+     connectedByStair       writer  2 · reader  1 · rebuild rebuilt
+     connectedByLift        writer  2 · reader  0 · rebuild named-unrecon
+     measuredAt             writer  1 · reader  1 · rebuild named-unrecon
+     decidedBy              writer  1 · reader  0 · rebuild rebuilt
+     instantiates           writer  0 · reader  2 · rebuild —
+     specializes            writer  0 · reader  2 · rebuild —
+     dependsOnDefinition    writer  0 · reader  2 · rebuild —
+   
+   WHAT THIS RUN CANNOT SEE (C71 §6.2 — printed so silence is never read as coverage):
+     • computed-type writes: 9 site(s) write `type: <variable>` and are INVISIBLE to literal scanning.
+         packages/command-registry/src/ceilings/RemoveCeilingCommand.ts:98  semanticGraphManager.addRelationship({
+         packages/command-registry/src/floors/RemoveFloorCommand.ts:97  semanticGraphManager.addRelationship({
+         packages/command-registry/src/handrails/DeleteHandrailCommand.ts:62  semanticGraphManager.addRelationship({
+         packages/command-registry/src/levels/DeleteLevelCommand.ts:117  semanticGraphManager.addRelationship({
+         packages/command-registry/src/roofs/DeleteRoofCommand.ts:67  semanticGraphManager.addRelationship({
+         packages/command-registry/src/stair/DeleteStairCommand.ts:142  semanticGraphManager.addRelationship({
+     • runtime reachability — a writer that exists but is never reached counts as PRESENT.
+     • correctness — a writer emitting the WRONG edge passes every arm.
+     • move-time invalidation (C71 §1.2 semantic 5) — NO ARM **HERE**, and no static arm is possible.
+         MEASURED ELSEWHERE, executed: tools/rac-conformance/certification/__tests__/graphmove.cert.ts
+         (H6). Its first reading (2026-08-14 am): `boundedBy` STALE after a real wall move — the move
+         command performed no invalidation and the edge still named a wall that no longer bounds the
+         room. SECOND READING (2026-08-14, post-fix §GR12-BOUNDARY-INVALIDATION): `boundedBy` is
+         INVALIDATED by the move command — the writer removes the affected rooms' region-derived
+         conclusions and marks them UNDETERMINED (C79 §5.2; typed refusal via getBoundingWalls, C71
+         §4.4) until a detection pass re-emits. `sitsOn` and `hosts` correctly SURVIVE in both
+         readings (id-keyed edges are move-INVARIANT by construction), and the re-detect control
+         still observes the corrective pass. Read results/graphmove.json, not this prose.
+         STILL UNPROVEN: every family H6 does not drive, and SUBSCRIBER REACHABILITY — whether any
+         production path drives a re-detect on a move (GR-18/CE-05 territory).
+     • dynamic dispatch — GraphQueryService reads a payload string; deliberate under-count (§1.3).
+   
+     cascade purge (d2) sites: 53 · rebuild implementations: packages/persistence-client/src/loader/rebuildSemanticGraph.ts
+   
+   C-INV-4 — RATCHET: 0 finding(s) against a NAMED ledger of 0.
+   → [0] CLEAN — check-graph-write-coverage (C71 §6 · C70 C-INV-1/C-INV-4): 0 findings, hard-0, no baseline.
+RC=0

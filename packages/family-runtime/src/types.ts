@@ -107,6 +107,14 @@ export interface ResolverDiagnostic {
      *  `defaultValue`. Per ADR-0376 D4 the expression wins and the default is
      *  dead data — a document predating the `introduce-expression` fix. */
     | 'superseded-default'
+    /** ERROR: an expression combined two quantities that do not measure the
+     *  same thing (`Width + Tilt`), or handed a non-angle to a trigonometric
+     *  function. ⭐ Spec §11 has required unit-mismatch detection since S55
+     *  and `UnitMismatchError` has existed, exported and documented, for
+     *  just as long — with no throw site, because `EvalScope` erased the
+     *  kind (C110 §3.5 §UNIT-KIND-ERASURE). This code is the diagnostic that
+     *  error finally reaches. */
+    | 'unit-mismatch'
     | 'invalid-override'
     | 'duplicate-name'
     | 'invalid-name';

@@ -1787,6 +1787,7 @@ Each section carries **AS-IS** (measured, `file:line`) and **TO-BE** (normative)
 | **C106** | construction boundary line | |
 | **C107** | adaptive component | ⭐ **honestly UNBUILT and says so** — its §0.1 measures its own absence across all four §3.5.1 axes |
 | **C109** | bathroom pod | **compound / aggregate system** |
+| **C113** | component (placed occurrence) | ⭐ **THE JOIN** (ADR-0376 D9, 2026-09-02) — the twelve sections per §6.2a; verbs `component.place` / `component.swapType` / `component.setInstanceParameter`; renders via 4E/D10, §11 carries the open items |
 
 ⛔ **This table is a POINTER, not the authority.** Re-derive it with the two commands in the §6
 banner before citing it; `check-contract-index-equivalence.ts` compares SETS in both directions and

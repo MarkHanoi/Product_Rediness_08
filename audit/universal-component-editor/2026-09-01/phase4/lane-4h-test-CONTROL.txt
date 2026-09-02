@@ -1,0 +1,67 @@
+npm warn Unknown project config "package-manager-strict". This will stop working in the next major version of npm. See `npm help npmrc` for supported config options.
+
+ RUN  v4.1.10 C:/Users/LENOVO/OneDrive/Desktop/PRYZM/Product_Rediness_08/apps/editor
+
+Sourcemap for "C:/Users/LENOVO/OneDrive/Desktop/PRYZM/Product_Rediness_08/packages/file-format/src/family-schema.js" points to missing source files
+Sourcemap for "C:/Users/LENOVO/OneDrive/Desktop/PRYZM/Product_Rediness_08/packages/file-format/src/family-types.js" points to missing source files
+Sourcemap for "C:/Users/LENOVO/OneDrive/Desktop/PRYZM/Product_Rediness_08/packages/file-format/src/family-unpack.js" points to missing source files
+Sourcemap for "C:/Users/LENOVO/OneDrive/Desktop/PRYZM/Product_Rediness_08/packages/file-format/src/family-migrations/index.js" points to missing source files
+Sourcemap for "C:/Users/LENOVO/OneDrive/Desktop/PRYZM/Product_Rediness_08/packages/file-format/src/family-migrations/identity.js" points to missing source files
+Sourcemap for "C:/Users/LENOVO/OneDrive/Desktop/PRYZM/Product_Rediness_08/packages/file-format/src/family-migrations/v1_0-to-v1_1.js" points to missing source files
+Sourcemap for "C:/Users/LENOVO/OneDrive/Desktop/PRYZM/Product_Rediness_08/packages/file-format/src/family-migrations/ops/rename-parameter.js" points to missing source files
+Sourcemap for "C:/Users/LENOVO/OneDrive/Desktop/PRYZM/Product_Rediness_08/packages/file-format/src/family-migrations/ops/add-parameter.js" points to missing source files
+Sourcemap for "C:/Users/LENOVO/OneDrive/Desktop/PRYZM/Product_Rediness_08/packages/file-format/src/family-migrations/ops/delete-parameter.js" points to missing source files
+Sourcemap for "C:/Users/LENOVO/OneDrive/Desktop/PRYZM/Product_Rediness_08/packages/file-format/src/family-migrations/ops/change-parameter-type.js" points to missing source files
+Sourcemap for "C:/Users/LENOVO/OneDrive/Desktop/PRYZM/Product_Rediness_08/packages/file-format/src/family-migrations/ops/introduce-expression.js" points to missing source files
+Sourcemap for "C:/Users/LENOVO/OneDrive/Desktop/PRYZM/Product_Rediness_08/packages/file-format/src/family-migrations/ops/rebind-ifc.js" points to missing source files
+Sourcemap for "C:/Users/LENOVO/OneDrive/Desktop/PRYZM/Product_Rediness_08/packages/file-format/src/family-migrations/ops/merge-material-slots.js" points to missing source files
+Sourcemap for "C:/Users/LENOVO/OneDrive/Desktop/PRYZM/Product_Rediness_08/packages/file-format/src/family-migrations/ops/split-type.js" points to missing source files
+stderr | __tests__/aiReachesComponentSliceThroughComposedRuntime.test.ts
+THREE.WARNING: Multiple instances of Three.js being imported.
+
+stdout | __tests__/aiReachesComponentSliceThroughComposedRuntime.test.ts
+[CreateCurtainWallsOnAllSlabsCommand] §DEV: window.__resetCwPrewarm() registered. Call it in DevTools to re-enable first-run PSO prewarm for next execute().
+
+stderr | __tests__/aiReachesComponentSliceThroughComposedRuntime.test.ts
+Warning: Please use the `legacy` build in Node.js environments.
+
+stdout | __tests__/aiReachesComponentSliceThroughComposedRuntime.test.ts
+[ConstraintEngine] 17 rules registered (7 Tier 1, 5 Tier 2 spatial, 5 Tier 2 physics)
+
+ ❯ __tests__/aiReachesComponentSliceThroughComposedRuntime.test.ts (7 tests | 2 failed) 566ms
+     × ARM D — ⭐ THE ACTOR IS STAMPED: the EventRecord the bus emitted says actor.kind === "ai" (ADR-0324 §1–2 · §76 D-ii) 8ms
+     × ARM E — the provenance SURVIVES THE WIRE: it round-trips the MessagePack encoding the event log persists 7ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 2 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  __tests__/aiReachesComponentSliceThroughComposedRuntime.test.ts > §AI-REACHES-THE-SLICE — the chat lands a component through the SAME bus the UI uses, and the record says it was the AI > ARM D — ⭐ THE ACTOR IS STAMPED: the EventRecord the bus emitted says actor.kind === "ai" (ADR-0324 §1–2 · §76 D-ii)
+AssertionError: expected undefined to be defined
+ ❯ __tests__/aiReachesComponentSliceThroughComposedRuntime.test.ts:337:32
+    335|         // ⭐ THE POINT OF THE LANE. Before this change the assertion b…
+    336|         // `undefined`, and an AI-authored edit was indistinguishable …
+    337|         expect(record.context).toBeDefined();
+       |                                ^
+    338|         expect(record.context.actor.kind).toBe('ai');
+    339|         // ⚠ ADR-0324 §2, verbatim: *"never stamp actorId='ai' as a su…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/2]⎯
+
+ FAIL  __tests__/aiReachesComponentSliceThroughComposedRuntime.test.ts > §AI-REACHES-THE-SLICE — the chat lands a component through the SAME bus the UI uses, and the record says it was the AI > ARM E — the provenance SURVIVES THE WIRE: it round-trips the MessagePack encoding the event log persists
+TypeError: Cannot read properties of undefined (reading 'actor')
+ ❯ __tests__/aiReachesComponentSliceThroughComposedRuntime.test.ts:370:37
+    368|         expect(placed).toHaveLength(1);
+    369|         const roundTripped = PatchEmitter.decode(PatchEmitter.encode(p…
+    370|         expect(roundTripped.context.actor.kind).toBe('ai');
+       |                                     ^
+    371|         expect(roundTripped.context.origin.surface).toBe('chat');
+    372|     }, BUDGET);
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/2]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  2 failed | 5 passed (7)
+   Start at  09:19:10
+   Duration  44.31s (transform 30.98s, setup 0ms, import 40.90s, tests 566ms, environment 2.16s)
+
+RC=1

@@ -1,0 +1,33 @@
+{
+  "name": "@pryzm/plugin-component",
+  "version": "0.1.0",
+  "description": "PRYZM — the PLACED COMPONENT family (audit §12 Phase 4C / ADR-0376 D9 / C84 §6.2). THE JOIN: before this package no bus verb anywhere in the repository put a component definition into a project. Owns the ONE authoritative store for placed occurrences and the three verbs component.place / component.swapType / component.setInstanceParameter. The definition model lives in @pryzm/file-format and its parameter resolution in @pryzm/family-runtime; neither is duplicated here.",
+  "private": true,
+  "type": "module",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "exports": {
+    ".": "./src/index.ts",
+    "./store": "./src/store.ts",
+    "./errors": "./src/errors.ts",
+    "./handlers": "./src/handlers/index.ts",
+    "./committer": "./src/committer/index.ts"
+  },
+  "files": [
+    "src"
+  ],
+  "scripts": {
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:ci": "vitest run",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "dependencies": {
+    "@pryzm/plugin-sdk": "workspace:*",
+    "immer": "^10.1.1"
+  },
+  "devDependencies": {
+    "typescript": "^5.9.3",
+    "vitest": "^3.0.0"
+  }
+}

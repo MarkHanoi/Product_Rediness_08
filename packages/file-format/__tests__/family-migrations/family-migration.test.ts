@@ -68,7 +68,8 @@ function makeDoc(): FamilyDocument {
     types: [
       { id: TYPE_ID, name: 'Default', values: { [HEIGHT_ID]: 2100, [WIDTH_ID]: 900 }, checksum: EMPTY_HASH },
     ],
-    defaults: { [HEIGHT_ID]: 2100 },
+    // ⛔ `defaults` is GONE as of format v1.1 (C111 §5.3-b, delta D-5).
+    //    Do not re-add it to this fixture to make an assertion pass.
   };
 }
 
@@ -127,15 +128,26 @@ describe('rename-parameter', () => {
 /* ---------------------------------------------------------------- */
 
 describe('add-parameter', () => {
-  it('appends the parameter and seeds defaults when supplied', () => {
+  // ⭐ THIS ARM WAS INVERTED, NOT DELETED (C111 §5.3-b, delta D-5).
+  //   It read *"appends the parameter and seeds defaults when supplied"* and
+  //   asserted `out.document.defaults[NEW_PAR_ID] === false` — i.e. it was
+  //   the test that GUARDED the second default channel.  `document.defaults`
+  //   was maintained by three ops and READ BY NO RESOLVER, so the value this
+  //   arm protected could never reach a resolved parameter by any path.
+  //   The arm is kept and turned around so the removal has a witness: a
+  //   deleted test proves nothing, and someone re-adding the channel must
+  //   now break an assertion that says why.
+  it('appends the parameter and does NOT resurrect the dead `defaults` channel', () => {
     const fam = makeFamily();
     const m = makeAddParameterMigrator('1.0', '1.0', {
-      parameter: { id: NEW_PAR_ID, name: 'HasGlazing', kind: 'type', dataType: 'boolean', defaultValue: null, expression: null, ifcMapping: null, exposed: true },
-      seedDefault: false,
+      parameter: { id: NEW_PAR_ID, name: 'HasGlazing', kind: 'type', dataType: 'boolean', defaultValue: false, expression: null, ifcMapping: null, exposed: true },
     });
     const out = m.apply(fam);
     expect(out.document.parameters.map((p) => p.id)).toContain(NEW_PAR_ID);
-    expect(out.document.defaults[NEW_PAR_ID]).toBe(false);
+    // §5.3-a — `FamilyParameter.defaultValue` is the SOLE authority.
+    expect(out.document.parameters.find((p) => p.id === NEW_PAR_ID)?.defaultValue).toBe(false);
+    // §5.3-b/§5.3-c — and there is no second place to look.
+    expect('defaults' in out.document).toBe(false);
   });
 
   it('rejects duplicate ids', () => {
@@ -152,7 +164,7 @@ describe('add-parameter', () => {
 /* ---------------------------------------------------------------- */
 
 describe('delete-parameter', () => {
-  it('removes the parameter and scrubs values + defaults', () => {
+  it('removes the parameter and scrubs values (no `defaults` channel to scrub — D-5)', () => {
     const fam = makeFamily();
     const out = makeDeleteParameterMigrator('1.0', '1.0', { parameterId: WIDTH_ID }).apply(fam);
     expect(out.document.parameters.map((p) => p.id)).not.toContain(WIDTH_ID);
@@ -383,11 +395,24 @@ describe('migrateFamily', () => {
       apply(input) {
         const a = makeAddParameterMigrator('1.0', '1.0', {
           parameter: { id: NEW_PAR_ID, name: 'HasGlazing', kind: 'type', dataType: 'boolean', defaultValue: null, expression: null, ifcMapping: null, exposed: true },
-          seedDefault: false,
         }).apply(input);
         const b = makeRenameParameterMigrator('1.0', '1.0', { parameterId: HEIGHT_ID, newName: 'OverallHeight' }).apply(a);
         const c = makeSplitTypeMigrator('1.0', '1.0', { sourceTypeId: TYPE_ID, newTypeId: NEW_TYPE_ID, newTypeName: '1000 mm', valueOverrides: { [WIDTH_ID]: 1000 } }).apply(b);
-        return { ...c, document: { ...c.document, formatVersion: '1.0' } };
+        // ⭐ C111 §8.3 — THIS LINE USED TO READ:
+        //      return { ...c, document: { ...c.document, formatVersion: '1.0' } };
+        //   i.e. THE ONLY END-TO-END MIGRATION TEST PASSED BY WRITING THE OLD
+        //   VERSION NUMBER BACK INTO THE MIGRATED DOCUMENT.  It was the
+        //   workaround for §C111-MIGRATION-EXIT-UNSATISFIABLE, not a test of
+        //   it: with `formatVersion` typed `z.literal('1.0')`, a document
+        //   honestly stamped '1.1' failed `migrateFamily`'s own exit gate.
+        //   ⛔ Do not restore the old line. The migrator now stamps the
+        //   version it actually declares, and the exit gate accepts it —
+        //   which is the D-1 proof obligation, asserted below.
+        return {
+          ...c,
+          manifest: { ...c.manifest, formatVersion: '1.1' },
+          document: { ...c.document, formatVersion: '1.1' },
+        };
       },
     });
     const result = migrateFamily(makeFamily(), r, '1.1', { validateExit: true });
@@ -397,6 +422,10 @@ describe('migrateFamily', () => {
     expect(result.family.document.types).toHaveLength(2);
     expect(result.family.document.parameters.map((p) => p.id)).toContain(NEW_PAR_ID);
     expect(result.exitSchemaErrors ?? []).toEqual([]);
+    // ⭐ D-1: the migrated document reports the version it was migrated TO,
+    //   and BOTH fields agree.  Neither was assertable before v1.1.
+    expect(result.family.document.formatVersion).toBe('1.1');
+    expect(result.family.manifest.formatVersion).toBe('1.1');
   });
 
   it('reports exit schema errors when a migrator yields an invalid document', () => {

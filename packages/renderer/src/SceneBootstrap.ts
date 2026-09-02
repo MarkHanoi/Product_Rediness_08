@@ -77,6 +77,23 @@ export interface SceneBootstrapInput {
    *  caller path (success / soft-fail / idle).  Anchor:
    *  `04-PLAN-FORWARD/08-WAVE-4-SLOT-TYPING-ROUTING.md §2.5 SceneSlot follow-on #2`. */
   readonly committerHost: CommitterHost;
+  /**
+   * ⭐ §COMPONENT-RENDER-MOUNT-ADOPTS-INNER (lane 4E, audit §12 Phase 4E) — the
+   * caller's ALREADY-CONSTRUCTED data runtime, forwarded to the render-everything
+   * bootstrap so it attaches the render half to THAT runtime instead of building
+   * a rival one.
+   *
+   * ⛔ `unknown` on purpose, and it is the same reason `loadRenderEverything` is
+   * injected: the concrete type is `EverythingRuntime` from `@pryzm/editor`, an
+   * L7 app package that this L5 file must not depend on. The producer and the
+   * consumer are both in `apps/editor`, and they type-check each other at the
+   * point where they meet; widening here buys the layer rule at the cost of one
+   * un-typed hop, which is the trade this file already makes for the loader.
+   *
+   * ⚠ Optional. Omitted, the loader constructs its own data half exactly as
+   *   before — this seam adds no behaviour of its own.
+   */
+  readonly innerRuntime?: unknown;
   /** Lazy loader for the render-everything bootstrap.  Injected so this
    *  file does not take a static dependency on @pryzm/editor; the caller
    *  uses dynamic `import()` to supply the function on first use. */
@@ -111,10 +128,29 @@ export type RenderEverythingBootstrapFn = (opts: {
   audit: SceneBootstrapAudit;
   canvas: HTMLCanvasElement;
   mode?: 'auto' | 'webgpu' | 'webgl2';
+  /** §COMPONENT-RENDER-MOUNT-ADOPTS-INNER — forwarded from
+   *  `SceneBootstrapInput.innerRuntime`; see that field. */
+  inner?: unknown;
 }) => Promise<{
   renderer: Renderer | null;
   scheduler: FrameScheduler;
   materialPool: MaterialPool | null;
+  /**
+   * ⭐ §SCENE-BOOTSTRAP-SOFT-FAIL-WAS-DROPPED (lane 4E) — the producer has
+   * ALWAYS returned this field and this contract has never declared it, so the
+   * success branch below could not read it and hardcoded `rendererError: null`.
+   *
+   * Consequence, executed and confirmed in both happy-dom and headless Chromium
+   * on 2026-09-02: when `Renderer.init()` failed, `bootstrapRenderEverything`
+   * caught it into its own `rendererError`, returned normally, and the slot the
+   * caller received read `renderer === null` AND `rendererError === null` —
+   * byte-identical to the IDLE (no-canvas) state. `composeRuntime`'s `runScene`
+   * then took neither branch: no `scene.ready` event, and not even the
+   * `console.error` it has for exactly this case. A GPU failure and "no canvas
+   * was ever supplied" were the same value, which is the
+   * [[context-data-honesty-family]] defect at the rendering boundary.
+   */
+  rendererError?: Error | null;
   tearDown?: () => void;
 }>;
 
@@ -186,15 +222,27 @@ export async function bootstrapScene(
           audit: input.audit,
           canvas: input.canvas,
           mode,
+          inner: input.innerRuntime,
         });
-        span.setAttribute('pryzm.bootstrap.scene.outcome', 'ok');
+        // §SCENE-BOOTSTRAP-SOFT-FAIL-WAS-DROPPED — the producer's OWN soft-fail
+        // is a soft-fail here too. It used to be reported as `outcome: 'ok'`
+        // with `rendererError: null`, which is the one reading that cannot be
+        // told apart from a healthy idle slot.
+        const innerRendererError = result.rendererError ?? null;
+        span.setAttribute(
+          'pryzm.bootstrap.scene.outcome',
+          innerRendererError === null ? 'ok' : 'soft-fail',
+        );
+        if (innerRendererError !== null) {
+          span.setAttribute('pryzm.bootstrap.scene.error', innerRendererError.message);
+        }
         return {
           scene: {
             renderer: result.renderer,
             scheduler: result.scheduler,
             host: input.committerHost,
             materialPool: result.materialPool,
-            rendererError: null,
+            rendererError: innerRendererError,
           },
           tearDown:
             typeof result.tearDown === 'function'

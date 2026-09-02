@@ -255,6 +255,23 @@ export interface ProjectSnapshot {
     /** §PERSIST103 · C103 — the balcony compound parent (slab + finish + railings are their own families). */
     balconies?: any[];
     /**
+     * §COMPONENT-PLACE (audit §12 Phase 4C) · **ADR-0376 D9** — ⭐⭐ PLACED COMPONENT
+     * OCCURRENCES: the join between a `.pryzm-family` definition and a project.
+     *
+     * ⭐ THIS FAMILY HAS NO LEGACY TWIN AND NO MEMBER FAMILIES, so unlike the lift or
+     * the balcony there is no half of it that would survive without this key. A
+     * balcony that lost its parent record still left a slab, a floor finish and
+     * railings behind — which is precisely why that loss went unnoticed for four days
+     * (L-11530). A placed component that loses this key leaves NOTHING: the
+     * occurrence, its type, its instance overrides and its position all vanish
+     * together, and the project simply has fewer elements than the architect drew.
+     *
+     * ⚠ Additive-optional and omitted entirely when nothing was authored (C47), so a
+     * project with no placed components produces a snapshot byte-identical to a
+     * pre-Phase-4C one — no `SNAPSHOT_SCHEMA_VERSION` bump, no migration step.
+     */
+    components?: any[];
+    /**
      * §PERSIST-BATHROOM-POD (L-11527 / L-11405) · C109 §8 — the LOD-300 BATHROOM POD
      * compound parent.
      *
@@ -1546,6 +1563,11 @@ export class ProjectSerializer {
         const waters     = readPluginStore('water');
         const balconies  = readPluginStore('balcony');
         const bathroomPods = readPluginStore('bathroomPod');
+        // §COMPONENT-PLACE (audit §12 Phase 4C · ADR-0376 D9) — THE JOIN's save leg,
+        // through the SAME lazy resolver as the six above rather than a seventh
+        // hand-copied block. See `StoresSlot.component` for why the key on the
+        // composed runtime is what makes this read resolve at all (R11 / L-11530).
+        const components = readPluginStore('component');
 
         // ── C84 EI-6, THE LOUD HALF: say what is about to be destroyed ────────────
         //
@@ -1658,7 +1680,12 @@ export class ProjectSerializer {
             // counted in `plumbing` (the mirror projects them into the legacy fixture
             // store this serializer reads), so adding them here would double them —
             // the same rule the lift's shaft walls follow four lines up.
-            (bathroomPods?.length ?? 0);
+            (bathroomPods?.length ?? 0) +
+            // ⭐ §COMPONENT-PLACE — a placed component IS an element (ADR-0376 D9), so
+            // it counts. ⛔ NOTHING IS DOUBLE-COUNTED HERE and the reason is different
+            // from the lift's: a placed component has NO member families at all, so
+            // there is no other slice this record could already be inside.
+            (components?.length ?? 0);
 
         const snapshot: ProjectSnapshot = {
             schemaVersion: SNAPSHOT_SCHEMA_VERSION,
@@ -1687,6 +1714,10 @@ export class ProjectSerializer {
             balconies:  balconies?.length  ? balconies  : undefined,
             // §PERSIST-BATHROOM-POD (L-11527) · C109 §8 — same omit-when-absent rule.
             bathroomPods: bathroomPods?.length ? bathroomPods : undefined,
+            // §COMPONENT-PLACE (audit §12 Phase 4C · ADR-0376 D9) — THE JOIN, same
+            // omit-when-absent rule (C47): a project with no placed components writes
+            // a snapshot byte-identical to a pre-Phase-4C one.
+            components: components?.length ? components : undefined,
             // §L-1057 — omitted entirely when nothing was authored, so an untouched
             // project's snapshot is byte-identical to a pre-fix one.
             curtainPanels: curtainPanels.length > 0 ? curtainPanels : undefined,

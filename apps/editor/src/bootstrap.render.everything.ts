@@ -79,6 +79,39 @@ export interface RenderEverythingOptions extends BootstrapEverythingOptions {
   /** Optional pre-built FrameScheduler — bench/test fixtures inject
    *  one to verify the dirty-tick wiring without spinning up rAF. */
   readonly scheduler?: FrameScheduler;
+  /**
+   * ⭐ §COMPONENT-RENDER-MOUNT-ADOPTS-INNER (lane 4E, audit §12 Phase 4E) —
+   * an ALREADY-CONSTRUCTED data half to attach the render half to.
+   *
+   * ⛔ WHY THIS FIELD EXISTS, MEASURED RATHER THAN ARGUED. This function was
+   * reachable from production by exactly one path — `composeRuntime`'s
+   * `runScene()`, serving both `composeRuntime({canvas})` and
+   * `runtime.scene.mount(canvas)` — and on BOTH of them it called
+   * `bootstrapWithEverything(opts)` and built a SECOND, COMPLETE data runtime:
+   * a second bus, a second copy of every element store, a second registration
+   * of every handler. It then registered the wall/slab/door/window committers
+   * on THAT runtime's `CommitterHost` and reconciled THAT host's registry into
+   * the renderer's scene, while `bootstrapScene` handed the CALLER back its own
+   * host — on which nothing had been registered and to which no store was bound.
+   *
+   * Executed 2026-09-02, `apps/editor/__tests__/lane4eSceneMountProbe.test.ts`
+   * (happy-dom) and again in headless Chromium: after `mount()`,
+   * `performance.getEntriesByName('pryzm:bootstrap:stores:start').length === 2`
+   * and `runtime.scene.host.get('wall') === undefined`. So a committer
+   * registered on `runtime.scene.host` — the only host the typed slot exposes —
+   * received nothing, and a command dispatched on `runtime.bus` could never
+   * reach a pixel. That is why "the descriptor path has no caller" and "the
+   * descriptor path does not work" were indistinguishable from the outside.
+   *
+   * When supplied, this bootstrap ADOPTS the runtime instead of constructing a
+   * rival (the same discipline ADR-0318 applies to the element-store slot:
+   * identity, not construction), and `tearDown()` does NOT tear down a runtime
+   * it did not build — the owner does.
+   *
+   * ⚠ Omitting it preserves the previous behaviour byte for byte, so every
+   *   existing call site is unchanged.
+   */
+  readonly inner?: EverythingRuntime;
 }
 
 export interface RenderEverythingRuntime extends EverythingRuntime {
@@ -105,7 +138,13 @@ export async function bootstrapRenderEverything(
 ): Promise<RenderEverythingRuntime> {
   // --- 1. Data + plugins (no committers passed; we wire them after). ---
   // `bootstrapWithEverything` is async (batch-yields between plugins per NFT-4).
-  const inner = await bootstrapWithEverything(opts);
+  //
+  // §COMPONENT-RENDER-MOUNT-ADOPTS-INNER — adopt the caller's runtime when it
+  // supplies one; construct one only when it does not.  See the field's doc on
+  // `RenderEverythingOptions.inner` for the measurement that made this
+  // necessary.
+  const adoptedInner = opts.inner !== undefined;
+  const inner = opts.inner ?? (await bootstrapWithEverything(opts));
 
   // --- 2. Shared MaterialPool. ---
   const materialPool = new MaterialPool();
@@ -176,6 +215,11 @@ export async function bootstrapRenderEverything(
   // still work, the user just won't see pixels.  The failure is
   // surfaced via `rendererError` so the host UI can paint a banner.
   const scheduler = opts.scheduler ?? new FrameScheduler();
+  // §COMPONENT-RENDER-LOOP-WAS-NEVER-STARTED (lane 4E) — see the `start()` call
+  // below.  A scheduler this function CONSTRUCTED is its to drive; a scheduler a
+  // caller INJECTED is not, and the option's own doc says why: fixtures pass one
+  // *"to verify the dirty-tick wiring without spinning up rAF."*
+  const ownsScheduler = opts.scheduler === undefined;
   let renderer: Renderer | null = null;
   let rendererError: Error | null = null;
   let detachRenderer: (() => void) | null = null;
@@ -186,6 +230,32 @@ export async function bootstrapRenderEverything(
     detachReconciler = installSceneReconciler(inner.host, renderer, scheduler);
     camera = new CameraController(renderer.camera, opts.canvas, scheduler);
     detachRenderer = renderer.attachTo(scheduler, 'renderer.draw');
+    // ⭐ §COMPONENT-RENDER-LOOP-WAS-NEVER-STARTED (lane 4E, audit §12 Phase 4E).
+    //
+    // ⛔ THE THIRD BREAK ON THIS PATH, AND THE ONE THAT MADE THE OTHER TWO
+    //    UNFALSIFIABLE. `FrameScheduler.start(adapter = new GlobalRafAdapter())`
+    //    is what attaches the rAF pump; without it `running === false`, the tick
+    //    loop is never entered, and `markDirty()` records a flag nothing will ever
+    //    drain. So the three lines above — install the scene reconciler as a
+    //    `pre-render` tick listener, attach the renderer's draw as a tick
+    //    listener, mark the first frame dirty — were all wiring into a loop that
+    //    does not run.
+    //
+    // This function's own header, step 9, states the intent it could not deliver:
+    // *"`scheduler.markDirty('camera')` — paint a first frame so the canvas is not
+    // blank before the user clicks anything."*
+    //
+    // Measured 2026-09-02 in headless Chromium, with the adopt-inner fix already
+    // in place: `component.place` reached the store, the dispatcher reached the
+    // committer, the bake produced one solid and the committer attached one mesh
+    // (`attachedSolids: 1`, `hostRegistryHasElement: true`) — and
+    // `renderer.scene.getObjectByName('component:…')` was `undefined` with
+    // `litPixels: 0`, because the reconciler that moves `host.registry` into
+    // `renderer.scene` is a tick listener and no tick ever happened.
+    //
+    // ⚠ P3 (single rAF) is intact: `GlobalRafAdapter` inside
+    //   `packages/frame-scheduler` is the one owner, and this is a call INTO it.
+    if (ownsScheduler) scheduler.start();
     scheduler.markDirty('camera');
   } catch (err) {
     rendererError = err instanceof Error ? err : new Error(String(err));
@@ -198,7 +268,11 @@ export async function bootstrapRenderEverything(
 
   // Honor the inner runtime's start() contract (no-op today, may
   // become non-trivial in a future S06-D5-style upgrade).
-  inner.start();
+  //
+  // §COMPONENT-RENDER-MOUNT-ADOPTS-INNER — only for a runtime we CONSTRUCTED.
+  // An adopted runtime's lifecycle belongs to whoever built it; starting it a
+  // second time is the caller's decision to make, not this function's.
+  if (!adoptedInner) inner.start();
 
   let torn = false;
   return {
@@ -227,7 +301,18 @@ export async function bootstrapRenderEverything(
       if (renderer !== null) {
         try { renderer.dispose(); } catch { /* ignore */ }
       }
-      try { inner.tearDown(); } catch { /* ignore */ }
+      // §COMPONENT-RENDER-LOOP-WAS-NEVER-STARTED — symmetric with the `start()`
+      // above: stop only the loop this function owns. Leaving a rAF pump running
+      // against a disposed renderer is how a torn-down mount keeps burning frames.
+      if (ownsScheduler) {
+        try { scheduler.stop(); } catch { /* ignore */ }
+      }
+      // §COMPONENT-RENDER-MOUNT-ADOPTS-INNER — never tear down a runtime this
+      // function did not construct. `runtime.scene.mount()` is a RENDER mount;
+      // unmounting it must not take the caller's bus and stores with it.
+      if (!adoptedInner) {
+        try { inner.tearDown(); } catch { /* ignore */ }
+      }
     },
   };
 }

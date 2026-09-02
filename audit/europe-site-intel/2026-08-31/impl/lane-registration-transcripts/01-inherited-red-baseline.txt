@@ -1,0 +1,612 @@
+npm warn Unknown project config "package-manager-strict". This will stop working in the next major version of npm. See `npm help npmrc` for supported config options.
+
+ RUN  v4.1.10 C:/Users/LENOVO/OneDrive/Desktop/PRYZM/Product_Rediness_08/packages/site-parcel-data
+
+ ❯ __tests__/parcelRegistryNationalWiring.test.ts (60 tests | 47 failed) 68ms
+     × Tallinn routes to EE (ee-maaamet-kataster) as the FIRST candidate 12ms
+     × Tartu routes to EE (ee-maaamet-kataster) as the FIRST candidate 1ms
+     × Vilnius routes to LT (lt-rc-ntr-parcels-featureserver) as the FIRST candidate 1ms
+     × Kaunas routes to LT (lt-rc-ntr-parcels-featureserver) as the FIRST candidate 1ms
+     × Warsaw routes to PL (pl-gugik-uldk) as the FIRST candidate 0ms
+     × Kraków routes to PL (pl-gugik-uldk) as the FIRST candidate 1ms
+     × Luxembourg City routes to LU (footprint) as the FIRST candidate 2ms
+     × Esch-sur-Alzette routes to LU (footprint) as the FIRST candidate 1ms
+     × Stockholm routes to SE (se-lantmateriet-fastighetsindelning) as the FIRST candidate 1ms
+     × Visby routes to SE (se-lantmateriet-fastighetsindelning) as the FIRST candidate 0ms
+     × all five region codes are registered exactly once 3ms
+     × Tallinn no longer asks KARTVERKET: EE outranks the enclosing NORWAY_BBOX row 1ms
+     × Stockholm no longer reads as NORWAY: SE outranks the enclosing NORWAY_BBOX row 1ms
+     × Luxembourg City no longer reads as a German Land: LU outranks DE and FR 1ms
+     × Vilnius and Warsaw resolved to NOTHING before this batch — now they resolve 2ms
+     × CONTROL: the smallest-box rule that L-12871 forbids WOULD pick Lithuania at Suwałki 1ms
+     × Suwałki (POLISH, inside LITHUANIA_BBOX) → exactly ONE country claims it, and it is PL 3ms
+     × Sejny (POLISH, inside LITHUANIA_BBOX) → exactly ONE country claims it, and it is PL 1ms
+     × Marijampolė (LITHUANIAN, inside POLAND_BBOX) → exactly ONE country claims it, and it is LT 1ms
+     × the registry file contains no area/specificity logic on the national rows 0ms
+     × Frankfurt (Oder) — GERMAN: the PL row does NOT match, so no cadastre is confidently wrong 0ms
+     × Słubice — POLISH: the PL row does NOT match, so no cadastre is confidently wrong 0ms
+     × Görlitz — GERMAN: the PL row does NOT match, so no cadastre is confidently wrong 0ms
+     × Zgorzelec (POLISH, 1839 m from the German polygon) DOES claim — the band is not a blanket 1ms
+     × København (DANISH, inside SWEDEN_BBOX) is NOT claimed by SE 0ms
+     × Kuressaare (ESTONIAN, inside SWEDEN_BBOX) is NOT claimed by SE 1ms
+     × Klaipėda (LITHUANIAN, inside SWEDEN_BBOX) is NOT claimed by SE 0ms
+     × Røros (NORWEGIAN, inside SWEDEN_BBOX) is NOT claimed by SE 0ms
+     × Berlin (GERMAN) is NOT claimed by PL 0ms
+     × Rīga (LATVIAN, inside SWEDEN_BBOX) is NOT claimed by SE 0ms
+     × Metz (FRENCH, near LU) is NOT claimed by LU 0ms
+     × Trier (GERMAN, near LU) is NOT claimed by LU 0ms
+     × Malmö/Göteborg: SE is reached, but DK’s SMALLER BOX still ranks first (recorded, not hidden) 1ms
+     × EE.contains is total: NaN / Infinity / junk all return false, never throw 0ms
+     × LT.contains is total: NaN / Infinity / junk all return false, never throw 0ms
+     × PL.contains is total: NaN / Infinity / junk all return false, never throw 0ms
+     × LU.contains is total: NaN / Infinity / junk all return false, never throw 0ms
+     × SE.contains is total: NaN / Infinity / junk all return false, never throw 0ms
+     × the memo does not carry one point’s verdict to the next 1ms
+     × the DK row records that DAWA is keyless and live, so the note cannot read as "Denmark has no access" 2ms
+     × EE / LT / PL are cadastral (keyless services, live-probed) with a proxy seat 1ms
+     × SE is a footprint-fallback: the cadastre answered 401, so nothing is behind the route 0ms
+     × LU is a footprint-fallback: the LU adapter ships no parcel provider at all 0ms
+     × every new row has a finite specificity (none can silently sort last) 0ms
+     × the LU row nevertheless does NOT match Athus — a Belgian click stays Belgian 0ms
+     × 44 of 50 cities are routed to their own country — and the 6 that are not are NAMED 1ms
+     × LU is the country the tolerance costs most — 6 of 10, and that is a DATA limit 1ms
+
+⎯⎯⎯⎯⎯⎯ Failed Tests 47 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  __tests__/parcelRegistryNationalWiring.test.ts > L-12871 reachability — the five country adapters are now routed to > Tallinn routes to EE (ee-maaamet-kataster) as the FIRST candidate
+ FAIL  __tests__/parcelRegistryNationalWiring.test.ts > L-12871 reachability — the five country adapters are now routed to > Tartu routes to EE (ee-maaamet-kataster) as the FIRST candidate
+AssertionError: expected 'NO' to be 'EE' // Object.is equality
+
+Expected: "EE"
+Received: "NO"
+
+ ❯ __tests__/parcelRegistryNationalWiring.test.ts:79:37
+     77|             const top = primary(lat, lon);
+     78|             expect(top, `${name} matched no jurisdiction at all`).toBe…
+     79|             expect(top!.regionCode).toBe(regionCode);
+       |                                     ^
+     80|             expect(top!.providerId).toBe(providerId);
+     81|         });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/47]⎯
+
+ FAIL  __tests__/parcelRegistryNationalWiring.test.ts > L-12871 reachability — the five country adapters are now routed to > Vilnius routes to LT (lt-rc-ntr-parcels-featureserver) as the FIRST candidate
+AssertionError: Vilnius matched no jurisdiction at all: expected undefined to be defined
+ ❯ __tests__/parcelRegistryNationalWiring.test.ts:78:67
+     76|         it(`${name} routes to ${regionCode} (${providerId}) as the FIR…
+     77|             const top = primary(lat, lon);
+     78|             expect(top, `${name} matched no jurisdiction at all`).toBe…
+       |                                                                   ^
+     79|             expect(top!.regionCode).toBe(regionCode);
+     80|             expect(top!.providerId).toBe(providerId);
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/47]⎯
+
+ FAIL  __tests__/parcelRegistryNationalWiring.test.ts > L-12871 reachability — the five country adapters are now routed to > Kaunas routes to LT (lt-rc-ntr-parcels-featureserver) as the FIRST candidate
+AssertionError: Kaunas matched no jurisdiction at all: expected undefined to be defined
+ ❯ __tests__/parcelRegistryNationalWiring.test.ts:78:67
+     76|         it(`${name} routes to ${regionCode} (${providerId}) as the FIR…
+     77|             const top = primary(lat, lon);
+     78|             expect(top, `${name} matched no jurisdiction at all`).toBe…
+       |                                                                   ^
+     79|             expect(top!.regionCode).toBe(regionCode);
+     80|             expect(top!.providerId).toBe(providerId);
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/47]⎯
+
+ FAIL  __tests__/parcelRegistryNationalWiring.test.ts > L-12871 reachability — the five country adapters are now routed to > Warsaw routes to PL (pl-gugik-uldk) as the FIRST candidate
+AssertionError: Warsaw matched no jurisdiction at all: expected undefined to be defined
+ ❯ __tests__/parcelRegistryNationalWiring.test.ts:78:67
+     76|         it(`${name} routes to ${regionCode} (${providerId}) as the FIR…
+     77|             const top = primary(lat, lon);
+     78|             expect(top, `${name} matched no jurisdiction at all`).toBe…
+       |                                                                   ^
+     79|             expect(top!.regionCode).toBe(regionCode);
+     80|             expect(top!.providerId).toBe(providerId);
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[4/47]⎯
+
+ FAIL  __tests__/parcelRegistryNationalWiring.test.ts > L-12871 reachability — the five country adapters are now routed to > Kraków routes to PL (pl-gugik-uldk) as the FIRST candidate
+AssertionError: Kraków matched no jurisdiction at all: expected undefined to be defined
+ ❯ __tests__/parcelRegistryNationalWiring.test.ts:78:67
+     76|         it(`${name} routes to ${regionCode} (${providerId}) as the FIR…
+     77|             const top = primary(lat, lon);
+     78|             expect(top, `${name} matched no jurisdiction at all`).toBe…
+       |                                                                   ^
+     79|             expect(top!.regionCode).toBe(regionCode);
+     80|             expect(top!.providerId).toBe(providerId);
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[5/47]⎯
+
+ FAIL  __tests__/parcelRegistryNationalWiring.test.ts > L-12871 reachability — the five country adapters are now routed to > Luxembourg City routes to LU (footprint) as the FIRST candidate
+ FAIL  __tests__/parcelRegistryNationalWiring.test.ts > L-12871 reachability — the five country adapters are now routed to > Esch-sur-Alzette routes to LU (footprint) as the FIRST candidate
+AssertionError: expected 'BE-WAL' to be 'LU' // Object.is equality
+
+Expected: "LU"
+Received: "BE-WAL"
+
+ ❯ __tests__/parcelRegistryNationalWiring.test.ts:79:37
+     77|             const top = primary(lat, lon);
+     78|             expect(top, `${name} matched no jurisdiction at all`).toBe…
+     79|             expect(top!.regionCode).toBe(regionCode);
+       |                                     ^
+     80|             expect(top!.providerId).toBe(providerId);
+     81|         });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[6/47]⎯
+
+ FAIL  __tests__/parcelRegistryNationalWiring.test.ts > L-12871 reachability — the five country adapters are now routed to > Stockholm routes to SE (se-lantmateriet-fastighetsindelning) as the FIRST candidate
+AssertionError: expected 'NO' to be 'SE' // Object.is equality
+
+Expected: "SE"
+Received: "NO"
+
+ ❯ __tests__/parcelRegistryNationalWiring.test.ts:79:37
+     77|             const top = primary(lat, lon);
+     78|             expect(top, `${name} matched no jurisdiction at all`).toBe…
+     79|             expect(top!.regionCode).toBe(regionCode);
+       |                                     ^
+     80|             expect(top!.providerId).toBe(providerId);
+     81|         });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[7/47]⎯
+
+ FAIL  __tests__/parcelRegistryNationalWiring.test.ts > L-12871 reachability — the five country adapters are now routed to > Visby routes to SE (se-lantmateriet-fastighetsindelning) as the FIRST candidate
+AssertionError: Visby matched no jurisdiction at all: expected undefined to be defined
+ ❯ __tests__/parcelRegistryNationalWiring.test.ts:78:67
+     76|         it(`${name} routes to ${regionCode} (${providerId}) as the FIR…
+     77|             const top = primary(lat, lon);
+     78|             expect(top, `${name} matched no jurisdiction at all`).toBe…
+       |                                                                   ^
+     79|             expect(top!.regionCode).toBe(regionCode);
+     80|             expect(top!.providerId).toBe(providerId);
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[8/47]⎯
+
+ FAIL  __tests__/parcelRegistryNationalWiring.test.ts > L-12871 reachability — the five country adapters are now routed to > all five region codes are registered exactly once
+AssertionError: EE row count: expected [] to have a length of 1 but got +0
+
+- Expected
++ Received
+
+- 1
++ 0
+
+ ❯ __tests__/parcelRegistryNationalWiring.test.ts:87:68
+     85|         const all = listParcelJurisdictions().map((j) => j.regionCode);
+     86|         for (const cc of ['EE', 'LT', 'PL', 'LU', 'SE']) {
+     87|             expect(all.filter((c) => c === cc), `${cc} row count`).toH…
+       |                                                                    ^
+     88|         }
+     89|     });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[9/47]⎯
+
+ FAIL  __tests__/parcelRegistryNationalWiring.test.ts > L-12871 — the pre-existing misroutes these rows correct > Tallinn no longer asks KARTVERKET: EE outranks the enclosing NORWAY_BBOX row
+AssertionError: expected 'NO' to be 'EE' // Object.is equality
+
+Expected: "EE"
+Received: "NO"
+
+ ❯ __tests__/parcelRegistryNationalWiring.test.ts:99:28
+     97|     it('Tallinn no longer asks KARTVERKET: EE outranks the enclosing N…
+     98|         const ordered = codes(59.437, 24.7536);
+     99|         expect(ordered[0]).toBe('EE');
+       |                            ^
+    100|         // NORWAY_BBOX (57.8–71.4 N, 4.4–31.3 E) still CONTAINS Tallin…
+    101|         // row does not remove it. What changed is that Estonia is tri…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[10/47]⎯
+
+ FAIL  __tests__/parcelRegistryNationalWiring.test.ts > L-12871 — the pre-existing misroutes these rows correct > Stockholm no longer reads as NORWAY: SE outranks the enclosing NORWAY_BBOX row
+AssertionError: expected 'NO' to be 'SE' // Object.is equality
+
+Expected: "SE"
+Received: "NO"
+
+ ❯ __tests__/parcelRegistryNationalWiring.test.ts:108:28
+    106|     it('Stockholm no longer reads as NORWAY: SE outranks the enclosing…
+    107|         const ordered = codes(59.3293, 18.0686);
+    108|         expect(ordered[0]).toBe('SE');
+       |                            ^
+    109|         expect(ordered.indexOf('SE')).toBeLessThan(ordered.indexOf('NO…
+    110|         // The legacy single-verdict resolver must agree, or a coverag…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[11/47]⎯
+
+ FAIL  __tests__/parcelRegistryNationalWiring.test.ts > L-12871 — the pre-existing misroutes these rows correct > Luxembourg City no longer reads as a German Land: LU outranks DE and FR
+AssertionError: expected 'BE-WAL' to be 'LU' // Object.is equality
+
+Expected: "LU"
+Received: "BE-WAL"
+
+ ❯ __tests__/parcelRegistryNationalWiring.test.ts:117:28
+    115|     it('Luxembourg City no longer reads as a German Land: LU outranks …
+    116|         const ordered = codes(49.6116, 6.1319);
+    117|         expect(ordered[0]).toBe('LU');
+       |                            ^
+    118|         expect(ordered.indexOf('LU')).toBeLessThan(ordered.indexOf('DE…
+    119|         expect(ordered.indexOf('LU')).toBeLessThan(ordered.indexOf('FR…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[12/47]⎯
+
+ FAIL  __tests__/parcelRegistryNationalWiring.test.ts > L-12871 — the pre-existing misroutes these rows correct > Vilnius and Warsaw resolved to NOTHING before this batch — now they resolve
+AssertionError: expected [] to deeply equal [ 'LT' ]
+
+- Expected
++ Received
+
+- [
+-   "LT",
+- ]
++ []
+
+ ❯ __tests__/parcelRegistryNationalWiring.test.ts:126:41
+    124|         // No pre-existing registered bbox reaches either (NORWAY_BBOX…
+    125|         // ends at 15.1 E). Both used to fall straight to the universa…
+    126|         expect(codes(54.6872, 25.2797)).toEqual(['LT']);
+       |                                         ^
+    127|         expect(codes(52.2297, 21.0122)).toEqual(['PL']);
+    128|     });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[13/47]⎯
+
+ FAIL  __tests__/parcelRegistryNationalWiring.test.ts > L-12871 §3 — no point is decided by box area > CONTROL: the smallest-box rule that L-12871 forbids WOULD pick Lithuania at Suwałki
+Error: no registry row for LT
+ ❯ row __tests__/parcelRegistryNationalWiring.test.ts:53:23
+     51| function row(regionCode: string): ParcelJurisdiction {
+     52|     const found = listParcelJurisdictions().find((j) => j.regionCode =…
+     53|     if (!found) throw new Error(`no registry row for ${regionCode}`);
+       |                       ^
+     54|     return found;
+     55| }
+ ❯ __tests__/parcelRegistryNationalWiring.test.ts:139:50
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[14/47]⎯
+
+ FAIL  __tests__/parcelRegistryNationalWiring.test.ts > L-12871 §3 — no point is decided by box area > Suwałki (POLISH, inside LITHUANIA_BBOX) → exactly ONE country claims it, and it is PL
+ FAIL  __tests__/parcelRegistryNationalWiring.test.ts > L-12871 §3 — no point is decided by box area > Sejny (POLISH, inside LITHUANIA_BBOX) → exactly ONE country claims it, and it is PL
+AssertionError: expected undefined to be 'PL' // Object.is equality
+
+- Expected:
+"PL"
+
++ Received:
+undefined
+
+ ❯ __tests__/parcelRegistryNationalWiring.test.ts:163:32
+    161|             // (b) The ROUTER agrees, and the rival country is not eve…
+    162|             const ordered = codes(lat, lon);
+    163|             expect(ordered[0]).toBe(expected);
+       |                                ^
+    164|             const rival = expected === 'PL' ? 'LT' : 'PL';
+    165|             expect(ordered, `${rival} must not be a candidate at ${nam…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[15/47]⎯
+
+ FAIL  __tests__/parcelRegistryNationalWiring.test.ts > L-12871 §3 — no point is decided by box area > Marijampolė (LITHUANIAN, inside POLAND_BBOX) → exactly ONE country claims it, and it is LT
+AssertionError: expected undefined to be 'LT' // Object.is equality
+
+- Expected:
+"LT"
+
++ Received:
+undefined
+
+ ❯ __tests__/parcelRegistryNationalWiring.test.ts:163:32
+    161|             // (b) The ROUTER agrees, and the rival country is not eve…
+    162|             const ordered = codes(lat, lon);
+    163|             expect(ordered[0]).toBe(expected);
+       |                                ^
+    164|             const rival = expected === 'PL' ? 'LT' : 'PL';
+    165|             expect(ordered, `${rival} must not be a candidate at ${nam…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[16/47]⎯
+
+ FAIL  __tests__/parcelRegistryNationalWiring.test.ts > L-12871 §3 — no point is decided by box area > the registry file contains no area/specificity logic on the national rows
+Error: no registry row for LT
+ ❯ row __tests__/parcelRegistryNationalWiring.test.ts:53:23
+     51| function row(regionCode: string): ParcelJurisdiction {
+     52|     const found = listParcelJurisdictions().find((j) => j.regionCode =…
+     53|     if (!found) throw new Error(`no registry row for ${regionCode}`);
+       |                       ^
+     54|     return found;
+     55| }
+ ❯ __tests__/parcelRegistryNationalWiring.test.ts:173:16
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[17/47]⎯
+
+ FAIL  __tests__/parcelRegistryNationalWiring.test.ts > L-12871 §4 — the German/Polish border band refuses rather than guessing > Frankfurt (Oder) — GERMAN: the PL row does NOT match, so no cadastre is confidently wrong
+ FAIL  __tests__/parcelRegistryNationalWiring.test.ts > L-12871 §4 — the German/Polish border band refuses rather than guessing > Słubice — POLISH: the PL row does NOT match, so no cadastre is confidently wrong
+ FAIL  __tests__/parcelRegistryNationalWiring.test.ts > L-12871 §4 — the German/Polish border band refuses rather than guessing > Görlitz — GERMAN: the PL row does NOT match, so no cadastre is confidently wrong
+Error: no registry row for PL
+ ❯ row __tests__/parcelRegistryNationalWiring.test.ts:53:23
+     51| function row(regionCode: string): ParcelJurisdiction {
+     52|     const found = listParcelJurisdictions().find((j) => j.regionCode =…
+     53|     if (!found) throw new Error(`no registry row for ${regionCode}`);
+       |                       ^
+     54|     return found;
+     55| }
+ ❯ __tests__/parcelRegistryNationalWiring.test.ts:193:20
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[18/47]⎯
+
+ FAIL  __tests__/parcelRegistryNationalWiring.test.ts > L-12871 §4 — the German/Polish border band refuses rather than guessing > Zgorzelec (POLISH, 1839 m from the German polygon) DOES claim — the band is not a blanket
+AssertionError: expected 'DE' to be 'PL' // Object.is equality
+
+Expected: "PL"
+Received: "DE"
+
+ ❯ __tests__/parcelRegistryNationalWiring.test.ts:218:44
+    216|         // Proves §4 is a measured tolerance band and not "refuse ever…
+    217|         // clears the 1500 m tolerance, so the claim is made.
+    218|         expect(codes(51.1494, 15.0086)[0]).toBe('PL');
+       |                                            ^
+    219|     });
+    220| });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[19/47]⎯
+
+ FAIL  __tests__/parcelRegistryNationalWiring.test.ts > L-12871 §5 — no new row claims foreign ground > København (DANISH, inside SWEDEN_BBOX) is NOT claimed by SE
+ FAIL  __tests__/parcelRegistryNationalWiring.test.ts > L-12871 §5 — no new row claims foreign ground > Kuressaare (ESTONIAN, inside SWEDEN_BBOX) is NOT claimed by SE
+ FAIL  __tests__/parcelRegistryNationalWiring.test.ts > L-12871 §5 — no new row claims foreign ground > Klaipėda (LITHUANIAN, inside SWEDEN_BBOX) is NOT claimed by SE
+ FAIL  __tests__/parcelRegistryNationalWiring.test.ts > L-12871 §5 — no new row claims foreign ground > Røros (NORWEGIAN, inside SWEDEN_BBOX) is NOT claimed by SE
+ FAIL  __tests__/parcelRegistryNationalWiring.test.ts > L-12871 §5 — no new row claims foreign ground > Rīga (LATVIAN, inside SWEDEN_BBOX) is NOT claimed by SE
+Error: no registry row for SE
+ ❯ row __tests__/parcelRegistryNationalWiring.test.ts:53:23
+     51| function row(regionCode: string): ParcelJurisdiction {
+     52|     const found = listParcelJurisdictions().find((j) => j.regionCode =…
+     53|     if (!found) throw new Error(`no registry row for ${regionCode}`);
+       |                       ^
+     54|     return found;
+     55| }
+ ❯ __tests__/parcelRegistryNationalWiring.test.ts:240:20
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[20/47]⎯
+
+ FAIL  __tests__/parcelRegistryNationalWiring.test.ts > L-12871 §5 — no new row claims foreign ground > Berlin (GERMAN) is NOT claimed by PL
+Error: no registry row for PL
+ ❯ row __tests__/parcelRegistryNationalWiring.test.ts:53:23
+     51| function row(regionCode: string): ParcelJurisdiction {
+     52|     const found = listParcelJurisdictions().find((j) => j.regionCode =…
+     53|     if (!found) throw new Error(`no registry row for ${regionCode}`);
+       |                       ^
+     54|     return found;
+     55| }
+ ❯ __tests__/parcelRegistryNationalWiring.test.ts:240:20
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[21/47]⎯
+
+ FAIL  __tests__/parcelRegistryNationalWiring.test.ts > L-12871 §5 — no new row claims foreign ground > Metz (FRENCH, near LU) is NOT claimed by LU
+ FAIL  __tests__/parcelRegistryNationalWiring.test.ts > L-12871 §5 — no new row claims foreign ground > Trier (GERMAN, near LU) is NOT claimed by LU
+Error: no registry row for LU
+ ❯ row __tests__/parcelRegistryNationalWiring.test.ts:53:23
+     51| function row(regionCode: string): ParcelJurisdiction {
+     52|     const found = listParcelJurisdictions().find((j) => j.regionCode =…
+     53|     if (!found) throw new Error(`no registry row for ${regionCode}`);
+       |                       ^
+     54|     return found;
+     55| }
+ ❯ __tests__/parcelRegistryNationalWiring.test.ts:240:20
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[22/47]⎯
+
+ FAIL  __tests__/parcelRegistryNationalWiring.test.ts > L-12871 §5 — no new row claims foreign ground > Malmö/Göteborg: SE is reached, but DK’s SMALLER BOX still ranks first (recorded, not hidden)
+AssertionError: expected [ 'DK' ] to include 'SE'
+ ❯ __tests__/parcelRegistryNationalWiring.test.ts:262:29
+    260|             const ordered = codes(lat, lon);
+    261|             expect(ordered[0]).toBe('DK');
+    262|             expect(ordered).toContain('SE');
+       |                             ^
+    263|             // The fall-through that makes it harmless: DK has no reac…
+    264|             expect(row('DK').note).toContain('DEFERRED STUB');
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[23/47]⎯
+
+ FAIL  __tests__/parcelRegistryNationalWiring.test.ts > L-12871 §6 — purity and the one-entry memo > EE.contains is total: NaN / Infinity / junk all return false, never throw
+Error: no registry row for EE
+ ❯ row __tests__/parcelRegistryNationalWiring.test.ts:53:23
+     51| function row(regionCode: string): ParcelJurisdiction {
+     52|     const found = listParcelJurisdictions().find((j) => j.regionCode =…
+     53|     if (!found) throw new Error(`no registry row for ${regionCode}`);
+       |                       ^
+     54|     return found;
+     55| }
+ ❯ __tests__/parcelRegistryNationalWiring.test.ts:278:23
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[24/47]⎯
+
+ FAIL  __tests__/parcelRegistryNationalWiring.test.ts > L-12871 §6 — purity and the one-entry memo > LT.contains is total: NaN / Infinity / junk all return false, never throw
+Error: no registry row for LT
+ ❯ row __tests__/parcelRegistryNationalWiring.test.ts:53:23
+     51| function row(regionCode: string): ParcelJurisdiction {
+     52|     const found = listParcelJurisdictions().find((j) => j.regionCode =…
+     53|     if (!found) throw new Error(`no registry row for ${regionCode}`);
+       |                       ^
+     54|     return found;
+     55| }
+ ❯ __tests__/parcelRegistryNationalWiring.test.ts:278:23
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[25/47]⎯
+
+ FAIL  __tests__/parcelRegistryNationalWiring.test.ts > L-12871 §6 — purity and the one-entry memo > PL.contains is total: NaN / Infinity / junk all return false, never throw
+Error: no registry row for PL
+ ❯ row __tests__/parcelRegistryNationalWiring.test.ts:53:23
+     51| function row(regionCode: string): ParcelJurisdiction {
+     52|     const found = listParcelJurisdictions().find((j) => j.regionCode =…
+     53|     if (!found) throw new Error(`no registry row for ${regionCode}`);
+       |                       ^
+     54|     return found;
+     55| }
+ ❯ __tests__/parcelRegistryNationalWiring.test.ts:278:23
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[26/47]⎯
+
+ FAIL  __tests__/parcelRegistryNationalWiring.test.ts > L-12871 §6 — purity and the one-entry memo > LU.contains is total: NaN / Infinity / junk all return false, never throw
+Error: no registry row for LU
+ ❯ row __tests__/parcelRegistryNationalWiring.test.ts:53:23
+     51| function row(regionCode: string): ParcelJurisdiction {
+     52|     const found = listParcelJurisdictions().find((j) => j.regionCode =…
+     53|     if (!found) throw new Error(`no registry row for ${regionCode}`);
+       |                       ^
+     54|     return found;
+     55| }
+ ❯ __tests__/parcelRegistryNationalWiring.test.ts:278:23
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[27/47]⎯
+
+ FAIL  __tests__/parcelRegistryNationalWiring.test.ts > L-12871 §6 — purity and the one-entry memo > SE.contains is total: NaN / Infinity / junk all return false, never throw
+Error: no registry row for SE
+ ❯ row __tests__/parcelRegistryNationalWiring.test.ts:53:23
+     51| function row(regionCode: string): ParcelJurisdiction {
+     52|     const found = listParcelJurisdictions().find((j) => j.regionCode =…
+     53|     if (!found) throw new Error(`no registry row for ${regionCode}`);
+       |                       ^
+     54|     return found;
+     55| }
+ ❯ __tests__/parcelRegistryNationalWiring.test.ts:278:23
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[28/47]⎯
+
+ FAIL  __tests__/parcelRegistryNationalWiring.test.ts > L-12871 §6 — purity and the one-entry memo > the memo does not carry one point’s verdict to the next
+AssertionError: expected 'NO' to be 'EE' // Object.is equality
+
+Expected: "EE"
+Received: "NO"
+
+ ❯ __tests__/parcelRegistryNationalWiring.test.ts:291:47
+    289|         // invalidated) makes the second call in each pair inherit the…
+    290|         for (let i = 0; i < 3; i++) {
+    291|             expect(codes(59.437, 24.7536)[0]).toBe('EE');
+       |                                               ^
+    292|             expect(codes(52.2297, 21.0122)[0]).toBe('PL');
+    293|             expect(codes(59.3293, 18.0686)[0]).toBe('SE');
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[29/47]⎯
+
+ FAIL  __tests__/parcelRegistryNationalWiring.test.ts > L-12871 §7 — the DK collision left ONE Danish route, not two > the DK row records that DAWA is keyless and live, so the note cannot read as "Denmark has no access"
+AssertionError: expected 'Datafordeler Matrikel WFS (mat:Jordst…' to contain 'DAWA'
+
+Expected: "DAWA"
+Received: "Datafordeler Matrikel WFS (mat:Jordstykke), EPSG:25832 → WGS84 — DEFERRED STUB (L-449, founder-ruled 2026-07-30): a Datafordeler admin bootstrap is MitID-gated (same class as SE BankID), unobtainable, so the provider never attempts live access and returns null → OSM footprint (graceful, honestly labelled a footprint, never a legal parcel). Single method-body swap-in when access lands. The signed OFFLINE legislation half (Plandata → buildable envelope) is separate and complete."
+
+ ❯ __tests__/parcelRegistryNationalWiring.test.ts:328:32
+    326|
+    327|     it('the DK row records that DAWA is keyless and live, so the note …
+    328|         expect(row('DK').note).toContain('DAWA');
+       |                                ^
+    329|         expect(row('DK').note).toContain('KEYLESSLY');
+    330|     });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[30/47]⎯
+
+ FAIL  __tests__/parcelRegistryNationalWiring.test.ts > L-12871 §8 — each row declares the access state its lane measured > EE / LT / PL are cadastral (keyless services, live-probed) with a proxy seat
+Error: no registry row for EE
+ ❯ row __tests__/parcelRegistryNationalWiring.test.ts:53:23
+     51| function row(regionCode: string): ParcelJurisdiction {
+     52|     const found = listParcelJurisdictions().find((j) => j.regionCode =…
+     53|     if (!found) throw new Error(`no registry row for ${regionCode}`);
+       |                       ^
+     54|     return found;
+     55| }
+ ❯ __tests__/parcelRegistryNationalWiring.test.ts:340:20
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[31/47]⎯
+
+ FAIL  __tests__/parcelRegistryNationalWiring.test.ts > L-12871 §8 — each row declares the access state its lane measured > SE is a footprint-fallback: the cadastre answered 401, so nothing is behind the route
+Error: no registry row for SE
+ ❯ row __tests__/parcelRegistryNationalWiring.test.ts:53:23
+     51| function row(regionCode: string): ParcelJurisdiction {
+     52|     const found = listParcelJurisdictions().find((j) => j.regionCode =…
+     53|     if (!found) throw new Error(`no registry row for ${regionCode}`);
+       |                       ^
+     54|     return found;
+     55| }
+ ❯ __tests__/parcelRegistryNationalWiring.test.ts:348:16
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[32/47]⎯
+
+ FAIL  __tests__/parcelRegistryNationalWiring.test.ts > L-12871 §8 — each row declares the access state its lane measured > LU is a footprint-fallback: the LU adapter ships no parcel provider at all
+Error: no registry row for LU
+ ❯ row __tests__/parcelRegistryNationalWiring.test.ts:53:23
+     51| function row(regionCode: string): ParcelJurisdiction {
+     52|     const found = listParcelJurisdictions().find((j) => j.regionCode =…
+     53|     if (!found) throw new Error(`no registry row for ${regionCode}`);
+       |                       ^
+     54|     return found;
+     55| }
+ ❯ __tests__/parcelRegistryNationalWiring.test.ts:354:16
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[33/47]⎯
+
+ FAIL  __tests__/parcelRegistryNationalWiring.test.ts > L-12871 §8 — each row declares the access state its lane measured > every new row has a finite specificity (none can silently sort last)
+Error: no registry row for EE
+ ❯ row __tests__/parcelRegistryNationalWiring.test.ts:53:23
+     51| function row(regionCode: string): ParcelJurisdiction {
+     52|     const found = listParcelJurisdictions().find((j) => j.regionCode =…
+     53|     if (!found) throw new Error(`no registry row for ${regionCode}`);
+       |                       ^
+     54|     return found;
+     55| }
+ ❯ __tests__/parcelRegistryNationalWiring.test.ts:361:66
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[34/47]⎯
+
+ FAIL  __tests__/parcelRegistryNationalWiring.test.ts > L-12871 §9 — an un-modelled neighbour is never annexed > the LU row nevertheless does NOT match Athus — a Belgian click stays Belgian
+Error: no registry row for LU
+ ❯ row __tests__/parcelRegistryNationalWiring.test.ts:53:23
+     51| function row(regionCode: string): ParcelJurisdiction {
+     52|     const found = listParcelJurisdictions().find((j) => j.regionCode =…
+     53|     if (!found) throw new Error(`no registry row for ${regionCode}`);
+       |                       ^
+     54|     return found;
+     55| }
+ ❯ __tests__/parcelRegistryNationalWiring.test.ts:386:16
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[35/47]⎯
+
+ FAIL  __tests__/parcelRegistryNationalWiring.test.ts > L-12871 §10 — measured coverage over the ten largest cities of each country > 44 of 50 cities are routed to their own country — and the 6 that are not are NAMED
+AssertionError: expected +0 to be 44 // Object.is equality
+
+- Expected
++ Received
+
+- 44
++ 0
+
+ ❯ __tests__/parcelRegistryNationalWiring.test.ts:465:24
+    463|             }
+    464|         }
+    465|         expect(routed).toBe(44);
+       |                        ^
+    466|         expect(missed.sort()).toEqual(
+    467|             KNOWN_MISSES.map(([cc, name]) => `${cc}:${name}`).sort(),
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[36/47]⎯
+
+ FAIL  __tests__/parcelRegistryNationalWiring.test.ts > L-12871 §10 — measured coverage over the ten largest cities of each country > LU is the country the tolerance costs most — 6 of 10, and that is a DATA limit
+AssertionError: expected +0 to be 6 // Object.is equality
+
+- Expected
++ Received
+
+- 6
++ 0
+
+ ❯ __tests__/parcelRegistryNationalWiring.test.ts:487:26
+    485|         // footprint-fallback either way, so no click changes what the…
+    486|         const luRouted = CITIES.LU!.filter(([, lat, lon]) => codes(lat…
+    487|         expect(luRouted).toBe(6);
+       |                          ^
+    488|         expect(row('LU').kind).toBe('footprint-fallback');
+    489|     });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[37/47]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  47 failed | 13 passed (60)
+   Start at  08:23:41
+   Duration  1.28s (transform 443ms, setup 0ms, import 632ms, tests 68ms, environment 0ms)
+
+RC=1

@@ -355,7 +355,26 @@ const D_LEGACY = [
   ...family('D', 'Dedicated height route; the chat sets column height via element.updateParameters (set-height), the same route the property panel uses.', ['column.setHeight']),
   ...family('D', 'Dedicated height route; the chat sets door height via element.updateParameters (set-height).', ['door.setHeight']),
   ...family('D', 'room.rename (the chat\'s route) already carries name AND roomNumber through the same legacy RenameRoomCommand bridge.', ['room.setName']),
-  ...family('D', 'Bare-verb alias registration of the .create form.', ['floor', 'pool']),
+  // ⛔⭐ REMOVED 2026-09-02 (lane 4H) — THIS ROW WAS A CONFIDENT FICTION.
+  //
+  //     ...family('D', 'Bare-verb alias registration of the .create form.', ['floor', 'pool']),
+  //
+  // There is no bare-verb alias. `plugins/floor/src/handlers/CreateFloor.ts` declares
+  // `readonly type = 'floor.create'` and, further down, builds its record with
+  // `type: 'floor'` — `FloorData`'s DISCRIMINATOR FIELD. `CreatePool.ts` is the same
+  // shape (`'pool.create'`, then `type: 'pool'` inside `_recordOf`). The coverage
+  // gate's `HANDLER_TYPE_RE` matched the record literal, invented two verbs, and the
+  // ratchet then demanded that somebody declare them — so somebody wrote a plausible
+  // sentence for commands that have never existed.
+  //
+  // ⭐ THAT IS [[confident-register-rows-are-the-wrong-ones]] EXACTLY: an honest
+  // blank would have been safe; the prose-justified verdict was wrong. The gate now
+  // excludes element-kind discriminators
+  // (§FIX-ELEMENT-KIND-DISCRIMINATOR-IS-NOT-A-VERB) and names them on stdout, and its
+  // own stale-entry check is what caught this row — it printed
+  //   "floor" is classified but not a registered bus command — stale entry.
+  // ⛔ If that message ever returns, the answer is to delete the row, never to
+  // re-add a verb to satisfy it.
   ...family('D', 'Legacy alias of grid.create registered in initBusHandlers.', ['grid.add']),
 ];
 

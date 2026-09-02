@@ -4,8 +4,16 @@
 // reference to its id from:
 //   - `document.types[*].values[parameterId]`
 //   - `document.profiles[*].constraints[*].parameterRef`
-//   - `document.defaults[parameterId]`
 //   - `ifcMapping.parameters[*]` entries with matching parameterId
+//
+// ⛔ §C111-TWO-DEFAULT-CHANNELS (C111 §5.3-b, delta D-5) — v1.1.
+//   `document.defaults` is GONE.  It was a SECOND answer to "what is
+//   this parameter's default?", maintained by this op and two siblings
+//   and READ BY NO RESOLVER — which is exactly what made a dead channel
+//   look alive.  §5.3-a: `FamilyParameter.defaultValue` is the sole
+//   definition-default authority.  ⛔ §5.3-c: adding a reader back is
+//   the FORBIDDEN fix — it mints the second source of truth §76 gate B
+//   exists to prevent.
 //
 // `lengthExpression` strings that mention the deleted parameter's
 // NAME are NOT auto-rewritten — that would silently change geometry.
@@ -44,7 +52,6 @@ export function makeDeleteParameterMigrator(from, to, params) {
                 const { [params.parameterId]: _removed, ...rest } = t.values;
                 return { ...t, values: rest };
             });
-            const { [params.parameterId]: _d, ...defaults } = input.document.defaults;
             const ifcMapping = input.ifcMapping
                 ? {
                     ...input.ifcMapping,
@@ -59,7 +66,6 @@ export function makeDeleteParameterMigrator(from, to, params) {
                     parameters,
                     profiles,
                     types,
-                    defaults,
                 },
                 ifcMapping,
                 events: input.events,

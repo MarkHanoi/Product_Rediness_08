@@ -1,0 +1,299 @@
+[WARN] The "pnpm" field in package.json is no longer read by pnpm. The following keys were ignored: "pnpm.overrides", "pnpm.onlyBuiltDependencies". See https://pnpm.io/settings for the new home of each setting.
+
+> @pryzm/family-instance@0.1.0 test C:\Users\LENOVO\OneDrive\Desktop\PRYZM\Product_Rediness_08\packages\family-instance
+> vitest run
+
+
+ RUN  v4.1.10 C:/Users/LENOVO/OneDrive/Desktop/PRYZM/Product_Rediness_08/packages/family-instance
+
+ ❯ __tests__/profileRegeneration.test.ts (18 tests | 18 failed) 44ms
+     × RECTANGULAR: the descriptor extent equals the resolved Width/Height, and follows an override 18ms
+     × ARCHED (spec §64 "arched top"): every head vertex lies ON the circle, and the rise follows Width 2ms
+     × POLYGON (hexagon): six distinct sides, extent = 2R, and it follows R 1ms
+     × RHOMBOID: the lean equals Skew and changes with it, while the base stays Width 1ms
+     × CIRCLE: the section is a real circle at the declared tolerance, not a polygon of arbitrary density 1ms
+     × is DETERMINISTIC — the same document baked twice is byte-identical on every profile 3ms
+     × tessellation density is a PURE function of the resolved inputs 1ms
+     × the INJECTED adapter is what evaluates — the kernel is no longer hard-wired 1ms
+     × an adapter WITHOUT a capability refuses by name instead of substituting one 3ms
+     × the default adapter declares all four kernel capabilities 1ms
+     × sweep refuses, and the message does NOT cite a constraint solver 1ms
+     × loft refuses, and the message does NOT cite a constraint solver 1ms
+     × revolve refuses, and the message does NOT cite a constraint solver 1ms
+     × boolean refuses, and the message does NOT cite a constraint solver 1ms
+     × a non-+Y extrude direction REFUSES instead of being silently ignored (L-11530 shape) 1ms
+     × an UNDER-DETERMINED arc still refuses — and that is where `profile-needs-solver` was always TRUE 1ms
+     × a spline refuses honestly rather than being approximated (spec §75) 2ms
+     × a STRING coordinate with no resolvable parameter refuses instead of defaulting to zero 1ms
+
+⎯⎯⎯⎯⎯⎯ Failed Tests 18 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  __tests__/profileRegeneration.test.ts > §67 partial — profiles regenerate from parameters > RECTANGULAR: the descriptor extent equals the resolved Width/Height, and follows an override
+AssertionError: expected false to be true // Object.is equality
+
+- Expected
++ Received
+
+- true
++ false
+
+ ❯ __tests__/profileRegeneration.test.ts:238:21
+    236|     const solids = [extrudeSolid('sol_01HZ00000000000000000RCS01', 'pr…
+    237|     const base = await bakeOne([rectangularProfile()], solids);
+    238|     expect(base.ok).toBe(true);
+       |                     ^
+    239|     expect(base.unsupported).toHaveLength(0);
+    240|     const a = xzExtent(base.baked[0]!.descriptor.position);
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/18]⎯
+
+ FAIL  __tests__/profileRegeneration.test.ts > §67 partial — profiles regenerate from parameters > ARCHED (spec §64 "arched top"): every head vertex lies ON the circle, and the rise follows Width
+AssertionError: expected false to be true // Object.is equality
+
+- Expected
++ Received
+
+- true
++ false
+
+ ❯ __tests__/profileRegeneration.test.ts:255:20
+    253|     const solids = [extrudeSolid('sol_01HZ00000000000000000ARS01', 'pr…
+    254|     const res = await bakeOne([archedProfile()], solids);
+    255|     expect(res.ok).toBe(true);
+       |                    ^
+    256|     expect(res.unsupported).toHaveLength(0);
+    257|
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/18]⎯
+
+ FAIL  __tests__/profileRegeneration.test.ts > §67 partial — profiles regenerate from parameters > POLYGON (hexagon): six distinct sides, extent = 2R, and it follows R
+AssertionError: expected false to be true // Object.is equality
+
+- Expected
++ Received
+
+- true
++ false
+
+ ❯ __tests__/profileRegeneration.test.ts:293:20
+    291|     const solids = [extrudeSolid('sol_01HZ00000000000000000HXS01', 'pr…
+    292|     const res = await bakeOne([hexagonProfile()], solids);
+    293|     expect(res.ok).toBe(true);
+       |                    ^
+    294|     expect(res.unsupported).toHaveLength(0);
+    295|     const e = xzExtent(res.baked[0]!.descriptor.position);
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/18]⎯
+
+ FAIL  __tests__/profileRegeneration.test.ts > §67 partial — profiles regenerate from parameters > RHOMBOID: the lean equals Skew and changes with it, while the base stays Width
+AssertionError: expected false to be true // Object.is equality
+
+- Expected
++ Received
+
+- true
++ false
+
+ ❯ __tests__/profileRegeneration.test.ts:314:20
+    312|     const solids = [extrudeSolid('sol_01HZ00000000000000000RHS01', 'pr…
+    313|     const res = await bakeOne([rhomboidProfile()], solids);
+    314|     expect(res.ok).toBe(true);
+       |                    ^
+    315|     const e = xzExtent(res.baked[0]!.descriptor.position);
+    316|     // total x span = Width + Skew = 1.2 + 0.3
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[4/18]⎯
+
+ FAIL  __tests__/profileRegeneration.test.ts > §67 partial — profiles regenerate from parameters > CIRCLE: the section is a real circle at the declared tolerance, not a polygon of arbitrary density
+AssertionError: expected false to be true // Object.is equality
+
+- Expected
++ Received
+
+- true
++ false
+
+ ❯ __tests__/profileRegeneration.test.ts:332:20
+    330|     const solids = [extrudeSolid('sol_01HZ00000000000000000CIS01', 'pr…
+    331|     const res = await bakeOne([circleProfile()], solids);
+    332|     expect(res.ok).toBe(true);
+       |                    ^
+    333|     const pos = res.baked[0]!.descriptor.position;
+    334|     const e = xzExtent(pos);
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[5/18]⎯
+
+ FAIL  __tests__/profileRegeneration.test.ts > §67 partial — profiles regenerate from parameters > is DETERMINISTIC — the same document baked twice is byte-identical on every profile
+AssertionError: expected [] to have a length of 4 but got +0
+
+- Expected
++ Received
+
+- 4
++ 0
+
+ ❯ __tests__/profileRegeneration.test.ts:353:21
+    351|     const a = await bakeOne(profiles, solids);
+    352|     const b = await bakeOne(profiles, solids);
+    353|     expect(a.baked).toHaveLength(4);
+       |                     ^
+    354|     for (let i = 0; i < 4; i++) {
+    355|       expect(a.baked[i]!.descriptor.position).toEqual(b.baked[i]!.desc…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[6/18]⎯
+
+ FAIL  __tests__/profileRegeneration.test.ts > §67 partial — profiles regenerate from parameters > tessellation density is a PURE function of the resolved inputs
+TypeError: segmentsForSweep is not a function
+ ❯ __tests__/profileRegeneration.test.ts:364:12
+    362|     // No clock, no counter, no LOD: same inputs -> same count, and a …
+    363|     // radius at the same tolerance needs strictly more segments.
+    364|     expect(segmentsForSweep(0.6, Math.PI)).toBe(segmentsForSweep(0.6, …
+       |            ^
+    365|     expect(segmentsForSweep(6, Math.PI)).toBeGreaterThan(segmentsForSw…
+    366|     // A radius at or below the coincidence tolerance is not a curve a…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[7/18]⎯
+
+ FAIL  __tests__/profileRegeneration.test.ts > §4D-GEOMETRY-ADAPTER — the kernel is behind a port > the INJECTED adapter is what evaluates — the kernel is no longer hard-wired
+AssertionError: expected false to be true // Object.is equality
+
+- Expected
++ Received
+
+- true
++ false
+
+ ❯ __tests__/profileRegeneration.test.ts:400:20
+    398|       recording,
+    399|     );
+    400|     expect(res.ok).toBe(true);
+       |                    ^
+    401|     // The TRANSLATION is observable at the port: four polygon vertice…
+    402|     // height that already crossed §4D-ONE-LENGTH-SEAM (100 mm -> 0.1 …
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[8/18]⎯
+
+ FAIL  __tests__/profileRegeneration.test.ts > §4D-GEOMETRY-ADAPTER — the kernel is behind a port > an adapter WITHOUT a capability refuses by name instead of substituting one
+AssertionError: expected 'profile-eval-failed' to be 'unsupported-feature' // Object.is equality
+
+Expected: "unsupported-feature"
+Received: "profile-eval-failed"
+
+ ❯ __tests__/profileRegeneration.test.ts:418:40
+    416|     expect(res.ok).toBe(false);
+    417|     expect(res.baked).toHaveLength(0);
+    418|     expect(res.unsupported[0]!.reason).toBe('unsupported-feature');
+       |                                        ^
+    419|     expect(res.unsupported[0]!.message).toContain('no-capabilities-ada…
+    420|     expect(res.unsupported[0]!.message).toContain('provides: none');
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[9/18]⎯
+
+ FAIL  __tests__/profileRegeneration.test.ts > §4D-GEOMETRY-ADAPTER — the kernel is behind a port > the default adapter declares all four kernel capabilities
+TypeError: Cannot read properties of undefined (reading 'id')
+ ❯ __tests__/profileRegeneration.test.ts:424:34
+    422|
+    423|   it('the default adapter declares all four kernel capabilities', () =…
+    424|     expect(kernelGeometryAdapter.id).toBe('@pryzm/geometry-kernel');
+       |                                  ^
+    425|     expect(typeof kernelGeometryAdapter.extrude).toBe('function');
+    426|     expect(typeof kernelGeometryAdapter.sweep).toBe('function');
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[10/18]⎯
+
+ FAIL  __tests__/profileRegeneration.test.ts > §4D-SCHEMA-DELTA — refusals name the missing SCHEMA fields, never a solver > sweep refuses, and the message does NOT cite a constraint solver
+ FAIL  __tests__/profileRegeneration.test.ts > §4D-SCHEMA-DELTA — refusals name the missing SCHEMA fields, never a solver > loft refuses, and the message does NOT cite a constraint solver
+ FAIL  __tests__/profileRegeneration.test.ts > §4D-SCHEMA-DELTA — refusals name the missing SCHEMA fields, never a solver > revolve refuses, and the message does NOT cite a constraint solver
+ FAIL  __tests__/profileRegeneration.test.ts > §4D-SCHEMA-DELTA — refusals name the missing SCHEMA fields, never a solver > boolean refuses, and the message does NOT cite a constraint solver
+AssertionError: expected false to be true // Object.is equality
+
+- Expected
++ Received
+
+- true
++ false
+
+ ❯ __tests__/profileRegeneration.test.ts:466:22
+    464|         [extrudeSolid('sol_01HZ00000000000000000RCS01', 'prof_01HZ0000…
+    465|       );
+    466|       expect(res.ok).toBe(true);          // the supported solid still…
+       |                      ^
+    467|       expect(res.baked).toHaveLength(1);
+    468|       expect(res.unsupported).toHaveLength(1);
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[11/18]⎯
+
+ FAIL  __tests__/profileRegeneration.test.ts > §4D-SCHEMA-DELTA — refusals name the missing SCHEMA fields, never a solver > a non-+Y extrude direction REFUSES instead of being silently ignored (L-11530 shape)
+AssertionError: expected 'profile-eval-failed' to be 'unsupported-feature' // Object.is equality
+
+Expected: "unsupported-feature"
+Received: "profile-eval-failed"
+
+ ❯ __tests__/profileRegeneration.test.ts:488:40
+    486|     const res = await bakeOne([rectangularProfile()], [sideways]);
+    487|     expect(res.ok).toBe(false);
+    488|     expect(res.unsupported[0]!.reason).toBe('unsupported-feature');
+       |                                        ^
+    489|     expect(res.unsupported[0]!.message).toContain('direction');
+    490|     expect(res.unsupported[0]!.message).toContain('SILENTLY');
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[12/18]⎯
+
+ FAIL  __tests__/profileRegeneration.test.ts > §4D-SCHEMA-DELTA — refusals name the missing SCHEMA fields, never a solver > an UNDER-DETERMINED arc still refuses — and that is where `profile-needs-solver` was always TRUE
+AssertionError: expected 'profile-eval-failed' to be 'unsupported-feature' // Object.is equality
+
+Expected: "unsupported-feature"
+Received: "profile-eval-failed"
+
+ ❯ __tests__/profileRegeneration.test.ts:505:40
+    503|     const res = await bakeOne([broken], [extrudeSolid('sol_01HZ0000000…
+    504|     expect(res.ok).toBe(false);
+    505|     expect(res.unsupported[0]!.reason).toBe('unsupported-feature');
+       |                                        ^
+    506|     expect(res.unsupported[0]!.message).toContain('under-determined');
+    507|   });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[13/18]⎯
+
+ FAIL  __tests__/profileRegeneration.test.ts > §4D-SCHEMA-DELTA — refusals name the missing SCHEMA fields, never a solver > a spline refuses honestly rather than being approximated (spec §75)
+AssertionError: expected '[profileToPolygon] profile prof_01HZ0…' to contain 'spline'
+
+Expected: "spline"
+Received: "[profileToPolygon] profile prof_01HZ00000000000000000SPL01 entity 01HZE0000000000000000SP001 has non-finite coords (x=0, z=0)."
+
+ ❯ __tests__/profileRegeneration.test.ts:521:41
+    519|     const res = await bakeOne([spliney], [extrudeSolid('sol_01HZ000000…
+    520|     expect(res.ok).toBe(false);
+    521|     expect(res.unsupported[0]!.message).toContain('spline');
+       |                                         ^
+    522|     expect(res.unsupported[0]!.message).toContain('not determined by t…
+    523|   });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[14/18]⎯
+
+ FAIL  __tests__/profileRegeneration.test.ts > §4D-SCHEMA-DELTA — refusals name the missing SCHEMA fields, never a solver > a STRING coordinate with no resolvable parameter refuses instead of defaulting to zero
+AssertionError: expected 'profile-eval-failed' to be 'unsupported-feature' // Object.is equality
+
+Expected: "unsupported-feature"
+Received: "profile-eval-failed"
+
+ ❯ __tests__/profileRegeneration.test.ts:544:40
+    542|     //   determined by the resolved scope, which is `'unsupported-feat…
+    543|     //   HEAD reported `'profile-eval-failed'`, i.e. a malformed coord…
+    544|     expect(res.unsupported[0]!.reason).toBe('unsupported-feature');
+       |                                        ^
+    545|     expect(res.unsupported[0]!.message).toContain('unknown identifier'…
+    546|   });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[15/18]⎯
+
+
+ Test Files  1 failed | 1 passed (2)
+      Tests  18 failed | 5 passed (23)
+   Start at  08:12:44
+   Duration  2.09s (transform 2.30s, setup 0ms, import 3.15s, tests 62ms, environment 0ms)
+
+C:\Users\LENOVO\OneDrive\Desktop\PRYZM\Product_Rediness_08\packages\family-instance:
+ ERR_PNPM_RECURSIVE_RUN_FIRST_FAIL  @pryzm/family-instance@0.1.0 test: `vitest run`
+Exit status 1
+RC=1

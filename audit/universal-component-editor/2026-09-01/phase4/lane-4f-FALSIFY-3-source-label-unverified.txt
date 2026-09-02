@@ -1,0 +1,66 @@
+npm warn Unknown project config "package-manager-strict". This will stop working in the next major version of npm. See `npm help npmrc` for supported config options.
+
+ RUN  v4.1.10 C:/Users/LENOVO/OneDrive/Desktop/PRYZM/Product_Rediness_08
+
+ ❯ apps/editor/src/ui/component/__tests__/componentParameterTable.spec.ts (14 tests | 3 failed) 80ms
+     × an expression that fails leaves the cell EMPTY and the pass FAILED — never the default 9ms
+     × ⭐ a UNIT MISMATCH reaches the screen as itself, not as a generic failure 6ms
+     × ⛔ a parse error does NOT read as "Formula" — the formula never became the source 3ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 3 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  apps/editor/src/ui/component/__tests__/componentParameterTable.spec.ts > §PARAM-SOURCE-IS-VISIBLE · ARM E — ⛔ nothing is substituted for a failed computation > an expression that fails leaves the cell EMPTY and the pass FAILED — never the default
+AssertionError: expected 'expression' to be 'unresolved' // Object.is equality
+
+Expected: "unresolved"
+Received: "expression"
+
+ ❯ apps/editor/src/ui/component/__tests__/componentParameterTable.spec.ts:246:36
+    244|         expect(valueCell(root, 'p2').textContent).toBe('—');
+    245|         expect(valueCell(root, 'p2').textContent).not.toContain('999');
+    246|         expect(source(root, 'p2')).toBe('unresolved');
+       |                                    ^
+    247|         const foot = root.querySelector('[data-cpt-status]')!;
+    248|         expect(foot.getAttribute('data-cpt-status')).toBe('error');
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/3]⎯
+
+ FAIL  apps/editor/src/ui/component/__tests__/componentParameterTable.spec.ts > §PARAM-SOURCE-IS-VISIBLE · ARM E — ⛔ nothing is substituted for a failed computation > ⭐ a UNIT MISMATCH reaches the screen as itself, not as a generic failure
+AssertionError: expected 'expression' to be 'unresolved' // Object.is equality
+
+Expected: "unresolved"
+Received: "expression"
+
+ ❯ apps/editor/src/ui/component/__tests__/componentParameterTable.spec.ts:265:36
+    263|         expect(diag).not.toBeNull();
+    264|         expect(diag!.getAttribute('data-cpt-diag-severity')).toBe('err…
+    265|         expect(source(root, 'p3')).toBe('unresolved');
+       |                                    ^
+    266|     });
+    267|
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/3]⎯
+
+ FAIL  apps/editor/src/ui/component/__tests__/componentParameterTable.spec.ts > §PARAM-SOURCE-IS-VISIBLE · ARM E — ⛔ nothing is substituted for a failed computation > ⛔ a parse error does NOT read as "Formula" — the formula never became the source
+AssertionError: expected 'default' to be 'unresolved' // Object.is equality
+
+Expected: "unresolved"
+Received: "default"
+
+ ❯ apps/editor/src/ui/component/__tests__/componentParameterTable.spec.ts:277:36
+    275|         // The pass is `ok:false`, so no value exists and the row says…
+    276|         // labelling a number that was never produced.
+    277|         expect(source(root, 'p1')).toBe('unresolved');
+       |                                    ^
+    278|         expect(root.querySelector('[data-cpt-diag="expression-parse"]'…
+    279|     });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/3]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  3 failed | 11 passed (14)
+   Start at  09:23:41
+   Duration  2.42s (transform 1.12s, setup 0ms, import 1.45s, tests 80ms, environment 618ms)
+
+RC=1

@@ -25,8 +25,9 @@
 // useful values mid-edit.
 
 import { collectIdentifiers, parse, ParseError, type AstNode } from '../expression/parser.js';
-import { evaluateAst, ExpressionEvalError } from '../expression/evaluator.js';
+import { evaluateAst, ExpressionEvalError, type ScopeValue } from '../expression/evaluator.js';
 import { LexError } from '../expression/tokenizer.js';
+import { kindOfDataType, UnitMismatchError } from '../expression/unit-coercion.js';
 import { emitSpan } from '../span-sink.js';
 import type {
   FamilyParameter,
@@ -185,17 +186,32 @@ export function resolveParameter(input: ResolverInput): ResolverResult {
         });
       }
       try {
-        const numericScope: Record<string, number> = {};
+        // ⛔ §UNIT-KIND-ERASURE (C110 §3.5) — THE SCOPE IS KINDED HERE, AND
+        //    THIS LINE IS WHY `UnitMismatchError` CAN THROW AT ALL.
+        //    It used to read `const numericScope: Record<string, number>`,
+        //    and that single type is the whole defect: every parameter's
+        //    declared `dataType` — the one place the model records what a
+        //    number MEASURES — was dropped on the way into the evaluator, so
+        //    `walk()` compared magnitudes with no way to ask whether they
+        //    were commensurable. The kind is carried, not re-derived: it
+        //    comes from the DECLARATION, never from the value's magnitude.
+        const kindedScope: Record<string, ScopeValue> = {};
         for (const [k, v] of Object.entries(values)) {
-          if (typeof v === 'number') numericScope[k] = v;
+          if (typeof v !== 'number') continue;
+          const declaring = byName.get(k);
+          if (declaring === undefined) continue;
+          kindedScope[k] = { value: v, kind: kindOfDataType(declaring.dataType) };
         }
-        const v = evaluateAst(c.ast, numericScope, { src: p.expression ?? undefined, parameterId: p.id });
+        const v = evaluateAst(c.ast, kindedScope, { src: p.expression ?? undefined, parameterId: p.id });
         values[p.name] = v;
       } catch (e) {
-        const msg = e instanceof ExpressionEvalError ? e.message : String(e);
+        // §DIAG-CLOSED-SET (C110 §4.4): every failure is a typed code. A
+        // `UnitMismatchError` escaping as a bare Error would be the breach
+        // that clause names, so it is mapped rather than re-thrown.
+        const msg = e instanceof Error ? e.message : String(e);
         diagnostics.push({
           severity: 'error',
-          code: e instanceof ExpressionEvalError && e.code === 'unknown-identifier' ? 'unknown-identifier' : 'expression-eval',
+          code: unitAwareCode(e),
           parameterId: p.id,
           message: msg,
         });
@@ -240,6 +256,16 @@ export function resolveParameter(input: ResolverInput): ResolverResult {
     return { ok: true, values, order, diagnostics };
   }
   return { ok: false, diagnostics };
+}
+
+/** Map a thrown evaluation failure onto the closed diagnostic set
+ *  (C110 §4.4 §DIAG-CLOSED-SET). `unit-mismatch` is the member this lane
+ *  added, and it is the first code in this union whose error class existed
+ *  before the code that could produce it. */
+function unitAwareCode(e: unknown): ResolverDiagnostic['code'] {
+  if (e instanceof UnitMismatchError) return 'unit-mismatch';
+  if (e instanceof ExpressionEvalError && e.code === 'unknown-identifier') return 'unknown-identifier';
+  return 'expression-eval';
 }
 
 function pickOverride(

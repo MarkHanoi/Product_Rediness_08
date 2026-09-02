@@ -15,16 +15,16 @@ change, not a rename — see C69 §2.
 
 | | |
 |---|---|
-| Handler files read | 1407 (floor 900) |
-| **Verbs** | **361** (floor 250) |
-| LIVE | 150 |
+| Handler files read | 1401 (floor 900) |
+| **Verbs** | **364** (floor 250) |
+| LIVE | 153 |
 | REFUSES | 37 |
 | SHADOWED (dead route) | 0 |
 | UNKNOWN | 174 |
 | — of the LIVE, credited by the §L-946 mirror channel | 12 of 12 level-change verb(s) |
 | authoritative store NONE or UNKNOWN | 211 |
-| sync UNDECLARED (property verbs) | 2 |
-| chat UNDECLARED | 15 |
+| sync UNDECLARED (property verbs) | 3 |
+| chat UNDECLARED | 1 |
 
 These numbers are re-derived on every run. Do not transcribe them anywhere else
 (C64 §2.13) — cite this file.
@@ -54,11 +54,11 @@ These numbers are re-derived on every run. Do not transcribe them anywhere else
 | `annotation.setText` | plugins/annotations | UNKNOWN | UNKNOWN | patch-pair → annotation | synced via 'annotationId' (disclose) | classified B |
 | `annotation.setTextHeight` | plugins/annotations | UNKNOWN | UNKNOWN | patch-pair → annotation | synced via 'annotationId' (disclose) | classified B |
 | `annotation.update` | plugins/annotations | UNKNOWN | UNKNOWN | patch-pair → annotation | synced via 'annotationId' (disclose) | classified B |
-| `balcony.create` | plugins/balcony | UNKNOWN | UNKNOWN | patch-pair → balcony + slab + floor + handrail | synced via 'balconyId' (disclose) | UNDECLARED |
-| `balcony.delete` | plugins/balcony | UNKNOWN | UNKNOWN | patch-pair → balcony + slab + floor + handrail | not-synced (reason declared) | UNDECLARED |
-| `balcony.updateProfile` | plugins/balcony | UNKNOWN | UNKNOWN | patch-pair → balcony + slab + floor + handrail | synced via 'balconyId' (disclose) | UNDECLARED |
-| `bathroomPod.create` | plugins/plumbing | LIVE | adopted composed store: bathroomPod (§BLSTORE/§BATH102 StoresSlot singleton) | patch-pair → bathroomPod | n/a (not a property verb) | UNDECLARED |
-| `bathroomPod.delete` | plugins/plumbing | LIVE | adopted composed store: bathroomPod (§BLSTORE/§BATH102 StoresSlot singleton) | patch-pair → bathroomPod | n/a (not a property verb) | UNDECLARED |
+| `balcony.create` | plugins/balcony | UNKNOWN | UNKNOWN | patch-pair → balcony + slab + floor + handrail | synced via 'balconyId' (disclose) | deferred (CHAT_UNAVAILABLE) |
+| `balcony.delete` | plugins/balcony | UNKNOWN | UNKNOWN | patch-pair → balcony + slab + floor + handrail | not-synced (reason declared) | deferred (CHAT_UNAVAILABLE) |
+| `balcony.updateProfile` | plugins/balcony | UNKNOWN | UNKNOWN | patch-pair → balcony + slab + floor + handrail | synced via 'balconyId' (disclose) | deferred (CHAT_UNAVAILABLE) |
+| `bathroomPod.create` | plugins/plumbing | LIVE | adopted composed store: bathroomPod (§BLSTORE/§BATH102 StoresSlot singleton) | patch-pair → bathroomPod | n/a (not a property verb) | deferred (CHAT_UNAVAILABLE) |
+| `bathroomPod.delete` | plugins/plumbing | LIVE | adopted composed store: bathroomPod (§BLSTORE/§BATH102 StoresSlot singleton) | patch-pair → bathroomPod | n/a (not a property verb) | deferred (CHAT_UNAVAILABLE) |
 | `beam.batch.create` | plugins/beam | UNKNOWN | UNKNOWN | patch-pair → beam | not-synced (reason declared) | classified C |
 | `beam.changeLevel` | plugins/beam | LIVE | legacy beamStore (via element.level-changed mirror) | patch-pair → beam | not-synced (reason declared) | capability: move-to-level |
 | `beam.create` | plugins/beam | UNKNOWN | UNKNOWN | patch-pair → beam | synced via 'id' (disclose) | classified B |
@@ -93,6 +93,9 @@ These numbers are re-derived on every run. Do not transcribe them anywhere else
 | `column.setMaterial` | plugins/column | REFUSES | NONE | patch-pair → column | not-synced (reason declared) | deferred (CHAT_UNAVAILABLE) |
 | `column.setType` | plugins/column | UNKNOWN | UNKNOWN | patch-pair → column | synced via 'columnId' (disclose) | classified B |
 | `column.update` | apps/editor | LIVE | column | UNKNOWN (declares column) | synced via 'id' (disclose) | classified D |
+| `component.place` | plugins/component | LIVE | adopted composed store: component (§BLSTORE/§BATH102 StoresSlot singleton) | patch-pair → component | n/a (not a property verb) | deferred (CHAT_UNAVAILABLE) |
+| `component.setInstanceParameter` | plugins/component | LIVE | adopted composed store: component (§BLSTORE/§BATH102 StoresSlot singleton) | patch-pair → component | UNDECLARED | deferred (CHAT_UNAVAILABLE) |
+| `component.swapType` | plugins/component | LIVE | adopted composed store: component (§BLSTORE/§BATH102 StoresSlot singleton) | patch-pair → component | n/a (not a property verb) | deferred (CHAT_UNAVAILABLE) |
 | `copy-selection` | plugins/selection | UNKNOWN | UNKNOWN | NONE (empty patch pair) | not-synced (reason declared) | classified B |
 | `cube.move` | plugins/toy-cube | UNKNOWN | UNKNOWN | patch-pair → cube | not-synced (reason declared) | UNDECLARED |
 | `curtain-wall.addGridLine` | plugins/curtain-wall | UNKNOWN | UNKNOWN | patch-pair → curtainwall | synced via 'curtainWallId' (disclose) | classified B |
@@ -181,9 +184,9 @@ These numbers are re-derived on every run. Do not transcribe them anywhere else
 | `generation.finish-chain` | apps/editor | LIVE | legacy geometry store (via commandManager) | NONE (empty patch pair) | not-synced (reason declared) | capability: finish-apartment-chain |
 | `generation.rooms` | apps/editor | LIVE | legacy geometry store (via commandManager) | UNKNOWN | not-synced (reason declared) | capability: generate-room-finishes |
 | `generative.applyLayout` | apps/editor | LIVE | legacy geometry store (via commandManager) | legacy-stack (no affectedStores) | not-synced (reason declared) | classified C |
-| `graph.neighbors` | apps/editor | LIVE | legacy geometry store (via commandManager) | UNKNOWN | not-synced (reason declared) | UNDECLARED |
-| `graph.path` | apps/editor | LIVE | legacy geometry store (via commandManager) | UNKNOWN | not-synced (reason declared) | UNDECLARED |
-| `graph.query` | apps/editor | LIVE | legacy geometry store (via commandManager) | UNKNOWN | not-synced (reason declared) | UNDECLARED |
+| `graph.neighbors` | apps/editor | LIVE | legacy geometry store (via commandManager) | UNKNOWN | not-synced (reason declared) | deferred (CHAT_UNAVAILABLE) |
+| `graph.path` | apps/editor | LIVE | legacy geometry store (via commandManager) | UNKNOWN | not-synced (reason declared) | deferred (CHAT_UNAVAILABLE) |
+| `graph.query` | apps/editor | LIVE | legacy geometry store (via commandManager) | UNKNOWN | not-synced (reason declared) | deferred (CHAT_UNAVAILABLE) |
 | `grid.add` | apps/editor | LIVE | legacy geometry store (via commandManager) | legacy-stack (no affectedStores) | not-synced (reason declared) | classified D |
 | `grid.create` | plugins/grid | UNKNOWN | UNKNOWN | patch-pair → grid | synced via 'id' (disclose) | classified B |
 | `grid.delete` | plugins/grid | UNKNOWN | UNKNOWN | patch-pair → grid | not-synced (reason declared) | classified B |
@@ -208,8 +211,8 @@ These numbers are re-derived on every run. Do not transcribe them anywhere else
 | `level.add` | apps/editor | LIVE | legacy geometry store (via commandManager) | legacy-stack (no affectedStores) | not-synced (reason declared) | capability: add-level |
 | `level.duplicate-floor-plan` | plugins/levels | LIVE | legacy geometry store (via commandManager) | legacy-stack (no affectedStores) | not-synced (reason declared) | capability: duplicate-level |
 | `level.update` | apps/editor | LIVE | legacy geometry store (via commandManager) | legacy-stack (no affectedStores) | not-synced (reason declared) | classified B |
-| `lift.create` | plugins/lift | UNKNOWN | UNKNOWN | patch-pair → lift + liftPart + wall + curtainwall + door + slab | synced via 'liftId' (disclose) | UNDECLARED |
-| `lift.delete` | plugins/lift | UNKNOWN | UNKNOWN | patch-pair → lift + liftPart + wall + curtainwall + door + slab | not-synced (reason declared) | UNDECLARED |
+| `lift.create` | plugins/lift | UNKNOWN | UNKNOWN | patch-pair → lift + liftPart + wall + curtainwall + door + slab | synced via 'liftId' (disclose) | deferred (CHAT_UNAVAILABLE) |
+| `lift.delete` | plugins/lift | UNKNOWN | UNKNOWN | patch-pair → lift + liftPart + wall + curtainwall + door + slab | not-synced (reason declared) | deferred (CHAT_UNAVAILABLE) |
 | `lighting.changeLevel` | plugins/lighting | LIVE | legacy lightingStore (via element.level-changed mirror) | patch-pair → lighting | not-synced (reason declared) | capability: move-to-level |
 | `lighting.create` | plugins/lighting | UNKNOWN | UNKNOWN | patch-pair → lighting | synced via 'id' (disclose) | classified B |
 | `lighting.delete` | plugins/lighting | UNKNOWN | UNKNOWN | patch-pair → lighting | not-synced (reason declared) | classified D |
@@ -247,7 +250,7 @@ These numbers are re-derived on every run. Do not transcribe them anywhere else
 | `roof.setShape` | plugins/roof | UNKNOWN | UNKNOWN | patch-pair → roof | synced via 'roofId' (disclose) | classified B |
 | `roof.setThickness` | plugins/roof | UNKNOWN | UNKNOWN | patch-pair → roof | synced via 'roofId' (disclose) | classified D |
 | `roof.update` | apps/editor | LIVE | legacy geometry store (via commandManager) | legacy-stack (no affectedStores) | synced via 'id' (disclose) | capability: set-thickness |
-| `room.autoClassify.batch` | plugins/rooms | LIVE | legacy geometry store (via commandManager) | legacy-stack (no affectedStores) | not-synced (reason declared) | UNDECLARED |
+| `room.autoClassify.batch` | plugins/rooms | LIVE | legacy geometry store (via commandManager) | legacy-stack (no affectedStores) | not-synced (reason declared) | deferred (CHAT_UNAVAILABLE) |
 | `room.create` | plugins/rooms | LIVE | legacy geometry store (via commandManager) | legacy-stack (no affectedStores) | synced via 'id' (disclose) | classified B |
 | `room.delete` | plugins/rooms | LIVE | legacy geometry store (via commandManager) | legacy-stack (no affectedStores) | not-synced (reason declared) | classified D |
 | `room.move` | plugins/rooms | LIVE | legacy geometry store (via commandManager) | legacy-stack (no affectedStores) | not-synced (reason declared) | deferred (CHAT_UNAVAILABLE) |
@@ -255,8 +258,8 @@ These numbers are re-derived on every run. Do not transcribe them anywhere else
 | `room.redetect` | plugins/rooms | UNKNOWN | UNKNOWN | NONE (empty patch pair) | not-synced (reason declared) | classified C |
 | `room.regenerate` | plugins/rooms | REFUSES | NONE | NONE (empty patch pair) | not-synced (reason declared) | classified E |
 | `room.rename` | plugins/rooms | LIVE | legacy geometry store (via commandManager) | legacy-stack (no affectedStores) | synced via 'roomId' (last-writer-wins) | capability: rename-room |
-| `room.restoreMeaning` | plugins/rooms | LIVE | legacy geometry store (via commandManager) | legacy-stack (no affectedStores) | n/a (not a property verb) | UNDECLARED |
-| `room.setColourMode` | plugins/rooms | UNKNOWN | UNKNOWN | NONE (empty patch pair) | UNDECLARED | UNDECLARED |
+| `room.restoreMeaning` | plugins/rooms | LIVE | legacy geometry store (via commandManager) | legacy-stack (no affectedStores) | n/a (not a property verb) | deferred (CHAT_UNAVAILABLE) |
+| `room.setColourMode` | plugins/rooms | UNKNOWN | UNKNOWN | NONE (empty patch pair) | UNDECLARED | deferred (CHAT_UNAVAILABLE) |
 | `room.setDepartment` | plugins/rooms | LIVE | legacy geometry store (via commandManager) | legacy-stack (no affectedStores) | synced via 'roomId' (disclose) | deferred (CHAT_UNAVAILABLE) |
 | `room.setFinish` | plugins/rooms | LIVE | legacy geometry store (via commandManager) | legacy-stack (no affectedStores) | not-synced (reason declared) | classified B |
 | `room.setHeightOffset` | plugins/rooms | LIVE | legacy geometry store (via commandManager) | legacy-stack (no affectedStores) | synced via 'roomId' (disclose) | capability: set-room-height-offset |
@@ -348,7 +351,7 @@ These numbers are re-derived on every run. Do not transcribe them anywhere else
 | `view.hideElement` | apps/editor | LIVE | legacy geometry store (via commandManager) | legacy-stack (no affectedStores) | not-synced (reason declared) | classified B |
 | `view.isolateElement` | apps/editor | LIVE | legacy geometry store (via commandManager) | legacy-stack (no affectedStores) | not-synced (reason declared) | classified B |
 | `view.rename` | plugins/view | UNKNOWN | UNKNOWN | patch-pair → view | not-synced (reason declared) | classified F |
-| `view.setCategoryVisibility` | apps/editor | LIVE | legacy geometry store (via commandManager) | legacy-stack (no affectedStores) | UNDECLARED | UNDECLARED |
+| `view.setCategoryVisibility` | apps/editor | LIVE | legacy geometry store (via commandManager) | legacy-stack (no affectedStores) | UNDECLARED | deferred (CHAT_UNAVAILABLE) |
 | `view.setCrop` | apps/editor | LIVE | legacy geometry store (via commandManager) | legacy-stack (no affectedStores) | not-synced (reason declared) | classified B |
 | `view.setGraphicOverride` | apps/editor | LIVE | legacy geometry store (via commandManager) | legacy-stack (no affectedStores) | not-synced (reason declared) | classified B |
 | `view.setOutput` | plugins/view | UNKNOWN | UNKNOWN | patch-pair → view | not-synced (reason declared) | classified B |

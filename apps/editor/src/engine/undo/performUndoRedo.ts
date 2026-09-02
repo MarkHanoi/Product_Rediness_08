@@ -578,6 +578,34 @@ export function buildUndoStoreMap(): Record<string, PatchApplicableAdapter | und
     // test file. Closing this properly needs an edit to that suite, which belongs to
     // whoever owns §L-977 — and trading one green arm for one red one to shorten a list in
     // an already-red one is not a fix. Reported, not raced.
+    // ⭐⭐ §COMPONENT-PLACE (audit §12 Phase 4C · ADR-0376 D9) — THE JOIN's undo,
+    // wired ON THE FAMILY'S FIRST COMMIT rather than after a founder reports Ctrl+Z
+    // doing nothing.
+    //
+    // ⚠ THIS ENTRY IS NOT OPTIONAL POLISH, IT IS WHAT MAKES THE VERB SAFE. Without
+    // it `_covered()` declines every `component.*` ring-buffer entry (all three verbs
+    // declare `affectedStores = ['component']`, and coverage is all-or-nothing), so
+    // `performUndo` does NOT step the cursor and falls through to the legacy
+    // `commandManager` — which owns nothing at all for this key, because the family
+    // is new and has no legacy twin. The keypress would be a measured no-op. That is
+    // the exact shape of the 47-of-361 STRANDED verbs `audit/full-stack/2026-08-31/
+    // commands/` counted, and of L-11160's *"[Undo] STRANDED … no applyPatch adapter
+    // for store(s) [boundaryLine]"*.
+    //
+    // ⭐ IT NEEDS ONLY THE PLAIN FACTORY, and the measurement is stated rather than
+    // assumed. `boundaryLine` and `lift` get bespoke modules because they must
+    // RE-DRIVE a render seam an undo would otherwise bypass. This family has no
+    // render seam to re-drive at this commit: nothing subscribes the component
+    // store's `subscribeDirty` (the 3-D leg is Phase 4E's under D10, descope
+    // pre-authorised), and there is no `component.created` bus channel with a
+    // consumer. Emitting one here would be INVENTING a consumer — the failure this
+    // factory's own header names for `structural` / `dimension`.
+    //
+    // ⛔ AND WHAT IT DOES NOT CLAIM: it reverts the AUTHORITATIVE record. When 4E
+    // gives the family a render seam, that seam must be re-driven here — and, per
+    // this file's own precedent, by a bespoke adapter rather than by widening the
+    // generic one.
+    component:  composedStoreUndoAdapter('component',  resolveComposedStoreFromWindow),
     balcony:    composedStoreUndoAdapter('balcony',    resolveComposedStoreFromWindow),
     structural: composedStoreUndoAdapter('structural', resolveComposedStoreFromWindow),
     dimension:  composedStoreUndoAdapter('dimension',  resolveComposedStoreFromWindow),

@@ -30,6 +30,18 @@ import { ProjectOrigin } from './elements/ProjectOrigin.js';
 // §FEAT-SWIMMING-POOL-ELEMENT (L-292) — the pool ASSEMBLY parent + its water. ADR-0124.
 import { Pool } from './elements/Pool.js';
 import { Water } from './elements/Water.js';
+// §COMPONENT-PLACE (audit §12 Phase 4C) · ADR-0376 D9 — the PLACED OCCURRENCE of a
+// component definition. Registered here IN THE SAME COMMIT as the kind itself,
+// because the audit's own T9 measured this file drifting from `src/elements/`:
+// *"`SCHEMA_REGISTRY` is not a census of element kinds. 28 registry entries, 32
+// files in `src/elements/`. `Balcony`, `BoundaryLine`, `Section` and
+// `CurtainPanelVocabulary` define schemas the registry omits — and `Balcony` /
+// `BoundaryLine` are governed by real contracts (C103, C106)."* That is the
+// row-and-range rule one level down, and D9 makes moving the row a BINDING
+// CONDITION of minting the kind rather than a tidiness preference.
+// ⛔ Adding `component` here does NOT close T9 for the other four; they are still
+// omitted, and this comment is not a claim that they are not.
+import { Component } from './elements/Component.js';
 
 /**
  * The element schemas, addressable by element-type discriminator.
@@ -65,6 +77,9 @@ export const SCHEMA_REGISTRY = {
   projectOrigin: ProjectOrigin,
   pool: Pool,
   water: Water,
+  // §COMPONENT-PLACE · ADR-0376 D9 — THE JOIN. See the import above for why the row
+  // and the kind moved together.
+  component: Component,
 } as const;
 
 export type SchemaRegistry = typeof SCHEMA_REGISTRY;

@@ -129,6 +129,14 @@ export default defineConfig({
       'apps/editor/src/ui/facade/__tests__/**/*.spec.ts',
       // §L-11130 — the generator's pure helpers (shell arcs) live beside the executor.
       'apps/editor/src/ui/residential-building/__tests__/**/*.spec.ts',
+      // ⭐ §COMPONENT-AUTHORING-UI (Phase 4F · ADR-0376 D2 · C86 §10.1 PR-9) — the component
+      // authoring surface: the profile-on-a-reference-plane adapter, the constraint-glyph
+      // honesty table (C74 §4.6.3) and the parameter table (C110 §2.2). ⚠ ADDED IN THE SAME
+      // COMMIT AS THE FILES, never after — §L-851 is the record of 72 spec files and 1,433
+      // cases that sat unselected because this list is an ALLOWLIST: a spec outside it is not
+      // skipped, it is NEVER DISCOVERED, and `vitest run <path>` prints "No test files found"
+      // rather than failing. "Never ran" and "passed" print the same value.
+      'apps/editor/src/ui/component/__tests__/**/*.spec.ts',
       // §XSS-SINK-SCAN (L-407): the GA-gate HTML-sink classifier + the repo-wide
       // ratchet assertion. Pure Node (fs + string analysis); lives here because
       // `test:root` is the only suite CI runs over non-package tooling.

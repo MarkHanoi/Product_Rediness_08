@@ -1,0 +1,151 @@
+=== check-snapshot-family-coverage ===
+npm warn Unknown project config "package-manager-strict". This will stop working in the next major version of npm. See `npm help npmrc` for supported config options.
+[snapshot-family-coverage] subject: 31 plugin DTO store key(s) across 29 store file(s).
+[snapshot-family-coverage] authority: 31 declared row(s) · serializer surface: 76 field(s) declared, 73 written.
+
+[snapshot-family-coverage] ⚠ 2 family/families are DECLARED UNPERSISTED (baseline 2) — authored records are destroyed on reload:
+    · section — L-11524 (OPEN) — SectionStore (plugins/section-view) has no snapshot key, so every section view the user cuts is lost on reload. Sibling of `view`, whose ViewRegistry DOES persist via `viewDefinitions`; the asymmetry is real and undeclared until now.
+    · structural — L-11523 (OPEN) — brace / footing / foundation-slab / connection (S26, ADR-0026) have NO snapshot key and NO legacy twin: `grep -c structural ProjectSerializer.ts` finds only unrelated prose. Every structural record is destroyed on reload. NOT fixed here because the family has no restore command on the loader path and no render mirror to reach (it is also `owner: nothing` in UNMAPPED_BUS_STORE_KEYS) — closing it is a lane, not a key.
+
+[snapshot-family-coverage] ✓ OK: 31 family/families, 31 row(s), sets equal in both directions.
+[snapshot-family-coverage]   28 persistence claim(s) verified against the snapshot's own fields and writers · 2/2 declared losses.
+[snapshot-family-coverage] ⚠ NOT ESTABLISHED HERE: that any family ROUND-TRIPS. A snapshot key is a declared slot, not
+[snapshot-family-coverage]   a proof that a record was written into it, read back, or restored with its properties.
+[snapshot-family-coverage]   C67 rule 12 wants an EXECUTED create→serialize→deserialize→read-back: that is
+[snapshot-family-coverage]   apps/editor/src/engine/__tests__/snapshotFamilyRoundTrip.spec.ts, for the five families L-11520 closed.
+[snapshot-family-coverage] ⚠ ALSO OUT OF SUBJECT: the LOD-200 massing lift (packages/geometry-lift/src/LiftStore.ts,
+[snapshot-family-coverage]   storeRegistry key 'verticalCirculation'). It has no plugins/*/src/store.ts, so no arm sees
+[snapshot-family-coverage]   it — and it is NOT persisted either. L-11525, OPEN.
+RC=0
+=== check-verb-register ===
+npm warn Unknown project config "package-manager-strict". This will stop working in the next major version of npm. See `npm help npmrc` for supported config options.
+──────────────────────────────────────────────────────────────────────────────
+C69 §VERB-REGISTER — the API verb register is generated, and CI diffs it
+──────────────────────────────────────────────────────────────────────────────
+Handler files read                 : 1401  (floor 900)
+Verbs discovered                   : 364  (floor 250)
+  LIVE                             : 153
+  REFUSES                          : 37
+  SHADOWED (dead route)            : 0
+  UNKNOWN                          : 174
+§LIVE-VIA-MIRROR (L-946 channel)   : 12 of 12 level-change verb(s) — LEVEL_CHANGE_VERBS 12 · LEGACY_LEVEL_MOVERS 12 · initTools deps 14
+Authoritative store NONE / UNKNOWN : 211
+Sync UNDECLARED (property verbs)   : 3
+Chat UNDECLARED                    : 1
+──────────────────────────────────────────────────────────────────────────────
+NOTE (C66 §1.1 — a claim and a measurement must not be written the same way):
+LIVE means the verb is declared in an execution-authority root or delegates to the
+legacy commandManager. It does NOT mean the write is correct, that undo reverts it,
+or that a collaborator sees it — see the sync column, and check-sync-disposition's
+own note that no CRDT transport is deployed (L-391).
+
+✗ 1 failure(s):
+
+   • V2 docs/04-reference/API-VERB-REGISTER.md is STALE — the verb set matches but 19 line(s) disagree with the code (a liveness, store, undo, sync or chat column moved). Regenerate with --write.
+    line 18
+      committed: | Handler files read | 1396 (floor 900) |
+      code says: | Handler files read | 1401 (floor 900) |
+    line 27
+      committed: | chat UNDECLARED | 18 |
+      code says: | chat UNDECLARED | 1 |
+    line 57
+      committed: | `balcony.create` | plugins/balcony | UNKNOWN | UNKNOWN | patch-pair → balcony + slab + floor + handrail | synced via 'balconyId' (disclose) | UNDECLARED |
+      code says: | `balcony.create` | plugins/balcony | UNKNOWN | UNKNOWN | patch-pair → balcony + slab + floor + handrail | synced via 'balconyId' (disclose) | deferred (CHAT_UNAVAILABLE) |
+    line 58
+      committed: | `balcony.delete` | plugins/balcony | UNKNOWN | UNKNOWN | patch-pair → balcony + slab + floor + handrail | not-synced (reason declared) | UNDECLARED |
+      code says: | `balcony.delete` | plugins/balcony | UNKNOWN | UNKNOWN | patch-pair → balcony + slab + floor + handrail | not-synced (reason declared) | deferred (CHAT_UNAVAILABLE) |
+    line 59
+      committed: | `balcony.updateProfile` | plugins/balcony | UNKNOWN | UNKNOWN | patch-pair → balcony + slab + floor + handrail | synced via 'balconyId' (disclose) | UNDECLARED |
+      code says: | `balcony.updateProfile` | plugins/balcony | UNKNOWN | UNKNOWN | patch-pair → balcony + slab + floor + handrail | synced via 'balconyId' (disclose) | deferred (CHAT_UNAVAILABLE) |
+    line 60
+      committed: | `bathroomPod.create` | plugins/plumbing | LIVE | adopted composed store: bathroomPod (§BLSTORE/§BATH102 StoresSlot singleton) | patch-pair → bathroomPod | n/a (not a property verb) | UNDECLARED |
+      code says: | `bathroomPod.create` | plugins/plumbing | LIVE | adopted composed store: bathroomPod (§BLSTORE/§BATH102 StoresSlot singleton) | patch-pair → bathroomPod | n/a (not a property verb) | deferred (CHAT_UNAVAILABLE) |
+    line 61
+      committed: | `bathroomPod.delete` | plugins/plumbing | LIVE | adopted composed store: bathroomPod (§BLSTORE/§BATH102 StoresSlot singleton) | patch-pair → bathroomPod | n/a (not a property verb) | UNDECLARED |
+      code says: | `bathroomPod.delete` | plugins/plumbing | LIVE | adopted composed store: bathroomPod (§BLSTORE/§BATH102 StoresSlot singleton) | patch-pair → bathroomPod | n/a (not a property verb) | deferred (CHAT_UNAVAILABLE) |
+    line 96
+      committed: | `component.place` | plugins/component | LIVE | adopted composed store: component (§BLSTORE/§BATH102 StoresSlot singleton) | patch-pair → component | n/a (not a property verb) | UNDECLARED |
+      code says: | `component.place` | plugins/component | LIVE | adopted composed store: component (§BLSTORE/§BATH102 StoresSlot singleton) | patch-pair → component | n/a (not a property verb) | deferred (CHAT_UNAVAILABLE) |
+    line 97
+      committed: | `component.setInstanceParameter` | plugins/component | LIVE | adopted composed store: component (§BLSTORE/§BATH102 StoresSlot singleton) | patch-pair → component | UNDECLARED | UNDECLARED |
+      code says: | `component.setInstanceParameter` | plugins/component | LIVE | adopted composed store: component (§BLSTORE/§BATH102 StoresSlot singleton) | patch-pair → component | UNDECLARED | deferred (CHAT_UNAVAILABLE) |
+    line 98
+      committed: | `component.swapType` | plugins/component | LIVE | adopted composed store: component (§BLSTORE/§BATH102 StoresSlot singleton) | patch-pair → component | n/a (not a property verb) | UNDECLARED |
+      code says: | `component.swapType` | plugins/component | LIVE | adopted composed store: component (§BLSTORE/§BATH102 StoresSlot singleton) | patch-pair → component | n/a (not a property verb) | deferred (CHAT_UNAVAILABLE) |
+    line 187
+      committed: | `graph.neighbors` | apps/editor | LIVE | legacy geometry store (via commandManager) | UNKNOWN | not-synced (reason declared) | UNDECLARED |
+      code says: | `graph.neighbors` | apps/editor | LIVE | legacy geometry store (via commandManager) | UNKNOWN | not-synced (reason declared) | deferred (CHAT_UNAVAILABLE) |
+    line 188
+      committed: | `graph.path` | apps/editor | LIVE | legacy geometry store (via commandManager) | UNKNOWN | not-synced (reason declared) | UNDECLARED |
+      code says: | `graph.path` | apps/editor | LIVE | legacy geometry store (via commandManager) | UNKNOWN | not-synced (reason declared) | deferred (CHAT_UNAVAILABLE) |
+    line 189
+      committed: | `graph.query` | apps/editor | LIVE | legacy geometry store (via commandManager) | UNKNOWN | not-synced (reason declared) | UNDECLARED |
+      code says: | `graph.query` | apps/editor | LIVE | legacy geometry store (via commandManager) | UNKNOWN | not-synced (reason declared) | deferred (CHAT_UNAVAILABLE) |
+    line 214
+      committed: | `lift.create` | plugins/lift | UNKNOWN | UNKNOWN | patch-pair → lift + liftPart + wall + curtainwall + door + slab | synced via 'liftId' (disclose) | UNDECLARED |
+      code says: | `lift.create` | plugins/lift | UNKNOWN | UNKNOWN | patch-pair → lift + liftPart + wall + curtainwall + door + slab | synced via 'liftId' (disclose) | deferred (CHAT_UNAVAILABLE) |
+    line 215
+      committed: | `lift.delete` | plugins/lift | UNKNOWN | UNKNOWN | patch-pair → lift + liftPart + wall + curtainwall + door + slab | not-synced (reason declared) | UNDECLARED |
+      code says: | `lift.delete` | plugins/lift | UNKNOWN | UNKNOWN | patch-pair → lift + liftPart + wall + curtainwall + door + slab | not-synced (reason declared) | deferred (CHAT_UNAVAILABLE) |
+    line 253
+      committed: | `room.autoClassify.batch` | plugins/rooms | LIVE | legacy geometry store (via commandManager) | legacy-stack (no affectedStores) | not-synced (reason declared) | UNDECLARED |
+      code says: | `room.autoClassify.batch` | plugins/rooms | LIVE | legacy geometry store (via commandManager) | legacy-stack (no affectedStores) | not-synced (reason declared) | deferred (CHAT_UNAVAILABLE) |
+    line 261
+      committed: | `room.restoreMeaning` | plugins/rooms | LIVE | legacy geometry store (via commandManager) | legacy-stack (no affectedStores) | n/a (not a property verb) | UNDECLARED |
+      code says: | `room.restoreMeaning` | plugins/rooms | LIVE | legacy geometry store (via commandManager) | legacy-stack (no affectedStores) | n/a (not a property verb) | deferred (CHAT_UNAVAILABLE) |
+    line 262
+      committed: | `room.setColourMode` | plugins/rooms | UNKNOWN | UNKNOWN | NONE (empty patch pair) | UNDECLARED | UNDECLARED |
+      code says: | `room.setColourMode` | plugins/rooms | UNKNOWN | UNKNOWN | NONE (empty patch pair) | UNDECLARED | deferred (CHAT_UNAVAILABLE) |
+    line 354
+      committed: | `view.setCategoryVisibility` | apps/editor | LIVE | legacy geometry store (via commandManager) | legacy-stack (no affectedStores) | UNDECLARED | UNDECLARED |
+      code says: | `view.setCategoryVisibility` | apps/editor | LIVE | legacy geometry store (via commandManager) | legacy-stack (no affectedStores) | UNDECLARED | deferred (CHAT_UNAVAILABLE) |
+
+RC=1
+=== check-mirror-completeness ===
+npm warn Unknown project config "package-manager-strict". This will stop working in the next major version of npm. See `npm help npmrc` for supported config options.
+[mirror-completeness] subject: 1401 handler file(s) · 364 verb(s) · 29 plugin DTO store key(s) from 36 store file(s) · 38 bridge case arm(s) (38 line(s)) + 10 mutation-table verb(s) in packages/runtime-composer/src/CommandEventBridge.ts
+[mirror-completeness] verbs that WRITE a plugin DTO store: 203 — 46 with a bridge case, 157 without.
+[mirror-completeness] ledger: 157 row(s) — 110 kind=UNMIRRORED (the BACKLOG: these will not update on screen), 47 declared-exempt.
+[mirror-completeness] census (initTools.ts): 19 '*.created' mirror(s) · 1 '*.updated' mirror(s).
+
+[mirror-completeness] ✓ within the named ledger (157 uncovered / 157 listed), both directions clean.
+[mirror-completeness] ⚠ NOT ESTABLISHED HERE: that any covered verb's event reaches a subscriber, a legacy record, or a mesh.
+[mirror-completeness]   A bridge case is a DECLARED channel. C16 §5.1 CA-21 wants an executed read-back.
+[mirror-completeness]   ⭐ The FIRST clause now has an arm: check-mirror-reachability.ts (§MIRROR-REACH, L-10320) DISPATCHES a
+[mirror-completeness]   NAMED SET of verbs through a real CommandBus + the real CommandEventBridge and reads the events that
+[mirror-completeness]   actually fired. ⛔ A NAMED SET — 14 verbs, not the 157 counted above — and its listen half is a
+[mirror-completeness]   name match, not an execution. The legacy-record and mesh clauses are still nobody's gate:
+[mirror-completeness]   see LiftCompoundReachesTheMesh.test.ts / BeamMasterMaterialReachesMesh.test.ts.
+RC=0
+=== check-contract-index-equivalence ===
+npm warn Unknown project config "package-manager-strict". This will stop working in the next major version of npm. See `npm help npmrc` for supported config options.
+[contract-index-equivalence] contract FILES on disk : 112
+[contract-index-equivalence] index ROWS in README   : 95  (max id C113)
+[contract-index-equivalence] declared RESERVED ids  : C103, C61
+[contract-index-equivalence]   A FILE WITHOUT ROW   : 18  (baseline 18)
+[contract-index-equivalence]   B ROW WITHOUT FILE   : 0  (hard 0)
+[contract-index-equivalence]   C ROW/LINK MISMATCH  : 0  (hard 0)
+[contract-index-equivalence]   D GAP NOT RESERVED   : 0  (hard 0)
+
+  A — contracts that EXIST but are ordered by NOTHING:
+      C81  C81-DESIGN-EDIT-AND-INTENT-PRESERVATION.md
+      C84  C84-ELEMENT-INTEGRITY.md
+      C85  C85-ELEMENT-WALL.md
+      C86  C86-ELEMENT-WALL-OPENING.md
+      C87  C87-ELEMENT-CURTAIN-WALL.md
+      C88  C88-ELEMENT-CEILING.md
+      C89  C89-ELEMENT-FLOOR.md
+      C90  C90-ELEMENT-ROOF.md
+      C91  C91-ELEMENT-COLUMN.md
+      C92  C92-ELEMENT-SLAB.md
+      C93  C93-ELEMENT-BEAM.md
+      C94  C94-ELEMENT-ROOM-SPACE.md
+      C95  C95-ELEMENT-HANDRAIL.md
+      C96  C96-ELEMENT-LIGHTING.md
+      C97  C97-ELEMENT-FURNITURE.md
+      C98  C98-ELEMENT-STAIR.md
+      C99  C99-ELEMENT-PLUMBING.md
+      C100  C100-MASTER-MATERIAL-DATABASE.md
+
+[contract-index-equivalence] OK: arm A 18 = baseline; arms B/C/D clean.
+RC=0

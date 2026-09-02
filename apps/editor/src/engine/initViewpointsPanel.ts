@@ -13,6 +13,8 @@ export function initViewpointsPanel(params: { components: any; world: any }): {
     createViewpoint: () => Promise<void>;
     updateViewpointsTable: () => void;
     updateViewsTable: () => void;
+    /** §PERF-VIEWPOINT-SNAPSHOT-DEFER — one-shot deferred default-view capture. */
+    captureDefaultViewpointSnapshot: () => Promise<void>;
 } {
     const { components, world } = params;
 
@@ -129,10 +131,36 @@ export function initViewpointsPanel(params: { components: any; world: any }): {
     const viewpointsTable = viewpointsTableTemplate();
     const viewsTable      = viewsTableTemplate();
 
-    // Register default viewpoint
-    const defaultViewpoint = viewpoints.create();
-    defaultViewpoint.title = "Default View";
-    (async () => { await defaultViewpoint.updateCamera(); updateViewpointsTable(); })();
+    // ── Register default viewpoint — DEFERRED off the boot path ──────────────
+    //
+    // §PERF-VIEWPOINT-SNAPSHOT-DEFER (2026-09-02 perf lane, diagnosis fix 5).
+    // This used to run HERE, synchronously + an immediately-invoked async
+    // `updateCamera()` — measured at 560 ms inclusive in the middle of the
+    // axis-D cold-open boot flood. Nothing on the boot path reads the default
+    // viewpoint (the tables render whatever the list holds, reactively), and a
+    // MID-BOOT camera capture was itself a documented race (§CAM-ECEF-HANDBACK
+    // L-746: captures taken before the Cesium handback recorded positions
+    // thousands of km off). Capturing at first idle is therefore both cheaper
+    // and lands on the safer side of the same race the old code already ran.
+    //
+    // Idempotent one-shot: the idle callback, the timeout fallback, and any
+    // future manual trigger can all fire without duplicating the viewpoint.
+    // Asserted by __tests__/viewpointSnapshotDefer.spec.ts.
+    let _defaultRegistered = false;
+    const captureDefaultViewpointSnapshot = async (): Promise<void> => {
+        if (_defaultRegistered) return;
+        _defaultRegistered = true;
+        const defaultViewpoint = viewpoints.create();
+        defaultViewpoint.title = "Default View";
+        await defaultViewpoint.updateCamera();
+        updateViewpointsTable();
+    };
+    const g = globalThis as { requestIdleCallback?: (cb: () => void, opts?: { timeout: number }) => number };
+    if (typeof g.requestIdleCallback === 'function') {
+        g.requestIdleCallback(() => { void captureDefaultViewpointSnapshot(); }, { timeout: 8000 });
+    } else {
+        setTimeout(() => { void captureDefaultViewpointSnapshot(); }, 2000);
+    }
 
-    return { viewpoints, viewpointsTable, viewsTable, createViewpoint, updateViewpointsTable, updateViewsTable };
+    return { viewpoints, viewpointsTable, viewsTable, createViewpoint, updateViewpointsTable, updateViewsTable, captureDefaultViewpointSnapshot };
 }

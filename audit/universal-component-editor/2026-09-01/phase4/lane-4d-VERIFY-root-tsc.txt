@@ -1,0 +1,5 @@
+== lane-4d VERIFY root tsc 2026-09-02T11:14:32+02:00 ==
+$ NODE_OPTIONS=--max-old-space-size=6144 npx tsc --skipLibCheck   (the heap the build script itself sets; first attempt at default heap died OOM RC=134, appended below)
+npm warn Unknown project config "package-manager-strict". This will stop working in the next major version of npm. See `npm help npmrc` for supported config options.
+RC=0
+-- prior attempt at default heap: FATAL ERROR JavaScript heap out of memory, RC=134 --

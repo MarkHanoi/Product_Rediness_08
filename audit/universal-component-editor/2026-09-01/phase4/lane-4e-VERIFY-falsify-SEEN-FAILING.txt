@@ -1,0 +1,48 @@
+npm warn Unknown project config "package-manager-strict". This will stop working in the next major version of npm. See `npm help npmrc` for supported config options.
+
+ RUN  v4.1.10 C:/Users/LENOVO/OneDrive/Desktop/PRYZM/Product_Rediness_08/plugins/component
+
+ ❯ __tests__/componentCommitter.test.ts (7 tests | 2 failed) 188ms
+     × D — ⭐ a stale bake resolving LAST does not overwrite newer state (spec §66) 91ms
+     × G — onRemove detaches, and a bake still in flight for it is discarded 20ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 2 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  __tests__/componentCommitter.test.ts > ComponentCommitter — the descriptor path for one family > D — ⭐ a stale bake resolving LAST does not overwrite newer state (spec §66)
+AssertionError: expected 1.2000000476837158 to be close to 0.6, received difference is 0.6000000476837158, but expected 5e-7
+ ❯ __tests__/componentCommitter.test.ts:271:30
+    269|
+    270|     // ⭐ The 1200-wide geometry from the SUPERSEDED bake must not be o…
+    271|     expect(xExtentOf(group)).toBeCloseTo(0.6, 6);
+       |                              ^
+    272|     expect(c.stats.staleBakesDiscarded).toBe(1);
+    273|     expect(group.children.length).toBe(1);
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/2]⎯
+
+ FAIL  __tests__/componentCommitter.test.ts > ComponentCommitter — the descriptor path for one family > G — onRemove detaches, and a bake still in flight for it is discarded
+AssertionError: expected 1 to be +0 // Object.is equality
+
+- Expected
++ Received
+
+- 0
++ 1
+
+ ❯ __tests__/componentCommitter.test.ts:332:35
+    330|     await new Promise<void>((r) => setTimeout(r, 0));
+    331|
+    332|     expect(group.children.length).toBe(0);
+       |                                   ^
+    333|     expect(c.stats.staleBakesDiscarded).toBe(1);
+    334|   });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/2]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  2 failed | 5 passed (7)
+   Start at  11:34:13
+   Duration  48.16s (transform 38.17s, setup 0ms, import 46.99s, tests 188ms, environment 0ms)
+
+RC=1

@@ -1,0 +1,15 @@
+npm warn Unknown project config "package-manager-strict". This will stop working in the next major version of npm. See `npm help npmrc` for supported config options.
+COINCIDENT_M = 0.001 m
+segmentsForSweep(R=0.6 m, sweep=PI)   = 28
+segmentsForSweep(R=0.5 m, sweep=2PI)  = 50
+segmentsForSweep(R=6.0 m, sweep=PI)   = 87
+
+shape       | verts | tris  | x-extent | z-extent | max |r-R| on the curve
+Rect        |    24 |    12 | 1.2000   | 1.5000   | —
+Arched      |   186 |   120 | 1.2000   | 2.1000   | 9.833e-8 m
+Hexagon     |    36 |    20 | 1.0000   | 0.8660   | —
+Rhomboid    |    24 |    12 | 1.5000   | 1.5000   | —
+Circle      |   300 |   196 | 1.0000   | 0.9980   | 1.255e-8 m
+
+ok=true baked=5 unsupported=0
+RC=0

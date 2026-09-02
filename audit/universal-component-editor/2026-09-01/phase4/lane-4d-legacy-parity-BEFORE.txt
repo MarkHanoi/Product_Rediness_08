@@ -1,0 +1,5 @@
+npm warn Unknown project config "package-manager-strict". This will stop working in the next major version of npm. See `npm help npmrc` for supported config options.
+baked=1 unsupported=0 ok=true
+verts=24 tris=12 geometryHash=extrude:1|h=2.100000|y=0.000000|m=extrude|default|v=0.000000,0.000000|0.900000,0.000000|0.900000,0.050000|0.000000,0.050000
+DESCRIPTOR_SHA256=5c5f1282186f2eb2588b85e762aae9f132092e32d346d9ff65bfe61f65cf947d
+RC=0

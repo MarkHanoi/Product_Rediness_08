@@ -1,0 +1,117 @@
+npm warn Unknown project config "package-manager-strict". This will stop working in the next major version of npm. See `npm help npmrc` for supported config options.
+
+ RUN  v4.1.10 C:/Users/LENOVO/OneDrive/Desktop/PRYZM/Product_Rediness_08
+
+ ❯ apps/editor/src/ui/component/__tests__/surfaceByteIdentity.spec.ts (9 tests | 6 failed) 70ms
+     × wall-profile-modal — empty ring, rectangle, and an open polyline draft are all byte-identical 25ms
+     × window-outline-dialog — empty ring, rectangle, and an open polyline draft are all byte-identical 4ms
+     × finish-type-outline — empty ring, rectangle, and an open polyline draft are all byte-identical 2ms
+     × tiny-box-pad-floor — empty ring, rectangle, and an open polyline draft are all byte-identical 2ms
+     × ⭐ setting glyphs to [] on a surface that never had any is still byte-identical 7ms
+     × ⭐ a glyph ADDED and then REMOVED returns the surface to the pinned bytes 11ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 6 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  apps/editor/src/ui/component/__tests__/surfaceByteIdentity.spec.ts > §EMPTY-LAYER-IS-ABSENT · PR-9 — the general path changes NO byte of the existing arms > wall-profile-modal — empty ring, rectangle, and an open polyline draft are all byte-identical
+AssertionError: expected '<svg style="display: block; backgroun…' to be '<svg style="display: block; backgroun…' // Object.is equality
+
+Expected: "<svg style="display: block; background: #fafafe; border-radius: 8px; touch-action: none;" width="520" height="354.2857142857143"><rect fill="none" stroke="#c9c9d6" stroke-dasharray="5 4" x="28" y="28" width="464" height="298.2857142857143"></rect><polygon fill="rgba(102,0,255,0.13)" stroke="#6600FF" stroke-width="2" points=""></polygon><polyline fill="none" stroke="#6600FF" stroke-width="2" stroke-dasharray="6 4" points=""></polyline><g></g></svg>"
+Received: "<svg style="display: block; background: #fafafe; border-radius: 8px; touch-action: none;" data-wpe-plane="inferred" width="520" height="354.2857142857143"><rect fill="none" stroke="#c9c9d6" stroke-dasharray="5 4" x="28" y="28" width="464" height="298.2857142857143"></rect><polygon fill="rgba(102,0,255,0.13)" stroke="#6600FF" stroke-width="2" points=""></polygon><polyline fill="none" stroke="#6600FF" stroke-width="2" stroke-dasharray="6 4" points=""></polyline><g></g></svg>"
+
+ ❯ apps/editor/src/ui/component/__tests__/surfaceByteIdentity.spec.ts:70:37
+     68|         it(`${a.arm} — empty ring, rectangle, and an open polyline dra…
+     69|             const s = build(a);
+     70|             expect(s.svg.outerHTML).toBe(FIXTURE[`${a.arm}:empty`]);
+       |                                     ^
+     71|             s.setRing(rect(a.extents));
+     72|             expect(s.svg.outerHTML).toBe(FIXTURE[`${a.arm}:rectangle`]…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/6]⎯
+
+ FAIL  apps/editor/src/ui/component/__tests__/surfaceByteIdentity.spec.ts > §EMPTY-LAYER-IS-ABSENT · PR-9 — the general path changes NO byte of the existing arms > window-outline-dialog — empty ring, rectangle, and an open polyline draft are all byte-identical
+AssertionError: expected '<svg style="display: block; backgroun…' to be '<svg style="display: block; backgroun…' // Object.is equality
+
+Expected: "<svg style="display: block; background: #fafafe; border-radius: 8px; touch-action: none;" width="281.42857142857144" height="320"><rect fill="none" stroke="#c9c9d6" stroke-dasharray="5 4" x="25" y="25" width="231.42857142857142" height="270"></rect><polygon fill="rgba(102,0,255,0.13)" stroke="#6600FF" stroke-width="2" points=""></polygon><polyline fill="none" stroke="#6600FF" stroke-width="2" stroke-dasharray="6 4" points=""></polyline><g></g></svg>"
+Received: "<svg style="display: block; background: #fafafe; border-radius: 8px; touch-action: none;" data-woe-plane="inferred" width="281.42857142857144" height="320"><rect fill="none" stroke="#c9c9d6" stroke-dasharray="5 4" x="25" y="25" width="231.42857142857142" height="270"></rect><polygon fill="rgba(102,0,255,0.13)" stroke="#6600FF" stroke-width="2" points=""></polygon><polyline fill="none" stroke="#6600FF" stroke-width="2" stroke-dasharray="6 4" points=""></polyline><g></g></svg>"
+
+ ❯ apps/editor/src/ui/component/__tests__/surfaceByteIdentity.spec.ts:70:37
+     68|         it(`${a.arm} — empty ring, rectangle, and an open polyline dra…
+     69|             const s = build(a);
+     70|             expect(s.svg.outerHTML).toBe(FIXTURE[`${a.arm}:empty`]);
+       |                                     ^
+     71|             s.setRing(rect(a.extents));
+     72|             expect(s.svg.outerHTML).toBe(FIXTURE[`${a.arm}:rectangle`]…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/6]⎯
+
+ FAIL  apps/editor/src/ui/component/__tests__/surfaceByteIdentity.spec.ts > §EMPTY-LAYER-IS-ABSENT · PR-9 — the general path changes NO byte of the existing arms > finish-type-outline — empty ring, rectangle, and an open polyline draft are all byte-identical
+AssertionError: expected '<svg style="display: block; backgroun…' to be '<svg style="display: block; backgroun…' // Object.is equality
+
+Expected: "<svg style="display: block; background: #fafafe; border-radius: 8px; touch-action: none;" width="211.14285714285717" height="240.00000000000003"><rect fill="none" stroke="#c9c9d6" stroke-dasharray="5 4" x="19" y="19" width="173.14285714285717" height="202.00000000000003"></rect><polygon fill="rgba(102,0,255,0.13)" stroke="#6600FF" stroke-width="2" points=""></polygon><polyline fill="none" stroke="#6600FF" stroke-width="2" stroke-dasharray="6 4" points=""></polyline><g></g></svg>"
+Received: "<svg style="display: block; background: #fafafe; border-radius: 8px; touch-action: none;" data-fteo-plane="inferred" width="211.14285714285717" height="240.00000000000003"><rect fill="none" stroke="#c9c9d6" stroke-dasharray="5 4" x="19" y="19" width="173.14285714285717" height="202.00000000000003"></rect><polygon fill="rgba(102,0,255,0.13)" stroke="#6600FF" stroke-width="2" points=""></polygon><polyline fill="none" stroke="#6600FF" stroke-width="2" stroke-dasharray="6 4" points=""></polyline><g></g></svg>"
+
+ ❯ apps/editor/src/ui/component/__tests__/surfaceByteIdentity.spec.ts:70:37
+     68|         it(`${a.arm} — empty ring, rectangle, and an open polyline dra…
+     69|             const s = build(a);
+     70|             expect(s.svg.outerHTML).toBe(FIXTURE[`${a.arm}:empty`]);
+       |                                     ^
+     71|             s.setRing(rect(a.extents));
+     72|             expect(s.svg.outerHTML).toBe(FIXTURE[`${a.arm}:rectangle`]…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/6]⎯
+
+ FAIL  apps/editor/src/ui/component/__tests__/surfaceByteIdentity.spec.ts > §EMPTY-LAYER-IS-ABSENT · PR-9 — the general path changes NO byte of the existing arms > tiny-box-pad-floor — empty ring, rectangle, and an open polyline draft are all byte-identical
+AssertionError: expected '<svg style="display: block; backgroun…' to be '<svg style="display: block; backgroun…' // Object.is equality
+
+Expected: "<svg style="display: block; background: #fafafe; border-radius: 8px; touch-action: none;" width="64" height="48.28571428571429"><rect fill="none" stroke="#c9c9d6" stroke-dasharray="5 4" x="10" y="10" width="44" height="28.28571428571429"></rect><polygon fill="rgba(102,0,255,0.13)" stroke="#6600FF" stroke-width="2" points=""></polygon><polyline fill="none" stroke="#6600FF" stroke-width="2" stroke-dasharray="6 4" points=""></polyline><g></g></svg>"
+Received: "<svg style="display: block; background: #fafafe; border-radius: 8px; touch-action: none;" data-wpe-plane="inferred" width="64" height="48.28571428571429"><rect fill="none" stroke="#c9c9d6" stroke-dasharray="5 4" x="10" y="10" width="44" height="28.28571428571429"></rect><polygon fill="rgba(102,0,255,0.13)" stroke="#6600FF" stroke-width="2" points=""></polygon><polyline fill="none" stroke="#6600FF" stroke-width="2" stroke-dasharray="6 4" points=""></polyline><g></g></svg>"
+
+ ❯ apps/editor/src/ui/component/__tests__/surfaceByteIdentity.spec.ts:70:37
+     68|         it(`${a.arm} — empty ring, rectangle, and an open polyline dra…
+     69|             const s = build(a);
+     70|             expect(s.svg.outerHTML).toBe(FIXTURE[`${a.arm}:empty`]);
+       |                                     ^
+     71|             s.setRing(rect(a.extents));
+     72|             expect(s.svg.outerHTML).toBe(FIXTURE[`${a.arm}:rectangle`]…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[4/6]⎯
+
+ FAIL  apps/editor/src/ui/component/__tests__/surfaceByteIdentity.spec.ts > §EMPTY-LAYER-IS-ABSENT · PR-9 — the general path changes NO byte of the existing arms > ⭐ setting glyphs to [] on a surface that never had any is still byte-identical
+AssertionError: expected '<svg style="display: block; backgroun…' to be '<svg style="display: block; backgroun…' // Object.is equality
+
+Expected: "<svg style="display: block; background: #fafafe; border-radius: 8px; touch-action: none;" width="520" height="354.2857142857143"><rect fill="none" stroke="#c9c9d6" stroke-dasharray="5 4" x="28" y="28" width="464" height="298.2857142857143"></rect><polygon fill="rgba(102,0,255,0.13)" stroke="#6600FF" stroke-width="2" points="28,326.2857142857143 492,326.2857142857143 492,28 28,28"></polygon><polyline fill="none" stroke="#6600FF" stroke-width="2" stroke-dasharray="6 4" points=""></polyline><g><circle cx="260" cy="326.2857142857143" r="5" fill="#fff" stroke="#b9a2ff" data-wpe-midpoint="0" style="cursor: copy;"></circle><circle cx="492" cy="177.14285714285714" r="5" fill="#fff" stroke="#b9a2ff" data-wpe-midpoint="1" style="cursor: copy;"></circle><circle cx="260" cy="28" r="5" fill="#fff" stroke="#b9a2ff" data-wpe-midpoint="2" style="cursor: copy;"></circle><circle cx="28" cy="177.14285714285714" r="5" fill="#fff" stroke="#b9a2ff" data-wpe-midpoint="3" style="cursor: copy;"></circle><circle cx="28" cy="326.2857142857143" r="7" fill="#6600FF" stroke="#fff" stroke-width="2" data-wpe-vertex="0" style="cursor: grab;"></circle><circle cx="492" cy="326.2857142857143" r="7" fill="#6600FF" stroke="#fff" stroke-width="2" data-wpe-vertex="1" style="cursor: grab;"></circle><circle cx="492" cy="28" r="7" fill="#6600FF" stroke="#fff" stroke-width="2" data-wpe-vertex="2" style="cursor: grab;"></circle><circle cx="28" cy="28" r="7" fill="#6600FF" stroke="#fff" stroke-width="2" data-wpe-vertex="3" style="cursor: grab;"></circle></g></svg>"
+Received: "<svg style="display: block; background: #fafafe; border-radius: 8px; touch-action: none;" data-wpe-plane="inferred" width="520" height="354.2857142857143"><rect fill="none" stroke="#c9c9d6" stroke-dasharray="5 4" x="28" y="28" width="464" height="298.2857142857143"></rect><polygon fill="rgba(102,0,255,0.13)" stroke="#6600FF" stroke-width="2" points="28,326.2857142857143 492,326.2857142857143 492,28 28,28"></polygon><polyline fill="none" stroke="#6600FF" stroke-width="2" stroke-dasharray="6 4" points=""></polyline><g><circle cx="260" cy="326.2857142857143" r="5" fill="#fff" stroke="#b9a2ff" data-wpe-midpoint="0" style="cursor: copy;"></circle><circle cx="492" cy="177.14285714285714" r="5" fill="#fff" stroke="#b9a2ff" data-wpe-midpoint="1" style="cursor: copy;"></circle><circle cx="260" cy="28" r="5" fill="#fff" stroke="#b9a2ff" data-wpe-midpoint="2" style="cursor: copy;"></circle><circle cx="28" cy="177.14285714285714" r="5" fill="#fff" stroke="#b9a2ff" data-wpe-midpoint="3" style="cursor: copy;"></circle><circle cx="28" cy="326.2857142857143" r="7" fill="#6600FF" stroke="#fff" stroke-width="2" data-wpe-vertex="0" style="cursor: grab;"></circle><circle cx="492" cy="326.2857142857143" r="7" fill="#6600FF" stroke="#fff" stroke-width="2" data-wpe-vertex="1" style="cursor: grab;"></circle><circle cx="492" cy="28" r="7" fill="#6600FF" stroke="#fff" stroke-width="2" data-wpe-vertex="2" style="cursor: grab;"></circle><circle cx="28" cy="28" r="7" fill="#6600FF" stroke="#fff" stroke-width="2" data-wpe-vertex="3" style="cursor: grab;"></circle></g></svg>"
+
+ ❯ apps/editor/src/ui/component/__tests__/surfaceByteIdentity.spec.ts:85:33
+     83|         s.setRing(rect(a.extents));
+     84|         s.setConstraintGlyphs([]);
+     85|         expect(s.svg.outerHTML).toBe(FIXTURE[`${a.arm}:rectangle`]);
+       |                                 ^
+     86|     });
+     87|
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[5/6]⎯
+
+ FAIL  apps/editor/src/ui/component/__tests__/surfaceByteIdentity.spec.ts > §EMPTY-LAYER-IS-ABSENT · PR-9 — the general path changes NO byte of the existing arms > ⭐ a glyph ADDED and then REMOVED returns the surface to the pinned bytes
+AssertionError: expected '<svg style="display: block; backgroun…' to be '<svg style="display: block; backgroun…' // Object.is equality
+
+Expected: "<svg style="display: block; background: #fafafe; border-radius: 8px; touch-action: none;" width="520" height="354.2857142857143"><rect fill="none" stroke="#c9c9d6" stroke-dasharray="5 4" x="28" y="28" width="464" height="298.2857142857143"></rect><polygon fill="rgba(102,0,255,0.13)" stroke="#6600FF" stroke-width="2" points="28,326.2857142857143 492,326.2857142857143 492,28 28,28"></polygon><polyline fill="none" stroke="#6600FF" stroke-width="2" stroke-dasharray="6 4" points=""></polyline><g><circle cx="260" cy="326.2857142857143" r="5" fill="#fff" stroke="#b9a2ff" data-wpe-midpoint="0" style="cursor: copy;"></circle><circle cx="492" cy="177.14285714285714" r="5" fill="#fff" stroke="#b9a2ff" data-wpe-midpoint="1" style="cursor: copy;"></circle><circle cx="260" cy="28" r="5" fill="#fff" stroke="#b9a2ff" data-wpe-midpoint="2" style="cursor: copy;"></circle><circle cx="28" cy="177.14285714285714" r="5" fill="#fff" stroke="#b9a2ff" data-wpe-midpoint="3" style="cursor: copy;"></circle><circle cx="28" cy="326.2857142857143" r="7" fill="#6600FF" stroke="#fff" stroke-width="2" data-wpe-vertex="0" style="cursor: grab;"></circle><circle cx="492" cy="326.2857142857143" r="7" fill="#6600FF" stroke="#fff" stroke-width="2" data-wpe-vertex="1" style="cursor: grab;"></circle><circle cx="492" cy="28" r="7" fill="#6600FF" stroke="#fff" stroke-width="2" data-wpe-vertex="2" style="cursor: grab;"></circle><circle cx="28" cy="28" r="7" fill="#6600FF" stroke="#fff" stroke-width="2" data-wpe-vertex="3" style="cursor: grab;"></circle></g></svg>"
+Received: "<svg style="display: block; background: #fafafe; border-radius: 8px; touch-action: none;" data-wpe-plane="inferred" width="520" height="354.2857142857143"><rect fill="none" stroke="#c9c9d6" stroke-dasharray="5 4" x="28" y="28" width="464" height="298.2857142857143"></rect><polygon fill="rgba(102,0,255,0.13)" stroke="#6600FF" stroke-width="2" points="28,326.2857142857143 492,326.2857142857143 492,28 28,28"></polygon><polyline fill="none" stroke="#6600FF" stroke-width="2" stroke-dasharray="6 4" points=""></polyline><g><circle cx="260" cy="326.2857142857143" r="5" fill="#fff" stroke="#b9a2ff" data-wpe-midpoint="0" style="cursor: copy;"></circle><circle cx="492" cy="177.14285714285714" r="5" fill="#fff" stroke="#b9a2ff" data-wpe-midpoint="1" style="cursor: copy;"></circle><circle cx="260" cy="28" r="5" fill="#fff" stroke="#b9a2ff" data-wpe-midpoint="2" style="cursor: copy;"></circle><circle cx="28" cy="177.14285714285714" r="5" fill="#fff" stroke="#b9a2ff" data-wpe-midpoint="3" style="cursor: copy;"></circle><circle cx="28" cy="326.2857142857143" r="7" fill="#6600FF" stroke="#fff" stroke-width="2" data-wpe-vertex="0" style="cursor: grab;"></circle><circle cx="492" cy="326.2857142857143" r="7" fill="#6600FF" stroke="#fff" stroke-width="2" data-wpe-vertex="1" style="cursor: grab;"></circle><circle cx="492" cy="28" r="7" fill="#6600FF" stroke="#fff" stroke-width="2" data-wpe-vertex="2" style="cursor: grab;"></circle><circle cx="28" cy="28" r="7" fill="#6600FF" stroke="#fff" stroke-width="2" data-wpe-vertex="3" style="cursor: grab;"></circle></g></svg>"
+
+ ❯ apps/editor/src/ui/component/__tests__/surfaceByteIdentity.spec.ts:99:33
+     97|         expect(s.svg.outerHTML).not.toBe(FIXTURE[`${a.arm}:rectangle`]…
+     98|         s.setConstraintGlyphs([]);
+     99|         expect(s.svg.outerHTML).toBe(FIXTURE[`${a.arm}:rectangle`]);
+       |                                 ^
+    100|     });
+    101| });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[6/6]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  6 failed | 3 passed (9)
+   Start at  11:30:11
+   Duration  7.38s (transform 4.18s, setup 0ms, import 4.57s, tests 70ms, environment 1.76s)
+
+RC=1

@@ -292,15 +292,39 @@ export class DataWorkbench implements IDataWorkbench {
     private _designHistoryPanel!:  DesignHistoryPanel;
     private _analyticsBuilt = false;
 
+    /**
+     * §PERF-DW-LAZY-BUILD (2026-09-02 perf lane, diagnosis fix 1) — the whole
+     * `_buildDOM()` pass (9 class panels + ~30 mounted tabs, incl. the type
+     * schedules and materials matrix reading live store getAll()s) used to run
+     * in the CONSTRUCTOR, i.e. on every editor boot, into a `dw--hidden` node
+     * nobody had opened. Measured on the axis-D cold-open profile: ~850 ms of
+     * boot (_buildDOM 448 incl + type-schedule builder 263 + materials matrix
+     * 84 + filter bar 50). The DOM is now built on the FIRST transition out of
+     * 'hidden'; pre-open interactions keep their bookkeeping (bucket switches
+     * land at build; refresh() defers to the build, which reads the live model
+     * at open time — fresher than build-at-boot + refresh-at-load ever was).
+     * Asserted by __tests__/lazyBuild.spec.ts.
+     */
+    private _domBuilt = false;
+
     /** Phase B (S73-WIRE) — runtime threaded by parent. */
     public readonly runtime: import('@pryzm/runtime-composer/types').PryzmRuntime | null;
 
     constructor(runtime: import('@pryzm/runtime-composer/types').PryzmRuntime | null = null) {
         this.runtime = runtime;
         BUCKETS.forEach(b => this._bucketMemory.set(b.id, b.defaultTab));
-        this._buildDOM();
+        // §PERF-DW-LAZY-BUILD — no _buildDOM() here; see _ensureDomBuilt().
         this._bindEvents();
-        console.log('[DataWorkbench] BIM 3.0 Lifecycle Hub initialized');
+        console.log('[DataWorkbench] BIM 3.0 Lifecycle Hub initialized (DOM deferred to first open)');
+    }
+
+    /** §PERF-DW-LAZY-BUILD — build the panel DOM exactly once, on first need. */
+    private _ensureDomBuilt(): void {
+        if (this._domBuilt) return;
+        this._domBuilt = true; // set BEFORE building — _buildDOM's own calls must not recurse
+        const t0 = performance.now();
+        this._buildDOM();
+        console.log(`[DataWorkbench] DOM built on first open in ${(performance.now() - t0).toFixed(0)}ms`);
     }
 
     // ── Public API ─────────────────────────────────────────────────────────────
@@ -309,6 +333,10 @@ export class DataWorkbench implements IDataWorkbench {
 
     setMode(mode: WorkbenchMode): void {
         if (this._mode === mode) return;
+        // §PERF-DW-LAZY-BUILD — every real transition needs the DOM (a 'hidden'
+        // target while still unbuilt cannot reach here: _mode starts 'hidden'
+        // and the early-return above catches it).
+        this._ensureDomBuilt();
         this._mode = mode;
         this._applyMode();
         triggerWindowResize(); // F.events.16
@@ -327,6 +355,10 @@ export class DataWorkbench implements IDataWorkbench {
     hide(): void { this.setMode('hidden'); }
 
     refresh(): void {
+        // §PERF-DW-LAZY-BUILD — before the first open there is nothing to
+        // refresh: the build itself reads the live stores at open time, which
+        // is strictly fresher than build-at-boot + refresh-here.
+        if (!this._domBuilt) return;
         this._hierarchyPanel.refresh();
         this._dataSheetPanel.refresh();
         this._templateEditorPanel.refresh();
@@ -705,6 +737,11 @@ export class DataWorkbench implements IDataWorkbench {
         this._activeBucket = bucketId;
         this._activeTab    = forceTab ?? (this._bucketMemory.get(bucketId) ?? bucket.defaultTab);
 
+        // §PERF-DW-LAZY-BUILD — before the first open, keep only the
+        // bookkeeping above: _buildDOM() renders the rail/sub-tabs/content from
+        // _activeBucket/_activeTab, so the requested bucket lands at build.
+        if (!this._domBuilt) return;
+
         this._bucketRailEl.querySelectorAll('.dw-bucket-btn').forEach(el => {
             const b = el as HTMLElement;
             const isActive = b.dataset.bucket === bucketId;
@@ -849,6 +886,7 @@ export class DataWorkbench implements IDataWorkbench {
     // ── AUDIT sheet pane helpers ───────────────────────────────────────────────
 
     private _showAuditSheet(): void {
+        if (!this._domBuilt) return; // §PERF-DW-LAZY-BUILD — sheet chrome exists only after first open
         if (this._auditSheetVisible) return;
         this._auditSheetVisible = true;
         this._auditSheetPane.classList.remove('dw-audit-sheet-pane--hidden');
@@ -856,6 +894,7 @@ export class DataWorkbench implements IDataWorkbench {
     }
 
     private _hideAuditSheet(): void {
+        if (!this._domBuilt) return; // §PERF-DW-LAZY-BUILD
         if (!this._auditSheetVisible) return;
         this._auditSheetVisible = false;
         this._auditSheetPane.classList.add('dw-audit-sheet-pane--hidden');

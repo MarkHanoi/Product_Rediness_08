@@ -131,6 +131,20 @@ const RELATIONSHIP_PRIORITY: Record<RelationshipType, number> = {
     maintainedBy:        5,
     decommissionedBefore: 5,
     decidedBy:           5,
+
+    // ── C71 §2.7 — the DEFINITION AXIS (instance -> definition -> definition) ──
+    // Priority 5 = RECORD ONLY, and that is a decision rather than a default.
+    // This resolver schedules GEOMETRIC/SPATIAL rebuilds from an element change,
+    // and none of these three families joins two element occurrences: their
+    // endpoints are definitions and types (C71 §1.5). A definition edit DOES have
+    // to reach its instances, but through the definition-edit propagation C65
+    // §3.6 governs -- which states the affected count to the user BEFORE it
+    // propagates -- not through a silent cascade this resolver enqueues. Routing
+    // it here would give one concept two propagation paths (C84 EI-9) and would
+    // fire the quieter of the two.
+    instantiates:        5,
+    specializes:         5,
+    dependsOnDefinition: 5,
 };
 
 // ── Default dispatcher (Phase F) ──────────────────────────────────────────────

@@ -18,7 +18,7 @@ export function identityMigrator(from: string, to: string): Migrator {
         manifest: { ...input.manifest },
         document: {
           ...input.document,
-          formatVersion: to as '1.0',
+          formatVersion: to,
         },
         ifcMapping: input.ifcMapping ? { ...input.ifcMapping } : undefined,
         events: input.events,

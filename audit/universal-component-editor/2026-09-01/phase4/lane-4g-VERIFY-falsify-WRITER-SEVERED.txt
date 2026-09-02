@@ -1,0 +1,193 @@
+npm warn Unknown project config "package-manager-strict". This will stop working in the next major version of npm. See `npm help npmrc` for supported config options.
+
+ RUN  v4.1.10 C:/Users/LENOVO/OneDrive/Desktop/PRYZM/Product_Rediness_08/packages/ai-host
+
+ ❯ __tests__/graphQueryServiceDefinitionAxis.test.ts (15 tests | 9 failed) 33ms
+     × ⭐ returns the two placed instances instead of refusing 11ms
+     × ⭐ says WHICH question it answered — direction and node kind, never a bare list 1ms
+     × the FORWARD question is still the forward question — the direction is not fixed to one answer 1ms
+     × §69 — definition, type and relationships are answerable WITHOUT INSPECTING A MESH 2ms
+     × graph.neighbors takes the same gate: an empty definition-axis sweep is put to the reader 3ms
+     × the reader’s refusal reason is forwarded VERBATIM, never flattened into one of this file’s own 2ms
+     × SEVER THE WRITER: with no recordInstantiation call, the acceptance query returns NO instances 2ms
+     × SEVER THE READER: a graph whose typed reader refuses makes the query refuse — it never falls back to the raw edge set 2ms
+     × CONTROL — the unsevered graph answers, so the two severings above are not vacuous 1ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 9 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  __tests__/graphQueryServiceDefinitionAxis.test.ts > ACCEPTANCE — graph.query(definition, "instantiates") returns INSTANCES > ⭐ returns the two placed instances instead of refusing
+AssertionError: expected false to be true // Object.is equality
+
+- Expected
++ Received
+
+- true
++ false
+
+ ❯ __tests__/graphQueryServiceDefinitionAxis.test.ts:62:18
+     60|   it('⭐ returns the two placed instances instead of refusing', () => {
+     61|     const r = svc(placedSlice()).query('def-window', 'instantiates');
+     62|     expect(r.ok).toBe(true);
+       |                  ^
+     63|     if (r.ok) expect([...r.targets].sort()).toEqual(['inst-1', 'inst-2…
+     64|   });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/9]⎯
+
+ FAIL  __tests__/graphQueryServiceDefinitionAxis.test.ts > ACCEPTANCE — graph.query(definition, "instantiates") returns INSTANCES > ⭐ says WHICH question it answered — direction and node kind, never a bare list
+AssertionError: expected false to be true // Object.is equality
+
+- Expected
++ Received
+
+- true
++ false
+
+ ❯ __tests__/graphQueryServiceDefinitionAxis.test.ts:68:18
+     66|   it('⭐ says WHICH question it answered — direction and node kind, nev…
+     67|     const r = svc(placedSlice()).query('def-window', 'instantiates');
+     68|     expect(r.ok).toBe(true);
+       |                  ^
+     69|     if (r.ok) {
+     70|       // C71 §1.5 semantic 7. Without these two fields a caller holding
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/9]⎯
+
+ FAIL  __tests__/graphQueryServiceDefinitionAxis.test.ts > ACCEPTANCE — graph.query(definition, "instantiates") returns INSTANCES > the FORWARD question is still the forward question — the direction is not fixed to one answer
+AssertionError: expected false to be true // Object.is equality
+
+- Expected
++ Received
+
+- true
++ false
+
+ ❯ __tests__/graphQueryServiceDefinitionAxis.test.ts:80:18
+     78|   it('the FORWARD question is still the forward question — the directi…
+     79|     const r = svc(placedSlice()).query('inst-1', 'instantiates');
+     80|     expect(r.ok).toBe(true);
+       |                  ^
+     81|     if (r.ok) {
+     82|       expect(r.targets).toEqual(['def-window']);
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/9]⎯
+
+ FAIL  __tests__/graphQueryServiceDefinitionAxis.test.ts > ACCEPTANCE — graph.query(definition, "instantiates") returns INSTANCES > §69 — definition, type and relationships are answerable WITHOUT INSPECTING A MESH
+AssertionError: expected false to deeply equal [ 'def-window' ]
+
+- Expected:
+[
+  "def-window",
+]
+
++ Received:
+false
+
+ ❯ __tests__/graphQueryServiceDefinitionAxis.test.ts:92:35
+     90|     // definition ("what is this thing?")
+     91|     const def = s.query('inst-1', 'instantiates');
+     92|     expect(def.ok && def.targets).toEqual(['def-window']);
+       |                                   ^
+     93|     // type ("which types exist over this definition?")
+     94|     const types = s.query('def-window', 'specializes');
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[4/9]⎯
+
+ FAIL  __tests__/graphQueryServiceDefinitionAxis.test.ts > FAILURE ≠ EMPTINESS at the query surface > graph.neighbors takes the same gate: an empty definition-axis sweep is put to the reader
+AssertionError: expected 'unknown-element' to be 'definition-axis-node-kind-undetermined' // Object.is equality
+
+Expected: "definition-axis-node-kind-undetermined"
+Received: "unknown-element"
+
+ ❯ __tests__/graphQueryServiceDefinitionAxis.test.ts:143:33
+    141|     const r = svc(g).neighbors('inst-1', 'dependsOnDefinition');
+    142|     expect(r.ok).toBe(false);
+    143|     if (!r.ok) expect(r.reason).toBe('definition-axis-node-kind-undete…
+       |                                 ^
+    144|   });
+    145|
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[5/9]⎯
+
+ FAIL  __tests__/graphQueryServiceDefinitionAxis.test.ts > FAILURE ≠ EMPTINESS at the query surface > the reader’s refusal reason is forwarded VERBATIM, never flattened into one of this file’s own
+AssertionError: expected 'definition-axis-node-kind-undetermined' to be 'id-unknown-to-instantiates-writer' // Object.is equality
+
+Expected: "id-unknown-to-instantiates-writer"
+Received: "definition-axis-node-kind-undetermined"
+
+ ❯ __tests__/graphQueryServiceDefinitionAxis.test.ts:162:31
+    160|     // service is not refusing for a reason of its own.
+    161|     if (!direct.ok && !viaQuery.ok) {
+    162|       expect(viaQuery.reason).toBe(direct.reason);
+       |                               ^
+    163|       expect(viaQuery.reason).toBe('instance-instantiates-multiple-def…
+    164|     }
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[6/9]⎯
+
+ FAIL  __tests__/graphQueryServiceDefinitionAxis.test.ts > ⛔ FALSIFICATION — the two severings, each with its OWN named test > SEVER THE WRITER: with no recordInstantiation call, the acceptance query returns NO instances
+AssertionError: expected false to be true // Object.is equality
+
+- Expected
++ Received
+
+- true
++ false
+
+ ❯ __tests__/graphQueryServiceDefinitionAxis.test.ts:189:22
+    187|     g.recordInstantiation('inst-1', 'def-window');
+    188|     const after = svc(g).query('def-window', 'instantiates');
+    189|     expect(after.ok).toBe(true);
+       |                      ^
+    190|     if (after.ok) expect(after.targets).toEqual(['inst-1']);
+    191|   });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[7/9]⎯
+
+ FAIL  __tests__/graphQueryServiceDefinitionAxis.test.ts > ⛔ FALSIFICATION — the two severings, each with its OWN named test > SEVER THE READER: a graph whose typed reader refuses makes the query refuse — it never falls back to the raw edge set
+AssertionError: expected [] to deeply equal [ 'inst-1' ]
+
+- Expected
++ Received
+
+- [
+-   "inst-1",
+- ]
++ []
+
+ ❯ __tests__/graphQueryServiceDefinitionAxis.test.ts:211:56
+    209|     // `{ok:true, targets:['inst-1']}` and this test would fail. It re…
+    210|     // which is what proves the answer flows THROUGH the reader.
+    211|     expect(g.getSources('def-window', 'instantiates')).toEqual(['inst-…
+       |                                                        ^
+    212|     const r = svc(g).query('def-window', 'instantiates');
+    213|     expect(r.ok).toBe(false);
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[8/9]⎯
+
+ FAIL  __tests__/graphQueryServiceDefinitionAxis.test.ts > ⛔ FALSIFICATION — the two severings, each with its OWN named test > CONTROL — the unsevered graph answers, so the two severings above are not vacuous
+AssertionError: expected false to be true // Object.is equality
+
+- Expected
++ Received
+
+- true
++ false
+
+ ❯ __tests__/graphQueryServiceDefinitionAxis.test.ts:219:18
+    217|   it('CONTROL — the unsevered graph answers, so the two severings abov…
+    218|     const r = svc(placedSlice()).query('def-window', 'instantiates');
+    219|     expect(r.ok).toBe(true);
+       |                  ^
+    220|   });
+    221| });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[9/9]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  9 failed | 6 passed (15)
+   Start at  11:15:43
+   Duration  73.94s (transform 65.43s, setup 0ms, import 72.85s, tests 33ms, environment 0ms)
+
+RC=1

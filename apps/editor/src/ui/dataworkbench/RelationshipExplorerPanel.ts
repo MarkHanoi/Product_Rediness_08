@@ -59,6 +59,10 @@ const REL_TYPE_LABEL: Record<RelationshipType, string> = {
     maintainedBy:        'Maintained by',
     decommissionedBefore: 'Decommissioned before',
     decidedBy:           'Decided by',
+    // ── C71 §2.7 — the definition axis ───────────────────────────────────────
+    instantiates:        'Instantiates (definition)',
+    specializes:         'Specializes (definition/type)',
+    dependsOnDefinition: 'Depends on definition',
 };
 
 const REL_ICON: Record<RelationshipType, string> = {
@@ -89,6 +93,10 @@ const REL_ICON: Record<RelationshipType, string> = {
     maintainedBy:        '🔧',
     decommissionedBefore: '🗑',
     decidedBy:           '⚖️',
+    // ── C71 §2.7 — the definition axis ───────────────────────────────────────
+    instantiates:        '🧬',
+    specializes:         '🧿',
+    dependsOnDefinition: '🧩',
 };
 
 // Display priority order (lower = shown first)
@@ -120,6 +128,12 @@ const REL_ORDER: Record<RelationshipType, number> = {
     maintainedBy:        22,
     decommissionedBefore: 23,
     decidedBy:           24,
+    // ── C71 §2.7 — the definition axis. Shown ABOVE the temporal families and
+    // below the spatial ones: "what is this thing?" is a question about the
+    // selected element itself, not about its history.
+    instantiates:        12,
+    specializes:         12,
+    dependsOnDefinition: 12,
 };
 
 // ── Panel ─────────────────────────────────────────────────────────────────────

@@ -15,22 +15,19 @@ export { EVENT_BATCH_SIZE, PRYZM_FORMAT_SCHEMA_VERSION, PATHS, } from './types.j
 export { packFamily } from './family-pack.js';
 export { unpackFamily } from './family-unpack.js';
 export { FAMILY_PATHS, FAMILY_FORMAT_SCHEMA_VERSION, } from './family-types.js';
-export { FamilyDocumentSchema, FamilyManifestSchema, FamilyEventSchema, FamilyParameterSchema, ProfileSchema, SolidFeatureSchema, MaterialSlotSchema, FamilyTypeSchema, ReferencePlaneSchema, } from './family-schema.js';
-/* ------------------------------------------------------------------ */
-/* .pryzm-family migration framework (S57 deliverable, plan §5.5 +     */
-/* §19.6 — `family-migration` gate).                                   */
-/* ------------------------------------------------------------------ */
-export { MigrationError, MigratorRegistry, identityMigrator, migrateFamily, PRYZM_FAMILY_MIGRATE_TRACER, makeRenameParameterMigrator, makeAddParameterMigrator, makeDeleteParameterMigrator, makeChangeParameterTypeMigrator, makeIntroduceExpressionMigrator, makeRebindIfcMigrator, makeMergeMaterialSlotsMigrator, makeSplitTypeMigrator, } from './family-migrations/index.js';
-// ── Sprint AH (2026-05-12) — DXF parsing + geometry ─────────────────────────
+export { FamilyDocumentSchema, FamilyManifestSchema, FamilyEventSchema, FamilyParameterSchema, ProfileSchema, SolidFeatureSchema, MaterialSlotSchema, FamilyTypeSchema, ReferencePlaneSchema, 
+/* --- format v1.1 (C111 §8.4-b, §10.1-a, §10.3-b, §9.1, §10.2; C112) --- */
+FamilyCategorySchema, FAMILY_CATEGORIES_V1_0, FORMAT_VERSION_PATTERN, CURRENT_FORMAT_VERSION, SUPPORTED_FORMAT_VERSIONS, parseFormatVersion, compareFormatVersion, classifyFormatVersion, isSupportedFormatVersion, formatVersionRefusal, BAKEABLE_SOLID_KINDS, RepresentationSchema, RepresentationKindSchema, RepresentationSourceSchema, ConnectorSchema, ConnectorKindSchema, CONNECTOR_KINDS_WITH_WRITER, DemandedVoidSchema, PropertySetSchema, ComponentPropertySchema, FeatureEdgeSchema, FeatureEdgeKindSchema, } from './family-schema.js';
 export { DXF_UNITS_TO_METRES, parseDxfString, parseDxfFile } from './DxfParser.ts';
 export { buildDxfGeometry, setLayerVisible, setLayerColor, disposeDxfGroup } from './DxfGeometryBuilder.ts';
-// ── Sprint AI/AJ (2026-05-12/13) — import/ + export/ → @pryzm/file-format ──
+export { MigrationError, MigratorRegistry, identityMigrator, migrateFamily, PRYZM_FAMILY_MIGRATE_TRACER, makeRenameParameterMigrator, makeAddParameterMigrator, makeDeleteParameterMigrator, makeChangeParameterTypeMigrator, makeIntroduceExpressionMigrator, makeRebindIfcMigrator, makeMergeMaterialSlotsMigrator, makeSplitTypeMigrator, } from './family-migrations/index.js';
+// ── Sprint AI/AJ (2026-05-12/13) — import/ + export/ → @pryzm/file-format ────────
 // import/dxf — stores and utilities
 export { DxfLayerStore, dxfLayerStore } from './import/dxf/DxfLayerStore.ts';
 export { dxfOverlayStore } from './import/dxf/DxfOverlayStore.ts';
-export { DxfPlanViewProjector, renderDxfOnPlanView } from './import/dxf/DxfPlanViewProjector.ts';
+export { renderDxfOnPlanView } from './import/dxf/DxfPlanViewProjector.ts';
 export { traceDxfToWalls } from './import/dxf/DxfToBimTracer.ts';
-export { DwgConversionError, convertDwgFile, DwgImportAdapter } from './import/dxf/DwgImportAdapter.ts';
+export { DwgConversionError, convertDwgFile } from './import/dxf/DwgImportAdapter.ts';
 // import/ifc
 export { isIfcImportedElement, deleteIfcImportedElement, } from './import/ifc/deleteIfcElement.ts';
 export { IfcGeometryRenderer } from './import/ifc/IfcGeometryRenderer.ts';
@@ -41,10 +38,13 @@ export { ifcModelStore } from './import/ifc/IfcModelStore.ts';
 export { IfcConversionCoordinator } from './import/ifc/conversion/IfcConversionCoordinator.ts';
 export { ifcConversionReportStore } from './import/ifc/conversion/IfcConversionReportStore.ts';
 // import/rhino
-export { importRhino3DM } from './import/rhino/RhinoImporter.ts';
+export { importRhino3DM, applyRhinoUpAxisConversion, extractRhinoLayers } from './import/rhino/RhinoImporter.ts';
+// §FEAT-RHINO-CHAT-MATERIAL — material override/restore primitives for the
+// rhino.setMaterial / rhino.resetMaterial chat bridge (initBusHandlers.ts).
+export { applyRhinoColorOverride, restoreRhinoOriginalMaterials, snapshotRhinoMaterials, applyRhinoMaterialSnapshot, } from './import/rhino/RhinoImporter.ts';
 // import/top-level
-export { ImageToImportConverter, convertImageToImportResult } from './import/ImageToImportConverter.ts';
-export { PDFToImageConverter, convertPDFPage1ToImage } from './import/PDFToImageConverter.ts';
+export { convertImageToImportResult } from './import/ImageToImportConverter.ts';
+export { convertPDFPage1ToImage } from './import/PDFToImageConverter.ts';
 // export/glb
 export { exportFragmentsToGLB, downloadBlobUrl, revokeBlobUrl } from './export/glb/GLBExporter.ts';
 // export/ifc
@@ -61,3 +61,4 @@ export { HatchPatternLibrary } from './export/sheets/HatchPatternLibrary.ts';
 export { AnnotationDxfBridge, annotationDxfBridge } from './export/sheets/AnnotationDxfBridge.ts';
 // export/top-level
 export { RationaleExporter } from './export/RationaleExporter.ts';
+//# sourceMappingURL=index.js.map

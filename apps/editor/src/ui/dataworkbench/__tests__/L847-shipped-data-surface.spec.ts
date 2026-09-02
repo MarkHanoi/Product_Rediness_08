@@ -115,6 +115,11 @@ describe('L-847 — DataWorkbench is the shipped F3 Data surface', () => {
 
     it('the shipped workbench exposes the Hierarchy sub-tab and constructs HierarchyTreePanel', () => {
         dwInstance = new DataWorkbenchCtor(null);
+        // §PERF-DW-LAZY-BUILD (2026-09-02): the DOM is now built on first open,
+        // not in the constructor — open it the way the F3 flow does. The
+        // differentiator this test protects (the Hierarchy sub-tab exists on
+        // the shipped surface) is unchanged.
+        dwInstance.setMode('panel');
         const el = document.getElementById('dw-workbench');
         expect(el).toBeTruthy();
 

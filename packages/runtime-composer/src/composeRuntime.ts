@@ -25,7 +25,7 @@
 
 import { trace, SpanStatusCode } from '@opentelemetry/api';
 
-import type { AnyStores, CommandHandler } from '@pryzm/command-bus';
+import type { AnyStores, CommandExecutionContext, CommandHandler } from '@pryzm/command-bus';
 import {
   UndoStack,
   NullUndoStackBackend,
@@ -1487,6 +1487,24 @@ export async function composeRuntime(opts: ComposeRuntimeOptions): Promise<Compo
         canvas,
         mode,
         committerHost: inner.host,
+        // ⭐ §COMPONENT-RENDER-MOUNT-ADOPTS-INNER (lane 4E, audit §12 Phase 4E).
+        //
+        // This one line is what makes `committerHost: inner.host` above MEAN
+        // anything.  Until it landed, `bootstrapScene` forwarded the host to the
+        // returned SLOT while the render bootstrap it called built a SECOND data
+        // runtime and registered every committer on THAT runtime's host — so the
+        // host this composer handed to consumers had zero committers registered,
+        // no store bound to it, and no reconciler watching it.  Both entry points
+        // funnelled through here, so `composeRuntime({canvas})` and
+        // `runtime.scene.mount(canvas)` shared the defect exactly as they share
+        // everything else; nothing had noticed because `src/main.ts` boots with
+        // `canvas: null` and nothing had ever called `mount()`.
+        //
+        // Measured 2026-09-02 before the fix, in happy-dom AND in headless
+        // Chromium: after `mount()`,
+        // `performance.getEntriesByName('pryzm:bootstrap:stores:start').length`
+        // read 2, and `runtime.scene.host.get('wall')` read `undefined`.
+        innerRuntime: inner,
         loadRenderEverything: async () => {
           const mod = await import('@pryzm/editor/bootstrap.render.everything');
           return (mod as {
@@ -1751,6 +1769,23 @@ export async function composeRuntime(opts: ComposeRuntimeOptions): Promise<Compo
     // `performUndoRedo.ts`'s `UNMAPPED_BUS_STORE_KEYS` row for `balcony` states there
     // is no `window.balconyStore` at all, so nothing can diverge from this instance.
     const balconyStore: PluginDtoStoreHandle | undefined = inner.stores?.['balcony'];
+    // ── §COMPONENT-PLACE (audit §12 Phase 4C · ADR-0376 D9) — THE SEVENTH, AND IT
+    //    IS ADOPTED HERE ON THE FAMILY'S FIRST COMMIT RATHER THAN FOUR DAYS LATER.
+    //
+    // ⭐ L-11530 IS THE REASON THIS LINE EXISTS BEFORE THE DEFECT INSTEAD OF AFTER
+    // IT. The balcony row in `snapshotFamilyCoverage.ts` read `persisted` for FOUR
+    // DAYS while every balcony was destroyed on reload, for exactly one reason: the
+    // family had a store, a writer and a snapshot key, and `StoresSlot` had no
+    // `balcony` key — so `readPluginStore('balcony')` resolved `undefined` and the
+    // slice was never written. The audit's R11 makes that the acceptance bar for
+    // THIS lane: *"a `persisted` row asserts the READ CHANNEL resolves, not merely
+    // that a key and a writer exist."*
+    //
+    // ⭐ SAME NO-GEOMETRY-TWIN TEST, AND THIS FAMILY PASSES IT BY CONSTRUCTION: the
+    // `component` family is new, so there is no `window.componentStore` legacy
+    // global anywhere for this instance to diverge from (C84 EI-1 — the plugin DTO
+    // store is the ONE authority, declared in `plugins/component/src/store.ts`).
+    const componentStore: PluginDtoStoreHandle | undefined = inner.stores?.['component'];
     if (inner.stores !== undefined) {
       for (const [key, value] of [
         ['bathroomPod', bathroomPodStore],
@@ -1759,6 +1794,7 @@ export async function composeRuntime(opts: ComposeRuntimeOptions): Promise<Compo
         ['pool', poolStore],
         ['water', waterStore],
         ['balcony', balconyStore],
+        ['component', componentStore],
       ] as const) {
         if (value === undefined) {
           // The data half ran and still did not contribute the key — that is a
@@ -1795,6 +1831,13 @@ export async function composeRuntime(opts: ComposeRuntimeOptions): Promise<Compo
       // reads through `readPluginStore('balcony')`. Absent here, the save wrote no
       // `balconies` key and the family was destroyed on every reload, silently.
       balcony: balconyStore,
+      // §COMPONENT-PLACE (audit §12 Phase 4C · ADR-0376 D9) — ⭐⭐ THE JOIN's read
+      // channel. `ProjectSerializer.readPluginStore('component')` reads exactly this
+      // key off `window.runtime`; without it the `components` slice would never be
+      // written and every placed component would die on reload, silently, with the
+      // coverage row still saying `persisted`. That is L-11530 verbatim, and the
+      // whole reason this key lands in the same commit as the family.
+      component: componentStore,
       registerHydrator(fn: (snapshot: unknown) => void | Promise<void>): void {
         _hydratorFn = fn;
       },
@@ -1823,8 +1866,15 @@ export async function composeRuntime(opts: ComposeRuntimeOptions): Promise<Compo
       },
     };
     const bus = {
-      executeCommand(type: string, payload: unknown): unknown {
-        return inner.bus.executeCommand(type, payload);
+      /** §ENVELOPE-REACHES-THE-BUS (lane 4H) — `opts` forwarded verbatim; see the
+       *  slot's own doc comment in types.ts for why its absence was a defect and
+       *  why forwarding it cannot change what any command does (ADR-0324 §3). */
+      executeCommand(
+        type: string,
+        payload: unknown,
+        opts?: { readonly context?: CommandExecutionContext },
+      ): unknown {
+        return inner.bus.executeCommand(type, payload, opts);
       },
       /**
        * §U-B2 (DAILY-USE-AUDIT 2026-05-20) — formal dispatch entry point used by

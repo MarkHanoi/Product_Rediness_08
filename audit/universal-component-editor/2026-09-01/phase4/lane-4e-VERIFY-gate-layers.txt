@@ -1,0 +1,74 @@
+npm warn Unknown project config "package-manager-strict". This will stop working in the next major version of npm. See `npm help npmrc` for supported config options.
+[check-layer-boundaries] §FIX-LAYER-GATE-BLIND (L-809) · §FIX-LAYER-TABLE-INVERTED
+[check-layer-boundaries] workspace packages: 168 · classified: 155 · UNCLASSIFIED: 13
+[check-layer-boundaries] upward imports between classified packages: 48
+[check-layer-boundaries] L6 plugin imports bypassing the L5 SDK facade: 159
+[check-layer-boundaries] banned third-party imports (OBC / express) outside their allowed homes: 86
+
+  Banned third-party imports by package:
+        30  packages/core-app-model  [@thatopen/components]
+        24  plugins/annotations  [@thatopen/components]
+        23  apps/editor  [@thatopen/components]
+         5  apps/editor  [@thatopen/components-front]
+         3  packages/file-format  [@thatopen/components]
+         1  packages/core-app-model  [@thatopen/components-front]
+
+  Violations by layer pair:
+        14  L2 → L4
+        12  L3 → L4
+         9  L1 → L2
+         6  L3 → L6
+         5  L2 → L3
+         1  L3 → L7
+         1  L6 → L7
+
+  Sample (first 15):
+      packages/ai-host/src/FloorPlanAIFactory.ts  →  @pryzm/file-format   [L2 → L3]
+      packages/command-registry/src/annotations/AnnotateViewCommand.ts  →  @pryzm/persistence-client   [L2 → L4]
+      packages/core-app-model/src/scene/PreviewRegistry.ts  →  @pryzm/scene-committer   [L2 → L4]
+      packages/core-app-model/src/scene/SceneBoundsCache.ts  →  @pryzm/scene-committer   [L2 → L4]
+      packages/core-app-model/src/scene/SceneLayers.ts  →  @pryzm/scene-committer   [L2 → L4]
+      packages/core-app-model/src/scene/SceneObjectClassifier.ts  →  @pryzm/scene-committer   [L2 → L4]
+      packages/core-app-model/src/scene/StairPlanSymbolRegistry.ts  →  @pryzm/scene-committer   [L2 → L4]
+      packages/core-app-model/src/scene/index.ts  →  @pryzm/scene-committer   [L2 → L4]
+      packages/core-app-model/src/scene/index.ts  →  @pryzm/scene-committer   [L2 → L4]
+      packages/core-app-model/src/scene/index.ts  →  @pryzm/scene-committer   [L2 → L4]
+      packages/core-app-model/src/scene/index.ts  →  @pryzm/scene-committer   [L2 → L4]
+      packages/core-app-model/src/scene/index.ts  →  @pryzm/scene-committer   [L2 → L4]
+      packages/file-format/src/migrations/index.ts  →  @pryzm/persistence-client   [L3 → L4]
+      packages/file-format/src/pack.ts  →  @pryzm/persistence-client   [L3 → L4]
+      packages/file-format/src/types.ts  →  @pryzm/persistence-client   [L3 → L4]
+
+  L6 SDK-facade bypasses by target package (a plugin should reach the platform through @pryzm/plugin-sdk):
+        84  packages/renderer-three
+        37  packages/command-registry
+        14  packages/core-app-model
+         4  packages/geometry-boundary-line
+         4  packages/schemas
+         3  packages/geometry-curtain-wall
+         3  packages/geometry-lift
+         2  packages/ai-host
+         2  packages/geometry-balcony
+         2  packages/geometry-plumbing
+         1  packages/geospatial
+         1  packages/drawing-primitives
+         1  packages/geometry-pool
+         1  apps/editor
+
+  ⚠ 13 package(s) have NO layer. The gate cannot judge any import to or from them:
+      @pryzm/admin-overrides
+      @pryzm/ai-spend
+      @pryzm/api-rbac
+      @pryzm/api-spec
+      @pryzm/bench-visual-diff
+      @pryzm/beta-signup
+      @pryzm/email-transport
+      eslint-plugin-pryzm
+      @pryzm/legacy-shim
+      @pryzm/rate-limit
+      @pryzm/release
+      @pryzm/wcag-audit
+      @pryzm/webhooks
+
+[check-layer-boundaries] ✓ within baselines (violations 48/102, unclassified 13/13, sdk-bypass 159/182).
+RC=0

@@ -1,0 +1,16 @@
+npm warn Unknown project config "package-manager-strict". This will stop working in the next major version of npm. See `npm help npmrc` for supported config options.
+[raf-tripwire] files scanned: 5595 (excluded 2892)
+  Owners (code lines only):
+      tools/perf/outer/outer-baseline.spec.ts
+      packages/frame-scheduler/src/RafAdapter.ts
+  Comment-only mentions (not owners): 5 file(s)
+      apps/editor/src/ui/facade/FacadeReconstructionPanel.ts
+      apps/editor/src/ui/living-graph/livingGraphSelection.ts
+      apps/editor/src/ui/overlays/RendererSwapOverlay.ts
+      packages/core-app-model/src/BimWorld.ts
+      packages/core-app-model/src/rendering/RenderingPipelineCoordinator.ts
+[raf-tripwire] FAIL: 2 files own requestAnimationFrame > 1 (hard fail).
+  Wave 7 target is exactly 1 file: packages/frame-scheduler/src/RafAdapter.ts.
+  P3: all animation subscribes to the frame bus (packages/frame-scheduler) —
+  use getFrameScheduler().scheduleOnce(...) or addTickListener(...).
+  Read: docs/archive/pryzm3-internal/04-PLAN-FORWARD/archive/11-WAVE-7-CLEANUP-PHASE-F.md §2

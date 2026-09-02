@@ -1,6 +1,7 @@
 export { type Migrator, type RawFamily, type ChainResult, type ChainStep, MigrationError, } from './types.js';
 export { MigratorRegistry } from './registry.js';
 export { identityMigrator } from './identity.js';
+export { makeV1_0ToV1_1Migrator, v1_0ToV1_1Migrator, assertVersionCoherent, ALL_VERSION_MIGRATORS, V1_0, V1_1, } from './v1_0-to-v1_1.js';
 export { migrateFamily, PRYZM_FAMILY_MIGRATE_TRACER, type MigrateFamilyOptions, type MigrateFamilyResult, } from './migrate-family.js';
 export { makeRenameParameterMigrator, type RenameParameterParams, } from './ops/rename-parameter.js';
 export { makeAddParameterMigrator, type AddParameterParams, } from './ops/add-parameter.js';

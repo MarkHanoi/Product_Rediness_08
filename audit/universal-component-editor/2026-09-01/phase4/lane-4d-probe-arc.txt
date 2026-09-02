@@ -1,0 +1,31 @@
+npm warn Unknown project config "package-manager-strict". This will stop working in the next major version of npm. See `npm help npmrc` for supported config options.
+=== LANE 4D · ARC RE-FALSIFICATION =========================================
+COINCIDENT_M (declared, geometry-kernel/src/tolerance.ts) = 0.001 m
+
+--- E1: arcToPoints (quadratic Bezier) vs a TRUE circle, 90 deg, R = 1 m ---
+  segments=   8  max|r-R| = 0.060660 m  = 60.7x COINCIDENT_M
+  segments=  32  max|r-R| = 0.060660 m  = 60.7x COINCIDENT_M
+  segments= 256  max|r-R| = 0.060660 m  = 60.7x COINCIDENT_M
+  segments=4096  max|r-R| = 0.060660 m  = 60.7x COINCIDENT_M
+[OK]   E1 arcToPoints error is INVARIANT in `segments` (it converges to the Bezier, not the circle) — dev(32)=0.060660 dev(4096)=0.060660 — both > COINCIDENT_M=0.001
+
+--- E2: spec §64 ARCHED TOP (semicircle, R = 1 m) — best single Bezier ---
+  best k = 2.215   floor max|r-R| = 0.1077 m = 108x COINCIDENT_M
+[OK]   E2 NO single quadratic Bezier reaches COINCIDENT_M on a semicircle — floor 0.1077 m > 0.001 m at every k in [0.1, 8]
+
+--- E3: closed-form trig tessellation, same semicircle ---
+  n=  8  max vertex |r-R| = 0.000e+0 m   chord sagitta = 1.921e-2 m
+  n= 16  max vertex |r-R| = 2.220e-16 m   chord sagitta = 4.815e-3 m
+  n= 64  max vertex |r-R| = 2.220e-16 m   chord sagitta = 3.012e-4 m
+[OK]   E3 closed-form trig places every vertex ON the circle to machine precision — n=16 max|r-R| = 2.220e-16 m
+
+--- E4: ReferencePlaneSchema / ProfileEntitySchema re-read AFTER lane 4B ---
+  ReferencePlane parsed keys: id, isHost, name, normal, origin
+[OK]   E4a ReferencePlane STILL carries no in-plane basis after 4B — keys = {id, isHost, name, normal, origin} — origin + normal fix orientation but leave the spin about the normal FREE
+  basis A -> (2.0000, 0.0000, 0.0000)
+  basis B -> (1.0000, 0.0000, 1.7321)
+[OK]   E4b the same document point lifts to two DIFFERENT world points under two legal bases — separation 2.0000 m = 2000x COINCIDENT_M — normal alone is short one rotational DOF
+[OK]   E4c ProfileEntity.data is STILL an uncontracted z.record after 4B — arc with {banana:3} accepted=true; arc with {} accepted=true — no key required, none forbidden
+
+PROBE SUMMARY — FAIL 0
+RC=0

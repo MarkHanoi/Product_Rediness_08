@@ -59,6 +59,22 @@ export type WaterId       = Id<'water'>;
  */
 export type BalconyId     = Id<'balcony'>;
 /**
+ * §COMPONENT-PLACE (audit §12 Phase 4C) · **ADR-0376 D9** — a PLACED OCCURRENCE of
+ * a component definition, and **THE JOIN** the universal-component programme exists
+ * to build: before this brand there was no bus verb anywhere in the repository that
+ * put a component into a project.
+ *
+ * ⭐ IT IS AN ELEMENT BRAND, NOT A PARALLEL INSTANCE ID, and D9 rules exactly that:
+ * a "component instance" concept outside the element model would mint a **second
+ * citizenship class in the World Model** — two answers to *"what is in this
+ * project"* — which is C84 EI-9 at the largest possible scale.
+ *
+ * ⚠ DISTINCT FROM `fam_<ULID>` (C111 §1.1-a), which identifies the DEFINITION
+ * document. This brand identifies an OCCURRENCE of one, and the two id spaces are
+ * deliberately not interchangeable: a definition outlives every occurrence of it.
+ */
+export type ComponentId   = Id<'component'>;
+/**
  * §FEAT-PROJECT-ORIGIN (L-109) — the singleton Project Origin / Base Point.
  * One per project; the always-on blue-sphere coordination datum whose position
  * IS the shared-coordinate origin (C19 §1.3 LTP-ENU / ADR-0115 project base point).
@@ -184,6 +200,10 @@ export type ElementType =
   | 'pool'
   | 'water'
   | 'balcony'
+  // §COMPONENT-PLACE (audit §12 Phase 4C) · ADR-0376 D9 — the placed occurrence of
+  // a component definition. THE JOIN. See `ComponentId` above for why it is an
+  // element discriminator and not a parallel instance concept.
+  | 'component'
   | 'lift'
   | 'liftPart'
   // §BATH102 (L-11480, C109) — the LOD-300 parametric bathroom-pod compound parent.
@@ -202,7 +222,7 @@ export type AnyElementId =
   | RoomId | FurnitureId | AnnotationId | DimensionId | SheetId
   | ScheduleId | ViewId | ProjectId
   | StructuralId | LightingId | PlumbingId | ProjectOriginId
-  | PoolId | WaterId | BalconyId | LiftId | LiftPartId | BathroomPodId | BoundaryLineId
+  | PoolId | WaterId | BalconyId | ComponentId | LiftId | LiftPartId | BathroomPodId | BoundaryLineId
   | OpeningId | FloorId | SectionId;
 
 /** Map element-type discriminator → typed ID. */
@@ -235,6 +255,8 @@ export type IdFor<T extends ElementType> =
   T extends 'pool'        ? PoolId        :
   T extends 'water'       ? WaterId       :
   T extends 'balcony'     ? BalconyId      :
+  // §COMPONENT-PLACE · ADR-0376 D9 — the placed component occurrence.
+  T extends 'component'   ? ComponentId   :
   T extends 'lift'        ? LiftId        :
   T extends 'liftPart'    ? LiftPartId    :
   // §BATH102 (L-11480, C109) — brand only; see `BathroomPodId`.

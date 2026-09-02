@@ -53,6 +53,13 @@ export { Water } from './Water.js';
 // three members are real records of EXISTING families, derived from ONE polygon.
 // Unlike the pool it mints NO new member family — the compound is the only new kind.
 export { Balcony } from './Balcony.js';
+// §COMPONENT-PLACE (audit §12 Phase 4C) — the PLACED OCCURRENCE of a component
+// definition (ADR-0376 D9, C110/C111/C112, C84 §6.2). ⭐ THE JOIN: `.pryzm-family`
+// could be authored, packed, signed, migrated and unpacked, and no verb anywhere
+// could put the result in a project. This is the element that occurrence is.
+// ⛔ NOT the DEFINITION — that is `FamilyDocumentSchema` in `@pryzm/file-format`,
+// whose `Family*` spelling D5 freezes as legacy. This record REFERENCES one by id.
+export { Component } from './Component.js';
 // §FEAT-CONSTRUCTION-BOUNDARY-LINE (L-7900) — the AUTHORED construction / setting-out
 // line (C106, ADR-0348). ⛔ NOT `Parcel.boundary` (C19 §1.4 — legal, immutable, owned
 // by the site subsystem) and NOT `RoomBoundingLine` (an invisible room-detection

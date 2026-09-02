@@ -233,6 +233,30 @@
       "reason": "SEEDED BACKLOG — writes a plugin DTO store, has no CommandEventBridge case, and does not refuse. Nothing relays it to the legacy geometry store the fragment builders, the 2-D plan projector, the IFC exporter and ProjectSerializer read, so it commits, reports success, and changes nothing the user can see. Fix = a case in CommandEventBridge.ts + a subscriber in initTools.ts, OR replace this text with the measured reason it needs neither."
     },
     {
+      "verb": "component.place",
+      "kind": "UNMIRRORED",
+      "stores": [
+        "component"
+      ],
+      "reason": "§COMPONENT-PLACE (audit §12 Phase 4C · ADR-0376 D9), 2026-09-02 — the placed-component family has NO CommandEventBridge case and NO legacy geometry twin, so nothing relays this write to a mesh and a placed component DOES NOT APPEAR IN THE VIEWPORT. ⛔ CLASSIFIED `UNMIRRORED` AND NOT `no-render`, DELIBERATELY: `no-render` would claim the family reaches no builder BY DESIGN, and a component is meant to be seen — that is spec §63's 3-D leg. Calling this an exemption would be the naming-vs-behaviour defect C84 §6.2c forbids for exactly this family. ⛔ AND NO BRIDGE CASE WAS ADDED TO BUY A GREEN: there is no subscriber and no builder to relay to at this commit, so a `case` here would emit an event nobody consumes — INVENTING A CONSUMER, the failure `pluginStoreUndoAdapter.ts` names for `structural`/`dimension`. OWNER: lane 4E (`plugins/component/src/committer/**`), under ADR-0376 D10 — whose descope is PRE-AUTHORISED, so if `runtime.scene.mount` cannot be made to work for one family the 3-D ships through the `*FragmentBuilder` path and THIS ROW IS WHAT IT LEAVES BY. ⭐ WHAT IS NOT LOST MEANWHILE: the record reaches the AUTHORITATIVE store, survives save→reload and reverts on Ctrl+Z — executed in `apps/editor/__tests__/componentJoinThroughComposedRuntime.test.ts` (ARMs B, G, J). This row is about PIXELS, not about the model."
+    },
+    {
+      "verb": "component.setInstanceParameter",
+      "kind": "UNMIRRORED",
+      "stores": [
+        "component"
+      ],
+      "reason": "§COMPONENT-PLACE (audit §12 Phase 4C · ADR-0376 D9), 2026-09-02 — the placed-component family has NO CommandEventBridge case and NO legacy geometry twin, so nothing relays this write to a mesh and a placed component DOES NOT APPEAR IN THE VIEWPORT. ⛔ CLASSIFIED `UNMIRRORED` AND NOT `no-render`, DELIBERATELY: `no-render` would claim the family reaches no builder BY DESIGN, and a component is meant to be seen — that is spec §63's 3-D leg. Calling this an exemption would be the naming-vs-behaviour defect C84 §6.2c forbids for exactly this family. ⛔ AND NO BRIDGE CASE WAS ADDED TO BUY A GREEN: there is no subscriber and no builder to relay to at this commit, so a `case` here would emit an event nobody consumes — INVENTING A CONSUMER, the failure `pluginStoreUndoAdapter.ts` names for `structural`/`dimension`. OWNER: lane 4E (`plugins/component/src/committer/**`), under ADR-0376 D10 — whose descope is PRE-AUTHORISED, so if `runtime.scene.mount` cannot be made to work for one family the 3-D ships through the `*FragmentBuilder` path and THIS ROW IS WHAT IT LEAVES BY. ⭐ WHAT IS NOT LOST MEANWHILE: the record reaches the AUTHORITATIVE store, survives save→reload and reverts on Ctrl+Z — executed in `apps/editor/__tests__/componentJoinThroughComposedRuntime.test.ts` (ARMs B, G, J). This row is about PIXELS, not about the model."
+    },
+    {
+      "verb": "component.swapType",
+      "kind": "UNMIRRORED",
+      "stores": [
+        "component"
+      ],
+      "reason": "§COMPONENT-PLACE (audit §12 Phase 4C · ADR-0376 D9), 2026-09-02 — the placed-component family has NO CommandEventBridge case and NO legacy geometry twin, so nothing relays this write to a mesh and a placed component DOES NOT APPEAR IN THE VIEWPORT. ⛔ CLASSIFIED `UNMIRRORED` AND NOT `no-render`, DELIBERATELY: `no-render` would claim the family reaches no builder BY DESIGN, and a component is meant to be seen — that is spec §63's 3-D leg. Calling this an exemption would be the naming-vs-behaviour defect C84 §6.2c forbids for exactly this family. ⛔ AND NO BRIDGE CASE WAS ADDED TO BUY A GREEN: there is no subscriber and no builder to relay to at this commit, so a `case` here would emit an event nobody consumes — INVENTING A CONSUMER, the failure `pluginStoreUndoAdapter.ts` names for `structural`/`dimension`. OWNER: lane 4E (`plugins/component/src/committer/**`), under ADR-0376 D10 — whose descope is PRE-AUTHORISED, so if `runtime.scene.mount` cannot be made to work for one family the 3-D ships through the `*FragmentBuilder` path and THIS ROW IS WHAT IT LEAVES BY. ⭐ WHAT IS NOT LOST MEANWHILE: the record reaches the AUTHORITATIVE store, survives save→reload and reverts on Ctrl+Z — executed in `apps/editor/__tests__/componentJoinThroughComposedRuntime.test.ts` (ARMs B, G, J). This row is about PIXELS, not about the model."
+    },
+    {
       "verb": "cube.move",
       "kind": "UNMIRRORED",
       "stores": [
@@ -271,6 +295,14 @@
         "curtainwall"
       ],
       "reason": "SEEDED BACKLOG — writes a plugin DTO store, has no CommandEventBridge case, and does not refuse. Nothing relays it to the legacy geometry store the fragment builders, the 2-D plan projector, the IFC exporter and ProjectSerializer read, so it commits, reports success, and changes nothing the user can see. Fix = a case in CommandEventBridge.ts + a subscriber in initTools.ts, OR replace this text with the measured reason it needs neither."
+    },
+    {
+      "verb": "curtain-wall.changeLevel",
+      "kind": "mirrored-elsewhere",
+      "stores": [
+        "curtainwall"
+      ],
+      "reason": "MEASURED: carried by the §L-946 `element.level-changed` channel, which `emitLevelChange()` fires BEFORE the create switch and in its own try/catch, so `elementLevelChangedMirror` moves the legacy record without a case here. Row cited from packages/command-bus/src/levelChangeVerbs.ts — the one authority on the question (C84 EI-9)."
     },
     {
       "verb": "curtain-wall.delete",
@@ -375,14 +407,6 @@
         "curtainwall"
       ],
       "reason": "SEEDED BACKLOG — writes a plugin DTO store, has no CommandEventBridge case, and does not refuse. Nothing relays it to the legacy geometry store the fragment builders, the 2-D plan projector, the IFC exporter and ProjectSerializer read, so it commits, reports success, and changes nothing the user can see. Fix = a case in CommandEventBridge.ts + a subscriber in initTools.ts, OR replace this text with the measured reason it needs neither."
-    },
-    {
-      "verb": "curtain-wall.changeLevel",
-      "kind": "mirrored-elsewhere",
-      "stores": [
-        "curtainwall"
-      ],
-      "reason": "MEASURED: carried by the §L-946 `element.level-changed` channel, which `emitLevelChange()` fires BEFORE the create switch and in its own try/catch, so `elementLevelChangedMirror` moves the legacy record without a case here. Row cited from packages/command-bus/src/levelChangeVerbs.ts — the one authority on the question (C84 EI-9)."
     },
     {
       "verb": "dimension.createMany",

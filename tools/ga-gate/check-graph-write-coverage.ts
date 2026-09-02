@@ -434,6 +434,50 @@ const DEDICATED_READERS: Readonly<Record<string, DedicatedReader>> = {
   // unregistered would make the arm report a gap it cannot act on. Same
   // room-topology collision as its sibling, same pin.
   getAdjacentRooms: { family: 'adjacentTo', receiver: 'semanticGraphManager' },
+
+  // ── REGISTERED 2026-09-02 · C71 §2.7's DEFINITION AXIS ───────────────────
+  // The seven readers of `instantiates` / `specializes` / `dependsOnDefinition`,
+  // registered because THIS GATE'S OWN `unregistered-reader` arm demanded it by
+  // name, in the words it prints: *"Register it, pinning the receiver if the
+  // name is shared with another graph."* Registering is not an absorption and
+  // buys no coverage — the standing rule above still holds, and a production
+  // call site is what earns the credit.
+  //
+  // NO RECEIVER PIN: measured 2026-09-02, each of the seven spellings occurs
+  // ONLY in `SemanticGraph.ts`, its own suite, and `GraphQueryService.ts` — the
+  // room-topology collision that forced the pins above does not exist for any
+  // of them. Add a pin the day a second graph borrows a spelling.
+  //
+  // ⚠ THESE THREE FAMILIES ARE NOT IN `REQUIRED` AND MUST NOT BE ADDED THERE BY
+  // THIS ROW. C71 §2.7 is explicit: they are declared, not required, and each
+  // "joins §2.1 in the PR that lands its writer and its typed reader together".
+  // The typed readers landed here; the WRITER is the component placement command
+  // (Phase 4C), which does not exist yet — so the ⚠ classification line this
+  // gate prints for them is CORRECT and is deliberately left standing.
+
+  // C71 §2.7 — `instantiates`, forward: wraps `getTargets(instanceId,'instantiates')`.
+  // Consumer: GraphQueryService's DEFINITION_AXIS_READERS (the `graph.query` verb).
+  getInstantiatedDefinition: { family: 'instantiates' },
+  // C71 §2.7 — `instantiates`, reverse: wraps `getSources(definitionId,'instantiates')`
+  // behind the target-side coverage mark. The `getElementsSittingOn` shape.
+  // Consumer: GraphQueryService (the acceptance query "which instances exist
+  // over this definition").
+  getInstancesOfDefinition: { family: 'instantiates' },
+  // C71 §2.7 — `specializes`, forward: wraps `getTargets(typeId,'specializes')`.
+  getSpecializedParent: { family: 'specializes' },
+  // C71 §2.7 — `specializes`, reverse: wraps `getSources(parentId,'specializes')`.
+  // Consumer: GraphQueryService; the count C65 §3.6 requires before a propagate.
+  getSpecializationsOf: { family: 'specializes' },
+  // C71 §2.7 — `dependsOnDefinition`, forward: wraps `getTargets(id,'dependsOnDefinition')`.
+  getDefinitionDependencies: { family: 'dependsOnDefinition' },
+  // C71 §2.7 — `dependsOnDefinition`, reverse: wraps `getSources(id,'dependsOnDefinition')`.
+  // Consumer: GraphQueryService; "what breaks if this definition is deleted?".
+  getDefinitionDependents: { family: 'dependsOnDefinition' },
+  // C71 §2.7 — the CYCLE question over `dependsOnDefinition`, walked through
+  // `getTargets(id,'dependsOnDefinition')`. A definition that transitively
+  // contains itself; `family-runtime`'s cycle detection covers expressions, not
+  // definitions, and C71 §4.3 forbids inferring one graph's coverage from another.
+  findDefinitionDependencyCycle: { family: 'dependsOnDefinition' },
 };
 
 /**

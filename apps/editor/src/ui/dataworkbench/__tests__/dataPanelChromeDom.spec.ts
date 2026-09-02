@@ -50,9 +50,11 @@ let el: HTMLElement;
 beforeAll(async () => {
     (window as unknown as { runtime: unknown }).runtime = { events: makeEventsBus() };
     const { DataWorkbench } = (await import('../DataWorkbench')) as unknown as {
-        DataWorkbench: new (runtime: null) => unknown;
+        DataWorkbench: new (runtime: null) => { setMode(m: string): void };
     };
-    new DataWorkbench(null);
+    // §PERF-DW-LAZY-BUILD (2026-09-02): DOM is built on first open, not in the
+    // constructor — open the panel before asserting on its chrome.
+    new DataWorkbench(null).setMode('panel');
     el = document.getElementById('dw-workbench') as HTMLElement;
 }, 300_000);
 

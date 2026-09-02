@@ -8,6 +8,25 @@ export {
   type ArithOp,
   type CompareOp,
 } from './parser.js';
-export { evaluate, evaluateAst, ExpressionEvalError, type EvalScope } from './evaluator.js';
+export {
+  evaluate,
+  evaluateAst,
+  evaluateAstQuantity,
+  ExpressionEvalError,
+  type EvalScope,
+  type ScopeValue,
+} from './evaluator.js';
 export { BUILTIN_FUNCTIONS, lookupBuiltin, type BuiltinFn } from './functions.js';
-export { toCanonical, kindOf, UnitMismatchError, type CanonicalKind } from './unit-coercion.js';
+export {
+  toCanonical,
+  kindOf,
+  kindOfDataType,
+  unifyKinds,
+  multiplyKinds,
+  divideKinds,
+  assertAngleArgument,
+  UnitMismatchError,
+  UNIT_NAMES,
+  type CanonicalKind,
+  type Quantity,
+} from './unit-coercion.js';

@@ -110,15 +110,43 @@
  * ROUTED to their readers (`TYPED_TARGET_READERS`) — a routing fix, not a new
  * capability; no seventh reader was written and no refusal reason invented.
  * See the block above that table for the two families excluded on purpose.
+ *
+ * ── C71 §2.7 — THE DEFINITION AXIS, AND WHY IT NEEDED A SECOND TABLE ────────
+ *
+ * `instantiates` · `specializes` · `dependsOnDefinition` are the first families
+ * this surface answers whose endpoints are NOT both element instances. They are
+ * routed through `DEFINITION_AXIS_READERS`, not `TYPED_TARGET_READERS`, and the
+ * separation is load-bearing rather than tidy:
+ *
+ *   · A `getTargets`-shaped family has ONE question. `graph.query(instanceId,
+ *     'instantiates')` asks *"what is this thing?"*; `graph.query(definitionId,
+ *     'instantiates')` asks *"what is placed from this?"* — the SAME family, two
+ *     questions, decided by the node kind of the subject (C71 §1.5 semantic 7).
+ *   · This file already REFUSED to fold a reverse traversal into `query`: the
+ *     block above excludes `sitsOn` because `getElementsSittingOn` is level →
+ *     elements while `getTargets(id,'sitsOn')` is element → level, and *"routing
+ *     them here would SILENTLY change the direction of the answer."* That
+ *     objection is about the SILENCE, and it is answered here rather than
+ *     evaded: a definition-axis answer carries `direction` and `targetNodeKind`
+ *     on the result, so the caller is TOLD which question was answered and what
+ *     kind of ids it holds. ⛔ Do NOT extend that to the twelve instance-only
+ *     families by copying this table — for them `getTargets` IS the question,
+ *     and `sitsOn` stays excluded for exactly the reason it always was.
+ *   · An id neither side can be established for REFUSES
+ *     (`definition-axis-node-kind-undetermined`) instead of picking a direction.
+ *     Guessing is the silently-wrong answer C71 §1.5 exists to prevent.
  */
 
 import { trace, type Tracer } from '@opentelemetry/api';
 import {
   semanticGraphManager as defaultSemanticGraphManager,
   partOfProjection as defaultPartOfProjection,
+  DEFINITION_AXIS_RELATIONSHIP_TYPES,
   type SemanticGraphManager,
   type RelationshipType,
   type PartOfParentQuery,
+  type GraphNodeKind,
+  type DefinitionAxisRelationshipType,
 } from '@pryzm/core-app-model';
 import { roomGraphService as defaultRoomGraphService } from '@pryzm/spatial-index';
 
@@ -163,6 +191,10 @@ const SUPPORTED_RELATIONSHIP_TYPES = new Set<RelationshipType>([
   'joinedTo',
   'connectedByStair',
   'connectedByLift',
+  // C71 §2.7 — the definition axis. Routed through DEFINITION_AXIS_READERS, not
+  // through the raw `getTargets`; membership here is what lets them appear in the
+  // untyped `neighbors` sweep, exactly as the `partOf` note above records.
+  ...DEFINITION_AXIS_RELATIONSHIP_TYPES,
 ]);
 
 // ── The hierarchy families — declared, PARKED, and NOT this graph's to answer ─
@@ -342,6 +374,135 @@ export const GRAPH_QUERY_TYPED_READER_RELATIONSHIPS: readonly RelationshipType[]
   ...TYPED_TARGET_READERS.keys(),
 ];
 
+// ── C71 §2.7 — THE DEFINITION AXIS ──────────────────────────────────────────
+
+/**
+ * A definition-axis reader's answer. Unlike {@link TypedTargetsOutcome} it
+ * carries the DIRECTION it answered in and the KIND of the ids it is handing
+ * back — the seventh semantic (C71 §1.5), made observable at the surface where
+ * `[]` stops being a value and becomes English in a prompt.
+ */
+type DefinitionAxisOutcome =
+  | {
+      readonly ok: true;
+      readonly targets: readonly string[];
+      /** `outgoing` = the subject is the edge's SOURCE; `incoming` = its TARGET. */
+      readonly direction: 'outgoing' | 'incoming';
+      /** What kind of thing the returned ids are. */
+      readonly targetNodeKind: GraphNodeKind;
+    }
+  | { readonly ok: false; readonly reason: string; readonly detail: string };
+
+/**
+ * Every refusal reason the definition-axis readers can produce, DERIVED from
+ * their own return types — the {@link GraphTypedReaderRefusalReason} idiom, for
+ * the same reason: a reader that grows a refusal widens this automatically, and
+ * a hand-copied list rots.
+ */
+export type GraphDefinitionAxisRefusalReason =
+  | RefusalReasonOf<ReturnType<SemanticGraphManager['getInstantiatedDefinition']>>
+  | RefusalReasonOf<ReturnType<SemanticGraphManager['getInstancesOfDefinition']>>
+  | RefusalReasonOf<ReturnType<SemanticGraphManager['getSpecializedParent']>>
+  | RefusalReasonOf<ReturnType<SemanticGraphManager['getSpecializationsOf']>>
+  | RefusalReasonOf<ReturnType<SemanticGraphManager['getDefinitionDependencies']>>
+  | RefusalReasonOf<ReturnType<SemanticGraphManager['getDefinitionDependents']>>;
+
+/**
+ * The refusal for an id the graph cannot place on either side of a
+ * definition-axis family — so it will not guess a direction (C71 §1.5).
+ */
+function definitionAxisUndetermined(
+  family: DefinitionAxisRelationshipType,
+  elementId: string,
+): DefinitionAxisOutcome {
+  return {
+    ok: false,
+    reason: 'definition-axis-node-kind-undetermined',
+    detail:
+      `graph.query: '${family}' joins nodes of two different KINDS, and no coverage mark and no ` +
+      `edge places ${elementId} on either side of it — so the graph cannot tell whether you are ` +
+      `asking "what does this instantiate/specialize/depend on" or "what instantiates/specializes/` +
+      `depends on this". This is NO ANSWER, not an empty set: picking a direction would return a ` +
+      `confident list of the WRONG KIND OF ID (C71 §1.5 — a silently wrong answer, not a type error).`,
+  };
+}
+
+/**
+ * The definition-axis delegation table. Each entry resolves the subject's NODE
+ * KIND from the graph's own declarations (the writer's coverage marks and the
+ * id's position in this family's edges — never an id prefix, C71 §1.5), then
+ * asks the reader that owns the question that kind can be asked.
+ */
+const DEFINITION_AXIS_READERS: ReadonlyMap<
+  RelationshipType,
+  (graph: SemanticGraphManager, elementId: string) => DefinitionAxisOutcome
+> = new Map<RelationshipType, (graph: SemanticGraphManager, elementId: string) => DefinitionAxisOutcome>([
+  [
+    'instantiates',
+    (g, id) => {
+      const at = g.resolveDefinitionAxisNodeKind(id, 'instantiates');
+      if (at === null) return definitionAxisUndetermined('instantiates', id);
+      if (at.side === 'target') {
+        // ⭐ THE ACCEPTANCE: `graph.query(<definition>, 'instantiates')` returns
+        // the INSTANCES, and says so — `direction: 'incoming'`, kind `instance`.
+        const q = g.getInstancesOfDefinition(id);
+        return q.ok
+          ? { ok: true, targets: q.instanceIds, direction: 'incoming', targetNodeKind: 'instance' }
+          : { ok: false, reason: q.reason, detail: q.detail };
+      }
+      const q = g.getInstantiatedDefinition(id);
+      return q.ok
+        ? { ok: true, targets: [q.definitionId], direction: 'outgoing', targetNodeKind: 'definition' }
+        : { ok: false, reason: q.reason, detail: q.detail };
+    },
+  ],
+  [
+    'specializes',
+    (g, id) => {
+      const at = g.resolveDefinitionAxisNodeKind(id, 'specializes');
+      if (at === null) return definitionAxisUndetermined('specializes', id);
+      if (at.side === 'target') {
+        const q = g.getSpecializationsOf(id);
+        return q.ok
+          ? { ok: true, targets: q.typeIds, direction: 'incoming', targetNodeKind: 'type' }
+          : { ok: false, reason: q.reason, detail: q.detail };
+      }
+      const q = g.getSpecializedParent(id);
+      return q.ok
+        ? { ok: true, targets: [q.parentId], direction: 'outgoing', targetNodeKind: q.parentKind }
+        : { ok: false, reason: q.reason, detail: q.detail };
+    },
+  ],
+  [
+    'dependsOnDefinition',
+    (g, id) => {
+      const at = g.resolveDefinitionAxisNodeKind(id, 'dependsOnDefinition');
+      if (at === null) return definitionAxisUndetermined('dependsOnDefinition', id);
+      if (at.side === 'target') {
+        const q = g.getDefinitionDependents(id);
+        return q.ok
+          ? { ok: true, targets: q.dependentIds, direction: 'incoming', targetNodeKind: 'definition' }
+          : { ok: false, reason: q.reason, detail: q.detail };
+      }
+      const q = g.getDefinitionDependencies(id);
+      return q.ok
+        ? { ok: true, targets: q.dependsOnIds, direction: 'outgoing', targetNodeKind: 'definition' }
+        : { ok: false, reason: q.reason, detail: q.detail };
+    },
+  ],
+]);
+
+/**
+ * The definition-axis families, exported beside the other two vocabularies so a
+ * gate or probe can assert the routing — and assert that this set is DISJOINT
+ * from {@link GRAPH_QUERY_TYPED_READER_RELATIONSHIPS}, which is the property
+ * that stops one of them drifting into the `getTargets` path and losing its
+ * direction discriminator.
+ */
+export const GRAPH_QUERY_DEFINITION_AXIS_RELATIONSHIPS: readonly RelationshipType[] = [
+  ...DEFINITION_AXIS_READERS.keys(),
+];
+
 /** The ways a graph read can fail to produce a positive answer. */
 export type GraphRefusalReason =
   | 'graph-unavailable'
@@ -353,6 +514,15 @@ export type GraphRefusalReason =
    * See {@link GraphTypedReaderRefusalReason} and `TYPED_TARGET_READERS`.
    */
   | GraphTypedReaderRefusalReason
+  /**
+   * C71 §2.7 — the definition-axis reader that owns this family refused, and its
+   * reason is forwarded VERBATIM. Includes
+   * `definition-axis-node-kind-undetermined`, which is this axis's own refusal:
+   * the graph cannot place the subject on either side of a family whose two
+   * endpoints are different KINDS of thing, so it declines to guess a direction.
+   * @see {@link GraphDefinitionAxisRefusalReason} and `DEFINITION_AXIS_READERS`.
+   */
+  | GraphDefinitionAxisRefusalReason
   /**
    * ADR-0325 — a hierarchy family (`partOf` / `unitOf` / `levelOf`). The
    * SemanticGraph is not the hierarchy substrate; `hierarchyStore` + `parentId`
@@ -405,6 +575,23 @@ export type GraphQueryResult =
       readonly elementId: string;
       readonly relationshipType: RelationshipType;
       readonly targets: readonly string[];
+      /**
+       * C71 §1.5 semantic 7 — WHICH QUESTION was answered, present ONLY for the
+       * definition-axis families (C71 §2.7).
+       *
+       * OPTIONAL, and the absence is meaningful rather than lazy: the other
+       * twelve families join two element instances, so `query` is directional
+       * `source → target` by construction and a discriminator would be noise on
+       * every one of them. The definition axis is the first family where the
+       * subject's KIND decides the direction, and where a caller handed a bare
+       * list genuinely cannot tell whether it holds instance ids or a definition
+       * id — the measured hazard C71 §1.5 names. It is reported rather than
+       * inferred, which is what separates this from the `sitsOn` folding the
+       * header block refuses.
+       */
+      readonly direction?: 'outgoing' | 'incoming';
+      /** What KIND of node the returned ids are. Present with {@link direction}. */
+      readonly targetNodeKind?: GraphNodeKind;
     }
   | {
       readonly ok: false;
@@ -617,6 +804,35 @@ export class GraphQueryService {
               `${[...SUPPORTED_RELATIONSHIP_TYPES].join(', ')}.`,
           };
         }
+        // C71 §2.7 — the DEFINITION AXIS, delegated before everything below for
+        // the same reason `partOf` is: the subject's NODE KIND decides which
+        // question this family answers, and `unknown-element` — which only knows
+        // the edge set — would pre-empt a positive answer the writer's coverage
+        // mark is entitled to give (a definition created and never placed IS
+        // known, and has zero instances).
+        const axis = DEFINITION_AXIS_READERS.get(relationshipType as RelationshipType);
+        if (axis !== undefined) {
+          const answer = axis(graph, elementId);
+          if (answer.ok) {
+            return {
+              ok: true,
+              elementId,
+              relationshipType: relationshipType as RelationshipType,
+              targets: answer.targets,
+              direction: answer.direction,
+              targetNodeKind: answer.targetNodeKind,
+            };
+          }
+          return {
+            ok: false,
+            elementId,
+            relationshipType,
+            // Narrowed, never cast — the union is derived from the readers
+            // themselves, so this re-narrows a value that came from them.
+            reason: answer.reason as GraphDefinitionAxisRefusalReason,
+            detail: answer.detail,
+          };
+        }
         // L-12860 — DELEGATE before reading the raw edge set. The typed reader is
         // the authority for its family: it holds the coverage marks and the
         // undetermined marks that separate "no such edge" from "nobody ever
@@ -806,6 +1022,29 @@ export class GraphQueryService {
                 detail:
                   `graph.neighbors: no ${relationshipType} edge touches ${elementId} in either ` +
                   `direction, and the typed reader cannot establish that as an answer: ${answer.detail}`,
+              };
+            }
+          }
+          // C71 §2.7 — the definition axis takes the SAME gate, and needs it more
+          // than the six do: an empty neighbourhood for `instantiates` is either
+          // "this definition is known and nothing is placed from it" (an answer
+          // C65 §3.6 must be able to state) or "nobody has ever heard of this id"
+          // — and this surface is where the difference becomes a sentence in a
+          // prompt. Note an id with NO definition-axis edge at all still reaches
+          // here only when it holds some OTHER edge, so `unknown-element` above
+          // has not already covered it.
+          const axisDelegate = DEFINITION_AXIS_READERS.get(relationshipType as RelationshipType);
+          if (axisDelegate !== undefined) {
+            const answer = axisDelegate(graph, elementId);
+            if (!answer.ok) {
+              return {
+                ok: false,
+                elementId,
+                relationshipType,
+                reason: answer.reason as GraphDefinitionAxisRefusalReason,
+                detail:
+                  `graph.neighbors: no ${relationshipType} edge touches ${elementId} in either ` +
+                  `direction, and the definition-axis reader cannot establish that as an answer: ${answer.detail}`,
               };
             }
           }

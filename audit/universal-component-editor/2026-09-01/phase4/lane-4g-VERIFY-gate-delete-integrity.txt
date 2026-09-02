@@ -1,0 +1,68 @@
+npm warn Unknown project config "package-manager-strict". This will stop working in the next major version of npm. See `npm help npmrc` for supported config options.
+
+── check-graph-delete-integrity (C71 §6 · C70 F-INV-2) ─────────
+   floor  executed controls passed: measured 4, min 4 ✓
+   floor  graph-delete-integrity-debt.json ledger present: measured 1, min 1 ✓
+   floor  element kinds parsed from the registry (ElementType): measured 19, min 15 ✓
+   floor  registry kinds with a mapping row in the ledger: measured 19, min 19 ✓
+   floor  mapped delete-path files present on disk (12 mapped): measured 12, min 12 ✓
+   EXECUTED CONTROLS (both directions, every run):
+       ✓ NEGATIVE: planted purge-less delete was FLAGGED on ARM A
+       ✓ POSITIVE: planted full verbatim shape (capture → purge → restore) read CLEAN
+       ✓ ARM D: planted "another mechanism purges" comment was FLAGGED
+       ✓ COMMENT-BLINDNESS: a purge that exists only inside comments earned NO ARM A credit
+   
+   PER-KIND × PER-PATH READINGS (SemanticGraph delete integrity):
+     wall           DeleteElementCommand.ts#wall                 purge=✓ · undo=verbatim
+     window         DeleteElementCommand.ts#window               purge=✓ · undo=verbatim
+     door           DeleteElementCommand.ts#door                 purge=✓ · undo=verbatim
+     slab           DeleteSlabCommand.ts                         purge=✓ · undo=reconstructed
+     ceiling        RemoveCeilingCommand.ts                      purge=✓ · undo=verbatim
+     ceiling        DeleteElementCommand.ts#ceiling              purge=✓ · undo=verbatim
+     floor          RemoveFloorCommand.ts                        purge=✓ · undo=verbatim
+     floor          DeleteElementCommand.ts#floor                purge=✓ · undo=verbatim
+     column         DeleteColumnCommand.ts                       purge=✓ · undo=reconstructed
+     beam           DeleteElementCommand.ts#beam                 purge=✓ · undo=reconstructed
+     curtain-wall   DeleteElementCommand.ts#curtainwall          purge=✓ · undo=none
+     curtain-panel  (no assessable path)
+     furniture      DeleteElementCommand.ts#furniture            purge=✓ · undo=reconstructed
+     roof           DeleteRoofCommand.ts                         purge=✓ · undo=verbatim
+     roof           DeleteElementCommand.ts#roof                 purge=✓ · undo=verbatim
+     stair          DeleteStairCommand.ts                        purge=✓ · undo=verbatim
+     plumbing       DeleteElementCommand.ts#plumbing             purge=✓ · undo=none
+     opening        DeleteOpeningCommand.ts                      purge=✗ · undo=none
+     handrail       DeleteHandrailCommand.ts                     purge=✓ · undo=verbatim
+     handrail       DeleteElementCommand.ts#handrail             purge=✓ · undo=verbatim
+     grid           RemoveGridCommand.ts                         purge=✗ · undo=none
+     level          DeleteLevelCommand.ts                        purge=✓ · undo=verbatim
+     room           DeleteRoomCommand.ts                         purge=✓ · undo=none
+   
+   UNPROVEN — named, never green (C71 §6 exit condition / C70 §3.4):
+     ◌ wall (DeleteElementCommand.ts#wall): VERBATIM restore SHAPE present — byte-equality of restored edges is UNPROVEN here (static gate; the C71 §6 exit condition demands executed read-back).
+     ◌ window (DeleteElementCommand.ts#window): VERBATIM restore SHAPE present — byte-equality of restored edges is UNPROVEN here (static gate; the C71 §6 exit condition demands executed read-back).
+     ◌ door (DeleteElementCommand.ts#door): VERBATIM restore SHAPE present — byte-equality of restored edges is UNPROVEN here (static gate; the C71 §6 exit condition demands executed read-back).
+     ◌ ceiling (RemoveCeilingCommand.ts): VERBATIM restore SHAPE present — byte-equality of restored edges is UNPROVEN here (static gate; the C71 §6 exit condition demands executed read-back).
+     ◌ ceiling (DeleteElementCommand.ts#ceiling): VERBATIM restore SHAPE present — byte-equality of restored edges is UNPROVEN here (static gate; the C71 §6 exit condition demands executed read-back).
+     ◌ floor (RemoveFloorCommand.ts): VERBATIM restore SHAPE present — byte-equality of restored edges is UNPROVEN here (static gate; the C71 §6 exit condition demands executed read-back).
+     ◌ floor (DeleteElementCommand.ts#floor): VERBATIM restore SHAPE present — byte-equality of restored edges is UNPROVEN here (static gate; the C71 §6 exit condition demands executed read-back).
+     ◌ roof (DeleteRoofCommand.ts): VERBATIM restore SHAPE present — byte-equality of restored edges is UNPROVEN here (static gate; the C71 §6 exit condition demands executed read-back).
+     ◌ roof (DeleteElementCommand.ts#roof): VERBATIM restore SHAPE present — byte-equality of restored edges is UNPROVEN here (static gate; the C71 §6 exit condition demands executed read-back).
+     ◌ stair (DeleteStairCommand.ts): VERBATIM restore SHAPE present — byte-equality of restored edges is UNPROVEN here (static gate; the C71 §6 exit condition demands executed read-back).
+     ◌ handrail (DeleteHandrailCommand.ts): VERBATIM restore SHAPE present — byte-equality of restored edges is UNPROVEN here (static gate; the C71 §6 exit condition demands executed read-back).
+     ◌ handrail (DeleteElementCommand.ts#handrail): VERBATIM restore SHAPE present — byte-equality of restored edges is UNPROVEN here (static gate; the C71 §6 exit condition demands executed read-back).
+     ◌ level (DeleteLevelCommand.ts): VERBATIM restore SHAPE present — byte-equality of restored edges is UNPROVEN here (static gate; the C71 §6 exit condition demands executed read-back).
+     ◌ ARM C residual: a cascade that COMPUTES empty at runtime is invisible to this static gate — that half of F-INV-2 is UNPROVEN here, not green.
+   
+   FINDINGS: 10 against a NAMED ledger of 10.
+     · slab/undo-reconstructs-not-verbatim:DeleteSlabCommand.ts — ARM B — 'slab' undo RE-AUTHORS edges from its own snapshot instead of restoring the captured set verbatim. Edges authored by OTHER elements' commands (boundedBy, supports, contains) are invisible in this kind's snapshot and are silently dropped by delete+undo. 3ee632f6 is the reference shape.
+     · column/undo-reconstructs-not-verbatim:DeleteColumnCommand.ts — ARM B — 'column' undo RE-AUTHORS edges from its own snapshot instead of restoring the captured set verbatim. Edges authored by OTHER elements' commands (boundedBy, supports, contains) are invisible in this kind's snapshot and are silently dropped by delete+undo. 3ee632f6 is the reference shape.
+     · beam/undo-reconstructs-not-verbatim:DeleteElementCommand.ts#beam — ARM B — 'beam' undo RE-AUTHORS edges from its own snapshot instead of restoring the captured set verbatim. Edges authored by OTHER elements' commands (boundedBy, supports, contains) are invisible in this kind's snapshot and are silently dropped by delete+undo. 3ee632f6 is the reference shape.
+     · curtain-wall/undo-restores-nothing:DeleteElementCommand.ts#curtainwall — ARM B — 'curtain-wall' purges ALL relationships on delete in packages/command-registry/src/walls/DeleteElementCommand.ts (branch 'curtainwall') and undo restores NONE of them. Delete+undo permanently deletes the kind's graph presence — worse than no purge, because it looks correct.
+     · curtain-panel/no-delete-path — kind 'curtain-panel' has NO delete path in the mapping — either the walk missed one (fix the ledger) or the kind genuinely cannot be deleted-with-integrity. No delete command exists: panels are REPLACED (ReplacePanelTypeCommand / ReplacePanelWithDoorCommand), never deleted. The mapping declares the absence rather than skipping the kind.
+     · furniture/undo-reconstructs-not-verbatim:DeleteElementCommand.ts#furniture — ARM B — 'furniture' undo RE-AUTHORS edges from its own snapshot instead of restoring the captured set verbatim. Edges authored by OTHER elements' commands (boundedBy, supports, contains) are invisible in this kind's snapshot and are silently dropped by delete+undo. 3ee632f6 is the reference shape.
+     · plumbing/undo-restores-nothing:DeleteElementCommand.ts#plumbing — ARM B — 'plumbing' purges ALL relationships on delete in packages/command-registry/src/walls/DeleteElementCommand.ts (branch 'plumbing') and undo restores NONE of them. Delete+undo permanently deletes the kind's graph presence — worse than no purge, because it looks correct.
+     · opening/purge-missing:DeleteOpeningCommand.ts — ARM A — 'opening' delete path packages/command-registry/src/slabs/DeleteOpeningCommand.ts never calls removeAllRelationshipsForElement and does not delegate to a mapped path that does. Deleting a opening strands its SemanticGraph edges (the pre-3ee632f6 wall defect).
+     · grid/purge-missing:RemoveGridCommand.ts — ARM A — 'grid' delete path packages/command-registry/src/grids/RemoveGridCommand.ts never calls removeAllRelationshipsForElement and does not delegate to a mapped path that does. Deleting a grid strands its SemanticGraph edges (the pre-3ee632f6 wall defect).
+     · room/undo-restores-nothing:DeleteRoomCommand.ts — ARM B — 'room' purges ALL relationships on delete in packages/command-registry/src/rooms/DeleteRoomCommand.ts and undo restores NONE of them. Delete+undo permanently deletes the kind's graph presence — worse than no purge, because it looks correct.
+   → [1] DECLARED-LEVEL — check-graph-delete-integrity (C71 §6 · C70 F-INV-2): 10 finding(s), at or below the declared level of 10.
+RC=1

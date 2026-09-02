@@ -370,6 +370,46 @@ export {
   type ExtrudeResult,
   type ProfilePoint,
 } from './producers/extrude.js';
+// ── Phase-4 lane 4D: the OTHER three Family Creator producers reach the public
+// surface.  They were written at S52–S53, are complete, and have passed their
+// own suites since — but the line above said *"sweep / loft / revolve at S53"*
+// and nobody ever moved them, so `@pryzm/family-instance` could not construct
+// them EVEN IF the document had described one.  That is axis 1 (import /
+// construction) of the four-axis reachability reading, and it was broken for
+// all three independently of every other blocker.
+//
+// ⛔ EXPORTING THEM DOES NOT MAKE THEM REACHABLE FROM A DOCUMENT.  Lane 4D
+//    measured the remaining gap and it is SCHEMA-side, not kernel-side:
+//    `SolidFeatureSchema`'s `sweep`/`loft`/`revolve` arms and
+//    `ReferencePlaneSchema` do not carry the sweep PATH as 3-D, the revolve
+//    AXIS, the loft vertex-arity rule, or a plane's IN-PLANE BASIS — and
+//    without a basis a 2-D profile has no determined position in 3-D at all.
+//    The `GeometryAdapter` port in `@pryzm/family-instance` implements all
+//    three against these exports and its document-translation layer refuses in
+//    front of them, naming the missing fields.  See
+//    `audit/universal-component-editor/2026-09-01/phase4/lane-4d-*.md`.
+export {
+  produceSweep,
+  composeSweepHash,
+  type SweepOptions,
+  type SweepProducer,
+  type SweepProfilePoint,
+} from './producers/sweep.js';
+export {
+  produceLoft,
+  composeLoftHash,
+  type LoftOptions,
+  type LoftProducer,
+  type LoftProfilePoint,
+  type LoftSection,
+} from './producers/loft.js';
+export {
+  produceRevolve,
+  composeRevolveHash,
+  type RevolveOptions,
+  type RevolveProducer,
+  type RevolveProfilePoint,
+} from './producers/revolve.js';
 
 // ── S33 Track C: ViewResolutionAlgorithm (Phase 2B Supplement §B3) ────────
 export {

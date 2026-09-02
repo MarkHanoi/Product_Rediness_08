@@ -1,6 +1,7 @@
 import { WallData, Opening, Level, ILevelProvider, WindowData, DoorData, WallJoinIntent } from './WallTypes';
-import { deriveJoinIntent, type JoinIntentCandidate } from './WallJoinIntentStamp';
+import { deriveJoinIntent, JOIN_INTENT_EPS_M, type JoinIntentCandidate } from './WallJoinIntentStamp';
 import { retreatOntoHostFaces, type HostBodyCandidate } from './WallHostBodyRetreat';
+import { WallJoinProximityIndex } from './WallJoinProximityIndex';
 import { Point3D } from '@pryzm/core-app-model';
 import { ProjectContext } from '@pryzm/core-app-model';
 import { BimManager } from '@pryzm/core-app-model';
@@ -166,6 +167,21 @@ export class WallStore implements ILevelProvider {
      * Reduces getByLevel() from O(n) linear scan to O(1) Set lookup.
      */
     private _levelIndex: Map<string, Set<string>> = new Map();
+
+    /**
+     * §PERF-WALL-ADD-PROXIMITY (2026-09-02 perf lane, fix 2a) — per-level spatial hash
+     * so `add()`'s joinIntent derivation (L-927) and host-face retreat (L-929) scan
+     * CANDIDATES instead of every wall on the level (was O(levelWalls) per add ⇒ O(N²)
+     * per batch; measured 259 ms / 10.8× growth over 1000 adds before the fix).
+     *
+     * Freshness contract: built lazily per level on first `add()` that needs it;
+     * appended incrementally when a wall ENTERS a level (`_addToLevelIndex`); DROPPED
+     * for the level on any update/removal (`emit`, `_removeFromLevelIndex`) and on
+     * `clear()`, then rebuilt on the next add. So an interleaved mutation degrades to
+     * the old rebuild cost — never to a stale answer. Answer preservation is asserted
+     * store-vs-full-scan in `__tests__/wallJoinProximityEquivalence.test.ts`.
+     */
+    private _proximityIndexes: Map<string, WallJoinProximityIndex> = new Map();
 
     /**
      * §WALL-JOIN-INTENT HYDRATION GUARD (L-927).
@@ -436,8 +452,21 @@ export class WallStore implements ILevelProvider {
         if (!this._hydrating) {
             const ids = this._levelIndex.get(levelId);
             if (ids && ids.size > 0) {
+                // §PERF-WALL-ADD-PROXIMITY — candidate walls near either endpoint instead
+                // of ALL level walls. SUPERSET of every wall that can influence either
+                // derivation below (endpoint-coincidence for the stamp and GUARD 1; solid
+                // band containment for GUARDs 2/3); both consumers re-check candidates
+                // with their exact predicates, so the answers are unchanged — only the
+                // scan shrinks. Equivalence: __tests__/wallJoinProximityEquivalence.test.ts.
+                const proximity = this._getProximityIndex(levelId);
+                const candidateIds = new Set<string>();
+                proximity.endpointCandidates(wall.baseLine[0], JOIN_INTENT_EPS_M, candidateIds);
+                proximity.endpointCandidates(wall.baseLine[1], JOIN_INTENT_EPS_M, candidateIds);
+                proximity.bandCandidates(wall.baseLine[0], candidateIds);
+                proximity.bandCandidates(wall.baseLine[1], candidateIds);
+                candidateIds.delete(wall.id);
                 const siblings: HostBodyCandidate[] = [];
-                for (const id of ids) {
+                for (const id of candidateIds) {
                     const w = this.walls.get(id);
                     if (w) siblings.push(w);
                 }
@@ -1784,6 +1813,17 @@ export class WallStore implements ILevelProvider {
      * into a SelectionManager subscription on (1) and delete the DOM channel.
      */
     private emit(event: WallEventType, wall: WallData, prevState?: WallData): void {
+        // §PERF-WALL-ADD-PROXIMITY — any in-place mutation (baseLine move, thickness or
+        // opening change) or removal invalidates the level's proximity index BEFORE any
+        // listener runs, so a listener that re-enters add() rebuilds from fresh state.
+        // 'add' is NOT invalidated: the new record was appended incrementally in
+        // `_addToLevelIndex` before this emit.
+        if (event !== 'add') {
+            this._proximityIndexes.delete(wall.levelId);
+            if (prevState && prevState.levelId !== wall.levelId) {
+                this._proximityIndexes.delete(prevState.levelId);
+            }
+        }
         // Wall is already frozen from store - no need to clone again
         // Listeners fire first so EngineBootstrap builds geometry before DOM event fires.
         // §STEP7: prevState forwarded to subscribers for diff-based dirty marking.
@@ -1841,6 +1881,7 @@ export class WallStore implements ILevelProvider {
         this.windows.clear();
         this.doors.clear();
         this._levelIndex.clear();
+        this._proximityIndexes.clear();
     }
 
     // ── Level Index Helpers (Gap 9) ───────────────────────────────────────────
@@ -1852,6 +1893,15 @@ export class WallStore implements ILevelProvider {
             this._levelIndex.set(levelId, set);
         }
         set.add(wallId);
+        // §PERF-WALL-ADD-PROXIMITY — both call sites (add(), changeLevel()) run AFTER
+        // `this.walls.set(...)`, so the STORED record (frozen, post-retreat baseline) is
+        // what gets indexed. If no index exists for this level yet, nothing to append —
+        // it is built lazily from full store state on the next add() that queries it.
+        const proximity = this._proximityIndexes.get(levelId);
+        if (proximity) {
+            const stored = this.walls.get(wallId);
+            if (stored) proximity.insert(stored);
+        }
     }
 
     private _removeFromLevelIndex(levelId: string, wallId: string): void {
@@ -1860,6 +1910,25 @@ export class WallStore implements ILevelProvider {
             set.delete(wallId);
             if (set.size === 0) this._levelIndex.delete(levelId);
         }
+        // §PERF-WALL-ADD-PROXIMITY — removals invalidate; rebuilt on next add().
+        this._proximityIndexes.delete(levelId);
+    }
+
+    /** §PERF-WALL-ADD-PROXIMITY — lazily (re)build this level's proximity index. */
+    private _getProximityIndex(levelId: string): WallJoinProximityIndex {
+        let idx = this._proximityIndexes.get(levelId);
+        if (!idx) {
+            idx = new WallJoinProximityIndex();
+            const ids = this._levelIndex.get(levelId);
+            if (ids) {
+                for (const id of ids) {
+                    const w = this.walls.get(id);
+                    if (w) idx.insert(w);
+                }
+            }
+            this._proximityIndexes.set(levelId, idx);
+        }
+        return idx;
     }
 }
 /**

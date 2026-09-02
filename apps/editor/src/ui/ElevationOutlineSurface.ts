@@ -26,6 +26,39 @@
  *
  * ⛔ NO STORE, NO COMMAND BUS, NO THREE, NO rAF. The surface hands rings to callbacks; the
  * CALLER decides what a commit means (P6 — same split the modal already made).
+ *
+ * ═══════════════════════════════════════════════════════════════════════════════════════
+ * §SUBJECT-IS-A-PROFILE-ON-A-DECLARED-PLANE — Phase 4F (ADR-0376 **D2**, C86 §10.6.1,
+ * C86 §10.1 **PR-9**). The SUBJECT generalises from "a wall elevation" to "a profile on a
+ * reference plane"; the SURFACE does not fork.
+ * ═══════════════════════════════════════════════════════════════════════════════════════
+ *
+ * ⭐ **Why a plane field is the whole generalisation, and not decoration.** C86 §10.6.1a
+ * makes the admissibility boundary **plane inference**, not the letter "3-D": a gesture is
+ * admissible iff its result is determined *without* inferring a work plane. This surface has
+ * always been on the admissible side — but only by accident of its callers, because nothing
+ * in it NAMED a plane. `plane` makes the declaration structural and readable (it is stamped
+ * into the DOM and titled), so "the author meant this plane" is a value the surface carries
+ * rather than one a reader reconstructs from which modal opened it.
+ *
+ * ⛔ **THE SURFACE NEVER DERIVES ITS PLANE.** There is no camera here, no selection, no
+ * nearest-face fallback — §10.6.1c's three named ways to make *"the user meant this plane"*
+ * and *"this plane happened to be nearest"* the same value. `plane` is exactly what the
+ * caller passed, or `null`.
+ *
+ * ⛔ **PR-8 INHERITED: ONE size vocabulary.** The extents stay `{ length, height }` for every
+ * subject, including a component profile whose axes are called `u`/`v`. Admitting a second
+ * spelling would mint the nonsense state PR-8 exists to forbid (both set) and make every
+ * consumer learn two ways to ask one question. The axis NAMES are presentation
+ * (`plane.uLabel` / `vLabel`); the size FIELDS are not.
+ *
+ * ⛔ **PR-2 INHERITED VERBATIM — `§EMPTY-LAYER-IS-ABSENT`.** *"the gasket of PR-4 is empty
+ * and MUST NOT be emitted at all"* generalises to every layer added here: **with no plane
+ * and no glyphs, this surface emits byte-for-byte the DOM it emitted before Phase 4F.** The
+ * glyph `<g>` is created lazily and removed when the last glyph goes; the plane attributes
+ * and `<title>` are absent, not empty. Pinned against a fixture generated from the
+ * PRE-CHANGE file in `ui/component/__tests__/fixtures/elevationOutlineSurface.bytes.json`
+ * — PR-9's *"MUST carry its own equivalent of `WallProfileNonRegressionBaseline` §(A2a)"*.
  */
 
 import type { WallProfileVertex } from '@pryzm/geometry-wall/profile';
@@ -46,6 +79,11 @@ const HANDLE_R = 7;
 const MIN_CANVAS_PX = 64;
 /** ⛔ A scale of 0 collapses every vertex onto one pixel and makes `_u`/`_v` divide by zero. */
 const MIN_SCALE = 1e-3;
+/** Constraint-glyph half-size, px. Smaller than `HANDLE_R * 2` so a glyph reads as an
+ *  annotation of the ring rather than as another grabbable handle. */
+const GLYPH_R = 8;
+/** How far OUTSIDE the ring a glyph sits, px — clear of the vertex handle it annotates. */
+const GLYPH_OFFSET_PX = 17;
 
 function clamp(x: number, lo: number, hi: number): number {
     return x < lo ? lo : x > hi ? hi : x;
@@ -53,9 +91,59 @@ function clamp(x: number, lo: number, hi: number): number {
 
 export type OutlineSurfaceMode = 'select' | 'polyline' | 'arc';
 
+/**
+ * The reference plane a drawing is on — **declared by the caller, never inferred**
+ * (§SUBJECT-IS-A-PROFILE-ON-A-DECLARED-PLANE, C86 §10.6.1c).
+ *
+ * The wall modal and the two opening callers pass none: their plane is the wall elevation
+ * and has no id in any document. A component profile passes its `FamilyDocument`
+ * `referencePlanes[]` row, so the drawing and the document agree on the plane by ID.
+ */
+export interface OutlineSurfacePlane {
+    /** The document's plane id (`ReferencePlaneSchema.id`). */
+    readonly id: string;
+    /** The plane's authored name, shown to the author. */
+    readonly name: string;
+    /** In-plane axis labels, PRESENTATION ONLY — the size fields stay `length`/`height`
+     *  under PR-8. Default `'u'` / `'v'`. */
+    readonly uLabel?: string;
+    readonly vLabel?: string;
+}
+
+/**
+ * Whether a constraint on this profile has an **evaluator**, or is merely persisted.
+ *
+ * ⛔ C74 §4.6.0 measured that the persisted vocabulary (12 kinds) and the executable
+ * vocabulary (5) are **two alphabets, not a subset** — only `parallel` and `perpendicular`
+ * match verbatim. Drawing both alike would make a declared-only constraint indistinguishable
+ * from an enforced one on the only surface the author looks at, which is
+ * `[[envelope-solid-overstates-partial-data]]` in a sketch. The classification is the
+ * CALLER's (it belongs to the document layer); the surface's job is to draw the difference.
+ */
+export type OutlineConstraintStatus = 'evaluated' | 'declared-only';
+
+/** One constraint glyph. Anchors are RING VERTEX INDICES — the surface owns no entity model. */
+export interface OutlineConstraintGlyph {
+    readonly id: string;
+    /** A `ProfileConstraintSchema` kind, carried verbatim for the DOM and the tooltip. */
+    readonly kind: string;
+    readonly status: OutlineConstraintStatus;
+    /** Ring vertex indices this constraint attaches to. Out-of-range indices are NOT drawn
+     *  and are counted in `unanchoredGlyphCount` — never silently dropped. */
+    readonly vertexIndices: readonly number[];
+    /** The short mark drawn in the glyph, e.g. `∥`, `⊥`, `=`. */
+    readonly label: string;
+    /** Long-form text for the `<title>`; the CALLER owns the wording (C16 CA-18). */
+    readonly title?: string;
+}
+
 export interface OutlineSurfaceOptions {
-    /** The authoring extents, metres — `u ∈ [0, length]`, `v ∈ [0, height]`. */
+    /** The authoring extents, metres — `u ∈ [0, length]`, `v ∈ [0, height]`.
+     *  ⛔ PR-8: this is the ONE size vocabulary, for every subject. */
     readonly extents: { readonly length: number; readonly height: number };
+    /** ⭐ The declared reference plane, or absent for the three wall/opening callers whose
+     *  plane is the wall elevation. NEVER inferred — see the header. */
+    readonly plane?: OutlineSurfacePlane;
     /** The grid function (the L2 `wallProfileEditorSnap` for both current callers). */
     readonly snap: (value: number, on: boolean) => number;
     /** The floor below which a vertex delete is refused. */
@@ -91,6 +179,12 @@ export class ElevationOutlineSurface {
     /** ⛔ ABSOLUTE while on — see the header. Placement-time only; drags keep snap semantics. */
     orthoOn = false;
 
+    /** ⛔ `§EMPTY-LAYER-IS-ABSENT` — null until the FIRST glyph is drawn, and removed again
+     *  when the last one goes. An empty `<g>` would change the bytes of every existing arm. */
+    private _glyphLayer: SVGGElement | null = null;
+    private _glyphs: readonly OutlineConstraintGlyph[] = [];
+    private _unanchored = 0;
+
     constructor(opts: OutlineSurfaceOptions) {
         this._opts = opts;
         this._prefix = opts.attrPrefix ?? 'wpe';
@@ -98,6 +192,20 @@ export class ElevationOutlineSurface {
         this.svg = document.createElementNS(SVG_NS, 'svg') as SVGSVGElement;
         this.svg.style.cssText =
             'display:block;background:#fafafe;border-radius:8px;touch-action:none;';
+
+        // ⭐ The DECLARED plane, stamped so the DOM answers "which plane is this?" — and
+        // ABSENT (not empty) for the three callers that declare none, which is what keeps
+        // their bytes identical (PR-2, §EMPTY-LAYER-IS-ABSENT).
+        const plane = opts.plane;
+        if (plane) {
+            this.svg.setAttribute(`data-${this._prefix}-plane`, plane.id);
+            this.svg.setAttribute(`data-${this._prefix}-plane-name`, plane.name);
+            const t = document.createElementNS(SVG_NS, 'title');
+            t.textContent =
+                `${plane.name} — ${opts.extents.length} × ${opts.extents.height} m ` +
+                `(${plane.uLabel ?? 'u'} × ${plane.vLabel ?? 'v'})`;
+            this.svg.appendChild(t);
+        }
 
         // The subject's own extent — the box an outline may only CUT inside.
         this._bound = document.createElementNS(SVG_NS, 'rect') as SVGRectElement;
@@ -151,6 +259,26 @@ export class ElevationOutlineSurface {
         this._arcThrough = null;
         this._mode = mode;
         if (mode === 'select') this._cancelDraft(false);
+        this.redraw();
+    }
+
+    /** ⭐ The DECLARED plane, or null. Never synthesised — see the header (C86 §10.6.1c). */
+    get plane(): OutlineSurfacePlane | null { return this._opts.plane ?? null; }
+
+    // ── constraint glyphs (§SUBJECT-IS-A-PROFILE-ON-A-DECLARED-PLANE, C74 §4.6.0) ────
+
+    get constraintGlyphs(): ReadonlyArray<OutlineConstraintGlyph> { return this._glyphs; }
+
+    /**
+     * ⚠ How many of the supplied glyphs could NOT be drawn because an anchor index is not a
+     * vertex of the current ring. A glyph that vanishes silently would say *"this profile
+     * carries no such constraint"* — the same value as *"it carries one I cannot place"*.
+     * The CALLER surfaces the count; the surface only refuses to invent a position for it.
+     */
+    get unanchoredGlyphCount(): number { return this._unanchored; }
+
+    setConstraintGlyphs(glyphs: ReadonlyArray<OutlineConstraintGlyph>): void {
+        this._glyphs = glyphs.map((g) => ({ ...g, vertexIndices: [...g.vertexIndices] }));
         this.redraw();
     }
 
@@ -300,6 +428,98 @@ export class ElevationOutlineSurface {
         this._bound.setAttribute('height', String(s.height * this._scale));
     }
 
+    /**
+     * Draw the constraint glyphs over the current ring.
+     *
+     * ⛔ `§EMPTY-LAYER-IS-ABSENT` (PR-2, inherited): with no glyphs the `<g>` is REMOVED, not
+     * emptied, so the three wall/opening arms emit the bytes they emitted before Phase 4F.
+     * ⛔ And nothing here consults `_mode`: a constraint belongs to the profile, not to the
+     * gesture, so it stays visible while the author is drawing.
+     */
+    private _syncGlyphs(): void {
+        this._unanchored = 0;
+        if (this._glyphs.length === 0) {
+            if (this._glyphLayer) { this._glyphLayer.remove(); this._glyphLayer = null; }
+            return;
+        }
+        if (!this._glyphLayer) {
+            this._glyphLayer = document.createElementNS(SVG_NS, 'g') as SVGGElement;
+            this._glyphLayer.setAttribute(`data-${this._prefix}-glyphs`, '');
+            // BELOW the handles: a glyph must never take a pointer press meant for a vertex.
+            this.svg.insertBefore(this._glyphLayer, this._handleLayer);
+        }
+        const layer = this._glyphLayer;
+        layer.replaceChildren();
+        layer.style.pointerEvents = 'none';
+
+        // The ring's centroid, so a glyph sits OUTSIDE the shape rather than over it.
+        let cu = 0, cv = 0;
+        for (const p of this._ring) { cu += p.u; cv += p.v; }
+        const n = Math.max(1, this._ring.length);
+        cu /= n; cv /= n;
+
+        for (const g of this._glyphs) {
+            const anchors = g.vertexIndices
+                .filter((i) => Number.isInteger(i) && i >= 0 && i < this._ring.length)
+                .map((i) => this._ring[i]!);
+            if (anchors.length === 0 || anchors.length !== g.vertexIndices.length) {
+                // ⛔ NO INVENTED POSITION. C15 §2.2.2 axis 3's shape: a glyph placed by
+                // proximity and a glyph placed by containment must not be the same value.
+                this._unanchored++;
+                continue;
+            }
+            let au = 0, av = 0;
+            for (const a of anchors) { au += a.u; av += a.v; }
+            au /= anchors.length; av /= anchors.length;
+
+            const px = this._x(au), py = this._y(av);
+            // Push out along the centroid→anchor direction; a degenerate direction
+            // (anchor AT the centroid) falls back to straight up, never to random.
+            const dx = px - this._x(cu), dy = py - this._y(cv);
+            const len = Math.hypot(dx, dy);
+            const ox = len > 1e-6 ? (dx / len) * GLYPH_OFFSET_PX : 0;
+            const oy = len > 1e-6 ? (dy / len) * GLYPH_OFFSET_PX : -GLYPH_OFFSET_PX;
+
+            const evaluated = g.status === 'evaluated';
+            const mark = document.createElementNS(SVG_NS, 'g');
+            mark.setAttribute(`data-${this._prefix}-constraint`, g.kind);
+            mark.setAttribute(`data-${this._prefix}-constraint-id`, g.id);
+            mark.setAttribute(`data-${this._prefix}-constraint-status`, g.status);
+
+            const box = document.createElementNS(SVG_NS, 'rect');
+            box.setAttribute('x', String(px + ox - GLYPH_R));
+            box.setAttribute('y', String(py + oy - GLYPH_R));
+            box.setAttribute('width', String(GLYPH_R * 2));
+            box.setAttribute('height', String(GLYPH_R * 2));
+            box.setAttribute('rx', '3');
+            // ⭐ THE VISIBLE DIFFERENCE, and it is the whole point of the layer: an
+            // EVALUATED constraint is solid; a DECLARED-ONLY one is hollow and dashed —
+            // "persisted, and nothing enforces it" (C74 §4.6.0/§4.6.3).
+            box.setAttribute('fill', evaluated ? '#6600FF' : '#fff');
+            box.setAttribute('stroke', evaluated ? '#fff' : '#8a8a96');
+            if (!evaluated) box.setAttribute('stroke-dasharray', '3 2');
+            mark.appendChild(box);
+
+            const text = document.createElementNS(SVG_NS, 'text');
+            text.setAttribute('x', String(px + ox));
+            text.setAttribute('y', String(py + oy));
+            text.setAttribute('text-anchor', 'middle');
+            text.setAttribute('dominant-baseline', 'central');
+            text.setAttribute('font-size', '10');
+            text.setAttribute('font-weight', '700');
+            text.setAttribute('fill', evaluated ? '#fff' : '#8a8a96');
+            text.textContent = g.label;
+            mark.appendChild(text);
+
+            if (g.title) {
+                const t = document.createElementNS(SVG_NS, 'title');
+                t.textContent = g.title;
+                mark.appendChild(t);
+            }
+            layer.appendChild(mark);
+        }
+    }
+
     redraw(): void {
         this._syncBound();
         this._poly.setAttribute(
@@ -383,6 +603,8 @@ export class ElevationOutlineSurface {
                 this._handleLayer.appendChild(t);
             }
         }
+
+        this._syncGlyphs();
 
         this._opts.onChanged();
     }

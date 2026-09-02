@@ -83,7 +83,7 @@ export function makeIntroduceExpressionMigrator(
         manifest: { ...input.manifest },
         document: {
           ...input.document,
-          formatVersion: to as '1.0',
+          formatVersion: to,
           parameters,
           types,
         },

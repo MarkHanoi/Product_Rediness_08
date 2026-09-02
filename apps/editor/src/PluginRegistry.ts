@@ -103,6 +103,10 @@ import { PoolStore, WaterStore, buildPoolHandlerSet } from '@pryzm/plugin-pool';
 // §FEAT-BALCONY-COMPOUND (L-5600, C103 / ADR-0333) — the balcony COMPOUND. See the
 // descriptor below; this import is axis 1 of the four the pool taught us to check.
 import { BalconyStore, buildBalconyHandlerSet } from '@pryzm/plugin-balcony';
+// §COMPONENT-PLACE (audit §12 Phase 4C, ADR-0376 D9) — ⭐⭐ THE JOIN: the PLACED
+// OCCURRENCE of a component definition. See the descriptor below; this import is
+// axis 1 of the four the pool taught us to check.
+import { ComponentStore, buildComponentHandlerSet } from '@pryzm/plugin-component';
 // §FEAT-LIFT-COMPOUND-SYSTEM (L-5700, C104 / ADR-0325) — the lift COMPOUND. See the
 // descriptor below for the four-axis reachability argument.
 import { LiftCompoundStore, LiftPartStore, buildLiftHandlerSet } from '@pryzm/plugin-lift';
@@ -503,6 +507,38 @@ export const ALL_PLUGINS: readonly PluginDescriptor[] = [
     storeKey: 'balcony',
     buildStore: () => new BalconyStore() as unknown as Store<object>,
     buildHandlers: () => buildBalconyHandlerSet() as readonly CommandHandler<unknown>[],
+  },
+
+  // ---- ⭐⭐ Component (§COMPONENT-PLACE, audit §12 Phase 4C · ADR-0376 D9) ------
+  //
+  // THE JOIN. The universal-component-editor audit's headline gap, in its own words
+  // (§3.1): **there is no bus verb anywhere in this repository that places a
+  // component into a project.** This descriptor is what makes `component.place`
+  // dispatchable at all — and it is the axis the pool proved is the silent one.
+  //
+  // ⚠ ONE STORE, and it is genuinely new. Unlike the balcony above — whose plate is
+  // a `slab`, whose finish is a `floor` and whose railings are `handrail`s, all
+  // contributed by their own descriptors — a placed component has NO member
+  // families. Its three verbs each declare `affectedStores = ['component']`, so this
+  // one key is the whole requirement; with the descriptor absent,
+  // `CommandBus.buildContext` throws
+  //
+  //     component.place: required store 'component' is missing from HandlerContext.stores
+  //
+  // BEFORE any mutation, with the handlers registered and undispatchable. That is
+  // §FIX-POOL-UNREACHABLE (L-5200), and it is why
+  // `apps/editor/__tests__/componentJoinThroughComposedRuntime.test.ts` never
+  // constructs a store: delete these four lines and every test in it fails.
+  //
+  // ⚠ ORDER IS NOT LOAD-BEARING. A handler reads its stores at DISPATCH time, long
+  // after every descriptor is built. Placed here beside the other new families for
+  // the reader only — stated because the balcony's comment above once claimed an
+  // ordering the code did not have.
+  {
+    id: 'component',
+    storeKey: 'component',
+    buildStore: () => new ComponentStore() as unknown as Store<object>,
+    buildHandlers: () => buildComponentHandlerSet() as readonly CommandHandler<unknown>[],
   },
 
   // ---- Lift + LiftPart (§FEAT-LIFT-COMPOUND-SYSTEM, L-5700 · C104 · ADR-0325) ----

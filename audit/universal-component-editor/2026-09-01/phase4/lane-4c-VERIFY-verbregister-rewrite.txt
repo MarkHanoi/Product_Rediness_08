@@ -1,0 +1,27 @@
+npm warn Unknown project config "package-manager-strict". This will stop working in the next major version of npm. See `npm help npmrc` for supported config options.
+[check-verb-register] wrote docs/04-reference/API-VERB-REGISTER.md — 364 verbs.
+RC=0
+npm warn Unknown project config "package-manager-strict". This will stop working in the next major version of npm. See `npm help npmrc` for supported config options.
+──────────────────────────────────────────────────────────────────────────────
+C69 §VERB-REGISTER — the API verb register is generated, and CI diffs it
+──────────────────────────────────────────────────────────────────────────────
+Handler files read                 : 1401  (floor 900)
+Verbs discovered                   : 364  (floor 250)
+  LIVE                             : 153
+  REFUSES                          : 37
+  SHADOWED (dead route)            : 0
+  UNKNOWN                          : 174
+§LIVE-VIA-MIRROR (L-946 channel)   : 12 of 12 level-change verb(s) — LEVEL_CHANGE_VERBS 12 · LEGACY_LEVEL_MOVERS 12 · initTools deps 14
+Authoritative store NONE / UNKNOWN : 211
+Sync UNDECLARED (property verbs)   : 3
+Chat UNDECLARED                    : 1
+──────────────────────────────────────────────────────────────────────────────
+NOTE (C66 §1.1 — a claim and a measurement must not be written the same way):
+LIVE means the verb is declared in an execution-authority root or delegates to the
+legacy commandManager. It does NOT mean the write is correct, that undo reverts it,
+or that a collaborator sees it — see the sync column, and check-sync-disposition's
+own note that no CRDT transport is deployed (L-391).
+
+✓ docs/04-reference/API-VERB-REGISTER.md matches the code, both directions.
+
+RC=0

@@ -115,6 +115,44 @@ interface SceneNodeLike {
     traverse?: (fn: (node: SceneNodeLike) => void) => void;
 }
 
+/**
+ * ⭐⭐ §AI-ACTOR-STAMP (lane 4H, 2026-09-02) — WHO is dispatching, carried on every
+ * command this file sends. ADR-0324 §1–2 / C16 §6 / spec §76 gate D.
+ *
+ * ─── THE DEFECT THIS CLOSES ──────────────────────────────────────────
+ * Spec §76 gate D asks that AI use the SAME command/contract system as the UI, and
+ * this file already satisfied the hard half of that — P6, one funnel, no store
+ * writes. What it did NOT do was say so in the record. `executeCommand`'s
+ * `EventRecord` carried no `context`, so an AI-authored edit and a toolbar click
+ * were BYTE-IDENTICAL in the audit trail. "The same funnel" and "indistinguishable"
+ * are different claims, and only the first one is wanted: ADR-0324 §2 is explicit
+ * that AI provenance is metadata about the invocation, never a second command path.
+ *
+ * ⛔ IT CHANGES NO BEHAVIOUR, AND THAT IS THE CONTRACT. ADR-0324 §3 forbids
+ * geometric, dependency, validation, consequence-planning and mutation semantics
+ * from reading it, and `normalizeForParity` (command-bus/parity.ts) STRIPS `context`
+ * before comparing an AI dispatch with a human one — so G-REASON-04 parity is
+ * preserved BY CONSTRUCTION rather than by this comment.
+ *
+ * ⚠ `actor` and `origin` are separate on purpose (ADR-0324 §2, verbatim: *"never
+ * stamp actorId='ai' as a substitute"*). `actor.kind: 'ai'` says WHO; `origin.surface:
+ * 'chat'` says WHERE. `approval` is deliberately ABSENT: nothing in this file collects
+ * a proposalId, and `hooks.confirm()` — which the destructive path does await — is a
+ * UI confirmation, not the proposal→validate→approve record `CommandApproval` means.
+ * Stamping a manufactured approval would be the worse defect of the two.
+ */
+type ChatInvocationContext = {
+    readonly actor: { readonly kind: 'ai'; readonly id?: string };
+    readonly origin?: { readonly surface: string };
+};
+
+/** The one envelope every dispatch in this file carries. Frozen: a caller that
+ *  mutated it would re-label every later dispatch in the session. */
+const AI_INVOCATION: ChatInvocationContext = Object.freeze({
+    actor: Object.freeze({ kind: 'ai' as const }),
+    origin: Object.freeze({ surface: 'chat' }),
+});
+
 interface WindowLike {
     selectionManager?: {
         selectedObject?: ObjectLike | null;
@@ -123,7 +161,15 @@ interface WindowLike {
     bimManager?: { getLevels?: () => ReadonlyArray<{ id: string; name?: string; elevation?: number }> };
     projectContext?: { activeLevelId?: string | null };
     runtime?: {
-        bus?: { executeCommand(type: string, payload: unknown): Promise<unknown> };
+        // ⭐ §AI-ACTOR-STAMP (lane 4H) — the third argument is `executeCommand`'s real
+        // `opts`, and it is typed here so `AI_INVOCATION` cannot be dropped silently.
+        bus?: {
+            executeCommand(
+                type: string,
+                payload: unknown,
+                opts?: { readonly context?: ChatInvocationContext },
+            ): Promise<unknown>;
+        };
         events?: { emit(name: string, payload: unknown): void };
         // §GATE-VIS-INTENT — the visibility slot composeRuntime §4d-bis builds.
         visibility?: {
@@ -898,6 +944,10 @@ async function runVisibilityIntent(
         await bus.executeCommand(
             vis.busCommand,
             vis.busCommand === 'visibility.reveal.all' ? {} : { elementIds: [...vis.elementIds] },
+            // §AI-ACTOR-STAMP — the visibility leg. Stamped too, deliberately: a
+            // visibility intent IS a document mutation (C03), and leaving one dispatch
+            // site unstamped would make the audit trail's coverage a lie of omission.
+            { context: AI_INVOCATION },
         );
     } catch (err) {
         return `That did not complete — ${vis.busCommand}: ${String((err as Error)?.message ?? err)}. Nothing was changed.`;
@@ -1564,7 +1614,13 @@ export const BATCH_REPORT_EVENTS: Readonly<Record<string, string>> = {
 };
 
 /** The bus surface this module dispatches through (P6). */
-type ChatBus = { executeCommand(type: string, payload: unknown): Promise<unknown> };
+type ChatBus = {
+    executeCommand(
+        type: string,
+        payload: unknown,
+        opts?: { readonly context?: ChatInvocationContext },
+    ): Promise<unknown>;
+};
 
 /**
  * Dispatch ONE slice of commands and read back what the engines said.
@@ -1626,7 +1682,8 @@ async function executeSlice(
             const results: Promise<unknown>[] = [];
             batchCoordinator.runBatch(() => {
                 for (const c of commands) {
-                    results.push(bus.executeCommand(c.type, c.payload));
+                    // §AI-ACTOR-STAMP — the batch leg.
+                    results.push(bus.executeCommand(c.type, c.payload, { context: AI_INVOCATION }));
                 }
             }, {
                 levelIds: ctx.activeLevelId !== undefined ? [ctx.activeLevelId] : [],
@@ -1641,7 +1698,8 @@ async function executeSlice(
         } else {
             const c = commands[0]!;
             try {
-                await bus.executeCommand(c.type, c.payload);
+                // §AI-ACTOR-STAMP — the single-command leg.
+                await bus.executeCommand(c.type, c.payload, { context: AI_INVOCATION });
             } catch (err) {
                 failures.push(`${c.type}: ${String((err as Error)?.message ?? err)}`);
             }

@@ -1,0 +1,156 @@
+npm warn Unknown project config "package-manager-strict". This will stop working in the next major version of npm. See `npm help npmrc` for supported config options.
+
+ RUN  v4.1.10 C:/Users/LENOVO/OneDrive/Desktop/PRYZM/Product_Rediness_08
+
+Sourcemap for "C:/Users/LENOVO/OneDrive/Desktop/PRYZM/Product_Rediness_08/packages/file-format/src/family-schema.js" points to missing source files
+Sourcemap for "C:/Users/LENOVO/OneDrive/Desktop/PRYZM/Product_Rediness_08/packages/file-format/src/family-types.js" points to missing source files
+Sourcemap for "C:/Users/LENOVO/OneDrive/Desktop/PRYZM/Product_Rediness_08/packages/file-format/src/family-unpack.js" points to missing source files
+Sourcemap for "C:/Users/LENOVO/OneDrive/Desktop/PRYZM/Product_Rediness_08/packages/file-format/src/family-migrations/index.js" points to missing source files
+Sourcemap for "C:/Users/LENOVO/OneDrive/Desktop/PRYZM/Product_Rediness_08/packages/file-format/src/family-migrations/identity.js" points to missing source files
+Sourcemap for "C:/Users/LENOVO/OneDrive/Desktop/PRYZM/Product_Rediness_08/packages/file-format/src/family-migrations/v1_0-to-v1_1.js" points to missing source files
+Sourcemap for "C:/Users/LENOVO/OneDrive/Desktop/PRYZM/Product_Rediness_08/packages/file-format/src/family-migrations/ops/rename-parameter.js" points to missing source files
+Sourcemap for "C:/Users/LENOVO/OneDrive/Desktop/PRYZM/Product_Rediness_08/packages/file-format/src/family-migrations/ops/add-parameter.js" points to missing source files
+Sourcemap for "C:/Users/LENOVO/OneDrive/Desktop/PRYZM/Product_Rediness_08/packages/file-format/src/family-migrations/ops/delete-parameter.js" points to missing source files
+Sourcemap for "C:/Users/LENOVO/OneDrive/Desktop/PRYZM/Product_Rediness_08/packages/file-format/src/family-migrations/ops/change-parameter-type.js" points to missing source files
+Sourcemap for "C:/Users/LENOVO/OneDrive/Desktop/PRYZM/Product_Rediness_08/packages/file-format/src/family-migrations/ops/introduce-expression.js" points to missing source files
+Sourcemap for "C:/Users/LENOVO/OneDrive/Desktop/PRYZM/Product_Rediness_08/packages/file-format/src/family-migrations/ops/rebind-ifc.js" points to missing source files
+Sourcemap for "C:/Users/LENOVO/OneDrive/Desktop/PRYZM/Product_Rediness_08/packages/file-format/src/family-migrations/ops/merge-material-slots.js" points to missing source files
+Sourcemap for "C:/Users/LENOVO/OneDrive/Desktop/PRYZM/Product_Rediness_08/packages/file-format/src/family-migrations/ops/split-type.js" points to missing source files
+stderr | apps/editor/src/ui/component/__tests__/componentProfileSurface.spec.ts
+THREE.WARNING: Multiple instances of Three.js being imported.
+
+stdout | apps/editor/src/ui/component/__tests__/componentProfileSurface.spec.ts
+[CreateCurtainWallsOnAllSlabsCommand] §DEV: window.__resetCwPrewarm() registered. Call it in DevTools to re-enable first-run PSO prewarm for next execute().
+
+stderr | apps/editor/src/ui/component/__tests__/componentProfileSurface.spec.ts
+Warning: Please use the `legacy` build in Node.js environments.
+
+ ❯ apps/editor/src/ui/component/__tests__/componentProfileSurface.spec.ts (16 tests | 5 failed) 69ms
+     × ⭐ an EVALUATED constraint and a DECLARED-ONLY one are two visibly different glyphs 11ms
+     × ⭐ the C74 §4.6.0 arithmetic is 4 of 12 — asserted, so a silent widening fails here 3ms
+     × ⭐ asking for a declared-only kind is refused, and the refusal REACHES THE SCREEN 3ms
+     × ⛔ NON-VACUITY — an evaluable kind is ACCEPTED, so the refusal is a real restriction 3ms
+     × every refusal carries kind + reason + alternative (C16 CA-18), for all eight 1ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 5 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  apps/editor/src/ui/component/__tests__/componentProfileSurface.spec.ts > §GLYPH-STATUS-IS-THE-C74-RECORD · ARM B — the two vocabularies are drawn differently > ⭐ an EVALUATED constraint and a DECLARED-ONLY one are two visibly different glyphs
+AssertionError: expected 'evaluated' to be 'declared-only' // Object.is equality
+
+Expected: "declared-only"
+Received: "evaluated"
+
+ ❯ apps/editor/src/ui/component/__tests__/componentProfileSurface.spec.ts:142:69
+    140|         const declared = panel.root.querySelector('[data-cpp-constrain…
+    141|         expect(evaluated.getAttribute('data-cpp-constraint-status')).t…
+    142|         expect(declared.getAttribute('data-cpp-constraint-status')).to…
+       |                                                                     ^
+    143|         // ⭐ And the difference is VISIBLE, not merely an attribute: f…
+    144|         const evRect = evaluated.querySelector('rect')!;
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/5]⎯
+
+ FAIL  apps/editor/src/ui/component/__tests__/componentProfileSurface.spec.ts > §GLYPH-STATUS-IS-THE-C74-RECORD · ARM B — the two vocabularies are drawn differently > ⭐ the C74 §4.6.0 arithmetic is 4 of 12 — asserted, so a silent widening fails here
+AssertionError: expected [] to deeply equal [ 'horizontal', 'vertical', …(6) ]
+
+- Expected
++ Received
+
+- [
+-   "horizontal",
+-   "vertical",
+-   "tangent",
+-   "radius",
+-   "angle",
+-   "diameter",
+-   "equalLength",
+-   "distancePointLine",
+- ]
++ []
+
+ ❯ apps/editor/src/ui/component/__tests__/componentProfileSurface.spec.ts:186:30
+    184|         expect(EVALUABLE_CONSTRAINT_KINDS['parallel']).toBe('parallel'…
+    185|         const declaredOnly = PERSISTED_CONSTRAINT_KINDS.filter((k) => …
+    186|         expect(declaredOnly).toEqual([
+       |                              ^
+    187|             'horizontal', 'vertical', 'tangent', 'radius', 'angle', 'd…
+    188|             'equalLength', 'distancePointLine',
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/5]⎯
+
+ FAIL  apps/editor/src/ui/component/__tests__/componentProfileSurface.spec.ts > §GLYPH-STATUS-IS-THE-C74-RECORD · ARM C — the editor REFUSES to author what nothing evaluates > ⭐ asking for a declared-only kind is refused, and the refusal REACHES THE SCREEN
+AssertionError: expected true to be false // Object.is equality
+
+- Expected
++ Received
+
+- false
++ true
+
+ ❯ apps/editor/src/ui/component/__tests__/componentProfileSurface.spec.ts:198:52
+    196|     it('⭐ asking for a declared-only kind is refused, and the refusal …
+    197|         const panel = createComponentProfilePanel({ profile: rectangle…
+    198|         expect(panel.requestConstraint('tangent')).toBe(false);
+       |                                                    ^
+    199|         expect(panel.root.getAttribute('data-cpp-constraint-refused'))…
+    200|         const text = panel.root.querySelector('[data-cpp-status]')!.te…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/5]⎯
+
+ FAIL  apps/editor/src/ui/component/__tests__/componentProfileSurface.spec.ts > §GLYPH-STATUS-IS-THE-C74-RECORD · ARM C — the editor REFUSES to author what nothing evaluates > ⛔ NON-VACUITY — an evaluable kind is ACCEPTED, so the refusal is a real restriction
+AssertionError: expected [ 'coincident', 'parallel', …(10) ] to deeply equal [ 'coincident', 'parallel', …(2) ]
+
+- Expected
++ Received
+
+  [
+    "coincident",
+    "parallel",
+    "perpendicular",
++   "horizontal",
++   "vertical",
++   "tangent",
+    "distance",
++   "radius",
++   "angle",
++   "diameter",
++   "equalLength",
++   "distancePointLine",
+  ]
+
+ ❯ apps/editor/src/ui/component/__tests__/componentProfileSurface.spec.ts:217:45
+    215|         expect(panel.requestConstraint('perpendicular')).toBe(true);
+    216|         expect(panel.root.hasAttribute('data-cpp-constraint-refused'))…
+    217|         expect(authorableConstraintKinds()).toEqual(['coincident', 'pa…
+       |                                             ^
+    218|     });
+    219|
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[4/5]⎯
+
+ FAIL  apps/editor/src/ui/component/__tests__/componentProfileSurface.spec.ts > §GLYPH-STATUS-IS-THE-C74-RECORD · ARM C — the editor REFUSES to author what nothing evaluates > every refusal carries kind + reason + alternative (C16 CA-18), for all eight
+AssertionError: expected true to be false // Object.is equality
+
+- Expected
++ Received
+
+- false
++ true
+
+ ❯ apps/editor/src/ui/component/__tests__/componentProfileSurface.spec.ts:223:34
+    221|         for (const k of ['horizontal', 'vertical', 'tangent', 'radius'…
+    222|             const d = constraintAuthoringDisposition(k);
+    223|             expect(d.authorable).toBe(false);
+       |                                  ^
+    224|             if (d.authorable) continue;
+    225|             expect(d.refusal.kind).toBe(k);
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[5/5]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  5 failed | 11 passed (16)
+   Start at  09:22:54
+   Duration  29.49s (transform 21.27s, setup 0ms, import 28.17s, tests 69ms, environment 910ms)
+
+RC=1

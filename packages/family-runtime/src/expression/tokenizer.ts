@@ -2,15 +2,25 @@
 //
 // Token grammar (kept tight on purpose — §20 risk #5: keep the DSL
 // restrictive and grow it under DEV instrumentation):
-//   NUMBER     = digit+ ('.' digit+)? UNIT?     where UNIT ∈ {mm,m,deg,rad}
+//   NUMBER     = digit+ ('.' digit+)? UNIT?     where UNIT ∈ §UNIT-TABLE
 //   IDENT      = [A-Za-z_][A-Za-z0-9_]*
 //   OP         = + - * / ( ) ,
 //   CMP        = < > <= >= == !=
 //
 // Identifiers are case-sensitive.  Whitespace is skipped.  Anything
 // else is a `LexError`.
+//
+// ⛔ THE UNIT VOCABULARY IS NOT DECLARED HERE ANY MORE.  This file used to
+//    carry a `Unit` union AND a hand-written `UNIT_KEYWORDS` Set AND a prose
+//    list inside a user-facing error message — three of the five independent
+//    enumerations of one closed set that spec §76 gate B forbids.  All three
+//    now derive from `unit-coercion.ts`'s §UNIT-TABLE, which is also where
+//    the conversion factors and the quantity kinds live, so a spelling can
+//    never exist in one of them and not the others.
 
-export type Unit = 'mm' | 'm' | 'deg' | 'rad';
+import { UNIT_NAMES, type Unit } from './unit-coercion.js';
+
+export type { Unit };
 
 export type Token =
   | { readonly kind: 'number'; readonly value: number; readonly unit: Unit | null; readonly start: number }
@@ -28,7 +38,8 @@ export class LexError extends Error {
 const IDENT_HEAD = /[A-Za-z_]/;
 const IDENT_TAIL = /[A-Za-z_0-9]/;
 const DIGIT = /[0-9]/;
-const UNIT_KEYWORDS: ReadonlySet<string> = new Set(['mm', 'm', 'deg', 'rad']);
+/** Derived from §UNIT-TABLE — never hand-written. */
+const UNIT_KEYWORDS: ReadonlySet<string> = new Set<string>(UNIT_NAMES);
 
 /** Tokenise an expression source string.  Throws `LexError` on bad input. */
 export function tokenize(src: string): Token[] {
@@ -140,8 +151,11 @@ function readNumber(src: string, start: number): NumberRead {
     } else if (!sawWhitespace) {
       // Glued non-unit identifier — surface a hard error so the user
       // doesn't silently get `5 * x` semantics from `5x`.
+      // The unit list is INTERPOLATED from §UNIT-TABLE, not spelled out: a
+      // hand-written list here read `mm | m | deg | rad` and would have been
+      // the fifth place a new spelling had to be remembered.
       throw new LexError(
-        `unexpected identifier ${JSON.stringify(candidate)} after number; insert an operator or use a unit (mm | m | deg | rad)`,
+        `unexpected identifier ${JSON.stringify(candidate)} after number; insert an operator or use a unit (${UNIT_NAMES.join(' | ')})`,
         cursor,
       );
     }

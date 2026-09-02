@@ -103,7 +103,110 @@ export type RelationshipType =
     | 'maintainedBy'      // element → maintenance event record
     | 'decommissionedBefore' // element that must be decommissioned before another
     // ── Intent (Phase G) ─────────────────────────────────────────────────
-    | 'decidedBy';        // element → DecisionRecord (architect's rationale)
+    | 'decidedBy'         // element → DecisionRecord (architect's rationale)
+    // ── The DEFINITION AXIS (C71 §2.7 · ADR-0376 · Universal Component Editor) ─
+    //
+    // ⭐ THE FIRST ENDPOINTS IN THIS GRAPH THAT ARE NOT ELEMENT INSTANCES.
+    // Every member above joins two element instance ids by convention and by
+    // nothing else (C71 §1.5). These three join an instance to a DEFINITION, a
+    // TYPE to what it specialises, and a definition to a definition — so the
+    // seventh semantic (node kind) is DECLARED for them, per endpoint, in
+    // {@link DEFINITION_AXIS_ENDPOINT_KINDS}, and every reader below is written
+    // against that declaration rather than against an id prefix (C71 §1.5 MUST
+    // NOT — the prefix set is `ElementType` and contains no *definition*).
+    /**
+     * `instantiates` — a placed component occurrence → the ComponentDefinition
+     * it was minted from. Endpoints: *instance* → *definition* (C71 §2.7).
+     *
+     * Writer (C71 §1.2 semantic 1): {@link SemanticGraphManager.recordInstantiation},
+     * called by the component placement command. ⛔ NOT the loader — a rebuild is
+     * a disposition, never a substitute for a writer (C71 §2.7 obligation 1).
+     *
+     * Reader (semantic 2): {@link SemanticGraphManager.getInstantiatedDefinition}
+     * (forward — "what IS this thing?") and
+     * {@link SemanticGraphManager.getInstancesOfDefinition} (reverse — "which
+     * instances exist over this definition?", the count C65 §3.6 requires the UI
+     * to state BEFORE a definition edit propagates). Both are refusal-bearing:
+     * an id no writer covered is NO ANSWER, never `[]` (C71 §4.4).
+     *
+     * Persistence (semantic 3): serialized verbatim in the snapshot graph slice.
+     *
+     * Rebuild disposition (semantic 4): PERSIST-ONLY. Nothing about a placed
+     * component's geometry lets a loader re-derive which definition minted it —
+     * `instantiates` is an AUTHORED fact. ⛔ An instance that loses this edge on
+     * load is an element that no longer knows what it is, which is the most
+     * expensive silent loss this graph could carry (C71 §2.7 obligation 3).
+     *
+     * Invalidation (semantic 5): id-keyed, therefore move-INVARIANT by
+     * construction — moving an instance does not change what it instantiates.
+     *
+     * Deletion (semantic 6) — ASYMMETRIC, and that is why it is not boilerplate:
+     * deleting the INSTANCE purges its edges through the endpoint cascade
+     * ({@link SemanticGraphManager.removeAllRelationshipsForElement}) and undo
+     * restores them VERBATIM (`3ee632f6`, C71 §5.6). Deleting a DEFINITION that
+     * still has instances is a REFUSAL question, not a cascade one — see
+     * {@link SemanticGraphManager.getDefinitionDeleteDisposition}. ⛔ Deleting a
+     * definition MUST NOT delete instances (C71 §2.7 obligation 4).
+     *
+     * Node kind (semantic 7): declared in {@link DEFINITION_AXIS_ENDPOINT_KINDS}.
+     */
+    | 'instantiates'
+    /**
+     * `specializes` — a ComponentType → the definition (or the parent type) it
+     * refines. Endpoints: *type* → *definition*, and *type* → *type* (C71 §2.7),
+     * which is C65's T1–T4 tiering made traversable.
+     *
+     * Writer: {@link SemanticGraphManager.recordSpecialization}.
+     * Reader: {@link SemanticGraphManager.getSpecializedParent} (forward) and
+     * {@link SemanticGraphManager.getSpecializationsOf} (reverse — "which types
+     * exist over this definition").
+     * Persistence: serialized verbatim.
+     * Rebuild disposition: PERSIST-ONLY — a type's parent is authored, and no
+     * geometry re-derives it.
+     * Invalidation: id-keyed, move-invariant.
+     * Deletion: deleting the TYPE purges through the endpoint cascade; deleting
+     * the PARENT is the same refusal question as `instantiates`.
+     * Node kind: declared in {@link DEFINITION_AXIS_ENDPOINT_KINDS}.
+     */
+    | 'specializes'
+    /**
+     * `dependsOnDefinition` — a ComponentDefinition → a definition it nests or
+     * reuses. Endpoints: *definition* → *definition* (C71 §2.7). It answers
+     * *"what breaks if this definition changes or is deleted?"*, and it is the
+     * CYCLE question — a definition graph without this edge cannot detect a
+     * definition that transitively contains itself, and `family-runtime`'s cycle
+     * detection covers EXPRESSIONS, not definitions
+     * ({@link SemanticGraphManager.findDefinitionDependencyCycle}).
+     *
+     * ⭐ AUTHOR-KEYED, and it is the only one of the three that is. C112 §3.2's
+     * membership test is *"does the (sourceId, targetId) pair identify the edge's
+     * SUBJECT?"* For `instantiates` and `specializes` it does — the instance and
+     * the type ARE endpoints. For this family it does NOT: one definition may
+     * nest another through TWO DIFFERENT SLOTS, which are two genuinely distinct
+     * facts that an unkeyed insert collapses onto one edge — and then removing
+     * either slot strands the survivor. That is `connectedByStair`'s defect one
+     * family over, so this family takes `connectedByStair`'s fix: `authoredBy:
+     * <slotId>` at write time (§FIX-CONNECTEDBY-EDGE-KEYING) AND the slot id in
+     * `metadata` for the edge-wise purge at delete time (C112 §5 — "dropping
+     * either one breaks a different half").
+     *
+     * Writer: {@link SemanticGraphManager.recordDefinitionDependency}.
+     * Reader: {@link SemanticGraphManager.getDefinitionDependencies} (forward)
+     * and {@link SemanticGraphManager.getDefinitionDependents} (reverse).
+     * Persistence: serialized verbatim, `authoredBy` INCLUDED — it is part of
+     * edge identity, so a wire that drops it re-collapses the pair on reload
+     * (C112 §3.2 arm 6).
+     * Rebuild disposition: PERSIST-ONLY.
+     * Invalidation: id-keyed, move-invariant.
+     * Deletion: removing ONE SLOT is the EDGE-WISE purge
+     * ({@link SemanticGraphManager.removeDefinitionDependenciesAuthoredBy}),
+     * never an endpoint purge — an endpoint purge tears down every OTHER slot's
+     * edge between the same two definitions (C112 §5, the over-purge C71 §5.6
+     * warns against). Undo re-adds the returned edges VERBATIM, `authoredBy`
+     * included.
+     * Node kind: declared in {@link DEFINITION_AXIS_ENDPOINT_KINDS}.
+     */
+    | 'dependsOnDefinition';
 
 export interface Relationship {
     /** UUID — stable and immutable once created. */
@@ -168,7 +271,229 @@ export interface Relationship {
 export const AUTHOR_KEYED_RELATIONSHIP_TYPES: readonly RelationshipType[] = [
     'connectedByStair',
     'connectedByLift',
+    // C71 §2.7 · C112 §3.2 — one definition may nest another through TWO SLOTS.
+    // The slot is the subject and appears in neither endpoint, so it passes the
+    // membership test above. `instantiates` and `specializes` FAIL it (the
+    // instance and the type ARE endpoints) and are deliberately absent.
+    'dependsOnDefinition',
 ];
+
+// ── The DEFINITION AXIS (C71 §2.7) — node kinds, declared per endpoint ────────
+
+/**
+ * C71 §1.5 semantic 7 — WHAT KIND OF THING an endpoint is.
+ *
+ * Measured at HEAD by C71 §1.5: `SemanticGraph` has no node record and no node
+ * kind; every endpoint is an element instance id *by convention*. The moment an
+ * endpoint is a DEFINITION or a TYPE, `getRelationships(id)` cannot tell the
+ * caller what it just handed back, and a typed reader written for instances
+ * consumes a definition id as if it were one — not a type error, a silently
+ * wrong answer.
+ *
+ * This union names the three kinds the component programme introduces. It is a
+ * VOCABULARY, not a node registry: nothing here stores a node. The kind of an
+ * endpoint is decided by the FAMILY and the POSITION
+ * ({@link DEFINITION_AXIS_ENDPOINT_KINDS}), which is what C71 §1.5 means by
+ * "declares, per endpoint, which kind it is" — and it is the reason the same
+ * clause forbids inferring the kind from an id prefix at a call site.
+ */
+export type GraphNodeKind = 'instance' | 'definition' | 'type';
+
+/** The three families whose endpoints are not both element instances. */
+export const DEFINITION_AXIS_RELATIONSHIP_TYPES = [
+    'instantiates',
+    'specializes',
+    'dependsOnDefinition',
+] as const satisfies readonly RelationshipType[];
+
+/** A member of {@link DEFINITION_AXIS_RELATIONSHIP_TYPES}. */
+export type DefinitionAxisRelationshipType = (typeof DEFINITION_AXIS_RELATIONSHIP_TYPES)[number];
+
+/** The declared node kind of each endpoint of one definition-axis family. */
+export interface DefinitionAxisEndpointKinds {
+    /** What the SOURCE of this family's edges always is. */
+    readonly source: GraphNodeKind;
+    /**
+     * What the TARGET may be. `specializes` is the one family with two legal
+     * target kinds (a type refines a definition, or another type — C65's T1–T4
+     * tiering), which is why this is a list and not a scalar.
+     */
+    readonly target: readonly GraphNodeKind[];
+}
+
+/**
+ * C71 §1.5 / §2.7 — the per-endpoint node-kind DECLARATION for the definition
+ * axis. This is the table every definition-axis reader is written against, and
+ * the one {@link SemanticGraphManager.resolveDefinitionAxisNodeKind} consults.
+ */
+export const DEFINITION_AXIS_ENDPOINT_KINDS: Readonly<
+    Record<DefinitionAxisRelationshipType, DefinitionAxisEndpointKinds>
+> = {
+    instantiates: { source: 'instance', target: ['definition'] },
+    specializes: { source: 'type', target: ['definition', 'type'] },
+    dependsOnDefinition: { source: 'definition', target: ['definition'] },
+};
+
+/** Runtime membership test for {@link DefinitionAxisRelationshipType}. */
+export function isDefinitionAxisRelationship(
+    type: RelationshipType,
+): type is DefinitionAxisRelationshipType {
+    return (DEFINITION_AXIS_RELATIONSHIP_TYPES as readonly RelationshipType[]).includes(type);
+}
+
+// ── The definition axis — typed reader result unions (C71 §4.4) ───────────────
+//
+// FAILURE ≠ EMPTINESS, for the same reason `getContainedElements` distinguishes
+// them: `{ok:true, …:[]}` is a POSITIVE answer a writer established; `{ok:false}`
+// is NO ANSWER, and it names why. The refusal reasons are per-family and
+// per-SIDE, because "this id is not an instance the placement writer covered"
+// and "this id is not a definition anything has been placed from" are different
+// facts and a caller acts differently on each.
+
+/**
+ * Why a definition-axis question could not be answered.
+ *
+ * `…-node-kind-undetermined` is the refusal C71 §1.5 exists to make possible: the
+ * graph cannot say whether the id is an instance or a definition, so it refuses
+ * rather than guessing a direction. Guessing is the silently-wrong answer.
+ */
+export type DefinitionAxisUndeterminedReason =
+    | 'id-unknown-to-instantiates-writer'
+    | 'id-unknown-to-specializes-writer'
+    | 'id-unknown-to-dependsOnDefinition-writer'
+    | 'instance-instantiates-multiple-definitions'
+    | 'type-specializes-multiple-parents'
+    | 'definition-axis-node-kind-undetermined'
+    | 'definition-axis-node-kind-ambiguous';
+
+/**
+ * `instantiates`, FORWARD — "what definition is this instance an occurrence of?"
+ *
+ * SINGLE-VALUED, and the multiplicity is a refusal rather than a list: an
+ * occurrence is minted from exactly one definition, so two edges is CORRUPTION,
+ * not a richer answer. Same shape and same reason as `getHostWall`'s
+ * `multiple-hosts` (C15 §1).
+ */
+export type InstantiatedDefinitionQuery =
+    | { readonly ok: true; readonly instanceId: string; readonly definitionId: string }
+    | {
+        readonly ok: false;
+        readonly instanceId: string;
+        readonly reason: DefinitionAxisUndeterminedReason;
+        readonly detail: string;
+    };
+
+/**
+ * `instantiates`, REVERSE — "which instances exist over this definition?"
+ *
+ * This is the count C65 §3.6 requires the UI to state BEFORE a definition edit
+ * propagates, and the set {@link SemanticGraphManager.getDefinitionDeleteDisposition}
+ * refuses a definition delete on. `{ok:true, instanceIds:[]}` means the graph
+ * KNOWS this definition and nothing is placed from it — a positive answer, and a
+ * very different fact from "no writer has ever mentioned this id".
+ */
+export type DefinitionInstancesQuery =
+    | { readonly ok: true; readonly definitionId: string; readonly instanceIds: readonly string[] }
+    | {
+        readonly ok: false;
+        readonly definitionId: string;
+        readonly reason: DefinitionAxisUndeterminedReason;
+        readonly detail: string;
+    };
+
+/** `specializes`, FORWARD — "what does this type refine?" Single-valued (one parent). */
+export type SpecializedParentQuery =
+    | {
+        readonly ok: true;
+        readonly typeId: string;
+        readonly parentId: string;
+        /** Which kind the parent is — a definition (T1) or another type (T2–T4). */
+        readonly parentKind: GraphNodeKind;
+    }
+    | {
+        readonly ok: false;
+        readonly typeId: string;
+        readonly reason: DefinitionAxisUndeterminedReason;
+        readonly detail: string;
+    };
+
+/** `specializes`, REVERSE — "which types exist over this definition or type?" */
+export type SpecializationsQuery =
+    | { readonly ok: true; readonly parentId: string; readonly typeIds: readonly string[] }
+    | {
+        readonly ok: false;
+        readonly parentId: string;
+        readonly reason: DefinitionAxisUndeterminedReason;
+        readonly detail: string;
+    };
+
+/** `dependsOnDefinition`, FORWARD — "what does this definition nest or reuse?" */
+export type DefinitionDependenciesQuery =
+    | { readonly ok: true; readonly definitionId: string; readonly dependsOnIds: readonly string[] }
+    | {
+        readonly ok: false;
+        readonly definitionId: string;
+        readonly reason: DefinitionAxisUndeterminedReason;
+        readonly detail: string;
+    };
+
+/**
+ * `dependsOnDefinition`, REVERSE — "what breaks if this definition changes or is
+ * deleted?" The consumer C71 §2.7 names for the family (D6, nesting/reuse).
+ */
+export type DefinitionDependentsQuery =
+    | { readonly ok: true; readonly definitionId: string; readonly dependentIds: readonly string[] }
+    | {
+        readonly ok: false;
+        readonly definitionId: string;
+        readonly reason: DefinitionAxisUndeterminedReason;
+        readonly detail: string;
+    };
+
+/**
+ * C71 §2.7 obligation 4 — the DEFINITION half of the delete behaviour, which is
+ * a REFUSAL question and not a cascade question.
+ *
+ * ⛔ Deleting a definition MUST NOT delete the user's placed elements. The
+ * disposition names the live instances and the dependent definitions so the
+ * deleting command can refuse with BOTH numbers, in the C65 §3.4 shape: the
+ * instances resolve to a visible, named unresolved state — never a silent
+ * default, and never a silent cascade.
+ */
+export type DefinitionDeleteDisposition =
+    | {
+        /** No instance and no dependent definition — the delete is unobstructed. */
+        readonly ok: true;
+        readonly definitionId: string;
+    }
+    | {
+        readonly ok: false;
+        readonly definitionId: string;
+        readonly reason: 'definition-has-live-instances' | 'definition-has-dependents' | DefinitionAxisUndeterminedReason;
+        /** The placed occurrences that would be orphaned. NEVER a bare count. */
+        readonly instanceIds: readonly string[];
+        /** The definitions that nest or reuse this one. */
+        readonly dependentIds: readonly string[];
+        readonly detail: string;
+    };
+
+/**
+ * The cycle answer for `dependsOnDefinition`. A definition that transitively
+ * contains itself is unbuildable, and `family-runtime`'s cycle detection covers
+ * EXPRESSIONS, not definitions (C71 §2.7).
+ *
+ * `{ok:true, cycle:null}` is the positive "no cycle reachable from here" answer;
+ * `cycle` is the ordered path, first id repeated last, so the caller can name the
+ * loop rather than report that one exists.
+ */
+export type DefinitionCycleQuery =
+    | { readonly ok: true; readonly definitionId: string; readonly cycle: readonly string[] | null }
+    | {
+        readonly ok: false;
+        readonly definitionId: string;
+        readonly reason: DefinitionAxisUndeterminedReason;
+        readonly detail: string;
+    };
 
 // ── joinedTo (ADR-0321 / C71 §3) — writer input + reader result types ─────────
 
@@ -709,6 +1034,44 @@ export class SemanticGraphManager {
         { readonly reason: BoundaryUndeterminedReason; readonly detail: string }
     >();
 
+    /**
+     * C71 §1.5 / §2.7 — the definition-axis coverage marks, kept PER FAMILY AND
+     * PER SIDE, which is the whole reason there are five sets here and not one.
+     *
+     * WHY NOT ONE SET. A single "the definition-axis writers have seen this id"
+     * mark cannot tell an INSTANCE from a DEFINITION, so a reader consulting it
+     * would answer *"which instances instantiate this id?"* with a confident `[]`
+     * for a TYPE id — a category error stated as an established fact, which is
+     * exactly the silently-wrong answer C71 §1.5 was written to prevent. The
+     * side of the mark IS the node-kind declaration, taken at the writer, from
+     * {@link DEFINITION_AXIS_ENDPOINT_KINDS}.
+     *
+     * WHY THE MARKS OUTLIVE THE EDGES — the `_hostsCovered` disposition, and the
+     * case they exist for: a definition whose LAST instance is deleted keeps its
+     * mark (the purge is keyed on the INSTANCE id) and answers
+     * `{ok:true, instanceIds:[]}` — "known, and now placed nowhere". Without the
+     * mark that is indistinguishable from an id nothing has ever heard of, and
+     * the delete would silently downgrade a determined answer to an undetermined
+     * one. Deleting the DEFINITION itself does clear its marks — a dead id is
+     * *unknown*, not "known, and empty".
+     *
+     * Derived state, NEVER serialized — same disposition as `_joinedToCovered`.
+     * The EDGES are persist-only and come back from the slice, so a reloaded
+     * project answers through the edge branch; only the genuinely-empty case
+     * reverts to a refusal until a writer runs, which is honest rather than
+     * unfortunate.
+     */
+    private readonly _instantiatesCoveredInstances = new Set<string>();
+    private readonly _instantiatesCoveredDefinitions = new Set<string>();
+    private readonly _specializesCoveredTypes = new Set<string>();
+    private readonly _specializesCoveredParents = new Set<string>();
+    /**
+     * `dependsOnDefinition` needs ONE set, not two: C71 §2.7 declares BOTH
+     * endpoints *definition*, so the side carries no kind information and
+     * splitting it would be two names for one fact (C84 EI-8).
+     */
+    private readonly _definitionDependencyCovered = new Set<string>();
+
     // ── Mutation ──────────────────────────────────────────────────────────────
 
     /**
@@ -842,6 +1205,22 @@ export class SemanticGraphManager {
         // `room-unknown-to-boundedBy-writer`, not with a stale move mark for a
         // dead id. Mirrors the `_joinedToCovered` disposition above.
         this._boundaryUndetermined.delete(elementId);
+
+        // C71 §2.7 obligation 4, the INSTANCE half of the asymmetric delete: a
+        // deleted node is UNKNOWN to the definition-axis writers again, not
+        // "known, and instantiates nothing". Keyed on `elementId`, which is what
+        // makes the asymmetry work: deleting an INSTANCE never clears its
+        // definition's mark — that is precisely the case the mark exists for
+        // (the definition is still known; it now has no instances). The
+        // DEFINITION half is not a purge at all: see
+        // {@link getDefinitionDeleteDisposition} — deleting a definition with
+        // live instances is a REFUSAL question, and this cascade must never be
+        // the thing that answers it.
+        this._instantiatesCoveredInstances.delete(elementId);
+        this._instantiatesCoveredDefinitions.delete(elementId);
+        this._specializesCoveredTypes.delete(elementId);
+        this._specializesCoveredParents.delete(elementId);
+        this._definitionDependencyCovered.delete(elementId);
     }
 
     /**
@@ -903,6 +1282,158 @@ export class SemanticGraphManager {
         // 3) Coverage — every wall in this flush now has a definitive answer,
         //    including the ones that join nothing.
         for (const wallId of onLevel) this._joinedToCovered.add(wallId);
+    }
+
+    // ── The DEFINITION AXIS — writers (C71 §2.6 obligation 1, §2.7) ───────────
+    //
+    // ⛔ THESE ARE THE WRITE API, NOT THE WRITER. C71 §2.7 obligation 1 is
+    // explicit that the writer is "the command that creates the relationship, and
+    // ONLY that command", and that the loader is a *disposition*, never a
+    // substitute. These three methods are the same shape as
+    // `replaceJoinedToForLevelWalls` — a family-specific, typed entry point that
+    // maintains its own derived state at the writer (C71 §3.4) — and the
+    // component placement / type / nesting commands are what call them.
+    //
+    // Their existence buys no coverage on its own, and this file says so in the
+    // one place a future reader will look: `check-graph-write-coverage` EXCLUDES
+    // `SemanticGraph.ts` from its corpus precisely so a declaration site cannot
+    // prove its own coverage, and credits a helper only through its
+    // `HELPER_WRITERS` map plus a real production call site.
+
+    /**
+     * C71 §2.7 — record that a placed component occurrence was minted from a
+     * definition. The `instantiates` write API.
+     *
+     * Marks BOTH endpoints (C71 §1.5): the instance as an *instance*, the
+     * definition as a *definition*, per {@link DEFINITION_AXIS_ENDPOINT_KINDS}.
+     * The marks are what let the readers answer a positive empty rather than
+     * refuse, and what let {@link resolveDefinitionAxisNodeKind} name a side
+     * without ever reading an id prefix.
+     *
+     * Idempotent on `(instanceId, definitionId, 'instantiates')` — re-placing the
+     * same occurrence from the same definition is one fact, and the edge is NOT
+     * author-keyed (C112 §3.2: the instance IS an endpoint).
+     *
+     * @returns the relationship id (existing or new).
+     */
+    recordInstantiation(instanceId: string, definitionId: string): string {
+        this._instantiatesCoveredInstances.add(instanceId);
+        this._instantiatesCoveredDefinitions.add(definitionId);
+        return this.addRelationship({
+            type: 'instantiates',
+            sourceId: instanceId,
+            targetId: definitionId,
+            createdBy: 'system',
+        });
+    }
+
+    /**
+     * C71 §2.7 — record that a component TYPE refines a definition (T1) or
+     * another type (T2–T4). The `specializes` write API.
+     *
+     * `parentKind` is REQUIRED and is not inferred: C71 §1.5 forbids deducing an
+     * endpoint's kind at a call site, and `specializes` is the one family with
+     * two legal target kinds, so the caller — which knows which it created — is
+     * the only party entitled to say. It is stored in `metadata.parentKind` so a
+     * reader that loads the edge from a snapshot still has the declaration.
+     */
+    recordSpecialization(typeId: string, parentId: string, parentKind: 'definition' | 'type'): string {
+        this._specializesCoveredTypes.add(typeId);
+        this._specializesCoveredParents.add(parentId);
+        if (parentKind === 'type') this._specializesCoveredTypes.add(parentId);
+        return this.addRelationship({
+            type: 'specializes',
+            sourceId: typeId,
+            targetId: parentId,
+            metadata: { parentKind },
+            createdBy: 'system',
+        });
+    }
+
+    /**
+     * C71 §2.7 / C112 §3.2 — record that one definition nests or reuses another
+     * through a NAMED SLOT. The `dependsOnDefinition` write API.
+     *
+     * ⭐ `slotId` is not optional and it is written TWICE, deliberately, and the
+     * two are not redundant (C112 §5): as `authoredBy` it is part of the edge's
+     * IDENTITY, which is what keeps two slots onto the same definition from
+     * collapsing onto one edge at WRITE time; in `metadata` it is what the
+     * edge-wise purge matches on at DELETE time
+     * ({@link removeDefinitionDependenciesAuthoredBy}). Dropping either one
+     * breaks a different half.
+     */
+    recordDefinitionDependency(definitionId: string, dependsOnId: string, slotId: string): string {
+        this._definitionDependencyCovered.add(definitionId);
+        this._definitionDependencyCovered.add(dependsOnId);
+        return this.addRelationship({
+            type: 'dependsOnDefinition',
+            sourceId: definitionId,
+            targetId: dependsOnId,
+            authoredBy: slotId,
+            metadata: { slotId },
+            createdBy: 'system',
+        });
+    }
+
+    /**
+     * C71 §3.4 / §1.5 — the definition registry declaring which definition-axis
+     * nodes it has made a DEFINITIVE statement about, for the nodes that carry no
+     * edge yet: a definition just created and never placed, a type just created
+     * and never refined.
+     *
+     * The `markAdjacencyCoverage` idiom, one axis over. Without it, a brand-new
+     * definition and an id nothing has ever heard of are the same value at every
+     * reader below — the §CONTEXT-DATA-HONESTY collision, in the substrate that
+     * answers "what is this thing?".
+     *
+     * ⚠ `kind` is the CALLER's declaration (C71 §1.5 MUST NOT infer), and a node
+     * declared under two kinds is left AMBIGUOUS rather than silently resolved:
+     * see {@link resolveDefinitionAxisNodeKind}.
+     */
+    markDefinitionAxisCoverage(kind: GraphNodeKind, ids: readonly string[]): void {
+        for (const id of ids) {
+            if (!id) continue;
+            if (kind === 'instance') this._instantiatesCoveredInstances.add(id);
+            else if (kind === 'type') this._specializesCoveredTypes.add(id);
+            else {
+                this._instantiatesCoveredDefinitions.add(id);
+                this._specializesCoveredParents.add(id);
+                this._definitionDependencyCovered.add(id);
+            }
+        }
+    }
+
+    /**
+     * C112 §5 · §FIX-STAIR-DELETE-LEAVES-GRAPH-EDGES — remove the
+     * `dependsOnDefinition` edges authored by ONE nesting slot, EDGE-WISE.
+     *
+     * ⛔ NOT an endpoint purge. `removeAllRelationshipsForElement(definitionId)`
+     * would tear down every OTHER slot's edge between the same two definitions —
+     * the over-purge C71 §5.6 warns against and C112 §5 measures. The match is on
+     * `metadata.slotId`, exactly as `DeleteStairCommand._stairAuthoredLevelEdges`
+     * matches `metadata.stairId`, because the subject of the edge (the slot) is
+     * not one of its endpoints and the two endpoint indices cannot see it.
+     *
+     * @returns the removed edges, VERBATIM and by value, so the calling command
+     *   can hold them for undo and re-add them with `authoredBy` intact. An undo
+     *   that RE-DERIVES the edge instead of restoring it loses the key and
+     *   re-collapses the pair (C112 §5).
+     */
+    removeDefinitionDependenciesAuthoredBy(
+        slotId: string,
+        definitionIds: readonly string[],
+    ): Relationship[] {
+        const removed = new Map<string, Relationship>();
+        for (const id of definitionIds) {
+            if (!id) continue;
+            for (const rel of this.getRelationships(id, 'dependsOnDefinition')) {
+                if (rel.metadata?.['slotId'] === slotId || rel.authoredBy === slotId) {
+                    removed.set(rel.id, { ...rel });
+                }
+            }
+        }
+        for (const id of removed.keys()) this.removeRelationship(id);
+        return [...removed.values()];
     }
 
     /**
@@ -1486,6 +2017,349 @@ export class SemanticGraphManager {
         };
     }
 
+    // ── The DEFINITION AXIS — node-kind resolution + typed readers ────────────
+
+    /**
+     * C71 §1.5 semantic 7 — which SIDE of a definition-axis family this id sits
+     * on, and therefore WHAT KIND OF THING it is.
+     *
+     * ⛔ It never looks at the id itself. Two DECLARED sources decide: the
+     * coverage marks (taken at the writer, from
+     * {@link DEFINITION_AXIS_ENDPOINT_KINDS}) and the id's POSITION in this
+     * family's existing edges. Both are declarations; an id prefix is not, and
+     * C71 §1.5 forbids it — the prefix set is `ElementType` and contains no
+     * *definition*.
+     *
+     * SOURCE WINS WHEN BOTH APPLY, and that is a decision rather than an
+     * accident: `specializes` and `dependsOnDefinition` legitimately have MIDDLE
+     * nodes (a T2 type refines a T1 type and is refined by a T3; a definition
+     * nests one definition and is nested by another), so an id can honestly be
+     * both. The forward reading is preferred because it matches the directional
+     * `source → target` sense every existing `getTargets(id, type)` consumer
+     * uses — and the choice is never silent: the surface that routes on this
+     * REPORTS the direction it took (`GraphQueryService`'s `direction` field).
+     *
+     * @returns the resolved side and node kind, or `null` when neither a mark nor
+     *   an edge places this id on either side — the refusal C71 §1.5 exists to
+     *   make possible, because guessing a direction is the silently wrong answer.
+     */
+    resolveDefinitionAxisNodeKind(
+        id: string,
+        family: DefinitionAxisRelationshipType,
+    ): { readonly side: 'source' | 'target'; readonly nodeKind: GraphNodeKind } | null {
+        const kinds = DEFINITION_AXIS_ENDPOINT_KINDS[family];
+        const marks = this._definitionAxisMarks(family);
+        const hasOut = this.getTargets(id, family).length > 0;
+        const hasIn = this.getSources(id, family).length > 0;
+        if (hasOut || marks.source.has(id)) return { side: 'source', nodeKind: kinds.source };
+        if (hasIn || marks.target.has(id)) {
+            return { side: 'target', nodeKind: this._definitionAxisTargetKind(id, family) };
+        }
+        return null;
+    }
+
+    /** The (source-side, target-side) coverage marks for one definition-axis family. */
+    private _definitionAxisMarks(
+        family: DefinitionAxisRelationshipType,
+    ): { readonly source: ReadonlySet<string>; readonly target: ReadonlySet<string> } {
+        if (family === 'instantiates') {
+            return { source: this._instantiatesCoveredInstances, target: this._instantiatesCoveredDefinitions };
+        }
+        if (family === 'specializes') {
+            return { source: this._specializesCoveredTypes, target: this._specializesCoveredParents };
+        }
+        return { source: this._definitionDependencyCovered, target: this._definitionDependencyCovered };
+    }
+
+    /**
+     * The declared kind of an id sitting on the TARGET side of a family.
+     *
+     * `specializes` is the only family with two legal target kinds, and the
+     * writer records which one it created in `metadata.parentKind` — so this
+     * reads the DECLARATION off the edge rather than deducing it. Narrowed, never
+     * cast: `metadata` is `string | number | boolean`, and an unexpected value
+     * falls back to the family's first declared target kind rather than being
+     * asserted into the union.
+     */
+    private _definitionAxisTargetKind(
+        id: string,
+        family: DefinitionAxisRelationshipType,
+    ): GraphNodeKind {
+        const declared = DEFINITION_AXIS_ENDPOINT_KINDS[family].target;
+        if (family !== 'specializes') return declared[0]!;
+        for (const rel of this.getRelationships(id, 'specializes')) {
+            if (rel.targetId !== id) continue;
+            const k = rel.metadata?.['parentKind'];
+            if (k === 'type' || k === 'definition') return k;
+        }
+        return 'definition';
+    }
+
+    /** The shared prose every definition-axis refusal appends, so no refusal is a dead end. */
+    private _definitionAxisRefusalDetail(id: string, family: DefinitionAxisRelationshipType): string {
+        return (
+            `${family} lookup for ${id}: the graph holds no ${family} edge touching this id and no ` +
+            `definition-axis writer has covered it (the id may not be a ${DEFINITION_AXIS_ENDPOINT_KINDS[family].source} ` +
+            `or a ${DEFINITION_AXIS_ENDPOINT_KINDS[family].target.join('/')}; the node may exist and have no ` +
+            `${family} relationship yet; or the project was restored from a slice and no writer has run ` +
+            `since — the coverage marks are derived state and are not serialized, though the EDGES are ` +
+            `persist-only and do come back). This is NO ANSWER, not an empty set — C71 §4.4, C78 §1.4.`
+        );
+    }
+
+    /**
+     * C71 §2.7 — `instantiates`, FORWARD: "what definition is this occurrence of?"
+     *
+     * CONSUMER: the property panel's *what is this thing?* row, the schedule
+     * (C28) and IFC entity resolution (C25). Without it an instance's definition
+     * is recoverable only by reading a field nothing else can traverse.
+     *
+     * SINGLE-VALUED: two edges is CORRUPTION, not a richer answer, and it refuses
+     * — the `getHostWall` `multiple-hosts` shape (C15 §1).
+     */
+    getInstantiatedDefinition(instanceId: string): InstantiatedDefinitionQuery {
+        const definitionIds = [...new Set(this.getTargets(instanceId, 'instantiates'))];
+        if (definitionIds.length === 1) return { ok: true, instanceId, definitionId: definitionIds[0]! };
+        if (definitionIds.length > 1) {
+            return {
+                ok: false,
+                instanceId,
+                reason: 'instance-instantiates-multiple-definitions',
+                detail:
+                    `instantiates lookup for instance ${instanceId}: the graph holds ${definitionIds.length} ` +
+                    `definitions for one occurrence (${definitionIds.join(', ')}). An occurrence is minted ` +
+                    `from exactly one definition, so this is CORRUPTION, not a richer answer, and picking ` +
+                    `one would make the corruption invisible — C15 §1's multiple-hosts shape.`,
+            };
+        }
+        return {
+            ok: false,
+            instanceId,
+            reason: 'id-unknown-to-instantiates-writer',
+            detail: this._definitionAxisRefusalDetail(instanceId, 'instantiates'),
+        };
+    }
+
+    /**
+     * C71 §2.7 — `instantiates`, REVERSE: "which instances exist over this
+     * definition?"
+     *
+     * ⭐ THE ACCEPTANCE READER. `{ok:true, instanceIds:[]}` is the positive
+     * answer C65 §3.6 needs before a definition edit propagates ("this will
+     * affect 0 placed instances"), and it is a different fact from a refusal —
+     * which is what an id no writer ever covered gets.
+     */
+    getInstancesOfDefinition(definitionId: string): DefinitionInstancesQuery {
+        const instanceIds = [...new Set(this.getSources(definitionId, 'instantiates'))];
+        if (instanceIds.length > 0) return { ok: true, definitionId, instanceIds };
+        if (this._instantiatesCoveredDefinitions.has(definitionId)) {
+            return { ok: true, definitionId, instanceIds: [] };
+        }
+        return {
+            ok: false,
+            definitionId,
+            reason: 'id-unknown-to-instantiates-writer',
+            detail: this._definitionAxisRefusalDetail(definitionId, 'instantiates'),
+        };
+    }
+
+    /** C71 §2.7 — `specializes`, FORWARD: "what does this type refine?" Single-valued. */
+    getSpecializedParent(typeId: string): SpecializedParentQuery {
+        const parentIds = [...new Set(this.getTargets(typeId, 'specializes'))];
+        if (parentIds.length === 1) {
+            const parentId = parentIds[0]!;
+            return { ok: true, typeId, parentId, parentKind: this._definitionAxisTargetKind(parentId, 'specializes') };
+        }
+        if (parentIds.length > 1) {
+            return {
+                ok: false,
+                typeId,
+                reason: 'type-specializes-multiple-parents',
+                detail:
+                    `specializes lookup for type ${typeId}: the graph holds ${parentIds.length} parents ` +
+                    `(${parentIds.join(', ')}). C65's tiering is a TREE — a type refines exactly one ` +
+                    `definition or one parent type — so this is corruption, and choosing one would hide it.`,
+            };
+        }
+        return {
+            ok: false,
+            typeId,
+            reason: 'id-unknown-to-specializes-writer',
+            detail: this._definitionAxisRefusalDetail(typeId, 'specializes'),
+        };
+    }
+
+    /**
+     * C71 §2.7 — `specializes`, REVERSE: "which types exist over this definition
+     * or type?" The count C65 §3.6 requires the UI to state BEFORE an edit
+     * propagates.
+     */
+    getSpecializationsOf(parentId: string): SpecializationsQuery {
+        const typeIds = [...new Set(this.getSources(parentId, 'specializes'))];
+        if (typeIds.length > 0) return { ok: true, parentId, typeIds };
+        if (this._specializesCoveredParents.has(parentId)) return { ok: true, parentId, typeIds: [] };
+        return {
+            ok: false,
+            parentId,
+            reason: 'id-unknown-to-specializes-writer',
+            detail: this._definitionAxisRefusalDetail(parentId, 'specializes'),
+        };
+    }
+
+    /** C71 §2.7 — `dependsOnDefinition`, FORWARD: "what does this definition nest or reuse?" */
+    getDefinitionDependencies(definitionId: string): DefinitionDependenciesQuery {
+        const dependsOnIds = [...new Set(this.getTargets(definitionId, 'dependsOnDefinition'))];
+        if (dependsOnIds.length > 0) return { ok: true, definitionId, dependsOnIds };
+        if (this._definitionDependencyCovered.has(definitionId)) {
+            return { ok: true, definitionId, dependsOnIds: [] };
+        }
+        return {
+            ok: false,
+            definitionId,
+            reason: 'id-unknown-to-dependsOnDefinition-writer',
+            detail: this._definitionAxisRefusalDetail(definitionId, 'dependsOnDefinition'),
+        };
+    }
+
+    /**
+     * C71 §2.7 — `dependsOnDefinition`, REVERSE: *"what breaks if this definition
+     * changes or is deleted?"* The consumer the contract names for this family.
+     *
+     * ⚠ DEDUPED BY DEFINITION, not by edge: two slots nesting the same definition
+     * are two EDGES (that is why the family is author-keyed) but ONE answer to
+     * "what breaks" — reporting the same dependent twice would overstate the
+     * blast radius.
+     */
+    getDefinitionDependents(definitionId: string): DefinitionDependentsQuery {
+        const dependentIds = [...new Set(this.getSources(definitionId, 'dependsOnDefinition'))];
+        if (dependentIds.length > 0) return { ok: true, definitionId, dependentIds };
+        if (this._definitionDependencyCovered.has(definitionId)) {
+            return { ok: true, definitionId, dependentIds: [] };
+        }
+        return {
+            ok: false,
+            definitionId,
+            reason: 'id-unknown-to-dependsOnDefinition-writer',
+            detail: this._definitionAxisRefusalDetail(definitionId, 'dependsOnDefinition'),
+        };
+    }
+
+    /**
+     * C71 §2.7 obligation 4 — the DEFINITION half of the delete behaviour.
+     *
+     * ⛔ Deleting a definition is a REFUSAL question, never a cascade one:
+     * deleting it MUST NOT delete the user's placed elements. This hands the
+     * deleting command BOTH numbers so it can refuse with them (the C65 §3.4
+     * shape — instances resolve to a visible, named unresolved state, never a
+     * silent default and never a silent cascade).
+     *
+     * ⚠ An id the graph has never heard of REFUSES rather than returning
+     * `{ok:true}`. A confident "nothing depends on this, delete away" derived
+     * from *no data* is the most dangerous possible reading of `[]` in this file,
+     * because the consequence is destructive and irreversible in the user's eyes.
+     */
+    getDefinitionDeleteDisposition(definitionId: string): DefinitionDeleteDisposition {
+        // Read the two edge sets and the two marks DIRECTLY rather than through
+        // the readers above. Not a duplicate source of truth: the readers exist
+        // to give a CALLER the failure/emptiness distinction, and this method
+        // makes exactly the same distinction one level down, once, for both
+        // families at a time — routing through them would mean mapping two
+        // refusal unions into one and would state each mark twice.
+        const instanceIds = [...new Set(this.getSources(definitionId, 'instantiates'))];
+        const dependentIds = [...new Set(this.getSources(definitionId, 'dependsOnDefinition'))];
+        const known =
+            instanceIds.length > 0 ||
+            dependentIds.length > 0 ||
+            this._instantiatesCoveredDefinitions.has(definitionId) ||
+            this._definitionDependencyCovered.has(definitionId);
+        if (!known) {
+            return {
+                ok: false,
+                definitionId,
+                reason: 'definition-axis-node-kind-undetermined',
+                instanceIds: [],
+                dependentIds: [],
+                detail:
+                    `definition-delete disposition for ${definitionId}: NO definition-axis writer has ` +
+                    `covered this id, so neither "which instances exist over it" nor "what depends on it" ` +
+                    `has an established answer. This is NO ANSWER, not "nothing depends on it" — and the ` +
+                    `difference matters here more than anywhere else in this file, because acting on the ` +
+                    `wrong one destroys placed elements. ` +
+                    this._definitionAxisRefusalDetail(definitionId, 'instantiates'),
+            };
+        }
+        if (instanceIds.length > 0) {
+            return {
+                ok: false,
+                definitionId,
+                reason: 'definition-has-live-instances',
+                instanceIds,
+                dependentIds,
+                detail:
+                    `definition ${definitionId} has ${instanceIds.length} placed instance(s) ` +
+                    `(${instanceIds.join(', ')}). C71 §2.7 obligation 4: deleting a definition MUST NOT ` +
+                    `delete instances. Either refuse, or resolve the instances to a visible, named ` +
+                    `UNRESOLVED state first (C65 §3.4) — never a silent default, never a silent cascade.`,
+            };
+        }
+        if (dependentIds.length > 0) {
+            return {
+                ok: false,
+                definitionId,
+                reason: 'definition-has-dependents',
+                instanceIds,
+                dependentIds,
+                detail:
+                    `definition ${definitionId} is nested or reused by ${dependentIds.length} other ` +
+                    `definition(s) (${dependentIds.join(', ')}). Those definitions break if it is deleted — ` +
+                    `the question C71 §2.7 gives dependsOnDefinition its consumer for.`,
+            };
+        }
+        return { ok: true, definitionId };
+    }
+
+    /**
+     * C71 §2.7 — the CYCLE question for `dependsOnDefinition`: does this
+     * definition transitively contain itself?
+     *
+     * A definition graph without this edge cannot ask it at all, and
+     * `family-runtime`'s cycle detection covers EXPRESSIONS, not definitions —
+     * two different graphs, and C71 §4.3 forbids inferring one's coverage from
+     * the other.
+     *
+     * Returns the ORDERED path with the repeated id last, so a caller can name
+     * the loop rather than report that one exists. Depth-first, iterative, and
+     * bounded by the node count — a cyclic graph is exactly what this walks.
+     */
+    findDefinitionDependencyCycle(definitionId: string): DefinitionCycleQuery {
+        if (this.resolveDefinitionAxisNodeKind(definitionId, 'dependsOnDefinition') === null) {
+            return {
+                ok: false,
+                definitionId,
+                reason: 'id-unknown-to-dependsOnDefinition-writer',
+                detail: this._definitionAxisRefusalDetail(definitionId, 'dependsOnDefinition'),
+            };
+        }
+        const path: string[] = [];
+        const onPath = new Set<string>();
+        const done = new Set<string>();
+        const walk = (id: string): readonly string[] | null => {
+            if (onPath.has(id)) return [...path.slice(path.indexOf(id)), id];
+            if (done.has(id)) return null;
+            onPath.add(id);
+            path.push(id);
+            for (const next of new Set(this.getTargets(id, 'dependsOnDefinition'))) {
+                const found = walk(next);
+                if (found) return found;
+            }
+            path.pop();
+            onPath.delete(id);
+            done.add(id);
+            return null;
+        };
+        return { ok: true, definitionId, cycle: walk(definitionId) };
+    }
+
     /**
      * Reset the graph to empty.
      * Used for full project reload.
@@ -1499,6 +2373,14 @@ export class SemanticGraphManager {
         this._containsCovered.clear();
         this._adjacencyCovered.clear();
         this._boundaryUndetermined.clear();
+        // C71 §2.7 — the definition-axis marks are derived state with the same
+        // disposition as every mark above: a project switch must not let one
+        // project's definitions answer for another's.
+        this._instantiatesCoveredInstances.clear();
+        this._instantiatesCoveredDefinitions.clear();
+        this._specializesCoveredTypes.clear();
+        this._specializesCoveredParents.clear();
+        this._definitionDependencyCovered.clear();
         // §GR10-DESERIALIZE-DROP-REPORT — the report describes ONE load of ONE
         // slice. Carrying it across a clear would let a project switch answer
         // "what did this graph's load refuse?" with the previous project's

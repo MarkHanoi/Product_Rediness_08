@@ -204,7 +204,41 @@ const HANDLER_GLOBS = [
   'plugins/*/src/handlers/*.ts',
   'apps/editor/src/engine/initBusHandlers.ts',
   'apps/editor/src/engine/engineLauncher.ts',
+  // §GLOB-GRAPH-QUERY (lane 4H, 2026-09-02). `graphQueryBusHandlers.ts` registers
+  // `graph.query` / `graph.neighbors` / `graph.path` — the World Model read surface
+  // spec §69 is written about — on the composed bus, and NO glob above reaches it.
+  // Three real verbs were therefore outside this gate's subject entirely: they could
+  // never be UNDECLARED, so the chat's inability to answer *"which windows on Level 02
+  // use Large?"* could never be counted. MEASURED before/after: 365 → 368 raw matches,
+  // the delta being exactly those three. That is the c1902a5a defect one directory over.
+  'apps/editor/src/engine/graphQueryBusHandlers.ts',
 ];
+
+/**
+ * ⚠ §GLOB-BLINDNESS-DECLARED (lane 4H, 2026-09-02) — what the list above still
+ * CANNOT see, stated here because this gate's convention is that every check says
+ * what it is blind to rather than letting a zero imply coverage.
+ *
+ * `apps/editor/src/engine/links/linkBusHandlers.ts` registers FOUR real verbs —
+ * `link.create`, `link.remove`, `link.setDisplay`, `link.setPin` — and adding it to
+ * HANDLER_GLOBS above would change NOTHING, because it registers them through a
+ * local `reg(type, canExecute, execute)` helper: the verb is a CALL ARGUMENT, and
+ * `HANDLER_TYPE_RE` matches a `type` PROPERTY. Measured by adding the path to the
+ * glob list and re-running the sweep: 0 new verbs.
+ *
+ * ⛔ The path is therefore deliberately NOT added. A glob that matches a file whose
+ * shape the regex cannot read is worse than its absence: it makes the file LOOK
+ * covered in the list a reviewer reads, while the count is unchanged. Closing it
+ * needs a second matcher for the helper-call shape, which is real separate work.
+ * ISSUE-LOG row OWED — text in
+ * `audit/universal-component-editor/2026-09-01/phase4/lane-4h-ai-reaches-the-slice.md` §OWED,
+ * item 1. ⚠ No L-number is cited here on purpose: minting one this lane cannot append
+ * would be the UNMINTED-AND-CITED defect (C103) in miniature.
+ */
+const HANDLER_GLOBS_KNOWN_BLIND = [
+  'apps/editor/src/engine/links/linkBusHandlers.ts',
+] as const;
+void HANDLER_GLOBS_KNOWN_BLIND;
 
 // Handlers declare their verb two ways and BOTH must be scanned:
 //   object-literal handlers   →  `type: 'wall.updateSystemTypeBatch',`
@@ -303,16 +337,69 @@ function registeredCommands(): Map<string, string> {
   // would be the mirror mistake (a vanished handler and a clean one reading the
   // same), so they are counted and disclosed below.
   let unreadable = 0;
+  /** §FIX-ELEMENT-KIND-DISCRIMINATOR-IS-NOT-A-VERB — excluded, and PRINTED, never silent. */
+  const discriminators = new Map<string, string>();
   for (const file of files) {
     let src: string;
     try { src = readFileSync(file, 'utf8'); }
     catch { unreadable++; continue; }
     HANDLER_TYPE_RE.lastIndex = 0;
     let m: RegExpExecArray | null;
+    const inFile: string[] = [];
     while ((m = HANDLER_TYPE_RE.exec(src)) !== null) {
       const verb = m[1] ?? m[2];
-      if (verb !== undefined && !out.has(verb)) out.set(verb, file);
+      if (verb !== undefined) inFile.push(verb);
     }
+    // ⭐ §FIX-ELEMENT-KIND-DISCRIMINATOR-IS-NOT-A-VERB (lane 4H, 2026-09-02).
+    //
+    // HANDLER_TYPE_RE matches a `type` PROPERTY, and an element record carries one:
+    // `PlaceComponent.ts` builds `{ id, type: 'component', levelId, … }` as the L0
+    // record it stores, exactly as `CreateBalcony.ts`, `CreateFloor.ts`,
+    // `CreateLift.ts` and `CreatePool.ts` do. Five ELEMENT KINDS were therefore
+    // counted as REGISTERED BUS COMMANDS, and the header's own warning applies in
+    // the opposite direction to the one it records: the first draft UNDER-matched
+    // and produced phantoms; this over-matches and produces FICTIONS — subjects with
+    // no handler, which the coverage ratchet then demands somebody "declare".
+    //
+    // ⛔ AND SOMEBODY DID. `ChatCommandClassification.ts` carried
+    //     family('D', 'Bare-verb alias registration of the .create form.', ['floor', 'pool'])
+    // — a confident, plausible, WRITTEN reason for two verbs that do not exist.
+    // `CreateFloor.ts` declares `readonly type = 'floor.create'` and its record says
+    // `type: 'floor'`; `CreatePool.ts` declares `'pool.create'` and its record says
+    // `type: 'pool'`. There is no bare-verb alias. That row was removed in the same
+    // change as this filter.
+    //
+    // —— THE RULE, and why it is THIS one ——
+    // Drop a matched literal iff it contains NO dot AND the same file also declares
+    // a dotted verb with it as the prefix (`component` beside `component.place`).
+    // A handler file that declares `X.action` and also writes a bare `X` is writing
+    // the discriminator of the record `X.action` creates.
+    //
+    // ⛔ TWO NARROWER-LOOKING RULES WERE TRIED AND FALSIFIED BY EXECUTION FIRST —
+    // recorded so the next reader does not re-try them:
+    //   • "a real verb contains a dot" — FALSE. `copy-selection`, `paste-clipboard`,
+    //     `zoom-fit` and `zoom-selected` are real, registered and dotless.
+    //   • "a real declaration has a modifier, or `execute`/`affectedStores` within a
+    //     bounded window" — FALSE, and DANGEROUSLY so: measured, it would have
+    //     dropped SEVENTY-FOUR real verbs from `initBusHandlers.ts`, printing a
+    //     better UNDECLARED number over a subject it had stopped reading. That is
+    //     the §R5-FLOOR failure this file exists to refuse.
+    // The rule below was measured on this tree: 368 raw → 363 kept, 5 dropped, and
+    // the 5 are exactly balcony / component / floor / lift / pool. All four real
+    // dotless verbs survive.
+    const dotted = new Set(inFile.filter((v) => v.includes('.')));
+    for (const verb of inFile) {
+      const isRecordDiscriminator =
+        !verb.includes('.') && [...dotted].some((d) => d.startsWith(`${verb}.`));
+      if (isRecordDiscriminator) { discriminators.set(verb, file); continue; }
+      if (!out.has(verb)) out.set(verb, file);
+    }
+  }
+  if (discriminators.size > 0) {
+    console.log(
+      `[check-chat-capability-coverage] element-kind discriminators excluded (not verbs): `
+      + `${[...discriminators.keys()].sort().join(', ')}`,
+    );
   }
   // §FIX-LSFILES-ENOENT-CRASH (L-837) — disclosed, never swallowed. This gate's
   // headline is "UNDECLARED: 0 of 319 registered bus commands"; a handler file it

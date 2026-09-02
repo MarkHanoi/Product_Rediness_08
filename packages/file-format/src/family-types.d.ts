@@ -13,7 +13,14 @@ export declare const FAMILY_PATHS: {
 /** Schema-version literal of the family-pack format itself.  Distinct
  *  from the in-document `formatVersion` (which is the document schema
  *  version); this is bumped only when the *envelope* (paths, ZIP layout)
- *  changes.  v1 is the only version. */
+ *  changes.  v1 is the only version.
+ *
+ *  ⛔ DELIBERATELY NOT BUMPED BY THE v1.1 DOCUMENT MIGRATION.  v1.1 adds
+ *  fields INSIDE `document.json` and removes one; it moves no ZIP entry
+ *  and renames no path, so `FAMILY_PATHS` above is untouched.  Bumping
+ *  this too would assert an envelope change that did not happen — and a
+ *  version number that moves for reasons it does not describe is how a
+ *  reader stops trusting all three of them. */
 export declare const FAMILY_FORMAT_SCHEMA_VERSION = 1;
 /** Projected IFC binding sub-document, written to `ifc-mapping.json`. */
 export interface FamilyIfcBindingExport {

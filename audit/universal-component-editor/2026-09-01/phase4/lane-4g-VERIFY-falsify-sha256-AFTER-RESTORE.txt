@@ -1,0 +1,2 @@
+7ad39a9b075dc6c8443e72969cf0cea1bc161671b0b09c3bb2e28fb5b08b27b1 *packages/core-app-model/src/SemanticGraph.ts
+8ef3913d47beb23f50d7cebdb98df120ce6b043bd475a6c5d02facf298f31531 *packages/ai-host/src/graph/GraphQueryService.ts

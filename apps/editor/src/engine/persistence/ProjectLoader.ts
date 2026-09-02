@@ -364,7 +364,14 @@ export function snapshotHasElements(
         len((snapshot as { liftParts?: unknown }).liftParts) +
         len((snapshot as { pools?: unknown }).pools) +
         len((snapshot as { waters?: unknown }).waters) +
-        len((snapshot as { balconies?: unknown }).balconies);
+        len((snapshot as { balconies?: unknown }).balconies) +
+        // §COMPONENT-PLACE (audit §12 Phase 4C · ADR-0376 D9) — placed component
+        // occurrences, for the identical reason. ⭐ SHARPER HERE THAN FOR ANY FAMILY
+        // ABOVE: a placed component has NO legacy twin and NO member families, so a
+        // project whose only content is placed components has EVERY other slice empty.
+        // Omitted from this predicate, such a file reads as empty and is OVERWRITTEN —
+        // the C13 promise broken by the guard that exists to keep it.
+        len((snapshot as { components?: unknown }).components);
     return total > 0;
 }
 
@@ -3101,6 +3108,12 @@ export class ProjectLoader {
                 __pushIds(s.lifts);      __pushIds(s.liftParts);
                 __pushIds(s.pools);      __pushIds(s.waters);
                 __pushIds(s.balconies);
+                // §COMPONENT-PLACE (audit §12 Phase 4C) — the FOURTH time the reason
+                // above has had to be written out. A restored placed component registers
+                // an `elementRegistry` root exactly as the five compounds do; omitting it
+                // would make the §L-325 audit report every legitimately-restored
+                // occurrence as "a FOREIGN root FROM A PRIOR PROJECT".
+                __pushIds(s.components);
                 // §C13-SCENE-ID-KEY — `levels`, for the same COMPLETENESS reason as
                 // `lighting` above (§L-711), surfaced by the same widening.
                 //

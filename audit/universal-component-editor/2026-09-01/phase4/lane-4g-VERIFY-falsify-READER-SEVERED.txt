@@ -1,0 +1,171 @@
+npm warn Unknown project config "package-manager-strict". This will stop working in the next major version of npm. See `npm help npmrc` for supported config options.
+
+ RUN  v4.1.10 C:/Users/LENOVO/OneDrive/Desktop/PRYZM/Product_Rediness_08/packages/ai-host
+
+ ❯ __tests__/graphQueryServiceDefinitionAxis.test.ts (15 tests | 8 failed) 28ms
+     × ⭐ returns the two placed instances instead of refusing 12ms
+     × ⭐ says WHICH question it answered — direction and node kind, never a bare list 2ms
+     × the FORWARD question is still the forward question — the direction is not fixed to one answer 1ms
+     × the three families are ROUTED to the definition axis, not to the getTargets path 2ms
+     × a definition the writer covered with nothing placed answers a POSITIVE empty 1ms
+     × the reader’s refusal reason is forwarded VERBATIM, never flattened into one of this file’s own 1ms
+     × SEVER THE WRITER: with no recordInstantiation call, the acceptance query returns NO instances 1ms
+     × SEVER THE READER: a graph whose typed reader refuses makes the query refuse — it never falls back to the raw edge set 1ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 8 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  __tests__/graphQueryServiceDefinitionAxis.test.ts > ACCEPTANCE — graph.query(definition, "instantiates") returns INSTANCES > ⭐ returns the two placed instances instead of refusing
+AssertionError: expected [] to deeply equal [ 'inst-1', 'inst-2' ]
+
+- Expected
++ Received
+
+- [
+-   "inst-1",
+-   "inst-2",
+- ]
++ []
+
+ ❯ __tests__/graphQueryServiceDefinitionAxis.test.ts:63:45
+     61|     const r = svc(placedSlice()).query('def-window', 'instantiates');
+     62|     expect(r.ok).toBe(true);
+     63|     if (r.ok) expect([...r.targets].sort()).toEqual(['inst-1', 'inst-2…
+       |                                             ^
+     64|   });
+     65|
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/8]⎯
+
+ FAIL  __tests__/graphQueryServiceDefinitionAxis.test.ts > ACCEPTANCE — graph.query(definition, "instantiates") returns INSTANCES > ⭐ says WHICH question it answered — direction and node kind, never a bare list
+AssertionError: expected undefined to be 'incoming' // Object.is equality
+
+- Expected:
+"incoming"
+
++ Received:
+undefined
+
+ ❯ __tests__/graphQueryServiceDefinitionAxis.test.ts:73:27
+     71|       // `['inst-1','inst-2']` cannot tell instance ids from a definit…
+     72|       // this is the surface where that list becomes English in a prom…
+     73|       expect(r.direction).toBe('incoming');
+       |                           ^
+     74|       expect(r.targetNodeKind).toBe('instance');
+     75|     }
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/8]⎯
+
+ FAIL  __tests__/graphQueryServiceDefinitionAxis.test.ts > ACCEPTANCE — graph.query(definition, "instantiates") returns INSTANCES > the FORWARD question is still the forward question — the direction is not fixed to one answer
+AssertionError: expected undefined to be 'outgoing' // Object.is equality
+
+- Expected:
+"outgoing"
+
++ Received:
+undefined
+
+ ❯ __tests__/graphQueryServiceDefinitionAxis.test.ts:83:27
+     81|     if (r.ok) {
+     82|       expect(r.targets).toEqual(['def-window']);
+     83|       expect(r.direction).toBe('outgoing');
+       |                           ^
+     84|       expect(r.targetNodeKind).toBe('definition');
+     85|     }
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/8]⎯
+
+ FAIL  __tests__/graphQueryServiceDefinitionAxis.test.ts > ACCEPTANCE — graph.query(definition, "instantiates") returns INSTANCES > the three families are ROUTED to the definition axis, not to the getTargets path
+AssertionError: expected [ Array(2) ] to include 'instantiates'
+ ❯ __tests__/graphQueryServiceDefinitionAxis.test.ts:105:57
+    103|     for (const f of ['instantiates', 'specializes', 'dependsOnDefiniti…
+    104|       expect(GRAPH_QUERY_SUPPORTED_RELATIONSHIPS).toContain(f);
+    105|       expect(GRAPH_QUERY_DEFINITION_AXIS_RELATIONSHIPS).toContain(f);
+       |                                                         ^
+    106|       // DISJOINT from the six L-12860 families: a definition-axis fam…
+    107|       // drifted into that table would lose its direction discriminato…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[4/8]⎯
+
+ FAIL  __tests__/graphQueryServiceDefinitionAxis.test.ts > FAILURE ≠ EMPTINESS at the query surface > a definition the writer covered with nothing placed answers a POSITIVE empty
+AssertionError: expected false to be true // Object.is equality
+
+- Expected
++ Received
+
+- true
++ false
+
+ ❯ __tests__/graphQueryServiceDefinitionAxis.test.ts:119:18
+    117|     g.markDefinitionAxisCoverage('definition', ['def-unused']);
+    118|     const r = svc(g).query('def-unused', 'instantiates');
+    119|     expect(r.ok).toBe(true);
+       |                  ^
+    120|     if (r.ok) {
+    121|       expect(r.targets).toEqual([]);
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[5/8]⎯
+
+ FAIL  __tests__/graphQueryServiceDefinitionAxis.test.ts > FAILURE ≠ EMPTINESS at the query surface > the reader’s refusal reason is forwarded VERBATIM, never flattened into one of this file’s own
+AssertionError: expected true to be false // Object.is equality
+
+- Expected
++ Received
+
+- false
++ true
+
+ ❯ __tests__/graphQueryServiceDefinitionAxis.test.ts:158:25
+    156|     const viaQuery = svc(g).query('inst-1', 'instantiates');
+    157|     expect(direct.ok).toBe(false);
+    158|     expect(viaQuery.ok).toBe(false);
+       |                         ^
+    159|     // The service and the reader AGREE — the point of the control is …
+    160|     // service is not refusing for a reason of its own.
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[6/8]⎯
+
+ FAIL  __tests__/graphQueryServiceDefinitionAxis.test.ts > ⛔ FALSIFICATION — the two severings, each with its OWN named test > SEVER THE WRITER: with no recordInstantiation call, the acceptance query returns NO instances
+AssertionError: expected true to be false // Object.is equality
+
+- Expected
++ Received
+
+- false
++ true
+
+ ❯ __tests__/graphQueryServiceDefinitionAxis.test.ts:183:18
+    181|     // that `def-window` IS a definition — which is a weaker state tha…
+    182|     // definition with no instances", and must not be reported as the …
+    183|     expect(r.ok).toBe(false);
+       |                  ^
+    184|     if (!r.ok) expect(r.reason).toBe('definition-axis-node-kind-undete…
+    185|     // … and the SAME query answers once the writer runs. One line apa…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[7/8]⎯
+
+ FAIL  __tests__/graphQueryServiceDefinitionAxis.test.ts > ⛔ FALSIFICATION — the two severings, each with its OWN named test > SEVER THE READER: a graph whose typed reader refuses makes the query refuse — it never falls back to the raw edge set
+AssertionError: expected true to be false // Object.is equality
+
+- Expected
++ Received
+
+- false
++ true
+
+ ❯ __tests__/graphQueryServiceDefinitionAxis.test.ts:213:18
+    211|     expect(g.getSources('def-window', 'instantiates')).toEqual(['inst-…
+    212|     const r = svc(g).query('def-window', 'instantiates');
+    213|     expect(r.ok).toBe(false);
+       |                  ^
+    214|     if (!r.ok) expect(r.detail).toContain('SEVERED');
+    215|   });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[8/8]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  8 failed | 7 passed (15)
+   Start at  11:17:30
+   Duration  19.58s (transform 13.92s, setup 0ms, import 18.76s, tests 28ms, environment 0ms)
+
+RC=1

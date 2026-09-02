@@ -1,0 +1,11 @@
+npm warn Unknown project config "package-manager-strict". This will stop working in the next major version of npm. See `npm help npmrc` for supported config options.
+
+ RUN  v4.1.10 C:/Users/LENOVO/OneDrive/Desktop/PRYZM/Product_Rediness_08/packages/ai-host
+
+
+ Test Files  1 passed (1)
+      Tests  15 passed (15)
+   Start at  11:10:48
+   Duration  22.41s (transform 16.11s, setup 0ms, import 21.49s, tests 14ms, environment 0ms)
+
+RC=0

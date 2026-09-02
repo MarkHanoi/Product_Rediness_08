@@ -1,0 +1,75 @@
+npm warn Unknown project config "package-manager-strict". This will stop working in the next major version of npm. See `npm help npmrc` for supported config options.
+
+ RUN  v4.1.10 C:/Users/LENOVO/OneDrive/Desktop/PRYZM/Product_Rediness_08
+
+Sourcemap for "C:/Users/LENOVO/OneDrive/Desktop/PRYZM/Product_Rediness_08/packages/file-format/src/family-schema.js" points to missing source files
+Sourcemap for "C:/Users/LENOVO/OneDrive/Desktop/PRYZM/Product_Rediness_08/packages/file-format/src/family-types.js" points to missing source files
+Sourcemap for "C:/Users/LENOVO/OneDrive/Desktop/PRYZM/Product_Rediness_08/packages/file-format/src/family-unpack.js" points to missing source files
+Sourcemap for "C:/Users/LENOVO/OneDrive/Desktop/PRYZM/Product_Rediness_08/packages/file-format/src/family-migrations/index.js" points to missing source files
+Sourcemap for "C:/Users/LENOVO/OneDrive/Desktop/PRYZM/Product_Rediness_08/packages/file-format/src/family-migrations/identity.js" points to missing source files
+Sourcemap for "C:/Users/LENOVO/OneDrive/Desktop/PRYZM/Product_Rediness_08/packages/file-format/src/family-migrations/v1_0-to-v1_1.js" points to missing source files
+Sourcemap for "C:/Users/LENOVO/OneDrive/Desktop/PRYZM/Product_Rediness_08/packages/file-format/src/family-migrations/ops/rename-parameter.js" points to missing source files
+Sourcemap for "C:/Users/LENOVO/OneDrive/Desktop/PRYZM/Product_Rediness_08/packages/file-format/src/family-migrations/ops/add-parameter.js" points to missing source files
+Sourcemap for "C:/Users/LENOVO/OneDrive/Desktop/PRYZM/Product_Rediness_08/packages/file-format/src/family-migrations/ops/delete-parameter.js" points to missing source files
+Sourcemap for "C:/Users/LENOVO/OneDrive/Desktop/PRYZM/Product_Rediness_08/packages/file-format/src/family-migrations/ops/change-parameter-type.js" points to missing source files
+Sourcemap for "C:/Users/LENOVO/OneDrive/Desktop/PRYZM/Product_Rediness_08/packages/file-format/src/family-migrations/ops/introduce-expression.js" points to missing source files
+Sourcemap for "C:/Users/LENOVO/OneDrive/Desktop/PRYZM/Product_Rediness_08/packages/file-format/src/family-migrations/ops/rebind-ifc.js" points to missing source files
+Sourcemap for "C:/Users/LENOVO/OneDrive/Desktop/PRYZM/Product_Rediness_08/packages/file-format/src/family-migrations/ops/merge-material-slots.js" points to missing source files
+Sourcemap for "C:/Users/LENOVO/OneDrive/Desktop/PRYZM/Product_Rediness_08/packages/file-format/src/family-migrations/ops/split-type.js" points to missing source files
+stderr | apps/editor/src/ui/component/__tests__/componentProfileSurface.spec.ts
+THREE.WARNING: Multiple instances of Three.js being imported.
+
+stdout | apps/editor/src/ui/component/__tests__/componentProfileSurface.spec.ts
+[CreateCurtainWallsOnAllSlabsCommand] §DEV: window.__resetCwPrewarm() registered. Call it in DevTools to re-enable first-run PSO prewarm for next execute().
+
+stderr | apps/editor/src/ui/component/__tests__/componentProfileSurface.spec.ts
+Warning: Please use the `legacy` build in Node.js environments.
+
+ ❯ apps/editor/src/ui/component/__tests__/componentProfileSurface.spec.ts (16 tests | 2 failed) 464ms
+     × ⛔ an ARCHED profile is drawn but NOT writable — committing would replace a curve with chords 64ms
+     × ⛔ an expression-valued coordinate is refused for its own reason (the D4 defect, one layer over) 6ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 2 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  apps/editor/src/ui/component/__tests__/componentProfileSurface.spec.ts > §NO-SILENT-DEPARAMETRISATION · ARM D — a lossy commit is refused, not absorbed > ⛔ an ARCHED profile is drawn but NOT writable — committing would replace a curve with chords
+AssertionError: expected '31 vertices on Front elevation' to contain 'read-only'
+
+Expected: "read-only"
+Received: "31 vertices on Front elevation"
+
+ ❯ apps/editor/src/ui/component/__tests__/componentProfileSurface.spec.ts:242:34
+    240|             .toBeGreaterThan(4);
+    241|         // …and the status line says, before any gesture, that it is r…
+    242|         expect(panel.statusText).toContain('read-only');
+       |                                  ^
+    243|         expect(panel.statusText).toContain("carries a 'arc' entity");
+    244|         // …and a commit is REFUSED rather than silently writing chord…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/2]⎯
+
+ FAIL  apps/editor/src/ui/component/__tests__/componentProfileSurface.spec.ts > §NO-SILENT-DEPARAMETRISATION · ARM D — a lossy commit is refused, not absorbed > ⛔ an expression-valued coordinate is refused for its own reason (the D4 defect, one layer over)
+AssertionError: expected true to be false // Object.is equality
+
+- Expected
++ Received
+
+- false
++ true
+
+ ❯ apps/editor/src/ui/component/__tests__/componentProfileSurface.spec.ts:261:28
+    259|         });
+    260|         const d = profileWriteBackDisposition(parametric);
+    261|         expect(d.writable).toBe(false);
+       |                            ^
+    262|         if (!d.writable) expect(d.refusal.reason).toContain('freeze th…
+    263|     });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/2]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  2 failed | 14 passed (16)
+   Start at  09:23:59
+   Duration  72.01s (transform 60.00s, setup 0ms, import 70.65s, tests 464ms, environment 607ms)
+
+RC=1

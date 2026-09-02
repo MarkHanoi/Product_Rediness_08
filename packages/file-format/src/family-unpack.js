@@ -10,7 +10,7 @@
 import { trace, SpanStatusCode } from '@opentelemetry/api';
 import JSZip from 'jszip';
 import { canonicalise } from './canonical-json.js';
-import { FamilyDocumentSchema, FamilyEventSchema, FamilyManifestSchema, } from './family-schema.js';
+import { FamilyDocumentSchema, FamilyEventSchema, FamilyManifestSchema, formatVersionRefusal, isSupportedFormatVersion, } from './family-schema.js';
 import { FAMILY_PATHS, } from './family-types.js';
 const tracer = trace.getTracer('@pryzm/file-format');
 const dec = new TextDecoder();
@@ -57,10 +57,21 @@ export async function unpackFamily(input) {
                 return { ok: false, reason: 'manifest-invalid', message };
             }
             const manifest = manifestParse.data;
-            // Reject future versions defensively — the loader can only
-            // round-trip what it was compiled to know about.
-            if (manifest.formatVersion !== '1.0') {
-                const message = `[unpackFamily] unsupported future formatVersion ${manifest.formatVersion}`;
+            // ⭐ C111 §8.4-c — THIS BRANCH WAS UNREACHABLE FOR EVERY INPUT
+            // UNTIL v1.1, and the executed proof is
+            // `phase3/probe-d12-formatversion.txt`: with `formatVersion`
+            // typed `z.literal('1.0')`, `FamilyManifestSchema.safeParse`
+            // above rejected '2.0' FIRST and returned `manifest-invalid`.
+            // A user handed a v2 component file was told their file was
+            // MALFORMED, not that their PRYZM was old.  The schema now
+            // admits any well-formed `MAJOR.MINOR` precisely so that this
+            // refusal can fire and say the true thing.
+            //
+            // ⛔ The comparison is `isSupportedFormatVersion`, NOT `!== '1.0'`.
+            // A literal here would refuse every v1.1 file this build itself
+            // writes — the same defect one version later.
+            if (!isSupportedFormatVersion(manifest.formatVersion)) {
+                const message = `[unpackFamily] ${formatVersionRefusal(manifest.formatVersion)}`;
                 span.setStatus({ code: SpanStatusCode.ERROR, message });
                 return { ok: false, reason: 'unsupported-future-version', message };
             }
@@ -265,6 +276,8 @@ async function sha256Hex(bytes) {
     const view = new Uint8Array(buf);
     let out = '';
     for (let i = 0; i < view.length; i++) {
+        // `noUncheckedIndexedAccess` widens view[i] to `number | undefined`,
+        // but `i < view.length` makes it provably defined — non-null assert.
         out += view[i].toString(16).padStart(2, '0');
     }
     return out;

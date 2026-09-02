@@ -1,0 +1,116 @@
+{
+  "result": {
+    "stage": "done",
+    "marksAfterCompose": 1,
+    "marksAfterMount": 1,
+    "rendererAfterMount": "present",
+    "rendererErrorAfterMount": "null",
+    "hostCommitterWallAfterMount": "PRESENT",
+    "rendererSceneChildTypes": [
+      "AmbientLight",
+      "DirectionalLight"
+    ],
+    "rendererSuppliedLight": true,
+    "committerRegistered": true,
+    "storeIsOnRuntime": true,
+    "censusBeforePlace": {
+      "width": 480,
+      "height": 360,
+      "litPixels": 0,
+      "minX": -1,
+      "maxX": -1,
+      "minY": -1,
+      "maxY": -1,
+      "litWidth": 0,
+      "litHeight": 0
+    },
+    "storeHasRecordAfterPlace": true,
+    "hostRegistryHasElement": true,
+    "geometryReadyEvents": 1,
+    "solidsAttachedTypeA": 1,
+    "committerStatsAfterPlace": {
+      "rebuilds": 1,
+      "staleBakesDiscarded": 0,
+      "transformOnlyUpdates": 0,
+      "unresolvedDefinitions": 0,
+      "refusedBakes": 0,
+      "attachedSolids": 1
+    },
+    "groupInRendererScene": true,
+    "groupChildCount": 1,
+    "worldBoundsTypeA": {
+      "min": [
+        0,
+        0,
+        0
+      ],
+      "max": [
+        1.2,
+        0.1,
+        1.5
+      ]
+    },
+    "censusAfterPlace": {
+      "width": 480,
+      "height": 360,
+      "litPixels": 11388,
+      "minX": 143,
+      "maxX": 326,
+      "minY": 111,
+      "maxY": 225,
+      "litWidth": 184,
+      "litHeight": 115
+    },
+    "geometryReadyEventsAfterSwap": 1,
+    "committerStatsAfterSwap": {
+      "rebuilds": 2,
+      "staleBakesDiscarded": 0,
+      "transformOnlyUpdates": 0,
+      "unresolvedDefinitions": 0,
+      "refusedBakes": 0,
+      "attachedSolids": 1
+    },
+    "worldBoundsTypeB": {
+      "min": [
+        0,
+        0,
+        0
+      ],
+      "max": [
+        0.6,
+        0.1,
+        1.5
+      ]
+    },
+    "censusAfterSwap": {
+      "width": 480,
+      "height": 360,
+      "litPixels": 5505,
+      "minX": 143,
+      "maxX": 279,
+      "minY": 139,
+      "maxY": 225,
+      "litWidth": 137,
+      "litHeight": 87
+    },
+    "censusRestored": {
+      "width": 480,
+      "height": 360,
+      "litPixels": 11388,
+      "minX": 143,
+      "maxX": 326,
+      "minY": 111,
+      "maxY": 225,
+      "litWidth": 184,
+      "litHeight": 115
+    }
+  },
+  "logs": [
+    "[debug] [CreateCurtainWallsOnAllSlabsCommand] §DEV: window.__resetCwPrewarm() registered. Call it in DevTools to re-enable first-run PSO prewarm for next execute().",
+    "[log] [ConstraintEngine] 17 rules registered (7 Tier 1, 5 Tier 2 spatial, 5 Tier 2 physics)",
+    "[warning] [.WebGL-0x4c44001cbe00]GL Driver Message (OpenGL, Performance, GL_CLOSE_PATH_NV, High): GPU stall due to ReadPixels",
+    "[warning] [.WebGL-0x4c44001cbe00]GL Driver Message (OpenGL, Performance, GL_CLOSE_PATH_NV, High): GPU stall due to ReadPixels",
+    "[warning] [.WebGL-0x4c44001cbe00]GL Driver Message (OpenGL, Performance, GL_CLOSE_PATH_NV, High): GPU stall due to ReadPixels",
+    "[warning] [.WebGL-0x4c44001cbe00]GL Driver Message (OpenGL, Performance, GL_CLOSE_PATH_NV, High): GPU stall due to ReadPixels (this message will no longer repeat)"
+  ]
+}

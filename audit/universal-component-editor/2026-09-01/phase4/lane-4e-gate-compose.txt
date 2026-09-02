@@ -1,0 +1,21 @@
+npm warn Unknown project config "package-manager-strict". This will stop working in the next major version of npm. See `npm help npmrc` for supported config options.
+[single-compose] executed controls (an arm never watched failing is UNPROVEN):
+   Negative control (planted tree): 3 finding(s), arms fired [C1, D1, R1]
+       ✓ D1 fired — D1::definitions=2
+       ✓ R1 fired — R1::rivals=3>1
+       ✓ C1 fired — C1::callers=4>2
+       planted rivals named: [apps/a/src/familyRuntime.ts, apps/b/src/kioskRuntime.ts, packages/rogue/src/rogueComposer.ts]
+   Positive control (clean tree — allowlisted delegate, wireRuntime injector, composeRuntime() inside a log string): 0 finding(s) — must be 0
+       clean tree read: 1 definition(s) · 0 rival(s) · 2 caller(s) [packages/headless/src/headlessRuntime.ts, src/main.ts]
+
+[single-compose] §P1-UNENFORCED (L-812) — single composition root (C01 §1 P1)
+[single-compose] files scanned: 5159 · composeRuntime definitions: 1 · rival runtime factories: 1 / MAX_RIVALS 1 · production callers: 2 / 2
+
+  Rival runtime factories (declared debt — see MAX_RIVALS):
+      apps/component-editor/src/app/familyEditorRuntime.ts:85  createFamilyEditorRuntime
+
+  Production composeRuntime() callers:
+      packages/headless/src/headlessRuntime.ts
+      src/main.ts
+
+[single-compose] ✓ one composition root (packages/runtime-composer/src/composeRuntime.ts), 1/1 rival runtime factory (createFamilyEditorRuntime — declared debt, ADR-0316), 2/2 production caller(s), controls: arms proven to fire [C1, D1, R1].

@@ -1,0 +1,17 @@
+== lane-4d VERIFY geometry-kernel suite 2026-09-02T11:12:02+02:00 ==
+$ pnpm --filter @pryzm/geometry-kernel test
+[WARN] The "pnpm" field in package.json is no longer read by pnpm. The following keys were ignored: "pnpm.overrides", "pnpm.onlyBuiltDependencies". See https://pnpm.io/settings for the new home of each setting.
+
+> @pryzm/geometry-kernel@0.1.0 test C:\Users\LENOVO\OneDrive\Desktop\PRYZM\Product_Rediness_08\packages\geometry-kernel
+> vitest run --passWithNoTests
+
+
+ RUN  v4.1.10 C:/Users/LENOVO/OneDrive/Desktop/PRYZM/Product_Rediness_08/packages/geometry-kernel
+
+
+ Test Files  50 passed (50)
+      Tests  852 passed (852)
+   Start at  11:12:05
+   Duration  27.83s (transform 19.82s, setup 0ms, import 54.05s, tests 10.87s, environment 13ms)
+
+RC=0

@@ -73,7 +73,7 @@ export function makeSplitTypeMigrator(
         manifest: { ...input.manifest },
         document: {
           ...input.document,
-          formatVersion: to as '1.0',
+          formatVersion: to,
           types,
         },
         ifcMapping: input.ifcMapping,

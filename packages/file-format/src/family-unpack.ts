@@ -16,6 +16,8 @@ import {
   FamilyDocumentSchema,
   FamilyEventSchema,
   FamilyManifestSchema,
+  formatVersionRefusal,
+  isSupportedFormatVersion,
   type FamilyDocument,
   type FamilyEvent,
   type FamilyManifest,
@@ -75,10 +77,21 @@ export async function unpackFamily(input: FamilyUnpackInput): Promise<FamilyUnpa
           return { ok: false, reason: 'manifest-invalid', message };
         }
         const manifest: FamilyManifest = manifestParse.data;
-        // Reject future versions defensively — the loader can only
-        // round-trip what it was compiled to know about.
-        if (manifest.formatVersion !== '1.0') {
-          const message = `[unpackFamily] unsupported future formatVersion ${manifest.formatVersion}`;
+        // ⭐ C111 §8.4-c — THIS BRANCH WAS UNREACHABLE FOR EVERY INPUT
+        // UNTIL v1.1, and the executed proof is
+        // `phase3/probe-d12-formatversion.txt`: with `formatVersion`
+        // typed `z.literal('1.0')`, `FamilyManifestSchema.safeParse`
+        // above rejected '2.0' FIRST and returned `manifest-invalid`.
+        // A user handed a v2 component file was told their file was
+        // MALFORMED, not that their PRYZM was old.  The schema now
+        // admits any well-formed `MAJOR.MINOR` precisely so that this
+        // refusal can fire and say the true thing.
+        //
+        // ⛔ The comparison is `isSupportedFormatVersion`, NOT `!== '1.0'`.
+        // A literal here would refuse every v1.1 file this build itself
+        // writes — the same defect one version later.
+        if (!isSupportedFormatVersion(manifest.formatVersion)) {
+          const message = `[unpackFamily] ${formatVersionRefusal(manifest.formatVersion)}`;
           span.setStatus({ code: SpanStatusCode.ERROR, message });
           return { ok: false, reason: 'unsupported-future-version', message };
         }

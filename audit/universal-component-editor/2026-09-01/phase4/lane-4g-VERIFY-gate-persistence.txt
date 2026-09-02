@@ -1,0 +1,38 @@
+npm warn Unknown project config "package-manager-strict". This will stop working in the next major version of npm. See `npm help npmrc` for supported config options.
+
+── check-graph-persistence (C71 §6 · C70 I-INV-2/I-INV-3) ──────
+   floor  executed controls passed: measured 6, min 6 ✓
+   floor  graph-persistence-debt.json ledger present: measured 1, min 1 ✓
+   floor  RelationshipType members parsed from source: measured 29, min 20 ✓
+   floor  production source files scanned: measured 5301, min 1500 ✓
+   floor  rebuild implementations located from source: measured 1, min 1 ✓
+   floor  SemanticGraphManager.deserialize located: measured 1, min 1 ✓
+   floor  SemanticGraphManager.serialize (the snapshot graph slice writer) located: measured 1, min 1 ✓
+   floor  loader call sites of the rebuild located: measured 2, min 1 ✓
+   EXECUTED CONTROLS (both directions, every run):
+       ✓ NEGATIVE: planted persist-only family 'orphan' (live writer, no ledger row) was FLAGGED
+       ✓ POSITIVE: loader-regenerated 'rebuilt' was classified regenerated-loader and produced NO persist-only finding
+       ✓ DISPOSITION: docblock-declared REGENERATED 'flushed' classified regenerated-flush
+       ✓ COMMENT-BLINDNESS: comment-only writer for 'ghost' earned NO writer credit (and no-writer families are never ledger-ratcheted)
+       ✓ ARM C: the loader that DISCARDS unreconstructable was FLAGGED; the one that reports it was not
+       ✓ ARM E: the silent-drop deserialize shape FAILS the arm and the counting shape PASSES it
+   
+   ARM A — CLASSIFICATION of all 29 declared members (no third state):
+     regenerated-by-loader (11): hosts, hostedBy, connectedTo, adjacentTo, boundedBy, contains, sitsOn, supports, partOf, connectedByStair, decidedBy
+     regenerated-by-flush  (1): joinedTo
+     persist-only          (17): unitOf, levelOf, servesZone, connectedByLift, precededBy, supersedes, branchedFrom, causedFailureOf, wasMitigatedBy, measuredAt, exceededBenchmark, replacedBy, maintainedBy, decommissionedBefore, instantiates, specializes, dependsOnDefinition
+   
+   ARM B — persist-only families WITH a live writer (the persist-or-lose set):
+     connectedByLift      2 writer(s) — packages/command-registry/src/verticalCirculation/CreateVerticalCirculationCommand.ts
+     measuredAt           1 writer(s) — packages/physics-host/src/PhysicsEngine.ts
+   
+   ARM C — rebuild names as lost: connectedByLift, measuredAt · loader call sites: packages/persistence-client/src/loader/ProjectLoader.ts · apps/editor/src/engine/persistence/ProjectLoader.ts
+   ARM D — rebuild definitions located: 1 (packages/persistence-client/src/loader/rebuildSemanticGraph.ts) — C71 §5.3 measured TWO byte-identical copies on 2026-08-12; this run measures ONE: the duplication has been paid down since, and §5.3 is superseded by this reading (C71 §0.1).
+   
+   UNPROVEN — named, never green (C70 §3.4 / §2.2):
+     ◌ ARM C residual: the named loss is reported via console.warn at the loader call sites — that a USER ever sees it is UNPROVEN here (static gate; no UI/report-surface arm exists yet).
+     ◌ ARM E residual: how many malformed edges real snapshots carry is UNPROVEN here — this arm inspects the drop branch, it compares no live snapshot records (that comparison belongs to the executed persistence suite / check-derived-regenerable).
+   
+   FINDINGS: 0 against a NAMED ledger of 0.
+   → [0] CLEAN — check-graph-persistence (C71 §6 · C70 I-INV-2/I-INV-3): 0 findings, hard-0, no baseline.
+RC=0

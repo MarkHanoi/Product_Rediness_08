@@ -727,6 +727,31 @@ export type {
     DroppedRelationshipRow,
     RelationshipDropReason,
 } from './SemanticGraph.js';
+// C71 §1.5 / §2.7 — THE DEFINITION AXIS. The node-kind vocabulary and the six
+// refusal-bearing result shapes of `instantiates` / `specializes` /
+// `dependsOnDefinition`, plus the definition-delete disposition and the cycle
+// answer. Exported because the consumers are outside this package: the query
+// surface behind the `graph.query` bus verb routes on the node kind, and the
+// component commands branch on the delete disposition.
+export type {
+    GraphNodeKind,
+    DefinitionAxisRelationshipType,
+    DefinitionAxisEndpointKinds,
+    DefinitionAxisUndeterminedReason,
+    InstantiatedDefinitionQuery,
+    DefinitionInstancesQuery,
+    SpecializedParentQuery,
+    SpecializationsQuery,
+    DefinitionDependenciesQuery,
+    DefinitionDependentsQuery,
+    DefinitionDeleteDisposition,
+    DefinitionCycleQuery,
+} from './SemanticGraph.js';
+export {
+    DEFINITION_AXIS_RELATIONSHIP_TYPES,
+    DEFINITION_AXIS_ENDPOINT_KINDS,
+    isDefinitionAxisRelationship,
+} from './SemanticGraph.js';
 export { SemanticGraphManager, semanticGraphManager } from './SemanticGraph.js';
 
 export type { AABB } from './SpatialIndex.js';

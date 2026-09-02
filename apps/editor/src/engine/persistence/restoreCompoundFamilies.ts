@@ -95,6 +95,10 @@ import {
 import {
     boundaryLineUndoAdapter,
     resolveBoundaryLineStoreFromWindow,
+    // §COMPONENT-PLACE (Phase 4C) — the generic composed-runtime store resolver, the
+    // SAME one `buildUndoStoreMap()` hands `composedStoreUndoAdapter('component', …)`.
+    // Reusing it is what keeps the restore and the undo reading ONE store.
+    resolveComposedStoreFromWindow,
 } from '../undo/pluginStoreUndoAdapter';
 import {
     bathroomPodUndoAdapter,
@@ -165,6 +169,9 @@ export function restoreCompoundFamilies(snapshot: unknown): CompoundRestoreResul
     const pools     = readSlice(snapshot, 'pools');
     const waters    = readSlice(snapshot, 'waters');
     const balconies = readSlice(snapshot, 'balconies');
+    // §COMPONENT-PLACE (audit §12 Phase 4C · ADR-0376 D9) — ⭐⭐ THE JOIN's load leg.
+    // See the block below for why it lives in this module despite not being a compound.
+    const components = readSlice(snapshot, 'components');
     // §PERSIST-BATHROOM-POD (L-11527 / L-11405) · C109 §8 — the pod PARENT. Its members
     // round-tripped all along under `plumbing`; the identity that owns them did not.
     const bathroomPods = readSlice(snapshot, 'bathroomPods');
@@ -173,7 +180,8 @@ export function restoreCompoundFamilies(snapshot: unknown): CompoundRestoreResul
     const boundaryLines = readSlice(snapshot, 'boundaryLines');
 
     if (lifts.length + liftParts.length + pools.length + waters.length
-        + balconies.length + boundaryLines.length + bathroomPods.length === 0) {
+        + balconies.length + boundaryLines.length + bathroomPods.length
+        + components.length === 0) {
         return { restored, errors, total: 0 };
     }
 
@@ -289,6 +297,71 @@ export function restoreCompoundFamilies(snapshot: unknown): CompoundRestoreResul
             }
         } catch (e) {
             errors.push(`[restoreCompoundFamilies] balcony restore FAILED — the balconies are lost: ${String(e)}`);
+        }
+    }
+
+    // ── ⭐⭐ PLACED COMPONENT (§COMPONENT-PLACE, audit §12 Phase 4C · ADR-0376 D9) ──
+    //
+    // ⚠ WHY A NON-COMPOUND FAMILY IS RESTORED IN A FILE CALLED
+    //    `restoreCompoundFamilies`. Because this module is where the ONE road runs,
+    //    not because the family is a compound. Its header records what the
+    //    alternative costs: `boundaryLine` was given a restore step inside
+    //    `ProjectLoader.ts` and `grep -c boundaryLine ImportProjectCommand.ts` → 0
+    //    while `_useImportCommandPath()` defaults TRUE, so that restore never ran in
+    //    production at all (L-11528) — saved and never read back, for weeks. This
+    //    module is called ONCE from the loader's COMMON TAIL, after the
+    //    `if (useImportCommandPath) … else …` join, so both load paths get it by
+    //    construction. Adding a second restore site is the defect; the file's NAME
+    //    being narrower than its job is not. ⭐ Renaming it is a separate change and
+    //    is deliberately NOT made here: the name is cited by `ProjectLoader.ts`, the
+    //    lift/pool/balcony headers and the C84 EI-6 loss warning, and a rename in the
+    //    same commit as a new family would put two unrelated risks in one diff.
+    //
+    // ⛔ IT DOES NOT RE-DISPATCH `component.place`, and here the reason is sharper
+    //    than the header's general one. `component.place` REFUSES a placement whose
+    //    `definitionId` is not a `fam_<ULID>` — correct at authoring time, and fatal
+    //    at load time for a project saved before its definition reference was
+    //    tightened: a re-dispatch would REFUSE the record and the occurrence would be
+    //    dropped on the floor by validation rather than restored. An `add` patch of
+    //    the serialized record returns the SAME occurrence the architect placed,
+    //    which is the property C13 asks for.
+    //
+    // ⭐ THROUGH THE UNDO ADAPTER, for the same reason as the four families above:
+    //    `composedStoreUndoAdapter('component', …)` (registered in
+    //    `performUndoRedo.ts`'s `buildUndoStoreMap()`) applies `Store.applyPatch()` —
+    //    the very method the bus calls on execute — through a LAZY resolve, so a
+    //    recomposed runtime cannot leave this writing into a stale store.
+    //
+    // ⛔ AND NO RENDER HALF IS CLAIMED. At this commit nothing subscribes the
+    //    component store's `subscribeDirty`; the 3-D leg is Phase 4E's under D10,
+    //    whose descope is pre-authorised. So the honest statement is: THE RECORD is
+    //    restored — selectable by id, schedulable, saveable again — and whether it
+    //    is DRAWN is an axis this module does not touch and does not claim.
+    if (components.length > 0) {
+        try {
+            const store = resolveComposedStoreFromWindow('component');
+            if (store === null) {
+                // ⛔ LOUD, NEVER SILENT (C84 EI-6). UNREACHABLE and EMPTY are different
+                // facts. This branch is the one L-11530 could not reach for the
+                // balcony, because there the read was `undefined` at SAVE time and the
+                // slice was never written — so there was nothing here to fail on.
+                errors.push(
+                    `[restoreCompoundFamilies] §COMPONENT-PLACE — runtime.stores.component is not ` +
+                    `reachable, so ${components.length} placed component record(s) are in the file ` +
+                    `and NOT in the model.`,
+                );
+            } else {
+                const side = addPatches(components, 'component', errors);
+                if (side.patches.length > 0) {
+                    store.applyPatch(side.patches);
+                    restored['component'] = side.ids.length;
+                }
+            }
+        } catch (e) {
+            errors.push(
+                `[restoreCompoundFamilies] component restore FAILED — the placed components are ` +
+                `lost: ${String(e)}`,
+            );
         }
     }
 

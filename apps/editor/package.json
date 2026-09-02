@@ -52,6 +52,7 @@
     "@pryzm/plugin-beam": "workspace:*",
     "@pryzm/plugin-ceiling": "workspace:*",
     "@pryzm/plugin-column": "workspace:*",
+    "@pryzm/plugin-component": "workspace:*",
     "@pryzm/plugin-curtain-wall": "workspace:*",
     "@pryzm/plugin-dimensions": "workspace:*",
     "@pryzm/plugin-door": "workspace:*",

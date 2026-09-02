@@ -3,38 +3,83 @@
 // Spec source: `phases/PHASE-3B-FAMILY-CREATOR-REWRITE-PLAN.md` §19.5 D2.
 //
 // Inputs: a LoadedFamily-shape (manifest + document + ifcMapping +
-// schemaHash) plus the chosen `typeId` and any per-instance overrides.
+// schemaHash) plus the chosen `typeId`, any per-instance overrides, and
+// OPTIONALLY the `GeometryAdapter` that evaluates the geometry.
 //
 // Outputs: one BufferGeometryDescriptor per `solid` in the family
 // document, in document order.  Returned with the resolved values map
 // so the caller (the editor or the bake-worker) can attach instance
 // parameters to the IFC export downstream.
 //
-// v1 producer support (plan §19.5 D2):
-//   • `extrude` — fully wired.
-//   • `sweep` / `loft` / `revolve` — return a structured
-//     `unsupported-feature` error per solid; the bake completes the
-//     supported solids and reports the unsupported ones.  Lighting up
-//     these producers requires the constraint solver (S57) so that path
-//     and section profiles can be evaluated; the BIM core team is
-//     scheduled to land that next sprint.
+// ═══════════════════════════════════════════════════════════════════════════
+// §4D-SCHEMA-DELTA — why `sweep` / `loft` / `revolve` still refuse, and what
+// EXACTLY would change that.  ⛔ Read this before "fixing" the refusal.
+// ═══════════════════════════════════════════════════════════════════════════
+//
+// The refusal used to read *"requires the S57 constraint solver to evaluate
+// path/section profiles"*.  **That reason was false.**  C74 §1.2 reserves
+// SOLVING for simultaneous systems with no closed form, and none of the three
+// needs one.  An exact B-Rep kernel handed today's `FamilyDocument` would be
+// JUST AS UNABLE to evaluate them, because the missing information is not in
+// the evaluator — it is not in the DOCUMENT.  The producers are complete, and
+// as of lane 4D they are on the kernel's public surface and wired into the
+// `GeometryAdapter`.  What is missing is persisted fields:
+//
+//   sweep    · the PATH.  `produceSweep` takes `Point3D[]` in WORLD 3-D; the
+//              document has `pathProfileId`, a 2-D `Profile` bound to a plane.
+//              Lifting 2-D → 3-D needs the plane basis below.  `options.closed`
+//              has no field on the arm at all.
+//   loft     · `section.right` and `section.up` — the in-plane basis.  Plus a
+//              vertex-ARITY rule: `produceLoft` requires every section to have
+//              the same vertex count and `profileIds[]` states no such rule.
+//   revolve  · the AXIS.  `produceRevolve` measures `r` from an axis the
+//              producer hard-wires to world +Y; the arm has no axis field, and
+//              which document ordinate is `r` and which is `y` is unrecorded.
+//   ⭐ ALL THREE · `ReferencePlaneSchema` is `{id, name, origin, normal,
+//              isHost}`.  A `normal` fixes a plane's ORIENTATION but leaves
+//              the SPIN about that normal free — one rotational degree of
+//              freedom, unpersisted.  Re-measured by this lane at HEAD, after
+//              lane 4B's schema work: two perfectly orthonormal bases, both
+//              exactly perpendicular to the same normal, lift the same
+//              document point (x=2, z=0) to (2.0000, 0, 0) and (1.0000, 0,
+//              1.7321) — 2.0000 m apart, 2000 × COINCIDENT_M.
+//
+// ⛔ DERIVING the basis from the normal instead of persisting it is NOT a fix:
+//    a dominant-axis seed flips between normals 1e-12 apart — a thousand times
+//    below the repo's declared `PARALLEL_RAD` — which makes profile
+//    orientation discontinuous under authoring and would be a SECOND source of
+//    truth for orientation (§76 gate B).  Persist it.
+//
+// ⛔ AND DO NOT BUILD A SOLVER TO RESCUE THIS (C74 §4.1).  Six persisted
+//    fields close it.  The delta is written up for the schema owner in
+//    `audit/universal-component-editor/2026-09-01/phase4/
+//     lane-4d-profile-eval-and-geometry-adapter.md`.
 
 import { trace, SpanStatusCode } from '@opentelemetry/api';
 
 import type { FamilyDocument, FamilyManifest, SolidFeature } from '@pryzm/file-format';
 import {
+  kindOfDataType,
   resolveParameter,
+  type EvalScope,
   type FamilyParameter,
   type FamilyType,
   type ResolverDiagnostic,
+  type ScopeValue,
 } from '@pryzm/family-runtime';
 import {
-  produceExtrude,
+  isNumericallyZero,
   type BufferGeometryDescriptor,
   type ProfilePoint,
 } from '@pryzm/geometry-kernel';
 
 import { profileToPolygon, ProfileEvalError } from './profileToPolygon.js';
+import { runtimeLengthToMetres } from './units.js';
+import {
+  adapterCapabilities,
+  kernelGeometryAdapter,
+  type GeometryAdapter,
+} from './geometryAdapter.js';
 
 const tracer = trace.getTracer('@pryzm/family-instance');
 
@@ -56,6 +101,14 @@ export interface BakeFamilyInstanceInput {
   readonly typeId: string;
   /** Per-instance overrides keyed by parameter id.  May be empty. */
   readonly instanceOverrides?: Readonly<Record<string, number | string | boolean>>;
+  /**
+   * The evaluator behind the kernel boundary (spec §17–20).  Defaults to
+   * `kernelGeometryAdapter`, so every existing caller is unchanged.
+   *
+   * ⭐ Injecting it is what makes the TRANSLATION testable without the
+   *    producers, and the producers replaceable without the translation.
+   */
+  readonly adapter?: GeometryAdapter;
 }
 
 export interface BakedSolid {
@@ -99,8 +152,6 @@ export class FamilyBakeError extends Error {
   }
 }
 
-const MM_PER_M = 1000;
-
 export async function bakeFamilyInstance(
   input: BakeFamilyInstanceInput,
 ): Promise<BakeFamilyInstanceResult> {
@@ -117,6 +168,7 @@ export async function bakeFamilyInstance(
     async (span): Promise<BakeFamilyInstanceResult> => {
       try {
         const { family, typeId } = input;
+        const adapter = input.adapter ?? kernelGeometryAdapter;
         const fType = family.document.types.find((t) => t.id === typeId);
         if (!fType) {
           throw new FamilyBakeError(
@@ -133,8 +185,9 @@ export async function bakeFamilyInstance(
         const ftype: FamilyType = { id: fType.id, name: fType.name, values: numericTypeValues };
 
         // Resolve parameters → values keyed by NAME (resolver convention).
+        const parameters = family.document.parameters as readonly FamilyParameter[];
         const resolved = resolveParameter({
-          parameters: family.document.parameters as readonly FamilyParameter[],
+          parameters,
           type: ftype,
           instanceOverrides: overrides,
         });
@@ -147,6 +200,7 @@ export async function bakeFamilyInstance(
         }
         const values = resolved.values;
         const diagnostics = resolved.diagnostics;
+        const scope = buildEvalScope(parameters, values);
 
         if (family.document.solids.length === 0) {
           throw new FamilyBakeError(
@@ -158,7 +212,7 @@ export async function bakeFamilyInstance(
         const baked: BakedSolid[] = [];
         const unsupported: UnsupportedSolid[] = [];
         for (const solid of family.document.solids) {
-          const out = bakeOneSolid(solid, family.document, values);
+          const out = bakeOneSolid(solid, family.document, values, scope, adapter);
           if (out.ok) {
             baked.push(out.baked);
           } else {
@@ -168,6 +222,7 @@ export async function bakeFamilyInstance(
 
         const ok = baked.length > 0;
         span.setAttributes({
+          'family.bake.adapter': adapter.id,
           'family.bake.solidCount': family.document.solids.length,
           'family.bake.bakedCount': baked.length,
           'family.bake.unsupportedCount': unsupported.length,
@@ -187,94 +242,183 @@ export async function bakeFamilyInstance(
   );
 }
 
+/**
+ * Build the KINDED scope the expression engine needs.
+ *
+ * ⭐ Kinds are carried, not erased.  Lane 4A's `§UNIT-KIND-ERASURE` fix made
+ *    `EvalScope` accept `{value, kind}`, which is what gives `UnitMismatchError`
+ *    a reachable throw site.  Passing bare numbers here would silently opt
+ *    every profile-coordinate expression OUT of that refusal — the exact
+ *    defect 4A closed, re-opened one package downstream.
+ *
+ * String-valued parameters are omitted rather than coerced: a string has no
+ * numeric kind, and inventing one is how `unknown` becomes `scalar` by
+ * accident.
+ */
+function buildEvalScope(
+  parameters: readonly FamilyParameter[],
+  values: Readonly<Record<string, number | string>>,
+): EvalScope {
+  const kindByName = new Map<string, ReturnType<typeof kindOfDataType>>();
+  for (const p of parameters) kindByName.set(p.name, kindOfDataType(p.dataType));
+  const scope: Record<string, ScopeValue> = {};
+  for (const [name, v] of Object.entries(values)) {
+    if (typeof v !== 'number' || !Number.isFinite(v)) continue;
+    scope[name] = { value: v, kind: kindByName.get(name) ?? 'scalar' };
+  }
+  return scope;
+}
+
+type SolidOutcome =
+  | { readonly ok: true; readonly baked: BakedSolid }
+  | { readonly ok: false; readonly unsupported: UnsupportedSolid };
+
+function refuse(
+  solid: SolidFeature,
+  reason: UnsupportedSolid['reason'],
+  message: string,
+): SolidOutcome {
+  return { ok: false, unsupported: { solidId: solid.id, kind: solid.kind, reason, message } };
+}
+
+/**
+ * Translate ONE document solid into a call on the injected adapter.
+ *
+ * ⭐ This is where the old `switch (solid.kind)` used to pick a PRODUCER.  It
+ *    now decides only what the DOCUMENT describes and whether the document
+ *    describes it completely; the evaluator is looked up on the port.  The
+ *    remaining `switch` is over a discriminated union of persisted shapes —
+ *    which is inherent to reading the document and is not the kernel coupling
+ *    that was removed.
+ */
 function bakeOneSolid(
   solid: SolidFeature,
   document: FamilyDocument,
   values: Readonly<Record<string, number | string>>,
-):
-  | { readonly ok: true; readonly baked: BakedSolid }
-  | { readonly ok: false; readonly unsupported: UnsupportedSolid } {
-  if (solid.kind === 'extrude') {
-    const profile = document.profiles.find((p) => p.id === solid.profileId);
-    if (!profile) {
-      return {
-        ok: false,
-        unsupported: {
-          solidId: solid.id,
-          kind: 'extrude',
-          reason: 'profile-eval-failed',
-          message: `[bakeFamilyInstance] extrude solid ${solid.id} references missing profile ${solid.profileId}`,
-        },
-      };
-    }
-    let polygon: ProfilePoint[];
-    try {
-      polygon = profileToPolygon(profile);
-    } catch (err) {
-      const code = err instanceof ProfileEvalError ? err.code : 'profile-eval-failed';
-      return {
-        ok: false,
-        unsupported: {
-          solidId: solid.id,
-          kind: 'extrude',
-          reason: code === 'profile-needs-solver' ? 'unsupported-feature' : 'profile-eval-failed',
-          message: (err as Error).message,
-        },
-      };
+  scope: EvalScope,
+  adapter: GeometryAdapter,
+): SolidOutcome {
+  switch (solid.kind) {
+    case 'extrude': {
+      if (!adapter.extrude) return noCapability(solid, adapter);
+      const profile = document.profiles.find((p) => p.id === solid.profileId);
+      if (!profile) {
+        return refuse(
+          solid,
+          'profile-eval-failed',
+          `[bakeFamilyInstance] extrude solid ${solid.id} references missing profile ${solid.profileId}`,
+        );
+      }
+      let polygon: ProfilePoint[];
+      try {
+        polygon = profileToPolygon(profile, scope);
+      } catch (err) {
+        const code = err instanceof ProfileEvalError ? err.code : 'profile-eval-failed';
+        return refuse(
+          solid,
+          code === 'profile-needs-solver' ? 'unsupported-feature' : 'profile-eval-failed',
+          (err as Error).message,
+        );
+      }
+
+      // ⭐ §4D-DIRECTION-IS-NOT-READ — `SolidFeatureSchema`'s extrude arm
+      //    persists a `direction` unit vector, and `ExtrudeOptions` has no
+      //    direction: `produceExtrude` extrudes along +Y, always.  Until this
+      //    lane the field was validated, migrated, round-tripped — and
+      //    silently ignored, so a document asking for a horizontal extrusion
+      //    got a vertical one and nothing said so.  That is the L-11530 shape
+      //    ("a persisted row can be a lie in the dangerous direction") and
+      //    spec §75 forbids it.  It now REFUSES.  ⚠ Behaviour change confined
+      //    to documents that set a non-default direction; the schema default
+      //    is +Y and no writer for any other value exists in this tree.
+      if (!isPlusY(solid.direction)) {
+        return refuse(
+          solid,
+          'unsupported-feature',
+          `[bakeFamilyInstance] extrude solid ${solid.id} asks for direction (${solid.direction.x}, ${solid.direction.y}, ${solid.direction.z}); the adapter's extrude capability builds along +Y only and would SILENTLY produce a vertical extrusion instead. Refused rather than substituted (spec §75). Closing it needs a direction/axis on ExtrudeOptions in @pryzm/geometry-kernel — see §4D-SCHEMA-DELTA.`,
+        );
+      }
+
+      const lengthRuntime = evalLengthExpression(solid.lengthExpression, values);
+      if (lengthRuntime === null) {
+        return refuse(
+          solid,
+          'invalid-length',
+          `[bakeFamilyInstance] extrude solid ${solid.id} could not evaluate lengthExpression "${solid.lengthExpression}" against the resolved scope.`,
+        );
+      }
+      const heightM = runtimeLengthToMetres(lengthRuntime);
+      if (!Number.isFinite(heightM) || heightM <= 0) {
+        return refuse(
+          solid,
+          'invalid-length',
+          `[bakeFamilyInstance] extrude solid ${solid.id} resolved heightM=${heightM} (lengthExpression=${solid.lengthExpression}); must be > 0.`,
+        );
+      }
+
+      const descriptor = adapter.extrude(polygon, heightM, {});
+      return { ok: true, baked: { solidId: solid.id, kind: 'extrude', descriptor } };
     }
 
-    const lengthMm = evalLengthExpression(solid.lengthExpression, values);
-    if (lengthMm === null) {
-      return {
-        ok: false,
-        unsupported: {
-          solidId: solid.id,
-          kind: 'extrude',
-          reason: 'invalid-length',
-          message: `[bakeFamilyInstance] extrude solid ${solid.id} could not evaluate lengthExpression "${solid.lengthExpression}" against the resolved scope.`,
-        },
-      };
-    }
-    const heightM = lengthMm / MM_PER_M;
-    if (!Number.isFinite(heightM) || heightM <= 0) {
-      return {
-        ok: false,
-        unsupported: {
-          solidId: solid.id,
-          kind: 'extrude',
-          reason: 'invalid-length',
-          message: `[bakeFamilyInstance] extrude solid ${solid.id} resolved heightM=${heightM} (lengthExpression=${solid.lengthExpression}); must be > 0.`,
-        },
-      };
-    }
+    case 'sweep':
+      return refuse(
+        solid,
+        'unsupported-feature',
+        `[bakeFamilyInstance] sweep solid ${solid.id}: the adapter '${adapter.id}' PROVIDES sweep, but the document cannot describe one. ` +
+          `\`pathProfileId\` names a 2-D Profile bound to a ReferencePlane, and produceSweep needs a WORLD 3-D path; ReferencePlaneSchema carries {id, name, origin, normal, isHost} and NO in-plane basis, so the lift is short one rotational degree of freedom. \`options.closed\` has no field on the arm. This is a SCHEMA gap, not a solver gap and not a tessellation gap — see §4D-SCHEMA-DELTA.`,
+      );
 
-    const descriptor = produceExtrude(polygon, heightM, {});
-    return {
-      ok: true,
-      baked: { solidId: solid.id, kind: 'extrude', descriptor },
-    };
+    case 'loft':
+      return refuse(
+        solid,
+        'unsupported-feature',
+        `[bakeFamilyInstance] loft solid ${solid.id}: the adapter '${adapter.id}' PROVIDES loft, but the document cannot describe one. ` +
+          `produceLoft needs each section's \`right\` and \`up\` (the in-plane basis) and requires every section to carry the SAME vertex count; ReferencePlaneSchema persists no basis and \`profileIds[]\` states no arity rule. SCHEMA gap — see §4D-SCHEMA-DELTA.`,
+      );
+
+    case 'revolve':
+      return refuse(
+        solid,
+        'unsupported-feature',
+        `[bakeFamilyInstance] revolve solid ${solid.id}: the adapter '${adapter.id}' PROVIDES revolve, but the document cannot describe one. ` +
+          `produceRevolve measures \`r\` from an AXIS it hard-wires to world +Y, and the revolve arm persists no axis; nor does the document record which profile ordinate is \`r\` and which is \`y\`. \`sweepDeg\` and \`segments\` ARE supplied. SCHEMA gap — see §4D-SCHEMA-DELTA.`,
+      );
+
+    case 'boolean':
+      return refuse(
+        solid,
+        'unsupported-feature',
+        `[bakeFamilyInstance] boolean solid ${solid.id}: \`produceBoolean\` exists and works, but evaluating a boolean feature requires a FEATURE-GRAPH ORDER — which solids are consumed by the boolean and therefore must not also appear in the output. \`featureEdges[]\` was added by lane 4B and DECLARED INERT (ADR-0376 D7 OPEN). Picking an evaluation order here would decide D7 by accident and freeze it. Refused pending D7.`,
+      );
   }
+}
 
-  // sweep / loft / revolve — gated on the constraint solver (S57).
-  return {
-    ok: false,
-    unsupported: {
-      solidId: solid.id,
-      kind: solid.kind,
-      reason: 'unsupported-feature',
-      message: `[bakeFamilyInstance] solid kind '${solid.kind}' requires the S57 constraint solver to evaluate path/section profiles; v1 supports 'extrude' only.`,
-    },
-  };
+function noCapability(solid: SolidFeature, adapter: GeometryAdapter): SolidOutcome {
+  const caps = adapterCapabilities(adapter);
+  return refuse(
+    solid,
+    'unsupported-feature',
+    `[bakeFamilyInstance] solid ${solid.id} is kind '${solid.kind}' and the injected adapter '${adapter.id}' does not provide that capability (provides: ${caps.length > 0 ? caps.join(', ') : 'none'}).`,
+  );
+}
+
+/** Is this the extrude direction `produceExtrude` actually builds along? */
+function isPlusY(d: { readonly x: number; readonly y: number; readonly z: number }): boolean {
+  // Dimensionless components of a unit vector — `EPSILON_ZERO`'s declared
+  // role (C73 §2.1), consumed via the kernel's predicate rather than a
+  // literal at this call site.
+  return isNumericallyZero(d.x) && isNumericallyZero(d.z) && d.y > 0;
 }
 
 /**
  * Evaluate `lengthExpression`.  v1 contract: must be either a
- * parameter NAME present in `values` (resolver returns numbers in mm
- * for `length` parameters) or a numeric literal.  Full DSL evaluation
- * is the resolver's job — solid-level expressions in v1 stay simple.
+ * parameter NAME present in `values` (resolver returns lengths in the
+ * `@pryzm/family-runtime` canonical length unit) or a numeric literal.
+ * Full DSL evaluation is the resolver's job — solid-level expressions in v1
+ * stay simple.
  *
- * Returns the value in millimetres, or null when no numeric value
- * could be derived.
+ * Returns the value in RUNTIME length units; the caller crosses
+ * `§4D-ONE-LENGTH-SEAM` exactly once, via `runtimeLengthToMetres`.
  */
 function evalLengthExpression(
   expr: string,

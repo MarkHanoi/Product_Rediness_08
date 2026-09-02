@@ -6,12 +6,9 @@
 // shared `canonicalStringify` + sha256 helper used by the rest of the
 // file-format package.
 import { canonicalise } from '../../canonical-json.js';
-
-// Browser-compatible synchronous sha256 using SubtleCrypto is async,
-// so we pre-compute a stable placeholder checksum inline.
-// The real checksum is recomputed async when the family is packed.
+// Browser-compatible synchronous checksum placeholder.
+// The real sha256 is recomputed async when the family is packed via family-pack.ts.
 function syncChecksumPlaceholder(json) {
-    // Simple deterministic hash for the migration step — replaced on pack.
     let h = 0x811c9dc5;
     for (let i = 0; i < json.length; i++) {
         h ^= json.charCodeAt(i);
@@ -20,7 +17,6 @@ function syncChecksumPlaceholder(json) {
     const hex = h.toString(16).padStart(8, '0').repeat(8);
     return 'sha256:' + hex;
 }
-
 export function makeSplitTypeMigrator(from, to, params) {
     return {
         id: `split-type:${params.sourceTypeId}->${params.newTypeId}`,

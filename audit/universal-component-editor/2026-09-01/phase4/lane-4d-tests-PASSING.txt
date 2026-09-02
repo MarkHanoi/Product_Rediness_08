@@ -1,0 +1,15 @@
+[WARN] The "pnpm" field in package.json is no longer read by pnpm. The following keys were ignored: "pnpm.overrides", "pnpm.onlyBuiltDependencies". See https://pnpm.io/settings for the new home of each setting.
+
+> @pryzm/family-instance@0.1.0 test C:\Users\LENOVO\OneDrive\Desktop\PRYZM\Product_Rediness_08\packages\family-instance
+> vitest run
+
+
+ RUN  v4.1.10 C:/Users/LENOVO/OneDrive/Desktop/PRYZM/Product_Rediness_08/packages/family-instance
+
+
+ Test Files  2 passed (2)
+      Tests  23 passed (23)
+   Start at  08:24:17
+   Duration  1.92s (transform 2.09s, setup 0ms, import 2.98s, tests 82ms, environment 0ms)
+
+RC=0

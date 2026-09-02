@@ -1,0 +1,11 @@
+npm warn Unknown project config "package-manager-strict". This will stop working in the next major version of npm. See `npm help npmrc` for supported config options.
+
+ RUN  v4.1.10 C:/Users/LENOVO/OneDrive/Desktop/PRYZM/Product_Rediness_08/apps/editor
+
+
+ Test Files  1 passed (1)
+      Tests  30 passed (30)
+   Start at  11:30:33
+   Duration  4.13s (transform 1.87s, setup 0ms, import 2.24s, tests 385ms, environment 1.12s)
+
+RC=0

@@ -26,7 +26,12 @@
 //     declared here so panels can name them in their constructors today
 //     without waiting for the Phase D wireup.
 
-import type { AnyStores, CommandHandler, RingBufferUndoStack } from '@pryzm/command-bus';
+import type {
+  AnyStores,
+  CommandExecutionContext,
+  CommandHandler,
+  RingBufferUndoStack,
+} from '@pryzm/command-bus';
 import type { SyncClient, PryzmAwareness } from '@pryzm/sync-client';
 import type { LayoutOptionsStore, AiApprovalQueueStore, ApartmentParameterPropagator, FamilyRegistryStore, SiteModelStore, ClimateStore, BuildingStore, LevelStore, ApartmentStore, RoomStore, ProvenanceStore, IfcMetaStore, SiteCreatedEvent, SiteLocationChangedEvent, SiteParcelBoundarySetEvent, SiteZoningUpdatedEvent } from '@pryzm/stores';
 import type {
@@ -3227,6 +3232,34 @@ export interface StoresSlot {
    */
   readonly balcony?: PluginDtoStoreHandle | undefined;
 
+  /**
+   * §COMPONENT-PLACE (audit §12 Phase 4C) · **ADR-0376 D9** · C84 EI-1 — ⭐⭐ THE
+   * JOIN's read channel: the store holding PLACED OCCURRENCES of component
+   * definitions.
+   *
+   * ⭐ IT IS DECLARED ON THE FAMILY'S FIRST COMMIT, AND THAT IS THE POINT. Every
+   * field above it was added AFTER the family it serves had already been losing
+   * data — `balcony` for four days (L-11530), `lift`/`liftPart`/`pool`/`water` after
+   * the founder counted eleven missing elements (§PERSIST103, L-11520). The audit's
+   * R11 makes the lesson this lane's acceptance bar: *"a `persisted` row asserts the
+   * READ CHANNEL resolves, not merely that a key and a writer exist."*
+   * `ProjectSerializer.serialize()` reads this family through
+   * `readPluginStore('component')` — i.e. `window.runtime.stores.component`, this
+   * key — and with the key absent that read is `undefined`, the `components` slice
+   * is never written, and every placed component dies on reload while the coverage
+   * row still says `persisted`.
+   *
+   * ⭐ THE NO-GEOMETRY-TWIN TEST PASSES BY CONSTRUCTION, not by measurement of an
+   * old codebase: the family is NEW, so no `window.componentStore` legacy global has
+   * ever existed for this handle to diverge from. C84 EI-1's one authority is the
+   * plugin DTO store, declared as such in `plugins/component/src/store.ts`, and C84
+   * §6.2e binds this family to that rule by name.
+   *
+   * ADOPTED, NEVER CONSTRUCTED — the composition root hangs the store the
+   * `PluginRegistry` descriptor built; it does not build a second one.
+   */
+  readonly component?: PluginDtoStoreHandle | undefined;
+
   /** Fan out a full project snapshot to all registered stores via the
    *  engine's `loadDelegate.load()`.  Throws `RuntimeNotWiredError` if
    *  called before `initPersistence` registers the hydrator. */
@@ -4340,7 +4373,43 @@ export interface PryzmRuntime {
   // panels.  Anchor: `04-PLAN-FORWARD/08-WAVE-4-SLOT-TYPING-ROUTING.md
   // §2 PR 4.A.8`.
   readonly bus: {
-    executeCommand(type: string, payload: unknown): unknown;
+    /**
+     * ⭐⭐ §ENVELOPE-REACHES-THE-BUS (lane 4H, 2026-09-02) — `opts` is NEW, and
+     * its absence was a REACHABILITY defect, not a missing convenience.
+     *
+     * `CommandBus.executeCommand` has accepted an ADR-0324 §1 invocation envelope
+     * (`{ context: { actor, origin, approval } }`) since R1. This slot — the ONLY
+     * bus surface application code ever holds — declared and forwarded exactly two
+     * parameters, so the envelope was unreachable from every one of the ~638
+     * `executeCommand(` call sites in `apps/`, `plugins/` and `packages/`.
+     * MEASURED 2026-09-02 before this change: **zero** callers passed a `context`,
+     * and one that did would have had it dropped here in silence.
+     *
+     * That is [[committed-is-not-reachable]] in its purest form — a contract, a
+     * type, a field on `EventRecord` and a parity rule that STRIPS it, all shipped,
+     * all correct, and nothing in the product able to reach any of it. Lane 4H's
+     * §76-gate-D deliverable (*"the record says the AI did this"*) was written
+     * against `bus.executeCommand(type, payload, { context })`, the test read the
+     * actor off the emitted `EventRecord`, and it came back `undefined`. THAT probe
+     * is what found this; the fix is two forwarded parameters.
+     *
+     * ⛔ ADDITIVE BY CONSTRUCTION. `opts` is optional and forwarded verbatim; an
+     * omitted `opts` produces `inner.bus.executeCommand(type, payload, undefined)`,
+     * which CommandBus reads exactly as the two-argument call it read before.
+     * ADR-0324 §3 forbids geometric / dependency / validation / consequence /
+     * mutation semantics from reading `context` at all, and `normalizeForParity`
+     * strips it, so widening this signature cannot change what any command DOES.
+     *
+     * ⚠ `suppressUndo` and `gestureId` are deliberately NOT re-exported here.
+     * `dispatch()` below already owns the undo-suppression decision through its
+     * `source` argument, and two ways to suppress undo on one slot is the
+     * two-sources-of-truth shape this composition root exists to prevent.
+     */
+    executeCommand(
+      type: string,
+      payload: unknown,
+      opts?: { readonly context?: CommandExecutionContext },
+    ): unknown;
     /**
      * §U-B2 (DAILY-USE-AUDIT 2026-05-20) — formal dispatch entry point used by
      * `RemoteCommandDispatcher` for collaboration catch-up + live broadcast.

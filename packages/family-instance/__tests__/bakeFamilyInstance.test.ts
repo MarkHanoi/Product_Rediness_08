@@ -44,7 +44,17 @@ function makeDoorFamily(): { manifest: FamilyManifest; document: FamilyDocument;
     types: [
       { id: 'typ_01HZ00000000000000000DEF01', name: 'Default', values: {}, checksum: 'sha256:44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a' },
     ],
-    defaults: {},
+    /* --- v1.1 (lane 4B) — present on the PARSED document type, so a
+       hand-built fixture must carry them or it is not a FamilyDocument. --- */
+    representations: [],
+    connectors: [],
+    propertySets: [],
+    featureEdges: [],
+    // ⛔ `defaults` was REMOVED from FamilyDocumentSchema by lane 4B (C111 delta
+    // D-5, §C111-TWO-DEFAULT-CHANNELS: three writers, zero readers). Leaving it
+    // here was a TYPE error this package's suite could not see, because vitest
+    // transpiles without checking — `pnpm --filter @pryzm/family-instance
+    // typecheck` reported it and `pnpm ... test` did not. Removed, not cast away.
   };
   const manifest: FamilyManifest = {
     formatVersion: '1.0', id: 'fam_01HZ00000000000000000FAM01', name: 'TestDoor', semver: '1.0.0',
@@ -115,7 +125,7 @@ describe('bakeFamilyInstance', () => {
     ).rejects.toBeInstanceOf(FamilyBakeError);
   });
 
-  it('reports unsupported solid kinds (sweep/loft/revolve gated on S57 solver)', async () => {
+  it('reports unsupported solid kinds (sweep/loft/revolve — SCHEMA gap, not a solver; see §4D-SCHEMA-DELTA)', async () => {
     const fam = makeDoorFamily();
     const document: FamilyDocument = {
       ...fam.document,

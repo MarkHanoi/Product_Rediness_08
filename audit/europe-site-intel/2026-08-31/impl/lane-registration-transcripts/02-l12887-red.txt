@@ -1,0 +1,266 @@
+npm warn Unknown project config "package-manager-strict". This will stop working in the next major version of npm. See `npm help npmrc` for supported config options.
+
+ RUN  v4.1.10 C:/Users/LENOVO/OneDrive/Desktop/PRYZM/Product_Rediness_08/packages/site-parcel-data
+
+ ❯ __tests__/nationalJurisdictionResolver.test.ts (76 tests | 21 failed) 72ms
+     × Cesky Tesin (CZ) is REFUSED, never claimed for a modelled country 7ms
+     × Hradek nad Nisou (CZ) is REFUSED, never claimed for a modelled country 1ms
+     × Vaduz (LI) is REFUSED, never claimed for a modelled country 1ms
+     × Monaco (MC) is REFUSED, never claimed for a modelled country 1ms
+     × Athus (BE) is REFUSED, never claimed for a modelled country 1ms
+     × Vise (BE) is REFUSED, never claimed for a modelled country 1ms
+     × Valka (LV) is REFUSED, never claimed for a modelled country 1ms
+     × Ivangorod (RU) is REFUSED, never claimed for a modelled country 1ms
+     × Sovetsk (RU, Kaliningrad) is REFUSED, never claimed for a modelled country 0ms
+     × Fnideq (MA) is REFUSED, never claimed for a modelled country 0ms
+     × Cesky Tesin (CZ): the refusal NAMES the un-modelled true owner where it contains the point 0ms
+     × Hradek nad Nisou (CZ): the refusal NAMES the un-modelled true owner where it contains the point 0ms
+     × Vaduz (LI): the refusal NAMES the un-modelled true owner where it contains the point 0ms
+     × Monaco (MC): the refusal NAMES the un-modelled true owner where it contains the point 0ms
+     × Athus (BE): the refusal NAMES the un-modelled true owner where it contains the point 0ms
+     × Vise (BE): the refusal NAMES the un-modelled true owner where it contains the point 0ms
+     × Valka (LV): the refusal NAMES the un-modelled true owner where it contains the point 0ms
+     × Ivangorod (RU): the refusal NAMES the un-modelled true owner where it contains the point 1ms
+     × Sovetsk (RU, Kaliningrad): the refusal NAMES the un-modelled true owner where it contains the point 0ms
+     × Fnideq (MA): the refusal NAMES the un-modelled true owner where it contains the point 0ms
+     × the neighbour set documents its own provenance (same source, same discipline) 1ms
+
+⎯⎯⎯⎯⎯⎯ Failed Tests 21 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  __tests__/nationalJurisdictionResolver.test.ts > L-12887 · a point in un-modelled territory is never annexed by a modelled country > Cesky Tesin (CZ) is REFUSED, never claimed for a modelled country
+AssertionError: Cesky Tesin (CZ) was CLAIMED: POL (PL) — inside its boundary in natural-earth-vector / ne_10m_admin_0_countries; nearest rival no rival at no rival in range (tolerance 1500 m).: expected true to be false // Object.is equality
+
+- Expected
++ Received
+
+- false
++ true
+
+ ❯ __tests__/nationalJurisdictionResolver.test.ts:361:81
+    359|     it.each(ANNEXED)('%s is REFUSED, never claimed for a modelled coun…
+    360|         const v = resolveNationalJurisdiction(lat as number, lon as nu…
+    361|         expect(v.ok, `${name} was CLAIMED: ${describeNationalJurisdict…
+       |                                                                                 ^
+    362|     });
+    363|
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/21]⎯
+
+ FAIL  __tests__/nationalJurisdictionResolver.test.ts > L-12887 · a point in un-modelled territory is never annexed by a modelled country > Hradek nad Nisou (CZ) is REFUSED, never claimed for a modelled country
+AssertionError: Hradek nad Nisou (CZ) was CLAIMED: POL (PL) — 796 m outside its own coastline in natural-earth-vector / ne_10m_admin_0_countries, nearest by 2484 m over DEU.: expected true to be false // Object.is equality
+
+- Expected
++ Received
+
+- false
++ true
+
+ ❯ __tests__/nationalJurisdictionResolver.test.ts:361:81
+    359|     it.each(ANNEXED)('%s is REFUSED, never claimed for a modelled coun…
+    360|         const v = resolveNationalJurisdiction(lat as number, lon as nu…
+    361|         expect(v.ok, `${name} was CLAIMED: ${describeNationalJurisdict…
+       |                                                                                 ^
+    362|     });
+    363|
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/21]⎯
+
+ FAIL  __tests__/nationalJurisdictionResolver.test.ts > L-12887 · a point in un-modelled territory is never annexed by a modelled country > Vaduz (LI) is REFUSED, never claimed for a modelled country
+AssertionError: Vaduz (LI) was CLAIMED: CHE (CH) — 1078 m outside its own coastline in natural-earth-vector / ne_10m_admin_0_countries, nearest by 71362 m over ITA.: expected true to be false // Object.is equality
+
+- Expected
++ Received
+
+- false
++ true
+
+ ❯ __tests__/nationalJurisdictionResolver.test.ts:361:81
+    359|     it.each(ANNEXED)('%s is REFUSED, never claimed for a modelled coun…
+    360|         const v = resolveNationalJurisdiction(lat as number, lon as nu…
+    361|         expect(v.ok, `${name} was CLAIMED: ${describeNationalJurisdict…
+       |                                                                                 ^
+    362|     });
+    363|
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/21]⎯
+
+ FAIL  __tests__/nationalJurisdictionResolver.test.ts > L-12887 · a point in un-modelled territory is never annexed by a modelled country > Monaco (MC) is REFUSED, never claimed for a modelled country
+AssertionError: Monaco (MC) was CLAIMED: FRA (FR) — 1164 m outside its own coastline in natural-earth-vector / ne_10m_admin_0_countries, nearest by 8629 m over ITA.: expected true to be false // Object.is equality
+
+- Expected
++ Received
+
+- false
++ true
+
+ ❯ __tests__/nationalJurisdictionResolver.test.ts:361:81
+    359|     it.each(ANNEXED)('%s is REFUSED, never claimed for a modelled coun…
+    360|         const v = resolveNationalJurisdiction(lat as number, lon as nu…
+    361|         expect(v.ok, `${name} was CLAIMED: ${describeNationalJurisdict…
+       |                                                                                 ^
+    362|     });
+    363|
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[4/21]⎯
+
+ FAIL  __tests__/nationalJurisdictionResolver.test.ts > L-12887 · a point in un-modelled territory is never annexed by a modelled country > Athus (BE) is REFUSED, never claimed for a modelled country
+AssertionError: Athus (BE) was CLAIMED: LUX (LU) — 678 m outside its own coastline in natural-earth-vector / ne_10m_admin_0_countries, nearest by 3721 m over FRA.: expected true to be false // Object.is equality
+
+- Expected
++ Received
+
+- false
++ true
+
+ ❯ __tests__/nationalJurisdictionResolver.test.ts:361:81
+    359|     it.each(ANNEXED)('%s is REFUSED, never claimed for a modelled coun…
+    360|         const v = resolveNationalJurisdiction(lat as number, lon as nu…
+    361|         expect(v.ok, `${name} was CLAIMED: ${describeNationalJurisdict…
+       |                                                                                 ^
+    362|     });
+    363|
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[5/21]⎯
+
+ FAIL  __tests__/nationalJurisdictionResolver.test.ts > L-12887 · a point in un-modelled territory is never annexed by a modelled country > Vise (BE) is REFUSED, never claimed for a modelled country
+AssertionError: Vise (BE) was CLAIMED: NLD (NL) — 1890 m outside its own coastline in natural-earth-vector / ne_10m_admin_0_countries, nearest by 87949 m over FRA.: expected true to be false // Object.is equality
+
+- Expected
++ Received
+
+- false
++ true
+
+ ❯ __tests__/nationalJurisdictionResolver.test.ts:361:81
+    359|     it.each(ANNEXED)('%s is REFUSED, never claimed for a modelled coun…
+    360|         const v = resolveNationalJurisdiction(lat as number, lon as nu…
+    361|         expect(v.ok, `${name} was CLAIMED: ${describeNationalJurisdict…
+       |                                                                                 ^
+    362|     });
+    363|
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[6/21]⎯
+
+ FAIL  __tests__/nationalJurisdictionResolver.test.ts > L-12887 · a point in un-modelled territory is never annexed by a modelled country > Valka (LV) is REFUSED, never claimed for a modelled country
+AssertionError: Valka (LV) was CLAIMED: EST (EE) — 452 m outside its own coastline in natural-earth-vector / ne_10m_admin_0_countries, nearest by Infinity m over no rival.: expected true to be false // Object.is equality
+
+- Expected
++ Received
+
+- false
++ true
+
+ ❯ __tests__/nationalJurisdictionResolver.test.ts:361:81
+    359|     it.each(ANNEXED)('%s is REFUSED, never claimed for a modelled coun…
+    360|         const v = resolveNationalJurisdiction(lat as number, lon as nu…
+    361|         expect(v.ok, `${name} was CLAIMED: ${describeNationalJurisdict…
+       |                                                                                 ^
+    362|     });
+    363|
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[7/21]⎯
+
+ FAIL  __tests__/nationalJurisdictionResolver.test.ts > L-12887 · a point in un-modelled territory is never annexed by a modelled country > Ivangorod (RU) is REFUSED, never claimed for a modelled country
+AssertionError: Ivangorod (RU) was CLAIMED: EST (EE) — 1648 m outside its own coastline in natural-earth-vector / ne_10m_admin_0_countries, nearest by 892832 m over NOR.: expected true to be false // Object.is equality
+
+- Expected
++ Received
+
+- false
++ true
+
+ ❯ __tests__/nationalJurisdictionResolver.test.ts:361:81
+    359|     it.each(ANNEXED)('%s is REFUSED, never claimed for a modelled coun…
+    360|         const v = resolveNationalJurisdiction(lat as number, lon as nu…
+    361|         expect(v.ok, `${name} was CLAIMED: ${describeNationalJurisdict…
+       |                                                                                 ^
+    362|     });
+    363|
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[8/21]⎯
+
+ FAIL  __tests__/nationalJurisdictionResolver.test.ts > L-12887 · a point in un-modelled territory is never annexed by a modelled country > Sovetsk (RU, Kaliningrad) is REFUSED, never claimed for a modelled country
+AssertionError: Sovetsk (RU, Kaliningrad) was CLAIMED: LTU (LT) — 1165 m outside its own coastline in natural-earth-vector / ne_10m_admin_0_countries, nearest by Infinity m over no rival.: expected true to be false // Object.is equality
+
+- Expected
++ Received
+
+- false
++ true
+
+ ❯ __tests__/nationalJurisdictionResolver.test.ts:361:81
+    359|     it.each(ANNEXED)('%s is REFUSED, never claimed for a modelled coun…
+    360|         const v = resolveNationalJurisdiction(lat as number, lon as nu…
+    361|         expect(v.ok, `${name} was CLAIMED: ${describeNationalJurisdict…
+       |                                                                                 ^
+    362|     });
+    363|
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[9/21]⎯
+
+ FAIL  __tests__/nationalJurisdictionResolver.test.ts > L-12887 · a point in un-modelled territory is never annexed by a modelled country > Fnideq (MA) is REFUSED, never claimed for a modelled country
+AssertionError: Fnideq (MA) was CLAIMED: ESP (ES) — 898 m outside its own coastline in natural-earth-vector / ne_10m_admin_0_countries, nearest by Infinity m over no rival.: expected true to be false // Object.is equality
+
+- Expected
++ Received
+
+- false
++ true
+
+ ❯ __tests__/nationalJurisdictionResolver.test.ts:361:81
+    359|     it.each(ANNEXED)('%s is REFUSED, never claimed for a modelled coun…
+    360|         const v = resolveNationalJurisdiction(lat as number, lon as nu…
+    361|         expect(v.ok, `${name} was CLAIMED: ${describeNationalJurisdict…
+       |                                                                                 ^
+    362|     });
+    363|
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[10/21]⎯
+
+ FAIL  __tests__/nationalJurisdictionResolver.test.ts > L-12887 · a point in un-modelled territory is never annexed by a modelled country > Cesky Tesin (CZ): the refusal NAMES the un-modelled true owner where it contains the point
+ FAIL  __tests__/nationalJurisdictionResolver.test.ts > L-12887 · a point in un-modelled territory is never annexed by a modelled country > Hradek nad Nisou (CZ): the refusal NAMES the un-modelled true owner where it contains the point
+ FAIL  __tests__/nationalJurisdictionResolver.test.ts > L-12887 · a point in un-modelled territory is never annexed by a modelled country > Vaduz (LI): the refusal NAMES the un-modelled true owner where it contains the point
+ FAIL  __tests__/nationalJurisdictionResolver.test.ts > L-12887 · a point in un-modelled territory is never annexed by a modelled country > Monaco (MC): the refusal NAMES the un-modelled true owner where it contains the point
+ FAIL  __tests__/nationalJurisdictionResolver.test.ts > L-12887 · a point in un-modelled territory is never annexed by a modelled country > Athus (BE): the refusal NAMES the un-modelled true owner where it contains the point
+ FAIL  __tests__/nationalJurisdictionResolver.test.ts > L-12887 · a point in un-modelled territory is never annexed by a modelled country > Vise (BE): the refusal NAMES the un-modelled true owner where it contains the point
+ FAIL  __tests__/nationalJurisdictionResolver.test.ts > L-12887 · a point in un-modelled territory is never annexed by a modelled country > Valka (LV): the refusal NAMES the un-modelled true owner where it contains the point
+ FAIL  __tests__/nationalJurisdictionResolver.test.ts > L-12887 · a point in un-modelled territory is never annexed by a modelled country > Ivangorod (RU): the refusal NAMES the un-modelled true owner where it contains the point
+ FAIL  __tests__/nationalJurisdictionResolver.test.ts > L-12887 · a point in un-modelled territory is never annexed by a modelled country > Sovetsk (RU, Kaliningrad): the refusal NAMES the un-modelled true owner where it contains the point
+ FAIL  __tests__/nationalJurisdictionResolver.test.ts > L-12887 · a point in un-modelled territory is never annexed by a modelled country > Fnideq (MA): the refusal NAMES the un-modelled true owner where it contains the point
+AssertionError: expected true to be false // Object.is equality
+
+- Expected
++ Received
+
+- false
++ true
+
+ ❯ __tests__/nationalJurisdictionResolver.test.ts:366:22
+    364|     it.each(ANNEXED)('%s: the refusal NAMES the un-modelled true owner…
+    365|         const v = resolveNationalJurisdiction(lat as number, lon as nu…
+    366|         expect(v.ok).toBe(false);
+       |                      ^
+    367|         if (v.ok) return;
+    368|         // Two honest shapes: the neighbour polygon contains the point…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[11/21]⎯
+
+ FAIL  __tests__/nationalJurisdictionResolver.test.ts > L-12887 · a point in un-modelled territory is never annexed by a modelled country > the neighbour set documents its own provenance (same source, same discipline)
+AssertionError: expected 0 to be greater than or equal to 12
+ ❯ __tests__/nationalJurisdictionResolver.test.ts:428:58
+    426|     it('the neighbour set documents its own provenance (same source, s…
+    427|         const set = NATIONAL_BOUNDARY_SET;
+    428|         expect(Object.keys(set.neighbours ?? {}).length).toBeGreaterTh…
+       |                                                          ^
+    429|         for (const iso3 of ['CZE', 'LVA', 'BEL', 'AUT', 'LIE', 'RUS', …
+    430|             expect(set.neighbours?.[iso3]?.rings?.length ?? 0, iso3).t…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[12/21]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  21 failed | 55 passed (76)
+   Start at  08:27:59
+   Duration  695ms (transform 219ms, setup 0ms, import 318ms, tests 72ms, environment 0ms)
+
+RC=1

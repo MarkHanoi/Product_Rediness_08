@@ -1,0 +1,75 @@
+npm warn Unknown project config "package-manager-strict". This will stop working in the next major version of npm. See `npm help npmrc` for supported config options.
+[check-chat-capability-coverage] element-kind discriminators excluded (not verbs): balcony, component, floor, lift, pool
+[check-chat-capability-coverage] §FIX-CHAT-CAPABILITY-BLIND (ADR-0313)
+[check-chat-capability-coverage] registered bus commands: 363
+[check-chat-capability-coverage] chat capabilities: 77 · covering 52 command(s)
+[check-chat-capability-coverage] explicitly deferred (CHAT_UNAVAILABLE): 78
+[check-chat-capability-coverage] classified (233): B needs-design 131 · C internal 49 · D duplicate 46 · E unsafe 4 · F deferred 3
+[check-chat-capability-coverage] maturity: M2/M3 direct+selection 77 · M4 scope 27 · M5 true-batch 21 · M6 plans 1 · M7 generative 4
+[check-chat-capability-coverage] UNDECLARED: 0 (baseline 0)
+[check-chat-capability-coverage] C68 §6.3 ratchets: unresolved examples 1/1 · unpinned capabilities 7/9 · undeclared spatial reach 5/2 · unclassified global routes 1/1 · resolver case arms 30/30 · unreachable properties 47/42
+
+[check-chat-capability-coverage] FAIL — 3 unresolvable parameter source(s):
+      set-reveal-direction.revealDirection: unknown valueSource "enumeration" — nothing can resolve it.
+      set-window-shape.shape: unknown valueSource "opening-shapes" — nothing can resolve it.
+      set-door-shape.shape: unknown valueSource "opening-shapes" — nothing can resolve it.
+
+[check-chat-capability-coverage] FAIL — 1 scope mode(s) declared but not honoured.
+C68 §7.d — "declaring a spatial mode before the resolver honours it would be the ElementCapabilities
+lie in a new costume". A missing resolver must refuse honestly, never widen silently to 'all'.
+      add-wall-layer: DECLARES scope mode "orientation" but the intent never reached ctx.resolveScope (got refusal). A declared spatial mode the resolver never sees is the ElementCapabilities lie one layer over (C68 §7.d).
+
+[check-chat-capability-coverage] FAIL — 5 spatial mode(s) the ARM honours without declaring, baseline 2.
+C68 §6.3-G3, the symmetric half. This is ARM reach, not LANGUAGE reach — see
+MAX_UNDECLARED_SPATIAL_REACH for exactly what the number does and does not mean.
+      set-wall-dimensions honours "orientation" without declaring it
+      set-window-dimensions honours "orientation" without declaring it
+      set-door-dimensions honours "orientation" without declaring it
+      create-windows-parametric honours "room" without declaring it
+      create-windows-parametric honours "orientation" without declaring it
+
+[check-chat-capability-coverage] FAIL — 47 panel-editable propert(ies) the chat cannot reach, baseline 42.
+C68 §6.3-G1 / §4 case 3 — a new ATTRIBUTE routed through element.updateParameters adds no bus verb,
+so the coverage ratchet never sees it. This one does. See MAX_UNREACHABLE_PROPERTIES for the four
+things this enumeration CANNOT see.
+      beam.mark
+      beam.materialColor
+      column.mark
+      column.materialColor
+      curtain-panel.materialOverride
+      curtain-panel.panelType
+      curtain-wall.mark
+      door.accessibilityType
+      door.mark
+      furniture.color
+      furniture.mark
+      furniture.material
+      handrail.balusterShape
+      handrail.fillType
+      handrail.infillMaxGap
+      handrail.mark
+      handrail.materialColor
+      handrail.postEndCondition
+      handrail.postSpacing
+      handrail.railDiameter
+      handrail.railProfile
+      handrail.thickness
+      roof.mark
+      roof.materialColor
+      slab.mark
+      slab.materialColor
+      stair-railing.balusterShape
+      stair-railing.balusterSpacing
+      stair-railing.balusterWidth
+      stair-railing.handrailHeight
+      stair-railing.material
+      stair-railing.topRailHeight
+      stair.accessibilityType
+      stair.fireRating
+      stair.mark
+      stair.properties.handrailHeight
+      stair.properties.material
+      stair.properties.nosingDepth
+      stair.properties.nosingType
+      stair.properties.railingType
+RC=3

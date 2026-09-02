@@ -1,0 +1,3 @@
+08547322994eaae51478db2f35376b404bf63c3a2c6d28ba54d99f7b368e4470 *plugins/component/src/committer/ComponentCommitter.ts
+-- restored --
+08547322994eaae51478db2f35376b404bf63c3a2c6d28ba54d99f7b368e4470 *plugins/component/src/committer/ComponentCommitter.ts

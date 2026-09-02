@@ -1,0 +1,67 @@
+npm warn Unknown project config "package-manager-strict". This will stop working in the next major version of npm. See `npm help npmrc` for supported config options.
+
+ RUN  v4.1.10 C:/Users/LENOVO/OneDrive/Desktop/PRYZM/Product_Rediness_08/apps/editor
+
+ ❯ __tests__/wallProfileEditorChrome.test.ts (30 tests | 4 failed) 310ms
+     × §UNDO-ORDERING-KEY (L-7300) — an N-vertex edit is ONE commit, not one per vertex 14ms
+     × inserting a vertex on an edge adds it BETWEEN its endpoints, not at the end 6ms
+     × ⛔ dragging a VERTEX reshapes the outline and leaves the panel exactly where it was 6ms
+     × ⭐ a vertex drag AFTER a resize lands on the metres it was aimed at 6ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 4 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  __tests__/wallProfileEditorChrome.test.ts > §FEAT-WALL-PROFILE-EDIT (3+4) — the overlay opens, edits and commits > §UNDO-ORDERING-KEY (L-7300) — an N-vertex edit is ONE commit, not one per vertex
+TypeError: Cannot read properties of undefined (reading 'dispatchEvent')
+ ❯ __tests__/wallProfileEditorChrome.test.ts:130:27
+    128|
+    129|         for (let i = 0; i < 3; i++) {
+    130|             midHandles()[0]!.dispatchEvent(new window.PointerEvent('po…
+       |                           ^
+    131|         }
+    132|         expect(editor.ring).toHaveLength(7);
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/4]⎯
+
+ FAIL  __tests__/wallProfileEditorChrome.test.ts > §FEAT-WALL-PROFILE-EDIT (3+4) — the overlay opens, edits and commits > inserting a vertex on an edge adds it BETWEEN its endpoints, not at the end
+TypeError: Cannot read properties of undefined (reading 'dispatchEvent')
+ ❯ __tests__/wallProfileEditorChrome.test.ts:158:23
+    156|     it('inserting a vertex on an edge adds it BETWEEN its endpoints, n…
+    157|         editor.activate(subject, { onCommit: () => {}, onCancel: () =>…
+    158|         midHandles()[0]!.dispatchEvent(new window.PointerEvent('pointe…
+       |                       ^
+    159|         expect(editor.ring.map((p) => [p.u, p.v])).toEqual([[0, 0], [2…
+    160|     });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/4]⎯
+
+ FAIL  __tests__/wallProfileEditorChrome.test.ts > §WPE-CHROME-LAYER A — the panel drags by its title bar, never by its canvas > ⛔ dragging a VERTEX reshapes the outline and leaves the panel exactly where it was
+TypeError: Cannot read properties of undefined (reading 'dispatchEvent')
+ ❯ __tests__/wallProfileEditorChrome.test.ts:230:26
+    228|         const posBefore = { left: root().style.left, top: root().style…
+    229|
+    230|         vertexHandles()[0]!.dispatchEvent(new window.PointerEvent('poi…
+       |                          ^
+    231|         const target = editor.toPx({ u: 1, v: 1 });
+    232|         svgEl().dispatchEvent(new window.PointerEvent('pointermove', {
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/4]⎯
+
+ FAIL  __tests__/wallProfileEditorChrome.test.ts > §WPE-CHROME-LAYER B — the founder's wall survives every resize unchanged > ⭐ a vertex drag AFTER a resize lands on the metres it was aimed at
+TypeError: Cannot read properties of undefined (reading 'dispatchEvent')
+ ❯ __tests__/wallProfileEditorChrome.test.ts:338:26
+    336|         stubRect(svgEl(), 90, 70, 400, 200);
+    337|
+    338|         vertexHandles()[2]!.dispatchEvent(new window.PointerEvent('poi…
+       |                          ^
+    339|         const aim = editor.toPx({ u: 7.5, v: 1.85 });   // both exact …
+    340|         svgEl().dispatchEvent(new window.PointerEvent('pointermove', {
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[4/4]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  4 failed | 26 passed (30)
+   Start at  09:22:34
+   Duration  2.81s (transform 1.14s, setup 0ms, import 1.44s, tests 310ms, environment 730ms)
+
+RC=1

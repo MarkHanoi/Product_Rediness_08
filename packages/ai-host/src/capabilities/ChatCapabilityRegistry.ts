@@ -3999,6 +3999,122 @@ export const CHAT_UNAVAILABLE: ReadonlyMap<string, string> = new Map([
   // an honest "not yet" is only replaced once the path is shown to work, never
   // on the strength of the wiring alone. The capability itself is declared
   // below, as `set-curtain-wall-parameter`.
+
+  // ═══════════════════════════════════════════════════════════════════════
+  // §CHAT-UNDECLARED-ZERO (lane 4H, 2026-09-02) — the seventeen commands the
+  // coverage ratchet was carrying above its baseline of 0, each answered.
+  // ═══════════════════════════════════════════════════════════════════════
+  //
+  // ⚠ THE BASELINE READ 13 IN THE AUDIT AND 17 HERE, AND BOTH NUMBERS WERE PARTLY
+  // FICTION. Three of the seventeen — `balcony`, `component`, `lift` — were never
+  // commands at all: they were element-record DISCRIMINATOR FIELDS
+  // (`type: 'balcony'`) that the gate's handler regex matched as verbs. That defect
+  // is fixed in the gate (§FIX-ELEMENT-KIND-DISCRIMINATOR-IS-NOT-A-VERB) rather than
+  // papered over here, and the two fictional verbs a previous lane had already
+  // written a confident classification for (`floor`, `pool`) are deleted from
+  // `ChatCommandClassification.ts` in the same change. Three more — the `graph.*`
+  // trio — are the OPPOSITE error: real verbs the gate could not see at all until
+  // `graphQueryBusHandlers.ts` was added to HANDLER_GLOBS.
+  //
+  // ⛔ EVERY ROW BELOW IS A DEFERRAL, NOT A CAPABILITY. The `room.setDepartment`
+  // precedent above states the rule this lane followed: a full `ChatCapability` needs
+  // `commandProof` + an EXECUTED example + acceptance-suite coverage (checks 3b/4/4b),
+  // and writing one without those is the `ElementCapabilities` lie the gate exists to
+  // catch. Each sentence tells the user what to do instead (C16 CA-18).
+
+  // ── THE COMPONENT FAMILY (audit §12 Phase 4C's three new verbs) ───────────
+  //
+  // ⭐⭐ ONE MEASURED REASON COVERS ALL THREE, AND IT IS STRUCTURAL, NOT A TO-DO:
+  // **every reference in this family is a ULID, and a sentence carries names.**
+  // `component.place` needs `definitionId: fam_<ULID>` + `typeId: typ_<ULID>`;
+  // `component.setInstanceParameter` needs `parameterId: par_<ULID>` and refuses a
+  // name-keyed override BY DESIGN (`SetComponentInstanceParameter.ts`: *"Overrides are
+  // keyed by parameter ID, never by display name — a rename would silently orphan a
+  // name-keyed override"*); `component.swapType` needs a second `typ_<ULID>`.
+  //
+  // The join from a spoken word to any of those three ids is a PROJECT-LEVEL
+  // COMPONENT-DEFINITION REGISTRY, and there is none at this commit —
+  // `PlaceComponent.ts` says so in its own header (*"there is no project-level
+  // definition registry at this commit … inventing a lookup that silently returns
+  // ‘yes’ would be strictly worse than the honest absence"*), and a repo-wide sweep
+  // for a `FamilyDocument` store addressable by name finds the pack / unpack /
+  // migrate / evaluate side and no registry.
+  //
+  // ⛔ SO A `ChatCapability` FOR THESE THREE IS REFUSED ON §75 GROUNDS ("do not fake
+  // capabilities"), not deferred for want of effort. Its `targets` would be a claim
+  // the guard cannot honour for any sentence a user would actually say, which is
+  // precisely the `ElementCapabilities` defect this gate's check 3a was built to
+  // reject. The missing piece is named in
+  // `audit/universal-component-editor/2026-09-01/phase4/lane-4h-ai-reaches-the-slice.md`
+  // §OWED item 2 (an ISSUE-LOG row is OWED; no L-number is cited here because minting
+  // one this lane cannot append would be the UNMINTED-AND-CITED defect, C103) and belongs to
+  // whichever lane mints the registry — at which point these rows become
+  // capabilities in one edit.
+  ['component.place', 'I can\'t place a component from a sentence yet: placing one needs the component DEFINITION and TYPE by id, and there is no project-level catalogue for me to look a name like "window" up in. Place it with the Component tool, which carries both ids for you.'],
+  ['component.setInstanceParameter', 'I can\'t change a placed component\'s parameter from a sentence yet: overrides are keyed by parameter id, never by name, and reading the names needs the component definition — which is not loaded into the project yet. Edit it in the Properties panel with the component selected.'],
+  ['component.swapType', 'I can\'t swap a placed component\'s type from a sentence yet: I would need the target type by id, and there is no catalogue for me to resolve a type NAME against. Switch it in the Properties panel with the component selected.'],
+
+  // ── THE WORLD MODEL QUERY TRIO ─────────────────────────────────
+  //
+  // ⚠ THESE ARE NEW TO THIS GATE'S SUBJECT, NOT NEW TO THE REPOSITORY. They are
+  // registered on the composed bus by
+  // `apps/editor/src/engine/graphQueryBusHandlers.ts`, which no HANDLER_GLOB reached
+  // until this lane added it — so three real, read-only verbs sat OUTSIDE the
+  // coverage denominator and could never have been counted as undeclared. That is
+  // the c1902a5a defect one directory over: the command existed, and the chat's idea
+  // of the editor's abilities had no way to learn of it.
+  //
+  // They are read-only, so nothing here is destructive — the deferral is about
+  // ANSWER QUALITY, not safety. Spec §69's sentence (*"which windows on Level 02 use
+  // Large?"*) is the target, and answering it needs the typed reader and the
+  // `instantiates` axis Phase 4G owns; wiring the chat to a query surface whose
+  // definition axis is still being built would produce confident wrong answers,
+  // which is worse than "not yet".
+  ['graph.query', 'I can\'t answer World Model relationship questions from chat yet — the query surface exists but the chat is not wired to it, so I would rather say so than guess. Ask about dimensions and properties instead ("how tall is this wall?").'],
+  ['graph.neighbors', 'I can\'t walk the World Model graph from chat yet — the neighbours query exists but the chat is not wired to it. Ask about dimensions and properties instead.'],
+  ['graph.path', 'I can\'t trace a path through the World Model from chat yet — the path query exists but the chat is not wired to it. Ask about dimensions and properties instead.'],
+
+  // ── THE THREE PLAN-ONLY ELEMENT FAMILIES ─────────────────────────
+  //
+  // Balcony, lift and bathroom pod all CREATE from a drawn footprint or a picked
+  // host, which is the same honest refusal `wall.createOpening` and
+  // `boundaryLine.create` carry above: the geometry is pointed at, not spoken. The
+  // DELETE halves are speakable in principle — `DELETE_FAMILIES` is the table that
+  // would carry them — but a row there is a real change (a `FilterScope` noun set,
+  // an executed example and acceptance-suite coverage), and this lane did not do it.
+  // Deferred out loud.
+  ['balcony.create', 'Drawing a balcony needs its outline and the slab edge it hangs from, which I can\'t infer from a sentence — use the Balcony tool under Architecture.'],
+  ['balcony.delete', 'Deleting a balcony from chat is not wired yet — select it and press Delete, or use the Project Browser.'],
+  ['balcony.updateProfile', 'Editing a balcony\'s profile needs the profile editor — select the balcony and edit it in the Properties panel.'],
+  ['lift.create', 'Placing a lift needs its shaft position, which I can\'t infer from a sentence — use the Lift tool in the Create panel.'],
+  ['lift.delete', 'Deleting a lift from chat is not wired yet — select it and press Delete, or use the Project Browser.'],
+  ['bathroomPod.create', 'Placing a bathroom pod needs its position and the room it serves, which I can\'t infer from a sentence — place it from the Create panel.'],
+  ['bathroomPod.delete', 'Deleting a bathroom pod from chat is not wired yet — select it and press Delete.'],
+
+  // ── THE THREE ROOM VERBS ────────────────────────────────────
+  //
+  // ⚠ `room.autoClassify.batch` is the one row here a reader should be suspicious
+  // of, so the suspicion is written down: it is a BULK, MODEL-WIDE
+  // rename-and-reclassify driven by inference, and ADR-0313 deferred exactly this
+  // shape (bulk GENERATION) because the Confirm card cannot state a truthful count
+  // before the inference has run. It is reachable from the Room Schedule's
+  // "Autofill all rooms…", where the user sees the proposed result before
+  // committing. That is not a wiring gap; it is the confirmation model, and it is
+  // the same reason `room.setDepartment` is deferred above.
+  ['room.autoClassify.batch', 'Auto-classifying every room at once is done from the Room Schedule\'s "Autofill all rooms…" (Edit mode), where you see what it proposes before it commits — I won\'t rename a whole model from a sentence.'],
+  ['room.restoreMeaning', 'Restoring a room\'s previous meaning is offered as a proposal card when the editor detects the change — accept it there rather than asking for it.'],
+  ['room.setColourMode', 'Room colour mode is a display setting, changed in the Properties panel — it changes how rooms are DRAWN, not what they are, so I keep it out of chat where "make the rooms blue" would be ambiguous.'],
+
+  // ── THE VIEW OVERRIDE ─────────────────────────────────────
+  //
+  // ⚠ NOT the same thing as the visibility family the chat DOES drive, and the
+  // distinction is P7's: `visibility.*` records a DOMAIN INTENT ("this element is
+  // hidden"); `view.setCategoryVisibility` is a PER-VIEW graphic override ("doors
+  // are off in THIS view"). "Hide the doors" would land on the first, and silently
+  // landing it on the second — or the reverse — is the intent/UI-state collapse P7
+  // exists to prevent, so the per-view route stays in the Overrides panel where the
+  // view is named.
+  ['view.setCategoryVisibility', 'Turning a whole category off in ONE view is a per-view override — set it in the Overrides panel, where the view you are changing is named. From chat, "hide the doors" hides them everywhere, which is a different thing.'],
 ]);
 
 // ─── Lookup surface ──────────────────────────────────────────────────────────

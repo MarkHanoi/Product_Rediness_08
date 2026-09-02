@@ -89,9 +89,10 @@ export function bootstrap(opts: BootstrapOptions): EditorRuntime {
   // forward patches to the canonical Store<T>.
   const emitter = new PatchEmitter();
   const undoStack = new UndoStack({ maxSize: 200 });
+  const storesView = makeMemoizedStoresRecordView(stores);
   const bus = new CommandBus({
     audit: opts.audit,
-    storesProvider: () => storesAsRecordView(stores),
+    storesProvider: storesView.provider,
     emitter,
     undoStack,
   });
@@ -137,23 +138,54 @@ export function bootstrap(opts: BootstrapOptions): EditorRuntime {
       for (const b of bindings) b.dispose();
       detachStores();
       host.dispose();
+      storesView.dispose();
     },
   };
 }
 
-/** Build the Record<storeKey, Record<id, T>> view the bus's storesProvider
- *  returns.  We snapshot getState() at call-time so handlers always see
- *  the latest state.  Identity-stability of the inner Map is preserved
- *  across calls. */
-function storesAsRecordView(
+/** §PERF-STORESVIEW-MEMO (2026-09-02 perf lane, diagnosis fix 6) — the memoised
+ *  `Record<storeKey, Record<id, T>>` view the bus's storesProvider returns.
+ *
+ *  The predecessor (`storesAsRecordView`) rebuilt `Object.fromEntries` over
+ *  EVERY store's whole Map on EVERY dispatch, and its own comment promised
+ *  "for S06 we'll add a memoised view if it shows up in the bench" — it showed
+ *  up: BASE-INNER measured 0.117 → 0.672 ms/dispatch as the wall store grew to
+ *  1000 elements, paid by every verb.
+ *
+ *  Invalidation is PER-STORE via `Store.subscribeDirty` — sound because
+ *  `applyPatch` is the Store's only mutation door (attachStores routes every
+ *  bus patch through it, and it fires the dirty listeners on each call), so a
+ *  handler context still always sees the latest state (C03).  A store's inner
+ *  view object keeps its identity until that store actually changes; the outer
+ *  record is rebuilt only when any store changed, so an unchanged runtime
+ *  serves one stable snapshot.  Asserted (freshness + identity + granularity +
+ *  disposal) by `__tests__/bootstrapStoresViewMemo.test.ts`. */
+function makeMemoizedStoresRecordView(
   stores: Readonly<Record<string, Store<object>>>,
-): Readonly<Record<string, Readonly<Record<string, unknown>>>> {
-  const out: Record<string, Record<string, unknown>> = {};
+): {
+  provider: () => Readonly<Record<string, Readonly<Record<string, unknown>>>>;
+  dispose: () => void;
+} {
+  const inner = new Map<string, Readonly<Record<string, unknown>>>();
+  const dirty = new Set<string>(Object.keys(stores));
+  const disposers: Array<() => void> = [];
   for (const [key, store] of Object.entries(stores)) {
-    // The bus expects `Record<id, T>` — Object.fromEntries on a Map.
-    // O(N) per command; for S06 we'll add a memoised view if it shows
-    // up in the bench.
-    out[key] = Object.fromEntries(store.getState());
+    disposers.push(store.subscribeDirty(() => { dirty.add(key); }));
   }
-  return out;
+  let outer: Readonly<Record<string, Readonly<Record<string, unknown>>>> | null = null;
+  const provider = (): Readonly<Record<string, Readonly<Record<string, unknown>>>> => {
+    if (dirty.size > 0 || outer === null) {
+      for (const key of dirty) {
+        const store = stores[key];
+        if (store !== undefined) inner.set(key, Object.fromEntries(store.getState()));
+      }
+      dirty.clear();
+      outer = Object.fromEntries(inner);
+    }
+    return outer;
+  };
+  return {
+    provider,
+    dispose: () => { for (const d of disposers) d(); disposers.length = 0; },
+  };
 }

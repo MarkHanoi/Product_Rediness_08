@@ -103,6 +103,19 @@ import { ATTRIBUTION_CREDITS_STYLES } from './attributionCredits';
 const APP_THEME_ID = 'app-master-theme-v3';
 
 /**
+ * §PERF-APPTHEME-MEMO (2026-09-02 perf lane, diagnosis fix 4) — the scaled
+ * sheet, memoized by scale factor. scaleCssText() over the assembled ~1 MB
+ * string is a pure function of (static module constants × UI_SCALE), yet it
+ * used to re-run on EVERY injectAppTheme() call — and a dozen panels call it.
+ * The axis-D cold-open profile measured the scaling pass (~437 ms) running at
+ * least twice per boot. Repeat calls now reuse the cache; the DOM write is
+ * also skipped when the sheet already carries the exact bytes, so no CSSOM
+ * re-parse is forced. Self-healing (re-asserting the sheet if something
+ * external clobbered it) is preserved — see appThemeMemo.spec.ts.
+ */
+let _scaledCssCache: { scale: number; css: string } | null = null;
+
+/**
  * Injects the master PRYZM stylesheet into <head> exactly once.
  * Concatenation order is identical to the original monolithic AppTheme.ts —
  * preserved to maintain CSS specificity parity across all panels.
@@ -118,7 +131,8 @@ export function injectAppTheme(): void {
     // runtime CSS injection point (§05 §2.1), this is the only place chrome
     // density is decided; the factor itself lives in `uiScale.ts`.  See that file
     // for why a scoped `zoom` was rejected (canvas pixel-ratio desync).
-    style.textContent = scaleCssText(DESIGN_TOKENS
+    if (_scaledCssCache === null || _scaledCssCache.scale !== UI_SCALE) {
+        _scaledCssCache = { scale: UI_SCALE, css: scaleCssText(DESIGN_TOKENS
         + TOOLS_PANEL_STYLES
         + VIEW_BROWSER_STYLES
         + PROJECT_BROWSER_STYLES
@@ -243,7 +257,12 @@ export function injectAppTheme(): void {
         + SITE_INSPECTOR_PANEL_STYLES
         + DESIGN_PARAMS_PANEL_STYLES
         + INSPECT_PANEL_STYLES
-        + FACADE_RECONSTRUCTION_STYLES, UI_SCALE);
+        + FACADE_RECONSTRUCTION_STYLES, UI_SCALE) };
+    }
+    // §PERF-APPTHEME-MEMO — write only when the bytes differ (first injection,
+    // or an external clobber to self-heal); an identical write would force a
+    // pointless CSSOM re-parse of the whole sheet.
+    if (style.textContent !== _scaledCssCache.css) style.textContent = _scaledCssCache.css;
     if (!existing) document.head.appendChild(style);
 }
 
