@@ -1,0 +1,38 @@
+{
+  "name": "ruralauv",
+  "at": {
+    "lat": 45.525,
+    "lon": 3.22
+  },
+  "bbox": [
+    3.2085811832321873,
+    45.516999999999996,
+    3.231418816767813,
+    45.533
+  ],
+  "halfDeg": 0.008,
+  "source": "pmtiles",
+  "origin": "https://pub-1ad4f6c5dec849b5b25a45586898fd4d.r2.dev/tiles/buildings.pmtiles?v=L660a",
+  "verdict": "not-baked",
+  "reason": null,
+  "footprints": 0,
+  "provenance": {
+    "measuredLidar": 0,
+    "tagged": 0,
+    "derivedLevels": 0,
+    "assumed": 0
+  },
+  "assumedFraction": 0,
+  "solidRenderFraction": 0,
+  "measuredMarkerCount": 0,
+  "heightStats": null,
+  "tiles": {
+    "covering": 25,
+    "read": 0,
+    "absent": 25,
+    "failed": 0,
+    "pieces": 0,
+    "zoom": 16
+  },
+  "ms": 918
+}

@@ -1,0 +1,6 @@
+[dk-matrikel] DATAFORDELER_API_KEY not set — serving Danish parcels from the KEYLESS DAWA jordstykker leg (L-12888). Mint a free Datafordeler API key (portal.datafordeler.dk → IT-system → API-nøgle) to add the survey-WFS attribute join.
+refcat: 7000q | areaM2: 64981 | via: dawa-jordstykker | ring verts: 115
+first vertex: {"lat":55.673194,"lon":12.57238327}
+Aarhus: 1683 via dawa-jordstykker, 5 verts
+Malmö (SE, must be null): null
+RC=0

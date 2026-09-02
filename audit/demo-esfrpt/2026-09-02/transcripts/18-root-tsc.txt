@@ -1,0 +1,4 @@
+npm warn Unknown project config "package-manager-strict". This will stop working in the next major version of npm. See `npm help npmrc` for supported config options.
+packages/site-parcel-data/src/countryAdapters/dk/dkRuleMapper.ts(190,11): error TS6133: 'planName' is declared but its value is never read.
+packages/site-parcel-data/src/countryAdapters/lt/ltRuleMapper.ts(113,10): error TS6133: 'LtAsgrClassifiedValue' is declared but its value is never read.
+RC=2

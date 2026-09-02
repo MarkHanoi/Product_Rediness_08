@@ -1,0 +1,42 @@
+{
+  "name": "paris",
+  "at": {
+    "lat": 48.859,
+    "lon": 2.348
+  },
+  "bbox": [
+    2.335840361876472,
+    48.851,
+    2.3601596381235277,
+    48.867000000000004
+  ],
+  "halfDeg": 0.008,
+  "source": "pmtiles",
+  "origin": "https://pub-1ad4f6c5dec849b5b25a45586898fd4d.r2.dev/tiles/buildings.pmtiles?v=L660a",
+  "verdict": "measured",
+  "reason": null,
+  "footprints": 6288,
+  "provenance": {
+    "measuredLidar": 191,
+    "tagged": 86,
+    "derivedLevels": 4274,
+    "assumed": 1737
+  },
+  "assumedFraction": 0.276,
+  "solidRenderFraction": 0.044,
+  "measuredMarkerCount": 191,
+  "heightStats": {
+    "min": 0.5,
+    "median": 16,
+    "max": 75
+  },
+  "tiles": {
+    "covering": 25,
+    "read": 25,
+    "absent": 0,
+    "failed": 0,
+    "pieces": 6288,
+    "zoom": 16
+  },
+  "ms": 2954
+}

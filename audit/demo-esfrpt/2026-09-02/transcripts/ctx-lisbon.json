@@ -1,0 +1,42 @@
+{
+  "name": "lisbon",
+  "at": {
+    "lat": 38.7223,
+    "lon": -9.1393
+  },
+  "bbox": [
+    -9.14955395195655,
+    38.714299999999994,
+    -9.12904604804345,
+    38.7303
+  ],
+  "halfDeg": 0.008,
+  "source": "pmtiles",
+  "origin": "https://pub-1ad4f6c5dec849b5b25a45586898fd4d.r2.dev/tiles/buildings.pmtiles?v=L660a",
+  "verdict": "unmeasured",
+  "reason": null,
+  "footprints": 7271,
+  "provenance": {
+    "measuredLidar": 0,
+    "tagged": 110,
+    "derivedLevels": 1412,
+    "assumed": 5749
+  },
+  "assumedFraction": 0.791,
+  "solidRenderFraction": 0.015,
+  "measuredMarkerCount": 0,
+  "heightStats": {
+    "min": 3,
+    "median": 9,
+    "max": 38.400000000000006
+  },
+  "tiles": {
+    "covering": 25,
+    "read": 25,
+    "absent": 0,
+    "failed": 0,
+    "pieces": 7271,
+    "zoom": 16
+  },
+  "ms": 3226
+}

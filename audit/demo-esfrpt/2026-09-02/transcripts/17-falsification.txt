@@ -1,0 +1,7 @@
+0fa9dda7276158febf01404672119d62835da5226bb5ef311844a6bfd98f5e0c *src/parcelProviders/registry.ts
+      Tests  4 failed | 57 passed (61)
+RC=1
+ FAIL  __tests__/parcelRegistryNationalWiring.test.ts > L-12871 — the pre-existing misroutes these rows correct > Tallinn no longer asks KARTVERKET: a national EE claim removes the enclosing NO row entirely
+ FAIL  __tests__/parcelRegistryNationalWiring.test.ts > L-12871 §5 — no new row claims foreign ground > Malmö/Göteborg: the national SE claim removes DK — a Danish cadastre is never asked on Swedish soil
+0fa9dda7276158febf01404672119d62835da5226bb5ef311844a6bfd98f5e0c *src/parcelProviders/registry.ts
+      Tests  61 passed (61)

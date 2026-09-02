@@ -1,0 +1,186 @@
+npm warn Unknown project config "package-manager-strict". This will stop working in the next major version of npm. See `npm help npmrc` for supported config options.
+
+ RUN  v4.1.10 C:/Users/LENOVO/OneDrive/Desktop/PRYZM/Product_Rediness_08/packages/site-parcel-data
+
+ ❯ __tests__/parcelRegistryWiring.test.ts (35 tests | 1 failed) 88ms
+     × the pre-existing golden routes are unchanged by this batch 23ms
+ ❯ __tests__/parcelRegistry.test.ts (38 tests | 7 failed) 130ms
+     × Geneva: the legacy single verdict stays FR (first-match), but priority-fallback prefers CH 21ms
+     × Kirkenes (FI∩NO) orders FI before NO (FINLAND_BBOX ⊂ NORWAY_BBOX) 3ms
+     × Eindhoven (BE∩NL) orders Flanders before NL (FLANDERS_BBOX is smaller) 3ms
+     × Calais (GB∩FR) orders England before France (ENGLAND_BBOX is smaller) 2ms
+     × Düsseldorf orders NRW < NL < Germany-footprint by bbox area 3ms
+     × specificity: a city/region box is strictly smaller than its enclosing national box 4ms
+     × awaits async providers and respects specificity order 2ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 8 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  __tests__/parcelRegistry.test.ts > resolveParcelJurisdiction — universal footprint + never-throws > Geneva: the legacy single verdict stays FR (first-match), but priority-fallback prefers CH
+AssertionError: expected [ 'swisstopo-av' ] to deeply equal [ 'swisstopo-av', 'ign-fr' ]
+
+- Expected
++ Received
+
+  [
+    "swisstopo-av",
+-   "ign-fr",
+  ]
+
+ ❯ __tests__/parcelRegistry.test.ts:95:83
+     93|         // (~135 deg²), so a real fetch tries swisstopo AV (which live…
+     94|         expect(resolveParcelJurisdiction(46.2044, 6.1432).providerId).…
+     95|         expect(resolveParcelCandidates(46.2044, 6.1432).map((j) => j.p…
+       |                                                                                   ^
+     96|             'swisstopo-av',
+     97|             'ign-fr',
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/8]⎯
+
+ FAIL  __tests__/parcelRegistry.test.ts > resolveParcelCandidates — specificity ordering (smallest enclosing box first) > Kirkenes (FI∩NO) orders FI before NO (FINLAND_BBOX ⊂ NORWAY_BBOX)
+AssertionError: expected [ 'geonorge-no' ] to deeply equal [ 'mml', 'geonorge-no' ]
+
+- Expected
++ Received
+
+  [
+-   "mml",
+    "geonorge-no",
+  ]
+
+ ❯ __tests__/parcelRegistry.test.ts:118:21
+    116|         // 69.73°N, 30.05°E is inside BOTH the Finland and Norway boxe…
+    117|         const ids = resolveParcelCandidates(69.7263, 30.0464).map((j) …
+    118|         expect(ids).toEqual(['mml', 'geonorge-no']);
+       |                     ^
+    119|     });
+    120|     it('Eindhoven (BE∩NL) orders Flanders before NL (FLANDERS_BBOX is …
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/8]⎯
+
+ FAIL  __tests__/parcelRegistry.test.ts > resolveParcelCandidates — specificity ordering (smallest enclosing box first) > Eindhoven (BE∩NL) orders Flanders before NL (FLANDERS_BBOX is smaller)
+AssertionError: expected [ 'pdok-nl' ] to deeply equal [ 'flanders-grb', 'pdok-nl' ]
+
+- Expected
++ Received
+
+  [
+-   "flanders-grb",
+    "pdok-nl",
+  ]
+
+ ❯ __tests__/parcelRegistry.test.ts:123:21
+    121|         // 51.44°N, 5.48°E is inside FLANDERS_BBOX and NETHERLANDS_BBO…
+    122|         const ids = resolveParcelCandidates(51.4416, 5.4697).map((j) =…
+    123|         expect(ids).toEqual(['flanders-grb', 'pdok-nl']);
+       |                     ^
+    124|     });
+    125|     it('Calais (GB∩FR) orders England before France (ENGLAND_BBOX is s…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/8]⎯
+
+ FAIL  __tests__/parcelRegistry.test.ts > resolveParcelCandidates — specificity ordering (smallest enclosing box first) > Calais (GB∩FR) orders England before France (ENGLAND_BBOX is smaller)
+AssertionError: expected [ 'ign-fr' ] to deeply equal [ 'gb-os-inspire', 'ign-fr' ]
+
+- Expected
++ Received
+
+  [
+-   "gb-os-inspire",
+    "ign-fr",
+  ]
+
+ ❯ __tests__/parcelRegistry.test.ts:127:21
+    125|     it('Calais (GB∩FR) orders England before France (ENGLAND_BBOX is s…
+    126|         const ids = resolveParcelCandidates(50.9513, 1.8587).map((j) =…
+    127|         expect(ids).toEqual(['gb-os-inspire', 'ign-fr']);
+       |                     ^
+    128|     });
+    129|     it('Düsseldorf orders NRW < NL < Germany-footprint by bbox area', …
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[4/8]⎯
+
+ FAIL  __tests__/parcelRegistry.test.ts > resolveParcelCandidates — specificity ordering (smallest enclosing box first) > Düsseldorf orders NRW < NL < Germany-footprint by bbox area
+AssertionError: expected [ 'alkis-nrw', 'footprint' ] to deeply equal [ 'alkis-nrw', 'pdok-nl', 'footprint' ]
+
+- Expected
++ Received
+
+  [
+    "alkis-nrw",
+-   "pdok-nl",
+    "footprint",
+  ]
+
+ ❯ __tests__/parcelRegistry.test.ts:131:21
+    129|     it('Düsseldorf orders NRW < NL < Germany-footprint by bbox area', …
+    130|         const ids = resolveParcelCandidates(51.2277, 6.7735).map((j) =…
+    131|         expect(ids).toEqual(['alkis-nrw', 'pdok-nl', 'footprint']);
+       |                     ^
+    132|     });
+    133|     it('a non-overlapping interior point has exactly one candidate', (…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[5/8]⎯
+
+ FAIL  __tests__/parcelRegistry.test.ts > resolveParcelCandidates — specificity ordering (smallest enclosing box first) > specificity: a city/region box is strictly smaller than its enclosing national box
+TypeError: Cannot read properties of undefined (reading 'regionCode')
+ ❯ parcelJurisdictionSpecificity src/parcelProviders/registry.ts:625:31
+    623|  */
+    624| export function parcelJurisdictionSpecificity(jur: ParcelJurisdiction)…
+    625|     const b = REGION_BBOX[jur.regionCode];
+       |                               ^
+    626|     if (!b) return Number.POSITIVE_INFINITY;
+    627|     return (b.maxLat - b.minLat) * (b.maxLon - b.minLon);
+ ❯ __tests__/parcelRegistry.test.ts:140:65
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[6/8]⎯
+
+ FAIL  __tests__/parcelRegistry.test.ts > resolveParcelWithFallback — falls THROUGH a null provider to the enclosing live cadastre > awaits async providers and respects specificity order
+AssertionError: expected [ 'alkis-nrw', 'footprint' ] to deeply equal [ 'alkis-nrw', 'pdok-nl', 'footprint' ]
+
+- Expected
++ Received
+
+  [
+    "alkis-nrw",
+-   "pdok-nl",
+    "footprint",
+  ]
+
+ ❯ __tests__/parcelRegistry.test.ts:194:22
+    192|         });
+    193|         expect(hit).toBeNull();
+    194|         expect(seen).toEqual(['alkis-nrw', 'pdok-nl', 'footprint']);
+       |                      ^
+    195|     });
+    196|     it('never throws on garbage → null', async () => {
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[7/8]⎯
+
+ FAIL  __tests__/parcelRegistryWiring.test.ts > L-651 fall-through — new rows never strand an existing live cadastre > the pre-existing golden routes are unchanged by this batch
+AssertionError: expected [ 'catastro' ] to deeply equal [ 'ign-fr', 'catastro' ]
+
+- Expected
++ Received
+
+  [
+-   "ign-fr",
+    "catastro",
+  ]
+
+ ❯ __tests__/parcelRegistryWiring.test.ts:348:83
+    346|         // single verdict, which row order decides: inserting PT ahead…
+    347|         expect(resolveParcelJurisdiction(41.3915, 2.1649).providerId).…
+    348|         expect(resolveParcelCandidates(41.3915, 2.1649).map((c) => c.p…
+       |                                                                                   ^
+    349|             'ign-fr',
+    350|             'catastro',
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[8/8]⎯
+
+
+ Test Files  2 failed | 167 passed (169)
+      Tests  8 failed | 3690 passed | 3 skipped (3701)
+   Start at  08:37:24
+   Duration  61.43s (transform 67.01s, setup 0ms, import 302.32s, tests 18.91s, environment 36ms)
+
+RC=1

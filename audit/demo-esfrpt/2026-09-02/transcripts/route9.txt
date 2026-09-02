@@ -1,0 +1,10 @@
+npm warn Unknown project config "package-manager-strict". This will stop working in the next major version of npm. See `npm help npmrc` for supported config options.
+madrid-centre	40.4168,-3.7038	PARCEL=[catastro(cadastral)]	ZONING=resolved:es-28079-madrid
+barcelona-eixample	41.3928,2.1651	PARCEL=[catastro(cadastral)]	ZONING=resolved:es-08019-barcelona
+rural-clm	39.55,-3.35	PARCEL=[catastro(cadastral)]	ZONING=none
+paris-intramuros	48.859,2.348	PARCEL=[ign-fr(cadastral)]	ZONING=resolved:fr-75056-paris
+lyon	45.757,4.833	PARCEL=[ign-fr(cadastral)]	ZONING=none
+rural-auvergne	45.525,3.22	PARCEL=[ign-fr(cadastral)]	ZONING=none
+lisbon-centre	38.7223,-9.1393	PARCEL=[dgt-cadastro-predial(cadastral)]	ZONING=none
+porto	41.1496,-8.6109	PARCEL=[dgt-cadastro-predial(cadastral)]	ZONING=none
+rural-alentejo	38.52,-7.95	PARCEL=[dgt-cadastro-predial(cadastral)]	ZONING=none

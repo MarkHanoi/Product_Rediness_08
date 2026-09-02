@@ -1,0 +1,42 @@
+{
+  "name": "villacanascentre",
+  "at": {
+    "lat": 39.6269,
+    "lon": -3.3372
+  },
+  "bbox": [
+    -3.347586725154264,
+    39.6189,
+    -3.3268132748457364,
+    39.6349
+  ],
+  "halfDeg": 0.008,
+  "source": "pmtiles",
+  "origin": "https://pub-1ad4f6c5dec849b5b25a45586898fd4d.r2.dev/tiles/buildings.pmtiles?v=L660a",
+  "verdict": "unmeasured",
+  "reason": null,
+  "footprints": 200,
+  "provenance": {
+    "measuredLidar": 0,
+    "tagged": 4,
+    "derivedLevels": 37,
+    "assumed": 159
+  },
+  "assumedFraction": 0.795,
+  "solidRenderFraction": 0.02,
+  "measuredMarkerCount": 0,
+  "heightStats": {
+    "min": 3.2,
+    "median": 9,
+    "max": 22.400000000000002
+  },
+  "tiles": {
+    "covering": 20,
+    "read": 13,
+    "absent": 7,
+    "failed": 0,
+    "pieces": 200,
+    "zoom": 16
+  },
+  "ms": 2743
+}

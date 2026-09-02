@@ -1,0 +1,124 @@
+npm warn Unknown project config "package-manager-strict". This will stop working in the next major version of npm. See `npm help npmrc` for supported config options.
+
+ RUN  v4.1.10 C:/Users/LENOVO/OneDrive/Desktop/PRYZM/Product_Rediness_08/packages/site-parcel-data
+
+ ❯ __tests__/parcelRegistryNationalWiring.test.ts (60 tests | 7 failed) 100ms
+     × Tallinn no longer asks KARTVERKET: EE outranks the enclosing NORWAY_BBOX row 7ms
+     × Stockholm no longer reads as NORWAY: SE outranks the enclosing NORWAY_BBOX row 2ms
+     × Luxembourg City no longer reads as a German Land: LU outranks DE and FR 2ms
+     × Malmö/Göteborg: SE is reached, but DK’s SMALLER BOX still ranks first (recorded, not hidden) 2ms
+     × CONTROL: the resolver DOES claim LU at Athus, Belgium — so the guard is load-bearing 2ms
+     × 44 of 50 cities are routed to their own country — and the 6 that are not are NAMED 21ms
+     × every miss is a REFUSAL — not one of them is claimed by the WRONG new row 2ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 7 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  __tests__/parcelRegistryNationalWiring.test.ts > L-12871 — the pre-existing misroutes these rows correct > Tallinn no longer asks KARTVERKET: EE outranks the enclosing NORWAY_BBOX row
+AssertionError: expected [ 'EE' ] to include 'NO'
+ ❯ __tests__/parcelRegistryNationalWiring.test.ts:102:25
+    100|         // NORWAY_BBOX (57.8–71.4 N, 4.4–31.3 E) still CONTAINS Tallin…
+    101|         // row does not remove it. What changed is that Estonia is tri…
+    102|         expect(ordered).toContain('NO');
+       |                         ^
+    103|         expect(ordered.indexOf('EE')).toBeLessThan(ordered.indexOf('NO…
+    104|     });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/7]⎯
+
+ FAIL  __tests__/parcelRegistryNationalWiring.test.ts > L-12871 — the pre-existing misroutes these rows correct > Stockholm no longer reads as NORWAY: SE outranks the enclosing NORWAY_BBOX row
+AssertionError: expected 0 to be less than -1
+ ❯ __tests__/parcelRegistryNationalWiring.test.ts:109:39
+    107|         const ordered = codes(59.3293, 18.0686);
+    108|         expect(ordered[0]).toBe('SE');
+    109|         expect(ordered.indexOf('SE')).toBeLessThan(ordered.indexOf('NO…
+       |                                       ^
+    110|         // The legacy single-verdict resolver must agree, or a coverag…
+    111|         // reports Stockholm as Norwegian.
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/7]⎯
+
+ FAIL  __tests__/parcelRegistryNationalWiring.test.ts > L-12871 — the pre-existing misroutes these rows correct > Luxembourg City no longer reads as a German Land: LU outranks DE and FR
+AssertionError: expected 0 to be less than -1
+ ❯ __tests__/parcelRegistryNationalWiring.test.ts:118:39
+    116|         const ordered = codes(49.6116, 6.1319);
+    117|         expect(ordered[0]).toBe('LU');
+    118|         expect(ordered.indexOf('LU')).toBeLessThan(ordered.indexOf('DE…
+       |                                       ^
+    119|         expect(ordered.indexOf('LU')).toBeLessThan(ordered.indexOf('FR…
+    120|         expect(resolveParcelJurisdiction(49.6116, 6.1319).regionCode).…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/7]⎯
+
+ FAIL  __tests__/parcelRegistryNationalWiring.test.ts > L-12871 §5 — no new row claims foreign ground > Malmö/Göteborg: SE is reached, but DK’s SMALLER BOX still ranks first (recorded, not hidden)
+AssertionError: expected 'SE' to be 'DK' // Object.is equality
+
+Expected: "DK"
+Received: "SE"
+
+ ❯ __tests__/parcelRegistryNationalWiring.test.ts:261:32
+    259|         for (const [lat, lon] of [[55.605, 13.0038], [57.7089, 11.9746…
+    260|             const ordered = codes(lat, lon);
+    261|             expect(ordered[0]).toBe('DK');
+       |                                ^
+    262|             expect(ordered).toContain('SE');
+    263|             // The fall-through that makes it harmless: DK has no reac…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[4/7]⎯
+
+ FAIL  __tests__/parcelRegistryNationalWiring.test.ts > L-12871 §9 — an un-modelled neighbour is never annexed > CONTROL: the resolver DOES claim LU at Athus, Belgium — so the guard is load-bearing
+AssertionError: expected false to be true // Object.is equality
+
+- Expected
++ Received
+
+- true
++ false
+
+ ❯ __tests__/parcelRegistryNationalWiring.test.ts:379:28
+    377|         // nothing. It is asserted first, exactly so the guard cannot …
+    378|         const verdict = resolveNationalJurisdiction(49.5622, 5.8261);
+    379|         expect(verdict.ok).toBe(true);
+       |                            ^
+    380|         if (!verdict.ok) return;
+    381|         expect(verdict.regionCode).toBe('LU');
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[5/7]⎯
+
+ FAIL  __tests__/parcelRegistryNationalWiring.test.ts > L-12871 §10 — measured coverage over the ten largest cities of each country > 44 of 50 cities are routed to their own country — and the 6 that are not are NAMED
+AssertionError: expected 45 to be 44 // Object.is equality
+
+- Expected
++ Received
+
+- 44
++ 45
+
+ ❯ __tests__/parcelRegistryNationalWiring.test.ts:465:24
+    463|             }
+    464|         }
+    465|         expect(routed).toBe(44);
+       |                        ^
+    466|         expect(missed.sort()).toEqual(
+    467|             KNOWN_MISSES.map(([cc, name]) => `${cc}:${name}`).sort(),
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[6/7]⎯
+
+ FAIL  __tests__/parcelRegistryNationalWiring.test.ts > L-12871 §10 — measured coverage over the ten largest cities of each country > every miss is a REFUSAL — not one of them is claimed by the WRONG new row
+AssertionError: Helsingborg must not be claimed by SE: expected [ 'SE' ] to not include 'SE'
+ ❯ __tests__/parcelRegistryNationalWiring.test.ts:476:80
+    474|             const ordered = codes(city[1], city[2]);
+    475|             for (const other of ['EE', 'LT', 'PL', 'LU', 'SE']) {
+    476|                 expect(ordered, `${name} must not be claimed by ${othe…
+       |                                                                                ^
+    477|             }
+    478|         }
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[7/7]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  7 failed | 53 passed (60)
+   Start at  08:34:38
+   Duration  791ms (transform 325ms, setup 0ms, import 442ms, tests 100ms, environment 0ms)
+
+RC=1

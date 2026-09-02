@@ -1,0 +1,42 @@
+{
+  "name": "villacanastown",
+  "at": {
+    "lat": 39.6394,
+    "lon": -3.3392
+  },
+  "bbox": [
+    -3.34958860215788,
+    39.6314,
+    -3.32881139784212,
+    39.647400000000005
+  ],
+  "halfDeg": 0.008,
+  "source": "pmtiles",
+  "origin": "https://pub-1ad4f6c5dec849b5b25a45586898fd4d.r2.dev/tiles/buildings.pmtiles?v=L660a",
+  "verdict": "unmeasured",
+  "reason": null,
+  "footprints": 2,
+  "provenance": {
+    "measuredLidar": 0,
+    "tagged": 0,
+    "derivedLevels": 0,
+    "assumed": 2
+  },
+  "assumedFraction": 1,
+  "solidRenderFraction": 0,
+  "measuredMarkerCount": 0,
+  "heightStats": {
+    "min": 9,
+    "median": 9,
+    "max": 9
+  },
+  "tiles": {
+    "covering": 20,
+    "read": 1,
+    "absent": 19,
+    "failed": 0,
+    "pieces": 2,
+    "zoom": 16
+  },
+  "ms": 1532
+}

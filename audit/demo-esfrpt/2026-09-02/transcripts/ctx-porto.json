@@ -1,0 +1,42 @@
+{
+  "name": "porto",
+  "at": {
+    "lat": 41.1496,
+    "lon": -8.6109
+  },
+  "bbox": [
+    -8.621524254201478,
+    41.1416,
+    -8.600275745798523,
+    41.1576
+  ],
+  "halfDeg": 0.008,
+  "source": "pmtiles",
+  "origin": "https://pub-1ad4f6c5dec849b5b25a45586898fd4d.r2.dev/tiles/buildings.pmtiles?v=L660a",
+  "verdict": "unmeasured",
+  "reason": null,
+  "footprints": 9308,
+  "provenance": {
+    "measuredLidar": 0,
+    "tagged": 25,
+    "derivedLevels": 1113,
+    "assumed": 8170
+  },
+  "assumedFraction": 0.878,
+  "solidRenderFraction": 0.003,
+  "measuredMarkerCount": 0,
+  "heightStats": {
+    "min": 1,
+    "median": 9,
+    "max": 54.400000000000006
+  },
+  "tiles": {
+    "covering": 20,
+    "read": 20,
+    "absent": 0,
+    "failed": 0,
+    "pieces": 9308,
+    "zoom": 16
+  },
+  "ms": 3350
+}

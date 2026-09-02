@@ -1,0 +1,11 @@
+npm warn Unknown project config "package-manager-strict". This will stop working in the next major version of npm. See `npm help npmrc` for supported config options.
+
+ RUN  v4.1.10 C:/Users/LENOVO/OneDrive/Desktop/PRYZM/Product_Rediness_08/packages/site-parcel-data
+
+
+ Test Files  1 passed (1)
+      Tests  61 passed (61)
+   Start at  08:37:08
+   Duration  1.40s (transform 603ms, setup 0ms, import 820ms, tests 178ms, environment 0ms)
+
+RC=0

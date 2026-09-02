@@ -1,0 +1,37 @@
+CZE: 1 rings, 795 verts
+SVK: 1 rings, 493 verts
+AUT: 1 rings, 908 verts
+LIE: 1 rings, 29 verts
+SVN: 1 rings, 393 verts
+SMR: 1 rings, 14 verts
+VAT: 0 rings, 0 verts
+MCO: 1 rings, 11 verts
+AND: 1 rings, 46 verts
+GIB: 1 rings, 6 verts
+BEL: 1 rings, 546 verts
+LVA: 1 rings, 475 verts
+BLR: 1 rings, 456 verts  (clipped to (50.0, 57.0, 22.0, 28.0))
+UKR: 1 rings, 346 verts  (clipped to (48.0, 53.0, 21.0, 27.0))
+RUS: 8 rings, 1411 verts  (clipped to (53.0, 72.0, 19.0, 33.0))
+MAR: 1 rings, 233 verts  (clipped to (33.5, 36.5, -7.5, -1.0))
+TOTAL neighbour verts: 6162
+WROTE C:/Users/LENOVO/OneDrive/Desktop/PRYZM/Product_Rediness_08/packages/site-parcel-data/src/jurisdiction/data/nationalBoundaries.json
+RC=0
+CZE: 1 rings, 795 verts
+SVK: 1 rings, 493 verts
+AUT: 1 rings, 908 verts
+LIE: 1 rings, 29 verts
+SVN: 1 rings, 393 verts
+SMR: 1 rings, 14 verts
+VAT: 1 rings, 7 verts
+MCO: 1 rings, 11 verts
+AND: 1 rings, 46 verts
+GIB: 1 rings, 6 verts
+BEL: 1 rings, 546 verts
+LVA: 1 rings, 475 verts
+BLR: 1 rings, 456 verts  (clipped to (50.0, 57.0, 22.0, 28.0))
+UKR: 1 rings, 346 verts  (clipped to (48.0, 53.0, 21.0, 27.0))
+RUS: 8 rings, 1411 verts  (clipped to (53.0, 72.0, 19.0, 33.0))
+MAR: 1 rings, 233 verts  (clipped to (33.5, 36.5, -7.5, -1.0))
+TOTAL neighbour verts: 6169
+WROTE C:/Users/LENOVO/OneDrive/Desktop/PRYZM/Product_Rediness_08/packages/site-parcel-data/src/jurisdiction/data/nationalBoundaries.json

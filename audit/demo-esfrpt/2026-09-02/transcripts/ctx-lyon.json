@@ -1,0 +1,42 @@
+{
+  "name": "lyon",
+  "at": {
+    "lat": 45.757,
+    "lon": 4.833
+  },
+  "bbox": [
+    4.821533802109433,
+    45.748999999999995,
+    4.844466197890568,
+    45.765
+  ],
+  "halfDeg": 0.008,
+  "source": "pmtiles",
+  "origin": "https://pub-1ad4f6c5dec849b5b25a45586898fd4d.r2.dev/tiles/buildings.pmtiles?v=L660a",
+  "verdict": "unmeasured",
+  "reason": null,
+  "footprints": 4895,
+  "provenance": {
+    "measuredLidar": 0,
+    "tagged": 12,
+    "derivedLevels": 1647,
+    "assumed": 3236
+  },
+  "assumedFraction": 0.661,
+  "solidRenderFraction": 0.002,
+  "measuredMarkerCount": 0,
+  "heightStats": {
+    "min": 1,
+    "median": 9,
+    "max": 45
+  },
+  "tiles": {
+    "covering": 25,
+    "read": 25,
+    "absent": 0,
+    "failed": 0,
+    "pieces": 4895,
+    "zoom": 16
+  },
+  "ms": 3211
+}

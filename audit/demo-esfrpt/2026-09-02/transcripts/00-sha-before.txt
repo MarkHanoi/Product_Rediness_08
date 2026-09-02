@@ -1,0 +1,5 @@
+58476bb569a55350d4797f55feea020e0979a1830f3489dd15bd85757133eb12 *packages/site-parcel-data/src/parcelProviders/registry.ts
+16352ddfa0453e793c94def74486d9249e01f24ba92203f8437464fef02c865a *packages/site-parcel-data/src/jurisdiction/nationalJurisdictionResolver.ts
+0b19cd0a628e4127ffe8cbe4f3e8ed266549ae4acee3b0fc8a71002e9f63923a *packages/site-parcel-data/src/jurisdiction/data/nationalBoundaries.json
+44f810737391cb627f7d71c81fac66730d2bf4351e11f53b3545cc1ff1eac6df *packages/site-parcel-data/src/index.ts
+62d16863e7efbc70755ca02210263db91bffde6ac656cc1154a6691369b688a0 *packages/site-parcel-data/src/countryAdapters/se/seJurisdiction.ts

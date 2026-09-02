@@ -1,0 +1,42 @@
+{
+  "name": "madrid",
+  "at": {
+    "lat": 40.4203,
+    "lon": -3.7058
+  },
+  "bbox": [
+    -3.7163082218803343,
+    40.412299999999995,
+    -3.6952917781196657,
+    40.4283
+  ],
+  "halfDeg": 0.008,
+  "source": "pmtiles",
+  "origin": "https://pub-1ad4f6c5dec849b5b25a45586898fd4d.r2.dev/tiles/buildings.pmtiles?v=L660a",
+  "verdict": "measured",
+  "reason": null,
+  "footprints": 5847,
+  "provenance": {
+    "measuredLidar": 5738,
+    "tagged": 7,
+    "derivedLevels": 27,
+    "assumed": 75
+  },
+  "assumedFraction": 0.013,
+  "solidRenderFraction": 0.983,
+  "measuredMarkerCount": 5738,
+  "heightStats": {
+    "min": 2.5,
+    "median": 20.1,
+    "max": 117.8
+  },
+  "tiles": {
+    "covering": 25,
+    "read": 25,
+    "absent": 0,
+    "failed": 0,
+    "pieces": 5847,
+    "zoom": 16
+  },
+  "ms": 3658
+}

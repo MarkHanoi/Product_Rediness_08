@@ -1,0 +1,155 @@
+ M apps/editor/package.json
+ M apps/editor/src/PluginRegistry.ts
+ M apps/editor/src/engine/persistence/ProjectLoader.ts
+ M apps/editor/src/engine/persistence/ProjectSerializer.ts
+ M apps/editor/src/engine/persistence/restoreCompoundFamilies.ts
+ M apps/editor/src/engine/persistence/snapshotFamilyCoverage.ts
+ M apps/editor/src/engine/undo/performUndoRedo.ts
+ M packages/ai-host/src/graph/GraphQueryService.ts
+ M packages/command-registry/tsconfig.tsbuildinfo
+ M packages/core-app-model/src/SemanticGraph.ts
+ M packages/core-app-model/src/index.ts
+ M packages/family-instance/__tests__/bakeFamilyInstance.test.ts
+ M packages/family-instance/src/bakeFamilyInstance.ts
+ M packages/family-instance/src/index.ts
+ M packages/family-instance/src/profileToPolygon.ts
+ M packages/family-runtime/__tests__/unit-coercion.test.ts
+ M packages/family-runtime/src/expression/evaluator.ts
+ M packages/family-runtime/src/expression/functions.ts
+ M packages/family-runtime/src/expression/index.ts
+ M packages/family-runtime/src/expression/tokenizer.ts
+ M packages/family-runtime/src/expression/unit-coercion.ts
+ M packages/family-runtime/src/resolution/resolveParameter.ts
+ M packages/family-runtime/src/types.ts
+ M packages/file-format/__tests__/family-migrations/family-migration.test.ts
+ M packages/file-format/src/family-migrations/identity.d.ts.map
+ M packages/file-format/src/family-migrations/identity.js.map
+ M packages/file-format/src/family-migrations/identity.ts
+ M packages/file-format/src/family-migrations/index.d.ts
+ M packages/file-format/src/family-migrations/index.d.ts.map
+ M packages/file-format/src/family-migrations/index.js
+ M packages/file-format/src/family-migrations/index.js.map
+ M packages/file-format/src/family-migrations/index.ts
+ M packages/file-format/src/family-migrations/ops/add-parameter.d.ts
+ M packages/file-format/src/family-migrations/ops/add-parameter.d.ts.map
+ M packages/file-format/src/family-migrations/ops/add-parameter.js
+ M packages/file-format/src/family-migrations/ops/add-parameter.js.map
+ M packages/file-format/src/family-migrations/ops/add-parameter.ts
+ M packages/file-format/src/family-migrations/ops/change-parameter-type.d.ts.map
+ M packages/file-format/src/family-migrations/ops/change-parameter-type.js
+ M packages/file-format/src/family-migrations/ops/change-parameter-type.js.map
+ M packages/file-format/src/family-migrations/ops/change-parameter-type.ts
+ M packages/file-format/src/family-migrations/ops/delete-parameter.d.ts.map
+ M packages/file-format/src/family-migrations/ops/delete-parameter.js
+ M packages/file-format/src/family-migrations/ops/delete-parameter.js.map
+ M packages/file-format/src/family-migrations/ops/delete-parameter.ts
+ M packages/file-format/src/family-migrations/ops/introduce-expression.d.ts.map
+ M packages/file-format/src/family-migrations/ops/introduce-expression.js.map
+ M packages/file-format/src/family-migrations/ops/introduce-expression.ts
+ M packages/file-format/src/family-migrations/ops/merge-material-slots.d.ts.map
+ M packages/file-format/src/family-migrations/ops/merge-material-slots.js.map
+ M packages/file-format/src/family-migrations/ops/merge-material-slots.ts
+ M packages/file-format/src/family-migrations/ops/rebind-ifc.d.ts.map
+ M packages/file-format/src/family-migrations/ops/rebind-ifc.js.map
+ M packages/file-format/src/family-migrations/ops/rebind-ifc.ts
+ M packages/file-format/src/family-migrations/ops/rename-parameter.d.ts.map
+ M packages/file-format/src/family-migrations/ops/rename-parameter.js.map
+ M packages/file-format/src/family-migrations/ops/rename-parameter.ts
+ M packages/file-format/src/family-migrations/ops/split-type.d.ts.map
+ M packages/file-format/src/family-migrations/ops/split-type.js
+ M packages/file-format/src/family-migrations/ops/split-type.js.map
+ M packages/file-format/src/family-migrations/ops/split-type.ts
+ M packages/file-format/src/family-schema.d.ts
+ M packages/file-format/src/family-schema.d.ts.map
+ M packages/file-format/src/family-schema.js
+ M packages/file-format/src/family-schema.js.map
+ M packages/file-format/src/family-schema.ts
+ M packages/file-format/src/family-types.d.ts
+ M packages/file-format/src/family-types.d.ts.map
+ M packages/file-format/src/family-types.js
+ M packages/file-format/src/family-types.js.map
+ M packages/file-format/src/family-types.ts
+ M packages/file-format/src/family-unpack.d.ts.map
+ M packages/file-format/src/family-unpack.js
+ M packages/file-format/src/family-unpack.js.map
+ M packages/file-format/src/family-unpack.ts
+ M packages/file-format/src/index.d.ts
+ M packages/file-format/src/index.d.ts.map
+ M packages/file-format/src/index.js
+ M packages/file-format/src/index.js.map
+ M packages/file-format/src/index.ts
+ M packages/geometry-kernel/src/index.ts
+ M packages/ordinance-extraction/src/adapters/index.ts
+ M packages/ordinance-extraction/src/gates/dualPassAgreement.ts
+ M packages/ordinance-extraction/src/gates/localeGate.ts
+ M packages/ordinance-extraction/src/index.ts
+ M packages/ordinance-extraction/src/ingest/pdfItems.ts
+ M packages/ordinance-extraction/src/ingest/types.ts
+ M packages/ordinance-extraction/src/types.ts
+ M packages/runtime-composer/src/composeRuntime.ts
+ M packages/runtime-composer/src/types.ts
+ M packages/schemas/src/elements/index.ts
+ M packages/schemas/src/registry.ts
+ M packages/schemas/src/types/Id.ts
+ M packages/site-parcel-data/src/countryAdapters/ee/eeJurisdiction.ts
+ M packages/site-parcel-data/src/countryAdapters/lt/ltJurisdiction.ts
+ M packages/site-parcel-data/src/parcelProviders/mmlParcelProvider.ts
+ M packages/site-parcel-data/src/providers/resolveElSauzalZone.ts
+ M pnpm-lock.yaml
+ M tools/context-bake/bake.mjs
+ M tools/context-bake/heightSources.mjs
+ M tools/context-bake/terrain.mjs
+ M tools/ga-gate/check-graph-write-coverage.ts
+ M tools/ga-gate/gate-newly-measured.json
+ M tools/ga-gate/run-all.ts
+?? apps/editor/__tests__/componentJoinThroughComposedRuntime.test.ts
+?? audit/europe-site-intel/2026-08-31/impl/context-everywhere-assessment.md
+?? audit/europe-site-intel/2026-08-31/impl/e8-corpus/
+?? audit/europe-site-intel/2026-08-31/impl/e8-extraction-scout.md
+?? audit/europe-site-intel/2026-08-31/impl/e8-gates.md
+?? audit/europe-site-intel/2026-08-31/impl/e8-trial.md
+?? audit/europe-site-intel/2026-08-31/impl/lane-e8-spine-transcripts/
+?? audit/europe-site-intel/2026-08-31/impl/lane-e8-trial-transcripts/
+?? audit/europe-site-intel/2026-08-31/impl/lane-l12871-national-jurisdiction.md
+?? audit/europe-site-intel/2026-08-31/impl/lane-regions-national-rows.md
+?? audit/europe-site-intel/2026-08-31/impl/regions-full-bake-plan.json
+?? audit/universal-component-editor/2026-09-01/phase4/
+?? packages/ai-host/__tests__/graphQueryServiceDefinitionAxis.test.ts
+?? packages/core-app-model/src/SemanticGraph.definitionAxis.test.ts
+?? packages/family-instance/__tests__/profileRegeneration.test.ts
+?? packages/family-instance/probes/
+?? packages/family-instance/src/geometryAdapter.ts
+?? packages/family-instance/src/units.ts
+?? packages/family-runtime/__tests__/formulaRecompute.test.ts
+?? packages/family-runtime/__tests__/unit-mismatch.test.ts
+?? packages/file-format/__tests__/family-migrations/v1_1-round-trip.test.ts
+?? packages/file-format/src/family-migrations/v1_0-to-v1_1.d.ts
+?? packages/file-format/src/family-migrations/v1_0-to-v1_1.d.ts.map
+?? packages/file-format/src/family-migrations/v1_0-to-v1_1.js
+?? packages/file-format/src/family-migrations/v1_0-to-v1_1.js.map
+?? packages/file-format/src/family-migrations/v1_0-to-v1_1.ts
+?? packages/ordinance-extraction/__tests__/qualifierPolarity.test.ts
+?? packages/ordinance-extraction/__tests__/spineOutcomes.test.ts
+?? packages/ordinance-extraction/__tests__/spineTierLock.test.ts
+?? packages/ordinance-extraction/__tests__/structureLuzernTrap.test.ts
+?? packages/ordinance-extraction/src/adapters/swissZoneTable.ts
+?? packages/ordinance-extraction/src/gates/containment.ts
+?? packages/ordinance-extraction/src/gates/qualifierSurvival.ts
+?? packages/ordinance-extraction/src/spine/
+?? packages/ordinance-extraction/src/structure/
+?? packages/schemas/src/elements/Component.ts
+?? packages/site-parcel-data/__tests__/nationalJurisdictionResolver.test.ts
+?? packages/site-parcel-data/__tests__/parcelRegistryNationalWiring.test.ts
+?? packages/site-parcel-data/src/geometry/pointInRingsEvenOdd.ts
+?? packages/site-parcel-data/src/jurisdiction/
+?? plugins/component/
+?? tools/ga-gate/check-claim-carries-evidence.ts
+?? tools/ga-gate/check-no-silent-graduation.ts
+?? tools/ga-gate/check-unvalidated-claim-not-a-constraint.ts
+?? tools/ga-gate/claim-evidence-ledger.json
+?? tools/ga-gate/lib/claimEvidenceScan.ts
+?? tools/ga-gate/unvalidated-claim-ledger.json
+?? tools/ordinance-ingest/lib/pdfPageItems.ts
+?? tools/ordinance-ingest/spine.ts
+?? tools/ordinance-trial/
+RC=0

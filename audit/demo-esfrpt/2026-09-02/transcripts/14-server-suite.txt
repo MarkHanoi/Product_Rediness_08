@@ -1,0 +1,15 @@
+npm warn Unknown project config "package-manager-strict". This will stop working in the next major version of npm. See `npm help npmrc` for supported config options.
+
+> 3d-view-app@2.0.0 test:server
+> vitest run --config vitest.server.config.ts
+
+
+ RUN  v4.1.10 C:/Users/LENOVO/OneDrive/Desktop/PRYZM/Product_Rediness_08
+
+
+ Test Files  51 passed (51)
+      Tests  788 passed (788)
+   Start at  08:45:34
+   Duration  11.56s (transform 4.54s, setup 0ms, import 42.04s, tests 13.34s, environment 16ms)
+
+RC=0

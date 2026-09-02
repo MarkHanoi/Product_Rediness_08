@@ -1,0 +1,42 @@
+{
+  "name": "bcn",
+  "at": {
+    "lat": 41.3928,
+    "lon": 2.1651
+  },
+  "bbox": [
+    2.1544360940992417,
+    41.3848,
+    2.175763905900758,
+    41.400800000000004
+  ],
+  "halfDeg": 0.008,
+  "source": "pmtiles",
+  "origin": "https://pub-1ad4f6c5dec849b5b25a45586898fd4d.r2.dev/tiles/buildings.pmtiles?v=L660a",
+  "verdict": "measured",
+  "reason": null,
+  "footprints": 5640,
+  "provenance": {
+    "measuredLidar": 5437,
+    "tagged": 1,
+    "derivedLevels": 157,
+    "assumed": 45
+  },
+  "assumedFraction": 0.008,
+  "solidRenderFraction": 0.964,
+  "measuredMarkerCount": 5437,
+  "heightStats": {
+    "min": 2.5,
+    "median": 23.9,
+    "max": 78.3
+  },
+  "tiles": {
+    "covering": 25,
+    "read": 25,
+    "absent": 0,
+    "failed": 0,
+    "pieces": 5640,
+    "zoom": 16
+  },
+  "ms": 2823
+}
