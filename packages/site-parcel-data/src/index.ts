@@ -2327,6 +2327,8 @@ export * from './countryAdapters/lu/index.js';
 export * from './countryAdapters/se/index.js';
 export * from './countryAdapters/fi/index.js';
 export * from './countryAdapters/no/index.js';
+export * from './countryAdapters/fr/index.js';
+export * from './countryAdapters/pt/index.js';
 
 // ⚠ ONE ambiguity between the adapter wildcards, resolved explicitly rather than silently:
 // EE (eeWfsClient) and NO (noMatrikkelClient) each mint their OWN `extractOwsExceptionText`
