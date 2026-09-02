@@ -1,0 +1,125 @@
+FR-ZONEID — BARREL / REGISTRY ADDITIONS FOR THE ORCHESTRATOR
+============================================================
+Lane: FR-ZONEID (demo gap G3 — the FRANCE national zone-identity leg on the GPU).
+Written 2026-09-02. The lane owns ONLY
+  packages/site-parcel-data/src/countryAdapters/fr/            (4 files, new)
+  packages/site-parcel-data/__tests__/frZoneIdentity.test.ts   (new)
+  packages/site-parcel-data/__tests__/fixtures/fr-gpu-zoneid/  (new)
+Everything below is a change to a SHARED file the lane may not edit (barrel protocol).
+
+VERIFIED STATE AT WRITING (measured foreground, RC read from the redirect):
+  · `npx vitest run frZoneIdentity --root packages/site-parcel-data` → RC=0, 20/20.
+  · `npx vitest run --root packages/site-parcel-data` (FULL suite) → RC=0, 170 files,
+    3718 passed | 3 skipped.
+  · `npx tsc -p packages/site-parcel-data/tsconfig.json --noEmit` → RC=0.
+  · Live acceptance driver (5 points incl. Paris regression arm) → RC=0, transcript in
+    audit/demo-esfrpt/2026-09-02/lane-fr-zoneid.md §4.
+  · `git status --porcelain packages/site-parcel-data/` → ONLY the three lane-owned paths
+    (the untracked `countryAdapters/pt/` there belongs to the concurrent G4 PT lane).
+
+────────────────────────────────────────────────────────────────────────────────
+ITEM 1 (REQUIRED) — export the adapter from the package barrel
+────────────────────────────────────────────────────────────────────────────────
+FILE: packages/site-parcel-data/src/index.ts
+
+ADD (one line, alongside the sibling adapter re-exports):
+
+export * from './countryAdapters/fr/index.js';
+
+Note: `fr/index.ts` re-exports an EXPLICIT list (no `export *` from its own leaves), so this
+line has a closed, reviewable surface. Name-collision check run 2026-09-02:
+  `grep -rn "FR_GPU_\|FrZoneIdentity\|FrGpuFeature\|frCountryAdapter\|frZoneNamedRefusal\|frRnuRefusal\|resolveFrZoneIdentityAt\|FR_APPLICABILITY_LADDER\|FR_ADAPTER_SOURCES\|parseFrIdurba" src/ --include="*.ts"`
+outside `countryAdapters/fr/` returns nothing. The Paris modules use `PARIS_*`/`parseParis*`
+prefixes — no overlap. (`FrInstrumentKind`, `FrMunicipalityStatus`, `FrChainDeps`,
+`FrFetchDeps`, `FrZoneDocumentKind`, `FrGpuModule`, `FrResolution*` likewise all Fr-prefixed.)
+
+────────────────────────────────────────────────────────────────────────────────
+ITEM 2 (REQUIRED) — migrate the GPU source row into sourceRegistry/fr.ts
+────────────────────────────────────────────────────────────────────────────────
+WHY: `sourceRegistry/fr.ts`'s header records the GPU as an HONEST ABSENCE — "the GPU … has no
+endpoint-level probe row in the prose registries yet — it waits for its probe." THE PROBE IS
+NOW DATED AND EXECUTED (2026-08-31 lane FR-1 ×3 points · 2026-09-01 E8 scout ×6 cities ·
+2026-09-02 this lane ×5 points incl. the secteur-cc and municipality/is_rnu rungs and the sea
+control). Leaving the absence prose in place would make the registry assert "nobody probed"
+about a service now measured on three separate days.
+
+2a. FILE: packages/site-parcel-data/src/sourceRegistry/fr.ts
+    ADD to the `defineSources('FR', [...])` array: the single row that currently lives in
+    `countryAdapters/fr/frSources.ts` as `FR_ADAPTER_SOURCES` (id `fr-gpu-apicarto-du`).
+    Copy it VERBATIM — the probe notes are the evidence and must not be summarised.
+    Also DELETE the header's "HONEST ABSENCE" paragraph about the GPU (it is now false).
+
+2b. THEN, in packages/site-parcel-data/src/countryAdapters/fr/frSources.ts: delete the
+    `defineSources('FR', [...])` literal and re-export the registry's row instead —
+      import { FR_SOURCES } from '../../sourceRegistry/fr.js';
+      export const FR_ADAPTER_SOURCES: readonly SiteIntelSource[] =
+          FR_SOURCES.filter((r) => r.id === FR_GPU_SOURCE_ID);
+    — keeping `FR_GPU_SOURCE_ID` exactly as is. DO NOT LEAVE TWO COPIES (C84 EI-9; the LU/LT
+    lanes left the same instruction for the same reason).
+
+────────────────────────────────────────────────────────────────────────────────
+ITEM 3 (THE WIRING THAT CLOSES G3 AT THE USER LAYER — dispatcher, NOT this lane's file)
+────────────────────────────────────────────────────────────────────────────────
+The leg is reachable but not yet dispatched: `apps/editor/src/ui/site/siteDispatch.ts` (held
+surface) today falls to `applyEstimatedZoning` for any FR point outside Paris. The closing
+edit, wherever the dispatch ladder's owner lands it:
+
+  WHEN the zoning dispatch resolves `none` AND the point routes to FR (the national
+  jurisdiction resolver claims FRA), CALL `resolveFrZoneIdentityAt(lat, lon)` (through a C57
+  same-origin proxy — see item 4) BEFORE `applyEstimatedZoning`:
+    · found/kind 'zone' | 'rnu' | 'no-zone-served' → render `value.refusal` (a typed, cited
+      EnvelopeRefusal — zone-named; C58 §1.13 card), NOT the Estimated triple;
+    · found/kind 'deferred'  → continue the existing ladder unchanged (Paris does this
+      structurally — the leg answers 'deferred' WITHOUT network I/O inside any registered
+      jurisdiction, proven by test + live driver);
+    · absent    → the existing honest-absent path (sea / not French territory);
+    · transient → the existing transient/retry card (never the Estimated triple: the GPU not
+      answering is not evidence the parcel is estimate-eligible).
+
+⚠ ORDERING GUARANTEE, so the regression arm survives the wiring: the leg self-defers via
+`resolveRegisteredJurisdictionAt` as its rung 0, so even a mis-ordered dispatcher cannot make
+it pre-empt Paris — but wire it after the registered-jurisdiction branch anyway; two guards
+are cheaper than one apology.
+
+────────────────────────────────────────────────────────────────────────────────
+ITEM 4 (SERVER LEG OWED — same shape as the E9 ee/lt/pl proxies)
+────────────────────────────────────────────────────────────────────────────────
+`FR_GPU_APICARTO_BASE` (`https://apicarto.ign.fr/api/gpu`) is the server/node seam; browser
+use needs a same-origin proxy under C57 CSP (the EE/DK precedent, and the E9-PROXY lane's
+shape: `server/` route forwarding `/api/gpu/fr?module=<m>&lat=&lon=` → apicarto with UA
+`PRYZM-Research/1.0`). The source row's `adapterStatus` says "browser proxy not yet wired" —
+keep that string truthful when the proxy lands.
+
+────────────────────────────────────────────────────────────────────────────────
+ITEM 5 — NO SCHEMA CHANGE IS REQUESTED (control 3 held; L-12874 respected)
+────────────────────────────────────────────────────────────────────────────────
+`packages/schemas/**` was NOT touched and NOTHING in it needs to change for this leg:
+  · The refusal rides the EXISTING `EnvelopeRefusalSchema` codes — `no-rule-pack` (zone
+    identified, règlement not extracted; RNU regime not encoded) and `no-plan-at-point`
+    (commune known, no zone polygon served) — both `legallyGrounded: false`, correctly.
+  · No new transient token was minted: the client emits only `endpoint-unreachable:` /
+    `upstream-failed:` (both in `TRANSIENT_FETCH_REASONS`' vocabulary) and the settled
+    `mapper-refused:` spelling (L-12874 disposition (a); like the siblings, it awaits the
+    R-batch freeze lift for its L0 seat — this lane deliberately did NOT add it).
+  · `no-feature:` absents follow the dk/ee/lt/pl genuine-absence spelling.
+
+────────────────────────────────────────────────────────────────────────────────
+ITEM 6 — DISCOVERIES RECORDED FOR OTHER LANES (record, do not act)
+────────────────────────────────────────────────────────────────────────────────
+6a. ⭐ THE BRIEF'S OWN RURAL POINT HAS NO zone-urba. (45.5636, 3.1856) is EMPTY on zone-urba
+    but is a live `secteur-cc` sector "N" (typesect 03) of carte communale 63268_CC_20190221
+    — and the commune is PARDINES (insee 63268, is_rnu:false), NOT Solignat. A zone-urba-only
+    leg (the brief's literal spec) would have rendered France's ~thousands of carte-communale
+    communes as "no zone", so the leg ships THREE rungs: zone-urba → secteur-cc →
+    municipality/is_rnu. DEMO-READINESS G3's "zone_urba — 6/6" sentence needs this qualifier.
+6b. The DEMO-READINESS point-6 coordinate (45.5250, 3.2200), labelled "Solignat", is actually
+    in BERGONNE (insee 63036, is_rnu:true — live). Its parcel row (idu 63422000ZK0036,
+    "Solignat ZK 0036") was probed at a different coordinate than the table's. Cosmetic, but
+    a demo scripted off the table would name the wrong commune.
+6c. E8 spine: `gpu_doc_id` (served on every zone/sector feature, recorded in the fixture) is
+    the document-resolution key the E8 scout wanted for the "naming ≠ addressing" gap — the
+    leg carries it verbatim on every `FrZoneIdentity` as `gpuDocId`.
+6d. Concurrent-lane state at this lane's close (so the orchestrator does not read it as this
+    lane's breakage): `packages/schemas/**` and `apps/editor/**` carry OTHER lanes' working-
+    tree edits; `countryAdapters/pt/` is mid-write by the G4 PT lane. This lane's suite +
+    tsc ran green against that tree.
