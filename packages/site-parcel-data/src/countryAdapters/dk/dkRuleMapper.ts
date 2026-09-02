@@ -187,7 +187,10 @@ export function mapDkFeatureToRules(
         );
     }
     const planNr = firstString(p['plannr'], p['lp_plannr']);
-    const planName = firstString(p['plannavn'], p['lp_plannavn']);
+    // (plannavn/lp_plannavn are read but not yet consumed downstream; the binding was removed
+    // 2026-09-02 when the package barrel exposed this file to the stricter ROOT tsc, which
+    // errors on unused locals — re-derive with firstString(p['plannavn'], p['lp_plannavn'])
+    // when a consumer lands.)
     const doklink = firstString(p['doklink']);
     // Lifecycle, MIRRORED VERBATIM where served: lokalplan-family features serve `status`,
     // rammer serve `planstatus` (both 'V' live 2026-09-01). Fallback = the queried layer

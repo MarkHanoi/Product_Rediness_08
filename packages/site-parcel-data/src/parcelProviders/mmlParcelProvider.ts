@@ -83,8 +83,14 @@
 //               'Resolves real Finnish parcels once the key is set; else null → OSM footprint. Åland excluded.',
 //     },
 //
-//   (Place the FI row anywhere before the universal fallback — FINLAND_BBOX does not overlap any
-//    existing cadastral box, so ordering is not load-bearing here.)
+//   ⛔ CORRECTED 2026-09-01 (L-12871). This read: "FINLAND_BBOX does not overlap any existing
+//    cadastral box, so ordering is not load-bearing here." FALSE, and `se/seJurisdiction.ts`
+//    already recorded it as falsified without being able to edit this file. MEASURED:
+//    FINLAND_BBOX ∩ NORWAY_BBOX = lat[59.7, 70.1] × lon[20.5, 31.3] (registry.ts:270 documents
+//    this one and orders FI before NO for it); FINLAND_BBOX ∩ SWEDEN_BBOX = lat[59.7, 69.1] ×
+//    lon[20.5, 24.2] — Tornio (FI) and Haparanda (SE) are one bridge apart and each sits inside
+//    the other's box. Ordering IS load-bearing, and box order cannot fix it in any case: use
+//    `jurisdiction/nationalJurisdictionResolver.ts`, which decides on boundary geometry.
 //
 // Strategic context — docs/04-reference/jurisdictions/fi/RATE-IMPLEMENTATION-PLAN.md (Phase B),
 // fi/README.md §2.1 (MML cadastre), fi/NEXT.md §3.2 (the key blocker), fi/FOUNDER-BLOCKERS.md (row 1),

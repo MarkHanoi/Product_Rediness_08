@@ -86,15 +86,15 @@ describe('resolveParcelJurisdiction — universal footprint + never-throws', () 
         // 8.5417°E is east of France's eastern edge, so FR does not swallow it — CH wins.
         expect(resolveParcelJurisdiction(47.3769, 8.5417).providerId).toBe('swisstopo-av');
     });
-    it('Geneva: the legacy single verdict stays FR (first-match), but priority-fallback prefers CH', () => {
+    it('Geneva: the legacy single verdict stays FR (first-match), but the real dispatch offers CH alone', () => {
         // 6.14°E, 46.20°N is inside BOTH FRANCE_BBOX and SWITZERLAND_BBOX. The legacy single-verdict
-        // `resolveParcelJurisdiction` keeps first-match (FR precedes CH in row order) → 'ign-fr'. The
-        // priority resolver instead orders the SMALLER box first: SWITZERLAND_BBOX (~10 deg²) < FRANCE
-        // (~135 deg²), so a real fetch tries swisstopo AV (which live-probes Geneva parcels) before FR.
+        // `resolveParcelJurisdiction` keeps first-match (FR precedes CH in row order) → 'ign-fr'.
+        // ⚠ UPDATED 2026-09-02 (L-12871 wave): the priority resolver used to offer
+        // ['swisstopo-av', 'ign-fr'] by box area; the national claim filter now removes the
+        // wrong-country candidate — the resolver claims CHE, so only swisstopo AV is offered.
         expect(resolveParcelJurisdiction(46.2044, 6.1432).providerId).toBe('ign-fr');
         expect(resolveParcelCandidates(46.2044, 6.1432).map((j) => j.providerId)).toEqual([
             'swisstopo-av',
-            'ign-fr',
         ]);
     });
     it('lists all registered jurisdictions (cadastral + fallback)', () => {
@@ -111,24 +111,31 @@ describe('resolveParcelJurisdiction — universal footprint + never-throws', () 
 
 // ── L-650 per-point PRIORITY-FALLBACK dispatch — specificity ordering + fall-through ─────────────
 
-describe('resolveParcelCandidates — specificity ordering (smallest enclosing box first)', () => {
-    it('Kirkenes (FI∩NO) orders FI before NO (FINLAND_BBOX ⊂ NORWAY_BBOX)', () => {
-        // 69.73°N, 30.05°E is inside BOTH the Finland and Norway boxes; the smaller (FI) leads.
+// ⚠ SECTION UPDATED 2026-09-02 (L-12871 wave). These four used to pin CROSS-COUNTRY candidate
+// lists produced by the smallest-box rule (Kirkenes FI-then-NO, Eindhoven BE-then-NL, Calais
+// GB-then-FR) and relied on each wrong-country cadastre's null to self-correct. The national
+// claim filter in `resolveParcelCandidates` now removes wrong-country candidates outright:
+// Kirkenes is NORWEGIAN, so Norway alone is offered. Specificity still orders SUB-NATIONAL rows
+// within the claimed country (Düsseldorf: NRW before the DE footprint) — that is the one job the
+// area sort keeps on a claim.
+describe('resolveParcelCandidates — national claim filters, specificity orders within a country', () => {
+    it('Kirkenes is Norwegian: NO alone is offered (FI is no longer tried first)', () => {
+        // 69.73°N, 30.05°E is inside BOTH the Finland and Norway boxes; the CLAIM (NOR) decides.
         const ids = resolveParcelCandidates(69.7263, 30.0464).map((j) => j.providerId);
-        expect(ids).toEqual(['mml', 'geonorge-no']);
+        expect(ids).toEqual(['geonorge-no']);
     });
-    it('Eindhoven (BE∩NL) orders Flanders before NL (FLANDERS_BBOX is smaller)', () => {
+    it('Eindhoven is Dutch: NL alone is offered (Flanders is no longer tried first)', () => {
         // 51.44°N, 5.48°E is inside FLANDERS_BBOX and NETHERLANDS_BBOX (and NOT FRANCE — lat > 51.2).
         const ids = resolveParcelCandidates(51.4416, 5.4697).map((j) => j.providerId);
-        expect(ids).toEqual(['flanders-grb', 'pdok-nl']);
+        expect(ids).toEqual(['pdok-nl']);
     });
-    it('Calais (GB∩FR) orders England before France (ENGLAND_BBOX is smaller)', () => {
+    it('Calais is French: FR alone is offered (England is no longer tried first)', () => {
         const ids = resolveParcelCandidates(50.9513, 1.8587).map((j) => j.providerId);
-        expect(ids).toEqual(['gb-os-inspire', 'ign-fr']);
+        expect(ids).toEqual(['ign-fr']);
     });
-    it('Düsseldorf orders NRW < NL < Germany-footprint by bbox area', () => {
+    it('Düsseldorf: the DEU claim keeps BOTH German rows, NRW first by specificity; NL is dropped', () => {
         const ids = resolveParcelCandidates(51.2277, 6.7735).map((j) => j.providerId);
-        expect(ids).toEqual(['alkis-nrw', 'pdok-nl', 'footprint']);
+        expect(ids).toEqual(['alkis-nrw', 'footprint']);
     });
     it('a non-overlapping interior point has exactly one candidate', () => {
         expect(resolveParcelCandidates(41.9028, 12.4964).map((j) => j.providerId)).toEqual([
@@ -136,8 +143,10 @@ describe('resolveParcelCandidates — specificity ordering (smallest enclosing b
         ]);
     });
     it('specificity: a city/region box is strictly smaller than its enclosing national box', () => {
-        const [fi, no] = resolveParcelCandidates(69.7263, 30.0464);
-        expect(parcelJurisdictionSpecificity(fi!)).toBeLessThan(parcelJurisdictionSpecificity(no!));
+        // (Point moved to Düsseldorf 2026-09-02: Kirkenes now yields a single NO row, so the
+        // within-country pair to compare is NRW vs the DE footprint.)
+        const [nrw, de] = resolveParcelCandidates(51.2277, 6.7735);
+        expect(parcelJurisdictionSpecificity(nrw!)).toBeLessThan(parcelJurisdictionSpecificity(de!));
         expect(parcelJurisdictionSpecificity(UNIVERSAL_FOOTPRINT_JURISDICTION)).toBe(
             Number.POSITIVE_INFINITY,
         );
@@ -191,7 +200,8 @@ describe('resolveParcelWithFallback — falls THROUGH a null provider to the enc
             return null; // force a full walk
         });
         expect(hit).toBeNull();
-        expect(seen).toEqual(['alkis-nrw', 'pdok-nl', 'footprint']);
+        // (Updated 2026-09-02: pdok-nl no longer appears — the DEU claim drops the NL row.)
+        expect(seen).toEqual(['alkis-nrw', 'footprint']);
     });
     it('never throws on garbage → null', async () => {
         await expect(resolveParcelWithFallback(NaN, NaN, () => ({ id: 'x' }))).resolves.toBeNull();

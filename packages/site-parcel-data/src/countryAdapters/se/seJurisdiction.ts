@@ -19,9 +19,12 @@
 //        MUTUAL. lat[59.7,69.1] × lon[20.5,24.2]. Tornio (65.8482,24.1467) is FINNISH and
 //        inside SWEDEN_BBOX; Haparanda (65.8356,24.1345) is SWEDISH and inside FINLAND_BBOX —
 //        the two are one bridge apart on the Torne river.
-//        ⚠ `mmlParcelProvider.ts:86` states "FINLAND_BBOX does not overlap any". That sentence
-//        is FALSIFIED by this box the day it is declared. It is not edited here (barrel
-//        protocol — that file is not this lane's), it is REPORTED: impl/lane-e7-se.md §7.
+//        ⚠ RESOLVED 2026-09-01/02: `mmlParcelProvider.ts` used to state "FINLAND_BBOX does not
+//        overlap any existing cadastral box" — this lane reported it falsified (impl/
+//        lane-e7-se.md §7, unable to edit the file under the barrel protocol), and the L-12871
+//        lane DELETED that sentence, replacing it with the measured FI∩NO / FI∩SE audit and a
+//        pointer to `jurisdiction/nationalJurisdictionResolver.ts`, which now decides
+//        nationality on boundary geometry (the registry consults it per click since 2026-09-02).
 //   vs ESTONIA_BBOX   (57.5–59.7 / 21.7–28.25, countryAdapters/ee/eeJurisdiction.ts) → OVERLAP,
 //        ONE-WAY. lat[57.5,59.7] × lon[21.7,24.2]. Kuressaare (58.2528,22.4869) is ESTONIAN and
 //        inside SWEDEN_BBOX. No Swedish land is inside ESTONIA_BBOX (Gotland's east coast is

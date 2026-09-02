@@ -340,13 +340,14 @@ describe('L-651 fall-through — new rows never strand an existing live cadastre
 
     it('the pre-existing golden routes are unchanged by this batch', async () => {
         // Regression guard for the rows this batch inserted rows ahead of.
-        // Barcelona sits inside FRANCE_BBOX too, and France's box is the smaller of the two, so the
-        // PRIORITY resolver legitimately tries IGN first and self-corrects — pre-existing L-650
-        // behaviour, documented in registry.ts. What this batch must not disturb is the LEGACY
-        // single verdict, which row order decides: inserting PT ahead of ES must keep ES ahead of FR.
+        // ⚠ UPDATED 2026-09-02 (L-12871 wave): this used to pin Barcelona's candidates as
+        // ['ign-fr', 'catastro'] — the smallest-box rule literally tried the FRENCH cadastre
+        // first for Barcelona (FRANCE_BBOX ≈ 133 deg² < SPAIN_BBOX ≈ 378 deg²) and relied on
+        // IGN's null to self-correct. The national claim filter now removes the wrong-country
+        // candidate outright: the resolver claims ESP, so only Catastro is offered. The LEGACY
+        // single verdict below is unchanged.
         expect(resolveParcelJurisdiction(41.3915, 2.1649).providerId).toBe('catastro'); // Barcelona
         expect(resolveParcelCandidates(41.3915, 2.1649).map((c) => c.providerId)).toEqual([
-            'ign-fr',
             'catastro',
         ]);
         expect(primary(48.8566, 2.3522)!.providerId).toBe('ign-fr'); // Paris

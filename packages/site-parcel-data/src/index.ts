@@ -2295,3 +2295,42 @@ export * from './rulepacks/declarative/esBarcelona20aAillada.decl.js';
 // GERS conflation key · source-priority model as data · match/dedup/federate over the
 // frozen SiteIntelBuilding record · the ODbL separability boundary.
 export * from './buildingsFederation/index.js';
+
+// ── L-12871 + L-12887 (2026-09-02) — THE NATIONAL-JURISDICTION RESOLVER ──────────────────────
+// The decider `parcelProviders/registry.ts` routes national claims through: boundary geometry
+// + a MEASURED tolerance (1500 m, ne_10m vs official DEU ADM0) + the un-modelled-neighbour
+// refusal ring. Exported so callers outside the package (the editor's parcel info card, the
+// coverage panel) can read the verdict and its basis/refusal BY NAME.
+export {
+    resolveNationalJurisdiction,
+    describeNationalJurisdiction,
+    NATIONAL_BOUNDARY_SET,
+    type NationalBoundarySet,
+    type NationalJurisdictionVerdict,
+    type NationalJurisdictionClaim,
+    type NationalJurisdictionRefusal,
+    type NationalJurisdictionBasis,
+    type NationalJurisdictionRefusalReason,
+    type NationalJurisdictionDeps,
+} from './jurisdiction/nationalJurisdictionResolver.js';
+
+// ── THE COUNTRY ADAPTERS (applied 2026-09-02 from the six queued barrel-additions-*.txt files;
+// EE + DK added in the SAME pass because every one of those files says "apply it to the
+// siblings in one commit rather than making one the odd one out"). Each adapter's own index.ts
+// is an explicit, curated re-export list (DK's five `export *` lines are the recorded odd one
+// out, L-12875), so these wildcards have a closed, reviewed surface. ──────────────────────────
+export * from './countryAdapters/ee/index.js';
+export * from './countryAdapters/dk/index.js';
+export * from './countryAdapters/lt/index.js';
+export * from './countryAdapters/pl/index.js';
+export * from './countryAdapters/lu/index.js';
+export * from './countryAdapters/se/index.js';
+export * from './countryAdapters/fi/index.js';
+export * from './countryAdapters/no/index.js';
+
+// ⚠ ONE ambiguity between the adapter wildcards, resolved explicitly rather than silently:
+// EE (eeWfsClient) and NO (noMatrikkelClient) each mint their OWN `extractOwsExceptionText`
+// (E7 §6-A: the shape is copied between country directories, never imported across them). The
+// bare name resolves to the EE original; NO's copy stays reachable under a prefixed alias.
+export { extractOwsExceptionText } from './countryAdapters/ee/index.js';
+export { extractOwsExceptionText as noExtractOwsExceptionText } from './countryAdapters/no/index.js';

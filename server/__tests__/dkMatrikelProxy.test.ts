@@ -131,12 +131,37 @@ describe('fetchDkParcelAtPoint — the Catastro-shaped resolve', () => {
         expect(p!.ring.length).toBeGreaterThanOrEqual(3);
     });
 
-    it('WITHOUT credentials → null (client then footprint-falls-back), never throws', async () => {
-        let called = false;
-        const spy = async () => { called = true; return { ok: true, status: 200, text: async () => '' }; };
+    // ⚠ TEST CORRECTED 2026-09-02 (L-12888). This used to pin "WITHOUT credentials → null, and no
+    // upstream call is even attempted" — the exact behaviour L-12888 names as the defect: the
+    // registered Danish route read "no live access" while the KEYLESS DAWA jordstykker leg sat
+    // unwired. Without credentials the proxy now calls DAWA and serves the REAL parcel.
+    it('WITHOUT credentials → the KEYLESS DAWA leg serves the real parcel (L-12888)', async () => {
+        const urls: string[] = [];
+        const dawaBody = JSON.stringify({
+            type: 'FeatureCollection',
+            features: [{
+                type: 'Feature',
+                geometry: { type: 'Polygon', coordinates: [[[12.567, 55.675], [12.569, 55.675], [12.569, 55.677], [12.567, 55.677], [12.567, 55.675]]] },
+                properties: { matrikelnr: '7000q', registreretareal: 64981, ejerlavnavn: 'Udenbys Klædebo Kvarter, København' },
+            }],
+        });
+        const spy = async (url: string) => { urls.push(url); return { ok: true, status: 200, text: async () => dawaBody }; };
         const p = await fetchDkParcelAtPoint(12.5683, 55.6761, { fetchImpl: spy });
+        expect(p).not.toBeNull();
+        expect(p!.refcat).toBe('7000q');
+        expect(p!.areaM2).toBe(64981);
+        expect(p!.ring.length).toBeGreaterThanOrEqual(3);
+        expect((p as { via?: string }).via).toBe('dawa-jordstykker');
+        // Exactly ONE upstream call, and it is DAWA — the keyed WFS is never attempted unkeyed.
+        expect(urls).toHaveLength(1);
+        expect(urls[0]).toContain('jordstykker');
+        expect(urls[0]).toContain('format=geojson');
+    });
+
+    it('WITHOUT credentials and DAWA down → null (client then footprint-falls-back), never throws', async () => {
+        const spy = async () => ({ ok: false, status: 500, text: async () => '' });
+        const p = await fetchDkParcelAtPoint(12.5684, 55.6762, { fetchImpl: spy });
         expect(p).toBeNull();
-        expect(called).toBe(false); // no upstream call is even attempted without creds
     });
 
     it('upstream failure / bad coords → null (never throws)', async () => {

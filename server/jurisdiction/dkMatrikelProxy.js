@@ -19,8 +19,10 @@
  *                                                     Matriklen2 service alias must be confirmed
  *                                                     against the account; sensible defaults below)
  *
- * When the credentials are ABSENT the proxy answers 200 `{ parcel: null }` (so the client falls
- * back to the OSM footprint) and logs ONCE that DK is unconfigured — never a crash, never a guess.
+ * ⚠ SUPERSEDED IN PART 2026-09-02 (L-12888): when the credentials are ABSENT the proxy now serves
+ * the parcel from the KEYLESS DAWA jordstykker leg (see DK_DAWA_JORDSTYKKER_URL below) instead of
+ * answering `{ parcel: null }` — the key upgrades attributes (survey WFS + matrikelnummer join),
+ * it no longer gates Danish parcels entirely. Still never a crash, never a guess.
  *
  * REPROJECTION. The Matrikel is EPSG:25832 (ETRS89 / UTM 32N). We request native 25832 and
  * reproject each vertex to WGS84 with a self-contained Snyder inverse-transverse-Mercator (no
@@ -34,6 +36,19 @@
 
 /** The same-origin route the client's DkMatrikelParcelProvider calls. */
 export const DK_PARCEL_PATH = '/api/parcel/dk';
+
+/**
+ * L-12888 (2026-09-02) — THE KEYLESS DAWA LEG. Denmark's cadastral map is ALSO redistributed
+ * keylessly by Dataforsyningen's DAWA (`/jordstykker?x=&y=&format=geojson&srid=4326` returns the
+ * real jordstykke polygon + matrikelnr at a point — live-verified 2026-09-02: HTTP 200, Polygon,
+ * matrikelnr 7000q, registreretareal 64981 @ København; the package-side parser + 2026-09-01
+ * transcripts live in packages/site-parcel-data/src/countryAdapters/dk/dkParcelProvider.ts).
+ * The proxy therefore no longer answers `{ parcel: null }` when DATAFORDELER_API_KEY is unset:
+ * the keyed Datafordeler WFS leg is tried first (survey attribute join), and on a miss OR when
+ * unkeyed the DAWA leg serves the parcel. Env-overridable.
+ */
+export const DK_DAWA_JORDSTYKKER_URL =
+    process.env.DK_DAWA_JORDSTYKKER_URL || 'https://api.dataforsyningen.dk/jordstykker';
 
 /** The Datafordeler Matrikel WFS (2026 host/alias). ⚠ Basic-Auth via a Service User was RETIRED for the
  *  entity-based WFS — the legacy `services.datafordeler.dk/MATRIKLEN2/…` alias 404s (legacy WFS closed
@@ -281,22 +296,16 @@ function buildJordstykkeAttrUrl(jordstykkeLokalId, deps = {}) {
 }
 
 /**
- * Resolve the Danish cadastral parcel under a WGS84 point. Returns the normalised
- * `{ ring, refcat, areaM2, address }` (WGS84) or null (no parcel / no credentials / upstream
- * failure). NEVER throws. `deps` injectable for tests (fetchImpl / username / password / wfsUrl).
+ * The keyed Datafordeler WFS leg (survey geometry + matrikelnummer attribute join). Returns the
+ * normalised parcel or null (unkeyed / no parcel / upstream failure). NEVER throws.
  */
-export async function fetchDkParcelAtPoint(lon, lat, deps = {}) {
-    if (!Number.isFinite(lon) || !Number.isFinite(lat)) return null;
-    const pointKey = `${lat.toFixed(5)},${lon.toFixed(5)}`;
-    const cached = cacheGet(pointKey);
-    if (cached) return cached;
-
+async function fetchDatafordelerParcelAtPoint(lon, lat, deps = {}) {
     const url = buildMatrikelUrl(lat, lon, deps);
     if (!url) {
         if (!_warnedNoCreds) {
-            console.warn('[dk-matrikel] DATAFORDELER_API_KEY not set — Denmark parcel-select returns ' +
-                '{ parcel: null } (client falls back to the OSM footprint). Mint a free Datafordeler API ' +
-                'key (portal.datafordeler.dk → IT-system → API-nøgle) to enable real Danish parcels.');
+            console.warn('[dk-matrikel] DATAFORDELER_API_KEY not set — serving Danish parcels from the ' +
+                'KEYLESS DAWA jordstykker leg (L-12888). Mint a free Datafordeler API key ' +
+                '(portal.datafordeler.dk → IT-system → API-nøgle) to add the survey-WFS attribute join.');
             _warnedNoCreds = true;
         }
         return null;
@@ -316,12 +325,74 @@ export async function fetchDkParcelAtPoint(lon, lat, deps = {}) {
         if (matrikelnr) refcat = matrikelnr;
     }
     if (!refcat) return null;
-    const result = {
+    return {
         ring: chosen.ring,
         refcat,
         areaM2: ringAreaM2(chosen.ring),
         address: chosen.address,
     };
+}
+
+/**
+ * L-12888 — the KEYLESS DAWA jordstykker leg. `format=geojson&srid=4326` serves the real parcel
+ * polygon + matrikelnr with no credential. Returns the normalised parcel (with `via` naming the
+ * leg) or null. NEVER throws.
+ */
+export async function fetchDawaParcelAtPoint(lon, lat, deps = {}) {
+    try {
+        const base = deps.dawaUrl ?? DK_DAWA_JORDSTYKKER_URL;
+        const url = `${base}?x=${encodeURIComponent(String(lon))}&y=${encodeURIComponent(String(lat))}` +
+            `&format=geojson&srid=4326`;
+        const text = await fetchTextOnce(url, deps);
+        if (!text) return null;
+        const body = JSON.parse(text);
+        const feature = Array.isArray(body?.features) ? body.features[0] : null;
+        const geom = feature?.geometry;
+        if (!feature || !geom) return null;
+        // Outer ring of the (Multi)Polygon, [lon, lat] → { lat, lon }.
+        const outer = geom.type === 'Polygon' ? geom.coordinates?.[0]
+            : geom.type === 'MultiPolygon' ? geom.coordinates?.[0]?.[0]
+            : null;
+        if (!Array.isArray(outer) || outer.length < 3) return null;
+        const ring = [];
+        for (const p of outer) {
+            const [x, y] = p;
+            if (!Number.isFinite(x) || !Number.isFinite(y)) return null;
+            ring.push({ lat: y, lon: x });
+        }
+        const props = feature.properties ?? {};
+        const refcat = typeof props.matrikelnr === 'string' && props.matrikelnr ? props.matrikelnr : null;
+        if (!refcat) return null;
+        const official = Number(props.registreretareal);
+        return {
+            ring,
+            refcat,
+            areaM2: Number.isFinite(official) && official > 0 ? official : ringAreaM2(ring),
+            address: typeof props.ejerlavnavn === 'string' && props.ejerlavnavn ? props.ejerlavnavn : null,
+            via: 'dawa-jordstykker',
+        };
+    } catch (err) {
+        console.warn('[dk-matrikel] DAWA leg failed (non-fatal):', err?.message ?? err);
+        return null;
+    }
+}
+
+/**
+ * Resolve the Danish cadastral parcel under a WGS84 point. Keyed Datafordeler WFS first (survey
+ * attribute join), then the KEYLESS DAWA leg (L-12888) — so an unkeyed deployment still serves
+ * the real parcel, and `{ parcel: null }` means "no parcel / upstream down", never "no key".
+ * Returns the normalised `{ ring, refcat, areaM2, address }` (WGS84) or null. NEVER throws.
+ * `deps` injectable for tests (fetchImpl / apikey / wfsUrl / dawaUrl).
+ */
+export async function fetchDkParcelAtPoint(lon, lat, deps = {}) {
+    if (!Number.isFinite(lon) || !Number.isFinite(lat)) return null;
+    const pointKey = `${lat.toFixed(5)},${lon.toFixed(5)}`;
+    const cached = cacheGet(pointKey);
+    if (cached) return cached;
+
+    const result = (await fetchDatafordelerParcelAtPoint(lon, lat, deps))
+        ?? (await fetchDawaParcelAtPoint(lon, lat, deps));
+    if (!result) return null;
     cacheSet(pointKey, result);
     return result;
 }

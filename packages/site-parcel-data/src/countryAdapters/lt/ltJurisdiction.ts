@@ -3,11 +3,24 @@
 // national cadastre to try. The service's own `absent` is the real "no parcel here" answer —
 // this box never asserts coverage.
 //
-// Overlap audit (the registry rule — check before registering): no registered bbox in
-// `packages/site-parcel-data/src/providers/*Bbox.ts` intersects Lithuania (grep 2026-09-01:
-// DENMARK, MADRID, BARCELONA + the ES/SA municipal boxes, plus ESTONIA_BBOX whose minLat is
-// 57.5 — Lithuania's maxLat is 56.5, so EE and LT do not touch). Latvia and Poland are
-// unregistered, so no manual precedence is needed for LT today.
+// ⛔ OVERLAP AUDIT — CORRECTED 2026-09-01 (L-12871). This block used to end: "Latvia and Poland
+// are unregistered, so no manual precedence is needed for LT today." That sentence was true when
+// it was written and FALSE the moment Poland landed in the same wave, and the reassurance is what
+// made the defect invisible. It is deleted rather than amended.
+//
+// MEASURED, over all 25 routing boxes in this package (300 pairs → 42 interior overlaps,
+// 23 of them national × national):
+//   • LITHUANIA_BBOX ∩ POLAND_BBOX = lat[53.85, 54.84] × lon[20.9, 24.15]. Suwałki
+//     (54.1017, 22.9308) and Sejny (54.1069, 23.3489) are POLISH and satisfy `isInLithuania`;
+//     Marijampolė (54.5589, 23.3542) is LITHUANIAN and satisfies `isInPoland`.
+//     LITHUANIA_BBOX (15.9 deg²) is the SMALLER box, so smallest-box specificity hands both
+//     Polish towns to Lithuania.
+//   • LITHUANIA_BBOX ∩ SWEDEN_BBOX = lat[55.3, 56.5] × lon[20.9, 24.2] (Klaipėda is inside both).
+//
+// ⭐ PRECEDENCE IS NO LONGER THIS FILE'S PROBLEM, AND IT IS NO LONGER A COMMENT. The answer is
+// `jurisdiction/nationalJurisdictionResolver.ts`, which uses this predicate ONLY as a candidate
+// pre-filter and then decides on real boundary geometry, naming its basis or refusing.
+// ⛔ Do not route on `isInLithuania` alone.
 //
 // ⚠ THIS MODULE DOES NOT REGISTER ITSELF. `parcelProviders/registry.ts` is a SHARED file and
 // this lane may not edit it (barrel protocol); the registration line is queued for the

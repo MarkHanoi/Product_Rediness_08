@@ -75,8 +75,64 @@ import { isInChicago, CHICAGO_BBOX } from './chicagoParcelProvider.js';
 import { isInBrussels, BRUSSELS_BBOX } from './brusselsParcelProvider.js';
 import { isInWallonia, WALLONIA_BBOX } from './walloniaParcelProvider.js';
 import { isInScotland, SCOTLAND_BBOX } from './scotlandRosParcelProvider.js';
+// L-12871 + L-12887 WAVE (2026-09-02) — the NATIONAL DECIDER and the five national rows it
+// unblocks (EE · LT · PL · LU · SE). The resolver decides on real boundary geometry with a
+// MEASURED tolerance; the bboxes below stay what they always were, PRE-FILTERS. Only the BBOX
+// constants are imported from the adapters — never their isIn* predicates — because a new
+// national row must not match on a rectangle (that is the defect L-12871 names).
+import { resolveNationalJurisdiction, type NationalJurisdictionVerdict } from '../jurisdiction/nationalJurisdictionResolver.js';
+import { ESTONIA_BBOX } from '../countryAdapters/ee/eeJurisdiction.js';
+import { LITHUANIA_BBOX } from '../countryAdapters/lt/ltJurisdiction.js';
+import { POLAND_BBOX } from '../countryAdapters/pl/plJurisdiction.js';
+import { LUXEMBOURG_BBOX } from '../countryAdapters/lu/luJurisdiction.js';
+import { SWEDEN_BBOX } from '../countryAdapters/se/seJurisdiction.js';
 
 const _tracer = trace.getTracer('pryzm.parcel');
+
+// ═════════════════════════════════════════════════════════════════════════════════════════════
+// THE NATIONAL DECIDER (L-12871). `resolveNationalJurisdiction` answers "which sovereign state
+// claims this point" from boundary geometry + a measured tolerance, or refuses BY NAME. It is
+// consulted in two places:
+//   • each NEW national row's `contains` is `claimsNation(cc)` — the row matches only where the
+//     resolver CLAIMS that country, never where a rectangle happens to cover the point;
+//   • `resolveParcelCandidates` filters the whole candidate set by the national claim, so the
+//     pre-existing bbox rows (NO/DK/FI/FR/DE/…) also stop crossing borders (Tallinn no longer
+//     offers Kartverket, Flensburg no longer offers Matriklen).
+// One-entry memo: one click asks once for the filter and once per claimsNation row; all of those
+// are the SAME point, so the resolver runs once per click, not seven times.
+// ═════════════════════════════════════════════════════════════════════════════════════════════
+let _nationalMemo: { lat: number; lon: number; v: NationalJurisdictionVerdict } | null = null;
+
+/** The national verdict at a point, memoised for exactly one point (never a stale carry-over). */
+function nationalVerdictAt(lat: number, lon: number): NationalJurisdictionVerdict {
+    if (_nationalMemo && _nationalMemo.lat === lat && _nationalMemo.lon === lon) {
+        return _nationalMemo.v;
+    }
+    const v = resolveNationalJurisdiction(lat, lon);
+    _nationalMemo = { lat, lon, v };
+    return v;
+}
+
+/**
+ * A `contains` predicate that is TRUE only where the national-jurisdiction resolver CLAIMS the
+ * given country (either basis: polygon-containment, or the nearest-polygon coastal rescue — safe
+ * since L-12887 added the un-modelled-neighbour refusal ring). On a refusal it is false for
+ * EVERY country, so a border-band click falls through to the bbox rows and the per-cadastre-null
+ * walk — a refusal means "do not ASSERT a nationality", not "no parcel here". Pure; never throws.
+ */
+function claimsNation(regionCode: string): (lat: number, lon: number) => boolean {
+    return (lat: number, lon: number): boolean => {
+        if (!Number.isFinite(lat) || !Number.isFinite(lon)) return false;
+        const v = nationalVerdictAt(lat, lon);
+        return v.ok && v.regionCode === regionCode;
+    };
+}
+
+/** `'DE-NW'` → `'DE'`, `'US-NY-NYC'` → `'US'`, `'SE'` → `'SE'` — the country a row belongs to. */
+function countryOfRegionCode(regionCode: string): string {
+    const dash = regionCode.indexOf('-');
+    return dash === -1 ? regionCode : regionCode.slice(0, dash);
+}
 
 /** How a click resolves to parcel geometry. */
 export type ParcelProviderKind = 'cadastral' | 'footprint-fallback';
@@ -129,6 +185,15 @@ export interface ParcelJurisdiction {
  * A misroute to a neighbour's CADASTRAL proxy remains self-correcting (that proxy returns null for a
  * point outside its territory → fall through), and every unmatched point ends at the universal
  * footprint. Rows stay ADDITIVE — order is purely cosmetic now; specificity decides everything.
+ *
+ * ⚠ PARTLY SUPERSEDED 2026-09-02 (L-12871) — the paragraph above is kept as the record of the
+ * L-650 design, but "specificity decides everything" is no longer true and several of its border
+ * examples no longer occur: `resolveParcelCandidates` now consults the NATIONAL-JURISDICTION
+ * resolver first, and on a national CLAIM only the claimed country's rows survive (so Kirkenes
+ * offers NO alone rather than FI-then-NO, Eindhoven offers NL alone rather than BE-then-NL, and
+ * Calais offers FR alone rather than GB-then-FR). The specificity sort still orders sub-national
+ * rows within one country and the whole set on a national REFUSAL. See the doc block on
+ * `resolveParcelCandidates`.
  */
 const PARCEL_JURISDICTIONS: readonly ParcelJurisdiction[] = [
     {
@@ -157,6 +222,68 @@ const PARCEL_JURISDICTIONS: readonly ParcelJurisdiction[] = [
         kind: 'cadastral',
         contains: isInSpain,
         note: 'OVC reverse-geocode + INSPIRE WFS GetParcel — keyless, live (the original L-380 pilot).',
+    },
+    // ══════════════════════════════════════════════════════════════════════════════════════
+    // L-12871 BATCH (2026-09-02) — EE · LT · PL · LU · SE, the five countries whose adapters
+    // were committed and tested but ROUTED NOWHERE (grep countryAdapters → 0 hits here before
+    // this block). Every `contains` below is `claimsNation(cc)`: the national resolver's
+    // boundary-geometry claim, NEVER a rectangle — LITHUANIA_BBOX contains the Polish towns
+    // Suwałki and Sejny, SWEDEN_BBOX contains København, LUXEMBOURG_BBOX sits entirely inside
+    // FRANCE_BBOX, and a smallest-box tiebreak routes all of them wrongly. Where the resolver
+    // REFUSES (the Oder band, Haparanda/Tornio), these rows simply do not match and the click
+    // falls to the surviving bbox rows / the footprint — never a confident wrong cadastre.
+    // Row placement (before BE/FR/FI/NO/DK) keeps the LEGACY first-match
+    // `resolveParcelJurisdiction` honest for coverage callers, exactly like the PT-before-ES
+    // precedent above; the real dispatch orders by specificity and filters by the claim.
+    {
+        regionCode: 'EE',
+        countryName: 'Estonia',
+        providerId: 'ee-maaamet-kataster',
+        label: 'Katastriüksus (Estonia · Maa- ja Ruumiamet kataster)',
+        proxyPath: '/api/parcel/ee',
+        kind: 'cadastral',
+        contains: claimsNation('EE'),
+        note: 'Maa- ja Ruumiamet kataster WFS (gsavalik.envir.ee/geoserver, kataster:ky_kehtiv) — keyless, live-probed 2026-08-31 by the E1d lane (real katastriüksus with tunnus + WGS84 ring; countryAdapters/ee/eeParcelProvider.ts carries the parser + transcripts). ⚠ Proxy /api/parcel/ee NOT yet wired server-side → resolves null → OSM footprint until then. Routing is claimsNation("EE"): boundary geometry, so Kuressaare routes here while Rīga (LVA, un-modelled) and Narva-river band points refuse nationally and fall through.',
+    },
+    {
+        regionCode: 'LT',
+        countryName: 'Lithuania',
+        providerId: 'lt-rc-ntr-parcels-featureserver',
+        label: 'Žemės sklypas (Lithuania · Registrų centras NTR, via Statistics Lithuania)',
+        proxyPath: '/api/parcel/lt',
+        kind: 'cadastral',
+        contains: claimsNation('LT'),
+        note: 'Registrų centras NTR parcels ArcGIS FeatureServer (osp-sdg.stat.gov.lt, ntr_sklypai) — keyless, live-probed 2026-09-01 by the E6-LT lane (countryAdapters/lt/ltParcelProvider.ts). ⚠ Proxy /api/parcel/lt NOT yet wired server-side → resolves null → OSM footprint until then. Routing is claimsNation("LT"): Marijampolė (inside POLAND_BBOX) routes here; Polish Suwałki/Sejny (inside LITHUANIA_BBOX, the L-12871 witnesses) do NOT.',
+    },
+    {
+        regionCode: 'PL',
+        countryName: 'Poland',
+        providerId: 'pl-gugik-uldk',
+        label: 'Działka ewidencyjna (Poland · GUGiK ULDK)',
+        proxyPath: '/api/parcel/pl',
+        kind: 'cadastral',
+        contains: claimsNation('PL'),
+        note: 'GUGiK ULDK point query (uldk.gugik.gov.pl, EPSG:2180 → WGS84) — keyless, live-probed 2026-09-01 by the E6-PL lane (countryAdapters/pl/plUldkClient.ts). ⚠ Proxy /api/parcel/pl NOT yet wired server-side → resolves null → OSM footprint until then. Routing is claimsNation("PL"): Suwałki/Sejny/Zgorzelec route here; the German bank of the Oder/Neisse (Frankfurt (Oder), Görlitz) does NOT — and Słubice (POLISH, 485 m from the ne_10m DE boundary at a measured 1500 m tolerance) REFUSES nationally and falls to the DE footprint row, a recorded DATA limit (upgrade path: official DEU+POL boundaries in jurisdiction/data/), not a routing bug.',
+    },
+    {
+        regionCode: 'LU',
+        countryName: 'Luxembourg',
+        providerId: 'footprint',
+        label: 'Building footprint (OSM)',
+        proxyPath: null,
+        kind: 'footprint-fallback',
+        contains: claimsNation('LU'),
+        note: 'Luxembourg: NO parcel source is wired — the E7-LU lane measured the national PAG GeoPackage parcel layer (653,315 rows) and found NUM_CADAST is NOT a key ("N/A" on 4.9%, 15,110 duplicate (commune,number) groups, no cadastral section served), so a provider would return the wrong polygon silently; registered as a footprint so a Luxembourgish click is honestly labelled instead of being attributed to FR or DE (LUXEMBOURG_BBOX sits entirely inside FRANCE_BBOX). Routing is claimsNation("LU"); border-band towns (Dudelange/Rumelange ↔ FR, Echternach/Grevenmacher ↔ DE) refuse nationally at the measured 1500 m tolerance and keep their previous FR/DE fallback behaviour.',
+    },
+    {
+        regionCode: 'SE',
+        countryName: 'Sweden',
+        providerId: 'se-lantmateriet-fastighetsindelning',
+        label: 'Building footprint (OSM)',
+        proxyPath: null,
+        kind: 'footprint-fallback',
+        contains: claimsNation('SE'),
+        note: 'Sweden: Lantmäteriet Fastighetsindelning Direkt is CREDENTIAL-GATED — probed 2026-09-01 by the E7-SE lane: HTTP 401 (APIM code 900902) to an unregistered client, bodies committed as fixtures — so there is nothing behind a proxy route yet and this registers as a footprint-fallback (providerId reserved by countryAdapters/se/seParcelProvider.ts so the row and the deferred adapter cannot drift apart). Routing is claimsNation("SE"): Stockholm/Kiruna/Malmö stop reading as Norwegian/Danish; København, Røros, Tornio, Klaipėda and Kuressaare — all inside SWEDEN_BBOX — are NOT matched.',
     },
     {
         // ══════════════════════════════════════════════════════════════════════════════════════
@@ -277,7 +404,7 @@ const PARCEL_JURISDICTIONS: readonly ParcelJurisdiction[] = [
         proxyPath: '/api/parcel/fi',
         kind: 'cadastral',
         contains: isInFinland,
-        note: 'MML kiinteisto-avoin OGC API Features (PalstanSijaintitiedot), EPSG:3067 → WGS84. KEY-GATED (self-service): needs a free MML_API_KEY (create at omatili.maanmittauslaitos.fi) carried server-side by the proxy as HTTP Basic (key as username / blank password). Resolves real Finnish parcels once the key is set; else null → OSM footprint. Åland excluded.',
+        note: 'MML kiinteisto-avoin OGC API Features (PalstanSijaintitiedot), EPSG:3067 → WGS84. KEY-GATED (self-service): needs a free MML_API_KEY (create at omatili.maanmittauslaitos.fi) carried server-side by the proxy as HTTP Basic (key as username / blank password). Resolves real Finnish parcels once the key is set; else null → OSM footprint. Åland excluded. ⭐ ONE AUTHORITY (decided 2026-09-02): mmlParcelProvider.ts REMAINS the FI parcel authority — countryAdapters/fi/ SUPPLEMENTS it (Ryhti PLANS, not parcels) and its fiJurisdiction.ts re-exports THIS provider’s predicate rather than minting a rival.',
     },
     {
         // US-NYC — no overlap with any box (Western hemisphere); position is free. Ordered here
@@ -352,7 +479,7 @@ const PARCEL_JURISDICTIONS: readonly ParcelJurisdiction[] = [
         proxyPath: '/api/parcel/no',
         kind: 'cadastral',
         contains: isInNorway,
-        note: 'wfs.geonorge.no matrikkelen-eiendomskart-teig app:Teig — HTTP 200 GML 3.2.1, real teig polygon (0301/208/644 @ Oslo), keyless.',
+        note: 'wfs.geonorge.no matrikkelen-eiendomskart-teig app:Teig — HTTP 200 GML 3.2.1, real teig polygon (0301/208/644 @ Oslo), keyless. ⭐ ONE AUTHORITY (decided 2026-09-02): this proxy row REMAINS the NO parcel authority — countryAdapters/no/ SUPPLEMENTS it (NAP plans + a matrikkel client whose parcel leg is blocked on the shared xmlScan non-ASCII-name defect, see impl/barrel-additions-no.txt [1]) and its noJurisdiction.ts re-exports countryBbox.ts’s predicate rather than minting a rival. ⚠ L-12885: NORWAY_BBOX is wider than Kartverket’s declared service extent (58.02–70.67 N / 5.11–23.69 E); countryAdapters/no/noJurisdiction.ts carries NO_MATRIKKEL_SERVICE_BBOX to tell the two apart.',
     },
     {
         // CH BEFORE the whole-Germany footprint entry (Zurich pokes into GERMANY_BBOX).
@@ -394,13 +521,14 @@ const PARCEL_JURISDICTIONS: readonly ParcelJurisdiction[] = [
         note: 'ALKIS outside NRW is per-Land licence-gated (no keyless national WFS). Footprint fallback until a per-Land open WFS or a licence is wired.',
     },
     {
-        // L-449 (founder ruling 2026-07-30) — Denmark is now a DEFERRED STUB, not a credential-gated
-        // clone. Bootstrapping a Datafordeler ADMIN account requires a Danish MitID identity (the same
-        // access-gate class that blocks the Swedish BankID path), which PRYZM cannot obtain — so there
-        // will be no live Matriklen parcel access. `dkMatrikelParcelProvider` conforms to the canonical
-        // shape but NEVER attempts a live fetch and returns null → the registry falls to the OSM
-        // footprint. The `// DEFERRED:` seam is a single-method swap the day an admin bootstrap exists.
-        // (The OFFLINE legislation half — the Plandata → envelope mapping — is SIGNED and needs no data.)
+        // L-12888 (2026-09-02) — the DK note used to read as "Denmark cannot be served" while the
+        // KEYLESS DAWA jordstykker leg sat probed and unregistered in countryAdapters/dk/. ONE
+        // Danish row, ONE proxy seat (C84 EI-9): the DAWA leg is stacked INSIDE the
+        // /api/parcel/dk proxy (server/jurisdiction/dkMatrikelProxy.js — keyed Datafordeler WFS
+        // first, keyless DAWA on a miss or when unkeyed), it is NOT a rival registry row. The
+        // package-side pure stub (parcelProviders/dkMatrikelParcelProvider.ts) keeps its L-449
+        // deferred seam; the signed OFFLINE legislation half (Plandata → buildable envelope) is
+        // separate and complete.
         regionCode: 'DK',
         countryName: 'Denmark',
         providerId: 'matrikel-dk',
@@ -408,7 +536,7 @@ const PARCEL_JURISDICTIONS: readonly ParcelJurisdiction[] = [
         proxyPath: '/api/parcel/dk',
         kind: 'cadastral',
         contains: isInDenmark,
-        note: 'Datafordeler Matrikel WFS (mat:Jordstykke), EPSG:25832 → WGS84 — DEFERRED STUB (L-449, founder-ruled 2026-07-30): a Datafordeler admin bootstrap is MitID-gated (same class as SE BankID), unobtainable, so the provider never attempts live access and returns null → OSM footprint (graceful, honestly labelled a footprint, never a legal parcel). Single method-body swap-in when access lands. The signed OFFLINE legislation half (Plandata → buildable envelope) is separate and complete.',
+        note: 'Denmark IS served KEYLESSLY: DAWA jordstykker (api.dataforsyningen.dk, format=geojson) resolves the real cadastral parcel polygon + matrikelnr at a point with no credential — live-probed 2026-09-01 (transcripts audit/…/impl/lane-dk-transcripts/dawa-*.json) and re-verified 2026-09-02 (HTTP 200, Polygon 115 verts, matrikelnr 7000q @ København); countryAdapters/dk/dkParcelProvider.ts carries the package-side parser. The /api/parcel/dk proxy STACKS the legs (L-12888): keyed Datafordeler Matriklen WFS first (survey attribute join), keyless DAWA on a miss or when DATAFORDELER_API_KEY is unset — so a Copenhagen click reaches DAWA before any stub. Only the package-side pure provider remains an L-449 DEFERRED STUB seam; a full miss falls to the OSM footprint, never a fabricated parcel.',
     },
     {
         regionCode: 'SA',
@@ -473,9 +601,27 @@ const REGION_BBOX: Readonly<Record<string, RectBbox>> = {
     'GB-SCT': SCOTLAND_BBOX,
     'US-CA-SF': SF_BBOX,
     'US-IL-CHI': CHICAGO_BBOX,
+    // L-12871 batch (2026-09-02). ⚠ These bboxes are the rows' SPECIFICITY metric only — the
+    // rows' `contains` is `claimsNation`, never the rectangle. Since the national filter in
+    // `resolveParcelCandidates` keeps at most one country on a claim, specificity now orders
+    // only SUB-NATIONAL rows within that country; these five have none, but every row still
+    // needs a finite entry (a missing row scores +Infinity and sorts last — see the note above).
+    EE: ESTONIA_BBOX,
+    LT: LITHUANIA_BBOX,
+    PL: POLAND_BBOX,
+    LU: LUXEMBOURG_BBOX,
+    SE: SWEDEN_BBOX,
 };
 
-/** The routing-bbox area (degree²) of a jurisdiction — its specificity metric. Smaller = wins first. */
+/**
+ * The routing-bbox area (degree²) of a jurisdiction — its specificity metric.
+ *
+ * ⛔ SCOPE CORRECTED 2026-09-02 (L-12871): this used to be the whole tiebreak ("smaller = wins
+ * first") and that rule is what routed Polish Suwałki to Lithuania and the German Oder bank to
+ * Poland. Since the national filter in `resolveParcelCandidates`, area orders candidates ONLY
+ * (a) WITHIN one claimed country (DE-NW before DE, BE-BRU before BE-VLG) and (b) on the
+ * NATIONAL-REFUSAL fall-through path. It never decides between countries on a claim.
+ */
 export function parcelJurisdictionSpecificity(jur: ParcelJurisdiction): number {
     const b = REGION_BBOX[jur.regionCode];
     if (!b) return Number.POSITIVE_INFINITY;
@@ -483,10 +629,26 @@ export function parcelJurisdictionSpecificity(jur: ParcelJurisdiction): number {
 }
 
 /**
- * Every jurisdiction whose coarse bbox CONTAINS the point, ordered MOST-SPECIFIC first (smallest
- * bbox area), with the registration order as a stable tie-break. The candidate list a per-point
- * priority-fallback resolver walks: try the tightest enclosing cadastre first, fall through to the
- * next when it yields nothing. PURE + never throws; a non-finite / unmatched point yields `[]`.
+ * Every jurisdiction offered at the point, ordered for the priority-fallback walk. PURE + never
+ * throws; a non-finite / unmatched point yields `[]`.
+ *
+ * ⛔ L-12871 (2026-09-02): THE NATIONAL DECIDER IS `resolveNationalJurisdiction`, NOT BOX AREA.
+ *   1. Each row's own `contains` matches (bbox for the pre-existing rows, `claimsNation` for the
+ *      L-12871 batch).
+ *   2. When the national resolver CLAIMS a country, the candidate set is FILTERED to that
+ *      country's rows alone — Tallinn stops offering Kartverket, Flensburg stops offering
+ *      Matriklen, Luxembourg City stops offering Wallonia, Kirkenes stops offering MML. A wrong-
+ *      country cadastre was previously "self-correcting on null", but a candidate that can only
+ *      waste a round-trip and can never be right is noise, and for a LIVE wrong-country cadastre
+ *      it is not even self-correcting at the border.
+ *   3. When it REFUSES (border band, un-modelled neighbour, open sea) the full matched set
+ *      survives in specificity order — the established per-cadastre-null fall-through decides,
+ *      exactly as the refusal contract requires (a refusal ≠ a dead click).
+ *
+ * ⚠ THE SPECIFICITY SORT SURVIVES ONLY AS THE *WITHIN-COUNTRY* ORDER (DE-NW before DE; BE-BRU
+ * before BE-VLG) and as the refusal-path fallback order. It never decides BETWEEN countries on a
+ * claim any more — a smaller box is not a stronger claim to sovereignty, which is the whole of
+ * L-12871 (LITHUANIA_BBOX < POLAND_BBOX would hand Polish Suwałki to the Lithuanian cadastre).
  */
 export function resolveParcelCandidates(lat: number, lon: number): readonly ParcelJurisdiction[] {
     if (!Number.isFinite(lat) || !Number.isFinite(lon)) return [];
@@ -494,7 +656,16 @@ export function resolveParcelCandidates(lat: number, lon: number): readonly Parc
     for (const j of PARCEL_JURISDICTIONS) {
         if (j.contains(lat, lon)) matches.push(j);
     }
-    return matches.sort((a, b) => {
+    const verdict = nationalVerdictAt(lat, lon);
+    let pool = matches;
+    if (verdict.ok) {
+        const own = matches.filter((j) => countryOfRegionCode(j.regionCode) === verdict.regionCode);
+        // Defensive: a claim for a country with NO matching row (unreachable for the 16 modelled
+        // countries today — each has a registered row) degrades to the refusal behaviour rather
+        // than to an empty dead click.
+        if (own.length > 0) pool = own;
+    }
+    return pool.sort((a, b) => {
         const d = parcelJurisdictionSpecificity(a) - parcelJurisdictionSpecificity(b);
         if (d !== 0) return d;
         // Deterministic tie-break: earlier registration wins (never a coin-flip on equal areas).

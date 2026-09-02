@@ -110,7 +110,6 @@ import {
 import {
     LT_ASGR_NUMERIC_FIELDS,
     type LtAsgrClassificationField,
-    type LtAsgrClassifiedValue,
     type LtAsgrNumericField,
     type LtAsgrPolygon,
     type LtTpdRegisterRow,

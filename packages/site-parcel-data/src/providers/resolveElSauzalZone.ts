@@ -169,39 +169,17 @@ export function wgs84ToUtm28N(lat: number, lon: number): Utm28NPoint {
 // ─────────────────────────────────────────────────────────────────────────────────────────────
 // POINT-IN-POLYGON — standard ray casting, XORed across rings so shell+hole geometry is correct.
 // ─────────────────────────────────────────────────────────────────────────────────────────────
+//
+// ⚠ MOVED, NOT DELETED (L-12871). The implementation now lives in
+// `../geometry/pointInRingsEvenOdd.ts` so the national-jurisdiction resolver can reuse the SAME
+// ray cast instead of minting a second one. It is RE-EXPORTED here unchanged, so this module's
+// public API — and `resolveTeldeZone.ts`, which imports the symbol from THIS file — are untouched.
+// `Utm28NPoint` is structurally `{ x, y }`, i.e. exactly the extracted `PlanarPoint`, so every
+// existing call site still typechecks.
 
-/** Standard even-odd ray-casting test: is `[px,py]` inside the single ring `ring`? */
-function pointInRing(px: number, py: number, ring: ReadonlyArray<readonly [number, number]>): boolean {
-    let inside = false;
-    for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) {
-        const xi = ring[i]![0];
-        const yi = ring[i]![1];
-        const xj = ring[j]![0];
-        const yj = ring[j]![1];
-        const crosses = yi > py !== yj > py;
-        if (!crosses) continue;
-        const xIntersect = ((xj - xi) * (py - yi)) / (yj - yi) + xi;
-        if (px < xIntersect) inside = !inside;
-    }
-    return inside;
-}
+export { pointInRingsEvenOdd } from '../geometry/pointInRingsEvenOdd.js';
 
-/**
- * Point-in-polygon-with-holes: XOR the per-ring even-odd result across every ring in the record.
- * Correct regardless of each ring's winding direction (shell CW/hole CCW is an ESRI convention,
- * not a requirement this test relies on).
- */
-export function pointInRingsEvenOdd(
-    point: Utm28NPoint,
-    rings: ReadonlyArray<ReadonlyArray<readonly [number, number]>>,
-): boolean {
-    let inside = false;
-    for (const ring of rings) {
-        if (ring.length < 3) continue;
-        if (pointInRing(point.x, point.y, ring)) inside = !inside;
-    }
-    return inside;
-}
+import { pointInRingsEvenOdd } from '../geometry/pointInRingsEvenOdd.js';
 
 // ─────────────────────────────────────────────────────────────────────────────────────────────
 // DATA LOADING — the ONE impure seam. Injectable so tests never touch the filesystem.
