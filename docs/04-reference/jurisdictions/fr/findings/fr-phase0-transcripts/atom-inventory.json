@@ -1,0 +1,76 @@
+{
+ "last": 735,
+ "total": 14701,
+ "failedPages": 0,
+ "fam": {
+  "DU:CC": 2720,
+  "DU:PLU": 9462,
+  "DU:PLUI": 565,
+  "SUP:PM2": 37,
+  "SUP:AC4": 113,
+  "SUP:AC1": 103,
+  "SCOT:SCOT": 252,
+  "SUP:A7": 33,
+  "SUP:PM1": 363,
+  "SUP:PT1": 118,
+  "SUP:PT2": 118,
+  "SUP:PM8": 4,
+  "SUP:PM3": 69,
+  "SUP:A9": 33,
+  "SUP:INT1": 48,
+  "DU:PSMV": 43,
+  "SUP:A5": 12,
+  "SUP:T5": 98,
+  "SUP:T3": 1,
+  "SUP:PM7": 14,
+  "SUP:AC4BIS": 14,
+  "SUP:I1": 101,
+  "SUP:EL4": 2,
+  "SUP:EL7": 25,
+  "SUP:AC2": 17,
+  "SUP:EL2BIS": 1,
+  "SUP:EL9": 14,
+  "SUP:I4": 69,
+  "SUP:AS2": 6,
+  "SUP:A4": 29,
+  "SUP:T1": 94,
+  "SUP:PM4": 8,
+  "SUP:I7": 2,
+  "SUP:EL3": 8,
+  "SUP:PM1BIS": 2,
+  "SUP:I3": 19,
+  "SUP:A10": 1,
+  "SUP:EL11": 1,
+  "SUP:A2": 3,
+  "SUP:I6": 1,
+  "OTHER:UNPARSED": 70,
+  "SUP:A8": 2,
+  "SUP:EL8": 1,
+  "SUP:A3": 1,
+  "DU:POS": 2,
+  "SUP:AC3": 1,
+  "SUP:EL10": 1
+ },
+ "sample": [
+  {
+   "title": "Carte Communale (CC) de la commune de SURY",
+   "summary": "Dataset Feed correspondant au document \"08432_CC_20260805\""
+  },
+  {
+   "title": "Plan Local d&#039;Urbanisme (PLU) de la commune de SAINT-GEORGES-SUR-LOIRE",
+   "summary": "Dataset Feed correspondant au document \"49283_PLU_20260716\""
+  },
+  {
+   "title": "Plan Local d&#039;Urbanisme intercommunal (PLUi) DU PAYS DE COLOMBEY ET DU SUD TOULOIS",
+   "summary": "Dataset Feed correspondant au document \"245400510_PLUi_20250626\""
+  },
+  {
+   "title": "Plan Local d&#039;Urbanisme intercommunal (PLUi) DE DUNKERQUE",
+   "summary": "Dataset Feed correspondant au document \"245900428_PLUi_20260813\""
+  },
+  {
+   "title": "Plan Local d&#039;Urbanisme (PLU) de la commune de NARCASTET",
+   "summary": "Dataset Feed correspondant au document \"64413_PLU_20260820\""
+  }
+ ]
+}

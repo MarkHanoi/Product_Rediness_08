@@ -89,3 +89,39 @@ Wherever a zone joins a `doc_urba` row by `IDURBA`, NOMFIC fill is **100.00%** (
 | Scripts `q1`–`q9` | Re-executed fresh (their prior outputs died with the transcript); `q2`'s tail loss patched via `q10-extra.mjs` |
 | `gpkgwkb.py` | DISCARDED — superseded by q6's JS WKB parser; never load-bearing |
 | Prior `FR-PHASE0-REPORT.md` | ABSENT — never written; this document is the first |
+
+## 7. Addendum — the original lane's completion pass (FR-PHASE0, same day, ~20:30)
+
+> The original lane was not dead: it completed the full measurement concurrently and reached the
+> **identical verdict and identical numbers** on every §2 row it shares with this report. Its extra
+> transcripts now sit beside the q1–q13 set: `q1/q2/q3/q5/q6/q8/q9/q10/q14-*.out.txt` re-runs with
+> their exact `.mjs` sources, plus `download-integrity-md5.txt` (an independent md5 pass — all 7
+> GeoPackages MATCH the manifest). Facts below are ONLY what this report did not already carry.
+
+1. **Brief §4.2 endpoint discrepancy (reportable per §1.5):**
+   `https://www.geoportail-urbanisme.gouv.fr/document/info/?partition=DU_200070159` → **HTTP 404**
+   (with and without trailing slash, and under `/api/document/info/`). The working route is
+   **`/api/document?partition=<partition>`** → 200 JSON with the document's full version history
+   (status incl. `document.deleted`, `legalStatus`, upload/publication dates, `type`, `grid.rnu`) —
+   and **no CNIG standard-version field**, confirming row 10's DEFERRED. `download-by-partition/<p>`
+   answers **302** (not followed). Transcripts: `docinfo-DU_200070159.json` (the 404),
+   `api-document-DU_200070159.json` (the working route).
+2. **ATOM feed mechanics:** the brief's trailing-slash spelling `…/atom/download-feed/` 301-redirects
+   (slashless works); a `f[pagination][pagesize]` parameter is **ignored** (fixed 20/page); the
+   OpenSearch descriptor self-declares "PAS ENCORE IMPLEMENTE".
+3. **TYPEZONE beyond the 2025 national list** (brief §5 says `U, AUc, AUs, A, N`): live extract also
+   carries **`Nh` ×19,431 · `Ah` ×5,608 · `Nd` ×41 · `Auc` ×2** (plus the five listed:
+   N 523,265 · U 389,408 · A 325,288 · AUc 58,654 · AUs 18,722) — a TYPEZONE switch must not treat
+   the national list as closed. Query: `q2-sharing.out.txt`.
+4. **Cross-check correction — manifest total (§1 above says "≈28.6 GB across 31 layers"):** re-summing
+   the manifest's own `gpf_dl:length` attributes gives **20,902,382,960 bytes = 20.90 GB (19.47 GiB)
+   across 32 entries** (31 GPKG + `extraction.json`); largest: prescription_surf 6.79 GiB ·
+   zone_urba 3.79 GiB · info_surf 2.29 GiB · prescription_lin 2.12 GiB. Query:
+   `extract-manifest-parsed.json` re-sum. The 28.6 figure does not reproduce from the manifest.
+5. **Cross-check correction — plan-masse partition shapes (§2 row says 76 commune + 12 EPCI):**
+   programmatic classification of the 88 distinct TYPEPSC=14 partitions
+   (`^DU_\d{5}(_|$)` vs `^DU_\d{9}(_|$)`, `q14-final-bits.mjs`) gives **72 commune-shaped +
+   16 EPCI-shaped + 0 other**; the 16 SIREN-shaped are enumerated in `q6-planmasse-area.out.txt`.
+6. **RNU population weight, non-deleted frame:** is_rnu=1 ∧ is_deleted=0 → 6,646 communes,
+   population 1,908,221 = **2.77 %** of the 68,952,941 frame (`q14-final-bits.out.txt`) — same
+   figure as §2's row, now pinned to the non-deleted frame explicitly.

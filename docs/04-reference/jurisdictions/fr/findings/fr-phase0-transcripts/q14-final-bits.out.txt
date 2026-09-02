@@ -1,0 +1,8 @@
+=== RNU (municipality.gpkg, extract 2026-08-29) ===
+  is_rnu=0 is_deleted=0 28365
+  is_rnu=0 is_deleted=1 1489
+  is_rnu=1 is_deleted=0 6646
+  is_rnu=1 is_deleted=1 232
+  non-deleted RNU communes: 6646 population: 1,908,221 = 2.77% of 68,952,941
+=== plan-masse partition shapes (TYPEPSC=14 surf) ===
+  total: 88 commune-shaped (5-digit INSEE): 72 EPCI-shaped (9-digit SIREN): 16 other: 0
