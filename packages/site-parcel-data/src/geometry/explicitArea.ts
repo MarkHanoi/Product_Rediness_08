@@ -42,6 +42,7 @@
 import type { Pt, ExplicitAreaRule } from '@pryzm/schemas';
 import { polygonArea, polygonContains } from '@pryzm/site-validators';
 import { intersectPolygons2D } from '@pryzm/geometry-kernel';
+import { carveHolesToSimpleRings } from './polygonDifference.js';
 import { clipPolygonToConvex, isConvexRing } from './polygonClip.js';
 import {
     boundsDisjoint,
@@ -348,10 +349,19 @@ export type ExplicitAreaSolveRefusal =
      */
     | 'multi-region-on-parcel'
     /**
-     * §MULTI-PART-EXPLICIT-AREA — a published HOLE ("do not build here") falls inside this parcel.
-     * A single-ring inset cannot carry a hole, and dropping it would OVER-STATE the buildable area
-     * (C58 §1.4, the L-616 direction), so the solve refuses. A hole that lies entirely outside the
-     * parcel makes no statement about this plot and is correctly ignored.
+     * §MULTI-PART-EXPLICIT-AREA / §K1-CARVE — a published HOLE ("do not build here") falls inside
+     * this parcel AND the exact carve could not be computed.
+     *
+     * ⚠ THIS IS NOW THE FALLBACK, NOT THE ANSWER. Since §K1-POLY-DIFFERENCE landed
+     * (`polygonDifference.ts`), a biting hole is CARVED exactly: the solve subtracts it from the
+     * clipped region (bridging a strictly-interior hole to the boundary through an inward-biased
+     * slit — see `carveHolesToSimpleRings`), so the courtyard case SOLVES with the hole's area
+     * excluded. This refusal remains for the difference op's own refusal cases — a hole whose
+     * bite cannot be PROVEN (the exact hole ∩ parcel region refused) or whose carve the
+     * arrangement cannot resolve (`unresolved-topology` et al.). Assuming such a hole misses, or
+     * publishing an uncarved ring, would OVER-STATE the buildable area (C58 §1.4, the L-616
+     * direction), so those cases still refuse. A hole that lies entirely outside the parcel makes
+     * no statement about this plot and is correctly ignored.
      */
     | 'hole-intersects-parcel';
 
@@ -377,6 +387,19 @@ export type ExplicitAreaSolveResult =
            * they were shown not to touch the plot.
            */
           readonly partsProvablyDisjoint: number;
+          /**
+           * §K1-CARVE — how many published holes actually BIT this parcel and were carved out of
+           * the answer exactly (previously every one of these was a `hole-intersects-parcel`
+           * refusal). 0 on the common no-courtyard path.
+           */
+          readonly holesCarved: number;
+          /**
+           * §K1-CARVE — area LOST to the inward-biased bridge slits that connect strictly-interior
+           * holes to the boundary (`polygonDifference.CARVE_SLIT_WIDTH_M`), m². Always ≥ 0: the
+           * carve may UNDER-grant by this much (millimetre-scale × corridor length); it never
+           * over-grants. 0 when no hole was carved or every carved hole reached the boundary.
+           */
+          readonly carveSlitAreaM2: number;
       }
     | {
           readonly ok: false;
@@ -477,6 +500,8 @@ export function solveExplicitArea(input: ExplicitAreaSolveInput): ExplicitAreaSo
     const regions: Pt[][] = [];
     let provablyDisjoint = 0;
     let anyPartCoversParcel = false;
+    let holesCarved = 0;
+    let carveSlitAreaM2 = 0;
 
     for (let i = 0; i < parts.length; i += 1) {
         const part = parts[i]!;
@@ -500,8 +525,9 @@ export function solveExplicitArea(input: ExplicitAreaSolveInput): ExplicitAreaSo
         const partRegions = clipped.regions.filter((r) => r.length >= 3);
         if (partRegions.length === 0) continue; // this part does not actually reach the parcel
 
-        // ⚠ A HOLE THAT BITES THIS PARCEL IS FATAL, a hole that does not is irrelevant. Checked per
-        // surviving part only: a hole in a part 400 m away says nothing about this plot.
+        // ⚠ A HOLE THAT BITES THIS PARCEL IS CARVED, a hole that does not is irrelevant. Checked
+        // per surviving part only: a hole in a part 400 m away says nothing about this plot.
+        const bitingHoles: ReadonlyArray<Pt>[] = [];
         for (let h = 0; h < (part.holes?.length ?? 0); h += 1) {
             const hole = part.holes![h]!;
             if (hole.length < 3) continue;
@@ -511,11 +537,10 @@ export function solveExplicitArea(input: ExplicitAreaSolveInput): ExplicitAreaSo
             // §GE-05-HOLE-EXACT — this branch used to REFUSE whenever neither the hole nor the
             // parcel was convex, on the sound reasoning that a hole which cannot be proven to
             // MISS the plot must be assumed to bite (assuming it misses over-states buildable
-            // area — C58 §1.4, the L-616 direction). The general clipper removes the need to
-            // assume: the hole ∩ parcel region is now computed exactly, so a hole that genuinely
-            // misses no longer costs the user their answer, and one that genuinely bites still
-            // refuses. The CONSERVATIVE direction is preserved — a general-clipper refusal here
-            // still means "cannot prove it misses", and still refuses.
+            // area — C58 §1.4, the L-616 direction). The general clipper removed the need to
+            // assume: the hole ∩ parcel region is computed exactly, so a hole that genuinely
+            // misses costs nothing. The CONSERVATIVE direction is preserved — a general-clipper
+            // refusal here still means "cannot prove it misses", and still refuses.
             const holeClip = intersectRings(hole, parcelRing);
             if (!holeClip.ok) {
                 return {
@@ -531,20 +556,42 @@ export function solveExplicitArea(input: ExplicitAreaSolveInput): ExplicitAreaSo
             const holeAreaM2 = holeClip.regions
                 .filter((r) => r.length >= 3)
                 .reduce((acc, r) => acc + Math.abs(polygonArea(r)), 0);
-            if (holeAreaM2 > 1e-9) {
-                return {
-                    ok: false,
-                    reason: 'hole-intersects-parcel',
-                    detail:
-                        `part ${i} hole ${h} falls inside this parcel (≈${holeAreaM2.toFixed(1)} m²). ` +
-                        'A hole is a published "do not build here" and a single-ring inset cannot ' +
-                        'carry it; dropping it would OVER-STATE the buildable area (C58 §1.4).',
-                };
-            }
+            if (holeAreaM2 > 1e-9) bitingHoles.push(hole);
         }
 
-        for (const r of partRegions) regions.push(r);
-        if (!anyPartCoversParcel && polygonContains(part.outer, parcelRing)) anyPartCoversParcel = true;
+        // §K1-CARVE — subtract the biting holes from this part's regions EXACTLY
+        // (§K1-POLY-DIFFERENCE). This branch used to refuse `hole-intersects-parcel` outright;
+        // the exact carve turns the refusal into the honest ANSWER: outer minus courtyard, a
+        // strictly-interior hole bridged to the boundary through an inward-biased slit whose area
+        // is REMOVED, never added (the L-581 doctrine — see `carveHolesToSimpleRings`). The
+        // refusal survives as the fallback for the carve's own refusal cases, where publishing an
+        // uncarved ring would over-state (C58 §1.4).
+        if (bitingHoles.length === 0) {
+            for (const r of partRegions) regions.push(r);
+            if (!anyPartCoversParcel && polygonContains(part.outer, parcelRing)) anyPartCoversParcel = true;
+        } else {
+            for (const r of partRegions) {
+                const carved = carveHolesToSimpleRings(r, bitingHoles);
+                if (!carved.ok) {
+                    return {
+                        ok: false,
+                        reason: 'hole-intersects-parcel',
+                        detail:
+                            `part ${i}: a published hole falls inside this parcel and the exact ` +
+                            `carve refused (${carved.reason}${carved.detail ? `: ${carved.detail}` : ''}). ` +
+                            'A hole is a published "do not build here"; publishing the ring without ' +
+                            'carving it would OVER-STATE the buildable area (C58 §1.4), so this refuses.',
+                    };
+                }
+                for (const ring of carved.rings) {
+                    if (ring.length >= 3) regions.push(ring);
+                }
+                holesCarved += carved.holesCarved;
+                carveSlitAreaM2 += carved.slitAreaLostM2;
+            }
+            // ⚠ A part with a carved hole never claims "footprint COVERS the parcel": the outer
+            // may contain the plot, but the hole means the WHOLE plot is precisely not buildable.
+        }
     }
 
     if (regions.length === 0) {
@@ -570,5 +617,7 @@ export function solveExplicitArea(input: ExplicitAreaSolveInput): ExplicitAreaSo
         footprintCoversParcel: anyPartCoversParcel,
         partsConsidered: parts.length,
         partsProvablyDisjoint: provablyDisjoint,
+        holesCarved,
+        carveSlitAreaM2,
     };
 }

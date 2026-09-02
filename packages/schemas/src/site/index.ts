@@ -34,6 +34,9 @@ export * from './legacyProjectLocation.js';
 // C58 — zoning-rules & buildable-envelope schemas (pure L0 data shapes).
 export * from './zoning/index.js';
 
+// ADR-0377 (§S1-DATUM) — the height datum seat: which plane a stated height is measured from.
+export * from './HeightDatum.js';
+
 // North Star §6.2 (Context Scene-Compiler & Terrain) — the regulation-aware HeightProfile datum.
 export * from './context/index.js';
 // §C62 (ADR-0280) — the shared data-confidence / provenance / unknown-reason model.

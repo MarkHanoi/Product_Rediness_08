@@ -1,0 +1,8 @@
+{
+  "extends": "./tsconfig.json",
+  "include": [
+    "src/countryAdapters/pt/**/*",
+    "__tests__/ptPdmEnvelope.test.ts",
+    "__tests__/ptZoneIdentity.test.ts"
+  ]
+}

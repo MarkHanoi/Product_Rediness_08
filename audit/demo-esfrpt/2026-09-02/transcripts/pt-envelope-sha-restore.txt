@@ -1,0 +1,3 @@
+sha before: 7383aa8dbf6a10422229cc6b0ec0b8805b18d50b32da0f3789792c8b23e24dfa *packages/site-parcel-data/src/countryAdapters/pt/ptPdmDataModel.ts
+sha after : 7383aa8dbf6a10422229cc6b0ec0b8805b18d50b32da0f3789792c8b23e24dfa *packages/site-parcel-data/src/countryAdapters/pt/ptPdmDataModel.ts
+verdict   : SHA-IDENTICAL RESTORE CONFIRMED

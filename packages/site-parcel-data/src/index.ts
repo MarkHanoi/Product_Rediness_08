@@ -703,6 +703,43 @@ export {
     type ExplicitAreaSolveRefusal,
 } from './geometry/explicitArea.js';
 
+// ── §K1-POLY-DIFFERENCE (lane K1) — POLYGON DIFFERENCE A ∖ B, holes first-class in the result. ──
+// The third keep-rule of the kernel boolean, delivered WITH its own oracle table
+// (`__tests__/polygonDifference.test.ts`) and an explicit direction-of-error contract: exact away
+// from the COINCIDENT_M band, typed refusals on unresolvable topology, and a strictly INWARD-biased
+// bridge (`carveHolesToSimpleRings`) when a hole must be carved into a single-ring answer. First
+// consumer: the `explicit-area` courtyard carve (L-12896 / §NL-BOUWVLAK-HOLES upgrade).
+export {
+    differenceRings2D,
+    carveHolesToSimpleRings,
+    differencePartsAreaM2,
+    CARVE_SLIT_WIDTH_M,
+    type PolygonDifferencePart,
+    type PolygonDifferenceResult,
+    type PolygonDifferenceRefusal,
+    type CarveResult,
+    type CarveRefusal,
+} from './geometry/polygonDifference.js';
+
+// ── §K1-INCLINED-TOP (lane K1) — PIECEWISE-PLANAR (INCLINED) TOPS as a 2.5D height field. ──
+// h(p) = max(0, min(flatCap, min_i plane_i(p))) over an envelope footprint — the DK det skrå
+// højdegrænseplan (1.4×d), DE §6 Abstandsflächen (0.4×H) and Paris couronnement construction.
+// `solveInclinedTop` yields the EXACT legal volume (lower-envelope cell decomposition, closed-form
+// affine integrals); `inclinedTopToTiers` emits INSCRIBED `EnvelopeTier` slices the existing
+// render path consumes unchanged (understates, never overstates). The caller passes RESOLVED
+// plane specs — rule kinds live with the schema seats, never here.
+export {
+    solveInclinedTop,
+    inclinedTopHeightAt,
+    inclinedTopToTiers,
+    planesFromBoundaryEdges,
+    type InclinedPlaneSpec,
+    type InclinedTopSpec,
+    type InclinedTopSolve,
+    type InclinedTopRefusal,
+    type InclinedTopTierOptions,
+} from './geometry/inclinedTop.js';
+
 // ── §MULTI-PART-EXPLICIT-AREA — RING VALIDATION. Names a geometry defect; NEVER repairs one. ──
 // A silent repair is a wrong answer with no error raised (the L-616 shape), so these report
 // `self-intersecting` / `zero-area` / `unclosed` / `non-finite-coordinate` and let the caller refuse.
@@ -2295,6 +2332,14 @@ export * from './rulepacks/declarative/factVocabulary.js';
 export * from './rulepacks/declarative/evaluateDeclarative.js';
 export * from './rulepacks/declarative/deriveC58Contract.js';
 export * from './rulepacks/declarative/esBarcelona20aAillada.decl.js';
+
+// ── LANE S1 (ADR-0377/0378/0379) — the three append-only canonical seats ─────
+// datum routing (first resolver consumer of HeightDatum, wiring facadeRasantDatum),
+// height-proportional-offset evaluation (post-height-resolution, refuses on unresolved H),
+// context-aggregate evaluation (fabricDerivedHeight; extent-weighted mode + honest refusals).
+export * from './rulepacks/declarative/heightDatumResolver.js';
+export * from './rulepacks/declarative/evaluateHeightProportionalOffset.js';
+export * from './rulepacks/declarative/evaluateContextAggregate.js';
 
 // LANE FED (E5 partial · DECISION-SUMMARY row 2) — buildings-federation scaffold:
 // GERS conflation key · source-priority model as data · match/dedup/federate over the

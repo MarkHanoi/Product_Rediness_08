@@ -13,6 +13,7 @@
 import { z } from 'zod';
 import { PermittedUseSchema } from './EnvelopeNumbers.js';
 import { GeometricRuleCompatSchema } from '../GeometricRule.js';
+import { HeightDatumSchema } from '../HeightDatum.js';
 import {
     FieldProvenanceSchema,
     RulePackDefaultConfidenceSchema,
@@ -42,6 +43,22 @@ export const ZoningRuleSchema = z.object({
     label: z.string().min(1),
     permittedUse: z.array(PermittedUseSchema).default([]),
     maxHeight_m: z.number().min(0).nullable().default(null),
+    /**
+     * ADR-0377 — the DATUM `maxHeight_m` is measured from (and ONLY `maxHeight_m`: the geometric
+     * rule kinds that bear their own heights carry their own datum fields). Four legally distinct
+     * references were sharing the one token — rasant-at-façade (L-584), street grade
+     * (Art. 350.2.e), mean-ground-at-façade (Porto Art. 3.º g), absolute national altitude
+     * (Paris HMC/NGF, DE «72,2 m über NHN», EE korgusabs/EH2000) — and an absolute altitude
+     * parsed into this seat with no flag was the measured E8 DE defect.
+     *
+     * OPTIONAL at the schema for append-only's sake (every pre-ADR-0377 pack states none, and a
+     * `.default()` here would inject a key into byte-parity outputs), but REQUIRED-WHEN-HEIGHT at
+     * the read path: consumers read `heightDatumOf(zone.heightDatum)`, which is TOTAL and stamps
+     * `{ kind: 'unknown' }` — so a height answer always travels with a datum, absence can never
+     * be mistaken for any specific plane, and ingestion cannot silently default. Resolver
+     * consumers REFUSE on `unknown` (rulepacks/declarative/heightDatumResolver.ts).
+     */
+    heightDatum: HeightDatumSchema.optional(),
     maxFloors: z.number().int().min(0).nullable().default(null),
     plotRatioFAR: z.number().min(0).nullable().default(null),
     maxCoverage: z.number().min(0).max(1).nullable().default(null),
@@ -78,6 +95,22 @@ export const ZoningRuleSchema = z.object({
      * authoring a pack (see C58 §1.7a and the note in `ZoningRulesEngine`).
      */
     geometricRule: GeometricRuleCompatSchema.nullable().default(null),
+}).superRefine((zone, ctx) => {
+    // ADR-0377 refusal arm — the incoherent pair, rejected at the schema (the frozen-model
+    // idiom, provenance.ts superRefine): a SPECIFIC datum stated for a height the pack does not
+    // state is a datum of nothing — either the height was dropped in transcription or the datum
+    // was pasted onto the wrong zone. Both are pack-authoring errors; fail the pack loudly.
+    // (`{ kind: 'unknown' }` stays legal with a null height — it asserts nothing.)
+    if (zone.heightDatum !== undefined && zone.heightDatum.kind !== 'unknown' && zone.maxHeight_m === null) {
+        ctx.addIssue({
+            code: 'custom',
+            message:
+                `heightDatum '${zone.heightDatum.kind}' is stated but maxHeight_m is null — a ` +
+                'datum qualifies a stated height; a datum of nothing is a transcription error, ' +
+                'not a zone (ADR-0377).',
+            path: ['heightDatum'],
+        });
+    }
 });
 export type ZoningRule = z.infer<typeof ZoningRuleSchema>;
 

@@ -1,0 +1,47 @@
+# LANE PT-ENVELOPE — live measurement transcript (brief Still-unverified 1+2+3), 2026-09-02
+# All probes: curl -A "PRYZM-Research/1.0", foreground, this host. Raw bodies in the lane scratchpad;
+# small artifacts copied beside this file (crus-queryables, wfs-evora-dft).
+
+## P1 — national OGC API collections enumeration (does ANY collection serve the five tables / OBJETOS layers?)
+GET https://ogcapi.dgterritorio.gov.pt/collections?f=json -> HTTP 200, 370,884 B, 1.23 s
+75 collections. Full id list:
+  ortos-rgb, ortos-irg, cadastro, cos2018v4, cos2025v1, municipios, freguesias, admin, nuts1, nuts2, nuts3, trocos, distritos, snig, point, cosc2018, cosc2020, cosc2021, cosc2022, cosc2023, ortos2018-rgb, ortos2018-irg, ortos2015-rgb, ortos2015-irg, ortos2012-rgb, ortos2012-irg, ortos2010-rgb, ortos2010-irg, ortos2004-2006-rgb, ortos2004-2006-irg, ortos1995-irg, ortos2007-rgb, ortos2007-irg, geoide, IPSentinel2PT-jan-2025-RGB, IPSentinel2PT-jan-2025-IRG, IPSentinel2PT-fev-2025-RGB, IPSentinel2PT-fev-2025-IRG, IPSentinel2PT-mar-2025-RGB, IPSentinel2PT-mar-2025-IRG, IPSentinel2PT-abr-2025-RGB, IPSentinel2PT-abr-2025-IRG, IPSentinel2PT-mai-2025-RGB, IPSentinel2PT-mai-2025-IRG, IPSentinel2PT-jun-2025-RGB, IPSentinel2PT-jun-2025-IRG, IPSentinel2PT-jul-2025-RGB, IPSentinel2PT-jul-2025-IRG, IPSentinel2PT-ago-2025-RGB, IPSentinel2PT-ago-2025-IRG, IPSentinel2PT-set-2025-RGB, IPSentinel2PT-set-2025-IRG, crus, srup_ren_areal, srup_ren_linear, sgifr_areas, sgifr_linhas, sgifr_pontos, srup_ran, srup_areas_protegidas, srup_arvores_areal, srup_arvores_point, srup_marcos_geod, srup_aeronautica, srup_albufeiras, srup_aquiferos, srup_defesa_militar, srup_defesa_militar_zonas, srup_zpe, srup_zec, srup_perigosidade_inc_rural, srup_rede_viaria, srup_rede_ferroviaria, srup_rede_ferroviaria_estacoes, srup_rede_eletrica
+VERDICT: NO OBJETO_TIPO / OBJETOS_{PONTO,LINHA,POLIGONO} / ATO_ESPECIFICO / Anexo-I-PO object collection exists.
+Planning-relevant set: crus + the SRUP family (ren areal/linear, ran, areas_protegidas, zpe, zec, sgifr, albufeiras,
+aquiferos, defesa_militar(+zonas), aeronautica, arvores, marcos_geod, perigosidade_inc_rural, rede_viaria/ferroviaria(+estacoes)/eletrica).
+
+## P2 — crus queryables (are ESPECIFICA/ETIQUETA/MEDIDA served on the harmonised national layer?)
+GET /collections/crus/queryables -> HTTP 200, 0.21 s. Fields: area_ha, autor, categoria_2021, classe_2021, classificacao_e_qualificacao, codigo, data_pub_origem, dtcc, escala_origem, fid, fonte, geometry, municipio, registo_ou_deposito, situacao_pdm
+VERDICT: no especifica, no etiqueta, no medida (area_ha is the closest analogue, populated); no fonte_inf/data_inf;
+the five-table relational fields are NOT on the harmonised layer.
+
+## P3 — codigo = Anexo I catalogue code (the join witness), 8/8 features, 5 municipios, both classes
+  rustico: municipio=ÉVORA | categoria_2021=Espaço Natural e Paisagístico | codigo=11 | classificacao=Solo Rústico - Espaços de proteção ambiental - Zona de Especial Valor Patrimonial | data_pub_origem=2025-08-27T00:00:00+00:00 | registo=04.07.05/PDM/02/2025/162 | situacao=Vigente
+  braga: municipio=BRAGA | categoria_2021=Espaço Central | codigo=2 | classificacao=Solo Urbano - Espaço Central - de Tipo 1 | data_pub_origem=2026-04-15T00:00:00+00:00 | registo=01.03.03/PDM/03/2026/53 | situacao=Vigente
+  coimbra: municipio=COIMBRA | categoria_2021=Espaço Central | codigo=2 | classificacao=Solo Urbano –  Espaços centrais – C1 | data_pub_origem=2022-02-22T00:00:00+00:00 | registo=02.06.03/PDM/02/2022/41 | situacao=Vigente
+  (+ the recorded fixture bodies: Lisboa Espaco Verde codigo 7 / Espaco Habitacional codigo 3; Porto Espaco Verde codigo 7; Evora Espaco Habitacional codigo 3)
+VERDICT: codigo matches Aviso 9282/2021 Anexo I at every probe (7=Espaco Verde, 3=Espaco Habitacional, 2=Espaco Central, 11=Espaco Natural e Paisagistico).
+Conformance spread sampled: Lisboa 2020 (PRE-norm) / Porto 2021-07 / Coimbra 2022-02 / Evora 2025-08 / Braga 2026-04 (post-norm) — codigo populated for ALL, incl. the pre-norm plan (CRUS is the DGT harmonisation).
+
+## P4 — per-DICOFRE CRUS WFS for a NORM-CONFORMANT 2025 PDM (Evora 0705): does it now serve the five tables?
+GET servicos.dgterritorio.pt/SDISNITWFSCRUS_0705_1/WFService.aspx?service=WFS&version=2.0.0&request=DescribeFeatureType
+-> HTTP 200, 4,792 B, 20.5 s (faster than the recon 132-204 s). FeatureType gmgml:CRUS_Evora_V fields:
+  ID, DTCC, Municipio, Classe, Categoria, Area_Ha, Designacao_PlantaOrdenamento, Escala_PlantaOrdenamento,
+  Data_PublicacaoPDM, Fonte, Autor, Geometry
+VERDICT: the HARMONISED view only — no IDENTIFICA/ESPECIFICA/ETIQUETA/MEDIDA/FONTE_INF/DATA_INF, no OBJETO_TIPO join,
+no ATO_ESPECIFICO — even where the norm-conformant five-table filing must exist (2025 plan).
+
+## P5 — per-instrument WFS + the SNIT GeoServer
+GET servicos.dgterritorio.pt/sdisnitWFSPP6_0408_2721_1/wfservice.aspx?service=WFS&request=GetCapabilities -> HTTP 404, 0.23 s (recon GUESS-404 re-confirmed)
+GET snit-mais.dgterritorio.gov.pt/geoserver/wfs?...GetCapabilities -> HTTP 401 Unauthorized, 0.28 s
+  (recon had recorded "Service WFS is disabled"; the access model is now credentialed — still not public.)
+
+## P6 — SRUP condicionantes: the ATO_ESPECIFICO content, flattened per feature (the live citation channel)
+queryables (0.17-0.19 s each):
+  srup_ran: designacao, fid, geometry, lei_tipo, municipio, serv_data, serv_dr, serv_hiperligacao, serv_lei, servidao, tipologia
+  srup_ren_areal: area_ha, classifica, designacao, dtcc, fid, geometry, id, lei_tipo, municipio, serv_data, serv_dr, serv_hiperligacao, serv_lei, servidao, tipologia
+  srup_areas_protegidas: codigo, designacao, dtccs, fid, geometry, lei_tipo, municipio, serv_data, serv_dr, serv_hiperligacao, serv_lei, servidao, tipologia
+items sample GET /collections/srup_ran/items?bbox=-8.70,39.18,-8.66,39.22 -> HTTP 200, 16.7 MB, 1.65 s, 2 features (matched 3):
+  verbatim row: {"fid": 20, "designacao": "RAN de SANTARÉM", "servidao": "RESERVA AGRÍCOLA NACIONAL", "lei_tipo": "DL 196/89", "serv_lei": "Aviso n.º 23631/2025/2", "serv_data": "2025-09-24T00:00:00", "serv_dr": "184 IIS", "serv_hiperligacao": "https://snit-mais.dgterritorio.gov.pt/SNIT/Diplomas/AVISO 23631_2025_2.pdf", "municipio": "SANTARÉM"}
+VERDICT: serv_lei/serv_data/serv_dr/serv_hiperligacao/lei_tipo = the ATO_ESPECIFICO citation content, flattened —
+per-condicionante Diario da Republica provenance IS live nationally, on the SRUP layers, not as the relational table.

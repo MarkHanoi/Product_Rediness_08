@@ -17,10 +17,12 @@
 // GeoJSON as PDOK serves it: `[lon, lat]` pairs, closing vertex repeated, holes as `coordinates[1..]`.
 //
 // WHAT "FIXED" MEANS HERE (engine untouched — its behaviour is the contract):
-//   • a courtyard hole that BITES the parcel  → the engine REFUSES (`hole-intersects-parcel`):
-//     a single-ring envelope cannot carve a hole, and dropping it would overstate (C58 §1.4).
-//     Nothing is drawn over the courtyard. If the engine ever learns to carve exactly, the
-//     assertion below still holds: a solved area must EXCLUDE the hole.
+//   • a courtyard hole that BITES the parcel  → §K1-CARVE (lane K1): the engine CARVES it
+//     exactly via §K1-POLY-DIFFERENCE (`polygonDifference.ts`) — the solved area EXCLUDES the
+//     hole (outer − courtyard, short only of the inward-biased bridge slit). This arm originally
+//     accepted the interim `hole-intersects-parcel` REFUSAL; that refusal remains ONLY as the
+//     fallback for the carve's own refusal cases (malformed hole, unresolvable topology), where
+//     drawing anything would overstate (C58 §1.4).
 //   • a courtyard hole AWAY from the parcel   → exact clip, area unchanged (no over-refusal).
 //   • a multi-part bouwvlak                   → ALL parts forwarded; parts that miss the parcel
 //     are proven disjoint, parts that reach it clip exactly (previously: parts beyond the first
@@ -181,16 +183,13 @@ describe('§NL-BOUWVLAK-HOLES (L-12896) — courtyard holes are carried, never d
         // The parcel CONTAINS the whole bouwvlak — courtyard included (a block-lot parcel).
         const parcel = parcelRect(-10, -10, 110, 110);
         const env = solveWith(parcel, { explicitAreaFootprintParts: forwardedParts(res) });
-        if (env.status === 'ok') {
-            // If the engine solves (it would need to carve the hole exactly), the area must
-            // EXCLUDE the courtyard: 9,100 m², never the 10,000 m² outer.
-            expect(env.insetAreaM2).toBeLessThanOrEqual(HONEST_CEILING + 1e-6);
-        } else {
-            // The engine's CURRENT honest answer: a single-ring envelope cannot carve the hole,
-            // so it refuses rather than overstate (§MULTI-PART-EXPLICIT-AREA / C58 §1.4).
-            expect(env.insetPolygon).toHaveLength(0);
-            expect(env.caveats.some((c) => /HOLE/i.test(c) && /do not build here/i.test(c))).toBe(true);
-        }
+        // §K1-CARVE — the engine now carves the courtyard EXACTLY (§K1-POLY-DIFFERENCE): the
+        // interim honest refusal this arm used to accept became the honest ANSWER. The area is
+        // outer minus courtyard, short only of the inward-biased bridge slit (millimetres wide ×
+        // the hole→boundary corridor — sub-1 m² here, and ALWAYS a loss, never a gain).
+        expect(env.status).toBe('ok');
+        expect(env.insetAreaM2).toBeLessThanOrEqual(HONEST_CEILING + 1e-6); // never over the ceiling
+        expect(env.insetAreaM2).toBeGreaterThanOrEqual(HONEST_CEILING - 1); // and carve-exact
     });
 
     it('ARM C — the defect magnitude, pinned: the outer-only (pre-fix) feed overstates by EXACTLY the courtyard', () => {

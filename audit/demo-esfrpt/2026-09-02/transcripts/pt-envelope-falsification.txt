@@ -1,0 +1,62 @@
+npm warn Unknown project config "package-manager-strict". This will stop working in the next major version of npm. See `npm help npmrc` for supported config options.
+# PT-ENVELOPE live acceptance — mode=severed — 2026-09-02T18:12:12.390Z
+
+## Lisbon (38.7223, -9.1393) — found in 463 ms
+   zone     : Solo Urbano - Espaço Verde de Recreio e Produção Consolidado
+   categoria: Espaço Verde · codigo 7 · classe Solo Urbano
+   instrum. : PDM de LISBOA · registo 03.11.06/PDM/04/2020/131 · Vigente
+   refusal  : code=public-open-space legallyGrounded=true
+   headline : Solo Urbano - Espaço Verde de Recreio e Produção Consolidado — green-space categoria; no private buildable envelope.
+   fact     : Município: LISBOA (DTCC 1106)
+   fact     : Zona (CRUS, verbatim): Solo Urbano - Espaço Verde de Recreio e Produção Consolidado
+   fact     : Classe: Solo Urbano
+   fact     : Categoria: Espaço Verde
+   fact     : Instrumento: PDM de LISBOA, registo/depósito n.º 03.11.06/PDM/04/2020/131, situação Vigente, publicação 2020-10-16
+   fact     : Fonte: CM - Vectorial e Raster · escala 1/10000
+   detail   : The national CRUS (DGT) classifies this point as Classe "Solo Urbano", Categoria "Espaço Verde" under the PDM de LISBOA, registo/depósito n.º 03.11.06/PDM/04/2020/131, situação Vigente, publicação 2020-10-16. Under the DR 15/2015 national vocabulary, espaços verdes exist for ecological balance and open-air recreation — buildability is nil-to-incidental and fixed by the município, never by a per-parcel zone parameter. ⚠ The PDM Regulamento was NOT read for this zone: any incidental edification regime it admits is not represented here. Portuguese PDM numeric parameters (índice de edificação, cércea, afastamentos) are published only in the per-município Regulamento PDF, not as structured data (pt/LEGISLATION-RATE.md ~0 % structured), and no human-signed rule pack exists for LISBOA. Drawing an envelope here would be an estimate wearing a citation — refused.
+  PASS — Lisbon: resolved found
+  PASS — Lisbon: SEVERED — the prior honest refusal returns (no developability line, no verdict)
+
+## Porto (41.1579, -8.6291) — found in 236 ms
+   zone     : Solo Urbano  – Espaços verdes e Frente atlântica e ribeirinha – Área verde de fruição coletiva
+   categoria: Espaço Verde · codigo 7 · classe Solo Urbano
+   instrum. : PDM de PORTO · registo 01.13.12/PDM/03/2021/93 · Vigente
+   refusal  : code=public-open-space legallyGrounded=true
+   headline : Solo Urbano  – Espaços verdes e Frente atlântica e ribeirinha – Área verde de fruição coletiva — green-space categoria; no private buildable envelope.
+   fact     : Município: PORTO (DTCC 1312)
+   fact     : Zona (CRUS, verbatim): Solo Urbano  – Espaços verdes e Frente atlântica e ribeirinha – Área verde de fruição coletiva
+   fact     : Classe: Solo Urbano
+   fact     : Categoria: Espaço Verde
+   fact     : Instrumento: PDM de PORTO, registo/depósito n.º 01.13.12/PDM/03/2021/93, situação Vigente, publicação 2021-07-08
+   fact     : Fonte: CM - Vectorial e Raster · escala 1/10000
+   fact     : Pack draft: ptPortoPdmDraft.ts — UNCERTIFIED (PT_PORTO_PDM_CERTIFIED=false), no value shown or evaluated
+   detail   : The national CRUS (DGT) classifies this point as Classe "Solo Urbano", Categoria "Espaço Verde" under the PDM de PORTO, registo/depósito n.º 01.13.12/PDM/03/2021/93, situação Vigente, publicação 2021-07-08. Under the DR 15/2015 national vocabulary, espaços verdes exist for ecological balance and open-air recreation — buildability is nil-to-incidental and fixed by the município, never by a per-parcel zone parameter. ⚠ The PDM Regulamento was NOT read for this zone: any incidental edification regime it admits is not represented here. Portuguese PDM numeric parameters (índice de edificação, cércea, afastamentos) are published only in the per-município Regulamento PDF, not as structured data (pt/LEGISLATION-RATE.md ~0 % structured), and no human-signed rule pack exists for PORTO. Drawing an envelope here would be an estimate wearing a citation — refused. ⭐ PORTO COVERAGE UPDATE: the PDMP Regulamento (Janeiro 2023, 100 pp) IS text-extracted and a per-article cited pack DRAFT exists in PRYZM (17 values/definitions, Arts. 3.º/25.º/32.º/36.º/38.º among them, all VERIFIED-PRIMARY) — UNCERTIFIED and refusing until a human signs its three assertions, and structurally unable to draw heights until the moda-da-cércea (fabric-derived) rule kind exists in the schema. What is missing is the signature, not the sourcing.
+  PASS — Porto: resolved found
+  PASS — Porto: SEVERED — the prior honest refusal returns (no developability line, no verdict)
+  PASS — Porto: the gate-shut pack-draft coverage line survives the upgrade chain
+
+## Evora (38.5667, -7.9) — found in 152 ms
+   zone     : Solo Urbano - Espaços habitacionais
+   categoria: Espaço Habitacional · codigo 3 · classe Solo Urbano
+   instrum. : PDM de ÉVORA · registo 04.07.05/PDM/02/2025/162 · Vigente
+   refusal  : code=no-rule-pack legallyGrounded=false
+   headline : Solo Urbano - Espaços habitacionais — zone identified; PRYZM has not encoded the ÉVORA PDM.
+   fact     : Município: ÉVORA (DTCC 0705)
+   fact     : Zona (CRUS, verbatim): Solo Urbano - Espaços habitacionais
+   fact     : Classe: Solo Urbano
+   fact     : Categoria: Espaço Habitacional
+   fact     : Instrumento: PDM de ÉVORA, registo/depósito n.º 04.07.05/PDM/02/2025/162, situação Vigente, publicação 2025-08-27
+   fact     : Fonte: CM - Vectorial e Raster · escala 1/25000
+   detail   : The national CRUS (DGT) classifies this point as Classe "Solo Urbano", Categoria "Espaço Habitacional" under the PDM de ÉVORA, registo/depósito n.º 04.07.05/PDM/02/2025/162, situação Vigente, publicação 2025-08-27. This is a COVERAGE statement, not a legal refusal: the categoria admits (or may admit) private edification, and the numbers that would bound it live in the Regulamento. Portuguese PDM numeric parameters (índice de edificação, cércea, afastamentos) are published only in the per-município Regulamento PDF, not as structured data (pt/LEGISLATION-RATE.md ~0 % structured), and no human-signed rule pack exists for ÉVORA. Drawing an envelope here would be an estimate wearing a citation — refused.
+  PASS — Evora: resolved found
+  PASS — Evora: SEVERED — the prior honest refusal returns (no developability line, no verdict)
+
+## Object-22 derivability gate (live zone + synthetic OBJETOS fixture)
+   refusal  : code=derived-plan legallyGrounded=true
+   headline : Área de Intervenção de Plano Municipal — a site-specific plan overrides the PDM here.
+   detail   : The município's own PDM filing places this point inside an Área de Intervenção de Plano Municipal: Área de Intervenção de Plano de Urbanização (Plano de Urbanização (PU)) «PU1» — PU sintético de Évora (fixture — five-table shape). Under the plan hierarchy (RJIGT, DL 80/2015), the Plano de Urbanização / Plano de Pormenor governs buildability inside its área de intervenção — the PDM's categoria (CRUS: "Solo Urbano - Espaços habitacionais") remains the classification, but its developability reading is NOT the governing determination here. PRYZM does not hold the overriding plan: any envelope or verdict computed from the PDM alone would cite the right instrument against the wrong rule. Obtain and encode the named PU/PP before any determination — refused until then.
+  PASS — object-22: override refusal BY NAME (code derived-plan)
+  PASS — object-22: names the Plano de Urbanização + the fixture ESPECIFICA verbatim
+  PASS — object-22: the PDM verdict does not masquerade as governing
+
+# RESULT: ALL PASS

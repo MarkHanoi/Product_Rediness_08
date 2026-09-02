@@ -188,13 +188,25 @@ describe('§HOLES-DECIDED-ON-PARCEL — a courtyard only matters where it falls'
         expect(out.areaM2).toBeCloseTo(10_000, 6);
     });
 
-    it('⚠ REFUSES when the SAME hole falls inside the parcel — never drops it', () => {
-        // Same source, a parcel that contains the hole. Dropping the hole would report 10,000 m²
-        // where the plan permits 10,000 − 900. Over-statement is the one direction C58 §1.4 forbids.
+    it('⚠ CARVES when the SAME hole falls inside the parcel — never drops it (§K1-CARVE)', () => {
+        // Same source, a parcel that contains the hole. Dropping the hole would report the full
+        // clip (6,400 m²) where the plan permits 6,400 − 900; over-statement is the one direction
+        // C58 §1.4 forbids. This used to be the honest `hole-intersects-parcel` REFUSAL; since
+        // §K1-POLY-DIFFERENCE the solve carves the hole EXACTLY — outer ∩ parcel = the 80×80
+        // corner = 6,400 m², minus the 900 m² courtyard, minus only the inward-biased bridge slit
+        // (millimetres wide — see `carveHolesToSimpleRings`). The refusal remains the fallback
+        // when the carve itself refuses (asserted in polygonDifference.test.ts).
         const out = solveExplicitArea({ parcelRing: rect(120, 120, 220, 220), footprintParts: HOLED });
-        expect(out.ok).toBe(false);
-        expect(out.ok === false && out.reason).toBe('hole-intersects-parcel');
-        expect(out.ok === false && out.detail).toContain('900');
+        expect(out.ok).toBe(true);
+        if (!out.ok) return;
+        const exact = 6_400 - 900;
+        expect(out.areaM2).toBeLessThanOrEqual(exact + 1e-6); // never a gain — the L-616 direction
+        expect(out.areaM2).toBeGreaterThanOrEqual(exact - 1); // and no more than the slit is lost
+        expect(out.holesCarved).toBe(1);
+        expect(out.carveSlitAreaM2).toBeGreaterThan(0);
+        expect(out.areaM2 + out.carveSlitAreaM2).toBeCloseTo(exact, 6);
+        // The outer may contain the plot, but a carved hole means "covers the parcel" is false.
+        expect(out.footprintCoversParcel).toBe(false);
     });
 
     it('carries holes through the resolver rather than flattening to the outer ring', () => {

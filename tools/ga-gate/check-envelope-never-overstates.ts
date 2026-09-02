@@ -62,9 +62,35 @@
  *       ratchet, and it must never acquire one (raising a ceiling here would be
  *       licensing an overstatement — §RATCHET-EXCEEDED-IS-NEVER-DEBT).
  *
+ * ── LIVE-RESOLVED ROUTE ARMS (LANE G1, 2026-09-02 — lane-b Q1: the corpus walk above
+ *    exercises pack-declared zones; the LIVE-RESOLVED routes contributed ZERO solves) ──
+ * Recorded-fixture arms mirroring the LIVE dispatchers' structured records, on the
+ * NL-courtyard pattern (section 2b): each drives the REAL production chain on a fixture
+ * RECORDED from the live probe (corpus/never-overstate/*.json — never re-fetched), audits
+ * it against an INDEPENDENTLY transcribed published bound, and carries its own teeth (a
+ * tampered pre-fix shape must be flagged, or the arm is declared blind → exit 2):
+ *   2c PARIS   — resolveParisEnvelope (stub fetch replaying the recorded /api/paris/plu
+ *                body) → computeParisEnvelope. Drawn ECM volume ≤ published st_area_shape
+ *                × published plub_hauteur ceiling; the couronnement (cour=X) stays a
+ *                PARTIAL refusal that never adds volume; a no-ECM point draws NOTHING
+ *                (the Paris overstate direction is drawing where ECM is absent).
+ *   2d DENMARK — mapPlandataToZoningRecord + computeBuildableEnvelope AND the
+ *                mapDkFeatureToRules → deriveDkGfaFromBebygpctRule GFA consumer, on the
+ *                live-probed Nørrebro (af=4, the valid multiply: GFA ≤ 150 % × 3776 m²)
+ *                and Aarhus (af=1, the denominator REFUSAL stays a refusal; the naive
+ *                14 927 m² product is grepped for as a tripwire and must appear NOWHERE).
+ *   2e MADRID  — resolveMadridNZ1Ring (stub fetch replaying the recorded layer-6 body) →
+ *                computeBuildableEnvelope explicit-area clip. Footprint ≤ parcel ∩
+ *                published ring; COEF_Z semantics stay WITHHELD (no height/FAR/volume may
+ *                ride on the envelope); zero claimed volume.
+ *
  * PURE READ: solves synthetic parcels in memory through pure L2 functions. No I/O
- * beyond module import, no network, no writes. Deterministic.
+ * beyond module import and reading the gate's OWN recorded-fixture corpus
+ * (tools/ga-gate/corpus/never-overstate/ — deterministic, in-repo, never a network
+ * fetch). No network, no writes. Deterministic.
  */
+
+import { readFileSync } from 'node:fs';
 
 import type { JurisdictionZoningContract, Pt, ZoningRecord, ParcelEdgeClassification } from '@pryzm/schemas';
 import {
@@ -82,7 +108,21 @@ import {
     // pack with an injected parts+holes footprint, the shape the NL provider emits.
     NL_BESTEMMINGSPLAN_PACK,
     NL_ZONE_CODE,
+    // §PARIS-LIVE-ROUTE (2c) — the recorded-fixture Paris chain (§PARIS-SIGN-OFF, gate ON).
+    resolveParisEnvelope,
+    computeParisEnvelope,
+    PARIS_ECM_MISSING_COURONNEMENT,
+    // §DK-DENOMINATOR-LIVE (2d) — the two live DK consumers of a bebygpct rule.
+    mapPlandataToZoningRecord,
+    mapDkFeatureToRules,
+    deriveDkGfaFromBebygpctRule,
+    // §MADRID-NZ1-LIVE (2e) — the explicit-ring route (SIG-M2, gate ON).
+    resolveMadridNZ1Ring,
+    MADRID_NZ1_RING_REF,
+    ES_MADRID_NZ1_PACK,
     type BuildableEnvelopeMassingInput,
+    type ParisEnvelopeResult,
+    type PlandataLayer,
 } from '../../packages/site-parcel-data/src/index.js';
 
 // ── Honesty floors — see header. Conservative: the corpus holds ~6 pack-bearing
@@ -261,6 +301,105 @@ function auditEnvelope(
 }
 
 // ═════════════════════════════════════════════════════════════════════════════
+// LANE G1 — the recorded-fixture corpus + per-route audit measures (sections 2c–2e).
+// ═════════════════════════════════════════════════════════════════════════════
+
+/** Read one recorded fixture from the gate's own corpus dir (deterministic, in-repo). */
+function readCorpusFixture<T>(name: string): T {
+    const url = new URL(`./corpus/never-overstate/${name}`, import.meta.url);
+    return JSON.parse(readFileSync(url, 'utf8')) as T;
+}
+
+/** A recorded fetch stub: replays ONE recorded body for every request — never the network. */
+function recordedFetch(body: unknown): typeof fetch {
+    return (async () => ({ ok: true, status: 200, json: async () => body })) as unknown as typeof fetch;
+}
+
+/**
+ * §PARIS-LIVE-ROUTE — audit ONE computeParisEnvelope result against the INDEPENDENTLY
+ * transcribed published bounds (st_area_shape × plub_hauteur). The projection is stated
+ * accurate to well under 1 % (projectParisRingToEnu), so the footprint/volume bounds carry
+ * a 1 % tolerance; the height bound is exact (min of published candidates).
+ * A refusal draws nothing and cannot overstate → [].
+ */
+const PARIS_PROJECTION_TOL = 1.01;
+function auditParisSolve(
+    r: ParisEnvelopeResult,
+    publishedAreaM2: number,
+    publishedCeilingM: number,
+    zoneLabel: string,
+): Finding[] {
+    const findings: Finding[] = [];
+    const f = (axis: Finding['axis'], detail: string): void => {
+        findings.push({ axis, pack: 'fr-75056-paris/live-route', zone: zoneLabel, detail });
+    };
+    if (!r.ok) return findings;
+    if (r.footprintAreaM2 > publishedAreaM2 * PARIS_PROJECTION_TOL + EPS_ABS) {
+        f(
+            'setback',
+            `drawn ECM footprint ${r.footprintAreaM2.toFixed(2)} m² exceeds the published ` +
+                `st_area_shape ${publishedAreaM2.toFixed(2)} m² beyond projection tolerance`,
+        );
+    }
+    if (r.height_m > publishedCeilingM * (1 + EPS_REL) + EPS_ABS) {
+        f('height', `drawn height ${r.height_m} m exceeds the published plub_hauteur ceiling ${publishedCeilingM} m`);
+    }
+    const volumeCap = publishedAreaM2 * publishedCeilingM * PARIS_PROJECTION_TOL;
+    if (r.volumeM3 > volumeCap + EPS_ABS) {
+        f(
+            'volume',
+            `drawn ECM volume ${r.volumeM3.toFixed(1)} m³ exceeds the published footprint × published ` +
+                `ceiling = ${(publishedAreaM2 * publishedCeilingM).toFixed(1)} m³ ` +
+                `(excess ${(r.volumeM3 - publishedAreaM2 * publishedCeilingM).toFixed(1)} m³)`,
+        );
+    }
+    if (r.volumeM3 > r.footprintAreaM2 * r.height_m * (1 + EPS_REL) + EPS_ABS) {
+        f('volume', `volumeM3 ${r.volumeM3.toFixed(1)} exceeds its own footprint × height product`);
+    }
+    return findings;
+}
+
+/**
+ * §MADRID-NZ1-LIVE — audit the NZ-1 explicit-ring envelope. The ring is the WHOLE claim
+ * (COEF_Z semantics are withheld behind L-449 — siteDispatch §MADRID-NZ1 asserts NO
+ * height/FAR from it), so the never-overstate bounds are: footprint ≤ parcel ∩ published
+ * ring (1 % projection tolerance) and ZERO claimed volume — a numeric height/FAR/volume
+ * on this envelope is an unauthorised read of COEF_Z, not a stronger answer.
+ */
+function auditMadridNz1(
+    env: ReturnType<typeof computeBuildableEnvelope>,
+    honestCeilingM2: number,
+    zoneLabel: string,
+): Finding[] {
+    const findings: Finding[] = [];
+    const f = (axis: Finding['axis'], detail: string): void => {
+        findings.push({ axis, pack: 'es-28079-madrid/nz1-live-route', zone: zoneLabel, detail });
+    };
+    if (env.status !== 'ok') return findings;
+    if (env.insetAreaM2 > honestCeilingM2 * 1.01 + EPS_ABS) {
+        f(
+            'setback',
+            `explicit-ring clip granted ${env.insetAreaM2.toFixed(1)} m² where parcel ∩ published ring ` +
+                `is ${honestCeilingM2.toFixed(1)} m² — buildable area drawn outside the published footprint`,
+        );
+    }
+    if (env.maxHeight_m !== null) {
+        f('height', `envelope states maxHeight ${env.maxHeight_m} m — NZ-1 publishes no height; COEF_Z semantics are withheld (L-449)`);
+    }
+    if (env.maxFAR !== null) {
+        f('far', `envelope states FAR ${env.maxFAR} — an unauthorised numeric read of COEF_Z (its use as edificabilidad is NOT authorised)`);
+    }
+    if (env.maxVolumeM3 !== null) {
+        f('volume', `envelope states maxVolumeM3 ${env.maxVolumeM3} — NZ-1 grants a footprint, never a volume`);
+    }
+    const claimed = totalMassingVolumeM3(envelopeToMassing(env));
+    if (claimed > 0 + EPS_ABS) {
+        f('volume', `drawn solids claim ${claimed.toFixed(1)} m³ where the published ceiling is 0 m³ (the ring is the whole claim)`);
+    }
+    return findings;
+}
+
+// ═════════════════════════════════════════════════════════════════════════════
 // The planted overstating pack — IN MEMORY ONLY (the rulepacks/ tree is E4-owned
 // and is not touched). Partially-unknown setbacks + a binding FAR: the exact
 // two-mechanism shape REPORT §M documents. Solved through the REAL engine.
@@ -289,7 +428,7 @@ const PLANTED_PACK: JurisdictionZoningContract = {
     ],
 };
 
-function main(): number {
+async function main(): Promise<number> {
     let packJurisdictions = 0;
     let zonesWalked = 0;
     let solved = 0;
@@ -338,14 +477,19 @@ function main(): number {
         findings.push(...auditEnvelope(env, zone, 'estimated-default', zone?.code ?? '?', PARCEL_AREA));
     }
 
-    // ── 2b. §NL-BOUWVLAK-HOLES (L-12896) — the explicit-area COURTYARD arm. ───────────
+    // ── 2b. §NL-BOUWVLAK-HOLES (L-12896) + §K1-CARVE — the explicit-area COURTYARD arm. ─────
     // A published footprint with an interior courtyard ("do not build here"), forwarded as
     // parts + holes — the shape the NL provider emits since L-12896 — on a parcel that CONTAINS
-    // the courtyard. Honest outcomes: a refusal (a single-ring envelope cannot carve the hole —
-    // `hole-intersects-parcel`, the engine's current answer) or a solved footprint whose area
-    // EXCLUDES the hole (if the engine ever learns to carve exactly). A solved area that reaches
-    // into the hole is the L-616 overstate this gate exists to catch — the exact defect the old
-    // NL wiring shipped by dropping interior rings at the provider.
+    // the courtyard.
+    //
+    // ⚠ FLIPPED (lane K1): this arm used to accept EITHER the interim honest refusal
+    // (`hole-intersects-parcel`) OR a solved area excluding the hole. The exact carve landed
+    // (§K1-POLY-DIFFERENCE, `packages/site-parcel-data/src/geometry/polygonDifference.ts`), so
+    // the arm now REQUIRES the carve: the solve must be `ok` with area = outer − courtyard,
+    // short of no more than the inward-biased bridge slit (< 1 m² on this fixture, and always a
+    // LOSS — the slit corridor is subtracted, never added). A solved area that reaches into the
+    // hole is the L-616 overstate this gate exists to catch; a refusal or a gross under-carve is
+    // a regression from the shipped carve and reads UNPROVEN.
     {
         const courtyardOuter = rect(0, 0, 100, 100);      // 10,000 m² published outer
         const courtyardHole = rect(35, 35, 65, 65);       //    900 m² published "do not build here"
@@ -382,6 +526,21 @@ function main(): number {
                     'hole was dropped (L-12896 / the L-616 direction)',
             });
         }
+        // §K1-CARVE — THE FLIPPED EXPECTATION: the exact carve is SHIPPED, so this arm now
+        // REQUIRES it. A refusal (the pre-K1 interim answer) or an under-carve beyond the slit
+        // budget means the carve path regressed — the fixture can no longer prove the shipped
+        // behaviour, which is the UNPROVEN exit, not an overstatement finding.
+        if (env.status !== 'ok') {
+            checkerBlind ??=
+                `courtyard arm (§K1-CARVE): the exact carve did not solve (status=${env.status}) — ` +
+                'the arm requires the carve since lane K1; a refusal here is a regression from the ' +
+                'shipped exact-carve behaviour';
+        } else if (env.insetAreaM2 < honestCeiling - 1) {
+            checkerBlind ??=
+                `courtyard arm (§K1-CARVE): carved area ${env.insetAreaM2.toFixed(3)} m² under-shot ` +
+                `the exact carve ${honestCeiling.toFixed(1)} m² by more than the 1 m² slit budget — ` +
+                'not the shipped inward-biased bridge (bias is millimetre-scale, not metre-scale)';
+        }
         // CHECKER TEETH for this arm: the PRE-FIX wiring (outer ring only, hole dropped) must
         // register as an overstatement under the same measure, or the arm is blind.
         const preFix = computeBuildableEnvelope({
@@ -392,6 +551,376 @@ function main(): number {
             checkerBlind ??=
                 `courtyard-arm teeth: the outer-only (pre-fix) feed did not reproduce the ` +
                 `overstatement (status=${preFix.status}) — the arm cannot see the defect it polices`;
+        }
+    }
+
+    // ── 2c. §PARIS-LIVE-ROUTE (LANE G1) — the RECORDED live-probed Paris chain. ───────
+    // resolveParisEnvelope on a stub fetch replaying the recorded /api/paris/plu body at the
+    // signed route's live-probed parcel (19-DL-0002), then computeParisEnvelope — the exact
+    // production chain siteDispatch drives. Bounds come from `published` (independently
+    // transcribed from the same probe), NEVER from the solve itself.
+    {
+        interface ParisFixture {
+            readonly point: { readonly lat: number; readonly lon: number };
+            readonly body: unknown;
+            readonly published: { readonly ecmAreaM2: number; readonly heightCeilingM: number; readonly cadastral: string };
+        }
+        const fix = readCorpusFixture<ParisFixture>('paris-plu-19-DL-0002.json');
+        const resolved = await resolveParisEnvelope(fix.point.lat, fix.point.lon, {
+            fetchImpl: recordedFetch(fix.body),
+        });
+        if (!resolved.ok || resolved.inputs.ecmGeometry === null || resolved.inputs.heightCeiling_m === null) {
+            checkerBlind ??=
+                `Paris arm: the recorded fixture did not resolve to ECM inputs ` +
+                `(${resolved.ok ? 'ok but ECM/height missing' : `refused: ${resolved.reason}`}) — the arm walked no solve`;
+        } else {
+            const inputs = resolved.inputs;
+            // (i) the base solve — must DRAW, and never above published footprint × published ceiling.
+            zonesWalked++;
+            const base = computeParisEnvelope(inputs, []);
+            if (base.ok) solved++; else refused++;
+            if (!base.ok || !(base.volumeM3 > 0)) {
+                checkerBlind ??=
+                    `Paris arm: the recorded ECM parcel did not solve to a positive volume ` +
+                    `(${base.ok ? `volume ${base.volumeM3}` : `refused: ${base.refusedComponent}`}) — a vacuous arm, not a pass`;
+            }
+            findings.push(...auditParisSolve(base, fix.published.ecmAreaM2, fix.published.heightCeilingM, `${fix.published.cadastral}/base`));
+
+            // (ii) the couronnement class (filet cour = X): the crown STAYS a cited PARTIAL
+            // refusal and never adds volume beyond the straight prism. Same recorded inputs,
+            // crown code X — the one field varied, the class the pack test pins.
+            zonesWalked++;
+            const crown = computeParisEnvelope({ ...inputs, courCode: 'X' }, []);
+            if (crown.ok) solved++; else refused++;
+            findings.push(...auditParisSolve(crown, fix.published.ecmAreaM2, fix.published.heightCeilingM, `${fix.published.cadastral}/cour-X`));
+            if (crown.ok) {
+                if (crown.couronnementRefusal === null || !crown.missingRules.includes(PARIS_ECM_MISSING_COURONNEMENT)) {
+                    findings.push({
+                        axis: 'height',
+                        pack: 'fr-75056-paris/live-route',
+                        zone: `${fix.published.cadastral}/cour-X`,
+                        detail:
+                            'cour=X solved WITHOUT the couronnement partial refusal — the PDF-bound crown ' +
+                            '(art. UG.3.2.4) was claimed as structured; the straight prism is only honest ' +
+                            'with the refusal riding on it',
+                    });
+                }
+                if (base.ok && crown.volumeM3 > base.volumeM3 * (1 + EPS_REL) + EPS_ABS) {
+                    findings.push({
+                        axis: 'volume',
+                        pack: 'fr-75056-paris/live-route',
+                        zone: `${fix.published.cadastral}/cour-X`,
+                        detail: `the crown refusal ADDED volume (${crown.volumeM3.toFixed(1)} > ${base.volumeM3.toFixed(1)} m³)`,
+                    });
+                }
+            } else {
+                checkerBlind ??= 'Paris arm: the cour=X variant refused outright — the partial-refusal class was not walked';
+            }
+
+            // (iii) the no-ECM point (the recorded body minus its ECM half — the exact shape a
+            // point outside the ECM layer serves): draws NOTHING. The Paris overstate direction
+            // is drawing where ECM is absent (the old fabricated parcel×hauteur massing).
+            zonesWalked++;
+            const noEcm = computeParisEnvelope({ ...inputs, ecmGeometry: null, ecmAreaM2: null }, []);
+            if (noEcm.ok) {
+                solved++;
+                findings.push({
+                    axis: 'setback',
+                    pack: 'fr-75056-paris/live-route',
+                    zone: `${fix.published.cadastral}/no-ecm`,
+                    detail:
+                        `a point with NO published ECM footprint drew ${noEcm.footprintAreaM2.toFixed(1)} m² — ` +
+                        'the footprint must be honestly withheld, never fabricated (L-616 direction)',
+                });
+            } else {
+                refused++;
+                if (noEcm.refusedComponent !== 'footprint') {
+                    checkerBlind ??=
+                        `Paris arm: the no-ECM point refused on '${noEcm.refusedComponent}', not 'footprint' — ` +
+                        'the arm did not exercise the footprint-absence class';
+                }
+            }
+
+            // CHECKER TEETH — tamper the honest solve into the PRE-FIX fabricated shape
+            // (emprise = whole parcel at the hauteur: the massing this route replaced). The
+            // audit measure must flag it, or this arm cannot see the defect it polices.
+            if (base.ok) {
+                const tampered: ParisEnvelopeResult = {
+                    ...base,
+                    footprintAreaM2: PARCEL_AREA, // 720 m² — the parcel, not the 83 m² ECM
+                    volumeM3: PARCEL_AREA * fix.published.heightCeilingM,
+                };
+                if (auditParisSolve(tampered, fix.published.ecmAreaM2, fix.published.heightCeilingM, 'teeth').length === 0) {
+                    checkerBlind ??=
+                        'Paris arm teeth: the pre-fix parcel×hauteur shape was not flagged — the arm cannot see the defect it polices';
+                }
+            }
+            console.log(
+                `[never-overstate] §PARIS-LIVE-ROUTE: recorded parcel ${fix.published.cadastral} — base ` +
+                    `${base.ok ? `${base.footprintAreaM2.toFixed(1)} m² × ${base.height_m} m` : 'refused'}, ` +
+                    `cour-X partial refusal ${crown.ok && crown.couronnementRefusal !== null ? 'HELD' : 'MISSING'}, ` +
+                    `no-ECM ${noEcm.ok ? 'DREW (finding)' : 'drew nothing'}.`,
+            );
+        }
+    }
+
+    // ── 2d. §DK-DENOMINATOR-LIVE (LANE G1) — the RECORDED Nørrebro + Aarhus chains. ───
+    // Both LIVE consumers of a bebygpct rule, on the verbatim 2026-09-01 features:
+    // the C58 record route (mapPlandataToZoningRecord → computeBuildableEnvelope, the
+    // dispatcher's §DK-HONEST-REFUSAL path incl. its §L-620 storey-derived height) and the
+    // declarative GFA consumer (mapDkFeatureToRules → deriveDkGfaFromBebygpctRule).
+    {
+        interface DkFixture {
+            readonly layer: string;
+            readonly properties: Record<string, unknown>;
+            readonly parcel: { readonly areaM2: number };
+            readonly published: {
+                readonly bebygpct: number;
+                readonly bebygpctaf: number;
+                readonly maxHeightM?: number;
+                readonly gfaCeilingM2?: number;
+                readonly maxEtager?: number;
+                readonly naiveForbidden?: string;
+                readonly expectedRefusalReason?: string;
+            };
+        }
+        const FETCHED_AT = '2026-09-01';
+        const DK_FLOOR_H_M = 3.0; // the dispatcher's §L-620 labelled storey→height derivation
+
+        // (i) Nørrebro — af=4 (Det enkelte jordstykke): the VALID multiply. GFA and the
+        // FAR-limited volume must never exceed the fixture's bebygpct × grundareal.
+        {
+            const fix = readCorpusFixture<DkFixture>('dk-cph-noerrebro-ramme.json');
+            const rec = mapPlandataToZoningRecord(
+                { layer: fix.layer as PlandataLayer, properties: fix.properties },
+                { fetchDateISO: FETCHED_AT },
+            );
+            if (rec === null || rec.structuredFields.plotRatioFAR === null) {
+                checkerBlind ??=
+                    'DK Nørrebro arm: the parcel-scoped (af=4) FAR did not resolve — the valid-multiply branch walked no solve';
+            } else {
+                const areaM2 = fix.parcel.areaM2; // 3776 (DAWA, recorded)
+                const parcelRing = rect(0, 0, 59, 64); // 59 × 64 = 3,776 m² exactly
+                zonesWalked++;
+                const env = computeBuildableEnvelope({
+                    parcelRing,
+                    edgeClassifications: CLASSIFIED,
+                    zoning: rec,
+                    rulePack: null, // structured fields only — the live dispatcher's shape
+                });
+                if (env.status === 'ok') solved++; else refused++;
+                findings.push(...auditEnvelope(env, null, 'dk-plandata/live-route', 'noerrebro-R24.B.3.40/af4', areaM2));
+                const gfaBound = fix.published.gfaCeilingM2 ?? (fix.published.bebygpct / 100) * areaM2;
+                if (env.status === 'ok') {
+                    if (env.maxHeight_m !== null && fix.published.maxHeightM !== undefined &&
+                        env.maxHeight_m > fix.published.maxHeightM * (1 + EPS_REL) + EPS_ABS) {
+                        findings.push({
+                            axis: 'height', pack: 'dk-plandata/live-route', zone: 'noerrebro-R24.B.3.40/af4',
+                            detail: `envelope height ${env.maxHeight_m} m exceeds the recorded maxbygnhjd ${fix.published.maxHeightM} m`,
+                        });
+                    }
+                    const far = computeFarLimitedHeight({
+                        maxFAR: env.maxFAR,
+                        parcelAreaM2: areaM2,
+                        footprintAreaM2: env.insetAreaM2,
+                        maxHeight_m: env.maxHeight_m,
+                        maxFloors: env.maxFloors,
+                    });
+                    if (far.maxGFA !== null && far.maxGFA > gfaBound * (1 + EPS_REL) + EPS_ABS) {
+                        findings.push({
+                            axis: 'far', pack: 'dk-plandata/live-route', zone: 'noerrebro-R24.B.3.40/af4',
+                            detail:
+                                `computed GFA ${far.maxGFA.toFixed(1)} m² exceeds the fixture's bebygpct × grundareal = ` +
+                                `${gfaBound.toFixed(1)} m² (excess ${(far.maxGFA - gfaBound).toFixed(1)} m²)`,
+                        });
+                    }
+                } else {
+                    checkerBlind ??= `DK Nørrebro arm: envelope did not solve (status=${env.status}) — a vacuous arm, not a pass`;
+                }
+                // The declarative GFA consumer on the SAME recorded feature.
+                const rule = mapDkFeatureToRules(fix.layer as PlandataLayer, fix.properties, FETCHED_AT)
+                    .rules.find((r) => r.provenance.parameter === 'bebygpct');
+                const gfa = rule ? deriveDkGfaFromBebygpctRule(rule, areaM2) : null;
+                if (gfa === null || gfa.kind !== 'computed') {
+                    checkerBlind ??= 'DK Nørrebro arm: the GFA consumer did not compute on the parcel-scoped feature — vacuous';
+                } else if (gfa.gfaM2 > gfaBound * (1 + EPS_REL) + EPS_ABS) {
+                    findings.push({
+                        axis: 'far', pack: 'dk-plandata/live-route', zone: 'noerrebro-R24.B.3.40/af4',
+                        detail: `deriveDkGfaFromBebygpctRule granted ${gfa.gfaM2.toFixed(1)} m² above the recorded ceiling ${gfaBound.toFixed(1)} m²`,
+                    });
+                }
+                console.log(
+                    `[never-overstate] §DK-DENOMINATOR-LIVE Nørrebro (af=4): env ${env.status}, ` +
+                        `GFA ${gfa && gfa.kind === 'computed' ? `${gfa.gfaM2.toFixed(0)} m²` : 'n/a'} ≤ ceiling ${gfaBound.toFixed(0)} m².`,
+                );
+            }
+        }
+
+        // (ii) Aarhus — af=1 (Omraadet som helhed): the denominator REFUSAL stays a refusal.
+        // The naive per-parcel product 180 % × 8293 m² = 14 927.4 m² must appear NOWHERE in
+        // the serialised chain output (the tripwire), and no per-parcel FAR may ride the record.
+        {
+            const fix = readCorpusFixture<DkFixture>('dk-aarhus-midtby-ramme.json');
+            const naive = fix.published.naiveForbidden ?? '14927';
+            const rec = mapPlandataToZoningRecord(
+                { layer: fix.layer as PlandataLayer, properties: fix.properties },
+                { fetchDateISO: FETCHED_AT },
+            );
+            if (rec === null) {
+                checkerBlind ??= 'DK Aarhus arm: the recorded feature mapped to NO record — the refusal branch walked nothing';
+            } else {
+                const areaM2 = fix.parcel.areaM2; // 8293 (DAWA, recorded)
+                if (rec.structuredFields.plotRatioFAR !== null) {
+                    findings.push({
+                        axis: 'far', pack: 'dk-plandata/live-route', zone: 'aarhus-010109CY/af1',
+                        detail:
+                            `a planning-area bebygpct (af=1) rode into the record as per-parcel FAR ` +
+                            `${rec.structuredFields.plotRatioFAR} — the §DK-DENOMINATOR-BRANCH withhold was bypassed`,
+                    });
+                }
+                // Mirror the dispatcher's §L-620 storey-derived height (4 × 3 m), then solve.
+                const sf = rec.structuredFields;
+                const zoningForEnvelope =
+                    sf.maxHeight_m === null && typeof sf.maxFloors === 'number' && sf.maxFloors > 0
+                        ? { ...rec, structuredFields: { ...sf, maxHeight_m: sf.maxFloors * DK_FLOOR_H_M } }
+                        : rec;
+                zonesWalked++;
+                const env = computeBuildableEnvelope({
+                    parcelRing: rect(0, 0, 82.93, 100), // 8,293 m² exactly — the recorded DAWA area
+                    edgeClassifications: CLASSIFIED,
+                    zoning: zoningForEnvelope,
+                    rulePack: null,
+                });
+                if (env.status === 'ok') solved++; else refused++;
+                findings.push(...auditEnvelope(env, null, 'dk-plandata/live-route', 'aarhus-010109CY/af1', areaM2));
+                // The declarative GFA consumer MUST refuse naming the basis.
+                const rule = mapDkFeatureToRules(fix.layer as PlandataLayer, fix.properties, FETCHED_AT)
+                    .rules.find((r) => r.provenance.parameter === 'bebygpct');
+                const gfa = rule ? deriveDkGfaFromBebygpctRule(rule, areaM2) : null;
+                zonesWalked++; // the refusal is COUNTED, not skipped
+                if (gfa === null || gfa.kind !== 'refused') {
+                    solved++;
+                    findings.push({
+                        axis: 'far', pack: 'dk-plandata/live-route', zone: 'aarhus-010109CY/af1',
+                        detail:
+                            `the af=1 denominator refusal DEGRADED to ${gfa === null ? 'no rule' : `a computed GFA`} — ` +
+                            'a whole-plan-area percentage was read per-parcel',
+                    });
+                } else {
+                    refused++;
+                    if (fix.published.expectedRefusalReason && gfa.reason !== fix.published.expectedRefusalReason) {
+                        findings.push({
+                            axis: 'far', pack: 'dk-plandata/live-route', zone: 'aarhus-010109CY/af1',
+                            detail: `refusal reason '${gfa.reason}' does not name the basis ('${fix.published.expectedRefusalReason}')`,
+                        });
+                    }
+                }
+                // THE TRIPWIRE — the naive product must be produced NOWHERE in the chain output.
+                const serial = JSON.stringify({ rec, env, solids: envelopeToMassing(env), gfa });
+                if (serial.includes(naive)) {
+                    findings.push({
+                        axis: 'far', pack: 'dk-plandata/live-route', zone: 'aarhus-010109CY/af1',
+                        detail:
+                            `the naive planning-area product (${fix.published.bebygpct} % × ${areaM2} m² ≈ ${naive}…) ` +
+                            'surfaced in the serialised chain output — the wrong-number path is alive',
+                    });
+                }
+                // TRIPWIRE TEETH — the pre-fix shape (af=1 read as parcel) MUST surface the naive
+                // product under the same serialisation, or the grep can catch nothing.
+                const naiveFar = computeFarLimitedHeight({
+                    maxFAR: fix.published.bebygpct / 100,
+                    parcelAreaM2: areaM2,
+                    footprintAreaM2: areaM2,
+                    maxHeight_m: (fix.published.maxEtager ?? 4) * DK_FLOOR_H_M,
+                    maxFloors: null,
+                });
+                if (!JSON.stringify(naiveFar).includes(naive)) {
+                    checkerBlind ??=
+                        'DK Aarhus arm teeth: the pre-fix per-parcel multiply did not surface the naive product — the tripwire is blind';
+                }
+                console.log(
+                    `[never-overstate] §DK-DENOMINATOR-LIVE Aarhus (af=1): FAR withheld=${rec.structuredFields.plotRatioFAR === null}, ` +
+                        `GFA consumer ${gfa && gfa.kind === 'refused' ? `REFUSED (${gfa.reason})` : 'DID NOT REFUSE'}, ` +
+                        `naive '${naive}' absent=${!serial.includes(naive)}.`,
+                );
+            }
+        }
+    }
+
+    // ── 2e. §MADRID-NZ1-LIVE (LANE G1) — the RECORDED explicit-ring route (SIG-M2, gate ON). ──
+    // resolveMadridNZ1Ring on a stub fetch replaying the recorded layer-6 body, the ring
+    // projected into a local metre frame (θ=0, mirroring the dispatcher), then the engine's
+    // explicit-area clip against a parcel that BITES the ring — so the clip provably ran.
+    {
+        interface MadridFixture {
+            readonly point: { readonly lat: number; readonly lon: number };
+            readonly body: unknown;
+            readonly published: { readonly coefZ: string; readonly codManzana: string; readonly maxClaimedVolumeM3: number };
+        }
+        const fix = readCorpusFixture<MadridFixture>('madrid-nz1-manzana-0105104.json');
+        const resolution = await resolveMadridNZ1Ring(MADRID_NZ1_RING_REF, fix.point, {
+            fetchImpl: recordedFetch(fix.body),
+        });
+        if (!resolution.ok || resolution.ringLatLon.length < 3) {
+            checkerBlind ??=
+                `Madrid NZ-1 arm: the recorded ring did not resolve ` +
+                `(${resolution.ok ? 'degenerate ring' : resolution.reason}) — the arm walked no solve`;
+        } else {
+            // Equirectangular projection about the ring centroid (θ=0 — the dispatcher's frame
+            // with an identity de-rotation). Shape + area are frame-invariant.
+            const lat0 = resolution.ringLatLon.reduce((a, p) => a + p.lat, 0) / resolution.ringLatLon.length;
+            const lon0 = resolution.ringLatLon.reduce((a, p) => a + p.lon, 0) / resolution.ringLatLon.length;
+            const M_PER_DEG_LAT = 111_320;
+            const mPerDegLon = M_PER_DEG_LAT * Math.cos((lat0 * Math.PI) / 180);
+            const ringXZ: Pt[] = resolution.ringLatLon.map((p) => ({
+                x: (p.lon - lon0) * mPerDegLon,
+                z: (p.lat - lat0) * M_PER_DEG_LAT,
+            }));
+            const ringArea = polyArea(ringXZ);
+            const xs = ringXZ.map((p) => p.x);
+            const zs = ringXZ.map((p) => p.z);
+            const [minX, maxX] = [Math.min(...xs), Math.max(...xs)];
+            const [minZ, maxZ] = [Math.min(...zs), Math.max(...zs)];
+            // A parcel that BITES the ring: covers its left 60 % plus a 10 m apron — the clip
+            // must cut on both sides (inset < parcel AND inset < ring), or the arm is vacuous.
+            const parcelRing = rect(minX - 10, minZ - 10, minX + (maxX - minX) * 0.6, maxZ + 10);
+            const parcelArea = polyArea(parcelRing);
+            const xOverlap = Math.max(0, Math.min(minX + (maxX - minX) * 0.6, maxX) - Math.max(minX - 10, minX));
+            const zOverlap = Math.max(0, Math.min(maxZ + 10, maxZ) - Math.max(minZ - 10, minZ));
+            const honestCeilingM2 = xOverlap * zOverlap; // parcel ∩ published ring (both axis-aligned)
+            zonesWalked++;
+            const env = computeBuildableEnvelope({
+                parcelRing,
+                edgeClassifications: CLASSIFIED,
+                zoning: packZoneRecord(ES_MADRID_NZ1_PACK.jurisdictionId, '1.1'),
+                rulePack: ES_MADRID_NZ1_PACK,
+                explicitAreaFootprint: ringXZ,
+            });
+            if (env.status === 'ok') solved++; else refused++;
+            if (env.status !== 'ok' || !(env.insetAreaM2 > 0)) {
+                checkerBlind ??= `Madrid NZ-1 arm: the explicit-ring clip did not solve (status=${env.status}) — a vacuous arm, not a pass`;
+            } else if (env.insetAreaM2 >= Math.min(parcelArea, ringArea) - 1) {
+                checkerBlind ??=
+                    `Madrid NZ-1 arm: the clip did not BITE (inset ${env.insetAreaM2.toFixed(1)} m² vs parcel ` +
+                    `${parcelArea.toFixed(1)} / ring ${ringArea.toFixed(1)} m²) — the clip provably did not run`;
+            }
+            findings.push(...auditMadridNz1(env, honestCeilingM2, `manzana-${fix.published.codManzana}`));
+            findings.push(...auditEnvelope(env, ES_MADRID_NZ1_PACK.zones[0] ?? null, 'es-28079-madrid/nz1-live-route', '1.1/explicit-ring', parcelArea));
+            // CHECKER TEETH — the unauthorised COEF_Z read (a height fabricated onto the ring)
+            // must be flagged by the same measure, or the arm cannot see the defect it polices.
+            if (env.status === 'ok') {
+                const tampered = { ...env, maxHeight_m: 20 };
+                if (auditMadridNz1(tampered, honestCeilingM2, 'teeth').length === 0) {
+                    checkerBlind ??=
+                        'Madrid NZ-1 arm teeth: a fabricated height on the explicit-ring envelope was not flagged — the arm is blind';
+                }
+            }
+            console.log(
+                `[never-overstate] §MADRID-NZ1-LIVE: recorded manzana ${fix.published.codManzana} — clip ` +
+                    `${env.status === 'ok' ? `${env.insetAreaM2.toFixed(1)} m² of ring ${ringArea.toFixed(1)} m²` : env.status}, ` +
+                    `COEF_Z "${resolution.coefZ ?? 'n/a'}" withheld=${env.status !== 'ok' || (env.maxFAR === null && env.maxHeight_m === null)}, ` +
+                    `claimed volume 0 m³ required.`,
+            );
         }
     }
 
@@ -467,14 +996,16 @@ function main(): number {
     }
     console.log(
         `[never-overstate] OK: 0 overstatement(s) across ${zonesWalked} zone-solve(s) in ` +
-            `${packJurisdictions} jurisdiction(s) + estimated-default + the planted self-test pack.`,
+            `${packJurisdictions} jurisdiction(s) + estimated-default + the recorded live-route arms ` +
+            '(Paris · Denmark · Madrid NZ-1) + the planted self-test pack.',
     );
     return 0;
 }
 
-try {
-    process.exit(main());
-} catch (err) {
-    console.error('[never-overstate] UNPROVEN: gate crashed —', err);
-    process.exit(2);
-}
+main().then(
+    (code) => process.exit(code),
+    (err) => {
+        console.error('[never-overstate] UNPROVEN: gate crashed —', err);
+        process.exit(2);
+    },
+);

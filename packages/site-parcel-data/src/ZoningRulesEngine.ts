@@ -30,6 +30,7 @@ import type {
 import { principalTier, capEnvelopeConfidenceToPackDefault } from '@pryzm/schemas';
 import { polygonArea } from '@pryzm/site-validators';
 import type { GeometricRule } from '@pryzm/schemas';
+import { GEOMETRIC_RULE_KIND_REGISTRY } from '@pryzm/schemas';
 import { clipToDepthBand, clipBeyondDepthBand } from './geometry/depthBandClip';
 import { insetPolygonPerEdge, type PerEdgeSetbacks } from './geometry/insetPolygon.js';
 import { solveBlockDerivedDepth, type BlockDepthBinding } from './geometry/blockDerivedDepth.js';
@@ -1141,12 +1142,17 @@ export function computeBuildableEnvelope(
                     // courtyard was drawn filling its whole parcel. `unknown ≠ zero`. Flag it so the
                     // renderer HATCHES the ring as a study upper bound rather than a confident
                     // envelope — the height/FAR fields above are untouched (L-616 protected).
+                    // ADR-0377/0378/0379 change-set — reads the compile-enforced kind registry
+                    // (`GEOMETRIC_RULE_KIND_REGISTRY.footprintShaping`) instead of a hand-copied
+                    // kind list, so this predicate and the schema can never disagree (C84 EI-9:
+                    // one fact, one home). Byte-identical for every pre-existing kind: `setback`
+                    // is `false` there on purpose (it IS the plain inset path this flag guards),
+                    // and the two declarative-seat kinds (`height-proportional-offset`,
+                    // `context-aggregate`) are `false` — they are height/massing constructions,
+                    // so a zone carrying one still flags unknown setbacks as an upper bound.
                     const footprintShapingRule =
-                        geometricRule?.kind === 'alignment' ||
-                        geometricRule?.kind === 'block-derived-alignment' ||
-                        geometricRule?.kind === 'tiered-occupation' ||
-                        geometricRule?.kind === 'explicit-area' ||
-                        geometricRule?.kind === 'occupation-capped-alignment';
+                        geometricRule != null &&
+                        GEOMETRIC_RULE_KIND_REGISTRY[geometricRule.kind].footprintShaping;
                     const setbacksAllUnknown =
                         front.from === 'none' && side.from === 'none' && rear.from === 'none';
                     // §NEVER-OVERSTATE-A (E2a, 2026-09-01) — the SAME mechanism, PARTIALLY unknown.

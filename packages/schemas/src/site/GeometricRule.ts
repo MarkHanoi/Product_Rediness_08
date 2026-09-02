@@ -42,7 +42,7 @@
 // P5 — PURE. Zod only. No I/O, no THREE, no DOM.
 
 import { z } from 'zod';
-// §S1-IMPORT-DEFERRED
+import { HeightDatumSchema, HEIGHT_DATUM_KIND_REGISTRY } from './HeightDatum.js'; // ADR-0377 — the datum seat (§S1-IMPORT-DEFERRED, closed by the S1 finish)
 
 /**
  * Detached / suburban fabric. **This is today's only behaviour**, unchanged.
@@ -369,6 +369,181 @@ export const ExplicitAreaRuleSchema = z.object({
     ringRef: z.string().min(1),
 });
 
+/**
+ * ADR-0378 / §S1-HPO — **HEIGHT-PROPORTIONAL OFFSET**: the ordinance states a FORMULA over the
+ * building's own height — offset = factor × H, floored at a stated minimum — not a distance.
+ *
+ *   • DE BauO NRW 2018 §6 Abstandsflächen: 0,4·H, min 3 m, on the plot boundaries.
+ *   • PT Porto PDM Art. 30.º n.º 1 d): afastamento ≥ H/2, min 3 m, above the ground floor.
+ *   • ES Madrid PGOUM-97 NZ5: front separation to the STREET AXIS proportional to height.
+ *
+ * ── WHY THIS IS A NEW `kind` AND NOT `setback` ───────────────────────────────────────────────
+ * `setback` carries STATED distances. A factor-of-H rule has no honest triple until H is
+ * resolved — transcribing `0,4·H` as a number bakes ONE H into the pack and is wrong on every
+ * parcel where H differs (ADR-0271's "a scalar cannot encode a function", one rung up the same
+ * ladder). And writing the FLOOR (3 m) as the setback OVERSTATES the envelope everywhere
+ * factor × H exceeds it — the one forbidden direction (C58 §1.4).
+ *
+ * ── EVALUATION ORDER IS POST-HEIGHT-RESOLUTION, BY TYPE ──────────────────────────────────────
+ * The evaluator (`site-parcel-data/rulepacks/declarative/evaluateHeightProportionalOffset.ts`)
+ * consumes the declarative pipeline's `EnvelopeSolidHeightCapVerdict` — a type that exists only
+ * AFTER height resolution — so the documented order cannot be skipped, and an unresolved H
+ * REFUSES rather than degrading to the floor (ADR-0378). At a resolved H the DE inclined-plane
+ * reading collapses to the closed-form pointwise offset `max(factor·H, min)`.
+ *
+ * `heightDatum` is REQUIRED (seat 1 wired into seat 2) and can never be an absolute national
+ * altitude (refined below via the datum registry's `comparableToRelativeHeight`).
+ */
+export const HeightProportionalOffsetRuleSchema = z
+    .object({
+        kind: z.literal('height-proportional-offset'),
+
+        /**
+         * The multiplier on H (DE §6 ⇒ 0.4; Porto ⇒ 0.5). Strictly positive: a zero factor
+         * degenerates the rule to a bare minimum — that rule is a `setback`, not this kind,
+         * and accepting it here would let a transcription error impersonate a formula.
+         */
+        heightFactor: z.number().positive(),
+
+        /** The stated floor (both driving citations ⇒ 3 m). Never negative. */
+        minOffset_m: z.number().nonnegative(),
+
+        /**
+         * Which way the offset erodes. The only corpus-cited member is `into-parcel` (all
+         * three driving citations erode buildable ground). Append-only: a new direction
+         * arrives with the ordinance that states it (the factVocabulary discipline).
+         */
+        direction: z.enum(['into-parcel']),
+
+        /**
+         * Which boundaries the formula binds. DE §6 ⇒ `all-plot-boundaries`; Madrid NZ5 ⇒
+         * `front`. Append-only: `side` / `rear` members arrive with a pack that consumes them.
+         */
+        appliesTo: z.enum(['front', 'all-plot-boundaries']),
+
+        /**
+         * The line the offset is measured FROM. `plot-boundary` (DE/PT) or `street-axis`
+         * (Madrid NZ5 — the axis of the fronting street, not the parcel edge). Refined below:
+         * a street axis exists only at the front.
+         */
+        measuredFrom: z.enum(['plot-boundary', 'street-axis']),
+
+        /**
+         * Porto Art. 30.º n.º 1 d) binds the afastamento ABOVE the ground floor only; DE §6
+         * binds every storey. Carried as data so the evaluator's output says which storeys
+         * the resolved offset governs.
+         */
+        appliesToStoreys: z.enum(['all', 'above-ground-floor']),
+
+        /**
+         * ADR-0377 — WHICH H the factor multiplies (seat 1 wired into seat 2). REQUIRED: a
+         * factor with no H reference is not a rule. `{ kind: 'unknown' }` is legal and honest
+         * (DE §6's H-measurement semantics are PENDING their primary read) — the evaluator
+         * refuses it rather than assuming a plane.
+         */
+        heightDatum: HeightDatumSchema,
+    })
+    .superRefine((r, ctx) => {
+        if (r.measuredFrom === 'street-axis' && r.appliesTo !== 'front') {
+            ctx.addIssue({
+                code: 'custom',
+                message:
+                    "measuredFrom 'street-axis' requires appliesTo 'front' — no street axis " +
+                    'exists at a side or rear plot boundary (Madrid NZ5 measures the FRONT ' +
+                    'separation to the axis of the fronting street). ADR-0378.',
+                path: ['measuredFrom'],
+            });
+        }
+        if (
+            r.heightDatum.kind !== 'unknown' &&
+            !HEIGHT_DATUM_KIND_REGISTRY[r.heightDatum.kind].comparableToRelativeHeight
+        ) {
+            ctx.addIssue({
+                code: 'custom',
+                message:
+                    `heightDatum '${r.heightDatum.kind}' is an absolute altitude reference, ` +
+                    'not a relative building height — factor × altitude is not a quantity any ' +
+                    'of the driving ordinances state (the E8 DE «72,2 m über NHN» class stays ' +
+                    'flagged, never multiplied). ADR-0377/0378.',
+                path: ['heightDatum'],
+            });
+        }
+    });
+
+/**
+ * ADR-0379 / §S1-CTXAGG — **CONTEXT AGGREGATE** (the `fabricDerivedHeight` seat Porto's gate
+ * blocker 4 named): the governing value is a STATISTIC over the existing built context, not a
+ * number printed in the ordinance.
+ *
+ *   • PT Porto PDM Art. 3.º o) *moda da cércea* — "the cércea with the greatest extent along
+ *     the built urban frontage" (*frente urbana*, Art. 3.º l) — governing FUC tipo I heights
+ *     (Art. 24.º n.º 1 e)) and overriding the 21 m cap in tipo II (Art. 27.º n.º 2 b)).
+ *   • FR Paris `plub_filet` code M — "same as the existing façade" (the same family).
+ *
+ * ── WHY THIS IS A NEW `kind` ─────────────────────────────────────────────────────────────────
+ * Every prior kind is a function of THIS parcel (and at most its block ring). This value is a
+ * function of the NEIGHBOURING FABRIC — a declared context set that must be measured before
+ * the rule resolves at all. No stated scalar exists to transcribe: publishing the 21 m cap
+ * where the moda governs would over- or understate parcel by parcel (`ptPortoPdmDraft.ts`
+ * blocker 4, `PT_PORTO_ENVELOPE_VERIFIED`).
+ *
+ * The schema declares WHAT to aggregate; it carries no geometry and no members. Set
+ * construction (frontage extraction) is adapter/kernel work; evaluation — extent-weighted
+ * statistics plus the honest refusals (unavailable ≠ empty ≠ tie) — lives in
+ * `site-parcel-data/rulepacks/declarative/evaluateContextAggregate.ts`.
+ *
+ * Every axis is a CLOSED enum minted from a citation (the factVocabulary discipline: a member
+ * nothing consumes is not declared). Append-only; a new member arrives with its ADR.
+ */
+export const ContextAggregateRuleSchema = z
+    .object({
+        kind: z.literal('context-aggregate'),
+
+        /**
+         * The statistic. `mode` = the value with the greatest summed frontage EXTENT (*"com
+         * maior extensão"* — extent, not member count); `median` = extent-weighted median
+         * (robust-peer discipline — never MIN); `max` = the largest member (the "unless the
+         * existing cércea is higher" comparison class, Art. 27.º n.º 2 b)).
+         */
+        aggregate: z.enum(['mode', 'median', 'max']),
+
+        /**
+         * The declared context set. `urban-frontage` = Porto's *frente urbana* (Art. 3.º l):
+         * the built front along the same side of the street. The set DEFINITION is legal
+         * text; its extraction is machinery (lane A row 1) and is injected at evaluation.
+         */
+        contextSet: z.enum(['urban-frontage']),
+
+        /**
+         * The aggregated attribute. `cornice-height` = the *cércea* (Art. 3.º g): façade
+         * height from mean ground at the façade alignment to the eave/parapet.
+         */
+        attribute: z.enum(['cornice-height']),
+
+        /**
+         * ADR-0377 — the plane the aggregated members' heights are measured from (Porto ⇒
+         * `mean-ground-at-facade`, Art. 3.º g). REQUIRED: a statistic over heights measured
+         * from mixed or unstated planes is not one quantity.
+         */
+        heightDatum: HeightDatumSchema,
+    })
+    .superRefine((r, ctx) => {
+        if (
+            r.heightDatum.kind !== 'unknown' &&
+            !HEIGHT_DATUM_KIND_REGISTRY[r.heightDatum.kind].comparableToRelativeHeight
+        ) {
+            ctx.addIssue({
+                code: 'custom',
+                message:
+                    `heightDatum '${r.heightDatum.kind}' cannot host the cornice-height-class — ` +
+                    'an aggregated cércea is relative by definition (measured up from ground ' +
+                    'at the façade, Art. 3.º g); an absolute national altitude is not a member ' +
+                    'of that population. ADR-0377/0379.',
+                path: ['heightDatum'],
+            });
+        }
+    });
+
 /** The union. Discriminated on `kind` so the solver switch is exhaustive. */
 export const GeometricRuleSchema = z.discriminatedUnion('kind', [
     SetbackRuleSchema,
@@ -377,6 +552,8 @@ export const GeometricRuleSchema = z.discriminatedUnion('kind', [
     TieredOccupationRuleSchema,
     ExplicitAreaRuleSchema,
     OccupationCappedAlignmentRuleSchema,
+    HeightProportionalOffsetRuleSchema,
+    ContextAggregateRuleSchema,
 ]);
 
 export type SetbackRule = z.infer<typeof SetbackRuleSchema>;
@@ -385,7 +562,130 @@ export type BlockDerivedAlignmentRule = z.infer<typeof BlockDerivedAlignmentRule
 export type TieredOccupationRule = z.infer<typeof TieredOccupationRuleSchema>;
 export type ExplicitAreaRule = z.infer<typeof ExplicitAreaRuleSchema>;
 export type OccupationCappedAlignmentRule = z.infer<typeof OccupationCappedAlignmentRuleSchema>;
+export type HeightProportionalOffsetRule = z.infer<typeof HeightProportionalOffsetRuleSchema>;
+export type ContextAggregateRule = z.infer<typeof ContextAggregateRuleSchema>;
 export type GeometricRule = z.infer<typeof GeometricRuleSchema>;
+
+/** The closed kind vocabulary — derived from the union, never hand-listed (C84 EI-9). */
+export type GeometricRuleKind = GeometricRule['kind'];
+
+/** Per-kind metadata the registry closure carries (compile-enforced, see below). */
+export interface GeometricRuleKindMeta {
+    /** What the kind IS — precise enough that two packs cannot disagree. */
+    readonly meaning: string;
+    /** The corpus citation that minted the kind. */
+    readonly citation: string;
+    /**
+     * WHERE the kind resolves. `zoning-rules-engine` = the C58 §2.4 geometric solve
+     * (`ZoningRulesEngine.computeBuildableEnvelope`). `declarative-evaluator` = the E1bc
+     * declarative seat: a typed evaluator under `rulepacks/declarative/` resolves it (or
+     * refuses), and the engine's geometric path must NOT attempt it.
+     */
+    readonly solveSeat: 'zoning-rules-engine' | 'declarative-evaluator';
+    /**
+     * `true` when the kind SHAPES THE FOOTPRINT RING itself (alignment bands, published
+     * polygons, block-derived constructions) — the engine's §NEVER-OVERSTATE unknown-setback
+     * hatching predicate reads THIS flag instead of a hand-copied kind list, so the predicate
+     * and the schema can never disagree. `setback` is `false` on purpose: it IS the plain
+     * inset path that predicate guards. The two declarative-seat kinds are `false`: they are
+     * height/offset constructions — a zone carrying one still flags unknown setbacks as a
+     * study upper bound.
+     */
+    readonly footprintShaping: boolean;
+    /**
+     * `true` when the kind is UNSOLVABLE without a block ring (ADR-0271 / §L-590b).
+     * `requiresBlockRing()` reads this row — one fact, one home.
+     */
+    readonly requiresBlockRing: boolean;
+}
+
+/**
+ * THE COMPILE-ENFORCED KIND REGISTRY. `Record<GeometricRuleKind, …>` means adding a union
+ * member without a row here — or removing a row — is a tsc error naming this file (the
+ * ADR-0270 reason-4 guarantee applied to the kind census: an unregistered kind cannot exist).
+ * `HEIGHT_DATUM_KIND_REGISTRY` is the same idiom one seat over.
+ */
+export const GEOMETRIC_RULE_KIND_REGISTRY: Readonly<
+    Record<GeometricRuleKind, GeometricRuleKindMeta>
+> = Object.freeze({
+    setback: {
+        meaning: 'Stated front/side/rear distances eroded inward from every classified edge.',
+        citation: "ADR-0270 / C58 §2.2 (Seixal UH2, the founder's Portuguese reference).",
+        solveSeat: 'zoning-rules-engine',
+        footprintShaping: false,
+        requiresBlockRing: false,
+    },
+    alignment: {
+        meaning:
+            'Façade ON a stated line; a band of stated buildable depth projected from it ' +
+            '(inset + half-plane clip).',
+        citation: 'ADR-0270 (Madrid alineación + profundidad edificable, L-438).',
+        solveSeat: 'zoning-rules-engine',
+        footprintShaping: true,
+        requiresBlockRing: false,
+    },
+    'block-derived-alignment': {
+        meaning:
+            'Alignment-governed with the depth CONSTRUCTED from the block (equidistant ' +
+            'figure, minimum interior free share, ordinance clamps).',
+        citation: 'ADR-0271 (PGM NNUU Art. 242.2, Barcelona Eixample).',
+        solveSeat: 'zoning-rules-engine',
+        footprintShaping: true,
+        requiresBlockRing: true,
+    },
+    'tiered-occupation': {
+        meaning:
+            'Two height tiers tiling the parcel, divided by a band drawn on the BLOCK as an ' +
+            'area EQUALITY (never clamped).',
+        citation: '§L-590b / ADR-0273 (PGM NNUU Art. 350.2, clau 22a).',
+        solveSeat: 'zoning-rules-engine',
+        footprintShaping: true,
+        requiresBlockRing: true,
+    },
+    'explicit-area': {
+        meaning:
+            'The buildable area is PUBLISHED as geometry; `ringRef` resolves it from the ' +
+            'curated pack.',
+        citation: 'ADR-0270 (Madrid `Fondo de la Edificación` polyline, L-438).',
+        solveSeat: 'zoning-rules-engine',
+        footprintShaping: true,
+        requiresBlockRing: false,
+    },
+    'occupation-capped-alignment': {
+        meaning:
+            "Alignment-governed, depth expressly FREE, bounded only by the zone's occupation " +
+            "cap — the ring drawn is PRYZM's labelled engineering choice, not the ordinance's " +
+            'stated shape.',
+        citation: '§COR-MC-FOOTPRINT / ADR-0288 (PGOU Córdoba 2001 Art. 13.5.2.4).',
+        solveSeat: 'zoning-rules-engine',
+        footprintShaping: true,
+        requiresBlockRing: false,
+    },
+    'height-proportional-offset': {
+        meaning:
+            "Offset = factor × H floored at a stated minimum — a FORMULA over the building's " +
+            'own resolved height, evaluated post-height-resolution; refuses when H or its ' +
+            'datum is unresolved.',
+        citation:
+            'ADR-0378 (DE BauO NRW §6 0,4·H min 3 m; Porto PDM Art. 30.º n.º 1 d) H/2 min ' +
+            '3 m; Madrid NZ5 front-to-axis).',
+        solveSeat: 'declarative-evaluator',
+        footprintShaping: false,
+        requiresBlockRing: false,
+    },
+    'context-aggregate': {
+        meaning:
+            'The value is a STATISTIC (extent-weighted mode / median / max) over a declared ' +
+            'context-fabric set; refuses when the set is unavailable, empty, or tied.',
+        citation:
+            'ADR-0379 (Porto PDM Art. 3.º o) moda da cércea via Art. 24.º/27.º; Paris ' +
+            'plub_filet code M).',
+        solveSeat: 'declarative-evaluator',
+        footprintShaping: false,
+        requiresBlockRing: false,
+    },
+});
+
 
 /**
  * Does this rule REQUIRE a block ring to solve? (ADR-0271)
@@ -396,11 +696,12 @@ export type GeometricRule = z.infer<typeof GeometricRuleSchema>;
  * not sanction for that block).
  */
 export function requiresBlockRing(rule: GeometricRule): boolean {
-    // §L-590b — `tiered-occupation` joins it: Art. 350.2.b's band is defined on the BLOCK, so a
-    // parcel-only solve has nothing to construct the tier boundary from. Same argument, same
-    // static guarantee — routing either kind through the parcel-only path is a compile error, not
-    // a runtime `undefined` on a compliance number.
-    return rule.kind === 'block-derived-alignment' || rule.kind === 'tiered-occupation';
+    // §L-590b — `tiered-occupation` joined `block-derived-alignment`: Art. 350.2.b's band is
+    // defined on the BLOCK, so a parcel-only solve has nothing to construct the tier boundary
+    // from. ADR-0377/0378/0379 change-set: the answer now lives on the compile-enforced kind
+    // registry (one fact, one home — C84 EI-9); behaviour is byte-identical for every kind that
+    // existed before the registry did, and the two declarative-seat kinds are `false`.
+    return GEOMETRIC_RULE_KIND_REGISTRY[rule.kind].requiresBlockRing;
 }
 
 /**
