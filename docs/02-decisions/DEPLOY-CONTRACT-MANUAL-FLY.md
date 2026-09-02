@@ -1252,3 +1252,15 @@ ES SIU guard · FR/PT zone identity · NL courtyard fix · the component UI (U0/
    half-state files BY NAME. The worktree cover then re-proved: root tsc RC=0 · site-parcel-data
    172 files / 3,749 tests · test:server 804/804 · server-deps externals clean · server.mjs
    evaluates (probe with `file:///C:/…` — an MSYS path makes Node print only its version banner).
+
+---
+
+## 6.9.9 ELEVENTH EXECUTION — 2026-09-02 night (`ecedf1a7`), bundle proof 6/6, first try — ROUTINE
+
+Third deploy of the day, no incident: gate cover on the worktree (root tsc RC=0 @8GB ·
+test:server 804 · site-parcel-data 3,870) · rollback tag first (`…ZR3Y0Q`) · builder
+`fly-builder-faithful-song-347` held its 16384MB from §6.9.8's resize, warmed from stopped ·
+DOCKER_CONFIG guard only · proof after `DEPLOY_RC`, chunk `main-D5i6bZyT.js` → `main-Bagp_Kex.js`.
+Ships: the Porto gate opening + moda machinery · ADR-0377/78/79 seats + kernel primitives +
+190-solve gate · the FR no-extraction product · the U3 definition-editor workspace (§64 live).
+The play-book is stabilising: when nothing novel happens, the record says so and stays short.
