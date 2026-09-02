@@ -1,0 +1,29 @@
+FR-STEP4 FALSIFICATION (control 9) — captured stdout, 2026-09-02, verbatim.
+Method: FR_GPU_APICARTO_BASE and FR_GPU_WFS_FALLBACK_BASE in frGpuClient.ts edited to
+*.invalid.pryzm.example hosts (BOTH GPU transports severed — severing only API Carto is
+absorbed by the brief-mandated WFS fallback, by design); driver run over all 7 points;
+file restored from backup, sha256-verified byte-identical.
+
+sha256 BEFORE: 9995d413df2cf51d9905211ca340149f9c30d1bfa01e66971b980fbaf8b527ca frGpuClient.ts
+severed lines (grep):
+  64:export const FR_GPU_APICARTO_BASE = 'https://apicarto.invalid.pryzm.example/api/gpu';
+  234:export const FR_GPU_WFS_FALLBACK_BASE = 'https://data-geopf.invalid.pryzm.example/wfs/ows';
+
+PASS paris-11e: status=transient reason=endpoint-unreachable: gpu/municipality failed on BOTH transports — apicarto (endpoint-unreachable: https://apicarto.invalid.pryzm.example/api/gpu/muni
+PASS lyon: status=transient reason=endpoint-unreachable: gpu/municipality failed on BOTH transports — apicarto (endpoint-unreachable: https://apicarto.invalid.pryzm.example/api/gpu/muni
+PASS bergonne-rnu: status=transient reason=endpoint-unreachable: gpu/municipality failed on BOTH transports — apicarto (endpoint-unreachable: https://apicarto.invalid.pryzm.example/api/gpu/muni
+PASS loray-25349: status=transient reason=endpoint-unreachable: gpu/municipality failed on BOTH transports — apicarto (endpoint-unreachable: https://apicarto.invalid.pryzm.example/api/gpu/muni
+PASS artigue-pos: status=transient reason=endpoint-unreachable: gpu/municipality failed on BOTH transports — apicarto (endpoint-unreachable: https://apicarto.invalid.pryzm.example/api/gpu/muni
+PASS pardines-cc: status=transient reason=endpoint-unreachable: gpu/municipality failed on BOTH transports — apicarto (endpoint-unreachable: https://apicarto.invalid.pryzm.example/api/gpu/muni
+PASS paris-marais-psmv: status=transient reason=endpoint-unreachable: gpu/municipality failed on BOTH transports — apicarto (endpoint-unreachable: https://apicarto.invalid.pryzm.example/api/gpu/muni
+CONTROL-9 HOLDS: every branch transient-by-name, no refusal, no empty
+SEVERED_RC=0
+
+RESTORE: cp backup → sha256 AFTER: 9995d413df2cf51d9905211ca340149f9c30d1bfa01e66971b980fbaf8b527ca (IDENTICAL)
+grep -c "invalid.pryzm.example" frGpuClient.ts → 0
+Post-restore: full suite 179 files / 3,855 passed, RC=0; scoped tsc RC=0.
+
+Additionally proven at the unit layer (frNoExtraction.test.ts, fixture-severed):
+  - every point → transient 'endpoint-unreachable:' (never RNU/empty/refusal);
+  - an AUXILIARY-only failure (altimetry 502) degrades to ONE typed retryable slice, record ships;
+  - ONE prescription geometry leg down → the prescriptions slice withheld by name (no silent 2-of-3).

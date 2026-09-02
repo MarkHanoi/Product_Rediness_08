@@ -50,7 +50,7 @@ any pipeline or pack may ship `confidence: structured`.
 > Zeros are **measured emptiness**, not query failure — identical query construction returns 66,973
 > for the Porto district and 321,579 for the Algarve.
 
-### §PORTO-SIGN-OFF — `PT_PORTO_PDM_CERTIFIED` (signed IN PART, 2026-09-02; gate remains SHUT by its own contract)
+### §PORTO-SIGN-OFF — `PT_PORTO_PDM_CERTIFIED` (signed 2026-09-02; ~~gate remains SHUT by its own contract~~ **gate FLIPPED OPEN 2026-09-02, lane PORTO-FLIP — all four items closed below**)
 
 **Signatory:** the founder (product owner), session directive 2026-09-02: *"I sign up."* — given
 against the standing offer naming Porto's three assertions. Recorded by Claude (scribe only, L-449).
@@ -60,19 +60,36 @@ against the standing offer naming Porto's three assertions. Recorded by Claude (
    cércea ≤ largura do arruamento with the 21 m cap and the moda-da-cércea override;
    profundidade 25/30 m; afastamento ≥ H/2 min 3 m) applies to the categorias this pack maps.
 2. **MAPPING (assertion 2) — SIGNED**: the CRUS `categoria_2021` → PDMP categoria correspondence
-   as drafted.
+   as drafted. *(Measured basis, lane PORTO-FLIP 2026-09-02: CRUS `classificacao_e_qualificacao`
+   carries the PDMP's OWN Planta de Ordenamento legend verbatim — live probes returned «Solo
+   Urbano  – Espaços centrais –  Área de frente urbana contínua tipo I» at 41.1493,−8.6109 and
+   «… tipo II» at 41.1620,−8.6220 — so the correspondence is the regulamento's own words.)*
+3. **ARTICLE PINS (assertion 3) — ~~PENDING~~ CLOSED 2026-09-02** by lane PT-ARTICLE-PINS,
+   commit `eb63eeaf`: every formerly chapter-only row below is pinned to its Art. N.º + n.º +
+   alínea with the verbatim sentence, dual-engine verified (pdf.js + poppler) against the
+   sha256-pinned Regulamento PDF. Covered by this signature WITHOUT a further founder action,
+   per the pre-authorization recorded above (*"continue with goal 3. and you have my sign
+   off"*).
+4. **SCHEMA (blocker 4) — ~~PENDING~~ CLOSED 2026-09-02** by **ADR-0379**
+   (`context-aggregate` — a fabric statistic is a rule value), commit `ae6d9bed`: the
+   `fabricDerivedHeight` seat this block named, as the C58 `GeometricRule` kind
+   `context-aggregate` (extent-weighted mode over the frente urbana of cornice heights,
+   `mean-ground-at-facade` datum; unavailable ≠ empty ≠ tie ≠ poisoned — ALL refuse).
 
-**What it CANNOT cover yet, per the gate's own text (`ptPortoPdmDraft.ts` header):**
-3. **ARTICLE PINS (assertion 3) — PENDING**: rows below citing the chapter must be pinned to
-   their Art. N.º by reading the chapter. The pinning lane was dispatched the same hour as this
-   record; on its verified completion, assertion 3 is covered by this signature WITHOUT a further
-   founder action (pre-authorized: *"continue with goal 3. and you have my sign off"*).
-4. **SCHEMA (blocker 4) — PENDING**: the `fabricDerivedHeight` C58 kind (moda da cércea). Enters
-   via the envelope-architecture audit's primitive recommendation + its own schema change-set;
-   the flip to `true` happens only when BOTH 3 and 4 are closed, and must cite this block.
+**THE FLIP (2026-09-02, lane PORTO-FLIP):** with 1–4 closed, `PT_PORTO_PDM_CERTIFIED` is `true`,
+citing THIS block + ADR-0379 (the L-449 discipline: the authority is this record, never the
+flipping commit). Registered in `l449CertificationGates.ts` with the signature seat
+`{doc: this file, anchor: '§PORTO-SIGN-OFF'}` — the l449 test DEREFERENCES the anchor, so
+striking this block turns the gate red in CI. What the open gate authorises: the certified
+coverage statement on Porto's zone-named refusal, and — in the FUC tipo I/II categorias — the
+moda-da-cércea evaluation over a measured frente-urbana member set (`ptFrenteUrbana.ts`
+extractor; members injected per ADR-0379 §4), publishing a value ONLY with its article chain
+(Art. 24.º n.º 1 e) / Art. 27.º n.º 2 b) / Art. 3.º o) l) g)); where the member set cannot be
+honestly constructed the card carries the ADR-0379 refusal NAMING the failed precondition —
+never the 21 m cap alone. It does NOT register an envelope-drawing jurisdiction pack.
 
-**Revocable** at any time: strike (not delete) this block. Until the flip, no draft value is
-shown or evaluated anywhere — the refusal card states only that the draft exists.
+**Revocable** at any time: strike (not delete) this block — the shut branch is kept alive in
+`ptPortoPdmDraftRefusal` and the l449 anchor dereference fails loudly.
 
 ### A.0.3 — Porto PDM numeric values (`VERIFIED-PRIMARY`, text extracted 2026-07-31)
 

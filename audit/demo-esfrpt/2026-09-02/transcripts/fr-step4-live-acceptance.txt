@@ -1,0 +1,135 @@
+
+===== paris-11e (PLU + prescriptions) (48.8585, 2.3785) — 1164 ms — status=found — BYTE-IDENTICAL RERUN: true (15330 bytes)
+  REGIME: PLU — PARIS (INSEE 75056, is_rnu=false) — doc 75056_PLU_20260616 (PLU, partition DU_75056)
+  DERIVABILITY: reglement-text-path
+  ZONE [zone-urba]: UG (typezone U) — idurba 75056_PLU_20260616 — règlement 75056_reglement_20260616.pdf
+  PERMITTED-USES: UNRESOLVED (retryable=false) — permitted uses are not machine-served: DESTOUI/DESTCDT/DESTNON are empty on the zone row (0.84–1.23% national fill — FR-PHASE0 §2 measured; they live in the règ
+  PRESCRIPTIONS: 5 at point (surf 5 / lin 0 / pct 0)
+    - [surf] typepsc 17/00 — Zone de déficit en logement social
+    - [surf] typepsc 36/00 — Secteur soumis à l'article UG.1.4.1
+    - [surf] typepsc 39/02 — Hauteur plafond
+    - [surf] typepsc 42/00 — Sous-secteur de maintien des constinuités écologiques
+    - [surf] typepsc 99/01 — Secteur d'encadrement de l'hébergement touristique
+  SUP: 5 assiette(s) (s 5 / l 0 / p 0)
+    - [s] ac1 Boulangerie — acte AC1_Boulangerie-IJ1S8F_19840523_act.pdf
+    - [s] ac1 Fontaine de la Roquette — acte AC1_Fontaine-de-la-Roquette-IGGKA4_19921102_act.pdf
+    - [s] ac1 Maison — acte AC1_Maison-IDAK3T_19281019_act.pdf
+    - [s] ac1 Eglise Saint-Ambroise — acte AC1_Eglise-Saint-Ambroise-I03AAK_19780602_act.pdf
+    - [s] ac2 Ensemble urbain à Paris — acte AC2_SI7497_19750806_act.pdf
+  TERRAIN: 37.54 m (ign_rge_alti_wld; acc "Variable suivant la source de mesure")
+  NEIGHBOURS: 49 with height of 49 served (noHeight 0, truncated false) — heights 4.5–25.6 m
+  GOVERNING DOC: 75056_PLU_20260616 (PLU) — DATAPPRO 20260616 — ETAT 03 — join joined
+    download: https://www.geoportail-urbanisme.gouv.fr/document/download-by-partition/DU_75056
+    law: https://www.legifrance.gouv.fr/codes/texte_lc/LEGITEXT000006074075/ — Code de l'urbanisme — volumétrie et implantation: art. R151-39 à R151-41 (décret n° 2015-1783); pre-2016 règlements: articles 6–10 per zone
+  REFUSAL: none — the record is the product (no envelope asserted anywhere)
+
+===== lyon-presquile (PLUi) (45.764, 4.8357) — 586 ms — status=found — BYTE-IDENTICAL RERUN: true (19128 bytes)
+  REGIME: PLUi — LYON (INSEE 69123, is_rnu=false) — doc 200046977_PLUi_20260326 (PLUi, partition DU_200046977)
+  DERIVABILITY: reglement-text-path
+  ZONE [zone-urba]: UCe1b (typezone U) — idurba 200046977_PLUI_20260326 — règlement 200046977_reglement_20260326.pdf
+  PERMITTED-USES: UNRESOLVED (retryable=false) — permitted uses are not machine-served: DESTOUI/DESTCDT/DESTNON are empty on the zone row (0.84–1.23% national fill — FR-PHASE0 §2 measured; they live in the règ
+  PRESCRIPTIONS: 13 at point (surf 13 / lin 0 / pct 0)
+    - [surf] typepsc 02/00 = constructibilite-interdite-ou-conditionnelle — Risque d inondation par ruissellement-ZONE PRODUCTION
+    - [surf] typepsc 17/00 — Secteur de mixite sociale
+    - [surf] typepsc 17/00 — Secteur de mixite sociale
+    - [surf] typepsc 17/00 — Secteur de mixite sociale
+    - [surf] typepsc 17/00 — Secteur de mixite sociale
+    - [surf] typepsc 18/00 — OAP-0.1
+  SUP: 17 assiette(s) (s 17 / l 0 / p 0)
+    - [s] ac1 Façades et toitures — acte AC1_Facades-et-toitures-IVU07O_19380808_act.pdf
+    - [s] ac1 Parties inscrites — acte AC1_Parties-inscrites-IEZ303_19270528_act.pdf
+    - [s] ac1 Fontaine Bartholdi — acte AC1_Fontaine-Bartholdi-IFY4L0_19950929_act.pdf
+    - [s] ac1 Hôtel de Ville — acte AC1_Hotel-de-Ville-IIK6GR_18860712_act.pdf
+    - [s] ac1 Eglise Saint-Pierre des Terreaux — acte AC1_Eglise-Saint-Pierre-des-Terreaux-IL6FD0_19210216_act.pdf
+  TERRAIN: 167.76 m (ign_rge_alti_wld; acc "Variable suivant la source de mesure")
+  NEIGHBOURS: 26 with height of 26 served (noHeight 0, truncated false) — heights 16.9–30.2 m
+  GOVERNING DOC: 200046977_PLUi_20260326 (PLUi) — DATAPPRO 20260326 — ETAT 07 — join joined
+    download: https://www.geoportail-urbanisme.gouv.fr/document/download-by-partition/DU_200046977
+    law: https://www.legifrance.gouv.fr/codes/texte_lc/LEGITEXT000006074075/ — Code de l'urbanisme — volumétrie et implantation: art. R151-39 à R151-41 (décret n° 2015-1783); pre-2016 règlements: articles 6–10 per zone
+  REFUSAL: none — the record is the product (no envelope asserted anywhere)
+
+===== bergonne (known-RNU) (45.525, 3.22) — 628 ms — status=found — BYTE-IDENTICAL RERUN: true (6325 bytes)
+  REGIME: RNU — BERGONNE (INSEE 63036, is_rnu=true) — no document served
+  DERIVABILITY: rnu-no-derivation
+  ZONE: UNRESOLVED (retryable=false) — no-feature: gpu/zone-urba and gpu/secteur-cc @ 45.525,3.22 — RNU commune, no zoning published
+  PERMITTED-USES: UNRESOLVED (retryable=false) — RNU regime: permitted uses are a per-case determination under art. L111-1 s. — not derivable from any dataset
+  PRESCRIPTIONS: 0 at point (surf 0 / lin 0 / pct 0)
+  SUP: 0 assiette(s) (s 0 / l 0 / p 0)
+  TERRAIN: 497.34 m (ign_rge_alti_wld; acc "Variable suivant la source de mesure")
+  NEIGHBOURS: 0 with height of 0 served (noHeight 0, truncated false)
+  GOVERNING DOC: Règlement national d'urbanisme — DATAPPRO null — ETAT null — join not-queried
+    law: https://www.legifrance.gouv.fr/codes/texte_lc/LEGITEXT000006074075/ — Code de l'urbanisme — règlement national d'urbanisme: art. L111-1 s. (constructibilité limitée)
+  REFUSAL [no-rule-pack] legallyGrounded=false
+    headline: BERGONNE (INSEE 63036) is under the RNU — permanent refusal; no envelope asserted.
+    detail: Basis: the Géoportail de l'urbanisme municipality flag is_rnu=true for THIS commune — a per-commune statement, which is the only granularity this refusal relies on. Under the Règlement national d'urbanisme, construction is permitted only within the parties actuellement urbanisées — a case-by-case determination by the instructing authority that exists in no dataset (FR-MODULE-BUILD-BRIEF §3.3/§9). No national RNU count is quoted here deliberately: the GPU flag census and the published SuDocUH figures disagree and that discrepancy is unresolved (FR-PHASE0-REPORT §2) — re-derive from the current SuDocUH release before quoting any aggregate.
+    ordinanceRef: Géoportail de l'urbanisme, module municipality via apicarto.ign.fr — commune BERGONNE, INSEE 63036, is_rnu=true. Regime: Règlement national d'urbanisme (Code de l'urbanisme, art. L111-1 s.).
+
+===== loray-25349 (the brief contract commune) (47.157245, 6.493262) — 566 ms — status=found — BYTE-IDENTICAL RERUN: true (6620 bytes)
+  REGIME: PLUi — LORAY (INSEE 25349, is_rnu=false) — doc 242504181_PLUi_20251027 (PLUi, partition DU_242504181)
+  DERIVABILITY: reglement-text-path
+  ZONE [zone-urba]: Aa (typezone A) — idurba 242504181_PLUi_20251027 — règlement 242504181_reglement_20251027.pdf
+  PERMITTED-USES: UNRESOLVED (retryable=false) — permitted uses are not machine-served: DESTOUI/DESTCDT/DESTNON are empty on the zone row (0.84–1.23% national fill — FR-PHASE0 §2 measured; they live in the règ
+  PRESCRIPTIONS: 0 at point (surf 0 / lin 0 / pct 0)
+  SUP: 1 assiette(s) (s 1 / l 0 / p 0)
+    - [s] ac1 Fontaine-lavoir — acte AC1_Fontaine-lavoir-IXQ2PO_19790306_act.pdf
+  TERRAIN: 725.86 m (ign_rge_alti_wld; acc "Variable suivant la source de mesure")
+  NEIGHBOURS: 0 with height of 0 served (noHeight 0, truncated false)
+  GOVERNING DOC: 242504181_PLUi_20251027 (PLUi) — DATAPPRO 20251027 — ETAT 03 — join joined
+    download: https://www.geoportail-urbanisme.gouv.fr/document/download-by-partition/DU_242504181
+    law: https://www.legifrance.gouv.fr/codes/texte_lc/LEGITEXT000006074075/ — Code de l'urbanisme — volumétrie et implantation: art. R151-39 à R151-41 (décret n° 2015-1783); pre-2016 règlements: articles 6–10 per zone
+  REFUSAL: none — the record is the product (no envelope asserted anywhere)
+
+===== artigue (POS-caduc, live) (42.82676, 0.640911) — 868 ms — status=found — BYTE-IDENTICAL RERUN: true (7205 bytes)
+  REGIME: POS-caduc — ARTIGUE (INSEE 31019, is_rnu=true) — doc 31019_POS_20110919 (POS, partition DU_31019)
+    note: POS caduc since 27 March 2017 (art. L174-1) — treated as dead; RNU applies. The zoning below is carried as historical identity only.
+  DERIVABILITY: rnu-no-derivation
+  ZONE [zone-urba]: NC (typezone A) — idurba null — règlement 31019_reglement_20110919.pdf
+  PERMITTED-USES: UNRESOLVED (retryable=false) — RNU regime: permitted uses are a per-case determination under art. L111-1 s. — not derivable from any dataset
+  PRESCRIPTIONS: 0 at point (surf 0 / lin 0 / pct 0)
+  SUP: 0 assiette(s) (s 0 / l 0 / p 0)
+  TERRAIN: 1764.23 m (ign_rge_alti_wld; acc "Variable suivant la source de mesure")
+  NEIGHBOURS: 0 with height of 0 served (noHeight 0, truncated false)
+  GOVERNING DOC: Règlement national d'urbanisme — DATAPPRO null — ETAT null — join not-queried
+    law: https://www.legifrance.gouv.fr/codes/texte_lc/LEGITEXT000006074075/ — Code de l'urbanisme — caducité des POS: art. L174-1 (27 mars 2017); applicable rules: RNU art. L111-1 s.
+  REFUSAL [no-rule-pack] legallyGrounded=false
+    headline: ARTIGUE (INSEE 31019): the served document is a POS — caduc since 27 March 2017; RNU applies. No envelope asserted.
+    detail: The Géoportail de l'urbanisme serves 31019_POS_20110919 (du_type POS) at this point. POS documents lapsed by law on 27 March 2017 (Code de l'urbanisme art. L174-1, loi ALUR) — the document is treated as dead and the commune falls through to the Règlement national d'urbanisme (the GPU flag agrees: is_rnu=true). RNU constructibility is a per-case PAU determination (see the RNU refusal doctrine); the caduc POS zoning is carried below as historical identity only, never as a rule source.
+    ordinanceRef: Géoportail de l'urbanisme via apicarto.ign.fr — document 31019_POS_20110919, partition DU_31019, du_type POS. Caducité: Code de l'urbanisme art. L174-1 (27 mars 2017). Applicable regime: RNU, art. L111-1 s.
+
+===== pardines (carte communale, bonus) (45.5636, 3.1856) — 737 ms — status=found — BYTE-IDENTICAL RERUN: true (6872 bytes)
+  REGIME: CC — PARDINES (INSEE 63268, is_rnu=false) — doc 63268_CC_20190221 (CC, partition DU_63268)
+    note: A carte communale has no règlement of its own — RNU rules apply within its sectors (brief §3.2).
+  DERIVABILITY: derived-plan-governs (trigger secteur-cc, expedient 63268_CC_20190221)
+  ZONE [secteur-cc]: N (typesect 03) — idurba 63268_CC_20190221 — règlement null
+  PERMITTED-USES: UNRESOLVED (retryable=false) — carte communale: no règlement of its own — uses follow the RNU within sectors (art. L161-1 s.)
+  PRESCRIPTIONS: 0 at point (surf 0 / lin 0 / pct 0)
+  SUP: 0 assiette(s) (s 0 / l 0 / p 0)
+  TERRAIN: 586.64 m (ign_rge_alti_wld; acc "Variable suivant la source de mesure")
+  NEIGHBOURS: 0 with height of 0 served (noHeight 0, truncated false)
+  GOVERNING DOC: 63268_CC_20190221 (CC) — DATAPPRO 20190221 — ETAT 03 — join joined
+    download: https://www.geoportail-urbanisme.gouv.fr/document/download-by-partition/DU_63268
+    law: https://www.legifrance.gouv.fr/codes/texte_lc/LEGITEXT000006074075/ — Code de l'urbanisme — carte communale: art. L161-1 s.; rules: RNU art. L111-1 s. (a carte communale has no règlement of its own)
+  REFUSAL [derived-plan] legallyGrounded=true
+    headline: Carte communale 63268_CC_20190221 governs — sector zoning only; RNU rules apply. No envelope asserted.
+    detail: PARDINES is covered by a carte communale: sector N zones this point, but a carte communale has no règlement of its own — the substantive rules are the Règlement national d'urbanisme applied within the drawn sectors (Code de l'urbanisme art. L161-1 s.). Deriving numeric parameters would require the RNU per-case appreciation, which no dataset publishes.
+    ordinanceRef: Géoportail de l'urbanisme, module secteur-cc via apicarto.ign.fr — carte communale 63268_CC_20190221, sector N, commune PARDINES (INSEE 63268). Regime: art. L161-1 s. + RNU art. L111-1 s.
+
+===== paris-marais (PSMV, bonus) (48.8578, 2.3622) — 788 ms — status=found — BYTE-IDENTICAL RERUN: true (12859 bytes)
+  REGIME: PSMV — PARIS (INSEE 75056, is_rnu=false) — doc 75056_PSMV_20131218_A (PSMV, partition PSMV_75056_A)
+  DERIVABILITY: derived-plan-governs (trigger psmv, expedient 75056_PSMV_20131218_A)
+  ZONE [zone-urba]: US (typezone U) — idurba 75056_PSMV_20131218_A — règlement 75056_reglement_20131218_A.pdf
+  PERMITTED-USES: UNRESOLVED (retryable=false) — permitted uses are not machine-served: DESTOUI/DESTCDT/DESTNON are empty on the zone row (0.84–1.23% national fill — FR-PHASE0 §2 measured; they live in the règ
+  PRESCRIPTIONS: 1 at point (surf 1 / lin 0 / pct 0)
+    - [surf] typepsc 24/00 — Voie publique ou privée
+  SUP: 2 assiette(s) (s 2 / l 0 / p 0)
+    - [s] ac2 Ensemble urbain à Paris — acte AC2_SI7497_19750806_act.pdf
+    - [s] ac4 Site patrimonial remarquable du Marais — acte AC4_Site-patrimonial-remarquable-du-Marais_20131218_act.pdf
+  TERRAIN: 34.3 m (ign_rge_alti_wld; acc "Variable suivant la source de mesure")
+  NEIGHBOURS: 38 with height of 38 served (noHeight 0, truncated false) — heights 5.1–20 m
+  GOVERNING DOC: 75056_PSMV_20131218_A (PSMV) — DATAPPRO 20131218 — ETAT 03 — join joined
+    download: https://www.geoportail-urbanisme.gouv.fr/document/download-by-partition/PSMV_75056_A
+    law: https://www.legifrance.gouv.fr/codes/texte_lc/LEGITEXT000006074075/ — Code de l'urbanisme — plan de sauvegarde et de mise en valeur: art. L313-1 s.
+  REFUSAL [derived-plan] legallyGrounded=true
+    headline: Plan de sauvegarde et de mise en valeur 75056_PSMV_20131218_A governs — building-by-building rules; no generic envelope derivable.
+    detail: This point lies inside a secteur sauvegardé: the PSMV regulates building by building (hauteurs, alignements and conservation prescriptions are drawn per parcel in the plan graphique), so a generic zone-rule envelope would misstate the law. The governing expedient is 75056_PSMV_20131218_A (règlement 75056_reglement_20131218_A.pdf); its parameters live in the site-specific document and are not machine-published.
+    ordinanceRef: Géoportail de l'urbanisme via apicarto.ign.fr — document 75056_PSMV_20131218_A, partition PSMV_75056_A, du_type PSMV. Regime: Code de l'urbanisme art. L313-1 s.

@@ -64,9 +64,43 @@
 //     per-parcel FAR (§A.0.3's own warning). It is deliberately NOT a draft value here.
 //
 // PURE. Data + refusal construction only; no I/O (P5-adjacent discipline for L2 data modules).
+//
+// ══════════════════════════════════════════════════════════════════════════════════════════════
+// ⭐ GATE OPENED 2026-09-02 (lane PORTO-FLIP) — the header above is kept as the RECORD of what
+// the gate demanded; every one of its four conditions is now CLOSED, and the authority is the
+// SIGNATURE RECORD, never this file or its commit (the L-449 scribe-not-signatory discipline):
+//   1. SCOPE     — SIGNED by the founder, 2026-09-02 ("I sign up") — SOURCES.md §PORTO-SIGN-OFF.
+//   2. MAPPING   — SIGNED, same record. CRUS serves the PDMP's OWN Planta de Ordenamento legend
+//                  verbatim in `classificacao_e_qualificacao` (measured: «Solo Urbano  – Espaços
+//                  centrais –  Área de frente urbana contínua tipo I/II», live 2026-09-02), so
+//                  the FUC tipo detection below keys on the regulamento's own words.
+//   3. PINS      — CLOSED by lane PT-ARTICLE-PINS, commit eb63eeaf (pre-authorized in the
+//                  record: "continue with goal 3. and you have my sign off").
+//   4. SCHEMA    — CLOSED by ADR-0379, commit ae6d9bed: the `context-aggregate` GeometricRule
+//                  kind (the `fabricDerivedHeight` seat this header named) — extent-weighted
+//                  mode; unavailable ≠ empty ≠ tie ≠ poisoned, ALL refuse.
+// WHAT THE FLIP CHANGES — and the two things it does NOT:
+//   • The coverage line on Porto's refusal states the signed, certified pack; where the zone is
+//     FUC tipo I/II the moda-da-cércea rule is EVALUATED over an injected frente-urbana member
+//     set (`ptFrenteUrbana.ts`) and the card carries the outcome — a cited value in `detail`,
+//     or the ADR-0379 refusal naming WHICH precondition failed.
+//   • It does NOT register a jurisdiction pack (no envelope is drawn; the índice/profundidade/
+//     afastamento values remain a cited transcription, not engine inputs), and it does NOT
+//     soften the silent-substitution trap: an unresolved moda NEVER degrades to the 21 m cap —
+//     Art. 27.º n.º 2 b) subordinates the cap to the moda, so the cap alone is not a rule value.
+// Revocation: strike §PORTO-SIGN-OFF and flip this constant back — the shut branch below is
+// kept alive for exactly that.
+// ══════════════════════════════════════════════════════════════════════════════════════════════
 
-import type { EnvelopeRefusal } from '@pryzm/schemas';
+import type { ContextAggregateRule, EnvelopeRefusal } from '@pryzm/schemas';
+import { ContextAggregateRuleSchema } from '@pryzm/schemas';
+import {
+    evaluateContextAggregate,
+    type ContextAggregateOutcome,
+    type ContextSetInput,
+} from '../../rulepacks/declarative/evaluateContextAggregate.js';
 import { ptCrusZoneRefusal, type PtCrusZone } from './ptCrusZone.js';
+import type { PtFrenteUrbanaExtraction } from './ptFrenteUrbana.js';
 
 /** Porto's DTCC as CRUS serves it (CAOP dtmn 1312 — NOT the repo folder's 1315, a recorded defect). */
 export const PT_PORTO_DTCC = '1312';
@@ -75,16 +109,26 @@ export const PT_PORTO_DTCC = '1312';
 export const PT_PORTO_JURISDICTION_ID = 'pt-1312-porto';
 
 /**
- * ⚠⚠ THE CERTIFICATION GATE — default SHUT (§UNSIGNED-GATE-DEFAULTS-SHUT; the
- * `FR_PARIS_PLU_CERTIFIED` mirror). Flipping it requires a human signature of assertions 1–3 in
- * the header AND the C58 `fabricDerivedHeight` amendment (blocker 4) — a decision plus a schema
- * lane, not code here. While `false`, no code path in this package reads a numeric value out of
- * `PT_PORTO_PDM_DRAFT` for any purpose except naming that the draft exists.
+ * ⭐ THE CERTIFICATION GATE — OPEN 2026-09-02 (lane PORTO-FLIP). The AUTHORITY is the signature
+ * RECORD, never this commit (L-449: a pack cannot sign its own transcription, and a commit
+ * message is not a signatory): `docs/04-reference/jurisdictions/pt/sources/SOURCES.md`
+ * **§PORTO-SIGN-OFF** — the founder signed assertions 1 (SCOPE) + 2 (MAPPING) by session
+ * directive 2026-09-02; assertion 3 (ARTICLE PINS) closed under the record's own
+ * pre-authorization by lane PT-ARTICLE-PINS (commit eb63eeaf); blocker 4 (SCHEMA) closed by
+ * **ADR-0379** — the `context-aggregate` GeometricRule kind, the `fabricDerivedHeight` seat
+ * this gate named (commit ae6d9bed). Registered in `l449CertificationGates.ts` with the
+ * signature seat `{doc: pt SOURCES.md, anchor: '§PORTO-SIGN-OFF'}`; the l449 test DEREFERENCES
+ * that anchor, so striking the record turns this gate red — which is the whole point.
  *
- * (Typed `boolean`, not the literal `false`, so a future consumer's `if (PT_PORTO_PDM_CERTIFIED)`
- * branch is not narrowed away as dead code while the gate is shut — the Paris precedent.)
+ * What being open AUTHORISES: the certified coverage statement, and — where the CRUS zone is
+ * FUC tipo I/II — evaluating the moda-da-cércea `context-aggregate` rule over an injected
+ * frente-urbana member set, publishing the outcome WITH its article chain (or the ADR-0379
+ * refusal naming the failed precondition). It does NOT register an envelope-drawing pack.
+ *
+ * (Typed `boolean`, not the literal `true`, so the shut branch below never narrows away —
+ * §PORTO-SIGN-OFF is revocable by striking the block, the Paris precedent both ways.)
  */
-export const PT_PORTO_PDM_CERTIFIED: boolean = false;
+export const PT_PORTO_PDM_CERTIFIED: boolean = true;
 
 /** Where every draft value below was verified, and by which pass — cited on the refusal. */
 export const PT_PORTO_PDM_SOURCE =
@@ -261,31 +305,241 @@ export const PT_PORTO_PDM_DRAFT: Readonly<Record<string, PtPdmDraftValue>> = {
     },
 };
 
+/* ══════════════════ the moda da cércea, as a rule (ADR-0379 / blocker 4 closed) ══════════════ */
+
 /**
- * PURE: Porto's zone-named refusal WHILE THE GATE IS SHUT — the generic CRUS refusal
- * (`ptCrusZoneRefusal`) upgraded to state Porto's true coverage position: the regulamento is
- * extracted, a per-article cited draft exists in code, and what is missing is the signature
- * (and the C58 `fabricDerivedHeight` kind), not the sourcing. Code/`legallyGrounded` are
- * UNCHANGED from the generic refusal — a draft alters no legal claim; it alters the accuracy
- * of the coverage statement. No draft VALUE appears in any field a user reads.
+ * Porto's cércea regime as a C58 `context-aggregate` rule — the value the pinned articles
+ * actually state: the EXTENT-WEIGHTED MODE («com maior extensão», Art. 3.º o)) of cércea
+ * (Art. 3.º g) — hence `mean-ground-at-facade`, ADR-0377) over the *frente urbana*
+ * (Art. 3.º l). Governs FUC tipo I outright (Art. 24.º n.º 1 e)) and overrides the 21 m cap in
+ * FUC tipo II (Art. 27.º n.º 2 b)). Parsed at module load: a drifted literal is a build error.
  */
-export function ptPortoPdmDraftRefusal(zone: PtCrusZone): EnvelopeRefusal {
+export const PT_PORTO_MODA_CERCEA_RULE: ContextAggregateRule = ContextAggregateRuleSchema.parse({
+    kind: 'context-aggregate',
+    aggregate: 'mode',
+    contextSet: 'urban-frontage',
+    attribute: 'cornice-height',
+    heightDatum: { kind: 'mean-ground-at-facade' },
+});
+
+/** The FUC scope refinements from the pin lane BIND (SOURCES.md §A.0.3, 2026-09-02). */
+export type PtPortoFucTipo = 'fuc-i' | 'fuc-ii';
+
+function normalisePtLegend(s: string): string {
+    return s
+        .normalize('NFD')
+        .replace(/[̀-ͯ]/g, '')
+        .toLowerCase()
+        .replace(/\s+/g, ' ');
+}
+
+/**
+ * PURE: which FUC subcategory the CRUS zone is, keyed on the served
+ * `classificacao_e_qualificacao` — which for Porto carries the PDMP's OWN Planta de Ordenamento
+ * legend verbatim (measured live 2026-09-02: «Solo Urbano  – Espaços centrais –  Área de frente
+ * urbana contínua tipo I» / «… tipo II»; the doubled spaces and en-dashes are the service's).
+ * This IS the signed MAPPING (assertion 2): the correspondence is the regulamento's own words,
+ * not a constructed lookup. Non-FUC zones → null — the moda regime governs nothing there and
+ * NOTHING cércea-shaped is evaluated or shown (an Espaço Verde stays a correct null).
+ *
+ * ⚠ Match `tipo ii` BEFORE `tipo i`: the latter is a prefix of the former.
+ */
+export function ptPortoFucTipo(zone: PtCrusZone): PtPortoFucTipo | null {
+    if (zone.dtcc !== PT_PORTO_DTCC) return null;
+    const legend = normalisePtLegend(zone.classificacaoEQualificacao);
+    if (!legend.includes('frente urbana continua')) return null;
+    if (legend.includes('frente urbana continua tipo ii')) return 'fuc-ii';
+    if (legend.includes('frente urbana continua tipo i')) return 'fuc-i';
+    return null;
+}
+
+/** The evaluated cércea outcome + the frontage identity, ready for the card. */
+export interface PtPortoCerceaUpgrade {
+    readonly tipo: PtPortoFucTipo;
+    readonly outcome: ContextAggregateOutcome;
+    /** The extraction (frontage identity for the citation chain), or null when no extractor ran. */
+    readonly extraction: PtFrenteUrbanaExtraction | null;
+    /**
+     * Measured largura do arruamento (m), or null — Portugal has NO measured street-width
+     * source wired (street width must be CONSTRUCTED; no channel today), so callers pass null
+     * and the tipo II largura arm refuses by name.
+     */
+    readonly streetWidthM: number | null;
+}
+
+/**
+ * PURE: evaluate Porto's moda rule over an injected context set and package the outcome for the
+ * card. The context set is `unavailable` whenever the runtime has no frontage source — the why
+ * travels verbatim into the ADR-0379 refusal.
+ */
+export function evaluatePtPortoCercea(
+    tipo: PtPortoFucTipo,
+    contextSet: ContextSetInput,
+    extraction: PtFrenteUrbanaExtraction | null,
+    streetWidthM: number | null = null,
+): PtPortoCerceaUpgrade {
+    return {
+        tipo,
+        outcome: evaluateContextAggregate(PT_PORTO_MODA_CERCEA_RULE, contextSet),
+        extraction,
+        streetWidthM,
+    };
+}
+
+/** The frontage identity fragment for the detail line ("… of Rua X, 143 m, 5 member(s)"). */
+function frontageIdentity(u: PtPortoCerceaUpgrade): string {
+    const e = u.extraction;
+    if (!e || e.waySourceId === null) return 'the frente urbana';
+    const name = e.wayName ?? e.waySourceId;
+    const len = e.wayLengthM !== null ? `, ${e.wayLengthM.toFixed(0)} m between intersections` : '';
+    return `the frente urbana of ${name}${len}`;
+}
+
+/**
+ * PURE: the cércea statement for the card — the ONLY place a Porto height value is worded.
+ *
+ * ⚠ THE SILENT-SUBSTITUTION TRAP, enforced here: when the moda does NOT resolve, NO branch of
+ * this function emits a numeric cércea — in tipo II the 21 m figure appears ONLY inside the
+ * quoted article text with its own exception clause, never as a resolved cap, because
+ * Art. 27.º n.º 2 b) subordinates the cap to the moda («exceto quando a moda da cércea for
+ * superior») and stating 21 alone would over- or understate by parcel (the draft header's
+ * founding warning). Values appear in `detail` with their full article chain; `knownFacts`
+ * carries the regime and resolution STATE, never a bare number the user could mistake for an
+ * allowance (the EnvelopeRefusal knownFacts contract).
+ */
+export function ptPortoCerceaStatement(u: PtPortoCerceaUpgrade): {
+    readonly detailLine: string;
+    readonly fact: string;
+} {
+    const where = frontageIdentity(u);
+    const modaChain =
+        'moda da cércea (Art. 3.º o): the cércea with the greatest extent along the built ' +
+        'frente urbana (Art. 3.º l); cércea measured from mean ground at the façade alignment, ' +
+        'Art. 3.º g / ADR-0377)';
+    const governs =
+        u.tipo === 'fuc-i'
+            ? 'Art. 24.º n.º 1 e) — FUC tipo I: «A cércea resultante não ultrapasse a moda da ' +
+              'cércea da frente urbana do quarteirão onde se situa»'
+            : 'Art. 27.º n.º 1 g) + n.º 2 b) — FUC tipo II: cércea ≤ largura do arruamento; ' +
+              'where the public-space cross-section exceeds 21 metros the admitted cércea is ' +
+              '21 m «exceto quando a moda da cércea for superior, respeitando-se essa moda»';
+
+    if (u.outcome.ok) {
+        const o = u.outcome;
+        const resolved =
+            `${o.value_m} m — the extent-weighted mode over ${o.memberCount} member(s) along ` +
+            `${where} (winning extent ${o.supportExtent_m.toFixed(0)} m of ` +
+            `${o.totalExtent_m.toFixed(0)} m total; ${modaChain})`;
+        if (u.tipo === 'fuc-i') {
+            return {
+                detailLine:
+                    ` ⭐ CÉRCEA (FUC tipo I — moda-governed): ${resolved}. Governing rule: ` +
+                    `${governs}. ${o.caveats.join(' ')}`,
+                fact: 'Cércea (FUC tipo I): moda da cércea RESOLVED from measured frontage context — value + articles in detail',
+            };
+        }
+        // tipo II: the moda is the OVERRIDE COMPARATOR; the governing cap needs the largura.
+        if (u.streetWidthM === null) {
+            return {
+                detailLine:
+                    ` ⭐ CÉRCEA (FUC tipo II — street-width-governed with moda override): the ` +
+                    `governing cap is UNRESOLVED — the largura do arruamento is unmeasured (no ` +
+                    `street-width source is wired for Portugal; width must be constructed, not ` +
+                    `assumed). The moda da cércea DID resolve: ${resolved} — under ${governs}, ` +
+                    `it is the n.º 2 b) override comparator, NOT by itself the admitted cércea. ` +
+                    `${o.caveats.join(' ')}`,
+                fact:
+                    'Cércea (FUC tipo II): UNRESOLVED — largura do arruamento unmeasured; moda ' +
+                    'comparator resolved (see detail)',
+            };
+        }
+        const width = u.streetWidthM;
+        const cap = width > 21 ? Math.max(21, o.value_m) : width;
+        const capRule =
+            width > 21
+                ? `perfil ${width} m > 21 m ⇒ cércea máxima ${cap} m (= max(21 m, moda ${o.value_m} m), Art. 27.º n.º 2 b))`
+                : `cércea ≤ largura do arruamento = ${width} m (Art. 27.º n.º 1 g))`;
+        return {
+            detailLine:
+                ` ⭐ CÉRCEA (FUC tipo II): ${capRule}. Moda: ${resolved}. ${governs}. ` +
+                `${o.caveats.join(' ')}`,
+            fact: 'Cércea (FUC tipo II): resolved from measured largura + moda — value + articles in detail',
+        };
+    }
+
+    // The moda did NOT resolve → the ADR-0379 refusal, NAMING the failed precondition. Never a
+    // scalar; never the 21 m cap alone.
+    const r = u.outcome;
+    return {
+        detailLine:
+            ` ⚠ CÉRCEA ${u.tipo === 'fuc-i' ? '(FUC tipo I — moda-governed)' : '(FUC tipo II — street-width-governed with moda override)'}: ` +
+            `NOT RESOLVED — ${r.code}: ${r.detail} Governing rule: ${governs}. The ${modaChain} ` +
+            `is the rule's value here; no substitute scalar is published (ADR-0379; ` +
+            `§PORTO-SIGN-OFF).`,
+        fact: `Cércea (${u.tipo === 'fuc-i' ? 'FUC tipo I' : 'FUC tipo II'}): REFUSED — ${r.code} (ADR-0379; which precondition failed is named in detail)`,
+    };
+}
+
+/* ═══════════════════════════════ the card upgrade ════════════════════════════════════════════ */
+
+/**
+ * PURE: Porto's zone-named refusal upgrade. While the gate was SHUT this stated the honest
+ * draft-exists coverage position (that branch is KEPT below — §PORTO-SIGN-OFF is revocable).
+ * With the gate OPEN (signed §PORTO-SIGN-OFF + ADR-0379) it states the certified pack, and —
+ * when the zone is FUC tipo I/II and a `cercea` evaluation is supplied — carries the moda
+ * outcome: a cited value in `detail`, or the ADR-0379 refusal naming the failed precondition.
+ * Code/`legallyGrounded` are UNCHANGED from the generic refusal in every branch — the pack
+ * draws no envelope, so the legal claim class does not move.
+ */
+export function ptPortoPdmDraftRefusal(
+    zone: PtCrusZone,
+    cercea: PtPortoCerceaUpgrade | null = null,
+): EnvelopeRefusal {
     const base = ptCrusZoneRefusal(zone);
     if (zone.dtcc !== PT_PORTO_DTCC) return base; // not Porto — never claim the draft elsewhere
     const draftCount = Object.keys(PT_PORTO_PDM_DRAFT).length;
+
+    if (!PT_PORTO_PDM_CERTIFIED) {
+        // The shut branch, verbatim as born (revocation path — see the gate docstring).
+        return {
+            ...base,
+            detail:
+                base.detail +
+                ` ⭐ PORTO COVERAGE UPDATE: the PDMP Regulamento (Janeiro 2023, 100 pp) IS text-extracted ` +
+                `and a per-article cited pack DRAFT exists in PRYZM (${draftCount} values/definitions, ` +
+                `Arts. 3.º/25.º/32.º/36.º/38.º among them, all VERIFIED-PRIMARY) — UNCERTIFIED and ` +
+                `refusing until a human signs its three assertions, and structurally unable to draw ` +
+                `heights until the moda-da-cércea (fabric-derived) rule kind exists in the schema. ` +
+                `What is missing is the signature, not the sourcing.`,
+            knownFacts: [
+                ...base.knownFacts,
+                'Pack draft: ptPortoPdmDraft.ts — UNCERTIFIED (PT_PORTO_PDM_CERTIFIED=false), no value shown or evaluated',
+            ],
+        };
+    }
+
+    const tipo = ptPortoFucTipo(zone);
+    const cerceaStatement =
+        tipo !== null && cercea !== null && cercea.tipo === tipo
+            ? ptPortoCerceaStatement(cercea)
+            : null;
     return {
         ...base,
         detail:
             base.detail +
-            ` ⭐ PORTO COVERAGE UPDATE: the PDMP Regulamento (Janeiro 2023, 100 pp) IS text-extracted ` +
-            `and a per-article cited pack DRAFT exists in PRYZM (${draftCount} values/definitions, ` +
-            `Arts. 3.º/25.º/32.º/36.º/38.º among them, all VERIFIED-PRIMARY) — UNCERTIFIED and ` +
-            `refusing until a human signs its three assertions, and structurally unable to draw ` +
-            `heights until the moda-da-cércea (fabric-derived) rule kind exists in the schema. ` +
-            `What is missing is the signature, not the sourcing.`,
+            ` ⭐ PORTO COVERAGE UPDATE: the PDMP pack is CERTIFIED — §PORTO-SIGN-OFF ` +
+            `(docs/04-reference/jurisdictions/pt/sources/SOURCES.md; founder-signed 2026-09-02; ` +
+            `article pins closed by lane PT-ARTICLE-PINS) + ADR-0379 (the context-aggregate ` +
+            `rule kind for the moda da cércea). ${draftCount} values/definitions transcribed at ` +
+            `VERIFIED-PRIMARY, each bound to its Art. N.º. The pack draws no envelope: numeric ` +
+            `parameters publish only WITH their governing article, and the cércea regime in the ` +
+            `Espaços Centrais FUC categorias is fabric-derived (moda da cércea) — evaluated ` +
+            `where a frente-urbana member set is measurable, refused by name where it is not.` +
+            (cerceaStatement !== null ? cerceaStatement.detailLine : ''),
         knownFacts: [
             ...base.knownFacts,
-            'Pack draft: ptPortoPdmDraft.ts — UNCERTIFIED (PT_PORTO_PDM_CERTIFIED=false), no value shown or evaluated',
+            'Pack: ptPortoPdmDraft.ts — CERTIFIED (PT_PORTO_PDM_CERTIFIED=true; signed §PORTO-SIGN-OFF + ADR-0379)',
+            ...(cerceaStatement !== null ? [cerceaStatement.fact] : []),
         ],
     };
 }

@@ -154,7 +154,12 @@ describe('§NO-UNSIGNED-OPEN-GATE — the reintroduction guard', () => {
         // §PARIS-SIGN-OFF (2026-09-02): was the open-unsigned exemplar (→ false); the founder signed
         // the three assertions and the registry row carries the seat, so signed-open → true.
         expect(isGateSignatureRecorded('FR_PARIS_PLU_CERTIFIED')).toBe(true);     // open + §PARIS-SIGN-OFF
-        expect(isGateSignatureRecorded('PT_PORTO_PDM_CERTIFIED')).toBe(false);    // SHUT (born shut, signature null)
+        // §PORTO-SIGN-OFF (2026-09-02, lane PORTO-FLIP): was born-shut (→ false); the founder
+        // signed assertions 1+2, assertion 3 closed under the record's pre-authorization
+        // (eb63eeaf) and blocker 4 closed by ADR-0379 (ae6d9bed), so signed-open → true — the
+        // Paris precedent, one row down the same table, one day apart. §DEREFERENCE-THE-CITATION
+        // above OPENS pt SOURCES.md and fails if the §PORTO-SIGN-OFF anchor is struck.
+        expect(isGateSignatureRecorded('PT_PORTO_PDM_CERTIFIED')).toBe(true);     // open + §PORTO-SIGN-OFF
         expect(isGateSignatureRecorded('CORDOBA_ENVELOPE_VERIFIED')).toBe(true);  // open + SIG-1, signed 2026-08-03
         expect(isGateSignatureRecorded('NOT_A_GATE')).toBe(false);                // unknown
     });

@@ -1,0 +1,18 @@
+npm warn Unknown project config "package-manager-strict". This will stop working in the next major version of npm. See `npm help npmrc` for supported config options.
+# recorded 1369393 bytes from https://ogcapi.dgterritorio.gov.pt/collections/crus/items?bbox=-8.6221%2C41.161899999999996%2C-8.6219%2C41.1621&f=json&limit=10
+## Porto card @ (41.162, -8.622) — status=found in 568 ms
+   zone     : Solo Urbano  – Espaços centrais – Área de frente urbana contínua tipo II
+   categoria: Espaço Central · codigo 2 · classe Solo Urbano
+   instrum. : PDM de PORTO · registo 01.13.12/PDM/03/2021/93 · Vigente
+   refusal  : code=no-rule-pack legallyGrounded=false
+   headline : Solo Urbano  – Espaços centrais – Área de frente urbana contínua tipo II — zone identified; PRYZM has not encoded the PORTO PDM.
+   fact     : Município: PORTO (DTCC 1312)
+   fact     : Zona (CRUS, verbatim): Solo Urbano  – Espaços centrais – Área de frente urbana contínua tipo II
+   fact     : Classe: Solo Urbano
+   fact     : Categoria: Espaço Central
+   fact     : Instrumento: PDM de PORTO, registo/depósito n.º 01.13.12/PDM/03/2021/93, situação Vigente, publicação 2021-07-08
+   fact     : Fonte: CM - Vectorial e Raster · escala 1/10000
+   fact     : Pack draft: ptPortoPdmDraft.ts — UNCERTIFIED (PT_PORTO_PDM_CERTIFIED=false), no value shown or evaluated
+   fact     : Categoria nacional: código 2 — Espaço Central (Solo Urbano)
+   fact     : Developability (catálogo nacional): DEVELOPMENT TARGET (numbers live in the Regulamento — unencoded)
+   detail   : The national CRUS (DGT) classifies this point as Classe "Solo Urbano", Categoria "Espaço Central" under the PDM de PORTO, registo/depósito n.º 01.13.12/PDM/03/2021/93, situação Vigente, publicação 2021-07-08. This is a COVERAGE statement, not a legal refusal: the categoria admits (or may admit) private edification, and the numbers that would bound it live in the Regulamento. Portuguese PDM numeric parameters (índice de edificação, cércea, afastamentos) are published only in the per-município Regulamento PDF, not as structured data (pt/LEGISLATION-RATE.md ~0 % structured), and no human-signed rule pack exists for PORTO. Drawing an envelope here would be an estimate wearing a citation — refused. ⭐ PORTO COVERAGE UPDATE: the PDMP Regulamento (Janeiro 2023, 100 pp) IS text-extracted and a per-article cited pack DRAFT exists in PRYZM (17 values/definitions, Arts. 3.º/25.º/32.º/36.º/38.º among them, all VERIFIED-PRIMARY) — UNCERTIFIED and refusing until a human signs its three assertions, and structurally unable to draw heights until the moda-da-cércea (fabric-derived) rule kind exists in the schema. What is missing is the signature, not the sourcing. ⭐ NATIONAL DEVELOPABILITY (closed catalogue): DEVELOPMENT TARGET — the national categoria admits private urban edification; the numbers that would bound it live in the município's Regulamento (not encoded). Categoria nacional "Espaço Central" (código 2, Solo Urbano), per Aviso n.º 9282/2021 Anexo I — Norma Técnica sobre o Modelo de Dados e Sistematização da Informação Gráfica dos Planos Diretores Municipais (DGT, Vol. I + II, 18-02-2021); read as captured in docs/04-reference/jurisdictions/pt/PT-PDM-DATA-MODEL-BRIEF.md. The PDM data model carries NO envelope parameter (no cércea, no índice, no pisos, no afastamento — its only numeric field is MEDIDA, area/length), so this verdict is a developability statement about the CATEGORY, never an envelope.

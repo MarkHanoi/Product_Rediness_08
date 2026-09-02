@@ -299,7 +299,7 @@ describe('resolvePtZoneIdentityAt — the chain over recorded live bodies', () =
         expect(out.value.refusal.detail).not.toContain('PORTO COVERAGE UPDATE');
     });
 
-    it('Porto: verbatim served designation (en-dashes, doubled space) + the gate-shut pack-draft coverage line', async () => {
+    it('Porto: verbatim served designation (en-dashes, doubled space) + the CERTIFIED pack coverage line (§PORTO-SIGN-OFF)', async () => {
         const deps = makeFetch([[decodeURIComponent(buildPtCrusPointUrl(41.1579, -8.6291)), body('portoItems')]]);
         const out = await resolvePtZoneIdentityAt(41.1579, -8.6291, deps);
         expect(out.status).toBe('found');
@@ -311,13 +311,20 @@ describe('resolvePtZoneIdentityAt — the chain over recorded live bodies', () =
         expect(out.value.zone.registoOuDeposito).toBe('01.13.12/PDM/03/2021/93');
         const r = out.value.refusal;
         expect(() => EnvelopeRefusalSchema.parse(r)).not.toThrow();
-        // The draft upgrades the COVERAGE STATEMENT — never the legal claim.
+        // The certified pack upgrades the COVERAGE STATEMENT — never the legal claim
+        // (§PORTO-SIGN-OFF flip, lane PORTO-FLIP 2026-09-02; was 'UNCERTIFIED' while born-shut).
         expect(r.code).toBe('public-open-space');
         expect(r.legallyGrounded).toBe(true);
         expect(r.detail).toContain('PORTO COVERAGE UPDATE');
-        expect(r.detail).toContain('UNCERTIFIED');
-        expect(r.knownFacts.some((f) => f.includes('PT_PORTO_PDM_CERTIFIED=false'))).toBe(true);
-        // NEVER A NUMBER: no unsigned draft value reaches a user-readable field.
+        expect(r.detail).toContain('CERTIFIED — §PORTO-SIGN-OFF');
+        expect(r.detail).toContain('ADR-0379');
+        expect(r.knownFacts.some((f) => f.includes('PT_PORTO_PDM_CERTIFIED=true'))).toBe(true);
+        // An Espaço Verde is NOT a FUC categoria: the moda regime governs nothing here and no
+        // cércea line — resolved OR refused — may appear (the correct null stays correct).
+        expect(r.detail).not.toContain('CÉRCEA');
+        expect(r.knownFacts.some((f) => f.startsWith('Cércea'))).toBe(false);
+        // STILL NEVER A BARE NUMBER on a non-FUC card: certification licenses values only WITH
+        // their article, in the FUC cércea statement — not loose draft values on every card.
         for (const field of [r.headline, r.detail, ...r.knownFacts]) {
             expect(field).not.toContain('1,8');
             expect(field).not.toContain('1,4');
@@ -401,9 +408,13 @@ describe('resolvePtZoneIdentityAt — the chain over recorded live bodies', () =
     });
 });
 
-describe('ptPortoPdmDraft — the gate-shut first pack (FR_PARIS_PLU_CERTIFIED mirror)', () => {
-    it('the gate is SHUT and typed boolean', () => {
-        expect(PT_PORTO_PDM_CERTIFIED).toBe(false);
+describe('ptPortoPdmDraft — the first pack, CERTIFIED (§PORTO-SIGN-OFF; FR_PARIS_PLU_CERTIFIED mirror both ways)', () => {
+    it('the gate is OPEN on the §PORTO-SIGN-OFF signature (and stays typed boolean for revocability)', () => {
+        // Flipped 2026-09-02 (lane PORTO-FLIP): assertions 1+2 founder-signed, assertion 3
+        // closed by lane PT-ARTICLE-PINS (eb63eeaf), blocker 4 closed by ADR-0379 (ae6d9bed).
+        // The signature seat is DEREFERENCED by l449CertificationGates.test.ts — the boolean
+        // alone proves nothing (the Madrid lesson); the anchor check is the guard.
+        expect(PT_PORTO_PDM_CERTIFIED).toBe(true);
     });
 
     it('every draft value carries an article citation and VERIFIED-PRIMARY confidence — no uncited row exists', () => {

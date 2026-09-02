@@ -67,6 +67,33 @@ export const FR_GPU_APICARTO_BASE = 'https://apicarto.ign.fr/api/gpu';
 export const FR_GPU_MODULES = ['zone-urba', 'secteur-cc', 'municipality'] as const;
 export type FrGpuModule = (typeof FR_GPU_MODULES)[number];
 
+/**
+ * LANE FR-STEP4 — the FULL point-queryable module set the no-extraction product reads
+ * (brief §4.1 route table). Superset of the identity ladder; every module probed live
+ * 2026-09-02 at Paris 11e (48.8585, 2.3785):
+ *   • `document`          → 1 feature: name/du_type/partition/gpu_doc_id/gpu_status.
+ *     ⚠ MEASURED DISCREPANCY vs the brief: /document serves NO `datappro` and NO `etat` —
+ *     those live in `doc_urba` (the attribute table), reachable live via the WFS fallback
+ *     (`frWfsDocUrbaByIdurba` below). Reported, not worked around silently (brief §1.5).
+ *   • `prescription-surf` → 5 features (typepsc/stypepsc/libelle/txt/nature verbatim).
+ *   • `assiette-sup-s`    → 5 features (suptype/nomsuplitt/typeass/fichier — the acte PDF
+ *     rides the assiette row itself).
+ *     ⚠ MEASURED: `/acte-sup?geom=` IGNORES the geometry (returned 5000 of 89,002 national
+ *     rows) — actes are non-spatial. The acte citation therefore comes from the assiette's
+ *     own `fichier`/`partition`, never from a per-point /acte-sup call.
+ */
+export const FR_GPU_POINT_MODULES = [
+    ...FR_GPU_MODULES,
+    'document',
+    'prescription-surf',
+    'prescription-lin',
+    'prescription-pct',
+    'assiette-sup-s',
+    'assiette-sup-l',
+    'assiette-sup-p',
+] as const;
+export type FrGpuPointModule = (typeof FR_GPU_POINT_MODULES)[number];
+
 /** UA sent on every server-side GPU request (the probe/demo lanes' measured convention). */
 export const FR_GPU_USER_AGENT = 'PRYZM-Research/1.0';
 
@@ -88,7 +115,7 @@ export interface FrGpuFeature {
  * Point — coordinates in GeoJSON [lon, lat] order (measured fact 1; the Lyon probe answers
  * in this order and this order only).
  */
-export function buildFrGpuPointUrl(module: FrGpuModule, lat: number, lon: number): string {
+export function buildFrGpuPointUrl(module: FrGpuPointModule, lat: number, lon: number): string {
     const geom = JSON.stringify({ type: 'Point', coordinates: [lon, lat] });
     const params = new URLSearchParams({ geom });
     return `${FR_GPU_APICARTO_BASE}/${module}?${params.toString()}`;
@@ -153,13 +180,22 @@ export async function frGpuGetJson(
  *   • transient → network / HTTP / unparsable / shapeless body (names the endpoint)
  */
 export async function frGpuFeaturesAtPoint(
-    module: FrGpuModule,
+    module: FrGpuPointModule,
     lat: number,
     lon: number,
     deps: FrFetchDeps = {},
 ): Promise<FetchOutcome<readonly FrGpuFeature[]>> {
     const url = buildFrGpuPointUrl(module, lat, lon);
     const got = await frGpuGetJson(url, `gpu/${module} @ ${lat},${lon}`, deps);
+    return classifyFeatureCollection(got, url, `no-feature: gpu/${module} @ ${lat},${lon}`);
+}
+
+/** Shared FeatureCollection → typed outcome classifier (API Carto and the WFS fallback agree). */
+function classifyFeatureCollection(
+    got: FetchOutcome<unknown>,
+    url: string,
+    absentReason: string,
+): FetchOutcome<readonly FrGpuFeature[]> {
     if (got.status !== 'found') return got as FetchOutcome<readonly FrGpuFeature[]>;
     const features = (got.value as { features?: unknown }).features;
     if (!Array.isArray(features)) {
@@ -173,7 +209,122 @@ export async function frGpuFeaturesAtPoint(
         }
     }
     if (clean.length === 0) {
-        return fetchAbsent(`no-feature: gpu/${module} @ ${lat},${lon}`);
+        return fetchAbsent(absentReason);
     }
     return fetchFound(clean);
+}
+
+/* ────────────────────── the direct-WFS fallback (brief §4.1) ──────────────────────
+ *
+ * "API Carto is a proxy with no availability guarantee … Implement a direct
+ * `data.geopf.fr/wfs/ows` fallback using the layer names above." (FR-MODULE-BUILD-BRIEF §4.1,
+ * an architectural REQUIREMENT.) The fallback fires ONLY on a transient API Carto outcome —
+ * an EMPTY API answer is an answer and is never second-guessed (failure ≠ empty).
+ *
+ * MEASURED FACTS (live 2026-09-02, FR-STEP4 probes — re-run before "fixing"):
+ *   • CQL `INTERSECTS(the_geom, POINT(lat lon))` — axis order for EPSG:4326 CQL literals is
+ *     LAT LON (POINT(48.8585 2.3785) → UG at Paris 11e; lon-lat order returned 0 features).
+ *     ⚠ OPPOSITE of the BBOX-parameter order (lon,lat — heightSources.mjs `fetchBdTopo`,
+ *     live-verified 2026-07-24). Both orders are measured; neither is a typo.
+ *   • `wfs_du:doc_urba` is served as a NON-SPATIAL attribute layer and carries the fields
+ *     API Carto /document lacks: `etat` ('03' Paris), `datappro` ('20260616'), nomreg/nomplan/
+ *     nomrapp, typedoc (⚠ serves 'PLUI' where /document serves 'PLUi' — the TYPEDOC case-split
+ *     the Phase 0 report measured at 612/3, normalise before comparing).
+ */
+export const FR_GPU_WFS_FALLBACK_BASE = 'https://data.geopf.fr/wfs/ows';
+
+/** API-Carto-module → data.geopf.fr WFS layer (the brief §4.1 backing-layer column, verbatim). */
+export const FR_GPU_WFS_LAYERS: Readonly<Record<FrGpuPointModule, string>> = {
+    'zone-urba': 'wfs_du:zone_urba',
+    'secteur-cc': 'wfs_du:secteur_cc',
+    municipality: 'wfs_du:municipality',
+    document: 'wfs_du:document',
+    'prescription-surf': 'wfs_du:prescription_surf',
+    'prescription-lin': 'wfs_du:prescription_lin',
+    'prescription-pct': 'wfs_du:prescription_pct',
+    'assiette-sup-s': 'wfs_sup:assiette_sup_s',
+    'assiette-sup-l': 'wfs_sup:assiette_sup_l',
+    'assiette-sup-p': 'wfs_sup:assiette_sup_p',
+};
+
+/** The doc_urba attribute layer — ETAT/DATAPPRO home (joined by idurba, not by point). */
+export const FR_DOC_URBA_WFS_LAYER = 'wfs_du:doc_urba';
+
+/** Build the direct-WFS point query for one module (CQL INTERSECTS, LAT LON — measured). */
+export function buildFrGpuWfsPointUrl(module: FrGpuPointModule, lat: number, lon: number): string {
+    const params = new URLSearchParams({
+        SERVICE: 'WFS',
+        VERSION: '2.0.0',
+        REQUEST: 'GetFeature',
+        TYPENAMES: FR_GPU_WFS_LAYERS[module],
+        SRSNAME: 'EPSG:4326',
+        CQL_FILTER: `INTERSECTS(the_geom,POINT(${lat} ${lon}))`,
+        COUNT: '50',
+        OUTPUTFORMAT: 'application/json',
+    });
+    return `${FR_GPU_WFS_FALLBACK_BASE}?${params.toString()}`;
+}
+
+/** Fetch one module's features at a point over the DIRECT WFS (the §4.1 fallback transport). */
+export async function frWfsFeaturesAtPoint(
+    module: FrGpuPointModule,
+    lat: number,
+    lon: number,
+    deps: FrFetchDeps = {},
+): Promise<FetchOutcome<readonly FrGpuFeature[]>> {
+    const url = buildFrGpuWfsPointUrl(module, lat, lon);
+    const got = await frGpuGetJson(url, `wfs/${FR_GPU_WFS_LAYERS[module]} @ ${lat},${lon}`, deps);
+    return classifyFeatureCollection(
+        got,
+        url,
+        `no-feature: wfs/${FR_GPU_WFS_LAYERS[module]} @ ${lat},${lon}`,
+    );
+}
+
+/**
+ * API Carto first; the direct WFS ONLY when API Carto is transient (did not answer). An API
+ * Carto EMPTY is an answer and never triggers the fallback. When BOTH transports fail the
+ * outcome is transient and names both — availability loss must never read as an absence
+ * (§CONTEXT-DATA-HONESTY; this lane's falsification control 9).
+ */
+export async function frGpuFeaturesAtPointWithFallback(
+    module: FrGpuPointModule,
+    lat: number,
+    lon: number,
+    deps: FrFetchDeps = {},
+): Promise<FetchOutcome<readonly FrGpuFeature[]>> {
+    const primary = await frGpuFeaturesAtPoint(module, lat, lon, deps);
+    if (primary.status !== 'transient') return primary;
+    const fallback = await frWfsFeaturesAtPoint(module, lat, lon, deps);
+    if (fallback.status === 'transient') {
+        return fetchTransient(
+            `endpoint-unreachable: gpu/${module} failed on BOTH transports — apicarto (${primary.reason}) and direct WFS (${fallback.reason})`,
+        );
+    }
+    return fallback;
+}
+
+/**
+ * Fetch the `doc_urba` row(s) for one instrument id over the direct WFS — the ETAT/DATAPPRO
+ * join API Carto's /document does not serve (measured discrepancy, header of
+ * FR_GPU_POINT_MODULES). Callers MUST dedupe deterministically: `doc_urba` idurba is NOT
+ * unique (Phase 0: 23,885 rows / 14,109 distinct — procedure/partition duplication).
+ */
+export async function frWfsDocUrbaByIdurba(
+    idurba: string,
+    deps: FrFetchDeps = {},
+): Promise<FetchOutcome<readonly FrGpuFeature[]>> {
+    const safe = idurba.replace(/'/g, "''");
+    const params = new URLSearchParams({
+        SERVICE: 'WFS',
+        VERSION: '2.0.0',
+        REQUEST: 'GetFeature',
+        TYPENAMES: FR_DOC_URBA_WFS_LAYER,
+        CQL_FILTER: `idurba='${safe}'`,
+        COUNT: '20',
+        OUTPUTFORMAT: 'application/json',
+    });
+    const url = `${FR_GPU_WFS_FALLBACK_BASE}?${params.toString()}`;
+    const got = await frGpuGetJson(url, `wfs/doc_urba idurba=${idurba}`, deps);
+    return classifyFeatureCollection(got, url, `no-feature: wfs/doc_urba idurba=${idurba}`);
 }

@@ -1,0 +1,17 @@
+npm warn Unknown project config "package-manager-strict". This will stop working in the next major version of npm. See `npm help npmrc` for supported config options.
+## Porto card @ (41.1579, -8.6291) — status=found in 314 ms
+   zone     : Solo Urbano  – Espaços verdes e Frente atlântica e ribeirinha – Área verde de fruição coletiva
+   categoria: Espaço Verde · codigo 7 · classe Solo Urbano
+   instrum. : PDM de PORTO · registo 01.13.12/PDM/03/2021/93 · Vigente
+   refusal  : code=public-open-space legallyGrounded=true
+   headline : Solo Urbano  – Espaços verdes e Frente atlântica e ribeirinha – Área verde de fruição coletiva — green-space categoria; no private buildable envelope.
+   fact     : Município: PORTO (DTCC 1312)
+   fact     : Zona (CRUS, verbatim): Solo Urbano  – Espaços verdes e Frente atlântica e ribeirinha – Área verde de fruição coletiva
+   fact     : Classe: Solo Urbano
+   fact     : Categoria: Espaço Verde
+   fact     : Instrumento: PDM de PORTO, registo/depósito n.º 01.13.12/PDM/03/2021/93, situação Vigente, publicação 2021-07-08
+   fact     : Fonte: CM - Vectorial e Raster · escala 1/10000
+   fact     : Pack draft: ptPortoPdmDraft.ts — UNCERTIFIED (PT_PORTO_PDM_CERTIFIED=false), no value shown or evaluated
+   fact     : Categoria nacional: código 7 — Espaço Verde (Solo Urbano)
+   fact     : Developability (catálogo nacional): CORRECT NULL (no private buildable envelope by category semantics)
+   detail   : The national CRUS (DGT) classifies this point as Classe "Solo Urbano", Categoria "Espaço Verde" under the PDM de PORTO, registo/depósito n.º 01.13.12/PDM/03/2021/93, situação Vigente, publicação 2021-07-08. Under the DR 15/2015 national vocabulary, espaços verdes exist for ecological balance and open-air recreation — buildability is nil-to-incidental and fixed by the município, never by a per-parcel zone parameter. ⚠ The PDM Regulamento was NOT read for this zone: any incidental edification regime it admits is not represented here. Portuguese PDM numeric parameters (índice de edificação, cércea, afastamentos) are published only in the per-município Regulamento PDF, not as structured data (pt/LEGISLATION-RATE.md ~0 % structured), and no human-signed rule pack exists for PORTO. Drawing an envelope here would be an estimate wearing a citation — refused. ⭐ PORTO COVERAGE UPDATE: the PDMP Regulamento (Janeiro 2023, 100 pp) IS text-extracted and a per-article cited pack DRAFT exists in PRYZM (17 values/definitions, Arts. 3.º/25.º/32.º/36.º/38.º among them, all VERIFIED-PRIMARY) — UNCERTIFIED and refusing until a human signs its three assertions, and structurally unable to draw heights until the moda-da-cércea (fabric-derived) rule kind exists in the schema. What is missing is the signature, not the sourcing. ⭐ NATIONAL DEVELOPABILITY (closed catalogue): CORRECT NULL — no private buildable envelope exists by national category semantics; an empty envelope here is the right answer, not missing data. Categoria nacional "Espaço Verde" (código 7, Solo Urbano), per Aviso n.º 9282/2021 Anexo I — Norma Técnica sobre o Modelo de Dados e Sistematização da Informação Gráfica dos Planos Diretores Municipais (DGT, Vol. I + II, 18-02-2021); read as captured in docs/04-reference/jurisdictions/pt/PT-PDM-DATA-MODEL-BRIEF.md. The PDM data model carries NO envelope parameter (no cércea, no índice, no pisos, no afastamento — its only numeric field is MEDIDA, area/length), so this verdict is a developability statement about the CATEGORY, never an envelope.

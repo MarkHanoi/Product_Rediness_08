@@ -179,18 +179,25 @@ export const L449_CERTIFICATION_GATES: readonly L449Gate[] = Object.freeze([
         },
     },
     {
-        // LANE PT-ZONEID, 2026-09-02 — BORN SHUT, never opened. The first Portuguese pack DRAFT
-        // (Porto PDMP, Regulamento Janeiro 2023, per-article citations at VERIFIED-PRIMARY from
-        // pt/sources/SOURCES.md §A.0.3). Shut TWICE over: (a) no human signature of its three
-        // assertions (scope/exceptions · CRUS→PDMP categoria mapping · article pins), and (b) the
-        // moda-da-cércea height regime needs a C58 `fabricDerivedHeight` GeometricRule kind that
-        // does not exist (pt-13/1315-porto/ENVELOPE.md) — so even a signature cannot open a
-        // drawing path until that schema amendment lands. While shut it upgrades only the COVERAGE
-        // STATEMENT on Porto's zone-named CRUS refusal; no draft value is evaluated or shown.
+        // ⭐ SIGNED 2026-09-02 (§PORTO-SIGN-OFF) — was BORN SHUT (lane PT-ZONEID, same day), and
+        // shut TWICE over: (a) no human signature of its three assertions, and (b) the
+        // moda-da-cércea regime had no representable rule kind. BOTH closed the same day, in the
+        // record this row now dereferences: the founder signed assertions 1 (scope) + 2 (CRUS→
+        // PDMP mapping) by session directive; assertion 3 (article pins) closed under the
+        // record's own pre-authorization (lane PT-ARTICLE-PINS, eb63eeaf); blocker 4 closed by
+        // ADR-0379's `context-aggregate` kind (ae6d9bed) — extent-weighted mode, and
+        // unavailable ≠ empty ≠ tie ≠ poisoned ALL refuse. The signatory is the FOUNDER; the
+        // scribe was a model (L-449's scribe-not-signatory rule). Open, the gate authorises the
+        // certified coverage statement + the FUC tipo I/II moda evaluation on the refusal card —
+        // it draws NO envelope, and an unresolved moda NEVER degrades to the 21 m cap (lane
+        // PORTO-FLIP; the ptPortoPdmDraft.ts header carries the closure record).
         gate: 'PT_PORTO_PDM_CERTIFIED',
         file: 'packages/site-parcel-data/src/countryAdapters/pt/ptPortoPdmDraft.ts',
         value: PT_PORTO_PDM_CERTIFIED,
-        signature: null,
+        signature: {
+            doc: 'docs/04-reference/jurisdictions/pt/sources/SOURCES.md',
+            anchor: '§PORTO-SIGN-OFF',
+        },
     },
     {
         // §L-11841, 2026-08-26 — the NARROWER sibling of `NL_BESTEMMINGSPLAN_CERTIFIED` above.

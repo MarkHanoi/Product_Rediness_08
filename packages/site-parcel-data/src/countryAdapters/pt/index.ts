@@ -7,7 +7,9 @@
 // 04.07.05/PDM/02/2025/162, Vigente — no envelope asserted» — instead of the blind Estimated
 // triple; NUMERIC envelopes are structurally unrepresentable in this adapter's output (the
 // numbers live in each município's Regulamento PDF — pt/LEGISLATION-RATE.md ~0 % structured;
-// the first pack DRAFT exists for Porto and is gate-shut, see `ptPortoPdmDraft.ts`).
+// the first pack exists for Porto, CERTIFIED 2026-09-02 — §PORTO-SIGN-OFF + ADR-0379, lane
+// PORTO-FLIP — see `ptPortoPdmDraft.ts`: coverage statement + the FUC moda-da-cércea
+// evaluation; still NO drawn envelope and NO registered jurisdiction).
 //
 // §J CONFORMANCE MAP:
 //   country      → 'PT'
@@ -28,8 +30,10 @@
 //                  a rule vocabulary would advertise a mapping that does not exist
 //
 // NO REGISTERED-JURISDICTION RUNG (deliberate, unlike FR): `rulepacks/registry.ts` registers no
-// Portuguese jurisdiction today, and the one drafted pack (Porto) is UNCERTIFIED and unregistered
-// by design. When a signed PT pack is ever registered, add FR's rung-0 guard
+// Portuguese jurisdiction today. The Porto pack is CERTIFIED (§PORTO-SIGN-OFF, 2026-09-02) but
+// deliberately UNREGISTERED — it draws no envelope; its outputs are the certified coverage
+// statement + the FUC moda evaluation ON the refusal card. When a PT pack that DRAWS is ever
+// registered, add FR's rung-0 guard
 // (`resolveRegisteredJurisdictionAt`, never a copied bbox — L-12871) in the SAME commit that
 // registers it; until then a guard rung would be dead code asserting a coverage that does not
 // exist. The Porto DRAFT is instead surfaced as a COVERAGE-statement upgrade on the refusal
@@ -40,11 +44,24 @@
 // and never falls through to an estimate (§CONTEXT-DATA-HONESTY).
 
 import { fetchFound, type FetchOutcome } from '@pryzm/schemas';
+import type { ContextSetInput } from '../../rulepacks/declarative/evaluateContextAggregate.js';
 import type { PtFetchDeps } from './ptCrusClient.js';
 import { resolvePtZoneRefusalAtPoint, type PtZoneIdentity } from './ptCrusZone.js';
 import { ptDevelopabilityRefusal } from './ptDevelopability.js';
+import {
+    extractPtFrenteUrbana,
+    type PtFrenteUrbanaData,
+    type PtFrenteUrbanaExtraction,
+} from './ptFrenteUrbana.js';
 import { ptPlanInterventionOverride, type PtPdmObjectEvidence } from './ptPdmObjectGates.js';
-import { ptPortoPdmDraftRefusal, PT_PORTO_DTCC } from './ptPortoPdmDraft.js';
+import {
+    evaluatePtPortoCercea,
+    ptPortoFucTipo,
+    ptPortoPdmDraftRefusal,
+    PT_PORTO_DTCC,
+    PT_PORTO_PDM_CERTIFIED,
+    type PtPortoCerceaUpgrade,
+} from './ptPortoPdmDraft.js';
 import { PT_ADAPTER_SOURCES } from './ptSources.js';
 
 /**
@@ -54,7 +71,7 @@ import { PT_ADAPTER_SOURCES } from './ptSources.js';
  */
 export const PT_APPLICABILITY_LADDER = [
     {
-        step: 'registered jurisdiction pack — NONE registered for PT today (Porto draft is gate-shut)',
+        step: 'registered jurisdiction pack — NONE registered for PT today (the Porto pack is CERTIFIED §PORTO-SIGN-OFF but draws no envelope and stays unregistered)',
         mode:
             'FUTURE: when a signed PT pack is registered, mint FR\'s rung-0 ' +
             'resolveRegisteredJurisdictionAt guard in the same commit. Never a copied bbox (L-12871).',
@@ -66,7 +83,8 @@ export const PT_APPLICABILITY_LADDER = [
             'PDM instrument (registo_ou_deposito, situacao_pdm) → zone-named cited refusal. The code ' +
             'is legally grounded ONLY where DR 15/2015 categoria semantics settle it (espaço verde / ' +
             'equipamento / non-edificável solo rústico); everything else is a no-rule-pack coverage ' +
-            'statement. Porto (DTCC 1312) additionally names its unsigned pack draft.',
+            'statement. Porto (DTCC 1312) additionally carries its CERTIFIED pack statement + the ' +
+            'FUC moda-da-cércea evaluation (§PORTO-SIGN-OFF + ADR-0379).',
     },
     {
         step: 'mainland routing bbox (PORTUGAL_BBOX — Continente only)',
@@ -96,13 +114,29 @@ export interface PtChainDeps extends PtFetchDeps {
         lat: number,
         lon: number,
     ) => Promise<FetchOutcome<readonly PtPdmObjectEvidence[]>>;
+    /**
+     * LANE PORTO-FLIP (§PORTO-SIGN-OFF + ADR-0379): resolve the RAW frente-urbana context for
+     * the point — the clipped fronting way (between two successive intersecting public ways,
+     * Art. 3.º l) plus the context buildings with their per-member height provenance. The pure
+     * extractor (`extractPtFrenteUrbana`) then constructs the member set; construction is NEVER
+     * this dep's job. Injectable because NO Portuguese channel serves cércea-comparable heights
+     * today (§T2 boundary: as-is heights enter ONLY as this rule's named input) and C12 §8
+     * forbids a new context fetch in this package — the runtime's existing context machinery
+     * supplies the data. No dep wired ⇒ the moda evaluation refuses `context-set-unavailable`
+     * BY NAME on the card — never a substituted scalar.
+     */
+    readonly resolveFrenteUrbanaAt?: (
+        lat: number,
+        lon: number,
+    ) => Promise<FetchOutcome<PtFrenteUrbanaData>>;
 }
 
 /**
  * §E1d-shape chain leg — the §J `rules` arm: resolve the CRUS zone containing the point, then
  * carry its cited refusal through THREE upgrades in order (each a statement change only —
  * code/legallyGrounded untouched — except the last, which is a typed REPLACEMENT):
- *   1. Porto (DTCC 1312): the gate-shut pack-draft coverage line (`ptPortoPdmDraftRefusal`).
+ *   1. Porto (DTCC 1312): the certified-pack coverage line + (FUC I/II) the moda-da-cércea
+ *      outcome (`ptPortoPdmDraftRefusal`; §PORTO-SIGN-OFF + ADR-0379, lane PORTO-FLIP).
  *   2. NATIONAL DEVELOPABILITY (lane PT-ENVELOPE): the closed-catalogue verdict + citation
  *      (`ptDevelopabilityRefusal`) — a no-op when the catalogue cannot settle the categoria
  *      (the falsification contract: sever the catalogue, the prior honest refusal returns).
@@ -121,9 +155,54 @@ export async function resolvePtZoneIdentityAt(
     if (resolved.status !== 'found') return resolved;
     const zone = resolved.value.zone;
 
-    // 1 · Porto's coverage-statement upgrade (unchanged behaviour).
-    let refusal =
-        zone.dtcc === PT_PORTO_DTCC ? ptPortoPdmDraftRefusal(zone) : resolved.value.refusal;
+    // 1 · Porto's coverage-statement upgrade — and, gate OPEN (§PORTO-SIGN-OFF + ADR-0379),
+    //     the moda-da-cércea evaluation for FUC tipo I/II zones. The member set arrives ONLY
+    //     through the pure extractor over the injected dep; no dep, or a dep that fails, is the
+    //     honest `context-set-unavailable` — the card then names the failed precondition and
+    //     NEVER substitutes the 21 m cap (the draft header's founding trap).
+    let refusal: typeof resolved.value.refusal;
+    if (zone.dtcc === PT_PORTO_DTCC) {
+        let cercea: PtPortoCerceaUpgrade | null = null;
+        const tipo = ptPortoFucTipo(zone);
+        if (PT_PORTO_PDM_CERTIFIED && tipo !== null) {
+            let contextSet: ContextSetInput;
+            let extraction: PtFrenteUrbanaExtraction | null = null;
+            if (!deps.resolveFrenteUrbanaAt) {
+                contextSet = {
+                    status: 'unavailable',
+                    why:
+                        'no frente-urbana context source is wired in this runtime — the way + ' +
+                        'building heights that would constitute the member set were never ' +
+                        'fetched (PtChainDeps.resolveFrenteUrbanaAt absent)',
+                };
+            } else {
+                const fetched = await deps.resolveFrenteUrbanaAt(lat, lon);
+                if (fetched.status === 'found') {
+                    extraction = extractPtFrenteUrbana(fetched.value);
+                    contextSet = extraction.contextSet;
+                } else if (fetched.status === 'absent') {
+                    // The source answered and found NO fronting public way — the frontage
+                    // cannot be ESTABLISHED, which is unavailability of the SET, not an empty
+                    // set (empty = an established frontage with zero built members).
+                    contextSet = {
+                        status: 'unavailable',
+                        why: `the frontage source answered without a fronting way (${fetched.reason})`,
+                    };
+                } else {
+                    contextSet = {
+                        status: 'unavailable',
+                        why: `the frontage source did not answer (${
+                            fetched.status === 'transient' ? fetched.reason : 'aborted'
+                        })`,
+                    };
+                }
+            }
+            cercea = evaluatePtPortoCercea(tipo, contextSet, extraction, null);
+        }
+        refusal = ptPortoPdmDraftRefusal(zone, cercea);
+    } else {
+        refusal = resolved.value.refusal;
+    }
 
     // 2 · The national developability verdict (no-op on a catalogue miss — never a guess).
     refusal = ptDevelopabilityRefusal(zone, refusal);
@@ -193,12 +272,29 @@ export {
 export {
     PT_PORTO_DTCC,
     PT_PORTO_JURISDICTION_ID,
+    PT_PORTO_MODA_CERCEA_RULE,
     PT_PORTO_PDM_CERTIFIED,
     PT_PORTO_PDM_DRAFT,
     PT_PORTO_PDM_SOURCE,
+    evaluatePtPortoCercea,
+    ptPortoCerceaStatement,
+    ptPortoFucTipo,
     ptPortoPdmDraftRefusal,
     type PtPdmDraftValue,
+    type PtPortoCerceaUpgrade,
+    type PtPortoFucTipo,
 } from './ptPortoPdmDraft.js';
+// LANE PORTO-FLIP — the frente-urbana extractor (ADR-0379 lane-A-row-1 seat; members injected).
+export {
+    extractPtFrenteUrbana,
+    PT_FRONTAGE_BAND_M,
+    PT_FRONTAGE_MIN_EXTENT_M,
+    type PtFrenteUrbanaData,
+    type PtFrenteUrbanaExtraction,
+    type PtFrontageBuilding,
+    type PtFrontagePoint,
+    type PtFrontageWay,
+} from './ptFrenteUrbana.js';
 export { PT_ADAPTER_SOURCES, PT_CRUS_SOURCE_ID } from './ptSources.js';
 // LANE PT-ENVELOPE — the vendored national catalogue (Aviso n.º 9282/2021 Anexo I) + the
 // developability map + the object gates, explicit list (the pt barrel discipline: no export *).

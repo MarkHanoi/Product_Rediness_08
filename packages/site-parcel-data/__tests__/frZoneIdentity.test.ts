@@ -313,9 +313,12 @@ describe('the adapter value + the never-a-number contract', () => {
         expect(frCountryAdapter.country).toBe('FR');
         expect(frCountryAdapter.rules.kind).toBe('zone-identity');
         const rows = frCountryAdapter.sources();
-        expect(rows.length).toBe(1);
-        expect(rows[0]!.id).toBe('fr-gpu-apicarto-du');
-        expect(rows[0]!.probes.length).toBeGreaterThanOrEqual(3);
+        // ONE GPU row, deliberately (zone-urba/secteur-cc/municipality are ONE national
+        // service — the LU precedent). Lane FR-STEP4 (2026-09-02) added the DISTINCT
+        // altimetry source row beside it; the pin guards GPU non-multiplicity, not the count.
+        const gpuRows = rows.filter((r) => r.id === 'fr-gpu-apicarto-du');
+        expect(gpuRows.length).toBe(1);
+        expect(gpuRows[0]!.probes.length).toBeGreaterThanOrEqual(3);
     });
 
     it('no branch of the resolution union carries a numeric envelope field', async () => {

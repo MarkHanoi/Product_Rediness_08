@@ -1,0 +1,96 @@
+FR-STEP4 — BARREL / REGISTRY ADDITIONS FOR THE ORCHESTRATOR
+===========================================================
+Lane: FR-STEP4 (the France brief's build-order step 4 — the no-extraction product).
+Written 2026-09-02. The lane owns ONLY
+  packages/site-parcel-data/src/countryAdapters/fr/frAltimetry.ts          (new)
+  packages/site-parcel-data/src/countryAdapters/fr/frBdTopoNeighbours.ts   (new)
+  packages/site-parcel-data/src/countryAdapters/fr/frExtractMirrorPort.ts  (new)
+  packages/site-parcel-data/src/countryAdapters/fr/frNoExtraction.ts       (new)
+  packages/site-parcel-data/src/countryAdapters/fr/frNoExtractionChain.ts  (new)
+  packages/site-parcel-data/src/countryAdapters/fr/frGpuClient.ts          (extended)
+  packages/site-parcel-data/src/countryAdapters/fr/frSources.ts            (extended)
+  packages/site-parcel-data/src/countryAdapters/fr/index.ts                (extended)
+  packages/site-parcel-data/__tests__/frNoExtraction.test.ts               (new)
+  packages/site-parcel-data/__tests__/frZoneIdentity.test.ts               (ONE pin updated, §item 0)
+  packages/site-parcel-data/__tests__/fixtures/fr-step4/                   (new)
+
+VERIFIED STATE AT WRITING (measured foreground, RC read from the redirect):
+  · `npx vitest run frNoExtraction --root packages/site-parcel-data` → RC=0, 22/22.
+  · `npx vitest run --root packages/site-parcel-data` (FULL suite) → RC=0, 179 files,
+    3,855 passed | 3 skipped.
+  · `npx tsc -p packages/site-parcel-data/tsconfig.json --noEmit` → RC=0.
+  · Live acceptance (7 points, each run TWICE — byte-identical all 7) →
+    audit/demo-esfrpt/2026-09-02/transcripts/fr-step4-live-acceptance.txt
+  · Falsification control 9 (GPU bases severed in source, restored sha-identical) →
+    audit/demo-esfrpt/2026-09-02/transcripts/fr-step4-falsification.txt
+
+────────────────────────────────────────────────────────────────────────────────
+ITEM 0 (⛔ URGENT — HEAD DOES NOT TYPE-CHECK WITHOUT THIS LANE'S WORKING TREE)
+────────────────────────────────────────────────────────────────────────────────
+Commit `ae6d9bed` (2026-09-02 20:32:49, the S1/K1/G1 orchestrator commit) swept up THREE of
+this lane's mid-write files — frAltimetry.ts, frBdTopoNeighbours.ts, frExtractMirrorPort.ts
+(byte-identical to the lane's finals) — but NOT the frGpuClient.ts they import from.
+VERIFIED: `git show ae6d9bed:.../frGpuClient.ts | grep -c "frGpuFeaturesAtPointWithFallback\|FrGpuPointModule"`
+→ 0, while HEAD's frExtractMirrorPort.ts imports both. **HEAD alone fails tsc on
+frExtractMirrorPort.ts; this lane's uncommitted working tree heals it.** The lane rule is
+no-commit, so the heal is the orchestrator's: commit the remaining lane-owned files above
+(they are exactly the working-tree delta under countryAdapters/fr/ + the two test paths +
+fixtures). Suite + tsc were re-proven green on the final tree AFTER ae6d9bed landed.
+
+────────────────────────────────────────────────────────────────────────────────
+ITEM 1 (NO ACTION) — the package barrel already carries the fr line
+────────────────────────────────────────────────────────────────────────────────
+`packages/site-parcel-data/src/index.ts` already has `export * from './countryAdapters/fr/index.js';`
+(landed with FR-ZONEID's item 1). This lane's new exports ride it via fr/index.ts's explicit
+re-export list — NO barrel edit is needed. Collision check run 2026-09-02:
+`grep -rn "FrNoExtraction\|FrExtractSource\|FrPrescription\|FrSupAssiette\|FrNeighbour\|frAltimetry\|FrElevation\|FrRegime\|FrDerivability\|FrSlice\|FrGoverningDocument" src/ --include="*.ts"`
+outside `countryAdapters/fr/` returns nothing.
+
+────────────────────────────────────────────────────────────────────────────────
+ITEM 2 (REQUIRED) — migrate the ALTIMETRY source row into sourceRegistry/fr.ts
+────────────────────────────────────────────────────────────────────────────────
+Same shape as FR-ZONEID's item 2 (still pending there for the GPU row — do both together):
+2a. ADD to `sourceRegistry/fr.ts` `defineSources('FR', [...])`: the row
+    `fr-ign-geoplateforme-altimetrie-rest` currently living in
+    `countryAdapters/fr/frSources.ts` (copy VERBATIM, probes included).
+2b. ALSO copy the GPU row's NEW 2026-09-02 FR-STEP4 probe entry (the measured-discrepancy
+    note: /document lacks datappro/etat; /acte-sup?geom ignores geometry; WFS CQL lat-lon
+    axis order; the 2-POS national census) when migrating `fr-gpu-apicarto-du`.
+2c. THEN in frSources.ts delete the literals and re-export the registry rows (C84 EI-9 —
+    never two copies; the FR-ZONEID instruction stands, now for two rows).
+NOTE: the BD TOPO row (`fr-ign-bdtopo-batiment-wfs`) ALREADY exists in sourceRegistry/fr.ts —
+the neighbours slice deliberately minted no rival row.
+
+────────────────────────────────────────────────────────────────────────────────
+ITEM 3 (WIRING — dispatcher/server, NOT this lane's files)
+────────────────────────────────────────────────────────────────────────────────
+`resolveFrNoExtractionAt(lat, lon)` is reachable from the package barrel but dispatched
+nowhere. It is the step-4 DATA PRODUCT (record card / report surface), NOT a rival to the
+envelope ladder: it deliberately does NOT defer to registered jurisdictions (Paris is one of
+its acceptance points) because it carries no envelope and no number. Wherever the product
+surface lands (site report panel, API route), the same C57 same-origin proxy need as
+FR-ZONEID item 4 applies — apicarto.ign.fr + data.geopf.fr (WFS fallback + altimetrie +
+BD TOPO) all need server-leg forwarding for browser use.
+
+────────────────────────────────────────────────────────────────────────────────
+ITEM 4 — NO SCHEMA CHANGE (control held; L-12874 respected)
+────────────────────────────────────────────────────────────────────────────────
+`packages/schemas/**` untouched. The record reuses the EXISTING provenance shape
+(`RuleSourceRef` — the 8-field legal address — + `validityBasis`) and the EXISTING
+`EnvelopeRefusalSchema` codes: `no-rule-pack` (RNU, POS-caduc), `derived-plan` (PSMV,
+carte-communale sector, plan-masse — legallyGrounded TRUE), `no-plan-at-point`. Transient
+reasons are the L0 `TRANSIENT_FETCH_REASONS` tokens only (`endpoint-unreachable:` /
+`upstream-failed:`); absences use the settled `no-feature:` spelling; the settled
+`mapper-refused:` spelling is reused once, unminted.
+
+────────────────────────────────────────────────────────────────────────────────
+ITEM 5 — FOUNDER-PENDING: the weekly-extract mirror (brief §4.1 mirror doctrine)
+────────────────────────────────────────────────────────────────────────────────
+The brief REQUIRES the weekly extract as the runtime source with the API for freshness only.
+That is a server-infra decision (≈28.6 GB / 31 layers; no PostGIS provisioned), so the lane
+built the seam as a PORT (`FrExtractSourcePort`): `frApiCartoExtractSource` (API Carto + the
+mandated direct data.geopf.fr WFS fallback) is TODAY'S provider; `weekly-extract-mirror` is
+the NAMED future implementation; `FR_EXTRACT_MIRROR_DECISION` records the status as
+FOUNDER-PENDING in code. The API is NOT silently the permanent architecture. Decision owed:
+provision a spatial store for the weekly extract (and then implement the port), or accept
+the live-API posture with its availability caveat.
