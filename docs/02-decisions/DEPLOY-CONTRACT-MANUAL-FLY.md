@@ -1229,3 +1229,26 @@ founder's standing commit-and-deploy authorization of the same morning.
 - **Wall-clock ≈ 13 min** launch→`DEPLOY_RC=0`, first attempt — upload ran fast on this
   uplink; do not treat as the new floor (§6.5.4's warning stands). Proof run only after
   `DEPLOY_RC` appeared in the log (§6.7.1), RC read from the file, never a pipe.
+
+---
+
+## 6.9.8 TENTH EXECUTION — 2026-09-02 evening (`864ee2c2`), bundle proof 6/6 — THE REAPED BUILDER WAS CAUGHT AND RESIZED MID-FLIGHT BY A WATCHER
+
+**Result: PASSED.** Chunk `main-Dm02Su8g.js` → `main-D5i6bZyT.js` (changed); cesium 257 / google 39;
+proxies live; `/version` `git_sha == 864ee2c2…`; health ok. Rollback tag captured BEFORE:
+`deployment-01M1GVRZ3T9569C9SJ8Q4EYM7V`. Ships: Paris §PARIS-SIGN-OFF envelopes · Murcia INE fix ·
+ES SIU guard · FR/PT zone identity · NL courtyard fix · the component UI (U0/U1/U2) · the perf wave.
+
+**Two new operational plays, both verified:**
+1. **§BUILDER-RESIZE-WATCH** — the builder app was REAPED (`flyctl apps list | grep builder` → empty,
+   §6.6.2's scenario). A background watcher polled during the deploy's own handshake, caught
+   `fly-builder-faithful-song-347` at its default 8192MB, and resized to **16384MB VERIFIED before
+   the build phase** — the §2.1 OOM prevented in-flight rather than after a dead 20-minute run.
+   Shape: poll `flyctl apps list` every 20s → `machine update --vm-memory 16384 --yes` → re-list
+   and verify the SIZE column.
+2. **THE GATE COVER CAUGHT A SWEPT HALF-STATE IN HISTORY.** Root tsc on the deploy SHA read RC=2:
+   a prior `git add -A` wave-commit had swept a live lane's import-without-consumer
+   (§S1-IMPORT-DEFERRED, fixed `864ee2c2`). ⛔ Wave sweeps in a multi-lane tree must exclude
+   half-state files BY NAME. The worktree cover then re-proved: root tsc RC=0 · site-parcel-data
+   172 files / 3,749 tests · test:server 804/804 · server-deps externals clean · server.mjs
+   evaluates (probe with `file:///C:/…` — an MSYS path makes Node print only its version banner).
