@@ -3287,7 +3287,10 @@ async function applyMadridNZ1ExplicitArea(
  * point-querying the parcel centroid (`resolveNlBestemmingsplan`, via the `/api/nl/bestemmingsplan`
  * proxy — never throws), and:
  *   • WITH a bouwvlak → projects it into the authoring frame (same origin + θ the parcel used, exactly
- *     like Madrid) and clips the parcel to it via `computeBuildableEnvelope`'s explicit-area branch.
+ *     like Madrid) and clips the parcel to it via `computeBuildableEnvelope`'s explicit-area branch —
+ *     ALL parts and interior rings (courtyards) forwarded to `explicitAreaFootprintParts`
+ *     (§NL-BOUWVLAK-HOLES, L-12896: the old wiring kept only the first part's outer ring, drawing a
+ *     published courtyard buildable — the L-616 overstate direction).
  *     The maatvoering rides in `structuredFields` (max bouwhoogte → maxHeight_m, bebouwingspercentage
  *     → maxCoverage, aantal bouwlagen → maxFloors), so — UNLIKE Madrid — a clean "maximum bouwhoogte
  *     (m)" makes the engine render `structured` (a real metre height with stated units), and a
@@ -3365,9 +3368,9 @@ async function applyNlZoningThenFallback(
             return resolutionToFetchOutcome(resolution);
         });
 
-        if (resolution.ok && resolution.ringLatLon.length >= 3) {
-            // Project the WGS84 bouwvlak ring into the SAME authoring frame the parcel lives in —
-            // identical to `applyMadridZoningThenFallback` (equirectangular about the site origin,
+        if (resolution.ok && resolution.ringPartsLatLon.length >= 1) {
+            // Project the WGS84 bouwvlak geometry into the SAME authoring frame the parcel lives in
+            // — identical to `applyMadridZoningThenFallback` (equirectangular about the site origin,
             // then the θ de-rotation). θ = 0 ⇒ identity. Any other frame yields a garbage clip.
             const origin = { lat: site.location.latitude, lon: site.location.longitude };
             const rawTheta = site.location.trueNorth;
@@ -3378,9 +3381,19 @@ async function applyNlZoningThenFallback(
                 const e = trueVectorToProjectNorth({ east: xz.x, north: -xz.z }, theta);
                 return { x: e.east, z: -e.north };
             };
-            const footprintRing: Pt[] = resolution.ringLatLon.map((ll) =>
-                toAuthoringFrame({ lat: ll.lat, lon: ll.lon }),
-            );
+            // §NL-BOUWVLAK-HOLES (L-12896) — forward ALL parts AND their interior rings
+            // (courtyards) to the engine's §MULTI-PART-EXPLICIT-AREA seat. The previous wiring
+            // projected only the FIRST part's outer ring, so a bouwvlak courtyard — a published
+            // "do not build here" — was drawn buildable: the L-616 OVERSTATE direction, live
+            // behind `NL_BESTEMMINGSPLAN_CERTIFIED`. Mirrors the DK byggefelt route
+            // (`explicitAreaSource.footprintParts`); the engine clips exactly when the courtyard
+            // misses this parcel and refuses honestly when it bites — no new engine code.
+            const footprintParts = resolution.ringPartsLatLon.map((part) => ({
+                outer: part.outer.map((ll) => toAuthoringFrame({ lat: ll.lat, lon: ll.lon })),
+                holes: part.holes.map((h) =>
+                    h.map((ll) => toAuthoringFrame({ lat: ll.lat, lon: ll.lon })),
+                ),
+            }));
 
             // §NL-SPARSE-FALLBACK — is this the PRECISE bouwvlak, or the ZONE (bestemmingsvlak) extent
             // used because the plan published no bouwvlak? The zone extent is an UPPER BOUND on the
@@ -3449,7 +3462,8 @@ async function applyNlZoningThenFallback(
                 edgeClassifications: boundary.edgeClassifications,
                 zoning: record,
                 rulePack: NL_BESTEMMINGSPLAN_PACK,
-                explicitAreaFootprint: footprintRing,
+                // §NL-BOUWVLAK-HOLES (L-12896) — parts + holes, never a single outer ring.
+                explicitAreaFootprintParts: footprintParts,
             });
             if (envelope.status === 'ok' && envelope.insetPolygon.length >= 3) {
                 const heightNote =
@@ -3467,6 +3481,41 @@ async function applyNlZoningThenFallback(
                     resolution.maat.maxBebouwingspercentage !== null
                         ? `, maximum bebouwingspercentage ${(resolution.maat.maxBebouwingspercentage * 100).toFixed(0)} %`
                         : '';
+                // §NL-GOOTHOOGTE-CARRY (L-12896 sibling / matrix-west D5) — parity with the Paris
+                // couronnement caveat. `maximum goothoogte` (the EAVE height) is read for
+                // provenance but deliberately never used as the height cap (the ridge/bouwhoogte
+                // governs the prism — see NlMaatvoering). Until now that read-and-dropped eave
+                // shipped with NO user-facing note, while the exactly-analogous Paris crown ships
+                // WITH "the true envelope is at most this". Same honesty machinery; this leg now
+                // emits it.
+                const goothoogteCaveat =
+                    resolution.maat.maxGoothoogte_m !== null
+                        ? `The plan also publishes a maximum goothoogte (eave height) of ` +
+                          `${resolution.maat.maxGoothoogte_m} m. The volume shown rises straight to ` +
+                          `the height cap and does not model the eave-to-ridge roof shape (the ` +
+                          `dakhelling maatvoering is not read on this route), so above ` +
+                          `${resolution.maat.maxGoothoogte_m} m the true envelope is at most what is ` +
+                          `shown, reduced by the roof plane the plan implies.`
+                        : null;
+                // §NL-OVERLAY-CARRY (L-12896 sibling / matrix-west D4) — the RASE mandatory-carry
+                // rule (`ruleformat.ts`: "An exception PRYZM cannot check must still be CARRIED —
+                // dropping it silently converts a refusal into an overstatement"). This route
+                // reads the four substantive PDOK layers only; the proxy's governing-plan pick
+                // deliberately excludes thematic paraplu plans (they carry no bouwvlak/
+                // maatvoering), and `dubbelbestemming` overlays are not queried at all. Those
+                // instruments still bind — carried here, never silently dropped. STATIC by
+                // design: the exclusion is structural to the route, not a per-parcel detection.
+                const overlayCarryCaveat =
+                    'Dubbelbestemmingen (e.g. Waarde-Archeologie, Waterstaat) and thematic ' +
+                    'paraplu/parapluherziening plans are NOT read on this route — the ' +
+                    'governing-plan pick uses the substantive bouwvlak/maatvoering layers only. ' +
+                    'Any such overlay or umbrella amendment still applies in law and can restrict ' +
+                    'or condition what is shown here; verify them against the plan regels before ' +
+                    'relying on this envelope.';
+                const nlHonestyCaveats = [
+                    ...(goothoogteCaveat !== null ? [goothoogteCaveat] : []),
+                    overlayCarryCaveat,
+                ];
                 const enriched: BuildableEnvelope = isZoneFallback
                     ? {
                           // §NL-SPARSE-FALLBACK — the zone extent is an UPPER BOUND, so FORCE the
@@ -3483,6 +3532,7 @@ async function applyNlZoningThenFallback(
                                   `footprint. Height from the zone's maatvoering: ${heightNote}${percClause}. ` +
                                   `Confidence is reduced accordingly — verify the plan regels for the exact ` +
                                   `bouwvlak before relying on it.`,
+                              ...nlHonestyCaveats,
                           ],
                       }
                     : {
@@ -3495,6 +3545,7 @@ async function applyNlZoningThenFallback(
                                   `plan's maatvoering: ${heightNote}${percClause}` +
                                   `${resolution.maat.maxAantalBouwlagen !== null ? `, maximum ${resolution.maat.maxAantalBouwlagen} bouwlagen` : ''}. ` +
                                   `Verify against the plan regels before relying on it.`,
+                              ...nlHonestyCaveats,
                           ],
                       };
                 dispatchEnvelope(ctx, site.id, enriched, NL_SOURCE);

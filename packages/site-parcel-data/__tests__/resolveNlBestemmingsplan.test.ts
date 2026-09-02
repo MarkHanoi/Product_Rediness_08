@@ -204,8 +204,11 @@ describe('resolveNlBestemmingsplan — the resolver', () => {
         expect(res.ok).toBe(true);
         if (res.ok) {
             expect(res.ringSource).toBe('bouwvlak'); // the PRECISE published footprint
-            expect(res.ringLatLon).toHaveLength(4);
-            expect(res.ringLatLon[0]).toEqual({ lat: 52.3675, lon: 4.9040 }); // WGS84, unprojected
+            // §NL-BOUWVLAK-HOLES (L-12896): the geometry ships as PARTS (here: one, hole-free).
+            expect(res.ringPartsLatLon).toHaveLength(1);
+            expect(res.ringPartsLatLon[0]!.outer).toHaveLength(4);
+            expect(res.ringPartsLatLon[0]!.holes).toHaveLength(0);
+            expect(res.ringPartsLatLon[0]!.outer[0]).toEqual({ lat: 52.3675, lon: 4.9040 }); // WGS84, unprojected
             expect(res.maat.maxBouwhoogte_m).toBe(30);
             expect(res.maat.maxBebouwingspercentage).toBeCloseTo(0.5, 6);
             expect(res.bestemming).toBe('Wonen');
@@ -224,7 +227,8 @@ describe('resolveNlBestemmingsplan — the resolver', () => {
         expect(res.ok).toBe(true);
         if (res.ok) {
             expect(res.ringSource).toBe('bestemmingsvlak'); // the ZONE extent — an UPPER BOUND
-            expect(res.ringLatLon).toHaveLength(4); // closing vertex dropped
+            expect(res.ringPartsLatLon).toHaveLength(1);
+            expect(res.ringPartsLatLon[0]!.outer).toHaveLength(4); // closing vertex dropped
             expect(res.maat.maxBouwhoogte_m).toBe(15);
             expect(res.bestemming).toBe('Wonen');
         }
@@ -267,7 +271,8 @@ describe('resolveNlBestemmingsplan — the resolver', () => {
         const res = await resolveNlBestemmingsplan(NL_RING_REF, PT, { fetchImpl });
         expect(res.ok).toBe(true);
         if (res.ok) {
-            expect(res.ringLatLon).toHaveLength(4);
+            expect(res.ringPartsLatLon).toHaveLength(1);
+            expect(res.ringPartsLatLon[0]!.outer).toHaveLength(4);
             expect(res.maat.maxBouwhoogte_m).toBeNull(); // honest withheld, never fabricated
         }
     });

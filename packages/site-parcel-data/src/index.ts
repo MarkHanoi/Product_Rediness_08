@@ -1769,7 +1769,8 @@ export {
 // ── L-609 / §NL-NATIONWIDE — Netherlands (national) bestemmingsplan explicit-area pack, refusal + ──
 // the `ringRef` resolver + maatvoering reader. NATIONWIDE (was Amsterdam-only) and KEYLESS (PDOK RP
 // WMS, was RP-API-v4 key-gated). The pack ships numeric fields null and a bouwvlak HANDLE;
-// `resolveNlBestemmingsplan` turns that handle into a WGS84 buildable ring PLUS the live maatvoering
+// `resolveNlBestemmingsplan` turns that handle into WGS84 buildable-footprint PARTS — every part,
+// every interior ring/courtyard carried (§NL-BOUWVLAK-HOLES, L-12896) — PLUS the live maatvoering
 // (max bouwhoogte / bebouwingspercentage / bouwlagen) — or a typed refusal (it never throws). With
 // `NL_BESTEMMINGSPLAN_CERTIFIED` ON, a parcel with a resolved bouwvlak+maatvoering renders a real
 // `structured` envelope; residual cases refuse honestly — see `nlBestemmingsplan.ts`.
@@ -1798,6 +1799,9 @@ export {
     classifyMaatvoering,
     readMaatWaarde,
     ringFromGeoJson,
+    // §NL-BOUWVLAK-HOLES (L-12896) — the parts-preserving parser: ALL parts, ALL interior rings
+    // (courtyards). `ringFromGeoJson` above is display-only (first part's outer) — never the clip.
+    partsFromGeoJson,
     NL_RING_REF,
     NL_BESTEMMINGSPLAN_CERTIFIED,
     // §L-11841 — the narrower, still-shut sub-gate: storey-derived height (bouwlagen × ~3 m) is
@@ -1805,6 +1809,7 @@ export {
     NL_STOREY_DERIVED_HEIGHT_CERTIFIED,
     NL_BESTEMMINGSPLAN_PATH,
     type NlLatLon,
+    type NlRingPart,
     type NlBpDeps,
     type NlBpResolution,
     type NlBpRefusalReason,

@@ -151,6 +151,23 @@ export interface NlLatLon {
     readonly lon: number;
 }
 
+/**
+ * §NL-BOUWVLAK-HOLES (L-12896) — ONE PART of the published footprint: its outer ring plus the
+ * interior rings (COURTYARDS) cut out of it, in WGS84. Structurally mirrors the engine's
+ * `ExplicitAreaPart` (`geometry/explicitArea.ts` §MULTI-PART-EXPLICIT-AREA) so the dispatcher
+ * forwards it 1:1 to `explicitAreaFootprintParts` after projection.
+ *
+ * ⚠ A HOLE IS A PUBLISHED "DO NOT BUILD HERE". It is carried, never dropped: dropping it draws
+ * the courtyard buildable — the L-616 OVERSTATE direction, on a signed live route
+ * (`NL_BESTEMMINGSPLAN_CERTIFIED`). Matrix-west finding D3.
+ */
+export interface NlRingPart {
+    /** The part's outer ring (closing vertex already dropped). Always ≥ 3 vertices. */
+    readonly outer: NlLatLon[];
+    /** Interior rings (courtyards) cut out of `outer`. Empty for the common case. NEVER dropped. */
+    readonly holes: NlLatLon[][];
+}
+
 /** Injectable dependencies so the adapter is unit-testable without the network (mirrors Madrid). */
 export interface NlBpDeps {
     /** Override `globalThis.fetch` (tests inject a fake; production uses the same-origin proxy). */
@@ -199,16 +216,25 @@ export type NlBpResolution =
     | {
           readonly ok: true;
           /**
-           * WHICH ring `ringLatLon` is (§NL-SPARSE-FALLBACK). `'bouwvlak'` = the PRECISE published
+           * WHICH geometry `ringPartsLatLon` is (§NL-SPARSE-FALLBACK). `'bouwvlak'` = the PRECISE published
            * buildable footprint (the dispatcher renders it `structured`). `'bestemmingsvlak'` = the
            * ZONE footprint used as an UPPER-BOUND extent because the plan published NO bouwvlak — the
            * dispatcher renders it `estimated-ruleset` with an upper-bound caveat, NEVER `structured`.
            */
           readonly ringSource: 'bouwvlak' | 'bestemmingsvlak';
-          /** The published buildable-envelope ring for the parcel, in WGS84 (L5 projects it). Either the
-           *  precise bouwvlak or — when none is published — the zone (bestemmingsvlak) extent; see
-           *  `ringSource`. */
-          readonly ringLatLon: NlLatLon[];
+          /**
+           * §NL-BOUWVLAK-HOLES (L-12896) — the published buildable-envelope geometry for the
+           * parcel, in WGS84 (L5 projects it), as ALL of its parts, each with ALL of its interior
+           * rings (courtyards). Either the precise bouwvlak or — when none is published — the zone
+           * (bestemmingsvlak) extent; see `ringSource`. Always ≥ 1 part, each outer ≥ 3 vertices.
+           *
+           * ⚠ This REPLACED the single-ring `ringLatLon` deliberately (the same reasoning as
+           * `ExplicitAreaSource.footprintRing` vs `footprintParts`): keeping a "part 0 outer"
+           * field would let a consumer that has not heard of parts silently clip to one ring of N
+           * and draw a published courtyard buildable. A consumer must now decide about parts and
+           * holes explicitly — the mistake is unrepresentable rather than merely discouraged.
+           */
+          readonly ringPartsLatLon: ReadonlyArray<NlRingPart>;
           /** The maatvoering numbers (validated; nulls are honest withheld). */
           readonly maat: NlMaatvoering;
           /** The bestemming (zone) naam this parcel falls in (e.g. "Wonen"), or null. */
@@ -334,16 +360,14 @@ export function readMaatvoeringen(list: readonly RawMaatvoering[] | null | undef
 }
 
 /**
- * Close a GeoJSON Polygon (outer ring, WGS84 `[lon, lat]` pairs) into the resolver's `NlLatLon[]`
- * form, dropping the duplicated closing vertex GeoJSON appends. Returns null when fewer than 3
- * distinct vertices survive (degenerate). Accepts either a bare coordinate ring or a full
- * `{ type:'Polygon', coordinates:[[...]] }` / `{ type:'MultiPolygon', coordinates:[[[...]]] }`.
+ * Close one GeoJSON coordinate ring (WGS84 `[lon, lat]` pairs) into `NlLatLon[]`, dropping the
+ * duplicated closing vertex GeoJSON appends. Returns null when fewer than 3 distinct vertices
+ * survive (degenerate).
  */
-export function ringFromGeoJson(geometry: unknown): NlLatLon[] | null {
-    const outer = extractOuterRing(geometry);
-    if (!Array.isArray(outer) || outer.length < 3) return null;
+function ringFromPairs(pairs: unknown): NlLatLon[] | null {
+    if (!Array.isArray(pairs)) return null;
     const pts: NlLatLon[] = [];
-    for (const pair of outer) {
+    for (const pair of pairs) {
         if (!Array.isArray(pair) || pair.length < 2) continue;
         const lon = Number(pair[0]);
         const lat = Number(pair[1]);
@@ -360,22 +384,77 @@ export function ringFromGeoJson(geometry: unknown): NlLatLon[] | null {
     return pts.length >= 3 ? pts : null;
 }
 
-/** Extract the outer coordinate ring from a variety of GeoJSON shapes. Pure, defensive. */
-function extractOuterRing(geometry: unknown): unknown {
+/**
+ * One Polygon's ring list → an `NlRingPart`. `rings[0]` is the outer ring; `rings[1..]` are the
+ * interior rings — the COURTYARDS. A degenerate outer refuses the part; a degenerate interior
+ * ring (< 3 distinct vertices) encloses no area, so there is nothing to carry and it is skipped.
+ */
+function partFromPolygonCoords(rings: unknown): NlRingPart | null {
+    if (!Array.isArray(rings) || rings.length === 0) return null;
+    const outer = ringFromPairs(rings[0]);
+    if (!outer) return null;
+    const holes: NlLatLon[][] = [];
+    for (let i = 1; i < rings.length; i += 1) {
+        const hole = ringFromPairs(rings[i]);
+        if (hole) holes.push(hole);
+    }
+    return { outer, holes };
+}
+
+/**
+ * §NL-BOUWVLAK-HOLES (L-12896) — parse a GeoJSON geometry into ALL of its parts, each with ALL of
+ * its interior rings, in WGS84. Pure, defensive. Accepts a bare coordinate ring, a full
+ * `{ type:'Polygon', coordinates:[[...],[...]] }` / `{ type:'MultiPolygon', coordinates:[...] }`,
+ * or a raw `Polygon.coordinates` array handed in without the wrapper.
+ *
+ * This REPLACES the old `extractOuterRing`, which returned `coords[0]` / `coords[0][0]` — the
+ * outer ring of the FIRST part only. That dropped every interior ring (a courtyard — a published
+ * "do not build here", `explicitArea.ts` §MULTI-PART-EXPLICIT-AREA) and every further part.
+ * Dropping a hole draws the courtyard BUILDABLE — the L-616 OVERSTATE direction, on a signed live
+ * route; dropping an extra part merely understated. Both now survive to the engine's
+ * `explicitAreaFootprintParts` seat, which already carried them.
+ *
+ * Returns null when NO usable part survives (degenerate geometry). A MultiPolygon that contains
+ * SOME degenerate members alongside usable ones keeps the usable ones — skipping a zero-area
+ * member is not a drop of published buildable geometry.
+ */
+export function partsFromGeoJson(geometry: unknown): NlRingPart[] | null {
     if (!geometry) return null;
-    // Bare ring: [[lon,lat], ...]
+    // Bare ring: [[lon,lat], ...] — a single part, no holes.
     if (Array.isArray(geometry) && Array.isArray(geometry[0]) && typeof geometry[0]?.[0] === 'number') {
-        return geometry;
+        const outer = ringFromPairs(geometry);
+        return outer ? [{ outer, holes: [] }] : null;
     }
     const g = geometry as { type?: unknown; coordinates?: unknown };
     const coords = g.coordinates;
-    if (g.type === 'Polygon' && Array.isArray(coords)) return coords[0];
-    if (g.type === 'MultiPolygon' && Array.isArray(coords) && Array.isArray(coords[0])) {
-        return (coords[0] as unknown[])[0];
+    if (g.type === 'Polygon' && Array.isArray(coords)) {
+        const part = partFromPolygonCoords(coords);
+        return part ? [part] : null;
+    }
+    if (g.type === 'MultiPolygon' && Array.isArray(coords)) {
+        const parts: NlRingPart[] = [];
+        for (const poly of coords) {
+            const part = partFromPolygonCoords(poly);
+            if (part) parts.push(part);
+        }
+        return parts.length > 0 ? parts : null;
     }
     // Fallback: an array whose first element is itself a ring (Polygon.coordinates handed in raw).
-    if (Array.isArray(coords) && Array.isArray(coords[0])) return coords[0];
+    if (Array.isArray(coords) && Array.isArray(coords[0])) {
+        const part = partFromPolygonCoords(coords);
+        return part ? [part] : null;
+    }
     return null;
+}
+
+/**
+ * ⚠ FIRST part's OUTER ring only — retained for display/back-compat consumers. NEVER feed this to
+ * the engine's explicit-area clip: it drops interior rings (courtyards) and further parts by
+ * construction, which is exactly the L-12896 defect. The clip consumes `ringPartsLatLon` /
+ * `partsFromGeoJson` instead.
+ */
+export function ringFromGeoJson(geometry: unknown): NlLatLon[] | null {
+    return partsFromGeoJson(geometry)?.[0]?.outer ?? null;
 }
 
 // ──────────────────────────────────────────────────────────────────────────────────────────────
@@ -481,31 +560,39 @@ export async function resolveNlBestemmingsplan(
 
         const ok = (
             ringSource: 'bouwvlak' | 'bestemmingsvlak',
-            ringLatLon: NlLatLon[],
+            ringPartsLatLon: ReadonlyArray<NlRingPart>,
         ): NlBpResolution => {
             span.setAttribute('resultFields', 'ok');
             span.setAttribute('ringSource', ringSource);
+            // §NL-BOUWVLAK-HOLES (L-12896) — record the shape so a live courtyard/multi-part
+            // resolution is visible in telemetry, not only in the geometry.
+            span.setAttribute('footprintParts', ringPartsLatLon.length);
+            span.setAttribute(
+                'footprintHoles',
+                ringPartsLatLon.reduce((acc, p) => acc + p.holes.length, 0),
+            );
             span.setAttribute('maxBouwhoogte', maat.maxBouwhoogte_m ?? -1);
             span.setAttribute('maxBebouwingspercentage', maat.maxBebouwingspercentage ?? -1);
             if (planId) span.setAttribute('planId', planId);
             span.setStatus({ code: SpanStatusCode.OK });
-            return { ok: true, ringSource, ringLatLon, maat, bestemming, planId, planNaam };
+            return { ok: true, ringSource, ringPartsLatLon, maat, bestemming, planId, planNaam };
         };
 
         // ── PRECISE path: the published bouwvlak — the explicit-area footprint. Prefer the singular
-        // `bouwvlak`, else the first entry of `bouwvlakken`. This path is UNCHANGED (§NL-SPARSE-
-        // FALLBACK preserves it exactly): a bouwvlak that resolves is the precise/structured case.
+        // `bouwvlak`, else the first entry of `bouwvlakken`. §NL-BOUWVLAK-HOLES (L-12896): ALL parts
+        // and ALL interior rings (courtyards) are kept — the old `extractOuterRing` kept only the
+        // first part's outer ring, which drew a published courtyard buildable (the L-616 direction).
         const bouwvlakGeom =
             body?.bouwvlak?.geometrie ??
             (Array.isArray(body?.bouwvlakken) ? body!.bouwvlakken![0]?.geometrie : undefined);
         if (bouwvlakGeom) {
-            const ring = ringFromGeoJson(bouwvlakGeom);
-            if (!ring) {
+            const parts = partsFromGeoJson(bouwvlakGeom);
+            if (!parts) {
                 span.setAttribute('resultFields', 'degenerate-geometry');
                 span.setStatus({ code: SpanStatusCode.OK });
                 return { ok: false, reason: 'degenerate-geometry' };
             }
-            return ok('bouwvlak', ring);
+            return ok('bouwvlak', parts);
         }
 
         // ── §NL-SPARSE-FALLBACK: no bouwvlak was published (the common NL case — bouwvlak is sparse).
@@ -519,9 +606,12 @@ export async function resolveNlBestemmingsplan(
             maat.maxBouwhoogte_m !== null ||
             maat.maxAantalBouwlagen !== null ||
             maat.maxBebouwingspercentage !== null;
-        const zoneRing = ringFromGeoJson(body?.bestemmingsvlak?.geometrie);
-        if (zoneRing && hasUsableMaat) {
-            return ok('bestemmingsvlak', zoneRing);
+        // §NL-BOUWVLAK-HOLES (L-12896) — the zone extent gets the SAME parts treatment: a hole in
+        // the bestemmingsvlak geometry is equally a published exclusion, and the zone ring is
+        // already only an UPPER BOUND — inflating it over a courtyard would overstate twice.
+        const zoneParts = partsFromGeoJson(body?.bestemmingsvlak?.geometrie);
+        if (zoneParts && hasUsableMaat) {
+            return ok('bestemmingsvlak', zoneParts);
         }
 
         span.setAttribute('resultFields', 'no-bouwvlak');

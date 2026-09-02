@@ -78,6 +78,10 @@ import {
     resolveZoneDisposition,
     ESTIMATED_DEFAULT_PACK,
     estimatedDefaultZoningRecord,
+    // §NL-BOUWVLAK-HOLES (L-12896) — the courtyard arm (section 2b) runs the NL explicit-area
+    // pack with an injected parts+holes footprint, the shape the NL provider emits.
+    NL_BESTEMMINGSPLAN_PACK,
+    NL_ZONE_CODE,
     type BuildableEnvelopeMassingInput,
 } from '../../packages/site-parcel-data/src/index.js';
 
@@ -291,6 +295,8 @@ function main(): number {
     let solved = 0;
     let refused = 0;
     const findings: Finding[] = [];
+    // Declared here (not in section 4) so section 2b's courtyard-arm teeth can also set it.
+    let checkerBlind: string | null = null;
 
     // ── 1. The registered corpus, read live from the shipping registry. ───────
     const coverage = listJurisdictionCoverage().filter((j) => j.packZoneCodes.length > 0);
@@ -332,6 +338,63 @@ function main(): number {
         findings.push(...auditEnvelope(env, zone, 'estimated-default', zone?.code ?? '?', PARCEL_AREA));
     }
 
+    // ── 2b. §NL-BOUWVLAK-HOLES (L-12896) — the explicit-area COURTYARD arm. ───────────
+    // A published footprint with an interior courtyard ("do not build here"), forwarded as
+    // parts + holes — the shape the NL provider emits since L-12896 — on a parcel that CONTAINS
+    // the courtyard. Honest outcomes: a refusal (a single-ring envelope cannot carve the hole —
+    // `hole-intersects-parcel`, the engine's current answer) or a solved footprint whose area
+    // EXCLUDES the hole (if the engine ever learns to carve exactly). A solved area that reaches
+    // into the hole is the L-616 overstate this gate exists to catch — the exact defect the old
+    // NL wiring shipped by dropping interior rings at the provider.
+    {
+        const courtyardOuter = rect(0, 0, 100, 100);      // 10,000 m² published outer
+        const courtyardHole = rect(35, 35, 65, 65);       //    900 m² published "do not build here"
+        const courtyardParcel = rect(-10, -10, 110, 110); // the parcel CONTAINS the courtyard
+        const honestCeiling = polyArea(courtyardOuter) - polyArea(courtyardHole); // 9,100 m²
+        // Mirror the LIVE dispatcher's record: the NL route always ships the maatvoering in
+        // `structuredFields` (a bare packZoneRecord refuses before the clip is ever reached,
+        // which would make this arm vacuous — the teeth below prove it is not).
+        const courtyardZoning = {
+            ...packZoneRecord(NL_BESTEMMINGSPLAN_PACK.jurisdictionId, NL_ZONE_CODE),
+            structuredFields: { maxHeight_m: 15 },
+        } as unknown as ZoningRecord;
+        const courtyardBase = {
+            parcelRing: courtyardParcel,
+            edgeClassifications: UNCLASSIFIED,
+            zoning: courtyardZoning,
+            rulePack: NL_BESTEMMINGSPLAN_PACK,
+        } as const;
+        zonesWalked++;
+        const env = computeBuildableEnvelope({
+            ...courtyardBase,
+            explicitAreaFootprintParts: [{ outer: courtyardOuter, holes: [courtyardHole] }],
+        });
+        if (env.status === 'ok') solved++;
+        else refused++;
+        if (env.status === 'ok' && env.insetAreaM2 > honestCeiling + EPS_ABS) {
+            findings.push({
+                axis: 'setback',
+                pack: NL_BESTEMMINGSPLAN_PACK.jurisdictionId,
+                zone: `${NL_ZONE_CODE}/courtyard-hole`,
+                detail:
+                    `explicit-area solve granted ${env.insetAreaM2.toFixed(1)} m² where the honest ` +
+                    `ceiling is ${honestCeiling.toFixed(1)} m² (outer minus courtyard) — the published ` +
+                    'hole was dropped (L-12896 / the L-616 direction)',
+            });
+        }
+        // CHECKER TEETH for this arm: the PRE-FIX wiring (outer ring only, hole dropped) must
+        // register as an overstatement under the same measure, or the arm is blind.
+        const preFix = computeBuildableEnvelope({
+            ...courtyardBase,
+            explicitAreaFootprint: courtyardOuter,
+        });
+        if (!(preFix.status === 'ok' && preFix.insetAreaM2 > honestCeiling + EPS_ABS)) {
+            checkerBlind ??=
+                `courtyard-arm teeth: the outer-only (pre-fix) feed did not reproduce the ` +
+                `overstatement (status=${preFix.status}) — the arm cannot see the defect it polices`;
+        }
+    }
+
     // ── 3. SELF-TEST layer 1 — ENGINE TEETH: the planted pack through the real engine. ──
     const plantedEnv = computeBuildableEnvelope({
         parcelRing: PARCEL,
@@ -346,7 +409,6 @@ function main(): number {
 
     // ── 4. SELF-TEST layer 2 — CHECKER TEETH: tamper the honest output into the
     //       pre-fix shape; the audit MUST flag both mechanisms or the gate is blind. ──
-    let checkerBlind: string | null = null;
     if (plantedEnv.status === 'ok') {
         const tampered = {
             ...plantedEnv,

@@ -205,6 +205,76 @@ describe('§NL-BESTEMMINGSPLAN — a click on a Dutch parcel reaches the bestemm
         expect(site.parcel.maxHeight).toBe(PARCEL.bouwhoogte_m);
     });
 
+    it('§NL-BOUWVLAK-HOLES (L-12896) — a bouwvlak COURTYARD that bites the parcel is never drawn buildable', async () => {
+        // The pre-fix wiring kept only the outer ring, so the courtyard (a published "do not build
+        // here" interior ring) was drawn buildable — the L-616 OVERSTATE direction, live behind
+        // NL_BESTEMMINGSPLAN_CERTIFIED. With parts + holes forwarded, the engine's honest answer
+        // for a hole that bites the parcel is a refusal (a single-ring envelope cannot carve it):
+        // nothing is drawn over the courtyard. Outer = the zone-sized ring; hole = the small rect
+        // dead-centre on the parcel.
+        const COURTYARD_BODY = {
+            plan: { id: PARCEL.planId, naam: PARCEL.planNaam },
+            bestemmingsvlak: { naam: 'Gemengd - 1' },
+            bouwvlak: { geometrie: { type: 'Polygon', coordinates: [ZONE_RING, BOUWVLAK_RING] } },
+            maatvoeringen: [{ naam: 'maximum bouwhoogte (m)', waarde: String(PARCEL.bouwhoogte_m) }],
+        };
+        const { store, envelope } = await dispatchNl(COURTYARD_BODY);
+        expect(envelope).not.toBeNull();
+        // NEVER an ok-envelope over the courtyard: the pre-fix behaviour was status 'ok' with the
+        // full outer drawn (courtyard included). If the engine ever learns to carve exactly, an
+        // 'ok' here must exclude the hole — until then the honest outcome is a refusal.
+        if (envelope!.status === 'ok') {
+            const zoneArea = 41 * 44; // outer ≈ 41 × 44.5 m; the hole ≈ 16 × 20 m ≈ 320 m²
+            expect(envelope!.insetAreaM2).toBeLessThan(zoneArea - 300);
+        } else {
+            expect(envelope!.status).toBe('none');
+            expect(envelope!.insetPolygon).toEqual([]);
+            expect(envelope!.maxHeight_m).toBeNull();
+            expect(store.getSite()!.parcel.maxHeight).toBeNull();
+        }
+    });
+
+    it('§NL-BOUWVLAK-HOLES — a courtyard AWAY from the parcel costs nothing, and the L-12896 sibling caveats ride', async () => {
+        // Outer covers the whole parcel; the hole sits far outside it — the clip must still solve
+        // (no over-refusal). The plan also publishes a goothoogte (eave height), which is read and
+        // deliberately NOT used as the cap: §NL-GOOTHOOGTE-CARRY now says so on the output (parity
+        // with the Paris couronnement caveat), and §NL-OVERLAY-CARRY carries the structurally
+        // unread dubbelbestemming/paraplu instruments (RASE mandatory-carry) instead of silence.
+        const WIDE_RING: number[][] = [
+            [4.4770, 51.9170],
+            [4.4800, 51.9170],
+            [4.4800, 51.9190],
+            [4.4770, 51.9190],
+            [4.4770, 51.9170],
+        ];
+        const FAR_HOLE: number[][] = [
+            [4.4772, 51.9172],
+            [4.4774, 51.9172],
+            [4.4774, 51.9174],
+            [4.4772, 51.9174],
+            [4.4772, 51.9172],
+        ];
+        const body = {
+            plan: { id: PARCEL.planId, naam: PARCEL.planNaam },
+            bestemmingsvlak: { naam: 'Gemengd - 1' },
+            bouwvlak: { geometrie: { type: 'Polygon', coordinates: [WIDE_RING, FAR_HOLE] } },
+            maatvoeringen: [
+                { naam: 'maximum bouwhoogte (m)', waarde: String(PARCEL.bouwhoogte_m) },
+                { naam: 'maximum goothoogte (m)', waarde: '6' },
+            ],
+        };
+        const { envelope } = await dispatchNl(body);
+        expect(envelope!.status).toBe('ok');
+        expect(envelope!.maxHeight_m).toBe(PARCEL.bouwhoogte_m);
+        // The outer covers the parcel, so the whole plot solves — the distant hole is skipped.
+        expect(envelope!.insetAreaM2).toBeGreaterThan(1500);
+        const caveats = envelope!.caveats.join(' ');
+        expect(caveats).toContain('maximum goothoogte (eave height) of 6 m');
+        expect(caveats).toMatch(/at most what is shown/);
+        expect(caveats).toContain('Dubbelbestemmingen');
+        expect(caveats).toMatch(/paraplu/);
+    });
+
     it('§NL-SPARSE-FALLBACK — zone extent + metre height renders at estimated-ruleset, height REAL', async () => {
         const { envelope } = await dispatchNl(SPARSE_BODY);
         expect(envelope!.status).toBe('ok');
