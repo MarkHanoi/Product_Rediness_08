@@ -1,0 +1,110 @@
+# AL probes 2026-09-02T18:05:12Z
+== PROBE https://planifikimi.gov.al/
+HTTP=200 bytes=61604 type=text/html; charset=utf-8 RC=0
+<!DOCTYPE html>
+<html lang="sq" dir="ltr" class="no-js">
+<head>
+
+<meta charset="utf-8">
+<!-- 
+	This website is powered by TYPO3 - inspiring people to share!
+	TYPO3 is a free open source Content Management Framework initially created by Kasper Skaarhoj and licensed under GNU/GPL.
+	TYPO3 is copyright 1998-2017 of Kasper Skaarhoj. Extensions are copyright of their respective owners.
+	Information and contribution at https://typo3.org/
+-->
+
+<base href
+== PROBE https://geoportal.asig.gov.al/
+curl: (47) Maximum (50) redirects followed
+HTTP=302 bytes=366 type=text/html; charset=UTF-8 RC=47
+
+href="https://akpt.maps.arcgis.com/apps/webappviewer/index.html?id=ff270e99f5be45f19c7b7a1e3e618b27"
+AL app-config HTTP=200 bytes=80072 RC=0
+map itemId: be7060b2ca8648dcb835ae072c19f1fb
+{'theme': {'name': 'TabTheme', 'styles': ['default', 'simpleblue', 'purple', 'red', 'yellow', 'green', 'blue', 'cyan'], 'version': '2.7', 'sharedTheme': {'useHeader': False, 'useLogo': False, 'isPortalSupport': False}, 'customStyles': {'mainBackgroundColor': ''}}, 'portalUrl': 'https://akpt.maps.arc
+AL webmap HTTP=200 bytes=155041 RC=0
+- PPV Rrjeti Rrugor i Propozuar | ArcGISFeatureLayer | https://services8.arcgis.com/iSbQO7EghMNBB1Un/arcgis/rest/services/PPV_Rrjeti_Rrugor_eHarta_ok/FeatureServer/0
+- Ndarja Administrative | ArcGISFeatureLayer | https://services8.arcgis.com/iSbQO7EghMNBB1Un/arcgis/rest/services/PPV_E_HARTA_Ndarja_Administrative/FeatureServer/0
+- PDV RKPT | ArcGISFeatureLayer | https://services8.arcgis.com/iSbQO7EghMNBB1Un/arcgis/rest/services/PDV_RIT_Azhornim/FeatureServer/0
+- PDZRK Përdorimi i Tokës | ArcGISFeatureLayer | https://services8.arcgis.com/iSbQO7EghMNBB1Un/arcgis/rest/services/PDZRK_Perdorimi_Tokes_ok/FeatureServer/0
+- PDZRK - Rjeti Rrugor | ArcGISFeatureLayer | https://services8.arcgis.com/iSbQO7EghMNBB1Un/arcgis/rest/services/PDZRK_Rjeti_Rrugor/FeatureServer/0
+- PDZRK - Kufi | ArcGISFeatureLayer | https://services8.arcgis.com/iSbQO7EghMNBB1Un/arcgis/rest/services/PDZRK_Kufi_Sakte/FeatureServer/0
+- Zonat për Rindërtim | ArcGISFeatureLayer | https://services8.arcgis.com/iSbQO7EghMNBB1Un/arcgis/rest/services/Zona_Rindertim/FeatureServer/0
+- PINS Bregdeti | ArcGISFeatureLayer | https://services8.arcgis.com/iSbQO7EghMNBB1Un/arcgis/rest/services/Brezi_Bregdetar/FeatureServer/0
+- Kufijtë e Bashkive | ArcGISFeatureLayer | https://services8.arcgis.com/iSbQO7EghMNBB1Un/arcgis/rest/services/VKM_360/FeatureServer/0
+- Zona te Mbrojtura IMK | ArcGISFeatureLayer | https://services8.arcgis.com/iSbQO7EghMNBB1Un/arcgis/rest/services/Zona_Te_Mbrojtura_IMK_ok/FeatureServer/0
+- Kufiri i Zonave Arkeologjike A3 | ArcGISFeatureLayer | https://services8.arcgis.com/iSbQO7EghMNBB1Un/arcgis/rest/services/Kufiri_i_Zonave_A3/FeatureServer/0
+- Kufiri i zonës STB ( Site Trashëgimia Botërore) Butrint | ArcGISFeatureLayer | https://services8.arcgis.com/iSbQO7EghMNBB1Un/arcgis/rest/services/Kufiri_Zones_Kulturore_Butrint_IKMK_ok__1/FeatureServ
+- Kufiri i zonës buferike STB ( Site Trashëgimia Botërore) But | ArcGISFeatureLayer | https://services8.arcgis.com/iSbQO7EghMNBB1Un/arcgis/rest/services/Kufiri_Zones_Buferike/FeatureServer/0
+- Zona Mbrojtura Kulturore IMK | ArcGISFeatureLayer | https://services8.arcgis.com/iSbQO7EghMNBB1Un/arcgis/rest/services/Zona_Mbrojtura_Kulturore_IMK_ok_1/FeatureServer/0
+- Monumente Kulture IMK 2020 Poligon | ArcGISFeatureLayer | https://services8.arcgis.com/iSbQO7EghMNBB1Un/arcgis/rest/services/Monumente_Kulture_IMK_2020_polygon/FeatureServer/0
+- Monumente Kulture IMK 2020 Vijë | ArcGISFeatureLayer | https://services8.arcgis.com/iSbQO7EghMNBB1Un/arcgis/rest/services/Monumente_Kulture_IMK_2020_line/FeatureServer/0
+- Monumente Kulture IMK Pikë | ArcGISFeatureLayer | https://services8.arcgis.com/iSbQO7EghMNBB1Un/arcgis/rest/services/Monumente_Kulture_IMK_2020_point/FeatureServer/0
+- Ansambli Arkitektonik Urban Peshkopi | ArcGISFeatureLayer | https://services8.arcgis.com/iSbQO7EghMNBB1Un/arcgis/rest/services/Ansambli_Arkitektonik_Peshkopi/FeatureServer/0
+- Zona me Përparësi Zhvillimin e Turizmit | ArcGISFeatureLayer | https://services8.arcgis.com/iSbQO7EghMNBB1Un/arcgis/rest/services/Vendimi_17_1/FeatureServer/0
+- Zonat e Mbrojtura | ArcGISFeatureLayer | https://services8.arcgis.com/iSbQO7EghMNBB1Un/arcgis/rest/services/Zonat_Mbrojtura_eHarta/FeatureServer/0
+- Qendra Historike | ArcGISFeatureLayer | https://services8.arcgis.com/iSbQO7EghMNBB1Un/arcgis/rest/services/Qendra_historike_Totale/FeatureServer/0
+- Ansambli Arkitektonik | ArcGISFeatureLayer | https://services8.arcgis.com/iSbQO7EghMNBB1Un/arcgis/rest/services/Ansambli_Arkitektonik_Totale_/FeatureServer/0
+- Zona Arkeologjike | ArcGISFeatureLayer | https://services8.arcgis.com/iSbQO7EghMNBB1Un/arcgis/rest/services/zona_arkeologjike_total_total_publikuar_eHarta/Featur
+- Monumente Natyre Poligon | ArcGISFeatureLayer | https://services8.arcgis.com/iSbQO7EghMNBB1Un/arcgis/rest/services/Monumente_Natyre_E_HARTA/FeatureServer/0
+- Monumente Natyre Pikë | ArcGISFeatureLayer | https://services8.arcgis.com/iSbQO7EghMNBB1Un/arcgis/rest/services/Monumente_Natyre_POINT/FeatureServer/0
+- Korridori Sigurisë TAP | ArcGISFeatureLayer | https://services8.arcgis.com/iSbQO7EghMNBB1Un/arcgis/rest/services/Korridori_Sigurise_TAP/FeatureServer/0
+- TAP | ArcGISFeatureLayer | https://services8.arcgis.com/iSbQO7EghMNBB1Un/arcgis/rest/services/TAP_2/FeatureServer/0
+- TAP Fasha Mbrojtese 4m | ArcGISFeatureLayer | https://services8.arcgis.com/iSbQO7EghMNBB1Un/arcgis/rest/services/TAP_FashaMbrojtese_4m/FeatureServer/0
+- TAP Stacionet | ArcGISFeatureLayer | https://services8.arcgis.com/iSbQO7EghMNBB1Un/arcgis/rest/services/TAP_Stacionet/FeatureServer/0
+- TAP Zonimi Stacioneve | ArcGISFeatureLayer | https://services8.arcgis.com/iSbQO7EghMNBB1Un/arcgis/rest/services/TAP_ZonimiStacioneve/FeatureServer/0
+- Zonat e Ekonomisë Malore | ArcGISFeatureLayer | https://services8.arcgis.com/iSbQO7EghMNBB1Un/arcgis/rest/services/Zonat_Ekonomise_Malore/FeatureServer/0
+- Përdorimi i Propozuar i Tokës | ArcGISFeatureLayer | https://services8.arcgis.com/iSbQO7EghMNBB1Un/arcgis/rest/services/PPV_Perdorimi_i_Propozuar_i_Tokes/FeatureServer/0
+- Njësitë Strukturore | ArcGISFeatureLayer | https://services8.arcgis.com/iSbQO7EghMNBB1Un/arcgis/rest/services/Njesite_Strukturore_Azhornim__ok_/FeatureServer/0
+- Buffer për Hekurudhën | ArcGISFeatureLayer | https://services8.arcgis.com/iSbQO7EghMNBB1Un/arcgis/rest/services/Buffer_per_Hekurudhen/FeatureServer/0
+- Fasha Mbrojtëse e Rrugës | ArcGISFeatureLayer | https://services8.arcgis.com/iSbQO7EghMNBB1Un/arcgis/rest/services/Fasha_Mbrojtese_e_Rruges__ok/FeatureServer/0
+- PDV e-Planifikimi | ArcGISFeatureLayer | https://services8.arcgis.com/iSbQO7EghMNBB1Un/arcgis/rest/services/PDV_e_Planifikimi_ok__1/FeatureServer/0
+- Brezi Bregdetar 300m | ArcGISFeatureLayer | https://services8.arcgis.com/iSbQO7EghMNBB1Un/arcgis/rest/services/Brezi_Bregdetar_300m_publikim/FeatureServer/0
+AL NS layer meta HTTP=200 bytes=40287 RC=0
+name: Njesite_Strukturore_Azhornim | geometryType: esriGeometryPolygon | maxRecordCount: 1000
+FIELDS:
+ - OBJECTID | OBJECTID | esriFieldTypeOID
+ - bashkia | Bashkia | esriFieldTypeString
+ - njesia | Njësia | esriFieldTypeString
+ - sistemi | Sistemi | esriFieldTypeString
+ - kategori1 | Kategori 1 | esriFieldTypeString
+ - kategori2 | Kategori 2 | esriFieldTypeString
+ - kategori3 | Kategori 3 | esriFieldTypeString
+ - kategori4 | Kategori 4 | esriFieldTypeString
+ - lartesia_k | Lartësia në Kate | esriFieldTypeString
+ - lartesia_m | Lartësia në Metra | esriFieldTypeString
+ - pdv | PDV | esriFieldTypeString
+ - intesitet | Intesitet | esriFieldTypeString
+ - ksht | KSHT | esriFieldTypeString
+ - label | Label | esriFieldTypeString
+ - KSHR | KSHR | esriFieldTypeString
+ - KSHP | KSHP | esriFieldTypeString
+ - Kufizime_Ligjore | Kufizime Ligjore | esriFieldTypeString
+ - Siperfaqe_ha | Sipërfaqe (ha) | esriFieldTypeDouble
+ - Nenkategori_1 | Nenkategori 1 | esriFieldTypeString
+ - Nenkategori_2 | Nenkategori 2 | esriFieldTypeString
+ - Nenkategori_3 | Nenkategori 3 | esriFieldTypeString
+ - Parcela_Minimale | Parcela_Minimale | esriFieldTypeString
+ - Perdorime_Te_Lejuara | Perdorime_Te_Lejuara | esriFieldTypeString
+ - Perdorime_te_Ndaluara | Perdorime_te_Ndaluara | esriFieldTypeString
+ - Njesia_Re | Njesia_Re | esriFieldTypeString
+ - Rregullore | Rregullore | esriFieldTypeString
+ - Kushte_te_Tjera | Kushte_te_Tjera | esriFieldTypeString
+ - Nenkategoria_4 | Nenkategoria_4 | esriFieldTypeString
+ - Nenkategoria_4_ok | Nenkategoria_4_ok | esriFieldTypeString
+ - Shape__Area | Shape__Area | esriFieldTypeDouble
+ - Shape__Length | Shape__Length | esriFieldTypeDouble
+AL NS feature query HTTP=200 bytes=2175 RC=0
+{'bashkia': 'Berat', 'njesia': '1/22', 'sistemi': 'UB_Urban', 'lartesia_k': '2', 'lartesia_m': '6', 'intesitet': 'K1=0.5', 'ksht': 'K1=50%', 'KSHR': '10.47 %', 'KSHP': '20 %', 'Parcela_Minimale': '10000 m2'}
+{'bashkia': 'Berat', 'njesia': '4/5', 'sistemi': 'B_ Bujqësor', 'lartesia_k': 'PA', 'lartesia_m': 'PA', 'intesitet': 'K1=Sipas legjislacionit, planit dhe kësaj rregulloreje', 'ksht': 'K1=Sipas legjislacionit, planit dhe kësaj rregulloreje', 'KSHR': '1.80 %', 'KSHP': '0', 'Parcela_Minimale': 'PA'}
+True 
+== count query
+{"count":91939}
+serviceItemId=ea575423d763452ebac11a49e18d9692
+item HTTP=200
+title : Njesite_Strukturore_Azhornim__ok_
+owner : arcgisonline_akpt
+licenseInfo : 
+accessInformation : Njesi
+access : public
+modified : 1780316836000

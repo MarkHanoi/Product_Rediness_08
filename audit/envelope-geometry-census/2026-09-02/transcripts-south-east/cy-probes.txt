@@ -1,0 +1,114 @@
+# CY probes 2026-09-02T18:03:00Z
+== PROBE https://eservices.dls.moi.gov.cy/arcgis/rest/services?f=json
+HTTP=200 bytes=143 type=application/json;charset=UTF-8 RC=0
+{"currentVersion":10.91,"folders":["BASEMAPS","DTPH","GP","National","Utilities"],"services":[{"name":"SampleWorldCities","type":"MapServer"}]}
+== PROBE https://portal.dls.moi.gov.cy/
+HTTP=200 bytes=1099648 type=text/html; charset=UTF-8 RC=0
+<!DOCTYPE html>
+<html lang="el">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+	<link rel="profile" href="https://gmpg.org/xfn/11"> 
+	<title>DLS Portal</title>
+		<script>
+		(function(){
+			window.ecsSchemeConfig={systemAuto:false,darkLogoUrl:""};
+			var m=document.cookie.match(/(?:^|;\s*)ecs_color_scheme=([^;]+)/);
+			if(m&&m[1]==='alt'){
+				document.documentElement.setAttribute('data-ecs-scheme','alt');
+			}else if(!m&&false){
+				if(window.matchMedia&&window.matchMedia('(prefers-color-scheme:dark)').matches){
+					document.documentElement.setAttribute('data-ecs-scheme','alt');
+				}
+			}
+		})();
+		</script>
+		<meta name="dc.title" conte
+== PROBE https://eservices.dls.moi.gov.cy/arcgis/rest/services/DTPH?f=json
+HTTP=403 bytes=1233 type=text/html RC=0
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1"/>
+<title>403 - Forbidden: Access is denied.</title>
+<style type="text/css">
+<!--
+body{margin:0;font-size:.7em;font-family:Verdana, Arial, Helvetica, sans-serif;background:#EEEEEE;}
+fieldset{padding:0 15px 10px 15px;} 
+h1{font-size:2.4em;margin:0;color:#FFF;}
+h2{font-size:1.7em;margin:0;color:#CC0000;} 
+h3{font-size:1.2em;margin:10px 0 0 0;color:#000000;} 
+#header{width:96%;margin:0 0 0 0;padding:6px 2% 6px 2%;font-family:"trebuchet MS", Verdana, sans-serif;color:#FFF;
+background-color:#555555;}
+#content{margin:0 0 0 2%;position:relative;}
+.content-container{background:#FFF;width:96%;margin-top:8px;padding:10px;position:relative;}
+-->
+</style>
+</head>
+<body>
+<div id="header"><h1>Server Error</h1></div>
+<div id="content">
+ <div class="content-container"><fieldset>
+  <h2>403 - Forbidden: Access is denied.</h2>
+  <h3>You do not have permission to view this directory or page using the credentials that you supplied.</h3>
+ </fieldset></div>
+</div>
+</body>
+</html>
+
+== PROBE https://eservices.dls.moi.gov.cy/arcgis/rest/services/National?f=json
+HTTP=403 bytes=1233 type=text/html RC=0
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1"/>
+<title>403 - Forbidden: Access is denied.</title>
+<style type="text/css">
+<!--
+body{margin:0;font-size:.7em;font-family:Verdana, Arial, Helvetica, sans-serif;background:#EEEEEE;}
+fieldset{padding:0 15px 10px 15px;} 
+h1{font-size:2.4em;margin:0;color:#FFF;}
+h2{font-size:1.7em;margin:0;color:#CC0000;} 
+h3{font-size:1.2em;margin:10px 0 0 0;color:#000000;} 
+#header{width:96%;margin:0 0 0 0;padding:6px 2% 6px 2%;font-family:"trebuchet MS", Verdana, sans-serif;color:#FFF;
+background-color:#555555;}
+#content{margin:0 0 0 2%;position:relative;}
+.content-container{background:#FFF;width:96%;margin-top:8px;padding:10px;position:relative;}
+-->
+</style>
+</head>
+<body>
+<div id="header"><h1>Server Error</h1></div>
+<div id="content">
+ <div class="content-container"><fieldset>
+  <h2>403 - Forbidden: Access is denied.</h2>
+  <h3>You do not have permission to view this directory or page using the credentials that you supplied.</h3>
+ </fieldset></div>
+</div>
+</body>
+</html>
+
+CY CKAN zones HTTP=404 bytes=34677 RC=0
+CY uData zones HTTP=404 bytes=34701 RC=0
+== PROBE https://inspire.dls.moi.gov.cy/
+curl: (6) Could not resolve host: inspire.dls.moi.gov.cy
+HTTP=000 bytes=0 type= RC=6
+
+== PROBE https://data.gov.cy/
+HTTP=200 bytes=62476 type=text/html; charset=UTF-8 RC=0
+<!DOCTYPE html>
+<html lang="el" dir="ltr">
+  <head>
+    <meta charset="utf-8" />
+<script>var _paq = _paq || [];(function(){var u=(("https:" == document.location.protocol) ? "https://analytics.ouc.ac.cy/" : "http://analytics.ouc.ac.cy/");_paq.push(["setSiteId", "3"]);_paq.push(["setTrackerUrl", u+"matomo.php"]);if (!window.matomo_search_results_acti
+== PROBE https://eservices.dls.moi.gov.cy/arcgis/rest/services/DTPH/PlanningZones/MapServer?f=json
+HTTP=403 bytes=1233 type=text/html RC=0
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1"/>
+<title>403 - Forbidden: Access is denied.</title>
+<style type="text/css">
+<!--
+body{margin:0;font-size:.7em;

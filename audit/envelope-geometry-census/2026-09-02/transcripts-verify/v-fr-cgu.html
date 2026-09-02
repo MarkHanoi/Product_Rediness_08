@@ -1,0 +1,3937 @@
+<!doctype html>
+<html lang="fr" data-fr-scheme="system" dir="ltr">
+<head>
+  <meta charset="utf-8">
+  <meta name="format-detection" content="telephone=no,date=no,address=no,email=no,url=no">
+  <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+
+  <meta name="description" content="Notre territoire commun">
+  <meta name="theme-color" content="#000091">
+  <link rel="apple-touch-icon" href="/apple-touch-icon.png"><!-- 180×180 -->
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+  <link rel="shortcut icon" href="/favicon.ico" type="image/x-icon"><!-- 32×32 -->
+  <link rel="manifest" href="/manifest.webmanifest" crossorigin="use-credentials">
+  <link rel="alternate" href="/feed/feed.xml" type="application/atom+xml" title="cartes.gouv.fr">
+  <link rel="alternate" href="/feed/feed.json" type="application/json" title="cartes.gouv.fr">
+
+  <link rel="stylesheet" href="/css/dsfr.min.css">
+  <link rel="stylesheet" href="/css/utility/utility.min.css">  
+  <style>/* Defaults */
+:root {
+    --font-family-monospace: Consolas, Menlo, Monaco, Andale Mono WT, Andale Mono, Lucida Console, Lucida Sans Typewriter, DejaVu Sans Mono, Bitstream Vera Sans Mono, Liberation Mono, Nimbus Mono L, Courier New, Courier, monospace;
+    --syntax-tab-size: 2;
+}
+
+/* Global stylesheet */
+/* https://www.a11yproject.com/posts/how-to-hide-content/ */
+.visually-hidden {
+    clip: rect(0 0 0 0);
+    clip-path: inset(50%);
+    height: 1px;
+    overflow: hidden;
+    position: absolute;
+    white-space: nowrap;
+    width: 1px;
+}
+
+table {
+    margin: 1em 0;
+}
+
+table td,
+table th {
+    padding-right: 1em;
+}
+
+pre,
+code {
+    font-family: var(--font-family-monospace);
+}
+
+pre[class*="language-"] {
+    margin-bottom: 1.5em !important;
+}
+
+pre:not([class*="language-"]) {
+    margin: .5em 0;
+    line-height: 1.375; /* 22px /16 */
+    -moz-tab-size: var(--syntax-tab-size);
+    -o-tab-size: var(--syntax-tab-size);
+    tab-size: var(--syntax-tab-size);
+    -webkit-hyphens: none;
+    -ms-hyphens: none;
+    hyphens: none;
+    direction: ltr;
+    text-align: left;
+    white-space: pre;
+    word-spacing: normal;
+    word-break: normal;
+}
+
+code {
+    word-break: break-all;
+}
+
+.identifiants span {
+    display: flex;
+}
+
+.identifiants div {
+    display: flex;
+    gap: 0.5rem;
+    margin: 0px;
+    padding: 0.75rem 1rem;
+    text-decoration: none;
+    box-shadow: none;
+    background-image: none;
+}
+
+.hidden {
+    display: none !important;
+}
+
+/* Direct Links / Markdown Headers */
+.header-anchor {
+    background-image: none;
+    text-decoration: none;
+    font-style: normal;
+    font-size: 1em;
+    margin-left: .1em;
+}
+
+a[href].header-anchor,
+a[href].header-anchor:visited {
+    color: transparent;
+}
+
+a[href].header-anchor:focus,
+a[href].header-anchor:hover {
+    text-decoration: underline;
+}
+
+a[href].header-anchor:focus,
+:hover > a[href].header-anchor {
+    color: #aaa;
+}
+
+h2 + .header-anchor {
+    font-size: 1.5em;
+}
+
+/* Custom DSFR */
+.fr-pagination__list {
+    justify-content: flex-end !important;
+}
+
+@media (min-width: 48em) {
+    .fr-share__group {
+        justify-content: flex-end !important;
+    }
+}
+
+.fr-responsive-img.fr-ratio-auto {
+    object-fit: contain;
+}
+
+.fr-quote__image img {
+    object-fit: cover;
+}
+
+/** Properly render text in Markdown callout containers **/
+div.fr-callout__text p {
+    font-size: inherit;
+    line-height: inherit;
+}
+
+/** Missing icons **/
+.fr-follow .fr-btn--peertube:before,
+.fr-follow .fr-btn--github:before,
+.fr-follow .fr-btn--sourcehut:before {
+    margin-left: 0;
+    margin-right: 0.5rem;
+    flex: 0 0 auto;
+    display: inline-block;
+    vertical-align: calc((0.75em - var(--icon-size)) * 0.5);
+    background-color: currentColor;
+    width: var(--icon-size);
+    height: var(--icon-size);
+    -webkit-mask-size: 100% 100%;
+    mask-size: 100% 100%;
+    --icon-size: 2rem;
+    content: "";
+}
+
+.fr-follow .fr-btn--peertube:before {
+    -webkit-mask-image: url(/icons/logo/peertube.svg) !important;
+    mask-image: url(/icons/logo/peertube.svg) !important;
+}
+
+.fr-follow .fr-btn--github:before {
+    -webkit-mask-image: url(/icons/logo/github-fill.svg) !important;
+    mask-image: url(/icons/logo/github-fill.svg) !important;
+}
+
+.fr-follow .fr-btn--sourcehut:before {
+    -webkit-mask-image: url(/icons/logo/sourcehut.svg) !important;
+    mask-image: url(/icons/logo/sourcehut.svg) !important;
+}
+
+/* Custom */
+.fr-translate__btn::before {
+    content: none !important;
+}
+
+.fr-header__tools-links .fr-btn.primary {
+    background-color: var(--background-action-high-blue-france);
+    color: var(--text-inverted-blue-france);
+}
+
+table {
+    margin: 0;
+}
+
+.c-section--gray {
+  background-color: var(--background-alt-grey);
+}
+
+.frx-text--center {
+    text-align: center;
+}
+
+.frx-callout--offer-root {
+    height: 100%;
+}
+
+.frx-callout--offer-text {
+    height: 100%;
+    display: -webkit-box;
+    display: -ms-flexbox;
+    display: flex;
+    -webkit-box-orient: vertical;
+    -webkit-box-direction: normal;
+    -ms-flex-direction: column;
+    flex-direction: column;
+    padding-bottom: 32px;
+}
+
+.frx-callout--offer-text-tagline {
+    -webkit-box-ordinal-group: 2;
+    -ms-flex-order: 1;
+    order: 1;
+}
+
+.frx-callout--offer-text-list {
+    -webkit-box-flex: 1;
+    -ms-flex: 1 1 auto;
+    flex: 1 1 auto;
+    -webkit-box-ordinal-group: 3;
+    -ms-flex-order: 2;
+    order: 2;
+}
+
+.frx-callout--offer-text-price {
+    -webkit-box-flex: 1;
+    -ms-flex: 1 1 auto;
+    flex: 1 1 auto;
+    -webkit-box-ordinal-group: 4;
+    -ms-flex-order: 3;
+    order: 3;
+    -webkit-box-align: center;
+    -ms-flex-align: center;
+    align-items: center;
+    -ms-flex-line-pack: center;
+    align-content: center;
+    -webkit-box-orient: vertical;
+    -webkit-box-direction: normal;
+    -ms-flex-direction: column;
+    flex-direction: column;
+}
+
+.frx-icon-spin::before {
+    animation: spin 2s linear infinite;
+}
+
+.frx-display--xxs {
+  font-size: 2.2rem !important;
+  line-height: 2.9rem !important;
+  font-weight: 700 !important;
+  color: var(--text-default-grey)
+}
+
+.frx-nonumber::before {
+    content: "";
+}
+
+.bgContrastInfoBlue {
+    background-color: var(--background-action-high-blue-france, #000091);
+}
+
+.bgContrastInfoBlue h1, .bgContrastInfoBlue p, .bgContrastInfoBlue span {
+    background-color: var(--background-action-high-blue-france, #000091);
+    color: var(--text-inverted-blue-france, #f5f5fe);
+}
+
+.bgContrastInfoBlue .fr-icon-mail-add-line::before,  .bgContrastInfoBlue .fr-icon-mail-close-line::before{
+    --icon-size: 4rem;
+}
+
+.newsletter-container {
+    display: flex;
+    flex-direction: row;
+    gap: 5rem;
+    align-items: stretch;
+    width: 100%;
+    margin: 5rem auto 6rem auto;
+}
+
+.newsletterForm {
+    border-left: 4px solid var(--background-action-high-blue-france, #000091);
+    max-width: 640px;
+    padding-left: 2rem;
+}
+
+.infoDiv {
+    display: flex;
+    flex-direction: row;
+    gap: 2rem;
+    width: 100%;
+    margin-bottom: 2rem;
+}
+
+.infoIconDiv {
+    width: 4rem;
+    height: 4rem;
+    text-align: center;
+    line-height: 4rem;
+    background-color: #F5F5FE;
+    color: var(--background-action-high-blue-france, #000091);
+}
+
+.infoTextDiv {
+    width: 85%;
+    display:flex;
+    flex-direction: column;
+    justify-content: center;
+}
+
+.infoTextDiv p {
+    margin-bottom: 0;
+}
+
+.confirmation-container {
+    margin-top: 5rem;
+    margin-bottom: 6rem;
+}
+
+.confirmation-container .fr-alert {
+    max-width: 576px;
+}
+
+.confirmation-container .hintText {
+    color: var(--text-mention-grey, #6f6f6f);
+    font-size: 0.75rem;
+    line-height: 1.25rem;
+}
+
+.confirmation-container .fr-text--xl {
+    font-weight: 700;
+}
+
+.confirmation-container .fr-tile{
+    border: solid 1px var(--border-default-grey, #DDDDDD);
+}
+
+.confirmation-container .blue {
+    background-color: var(--background-action-high-blue-france, #000091);
+    color: white;
+}
+
+.confirmation-container .fr-tile {
+    padding: 2rem;
+    text-align: left;
+    --border-plain-grey: none;
+}
+
+.confirmation-container .fr-tile__title {
+    margin-bottom: 0.75rem;
+    color: var(--background-action-high-blue-france, #000091);
+    width: 100%;
+}
+.confirmation-container .blue .fr-tile__title {
+    color: white;
+}
+
+.confirmation-container .fr-tile__desc p {
+    font-weight: lighter;
+}
+
+.fr-tile__link{
+    order: 4;
+    margin-top: 2rem;
+    font-weight: lighter;
+    width: 100%;
+    color: var(--background-action-high-blue-france, #000091);
+}
+
+.confirmation-container .blue .fr-tile__link {
+    color: white;
+}
+
+@keyframes spin {
+    from {
+        transform:rotate(0deg);
+    }
+    to {
+        transform:rotate(360deg);
+    }
+}
+
+@media screen and (max-width: 768px){
+    .newsletter-container {
+        flex-direction: column;
+    }
+}
+
+@media (min-width: 78em) {
+  .text-right-xl {
+    text-align: right !important;
+  }
+}
+@media (min-width: 48em) {
+  .frx-display--xxs {
+    font-size: 2.4rem !important;
+    line-height: 3.1rem !important;
+  }
+}
+
+/* Header */
+.custom-center-btn {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+a.custom-center-btn.fr-btn {
+    display: flex !important;
+    justify-content: center !important;
+    align-items: center !important;
+}
+
+.fr-menu__list {
+    min-width: 288px;
+}
+
+@media (min-width: 62em) {
+  .fr-menu .fr-nav__link {
+      box-shadow: inset 0 1px 0 0 var(--border-default-grey);
+  }
+}
+
+/* Page Évolutions */
+.section_1 h2, .section_2 h2, .section_3 h2 {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    align-self: stretch;
+    font-family: Marianne;
+    font-style: normal;
+    font-weight: 700;
+    line-height: 40px;
+    margin-bottom: 40px;
+}
+
+.section_1 {
+    background: var(--background-alt-grey, #f6f6f6);
+    display: flex;
+    padding: 80px 0 96px 0px;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 40px;
+    align-self: stretch
+}
+
+.section_2 {
+    display: flex;
+    padding: 80px 0px 96px 0px;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 40px;
+    align-self: stretch;
+}
+
+.section_3 {
+    background: var(--background-action-high-blue-france, #000091);
+    color: var(--text-inverted-blue-france, #fff);
+    display: flex;
+    padding: 80px 0px 96px 0px;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 40px;
+    align-self: stretch;
+}
+.section_3 h2 {
+    color: var(--text-inverted-grey, #fff);
+}
+
+.calendar {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 12px;
+    align-self: stretch;
+    border-radius: 4px;
+}
+
+.trimester_tab {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    align-content: center;
+    align-self: stretch;
+    flex-wrap: wrap;
+    border-radius: 4px;
+    background: var(--background-default-grey, #fff);
+}
+
+.trimester_tab button {
+    display: flex;
+    padding: 8px 16px;
+    justify-content: center;
+    align-items: center;
+    gap: 8px;
+    flex: 1 0 0;
+    margin: 0;
+    text-align: center;
+    font-family: Marianne;
+    font-style: normal;
+    font-weight: 500;
+}
+
+.trimester_tab button:hover {
+    cursor: pointer;
+    background: unset;
+}
+
+.trimester_tab .selected {
+    color: var(--background-action-high-blue-france, #000091);
+    border: solid 1px var(--border-active-blue-france, #000091);
+    border-radius: 5px;
+}
+
+.tab_content {
+    display: none;
+    flex-direction: column;
+    align-items: flex-start;
+    align-self: stretch;
+    border-radius: 4px;
+    background: var(--background-default-grey, #fff);
+}
+
+.tab_content.selected {
+    display: flex;
+}
+
+.trimester_infos {
+    display: flex;
+    padding: 40px 40px 0 40px;
+    align-items: flex-start;
+    gap: 24px;
+    align-self: stretch;
+}
+
+.trimester_infos .title {
+    flex: 1 0 0;
+    font-family: Marianne;
+    font-style: normal;
+    font-weight: 500;
+    margin: 0;
+}
+
+.trimester_infos .fr-badge{
+    display: flex;
+    padding: 0 8px;
+    justify-content: center;
+    align-items: center;
+    gap: 4px;
+    border-radius: 4px;
+}
+
+.tab_content .month_container {
+    display: flex;
+    padding: 40px;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 32px;
+    align-self: stretch;
+    border-radius: 4px;
+}
+
+.tab_content .month_separator {
+    height: 0px;
+    border-bottom: solid 1px var(--border-default-grey, #DDDDDD);
+    display: flex;
+    margin: 0 40px;
+    flex-direction: column;
+    justify-content: center;
+    align-items: flex-start;
+    align-self: stretch;
+}
+
+.tab_content .evo_elem {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 12px;
+    align-self: stretch;
+}
+
+.tab_content .evo_elem .fr-badge {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    border-radius: 4px;
+}
+
+.tab_content .evo_elem .text_zone {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 4px;
+    align-self: stretch;
+}
+
+.tab_content .evo_elem .text_zone p {
+    font-family: Marianne;
+    font-style: normal;
+    margin: 0;
+}
+
+.tab_content .evo_elem .text_zone p.title {
+    font-weight: bold;
+}
+
+.tab_content .month {
+    color: var(--text-mention-grey, #666);
+    font-family: Marianne;
+    font-size: 0.75em;
+    font-style: normal;
+    font-weight: 400;
+    line-height: 1.7em;
+    margin: 0;
+}
+
+.section_1, .section_2, .section_3 {
+    padding-bottom: 96px;
+    margin-bottom: 0!important;
+}
+
+.section_2 .notes {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 24px;
+}
+
+.section_2 .note {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 10px;
+    grid-row: 1 / span 1;
+    justify-self: stretch;
+    border-radius: 4px;
+    border: 1px solid var(--border-default-grey, #DDDDDD);
+    background: var(--background-default-grey, #FFF);
+    width: 48%;
+}
+
+.section_2 .note_content {
+    display: flex;
+    padding: 32px 32px 32px 24px;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 16px;
+    align-self: stretch;
+    height: 100%;
+}
+.section_2 .note_content a:last-child {
+    margin-top: auto;
+}
+
+.section_2 .note_info {
+    display: flex;
+    flex-direction: row;
+    align-items: flex-start;
+    gap: 12px;
+    align-self: stretch;
+    margin: 0;
+    color: var(--text-mention-grey, #666);
+    font-family: Marianne;
+    font-size: 0.75em;
+    font-style: normal;
+    font-weight: 400;
+    line-height: 1.65em;
+}
+
+.section_2 .note_body {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 12px;
+    align-self: stretch;
+}
+
+.section_2 .note_body h3 {
+    color: var(--text-title-blue-france, #000091);
+    font-family: Marianne;
+    font-size: 1.375em;
+    font-style: normal;
+    font-weight: 700;
+    line-height: 1.275em;
+}
+
+.section_2 .note_body h3, .section_2 .note_body p {
+    margin: 0;
+}
+
+.section_2 .note_action {
+    display: flex;
+    padding-top: 8px;
+    align-items: flex-start;
+    gap: 8px;
+    color: var(--text-title-blue-france, #000091);
+    font-family: Marianne;
+    font-size: 0.875em;
+    font-style: normal;
+    font-weight: 400;
+}
+
+.section_2 .note_action[target=_blank]:after {
+    margin-left: 0;
+    height: 20px;
+}
+
+.section_2 .fr-tile {
+    border: solid 1px var(--border-default-grey, #DDDDDD);
+    padding: 2rem;
+}
+
+.section_2 .fr-tile--no-border {
+    --border-plain-grey: none;
+}
+
+.section_2 .fr-tile__body{
+    text-align: left;
+}
+
+.section_3 .section_container {
+    display: flex;
+    align-items: flex-start;
+    gap: 40px;
+    align-self: stretch;
+}
+
+.section_3 .section_elem {
+    display: flex;
+    padding: 40px;
+    align-items: flex-start;
+    gap: 24px;
+    flex: 1 0 0;
+    border: 2px solid var(--border-open-blue-france, #E3E3FD);
+}
+
+.section_3 .section_elem.second_elem {
+    align-items: center;
+    align-self: stretch;
+}
+
+.section_3 .section_elem div {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 24px;
+    flex: 1 0 0;
+}
+
+.section_3 .section_elem div p {
+    margin: 0;
+    align-self: stretch;
+    color: var(--text-inverted-grey, #fff);
+    font-family: Marianne;
+    font-size: 1.125em;
+    font-style: normal;
+    font-weight: 400;
+    line-height: 1.56em;
+}
+
+.section_3 .section_elem svg {
+    min-width: 120px;
+    width: 120px;
+    height: 120px;
+    aspect-ratio: 1/1;
+}
+
+.section_3 .section_elem .fr-artwork-minor {
+    fill: var(--artwork-decorative-blue-france, #ECECFE);
+}
+
+.section_3 .section_elem .fr-artwork-major {
+    fill: var(--artwork-minor-blue-france, #6A6AF4);
+}
+
+.section_3 .section_elem a {
+    border: 1px solid var(--border-open-blue-france, #E3E3FD);
+    background: var(--background-action-high-blue-france, #000091);
+    display: flex;
+    padding: 8px 12px 8px 16px;
+    justify-content: center;
+    align-items: center;
+}
+
+@media screen and (max-width: 820px){
+    .section_3 .section_container {
+        flex-direction: column;
+    }
+}
+
+@media screen and (max-width: 767px){
+    .section_2 .note {
+        width: 100%;
+    }
+    .trimester_tab {
+       flex-direction: column;
+       height: 100%;
+    }
+    .trimester_tab p {
+        width: 100%;
+    }
+}
+/* Accueil */
+
+.heroSection {
+    display: -webkit-box;
+    display: -ms-flexbox;
+    display: flex;
+    padding: 3rem 0 2.5rem 1rem;
+    -webkit-box-orient: vertical;
+    -webkit-box-direction: normal;
+    -ms-flex-direction: column;
+    flex-direction: column;
+    -webkit-box-pack: end;
+    -ms-flex-pack: end;
+    justify-content: flex-end;
+    -webkit-box-align: end;
+    -ms-flex-align: end;
+    align-items: flex-end;
+    gap: 2.5rem;
+    -ms-flex-item-align: stretch;
+    align-self: stretch;
+    color: var(--text-title-grey, #161616);
+}
+
+.heroSection h1 {
+    -ms-flex-item-align: stretch;
+    align-self: stretch;
+    font-size: 2.5rem;
+    font-style: normal;
+    font-weight: 400;
+    line-height: 3rem;
+}
+
+.heroSection p {
+    -ms-flex-item-align: stretch;
+    align-self: stretch;
+    color: var(--text-default-grey, #3a3a3a);
+    font-size: 1.125rem;
+    font-style: normal;
+    font-weight: 400;
+    line-height: 1.75rem;
+}
+
+.heroSection img {
+    width: 100vw;
+    height: 23.5rem;
+    -o-object-fit: cover;
+    object-fit: cover;
+    -o-object-position: right;
+    object-position: right;
+}
+
+._bgAltGrey_wtqk4_62 {
+    background: var(--background-alt-grey);
+}
+
+._section_wtqk4_43 {
+    display: -webkit-box;
+    display: -ms-flexbox;
+    display: flex;
+    padding: 2.5rem 1rem 3.5rem;
+    -webkit-box-orient: vertical;
+    -webkit-box-direction: normal;
+    -ms-flex-direction: column;
+    flex-direction: column;
+    -webkit-box-align: center;
+    -ms-flex-align: center;
+    align-items: center;
+    gap: 2rem;
+    -ms-flex-item-align: stretch;
+    align-self: stretch;
+    width: 100%;
+}
+
+._container_j88mm_1 {
+    display: -webkit-box;
+    display: -ms-flexbox;
+    display: flex;
+    padding: 1rem;
+    -webkit-box-orient: vertical;
+    -webkit-box-direction: normal;
+    -ms-flex-direction: column;
+    flex-direction: column;
+    -webkit-box-pack: center;
+    -ms-flex-pack: center;
+    justify-content: center;
+    gap: 1.5rem;
+    -ms-flex-item-align: stretch;
+    align-self: stretch;
+    background: var(--background-default-grey, #fff);
+}
+
+._container_j88mm_1 ._illustration_j88mm_18 {
+    -ms-flex-item-align: stretch;
+    align-self: stretch;
+    aspect-ratio: 256 / 143.65;
+}
+
+._featureCardsRow_wtqk4_91 {
+    display: -webkit-box;
+    display: -ms-flexbox;
+    display: flex;
+    -webkit-box-orient: vertical;
+    -webkit-box-direction: normal;
+    -ms-flex-direction: column;
+    flex-direction: column;
+    gap: 2rem;
+    width: 100%;
+    -webkit-box-align: stretch;
+    -ms-flex-align: stretch;
+    align-items: stretch;
+}
+
+._container_j88mm_1._noIllustration_j88mm_68 {
+    padding: 0;
+    margin: 0;
+    display: -webkit-box;
+    display: -ms-flexbox;
+    display: flex;
+}
+
+._container_j88mm_1 ._body_j88mm_11 {
+    display: -webkit-box;
+    display: -ms-flexbox;
+    display: flex;
+    -webkit-box-orient: vertical;
+    -webkit-box-direction: normal;
+    -ms-flex-direction: column;
+    flex-direction: column;
+    gap: 1.5rem;
+    -ms-flex-item-align: stretch;
+    align-self: stretch;
+}
+
+._container_j88mm_1._noIllustration_j88mm_68 ._body_j88mm_11 {
+    display: -webkit-box;
+    display: -ms-flexbox;
+    display: flex;
+    padding: 1rem;
+    -webkit-box-orient: vertical;
+    -webkit-box-direction: normal;
+    -ms-flex-direction: column;
+    flex-direction: column;
+    -webkit-box-align: start;
+    -ms-flex-align: start;
+    align-items: flex-start;
+    gap: 1.5rem;
+    -ms-flex-item-align: stretch;
+    align-self: stretch;
+}
+
+._container_j88mm_1 ._picto_j88mm_23 {
+    width: 2.5rem;
+    height: 2.5rem;
+    aspect-ratio: 1 / 1;
+}
+
+._container_j88mm_1 ._title_j88mm_29 {
+    -ms-flex-item-align: stretch;
+    align-self: stretch;
+    color: var(--text-title-grey, #161616);
+    font-size: 1.75rem;
+    font-style: normal;
+    font-weight: 700;
+    line-height: 2.25rem;
+    padding: 0;
+    margin: 0;
+    margin-bottom: .75rem;
+}
+
+._container_j88mm_1._noIllustration_j88mm_68 ._title_j88mm_29 {
+    font-size: 1.75rem;
+    font-style: normal;
+    font-weight: 700;
+    line-height: 2.25rem;
+}
+
+._container_j88mm_1 ._desc_j88mm_41 {
+    color: var(--text-default-grey, #3a3a3a);
+    font-size: 1.125rem;
+    font-style: normal;
+    font-weight: 400;
+    line-height: 1.75rem;
+    padding: 0;
+    margin: 0;
+}
+
+._container_j88mm_1._noIllustration_j88mm_68 ._desc_j88mm_41 {
+    font-size: 1.125rem;
+    font-style: normal;
+    font-weight: 400;
+    line-height: 1.75rem;
+}
+
+._container_j88mm_1 ._footer_j88mm_61 {
+    display: -webkit-box;
+    display: -ms-flexbox;
+    display: flex;
+    gap: 1.5rem;
+    -webkit-box-orient: vertical;
+    -webkit-box-direction: normal;
+    -ms-flex-direction: column;
+    flex-direction: column;
+    -webkit-box-align: start;
+    -ms-flex-align: start;
+    align-items: flex-start;
+}
+
+._container_j88mm_1._noIllustration_j88mm_68 ._footer_j88mm_61 {
+    margin-top: auto;
+}
+
+._featureCardsWrapper_wtqk4_82 {
+    display: -webkit-box;
+    display: -ms-flexbox;
+    display: flex;
+    -webkit-box-orient: vertical;
+    -webkit-box-direction: normal;
+    -ms-flex-direction: column;
+    flex-direction: column;
+    -webkit-box-align: center;
+    -ms-flex-align: center;
+    align-items: center;
+    gap: 2rem;
+    -ms-flex-item-align: stretch;
+    align-self: stretch;
+    width: 100%;
+}
+
+._featureCardsWrapper_wtqk4_82 .hidden {
+    display: none;
+}
+
+._sectionTitle_wtqk4_53 {
+    text-align: center;
+    margin: 1.5rem 0;
+}
+
+._bgAltBlueFrance_wtqk4_70 {
+    background: var(--background-alt-blue-france, #f5f5fe);
+}
+
+._accordionsGroup_wtqk4_99 {
+    width: 100%;
+    padding: 1rem .5rem;
+}
+._bgGrey_wtqk4_58 {
+    background: var(--background-default-grey);
+}
+
+._accordionBody_wtqk4_104 {
+    padding: .75rem;
+    display: -webkit-box;
+    display: -ms-flexbox;
+    display: flex;
+    -webkit-box-orient: vertical;
+    -webkit-box-direction: normal;
+    -ms-flex-direction: column;
+    flex-direction: column;
+    gap: 1.5rem;
+}
+
+._accordionBody_wtqk4_104 img {
+    width: 7rem;
+    height: 7rem;
+    aspect-ratio: 1 / 1;
+}
+
+._accordionButtons_wtqk4_118 {
+    display: -webkit-box;
+    display: -ms-flexbox;
+    -webkit-box-orient: vertical;
+    -webkit-box-direction: normal;
+    -ms-flex-direction: column;
+    flex-direction: column;
+    gap: 1.5rem;
+    display: flex;
+    -webkit-box-align: start;
+    -ms-flex-align: start;
+    align-items: flex-start;
+}
+
+._bgOpenBlueFrance_wtqk4_74 {
+    background: var(--background-open-blue-france, #e3e3fd);
+}
+
+._tilesWrapper_wtqk4_126 {
+    display: -webkit-box;
+    display: -ms-flexbox;
+    display: flex;
+    -webkit-box-orient: vertical;
+    -webkit-box-direction: normal;
+    -ms-flex-direction: column;
+    flex-direction: column;
+    gap: 1.5rem;
+    width: 100vw;
+    max-width: none;
+}
+
+._tile_wtqk4_126 {
+    border-radius: .25rem;
+}
+
+._bgActionHighBlueFrance_wtqk4_66 {
+    background: var(--background-action-high-blue-france, #000091);
+}
+
+._createAccountSection_wtqk4_142 h3 {
+    margin: 0;
+}
+
+._textInvertedBlueFrance_wtqk4_78>* {
+    color: var(--text-inverted-blue-france, #f5f5fe);
+}
+
+@media screen and (min-width: 576px) {
+    .heroSection {
+        -webkit-box-pack: center;
+        -ms-flex-pack: center;
+        justify-content: center;
+    }
+
+    .heroSection h1 {
+        font-size: 3.5rem;
+        font-weight: 400;
+        line-height: 4rem;
+    }
+
+    .heroSection img {
+        width: 30rem;
+        height: 23.5rem;
+    }
+
+        ._section_wtqk4_43 {
+        display: -webkit-box;
+        display: -ms-flexbox;
+        display: flex;
+        padding: 2.5rem 1rem 3.5rem;
+        -webkit-box-orient: vertical;
+        -webkit-box-direction: normal;
+        -ms-flex-direction: column;
+        flex-direction: column;
+        -webkit-box-align: center;
+        -ms-flex-align: center;
+        align-items: center;
+        gap: 2rem;
+        -ms-flex-item-align: stretch;
+        align-self: stretch;
+    }
+
+    ._featureCardsWrapper_wtqk4_82 {
+        display: -webkit-box;
+        display: -ms-flexbox;
+        display: flex;
+        -webkit-box-orient: vertical;
+        -webkit-box-direction: normal;
+        -ms-flex-direction: column;
+        flex-direction: column;
+        -webkit-box-align: center;
+        -ms-flex-align: center;
+        align-items: center;
+        gap: 2rem;
+        -ms-flex-item-align: stretch;
+        align-self: stretch;
+        width: 100%;
+    }
+
+    ._container_j88mm_1 {
+        display: -webkit-box;
+        display: -ms-flexbox;
+        display: flex;
+        padding: 1.5rem;
+        -webkit-box-orient: vertical;
+        -webkit-box-direction: normal;
+        -ms-flex-direction: column;
+        flex-direction: column;
+        -webkit-box-pack: center;
+        -ms-flex-pack: center;
+        justify-content: center;
+        -webkit-box-align: start;
+        -ms-flex-align: start;
+        align-items: flex-start;
+        gap: 1.5rem;
+        -ms-flex-item-align: stretch;
+        align-self: stretch;
+    }
+
+    ._container_j88mm_1 ._illustration_j88mm_18 {
+        -ms-flex-item-align: stretch;
+        align-self: stretch;
+        aspect-ratio: 496 / 278.33;
+    }
+
+    ._container_j88mm_1._noIllustration_j88mm_68 {
+        height: 100%;
+    }
+
+    ._container_j88mm_1 ._body_j88mm_11 {
+        padding: 1.5rem 2.5rem;
+    }
+
+    ._container_j88mm_1._noIllustration_j88mm_68 ._body_j88mm_11 {
+        display: -webkit-box;
+        display: -ms-flexbox;
+        display: flex;
+        padding: 1rem;
+        -webkit-box-orient: vertical;
+        -webkit-box-direction: normal;
+        -ms-flex-direction: column;
+        flex-direction: column;
+        -webkit-box-align: start;
+        -ms-flex-align: start;
+        align-items: flex-start;
+        gap: 1.5rem;
+        -ms-flex-item-align: stretch;
+        align-self: stretch;
+        height: 100%;
+    }
+
+    ._container_j88mm_1._noIllustration_j88mm_68 ._title_j88mm_29 {
+        font-size: 1.75rem;
+        font-style: normal;
+        font-weight: 700;
+        line-height: 2.25rem;
+    }
+
+    ._container_j88mm_1 ._desc_j88mm_41 {
+        font-size: 1.125rem;
+        font-style: normal;
+        font-weight: 700;
+        line-height: 1.75rem;
+    }
+
+    ._container_j88mm_1._noIllustration_j88mm_68 ._desc_j88mm_41 {
+        font-size: 1.125rem;
+        font-style: normal;
+        font-weight: 400;
+        line-height: 1.75rem;
+    }
+
+    ._container_j88mm_1 ._footer_j88mm_61 {
+        display: -webkit-box;
+        display: -ms-flexbox;
+        display: flex;
+        gap: 1.5rem;
+        -webkit-box-orient: horizontal;
+        -webkit-box-direction: normal;
+        -ms-flex-direction: row;
+        flex-direction: row;
+        -webkit-box-align: center;
+        -ms-flex-align: center;
+        align-items: center;
+    }
+
+    ._accordionsGroup_wtqk4_99 {
+        padding: 1rem;
+    }
+
+    ._accordionBody_wtqk4_104, ._accordionButtons_wtqk4_118 {
+        -webkit-box-orient: horizontal;
+        -webkit-box-direction: normal;
+        -ms-flex-direction: row;
+        flex-direction: row;
+    }
+
+    ._accordionBody_wtqk4_104, ._accordionButtons_wtqk4_118 {
+        -webkit-box-orient: horizontal;
+        -webkit-box-direction: normal;
+        -ms-flex-direction: row;
+        flex-direction: row;
+    }
+}
+
+@media screen and (min-width: 768px) {
+    .heroSection {
+        padding: 5.5rem 0 5rem 1rem;
+        -webkit-box-align: center;
+        -ms-flex-align: center;
+        align-items: center;
+        gap: 2.5rem;
+        -webkit-box-orient: horizontal;
+        -webkit-box-direction: normal;
+        -ms-flex-direction: row;
+        flex-direction: row;
+    }
+
+    .heroSection h1 {
+        font-size: 3.5rem;
+        font-style: normal;
+        font-weight: 400;
+        line-height: 4rem;
+    }
+
+    .heroSection img {
+        width: 20rem;
+        height: 23.5rem;
+    }
+
+    ._section_wtqk4_43 {
+        display: -webkit-box;
+        display: -ms-flexbox;
+        display: flex;
+        padding: 5rem 1rem 6rem;
+        -webkit-box-orient: vertical;
+        -webkit-box-direction: normal;
+        -ms-flex-direction: column;
+        flex-direction: column;
+        -webkit-box-align: center;
+        -ms-flex-align: center;
+        align-items: center;
+        gap: 2rem;
+        -ms-flex-item-align: stretch;
+        align-self: stretch;
+    }
+
+    ._container_j88mm_1 {
+        display: -webkit-box;
+        display: -ms-flexbox;
+        display: flex;
+        padding: 1.5rem;
+        -webkit-box-orient: vertical;
+        -webkit-box-direction: normal;
+        -ms-flex-direction: column;
+        flex-direction: column;
+        -webkit-box-pack: center;
+        -ms-flex-pack: center;
+        justify-content: center;
+        -webkit-box-align: start;
+        -ms-flex-align: start;
+        align-items: flex-start;
+        gap: 1.5rem;
+        -ms-flex-item-align: stretch;
+        align-self: stretch;
+    }
+
+    ._container_j88mm_1 ._illustration_j88mm_18 {
+        height: 24.1295rem;
+        -ms-flex-item-align: stretch;
+        align-self: stretch;
+        aspect-ratio: 688 / 386.07;
+    }
+
+    ._container_j88mm_1 ._body_j88mm_11 {
+        display: -webkit-box;
+        display: -ms-flexbox;
+        display: flex;
+        padding: 1.5rem 2.5rem;
+        -webkit-box-orient: vertical;
+        -webkit-box-direction: normal;
+        -ms-flex-direction: column;
+        flex-direction: column;
+        -webkit-box-pack: center;
+        -ms-flex-pack: center;
+        justify-content: center;
+        -webkit-box-align: start;
+        -ms-flex-align: start;
+        align-items: flex-start;
+        gap: 1.5rem;
+        -ms-flex-item-align: stretch;
+        align-self: stretch;
+    }
+
+    ._container_j88mm_1._noIllustration_j88mm_68 ._body_j88mm_11 {
+        display: -webkit-box;
+        display: -ms-flexbox;
+        display: flex;
+        padding: 2.5rem;
+        -webkit-box-orient: vertical;
+        -webkit-box-direction: normal;
+        -ms-flex-direction: column;
+        flex-direction: column;
+        -webkit-box-align: start;
+        -ms-flex-align: start;
+        align-items: flex-start;
+        gap: 1.5rem;
+        -ms-flex-item-align: stretch;
+        align-self: stretch;
+    }
+
+    ._container_j88mm_1 ._title_j88mm_29 {
+        font-size: 1.75rem;
+        font-style: normal;
+        font-weight: 700;
+        line-height: 2.25rem;
+    }
+
+    ._container_j88mm_1._noIllustration_j88mm_68 ._title_j88mm_29 {
+        font-size: 1.75rem;
+        font-style: normal;
+        font-weight: 700;
+        line-height: 2.25rem;
+    }
+
+    ._container_j88mm_1 ._desc_j88mm_41 {
+        font-size: 1.125rem;
+        font-style: normal;
+        font-weight: 400;
+        line-height: 1.75rem;
+    }
+
+    ._container_j88mm_1._noIllustration_j88mm_68 ._desc_j88mm_41 {
+        font-size: 1.125rem;
+        font-style: normal;
+        font-weight: 400;
+        line-height: 1.75rem;
+    }
+}
+
+@media screen and (min-width: 992px) {
+    .heroSection {
+        padding: 5.5rem 0 5rem 1.5rem;
+        -webkit-box-align: center;
+        -ms-flex-align: center;
+        align-items: center;
+        gap: 2.5rem;
+        -ms-flex-item-align: stretch;
+        align-self: stretch;
+    }
+
+    .heroSection h1 {
+        font-size: 4rem;
+        font-style: normal;
+        font-weight: 400;
+        line-height: 4.5rem;
+    }
+
+    .heroSection p {
+        font-size: 1.125rem;
+        font-style: normal;
+        font-weight: 400;
+        line-height: 1.75rem;
+    }
+
+    .heroSection img {
+        width: 25rem;
+        height: 23.5rem;
+    }
+
+    ._section_wtqk4_43 {
+        display: -webkit-box;
+        display: -ms-flexbox;
+        display: flex;
+        padding: 5rem 1.5rem 6rem;
+        -webkit-box-orient: vertical;
+        -webkit-box-direction: normal;
+        -ms-flex-direction: column;
+        flex-direction: column;
+        -webkit-box-align: center;
+        -ms-flex-align: center;
+        align-items: center;
+        gap: 4rem;
+        -ms-flex-item-align: stretch;
+        align-self: stretch;
+    }
+
+    ._featureCardsWrapper_wtqk4_82 {
+        gap: 4rem;
+    }
+
+    ._container_j88mm_1 {
+        display: -webkit-box;
+        display: -ms-flexbox;
+        display: flex;
+        padding: 1.5rem;
+        -webkit-box-align: center;
+        -ms-flex-align: center;
+        align-items: center;
+        -webkit-box-pack: center;
+        -ms-flex-pack: center;
+        justify-content: center;
+        -webkit-box-orient: horizontal;
+        -webkit-box-direction: normal;
+        -ms-flex-direction: row;
+        flex-direction: row;
+        gap: 2.5rem;
+        -ms-flex-item-align: stretch;
+        align-self: stretch;
+    }
+
+    ._container_j88mm_1 ._illustration_j88mm_18 {
+        height: 15rem;
+        -webkit-box-flex: 1;
+        -ms-flex: 1 0 0px;
+        flex: 1 0 0;
+        aspect-ratio: 428 / 240.17;
+        -ms-flex-item-align: auto;
+        align-self: auto;
+    }
+
+    ._container_j88mm_1._illustrationRight_j88mm_271 {
+        -webkit-box-orient: horizontal;
+        -webkit-box-direction: reverse;
+        -ms-flex-direction: row-reverse;
+        flex-direction: row-reverse;
+    }
+
+    ._featureCardsRow_wtqk4_91 {
+        -webkit-box-orient: horizontal;
+        -webkit-box-direction: normal;
+        -ms-flex-direction: row;
+        flex-direction: row;
+    }
+
+    ._container_j88mm_1 ._body_j88mm_11 {
+        display: -webkit-box;
+        display: -ms-flexbox;
+        display: flex;
+        padding: 1.5rem 2.5rem;
+        -webkit-box-orient: vertical;
+        -webkit-box-direction: normal;
+        -ms-flex-direction: column;
+        flex-direction: column;
+        -webkit-box-pack: center;
+        -ms-flex-pack: center;
+        justify-content: center;
+        -webkit-box-align: start;
+        -ms-flex-align: start;
+        align-items: flex-start;
+        gap: 1.5rem;
+        -webkit-box-flex: 1;
+        -ms-flex: 1 0 0px;
+        flex: 1 0 0;
+        -ms-flex-item-align: auto;
+        align-self: auto;
+    }
+
+    ._container_j88mm_1._noIllustration_j88mm_68 ._body_j88mm_11 {
+        display: -webkit-box;
+        display: -ms-flexbox;
+        display: flex;
+        padding: 2.5rem;
+        -webkit-box-orient: vertical;
+        -webkit-box-direction: normal;
+        -ms-flex-direction: column;
+        flex-direction: column;
+        -webkit-box-align: start;
+        -ms-flex-align: start;
+        align-items: flex-start;
+        gap: 1.5rem;
+        -webkit-box-flex: 1;
+        -ms-flex: 1 0 0px;
+        flex: 1 0 0;
+    }
+
+    ._container_j88mm_1 ._title_j88mm_29 {
+        font-size: 2rem;
+        font-style: normal;
+        font-weight: 700;
+        line-height: 2.5rem;
+    }
+
+    ._container_j88mm_1._noIllustration_j88mm_68 ._title_j88mm_29 {
+        font-size: 1.75rem;
+        font-style: normal;
+        font-weight: 700;
+        line-height: 2.25rem;
+    }
+
+    ._container_j88mm_1 ._desc_j88mm_41 {
+        font-size: 1.125rem;
+        font-style: normal;
+        font-weight: 400;
+        line-height: 1.75rem;
+    }
+
+    ._container_j88mm_1._noIllustration_j88mm_68 ._desc_j88mm_41 {
+        font-size: 1.125rem;
+        font-style: normal;
+        font-weight: 400;
+        line-height: 1.75rem;
+    }
+
+    ._featureCardsWrapper_wtqk4_82 {
+        gap: 4rem;
+    }
+
+    ._accordionsGroup_wtqk4_99 {
+        padding: 4rem;
+    }
+
+    ._tilesWrapper_wtqk4_126 {
+        gap: 2.5rem;
+    }
+}
+
+@media screen and (min-width: 1248px) {
+    .heroSection {
+        padding: 5.5rem 0 5rem 5rem;
+        -webkit-box-pack: end;
+        -ms-flex-pack: end;
+        justify-content: flex-end;
+        -webkit-box-align: center;
+        -ms-flex-align: center;
+        align-items: center;
+        gap: 2.5rem;
+        -ms-flex-item-align: stretch;
+        align-self: stretch;
+    }
+
+    .heroSection h1 {
+        font-size: 4rem;
+        font-style: normal;
+        font-weight: 400;
+        line-height: 4.5rem;
+    }
+    
+    .heroSection p {
+        color: var(--text-default-grey, #3a3a3a);
+        font-size: 1.125rem;
+        font-style: normal;
+        font-weight: 400;
+        line-height: 1.75rem;
+    }
+
+    .heroSection img {
+        width: 40rem;
+        height: 23.5rem;
+        margin-right: calc(50% - 50vw);
+    }
+
+    ._section_wtqk4_43 {
+        display: -webkit-box;
+        display: -ms-flexbox;
+        display: flex;
+        padding: 5rem 5rem 6rem;
+        -webkit-box-orient: vertical;
+        -webkit-box-direction: normal;
+        -ms-flex-direction: column;
+        flex-direction: column;
+        -webkit-box-align: center;
+        -ms-flex-align: center;
+        align-items: center;
+        gap: 4rem;
+        -ms-flex-item-align: stretch;
+        align-self: stretch;
+    }
+
+    ._featureCardsWrapper_wtqk4_82 {
+        max-width: 78rem;
+        margin-left: auto;
+        margin-right: auto;
+    }
+
+    ._container_j88mm_1 {
+        display: -webkit-box;
+        display: -ms-flexbox;
+        display: flex;
+        padding: 1.5rem;
+        -webkit-box-align: center;
+        -ms-flex-align: center;
+        align-items: center;
+        gap: 2.5rem;
+        -ms-flex-item-align: stretch;
+        align-self: stretch;
+    }
+
+    ._container_j88mm_1 ._illustration_j88mm_18 {
+        height: 17.5rem;
+        -webkit-box-flex: 1;
+        -ms-flex: 1 0 0px;
+        flex: 1 0 0;
+        aspect-ratio: 500 / 280.58;
+    }
+
+    ._container_j88mm_1 ._body_j88mm_11 {
+        display: -webkit-box;
+        display: -ms-flexbox;
+        display: flex;
+        height: 22rem;
+        padding: 1.5rem 2.5rem;
+        -webkit-box-orient: vertical;
+        -webkit-box-direction: normal;
+        -ms-flex-direction: column;
+        flex-direction: column;
+        -webkit-box-pack: center;
+        -ms-flex-pack: center;
+        justify-content: center;
+        -webkit-box-align: start;
+        -ms-flex-align: start;
+        align-items: flex-start;
+        gap: 1.5rem;
+        -webkit-box-flex: 1;
+        -ms-flex: 1 0 0px;
+        flex: 1 0 0;
+    }
+
+    ._container_j88mm_1._noIllustration_j88mm_68 ._body_j88mm_11 {
+        display: -webkit-box;
+        display: -ms-flexbox;
+        display: flex;
+        padding: 2.5rem;
+        -webkit-box-orient: vertical;
+        -webkit-box-direction: normal;
+        -ms-flex-direction: column;
+        flex-direction: column;
+        -webkit-box-align: start;
+        -ms-flex-align: start;
+        align-items: flex-start;
+        gap: 1.5rem;
+        -webkit-box-flex: 1;
+        -ms-flex: 1 0 0px;
+        flex: 1 0 0;
+    }
+
+    ._container_j88mm_1 ._title_j88mm_29 {
+        font-size: 2rem;
+        font-style: normal;
+        font-weight: 700;
+        line-height: 2.5rem;
+    }
+
+    ._container_j88mm_1._noIllustration_j88mm_68 ._title_j88mm_29 {
+        font-size: 1.75rem;
+        font-style: normal;
+        font-weight: 700;
+        line-height: 2.25rem;
+    }
+
+    ._container_j88mm_1 ._desc_j88mm_41 {
+        font-size: 1.125rem;
+        font-style: normal;
+        font-weight: 400;
+        line-height: 1.75rem;
+    }
+
+    ._container_j88mm_1._noIllustration_j88mm_68 ._desc_j88mm_41 {
+        font-size: 1.125rem;
+        font-style: normal;
+        font-weight: 400;
+        line-height: 1.75rem;
+    }
+
+    ._featureCardsWrapper_wtqk4_82 {
+        max-width: 78rem;
+        margin-left: auto;
+        margin-right: auto;
+    }
+
+    ._tilesWrapper_wtqk4_126 {
+        -webkit-box-orient: horizontal;
+        -webkit-box-direction: normal;
+        -ms-flex-direction: row;
+        flex-direction: row;
+        --border-plain-grey: none;
+    }
+
+    ._tile_wtqk4_126 {
+        -webkit-box-flex: 1;
+        -ms-flex: 1;
+        flex: 1;
+    }
+}
+
+
+@media screen and (min-width: 1440px) {
+    .heroSection {
+        padding: 5.5rem 0 5rem 1.5rem;
+        -webkit-box-pack: end;
+        -ms-flex-pack: end;
+        justify-content: flex-start;
+        -webkit-box-align: center;
+        -ms-flex-align: center;
+        align-items: center;
+        gap: 5rem;
+        -ms-flex-item-align: stretch;
+        align-self: stretch;
+    }
+
+    .heroSection h1 {
+        color: var(--text-title-grey, #161616);
+        font-family: Marianne;
+        font-size: 4rem;
+        font-style: normal;
+        font-weight: 400;
+        line-height: 4.5rem;
+    }
+
+    .heroSection p {
+        color: var(--text-default-grey, #3a3a3a);
+        font-family: Marianne;
+        font-size: 1.125rem;
+        font-style: normal;
+        font-weight: 400;
+        line-height: 1.75rem;
+    }
+
+    .heroSection img {
+        width: 45rem;
+        height: 23.5rem;
+    }
+
+    ._section_wtqk4_43 {
+        display: -webkit-box;
+        display: -ms-flexbox;
+        display: flex;
+        padding: 5rem 7.5rem 6rem;
+        -webkit-box-orient: vertical;
+        -webkit-box-direction: normal;
+        -ms-flex-direction: column;
+        flex-direction: column;
+        -webkit-box-align: center;
+        -ms-flex-align: center;
+        align-items: center;
+        gap: 4rem;
+        -ms-flex-item-align: stretch;
+        align-self: stretch;
+    }
+
+    ._container_j88mm_1 {
+        display: -webkit-box;
+        display: -ms-flexbox;
+        display: flex;
+        padding: 1.5rem;
+        -webkit-box-align: center;
+        -ms-flex-align: center;
+        align-items: center;
+        gap: 2.5rem;
+        -ms-flex-item-align: stretch;
+        align-self: stretch;
+    }
+
+    ._container_j88mm_1 ._illustration_j88mm_18 {
+        height: 19.5rem;
+        -webkit-box-flex: 1;
+        -ms-flex: 1 0 0px;
+        flex: 1 0 0;
+        aspect-ratio: 139 / 78;
+    }
+
+    ._container_j88mm_1 ._body_j88mm_11 {
+        display: -webkit-box;
+        display: -ms-flexbox;
+        display: flex;
+        height: 19.5rem;
+        padding: 1.5rem 2.5rem;
+        -webkit-box-orient: vertical;
+        -webkit-box-direction: normal;
+        -ms-flex-direction: column;
+        flex-direction: column;
+        -webkit-box-pack: center;
+        -ms-flex-pack: center;
+        justify-content: center;
+        -webkit-box-align: start;
+        -ms-flex-align: start;
+        align-items: flex-start;
+        gap: 1.5rem;
+        -webkit-box-flex: 1;
+        -ms-flex: 1 0 0px;
+        flex: 1 0 0;
+    }
+
+    ._container_j88mm_1._noIllustration_j88mm_68 ._body_j88mm_11 {
+        display: -webkit-box;
+        display: -ms-flexbox;
+        display: flex;
+        padding: 2.5rem;
+        -webkit-box-orient: vertical;
+        -webkit-box-direction: normal;
+        -ms-flex-direction: column;
+        flex-direction: column;
+        -webkit-box-align: start;
+        -ms-flex-align: start;
+        align-items: flex-start;
+        gap: 1.5rem;
+        -webkit-box-flex: 1;
+        -ms-flex: 1 0 0px;
+        flex: 1 0 0;
+        -ms-flex-item-align: stretch;
+        align-self: stretch;
+    }
+
+    ._container_j88mm_1 ._title_j88mm_29 {
+        font-size: 2rem;
+        font-style: normal;
+        font-weight: 700;
+        line-height: 2.5rem;
+    }
+
+    ._container_j88mm_1._noIllustration_j88mm_68 ._title_j88mm_29 {
+        font-size: 1.75rem;
+        font-style: normal;
+        font-weight: 700;
+        line-height: 2.25rem;
+    }
+
+    ._container_j88mm_1 ._desc_j88mm_41 {
+        font-size: 1.125rem;
+        font-style: normal;
+        font-weight: 400;
+        line-height: 1.75rem;
+    }
+
+    ._container_j88mm_1._noIllustration_j88mm_68 ._desc_j88mm_41 {
+        font-size: 1.125rem;
+        font-style: normal;
+        font-weight: 400;
+        line-height: 1.75rem;
+    }
+}
+.bgContrastInfoGrey {
+    background-color: var(--background-contrast-info, #e8edff);
+}
+
+._container_v3pbz_48 {
+    display: -webkit-box;
+    display: -ms-flexbox;
+    display: flex;
+    -webkit-box-orient: vertical;
+    -webkit-box-direction: normal;
+    -ms-flex-direction: column;
+    flex-direction: column;
+    gap: 1.5rem !important;
+    padding-top: 2.5rem;
+    padding-bottom: 3.5rem;
+}
+
+._iconLg_v3pbz_73, ._iconLg_v3pbz_73:before {
+    width: 2.5rem;
+    height: 2.5rem;
+}
+
+._icon_v3pbz_65, ._icon_v3pbz_65:before {
+    width: 2rem;
+    height: 2rem;
+    aspect-ratio: 1 / 1;
+    color: var(--text-title-grey, #161616);
+}
+
+._heroImage_v3pbz_56 {
+    max-width: 100%;
+    height: auto;
+}
+
+._featureRowWrapper_v3pbz_128 {
+    --hr-gap: 1rem;
+}
+
+._featureRow_v3pbz_128 {
+    display: -webkit-box;
+    display: -ms-flexbox;
+    display: flex;
+    -webkit-box-orient: vertical;
+    -webkit-box-direction: normal;
+    -ms-flex-direction: column;
+    flex-direction: column;
+    gap: 1rem;
+    padding: 1rem;
+}
+
+._bgAltGrey_v3pbz_9 {
+    background-color: var(--background-alt-grey, #f6f6f6);
+}
+
+._illustrationImg_v3pbz_79 {
+    width: 100%;
+    height: auto;
+}
+
+.bgOpenBlueFrance {
+    background: var(--background-open-blue-france, #e3e3fd);
+}
+
+._container_v3pbz_48 .fr-tile--no-border {
+    --border-plain-grey: none;
+}
+
+.bgDefaultGrey {
+    background-color: var(--background-default-grey, #fff);
+}
+
+.usageCard {
+    display: -webkit-box;
+    display: -ms-flexbox;
+    display: flex;
+    -webkit-box-orient: vertical;
+    -webkit-box-direction: reverse;
+    -ms-flex-direction: column-reverse;
+    flex-direction: column-reverse;
+    -webkit-box-align: stretch;
+    -ms-flex-align: stretch;
+    align-items: stretch;
+    width: 100%;
+}
+
+.usageCardImg {
+    display: -webkit-box;
+    display: -ms-flexbox;
+    display: flex;
+    margin: 1rem !important;
+    overflow: hidden;
+}
+
+.usageCardCol {
+    display: -webkit-box;
+    display: -ms-flexbox;
+    display: flex;
+    -webkit-box-orient: vertical;
+    -webkit-box-direction: normal;
+    -ms-flex-direction: column;
+    flex-direction: column;
+    gap: .75rem;
+    -webkit-box-pack: start;
+    -ms-flex-pack: start;
+    justify-content: flex-start;
+    margin: 1rem !important;
+}
+
+.usageCardCol * {
+    margin: 0;
+}
+
+.textMentionGrey, .textMentionGrey * {
+    color: var(--text-mention-grey, #6f6f6f);
+}
+
+.usageCardImg img {
+    display: block;
+    -webkit-box-flex: 1;
+    -ms-flex: 1 1 auto;
+    flex: 1 1 auto;
+    width: 100%;
+    height: 100%;
+    -o-object-fit: cover;
+    object-fit: cover;
+}
+
+.bgActionHighBlueFrance {
+    background: var(--background-action-high-blue-france, #000091);
+}
+
+.textInvertedBlueFrance, .textInvertedBlueFrance * {
+    color: var(--text-inverted-blue-france, #fff);
+}
+
+._equalHeightCol_v3pbz_88 {
+    flex: unset;
+    display: -webkit-box;
+    display: -ms-flexbox;
+    display: flex;
+    -webkit-box-orient: vertical;
+    -webkit-box-direction: normal;
+    -ms-flex-direction: row;
+    flex-direction: row;
+}
+
+._equalHeightCol_v3pbz_88 a {
+    border: solid 1px var(--border-default-grey, #E3E3FD);
+}
+
+.borderDefaultGrey {
+    border: 2px solid var(--border-default-grey, #E3E3FD);
+}
+
+.fr-icon-accroche-option:before {
+    content: url(data:image/svg+xml,%3csvg%20xmlns=\'http://www.w3.org/2000/svg\'%20width=\'35\'%20height=\'34\'%20viewBox=\'0%200%2035%2034\'%20fill=\'none\'%3e%3cpath%20d=\'M13.3333%2013.3333H30V17.9667H33.3333V11.6667C33.3333%2010.75%2032.5833%2010%2031.6667%2010H23.3333V1.66667C23.3333%200.75%2022.5833%200%2021.6667%200H1.66667C0.75%200%200%200.75%200%201.66667V21.6667C0%2022.5833%200.75%2023.3333%201.66667%2023.3333H10V31.6667C10%2032.5833%2010.75%2033.3333%2011.6667%2033.3333H20V30H13.3333V13.3333ZM10%2011.6667V20H3.33333V3.33333H20V10H11.6667C10.75%2010%2010%2010.75%2010%2011.6667Z\'%20fill=\'%23161616\'%20/%3e%3cpath%20d=\'M29.5292%2031.8875L29.1125%2032.8375C28.8125%2033.5208%2027.8625%2033.5208%2027.5625%2032.8375L27.1458%2031.8875C26.4125%2030.2042%2025.0958%2028.8708%2023.4458%2028.1375L22.1792%2027.5708C21.4958%2027.2708%2021.4958%2026.2708%2022.1792%2025.9708L23.3792%2025.4375C25.0625%2024.6875%2026.4125%2023.3042%2027.1292%2021.5542L27.5458%2020.5375C27.8458%2019.8208%2028.8125%2019.8208%2029.1125%2020.5375L29.5292%2021.5542C30.2458%2023.2875%2031.5958%2024.6875%2033.2792%2025.4375L34.4792%2025.9708C35.1625%2026.2708%2035.1625%2027.2708%2034.4792%2027.5708L33.2125%2028.1375C31.5625%2028.8708%2030.2458%2030.2042%2029.5125%2031.8875H29.5292Z\'%20fill=\'%23161616\'%20/%3e%3c/svg%3e);
+    background-color: unset !important;
+}
+
+.go-further .fr-container svg {
+    margin-right: 24px;
+    min-width: 120px;
+}
+
+.go-further .fr-artwork-minor {
+    fill: var(--artwork-decorative-blue-france, #ECECFE);
+}
+
+.go-further .fr-artwork-major {
+    fill: var(--artwork-minor-blue-france, #6A6AF4);
+}
+
+@media screen and (max-width: 500px){
+    ._equalHeightCol_v3pbz_88 {
+        flex-direction: column;
+    }
+}
+
+@media screen and (min-width: 768px) {
+    ._container_v3pbz_48 {
+        gap: 2.5rem !important;
+        padding-top: 5rem;
+        padding-bottom: 6rem;
+    }
+    
+    .usageCard {
+        -webkit-box-orient: horizontal !important;
+        -webkit-box-direction: normal !important;
+        -ms-flex-direction: row!important;
+        flex-direction: row !important;
+    }
+
+    .usageCardCol, .usageCardImg {
+        margin: 1.5rem !important;
+    }
+
+    .usageCard:nth-child(odd) {
+        -webkit-box-orient: horizontal !important;
+        -webkit-box-direction: reverse !important;
+        -ms-flex-direction: row-reverse!important;
+        flex-direction: row-reverse !important;
+    }
+}
+
+@media screen and (min-width: 992px) {
+    ._featureRowWrapper_v3pbz_128 {
+        --hr-gap: 2.5rem;
+    }
+
+    ._featureRow_v3pbz_128 {
+        -webkit-box-orient: horizontal;
+        -webkit-box-direction: normal;
+        -ms-flex-direction: row;
+        flex-direction: row;
+        gap: 1.5rem;
+    }
+
+    ._featureRow_v3pbz_128 h3 {
+        -webkit-box-flex: 0;
+        -ms-flex: 0 0 20rem;
+        flex: 0 0 20rem;
+    }
+
+    .usageCardCol, .usageCardImg {
+        margin: 2.5rem !important;
+    }
+
+}
+
+@media screen and (min-width: 1248px) {
+    ._featureRow_v3pbz_128 {
+        gap: 2.5rem;
+    }
+
+    ._featureRow_v3pbz_128 h3 {
+        -webkit-box-flex: 0;
+        -ms-flex: 0 0 25rem;
+        flex: 0 0 25rem;
+    }
+}
+@media (max-width: 992px) {
+  .usage_layout {
+    padding-left: 0 !important;
+    padding-right: 0 !important;
+  }
+  .usage_content {
+    padding-left: 0 !important;
+  }
+}
+
+@media (min-width: 992px) {
+  .usage_summary {
+    position: sticky;
+    top: 0;
+    align-self: flex-start;
+  }
+  .usage_content .content-bleed {
+    margin-left: -4rem;
+    width: calc(100% + 4rem);
+  }
+}
+
+.usage_content .content-bleed img {
+    width: 100%;
+}
+
+.usage_content a.header-anchor {
+    display: none;
+}
+/*
+ * New diff- syntax
+ */
+
+pre[class*="language-diff-"] {
+	--eleventy-code-padding: 1.25em;
+	padding-left: var(--eleventy-code-padding);
+	padding-right: var(--eleventy-code-padding);
+}
+.token.deleted {
+	background-color: hsl(0, 51%, 37%);
+	color: inherit;
+}
+.token.inserted {
+	background-color: hsl(126, 31%, 39%);
+	color: inherit;
+}
+
+/* Make the + and - characters unselectable for copy/paste */
+.token.prefix.unchanged,
+.token.prefix.inserted,
+.token.prefix.deleted {
+	-webkit-user-select: none;
+	user-select: none;
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	padding-top: 2px;
+	padding-bottom: 2px;
+}
+.token.prefix.inserted,
+.token.prefix.deleted {
+	width: var(--eleventy-code-padding);
+	background-color: rgba(0,0,0,.2);
+}
+
+/* Optional: full-width background color */
+.token.inserted:not(.prefix),
+.token.deleted:not(.prefix) {
+	display: block;
+	margin-left: calc(-1 * var(--eleventy-code-padding));
+	margin-right: calc(-1 * var(--eleventy-code-padding));
+	text-decoration: none; /* override del, ins, mark defaults */
+	color: inherit; /* override del, ins, mark defaults */
+}
+/**
+ * okaidia theme for JavaScript, CSS and HTML
+ * Loosely based on Monokai textmate theme by http://www.monokai.nl/
+ * @author ocodia
+ */
+
+code[class*="language-"],
+pre[class*="language-"] {
+	color: #f8f8f2;
+	background: none;
+	text-shadow: 0 1px rgba(0, 0, 0, 0.3);
+	font-family: Consolas, Monaco, 'Andale Mono', 'Ubuntu Mono', monospace;
+	font-size: 1em;
+	text-align: left;
+	white-space: pre;
+	word-spacing: normal;
+	word-break: normal;
+	word-wrap: normal;
+	line-height: 1.5;
+
+	-moz-tab-size: 4;
+	-o-tab-size: 4;
+	tab-size: 4;
+
+	-webkit-hyphens: none;
+	-moz-hyphens: none;
+	-ms-hyphens: none;
+	hyphens: none;
+}
+
+/* Code blocks */
+pre[class*="language-"] {
+	padding: 1em;
+	margin: .5em 0;
+	overflow: auto;
+	border-radius: 0.3em;
+}
+
+:not(pre) > code[class*="language-"],
+pre[class*="language-"] {
+	background: #272822;
+}
+
+/* Inline code */
+:not(pre) > code[class*="language-"] {
+	padding: .1em;
+	border-radius: .3em;
+	white-space: normal;
+}
+
+.token.comment,
+.token.prolog,
+.token.doctype,
+.token.cdata {
+	color: #8292a2;
+}
+
+.token.punctuation {
+	color: #f8f8f2;
+}
+
+.token.namespace {
+	opacity: .7;
+}
+
+.token.property,
+.token.tag,
+.token.constant,
+.token.symbol,
+.token.deleted {
+	color: #f92672;
+}
+
+.token.boolean,
+.token.number {
+	color: #ae81ff;
+}
+
+.token.selector,
+.token.attr-name,
+.token.string,
+.token.char,
+.token.builtin,
+.token.inserted {
+	color: #a6e22e;
+}
+
+.token.operator,
+.token.entity,
+.token.url,
+.language-css .token.string,
+.style .token.string,
+.token.variable {
+	color: #f8f8f2;
+}
+
+.token.atrule,
+.token.attr-value,
+.token.function,
+.token.class-name {
+	color: #e6db74;
+}
+
+.token.keyword {
+	color: #66d9ef;
+}
+
+.token.regex,
+.token.important {
+	color: #fd971f;
+}
+
+.token.important,
+.token.bold {
+	font-weight: bold;
+}
+.token.italic {
+	font-style: italic;
+}
+
+.token.entity {
+	cursor: help;
+}
+.fr-icon-contacts-book-upload-line::before,
+.fr-icon-contacts-book-upload-line::after {
+  -webkit-mask-image: url("/icons/dsfr-extension/contacts-book-upload-line.svg");
+  mask-image: url("/icons/dsfr-extension/contacts-book-upload-line.svg");
+}
+.fr-icon-custom-size::before,
+.fr-icon-custom-size::after {
+  -webkit-mask-image: url("/icons/dsfr-extension/custom-size.svg");
+  mask-image: url("/icons/dsfr-extension/custom-size.svg");
+}
+.fr-icon-drag-drop-fill::before,
+.fr-icon-drag-drop-fill::after {
+  -webkit-mask-image: url("/icons/dsfr-extension/drag-drop-fill.svg");
+  mask-image: url("/icons/dsfr-extension/drag-drop-fill.svg");
+}
+.fr-icon-drag-drop-line::before,
+.fr-icon-drag-drop-line::after {
+  -webkit-mask-image: url("/icons/dsfr-extension/drag-drop-line.svg");
+  mask-image: url("/icons/dsfr-extension/drag-drop-line.svg");
+}
+.fr-icon-draggable::before,
+.fr-icon-draggable::after {
+  -webkit-mask-image: url("/icons/dsfr-extension/draggable.svg");
+  mask-image: url("/icons/dsfr-extension/draggable.svg");
+}
+.fr-icon-file-copy-fill::before,
+.fr-icon-file-copy-fill::after {
+  -webkit-mask-image: url("/icons/dsfr-extension/file-copy-fill.svg");
+  mask-image: url("/icons/dsfr-extension/file-copy-fill.svg");
+}
+.fr-icon-file-copy-line::before,
+.fr-icon-file-copy-line::after {
+  -webkit-mask-image: url("/icons/dsfr-extension/file-copy-line.svg");
+  mask-image: url("/icons/dsfr-extension/file-copy-line.svg");
+}
+.fr-icon-file-upload-fill::before,
+.fr-icon-file-upload-fill::after {
+  -webkit-mask-image: url("/icons/dsfr-extension/file-upload-fill.svg");
+  mask-image: url("/icons/dsfr-extension/file-upload-fill.svg");
+}
+.fr-icon-file-upload-line::before,
+.fr-icon-file-upload-line::after {
+  -webkit-mask-image: url("/icons/dsfr-extension/file-upload-line.svg");
+  mask-image: url("/icons/dsfr-extension/file-upload-line.svg");
+}
+.fr-icon-flower-fill::before,
+.fr-icon-flower-fill::after {
+  -webkit-mask-image: url("/icons/dsfr-extension/flower-fill.svg");
+  mask-image: url("/icons/dsfr-extension/flower-fill.svg");
+}
+.fr-icon-flower-line::before,
+.fr-icon-flower-line::after {
+  -webkit-mask-image: url("/icons/dsfr-extension/flower-line.svg");
+  mask-image: url("/icons/dsfr-extension/flower-line.svg");
+}
+.fr-icon-fullscreen-exit-fill::before,
+.fr-icon-fullscreen-exit-fill::after {
+  -webkit-mask-image: url("/icons/dsfr-extension/fullscreen-exit-fill.svg");
+  mask-image: url("/icons/dsfr-extension/fullscreen-exit-fill.svg");
+}
+.fr-icon-fullscreen-exit-line::before,
+.fr-icon-fullscreen-exit-line::after {
+  -webkit-mask-image: url("/icons/dsfr-extension/fullscreen-exit-line.svg");
+  mask-image: url("/icons/dsfr-extension/fullscreen-exit-line.svg");
+}
+.fr-icon-fullscreen-fill::before,
+.fr-icon-fullscreen-fill::after {
+  -webkit-mask-image: url("/icons/dsfr-extension/fullscreen-fill.svg");
+  mask-image: url("/icons/dsfr-extension/fullscreen-fill.svg");
+}
+.fr-icon-fullscreen-line::before,
+.fr-icon-fullscreen-line::after {
+  -webkit-mask-image: url("/icons/dsfr-extension/fullscreen-line.svg");
+  mask-image: url("/icons/dsfr-extension/fullscreen-line.svg");
+}
+.fr-icon-function-add-fill::before,
+.fr-icon-function-add-fill::after {
+  -webkit-mask-image: url("/icons/dsfr-extension/function-add-fill.svg");
+  mask-image: url("/icons/dsfr-extension/function-add-fill.svg");
+}
+.fr-icon-function-add-line::before,
+.fr-icon-function-add-line::after {
+  -webkit-mask-image: url("/icons/dsfr-extension/function-add-line.svg");
+  mask-image: url("/icons/dsfr-extension/function-add-line.svg");
+}
+.fr-icon-ign-2d-fill::before,
+.fr-icon-ign-2d-fill::after {
+  -webkit-mask-image: url("/icons/dsfr-extension/ign-2d-fill.svg");
+  mask-image: url("/icons/dsfr-extension/ign-2d-fill.svg");
+}
+.fr-icon-ign-2d-line::before,
+.fr-icon-ign-2d-line::after {
+  -webkit-mask-image: url("/icons/dsfr-extension/ign-2d-line.svg");
+  mask-image: url("/icons/dsfr-extension/ign-2d-line.svg");
+}
+.fr-icon-ign-3d-fill::before,
+.fr-icon-ign-3d-fill::after {
+  -webkit-mask-image: url("/icons/dsfr-extension/ign-3d-fill.svg");
+  mask-image: url("/icons/dsfr-extension/ign-3d-fill.svg");
+}
+.fr-icon-ign-3d-line::before,
+.fr-icon-ign-3d-line::after {
+  -webkit-mask-image: url("/icons/dsfr-extension/ign-3d-line.svg");
+  mask-image: url("/icons/dsfr-extension/ign-3d-line.svg");
+}
+.fr-icon-ign-accroche::before,
+.fr-icon-ign-accroche::after {
+  -webkit-mask-image: url("/icons/dsfr-extension/ign-accroche.svg");
+  mask-image: url("/icons/dsfr-extension/ign-accroche.svg");
+}
+.fr-icon-ign-cadastre-admin-fill::before,
+.fr-icon-ign-cadastre-admin-fill::after {
+  -webkit-mask-image: url("/icons/dsfr-extension/ign-cadastre-admin-fill.svg");
+  mask-image: url("/icons/dsfr-extension/ign-cadastre-admin-fill.svg");
+}
+.fr-icon-ign-cadastre-admin-line::before,
+.fr-icon-ign-cadastre-admin-line::after {
+  -webkit-mask-image: url("/icons/dsfr-extension/ign-cadastre-admin-line.svg");
+  mask-image: url("/icons/dsfr-extension/ign-cadastre-admin-line.svg");
+}
+.fr-icon-ign-cercle-MD-fill::before,
+.fr-icon-ign-cercle-MD-fill::after {
+  -webkit-mask-image: url("/icons/dsfr-extension/ign-cercle-MD-fill.svg");
+  mask-image: url("/icons/dsfr-extension/ign-cercle-MD-fill.svg");
+}
+.fr-icon-ign-cercle-MD-line::before,
+.fr-icon-ign-cercle-MD-line::after {
+  -webkit-mask-image: url("/icons/dsfr-extension/ign-cercle-MD-line.svg");
+  mask-image: url("/icons/dsfr-extension/ign-cercle-MD-line.svg");
+}
+.fr-icon-ign-cercle-SM-fill::before,
+.fr-icon-ign-cercle-SM-fill::after {
+  -webkit-mask-image: url("/icons/dsfr-extension/ign-cercle-SM-fill.svg");
+  mask-image: url("/icons/dsfr-extension/ign-cercle-SM-fill.svg");
+}
+.fr-icon-ign-cercle-SM-line::before,
+.fr-icon-ign-cercle-SM-line::after {
+  -webkit-mask-image: url("/icons/dsfr-extension/ign-cercle-SM-line.svg");
+  mask-image: url("/icons/dsfr-extension/ign-cercle-SM-line.svg");
+}
+.fr-icon-ign-coordonnee::before,
+.fr-icon-ign-coordonnee::after {
+  -webkit-mask-image: url("/icons/dsfr-extension/ign-coordonnee.svg");
+  mask-image: url("/icons/dsfr-extension/ign-coordonnee.svg");
+}
+.fr-icon-ign-dupliquer-fill::before,
+.fr-icon-ign-dupliquer-fill::after {
+  -webkit-mask-image: url("/icons/dsfr-extension/ign-dupliquer-fill.svg");
+  mask-image: url("/icons/dsfr-extension/ign-dupliquer-fill.svg");
+}
+.fr-icon-ign-dupliquer-line::before,
+.fr-icon-ign-dupliquer-line::after {
+  -webkit-mask-image: url("/icons/dsfr-extension/ign-dupliquer-line.svg");
+  mask-image: url("/icons/dsfr-extension/ign-dupliquer-line.svg");
+}
+.fr-icon-ign-getfeature-fill::before,
+.fr-icon-ign-getfeature-fill::after {
+  -webkit-mask-image: url("/icons/dsfr-extension/ign-getfeature-fill.svg");
+  mask-image: url("/icons/dsfr-extension/ign-getfeature-fill.svg");
+}
+.fr-icon-ign-getfeature-line::before,
+.fr-icon-ign-getfeature-line::after {
+  -webkit-mask-image: url("/icons/dsfr-extension/ign-getfeature-line.svg");
+  mask-image: url("/icons/dsfr-extension/ign-getfeature-line.svg");
+}
+.fr-icon-ign-ligne-fill::before,
+.fr-icon-ign-ligne-fill::after {
+  -webkit-mask-image: url("/icons/dsfr-extension/ign-ligne-fill.svg");
+  mask-image: url("/icons/dsfr-extension/ign-ligne-fill.svg");
+}
+.fr-icon-ign-ligne-line::before,
+.fr-icon-ign-ligne-line::after {
+  -webkit-mask-image: url("/icons/dsfr-extension/ign-ligne-line.svg");
+  mask-image: url("/icons/dsfr-extension/ign-ligne-line.svg");
+}
+.fr-icon-ign-parcelle-select-fill::before,
+.fr-icon-ign-parcelle-select-fill::after {
+  -webkit-mask-image: url("/icons/dsfr-extension/ign-parcelle-select-fill.svg");
+  mask-image: url("/icons/dsfr-extension/ign-parcelle-select-fill.svg");
+}
+.fr-icon-ign-parcelle-select-line::before,
+.fr-icon-ign-parcelle-select-line::after {
+  -webkit-mask-image: url("/icons/dsfr-extension/ign-parcelle-select-line.svg");
+  mask-image: url("/icons/dsfr-extension/ign-parcelle-select-line.svg");
+}
+.fr-icon-ign-recherche-attribut-fill::before,
+.fr-icon-ign-recherche-attribut-fill::after {
+  -webkit-mask-image: url("/icons/dsfr-extension/ign-recherche-attribut-fill.svg");
+  mask-image: url("/icons/dsfr-extension/ign-recherche-attribut-fill.svg");
+}
+.fr-icon-ign-recherche-attribut-line::before,
+.fr-icon-ign-recherche-attribut-line::after {
+  -webkit-mask-image: url("/icons/dsfr-extension/ign-recherche-attribut-line.svg");
+  mask-image: url("/icons/dsfr-extension/ign-recherche-attribut-line.svg");
+}
+.fr-icon-ign-route-2-fill::before,
+.fr-icon-ign-route-2-fill::after {
+  -webkit-mask-image: url("/icons/dsfr-extension/ign-route-2-fill.svg");
+  mask-image: url("/icons/dsfr-extension/ign-route-2-fill.svg");
+}
+.fr-icon-ign-route-2-line::before,
+.fr-icon-ign-route-2-line::after {
+  -webkit-mask-image: url("/icons/dsfr-extension/ign-route-2-line.svg");
+  mask-image: url("/icons/dsfr-extension/ign-route-2-line.svg");
+}
+.fr-icon-ign-separer-fill::before,
+.fr-icon-ign-separer-fill::after {
+  -webkit-mask-image: url("/icons/dsfr-extension/ign-separer-fill.svg");
+  mask-image: url("/icons/dsfr-extension/ign-separer-fill.svg");
+}
+.fr-icon-ign-separer-line::before,
+.fr-icon-ign-separer-line::after {
+  -webkit-mask-image: url("/icons/dsfr-extension/ign-separer-line.svg");
+  mask-image: url("/icons/dsfr-extension/ign-separer-line.svg");
+}
+.fr-icon-ign-shape-3-fill::before,
+.fr-icon-ign-shape-3-fill::after {
+  -webkit-mask-image: url("/icons/dsfr-extension/ign-shape-3-fill.svg");
+  mask-image: url("/icons/dsfr-extension/ign-shape-3-fill.svg");
+}
+.fr-icon-ign-shape-3-line::before,
+.fr-icon-ign-shape-3-line::after {
+  -webkit-mask-image: url("/icons/dsfr-extension/ign-shape-3-line.svg");
+  mask-image: url("/icons/dsfr-extension/ign-shape-3-line.svg");
+}
+.fr-icon-list-indefinite::before,
+.fr-icon-list-indefinite::after {
+  -webkit-mask-image: url("/icons/dsfr-extension/list-indefinite.svg");
+  mask-image: url("/icons/dsfr-extension/list-indefinite.svg");
+}
+.fr-icon-mail-add-line::before,
+.fr-icon-mail-add-line::after {
+  -webkit-mask-image: url("/icons/dsfr-extension/mail-add-line.svg");
+  mask-image: url("/icons/dsfr-extension/mail-add-line.svg");
+}
+.fr-icon-map-2-fill::before,
+.fr-icon-map-2-fill::after {
+  -webkit-mask-image: url("/icons/dsfr-extension/map-2-fill.svg");
+  mask-image: url("/icons/dsfr-extension/map-2-fill.svg");
+}
+.fr-icon-map-2-line::before,
+.fr-icon-map-2-line::after {
+  -webkit-mask-image: url("/icons/dsfr-extension/map-2-line.svg");
+  mask-image: url("/icons/dsfr-extension/map-2-line.svg");
+}
+.fr-icon-map-pin-5-fill::before,
+.fr-icon-map-pin-5-fill::after {
+  -webkit-mask-image: url("/icons/dsfr-extension/map-pin-5-fill.svg");
+  mask-image: url("/icons/dsfr-extension/map-pin-5-fill.svg");
+}
+.fr-icon-map-pin-5-line::before,
+.fr-icon-map-pin-5-line::after {
+  -webkit-mask-image: url("/icons/dsfr-extension/map-pin-5-line.svg");
+  mask-image: url("/icons/dsfr-extension/map-pin-5-line.svg");
+}
+.fr-icon-map-pin-add-fill::before,
+.fr-icon-map-pin-add-fill::after {
+  -webkit-mask-image: url("/icons/dsfr-extension/map-pin-add-fill.svg");
+  mask-image: url("/icons/dsfr-extension/map-pin-add-fill.svg");
+}
+.fr-icon-map-pin-add-line::before,
+.fr-icon-map-pin-add-line::after {
+  -webkit-mask-image: url("/icons/dsfr-extension/map-pin-add-line.svg");
+  mask-image: url("/icons/dsfr-extension/map-pin-add-line.svg");
+}
+.fr-icon-map-pin-time-fill::before,
+.fr-icon-map-pin-time-fill::after {
+  -webkit-mask-image: url("/icons/dsfr-extension/map-pin-time-fill.svg");
+  mask-image: url("/icons/dsfr-extension/map-pin-time-fill.svg");
+}
+.fr-icon-map-pin-time-line::before,
+.fr-icon-map-pin-time-line::after {
+  -webkit-mask-image: url("/icons/dsfr-extension/map-pin-time-line.svg");
+  mask-image: url("/icons/dsfr-extension/map-pin-time-line.svg");
+}
+.fr-icon-menu-add-fill::before,
+.fr-icon-menu-add-fill::after {
+  -webkit-mask-image: url("/icons/dsfr-extension/menu-add-fill.svg");
+  mask-image: url("/icons/dsfr-extension/menu-add-fill.svg");
+}
+.fr-icon-menu-add-line::before,
+.fr-icon-menu-add-line::after {
+  -webkit-mask-image: url("/icons/dsfr-extension/menu-add-line.svg");
+  mask-image: url("/icons/dsfr-extension/menu-add-line.svg");
+}
+.fr-icon-menu-search-fill::before,
+.fr-icon-menu-search-fill::after {
+  -webkit-mask-image: url("/icons/dsfr-extension/menu-search-fill.svg");
+  mask-image: url("/icons/dsfr-extension/menu-search-fill.svg");
+}
+.fr-icon-menu-search-line::before,
+.fr-icon-menu-search-line::after {
+  -webkit-mask-image: url("/icons/dsfr-extension/menu-search-line.svg");
+  mask-image: url("/icons/dsfr-extension/menu-search-line.svg");
+}
+.fr-icon-navigation-fill::before,
+.fr-icon-navigation-fill::after {
+  -webkit-mask-image: url("/icons/dsfr-extension/navigation-fill.svg");
+  mask-image: url("/icons/dsfr-extension/navigation-fill.svg");
+}
+.fr-icon-navigation-line::before,
+.fr-icon-navigation-line::after {
+  -webkit-mask-image: url("/icons/dsfr-extension/navigation-line.svg");
+  mask-image: url("/icons/dsfr-extension/navigation-line.svg");
+}
+.fr-icon-route-fill::before,
+.fr-icon-route-fill::after {
+  -webkit-mask-image: url("/icons/dsfr-extension/route-fill.svg");
+  mask-image: url("/icons/dsfr-extension/route-fill.svg");
+}
+.fr-icon-route-line::before,
+.fr-icon-route-line::after {
+  -webkit-mask-image: url("/icons/dsfr-extension/route-line.svg");
+  mask-image: url("/icons/dsfr-extension/route-line.svg");
+}
+.fr-icon-share-2-fill::before,
+.fr-icon-share-2-fill::after {
+  -webkit-mask-image: url("/icons/dsfr-extension/share-2-fill.svg");
+  mask-image: url("/icons/dsfr-extension/share-2-fill.svg");
+}
+.fr-icon-share-2-line::before,
+.fr-icon-share-2-line::after {
+  -webkit-mask-image: url("/icons/dsfr-extension/share-2-line.svg");
+  mask-image: url("/icons/dsfr-extension/share-2-line.svg");
+}
+.fr-icon-shining-2-fill::before,
+.fr-icon-shining-2-fill::after {
+  -webkit-mask-image: url("/icons/dsfr-extension/shining-2-fill.svg");
+  mask-image: url("/icons/dsfr-extension/shining-2-fill.svg");
+}
+.fr-icon-shining-2-line::before,
+.fr-icon-shining-2-line::after {
+  -webkit-mask-image: url("/icons/dsfr-extension/shining-2-line.svg");
+  mask-image: url("/icons/dsfr-extension/shining-2-line.svg");
+}
+.fr-icon-signpost-fill::before,
+.fr-icon-signpost-fill::after {
+  -webkit-mask-image: url("/icons/dsfr-extension/signpost-fill.svg");
+  mask-image: url("/icons/dsfr-extension/signpost-fill.svg");
+}
+.fr-icon-signpost-line::before,
+.fr-icon-signpost-line::after {
+  -webkit-mask-image: url("/icons/dsfr-extension/signpost-line.svg");
+  mask-image: url("/icons/dsfr-extension/signpost-line.svg");
+}
+.fr-icon-text::before,
+.fr-icon-text::after {
+  -webkit-mask-image: url("/icons/dsfr-extension/text.svg");
+  mask-image: url("/icons/dsfr-extension/text.svg");
+}</style>
+
+  <meta name="generator" content="Eleventy v3.1.2">
+
+  
+<script>
+    window.dsfr = {
+        mode: 'auto',
+        production: true,
+        analytics: {
+            domain: 'acwg.cartes.gouv.fr',
+            collection: 'auto',
+            isActionEnabled: true,
+            page: {
+                template: 'article'
+            },
+            site: {
+                entity: 'IGN',
+                environment: 'production'
+            }
+        }
+    };
+</script>
+
+  <script type="module" src="/js/header-auth.js"></script>
+  <script src="/js/header-logo.js" defer=""></script>
+  <script src="/js/env.js"></script>
+
+  <title>Conditions générales d’utilisation | cartes.gouv.fr</title>
+</head>
+<body id="top">
+<script>
+      // Fix FOUC in dark mode
+      setDarkBeforeRender = () => {
+          const localScheme = localStorage.getItem('scheme')
+          if (localScheme === 'dark' || (localScheme === 'system' && window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+              document.documentElement.setAttribute('data-fr-theme', 'dark');
+          }
+      }
+      setDarkBeforeRender();
+  </script>
+<header role="banner" class="fr-header">
+    <div class="fr-header__body">
+        <div class="fr-container">
+            <div class="fr-header__body-row">
+                <div class="fr-header__brand fr-enlarge-link">
+                    <div class="fr-header__brand-top">
+                        <div class="fr-header__logo">
+                            <p class="fr-logo">
+                                République
+                                <br>
+                                française
+                            </p>
+                        </div>
+                        <div class="fr-header__operator">
+                            <img class="fr-responsive-img" style="max-width: 3.5rem;" srcset="/img/header/cartes-gouv-logo.svg" alt="" data-fr-js-ratio="true">
+                        </div>
+                        <div class="fr-header__navbar">
+                            <button class="fr-btn--menu fr-btn" data-fr-opened="false" aria-controls="modal-491" aria-haspopup="menu" id="button-492" title="Menu">Menu</button>
+                        </div>
+                    </div>
+                    <div class="fr-header__service">
+                        <a href="/decouvrir" title="Accueil - Notre territoire commun - cartes.gouv.fr">
+                            <p class="fr-header__service-title">
+                                cartes.gouv.fr
+                            </p>
+                        </a>
+                        <p class="fr-header__service-tagline">Notre territoire commun</p>
+                    </div>
+                </div>
+                <div class="fr-header__tools">
+                    <div class="fr-header__tools-links">
+                        <ul class="fr-btns-group">
+                            <li>
+                                <div class="fr-translate fr-nav">
+                                    <div class="fr-nav__item">
+                                        <button aria-controls="aide-collapse" aria-expanded="false" title="Aide" class="fr-translate__btn fr-btn fr-px-2w">
+                                            <span class="fr-icon-question-fill fr-icon--sm fr-mr-1w" aria-hidden="true"></span>Aide</button>
+                                        <div class="fr-collapse fr-translate__menu fr-menu" id="aide-collapse">
+                                            <ul class="fr-menu__list">
+                                                <li>
+                                                    <a class="fr-nav__link fr-mr-3w" href="/aide/fr/" target="_blank">
+                                                        <span class="fr-icon-question-mark fr-icon--sm">&emsp;Questions fréquentes</span></a>
+                                                </li>
+                                                <li>
+                                                    <a class="fr-nav__link fr-mr-3w" href="/aide/fr/guides-utilisateur/presentation-utilisateur/generalites-utilisateur/" target="_blank">
+                                                        <span class="fr-icon-book-2-line fr-icon--sm">&emsp;Guide d’utilisation</span></a>
+                                                </li>
+                                                <li>
+                                                    <a class="fr-nav__link fr-mr-3w" href="/aide/fr/niveau-de-service/" target="_blank">
+                                                        <span class="fr-icon-rfid-line fr-icon--sm">&emsp;Niveau de service</span></a>
+                                                </li>
+                                                <li>
+                                                    <a class="fr-nav__link fr-mr-3w" href="/aide/fr/nous-ecrire" target="_blank">
+                                                        <span class="fr-icon-mail-line fr-icon--sm">&emsp;Nous contacter</span></a>
+                                                </li>
+                                            </ul>
+                                        </div>
+                                    </div>
+                                </div>
+                            </li>
+                            
+                            <li>
+                                <div class="fr-translate fr-nav">
+                                    <div class="fr-nav__item">
+                                        <button aria-controls="services-collapse" aria-expanded="false" title="Services" class="fr-translate__btn fr-btn fr-px-2w">
+                                            <span class="fr-icon-grid-fill fr-icon--sm fr-mr-1w" aria-hidden="true"></span>Services</button>
+                                        <div class="fr-collapse fr-translate__menu fr-menu" id="services-collapse">
+                                            <ul class="fr-menu__list">
+                                                <li>
+                                                    <a class="fr-nav__link fr-mr-3w" href="/explorer-les-cartes">
+                                                        <span class="fr-icon-road-map-line fr-icon--sm">&emsp;Explorer les cartes</span></a>
+                                                </li>
+                                                <li>
+                                                    <a class="fr-nav__link fr-mr-3w" href="/rechercher-une-donnee/search">
+                                                        <span class="fr-icon-search-line fr-icon--sm">&emsp;Rechercher une donnée</span></a>
+                                                </li>
+                                                <li>
+                                                    <a class="fr-nav__link fr-mr-3w" href="/publier-une-donnee">
+                                                        <span class="fr-icon-database-line fr-icon--sm">&emsp;Publier une donnée</span></a>
+                                                </li>
+                                                <li>
+                                                    <div>
+                                                        <a href="/decouvrir" class="fr-btn primary fr-btn--sm custom-center-btn fr-mt-3v fr-mx-2w">
+                                                            Découvrir cartes.gouv.fr
+                                                        </a>
+                                                    </div>
+                                                </li>
+                                            </ul>
+                                        </div>
+                                    </div>
+                                </div>
+                            </li>
+                            <li>
+                                <div id="header-auth">
+                                    <button class="login-btn fr-icon-account-circle-fill fr-btn" type="button" title="Se connecter">Se connecter</button>
+                                </div>
+                            </li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="fr-header__menu fr-modal" id="modal-491" aria-labelledby="button-492">
+        <div class="fr-container">
+            <button class="fr-btn--close fr-btn" aria-controls="modal-491" title="Fermer">Fermer</button>
+            <div class="fr-header__menu-links"></div>
+<nav class="fr-nav" id="navigation-494" role="navigation" aria-label="main_menu">
+  <ul class="fr-nav__list">
+      <li class="fr-nav__item">
+          <a class="fr-nav__link" href="/decouvrir/">
+            Découvrir cartes.gouv.fr
+          </a>
+      </li>
+      <li class="fr-nav__item">
+          <button class="fr-nav__btn" aria-expanded="false" aria-controls="menu-2">
+            Services
+          </button>
+          <div class="fr-collapse fr-menu" id="menu-2">
+            <ul class="fr-menu__list">
+                <li>
+                  <a class="fr-nav__link" href="/decouvrir/explorer-les-cartes/">
+                    Explorer les cartes
+                  </a>
+                </li>
+                <li>
+                  <a class="fr-nav__link" href="/decouvrir/publier-une-donnee/">
+                    Publier une donnée
+                  </a>
+                </li>
+                <li>
+                  <a class="fr-nav__link" href="/decouvrir/rechercher-une-donnee/">
+                    Rechercher une donnée
+                  </a>
+                </li>
+            </ul>
+          </div>
+      </li>
+      <li class="fr-nav__item">
+          <a class="fr-nav__link" href="/actualites/">
+            Actualités
+          </a>
+      </li>
+      <li class="fr-nav__item">
+          <a class="fr-nav__link" href="/evolutions/">
+            Évolutions
+          </a>
+      </li>
+  </ul>
+</nav>        </div>
+    </div>
+</header>
+
+<main id="content">
+  <div class="fr-mb-6w">
+    <div class="fr-container">
+      <div class="fr-grid-row">
+        <div class="fr-col-10">
+<nav role="navigation" class="fr-breadcrumb" aria-label="you_are_here:">
+  <button class="fr-breadcrumb__button" aria-expanded="false" aria-controls="breadcrumb-1">
+    Voir le fil d’Ariane
+  </button>
+  <div class="fr-collapse" id="breadcrumb-1">
+    <ol class="fr-breadcrumb__list">
+      <li><a class="fr-breadcrumb__link" href="/decouvrir">Accueil</a></li>
+      <li><a class="fr-breadcrumb__link" aria-current="page">Conditions générales d’utilisation</a></li>
+    </ol>
+  </div>
+</nav>              <h1>Conditions générales d’utilisation</h1>
+
+<nav class="fr-summary fr-mb-6w" role="navigation" aria-labelledby="fr-summary-title">
+    <p class="fr-summary__title" id="fr-summary-title">Sommaire</p>
+    <ol>
+                <li>
+            <a class="fr-summary__link " id="summary-link-acces-aux-api-par-les-utilisateurs-geoplateforme" href="#acces-aux-api-par-les-utilisateurs-geoplateforme">Accès aux API par les Utilisateurs Géoplateforme</a>
+                <ol>
+                            <li>
+            <a class="fr-summary__link " id="summary-link-acces-aux-api-et-a-leur-documentation-par-l-utilisateur-geoplateforme" href="#acces-aux-api-et-a-leur-documentation-par-l-utilisateur-geoplateforme">Accès aux API et à leur documentation par l’Utilisateur Géoplateforme</a>
+        </li>
+        <li>
+            <a class="fr-summary__link " id="summary-link-creation-d-un-compte-par-l-utilisateur-geoplateforme" href="#creation-d-un-compte-par-l-utilisateur-geoplateforme">Création d’un compte par l’Utilisateur Géoplateforme</a>
+        </li>
+        <li>
+            <a class="fr-summary__link " id="summary-link-suppression-du-compte" href="#suppression-du-compte">Suppression du compte</a>
+                <ol>
+                            <li>
+            <a class="fr-summary__link " id="summary-link-suppression-a-la-demande-de-l-utilisateur-geoplateforme" href="#suppression-a-la-demande-de-l-utilisateur-geoplateforme">Suppression à la demande de l’Utilisateur Géoplateforme</a>
+        </li>
+        <li>
+            <a class="fr-summary__link " id="summary-link-suppression-a-l-initiative-de-l-ign" href="#suppression-a-l-initiative-de-l-ign">Suppression à l’initiative de l’IGN</a>
+        </li>
+
+                </ol>
+        </li>
+        <li>
+            <a class="fr-summary__link " id="summary-link-acces-et-utilisation-de-certaines-api-apres-authentification-de-l-utilisateur-geoplateforme-aupres-d-un-fournisseur-d-identite" href="#acces-et-utilisation-de-certaines-api-apres-authentification-de-l-utilisateur-geoplateforme-aupres-d-un-fournisseur-d-identite">Accès et utilisation de certaines API après authentification de l’Utilisateur Géoplateforme auprès d’un fournisseur d’identité</a>
+        </li>
+        <li>
+            <a class="fr-summary__link " id="summary-link-aucun-transfert-de-droit-ou-licence-en-accedant-a-l-api" href="#aucun-transfert-de-droit-ou-licence-en-accedant-a-l-api">Aucun transfert de droit ou licence en accédant à l’API</a>
+        </li>
+
+                </ol>
+        </li>
+        <li>
+            <a class="fr-summary__link " id="summary-link-utilisation-des-api" href="#utilisation-des-api">Utilisation des API</a>
+                <ol>
+                            <li>
+            <a class="fr-summary__link " id="summary-link-utilisation-conforme-des-api-par-l-utilisateur-geoplateforme" href="#utilisation-conforme-des-api-par-l-utilisateur-geoplateforme">Utilisation conforme des API par l’Utilisateur Géoplateforme</a>
+        </li>
+        <li>
+            <a class="fr-summary__link " id="summary-link-droits-des-fournisseurs-d-api" href="#droits-des-fournisseurs-d-api">Droits des Fournisseurs d’API</a>
+        </li>
+        <li>
+            <a class="fr-summary__link " id="summary-link-droits-des-fournisseurs-de-donnees" href="#droits-des-fournisseurs-de-donnees">Droits des Fournisseurs de données</a>
+        </li>
+        <li>
+            <a class="fr-summary__link " id="summary-link-droits-concedes-par-le-fournisseur-de-donnees-et-par-le-fournisseur-d-api" href="#droits-concedes-par-le-fournisseur-de-donnees-et-par-le-fournisseur-d-api">Droits concédés par le Fournisseur de données et par le Fournisseur d’API</a>
+        </li>
+        <li>
+            <a class="fr-summary__link " id="summary-link-blocage-d-acces-et-d-utilisation" href="#blocage-d-acces-et-d-utilisation">Blocage d’accès et d’utilisation</a>
+        </li>
+
+                </ol>
+        </li>
+        <li>
+            <a class="fr-summary__link " id="summary-link-engagements-de-l-ign" href="#engagements-de-l-ign">ENGAGEMENTS DE L’IGN</a>
+                <ol>
+                            <li>
+            <a class="fr-summary__link " id="summary-link-obligations-de-l-ign-en-tant-qu-operateur-de-la-geoplateforme" href="#obligations-de-l-ign-en-tant-qu-operateur-de-la-geoplateforme">Obligations de l’IGN en tant qu’opérateur de la Géoplateforme</a>
+        </li>
+        <li>
+            <a class="fr-summary__link " id="summary-link-hebergement-des-jeux-de-donnees-et-suppression-des-jeux-de-donnees-hebergees" href="#hebergement-des-jeux-de-donnees-et-suppression-des-jeux-de-donnees-hebergees">Hébergement des jeux de données et suppression des jeux de données hébergées</a>
+        </li>
+        <li>
+            <a class="fr-summary__link " id="summary-link-niveau-de-service" href="#niveau-de-service">Niveau de service</a>
+        </li>
+        <li>
+            <a class="fr-summary__link " id="summary-link-obligation-d-information-et-de-suivi-en-cas-d-incident-lors-de-l-utilisation-de-la-geoplateforme" href="#obligation-d-information-et-de-suivi-en-cas-d-incident-lors-de-l-utilisation-de-la-geoplateforme">Obligation d’information et de suivi en cas d’incident lors de l’utilisation de la Géoplateforme</a>
+        </li>
+
+                </ol>
+        </li>
+        <li>
+            <a class="fr-summary__link " id="summary-link-clauses-diverses" href="#clauses-diverses">Clauses diverses</a>
+                <ol>
+                            <li>
+            <a class="fr-summary__link " id="summary-link-notification-par-l-utilisateur-geoplateforme" href="#notification-par-l-utilisateur-geoplateforme">Notification par l’Utilisateur Géoplateforme</a>
+        </li>
+        <li>
+            <a class="fr-summary__link " id="summary-link-loi-applicable-litiges" href="#loi-applicable-litiges">Loi applicable – litiges</a>
+        </li>
+        <li>
+            <a class="fr-summary__link " id="summary-link-divisibilite" href="#divisibilite">Divisibilité</a>
+        </li>
+
+                </ol>
+        </li>
+        <li>
+            <a class="fr-summary__link frx-nonumber" id="summary-link-annexe-1-liste-des-api-de-la-geoplateforme" href="#annexe-1-liste-des-api-de-la-geoplateforme">Annexe 1 : Liste des API de la Géoplateforme</a>
+        </li>
+        <li>
+            <a class="fr-summary__link frx-nonumber" id="summary-link-annexe-2-offre-geoplateforme" href="#annexe-2-offre-geoplateforme">Annexe 2 : Offre Géoplateforme</a>
+        </li>
+        <li>
+            <a class="fr-summary__link frx-nonumber" id="summary-link-annexe-3-accord-de-niveau-de-service" href="#annexe-3-accord-de-niveau-de-service">Annexe 3 : Accord de niveau de service</a>
+        </li>
+
+    </ol>
+</nav>
+        </div>
+      </div>
+    </div>
+  <div class="fr-container">
+    <div class="fr-grid-row">
+      <div class="fr-col-12">
+        <div class="fr-col-12 fr-col-md-8">
+<p><em>Version du 15 octobre 2024 – Institut national de l’information géographique et forestière (IGN)</em></p>
+<p>La Géoplateforme est une plateforme ouverte et mutualisée de géodonnées hébergeant et exposant des API, accessibles depuis une « URL » (Uniform Resource Locator) spécifique à chaque API. Chacune de ces API est une bibliothèque de fonctions structurée permettant d’interagir avec un système d’information, ces API sont listées en Annexe 1 (ci-après « API »).</p>
+<p>La Géoplateforme est éditée, développée et opérée par l’Institut national de l’information géographique et forestière (ci-après « IGN »), établissement public à caractère administratif de l’État, immatriculé sous le numéro SIREN 180 067 019, dont le siège est au 73 avenue de Paris, 94160 SAINT-MANDÉ.</p>
+<p>Les conditions générales d’utilisation des API (ci-après « CGU ») ont pour objet de définir :</p>
+<ul>
+<li>les conditions dans lesquelles l’IGN met à disposition les API en tant qu’opérateur de la Géoplateforme, et</li>
+<li>les conditions d’accès et d’utilisation de ces API.</li>
+</ul>
+<p>Certaines API peuvent prévoir des conditions spécifiques complémentaires, disponibles dans leur documentation propre.</p>
+<p>Pour les API permettant l’hébergement, la gestion collaborative et la diffusion de données, les CGU s’appliquent dans le respect des fonctionnalités de l’offre souscrite par vous-même ou par l’entité que vous représentez/pour laquelle vous travaillez (Offre Essentielle ou Premium, définie en <a href="#annexe-2-offre-geoplateforme">Annexe 2</a>) et sous réserve de conventions dérogatoires.</p>
+<p>Les CGU sont accessibles à tout moment depuis les métadonnées de service de chaque API et sur le site Internet cartes.gouv.fr (ci-après le « Site »).</p>
+<p>En utilisant une API, vous déclarez et garantissez que :</p>
+<ul>
+<li>Vous avez la capacité pour contracter ou avez obtenu le consentement de la personne dûment autorisée,</li>
+<li>Vous avez reçu toute délégation et pouvoir si vous agissez pour le compte de votre employeur,</li>
+<li>Vous vous engagez à respecter les CGU tout au long de l’utilisation des API.</li>
+</ul>
+<p>Les CGU peuvent à tout moment être modifiées afin de s’adapter aux évolutions techniques, réglementaires ou économiques. Sauf lorsqu’un changement urgent est requis notamment pour des raisons de sécurité, l’IGN informera, avec un préavis minimum de 30 jours, avant toute modification importante des CGU en affichant un avis visible sur le Site et/ou en vous envoyant un courriel, dans la mesure où vous avez un compte utilisateur sur le Site. Il vous appartient de vérifier la version en vigueur des CGU à chaque utilisation des API.</p>
+<p>Si vous ne souhaitez pas être lié par la nouvelle version des CGU, il vous appartient de cesser toute nouvelle utilisation des API et mettre en œuvre tous les moyens pour faire cesser toute utilisation par vos Utilisateurs Finaux (ci-après définis). Votre utilisation continue des API après une modification des CGU constitue votre consentement à ces modifications.</p>
+<p>Est défini comme</p>
+<ul>
+<li><strong>Utilisateur API</strong> : toute personne physique utilisant une API.</li>
+<li><strong>Fournisseur d’API</strong> : toute personne physique mettant à disposition une API.</li>
+<li><strong>Fournisseur de données</strong> : Utilisateur API téléversant un ou plusieurs jeux de données (données, métadonnées et documents) pour les mettre à disposition, après d’éventuels traitements, via une API soit au public, soit à des personnes autorisées.</li>
+<li><strong>Développeur</strong> : Utilisateur API effectuant un développement (par exemple : site Internet, application web, application mobile) à des fins commerciales ou non, exploitant au moins une API, accessible directement par un Utilisateur Final.</li>
+<li><strong>Utilisateur Final</strong> : toute personne physique qui accède au développement proposé par un Développeur.</li>
+<li><strong>Utilisateur Géoplateforme</strong> : toute personne physique accédant à la Géoplateforme comme l’Utilisateur API, le Développeur, le Fournisseur de données ou le Fournisseur d’API.</li>
+<li><strong>Endpoint public</strong> : point de diffusion de données (par exemple de type WFS) dépourvu de contrôle d’accès c’est-à-dire permettant à tout Utilisateur Géoplateforme d’accéder librement à toutes les données qui y sont exposées ; ce type de Endpoint est donc destiné aux données libres.</li>
+<li><strong>Endpoint privé</strong> : point de diffusion de données (par exemple de type WFS) doté d’un contrôle d’accès c’est-à-dire imposant à tout Utilisateur Géoplateforme de bénéficier d’une permission d’accès associée à une clé alphanumérique à joindre aux requêtes pour accéder aux données autorisées ; ce type de Endpoint est donc destiné aux données non libres pour lesquelles le Fournisseur de données souhaite mettre en œuvre une restriction d’accès.</li>
+</ul>
+<h2 id="acces-aux-api-par-les-utilisateurs-geoplateforme" tabindex="-1">Accès aux API par les Utilisateurs Géoplateforme <a class="header-anchor" href="#acces-aux-api-par-les-utilisateurs-geoplateforme">#</a></h2>
+<h3 id="acces-aux-api-et-a-leur-documentation-par-l-utilisateur-geoplateforme" tabindex="-1">Accès aux API et à leur documentation par l’Utilisateur Géoplateforme <a class="header-anchor" href="#acces-aux-api-et-a-leur-documentation-par-l-utilisateur-geoplateforme">#</a></h3>
+<p>Chaque API est mise à disposition via une URL dédiée, accessible sur le Site.</p>
+<p>Une documentation détaillée de chaque API est également proposée sur le Site.</p>
+<p>L’accès à certaines API peut être soumis à la création d’un compte sur le Site et/ou à une authentification spécifique, selon leur documentation.</p>
+<h3 id="creation-d-un-compte-par-l-utilisateur-geoplateforme" tabindex="-1">Création d’un compte par l’Utilisateur Géoplateforme <a class="header-anchor" href="#creation-d-un-compte-par-l-utilisateur-geoplateforme">#</a></h3>
+<p>Vous pouvez gratuitement créer un compte sur le Site.</p>
+<p>Vous devez veiller à ce que les informations que vous renseignez lors de la création du compte soient correctes et complètes. Il n’est pas possible de renseigner une adresse électronique temporaire lors de la création d’un compte sur le Site. Un courriel de confirmation vous est envoyé afin de valider cette création. Toute création de compte mal renseignée justifie un rejet de création de compte de la part de l’IGN.</p>
+<p>Le statut de professionnel ou de particulier que vous choisissez lors de la création de ce compte doit notamment être conforme avec l’usage que vous projetez de la plateforme.</p>
+<p>Vous assurez la confidentialité de vos éléments de connexion (nom d’utilisateur, mot de passe). Ces éléments vous sont personnels et vous ne devez pas les partager ou les transférer.</p>
+<p>Vous devez alerter sans délai l’IGN de toute utilisation anormale ou frauduleuse de vos éléments de connexion ou de votre compte.</p>
+<h3 id="suppression-du-compte" tabindex="-1">Suppression du compte <a class="header-anchor" href="#suppression-du-compte">#</a></h3>
+<h4 id="suppression-a-la-demande-de-l-utilisateur-geoplateforme" tabindex="-1">Suppression à la demande de l’Utilisateur Géoplateforme <a class="header-anchor" href="#suppression-a-la-demande-de-l-utilisateur-geoplateforme">#</a></h4>
+<p>Vous pouvez supprimer votre compte à tout moment.</p>
+<p>La suppression de votre compte est effective, après confirmation de votre part de cette demande de suppression.</p>
+<p>Avant de confirmer votre demande de suppression, il vous appartient de procéder aux sauvegardes des éventuelles données stockées sur votre compte ; aucune récupération de ces données ne sera réalisée par l’IGN.</p>
+<h4 id="suppression-a-l-initiative-de-l-ign" tabindex="-1">Suppression à l’initiative de l’IGN <a class="header-anchor" href="#suppression-a-l-initiative-de-l-ign">#</a></h4>
+<p>L’IGN se réserve le droit de supprimer votre compte, sans préavis, en cas de non-respect de votre part des CGU ou en cas de violation des lois et réglementations en vigueur. Dans ces cas, vous ne pouvez pas vous y opposer ou prétendre à une quelconque restitution pour la perte des données qui étaient stockées sur votre compte et vous ne pouvez pas être indemnisé à raison d’une perte éventuelle de données.</p>
+<h3 id="acces-et-utilisation-de-certaines-api-apres-authentification-de-l-utilisateur-geoplateforme-aupres-d-un-fournisseur-d-identite" tabindex="-1">Accès et utilisation de certaines API après authentification de l’Utilisateur Géoplateforme auprès d’un fournisseur d’identité <a class="header-anchor" href="#acces-et-utilisation-de-certaines-api-apres-authentification-de-l-utilisateur-geoplateforme-aupres-d-un-fournisseur-d-identite">#</a></h3>
+<p>Certaines API sont accessibles et utilisables après authentification auprès de l’un des fournisseurs d’identité suivants :</p>
+<ul>
+<li>FranceConnect,</li>
+<li>AgentConnect &amp; ProConnect.</li>
+</ul>
+<h3 id="aucun-transfert-de-droit-ou-licence-en-accedant-a-l-api" tabindex="-1">Aucun transfert de droit ou licence en accédant à l’API <a class="header-anchor" href="#aucun-transfert-de-droit-ou-licence-en-accedant-a-l-api">#</a></h3>
+<p>L’accès à une API ne confère aucun droit de propriété intellectuelle sur l’API et sur les données mises à disposition via l’API.</p>
+<h2 id="utilisation-des-api" tabindex="-1">Utilisation des API <a class="header-anchor" href="#utilisation-des-api">#</a></h2>
+<h3 id="utilisation-conforme-des-api-par-l-utilisateur-geoplateforme" tabindex="-1">Utilisation conforme des API par l’Utilisateur Géoplateforme <a class="header-anchor" href="#utilisation-conforme-des-api-par-l-utilisateur-geoplateforme">#</a></h3>
+<p>Vous vous engagez à utiliser l’API dans le respect de sa documentation, des conditions du niveau d’offre souscrit (<a href="#annexe-2-offre-geoplateforme">Annexe 2</a>) et à vous adapter aux évolutions et mises à jour de l’API. Vous êtes seul responsable de l’usage que vous faites de l’API, lequel doit être strictement conforme aux CGU, aux lois et réglementations en vigueur.</p>
+<p>En cas de manquement de votre part aux CGU ou aux lois et réglementations en vigueur, le Fournisseur d’API, le Fournisseur de données et l’IGN ne peuvent pas être tenus responsables de tout préjudice causé par vous-même ou vos ayants droit (notamment, pour le Développeur : vos Utilisateurs Finaux) lié à l’utilisation de l’API et à l’utilisation/réutilisation des données mises à disposition à partir de l’API.</p>
+<p>Les données contenues dans les API sont soumises à la licence choisie et renseignée par le Fournisseur de données, accessible depuis les métadonnées de données de l’API. Vous vous engagez à respecter les termes de la licence attachée à ces données, notamment en utilisant/réutilisant un jeu de données.</p>
+<p>Vous vous engagez à :</p>
+<ul>
+<li>ne pas nuire, entraver ou fausser le bon fonctionnement des API ;</li>
+<li>ne pas contourner les moyens mis en œuvre afin de garantir la sécurité des API et/ou des données mises à disposition à partir des API ;</li>
+<li>respecter strictement les CGU et les faire respecter par les personnes dont vous êtes responsable ou avec lesquelles vous êtes contractuellement lié, notamment vos préposés, agents, Utilisateurs Finaux, prestataires et fournisseurs.</li>
+</ul>
+<p>Vous vous engagez également à ce que l’usage que vous faites et que vos Utilisateurs Finaux font des API :</p>
+<ul>
+<li>n’incite pas à la haine ou ne véhicule pas des menaces ou rumeurs qui encouragent et/ou facilitent de tels agissements envers un tiers,</li>
+<li>ne véhicule pas de contenus racistes, violents, obscènes, pornographiques, pédophiles ou encourageants de tels comportements,</li>
+<li>ne véhicule pas d’informations diffamatoires, trompeuses ou fausses,</li>
+<li>n’encourage et ne facilite pas des activités illégales,</li>
+<li>ne porte pas atteinte à l’image de l’IGN et/ou des Fournisseurs de données et/ou des Fournisseurs d’API,</li>
+<li>plus globalement, ne soit pas contraire à la loi ou préjudiciable pour l’IGN, les Fournisseurs de données, les Fournisseurs d’API ou des tierces personnes.</li>
+</ul>
+<h3 id="droits-des-fournisseurs-d-api" tabindex="-1">Droits des Fournisseurs d’API <a class="header-anchor" href="#droits-des-fournisseurs-d-api">#</a></h3>
+<p>Lorsque vous décidez de mettre à disposition une API, vous devez préalablement vous assurer que vous disposez des droits nécessaires à cet effet et que cette API respecte les conditions imposées par les CGU.</p>
+<p>Vous pouvez définir des conditions d’utilisation spécifiques à votre API et les renseigner dans la documentation applicable. A défaut, les CGU s’appliquent à l’utilisation de l’API.</p>
+<p>Lorsque vous supprimez une API de la Géoplateforme, l’API cessera d’être accessible depuis le Site et depuis la Géoplateforme dans un délai raisonnable.</p>
+<h3 id="droits-des-fournisseurs-de-donnees" tabindex="-1">Droits des Fournisseurs de données <a class="header-anchor" href="#droits-des-fournisseurs-de-donnees">#</a></h3>
+<p>Lorsque vous décidez de téléverser et de partager un jeu de données depuis une API, vous devez préalablement vous assurer que vous disposez des droits nécessaires à cet effet et que ce jeu de données respecte les conditions imposées par les CGU.</p>
+<p>Lorsque vous mettez à disposition un jeu de données à partir d’une API, vous devez indiquer si vous autorisez sa diffusion au public ou à certaines personnes autorisées.</p>
+<p>Vous définissez les conditions d’utilisation et de réutilisation des jeux de données mis à disposition à partir d’une API et renseignez la licence depuis les métadonnées de données de l’API. A défaut, la <a href="https://alliance.numerique.gouv.fr/licence-ouverte-open-licence/" target="_blank" rel="noreferrer" title="www.etalab.gouv.fr - ouvre une nouvelle fenêtre">Licence Ouverte / Open Licence – Etalab</a> s’applique sur ce jeu de données.</p>
+<p>Lorsque vous supprimez un jeu de données que vous avez mis à disposition à partir d’une API, le jeu de données cessera d’être accessible dans un délai raisonnable. Cependant, il est possible que les jeux de données ayant fait l’objet de réutilisations avant leur suppression restent accessibles.</p>
+<h3 id="droits-concedes-par-le-fournisseur-de-donnees-et-par-le-fournisseur-d-api" tabindex="-1">Droits concédés par le Fournisseur de données et par le Fournisseur d’API <a class="header-anchor" href="#droits-concedes-par-le-fournisseur-de-donnees-et-par-le-fournisseur-d-api">#</a></h3>
+<p>Vous concédez à l’IGN une licence gratuite, non exclusive et pour le monde entier sur vos jeux de données et API. Dans les limites de l’autorisation de diffusion que vous devez indiquer, cette licence autorise l’IGN à procéder à tout acte d’exploitation du jeu de données et de l’API nécessaire pour :</p>
+<ul>
+<li>Permettre l’utilisation de l’API concernée,</li>
+<li>Améliorer l’API concernée, le Site et les autres services et produits de l’IGN,</li>
+<li>Animer et promouvoir le Site et l’API, les services et produits de l’IGN associés au Site ou à l’API par le biais de tout média.</li>
+</ul>
+<p>Les actes d’exploitation ainsi autorisés incluent :</p>
+<ul>
+<li>Le droit de reproduire l’API et les jeux de données, en tout ou partie, à titre temporaire ou définitif, le droit de diffuser et/ou représenter par le biais de tout support électronique ou papier et donc de reproduire ou faire reproduire en autant d’exemplaires que nécessaires.</li>
+<li>Le droit de publier, afficher, exécuter, représenter publiquement le jeu de données par tout procédé et sur tout support.</li>
+<li>Le droit de procéder ou faire procéder aux adaptations, transformations, arrangements, modifications, corrections, adjonctions, retraits que l’IGN jugera nécessaires à la représentation et/ou la reproduction de tout ou partie des jeux de données.</li>
+<li>Le droit d’utiliser des mesures techniques de protection destinées à empêcher les utilisations non autorisées.</li>
+<li>Le droit de prendre connaissance et analyser les API et les jeux de données aux fins :
+<ul>
+<li>de détecter et procéder à la suppression des contenus interdits,</li>
+<li>de détecter les virus et logiciels malveillants,</li>
+<li>d’améliorer l’API et le Site ainsi que les autres services et produits de l’IGN.</li>
+</ul>
+</li>
+</ul>
+<p>Ces droits peuvent faire l’objet de sous-licences, dans le cas notamment où l’IGN fait appel à des prestataires et fournisseurs, par exemple pour l’hébergement et l’infogérance du Site ou de la Géoplateforme. L’IGN peut également concéder certains de ses droits, dans la stricte mesure nécessaire pour permettre à ses services de fonctionner (par exemple, pour vous permettre d’utiliser un jeu de données qu’un Fournisseur de données souhaite vous partager).</p>
+<p>L’IGN est autorisé à faire usage des droits prévus ci-dessus pendant toute la durée de l’hébergement du jeu de données et/ou de l’API sur la Géoplateforme.</p>
+<h3 id="blocage-d-acces-et-d-utilisation" tabindex="-1">Blocage d’accès et d’utilisation <a class="header-anchor" href="#blocage-d-acces-et-d-utilisation">#</a></h3>
+<p>En cas de manquement aux CGU, d’usage abusif d’une ou plusieurs API ou mettant en péril le bon fonctionnement de la Géoplateforme, l’IGN peut limiter ou bloquer l’accès et l’utilisation de l’API et/ou retirer les données mises à disposition à partir d’une API de façon temporaire ou définitive.</p>
+<h2 id="engagements-de-l-ign" tabindex="-1">ENGAGEMENTS DE L’IGN <a class="header-anchor" href="#engagements-de-l-ign">#</a></h2>
+<h3 id="obligations-de-l-ign-en-tant-qu-operateur-de-la-geoplateforme" tabindex="-1">Obligations de l’IGN en tant qu’opérateur de la Géoplateforme <a class="header-anchor" href="#obligations-de-l-ign-en-tant-qu-operateur-de-la-geoplateforme">#</a></h3>
+<p>En tant qu’opérateur de la Géoplateforme, l’IGN :</p>
+<ul>
+<li>met à disposition les API,</li>
+<li>héberge les jeux de données,</li>
+<li>met en œuvre tous les moyens aux fins d’assurer le bon fonctionnement des API selon l’accord de niveau de service (ou service level agreement, ci-après « SLA » en <a href="#annexe-3-accord-de-niveau-de-service">Annexe 3</a>),</li>
+<li>ne peut être tenu responsable d’une modification des conditions d’utilisation d’une API par son Fournisseur d’API,</li>
+<li>ne peut être tenu responsable d’une modification des licences d’utilisation et réutilisation d’un jeu de données par son Fournisseur de données.</li>
+</ul>
+<p>La responsabilité de l’IGN ne peut être engagée relativement aux jeux de données mis à disposition par un Fournisseur de données ou aux API mises à disposition par un Fournisseur d’API.</p>
+<p>Certaines API peuvent proposer un service d’agrégation de flux permettant de rassembler des données et de visualiser différents contenus web au sein d’une seule et même interface. L’IGN n’est pas responsable des données et contenus web accessibles depuis ce type d’API.</p>
+<h3 id="hebergement-des-jeux-de-donnees-et-suppression-des-jeux-de-donnees-hebergees" tabindex="-1">Hébergement des jeux de données et suppression des jeux de données hébergées <a class="header-anchor" href="#hebergement-des-jeux-de-donnees-et-suppression-des-jeux-de-donnees-hebergees">#</a></h3>
+<p>Chaque Fournisseur de données reste responsable de ses jeux de données.</p>
+<p>L’IGN n’exerce aucun contrôle ou modération a priori sur les jeux de données mis à disposition à partir d’une API et ne peut en être tenu responsable.</p>
+<p>En cas de réclamation adressée à l’IGN par un tiers estimant qu’un jeu de données mis à disposition à partir de cette API serait illicite ou lui causerait un préjudice :</p>
+<ul>
+<li>L’IGN informe le Fournisseur de données. Le Fournisseur de données garantit l’IGN contre tout recours et condamnation auxquels l’IGN pourrait être exposé à raison de cette réclamation.</li>
+<li>L’IGN peut prendre toute mesure utile afin de supprimer l’accès aux données litigieuses, si la réclamation apparaît manifestement fondée ou en cas de manquement aux dispositions de la Loi n°2004-575 du 21 juin 2004 (« LCEN ») constaté par une autorité judiciaire au sens de cette même loi. Dans ce cas, l’IGN en informe le Fournisseur de données dans les plus brefs délais.</li>
+</ul>
+<p>La suppression définitive ou temporaire de l’accès aux données pour les motifs mentionnés ci-dessus ne donne pas lieu au versement d’un dédommagement de la part de l’IGN.</p>
+<p>En l’absence de connexion à votre compte dans un délai d’un an, l’IGN se réserve le droit de supprimer des données disponibles sur votre compte, après vous en avoir dûment informé par courrier électronique. Cette suppression ne peut faire l’objet d’un recours.</p>
+<h3 id="niveau-de-service" tabindex="-1">Niveau de service <a class="header-anchor" href="#niveau-de-service">#</a></h3>
+<p>L’IGN met en œuvre tous les moyens afin de maintenir la disponibilité de la Géoplateforme et des API selon l’accord de niveau de service (<a href="#annexe-3-accord-de-niveau-de-service">Annexe 3</a>).</p>
+<p>L’indisponibilité de la Géoplateforme ne saurait ouvrir droit à aucune compensation quelle qu’en soit sa nature.</p>
+<p>L’IGN peut faire évoluer, modifier ou suspendre la Géoplateforme ou l’accès et l’utilisation de tout ou partie des API pour des raisons de maintenance ou pour tout autre motif jugé nécessaire. L’IGN ne peut être tenu responsable de l’indisponibilité de la Géoplateforme et/ou de tout ou partie des API qui résulterait d’un cas de force majeure. De même, l’IGN ne peut pas être tenu responsable en cas de défaillance ayant pour cause, fondement ou origine le réseau de télécommunications et/ou le matériel de connexion.</p>
+<h3 id="obligation-d-information-et-de-suivi-en-cas-d-incident-lors-de-l-utilisation-de-la-geoplateforme" tabindex="-1">Obligation d’information et de suivi en cas d’incident lors de l’utilisation de la Géoplateforme <a class="header-anchor" href="#obligation-d-information-et-de-suivi-en-cas-d-incident-lors-de-l-utilisation-de-la-geoplateforme">#</a></h3>
+<p>Si vous constatez un incident lors de l’utilisation de la Géoplateforme, vous pouvez adresser un message via la rubrique : <a href="/aide/fr/nous-ecrire">Nous écrire | cartes.gouv.fr</a>.</p>
+<p>L’IGN reçoit et instruit cette demande et répond dans un délai maximal d’un mois à compter de la sollicitation.</p>
+<p>Lorsque l’IGN constate un incident affectant la Géoplateforme, il s’engage à vous informer dès le constat de cet incident et à sa clôture au travers des actualités du Site.</p>
+<h2 id="clauses-diverses" tabindex="-1">Clauses diverses <a class="header-anchor" href="#clauses-diverses">#</a></h2>
+<h3 id="notification-par-l-utilisateur-geoplateforme" tabindex="-1">Notification par l’Utilisateur Géoplateforme <a class="header-anchor" href="#notification-par-l-utilisateur-geoplateforme">#</a></h3>
+<p>Vous pouvez signaler toute difficulté à tout moment en faisant expressément la demande à l’IGN par écrit au support utilisateur joignable via la rubrique : <a href="/aide/fr/nous-ecrire">Nous écrire | cartes.gouv.fr</a>.</p>
+<h3 id="loi-applicable-litiges" tabindex="-1">Loi applicable – litiges <a class="header-anchor" href="#loi-applicable-litiges">#</a></h3>
+<p>Les CGU sont régies par la loi française.</p>
+<p>Nous nous efforcerons de résoudre à l’amiable tout différend afférent aux CGU.</p>
+<p>Faute de règlement amiable dans un délai raisonnable de six mois à compter de la première notification, vous et/ou l’IGN peuvent soumettre le différend auprès des tribunaux compétents de Paris, France, sous réserve d’une attribution de compétence spécifique et d’ordre public.</p>
+<h3 id="divisibilite" tabindex="-1">Divisibilité <a class="header-anchor" href="#divisibilite">#</a></h3>
+<p>Si une stipulation des CGU venait à être nulle en vertu d’une loi, d’un règlement ou d’une décision judiciaire, elle sera réputée non écrite sans affecter les stipulations restantes.</p>
+<hr>
+<h2 id="annexe-1-liste-des-api-de-la-geoplateforme" tabindex="-1">Annexe 1 : Liste des API de la Géoplateforme <a class="header-anchor" href="#annexe-1-liste-des-api-de-la-geoplateforme">#</a></h2>
+<p>La liste des API de la Géoplateforme comprend :</p>
+<ul>
+<li>API Géoplateforme - Alimentation, traitement et publication</li>
+<li>API Géoplateforme - Diffusion d’images tuilées WMTS</li>
+<li>API Géoplateforme - Diffusion d’images tuilées WMTS - Privé</li>
+<li>API Géoplateforme - Diffusion d’images tuilées WMTS - Bac à sable</li>
+<li>API Géoplateforme - Diffusion de tuiles vectorielles TMS</li>
+<li>API Géoplateforme - Diffusion de tuiles vectorielles TMS - Privé</li>
+<li>API Géoplateforme - Diffusion de tuiles vectorielles TMS - Bac à sable</li>
+<li>API Géoplateforme - Diffusion d’images WMS-Raster</li>
+<li>API Géoplateforme - Diffusion d’images WMS-Raster - Privé</li>
+<li>API Géoplateforme - Diffusion d’images WMS-Raster - Bac à sable</li>
+<li>API Géoplateforme - Diffusion d’images WMS-Vecteur</li>
+<li>API Géoplateforme - Diffusion d’images WMS-Vecteur - Privé</li>
+<li>API Géoplateforme - Diffusion d’images WMS-Vecteur - Bac à sable</li>
+<li>API Géoplateforme - Diffusion d’objets WFS</li>
+<li>API Géoplateforme - Diffusion d’objets WFS - Privé</li>
+<li>API Géoplateforme - Diffusion d’objets WFS - Bac à sable</li>
+<li>API Géoplateforme - Téléchargement</li>
+<li>API Géoplateforme - Téléchargement - Privé</li>
+<li>API Géoplateforme - Téléchargement - Bac à sable</li>
+<li>API Géoplateforme - Téléchargement partiel</li>
+<li>API Géoplateforme - Découverte des métadonnées CSW</li>
+<li>API Géoplateforme - Découverte des métadonnées CSW - Bac à sable</li>
+<li>API Géoplateforme - Géocodage</li>
+<li>API Géoplateforme - Autocomplétion</li>
+<li>API Géoplateforme - Calcul altimétrique</li>
+<li>API Géoplateforme - Calcul altimétrique - Privé</li>
+<li>API Géoplateforme - Calcul d’itinéraire</li>
+<li>API Géoplateforme - Calcul d’itinéraire - Privé</li>
+<li>API Géoplateforme - Calcul d’isochrone/isodistance</li>
+<li>API Géoplateforme - Calcul d’isochrone/isodistance - Privé</li>
+<li>API Géoplateforme - Recherche</li>
+<li>API Géoplateforme - Recherche - Privé</li>
+<li>API Géoplateforme - Gestion des identités et des accès</li>
+<li>API Géoplateforme - Statistiques d’utilisation</li>
+<li>API Géoplateforme - Diffusion de tuiles vectorielles pg_tileserv</li>
+<li>API Géoplateforme - Diffusion de tuiles vectorielles pg_tileserv - Bac à sable</li>
+</ul>
+<p>La dénomination des API est susceptible d’évoluer : il convient de se référer au <a href="/rechercher-une-donnee">Catalogue | cartes.gouv.fr</a>.</p>
+<hr>
+<h2 id="annexe-2-offre-geoplateforme" tabindex="-1">Annexe 2 : Offre Géoplateforme <a class="header-anchor" href="#annexe-2-offre-geoplateforme">#</a></h2>
+<p>Sur la Géoplateforme, l’utilisation des géodonnées et géoservices est gratuite (sauf licence spécifique).</p>
+<p>L’hébergement et la diffusion des données sont gratuits pour la plupart des Fournisseurs de données. La bascule vers une offre Premium, payante, se fait pour certains Fournisseurs de données, notamment lorsque les volumes de données stockés et/ou diffusés le justifient. Seuls quelques Fournisseurs de données, ayant un impact significatif d’usage de la Géoplateforme, contribuent ainsi à l’équilibre économique de la Géoplateforme.</p>
+<p>L’offre Découverte permet au Fournisseur de données d’éprouver le fonctionnement du système. Cette offre est gratuite et accessible depuis <a href="/tableau-de-bord">Tableau de bord | cartes.gouv.fr</a> (authentification nécessaire). Elle donne accès à un espace de type bac à sable, non personnel, partagé avec l’ensemble des Fournisseurs de données de la Géoplateforme et sur lequel les données ne sont pas pérennes (suppression trimestrielle des données). Il ne s’agit donc pas d’un espace pour accueillir des données de production et l’IGN ne peut être tenu pour responsable des effets provoqués par ladite suppression trimestrielle des données.</p>
+<p>L’offre Essentiel permet au Fournisseur de données un usage standard en production. Cette offre est gratuite et accessible via un formulaire disponible sur <a href="/tableau-de-bord">Tableau de bord | cartes.gouv.fr</a> (authentification nécessaire). Cette offre est limitée à une instance par organisme, attribuée au premier Fournisseur de données qui en fait la demande en se réclamant de cet organisme et qui se voit attribué l’espace de données offre Essentiel pour l’organisme. Les éventuels autres Fournisseurs de données du même organisme effectuant la même demande sont rattachés à l’unique espace déjà créé pour l’organisme. L’IGN se réserve un droit de modération a posteriori des comptes et espaces de données.</p>
+<p>L’offre Premium est payante et s’adresse au Fournisseur de données pour un usage en production avec des spécificités allant au-delà de l’offre Essentiel. Chaque année, au mois de juin, l’IGN examine les usages en alimentation et en diffusion de chaque espace de données. L’IGN identifie alors les dépassements du seuil de l’offre Essentiel et propose, à chaque organisme concerné, la bascule ou le maintien dans un seuil de l’offre Premium sous la forme d’un devis couvrant l’année civile suivante. En cas d’acceptation du devis, l’organisme reçoit, à partir du mois de janvier, une facture terme à échoir, sur la base du devis accepté. En cas de non- acceptation du devis et de non-accord entre l’IGN et l’organisme sur une modalité de l’offre Premium, l’organisme est maintenu ou basculé dans l’offre Essentiel à partir du 1er janvier.</p>
+<p>Les caractéristiques techniques de l’offre Premium peuvent nécessiter des opérations d’infrastructure complexes à réaliser en amont de la mise à disposition de l’environnement de travail au Fournisseur de données. Ces opérations impliquent un délai de mise en œuvre supérieur à celui de l’offre Essentiel. Ce délai dépend des caractéristiques du ou des espaces de travail et peut s’avérer conséquent et doit être anticipé par le Fournisseur de données. Ce délai est communiqué par l’IGN au moment de la contractualisation.</p>
+<p>S’agissant des seuils relatifs au volume de données hébergées ainsi qu’au nombre de couches de données autorisées, ces seuils sont paramétrés dans la Géoplateforme et entraînent un blocage de la capacité de publication lorsqu’ils sont atteints. Lorsqu’un Fournisseur de données est confronté à ce blocage, il peut contacter l’IGN à l’adresse <a href="mailto:geoplateforme@ign.fr">geoplateforme@ign.fr</a> afin de définir les conditions de son passage à l’offre Premium.</p>
+<div class="fr-table fr-table--bordered fr-table--no-scroll" data-fr-js-table="true" data-fr-js-table-actionee="true" style="--table-offset: 0;">
+    <div class="fr-table__wrapper" data-fr-js-table-wrapper="true" style="--table-offset: calc(64px + 1rem);">
+        <div class="fr-table__container">
+            <div class="fr-table__content">
+                <table>
+                    <caption data-fr-js-table-caption="true">Offre Géoplateforme pour l’hébergement, la gestion collaborative et la diffusion de données</caption>
+                    <thead>
+                        <tr>
+                            <th scope="col">
+                                <span class="fr-sr-only">Propriétés de l’offre</span>
+                            </th>
+                            <th scope="col"><strong>Découverte</strong><br>Gratuit<br><em>Compte utilisateur</em>
+                            </th>
+                            <th scope="col"><strong>Essentiel</strong><br>Gratuit<br><em>1 souscription par organisme</em></th>
+                            <th scope="col"><strong>Premium</strong><br>Payant<br><em>1 souscription par organisme</em></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr data-fr-js-table-row="true">
+                            <th scope="row">Dépôt de données et paramétrage de la diffusion</th>
+                            <td><strong>Espace partagé</strong><br>Suppression trimestrielle des données</td>
+                            <td><strong>Espace dédié</strong><br>1 datastore</td>
+                            <td><strong>Espace dédié</strong><br>plusieurs datastore</td>
+                        </tr>
+                        <tr data-fr-js-table-row="true">
+                            <th scope="row">Limite de dépôt de données</th>
+                            <td>100 Go</td>
+                            <td><strong>500 Go</strong> dont&nbsp;:
+                                <li>50 Go livraisons</li>
+                                <li>30 Go bases de données</li>
+                                <li>400 Go pyramides</li>
+                                <li>10 Go archives</li>
+                                <li>10 Go annexes</li>
+                            </td>
+                            <td><strong>20 To</strong> dont&nbsp;:
+                                <ul>
+                                    <li>1 To livraisons</li>
+                                    <li>200 Go bases de données (si ce volume est insuffisant, nous vous invitons à contacter l’IGN afin d’échanger sur votre besoin)</li>
+                                    <li>17 To pyramides</li>
+                                    <li>1 To archives</li>
+                                    <li>1 To annexes</li>
+                                </ul>
+                            </td>
+                        </tr>
+                        <tr data-fr-js-table-row="true">
+                            <th scope="row">Nombre de couches de données max</th>
+                            <td>20</td>
+                            <td>50</td>
+                            <td>Un quota est initié par défaut et modifiable à la hausse en fonction du besoin</td>
+                        </tr>
+                        <tr data-fr-js-table-row="true">
+                            <th scope="row">Limite de consommation des données exposées</th>
+                            <td>NA</td>
+                            <td>1 To</td>
+                            <td>Tarif par palier de consommation</td>
+                        </tr>
+                        <tr data-fr-js-table-row="true">
+                            <th scope="row">Accès aux endpoints privés de diffusion</th>
+                            <td>non</td>
+                            <td>oui</td>
+                            <td>oui</td>
+                        </tr>
+                        <tr data-fr-js-table-row="true">
+                            <th scope="row">Administration d’une communauté de contributeurs </th>
+                            <td>non</td>
+                            <td>oui</td>
+                            <td>oui</td>
+                        </tr>
+                        <tr data-fr-js-table-row="true">
+                            <th scope="row">Possible contribution à des communautés existantes </th>
+                            <td>oui</td>
+                            <td>oui</td>
+                            <td>oui</td>
+                        </tr>
+                        <tr data-fr-js-table-row="true">
+                            <th scope="row">Stats d’usage des données</th>
+                            <td>oui</td>
+                            <td>oui</td>
+                            <td>oui</td>
+                        </tr>
+                        <tr data-fr-js-table-row="true">
+                            <th scope="row">Support</th>
+                            <td>Mail de contact</td>
+                            <td>Mail de contact</td>
+                            <td>Formation et accompagnement à la prise en main des outils</td>
+                        </tr>
+                        <tr data-fr-js-table-row="true">
+                            <th scope="row">Participation aux instances de gouvernance</th>
+                            <td>non</td>
+                            <td>non</td>
+                            <td>oui</td>
+                        </tr>
+                        <tr data-fr-js-table-row="true">
+                            <th scope="row">Participation aux Géoplateforme days</th>
+                            <td>non</td>
+                            <td>oui</td>
+                            <td>oui</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+<div class="fr-table fr-table--bordered fr-table--no-scroll" data-fr-js-table="true" data-fr-js-table-actionee="true" style="--table-offset: 0;">
+    <div class="fr-table__wrapper" data-fr-js-table-wrapper="true" style="--table-offset: calc(32px + 1rem);">
+        <div class="fr-table__container">
+            <div class="fr-table__content">
+                <table>
+                    <caption data-fr-js-table-caption="true">Premium, tarifs / an</caption>
+                    <thead>
+                        <tr>
+                            <th scope="col">
+                                <span class="fr-sr-only">Propriétés de l’offre</span>
+                            </th>
+                            <th scope="col">10 k€</th>
+                            <th scope="col">25 k€</th>
+                            <th scope="col">50 k€</th>
+                            <th scope="col">100 k€</th>
+                            <th scope="col">200 k€</th>
+                            <th scope="col">Au-delà</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr data-fr-js-table-row="true">
+                            <th scope="row">Limite de dépôt de données</th>
+                            <td colspan="5"><strong>20 To</strong> dont&nbsp;:
+                                <ul>
+                                    <li>1 To pour les livraisons de données</li>
+                                    <li>200 Go pour les bases de données</li>
+                                    <li>17 To pour les pyramides</li>
+                                    <li>1 To pour les archives téléchargeables</li>
+                                    <li>1 To pour les annexes</li>
+                                </ul>
+                            </td>
+                            <td>1,5 k€/To supp</td>
+                        </tr>
+                        <tr data-fr-js-table-row="true">
+                            <th scope="row">Limite de consommation des données exposées</th>
+                            <td>3 To</td>
+                            <td>8 To</td>
+                            <td>20 To</td>
+                            <td>50 To</td>
+                            <td>120 To</td>
+                            <td>1,5 k€/To supp</td>
+                        </tr>
+                        <tr data-fr-js-table-row="true">
+                            <th scope="row">Support</th>
+                            <td colspan="6">10 jours d’appui par le support Géoplateforme peuvent être mobilisés pour aide à la prise en main des outils. Au-delà une option sera activable pour bénéficier d’un support étendu.</td>
+                        </tr>
+                        <tr data-fr-js-table-row="true">
+                            <th scope="row">Instances de gouvernance</th>
+                            <td colspan="6">Participation aux GéoplateformeDays et aux instances de gouvernance en cours de définition</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+<hr>
+<h2 id="annexe-3-accord-de-niveau-de-service" tabindex="-1">Annexe 3 : Accord de niveau de service <a class="header-anchor" href="#annexe-3-accord-de-niveau-de-service">#</a></h2>
+<h3 id="article-1-objet-et-portee-du-sla" tabindex="-1">Article 1 : Objet et portée du SLA <a class="header-anchor" href="#article-1-objet-et-portee-du-sla">#</a></h3>
+<p>L’objectif du présent accord de niveau de service (ou service level agreement, ci-après « SLA ») est dedéfinir les paramètres de référence applicables aux API (<a href="#annexe-1-liste-des-api-de-la-geoplateforme">Annexe 1</a>) et le contrôledu niveau de qualité effectivement fourni.</p>
+<h3 id="article-2-definitions-et-perimetre-du-sla" tabindex="-1">Article 2 : Définitions et périmètre du SLA <a class="header-anchor" href="#article-2-definitions-et-perimetre-du-sla">#</a></h3>
+<p>Dans le SLA, les termes suivants, lorsque leur première lettre est employée en majuscule, ont lessignifications respectives suivantes&nbsp;:</p>
+<h4 id="article-2-1-incidents" tabindex="-1">Article 2.1 : Incidents <a class="header-anchor" href="#article-2-1-incidents">#</a></h4>
+<p>Les incidents faisant l’objet du SLA sont ceux bloquant l’utilisation d’une API.</p>
+<p>Les autres incidents ne sont pas concernés par ce SLA.</p>
+<h4 id="article-2-2-periode-d-indisponibilite" tabindex="-1">Article 2.2 : Période d’indisponibilité <a class="header-anchor" href="#article-2-2-periode-d-indisponibilite">#</a></h4>
+<p>La Période d’indisponibilité signifie une durée d’indisponibilité de dix minutes consécutives à compter del’évènement bloquant pour toute API couverte individuellement. Les temps d’arrêt intermittents d’une duréeinférieure à dix minutes, pour toute API couverte individuellement, ne seront pas comptabilisés.</p>
+<p>Les Périodes d’indisponibilité qui surviennent pour une API couverte individuellement ne s’appliquent pas auxautres Périodes d’indisponibilité de l’API couverte.</p>
+<p>La tolérance aux Incidents s’applique pour chaque API individuellement.</p>
+<p>Sont exclues des présentes garanties de disponibilité et de rétablissement les situations suivantes&nbsp;:</p>
+<ul>
+    <li> les indisponibilités programmées&nbsp;;</li>
+    <li>les indisponibilités résultant du dépassement d’un plafond technique de chaque offre&nbsp;;</li>
+    <li>les indisponibilités du fait de l’Utilisateur Géoplateforme ou d’un tiers&nbsp;;</li>
+    <li>les indisponibilités résultant d’une situation de force majeure ou d’un événement extérieur hors du contrôle direct de l’IGN.</li>
+</ul>
+<h4 id="article-2-3-pourcentage-de-disponibilite-mensuelle" tabindex="-1">Article 2.3 : Pourcentage de disponibilité mensuelle <a class="header-anchor" href="#article-2-3-pourcentage-de-disponibilite-mensuelle">#</a></h4>
+<p>Le pourcentage de disponibilité mensuelle est calculé sur la base du nombre total de minutes dans le moiscivil concerné, moins le nombre de minutes de temps d’indisponibilité dû à toutes les Périodes d’indisponibilitédudit mois civil, divisé par le nombre total de minutes dudit mois civil, soit selon la formule ci-dessous&nbsp:</p>
+<ul>
+    <li>P = pourcentage de disponibilité mensuelle </li>
+    <li>N = nombre total de minutes dans un mois civil</li>
+    <li>I = nombre de minutes de temps d’indisponibilité sur ledit mois civil</li>
+    <li>P = (N - I) / N</li>
+</ul>
+<h4 id="article-2-4-sondes-de-reference" tabindex="-1">Article 2.4 : Sondes de référence <a class="header-anchor" href="#article-2-4-sondes-de-reference">#</a></h4>
+<p>Les mesures de temps de fonctionnement de référence sont réalisées au moyen de l’outil Uptrends.</p>
+<p>La disponibilité des API est consultable sur <a href="/niveau-de-service">Niveau de service | cartes.gouv.fr<a>.</a></a></p>
+<h3 id="article-3-engagement-de-service-relatif-au-fonctionnement" tabindex="-1">Article 3 : Engagement de service relatif au fonctionnement <a class="header-anchor" href="#article-3-engagement-de-service-relatif-au-fonctionnement">#</a></h3>
+<h4 id="article-3-1-engagement-de-disponibilite" tabindex="-1">Article 3.1 : Engagement de disponibilité <a class="header-anchor" href="#article-3-1-engagement-de-disponibilite">#</a></h4>
+<p>L’IGN s’engage à assurer les niveaux de disponibilité figurant ci-dessous.</p>
+<p>Dans l’hypothèse où un niveau de service ne serait pas atteint, l’IGN s’engage à limiter au maximuml’indisponibilité.</p>
+<p>Une indisponibilité ne saurait ouvrir droit à aucune compensation quelle qu’en soit sa nature.</p>
+<p>Les indisponibilités liées à une maintenance programmée font l’objet d’un délai de prévenance minimum&nbsp;: </p><p>
+</p><ul>
+    <li>de 20 jours ouvrés pour une maintenance avec interruption&nbsp;;</li>
+    <li>de 10 jours ouvrés pour une maintenance évolutive de grande envergure sans interruption, sauf en cas de force majeure.</li>
+</ul>
+<div class="fr-table fr-table--bordered fr-table--no-scroll fr-table--sm" data-fr-js-table="true" data-fr-js-table-actionee="true" style="--table-offset: 0;">
+    <div class="fr-table__wrapper" data-fr-js-table-wrapper="true" style="--table-offset: calc(32px + 1rem);">
+        <div class="fr-table__container">
+            <div class="fr-table__content">
+                <table>
+                    <caption data-fr-js-table-caption="true">Engagements de disponibilité</caption>
+                    <thead>
+                        <tr>
+                            <th scope="col">API</th>
+                            <th scope="col">Période de disponibilité garantie</th>
+                            <th scope="col">Taux de disponibilité de référence</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr data-fr-js-table-row="true">
+                            <td>API Géoplateforme - Alimentation, traitement et publication</td>
+                            <td rowspan="36">24 heures sur 24, 7 jours sur 7</td>
+                            <td rowspan="36">99,50% sur une base annuelle</td>
+                        </tr>
+                        <tr data-fr-js-table-row="true">
+                            <td>API Géoplateforme - Diffusion d’images tuilées WMTS</td>
+                        </tr>
+                        <tr data-fr-js-table-row="true">
+                            <td>API Géoplateforme - Diffusion d’images tuilées WMTS - Privé</td>
+                        </tr>
+                        <tr data-fr-js-table-row="true">
+                            <td>API Géoplateforme - Diffusion d’images tuilées WMTS - Bac à sable</td>
+                        </tr>
+                        <tr data-fr-js-table-row="true">
+                            <td>API Géoplateforme - Diffusion de tuiles vectorielles TMS</td>
+                        </tr>
+                        <tr data-fr-js-table-row="true">
+                            <td>API Géoplateforme - Diffusion de tuiles vectorielles TMS - Privé</td>
+                        </tr>
+                        <tr data-fr-js-table-row="true">
+                            <td>API Géoplateforme - Diffusion de tuiles vectorielles TMS - Bac à sable</td>
+                        </tr>
+                        <tr data-fr-js-table-row="true">
+                            <td>API Géoplateforme - Diffusion d’images WMS-Raster</td>
+                        </tr>
+                        <tr data-fr-js-table-row="true">
+                            <td>API Géoplateforme - Diffusion d’images WMS-Raster - Privé</td>
+                        </tr>
+                        <tr data-fr-js-table-row="true">
+                            <td>API Géoplateforme - Diffusion d’images WMS-Raster - Bac à sable</td>
+                        </tr>
+                        <tr data-fr-js-table-row="true">
+                            <td>API Géoplateforme - Diffusion d’images WMS-Vecteur</td>
+                        </tr>
+                        <tr data-fr-js-table-row="true">
+                            <td>API Géoplateforme - Diffusion d’images WMS-Vecteur - Privé</td>
+                        </tr>
+                        <tr data-fr-js-table-row="true">
+                            <td>API Géoplateforme - Diffusion d’images WMS-Vecteur - Bac à sable</td>
+                        </tr>
+                        <tr data-fr-js-table-row="true">
+                            <td>API Géoplateforme - Diffusion d’objets WFS</td>
+                        </tr>
+                        <tr data-fr-js-table-row="true">
+                            <td>API Géoplateforme - Diffusion d’objets WFS - Privé</td>
+                        </tr>
+                        <tr data-fr-js-table-row="true">
+                            <td>API Géoplateforme - Diffusion d’objets WFS - Bac à sable</td>
+                        </tr>
+                        <tr data-fr-js-table-row="true">
+                            <td>API Géoplateforme - Téléchargement</td>
+                        </tr>
+                        <tr data-fr-js-table-row="true">
+                            <td>API Géoplateforme - Téléchargement - Privé</td>
+                        </tr>
+                        <tr data-fr-js-table-row="true">
+                            <td>API Géoplateforme - Téléchargement - Bac à sable</td>
+                        </tr>
+                        <tr data-fr-js-table-row="true">
+                            <td>API Géoplateforme - Téléchargement partiel</td>
+                        </tr>
+                        <tr data-fr-js-table-row="true">
+                            <td>API Géoplateforme - Découverte des métadonnées CSW</td>
+                        </tr>
+                        <tr data-fr-js-table-row="true">
+                            <td>API Géoplateforme - Découverte des métadonnées CSW - Bac à sable</td>
+                        </tr>
+                        <tr data-fr-js-table-row="true">
+                            <td>API Géoplateforme - Géocodage</td>
+                        </tr>
+                        <tr data-fr-js-table-row="true">
+                            <td>API Géoplateforme - Autocomplétion</td>
+                        </tr>
+                        <tr data-fr-js-table-row="true">
+                            <td>API Géoplateforme - Calcul altimétrique</td>
+                        </tr>
+                        <tr data-fr-js-table-row="true">
+                            <td>API Géoplateforme - Calcul altimétrique - Privé</td>
+                        </tr>
+                        <tr data-fr-js-table-row="true">
+                            <td>API Géoplateforme - Calcul d’itinéraire</td>
+                        </tr>
+                        <tr data-fr-js-table-row="true">
+                            <td>API Géoplateforme - Calcul d’itinéraire - Privé</td>
+                        </tr>
+                        <tr data-fr-js-table-row="true">
+                            <td>API Géoplateforme - Calcul d’isochrone/isodistance</td>
+                        </tr>
+                        <tr data-fr-js-table-row="true">
+                            <td>API Géoplateforme - Calcul d’isochrone/isodistance - Privé</td>
+                        </tr>
+                        <tr data-fr-js-table-row="true">
+                            <td>API Géoplateforme - Recherche</td>
+                        </tr>
+                        <tr data-fr-js-table-row="true">
+                            <td>API Géoplateforme - Recherche - Privé</td>
+                        </tr>
+                        <tr data-fr-js-table-row="true">
+                            <td>API Géoplateforme - Gestion des identités et des accès</td>
+                        </tr>
+                        <tr data-fr-js-table-row="true">
+                            <td>API Géoplateforme - Statistiques d’utilisation</td>
+                        </tr>
+                        <tr data-fr-js-table-row="true">
+                            <td>API Géoplateforme - Diffusion de tuiles vectorielles pg_tileserv</td>
+                        </tr>
+                        <tr data-fr-js-table-row="true">
+                            <td>API Géoplateforme - Diffusion de tuiles vectorielles pg_tileserv - Bac à sable</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+<h4 id="article-3-2-limite-d-usage-fair-use" tabindex="-1">Article 3.2 : Limite d’usage (Fair use) <a class="header-anchor" href="#article-3-2-limite-d-usage-fair-use">#</a></h4>
+<p>Pour certaines API, une limite d’usage fixée en nombre de requêtes par seconde et par IP est mise en place.</p>
+<p>Au-delà de cette limite, une erreur HTML 429 (Too Many Requests) est envoyée en réponse à toute requête. Ceblocage intervient pour une durée de 5 secondes et il ne concerne que l’API dont la limite d’usage a été franchie(si la limite du calcul altimétrique est dépassée, le WMTS reste accessible).</p>
+<p>Les limites sont les suivantes&nbsp;:</p>
+<div class="fr-table fr-table--bordered fr-table--no-scroll fr-table--sm" data-fr-js-table="true" data-fr-js-table-actionee="true" style="--table-offset: 0;">
+    <div class="fr-table__wrapper" data-fr-js-table-wrapper="true" style="--table-offset: calc(32px + 1rem);">
+        <div class="fr-table__container">
+            <div class="fr-table__content">
+                <table>
+                    <caption data-fr-js-table-caption="true">Limites d’usage</caption>
+                    <thead>
+                        <tr>
+                            <th scope="col">API</th>
+                            <th scope="col">Limite en nombre de requêtes par seconde et par IP</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr data-fr-js-table-row="true">
+                            <td>API Géoplateforme - Diffusion d’images tuilées WMTS</td>
+                            <td rowspan="3">Non soumis à limite d’usage</td>
+                        </tr>
+                        <tr data-fr-js-table-row="true">
+                            <td>API Géoplateforme - Diffusion d’images tuilées WMTS - Privé</td>
+                        </tr>
+                        <tr data-fr-js-table-row="true">
+                            <td>API Géoplateforme - Diffusion d’images tuilées WMTS - Bac à sable</td>
+                        </tr>
+                        <tr data-fr-js-table-row="true">
+                            <td>API Géoplateforme - Diffusion de tuiles vectorielles TMS</td>
+                            <td rowspan="3">400 requêtes/s</td>
+                        </tr>
+                        <tr data-fr-js-table-row="true">
+                            <td>API Géoplateforme - Diffusion de tuiles vectorielles TMS - Privé</td>
+                        </tr>
+                        <tr data-fr-js-table-row="true">
+                            <td>API Géoplateforme - Diffusion de tuiles vectorielles TMS - Bac à sable</td>
+                        </tr>
+                        <tr data-fr-js-table-row="true">
+                            <td>API Géoplateforme - Diffusion d’images WMS-Raster</td>
+                            <td rowspan="3">40 requêtes/s</td>
+                        </tr>
+                        <tr data-fr-js-table-row="true">
+                            <td>API Géoplateforme - Diffusion d’images WMS-Raster - Privé</td>
+                        </tr>
+                        <tr data-fr-js-table-row="true">
+                            <td>API Géoplateforme - Diffusion d’images WMS-Raster - Bac à sable</td>
+                        </tr>
+                        <tr data-fr-js-table-row="true">
+                            <td>API Géoplateforme - Diffusion d’images WMS-Vecteur</td>
+                            <td rowspan="3">50 requêtes/s</td>
+                        </tr>
+                        <tr data-fr-js-table-row="true">
+                            <td>API Géoplateforme - Diffusion d’images WMS-Vecteur - Privé</td>
+                        </tr>
+                        <tr data-fr-js-table-row="true">
+                            <td>API Géoplateforme - Diffusion d’images WMS-Vecteur - Bac à sable</td>
+                        </tr>
+                        <tr data-fr-js-table-row="true">
+                            <td>API Géoplateforme - Diffusion d’objets WFS</td>
+                            <td rowspan="3">30 requêtes/s</td>
+                        </tr>
+                        <tr data-fr-js-table-row="true">
+                            <td>API Géoplateforme - Diffusion d’objets WFS - Privé</td>
+                        </tr>
+                        <tr data-fr-js-table-row="true">
+                            <td>API Géoplateforme - Diffusion d’objets WFS - Bac à sable</td>
+                        </tr>
+                        <tr data-fr-js-table-row="true">
+                            <td>API Géoplateforme - Téléchargement</td>
+                            <td rowspan="3">5 requêtes/5s avec bannissement de 5 minutes</td>
+                        </tr>
+                        <tr data-fr-js-table-row="true">
+                            <td>API Géoplateforme - Téléchargement - Privé</td>
+                        </tr>
+                        <tr data-fr-js-table-row="true">
+                            <td>API Géoplateforme - Téléchargement - Bac à sable</td>
+                        </tr>
+                        <tr data-fr-js-table-row="true">
+                            <td>API Géoplateforme - Téléchargement partiel</td>
+                            <td>200 requêtes/s</td>
+                        </tr>
+                        <tr data-fr-js-table-row="true">
+                            <td>API Géoplateforme - Découverte des métadonnées CSW</td>
+                            <td rowspan="2">15 requêtes/s</td>
+                        </tr>
+                        <tr data-fr-js-table-row="true">
+                            <td>API Géoplateforme - Découverte des métadonnées CSW - Bac à sable</td>
+                        </tr>
+                        <tr data-fr-js-table-row="true">
+                            <td>API Géoplateforme - Géocodage</td>
+                            <td>50 requêtes/s</td>
+                        </tr>
+                        <tr data-fr-js-table-row="true">
+                            <td>API Géoplateforme - Autocomplétion</td>
+                            <td>10 requêtes/s</td>
+                        </tr>
+                        <tr data-fr-js-table-row="true">
+                            <td>API Géoplateforme - Calcul altimétrique</td>
+                            <td rowspan="2">5 requêtes/s</td>
+                        </tr>
+                        <tr data-fr-js-table-row="true">
+                            <td>API Géoplateforme - Calcul altimétrique - Privé</td>
+                        </tr>
+                        <tr data-fr-js-table-row="true">
+                            <td>API Géoplateforme - Calcul d’itinéraire</td>
+                            <td rowspan="2">10 requêtes/s</td>
+                        </tr>
+                        <tr data-fr-js-table-row="true">
+                            <td>API Géoplateforme - Calcul d’itinéraire - Privé</td>
+                        </tr>
+                        <tr data-fr-js-table-row="true">
+                            <td>API Géoplateforme - Calcul d’isochrone/isodistance</td>
+                            <td rowspan="2">5 requêtes/s</td>
+                        </tr>
+                        <tr data-fr-js-table-row="true">
+                            <td>API Géoplateforme - Calcul d’isochrone/isodistance - Privé</td>
+                        </tr>
+                        <tr data-fr-js-table-row="true">
+                            <td>API Géoplateforme - Recherche</td>
+                            <td rowspan="2">10 requêtes/s</td>
+                        </tr>
+                        <tr data-fr-js-table-row="true">
+                            <td>API Géoplateforme - Recherche - Privé</td>
+                        </tr>
+                        <tr data-fr-js-table-row="true">
+                            <td>API Géoplateforme - Diffusion de tuiles vectorielles pg_tileserv</td>
+                            <td rowspan="2">400 requêtes/s</td>
+                        </tr>
+                        <tr data-fr-js-table-row="true">
+                            <td>API Géoplateforme - Diffusion de tuiles vectorielles pg_tileserv - Bac à sable </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+</div>
+      </div>
+    </div>
+  </div>
+</div>
+</main>
+
+<div class="fr-follow" role="banner">
+    <div class="fr-container">
+        <div class="fr-grid-row">
+            <div class="fr-col-12 fr-col-md-6">
+                <div class="fr-follow__newsletter">
+                    <div>
+                        <h2 class="fr-h5">Inscrivez-vous à notre lettre d’information</h2>
+                        <p class="fr-text--sm">Retrouvez toutes les actualités directement par courriel chaque trimestre.</p>
+                    </div>
+                    <div>
+                        <a href="/lettre-d-information" class="fr-btn" id="newsletter-registration">S’inscrire</a>
+                    </div>
+                </div>
+            </div>
+            <div class="fr-col-12 fr-col-md-6">
+                <div class="fr-follow__newsletter">
+                    <h2 class="fr-h5">Communauté</h2>
+                    <p class="fr-text--sm">Rejoignez la communauté Géoplateforme - cartes.gouv.fr pour suivre les actualités et échanger avec les membres.</p>
+                    <a href="https://www.expertises-territoires.fr/jcms/pl1_557493/fr/communaute-geoplateforme-et-cartes-gouv" title="www.expertises-territoires.fr - ouvre une nouvelle fenêtre" rel="noopener external" target="_blank" class="fr-link">
+                        Rejoindre la communauté
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+<footer class="fr-footer" role="contentinfo" id="footer">
+    <div class="fr-container">
+        <div class="fr-footer__body">
+            <div class="fr-footer__brand fr-enlarge-link">
+                <a href="/" title="home - Notre territoire commun - cartes.gouv.fr">
+                    <p class="fr-logo">
+                        République
+                        <br>
+                        française
+                    </p>
+                </a>
+            </div>
+            <div class="fr-footer__content">
+                <p class="fr-footer__content-desc">Cartes.gouv.fr est le service public des cartes et données du territoire français. Porté par l’IGN et ses partenaires, il offre à tous un accès à la référence de la cartographie publique et permet à chacun de créer, d’héberger et de publier ses propres données et représentations.</p>
+                <ul class="fr-footer__content-list">
+                    <li class="fr-footer__content-item">
+                        <a class="fr-footer__content-link" target="_blank" rel="noopener external" title="info.gouv.fr - ouvre une nouvelle fenêtre" href="https://info.gouv.fr">info.gouv.fr</a>
+                    </li>
+                    <li class="fr-footer__content-item">
+                        <a class="fr-footer__content-link" target="_blank" rel="noopener external" title="service-public.gouv.fr - ouvre une nouvelle fenêtre" href="https://service-public.gouv.fr">service-public.gouv.fr</a>
+                    </li>
+                    <li class="fr-footer__content-item">
+                        <a class="fr-footer__content-link" target="_blank" rel="noopener external" title="legifrance.gouv.fr - ouvre une nouvelle fenêtre" href="https://legifrance.gouv.fr">legifrance.gouv.fr</a>
+                    </li>
+                    <li class="fr-footer__content-item">
+                        <a class="fr-footer__content-link" target="_blank" rel="noopener external" title="data.gouv.fr - ouvre une nouvelle fenêtre" href="https://data.gouv.fr">data.gouv.fr</a>
+                    </li>
+                </ul>
+            </div>
+        </div>
+        <div class="fr-footer__partners">
+            <h2 class="fr-footer__partners-title">Nos partenaires</h2>
+            <div class="fr-footer__partners-logos">
+                <div class="fr-footer__partners-main">
+                        <a href="https://www.ign.fr" class="fr-footer__partners-link fr-raw-link" data-fr-js-footer-link-actionee="true"><img alt="IGN" srcset="/img/footer/partenaires/ign.png" style="height: 5.625rem;" class="fr-footer__logo"></a>
+                    </div>
+                <div class="fr-footer__partners-sub"> 
+                    <ul>
+                        <li>
+                            <a href="https://www.transformation.gouv.fr/" class="fr-footer__partners-link fr-raw-link" data-fr-js-footer-link-actionee="true"><img alt="MINISTÈRE DE LA TRANSFORMATION ET DE LA FONCTION PUBLIQUES" srcset="/img/footer/partenaires/min_fp.jpg" style="height: 5.625rem;" class="fr-footer__logo"></a>
+                        </li>
+                        <li>
+                            <a href="https://www.ecologie.gouv.fr/" class="fr-footer__partners-link fr-raw-link" data-fr-js-footer-link-actionee="true"><img alt="MINISTÈRE DE LA TRANSITION ÉCOLOGIQUE ET DE LA COHÉSION DES TERRITOIRES" srcset="/img/footer/partenaires/min_ecologie.jpg" style="height: 5.625rem;" class="fr-footer__logo"></a>
+                        </li>
+                        <li>
+                            <a href="https://cnig.gouv.fr/" class="fr-footer__partners-link fr-raw-link" data-fr-js-footer-link-actionee="true"><img alt="Conseil National de l’Information Géolocalisée" srcset="/img/footer/partenaires/logo-rf-cnig.jpg" style="height: 5.625rem;" class="fr-footer__logo"></a>
+                        </li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+        <div class="fr-footer__bottom">
+            <ul class="fr-footer__bottom-list">
+                <li class="fr-footer__bottom-item">
+                    <a class="fr-footer__bottom-link" href="/plan-du-site/"> Plan du site</a>
+                </li>
+                <li class="fr-footer__bottom-item">
+                    <a class="fr-footer__bottom-link" href="/accessibilite"> Accessibilité : partiellement conforme</a>
+                </li>
+                <li class="fr-footer__bottom-item">
+                    <a class="fr-footer__bottom-link" href="/mentions-legales">Mentions légales</a>
+                </li>
+                <li class="fr-footer__bottom-item">
+                    <a class="fr-footer__bottom-link" href="/cgu">Conditions générales d’utilisation</a>
+                </li>
+                <li class="fr-footer__bottom-item">
+                    <a class="fr-footer__bottom-link" href="/donnees-personnelles">Données personnelles</a>
+                </li>
+                <li class="fr-footer__bottom-item">
+                    <button id="fr-consent-modal-control-button" aria-controls="fr-consent-modal" data-fr-opened="false" class="fr-footer__bottom-link" data-fr-js-modal-button="true" data-fr-js-footer-link-actionee="true">Gestion des cookies</button>
+                </li>
+                <li class="fr-footer__bottom-item">
+                    <button id="fr-theme-modal-control-button" class="fr-footer__bottom-link fr-fi-theme-fill fr-link--icon-left" aria-controls="fr-theme-modal" data-fr-opened="false">Paramètres d’affichage</button>
+                </li>
+            </ul>
+            <div class="fr-footer__bottom-copy">
+                <p>
+                    Sauf mention explicite de propriété intellectuelle détenue par des tiers, les contenus de ce site sont proposés sous <a href="https://github.com/etalab/licence-ouverte/blob/master/LO.md" target="_blank">licence etalab-2.0</a>
+                </p>
+            </div>
+        </div>
+    </div>
+</footer>
+<dialog id="fr-theme-modal" class="fr-modal" role="dialog" aria-labelledby="fr-theme-modal-title">
+  <div class="fr-container fr-container--fluid fr-container-md">
+    <div class="fr-grid-row fr-grid-row--center">
+      <div class="fr-col-12 fr-col-md-6 fr-col-lg-4">
+        <div class="fr-modal__body">
+          <div class="fr-modal__header">
+            <button class="fr-btn--close fr-btn" aria-controls="fr-theme-modal" title="Fermer">
+              Fermer
+            </button>
+          </div>
+          <div class="fr-modal__content">
+            <h1 id="fr-theme-modal-title" class="fr-modal__title"> Paramètres d’affichage </h1>
+            <div id="fr-display" class="fr-display">
+              <div class="fr-form-group">
+                <fieldset class="fr-fieldset">
+                  <legend class="fr-fieldset__legend fr-text--regular" id="-legend">
+                    Choisissez un thème pour personnaliser l’apparence du site.
+                  </legend>
+                  <div class="fr-fieldset__content">
+                    <div class="fr-radio-group fr-radio-rich">
+                      <input value="light" type="radio" id="fr-radios-theme-light" name="fr-radios-theme">
+                      <label class="fr-label" for="fr-radios-theme-light"> Thème clair </label>
+                      <div class="fr-radio-rich__img">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="fr-artwork" width="80px" height="80px" viewBox="0 0 80 80">
+                          <use class="fr-artwork-decorative" xlink:href="/artwork/light.svg#artwork-decorative"></use>
+                          <use class="fr-artwork-minor" xlink:href="/artwork/light.svg#artwork-minor"></use>
+                          <use class="fr-artwork-major" xlink:href="/artwork/light.svg#artwork-major"></use>
+                        </svg>
+                      </div>
+                    </div>
+                    <div class="fr-radio-group fr-radio-rich">
+                      <input value="dark" type="radio" id="fr-radios-theme-dark" name="fr-radios-theme">
+                      <label class="fr-label" for="fr-radios-theme-dark"> Thème sombre </label>
+                      <div class="fr-radio-rich__img">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="fr-artwork" width="80px" height="80px" viewBox="0 0 80 80">
+                          <use class="fr-artwork-decorative" xlink:href="/artwork/dark.svg#artwork-decorative"></use>
+                          <use class="fr-artwork-minor" xlink:href="/artwork/dark.svg#artwork-minor"></use>
+                          <use class="fr-artwork-major" xlink:href="/artwork/dark.svg#artwork-major"></use>
+                        </svg>
+                      </div>
+                    </div>
+                    <div class="fr-radio-group fr-radio-rich">
+                      <input value="system" type="radio" id="fr-radios-theme-system" name="fr-radios-theme">
+                      <label class="fr-label" for="fr-radios-theme-system">
+                        Système
+                        <span class="fr-hint-text">Utilise les paramètres système.</span>
+                      </label>
+                      <div class="fr-radio-rich__img">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="fr-artwork" width="80px" height="80px" viewBox="0 0 80 80">
+                          <use class="fr-artwork-decorative" xlink:href="/artwork/system.svg#artwork-decorative"></use>
+                          <use class="fr-artwork-minor" xlink:href="/artwork/system.svg#artwork-minor"></use>
+                          <use class="fr-artwork-major" xlink:href="/artwork/system.svg#artwork-major"></use>
+                        </svg>
+                      </div>
+                    </div>
+                  </div>
+                </fieldset>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</dialog>
+
+<dialog id="fr-consent-modal" class="fr-modal" role="dialog" aria-labelledby="fr-consent-modal-title">
+  <div class="fr-container fr-container--fluid fr-container-md">
+    <div class="fr-grid-row fr-grid-row--center">
+      <div class="fr-col-12 fr-col-md-10 fr-col-lg-8">
+        <div class="fr-modal__body fr-scroll-divider" data-fr-js-modal-body="true" style="--modal-max-height: 454px;">
+          <div class="fr-modal__header">
+            <button class="fr-btn--close fr-btn" title="Fermer" aria-controls="fr-consent-modal" type="button" data-fr-js-modal-button="true">Fermer</button>
+          </div>
+          <div class="fr-modal__content">
+            <h1 id="fr-modal-title-fr-consent-modal" class="fr-modal__title">Panneau de gestion des cookies</h1>
+            <div>
+              <div class="fr-consent-service fr-consent-manager__header">
+                <fieldset class="fr-fieldset fr-fieldset--inline">
+                  <legend class="fr-consent-service__title">Préférences pour tous les services.<br><a href="/donnees-personnelles#utilisation-des-cookies">Données personnelles et cookies</a></legend>
+                  <div class="fr-consent-service__radios">
+                    <div class="fr-btns-group fr-btns-group--inline fr-btns-group--right">
+                      <button id="fr-consent-modal-button-accept-all" title="Autoriser tous les cookies" class="fr-btn" data-fr-js-button-actionee="true">Tout accepter</button>
+                      <button id="fr-consent-modal-button-refuse-all" title="Refuser tous les cookies" class="fr-btn fr-btn--secondary" data-fr-js-button-actionee="true">Tout refuser</button>
+                    </div>
+                  </div>
+                </fieldset>
+              </div>
+              <div class="fr-consent-service">
+                <fieldset aria-labelledby="finality-mandatory-legend finality-mandatory-desc" role="group" class="fr-fieldset">
+                  <legend id="finality-mandatory-legend" class="fr-consent-service__title">Cookies obligatoires</legend>
+                  <div class="fr-consent-service__radios">
+                    <div class="fr-radio-group">
+                      <input type="radio" id="consent-finality-mandatory-accept" disabled="" checked="" data-fr-js-radio-actionee="true">
+                      <label class="fr-label" for="consent-finality-mandatory-accept">Accepter</label>
+                    </div>
+                    <div class="fr-radio-group">
+                      <input type="radio" id="consent-finality-mandatory-refuse" disabled="" data-fr-js-radio-actionee="true">
+                      <label class="fr-label" for="consent-finality-mandatory-refuse">Refuser</label>
+                    </div>
+                  </div>
+                  <p class="fr-consent-service__desc" id="finality-mandatory-desc">Ce site utilise des cookies nécessaires à son bon fonctionnement qui ne peuvent pas être désactivés.</p>
+                </fieldset>
+              </div>
+              <div class="fr-consent-service">
+                <fieldset aria-labelledby="finality-eulerian-legend finality-eulerian-desc" role="group" class="fr-fieldset">
+                  <legend id="finality-eulerian-legend" class="fr-consent-service__title">Eulerian Analytics</legend>
+                  <div class="fr-consent-service__radios">
+                    <div class="fr-radio-group">
+                      <input type="radio" id="consent-finality-eulerian-accept" checked="true" data-consent-key="eulerianAnalytics" data-fr-js-radio-actionee="true" name="consent-eulerian">
+                      <label class="fr-label" for="consent-finality-eulerian-accept">Accepter</label>
+                    </div>
+                    <div class="fr-radio-group">
+                      <input type="radio" id="consent-finality-eulerian-refuse" data-fr-js-radio-actionee="true" name="consent-eulerian">
+                      <label class="fr-label" for="consent-finality-eulerian-refuse">Refuser</label>
+                    </div>
+                  </div>
+                  <p class="fr-consent-service__desc" id="finality-eulerian-desc">En cliquant sur 'Accepter', vous consentez à l’utilisation des cookies pour nous aider à améliorer notre site web en collectant et en rapportant des informations sur votre utilisation grâce à Eulerian Analytics. Si vous n'êtes pas d’accord, veuillez cliquer sur 'Refuser'. Votre expérience de navigation ne sera pas affectée.</p>
+                </fieldset>
+              </div>
+              <ul class="fr-consent-manager__buttons fr-btns-group fr-btns-group--right fr-btns-group--inline-sm">
+                <li>
+                  <button id="fr-consent-modal-button-confirm" class="fr-btn" data-fr-js-button-actionee="true">Confirmer mes choix</button>
+                </li>
+              </ul>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</dialog>
+
+<!-- Current page: /cgu/ -->
+
+<script>
+      const SEARCH_RESULTS_URL = "/search-results/";
+  </script><!-- Script en version es6 module et nomodule pour les navigateurs le ne supportant pas -->
+<script type="module" src="/js/dsfr.module.min.js"></script>
+<script type="module" src="/js/analytics.module.min.js"></script>
+<script type="text/javascript" nomodule="" src="/js/dsfr.nomodule.min.js"></script>
+<script type="text/javascript" nomodule="" src="/js/analytics.nomodule.min.js"></script>
+<script type="text/javascript" src="/js/consent-manager.js"></script>
+</body>
+</html>

@@ -1,0 +1,2935 @@
+<?xml version='1.0' encoding="UTF-8" standalone="no" ?>
+<WMS_Capabilities version="1.3.0"  xmlns="http://www.opengis.net/wms"   xmlns:sld="http://www.opengis.net/sld"   xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"   xmlns:ms="http://mapserver.gis.umn.edu/mapserver"   xmlns:inspire_common="http://inspire.ec.europa.eu/schemas/common/1.0"   xmlns:inspire_vs="http://inspire.ec.europa.eu/schemas/inspire_vs/1.0"   xsi:schemaLocation="http://www.opengis.net/wms http://schemas.opengis.net/wms/1.3.0/capabilities_1_3_0.xsd  http://www.opengis.net/sld http://schemas.opengis.net/sld/1.1.0/sld_capabilities.xsd  http://inspire.ec.europa.eu/schemas/inspire_vs/1.0  https://inspire.ec.europa.eu/schemas/inspire_vs/1.0/inspire_vs.xsd http://mapserver.gis.umn.edu/mapserver https://service.geo.llv.li/mapserver/INSPIRE?language=eng&amp;service=WMS&amp;version=1.3.0&amp;request=GetSchemaExtension">
+<Service>
+  <Name>WMS</Name>
+  <Title>INSPIRE View Service</Title>
+  <Abstract>public INSPIRE-View Service of the Liechtensteinischen Administration</Abstract>
+  <KeywordList>
+      <Keyword vocabulary="ISO">infoMapAccessService</Keyword>
+  </KeywordList>
+  <OnlineResource xmlns:xlink="http://www.w3.org/1999/xlink" xlink:href="https://service.geo.llv.li/mapserver/INSPIRE?language=ger&amp;"/>
+  <ContactInformation>
+    <ContactPersonPrimary>
+      <ContactPerson>Peter Jehle</ContactPerson>
+      <ContactOrganization>Amt fuer Tiefbau und Geoinformation</ContactOrganization>
+    </ContactPersonPrimary>
+      <ContactPosition>owner</ContactPosition>
+    <ContactAddress>
+        <AddressType>postal</AddressType>
+        <Address>Staedtle 38</Address>
+        <City>Vaduz</City>
+        <StateOrProvince>FL</StateOrProvince>
+        <PostCode>9490</PostCode>
+        <Country>Liechtenstein</Country>
+    </ContactAddress>
+      <ContactVoiceTelephone>+423 236 68 55</ContactVoiceTelephone>
+      <ContactFacsimileTelephone> +423 236 60 79</ContactFacsimileTelephone>
+  <ContactElectronicMailAddress>peter.jehle@llv.li</ContactElectronicMailAddress>
+  </ContactInformation>
+  <Fees>no fees apply</Fees>
+  <AccessConstraints>no conditions apply</AccessConstraints>
+  <MaxWidth>4000</MaxWidth>
+  <MaxHeight>4000</MaxHeight>
+</Service>
+
+<Capability>
+  <Request>
+    <GetCapabilities>
+      <Format>text/xml</Format>
+      <DCPType>
+        <HTTP>
+          <Get><OnlineResource xmlns:xlink="http://www.w3.org/1999/xlink" xlink:href="https://service.geo.llv.li/mapserver/INSPIRE?language=eng&amp;"/></Get>
+          <Post><OnlineResource xmlns:xlink="http://www.w3.org/1999/xlink" xlink:href="https://service.geo.llv.li/mapserver/INSPIRE?language=eng&amp;"/></Post>
+        </HTTP>
+      </DCPType>
+    </GetCapabilities>
+    <GetMap>
+      <Format>image/png</Format>
+      <Format>image/jpeg</Format>
+      <Format>image/png; mode=8bit</Format>
+      <Format>image/vnd.jpeg-png</Format>
+      <Format>image/vnd.jpeg-png8</Format>
+      <Format>application/x-pdf</Format>
+      <Format>image/svg+xml</Format>
+      <Format>image/tiff</Format>
+      <Format>application/vnd.google-earth.kml+xml</Format>
+      <Format>application/vnd.google-earth.kmz</Format>
+      <Format>application/vnd.mapbox-vector-tile</Format>
+      <Format>application/x-protobuf</Format>
+      <Format>application/json</Format>
+      <DCPType>
+        <HTTP>
+          <Get><OnlineResource xmlns:xlink="http://www.w3.org/1999/xlink" xlink:href="https://service.geo.llv.li/mapserver/INSPIRE?language=eng&amp;"/></Get>
+          <Post><OnlineResource xmlns:xlink="http://www.w3.org/1999/xlink" xlink:href="https://service.geo.llv.li/mapserver/INSPIRE?language=eng&amp;"/></Post>
+        </HTTP>
+      </DCPType>
+    </GetMap>
+    <GetFeatureInfo>
+      <Format>text/html</Format>
+      <Format>application/vnd.ogc.gml</Format>
+      <Format>text/plain</Format>
+      <DCPType>
+        <HTTP>
+          <Get><OnlineResource xmlns:xlink="http://www.w3.org/1999/xlink" xlink:href="https://service.geo.llv.li/mapserver/INSPIRE?language=eng&amp;"/></Get>
+          <Post><OnlineResource xmlns:xlink="http://www.w3.org/1999/xlink" xlink:href="https://service.geo.llv.li/mapserver/INSPIRE?language=eng&amp;"/></Post>
+        </HTTP>
+      </DCPType>
+    </GetFeatureInfo>
+  </Request>
+  <Exception>
+    <Format>XML</Format>
+    <Format>INIMAGE</Format>
+    <Format>BLANK</Format>
+  </Exception>
+  <inspire_vs:ExtendedCapabilities>
+    <inspire_common:MetadataUrl xsi:type="inspire_common:resourceLocatorType">
+      <inspire_common:URL>https://www.geocat.ch/geonetwork/srv/ger/csw?service=CSW&amp;version=2.0.2&amp;request=GetRecordById&amp;elementSetName=full&amp;outputSchema=http://www.isotc211.org/2005/gmd&amp;id=3d30a6bb-5c63-45c3-af70-14fce814f1f7</inspire_common:URL>
+      <inspire_common:MediaType>application/vnd.ogc.csw.capabilities.response_xml</inspire_common:MediaType>
+    </inspire_common:MetadataUrl>
+    <inspire_common:SupportedLanguages>
+      <inspire_common:DefaultLanguage><inspire_common:Language>eng</inspire_common:Language></inspire_common:DefaultLanguage>
+      <inspire_common:SupportedLanguage><inspire_common:Language>ger</inspire_common:Language></inspire_common:SupportedLanguage>
+    </inspire_common:SupportedLanguages>
+    <inspire_common:ResponseLanguage><inspire_common:Language>eng</inspire_common:Language></inspire_common:ResponseLanguage>
+  </inspire_vs:ExtendedCapabilities>
+  <Layer queryable="1">
+    <Name>WMS</Name>
+    <Title>INSPIRE View Service Liechtenstein</Title>
+    <Abstract>public INSPIRE-View Service of the Liechtensteinischen Administration</Abstract>
+    <KeywordList>
+        <Keyword>territorial boundaries</Keyword>
+        <Keyword>orthophoto</Keyword>
+        <Keyword>maps</Keyword>
+        <Keyword>addresses</Keyword>
+        <Keyword>protected sites</Keyword>
+        <Keyword>real estate</Keyword>
+        <Keyword>landcover</Keyword>
+        <Keyword>landuse</Keyword>
+        <Keyword>statistical units</Keyword>
+    </KeywordList>
+    <CRS>EPSG:4326</CRS>
+    <CRS>EPSG:31297</CRS>
+    <CRS>EPSG:4258</CRS>
+    <CRS>EPSG:32632</CRS>
+    <CRS>EPSG:31467</CRS>
+    <CRS>EPSG:3785</CRS>
+    <CRS>EPSG:31254</CRS>
+    <CRS>EPSG:3035</CRS>
+    <CRS>EPSG:3034</CRS>
+    <CRS>EPSG:3044</CRS>
+    <CRS>CRS:84</CRS>
+    <CRS>EPSG:2056</CRS>
+    <CRS>EPSG:3857</CRS>
+    <EX_GeographicBoundingBox>
+        <westBoundLongitude>9.400000</westBoundLongitude>
+        <eastBoundLongitude>9.640000</eastBoundLongitude>
+        <southBoundLatitude>47.000000</southBoundLatitude>
+        <northBoundLatitude>47.290000</northBoundLatitude>
+    </EX_GeographicBoundingBox>
+    <BoundingBox CRS="EPSG:4326"
+                minx="47.000000" miny="9.400000" maxx="47.290000" maxy="9.640000" />
+    <BoundingBox CRS="EPSG:31297"
+                minx="351171" miny="101101" maxx="384188" maxy="120877" />
+    <BoundingBox CRS="EPSG:4258"
+                minx="47.000000" miny="9.400000" maxx="47.290000" maxy="9.640000" />
+    <BoundingBox CRS="EPSG:32632"
+                minx="530245" miny="5.20524e+06" maxx="548656" maxy="5.23759e+06" />
+    <BoundingBox CRS="EPSG:31467"
+                minx="5.20679e+06" miny="3.53027e+06" maxx="5.23925e+06" maxy="3.54867e+06" />
+    <BoundingBox CRS="EPSG:3785"
+                minx="1.0464e+06" miny="5.94207e+06" maxx="1.07312e+06" maxy="5.98954e+06" />
+    <BoundingBox CRS="EPSG:31254"
+                minx="206993" miny="-70976.8" maxx="239376" maxy="-52421.3" />
+    <BoundingBox CRS="EPSG:3035"
+                minx="2.65412e+06" miny="4.27533e+06" maxx="2.68645e+06" maxy="4.29375e+06" />
+    <BoundingBox CRS="EPSG:3034"
+                minx="2.26277e+06" miny="3.95584e+06" maxx="2.29408e+06" maxy="3.97366e+06" />
+    <BoundingBox CRS="EPSG:3044"
+                minx="5.20524e+06" miny="530245" maxx="5.23759e+06" maxy="548656" />
+    <BoundingBox CRS="CRS:84"
+                minx="9.400000" miny="47.000000" maxx="9.640000" maxy="47.290000" />
+    <BoundingBox CRS="EPSG:2056"
+                minx="2.74835e+06" miny="1.2073e+06" maxx="2.76741e+06" maxy="1.24001e+06" />
+    <BoundingBox CRS="EPSG:3857"
+                minx="1.0464e+06" miny="5.94207e+06" maxx="1.07312e+06" maxy="5.98954e+06" />
+    <Attribution>
+        <Title>Liechtensteinische Landesverwaltung, Amt fuer Tiefbau und Geoinformation</Title>
+        <OnlineResource xmlns:xlink="http://www.w3.org/1999/xlink" xlink:href="http://www.atg.llv.li"/>
+        <LogoURL width="160" height="116">
+             <Format>image/gif</Format>
+             <OnlineResource xmlns:xlink="http://www.w3.org/1999/xlink" xlink:type="simple" xlink:href="https://service.geo.llv.li/geoshopp/geoshop/img/logo-landesverwaltung1.gif"/>
+          </LogoURL>
+    </Attribution>
+    <AuthorityURL name="LI.ATG">
+      <OnlineResource xmlns:xlink="http://www.w3.org/1999/xlink" xlink:href="https://www.atg.llv.li"/>
+    </AuthorityURL>
+    <Identifier authority="LI.ATG">3d30a6bb-5c63-45c3-af70-14fce814f1f7</Identifier>
+    <MetadataURL type="ISO19115:2003">
+      <Format>text/xml;charset=UTF-8</Format>
+      <OnlineResource xmlns:xlink="http://www.w3.org/1999/xlink" xlink:type="simple" xlink:href="https://www.geocat.ch/geonetwork/srv/ger/csw?service=CSW&amp;version=2.0.2&amp;request=GetRecordById&amp;elementSetName=full&amp;outputSchema=http://www.isotc211.org/2005/gmd&amp;id=3d30a6bb-5c63-45c3-af70-14fce814f1f7"/>
+    </MetadataURL>
+    <Style>
+       <Name>inspire_common:DEFAULT</Name>
+       <Title>INSPIRE Default Style</Title>
+       <LegendURL width="255" height="1314">
+          <Format>image/png</Format>
+          <OnlineResource xmlns:xlink="http://www.w3.org/1999/xlink" xlink:type="simple" xlink:href="https://service.geo.llv.li/mapserver/INSPIRE?language=eng&amp;version=1.3.0&amp;service=WMS&amp;request=GetLegendGraphic&amp;sld_version=1.1.0&amp;layer=WMS&amp;format=image/png&amp;STYLE=inspire_common:DEFAULT"/>
+       </LegendURL>
+    </Style>
+    <Layer queryable="0" opaque="0" cascaded="0">
+      <Name>OI</Name>
+      <Title>Orthoimage</Title>
+      <Abstract>Orthoimage varias years</Abstract>
+      <KeywordList>
+          <Keyword>Orthoimage</Keyword>
+          <Keyword>Couverage</Keyword>
+          <Keyword>Luftbild</Keyword>
+          <Keyword>basemaps</Keyword>
+          <Keyword>inspire</Keyword>
+      </KeywordList>
+      <CRS>EPSG:4326</CRS>
+      <CRS>EPSG:31297</CRS>
+      <CRS>EPSG:4258</CRS>
+      <CRS>EPSG:32632</CRS>
+      <CRS>EPSG:31467</CRS>
+      <CRS>EPSG:3785</CRS>
+      <CRS>EPSG:31254</CRS>
+      <CRS>EPSG:3035</CRS>
+      <CRS>EPSG:3034</CRS>
+      <CRS>EPSG:3044</CRS>
+      <CRS>CRS:84</CRS>
+      <CRS>EPSG:2056</CRS>
+      <CRS>EPSG:3857</CRS>
+      <EX_GeographicBoundingBox>
+          <westBoundLongitude>9.442000</westBoundLongitude>
+          <eastBoundLongitude>9.660000</eastBoundLongitude>
+          <southBoundLatitude>47.015000</southBoundLatitude>
+          <northBoundLatitude>47.306000</northBoundLatitude>
+      </EX_GeographicBoundingBox>
+      <BoundingBox CRS="EPSG:4326"
+                  minx="47.015000" miny="9.442000" maxx="47.306000" maxy="9.660000" />
+      <BoundingBox CRS="EPSG:31297"
+                  minx="352764" miny="104373" maxx="385804" maxy="122472" />
+      <BoundingBox CRS="EPSG:4258"
+                  minx="47.015000" miny="9.442000" maxx="47.306000" maxy="9.660000" />
+      <BoundingBox CRS="EPSG:32632"
+                  minx="533411" miny="5.20693e+06" maxx="550163" maxy="5.23938e+06" />
+      <BoundingBox CRS="EPSG:31467"
+                  minx="5.20848e+06" miny="3.53344e+06" maxx="5.24104e+06" maxy="3.55018e+06" />
+      <BoundingBox CRS="EPSG:3785"
+                  minx="1.05108e+06" miny="5.94452e+06" maxx="1.07535e+06" maxy="5.99216e+06" />
+      <BoundingBox CRS="EPSG:31254"
+                  minx="208668" miny="-67763.9" maxx="241118" maxy="-50893.1" />
+      <BoundingBox CRS="EPSG:3035"
+                  minx="2.65578e+06" miny="4.27854e+06" maxx="2.6882e+06" maxy="4.29527e+06" />
+      <BoundingBox CRS="EPSG:3034"
+                  minx="2.26438e+06" miny="3.95894e+06" maxx="2.29578e+06" maxy="3.97513e+06" />
+      <BoundingBox CRS="EPSG:3044"
+                  minx="5.20693e+06" miny="533411" maxx="5.23938e+06" maxy="550163" />
+      <BoundingBox CRS="CRS:84"
+                  minx="9.442000" miny="47.015000" maxx="9.660000" maxy="47.306000" />
+      <BoundingBox CRS="EPSG:2056"
+                  minx="2.75148e+06" miny="1.20905e+06" maxx="2.76888e+06" maxy="1.24184e+06" />
+      <BoundingBox CRS="EPSG:3857"
+                  minx="1.05108e+06" miny="5.94452e+06" maxx="1.07535e+06" maxy="5.99216e+06" />
+      <Identifier authority="LI.ABI">2b02c693-1d51-4e67-b823-7a37eaefd1ee</Identifier>
+      <MetadataURL type="ISO19115:2003">
+        <Format>text/xml;charset=UTF-8</Format>
+        <OnlineResource xmlns:xlink="http://www.w3.org/1999/xlink" xlink:type="simple" xlink:href="https://www.geocat.ch/geonetwork/srv/ger/csw?service=CSW&amp;version=2.0.2&amp;request=GetRecordById&amp;elementSetName=full&amp;outputSchema=http://www.isotc211.org/2005/gmd&amp;id=2b02c693-1d51-4e67-b823-7a37eaefd1ee"/>
+      </MetadataURL>
+      <Layer queryable="0" opaque="0" cascaded="0">
+        <Name>OI.OrthoimageCoverage2015</Name>
+        <Title>orthoimage coverage 2015</Title>
+        <Abstract>Orthoimage 2015</Abstract>
+        <KeywordList>
+            <Keyword>Orthophoto</Keyword>
+            <Keyword>Mosaic</Keyword>
+            <Keyword>Areal View</Keyword>
+        </KeywordList>
+        <CRS>EPSG:4326</CRS>
+        <CRS>EPSG:31297</CRS>
+        <CRS>EPSG:4258</CRS>
+        <CRS>EPSG:32632</CRS>
+        <CRS>EPSG:31467</CRS>
+        <CRS>EPSG:3785</CRS>
+        <CRS>EPSG:31254</CRS>
+        <CRS>EPSG:3035</CRS>
+        <CRS>EPSG:3034</CRS>
+        <CRS>EPSG:3044</CRS>
+        <CRS>CRS:84</CRS>
+        <CRS>EPSG:2056</CRS>
+        <CRS>EPSG:3857</CRS>
+        <EX_GeographicBoundingBox>
+            <westBoundLongitude>9.442000</westBoundLongitude>
+            <eastBoundLongitude>9.660000</eastBoundLongitude>
+            <southBoundLatitude>47.015000</southBoundLatitude>
+            <northBoundLatitude>47.306000</northBoundLatitude>
+        </EX_GeographicBoundingBox>
+        <BoundingBox CRS="EPSG:4326"
+                    minx="47.015000" miny="9.442000" maxx="47.306000" maxy="9.660000" />
+        <BoundingBox CRS="EPSG:31297"
+                    minx="352764" miny="104373" maxx="385804" maxy="122472" />
+        <BoundingBox CRS="EPSG:4258"
+                    minx="47.015000" miny="9.442000" maxx="47.306000" maxy="9.660000" />
+        <BoundingBox CRS="EPSG:32632"
+                    minx="533411" miny="5.20693e+06" maxx="550163" maxy="5.23938e+06" />
+        <BoundingBox CRS="EPSG:31467"
+                    minx="5.20848e+06" miny="3.53344e+06" maxx="5.24104e+06" maxy="3.55018e+06" />
+        <BoundingBox CRS="EPSG:3785"
+                    minx="1.05108e+06" miny="5.94452e+06" maxx="1.07535e+06" maxy="5.99216e+06" />
+        <BoundingBox CRS="EPSG:31254"
+                    minx="208668" miny="-67763.9" maxx="241118" maxy="-50893.1" />
+        <BoundingBox CRS="EPSG:3035"
+                    minx="2.65578e+06" miny="4.27854e+06" maxx="2.6882e+06" maxy="4.29527e+06" />
+        <BoundingBox CRS="EPSG:3034"
+                    minx="2.26438e+06" miny="3.95894e+06" maxx="2.29578e+06" maxy="3.97513e+06" />
+        <BoundingBox CRS="EPSG:3044"
+                    minx="5.20693e+06" miny="533411" maxx="5.23938e+06" maxy="550163" />
+        <BoundingBox CRS="CRS:84"
+                    minx="9.442000" miny="47.015000" maxx="9.660000" maxy="47.306000" />
+        <BoundingBox CRS="EPSG:2056"
+                    minx="2.75148e+06" miny="1.20905e+06" maxx="2.76888e+06" maxy="1.24184e+06" />
+        <BoundingBox CRS="EPSG:3857"
+                    minx="1.05108e+06" miny="5.94452e+06" maxx="1.07535e+06" maxy="5.99216e+06" />
+        <Identifier authority="LI.ATG">9564bda8-83bb-4165-af7e-319e11a3d11d</Identifier>
+        <MetadataURL type="ISO19115:2003">
+          <Format>text/xml;charset=UTF-8</Format>
+          <OnlineResource xmlns:xlink="http://www.w3.org/1999/xlink" xlink:type="simple" xlink:href="https://www.geocat.ch/geonetwork/srv/ger/csw?service=CSW&amp;version=2.0.2&amp;request=GetRecordById&amp;elementSetName=full&amp;outputSchema=http://www.isotc211.org/2005/gmd&amp;id=9564bda8-83bb-4165-af7e-319e11a3d11d"/>
+        </MetadataURL>
+        <Style>
+          <Name>OI.OrthoimageCoverage.Default</Name>
+          <Title>INSPIRE OrthoimageCoverage Default Style</Title>
+          <LegendURL width="123" height="22">
+             <Format>image/png</Format>
+             <OnlineResource xmlns:xlink="http://www.w3.org/1999/xlink" xlink:type="simple" xlink:href="https://service.geo.llv.li/mapserver/INSPIRE?language=eng&amp;version=1.3.0&amp;service=WMS&amp;request=GetLegendGraphic&amp;sld_version=1.1.0&amp;layer=OI.OrthoimageCoverage2015&amp;format=image/png&amp;STYLE=OI.OrthoimageCoverage.Default"/>
+          </LegendURL>
+        </Style>
+      </Layer>
+      <Layer queryable="0" opaque="0" cascaded="0">
+        <Name>OI.OrthoimageCoverage2018</Name>
+        <Title>Orthoimage 2018</Title>
+        <Abstract>Orthoimage coverage 2018 10cm</Abstract>
+        <KeywordList>
+            <Keyword>Orthophoto</Keyword>
+            <Keyword>Mosaic</Keyword>
+            <Keyword>Areal Photograph</Keyword>
+        </KeywordList>
+        <CRS>EPSG:4326</CRS>
+        <CRS>EPSG:31297</CRS>
+        <CRS>EPSG:4258</CRS>
+        <CRS>EPSG:32632</CRS>
+        <CRS>EPSG:31467</CRS>
+        <CRS>EPSG:3785</CRS>
+        <CRS>EPSG:31254</CRS>
+        <CRS>EPSG:3035</CRS>
+        <CRS>EPSG:3034</CRS>
+        <CRS>EPSG:3044</CRS>
+        <CRS>CRS:84</CRS>
+        <CRS>EPSG:2056</CRS>
+        <CRS>EPSG:3857</CRS>
+        <EX_GeographicBoundingBox>
+            <westBoundLongitude>9.465972</westBoundLongitude>
+            <eastBoundLongitude>9.648618</eastBoundLongitude>
+            <southBoundLatitude>47.025812</southBoundLatitude>
+            <northBoundLatitude>47.312235</northBoundLatitude>
+        </EX_GeographicBoundingBox>
+        <BoundingBox CRS="EPSG:4326"
+                    minx="47.024502" miny="9.464708" maxx="47.310889" maxy="9.647319" />
+        <BoundingBox CRS="EPSG:31297"
+                    minx="353907" miny="106270" maxx="386366" maxy="121523" />
+        <BoundingBox CRS="EPSG:4258"
+                    minx="47.024502" miny="9.464708" maxx="47.310889" maxy="9.647319" />
+        <BoundingBox CRS="EPSG:32632"
+                    minx="535311" miny="5.20808e+06" maxx="548929" maxy="5.23982e+06" />
+        <BoundingBox CRS="EPSG:31467"
+                    minx="5.20978e+06" miny="3.53542e+06" maxx="5.24148e+06" maxy="3.54902e+06" />
+        <BoundingBox CRS="EPSG:3785"
+                    minx="1.05375e+06" miny="5.94629e+06" maxx="1.07408e+06" maxy="5.99319e+06" />
+        <BoundingBox CRS="EPSG:31254"
+                    minx="209741" miny="-65924.2" maxx="241781" maxy="-51850.3" />
+        <BoundingBox CRS="EPSG:3035"
+                    minx="2.65684e+06" miny="4.28027e+06" maxx="2.68873e+06" maxy="4.29431e+06" />
+        <BoundingBox CRS="EPSG:3034"
+                    minx="2.26541e+06" miny="3.96062e+06" maxx="2.29629e+06" maxy="3.9742e+06" />
+        <BoundingBox CRS="EPSG:3044"
+                    minx="5.20808e+06" miny="535311" maxx="5.23982e+06" maxy="548929" />
+        <BoundingBox CRS="CRS:84"
+                    minx="9.464708" miny="47.024502" maxx="9.647319" maxy="47.310889" />
+        <BoundingBox CRS="EPSG:2056"
+                    minx="2.754e+06" miny="1.2105e+06" maxx="2.767e+06" maxy="1.242e+06" />
+        <BoundingBox CRS="EPSG:3857"
+                    minx="1.05361e+06" miny="5.94607e+06" maxx="1.07393e+06" maxy="5.99297e+06" />
+        <Identifier authority="LI.ATG">f004e045-50b3-42d5-bd46-d11451faf416</Identifier>
+        <MetadataURL type="ISO19115:2003">
+          <Format>text/xml;charset=UTF-8</Format>
+          <OnlineResource xmlns:xlink="http://www.w3.org/1999/xlink" xlink:type="simple" xlink:href="https://www.geocat.ch/geonetwork/srv/ger/csw?service=CSW&amp;version=2.0.2&amp;request=GetRecordById&amp;elementSetName=full&amp;outputSchema=http://www.isotc211.org/2005/gmd&amp;id=f004e045-50b3-42d5-bd46-d11451faf416"/>
+        </MetadataURL>
+        <Style>
+          <Name>OI.OrthoimageCoverage.Default</Name>
+          <Title>INSPIRE OrthoimageCoverage2018 Default Style</Title>
+          <LegendURL width="123" height="22">
+             <Format>image/png</Format>
+             <OnlineResource xmlns:xlink="http://www.w3.org/1999/xlink" xlink:type="simple" xlink:href="https://service.geo.llv.li/mapserver/INSPIRE?language=eng&amp;version=1.3.0&amp;service=WMS&amp;request=GetLegendGraphic&amp;sld_version=1.1.0&amp;layer=OI.OrthoimageCoverage2018&amp;format=image/png&amp;STYLE=OI.OrthoimageCoverage.Default"/>
+          </LegendURL>
+        </Style>
+      </Layer>
+      <Layer queryable="0" opaque="0" cascaded="0">
+        <Name>OI.OrthoimageCoverage2022</Name>
+        <Title>Orthoimage 2022</Title>
+        <Abstract>Orthoimage coverage 2022 10cm</Abstract>
+        <CRS>EPSG:4326</CRS>
+        <CRS>EPSG:31297</CRS>
+        <CRS>EPSG:4258</CRS>
+        <CRS>EPSG:32632</CRS>
+        <CRS>EPSG:31467</CRS>
+        <CRS>EPSG:3785</CRS>
+        <CRS>EPSG:31254</CRS>
+        <CRS>EPSG:3035</CRS>
+        <CRS>EPSG:3034</CRS>
+        <CRS>EPSG:3044</CRS>
+        <CRS>CRS:84</CRS>
+        <CRS>EPSG:2056</CRS>
+        <CRS>EPSG:3857</CRS>
+        <EX_GeographicBoundingBox>
+            <westBoundLongitude>9.307507</westBoundLongitude>
+            <eastBoundLongitude>9.715488</eastBoundLongitude>
+            <southBoundLatitude>47.006548</southBoundLatitude>
+            <northBoundLatitude>47.332916</northBoundLatitude>
+        </EX_GeographicBoundingBox>
+        <BoundingBox CRS="EPSG:4326"
+                    minx="47.005241" miny="9.306268" maxx="47.331566" maxy="9.714178" />
+        <BoundingBox CRS="EPSG:31297"
+                    minx="351535" miny="94157.1" maxx="389265" maxy="126658" />
+        <BoundingBox CRS="EPSG:4258"
+                    minx="47.005241" miny="9.306268" maxx="47.331566" maxy="9.714178" />
+        <BoundingBox CRS="EPSG:32632"
+                    minx="523279" miny="5.20598e+06" maxx="553966" maxy="5.24206e+06" />
+        <BoundingBox CRS="EPSG:31467"
+                    minx="5.20768e+06" miny="3.52338e+06" maxx="5.24372e+06" maxy="3.55406e+06" />
+        <BoundingBox CRS="EPSG:3785"
+                    minx="1.03611e+06" miny="5.94314e+06" maxx="1.08152e+06" maxy="5.99658e+06" />
+        <BoundingBox CRS="EPSG:31254"
+                    minx="207557" miny="-77990.6" maxx="244224" maxy="-46779.6" />
+        <BoundingBox CRS="EPSG:3035"
+                    minx="2.65468e+06" miny="4.26821e+06" maxx="2.69112e+06" maxy="4.29938e+06" />
+        <BoundingBox CRS="EPSG:3034"
+                    minx="2.26332e+06" miny="3.94895e+06" maxx="2.29861e+06" maxy="3.9791e+06" />
+        <BoundingBox CRS="EPSG:3044"
+                    minx="5.20598e+06" miny="523279" maxx="5.24206e+06" maxy="553966" />
+        <BoundingBox CRS="CRS:84"
+                    minx="9.306268" miny="47.005241" maxx="9.714178" maxy="47.331566" />
+        <BoundingBox CRS="EPSG:2056"
+                    minx="2.742e+06" miny="1.2085e+06" maxx="2.772e+06" maxy="1.244e+06" />
+        <BoundingBox CRS="EPSG:3857"
+                    minx="1.03597e+06" miny="5.94293e+06" maxx="1.08138e+06" maxy="5.99636e+06" />
+        <Identifier authority="LI.ABI">e77da96f-bc1c-4317-8c2f-81310812c798</Identifier>
+        <MetadataURL type="ISO19115:2003">
+          <Format>text/xml;charset=UTF-8</Format>
+          <OnlineResource xmlns:xlink="http://www.w3.org/1999/xlink" xlink:type="simple" xlink:href="https://www.geocat.ch/geonetwork/srv/ger/csw?service=CSW&amp;version=2.0.2&amp;request=GetRecordById&amp;elementSetName=full&amp;outputSchema=http://www.isotc211.org/2005/gmd&amp;id=e77da96f-bc1c-4317-8c2f-81310812c798"/>
+        </MetadataURL>
+        <Style>
+          <Name>OI.OrthoimageCoverage.Default</Name>
+          <Title>INSPIRE OrthoimageCoverage2022 Default Style</Title>
+          <LegendURL width="123" height="22">
+             <Format>image/png</Format>
+             <OnlineResource xmlns:xlink="http://www.w3.org/1999/xlink" xlink:type="simple" xlink:href="https://service.geo.llv.li/mapserver/INSPIRE?language=eng&amp;version=1.3.0&amp;service=WMS&amp;request=GetLegendGraphic&amp;sld_version=1.1.0&amp;layer=OI.OrthoimageCoverage2022&amp;format=image/png&amp;STYLE=OI.OrthoimageCoverage.Default"/>
+          </LegendURL>
+        </Style>
+      </Layer>
+    </Layer>
+    <Layer queryable="0" opaque="0" cascaded="0">
+      <Name>BASEMAPS</Name>
+      <Title>Basemaps</Title>
+      <Abstract>Basemaps, Topografic maps</Abstract>
+      <KeywordList>
+          <Keyword>Topographische Karte</Keyword>
+          <Keyword> Pixelkarte</Keyword>
+          <Keyword> Karte</Keyword>
+          <Keyword>basemap</Keyword>
+          <Keyword>inspire</Keyword>
+      </KeywordList>
+      <CRS>EPSG:4326</CRS>
+      <CRS>EPSG:31297</CRS>
+      <CRS>EPSG:4258</CRS>
+      <CRS>EPSG:32632</CRS>
+      <CRS>EPSG:31467</CRS>
+      <CRS>EPSG:3785</CRS>
+      <CRS>EPSG:31254</CRS>
+      <CRS>EPSG:3035</CRS>
+      <CRS>EPSG:3034</CRS>
+      <CRS>EPSG:3044</CRS>
+      <CRS>CRS:84</CRS>
+      <CRS>EPSG:2056</CRS>
+      <CRS>EPSG:3857</CRS>
+      <EX_GeographicBoundingBox>
+          <westBoundLongitude>9.466652</westBoundLongitude>
+          <eastBoundLongitude>9.647129</eastBoundLongitude>
+          <southBoundLatitude>47.043797</southBoundLatitude>
+          <northBoundLatitude>47.276265</northBoundLatitude>
+      </EX_GeographicBoundingBox>
+      <BoundingBox CRS="EPSG:4326"
+                  minx="47.042485" miny="9.465388" maxx="47.274923" maxy="9.645831" />
+      <BoundingBox CRS="EPSG:31297"
+                  minx="355900" miny="106421" maxx="382378" maxy="121221" />
+      <BoundingBox CRS="EPSG:4258"
+                  minx="47.042485" miny="9.465388" maxx="47.274923" maxy="9.645831" />
+      <BoundingBox CRS="EPSG:32632"
+                  minx="535351" miny="5.21008e+06" maxx="548850" maxy="5.23583e+06" />
+      <BoundingBox CRS="EPSG:31467"
+                  minx="5.21178e+06" miny="3.53546e+06" maxx="5.23748e+06" maxy="3.54895e+06" />
+      <BoundingBox CRS="EPSG:3785"
+                  minx="1.05382e+06" miny="5.94923e+06" maxx="1.07391e+06" maxy="5.98728e+06" />
+      <BoundingBox CRS="EPSG:31254"
+                  minx="211739" miny="-65850.4" maxx="237784" maxy="-51998.2" />
+      <BoundingBox CRS="EPSG:3035"
+                  minx="2.65884e+06" miny="4.28034e+06" maxx="2.68473e+06" maxy="4.29418e+06" />
+      <BoundingBox CRS="EPSG:3034"
+                  minx="2.26735e+06" miny="3.96069e+06" maxx="2.29242e+06" maxy="3.97407e+06" />
+      <BoundingBox CRS="EPSG:3044"
+                  minx="5.21008e+06" miny="535351" maxx="5.23583e+06" maxy="548850" />
+      <BoundingBox CRS="CRS:84"
+                  minx="9.465388" miny="47.042485" maxx="9.645831" maxy="47.274923" />
+      <BoundingBox CRS="EPSG:2056"
+                  minx="2.754e+06" miny="1.2125e+06" maxx="2.767e+06" maxy="1.238e+06" />
+      <BoundingBox CRS="EPSG:3857"
+                  minx="1.05368e+06" miny="5.94901e+06" maxx="1.07377e+06" maxy="5.98706e+06" />
+      <Identifier authority="LLV.ATG">0ca7e4a7-e361-4c81-8e26-984f05b0ec68</Identifier>
+      <MetadataURL type="ISO19115:2003">
+        <Format>text/xml;charset=UTF-8</Format>
+        <OnlineResource xmlns:xlink="http://www.w3.org/1999/xlink" xlink:type="simple" xlink:href="https://www.geocat.ch/geonetwork/srv/ger/csw?service=CSW&amp;version=2.0.2&amp;request=GetRecordById&amp;elementSetName=full&amp;outputSchema=http://www.isotc211.org/2005/gmd&amp;id=0ca7e4a7-e361-4c81-8e26-984f05b0ec68"/>
+      </MetadataURL>
+      <Layer queryable="0" opaque="0" cascaded="0">
+        <Name>BASEMAPS.pk10</Name>
+        <Title>Topografical Map 1:10000</Title>
+        <Abstract>Topografical Map 1:10&#39;000 (state of 1998/2008)</Abstract>
+        <KeywordList>
+            <Keyword>Topografical Map</Keyword>
+            <Keyword>Pixelmap</Keyword>
+            <Keyword>map</Keyword>
+            <Keyword>basemap</Keyword>
+            <Keyword>inspire</Keyword>
+        </KeywordList>
+        <CRS>EPSG:4326</CRS>
+        <CRS>EPSG:31297</CRS>
+        <CRS>EPSG:4258</CRS>
+        <CRS>EPSG:32632</CRS>
+        <CRS>EPSG:31467</CRS>
+        <CRS>EPSG:3785</CRS>
+        <CRS>EPSG:31254</CRS>
+        <CRS>EPSG:3035</CRS>
+        <CRS>EPSG:3034</CRS>
+        <CRS>EPSG:3044</CRS>
+        <CRS>CRS:84</CRS>
+        <CRS>EPSG:2056</CRS>
+        <CRS>EPSG:3857</CRS>
+        <EX_GeographicBoundingBox>
+            <westBoundLongitude>9.466652</westBoundLongitude>
+            <eastBoundLongitude>9.647129</eastBoundLongitude>
+            <southBoundLatitude>47.043797</southBoundLatitude>
+            <northBoundLatitude>47.276265</northBoundLatitude>
+        </EX_GeographicBoundingBox>
+        <BoundingBox CRS="EPSG:4326"
+                    minx="47.042485" miny="9.465388" maxx="47.274923" maxy="9.645831" />
+        <BoundingBox CRS="EPSG:31297"
+                    minx="355900" miny="106421" maxx="382378" maxy="121221" />
+        <BoundingBox CRS="EPSG:4258"
+                    minx="47.042485" miny="9.465388" maxx="47.274923" maxy="9.645831" />
+        <BoundingBox CRS="EPSG:32632"
+                    minx="535351" miny="5.21008e+06" maxx="548850" maxy="5.23583e+06" />
+        <BoundingBox CRS="EPSG:31467"
+                    minx="5.21178e+06" miny="3.53546e+06" maxx="5.23748e+06" maxy="3.54895e+06" />
+        <BoundingBox CRS="EPSG:3785"
+                    minx="1.05382e+06" miny="5.94923e+06" maxx="1.07391e+06" maxy="5.98728e+06" />
+        <BoundingBox CRS="EPSG:31254"
+                    minx="211739" miny="-65850.4" maxx="237784" maxy="-51998.2" />
+        <BoundingBox CRS="EPSG:3035"
+                    minx="2.65884e+06" miny="4.28034e+06" maxx="2.68473e+06" maxy="4.29418e+06" />
+        <BoundingBox CRS="EPSG:3034"
+                    minx="2.26735e+06" miny="3.96069e+06" maxx="2.29242e+06" maxy="3.97407e+06" />
+        <BoundingBox CRS="EPSG:3044"
+                    minx="5.21008e+06" miny="535351" maxx="5.23583e+06" maxy="548850" />
+        <BoundingBox CRS="CRS:84"
+                    minx="9.465388" miny="47.042485" maxx="9.645831" maxy="47.274923" />
+        <BoundingBox CRS="EPSG:2056"
+                    minx="2.754e+06" miny="1.2125e+06" maxx="2.767e+06" maxy="1.238e+06" />
+        <BoundingBox CRS="EPSG:3857"
+                    minx="1.05368e+06" miny="5.94901e+06" maxx="1.07377e+06" maxy="5.98706e+06" />
+        <Identifier authority="LI:ATG">0ca7e4a7-e361-4c81-8e26-984f05b0ec68</Identifier>
+        <MetadataURL type="ISO19115:2003">
+          <Format>text/xml;charset=UTF-8</Format>
+          <OnlineResource xmlns:xlink="http://www.w3.org/1999/xlink" xlink:type="simple" xlink:href="https://www.geocat.ch/geonetwork/srv/ger/csw?service=CSW&amp;version=2.0.2&amp;request=GetRecordById&amp;elementSetName=full&amp;outputSchema=http://www.isotc211.org/2005/gmd&amp;id=0ca7e4a7-e361-4c81-8e26-984f05b0ec68"/>
+        </MetadataURL>
+        <Style>
+          <Name>BASEMAPS.TopoMap</Name>
+          <Title>INSPIRE Basemaps Default Style</Title>
+          <LegendURL width="86" height="22">
+             <Format>image/png</Format>
+             <OnlineResource xmlns:xlink="http://www.w3.org/1999/xlink" xlink:type="simple" xlink:href="https://service.geo.llv.li/mapserver/INSPIRE?language=eng&amp;version=1.3.0&amp;service=WMS&amp;request=GetLegendGraphic&amp;sld_version=1.1.0&amp;layer=BASEMAPS.pk10&amp;format=image/png&amp;STYLE=BASEMAPS.TopoMap"/>
+          </LegendURL>
+        </Style>
+        <MinScaleDenominator>2000</MinScaleDenominator>
+        <MaxScaleDenominator>12000</MaxScaleDenominator>
+      </Layer>
+    </Layer>
+    <Layer queryable="0" opaque="0" cascaded="0">
+      <Name>CP</Name>
+      <Title>Cadastral Parcels</Title>
+      <Abstract>INSPIRE Cadastral Parcels</Abstract>
+      <KeywordList>
+          <Keyword>cadastre</Keyword>
+          <Keyword>parcel</Keyword>
+      </KeywordList>
+      <CRS>EPSG:4326</CRS>
+      <CRS>EPSG:31297</CRS>
+      <CRS>EPSG:4258</CRS>
+      <CRS>EPSG:32632</CRS>
+      <CRS>EPSG:31467</CRS>
+      <CRS>EPSG:3785</CRS>
+      <CRS>EPSG:31254</CRS>
+      <CRS>EPSG:3035</CRS>
+      <CRS>EPSG:3034</CRS>
+      <CRS>EPSG:3044</CRS>
+      <CRS>CRS:84</CRS>
+      <CRS>EPSG:2056</CRS>
+      <CRS>EPSG:3857</CRS>
+      <EX_GeographicBoundingBox>
+          <westBoundLongitude>9.400000</westBoundLongitude>
+          <eastBoundLongitude>9.640000</eastBoundLongitude>
+          <southBoundLatitude>47.000000</southBoundLatitude>
+          <northBoundLatitude>47.290000</northBoundLatitude>
+      </EX_GeographicBoundingBox>
+      <BoundingBox CRS="EPSG:4326"
+                  minx="47.000000" miny="9.400000" maxx="47.290000" maxy="9.640000" />
+      <BoundingBox CRS="EPSG:31297"
+                  minx="351171" miny="101101" maxx="384188" maxy="120877" />
+      <BoundingBox CRS="EPSG:4258"
+                  minx="47.000000" miny="9.400000" maxx="47.290000" maxy="9.640000" />
+      <BoundingBox CRS="EPSG:32632"
+                  minx="530245" miny="5.20524e+06" maxx="548656" maxy="5.23759e+06" />
+      <BoundingBox CRS="EPSG:31467"
+                  minx="5.20679e+06" miny="3.53027e+06" maxx="5.23925e+06" maxy="3.54867e+06" />
+      <BoundingBox CRS="EPSG:3785"
+                  minx="1.0464e+06" miny="5.94207e+06" maxx="1.07312e+06" maxy="5.98954e+06" />
+      <BoundingBox CRS="EPSG:31254"
+                  minx="206993" miny="-70976.8" maxx="239376" maxy="-52421.3" />
+      <BoundingBox CRS="EPSG:3035"
+                  minx="2.65412e+06" miny="4.27533e+06" maxx="2.68645e+06" maxy="4.29375e+06" />
+      <BoundingBox CRS="EPSG:3034"
+                  minx="2.26277e+06" miny="3.95584e+06" maxx="2.29408e+06" maxy="3.97366e+06" />
+      <BoundingBox CRS="EPSG:3044"
+                  minx="5.20524e+06" miny="530245" maxx="5.23759e+06" maxy="548656" />
+      <BoundingBox CRS="CRS:84"
+                  minx="9.400000" miny="47.000000" maxx="9.640000" maxy="47.290000" />
+      <BoundingBox CRS="EPSG:2056"
+                  minx="2.74835e+06" miny="1.2073e+06" maxx="2.76741e+06" maxy="1.24001e+06" />
+      <BoundingBox CRS="EPSG:3857"
+                  minx="1.0464e+06" miny="5.94207e+06" maxx="1.07312e+06" maxy="5.98954e+06" />
+      <AuthorityURL name="LI.ATG">
+        <OnlineResource xmlns:xlink="http://www.w3.org/1999/xlink" xlink:href="https://www.atg.llv.li"/>
+      </AuthorityURL>
+      <Identifier authority="LI.ATG">50fb7bec-c4bd-4b71-a3f3-9b223ee998bb</Identifier>
+      <MetadataURL type="ISO19115:2003">
+        <Format>text/xml</Format>
+        <OnlineResource xmlns:xlink="http://www.w3.org/1999/xlink" xlink:type="simple" xlink:href="https://www.geocat.ch/geonetwork/srv/ger/csw?service=CSW&amp;version=2.0.2&amp;request=GetRecordById&amp;elementSetName=full&amp;outputSchema=http://www.isotc211.org/2005/gmd&amp;id=50fb7bec-c4bd-4b71-a3f3-9b223ee998bb"/>
+      </MetadataURL>
+      <Layer queryable="0" opaque="0" cascaded="0">
+        <Name>CP.CadastralParcel</Name>
+        <Title>Cadastral Parcel</Title>
+        <Abstract>Cadastral Parcel</Abstract>
+        <KeywordList>
+            <Keyword>cadastre</Keyword>
+            <Keyword>parcel</Keyword>
+        </KeywordList>
+        <CRS>EPSG:4326</CRS>
+        <CRS>EPSG:31297</CRS>
+        <CRS>EPSG:4258</CRS>
+        <CRS>EPSG:32632</CRS>
+        <CRS>EPSG:31467</CRS>
+        <CRS>EPSG:3785</CRS>
+        <CRS>EPSG:31254</CRS>
+        <CRS>EPSG:3035</CRS>
+        <CRS>EPSG:3034</CRS>
+        <CRS>EPSG:3044</CRS>
+        <CRS>CRS:84</CRS>
+        <CRS>EPSG:2056</CRS>
+        <CRS>EPSG:3857</CRS>
+        <EX_GeographicBoundingBox>
+            <westBoundLongitude>9.400000</westBoundLongitude>
+            <eastBoundLongitude>9.640000</eastBoundLongitude>
+            <southBoundLatitude>47.000000</southBoundLatitude>
+            <northBoundLatitude>47.290000</northBoundLatitude>
+        </EX_GeographicBoundingBox>
+        <BoundingBox CRS="EPSG:4326"
+                    minx="47.000000" miny="9.400000" maxx="47.290000" maxy="9.640000" />
+        <BoundingBox CRS="EPSG:31297"
+                    minx="351171" miny="101101" maxx="384188" maxy="120877" />
+        <BoundingBox CRS="EPSG:4258"
+                    minx="47.000000" miny="9.400000" maxx="47.290000" maxy="9.640000" />
+        <BoundingBox CRS="EPSG:32632"
+                    minx="530245" miny="5.20524e+06" maxx="548656" maxy="5.23759e+06" />
+        <BoundingBox CRS="EPSG:31467"
+                    minx="5.20679e+06" miny="3.53027e+06" maxx="5.23925e+06" maxy="3.54867e+06" />
+        <BoundingBox CRS="EPSG:3785"
+                    minx="1.0464e+06" miny="5.94207e+06" maxx="1.07312e+06" maxy="5.98954e+06" />
+        <BoundingBox CRS="EPSG:31254"
+                    minx="206993" miny="-70976.8" maxx="239376" maxy="-52421.3" />
+        <BoundingBox CRS="EPSG:3035"
+                    minx="2.65412e+06" miny="4.27533e+06" maxx="2.68645e+06" maxy="4.29375e+06" />
+        <BoundingBox CRS="EPSG:3034"
+                    minx="2.26277e+06" miny="3.95584e+06" maxx="2.29408e+06" maxy="3.97366e+06" />
+        <BoundingBox CRS="EPSG:3044"
+                    minx="5.20524e+06" miny="530245" maxx="5.23759e+06" maxy="548656" />
+        <BoundingBox CRS="CRS:84"
+                    minx="9.400000" miny="47.000000" maxx="9.640000" maxy="47.290000" />
+        <BoundingBox CRS="EPSG:2056"
+                    minx="2.74835e+06" miny="1.2073e+06" maxx="2.76741e+06" maxy="1.24001e+06" />
+        <BoundingBox CRS="EPSG:3857"
+                    minx="1.0464e+06" miny="5.94207e+06" maxx="1.07312e+06" maxy="5.98954e+06" />
+        <AuthorityURL name="LI.ATG">
+          <OnlineResource xmlns:xlink="http://www.w3.org/1999/xlink" xlink:href="https://www.atg.llv.li"/>
+        </AuthorityURL>
+        <Identifier authority="LI.ATG">50fb7bec-c4bd-4b71-a3f3-9b223ee998bb</Identifier>
+        <MetadataURL type="ISO19115:2003">
+          <Format>text/xml</Format>
+          <OnlineResource xmlns:xlink="http://www.w3.org/1999/xlink" xlink:type="simple" xlink:href="https://www.geocat.ch/geonetwork/srv/ger/csw?service=CSW&amp;version=2.0.2&amp;request=GetRecordById&amp;elementSetName=full&amp;outputSchema=http://www.isotc211.org/2005/gmd&amp;id=50fb7bec-c4bd-4b71-a3f3-9b223ee998bb"/>
+        </MetadataURL>
+        <Style>
+          <Name>CP.CadastralParcel.Default</Name>
+          <Title>INSPIRE Cadastral parcel Default Style</Title>
+          <LegendURL width="138" height="22">
+             <Format>image/png</Format>
+             <OnlineResource xmlns:xlink="http://www.w3.org/1999/xlink" xlink:type="simple" xlink:href="https://service.geo.llv.li/mapserver/INSPIRE?language=eng&amp;version=1.3.0&amp;service=WMS&amp;request=GetLegendGraphic&amp;sld_version=1.1.0&amp;layer=CP.CadastralParcel&amp;format=image/png&amp;STYLE=CP.CadastralParcel.Default"/>
+          </LegendURL>
+        </Style>
+      </Layer>
+      <Layer queryable="0" opaque="0" cascaded="0">
+        <Name>CP.CadastralZoning</Name>
+        <Title>CadastralZoning</Title>
+        <Abstract>CadastralZoning</Abstract>
+        <KeywordList>
+            <Keyword>CadastralZoning</Keyword>
+        </KeywordList>
+        <CRS>EPSG:4326</CRS>
+        <CRS>EPSG:31297</CRS>
+        <CRS>EPSG:4258</CRS>
+        <CRS>EPSG:32632</CRS>
+        <CRS>EPSG:31467</CRS>
+        <CRS>EPSG:3785</CRS>
+        <CRS>EPSG:31254</CRS>
+        <CRS>EPSG:3035</CRS>
+        <CRS>EPSG:3034</CRS>
+        <CRS>EPSG:3044</CRS>
+        <CRS>CRS:84</CRS>
+        <CRS>EPSG:2056</CRS>
+        <CRS>EPSG:3857</CRS>
+        <EX_GeographicBoundingBox>
+            <westBoundLongitude>9.400000</westBoundLongitude>
+            <eastBoundLongitude>9.640000</eastBoundLongitude>
+            <southBoundLatitude>47.000000</southBoundLatitude>
+            <northBoundLatitude>47.290000</northBoundLatitude>
+        </EX_GeographicBoundingBox>
+        <BoundingBox CRS="EPSG:4326"
+                    minx="47.000000" miny="9.400000" maxx="47.290000" maxy="9.640000" />
+        <BoundingBox CRS="EPSG:31297"
+                    minx="351171" miny="101101" maxx="384188" maxy="120877" />
+        <BoundingBox CRS="EPSG:4258"
+                    minx="47.000000" miny="9.400000" maxx="47.290000" maxy="9.640000" />
+        <BoundingBox CRS="EPSG:32632"
+                    minx="530245" miny="5.20524e+06" maxx="548656" maxy="5.23759e+06" />
+        <BoundingBox CRS="EPSG:31467"
+                    minx="5.20679e+06" miny="3.53027e+06" maxx="5.23925e+06" maxy="3.54867e+06" />
+        <BoundingBox CRS="EPSG:3785"
+                    minx="1.0464e+06" miny="5.94207e+06" maxx="1.07312e+06" maxy="5.98954e+06" />
+        <BoundingBox CRS="EPSG:31254"
+                    minx="206993" miny="-70976.8" maxx="239376" maxy="-52421.3" />
+        <BoundingBox CRS="EPSG:3035"
+                    minx="2.65412e+06" miny="4.27533e+06" maxx="2.68645e+06" maxy="4.29375e+06" />
+        <BoundingBox CRS="EPSG:3034"
+                    minx="2.26277e+06" miny="3.95584e+06" maxx="2.29408e+06" maxy="3.97366e+06" />
+        <BoundingBox CRS="EPSG:3044"
+                    minx="5.20524e+06" miny="530245" maxx="5.23759e+06" maxy="548656" />
+        <BoundingBox CRS="CRS:84"
+                    minx="9.400000" miny="47.000000" maxx="9.640000" maxy="47.290000" />
+        <BoundingBox CRS="EPSG:2056"
+                    minx="2.74835e+06" miny="1.2073e+06" maxx="2.76741e+06" maxy="1.24001e+06" />
+        <BoundingBox CRS="EPSG:3857"
+                    minx="1.0464e+06" miny="5.94207e+06" maxx="1.07312e+06" maxy="5.98954e+06" />
+        <AuthorityURL name="LI.ATG">
+          <OnlineResource xmlns:xlink="http://www.w3.org/1999/xlink" xlink:href="https://www.atg.llv.li"/>
+        </AuthorityURL>
+        <Identifier authority="LI.ATG">50fb7bec-c4bd-4b71-a3f3-9b223ee998bb</Identifier>
+        <MetadataURL type="ISO19115:2003">
+          <Format>text/xml</Format>
+          <OnlineResource xmlns:xlink="http://www.w3.org/1999/xlink" xlink:type="simple" xlink:href="https://www.geocat.ch/geonetwork/srv/ger/csw?service=CSW&amp;version=2.0.2&amp;request=GetRecordById&amp;elementSetName=full&amp;outputSchema=http://www.isotc211.org/2005/gmd&amp;id=50fb7bec-c4bd-4b71-a3f3-9b223ee998bb"/>
+        </MetadataURL>
+        <Style>
+          <Name>CP.CadastralZoning.Default</Name>
+          <Title>INSPIRE Cadastral Zoning Default Style</Title>
+          <LegendURL width="85" height="40">
+             <Format>image/png</Format>
+             <OnlineResource xmlns:xlink="http://www.w3.org/1999/xlink" xlink:type="simple" xlink:href="https://service.geo.llv.li/mapserver/INSPIRE?language=ger&amp;version=1.3.0&amp;service=WMS&amp;request=GetLegendGraphic&amp;sld_version=1.1.0&amp;layer=CP.CadastralZoning&amp;format=image/png&amp;STYLE=CP.CadastralZoning.Default"/>
+          </LegendURL>
+        </Style>
+      </Layer>
+      <Layer queryable="0" opaque="0" cascaded="0">
+        <Name>CP.CadastralBoundary</Name>
+        <Title>CadastralBoundary</Title>
+        <Abstract>CadastralBoundary</Abstract>
+        <KeywordList>
+            <Keyword>cadastre</Keyword>
+            <Keyword>parcel</Keyword>
+            <Keyword>Boundary</Keyword>
+        </KeywordList>
+        <CRS>EPSG:4326</CRS>
+        <CRS>EPSG:31297</CRS>
+        <CRS>EPSG:4258</CRS>
+        <CRS>EPSG:32632</CRS>
+        <CRS>EPSG:31467</CRS>
+        <CRS>EPSG:3785</CRS>
+        <CRS>EPSG:31254</CRS>
+        <CRS>EPSG:3035</CRS>
+        <CRS>EPSG:3034</CRS>
+        <CRS>EPSG:3044</CRS>
+        <CRS>CRS:84</CRS>
+        <CRS>EPSG:2056</CRS>
+        <CRS>EPSG:3857</CRS>
+        <EX_GeographicBoundingBox>
+            <westBoundLongitude>9.400000</westBoundLongitude>
+            <eastBoundLongitude>9.640000</eastBoundLongitude>
+            <southBoundLatitude>47.000000</southBoundLatitude>
+            <northBoundLatitude>47.290000</northBoundLatitude>
+        </EX_GeographicBoundingBox>
+        <BoundingBox CRS="EPSG:4326"
+                    minx="47.000000" miny="9.400000" maxx="47.290000" maxy="9.640000" />
+        <BoundingBox CRS="EPSG:31297"
+                    minx="351171" miny="101101" maxx="384188" maxy="120877" />
+        <BoundingBox CRS="EPSG:4258"
+                    minx="47.000000" miny="9.400000" maxx="47.290000" maxy="9.640000" />
+        <BoundingBox CRS="EPSG:32632"
+                    minx="530245" miny="5.20524e+06" maxx="548656" maxy="5.23759e+06" />
+        <BoundingBox CRS="EPSG:31467"
+                    minx="5.20679e+06" miny="3.53027e+06" maxx="5.23925e+06" maxy="3.54867e+06" />
+        <BoundingBox CRS="EPSG:3785"
+                    minx="1.0464e+06" miny="5.94207e+06" maxx="1.07312e+06" maxy="5.98954e+06" />
+        <BoundingBox CRS="EPSG:31254"
+                    minx="206993" miny="-70976.8" maxx="239376" maxy="-52421.3" />
+        <BoundingBox CRS="EPSG:3035"
+                    minx="2.65412e+06" miny="4.27533e+06" maxx="2.68645e+06" maxy="4.29375e+06" />
+        <BoundingBox CRS="EPSG:3034"
+                    minx="2.26277e+06" miny="3.95584e+06" maxx="2.29408e+06" maxy="3.97366e+06" />
+        <BoundingBox CRS="EPSG:3044"
+                    minx="5.20524e+06" miny="530245" maxx="5.23759e+06" maxy="548656" />
+        <BoundingBox CRS="CRS:84"
+                    minx="9.400000" miny="47.000000" maxx="9.640000" maxy="47.290000" />
+        <BoundingBox CRS="EPSG:2056"
+                    minx="2.74835e+06" miny="1.2073e+06" maxx="2.76741e+06" maxy="1.24001e+06" />
+        <BoundingBox CRS="EPSG:3857"
+                    minx="1.0464e+06" miny="5.94207e+06" maxx="1.07312e+06" maxy="5.98954e+06" />
+        <AuthorityURL name="LI.ATG">
+          <OnlineResource xmlns:xlink="http://www.w3.org/1999/xlink" xlink:href="https://www.atg.llv.li"/>
+        </AuthorityURL>
+        <Identifier authority="LI.ABI">50fb7bec-c4bd-4b71-a3f3-9b223ee998bb</Identifier>
+        <MetadataURL type="ISO19115:2003">
+          <Format>text/xml</Format>
+          <OnlineResource xmlns:xlink="http://www.w3.org/1999/xlink" xlink:type="simple" xlink:href="https://www.geocat.ch/geonetwork/srv/ger/csw?service=CSW&amp;version=2.0.2&amp;request=GetRecordById&amp;elementSetName=full&amp;outputSchema=http://www.isotc211.org/2005/gmd&amp;id=50fb7bec-c4bd-4b71-a3f3-9b223ee998bb"/>
+        </MetadataURL>
+        <Style>
+          <Name>CP.CadastralBoundary.Default</Name>
+          <Title>INSPIRE Cadastral Boundary Default Style</Title>
+          <LegendURL width="85" height="40">
+             <Format>image/png</Format>
+             <OnlineResource xmlns:xlink="http://www.w3.org/1999/xlink" xlink:type="simple" xlink:href="https://service.geo.llv.li/mapserver/INSPIRE?language=ger&amp;version=1.3.0&amp;service=WMS&amp;request=GetLegendGraphic&amp;sld_version=1.1.0&amp;layer=CP.CadastralBoundary&amp;format=image/png&amp;STYLE=CP.CadastralBoundary.Default"/>
+          </LegendURL>
+        </Style>
+      </Layer>
+    </Layer>
+    <Layer queryable="0" opaque="0" cascaded="0">
+      <Name>AU</Name>
+      <Title>Administrative units</Title>
+      <Abstract>Administrative units</Abstract>
+      <KeywordList>
+          <Keyword>Administrative units</Keyword>
+          <Keyword>INSPIRE</Keyword>
+      </KeywordList>
+      <CRS>EPSG:4326</CRS>
+      <CRS>EPSG:31297</CRS>
+      <CRS>EPSG:4258</CRS>
+      <CRS>EPSG:32632</CRS>
+      <CRS>EPSG:31467</CRS>
+      <CRS>EPSG:3785</CRS>
+      <CRS>EPSG:31254</CRS>
+      <CRS>EPSG:3035</CRS>
+      <CRS>EPSG:3034</CRS>
+      <CRS>EPSG:3044</CRS>
+      <CRS>CRS:84</CRS>
+      <CRS>EPSG:2056</CRS>
+      <CRS>EPSG:3857</CRS>
+      <EX_GeographicBoundingBox>
+          <westBoundLongitude>9.400000</westBoundLongitude>
+          <eastBoundLongitude>9.640000</eastBoundLongitude>
+          <southBoundLatitude>47.000000</southBoundLatitude>
+          <northBoundLatitude>47.290000</northBoundLatitude>
+      </EX_GeographicBoundingBox>
+      <BoundingBox CRS="EPSG:4326"
+                  minx="47.000000" miny="9.400000" maxx="47.290000" maxy="9.640000" />
+      <BoundingBox CRS="EPSG:31297"
+                  minx="351171" miny="101101" maxx="384188" maxy="120877" />
+      <BoundingBox CRS="EPSG:4258"
+                  minx="47.000000" miny="9.400000" maxx="47.290000" maxy="9.640000" />
+      <BoundingBox CRS="EPSG:32632"
+                  minx="530245" miny="5.20524e+06" maxx="548656" maxy="5.23759e+06" />
+      <BoundingBox CRS="EPSG:31467"
+                  minx="5.20679e+06" miny="3.53027e+06" maxx="5.23925e+06" maxy="3.54867e+06" />
+      <BoundingBox CRS="EPSG:3785"
+                  minx="1.0464e+06" miny="5.94207e+06" maxx="1.07312e+06" maxy="5.98954e+06" />
+      <BoundingBox CRS="EPSG:31254"
+                  minx="206993" miny="-70976.8" maxx="239376" maxy="-52421.3" />
+      <BoundingBox CRS="EPSG:3035"
+                  minx="2.65412e+06" miny="4.27533e+06" maxx="2.68645e+06" maxy="4.29375e+06" />
+      <BoundingBox CRS="EPSG:3034"
+                  minx="2.26277e+06" miny="3.95584e+06" maxx="2.29408e+06" maxy="3.97366e+06" />
+      <BoundingBox CRS="EPSG:3044"
+                  minx="5.20524e+06" miny="530245" maxx="5.23759e+06" maxy="548656" />
+      <BoundingBox CRS="CRS:84"
+                  minx="9.400000" miny="47.000000" maxx="9.640000" maxy="47.290000" />
+      <BoundingBox CRS="EPSG:2056"
+                  minx="2.74835e+06" miny="1.2073e+06" maxx="2.76741e+06" maxy="1.24001e+06" />
+      <BoundingBox CRS="EPSG:3857"
+                  minx="1.0464e+06" miny="5.94207e+06" maxx="1.07312e+06" maxy="5.98954e+06" />
+      <MetadataURL type="ISO19115:2003">
+        <Format>text/xml;charset=UTF-8</Format>
+        <OnlineResource xmlns:xlink="http://www.w3.org/1999/xlink" xlink:type="simple" xlink:href="https://www.geocat.ch/geonetwork/srv/ger/csw?service=CSW&amp;version=2.0.2&amp;request=GetRecordById&amp;elementSetName=full&amp;outputSchema=http://www.isotc211.org/2005/gmd&amp;id=964fe1c4-f708-4f5b-b628-26b656adb9eb"/>
+      </MetadataURL>
+      <Layer queryable="0" opaque="0" cascaded="0">
+        <Name>AU.AdministrativeUnit</Name>
+        <Title>AdministrativeUnit</Title>
+        <Abstract>AdministrativeUnit</Abstract>
+        <KeywordList>
+            <Keyword>Administrative Unit</Keyword>
+        </KeywordList>
+        <CRS>EPSG:4326</CRS>
+        <CRS>EPSG:31297</CRS>
+        <CRS>EPSG:4258</CRS>
+        <CRS>EPSG:32632</CRS>
+        <CRS>EPSG:31467</CRS>
+        <CRS>EPSG:3785</CRS>
+        <CRS>EPSG:31254</CRS>
+        <CRS>EPSG:3035</CRS>
+        <CRS>EPSG:3034</CRS>
+        <CRS>EPSG:3044</CRS>
+        <CRS>CRS:84</CRS>
+        <CRS>EPSG:2056</CRS>
+        <CRS>EPSG:3857</CRS>
+        <EX_GeographicBoundingBox>
+            <westBoundLongitude>9.400000</westBoundLongitude>
+            <eastBoundLongitude>9.640000</eastBoundLongitude>
+            <southBoundLatitude>47.000000</southBoundLatitude>
+            <northBoundLatitude>47.290000</northBoundLatitude>
+        </EX_GeographicBoundingBox>
+        <BoundingBox CRS="EPSG:4326"
+                    minx="47.000000" miny="9.400000" maxx="47.290000" maxy="9.640000" />
+        <BoundingBox CRS="EPSG:31297"
+                    minx="351171" miny="101101" maxx="384188" maxy="120877" />
+        <BoundingBox CRS="EPSG:4258"
+                    minx="47.000000" miny="9.400000" maxx="47.290000" maxy="9.640000" />
+        <BoundingBox CRS="EPSG:32632"
+                    minx="530245" miny="5.20524e+06" maxx="548656" maxy="5.23759e+06" />
+        <BoundingBox CRS="EPSG:31467"
+                    minx="5.20679e+06" miny="3.53027e+06" maxx="5.23925e+06" maxy="3.54867e+06" />
+        <BoundingBox CRS="EPSG:3785"
+                    minx="1.0464e+06" miny="5.94207e+06" maxx="1.07312e+06" maxy="5.98954e+06" />
+        <BoundingBox CRS="EPSG:31254"
+                    minx="206993" miny="-70976.8" maxx="239376" maxy="-52421.3" />
+        <BoundingBox CRS="EPSG:3035"
+                    minx="2.65412e+06" miny="4.27533e+06" maxx="2.68645e+06" maxy="4.29375e+06" />
+        <BoundingBox CRS="EPSG:3034"
+                    minx="2.26277e+06" miny="3.95584e+06" maxx="2.29408e+06" maxy="3.97366e+06" />
+        <BoundingBox CRS="EPSG:3044"
+                    minx="5.20524e+06" miny="530245" maxx="5.23759e+06" maxy="548656" />
+        <BoundingBox CRS="CRS:84"
+                    minx="9.400000" miny="47.000000" maxx="9.640000" maxy="47.290000" />
+        <BoundingBox CRS="EPSG:2056"
+                    minx="2.74835e+06" miny="1.2073e+06" maxx="2.76741e+06" maxy="1.24001e+06" />
+        <BoundingBox CRS="EPSG:3857"
+                    minx="1.0464e+06" miny="5.94207e+06" maxx="1.07312e+06" maxy="5.98954e+06" />
+        <Identifier authority="LI.ABI">964fe1c4-f708-4f5b-b628-26b656adb9eb</Identifier>
+        <MetadataURL type="ISO19115:2003">
+          <Format>text/xml</Format>
+          <OnlineResource xmlns:xlink="http://www.w3.org/1999/xlink" xlink:type="simple" xlink:href="https://www.geocat.ch/geonetwork/srv/ger/csw?service=CSW&amp;version=2.0.2&amp;request=GetRecordById&amp;elementSetName=full&amp;outputSchema=http://www.isotc211.org/2005/gmd&amp;id=964fe1c4-f708-4f5b-b628-26b656adb9eb"/>
+        </MetadataURL>
+        <Style>
+          <Name>AU.AdministrativeUnit.Default</Name>
+          <Title>INSPIRE Administrative Unit Default Style</Title>
+          <LegendURL width="85" height="40">
+             <Format>image/png</Format>
+             <OnlineResource xmlns:xlink="http://www.w3.org/1999/xlink" xlink:type="simple" xlink:href="https://service.geo.llv.li/mapserver/INSPIRE?language=ger&amp;version=1.3.0&amp;service=WMS&amp;request=GetLegendGraphic&amp;sld_version=1.1.0&amp;layer=AU.AdministrativeUnit&amp;format=image/png&amp;STYLE=AU.AdministrativeUnit.Default"/>
+          </LegendURL>
+        </Style>
+      </Layer>
+      <Layer queryable="0" opaque="0" cascaded="0">
+        <Name>AU.AdministrativeBoundary</Name>
+        <Title>Administrative Boundary</Title>
+        <Abstract>Administrative Boundary</Abstract>
+        <KeywordList>
+            <Keyword>Administrative Boundary</Keyword>
+            <Keyword>INSPIRE</Keyword>
+        </KeywordList>
+        <CRS>EPSG:4326</CRS>
+        <CRS>EPSG:31297</CRS>
+        <CRS>EPSG:4258</CRS>
+        <CRS>EPSG:32632</CRS>
+        <CRS>EPSG:31467</CRS>
+        <CRS>EPSG:3785</CRS>
+        <CRS>EPSG:31254</CRS>
+        <CRS>EPSG:3035</CRS>
+        <CRS>EPSG:3034</CRS>
+        <CRS>EPSG:3044</CRS>
+        <CRS>CRS:84</CRS>
+        <CRS>EPSG:2056</CRS>
+        <CRS>EPSG:3857</CRS>
+        <EX_GeographicBoundingBox>
+            <westBoundLongitude>9.400000</westBoundLongitude>
+            <eastBoundLongitude>9.640000</eastBoundLongitude>
+            <southBoundLatitude>47.000000</southBoundLatitude>
+            <northBoundLatitude>47.290000</northBoundLatitude>
+        </EX_GeographicBoundingBox>
+        <BoundingBox CRS="EPSG:4326"
+                    minx="47.000000" miny="9.400000" maxx="47.290000" maxy="9.640000" />
+        <BoundingBox CRS="EPSG:31297"
+                    minx="351171" miny="101101" maxx="384188" maxy="120877" />
+        <BoundingBox CRS="EPSG:4258"
+                    minx="47.000000" miny="9.400000" maxx="47.290000" maxy="9.640000" />
+        <BoundingBox CRS="EPSG:32632"
+                    minx="530245" miny="5.20524e+06" maxx="548656" maxy="5.23759e+06" />
+        <BoundingBox CRS="EPSG:31467"
+                    minx="5.20679e+06" miny="3.53027e+06" maxx="5.23925e+06" maxy="3.54867e+06" />
+        <BoundingBox CRS="EPSG:3785"
+                    minx="1.0464e+06" miny="5.94207e+06" maxx="1.07312e+06" maxy="5.98954e+06" />
+        <BoundingBox CRS="EPSG:31254"
+                    minx="206993" miny="-70976.8" maxx="239376" maxy="-52421.3" />
+        <BoundingBox CRS="EPSG:3035"
+                    minx="2.65412e+06" miny="4.27533e+06" maxx="2.68645e+06" maxy="4.29375e+06" />
+        <BoundingBox CRS="EPSG:3034"
+                    minx="2.26277e+06" miny="3.95584e+06" maxx="2.29408e+06" maxy="3.97366e+06" />
+        <BoundingBox CRS="EPSG:3044"
+                    minx="5.20524e+06" miny="530245" maxx="5.23759e+06" maxy="548656" />
+        <BoundingBox CRS="CRS:84"
+                    minx="9.400000" miny="47.000000" maxx="9.640000" maxy="47.290000" />
+        <BoundingBox CRS="EPSG:2056"
+                    minx="2.74835e+06" miny="1.2073e+06" maxx="2.76741e+06" maxy="1.24001e+06" />
+        <BoundingBox CRS="EPSG:3857"
+                    minx="1.0464e+06" miny="5.94207e+06" maxx="1.07312e+06" maxy="5.98954e+06" />
+        <Identifier authority="LI.ATG">964fe1c4-f708-4f5b-b628-26b656adb9eb</Identifier>
+        <MetadataURL type="ISO19115:2003">
+          <Format>text/xml</Format>
+          <OnlineResource xmlns:xlink="http://www.w3.org/1999/xlink" xlink:type="simple" xlink:href="https://www.geocat.ch/geonetwork/srv/ger/csw?service=CSW&amp;version=2.0.2&amp;request=GetRecordById&amp;elementSetName=full&amp;outputSchema=http://www.isotc211.org/2005/gmd&amp;id=964fe1c4-f708-4f5b-b628-26b656adb9eb"/>
+        </MetadataURL>
+        <Style>
+          <Name>AU.AdministrativeBoundary.Default</Name>
+          <Title>INSPIRE Administrative Boundary Default Style</Title>
+          <LegendURL width="85" height="40">
+             <Format>image/png</Format>
+             <OnlineResource xmlns:xlink="http://www.w3.org/1999/xlink" xlink:type="simple" xlink:href="https://service.geo.llv.li/mapserver/INSPIRE?language=ger&amp;version=1.3.0&amp;service=WMS&amp;request=GetLegendGraphic&amp;sld_version=1.1.0&amp;layer=AU.AdministrativeBoundary&amp;format=image/png&amp;STYLE=AU.AdministrativeBoundary.Default"/>
+          </LegendURL>
+        </Style>
+      </Layer>
+    </Layer>
+    <Layer queryable="0" opaque="0" cascaded="0">
+      <Name>PS</Name>
+      <Title>Protected Sites</Title>
+      <Abstract>Protected Sites</Abstract>
+      <KeywordList>
+          <Keyword>Protected Sites</Keyword>
+          <Keyword>INSPIRE</Keyword>
+      </KeywordList>
+      <CRS>EPSG:4326</CRS>
+      <CRS>EPSG:31297</CRS>
+      <CRS>EPSG:4258</CRS>
+      <CRS>EPSG:32632</CRS>
+      <CRS>EPSG:31467</CRS>
+      <CRS>EPSG:3785</CRS>
+      <CRS>EPSG:31254</CRS>
+      <CRS>EPSG:3035</CRS>
+      <CRS>EPSG:3034</CRS>
+      <CRS>EPSG:3044</CRS>
+      <CRS>CRS:84</CRS>
+      <CRS>EPSG:2056</CRS>
+      <CRS>EPSG:3857</CRS>
+      <EX_GeographicBoundingBox>
+          <westBoundLongitude>9.400000</westBoundLongitude>
+          <eastBoundLongitude>9.640000</eastBoundLongitude>
+          <southBoundLatitude>47.000000</southBoundLatitude>
+          <northBoundLatitude>47.290000</northBoundLatitude>
+      </EX_GeographicBoundingBox>
+      <BoundingBox CRS="EPSG:4326"
+                  minx="47.000000" miny="9.400000" maxx="47.290000" maxy="9.640000" />
+      <BoundingBox CRS="EPSG:31297"
+                  minx="351171" miny="101101" maxx="384188" maxy="120877" />
+      <BoundingBox CRS="EPSG:4258"
+                  minx="47.000000" miny="9.400000" maxx="47.290000" maxy="9.640000" />
+      <BoundingBox CRS="EPSG:32632"
+                  minx="530245" miny="5.20524e+06" maxx="548656" maxy="5.23759e+06" />
+      <BoundingBox CRS="EPSG:31467"
+                  minx="5.20679e+06" miny="3.53027e+06" maxx="5.23925e+06" maxy="3.54867e+06" />
+      <BoundingBox CRS="EPSG:3785"
+                  minx="1.0464e+06" miny="5.94207e+06" maxx="1.07312e+06" maxy="5.98954e+06" />
+      <BoundingBox CRS="EPSG:31254"
+                  minx="206993" miny="-70976.8" maxx="239376" maxy="-52421.3" />
+      <BoundingBox CRS="EPSG:3035"
+                  minx="2.65412e+06" miny="4.27533e+06" maxx="2.68645e+06" maxy="4.29375e+06" />
+      <BoundingBox CRS="EPSG:3034"
+                  minx="2.26277e+06" miny="3.95584e+06" maxx="2.29408e+06" maxy="3.97366e+06" />
+      <BoundingBox CRS="EPSG:3044"
+                  minx="5.20524e+06" miny="530245" maxx="5.23759e+06" maxy="548656" />
+      <BoundingBox CRS="CRS:84"
+                  minx="9.400000" miny="47.000000" maxx="9.640000" maxy="47.290000" />
+      <BoundingBox CRS="EPSG:2056"
+                  minx="2.74835e+06" miny="1.2073e+06" maxx="2.76741e+06" maxy="1.24001e+06" />
+      <BoundingBox CRS="EPSG:3857"
+                  minx="1.0464e+06" miny="5.94207e+06" maxx="1.07312e+06" maxy="5.98954e+06" />
+      <MetadataURL type="ISO19115:2003">
+        <Format>text/xml;charset=UTF-8</Format>
+        <OnlineResource xmlns:xlink="http://www.w3.org/1999/xlink" xlink:type="simple" xlink:href="https://www.geocat.ch/geonetwork/srv/ger/csw?service=CSW&amp;version=2.0.2&amp;request=GetRecordById&amp;elementSetName=full&amp;outputSchema=http://www.isotc211.org/2005/gmd&amp;id=c851eb68-629c-4f96-a177-8c3e45b3b62c"/>
+      </MetadataURL>
+      <Layer queryable="0" opaque="0" cascaded="0">
+        <Name>PS.ProtectedSites</Name>
+        <Title>Protected Sites</Title>
+        <Abstract>Protected Sites</Abstract>
+        <KeywordList>
+            <Keyword>Protected Sites</Keyword>
+        </KeywordList>
+        <CRS>EPSG:4326</CRS>
+        <CRS>EPSG:31297</CRS>
+        <CRS>EPSG:4258</CRS>
+        <CRS>EPSG:32632</CRS>
+        <CRS>EPSG:31467</CRS>
+        <CRS>EPSG:3785</CRS>
+        <CRS>EPSG:31254</CRS>
+        <CRS>EPSG:3035</CRS>
+        <CRS>EPSG:3034</CRS>
+        <CRS>EPSG:3044</CRS>
+        <CRS>CRS:84</CRS>
+        <CRS>EPSG:2056</CRS>
+        <CRS>EPSG:3857</CRS>
+        <EX_GeographicBoundingBox>
+            <westBoundLongitude>9.400000</westBoundLongitude>
+            <eastBoundLongitude>9.640000</eastBoundLongitude>
+            <southBoundLatitude>47.000000</southBoundLatitude>
+            <northBoundLatitude>47.290000</northBoundLatitude>
+        </EX_GeographicBoundingBox>
+        <BoundingBox CRS="EPSG:4326"
+                    minx="47.000000" miny="9.400000" maxx="47.290000" maxy="9.640000" />
+        <BoundingBox CRS="EPSG:31297"
+                    minx="351171" miny="101101" maxx="384188" maxy="120877" />
+        <BoundingBox CRS="EPSG:4258"
+                    minx="47.000000" miny="9.400000" maxx="47.290000" maxy="9.640000" />
+        <BoundingBox CRS="EPSG:32632"
+                    minx="530245" miny="5.20524e+06" maxx="548656" maxy="5.23759e+06" />
+        <BoundingBox CRS="EPSG:31467"
+                    minx="5.20679e+06" miny="3.53027e+06" maxx="5.23925e+06" maxy="3.54867e+06" />
+        <BoundingBox CRS="EPSG:3785"
+                    minx="1.0464e+06" miny="5.94207e+06" maxx="1.07312e+06" maxy="5.98954e+06" />
+        <BoundingBox CRS="EPSG:31254"
+                    minx="206993" miny="-70976.8" maxx="239376" maxy="-52421.3" />
+        <BoundingBox CRS="EPSG:3035"
+                    minx="2.65412e+06" miny="4.27533e+06" maxx="2.68645e+06" maxy="4.29375e+06" />
+        <BoundingBox CRS="EPSG:3034"
+                    minx="2.26277e+06" miny="3.95584e+06" maxx="2.29408e+06" maxy="3.97366e+06" />
+        <BoundingBox CRS="EPSG:3044"
+                    minx="5.20524e+06" miny="530245" maxx="5.23759e+06" maxy="548656" />
+        <BoundingBox CRS="CRS:84"
+                    minx="9.400000" miny="47.000000" maxx="9.640000" maxy="47.290000" />
+        <BoundingBox CRS="EPSG:2056"
+                    minx="2.74835e+06" miny="1.2073e+06" maxx="2.76741e+06" maxy="1.24001e+06" />
+        <BoundingBox CRS="EPSG:3857"
+                    minx="1.0464e+06" miny="5.94207e+06" maxx="1.07312e+06" maxy="5.98954e+06" />
+        <AuthorityURL name="LI.ATG">
+          <OnlineResource xmlns:xlink="http://www.w3.org/1999/xlink" xlink:href="https://www.atg.llv.li"/>
+        </AuthorityURL>
+        <Identifier authority="LI.ABI">c851eb68-629c-4f96-a177-8c3e45b3b62c</Identifier>
+        <MetadataURL type="ISO19115:2003">
+          <Format>text/xml;charset=UTF-8</Format>
+          <OnlineResource xmlns:xlink="http://www.w3.org/1999/xlink" xlink:type="simple" xlink:href="https://www.geocat.ch/geonetwork/srv/ger/csw?service=CSW&amp;version=2.0.2&amp;request=GetRecordById&amp;elementSetName=full&amp;outputSchema=http://www.isotc211.org/2005/gmd&amp;id=c851eb68-629c-4f96-a177-8c3e45b3b62c"/>
+        </MetadataURL>
+        <Style>
+          <Name>PS.ProtectedSite.Default</Name>
+          <Title>INSPIRE Protected Sites Default Style</Title>
+          <LegendURL width="130" height="22">
+             <Format>image/png</Format>
+             <OnlineResource xmlns:xlink="http://www.w3.org/1999/xlink" xlink:type="simple" xlink:href="https://service.geo.llv.li/mapserver/INSPIRE?language=eng&amp;version=1.3.0&amp;service=WMS&amp;request=GetLegendGraphic&amp;sld_version=1.1.0&amp;layer=PS.ProtectedSites&amp;format=image/png&amp;STYLE=PS.ProtectedSite.Default"/>
+          </LegendURL>
+        </Style>
+      </Layer>
+      <Layer queryable="0" opaque="0" cascaded="0">
+        <Name>PS.ProtectedSitesNatureConservation</Name>
+        <Title>Protected Sites – Nature Conservation</Title>
+        <Abstract>Protected Sites – Nature Conservation</Abstract>
+        <KeywordList>
+            <Keyword>Protected Sites</Keyword>
+            <Keyword>Nature Conservation</Keyword>
+        </KeywordList>
+        <CRS>EPSG:4326</CRS>
+        <CRS>EPSG:31297</CRS>
+        <CRS>EPSG:4258</CRS>
+        <CRS>EPSG:32632</CRS>
+        <CRS>EPSG:31467</CRS>
+        <CRS>EPSG:3785</CRS>
+        <CRS>EPSG:31254</CRS>
+        <CRS>EPSG:3035</CRS>
+        <CRS>EPSG:3034</CRS>
+        <CRS>EPSG:3044</CRS>
+        <CRS>CRS:84</CRS>
+        <CRS>EPSG:2056</CRS>
+        <CRS>EPSG:3857</CRS>
+        <EX_GeographicBoundingBox>
+            <westBoundLongitude>9.400000</westBoundLongitude>
+            <eastBoundLongitude>9.640000</eastBoundLongitude>
+            <southBoundLatitude>47.000000</southBoundLatitude>
+            <northBoundLatitude>47.290000</northBoundLatitude>
+        </EX_GeographicBoundingBox>
+        <BoundingBox CRS="EPSG:4326"
+                    minx="47.000000" miny="9.400000" maxx="47.290000" maxy="9.640000" />
+        <BoundingBox CRS="EPSG:31297"
+                    minx="351171" miny="101101" maxx="384188" maxy="120877" />
+        <BoundingBox CRS="EPSG:4258"
+                    minx="47.000000" miny="9.400000" maxx="47.290000" maxy="9.640000" />
+        <BoundingBox CRS="EPSG:32632"
+                    minx="530245" miny="5.20524e+06" maxx="548656" maxy="5.23759e+06" />
+        <BoundingBox CRS="EPSG:31467"
+                    minx="5.20679e+06" miny="3.53027e+06" maxx="5.23925e+06" maxy="3.54867e+06" />
+        <BoundingBox CRS="EPSG:3785"
+                    minx="1.0464e+06" miny="5.94207e+06" maxx="1.07312e+06" maxy="5.98954e+06" />
+        <BoundingBox CRS="EPSG:31254"
+                    minx="206993" miny="-70976.8" maxx="239376" maxy="-52421.3" />
+        <BoundingBox CRS="EPSG:3035"
+                    minx="2.65412e+06" miny="4.27533e+06" maxx="2.68645e+06" maxy="4.29375e+06" />
+        <BoundingBox CRS="EPSG:3034"
+                    minx="2.26277e+06" miny="3.95584e+06" maxx="2.29408e+06" maxy="3.97366e+06" />
+        <BoundingBox CRS="EPSG:3044"
+                    minx="5.20524e+06" miny="530245" maxx="5.23759e+06" maxy="548656" />
+        <BoundingBox CRS="CRS:84"
+                    minx="9.400000" miny="47.000000" maxx="9.640000" maxy="47.290000" />
+        <BoundingBox CRS="EPSG:2056"
+                    minx="2.74835e+06" miny="1.2073e+06" maxx="2.76741e+06" maxy="1.24001e+06" />
+        <BoundingBox CRS="EPSG:3857"
+                    minx="1.0464e+06" miny="5.94207e+06" maxx="1.07312e+06" maxy="5.98954e+06" />
+        <AuthorityURL name="LI.ATG">
+          <OnlineResource xmlns:xlink="http://www.w3.org/1999/xlink" xlink:href="https://www.atg.llv.li"/>
+        </AuthorityURL>
+        <Identifier authority="LI.ABI">c851eb68-629c-4f96-a177-8c3e45b3b62c</Identifier>
+        <MetadataURL type="ISO19115:2003">
+          <Format>text/xml;charset=UTF-8</Format>
+          <OnlineResource xmlns:xlink="http://www.w3.org/1999/xlink" xlink:type="simple" xlink:href="https://www.geocat.ch/geonetwork/srv/ger/csw?service=CSW&amp;version=2.0.2&amp;request=GetRecordById&amp;elementSetName=full&amp;outputSchema=http://www.isotc211.org/2005/gmd&amp;id=c851eb68-629c-4f96-a177-8c3e45b3b62c"/>
+        </MetadataURL>
+        <Style>
+          <Name>PS.ProtectedSite.Default</Name>
+          <Title>INSPIRE Protected Sites Default Style</Title>
+          <LegendURL width="237" height="22">
+             <Format>image/png</Format>
+             <OnlineResource xmlns:xlink="http://www.w3.org/1999/xlink" xlink:type="simple" xlink:href="https://service.geo.llv.li/mapserver/INSPIRE?language=eng&amp;version=1.3.0&amp;service=WMS&amp;request=GetLegendGraphic&amp;sld_version=1.1.0&amp;layer=PS.ProtectedSitesNatureConservation&amp;format=image/png&amp;STYLE=PS.ProtectedSite.Default"/>
+          </LegendURL>
+        </Style>
+      </Layer>
+      <Layer queryable="0" opaque="0" cascaded="0">
+        <Name>PS.ProtectedSitesArcheaological</Name>
+        <Title>Protected Sites – Archaeological</Title>
+        <Abstract>Protected Sites – Archaeological</Abstract>
+        <KeywordList>
+            <Keyword>Protected Sites</Keyword>
+            <Keyword>conservation</Keyword>
+            <Keyword>archaeology</Keyword>
+        </KeywordList>
+        <CRS>EPSG:4326</CRS>
+        <CRS>EPSG:31297</CRS>
+        <CRS>EPSG:4258</CRS>
+        <CRS>EPSG:32632</CRS>
+        <CRS>EPSG:31467</CRS>
+        <CRS>EPSG:3785</CRS>
+        <CRS>EPSG:31254</CRS>
+        <CRS>EPSG:3035</CRS>
+        <CRS>EPSG:3034</CRS>
+        <CRS>EPSG:3044</CRS>
+        <CRS>CRS:84</CRS>
+        <CRS>EPSG:2056</CRS>
+        <CRS>EPSG:3857</CRS>
+        <EX_GeographicBoundingBox>
+            <westBoundLongitude>9.400000</westBoundLongitude>
+            <eastBoundLongitude>9.640000</eastBoundLongitude>
+            <southBoundLatitude>47.000000</southBoundLatitude>
+            <northBoundLatitude>47.290000</northBoundLatitude>
+        </EX_GeographicBoundingBox>
+        <BoundingBox CRS="EPSG:4326"
+                    minx="47.000000" miny="9.400000" maxx="47.290000" maxy="9.640000" />
+        <BoundingBox CRS="EPSG:31297"
+                    minx="351171" miny="101101" maxx="384188" maxy="120877" />
+        <BoundingBox CRS="EPSG:4258"
+                    minx="47.000000" miny="9.400000" maxx="47.290000" maxy="9.640000" />
+        <BoundingBox CRS="EPSG:32632"
+                    minx="530245" miny="5.20524e+06" maxx="548656" maxy="5.23759e+06" />
+        <BoundingBox CRS="EPSG:31467"
+                    minx="5.20679e+06" miny="3.53027e+06" maxx="5.23925e+06" maxy="3.54867e+06" />
+        <BoundingBox CRS="EPSG:3785"
+                    minx="1.0464e+06" miny="5.94207e+06" maxx="1.07312e+06" maxy="5.98954e+06" />
+        <BoundingBox CRS="EPSG:31254"
+                    minx="206993" miny="-70976.8" maxx="239376" maxy="-52421.3" />
+        <BoundingBox CRS="EPSG:3035"
+                    minx="2.65412e+06" miny="4.27533e+06" maxx="2.68645e+06" maxy="4.29375e+06" />
+        <BoundingBox CRS="EPSG:3034"
+                    minx="2.26277e+06" miny="3.95584e+06" maxx="2.29408e+06" maxy="3.97366e+06" />
+        <BoundingBox CRS="EPSG:3044"
+                    minx="5.20524e+06" miny="530245" maxx="5.23759e+06" maxy="548656" />
+        <BoundingBox CRS="CRS:84"
+                    minx="9.400000" miny="47.000000" maxx="9.640000" maxy="47.290000" />
+        <BoundingBox CRS="EPSG:2056"
+                    minx="2.74835e+06" miny="1.2073e+06" maxx="2.76741e+06" maxy="1.24001e+06" />
+        <BoundingBox CRS="EPSG:3857"
+                    minx="1.0464e+06" miny="5.94207e+06" maxx="1.07312e+06" maxy="5.98954e+06" />
+        <AuthorityURL name="LI.ATG">
+          <OnlineResource xmlns:xlink="http://www.w3.org/1999/xlink" xlink:href="https://www.atg.llv.li"/>
+        </AuthorityURL>
+        <Identifier authority="LI.ABI">c851eb68-629c-4f96-a177-8c3e45b3b62c</Identifier>
+        <MetadataURL type="ISO19115:2003">
+          <Format>text/xml;charset=UTF-8</Format>
+          <OnlineResource xmlns:xlink="http://www.w3.org/1999/xlink" xlink:type="simple" xlink:href="https://www.geocat.ch/geonetwork/srv/ger/csw?service=CSW&amp;version=2.0.2&amp;request=GetRecordById&amp;elementSetName=full&amp;outputSchema=http://www.isotc211.org/2005/gmd&amp;id=c851eb68-629c-4f96-a177-8c3e45b3b62c"/>
+        </MetadataURL>
+        <Style>
+          <Name>PS.ProtectedSite.Default</Name>
+          <Title>INSPIRE Protected Sites Default Style</Title>
+          <LegendURL width="209" height="22">
+             <Format>image/png</Format>
+             <OnlineResource xmlns:xlink="http://www.w3.org/1999/xlink" xlink:type="simple" xlink:href="https://service.geo.llv.li/mapserver/INSPIRE?language=eng&amp;version=1.3.0&amp;service=WMS&amp;request=GetLegendGraphic&amp;sld_version=1.1.0&amp;layer=PS.ProtectedSitesArcheaological&amp;format=image/png&amp;STYLE=PS.ProtectedSite.Default"/>
+          </LegendURL>
+        </Style>
+      </Layer>
+      <Layer queryable="0" opaque="0" cascaded="0">
+        <Name>PS.ProtectedSitesCultural</Name>
+        <Title>Protected Sites – Cultural</Title>
+        <Abstract>Protected Sites – Cultural</Abstract>
+        <KeywordList>
+            <Keyword>Protected Sites</Keyword>
+            <Keyword>conservation</Keyword>
+            <Keyword>cultur</Keyword>
+        </KeywordList>
+        <CRS>EPSG:4326</CRS>
+        <CRS>EPSG:31297</CRS>
+        <CRS>EPSG:4258</CRS>
+        <CRS>EPSG:32632</CRS>
+        <CRS>EPSG:31467</CRS>
+        <CRS>EPSG:3785</CRS>
+        <CRS>EPSG:31254</CRS>
+        <CRS>EPSG:3035</CRS>
+        <CRS>EPSG:3034</CRS>
+        <CRS>EPSG:3044</CRS>
+        <CRS>CRS:84</CRS>
+        <CRS>EPSG:2056</CRS>
+        <CRS>EPSG:3857</CRS>
+        <EX_GeographicBoundingBox>
+            <westBoundLongitude>9.400000</westBoundLongitude>
+            <eastBoundLongitude>9.640000</eastBoundLongitude>
+            <southBoundLatitude>47.000000</southBoundLatitude>
+            <northBoundLatitude>47.290000</northBoundLatitude>
+        </EX_GeographicBoundingBox>
+        <BoundingBox CRS="EPSG:4326"
+                    minx="47.000000" miny="9.400000" maxx="47.290000" maxy="9.640000" />
+        <BoundingBox CRS="EPSG:31297"
+                    minx="351171" miny="101101" maxx="384188" maxy="120877" />
+        <BoundingBox CRS="EPSG:4258"
+                    minx="47.000000" miny="9.400000" maxx="47.290000" maxy="9.640000" />
+        <BoundingBox CRS="EPSG:32632"
+                    minx="530245" miny="5.20524e+06" maxx="548656" maxy="5.23759e+06" />
+        <BoundingBox CRS="EPSG:31467"
+                    minx="5.20679e+06" miny="3.53027e+06" maxx="5.23925e+06" maxy="3.54867e+06" />
+        <BoundingBox CRS="EPSG:3785"
+                    minx="1.0464e+06" miny="5.94207e+06" maxx="1.07312e+06" maxy="5.98954e+06" />
+        <BoundingBox CRS="EPSG:31254"
+                    minx="206993" miny="-70976.8" maxx="239376" maxy="-52421.3" />
+        <BoundingBox CRS="EPSG:3035"
+                    minx="2.65412e+06" miny="4.27533e+06" maxx="2.68645e+06" maxy="4.29375e+06" />
+        <BoundingBox CRS="EPSG:3034"
+                    minx="2.26277e+06" miny="3.95584e+06" maxx="2.29408e+06" maxy="3.97366e+06" />
+        <BoundingBox CRS="EPSG:3044"
+                    minx="5.20524e+06" miny="530245" maxx="5.23759e+06" maxy="548656" />
+        <BoundingBox CRS="CRS:84"
+                    minx="9.400000" miny="47.000000" maxx="9.640000" maxy="47.290000" />
+        <BoundingBox CRS="EPSG:2056"
+                    minx="2.74835e+06" miny="1.2073e+06" maxx="2.76741e+06" maxy="1.24001e+06" />
+        <BoundingBox CRS="EPSG:3857"
+                    minx="1.0464e+06" miny="5.94207e+06" maxx="1.07312e+06" maxy="5.98954e+06" />
+        <AuthorityURL name="LI.ATG">
+          <OnlineResource xmlns:xlink="http://www.w3.org/1999/xlink" xlink:href="https://www.atg.llv.li"/>
+        </AuthorityURL>
+        <Identifier authority="LI.ABI">c851eb68-629c-4f96-a177-8c3e45b3b62c</Identifier>
+        <MetadataURL type="ISO19115:2003">
+          <Format>text/xml;charset=UTF-8</Format>
+          <OnlineResource xmlns:xlink="http://www.w3.org/1999/xlink" xlink:type="simple" xlink:href="https://www.geocat.ch/geonetwork/srv/ger/csw?service=CSW&amp;version=2.0.2&amp;request=GetRecordById&amp;elementSetName=full&amp;outputSchema=http://www.isotc211.org/2005/gmd&amp;id=c851eb68-629c-4f96-a177-8c3e45b3b62c"/>
+        </MetadataURL>
+        <Style>
+          <Name>PS.ProtectedSite.Default</Name>
+          <Title>INSPIRE Protected Sites Default Style</Title>
+          <LegendURL width="172" height="22">
+             <Format>image/png</Format>
+             <OnlineResource xmlns:xlink="http://www.w3.org/1999/xlink" xlink:type="simple" xlink:href="https://service.geo.llv.li/mapserver/INSPIRE?language=eng&amp;version=1.3.0&amp;service=WMS&amp;request=GetLegendGraphic&amp;sld_version=1.1.0&amp;layer=PS.ProtectedSitesCultural&amp;format=image/png&amp;STYLE=PS.ProtectedSite.Default"/>
+          </LegendURL>
+        </Style>
+      </Layer>
+      <Layer queryable="0" opaque="0" cascaded="0">
+        <Name>PS.ProtectedSitesEcological</Name>
+        <Title>Protected Sites – Ecological</Title>
+        <Abstract>Protected Sites – Ecological</Abstract>
+        <KeywordList>
+            <Keyword>Protected Sites</Keyword>
+            <Keyword>conservation</Keyword>
+            <Keyword>ecology</Keyword>
+        </KeywordList>
+        <CRS>EPSG:4326</CRS>
+        <CRS>EPSG:31297</CRS>
+        <CRS>EPSG:4258</CRS>
+        <CRS>EPSG:32632</CRS>
+        <CRS>EPSG:31467</CRS>
+        <CRS>EPSG:3785</CRS>
+        <CRS>EPSG:31254</CRS>
+        <CRS>EPSG:3035</CRS>
+        <CRS>EPSG:3034</CRS>
+        <CRS>EPSG:3044</CRS>
+        <CRS>CRS:84</CRS>
+        <CRS>EPSG:2056</CRS>
+        <CRS>EPSG:3857</CRS>
+        <EX_GeographicBoundingBox>
+            <westBoundLongitude>9.400000</westBoundLongitude>
+            <eastBoundLongitude>9.640000</eastBoundLongitude>
+            <southBoundLatitude>47.000000</southBoundLatitude>
+            <northBoundLatitude>47.290000</northBoundLatitude>
+        </EX_GeographicBoundingBox>
+        <BoundingBox CRS="EPSG:4326"
+                    minx="47.000000" miny="9.400000" maxx="47.290000" maxy="9.640000" />
+        <BoundingBox CRS="EPSG:31297"
+                    minx="351171" miny="101101" maxx="384188" maxy="120877" />
+        <BoundingBox CRS="EPSG:4258"
+                    minx="47.000000" miny="9.400000" maxx="47.290000" maxy="9.640000" />
+        <BoundingBox CRS="EPSG:32632"
+                    minx="530245" miny="5.20524e+06" maxx="548656" maxy="5.23759e+06" />
+        <BoundingBox CRS="EPSG:31467"
+                    minx="5.20679e+06" miny="3.53027e+06" maxx="5.23925e+06" maxy="3.54867e+06" />
+        <BoundingBox CRS="EPSG:3785"
+                    minx="1.0464e+06" miny="5.94207e+06" maxx="1.07312e+06" maxy="5.98954e+06" />
+        <BoundingBox CRS="EPSG:31254"
+                    minx="206993" miny="-70976.8" maxx="239376" maxy="-52421.3" />
+        <BoundingBox CRS="EPSG:3035"
+                    minx="2.65412e+06" miny="4.27533e+06" maxx="2.68645e+06" maxy="4.29375e+06" />
+        <BoundingBox CRS="EPSG:3034"
+                    minx="2.26277e+06" miny="3.95584e+06" maxx="2.29408e+06" maxy="3.97366e+06" />
+        <BoundingBox CRS="EPSG:3044"
+                    minx="5.20524e+06" miny="530245" maxx="5.23759e+06" maxy="548656" />
+        <BoundingBox CRS="CRS:84"
+                    minx="9.400000" miny="47.000000" maxx="9.640000" maxy="47.290000" />
+        <BoundingBox CRS="EPSG:2056"
+                    minx="2.74835e+06" miny="1.2073e+06" maxx="2.76741e+06" maxy="1.24001e+06" />
+        <BoundingBox CRS="EPSG:3857"
+                    minx="1.0464e+06" miny="5.94207e+06" maxx="1.07312e+06" maxy="5.98954e+06" />
+        <AuthorityURL name="LI.ATG">
+          <OnlineResource xmlns:xlink="http://www.w3.org/1999/xlink" xlink:href="https://www.atg.llv.li"/>
+        </AuthorityURL>
+        <Identifier authority="LI.ABI">c851eb68-629c-4f96-a177-8c3e45b3b62c</Identifier>
+        <MetadataURL type="ISO19115:2003">
+          <Format>text/xml;charset=UTF-8</Format>
+          <OnlineResource xmlns:xlink="http://www.w3.org/1999/xlink" xlink:type="simple" xlink:href="https://www.geocat.ch/geonetwork/srv/ger/csw?service=CSW&amp;version=2.0.2&amp;request=GetRecordById&amp;elementSetName=full&amp;outputSchema=http://www.isotc211.org/2005/gmd&amp;id=c851eb68-629c-4f96-a177-8c3e45b3b62c"/>
+        </MetadataURL>
+        <Style>
+          <Name>PS.ProtectedSite.Default</Name>
+          <Title>INSPIRE Protected Sites Default Style</Title>
+          <LegendURL width="185" height="22">
+             <Format>image/png</Format>
+             <OnlineResource xmlns:xlink="http://www.w3.org/1999/xlink" xlink:type="simple" xlink:href="https://service.geo.llv.li/mapserver/INSPIRE?language=eng&amp;version=1.3.0&amp;service=WMS&amp;request=GetLegendGraphic&amp;sld_version=1.1.0&amp;layer=PS.ProtectedSitesEcological&amp;format=image/png&amp;STYLE=PS.ProtectedSite.Default"/>
+          </LegendURL>
+        </Style>
+      </Layer>
+      <Layer queryable="0" opaque="0" cascaded="0">
+        <Name>PS.ProtectedSitesLandscape</Name>
+        <Title>Protected Sites – Landscape</Title>
+        <Abstract>Protected Sites – Landscape</Abstract>
+        <KeywordList>
+            <Keyword>Protected Sites</Keyword>
+            <Keyword>conservation</Keyword>
+            <Keyword>landscape</Keyword>
+        </KeywordList>
+        <CRS>EPSG:4326</CRS>
+        <CRS>EPSG:31297</CRS>
+        <CRS>EPSG:4258</CRS>
+        <CRS>EPSG:32632</CRS>
+        <CRS>EPSG:31467</CRS>
+        <CRS>EPSG:3785</CRS>
+        <CRS>EPSG:31254</CRS>
+        <CRS>EPSG:3035</CRS>
+        <CRS>EPSG:3034</CRS>
+        <CRS>EPSG:3044</CRS>
+        <CRS>CRS:84</CRS>
+        <CRS>EPSG:2056</CRS>
+        <CRS>EPSG:3857</CRS>
+        <EX_GeographicBoundingBox>
+            <westBoundLongitude>9.400000</westBoundLongitude>
+            <eastBoundLongitude>9.640000</eastBoundLongitude>
+            <southBoundLatitude>47.000000</southBoundLatitude>
+            <northBoundLatitude>47.290000</northBoundLatitude>
+        </EX_GeographicBoundingBox>
+        <BoundingBox CRS="EPSG:4326"
+                    minx="47.000000" miny="9.400000" maxx="47.290000" maxy="9.640000" />
+        <BoundingBox CRS="EPSG:31297"
+                    minx="351171" miny="101101" maxx="384188" maxy="120877" />
+        <BoundingBox CRS="EPSG:4258"
+                    minx="47.000000" miny="9.400000" maxx="47.290000" maxy="9.640000" />
+        <BoundingBox CRS="EPSG:32632"
+                    minx="530245" miny="5.20524e+06" maxx="548656" maxy="5.23759e+06" />
+        <BoundingBox CRS="EPSG:31467"
+                    minx="5.20679e+06" miny="3.53027e+06" maxx="5.23925e+06" maxy="3.54867e+06" />
+        <BoundingBox CRS="EPSG:3785"
+                    minx="1.0464e+06" miny="5.94207e+06" maxx="1.07312e+06" maxy="5.98954e+06" />
+        <BoundingBox CRS="EPSG:31254"
+                    minx="206993" miny="-70976.8" maxx="239376" maxy="-52421.3" />
+        <BoundingBox CRS="EPSG:3035"
+                    minx="2.65412e+06" miny="4.27533e+06" maxx="2.68645e+06" maxy="4.29375e+06" />
+        <BoundingBox CRS="EPSG:3034"
+                    minx="2.26277e+06" miny="3.95584e+06" maxx="2.29408e+06" maxy="3.97366e+06" />
+        <BoundingBox CRS="EPSG:3044"
+                    minx="5.20524e+06" miny="530245" maxx="5.23759e+06" maxy="548656" />
+        <BoundingBox CRS="CRS:84"
+                    minx="9.400000" miny="47.000000" maxx="9.640000" maxy="47.290000" />
+        <BoundingBox CRS="EPSG:2056"
+                    minx="2.74835e+06" miny="1.2073e+06" maxx="2.76741e+06" maxy="1.24001e+06" />
+        <BoundingBox CRS="EPSG:3857"
+                    minx="1.0464e+06" miny="5.94207e+06" maxx="1.07312e+06" maxy="5.98954e+06" />
+        <AuthorityURL name="LI.ATG">
+          <OnlineResource xmlns:xlink="http://www.w3.org/1999/xlink" xlink:href="https://www.atg.llv.li"/>
+        </AuthorityURL>
+        <Identifier authority="LI.ABI">c851eb68-629c-4f96-a177-8c3e45b3b62c</Identifier>
+        <MetadataURL type="ISO19115:2003">
+          <Format>text/xml;charset=UTF-8</Format>
+          <OnlineResource xmlns:xlink="http://www.w3.org/1999/xlink" xlink:type="simple" xlink:href="https://www.geocat.ch/geonetwork/srv/ger/csw?service=CSW&amp;version=2.0.2&amp;request=GetRecordById&amp;elementSetName=full&amp;outputSchema=http://www.isotc211.org/2005/gmd&amp;id=c851eb68-629c-4f96-a177-8c3e45b3b62c"/>
+        </MetadataURL>
+        <Style>
+          <Name>PS.ProtectedSite.Default</Name>
+          <Title>INSPIRE Protected Sites Default Style</Title>
+          <LegendURL width="189" height="22">
+             <Format>image/png</Format>
+             <OnlineResource xmlns:xlink="http://www.w3.org/1999/xlink" xlink:type="simple" xlink:href="https://service.geo.llv.li/mapserver/INSPIRE?language=eng&amp;version=1.3.0&amp;service=WMS&amp;request=GetLegendGraphic&amp;sld_version=1.1.0&amp;layer=PS.ProtectedSitesLandscape&amp;format=image/png&amp;STYLE=PS.ProtectedSite.Default"/>
+          </LegendURL>
+        </Style>
+      </Layer>
+      <Layer queryable="0" opaque="0" cascaded="0">
+        <Name>PS.ProtectedSitesEnvironment</Name>
+        <Title>Protected Sites – Environment</Title>
+        <Abstract>Protected Sites – Environment</Abstract>
+        <KeywordList>
+            <Keyword>Protected Sites</Keyword>
+            <Keyword>conservation</Keyword>
+            <Keyword>environment</Keyword>
+        </KeywordList>
+        <CRS>EPSG:4326</CRS>
+        <CRS>EPSG:31297</CRS>
+        <CRS>EPSG:4258</CRS>
+        <CRS>EPSG:32632</CRS>
+        <CRS>EPSG:31467</CRS>
+        <CRS>EPSG:3785</CRS>
+        <CRS>EPSG:31254</CRS>
+        <CRS>EPSG:3035</CRS>
+        <CRS>EPSG:3034</CRS>
+        <CRS>EPSG:3044</CRS>
+        <CRS>CRS:84</CRS>
+        <CRS>EPSG:2056</CRS>
+        <CRS>EPSG:3857</CRS>
+        <EX_GeographicBoundingBox>
+            <westBoundLongitude>9.400000</westBoundLongitude>
+            <eastBoundLongitude>9.640000</eastBoundLongitude>
+            <southBoundLatitude>47.000000</southBoundLatitude>
+            <northBoundLatitude>47.290000</northBoundLatitude>
+        </EX_GeographicBoundingBox>
+        <BoundingBox CRS="EPSG:4326"
+                    minx="47.000000" miny="9.400000" maxx="47.290000" maxy="9.640000" />
+        <BoundingBox CRS="EPSG:31297"
+                    minx="351171" miny="101101" maxx="384188" maxy="120877" />
+        <BoundingBox CRS="EPSG:4258"
+                    minx="47.000000" miny="9.400000" maxx="47.290000" maxy="9.640000" />
+        <BoundingBox CRS="EPSG:32632"
+                    minx="530245" miny="5.20524e+06" maxx="548656" maxy="5.23759e+06" />
+        <BoundingBox CRS="EPSG:31467"
+                    minx="5.20679e+06" miny="3.53027e+06" maxx="5.23925e+06" maxy="3.54867e+06" />
+        <BoundingBox CRS="EPSG:3785"
+                    minx="1.0464e+06" miny="5.94207e+06" maxx="1.07312e+06" maxy="5.98954e+06" />
+        <BoundingBox CRS="EPSG:31254"
+                    minx="206993" miny="-70976.8" maxx="239376" maxy="-52421.3" />
+        <BoundingBox CRS="EPSG:3035"
+                    minx="2.65412e+06" miny="4.27533e+06" maxx="2.68645e+06" maxy="4.29375e+06" />
+        <BoundingBox CRS="EPSG:3034"
+                    minx="2.26277e+06" miny="3.95584e+06" maxx="2.29408e+06" maxy="3.97366e+06" />
+        <BoundingBox CRS="EPSG:3044"
+                    minx="5.20524e+06" miny="530245" maxx="5.23759e+06" maxy="548656" />
+        <BoundingBox CRS="CRS:84"
+                    minx="9.400000" miny="47.000000" maxx="9.640000" maxy="47.290000" />
+        <BoundingBox CRS="EPSG:2056"
+                    minx="2.74835e+06" miny="1.2073e+06" maxx="2.76741e+06" maxy="1.24001e+06" />
+        <BoundingBox CRS="EPSG:3857"
+                    minx="1.0464e+06" miny="5.94207e+06" maxx="1.07312e+06" maxy="5.98954e+06" />
+        <AuthorityURL name="LI.ATG">
+          <OnlineResource xmlns:xlink="http://www.w3.org/1999/xlink" xlink:href="https://www.atg.llv.li"/>
+        </AuthorityURL>
+        <Identifier authority="LI.ABI">c851eb68-629c-4f96-a177-8c3e45b3b62c</Identifier>
+        <MetadataURL type="ISO19115:2003">
+          <Format>text/xml;charset=UTF-8</Format>
+          <OnlineResource xmlns:xlink="http://www.w3.org/1999/xlink" xlink:type="simple" xlink:href="https://www.geocat.ch/geonetwork/srv/ger/csw?service=CSW&amp;version=2.0.2&amp;request=GetRecordById&amp;elementSetName=full&amp;outputSchema=http://www.isotc211.org/2005/gmd&amp;id=c851eb68-629c-4f96-a177-8c3e45b3b62c"/>
+        </MetadataURL>
+        <Style>
+          <Name>PS.ProtectedSite.Default</Name>
+          <Title>INSPIRE Protected Sites Default Style</Title>
+          <LegendURL width="198" height="22">
+             <Format>image/png</Format>
+             <OnlineResource xmlns:xlink="http://www.w3.org/1999/xlink" xlink:type="simple" xlink:href="https://service.geo.llv.li/mapserver/INSPIRE?language=eng&amp;version=1.3.0&amp;service=WMS&amp;request=GetLegendGraphic&amp;sld_version=1.1.0&amp;layer=PS.ProtectedSitesEnvironment&amp;format=image/png&amp;STYLE=PS.ProtectedSite.Default"/>
+          </LegendURL>
+        </Style>
+      </Layer>
+      <Layer queryable="0" opaque="0" cascaded="0">
+        <Name>PS.ProtectedSitesGeological</Name>
+        <Title>Protected Sites – Geological</Title>
+        <Abstract>Protected Sites – Geological</Abstract>
+        <KeywordList>
+            <Keyword>Protected Sites</Keyword>
+            <Keyword>conservation</Keyword>
+            <Keyword>geology</Keyword>
+        </KeywordList>
+        <CRS>EPSG:4326</CRS>
+        <CRS>EPSG:31297</CRS>
+        <CRS>EPSG:4258</CRS>
+        <CRS>EPSG:32632</CRS>
+        <CRS>EPSG:31467</CRS>
+        <CRS>EPSG:3785</CRS>
+        <CRS>EPSG:31254</CRS>
+        <CRS>EPSG:3035</CRS>
+        <CRS>EPSG:3034</CRS>
+        <CRS>EPSG:3044</CRS>
+        <CRS>CRS:84</CRS>
+        <CRS>EPSG:2056</CRS>
+        <CRS>EPSG:3857</CRS>
+        <EX_GeographicBoundingBox>
+            <westBoundLongitude>9.400000</westBoundLongitude>
+            <eastBoundLongitude>9.640000</eastBoundLongitude>
+            <southBoundLatitude>47.000000</southBoundLatitude>
+            <northBoundLatitude>47.290000</northBoundLatitude>
+        </EX_GeographicBoundingBox>
+        <BoundingBox CRS="EPSG:4326"
+                    minx="47.000000" miny="9.400000" maxx="47.290000" maxy="9.640000" />
+        <BoundingBox CRS="EPSG:31297"
+                    minx="351171" miny="101101" maxx="384188" maxy="120877" />
+        <BoundingBox CRS="EPSG:4258"
+                    minx="47.000000" miny="9.400000" maxx="47.290000" maxy="9.640000" />
+        <BoundingBox CRS="EPSG:32632"
+                    minx="530245" miny="5.20524e+06" maxx="548656" maxy="5.23759e+06" />
+        <BoundingBox CRS="EPSG:31467"
+                    minx="5.20679e+06" miny="3.53027e+06" maxx="5.23925e+06" maxy="3.54867e+06" />
+        <BoundingBox CRS="EPSG:3785"
+                    minx="1.0464e+06" miny="5.94207e+06" maxx="1.07312e+06" maxy="5.98954e+06" />
+        <BoundingBox CRS="EPSG:31254"
+                    minx="206993" miny="-70976.8" maxx="239376" maxy="-52421.3" />
+        <BoundingBox CRS="EPSG:3035"
+                    minx="2.65412e+06" miny="4.27533e+06" maxx="2.68645e+06" maxy="4.29375e+06" />
+        <BoundingBox CRS="EPSG:3034"
+                    minx="2.26277e+06" miny="3.95584e+06" maxx="2.29408e+06" maxy="3.97366e+06" />
+        <BoundingBox CRS="EPSG:3044"
+                    minx="5.20524e+06" miny="530245" maxx="5.23759e+06" maxy="548656" />
+        <BoundingBox CRS="CRS:84"
+                    minx="9.400000" miny="47.000000" maxx="9.640000" maxy="47.290000" />
+        <BoundingBox CRS="EPSG:2056"
+                    minx="2.74835e+06" miny="1.2073e+06" maxx="2.76741e+06" maxy="1.24001e+06" />
+        <BoundingBox CRS="EPSG:3857"
+                    minx="1.0464e+06" miny="5.94207e+06" maxx="1.07312e+06" maxy="5.98954e+06" />
+        <AuthorityURL name="LI.ATG">
+          <OnlineResource xmlns:xlink="http://www.w3.org/1999/xlink" xlink:href="https://www.atg.llv.li"/>
+        </AuthorityURL>
+        <Identifier authority="LI.ABI">c851eb68-629c-4f96-a177-8c3e45b3b62c</Identifier>
+        <MetadataURL type="ISO19115:2003">
+          <Format>text/xml;charset=UTF-8</Format>
+          <OnlineResource xmlns:xlink="http://www.w3.org/1999/xlink" xlink:type="simple" xlink:href="https://www.geocat.ch/geonetwork/srv/ger/csw?service=CSW&amp;version=2.0.2&amp;request=GetRecordById&amp;elementSetName=full&amp;outputSchema=http://www.isotc211.org/2005/gmd&amp;id=c851eb68-629c-4f96-a177-8c3e45b3b62c"/>
+        </MetadataURL>
+        <Style>
+          <Name>PS.ProtectedSite.Default</Name>
+          <Title>INSPIRE Protected Sites Default Style</Title>
+          <LegendURL width="187" height="22">
+             <Format>image/png</Format>
+             <OnlineResource xmlns:xlink="http://www.w3.org/1999/xlink" xlink:type="simple" xlink:href="https://service.geo.llv.li/mapserver/INSPIRE?language=eng&amp;version=1.3.0&amp;service=WMS&amp;request=GetLegendGraphic&amp;sld_version=1.1.0&amp;layer=PS.ProtectedSitesGeological&amp;format=image/png&amp;STYLE=PS.ProtectedSite.Default"/>
+          </LegendURL>
+        </Style>
+      </Layer>
+    </Layer>
+    <Layer queryable="0" opaque="0" cascaded="0">
+      <Name>AD</Name>
+      <Title>Addresses</Title>
+      <Abstract>Addresses</Abstract>
+      <KeywordList>
+          <Keyword>Addresses</Keyword>
+          <Keyword>INSPIRE</Keyword>
+      </KeywordList>
+      <CRS>EPSG:4326</CRS>
+      <CRS>EPSG:31297</CRS>
+      <CRS>EPSG:4258</CRS>
+      <CRS>EPSG:32632</CRS>
+      <CRS>EPSG:31467</CRS>
+      <CRS>EPSG:3785</CRS>
+      <CRS>EPSG:31254</CRS>
+      <CRS>EPSG:3035</CRS>
+      <CRS>EPSG:3034</CRS>
+      <CRS>EPSG:3044</CRS>
+      <CRS>CRS:84</CRS>
+      <CRS>EPSG:2056</CRS>
+      <CRS>EPSG:3857</CRS>
+      <EX_GeographicBoundingBox>
+          <westBoundLongitude>9.400000</westBoundLongitude>
+          <eastBoundLongitude>9.640000</eastBoundLongitude>
+          <southBoundLatitude>47.000000</southBoundLatitude>
+          <northBoundLatitude>47.290000</northBoundLatitude>
+      </EX_GeographicBoundingBox>
+      <BoundingBox CRS="EPSG:4326"
+                  minx="47.000000" miny="9.400000" maxx="47.290000" maxy="9.640000" />
+      <BoundingBox CRS="EPSG:31297"
+                  minx="351171" miny="101101" maxx="384188" maxy="120877" />
+      <BoundingBox CRS="EPSG:4258"
+                  minx="47.000000" miny="9.400000" maxx="47.290000" maxy="9.640000" />
+      <BoundingBox CRS="EPSG:32632"
+                  minx="530245" miny="5.20524e+06" maxx="548656" maxy="5.23759e+06" />
+      <BoundingBox CRS="EPSG:31467"
+                  minx="5.20679e+06" miny="3.53027e+06" maxx="5.23925e+06" maxy="3.54867e+06" />
+      <BoundingBox CRS="EPSG:3785"
+                  minx="1.0464e+06" miny="5.94207e+06" maxx="1.07312e+06" maxy="5.98954e+06" />
+      <BoundingBox CRS="EPSG:31254"
+                  minx="206993" miny="-70976.8" maxx="239376" maxy="-52421.3" />
+      <BoundingBox CRS="EPSG:3035"
+                  minx="2.65412e+06" miny="4.27533e+06" maxx="2.68645e+06" maxy="4.29375e+06" />
+      <BoundingBox CRS="EPSG:3034"
+                  minx="2.26277e+06" miny="3.95584e+06" maxx="2.29408e+06" maxy="3.97366e+06" />
+      <BoundingBox CRS="EPSG:3044"
+                  minx="5.20524e+06" miny="530245" maxx="5.23759e+06" maxy="548656" />
+      <BoundingBox CRS="CRS:84"
+                  minx="9.400000" miny="47.000000" maxx="9.640000" maxy="47.290000" />
+      <BoundingBox CRS="EPSG:2056"
+                  minx="2.74835e+06" miny="1.2073e+06" maxx="2.76741e+06" maxy="1.24001e+06" />
+      <BoundingBox CRS="EPSG:3857"
+                  minx="1.0464e+06" miny="5.94207e+06" maxx="1.07312e+06" maxy="5.98954e+06" />
+      <AuthorityURL name="LI.ATG">
+        <OnlineResource xmlns:xlink="http://www.w3.org/1999/xlink" xlink:href="https://www.atg.llv.li"/>
+      </AuthorityURL>
+      <Identifier authority="LI.ATG">86e333bd-78a6-4da0-b840-1cd8f92a07d3</Identifier>
+      <MetadataURL type="ISO19115:2003">
+        <Format>text/xml</Format>
+        <OnlineResource xmlns:xlink="http://www.w3.org/1999/xlink" xlink:type="simple" xlink:href="https://www.geocat.ch/geonetwork/srv/ger/csw?service=CSW&amp;version=2.0.2&amp;request=GetRecordById&amp;elementSetName=full&amp;outputSchema=http://www.isotc211.org/2005/gmd&amp;id=86e333bd-78a6-4da0-b840-1cd8f92a07d3"/>
+      </MetadataURL>
+      <Layer queryable="0" opaque="0" cascaded="0">
+        <Name>AD.Address</Name>
+        <Title>Addresses</Title>
+        <Abstract>Addresses</Abstract>
+        <KeywordList>
+            <Keyword>Addresses</Keyword>
+            <Keyword>INSPIRE</Keyword>
+        </KeywordList>
+        <CRS>EPSG:4326</CRS>
+        <CRS>EPSG:31297</CRS>
+        <CRS>EPSG:4258</CRS>
+        <CRS>EPSG:32632</CRS>
+        <CRS>EPSG:31467</CRS>
+        <CRS>EPSG:3785</CRS>
+        <CRS>EPSG:31254</CRS>
+        <CRS>EPSG:3035</CRS>
+        <CRS>EPSG:3034</CRS>
+        <CRS>EPSG:3044</CRS>
+        <CRS>CRS:84</CRS>
+        <CRS>EPSG:2056</CRS>
+        <CRS>EPSG:3857</CRS>
+        <EX_GeographicBoundingBox>
+            <westBoundLongitude>9.400000</westBoundLongitude>
+            <eastBoundLongitude>9.640000</eastBoundLongitude>
+            <southBoundLatitude>47.000000</southBoundLatitude>
+            <northBoundLatitude>47.290000</northBoundLatitude>
+        </EX_GeographicBoundingBox>
+        <BoundingBox CRS="EPSG:4326"
+                    minx="47.000000" miny="9.400000" maxx="47.290000" maxy="9.640000" />
+        <BoundingBox CRS="EPSG:31297"
+                    minx="351171" miny="101101" maxx="384188" maxy="120877" />
+        <BoundingBox CRS="EPSG:4258"
+                    minx="47.000000" miny="9.400000" maxx="47.290000" maxy="9.640000" />
+        <BoundingBox CRS="EPSG:32632"
+                    minx="530245" miny="5.20524e+06" maxx="548656" maxy="5.23759e+06" />
+        <BoundingBox CRS="EPSG:31467"
+                    minx="5.20679e+06" miny="3.53027e+06" maxx="5.23925e+06" maxy="3.54867e+06" />
+        <BoundingBox CRS="EPSG:3785"
+                    minx="1.0464e+06" miny="5.94207e+06" maxx="1.07312e+06" maxy="5.98954e+06" />
+        <BoundingBox CRS="EPSG:31254"
+                    minx="206993" miny="-70976.8" maxx="239376" maxy="-52421.3" />
+        <BoundingBox CRS="EPSG:3035"
+                    minx="2.65412e+06" miny="4.27533e+06" maxx="2.68645e+06" maxy="4.29375e+06" />
+        <BoundingBox CRS="EPSG:3034"
+                    minx="2.26277e+06" miny="3.95584e+06" maxx="2.29408e+06" maxy="3.97366e+06" />
+        <BoundingBox CRS="EPSG:3044"
+                    minx="5.20524e+06" miny="530245" maxx="5.23759e+06" maxy="548656" />
+        <BoundingBox CRS="CRS:84"
+                    minx="9.400000" miny="47.000000" maxx="9.640000" maxy="47.290000" />
+        <BoundingBox CRS="EPSG:2056"
+                    minx="2.74835e+06" miny="1.2073e+06" maxx="2.76741e+06" maxy="1.24001e+06" />
+        <BoundingBox CRS="EPSG:3857"
+                    minx="1.0464e+06" miny="5.94207e+06" maxx="1.07312e+06" maxy="5.98954e+06" />
+        <AuthorityURL name="LI.ATG">
+          <OnlineResource xmlns:xlink="http://www.w3.org/1999/xlink" xlink:href="https://www.atg.llv.li"/>
+        </AuthorityURL>
+        <Identifier authority="LI.ATG">86e333bd-78a6-4da0-b840-1cd8f92a07d3</Identifier>
+        <MetadataURL type="ISO19115:2003">
+          <Format>text/xml</Format>
+          <OnlineResource xmlns:xlink="http://www.w3.org/1999/xlink" xlink:type="simple" xlink:href="https://www.geocat.ch/geonetwork/srv/ger/csw?service=CSW&amp;version=2.0.2&amp;request=GetRecordById&amp;elementSetName=full&amp;outputSchema=http://www.isotc211.org/2005/gmd&amp;id=86e333bd-78a6-4da0-b840-1cd8f92a07d3"/>
+        </MetadataURL>
+        <Style>
+          <Name>AD.Address.Default</Name>
+          <Title>INSPIRE Addresses Default Style</Title>
+          <LegendURL width="97" height="22">
+             <Format>image/png</Format>
+             <OnlineResource xmlns:xlink="http://www.w3.org/1999/xlink" xlink:type="simple" xlink:href="https://service.geo.llv.li/mapserver/INSPIRE?language=eng&amp;version=1.3.0&amp;service=WMS&amp;request=GetLegendGraphic&amp;sld_version=1.1.0&amp;layer=AD.Address&amp;format=image/png&amp;STYLE=AD.Address.Default"/>
+          </LegendURL>
+        </Style>
+      </Layer>
+    </Layer>
+    <Layer queryable="0" opaque="0" cascaded="0">
+      <Name>GN</Name>
+      <Title>Geographical Names</Title>
+      <Abstract>Geographical Names</Abstract>
+      <KeywordList>
+          <Keyword>Geographical Names</Keyword>
+          <Keyword>INSPIRE</Keyword>
+      </KeywordList>
+      <CRS>EPSG:4326</CRS>
+      <CRS>EPSG:31297</CRS>
+      <CRS>EPSG:4258</CRS>
+      <CRS>EPSG:32632</CRS>
+      <CRS>EPSG:31467</CRS>
+      <CRS>EPSG:3785</CRS>
+      <CRS>EPSG:31254</CRS>
+      <CRS>EPSG:3035</CRS>
+      <CRS>EPSG:3034</CRS>
+      <CRS>EPSG:3044</CRS>
+      <CRS>CRS:84</CRS>
+      <CRS>EPSG:2056</CRS>
+      <CRS>EPSG:3857</CRS>
+      <EX_GeographicBoundingBox>
+          <westBoundLongitude>9.400000</westBoundLongitude>
+          <eastBoundLongitude>9.640000</eastBoundLongitude>
+          <southBoundLatitude>47.000000</southBoundLatitude>
+          <northBoundLatitude>47.290000</northBoundLatitude>
+      </EX_GeographicBoundingBox>
+      <BoundingBox CRS="EPSG:4326"
+                  minx="47.000000" miny="9.400000" maxx="47.290000" maxy="9.640000" />
+      <BoundingBox CRS="EPSG:31297"
+                  minx="351171" miny="101101" maxx="384188" maxy="120877" />
+      <BoundingBox CRS="EPSG:4258"
+                  minx="47.000000" miny="9.400000" maxx="47.290000" maxy="9.640000" />
+      <BoundingBox CRS="EPSG:32632"
+                  minx="530245" miny="5.20524e+06" maxx="548656" maxy="5.23759e+06" />
+      <BoundingBox CRS="EPSG:31467"
+                  minx="5.20679e+06" miny="3.53027e+06" maxx="5.23925e+06" maxy="3.54867e+06" />
+      <BoundingBox CRS="EPSG:3785"
+                  minx="1.0464e+06" miny="5.94207e+06" maxx="1.07312e+06" maxy="5.98954e+06" />
+      <BoundingBox CRS="EPSG:31254"
+                  minx="206993" miny="-70976.8" maxx="239376" maxy="-52421.3" />
+      <BoundingBox CRS="EPSG:3035"
+                  minx="2.65412e+06" miny="4.27533e+06" maxx="2.68645e+06" maxy="4.29375e+06" />
+      <BoundingBox CRS="EPSG:3034"
+                  minx="2.26277e+06" miny="3.95584e+06" maxx="2.29408e+06" maxy="3.97366e+06" />
+      <BoundingBox CRS="EPSG:3044"
+                  minx="5.20524e+06" miny="530245" maxx="5.23759e+06" maxy="548656" />
+      <BoundingBox CRS="CRS:84"
+                  minx="9.400000" miny="47.000000" maxx="9.640000" maxy="47.290000" />
+      <BoundingBox CRS="EPSG:2056"
+                  minx="2.74835e+06" miny="1.2073e+06" maxx="2.76741e+06" maxy="1.24001e+06" />
+      <BoundingBox CRS="EPSG:3857"
+                  minx="1.0464e+06" miny="5.94207e+06" maxx="1.07312e+06" maxy="5.98954e+06" />
+      <AuthorityURL name="LI.ATG">
+        <OnlineResource xmlns:xlink="http://www.w3.org/1999/xlink" xlink:href="https://www.atg.llv.li"/>
+      </AuthorityURL>
+      <Identifier authority="LI.ATG">8c4b6669-8828-44b7-a888-fd43f9611893</Identifier>
+      <MetadataURL type="ISO19115:2003">
+        <Format>text/xml</Format>
+        <OnlineResource xmlns:xlink="http://www.w3.org/1999/xlink" xlink:type="simple" xlink:href="https://www.geocat.ch/geonetwork/srv/ger/csw?service=CSW&amp;version=2.0.2&amp;request=GetRecordById&amp;elementSetName=full&amp;outputSchema=http://www.isotc211.org/2005/gmd&amp;id=8c4b6669-8828-44b7-a888-fd43f9611893"/>
+      </MetadataURL>
+      <Layer queryable="0" opaque="0" cascaded="0">
+        <Name>GN.GeographicalNames</Name>
+        <Title>Geographical Names</Title>
+        <Abstract>Geographical Names (Point Element)</Abstract>
+        <KeywordList>
+            <Keyword>Geographical Names</Keyword>
+            <Keyword>INSPIRE</Keyword>
+        </KeywordList>
+        <CRS>EPSG:4326</CRS>
+        <CRS>EPSG:31297</CRS>
+        <CRS>EPSG:4258</CRS>
+        <CRS>EPSG:32632</CRS>
+        <CRS>EPSG:31467</CRS>
+        <CRS>EPSG:3785</CRS>
+        <CRS>EPSG:31254</CRS>
+        <CRS>EPSG:3035</CRS>
+        <CRS>EPSG:3034</CRS>
+        <CRS>EPSG:3044</CRS>
+        <CRS>CRS:84</CRS>
+        <CRS>EPSG:2056</CRS>
+        <CRS>EPSG:3857</CRS>
+        <EX_GeographicBoundingBox>
+            <westBoundLongitude>9.400000</westBoundLongitude>
+            <eastBoundLongitude>9.640000</eastBoundLongitude>
+            <southBoundLatitude>47.000000</southBoundLatitude>
+            <northBoundLatitude>47.290000</northBoundLatitude>
+        </EX_GeographicBoundingBox>
+        <BoundingBox CRS="EPSG:4326"
+                    minx="47.000000" miny="9.400000" maxx="47.290000" maxy="9.640000" />
+        <BoundingBox CRS="EPSG:31297"
+                    minx="351171" miny="101101" maxx="384188" maxy="120877" />
+        <BoundingBox CRS="EPSG:4258"
+                    minx="47.000000" miny="9.400000" maxx="47.290000" maxy="9.640000" />
+        <BoundingBox CRS="EPSG:32632"
+                    minx="530245" miny="5.20524e+06" maxx="548656" maxy="5.23759e+06" />
+        <BoundingBox CRS="EPSG:31467"
+                    minx="5.20679e+06" miny="3.53027e+06" maxx="5.23925e+06" maxy="3.54867e+06" />
+        <BoundingBox CRS="EPSG:3785"
+                    minx="1.0464e+06" miny="5.94207e+06" maxx="1.07312e+06" maxy="5.98954e+06" />
+        <BoundingBox CRS="EPSG:31254"
+                    minx="206993" miny="-70976.8" maxx="239376" maxy="-52421.3" />
+        <BoundingBox CRS="EPSG:3035"
+                    minx="2.65412e+06" miny="4.27533e+06" maxx="2.68645e+06" maxy="4.29375e+06" />
+        <BoundingBox CRS="EPSG:3034"
+                    minx="2.26277e+06" miny="3.95584e+06" maxx="2.29408e+06" maxy="3.97366e+06" />
+        <BoundingBox CRS="EPSG:3044"
+                    minx="5.20524e+06" miny="530245" maxx="5.23759e+06" maxy="548656" />
+        <BoundingBox CRS="CRS:84"
+                    minx="9.400000" miny="47.000000" maxx="9.640000" maxy="47.290000" />
+        <BoundingBox CRS="EPSG:2056"
+                    minx="2.74835e+06" miny="1.2073e+06" maxx="2.76741e+06" maxy="1.24001e+06" />
+        <BoundingBox CRS="EPSG:3857"
+                    minx="1.0464e+06" miny="5.94207e+06" maxx="1.07312e+06" maxy="5.98954e+06" />
+        <AuthorityURL name="LI.ATG">
+          <OnlineResource xmlns:xlink="http://www.w3.org/1999/xlink" xlink:href="https://www.atg.llv.li"/>
+        </AuthorityURL>
+        <Identifier authority="LI.ATG">8c4b6669-8828-44b7-a888-fd43f9611893</Identifier>
+        <MetadataURL type="ISO19115:2003">
+          <Format>text/xml</Format>
+          <OnlineResource xmlns:xlink="http://www.w3.org/1999/xlink" xlink:type="simple" xlink:href="https://www.geocat.ch/geonetwork/srv/ger/csw?service=CSW&amp;version=2.0.2&amp;request=GetRecordById&amp;elementSetName=full&amp;outputSchema=http://www.isotc211.org/2005/gmd&amp;id=8c4b6669-8828-44b7-a888-fd43f9611893"/>
+        </MetadataURL>
+        <Style>
+          <Name>GN.GeographicalNames.Default</Name>
+          <Title>Geographical Name Default Style</Title>
+          <LegendURL width="164" height="22">
+             <Format>image/png</Format>
+             <OnlineResource xmlns:xlink="http://www.w3.org/1999/xlink" xlink:type="simple" xlink:href="https://service.geo.llv.li/mapserver/INSPIRE?language=eng&amp;version=1.3.0&amp;service=WMS&amp;request=GetLegendGraphic&amp;sld_version=1.1.0&amp;layer=GN.GeographicalNames&amp;format=image/png&amp;STYLE=GN.GeographicalNames.Default"/>
+          </LegendURL>
+        </Style>
+      </Layer>
+    </Layer>
+    <Layer queryable="0" opaque="0" cascaded="0">
+      <Name>TN</Name>
+      <Title>Transport Network Road</Title>
+      <Abstract>Transport Network Road </Abstract>
+      <KeywordList>
+          <Keyword>road</Keyword>
+          <Keyword>Transport Network</Keyword>
+          <Keyword>INSPIRE</Keyword>
+      </KeywordList>
+      <CRS>EPSG:4326</CRS>
+      <CRS>EPSG:31297</CRS>
+      <CRS>EPSG:4258</CRS>
+      <CRS>EPSG:32632</CRS>
+      <CRS>EPSG:31467</CRS>
+      <CRS>EPSG:3785</CRS>
+      <CRS>EPSG:31254</CRS>
+      <CRS>EPSG:3035</CRS>
+      <CRS>EPSG:3034</CRS>
+      <CRS>EPSG:3044</CRS>
+      <CRS>CRS:84</CRS>
+      <CRS>EPSG:2056</CRS>
+      <CRS>EPSG:3857</CRS>
+      <EX_GeographicBoundingBox>
+          <westBoundLongitude>9.400000</westBoundLongitude>
+          <eastBoundLongitude>9.640000</eastBoundLongitude>
+          <southBoundLatitude>47.000000</southBoundLatitude>
+          <northBoundLatitude>47.290000</northBoundLatitude>
+      </EX_GeographicBoundingBox>
+      <BoundingBox CRS="EPSG:4326"
+                  minx="47.000000" miny="9.400000" maxx="47.290000" maxy="9.640000" />
+      <BoundingBox CRS="EPSG:31297"
+                  minx="351171" miny="101101" maxx="384188" maxy="120877" />
+      <BoundingBox CRS="EPSG:4258"
+                  minx="47.000000" miny="9.400000" maxx="47.290000" maxy="9.640000" />
+      <BoundingBox CRS="EPSG:32632"
+                  minx="530245" miny="5.20524e+06" maxx="548656" maxy="5.23759e+06" />
+      <BoundingBox CRS="EPSG:31467"
+                  minx="5.20679e+06" miny="3.53027e+06" maxx="5.23925e+06" maxy="3.54867e+06" />
+      <BoundingBox CRS="EPSG:3785"
+                  minx="1.0464e+06" miny="5.94207e+06" maxx="1.07312e+06" maxy="5.98954e+06" />
+      <BoundingBox CRS="EPSG:31254"
+                  minx="206993" miny="-70976.8" maxx="239376" maxy="-52421.3" />
+      <BoundingBox CRS="EPSG:3035"
+                  minx="2.65412e+06" miny="4.27533e+06" maxx="2.68645e+06" maxy="4.29375e+06" />
+      <BoundingBox CRS="EPSG:3034"
+                  minx="2.26277e+06" miny="3.95584e+06" maxx="2.29408e+06" maxy="3.97366e+06" />
+      <BoundingBox CRS="EPSG:3044"
+                  minx="5.20524e+06" miny="530245" maxx="5.23759e+06" maxy="548656" />
+      <BoundingBox CRS="CRS:84"
+                  minx="9.400000" miny="47.000000" maxx="9.640000" maxy="47.290000" />
+      <BoundingBox CRS="EPSG:2056"
+                  minx="2.74835e+06" miny="1.2073e+06" maxx="2.76741e+06" maxy="1.24001e+06" />
+      <BoundingBox CRS="EPSG:3857"
+                  minx="1.0464e+06" miny="5.94207e+06" maxx="1.07312e+06" maxy="5.98954e+06" />
+      <Identifier authority="LI.ABI">966fc243-08b9-4f4f-a38d-6bd1d5079fa6</Identifier>
+      <MetadataURL type="ISO19115:2003">
+        <Format>text/xml</Format>
+        <OnlineResource xmlns:xlink="http://www.w3.org/1999/xlink" xlink:type="simple" xlink:href="https://www.geocat.ch/geonetwork/srv/ger/csw?service=CSW&amp;version=2.0.2&amp;request=GetRecordById&amp;elementSetName=full&amp;outputSchema=http://www.isotc211.org/2005/gmd&amp;id=966fc243-08b9-4f4f-a38d-6bd1d5079fa6"/>
+      </MetadataURL>
+      <Layer queryable="0" opaque="0" cascaded="0">
+        <Name>TN.RoadTransportNetwork.RoadLink</Name>
+        <Title>Transport Network RoadLink</Title>
+        <Abstract>Transport Network RoadLink</Abstract>
+        <KeywordList>
+            <Keyword>RoadLink</Keyword>
+            <Keyword>INSPIRE</Keyword>
+        </KeywordList>
+        <CRS>EPSG:4326</CRS>
+        <CRS>EPSG:31297</CRS>
+        <CRS>EPSG:4258</CRS>
+        <CRS>EPSG:32632</CRS>
+        <CRS>EPSG:31467</CRS>
+        <CRS>EPSG:3785</CRS>
+        <CRS>EPSG:31254</CRS>
+        <CRS>EPSG:3035</CRS>
+        <CRS>EPSG:3034</CRS>
+        <CRS>EPSG:3044</CRS>
+        <CRS>CRS:84</CRS>
+        <CRS>EPSG:2056</CRS>
+        <CRS>EPSG:3857</CRS>
+        <EX_GeographicBoundingBox>
+            <westBoundLongitude>9.400000</westBoundLongitude>
+            <eastBoundLongitude>9.640000</eastBoundLongitude>
+            <southBoundLatitude>47.000000</southBoundLatitude>
+            <northBoundLatitude>47.290000</northBoundLatitude>
+        </EX_GeographicBoundingBox>
+        <BoundingBox CRS="EPSG:4326"
+                    minx="47.000000" miny="9.400000" maxx="47.290000" maxy="9.640000" />
+        <BoundingBox CRS="EPSG:31297"
+                    minx="351171" miny="101101" maxx="384188" maxy="120877" />
+        <BoundingBox CRS="EPSG:4258"
+                    minx="47.000000" miny="9.400000" maxx="47.290000" maxy="9.640000" />
+        <BoundingBox CRS="EPSG:32632"
+                    minx="530245" miny="5.20524e+06" maxx="548656" maxy="5.23759e+06" />
+        <BoundingBox CRS="EPSG:31467"
+                    minx="5.20679e+06" miny="3.53027e+06" maxx="5.23925e+06" maxy="3.54867e+06" />
+        <BoundingBox CRS="EPSG:3785"
+                    minx="1.0464e+06" miny="5.94207e+06" maxx="1.07312e+06" maxy="5.98954e+06" />
+        <BoundingBox CRS="EPSG:31254"
+                    minx="206993" miny="-70976.8" maxx="239376" maxy="-52421.3" />
+        <BoundingBox CRS="EPSG:3035"
+                    minx="2.65412e+06" miny="4.27533e+06" maxx="2.68645e+06" maxy="4.29375e+06" />
+        <BoundingBox CRS="EPSG:3034"
+                    minx="2.26277e+06" miny="3.95584e+06" maxx="2.29408e+06" maxy="3.97366e+06" />
+        <BoundingBox CRS="EPSG:3044"
+                    minx="5.20524e+06" miny="530245" maxx="5.23759e+06" maxy="548656" />
+        <BoundingBox CRS="CRS:84"
+                    minx="9.400000" miny="47.000000" maxx="9.640000" maxy="47.290000" />
+        <BoundingBox CRS="EPSG:2056"
+                    minx="2.74835e+06" miny="1.2073e+06" maxx="2.76741e+06" maxy="1.24001e+06" />
+        <BoundingBox CRS="EPSG:3857"
+                    minx="1.0464e+06" miny="5.94207e+06" maxx="1.07312e+06" maxy="5.98954e+06" />
+        <AuthorityURL name="LI.ATG">
+          <OnlineResource xmlns:xlink="http://www.w3.org/1999/xlink" xlink:href="https://www.atg.llv.li"/>
+        </AuthorityURL>
+        <Identifier authority="LI.ATG">966fc243-08b9-4f4f-a38d-6bd1d5079fa6</Identifier>
+        <MetadataURL type="ISO19115:2003">
+          <Format>text/xml</Format>
+          <OnlineResource xmlns:xlink="http://www.w3.org/1999/xlink" xlink:type="simple" xlink:href="https://www.geocat.ch/geonetwork/srv/ger/csw?service=CSW&amp;version=2.0.2&amp;request=GetRecordById&amp;elementSetName=full&amp;outputSchema=http://www.isotc211.org/2005/gmd&amp;id=966fc243-08b9-4f4f-a38d-6bd1d5079fa6"/>
+        </MetadataURL>
+        <Style>
+          <Name>TN.RoadTransportNetwork.RoadLink.Default</Name>
+          <Title>RoadTransportNetwork.RoadLink Default Style</Title>
+          <LegendURL width="230" height="22">
+             <Format>image/png</Format>
+             <OnlineResource xmlns:xlink="http://www.w3.org/1999/xlink" xlink:type="simple" xlink:href="https://service.geo.llv.li/mapserver/INSPIRE?language=eng&amp;version=1.3.0&amp;service=WMS&amp;request=GetLegendGraphic&amp;sld_version=1.1.0&amp;layer=TN.RoadTransportNetwork.RoadLink&amp;format=image/png&amp;STYLE=TN.RoadTransportNetwork.RoadLink.Default"/>
+          </LegendURL>
+        </Style>
+      </Layer>
+    </Layer>
+    <Layer queryable="0" opaque="0" cascaded="0">
+      <Name>HY</Name>
+      <Title>Hydrographic network</Title>
+      <Abstract>Hydrographic network</Abstract>
+      <KeywordList>
+          <Keyword>Hydrography</Keyword>
+      </KeywordList>
+      <CRS>EPSG:4326</CRS>
+      <CRS>EPSG:31297</CRS>
+      <CRS>EPSG:4258</CRS>
+      <CRS>EPSG:32632</CRS>
+      <CRS>EPSG:31467</CRS>
+      <CRS>EPSG:3785</CRS>
+      <CRS>EPSG:31254</CRS>
+      <CRS>EPSG:3035</CRS>
+      <CRS>EPSG:3034</CRS>
+      <CRS>EPSG:3044</CRS>
+      <CRS>CRS:84</CRS>
+      <CRS>EPSG:2056</CRS>
+      <CRS>EPSG:3857</CRS>
+      <EX_GeographicBoundingBox>
+          <westBoundLongitude>9.400000</westBoundLongitude>
+          <eastBoundLongitude>9.640000</eastBoundLongitude>
+          <southBoundLatitude>47.000000</southBoundLatitude>
+          <northBoundLatitude>47.290000</northBoundLatitude>
+      </EX_GeographicBoundingBox>
+      <BoundingBox CRS="EPSG:4326"
+                  minx="47.000000" miny="9.400000" maxx="47.290000" maxy="9.640000" />
+      <BoundingBox CRS="EPSG:31297"
+                  minx="351171" miny="101101" maxx="384188" maxy="120877" />
+      <BoundingBox CRS="EPSG:4258"
+                  minx="47.000000" miny="9.400000" maxx="47.290000" maxy="9.640000" />
+      <BoundingBox CRS="EPSG:32632"
+                  minx="530245" miny="5.20524e+06" maxx="548656" maxy="5.23759e+06" />
+      <BoundingBox CRS="EPSG:31467"
+                  minx="5.20679e+06" miny="3.53027e+06" maxx="5.23925e+06" maxy="3.54867e+06" />
+      <BoundingBox CRS="EPSG:3785"
+                  minx="1.0464e+06" miny="5.94207e+06" maxx="1.07312e+06" maxy="5.98954e+06" />
+      <BoundingBox CRS="EPSG:31254"
+                  minx="206993" miny="-70976.8" maxx="239376" maxy="-52421.3" />
+      <BoundingBox CRS="EPSG:3035"
+                  minx="2.65412e+06" miny="4.27533e+06" maxx="2.68645e+06" maxy="4.29375e+06" />
+      <BoundingBox CRS="EPSG:3034"
+                  minx="2.26277e+06" miny="3.95584e+06" maxx="2.29408e+06" maxy="3.97366e+06" />
+      <BoundingBox CRS="EPSG:3044"
+                  minx="5.20524e+06" miny="530245" maxx="5.23759e+06" maxy="548656" />
+      <BoundingBox CRS="CRS:84"
+                  minx="9.400000" miny="47.000000" maxx="9.640000" maxy="47.290000" />
+      <BoundingBox CRS="EPSG:2056"
+                  minx="2.74835e+06" miny="1.2073e+06" maxx="2.76741e+06" maxy="1.24001e+06" />
+      <BoundingBox CRS="EPSG:3857"
+                  minx="1.0464e+06" miny="5.94207e+06" maxx="1.07312e+06" maxy="5.98954e+06" />
+      <AuthorityURL name="LI.ATG">
+        <OnlineResource xmlns:xlink="http://www.w3.org/1999/xlink" xlink:href="https://www.atg.llv.li"/>
+      </AuthorityURL>
+      <Identifier authority="LI.ATG">5249bc4c-5f58-45d7-aa5d-a274a63bdce9</Identifier>
+      <MetadataURL type="ISO19115:2003">
+        <Format>text/xml</Format>
+        <OnlineResource xmlns:xlink="http://www.w3.org/1999/xlink" xlink:type="simple" xlink:href="https://www.geocat.ch/geonetwork/srv/ger/csw?service=CSW&amp;version=2.0.2&amp;request=GetRecordById&amp;elementSetName=full&amp;outputSchema=http://www.isotc211.org/2005/gmd&amp;id=5249bc4c-5f58-45d7-aa5d-a274a63bdce9"/>
+      </MetadataURL>
+      <Layer queryable="0" opaque="0" cascaded="0">
+        <Name>HY.Network</Name>
+        <Title>Hydrographic network</Title>
+        <Abstract>Hydrographic network</Abstract>
+        <KeywordList>
+            <Keyword>WatercourseLink</Keyword>
+            <Keyword>INSPIRE</Keyword>
+        </KeywordList>
+        <CRS>EPSG:4326</CRS>
+        <CRS>EPSG:31297</CRS>
+        <CRS>EPSG:4258</CRS>
+        <CRS>EPSG:32632</CRS>
+        <CRS>EPSG:31467</CRS>
+        <CRS>EPSG:3785</CRS>
+        <CRS>EPSG:31254</CRS>
+        <CRS>EPSG:3035</CRS>
+        <CRS>EPSG:3034</CRS>
+        <CRS>EPSG:3044</CRS>
+        <CRS>CRS:84</CRS>
+        <CRS>EPSG:2056</CRS>
+        <CRS>EPSG:3857</CRS>
+        <EX_GeographicBoundingBox>
+            <westBoundLongitude>9.400000</westBoundLongitude>
+            <eastBoundLongitude>9.640000</eastBoundLongitude>
+            <southBoundLatitude>47.000000</southBoundLatitude>
+            <northBoundLatitude>47.290000</northBoundLatitude>
+        </EX_GeographicBoundingBox>
+        <BoundingBox CRS="EPSG:4326"
+                    minx="47.000000" miny="9.400000" maxx="47.290000" maxy="9.640000" />
+        <BoundingBox CRS="EPSG:31297"
+                    minx="351171" miny="101101" maxx="384188" maxy="120877" />
+        <BoundingBox CRS="EPSG:4258"
+                    minx="47.000000" miny="9.400000" maxx="47.290000" maxy="9.640000" />
+        <BoundingBox CRS="EPSG:32632"
+                    minx="530245" miny="5.20524e+06" maxx="548656" maxy="5.23759e+06" />
+        <BoundingBox CRS="EPSG:31467"
+                    minx="5.20679e+06" miny="3.53027e+06" maxx="5.23925e+06" maxy="3.54867e+06" />
+        <BoundingBox CRS="EPSG:3785"
+                    minx="1.0464e+06" miny="5.94207e+06" maxx="1.07312e+06" maxy="5.98954e+06" />
+        <BoundingBox CRS="EPSG:31254"
+                    minx="206993" miny="-70976.8" maxx="239376" maxy="-52421.3" />
+        <BoundingBox CRS="EPSG:3035"
+                    minx="2.65412e+06" miny="4.27533e+06" maxx="2.68645e+06" maxy="4.29375e+06" />
+        <BoundingBox CRS="EPSG:3034"
+                    minx="2.26277e+06" miny="3.95584e+06" maxx="2.29408e+06" maxy="3.97366e+06" />
+        <BoundingBox CRS="EPSG:3044"
+                    minx="5.20524e+06" miny="530245" maxx="5.23759e+06" maxy="548656" />
+        <BoundingBox CRS="CRS:84"
+                    minx="9.400000" miny="47.000000" maxx="9.640000" maxy="47.290000" />
+        <BoundingBox CRS="EPSG:2056"
+                    minx="2.74835e+06" miny="1.2073e+06" maxx="2.76741e+06" maxy="1.24001e+06" />
+        <BoundingBox CRS="EPSG:3857"
+                    minx="1.0464e+06" miny="5.94207e+06" maxx="1.07312e+06" maxy="5.98954e+06" />
+        <Identifier authority="LI.ABI">5249bc4c-5f58-45d7-aa5d-a274a63bdce9</Identifier>
+        <MetadataURL type="ISO19115:2003">
+          <Format>text/xml</Format>
+          <OnlineResource xmlns:xlink="http://www.w3.org/1999/xlink" xlink:type="simple" xlink:href="https://www.geocat.ch/geonetwork/srv/ger/csw?service=CSW&amp;version=2.0.2&amp;request=GetRecordById&amp;elementSetName=full&amp;outputSchema=http://www.isotc211.org/2005/gmd&amp;id=5249bc4c-5f58-45d7-aa5d-a274a63bdce9"/>
+        </MetadataURL>
+        <Style>
+          <Name>HY.Network.Default</Name>
+          <Title>Hydrographic network default style</Title>
+          <LegendURL width="97" height="22">
+             <Format>image/png</Format>
+             <OnlineResource xmlns:xlink="http://www.w3.org/1999/xlink" xlink:type="simple" xlink:href="https://service.geo.llv.li/mapserver/INSPIRE?language=eng&amp;version=1.3.0&amp;service=WMS&amp;request=GetLegendGraphic&amp;sld_version=1.1.0&amp;layer=HY.Network&amp;format=image/png&amp;STYLE=HY.Network.Default"/>
+          </LegendURL>
+        </Style>
+      </Layer>
+      <Layer queryable="0" opaque="0" cascaded="0">
+        <Name>HY.PhysicalWaters.Waterbodies</Name>
+        <Title>Waterbodys</Title>
+        <Abstract>Watercourse, StandingWater</Abstract>
+        <KeywordList>
+            <Keyword>Waterbody</Keyword>
+            <Keyword>INSPIRE</Keyword>
+        </KeywordList>
+        <CRS>EPSG:4326</CRS>
+        <CRS>EPSG:31297</CRS>
+        <CRS>EPSG:4258</CRS>
+        <CRS>EPSG:32632</CRS>
+        <CRS>EPSG:31467</CRS>
+        <CRS>EPSG:3785</CRS>
+        <CRS>EPSG:31254</CRS>
+        <CRS>EPSG:3035</CRS>
+        <CRS>EPSG:3034</CRS>
+        <CRS>EPSG:3044</CRS>
+        <CRS>CRS:84</CRS>
+        <CRS>EPSG:2056</CRS>
+        <CRS>EPSG:3857</CRS>
+        <EX_GeographicBoundingBox>
+            <westBoundLongitude>9.400000</westBoundLongitude>
+            <eastBoundLongitude>9.640000</eastBoundLongitude>
+            <southBoundLatitude>47.000000</southBoundLatitude>
+            <northBoundLatitude>47.290000</northBoundLatitude>
+        </EX_GeographicBoundingBox>
+        <BoundingBox CRS="EPSG:4326"
+                    minx="47.000000" miny="9.400000" maxx="47.290000" maxy="9.640000" />
+        <BoundingBox CRS="EPSG:31297"
+                    minx="351171" miny="101101" maxx="384188" maxy="120877" />
+        <BoundingBox CRS="EPSG:4258"
+                    minx="47.000000" miny="9.400000" maxx="47.290000" maxy="9.640000" />
+        <BoundingBox CRS="EPSG:32632"
+                    minx="530245" miny="5.20524e+06" maxx="548656" maxy="5.23759e+06" />
+        <BoundingBox CRS="EPSG:31467"
+                    minx="5.20679e+06" miny="3.53027e+06" maxx="5.23925e+06" maxy="3.54867e+06" />
+        <BoundingBox CRS="EPSG:3785"
+                    minx="1.0464e+06" miny="5.94207e+06" maxx="1.07312e+06" maxy="5.98954e+06" />
+        <BoundingBox CRS="EPSG:31254"
+                    minx="206993" miny="-70976.8" maxx="239376" maxy="-52421.3" />
+        <BoundingBox CRS="EPSG:3035"
+                    minx="2.65412e+06" miny="4.27533e+06" maxx="2.68645e+06" maxy="4.29375e+06" />
+        <BoundingBox CRS="EPSG:3034"
+                    minx="2.26277e+06" miny="3.95584e+06" maxx="2.29408e+06" maxy="3.97366e+06" />
+        <BoundingBox CRS="EPSG:3044"
+                    minx="5.20524e+06" miny="530245" maxx="5.23759e+06" maxy="548656" />
+        <BoundingBox CRS="CRS:84"
+                    minx="9.400000" miny="47.000000" maxx="9.640000" maxy="47.290000" />
+        <BoundingBox CRS="EPSG:2056"
+                    minx="2.74835e+06" miny="1.2073e+06" maxx="2.76741e+06" maxy="1.24001e+06" />
+        <BoundingBox CRS="EPSG:3857"
+                    minx="1.0464e+06" miny="5.94207e+06" maxx="1.07312e+06" maxy="5.98954e+06" />
+        <Identifier authority="LI:ABI">5249bc4c-5f58-45d7-aa5d-a274a63bdce9</Identifier>
+        <MetadataURL type="ISO19115:2003">
+          <Format>text/xml</Format>
+          <OnlineResource xmlns:xlink="http://www.w3.org/1999/xlink" xlink:type="simple" xlink:href="https://www.geocat.ch/geonetwork/srv/ger/csw?service=CSW&amp;version=2.0.2&amp;request=GetRecordById&amp;elementSetName=full&amp;outputSchema=http://www.isotc211.org/2005/gmd&amp;id=5249bc4c-5f58-45d7-aa5d-a274a63bdce9"/>
+        </MetadataURL>
+        <Style>
+          <Name>HY.PhysicalWaters.Waterbodies.Default</Name>
+          <Title>Water bodies default style</Title>
+          <LegendURL width="206" height="22">
+             <Format>image/png</Format>
+             <OnlineResource xmlns:xlink="http://www.w3.org/1999/xlink" xlink:type="simple" xlink:href="https://service.geo.llv.li/mapserver/INSPIRE?language=eng&amp;version=1.3.0&amp;service=WMS&amp;request=GetLegendGraphic&amp;sld_version=1.1.0&amp;layer=HY.PhysicalWaters.Waterbodies&amp;format=image/png&amp;STYLE=HY.PhysicalWaters.Waterbodies.Default"/>
+          </LegendURL>
+        </Style>
+      </Layer>
+      <Layer queryable="0" opaque="0" cascaded="0">
+        <Name>HY.PhysicalWaters.Catchments</Name>
+        <Title>Einzugsbereiche</Title>
+        <Abstract>Einzugsgebiete,Entwaesserungsgebiete</Abstract>
+        <KeywordList>
+            <Keyword>Catchments</Keyword>
+            <Keyword>Drainage Basin</Keyword>
+            <Keyword>INSPIRE</Keyword>
+        </KeywordList>
+        <CRS>EPSG:4326</CRS>
+        <CRS>EPSG:31297</CRS>
+        <CRS>EPSG:4258</CRS>
+        <CRS>EPSG:32632</CRS>
+        <CRS>EPSG:31467</CRS>
+        <CRS>EPSG:3785</CRS>
+        <CRS>EPSG:31254</CRS>
+        <CRS>EPSG:3035</CRS>
+        <CRS>EPSG:3034</CRS>
+        <CRS>EPSG:3044</CRS>
+        <CRS>CRS:84</CRS>
+        <CRS>EPSG:2056</CRS>
+        <CRS>EPSG:3857</CRS>
+        <EX_GeographicBoundingBox>
+            <westBoundLongitude>9.400000</westBoundLongitude>
+            <eastBoundLongitude>9.640000</eastBoundLongitude>
+            <southBoundLatitude>47.000000</southBoundLatitude>
+            <northBoundLatitude>47.290000</northBoundLatitude>
+        </EX_GeographicBoundingBox>
+        <BoundingBox CRS="EPSG:4326"
+                    minx="47.000000" miny="9.400000" maxx="47.290000" maxy="9.640000" />
+        <BoundingBox CRS="EPSG:31297"
+                    minx="351171" miny="101101" maxx="384188" maxy="120877" />
+        <BoundingBox CRS="EPSG:4258"
+                    minx="47.000000" miny="9.400000" maxx="47.290000" maxy="9.640000" />
+        <BoundingBox CRS="EPSG:32632"
+                    minx="530245" miny="5.20524e+06" maxx="548656" maxy="5.23759e+06" />
+        <BoundingBox CRS="EPSG:31467"
+                    minx="5.20679e+06" miny="3.53027e+06" maxx="5.23925e+06" maxy="3.54867e+06" />
+        <BoundingBox CRS="EPSG:3785"
+                    minx="1.0464e+06" miny="5.94207e+06" maxx="1.07312e+06" maxy="5.98954e+06" />
+        <BoundingBox CRS="EPSG:31254"
+                    minx="206993" miny="-70976.8" maxx="239376" maxy="-52421.3" />
+        <BoundingBox CRS="EPSG:3035"
+                    minx="2.65412e+06" miny="4.27533e+06" maxx="2.68645e+06" maxy="4.29375e+06" />
+        <BoundingBox CRS="EPSG:3034"
+                    minx="2.26277e+06" miny="3.95584e+06" maxx="2.29408e+06" maxy="3.97366e+06" />
+        <BoundingBox CRS="EPSG:3044"
+                    minx="5.20524e+06" miny="530245" maxx="5.23759e+06" maxy="548656" />
+        <BoundingBox CRS="CRS:84"
+                    minx="9.400000" miny="47.000000" maxx="9.640000" maxy="47.290000" />
+        <BoundingBox CRS="EPSG:2056"
+                    minx="2.74835e+06" miny="1.2073e+06" maxx="2.76741e+06" maxy="1.24001e+06" />
+        <BoundingBox CRS="EPSG:3857"
+                    minx="1.0464e+06" miny="5.94207e+06" maxx="1.07312e+06" maxy="5.98954e+06" />
+        <Identifier authority="LI:ATG">5249bc4c-5f58-45d7-aa5d-a274a63bdce9</Identifier>
+        <MetadataURL type="ISO19115:2003">
+          <Format>text/xml</Format>
+          <OnlineResource xmlns:xlink="http://www.w3.org/1999/xlink" xlink:type="simple" xlink:href="https://www.geocat.ch/geonetwork/srv/ger/csw?service=CSW&amp;version=2.0.2&amp;request=GetRecordById&amp;elementSetName=full&amp;outputSchema=http://www.isotc211.org/2005/gmd&amp;id=5249bc4c-5f58-45d7-aa5d-a274a63bdce9"/>
+        </MetadataURL>
+        <Style>
+          <Name>HY.PhysicalWaters.Catchments.Default</Name>
+          <Title>Drainage Basin default style</Title>
+          <LegendURL width="203" height="22">
+             <Format>image/png</Format>
+             <OnlineResource xmlns:xlink="http://www.w3.org/1999/xlink" xlink:type="simple" xlink:href="https://service.geo.llv.li/mapserver/INSPIRE?language=eng&amp;version=1.3.0&amp;service=WMS&amp;request=GetLegendGraphic&amp;sld_version=1.1.0&amp;layer=HY.PhysicalWaters.Catchments&amp;format=image/png&amp;STYLE=HY.PhysicalWaters.Catchments.Default"/>
+          </LegendURL>
+        </Style>
+      </Layer>
+    </Layer>
+    <Layer>
+      <Name>LC</Name>
+      <Title>Landcover</Title>
+      <Abstract>INSPIRE LandCover Dataset</Abstract>
+      <Style>
+        <Name>LC.LandCoverSurface.Default</Name>
+        <Title>LandCover Default Style</Title>
+       <LegendURL width="165" height="447">
+          <Format>image/png</Format>
+          <OnlineResource xmlns:xlink="http://www.w3.org/1999/xlink" xlink:type="simple" xlink:href="https://service.geo.llv.li/mapserver/INSPIRE?language=eng&amp;version=1.3.0&amp;service=WMS&amp;request=GetLegendGraphic&amp;sld_version=1.1.0&amp;layer=LC&amp;format=image/png&amp;STYLE=LC.LandCoverSurface.Default"/>
+       </LegendURL>
+      </Style>
+      <Layer queryable="0" opaque="0" cascaded="0">
+        <Name>LC.LandCoverSurface</Name>
+        <Title>LandCoverSurface</Title>
+        <Abstract>LandCoverSurface</Abstract>
+        <KeywordList>
+            <Keyword>LandCoverSurface</Keyword>
+            <Keyword>INSPIRE</Keyword>
+        </KeywordList>
+        <CRS>EPSG:4326</CRS>
+        <CRS>EPSG:31297</CRS>
+        <CRS>EPSG:4258</CRS>
+        <CRS>EPSG:32632</CRS>
+        <CRS>EPSG:31467</CRS>
+        <CRS>EPSG:3785</CRS>
+        <CRS>EPSG:31254</CRS>
+        <CRS>EPSG:3035</CRS>
+        <CRS>EPSG:3034</CRS>
+        <CRS>EPSG:3044</CRS>
+        <CRS>CRS:84</CRS>
+        <CRS>EPSG:2056</CRS>
+        <CRS>EPSG:3857</CRS>
+        <EX_GeographicBoundingBox>
+            <westBoundLongitude>9.400000</westBoundLongitude>
+            <eastBoundLongitude>9.640000</eastBoundLongitude>
+            <southBoundLatitude>47.000000</southBoundLatitude>
+            <northBoundLatitude>47.290000</northBoundLatitude>
+        </EX_GeographicBoundingBox>
+        <BoundingBox CRS="EPSG:4326"
+                    minx="47.000000" miny="9.400000" maxx="47.290000" maxy="9.640000" />
+        <BoundingBox CRS="EPSG:31297"
+                    minx="351171" miny="101101" maxx="384188" maxy="120877" />
+        <BoundingBox CRS="EPSG:4258"
+                    minx="47.000000" miny="9.400000" maxx="47.290000" maxy="9.640000" />
+        <BoundingBox CRS="EPSG:32632"
+                    minx="530245" miny="5.20524e+06" maxx="548656" maxy="5.23759e+06" />
+        <BoundingBox CRS="EPSG:31467"
+                    minx="5.20679e+06" miny="3.53027e+06" maxx="5.23925e+06" maxy="3.54867e+06" />
+        <BoundingBox CRS="EPSG:3785"
+                    minx="1.0464e+06" miny="5.94207e+06" maxx="1.07312e+06" maxy="5.98954e+06" />
+        <BoundingBox CRS="EPSG:31254"
+                    minx="206993" miny="-70976.8" maxx="239376" maxy="-52421.3" />
+        <BoundingBox CRS="EPSG:3035"
+                    minx="2.65412e+06" miny="4.27533e+06" maxx="2.68645e+06" maxy="4.29375e+06" />
+        <BoundingBox CRS="EPSG:3034"
+                    minx="2.26277e+06" miny="3.95584e+06" maxx="2.29408e+06" maxy="3.97366e+06" />
+        <BoundingBox CRS="EPSG:3044"
+                    minx="5.20524e+06" miny="530245" maxx="5.23759e+06" maxy="548656" />
+        <BoundingBox CRS="CRS:84"
+                    minx="9.400000" miny="47.000000" maxx="9.640000" maxy="47.290000" />
+        <BoundingBox CRS="EPSG:2056"
+                    minx="2.74835e+06" miny="1.2073e+06" maxx="2.76741e+06" maxy="1.24001e+06" />
+        <BoundingBox CRS="EPSG:3857"
+                    minx="1.0464e+06" miny="5.94207e+06" maxx="1.07312e+06" maxy="5.98954e+06" />
+        <Identifier authority="LI:ATG">2e72850d-6e4f-47e2-90e8-984704996136</Identifier>
+        <MetadataURL type="ISO19115:2003">
+          <Format>text/xml</Format>
+          <OnlineResource xmlns:xlink="http://www.w3.org/1999/xlink" xlink:type="simple" xlink:href="https://www.geocat.ch/geonetwork/srv/ger/csw?service=CSW&amp;version=2.0.2&amp;request=GetRecordById&amp;elementSetName=full&amp;outputSchema=http://www.isotc211.org/2005/gmd&amp;id=2e72850d-6e4f-47e2-90e8-984704996136"/>
+        </MetadataURL>
+        <Style>
+          <Name>LC.LandCoverSurface.Default</Name>
+          <Title>LandCoverSurface Default Style</Title>
+          <LegendURL width="165" height="447">
+             <Format>image/png</Format>
+             <OnlineResource xmlns:xlink="http://www.w3.org/1999/xlink" xlink:type="simple" xlink:href="https://service.geo.llv.li/mapserver/INSPIRE?language=eng&amp;version=1.3.0&amp;service=WMS&amp;request=GetLegendGraphic&amp;sld_version=1.1.0&amp;layer=LC.LandCoverSurface&amp;format=image/png&amp;STYLE=LC.LandCoverSurface.Default"/>
+          </LegendURL>
+        </Style>
+      </Layer>
+    </Layer>
+    <Layer queryable="1">
+      <Name>LU</Name>
+      <Title>LandUse</Title>
+      <Abstract>INSPIRE LandUse Datasets</Abstract>
+      <Style>
+        <Name>LU.ExistingLandUse.Default</Name>
+        <Title>ExistingLandUse Default Style</Title>
+       <LegendURL width="255" height="277">
+          <Format>image/png</Format>
+          <OnlineResource xmlns:xlink="http://www.w3.org/1999/xlink" xlink:type="simple" xlink:href="https://service.geo.llv.li/mapserver/INSPIRE?language=eng&amp;version=1.3.0&amp;service=WMS&amp;request=GetLegendGraphic&amp;sld_version=1.1.0&amp;layer=LU&amp;format=image/png&amp;STYLE=LU.ExistingLandUse.Default"/>
+       </LegendURL>
+      </Style>
+      <Layer queryable="1" opaque="0" cascaded="0">
+        <Name>LU.ExistingLandUse</Name>
+        <Title>ExistingLandUse</Title>
+        <Abstract>ExistingLandUse</Abstract>
+        <KeywordList>
+            <Keyword>ExistingLandUse</Keyword>
+            <Keyword>INSPIRE</Keyword>
+            <Keyword>Arealstatitistik 2019</Keyword>
+        </KeywordList>
+        <CRS>EPSG:4326</CRS>
+        <CRS>EPSG:31297</CRS>
+        <CRS>EPSG:4258</CRS>
+        <CRS>EPSG:32632</CRS>
+        <CRS>EPSG:31467</CRS>
+        <CRS>EPSG:3785</CRS>
+        <CRS>EPSG:31254</CRS>
+        <CRS>EPSG:3035</CRS>
+        <CRS>EPSG:3034</CRS>
+        <CRS>EPSG:3044</CRS>
+        <CRS>CRS:84</CRS>
+        <CRS>EPSG:2056</CRS>
+        <CRS>EPSG:3857</CRS>
+        <EX_GeographicBoundingBox>
+            <westBoundLongitude>9.400000</westBoundLongitude>
+            <eastBoundLongitude>9.640000</eastBoundLongitude>
+            <southBoundLatitude>47.000000</southBoundLatitude>
+            <northBoundLatitude>47.290000</northBoundLatitude>
+        </EX_GeographicBoundingBox>
+        <BoundingBox CRS="EPSG:4326"
+                    minx="47.000000" miny="9.400000" maxx="47.290000" maxy="9.640000" />
+        <BoundingBox CRS="EPSG:31297"
+                    minx="351171" miny="101101" maxx="384188" maxy="120877" />
+        <BoundingBox CRS="EPSG:4258"
+                    minx="47.000000" miny="9.400000" maxx="47.290000" maxy="9.640000" />
+        <BoundingBox CRS="EPSG:32632"
+                    minx="530245" miny="5.20524e+06" maxx="548656" maxy="5.23759e+06" />
+        <BoundingBox CRS="EPSG:31467"
+                    minx="5.20679e+06" miny="3.53027e+06" maxx="5.23925e+06" maxy="3.54867e+06" />
+        <BoundingBox CRS="EPSG:3785"
+                    minx="1.0464e+06" miny="5.94207e+06" maxx="1.07312e+06" maxy="5.98954e+06" />
+        <BoundingBox CRS="EPSG:31254"
+                    minx="206993" miny="-70976.8" maxx="239376" maxy="-52421.3" />
+        <BoundingBox CRS="EPSG:3035"
+                    minx="2.65412e+06" miny="4.27533e+06" maxx="2.68645e+06" maxy="4.29375e+06" />
+        <BoundingBox CRS="EPSG:3034"
+                    minx="2.26277e+06" miny="3.95584e+06" maxx="2.29408e+06" maxy="3.97366e+06" />
+        <BoundingBox CRS="EPSG:3044"
+                    minx="5.20524e+06" miny="530245" maxx="5.23759e+06" maxy="548656" />
+        <BoundingBox CRS="CRS:84"
+                    minx="9.400000" miny="47.000000" maxx="9.640000" maxy="47.290000" />
+        <BoundingBox CRS="EPSG:2056"
+                    minx="2.74835e+06" miny="1.2073e+06" maxx="2.76741e+06" maxy="1.24001e+06" />
+        <BoundingBox CRS="EPSG:3857"
+                    minx="1.0464e+06" miny="5.94207e+06" maxx="1.07312e+06" maxy="5.98954e+06" />
+        <Identifier authority="LI:ATG">cfd9bb7f-61a3-4ef7-a8f2-63b4b1187564</Identifier>
+        <MetadataURL type="ISO19115:2003">
+          <Format>text/xml</Format>
+          <OnlineResource xmlns:xlink="http://www.w3.org/1999/xlink" xlink:type="simple" xlink:href="https://www.geocat.ch/geonetwork/srv/ger/csw?service=CSW&amp;version=2.0.2&amp;request=GetRecordById&amp;elementSetName=full&amp;outputSchema=http://www.isotc211.org/2005/gmd&amp;id=cfd9bb7f-61a3-4ef7-a8f2-63b4b1187564"/>
+        </MetadataURL>
+        <Style>
+          <Name>LU.ExistingLandUse.Default</Name>
+          <Title>ExistingLandUse Default Style</Title>
+          <LegendURL width="236" height="158">
+             <Format>image/png</Format>
+             <OnlineResource xmlns:xlink="http://www.w3.org/1999/xlink" xlink:type="simple" xlink:href="https://service.geo.llv.li/mapserver/INSPIRE?language=eng&amp;version=1.3.0&amp;service=WMS&amp;request=GetLegendGraphic&amp;sld_version=1.1.0&amp;layer=LU.ExistingLandUse&amp;format=image/png&amp;STYLE=LU.ExistingLandUse.Default"/>
+          </LegendURL>
+        </Style>
+      </Layer>
+      <Layer queryable="1" opaque="0" cascaded="0">
+        <Name>LU.SpatialPlan</Name>
+        <Title>SpatialPlan</Title>
+        <Abstract>SpatialPlan</Abstract>
+        <KeywordList>
+            <Keyword>SpatialPlan</Keyword>
+            <Keyword>INSPIRE</Keyword>
+            <Keyword>Zonenplan</Keyword>
+        </KeywordList>
+        <CRS>EPSG:4326</CRS>
+        <CRS>EPSG:31297</CRS>
+        <CRS>EPSG:4258</CRS>
+        <CRS>EPSG:32632</CRS>
+        <CRS>EPSG:31467</CRS>
+        <CRS>EPSG:3785</CRS>
+        <CRS>EPSG:31254</CRS>
+        <CRS>EPSG:3035</CRS>
+        <CRS>EPSG:3034</CRS>
+        <CRS>EPSG:3044</CRS>
+        <CRS>CRS:84</CRS>
+        <CRS>EPSG:2056</CRS>
+        <CRS>EPSG:3857</CRS>
+        <EX_GeographicBoundingBox>
+            <westBoundLongitude>9.400000</westBoundLongitude>
+            <eastBoundLongitude>9.640000</eastBoundLongitude>
+            <southBoundLatitude>47.000000</southBoundLatitude>
+            <northBoundLatitude>47.290000</northBoundLatitude>
+        </EX_GeographicBoundingBox>
+        <BoundingBox CRS="EPSG:4326"
+                    minx="47.000000" miny="9.400000" maxx="47.290000" maxy="9.640000" />
+        <BoundingBox CRS="EPSG:31297"
+                    minx="351171" miny="101101" maxx="384188" maxy="120877" />
+        <BoundingBox CRS="EPSG:4258"
+                    minx="47.000000" miny="9.400000" maxx="47.290000" maxy="9.640000" />
+        <BoundingBox CRS="EPSG:32632"
+                    minx="530245" miny="5.20524e+06" maxx="548656" maxy="5.23759e+06" />
+        <BoundingBox CRS="EPSG:31467"
+                    minx="5.20679e+06" miny="3.53027e+06" maxx="5.23925e+06" maxy="3.54867e+06" />
+        <BoundingBox CRS="EPSG:3785"
+                    minx="1.0464e+06" miny="5.94207e+06" maxx="1.07312e+06" maxy="5.98954e+06" />
+        <BoundingBox CRS="EPSG:31254"
+                    minx="206993" miny="-70976.8" maxx="239376" maxy="-52421.3" />
+        <BoundingBox CRS="EPSG:3035"
+                    minx="2.65412e+06" miny="4.27533e+06" maxx="2.68645e+06" maxy="4.29375e+06" />
+        <BoundingBox CRS="EPSG:3034"
+                    minx="2.26277e+06" miny="3.95584e+06" maxx="2.29408e+06" maxy="3.97366e+06" />
+        <BoundingBox CRS="EPSG:3044"
+                    minx="5.20524e+06" miny="530245" maxx="5.23759e+06" maxy="548656" />
+        <BoundingBox CRS="CRS:84"
+                    minx="9.400000" miny="47.000000" maxx="9.640000" maxy="47.290000" />
+        <BoundingBox CRS="EPSG:2056"
+                    minx="2.74835e+06" miny="1.2073e+06" maxx="2.76741e+06" maxy="1.24001e+06" />
+        <BoundingBox CRS="EPSG:3857"
+                    minx="1.0464e+06" miny="5.94207e+06" maxx="1.07312e+06" maxy="5.98954e+06" />
+        <Identifier authority="LI:ABI">6e0267a6-6160-49f6-9e2c-48a9a24b84c8</Identifier>
+        <MetadataURL type="ISO19115:2003">
+          <Format>text/xml</Format>
+          <OnlineResource xmlns:xlink="http://www.w3.org/1999/xlink" xlink:type="simple" xlink:href="https://www.geocat.ch/geonetwork/srv/ger/csw?service=CSW&amp;version=2.0.2&amp;request=GetRecordById&amp;elementSetName=full&amp;outputSchema=http://www.isotc211.org/2005/gmd&amp;id=6e0267a6-6160-49f6-9e2c-48a9a24b84c8"/>
+        </MetadataURL>
+        <Style>
+          <Name>LU.SpatialPlan.Default</Name>
+          <Title>SpatialPlan Default Style</Title>
+          <LegendURL width="112" height="22">
+             <Format>image/png</Format>
+             <OnlineResource xmlns:xlink="http://www.w3.org/1999/xlink" xlink:type="simple" xlink:href="https://service.geo.llv.li/mapserver/INSPIRE?language=eng&amp;version=1.3.0&amp;service=WMS&amp;request=GetLegendGraphic&amp;sld_version=1.1.0&amp;layer=LU.SpatialPlan&amp;format=image/png&amp;STYLE=LU.SpatialPlan.Default"/>
+          </LegendURL>
+        </Style>
+      </Layer>
+      <Layer queryable="1" opaque="0" cascaded="0">
+        <Name>LU.ZoningElement</Name>
+        <Title>ZoningElement</Title>
+        <Abstract>SpatialPlan Zoning Element</Abstract>
+        <KeywordList>
+            <Keyword>ZoningElement</Keyword>
+            <Keyword>INSPIRE</Keyword>
+            <Keyword>Zonenplan</Keyword>
+        </KeywordList>
+        <CRS>EPSG:4326</CRS>
+        <CRS>EPSG:31297</CRS>
+        <CRS>EPSG:4258</CRS>
+        <CRS>EPSG:32632</CRS>
+        <CRS>EPSG:31467</CRS>
+        <CRS>EPSG:3785</CRS>
+        <CRS>EPSG:31254</CRS>
+        <CRS>EPSG:3035</CRS>
+        <CRS>EPSG:3034</CRS>
+        <CRS>EPSG:3044</CRS>
+        <CRS>CRS:84</CRS>
+        <CRS>EPSG:2056</CRS>
+        <CRS>EPSG:3857</CRS>
+        <EX_GeographicBoundingBox>
+            <westBoundLongitude>9.400000</westBoundLongitude>
+            <eastBoundLongitude>9.640000</eastBoundLongitude>
+            <southBoundLatitude>47.000000</southBoundLatitude>
+            <northBoundLatitude>47.290000</northBoundLatitude>
+        </EX_GeographicBoundingBox>
+        <BoundingBox CRS="EPSG:4326"
+                    minx="47.000000" miny="9.400000" maxx="47.290000" maxy="9.640000" />
+        <BoundingBox CRS="EPSG:31297"
+                    minx="351171" miny="101101" maxx="384188" maxy="120877" />
+        <BoundingBox CRS="EPSG:4258"
+                    minx="47.000000" miny="9.400000" maxx="47.290000" maxy="9.640000" />
+        <BoundingBox CRS="EPSG:32632"
+                    minx="530245" miny="5.20524e+06" maxx="548656" maxy="5.23759e+06" />
+        <BoundingBox CRS="EPSG:31467"
+                    minx="5.20679e+06" miny="3.53027e+06" maxx="5.23925e+06" maxy="3.54867e+06" />
+        <BoundingBox CRS="EPSG:3785"
+                    minx="1.0464e+06" miny="5.94207e+06" maxx="1.07312e+06" maxy="5.98954e+06" />
+        <BoundingBox CRS="EPSG:31254"
+                    minx="206993" miny="-70976.8" maxx="239376" maxy="-52421.3" />
+        <BoundingBox CRS="EPSG:3035"
+                    minx="2.65412e+06" miny="4.27533e+06" maxx="2.68645e+06" maxy="4.29375e+06" />
+        <BoundingBox CRS="EPSG:3034"
+                    minx="2.26277e+06" miny="3.95584e+06" maxx="2.29408e+06" maxy="3.97366e+06" />
+        <BoundingBox CRS="EPSG:3044"
+                    minx="5.20524e+06" miny="530245" maxx="5.23759e+06" maxy="548656" />
+        <BoundingBox CRS="CRS:84"
+                    minx="9.400000" miny="47.000000" maxx="9.640000" maxy="47.290000" />
+        <BoundingBox CRS="EPSG:2056"
+                    minx="2.74835e+06" miny="1.2073e+06" maxx="2.76741e+06" maxy="1.24001e+06" />
+        <BoundingBox CRS="EPSG:3857"
+                    minx="1.0464e+06" miny="5.94207e+06" maxx="1.07312e+06" maxy="5.98954e+06" />
+        <Identifier authority="LI:ATG">6e0267a6-6160-49f6-9e2c-48a9a24b84c8</Identifier>
+        <MetadataURL type="ISO19115:2003">
+          <Format>text/xml</Format>
+          <OnlineResource xmlns:xlink="http://www.w3.org/1999/xlink" xlink:type="simple" xlink:href="https://www.geocat.ch/geonetwork/srv/ger/csw?service=CSW&amp;version=2.0.2&amp;request=GetRecordById&amp;elementSetName=full&amp;outputSchema=http://www.isotc211.org/2005/gmd&amp;id=6e0267a6-6160-49f6-9e2c-48a9a24b84c8"/>
+        </MetadataURL>
+        <Style>
+          <Name>LU.ZoningElement.Default</Name>
+          <Title>ZoningElement Default Style</Title>
+          <LegendURL width="255" height="107">
+             <Format>image/png</Format>
+             <OnlineResource xmlns:xlink="http://www.w3.org/1999/xlink" xlink:type="simple" xlink:href="https://service.geo.llv.li/mapserver/INSPIRE?language=eng&amp;version=1.3.0&amp;service=WMS&amp;request=GetLegendGraphic&amp;sld_version=1.1.0&amp;layer=LU.ZoningElement&amp;format=image/png&amp;STYLE=LU.ZoningElement.Default"/>
+          </LegendURL>
+        </Style>
+      </Layer>
+    </Layer>
+    <Layer>
+      <Name>EL</Name>
+      <Title>Elevation</Title>
+      <Abstract>INSPIRE Elevation Dataset</Abstract>
+      <Style>
+        <Name>EL.GridCoverage.Default</Name>
+        <Title>Grid Coverage Default Style</Title>
+       <LegendURL width="100" height="158">
+          <Format>image/png</Format>
+          <OnlineResource xmlns:xlink="http://www.w3.org/1999/xlink" xlink:type="simple" xlink:href="https://service.geo.llv.li/mapserver/INSPIRE?language=eng&amp;version=1.3.0&amp;service=WMS&amp;request=GetLegendGraphic&amp;sld_version=1.1.0&amp;layer=EL&amp;format=image/png&amp;STYLE=EL.GridCoverage.Default"/>
+       </LegendURL>
+      </Style>
+      <Layer queryable="0" opaque="0" cascaded="0">
+        <Name>EL.GridCoverage</Name>
+        <Title>Elevation GridCoverage</Title>
+        <Abstract>Elevation GridCoverage 2015 50cm</Abstract>
+        <KeywordList>
+            <Keyword>GridCoverage</Keyword>
+            <Keyword>DTM</Keyword>
+            <Keyword>elevation</Keyword>
+            <Keyword>INSPIRE</Keyword>
+        </KeywordList>
+        <CRS>EPSG:4326</CRS>
+        <CRS>EPSG:31297</CRS>
+        <CRS>EPSG:4258</CRS>
+        <CRS>EPSG:32632</CRS>
+        <CRS>EPSG:31467</CRS>
+        <CRS>EPSG:3785</CRS>
+        <CRS>EPSG:31254</CRS>
+        <CRS>EPSG:3035</CRS>
+        <CRS>EPSG:3034</CRS>
+        <CRS>EPSG:3044</CRS>
+        <CRS>CRS:84</CRS>
+        <CRS>EPSG:2056</CRS>
+        <CRS>EPSG:3857</CRS>
+        <EX_GeographicBoundingBox>
+            <westBoundLongitude>9.442000</westBoundLongitude>
+            <eastBoundLongitude>9.660000</eastBoundLongitude>
+            <southBoundLatitude>47.015000</southBoundLatitude>
+            <northBoundLatitude>47.306000</northBoundLatitude>
+        </EX_GeographicBoundingBox>
+        <BoundingBox CRS="EPSG:4326"
+                    minx="47.015000" miny="9.442000" maxx="47.306000" maxy="9.660000" />
+        <BoundingBox CRS="EPSG:31297"
+                    minx="352764" miny="104373" maxx="385804" maxy="122472" />
+        <BoundingBox CRS="EPSG:4258"
+                    minx="47.015000" miny="9.442000" maxx="47.306000" maxy="9.660000" />
+        <BoundingBox CRS="EPSG:32632"
+                    minx="533411" miny="5.20693e+06" maxx="550163" maxy="5.23938e+06" />
+        <BoundingBox CRS="EPSG:31467"
+                    minx="5.20848e+06" miny="3.53344e+06" maxx="5.24104e+06" maxy="3.55018e+06" />
+        <BoundingBox CRS="EPSG:3785"
+                    minx="1.05108e+06" miny="5.94452e+06" maxx="1.07535e+06" maxy="5.99216e+06" />
+        <BoundingBox CRS="EPSG:31254"
+                    minx="208668" miny="-67763.9" maxx="241118" maxy="-50893.1" />
+        <BoundingBox CRS="EPSG:3035"
+                    minx="2.65578e+06" miny="4.27854e+06" maxx="2.6882e+06" maxy="4.29527e+06" />
+        <BoundingBox CRS="EPSG:3034"
+                    minx="2.26438e+06" miny="3.95894e+06" maxx="2.29578e+06" maxy="3.97513e+06" />
+        <BoundingBox CRS="EPSG:3044"
+                    minx="5.20693e+06" miny="533411" maxx="5.23938e+06" maxy="550163" />
+        <BoundingBox CRS="CRS:84"
+                    minx="9.442000" miny="47.015000" maxx="9.660000" maxy="47.306000" />
+        <BoundingBox CRS="EPSG:2056"
+                    minx="2.75148e+06" miny="1.20905e+06" maxx="2.76888e+06" maxy="1.24184e+06" />
+        <BoundingBox CRS="EPSG:3857"
+                    minx="1.05108e+06" miny="5.94452e+06" maxx="1.07535e+06" maxy="5.99216e+06" />
+        <Identifier authority="LI:ATG">3a1af678-01fa-4069-bc83-d17627725ef4</Identifier>
+        <MetadataURL type="ISO19115:2003">
+          <Format>text/xml;charset=UTF-8</Format>
+          <OnlineResource xmlns:xlink="http://www.w3.org/1999/xlink" xlink:type="simple" xlink:href="https://www.geocat.ch/geonetwork/srv/ger/csw?service=CSW&amp;version=2.0.2&amp;request=GetRecordById&amp;elementSetName=full&amp;outputSchema=http://www.isotc211.org/2005/gmd&amp;id=3a1af678-01fa-4069-bc83-d17627725ef4"/>
+        </MetadataURL>
+        <Style>
+          <Name>EL.GridCoverage.Default</Name>
+          <Title>Grid Coverage Default Style</Title>
+          <LegendURL width="100" height="158">
+             <Format>image/png</Format>
+             <OnlineResource xmlns:xlink="http://www.w3.org/1999/xlink" xlink:type="simple" xlink:href="https://service.geo.llv.li/mapserver/INSPIRE?language=eng&amp;version=1.3.0&amp;service=WMS&amp;request=GetLegendGraphic&amp;sld_version=1.1.0&amp;layer=EL.GridCoverage&amp;format=image/png&amp;STYLE=EL.GridCoverage.Default"/>
+          </LegendURL>
+        </Style>
+      </Layer>
+    </Layer>
+    <Layer>
+      <Name>SU</Name>
+      <Title>Statistical Units</Title>
+      <Abstract>INSPIRE Statistical Units</Abstract>
+      <Style>
+        <Name>SU.VectorStatisticalUnits.Default</Name>
+        <Title>INSPIRE statistical Units default Style</Title>
+       <LegendURL width="166" height="39">
+          <Format>image/png</Format>
+          <OnlineResource xmlns:xlink="http://www.w3.org/1999/xlink" xlink:type="simple" xlink:href="https://service.geo.llv.li/mapserver/INSPIRE?language=eng&amp;version=1.3.0&amp;service=WMS&amp;request=GetLegendGraphic&amp;sld_version=1.1.0&amp;layer=SU&amp;format=image/png&amp;STYLE=SU.VectorStatisticalUnits.Default"/>
+       </LegendURL>
+      </Style>
+      <Layer queryable="0" opaque="0" cascaded="0">
+        <Name>SU.VectorStatisticalUnit</Name>
+        <Title>Vector statistical units</Title>
+        <Abstract>Vector statistical units NUTS region Liechtenstein</Abstract>
+        <KeywordList>
+            <Keyword>statistical unit</Keyword>
+            <Keyword>NUTS</Keyword>
+        </KeywordList>
+        <CRS>EPSG:4326</CRS>
+        <CRS>EPSG:31297</CRS>
+        <CRS>EPSG:4258</CRS>
+        <CRS>EPSG:32632</CRS>
+        <CRS>EPSG:31467</CRS>
+        <CRS>EPSG:3785</CRS>
+        <CRS>EPSG:31254</CRS>
+        <CRS>EPSG:3035</CRS>
+        <CRS>EPSG:3034</CRS>
+        <CRS>EPSG:3044</CRS>
+        <CRS>CRS:84</CRS>
+        <CRS>EPSG:2056</CRS>
+        <CRS>EPSG:3857</CRS>
+        <EX_GeographicBoundingBox>
+            <westBoundLongitude>9.400000</westBoundLongitude>
+            <eastBoundLongitude>9.640000</eastBoundLongitude>
+            <southBoundLatitude>47.000000</southBoundLatitude>
+            <northBoundLatitude>47.290000</northBoundLatitude>
+        </EX_GeographicBoundingBox>
+        <BoundingBox CRS="EPSG:4326"
+                    minx="47.000000" miny="9.400000" maxx="47.290000" maxy="9.640000" />
+        <BoundingBox CRS="EPSG:31297"
+                    minx="351171" miny="101101" maxx="384188" maxy="120877" />
+        <BoundingBox CRS="EPSG:4258"
+                    minx="47.000000" miny="9.400000" maxx="47.290000" maxy="9.640000" />
+        <BoundingBox CRS="EPSG:32632"
+                    minx="530245" miny="5.20524e+06" maxx="548656" maxy="5.23759e+06" />
+        <BoundingBox CRS="EPSG:31467"
+                    minx="5.20679e+06" miny="3.53027e+06" maxx="5.23925e+06" maxy="3.54867e+06" />
+        <BoundingBox CRS="EPSG:3785"
+                    minx="1.0464e+06" miny="5.94207e+06" maxx="1.07312e+06" maxy="5.98954e+06" />
+        <BoundingBox CRS="EPSG:31254"
+                    minx="206993" miny="-70976.8" maxx="239376" maxy="-52421.3" />
+        <BoundingBox CRS="EPSG:3035"
+                    minx="2.65412e+06" miny="4.27533e+06" maxx="2.68645e+06" maxy="4.29375e+06" />
+        <BoundingBox CRS="EPSG:3034"
+                    minx="2.26277e+06" miny="3.95584e+06" maxx="2.29408e+06" maxy="3.97366e+06" />
+        <BoundingBox CRS="EPSG:3044"
+                    minx="5.20524e+06" miny="530245" maxx="5.23759e+06" maxy="548656" />
+        <BoundingBox CRS="CRS:84"
+                    minx="9.400000" miny="47.000000" maxx="9.640000" maxy="47.290000" />
+        <BoundingBox CRS="EPSG:2056"
+                    minx="2.74835e+06" miny="1.2073e+06" maxx="2.76741e+06" maxy="1.24001e+06" />
+        <BoundingBox CRS="EPSG:3857"
+                    minx="1.0464e+06" miny="5.94207e+06" maxx="1.07312e+06" maxy="5.98954e+06" />
+        <AuthorityURL name="LI.ATG">
+          <OnlineResource xmlns:xlink="http://www.w3.org/1999/xlink" xlink:href="https://www.atg.llv.li"/>
+        </AuthorityURL>
+        <Identifier authority="LI.ATG">b57f591d-ee98-45dd-b3ab-6969e5868ff1</Identifier>
+        <MetadataURL type="ISO19115:2003">
+          <Format>text/xml</Format>
+          <OnlineResource xmlns:xlink="http://www.w3.org/1999/xlink" xlink:type="simple" xlink:href="https://www.geocat.ch/geonetwork/srv/ger/csw?service=CSW&amp;version=2.0.2&amp;request=GetRecordById&amp;elementSetName=full&amp;outputSchema=http://www.isotc211.org/2005/gmd&amp;id=b57f591d-ee98-45dd-b3ab-6969e5868ff1"/>
+        </MetadataURL>
+        <Style>
+          <Name>SU.VectorStatisticalUnits.Default</Name>
+          <Title>Vector statistical units default style</Title>
+          <LegendURL width="166" height="22">
+             <Format>image/png</Format>
+             <OnlineResource xmlns:xlink="http://www.w3.org/1999/xlink" xlink:type="simple" xlink:href="https://service.geo.llv.li/mapserver/INSPIRE?language=eng&amp;version=1.3.0&amp;service=WMS&amp;request=GetLegendGraphic&amp;sld_version=1.1.0&amp;layer=SU.VectorStatisticalUnit&amp;format=image/png&amp;STYLE=SU.VectorStatisticalUnits.Default"/>
+          </LegendURL>
+        </Style>
+      </Layer>
+      <Layer queryable="0" opaque="0" cascaded="0">
+        <Name>SU.StatisticalGridCell</Name>
+        <Title>Statistical grid cell</Title>
+        <Abstract>Statistical grid cell ETRS-LEA</Abstract>
+        <KeywordList>
+            <Keyword>statistical Grid</Keyword>
+            <Keyword>ETRS-LEA</Keyword>
+        </KeywordList>
+        <CRS>EPSG:4326</CRS>
+        <CRS>EPSG:31297</CRS>
+        <CRS>EPSG:4258</CRS>
+        <CRS>EPSG:32632</CRS>
+        <CRS>EPSG:31467</CRS>
+        <CRS>EPSG:3785</CRS>
+        <CRS>EPSG:31254</CRS>
+        <CRS>EPSG:3035</CRS>
+        <CRS>EPSG:3034</CRS>
+        <CRS>EPSG:3044</CRS>
+        <CRS>CRS:84</CRS>
+        <CRS>EPSG:2056</CRS>
+        <CRS>EPSG:3857</CRS>
+        <EX_GeographicBoundingBox>
+            <westBoundLongitude>-29.086883</westBoundLongitude>
+            <eastBoundLongitude>-29.086880</eastBoundLongitude>
+            <southBoundLatitude>12.994013</southBoundLatitude>
+            <northBoundLatitude>12.994017</northBoundLatitude>
+        </EX_GeographicBoundingBox>
+        <BoundingBox CRS="EPSG:4326"
+                    minx="12.994013" miny="-29.086883" maxx="12.994017" maxy="-29.086880" />
+        <BoundingBox CRS="EPSG:31297"
+                    minx="-2.20447e+06" miny="-4.73724e+06" maxx="-2.20447e+06" maxy="-4.73724e+06" />
+        <BoundingBox CRS="EPSG:4258"
+                    minx="12.994013" miny="-29.086883" maxx="12.994017" maxy="-29.086880" />
+        <BoundingBox CRS="EPSG:32632"
+                    minx="-3.93288e+06" miny="1.80985e+06" maxx="-3.93288e+06" maxy="1.80985e+06" />
+        <BoundingBox CRS="EPSG:31467"
+                    minx="1.81039e+06" miny="-934129" maxx="1.81039e+06" maxy="-934129" />
+        <BoundingBox CRS="EPSG:3785"
+                    minx="-3.23794e+06" miny="1.45905e+06" maxx="-3.23794e+06" maxy="1.45905e+06" />
+        <BoundingBox CRS="EPSG:31254"
+                    minx="-3.15701e+06" miny="-4.61405e+06" maxx="-3.15701e+06" maxy="-4.61405e+06" />
+        <BoundingBox CRS="EPSG:3035"
+                    minx="47" miny="9.4" maxx="47.29" maxy="9.64" />
+        <BoundingBox CRS="EPSG:3034"
+                    minx="-374990" miny="-720843" maxx="-374989" maxy="-720843" />
+        <BoundingBox CRS="EPSG:3044"
+                    minx="1.80985e+06" miny="-3.93288e+06" maxx="1.80985e+06" maxy="-3.93288e+06" />
+        <BoundingBox CRS="CRS:84"
+                    minx="-29.086883" miny="12.994013" maxx="-29.086880" maxy="12.994017" />
+        <BoundingBox CRS="EPSG:2056"
+                    minx="-1.81442e+06" miny="-1.62976e+06" maxx="-1.81442e+06" maxy="-1.62976e+06" />
+        <BoundingBox CRS="EPSG:3857"
+                    minx="-3.23794e+06" miny="1.45905e+06" maxx="-3.23794e+06" maxy="1.45905e+06" />
+        <AuthorityURL name="LI.ATG">
+          <OnlineResource xmlns:xlink="http://www.w3.org/1999/xlink" xlink:href="https://www.atg.llv.li"/>
+        </AuthorityURL>
+        <Identifier authority="LI.ATG">a1591fa2-2e87-4b50-8eb5-7343680a4808</Identifier>
+        <MetadataURL type="ISO19115:2003">
+          <Format>text/xml</Format>
+          <OnlineResource xmlns:xlink="http://www.w3.org/1999/xlink" xlink:type="simple" xlink:href="https://www.geocat.ch/geonetwork/srv/ger/csw?service=CSW&amp;version=2.0.2&amp;request=GetRecordById&amp;elementSetName=full&amp;outputSchema=http://www.isotc211.org/2005/gmd&amp;id=a1591fa2-2e87-4b50-8eb5-7343680a4808"/>
+        </MetadataURL>
+        <Style>
+          <Name>SU.StatisticalGridCell.Default</Name>
+          <Title>Statistical grid cell default style</Title>
+          <LegendURL width="148" height="22">
+             <Format>image/png</Format>
+             <OnlineResource xmlns:xlink="http://www.w3.org/1999/xlink" xlink:type="simple" xlink:href="https://service.geo.llv.li/mapserver/INSPIRE?language=eng&amp;version=1.3.0&amp;service=WMS&amp;request=GetLegendGraphic&amp;sld_version=1.1.0&amp;layer=SU.StatisticalGridCell&amp;format=image/png&amp;STYLE=SU.StatisticalGridCell.Default"/>
+          </LegendURL>
+        </Style>
+      </Layer>
+    </Layer>
+    <Layer>
+      <Name>BU</Name>
+      <Title>Buildings</Title>
+      <Abstract>INSPIRE Buildings</Abstract>
+      <Style>
+        <Name>BU.Building.default</Name>
+        <Title>Building Default Style</Title>
+       <LegendURL width="102" height="22">
+          <Format>image/png</Format>
+          <OnlineResource xmlns:xlink="http://www.w3.org/1999/xlink" xlink:type="simple" xlink:href="https://service.geo.llv.li/mapserver/INSPIRE?language=eng&amp;version=1.3.0&amp;service=WMS&amp;request=GetLegendGraphic&amp;sld_version=1.1.0&amp;layer=BU&amp;format=image/png&amp;STYLE=BU.Building.default"/>
+       </LegendURL>
+      </Style>
+      <Layer queryable="0" opaque="0" cascaded="0">
+        <Name>BU.Buildings</Name>
+        <Title>Buildings</Title>
+        <Abstract>INSPIRE Buildings Liechtenstein</Abstract>
+        <KeywordList>
+            <Keyword>buildings</Keyword>
+            <Keyword>Gebaeude</Keyword>
+            <Keyword>INSPIRE</Keyword>
+        </KeywordList>
+        <CRS>EPSG:4326</CRS>
+        <CRS>EPSG:31297</CRS>
+        <CRS>EPSG:4258</CRS>
+        <CRS>EPSG:32632</CRS>
+        <CRS>EPSG:31467</CRS>
+        <CRS>EPSG:3785</CRS>
+        <CRS>EPSG:31254</CRS>
+        <CRS>EPSG:3035</CRS>
+        <CRS>EPSG:3034</CRS>
+        <CRS>EPSG:3044</CRS>
+        <CRS>CRS:84</CRS>
+        <CRS>EPSG:2056</CRS>
+        <CRS>EPSG:3857</CRS>
+        <EX_GeographicBoundingBox>
+            <westBoundLongitude>9.400000</westBoundLongitude>
+            <eastBoundLongitude>9.640000</eastBoundLongitude>
+            <southBoundLatitude>47.000000</southBoundLatitude>
+            <northBoundLatitude>47.290000</northBoundLatitude>
+        </EX_GeographicBoundingBox>
+        <BoundingBox CRS="EPSG:4326"
+                    minx="47.000000" miny="9.400000" maxx="47.290000" maxy="9.640000" />
+        <BoundingBox CRS="EPSG:31297"
+                    minx="351171" miny="101101" maxx="384188" maxy="120877" />
+        <BoundingBox CRS="EPSG:4258"
+                    minx="47.000000" miny="9.400000" maxx="47.290000" maxy="9.640000" />
+        <BoundingBox CRS="EPSG:32632"
+                    minx="530245" miny="5.20524e+06" maxx="548656" maxy="5.23759e+06" />
+        <BoundingBox CRS="EPSG:31467"
+                    minx="5.20679e+06" miny="3.53027e+06" maxx="5.23925e+06" maxy="3.54867e+06" />
+        <BoundingBox CRS="EPSG:3785"
+                    minx="1.0464e+06" miny="5.94207e+06" maxx="1.07312e+06" maxy="5.98954e+06" />
+        <BoundingBox CRS="EPSG:31254"
+                    minx="206993" miny="-70976.8" maxx="239376" maxy="-52421.3" />
+        <BoundingBox CRS="EPSG:3035"
+                    minx="2.65412e+06" miny="4.27533e+06" maxx="2.68645e+06" maxy="4.29375e+06" />
+        <BoundingBox CRS="EPSG:3034"
+                    minx="2.26277e+06" miny="3.95584e+06" maxx="2.29408e+06" maxy="3.97366e+06" />
+        <BoundingBox CRS="EPSG:3044"
+                    minx="5.20524e+06" miny="530245" maxx="5.23759e+06" maxy="548656" />
+        <BoundingBox CRS="CRS:84"
+                    minx="9.400000" miny="47.000000" maxx="9.640000" maxy="47.290000" />
+        <BoundingBox CRS="EPSG:2056"
+                    minx="2.74835e+06" miny="1.2073e+06" maxx="2.76741e+06" maxy="1.24001e+06" />
+        <BoundingBox CRS="EPSG:3857"
+                    minx="1.0464e+06" miny="5.94207e+06" maxx="1.07312e+06" maxy="5.98954e+06" />
+        <AuthorityURL name="LI.ATG">
+          <OnlineResource xmlns:xlink="http://www.w3.org/1999/xlink" xlink:href="https://www.atg.llv.li"/>
+        </AuthorityURL>
+        <Identifier authority="LI.ATG">3ec74dd2-3db0-49c8-8a48-f99ad0f5ab4d</Identifier>
+        <MetadataURL type="ISO19115:2003">
+          <Format>text/xml</Format>
+          <OnlineResource xmlns:xlink="http://www.w3.org/1999/xlink" xlink:type="simple" xlink:href="https://www.geocat.ch/geonetwork/srv/ger/csw?service=CSW&amp;version=2.0.2&amp;request=GetRecordById&amp;elementSetName=full&amp;outputSchema=http://www.isotc211.org/2005/gmd&amp;id=3ec74dd2-3db0-49c8-8a48-f99ad0f5ab4d"/>
+        </MetadataURL>
+        <Style>
+          <Name>BU.Building.default</Name>
+          <Title>Building Default Style</Title>
+          <LegendURL width="102" height="22">
+             <Format>image/png</Format>
+             <OnlineResource xmlns:xlink="http://www.w3.org/1999/xlink" xlink:type="simple" xlink:href="https://service.geo.llv.li/mapserver/INSPIRE?language=eng&amp;version=1.3.0&amp;service=WMS&amp;request=GetLegendGraphic&amp;sld_version=1.1.0&amp;layer=BU.Buildings&amp;format=image/png&amp;STYLE=BU.Building.default"/>
+          </LegendURL>
+        </Style>
+      </Layer>
+    </Layer>
+  </Layer>
+</Capability>
+</WMS_Capabilities>

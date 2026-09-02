@@ -1,0 +1,991 @@
+<?xml version="1.0" encoding="UTF-8"?><WMS_Capabilities version="1.3.0" updateSequence="12031" xmlns="http://www.opengis.net/wms" xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.opengis.net/wms https://www.ideandorra.ad:443/Serveis/schemas/wms/1.3.0/capabilities_1_3_0.xsd">
+  <Service>
+    <Name>WMS</Name>
+    <Title>WMS Edificabilitat</Title>
+    <Abstract>Servei WMS en quÃ¨ es publiquen els mapes temÃ tics que mostren la catalogaciÃ³ de l'edificabilitat en base als estudis especÃ­fics de perillositat geolÃ²gica realitzats a escala de detall.</Abstract>
+    <KeywordList>
+      <Keyword>WFS</Keyword>
+      <Keyword>WMS</Keyword>
+    </KeywordList>
+    <OnlineResource xlink:type="simple" xlink:href="http://194.158.95.164/geoserver/wms_edificabilitat/ows?"/>
+    <ContactInformation>
+      <ContactPersonPrimary>
+        <ContactPerson>Àrea de Cartografia</ContactPerson>
+        <ContactOrganization>Àrea de Cartografia</ContactOrganization>
+      </ContactPersonPrimary>
+      <ContactPosition>Àrea de Cartografia</ContactPosition>
+      <ContactAddress>
+        <AddressType/>
+        <Address>c/ de la Grau Edifici Prat del Rull Departament d'Ordenament Territorial Àrea de Cartografia</Address>
+        <City>Andorra la Vella</City>
+        <StateOrProvince>Principat d'Andorra</StateOrProvince>
+        <PostCode>AD500</PostCode>
+        <Country>Andorra</Country>
+      </ContactAddress>
+      <ContactVoiceTelephone>00376875700</ContactVoiceTelephone>
+      <ContactFacsimileTelephone/>
+      <ContactElectronicMailAddress>ideandorra@govern.ad</ContactElectronicMailAddress>
+    </ContactInformation>
+    <Fees>NONE</Fees>
+    <AccessConstraints>NONE</AccessConstraints>
+  </Service>
+  <Capability>
+    <Request>
+      <GetCapabilities>
+        <Format>text/xml</Format>
+        <DCPType>
+          <HTTP>
+            <Get>
+              <OnlineResource xlink:type="simple" xlink:href="https://www.ideandorra.ad:443/Serveis/wms_edificabilitat/ows?SERVICE=WMS&amp;"/>
+            </Get>
+            <Post>
+              <OnlineResource xlink:type="simple" xlink:href="https://www.ideandorra.ad:443/Serveis/wms_edificabilitat/ows?SERVICE=WMS&amp;"/>
+            </Post>
+          </HTTP>
+        </DCPType>
+      </GetCapabilities>
+      <GetMap>
+        <Format>image/png</Format>
+        <Format>application/atom+xml</Format>
+        <Format>application/pdf</Format>
+        <Format>application/vnd.google-earth.kml+xml</Format>
+        <Format>application/vnd.google-earth.kml+xml;mode=networklink</Format>
+        <Format>application/vnd.google-earth.kmz</Format>
+        <Format>image/geotiff</Format>
+        <Format>image/geotiff8</Format>
+        <Format>image/gif</Format>
+        <Format>image/jpeg</Format>
+        <Format>image/png; mode=8bit</Format>
+        <Format>image/svg+xml</Format>
+        <Format>image/tiff</Format>
+        <Format>image/tiff8</Format>
+        <DCPType>
+          <HTTP>
+            <Get>
+              <OnlineResource xlink:type="simple" xlink:href="https://www.ideandorra.ad:443/Serveis/wms_edificabilitat/ows?SERVICE=WMS&amp;"/>
+            </Get>
+          </HTTP>
+        </DCPType>
+      </GetMap>
+      <GetFeatureInfo>
+        <Format>text/plain</Format>
+        <Format>application/vnd.ogc.gml</Format>
+        <Format>application/vnd.ogc.gml/3.1.1</Format>
+        <Format>text/html</Format>
+        <Format>application/json</Format>
+        <DCPType>
+          <HTTP>
+            <Get>
+              <OnlineResource xlink:type="simple" xlink:href="https://www.ideandorra.ad:443/Serveis/wms_edificabilitat/ows?SERVICE=WMS&amp;"/>
+            </Get>
+          </HTTP>
+        </DCPType>
+      </GetFeatureInfo>
+    </Request>
+    <Exception>
+      <Format>XML</Format>
+      <Format>INIMAGE</Format>
+      <Format>BLANK</Format>
+    </Exception>
+    <Layer>
+      <Title>WMS Edificabilitat</Title>
+      <Abstract>Servei WMS en quÃ¨ es publiquen els mapes temÃ tics que mostren la catalogaciÃ³ de l'edificabilitat en base als estudis especÃ­fics de perillositat geolÃ²gica realitzats a escala de detall.</Abstract>
+      <!--Limited list of EPSG projections:-->
+      <CRS>EPSG:23031</CRS>
+      <CRS>EPSG:25831</CRS>
+      <CRS>EPSG:27563</CRS>
+      <CRS>EPSG:27573</CRS>
+      <CRS>EPSG:4258</CRS>
+      <CRS>EPSG:4326</CRS>
+      <CRS>EPSG:900913</CRS>
+      <CRS>CRS:84</CRS>
+      <EX_GeographicBoundingBox>
+        <westBoundLongitude>1.448845397433998</westBoundLongitude>
+        <eastBoundLongitude>1.6284237835826878</eastBoundLongitude>
+        <southBoundLatitude>42.44680796907012</southBoundLatitude>
+        <northBoundLatitude>42.59849315787912</northBoundLatitude>
+      </EX_GeographicBoundingBox>
+      <BoundingBox CRS="CRS:84" minx="1.448845397433998" miny="42.44680796907012" maxx="1.6284237835826878" maxy="42.59849315787912"/>
+      <Layer queryable="1">
+        <Name>edificabilitat</Name>
+        <Title>Edificabilitat</Title>
+        <Abstract>Edificabilitat</Abstract>
+        <CRS>EPSG:27563</CRS>
+        <EX_GeographicBoundingBox>
+          <westBoundLongitude>1.4463031839465028</westBoundLongitude>
+          <eastBoundLongitude>1.6296806371276231</eastBoundLongitude>
+          <southBoundLatitude>42.45695286315866</southBoundLatitude>
+          <northBoundLatitude>42.60250315495462</northBoundLatitude>
+        </EX_GeographicBoundingBox>
+        <BoundingBox CRS="EPSG:27563" minx="526923.2388979896" miny="17852.537326030433" maxx="541838.5010470944" maxy="33880.91917728988"/>
+      </Layer>
+      <Layer queryable="1">
+        <Name>Aixirivall_ze</Name>
+        <Title>Edificabilitat - Aixirivall</Title>
+        <Abstract/>
+        <KeywordList>
+          <Keyword>Aixirivall_ze</Keyword>
+          <Keyword>features</Keyword>
+        </KeywordList>
+        <CRS>EPSG:27563</CRS>
+        <CRS>CRS:84</CRS>
+        <EX_GeographicBoundingBox>
+          <westBoundLongitude>1.4972704212952528</westBoundLongitude>
+          <eastBoundLongitude>1.5048072677066033</eastBoundLongitude>
+          <southBoundLatitude>42.45686267924892</southBoundLatitude>
+          <northBoundLatitude>42.461289651205846</northBoundLatitude>
+        </EX_GeographicBoundingBox>
+        <BoundingBox CRS="CRS:84" minx="1.4972704212952528" miny="42.45686267924892" maxx="1.5048072677066033" maxy="42.461289651205846"/>
+        <BoundingBox CRS="EPSG:27563" minx="530895.95423612" miny="18151.430610305" maxx="531511.148216375" maxy="18637.1"/>
+        <Style>
+          <Name>Aixirivall_ze</Name>
+          <Title>Edificabilitat - Aixirivall</Title>
+          <Abstract/>
+          <LegendURL width="20" height="20">
+            <Format>image/png</Format>
+            <OnlineResource xmlns:xlink="http://www.w3.org/1999/xlink" xlink:type="simple" xlink:href="https://www.ideandorra.ad:443/Serveis/wms_edificabilitat/ows?service=WMS&amp;request=GetLegendGraphic&amp;format=image%2Fpng&amp;width=20&amp;height=20&amp;layer=Aixirivall_ze"/>
+          </LegendURL>
+        </Style>
+      </Layer>
+      <Layer queryable="1">
+        <Name>Canolic_ze</Name>
+        <Title>Edificabilitat - Canolic</Title>
+        <Abstract/>
+        <KeywordList>
+          <Keyword>Canolic_ze</Keyword>
+          <Keyword>features</Keyword>
+        </KeywordList>
+        <CRS>EPSG:27563</CRS>
+        <CRS>CRS:84</CRS>
+        <EX_GeographicBoundingBox>
+          <westBoundLongitude>1.448845397433998</westBoundLongitude>
+          <eastBoundLongitude>1.4591933112078368</eastBoundLongitude>
+          <southBoundLatitude>42.47049020012869</southBoundLatitude>
+          <northBoundLatitude>42.48088478644077</northBoundLatitude>
+        </EX_GeographicBoundingBox>
+        <BoundingBox CRS="CRS:84" minx="1.448845397433998" miny="42.47049020012869" maxx="1.4591933112078368" maxy="42.48088478644077"/>
+        <BoundingBox CRS="EPSG:27563" minx="526935.60414369" miny="19707.2660640742" maxx="527774.502335593" maxy="20853.2964182116"/>
+        <Style>
+          <Name>Canolic_ze</Name>
+          <Title>Edificabilitat - Canolic</Title>
+          <Abstract/>
+          <LegendURL width="20" height="20">
+            <Format>image/png</Format>
+            <OnlineResource xmlns:xlink="http://www.w3.org/1999/xlink" xlink:type="simple" xlink:href="https://www.ideandorra.ad:443/Serveis/wms_edificabilitat/ows?service=WMS&amp;request=GetLegendGraphic&amp;format=image%2Fpng&amp;width=20&amp;height=20&amp;layer=Canolic_ze"/>
+          </LegendURL>
+        </Style>
+      </Layer>
+      <Layer queryable="1">
+        <Name>Certers_ze</Name>
+        <Title>Edificabilitat - Certers</Title>
+        <Abstract/>
+        <KeywordList>
+          <Keyword>Certers_ze</Keyword>
+          <Keyword>features</Keyword>
+        </KeywordList>
+        <CRS>EPSG:27563</CRS>
+        <CRS>CRS:84</CRS>
+        <EX_GeographicBoundingBox>
+          <westBoundLongitude>1.4974951429002783</westBoundLongitude>
+          <eastBoundLongitude>1.5133569451199687</eastBoundLongitude>
+          <southBoundLatitude>42.46803594608693</southBoundLatitude>
+          <northBoundLatitude>42.47655714151354</northBoundLatitude>
+        </EX_GeographicBoundingBox>
+        <BoundingBox CRS="CRS:84" minx="1.4974951429002783" miny="42.46803594608693" maxx="1.5133569451199687" maxy="42.47655714151354"/>
+        <BoundingBox CRS="EPSG:27563" minx="530931.673841098" miny="19392.6202294058" maxx="532227.054551299" maxy="20326.3890395075"/>
+        <Style>
+          <Name>Certers_ze</Name>
+          <Title>Edificabilitat - Certers</Title>
+          <Abstract/>
+          <LegendURL width="20" height="20">
+            <Format>image/png</Format>
+            <OnlineResource xmlns:xlink="http://www.w3.org/1999/xlink" xlink:type="simple" xlink:href="https://www.ideandorra.ad:443/Serveis/wms_edificabilitat/ows?service=WMS&amp;request=GetLegendGraphic&amp;format=image%2Fpng&amp;width=20&amp;height=20&amp;layer=Certers_ze"/>
+          </LegendURL>
+        </Style>
+      </Layer>
+      <Layer queryable="1">
+        <Name>Cortals_encamp_ze</Name>
+        <Title>Edificabilitat - Cortals d'Encamp</Title>
+        <Abstract/>
+        <KeywordList>
+          <Keyword>Cortals_encamp_ze</Keyword>
+          <Keyword>features</Keyword>
+        </KeywordList>
+        <CRS>EPSG:27563</CRS>
+        <CRS>CRS:84</CRS>
+        <EX_GeographicBoundingBox>
+          <westBoundLongitude>1.5817748855817277</westBoundLongitude>
+          <eastBoundLongitude>1.60859855378033</eastBoundLongitude>
+          <southBoundLatitude>42.521568335280236</southBoundLatitude>
+          <northBoundLatitude>42.53602295315328</northBoundLatitude>
+        </EX_GeographicBoundingBox>
+        <BoundingBox CRS="CRS:84" minx="1.5817748855817277" miny="42.521568335280236" maxx="1.60859855378033" maxy="42.53602295315328"/>
+        <BoundingBox CRS="EPSG:27563" minx="537924.0625" miny="25273.2265625" maxx="540114.25" maxy="26859.607421875"/>
+        <Style>
+          <Name>Cortals_encamp_ze</Name>
+          <Title>Edificabilitat - cortals d'Encamp</Title>
+          <Abstract/>
+          <LegendURL width="20" height="20">
+            <Format>image/png</Format>
+            <OnlineResource xmlns:xlink="http://www.w3.org/1999/xlink" xlink:type="simple" xlink:href="https://www.ideandorra.ad:443/Serveis/wms_edificabilitat/ows?service=WMS&amp;request=GetLegendGraphic&amp;format=image%2Fpng&amp;width=20&amp;height=20&amp;layer=Cortals_encamp_ze"/>
+          </LegendURL>
+        </Style>
+      </Layer>
+      <Layer queryable="1">
+        <Name>El_Forn_ze_2016</Name>
+        <Title>El_Forn_ze_2016</Title>
+        <Abstract/>
+        <KeywordList>
+          <Keyword>El_Forn_ze_2016</Keyword>
+          <Keyword>features</Keyword>
+        </KeywordList>
+        <CRS>EPSG:27563</CRS>
+        <CRS>CRS:84</CRS>
+        <EX_GeographicBoundingBox>
+          <westBoundLongitude>1.5895127197379915</westBoundLongitude>
+          <eastBoundLongitude>1.6284237835826878</eastBoundLongitude>
+          <southBoundLatitude>42.54318272363855</southBoundLatitude>
+          <northBoundLatitude>42.56638028564422</northBoundLatitude>
+        </EX_GeographicBoundingBox>
+        <BoundingBox CRS="CRS:84" minx="1.5895127197379915" miny="42.54318272363855" maxx="1.6284237835826878" maxy="42.56638028564422"/>
+        <BoundingBox CRS="EPSG:27563" minx="538642.564236932" miny="27317.8062744141" maxx="541816.573913574" maxy="29867.339503015"/>
+        <Style>
+          <Name>El_Forn_ze</Name>
+          <Title>Edificabilitat - el Forn</Title>
+          <Abstract/>
+          <LegendURL width="20" height="20">
+            <Format>image/png</Format>
+            <OnlineResource xmlns:xlink="http://www.w3.org/1999/xlink" xlink:type="simple" xlink:href="https://www.ideandorra.ad:443/Serveis/wms_edificabilitat/ows?service=WMS&amp;request=GetLegendGraphic&amp;format=image%2Fpng&amp;width=20&amp;height=20&amp;layer=El_Forn_ze_2016"/>
+          </LegendURL>
+        </Style>
+      </Layer>
+      <Layer queryable="1">
+        <Name>Encamp_ze</Name>
+        <Title>Edificabilitat - Encamp</Title>
+        <Abstract/>
+        <KeywordList>
+          <Keyword>features</Keyword>
+          <Keyword>Encamp_ze</Keyword>
+        </KeywordList>
+        <CRS>EPSG:27563</CRS>
+        <CRS>CRS:84</CRS>
+        <EX_GeographicBoundingBox>
+          <westBoundLongitude>1.5722614633833067</westBoundLongitude>
+          <eastBoundLongitude>1.5838210496704581</eastBoundLongitude>
+          <southBoundLatitude>42.51982115508364</southBoundLatitude>
+          <northBoundLatitude>42.530561248504995</northBoundLatitude>
+        </EX_GeographicBoundingBox>
+        <BoundingBox CRS="CRS:84" minx="1.5722614633833067" miny="42.51982115508364" maxx="1.5838210496704581" maxy="42.530561248504995"/>
+        <BoundingBox CRS="EPSG:27563" minx="537136.828315914" miny="25086.3558814896" maxx="538075.978652789" maxy="26271.0818985929"/>
+        <Style>
+          <Name>Encamp_ze</Name>
+          <Title>Edificabilitat - Encamp</Title>
+          <Abstract/>
+          <LegendURL width="20" height="20">
+            <Format>image/png</Format>
+            <OnlineResource xmlns:xlink="http://www.w3.org/1999/xlink" xlink:type="simple" xlink:href="https://www.ideandorra.ad:443/Serveis/wms_edificabilitat/ows?service=WMS&amp;request=GetLegendGraphic&amp;format=image%2Fpng&amp;width=20&amp;height=20&amp;layer=Encamp_ze"/>
+          </LegendURL>
+        </Style>
+      </Layer>
+      <Layer queryable="1">
+        <Name>Fener_ze</Name>
+        <Title>Edificabilitat - El Fener</Title>
+        <Abstract/>
+        <KeywordList>
+          <Keyword>features</Keyword>
+          <Keyword>Fener_ze</Keyword>
+        </KeywordList>
+        <CRS>EPSG:27563</CRS>
+        <CRS>CRS:84</CRS>
+        <EX_GeographicBoundingBox>
+          <westBoundLongitude>1.5286182921715945</westBoundLongitude>
+          <eastBoundLongitude>1.5528148059204117</eastBoundLongitude>
+          <southBoundLatitude>42.49849595781609</southBoundLatitude>
+          <northBoundLatitude>42.50568563050099</northBoundLatitude>
+        </EX_GeographicBoundingBox>
+        <BoundingBox CRS="CRS:84" minx="1.5286182921715945" miny="42.49849595781609" maxx="1.5528148059204117" maxy="42.50568563050099"/>
+        <BoundingBox CRS="EPSG:27563" minx="533523.203126808" miny="22751.3154074884" maxx="535505.118648653" maxy="23531.0308962145"/>
+        <Style>
+          <Name>Fener_ze</Name>
+          <Title>Edificabilitat - el Fener</Title>
+          <Abstract/>
+          <LegendURL width="20" height="20">
+            <Format>image/png</Format>
+            <OnlineResource xmlns:xlink="http://www.w3.org/1999/xlink" xlink:type="simple" xlink:href="https://www.ideandorra.ad:443/Serveis/wms_edificabilitat/ows?service=WMS&amp;request=GetLegendGraphic&amp;format=image%2Fpng&amp;width=20&amp;height=20&amp;layer=Fener_ze"/>
+          </LegendURL>
+        </Style>
+      </Layer>
+      <Layer queryable="1">
+        <Name>La_Comella_ze</Name>
+        <Title>Edificabilitat - La Comella</Title>
+        <Abstract/>
+        <KeywordList>
+          <Keyword>La_Comella_ze</Keyword>
+          <Keyword>features</Keyword>
+        </KeywordList>
+        <CRS>EPSG:27563</CRS>
+        <CRS>CRS:84</CRS>
+        <EX_GeographicBoundingBox>
+          <westBoundLongitude>1.5134711579945619</westBoundLongitude>
+          <eastBoundLongitude>1.5376329926051637</eastBoundLongitude>
+          <southBoundLatitude>42.47837096889807</southBoundLatitude>
+          <northBoundLatitude>42.50092498493645</northBoundLatitude>
+        </EX_GeographicBoundingBox>
+        <BoundingBox CRS="CRS:84" minx="1.5134711579945619" miny="42.47837096889807" maxx="1.5376329926051637" maxy="42.50092498493645"/>
+        <BoundingBox CRS="EPSG:27563" minx="532272.6875" miny="20527.48046875" maxx="534235.1875" maxy="23014.265625"/>
+        <Style>
+          <Name>La_Comella_ze</Name>
+          <Title>Edificabilitat - la Comella</Title>
+          <Abstract/>
+          <LegendURL width="20" height="20">
+            <Format>image/png</Format>
+            <OnlineResource xmlns:xlink="http://www.w3.org/1999/xlink" xlink:type="simple" xlink:href="https://www.ideandorra.ad:443/Serveis/wms_edificabilitat/ows?service=WMS&amp;request=GetLegendGraphic&amp;format=image%2Fpng&amp;width=20&amp;height=20&amp;layer=La_Comella_ze"/>
+          </LegendURL>
+        </Style>
+      </Layer>
+      <Layer queryable="1">
+        <Name>La_plana_ze</Name>
+        <Title>Edificabilitat - La Plana</Title>
+        <Abstract/>
+        <KeywordList>
+          <Keyword>La_plana_ze</Keyword>
+          <Keyword>features</Keyword>
+        </KeywordList>
+        <CRS>EPSG:27563</CRS>
+        <CRS>CRS:84</CRS>
+        <EX_GeographicBoundingBox>
+          <westBoundLongitude>1.588869379925044</westBoundLongitude>
+          <eastBoundLongitude>1.593099368627043</eastBoundLongitude>
+          <southBoundLatitude>42.523704696340985</southBoundLatitude>
+          <northBoundLatitude>42.53019611495378</northBoundLatitude>
+        </EX_GeographicBoundingBox>
+        <BoundingBox CRS="CRS:84" minx="1.588869379925044" miny="42.523704696340985" maxx="1.593099368627043" maxy="42.53019611495378"/>
+        <BoundingBox CRS="EPSG:27563" minx="538501.270053385" miny="25505.3377780494" maxx="538842.409753978" maxy="26223.538666807"/>
+        <Style>
+          <Name>La_plana_ze</Name>
+          <Title>Edificabilitat - La Plana</Title>
+          <Abstract/>
+          <LegendURL width="20" height="20">
+            <Format>image/png</Format>
+            <OnlineResource xmlns:xlink="http://www.w3.org/1999/xlink" xlink:type="simple" xlink:href="https://www.ideandorra.ad:443/Serveis/wms_edificabilitat/ows?service=WMS&amp;request=GetLegendGraphic&amp;format=image%2Fpng&amp;width=20&amp;height=20&amp;layer=La_plana_ze"/>
+          </LegendURL>
+        </Style>
+      </Layer>
+      <Layer queryable="1">
+        <Name>Llorts_ze</Name>
+        <Title>Edificabilitat - Llorts</Title>
+        <Abstract/>
+        <KeywordList>
+          <Keyword>Llorts_ze</Keyword>
+          <Keyword>features</Keyword>
+        </KeywordList>
+        <CRS>EPSG:27563</CRS>
+        <CRS>CRS:84</CRS>
+        <EX_GeographicBoundingBox>
+          <westBoundLongitude>1.5048599322933216</westBoundLongitude>
+          <eastBoundLongitude>1.5290124718253424</eastBoundLongitude>
+          <southBoundLatitude>42.58941481117985</southBoundLatitude>
+          <northBoundLatitude>42.59849315787912</northBoundLatitude>
+        </EX_GeographicBoundingBox>
+        <BoundingBox CRS="CRS:84" minx="1.5048599322933216" miny="42.58941481117985" maxx="1.5290124718253424" maxy="42.59849315787912"/>
+        <BoundingBox CRS="EPSG:27563" minx="531674.3125" miny="32872.2109375" maxx="533647.3125" maxy="33861.28125"/>
+        <Style>
+          <Name>Llorts_ze</Name>
+          <Title>Edificabilitat - Llorts</Title>
+          <Abstract/>
+          <LegendURL width="20" height="20">
+            <Format>image/png</Format>
+            <OnlineResource xmlns:xlink="http://www.w3.org/1999/xlink" xlink:type="simple" xlink:href="https://www.ideandorra.ad:443/Serveis/wms_edificabilitat/ows?service=WMS&amp;request=GetLegendGraphic&amp;format=image%2Fpng&amp;width=20&amp;height=20&amp;layer=Llorts_ze"/>
+          </LegendURL>
+        </Style>
+      </Layer>
+      <Layer queryable="1">
+        <Name>Montaup_ze</Name>
+        <Title>Edificabilitat - Montaup</Title>
+        <Abstract/>
+        <KeywordList>
+          <Keyword>Montaup_ze</Keyword>
+          <Keyword>features</Keyword>
+        </KeywordList>
+        <CRS>EPSG:27563</CRS>
+        <CRS>CRS:84</CRS>
+        <EX_GeographicBoundingBox>
+          <westBoundLongitude>1.5947331324057046</westBoundLongitude>
+          <eastBoundLongitude>1.6027131494176132</eastBoundLongitude>
+          <southBoundLatitude>42.56724801239817</southBoundLatitude>
+          <northBoundLatitude>42.57558555142517</northBoundLatitude>
+        </EX_GeographicBoundingBox>
+        <BoundingBox CRS="CRS:84" minx="1.5947331324057046" miny="42.56724801239817" maxx="1.6027131494176132" maxy="42.57558555142517"/>
+        <BoundingBox CRS="EPSG:27563" minx="539028.584679624" miny="30338.8463808254" maxx="539675.699951053" maxy="31259.4533851362"/>
+        <Style>
+          <Name>montaup_ze</Name>
+          <Title>Edificabilitat - Montaup</Title>
+          <Abstract/>
+          <LegendURL width="20" height="20">
+            <Format>image/png</Format>
+            <OnlineResource xmlns:xlink="http://www.w3.org/1999/xlink" xlink:type="simple" xlink:href="https://www.ideandorra.ad:443/Serveis/wms_edificabilitat/ows?service=WMS&amp;request=GetLegendGraphic&amp;format=image%2Fpng&amp;width=20&amp;height=20&amp;layer=Montaup_ze"/>
+          </LegendURL>
+        </Style>
+      </Layer>
+      <Layer queryable="1">
+        <Name>Pal_ze</Name>
+        <Title>Edificabilitat - Pal</Title>
+        <Abstract/>
+        <KeywordList>
+          <Keyword>Pal_ze</Keyword>
+          <Keyword>features</Keyword>
+        </KeywordList>
+        <CRS>EPSG:27563</CRS>
+        <CRS>CRS:84</CRS>
+        <EX_GeographicBoundingBox>
+          <westBoundLongitude>1.4535455423326487</westBoundLongitude>
+          <eastBoundLongitude>1.479374948536667</eastBoundLongitude>
+          <southBoundLatitude>42.52576533011266</southBoundLatitude>
+          <northBoundLatitude>42.54191806047846</northBoundLatitude>
+        </EX_GeographicBoundingBox>
+        <BoundingBox CRS="CRS:84" minx="1.4535455423326487" miny="42.52576533011266" maxx="1.479374948536667" maxy="42.54191806047846"/>
+        <BoundingBox CRS="EPSG:27563" minx="527394.791866326" miny="25844.369804582" maxx="529498.673273517" maxy="27616.9489422329"/>
+        <Style>
+          <Name>Pal_ze</Name>
+          <Title>Edificabilitat - Pal</Title>
+          <Abstract/>
+          <LegendURL width="20" height="20">
+            <Format>image/png</Format>
+            <OnlineResource xmlns:xlink="http://www.w3.org/1999/xlink" xlink:type="simple" xlink:href="https://www.ideandorra.ad:443/Serveis/wms_edificabilitat/ows?service=WMS&amp;request=GetLegendGraphic&amp;format=image%2Fpng&amp;width=20&amp;height=20&amp;layer=Pal_ze"/>
+          </LegendURL>
+        </Style>
+      </Layer>
+      <Layer queryable="1">
+        <Name>Sant_Julia_ze</Name>
+        <Title>Edificabilitat - Sant Julià</Title>
+        <Abstract/>
+        <KeywordList>
+          <Keyword>Sant_Julia_ze</Keyword>
+          <Keyword>features</Keyword>
+        </KeywordList>
+        <CRS>EPSG:27563</CRS>
+        <CRS>CRS:84</CRS>
+        <EX_GeographicBoundingBox>
+          <westBoundLongitude>1.4902198918396257</westBoundLongitude>
+          <eastBoundLongitude>1.5242984653561849</eastBoundLongitude>
+          <southBoundLatitude>42.45437317850808</southBoundLatitude>
+          <northBoundLatitude>42.46620226439143</northBoundLatitude>
+        </EX_GeographicBoundingBox>
+        <BoundingBox CRS="CRS:84" minx="1.4902198918396257" miny="42.45437317850808" maxx="1.5242984653561849" maxy="42.46620226439143"/>
+        <BoundingBox CRS="EPSG:27563" minx="530321.3125" miny="17880.6875" maxx="533112.25" maxy="19166.978515625"/>
+        <Style>
+          <Name>Sant_julia_ze</Name>
+          <Title>Edificabilitat - Sant Julià</Title>
+          <Abstract/>
+          <LegendURL width="20" height="20">
+            <Format>image/png</Format>
+            <OnlineResource xmlns:xlink="http://www.w3.org/1999/xlink" xlink:type="simple" xlink:href="https://www.ideandorra.ad:443/Serveis/wms_edificabilitat/ows?service=WMS&amp;request=GetLegendGraphic&amp;format=image%2Fpng&amp;width=20&amp;height=20&amp;layer=Sant_Julia_ze"/>
+          </LegendURL>
+        </Style>
+      </Layer>
+      <Layer queryable="1">
+        <Name>Vila_Beixalis_ze</Name>
+        <Title>Edificabilitat - Vila/Beixalís</Title>
+        <Abstract/>
+        <KeywordList>
+          <Keyword>features</Keyword>
+          <Keyword>Vila_Beixalis_ze</Keyword>
+        </KeywordList>
+        <CRS>EPSG:27563</CRS>
+        <CRS>CRS:84</CRS>
+        <EX_GeographicBoundingBox>
+          <westBoundLongitude>1.5485404401983884</westBoundLongitude>
+          <eastBoundLongitude>1.5655549270000366</eastBoundLongitude>
+          <southBoundLatitude>42.52424772819783</southBoundLatitude>
+          <northBoundLatitude>42.53279991279688</northBoundLatitude>
+        </EX_GeographicBoundingBox>
+        <BoundingBox CRS="CRS:84" minx="1.5485404401983884" miny="42.52424772819783" maxx="1.5655549270000366" maxy="42.53279991279688"/>
+        <BoundingBox CRS="EPSG:27563" minx="535189.891039895" miny="25596.5839626946" maxx="536579.347377895" maxy="26533.694924492"/>
+        <Style>
+          <Name>Vila_Beixalis_ze</Name>
+          <Title>Edificabilitat - Vila/Beixalís</Title>
+          <Abstract/>
+          <LegendURL width="20" height="20">
+            <Format>image/png</Format>
+            <OnlineResource xmlns:xlink="http://www.w3.org/1999/xlink" xlink:type="simple" xlink:href="https://www.ideandorra.ad:443/Serveis/wms_edificabilitat/ows?service=WMS&amp;request=GetLegendGraphic&amp;format=image%2Fpng&amp;width=20&amp;height=20&amp;layer=Vila_Beixalis_ze"/>
+          </LegendURL>
+        </Style>
+      </Layer>
+      <Layer queryable="1">
+        <Name>aubinya_act_2016</Name>
+        <Title>aubinya_act_2016</Title>
+        <Abstract/>
+        <KeywordList>
+          <Keyword>features</Keyword>
+        </KeywordList>
+        <CRS>EPSG:27563</CRS>
+        <CRS>CRS:84</CRS>
+        <EX_GeographicBoundingBox>
+          <westBoundLongitude>1.486994911362536</westBoundLongitude>
+          <eastBoundLongitude>1.5002883830222684</eastBoundLongitude>
+          <southBoundLatitude>42.4483641566877</southBoundLatitude>
+          <northBoundLatitude>42.453053215768485</northBoundLatitude>
+        </EX_GeographicBoundingBox>
+        <BoundingBox CRS="CRS:84" minx="1.486994911362536" miny="42.4483641566877" maxx="1.5002883830222684" maxy="42.453053215768485"/>
+        <BoundingBox CRS="EPSG:27563" minx="530093.119009235" miny="16864.6764835017" maxx="531181.840990615" maxy="17374.5716446128"/>
+        <Style>
+          <Name>aubinya_act</Name>
+          <Title>Actuacions - Auvinyà</Title>
+          <Abstract/>
+          <LegendURL width="20" height="20">
+            <Format>image/png</Format>
+            <OnlineResource xmlns:xlink="http://www.w3.org/1999/xlink" xlink:type="simple" xlink:href="https://www.ideandorra.ad:443/Serveis/wms_edificabilitat/ows?service=WMS&amp;request=GetLegendGraphic&amp;format=image%2Fpng&amp;width=20&amp;height=20&amp;layer=aubinya_act_2016"/>
+          </LegendURL>
+        </Style>
+      </Layer>
+      <Layer queryable="1">
+        <Name>aubinya_ze_2016</Name>
+        <Title>aubinya_ze_2016</Title>
+        <Abstract/>
+        <KeywordList>
+          <Keyword>aubinya_ze_2016</Keyword>
+          <Keyword>features</Keyword>
+        </KeywordList>
+        <CRS>EPSG:27563</CRS>
+        <CRS>CRS:84</CRS>
+        <EX_GeographicBoundingBox>
+          <westBoundLongitude>1.4864744003269195</westBoundLongitude>
+          <eastBoundLongitude>1.5013508244530283</eastBoundLongitude>
+          <southBoundLatitude>42.44680796907012</southBoundLatitude>
+          <northBoundLatitude>42.45352857934548</northBoundLatitude>
+        </EX_GeographicBoundingBox>
+        <BoundingBox CRS="CRS:84" minx="1.4864744003269195" miny="42.44680796907012" maxx="1.5013508244530283" maxy="42.45352857934548"/>
+        <BoundingBox CRS="EPSG:27563" minx="530050.823486201" miny="16692.1887187846" maxx="531267.523358725" maxy="17426.5236504078"/>
+        <Style>
+          <Name>aubinya_ze</Name>
+          <Title>Edificabilitat - Auvinyà</Title>
+          <Abstract/>
+          <LegendURL width="20" height="20">
+            <Format>image/png</Format>
+            <OnlineResource xmlns:xlink="http://www.w3.org/1999/xlink" xlink:type="simple" xlink:href="https://www.ideandorra.ad:443/Serveis/wms_edificabilitat/ows?service=WMS&amp;request=GetLegendGraphic&amp;format=image%2Fpng&amp;width=20&amp;height=20&amp;layer=aubinya_ze_2016"/>
+          </LegendURL>
+        </Style>
+      </Layer>
+      <Layer queryable="1">
+        <Name>beixalis_act</Name>
+        <Title>Actuacions - Vila/Beixalís</Title>
+        <Abstract/>
+        <KeywordList>
+          <Keyword>beixalis_act</Keyword>
+          <Keyword>features</Keyword>
+        </KeywordList>
+        <CRS>EPSG:27563</CRS>
+        <CRS>CRS:84</CRS>
+        <EX_GeographicBoundingBox>
+          <westBoundLongitude>1.5537010469798682</westBoundLongitude>
+          <eastBoundLongitude>1.5656706714124553</eastBoundLongitude>
+          <southBoundLatitude>42.52704519090739</southBoundLatitude>
+          <northBoundLatitude>42.529084670614125</northBoundLatitude>
+        </EX_GeographicBoundingBox>
+        <BoundingBox CRS="CRS:84" minx="1.5537010469798682" miny="42.52704519090739" maxx="1.5656706714124553" maxy="42.529084670614125"/>
+        <BoundingBox CRS="EPSG:27563" minx="535610.057152848" miny="25903.4135896829" maxx="536591.735964833" maxy="26120.7595317668"/>
+        <Style>
+          <Name>beixalis_act</Name>
+          <Title>Actuacions - Vila/Beixalís</Title>
+          <Abstract/>
+          <LegendURL width="20" height="20">
+            <Format>image/png</Format>
+            <OnlineResource xmlns:xlink="http://www.w3.org/1999/xlink" xlink:type="simple" xlink:href="https://www.ideandorra.ad:443/Serveis/wms_edificabilitat/ows?service=WMS&amp;request=GetLegendGraphic&amp;format=image%2Fpng&amp;width=20&amp;height=20&amp;layer=beixalis_act"/>
+          </LegendURL>
+        </Style>
+      </Layer>
+      <Layer queryable="1">
+        <Name>canillo_act</Name>
+        <Title>Actuacions - El Forn</Title>
+        <Abstract/>
+        <KeywordList>
+          <Keyword>canillo_act</Keyword>
+          <Keyword>features</Keyword>
+        </KeywordList>
+        <CRS>EPSG:27563</CRS>
+        <CRS>CRS:84</CRS>
+        <EX_GeographicBoundingBox>
+          <westBoundLongitude>1.590652880231759</westBoundLongitude>
+          <eastBoundLongitude>1.615695160201014</eastBoundLongitude>
+          <southBoundLatitude>42.55026453288451</southBoundLatitude>
+          <northBoundLatitude>42.5614777492261</northBoundLatitude>
+        </EX_GeographicBoundingBox>
+        <BoundingBox CRS="CRS:84" minx="1.590652880231759" miny="42.55026453288451" maxx="1.615695160201014" maxy="42.5614777492261"/>
+        <BoundingBox CRS="EPSG:27563" minx="538679.209934279" miny="28454.9064606491" maxx="540725.430292728" maxy="29682.605"/>
+        <Style>
+          <Name>canillo_act</Name>
+          <Title>Actuacions - el Forn</Title>
+          <Abstract/>
+          <LegendURL width="20" height="20">
+            <Format>image/png</Format>
+            <OnlineResource xmlns:xlink="http://www.w3.org/1999/xlink" xlink:type="simple" xlink:href="https://www.ideandorra.ad:443/Serveis/wms_edificabilitat/ows?service=WMS&amp;request=GetLegendGraphic&amp;format=image%2Fpng&amp;width=20&amp;height=20&amp;layer=canillo_act"/>
+          </LegendURL>
+        </Style>
+      </Layer>
+      <Layer queryable="1">
+        <Name>canolic_act</Name>
+        <Title>Actuacions - Canolic</Title>
+        <Abstract/>
+        <KeywordList>
+          <Keyword>canolic_act</Keyword>
+          <Keyword>features</Keyword>
+        </KeywordList>
+        <CRS>EPSG:27563</CRS>
+        <CRS>CRS:84</CRS>
+        <EX_GeographicBoundingBox>
+          <westBoundLongitude>1.4512540768031255</westBoundLongitude>
+          <eastBoundLongitude>1.4572042485696448</eastBoundLongitude>
+          <southBoundLatitude>42.47205670604572</southBoundLatitude>
+          <northBoundLatitude>42.479661033994276</northBoundLatitude>
+        </EX_GeographicBoundingBox>
+        <BoundingBox CRS="CRS:84" minx="1.4512540768031255" miny="42.47205670604572" maxx="1.4572042485696448" maxy="42.479661033994276"/>
+        <BoundingBox CRS="EPSG:27563" minx="527132.274559997" miny="19879.2150168114" maxx="527612.7115085" maxy="20719.0429626588"/>
+        <Style>
+          <Name>canolic_act</Name>
+          <Title>Actuacions - Canolic</Title>
+          <Abstract/>
+          <LegendURL width="20" height="20">
+            <Format>image/png</Format>
+            <OnlineResource xmlns:xlink="http://www.w3.org/1999/xlink" xlink:type="simple" xlink:href="https://www.ideandorra.ad:443/Serveis/wms_edificabilitat/ows?service=WMS&amp;request=GetLegendGraphic&amp;format=image%2Fpng&amp;width=20&amp;height=20&amp;layer=canolic_act"/>
+          </LegendURL>
+        </Style>
+      </Layer>
+      <Layer queryable="1">
+        <Name>certers_act</Name>
+        <Title>Actuacions - Certers</Title>
+        <Abstract/>
+        <KeywordList>
+          <Keyword>features</Keyword>
+          <Keyword>certers_act</Keyword>
+        </KeywordList>
+        <CRS>EPSG:27563</CRS>
+        <CRS>CRS:84</CRS>
+        <EX_GeographicBoundingBox>
+          <westBoundLongitude>1.5037136187918276</westBoundLongitude>
+          <eastBoundLongitude>1.5080157683561173</eastBoundLongitude>
+          <southBoundLatitude>42.4695492249741</southBoundLatitude>
+          <northBoundLatitude>42.47270572073246</northBoundLatitude>
+        </EX_GeographicBoundingBox>
+        <BoundingBox CRS="CRS:84" minx="1.5037136187918276" miny="42.4695492249741" maxx="1.5080157683561173" maxy="42.47270572073246"/>
+        <BoundingBox CRS="EPSG:27563" minx="531438.89179991" miny="19555.6188975599" maxx="531789.293560682" maxy="19902.8235105133"/>
+        <Style>
+          <Name>certers_act</Name>
+          <Title>Actuacions - Certers</Title>
+          <Abstract/>
+          <LegendURL width="20" height="20">
+            <Format>image/png</Format>
+            <OnlineResource xmlns:xlink="http://www.w3.org/1999/xlink" xlink:type="simple" xlink:href="https://www.ideandorra.ad:443/Serveis/wms_edificabilitat/ows?service=WMS&amp;request=GetLegendGraphic&amp;format=image%2Fpng&amp;width=20&amp;height=20&amp;layer=certers_act"/>
+          </LegendURL>
+        </Style>
+      </Layer>
+      <Layer queryable="1">
+        <Name>comella_act</Name>
+        <Title>Actuacions - La Comella</Title>
+        <Abstract/>
+        <KeywordList>
+          <Keyword>comella_act</Keyword>
+          <Keyword>features</Keyword>
+        </KeywordList>
+        <CRS>EPSG:27563</CRS>
+        <CRS>CRS:84</CRS>
+        <EX_GeographicBoundingBox>
+          <westBoundLongitude>1.5178248649430262</westBoundLongitude>
+          <eastBoundLongitude>1.5273466564112368</eastBoundLongitude>
+          <southBoundLatitude>42.492898001224546</southBoundLatitude>
+          <northBoundLatitude>42.499701289518384</northBoundLatitude>
+        </EX_GeographicBoundingBox>
+        <BoundingBox CRS="CRS:84" minx="1.5178248649430262" miny="42.492898001224546" maxx="1.5273466564112368" maxy="42.499701289518384"/>
+        <BoundingBox CRS="EPSG:27563" minx="532629.389520222" miny="22138.1249453529" maxx="533404.951611122" maxy="22886.4100885914"/>
+        <Style>
+          <Name>comella_act</Name>
+          <Title>Actuacions - la Comella</Title>
+          <Abstract/>
+          <LegendURL width="20" height="20">
+            <Format>image/png</Format>
+            <OnlineResource xmlns:xlink="http://www.w3.org/1999/xlink" xlink:type="simple" xlink:href="https://www.ideandorra.ad:443/Serveis/wms_edificabilitat/ows?service=WMS&amp;request=GetLegendGraphic&amp;format=image%2Fpng&amp;width=20&amp;height=20&amp;layer=comella_act"/>
+          </LegendURL>
+        </Style>
+      </Layer>
+      <Layer queryable="1">
+        <Name>cortals_encamp_act</Name>
+        <Title>Actuacions - Cortals d'Encamp</Title>
+        <Abstract/>
+        <KeywordList>
+          <Keyword>cortals_encamp_act</Keyword>
+          <Keyword>features</Keyword>
+        </KeywordList>
+        <CRS>EPSG:27563</CRS>
+        <CRS>CRS:84</CRS>
+        <EX_GeographicBoundingBox>
+          <westBoundLongitude>1.5856222311250747</westBoundLongitude>
+          <eastBoundLongitude>1.6011676817958627</eastBoundLongitude>
+          <southBoundLatitude>42.52293725928431</southBoundLatitude>
+          <northBoundLatitude>42.5345271659301</northBoundLatitude>
+        </EX_GeographicBoundingBox>
+        <BoundingBox CRS="CRS:84" minx="1.5856222311250747" miny="42.52293725928431" maxx="1.6011676817958627" maxy="42.5345271659301"/>
+        <BoundingBox CRS="EPSG:27563" minx="538238.75" miny="25422.455078125" maxx="539504.8125" maxy="26698.826171875"/>
+        <Style>
+          <Name>cortals_encamp_act</Name>
+          <Title>Actuacions - cortals d'Encamp</Title>
+          <Abstract/>
+          <LegendURL width="20" height="20">
+            <Format>image/png</Format>
+            <OnlineResource xmlns:xlink="http://www.w3.org/1999/xlink" xlink:type="simple" xlink:href="https://www.ideandorra.ad:443/Serveis/wms_edificabilitat/ows?service=WMS&amp;request=GetLegendGraphic&amp;format=image%2Fpng&amp;width=20&amp;height=20&amp;layer=cortals_encamp_act"/>
+          </LegendURL>
+        </Style>
+      </Layer>
+      <Layer queryable="1">
+        <Name>encamp_act</Name>
+        <Title>Actuacions - Encamp</Title>
+        <Abstract/>
+        <KeywordList>
+          <Keyword>encamp_act</Keyword>
+          <Keyword>features</Keyword>
+        </KeywordList>
+        <CRS>EPSG:27563</CRS>
+        <CRS>CRS:84</CRS>
+        <EX_GeographicBoundingBox>
+          <westBoundLongitude>1.5764690376632189</westBoundLongitude>
+          <eastBoundLongitude>1.5809435895494246</eastBoundLongitude>
+          <southBoundLatitude>42.52566346331375</southBoundLatitude>
+          <northBoundLatitude>42.52836147985191</northBoundLatitude>
+        </EX_GeographicBoundingBox>
+        <BoundingBox CRS="CRS:84" minx="1.5764690376632189" miny="42.52566346331375" maxx="1.5809435895494246" maxy="42.52836147985191"/>
+        <BoundingBox CRS="EPSG:27563" minx="537480.377122858" miny="25732.3421306251" maxx="537845.395630325" maxy="26028.7692327749"/>
+        <Style>
+          <Name>encamp_act</Name>
+          <Title>Actuacions - Encamp</Title>
+          <Abstract/>
+          <LegendURL width="20" height="20">
+            <Format>image/png</Format>
+            <OnlineResource xmlns:xlink="http://www.w3.org/1999/xlink" xlink:type="simple" xlink:href="https://www.ideandorra.ad:443/Serveis/wms_edificabilitat/ows?service=WMS&amp;request=GetLegendGraphic&amp;format=image%2Fpng&amp;width=20&amp;height=20&amp;layer=encamp_act"/>
+          </LegendURL>
+        </Style>
+      </Layer>
+      <Layer queryable="1">
+        <Name>fener_act</Name>
+        <Title>Actuacions  - El Fener</Title>
+        <Abstract/>
+        <KeywordList>
+          <Keyword>fener_act</Keyword>
+          <Keyword>features</Keyword>
+        </KeywordList>
+        <CRS>EPSG:27563</CRS>
+        <CRS>CRS:84</CRS>
+        <EX_GeographicBoundingBox>
+          <westBoundLongitude>1.5291469716445023</westBoundLongitude>
+          <eastBoundLongitude>1.5396119626080198</eastBoundLongitude>
+          <southBoundLatitude>42.49848988025811</southBoundLatitude>
+          <northBoundLatitude>42.504629624571564</northBoundLatitude>
+        </EX_GeographicBoundingBox>
+        <BoundingBox CRS="CRS:84" minx="1.5291469716445023" miny="42.49848988025811" maxx="1.5396119626080198" maxy="42.504629624571564"/>
+        <BoundingBox CRS="EPSG:27563" minx="533565.619919353" miny="22750.2236667593" maxx="534419.497338251" maxy="23424.1233055458"/>
+        <Style>
+          <Name>fener_act</Name>
+          <Title>Actuacions - el Fener</Title>
+          <Abstract/>
+          <LegendURL width="20" height="20">
+            <Format>image/png</Format>
+            <OnlineResource xmlns:xlink="http://www.w3.org/1999/xlink" xlink:type="simple" xlink:href="https://www.ideandorra.ad:443/Serveis/wms_edificabilitat/ows?service=WMS&amp;request=GetLegendGraphic&amp;format=image%2Fpng&amp;width=20&amp;height=20&amp;layer=fener_act"/>
+          </LegendURL>
+        </Style>
+      </Layer>
+      <Layer queryable="1">
+        <Name>la_plana_act</Name>
+        <Title>Actuacions - La Plana</Title>
+        <Abstract/>
+        <KeywordList>
+          <Keyword>features</Keyword>
+          <Keyword>la_plana_act</Keyword>
+        </KeywordList>
+        <CRS>EPSG:27563</CRS>
+        <CRS>CRS:84</CRS>
+        <EX_GeographicBoundingBox>
+          <westBoundLongitude>1.5913300375093633</westBoundLongitude>
+          <eastBoundLongitude>1.5919471342080658</eastBoundLongitude>
+          <southBoundLatitude>42.525345338903904</southBoundLatitude>
+          <northBoundLatitude>42.52844768428752</northBoundLatitude>
+        </EX_GeographicBoundingBox>
+        <BoundingBox CRS="CRS:84" minx="1.5913300375093633" miny="42.525345338903904" maxx="1.5919471342080658" maxy="42.52844768428752"/>
+        <BoundingBox CRS="EPSG:27563" minx="538701.740618038" miny="25685.8185814303" maxx="538749.340001061" maxy="26030.1041416778"/>
+        <Style>
+          <Name>la_plana_act</Name>
+          <Title>Actuacions - la Plana</Title>
+          <Abstract/>
+          <LegendURL width="20" height="20">
+            <Format>image/png</Format>
+            <OnlineResource xmlns:xlink="http://www.w3.org/1999/xlink" xlink:type="simple" xlink:href="https://www.ideandorra.ad:443/Serveis/wms_edificabilitat/ows?service=WMS&amp;request=GetLegendGraphic&amp;format=image%2Fpng&amp;width=20&amp;height=20&amp;layer=la_plana_act"/>
+          </LegendURL>
+        </Style>
+      </Layer>
+      <Layer queryable="1">
+        <Name>llorts_act</Name>
+        <Title>Actuacions - Llorts</Title>
+        <Abstract/>
+        <KeywordList>
+          <Keyword>features</Keyword>
+          <Keyword>llorts_act</Keyword>
+        </KeywordList>
+        <CRS>EPSG:27563</CRS>
+        <CRS>CRS:84</CRS>
+        <EX_GeographicBoundingBox>
+          <westBoundLongitude>1.5245325309517064</westBoundLongitude>
+          <eastBoundLongitude>1.5275349097853785</eastBoundLongitude>
+          <southBoundLatitude>42.59239421368717</southBoundLatitude>
+          <northBoundLatitude>42.59306829492357</northBoundLatitude>
+        </EX_GeographicBoundingBox>
+        <BoundingBox CRS="CRS:84" minx="1.5245325309517064" miny="42.59239421368717" maxx="1.5275349097853785" maxy="42.59306829492357"/>
+        <BoundingBox CRS="EPSG:27563" minx="533283.320783135" miny="33187.1896598694" maxx="533529.098086566" maxy="33259.667582069"/>
+        <Style>
+          <Name>llorts_act</Name>
+          <Title>Actuacions - Llorts</Title>
+          <Abstract/>
+          <LegendURL width="20" height="20">
+            <Format>image/png</Format>
+            <OnlineResource xmlns:xlink="http://www.w3.org/1999/xlink" xlink:type="simple" xlink:href="https://www.ideandorra.ad:443/Serveis/wms_edificabilitat/ows?service=WMS&amp;request=GetLegendGraphic&amp;format=image%2Fpng&amp;width=20&amp;height=20&amp;layer=llorts_act"/>
+          </LegendURL>
+        </Style>
+      </Layer>
+      <Layer queryable="1">
+        <Name>montaup_act</Name>
+        <Title>Actuacions - Montaup</Title>
+        <Abstract/>
+        <KeywordList>
+          <Keyword>montaup_act</Keyword>
+          <Keyword>features</Keyword>
+        </KeywordList>
+        <CRS>EPSG:27563</CRS>
+        <CRS>CRS:84</CRS>
+        <EX_GeographicBoundingBox>
+          <westBoundLongitude>1.5962239517738128</westBoundLongitude>
+          <eastBoundLongitude>1.601109946842396</eastBoundLongitude>
+          <southBoundLatitude>42.56787945714118</southBoundLatitude>
+          <northBoundLatitude>42.56951180253652</northBoundLatitude>
+        </EX_GeographicBoundingBox>
+        <BoundingBox CRS="CRS:84" minx="1.5962239517738128" miny="42.56787945714118" maxx="1.601109946842396" maxy="42.56951180253652"/>
+        <BoundingBox CRS="EPSG:27563" minx="539144.949" miny="30407.9601058916" maxx="539544.643143652" maxy="30585.75"/>
+        <Style>
+          <Name>montaup_act</Name>
+          <Title>Actuacions - Montaup</Title>
+          <Abstract/>
+          <LegendURL width="20" height="20">
+            <Format>image/png</Format>
+            <OnlineResource xmlns:xlink="http://www.w3.org/1999/xlink" xlink:type="simple" xlink:href="https://www.ideandorra.ad:443/Serveis/wms_edificabilitat/ows?service=WMS&amp;request=GetLegendGraphic&amp;format=image%2Fpng&amp;width=20&amp;height=20&amp;layer=montaup_act"/>
+          </LegendURL>
+        </Style>
+      </Layer>
+      <Layer queryable="1">
+        <Name>oriosos_act_2016</Name>
+        <Title>oriosos_act_2016</Title>
+        <Abstract/>
+        <KeywordList>
+          <Keyword>oriosos_act_2016</Keyword>
+          <Keyword>features</Keyword>
+        </KeywordList>
+        <CRS>EPSG:27563</CRS>
+        <CRS>CRS:84</CRS>
+        <EX_GeographicBoundingBox>
+          <westBoundLongitude>1.531379341464454</westBoundLongitude>
+          <eastBoundLongitude>1.535471612228494</eastBoundLongitude>
+          <southBoundLatitude>42.53504805356751</southBoundLatitude>
+          <northBoundLatitude>42.53722651938984</northBoundLatitude>
+        </EX_GeographicBoundingBox>
+        <BoundingBox CRS="CRS:84" minx="1.531379341464454" miny="42.53504805356751" maxx="1.535471612228494" maxy="42.53722651938984"/>
+        <BoundingBox CRS="EPSG:27563" minx="533836.708893045" miny="26459.2428791582" maxx="534170.66516763" maxy="26698.0471278195"/>
+        <Style>
+          <Name>oriosos_act</Name>
+          <Title>Actuacions - Oriosos</Title>
+          <Abstract/>
+          <LegendURL width="20" height="20">
+            <Format>image/png</Format>
+            <OnlineResource xmlns:xlink="http://www.w3.org/1999/xlink" xlink:type="simple" xlink:href="https://www.ideandorra.ad:443/Serveis/wms_edificabilitat/ows?service=WMS&amp;request=GetLegendGraphic&amp;format=image%2Fpng&amp;width=20&amp;height=20&amp;layer=oriosos_act_2016"/>
+          </LegendURL>
+        </Style>
+      </Layer>
+      <Layer queryable="1">
+        <Name>oriosos_ze_2016</Name>
+        <Title>oriosos_ze_2016</Title>
+        <Abstract/>
+        <KeywordList>
+          <Keyword>oriosos_ze_2016</Keyword>
+          <Keyword>features</Keyword>
+        </KeywordList>
+        <CRS>EPSG:27563</CRS>
+        <CRS>CRS:84</CRS>
+        <EX_GeographicBoundingBox>
+          <westBoundLongitude>1.5288777128661206</westBoundLongitude>
+          <eastBoundLongitude>1.5382938183911958</eastBoundLongitude>
+          <southBoundLatitude>42.53249854518406</southBoundLatitude>
+          <northBoundLatitude>42.5387561377048</northBoundLatitude>
+        </EX_GeographicBoundingBox>
+        <BoundingBox CRS="CRS:84" minx="1.5288777128661206" miny="42.53249854518406" maxx="1.5382938183911958" maxy="42.5387561377048"/>
+        <BoundingBox CRS="EPSG:27563" minx="533632.784644187" miny="26177.9476928711" maxx="534399.857910156" maxy="26865.7854831677"/>
+        <Style>
+          <Name>oriosos_ze</Name>
+          <Title>Edificabilitat - Oriosos</Title>
+          <Abstract/>
+          <LegendURL width="20" height="20">
+            <Format>image/png</Format>
+            <OnlineResource xmlns:xlink="http://www.w3.org/1999/xlink" xlink:type="simple" xlink:href="https://www.ideandorra.ad:443/Serveis/wms_edificabilitat/ows?service=WMS&amp;request=GetLegendGraphic&amp;format=image%2Fpng&amp;width=20&amp;height=20&amp;layer=oriosos_ze_2016"/>
+          </LegendURL>
+        </Style>
+      </Layer>
+      <Layer queryable="1">
+        <Name>pal_act</Name>
+        <Title>Actuacions - Pal</Title>
+        <Abstract/>
+        <KeywordList>
+          <Keyword>pal_act</Keyword>
+          <Keyword>features</Keyword>
+        </KeywordList>
+        <CRS>EPSG:27563</CRS>
+        <CRS>CRS:84</CRS>
+        <EX_GeographicBoundingBox>
+          <westBoundLongitude>1.4585386552847825</westBoundLongitude>
+          <eastBoundLongitude>1.476824281952145</eastBoundLongitude>
+          <southBoundLatitude>42.5303057959587</southBoundLatitude>
+          <northBoundLatitude>42.54057723679321</northBoundLatitude>
+        </EX_GeographicBoundingBox>
+        <BoundingBox CRS="CRS:84" minx="1.4585386552847825" miny="42.5303057959587" maxx="1.476824281952145" maxy="42.54057723679321"/>
+        <BoundingBox CRS="EPSG:27563" minx="527803.49986277" miny="26344.5174138303" maxx="529294.262688047" maxy="27470.0956993538"/>
+        <Style>
+          <Name>pal_act</Name>
+          <Title>Actuacions - Pal</Title>
+          <Abstract/>
+          <LegendURL width="20" height="20">
+            <Format>image/png</Format>
+            <OnlineResource xmlns:xlink="http://www.w3.org/1999/xlink" xlink:type="simple" xlink:href="https://www.ideandorra.ad:443/Serveis/wms_edificabilitat/ows?service=WMS&amp;request=GetLegendGraphic&amp;format=image%2Fpng&amp;width=20&amp;height=20&amp;layer=pal_act"/>
+          </LegendURL>
+        </Style>
+      </Layer>
+      <Layer queryable="1">
+        <Name>santjulia_act</Name>
+        <Title>Actuacions - Sant Julià</Title>
+        <Abstract/>
+        <KeywordList>
+          <Keyword>features</Keyword>
+          <Keyword>santjulia_act</Keyword>
+        </KeywordList>
+        <CRS>EPSG:27563</CRS>
+        <CRS>CRS:84</CRS>
+        <EX_GeographicBoundingBox>
+          <westBoundLongitude>1.4933337470317147</westBoundLongitude>
+          <eastBoundLongitude>1.4983432165576542</eastBoundLongitude>
+          <southBoundLatitude>42.460454717629844</southBoundLatitude>
+          <northBoundLatitude>42.463323509372984</northBoundLatitude>
+        </EX_GeographicBoundingBox>
+        <BoundingBox CRS="CRS:84" minx="1.4933337470317147" miny="42.460454717629844" maxx="1.4983432165576542" maxy="42.463323509372984"/>
+        <BoundingBox CRS="EPSG:27563" minx="530574.429880324" miny="18553.860079479" maxx="530983.371864099" maxy="18868.4560142805"/>
+        <Style>
+          <Name>santjulia_act</Name>
+          <Title>Actuacions - Sant Julià</Title>
+          <Abstract/>
+          <LegendURL width="20" height="20">
+            <Format>image/png</Format>
+            <OnlineResource xmlns:xlink="http://www.w3.org/1999/xlink" xlink:type="simple" xlink:href="https://www.ideandorra.ad:443/Serveis/wms_edificabilitat/ows?service=WMS&amp;request=GetLegendGraphic&amp;format=image%2Fpng&amp;width=20&amp;height=20&amp;layer=santjulia_act"/>
+          </LegendURL>
+        </Style>
+      </Layer>
+    </Layer>
+  </Capability>
+</WMS_Capabilities>

@@ -1,0 +1,140 @@
+# HR probes 2026-09-02T17:58:00Z
+== PROBE https://ispu.mgipu.hr/
+HTTP=200 bytes=2049 type=text/html RC=0
+<!DOCTYPE html><html lang="hr"><head>
+  <meta charset="utf-8">
+  <title>Informacijski sustav prostornog uređenja</title>
+  <base href="./">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="viewport" content="width=device-width, initial-scale=1, minimum-scale=1, maximum-scale=1, user-scalable=no">
+  <meta name="description" content="Informacijski sustav prostornog uređenja"> 
+  <meta name="keywords" content="ispu, mpgi, mgipu, prostorni, planovi, katastar, apis it"> 
+
+  <link rel="icon" type="image/x-icon" href="./assets/apis/media/img/logo/favicon_grb_16x16.ico">
+  <link
+== PROBE https://ispugis.mgipu.hr/geoserver/ows?service=WMS&request=GetCapabilities
+curl: (6) Could not resolve host: ispugis.mgipu.hr
+HTTP=000 bytes=0 type= RC=6
+
+== PROBE https://servisi.ispu.mgipu.hr/wms?service=WMS&request=GetCapabilities
+curl: (6) Could not resolve host: servisi.ispu.mgipu.hr
+HTTP=000 bytes=0 type= RC=6
+
+src="./runtime.194157a16dc812f93697.js"
+src="./polyfills.e9249e2268273499663b.js"
+src="./main.00be0338c829db4222f2.js"
+== https://ispu.mgipu.hr/assets/config/config.json
+HTTP=404 bytes=153
+<html>
+<head><title>404 Not Found</title></head>
+<body>
+<center><h1>404 Not Found</h1></center>
+<hr><center>nginx/1.16.1</center>
+</body>
+</html>
+== https://ispu.mgipu.hr/assets/apis/config/config.json
+HTTP=404 bytes=153
+<html>
+<head><title>404 Not Found</title></head>
+<body>
+<center><h1>404 Not Found</h1></center>
+<hr><center>nginx/1.16.1</center>
+</body>
+</html>
+main.js HTTP=200 bytes=740660
+https://g.co/ng/security
+https://mpgi.gov.hr/o-ministarstvu-15/djelokrug/prostorno-uredjenje-3335/prostorni-planovi-8193/informacije-o-planovima-u-izradi/3485
+https://service-url
+== PROBE https://registri.nipp.hr/izvori/detalji.php?id=244
+HTTP=200 bytes=16741 type=text/html; charset=utf-8 RC=0
+<!DOCTYPE html><html lang="hr" class="__className_761f31"><head><meta charSet="UTF-8"/><meta charSet="utf-8"/><meta name="viewport" content="width=device-width, initial-scale=1.0"/><meta name="viewport" content="width=device-width, initial-scale=1"/><link rel="stylesheet" href="/_next/static/css/3f12a7bdd8995835.css" data-precedence="next"/><link rel="preload" as="script" fetchPriority="low" href="/_next/static/chunks/webpack-3b3b1d899baf0ef3.js"/><script src="/_next/static/chunks/fd9d1056-f7a2a
+== PROBE https://registri.nipp.hr/izvori/
+HTTP=200 bytes=89390 type=text/html; charset=utf-8 RC=0
+<!DOCTYPE html><html lang="hr" class="__className_761f31"><head><meta charSet="UTF-8"/><meta charSet="utf-8"/><meta name="viewport" content="width=device-width, initial-scale=1.0"/><meta name="viewport" content="width=device-width, initial-scale=1"/><link rel="stylesheet" href="/_next/static/css/3f12a7bdd8995835.css" data-precedence="next"/><link rel="preload" as="script" fetchPriority="low" href="/_next/static/chunks/webpack-3b3b1d899baf0ef3.js"/><script src="/_next/static/chunks/fd9d1056-f7a2a
+== PROBE https://registri.nipp.hr/api/izvori/244
+HTTP=301 bytes=0
+== PROBE https://registri.nipp.hr/api/izvori?id=244
+HTTP=301 bytes=0
+== PROBE https://registri.nipp.hr/api/izvori/244/ (follow)
+HTTP=200 bytes=2107 final=https://registri.nipp.hr/api/izvori/244/
+{"id":244,"jedinstvena_oznaka":"0246","naziv_izvora":"Građevinska područja","sazetak_izvora":"Podaci o građevinskim područjima nastali su obradom prostornih planova županija te prostornih planova uređenja gradova i općina u zavodima za prostorno uređenje županija i Grada Zagreba. Podaci predstavljaju interpretaciju prostornih planova i moguća su odstupanja od stanja u važećim prostornim planovima te se ne smiju koristiti u svrhu izdavanja akata za provedbu zahvata u prostoru i drugih javnih isprava. U sve službene svrhe potrebno je koristiti izvornike važećih prostornih planova. Obradom su obuhvaćeni prostorni planovi na snazi u rujnu 2020.","vrsta_izvora":{"id":1,"vrsta_izvo== PROBE https://registri.nipp.hr/api/izvori/ (follow)
+HTTP=200 bytes=4211 final=https://registri.nipp.hr/api/izvori/
+{"count":1686,"next":"https://registri.nipp.hr/api/izvori/?limit=20&offset=20","previous":null,"results":[{"id":1,"jedinstvena_oznaka":"0001","naziv_izvora":"Digitalni katastarski plan","vrsta_izvora":{"id":2,"vrsta_izvora":"niz"},"datum_ukljucivanja":"2013-05-18","vazeci":true,"odobreno":true},{"id":2,"jedinstvena_oznaka":"0002","naziv_izvora":"Digitalni model reljefa","vrsta_izvora":{"id":1,"vrsta_izvora":"skup"},"datum_ukljucivanja":"2013-05-18","vazeci":true,"odobreno":true},{"id":3,"jedinstvena_oznaka":"0003","naziv_izvora":"Digitalni ortofoto u mjerilu 1:5000 2011. godina","vrsta_izvora":{"id":2,"vrsta_izvora":"niz"},"datum_ukljucivanja":"2013-05-18","vazeci":true,"odobreno":true},{"idfull244 HTTP=200 bytes=2107
+id : 244
+jedinstvena_oznaka : 0246
+naziv_izvora : ===
+search HTTP=200 bytes=6623
+count: 341
+- 12 Prostorni planovi dr�avne razine
+- 180 WMS - Prostorni planovi dr�avne razine
+- 181 WMS - prostorni planovi - Bjelovarsko-bilogorska �upanija
+- 182 id : 244
+jedinstvena_oznaka : 0246
+naziv_izvora : Građevinska područja
+sazetak_izvora : Podaci o građevinskim područjima nastali su obradom prostornih planova županija te prostornih planova uređenja gradova i općina u zavodima za prostorno uređenje županija i Grada Zagreba. Podaci predstavljaju interpretaciju prostornih planova i moguća su odstupanja od stanja u važećim prostornim planovima te se ne smiju koristiti u svrhu izdavanja akata za provedbu zahvata u prostoru i drugih javni
+vrsta_izvora : {'id': 1, 'vrsta_izvora': 'skup'}
+format_podataka : [{'id': 32, 'name': 'GDB'}, {'id': 78, 'name': 'SHP'}]
+nipp_teme : [{'id': 18, 'skupina': 'III', 'broj': 4, 'naziv': 'Korištenje i namjena zemljišta', 'naziv_engleski': 'Land use', 'domenski_kod': '017', 'definicija': 'Područje opisano u skladu s njegovom sadašnjom i u budućnosti planiranom funkcionalnošću ili u skladu s njegovom društveno-gospodarskom namjenom (npr. stambenom, industrijskom, poslovnom, poljoprivrednom, šumarskom, rekreacijskom).'}]
+geografski_obuhvat : {'id': 225, 'name': 'Republika Hrvatska'}
+uvjeti_pristupa_koristenja : Nema uvjeta za pristup i korištenje
+datum_ukljucivanja : 2017-12-22
+metapodaci : https://geoportal.nipp.hr/geonetwork/srv/hrv/catalog.search#/metadata/9a9fc254-7694-4f02-876f-cb1f0c13348c
+napomena : Sukladno novom ustrojstvu tijela državne uprave prema Zakonu o ustrojstvu i djelokrugu tijela državne uprave (NN 85/20) Ministarstvo prostornoga uređenja, graditeljstva i državne imovine preuzima poslove Ministarstva graditeljstva i prostornoga uređenja.
+odobreno : True
+vazeci : True
+adrese : [{'id': 8514, 'webadresa': 'https://mgipu.gov.hr/'}]
+subjekti : [{'id': 236, 'jedinstvena_oznaka': '0228', 'naziv_subjekta': 'Ministarstvo prostornoga uređenja, graditeljstva i državne imovine ', 'uloga_odgovorne_strane': 'Kontaktna točka'}]
+upareni_izvor : [{'id': 246, 'jedinstvena_oznaka': '0248', 'naziv_izvora': 'Građevinska područja - WFS'}]
+===SEARCH===
+count: 341
+- 12 Prostorni planovi državne razine
+- 180 WMS - Prostorni planovi državne razine
+- 181 WMS - prostorni planovi - Bjelovarsko-bilogorska županija
+- 182 WMS - prostorni planovi - Dubrovačko-neretvanska županija
+- 183 WMS - prostorni planovi - Grad Zagreb
+- 184 WMS - prostorni planovi - Istarska županija
+- 185 WMS - prostorni planovi - Karlovačka županija
+- 186 WMS - prostorni planovi - Koprivničko-križevačka županija
+- 187 WMS - prostorni planovi - Krapinsko-zagorska županija
+- 188 WMS - prostorni planovi - Ličko-senjska županija
+- 189 WMS - prostorni planovi - Međimurska županija
+- 190 WMS - prostorni planovi - Osječko-baranjska županija
+- 191 WMS - prostorni planovi - Požeško-slavonska županija
+- 192 WMS - prostorni planovi - Sisačko-moslavačka županija
+- 193 WMS - prostorni planovi - Splitsko-dalmatinska županija
+- 194 WMS - prostorni planovi - Šibensko-kninska županija
+- 195 WMS - prostorni planovi - Varaždinska županija
+- 196 WMS - prostorni planovi - Virovitičko-podravska županija
+- 197 WMS - prostorni planovi - Vukovarsko-srijemska županija
+- 198 WMS - prostorni planovi - Zadarska županija
+- 199 WMS - prostorni planovi - Zagrebačka županija
+- 491 WMS - prostorni planovi - Brodsko-posavska županija
+- 514 Prostorni plan uređenja Općine Bizovac
+- 519 Prostorni plan uređenja Općine Bednja
+- 524 Prostorni plan uređenja Općine Darda
+- 525 Prostorni plan uređenja Općine Đurmanec
+- 526 Prostorni plan uređenja Općine Ravna Gora
+- 531 Prostorni plan uređenja Općine Vela Luka
+- 534 Prostorni plan uređenja Općine Beretinec
+- 535 Prostorni plan uređenja Grada Hrvatske Kostajnice
+rec246 HTTP=200 bytes=2268
+naziv_izvora : Građevinska područja - WFS
+sazetak_izvora : Podaci o građevinskim područjima izvan naselja nastali obradom prostornih planova županija te prostornih planova uređenja gradova i općina u zavodima za prostorno uređenje županija i Grada Zagreba. Podaci predstavljaju interpretaciju prostornih planova i moguća su odstupanja od stanja u važećim prostornim planovima te se ne smiju koristiti u svrhu izdavanja akata za provedbu zahvata u prostoru i drugih javnih isprava. U sve službene svrhe potrebno je koristiti izvornike važećih prostornih planov
+uvjeti_pristupa_koristenja : Potreban zahtjev mailom, bez ograničenja.
+adrese : [{'id': 8643, 'webadresa': 'https://gis4.mgipu.hr/srv1/GradjPodrucje_MGIPU_Public/wfs?service=WFS&request=GetCapabilities'}]
+metapodaci : https://geoportal.nipp.hr/geonetwork/srv/hrv/catalog.search#/metadata/95f33449-c9ee-4714-a373-19a6f91d3af0
+format_podataka : [{'id': 93, 'name': 'WFS'}]
+== PROBE gis4.mgipu.hr GradjPodrucje WFS GetCapabilities
+HTTP=200 bytes=97882 type=application/xml
+RC=0
+<?xml version="1.0" encoding="UTF-8"?><wfs:WFS_Capabilities version="2.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns="http://www.opengis.net/wfs/2.0" xmlns:wfs="http://www.opengis.net/wfs/2.0" xmlns:ows="http://www.opengis.net/ows/1.1" xmlns:gml="http://www.opengis.net/gml/3.2" xmlns:fes="http://www.opengis.net/fes/2.0" xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:xs="http://www.w3.org/2001/XMLSchema" xsi:schemaLocation="http://www.opengis.net/wfs/2.0 https://gis4.mgipu.hr/srv1/schemas/wfs/2.0/wfs.xsd http://inspire.ec.europa.eu/schemas/inspire_dls/1.0 https://inspire.ec.europa.eu/schemas/inspire_dls/1.0/inspire_dls.xsd" xmlns:xml="http://www.w3.org/XML/1998/namespace" xmlns:inspire_dls="http://inspire.ec.europa.eu/schemas/inspire_dls/1.0" xmlns:inspire_common="http:<Name>GradjPodrucje_MGIPU_Public:Gradj_podrucje_izvan_naselja</Name>
+<Title>Gradj_podrucje_izvan_naselja</Title>
+<Name>GradjPodrucje_MGIPU_Public:Gradj_podrucje_naselje</Name>
+<Title>Gradj_podrucje_naselje</Title>
+== PROBE GetFeature count=1 Gradj_podrucje_naselje
+HTTP=200 bytes=3427 type=application/gml+xml; version=3.2
+RC=0
+<?xml version="1.0" encoding="UTF-8"?><wfs:FeatureCollection xmlns:xs="http://www.w3.org/2001/XMLSchema" xmlns:wfs="http://www.opengis.net/wfs/2.0" xmlns:gml="http://www.opengis.net/gml/3.2" xmlns:GradjPodrucje_MGIPU_Public="https://gis4.mgipu.hr/srv1/GradjPodrucje_MGIPU_Public/wfs" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" next="https://gis4.mgipu.hr/srv1/GradjPodrucje_MGIPU_Public/wfs?REQUEST=GetFeature&amp;VERSION=2.0.0&amp;TYPENAMES=GradjPodrucje_MGIPU_Public%3AGradj_podrucje_naselje&amp;COUNT=1&amp;SERVICE=WFS&amp;STARTINDEX=1" numberMatched="89911" numberReturned="1" timeStamp="2026-09-02T18:00:20.411Z" xsi:schemaLocation="http://www.opengis.net/wfs/2.0 https://gis4.mgipu.hr/srv1/schemas/wfs/2.0/wfs.xsd https://gis4.mgipu.hr/srv1/GradjPodrucje_MGIPU_Public/wfs https://gis4.mgipu.hr/srv1/GradjPodrucje_MGIPU_Public/wfs?service=WFS&amp;version=2.0.0&amp;request=DescribeFeatureType&amp;typeName=GradjPodrucje_MGIPU_Public%3AGradj_podrucje_naselje http://www.opengis.net/gml/3.2 https://gis4.mgipu.hr/srv1/schemas/gml/3.2.1/gml.xsd"><wfs:member><GradjPodrucje_MGIPU_Public:Gradj_podrucje_naselje gml:id="Gradj_podrucje_naselje.765566"><GradjPodrucje_MGIPU_Public:zup_rb>00001</GradjPodrucje_MGIPU_Public:zup_rb><GradjPodrucje_MGIPU_Public:jls_mb>05401</GradjPodrucje_MGIPU_Public:jls_mb><GradjPodrucje_MGIPU_Public:jls_st>OP</GradjPodrucje_MGIPU_Public:jls_st><GradjPodrucje_MGIPU_Public:jls_ime>ŽUMBERAK</GradjPodrucje_MGIPU_Public:jls_ime><GradjPodrucje_MGIPU_Public:planrec183 HTTP=200
+naziv: WMS - prostorni planovi - Grad Zagreb
+adrese: [{'id': 10197, 'webadresa': 'https://gis1.mgipu.hr/srv1/PPRasterZ21_Public/wms?service=WMS&request=GetCapabilities&version=1.3.0'}, {'id': 10198, 'webadresa': 'https://gis2.mgipu.hr/srv1/PPRasterZ21_Public/wms?service=WMS&request=GetCapabilities&version=1.3.0'}, {'id': 10199, 'webadresa': 'https://gis3.mgipu.hr/srv1/PPRasterZ21_Public/wms?service=WMS&request=GetCapabilities&version=1.3.0'}, {'id': 10200, 'webadresa': 'https://gis4.mgipu.hr/srv1/PPRasterZ21_Public/wms?service=WMS&request=GetCapabilities&version=1.3.0'}]
+uvjeti: Nema uvjeta za pristup i korištenje

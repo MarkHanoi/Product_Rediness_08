@@ -1,0 +1,1629 @@
+<!DOCTYPE html>
+<html lang="nl" class="h-100">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+
+    <title>PDOK API's</title>
+
+    <link href="css/bootstrap.min.css" rel="stylesheet">
+    <link href="css/landing-page.css" rel="stylesheet">
+
+    <link rel="icon" type="image/png" sizes="32x32" href="img/favicon-32x32.png">
+    <link rel="icon" type="image/png" sizes="16x16" href="img/favicon-16x16.png">
+    <link rel="shortcut icon" href="img/favicon.ico">
+
+</head>
+
+<body class="d-flex flex-column h-100">
+
+<header>
+
+    <a class="visually-hidden visually-hidden-focusable" href="#main" aria-label="To main content">To main content</a>
+
+    <nav class="navbar d-flex flex-column w-100" aria-label="top navigation">
+
+        <div class="container">
+            <a class="navbar-brand py-3" href="https://api.pdok.nl/" aria-label="PDOK Logo: Landing page">
+                <img src="img/logo-header.svg" alt="PDOK Logo: Landing page">
+            </a>
+        </div>
+
+
+        <div class="container">
+
+            <nav aria-label="breadcrumb">
+                <ol class="breadcrumb">
+                    <li class="breadcrumb-item active">Datasets</li>
+                </ol>
+            </nav>
+
+            <nav class="navbar-outputs" aria-label="switch format">
+                <ol class="breadcrumb">
+                    <li class="breadcrumb-item"><a href="index.json" target="_blank"
+                                                   aria-label="This page as JSON" id="format-json">JSON</a></li>
+                </ol>
+            </nav>
+
+        </div>
+    </nav>
+</header>
+
+
+<main id="main">
+    <div class="container py-3">
+
+        <div class="row py-3">
+            <div class="col-md-12">
+                <p>
+                    Op deze startpagina zijn alle API&apos;s van PDOK weergegeven. Voor een totaal overzicht van alle datasets en bijbehorende (web)services zie de <a href="https://pdok.nl/datasets" target="_blank">PDOK website</a>.
+                </p>
+                <table class="table table-striped">
+                    <thead>
+                    <tr>
+                        <th class="col-titel">API</th>
+                        <th class="col-beschrijving">Beschrijving</th>
+                        <th class="col-trefwoorden">Trefwoorden</th>
+                    </tr>
+                    </thead>
+                    <tbody>
+                    <tr>
+                        <td>
+                            <a href="https://api.pdok.nl/kadaster/3d-basisvoorziening/ogc/v1"><strong>3D Basisvoorziening (OGC API)</strong></a>
+                        </td>
+                        <td>
+                            <p>De 3D Basisvoorziening is een verzameling van ruimtelijke bestanden die hoogte informatie bevatten. Deze bestanden
+                            (collecties) worden op verschillende manieren gegenereerd. Er zijn acht collecties beschikbaar.</p>
+
+                            <p>De 3D Basisvoorziening kan gebruikt worden op schaalniveaus tussen 1:500 en 1:10.000. De bestanden zijn o.a. gebaseerd
+                            op topografie uit de Basisregistratie Grootschalige Topografie (BGT), de gebouwen uit de Basisregistratie Adressen en Gebouwen (BAG),
+                            en hoogtes uit luchtfotobeelden en het Actueel Hoogtebestand Nederland (AHN).</p>
+
+                            <p>Meer informatie over deze dataset en overige producten zoals het downloaden van deze dataset voor analysedoeleinden of een
+                            <a rel="noopener" target="_blank" href="https://app.pdok.nl/3d-viewer/">3D Viewer</a> zijn te vinden op de <a rel="noopener" target="_blank" href="https://www.pdok.nl/introductie/-/article/3d-basisvoorziening-1">website van PDOK</a>
+                            en in de <a rel="noopener" target="_blank" href="https://3d.kadaster.nl/productbeschrijving/">productbeschrijving</a>.</p>
+                        </td>
+                        <td class="text-break">
+                            3D Basisbestand, gebouwen, terreinen, water, wegen, DTM, DSM, AHN, hoogte attributen
+                        </td>
+                    </tr>
+                    <tr>
+                        <td>
+                            <a href="https://api.pdok.nl/kadaster/3d-geluid/ogc/v1"><strong>3D Geluid (OGC API)</strong></a>
+                        </td>
+                        <td>
+                            <p>Berekening aan geluid vanwege weg- en railverkeer en industrie vereisen een <strong>3D omgevingsmodel</strong>.
+                            Op deze pagina vindt u datasets om u te ondersteunen met het opstellen van het model. De dataset is in opdracht van het 
+                            Ministerie van Infrastructuur en Waterstaat opgezet door een samenwerking tussen het Kadaster, RIVM en de TU Delft.
+                            Bij het samenstellen is gebruik gemaakt van de BAG, BGT en het AHN. Hierbij is grote zorg besteed om de databestanden zoveel 
+                            als mogelijk aan te laten sluiten bij de fysieke werkelijkheid, maar er kunnen geen rechten aan ontleend worden.
+                            Zie voor meer informatie de <a rel="noopener" target="_blank" href="https://www.pdok.nl/introductie/-/article/3d-geluid-1">uitgebreide productbeschrijving</a>.</p>
+
+                            <p>Er zijn een drie soorten bestanden: hoogte, bodemvlakken en gebouwen. Deze zijn terug te vinden onder 'collections'.</p>
+                        </td>
+                        <td class="text-break">
+                            3D Geluid, 3D Geluidsmodel, Geluidsberekening, Omgevingsmodel, BAG, Basisregistratie Adressen en Gebouwen, BGT, Basisregistratie Grootschalige Topografie, Puntenwolken, AHN, Actueel Hoogtebestand Nederland, Kadaster, Topografie, Gebouwen
+                        </td>
+                    </tr>
+                    <tr>
+                        <td>
+                            <a href="https://api.pdok.nl/kadaster/3d-basisvoorziening-terugmeldingen/ogc/v1"><strong>3D Terugmeldingen (OGC API)</strong></a>
+                        </td>
+                        <td>
+                            <p>De 3D terugmeldingenservice bevat alle recente meldingen op 3D objecten waar twijfel over de juistheid bestaat.De service toont de locatie, inhoud en status van de meldingen. Ook een vermoedelijke fout in de 3D geconstateerd? Doe een melding op https://www.verbeterdekaart.nl</p>
+                        </td>
+                        <td class="text-break">
+                            3D Basisvoorziening, terugmeldingen, in onderzoek register, verbeter de kaart, 3D, 3D Tiles, 3D Objecten, 2D Objecten, DTM, Digital Terrain Model, Digitaal Terrein Model, DSM, Digital Surface Model, Digitaal Oppervlakte Model, Puntenwolken, Kadaster, 3D Basisbestand, 3D Hoogtestatistieken
+                        </td>
+                    </tr>
+                    <tr>
+                        <td>
+                            <a href="https://api.pdok.nl/kadaster/brk-administratieve-eenheden/ogc/v1"><strong>Administratieve Eenheden (INSPIRE geharmoniseerd) (OGC API)</strong></a>
+                        </td>
+                        <td>
+                            <p>Overzicht van de bestuurlijke indeling van Nederland in gemeenten en provincies. Gegevens zijn gebaseerd op de dataset Bestuurlijke Gebieden, welke afgeleid is uit de Basisregistratie Kadaster (BRK).</p>
+                        </td>
+                        <td class="text-break">
+                            Administratieve eenheden, Statistische eenheden, Nationaal, HVD, Geospatiale data
+                        </td>
+                    </tr>
+                    <tr>
+                        <td>
+                            <a href="https://api.pdok.nl/ienw/agglomeraties-omgevingslawaai-geharmoniseerd/ogc/v1"><strong>Agglomeraties gemeenten inclusief bevolkingsaantallen volgens Richtlijn Omgevingslawaai 2022 (OGC API)</strong></a>
+                        </td>
+                        <td>
+                            <p>Gegevens over de geluidbron 'agglomeraties' omvatten stedelijke gebieden van aangewezen gemeenten. Met deze data wordt invulling gegeven aan de eisen uit de Wet milieubeheer die voortvloeien uit de Europese richtlijn omgevingslawaai (2002/49/EG).  De dataset, gepubliceerd in 2023, is geharmoniseerd volgens de INSPIRE richtlijnen, met name het thema 'Gebiedsbeheer, gebieden waar beperkingen gelden, gereguleerde gebieden en rapportage-eenheden' van de aangewezen agglomeraties.  De agglomeraties zijn vooral rapportage-eenheden, namelijk gebieden waarvoor geluidbelastingkaarten en actieplannen worden gemaakt, met daarbinnen verschillende geluidbronnen. Het Ministerie van Infrastructuur en Waterstaat is de data-eigenaar en beheerder van deze dataset, en verantwoordelijk voor de beschikbaarheid en kwaliteit ervan.</p>
+                        </td>
+                        <td class="text-break">
+                            Gebiedsbeheer, INSPIRE, Gebieden waar beperkingen gelden, Gereguleerde gebieden en rapportage-eenheden, Omgevingslawaai, Europese richtlijn omgevingslawaai, Environmental noise directive, Richtlijn 2002/49/EG, Geluid, Gemeente, Bevolkingsaantal, HVD, Aardobservatie en milieu, Milieurichtlijn - Evaluatie en de beheersing van omgevingslawaai
+                        </td>
+                    </tr>
+                    <tr>
+                        <td>
+                            <a href="https://api.pdok.nl/kadaster/bag-terugmeldingen/ogc/v1"><strong>BAG Terugmeldingen (OGC API)</strong></a>
+                        </td>
+                        <td>
+                            <p>De BAG terugmeldingenservice bevat recente meldingen op informatie uit de Basisregistratie Adressen en Gebouwen (BAG) waarover twijfel bestaat. De service toont de locatie, inhoud en status van de meldingen. Ook een vermoedelijke fout geconstateerd? Doe een melding op https://bagviewer.kadaster.nl</p>
+                        </td>
+                        <td class="text-break">
+                            Basisregistratie Adressen en Gebouwen, BAG, terugmeldingen, gebouw, adres, pand, in onderzoek register, verbeter de kaart, bagviewer
+                        </td>
+                    </tr>
+                    <tr>
+                        <td>
+                            <a href="https://api.pdok.nl/kadaster/bgt-terugmeldingen/ogc/v1"><strong>BGT Terugmeldingen (OGC API)</strong></a>
+                        </td>
+                        <td>
+                            <p>De BGT terugmeldingenservice bevat alle recente meldingen op BGT objecten waar twijfel over de juistheid bestaat.De service toont de locatie, inhoud en status van de meldingen. Ook een vermoedelijke fout in de BGT geconstateerd? Doe een melding op https://www.verbeterdekaart.nl</p>
+                        </td>
+                        <td class="text-break">
+                            Basisregistratie Grootschalige Topografie, BGT, terugmeldingen, verbeteringen, in onderzoek register, verbeter de kaart, verbeterdekaart, topografie, beheer openbare ruimte
+                        </td>
+                    </tr>
+                    <tr>
+                        <td>
+                            <a href="https://api.pdok.nl/tno/bro-grondwatermonitoring-in-samenhang-karakteristieken/ogc/v1"><strong>BRO - Grondwatermonitoring (GM) in samenhang - karakteristieken (OGC API)</strong></a>
+                        </td>
+                        <td>
+                            <p>Deze dataset bevat de gegevens van nederlandse grondwatermonitoring afkomstig uit de Basisregistratie Ondergrond (BRO).
+                            Het betreft de meest karakteristieke (ken)gegevens van grondwatermonitoringputten en de daarmee samenhangende kengegevens
+                            van de grondwatermonitoringnetten waarvoor die putten zijn gebruikt, plus de karakteristieken van in die putten gemeten grondwaterstands- en grondwatersamenstellingsgegevens.</p>
+
+                            <p>Grondwatermonitoring houdt in dat de toestand van het grondwater in een bepaald gebied, of eigenlijk in een bepaald
+                            deel van de ondergrond, over langere tijd gevolgd wordt. De grootte van het gebied en de diepte van monitoring verschillen
+                            per grondwatermonitoringnet. Er wordt daarbij gekeken naar de grondwaterstand (kwantiteit) en/of naar de samenstelling van het grondwater (kwaliteit).
+                            Hiervoor worden periodiek metingen uitgevoerd.
+                            Een <a rel="noopener" target="_blank" href="https://www.bro-productomgeving.nl/bpo/latest/uitgifte-grondwatermonitoring-gm-in-samenhang">beschrijving van deze dataset</a> is opgenomen op de BRO Productomgeving.</p>
+                        </td>
+                        <td class="text-break">
+                            Basisregistratie Ondergrond, BRO, Grondwatermonitoring, karakteristieken, GAR, GLD, GMN, GMW, Grondwater, Grondwatermonitoring, Grondwatermonitoringput, Grondwaterstandonderzoek, Grondwatersamenstellingsonderzoek, Grondwatermonitoringnet, Meetnet, Monitoringnet, peilbuis, grondwaterstand, stijghoogtegrondwaterkwaliteit
+                        </td>
+                    </tr>
+                    <tr>
+                        <td>
+                            <a href="https://api.pdok.nl/kadaster/brt-achtergrondkaart/ogc/v1"><strong>BRT Achtergrondkaart (OGC API)</strong></a>
+                        </td>
+                        <td>
+                            <p>De BRT Achtergrondkaart is afgeleid uit TOP10NL uit de Basisregistratie Topografie (BRT).</p>
+                        </td>
+                        <td class="text-break">
+                            kadaster, brt, brt-a, achtergrondkaart, vector tiles
+                        </td>
+                    </tr>
+                    <tr>
+                        <td>
+                            <a href="https://api.pdok.nl/kadaster/brt-top10nl/ogc/v1/"><strong>BRT TOP10NL (OGC API)</strong></a>
+                        </td>
+                        <td>
+                            <p>TOP10NL is een digitaal objectgericht kaartbestand wat ten grondslag ligt aan de topografische kaart 1:10000 en wat veelvuldig in diverse GIS- en CAD-systemen wordt gebruikt voor ondergrond, analyse-, en beheers- en planningsactiviteiten.</p>
+                        </td>
+                        <td class="text-break">
+                            basisregistratie topografie, BRT, TOP10NL, kadaster, topografie, topografische kaart, vector tiles
+                        </td>
+                    </tr>
+                    <tr>
+                        <td>
+                            <a href="https://api.pdok.nl/kadaster/brt-terugmeldingen/ogc/v1"><strong>BRT Terugmeldingen (OGC API)</strong></a>
+                        </td>
+                        <td>
+                            <p>De BRT terugmeldingenservice bevat alle recente meldingen op BRT objecten waar twijfel over de juistheid bestaat. Zowel terugmeldingen op de TOP10 als meldingen die gemaakt zijn op de gegeneraliseerde kaartproducten (TOP25, TOP50, TOP100, TOP250) worden hierin geregistreerd. Daarnaast kan je de inhoud en status van de meldingen inzien. Ook een vermoedelijke fout geconstateerd? Doe een melding op https://www.verbeterdekaart.nl</p>
+                        </td>
+                        <td class="text-break">
+                            Basisregistratie Topografie, BRT, terugmeldingen, TOP10NL, TOP25, TOP50, TOP100, TOP250, in onderzoek register, verbeter de kaart, verbeterdekaart
+                        </td>
+                    </tr>
+                    <tr>
+                        <td>
+                            <a href="https://api.pdok.nl/kadaster/bag/ogc/v2/"><strong>Basisregistratie Adressen en Gebouwen (OGC API)</strong></a>
+                        </td>
+                        <td>
+                            <p>De gegevens bestaan uit BAG-panden inclusief panden met de status 'gesloopt' en een deel van BAG-gegevens van deze panden met de zich daarin bevindende verblijfsobjecten en adresinformatie. Ook de ligplaatsen en standplaatsen zijn opgenomen. <a rel="noopener" target="_blank" href="https://www.kadaster.nl/zakelijk/registraties/basisregistraties/bag">Lees meer over de BAG</a>. Bekijk de vector tiles in de <a rel="noopener" target="_blank" href="https://app.pdok.nl/vectortile-viewer/">Vectortile Viewer</a>.</p>
+                        </td>
+                        <td class="text-break">
+                            bag, basisregistratie, adressen, gebouwen, pand, verblijfsobject, nummeraanduiding, ligplaats, standplaats, woonplaats, vector tiles, features
+                        </td>
+                    </tr>
+                    <tr>
+                        <td>
+                            <a href="https://api.pdok.nl/rvo/gewaspercelen/ogc/v1/"><strong>Basisregistratie Gewaspercelen (BRP) (OGC API)</strong></a>
+                        </td>
+                        <td>
+                            <p>BRP - Gewaspercelen bestaat uit de locatie van landbouwpercelen met daaraan gekoppeld het geteelde gewas. Het bestand is een selectie van informatie uit de Basisregistratie Percelen (BRP) van de Rijksdienst voor Ondernemend Nederland. De omgrenzingen van de landbouwpercelen zijn gebaseerd op het Agrarisch Areaal Nederland (AAN). De gebruiker van het perceel dient jaarlijks zijn gewaspercelen in te tekenen en aan te geven welk gewas wordt geteeld op het betreffende perceel. Van elk jaar wordt een dataset gegenereerd van peildatum 15 mei. Van de meest recente BRP gewaspercelen is een viewservices en een downloadservice beschikbaar.</p>
+                        </td>
+                        <td class="text-break">
+                            Bodem, Landgebruik, Landbouw, Veeteelt
+                        </td>
+                    </tr>
+                    <tr>
+                        <td>
+                            <a href="https://api.pdok.nl/lv/bgt/ogc/v1/"><strong>Basisregistratie Grootschalige Topografie (OGC API)</strong></a>
+                        </td>
+                        <td>
+                            <p>De Basisregistratie Grootschalige Topografie (BGT) is de gedetailleerde grootschalige basiskaart (digitaal) van Nederland, waarin de ligging van alle fysieke objecten zoals gebouwen, wegen, water, spoorlijnen en (landbouw)terreinen is geregistreerd. <a rel="noopener" target="_blank" href="https://www.kadaster.nl/zakelijk/registraties/basisregistraties/bgt">Lees meer over de BGT</a> en bekijk de BGT vector tiles in de <a rel="noopener" target="_blank" href="https://app.pdok.nl/vectortile-viewer/">Vectortile Viewer</a>.</p>
+                        </td>
+                        <td class="text-break">
+                            bgt, basisregistratie, gebouwen, spoorlijnen, terreinen, wegen, topografie, water, vector tiles
+                        </td>
+                    </tr>
+                    <tr>
+                        <td>
+                            <a href="https://api.pdok.nl/rce/beschermde-gebieden-cultuurhistorie/ogc/v1/"><strong>Beschermde Gebieden - Cultuurhistorie (INSPIRE geharmoniseerd) (OGC API)</strong></a>
+                        </td>
+                        <td>
+                            <p>Deze API toont de Rijksmonumenten, Stads- en Dorpsgezichten en het Nederlandse UNESCO cultureel Werelderfgoed.
+                            De gegevens zijn conform INSPIRE geharmoniseerd en afkomstig van de Rijksdienst voor het Cultureel Erfgoed.</p>
+                        </td>
+                        <td class="text-break">
+                            rijksmonument, monument, kunstgeschiedenis, archeologie, historische geografie, stedenbouwkunde, planologie, architectuurgeschiedenis, bouwkunde, werelderfgoed, UNESCO, cultuurhistorie, cultureel erfgoed, RCE, HVD, Aardobservatie en milieu, Beschermde gebieden
+                        </td>
+                    </tr>
+                    <tr>
+                        <td>
+                            <a href="https://api.pdok.nl/kadaster/brk-bestuurlijke-gebieden/ogc/v1/"><strong>Bestuurlijke Gebieden (OGC API)</strong></a>
+                        </td>
+                        <td>
+                            <p>Overzicht van de bestuurlijke indeling van Nederland in gemeenten en provincies alsmede de rijksgrens. Gegevens zijn afgeleid uit de Basisregistratie Kadaster (BRK). <a rel="noopener" target="_blank" href="https://www.kadaster.nl/zakelijk/producten/percelen-en-grenzen/bestuurlijke-gebieden">Lees meer over de Bestuurlijke gebieden</a> en bekijk de vector tiles in de <a rel="noopener" target="_blank" href="https://app.pdok.nl/vectortile-viewer/">Vectortile Viewer</a>.</p>
+                        </td>
+                        <td class="text-break">
+                            Nationaal, Globaal, Lokaal, Gemeentegebied, Provinciegebied, Landgebied, Gebieden, Administratieve gebieden, Administratieve eenheden, Rijksgrens, Basisset NOVEX, OGC API, API, HVD, Geospatiale data, Gemeentegrens, Provinciegrens, Landsgrens, Grenzen, Provincie, Gemeente, Gemeenten, Provincies, Nederland
+                        </td>
+                    </tr>
+                    <tr>
+                        <td>
+                            <a href="https://api.pdok.nl/kadaster/brt-bodemgebruik/ogc/v1"><strong>Bodemgebruik - Land Cover (INSPIRE geharmoniseerd) (OGC API)</strong></a>
+                        </td>
+                        <td>
+                            <p>INSPIRE thema Bodemgebruik, gevuld met relevante objecten uit top10nl, beheerd door het Kadaster.</p>
+                        </td>
+                        <td class="text-break">
+                            Fysiek, Bedekking, Aardoppervlak, Bodem, Bossen, Grasland, Akkerland, Water, Bebouwd, Gebied, Bodemgebruik, LandCoverUnit, HVD, Aardobservatie en milieu, land cover
+                        </td>
+                    </tr>
+                    <tr>
+                        <td>
+                            <a href="https://api.pdok.nl/cbs/bestand-bodemgebruik-2010/ogc/v1"><strong>CBS Bestand Bodemgebruik 2010 (OGC API)</strong></a>
+                        </td>
+                        <td>
+                            <p>Het Bestand Bodemgebruik 2010 bevat digitale geometrie van het bodemgebruik in Nederland. Voorbeelden van het bodemgebruik zijn verkeersterreinen, bebouwing, recreatieterreinen en binnen- en buitenwater. De begrenzingen zijn voor een groot deel gebaseerd op de Top10NL (BRT). Bij het interpreteren zijn luchtfoto's leidend. De gegevens zijn ingewonnen in de zomer van 2010</p>
+                        </td>
+                        <td class="text-break">
+                            cbs, bodemgebruik, land use, bodemfunctie, bbg, bebouwing, wegen, spoor, natuur, vliegveld, bedrijfsterrein, bos, recreatie, landbouw, glastuinbouw, landgebruik, HVD, Aardobservatie en milieu
+                        </td>
+                    </tr>
+                    <tr>
+                        <td>
+                            <a href="https://api.pdok.nl/cbs/bestand-bodemgebruik-2015/ogc/v1"><strong>CBS Bestand Bodemgebruik 2015 (OGC API)</strong></a>
+                        </td>
+                        <td>
+                            <p>Het Bestand Bodemgebruik 2015 bevat digitale geometrie van het bodemgebruik in Nederland. Voorbeelden van het bodemgebruik zijn verkeersterreinen, bebouwing, recreatieterreinen en binnen- en buitenwater. De begrenzingen zijn voor een groot deel gebaseerd op de Top10NL (BRT). Bij het interpreteren zijn luchtfoto's leidend. De gegevens zijn ingewonnen in de zomer van 2015.</p>
+                        </td>
+                        <td class="text-break">
+                            landgebruik, cbs, bodemgebruik, land use, bodemfunctie, bbg, bebouwing, wegen, spoor, natuur, vliegveld, bedrijfsterrein, bos, recreatie, landbouw, glastuinbouw, HVD, Aardobservatie en milieu
+                        </td>
+                    </tr>
+                    <tr>
+                        <td>
+                            <a href="https://api.pdok.nl/cbs/bestand-bodemgebruik-2017/ogc/v1"><strong>CBS Bestand Bodemgebruik 2017 (OGC API)</strong></a>
+                        </td>
+                        <td>
+                            <p>Het Bestand Bodemgebruik 2017 bevat digitale geometrie van het bodemgebruik in Nederland. Voorbeelden van het bodemgebruik zijn verkeersterreinen, bebouwing, recreatieterreinen en binnen- en buitenwater. De begrenzingen zijn voor een groot deel gebaseerd op de Top10NL (BRT). Bij het interpreteren zijn luchtfoto's leidend. De gegevens zijn ingewonnen in de zomer van 2017.</p>
+                        </td>
+                        <td class="text-break">
+                            Landgebruik, Nationaal, CBS, Bodemgebruik, Land use, Bodemfunctie, BBG, Bebouwing, Wegen, Spoor, Natuur, Vliegveld, Bedrijfsterrein, Bos, Recreatie, Landbouw, Glastuinbouw, HVD, Aardobservatie en milieu
+                        </td>
+                    </tr>
+                    <tr>
+                        <td>
+                            <a href="https://api.pdok.nl/cbs/bevolkingskernen-2011/ogc/v1"><strong>CBS Bevolkingskernen 2011 (OGC API)</strong></a>
+                        </td>
+                        <td>
+                            <p>Het bestand bevolkingskernen 2011 bevat statistische kerncijfers per bevolkingskern. De afbakening van bevolkingskernen is voortgekomen uit een vraag naar cijfers op het niveau van bevolkingskernen in het Volkstellingprogramma 2001 van Eurostat. Het begrip bevolkingskern sluit aan bij het begrip ''locality'' dat de Verenigde Naties bezigen in hun aanbevelingen voor het houden van een Volkstelling. In deze omschrijving van het begrip en de toepassing ervan in de praktijk staat de aanwezigheid van een door mensen bewoond gebied centraal dat daarnaast aan een aantal voorwaarden in termen van de bebouwing moet voldoen. Lees voor meer informatie: https://www.cbs.nl/-/media/imported/documents/2014/09/2014-bevolkingskernen-in-nederland-2011-pub.pdf</p>
+                        </td>
+                        <td class="text-break">
+                            bevolkingskern, urban areas, statistiek, stad, dorp, bevolking, wonen, locality
+                        </td>
+                    </tr>
+                    <tr>
+                        <td>
+                            <a href="https://api.pdok.nl/cbs/bevolkingskernen-2021/ogc/v1"><strong>CBS Bevolkingskernen 2021 (OGC API)</strong></a>
+                        </td>
+                        <td>
+                            <p>Het bestand bevolkingskernen 2021 bevat statistische kerncijfers per bevolkingskern. De afbakening van bevolkingskernen is enige tijd geleden voortgekomen uit een vraag naar cijfers op het niveau van bevolkingskernen in het Volkstellingprogramma 2001 van Eurostat. Het begrip bevolkingskern sluit aan bij het begrip 'locality' dat de Verenigde Naties bezigen in hun aanbevelingen voor het houden van een Volkstelling. In deze omschrijving van het begrip en de toepassing ervan in de praktijk staat de aanwezigheid van aaneengesloten bebouwd gebied met daarin woongebied centraal dat daarnaast aan een aantal voorwaarden in termen van de bebouwing moet voldoen. Meer informatie over deze dataset is te vinden via deze link: https://www.cbs.nl/nl-nl/longread/diversen/2024/bevolkingskernen-in-nederland-2021.</p>
+                        </td>
+                        <td class="text-break">
+                            Demografie, Bevolkingskern, Statistiek, Bevolking, Inwoners, Leeftijd, Herkomst, Woningen, Sociale_zekerheid, Woz, Woningeigendom, Huur, Voorziening, Nabijheid, Spreiding_van_de_bevolking
+                        </td>
+                    </tr>
+                    <tr>
+                        <td>
+                            <a href="https://api.pdok.nl/cbs/landuse/ogc/v1/"><strong>CBS Existing Land Use (INSPIRE geharmoniseerd) (OGC API)</strong></a>
+                        </td>
+                        <td>
+                            <p>This is the INSPIRE Existing Land Use data set of the Netherlands. It is based on the topographical map of the Netherlands (BRT) and aerial photo's.</p>
+                        </td>
+                        <td class="text-break">
+                            Landgebruik, Nationaal, CBS, Bodemgebruik, Land use, Bodemfunctie, BBG, Bebouwing, Wegen, Spoor, Natuur, Vliegveld, Bedrijfsterrein, Bos, Recreatie, Landbouw, Glastuinbouw
+                        </td>
+                    </tr>
+                    <tr>
+                        <td>
+                            <a href="https://api.pdok.nl/cbs/gebiedsindelingen-historisch/ogc/v1"><strong>CBS Gebiedsindelingen 1995-2015 (OGC API)</strong></a>
+                        </td>
+                        <td>
+                            <p>Deze service bevat de CBS Gebiedsindelingen van 1995 t/m 2015. De volgende gebiedsindelingen kunnen voorkomen: Gemeente, Landsdeel, Provincie, Buurt, COROP-gebied, GGD-regio, NUTS1, NUTS2, NUTS3, Wijk, COROP-plusgebied, COROP-subgebied, Landbouwgebied, Landbouwgroep, RPA-gebied, Toeristengroep, Toeristengebied, Arrondissementsgebied, KamervanKoophandelregio, Regionale-Eenheid, Veiligheidsregio, Veiligthuisregio, Zorgkantoorregio, Arbeidsmarktregio, Regioplus-arbeidsmarktregio, Jeugdregio, Ressort, RES-regio, Regionaalmeldcoördinatiepunt, Regionale-energiestrategie, SubRES-regio</p>
+                        </td>
+                        <td class="text-break">
+                            Arbeidsmarktregio, Jeugdregio, Arrondissementsgebied, Brandweerregio, Buurt, COROP-gebied, COROP-plusgebied, COROP-subgebied, GGD-regio, Gebiedsindeling, Gemeente, Grootstedelijke aglomeratie, Kamer van Koophandelregio, Landbouwgebied, Landbouwgroep, Landsdeel, NUTS1, NUTS2, NUTS3, Politieregio, Provincie, RPA-gebied, Regionale Eenheid, Stadsgewest, Statistische eenheden, Toeristengebied, Toeristengroep, Veiligheidsregio, Wijk, Zorgkantoorregio
+                        </td>
+                    </tr>
+                    <tr>
+                        <td>
+                            <a href="https://api.pdok.nl/cbs/gebiedsindelingen/ogc/v1"><strong>CBS Gebiedsindelingen 2016 t/m heden (OGC API)</strong></a>
+                        </td>
+                        <td>
+                            <p>Deze service bevat de CBS Gebiedsindelingen vanaf 2016. De volgende gebiedsindelingen kunnen voorkomen: Gemeente, Landsdeel, Provincie, Buurt, COROP-gebied, GGD-regio, NUTS1, NUTS2, NUTS3, Wijk, COROP-plusgebied, COROP-subgebied, Landbouwgebied, Landbouwgroep, RPA-gebied, Toeristengroep, Toeristengebied, Arrondissementsgebied, KamervanKoophandelregio, Regionale-Eenheid, Veiligheidsregio, Veiligthuisregio, Zorgkantoorregio, Arbeidsmarktregio, Regioplus-arbeidsmarktregio, Jeugdregio, Ressort, RES-regio, Regionaalmeldcoördinatiepunt, Regionale-energiestrategie, SubRES-regio</p>
+                        </td>
+                        <td class="text-break">
+                            Arbeidsmarktregio, Jeugdregio, Arrondissementsgebied, Brandweerregio, Buurt, COROP-gebied, COROP-plusgebied, COROP-subgebied, GGD-regio, Gebiedsindeling, Gemeente, Grootstedelijke aglomeratie, Kamer van Koophandelregio, Landbouwgebied, Landbouwgroep, Landsdeel, NUTS1, NUTS2, NUTS3, Politieregio, Provincie, RPA-gebied, Regionale Eenheid, Stadsgewest, Statistische eenheden, Toeristengebied, Toeristengroep, Veiligheidsregio, Wijk, Zorgkantoorregio
+                        </td>
+                    </tr>
+                    <tr>
+                        <td>
+                            <a href="https://api.pdok.nl/cbs/postcode4/ogc/v1"><strong>CBS Postcode4 statistieken (OGC API)</strong></a>
+                        </td>
+                        <td>
+                            <p>Het bestand CBS postcode4 bevat statistische gegevens voor het numerieke deel van de postcode vanaf 2015. Met ingang van het tweede kwartaal 2025 zijn gegevens over het jaar 2024 toegevoegd en zijn het aantal gegevens van de jaren 2023 en 2022 uitgebreid met gegevens over demografie, woningen, energie, inkomen, sociale zekerheid, nabijheid van voorzieningen en dichtheid. Lees voor meer informatie: https://www.cbs.nl/nl-nl/longread/diversen/2025/statistische-gegevens-per-vierkant-en-postcode-2022-2023-2024</p>
+                        </td>
+                        <td class="text-break">
+                            demografie, vierkant, grid, statistiek, bevolking, inwoners, leeftijd, herkomst, woningen, inkomen, sociale zekerheid, woz, woningeigendom, huur, voorziening, nabijheid, statistische eenheden, spreiding van de bevolking
+                        </td>
+                    </tr>
+                    <tr>
+                        <td>
+                            <a href="https://api.pdok.nl/cbs/postcode6/ogc/v1"><strong>CBS Postcode6 statistieken (OGC API)</strong></a>
+                        </td>
+                        <td>
+                            <p>Het bestand CBSpostcode6 bevat statistische gegevens voor afzonderlijke postcodes vanaf 2015. Met ingang van het tweede kwartaal 2025 zijn gegevens over het jaar 2024 toegevoegd en zijn het aantal gegevens van de jaren 2023 en 2022 uitgebreid met gegevens over demografie, woningen, energie, inkomen, sociale zekerheid, nabijheid van voorzieningen en dichtheid. Lees voor meer informatie: https://www.cbs.nl/nl-nl/longread/diversen/2025/statistische-gegevens-per-vierkant-en-postcode-2022-2023-2024)</p>
+                        </td>
+                        <td class="text-break">
+                            demografie, vierkant, grid, statistiek, bevolking, inwoners, leeftijd, herkomst, woningen, inkomen, sociale zekerheid, woz, woningeigendom, huur, voorziening, nabijheid, statistische eenheden, spreiding van de bevolking
+                        </td>
+                    </tr>
+                    <tr>
+                        <td>
+                            <a href="https://api.pdok.nl/cbs/vierkantstatistieken100m/ogc/v1"><strong>CBS Vierkantstatistieken 100m (OGC API)</strong></a>
+                        </td>
+                        <td>
+                            <p>Het bestand CBS vierkanten 100m bevat statistische gegevens per 100 meter bij 100 meter vierkant. Met ingang van juni 2025 is het jaar 2024 toegevoegd en zijn het aantal kerncijfers van de jaren 2023 en 2022 aanzienlijk uitgebreid met gegevens over demografie, woningen, energie, inkomen, sociale zekerheid, nabijheid van voorzieningen en dichtheid.</p>
+                        </td>
+                        <td class="text-break">
+                            demografie, vierkant, grid, statistiek, bevolking, inwoners, leeftijd, herkomst, woningen, inkomen, sociale zekerheid, woz, woningeigendom, huur, voorziening, nabijheid, statistische eenheden, spreiding van de bevolking
+                        </td>
+                    </tr>
+                    <tr>
+                        <td>
+                            <a href="https://api.pdok.nl/cbs/vierkantstatistieken500m/ogc/v1"><strong>CBS Vierkantstatistieken 500m (OGC API)</strong></a>
+                        </td>
+                        <td>
+                            <p>Het bestand CBS vierkanten 500m bevat statistische gegevens per 500 meter bij 500 meter vierkant. Met ingang van juni 2025 is het jaar 2024 toegevoegd en zijn het aantal kerncijfers van de jaren 2023 en 2022 aanzienlijk uitgebreid met gegevens over demografie, woningen, energie, inkomen, sociale zekerheid, nabijheid van voorzieningen en dichtheid.</p>
+                        </td>
+                        <td class="text-break">
+                            demografie, vierkant, grid, statistiek, bevolking, inwoners, leeftijd, herkomst, woningen, inkomen, sociale zekerheid, woz, woningeigendom, huur, voorziening, nabijheid, statistische eenheden, spreiding van de bevolking
+                        </td>
+                    </tr>
+                    <tr>
+                        <td>
+                            <a href="https://api.pdok.nl/cbs/wijken-en-buurten-2022/ogc/v1"><strong>CBS Wijken en Buurten 2022 (OGC API)</strong></a>
+                        </td>
+                        <td>
+                            <p>Het Bestand Wijk- en Buurtkaart 2022 bevat de geometrie van alle gemeenten, wijken en buurten in Nederland met als attribuut een aantal statistische kerncijfers. De begrenzingen van wijken en buurten zijn voor een groot deel gebaseerd op wat de gemeenten aan het CBS doorgeven. De gemeentegrens is afkomstig uit de BRK van het Kadaster. Deze derde versie bevat de meeste van de kerncijfers. Hierna komen geen updates voor dit jaar.</p>
+                        </td>
+                        <td class="text-break">
+                            CBS, Wijken, Buurten, Gemeenten, Statistiek, Bevolkingdichtheid, Inwoners, Herkomst, Autos, Huishoudens, Nabijheid
+                        </td>
+                    </tr>
+                    <tr>
+                        <td>
+                            <a href="https://api.pdok.nl/cbs/wijken-en-buurten-2023/ogc/v1"><strong>CBS Wijken en Buurten 2023 (OGC API)</strong></a>
+                        </td>
+                        <td>
+                            <p>Het Bestand Wijk- en Buurtkaart 2023 bevat de geometrie van alle gemeenten, wijken en buurten in Nederland met als attribuut een aantal statistische kerncijfers. De begrenzingen van wijken en buurten zijn voor een groot deel gebaseerd op wat de gemeenten aan het CBS doorgeven. De gemeentegrens is afkomstig uit de BRK van het Kadaster.</p>
+                        </td>
+                        <td class="text-break">
+                            CBS, Wijken, Buurten, Gemeenten, Statistiek, Bevolkingdichtheid, Inwoners, Herkomst, Autos, Huishoudens, Nabijheid
+                        </td>
+                    </tr>
+                    <tr>
+                        <td>
+                            <a href="https://api.pdok.nl/cbs/wijken-en-buurten-2024/ogc/v1"><strong>CBS Wijken en Buurten 2024 (OGC API)</strong></a>
+                        </td>
+                        <td>
+                            <p>Het Bestand Wijk- en Buurtkaart 2024 bevat de geometrie van alle gemeenten, wijken en buurten in Nederland met als attribuut een aantal statistische kerncijfers. De begrenzingen van wijken en buurten zijn voor een groot deel gebaseerd op wat de gemeenten aan het CBS doorgeven. De gemeentegrens is afkomstig uit de BRK van het Kadaster. De land-watergrens uit het Bestand Bodemgebruik 2017.</p>
+                        </td>
+                        <td class="text-break">
+                            CBS, Wijken, Buurten, Gemeenten, Statistiek, Bevolkingdichtheid, Inwoners, Herkomst, Autos, Huishoudens, Nabijheid
+                        </td>
+                    </tr>
+                    <tr>
+                        <td>
+                            <a href="https://api.pdok.nl/cbs/wijken-en-buurten-2025/ogc/v1"><strong>CBS Wijken en Buurten 2025 (OGC API)</strong></a>
+                        </td>
+                        <td>
+                            <p>Het Bestand Wijk- en Buurtkaart 2025 bevat de geometrie van alle gemeenten, wijken en buurten in Nederland met als attribuut een aantal statistische kerncijfers. De begrenzingen van wijken en buurten zijn voor een groot deel gebaseerd op wat de gemeenten aan het CBS doorgeven. De gemeentegrens is afkomstig uit de BRK van het Kadaster. De land-watergrens uit het Bestand Bodemgebruik 2017.</p>
+                        </td>
+                        <td class="text-break">
+                            CBS, Wijken, Buurten, Gemeenten, Statistiek, Bevolkingdichtheid, Inwoners, Herkomst, Autos, Huishoudens, Nabijheid
+                        </td>
+                    </tr>
+                    <tr>
+                        <td>
+                            <a href="https://api.pdok.nl/cbs/wijken-en-buurten-2026/ogc/v1"><strong>CBS Wijken en Buurten 2026 (OGC API)</strong></a>
+                        </td>
+                        <td>
+                            <p>Het Bestand Wijk- en Buurtkaart 2026 bevat de geometrie van alle gemeenten, wijken en buurten in Nederland. De begrenzingen van wijken en buurten zijn gebaseerd op wat de gemeenten aan het CBS doorgeven. De gemeentegrens is afkomstig uit de BRK van het Kadaster. De land-watergrens uit het Bestand Bodemgebruik 2022.</p>
+                        </td>
+                        <td class="text-break">
+                            CBS, wijken, buurten, gemeenten, Nationaal
+                        </td>
+                    </tr>
+                    <tr>
+                        <td>
+                            <a href="https://api.pdok.nl/cbs/wijken-en-buurten-historisch/ogc/v1"><strong>CBS Wijken en Buurten historisch (OGC API)</strong></a>
+                        </td>
+                        <td>
+                            <p>Het CBS Wijken en Buurten historisch bevat de geometrie van alle gemeenten, wijken en buurten in Nederland met als attribuut een aantal statistische kerncijfers. De begrenzingen van wijken en buurten zijn gebaseerd op wat de gemeenten aan het CBS doorgeven. De gemeentegrens is afkomstig uit de BRK van het Kadaster. De land-watergrens uit het Bestand Bodemgebruik.</p>
+                        </td>
+                        <td class="text-break">
+                            CBS, Wijken, Buurten, Gemeenten, Statistiek, Bevolkingdichtheid, Inwoners, Herkomst, Autos, Huishoudens, Nabijheid
+                        </td>
+                    </tr>
+                    <tr>
+                        <td>
+                            <a href="https://api.pdok.nl/rws/productie-en-industrie-productie-installaties/ogc/v1"><strong>Faciliteiten voor productie en industrie - Productie-installaties - REV (INSPIRE geharmoniseerd) (OGC API)</strong></a>
+                        </td>
+                        <td>
+                            <p>De OGC API Features service Faciliteiten voor productie en industrie - Productie-installatie bevat de, meest actuele, naar INSPIRE-thema Faciliteiten voor productie en industrie geharmoniseerde SEVESO-inrichtingen uit Register Externe Veiligheidsrisico's (REV).</p>
+                        </td>
+                        <td class="text-break">
+                            Register Externe Veiligheid, REV, Veiligheid, Milieu, Beheer, Inrichting, Mining, Quarrying, Manufacturing, Electricity, Gas, Steam, Air conditioning, Water, Sewerage, Afval, Remediation, Construction, Transpotation, Storage, HVD, Aardobservatie en milieu
+                        </td>
+                    </tr>
+                    <tr>
+                        <td>
+                            <a href="https://api.pdok.nl/rws/productie-en-industrie-productiefaciliteiten/ogc/v1"><strong>Faciliteiten voor productie en industrie - Productiefaciliteiten - REV (INSPIRE geharmoniseerd) (OGC API)</strong></a>
+                        </td>
+                        <td>
+                            <p>De OGC API Features service Faciliteiten voor productie en industrie - Productie-faciliteiten bevat de, meest actuele, naar INSPIRE thema Nuts- en Overheidsdiensten geharmoniseerde faciteiten voor activiteiten die vallen onder NACE Rev.2 categorieën B, C, D, E (deels), F, H uit Register Externe Veiligheidsrisico's (REV) | Aanmerkingsregister</p>
+                        </td>
+                        <td class="text-break">
+                            Register Externe Veiligheid, REV, Veiligheid, Milieu, Beheer, Faciliteit, Mijnbouw, Steengroeven, Delfstoffen, Productie, Stroomvoorziening, Gasvoorziening, Stoomvoorziening, Airconditioningvoorziening, Watervoorziening, Riolering, Afvalbeheer, Sanering, Bouw, Transportdiensten, Opslagdiensten, HVD, Aardobservatie en milieu
+                        </td>
+                    </tr>
+                    <tr>
+                        <td>
+                            <a href="https://api.pdok.nl/rvo/fysisch-geografische-regios/ogc/v1/"><strong>Fysisch Geografische Regio's (OGC API)</strong></a>
+                        </td>
+                        <td>
+                            <p>Indeling van Nederland in Fysisch-Geografische Regio's. Voor de omgrenzing van de Regio's is een zo consistent mogelijke lijst van beslisregels gehanteerd,
+                            vooral gebaseerd op de bodemtypen. Dit bestand is een update van de FGR-versie van 1997.</p>
+                        </td>
+                        <td class="text-break">
+                            biogeografische gebieden, bodem, infoMapAccessService
+                        </td>
+                    </tr>
+                    <tr>
+                        <td>
+                            <a href="https://api.pdok.nl/rws/overstromingen-risicogebied/ogc/v2/"><strong>Gebieden met Natuurrisico's - Overstromingen - Risicogebied - Richtlijn Overstromingsrisico's (ROR) (INSPIRE geharmoniseerd) (OGC API)</strong></a>
+                        </td>
+                        <td>
+                            <p>De OGC API Features service Gebieden met Natuurrisico's - Overstromingen - Risicogebied bevat geharmoniseerde Risicogebieden. Discrete ruimtelijke objecten die natuurlijke verschijnselen vertegenwoordigen die relevant zijn voor de studie van natuurrampen die zich hebben voorgedaan of momenteel voordoen en die zijn waargenomen in Nederland uit het rapport 'Overstromingsrisico's in Nederland, 2018 in het kader van de Europese Richtlijn Overstromingsrisico’s (ROR) 2e cyclus: 2016 - 2021'.</p>
+                        </td>
+                        <td class="text-break">
+                            Richtlijn Overstromingsrisico, Natuurrisico, Overstromingsrisico, Overstromingsgevaar, Risicogebied, Gebeurtenis, Flooding, RiskArea, Event, HVD, Aardobservatie en milieu
+                        </td>
+                    </tr>
+                    <tr>
+                        <td>
+                            <a href="https://api.pdok.nl/rws/overstromingen-gevarengebied/ogc/v1/"><strong>Gebieden met natuurrisico's - Overstromingen - Gevarengebied - Richtlijn Overstromingsrisico's (ROR) (INSPIRE geharmoniseerd) (OGC API)</strong></a>
+                        </td>
+                        <td>
+                            <p>Naar INSPIRE thema Gebieden met natuurrisico’s - Overstromingen - Gevarengebied geharmoniseerde data bevat gebieden met potentieel significant overstromingsrisico in Nederland uit het rapport ‘Overstromingsrisico’s in Nederland, 2018 in het kader van de Europese Richtlijn Overstromingsrisico’s (ROR) 2e cyclus: 2016 – 2021’.</p>
+                        </td>
+                        <td class="text-break">
+                            Richtlijn Overstromingsrisico, Natuurrisico, Overstroming, Overstromingsrisico, Overstromingsgevaar, Gevarengebied, Flooding, HazardArea
+                        </td>
+                    </tr>
+                    <tr>
+                        <td>
+                            <a href="https://api.pdok.nl/rws/kwetsbaar-gebied-agglomeraties/ogc/v1/"><strong>Gebiedsbeheer eenheden - Kwetsbaar gebied - Agglomeraties - RSA (INSPIRE geharmoniseerd) (OGC API)</strong></a>
+                        </td>
+                        <td>
+                            <p>Naar INSPIRE thema Gebiedsbeheer, gebieden waar beperkingen gelden, gereguleerde gebieden en rapportage-eenheden geharmoniseerde
+                            agglomeraties zoals gerapporteerd naar de Europese Commissie tbv EU rapportage Stedelijk Afvalwater 2020.</p>
+                        </td>
+                        <td class="text-break">
+                            Kwetsbaar gebied, Richtlijn 91/271/EEG, 31991L0271, Agglomeraties, HVD, Aardobservatie en milieu
+                        </td>
+                    </tr>
+                    <tr>
+                        <td>
+                            <a href="https://api.pdok.nl/rws/kwetsbaar-gebied/ogc/v1/"><strong>Gebiedsbeheer eenheden - Kwetsbaar gebied - RSA (INSPIRE geharmoniseerd) (OGC API)</strong></a>
+                        </td>
+                        <td>
+                            <p>Naar INSPIRE thema Gebiedsbeheer, gebieden waar beperkingen gelden, gereguleerde gebieden en rapportage-eenheden
+                            geharmoniseerd kwetsbaar gebied zoals gerapporteerd naar de Europese Commissie tbv EU rapportage Stedelijk Afvalwater 2020</p>
+                        </td>
+                        <td class="text-break">
+                            Gebiedsbeheer, Gebieden waar beperkingen gelden, Gereguleerde gebieden en rapportage-eenheden, Aardobservatie en milieu, Nationaal, HVD, Richtlijn Stedelijk Afvalwater, Richtlijn 91/271/EEG, 31991L0271, Kwetsbare gebieden, Agglomeraties, UWWTD, Water, Urban Waste-Water Treatment Directive
+                        </td>
+                    </tr>
+                    <tr>
+                        <td>
+                            <a href="https://api.pdok.nl/kadaster/brt-geografische-namen/ogc/v1"><strong>Geografische Namen (INSPIRE geharmoniseerd) (OGC API)</strong></a>
+                        </td>
+                        <td>
+                            <p>INSPIRE Geografische Namen themalaag, geharmoniseerd, gevuld met relevante objecten uit TOP10NL (onderdeel van de Basisregistratie Topografie (BRT)), geproduceerd en beheerd door het Kadaster. Het is een referentie naar natuurlijke, culturele en kunstmatige objecten. Het bevat de namen van gebieden, regio's, plaatsen, steden of nederzettingen, of elk geografische of topografische object dat van publieke of historische waarde.</p>
+                        </td>
+                        <td class="text-break">
+                            Nationaal, Geografische namen, HVD, Geospatiale data, geographical names
+                        </td>
+                    </tr>
+                    <tr>
+                        <td>
+                            <a href="https://api.pdok.nl/kadaster/omgevingswet-geometrieen/ogc/v2"><strong>Geometrieën Omgevingswet API (OGC API)</strong></a>
+                        </td>
+                        <td>
+                            <p>De Geometrieën Omgevingswet API ontsluit twee vector tile-datasets met daarin de geometrieën uit omgevingsdocumenten en vergunningen. De geometrieën zijn beschikbaar in RD-formaat en kennen elk één attribuut: de geometrie-identificatie.
+                            De twee datasets die met deze API ontsloten worden zijn de Actueel v2 en de Volledig v2. Van elk van de datasets zijn vijf varianten beschikbaar; één voor elk van de verschillende Omgevingswet-omgevingen.</p>
+                        </td>
+                        <td class="text-break">
+                            omgevingsdocumenten, ozon, objectgerichte ontsluiting, vector tiles
+                        </td>
+                    </tr>
+                    <tr>
+                        <td>
+                            <a href="https://api.pdok.nl/rvo/gewaspercelen-geharmoniseerd/ogc/v1"><strong>Gewaspercelen (INSPIRE geharmoniseerd) (OGC API)</strong></a>
+                        </td>
+                        <td>
+                            <p>De Gewaspercelen bestaan uit de locatie van landbouwpercelen in Nederland met daaraan gekoppeld het geteelde gewas. Het bestand is een selectie van informatie uit de Basisregistratie Percelen (BRP) van Rijksdienst voor Ondernemend Nederland. De omgrenzingen van de landbouwpercelen zijn gebaseerd op de begrenzingen uit het RVO Referentieregister, het voormalig AAN-bestand (Agrarische Areaal Nederland). De gebruiker van het perceel dient jaarlijks zijn gewaspercelen in te tekenen en aan te geven welk gewas wordt geteeld op het betreffende perceel. Van elk jaar wordt een dataset gegenereerd van peildatum 15 mei. Van de meest recente gewaspercelen is zijn viewservices en een downloadservice beschikbaar. Van de jaargangen 2009 t/m 2022 zijn alleen atom-downloadservices beschikbaar.</p>
+                        </td>
+                        <td class="text-break">
+                            Nationaal, IACS, GSA, Basisset Novex, landschapselement, landbouw
+                        </td>
+                    </tr>
+                    <tr>
+                        <td>
+                            <a href="https://api.pdok.nl/rvo/habitatrichtlijn-verspreiding-typen/ogc/v1"><strong>Habitatrichtlijn verspreiding van habitattypen (OGC API)</strong></a>
+                        </td>
+                        <td>
+                            <p>Kaart met de verspreiding van habitattypen voor de Artikel 17 rapportage Habitatrichtlijn voor periode 2007 - 2012</p>
+                        </td>
+                        <td class="text-break">
+                            Habitats en biotopen, Verspreiding van habitattypen (Habitatrichtlijn), Nationaal
+                        </td>
+                    </tr>
+                    <tr>
+                        <td>
+                            <a href="https://api.pdok.nl/rvo/habitatrichtlijn-verspreiding-soorten/ogc/v1"><strong>Habitatrichtlijn verspreiding van soorten (OGC API)</strong></a>
+                        </td>
+                        <td>
+                            <p>Kaart met de verspreiding van soorten voor de Artikel 17 rapportage Habitatrichtlijn voor periode 2007 - 2012</p>
+                        </td>
+                        <td class="text-break">
+                            Spreiding van soorten, Verspreiding van soorten (Habitatrichtlijn), Nationaal, HVD, Aardobservatie en milieu
+                        </td>
+                    </tr>
+                    <tr>
+                        <td>
+                            <a href="https://api.pdok.nl/ienw/hoofd-luchtvervoersnetwerk-omgevingslawaai-geharmoniseerd/ogc/v1"><strong>Hoofdluchtvervoersnetwerk volgens Richtlijn Omgevingslawaai 2022 (INSPIRE geharmoniseerd) (OGC API)</strong></a>
+                        </td>
+                        <td>
+                            <p>Het gaat om gegevens over de geluidbron 'Hoofd Luchtvervoersnetwerk'. Met deze data wordt invulling gegeven aan de eisen uit de Wet milieubeheer die voortvloeien uit de Europese richtlijn omgevingslawaai (2002/49/EG).  De dataset, gepubliceerd in 2023, is geharmoniseerd volgens de INSPIRE richtlijnen, met name de thema's Geluidbronnen, Vervoersnetwerken, Verkeersintensiteit en Omgevingslawaai, en bevat gedetailleerde informatie.  Het Ministerie van Infrastructuur en Waterstaat is de data-eigenaar en beheerder van deze dataset, en verantwoordelijk voor de beschikbaarheid en kwaliteit ervan.</p>
+                        </td>
+                        <td class="text-break">
+                            Hoofd Luchtvervoersnetwerk (Richtlijn Omgevingslawaai), Wegen, Omgevingslawaai, Europese richtlijn omgevingslawaai, Environmental noise directive, Richtlijn 2002/49/EG, Geluid, Vervoersnetwerken, Geluidbron, Verkeersintensiteit, HVD, Aardobservatie en milieu, Milieurichtlijn - Evaluatie en de beheersing van omgevingslawaai
+                        </td>
+                    </tr>
+                    <tr>
+                        <td>
+                            <a href="https://api.pdok.nl/ienw/hoofdspoorwegen-omgevingslawaai-geharmoniseerd/ogc/v1"><strong>Hoofdspoorwegen volgens Richtlijn Omgevingslawaai 2022 (OGC API)</strong></a>
+                        </td>
+                        <td>
+                            <p>Het gaat om gegevens over de geluidbron 'Hoofd Spoorwegen'. Met deze data wordt invulling gegeven aan de eisen uit de Wet milieubeheer die voortvloeien uit de Europese richtlijn omgevingslawaai (2002/49/EG).  De dataset, gepubliceerd in 2023, is geharmoniseerd volgens de INSPIRE richtlijnen, met name de thema's Geluidbronnen, Vervoersnetwerken, Verkeersintensiteit en Omgevingslawaai, en bevat gedetailleerde informatie.  Het Ministerie van Infrastructuur en Waterstaat is de data-eigenaar en beheerder van deze dataset, en verantwoordelijk voor de beschikbaarheid en kwaliteit ervan.</p>
+                        </td>
+                        <td class="text-break">
+                            Hoofdspoorwegen (Richtlijn Omgevingslawaai), Wegen, Omgevingslawaai, Europese richtlijn omgevingslawaai, Environmental noise directive, Richtlijn 2002/49/EG, Geluid, Vervoersnetwerken, Geluidbron, Verkeersintensiteit, HVD, Aardobservatie en milieu, Milieurichtlijn - Evaluatie en de beheersing van omgevingslawaai
+                        </td>
+                    </tr>
+                    <tr>
+                        <td>
+                            <a href="https://api.pdok.nl/ienw/hoofdwegen-omgevingslawaai-geharmoniseerd/ogc/v1"><strong>Hoofdwegen volgens Richtlijn Omgevingslawaai 2022 (OGC API)</strong></a>
+                        </td>
+                        <td>
+                            <p>Het gaat om gegevens over de geluidbron 'Hoofdwegen'. Met deze data wordt invulling gegeven aan de eisen uit de Wet milieubeheer die voortvloeien uit de Europese richtlijn omgevingslawaai (2002/49/EG).  De dataset, gepubliceerd in 2023, is geharmoniseerd volgens de INSPIRE richtlijnen, met name de thema's Wegen, Geluidbronnen, Vervoersnetwerken, Verkeersintensiteit en Omgevingslawaai, en bevat gedetailleerde informatie.  Het Ministerie van Infrastructuur en Waterstaat is de data-eigenaar en beheerder van deze dataset, en verantwoordelijk voor de beschikbaarheid en kwaliteit ervan.</p>
+                        </td>
+                        <td class="text-break">
+                            Hoofdwegen (Richtlijn Omgevingslawaai), Wegen, Omgevingslawaai, Europese richtlijn omgevingslawaai, Environmental noise directive, Richtlijn 2002/49/EG, Geluid, Vervoersnetwerken, Geluidbron, Verkeersintensiteit, HVD, Aardobservatie en milieu, Milieurichtlijn - Evaluatie en de beheersing van omgevingslawaai
+                        </td>
+                    </tr>
+                    <tr>
+                        <td>
+                            <a href="https://api.pdok.nl/cbs/human-health-statistics/ogc/v1"><strong>Human Health Statistics Netherlands (INSPIRE geharmoniseerd) (OGC API)</strong></a>
+                        </td>
+                        <td>
+                            <p>This service refers to SDMX files with human Health data like total number of death per 100.000 people or number of doctors in the Netherlands per NUTS2 region.</p>
+                        </td>
+                        <td class="text-break">
+                            CBS, statistics, HH, NL, Human Health, Netherlands, SDMX, Death, NUTS2, doctor, death rate, health
+                        </td>
+                    </tr>
+                    <tr>
+                        <td>
+                            <a href="https://api.pdok.nl/kadaster/brt-hydrografie/ogc/v1"><strong>Hydrografie (INSPIRE geharmoniseerd) (OGC API)</strong></a>
+                        </td>
+                        <td>
+                            <p>INSPIRE Hydrografie zoals bedoeld in de beschrijving van de zee, meren, rivieren en andere wateren, met hun verschijningsvormen.</p>
+                        </td>
+                        <td class="text-break">
+                            Hydrografie, Nationaal, Kust, Constructies, Droogvallend, Sluis, Stuw, HVD, Aardobservatie en milieu, hydrography
+                        </td>
+                    </tr>
+                    <tr>
+                        <td>
+                            <a href="https://api.pdok.nl/rws/hydrografie-netwerk/ogc/v1"><strong>Hydrografie: Netwerk (INSPIRE geharmoniseerd) (OGC API)</strong></a>
+                        </td>
+                        <td>
+                            <p>Naar INSPIRE thema Hydrography - Network geharmoniseerd Nationaal Hydrologisch Instrumentarium netwerkschematisaties (NHI). Het netwerk applicatie schema bevat ruimtelijke objecten verbonden met een hydrografische netwerkweergave van waterwegen, meren etc. Dit is primair nodig voor de gebruikerstoepassing 'ruimtelijke analyses en modellering'.</p>
+                        </td>
+                        <td class="text-break">
+                            Hydrografie, Nationaal, Netwerkschematisatie, Nhi, Inspire, Hydrografisch netwerk, Eu, Menselijke gezondheid en veiligheid, Nationaal hydrologisch instrumentarium, Netwerkschematisaties, HVD, Aardobservatie en milieu
+                        </td>
+                    </tr>
+                    <tr>
+                        <td>
+                            <a href="https://api.pdok.nl/rvo/indicatieve-aandachtsgebieden-funderingsproblematiek/ogc/v1/"><strong>Indicatieve aandachtsgebieden funderingsproblematiek (OGC API)</strong></a>
+                        </td>
+                        <td>
+                            <p>Deze kaart toont het aantal woningen met een bouwjaar van voor 1970 in regio's met een minder draagkrachtige bodem.
+                            De kaart vraagt aandacht voor mogelijke funderingsproblemen bij woningen van voor 1970. De kaart doet geen uitspraken
+                            over de specifieke staat van funderingen in specifieke gebieden. De kaart is onderdeel van de funderingsviewer.
+                            Meer informatie vindt u op de website van het onafhankelijk Kenniscentrum Aanpak Funderingsproblematiek: https://www.kcaf.nl/</p>
+                        </td>
+                        <td class="text-break">
+                            Fundering, Bodem, Bouw, KCAF
+                        </td>
+                    </tr>
+                    <tr>
+                        <td>
+                            <a href="https://api.pdok.nl/rvo/invasieve-exoten-geharmoniseerd/ogc/v2"><strong>Invasieve Exoten (INSPIRE geharmoniseerd) (OGC API)</strong></a>
+                        </td>
+                        <td>
+                            <p>Invasieve exoten in Nederland conform de aanlevering aan Europa</p>
+                        </td>
+                        <td class="text-break">
+                            Nationaal, Spreiding van soorten, Verspreiding van invasieve exoten (verordening invasieve uitheemse soorten), HVD, Aardobservatie en milieu, Spreiding van soorten
+                        </td>
+                    </tr>
+                    <tr>
+                        <td>
+                            <a href="https://api.pdok.nl/kadaster/brk-kadastrale-kaart/ogc/v1/"><strong>Kadastrale Kaart (OGC API)</strong></a>
+                        </td>
+                        <td>
+                            <p>Overzicht van de ligging van de kadastrale percelen in Nederland. Fungeert als schakel tussen terrein en registratie, vervult voor externe gebruiker vaak een referentiefunctie, een ondergrond ten opzichte waarvan de gebruiker eigen informatie kan vastleggen en presenteren. Een kadastrale kaart geeft slechts een indicatie van de ligging van de kadastrale grenzen. Er kunnen geen maten aan worden ontleend.</p>
+                        </td>
+                        <td class="text-break">
+                            Kadaster, Kadastrale percelen, Kadastrale grens, Kadastrale kaart, Bebouwing, Nummeraanduidingreeks, Openbare ruimte naam, Perceel, Grens, Kwaliteit, Kwaliteitslabels, HVD, Geospatiale data, vector tiles, Kadastrale Grenzen, OpenbareRuimteNaam, Nummeraanduidingsreeks, Percelen, Grenzen, Pand, Panden
+                        </td>
+                    </tr>
+                    <tr>
+                        <td>
+                            <a href="https://api.pdok.nl/kadaster/brk-kadastrale-percelen/ogc/v1"><strong>Kadastrale Percelen (INSPIRE geharmoniseerd) (OGC API)</strong></a>
+                        </td>
+                        <td>
+                            <p>Overzicht van de ligging van de kadastrale percelen in Nederland. Fungeert als schakel tussen terrein en registratie, vervult voor externe gebruiker vaak een referentiefunctie, een ondergrond ten opzichte waarvan de gebruiker eigen informatie kan vastleggen en presenteren.</p>
+                        </td>
+                        <td class="text-break">
+                            Kadastrale percelen, Cadastral parcels, HVD, Geospatiale data, Kadastrale kaart, Kadastrale grens, Perceel, Grens
+                        </td>
+                    </tr>
+                    <tr>
+                        <td>
+                            <a href="https://api.pdok.nl/rvo/kaderrichtlijn-mariene-strategie-geharmoniseerd/ogc/v1"><strong>Kaderrichtlijn Mariene Strategie (INSPIRE geharmoniseerd) (OGC API)</strong></a>
+                        </td>
+                        <td>
+                            <p>Deze datasetserie bevat voor Nederland de toepassingsgebieden voor de KRM en het monitoringsprogramma Mariene strategie deel II. Voor deze gebieden voert Nederland in het kader van de artikel 8, 9 en 10 van de KRM assessments uit.</p>
+                        </td>
+                        <td class="text-break">
+                            Gebiedsbeheer, Gebieden waar beperkingen gelden, Gereguleerde gebieden en rapportage-eenheden, HVD, Marine strategy framework directive, Milieu, Noordzee, Zee, Vogels, Vissen, Richtlijn 2008/56/EG, KRM, KRM gebieden, HVD, Aardobservatie en milieu, Gebiedsbeheer, gebieden waar beperkingen gelden, gereguleerde gebieden en rapportage-eenheden
+                        </td>
+                    </tr>
+                    <tr>
+                        <td>
+                            <a href="https://api.pdok.nl/rws/kaderrichtlijn-mariene-strategie/ogc/v1"><strong>Kaderrichtlijn Mariene Strategie Nederland (OGC API)</strong></a>
+                        </td>
+                        <td>
+                            <p>De OGC API Features service Kaderrichtlijn Mariene Strategie bevat het toepassingsgebied, de rapportage-eenheden en de bevroren monitoringsdata voor de Kaderrichtlijn Mariene Strategie.</p>
+                        </td>
+                        <td class="text-break">
+                            Gebieden, Rapportage-eenheden, Beoordelingseenheden, Monitoring, Meetpunten, Water, Zee, Vissen, Vogels, Milieu, Noordzee, Richtlijn 2008/56/EG, HVD, Aardobservatie en milieu
+                        </td>
+                    </tr>
+                    <tr>
+                        <td>
+                            <a href="https://api.pdok.nl/rvo/mossel-en-oesterhabitats/ogc/v1"><strong>Mossel- en oesterhabitats (OGC API)</strong></a>
+                        </td>
+                        <td>
+                            <p>Dit betreft een bestandsopname van het areaal mossel en oesterbanken op de droogvallende platen in de Waddenzee.
+                            Dit geschiedt jaarlijks. De opdrachtgever is de Directie Dierlijke Agroketens en Dierenwelzijn /
+                            Cluster Duurzame Visserijketens. De bestandsopname zelf wordt uitgevoerd door IMARES.</p>
+                        </td>
+                        <td class="text-break">
+                            habitats en biotopen, HVD, Aardobservatie en milieu
+                        </td>
+                    </tr>
+                    <tr>
+                        <td>
+                            <a href="https://api.pdok.nl/rvo/mosselzaadinvanginstallaties/ogc/v1"><strong>Mosselzaadinvanginstallaties (OGC API)</strong></a>
+                        </td>
+                        <td>
+                            <p>Percelen, in rijkseigendom, waarop mosselzaadinvanginstallaties zijn toegestaan. Een mosselzaadinvanginstallatie (MZI) is
+                            een in de bodem verankerde constructie bestaande uit touwen en netwerk, waarmee mosselbroed wordt ingevangen in de waterkolom.
+                            Dit mosselbroed (ook wel mosselzaad genoemd) wordt geoogst van de constructie en verder opgekweekt tot consumptiemosselen op
+                            schelpdierpercelen.</p>
+                        </td>
+                        <td class="text-break">
+                            faciliteiten voor landbouw en aquacultuur, nationaal, HVD, Aardobservatie en milieu
+                        </td>
+                    </tr>
+                    <tr>
+                        <td>
+                            <a href="https://api.pdok.nl/rws/nationaal-wegenbestand-vaarwegen/ogc/v1"><strong>NWB - Vaarwegen (OGC API)</strong></a>
+                        </td>
+                        <td>
+                            <p>Deze OGC API Features service bevat alleen de vaarwegvakken en kilometermarkeringen van het NWB - Vaarwegen (Nationaal Wegen Bestand).</p>
+                        </td>
+                        <td class="text-break">
+                            Vervoersnetwerken, Vaarwegen, Schepen, Scheepvaart, Vaarwegvakken, Kilometermarkering, HVD, Mobiliteit
+                        </td>
+                    </tr>
+                    <tr>
+                        <td>
+                            <a href="https://api.pdok.nl/rws/nationaal-wegenbestand-wegen/ogc/v1/"><strong>NWB - Wegen (OGC API)</strong></a>
+                        </td>
+                        <td>
+                            <p>Dit is de OGC API Features service van het Nationaal Wegen Bestand (NWB) - wegen. Deze dataset bevat alleen de wegvakken en hectometerpunten. Het Nationaal Wegen Bestand - Wegen is een digitaal geografisch bestand van alle wegen in Nederland. Opgenomen zijn alle wegen die worden beheerd door wegbeheerders als het Rijk, provincies, gemeenten en waterschappen, echter alleen voor zover deze zijn voorzien van een straatnaam of nummer.</p>
+                        </td>
+                        <td class="text-break">
+                            Vervoersnetwerken, Menselijke gezondheid en veiligheid, Geluidsbelasting hoofdwegen (Richtlijn Omgevingslawaai), Nationaal, Voertuigen, Verkeer, Wegvakken, Hectometerpunten, HVD, Mobiliteit
+                        </td>
+                    </tr>
+                    <tr>
+                        <td>
+                            <a href="https://api.pdok.nl/rvo/nationaal-beschermde-gebieden-cdda/ogc/v1"><strong>Nationaal Beschermde Gebieden (CDDA) (OGC API)</strong></a>
+                        </td>
+                        <td>
+                            <p>In deze dataset is de zogeheten common database of designated areas (cdda) weergegeven.
+                            Deze database is onderdeel van de jaarlijkse rapportage vanuit Nederland aan de EEA.
+                            De cdda bestaat uit de natura2000 gebieden, de nationale parken en het natuur netwerk nederland.</p>
+                        </td>
+                        <td class="text-break">
+                            Beschermde gebieden, Nationaal Beschermde Gebieden CDDA, Cdda, Nationaal, Natuur, Milieu, Landbouw, Veeteelt, Grenzen, Natura2000, HVD, Aardobservatie en milieu
+                        </td>
+                    </tr>
+                    <tr>
+                        <td>
+                            <a href="https://api.pdok.nl/rws/nationaal-hydrologisch-instrumentarium-netwerkschematisatie/ogc/v1"><strong>Nationaal Hydrologisch Instrumentarium (NHI) (OGC API)</strong></a>
+                        </td>
+                        <td>
+                            <p>Nationaal Hydrologisch Instrumentarium (NHI) - netwerkschematisatie</p>
+                        </td>
+                        <td class="text-break">
+                            Hydrografie, Nationaal, Hydrologie, Waterbeweging, Stroming, HVD, Aardobservatie en milieu
+                        </td>
+                    </tr>
+                    <tr>
+                        <td>
+                            <a href="https://api.pdok.nl/rvo/nationale-parken-geharmoniseerd/ogc/v1/"><strong>Nationale Parken (INSPIRE Geharmoniseerd) (OGC API)</strong></a>
+                        </td>
+                        <td>
+                            <p>In deze dataset zijn de voor Nederland als INSPIRE aangemerkte bestanden in het thema Beschermde gebieden opgenomen.
+                            De dataset bevat de beschermde gebieden: Nationale Parken, (data eigenaar het Ministerie van Economische Zaken).
+                            De beschermde gebieden datasets Natura2000 en Rijksmonumenten worden separaat aangeboden.</p>
+                        </td>
+                        <td class="text-break">
+                            beschermde gebieden, nationaal, HVD, Aardobservatie en milieu
+                        </td>
+                    </tr>
+                    <tr>
+                        <td>
+                            <a href="https://api.pdok.nl/rvo/nationale-parken/ogc/v1/"><strong>Nationale parken (OGC API)</strong></a>
+                        </td>
+                        <td>
+                            <p>Dit bestand geeft de grenzen van de Nationale Parken weer, zoals die door de Secretarissen van de Parken zijn aangegeven in de
+                            periode augustus 2005 - november 2005, met een update in januari 2007 en in augustus 2007. Op de grenzen van NP Drents-Friese Wold
+                            volgt nog een correctie. Het bestand bevat in totaal 21 Nationale Parken: 18 door de Minister van LNV vastgestelde Parken
+                            (waarvan 1 in oprichting), 2 Particuliere Parken en 1 grensoverschrijdend Park, vastgesteld door het Commité van Ministers van de Benelux.
+                            Daarnaast komen in het GIS-bestand 'uitwerkingsgebieden' voor. Dit zijn gebieden die bij voorkeur op termijn onderdeel moeten gaan
+                            uitmaken van een Nationaal Park, maar nu nog niet zijn aangewezen. Ze maken dan ook GEEN deel uit van het betreffende Park en hebben
+                            geen enkele status! De grenzen in het GIS-bestand kunnen afwijken van de grenzen in het BIP (Beheers- en Inrichtingsplan).
+                            Elk Nationaal Park heeft een BIP, dat ter goedkeuring wordt voorgelegd aan de Minister van LNV. Elk BIP bevat een kaart met de
+                            begrenzing van het Park. Die grens is een momentopname. In de loop der tijd kunnen de grenzen van een Park licht wijzigen door kleine
+                            aankopen of uitruil van gronden. Die wijzigingen worden bij periodieke updates doorgevoerd in het BIP. Een BIP kan daardoor
+                            achter- of juist vooruitlopen op de grenzen in dit bestand.</p>
+                        </td>
+                        <td class="text-break">
+                            Protected sites, Beschermde gebieden, HVD, Aardobservatie en milieu
+                        </td>
+                    </tr>
+                    <tr>
+                        <td>
+                            <a href="https://api.pdok.nl/rvo/natura2000-geharmoniseerd/ogc/v1"><strong>Natura 2000 (INSPIRE geharmoniseerd) (OGC API)</strong></a>
+                        </td>
+                        <td>
+                            <p>Natura 2000 is het samenhangend netwerk van beschermde natuurgebieden in de Europese Unie bestaande uit Vogelrichtlijn- en Habitatrichtlijngebieden. Natura 2000-gebieden zijn een samenvoeging van beide. Bij de overgang naar de Wet natuurbescherming in 2017 zijn de gebieden die waren aangewezen als beschermd natuurmonument op grond van de Natuurbeschermingswet 1998 van rechtswege vervallen. Van de Natura 2000-gebieden die overlappen met beschermde natuurmonumenten zijn de doelen van de beschermde natuurmonumenten daarmee vervallen. In totaal gaat het om 162 Natura 2000-gebieden waarvan vier mariene gebieden in de Exclusieve Economische Zone (EEZ) op de Noordzee. De vigerende Vogelrichtlijngebieden zijn aangewezen in de periode 1995-2016. De Habitatrichtlijngebieden worden aangewezen met de aanwijzing van de betreffende Natura 2000-gebieden. Op 19 juni 2024 is een wijziging in de begrenzing van Rijntakken van kracht geworden. Grenswijzigingen zijn bijgewerkt tot de datum van uitgifte van dit bestand. In gebieden waar nog geen definitief Natura 2000-aanwijzingsbesluit van kracht is, is de grens van het ontwerpbesluit gehanteerd. Als er nog geen ontwerpbesluit is gepubliceerd, is de grens volgens de Europese 'Communautaire Lijst' gehanteerd. En als die lijst nog niet is geactualiseerd, is de aanmelding voor die lijst gehanteerd. Zie daarvoor de informatie in het attribuut STATUS. De begrenzingen zijn bovengronds en in het water van toepassing, met uitzondering van gebiedsdelen met code 'HR groeve' in het attribuut BESCHERMIN (hier maken alleen de ondergrondse kalksteengroeven deel uit van het Habitatrichtlijngebied).</p>
+                        </td>
+                        <td class="text-break">
+                            Grenzen, Natuur en milieu, Landbouw en veeteelt, HVD, Aardobservatie en milieu
+                        </td>
+                    </tr>
+                    <tr>
+                        <td>
+                            <a href="https://api.pdok.nl/rvo/natura2000/ogc/v1"><strong>Natura2000 (OGC API)</strong></a>
+                        </td>
+                        <td>
+                            <p>Samenvatting: Natura 2000 is het samenhangend netwerk van beschermde natuurgebieden in de Europese Unie bestaande
+                            uit Vogelrichtlijn- en Habitatrichtlijngebieden. Natura 2000-gebieden zijn een samenvoeging van beide en de daarin
+                            gelegen beschermde natuurmonumenten. In Nederland gaat het om 162 gebieden waarvan drie mariene gebieden in de
+                            Exclusieve Economische Zone (EEZ) op de Noordzee (incl. een voorgenomen Vogelrichtlijngebied in de EEZ).
+                            De Vogelrichtlijngebieden zijn merendeels aangewezen in de periode 1986-2000. De Habitatrichtlijngebieden worden
+                            aangewezen met de aanwijzing van de betreffende Natura 2000-gebieden. Deze service bevat de grenzen van de definitief
+                            aangewezen gebieden en de grenzen conform het ontwerp-besluit van de meeste overige gebieden.
+                            Voor enkele Habitatrichtlijngebieden waarvoor nog geen ontwerp-besluiten zijn gepubliceerd, bevat deze service
+                            de grenzen zoals die aan de Europese Commissie gemeld zijn.</p>
+                        </td>
+                        <td class="text-break">
+                            Natuur,Habitatrichtlijn, Vogelrichtlijn, Natuurmonumenten,Natura2000, Beschermde gebieden, HVD, Aardobservatie en milieu
+                        </td>
+                    </tr>
+                    <tr>
+                        <td>
+                            <a href="https://api.pdok.nl/rvo/natuurmeting-op-kaart-2014/ogc/v1"><strong>Natuurmeting op Kaart 2014 (OGC API)</strong></a>
+                        </td>
+                        <td>
+                            <p>De Natuurmeting Op Kaart 2014 (NOK2014) geeft een landelijk beeld van de realisatie van de Ecologische Hoofdstructuur (EHS),
+                            Recreatie om de Stad (RodS) en Robuuste Ecologische VerbindingsZones (REVZ) op 1 januari 2014. De NOK2014 bevat informatie over:
+                            1) De begrenzing van de planologische EHS, 2) Begrenzingen van rijksdoelen, 3) De status van de verwerving en inrichting van deze rijksdoelen 4) Beheer.</p>
+                        </td>
+                        <td class="text-break">
+                            Natuur
+                        </td>
+                    </tr>
+                    <tr>
+                        <td>
+                            <a href="https://api.pdok.nl/rws/rioolnetwerk-leidingelementen/ogc/v1/"><strong>Nuts- en Overheidsdiensten - Riool - Leidingelementen - RSA (INSPIRE geharmoniseerd) (OGC API)</strong></a>
+                        </td>
+                        <td>
+                            <p>Naar INSPIRE thema Nutsdiensten en overheidsdiensten geharmoniseerde lozingspunten zoals gerapporteerd naar de Europese Commissie tbv EU rapportage Stedelijk Afvalwater 2020.</p>
+                        </td>
+                        <td class="text-break">
+                            Richtlijn Stedelijk Afvalwater, Richtlijn 91/271/EEG, 31991L0271, Lozingspunten, Leidingelementen, HVD, Aardobservatie en milieu
+                        </td>
+                    </tr>
+                    <tr>
+                        <td>
+                            <a href="https://api.pdok.nl/rws/rioolnetwerk-milieumanagementvoorziening/ogc/v1"><strong>Nuts- en Overheidsdiensten - Riool - Milieu management voorziening - RSA (INSPIRE geharmoniseerd) (OGC API)</strong></a>
+                        </td>
+                        <td>
+                            <p>Naar INSPIRE thema Nutsdiensten en overheidsdiensten geharmoniseerde riool water zuiveringsinstallaties (RWZI's) zoals gerapporteerd naar de Europese Commissie tbv EU rapportage Stedelijk Afvalwater 2020.</p>
+                        </td>
+                        <td class="text-break">
+                            Inrichting Milieubeheer, Richtlijn 91/271/EEG, 31991L0271, Rioolwaterzuivering, Rwzi, UWWTD, Water, Urban Waste-Water Treatment, HVD, Aardobservatie en milieu
+                        </td>
+                    </tr>
+                    <tr>
+                        <td>
+                            <a href="https://api.pdok.nl/kvk/overheidsdiensten-geharmoniseerd/ogc/v1"><strong>Overheidsdiensten (INSPIRE geharmoniseerd) (OGC API)</strong></a>
+                        </td>
+                        <td>
+                            <p>Het handelsregister is een door de overheid gehouden register, waarin rechtspersonen en ondernemingen vermeld staan met hun gegevens. Dit betreft een geharmoniseerde subset in het kader van INSPIRE annex III, thema Administratieve en sociale en overheidsdiensten</p>
+                        </td>
+                        <td class="text-break">
+                            KVK
+                        </td>
+                    </tr>
+                    <tr>
+                        <td>
+                            <a href="https://api.pdok.nl/cbs/population-distribution/ogc/v1"><strong>Population Distribution (INSPIRE geharmoniseerd) (OGC API)</strong></a>
+                        </td>
+                        <td>
+                            <p>This dataset contains data with total population of the Netherlands referenced to statistical units according to the INSPIRE datamodel for Population Distribution version 3.0.</p>
+                        </td>
+                        <td class="text-break">
+                            CBS, Statistics, grid, PD, NL, Population Distribution, Netherlands, SDMX, Population, NUTS, LAU
+                        </td>
+                    </tr>
+                    <tr>
+                        <td>
+                            <a href="https://api.pdok.nl/rvo/potentieel-warmte-koude-opslagsystemen/ogc/v1"><strong>Potentieel koude en warmte uit open en gesloten WKO systemen (GJ/ha.jaar) (OGC API)</strong></a>
+                        </td>
+                        <td>
+                            <p>Deze kaart is een weergave van het potentieel aan koude/warmte in GJ/(ha.jaar) dat uit open en gesloten WKO systemen gehaald kan worden.</p>
+                        </td>
+                        <td class="text-break">
+                            Energiebronnen, WKO, warmte, koude, geothermie, HVD, Aardobservatie en milieu
+                        </td>
+                    </tr>
+                    <tr>
+                        <td>
+                            <a href="https://api.pdok.nl/rvo/potentiekaart-omgevingswarmte/ogc/v1"><strong>Potentiekaart Omgevingswarmte (OGC API)</strong></a>
+                        </td>
+                        <td>
+                            <p>De WarmteAtlas Nederland is een digitale, geografische kaart waarop warmteaanbod en -vraag in ons land zijn aangegeven.
+                            Aan de aanbodkant gaat het om (potentieel) geschikte locaties van warmte- en koude opslag (WKO), diepe geothermie,
+                            biomassa en restwarmte. Deze lagen tonen de potentie voor WKO systemen per buurt en per gemeente.</p>
+                        </td>
+                        <td class="text-break">
+                            Energiebronnen, WKO, warmte, koude, geothermie, warmtewisselaar, HVD, Aardobservatie en milieu
+                        </td>
+                    </tr>
+                    <tr>
+                        <td>
+                            <a href="https://api.pdok.nl/rvo/potentiekaart-reststromen/ogc/v1"><strong>Potentiekaart reststromen (OGC API)</strong></a>
+                        </td>
+                        <td>
+                            <p>De WarmteAtlas Nederland is een digitale, geografische kaart waarop warmteaanbod en -vraag in ons land zijn aangegeven.
+                            Aan de aanbodkant gaat het om (potentieel) geschikte locaties van warmte- en koude opslag (WKO), diepe geothermie,
+                            biomassa en restwarmte. Deze lagen tonen de potentie voor biomassa per gemeente.</p>
+                        </td>
+                        <td class="text-break">
+                            potentiekaart, reststromen, energiebronnen, biomassa, biogas, gft, HVD, Aardobservatie en milieu
+                        </td>
+                    </tr>
+                    <tr>
+                        <td>
+                            <a href="https://api.pdok.nl/rvo/potentiekaart-restwarmte/ogc/v1"><strong>Potentiekaart restwarmte (OGC API)</strong></a>
+                        </td>
+                        <td>
+                            <p>De WarmteAtlas Nederland is een digitale, geografische kaart waarop warmteaanbod en -vraag in ons land zijn aangegeven.
+                            Aan de aanbodkant gaat het om (potentieel) geschikte locaties van warmte- en koude opslag (WKO), diepe geothermie,
+                            biomassa en restwarmte. Deze laag toont de ligging van industrie, hun energievraag en CO2 emissies t.b.v. het inschatten
+                            van de potentie van gebruik van restwarmte.</p>
+                        </td>
+                        <td class="text-break">
+                            energiebronnen, industrie, warmte, CO2, HVD, Aardobservatie en milieu
+                        </td>
+                    </tr>
+                    <tr>
+                        <td>
+                            <a href="https://api.pdok.nl/kadaster/deltaplan-agrarisch-waterbeheer/ogc/v1"><strong>Projecten Deltaplan Agrarisch Waterbeheer (OGC API)</strong></a>
+                        </td>
+                        <td>
+                            <p>Overzicht van projecten waarin agrariërs, waterschappen en andere partijen onder de vlag van het
+                            Deltaplan Agrarisch Waterbeheer werken aan een betere waterkwaliteit, beter omgaan met
+                            zoetwaterbeschikbaarheid en betere agrarische bedrijfsresultaten.</p>
+                        </td>
+                        <td class="text-break">
+                            infoMapAccessService, deltaplan agrarisch waterbeheer, daw, water, waterkwaliteit, waterkwantiteit, waterbeheer, grondwater, oppervlaktewater, natuur en milieu, binnenwater, landbouw en veeteelt, infofeatureaccessservice
+                        </td>
+                    </tr>
+                    <tr>
+                        <td>
+                            <a href="https://api.pdok.nl/kadaster/brk-publiekrechtelijke-beperkingen-wkpb/ogc/v1/"><strong>Publiekrechtelijke Beperkingen Wkpb (OGC API)</strong></a>
+                        </td>
+                        <td>
+                            <p>Wet kenbaarheid publiekrechtelijke beperkingen onroerende zaken betreft door overheid opgelegde beperkingen op een stuk grond of een gebouw. <a rel="noopener" target="_blank" href="https://www.kadaster.nl/publiekrechtelijke-beperkingen">Lees meer over WKPB</a> en bekijk de WKPB vector tiles in de <a rel="noopener" target="_blank" href="https://app.pdok.nl/vectortile-viewer/">Vectortile Viewer</a>.</p>
+                        </td>
+                        <td class="text-break">
+                            wkpb, vector tiles, features
+                        </td>
+                    </tr>
+                    <tr>
+                        <td>
+                            <a href="https://api.pdok.nl/kadaster/rdinfo/ogc/v1/"><strong>RD info (OGC API)</strong></a>
+                        </td>
+                        <td>
+                            <p>Overzicht van de ligging van de RD-punten, GNSS-referentiestations en GNSS-kernnetpunten in Nederland met de bijbehorende omschrijvingen en coordinaten in het stelsel van de Rijksdriehoeksmeting (RD) en het Europese stelsel ETRS-89. Via https://www.nsgi.nl/referentiepunten-en-gnss-data/informatie-referentiepunten/rdinfo is uitleg beschikbaar over de inhoud van de velden van deze dataset.</p>
+                        </td>
+                        <td class="text-break">
+                            RDinfo, Punten, Stations, infoFeatureAccessService, infoMapAccessService, Systemen voor verwijzing door middel van coördinaten
+                        </td>
+                    </tr>
+                    <tr>
+                        <td>
+                            <a href="https://api.pdok.nl/rvo/referentiepercelen-geharmoniseerd/ogc/v1"><strong>Referentiepercelen (INSPIRE geharmoniseerd) (OGC API)</strong></a>
+                        </td>
+                        <td>
+                            <p>Geografische afbakening (gebaseerd op de BGT) van landbouwgrond en landschapselementen in Nederland. Gronden die worden gebruikt als bouwland, blijvend grasland, teelt van blijvende gewassen of landschapselementen op het niveau van hout, water en overig). Voorheen was deze dataset bekend als het Agrarisch Areaal Nederland (AAN).</p>
+                        </td>
+                        <td class="text-break">
+                            Nationaal, IACS, LPIS, AAN, landbouw, landschapselement
+                        </td>
+                    </tr>
+                    <tr>
+                        <td>
+                            <a href="https://api.pdok.nl/rvo/referentiepercelen/ogc/v1/"><strong>Referentiepercelen (OGC API)</strong></a>
+                        </td>
+                        <td>
+                            <p>Geografische afbakening (gebaseerd op de BGT) van landbouwgrond en landschapselementen in Nederland.
+                            Gronden die worden gebruikt als bouwland, blijvend grasland, teelt van blijvende gewassen of landschapselementen
+                            op het niveau van hout, water en overig). Voorheen was deze dataset bekend als het Agrarisch Areaal Nederland (AAN).</p>
+                        </td>
+                        <td class="text-break">
+                            Nationaal, Landgebruik, Faciliteiten voor landbouw en aquacultuur, IACS, LPIS, HVD, Geospatiale data
+                        </td>
+                    </tr>
+                    <tr>
+                        <td>
+                            <a href="https://api.pdok.nl/rws/richtlijn-stedelijk-afvalwater/ogc/v1/"><strong>Richtlijn Stedelijk Afvalwater (RSA) (OGC API)</strong></a>
+                        </td>
+                        <td>
+                            <p>Deze Richtlijn Stedelijk Afvalwater API bevat de meest actuele versie van agglomeraties, rioolwaterzuiveringsinstallaties (RWZI's),
+                            lozingspunten en kwetsbare gebieden zoals gerapporteerd naar de Europese Commissie tbv EU rapportage</p>
+                        </td>
+                        <td class="text-break">
+                            Richtlijn Stedelijk Afvalwater, Richtlijn 91/271/EEG, 31991L0271, Lozingspunten, Rioolwaterzuivering, Rwzi, Agglomeraties, Kwetsbaargebied, HVD, Aardobservatie en milieu
+                        </td>
+                    </tr>
+                    <tr>
+                        <td>
+                            <a href="https://api.pdok.nl/rws/scheepvaart-verkeersscheidingsstelsel-noordzee/ogc/v1"><strong>Scheepvaart Verkeersscheidingsstelsel Noordzee (Nederlands Continentaal Plat) (OGC API)</strong></a>
+                        </td>
+                        <td>
+                            <p>Het Scheepvaart Verkeersscheidingsstelsel Noordzee bevat kilometerpunten op de as van de vaargeulen op het Nederlands Continentaal Plat,
+                            Ankergebieden, vaargeulen, begrenzing en zonering. Deze dataset is aangemerkt als As-Is bron voor EU-doelen.</p>
+                        </td>
+                        <td class="text-break">
+                            Vervoersnetwerken, Nationaal, Infrastructuur, Vervoersnetwerken, Scheepvaart, Ankergebied, Vaargeul, Begrenzing, Zonering, HVD, Aardobservatie en milieu
+                        </td>
+                    </tr>
+                    <tr>
+                        <td>
+                            <a href="https://api.pdok.nl/rvo/schelpdierpercelen-geharmoniseerd/ogc/v1"><strong>Schelpdierpercelen (INSPIRE geharmoniseerd) (OGC API)</strong></a>
+                        </td>
+                        <td>
+                            <p>Percelen, in rijkseigendom, in de Kustwateren en het Grevelingenmeer, waar de huurder mosselen dan wel oesters mag kweken en oogsten.</p>
+                        </td>
+                        <td class="text-break">
+                            faciliteiten voor landbouw en aquacultuur, nationaal, schelpdieren
+                        </td>
+                    </tr>
+                    <tr>
+                        <td>
+                            <a href="https://api.pdok.nl/rvo/schelpdierpercelen/ogc/v1"><strong>Schelpdierpercelen (OGC API)</strong></a>
+                        </td>
+                        <td>
+                            <p>Percelen, in rijkseigendom, in de Kustwateren en het Grevelingenmeer, waar de huurder mosselen dan wel oesters mag kweken en oogsten.</p>
+                        </td>
+                        <td class="text-break">
+                            Faciliteiten voor landbouw en aquacultuur, Landgebruik
+                        </td>
+                    </tr>
+                    <tr>
+                        <td>
+                            <a href="https://api.pdok.nl/prorail/spoorwegen/ogc/v1"><strong>Spoorwegen (OGC API)</strong></a>
+                        </td>
+                        <td>
+                            <p>Deze service bevat de spoorverbindingen, inclusief kilometreringspunten, stations en overwegen.</p>
+                        </td>
+                        <td class="text-break">
+                            spoorwegen, overwegpunten, spoorassen, spoorbaanhartpunten, spoorbaanhartlijnen, spoorkruisingen, stations, wissels
+                        </td>
+                    </tr>
+                    <tr>
+                        <td>
+                            <a href="https://api.pdok.nl/cbs/statistical-units-vector/ogc/v1"><strong>Statistical Units Vector (INSPIRE geharmoniseerd) (OGC API)</strong></a>
+                        </td>
+                        <td>
+                            <p>This dataset contains the statistical Units of the Netherlands according to the INSPIRE datamodel for Statistical Units version 4.0. It contains the following SU-types: buurt, wijk, gemeente, provincie, landsdeel, nuts1, nuts2, nuts3, coropgebied and ggdregio.</p>
+                        </td>
+                        <td class="text-break">
+                            Statistische eenheden, Nationaal, CBS, Statistics, Vector, SU, NL, Statistical Unit, Netherlands
+                        </td>
+                    </tr>
+                    <tr>
+                        <td>
+                            <a href="https://api.pdok.nl/defensie/luchtvaartobstakels-terugmeldingen/ogc/v1"><strong>Terugmeldingen op luchtvaartobstakels (AERO) (OGC API)</strong></a>
+                        </td>
+                        <td>
+                            <p>Deze terugmeldingenservice bevat alle recente meldingen op aeronautische (luchtvaart) obstakels (AERO). Dit zijn obstakels voor de luchtvaart met een minimale hoogte van 15 meter/50 feet vanaf de grond, zoals gebouwen, windturbines en zendmasten. De service toont de locatie, inhoud en status van de meldingen en wordt real-time bijgewerkt. Ook een vermoedelijke fout geconstateerd? Doe een melding op https://www.verbeterdeluchtvaartkaart.nl</p>
+                        </td>
+                        <td class="text-break">
+                            terugmeldingen, obstakels, luchtvaart, luchtvaartkaart, aeronautisch, aeronautical obstacle chart, AOC, M-733, ICAO, TFC(L), defensie
+                        </td>
+                    </tr>
+                    <tr>
+                        <td>
+                            <a href="https://api.pdok.nl/rws/vaarweg-netwerk-data-service-bevaarbaarheid/ogc/v1"><strong>Vaarweg Netwerk Data Service - bevaarbaarheid (OGC API)</strong></a>
+                        </td>
+                        <td>
+                            <p>Deze OGC API Features service bevat alleen de bevaarbaarheid van de vaarwegen uit de Vaarweg Netwerk Data Service (FIS-VNDS)</p>
+                        </td>
+                        <td class="text-break">
+                            Vervoersnetwerk, Vaarweg, Schepen, Scheepvaart, Navigeren, Bevaarbaarheid, CEMT, HVD, Aardobservatie en milieu
+                        </td>
+                    </tr>
+                    <tr>
+                        <td>
+                            <a href="https://api.pdok.nl/rws/vaarwegmarkeringen-nederland/ogc/v1"><strong>Vaarwegmarkeringen (OGC API)</strong></a>
+                        </td>
+                        <td>
+                            <p>De OGC API Features service bevat vaste en drijvende markeringen (boeien en bakens) van Nederland incl. Nederlands Continentaal Plat van de Noordzee. Deze dataset is aangemerkt als As-Is bron voor EU-doelen.</p>
+                        </td>
+                        <td class="text-break">
+                            Boeien, Markeringen, Vervoersnetwerken, Schepen, Scheepvaart, HVD, Aardobservatie en milieu
+                        </td>
+                    </tr>
+                    <tr>
+                        <td>
+                            <a href="https://api.pdok.nl/kadaster/brt-vervoersnetwerken/ogc/v1"><strong>Vervoersnetwerken (INSPIRE geharmoniseerd) (OGC API)</strong></a>
+                        </td>
+                        <td>
+                            <p>INSPIRE transportnetwerken, geharmoniseerd, gevuld met relevante objecten uit TOP10NL (onderdeel van de Basisregistreatie Topografie BRT), geproduceerd en beheerd door het Kadaster.</p>
+                        </td>
+                        <td class="text-break">
+                            Transport Networks, HVD, Mobiliteit, vervoersnetwerken
+                        </td>
+                    </tr>
+                    <tr>
+                        <td>
+                            <a href="https://api.pdok.nl/rws/vervoersnetwerken-waterwegen-netwerk/ogc/v1"><strong>Vervoersnetwerken - Waterwegen - Netwerk (INSPIRE geharmoniseerd) (OGC API)</strong></a>
+                        </td>
+                        <td>
+                            <p>De OGC API Features service Vervoersnetwerken - Waterwegen - Netwerk bevat het INSPIRE-compliant netwerk van knooppunten (nodes) en vaarwegvakken (links)</p>
+                        </td>
+                        <td class="text-break">
+                            Kilometermarkering, Baken, Boei, Verkeerscheidingsschema, HVD, Mobiliteit
+                        </td>
+                    </tr>
+                    <tr>
+                        <td>
+                            <a href="https://api.pdok.nl/rws/vervoersnetwerken-wegen-netwerk/ogc/v1"><strong>Vervoersnetwerken - Wegen - Netwerk (INSPIRE geharmoniseerd) (OGC API)</strong></a>
+                        </td>
+                        <td>
+                            <p>De OGC API Features service Vervoersnetwerken - Wegen - Netwerk bevat het transportnetwerk en fysieke objecten die verbonden zijn aan transport over wegen.</p>
+                        </td>
+                        <td class="text-break">
+                            Vervoersnetwerken, Nationaal, Hoofdwegen (richtlijn omgevingslawaai), Vervoersnetwerk, Transport network, Knooppunten, Nodes, Wegen, Roads, Objecten, Objects, Kenmerken, Characteristics, HVD, Mobiliteit
+                        </td>
+                    </tr>
+                    <tr>
+                        <td>
+                            <a href="https://api.pdok.nl/cbs/vierkant-1km-laea/ogc/v1"><strong>Vierkant 1 kilometer bij 1 kilometer Nederland LAEA (OGC API)</strong></a>
+                        </td>
+                        <td>
+                            <p>Het bestand vierkant 1 km2 Nederland bevat alle vierkanten van 1 kilometer bij 1 kilometer gelegen boven land van Nederland, afgeleid door Eurostat. De dataset bevat een kolom waarvan de naam de EPSG-code vermeld van de projectie van het onderliggend gebied waarop de vierkanten als rechthoekig net betrekking hebben (Voor ETRS89-LAEA is dat 3035) en de grootte van het vierkant (1000 meter bij 1000 meter). Aan ieder vierkant wordt een codering toegekend afgeleid van het linksonderpunt van het vierkant, opgebouwd uit een Oost en een Noord coördinaat. Zowel de x-coördinaat als de y-coördinaat van het linksonderpunt is een veelvoud van 1000 meter en wordt in gehele meters aangegeven. De y-coördinaat wordt weergegeven als N(orth) en de x-coördinaat als E(ast).</p>
+                        </td>
+                        <td class="text-break">
+                            Vierkant, Grid
+                        </td>
+                    </tr>
+                    <tr>
+                        <td>
+                            <a href="https://api.pdok.nl/cbs/vierkant-500m/ogc/v1"><strong>Vierkant 500 meter bij 500 meter Nederland (OGC API)</strong></a>
+                        </td>
+                        <td>
+                            <p>Het bestand vierkant 500 meter bij 500 meter bevat alle vierkanten van 500 meter bij 500 meter gelegen boven land van Nederland, aangevuld met grotere wateren. De dataset bevat een kolom waarvan de naam de EPSG-code vermeld van de projectie van het onderliggend gebied waarop de vierkanten als rechthoekig net betrekking hebben (Voor RD new is dat 28992) en de grootte van het vierkant (500 meter bij 500 meter). Aan ieder vierkant wordt een codering toegekend afgeleid van het linksonderpunt van het vierkant, opgebouwd uit een Oost en een Noord coördinaat. Zowel de x-coördinaat als de y-coördinaat van het linksonderpunt is een veelvoud van 500 meter en wordt weergegeven in hectometers. De y-coördinaat wordt weergegeven als N(orth) en de x-coördinaat als E(ast).</p>
+                        </td>
+                        <td class="text-break">
+                            Vierkant, Grid
+                        </td>
+                    </tr>
+                    <tr>
+                        <td>
+                            <a href="https://api.pdok.nl/rvo/visserijmaatregelen-noordzee-geharmoniseerd/ogc/v1"><strong>Visserijmaatregelen Noordzee (INSPIRE geharmoniseerd) (OGC API)</strong></a>
+                        </td>
+                        <td>
+                            <p>Deze dataset bevat alle gebieden waar visserijmaatregelen gelden op de Noordzee (exclusief de Delta en de Waddenzee). De maatregelen zijn getroffen op basis van het Gemeenschappelijk Visserijbeleid (GVB) of nationale wetgeving zoals de omgevingswet (Toegang beperkend besluit) of de Uitvoeringsregeling Visserij.</p>
+                        </td>
+                        <td class="text-break">
+                            Nationaal, HVD, Visserij, Visserijmaatregelen, Gesloten visserijgebieden, Marien beheer, Mariene beschermingsmaatregelen, Noordzee, Zee, Marine Strategy Framework Directive, Natura 2000 gebieden (Habitatrichtlijn), Richtlijn 2008/56/EG, Natura 2000 gebieden (Vogelrichtlijn), Mariene regio's (Kaderrichtlijn Mariene strategie)
+                        </td>
+                    </tr>
+                    <tr>
+                        <td>
+                            <a href="https://api.pdok.nl/rvo/visserijmaatregelen-noordzee/ogc/v1"><strong>Visserijmaatregelen Noordzee (OGC API)</strong></a>
+                        </td>
+                        <td>
+                            <p>Deze dataset bevat alle gebieden waar visserijmaatregelen gelden op de Noordzee (exclusief de Delta en de Waddenzee). De maatregelen zijn getroffen op basis van het Gemeenschappelijk Visserijbeleid (GVB) of nationale wetgeving zoals de omgevingswet (Toegang beperkend besluit) of de Uitvoeringsregeling Visserij. De afkortingen van de genoemde vistuigen: - Bottom trawl (TB), - beam trawl (TBB), - bottom otter trawl (OTB), - otter twin trawl (OTT), - bottom pair trawl (PTB), - nephrops trawl (TBN), - shrimp trawl (TBS), - seine (SX), - Danish anchor seine (SDN), - Scottish seine (SSC), - Scottish pair seine (SPR), - boat or vessel seine (SV) Er kunnen geen rechten aan deze dataset worden ontleend.</p>
+                        </td>
+                        <td class="text-break">
+                            Visserij, Visserijmaatregelen, Gesloten visserijgebieden, Marien beheer, Mariene beschermingsmaatregelen, Noordzee, Zee, Marine Strategy Framework Directive, Natura 2000 gebieden (Vogelrichtlijn), Richtlijn 2008/56/EG, Natura 2000 gebieden (Habitatrichtlijn), Mariene regio's (Kaderrichtlijn Mariene strategie)
+                        </td>
+                    </tr>
+                    <tr>
+                        <td>
+                            <a href="https://api.pdok.nl/rvo/vogelrichtlijn-verspreiding-soorten/ogc/v1"><strong>Vogelrichtlijn verspreiding van soorten (OGC API)</strong></a>
+                        </td>
+                        <td>
+                            <p>Kaart met de verspreiding van soorten voor de Artikel 12 rapportage Vogelrichtlijn periode 2007 - 2012</p>
+                        </td>
+                        <td class="text-break">
+                            Verspreiding van vogelsoorten (Vogelrichtlijn), Nationaal, Spreiding van soorten, Vogel, Natura2000, Natuur
+                        </td>
+                    </tr>
+                    <tr>
+                        <td>
+                            <a href="https://api.pdok.nl/rvo/vogelrichtlijn-verspreidingsgebied-soorten/ogc/v1"><strong>Vogelrichtlijn verspreidingsgebied van soorten (OGC API)</strong></a>
+                        </td>
+                        <td>
+                            <p>Kaart met het verspreidinggebied van soorten voor de Artikel 12 Vogelrichtlijn rapportage periode 2007 - 2012</p>
+                        </td>
+                        <td class="text-break">
+                            Verspreidingsgebied van vogelsoorten (Vogelrichtlijn), Nationaal, Spreiding van soorten
+                        </td>
+                    </tr>
+                    <tr>
+                        <td>
+                            <a href="https://api.pdok.nl/hwh/waterschappen-hydrografie/ogc/v1/"><strong>Waterschappen Hydrografie (INSPIRE geharmoniseerd) (OGC API)</strong></a>
+                        </td>
+                        <td>
+                            <p>Deze dataset is gebaseerd op (geharmoniseerde) data van alle waterschappen in Nederland conform INSPIRE. De dataset bevat de volgende INSPIRE objecten: CrossingLine, CrossingPoint, DamOrWeir, DrainageBasin, Embankment, Lock, Sluice, Watercourse.</p>
+                        </td>
+                        <td class="text-break">
+                            Aquaduct, Brug, Duikersifonhevel, Stuw, Vastedam, AfvoerAanvoergebied, Waterkering, Sluis, HydroObject, HVD, Aardobservatie en milieu
+                        </td>
+                    </tr>
+                    <tr>
+                        <td>
+                            <a href="https://api.pdok.nl/hwh/waterschappen-keringen-imwa/ogc/v1"><strong>Waterschappen Keringen IMWA (OGC API)</strong></a>
+                        </td>
+                        <td>
+                            <p>Deze dataset is gebaseerd op (geharmoniseerde) data van alle waterschappen in Nederland conform het Informatiemodel water (IMWA). De dataset bevat de volgende IMWA objecten:Anker, Ankerveld, Basismateriaal, Bestorting,  Bodembescherming, Bodemlaag, DrainageBuis, DrainagePut, FilterVlijlaag, FlexibeleWaterkering, Geotextiel, Hydraulischerandvoorwaarde,  Invloedslijn, KenmerkendeProfiellijn, Kistdam, Kwelscherm, Paal, Referentiepunt, TeenconstructieOvergangsconstructie, Toplaag, Uitvullaag, Vegetatieobject, Wandconstructie, Waterkering, WaterkeringReferentiestelsel, Waterkeringsectie, Weesconstructie en Waterkeringsectie.</p>
+                        </td>
+                        <td class="text-break">
+                            Anker, Ankerveld, Basismateriaal, Bestorting, Bodembescherming, Bodemlaag, DrainageBuis, DrainagePut, FilterVlijlaag, FlexibeleWaterkering, Geotextiel, Hydraulischerandvoorwaarde, Invloedslijn, KenmerkendeProfiellijn, Kistdam, Kwelscherm, Paal, Referentiepunt, TeenconstructieOvergangsconstructie, Toplaag, Uitvullaag, Vegetatieobject, Wandconstructie, Waterkering, WaterkeringReferentiestelsel, Waterkeringsectie, Weesconstructie en Waterkeringsectie.
+                        </td>
+                    </tr>
+                    <tr>
+                        <td>
+                            <a href="https://api.pdok.nl/hwh/waterschappen-kunstwerken-imwa/ogc/v1/"><strong>Waterschappen Kunstwerken IMWA (OGC API)</strong></a>
+                        </td>
+                        <td>
+                            <p>Deze dataset is gebaseerd op (niet geharmoniseerde) data van alle waterschappen in Nederland conform het Informatiemodel water (IMWA). De dataset bevat de volgende IMWA objecten: afsluitmiddel, aquaduct, bodemval, brug, coupure,  duiker, gemaal, hevel, put, sifon, sluis, stuw, vastedam, vispassage, voorde, vuilvang en zandvang.</p>
+                        </td>
+                        <td class="text-break">
+                            Afsluitmiddel, Aquaduct, Bodemval, Brug, Coupure, Duiker, Gemaal, Hevel, Put, Sifon, Sluis, Stuw, VasteDam, Verbeterinstallatie, Vispassage, Voorde, Vuilvang, Zandvang, Kunstwerken.
+                        </td>
+                    </tr>
+                    <tr>
+                        <td>
+                            <a href="https://api.pdok.nl/hwh/waterschappen-oppervlaktewateren-imwa/ogc/v1"><strong>Waterschappen Oppervlaktewateren IMWA (OGC API)</strong></a>
+                        </td>
+                        <td>
+                            <p>Deze dataset bestaat uit de volgende lagen (niet alle lagen zijn op dit moment gevuld met data): Hydroobject/Oppervlaktewaterlichaam,  Oever, Ondersteunendwaterdeel, Profielverdediging, Waterdeel.De data is gestructureerd volgens het Informatiemodel Water (IMWA), onderdeel van de Aquo-standaard. Meer informatie hierover is te vinden op de Aquo-website.De gegevens worden in Geopackage-formaat geleverd in het RD-New coördinatenstelsel.De data zijn afkomstig van de individuele waterschappen, maar worden via PDOK als één landsdekkend bestand uitgeleverd. Individuele waterschappen bieden hun actuele gegevens hiervoor aan via het <code>Gegevensknooppunt Waterschappen</code> (GkW) van Het Waterschapshuis. Alle waterschappen zijn aangesloten op deze voorziening, maar nog niet elk waterschap levert de complete set gegevens aan.Voor informatie over de inhoud van de data kan contact worden opgenomen met het desbetreffende waterschap. Dit is te herkennen aan de waterschapscode die als kenmerk is opgenomen bij ieder object in de dataset. Voor algemene informatie over de dataset en de herkomst via het GkW kan contact worden opgenomen met Het Waterschapshuis via datastromen@hetwaterschapshuis.nl.</p>
+                        </td>
+                        <td class="text-break">
+                            Hydroobject, Oppervlaktewaterlichaam, Oever, Profielverdediging, Ondersteunendwaterdeel, Waterdeel.
+                        </td>
+                    </tr>
+                    <tr>
+                        <td>
+                            <a href="https://api.pdok.nl/hwh/waterschappen-waterbeheergebieden-imwa/ogc/v1"><strong>Waterschappen Waterbeheergebieden IMWA (OGC API)</strong></a>
+                        </td>
+                        <td>
+                            <p>Deze dataset is gebaseerd op (geharmoniseerde) data van alle waterschappen in Nederland conform het Informatiemodel water (IMWA). De dataset bevat de volgende IMWA objecten: AfvoergebiedAanvoergebied, Peilafwijkinggebied, Peilbesluitgebied, Peilgebied</p>
+                        </td>
+                        <td class="text-break">
+                            AfvoergebiedAanvoergebied, Peilafwijkinggebied, Peilbesluitgebied, Peilgebied, Waterbeheergebieden, Oppervlaktewateren
+                        </td>
+                    </tr>
+                    <tr>
+                        <td>
+                            <a href="https://api.pdok.nl/hwh/waterschappen-waterketen-damo/ogc/v1"><strong>Waterschappen Waterketen DAMO (OGC API)</strong></a>
+                        </td>
+                        <td>
+                            <p>Deze dataset is gebaseerd op (geharmoniseerde) data van alle waterschappen in Nederland conform DAMO Waterketen waarbij we zoveel mogelijk rekening hebben gehouden met het Gegevenswoordenboek Stedelijk Water (GWSW). De dataset bevat de volgende DAMO objecten: Zuiveringseenheid, Afsluiter, Afvoerpunt, IBA, Kabel, KathodischeBescherming, Leiding, Leidingsegment, Loostopafvoerpunt, Lozingspunt, Mantelbuis, Nooduitlaat, Ontluchter, Overnamepunt, Overnamepuntgebied, Pigginginstallatie, Pomp, Put, Rioleringsgebied, Rioolgemaal, RWZI en Transportstelsel De data zijn afkomstig van de individuele waterschappen, maar worden via PDOK als één landsdekkend bestand uitgeleverd. Individuele waterschappen bieden hun actuele gegevens hiervoor aan via het ‘Gegevensknooppunt waterschappen’ (GkW) van Het Waterschapshuis. Alle waterschappen zijn aangesloten op deze voorziening, maar nog niet elk waterschap levert de complete set gegevens aan. Voor informatie over de inhoud van de data kan contact worden opgenomen met het desbetreffende waterschap. Dit is te herkennen aan de waterschapscode die als kenmerk is opgenomen bij ieder object in de dataset. Voor algemene informatie over de dataset en de herkomst via het GkW kan contact worden opgenomen met Het Waterschapshuis via datastromen@hetwaterschapshuis.nl.</p>
+                        </td>
+                        <td class="text-break">
+                            Kunstwerken, Riolering, Waterschap, Beheer, Afvalwaterketen, Afvalwatersysteem, Rioolwaterzuivering, Riolering, GWSW, Stedelijk water, Waterketen
+                        </td>
+                    </tr>
+                    <tr>
+                        <td>
+                            <a href="https://api.pdok.nl/rioned/waterschappen-waterketen-gwsw/ogc/v1"><strong>Waterschappen Waterketen GWSW (OGC API)</strong></a>
+                        </td>
+                        <td>
+                            <p>Deze dataset is gebaseerd op (niet geharmoniseerde) data van alle waterschappen in Nederland conform het Gegevenswoordenboek Stedelijk Water (GWSW). De dataset bevat de volgende GWSW objecten: Constructieonderdelen, IBA, Kabels, Leidingen, Leidingsegmenten, Lozingspunt, Mantelbuis, Nooduitlaat, Overnamepunt, Put, Rioleringsgebied, Rioolgemaal, RWZI en Zuiveringseenheid.</p>
+                        </td>
+                        <td class="text-break">
+                            Waterschap, Gwsw, Stedelijk water, Afvalwaterketen, Riolering
+                        </td>
+                    </tr>
+                    <tr>
+                        <td>
+                            <a href="https://api.pdok.nl/hwh/waterschappen-zoneringen-imwa/ogc/v1"><strong>Waterschappen Waterstaatskundige zoneringen waterstaatswerk IMWA (OGC API)</strong></a>
+                        </td>
+                        <td>
+                            <p>Deze dataset is gebaseerd op (geharmoniseerde) data van alle waterschappen in Nederland conform het Informatiemodel water (IMWA). De dataset bevat de volgende IMWA objecten: beschermingszone, waterstaatswerkOppervlaktewaterlichaam, waterstaatswerkWaterbergingsgebied, waterstaatswerkWaterkering, Profiel van Vrije Ruimte</p>
+                        </td>
+                        <td class="text-break">
+                            Oppervlaktewaterlichaam, Bergingsgebied, Waterkering, Beschermingszone, WaterstaatswerkOppervlaktewaterlichaam, WaterstaatswerkWaterbergingsgebied, WaterstaatswerkWaterkering, Profiel van Vrije Ruimte
+                        </td>
+                    </tr>
+                    <tr>
+                        <td>
+                            <a href="https://api.pdok.nl/rws/weggegevens/ogc/v1"><strong>Weggegevens (WEGGEG) (OGC API)</strong></a>
+                        </td>
+                        <td>
+                            <p>Dit is de OGC API Features service van de dataset Weggegevens (WEGGEG). Deze dataset bevat de rijstroken en maximumsnelheden uit de weggegevens van de Nederlandse Rijkswegen. Deze kunnen gekoppeld worden aan de wegvakken uit NWB wegen. Deze dataset is aangemerkt als As-Is bron voor EU-doelen.</p>
+                        </td>
+                        <td class="text-break">
+                            Vervoersnetwerken, Infrastructuur, Wegen, Verkeer, Rijstroken, Maximum snelheden, Weggeg, HVD, Aardobservatie en milieu
+                        </td>
+                    </tr>
+                    <tr>
+                        <td>
+                            <a href="https://api.pdok.nl/rvo/wetlands-geharmoniseerd/ogc/v1"><strong>Wetlands (INSPIRE Geharmoniseerd) (OGC API)</strong></a>
+                        </td>
+                        <td>
+                            <p>Wetlands zijn de natte natuurgebieden in Nederland. Het Wetland verdrag is op 2 februari 1971 te Ramsar in Iran ondertekend.
+                            Nederland was een van de zestien landen die het Verdrag toen ondertekende. In 1980 heeft Nederland het Verdrag geratificeerd.
+                            Het Ramsar Verdrag is een van de oudste Internationale Verdragen over natuur. Inmiddels hebben 138 landen de Wetlands-Conventie
+                            ondertekend (stand van zaken augustus 2004). Het Ramsar Verdrag heeft tot doel Wetlands en de daarbij behorende plant- en
+                            diersoorten te beschermen. 'Wetlands' ofwel 'nat land' is officieel gedefinieerd volgens het Ramsar Verdrag als: 'Waterrijke gebieden,
+                            moerassen, vennen, veen- of plasgebieden, natuurlijk of kunstmatig, blijvend of tijdelijk, met stilstaand of stromend water, zoet,
+                            brak of zout, met inbegrip van zeewater, waarvan de diepte bij eb niet meer is dan zes meter'. Hierbij behoren tevens de aan
+                            watergebieden grenzende oever- en kustgebieden en binnen deze gebieden gelegen eilanden of zeewatergebieden.In Nederland zijn in totaal 44 Wetlands.
+                            Deze Wetlands zijn door het Ramsar Secretariaat op 'The Ramsar List of Wetlands of International Importance' geplaatst.
+                            Over elk gebied op de lijst wordt door Wetlands International een uitgebreide database bijgehouden.
+                            Deze database en andere informatie over het Ramsar Verdrag kunt u vinden op de website van het Ramsar Secretariaat.
+                            In de periode tussen 1980 en 1995 heeft Nederland achttien Wetlands op deze Ramsar lijst geplaatst. In 2000 zijn nogmaals 26 Wetlands toegevoegd.
+                            Landen die toetreden tot de Wetlands Conventie hebben vooral een morele verplichting om het Ramsar Verdrag uit te voeren.
+                            De bepalingen zijn minder dwingend en bindend dan die van Europeesrechtelijke verplichtingen, die voortvloeien uit de Vogelrichtlijn en de Habitatrichtlijn.
+                            De gebieden die voor deze richtlijnen zijn geselecteerd heten Natura 2000 gebieden. In Nederland zijn alle Wetlands (op een na) tevens
+                            Vogelrichtlijngebied ofwel Natura 2000 gebied. De rol en mogelijkheden van Wetlands worden vaak onderschat. Allereerst hebben ze belangrijke
+                            ecologische functies: ze zijn onmisbaar vanwege de ligging op Internationale trekroutes van vogels. Of als kraamkamer voor vissen en zeedieren.
+                            Maar ook de mens profiteert van Wetlands: zeker in onze dichtbevolkte delta. Ze worden gebruikt voor visserij, recreatie/toerisme, scheepvaart,
+                            waterberging (tegen overstromingen), drinkwatervoorziening of als aantrekkelijke woonomgeving. Er zorgvuldig mee omgaan en het benutten van kansen
+                            is dus belangrijk. In totaal is bijna een miljoen hectare in Nederland Wetland, dat is 27% van de totale oppervlakte van ons land (inclusief territoriale wateren).</p>
+                        </td>
+                        <td class="text-break">
+                            beschermde gebieden, wetlands, natte natuur, moerassen, vennen, veengebied, plassen, HVD, Aardobservatie en milieu
+                        </td>
+                    </tr>
+                    <tr>
+                        <td>
+                            <a href="https://api.pdok.nl/rvo/wetlands/ogc/v1"><strong>Wetlands (OGC API)</strong></a>
+                        </td>
+                        <td>
+                            <p>Wetlands zijn de natte natuurgebieden in Nederland. Het Wetland verdrag is op 2 februari 1971 te Ramsar in Iran ondertekend.
+                            Nederland was een van de zestien landen die het Verdrag toen ondertekende. In 1980 heeft Nederland het Verdrag geratificeerd.
+                            Het Ramsar Verdrag is een van de oudste Internationale Verdragen over natuur. Inmiddels hebben 138 landen de Wetlands-Conventie
+                            ondertekend (stand van zaken augustus 2004). Het Ramsar Verdrag heeft tot doel Wetlands en de daarbij behorende plant- en
+                            diersoorten te beschermen. 'Wetlands' ofwel 'nat land' is officieel gedefinieerd volgens het Ramsar Verdrag als: 'Waterrijke gebieden,
+                            moerassen, vennen, veen- of plasgebieden, natuurlijk of kunstmatig, blijvend of tijdelijk, met stilstaand of stromend water, zoet,
+                            brak of zout, met inbegrip van zeewater, waarvan de diepte bij eb niet meer is dan zes meter'. Hierbij behoren tevens de aan
+                            watergebieden grenzende oever- en kustgebieden en binnen deze gebieden gelegen eilanden of zeewatergebieden. In Nederland zijn
+                            in totaal 44 Wetlands. Deze Wetlands zijn door het Ramsar Secretariaat op 'The Ramsar List of Wetlands of International Importance'
+                            geplaatst. Over elk gebied op de lijst wordt door Wetlands International een uitgebreide database bijgehouden. Deze database en
+                            andere informatie over het Ramsar Verdrag kunt u vinden op de website van het Ramsar Secretariaat. In de periode tussen 1980 en
+                            1995 heeft Nederland achttien Wetlands op deze Ramsar lijst geplaatst. In 2000 zijn nogmaals 26 Wetlands toegevoegd. Landen die
+                            toetreden tot de Wetlands Conventie hebben vooral een morele verplichting om het Ramsar Verdrag uit te voeren. De bepalingen zijn
+                            minder dwingend en bindend dan die van Europeesrechtelijke verplichtingen, die voortvloeien uit de Vogelrichtlijn en de Habitatrichtlijn.
+                            De gebieden die voor deze richtlijnen zijn geselecteerd heten Natura 2000 gebieden. In Nederland zijn alle Wetlands (op een na)
+                            tevens Vogelrichtlijngebied ofwel Natura 2000 gebied. De rol en mogelijkheden van Wetlands worden vaak onderschat.
+                            Allereerst hebben ze belangrijke ecologische functies: ze zijn onmisbaar vanwege de ligging op Internationale trekroutes van vogels.
+                            Of als kraamkamer voor vissen en zeedieren. Maar ook de mens profiteert van Wetlands: zeker in onze dichtbevolkte delta. Ze worden
+                            gebruikt voor visserij, recreatie/toerisme, scheepvaart, waterberging (tegen overstromingen), drinkwatervoorziening of als
+                            aantrekkelijke woonomgeving. Er zorgvuldig mee omgaan en het benutten van kansen is dus belangrijk. In totaal is bijna een miljoen
+                            hectare in Nederland Wetland, dat is 27% van de totale oppervlakte van ons land (inclusief territoriale wateren).</p>
+                        </td>
+                        <td class="text-break">
+                            beschermde gebieden, wetlands, natte natuur, moerassen, vennen, veengebied, plassen, HVD, Aardobservatie en milieu
+                        </td>
+                    </tr>
+                    <tr>
+                        <td>
+                            <a href="https://api.pdok.nl/kadaster/brt-zeegebieden/ogc/v1"><strong>Zeegebieden (INSPIRE geharmoniseerd) (OGC API)</strong></a>
+                        </td>
+                        <td>
+                            <p>INSPIRE Zeegebieden themalaag, geharmoniseerd, gevuld met relevante objecten uit TOP10NL (onderdeel van de Basisregistratie Topografie (BRT)), geproduceerd en beheerd door het Kadaster. De dataset bevat Sea, Shoreline, Coastline en Intertidal area.</p>
+                        </td>
+                        <td class="text-break">
+                            Zeegebieden, Nationaal, Kustgebied, Zee, Oceaan, Getijden, HVD, Aardobservatie en milieu, sea regions
+                        </td>
+                    </tr>
+                    <tr>
+                        <td>
+                            <a href="https://api.pdok.nl/lv/bgt/download/v1_0/ui/"><strong>BGT Download API</strong></a>
+                        </td>
+                        <td>
+                            <p>Met deze API is het mogelijk om gegevens uit de BGT dataset te downloaden. Deze BGT-gegevens zijn te downloaden voor
+                            gebruik in eigen GIS-software. De BGT-gegevens zijn als extract in GML of GML-light  of Stuf-geo formaat te downloaden.</p>
+
+                            <p>Dit document bevat alleen informatie m.b.t. het gebruik van deze API.
+                            De BGT-modeldocumentatie (IMGEO) met bijbehorend schema(xsd) en beschrijvingen van de download formaten kun je vinden op:
+                            <a rel="noopener" target="_blank" href="https://www.geonovum.nl/geo-standaarden/bgt-imgeo">https://www.geonovum.nl/geo-standaarden/bgt-imgeo</a>.</p>
+
+                            <p>Een stappenplan voor het downloaden via deze API staat <a rel="noopener" target="_blank" href="https://www.pdok.nl/documents/1901824/4016976/Stappenplan_PDOK_download_APIs.pdf">hier</a> beschreven.</p>
+                        </td>
+                        <td class="text-break">
+                            bgt, basisregistratie, gebouwen, spoorlijnen, terreinen, wegen, topografie, water, gml, download
+                        </td>
+                    </tr>
+                    <tr>
+                        <td>
+                            <a href="https://api.pdok.nl/kadaster/kadastralekaart/download/v5_0/ui"><strong>Kadastralekaart Download API</strong></a>
+                        </td>
+                        <td>
+                            <p>Met deze API is het mogelijk om gegevens uit de Kadastralekaart dataset te downloaden.</p>
+
+                            <p>Dit document bevat alleen informatie m.b.t. het gebruik van deze API.
+                            De Kadastralekaart-modeldocumentatie met bijbehorend schema(xsd) kun je vinden op
+                            <a rel="noopener" target="_blank" href="https://zakelijk.kadaster.nl/schemas">https://zakelijk.kadaster.nl/schemas</a>.</p>
+
+                            <p>Een stappenplan voor het downloaden via deze API staat <a rel="noopener" target="_blank" href="https://www.pdok.nl/documents/1901824/4016976/Stappenplan_PDOK_download_APIs.pdf">hier</a> beschreven.</p>
+                        </td>
+                        <td class="text-break">
+                            Kadaster, kadastrale percelen, kadastrale grens, bebouwing, nummeraanduidingreeks, openbareruimte naam, perceelgrens, Kadastrale percelen
+                        </td>
+                    </tr>
+                    <tr>
+                        <td>
+                            <a href="https://api.pdok.nl/kadaster/location-api/v1"><strong>PDOK Location API</strong></a>
+                        </td>
+                        <td>
+                            <p>De PDOK Location API maakt het mogelijk om tekstgebaseerd te zoeken in de opgenomen OGC API Features collections.</p>
+                        </td>
+                        <td class="text-break">
+                            geocoding, geocoderen, geocoder, location, locatie, text search, zoeken, adres omzetten, suggesties, auto-aanvullen
+                        </td>
+                    </tr>
+                    <tr>
+                        <td>
+                            <a href="https://api.pdok.nl/bzk/locatieserver/search/v3_1/ui/"><strong>PDOK Locatieserver</strong></a>
+                        </td>
+                        <td>
+                            <p>De PDOK Locatieserver is een open en gratis geocodeerservice waarmee gezocht
+                            kan worden op gegevens uit verschillende overheidsregistraties (bijvoorbeeld
+                            adressen, percelen en rijkswegen) om vervolgens doorgestuurd te worden naar
+                            de locatie van de zoekopdracht.</p>
+
+                            <p>De Locatieserver bestaat uit meerdere RESTful API's die eenvoudig geïntegreerd
+                            kunnen worden in viewers en/of applicaties. De API's zijn open, gratis en bevatten
+                            gegevens uit verschillende overheidsregistraties zoals adressen (postcodes,
+                            straten, huisnummer), kadastrale percelen, wegen en hectometerpalen maar ook
+                            woonplaatsen, wijken, buurten en waterschappen. De onderliggende gegevens worden
+                            zeer frequent bijgewerkt.</p>
+
+                            <p>De Locatieserver bestaat totaal uit vier RESTful API's die gepubliceerd worden
+                            volgens de Open API Specificatie <a rel="noopener" target="_blank" href="https://api.pdok.nl/bzk/locatieserver/search/v3_1/ui/">https://api.pdok.nl/bzk/locatieserver/search/v3_1/ui/</a>.
+                            Hiermee zijn de mogelijkheden van de Locatieserver API's (input en output)
+                            gedocumenteerd.</p>
+                        </td>
+                        <td class="text-break">
+                            Locatie, geocoderen, suggesties, auto-aanvullen, reverse, adres, wijk, buurt, woonplaats, gemeente, waterschap, provincie, kadaster, kadastraal, aanduiding, perceel, hectometerpaal
+                        </td>
+                    </tr>
+                    <tr>
+                        <td>
+                            <a href="https://api.pdok.nl/brt/top10nl/download/v1_0/ui/"><strong>TOP10NL Download API</strong></a>
+                        </td>
+                        <td>
+                            <p>TOP10NL is een digitaal objectgericht topografisch bestand wat ten grondslag ligt aan de topografische kaartseries 1:10.000 en 1:25.000 en wat veelvuldig in
+                            diverse GIS- en CAD-systemen wordt gebruikt voor ondergrond, analyse-, en beheers- en planningsactiviteiten. Met deze API is het mogelijk om gegevens uit de
+                            BRT dataset te downloaden. Deze BRT-gegevens zijn te downloaden voor gebruik in eigen GIS-software. De BRT-gegevens zijn als extract in GML-formaat te downloaden.
+                            Dit document bevat alleen informatie m.b.t. het gebruik van deze API. De BRT-modeldocumentatie met bijbehorend schema(xsd) en beschrijvingen van de download
+                            formaten kun je vinden op: <a rel="noopener" target="_blank" href="https://register.geostandaarden.nl/?url=brt/index.html">https://register.geostandaarden.nl/?url=brt/index.html</a>.
+                            Hieronder worden eerst een aantal algemene begrippen en concepten uitgelegd. Vervolgens wordt elk endpoint individueel beschreven.</p>
+
+                            <p>Een stappenplan voor het downloaden via deze API staat <a rel="noopener" target="_blank" href="https://www.pdok.nl/documents/1901824/4016976/Stappenplan_PDOK_download_APIs.pdf">hier</a> beschreven.</p>
+                        </td>
+                        <td class="text-break">
+                            Basisregistratie, Topografie, BRT, TOP10NL, TOP10, Kadaster, Automatische generalisatie, Topografische kaart, Topografie
+                        </td>
+                    </tr>
+                    <tr>
+                        <td>
+                            <a href="https://api.pdok.nl/brt/top50nl/download/v1_0/ui/"><strong>TOP50NL Download API</strong></a>
+                        </td>
+                        <td>
+                            <p>TOP50NL is een digitaal objectgericht topografisch bestand wat ten grondslag ligt aan de topografische kaartseries 1:50.000 en wat veelvuldig in
+                            diverse GIS- en CAD-systemen wordt gebruikt voor ondergrond, analyse-, en beheers- en planningsactiviteiten. Met deze API is het mogelijk om gegevens uit de
+                            BRT dataset te downloaden. Deze BRT-gegevens zijn te downloaden voor gebruik in eigen GIS-software. De BRT-gegevens zijn als extract in GML-formaat te downloaden.
+                            Dit document bevat alleen informatie m.b.t. het gebruik van deze API. De BRT-modeldocumentatie met bijbehorend schema(xsd) en beschrijvingen van de download
+                            formaten kun je vinden op: <a rel="noopener" target="_blank" href="https://register.geostandaarden.nl/?url=brt/index.html">https://register.geostandaarden.nl/?url=brt/index.html</a>.
+                            Hieronder worden eerst een aantal algemene begrippen en concepten uitgelegd. Vervolgens wordt elk endpoint individueel beschreven.</p>
+
+                            <p>Een stappenplan voor het downloaden via deze API staat <a rel="noopener" target="_blank" href="https://www.pdok.nl/documents/1901824/4016976/Stappenplan_PDOK_download_APIs.pdf">hier</a> beschreven.</p>
+                        </td>
+                        <td class="text-break">
+                            Basisregistratie, Topografie, BRT, TOP50NL, TOP50, Kadaster, Automatische generalisatie, Topografische kaart, Topografie
+                        </td>
+                    </tr>
+                    <tr>
+                        <td>
+                            <a href="https://api.pdok.nl/brt/top100nl/download/v1_0/ui/"><strong>TOP100NL Download API</strong></a>
+                        </td>
+                        <td>
+                            <p>TOP100NL is een digitaal objectgericht topografisch bestand wat ten grondslag ligt aan de topografische kaartseries 1:100.000 en wat veelvuldig in
+                            diverse GIS- en CAD-systemen wordt gebruikt voor ondergrond, analyse-, en beheers- en planningsactiviteiten. Met deze API is het mogelijk om gegevens uit de
+                            BRT dataset te downloaden. Deze BRT-gegevens zijn te downloaden voor gebruik in eigen GIS-software. De BRT-gegevens zijn als extract in GML-formaat te downloaden.
+                            Dit document bevat alleen informatie m.b.t. het gebruik van deze API. De BRT-modeldocumentatie met bijbehorend schema(xsd) en beschrijvingen van de download
+                            formaten kun je vinden op: <a rel="noopener" target="_blank" href="https://register.geostandaarden.nl/?url=brt/index.html">https://register.geostandaarden.nl/?url=brt/index.html</a>.
+                            Hieronder worden eerst een aantal algemene begrippen en concepten uitgelegd. Vervolgens wordt elk endpoint individueel beschreven.</p>
+
+                            <p>Een stappenplan voor het downloaden via deze API staat <a rel="noopener" target="_blank" href="https://www.pdok.nl/documents/1901824/4016976/Stappenplan_PDOK_download_APIs.pdf">hier</a> beschreven.</p>
+                        </td>
+                        <td class="text-break">
+                            Basisregistratie, Topografie, BRT, TOP100NL, TOP100, Kadaster, Automatische generalisatie, Topografische kaart, Topografie
+                        </td>
+                    </tr>
+                    <tr>
+                        <td>
+                            <a href="https://api.pdok.nl/brt/top250nl/download/v1_0/ui/"><strong>TOP250NL Download API</strong></a>
+                        </td>
+                        <td>
+                            <p>TOP250NL is een digitaal objectgericht topografisch bestand wat ten grondslag ligt aan de topografische kaartseries 1:250.000 en wat veelvuldig in
+                            diverse GIS- en CAD-systemen wordt gebruikt als ondergrond. Met deze API is het mogelijk om gegevens uit de
+                            BRT dataset te downloaden. Deze BRT-gegevens zijn te downloaden voor gebruik in eigen GIS-software. De BRT-gegevens zijn als extract in GML-formaat te downloaden.
+                            Dit document bevat alleen informatie m.b.t. het gebruik van deze API. De BRT-modeldocumentatie met bijbehorend schema(xsd) en beschrijvingen van de download
+                            formaten kun je vinden op: <a rel="noopener" target="_blank" href="https://register.geostandaarden.nl/?url=brt/index.html">https://register.geostandaarden.nl/?url=brt/index.html</a>.
+                            Hieronder worden eerst een aantal algemene begrippen en concepten uitgelegd. Vervolgens wordt elk endpoint individueel beschreven.</p>
+
+                            <p>Een stappenplan voor het downloaden via deze API staat <a rel="noopener" target="_blank" href="https://www.pdok.nl/documents/1901824/4016976/Stappenplan_PDOK_download_APIs.pdf">hier</a> beschreven.</p>
+                        </td>
+                        <td class="text-break">
+                            Basisregistratie, Topografie, BRT, TOP250NL, TOP250, Kadaster, Automatische generalisatie, Topografische kaart, Topografie
+                        </td>
+                    </tr>
+                    <tr>
+                        <td>
+                            <a href="https://api.pdok.nl/brt/top500nl/download/v1_0/ui/"><strong>TOP500NL Download API</strong></a>
+                        </td>
+                        <td>
+                            <p>TOP500NL is een digitaal objectgericht topografisch bestand wat ten grondslag ligt aan de topografische kaartseries 1:500.000 en wat veelvuldig in
+                            diverse GIS- en CAD-systemen wordt gebruikt als ondergrond. Met deze API is het mogelijk om gegevens uit de
+                            BRT dataset te downloaden. Deze BRT-gegevens zijn te downloaden voor gebruik in eigen GIS-software. De BRT-gegevens zijn als extract in GML-formaat te downloaden.
+                            Dit document bevat alleen informatie m.b.t. het gebruik van deze API. De BRT-modeldocumentatie met bijbehorend schema(xsd) en beschrijvingen van de download
+                            formaten kun je vinden op: <a rel="noopener" target="_blank" href="https://register.geostandaarden.nl/?url=brt/index.html">https://register.geostandaarden.nl/?url=brt/index.html</a>.
+                            Hieronder worden eerst een aantal algemene begrippen en concepten uitgelegd. Vervolgens wordt elk endpoint individueel beschreven.</p>
+
+                            <p>Een stappenplan voor het downloaden via deze API staat <a rel="noopener" target="_blank" href="https://www.pdok.nl/documents/1901824/4016976/Stappenplan_PDOK_download_APIs.pdf">hier</a> beschreven.</p>
+                        </td>
+                        <td class="text-break">
+                            Basisregistratie, Topografie, BRT, TOP500NL, TOP500, Kadaster, Automatische generalisatie, Topografische kaart, Topografie
+                        </td>
+                    </tr>
+                    <tr>
+                        <td>
+                            <a href="https://api.pdok.nl/brt/top1000nl/download/v1_0/ui/"><strong>TOP1000NL Download API</strong></a>
+                        </td>
+                        <td>
+                            <p>TOP1000NL is een digitaal objectgericht topografisch bestand wat ten grondslag ligt aan de topografische kaartseries 1:1.000.000 en wat veelvuldig in
+                            diverse GIS- en CAD-systemen wordt gebruikt als ondergrond. Met deze API is het mogelijk om gegevens uit de
+                            BRT dataset te downloaden. Deze BRT-gegevens zijn te downloaden voor gebruik in eigen GIS-software. De BRT-gegevens zijn als extract in GML-formaat te downloaden.
+                            Dit document bevat alleen informatie m.b.t. het gebruik van deze API. De BRT-modeldocumentatie met bijbehorend schema(xsd) en beschrijvingen van de download
+                            formaten kun je vinden op: <a rel="noopener" target="_blank" href="https://register.geostandaarden.nl/?url=brt/index.html">https://register.geostandaarden.nl/?url=brt/index.html</a>.
+                            Hieronder worden eerst een aantal algemene begrippen en concepten uitgelegd. Vervolgens wordt elk endpoint individueel beschreven.</p>
+
+                            <p>Een stappenplan voor het downloaden via deze API staat <a rel="noopener" target="_blank" href="https://www.pdok.nl/documents/1901824/4016976/Stappenplan_PDOK_download_APIs.pdf">hier</a> beschreven.</p>
+                        </td>
+                        <td class="text-break">
+                            Basisregistratie, Topografie, BRT, TOP1000NL, TOP1000, Kadaster, Automatische generalisatie, Topografische kaart, Topografie
+                        </td>
+                    </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+    </div>
+</main>
+
+
+<footer class="footer mt-auto py-3">
+    <div class="container">
+        <div class="row">
+            <div class="col-1">
+                &nbsp;
+            </div>
+            <div class="col-11 text-end">
+                <img src="img/logo-footer.png" alt="Logo of The Netherlands Cadastre, Land Registry and Mapping Agency">
+            </div>
+        </div>
+    </div>
+</footer>
+
+</body>
+</html>

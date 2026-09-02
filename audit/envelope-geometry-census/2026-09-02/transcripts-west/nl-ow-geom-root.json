@@ -1,0 +1,84 @@
+{
+ "title": "Geometrieën Omgevingswet API",
+ "description": "De Geometrieën Omgevingswet API ontsluit twee vector tile-datasets met daarin de geometrieën uit omgevingsdocumenten en vergunningen. De geometrieën zijn beschikbaar in RD-formaat en kennen elk één attribuut: de geometrie-identificatie. De twee datasets die met deze API ontsloten worden zijn de Actueel v2 en de Volledig v2. Van elk van de datasets zijn vijf varianten beschikbaar; één voor elk van de verschillende Omgevingswet-omgevingen.",
+ "keywords": [
+  {
+   "keyword": "omgevingsdocumenten"
+  },
+  {
+   "keyword": "ozon"
+  },
+  {
+   "keyword": "objectgerichte ontsluiting"
+  },
+  {
+   "keyword": "vector tiles"
+  }
+ ],
+ "links": [
+  {
+   "rel": "self",
+   "type": "application/json",
+   "title": "Landing page as JSON",
+   "href": "https://api.pdok.nl/kadaster/omgevingswet-geometrieen/ogc/v2?f=json"
+  },
+  {
+   "rel": "alternate",
+   "type": "text/html",
+   "title": "Landing page as HTML",
+   "href": "https://api.pdok.nl/kadaster/omgevingswet-geometrieen/ogc/v2?f=html"
+  },
+  {
+   "rel": "service-desc",
+   "type": "application/vnd.oai.openapi+json;version=3.0",
+   "title": "The JSON OpenAPI 3.0 document that describes the API offered at this endpoint",
+   "href": "https://api.pdok.nl/kadaster/omgevingswet-geometrieen/ogc/v2/api?f=json"
+  },
+  {
+   "rel": "conformance",
+   "type": "application/json",
+   "title": "OGC API conformance classes implemented by the API offered at this endpoint",
+   "href": "https://api.pdok.nl/kadaster/omgevingswet-geometrieen/ogc/v2/conformance?f=json"
+  },
+  {
+   "rel": "http://www.opengis.net/def/rel/ogc/1.0/conformance",
+   "type": "application/json",
+   "title": "OGC API conformance classes implemented by the API offered at this endpoint",
+   "href": "https://api.pdok.nl/kadaster/omgevingswet-geometrieen/ogc/v2/conformance?f=json"
+  },
+  {
+   "rel": "license",
+   "type": "text/html",
+   "title": "CC0 1.0",
+   "href": "http://creativecommons.org/publicdomain/zero/1.0/deed.nl"
+  },
+  {
+   "rel": "preview",
+   "type": "image/png",
+   "title": "Thumbnail for the dataset shared via this API",
+   "href": "https://api.pdok.nl/kadaster/omgevingswet-geometrieen/ogc/v2/resources/thumbnail.png"
+  },
+  {
+   "rel": "data",
+   "type": "application/json",
+   "title": "The JSON representation of the list of all data layers (collections) served from this endpoint",
+   "href": "https://api.pdok.nl/kadaster/omgevingswet-geometrieen/ogc/v2/collections"
+  },
+  {
+   "rel": "http://www.opengis.net/def/rel/ogc/1.0/data",
+   "type": "application/json",
+   "title": "The JSON representation of the list of all data layers (collections) served from this endpoint",
+   "href": "https://api.pdok.nl/kadaster/omgevingswet-geometrieen/ogc/v2/collections"
+  },
+  {
+   "rel": "http://www.opengis.net/def/rel/ogc/1.0/data-meta",
+   "title": "Metadata for OGC API Tiles at Nationaal Georegister",
+   "href": "https://www.nationaalgeoregister.nl/geonetwork/srv/dut/catalog.search#/metadata/986c3c11-35ba-4a40-a84f-77a3e690a836"
+  },
+  {
+   "rel": "http://www.opengis.net/def/rel/ogc/1.0/data-meta",
+   "title": "Metadata for dataset at Nationaal Georegister",
+   "href": "https://www.nationaalgeoregister.nl/geonetwork/srv/dut/catalog.search#/metadata/a12b7ff5-9f92-4e5c-8696-e8b45ff75187"
+  }
+ ]
+}

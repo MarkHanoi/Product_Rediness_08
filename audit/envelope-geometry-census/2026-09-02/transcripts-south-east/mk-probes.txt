@@ -1,0 +1,27 @@
+# MK probes 2026-09-02T18:06:48Z
+== PROBE https://www.e-urbanizam.mk/
+HTTP=200 bytes=21074 type=text/html; charset=utf-8 RC=0
+
+<!DOCTYPE html>
+<html lang="en">
+<!--[if lt IE 9]>
+<script type="text/javascript">
+location.assign('upgrade.html');
+</script>
+<![endif]-->
+<head><meta charset="utf-8" /><meta name="viewport" content="width=device-width" /><link rel="icon" href="favicon.png" type="image/x-icon" /><meta name="keywords" content=" WebBuilder DEMO" /><meta name="description" content="WebBuilder DEMO" /><title>
+	Македонски - Најава
+</title>
+
+== PROBE https://ossp.katastar.gov.mk/OSSP/
+curl: (28) Failed to connect to ossp.katastar.gov.mk port 443 after 21202 ms: Could not connect to server
+HTTP=000 bytes=0 type= RC=28
+
+== PROBE https://www.katastar.gov.mk/
+curl: (28) Failed to connect to www.katastar.gov.mk port 443 after 21117 ms: Could not connect to server
+HTTP=000 bytes=0 type= RC=28
+
+== PROBE https://geoportal.katastar.gov.mk/
+curl: (6) Could not resolve host: geoportal.katastar.gov.mk
+HTTP=000 bytes=0 type= RC=6
+

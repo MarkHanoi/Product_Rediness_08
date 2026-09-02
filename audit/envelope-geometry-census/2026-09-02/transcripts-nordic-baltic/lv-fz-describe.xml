@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="UTF-8"?><xsd:schema xmlns:gml="http://www.opengis.net/gml/3.2" xmlns:tapis_apvienotie="http://www.vraa.gov.lv/tapis_apvienotie" xmlns:wfs="http://www.opengis.net/wfs/2.0" xmlns:xsd="http://www.w3.org/2001/XMLSchema" elementFormDefault="qualified" targetNamespace="http://www.vraa.gov.lv/tapis_apvienotie">
+  <xsd:import namespace="http://www.opengis.net/gml/3.2" schemaLocation="https://tapis.gov.lv/izpl/geoserver/schemas/gml/3.2.1/gml.xsd"/>
+  <xsd:complexType name="funkcionalais_zonejumsType">
+    <xsd:complexContent>
+      <xsd:extension base="gml:AbstractFeatureType">
+        <xsd:sequence>
+          <xsd:element maxOccurs="1" minOccurs="0" name="tapis_id" nillable="true" type="xsd:int"/>
+          <xsd:element maxOccurs="1" minOccurs="0" name="id" nillable="true" type="xsd:int"/>
+          <xsd:element maxOccurs="1" minOccurs="0" name="kods" nillable="true" type="xsd:string"/>
+          <xsd:element maxOccurs="1" minOccurs="0" name="nosaukums" nillable="true" type="xsd:string"/>
+          <xsd:element maxOccurs="1" minOccurs="0" name="piezimes" nillable="true" type="xsd:string"/>
+          <xsd:element maxOccurs="1" minOccurs="0" name="veids" nillable="true" type="xsd:string"/>
+          <xsd:element maxOccurs="1" minOccurs="0" name="indekss" nillable="true" type="xsd:string"/>
+          <xsd:element maxOccurs="1" minOccurs="0" name="indekseta" nillable="true" type="xsd:boolean"/>
+          <xsd:element maxOccurs="1" minOccurs="0" name="grupa_kods" nillable="true" type="xsd:string"/>
+          <xsd:element maxOccurs="1" minOccurs="0" name="grupa_nos" nillable="true" type="xsd:string"/>
+          <xsd:element maxOccurs="1" minOccurs="0" name="plat_kvm" nillable="true" type="xsd:decimal"/>
+          <xsd:element maxOccurs="1" minOccurs="0" name="plat_ha" nillable="true" type="xsd:decimal"/>
+          <xsd:element maxOccurs="1" minOccurs="0" name="garums_m" nillable="true" type="xsd:decimal"/>
+          <xsd:element maxOccurs="1" minOccurs="0" name="garums_km" nillable="true" type="xsd:decimal"/>
+          <xsd:element maxOccurs="1" minOccurs="0" name="ped_izmain" nillable="true" type="xsd:dateTime"/>
+          <xsd:element maxOccurs="1" minOccurs="0" name="kludu_kodi" nillable="true" type="xsd:string"/>
+          <xsd:element maxOccurs="1" minOccurs="0" name="atvk_kods" nillable="true" type="xsd:string"/>
+          <xsd:element maxOccurs="1" minOccurs="0" name="atvk_nos" nillable="true" type="xsd:string"/>
+          <xsd:element maxOccurs="1" minOccurs="0" name="dok_id" nillable="true" type="xsd:int"/>
+          <xsd:element maxOccurs="1" minOccurs="0" name="dok_nos" nillable="true" type="xsd:string"/>
+          <xsd:element maxOccurs="1" minOccurs="0" name="dok_datums_no" nillable="true" type="xsd:date"/>
+          <xsd:element maxOccurs="1" minOccurs="0" name="geom" nillable="true" type="gml:SurfacePropertyType"/>
+          <xsd:element maxOccurs="1" minOccurs="0" name="authority_identifier" nillable="true" type="xsd:string"/>
+          <xsd:element maxOccurs="1" minOccurs="0" name="dok_ori_id" nillable="true" type="xsd:int"/>
+          <xsd:element maxOccurs="1" minOccurs="0" name="dok_ori_nos" nillable="true" type="xsd:string"/>
+          <xsd:element maxOccurs="1" minOccurs="0" name="dok_ori_datums_no" nillable="true" type="xsd:date"/>
+        </xsd:sequence>
+      </xsd:extension>
+    </xsd:complexContent>
+  </xsd:complexType>
+  <xsd:element name="funkcionalais_zonejums" substitutionGroup="gml:AbstractFeature" type="tapis_apvienotie:funkcionalais_zonejumsType"/>
+</xsd:schema>

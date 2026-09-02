@@ -1,0 +1,127 @@
+# BG+RO probes 2026-09-02T18:08:57Z
+== PROBE https://gis.sofiaplan.bg/arcgis/rest/services?f=json
+HTTP=404 bytes=779 type=text/html;charset=utf-8 RC=0
+<!doctype html><html lang="en"><head><title>HTTP Status 404 – Not Found</title><style type="text/css">body {font-family:Tahoma,Arial,sans-serif;} h1, h2, h3, b {color:white;background-color:#525D76;} h1 {font-size:22px;} h2 {font-size:16px;} h3 {font-size:14px;} p {font-size:12px;} a {color:black;} .line {height:1px;background-color:#525D76;border:none;}</style></head><body><h1>HTTP Status 404 – Not Found</h1><hr class="line" /><p><b>Type</b> Status Report</p><p><b>Message</b> The requested 
+== PROBE https://datelocale.mdlpa.ro/ro/about/tehnic_planurb/
+HTTP=200 bytes=414109 type=text/html; charset=utf-8 RC=0
+<!DOCTYPE html>
+
+
+<html lang="en">
+
+
+
+
+<head>
+  <meta charset="utf-8" />
+  <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no" />
+  <!-- Call App Mode on ios devices -->
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <!-- Remove Tap Highlight on Windows Phone IE -->
+  <meta name="msapplication-tap-highlight" content="no">
+  <meta name="description" content="Site destinat gestiunii datelor 
+== PROBE https://gis.sofiaplan.bg/server/rest/services?f=json
+HTTP=200 bytes=527 type=application/json;charset=UTF-8 RC=0
+{"currentVersion":10.91,"folders":["bazovi_danni","demografska_prognoza","detski_gradini","durveta","energiini_pasporti","gradsko_zemedelie","keramichni_granitni_pavazhi","manastirski_livadi_iztok","novo_arhitekturno_nasledstvo","oup_2009","parametrichno_planirane","poi","postignato_ozelenyavane","programa_za_sofia","proizvodstveni_teritorii","prostranstva_igra","prostranstva_kultura","socialni_uslugi","sofia_sportuva","transport","uchilishta","Utilities","velosipedna_mrezha","yuzhen_lozenets","zelen_ring"],"services":[]}
+== FOLDER oup_2009
+HTTP=200
+ - oup_2009/oup_2009 | FeatureServer
+ - oup_2009/oup_2009 | MapServer
+== FOLDER parametrichno_planirane
+HTTP=200
+ - parametrichno_planirane/pp_detski_gradini | FeatureServer
+ - parametrichno_planirane/pp_detski_gradini | MapServer
+oup FS HTTP=200
+ - 2 Урбанизирани територии
+ - 3 Урбанизирани територии за далекоперскпективно развитие
+ - 6 Разломи
+ - 7 Зона със сеизмичен коефициент 0.30
+ - 9 Водоизточник на минерални води
+ - 10 Санитарни зони
+ - 11 Подземни води
+ - 12 Минерални води 
+ - 14 Ускорение (g) 0,27
+ - 15 Разседни зони
+ - 16 Сеизмични зони с интензивност по MSK-64
+ - 17 Хидротермални зони
+ - 19 Зелени площи
+ - 20 Групови паметници на културта
+ - 21 Резервати
+ - 22 Обекти на недвижимото културно - историческо наследство 
+ - 24 ПП Витоша
+ - 25 Строителна граница на град София
+ - 26 Граница на Столична община
+ - 27 Административни райони
+ - 28 Защитени територии
+ - 29 Курортна зона А
+ - 31 Метростанции
+ - 32 Метро
+ - 33 Метростанции III
+ - 34 Метро III
+ - 36 Транспорт - класификация
+ - 37 Улици 10000
+ - 38 ЖП мрежа
+ - 40 Геология
+ - 41 Свлачища
+ - 44 АГРС/ГРС 55/16 (12,10,6,4) bar - израдена
+ - 45 ГРП (Газорегулаторен пункт) 16/10 bar
+ - 46 ГРП (Газорегулаторен пункт) 16/4 bar
+ - 47 ГРП (Газорегулаторен пункт) 12/4 bar
+ - 48 ГРП (Газорегулаторен пункт) 10/4 bar
+ - 49 Газопреносна мрежа 55 bar - изградена
+ - 50 Газопреносна мрежа 16 bar - изградена
+ - 51 Газопреносна мрежа 16 bar
+ - 52 Газопреносна мрежа 12 bar - изградена
+ - 53 Газопреносна мрежа 12 bar
+ - 54 Газопреносна мрежа 10 bar - изградена
+ - 55 Газопреносна мрежа 10 bar
+ - 56 Газопреносна мрежа 4 bar - изградена
+ - 57 Газопреносна мрежа 4 bar
+ - 58 Продуктопровод
+ - 59 Електропровод
+ - 60 Магистрални газопроводи
+ - 61 Хлораторни станции
+ - 63 Зони за цялостен ПРЗ
+ - 64 Зони със специфични правила
+ - 65 Територии, изискващи специфични правила и норми към ПУП
+ - 67 Сервитути
+ - 68 Санитарно-охранителни зони
+ - 69 Санитарно-охранителни зони за яз. Искър
+ - 70 Хигиенно-защитни зони за нови гробища
+ - 72 Висше образование към 24.03.2016
+ - 73 Образование към 30.01.2017
+ - 74 Доболнична помощ към 13.02.2017
+ - 75 Детски градини към 19.01.2017
+ - 76 Болнични заведения към 08.02.2017
+ - 78 Охраняем велопаркинг
+ - 79 Обменен център за велосипеди - проект
+ - 80 Изграденост на велосипедната мрежа
+ - 81 Веосипедни трасета към обекти на Софийска света гора
+ - 82 Програма за развитие на велосипедния транспорт на СО за изграждане
+ - 83 Програма за развитие на велосипедния транспорт на СО за проектиране
+ - 84 Веломаршрути в ПП „Витоша“
+ - 85 Успокоена зона
+ - 88 Спирки на МГТ
+ - 89 Трамвайни линии
+ - 90 Тролейбусни линии
+ - 91 Автобусни линии
+ - 92 Паркоместа в зони за паркиране
+ - 93 Зони за паркиране
+ - 95 Адреси
+ - 96 Имоти 18.12.2009
+ - 97 Земеделски имоти 18.12.2009
+ - 98 Сгради 18.12.2009
+ - 99 Местности
+layer2 HTTP=200
+name: Урбанизирани територии | geom: esriGeometryPolygon
+ - objectid | id | esriFieldTypeOID
+ - new_end | new_end | esriFieldTypeString
+ - type_ | type_ | esriFieldTypeString
+ - center | center | esriFieldTypeDouble
+ - protocol | protocol | esriFieldTypeString
+ - Shape__Area | st_area(geom) | esriFieldTypeDouble
+ - Shape__Length | st_length(geom) | esriFieldTypeDouble
+== layer2 sample feature
+HTTP=200
+{'objectid': 1, 'new_end': 'Оо', 'type_': 'зона за обществено обслужване', 'center': 0.0, 'protocol': None, 'Shape__Area': 106047.993807915, 'Shape__Length': 1602.8281226021065}

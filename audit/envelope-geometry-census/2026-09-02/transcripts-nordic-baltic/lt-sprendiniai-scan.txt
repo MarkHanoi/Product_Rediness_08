@@ -1,0 +1,52 @@
+service: TPDR_dinaminis layers: 277
+--- statyb/riba/zona/aukst/linij/uzstat matches: 50
+210 | Funkcinė zona | esriGeometryPolygon
+85 | Statybos riba | esriGeometryPolyline
+84 | Statybos linija | esriGeometryPolyline
+93 | Objektas (linijinis), kuriam nustatoma arba naikinama SŽNS | esriGeometryPolyline
+83 | Statybos zona | esriGeometryPolygon
+88 | Požeminio užstatymo zona | esriGeometryPolygon
+89 | Pastatų ir (ar) turinčių stogą inžinerinių statinių konsolinių pastatų dalių zona | esriGeometryPolygon
+71 | Statybos riba | esriGeometryPolyline
+70 | Statybos linija | esriGeometryPolyline
+79 | Objektas (linijinis), kuriam nustatoma arba naikinama SŽNS | esriGeometryPolyline
+69 | Statybos zona | esriGeometryPolygon
+74 | Požeminio užstatymo zona | esriGeometryPolygon
+75 | Pastatų ir (ar) turinčių stogą inžinerinių statinių konsolinių pastatų dalių zona | esriGeometryPolygon
+60 | Papildomi sprendiniai (linija) | esriGeometryPolyline
+65 | Objektas (linijinis), kuriam nustatoma arba naikinama SŽNS | esriGeometryPolyline
+49 | Objektas (linijinis), kuriam nustatoma arba naikinama SŽNS | esriGeometryPolyline
+52 | Papildomi sprendiniai (linija) | esriGeometryPolyline
+42 | Funkcinė zona | esriGeometryPolygon
+102 | Objektas (linijinis), kuriam nustatoma arba naikinama SŽNS | esriGeometryPolyline
+222 | Projektuojamos kitos priemonės, žymimos linija | esriGeometryPolyline
+97 | Statybos zona | esriGeometryPolygon
+225 | Teritorijos zonavimas pagal tinkamumą vykdyti žemės ūkio veiklą ir rekomenduojamas žemės ūkio veiklas | esriGeometryPolygon
+96 | Teritorijos naudojimo reglamento zona | esriGeometryPolygon
+108 | Objektas (linijinis), kuriam nustatoma arba naikinama SŽNS | esriGeometryPolyline
+199 | Objektas (linijinis), kuriam nustatoma arba naikinama SŽNS | esriGeometryPolyline
+120 | Objektas (linijinis), kuriam nustatoma arba naikinama SŽNS | esriGeometryPolyline
+114 | Objektas (linijinis), kuriam nustatoma arba naikinama SŽNS | esriGeometryPolyline
+132 | Objektas (linijinis), kuriam nustatoma arba naikinama SŽNS | esriGeometryPolyline
+162 | Objektas (linijinis), kuriam nustatoma arba naikinama SŽNS | esriGeometryPolyline
+144 | Objektas (linijinis), kuriam nustatoma arba naikinama SŽNS | esriGeometryPolyline
+235 | Planuojamos teritorijos zonavimas pagal žemės ūkio veiklos kryptis | esriGeometryPolygon
+240 | Teritorijos, kuriose reikalinga melioracijos sistemų statyba ir (ar) rekonstrukcija | esriGeometryPolygon
+193 | Objektas (linijinis), kuriam nustatoma arba naikinama SŽNS | esriGeometryPolyline
+168 | Objektas (linijinis), kuriam nustatoma arba naikinama SŽNS | esriGeometryPolyline
+150 | Objektas (linijinis), kuriam nustatoma arba naikinama SŽNS | esriGeometryPolyline
+156 | Objektas (linijinis), kuriam nustatoma arba naikinama SŽNS | esriGeometryPolyline
+174 | Objektas (linijinis), kuriam nustatoma arba naikinama SŽNS | esriGeometryPolyline
+126 | Objektas (linijinis), kuriam nustatoma arba naikinama SŽNS | esriGeometryPolyline
+138 | Objektas (linijinis), kuriam nustatoma arba naikinama SŽNS | esriGeometryPolyline
+181 | Objektas (linijinis), kuriam nustatoma arba naikinama SŽNS | esriGeometryPolyline
+187 | Objektas (linijinis), kuriam nustatoma arba naikinama SŽNS | esriGeometryPolyline
+25 | Papildomi sprendiniai (linija) | esriGeometryPolyline
+22 | Objektas (linijinis), kuriam nustatoma arba naikinama SŽNS | esriGeometryPolyline
+14 | Funkcinė zona | esriGeometryPolygon
+39 | Papildomi sprendiniai (linija) | esriGeometryPolyline
+36 | Objektas (linijinis), kuriam nustatoma arba naikinama SŽNS | esriGeometryPolyline
+28 | Funkcinė zona | esriGeometryPolygon
+208 | Funkcinė zona | esriGeometryPolygon
+8 | Teritorijų naudojimo funkcinio prioriteto zona | esriGeometryPolygon
+2 | Teritorijų naudojimo funkcinio prioriteto zona | esriGeometryPolygon

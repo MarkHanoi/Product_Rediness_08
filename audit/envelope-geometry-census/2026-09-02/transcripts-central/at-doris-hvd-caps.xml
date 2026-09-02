@@ -1,0 +1,500 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<wfs:WFS_Capabilities
+  xmlns="http://www.opengis.net/wfs/2.0"
+  xmlns:wfs="http://www.opengis.net/wfs/2.0"
+  xmlns:ows="http://www.opengis.net/ows/1.1"
+  xmlns:fes="http://www.opengis.net/fes/2.0"
+  xmlns:HVD="https://ags.doris.at/arcgis/services/HVD/MapServer/WFSServer"
+  xmlns:xlink="http://www.w3.org/1999/xlink"
+  xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+  version="2.0.0"  xsi:schemaLocation="http://www.opengis.net/wfs/2.0 http://schemas.opengis.net/wfs/2.0/wfs.xsd https://ags.doris.at/arcgis/services/HVD/MapServer/WFSServer https://ags.doris.at/arcgis/services/HVD/MapServer/WFSServer?service=wfs%26version=2.0.0%26request=DescribeFeatureType"
+>
+  <ows:ServiceIdentification>
+    <ows:Title>WFS</ows:Title>
+    <ows:Abstract></ows:Abstract>
+    <ows:Keywords>
+      <ows:Keyword>ESRI(LongLat)</ows:Keyword>
+    </ows:Keywords>
+    <ows:ServiceType>WFS</ows:ServiceType>
+    <ows:ServiceTypeVersion>2.0.0</ows:ServiceTypeVersion>
+    <ows:Fees></ows:Fees>
+    <ows:AccessConstraints></ows:AccessConstraints>
+  </ows:ServiceIdentification>
+  <ows:ServiceProvider>
+    <ows:ProviderName></ows:ProviderName>
+    <ows:ServiceContact>
+      <ows:IndividualName></ows:IndividualName>
+      <ows:PositionName></ows:PositionName>
+      <ows:ContactInfo>
+        <ows:Phone>
+          <ows:Voice></ows:Voice>
+          <ows:Facsimile></ows:Facsimile>
+        </ows:Phone>
+        <ows:Address>
+          <ows:DeliveryPoint></ows:DeliveryPoint>
+          <ows:City></ows:City>
+          <ows:AdministrativeArea></ows:AdministrativeArea>
+          <ows:PostalCode></ows:PostalCode>
+          <ows:Country></ows:Country>
+          <ows:ElectronicMailAddress></ows:ElectronicMailAddress>
+        </ows:Address>
+        <ows:OnlineResource xlink:href="https://msli01-047.res01.ads.ooe.local:6443/arcgis/services/services/HVD/MapServer/WFSServer"/>
+        <ows:HoursOfService></ows:HoursOfService>
+        <ows:ContactInstructions></ows:ContactInstructions>
+      </ows:ContactInfo>
+      <ows:Role></ows:Role>
+    </ows:ServiceContact>
+  </ows:ServiceProvider>
+  <ows:OperationsMetadata>
+    <ows:Operation name="GetCapabilities">
+      <ows:DCP>
+        <ows:HTTP>
+          <ows:Get xlink:href="https://ags.doris.at/arcgis/services/HVD/MapServer/WFSServer?"/>
+          <ows:Post xlink:href="https://ags.doris.at/arcgis/services/HVD/MapServer/WFSServer"/>
+        </ows:HTTP>
+      </ows:DCP>
+      <ows:Parameter name="AcceptVersions">
+        <ows:AllowedValues>
+          <ows:Value>1.0.0</ows:Value>
+          <ows:Value>1.1.0</ows:Value>
+          <ows:Value>2.0.0</ows:Value>
+      </ows:AllowedValues>
+      </ows:Parameter>
+    </ows:Operation>
+    <ows:Operation name="DescribeFeatureType">
+      <ows:DCP>
+        <ows:HTTP>
+          <ows:Get xlink:href="https://ags.doris.at/arcgis/services/HVD/MapServer/WFSServer?"/>
+          <ows:Post xlink:href="https://ags.doris.at/arcgis/services/HVD/MapServer/WFSServer"/>
+        </ows:HTTP>
+      </ows:DCP>
+    <ows:Parameter name="outputFormat">
+      <ows:AllowedValues>
+        <ows:Value>text/xml; subtype=gml/3.2</ows:Value>
+      </ows:AllowedValues>
+    </ows:Parameter>
+    </ows:Operation>
+    <ows:Operation name="GetPropertyValue">
+      <ows:DCP>
+        <ows:HTTP>
+          <ows:Get xlink:href="https://ags.doris.at/arcgis/services/HVD/MapServer/WFSServer?"/>
+          <ows:Post xlink:href="https://ags.doris.at/arcgis/services/HVD/MapServer/WFSServer"/>
+        </ows:HTTP>
+      </ows:DCP>
+      <ows:Parameter name="resolve">
+        <ows:AllowedValues>
+          <ows:Value>none</ows:Value>
+          <ows:Value>local</ows:Value>
+        </ows:AllowedValues>
+      </ows:Parameter>
+    </ows:Operation>
+    <ows:Operation name="GetFeature">
+      <ows:DCP>
+        <ows:HTTP>
+          <ows:Get xlink:href="https://ags.doris.at/arcgis/services/HVD/MapServer/WFSServer?"/>
+          <ows:Post xlink:href="https://ags.doris.at/arcgis/services/HVD/MapServer/WFSServer"/>
+        </ows:HTTP>
+      </ows:DCP>
+      <ows:Parameter name="resultType">
+        <ows:AllowedValues>
+          <ows:Value>results</ows:Value>
+          <ows:Value>hits</ows:Value>
+        </ows:AllowedValues>
+      </ows:Parameter>
+      <ows:Parameter name="outputFormat">
+        <ows:AllowedValues>
+          <ows:Value>GML32</ows:Value>
+          <ows:Value>GML32+ZIP</ows:Value>
+          <ows:Value>GML32+GZIP</ows:Value>
+          <ows:Value>application/gml+xml; version=3.2</ows:Value>
+          <ows:Value>GML3</ows:Value>
+          <ows:Value>GML3+ZIP</ows:Value>
+          <ows:Value>GML3+GZIP</ows:Value>
+          <ows:Value>text/xml; subtype=gml/3.1.1</ows:Value>
+          <ows:Value>GML2</ows:Value>
+          <ows:Value>GML2+ZIP</ows:Value>
+          <ows:Value>GML2+GZIP</ows:Value>
+          <ows:Value>text/xml; subtype=gml/2.1.2</ows:Value>
+          <ows:Value>GEOJSON</ows:Value>
+          <ows:Value>GEOJSON+ZIP</ows:Value>
+          <ows:Value>GEOJSON+GZIP</ows:Value>
+          <ows:Value>ESRIGEOJSON</ows:Value>
+          <ows:Value>ESRIGEOJSON+ZIP</ows:Value>
+          <ows:Value>ESRIGEOJSON+GZIP</ows:Value>
+          <ows:Value>KML</ows:Value>
+          <ows:Value>application/vnd.google-earth.kml xml</ows:Value>
+          <ows:Value>application/vnd.google-earth.kml+xml</ows:Value>
+          <ows:Value>KMZ</ows:Value>
+          <ows:Value>application/vnd.google-earth.kmz</ows:Value>
+          <ows:Value>SHAPE+ZIP</ows:Value>
+          <ows:Value>CSV</ows:Value>
+          <ows:Value>CSV+ZIP</ows:Value>
+          <ows:Value>CSV+GZIP</ows:Value>
+          <ows:Value>Geopackage</ows:Value>
+          <ows:Value>Geopackage+ZIP</ows:Value>
+        </ows:AllowedValues>
+      </ows:Parameter>
+      <ows:Parameter name="resolve">
+        <ows:AllowedValues>
+          <ows:Value>none</ows:Value>
+          <ows:Value>local</ows:Value>
+        </ows:AllowedValues>
+      </ows:Parameter>
+    </ows:Operation>
+    <ows:Operation name="GetGmlObject">
+      <ows:DCP>
+        <ows:HTTP>
+          <ows:Get xlink:href="https://ags.doris.at/arcgis/services/HVD/MapServer/WFSServer?"/>
+          <ows:Post xlink:href="https://ags.doris.at/arcgis/services/HVD/MapServer/WFSServer"/>
+        </ows:HTTP>
+      </ows:DCP>
+    </ows:Operation>
+    <ows:Operation name="ListStoredQueries">
+      <ows:DCP>
+        <ows:HTTP>
+          <ows:Get xlink:href="https://ags.doris.at/arcgis/services/HVD/MapServer/WFSServer?"/>
+          <ows:Post xlink:href="https://ags.doris.at/arcgis/services/HVD/MapServer/WFSServer"/>
+        </ows:HTTP>
+      </ows:DCP>
+    </ows:Operation>
+    <ows:Operation name="DescribeStoredQueries">
+      <ows:DCP>
+        <ows:HTTP>
+          <ows:Get xlink:href="https://ags.doris.at/arcgis/services/HVD/MapServer/WFSServer?"/>
+          <ows:Post xlink:href="https://ags.doris.at/arcgis/services/HVD/MapServer/WFSServer"/>
+        </ows:HTTP>
+      </ows:DCP>
+    </ows:Operation>
+    <ows:Constraint name="ImplementsBasicWFS"><ows:NoValues/><ows:DefaultValue>TRUE</ows:DefaultValue></ows:Constraint>
+    <ows:Constraint name="ImplementsTransactionalWFS"><ows:NoValues/><ows:DefaultValue>FALSE</ows:DefaultValue></ows:Constraint>
+    <ows:Constraint name="ImplementsLockingWFS"><ows:NoValues/><ows:DefaultValue>FALSE</ows:DefaultValue></ows:Constraint>
+    <ows:Constraint name="KVPEncoding"><ows:NoValues/><ows:DefaultValue>TRUE</ows:DefaultValue></ows:Constraint>
+    <ows:Constraint name="XMLEncoding"><ows:NoValues/><ows:DefaultValue>TRUE</ows:DefaultValue></ows:Constraint>
+    <ows:Constraint name="SOAPEncoding"><ows:NoValues/><ows:DefaultValue>FALSE</ows:DefaultValue></ows:Constraint>
+    <ows:Constraint name="ImplementsInheritance"><ows:NoValues/><ows:DefaultValue>FALSE</ows:DefaultValue></ows:Constraint>
+    <ows:Constraint name="ImplementsRemoteResolve"><ows:NoValues/><ows:DefaultValue>FALSE</ows:DefaultValue></ows:Constraint>
+    <ows:Constraint name="ImplementsResultPaging"><ows:NoValues/><ows:DefaultValue>TRUE</ows:DefaultValue></ows:Constraint>
+    <ows:Constraint name="ImplementsStandardJoins"><ows:NoValues/><ows:DefaultValue>FALSE</ows:DefaultValue></ows:Constraint>
+    <ows:Constraint name="ImplementsSpatialJoins"><ows:NoValues/><ows:DefaultValue>FALSE</ows:DefaultValue></ows:Constraint>
+    <ows:Constraint name="ImplementsTemporalJoins"><ows:NoValues/><ows:DefaultValue>FALSE</ows:DefaultValue></ows:Constraint>
+    <ows:Constraint name="ImplementsFeatureVersioning"><ows:NoValues/><ows:DefaultValue>FALSE</ows:DefaultValue></ows:Constraint>
+    <ows:Constraint name="ManageStoredQueries"><ows:NoValues/><ows:DefaultValue>FALSE</ows:DefaultValue></ows:Constraint>
+  </ows:OperationsMetadata>
+  <wfs:FeatureTypeList>
+  <wfs:FeatureType>
+    <wfs:Name>HVD:Gebäude_LoD1</wfs:Name>
+    <wfs:Title>Gebäude_LoD1</wfs:Title>
+    <wfs:DefaultCRS>urn:ogc:def:crs:EPSG::31255</wfs:DefaultCRS>
+    <ows:WGS84BoundingBox>
+      <ows:LowerCorner>12.74821501 47.45623022</ows:LowerCorner>
+      <ows:UpperCorner>15.00722888 48.75995804</ows:UpperCorner>
+    </ows:WGS84BoundingBox>
+  </wfs:FeatureType>
+  <wfs:FeatureType>
+    <wfs:Name>HVD:Grünzonen-Regionale_Raumordnungsprogramme</wfs:Name>
+    <wfs:Title>Grünzonen-Regionale_Raumordnungsprogramme</wfs:Title>
+    <wfs:DefaultCRS>urn:ogc:def:crs:EPSG::31255</wfs:DefaultCRS>
+    <ows:WGS84BoundingBox>
+      <ows:LowerCorner>13.34378116 47.85634903</ows:LowerCorner>
+      <ows:UpperCorner>14.52047882 48.45514463</ows:UpperCorner>
+    </ows:WGS84BoundingBox>
+  </wfs:FeatureType>
+  <wfs:FeatureType>
+    <wfs:Name>HVD:Konfliktzonen_Kiesleitplan_1997</wfs:Name>
+    <wfs:Title>Konfliktzonen_Kiesleitplan_1997</wfs:Title>
+    <wfs:DefaultCRS>urn:ogc:def:crs:EPSG::31255</wfs:DefaultCRS>
+    <ows:WGS84BoundingBox>
+      <ows:LowerCorner>12.90217454 47.98676713</ows:LowerCorner>
+      <ows:UpperCorner>14.21980927 48.55760820</ows:UpperCorner>
+    </ows:WGS84BoundingBox>
+  </wfs:FeatureType>
+  <wfs:FeatureType>
+    <wfs:Name>HVD:Vorbehaltszonen_Kiesleitplan_Überarbeitungsbereiche</wfs:Name>
+    <wfs:Title>Vorbehaltszonen_Kiesleitplan_Überarbeitungsbereiche</wfs:Title>
+    <wfs:DefaultCRS>urn:ogc:def:crs:EPSG::31255</wfs:DefaultCRS>
+    <ows:WGS84BoundingBox>
+      <ows:LowerCorner>13.41232862 47.90871046</ows:LowerCorner>
+      <ows:UpperCorner>14.82048111 48.28549344</ows:UpperCorner>
+    </ows:WGS84BoundingBox>
+  </wfs:FeatureType>
+  <wfs:FeatureType>
+    <wfs:Name>HVD:Negativzonen_Kiesleitplan</wfs:Name>
+    <wfs:Title>Negativzonen_Kiesleitplan</wfs:Title>
+    <wfs:DefaultCRS>urn:ogc:def:crs:EPSG::31255</wfs:DefaultCRS>
+    <ows:WGS84BoundingBox>
+      <ows:LowerCorner>12.74277167 47.45601013</ows:LowerCorner>
+      <ows:UpperCorner>14.94341858 48.71660974</ows:UpperCorner>
+    </ows:WGS84BoundingBox>
+  </wfs:FeatureType>
+  <wfs:FeatureType>
+    <wfs:Name>HVD:Wildtierkorridore</wfs:Name>
+    <wfs:Title>Wildtierkorridore</wfs:Title>
+    <wfs:DefaultCRS>urn:ogc:def:crs:EPSG::31255</wfs:DefaultCRS>
+    <ows:WGS84BoundingBox>
+      <ows:LowerCorner>12.74483873 47.78886591</ows:LowerCorner>
+      <ows:UpperCorner>14.85229753 48.72694605</ows:UpperCorner>
+    </ows:WGS84BoundingBox>
+  </wfs:FeatureType>
+  <wfs:FeatureType>
+    <wfs:Name>HVD:Wildtierlebensräume</wfs:Name>
+    <wfs:Title>Wildtierlebensräume</wfs:Title>
+    <wfs:DefaultCRS>urn:ogc:def:crs:EPSG::31255</wfs:DefaultCRS>
+    <ows:WGS84BoundingBox>
+      <ows:LowerCorner>12.74229071 47.45022225</ows:LowerCorner>
+      <ows:UpperCorner>15.00870626 48.77434962</ows:UpperCorner>
+    </ows:WGS84BoundingBox>
+  </wfs:FeatureType>
+  <wfs:FeatureType>
+    <wfs:Name>HVD:Wildtierkorridore_Rot-Zonen</wfs:Name>
+    <wfs:Title>Wildtierkorridore_Rot-Zonen</wfs:Title>
+    <wfs:DefaultCRS>urn:ogc:def:crs:EPSG::31255</wfs:DefaultCRS>
+    <ows:WGS84BoundingBox>
+      <ows:LowerCorner>13.02109897 47.78905821</ows:LowerCorner>
+      <ows:UpperCorner>14.83580776 48.68275765</ows:UpperCorner>
+    </ows:WGS84BoundingBox>
+  </wfs:FeatureType>
+  <wfs:FeatureType>
+    <wfs:Name>HVD:Wildtierkorridore_Gelb-Zonen</wfs:Name>
+    <wfs:Title>Wildtierkorridore_Gelb-Zonen</wfs:Title>
+    <wfs:DefaultCRS>urn:ogc:def:crs:EPSG::31255</wfs:DefaultCRS>
+    <ows:WGS84BoundingBox>
+      <ows:LowerCorner>12.82138491 47.92061838</ows:LowerCorner>
+      <ows:UpperCorner>14.84787260 48.71077670</ows:UpperCorner>
+    </ows:WGS84BoundingBox>
+  </wfs:FeatureType>
+  <wfs:FeatureType>
+    <wfs:Name>HVD:Biotopkartierung_Abgrenzungen_der_Biotopflächen</wfs:Name>
+    <wfs:Title>Biotopkartierung_Abgrenzungen_der_Biotopflächen</wfs:Title>
+    <wfs:DefaultCRS>urn:ogc:def:crs:EPSG::31255</wfs:DefaultCRS>
+    <ows:WGS84BoundingBox>
+      <ows:LowerCorner>12.74232391 47.45354085</ows:LowerCorner>
+      <ows:UpperCorner>14.74918710 48.77152111</ows:UpperCorner>
+    </ows:WGS84BoundingBox>
+  </wfs:FeatureType>
+  <wfs:FeatureType>
+    <wfs:Name>HVD:Almen</wfs:Name>
+    <wfs:Title>Almen</wfs:Title>
+    <wfs:DefaultCRS>urn:ogc:def:crs:EPSG::31255</wfs:DefaultCRS>
+    <ows:WGS84BoundingBox>
+      <ows:LowerCorner>13.38574194 47.46503585</ows:LowerCorner>
+      <ows:UpperCorner>14.77215049 47.99927044</ows:UpperCorner>
+    </ows:WGS84BoundingBox>
+  </wfs:FeatureType>
+  <wfs:FeatureType>
+    <wfs:Name>HVD:FLWI_Widmungen_Punkte</wfs:Name>
+    <wfs:Title>FLWI_Widmungen_Punkte</wfs:Title>
+    <wfs:DefaultCRS>urn:ogc:def:crs:EPSG::31255</wfs:DefaultCRS>
+    <ows:WGS84BoundingBox>
+      <ows:LowerCorner>12.82200293 47.53491195</ows:LowerCorner>
+      <ows:UpperCorner>14.90145856 48.70204815</ows:UpperCorner>
+    </ows:WGS84BoundingBox>
+  </wfs:FeatureType>
+  <wfs:FeatureType>
+    <wfs:Name>HVD:FLWI_Einrichtungen</wfs:Name>
+    <wfs:Title>FLWI_Einrichtungen</wfs:Title>
+    <wfs:DefaultCRS>urn:ogc:def:crs:EPSG::31255</wfs:DefaultCRS>
+    <ows:WGS84BoundingBox>
+      <ows:LowerCorner>12.75404284 47.54137368</ows:LowerCorner>
+      <ows:UpperCorner>14.97578183 48.74875413</ows:UpperCorner>
+    </ows:WGS84BoundingBox>
+  </wfs:FeatureType>
+  <wfs:FeatureType>
+    <wfs:Name>HVD:FLWI_Widmungen_Linien</wfs:Name>
+    <wfs:Title>FLWI_Widmungen_Linien</wfs:Title>
+    <wfs:DefaultCRS>urn:ogc:def:crs:EPSG::31255</wfs:DefaultCRS>
+    <ows:WGS84BoundingBox>
+      <ows:LowerCorner>12.78504703 47.57445977</ows:LowerCorner>
+      <ows:UpperCorner>14.98874848 48.64190646</ows:UpperCorner>
+    </ows:WGS84BoundingBox>
+  </wfs:FeatureType>
+  <wfs:FeatureType>
+    <wfs:Name>HVD:FLWI_Überlagerung_Schipiste</wfs:Name>
+    <wfs:Title>FLWI_Überlagerung_Schipiste</wfs:Title>
+    <wfs:DefaultCRS>urn:ogc:def:crs:EPSG::31255</wfs:DefaultCRS>
+    <ows:WGS84BoundingBox>
+      <ows:LowerCorner>13.35409096 47.50377277</ows:LowerCorner>
+      <ows:UpperCorner>14.90843374 48.75136825</ows:UpperCorner>
+    </ows:WGS84BoundingBox>
+  </wfs:FeatureType>
+  <wfs:FeatureType>
+    <wfs:Name>HVD:FLWI_Überlagerung_Vorbehaltsflächen</wfs:Name>
+    <wfs:Title>FLWI_Überlagerung_Vorbehaltsflächen</wfs:Title>
+    <wfs:DefaultCRS>urn:ogc:def:crs:EPSG::31255</wfs:DefaultCRS>
+    <ows:WGS84BoundingBox>
+      <ows:LowerCorner>12.87824476 47.85579159</ows:LowerCorner>
+      <ows:UpperCorner>14.68723218 48.52403596</ows:UpperCorner>
+    </ows:WGS84BoundingBox>
+  </wfs:FeatureType>
+  <wfs:FeatureType>
+    <wfs:Name>HVD:FLWI_Überlagerung_Bauland</wfs:Name>
+    <wfs:Title>FLWI_Überlagerung_Bauland</wfs:Title>
+    <wfs:DefaultCRS>urn:ogc:def:crs:EPSG::31255</wfs:DefaultCRS>
+    <ows:WGS84BoundingBox>
+      <ows:LowerCorner>12.76519684 47.50117359</ows:LowerCorner>
+      <ows:UpperCorner>14.98901260 48.75750864</ows:UpperCorner>
+    </ows:WGS84BoundingBox>
+  </wfs:FeatureType>
+  <wfs:FeatureType>
+    <wfs:Name>HVD:FLWI_Überlagerung_Grünland</wfs:Name>
+    <wfs:Title>FLWI_Überlagerung_Grünland</wfs:Title>
+    <wfs:DefaultCRS>urn:ogc:def:crs:EPSG::31255</wfs:DefaultCRS>
+    <ows:WGS84BoundingBox>
+      <ows:LowerCorner>12.75554599 47.54480589</ows:LowerCorner>
+      <ows:UpperCorner>14.97294405 48.73729955</ows:UpperCorner>
+    </ows:WGS84BoundingBox>
+  </wfs:FeatureType>
+  <wfs:FeatureType>
+    <wfs:Name>HVD:FLWI_Geschossbezogen</wfs:Name>
+    <wfs:Title>FLWI_Geschossbezogen</wfs:Title>
+    <wfs:DefaultCRS>urn:ogc:def:crs:EPSG::31255</wfs:DefaultCRS>
+    <ows:WGS84BoundingBox>
+      <ows:LowerCorner>13.01404563 47.54285327</ows:LowerCorner>
+      <ows:UpperCorner>14.86136775 48.67315047</ows:UpperCorner>
+    </ows:WGS84BoundingBox>
+  </wfs:FeatureType>
+  <wfs:FeatureType>
+    <wfs:Name>HVD:FLWI_Widmungen_Flächen</wfs:Name>
+    <wfs:Title>FLWI_Widmungen_Flächen</wfs:Title>
+    <wfs:DefaultCRS>urn:ogc:def:crs:EPSG::31255</wfs:DefaultCRS>
+    <ows:WGS84BoundingBox>
+      <ows:LowerCorner>12.74229071 47.45014814</ows:LowerCorner>
+      <ows:UpperCorner>15.00870626 48.77434962</ows:UpperCorner>
+    </ows:WGS84BoundingBox>
+  </wfs:FeatureType>
+  <wfs:FeatureType>
+    <wfs:Name>HVD:Landschaftserhebung_Abgrenzungen_der_Erhebungsflächen</wfs:Name>
+    <wfs:Title>Landschaftserhebung_Abgrenzungen_der_Erhebungsflächen</wfs:Title>
+    <wfs:DefaultCRS>urn:ogc:def:crs:EPSG::31255</wfs:DefaultCRS>
+    <ows:WGS84BoundingBox>
+      <ows:LowerCorner>12.74254283 47.55566643</ows:LowerCorner>
+      <ows:UpperCorner>15.00805890 48.75285725</ows:UpperCorner>
+    </ows:WGS84BoundingBox>
+  </wfs:FeatureType>
+  <wfs:FeatureType>
+    <wfs:Name>HVD:Windkraft_Ausschlusszone</wfs:Name>
+    <wfs:Title>Windkraft_Ausschlusszone</wfs:Title>
+    <wfs:DefaultCRS>urn:ogc:def:crs:EPSG::31255</wfs:DefaultCRS>
+    <ows:WGS84BoundingBox>
+      <ows:LowerCorner>12.74182540 47.22771870</ows:LowerCorner>
+      <ows:UpperCorner>14.99491141 48.77634017</ows:UpperCorner>
+    </ows:WGS84BoundingBox>
+  </wfs:FeatureType>
+  <wfs:FeatureType>
+    <wfs:Name>HVD:Wasserschutzgebiete</wfs:Name>
+    <wfs:Title>Wasserschutzgebiete</wfs:Title>
+    <wfs:DefaultCRS>urn:ogc:def:crs:EPSG::31255</wfs:DefaultCRS>
+    <ows:WGS84BoundingBox>
+      <ows:LowerCorner>12.74959693 47.35157200</ows:LowerCorner>
+      <ows:UpperCorner>19.44595458 49.16170390</ows:UpperCorner>
+    </ows:WGS84BoundingBox>
+  </wfs:FeatureType>
+  <wfs:FeatureType>
+    <wfs:Name>HVD:Naturdenkmäler</wfs:Name>
+    <wfs:Title>Naturdenkmäler</wfs:Title>
+    <wfs:DefaultCRS>urn:ogc:def:crs:EPSG::31255</wfs:DefaultCRS>
+    <ows:WGS84BoundingBox>
+      <ows:LowerCorner>12.76525801 47.53427075</ows:LowerCorner>
+      <ows:UpperCorner>14.99943999 48.73277440</ows:UpperCorner>
+    </ows:WGS84BoundingBox>
+  </wfs:FeatureType>
+  <wfs:FeatureType>
+    <wfs:Name>HVD:Nationalpark_Zonierung</wfs:Name>
+    <wfs:Title>Nationalpark_Zonierung</wfs:Title>
+    <wfs:DefaultCRS>urn:ogc:def:crs:EPSG::31255</wfs:DefaultCRS>
+    <ows:WGS84BoundingBox>
+      <ows:LowerCorner>14.16534419 47.66814507</ows:LowerCorner>
+      <ows:UpperCorner>14.55757511 47.85898114</ows:UpperCorner>
+    </ows:WGS84BoundingBox>
+  </wfs:FeatureType>
+  <wfs:FeatureType>
+    <wfs:Name>HVD:Europaschutzgebiete_Natura2000</wfs:Name>
+    <wfs:Title>Europaschutzgebiete_Natura2000</wfs:Title>
+    <wfs:DefaultCRS>urn:ogc:def:crs:EPSG::31255</wfs:DefaultCRS>
+    <ows:WGS84BoundingBox>
+      <ows:LowerCorner>12.33110437 46.98705845</ows:LowerCorner>
+      <ows:UpperCorner>15.81607860 48.92723518</ows:UpperCorner>
+    </ows:WGS84BoundingBox>
+  </wfs:FeatureType>
+  <wfs:FeatureType>
+    <wfs:Name>HVD:Nationale_Schutzgebiete</wfs:Name>
+    <wfs:Title>Nationale_Schutzgebiete</wfs:Title>
+    <wfs:DefaultCRS>urn:ogc:def:crs:EPSG::31255</wfs:DefaultCRS>
+    <ows:WGS84BoundingBox>
+      <ows:LowerCorner>12.60512187 46.98982116</ows:LowerCorner>
+      <ows:UpperCorner>15.67135366 48.85142603</ows:UpperCorner>
+    </ows:WGS84BoundingBox>
+  </wfs:FeatureType>
+  <wfs:FeatureType>
+    <wfs:Name>HVD:Ramsar_Gebiete</wfs:Name>
+    <wfs:Title>Ramsar_Gebiete</wfs:Title>
+    <wfs:DefaultCRS>urn:ogc:def:crs:EPSG::31255</wfs:DefaultCRS>
+    <ows:WGS84BoundingBox>
+      <ows:LowerCorner>13.06182309 47.66814507</ows:LowerCorner>
+      <ows:UpperCorner>14.56970615 48.37210483</ows:UpperCorner>
+    </ows:WGS84BoundingBox>
+  </wfs:FeatureType>
+  </wfs:FeatureTypeList>
+  <fes:Filter_Capabilities>
+  <fes:Conformance>
+    <fes:Constraint name="ImplementsQuery"><ows:NoValues/><ows:DefaultValue>TRUE</ows:DefaultValue></fes:Constraint>
+    <fes:Constraint name="ImplementsAdHocQuery"><ows:NoValues/><ows:DefaultValue>TRUE</ows:DefaultValue></fes:Constraint>
+    <fes:Constraint name="ImplementsFunctions"><ows:NoValues/><ows:DefaultValue>TRUE</ows:DefaultValue></fes:Constraint>
+    <fes:Constraint name="ImplementsResourceId"><ows:NoValues/><ows:DefaultValue>TRUE</ows:DefaultValue></fes:Constraint>
+    <fes:Constraint name="ImplementsMinStandardFilter"><ows:NoValues/><ows:DefaultValue>TRUE</ows:DefaultValue></fes:Constraint>
+    <fes:Constraint name="ImplementsStandardFilter"><ows:NoValues/><ows:DefaultValue>TRUE</ows:DefaultValue></fes:Constraint>
+    <fes:Constraint name="ImplementsMinSpatialFilter"><ows:NoValues/><ows:DefaultValue>TRUE</ows:DefaultValue></fes:Constraint>
+    <fes:Constraint name="ImplementsSpatialFilter"><ows:NoValues/><ows:DefaultValue>TRUE</ows:DefaultValue></fes:Constraint>
+    <fes:Constraint name="ImplementsMinTemporalFilter"><ows:NoValues/><ows:DefaultValue>FALSE</ows:DefaultValue></fes:Constraint>
+    <fes:Constraint name="ImplementsTemporalFilter"><ows:NoValues/><ows:DefaultValue>FALSE</ows:DefaultValue></fes:Constraint>
+    <fes:Constraint name="ImplementsVersionNav"><ows:NoValues/><ows:DefaultValue>FALSE</ows:DefaultValue></fes:Constraint>
+    <fes:Constraint name="ImplementsSorting"><ows:NoValues/><ows:DefaultValue>TRUE</ows:DefaultValue></fes:Constraint>
+    <fes:Constraint name="ImplementsExtendedOperators"><ows:NoValues/><ows:DefaultValue>FALSE</ows:DefaultValue></fes:Constraint>
+    <fes:Constraint name="ImplementsMinimumXPath"><ows:NoValues/><ows:DefaultValue>TRUE</ows:DefaultValue></fes:Constraint>
+    <fes:Constraint name="ImplementsSchemaElementFunc"><ows:NoValues/><ows:DefaultValue>FALSE</ows:DefaultValue></fes:Constraint>
+  </fes:Conformance>
+  <fes:Id_Capabilities>
+    <fes:ResourceIdentifier name="fes:ResourceId"/>
+  </fes:Id_Capabilities>
+  <fes:Scalar_Capabilities>
+    <fes:LogicalOperators/>
+    <fes:ComparisonOperators>
+      <fes:ComparisonOperator name="PropertyIsEqualTo"/>
+      <fes:ComparisonOperator name="PropertyIsNotEqualTo"/>
+      <fes:ComparisonOperator name="PropertyIsLessThan"/>
+      <fes:ComparisonOperator name="PropertyIsGreaterThan"/>
+      <fes:ComparisonOperator name="PropertyIsLessThanOrEqualTo"/>
+      <fes:ComparisonOperator name="PropertyIsGreaterThanOrEqualTo"/>
+      <fes:ComparisonOperator name="PropertyIsLike"/>
+      <fes:ComparisonOperator name="PropertyIsNull"/>
+      <fes:ComparisonOperator name="PropertyIsNil"/>
+      <fes:ComparisonOperator name="PropertyIsBetween"/>
+    </fes:ComparisonOperators>
+  </fes:Scalar_Capabilities>
+  <fes:Spatial_Capabilities>
+    <fes:GeometryOperands xmlns:gml="http://www.opengis.net/gml" xmlns:gml32="http://www.opengis.net/gml">
+      <fes:GeometryOperand name="gml:Box"/>
+      <fes:GeometryOperand name="gml:Envelope"/>
+      <fes:GeometryOperand name="gml:Point"/>
+      <fes:GeometryOperand name="gml:LineString"/>
+      <fes:GeometryOperand name="gml:LinearRing"/>
+      <fes:GeometryOperand name="gml:Polygon"/>
+      <fes:GeometryOperand name="gml:MultiPoint"/>
+      <fes:GeometryOperand name="gml:MultiCurve"/>
+      <fes:GeometryOperand name="gml:MultiSurface"/>
+    </fes:GeometryOperands>
+    <fes:SpatialOperators>
+      <fes:SpatialOperator name="BBOX"/>
+      <fes:SpatialOperator name="Equals"/>
+      <fes:SpatialOperator name="Disjoint"/>
+      <fes:SpatialOperator name="Intersects"/>
+      <fes:SpatialOperator name="Touches"/>
+      <fes:SpatialOperator name="Crosses"/>
+      <fes:SpatialOperator name="Within"/>
+      <fes:SpatialOperator name="Contains"/>
+      <fes:SpatialOperator name="Overlaps"/>
+      <fes:SpatialOperator name="Beyond"/>
+      <fes:SpatialOperator name="DWithin"/>
+    </fes:SpatialOperators>
+  </fes:Spatial_Capabilities>
+  </fes:Filter_Capabilities>
+</wfs:WFS_Capabilities>

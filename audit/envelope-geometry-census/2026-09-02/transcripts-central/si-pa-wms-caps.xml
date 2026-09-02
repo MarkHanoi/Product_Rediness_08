@@ -1,0 +1,721 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE WMT_MS_Capabilities SYSTEM "https://ipi.eprostor.gov.si/wms-si-mnvp-pa/schemas/wms/1.1.1/WMS_MS_Capabilities.dtd">
+<WMT_MS_Capabilities version="1.1.1" updateSequence="4106">
+  <Service>
+    <Name>OGC:WMS</Name>
+    <Title/>
+    <Abstract/>
+    <KeywordList/>
+    <OnlineResource xmlns:xlink="http://www.w3.org/1999/xlink" xlink:type="simple" xlink:href="https://ipi.eprostor.gov.si/wms-si-mnvp-pa/"/>
+    <ContactInformation>
+      <ContactPersonPrimary>
+        <ContactPerson/>
+        <ContactOrganization/>
+      </ContactPersonPrimary>
+      <ContactPosition/>
+      <ContactAddress>
+        <AddressType/>
+        <Address/>
+        <City/>
+        <StateOrProvince/>
+        <PostCode/>
+        <Country/>
+      </ContactAddress>
+      <ContactVoiceTelephone/>
+      <ContactFacsimileTelephone/>
+      <ContactElectronicMailAddress/>
+    </ContactInformation>
+    <Fees>none</Fees>
+    <AccessConstraints>none</AccessConstraints>
+  </Service>
+  <Capability>
+    <Request>
+      <GetCapabilities>
+        <Format>application/vnd.ogc.wms_xml</Format>
+        <Format>text/xml</Format>
+        <DCPType>
+          <HTTP>
+            <Get>
+              <OnlineResource xmlns:xlink="http://www.w3.org/1999/xlink" xlink:type="simple" xlink:href="https://ipi.eprostor.gov.si/wms-si-mnvp-pa/wms?SERVICE=WMS&amp;"/>
+            </Get>
+            <Post>
+              <OnlineResource xmlns:xlink="http://www.w3.org/1999/xlink" xlink:type="simple" xlink:href="https://ipi.eprostor.gov.si/wms-si-mnvp-pa/wms?SERVICE=WMS&amp;"/>
+            </Post>
+          </HTTP>
+        </DCPType>
+      </GetCapabilities>
+      <GetMap>
+        <Format>image/png</Format>
+        <Format>application/atom xml</Format>
+        <Format>application/atom+xml</Format>
+        <Format>application/json;type=geojson</Format>
+        <Format>application/json;type=topojson</Format>
+        <Format>application/json;type=utfgrid</Format>
+        <Format>application/openlayers</Format>
+        <Format>application/openlayers2</Format>
+        <Format>application/openlayers3</Format>
+        <Format>application/pdf</Format>
+        <Format>application/rss xml</Format>
+        <Format>application/rss+xml</Format>
+        <Format>application/vnd.google-earth.kml</Format>
+        <Format>application/vnd.google-earth.kml xml</Format>
+        <Format>application/vnd.google-earth.kml+xml</Format>
+        <Format>application/vnd.google-earth.kml+xml;mode=networklink</Format>
+        <Format>application/vnd.google-earth.kmz</Format>
+        <Format>application/vnd.google-earth.kmz xml</Format>
+        <Format>application/vnd.google-earth.kmz+xml</Format>
+        <Format>application/vnd.google-earth.kmz;mode=networklink</Format>
+        <Format>application/vnd.mapbox-vector-tile</Format>
+        <Format>application/x-protobuf;type=mapbox-vector</Format>
+        <Format>atom</Format>
+        <Format>geojson</Format>
+        <Format>image/geotiff</Format>
+        <Format>image/geotiff8</Format>
+        <Format>image/gif</Format>
+        <Format>image/gif;subtype=animated</Format>
+        <Format>image/jpeg</Format>
+        <Format>image/png8</Format>
+        <Format>image/png; mode=8bit</Format>
+        <Format>image/svg</Format>
+        <Format>image/svg xml</Format>
+        <Format>image/svg+xml</Format>
+        <Format>image/tiff</Format>
+        <Format>image/tiff8</Format>
+        <Format>image/vnd.jpeg-png</Format>
+        <Format>image/vnd.jpeg-png8</Format>
+        <Format>kml</Format>
+        <Format>kmz</Format>
+        <Format>openlayers</Format>
+        <Format>pbf</Format>
+        <Format>rss</Format>
+        <Format>text/html; subtype=openlayers</Format>
+        <Format>text/html; subtype=openlayers2</Format>
+        <Format>text/html; subtype=openlayers3</Format>
+        <Format>topojson</Format>
+        <Format>utfgrid</Format>
+        <DCPType>
+          <HTTP>
+            <Get>
+              <OnlineResource xmlns:xlink="http://www.w3.org/1999/xlink" xlink:type="simple" xlink:href="https://ipi.eprostor.gov.si/wms-si-mnvp-pa/wms?SERVICE=WMS&amp;"/>
+            </Get>
+          </HTTP>
+        </DCPType>
+      </GetMap>
+      <GetFeatureInfo>
+        <Format>text/plain</Format>
+        <Format>application/vnd.ogc.gml</Format>
+        <Format>text/xml</Format>
+        <Format>application/vnd.ogc.gml/3.1.1</Format>
+        <Format>text/xml; subtype=gml/3.1.1</Format>
+        <Format>text/html</Format>
+        <Format>application/json</Format>
+        <DCPType>
+          <HTTP>
+            <Get>
+              <OnlineResource xmlns:xlink="http://www.w3.org/1999/xlink" xlink:type="simple" xlink:href="https://ipi.eprostor.gov.si/wms-si-mnvp-pa/wms?SERVICE=WMS&amp;"/>
+            </Get>
+            <Post>
+              <OnlineResource xmlns:xlink="http://www.w3.org/1999/xlink" xlink:type="simple" xlink:href="https://ipi.eprostor.gov.si/wms-si-mnvp-pa/wms?SERVICE=WMS&amp;"/>
+            </Post>
+          </HTTP>
+        </DCPType>
+      </GetFeatureInfo>
+      <DescribeLayer>
+        <Format>application/vnd.ogc.wms_xml</Format>
+        <DCPType>
+          <HTTP>
+            <Get>
+              <OnlineResource xmlns:xlink="http://www.w3.org/1999/xlink" xlink:type="simple" xlink:href="https://ipi.eprostor.gov.si/wms-si-mnvp-pa/wms?SERVICE=WMS&amp;"/>
+            </Get>
+          </HTTP>
+        </DCPType>
+      </DescribeLayer>
+      <GetLegendGraphic>
+        <Format>image/png</Format>
+        <Format>image/jpeg</Format>
+        <Format>application/json</Format>
+        <Format>image/gif</Format>
+        <DCPType>
+          <HTTP>
+            <Get>
+              <OnlineResource xmlns:xlink="http://www.w3.org/1999/xlink" xlink:type="simple" xlink:href="https://ipi.eprostor.gov.si/wms-si-mnvp-pa/wms?SERVICE=WMS&amp;"/>
+            </Get>
+          </HTTP>
+        </DCPType>
+      </GetLegendGraphic>
+      <GetStyles>
+        <Format>application/vnd.ogc.sld+xml</Format>
+        <DCPType>
+          <HTTP>
+            <Get>
+              <OnlineResource xmlns:xlink="http://www.w3.org/1999/xlink" xlink:type="simple" xlink:href="https://ipi.eprostor.gov.si/wms-si-mnvp-pa/wms?SERVICE=WMS&amp;"/>
+            </Get>
+          </HTTP>
+        </DCPType>
+      </GetStyles>
+    </Request>
+    <Exception>
+      <Format>application/vnd.ogc.se_xml</Format>
+      <Format>application/vnd.ogc.se_inimage</Format>
+      <Format>application/vnd.ogc.se_blank</Format>
+      <Format>application/json</Format>
+    </Exception>
+    <UserDefinedSymbolization SupportSLD="1" UserLayer="1" UserStyle="1" RemoteWFS="1"/>
+    <Layer>
+      <Title/>
+      <Abstract/>
+      <!--Limited list of EPSG projections:-->
+      <SRS>EPSG:3035</SRS>
+      <SRS>EPSG:3794</SRS>
+      <SRS>EPSG:3857</SRS>
+      <SRS>EPSG:3912</SRS>
+      <SRS>EPSG:4258</SRS>
+      <SRS>EPSG:4326</SRS>
+      <SRS>EPSG:4765</SRS>
+      <LatLonBoundingBox minx="13.156452347013044" miny="45.38060732571065" maxx="16.65351218260503" maxy="46.90350484403411"/>
+      <Layer queryable="1" opaque="0">
+        <Name>SI.MNVP.PA:DPN_P</Name>
+        <Title>dpnp_D96</Title>
+        <Abstract/>
+        <KeywordList>
+          <Keyword>features</Keyword>
+          <Keyword>dpnp_D96</Keyword>
+        </KeywordList>
+        <SRS>EPSG:3794</SRS>
+        <LatLonBoundingBox minx="13.156452347013044" miny="45.4003353414981" maxx="16.64681574383942" maxy="46.898964415098156"/>
+        <BoundingBox SRS="EPSG:3794" minx="359500.0" miny="30500.0" maxx="625500.0" maxy="195500.0"/>
+        <Style>
+          <Name>dpn_priprava</Name>
+          <Title>Območje državnega prostorskega načrta v pripravi</Title>
+          <LegendURL width="317" height="40">
+            <Format>image/png</Format>
+            <OnlineResource xmlns:xlink="http://www.w3.org/1999/xlink" xlink:type="simple" xlink:href="https://ipi.eprostor.gov.si/wms-si-mnvp-pa/wms?request=GetLegendGraphic&amp;format=image%2Fpng&amp;width=20&amp;height=20&amp;layer=SI.MNVP.PA%3ADPN_P"/>
+          </LegendURL>
+        </Style>
+        <ScaleHint min="490.0" max="1000000.0"/>
+      </Layer>
+      <Layer queryable="1" opaque="0">
+        <Name>SI.MNVP.PA:EUP_OPN</Name>
+        <Title>Enote urejanja prostora (OPN)</Title>
+        <Abstract/>
+        <KeywordList>
+          <Keyword>features</Keyword>
+          <Keyword>PLAN_POS_OBMOCJA_EUP_OPN</Keyword>
+        </KeywordList>
+        <SRS>EPSG:3794</SRS>
+        <LatLonBoundingBox minx="13.346487817394966" miny="45.38060732571065" maxx="16.65351218260503" maxy="46.90350484403411"/>
+        <BoundingBox SRS="EPSG:3794" minx="374000.0" miny="28000.0" maxx="626000.0" maxy="196000.0"/>
+        <Style>
+          <Name>eplan_obmocja_eup</Name>
+          <Title>Enota urejanja prostora (EUP)</Title>
+          <LegendURL width="20" height="20">
+            <Format>image/png</Format>
+            <OnlineResource xmlns:xlink="http://www.w3.org/1999/xlink" xlink:type="simple" xlink:href="https://ipi.eprostor.gov.si/wms-si-mnvp-pa/wms?request=GetLegendGraphic&amp;format=image%2Fpng&amp;width=20&amp;height=20&amp;layer=SI.MNVP.PA%3AEUP_OPN"/>
+          </LegendURL>
+        </Style>
+        <Style>
+          <Name>eplan_obmocja_eup_oznake</Name>
+          <Title>Oznake enot urejanja prostora (EUP)</Title>
+          <LegendURL width="20" height="20">
+            <Format>image/png</Format>
+            <OnlineResource xmlns:xlink="http://www.w3.org/1999/xlink" xlink:type="simple" xlink:href="https://ipi.eprostor.gov.si/wms-si-mnvp-pa/wms?request=GetLegendGraphic&amp;format=image%2Fpng&amp;width=20&amp;height=20&amp;layer=SI.MNVP.PA%3AEUP_OPN&amp;style=eplan_obmocja_eup_oznake"/>
+          </LegendURL>
+        </Style>
+        <ScaleHint min="500.0" max="50001.0"/>
+      </Layer>
+      <Layer queryable="1" opaque="0">
+        <Name>SI.MNVP.PA:NRP_OPN</Name>
+        <Title>Namenska raba prostora (OPN)</Title>
+        <Abstract/>
+        <KeywordList>
+          <Keyword>features</Keyword>
+          <Keyword>PLAN_NAM_RABE_PPIP_OPN</Keyword>
+        </KeywordList>
+        <SRS>EPSG:3794</SRS>
+        <LatLonBoundingBox minx="13.346487817394966" miny="45.38060732571065" maxx="16.65351218260503" maxy="46.90350484403411"/>
+        <BoundingBox SRS="EPSG:3794" minx="374000.0" miny="28000.0" maxx="626000.0" maxy="196000.0"/>
+        <Style>
+          <Name>eplan_nam_raba_skupna_opacity</Name>
+          <Title>nrp_evt</Title>
+          <LegendURL width="441" height="800">
+            <Format>image/png</Format>
+            <OnlineResource xmlns:xlink="http://www.w3.org/1999/xlink" xlink:type="simple" xlink:href="https://ipi.eprostor.gov.si/wms-si-mnvp-pa/wms?request=GetLegendGraphic&amp;format=image%2Fpng&amp;width=20&amp;height=20&amp;layer=SI.MNVP.PA%3ANRP_OPN"/>
+          </LegendURL>
+        </Style>
+        <Style>
+          <Name>eplan_nam_raba_skupna_oznake</Name>
+          <Title>Oznake namenskih rab prostora</Title>
+          <LegendURL width="20" height="20">
+            <Format>image/png</Format>
+            <OnlineResource xmlns:xlink="http://www.w3.org/1999/xlink" xlink:type="simple" xlink:href="https://ipi.eprostor.gov.si/wms-si-mnvp-pa/wms?request=GetLegendGraphic&amp;format=image%2Fpng&amp;width=20&amp;height=20&amp;layer=SI.MNVP.PA%3ANRP_OPN&amp;style=eplan_nam_raba_skupna_oznake"/>
+          </LegendURL>
+        </Style>
+        <ScaleHint min="500.0" max="50001.0"/>
+      </Layer>
+      <Layer queryable="1" opaque="0">
+        <Name>SI.MNVP.PA:OBM_PA_V_PRIPRAVI</Name>
+        <Title>Območja prostorskih aktov v pripravi</Title>
+        <Abstract/>
+        <KeywordList>
+          <Keyword>features</Keyword>
+          <Keyword>PLAN_EVT_OBMOCJA_PA_V_PRIPRAVI</Keyword>
+        </KeywordList>
+        <SRS>EPSG:3794</SRS>
+        <LatLonBoundingBox minx="13.346487817394966" miny="45.38060732571065" maxx="16.65351218260503" maxy="46.90350484403411"/>
+        <BoundingBox SRS="EPSG:3794" minx="374000.0" miny="28000.0" maxx="626000.0" maxy="196000.0"/>
+        <Style>
+          <Name>eplan_obmocja_pa</Name>
+          <Title>Območje prostorskega akta</Title>
+          <LegendURL width="20" height="20">
+            <Format>image/png</Format>
+            <OnlineResource xmlns:xlink="http://www.w3.org/1999/xlink" xlink:type="simple" xlink:href="https://ipi.eprostor.gov.si/wms-si-mnvp-pa/wms?request=GetLegendGraphic&amp;format=image%2Fpng&amp;width=20&amp;height=20&amp;layer=SI.MNVP.PA%3AOBM_PA_V_PRIPRAVI"/>
+          </LegendURL>
+        </Style>
+        <Style>
+          <Name>eplan_uno_priprava</Name>
+          <Title>eplan_uno_priprava</Title>
+          <LegendURL width="20" height="20">
+            <Format>image/png</Format>
+            <OnlineResource xmlns:xlink="http://www.w3.org/1999/xlink" xlink:type="simple" xlink:href="https://ipi.eprostor.gov.si/wms-si-mnvp-pa/wms?request=GetLegendGraphic&amp;format=image%2Fpng&amp;width=20&amp;height=20&amp;layer=SI.MNVP.PA%3AOBM_PA_V_PRIPRAVI&amp;style=eplan_uno_priprava"/>
+          </LegendURL>
+        </Style>
+        <Style>
+          <Name>eplan_oln_priprava</Name>
+          <Title>eplan_oln_priprava</Title>
+          <LegendURL width="20" height="20">
+            <Format>image/png</Format>
+            <OnlineResource xmlns:xlink="http://www.w3.org/1999/xlink" xlink:type="simple" xlink:href="https://ipi.eprostor.gov.si/wms-si-mnvp-pa/wms?request=GetLegendGraphic&amp;format=image%2Fpng&amp;width=20&amp;height=20&amp;layer=SI.MNVP.PA%3AOBM_PA_V_PRIPRAVI&amp;style=eplan_oln_priprava"/>
+          </LegendURL>
+        </Style>
+        <Style>
+          <Name>eplan_rzpr_priprava</Name>
+          <Title>eplan_rzpr_priprava</Title>
+          <LegendURL width="317" height="40">
+            <Format>image/png</Format>
+            <OnlineResource xmlns:xlink="http://www.w3.org/1999/xlink" xlink:type="simple" xlink:href="https://ipi.eprostor.gov.si/wms-si-mnvp-pa/wms?request=GetLegendGraphic&amp;format=image%2Fpng&amp;width=20&amp;height=20&amp;layer=SI.MNVP.PA%3AOBM_PA_V_PRIPRAVI&amp;style=eplan_rzpr_priprava"/>
+          </LegendURL>
+        </Style>
+        <Style>
+          <Name>eplan_unv_priprava</Name>
+          <Title>eplan_unv_priprava</Title>
+          <LegendURL width="317" height="40">
+            <Format>image/png</Format>
+            <OnlineResource xmlns:xlink="http://www.w3.org/1999/xlink" xlink:type="simple" xlink:href="https://ipi.eprostor.gov.si/wms-si-mnvp-pa/wms?request=GetLegendGraphic&amp;format=image%2Fpng&amp;width=20&amp;height=20&amp;layer=SI.MNVP.PA%3AOBM_PA_V_PRIPRAVI&amp;style=eplan_unv_priprava"/>
+          </LegendURL>
+        </Style>
+        <Style>
+          <Name>eplan_un_priprava</Name>
+          <Title>eplan_un_priprava</Title>
+          <LegendURL width="20" height="20">
+            <Format>image/png</Format>
+            <OnlineResource xmlns:xlink="http://www.w3.org/1999/xlink" xlink:type="simple" xlink:href="https://ipi.eprostor.gov.si/wms-si-mnvp-pa/wms?request=GetLegendGraphic&amp;format=image%2Fpng&amp;width=20&amp;height=20&amp;layer=SI.MNVP.PA%3AOBM_PA_V_PRIPRAVI&amp;style=eplan_un_priprava"/>
+          </LegendURL>
+        </Style>
+        <Style>
+          <Name>eplan_zn_priprava</Name>
+          <Title>eplan_zn_priprava</Title>
+          <LegendURL width="20" height="20">
+            <Format>image/png</Format>
+            <OnlineResource xmlns:xlink="http://www.w3.org/1999/xlink" xlink:type="simple" xlink:href="https://ipi.eprostor.gov.si/wms-si-mnvp-pa/wms?request=GetLegendGraphic&amp;format=image%2Fpng&amp;width=20&amp;height=20&amp;layer=SI.MNVP.PA%3AOBM_PA_V_PRIPRAVI&amp;style=eplan_zn_priprava"/>
+          </LegendURL>
+        </Style>
+        <Style>
+          <Name>eplan_ln_priprava</Name>
+          <Title>eplan_ln_priprava</Title>
+          <LegendURL width="317" height="40">
+            <Format>image/png</Format>
+            <OnlineResource xmlns:xlink="http://www.w3.org/1999/xlink" xlink:type="simple" xlink:href="https://ipi.eprostor.gov.si/wms-si-mnvp-pa/wms?request=GetLegendGraphic&amp;format=image%2Fpng&amp;width=20&amp;height=20&amp;layer=SI.MNVP.PA%3AOBM_PA_V_PRIPRAVI&amp;style=eplan_ln_priprava"/>
+          </LegendURL>
+        </Style>
+        <Style>
+          <Name>eplan_lp_priprava</Name>
+          <Title>eplan_lp_priprava</Title>
+          <LegendURL width="20" height="20">
+            <Format>image/png</Format>
+            <OnlineResource xmlns:xlink="http://www.w3.org/1999/xlink" xlink:type="simple" xlink:href="https://ipi.eprostor.gov.si/wms-si-mnvp-pa/wms?request=GetLegendGraphic&amp;format=image%2Fpng&amp;width=20&amp;height=20&amp;layer=SI.MNVP.PA%3AOBM_PA_V_PRIPRAVI&amp;style=eplan_lp_priprava"/>
+          </LegendURL>
+        </Style>
+        <Style>
+          <Name>eplan_ovopudp_priprava</Name>
+          <Title>eplan_ovopudp_priprava</Title>
+          <LegendURL width="317" height="40">
+            <Format>image/png</Format>
+            <OnlineResource xmlns:xlink="http://www.w3.org/1999/xlink" xlink:type="simple" xlink:href="https://ipi.eprostor.gov.si/wms-si-mnvp-pa/wms?request=GetLegendGraphic&amp;format=image%2Fpng&amp;width=20&amp;height=20&amp;layer=SI.MNVP.PA%3AOBM_PA_V_PRIPRAVI&amp;style=eplan_ovopudp_priprava"/>
+          </LegendURL>
+        </Style>
+        <Style>
+          <Name>eplan_opp_priprava</Name>
+          <Title>eplan_opp_priprava</Title>
+          <LegendURL width="317" height="40">
+            <Format>image/png</Format>
+            <OnlineResource xmlns:xlink="http://www.w3.org/1999/xlink" xlink:type="simple" xlink:href="https://ipi.eprostor.gov.si/wms-si-mnvp-pa/wms?request=GetLegendGraphic&amp;format=image%2Fpng&amp;width=20&amp;height=20&amp;layer=SI.MNVP.PA%3AOBM_PA_V_PRIPRAVI&amp;style=eplan_opp_priprava"/>
+          </LegendURL>
+        </Style>
+        <Style>
+          <Name>eplan_dln_priprava</Name>
+          <Title>eplan_dln_priprava</Title>
+          <LegendURL width="317" height="40">
+            <Format>image/png</Format>
+            <OnlineResource xmlns:xlink="http://www.w3.org/1999/xlink" xlink:type="simple" xlink:href="https://ipi.eprostor.gov.si/wms-si-mnvp-pa/wms?request=GetLegendGraphic&amp;format=image%2Fpng&amp;width=20&amp;height=20&amp;layer=SI.MNVP.PA%3AOBM_PA_V_PRIPRAVI&amp;style=eplan_dln_priprava"/>
+          </LegendURL>
+        </Style>
+        <Style>
+          <Name>eplan_tppia_priprava</Name>
+          <Title>eplan_tppia_priprava</Title>
+          <LegendURL width="317" height="40">
+            <Format>image/png</Format>
+            <OnlineResource xmlns:xlink="http://www.w3.org/1999/xlink" xlink:type="simple" xlink:href="https://ipi.eprostor.gov.si/wms-si-mnvp-pa/wms?request=GetLegendGraphic&amp;format=image%2Fpng&amp;width=20&amp;height=20&amp;layer=SI.MNVP.PA%3AOBM_PA_V_PRIPRAVI&amp;style=eplan_tppia_priprava"/>
+          </LegendURL>
+        </Style>
+        <Style>
+          <Name>eplan_oupnk_priprava</Name>
+          <Title>eplan_oupnk_priprava</Title>
+          <LegendURL width="20" height="20">
+            <Format>image/png</Format>
+            <OnlineResource xmlns:xlink="http://www.w3.org/1999/xlink" xlink:type="simple" xlink:href="https://ipi.eprostor.gov.si/wms-si-mnvp-pa/wms?request=GetLegendGraphic&amp;format=image%2Fpng&amp;width=20&amp;height=20&amp;layer=SI.MNVP.PA%3AOBM_PA_V_PRIPRAVI&amp;style=eplan_oupnk_priprava"/>
+          </LegendURL>
+        </Style>
+        <Style>
+          <Name>eplan_ospn_priprava</Name>
+          <Title>eplan_ospn_priprava</Title>
+          <LegendURL width="317" height="40">
+            <Format>image/png</Format>
+            <OnlineResource xmlns:xlink="http://www.w3.org/1999/xlink" xlink:type="simple" xlink:href="https://ipi.eprostor.gov.si/wms-si-mnvp-pa/wms?request=GetLegendGraphic&amp;format=image%2Fpng&amp;width=20&amp;height=20&amp;layer=SI.MNVP.PA%3AOBM_PA_V_PRIPRAVI&amp;style=eplan_ospn_priprava"/>
+          </LegendURL>
+        </Style>
+        <Style>
+          <Name>eplan_pro_priprava</Name>
+          <Title>eplan_pro_priprava</Title>
+          <LegendURL width="317" height="40">
+            <Format>image/png</Format>
+            <OnlineResource xmlns:xlink="http://www.w3.org/1999/xlink" xlink:type="simple" xlink:href="https://ipi.eprostor.gov.si/wms-si-mnvp-pa/wms?request=GetLegendGraphic&amp;format=image%2Fpng&amp;width=20&amp;height=20&amp;layer=SI.MNVP.PA%3AOBM_PA_V_PRIPRAVI&amp;style=eplan_pro_priprava"/>
+          </LegendURL>
+        </Style>
+        <Style>
+          <Name>eplan_rpp_priprava</Name>
+          <Title>eplan_rpp_priprava</Title>
+          <LegendURL width="317" height="40">
+            <Format>image/png</Format>
+            <OnlineResource xmlns:xlink="http://www.w3.org/1999/xlink" xlink:type="simple" xlink:href="https://ipi.eprostor.gov.si/wms-si-mnvp-pa/wms?request=GetLegendGraphic&amp;format=image%2Fpng&amp;width=20&amp;height=20&amp;layer=SI.MNVP.PA%3AOBM_PA_V_PRIPRAVI&amp;style=eplan_rpp_priprava"/>
+          </LegendURL>
+        </Style>
+        <Style>
+          <Name>eplan_dpn_priprava</Name>
+          <Title>eplan_dpn_priprava</Title>
+          <LegendURL width="317" height="40">
+            <Format>image/png</Format>
+            <OnlineResource xmlns:xlink="http://www.w3.org/1999/xlink" xlink:type="simple" xlink:href="https://ipi.eprostor.gov.si/wms-si-mnvp-pa/wms?request=GetLegendGraphic&amp;format=image%2Fpng&amp;width=20&amp;height=20&amp;layer=SI.MNVP.PA%3AOBM_PA_V_PRIPRAVI&amp;style=eplan_dpn_priprava"/>
+          </LegendURL>
+        </Style>
+        <Style>
+          <Name>eplan_rpn_priprava</Name>
+          <Title>eplan_rpn_priprava</Title>
+          <LegendURL width="317" height="40">
+            <Format>image/png</Format>
+            <OnlineResource xmlns:xlink="http://www.w3.org/1999/xlink" xlink:type="simple" xlink:href="https://ipi.eprostor.gov.si/wms-si-mnvp-pa/wms?request=GetLegendGraphic&amp;format=image%2Fpng&amp;width=20&amp;height=20&amp;layer=SI.MNVP.PA%3AOBM_PA_V_PRIPRAVI&amp;style=eplan_rpn_priprava"/>
+          </LegendURL>
+        </Style>
+        <Style>
+          <Name>eplan_opn_priprava</Name>
+          <Title>eplan_opn_priprava</Title>
+          <LegendURL width="317" height="40">
+            <Format>image/png</Format>
+            <OnlineResource xmlns:xlink="http://www.w3.org/1999/xlink" xlink:type="simple" xlink:href="https://ipi.eprostor.gov.si/wms-si-mnvp-pa/wms?request=GetLegendGraphic&amp;format=image%2Fpng&amp;width=20&amp;height=20&amp;layer=SI.MNVP.PA%3AOBM_PA_V_PRIPRAVI&amp;style=eplan_opn_priprava"/>
+          </LegendURL>
+        </Style>
+        <Style>
+          <Name>eplan_oppn_priprava</Name>
+          <Title>eplan_oppn_priprava</Title>
+          <LegendURL width="20" height="20">
+            <Format>image/png</Format>
+            <OnlineResource xmlns:xlink="http://www.w3.org/1999/xlink" xlink:type="simple" xlink:href="https://ipi.eprostor.gov.si/wms-si-mnvp-pa/wms?request=GetLegendGraphic&amp;format=image%2Fpng&amp;width=20&amp;height=20&amp;layer=SI.MNVP.PA%3AOBM_PA_V_PRIPRAVI&amp;style=eplan_oppn_priprava"/>
+          </LegendURL>
+        </Style>
+        <Style>
+          <Name>eplan_spro_priprava</Name>
+          <Title>eplan_spro_priprava</Title>
+          <LegendURL width="317" height="40">
+            <Format>image/png</Format>
+            <OnlineResource xmlns:xlink="http://www.w3.org/1999/xlink" xlink:type="simple" xlink:href="https://ipi.eprostor.gov.si/wms-si-mnvp-pa/wms?request=GetLegendGraphic&amp;format=image%2Fpng&amp;width=20&amp;height=20&amp;layer=SI.MNVP.PA%3AOBM_PA_V_PRIPRAVI&amp;style=eplan_spro_priprava"/>
+          </LegendURL>
+        </Style>
+        <Style>
+          <Name>eplan_sprs_priprava</Name>
+          <Title>eplan_sprs_priprava</Title>
+          <LegendURL width="20" height="20">
+            <Format>image/png</Format>
+            <OnlineResource xmlns:xlink="http://www.w3.org/1999/xlink" xlink:type="simple" xlink:href="https://ipi.eprostor.gov.si/wms-si-mnvp-pa/wms?request=GetLegendGraphic&amp;format=image%2Fpng&amp;width=20&amp;height=20&amp;layer=SI.MNVP.PA%3AOBM_PA_V_PRIPRAVI&amp;style=eplan_sprs_priprava"/>
+          </LegendURL>
+        </Style>
+      </Layer>
+      <Layer queryable="1" opaque="0">
+        <Name>SI.MNVP.PA:OBM_PA_ZAKLJUCENI</Name>
+        <Title>Območja zaključenih prostorskih aktov</Title>
+        <Abstract/>
+        <KeywordList>
+          <Keyword>features</Keyword>
+          <Keyword>PLAN_EVT_OBMOCJA_PA_ZAKLJUCENI</Keyword>
+        </KeywordList>
+        <SRS>EPSG:3794</SRS>
+        <LatLonBoundingBox minx="13.346487817394966" miny="45.38060732571065" maxx="16.65351218260503" maxy="46.90350484403411"/>
+        <BoundingBox SRS="EPSG:3794" minx="374000.0" miny="28000.0" maxx="626000.0" maxy="196000.0"/>
+        <Style>
+          <Name>eplan_obmocja_pa</Name>
+          <Title>Območje prostorskega akta</Title>
+          <LegendURL width="20" height="20">
+            <Format>image/png</Format>
+            <OnlineResource xmlns:xlink="http://www.w3.org/1999/xlink" xlink:type="simple" xlink:href="https://ipi.eprostor.gov.si/wms-si-mnvp-pa/wms?request=GetLegendGraphic&amp;format=image%2Fpng&amp;width=20&amp;height=20&amp;layer=SI.MNVP.PA%3AOBM_PA_ZAKLJUCENI"/>
+          </LegendURL>
+        </Style>
+        <Style>
+          <Name>eplan_dln_zakljucen</Name>
+          <Title>eplan_dln_zakljucen</Title>
+          <LegendURL width="342" height="40">
+            <Format>image/png</Format>
+            <OnlineResource xmlns:xlink="http://www.w3.org/1999/xlink" xlink:type="simple" xlink:href="https://ipi.eprostor.gov.si/wms-si-mnvp-pa/wms?request=GetLegendGraphic&amp;format=image%2Fpng&amp;width=20&amp;height=20&amp;layer=SI.MNVP.PA%3AOBM_PA_ZAKLJUCENI&amp;style=eplan_dln_zakljucen"/>
+          </LegendURL>
+        </Style>
+        <Style>
+          <Name>eplan_ovopudp_zakljucen</Name>
+          <Title>eplan_ovopudp_zakljucen</Title>
+          <LegendURL width="342" height="40">
+            <Format>image/png</Format>
+            <OnlineResource xmlns:xlink="http://www.w3.org/1999/xlink" xlink:type="simple" xlink:href="https://ipi.eprostor.gov.si/wms-si-mnvp-pa/wms?request=GetLegendGraphic&amp;format=image%2Fpng&amp;width=20&amp;height=20&amp;layer=SI.MNVP.PA%3AOBM_PA_ZAKLJUCENI&amp;style=eplan_ovopudp_zakljucen"/>
+          </LegendURL>
+        </Style>
+        <Style>
+          <Name>eplan_sprs_zakljucen</Name>
+          <Title>eplan_sprs_zakljucen</Title>
+          <LegendURL width="20" height="20">
+            <Format>image/png</Format>
+            <OnlineResource xmlns:xlink="http://www.w3.org/1999/xlink" xlink:type="simple" xlink:href="https://ipi.eprostor.gov.si/wms-si-mnvp-pa/wms?request=GetLegendGraphic&amp;format=image%2Fpng&amp;width=20&amp;height=20&amp;layer=SI.MNVP.PA%3AOBM_PA_ZAKLJUCENI&amp;style=eplan_sprs_zakljucen"/>
+          </LegendURL>
+        </Style>
+        <Style>
+          <Name>eplan_opp_zakljucen</Name>
+          <Title>eplan_opp_zakljucen</Title>
+          <LegendURL width="342" height="40">
+            <Format>image/png</Format>
+            <OnlineResource xmlns:xlink="http://www.w3.org/1999/xlink" xlink:type="simple" xlink:href="https://ipi.eprostor.gov.si/wms-si-mnvp-pa/wms?request=GetLegendGraphic&amp;format=image%2Fpng&amp;width=20&amp;height=20&amp;layer=SI.MNVP.PA%3AOBM_PA_ZAKLJUCENI&amp;style=eplan_opp_zakljucen"/>
+          </LegendURL>
+        </Style>
+        <Style>
+          <Name>eplan_ln_zakljucen</Name>
+          <Title>eplan_ln_zakljucen</Title>
+          <LegendURL width="342" height="40">
+            <Format>image/png</Format>
+            <OnlineResource xmlns:xlink="http://www.w3.org/1999/xlink" xlink:type="simple" xlink:href="https://ipi.eprostor.gov.si/wms-si-mnvp-pa/wms?request=GetLegendGraphic&amp;format=image%2Fpng&amp;width=20&amp;height=20&amp;layer=SI.MNVP.PA%3AOBM_PA_ZAKLJUCENI&amp;style=eplan_ln_zakljucen"/>
+          </LegendURL>
+        </Style>
+        <Style>
+          <Name>eplan_oln_zakljucen</Name>
+          <Title>eplan_oln_zakljucen</Title>
+          <LegendURL width="20" height="20">
+            <Format>image/png</Format>
+            <OnlineResource xmlns:xlink="http://www.w3.org/1999/xlink" xlink:type="simple" xlink:href="https://ipi.eprostor.gov.si/wms-si-mnvp-pa/wms?request=GetLegendGraphic&amp;format=image%2Fpng&amp;width=20&amp;height=20&amp;layer=SI.MNVP.PA%3AOBM_PA_ZAKLJUCENI&amp;style=eplan_oln_zakljucen"/>
+          </LegendURL>
+        </Style>
+        <Style>
+          <Name>eplan_unv_zakljucen</Name>
+          <Title>eplan_unv_zakljucen</Title>
+          <LegendURL width="342" height="40">
+            <Format>image/png</Format>
+            <OnlineResource xmlns:xlink="http://www.w3.org/1999/xlink" xlink:type="simple" xlink:href="https://ipi.eprostor.gov.si/wms-si-mnvp-pa/wms?request=GetLegendGraphic&amp;format=image%2Fpng&amp;width=20&amp;height=20&amp;layer=SI.MNVP.PA%3AOBM_PA_ZAKLJUCENI&amp;style=eplan_unv_zakljucen"/>
+          </LegendURL>
+        </Style>
+        <Style>
+          <Name>eplan_lp_zakljucen</Name>
+          <Title>eplan_lp_zakljucen</Title>
+          <LegendURL width="20" height="20">
+            <Format>image/png</Format>
+            <OnlineResource xmlns:xlink="http://www.w3.org/1999/xlink" xlink:type="simple" xlink:href="https://ipi.eprostor.gov.si/wms-si-mnvp-pa/wms?request=GetLegendGraphic&amp;format=image%2Fpng&amp;width=20&amp;height=20&amp;layer=SI.MNVP.PA%3AOBM_PA_ZAKLJUCENI&amp;style=eplan_lp_zakljucen"/>
+          </LegendURL>
+        </Style>
+        <Style>
+          <Name>eplan_ospn_zakljucen</Name>
+          <Title>eplan_ospn_zakljucen</Title>
+          <LegendURL width="342" height="40">
+            <Format>image/png</Format>
+            <OnlineResource xmlns:xlink="http://www.w3.org/1999/xlink" xlink:type="simple" xlink:href="https://ipi.eprostor.gov.si/wms-si-mnvp-pa/wms?request=GetLegendGraphic&amp;format=image%2Fpng&amp;width=20&amp;height=20&amp;layer=SI.MNVP.PA%3AOBM_PA_ZAKLJUCENI&amp;style=eplan_ospn_zakljucen"/>
+          </LegendURL>
+        </Style>
+        <Style>
+          <Name>eplan_uno_zakljucen</Name>
+          <Title>eplan_uno_zakljucen</Title>
+          <LegendURL width="20" height="20">
+            <Format>image/png</Format>
+            <OnlineResource xmlns:xlink="http://www.w3.org/1999/xlink" xlink:type="simple" xlink:href="https://ipi.eprostor.gov.si/wms-si-mnvp-pa/wms?request=GetLegendGraphic&amp;format=image%2Fpng&amp;width=20&amp;height=20&amp;layer=SI.MNVP.PA%3AOBM_PA_ZAKLJUCENI&amp;style=eplan_uno_zakljucen"/>
+          </LegendURL>
+        </Style>
+        <Style>
+          <Name>eplan_spro_zakljucen</Name>
+          <Title>eplan_spro_zakljucen</Title>
+          <LegendURL width="342" height="40">
+            <Format>image/png</Format>
+            <OnlineResource xmlns:xlink="http://www.w3.org/1999/xlink" xlink:type="simple" xlink:href="https://ipi.eprostor.gov.si/wms-si-mnvp-pa/wms?request=GetLegendGraphic&amp;format=image%2Fpng&amp;width=20&amp;height=20&amp;layer=SI.MNVP.PA%3AOBM_PA_ZAKLJUCENI&amp;style=eplan_spro_zakljucen"/>
+          </LegendURL>
+        </Style>
+        <Style>
+          <Name>eplan_oppn_zakljucen</Name>
+          <Title>eplan_oppn_zakljucen</Title>
+          <LegendURL width="20" height="20">
+            <Format>image/png</Format>
+            <OnlineResource xmlns:xlink="http://www.w3.org/1999/xlink" xlink:type="simple" xlink:href="https://ipi.eprostor.gov.si/wms-si-mnvp-pa/wms?request=GetLegendGraphic&amp;format=image%2Fpng&amp;width=20&amp;height=20&amp;layer=SI.MNVP.PA%3AOBM_PA_ZAKLJUCENI&amp;style=eplan_oppn_zakljucen"/>
+          </LegendURL>
+        </Style>
+        <Style>
+          <Name>eplan_rpp_zakljucen</Name>
+          <Title>eplan_rpp_zakljucen</Title>
+          <LegendURL width="342" height="40">
+            <Format>image/png</Format>
+            <OnlineResource xmlns:xlink="http://www.w3.org/1999/xlink" xlink:type="simple" xlink:href="https://ipi.eprostor.gov.si/wms-si-mnvp-pa/wms?request=GetLegendGraphic&amp;format=image%2Fpng&amp;width=20&amp;height=20&amp;layer=SI.MNVP.PA%3AOBM_PA_ZAKLJUCENI&amp;style=eplan_rpp_zakljucen"/>
+          </LegendURL>
+        </Style>
+        <Style>
+          <Name>eplan_pro_zakljucen</Name>
+          <Title>eplan_pro_zakljucen</Title>
+          <LegendURL width="342" height="40">
+            <Format>image/png</Format>
+            <OnlineResource xmlns:xlink="http://www.w3.org/1999/xlink" xlink:type="simple" xlink:href="https://ipi.eprostor.gov.si/wms-si-mnvp-pa/wms?request=GetLegendGraphic&amp;format=image%2Fpng&amp;width=20&amp;height=20&amp;layer=SI.MNVP.PA%3AOBM_PA_ZAKLJUCENI&amp;style=eplan_pro_zakljucen"/>
+          </LegendURL>
+        </Style>
+        <Style>
+          <Name>eplan_oupnk_zakljucen</Name>
+          <Title>eplan_oupnk_zakljucen</Title>
+          <LegendURL width="20" height="20">
+            <Format>image/png</Format>
+            <OnlineResource xmlns:xlink="http://www.w3.org/1999/xlink" xlink:type="simple" xlink:href="https://ipi.eprostor.gov.si/wms-si-mnvp-pa/wms?request=GetLegendGraphic&amp;format=image%2Fpng&amp;width=20&amp;height=20&amp;layer=SI.MNVP.PA%3AOBM_PA_ZAKLJUCENI&amp;style=eplan_oupnk_zakljucen"/>
+          </LegendURL>
+        </Style>
+        <Style>
+          <Name>eplan_dpn_zakljucen</Name>
+          <Title>eplan_dpn_zakljucen</Title>
+          <LegendURL width="342" height="40">
+            <Format>image/png</Format>
+            <OnlineResource xmlns:xlink="http://www.w3.org/1999/xlink" xlink:type="simple" xlink:href="https://ipi.eprostor.gov.si/wms-si-mnvp-pa/wms?request=GetLegendGraphic&amp;format=image%2Fpng&amp;width=20&amp;height=20&amp;layer=SI.MNVP.PA%3AOBM_PA_ZAKLJUCENI&amp;style=eplan_dpn_zakljucen"/>
+          </LegendURL>
+        </Style>
+        <Style>
+          <Name>eplan_rzpr_zakljucen</Name>
+          <Title>eplan_rzpr_zakljucen</Title>
+          <LegendURL width="342" height="40">
+            <Format>image/png</Format>
+            <OnlineResource xmlns:xlink="http://www.w3.org/1999/xlink" xlink:type="simple" xlink:href="https://ipi.eprostor.gov.si/wms-si-mnvp-pa/wms?request=GetLegendGraphic&amp;format=image%2Fpng&amp;width=20&amp;height=20&amp;layer=SI.MNVP.PA%3AOBM_PA_ZAKLJUCENI&amp;style=eplan_rzpr_zakljucen"/>
+          </LegendURL>
+        </Style>
+        <Style>
+          <Name>eplan_zn_zakljucen</Name>
+          <Title>eplan_zn_zakljucen</Title>
+          <LegendURL width="20" height="20">
+            <Format>image/png</Format>
+            <OnlineResource xmlns:xlink="http://www.w3.org/1999/xlink" xlink:type="simple" xlink:href="https://ipi.eprostor.gov.si/wms-si-mnvp-pa/wms?request=GetLegendGraphic&amp;format=image%2Fpng&amp;width=20&amp;height=20&amp;layer=SI.MNVP.PA%3AOBM_PA_ZAKLJUCENI&amp;style=eplan_zn_zakljucen"/>
+          </LegendURL>
+        </Style>
+        <Style>
+          <Name>eplan_rpn_zakljucen</Name>
+          <Title>eplan_rpn_zakljucen</Title>
+          <LegendURL width="342" height="40">
+            <Format>image/png</Format>
+            <OnlineResource xmlns:xlink="http://www.w3.org/1999/xlink" xlink:type="simple" xlink:href="https://ipi.eprostor.gov.si/wms-si-mnvp-pa/wms?request=GetLegendGraphic&amp;format=image%2Fpng&amp;width=20&amp;height=20&amp;layer=SI.MNVP.PA%3AOBM_PA_ZAKLJUCENI&amp;style=eplan_rpn_zakljucen"/>
+          </LegendURL>
+        </Style>
+        <Style>
+          <Name>eplan_opn_zakljucen</Name>
+          <Title>eplan_opn_zakljucen</Title>
+          <LegendURL width="342" height="40">
+            <Format>image/png</Format>
+            <OnlineResource xmlns:xlink="http://www.w3.org/1999/xlink" xlink:type="simple" xlink:href="https://ipi.eprostor.gov.si/wms-si-mnvp-pa/wms?request=GetLegendGraphic&amp;format=image%2Fpng&amp;width=20&amp;height=20&amp;layer=SI.MNVP.PA%3AOBM_PA_ZAKLJUCENI&amp;style=eplan_opn_zakljucen"/>
+          </LegendURL>
+        </Style>
+        <Style>
+          <Name>eplan_un_zakljucen</Name>
+          <Title>eplan_un_zakljucen</Title>
+          <LegendURL width="20" height="20">
+            <Format>image/png</Format>
+            <OnlineResource xmlns:xlink="http://www.w3.org/1999/xlink" xlink:type="simple" xlink:href="https://ipi.eprostor.gov.si/wms-si-mnvp-pa/wms?request=GetLegendGraphic&amp;format=image%2Fpng&amp;width=20&amp;height=20&amp;layer=SI.MNVP.PA%3AOBM_PA_ZAKLJUCENI&amp;style=eplan_un_zakljucen"/>
+          </LegendURL>
+        </Style>
+        <Style>
+          <Name>eplan_tppia_zakljucen</Name>
+          <Title>eplan_tppia_zakljucen</Title>
+          <LegendURL width="342" height="40">
+            <Format>image/png</Format>
+            <OnlineResource xmlns:xlink="http://www.w3.org/1999/xlink" xlink:type="simple" xlink:href="https://ipi.eprostor.gov.si/wms-si-mnvp-pa/wms?request=GetLegendGraphic&amp;format=image%2Fpng&amp;width=20&amp;height=20&amp;layer=SI.MNVP.PA%3AOBM_PA_ZAKLJUCENI&amp;style=eplan_tppia_zakljucen"/>
+          </LegendURL>
+        </Style>
+      </Layer>
+      <Layer queryable="1" opaque="0">
+        <Name>SI.MNVP.PA:PEUP_OPN</Name>
+        <Title>Podenote urejanja prostora (OPN)</Title>
+        <Abstract/>
+        <KeywordList>
+          <Keyword>features</Keyword>
+          <Keyword>PLAN_POS_OBMOCJA_PEUP_OPN</Keyword>
+        </KeywordList>
+        <SRS>EPSG:3794</SRS>
+        <LatLonBoundingBox minx="13.346487817394966" miny="45.38060732571065" maxx="16.65351218260503" maxy="46.90350484403411"/>
+        <BoundingBox SRS="EPSG:3794" minx="374000.0" miny="28000.0" maxx="626000.0" maxy="196000.0"/>
+        <Style>
+          <Name>eplan_obmocja_peup</Name>
+          <Title>Podenota urejanja prostora (PEUP)</Title>
+          <LegendURL width="20" height="20">
+            <Format>image/png</Format>
+            <OnlineResource xmlns:xlink="http://www.w3.org/1999/xlink" xlink:type="simple" xlink:href="https://ipi.eprostor.gov.si/wms-si-mnvp-pa/wms?request=GetLegendGraphic&amp;format=image%2Fpng&amp;width=20&amp;height=20&amp;layer=SI.MNVP.PA%3APEUP_OPN"/>
+          </LegendURL>
+        </Style>
+        <Style>
+          <Name>eplan_obmocja_peup_oznake</Name>
+          <Title>Oznake podenot urejanja prostora (PEUP)</Title>
+          <LegendURL width="20" height="20">
+            <Format>image/png</Format>
+            <OnlineResource xmlns:xlink="http://www.w3.org/1999/xlink" xlink:type="simple" xlink:href="https://ipi.eprostor.gov.si/wms-si-mnvp-pa/wms?request=GetLegendGraphic&amp;format=image%2Fpng&amp;width=20&amp;height=20&amp;layer=SI.MNVP.PA%3APEUP_OPN&amp;style=eplan_obmocja_peup_oznake"/>
+          </LegendURL>
+        </Style>
+        <ScaleHint min="500.0" max="50001.0"/>
+      </Layer>
+      <Layer queryable="1" opaque="0">
+        <Name>SI.MNVP.PA:REG_CRTE_OPN</Name>
+        <Title>Regulacijske črte (OPN)</Title>
+        <Abstract/>
+        <KeywordList>
+          <Keyword>features</Keyword>
+          <Keyword>PLAN_POS_REGUL_CRTE_OPN</Keyword>
+        </KeywordList>
+        <SRS>EPSG:3794</SRS>
+        <LatLonBoundingBox minx="13.346487817394966" miny="45.38060732571065" maxx="16.65351218260503" maxy="46.90350484403411"/>
+        <BoundingBox SRS="EPSG:3794" minx="374000.0" miny="28000.0" maxx="626000.0" maxy="196000.0"/>
+        <Style>
+          <Name>eplan_regul_crte</Name>
+          <Title>eplan_regul_crte</Title>
+          <LegendURL width="247" height="300">
+            <Format>image/png</Format>
+            <OnlineResource xmlns:xlink="http://www.w3.org/1999/xlink" xlink:type="simple" xlink:href="https://ipi.eprostor.gov.si/wms-si-mnvp-pa/wms?request=GetLegendGraphic&amp;format=image%2Fpng&amp;width=20&amp;height=20&amp;layer=SI.MNVP.PA%3AREG_CRTE_OPN"/>
+          </LegendURL>
+        </Style>
+        <ScaleHint min="500.0" max="3001.0"/>
+      </Layer>
+      <Layer queryable="1" opaque="0">
+        <Name>SI.MNVP.PA:REG_POVRSINE_OPN</Name>
+        <Title>Regulacijske površine (OPN)</Title>
+        <Abstract/>
+        <KeywordList>
+          <Keyword>features</Keyword>
+          <Keyword>PLAN_POS_REGUL_POVRSINE_OPN</Keyword>
+        </KeywordList>
+        <SRS>EPSG:3794</SRS>
+        <LatLonBoundingBox minx="13.346487817394966" miny="45.38060732571065" maxx="16.65351218260503" maxy="46.90350484403411"/>
+        <BoundingBox SRS="EPSG:3794" minx="374000.0" miny="28000.0" maxx="626000.0" maxy="196000.0"/>
+        <Style>
+          <Name>eplan_regul_povrsine</Name>
+          <Title>Stil_RegPov</Title>
+          <Abstract>Stil - regulacijske površine</Abstract>
+          <LegendURL width="191" height="60">
+            <Format>image/png</Format>
+            <OnlineResource xmlns:xlink="http://www.w3.org/1999/xlink" xlink:type="simple" xlink:href="https://ipi.eprostor.gov.si/wms-si-mnvp-pa/wms?request=GetLegendGraphic&amp;format=image%2Fpng&amp;width=20&amp;height=20&amp;layer=SI.MNVP.PA%3AREG_POVRSINE_OPN"/>
+          </LegendURL>
+        </Style>
+        <ScaleHint min="500.0" max="3001.0"/>
+      </Layer>
+    </Layer>
+  </Capability>
+</WMT_MS_Capabilities>

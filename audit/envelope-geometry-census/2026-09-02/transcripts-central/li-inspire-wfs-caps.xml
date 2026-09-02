@@ -1,0 +1,1243 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<wfs:WFS_Capabilities xmlns:gml="http://www.opengis.net/gml/3.2" xmlns:wfs="http://www.opengis.net/wfs/2.0" xmlns:ows="http://www.opengis.net/ows/1.1" xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:fes="http://www.opengis.net/fes/2.0" xmlns:ms="http://mapserver.gis.umn.edu/mapserver" xmlns:inspire_common="http://inspire.ec.europa.eu/schemas/common/1.0" xmlns:inspire_dls="http://inspire.ec.europa.eu/schemas/inspire_dls/1.0" xmlns="http://www.opengis.net/wfs/2.0" version="2.0.0" xsi:schemaLocation="http://www.opengis.net/wfs/2.0 http://schemas.opengis.net/wfs/2.0/wfs.xsd http://inspire.ec.europa.eu/schemas/inspire_dls/1.0 https://inspire.ec.europa.eu/schemas/inspire_dls/1.0/inspire_dls.xsd http://inspire.ec.europa.eu/schemas/common/1.0 https://inspire.ec.europa.eu/schemas/common/1.0/common.xsd">
+  <ows:ServiceIdentification>
+    <ows:Title>INSPIRE View Service</ows:Title>
+    <ows:Abstract>public INSPIRE-View Service of the Liechtensteinischen Administration</ows:Abstract>
+    <ows:Keywords>
+      <ows:Keyword>orthophoto</ows:Keyword>
+      <ows:Keyword>maps</ows:Keyword>
+      <ows:Keyword>height-models</ows:Keyword>
+    </ows:Keywords>
+    <ows:ServiceType codeSpace="OGC">WFS</ows:ServiceType>
+    <ows:ServiceTypeVersion>2.0.0</ows:ServiceTypeVersion>
+    <ows:Fees>no fees apply</ows:Fees>
+    <ows:AccessConstraints>no conditions apply</ows:AccessConstraints>
+  </ows:ServiceIdentification>
+  <ows:ServiceProvider>
+    <ows:ProviderName>Amt fuer Tiefbau und Geoinformation</ows:ProviderName>
+    <ows:ProviderSite xlink:type="simple" xlink:href="https://service.geo.llv.li/mapserver/INSPIRE?language=ger&amp;"/>
+    <ows:ServiceContact>
+      <ows:IndividualName>Peter Jehle</ows:IndividualName>
+      <ows:PositionName>owner</ows:PositionName>
+      <ows:ContactInfo>
+        <ows:Phone>
+          <ows:Voice>+423 236 68 55</ows:Voice>
+          <ows:Facsimile> +423 236 60 79</ows:Facsimile>
+        </ows:Phone>
+        <ows:Address>
+          <ows:DeliveryPoint>Staedtle 38</ows:DeliveryPoint>
+          <ows:City>Vaduz</ows:City>
+          <ows:AdministrativeArea>FL</ows:AdministrativeArea>
+          <ows:PostalCode>9490</ows:PostalCode>
+          <ows:Country>Liechtenstein</ows:Country>
+          <ows:ElectronicMailAddress>peter.jehle@llv.li</ows:ElectronicMailAddress>
+        </ows:Address>
+        <ows:OnlineResource xlink:type="simple" xlink:href="https://service.geo.llv.li/mapserver/INSPIRE?language=ger&amp;"/>
+        <ows:HoursOfService>8.30-11.30 und 14.00 - 16.30</ows:HoursOfService>
+        <ows:ContactInstructions> Please send a E-Mail</ows:ContactInstructions>
+      </ows:ContactInfo>
+      <ows:Role>Sysadmin, POC</ows:Role>
+    </ows:ServiceContact>
+  </ows:ServiceProvider>
+  <ows:OperationsMetadata>
+    <ows:Operation name="GetCapabilities">
+      <ows:DCP>
+        <ows:HTTP>
+          <ows:Get xlink:type="simple" xlink:href="https://service.geo.llv.li/mapserver/INSPIRE?language=eng&amp;"/>
+          <ows:Post xlink:type="simple" xlink:href="https://service.geo.llv.li/mapserver/INSPIRE?language=eng&amp;"/>
+        </ows:HTTP>
+      </ows:DCP>
+      <ows:Parameter name="AcceptVersions">
+        <ows:AllowedValues>
+          <ows:Value>2.0.0</ows:Value>
+          <ows:Value>1.1.0</ows:Value>
+          <ows:Value>1.0.0</ows:Value>
+        </ows:AllowedValues>
+      </ows:Parameter>
+      <ows:Parameter name="AcceptFormats">
+        <ows:AllowedValues>
+          <ows:Value>text/xml</ows:Value>
+        </ows:AllowedValues>
+      </ows:Parameter>
+      <ows:Parameter name="Sections">
+        <ows:AllowedValues>
+          <ows:Value>ServiceIdentification</ows:Value>
+          <ows:Value>ServiceProvider</ows:Value>
+          <ows:Value>OperationsMetadata</ows:Value>
+          <ows:Value>FeatureTypeList</ows:Value>
+          <ows:Value>Filter_Capabilities</ows:Value>
+        </ows:AllowedValues>
+      </ows:Parameter>
+    </ows:Operation>
+    <ows:Operation name="DescribeFeatureType">
+      <ows:DCP>
+        <ows:HTTP>
+          <ows:Get xlink:type="simple" xlink:href="https://service.geo.llv.li/mapserver/INSPIRE?language=eng&amp;"/>
+          <ows:Post xlink:type="simple" xlink:href="https://service.geo.llv.li/mapserver/INSPIRE?language=eng&amp;"/>
+        </ows:HTTP>
+      </ows:DCP>
+      <ows:Parameter name="outputFormat">
+        <ows:AllowedValues>
+          <ows:Value>application/gml+xml; version=3.2</ows:Value>
+          <ows:Value>text/xml; subtype=gml/3.2.1</ows:Value>
+          <ows:Value>text/xml; subtype=gml/3.1.1</ows:Value>
+          <ows:Value>text/xml; subtype=gml/2.1.2</ows:Value>
+        </ows:AllowedValues>
+      </ows:Parameter>
+    </ows:Operation>
+    <ows:Operation name="GetFeature">
+      <ows:DCP>
+        <ows:HTTP>
+          <ows:Get xlink:type="simple" xlink:href="https://service.geo.llv.li/mapserver/INSPIRE?language=eng&amp;"/>
+          <ows:Post xlink:type="simple" xlink:href="https://service.geo.llv.li/mapserver/INSPIRE?language=eng&amp;"/>
+        </ows:HTTP>
+      </ows:DCP>
+      <ows:Parameter name="outputFormat">
+        <ows:AllowedValues>
+          <ows:Value>application/gml+xml; version=3.2</ows:Value>
+          <ows:Value>text/xml; subtype=gml/3.2.1</ows:Value>
+          <ows:Value>text/xml; subtype=gml/3.1.1</ows:Value>
+          <ows:Value>text/xml; subtype=gml/2.1.2</ows:Value>
+        </ows:AllowedValues>
+      </ows:Parameter>
+    </ows:Operation>
+    <ows:Operation name="GetPropertyValue">
+      <ows:DCP>
+        <ows:HTTP>
+          <ows:Get xlink:type="simple" xlink:href="https://service.geo.llv.li/mapserver/INSPIRE?language=eng&amp;"/>
+          <ows:Post xlink:type="simple" xlink:href="https://service.geo.llv.li/mapserver/INSPIRE?language=eng&amp;"/>
+        </ows:HTTP>
+      </ows:DCP>
+      <ows:Parameter name="outputFormat">
+        <ows:AllowedValues>
+          <ows:Value>application/gml+xml; version=3.2</ows:Value>
+          <ows:Value>text/xml; subtype=gml/3.2.1</ows:Value>
+          <ows:Value>text/xml; subtype=gml/3.1.1</ows:Value>
+          <ows:Value>text/xml; subtype=gml/2.1.2</ows:Value>
+        </ows:AllowedValues>
+      </ows:Parameter>
+    </ows:Operation>
+    <ows:Operation name="ListStoredQueries">
+      <ows:DCP>
+        <ows:HTTP>
+          <ows:Get xlink:type="simple" xlink:href="https://service.geo.llv.li/mapserver/INSPIRE?language=eng&amp;"/>
+          <ows:Post xlink:type="simple" xlink:href="https://service.geo.llv.li/mapserver/INSPIRE?language=eng&amp;"/>
+        </ows:HTTP>
+      </ows:DCP>
+    </ows:Operation>
+    <ows:Operation name="DescribeStoredQueries">
+      <ows:DCP>
+        <ows:HTTP>
+          <ows:Get xlink:type="simple" xlink:href="https://service.geo.llv.li/mapserver/INSPIRE?language=eng&amp;"/>
+          <ows:Post xlink:type="simple" xlink:href="https://service.geo.llv.li/mapserver/INSPIRE?language=eng&amp;"/>
+        </ows:HTTP>
+      </ows:DCP>
+    </ows:Operation>
+    <ows:Parameter name="version">
+      <ows:AllowedValues>
+        <ows:Value>2.0.0</ows:Value>
+        <ows:Value>1.1.0</ows:Value>
+        <ows:Value>1.0.0</ows:Value>
+      </ows:AllowedValues>
+    </ows:Parameter>
+    <ows:Constraint name="ImplementsBasicWFS">
+      <ows:NoValues/>
+      <ows:DefaultValue>TRUE</ows:DefaultValue>
+    </ows:Constraint>
+    <ows:Constraint name="ImplementsTransactionalWFS">
+      <ows:NoValues/>
+      <ows:DefaultValue>FALSE</ows:DefaultValue>
+    </ows:Constraint>
+    <ows:Constraint name="ImplementsLockingWFS">
+      <ows:NoValues/>
+      <ows:DefaultValue>FALSE</ows:DefaultValue>
+    </ows:Constraint>
+    <ows:Constraint name="KVPEncoding">
+      <ows:NoValues/>
+      <ows:DefaultValue>TRUE</ows:DefaultValue>
+    </ows:Constraint>
+    <ows:Constraint name="XMLEncoding">
+      <ows:NoValues/>
+      <ows:DefaultValue>TRUE</ows:DefaultValue>
+    </ows:Constraint>
+    <ows:Constraint name="SOAPEncoding">
+      <ows:NoValues/>
+      <ows:DefaultValue>FALSE</ows:DefaultValue>
+    </ows:Constraint>
+    <ows:Constraint name="ImplementsInheritance">
+      <ows:NoValues/>
+      <ows:DefaultValue>FALSE</ows:DefaultValue>
+    </ows:Constraint>
+    <ows:Constraint name="ImplementsRemoteResolve">
+      <ows:NoValues/>
+      <ows:DefaultValue>FALSE</ows:DefaultValue>
+    </ows:Constraint>
+    <ows:Constraint name="ImplementsResultPaging">
+      <ows:NoValues/>
+      <ows:DefaultValue>TRUE</ows:DefaultValue>
+    </ows:Constraint>
+    <ows:Constraint name="ImplementsStandardJoins">
+      <ows:NoValues/>
+      <ows:DefaultValue>FALSE</ows:DefaultValue>
+    </ows:Constraint>
+    <ows:Constraint name="ImplementsSpatialJoins">
+      <ows:NoValues/>
+      <ows:DefaultValue>FALSE</ows:DefaultValue>
+    </ows:Constraint>
+    <ows:Constraint name="ImplementsTemporalJoins">
+      <ows:NoValues/>
+      <ows:DefaultValue>FALSE</ows:DefaultValue>
+    </ows:Constraint>
+    <ows:Constraint name="ImplementsFeatureVersioning">
+      <ows:NoValues/>
+      <ows:DefaultValue>FALSE</ows:DefaultValue>
+    </ows:Constraint>
+    <ows:Constraint name="ManageStoredQueries">
+      <ows:NoValues/>
+      <ows:DefaultValue>FALSE</ows:DefaultValue>
+    </ows:Constraint>
+    <ows:Constraint name="PagingIsTransactionSafe">
+      <ows:NoValues/>
+      <ows:DefaultValue>FALSE</ows:DefaultValue>
+    </ows:Constraint>
+    <ows:Constraint name="QueryExpressions">
+      <ows:AllowedValues>
+        <ows:Value>wfs:Query</ows:Value>
+        <ows:Value>wfs:StoredQuery</ows:Value>
+      </ows:AllowedValues>
+    </ows:Constraint>
+    <ows:ExtendedCapabilities>
+      <inspire_dls:ExtendedCapabilities>
+        <inspire_common:MetadataUrl xsi:type="inspire_common:resourceLocatorType">
+          <inspire_common:URL>https://www.geocat.ch/geonetwork/srv/ger/csw?service=CSW&amp;version=2.0.2&amp;request=GetRecordById&amp;elementSetName=full&amp;outputSchema=http://www.isotc211.org/2005/gmd&amp;id=3d30a6bb-5c63-45c3-af70-14fce814f1f7</inspire_common:URL>
+          <inspire_common:MediaType>application/vnd.ogc.csw.capabilities.response_xml</inspire_common:MediaType>
+        </inspire_common:MetadataUrl>
+        <inspire_common:SupportedLanguages>
+          <inspire_common:DefaultLanguage>
+            <inspire_common:Language>eng</inspire_common:Language>
+          </inspire_common:DefaultLanguage>
+          <inspire_common:SupportedLanguage>
+            <inspire_common:Language>ger</inspire_common:Language>
+          </inspire_common:SupportedLanguage>
+        </inspire_common:SupportedLanguages>
+        <inspire_common:ResponseLanguage>
+          <inspire_common:Language>eng</inspire_common:Language>
+        </inspire_common:ResponseLanguage>
+        <!--WARNING: Required metadata "inspire_dsid_code" missing-->
+      </inspire_dls:ExtendedCapabilities>
+    </ows:ExtendedCapabilities>
+  </ows:OperationsMetadata>
+  <FeatureTypeList>
+    <FeatureType>
+      <Name>ms:OI</Name>
+      <Title>Orthoimage</Title>
+      <Abstract>Orthoimage varias years</Abstract>
+      <ows:Keywords>
+        <ows:Keyword>Orthoimage</ows:Keyword>
+        <ows:Keyword>Couverage</ows:Keyword>
+        <ows:Keyword>Luftbild</ows:Keyword>
+        <ows:Keyword>basemaps</ows:Keyword>
+        <ows:Keyword>inspire</ows:Keyword>
+      </ows:Keywords>
+      <DefaultCRS>urn:ogc:def:crs:EPSG::21782</DefaultCRS>
+      <OtherCRS>urn:ogc:def:crs:EPSG::21781</OtherCRS>
+      <OtherCRS>urn:ogc:def:crs:EPSG::4326</OtherCRS>
+      <OtherCRS>urn:ogc:def:crs:EPSG::31297</OtherCRS>
+      <OtherCRS>urn:ogc:def:crs:EPSG::4258</OtherCRS>
+      <OtherCRS>urn:ogc:def:crs:EPSG::3035</OtherCRS>
+      <OtherCRS>urn:ogc:def:crs:EPSG::3034</OtherCRS>
+      <OutputFormats>
+        <Format>application/gml+xml; version=3.2</Format>
+        <Format>text/xml; subtype=gml/3.2.1</Format>
+        <Format>text/xml; subtype=gml/3.1.1</Format>
+        <Format>text/xml; subtype=gml/2.1.2</Format>
+      </OutputFormats>
+      <ows:WGS84BoundingBox dimensions="2">
+        <ows:LowerCorner>9.442000 47.015000</ows:LowerCorner>
+        <ows:UpperCorner>9.660000 47.306000</ows:UpperCorner>
+      </ows:WGS84BoundingBox>
+      <MetadataURL xlink:href="https://service.geo.llv.li/mapserver/INSPIRE?language=eng&amp;request=GetMetadata&amp;layer=OI"/>
+    </FeatureType>
+    <FeatureType>
+      <Name>ms:BASEMAPS</Name>
+      <Title>BASEMAPS</Title>
+      <DefaultCRS>urn:ogc:def:crs:EPSG::21782</DefaultCRS>
+      <OtherCRS>urn:ogc:def:crs:EPSG::21781</OtherCRS>
+      <OtherCRS>urn:ogc:def:crs:EPSG::4326</OtherCRS>
+      <OtherCRS>urn:ogc:def:crs:EPSG::31297</OtherCRS>
+      <OtherCRS>urn:ogc:def:crs:EPSG::4258</OtherCRS>
+      <OtherCRS>urn:ogc:def:crs:EPSG::3035</OtherCRS>
+      <OtherCRS>urn:ogc:def:crs:EPSG::3034</OtherCRS>
+      <OutputFormats>
+        <Format>application/gml+xml; version=3.2</Format>
+        <Format>text/xml; subtype=gml/3.2.1</Format>
+        <Format>text/xml; subtype=gml/3.1.1</Format>
+        <Format>text/xml; subtype=gml/2.1.2</Format>
+      </OutputFormats>
+      <ows:WGS84BoundingBox dimensions="2">
+        <ows:LowerCorner>9.466652 47.043797</ows:LowerCorner>
+        <ows:UpperCorner>9.647129 47.276265</ows:UpperCorner>
+      </ows:WGS84BoundingBox>
+      <MetadataURL xlink:href="https://service.geo.llv.li/mapserver/INSPIRE?language=eng&amp;request=GetMetadata&amp;layer=BASEMAPS"/>
+    </FeatureType>
+    <FeatureType>
+      <Name>ms:CP</Name>
+      <Title>CP</Title>
+      <ows:Keywords>
+        <ows:Keyword>cadastre</ows:Keyword>
+        <ows:Keyword>parcel</ows:Keyword>
+      </ows:Keywords>
+      <DefaultCRS>urn:ogc:def:crs:EPSG::21782</DefaultCRS>
+      <OtherCRS>urn:ogc:def:crs:EPSG::21781</OtherCRS>
+      <OtherCRS>urn:ogc:def:crs:EPSG::4326</OtherCRS>
+      <OtherCRS>urn:ogc:def:crs:EPSG::31297</OtherCRS>
+      <OtherCRS>urn:ogc:def:crs:EPSG::4258</OtherCRS>
+      <OtherCRS>urn:ogc:def:crs:EPSG::3035</OtherCRS>
+      <OtherCRS>urn:ogc:def:crs:EPSG::3034</OtherCRS>
+      <OutputFormats>
+        <Format>application/gml+xml; version=3.2</Format>
+        <Format>text/xml; subtype=gml/3.2.1</Format>
+        <Format>text/xml; subtype=gml/3.1.1</Format>
+        <Format>text/xml; subtype=gml/2.1.2</Format>
+      </OutputFormats>
+      <!--WARNING: Optional WGS84BoundingBox could not be established for this layer.  Consider setting the EXTENT in the LAYER object, or wfs_extent metadata. Also check that your data exists in the DATA statement-->
+      <MetadataURL xlink:href="https://service.geo.llv.li/mapserver/INSPIRE?language=eng&amp;request=GetMetadata&amp;layer=CP"/>
+    </FeatureType>
+    <FeatureType>
+      <Name>ms:CP.CadastralParcel</Name>
+      <Title>CP.CadastralParcel</Title>
+      <ows:Keywords>
+        <ows:Keyword>cadastre</ows:Keyword>
+        <ows:Keyword>parcel</ows:Keyword>
+      </ows:Keywords>
+      <DefaultCRS>urn:ogc:def:crs:EPSG::21782</DefaultCRS>
+      <OtherCRS>urn:ogc:def:crs:EPSG::21781</OtherCRS>
+      <OtherCRS>urn:ogc:def:crs:EPSG::4326</OtherCRS>
+      <OtherCRS>urn:ogc:def:crs:EPSG::31297</OtherCRS>
+      <OtherCRS>urn:ogc:def:crs:EPSG::4258</OtherCRS>
+      <OtherCRS>urn:ogc:def:crs:EPSG::3035</OtherCRS>
+      <OtherCRS>urn:ogc:def:crs:EPSG::3034</OtherCRS>
+      <OutputFormats>
+        <Format>application/gml+xml; version=3.2</Format>
+        <Format>text/xml; subtype=gml/3.2.1</Format>
+        <Format>text/xml; subtype=gml/3.1.1</Format>
+        <Format>text/xml; subtype=gml/2.1.2</Format>
+      </OutputFormats>
+      <ows:WGS84BoundingBox dimensions="2">
+        <ows:LowerCorner>9.471683 47.048427</ows:LowerCorner>
+        <ows:UpperCorner>9.635693 47.270575</ows:UpperCorner>
+      </ows:WGS84BoundingBox>
+      <MetadataURL xlink:href="https://service.geo.llv.li/mapserver/INSPIRE?language=eng&amp;request=GetMetadata&amp;layer=CP.CadastralParcel"/>
+    </FeatureType>
+    <FeatureType>
+      <Name>ms:CP.CadastralZoning</Name>
+      <Title>CadastralZoning</Title>
+      <Abstract>CadastralZoning</Abstract>
+      <ows:Keywords>
+        <ows:Keyword>CadastralZoning</ows:Keyword>
+      </ows:Keywords>
+      <DefaultCRS>urn:ogc:def:crs:EPSG::21782</DefaultCRS>
+      <OtherCRS>urn:ogc:def:crs:EPSG::21781</OtherCRS>
+      <OtherCRS>urn:ogc:def:crs:EPSG::4326</OtherCRS>
+      <OtherCRS>urn:ogc:def:crs:EPSG::31297</OtherCRS>
+      <OtherCRS>urn:ogc:def:crs:EPSG::4258</OtherCRS>
+      <OtherCRS>urn:ogc:def:crs:EPSG::3035</OtherCRS>
+      <OtherCRS>urn:ogc:def:crs:EPSG::3034</OtherCRS>
+      <OutputFormats>
+        <Format>application/gml+xml; version=3.2</Format>
+        <Format>text/xml; subtype=gml/3.2.1</Format>
+        <Format>text/xml; subtype=gml/3.1.1</Format>
+        <Format>text/xml; subtype=gml/2.1.2</Format>
+      </OutputFormats>
+      <ows:WGS84BoundingBox dimensions="2">
+        <ows:LowerCorner>9.400000 47.000000</ows:LowerCorner>
+        <ows:UpperCorner>9.640000 47.290000</ows:UpperCorner>
+      </ows:WGS84BoundingBox>
+      <MetadataURL xlink:href="https://service.geo.llv.li/mapserver/INSPIRE?language=eng&amp;request=GetMetadata&amp;layer=CP.CadastralZoning"/>
+    </FeatureType>
+    <FeatureType>
+      <Name>ms:CP.CadastralBoundary</Name>
+      <Title>CP.CadastralBoundary</Title>
+      <ows:Keywords>
+        <ows:Keyword>cadastre</ows:Keyword>
+        <ows:Keyword>parcel</ows:Keyword>
+        <ows:Keyword>Boundary</ows:Keyword>
+      </ows:Keywords>
+      <DefaultCRS>urn:ogc:def:crs:EPSG::21782</DefaultCRS>
+      <OtherCRS>urn:ogc:def:crs:EPSG::21781</OtherCRS>
+      <OtherCRS>urn:ogc:def:crs:EPSG::4326</OtherCRS>
+      <OtherCRS>urn:ogc:def:crs:EPSG::31297</OtherCRS>
+      <OtherCRS>urn:ogc:def:crs:EPSG::4258</OtherCRS>
+      <OtherCRS>urn:ogc:def:crs:EPSG::3035</OtherCRS>
+      <OtherCRS>urn:ogc:def:crs:EPSG::3034</OtherCRS>
+      <OutputFormats>
+        <Format>application/gml+xml; version=3.2</Format>
+        <Format>text/xml; subtype=gml/3.2.1</Format>
+        <Format>text/xml; subtype=gml/3.1.1</Format>
+        <Format>text/xml; subtype=gml/2.1.2</Format>
+      </OutputFormats>
+      <ows:WGS84BoundingBox dimensions="2">
+        <ows:LowerCorner>9.471683 47.048427</ows:LowerCorner>
+        <ows:UpperCorner>9.635693 47.270575</ows:UpperCorner>
+      </ows:WGS84BoundingBox>
+      <MetadataURL xlink:href="https://service.geo.llv.li/mapserver/INSPIRE?language=eng&amp;request=GetMetadata&amp;layer=CP.CadastralBoundary"/>
+    </FeatureType>
+    <FeatureType>
+      <Name>ms:AU</Name>
+      <Title>Administrative units</Title>
+      <Abstract>Administrative units</Abstract>
+      <ows:Keywords>
+        <ows:Keyword>Administrative units</ows:Keyword>
+        <ows:Keyword>INSPIRE</ows:Keyword>
+      </ows:Keywords>
+      <DefaultCRS>urn:ogc:def:crs:EPSG::21782</DefaultCRS>
+      <OtherCRS>urn:ogc:def:crs:EPSG::21781</OtherCRS>
+      <OtherCRS>urn:ogc:def:crs:EPSG::4326</OtherCRS>
+      <OtherCRS>urn:ogc:def:crs:EPSG::31297</OtherCRS>
+      <OtherCRS>urn:ogc:def:crs:EPSG::4258</OtherCRS>
+      <OtherCRS>urn:ogc:def:crs:EPSG::3035</OtherCRS>
+      <OtherCRS>urn:ogc:def:crs:EPSG::3034</OtherCRS>
+      <OutputFormats>
+        <Format>application/gml+xml; version=3.2</Format>
+        <Format>text/xml; subtype=gml/3.2.1</Format>
+        <Format>text/xml; subtype=gml/3.1.1</Format>
+        <Format>text/xml; subtype=gml/2.1.2</Format>
+      </OutputFormats>
+      <ows:WGS84BoundingBox dimensions="2">
+        <ows:LowerCorner>9.400000 47.000000</ows:LowerCorner>
+        <ows:UpperCorner>9.640000 47.290000</ows:UpperCorner>
+      </ows:WGS84BoundingBox>
+      <MetadataURL xlink:href="https://service.geo.llv.li/mapserver/INSPIRE?language=eng&amp;request=GetMetadata&amp;layer=AU"/>
+    </FeatureType>
+    <FeatureType>
+      <Name>ms:AU.AdministrativeUnit</Name>
+      <Title>AU.AdministrativeUnit</Title>
+      <ows:Keywords>
+        <ows:Keyword>Administrative Unit</ows:Keyword>
+      </ows:Keywords>
+      <DefaultCRS>urn:ogc:def:crs:EPSG::21782</DefaultCRS>
+      <OtherCRS>urn:ogc:def:crs:EPSG::21781</OtherCRS>
+      <OtherCRS>urn:ogc:def:crs:EPSG::4326</OtherCRS>
+      <OtherCRS>urn:ogc:def:crs:EPSG::31297</OtherCRS>
+      <OtherCRS>urn:ogc:def:crs:EPSG::4258</OtherCRS>
+      <OtherCRS>urn:ogc:def:crs:EPSG::3035</OtherCRS>
+      <OtherCRS>urn:ogc:def:crs:EPSG::3034</OtherCRS>
+      <OutputFormats>
+        <Format>application/gml+xml; version=3.2</Format>
+        <Format>text/xml; subtype=gml/3.2.1</Format>
+        <Format>text/xml; subtype=gml/3.1.1</Format>
+        <Format>text/xml; subtype=gml/2.1.2</Format>
+      </OutputFormats>
+      <ows:WGS84BoundingBox dimensions="2">
+        <ows:LowerCorner>9.471683 47.048427</ows:LowerCorner>
+        <ows:UpperCorner>9.635693 47.270575</ows:UpperCorner>
+      </ows:WGS84BoundingBox>
+      <MetadataURL xlink:href="https://service.geo.llv.li/mapserver/INSPIRE?language=eng&amp;request=GetMetadata&amp;layer=AU.AdministrativeUnit"/>
+    </FeatureType>
+    <FeatureType>
+      <Name>ms:AU.AdministrativeBoundary</Name>
+      <Title>AU.AdministrativeBoundary</Title>
+      <ows:Keywords>
+        <ows:Keyword>Administrative Boundary</ows:Keyword>
+        <ows:Keyword>INSPIRE</ows:Keyword>
+      </ows:Keywords>
+      <DefaultCRS>urn:ogc:def:crs:EPSG::21782</DefaultCRS>
+      <OtherCRS>urn:ogc:def:crs:EPSG::21781</OtherCRS>
+      <OtherCRS>urn:ogc:def:crs:EPSG::4326</OtherCRS>
+      <OtherCRS>urn:ogc:def:crs:EPSG::31297</OtherCRS>
+      <OtherCRS>urn:ogc:def:crs:EPSG::4258</OtherCRS>
+      <OtherCRS>urn:ogc:def:crs:EPSG::3035</OtherCRS>
+      <OtherCRS>urn:ogc:def:crs:EPSG::3034</OtherCRS>
+      <OutputFormats>
+        <Format>application/gml+xml; version=3.2</Format>
+        <Format>text/xml; subtype=gml/3.2.1</Format>
+        <Format>text/xml; subtype=gml/3.1.1</Format>
+        <Format>text/xml; subtype=gml/2.1.2</Format>
+      </OutputFormats>
+      <ows:WGS84BoundingBox dimensions="2">
+        <ows:LowerCorner>9.471683 47.048427</ows:LowerCorner>
+        <ows:UpperCorner>9.635693 47.270575</ows:UpperCorner>
+      </ows:WGS84BoundingBox>
+      <MetadataURL xlink:href="https://service.geo.llv.li/mapserver/INSPIRE?language=eng&amp;request=GetMetadata&amp;layer=AU.AdministrativeBoundary"/>
+    </FeatureType>
+    <FeatureType>
+      <Name>ms:PS</Name>
+      <Title>Protected Sites</Title>
+      <Abstract>Protected Sites</Abstract>
+      <ows:Keywords>
+        <ows:Keyword>Protected Sites</ows:Keyword>
+        <ows:Keyword>INSPIRE</ows:Keyword>
+      </ows:Keywords>
+      <DefaultCRS>urn:ogc:def:crs:EPSG::21782</DefaultCRS>
+      <OtherCRS>urn:ogc:def:crs:EPSG::21781</OtherCRS>
+      <OtherCRS>urn:ogc:def:crs:EPSG::4326</OtherCRS>
+      <OtherCRS>urn:ogc:def:crs:EPSG::31297</OtherCRS>
+      <OtherCRS>urn:ogc:def:crs:EPSG::4258</OtherCRS>
+      <OtherCRS>urn:ogc:def:crs:EPSG::3035</OtherCRS>
+      <OtherCRS>urn:ogc:def:crs:EPSG::3034</OtherCRS>
+      <OutputFormats>
+        <Format>application/gml+xml; version=3.2</Format>
+        <Format>text/xml; subtype=gml/3.2.1</Format>
+        <Format>text/xml; subtype=gml/3.1.1</Format>
+        <Format>text/xml; subtype=gml/2.1.2</Format>
+      </OutputFormats>
+      <ows:WGS84BoundingBox dimensions="2">
+        <ows:LowerCorner>9.400000 47.000000</ows:LowerCorner>
+        <ows:UpperCorner>9.640000 47.290000</ows:UpperCorner>
+      </ows:WGS84BoundingBox>
+      <MetadataURL xlink:href="https://service.geo.llv.li/mapserver/INSPIRE?language=eng&amp;request=GetMetadata&amp;layer=PS"/>
+    </FeatureType>
+    <FeatureType>
+      <Name>ms:PS.ProtectedSites</Name>
+      <Title>PS.ProtectedSites</Title>
+      <ows:Keywords>
+        <ows:Keyword>Protected Sites</ows:Keyword>
+      </ows:Keywords>
+      <DefaultCRS>urn:ogc:def:crs:EPSG::21782</DefaultCRS>
+      <OtherCRS>urn:ogc:def:crs:EPSG::21781</OtherCRS>
+      <OtherCRS>urn:ogc:def:crs:EPSG::4326</OtherCRS>
+      <OtherCRS>urn:ogc:def:crs:EPSG::31297</OtherCRS>
+      <OtherCRS>urn:ogc:def:crs:EPSG::4258</OtherCRS>
+      <OtherCRS>urn:ogc:def:crs:EPSG::3035</OtherCRS>
+      <OtherCRS>urn:ogc:def:crs:EPSG::3034</OtherCRS>
+      <OutputFormats>
+        <Format>application/gml+xml; version=3.2</Format>
+        <Format>text/xml; subtype=gml/3.2.1</Format>
+        <Format>text/xml; subtype=gml/3.1.1</Format>
+        <Format>text/xml; subtype=gml/2.1.2</Format>
+      </OutputFormats>
+      <ows:WGS84BoundingBox dimensions="2">
+        <ows:LowerCorner>9.473920 47.048427</ows:LowerCorner>
+        <ows:UpperCorner>9.635693 47.264040</ows:UpperCorner>
+      </ows:WGS84BoundingBox>
+      <MetadataURL xlink:href="https://service.geo.llv.li/mapserver/INSPIRE?language=eng&amp;request=GetMetadata&amp;layer=PS.ProtectedSites"/>
+    </FeatureType>
+    <FeatureType>
+      <Name>ms:PS.ProtectedSitesNatureConservation</Name>
+      <Title>PS.ProtectedSitesNatureConservation</Title>
+      <ows:Keywords>
+        <ows:Keyword>Protected Sites</ows:Keyword>
+        <ows:Keyword>Nature Conservation</ows:Keyword>
+      </ows:Keywords>
+      <DefaultCRS>urn:ogc:def:crs:EPSG::21782</DefaultCRS>
+      <OtherCRS>urn:ogc:def:crs:EPSG::21781</OtherCRS>
+      <OtherCRS>urn:ogc:def:crs:EPSG::4326</OtherCRS>
+      <OtherCRS>urn:ogc:def:crs:EPSG::31297</OtherCRS>
+      <OtherCRS>urn:ogc:def:crs:EPSG::4258</OtherCRS>
+      <OtherCRS>urn:ogc:def:crs:EPSG::3035</OtherCRS>
+      <OtherCRS>urn:ogc:def:crs:EPSG::3034</OtherCRS>
+      <OutputFormats>
+        <Format>application/gml+xml; version=3.2</Format>
+        <Format>text/xml; subtype=gml/3.2.1</Format>
+        <Format>text/xml; subtype=gml/3.1.1</Format>
+        <Format>text/xml; subtype=gml/2.1.2</Format>
+      </OutputFormats>
+      <ows:WGS84BoundingBox dimensions="2">
+        <ows:LowerCorner>9.473920 47.048427</ows:LowerCorner>
+        <ows:UpperCorner>9.635693 47.264040</ows:UpperCorner>
+      </ows:WGS84BoundingBox>
+      <MetadataURL xlink:href="https://service.geo.llv.li/mapserver/INSPIRE?language=eng&amp;request=GetMetadata&amp;layer=PS.ProtectedSitesNatureConservation"/>
+    </FeatureType>
+    <FeatureType>
+      <Name>ms:PS.ProtectedSitesArcheaological</Name>
+      <Title>PS.ProtectedSitesArcheaological</Title>
+      <ows:Keywords>
+        <ows:Keyword>Protected Sites</ows:Keyword>
+        <ows:Keyword>conservation</ows:Keyword>
+        <ows:Keyword>archaeology</ows:Keyword>
+      </ows:Keywords>
+      <DefaultCRS>urn:ogc:def:crs:EPSG::21782</DefaultCRS>
+      <OtherCRS>urn:ogc:def:crs:EPSG::21781</OtherCRS>
+      <OtherCRS>urn:ogc:def:crs:EPSG::4326</OtherCRS>
+      <OtherCRS>urn:ogc:def:crs:EPSG::31297</OtherCRS>
+      <OtherCRS>urn:ogc:def:crs:EPSG::4258</OtherCRS>
+      <OtherCRS>urn:ogc:def:crs:EPSG::3035</OtherCRS>
+      <OtherCRS>urn:ogc:def:crs:EPSG::3034</OtherCRS>
+      <OutputFormats>
+        <Format>application/gml+xml; version=3.2</Format>
+        <Format>text/xml; subtype=gml/3.2.1</Format>
+        <Format>text/xml; subtype=gml/3.1.1</Format>
+        <Format>text/xml; subtype=gml/2.1.2</Format>
+      </OutputFormats>
+      <ows:WGS84BoundingBox dimensions="2">
+        <ows:LowerCorner>9.473920 47.048427</ows:LowerCorner>
+        <ows:UpperCorner>9.635693 47.264040</ows:UpperCorner>
+      </ows:WGS84BoundingBox>
+      <MetadataURL xlink:href="https://service.geo.llv.li/mapserver/INSPIRE?language=eng&amp;request=GetMetadata&amp;layer=PS.ProtectedSitesArcheaological"/>
+    </FeatureType>
+    <FeatureType>
+      <Name>ms:PS.ProtectedSitesCultural</Name>
+      <Title>PS.ProtectedSitesCultural</Title>
+      <ows:Keywords>
+        <ows:Keyword>Protected Sites</ows:Keyword>
+        <ows:Keyword>conservation</ows:Keyword>
+        <ows:Keyword>cultur</ows:Keyword>
+      </ows:Keywords>
+      <DefaultCRS>urn:ogc:def:crs:EPSG::21782</DefaultCRS>
+      <OtherCRS>urn:ogc:def:crs:EPSG::21781</OtherCRS>
+      <OtherCRS>urn:ogc:def:crs:EPSG::4326</OtherCRS>
+      <OtherCRS>urn:ogc:def:crs:EPSG::31297</OtherCRS>
+      <OtherCRS>urn:ogc:def:crs:EPSG::4258</OtherCRS>
+      <OtherCRS>urn:ogc:def:crs:EPSG::3035</OtherCRS>
+      <OtherCRS>urn:ogc:def:crs:EPSG::3034</OtherCRS>
+      <OutputFormats>
+        <Format>application/gml+xml; version=3.2</Format>
+        <Format>text/xml; subtype=gml/3.2.1</Format>
+        <Format>text/xml; subtype=gml/3.1.1</Format>
+        <Format>text/xml; subtype=gml/2.1.2</Format>
+      </OutputFormats>
+      <ows:WGS84BoundingBox dimensions="2">
+        <ows:LowerCorner>9.473920 47.048427</ows:LowerCorner>
+        <ows:UpperCorner>9.635693 47.264040</ows:UpperCorner>
+      </ows:WGS84BoundingBox>
+      <MetadataURL xlink:href="https://service.geo.llv.li/mapserver/INSPIRE?language=eng&amp;request=GetMetadata&amp;layer=PS.ProtectedSitesCultural"/>
+    </FeatureType>
+    <FeatureType>
+      <Name>ms:PS.ProtectedSitesEcological</Name>
+      <Title>PS.ProtectedSitesEcological</Title>
+      <ows:Keywords>
+        <ows:Keyword>Protected Sites</ows:Keyword>
+        <ows:Keyword>conservation</ows:Keyword>
+        <ows:Keyword>ecology</ows:Keyword>
+      </ows:Keywords>
+      <DefaultCRS>urn:ogc:def:crs:EPSG::21782</DefaultCRS>
+      <OtherCRS>urn:ogc:def:crs:EPSG::21781</OtherCRS>
+      <OtherCRS>urn:ogc:def:crs:EPSG::4326</OtherCRS>
+      <OtherCRS>urn:ogc:def:crs:EPSG::31297</OtherCRS>
+      <OtherCRS>urn:ogc:def:crs:EPSG::4258</OtherCRS>
+      <OtherCRS>urn:ogc:def:crs:EPSG::3035</OtherCRS>
+      <OtherCRS>urn:ogc:def:crs:EPSG::3034</OtherCRS>
+      <OutputFormats>
+        <Format>application/gml+xml; version=3.2</Format>
+        <Format>text/xml; subtype=gml/3.2.1</Format>
+        <Format>text/xml; subtype=gml/3.1.1</Format>
+        <Format>text/xml; subtype=gml/2.1.2</Format>
+      </OutputFormats>
+      <ows:WGS84BoundingBox dimensions="2">
+        <ows:LowerCorner>9.473920 47.048427</ows:LowerCorner>
+        <ows:UpperCorner>9.635693 47.264040</ows:UpperCorner>
+      </ows:WGS84BoundingBox>
+      <MetadataURL xlink:href="https://service.geo.llv.li/mapserver/INSPIRE?language=eng&amp;request=GetMetadata&amp;layer=PS.ProtectedSitesEcological"/>
+    </FeatureType>
+    <FeatureType>
+      <Name>ms:PS.ProtectedSitesLandscape</Name>
+      <Title>PS.ProtectedSitesLandscape</Title>
+      <ows:Keywords>
+        <ows:Keyword>Protected Sites</ows:Keyword>
+        <ows:Keyword>conservation</ows:Keyword>
+        <ows:Keyword>landscape</ows:Keyword>
+      </ows:Keywords>
+      <DefaultCRS>urn:ogc:def:crs:EPSG::21782</DefaultCRS>
+      <OtherCRS>urn:ogc:def:crs:EPSG::21781</OtherCRS>
+      <OtherCRS>urn:ogc:def:crs:EPSG::4326</OtherCRS>
+      <OtherCRS>urn:ogc:def:crs:EPSG::31297</OtherCRS>
+      <OtherCRS>urn:ogc:def:crs:EPSG::4258</OtherCRS>
+      <OtherCRS>urn:ogc:def:crs:EPSG::3035</OtherCRS>
+      <OtherCRS>urn:ogc:def:crs:EPSG::3034</OtherCRS>
+      <OutputFormats>
+        <Format>application/gml+xml; version=3.2</Format>
+        <Format>text/xml; subtype=gml/3.2.1</Format>
+        <Format>text/xml; subtype=gml/3.1.1</Format>
+        <Format>text/xml; subtype=gml/2.1.2</Format>
+      </OutputFormats>
+      <ows:WGS84BoundingBox dimensions="2">
+        <ows:LowerCorner>9.473920 47.048427</ows:LowerCorner>
+        <ows:UpperCorner>9.635693 47.264040</ows:UpperCorner>
+      </ows:WGS84BoundingBox>
+      <MetadataURL xlink:href="https://service.geo.llv.li/mapserver/INSPIRE?language=eng&amp;request=GetMetadata&amp;layer=PS.ProtectedSitesLandscape"/>
+    </FeatureType>
+    <FeatureType>
+      <Name>ms:PS.ProtectedSitesEnvironment</Name>
+      <Title>PS.ProtectedSitesEnvironment</Title>
+      <ows:Keywords>
+        <ows:Keyword>Protected Sites</ows:Keyword>
+        <ows:Keyword>conservation</ows:Keyword>
+        <ows:Keyword>environment</ows:Keyword>
+      </ows:Keywords>
+      <DefaultCRS>urn:ogc:def:crs:EPSG::21782</DefaultCRS>
+      <OtherCRS>urn:ogc:def:crs:EPSG::21781</OtherCRS>
+      <OtherCRS>urn:ogc:def:crs:EPSG::4326</OtherCRS>
+      <OtherCRS>urn:ogc:def:crs:EPSG::31297</OtherCRS>
+      <OtherCRS>urn:ogc:def:crs:EPSG::4258</OtherCRS>
+      <OtherCRS>urn:ogc:def:crs:EPSG::3035</OtherCRS>
+      <OtherCRS>urn:ogc:def:crs:EPSG::3034</OtherCRS>
+      <OutputFormats>
+        <Format>application/gml+xml; version=3.2</Format>
+        <Format>text/xml; subtype=gml/3.2.1</Format>
+        <Format>text/xml; subtype=gml/3.1.1</Format>
+        <Format>text/xml; subtype=gml/2.1.2</Format>
+      </OutputFormats>
+      <ows:WGS84BoundingBox dimensions="2">
+        <ows:LowerCorner>9.473920 47.048427</ows:LowerCorner>
+        <ows:UpperCorner>9.635693 47.264040</ows:UpperCorner>
+      </ows:WGS84BoundingBox>
+      <MetadataURL xlink:href="https://service.geo.llv.li/mapserver/INSPIRE?language=eng&amp;request=GetMetadata&amp;layer=PS.ProtectedSitesEnvironment"/>
+    </FeatureType>
+    <FeatureType>
+      <Name>ms:PS.ProtectedSitesGeological</Name>
+      <Title>PS.ProtectedSitesGeological</Title>
+      <ows:Keywords>
+        <ows:Keyword>Protected Sites</ows:Keyword>
+        <ows:Keyword>conservation</ows:Keyword>
+        <ows:Keyword>geology</ows:Keyword>
+      </ows:Keywords>
+      <DefaultCRS>urn:ogc:def:crs:EPSG::21782</DefaultCRS>
+      <OtherCRS>urn:ogc:def:crs:EPSG::21781</OtherCRS>
+      <OtherCRS>urn:ogc:def:crs:EPSG::4326</OtherCRS>
+      <OtherCRS>urn:ogc:def:crs:EPSG::31297</OtherCRS>
+      <OtherCRS>urn:ogc:def:crs:EPSG::4258</OtherCRS>
+      <OtherCRS>urn:ogc:def:crs:EPSG::3035</OtherCRS>
+      <OtherCRS>urn:ogc:def:crs:EPSG::3034</OtherCRS>
+      <OutputFormats>
+        <Format>application/gml+xml; version=3.2</Format>
+        <Format>text/xml; subtype=gml/3.2.1</Format>
+        <Format>text/xml; subtype=gml/3.1.1</Format>
+        <Format>text/xml; subtype=gml/2.1.2</Format>
+      </OutputFormats>
+      <ows:WGS84BoundingBox dimensions="2">
+        <ows:LowerCorner>9.473920 47.048427</ows:LowerCorner>
+        <ows:UpperCorner>9.635693 47.264040</ows:UpperCorner>
+      </ows:WGS84BoundingBox>
+      <MetadataURL xlink:href="https://service.geo.llv.li/mapserver/INSPIRE?language=eng&amp;request=GetMetadata&amp;layer=PS.ProtectedSitesGeological"/>
+    </FeatureType>
+    <FeatureType>
+      <Name>ms:AD</Name>
+      <Title>Addresses</Title>
+      <Abstract>Addresses</Abstract>
+      <ows:Keywords>
+        <ows:Keyword>Addresses</ows:Keyword>
+        <ows:Keyword>INSPIRE</ows:Keyword>
+      </ows:Keywords>
+      <DefaultCRS>urn:ogc:def:crs:EPSG::21782</DefaultCRS>
+      <OtherCRS>urn:ogc:def:crs:EPSG::21781</OtherCRS>
+      <OtherCRS>urn:ogc:def:crs:EPSG::4326</OtherCRS>
+      <OtherCRS>urn:ogc:def:crs:EPSG::31297</OtherCRS>
+      <OtherCRS>urn:ogc:def:crs:EPSG::4258</OtherCRS>
+      <OtherCRS>urn:ogc:def:crs:EPSG::3035</OtherCRS>
+      <OtherCRS>urn:ogc:def:crs:EPSG::3034</OtherCRS>
+      <OutputFormats>
+        <Format>application/gml+xml; version=3.2</Format>
+        <Format>text/xml; subtype=gml/3.2.1</Format>
+        <Format>text/xml; subtype=gml/3.1.1</Format>
+        <Format>text/xml; subtype=gml/2.1.2</Format>
+      </OutputFormats>
+      <ows:WGS84BoundingBox dimensions="2">
+        <ows:LowerCorner>9.400000 47.000000</ows:LowerCorner>
+        <ows:UpperCorner>9.640000 47.290000</ows:UpperCorner>
+      </ows:WGS84BoundingBox>
+      <MetadataURL xlink:href="https://service.geo.llv.li/mapserver/INSPIRE?language=eng&amp;request=GetMetadata&amp;layer=AD"/>
+    </FeatureType>
+    <FeatureType>
+      <Name>ms:AD.Address</Name>
+      <Title>Addresses</Title>
+      <Abstract>Addresses</Abstract>
+      <ows:Keywords>
+        <ows:Keyword>Addresses</ows:Keyword>
+        <ows:Keyword>INSPIRE</ows:Keyword>
+      </ows:Keywords>
+      <DefaultCRS>urn:ogc:def:crs:EPSG::21782</DefaultCRS>
+      <OtherCRS>urn:ogc:def:crs:EPSG::21781</OtherCRS>
+      <OtherCRS>urn:ogc:def:crs:EPSG::4326</OtherCRS>
+      <OtherCRS>urn:ogc:def:crs:EPSG::31297</OtherCRS>
+      <OtherCRS>urn:ogc:def:crs:EPSG::4258</OtherCRS>
+      <OtherCRS>urn:ogc:def:crs:EPSG::3035</OtherCRS>
+      <OtherCRS>urn:ogc:def:crs:EPSG::3034</OtherCRS>
+      <OutputFormats>
+        <Format>application/gml+xml; version=3.2</Format>
+        <Format>text/xml; subtype=gml/3.2.1</Format>
+        <Format>text/xml; subtype=gml/3.1.1</Format>
+        <Format>text/xml; subtype=gml/2.1.2</Format>
+      </OutputFormats>
+      <ows:WGS84BoundingBox dimensions="2">
+        <ows:LowerCorner>9.476318 47.055644</ows:LowerCorner>
+        <ows:UpperCorner>9.620293 47.259950</ows:UpperCorner>
+      </ows:WGS84BoundingBox>
+      <MetadataURL xlink:href="https://service.geo.llv.li/mapserver/INSPIRE?language=eng&amp;request=GetMetadata&amp;layer=AD.Address"/>
+    </FeatureType>
+    <FeatureType>
+      <Name>ms:GN</Name>
+      <Title>Geographical Names</Title>
+      <Abstract>Geographical Names</Abstract>
+      <ows:Keywords>
+        <ows:Keyword>Geographical Names</ows:Keyword>
+        <ows:Keyword>INSPIRE</ows:Keyword>
+      </ows:Keywords>
+      <DefaultCRS>urn:ogc:def:crs:EPSG::21782</DefaultCRS>
+      <OtherCRS>urn:ogc:def:crs:EPSG::21781</OtherCRS>
+      <OtherCRS>urn:ogc:def:crs:EPSG::4326</OtherCRS>
+      <OtherCRS>urn:ogc:def:crs:EPSG::31297</OtherCRS>
+      <OtherCRS>urn:ogc:def:crs:EPSG::4258</OtherCRS>
+      <OtherCRS>urn:ogc:def:crs:EPSG::3035</OtherCRS>
+      <OtherCRS>urn:ogc:def:crs:EPSG::3034</OtherCRS>
+      <OutputFormats>
+        <Format>application/gml+xml; version=3.2</Format>
+        <Format>text/xml; subtype=gml/3.2.1</Format>
+        <Format>text/xml; subtype=gml/3.1.1</Format>
+        <Format>text/xml; subtype=gml/2.1.2</Format>
+      </OutputFormats>
+      <ows:WGS84BoundingBox dimensions="2">
+        <ows:LowerCorner>9.400000 47.000000</ows:LowerCorner>
+        <ows:UpperCorner>9.640000 47.290000</ows:UpperCorner>
+      </ows:WGS84BoundingBox>
+      <MetadataURL xlink:href="https://service.geo.llv.li/mapserver/INSPIRE?language=eng&amp;request=GetMetadata&amp;layer=GN"/>
+    </FeatureType>
+    <FeatureType>
+      <Name>ms:GN.GeographicalNames</Name>
+      <Title>GN.GeographicalNames</Title>
+      <ows:Keywords>
+        <ows:Keyword>Geographical Names</ows:Keyword>
+        <ows:Keyword>INSPIRE</ows:Keyword>
+      </ows:Keywords>
+      <DefaultCRS>urn:ogc:def:crs:EPSG::21782</DefaultCRS>
+      <OtherCRS>urn:ogc:def:crs:EPSG::21781</OtherCRS>
+      <OtherCRS>urn:ogc:def:crs:EPSG::4326</OtherCRS>
+      <OtherCRS>urn:ogc:def:crs:EPSG::31297</OtherCRS>
+      <OtherCRS>urn:ogc:def:crs:EPSG::4258</OtherCRS>
+      <OtherCRS>urn:ogc:def:crs:EPSG::3035</OtherCRS>
+      <OtherCRS>urn:ogc:def:crs:EPSG::3034</OtherCRS>
+      <OutputFormats>
+        <Format>application/gml+xml; version=3.2</Format>
+        <Format>text/xml; subtype=gml/3.2.1</Format>
+        <Format>text/xml; subtype=gml/3.1.1</Format>
+        <Format>text/xml; subtype=gml/2.1.2</Format>
+      </OutputFormats>
+      <ows:WGS84BoundingBox dimensions="2">
+        <ows:LowerCorner>9.475224 47.052336</ows:LowerCorner>
+        <ows:UpperCorner>9.633868 47.265454</ows:UpperCorner>
+      </ows:WGS84BoundingBox>
+      <MetadataURL xlink:href="https://service.geo.llv.li/mapserver/INSPIRE?language=eng&amp;request=GetMetadata&amp;layer=GN.GeographicalNames"/>
+    </FeatureType>
+    <FeatureType>
+      <Name>ms:TN</Name>
+      <Title>Transport Network Road</Title>
+      <Abstract>Transport Network Road </Abstract>
+      <ows:Keywords>
+        <ows:Keyword>road</ows:Keyword>
+        <ows:Keyword>Transport Network</ows:Keyword>
+        <ows:Keyword>INSPIRE</ows:Keyword>
+      </ows:Keywords>
+      <DefaultCRS>urn:ogc:def:crs:EPSG::21782</DefaultCRS>
+      <OtherCRS>urn:ogc:def:crs:EPSG::21781</OtherCRS>
+      <OtherCRS>urn:ogc:def:crs:EPSG::4326</OtherCRS>
+      <OtherCRS>urn:ogc:def:crs:EPSG::31297</OtherCRS>
+      <OtherCRS>urn:ogc:def:crs:EPSG::4258</OtherCRS>
+      <OtherCRS>urn:ogc:def:crs:EPSG::3035</OtherCRS>
+      <OtherCRS>urn:ogc:def:crs:EPSG::3034</OtherCRS>
+      <OutputFormats>
+        <Format>application/gml+xml; version=3.2</Format>
+        <Format>text/xml; subtype=gml/3.2.1</Format>
+        <Format>text/xml; subtype=gml/3.1.1</Format>
+        <Format>text/xml; subtype=gml/2.1.2</Format>
+      </OutputFormats>
+      <ows:WGS84BoundingBox dimensions="2">
+        <ows:LowerCorner>9.400000 47.000000</ows:LowerCorner>
+        <ows:UpperCorner>9.640000 47.290000</ows:UpperCorner>
+      </ows:WGS84BoundingBox>
+      <MetadataURL xlink:href="https://service.geo.llv.li/mapserver/INSPIRE?language=eng&amp;request=GetMetadata&amp;layer=TN"/>
+    </FeatureType>
+    <FeatureType>
+      <Name>ms:TN.RoadTransportNetwork.RoadLink</Name>
+      <Title>TN.RoadTransportNetwork.RoadLink</Title>
+      <ows:Keywords>
+        <ows:Keyword>RoadLink</ows:Keyword>
+        <ows:Keyword>INSPIRE</ows:Keyword>
+      </ows:Keywords>
+      <DefaultCRS>urn:ogc:def:crs:EPSG::21782</DefaultCRS>
+      <OtherCRS>urn:ogc:def:crs:EPSG::21781</OtherCRS>
+      <OtherCRS>urn:ogc:def:crs:EPSG::4326</OtherCRS>
+      <OtherCRS>urn:ogc:def:crs:EPSG::31297</OtherCRS>
+      <OtherCRS>urn:ogc:def:crs:EPSG::4258</OtherCRS>
+      <OtherCRS>urn:ogc:def:crs:EPSG::3035</OtherCRS>
+      <OtherCRS>urn:ogc:def:crs:EPSG::3034</OtherCRS>
+      <OutputFormats>
+        <Format>application/gml+xml; version=3.2</Format>
+        <Format>text/xml; subtype=gml/3.2.1</Format>
+        <Format>text/xml; subtype=gml/3.1.1</Format>
+        <Format>text/xml; subtype=gml/2.1.2</Format>
+      </OutputFormats>
+      <ows:WGS84BoundingBox dimensions="2">
+        <ows:LowerCorner>9.472635 47.052066</ows:LowerCorner>
+        <ows:UpperCorner>9.623375 47.261558</ows:UpperCorner>
+      </ows:WGS84BoundingBox>
+      <MetadataURL xlink:href="https://service.geo.llv.li/mapserver/INSPIRE?language=eng&amp;request=GetMetadata&amp;layer=TN.RoadTransportNetwork.RoadLink"/>
+    </FeatureType>
+    <FeatureType>
+      <Name>ms:HY</Name>
+      <Title>HY</Title>
+      <ows:Keywords>
+        <ows:Keyword>Hydrography</ows:Keyword>
+      </ows:Keywords>
+      <DefaultCRS>urn:ogc:def:crs:EPSG::21782</DefaultCRS>
+      <OtherCRS>urn:ogc:def:crs:EPSG::21781</OtherCRS>
+      <OtherCRS>urn:ogc:def:crs:EPSG::4326</OtherCRS>
+      <OtherCRS>urn:ogc:def:crs:EPSG::31297</OtherCRS>
+      <OtherCRS>urn:ogc:def:crs:EPSG::4258</OtherCRS>
+      <OtherCRS>urn:ogc:def:crs:EPSG::3035</OtherCRS>
+      <OtherCRS>urn:ogc:def:crs:EPSG::3034</OtherCRS>
+      <OutputFormats>
+        <Format>application/gml+xml; version=3.2</Format>
+        <Format>text/xml; subtype=gml/3.2.1</Format>
+        <Format>text/xml; subtype=gml/3.1.1</Format>
+        <Format>text/xml; subtype=gml/2.1.2</Format>
+      </OutputFormats>
+      <!--WARNING: Optional WGS84BoundingBox could not be established for this layer.  Consider setting the EXTENT in the LAYER object, or wfs_extent metadata. Also check that your data exists in the DATA statement-->
+      <MetadataURL xlink:href="https://service.geo.llv.li/mapserver/INSPIRE?language=eng&amp;request=GetMetadata&amp;layer=HY"/>
+    </FeatureType>
+    <FeatureType>
+      <Name>ms:HY.Network</Name>
+      <Title>HY.Network</Title>
+      <ows:Keywords>
+        <ows:Keyword>WatercourseLink</ows:Keyword>
+        <ows:Keyword>INSPIRE</ows:Keyword>
+      </ows:Keywords>
+      <DefaultCRS>urn:ogc:def:crs:EPSG::21782</DefaultCRS>
+      <OtherCRS>urn:ogc:def:crs:EPSG::21781</OtherCRS>
+      <OtherCRS>urn:ogc:def:crs:EPSG::4326</OtherCRS>
+      <OtherCRS>urn:ogc:def:crs:EPSG::31297</OtherCRS>
+      <OtherCRS>urn:ogc:def:crs:EPSG::4258</OtherCRS>
+      <OtherCRS>urn:ogc:def:crs:EPSG::3035</OtherCRS>
+      <OtherCRS>urn:ogc:def:crs:EPSG::3034</OtherCRS>
+      <OutputFormats>
+        <Format>application/gml+xml; version=3.2</Format>
+        <Format>text/xml; subtype=gml/3.2.1</Format>
+        <Format>text/xml; subtype=gml/3.1.1</Format>
+        <Format>text/xml; subtype=gml/2.1.2</Format>
+      </OutputFormats>
+      <ows:WGS84BoundingBox dimensions="2">
+        <ows:LowerCorner>9.471683 47.049672</ows:LowerCorner>
+        <ows:UpperCorner>9.622440 47.297393</ows:UpperCorner>
+      </ows:WGS84BoundingBox>
+      <MetadataURL xlink:href="https://service.geo.llv.li/mapserver/INSPIRE?language=eng&amp;request=GetMetadata&amp;layer=HY.Network"/>
+    </FeatureType>
+    <FeatureType>
+      <Name>ms:HY.PhysicalWaters.Waterbodies</Name>
+      <Title>HY.PhysicalWaters.Waterbodies</Title>
+      <ows:Keywords>
+        <ows:Keyword>Waterbody</ows:Keyword>
+        <ows:Keyword>INSPIRE</ows:Keyword>
+      </ows:Keywords>
+      <DefaultCRS>urn:ogc:def:crs:EPSG::21782</DefaultCRS>
+      <OtherCRS>urn:ogc:def:crs:EPSG::21781</OtherCRS>
+      <OtherCRS>urn:ogc:def:crs:EPSG::4326</OtherCRS>
+      <OtherCRS>urn:ogc:def:crs:EPSG::31297</OtherCRS>
+      <OtherCRS>urn:ogc:def:crs:EPSG::4258</OtherCRS>
+      <OtherCRS>urn:ogc:def:crs:EPSG::3035</OtherCRS>
+      <OtherCRS>urn:ogc:def:crs:EPSG::3034</OtherCRS>
+      <OutputFormats>
+        <Format>application/gml+xml; version=3.2</Format>
+        <Format>text/xml; subtype=gml/3.2.1</Format>
+        <Format>text/xml; subtype=gml/3.1.1</Format>
+        <Format>text/xml; subtype=gml/2.1.2</Format>
+      </OutputFormats>
+      <ows:WGS84BoundingBox dimensions="2">
+        <ows:LowerCorner>9.471683 47.051750</ows:LowerCorner>
+        <ows:UpperCorner>9.619992 47.270575</ows:UpperCorner>
+      </ows:WGS84BoundingBox>
+      <MetadataURL xlink:href="https://service.geo.llv.li/mapserver/INSPIRE?language=eng&amp;request=GetMetadata&amp;layer=HY.PhysicalWaters.Waterbodies"/>
+    </FeatureType>
+    <FeatureType>
+      <Name>ms:HY.PhysicalWaters.Catchments</Name>
+      <Title>HY.PhysicalWaters.Catchments</Title>
+      <ows:Keywords>
+        <ows:Keyword>Catchments</ows:Keyword>
+        <ows:Keyword>Drainage Basin</ows:Keyword>
+        <ows:Keyword>INSPIRE</ows:Keyword>
+      </ows:Keywords>
+      <DefaultCRS>urn:ogc:def:crs:EPSG::21782</DefaultCRS>
+      <OtherCRS>urn:ogc:def:crs:EPSG::21781</OtherCRS>
+      <OtherCRS>urn:ogc:def:crs:EPSG::4326</OtherCRS>
+      <OtherCRS>urn:ogc:def:crs:EPSG::31297</OtherCRS>
+      <OtherCRS>urn:ogc:def:crs:EPSG::4258</OtherCRS>
+      <OtherCRS>urn:ogc:def:crs:EPSG::3035</OtherCRS>
+      <OtherCRS>urn:ogc:def:crs:EPSG::3034</OtherCRS>
+      <OutputFormats>
+        <Format>application/gml+xml; version=3.2</Format>
+        <Format>text/xml; subtype=gml/3.2.1</Format>
+        <Format>text/xml; subtype=gml/3.1.1</Format>
+        <Format>text/xml; subtype=gml/2.1.2</Format>
+      </OutputFormats>
+      <ows:WGS84BoundingBox dimensions="2">
+        <ows:LowerCorner>9.472626 47.049090</ows:LowerCorner>
+        <ows:UpperCorner>9.634988 47.269617</ows:UpperCorner>
+      </ows:WGS84BoundingBox>
+      <MetadataURL xlink:href="https://service.geo.llv.li/mapserver/INSPIRE?language=eng&amp;request=GetMetadata&amp;layer=HY.PhysicalWaters.Catchments"/>
+    </FeatureType>
+    <FeatureType>
+      <Name>ms:LC.LandCoverSurface</Name>
+      <Title>LC.LandCoverSurface</Title>
+      <ows:Keywords>
+        <ows:Keyword>LandCoverSurface</ows:Keyword>
+        <ows:Keyword>INSPIRE</ows:Keyword>
+      </ows:Keywords>
+      <DefaultCRS>urn:ogc:def:crs:EPSG::21782</DefaultCRS>
+      <OtherCRS>urn:ogc:def:crs:EPSG::21781</OtherCRS>
+      <OtherCRS>urn:ogc:def:crs:EPSG::4326</OtherCRS>
+      <OtherCRS>urn:ogc:def:crs:EPSG::31297</OtherCRS>
+      <OtherCRS>urn:ogc:def:crs:EPSG::4258</OtherCRS>
+      <OtherCRS>urn:ogc:def:crs:EPSG::3035</OtherCRS>
+      <OtherCRS>urn:ogc:def:crs:EPSG::3034</OtherCRS>
+      <OutputFormats>
+        <Format>application/gml+xml; version=3.2</Format>
+        <Format>text/xml; subtype=gml/3.2.1</Format>
+        <Format>text/xml; subtype=gml/3.1.1</Format>
+        <Format>text/xml; subtype=gml/2.1.2</Format>
+      </OutputFormats>
+      <ows:WGS84BoundingBox dimensions="2">
+        <ows:LowerCorner>9.471683 47.048427</ows:LowerCorner>
+        <ows:UpperCorner>9.635693 47.270575</ows:UpperCorner>
+      </ows:WGS84BoundingBox>
+      <MetadataURL xlink:href="https://service.geo.llv.li/mapserver/INSPIRE?language=eng&amp;request=GetMetadata&amp;layer=LC.LandCoverSurface"/>
+    </FeatureType>
+    <FeatureType>
+      <Name>ms:LU.SpatialPlan</Name>
+      <Title>LU.SpatialPlan</Title>
+      <ows:Keywords>
+        <ows:Keyword>SpatialPlan</ows:Keyword>
+        <ows:Keyword>INSPIRE</ows:Keyword>
+        <ows:Keyword>Zonenplan</ows:Keyword>
+      </ows:Keywords>
+      <DefaultCRS>urn:ogc:def:crs:EPSG::21782</DefaultCRS>
+      <OtherCRS>urn:ogc:def:crs:EPSG::21781</OtherCRS>
+      <OtherCRS>urn:ogc:def:crs:EPSG::4326</OtherCRS>
+      <OtherCRS>urn:ogc:def:crs:EPSG::31297</OtherCRS>
+      <OtherCRS>urn:ogc:def:crs:EPSG::4258</OtherCRS>
+      <OtherCRS>urn:ogc:def:crs:EPSG::3035</OtherCRS>
+      <OtherCRS>urn:ogc:def:crs:EPSG::3034</OtherCRS>
+      <OutputFormats>
+        <Format>application/gml+xml; version=3.2</Format>
+        <Format>text/xml; subtype=gml/3.2.1</Format>
+        <Format>text/xml; subtype=gml/3.1.1</Format>
+        <Format>text/xml; subtype=gml/2.1.2</Format>
+      </OutputFormats>
+      <ows:WGS84BoundingBox dimensions="2">
+        <ows:LowerCorner>9.471683 47.048427</ows:LowerCorner>
+        <ows:UpperCorner>9.635693 47.270575</ows:UpperCorner>
+      </ows:WGS84BoundingBox>
+      <MetadataURL xlink:href="https://service.geo.llv.li/mapserver/INSPIRE?language=eng&amp;request=GetMetadata&amp;layer=LU.SpatialPlan"/>
+    </FeatureType>
+    <FeatureType>
+      <Name>ms:LU.ZoningElement</Name>
+      <Title>LU.ZoningElement</Title>
+      <ows:Keywords>
+        <ows:Keyword>ZoningElement</ows:Keyword>
+        <ows:Keyword>INSPIRE</ows:Keyword>
+        <ows:Keyword>Zonenplan</ows:Keyword>
+      </ows:Keywords>
+      <DefaultCRS>urn:ogc:def:crs:EPSG::21782</DefaultCRS>
+      <OtherCRS>urn:ogc:def:crs:EPSG::21781</OtherCRS>
+      <OtherCRS>urn:ogc:def:crs:EPSG::4326</OtherCRS>
+      <OtherCRS>urn:ogc:def:crs:EPSG::31297</OtherCRS>
+      <OtherCRS>urn:ogc:def:crs:EPSG::4258</OtherCRS>
+      <OtherCRS>urn:ogc:def:crs:EPSG::3035</OtherCRS>
+      <OtherCRS>urn:ogc:def:crs:EPSG::3034</OtherCRS>
+      <OutputFormats>
+        <Format>application/gml+xml; version=3.2</Format>
+        <Format>text/xml; subtype=gml/3.2.1</Format>
+        <Format>text/xml; subtype=gml/3.1.1</Format>
+        <Format>text/xml; subtype=gml/2.1.2</Format>
+      </OutputFormats>
+      <ows:WGS84BoundingBox dimensions="2">
+        <ows:LowerCorner>9.472667 47.048427</ows:LowerCorner>
+        <ows:UpperCorner>9.618702 47.270575</ows:UpperCorner>
+      </ows:WGS84BoundingBox>
+      <MetadataURL xlink:href="https://service.geo.llv.li/mapserver/INSPIRE?language=eng&amp;request=GetMetadata&amp;layer=LU.ZoningElement"/>
+    </FeatureType>
+    <FeatureType>
+      <Name>ms:SU.VectorStatisticalUnit</Name>
+      <Title>SU.VectorStatisticalUnit</Title>
+      <ows:Keywords>
+        <ows:Keyword>statistical unit</ows:Keyword>
+        <ows:Keyword>NUTS</ows:Keyword>
+      </ows:Keywords>
+      <DefaultCRS>urn:ogc:def:crs:EPSG::21782</DefaultCRS>
+      <OtherCRS>urn:ogc:def:crs:EPSG::21781</OtherCRS>
+      <OtherCRS>urn:ogc:def:crs:EPSG::4326</OtherCRS>
+      <OtherCRS>urn:ogc:def:crs:EPSG::31297</OtherCRS>
+      <OtherCRS>urn:ogc:def:crs:EPSG::4258</OtherCRS>
+      <OtherCRS>urn:ogc:def:crs:EPSG::3035</OtherCRS>
+      <OtherCRS>urn:ogc:def:crs:EPSG::3034</OtherCRS>
+      <OutputFormats>
+        <Format>application/gml+xml; version=3.2</Format>
+        <Format>text/xml; subtype=gml/3.2.1</Format>
+        <Format>text/xml; subtype=gml/3.1.1</Format>
+        <Format>text/xml; subtype=gml/2.1.2</Format>
+      </OutputFormats>
+      <ows:WGS84BoundingBox dimensions="2">
+        <ows:LowerCorner>9.471683 47.048427</ows:LowerCorner>
+        <ows:UpperCorner>9.635693 47.270575</ows:UpperCorner>
+      </ows:WGS84BoundingBox>
+      <MetadataURL xlink:href="https://service.geo.llv.li/mapserver/INSPIRE?language=eng&amp;request=GetMetadata&amp;layer=SU.VectorStatisticalUnit"/>
+    </FeatureType>
+    <FeatureType>
+      <Name>ms:SU.StatisticalGridCell</Name>
+      <Title>SU.StatisticalGridCell</Title>
+      <ows:Keywords>
+        <ows:Keyword>statistical Grid</ows:Keyword>
+        <ows:Keyword>ETRS-LEA</ows:Keyword>
+      </ows:Keywords>
+      <DefaultCRS>urn:ogc:def:crs:EPSG::21782</DefaultCRS>
+      <OtherCRS>urn:ogc:def:crs:EPSG::21781</OtherCRS>
+      <OtherCRS>urn:ogc:def:crs:EPSG::4326</OtherCRS>
+      <OtherCRS>urn:ogc:def:crs:EPSG::31297</OtherCRS>
+      <OtherCRS>urn:ogc:def:crs:EPSG::4258</OtherCRS>
+      <OtherCRS>urn:ogc:def:crs:EPSG::3035</OtherCRS>
+      <OtherCRS>urn:ogc:def:crs:EPSG::3034</OtherCRS>
+      <OutputFormats>
+        <Format>application/gml+xml; version=3.2</Format>
+        <Format>text/xml; subtype=gml/3.2.1</Format>
+        <Format>text/xml; subtype=gml/3.1.1</Format>
+        <Format>text/xml; subtype=gml/2.1.2</Format>
+      </OutputFormats>
+      <ows:WGS84BoundingBox dimensions="2">
+        <ows:LowerCorner>9.458052 46.962167</ows:LowerCorner>
+        <ows:UpperCorner>9.724317 47.323240</ows:UpperCorner>
+      </ows:WGS84BoundingBox>
+      <MetadataURL xlink:href="https://service.geo.llv.li/mapserver/INSPIRE?language=eng&amp;request=GetMetadata&amp;layer=SU.StatisticalGridCell"/>
+    </FeatureType>
+    <FeatureType>
+      <Name>ms:BU.Buildings</Name>
+      <Title>BU.Buildings</Title>
+      <ows:Keywords>
+        <ows:Keyword>buildings</ows:Keyword>
+        <ows:Keyword>Gebaeude</ows:Keyword>
+        <ows:Keyword>INSPIRE</ows:Keyword>
+      </ows:Keywords>
+      <DefaultCRS>urn:ogc:def:crs:EPSG::21782</DefaultCRS>
+      <OtherCRS>urn:ogc:def:crs:EPSG::21781</OtherCRS>
+      <OtherCRS>urn:ogc:def:crs:EPSG::4326</OtherCRS>
+      <OtherCRS>urn:ogc:def:crs:EPSG::31297</OtherCRS>
+      <OtherCRS>urn:ogc:def:crs:EPSG::4258</OtherCRS>
+      <OtherCRS>urn:ogc:def:crs:EPSG::3035</OtherCRS>
+      <OtherCRS>urn:ogc:def:crs:EPSG::3034</OtherCRS>
+      <OutputFormats>
+        <Format>application/gml+xml; version=3.2</Format>
+        <Format>text/xml; subtype=gml/3.2.1</Format>
+        <Format>text/xml; subtype=gml/3.1.1</Format>
+        <Format>text/xml; subtype=gml/2.1.2</Format>
+      </OutputFormats>
+      <ows:WGS84BoundingBox dimensions="2">
+        <ows:LowerCorner>9.476174 47.049197</ows:LowerCorner>
+        <ows:UpperCorner>9.631307 47.264336</ows:UpperCorner>
+      </ows:WGS84BoundingBox>
+      <MetadataURL xlink:href="https://service.geo.llv.li/mapserver/INSPIRE?language=eng&amp;request=GetMetadata&amp;layer=BU.Buildings"/>
+    </FeatureType>
+  </FeatureTypeList>
+  <fes:Filter_Capabilities>
+    <fes:Conformance>
+      <fes:Constraint name="ImplementsQuery">
+        <ows:NoValues/>
+        <ows:DefaultValue>TRUE</ows:DefaultValue>
+      </fes:Constraint>
+      <fes:Constraint name="ImplementsAdHocQuery">
+        <ows:NoValues/>
+        <ows:DefaultValue>TRUE</ows:DefaultValue>
+      </fes:Constraint>
+      <fes:Constraint name="ImplementsFunctions">
+        <ows:NoValues/>
+        <ows:DefaultValue>FALSE</ows:DefaultValue>
+      </fes:Constraint>
+      <fes:Constraint name="ImplementsResourceId">
+        <ows:NoValues/>
+        <ows:DefaultValue>TRUE</ows:DefaultValue>
+      </fes:Constraint>
+      <fes:Constraint name="ImplementsMinStandardFilter">
+        <ows:NoValues/>
+        <ows:DefaultValue>TRUE</ows:DefaultValue>
+      </fes:Constraint>
+      <fes:Constraint name="ImplementsStandardFilter">
+        <ows:NoValues/>
+        <ows:DefaultValue>TRUE</ows:DefaultValue>
+      </fes:Constraint>
+      <fes:Constraint name="ImplementsMinSpatialFilter">
+        <ows:NoValues/>
+        <ows:DefaultValue>TRUE</ows:DefaultValue>
+      </fes:Constraint>
+      <fes:Constraint name="ImplementsSpatialFilter">
+        <ows:NoValues/>
+        <ows:DefaultValue>FALSE</ows:DefaultValue>
+      </fes:Constraint>
+      <fes:Constraint name="ImplementsMinTemporalFilter">
+        <ows:NoValues/>
+        <ows:DefaultValue>TRUE</ows:DefaultValue>
+      </fes:Constraint>
+      <fes:Constraint name="ImplementsTemporalFilter">
+        <ows:NoValues/>
+        <ows:DefaultValue>FALSE</ows:DefaultValue>
+      </fes:Constraint>
+      <fes:Constraint name="ImplementsVersionNav">
+        <ows:NoValues/>
+        <ows:DefaultValue>FALSE</ows:DefaultValue>
+      </fes:Constraint>
+      <fes:Constraint name="ImplementsSorting">
+        <ows:NoValues/>
+        <ows:DefaultValue>TRUE</ows:DefaultValue>
+      </fes:Constraint>
+      <fes:Constraint name="ImplementsExtendedOperators">
+        <ows:NoValues/>
+        <ows:DefaultValue>FALSE</ows:DefaultValue>
+      </fes:Constraint>
+      <fes:Constraint name="ImplementsMinimumXPath">
+        <ows:NoValues/>
+        <ows:DefaultValue>TRUE</ows:DefaultValue>
+      </fes:Constraint>
+      <fes:Constraint name="ImplementsSchemaElementFunc">
+        <ows:NoValues/>
+        <ows:DefaultValue>FALSE</ows:DefaultValue>
+      </fes:Constraint>
+    </fes:Conformance>
+    <fes:Id_Capabilities>
+      <fes:ResourceIdentifier name="fes:ResourceId"/>
+    </fes:Id_Capabilities>
+    <fes:Scalar_Capabilities>
+      <fes:LogicalOperators/>
+      <fes:ComparisonOperators>
+        <fes:ComparisonOperator name="PropertyIsEqualTo"/>
+        <fes:ComparisonOperator name="PropertyIsNotEqualTo"/>
+        <fes:ComparisonOperator name="PropertyIsLessThan"/>
+        <fes:ComparisonOperator name="PropertyIsGreaterThan"/>
+        <fes:ComparisonOperator name="PropertyIsLessThanOrEqualTo"/>
+        <fes:ComparisonOperator name="PropertyIsGreaterThanOrEqualTo"/>
+        <fes:ComparisonOperator name="PropertyIsLike"/>
+        <fes:ComparisonOperator name="PropertyIsBetween"/>
+      </fes:ComparisonOperators>
+    </fes:Scalar_Capabilities>
+    <fes:Spatial_Capabilities>
+      <fes:GeometryOperands>
+        <fes:GeometryOperand name="gml:Point"/>
+        <fes:GeometryOperand name="gml:MultiPoint"/>
+        <fes:GeometryOperand name="gml:LineString"/>
+        <fes:GeometryOperand name="gml:MultiLineString"/>
+        <fes:GeometryOperand name="gml:Curve"/>
+        <fes:GeometryOperand name="gml:MultiCurve"/>
+        <fes:GeometryOperand name="gml:Polygon"/>
+        <fes:GeometryOperand name="gml:MultiPolygon"/>
+        <fes:GeometryOperand name="gml:Surface"/>
+        <fes:GeometryOperand name="gml:MultiSurface"/>
+        <fes:GeometryOperand name="gml:Box"/>
+        <fes:GeometryOperand name="gml:Envelope"/>
+      </fes:GeometryOperands>
+      <fes:SpatialOperators>
+        <fes:SpatialOperator name="Equals"/>
+        <fes:SpatialOperator name="Disjoint"/>
+        <fes:SpatialOperator name="Touches"/>
+        <fes:SpatialOperator name="Within"/>
+        <fes:SpatialOperator name="Overlaps"/>
+        <fes:SpatialOperator name="Crosses"/>
+        <fes:SpatialOperator name="Intersects"/>
+        <fes:SpatialOperator name="Contains"/>
+        <fes:SpatialOperator name="DWithin"/>
+        <fes:SpatialOperator name="Beyond"/>
+        <fes:SpatialOperator name="BBOX"/>
+      </fes:SpatialOperators>
+    </fes:Spatial_Capabilities>
+    <fes:Temporal_Capabilities>
+      <fes:TemporalOperands>
+        <fes:TemporalOperand name="gml:TimePeriod"/>
+        <fes:TemporalOperand name="gml:TimeInstant"/>
+      </fes:TemporalOperands>
+      <fes:TemporalOperators>
+        <fes:TemporalOperator name="During"/>
+      </fes:TemporalOperators>
+    </fes:Temporal_Capabilities>
+  </fes:Filter_Capabilities>
+</wfs:WFS_Capabilities>

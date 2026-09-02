@@ -1,0 +1,58 @@
+# ME+BA probes 2026-09-02T18:07:59Z
+== PROBE https://www.nekretnine.co.me/
+curl: (6) Could not resolve host: www.nekretnine.co.me
+HTTP=000 bytes=0 type= RC=6
+
+== PROBE https://geoportal.co.me/
+HTTP=200 bytes=4259 type=text/html RC=0
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+  <title>Geoportal CG</title>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="stylesheet" href="dist/css/bootstrap.min.css">
+  <script src="dist/js/jquery.min.js"></script>
+  <script src="dist/js/bootstrap.min.js"></script>
+  
+  <link rel="shortcut icon" href="images/Uprava_Logo2.jpg">
+== PROBE https://katastar.ba/
+HTTP=200 bytes=13595 type=text/html; charset=UTF-8 RC=0
+﻿﻿<!doctype html>
+<html lang="en-US">
+	<head>
+<!-- Global site tag (gtag.js) - Google Analytics -->
+<script async src="https://www.googletagmanager.com/gtag/js?id=UA-119875299-1"></script>
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('js', new Date());
+
+  gtag('config', 'UA-119875299-1');
+</script>
+
+		<!-- Meta -->
+		<
+== PROBE https://geoportal.rgurs.org/
+curl: (28) Failed to connect to geoportal.rgurs.org port 443 after 21377 ms: Could not connect to server
+HTTP=000 bytes=0 type= RC=28
+
+href="dist/css/bootstrap.min.css"
+href="geoportal/geoportal.html"
+href="geoportal/geoportal_eng.html"
+href="geoportal/uputstvo.html"
+href="images/Uprava_Logo2.jpg"
+href="index.html"
+geoportal_eng HTTP=200 bytes=10514
+href="#home"
+href="#menu1"
+href="http://10.10.206.210/erdas-apollo/content/catalog/services/wms"
+href="http://213.149.105.122/geoportalCms/?p=1"
+href="http://213.149.105.122/geoportalCms/?p=10"
+href="http://geoportal.co.me:8443/mne/srv/eng/catalog.search#/home"
+href="http://inspire-geoportal.ec.europa.eu/"
+href="http://www.geoportal.rgurs.org:7050/ekatastar-web"
+href="http://www.geosrbija.rs/"
+href="https://geoportal.co.me/Geoportal01/"
+href="https://geoportal.co.me/Geoportal02/"
+http://10.10.206.210/erdas-apollo/content/catalog/services/wms

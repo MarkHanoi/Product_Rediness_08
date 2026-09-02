@@ -1,0 +1,145 @@
+<?xml version='1.0' encoding="UTF-8" ?>
+<wfs:FeatureCollection
+   xmlns:ms="http://mapserver.gis.umn.edu/mapserver"
+   xmlns:gml="http://www.opengis.net/gml/3.2"
+   xmlns:wfs="http://www.opengis.net/wfs/2.0"
+   xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+   xsi:schemaLocation="http://mapserver.gis.umn.edu/mapserver https://demo.bauleitplaene-mv.de/ows/xplanung/?SERVICE=WFS&amp;VERSION=2.0.0&amp;REQUEST=DescribeFeatureType&amp;TYPENAME=ms:bp_baugrenze_lines&amp;OUTPUTFORMAT=application%2Fgml%2Bxml%3B%20version%3D3.2 http://www.opengis.net/wfs/2.0 http://schemas.opengis.net/wfs/2.0/wfs.xsd http://www.opengis.net/gml/3.2 http://schemas.opengis.net/gml/3.2.1/gml.xsd"
+   timeStamp="2026-09-02T19:54:49" numberMatched="unknown" numberReturned="2"
+   next="https://demo.bauleitplaene-mv.de/ows/xplanung/?service=WFS&amp;version=2.0.0&amp;request=GetFeature&amp;typeNames=ms%3Abp_baugrenze_lines&amp;count=2&amp;STARTINDEX=2">
+      <wfs:boundedBy>
+      	<gml:Envelope srsName="urn:ogc:def:crs:EPSG::25833">
+      		<gml:lowerCorner>398105.235000 6059595.466000</gml:lowerCorner>
+      		<gml:upperCorner>398258.079000 6059705.190000</gml:upperCorner>
+      	</gml:Envelope>
+      </wfs:boundedBy>
+    <wfs:member>
+      <ms:bp_baugrenze_lines gml:id="bp_baugrenze_lines.bc4661bd-69c7-11ef-99aa-08d23eddfd4b">
+        <gml:boundedBy>
+        	<gml:Envelope srsName="urn:ogc:def:crs:EPSG::25833">
+        		<gml:lowerCorner>398115.975000 6059655.540000</gml:lowerCorner>
+        		<gml:upperCorner>398247.623000 6059705.190000</gml:upperCorner>
+        	</gml:Envelope>
+        </gml:boundedBy>
+        <ms:msGeometry>
+          <gml:LineString gml:id="bp_baugrenze_lines.bc4661bd-69c7-11ef-99aa-08d23eddfd4b.1" srsName="urn:ogc:def:crs:EPSG::25833">
+            <gml:posList srsDimension="2">398247.623000 6059693.532000 398229.561000 6059676.707000 398221.630000 6059679.846000 398209.364000 6059669.999000 398192.133000 6059662.678000 398179.097000 6059657.609000 398174.038000 6059656.708000 398167.709000 6059655.580000 398164.603000 6059655.540000 398160.431000 6059656.735000 398140.555000 6059666.167000 398130.596000 6059671.693000 398115.975000 6059682.137000 398129.821000 6059699.819000 398143.686000 6059669.300000 398170.463000 6059679.804000 398183.083000 6059685.554000 398199.994000 6059693.245000 398226.126000 6059705.190000 398247.623000 6059693.532000 </gml:posList>
+          </gml:LineString>
+        </ms:msGeometry>
+        <ms:plan_name> Putgarten Putgarten-Am Dorfteich-5.Ae-GB1 Nr. 1</ms:plan_name>
+        <ms:stelle_id>130735359</ms:stelle_id>
+        <ms:aufschrift></ms:aufschrift>
+        <ms:bautiefe></ms:bautiefe>
+        <ms:created_at>2024-12-03 13:35:32.015527</ms:created_at>
+        <ms:ebene></ms:ebene>
+        <ms:endebedingung></ms:endebedingung>
+        <ms:endebedingung_dt></ms:endebedingung_dt>
+        <ms:externereferenz></ms:externereferenz>
+        <ms:externereferenz_dt></ms:externereferenz_dt>
+        <ms:gehoertzubereich>8b31b751-692e-11ef-99aa-08d23eddfd4b</ms:gehoertzubereich>
+        <ms:geschossmax></ms:geschossmax>
+        <ms:geschossmin></ms:geschossmin>
+        <ms:gesetzlichegrundlage_id></ms:gesetzlichegrundlage_id>
+        <ms:gesetzlichegrundlage_text></ms:gesetzlichegrundlage_text>
+        <ms:gliederung1></ms:gliederung1>
+        <ms:gliederung2></ms:gliederung2>
+        <ms:gml_id>bc4661bd-69c7-11ef-99aa-08d23eddfd4b</ms:gml_id>
+        <ms:hatgenerattribut></ms:hatgenerattribut>
+        <ms:hatgenerattribut_dt></ms:hatgenerattribut_dt>
+        <ms:hoehenangabe></ms:hoehenangabe>
+        <ms:hoehenangabe_dt></ms:hoehenangabe_dt>
+        <ms:inverszu_baugrenze_bp_ueberbaubaregrundstuecksflaeche></ms:inverszu_baugrenze_bp_ueberbaubaregrundstuecksflaeche>
+        <ms:konvertierung_id>8548</ms:konvertierung_id>
+        <ms:laermkontingent></ms:laermkontingent>
+        <ms:laermkontingent_dt></ms:laermkontingent_dt>
+        <ms:laermkontingentgebiet></ms:laermkontingentgebiet>
+        <ms:laermkontingentgebiet_dt></ms:laermkontingentgebiet_dt>
+        <ms:rechtscharakter>1000</ms:rechtscharakter>
+        <ms:rechtscharakter_text>Festsetzung (1000)</ms:rechtscharakter_text>
+        <ms:rechtsstand>2000</ms:rechtsstand>
+        <ms:rechtsstand_text>Bestehend (2000)</ms:rechtsstand_text>
+        <ms:refbegruendunginhalt></ms:refbegruendunginhalt>
+        <ms:reftextinhalt>{NULL}</ms:reftextinhalt>
+        <ms:richtungssektorgrenze></ms:richtungssektorgrenze>
+        <ms:startbedingung></ms:startbedingung>
+        <ms:startbedingung_dt></ms:startbedingung_dt>
+        <ms:text></ms:text>
+        <ms:updated_at>2024-12-03 13:35:32.015527</ms:updated_at>
+        <ms:user_id></ms:user_id>
+        <ms:uuid>BC4661BD-69C7-11EF-99AA-08D23EDDFD4B</ms:uuid>
+        <ms:wirdausgeglichendurchabe></ms:wirdausgeglichendurchabe>
+        <ms:wirdausgeglichendurchflaeche></ms:wirdausgeglichendurchflaeche>
+        <ms:wirdausgeglichendurchmassnahme></ms:wirdausgeglichendurchmassnahme>
+        <ms:wirdausgeglichendurchspeflaeche></ms:wirdausgeglichendurchspeflaeche>
+        <ms:wirdausgeglichendurchspemassnahme></ms:wirdausgeglichendurchspemassnahme>
+        <ms:wirddargestelltdurch></ms:wirddargestelltdurch>
+        <ms:zusatzkontingent></ms:zusatzkontingent>
+        <ms:zusatzkontingentflaeche></ms:zusatzkontingentflaeche>
+      </ms:bp_baugrenze_lines>
+    </wfs:member>
+    <wfs:member>
+      <ms:bp_baugrenze_lines gml:id="bp_baugrenze_lines.3cdafea8-69c8-11ef-99aa-08d23eddfd4b">
+        <gml:boundedBy>
+        	<gml:Envelope srsName="urn:ogc:def:crs:EPSG::25833">
+        		<gml:lowerCorner>398105.235000 6059595.466000</gml:lowerCorner>
+        		<gml:upperCorner>398258.079000 6059683.510000</gml:upperCorner>
+        	</gml:Envelope>
+        </gml:boundedBy>
+        <ms:msGeometry>
+          <gml:LineString gml:id="bp_baugrenze_lines.3cdafea8-69c8-11ef-99aa-08d23eddfd4b.1" srsName="urn:ogc:def:crs:EPSG::25833">
+            <gml:posList srsDimension="2">398111.748000 6059667.953000 398125.736000 6059658.209000 398132.521000 6059654.324000 398157.981000 6059642.377000 398161.470000 6059641.577000 398163.919000 6059640.253000 398171.645000 6059641.279000 398182.978000 6059643.855000 398189.775000 6059646.283000 398211.457000 6059655.214000 398215.705000 6059656.692000 398224.217000 6059658.116000 398227.896000 6059657.248000 398235.830000 6059664.046000 398233.630000 6059666.794000 398244.452000 6059676.903000 398250.940000 6059682.961000 398252.345000 6059683.510000 398253.924000 6059681.965000 398258.079000 6059677.152000 398252.163000 6059652.824000 398206.687000 6059627.941000 398170.355000 6059595.466000 398105.235000 6059659.213000 398111.748000 6059667.953000 </gml:posList>
+          </gml:LineString>
+        </ms:msGeometry>
+        <ms:plan_name> Putgarten Putgarten-Am Dorfteich-5.Ae-GB1 Nr. 1</ms:plan_name>
+        <ms:stelle_id>130735359</ms:stelle_id>
+        <ms:aufschrift></ms:aufschrift>
+        <ms:bautiefe></ms:bautiefe>
+        <ms:created_at>2024-12-03 13:35:32.015527</ms:created_at>
+        <ms:ebene></ms:ebene>
+        <ms:endebedingung></ms:endebedingung>
+        <ms:endebedingung_dt></ms:endebedingung_dt>
+        <ms:externereferenz></ms:externereferenz>
+        <ms:externereferenz_dt></ms:externereferenz_dt>
+        <ms:gehoertzubereich>8b31b751-692e-11ef-99aa-08d23eddfd4b</ms:gehoertzubereich>
+        <ms:geschossmax></ms:geschossmax>
+        <ms:geschossmin></ms:geschossmin>
+        <ms:gesetzlichegrundlage_id></ms:gesetzlichegrundlage_id>
+        <ms:gesetzlichegrundlage_text></ms:gesetzlichegrundlage_text>
+        <ms:gliederung1></ms:gliederung1>
+        <ms:gliederung2></ms:gliederung2>
+        <ms:gml_id>3cdafea8-69c8-11ef-99aa-08d23eddfd4b</ms:gml_id>
+        <ms:hatgenerattribut></ms:hatgenerattribut>
+        <ms:hatgenerattribut_dt></ms:hatgenerattribut_dt>
+        <ms:hoehenangabe></ms:hoehenangabe>
+        <ms:hoehenangabe_dt></ms:hoehenangabe_dt>
+        <ms:inverszu_baugrenze_bp_ueberbaubaregrundstuecksflaeche></ms:inverszu_baugrenze_bp_ueberbaubaregrundstuecksflaeche>
+        <ms:konvertierung_id>8548</ms:konvertierung_id>
+        <ms:laermkontingent></ms:laermkontingent>
+        <ms:laermkontingent_dt></ms:laermkontingent_dt>
+        <ms:laermkontingentgebiet></ms:laermkontingentgebiet>
+        <ms:laermkontingentgebiet_dt></ms:laermkontingentgebiet_dt>
+        <ms:rechtscharakter>1000</ms:rechtscharakter>
+        <ms:rechtscharakter_text>Festsetzung (1000)</ms:rechtscharakter_text>
+        <ms:rechtsstand>2000</ms:rechtsstand>
+        <ms:rechtsstand_text>Bestehend (2000)</ms:rechtsstand_text>
+        <ms:refbegruendunginhalt></ms:refbegruendunginhalt>
+        <ms:reftextinhalt>{NULL}</ms:reftextinhalt>
+        <ms:richtungssektorgrenze></ms:richtungssektorgrenze>
+        <ms:startbedingung></ms:startbedingung>
+        <ms:startbedingung_dt></ms:startbedingung_dt>
+        <ms:text></ms:text>
+        <ms:updated_at>2024-12-03 13:35:32.015527</ms:updated_at>
+        <ms:user_id></ms:user_id>
+        <ms:uuid>3CDAFEA8-69C8-11EF-99AA-08D23EDDFD4B</ms:uuid>
+        <ms:wirdausgeglichendurchabe></ms:wirdausgeglichendurchabe>
+        <ms:wirdausgeglichendurchflaeche></ms:wirdausgeglichendurchflaeche>
+        <ms:wirdausgeglichendurchmassnahme></ms:wirdausgeglichendurchmassnahme>
+        <ms:wirdausgeglichendurchspeflaeche></ms:wirdausgeglichendurchspeflaeche>
+        <ms:wirdausgeglichendurchspemassnahme></ms:wirdausgeglichendurchspemassnahme>
+        <ms:wirddargestelltdurch></ms:wirddargestelltdurch>
+        <ms:zusatzkontingent></ms:zusatzkontingent>
+        <ms:zusatzkontingentflaeche></ms:zusatzkontingentflaeche>
+      </ms:bp_baugrenze_lines>
+    </wfs:member>
+</wfs:FeatureCollection>
+

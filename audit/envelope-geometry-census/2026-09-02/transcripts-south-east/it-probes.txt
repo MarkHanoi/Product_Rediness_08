@@ -1,0 +1,112 @@
+# IT probes 2026-09-02T17:55:08Z
+== PROBE https://www.dati.lombardia.it/api/views/ijqk-ahfp.json
+HTTP=200 bytes=74306 type=application/json; charset=utf-8 RC=0
+{
+  "id" : "ijqk-ahfp",
+  "name" : "PGT. Piani di governo del territorio",
+  "assetType" : "dataset",
+  "attribution" : "Regione Lombardia",
+  "attributionLink" : "http://www.regione.lombardia.it/wps/portal/istituzionale/HP/istituzione/direzioni-generali/direzione-generale-territorio-urbanistica-difesa-del-suolo-e-citta-metropolitana",
+  "averageRating" : 0,
+  "category" : "Territorio",
+  "createdAt" : 1463382301,
+  "description" : "Raccolta, per ogni Comune Lombardo, della documentazione costit
+== PROBE https://www.cartografia.servizirl.it/arcgis2/rest/services?f=json
+HTTP=200 bytes=308 type=application/json;charset=UTF-8 RC=0
+{"currentVersion":10.91,"folders":["agricoltura","ambiente","ARPA","BaseMap","casa","commercio","cultura","CustomPrint","E015","finlombarda","formazione","geogp","inquadramento","ortofoto","presidenza","protciv","sistemiverdi","tributi","Utilities","viewer33"],"services":[{"name":"SAS","type":"MapServer"}]}
+== PROBE https://servizigis.regione.emilia-romagna.it/geoags/rest/services?f=json
+HTTP=200 bytes=98 type=application/json;charset=UTF-8 RC=0
+{"currentVersion":10.81,"folders":["apps","geologico","portale","test","Utilities"],"services":[]}
+== PROBE https://www.cartografia.servizirl.it/arcgis/rest/services?f=json
+HTTP=200 bytes=324 type=application/json;charset=UTF-8 RC=0
+{"currentVersion":10.91,"folders":["catasto","CESTEC","cultura","CustomPrint","E015","geocensimenti","Intergeo","interventi","opendata","PRIM","sanita","sipiui","sirbec","sistemiverdi","sport","statistica","trasporti","trasversali","Utilities","wms","wsGazetteer"],"services":[{"name":"spcoop_corbetta","type":"MapServer"}]}
+DESC: Raccolta, per ogni Comune Lombardo, della documentazione costituente lo strumento urbanistico comunale (Piano di governo del territorio, suddiviso nei seguenti fascicoli: Documento di piano, Piano delle regole, Piano dei servizi, Componente geologica), nonché delle informazioni relative al procedimento amministrativo di approvazione.
+COLS: ['SIGLA_PRO', 'COD_ISTAT', 'COMUNE', 'DESCR_PIANO', 'INSEDIARE', 'GRAVITANTI', 'RESIDENTI', 'RIUSO_AREE', 'SERVIZI_PUBB', 'SERVIZI_SOVRACOM', 'SUOLO_LIBERO', 'ENTE_A', 'STATO_CARIC', 'STATO_CARIC_PGT', 'STATO_PGT', 'FASE', 'FASE_PGT', 'NOTE_VAS', 'NUM_ATTO', 'DATA_ATTO', 'NUM_BURL', 'DATA_BURL', 'DATA_CHIUSURA', 'DATA_INS', 'DATA_VIGORE', 'DP', 'PR', 'PS', 'TIPO_ATTO', 'TIPO_PIANO', 'OBIETTIVI', 'PROPOSTE_PTCP', 'PROPOSTE_PTR', 'SCELTE', 'UTILIZZO', 'ATTREZZATURE', 'CONFRONTO', 'PARTECIPAZIONE']
+== PROBE https://www.cartografia.servizirl.it/arcgis/rest/services/wms?f=json
+HTTP=200 bytes=341 type=application/json;charset=UTF-8 RC=0
+{"currentVersion":10.91,"folders":[],"services":[{"name":"wms/ctr_wms","type":"MapServer"},{"name":"wms/direttiva_alluvioni_2015_wms","type":"MapServer"},{"name":"wms/DTM5_RL_wms","type":"MapServer"},{"name":"wms/fisica_wms","type":"MapServer"},{"name":"wms/politica_wms","type":"MapServer"},{"name":"wms/Sentinel2_wms","type":"MapServer"}]}
+== PROBE https://dati.emilia-romagna.it/api/3/action/package_search?q=mosaico+piani+urbanistici&rows=3
+curl: (28) Operation timed out after 25008 milliseconds with 0 bytes received
+HTTP=000 bytes=0 type= RC=28
+
+== PROBE https://servizigis.regione.emilia-romagna.it/wms/mosaico_psc?request=GetCapabilities&service=WMS
+HTTP=401 bytes=846 type=text/html RC=0
+<!DOCTYPE html>
+<html lang="it">
+<head>
+	<title>401 - Autorizzazione negata</title>
+
+	<style type="text/css">
+	    html,
+	    body {
+	      margin: 0;
+	      padding: 0;
+	      height: 100%;
+	    }
+
+	    body {
+	      font-family:  Helvetica, Arial, Sans-Serif;
+	      background-color: #333;
+	      color: #fff;
+	      -moz-font-smoothing: antialiased;
+	      -webkit-font-smoothing: antialiased;
+	    }
+
+	    .error-container {
+	      text-align: center;
+	      height: 100%;
+	    }
+
+	    .error-container h1 {
+	      margin: 0;
+	      font-size: 130px;
+	      font-weight: 300;
+	    }
+
+	  </style>
+	</head>
+<body>
+<div class="error-container">
+<h1>401</h1>
+<di
+== PROBE https://www.geoportale.regione.lombardia.it/geonetwork/srv/ita/q?_content_type=json&any=tavole%20previsioni%20piano&fast=index&from=1&to=3
+HTTP=404 bytes=3502 type=text/html;charset=UTF-8 RC=0
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <title>Pagina non trovata</title>
+	
+	
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Titillium+Web:ital,wght@0,200;0,300;0,400;0,600;0,700;0,900;1,200;1,300;1,400;1,600;1,700&display=swap" rel="stylesheet">
+
+
+<link rel="stylesheet" href="/html/portal/js/css/mashup_ra_collection_1.css" type="text/css">
+<link rel="stylesheet" href="/html/portal/js/css/mashup_ra_collection_2.css" type="text/css">
+	
+
+ 
+<link href="/html/portal/js/css/bootstrap-min.css" rel="stylesheet" type="t
+-- Milan CKAN PGT search
+HTTP=200 bytes=40960 RC=0
+ERR [Errno 2] No such file or directory: '/tmp/tmp.YD06dUm8be'
+MILAN CKAN HTTP=200 bytes=40960 RC=0
+- ds964-nil-vigenti-pgt-2030 | formats: ['CSV', 'GeoJSON', 'SHP']
+- ds503_edifici-e-aree-in-degrado-2014-2017 | formats: ['CSV', 'GeoJSON', 'SHP']
+- ds61_infogeo_nil_localizzazione_ | formats: ['GeoJSON', 'SHP']
+- ds2811-esposizione-calore-urbano-nil-07-2024 | formats: ['CSV', 'GeoJSON']
+- ds2812-rischio-ondata-calore-urbano-nil-07-2024 | formats: ['CSV', 'GeoJSON']
+- ds2813-indice-di-verde-urbano-nil-07-2024 | formats: ['CSV', 'GeoJSON']
+count: 6
+== PROBE https://geoportale.comune.milano.it/ArcGIS/rest/services?f=json
+curl: (6) Could not resolve host: geoportale.comune.milano.it
+HTTP=000 bytes=0 type= RC=6
+
+== PROBE https://dati.emilia-romagna.it/api/3/action/package_search?q=tavola+dei+vincoli+urbanistica&rows=3
+HTTP=200 bytes=39515 type=application/json;charset=utf-8 RC=0
+{"help": "https://dati.emilia-romagna.it/api/3/action/help_show?name=package_search", "success": true, "result": {"count": 4, "sort": "score desc, metadata_modified desc", "facets": {}, "results": [{"owner_org": "f87d2b7c-e4bf-4e0f-ab96-4cb0179f71e1", "maintainer": null, "dataset_is_local": false, "private": false, "maintainer_email": null, "num_tags": 1, "id": "e4bdbe95-4ede-4fff-85d9-aef9290d0526", "metadata_created": "2025-02-03T10:52:51.486446", "metadata_modified": "2026-09-01T23:13:08.853291", "author": null, "author_email": null, "isopen": false, "state": "active", "version": null, "title": "PUG - Scheda dei Vincoli - Infrastrutture, suolo, servit\u00f9 \u2018Siti oggetto di procedime
+ER CKAN q=PUG HTTP=200 RC=0
+- pug-scheda-dei-vincoli-infrastrutture-suolo-servitu-siti-oggetto-di-pr | formats: ['CSV', 'GPX', 'GeoJSON', 'JSON', 'JSON_LD', 'KML', 'N3', 'OCTET', 'PARQUET', 'RDF_TURTLE', 'RDF_XML', 'SHP', 'XLS']
+count: 1

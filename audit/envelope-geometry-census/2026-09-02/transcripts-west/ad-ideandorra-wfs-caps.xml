@@ -1,0 +1,472 @@
+
+<!DOCTYPE HTML>
+<html lang="ca-es" dir="ltr">
+
+<head>
+<meta charset="utf-8" />
+<meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<base href="https://www.cartografia.ad/geoportal" />
+	<meta name="description" content="IDE i Cartografia d'Andorra, estació de referència GNSS" />
+	<meta name="generator" content="Joomla! - Open Source Content Management" />
+	<title>IDE Andorra</title>
+	<link href="/templates/fontaine_j3/favicon.ico" rel="shortcut icon" type="image/vnd.microsoft.icon" />
+	<link href="/cache/widgetkit/widgetkit-1a020fe5.css" rel="stylesheet" type="text/css" />
+	<link href="/templates/fontaine_j3/css/bootstrap.css" rel="stylesheet" type="text/css" />
+	<link href="/modules/mod_universal_ajaxlivesearch/cache/388/7d3389496456de4bd120914cd31fe556.css" rel="stylesheet" type="text/css" />
+	<script src="/media/jui/js/jquery.min.js?dfc9b688b303322ffd7ce9db7cec3dab" type="text/javascript"></script>
+	<script src="/media/jui/js/jquery-noconflict.js?dfc9b688b303322ffd7ce9db7cec3dab" type="text/javascript"></script>
+	<script src="/media/jui/js/jquery-migrate.min.js?dfc9b688b303322ffd7ce9db7cec3dab" type="text/javascript"></script>
+	<script src="/cache/widgetkit/widgetkit-3ec4304b.js" type="text/javascript"></script>
+	<script src="/modules/mod_universal_ajaxlivesearch/engine/dojo.js" type="text/javascript"></script>
+	<script src="https://ajax.googleapis.com/ajax/libs/dojo/1.6/dojo/dojo.xd.js" type="text/javascript"></script>
+	<script src="/modules/mod_universal_ajaxlivesearch/cache/388/b88a27592cac5b58b9d964b4e805f5e2.js" type="text/javascript"></script>
+	<script type="text/javascript">
+
+  dojo.addOnLoad(function(){
+      document.search = new AJAXSearchelegant({
+        id : '388',
+        node : dojo.byId('offlajn-ajax-search388'),
+        searchForm : dojo.byId('search-form388'),
+        textBox : dojo.byId('search-area388'),
+        suggestBox : dojo.byId('suggestion-area388'),
+        searchButton : dojo.byId('ajax-search-button388'),
+        closeButton : dojo.byId('search-area-close388'),
+        searchCategories : dojo.byId('search-categories388'),
+        productsPerPlugin : 6,
+        dynamicResult : '0',
+        searchRsWidth : 250,
+        searchImageWidth : '60',
+        minChars : 2,
+        searchBoxCaption : 'cerca...',
+        noResultsTitle : 'Resultats(0)',
+        noResults : 'No hi ha resultats',
+        searchFormUrl : '/index.php',
+        enableScroll : '1',
+        showIntroText: '1',
+        scount: '10',
+        lang: '',
+        stext: 'No results found. Did you mean?',
+        moduleId : '388',
+        resultAlign : '0',
+        targetsearch: '0',
+        linktarget: '0',
+        keypressWait: '500',
+        catChooser : 0,
+        searchResult : 1,
+        seemoreEnabled : 0,
+        seemoreAfter : 30,
+        keywordSuggestion : '0',
+        seeMoreResults : 'Veure més resultats...',
+        resultsPerPage : '4',
+        resultsPadding : '10',
+        controllerPrev : 'PREV',
+        controllerNext : 'NEXT',
+        fullWidth : '1',
+        resultImageWidth : '60',
+        resultImageHeight : '60',
+        showCat : '1'
+      })
+    });
+	</script>
+
+<link rel="apple-touch-icon-precomposed" href="/templates/fontaine_j3/apple_touch_icon.png" />
+<link rel="stylesheet" href="/templates/fontaine_j3/css/base.css" />
+<link rel="stylesheet" href="/templates/fontaine_j3/css/extensions.css" />
+<link rel="stylesheet" href="/templates/fontaine_j3/css/tools.css" />
+<link rel="stylesheet" href="/templates/fontaine_j3/styles/blue/css/layout.css" />
+<link rel="stylesheet" href="/templates/fontaine_j3/css/menus.css" />
+<style>.wrapper { max-width: 1000px; }
+a { color: #206AB6; }
+a:hover, #toolbar ul.menu li a:hover span, .menu-sidebar a.current, #Kunena dl.tabs dt:hover, .menu-sidebar a:hover, .menu-sidebar li > span:hover, .k2CommentItem a:hover  { color: #2374C7; }
+body { color: #606060; }
+body { background-color: #DEDEDE; }
+::-webkit-selection { background: #6CA3EB;}
+::-moz-selection{ background: #6CA3EB;}
+::selection{ background: #6CA3EB;}
+.top-bar, .bottom-bar { background-color: #206AB6; }
+#showcase { background-color: #206AB6; }
+.th .bottom, .price-tag { background-color: #206AB6; }
+.footer-body { color: #606060; }
+.content-texture, .sheet { background-color: #FCFCFC; }
+#bottom-block { background-color: #F5F5F5; }
+#newsletter { background-color: #FFFFFF; }
+#footer-block, #bottom-c { background-color: #F7F7F7; }
+#header-bottom { background-color: #FFFFFF; }
+#header-bottom { border-color: #EFEFEF; }
+.menu-dropdown .dropdown-bg > div { border-color: #EFEFEF; }
+.menu-dropdown .dropdown-bg > div { border-bottom: 2px solid #206AB6; }
+.menu-dropdown .dropdown-bg > div { background-color: #FAFAFA; }
+.menu-dropdown a.level1, .menu-dropdown span.level1, .menu-dropdown a.level2, .menu-dropdown span.level2, .menu-dropdown a.level3, .menu-dropdown span.level3, #call-us h1 { color: #404040; }
+.menu-dropdown li.active .level1, .menu-dropdown li:hover .level1, .menu-dropdown li.remain .level1, #Kunena #ktab li.active a span, #Kunena #ktab li a:hover span  { color: #FFFFFF;}
+.level1 span.subtitle { color: #505050; }
+.menu-dropdown li.level1.active, .menu-dropdown li.level1:hover, .menu-dropdown li.remain, #Kunena #ktab ul.menu li.active a, #Kunena #ktab ul.menu li a:hover, #Kunena #ktab ul.menu li a:focus { background-color: #206AB6; }
+.menu-dropdown li.level1.active, .menu-dropdown li.remain { -webkit-box-shadow: 0 3px 0 0 #206AB6, 0 2px 0 0 rgba(0, 0, 0, 0.1) inset;}
+.menu-dropdown li.level1.active, .menu-dropdown li.remain { -moz-box-shadow: 0 3px 0 0 #206AB6, 0 2px 0 0 rgba(0, 0, 0, 0.1) inset;}
+.menu-dropdown li.level1.active, .menu-dropdown li.remain { box-shadow: 0 3px 0 0 #206AB6, 0 2px 0 0 rgba(0, 0, 0, 0.1) inset;}
+.menu-dropdown li.level1:hover {-webkit-box-shadow: 0 2px 0 0 #206AB6, 0 2px 0 0 rgba(0, 0, 0, 0.1) inset;}
+.menu-dropdown li.level1:hover {-moz-box-shadow: 0 2px 0 0 #206AB6, 0 2px 0 0 rgba(0, 0, 0, 0.1) inset;}
+.menu-dropdown li.level1:hover {box-shadow: 0 2px 0 0 #206AB6, 0 2px 0 0 rgba(0, 0, 0, 0.1) inset;}
+.menu-dropdown span.level2 > span { border-color: #DEDEDE; }
+.menu-dropdown a.level2:hover, .menu-dropdown a.level3:hover, .menu-dropdown a.level2:hover span.subtitle { color: #206AB6; }
+.menu-dropdown a.current.level2, .menu-dropdown a.current.level3, .menu-dropdown a.current.level2 span.subtitle { color: #1D5FA3; }
+.colored .menu-sidebar a { color: #404040; }
+.colored .menu-sidebar li > span { background-color: #174A7C; color: #FFFFFF; }
+.colored .menu-sidebar a:hover { color: #FFFFFF; }
+.colored .menu-sidebar li > span:hover { color: #FFFFFF; }
+.colored .menu-sidebar li.level1.active { color: #FFFFFF; background-color: #D6D6D6; }
+.colored .menu-sidebar li.level1:hover { color: #FFFFFF; }
+.colored .menu-sidebar a.level1:hover > span { color: #FFFFFF; }
+.colored .menu-sidebar span.level1:hover > span { color: #FFFFFF; }
+.colored .menu-sidebar a.level1.active > span { font-weight: bold; }
+.colored .menu-sidebar span.level1:hover > span { font-weight: bold; color: #FFFFFF }
+.colored .menu-sidebar a.level1:hover { background-color: #174A7C !important; color: #FFFFFF }
+.colored .menu-sidebar a.level1.active { background-color: #174A7C !important; color: #FFFFFF }
+.colored .menu-sidebar span.level1:hover { background-color: #174A7C !important; }
+.colored .menu-sidebar .level2.active { color: #FFFFFF; }
+.colored .menu-sidebar a.level2:hover { color: #FFFFFF; background-color: #256CB5 !important; }
+.colored .menu-sidebar span.level2:hover { color: #FFFFFF; background-color: #256CB5 !important; }
+.colored .menu-sidebar a.level2:hover { color: #FFFFFF; background-color: #256CB5 !important; }
+.colored .menu-sidebar a.level2.active { color:#FFFFFF; font-weight: bold; background-color: #256CB5; }
+.colored .menu-sidebar span.level2.active { color: #FFFFFF; background-color: #FFFFFF; }
+.colored .menu-sidebar .parent span.level2.active { color: #FFFFFF; }
+.colored .menu-sidebar .level3.active a > span { color: #FFFFFF; }
+.colored .menu-sidebar a.level3:hover { background-color: #8C8C8C !important; color: #FFFFFF }
+.colored .menu-sidebar span.level3:hover { background-color: #8C8C8C !important; color: #FFFFFF }
+.colored .menu-sidebar a.level3:hover { background-color: #8C8C8C !important; color: #FFFFFF }
+.colored .menu-sidebar a.level3.active { background-color: #8C8C8C; color: #FFFFFF }
+.colored .menu-sidebar span.level3.active { background-color: #8C8C8C; color: #FFFFFF }
+.colored .menu-sidebar .level4.active a > span { color: #FFFFFF; }
+.colored .menu-sidebar a.level4:hover { background-color: #8C8C8C !important; color: #FFFFFF }
+.colored .menu-sidebar span.level4:hover { background-color: #8C8C8C !important; color: #FFFFFF }
+.colored .menu-sidebar a.level4:hover { background-color: #8C8C8C !important; color: #FFFFFF }
+.colored .menu-sidebar a.level4.active { background-color: #8C8C8C; color: #FFFFFF }
+.colored .menu-sidebar span.level4.active { background-color: #8C8C8C; color: #FFFFFF }
+h1 strong, h2 strong, h3 strong, h4 strong, h5 strong, h6 strong, .module-title .color { color: #808080; }
+h1, h2, h3, h4, h5, h6, blockquote strong, blockquote p strong, .result h3, header h1.title a, .price-col .th span strong { color: #206AB6; }
+#showcase .module-title, #showcase .module-title span.subtitle, #showcase, #showcase h1, #showcase h2, #showcase h3, #showcase strong, #showcase blockquote strong, #showcase blockquote p strong, .header-content .module-title, .header-content { color: #FFFFFF; }
+a.button-color, button.button-color, input[type="submit"].button-color, input[type="submit"].subbutton, input[type="reset"].button-color, input[type="button"].button-color, #content .pagination strong, .event-time .month, .block-number .bottom, .section-title,  ul.white-top a.current, ul.white-top a.current:hover,  .gkTabsWrap.vertical ol li.active, .gkTabsWrap.vertical ol li.active:hover, #kunena input[type="submit"].kbutton, #Kunena .klist-markallcatsread input.kbutton, #Kunena .kicon-button.kbuttoncomm, #kunena .kbutton.kreply-submit, #Kunena .kbutton-container button.validate, #kpost-buttons input[type="submit"].kbutton, #Kunena span.kheadbtn a { background-color: #206AB6 !important; }
+a.button-color, button.button-color, input[type="submit"].button-color, input[type="submit"].subbutton, input[type="reset"].button-color, input[type="button"].button-color, #content .pagination strong, .event-time .month, .block-number .bottom, .section-title,  ul.white-top a.current, ul.white-top a.current:hover,  .gkTabsWrap.vertical ol li.active, .gkTabsWrap.vertical ol li.active:hover, #kunena input[type="submit"].kbutton, #Kunena .klist-markallcatsread input.kbutton, #Kunena .kicon-button.kbuttoncomm span, #kunena .kbutton.kreply-submit, #Kunena .kbutton-container button.validate,  #kpost-buttons input[type="submit"].kbutton, #Kunena span.kheadbtn a, li.price-tag { color: #FFFFFF !important; }
+a.button-color, button.button-color, input[type="submit"].button-color, input[type="submit"].subbutton, input[type="reset"].button-color, input[type="button"].button-color, #content .pagination strong, .event-time .month, .block-number .bottom, .gkTabsWrap.vertical ol li.active, .gkTabsWrap.vertical ol, #kunena input[type="submit"].kbutton, #Kunena .klist-markallcatsread input.kbutton, #Kunena .kicon-button.kbuttoncomm, #kunena .kbutton.kreply-submit,  #Kunena .kbutton-container button.validate, #kpost-buttons input[type="submit"].kbutton, #Kunena span.kheadbtn a { border-color: #1B5999 !important; }
+.mejs-controls .mejs-time-rail .mejs-time-loaded { background-color: #0067BA !important; }
+.mod-color { background-color: #0067BA; }
+.mod-color { border: 1px solid #004F8F; }
+.mod-color, .mod-color h1 { color: #FFFFFF !important; }
+.tag-body, .tag-body:hover, .tag-body, .tag-body .tag:before { color: #FFFFFF !important; }
+.tag-body, .tag-body .tag:before { background-color: #206AB6; }
+.sprocket-tabs-nav > li.active > .sprocket-tabs-inner { background-color: #0067BA !important; }
+.sprocket-tabs-nav > li.active > .sprocket-tabs-inner { color: #FFFFFF !important; }
+.sprocket-tabs-nav{border-bottom: 1px solid #004F8F !important; }
+body #Kunena .kblock div.kheader, body #Kunena div.kblock > div.kheader { border-top: 1px solid #206AB6; }
+#sidebar-b { width: 27%; }
+#maininner { width: 73%; }
+#menu .dropdown { width: 200px; }
+#menu .columns2 { width: 400px; }
+#menu .columns3 { width: 600px; }
+#menu .columns4 { width: 800px; }</style>
+<link rel="stylesheet" href="/templates/fontaine_j3/css/modules.css" />
+<link rel="stylesheet" href="/templates/fontaine_j3/css/system.css" />
+<link rel="stylesheet" href="/templates/fontaine_j3/css/k2.css" />
+<link rel="stylesheet" href="/templates/fontaine_j3/css/font1/abel.css" />
+<link rel="stylesheet" href="/templates/fontaine_j3/css/font2/abel.css" />
+<link rel="stylesheet" href="/templates/fontaine_j3/css/font3/abel.css" />
+<link rel="stylesheet" href="/templates/fontaine_j3/css/font4/abel.css" />
+<link rel="stylesheet" href="/templates/fontaine_j3/css/style.css" />
+<link rel="stylesheet" href="/templates/fontaine_j3/css/responsive.css" />
+<link rel="stylesheet" href="/templates/fontaine_j3/css/custom.css" />
+<link rel="stylesheet" href="/templates/fontaine_j3/css/print.css" />
+<link rel="stylesheet" href="/templates/fontaine_j3/fonts/abel.css" />
+<script src="/templates/fontaine_j3/warp/js/warp.js"></script>
+<script src="/templates/fontaine_j3/warp/js/responsive.js"></script>
+<script src="/templates/fontaine_j3/warp/js/accordionmenu.js"></script>
+<script src="/templates/fontaine_j3/warp/js/dropdownmenu.js"></script>
+<script src="/templates/fontaine_j3/js/template.js"></script>
+<style>
+/*custom css*/
+.tag-line{
+font-size:200%;
+font:Arial, Helvetica, sans-serif;
+padding-top:15px;padding-left:40px;color:}
+.sprocket-tabs-nav > li > .sprocket-tabs-inner {font-size:15px;
+}
+.sprocket-tabs-nav li .sprocket-tabs-inner {padding: 12px 10px;line-height: 1em;}
+pre {
+padding-top:4px;
+padding-bottom:3px;
+     line-height: 15px;
+}</style>
+</head>
+
+<body id="page" class="page bg_texture_0 bg-  " data-config='{"twitter":0,"plusone":0,"facebook":0}'>
+
+	
+	<!-- a small dark toolbar -->
+	<div id="toolbar" class="grid-block">
+		<div class="wrapper">
+						<div class="float-left">
+			
+									<time datetime="2026-09-02">Dimecres, 02 de setembre del 2026</time>
+							
+									
+			</div>
+							
+							<div class="float-right"><div class="module   deepest">
+
+			          
+<div id="offlajn-ajax-search388">
+  <div class="offlajn-ajax-search-container">
+  <form id="search-form388" action="/component/search/" method="get" onSubmit="return false;">
+    <div class="offlajn-ajax-search-inner">
+                <input type="text" name="searchword" id="search-area388" value="" autocomplete="off" />
+        <input type="text" name="searchwordsugg" id="suggestion-area388" value="" autocomplete="off" />
+        <input type="hidden" name="option" value="com_search" />
+              <div id="search-area-close388"></div>
+      <div id="ajax-search-button388"><div class="magnifier"></div></div>
+      <div class="ajax-clear"></div>
+    </div>
+  </form>
+  <div class="ajax-clear"></div>
+  </div>
+    </div>
+<div class="ajax-clear"></div>
+<svg style="position:absolute" height="0" width="0"><filter id="searchblur"><feGaussianBlur in="SourceGraphic" stdDeviation="3"/></filter></svg>		
+</div></div>
+			
+
+			<!-- social icons -->
+			<div class="float-right top-links">
+					
+										
+
+					
+					
+													
+					
+						
+
+						
+
+						
+
+						
+
+						
+
+						
+					
+						
+
+						
+
+						
+
+						
+
+				</div>
+		</div>
+	</div>
+	
+	<div class="wrapper grid-block">
+	<div class="top-bar"></div>
+	<div class="sheet">
+	<div class="wrapper sheet-body">
+
+	<div id="header-block">
+	<div class="header-glare">
+	<div class="wrapper grid-block">
+
+		 	<header id="header">
+		 		<div id="header-top">
+					
+						<!-- logo -->
+													<!-- <a id="logo" href="/"> -->
+							<a id="logo" href="http://www.govern.ad" target="_blank">								<span class="logo-img size-auto"></span>
+							</a>
+						
+													<span class="tag-line">Cartografia</span>
+						
+						
+
+						<!-- search -->
+												<div class="float-right search-box">
+							<div id="search">
+<p><a href="/geoportal"><img src="/images/stories/ca.gif" alt="Català" width="24" height="18" /></a>&nbsp;&nbsp;<a href="/geoportal-cas"><img src="/images/stories/es.gif" alt="Castellà" width="24" height="18" /></a>&nbsp;</p></div>
+						</div>
+										</div>
+				
+				<div id="header-bottom">
+					<div id="menubar" class="grid-block">
+												<nav id="menu"><ul class="menu menu-dropdown"><li class="level1 item590"><a href="/" class="level1"><span>Inici</span></a></li><li class="level1 item656"><a href="/cartografia-home" class="level1"><span>Cartografia</span></a></li><li class="level1 item644 active current"><a href="/geoportal" class="level1 active current"><span>IDE Andorra</span></a></li><li class="level1 item836"><a href="/aplicacions-tematiques" class="level1"><span>Aplicacions temàtiques</span></a></li><li class="level1 item643"><a href="/ergand" class="level1"><span>Estacions de referència GNSS</span></a></li><li class="level1 item106"><a href="/contacta-ns" class="level1"><span>Contacta'ns</span></a></li></ul></nav>
+										</div>
+				</div>
+
+				</header>
+
+									<section id="showcase" class="head_overlay_6">
+						<div class="showcase-gradient">
+							<div class="header-content grid-block">
+								<div class="grid-box width100 grid-h"><div class="module   deepest">
+
+		<h3 class="module-title">Infraestructura de dades espacials d’Andorra IDE Andorra</h3>	
+		
+</div></div>							</div>
+						</div>
+					</section>
+				
+
+				
+
+				
+		</div>
+		</div>
+		</div>
+
+		<!-- end header block -->
+
+		<!-- header block -->
+		
+		<!-- mid block -->
+		<div id="mid-block">
+			<div class="mid-gradient">
+				
+				<!-- breadcrumbs -->
+									<section id="breadcrumbs">
+						<div class="wrapper grid-block">
+						<a href="https://www.cartografia.ad" class="home"></a>
+						<div class="breadcrumbs"><a href="/">Inici</a><strong>IDE Andorra</strong></div>						</div>
+					</section>
+							
+
+			
+			</div>
+		</div>
+			
+			
+	
+		
+		
+		<div class="wrapper grid-block content-texture">
+						<div id="main" class="grid-block">
+			
+				<div id="maininner" class="grid-box">
+										
+
+										<section id="content" class="grid-block"><div id="system-message-container">
+	</div>
+
+
+<div id="system">
+
+	
+	<article class="item">
+
+		
+			
+		
+		<div class="content clearfix">
+
+		
+<p><div class="row"><div class="column one-half"></p>
+<p><a href="/visor-de-mapes" data-spotlight="on"><img class="pic3d" src="/images/stories/cartografia/portada/visor-de-mapes.jpg" alt="visor-de-mapes" width="324" height="180" /><span class="gallery-desc"><span style="color: #174a7c; font-size: 16px; font-weight: bold;">Visor de mapes</span></span></a></div> <div class="column one-half"></p>
+<p><a href="/guia-urbana" data-spotlight="on"><img class="pic3d" src="/images/stories/cartografia/portada/guia-urbana.jpg" alt="guia-urbana" width="324" height="180" /><span class="gallery-desc"><span style="color: #174a7c; font-size: 16px; font-weight: bold;">Guia urbana</span></span></a></div> </div></p>
+<p><div class="row"><div class="column one-half"></p>
+<p><a href="/cataleg-de-metadades" data-spotlight="on"><img class="pic3d" src="/images/stories/cartografia/portada/cataleg-metadades.jpg" alt="cataleg-metadades" width="324" height="180" /><span class="gallery-desc"><span style="color: #174a7c; font-size: 16px; font-weight: bold;">Catàleg de metadades</span></span></a></p>
+<p></div> <div class="column one-half"></p>
+<p><a href="/nomenclator" data-spotlight="on"><img class="pic3d" src="/images/stories/cartografia/portada/nomenclator2.jpg" alt="nomenclator2" width="324" height="180" /><span class="gallery-desc"><span style="color: #174a7c; font-size: 16px; font-weight: bold;">Nomenclàtor</span></span></a></p>
+<p></div> </div></p>
+<p><div class="row"><div class="column one-half"></p>
+<p><a href="/serveis-ogc" data-spotlight="on"><img class="pic3d" src="/images/stories/cartografia/portada/serveis-ogc-xml.jpg" alt="serveis-ogc-xml" width="324" height="180" /><span class="gallery-desc"><span style="color: #174a7c; font-size: 16px; font-weight: bold;">Serveis OGC</span></span></a></p>
+<p></div> <div class="column one-half"></p>
+<p><a href="/web-de-descarregues" data-spotlight="on"><img class="pic3d" src="/images/stories/cartografia/portada/web-descarregues.jpg" alt="web-descarregues" width="324" height="180" /><span class="gallery-desc"><span style="color: #174a7c; font-size: 16px; font-weight: bold;">Web de descàrregues</span></span></a></p>
+<p></div> </div></p> 		</div>
+
+		
+		
+			
+	</article>
+
+</div></section>
+					
+					
+									</div>
+				<!-- maininner end -->
+
+				
+								
+								<aside id="sidebar-b" class="grid-box"><div class="grid-box width100 grid-v"><div class="module mod-box colored deepest">
+
+		<h3 class="module-title"><span class="color">IDE</span> Andorra  Infraestructura de dades espacials d'Andorra</h3>	<ul class="menu menu-sidebar"><li class="level1 item663"><a href="/presentacio" class="level1"><span>Presentació</span></a></li><li class="level1 item664"><a href="/visor-de-mapes" class="level1"><span>Visor de mapes</span></a></li><li class="level1 item665"><a href="/guia-urbana" class="level1"><span>Guia urbana</span></a></li><li class="level1 item666"><a href="/cataleg-de-metadades" class="level1"><span>Catàleg de metadades</span></a></li><li class="level1 item679"><a href="/nomenclator" class="level1"><span>Nomenclàtor</span></a></li><li class="level1 item680"><a href="/serveis-ogc" class="level1"><span>Serveis OGC</span></a></li><li class="level1 item681"><a href="/web-de-descarregues" class="level1"><span>Web de descàrregues</span></a></li></ul>		
+</div></div><div class="grid-box width100 grid-v"><div class="module mod-box  deepest">
+
+			
+<p style="text-align: center;">
+<a href="http://www.idee.es" target="_blank" rel="noopener noreferrer" data-spotlight="on"><img src="/images/stories/idee.jpg" alt="idee" width="221" height="48" class="pic3d" /></a>
+<a href="http://www.geoportail.gouv.fr/" target="_blank" rel="noopener noreferrer" data-spotlight="on"><img src="/images/stories/geoportal-fr.jpg" alt="geoportal-fr" width="220" height="45" class="pic3d" /></a>
+<a href="http://inspire.ec.europa.eu/" target="_blank" rel="noopener noreferrer" data-spotlight="on"><img src="/images/stories/inspire.jpg" alt="inspire" width="221" height="48" class="pic3d" /></a>
+</p>		
+</div></div></aside>
+				
+			</div>
+						</div>
+			<!-- main end -->
+
+
+		
+		
+		
+		<div id="footer-block" class="">
+			<div class="footer-overlay-bottom">
+						<div class="wrapper grid-block">
+				<footer id="footer" class="grid-block float-left">
+					<div class="module _menu  deepest">
+
+			<ul class="menu menu-line"><li class="level1 item266"><a href="/avis-legal" class="level1"><span>Avís legal</span></a></li><li class="level1 item833"><a href="/politica-de-privacitat" class="level1"><span>Política de privacitat</span></a></li><li class="level1 item834"><a href="/politica-de-galetes" class="level1"><span>Política de galetes</span></a></li><li class="level1 item269"><a href="/contacta-ns" class="level1"><span>Contacta'ns</span></a></li></ul>		
+</div>					
+				</footer>
+								
+						<section id="copyright" class="float-right">
+							<div class="module   deepest">
+
+			
+<p>Copyright © <a href="http://www.govern.ad" target="_blank">Govern d'Andorra</a><a href="http://themeforest.net/user/arrowthemes/portfolio/?ref=arrowthemes" target="_blank"><br /></a></p>		
+</div>													</section>
+
+								
+						
+
+		
+		</div>
+		</div>	
+
+				<a id="totop-scroller" href="#page"></a>
+			</div>
+	<div class="bottom-bar"></div>
+
+		
+
+		
+
+	
+	<script>
+  (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+  (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+  m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+  })(window,document,'script','//www.google-analytics.com/analytics.js','ga');
+
+  ga('create', 'UA-20697439-58', 'auto');
+  ga('send', 'pageview');
+
+</script>	
+	</div>
+	</div>
+	
+
+	</div>
+	<script>
+		(function($){
+		$(document).on('ready', function() {
+					});
+		})(jQuery);
+	</script>
+</body>
+</html>

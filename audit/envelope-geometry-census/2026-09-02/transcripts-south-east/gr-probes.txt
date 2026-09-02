@@ -1,0 +1,25 @@
+# GR probes 2026-09-02T18:04:33Z
+== PROBE http://gis.epoleodomia.gov.gr/
+HTTP=200 bytes=2294 type=text/html RC=0
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+<title>Untitled Document</title>
+<link href="twoColLiqLt.css" rel="stylesheet" type="text/css" /><!--[if lte IE 7]>
+<style>
+.content { margin-right: -1px; } /* this 1px negative margin can be placed o
+== PROBE https://geoportal.ypen.gr/
+curl: (7) Failed to connect to geoportal.ypen.gr port 443 after 2330 ms: Could not connect to server
+HTTP=000 bytes=0 type= RC=7
+
+== PROBE https://www.epoleodomia.gov.gr/
+curl: (28) Failed to connect to www.epoleodomia.gov.gr port 443 after 9860 ms: Could not connect to server
+HTTP=000 bytes=0 type= RC=28
+
+href="#"
+href="twoColLiqLt.css"
+src="images/image294.png"
+src="images/image296.png"
+src="images/image310.png"
+src="images/image320.png"

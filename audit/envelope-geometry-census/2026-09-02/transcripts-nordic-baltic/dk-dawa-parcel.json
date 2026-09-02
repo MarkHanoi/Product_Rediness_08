@@ -1,0 +1,52 @@
+[
+{
+  "matrikelnr": "562",
+  "bbox": [
+    12.59425943,
+    55.67539798,
+    12.59631958,
+    55.67659127
+  ],
+  "visueltcenter": [
+    12.59514818,
+    55.6759574
+  ],
+  "href": "https://api.dataforsyningen.dk/jordstykker/2000153/562",
+  "ejerlav": {
+    "kode": 2000153,
+    "navn": "Christianshavns Kvarter, København",
+    "href": "https://api.dataforsyningen.dk/ejerlav/2000153"
+  },
+  "kommune": {
+    "href": "https://api.dataforsyningen.dk/kommuner/0101",
+    "kode": "0101",
+    "navn": "København"
+  },
+  "esrejendomsnr": "0",
+  "udvidet_esrejendomsnr": "0",
+  "sfeejendomsnr": "6004659",
+  "bfenummer": 6004659,
+  "ændret": "2024-02-22T22:45:44.655Z",
+  "geo_version": 1,
+  "geo_ændret": "2015-02-27T18:53:31.662Z",
+  "fælleslod": false,
+  "moderjordstykke": null,
+  "registreretareal": 8016,
+  "arealberegningsmetode": "k",
+  "vejareal": 142,
+  "vejarealberegningsmetode": "e",
+  "vandarealberegningsmetode": "ukendt",
+  "featureid": "10409982",
+  "region": {
+    "href": "https://api.dataforsyningen.dk/regioner/1084",
+    "kode": "1084",
+    "navn": "Region Hovedstaden"
+  },
+  "sogn": {
+    "href": "https://api.dataforsyningen.dk/sogne/7082",
+    "kode": "7082",
+    "navn": "Vor Frelsers"
+  },
+  "retskreds": null
+}
+]

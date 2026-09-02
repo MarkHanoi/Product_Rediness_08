@@ -1,0 +1,96 @@
+<?xml version="1.0" encoding="UTF-8"?><xsd:schema xmlns:gml="http://www.opengis.net/gml/3.2" xmlns:pdk="http://www.plansystemdk.dk" xmlns:wfs="http://www.opengis.net/wfs/2.0" xmlns:xsd="http://www.w3.org/2001/XMLSchema" elementFormDefault="qualified" targetNamespace="http://www.plansystemdk.dk">
+  <xsd:import namespace="http://www.opengis.net/gml/3.2" schemaLocation="https://geoserver.plandata.dk/geoserver/schemas/gml/3.2.1/gml.xsd"/>
+  <xsd:complexType name="theme_pdk_byggefelt_vedtagetType">
+    <xsd:complexContent>
+      <xsd:extension base="gml:AbstractFeatureType">
+        <xsd:sequence>
+          <xsd:element maxOccurs="1" minOccurs="0" name="id" nillable="true" type="xsd:int"/>
+          <xsd:element maxOccurs="1" minOccurs="0" name="planid" nillable="true" type="xsd:int"/>
+          <xsd:element maxOccurs="1" minOccurs="0" name="lokplan_id" nillable="true" type="xsd:int"/>
+          <xsd:element maxOccurs="1" minOccurs="0" name="delnr" nillable="true" type="xsd:string"/>
+          <xsd:element maxOccurs="1" minOccurs="0" name="objektkode" nillable="true" type="xsd:int"/>
+          <xsd:element maxOccurs="1" minOccurs="0" name="plantype" nillable="true" type="xsd:decimal"/>
+          <xsd:element maxOccurs="1" minOccurs="0" name="komnr" nillable="true" type="xsd:int"/>
+          <xsd:element maxOccurs="1" minOccurs="0" name="lp_plannr" nillable="true" type="xsd:string"/>
+          <xsd:element maxOccurs="1" minOccurs="0" name="lp_plannavn" nillable="true" type="xsd:string"/>
+          <xsd:element maxOccurs="1" minOccurs="0" name="datoforsl" nillable="true" type="xsd:int"/>
+          <xsd:element maxOccurs="1" minOccurs="0" name="datovedt" nillable="true" type="xsd:int"/>
+          <xsd:element maxOccurs="1" minOccurs="0" name="datoaflyst" nillable="true" type="xsd:int"/>
+          <xsd:element maxOccurs="1" minOccurs="0" name="datoikraft" nillable="true" type="xsd:int"/>
+          <xsd:element maxOccurs="1" minOccurs="0" name="datopub" nillable="true" type="xsd:int"/>
+          <xsd:element maxOccurs="1" minOccurs="0" name="datostart" nillable="true" type="xsd:int"/>
+          <xsd:element maxOccurs="1" minOccurs="0" name="datoslut" nillable="true" type="xsd:int"/>
+          <xsd:element maxOccurs="1" minOccurs="0" name="datogstart" nillable="true" type="xsd:int"/>
+          <xsd:element maxOccurs="1" minOccurs="0" name="datogslut" nillable="true" type="xsd:int"/>
+          <xsd:element maxOccurs="1" minOccurs="0" name="saflysdato" nillable="true" type="xsd:int"/>
+          <xsd:element maxOccurs="1" minOccurs="0" name="datoattr" nillable="true" type="xsd:int"/>
+          <xsd:element maxOccurs="1" minOccurs="0" name="datogeom" nillable="true" type="xsd:int"/>
+          <xsd:element maxOccurs="1" minOccurs="0" name="datooprt" nillable="true" type="xsd:dateTime"/>
+          <xsd:element maxOccurs="1" minOccurs="0" name="datoopdt" nillable="true" type="xsd:dateTime"/>
+          <xsd:element maxOccurs="1" minOccurs="0" name="status" nillable="true" type="xsd:string"/>
+          <xsd:element maxOccurs="1" minOccurs="0" name="versionsnr" nillable="true" type="xsd:int"/>
+          <xsd:element maxOccurs="1" minOccurs="0" name="kommunenavn" nillable="true" type="xsd:string"/>
+          <xsd:element maxOccurs="1" minOccurs="0" name="doklink" nillable="true" type="xsd:string"/>
+          <xsd:element maxOccurs="1" minOccurs="0" name="ianvreg" nillable="true" type="xsd:boolean"/>
+          <xsd:element maxOccurs="1" minOccurs="0" name="izonereg" nillable="true" type="xsd:boolean"/>
+          <xsd:element maxOccurs="1" minOccurs="0" name="iomfangreg" nillable="true" type="xsd:boolean"/>
+          <xsd:element maxOccurs="1" minOccurs="0" name="iudstykreg" nillable="true" type="xsd:boolean"/>
+          <xsd:element maxOccurs="1" minOccurs="0" name="maxetager" nillable="true" type="xsd:decimal"/>
+          <xsd:element maxOccurs="1" minOccurs="0" name="maxbygnhjd" nillable="true" type="xsd:decimal"/>
+          <xsd:element maxOccurs="1" minOccurs="0" name="eareal" nillable="true" type="xsd:int"/>
+          <xsd:element maxOccurs="1" minOccurs="0" name="earealh" nillable="true" type="xsd:int"/>
+          <xsd:element maxOccurs="1" minOccurs="0" name="kompleks" nillable="true" type="xsd:boolean"/>
+          <xsd:element maxOccurs="1" minOccurs="0" name="kbeskriv" nillable="true" type="xsd:string"/>
+          <xsd:element maxOccurs="1" minOccurs="0" name="nedbrydsf" nillable="true" type="xsd:boolean"/>
+          <xsd:element maxOccurs="1" minOccurs="0" name="maxuds" nillable="true" type="xsd:int"/>
+          <xsd:element maxOccurs="1" minOccurs="0" name="bygkunifelt" nillable="true" type="xsd:boolean"/>
+          <xsd:element maxOccurs="1" minOccurs="0" name="bygvejledende" nillable="true" type="xsd:boolean"/>
+          <xsd:element maxOccurs="1" minOccurs="0" name="bygtillagtosh" nillable="true" type="xsd:boolean"/>
+          <xsd:element maxOccurs="1" minOccurs="0" name="boligenhed" nillable="true" type="xsd:int"/>
+          <xsd:element maxOccurs="1" minOccurs="0" name="anvspec1" nillable="true" type="xsd:int"/>
+          <xsd:element maxOccurs="1" minOccurs="0" name="eareal1" nillable="true" type="xsd:int"/>
+          <xsd:element maxOccurs="1" minOccurs="0" name="earealh1" nillable="true" type="xsd:int"/>
+          <xsd:element maxOccurs="1" minOccurs="0" name="maxbhjd1" nillable="true" type="xsd:decimal"/>
+          <xsd:element maxOccurs="1" minOccurs="0" name="maxetage1" nillable="true" type="xsd:decimal"/>
+          <xsd:element maxOccurs="1" minOccurs="0" name="boligenhed1" nillable="true" type="xsd:int"/>
+          <xsd:element maxOccurs="1" minOccurs="0" name="maxuds1" nillable="true" type="xsd:int"/>
+          <xsd:element maxOccurs="1" minOccurs="0" name="maxvind1" nillable="true" type="xsd:int"/>
+          <xsd:element maxOccurs="1" minOccurs="0" name="anvspec2" nillable="true" type="xsd:int"/>
+          <xsd:element maxOccurs="1" minOccurs="0" name="eareal2" nillable="true" type="xsd:int"/>
+          <xsd:element maxOccurs="1" minOccurs="0" name="earealh2" nillable="true" type="xsd:int"/>
+          <xsd:element maxOccurs="1" minOccurs="0" name="maxbhjd2" nillable="true" type="xsd:decimal"/>
+          <xsd:element maxOccurs="1" minOccurs="0" name="maxetage2" nillable="true" type="xsd:decimal"/>
+          <xsd:element maxOccurs="1" minOccurs="0" name="boligenhed2" nillable="true" type="xsd:int"/>
+          <xsd:element maxOccurs="1" minOccurs="0" name="maxuds2" nillable="true" type="xsd:int"/>
+          <xsd:element maxOccurs="1" minOccurs="0" name="maxvind2" nillable="true" type="xsd:int"/>
+          <xsd:element maxOccurs="1" minOccurs="0" name="anvspec3" nillable="true" type="xsd:int"/>
+          <xsd:element maxOccurs="1" minOccurs="0" name="eareal3" nillable="true" type="xsd:int"/>
+          <xsd:element maxOccurs="1" minOccurs="0" name="earealh3" nillable="true" type="xsd:int"/>
+          <xsd:element maxOccurs="1" minOccurs="0" name="maxbhjd3" nillable="true" type="xsd:decimal"/>
+          <xsd:element maxOccurs="1" minOccurs="0" name="maxetage3" nillable="true" type="xsd:decimal"/>
+          <xsd:element maxOccurs="1" minOccurs="0" name="boligenhed3" nillable="true" type="xsd:int"/>
+          <xsd:element maxOccurs="1" minOccurs="0" name="maxuds3" nillable="true" type="xsd:int"/>
+          <xsd:element maxOccurs="1" minOccurs="0" name="maxvind3" nillable="true" type="xsd:int"/>
+          <xsd:element maxOccurs="1" minOccurs="0" name="anvspec4" nillable="true" type="xsd:int"/>
+          <xsd:element maxOccurs="1" minOccurs="0" name="eareal4" nillable="true" type="xsd:int"/>
+          <xsd:element maxOccurs="1" minOccurs="0" name="earealh4" nillable="true" type="xsd:int"/>
+          <xsd:element maxOccurs="1" minOccurs="0" name="maxbhjd4" nillable="true" type="xsd:decimal"/>
+          <xsd:element maxOccurs="1" minOccurs="0" name="maxetage4" nillable="true" type="xsd:decimal"/>
+          <xsd:element maxOccurs="1" minOccurs="0" name="boligenhed4" nillable="true" type="xsd:int"/>
+          <xsd:element maxOccurs="1" minOccurs="0" name="maxuds4" nillable="true" type="xsd:int"/>
+          <xsd:element maxOccurs="1" minOccurs="0" name="maxvind4" nillable="true" type="xsd:int"/>
+          <xsd:element maxOccurs="1" minOccurs="0" name="anvspec5" nillable="true" type="xsd:int"/>
+          <xsd:element maxOccurs="1" minOccurs="0" name="eareal5" nillable="true" type="xsd:int"/>
+          <xsd:element maxOccurs="1" minOccurs="0" name="earealh5" nillable="true" type="xsd:int"/>
+          <xsd:element maxOccurs="1" minOccurs="0" name="maxbhjd5" nillable="true" type="xsd:decimal"/>
+          <xsd:element maxOccurs="1" minOccurs="0" name="maxetage5" nillable="true" type="xsd:decimal"/>
+          <xsd:element maxOccurs="1" minOccurs="0" name="boligenhed5" nillable="true" type="xsd:int"/>
+          <xsd:element maxOccurs="1" minOccurs="0" name="maxuds5" nillable="true" type="xsd:int"/>
+          <xsd:element maxOccurs="1" minOccurs="0" name="maxvind5" nillable="true" type="xsd:int"/>
+          <xsd:element maxOccurs="1" minOccurs="0" name="geometri" nillable="true" type="gml:MultiSurfacePropertyType"/>
+        </xsd:sequence>
+      </xsd:extension>
+    </xsd:complexContent>
+  </xsd:complexType>
+  <xsd:element name="theme_pdk_byggefelt_vedtaget" substitutionGroup="gml:AbstractFeature" type="pdk:theme_pdk_byggefelt_vedtagetType"/>
+</xsd:schema>

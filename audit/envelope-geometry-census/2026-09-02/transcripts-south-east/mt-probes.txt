@@ -1,0 +1,10 @@
+# MT probes 2026-09-02T18:04:10Z
+== PROBE https://msdi.data.gov.mt/geoserver/ows?service=WFS&request=GetCapabilities
+HTTP=403 bytes=5776 type=text/html; charset=UTF-8 RC=0
+<!DOCTYPE html><html lang="en-US"><head><title>Just a moment...</title><meta http-equiv="Content-Type" content="text/html; charset=UTF-8"><meta http-equiv="X-UA-Compatible" content="IE=Edge"><meta name="robots" content="noindex,nofollow"><meta name="viewport" content="width=device-width,initial-scale=1"><meta http-equiv="content-security-policy" content="default-src &#39;none&#39;; script-src &#39;nonce-Q5sIYU7QfsNhflLwGo0ag3&#39; &#39;unsafe-eval&#39; https://challenges.cloudflare.com; script-s
+== PROBE https://pamapserver.pa.org.mt/arcgis/rest/services?f=json
+HTTP=403 bytes=5678 type=text/html; charset=UTF-8 RC=0
+<!DOCTYPE html><html lang="en-US"><head><title>Just a moment...</title><meta http-equiv="Content-Type" content="text/html; charset=UTF-8"><meta http-equiv="X-UA-Compatible" content="IE=Edge"><meta name="robots" content="noindex,nofollow"><meta name="viewport" content="width=device-width,initial-scale=1"><meta http-equiv="content-security-policy" content="default-src &#39;none&#39;; script-src &#39;nonce-znqvmP04T4cd2xgsVUItd4&#39; &#39;unsafe-eval&#39; https://challenges.cloudflare.com; script-s
+== DISAMBIGUATION: same URL, browser UA (fence-shape probe)
+HTTP=403 bytes=5861 type=text/html; charset=UTF-8 RC=0
+<!DOCTYPE html><html lang="en-US"><head><title>Just a moment...</title><meta http-equiv="Content-Type" content="text/html; charset=UTF-8"><meta http-equiv="X-UA-Compatible" content="IE=Edge"><meta name="robots" content="noindex,nofollow"><meta name="viewport" content="width=device-width,initial-scale=1"><meta http-equiv="content-security-policy" content="default-src &#39;none&#39;; script-src &#39

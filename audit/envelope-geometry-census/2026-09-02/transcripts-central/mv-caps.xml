@@ -1,0 +1,1185 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<wfs:WFS_Capabilities xmlns:gml="http://www.opengis.net/gml/3.2" xmlns:wfs="http://www.opengis.net/wfs/2.0" xmlns:ows="http://www.opengis.net/ows/1.1" xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:fes="http://www.opengis.net/fes/2.0" xmlns:ms="http://mapserver.gis.umn.edu/mapserver" xmlns="http://www.opengis.net/wfs/2.0" version="2.0.0" xsi:schemaLocation="http://www.opengis.net/wfs/2.0 http://schemas.opengis.net/wfs/2.0/wfs.xsd">
+  <ows:ServiceIdentification>
+    <ows:Title>Gebrauchsdienste Bebauungspläne Mecklenburg-Vorpommern</ows:Title>
+    <ows:Abstract>Der Dienst enthält die Layer der B-, F- und SO-Pläne sowie die Layer der Fachobjekte aus dem XPlanung-Modell. Letzte Aktualisierung: 18.07.2023</ows:Abstract>
+    <ows:Keywords>
+      <ows:Keyword>GIS</ows:Keyword>
+      <ows:Keyword>Landkreis</ows:Keyword>
+      <ows:Keyword>Kataster</ows:Keyword>
+      <ows:Keyword>Geoinformation</ows:Keyword>
+    </ows:Keywords>
+    <ows:ServiceType codeSpace="OGC">WFS</ows:ServiceType>
+    <ows:ServiceTypeVersion>2.0.0</ows:ServiceTypeVersion>
+    <ows:Fees>keine</ows:Fees>
+    <ows:AccessConstraints>keine</ows:AccessConstraints>
+  </ows:ServiceIdentification>
+  <ows:ServiceProvider>
+    <ows:ProviderName>Vermessungs- und Geoinformationsbehörde  des Landkreises Ludwigslust-Parchim und Schwerin</ows:ProviderName>
+    <ows:ProviderSite xlink:type="simple" xlink:href="https://demo.bauleitplaene-mv.de/ows/xplanung/"/>
+    <ows:ServiceContact>
+      <ows:IndividualName>Andreas Lehrmann</ows:IndividualName>
+      <ows:PositionName>Koordinator der AG Bauleitplanung</ows:PositionName>
+      <ows:ContactInfo>
+        <ows:Phone>
+          <ows:Voice/>
+          <!--WARNING: Optional metadata "ows_contactvoicetelephone" was missing for ows:Voice-->
+          <ows:Facsimile/>
+          <!--WARNING: Optional metadata "ows_contactfacsimiletelephone" was missing for ows:Facsimile-->
+        </ows:Phone>
+        <ows:Address>
+          <ows:DeliveryPoint>Postfach 160220</ows:DeliveryPoint>
+          <ows:City>Schwerin</ows:City>
+          <ows:AdministrativeArea>Mecklenburg-Vorpommern</ows:AdministrativeArea>
+          <ows:PostalCode>19092</ows:PostalCode>
+          <ows:Country>Germany</ows:Country>
+          <ows:ElectronicMailAddress>geodatenmanagement@kreis-lup.de</ows:ElectronicMailAddress>
+        </ows:Address>
+        <ows:OnlineResource xlink:type="simple" xlink:href="https://demo.bauleitplaene-mv.de/ows/xplanung/"/>
+        <ows:HoursOfService>Wochentags 8:00 - 16:00 Uhr</ows:HoursOfService>
+        <ows:ContactInstructions>Telefon oder E-Mail</ows:ContactInstructions>
+      </ows:ContactInfo>
+      <ows:Role>GIS-Administrator</ows:Role>
+    </ows:ServiceContact>
+  </ows:ServiceProvider>
+  <ows:OperationsMetadata>
+    <ows:Operation name="GetCapabilities">
+      <ows:DCP>
+        <ows:HTTP>
+          <ows:Get xlink:type="simple" xlink:href="https://demo.bauleitplaene-mv.de/ows/xplanung/?"/>
+          <ows:Post xlink:type="simple" xlink:href="https://demo.bauleitplaene-mv.de/ows/xplanung/?"/>
+        </ows:HTTP>
+      </ows:DCP>
+      <ows:Parameter name="AcceptVersions">
+        <ows:AllowedValues>
+          <ows:Value>2.0.0</ows:Value>
+          <ows:Value>1.1.0</ows:Value>
+          <ows:Value>1.0.0</ows:Value>
+        </ows:AllowedValues>
+      </ows:Parameter>
+      <ows:Parameter name="AcceptFormats">
+        <ows:AllowedValues>
+          <ows:Value>text/xml</ows:Value>
+        </ows:AllowedValues>
+      </ows:Parameter>
+      <ows:Parameter name="Sections">
+        <ows:AllowedValues>
+          <ows:Value>ServiceIdentification</ows:Value>
+          <ows:Value>ServiceProvider</ows:Value>
+          <ows:Value>OperationsMetadata</ows:Value>
+          <ows:Value>FeatureTypeList</ows:Value>
+          <ows:Value>Filter_Capabilities</ows:Value>
+        </ows:AllowedValues>
+      </ows:Parameter>
+    </ows:Operation>
+    <ows:Operation name="DescribeFeatureType">
+      <ows:DCP>
+        <ows:HTTP>
+          <ows:Get xlink:type="simple" xlink:href="https://demo.bauleitplaene-mv.de/ows/xplanung/?"/>
+          <ows:Post xlink:type="simple" xlink:href="https://demo.bauleitplaene-mv.de/ows/xplanung/?"/>
+        </ows:HTTP>
+      </ows:DCP>
+      <ows:Parameter name="outputFormat">
+        <ows:AllowedValues>
+          <ows:Value>application/gml+xml; version=3.2</ows:Value>
+          <ows:Value>text/xml; subtype=gml/3.2.1</ows:Value>
+          <ows:Value>text/xml; subtype=gml/3.1.1</ows:Value>
+          <ows:Value>text/xml; subtype=gml/2.1.2</ows:Value>
+        </ows:AllowedValues>
+      </ows:Parameter>
+    </ows:Operation>
+    <ows:Operation name="GetFeature">
+      <ows:DCP>
+        <ows:HTTP>
+          <ows:Get xlink:type="simple" xlink:href="https://demo.bauleitplaene-mv.de/ows/xplanung/?"/>
+          <ows:Post xlink:type="simple" xlink:href="https://demo.bauleitplaene-mv.de/ows/xplanung/?"/>
+        </ows:HTTP>
+      </ows:DCP>
+      <ows:Parameter name="outputFormat">
+        <ows:AllowedValues>
+          <ows:Value>application/gml+xml; version=3.2</ows:Value>
+          <ows:Value>text/xml; subtype=gml/3.2.1</ows:Value>
+          <ows:Value>text/xml; subtype=gml/3.1.1</ows:Value>
+          <ows:Value>text/xml; subtype=gml/2.1.2</ows:Value>
+        </ows:AllowedValues>
+      </ows:Parameter>
+    </ows:Operation>
+    <ows:Operation name="GetPropertyValue">
+      <ows:DCP>
+        <ows:HTTP>
+          <ows:Get xlink:type="simple" xlink:href="https://demo.bauleitplaene-mv.de/ows/xplanung/?"/>
+          <ows:Post xlink:type="simple" xlink:href="https://demo.bauleitplaene-mv.de/ows/xplanung/?"/>
+        </ows:HTTP>
+      </ows:DCP>
+      <ows:Parameter name="outputFormat">
+        <ows:AllowedValues>
+          <ows:Value>application/gml+xml; version=3.2</ows:Value>
+          <ows:Value>text/xml; subtype=gml/3.2.1</ows:Value>
+          <ows:Value>text/xml; subtype=gml/3.1.1</ows:Value>
+          <ows:Value>text/xml; subtype=gml/2.1.2</ows:Value>
+        </ows:AllowedValues>
+      </ows:Parameter>
+    </ows:Operation>
+    <ows:Operation name="ListStoredQueries">
+      <ows:DCP>
+        <ows:HTTP>
+          <ows:Get xlink:type="simple" xlink:href="https://demo.bauleitplaene-mv.de/ows/xplanung/?"/>
+          <ows:Post xlink:type="simple" xlink:href="https://demo.bauleitplaene-mv.de/ows/xplanung/?"/>
+        </ows:HTTP>
+      </ows:DCP>
+    </ows:Operation>
+    <ows:Operation name="DescribeStoredQueries">
+      <ows:DCP>
+        <ows:HTTP>
+          <ows:Get xlink:type="simple" xlink:href="https://demo.bauleitplaene-mv.de/ows/xplanung/?"/>
+          <ows:Post xlink:type="simple" xlink:href="https://demo.bauleitplaene-mv.de/ows/xplanung/?"/>
+        </ows:HTTP>
+      </ows:DCP>
+    </ows:Operation>
+    <ows:Parameter name="version">
+      <ows:AllowedValues>
+        <ows:Value>2.0.0</ows:Value>
+        <ows:Value>1.1.0</ows:Value>
+        <ows:Value>1.0.0</ows:Value>
+      </ows:AllowedValues>
+    </ows:Parameter>
+    <ows:Constraint name="ImplementsBasicWFS">
+      <ows:NoValues/>
+      <ows:DefaultValue>TRUE</ows:DefaultValue>
+    </ows:Constraint>
+    <ows:Constraint name="ImplementsTransactionalWFS">
+      <ows:NoValues/>
+      <ows:DefaultValue>FALSE</ows:DefaultValue>
+    </ows:Constraint>
+    <ows:Constraint name="ImplementsLockingWFS">
+      <ows:NoValues/>
+      <ows:DefaultValue>FALSE</ows:DefaultValue>
+    </ows:Constraint>
+    <ows:Constraint name="KVPEncoding">
+      <ows:NoValues/>
+      <ows:DefaultValue>TRUE</ows:DefaultValue>
+    </ows:Constraint>
+    <ows:Constraint name="XMLEncoding">
+      <ows:NoValues/>
+      <ows:DefaultValue>TRUE</ows:DefaultValue>
+    </ows:Constraint>
+    <ows:Constraint name="SOAPEncoding">
+      <ows:NoValues/>
+      <ows:DefaultValue>FALSE</ows:DefaultValue>
+    </ows:Constraint>
+    <ows:Constraint name="ImplementsInheritance">
+      <ows:NoValues/>
+      <ows:DefaultValue>FALSE</ows:DefaultValue>
+    </ows:Constraint>
+    <ows:Constraint name="ImplementsRemoteResolve">
+      <ows:NoValues/>
+      <ows:DefaultValue>FALSE</ows:DefaultValue>
+    </ows:Constraint>
+    <ows:Constraint name="ImplementsResultPaging">
+      <ows:NoValues/>
+      <ows:DefaultValue>TRUE</ows:DefaultValue>
+    </ows:Constraint>
+    <ows:Constraint name="ImplementsStandardJoins">
+      <ows:NoValues/>
+      <ows:DefaultValue>FALSE</ows:DefaultValue>
+    </ows:Constraint>
+    <ows:Constraint name="ImplementsSpatialJoins">
+      <ows:NoValues/>
+      <ows:DefaultValue>FALSE</ows:DefaultValue>
+    </ows:Constraint>
+    <ows:Constraint name="ImplementsTemporalJoins">
+      <ows:NoValues/>
+      <ows:DefaultValue>FALSE</ows:DefaultValue>
+    </ows:Constraint>
+    <ows:Constraint name="ImplementsFeatureVersioning">
+      <ows:NoValues/>
+      <ows:DefaultValue>FALSE</ows:DefaultValue>
+    </ows:Constraint>
+    <ows:Constraint name="ManageStoredQueries">
+      <ows:NoValues/>
+      <ows:DefaultValue>FALSE</ows:DefaultValue>
+    </ows:Constraint>
+    <ows:Constraint name="PagingIsTransactionSafe">
+      <ows:NoValues/>
+      <ows:DefaultValue>FALSE</ows:DefaultValue>
+    </ows:Constraint>
+    <ows:Constraint name="QueryExpressions">
+      <ows:AllowedValues>
+        <ows:Value>wfs:Query</ows:Value>
+        <ows:Value>wfs:StoredQuery</ows:Value>
+      </ows:AllowedValues>
+    </ows:Constraint>
+  </ows:OperationsMetadata>
+  <FeatureTypeList>
+    <FeatureType>
+      <Name>ms:F-Pläne</Name>
+      <!--WARNING: The layer name 'F-Pläne' might contain spaces or invalid characters or may start with a number. This could lead to potential problems-->
+      <Title>fp_plan</Title>
+      <DefaultCRS>urn:ogc:def:crs:EPSG::25833</DefaultCRS>
+      <OtherCRS>urn:ogc:def:crs:EPSG::5650</OtherCRS>
+      <OtherCRS>urn:ogc:def:crs:EPSG::3857</OtherCRS>
+      <OtherCRS>urn:ogc:def:crs:EPSG::4326</OtherCRS>
+      <OtherCRS>urn:ogc:def:crs:EPSG::2398</OtherCRS>
+      <OtherCRS>urn:ogc:def:crs:EPSG::25833</OtherCRS>
+      <OutputFormats>
+        <Format>application/gml+xml; version=3.2</Format>
+        <Format>text/xml; subtype=gml/3.2.1</Format>
+        <Format>text/xml; subtype=gml/3.1.1</Format>
+        <Format>text/xml; subtype=gml/2.1.2</Format>
+      </OutputFormats>
+      <ows:WGS84BoundingBox dimensions="2">
+        <ows:LowerCorner>-31.0096227610059 6.07436174300973</ows:LowerCorner>
+        <ows:UpperCorner>99.9886549114446 56.0225136879159</ows:UpperCorner>
+      </ows:WGS84BoundingBox>
+      <MetadataURL xlink:href="https://demo.bauleitplaene-mv.de/ows/xplanung/?request=GetMetadata&amp;layer=F-Pläne"/>
+    </FeatureType>
+    <FeatureType>
+      <Name>ms:FP-Bereiche</Name>
+      <Title>fp_bereich</Title>
+      <DefaultCRS>urn:ogc:def:crs:EPSG::25833</DefaultCRS>
+      <OtherCRS>urn:ogc:def:crs:EPSG::5650</OtherCRS>
+      <OtherCRS>urn:ogc:def:crs:EPSG::3857</OtherCRS>
+      <OtherCRS>urn:ogc:def:crs:EPSG::4326</OtherCRS>
+      <OtherCRS>urn:ogc:def:crs:EPSG::2398</OtherCRS>
+      <OtherCRS>urn:ogc:def:crs:EPSG::25833</OtherCRS>
+      <OutputFormats>
+        <Format>application/gml+xml; version=3.2</Format>
+        <Format>text/xml; subtype=gml/3.2.1</Format>
+        <Format>text/xml; subtype=gml/3.1.1</Format>
+        <Format>text/xml; subtype=gml/2.1.2</Format>
+      </OutputFormats>
+      <ows:WGS84BoundingBox dimensions="2">
+        <ows:LowerCorner>10.7071808279487 53.3577173634279</ows:LowerCorner>
+        <ows:UpperCorner>14.2694999815511 54.3037263209306</ows:UpperCorner>
+      </ows:WGS84BoundingBox>
+      <MetadataURL xlink:href="https://demo.bauleitplaene-mv.de/ows/xplanung/?request=GetMetadata&amp;layer=FP-Bereiche"/>
+    </FeatureType>
+    <FeatureType>
+      <Name>ms:SO-Pläne</Name>
+      <!--WARNING: The layer name 'SO-Pläne' might contain spaces or invalid characters or may start with a number. This could lead to potential problems-->
+      <Title>so_plan</Title>
+      <DefaultCRS>urn:ogc:def:crs:EPSG::25833</DefaultCRS>
+      <OtherCRS>urn:ogc:def:crs:EPSG::5650</OtherCRS>
+      <OtherCRS>urn:ogc:def:crs:EPSG::3857</OtherCRS>
+      <OtherCRS>urn:ogc:def:crs:EPSG::4326</OtherCRS>
+      <OtherCRS>urn:ogc:def:crs:EPSG::2398</OtherCRS>
+      <OtherCRS>urn:ogc:def:crs:EPSG::25833</OtherCRS>
+      <OutputFormats>
+        <Format>application/gml+xml; version=3.2</Format>
+        <Format>text/xml; subtype=gml/3.2.1</Format>
+        <Format>text/xml; subtype=gml/3.1.1</Format>
+        <Format>text/xml; subtype=gml/2.1.2</Format>
+      </OutputFormats>
+      <ows:WGS84BoundingBox dimensions="2">
+        <ows:LowerCorner>10.5329941467218 53.246514263551</ows:LowerCorner>
+        <ows:UpperCorner>14.2373800863655 54.6057766293787</ows:UpperCorner>
+      </ows:WGS84BoundingBox>
+      <MetadataURL xlink:href="https://demo.bauleitplaene-mv.de/ows/xplanung/?request=GetMetadata&amp;layer=SO-Pläne"/>
+    </FeatureType>
+    <FeatureType>
+      <Name>ms:SO-Bereiche</Name>
+      <Title>so_bereich</Title>
+      <DefaultCRS>urn:ogc:def:crs:EPSG::25833</DefaultCRS>
+      <OtherCRS>urn:ogc:def:crs:EPSG::5650</OtherCRS>
+      <OtherCRS>urn:ogc:def:crs:EPSG::3857</OtherCRS>
+      <OtherCRS>urn:ogc:def:crs:EPSG::4326</OtherCRS>
+      <OtherCRS>urn:ogc:def:crs:EPSG::2398</OtherCRS>
+      <OtherCRS>urn:ogc:def:crs:EPSG::25833</OtherCRS>
+      <OutputFormats>
+        <Format>application/gml+xml; version=3.2</Format>
+        <Format>text/xml; subtype=gml/3.2.1</Format>
+        <Format>text/xml; subtype=gml/3.1.1</Format>
+        <Format>text/xml; subtype=gml/2.1.2</Format>
+      </OutputFormats>
+      <ows:WGS84BoundingBox dimensions="2">
+        <ows:LowerCorner>10.7639802107187 53.6107338892522</ows:LowerCorner>
+        <ows:UpperCorner>14.2159891098621 54.3563931095256</ows:UpperCorner>
+      </ows:WGS84BoundingBox>
+      <MetadataURL xlink:href="https://demo.bauleitplaene-mv.de/ows/xplanung/?request=GetMetadata&amp;layer=SO-Bereiche"/>
+    </FeatureType>
+    <FeatureType>
+      <Name>ms:B-Pläne</Name>
+      <!--WARNING: The layer name 'B-Pläne' might contain spaces or invalid characters or may start with a number. This could lead to potential problems-->
+      <Title>bp_plan</Title>
+      <DefaultCRS>urn:ogc:def:crs:EPSG::25833</DefaultCRS>
+      <OtherCRS>urn:ogc:def:crs:EPSG::5650</OtherCRS>
+      <OtherCRS>urn:ogc:def:crs:EPSG::3857</OtherCRS>
+      <OtherCRS>urn:ogc:def:crs:EPSG::4326</OtherCRS>
+      <OtherCRS>urn:ogc:def:crs:EPSG::2398</OtherCRS>
+      <OtherCRS>urn:ogc:def:crs:EPSG::25833</OtherCRS>
+      <OutputFormats>
+        <Format>application/gml+xml; version=3.2</Format>
+        <Format>text/xml; subtype=gml/3.2.1</Format>
+        <Format>text/xml; subtype=gml/3.1.1</Format>
+        <Format>text/xml; subtype=gml/2.1.2</Format>
+      </OutputFormats>
+      <ows:WGS84BoundingBox dimensions="2">
+        <ows:LowerCorner>-29.8568699851534 -0.0266782609207645</ows:LowerCorner>
+        <ows:UpperCorner>99.815466522085 54.6730737972328</ows:UpperCorner>
+      </ows:WGS84BoundingBox>
+      <MetadataURL xlink:href="https://demo.bauleitplaene-mv.de/ows/xplanung/?request=GetMetadata&amp;layer=B-Pläne"/>
+    </FeatureType>
+    <FeatureType>
+      <Name>ms:BP-Bereiche</Name>
+      <Title>bp_bereich</Title>
+      <DefaultCRS>urn:ogc:def:crs:EPSG::25833</DefaultCRS>
+      <OtherCRS>urn:ogc:def:crs:EPSG::5650</OtherCRS>
+      <OtherCRS>urn:ogc:def:crs:EPSG::3857</OtherCRS>
+      <OtherCRS>urn:ogc:def:crs:EPSG::4326</OtherCRS>
+      <OtherCRS>urn:ogc:def:crs:EPSG::2398</OtherCRS>
+      <OtherCRS>urn:ogc:def:crs:EPSG::25833</OtherCRS>
+      <OutputFormats>
+        <Format>application/gml+xml; version=3.2</Format>
+        <Format>text/xml; subtype=gml/3.2.1</Format>
+        <Format>text/xml; subtype=gml/3.1.1</Format>
+        <Format>text/xml; subtype=gml/2.1.2</Format>
+      </OutputFormats>
+      <ows:WGS84BoundingBox dimensions="2">
+        <ows:LowerCorner>10.5264237968288 53.1858981365876</ows:LowerCorner>
+        <ows:UpperCorner>14.3629029171385 54.6903013728476</ows:UpperCorner>
+      </ows:WGS84BoundingBox>
+      <MetadataURL xlink:href="https://demo.bauleitplaene-mv.de/ows/xplanung/?request=GetMetadata&amp;layer=BP-Bereiche"/>
+    </FeatureType>
+    <FeatureType>
+      <Name>ms:bp_baugebietsteilflaeche_polygons</Name>
+      <Title>BP Baugebietsteilflaeche</Title>
+      <DefaultCRS>urn:ogc:def:crs:EPSG::25833</DefaultCRS>
+      <OtherCRS>urn:ogc:def:crs:EPSG::5650</OtherCRS>
+      <OtherCRS>urn:ogc:def:crs:EPSG::3857</OtherCRS>
+      <OtherCRS>urn:ogc:def:crs:EPSG::4326</OtherCRS>
+      <OtherCRS>urn:ogc:def:crs:EPSG::2398</OtherCRS>
+      <OtherCRS>urn:ogc:def:crs:EPSG::25833</OtherCRS>
+      <OutputFormats>
+        <Format>application/gml+xml; version=3.2</Format>
+        <Format>text/xml; subtype=gml/3.2.1</Format>
+        <Format>text/xml; subtype=gml/3.1.1</Format>
+        <Format>text/xml; subtype=gml/2.1.2</Format>
+      </OutputFormats>
+      <ows:WGS84BoundingBox dimensions="2">
+        <ows:LowerCorner>11.1893447949175 53.474041465132</ows:LowerCorner>
+        <ows:UpperCorner>13.5871419616188 54.6782682656516</ows:UpperCorner>
+      </ows:WGS84BoundingBox>
+      <MetadataURL xlink:href="https://demo.bauleitplaene-mv.de/ows/xplanung/?request=GetMetadata&amp;layer=bp_baugebietsteilflaeche_polygons"/>
+    </FeatureType>
+    <FeatureType>
+      <Name>ms:bp_gruenflaeche_polygons</Name>
+      <Title>BP GruenFlaeche</Title>
+      <DefaultCRS>urn:ogc:def:crs:EPSG::25833</DefaultCRS>
+      <OtherCRS>urn:ogc:def:crs:EPSG::5650</OtherCRS>
+      <OtherCRS>urn:ogc:def:crs:EPSG::3857</OtherCRS>
+      <OtherCRS>urn:ogc:def:crs:EPSG::4326</OtherCRS>
+      <OtherCRS>urn:ogc:def:crs:EPSG::2398</OtherCRS>
+      <OtherCRS>urn:ogc:def:crs:EPSG::25833</OtherCRS>
+      <OutputFormats>
+        <Format>application/gml+xml; version=3.2</Format>
+        <Format>text/xml; subtype=gml/3.2.1</Format>
+        <Format>text/xml; subtype=gml/3.1.1</Format>
+        <Format>text/xml; subtype=gml/2.1.2</Format>
+      </OutputFormats>
+      <ows:WGS84BoundingBox dimensions="2">
+        <ows:LowerCorner>11.1931135691719 53.4740259822928</ows:LowerCorner>
+        <ows:UpperCorner>13.585892844877 54.6386141026319</ows:UpperCorner>
+      </ows:WGS84BoundingBox>
+      <MetadataURL xlink:href="https://demo.bauleitplaene-mv.de/ows/xplanung/?request=GetMetadata&amp;layer=bp_gruenflaeche_polygons"/>
+    </FeatureType>
+    <FeatureType>
+      <Name>ms:bp_strassenverkehrsflaeche_polygons</Name>
+      <Title>BP StrassenVerkehrsFlaeche</Title>
+      <DefaultCRS>urn:ogc:def:crs:EPSG::25833</DefaultCRS>
+      <OtherCRS>urn:ogc:def:crs:EPSG::5650</OtherCRS>
+      <OtherCRS>urn:ogc:def:crs:EPSG::3857</OtherCRS>
+      <OtherCRS>urn:ogc:def:crs:EPSG::4326</OtherCRS>
+      <OtherCRS>urn:ogc:def:crs:EPSG::2398</OtherCRS>
+      <OtherCRS>urn:ogc:def:crs:EPSG::25833</OtherCRS>
+      <OutputFormats>
+        <Format>application/gml+xml; version=3.2</Format>
+        <Format>text/xml; subtype=gml/3.2.1</Format>
+        <Format>text/xml; subtype=gml/3.1.1</Format>
+        <Format>text/xml; subtype=gml/2.1.2</Format>
+      </OutputFormats>
+      <ows:WGS84BoundingBox dimensions="2">
+        <ows:LowerCorner>11.1998984521286 53.480602677374</ows:LowerCorner>
+        <ows:UpperCorner>13.5865958017728 54.678274817084</ows:UpperCorner>
+      </ows:WGS84BoundingBox>
+      <MetadataURL xlink:href="https://demo.bauleitplaene-mv.de/ows/xplanung/?request=GetMetadata&amp;layer=bp_strassenverkehrsflaeche_polygons"/>
+    </FeatureType>
+    <FeatureType>
+      <Name>ms:bp_schutzpflegeentwicklungsmassnahme_polygons</Name>
+      <Title>BP SchutzPflegeEntwicklungsMassnahme Flächen</Title>
+      <DefaultCRS>urn:ogc:def:crs:EPSG::25833</DefaultCRS>
+      <OtherCRS>urn:ogc:def:crs:EPSG::5650</OtherCRS>
+      <OtherCRS>urn:ogc:def:crs:EPSG::3857</OtherCRS>
+      <OtherCRS>urn:ogc:def:crs:EPSG::4326</OtherCRS>
+      <OtherCRS>urn:ogc:def:crs:EPSG::2398</OtherCRS>
+      <OtherCRS>urn:ogc:def:crs:EPSG::25833</OtherCRS>
+      <OutputFormats>
+        <Format>application/gml+xml; version=3.2</Format>
+        <Format>text/xml; subtype=gml/3.2.1</Format>
+        <Format>text/xml; subtype=gml/3.1.1</Format>
+        <Format>text/xml; subtype=gml/2.1.2</Format>
+      </OutputFormats>
+      <ows:WGS84BoundingBox dimensions="2">
+        <ows:LowerCorner>13.4230806051313 54.6757335220932</ows:LowerCorner>
+        <ows:UpperCorner>13.4246261258724 54.6762146006736</ows:UpperCorner>
+      </ows:WGS84BoundingBox>
+      <MetadataURL xlink:href="https://demo.bauleitplaene-mv.de/ows/xplanung/?request=GetMetadata&amp;layer=bp_schutzpflegeentwicklungsmassnahme_polygons"/>
+    </FeatureType>
+    <FeatureType>
+      <Name>ms:bp_verentsorgung_polygons</Name>
+      <Title>BP VerEntsorgung Flächen</Title>
+      <DefaultCRS>urn:ogc:def:crs:EPSG::25833</DefaultCRS>
+      <OtherCRS>urn:ogc:def:crs:EPSG::5650</OtherCRS>
+      <OtherCRS>urn:ogc:def:crs:EPSG::3857</OtherCRS>
+      <OtherCRS>urn:ogc:def:crs:EPSG::4326</OtherCRS>
+      <OtherCRS>urn:ogc:def:crs:EPSG::2398</OtherCRS>
+      <OtherCRS>urn:ogc:def:crs:EPSG::25833</OtherCRS>
+      <OutputFormats>
+        <Format>application/gml+xml; version=3.2</Format>
+        <Format>text/xml; subtype=gml/3.2.1</Format>
+        <Format>text/xml; subtype=gml/3.1.1</Format>
+        <Format>text/xml; subtype=gml/2.1.2</Format>
+      </OutputFormats>
+      <ows:WGS84BoundingBox dimensions="2">
+        <ows:LowerCorner>11.1949816271223 53.6987213783512</ows:LowerCorner>
+        <ows:UpperCorner>13.5779452399501 54.6371856884841</ows:UpperCorner>
+      </ows:WGS84BoundingBox>
+      <MetadataURL xlink:href="https://demo.bauleitplaene-mv.de/ows/xplanung/?request=GetMetadata&amp;layer=bp_verentsorgung_polygons"/>
+    </FeatureType>
+    <FeatureType>
+      <Name>ms:bp_verkehrsflaechebesondererzweckbestimmung_polygons</Name>
+      <Title>BP VerkehrsflaecheBesondererZweckbestimmung Flächen</Title>
+      <DefaultCRS>urn:ogc:def:crs:EPSG::25833</DefaultCRS>
+      <OtherCRS>urn:ogc:def:crs:EPSG::5650</OtherCRS>
+      <OtherCRS>urn:ogc:def:crs:EPSG::3857</OtherCRS>
+      <OtherCRS>urn:ogc:def:crs:EPSG::4326</OtherCRS>
+      <OtherCRS>urn:ogc:def:crs:EPSG::2398</OtherCRS>
+      <OtherCRS>urn:ogc:def:crs:EPSG::25833</OtherCRS>
+      <OutputFormats>
+        <Format>application/gml+xml; version=3.2</Format>
+        <Format>text/xml; subtype=gml/3.2.1</Format>
+        <Format>text/xml; subtype=gml/3.1.1</Format>
+        <Format>text/xml; subtype=gml/2.1.2</Format>
+      </OutputFormats>
+      <ows:WGS84BoundingBox dimensions="2">
+        <ows:LowerCorner>11.1936747171452 53.5086311082625</ows:LowerCorner>
+        <ows:UpperCorner>13.5860010118834 54.6386760354125</ows:UpperCorner>
+      </ows:WGS84BoundingBox>
+      <MetadataURL xlink:href="https://demo.bauleitplaene-mv.de/ows/xplanung/?request=GetMetadata&amp;layer=bp_verkehrsflaechebesondererzweckbestimmung_polygons"/>
+    </FeatureType>
+    <FeatureType>
+      <Name>ms:bp_schutzpflegeentwicklungsflaeche_polygons</Name>
+      <Title>BP SchutzPflegeEntwicklungsFlaeche</Title>
+      <DefaultCRS>urn:ogc:def:crs:EPSG::25833</DefaultCRS>
+      <OtherCRS>urn:ogc:def:crs:EPSG::5650</OtherCRS>
+      <OtherCRS>urn:ogc:def:crs:EPSG::3857</OtherCRS>
+      <OtherCRS>urn:ogc:def:crs:EPSG::4326</OtherCRS>
+      <OtherCRS>urn:ogc:def:crs:EPSG::2398</OtherCRS>
+      <OtherCRS>urn:ogc:def:crs:EPSG::25833</OtherCRS>
+      <OutputFormats>
+        <Format>application/gml+xml; version=3.2</Format>
+        <Format>text/xml; subtype=gml/3.2.1</Format>
+        <Format>text/xml; subtype=gml/3.1.1</Format>
+        <Format>text/xml; subtype=gml/2.1.2</Format>
+      </OutputFormats>
+      <ows:WGS84BoundingBox dimensions="2">
+        <ows:LowerCorner>11.2836186345544 53.4773827841431</ows:LowerCorner>
+        <ows:UpperCorner>13.2837609132792 53.7501284500987</ows:UpperCorner>
+      </ows:WGS84BoundingBox>
+      <MetadataURL xlink:href="https://demo.bauleitplaene-mv.de/ows/xplanung/?request=GetMetadata&amp;layer=bp_schutzpflegeentwicklungsflaeche_polygons"/>
+    </FeatureType>
+    <FeatureType>
+      <Name>ms:bp_wasserwirtschaftsflaeche_polygons</Name>
+      <Title>BP WasserwirtschaftsFlaeche</Title>
+      <DefaultCRS>urn:ogc:def:crs:EPSG::25833</DefaultCRS>
+      <OtherCRS>urn:ogc:def:crs:EPSG::5650</OtherCRS>
+      <OtherCRS>urn:ogc:def:crs:EPSG::3857</OtherCRS>
+      <OtherCRS>urn:ogc:def:crs:EPSG::4326</OtherCRS>
+      <OtherCRS>urn:ogc:def:crs:EPSG::2398</OtherCRS>
+      <OtherCRS>urn:ogc:def:crs:EPSG::25833</OtherCRS>
+      <OutputFormats>
+        <Format>application/gml+xml; version=3.2</Format>
+        <Format>text/xml; subtype=gml/3.2.1</Format>
+        <Format>text/xml; subtype=gml/3.1.1</Format>
+        <Format>text/xml; subtype=gml/2.1.2</Format>
+      </OutputFormats>
+      <ows:WGS84BoundingBox dimensions="2">
+        <ows:LowerCorner>11.2858863370794 53.7034697974594</ows:LowerCorner>
+        <ows:UpperCorner>11.2868544561435 53.7040092436294</ows:UpperCorner>
+      </ows:WGS84BoundingBox>
+      <MetadataURL xlink:href="https://demo.bauleitplaene-mv.de/ows/xplanung/?request=GetMetadata&amp;layer=bp_wasserwirtschaftsflaeche_polygons"/>
+    </FeatureType>
+    <FeatureType>
+      <Name>ms:bp_baugrenze_lines</Name>
+      <Title>BP BauGrenze</Title>
+      <DefaultCRS>urn:ogc:def:crs:EPSG::25833</DefaultCRS>
+      <OtherCRS>urn:ogc:def:crs:EPSG::5650</OtherCRS>
+      <OtherCRS>urn:ogc:def:crs:EPSG::3857</OtherCRS>
+      <OtherCRS>urn:ogc:def:crs:EPSG::4326</OtherCRS>
+      <OtherCRS>urn:ogc:def:crs:EPSG::2398</OtherCRS>
+      <OtherCRS>urn:ogc:def:crs:EPSG::25833</OtherCRS>
+      <OutputFormats>
+        <Format>application/gml+xml; version=3.2</Format>
+        <Format>text/xml; subtype=gml/3.2.1</Format>
+        <Format>text/xml; subtype=gml/3.1.1</Format>
+        <Format>text/xml; subtype=gml/2.1.2</Format>
+      </OutputFormats>
+      <ows:WGS84BoundingBox dimensions="2">
+        <ows:LowerCorner>11.1894086036703 53.4740709838964</ows:LowerCorner>
+        <ows:UpperCorner>13.5871350735309 54.6781415536158</ows:UpperCorner>
+      </ows:WGS84BoundingBox>
+      <MetadataURL xlink:href="https://demo.bauleitplaene-mv.de/ows/xplanung/?request=GetMetadata&amp;layer=bp_baugrenze_lines"/>
+    </FeatureType>
+    <FeatureType>
+      <Name>ms:so_schutzgebietnaturschutzrecht_polygons</Name>
+      <Title>SO SchutzgebietNaturschutzrecht Flächen</Title>
+      <DefaultCRS>urn:ogc:def:crs:EPSG::25833</DefaultCRS>
+      <OtherCRS>urn:ogc:def:crs:EPSG::5650</OtherCRS>
+      <OtherCRS>urn:ogc:def:crs:EPSG::3857</OtherCRS>
+      <OtherCRS>urn:ogc:def:crs:EPSG::4326</OtherCRS>
+      <OtherCRS>urn:ogc:def:crs:EPSG::2398</OtherCRS>
+      <OtherCRS>urn:ogc:def:crs:EPSG::25833</OtherCRS>
+      <OutputFormats>
+        <Format>application/gml+xml; version=3.2</Format>
+        <Format>text/xml; subtype=gml/3.2.1</Format>
+        <Format>text/xml; subtype=gml/3.1.1</Format>
+        <Format>text/xml; subtype=gml/2.1.2</Format>
+      </OutputFormats>
+      <ows:WGS84BoundingBox dimensions="2">
+        <ows:LowerCorner>11.2737028669501 53.6981953421482</ows:LowerCorner>
+        <ows:UpperCorner>11.2760208850698 53.7000252912017</ows:UpperCorner>
+      </ows:WGS84BoundingBox>
+      <MetadataURL xlink:href="https://demo.bauleitplaene-mv.de/ows/xplanung/?request=GetMetadata&amp;layer=so_schutzgebietnaturschutzrecht_polygons"/>
+    </FeatureType>
+    <FeatureType>
+      <Name>ms:bp_anpflanzungbindungerhaltung_polygons</Name>
+      <Title>BP AnpflanzungBindungErhaltung Flächen</Title>
+      <DefaultCRS>urn:ogc:def:crs:EPSG::25833</DefaultCRS>
+      <OtherCRS>urn:ogc:def:crs:EPSG::5650</OtherCRS>
+      <OtherCRS>urn:ogc:def:crs:EPSG::3857</OtherCRS>
+      <OtherCRS>urn:ogc:def:crs:EPSG::4326</OtherCRS>
+      <OtherCRS>urn:ogc:def:crs:EPSG::2398</OtherCRS>
+      <OtherCRS>urn:ogc:def:crs:EPSG::25833</OtherCRS>
+      <OutputFormats>
+        <Format>application/gml+xml; version=3.2</Format>
+        <Format>text/xml; subtype=gml/3.2.1</Format>
+        <Format>text/xml; subtype=gml/3.1.1</Format>
+        <Format>text/xml; subtype=gml/2.1.2</Format>
+      </OutputFormats>
+      <ows:WGS84BoundingBox dimensions="2">
+        <ows:LowerCorner>11.190922182112 53.4760161645283</ows:LowerCorner>
+        <ows:UpperCorner>13.5859264062269 54.6782540676898</ows:UpperCorner>
+      </ows:WGS84BoundingBox>
+      <MetadataURL xlink:href="https://demo.bauleitplaene-mv.de/ows/xplanung/?request=GetMetadata&amp;layer=bp_anpflanzungbindungerhaltung_polygons"/>
+    </FeatureType>
+    <FeatureType>
+      <Name>ms:so_wasserrecht_polygons</Name>
+      <Title>SO Wasserrecht Flächen</Title>
+      <DefaultCRS>urn:ogc:def:crs:EPSG::25833</DefaultCRS>
+      <OtherCRS>urn:ogc:def:crs:EPSG::5650</OtherCRS>
+      <OtherCRS>urn:ogc:def:crs:EPSG::3857</OtherCRS>
+      <OtherCRS>urn:ogc:def:crs:EPSG::4326</OtherCRS>
+      <OtherCRS>urn:ogc:def:crs:EPSG::2398</OtherCRS>
+      <OtherCRS>urn:ogc:def:crs:EPSG::25833</OtherCRS>
+      <OutputFormats>
+        <Format>application/gml+xml; version=3.2</Format>
+        <Format>text/xml; subtype=gml/3.2.1</Format>
+        <Format>text/xml; subtype=gml/3.1.1</Format>
+        <Format>text/xml; subtype=gml/2.1.2</Format>
+      </OutputFormats>
+      <ows:WGS84BoundingBox dimensions="2">
+        <ows:LowerCorner>11.2737064393022 53.5086880456365</ows:LowerCorner>
+        <ows:UpperCorner>13.2512571091203 53.7450161836219</ows:UpperCorner>
+      </ows:WGS84BoundingBox>
+      <MetadataURL xlink:href="https://demo.bauleitplaene-mv.de/ows/xplanung/?request=GetMetadata&amp;layer=so_wasserrecht_polygons"/>
+    </FeatureType>
+    <FeatureType>
+      <Name>ms:bp_gebaeudeflaeche_polygons</Name>
+      <Title>BP GebaeudeFlaeche</Title>
+      <DefaultCRS>urn:ogc:def:crs:EPSG::25833</DefaultCRS>
+      <OtherCRS>urn:ogc:def:crs:EPSG::5650</OtherCRS>
+      <OtherCRS>urn:ogc:def:crs:EPSG::3857</OtherCRS>
+      <OtherCRS>urn:ogc:def:crs:EPSG::4326</OtherCRS>
+      <OtherCRS>urn:ogc:def:crs:EPSG::2398</OtherCRS>
+      <OtherCRS>urn:ogc:def:crs:EPSG::25833</OtherCRS>
+      <OutputFormats>
+        <Format>application/gml+xml; version=3.2</Format>
+        <Format>text/xml; subtype=gml/3.2.1</Format>
+        <Format>text/xml; subtype=gml/3.1.1</Format>
+        <Format>text/xml; subtype=gml/2.1.2</Format>
+      </OutputFormats>
+      <ows:WGS84BoundingBox dimensions="2">
+        <ows:LowerCorner>11.273642012415 53.6988029214744</ows:LowerCorner>
+        <ows:UpperCorner>11.2886348640051 53.7039116564076</ows:UpperCorner>
+      </ows:WGS84BoundingBox>
+      <MetadataURL xlink:href="https://demo.bauleitplaene-mv.de/ows/xplanung/?request=GetMetadata&amp;layer=bp_gebaeudeflaeche_polygons"/>
+    </FeatureType>
+    <FeatureType>
+      <Name>ms:bp_wegerecht_polygons</Name>
+      <Title>BP Wegerecht Flächen</Title>
+      <DefaultCRS>urn:ogc:def:crs:EPSG::25833</DefaultCRS>
+      <OtherCRS>urn:ogc:def:crs:EPSG::5650</OtherCRS>
+      <OtherCRS>urn:ogc:def:crs:EPSG::3857</OtherCRS>
+      <OtherCRS>urn:ogc:def:crs:EPSG::4326</OtherCRS>
+      <OtherCRS>urn:ogc:def:crs:EPSG::2398</OtherCRS>
+      <OtherCRS>urn:ogc:def:crs:EPSG::25833</OtherCRS>
+      <OutputFormats>
+        <Format>application/gml+xml; version=3.2</Format>
+        <Format>text/xml; subtype=gml/3.2.1</Format>
+        <Format>text/xml; subtype=gml/3.1.1</Format>
+        <Format>text/xml; subtype=gml/2.1.2</Format>
+      </OutputFormats>
+      <ows:WGS84BoundingBox dimensions="2">
+        <ows:LowerCorner>11.1942068280563 53.4749613733285</ows:LowerCorner>
+        <ows:UpperCorner>13.5857984917458 54.6385773838799</ows:UpperCorner>
+      </ows:WGS84BoundingBox>
+      <MetadataURL xlink:href="https://demo.bauleitplaene-mv.de/ows/xplanung/?request=GetMetadata&amp;layer=bp_wegerecht_polygons"/>
+    </FeatureType>
+    <FeatureType>
+      <Name>ms:bp_firstrichtungslinie_lines</Name>
+      <Title>BP FirstRichtungsLinie</Title>
+      <DefaultCRS>urn:ogc:def:crs:EPSG::25833</DefaultCRS>
+      <OtherCRS>urn:ogc:def:crs:EPSG::5650</OtherCRS>
+      <OtherCRS>urn:ogc:def:crs:EPSG::3857</OtherCRS>
+      <OtherCRS>urn:ogc:def:crs:EPSG::4326</OtherCRS>
+      <OtherCRS>urn:ogc:def:crs:EPSG::2398</OtherCRS>
+      <OtherCRS>urn:ogc:def:crs:EPSG::25833</OtherCRS>
+      <OutputFormats>
+        <Format>application/gml+xml; version=3.2</Format>
+        <Format>text/xml; subtype=gml/3.2.1</Format>
+        <Format>text/xml; subtype=gml/3.1.1</Format>
+        <Format>text/xml; subtype=gml/2.1.2</Format>
+      </OutputFormats>
+      <ows:WGS84BoundingBox dimensions="2">
+        <ows:LowerCorner>11.2558796382912 53.7022538658652</ows:LowerCorner>
+        <ows:UpperCorner>13.3980524768575 54.0920066054016</ows:UpperCorner>
+      </ows:WGS84BoundingBox>
+      <MetadataURL xlink:href="https://demo.bauleitplaene-mv.de/ows/xplanung/?request=GetMetadata&amp;layer=bp_firstrichtungslinie_lines"/>
+    </FeatureType>
+    <FeatureType>
+      <Name>ms:bp_baulinie_lines</Name>
+      <Title>BP BauLinie</Title>
+      <DefaultCRS>urn:ogc:def:crs:EPSG::25833</DefaultCRS>
+      <OtherCRS>urn:ogc:def:crs:EPSG::5650</OtherCRS>
+      <OtherCRS>urn:ogc:def:crs:EPSG::3857</OtherCRS>
+      <OtherCRS>urn:ogc:def:crs:EPSG::4326</OtherCRS>
+      <OtherCRS>urn:ogc:def:crs:EPSG::2398</OtherCRS>
+      <OtherCRS>urn:ogc:def:crs:EPSG::25833</OtherCRS>
+      <OutputFormats>
+        <Format>application/gml+xml; version=3.2</Format>
+        <Format>text/xml; subtype=gml/3.2.1</Format>
+        <Format>text/xml; subtype=gml/3.1.1</Format>
+        <Format>text/xml; subtype=gml/2.1.2</Format>
+      </OutputFormats>
+      <ows:WGS84BoundingBox dimensions="2">
+        <ows:LowerCorner>11.2567614515707 53.5176619285506</ows:LowerCorner>
+        <ows:UpperCorner>13.4052108880295 54.0921412321531</ows:UpperCorner>
+      </ows:WGS84BoundingBox>
+      <MetadataURL xlink:href="https://demo.bauleitplaene-mv.de/ows/xplanung/?request=GetMetadata&amp;layer=bp_baulinie_lines"/>
+    </FeatureType>
+    <FeatureType>
+      <Name>ms:bp_schutzpflegeentwicklungsmassnahme_lines</Name>
+      <Title>BP SchutzPflegeEntwicklungsMassnahme Linien</Title>
+      <DefaultCRS>urn:ogc:def:crs:EPSG::25833</DefaultCRS>
+      <OtherCRS>urn:ogc:def:crs:EPSG::5650</OtherCRS>
+      <OtherCRS>urn:ogc:def:crs:EPSG::3857</OtherCRS>
+      <OtherCRS>urn:ogc:def:crs:EPSG::4326</OtherCRS>
+      <OtherCRS>urn:ogc:def:crs:EPSG::2398</OtherCRS>
+      <OtherCRS>urn:ogc:def:crs:EPSG::25833</OtherCRS>
+      <OutputFormats>
+        <Format>application/gml+xml; version=3.2</Format>
+        <Format>text/xml; subtype=gml/3.2.1</Format>
+        <Format>text/xml; subtype=gml/3.1.1</Format>
+        <Format>text/xml; subtype=gml/2.1.2</Format>
+      </OutputFormats>
+      <ows:WGS84BoundingBox/>
+      <!--WARNING: Optional WGS84BoundingBox could not be established for this layer.  Consider setting the EXTENT in the LAYER object, or wfs_extent metadata. Also check that your data exists in the DATA statement-->
+      <MetadataURL xlink:href="https://demo.bauleitplaene-mv.de/ows/xplanung/?request=GetMetadata&amp;layer=bp_schutzpflegeentwicklungsmassnahme_lines"/>
+    </FeatureType>
+    <FeatureType>
+      <Name>ms:bp_anpflanzungbindungerhaltung_lines</Name>
+      <Title>BP AnpflanzungBindungErhaltung Linien</Title>
+      <DefaultCRS>urn:ogc:def:crs:EPSG::25833</DefaultCRS>
+      <OtherCRS>urn:ogc:def:crs:EPSG::5650</OtherCRS>
+      <OtherCRS>urn:ogc:def:crs:EPSG::3857</OtherCRS>
+      <OtherCRS>urn:ogc:def:crs:EPSG::4326</OtherCRS>
+      <OtherCRS>urn:ogc:def:crs:EPSG::2398</OtherCRS>
+      <OtherCRS>urn:ogc:def:crs:EPSG::25833</OtherCRS>
+      <OutputFormats>
+        <Format>application/gml+xml; version=3.2</Format>
+        <Format>text/xml; subtype=gml/3.2.1</Format>
+        <Format>text/xml; subtype=gml/3.1.1</Format>
+        <Format>text/xml; subtype=gml/2.1.2</Format>
+      </OutputFormats>
+      <ows:WGS84BoundingBox/>
+      <!--WARNING: Optional WGS84BoundingBox could not be established for this layer.  Consider setting the EXTENT in the LAYER object, or wfs_extent metadata. Also check that your data exists in the DATA statement-->
+      <MetadataURL xlink:href="https://demo.bauleitplaene-mv.de/ows/xplanung/?request=GetMetadata&amp;layer=bp_anpflanzungbindungerhaltung_lines"/>
+    </FeatureType>
+    <FeatureType>
+      <Name>ms:bp_strassenbegrenzungslinie_lines</Name>
+      <Title>BP StrassenbegrenzungsLinie</Title>
+      <DefaultCRS>urn:ogc:def:crs:EPSG::25833</DefaultCRS>
+      <OtherCRS>urn:ogc:def:crs:EPSG::5650</OtherCRS>
+      <OtherCRS>urn:ogc:def:crs:EPSG::3857</OtherCRS>
+      <OtherCRS>urn:ogc:def:crs:EPSG::4326</OtherCRS>
+      <OtherCRS>urn:ogc:def:crs:EPSG::2398</OtherCRS>
+      <OtherCRS>urn:ogc:def:crs:EPSG::25833</OtherCRS>
+      <OutputFormats>
+        <Format>application/gml+xml; version=3.2</Format>
+        <Format>text/xml; subtype=gml/3.2.1</Format>
+        <Format>text/xml; subtype=gml/3.1.1</Format>
+        <Format>text/xml; subtype=gml/2.1.2</Format>
+      </OutputFormats>
+      <ows:WGS84BoundingBox dimensions="2">
+        <ows:LowerCorner>11.1904979241872 53.4803190036623</ows:LowerCorner>
+        <ows:UpperCorner>13.5865895731448 54.6782640223702</ows:UpperCorner>
+      </ows:WGS84BoundingBox>
+      <MetadataURL xlink:href="https://demo.bauleitplaene-mv.de/ows/xplanung/?request=GetMetadata&amp;layer=bp_strassenbegrenzungslinie_lines"/>
+    </FeatureType>
+    <FeatureType>
+      <Name>ms:bp_wegerecht_lines</Name>
+      <Title>BP Wegerecht Linien</Title>
+      <DefaultCRS>urn:ogc:def:crs:EPSG::25833</DefaultCRS>
+      <OtherCRS>urn:ogc:def:crs:EPSG::5650</OtherCRS>
+      <OtherCRS>urn:ogc:def:crs:EPSG::3857</OtherCRS>
+      <OtherCRS>urn:ogc:def:crs:EPSG::4326</OtherCRS>
+      <OtherCRS>urn:ogc:def:crs:EPSG::2398</OtherCRS>
+      <OtherCRS>urn:ogc:def:crs:EPSG::25833</OtherCRS>
+      <OutputFormats>
+        <Format>application/gml+xml; version=3.2</Format>
+        <Format>text/xml; subtype=gml/3.2.1</Format>
+        <Format>text/xml; subtype=gml/3.1.1</Format>
+        <Format>text/xml; subtype=gml/2.1.2</Format>
+      </OutputFormats>
+      <ows:WGS84BoundingBox dimensions="2">
+        <ows:LowerCorner>13.2529212479912 53.5224220408562</ows:LowerCorner>
+        <ows:UpperCorner>13.2633457027102 53.562915713067</ows:UpperCorner>
+      </ows:WGS84BoundingBox>
+      <MetadataURL xlink:href="https://demo.bauleitplaene-mv.de/ows/xplanung/?request=GetMetadata&amp;layer=bp_wegerecht_lines"/>
+    </FeatureType>
+    <FeatureType>
+      <Name>ms:bp_nutzungsartengrenze_lines</Name>
+      <Title>BP NutzungsartenGrenze</Title>
+      <DefaultCRS>urn:ogc:def:crs:EPSG::25833</DefaultCRS>
+      <OtherCRS>urn:ogc:def:crs:EPSG::5650</OtherCRS>
+      <OtherCRS>urn:ogc:def:crs:EPSG::3857</OtherCRS>
+      <OtherCRS>urn:ogc:def:crs:EPSG::4326</OtherCRS>
+      <OtherCRS>urn:ogc:def:crs:EPSG::2398</OtherCRS>
+      <OtherCRS>urn:ogc:def:crs:EPSG::25833</OtherCRS>
+      <OutputFormats>
+        <Format>application/gml+xml; version=3.2</Format>
+        <Format>text/xml; subtype=gml/3.2.1</Format>
+        <Format>text/xml; subtype=gml/3.1.1</Format>
+        <Format>text/xml; subtype=gml/2.1.2</Format>
+      </OutputFormats>
+      <ows:WGS84BoundingBox dimensions="2">
+        <ows:LowerCorner>11.1905716544599 53.4743806804395</ows:LowerCorner>
+        <ows:UpperCorner>13.5868907857471 54.67747589613</ows:UpperCorner>
+      </ows:WGS84BoundingBox>
+      <MetadataURL xlink:href="https://demo.bauleitplaene-mv.de/ows/xplanung/?request=GetMetadata&amp;layer=bp_nutzungsartengrenze_lines"/>
+    </FeatureType>
+    <FeatureType>
+      <Name>ms:bp_verkehrsflaechebesondererzweckbestimmung_lines</Name>
+      <Title>BP VerkehrsflaecheBesondererZweckbestimmung Linien</Title>
+      <DefaultCRS>urn:ogc:def:crs:EPSG::25833</DefaultCRS>
+      <OtherCRS>urn:ogc:def:crs:EPSG::5650</OtherCRS>
+      <OtherCRS>urn:ogc:def:crs:EPSG::3857</OtherCRS>
+      <OtherCRS>urn:ogc:def:crs:EPSG::4326</OtherCRS>
+      <OtherCRS>urn:ogc:def:crs:EPSG::2398</OtherCRS>
+      <OtherCRS>urn:ogc:def:crs:EPSG::25833</OtherCRS>
+      <OutputFormats>
+        <Format>application/gml+xml; version=3.2</Format>
+        <Format>text/xml; subtype=gml/3.2.1</Format>
+        <Format>text/xml; subtype=gml/3.1.1</Format>
+        <Format>text/xml; subtype=gml/2.1.2</Format>
+      </OutputFormats>
+      <ows:WGS84BoundingBox/>
+      <!--WARNING: Optional WGS84BoundingBox could not be established for this layer.  Consider setting the EXTENT in the LAYER object, or wfs_extent metadata. Also check that your data exists in the DATA statement-->
+      <MetadataURL xlink:href="https://demo.bauleitplaene-mv.de/ows/xplanung/?request=GetMetadata&amp;layer=bp_verkehrsflaechebesondererzweckbestimmung_lines"/>
+    </FeatureType>
+    <FeatureType>
+      <Name>ms:bp_verentsorgung_lines</Name>
+      <Title>BP VerEntsorgung Linien</Title>
+      <DefaultCRS>urn:ogc:def:crs:EPSG::25833</DefaultCRS>
+      <OtherCRS>urn:ogc:def:crs:EPSG::5650</OtherCRS>
+      <OtherCRS>urn:ogc:def:crs:EPSG::3857</OtherCRS>
+      <OtherCRS>urn:ogc:def:crs:EPSG::4326</OtherCRS>
+      <OtherCRS>urn:ogc:def:crs:EPSG::2398</OtherCRS>
+      <OtherCRS>urn:ogc:def:crs:EPSG::25833</OtherCRS>
+      <OutputFormats>
+        <Format>application/gml+xml; version=3.2</Format>
+        <Format>text/xml; subtype=gml/3.2.1</Format>
+        <Format>text/xml; subtype=gml/3.1.1</Format>
+        <Format>text/xml; subtype=gml/2.1.2</Format>
+      </OutputFormats>
+      <ows:WGS84BoundingBox dimensions="2">
+        <ows:LowerCorner>11.1937884606555 53.6987375638907</ows:LowerCorner>
+        <ows:UpperCorner>13.5782051274713 54.6374583815748</ows:UpperCorner>
+      </ows:WGS84BoundingBox>
+      <MetadataURL xlink:href="https://demo.bauleitplaene-mv.de/ows/xplanung/?request=GetMetadata&amp;layer=bp_verentsorgung_lines"/>
+    </FeatureType>
+    <FeatureType>
+      <Name>ms:so_wasserrecht_lines</Name>
+      <Title>SO Wasserrecht Linien</Title>
+      <DefaultCRS>urn:ogc:def:crs:EPSG::25833</DefaultCRS>
+      <OtherCRS>urn:ogc:def:crs:EPSG::5650</OtherCRS>
+      <OtherCRS>urn:ogc:def:crs:EPSG::3857</OtherCRS>
+      <OtherCRS>urn:ogc:def:crs:EPSG::4326</OtherCRS>
+      <OtherCRS>urn:ogc:def:crs:EPSG::2398</OtherCRS>
+      <OtherCRS>urn:ogc:def:crs:EPSG::25833</OtherCRS>
+      <OutputFormats>
+        <Format>application/gml+xml; version=3.2</Format>
+        <Format>text/xml; subtype=gml/3.2.1</Format>
+        <Format>text/xml; subtype=gml/3.1.1</Format>
+        <Format>text/xml; subtype=gml/2.1.2</Format>
+      </OutputFormats>
+      <ows:WGS84BoundingBox dimensions="2">
+        <ows:LowerCorner>13.2478999632428 53.550845380693</ows:LowerCorner>
+        <ows:UpperCorner>13.2515840054923 53.5537347024636</ows:UpperCorner>
+      </ows:WGS84BoundingBox>
+      <MetadataURL xlink:href="https://demo.bauleitplaene-mv.de/ows/xplanung/?request=GetMetadata&amp;layer=so_wasserrecht_lines"/>
+    </FeatureType>
+    <FeatureType>
+      <Name>ms:so_schutzgebietnaturschutzrecht_lines</Name>
+      <Title>SO SchutzgebietNaturschutzrecht Linien</Title>
+      <DefaultCRS>urn:ogc:def:crs:EPSG::25833</DefaultCRS>
+      <OtherCRS>urn:ogc:def:crs:EPSG::5650</OtherCRS>
+      <OtherCRS>urn:ogc:def:crs:EPSG::3857</OtherCRS>
+      <OtherCRS>urn:ogc:def:crs:EPSG::4326</OtherCRS>
+      <OtherCRS>urn:ogc:def:crs:EPSG::2398</OtherCRS>
+      <OtherCRS>urn:ogc:def:crs:EPSG::25833</OtherCRS>
+      <OutputFormats>
+        <Format>application/gml+xml; version=3.2</Format>
+        <Format>text/xml; subtype=gml/3.2.1</Format>
+        <Format>text/xml; subtype=gml/3.1.1</Format>
+        <Format>text/xml; subtype=gml/2.1.2</Format>
+      </OutputFormats>
+      <ows:WGS84BoundingBox/>
+      <!--WARNING: Optional WGS84BoundingBox could not be established for this layer.  Consider setting the EXTENT in the LAYER object, or wfs_extent metadata. Also check that your data exists in the DATA statement-->
+      <MetadataURL xlink:href="https://demo.bauleitplaene-mv.de/ows/xplanung/?request=GetMetadata&amp;layer=so_schutzgebietnaturschutzrecht_lines"/>
+    </FeatureType>
+    <FeatureType>
+      <Name>ms:bp_schutzpflegeentwicklungsmassnahme_points</Name>
+      <Title>BP SchutzPflegeEntwicklungsMassnahme Punkte</Title>
+      <DefaultCRS>urn:ogc:def:crs:EPSG::25833</DefaultCRS>
+      <OtherCRS>urn:ogc:def:crs:EPSG::5650</OtherCRS>
+      <OtherCRS>urn:ogc:def:crs:EPSG::3857</OtherCRS>
+      <OtherCRS>urn:ogc:def:crs:EPSG::4326</OtherCRS>
+      <OtherCRS>urn:ogc:def:crs:EPSG::2398</OtherCRS>
+      <OtherCRS>urn:ogc:def:crs:EPSG::25833</OtherCRS>
+      <OutputFormats>
+        <Format>application/gml+xml; version=3.2</Format>
+        <Format>text/xml; subtype=gml/3.2.1</Format>
+        <Format>text/xml; subtype=gml/3.1.1</Format>
+        <Format>text/xml; subtype=gml/2.1.2</Format>
+      </OutputFormats>
+      <ows:WGS84BoundingBox dimensions="2">
+        <ows:LowerCorner>10.9290585152291 53.7599129397048</ows:LowerCorner>
+        <ows:UpperCorner>10.9301852240555 53.7609488800216</ows:UpperCorner>
+      </ows:WGS84BoundingBox>
+      <MetadataURL xlink:href="https://demo.bauleitplaene-mv.de/ows/xplanung/?request=GetMetadata&amp;layer=bp_schutzpflegeentwicklungsmassnahme_points"/>
+    </FeatureType>
+    <FeatureType>
+      <Name>ms:bp_anpflanzungbindungerhaltung_points</Name>
+      <Title>BP AnpflanzungBindungErhaltung Punkte</Title>
+      <DefaultCRS>urn:ogc:def:crs:EPSG::25833</DefaultCRS>
+      <OtherCRS>urn:ogc:def:crs:EPSG::5650</OtherCRS>
+      <OtherCRS>urn:ogc:def:crs:EPSG::3857</OtherCRS>
+      <OtherCRS>urn:ogc:def:crs:EPSG::4326</OtherCRS>
+      <OtherCRS>urn:ogc:def:crs:EPSG::2398</OtherCRS>
+      <OtherCRS>urn:ogc:def:crs:EPSG::25833</OtherCRS>
+      <OutputFormats>
+        <Format>application/gml+xml; version=3.2</Format>
+        <Format>text/xml; subtype=gml/3.2.1</Format>
+        <Format>text/xml; subtype=gml/3.1.1</Format>
+        <Format>text/xml; subtype=gml/2.1.2</Format>
+      </OutputFormats>
+      <ows:WGS84BoundingBox dimensions="2">
+        <ows:LowerCorner>11.1900640198823 53.4741891863423</ows:LowerCorner>
+        <ows:UpperCorner>13.5865935484584 54.6782356097567</ows:UpperCorner>
+      </ows:WGS84BoundingBox>
+      <MetadataURL xlink:href="https://demo.bauleitplaene-mv.de/ows/xplanung/?request=GetMetadata&amp;layer=bp_anpflanzungbindungerhaltung_points"/>
+    </FeatureType>
+    <FeatureType>
+      <Name>ms:bp_wegerecht_points</Name>
+      <Title>BP Wegerecht Punkte</Title>
+      <DefaultCRS>urn:ogc:def:crs:EPSG::25833</DefaultCRS>
+      <OtherCRS>urn:ogc:def:crs:EPSG::5650</OtherCRS>
+      <OtherCRS>urn:ogc:def:crs:EPSG::3857</OtherCRS>
+      <OtherCRS>urn:ogc:def:crs:EPSG::4326</OtherCRS>
+      <OtherCRS>urn:ogc:def:crs:EPSG::2398</OtherCRS>
+      <OtherCRS>urn:ogc:def:crs:EPSG::25833</OtherCRS>
+      <OutputFormats>
+        <Format>application/gml+xml; version=3.2</Format>
+        <Format>text/xml; subtype=gml/3.2.1</Format>
+        <Format>text/xml; subtype=gml/3.1.1</Format>
+        <Format>text/xml; subtype=gml/2.1.2</Format>
+      </OutputFormats>
+      <ows:WGS84BoundingBox/>
+      <!--WARNING: Optional WGS84BoundingBox could not be established for this layer.  Consider setting the EXTENT in the LAYER object, or wfs_extent metadata. Also check that your data exists in the DATA statement-->
+      <MetadataURL xlink:href="https://demo.bauleitplaene-mv.de/ows/xplanung/?request=GetMetadata&amp;layer=bp_wegerecht_points"/>
+    </FeatureType>
+    <FeatureType>
+      <Name>ms:xp_ppo</Name>
+      <Title>Punktförmige Präsentationsobjekte (XP_PPO)</Title>
+      <DefaultCRS>urn:ogc:def:crs:EPSG::25833</DefaultCRS>
+      <OtherCRS>urn:ogc:def:crs:EPSG::5650</OtherCRS>
+      <OtherCRS>urn:ogc:def:crs:EPSG::3857</OtherCRS>
+      <OtherCRS>urn:ogc:def:crs:EPSG::4326</OtherCRS>
+      <OtherCRS>urn:ogc:def:crs:EPSG::2398</OtherCRS>
+      <OtherCRS>urn:ogc:def:crs:EPSG::25833</OtherCRS>
+      <OutputFormats>
+        <Format>application/gml+xml; version=3.2</Format>
+        <Format>text/xml; subtype=gml/3.2.1</Format>
+        <Format>text/xml; subtype=gml/3.1.1</Format>
+        <Format>text/xml; subtype=gml/2.1.2</Format>
+      </OutputFormats>
+      <ows:WGS84BoundingBox dimensions="2">
+        <ows:LowerCorner>13.2001788401688 53.5193834467044</ows:LowerCorner>
+        <ows:UpperCorner>13.587006971687 54.6776317473697</ows:UpperCorner>
+      </ows:WGS84BoundingBox>
+      <MetadataURL xlink:href="https://demo.bauleitplaene-mv.de/ows/xplanung/?request=GetMetadata&amp;layer=xp_ppo"/>
+    </FeatureType>
+    <FeatureType>
+      <Name>ms:xp_lpo</Name>
+      <Title>Linienförmige Präsentationsobjekte (XP_LPO)</Title>
+      <DefaultCRS>urn:ogc:def:crs:EPSG::25833</DefaultCRS>
+      <OtherCRS>urn:ogc:def:crs:EPSG::5650</OtherCRS>
+      <OtherCRS>urn:ogc:def:crs:EPSG::3857</OtherCRS>
+      <OtherCRS>urn:ogc:def:crs:EPSG::4326</OtherCRS>
+      <OtherCRS>urn:ogc:def:crs:EPSG::2398</OtherCRS>
+      <OtherCRS>urn:ogc:def:crs:EPSG::25833</OtherCRS>
+      <OutputFormats>
+        <Format>application/gml+xml; version=3.2</Format>
+        <Format>text/xml; subtype=gml/3.2.1</Format>
+        <Format>text/xml; subtype=gml/3.1.1</Format>
+        <Format>text/xml; subtype=gml/2.1.2</Format>
+      </OutputFormats>
+      <ows:WGS84BoundingBox dimensions="2">
+        <ows:LowerCorner>13.262835378573 53.5263439600195</ows:LowerCorner>
+        <ows:UpperCorner>13.266745195276 53.5270947257686</ows:UpperCorner>
+      </ows:WGS84BoundingBox>
+      <MetadataURL xlink:href="https://demo.bauleitplaene-mv.de/ows/xplanung/?request=GetMetadata&amp;layer=xp_lpo"/>
+    </FeatureType>
+    <FeatureType>
+      <Name>ms:xp_pto</Name>
+      <Title>Textförmige Präsentationsobjekte Punkt (XP_PTO)</Title>
+      <DefaultCRS>urn:ogc:def:crs:EPSG::25833</DefaultCRS>
+      <OtherCRS>urn:ogc:def:crs:EPSG::5650</OtherCRS>
+      <OtherCRS>urn:ogc:def:crs:EPSG::3857</OtherCRS>
+      <OtherCRS>urn:ogc:def:crs:EPSG::4326</OtherCRS>
+      <OtherCRS>urn:ogc:def:crs:EPSG::2398</OtherCRS>
+      <OtherCRS>urn:ogc:def:crs:EPSG::25833</OtherCRS>
+      <OutputFormats>
+        <Format>application/gml+xml; version=3.2</Format>
+        <Format>text/xml; subtype=gml/3.2.1</Format>
+        <Format>text/xml; subtype=gml/3.1.1</Format>
+        <Format>text/xml; subtype=gml/2.1.2</Format>
+      </OutputFormats>
+      <ows:WGS84BoundingBox dimensions="2">
+        <ows:LowerCorner>13.2310147428531 53.5196155583324</ows:LowerCorner>
+        <ows:UpperCorner>13.4064155602729 54.091960966707</ows:UpperCorner>
+      </ows:WGS84BoundingBox>
+      <MetadataURL xlink:href="https://demo.bauleitplaene-mv.de/ows/xplanung/?request=GetMetadata&amp;layer=xp_pto"/>
+    </FeatureType>
+    <FeatureType>
+      <Name>ms:bp_verkehrsflaechebesondererzweckbestimmung_points</Name>
+      <Title>BP VerkehrsflaecheBesondererZweckbestimmung Punkte</Title>
+      <DefaultCRS>urn:ogc:def:crs:EPSG::25833</DefaultCRS>
+      <OtherCRS>urn:ogc:def:crs:EPSG::5650</OtherCRS>
+      <OtherCRS>urn:ogc:def:crs:EPSG::3857</OtherCRS>
+      <OtherCRS>urn:ogc:def:crs:EPSG::4326</OtherCRS>
+      <OtherCRS>urn:ogc:def:crs:EPSG::2398</OtherCRS>
+      <OtherCRS>urn:ogc:def:crs:EPSG::25833</OtherCRS>
+      <OutputFormats>
+        <Format>application/gml+xml; version=3.2</Format>
+        <Format>text/xml; subtype=gml/3.2.1</Format>
+        <Format>text/xml; subtype=gml/3.1.1</Format>
+        <Format>text/xml; subtype=gml/2.1.2</Format>
+      </OutputFormats>
+      <ows:WGS84BoundingBox dimensions="2">
+        <ows:LowerCorner>11.2751985744814 53.6987992996684</ows:LowerCorner>
+        <ows:UpperCorner>11.2756972208989 53.6999707363954</ows:UpperCorner>
+      </ows:WGS84BoundingBox>
+      <MetadataURL xlink:href="https://demo.bauleitplaene-mv.de/ows/xplanung/?request=GetMetadata&amp;layer=bp_verkehrsflaechebesondererzweckbestimmung_points"/>
+    </FeatureType>
+    <FeatureType>
+      <Name>ms:bp_verentsorgung_points</Name>
+      <Title>BP VerEntsorgung Punkte</Title>
+      <DefaultCRS>urn:ogc:def:crs:EPSG::25833</DefaultCRS>
+      <OtherCRS>urn:ogc:def:crs:EPSG::5650</OtherCRS>
+      <OtherCRS>urn:ogc:def:crs:EPSG::3857</OtherCRS>
+      <OtherCRS>urn:ogc:def:crs:EPSG::4326</OtherCRS>
+      <OtherCRS>urn:ogc:def:crs:EPSG::2398</OtherCRS>
+      <OtherCRS>urn:ogc:def:crs:EPSG::25833</OtherCRS>
+      <OutputFormats>
+        <Format>application/gml+xml; version=3.2</Format>
+        <Format>text/xml; subtype=gml/3.2.1</Format>
+        <Format>text/xml; subtype=gml/3.1.1</Format>
+        <Format>text/xml; subtype=gml/2.1.2</Format>
+      </OutputFormats>
+      <ows:WGS84BoundingBox dimensions="2">
+        <ows:LowerCorner>11.275515634606 53.6987508776524</ows:LowerCorner>
+        <ows:UpperCorner>11.275759016791 53.699822281913</ows:UpperCorner>
+      </ows:WGS84BoundingBox>
+      <MetadataURL xlink:href="https://demo.bauleitplaene-mv.de/ows/xplanung/?request=GetMetadata&amp;layer=bp_verentsorgung_points"/>
+    </FeatureType>
+    <FeatureType>
+      <Name>ms:so_wasserrecht_points</Name>
+      <Title>SO Wasserrecht Punkte</Title>
+      <DefaultCRS>urn:ogc:def:crs:EPSG::25833</DefaultCRS>
+      <OtherCRS>urn:ogc:def:crs:EPSG::5650</OtherCRS>
+      <OtherCRS>urn:ogc:def:crs:EPSG::3857</OtherCRS>
+      <OtherCRS>urn:ogc:def:crs:EPSG::4326</OtherCRS>
+      <OtherCRS>urn:ogc:def:crs:EPSG::2398</OtherCRS>
+      <OtherCRS>urn:ogc:def:crs:EPSG::25833</OtherCRS>
+      <OutputFormats>
+        <Format>application/gml+xml; version=3.2</Format>
+        <Format>text/xml; subtype=gml/3.2.1</Format>
+        <Format>text/xml; subtype=gml/3.1.1</Format>
+        <Format>text/xml; subtype=gml/2.1.2</Format>
+      </OutputFormats>
+      <ows:WGS84BoundingBox/>
+      <!--WARNING: Optional WGS84BoundingBox could not be established for this layer.  Consider setting the EXTENT in the LAYER object, or wfs_extent metadata. Also check that your data exists in the DATA statement-->
+      <MetadataURL xlink:href="https://demo.bauleitplaene-mv.de/ows/xplanung/?request=GetMetadata&amp;layer=so_wasserrecht_points"/>
+    </FeatureType>
+    <FeatureType>
+      <Name>ms:so_schutzgebietnaturschutzrecht_points</Name>
+      <Title>SO SchutzgebietNaturschutzrecht Punkte</Title>
+      <DefaultCRS>urn:ogc:def:crs:EPSG::25833</DefaultCRS>
+      <OtherCRS>urn:ogc:def:crs:EPSG::5650</OtherCRS>
+      <OtherCRS>urn:ogc:def:crs:EPSG::3857</OtherCRS>
+      <OtherCRS>urn:ogc:def:crs:EPSG::4326</OtherCRS>
+      <OtherCRS>urn:ogc:def:crs:EPSG::2398</OtherCRS>
+      <OtherCRS>urn:ogc:def:crs:EPSG::25833</OtherCRS>
+      <OutputFormats>
+        <Format>application/gml+xml; version=3.2</Format>
+        <Format>text/xml; subtype=gml/3.2.1</Format>
+        <Format>text/xml; subtype=gml/3.1.1</Format>
+        <Format>text/xml; subtype=gml/2.1.2</Format>
+      </OutputFormats>
+      <ows:WGS84BoundingBox dimensions="2">
+        <ows:LowerCorner>11.2874912571791 53.7023936897056</ows:LowerCorner>
+        <ows:UpperCorner>11.2874912571791 53.7023936897056</ows:UpperCorner>
+      </ows:WGS84BoundingBox>
+      <MetadataURL xlink:href="https://demo.bauleitplaene-mv.de/ows/xplanung/?request=GetMetadata&amp;layer=so_schutzgebietnaturschutzrecht_points"/>
+    </FeatureType>
+  </FeatureTypeList>
+  <fes:Filter_Capabilities>
+    <fes:Conformance>
+      <fes:Constraint name="ImplementsQuery">
+        <ows:NoValues/>
+        <ows:DefaultValue>TRUE</ows:DefaultValue>
+      </fes:Constraint>
+      <fes:Constraint name="ImplementsAdHocQuery">
+        <ows:NoValues/>
+        <ows:DefaultValue>TRUE</ows:DefaultValue>
+      </fes:Constraint>
+      <fes:Constraint name="ImplementsFunctions">
+        <ows:NoValues/>
+        <ows:DefaultValue>FALSE</ows:DefaultValue>
+      </fes:Constraint>
+      <fes:Constraint name="ImplementsResourceId">
+        <ows:NoValues/>
+        <ows:DefaultValue>TRUE</ows:DefaultValue>
+      </fes:Constraint>
+      <fes:Constraint name="ImplementsMinStandardFilter">
+        <ows:NoValues/>
+        <ows:DefaultValue>TRUE</ows:DefaultValue>
+      </fes:Constraint>
+      <fes:Constraint name="ImplementsStandardFilter">
+        <ows:NoValues/>
+        <ows:DefaultValue>TRUE</ows:DefaultValue>
+      </fes:Constraint>
+      <fes:Constraint name="ImplementsMinSpatialFilter">
+        <ows:NoValues/>
+        <ows:DefaultValue>TRUE</ows:DefaultValue>
+      </fes:Constraint>
+      <fes:Constraint name="ImplementsSpatialFilter">
+        <ows:NoValues/>
+        <ows:DefaultValue>FALSE</ows:DefaultValue>
+      </fes:Constraint>
+      <fes:Constraint name="ImplementsMinTemporalFilter">
+        <ows:NoValues/>
+        <ows:DefaultValue>TRUE</ows:DefaultValue>
+      </fes:Constraint>
+      <fes:Constraint name="ImplementsTemporalFilter">
+        <ows:NoValues/>
+        <ows:DefaultValue>FALSE</ows:DefaultValue>
+      </fes:Constraint>
+      <fes:Constraint name="ImplementsVersionNav">
+        <ows:NoValues/>
+        <ows:DefaultValue>FALSE</ows:DefaultValue>
+      </fes:Constraint>
+      <fes:Constraint name="ImplementsSorting">
+        <ows:NoValues/>
+        <ows:DefaultValue>TRUE</ows:DefaultValue>
+      </fes:Constraint>
+      <fes:Constraint name="ImplementsExtendedOperators">
+        <ows:NoValues/>
+        <ows:DefaultValue>FALSE</ows:DefaultValue>
+      </fes:Constraint>
+      <fes:Constraint name="ImplementsMinimumXPath">
+        <ows:NoValues/>
+        <ows:DefaultValue>TRUE</ows:DefaultValue>
+      </fes:Constraint>
+      <fes:Constraint name="ImplementsSchemaElementFunc">
+        <ows:NoValues/>
+        <ows:DefaultValue>FALSE</ows:DefaultValue>
+      </fes:Constraint>
+    </fes:Conformance>
+    <fes:Id_Capabilities>
+      <fes:ResourceIdentifier name="fes:ResourceId"/>
+    </fes:Id_Capabilities>
+    <fes:Scalar_Capabilities>
+      <fes:LogicalOperators/>
+      <fes:ComparisonOperators>
+        <fes:ComparisonOperator name="PropertyIsEqualTo"/>
+        <fes:ComparisonOperator name="PropertyIsNotEqualTo"/>
+        <fes:ComparisonOperator name="PropertyIsLessThan"/>
+        <fes:ComparisonOperator name="PropertyIsGreaterThan"/>
+        <fes:ComparisonOperator name="PropertyIsLessThanOrEqualTo"/>
+        <fes:ComparisonOperator name="PropertyIsGreaterThanOrEqualTo"/>
+        <fes:ComparisonOperator name="PropertyIsLike"/>
+        <fes:ComparisonOperator name="PropertyIsBetween"/>
+      </fes:ComparisonOperators>
+    </fes:Scalar_Capabilities>
+    <fes:Spatial_Capabilities>
+      <fes:GeometryOperands>
+        <fes:GeometryOperand name="gml:Point"/>
+        <fes:GeometryOperand name="gml:MultiPoint"/>
+        <fes:GeometryOperand name="gml:LineString"/>
+        <fes:GeometryOperand name="gml:MultiLineString"/>
+        <fes:GeometryOperand name="gml:Curve"/>
+        <fes:GeometryOperand name="gml:MultiCurve"/>
+        <fes:GeometryOperand name="gml:Polygon"/>
+        <fes:GeometryOperand name="gml:MultiPolygon"/>
+        <fes:GeometryOperand name="gml:Surface"/>
+        <fes:GeometryOperand name="gml:MultiSurface"/>
+        <fes:GeometryOperand name="gml:Box"/>
+        <fes:GeometryOperand name="gml:Envelope"/>
+      </fes:GeometryOperands>
+      <fes:SpatialOperators>
+        <fes:SpatialOperator name="Equals"/>
+        <fes:SpatialOperator name="Disjoint"/>
+        <fes:SpatialOperator name="Touches"/>
+        <fes:SpatialOperator name="Within"/>
+        <fes:SpatialOperator name="Overlaps"/>
+        <fes:SpatialOperator name="Crosses"/>
+        <fes:SpatialOperator name="Intersects"/>
+        <fes:SpatialOperator name="Contains"/>
+        <fes:SpatialOperator name="DWithin"/>
+        <fes:SpatialOperator name="Beyond"/>
+        <fes:SpatialOperator name="BBOX"/>
+      </fes:SpatialOperators>
+    </fes:Spatial_Capabilities>
+    <fes:Temporal_Capabilities>
+      <fes:TemporalOperands>
+        <fes:TemporalOperand name="gml:TimePeriod"/>
+        <fes:TemporalOperand name="gml:TimeInstant"/>
+      </fes:TemporalOperands>
+      <fes:TemporalOperators>
+        <fes:TemporalOperator name="During"/>
+      </fes:TemporalOperators>
+    </fes:Temporal_Capabilities>
+  </fes:Filter_Capabilities>
+</wfs:WFS_Capabilities>

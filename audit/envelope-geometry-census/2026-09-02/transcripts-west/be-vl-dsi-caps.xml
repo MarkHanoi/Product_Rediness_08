@@ -1,0 +1,73 @@
+﻿<html xmlns="http://www.w3.org/1999/xhtml" lang="nl-be">
+<head runat="server">
+    <title>Foutpagina</title>
+    <meta charset="utf-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1" />
+    <meta name="viewport" content="width=device-width" />
+    <META NAME="robots" CONTENT="noindex,nofollow">
+    <style type="text/css">
+
+        body {
+            font-family: Calibri;
+            font-size: large;
+        }
+
+        a,a:visited,a:link{
+            color: inherit;
+            text-decoration: none ;
+        }
+        
+        #div1 {
+            padding: inherit;
+            margin: inherit;
+            border-style: none;
+            border-width: 0px;
+            background-color: #FFE615;
+            font-weight: bold;
+            color: black;
+            font-style: normal;
+            font-family: Calibri;
+            font-size: inherit;
+            text-align: left;
+            z-index: auto;
+            position: relative;
+            height:50px;
+        }
+        #p0 {
+            border-style: none;
+            border-width: inherit;
+            padding: 15px;
+            font-size: inherit;
+            font-weight: normal;
+            font-style: normal;
+            font-variant: normal;
+            text-transform: none;
+            font-family: inherit;
+
+        }
+        .auto-style1 {
+            top: 0px;
+            width: 800px;
+            margin: auto;
+            text-align: left;
+        }
+   </style>
+<script src="https://tni.widgets.burgerprofiel.dev-vlaanderen.be/api/v1/node_modules/@govflanders/vl-widget-polyfill/dist/index.js"></script>
+
+</head>
+
+<body>
+             
+             <script type="text/javascript" src="https://widgets.vlaanderen.be/widget/live/1d68a7e778214780ba00c8366a58c316"></script>
+             
+             <form id="ErrorPage" runat="server">
+                 <div id="div1"><p id="p" class="auto-style1">GEOGRAFISCHE WEBDIENSTEN</p></div>
+                 <p id="p0" class="auto-style1"><span>Er is een fout opgetreden. De service die je wil aanspreken bestaat niet (meer). </span></p>
+                 <p id="p1" class="auto-style1">
+                     <span>
+                         Op het <a style="text-decoration:underline" href="/dashboard">dashboard</a> kan je de actuele status van de geografische webdiensten raadplegen.
+                     </span>
+                 </p>
+             </form>
+    </body>
+</html>

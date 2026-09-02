@@ -1,0 +1,2637 @@
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+	
+		
+			<!DOCTYPE html>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<html data-theme="light" class="ltr" dir="ltr" lang="cs-CZ">
+
+<head>
+	<title>Úvod - NGÚP</title>
+
+	<meta content="initial-scale=1.0, width=device-width" name="viewport" />
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<meta content="text/html; charset=UTF-8" http-equiv="content-type" />
+
+
+
+
+
+
+
+
+
+
+
+
+<script type="importmap">{"imports":{"react-dom":"/o/frontend-js-react-web/__liferay__/exports/react-dom.js","@clayui/breadcrumb":"/o/frontend-taglib-clay/__liferay__/exports/@clayui$breadcrumb.js","@clayui/form":"/o/frontend-taglib-clay/__liferay__/exports/@clayui$form.js","@clayui/popover":"/o/frontend-taglib-clay/__liferay__/exports/@clayui$popover.js","@clayui/charts":"/o/frontend-taglib-clay/__liferay__/exports/@clayui$charts.js","@clayui/shared":"/o/frontend-taglib-clay/__liferay__/exports/@clayui$shared.js","@clayui/localized-input":"/o/frontend-taglib-clay/__liferay__/exports/@clayui$localized-input.js","@clayui/modal":"/o/frontend-taglib-clay/__liferay__/exports/@clayui$modal.js","@clayui/empty-state":"/o/frontend-taglib-clay/__liferay__/exports/@clayui$empty-state.js","react":"/o/frontend-js-react-web/__liferay__/exports/react.js","@clayui/color-picker":"/o/frontend-taglib-clay/__liferay__/exports/@clayui$color-picker.js","@clayui/navigation-bar":"/o/frontend-taglib-clay/__liferay__/exports/@clayui$navigation-bar.js","@clayui/pagination":"/o/frontend-taglib-clay/__liferay__/exports/@clayui$pagination.js","@clayui/icon":"/o/frontend-taglib-clay/__liferay__/exports/@clayui$icon.js","@clayui/table":"/o/frontend-taglib-clay/__liferay__/exports/@clayui$table.js","@clayui/autocomplete":"/o/frontend-taglib-clay/__liferay__/exports/@clayui$autocomplete.js","@clayui/slider":"/o/frontend-taglib-clay/__liferay__/exports/@clayui$slider.js","@clayui/management-toolbar":"/o/frontend-taglib-clay/__liferay__/exports/@clayui$management-toolbar.js","@clayui/multi-select":"/o/frontend-taglib-clay/__liferay__/exports/@clayui$multi-select.js","@clayui/nav":"/o/frontend-taglib-clay/__liferay__/exports/@clayui$nav.js","@clayui/time-picker":"/o/frontend-taglib-clay/__liferay__/exports/@clayui$time-picker.js","@clayui/provider":"/o/frontend-taglib-clay/__liferay__/exports/@clayui$provider.js","@clayui/upper-toolbar":"/o/frontend-taglib-clay/__liferay__/exports/@clayui$upper-toolbar.js","@clayui/loading-indicator":"/o/frontend-taglib-clay/__liferay__/exports/@clayui$loading-indicator.js","@clayui/panel":"/o/frontend-taglib-clay/__liferay__/exports/@clayui$panel.js","@clayui/drop-down":"/o/frontend-taglib-clay/__liferay__/exports/@clayui$drop-down.js","@clayui/list":"/o/frontend-taglib-clay/__liferay__/exports/@clayui$list.js","@clayui/date-picker":"/o/frontend-taglib-clay/__liferay__/exports/@clayui$date-picker.js","@clayui/label":"/o/frontend-taglib-clay/__liferay__/exports/@clayui$label.js","@clayui/data-provider":"/o/frontend-taglib-clay/__liferay__/exports/@clayui$data-provider.js","@liferay/frontend-js-api/data-set":"/o/frontend-js-dependencies-web/__liferay__/exports/@liferay$js-api$data-set.js","@clayui/core":"/o/frontend-taglib-clay/__liferay__/exports/@clayui$core.js","@clayui/pagination-bar":"/o/frontend-taglib-clay/__liferay__/exports/@clayui$pagination-bar.js","@clayui/layout":"/o/frontend-taglib-clay/__liferay__/exports/@clayui$layout.js","@clayui/multi-step-nav":"/o/frontend-taglib-clay/__liferay__/exports/@clayui$multi-step-nav.js","@liferay/frontend-js-api":"/o/frontend-js-dependencies-web/__liferay__/exports/@liferay$js-api.js","@clayui/css":"/o/frontend-taglib-clay/__liferay__/exports/@clayui$css.js","@clayui/toolbar":"/o/frontend-taglib-clay/__liferay__/exports/@clayui$toolbar.js","@clayui/alert":"/o/frontend-taglib-clay/__liferay__/exports/@clayui$alert.js","@clayui/badge":"/o/frontend-taglib-clay/__liferay__/exports/@clayui$badge.js","@clayui/link":"/o/frontend-taglib-clay/__liferay__/exports/@clayui$link.js","@clayui/card":"/o/frontend-taglib-clay/__liferay__/exports/@clayui$card.js","@clayui/progress-bar":"/o/frontend-taglib-clay/__liferay__/exports/@clayui$progress-bar.js","@clayui/tooltip":"/o/frontend-taglib-clay/__liferay__/exports/@clayui$tooltip.js","@clayui/button":"/o/frontend-taglib-clay/__liferay__/exports/@clayui$button.js","@clayui/tabs":"/o/frontend-taglib-clay/__liferay__/exports/@clayui$tabs.js","@clayui/sticker":"/o/frontend-taglib-clay/__liferay__/exports/@clayui$sticker.js"},"scopes":{}}</script><script data-senna-track="permanent" src="https://uzemniplanovani.gov.cz/o/frontend-js-svg4everybody-web/index.js?&mac=xBimnpl6PfodLjk5lbNNRjGpEMw=&browserId=other&languageId=cs_CZ&minifierType=js" type="text/javascript"></script>
+<script data-senna-track="temporary">var Liferay = window.Liferay || {};Liferay.Icons = Liferay.Icons || {};Liferay.Icons.controlPanelSpritemap = 'https://uzemniplanovani.gov.cz/o/admin-theme/images/clay/icons.svg';Liferay.Icons.spritemap = 'https://uzemniplanovani.gov.cz/o/ngup-theme/images/clay/icons.svg';</script>
+<script data-senna-track="permanent" type="text/javascript">window.Liferay = window.Liferay || {}; window.Liferay.CSP = {nonce: ''};</script>
+<link data-senna-track="temporary" href="https://uzemniplanovani.gov.cz" rel="canonical" />
+<link data-senna-track="temporary" href="https://uzemniplanovani.gov.cz" hreflang="cs-CZ" rel="alternate" />
+<link data-senna-track="temporary" href="https://uzemniplanovani.gov.cz" hreflang="x-default" rel="alternate" />
+
+<meta property="og:locale" content="cs_CZ">
+<meta property="og:locale:alternate" content="cs_CZ">
+<meta property="og:site_name" content="NGÚP">
+<meta property="og:title" content="Úvod - NGÚP">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://uzemniplanovani.gov.cz">
+
+
+<link href="/documents/20117/0/ngup-favicon+%281%29.png/18027a61-ce2e-50b8-cdad-67388db6a1af" rel="apple-touch-icon" />
+<link href="/documents/20117/0/ngup-favicon+%281%29.png/18027a61-ce2e-50b8-cdad-67388db6a1af" rel="icon" />
+
+
+
+<link class="lfr-css-file" data-senna-track="temporary" href="https://uzemniplanovani.gov.cz/o/ngup-theme/css/clay.css?browserId=other&amp;themeId=nguptheme_WAR_nguptheme&amp;minifierType=css&amp;languageId=cs_CZ&amp;t=1787599226000" id="liferayAUICSS" rel="stylesheet" type="text/css" />
+
+
+
+
+
+
+
+
+
+	<link href="https://uzemniplanovani.gov.cz/combo?browserId=other&amp;minifierType=css&amp;themeId=nguptheme_WAR_nguptheme&amp;languageId=cs_CZ&amp;com_liferay_portal_search_web_search_bar_portlet_SearchBarPortlet_INSTANCE_templateSearch:%2Fo%2Fportal-search-web%2Fcss%2Fmain.css&amp;com_liferay_product_navigation_product_menu_web_portlet_ProductMenuPortlet:%2Fo%2Fproduct-navigation-product-menu-web%2Fcss%2Fmain.css&amp;com_liferay_product_navigation_user_personal_bar_web_portlet_ProductNavigationUserPersonalBarPortlet:%2Fo%2Fproduct-navigation-user-personal-bar-web%2Fcss%2Fmain.css&amp;com_liferay_site_navigation_menu_web_portlet_SiteNavigationMenuPortlet:%2Fo%2Fsite-navigation-menu-web%2Fcss%2Fmain.css&amp;sk_esmo_ngup_personal_bar_NGUPPersonalBarPortlet:%2Fo%2Fsk.esmo.ngup.portlet.personal.bar%2Fcss%2Fmain.css&amp;sk_esmo_ngup_portlet_faq_FAQPortlet_INSTANCE_wjce:%2Fo%2Fsk.esmo.ngup.portlet.faq%2Fcss%2Fmain.css&amp;sk_esmo_ngup_portlet_hero_HeroPortlet_INSTANCE_zfds:%2Fo%2Fsk.esmo.ngup.portlet.hero%2Fcss%2Fmain.css&amp;sk_esmo_ngup_portlet_news_NewsPortlet_INSTANCE_eymr:%2Fo%2Fsk.esmo.ngup.portlet.news%2Fcss%2Fmain.css&amp;sk_esmo_ngup_portlet_search_SearchPortlet:%2Fo%2Fsk.esmo.ngup.portlet.search%2Fcss%2Fmain.css&amp;sk_esmo_ngup_tiles_portlet_TilesPortlet_INSTANCE_lupb:%2Fo%2Fsk.esmo.ngup.portlet.tiles%2Fcss%2Fmain.css&amp;t=1787599226000" rel="stylesheet" type="text/css"
+ data-senna-track="temporary" id="6f0175b0" />
+
+
+
+
+
+
+
+
+<script data-senna-track="temporary" type="text/javascript">
+	// <![CDATA[
+		var Liferay = Liferay || {};
+
+		Liferay.Browser = {
+			acceptsGzip: function() {
+				return false;
+			},
+
+			
+
+			getMajorVersion: function() {
+				return 0;
+			},
+
+			getRevision: function() {
+				return '';
+			},
+			getVersion: function() {
+				return '';
+			},
+
+			
+
+			isAir: function() {
+				return false;
+			},
+			isChrome: function() {
+				return false;
+			},
+			isEdge: function() {
+				return false;
+			},
+			isFirefox: function() {
+				return false;
+			},
+			isGecko: function() {
+				return false;
+			},
+			isIe: function() {
+				return false;
+			},
+			isIphone: function() {
+				return false;
+			},
+			isLinux: function() {
+				return false;
+			},
+			isMac: function() {
+				return false;
+			},
+			isMobile: function() {
+				return false;
+			},
+			isMozilla: function() {
+				return false;
+			},
+			isOpera: function() {
+				return false;
+			},
+			isRtf: function() {
+				return false;
+			},
+			isSafari: function() {
+				return false;
+			},
+			isSun: function() {
+				return false;
+			},
+			isWebKit: function() {
+				return false;
+			},
+			isWindows: function() {
+				return false;
+			}
+		};
+
+		Liferay.Data = Liferay.Data || {};
+
+		Liferay.Data.ICONS_INLINE_SVG = true;
+
+		Liferay.Data.NAV_SELECTOR = '#navigation';
+
+		Liferay.Data.NAV_SELECTOR_MOBILE = '#navigationCollapse';
+
+		Liferay.Data.isCustomizationView = function() {
+			return false;
+		};
+
+		Liferay.Data.notices = [
+			
+		];
+
+		(function () {
+			var available = {};
+
+			var direction = {};
+
+			
+
+				available['cs_CZ'] = 'čeština\x20\x28Česko\x29';
+				direction['cs_CZ'] = 'ltr';
+
+			
+
+				available['en_US'] = 'angličtina\x20\x28Spojené\x20státy\x29';
+				direction['en_US'] = 'ltr';
+
+			
+
+			Liferay.Language = {
+				available,
+				direction,
+				get: function(key) {
+					return key;
+				}
+			};
+		})();
+
+		var featureFlags = {"LPS-193884":false,"LPS-157988":false,"LPS-178642":false,"LPS-193005":false,"LPS-187284":false,"LPS-187285":false,"LPS-114786":false,"COMMERCE-8087":false,"LRAC-10757":false,"LPS-180090":false,"LPS-170809":false,"LPS-178052":false,"LPS-189856":false,"LPS-187436":false,"LPS-182184":false,"LPS-185892":false,"LPS-186620":false,"LPS-159650":false,"COMMERCE-11026":false,"COMMERCE-12754":false,"LPS-197692":false,"LPS-184404":false,"LPS-180328":false,"COMMERCE-11028":false,"LPS-198183":false,"LPS-171364":false,"LPS-153714":false,"LPS-96845":false,"COMMERCE-10890":false,"LPS-170670":false,"LPS-141392":false,"LPS-169981":false,"LPS-153839":false,"LPS-187793":false,"LPS-177027":false,"COMMERCE-12192":false,"LPS-196768":false,"LPS-172416":false,"LPS-196724":false,"LPS-196648":false,"LPS-163118":false,"LPS-114700":false,"LPS-135430":false,"LPS-134060":false,"LPS-164563":false,"LPS-122920":false,"LPS-148856":false,"LPS-154290":false,"LPS-173135":false,"LPS-194395":false,"COMMERCE-9599":false,"LPS-187142":false,"LPS-196935":false,"LPS-187854":false,"LPS-197909":false,"LPS-144527":false,"COMMERCE-8949":false,"COMMERCE-11922":false,"LPS-194362":false,"LPS-165481":false,"LPS-153813":false,"LPS-174455":false,"LPS-194763":false,"LPS-165482":false,"COMMERCE-11287":false,"LPS-193551":false,"LPS-197477":false,"LPS-174816":false,"LPS-186360":false,"LPS-153332":false,"LPS-179669":false,"LPS-174417":false,"LRAC-14922":false,"LPS-183882":false,"LPS-155284":false,"LPS-200108":false,"LPS-159643":false,"LPS-181663":false,"LPS-161033":false,"LPS-164948":false,"LPS-186871":false,"LPS-188058":false,"LPS-129412":false,"LPS-198573":false,"LPS-166126":false,"LPS-169837":false};
+
+		Liferay.FeatureFlags = Object.keys(featureFlags).reduce(
+			(acc, key) => ({
+				...acc, [key]: featureFlags[key] === 'true' || featureFlags[key] === true
+			}), {}
+		);
+
+		Liferay.PortletKeys = {
+			DOCUMENT_LIBRARY: 'com_liferay_document_library_web_portlet_DLPortlet',
+			DYNAMIC_DATA_MAPPING: 'com_liferay_dynamic_data_mapping_web_portlet_DDMPortlet',
+			ITEM_SELECTOR: 'com_liferay_item_selector_web_portlet_ItemSelectorPortlet'
+		};
+
+		Liferay.PropsValues = {
+			JAVASCRIPT_SINGLE_PAGE_APPLICATION_TIMEOUT: 0,
+			UPLOAD_SERVLET_REQUEST_IMPL_MAX_SIZE: 3221225472
+		};
+
+		Liferay.ThemeDisplay = {
+
+			
+
+			
+				getLayoutId: function() {
+					return '2';
+				},
+
+				
+
+				getLayoutRelativeControlPanelURL: function() {
+					return '/group/guest/~/control_panel/manage';
+				},
+
+				getLayoutRelativeURL: function() {
+					return '/uvod';
+				},
+				getLayoutURL: function() {
+					return 'https://uzemniplanovani.gov.cz/uvod';
+				},
+				getParentLayoutId: function() {
+					return '0';
+				},
+				isControlPanel: function() {
+					return false;
+				},
+				isPrivateLayout: function() {
+					return 'false';
+				},
+				isVirtualLayout: function() {
+					return false;
+				},
+			
+
+			getBCP47LanguageId: function() {
+				return 'cs-CZ';
+			},
+			getCanonicalURL: function() {
+
+				
+
+				return 'https\x3a\x2f\x2fuzemniplanovani\x2egov\x2ecz';
+			},
+			getCDNBaseURL: function() {
+				return 'https://uzemniplanovani.gov.cz';
+			},
+			getCDNDynamicResourcesHost: function() {
+				return 'https://uzemniplanovani.gov.cz';
+			},
+			getCDNHost: function() {
+				return 'https://uzemniplanovani.gov.cz';
+			},
+			getCompanyGroupId: function() {
+				return '20119';
+			},
+			getCompanyId: function() {
+				return '5984808378139906015';
+			},
+			getDefaultLanguageId: function() {
+				return 'cs_CZ';
+			},
+			getDoAsUserIdEncoded: function() {
+				return '';
+			},
+			getLanguageId: function() {
+				return 'cs_CZ';
+			},
+			getParentGroupId: function() {
+				return '20117';
+			},
+			getPathContext: function() {
+				return '';
+			},
+			getPathImage: function() {
+				return 'https://uzemniplanovani.gov.cz/image';
+			},
+			getPathJavaScript: function() {
+				return '/o/frontend-js-web';
+			},
+			getPathMain: function() {
+				return '/c';
+			},
+			getPathThemeImages: function() {
+				return 'https://uzemniplanovani.gov.cz/o/ngup-theme/images';
+			},
+			getPathThemeRoot: function() {
+				return '/o/ngup-theme';
+			},
+			getPlid: function() {
+				return '6';
+			},
+			getPortalURL: function() {
+				return 'https://uzemniplanovani.gov.cz';
+			},
+			getRealUserId: function() {
+				return '20095';
+			},
+			getRemoteAddr: function() {
+				return '10.244.0.0';
+			},
+			getRemoteHost: function() {
+				return '10.244.0.0';
+			},
+			getScopeGroupId: function() {
+				return '20117';
+			},
+			getScopeGroupIdOrLiveGroupId: function() {
+				return '20117';
+			},
+			getSessionId: function() {
+				return '';
+			},
+			getSiteAdminURL: function() {
+				return 'https://uzemniplanovani.gov.cz/group/guest/~/control_panel/manage?p_p_lifecycle=0&p_p_state=maximized&p_p_mode=view';
+			},
+			getSiteGroupId: function() {
+				return '20117';
+			},
+			getURLControlPanel: function() {
+				return '/group/control_panel?refererPlid=6';
+			},
+			getURLHome: function() {
+				return 'https\x3a\x2f\x2fuzemniplanovani\x2egov\x2ecz\x2f';
+			},
+			getUserEmailAddress: function() {
+				return '';
+			},
+			getUserId: function() {
+				return '20095';
+			},
+			getUserName: function() {
+				return '';
+			},
+			isAddSessionIdToURL: function() {
+				return false;
+			},
+			isImpersonated: function() {
+				return false;
+			},
+			isSignedIn: function() {
+				return false;
+			},
+
+			isStagedPortlet: function() {
+				
+					
+						return false;
+					
+				
+			},
+
+			isStateExclusive: function() {
+				return false;
+			},
+			isStateMaximized: function() {
+				return false;
+			},
+			isStatePopUp: function() {
+				return false;
+			}
+		};
+
+		var themeDisplay = Liferay.ThemeDisplay;
+
+		Liferay.AUI = {
+
+			
+
+			getCombine: function() {
+				return true;
+			},
+			getComboPath: function() {
+				return 'https://uzemniplanovani.gov.cz/combo/?browserId=other&minifierType=&languageId=cs_CZ&t=1787598601810&';
+			},
+			getDateFormat: function() {
+				return '%d.%m.%Y';
+			},
+			getEditorCKEditorPath: function() {
+				return '/o/frontend-editor-ckeditor-web';
+			},
+			getFilter: function() {
+				var filter = 'raw';
+
+				
+					
+						filter = 'min';
+					
+					
+
+				return filter;
+			},
+			getFilterConfig: function() {
+				var instance = this;
+
+				var filterConfig = null;
+
+				if (!instance.getCombine()) {
+					filterConfig = {
+						replaceStr: '.js' + instance.getStaticResourceURLParams(),
+						searchExp: '\\.js$'
+					};
+				}
+
+				return filterConfig;
+			},
+			getJavaScriptRootPath: function() {
+				return '/o/frontend-js-web';
+			},
+			getPortletRootPath: function() {
+				return '/html/portlet';
+			},
+			getStaticResourceURLParams: function() {
+				return '?browserId=other&minifierType=&languageId=cs_CZ&t=1787598601810';
+			}
+		};
+
+		Liferay.authToken = 'VAJjaCl7';
+
+		
+
+		Liferay.currentURL = '\x2farcgis\x2frest\x2fservices\x3ff\x3djson';
+		Liferay.currentURLEncoded = '\x252Farcgis\x252Frest\x252Fservices\x253Ff\x253Djson';
+	// ]]>
+</script>
+
+<script data-senna-track="temporary" type="text/javascript">window.__CONFIG__= {basePath: '',combine: true, defaultURLParams: null, explainResolutions: false, exposeGlobal: false, logLevel: 'warn', moduleType: 'module', namespace:'Liferay', nonce: '', reportMismatchedAnonymousModules: 'warn', resolvePath: '/o/js_resolve_modules', url: 'https://uzemniplanovani.gov.cz/combo/?browserId=other&minifierType=js&languageId=cs_CZ&t=1787598601810&', waitTimeout: 60000};</script><script data-senna-track="permanent" src="https://uzemniplanovani.gov.cz/o/frontend-js-loader-modules-extender/loader.js?&mac=9WaMmhziBCkScHZwrrVcOR7VZF4=&browserId=other&languageId=cs_CZ&minifierType=js" type="text/javascript"></script><script data-senna-track="permanent" src="https://uzemniplanovani.gov.cz/combo?browserId=other&minifierType=js&languageId=cs_CZ&t=1787598601810&/o/frontend-js-aui-web/aui/aui/aui-min.js&/o/frontend-js-aui-web/liferay/modules.js&/o/frontend-js-aui-web/liferay/aui_sandbox.js&/o/frontend-js-aui-web/aui/attribute-base/attribute-base-min.js&/o/frontend-js-aui-web/aui/attribute-complex/attribute-complex-min.js&/o/frontend-js-aui-web/aui/attribute-core/attribute-core-min.js&/o/frontend-js-aui-web/aui/attribute-observable/attribute-observable-min.js&/o/frontend-js-aui-web/aui/attribute-extras/attribute-extras-min.js&/o/frontend-js-aui-web/aui/event-custom-base/event-custom-base-min.js&/o/frontend-js-aui-web/aui/event-custom-complex/event-custom-complex-min.js&/o/frontend-js-aui-web/aui/oop/oop-min.js&/o/frontend-js-aui-web/aui/aui-base-lang/aui-base-lang-min.js&/o/frontend-js-aui-web/liferay/dependency.js&/o/frontend-js-aui-web/liferay/util.js&/o/oauth2-provider-web/js/liferay.js&/o/frontend-js-web/liferay/dom_task_runner.js&/o/frontend-js-web/liferay/events.js&/o/frontend-js-web/liferay/lazy_load.js&/o/frontend-js-web/liferay/liferay.js&/o/frontend-js-web/liferay/global.bundle.js&/o/frontend-js-web/liferay/portlet.js&/o/frontend-js-web/liferay/workflow.js" type="text/javascript"></script>
+<script data-senna-track="temporary" type="text/javascript">window.Liferay = Liferay || {}; window.Liferay.OAuth2 = {getAuthorizeURL: function() {return 'https://uzemniplanovani.gov.cz/o/oauth2/authorize';}, getBuiltInRedirectURL: function() {return 'https://uzemniplanovani.gov.cz/o/oauth2/redirect';}, getIntrospectURL: function() { return 'https://uzemniplanovani.gov.cz/o/oauth2/introspect';}, getTokenURL: function() {return 'https://uzemniplanovani.gov.cz/o/oauth2/token';}, getUserAgentApplication: function(externalReferenceCode) {return Liferay.OAuth2._userAgentApplications[externalReferenceCode];}, _userAgentApplications: {"liferay-clarity-etc-spring-boot-oauth-application-user-agent":{"clientId":"id-6fb1bd4f-3ade-1f7c-2662-a7f84ae18","homePageURL":"http://localhost:58081","redirectURIs":["http://uzemniplanovani.gov.cz/o/oauth2/redirect"]},"liferay-customer-etc-spring-boot-oauth-application-user-agent":{"clientId":"id-aad354cb-d131-2cd0-9f8b-a0797a276d1","homePageURL":"http://localhost:58081","redirectURIs":["http://uzemniplanovani.gov.cz/o/oauth2/redirect"]}}}</script><script data-senna-track="temporary" type="text/javascript">try {var MODULE_MAIN='contacts-web@5.0.54/index';var MODULE_PATH='/o/contacts-web';AUI().applyConfig({groups:{contactscenter:{base:MODULE_PATH+"/js/",combine:Liferay.AUI.getCombine(),filter:Liferay.AUI.getFilterConfig(),modules:{"liferay-contacts-center":{path:"main.js",requires:["aui-io-plugin-deprecated","aui-toolbar","autocomplete-base","datasource-io","json-parse","liferay-portlet-base","liferay-util-window"]}},root:MODULE_PATH+"/js/"}}});
+} catch(error) {console.error(error);}try {var MODULE_MAIN='item-selector-taglib@6.0.4/index.es';var MODULE_PATH='/o/item-selector-taglib';AUI().applyConfig({groups:{"item-selector-taglib":{base:MODULE_PATH+"/",combine:Liferay.AUI.getCombine(),filter:Liferay.AUI.getFilterConfig(),modules:{"liferay-image-selector":{path:"image_selector/js/image_selector.js",requires:["aui-base","liferay-item-selector-dialog","liferay-portlet-base","uploader"]}},root:MODULE_PATH+"/"}}});
+} catch(error) {console.error(error);}try {var MODULE_MAIN='dynamic-data-mapping-web@5.0.96/index';var MODULE_PATH='/o/dynamic-data-mapping-web';!function(){const a=Liferay.AUI;AUI().applyConfig({groups:{ddm:{base:MODULE_PATH+"/js/",combine:Liferay.AUI.getCombine(),filter:a.getFilterConfig(),modules:{"liferay-ddm-form":{path:"ddm_form.js",requires:["aui-base","aui-datatable","aui-datatype","aui-image-viewer","aui-parse-content","aui-set","aui-sortable-list","json","liferay-form","liferay-map-base","liferay-translation-manager","liferay-util-window"]},"liferay-portlet-dynamic-data-mapping":{condition:{trigger:"liferay-document-library"},path:"main.js",requires:["arraysort","aui-form-builder-deprecated","aui-form-validator","aui-map","aui-text-unicode","json","liferay-menu","liferay-translation-manager","liferay-util-window","text"]},"liferay-portlet-dynamic-data-mapping-custom-fields":{condition:{trigger:"liferay-document-library"},path:"custom_fields.js",requires:["liferay-portlet-dynamic-data-mapping"]}},root:MODULE_PATH+"/js/"}}})}();
+} catch(error) {console.error(error);}try {var MODULE_MAIN='frontend-editor-alloyeditor-web@5.0.43/index';var MODULE_PATH='/o/frontend-editor-alloyeditor-web';AUI().applyConfig({groups:{alloyeditor:{base:MODULE_PATH+"/js/",combine:Liferay.AUI.getCombine(),filter:Liferay.AUI.getFilterConfig(),modules:{"liferay-alloy-editor":{path:"alloyeditor.js",requires:["aui-component","liferay-portlet-base","timers"]},"liferay-alloy-editor-source":{path:"alloyeditor_source.js",requires:["aui-debounce","liferay-fullscreen-source-editor","liferay-source-editor","plugin"]}},root:MODULE_PATH+"/js/"}}});
+} catch(error) {console.error(error);}try {var MODULE_MAIN='staging-processes-web@5.0.53/index';var MODULE_PATH='/o/staging-processes-web';AUI().applyConfig({groups:{stagingprocessesweb:{base:MODULE_PATH+"/",combine:Liferay.AUI.getCombine(),filter:Liferay.AUI.getFilterConfig(),modules:{"liferay-staging-processes-export-import":{path:"js/main.js",requires:["aui-datatype","aui-dialog-iframe-deprecated","aui-modal","aui-parse-content","aui-toggler","liferay-portlet-base","liferay-util-window"]}},root:MODULE_PATH+"/"}}});
+} catch(error) {console.error(error);}try {var MODULE_MAIN='calendar-web@5.0.84/index';var MODULE_PATH='/o/calendar-web';AUI().applyConfig({groups:{calendar:{base:MODULE_PATH+"/js/",combine:Liferay.AUI.getCombine(),filter:Liferay.AUI.getFilterConfig(),modules:{"liferay-calendar-a11y":{path:"calendar_a11y.js",requires:["calendar"]},"liferay-calendar-container":{path:"calendar_container.js",requires:["aui-alert","aui-base","aui-component","liferay-portlet-base"]},"liferay-calendar-date-picker-sanitizer":{path:"date_picker_sanitizer.js",requires:["aui-base"]},"liferay-calendar-interval-selector":{path:"interval_selector.js",requires:["aui-base","liferay-portlet-base"]},"liferay-calendar-interval-selector-scheduler-event-link":{path:"interval_selector_scheduler_event_link.js",requires:["aui-base","liferay-portlet-base"]},"liferay-calendar-list":{path:"calendar_list.js",requires:["aui-template-deprecated","liferay-scheduler"]},"liferay-calendar-message-util":{path:"message_util.js",requires:["liferay-util-window"]},"liferay-calendar-recurrence-converter":{path:"recurrence_converter.js",requires:[]},"liferay-calendar-recurrence-dialog":{path:"recurrence.js",requires:["aui-base","liferay-calendar-recurrence-util"]},"liferay-calendar-recurrence-util":{path:"recurrence_util.js",requires:["aui-base","liferay-util-window"]},"liferay-calendar-reminders":{path:"calendar_reminders.js",requires:["aui-base"]},"liferay-calendar-remote-services":{path:"remote_services.js",requires:["aui-base","aui-component","liferay-calendar-util","liferay-portlet-base"]},"liferay-calendar-session-listener":{path:"session_listener.js",requires:["aui-base","liferay-scheduler"]},"liferay-calendar-simple-color-picker":{path:"simple_color_picker.js",requires:["aui-base","aui-template-deprecated"]},"liferay-calendar-simple-menu":{path:"simple_menu.js",requires:["aui-base","aui-template-deprecated","event-outside","event-touch","widget-modality","widget-position","widget-position-align","widget-position-constrain","widget-stack","widget-stdmod"]},"liferay-calendar-util":{path:"calendar_util.js",requires:["aui-datatype","aui-io","aui-scheduler","aui-toolbar","autocomplete","autocomplete-highlighters"]},"liferay-scheduler":{path:"scheduler.js",requires:["async-queue","aui-datatype","aui-scheduler","dd-plugin","liferay-calendar-a11y","liferay-calendar-message-util","liferay-calendar-recurrence-converter","liferay-calendar-recurrence-util","liferay-calendar-util","liferay-scheduler-event-recorder","liferay-scheduler-models","promise","resize-plugin"]},"liferay-scheduler-event-recorder":{path:"scheduler_event_recorder.js",requires:["dd-plugin","liferay-calendar-util","resize-plugin"]},"liferay-scheduler-models":{path:"scheduler_models.js",requires:["aui-datatype","dd-plugin","liferay-calendar-util"]}},root:MODULE_PATH+"/js/"}}});
+} catch(error) {console.error(error);}try {var MODULE_MAIN='@liferay/document-library-web@6.0.172/document_library/js/index';var MODULE_PATH='/o/document-library-web';AUI().applyConfig({groups:{dl:{base:MODULE_PATH+"/document_library/js/legacy/",combine:Liferay.AUI.getCombine(),filter:Liferay.AUI.getFilterConfig(),modules:{"document-library-upload-component":{path:"DocumentLibraryUpload.js",requires:["aui-component","aui-data-set-deprecated","aui-overlay-manager-deprecated","aui-overlay-mask-deprecated","aui-parse-content","aui-progressbar","aui-template-deprecated","liferay-search-container","querystring-parse-simple","uploader"]}},root:MODULE_PATH+"/document_library/js/legacy/"}}});
+} catch(error) {console.error(error);}try {var MODULE_MAIN='@liferay/frontend-taglib@13.1.2/index';var MODULE_PATH='/o/frontend-taglib';AUI().applyConfig({groups:{"frontend-taglib":{base:MODULE_PATH+"/",combine:Liferay.AUI.getCombine(),filter:Liferay.AUI.getFilterConfig(),modules:{"liferay-management-bar":{path:"management_bar/js/management_bar.js",requires:["aui-component","liferay-portlet-base"]},"liferay-sidebar-panel":{path:"sidebar_panel/js/sidebar_panel.js",requires:["aui-base","aui-debounce","aui-parse-content","liferay-portlet-base"]}},root:MODULE_PATH+"/"}}});
+} catch(error) {console.error(error);}try {var MODULE_MAIN='@liferay/frontend-js-state-web@1.0.18/index';var MODULE_PATH='/o/frontend-js-state-web';AUI().applyConfig({groups:{state:{mainModule:MODULE_MAIN}}});
+} catch(error) {console.error(error);}try {var MODULE_MAIN='@liferay/frontend-js-react-web@5.0.34/index';var MODULE_PATH='/o/frontend-js-react-web';AUI().applyConfig({groups:{react:{mainModule:MODULE_MAIN}}});
+} catch(error) {console.error(error);}try {var MODULE_MAIN='frontend-js-components-web@2.0.59/index';var MODULE_PATH='/o/frontend-js-components-web';AUI().applyConfig({groups:{components:{mainModule:MODULE_MAIN}}});
+} catch(error) {console.error(error);}try {var MODULE_MAIN='portal-search-web@6.0.122/index';var MODULE_PATH='/o/portal-search-web';AUI().applyConfig({groups:{search:{base:MODULE_PATH+"/js/",combine:Liferay.AUI.getCombine(),filter:Liferay.AUI.getFilterConfig(),modules:{"liferay-search-custom-filter":{path:"custom_filter.js",requires:[]},"liferay-search-date-facet":{path:"date_facet.js",requires:["aui-form-validator","liferay-search-facet-util"]},"liferay-search-date-facet-configuration":{path:"date_facet_configuration.js",requires:["aui-node"]},"liferay-search-facet-util":{path:"facet_util.js",requires:[]},"liferay-search-modified-facet":{path:"modified_facet.js",requires:["aui-form-validator","liferay-search-facet-util"]},"liferay-search-modified-facet-configuration":{path:"modified_facet_configuration.js",requires:["aui-node"]},"liferay-search-sort-configuration":{path:"sort_configuration.js",requires:["aui-node"]},"liferay-search-sort-util":{path:"sort_util.js",requires:[]}},root:MODULE_PATH+"/js/"}}});
+} catch(error) {console.error(error);}try {var MODULE_MAIN='exportimport-web@5.0.81/index';var MODULE_PATH='/o/exportimport-web';AUI().applyConfig({groups:{exportimportweb:{base:MODULE_PATH+"/",combine:Liferay.AUI.getCombine(),filter:Liferay.AUI.getFilterConfig(),modules:{"liferay-export-import-export-import":{path:"js/main.js",requires:["aui-datatype","aui-dialog-iframe-deprecated","aui-modal","aui-parse-content","aui-toggler","liferay-portlet-base","liferay-util-window"]}},root:MODULE_PATH+"/"}}});
+} catch(error) {console.error(error);}</script>
+
+
+<script data-senna-track="temporary" type="text/javascript">
+	// <![CDATA[
+		
+			
+				
+		
+
+		
+
+		
+	// ]]>
+</script>
+
+
+
+
+
+	
+		
+
+			
+
+			
+		
+		
+
+
+
+	
+		
+
+			
+
+			
+		
+		
+
+
+
+	
+		
+
+			
+
+			
+		
+	
+
+
+
+
+
+
+
+
+
+
+
+
+	
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<link class="lfr-css-file" data-senna-track="temporary" href="https://uzemniplanovani.gov.cz/o/ngup-theme/css/main.css?browserId=other&amp;themeId=nguptheme_WAR_nguptheme&amp;minifierType=css&amp;languageId=cs_CZ&amp;t=1787599226000" id="liferayThemeCSS" rel="stylesheet" type="text/css" />
+
+
+
+
+	<style data-senna-track="temporary" type="text/css">
+		b, strong {
+font-weight: 600 !important;
+}
+	</style>
+
+
+
+
+
+	<style data-senna-track="temporary" type="text/css">
+
+		
+
+			
+
+		
+
+			
+
+		
+
+			
+
+		
+
+			
+
+		
+
+			
+
+		
+
+			
+
+				
+
+					
+
+#p_p_id_com_liferay_site_navigation_language_web_portlet_SiteNavigationLanguagePortlet_ .portlet-content {
+background-color: #3077B7;
+margin: 16px;
+padding: 16px
+}
+
+
+
+
+				
+
+			
+
+		
+
+			
+
+		
+
+			
+
+		
+
+			
+
+		
+
+			
+
+		
+
+			
+
+		
+
+			
+
+		
+
+			
+
+		
+
+			
+
+		
+
+	</style>
+
+
+<script data-senna-track="temporary">var Liferay = window.Liferay || {}; Liferay.CommerceContext = {"commerceAccountGroupIds":[],"accountEntryAllowedTypes":["person"],"commerceChannelId":"0","showUnselectableOptions":false,"currency":{"currencyId":"30552","currencyCode":"USD"},"showSeparateOrderItems":false,"commerceSiteType":0};</script><link href="/o/commerce-frontend-js/styles/main.css" rel="stylesheet" type="text/css" />
+<style data-senna-track="temporary" type="text/css">
+</style>
+<script>
+Liferay.Loader.require(
+'@liferay/frontend-js-state-web@1.0.18',
+function(FrontendJsState) {
+try {
+} catch (err) {
+	console.error(err);
+}
+});
+
+</script><script>
+Liferay.Loader.require(
+'frontend-js-spa-web@5.0.43/init',
+function(frontendJsSpaWebInit) {
+try {
+(function() {
+frontendJsSpaWebInit.default({"navigationExceptionSelectors":":not([target=\"_blank\"]):not([data-senna-off]):not([data-resource-href]):not([data-cke-saved-href]):not([data-cke-saved-href])","cacheExpirationTime":-1,"clearScreensCache":false,"portletsBlacklist":["com_liferay_nested_portlets_web_portlet_NestedPortletsPortlet","com_liferay_site_navigation_directory_web_portlet_SitesDirectoryPortlet","com_liferay_questions_web_internal_portlet_QuestionsPortlet","com_liferay_account_admin_web_internal_portlet_AccountUsersRegistrationPortlet","com_liferay_portal_language_override_web_internal_portlet_PLOPortlet","com_liferay_login_web_portlet_LoginPortlet","com_liferay_login_web_portlet_FastLoginPortlet"],"validStatusCodes":[221,490,494,499,491,492,493,495,220],"debugEnabled":false,"loginRedirect":"","excludedPaths":["/c/document_library","/documents","/image"],"userNotification":{"message":"It looks like this is taking longer than expected.","title":"Oops","timeout":30000},"requestTimeout":0})
+})();
+} catch (err) {
+	console.error(err);
+}
+});
+
+</script><link data-senna-track="temporary" href="/o/layout-common-styles/main.css?plid=6&segmentsExperienceId=32784&t=1748864014175" rel="stylesheet" type="text/css">
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<script data-senna-track="temporary" type="text/javascript">
+	if (window.Analytics) {
+		window._com_liferay_document_library_analytics_isViewFileEntry = false;
+	}
+</script>
+
+<script type="text/javascript">
+Liferay.on(
+	'ddmFieldBlur', function(event) {
+		if (window.Analytics) {
+			Analytics.send(
+				'fieldBlurred',
+				'Form',
+				{
+					fieldName: event.fieldName,
+					focusDuration: event.focusDuration,
+					formId: event.formId,
+					formPageTitle: event.formPageTitle,
+					page: event.page,
+					title: event.title
+				}
+			);
+		}
+	}
+);
+
+Liferay.on(
+	'ddmFieldFocus', function(event) {
+		if (window.Analytics) {
+			Analytics.send(
+				'fieldFocused',
+				'Form',
+				{
+					fieldName: event.fieldName,
+					formId: event.formId,
+					formPageTitle: event.formPageTitle,
+					page: event.page,
+					title:event.title
+				}
+			);
+		}
+	}
+);
+
+Liferay.on(
+	'ddmFormPageShow', function(event) {
+		if (window.Analytics) {
+			Analytics.send(
+				'pageViewed',
+				'Form',
+				{
+					formId: event.formId,
+					formPageTitle: event.formPageTitle,
+					page: event.page,
+					title: event.title
+				}
+			);
+		}
+	}
+);
+
+Liferay.on(
+	'ddmFormSubmit', function(event) {
+		if (window.Analytics) {
+			Analytics.send(
+				'formSubmitted',
+				'Form',
+				{
+					formId: event.formId,
+					title: event.title
+				}
+			);
+		}
+	}
+);
+
+Liferay.on(
+	'ddmFormView', function(event) {
+		if (window.Analytics) {
+			Analytics.send(
+				'formViewed',
+				'Form',
+				{
+					formId: event.formId,
+					title: event.title
+				}
+			);
+		}
+	}
+);
+
+</script><script>
+
+</script>
+
+	<script type="module" src="/o/ngup-theme/css/@gov-design-system-ce/components/dist/core/core.esm.js?v=1.6.63.1"></script>
+	<script nomodule src="/o/ngup-theme/css/@gov-design-system-ce/components/dist/core/core.js?v=1.6.63.1"></script>
+
+		<script src="/o/ngup-theme/angular-web-component/browser/main.js" type="module"></script>
+		<link rel="stylesheet" href="/o/ngup-theme/angular-web-component/browser/styles.css">
+
+
+	<script>
+		window.GOV_DS_CONFIG = {
+			iconsPath: "/o/ngup-theme/css/@gov-design-system-ce/icons/lib"
+		};
+		window.NGUP_CONFIG = {
+			sessionEndingThreshold: 120000,
+			sessionMonitorInterval: 5000
+		};
+	</script>
+<script>
+	window.pageGuestAccessible = true;
+
+	(function () {
+		async function updatePageGuestAccessible() {
+			try {
+				const response = await fetch(window.location.href, {
+					credentials: 'same-origin',
+					headers: {
+						Accept: 'text/html'
+					}
+				});
+
+				const html = await response.text();
+				const documentFragment = new DOMParser().parseFromString(html, 'text/html');
+				const valueElement = documentFragment.getElementById('ngup-page-guest-accessible-value');
+
+				if (!valueElement) {
+					return window.pageGuestAccessible;
+				}
+
+				const pageGuestAccessible = valueElement.textContent.trim() === 'true';
+
+				setPageGuestAccessible(pageGuestAccessible);
+
+				return pageGuestAccessible;
+			}
+			catch (error) {
+				console.error('Unable to check Guest VIEW permission for the current page.', error);
+
+				return window.pageGuestAccessible;
+			}
+		}
+
+		function setPageGuestAccessible(value) {
+			window.pageGuestAccessible = value;
+			window.dispatchEvent(new CustomEvent('pageGuestAccessibleChanged', {
+				detail: {
+					pageGuestAccessible: value
+				}
+			}));
+		}
+
+		window.updatePageGuestAccessible = updatePageGuestAccessible;
+
+		if (window.Liferay && Liferay.on) {
+			Liferay.on('endNavigate', function () {
+				setTimeout(updatePageGuestAccessible, 0);
+			});
+		}
+	})();
+</script>
+<script id="ngup-page-guest-accessible-value" type="application/json">true</script>
+	<script src="/o/ngup-theme/js/ngup-dialog.js?v=1.6.63.1"></script>
+	<script src="/o/ngup-theme/js/ngup-custom.js?v=1.6.63.1"></script>
+
+	<link rel="stylesheet" href="https://api.mapy.gov.cz/ngup-map/ngup-map.css?v=1.6.63.1">
+	<script src="https://api.mapy.gov.cz/ngup-map/ngup-map-bundle.js?v=1.6.63.1" type="module"></script>
+
+
+
+	<link href="/o/ngup-theme/css/tailwind.out.css?v=1.6.63.1" rel="stylesheet">
+</head>
+
+<body class="tw-bg-neutral-0 other controls-visible  yui3-skin-sam guest-site signed-out public-page site">
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+	<nav aria-label="Rychlý odkaz" class="bg-dark cadmin quick-access-nav text-center text-white" id="uzbb_quickAccessNav">
+		
+			
+				<a class="d-block p-2 sr-only sr-only-focusable text-reset" href="#main-content">
+		Skip to Main Content
+	</a>
+			
+			
+	</nav>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<div class="d-flex flex-column min-vh-100">
+
+	<div class="d-flex flex-column flex-fill position-relative" id="wrapper">
+			<header class="tw-bg-primary-600">
+				<div class="gov-container tw-flex tw-flex-col md:tw-gap-6 tw-py-4 md:tw-pb-0 md:tw-pt-6">
+					<div class="tw-flex tw-w-full tw-justify-between">
+						<!-- MOBILE MENU + DEKSTOP MENU: Container (closed) -->
+						<div class="tw-flex tw-w-full tw-flex-col tw-gap-6">
+							<!-- MOBILE MENU: Logo + (Hamburger Menu (closed)) -->
+							<div class="tw-flex tw-justify-between tw-items-center">
+								<!--MOBILE MENU: Logo -->
+								<a href="/" class="tw-no-underline">
+									<div class="tw-w-full tw-flex tw-items-center ">
+										<img src="/o/ngup-theme/img/lion-white.svg" width="54" alt="" />
+
+										<span class="tw-hidden tw-text-neutral-0 tw-text-headline-s tw-ml-3 md:tw-block">
+Národní geoportál územního plánování										</span>
+
+										<span class="tw-block tw-text-neutral-0 tw-text-headline-s tw-ml-3 md:tw-hidden">NGÚP</span>
+									</div>
+								</a>
+
+								<!-- MOBILE MENU: Hamburger Menu (closed) -->
+								<div
+										class="tw-flex tw-items-center tw-gap-2 tw-p-2 tw-rounded-md tw-bg-primary-600 tw-text-white hover:tw-bg-primary-700 hover:tw-cursor-pointer md:tw-hidden"
+										onclick="toggleMenu()">
+									<div class="tw-text-base tw-font-semibold tw-uppercase">Menu</div>
+
+									<div id="hamburger" class="tw-cursor-pointer tw-space-y-1.5">
+										<div class="tw-w-6 tw-h-0.5 tw-bg-white"></div>
+										<div class="tw-w-6 tw-h-0.5 tw-bg-white"></div>
+										<div class="tw-w-6 tw-h-0.5 tw-bg-white"></div>
+									</div>
+								</div>
+							</div>
+
+							<!-- MOBILE MENU: Search input -->
+						</div>
+
+						<!-- DESKTOP VERSION MENU: Buttons -->
+						<div class="tw-hidden tw-w-full tw-flex-row tw-items-center tw-justify-end tw-gap-2 md:tw-flex">
+							<!-- DESKTOP VERSION MENU: Search input -->
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+	
+
+	<div class="portlet-boundary portlet-boundary_sk_esmo_ngup_personal_bar_NGUPPersonalBarPortlet_  portlet-static portlet-static-end portlet-borderless portlet-user-personal-bar " id="p_p_id_sk_esmo_ngup_personal_bar_NGUPPersonalBarPortlet_">
+		<span id="p_sk_esmo_ngup_personal_bar_NGUPPersonalBarPortlet"></span>
+
+
+
+
+	
+
+	
+		
+			
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+	
+		<gov-button color="primary" type="solid" size="m" class="inversed tw-hidden md:tw-block" inverse="true" href="/c/portal/login">
+			PŘIHLÁŠENÍ
+		</gov-button>
+	
+
+
+		
+	
+
+
+
+
+
+
+
+	</div>
+
+
+
+
+
+
+
+						</div>
+					</div>
+
+	<div>
+		<nav class="tw-hidden md:tw-block">
+			<ul class="tw-flex tw-flex-row tw-mb-0 tw-pl-0">
+			<!-- main navigation -->
+
+
+
+						<li class="tw-border-t-white tw-flex tw-flex-1 tw-text-center tw-mb-0 border-left-0 border border-right-0 border-bottom-0 tw-border-primary-500 hover:tw-border-t-white">
+							<a class="tw-w-full tw-py-5 tw-no-underline "
+							   href="https://uzemniplanovani.gov.cz/uvod"
+									
+									aria-current='page'>
+                                    <span class="tw-text-neutral-0 tw-text-body-s tw-font-semibold tw-uppercase">Úvod</span>
+							</a>
+						</li>
+
+
+
+						<li class=" tw-flex tw-flex-1 tw-text-center tw-mb-0 border-left-0 border border-right-0 border-bottom-0 tw-border-primary-500 hover:tw-border-t-white">
+							<a class="tw-w-full tw-py-5 tw-no-underline "
+							   href="https://uzemniplanovani.gov.cz/informace-z-uzemniho-planovani"
+									
+									>
+                                    <span class="tw-text-neutral-0 tw-text-body-s tw-font-semibold tw-uppercase">Informace z územního plánování</span>
+							</a>
+						</li>
+
+
+
+						<li class=" tw-flex tw-flex-1 tw-text-center tw-mb-0 border-left-0 border border-right-0 border-bottom-0 tw-border-primary-500 hover:tw-border-t-white">
+							<a class="tw-w-full tw-py-5 tw-no-underline "
+							   href="https://uzemniplanovani.gov.cz/dulezite-odkazy"
+									
+									>
+                                    <span class="tw-text-neutral-0 tw-text-body-s tw-font-semibold tw-uppercase">Důležité odkazy</span>
+							</a>
+						</li>
+
+
+
+						<li class=" tw-flex tw-flex-1 tw-text-center tw-mb-0 border-left-0 border border-right-0 border-bottom-0 tw-border-primary-500 hover:tw-border-t-white">
+							<a class="tw-w-full tw-py-5 tw-no-underline tw-flex tw-justify-end tw-mx-4"
+							   href="https://uzemniplanovani.gov.cz/formulare"
+									
+									>
+																		<div class="tw-flex tw-items-center tw-gap-1">
+																				<gov-icon type="complex" name="doc-filled" slot="icon" class="tw-w-6 tw-text-white"></gov-icon>
+																				<span class="tw-text-neutral-0 tw-text-body-s tw-font-semibold tw-uppercase">Formuláře</span>
+																		</div>
+							</a>
+						</li>
+			</ul>
+		</nav>
+	</div>
+				</div>
+
+				<!-- FULL HEIGHT MOBILE MENU: Mobile menu container (opened) -->
+				<div
+						id="mobile-menu"
+						class="tw-hidden tw-fixed tw-inset-0 tw-bg-primary-600 tw-pt-4 tw-text-white tw-flex-col md:tw-hidden tw-z-50 ">
+
+					<!-- FULL HEIGHT MOBILE MENU: Logo + (Hamburger Menu (opened)) -->
+					<div class="tw-flex tw-justify-between tw-items-center tw-mb-10 tw-px-5">
+						<!-- FULL HEIGHT MOBILE MENU: Logo -->
+						<a href="/">
+							<div class="tw-w-full tw-flex tw-items-center">
+								<img src="/o/ngup-theme/img/lion-white.svg" width="54" alt="" />
+								<span class="tw-text-neutral-0 tw-text-headline-s tw-ml-3">NGÚP</span>
+							</div>
+						</a>
+
+						<!-- FULL HEIGHT MOBILE MENU: Hamburger menu -->
+						<div
+								class="tw-flex tw-justify-center tw-items-center tw-gap-2 tw-p-2 tw-rounded-md hover:tw-bg-primary-700 hover:tw-cursor-pointer"
+								onclick="toggleMenu()">
+							<div class="tw-text-base tw-font-semibold tw-uppercase">Menu</div>
+
+							<div id="hamburger-to-cross" class="tw-cursor-pointer tw-space-y-1.5 md:tw-hidden">
+								<div class="tw-w-6 tw-h-0.5 tw-bg-white"></div>
+								<div class="tw-w-6 tw-h-0.5 tw-bg-white"></div>
+								<div class="tw-w-6 tw-h-0.5 tw-bg-white"></div>
+							</div>
+						</div>
+					</div>
+
+					<div class=" tw-flex tw-flex-col tw-justify-between">
+	<div>
+
+		<nav id="mobile-main-menu-items" class="tw-px-3">
+			<ul class="tw-flex tw-flex-col tw-mb-0 tw-pl-0">
+
+
+						<li class="tw-flex tw-flex-1 tw-text-start tw-mb-0 tw-rounded-md tw-px-2 hover:tw-bg-primary-700">
+							<a class="tw-w-full tw-py-4 tw-no-underline"
+								href="https://uzemniplanovani.gov.cz/uvod"
+									
+									aria-current='page'
+							>
+								<span class="tw-text-neutral-0 tw-text-body-s tw-font-semibold tw-uppercase">Úvod</span>
+							</a>
+						</li>
+
+
+						<li class="tw-flex tw-flex-1 tw-text-start tw-mb-0 tw-rounded-md tw-px-2 hover:tw-bg-primary-700">
+							<a class="tw-w-full tw-py-4 tw-no-underline"
+								href="https://uzemniplanovani.gov.cz/informace-z-uzemniho-planovani"
+									
+									
+							>
+								<span class="tw-text-neutral-0 tw-text-body-s tw-font-semibold tw-uppercase">Informace z územního plánování</span>
+							</a>
+						</li>
+
+
+						<li class="tw-flex tw-flex-1 tw-text-start tw-mb-0 tw-rounded-md tw-px-2 hover:tw-bg-primary-700">
+							<a class="tw-w-full tw-py-4 tw-no-underline"
+								href="https://uzemniplanovani.gov.cz/dulezite-odkazy"
+									
+									
+							>
+								<span class="tw-text-neutral-0 tw-text-body-s tw-font-semibold tw-uppercase">Důležité odkazy</span>
+							</a>
+						</li>
+
+
+						<li class="tw-flex tw-flex-1 tw-text-start tw-mb-0 tw-rounded-md tw-px-2 hover:tw-bg-primary-700">
+							<a class="tw-w-full tw-py-4 tw-no-underline"
+								href="https://uzemniplanovani.gov.cz/formulare"
+									
+									
+							>
+								<span class="tw-text-neutral-0 tw-text-body-s tw-font-semibold tw-uppercase">Formuláře</span>
+							</a>
+						</li>
+			</ul>
+		</nav>
+	</div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+	
+
+	<div class="portlet-boundary portlet-boundary_ngup_MobilePersonalBarPortlet_  portlet-static portlet-static-end portlet-borderless portlet-user-personal-bar " id="p_p_id_ngup_MobilePersonalBarPortlet_">
+		<span id="p_ngup_MobilePersonalBarPortlet"></span>
+
+
+
+
+	
+
+	
+		
+			
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<div class="tw-flex tw-absolute tw-bottom-4 tw-w-full tw-flex-col tw-gap-2">
+	
+	<!-- FULL HEIGHT MOBILE MENU: Login button-->
+	<div id="mobile-log-in-button" class="tw-block tw-px-5">
+		<gov-button
+				color="primary"
+				type="solid"
+				size="l"
+				class="inversed"
+				inverse="true"
+				native-type="button"
+				expanded="true"
+				loading="false"
+				href="/c/portal/login">
+			PŘIHLÁŠENÍ
+		</gov-button>
+	</div>
+	
+</div>
+
+<script>
+	(() => {
+		const signOutButton = document.getElementById('ngup-mobile-sign-out-button');
+
+		if (!signOutButton) {
+			return;
+		}
+
+		signOutButton.addEventListener('gov-click', (event) => {
+			event.preventDefault();
+
+			const logoutUrl = signOutButton.getAttribute('href');
+			const channel = new BroadcastChannel('ngup');
+
+			channel.postMessage({ type: 'logout' });
+			channel.close();
+
+			window.location.href = logoutUrl;
+		});
+	})();
+</script>
+
+		
+	
+
+
+
+
+
+
+
+	</div>
+
+
+
+
+
+
+					</div>
+				</div>
+			</header>
+
+
+
+			<script>
+				setTimeout(() => {
+						const loggedInUserButton = document.querySelector('#logged-in-user-button .element');
+						const loggedInUserMenuItems = document.querySelector('#logged-in-user-menu-items');
+						const loggedInUserMenuBack = document.querySelector('#logged-in-user-menu-back');
+
+						const mobileMainMenuItems = document.querySelector('#mobile-main-menu-items');
+						const mobileLoggedInUserButton = document.querySelector('#mobile-logged-in-user-button');
+						const mobileLoggedInUserAisButton = document.querySelector('#mobile-logged-in-user-ais-button');
+						const mobileLoggedInUserLogOutButton = document.querySelector('#mobile-logged-in-user-log-out-button');
+						const mobileLoginButton = document.querySelector('#mobile-log-in-button');
+
+						if (loggedInUserButton) {
+							loggedInUserButton.addEventListener('click', () => {
+								loggedInUserMenuItems.classList.remove('tw-hidden');
+								mobileMainMenuItems.classList.add('tw-hidden');
+								mobileLoggedInUserButton.classList.add('tw-hidden');
+								mobileLoggedInUserAisButton.classList.remove('tw-hidden');
+								mobileLoggedInUserLogOutButton.classList.remove('tw-hidden');
+							});
+						}
+
+						// Chevron left logged in user back menu button
+						if (loggedInUserMenuBack) {
+							// i want to show old mobileMainMenuItems
+							// logged in user buttton
+							loggedInUserMenuBack.addEventListener('click', () => {
+								loggedInUserMenuItems.classList.add('tw-hidden');
+								mobileMainMenuItems.classList.remove('tw-hidden');
+								mobileLoggedInUserButton.classList.remove('tw-hidden');
+								mobileLoggedInUserAisButton.classList.add('tw-hidden');
+								mobileLoggedInUserLogOutButton.classList.add('tw-hidden');
+							});
+						}
+					}, 500);
+
+				function toggleMenu() {
+					const menu = document.getElementById('mobile-menu');
+					const hamburger = document.getElementById('hamburger-to-cross');
+
+					// Toggle visibility of the menu
+					menu.classList.toggle('tw-hidden');
+
+					// Change the hamburger icon to a cross when the menu is open
+					if (!menu.classList.contains('tw-hidden')) {
+						hamburger.innerHTML = `
+	<svg class="tw-h-6 tw-w-6 text-slate-700" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">  <path stroke="none" d="M0 0h24v24H0z"></path>  <line x1="18" y1="6" x2="6" y2="18"></line>  <line x1="6" y1="6" x2="18" y2="18"></line></svg>
+  `;
+						document.body.classList.add('tw-overflow-hidden');
+					} else {
+						hamburger.innerHTML = `
+	<div class="tw-w-6 tw-h-0.5 tw-bg-white"></div>
+	<div class="tw-w-6 tw-h-0.5 tw-bg-white"></div>
+	<div class="tw-w-6 tw-h-0.5 tw-bg-white"></div>
+  `;
+						document.body.classList.remove('tw-overflow-hidden');
+					}
+				}
+			</script>
+
+
+		<section class="flex-fill" id="content">
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+	
+
+		
+
+		
+			
+
+				
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+	<link data-senna-track="temporary" href="/o/layout-common-styles/main.css?plid=32&segmentsExperienceId=33146&t=1721921637555" rel="stylesheet" type="text/css" />
+
+	
+
+		
+
+		
+
+		<div class="lfr-layout-structure-item-4578c6e8-e9da-a3ec-1438-ef50892f0d33 lfr-layout-structure-item-row " style="">
+ <div class="container-fluid p-0">
+  <div class="row align-items-lg-center align-items-sm-center align-items-center align-items-md-center flex-lg-row flex-sm-row flex-row flex-md-row">
+   <div class="col col-lg-6 col-sm-12 col-12 col-md-6 d-flex flex-column">
+    <div class="lfr-layout-structure-item-basic-component-html lfr-layout-structure-item-1f0a12dd-8c5a-5a37-bb1a-71b32527daa4 " style="">
+     <div id="fragment-ecfbab4a-c541-4929-a5a3-8e25cd29a276">
+      <div class="component-html" data-lfr-editable-id="element-html" data-lfr-editable-type="html">
+       <div class="mb-5 tw-max-w-">
+        <h1 class="h2 tw-font-light">Stránka nebyla nalezena</h1>
+        <p class="mb-0">Mrzí nás to, ale stránka, kterou hledáte, není k&nbsp;nalezení. Buď už neexistuje, nebo byla přesunuta. Zkuste se podívat na hlavní stranu.</p>
+       </div> <gov-button variant="primary" type="outlined" size="m" href="/">
+        Přejít na úvod
+       </gov-button>
+      </div>
+     </div>
+     <style>.component-html img {
+	max-width: 100%;
+}</style>
+    </div>
+   </div>
+   <div class="col col-lg-6 col-sm-12 col-12 col-md-6 d-flex flex-column">
+    <div class="lfr-layout-structure-item-basic-component-html lfr-layout-structure-item-50152a43-060b-b270-8a3d-9d7614794d57 " style="">
+     <div id="fragment-a9c2e0c2-3e4c-cd95-5e40-951533c61f5b">
+      <div class="component-html" data-lfr-editable-id="element-html" data-lfr-editable-type="html">
+       <img src="/o/ngup-theme/img/lion.svg" width="100%" class="tw-grayscale">
+      </div>
+     </div>
+    </div>
+   </div>
+  </div>
+ </div>
+</div>
+
+	
+
+
+
+			
+			
+	
+			</section>
+	</div>
+
+
+<footer class="tw-bg-neutral-900 tw-pt-16 tw-pb-8">
+
+    <div class="gov-container tw-flex tw-justify-between tw-flex-col md:tw-flex-row">
+        <!-- kontakty -->
+        <div class="tw-hidden tw-flex-col tw-mb-8 md:tw-mb-0 md:tw-flex">
+            <span class="tw-text-neutral-300 tw-text-sm tw-mb-6">Kontakty</span>
+
+            <div class="tw-flex tw-flex-col tw-gap-6 tw-max-w-52">
+                <span class="tw-text-neutral-0 tw-text-sm"> Ministerstvo pro místní rozvoj Staroměstské náměstí 6 110 00 Praha 1 </span>
+                <span class="tw-text-neutral-0 tw-text-sm"
+                >tel.: +420 224 861 111 (ústředna)</span
+                >
+                <span class="tw-text-neutral-0 tw-text-sm"
+                >tel.: +420 256 256 313 (uživatelská podpora)</span
+                >
+                <span class="tw-text-neutral-0 tw-text-sm"
+                ><a href="mailto:podpora@uzemniplanovani.gov.cz" class="tw-text-neutral-0"
+                    >podpora@uzemniplanovani.gov.cz</a
+                    ></span
+                >
+                <span class="tw-text-neutral-0 tw-text-sm">ID datové schránky územního plánování: ycuhgaa</span>
+            </div>
+        </div>
+
+        <!-- mobile footer - kontakty -->
+        <gov-accordion-item
+                class="footer-accordion-item tw-block md:tw-hidden"
+                is-expanded="true"
+                variant="secondary"
+                size="xs">
+            <span slot="label" class="tw-text-neutral-300 tw-text-sm">Kontakty</span>
+            
+            <div class="tw-mb-6 tw-flex tw-flex-col tw-gap-6 tw-max-w-52">
+                <span class="tw-text-neutral-0 tw-text-sm"> Ministerstvo pro místní rozvoj Staroměstské náměstí 6 110 00 Praha 1 </span>
+                <span class="tw-text-neutral-0 tw-text-sm"
+                >tel.: +420 224 861 111 (ústředna)</span
+                >
+                <span class="tw-text-neutral-0 tw-text-sm"
+                >tel.: +420 256 256 313 (uživatelská podpora)</span
+                >
+                <span class="tw-text-neutral-0 tw-text-sm"
+                ><a href="mailto:podpora@uzemniplanovani.gov.cz" class="tw-text-neutral-0"
+                    >podpora@uzemniplanovani.gov.cz</a
+                    ></span
+                >
+                <span class="tw-text-neutral-0 tw-text-sm">ID datové schránky územního plánování: ycuhgaa</span>
+            </div>
+        </gov-accordion-item>
+
+        <!-- navigace -->
+        <div class="tw-hidden tw-flex-col tw-mb-8 md:tw-mb-0 md:tw-flex">
+            <span class="tw-text-neutral-300 tw-text-sm tw-mb-6">Navigace</span>
+            <div class="tw-flex tw-flex-col tw-gap-3 tw-max-w-56">
+                <a
+                        href="/home"
+                        class="tw-text-neutral-0 tw-font-semibold tw-no-underline tw-text-xs tw-uppercase hover:tw-underline">
+Úvod                </a>
+                <a
+                        href="/informace-z-uzemniho-planovani"
+                        class="tw-text-neutral-0 tw-font-semibold tw-no-underline tw-text-xs tw-uppercase hover:tw-underline">
+Informace z územního plánování                </a>
+                <a
+                        href="https://gov.cz/sluzby-verejne-spravy/"
+                        target="_blank"
+                        class="tw-text-neutral-0 tw-font-semibold tw-no-underline tw-text-xs tw-uppercase hover:tw-underline">
+Služby veřejné správy                </a>
+                <a
+                        href="/dulezite-odkazy"
+                        class="tw-text-neutral-0 tw-font-semibold tw-no-underline tw-text-xs tw-uppercase hover:tw-underline">
+Důležité odkazy                </a>
+            </div>
+        </div>
+
+        <!-- mobile footer - navigace -->
+        <gov-accordion-item class="footer-accordion-item tw-block md:tw-hidden" variant="secondary" size="xs">
+            <span slot="label" class="tw-text-neutral-300 tw-text-sm">Navigace</span>
+            <div class="tw-mb-6 tw-flex tw-flex-col tw-gap-3 tw-max-w-56">
+                <a
+                        href="/home"
+                        class="tw-text-neutral-0 tw-font-semibold tw-no-underline tw-text-xs tw-uppercase hover:tw-underline">
+Úvod                </a>
+                <a
+                        href="/informace-z-uzemniho-planovani"
+                        class="tw-text-neutral-0 tw-font-semibold tw-no-underline tw-text-xs tw-uppercase hover:tw-underline">
+Informace z územního plánování                </a>
+                <a
+                        href="https://gov.cz/sluzby-verejne-spravy/"
+                        target="_blank"
+                        class="tw-text-neutral-0 tw-font-semibold tw-no-underline tw-text-xs tw-uppercase hover:tw-underline">
+Služby veřejné správy                </a>
+                <a
+                        href="/dulezite-odkazy"
+                        class="tw-text-neutral-0 tw-font-semibold tw-no-underline tw-text-xs tw-uppercase hover:tw-underline">
+Důležité odkazy                </a>
+            </div>
+        </gov-accordion-item>
+
+        <!-- odkazy -->
+        <div class="tw-hidden tw-flex-col tw-mb-8 md:tw-mb-0 md:tw-flex">
+            <span class="tw-text-neutral-300 tw-text-sm tw-mb-6">Odkazy</span>
+            <div class="tw-flex tw-flex-col tw-gap-3">
+                <a
+                        href="/"
+                        class="tw-text-neutral-0 tw-font-semibold tw-no-underline tw-text-xs tw-uppercase hover:tw-underline">
+Novinky                </a>
+                <a
+                        href="/zpracovani-osobnich-udaju"
+                        class="tw-text-neutral-0 tw-font-semibold tw-no-underline tw-text-xs tw-uppercase hover:tw-underline">
+Zpracování osobních údajů                </a>
+                <a
+                        href="/prohlaseni-o-pristupnosti"
+                        class="tw-text-neutral-0 tw-font-semibold tw-no-underline tw-text-xs tw-uppercase hover:tw-underline">
+Prohlášení o přístupnosti                </a>
+                <a
+                        href="/mapa-webu"
+                        class="tw-text-neutral-0 tw-font-semibold tw-no-underline tw-text-xs tw-uppercase hover:tw-underline">
+Mapa webu                </a>
+            </div>
+        </div>
+
+        <!-- mobile footer - odkazy -->
+        <gov-accordion-item class="footer-accordion-item tw-block md:tw-hidden" variant="secondary" size="xs">
+            <span slot="label" class="tw-text-neutral-300 tw-text-sm">Odkazy</span>
+            <div class="tw-mb-6 tw-flex tw-flex-col tw-gap-3">
+                <a
+                        href="/"
+                        class="tw-text-neutral-0 tw-font-semibold tw-no-underline tw-text-xs tw-uppercase hover:tw-underline">
+Novinky                </a>
+                <a
+                        href="/zpracovani-osobnich-udaju"
+                        class="tw-text-neutral-0 tw-font-semibold tw-no-underline tw-text-xs tw-uppercase hover:tw-underline">
+Zpracování osobních údajů                </a>
+                <a
+                        href="/prohlaseni-o-pristupnosti"
+                        class="tw-text-neutral-0 tw-font-semibold tw-no-underline tw-text-xs tw-uppercase hover:tw-underline">
+Prohlášení o přístupnosti                </a>
+                <a
+                        href="/mapa-webu"
+                        class="tw-text-neutral-0 tw-font-semibold tw-no-underline tw-text-xs tw-uppercase hover:tw-underline">
+Mapa webu                </a>
+            </div>
+        </gov-accordion-item>
+
+        <!-- sledujte cesky government -->
+        <div class="tw-flex tw-flex-row tw-justify-between tw-items-center md:tw-flex-col">
+            <!-- text -->
+            <div class="tw-flex tw-flex-col">
+        <span class="tw-text-neutral-300 tw-text-sm tw-mb-6"
+        >Sledujte český eGovernment</span
+        >
+                <a
+                        href="https://portal.gov.cz/"
+                        target="_blank"
+                        class="tw-text-neutral-0 tw-font-semibold tw-no-underline tw-text-xs tw-uppercase hover:tw-underline">
+                    www.gov.cz
+                </a>
+            </div>
+
+            <!-- img -->
+            <img
+                    src="/o/ngup-theme/img/lion.svg"
+                    width="140"
+                    alt=""
+                    class="tw-block tw-grayscale tw-scale-120 tw-mt-4 md:tw-hidden" />
+            <img
+                    src="/o/ngup-theme/img/lion.svg"
+                    width="250"
+                    alt=""
+                    class="tw-hidden tw-grayscale tw-scale-120 tw-mt-4 md:tw-block" />
+        </div>
+    </div>
+
+    <!-- sponzori logos -->
+    <div class="gov-container">
+        <div class="tw-flex tw-flex-row tw-my-8 md:tw-my-16 md:tw-gap-6 md:tw-items-center">
+            <a href="https://next-generation-eu.europa.eu/index_cs" target="_blank">
+                <img
+                        src="/o/ngup-theme/img/cs-financovano-evropskou-unii_WHITE.png"
+                        alt="Financováno Evropskou unií – NextGenerationEU"
+                        class="tw-w-36 tw-opacity-75 md:tw-w-56 hover:tw-opacity-100" />
+            </a>
+            <a href="https://www.planobnovycr.cz/" target="_blank">
+                <img src="/o/ngup-theme/img/npo_logo-white.png" alt="Národní plán obnovy" class="tw-w-36 tw-opacity-75 md:tw-w-56 hover:tw-opacity-100" />
+            </a>
+        </div>
+
+        <!-- copyright & version text -->
+        <div class="tw-flex tw-justify-between tw-w-full">
+            <span class="tw-text-neutral-300 tw-text-sm"> 2024-2026 © Ministerstvo pro místní rozvoj ČR </span>
+            <span class="tw-text-neutral-300 tw-text-sm"> Verze: 1.6.63.1 </span>
+        </div>
+    </div>
+
+    <!-- back to top button -->
+    <button
+            id="back-to-top"
+            class="tw-hidden tw-fixed tw-right-4 tw-bottom-4  tw-w-10 tw-h-10  tw-bg-primary-600 tw-rounded-lg tw-justify-center tw-items-center z-[1] tw-outline-none tw-border-0 tw-shadow-none hover:tw-bg-primary-800 md:tw-w-12 md:tw-h-12 md:tw-right-9 md:tw-bottom-9"
+            aria-label="Zpět na začátek stránky">
+        <svg width="16" height="26" viewBox="0 0 16 26" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path
+                    d="M7.56937 0.817297C7.43668 0.872197 7.31237 0.953577 7.2045 1.06144L1.2045 7.06144C0.765165 7.50078 0.765165 8.21309 1.2045 8.65243C1.64384 9.09177 2.35616 9.09177 2.7955 8.65243L6.875 4.57292V24.1427C6.875 24.764 7.37868 25.2677 8 25.2677C8.62132 25.2677 9.125 24.764 9.125 24.1427V4.57292L13.2045 8.65243C13.6438 9.09177 14.3562 9.09177 14.7955 8.65243C15.2348 8.21309 15.2348 7.50078 14.7955 7.06144L8.7955 1.06144C8.57583 0.841769 8.28791 0.731934 8 0.731934C7.84746 0.731934 7.70201 0.762292 7.56937 0.817297Z"
+                    fill="white"></path>
+        </svg>
+    </button>
+
+    <script src="/o/ngup-theme/js/back-to-top.js"></script>
+</footer>
+
+</div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+	
+
+
+
+
+
+
+
+
+
+	
+
+
+
+
+
+
+
+
+
+<script type="text/javascript">
+
+	
+		
+
+			
+
+			
+		
+	
+
+
+</script><script>
+
+</script>
+
+
+
+
+
+
+
+
+
+
+
+<script type="text/javascript">
+	// <![CDATA[
+
+		
+
+		Liferay.currentURL = '\x2farcgis\x2frest\x2fservices\x3ff\x3djson';
+		Liferay.currentURLEncoded = '\x252Farcgis\x252Frest\x252Fservices\x253Ff\x253Djson';
+
+	// ]]>
+</script>
+
+
+
+	
+
+	
+
+	<script type="text/javascript">
+		// <![CDATA[
+			
+				
+
+				
+
+				
+			
+		// ]]>
+	</script>
+
+
+
+
+
+
+
+
+
+
+
+
+
+	
+
+
+<script type="text/javascript">
+(function() {var $ = AUI.$;var _ = AUI._;
+	var onShare = function (data) {
+		if (window.Analytics) {
+			Analytics.send('shared', 'SocialBookmarks', {
+				className: data.className,
+				classPK: data.classPK,
+				type: data.type,
+				url: data.url,
+			});
+		}
+	};
+
+	var onDestroyPortlet = function () {
+		Liferay.detach('socialBookmarks:share', onShare);
+		Liferay.detach('destroyPortlet', onDestroyPortlet);
+	};
+
+	Liferay.on('socialBookmarks:share', onShare);
+	Liferay.on('destroyPortlet', onDestroyPortlet);
+})();
+(function() {var $ = AUI.$;var _ = AUI._;
+	var onVote = function (event) {
+		if (window.Analytics) {
+			let title = event.contentTitle;
+
+			if (!title) {
+				const dmNode = document.querySelector(
+					'[data-analytics-file-entry-id="' + event.classPK + '"]'
+				);
+
+				if (dmNode) {
+					title = dmNode.dataset.analyticsFileEntryTitle;
+				}
+			}
+
+			Analytics.send('VOTE', 'Ratings', {
+				className: event.className,
+				classPK: event.classPK,
+				ratingType: event.ratingType,
+				score: event.score,
+				title,
+			});
+		}
+	};
+
+	var onDestroyPortlet = function () {
+		Liferay.detach('ratings:vote', onVote);
+		Liferay.detach('destroyPortlet', onDestroyPortlet);
+	};
+
+	Liferay.on('ratings:vote', onVote);
+	Liferay.on('destroyPortlet', onDestroyPortlet);
+})();
+(function() {var $ = AUI.$;var _ = AUI._;
+	var onDestroyPortlet = function () {
+		Liferay.detach('messagePosted', onMessagePosted);
+		Liferay.detach('destroyPortlet', onDestroyPortlet);
+	};
+
+	Liferay.on('destroyPortlet', onDestroyPortlet);
+
+	var onMessagePosted = function (event) {
+		if (window.Analytics) {
+			const eventProperties = {
+				className: event.className,
+				classPK: event.classPK,
+				commentId: event.commentId,
+				text: event.text,
+			};
+
+			const blogNode = document.querySelector(
+				'[data-analytics-asset-id="' + event.classPK + '"]'
+			);
+
+			const dmNode = document.querySelector(
+				'[data-analytics-file-entry-id="' + event.classPK + '"]'
+			);
+
+			if (blogNode) {
+				eventProperties.title = blogNode.dataset.analyticsAssetTitle;
+			}
+			else if (dmNode) {
+				eventProperties.title = dmNode.dataset.analyticsFileEntryTitle;
+			}
+
+			Analytics.send('posted', 'Comment', eventProperties);
+		}
+	};
+
+	Liferay.on('messagePosted', onMessagePosted);
+})();
+
+	function getValueByAttribute(node, attr) {
+		return (
+			node.dataset[attr] ||
+			(node.parentElement && node.parentElement.dataset[attr])
+		);
+	}
+
+	function sendAnalyticsEvent(anchor) {
+		var fileEntryId = getValueByAttribute(anchor, 'analyticsFileEntryId');
+		var title = getValueByAttribute(anchor, 'analyticsFileEntryTitle');
+		var version = getValueByAttribute(anchor, 'analyticsFileEntryVersion');
+
+		if (fileEntryId) {
+			Analytics.send('documentDownloaded', 'Document', {
+				groupId: themeDisplay.getScopeGroupId(),
+				fileEntryId,
+				preview: !!window._com_liferay_document_library_analytics_isViewFileEntry,
+				title,
+				version,
+			});
+		}
+	}
+
+	function handleDownloadClick(event) {
+		if (window.Analytics) {
+			if (event.target.nodeName.toLowerCase() === 'a') {
+				sendAnalyticsEvent(event.target);
+			}
+			else if (
+				event.target.parentNode &&
+				event.target.parentNode.nodeName.toLowerCase() === 'a'
+			) {
+				sendAnalyticsEvent(event.target.parentNode);
+			}
+			else {
+				var target = event.target;
+				var matchTitle =
+					target.title && target.title.toLowerCase() === 'download';
+				var matchAction = target.action === 'download';
+				var matchLexiconIcon = !!target.querySelector(
+					'.lexicon-icon-download'
+				);
+				var matchLexiconClassName = target.classList.contains(
+					'lexicon-icon-download'
+				);
+				var matchParentTitle =
+					target.parentNode &&
+					target.parentNode.title &&
+					target.parentNode.title.toLowerCase() === 'download';
+				var matchParentLexiconClassName =
+					target.parentNode &&
+					target.parentNode.classList.contains('lexicon-icon-download');
+
+				if (
+					matchTitle ||
+					matchParentTitle ||
+					matchAction ||
+					matchLexiconIcon ||
+					matchLexiconClassName ||
+					matchParentLexiconClassName
+				) {
+					var selectedFiles = document.querySelectorAll(
+						'.form .custom-control-input:checked'
+					);
+
+					selectedFiles.forEach(({value}) => {
+						var selectedFile = document.querySelector(
+							'[data-analytics-file-entry-id="' + value + '"]'
+						);
+
+						sendAnalyticsEvent(selectedFile);
+					});
+				}
+			}
+		}
+	}
+
+	Liferay.once('destroyPortlet', () => {
+		document.body.removeEventListener('click', handleDownloadClick);
+	});
+
+	Liferay.once('portletReady', () => {
+		document.body.addEventListener('click', handleDownloadClick);
+	});
+
+
+	if (window.svg4everybody && Liferay.Data.ICONS_INLINE_SVG) {
+		svg4everybody(
+			{
+				polyfill: true,
+				validate: function (src, svg, use) {
+					return !src || !src.startsWith('#');
+				}
+			}
+		);
+	}
+
+
+	
+		Liferay.Portlet.register('sk_esmo_ngup_portlet_faq_FAQPortlet_INSTANCE_wjce');
+	
+
+	Liferay.Portlet.onLoad(
+		{
+			canEditTitle: false,
+			columnPos: 0,
+			isStatic: 'end',
+			namespacedId: 'p_p_id_sk_esmo_ngup_portlet_faq_FAQPortlet_INSTANCE_wjce_',
+			portletId: 'sk_esmo_ngup_portlet_faq_FAQPortlet_INSTANCE_wjce',
+			refreshURL: '\x2fc\x2fportal\x2frender_portlet\x3fp_l_id\x3d6\x26p_p_id\x3dsk_esmo_ngup_portlet_faq_FAQPortlet_INSTANCE_wjce\x26p_p_lifecycle\x3d0\x26p_t_lifecycle\x3d0\x26p_p_state\x3dnormal\x26p_p_mode\x3dview\x26p_p_col_id\x3dnull\x26p_p_col_pos\x3dnull\x26p_p_col_count\x3dnull\x26p_p_static\x3d1\x26p_p_isolated\x3d1\x26currentURL\x3d\x252Farcgis\x252Frest\x252Fservices\x253Ff\x253Djson',
+			refreshURLData: {}
+		}
+	);
+
+
+	
+		Liferay.Portlet.register('sk_esmo_ngup_portlet_news_NewsPortlet_INSTANCE_eymr');
+	
+
+	Liferay.Portlet.onLoad(
+		{
+			canEditTitle: false,
+			columnPos: 0,
+			isStatic: 'end',
+			namespacedId: 'p_p_id_sk_esmo_ngup_portlet_news_NewsPortlet_INSTANCE_eymr_',
+			portletId: 'sk_esmo_ngup_portlet_news_NewsPortlet_INSTANCE_eymr',
+			refreshURL: '\x2fc\x2fportal\x2frender_portlet\x3fp_l_id\x3d6\x26p_p_id\x3dsk_esmo_ngup_portlet_news_NewsPortlet_INSTANCE_eymr\x26p_p_lifecycle\x3d0\x26p_t_lifecycle\x3d0\x26p_p_state\x3dnormal\x26p_p_mode\x3dview\x26p_p_col_id\x3dnull\x26p_p_col_pos\x3dnull\x26p_p_col_count\x3dnull\x26p_p_static\x3d1\x26p_p_isolated\x3d1\x26currentURL\x3d\x252Farcgis\x252Frest\x252Fservices\x253Ff\x253Djson',
+			refreshURLData: {}
+		}
+	);
+
+
+	
+		Liferay.Portlet.register('ngup_MobilePersonalBarPortlet');
+	
+
+	Liferay.Portlet.onLoad(
+		{
+			canEditTitle: false,
+			columnPos: 0,
+			isStatic: 'end',
+			namespacedId: 'p_p_id_ngup_MobilePersonalBarPortlet_',
+			portletId: 'ngup_MobilePersonalBarPortlet',
+			refreshURL: '\x2fc\x2fportal\x2frender_portlet\x3fp_l_id\x3d6\x26p_p_id\x3dngup_MobilePersonalBarPortlet\x26p_p_lifecycle\x3d0\x26p_t_lifecycle\x3d0\x26p_p_state\x3dnormal\x26p_p_mode\x3dview\x26p_p_col_id\x3dnull\x26p_p_col_pos\x3dnull\x26p_p_col_count\x3dnull\x26p_p_static\x3d1\x26p_p_isolated\x3d1\x26currentURL\x3d\x252Farcgis\x252Frest\x252Fservices\x253Ff\x253Djson',
+			refreshURLData: {}
+		}
+	);
+
+
+	
+		Liferay.Portlet.register('sk_esmo_ngup_personal_bar_NGUPPersonalBarPortlet');
+	
+
+	Liferay.Portlet.onLoad(
+		{
+			canEditTitle: false,
+			columnPos: 0,
+			isStatic: 'end',
+			namespacedId: 'p_p_id_sk_esmo_ngup_personal_bar_NGUPPersonalBarPortlet_',
+			portletId: 'sk_esmo_ngup_personal_bar_NGUPPersonalBarPortlet',
+			refreshURL: '\x2fc\x2fportal\x2frender_portlet\x3fp_l_id\x3d6\x26p_p_id\x3dsk_esmo_ngup_personal_bar_NGUPPersonalBarPortlet\x26p_p_lifecycle\x3d0\x26p_t_lifecycle\x3d0\x26p_p_state\x3dnormal\x26p_p_mode\x3dview\x26p_p_col_id\x3dnull\x26p_p_col_pos\x3dnull\x26p_p_col_count\x3dnull\x26p_p_static\x3d1\x26p_p_isolated\x3d1\x26currentURL\x3d\x252Farcgis\x252Frest\x252Fservices\x253Ff\x253Djson',
+			refreshURLData: {}
+		}
+	);
+
+
+	
+		Liferay.Portlet.register('sk_esmo_ngup_portlet_hero_HeroPortlet_INSTANCE_zfds');
+	
+
+	Liferay.Portlet.onLoad(
+		{
+			canEditTitle: false,
+			columnPos: 0,
+			isStatic: 'end',
+			namespacedId: 'p_p_id_sk_esmo_ngup_portlet_hero_HeroPortlet_INSTANCE_zfds_',
+			portletId: 'sk_esmo_ngup_portlet_hero_HeroPortlet_INSTANCE_zfds',
+			refreshURL: '\x2fc\x2fportal\x2frender_portlet\x3fp_l_id\x3d6\x26p_p_id\x3dsk_esmo_ngup_portlet_hero_HeroPortlet_INSTANCE_zfds\x26p_p_lifecycle\x3d0\x26p_t_lifecycle\x3d0\x26p_p_state\x3dnormal\x26p_p_mode\x3dview\x26p_p_col_id\x3dnull\x26p_p_col_pos\x3dnull\x26p_p_col_count\x3dnull\x26p_p_static\x3d1\x26p_p_isolated\x3d1\x26currentURL\x3d\x252Farcgis\x252Frest\x252Fservices\x253Ff\x253Djson',
+			refreshURLData: {}
+		}
+	);
+
+
+	
+		Liferay.Portlet.register('sk_esmo_ngup_tiles_portlet_TilesPortlet_INSTANCE_lupb');
+	
+
+	Liferay.Portlet.onLoad(
+		{
+			canEditTitle: false,
+			columnPos: 0,
+			isStatic: 'end',
+			namespacedId: 'p_p_id_sk_esmo_ngup_tiles_portlet_TilesPortlet_INSTANCE_lupb_',
+			portletId: 'sk_esmo_ngup_tiles_portlet_TilesPortlet_INSTANCE_lupb',
+			refreshURL: '\x2fc\x2fportal\x2frender_portlet\x3fp_l_id\x3d6\x26p_p_id\x3dsk_esmo_ngup_tiles_portlet_TilesPortlet_INSTANCE_lupb\x26p_p_lifecycle\x3d0\x26p_t_lifecycle\x3d0\x26p_p_state\x3dnormal\x26p_p_mode\x3dview\x26p_p_col_id\x3dnull\x26p_p_col_pos\x3dnull\x26p_p_col_count\x3dnull\x26p_p_static\x3d1\x26p_p_isolated\x3d1\x26currentURL\x3d\x252Farcgis\x252Frest\x252Fservices\x253Ff\x253Djson',
+			refreshURLData: {}
+		}
+	);
+
+
+</script><script>
+Liferay.Loader.require(
+'frontend-js-web/index',
+'layout-taglib@16.1.5/render_layout_structure/js/InfoItemActionHandler',
+function(frontendJsWeb, InfoItemActionHandler) {
+try {
+AUI().use(
+  'liferay-menu',
+function(A) {
+(function() {
+Liferay.component('infoItemActionComponent', new InfoItemActionHandler.default({"executeInfoItemActionURL":"https:\/\/uzemniplanovani.gov.cz\/c\/portal\/execute_info_item_action?p_l_mode=view&plid=6","namespace":"","spritemap":"https:\/\/uzemniplanovani.gov.cz\/o\/ngup-theme\/images\/clay\/icons.svg"}), { destroyOnNavigate: true, portletId: ''});
+})();
+(function() {
+Liferay.component('infoItemActionComponent', new InfoItemActionHandler.default({"executeInfoItemActionURL":"https:\/\/uzemniplanovani.gov.cz\/c\/portal\/execute_info_item_action?p_l_mode=view&plid=6","namespace":"","spritemap":"https:\/\/uzemniplanovani.gov.cz\/o\/ngup-theme\/images\/clay\/icons.svg"}), { destroyOnNavigate: true, portletId: ''});
+})();
+(function() {
+var $ = AUI.$;var _ = AUI._;
+	var {delegate} = frontendJsWeb;
+
+	delegate(
+		document,
+		'focusin',
+		'.portlet',
+		function(event) {
+			event.delegateTarget.closest('.portlet').classList.add('open');
+		}
+	);
+
+	delegate(
+		document,
+		'focusout',
+		'.portlet',
+		function(event) {
+			event.delegateTarget.closest('.portlet').classList.remove('open');
+		}
+	);
+})();
+(function() {
+var $ = AUI.$;var _ = AUI._;
+	new Liferay.Menu();
+
+	var liferayNotices = Liferay.Data.notices;
+
+	for (var i = 0; i < liferayNotices.length; i++) {
+		Liferay.Util.openToast(liferayNotices[i]);
+	}
+
+})();
+(function() {
+var $ = AUI.$;var _ = AUI._;
+		var {openToast} = frontendJsWeb;
+
+		AUI().use(
+			'liferay-session',
+			function() {
+				Liferay.Session = new Liferay.SessionBase(
+					{
+						autoExtend: true,
+						redirectOnExpire: false,
+						redirectUrl: 'https\x3a\x2f\x2fuzemniplanovani\x2egov\x2ecz\x2f',
+						sessionLength: 900,
+						sessionTimeoutOffset: 70,
+						warningLength: 60
+					}
+				);
+
+				
+			}
+		);
+	
+})();
+});
+} catch (err) {
+	console.error(err);
+}
+});
+
+</script>
+
+
+
+
+
+
+
+
+
+<script src="https://uzemniplanovani.gov.cz/o/ngup-theme/js/main.js?browserId=other&amp;minifierType=js&amp;languageId=cs_CZ&amp;t=1787599226000" type="text/javascript"></script>
+
+
+
+
+<script>
+Liferay.Loader.require(
+'frontend-js-tooltip-support-web@4.0.24/index',
+function(TooltipSupport) {
+try {
+(function() {
+TooltipSupport.default()
+})();
+} catch (err) {
+	console.error(err);
+}
+});
+
+</script><script type="text/javascript">
+Liferay.CustomDialogs = {enabled: false};
+
+</script><script>
+
+</script><script>
+Liferay.Loader.require(
+'frontend-js-collapse-support-web@2.0.17/index',
+function(CollapseProvider) {
+try {
+(function() {
+CollapseProvider.default()
+})();
+} catch (err) {
+	console.error(err);
+}
+});
+
+</script><script>
+Liferay.Loader.require(
+'frontend-js-alert-support-web@2.0.12/index',
+function(AlertProvider) {
+try {
+(function() {
+AlertProvider.default()
+})();
+} catch (err) {
+	console.error(err);
+}
+});
+
+</script><script>
+Liferay.Loader.require(
+'frontend-js-tabs-support-web@2.0.14/index',
+function(TabsProvider) {
+try {
+(function() {
+TabsProvider.default()
+})();
+} catch (err) {
+	console.error(err);
+}
+});
+
+</script><script>
+Liferay.Loader.require(
+'frontend-js-dropdown-support-web@2.0.13/index',
+function(DropdownProvider) {
+try {
+(function() {
+DropdownProvider.default()
+})();
+} catch (err) {
+	console.error(err);
+}
+});
+
+</script>
+<script src="/o/ngup-theme/js/expand-accordion-item.js"></script>
+</body>
+
+</html>
+
+		
+	
+

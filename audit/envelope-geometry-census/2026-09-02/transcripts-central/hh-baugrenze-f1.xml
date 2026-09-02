@@ -1,0 +1,32 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<wfs:FeatureCollection xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.opengis.net/wfs/2.0 http://schemas.opengis.net/wfs/2.0/wfs.xsd http://www.opengis.net/gml/3.2 http://schemas.opengis.net/gml/3.2.1/gml.xsd http://www.xplanung.de/xplangml/5/1 https://geodienste.hamburg.de/HH_WFS_xplan_dls?SERVICE=WFS&amp;VERSION=2.0.0&amp;REQUEST=DescribeFeatureType&amp;OUTPUTFORMAT=application%2Fgml%2Bxml%3B+version%3D3.2&amp;TYPENAME=xplan:BP_BauGrenze&amp;NAMESPACES=xmlns(xplan,http%3A%2F%2Fwww.xplanung.de%2Fxplangml%2F5%2F1)" xmlns:wfs="http://www.opengis.net/wfs/2.0" timeStamp="2026-09-02T17:56:12Z" xmlns:gml="http://www.opengis.net/gml/3.2" numberMatched="1" numberReturned="1" next="https://geodienste.hamburg.de/HH_WFS_xplan_dls?SERVICE=WFS&amp;VERSION=2.0.0&amp;REQUEST=GetFeature&amp;TYPENAMES=xplan%3ABP_BauGrenze&amp;COUNT=1&amp;STARTINDEX=1">
+  <wfs:boundedBy>
+    <gml:Envelope srsName="EPSG:25832">
+      <gml:lowerCorner>560501.56 5940696.084</gml:lowerCorner>
+      <gml:upperCorner>560536.56 5940712.084</gml:upperCorner>
+    </gml:Envelope>
+  </wfs:boundedBy>
+  <wfs:member>
+    <xplan:BP_BauGrenze xmlns:xplan="http://www.xplanung.de/xplangml/5/1" gml:id="XPLAN_BP_BAUGRENZE_441c937c-4421-4ab7-897e-be4fe94d5c88">
+      <gml:boundedBy>
+        <gml:Envelope srsName="EPSG:25832">
+          <gml:lowerCorner>560501.56 5940696.084</gml:lowerCorner>
+          <gml:upperCorner>560536.56 5940712.084</gml:upperCorner>
+        </gml:Envelope>
+      </gml:boundedBy>
+      <xplan:ebene>1</xplan:ebene>
+      <xplan:gehoertZuBereich xmlns:xlink="http://www.w3.org/1999/xlink" xlink:href="https://geodienste.hamburg.de/HH_WFS_xplan_dls?SERVICE=WFS&amp;VERSION=2.0.0&amp;REQUEST=GetFeature&amp;OUTPUTFORMAT=application%2Fgml%2Bxml%3B+version%3D3.2&amp;STOREDQUERY_ID=urn:ogc:def:query:OGC-WFS::GetFeatureById&amp;ID=XPLAN_BP_BEREICH_f8a07a4f-c4a2-4161-b673-83b505951c74#XPLAN_BP_BEREICH_f8a07a4f-c4a2-4161-b673-83b505951c74"/>
+      <xplan:rechtscharakter>1000</xplan:rechtscharakter>
+      <xplan:position>
+        <!--Inlined geometry 'GML_38202c74-1f2c-46dc-8d69-87c115ad9fc0'-->
+        <gml:Curve gml:id="GML_38202c74-1f2c-46dc-8d69-87c115ad9fc0" srsName="EPSG:25832">
+          <gml:segments>
+            <gml:LineStringSegment interpolation="linear">
+              <gml:posList>560536.56 5940696.084 560536.56 5940712.084 560501.56 5940712.084 560501.56 5940696.084 560536.56 5940696.084</gml:posList>
+            </gml:LineStringSegment>
+          </gml:segments>
+        </gml:Curve>
+      </xplan:position>
+    </xplan:BP_BauGrenze>
+  </wfs:member>
+</wfs:FeatureCollection>

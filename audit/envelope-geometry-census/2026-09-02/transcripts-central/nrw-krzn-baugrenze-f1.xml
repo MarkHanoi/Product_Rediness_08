@@ -1,0 +1,23 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<wfs:FeatureCollection xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.opengis.net/wfs/2.0 http://schemas.opengis.net/wfs/2.0/wfs.xsd http://www.opengis.net/gml/3.2 http://schemas.opengis.net/gml/3.2.1/gml.xsd http://www.deegree.org/xplanung/1/0 https://xplanservices.krzn.de/kleve/xplansyn-wfs/services/xplansynwfspre?SERVICE=WFS&amp;VERSION=2.0.0&amp;REQUEST=DescribeFeatureType&amp;OUTPUTFORMAT=application%2Fgml%2Bxml%3B+version%3D3.2&amp;TYPENAME=xplan:BP_BauGrenze&amp;NAMESPACES=xmlns(xplan,http%3A%2F%2Fwww.deegree.org%2Fxplanung%2F1%2F0)" xmlns:wfs="http://www.opengis.net/wfs/2.0" timeStamp="2026-09-02T18:03:10Z" xmlns:gml="http://www.opengis.net/gml/3.2" numberMatched="unknown" numberReturned="0">
+  <!--NOTE: numberReturned attribute should be 'unknown' as well, but this would not validate against the current version of the WFS 2.0 schema (change upcoming). See change request (CR 144): https://portal.opengeospatial.org/files?artifact_id=43925.-->
+  <wfs:member>
+    <xplan:BP_BauGrenze xmlns:xplan="http://www.deegree.org/xplanung/1/0" gml:id="XPLAN_BP_BAUGRENZE_fad049a5-e182-453d-aed1-51ffbcfb4e67">
+      <xplan:gmlId>XPLAN_BP_BAUGRENZE_fad049a5-e182-453d-aed1-51ffbcfb4e67</xplan:gmlId>
+      <xplan:xpVersion>5.4</xplan:xpVersion>
+      <xplan:xpPlanType>BP_Plan</xplan:xpPlanType>
+      <xplan:xpPlanName>Schneppenbaum_Nr_5_Hasselt-Sued_11_vereinfachte_Aenderung</xplan:xpPlanName>
+      <xplan:xplanMgrPlanId>4187</xplan:xplanMgrPlanId>
+      <xplan:ebene>0</xplan:ebene>
+      <xplan:gehoertZuBereich>[XPLAN_BP_BEREICH_b90ab99b-d41a-42fa-9556-a65ef50b81ee]</xplan:gehoertZuBereich>
+      <xplan:position>
+        <!--Inlined geometry 'XPLAN_BP_BAUGRENZE_fad049a5-e182-453d-aed1-51ffbcfb4e67_XPLAN_POSITION'-->
+        <gml:LineString gml:id="XPLAN_BP_BAUGRENZE_fad049a5-e182-453d-aed1-51ffbcfb4e67_XPLAN_POSITION" srsName="EPSG:25832">
+          <gml:posList>306660.711 5738542.010 306653.909 5738545.916 306646.366 5738532.659 306652.767 5738528.799 306660.711 5738542.010</gml:posList>
+        </gml:LineString>
+      </xplan:position>
+      <xplan:rechtscharakter>1000</xplan:rechtscharakter>
+      <xplan:rechtscharakterWert>Festsetzung</xplan:rechtscharakterWert>
+    </xplan:BP_BauGrenze>
+  </wfs:member>
+</wfs:FeatureCollection>

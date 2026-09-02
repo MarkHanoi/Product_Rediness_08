@@ -1,0 +1,25 @@
+# SM probes 2026-09-02T18:12:26Z
+== PROBE https://www.prg.sm/
+curl: (6) Could not resolve host: www.prg.sm
+
+HTTP=000 bytes=0 type=
+
+== PROBE https://www.gov.sm/
+<!DOCTYPE html>
+<html class="no-js" xml:lang="it" lang="it">
+  <head>
+  
+
+
+
+
+
+<!-- Title -->
+<title>Home</title>
+<meta charset="utf-8" />
+<!-- Metatag -->
+<!--[if IE]>
+<meta http-equiv="X-UA-Compatible" content="IE=edge"/>
+<![endif]-->
+
+<meta name="google-site-verification" content="qoxF3ZOeXyNXGpYZpSNYzljcx0XghD-JNeIVhyKikjo"/> <!

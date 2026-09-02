@@ -1,0 +1,100 @@
+# UA+MD probes 2026-09-02T18:10:18Z
+== PROBE https://map.land.gov.ua/
+curl: (28) Failed to connect to map.land.gov.ua port 443 after 21107 ms: Could not connect to server
+HTTP=000 bytes=0 type= RC=28
+
+== PROBE https://nsdi.gov.ua/
+HTTP=200 bytes=29888 type=text/html RC=0
+<!DOCTYPE html><html lang="uk"> <head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>Авторизація | Національний геопортал - </title><meta name="description" content="Сторінка авторизації та реєстрації Національного геопорталу НІГД."><link rel="icon" type="im
+== PROBE https://e-construction.gov.ua/
+HTTP=200 bytes=50600 type=text/html; charset=utf-8 RC=0
+<!DOCTYPE html>
+<html class='gt-ie8' xmlns="//www.w3.org/1999/xhtml" lang="ua">
+
+<head>
+
+
+    <base href="/">
+    <title>Портал Єдиної державної електронної системи у сфері будівництва</title>
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta content="text/html; charset=utf-8" http-equiv="Content-Type">
+    <meta name="viewp
+== PROBE https://geoportal.md/
+HTTP=200 bytes=32299 type=text/html; charset=utf-8 RC=0
+
+== PROBE https://geoportal.md/
+HTTP=200 bytes=32299 type=text/html; charset=utf-8 RC=0
+
+== PROBE https://e-construction.gov.ua/api_portal
+HTTP=404 bytes=8665 type=text/html; charset=utf-8 RC=0
+<meta charset='utf-8'>
+
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<div class="error-wrapper">
+    <a href="/" class="error-info">
+        <svg width="51" height="50" viewBox="0 0 51 50" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path
+                d="M25.0082 49.2092C11.1862 49.2092 7.6112 48.5338 4.54695 45.453C1.46623 42.4053 0.790774 38.8797 0.790774 25.0082C0.790774 11.1862 1.46623 7.62768 4.54
+== PROBE https://public-api.e-construction.gov.ua/
+curl: (6) Could not resolve host: public-api.e-construction.gov.ua
+HTTP=000 bytes=0 type= RC=6
+
+== PROBE geoportal.md (stdout)
+<!DOCTYPE html>
+<html lang="french" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>geoportal.md</title>
+<meta name="robots" content="noindex">
+<meta name="description" content="Find the best information and most relevant links on all topics related to Ce domaine est peut-être à vendre!">
+<meta name="og:description" content="carte cadastrale interactive Moldavie,portail SIG Moldavie,données géospatiales téléchargeables Moldavie">
+<style>.loading{width:min(720px,92vw);text-align:center;padding:48px 28px;border-
+== PROBE e-construction opendata
+HTTP=404 bytes=8665
+== PROBE https://geodata.gov.md/
+<!doctype html><html><head>
+<!-- Google tag (gtag.js) -->
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-DJF89JBVPH"></script>
+<script>
+
+function geodataHandleRouteRedirects() {
+  const full = window.location.href || '';
+  const hash = window.location.hash || '';
+
+  if (/\/viewer\/openlayers\/381(?:\D|$)/.test(full) || /\/viewer\/openlayers\/381(?:\D|$)/.test(hash)) {
+    window.location.replace("https://www.cadastru.md/ecadastru/f?p=100:1:881779477164543");
+    return;
+  }
+  
+  if (/\/viewer\/openlayers\/3204(?:\D|$)/.test(fu
+== PROBE https://www.cadastru.md/
+<html>
+<head><meta charset="UTF-8"></head>
+<body>
+<h2 style="text-align: center;">&nbsp;</h2>
+<h2 style="text-align: center;"><strong> Ne pare rău, acest conținut nu este disponibil în regiunea/țara dvs. </strong></h2>
+<h2 style="text-align: center;"><strong> К сожалению, этот контент недоступен в Вашем регионе/стране. </strong></h2>
+<h2 style="text-align: center;"><strong> We are sorry, this content is not available in Your region/country. </strong></h2>
+<h2 style="text-align: center;">&nbs
+== PROBE https://mkk.kga.gov.ua/
+curl: (6) Could not resolve host: mkk.kga.gov.ua
+
+HTTP=000 bytes=0 type=
+
+== PROBE geodata.gov.md geonetwork search urbanism
+<!doctype html><html lang="en"><head><title>HTTP Status 404 – Not Found</title><style type="text/css">body {font-family:Tahoma,Arial,sans-serif;} h1, h2, h3, b {color:white;background-color:#525D76;} h1 {font-size:22px;} h2 {font-size:16px;} h3 {font-size:14px;} p {font-size:12px;} a {color:black;} .line {height:1px;background-color:#525D76;border:none;}</style></head><body><h1>HTTP Status 404 – Not Found</h1><hr class="line" /><p><b>Type</b> Status Report</p><p><b>Message</b> The requested resource [&#47;geonetwork&#47;srv&#47;eng&#47;q] is not available</p><p><b>Description</b> The origin server did not find a current representation for the target resource or is not willing to disclose that one exists.</p><hr class="line" /><h3>Apache Tomcat/9.0.87</h3></body></html>
+== PROBE geodata.gov.md geonetwork API search (GET records urbanism)
+<!doctype html><html lang="en"><head><title>HTTP Status 404 – Not Found</title><style type="text/css">body {font-family:Tahoma,Arial,sans-serif;} h1, h2, h3, b {color:white;background-color:#525D76;} h1 {font-size:22px;} h2 {font-size:16px;} h3 {font-size:14px;} p {font-size:12px;} a {color:black;} .line {height:1px;background-color:#525D76;border:none;}</style></head><body><h1>HTTP Status 404 – Not Found</h1><hr class="line" /><p><b>Type</b> Status Report</p><p><b>Message</b> The requested resource [&#47;geonetwork&#47;srv&#47;api&#47;search&#47;records&#47;_search] is not available</p><p><b>Description</b> The origin server did not find a current representation for the target resource or is not willing to disclose that one exists.</p><hr class="line" /><h3>Apache Tomcat/9.0.87</h3></body></html>
+replace("https://geologie.gov.md/"
+replace("https://harta.asd.md/"
+replace("https://soluri.gov.md/adapt/dist/#/layers"
+replace("https://www.cadastru.md/ecadastru/f?p=100:1:881779477164543"
+UA CKAN umo HTTP=200 bytes=62039 RC=0
+count: 106
+- Містобудівні умови та обмеження | formats: ['XLS']
+- Містобудівні умови та обмеження | formats: ['CSV']
+- Надані містобудівні умови та обмеження | formats: ['хlsx']
+- Надані містобудівні умови та обмеження | formats: ['XLSX', 'tms']
+- Надані містобудівні умови та обмеження | formats: ['XLSX']
+- Надані містобудівні умови та обмеження | formats: ['ODT']
