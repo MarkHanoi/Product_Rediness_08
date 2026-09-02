@@ -2,6 +2,9 @@ import { aiService } from '@pryzm/ai-host';
 import { resolveDeleteCommand, AddLevelCommand, CreateWallsOnAllSlabsCommand } from '@pryzm/command-registry';
 import { WallDrawingMode } from '@pryzm/geometry-wall';
 import { StairSetupPanel } from '@app/ui/StairSetupPanel';
+// §COMPONENT-PLACE-TOOL (lane U1) — the ONE arming function for the Component
+// place tool, shared with the Components browser's "Place" buttons.
+import { armComponentPlaceTool } from '@app/ui/component-browser/componentPlaceTool';
 import { StairLevelRequiredPanel } from '@app/ui/StairLevelRequiredPanel';
 import { deleteIfcImportedElement, isIfcImportedElement } from '@pryzm/file-format';
 
@@ -327,6 +330,28 @@ export class BimService implements IBimService {
                 tool.activate();
             }
         }
+    }
+
+    /**
+     * §COMPONENT-PLACE-TOOL (lane U1, UIUX-PLAN §U1) — arm the Component place
+     * tool for a chosen `(definitionId, typeId)` pair.
+     *
+     * Delegates to `armComponentPlaceTool` — THE one arming function the
+     * Components browser's "Place" buttons also use, so the service route and
+     * the browser route can never drift (L-5709). Plan-only while lane 4E's
+     * viewport mount is descoped (ADR-0376 D10): unlike `activateFurnitureTool`
+     * there is no `ToolManager` leg, because a 3-D arm would place elements the
+     * viewport cannot draw — see the `component` row in `elementCreationMatrix.ts`
+     * for the declared exit condition.
+     */
+    activateComponentTool(sel: {
+        definitionId: string;
+        typeId: string;
+        definitionVersion?: string;
+        definitionName?: string;
+        typeName?: string;
+    }): boolean {
+        return armComponentPlaceTool(sel);
     }
 
     activateHandrailTool(typeId?: string) {

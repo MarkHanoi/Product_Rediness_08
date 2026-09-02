@@ -42,6 +42,7 @@
 // P5 — PURE. Zod only. No I/O, no THREE, no DOM.
 
 import { z } from 'zod';
+import { HeightDatumSchema, HEIGHT_DATUM_KIND_REGISTRY } from './HeightDatum.js';
 
 /**
  * Detached / suburban fabric. **This is today's only behaviour**, unchanged.

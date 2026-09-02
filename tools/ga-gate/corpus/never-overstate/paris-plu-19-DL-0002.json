@@ -1,0 +1,53 @@
+{
+  "_provenance": [
+    "PARIS — the RECORDED live-probe chain input for the §PARIS-LIVE-ROUTE gate arm (LANE G1, 2026-09-02).",
+    "body = the /api/paris/plu proxy response at lat 48.88277 lon 2.39303 (19th arr., cadastral 19-DL-0002),",
+    "VERBATIM from the live probe of 2026-07-26 as recorded in apps/editor/__tests__/parisSiteDispatch.test.ts",
+    "(PLU_BODY / ECM_RING — the plub_ecm footprint ring is the real published 83.12 m2 polygon, st_area_shape).",
+    "RECORDED, never re-fetched: the gate must stay deterministic and network-free.",
+    "published = the independently transcribed bounds the arm audits AGAINST (same probe): the source",
+    "st_area_shape and the plub_hauteur ceiling. They are deliberately SEPARATE from body so a planted",
+    "falsification (scale published.heightCeilingM down) makes the drawn volume exceed the bound."
+  ],
+  "point": { "lat": 48.88277, "lon": 2.39303 },
+  "body": {
+    "zone": {
+      "libelle": "UG",
+      "libelong": "Zone urbaine générale",
+      "typezone": "U",
+      "nomfic": "75056_reglement_20260616.pdf",
+      "idurba": "75056_PLU_20260616",
+      "datappro": null
+    },
+    "hauteur": { "hauteur_m": 25 },
+    "hmc": null,
+    "filet": { "code": "V", "cour": "C" },
+    "ecm": {
+      "ring": [
+        [2.3931038094292516, 48.88276064338342],
+        [2.393001862080542, 48.88271733661974],
+        [2.392945092827867, 48.88277390868914],
+        [2.3930191509844616, 48.88280803048602],
+        [2.3930429653843492, 48.88281900338607],
+        [2.3930497999222764, 48.88282215240052],
+        [2.393065568606225, 48.882829417055696],
+        [2.3930732840190987, 48.88282192071428],
+        [2.3930879424678713, 48.88280767864911],
+        [2.393104230241959, 48.88279216510006],
+        [2.3931019714300135, 48.882791286699536],
+        [2.3931227489565896, 48.88276868763264],
+        [2.3931038094292516, 48.88276064338342]
+      ],
+      "areaM2": 83.122,
+      "emprisePct": null,
+      "graphicHeight": null,
+      "cadastral": "19-DL-0002"
+    },
+    "eal": null
+  },
+  "published": {
+    "ecmAreaM2": 83.122,
+    "heightCeilingM": 25,
+    "cadastral": "19-DL-0002"
+  }
+}

@@ -1,0 +1,3 @@
+29fb98fbc10c51c806ea827e511f893578b5fc8e8498ef801c1f7e525b2f97e4 *apps/editor/src/ui/property-panel/ComponentSection.ts
+29fb98fbc10c51c806ea827e511f893578b5fc8e8498ef801c1f7e525b2f97e4 *apps/editor/src/ui/property-panel/ComponentSection.ts
+BYTE-IDENTICAL RESTORE CONFIRMED (diff clean)

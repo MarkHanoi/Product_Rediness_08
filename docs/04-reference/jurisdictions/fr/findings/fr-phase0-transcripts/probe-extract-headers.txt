@@ -1,0 +1,17 @@
+HTTP/1.1 200 OK
+date: Wed, 02 Sep 2026 17:28:46 GMT
+set-cookie: SESSIONSTICK=1788370126.733.2168.477|a85697a25ecdd7c9a01b370962aadb9c; Expires=Fri, 04-Sep-26 17:28:45 GMT; Max-Age=172800; Path=/; Secure; HttpOnly; SameSite=Strict
+content-type: application/atom+xml; charset=UTF-8
+cache-control: no-store, no-cache, must-revalidate, private
+pragma: no-cache
+expires: 0
+cache-control: no-store, no-cache, must-revalidate, private
+x-content-type-options: nosniff
+x-frame-options: sameorigin
+strict-transport-security: max-age=31536000; includeSubDomains
+referrer-policy: strict-origin
+content-security-policy: default-src 'self';     base-uri 'self';     frame-ancestors 'self';     frame-src 'self' https://audience-sites.din.developpement-durable.gouv.fr https://www.dailymotion.com https://geo.dailymotion.com;     object-src 'none';     upgrade-insecure-requests;     img-src 'self' data: blob: https://data.geopf.fr https://data-pprd.geopf.fr https://data-pprd.priv.geopf.fr https://inspire.cadastre.gouv.fr;     font-src 'self' data:;     style-src 'self' 'unsafe-inline';     script-src 'self' 'unsafe-inline' 'unsafe-eval' https://audience-sites.din.developpement-durable.gouv.fr;     connect-src 'self' https://data.geopf.fr https://data-pprd.geopf.fr https://data-pprd.priv.geopf.fr https://audience-sites.din.developpement-durable.gouv.fr
+transfer-encoding: chunked
+x-iplb-request-id: 56C1A446:E08C_91EFC1E7:01BB_6A985CCD_6CEB009:3DA25E
+x-iplb-instance: 61218
+

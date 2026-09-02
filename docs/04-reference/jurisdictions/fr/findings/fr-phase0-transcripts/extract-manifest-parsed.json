@@ -1,0 +1,194 @@
+[
+ {
+  "name": "prescription_surf.gpkg",
+  "mb": "6794.2",
+  "bytes": 7124189184,
+  "url": "https://data.geopf.fr/extraction/telechargement/download/extraction_b6f40b99-dbf8-408c-936d-2498f07a2583/data/export/schema_851ddcb2_d12c_4189_ad5e_eec47a17d366.prescription_surf.gpkg"
+ },
+ {
+  "name": "zone_urba.gpkg",
+  "mb": "3876.4",
+  "bytes": 4064722944,
+  "url": "https://data.geopf.fr/extraction/telechargement/download/extraction_b6f40b99-dbf8-408c-936d-2498f07a2583/data/export/schema_851ddcb2_d12c_4189_ad5e_eec47a17d366.zone_urba.gpkg"
+ },
+ {
+  "name": "info_surf.gpkg",
+  "mb": "2347.6",
+  "bytes": 2461634560,
+  "url": "https://data.geopf.fr/extraction/telechargement/download/extraction_b6f40b99-dbf8-408c-936d-2498f07a2583/data/export/schema_851ddcb2_d12c_4189_ad5e_eec47a17d366.info_surf.gpkg"
+ },
+ {
+  "name": "prescription_lin.gpkg",
+  "mb": "2172.5",
+  "bytes": 2278072320,
+  "url": "https://data.geopf.fr/extraction/telechargement/download/extraction_b6f40b99-dbf8-408c-936d-2498f07a2583/data/export/schema_851ddcb2_d12c_4189_ad5e_eec47a17d366.prescription_lin.gpkg"
+ },
+ {
+  "name": "assiette_sup_s.gpkg",
+  "mb": "1414.9",
+  "bytes": 1483677696,
+  "url": "https://data.geopf.fr/extraction/telechargement/download/extraction_b6f40b99-dbf8-408c-936d-2498f07a2583/data/export/schema_851ddcb2_d12c_4189_ad5e_eec47a17d366.assiette_sup_s.gpkg"
+ },
+ {
+  "name": "generateur_sup_s.gpkg",
+  "mb": "870.9",
+  "bytes": 913190912,
+  "url": "https://data.geopf.fr/extraction/telechargement/download/extraction_b6f40b99-dbf8-408c-936d-2498f07a2583/data/export/schema_851ddcb2_d12c_4189_ad5e_eec47a17d366.generateur_sup_s.gpkg"
+ },
+ {
+  "name": "info_lin.gpkg",
+  "mb": "670.8",
+  "bytes": 703340544,
+  "url": "https://data.geopf.fr/extraction/telechargement/download/extraction_b6f40b99-dbf8-408c-936d-2498f07a2583/data/export/schema_851ddcb2_d12c_4189_ad5e_eec47a17d366.info_lin.gpkg"
+ },
+ {
+  "name": "habillage_surf.gpkg",
+  "mb": "475.6",
+  "bytes": 498663424,
+  "url": "https://data.geopf.fr/extraction/telechargement/download/extraction_b6f40b99-dbf8-408c-936d-2498f07a2583/data/export/schema_851ddcb2_d12c_4189_ad5e_eec47a17d366.habillage_surf.gpkg"
+ },
+ {
+  "name": "prescription_pct.gpkg",
+  "mb": "360.6",
+  "bytes": 378163200,
+  "url": "https://data.geopf.fr/extraction/telechargement/download/extraction_b6f40b99-dbf8-408c-936d-2498f07a2583/data/export/schema_851ddcb2_d12c_4189_ad5e_eec47a17d366.prescription_pct.gpkg"
+ },
+ {
+  "name": "habillage_txt.gpkg",
+  "mb": "176.1",
+  "bytes": 184692736,
+  "url": "https://data.geopf.fr/extraction/telechargement/download/extraction_b6f40b99-dbf8-408c-936d-2498f07a2583/data/export/schema_851ddcb2_d12c_4189_ad5e_eec47a17d366.habillage_txt.gpkg"
+ },
+ {
+  "name": "municipality.gpkg",
+  "mb": "143.3",
+  "bytes": 150228992,
+  "url": "https://data.geopf.fr/extraction/telechargement/download/extraction_b6f40b99-dbf8-408c-936d-2498f07a2583/data/export/schema_851ddcb2_d12c_4189_ad5e_eec47a17d366.municipality.gpkg"
+ },
+ {
+  "name": "habillage_lin.gpkg",
+  "mb": "137.3",
+  "bytes": 143990784,
+  "url": "https://data.geopf.fr/extraction/telechargement/download/extraction_b6f40b99-dbf8-408c-936d-2498f07a2583/data/export/schema_851ddcb2_d12c_4189_ad5e_eec47a17d366.habillage_lin.gpkg"
+ },
+ {
+  "name": "secteur_cc.gpkg",
+  "mb": "102.6",
+  "bytes": 107577344,
+  "url": "https://data.geopf.fr/extraction/telechargement/download/extraction_b6f40b99-dbf8-408c-936d-2498f07a2583/data/export/schema_851ddcb2_d12c_4189_ad5e_eec47a17d366.secteur_cc.gpkg"
+ },
+ {
+  "name": "generateur_sup_l.gpkg",
+  "mb": "93.1",
+  "bytes": 97628160,
+  "url": "https://data.geopf.fr/extraction/telechargement/download/extraction_b6f40b99-dbf8-408c-936d-2498f07a2583/data/export/schema_851ddcb2_d12c_4189_ad5e_eec47a17d366.generateur_sup_l.gpkg"
+ },
+ {
+  "name": "info_pct.gpkg",
+  "mb": "66.9",
+  "bytes": 70160384,
+  "url": "https://data.geopf.fr/extraction/telechargement/download/extraction_b6f40b99-dbf8-408c-936d-2498f07a2583/data/export/schema_851ddcb2_d12c_4189_ad5e_eec47a17d366.info_pct.gpkg"
+ },
+ {
+  "name": "document.gpkg",
+  "mb": "65.4",
+  "bytes": 68612096,
+  "url": "https://data.geopf.fr/extraction/telechargement/download/extraction_b6f40b99-dbf8-408c-936d-2498f07a2583/data/export/schema_851ddcb2_d12c_4189_ad5e_eec47a17d366.document.gpkg"
+ },
+ {
+  "name": "scot.gpkg",
+  "mb": "38.0",
+  "bytes": 39841792,
+  "url": "https://data.geopf.fr/extraction/telechargement/download/extraction_b6f40b99-dbf8-408c-936d-2498f07a2583/data/export/schema_851ddcb2_d12c_4189_ad5e_eec47a17d366.scot.gpkg"
+ },
+ {
+  "name": "perimetre_scot.gpkg",
+  "mb": "31.6",
+  "bytes": 33099776,
+  "url": "https://data.geopf.fr/extraction/telechargement/download/extraction_b6f40b99-dbf8-408c-936d-2498f07a2583/data/export/schema_851ddcb2_d12c_4189_ad5e_eec47a17d366.perimetre_scot.gpkg"
+ },
+ {
+  "name": "servitude.gpkg",
+  "mb": "24.0",
+  "bytes": 25194496,
+  "url": "https://data.geopf.fr/extraction/telechargement/download/extraction_b6f40b99-dbf8-408c-936d-2498f07a2583/data/export/schema_851ddcb2_d12c_4189_ad5e_eec47a17d366.servitude.gpkg"
+ },
+ {
+  "name": "acte_sup.gpkg",
+  "mb": "23.4",
+  "bytes": 24502272,
+  "url": "https://data.geopf.fr/extraction/telechargement/download/extraction_b6f40b99-dbf8-408c-936d-2498f07a2583/data/export/schema_851ddcb2_d12c_4189_ad5e_eec47a17d366.acte_sup.gpkg"
+ },
+ {
+  "name": "habillage_pct.gpkg",
+  "mb": "17.2",
+  "bytes": 18018304,
+  "url": "https://data.geopf.fr/extraction/telechargement/download/extraction_b6f40b99-dbf8-408c-936d-2498f07a2583/data/export/schema_851ddcb2_d12c_4189_ad5e_eec47a17d366.habillage_pct.gpkg"
+ },
+ {
+  "name": "servitude_acte_sup.gpkg",
+  "mb": "14.3",
+  "bytes": 15044608,
+  "url": "https://data.geopf.fr/extraction/telechargement/download/extraction_b6f40b99-dbf8-408c-936d-2498f07a2583/data/export/schema_851ddcb2_d12c_4189_ad5e_eec47a17d366.servitude_acte_sup.gpkg"
+ },
+ {
+  "name": "doc_urba.gpkg",
+  "mb": "5.3",
+  "bytes": 5554176,
+  "url": "https://data.geopf.fr/extraction/telechargement/download/extraction_b6f40b99-dbf8-408c-936d-2498f07a2583/data/export/schema_851ddcb2_d12c_4189_ad5e_eec47a17d366.doc_urba.gpkg"
+ },
+ {
+  "name": "assiette_sup_l.gpkg",
+  "mb": "4.8",
+  "bytes": 5070848,
+  "url": "https://data.geopf.fr/extraction/telechargement/download/extraction_b6f40b99-dbf8-408c-936d-2498f07a2583/data/export/schema_851ddcb2_d12c_4189_ad5e_eec47a17d366.assiette_sup_l.gpkg"
+ },
+ {
+  "name": "doc_urba_com.gpkg",
+  "mb": "3.9",
+  "bytes": 4071424,
+  "url": "https://data.geopf.fr/extraction/telechargement/download/extraction_b6f40b99-dbf8-408c-936d-2498f07a2583/data/export/schema_851ddcb2_d12c_4189_ad5e_eec47a17d366.doc_urba_com.gpkg"
+ },
+ {
+  "name": "doc_urba_com_scot.gpkg",
+  "mb": "2.3",
+  "bytes": 2367488,
+  "url": "https://data.geopf.fr/extraction/telechargement/download/extraction_b6f40b99-dbf8-408c-936d-2498f07a2583/data/export/schema_851ddcb2_d12c_4189_ad5e_eec47a17d366.doc_urba_com_scot.gpkg"
+ },
+ {
+  "name": "gestionnaire_sup.gpkg",
+  "mb": "0.4",
+  "bytes": 454656,
+  "url": "https://data.geopf.fr/extraction/telechargement/download/extraction_b6f40b99-dbf8-408c-936d-2498f07a2583/data/export/schema_851ddcb2_d12c_4189_ad5e_eec47a17d366.gestionnaire_sup.gpkg"
+ },
+ {
+  "name": "generateur_sup_p.gpkg",
+  "mb": "0.3",
+  "bytes": 270336,
+  "url": "https://data.geopf.fr/extraction/telechargement/download/extraction_b6f40b99-dbf8-408c-936d-2498f07a2583/data/export/schema_851ddcb2_d12c_4189_ad5e_eec47a17d366.generateur_sup_p.gpkg"
+ },
+ {
+  "name": "doc_urba_scot.gpkg",
+  "mb": "0.2",
+  "bytes": 172032,
+  "url": "https://data.geopf.fr/extraction/telechargement/download/extraction_b6f40b99-dbf8-408c-936d-2498f07a2583/data/export/schema_851ddcb2_d12c_4189_ad5e_eec47a17d366.doc_urba_scot.gpkg"
+ },
+ {
+  "name": "assiette_sup_p.gpkg",
+  "mb": "0.1",
+  "bytes": 98304,
+  "url": "https://data.geopf.fr/extraction/telechargement/download/extraction_b6f40b99-dbf8-408c-936d-2498f07a2583/data/export/schema_851ddcb2_d12c_4189_ad5e_eec47a17d366.assiette_sup_p.gpkg"
+ },
+ {
+  "name": "extraction_description.gpkg",
+  "mb": "0.1",
+  "bytes": 73728,
+  "url": "https://data.geopf.fr/extraction/telechargement/download/extraction_b6f40b99-dbf8-408c-936d-2498f07a2583/data/export/schema_851ddcb2_d12c_4189_ad5e_eec47a17d366.extraction_description.gpkg"
+ },
+ {
+  "name": "extraction.json",
+  "mb": "0.0",
+  "bytes": 3440,
+  "url": "https://data.geopf.fr/extraction/telechargement/download/extraction_b6f40b99-dbf8-408c-936d-2498f07a2583/data/extraction.json"
+ }
+]

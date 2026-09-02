@@ -533,6 +533,28 @@ declare global {
                     activate?: (toolId: string, mode?: string) => boolean | void;
                     hasActivator?: (family: string) => boolean;
                 };
+                /** §U2-COMPONENT-SECTION (UI/UX wave, lane U2) — the composed
+                 *  `component` store (the ONE authority for placed occurrences,
+                 *  C84 EI-1; `plugins/component/src/store.ts`). Declared with the
+                 *  narrow READ surface the instance property section actually uses
+                 *  — same reasoning as `tools` above: widening stays a deliberate
+                 *  act, and this slot exists so the section needs no
+                 *  `(window as any)` (P4) and no double cast through `unknown`
+                 *  (L-845). Optional for the same reason as `familyRegistryStore`:
+                 *  transitional writers of this narrow window slot may not carry
+                 *  the full runtime. */
+                readonly stores?: {
+                    readonly component?: {
+                        get(id: string): {
+                            readonly id: string;
+                            readonly definitionId: string;
+                            readonly typeId: string;
+                            readonly instanceParameters:
+                                Readonly<Record<string, number | string | boolean>>;
+                        } | undefined;
+                        getState(): ReadonlyMap<string, object>;
+                    };
+                };
               }
             | undefined;
         unselectAll: (() => void) | undefined;

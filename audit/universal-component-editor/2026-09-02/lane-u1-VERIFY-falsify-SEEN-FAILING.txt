@@ -1,0 +1,65 @@
+npm warn Unknown project config "package-manager-strict". This will stop working in the next major version of npm. See `npm help npmrc` for supported config options.
+
+ RUN  v4.1.10 C:/Users/LENOVO/OneDrive/Desktop/PRYZM/Product_Rediness_08/apps/editor
+
+Sourcemap for "C:/Users/LENOVO/OneDrive/Desktop/PRYZM/Product_Rediness_08/packages/file-format/src/family-schema.js" points to missing source files
+Sourcemap for "C:/Users/LENOVO/OneDrive/Desktop/PRYZM/Product_Rediness_08/packages/file-format/src/family-types.js" points to missing source files
+Sourcemap for "C:/Users/LENOVO/OneDrive/Desktop/PRYZM/Product_Rediness_08/packages/file-format/src/family-migrations/index.js" points to missing source files
+Sourcemap for "C:/Users/LENOVO/OneDrive/Desktop/PRYZM/Product_Rediness_08/packages/file-format/src/family-migrations/identity.js" points to missing source files
+Sourcemap for "C:/Users/LENOVO/OneDrive/Desktop/PRYZM/Product_Rediness_08/packages/file-format/src/family-migrations/v1_0-to-v1_1.js" points to missing source files
+Sourcemap for "C:/Users/LENOVO/OneDrive/Desktop/PRYZM/Product_Rediness_08/packages/file-format/src/family-migrations/ops/rename-parameter.js" points to missing source files
+Sourcemap for "C:/Users/LENOVO/OneDrive/Desktop/PRYZM/Product_Rediness_08/packages/file-format/src/family-migrations/ops/add-parameter.js" points to missing source files
+Sourcemap for "C:/Users/LENOVO/OneDrive/Desktop/PRYZM/Product_Rediness_08/packages/file-format/src/family-migrations/ops/delete-parameter.js" points to missing source files
+Sourcemap for "C:/Users/LENOVO/OneDrive/Desktop/PRYZM/Product_Rediness_08/packages/file-format/src/family-migrations/ops/change-parameter-type.js" points to missing source files
+Sourcemap for "C:/Users/LENOVO/OneDrive/Desktop/PRYZM/Product_Rediness_08/packages/file-format/src/family-migrations/ops/introduce-expression.js" points to missing source files
+Sourcemap for "C:/Users/LENOVO/OneDrive/Desktop/PRYZM/Product_Rediness_08/packages/file-format/src/family-migrations/ops/rebind-ifc.js" points to missing source files
+Sourcemap for "C:/Users/LENOVO/OneDrive/Desktop/PRYZM/Product_Rediness_08/packages/file-format/src/family-migrations/ops/merge-material-slots.js" points to missing source files
+Sourcemap for "C:/Users/LENOVO/OneDrive/Desktop/PRYZM/Product_Rediness_08/packages/file-format/src/family-migrations/ops/split-type.js" points to missing source files
+stderr | __tests__/componentPlacementFlowThroughComposedRuntime.test.ts
+THREE.WARNING: Multiple instances of Three.js being imported.
+
+stdout | __tests__/componentPlacementFlowThroughComposedRuntime.test.ts
+[CreateCurtainWallsOnAllSlabsCommand] §DEV: window.__resetCwPrewarm() registered. Call it in DevTools to re-enable first-run PSO prewarm for next execute().
+
+stderr | __tests__/componentPlacementFlowThroughComposedRuntime.test.ts
+Warning: Please use the `legacy` build in Node.js environments.
+
+stdout | __tests__/componentPlacementFlowThroughComposedRuntime.test.ts
+[ConstraintEngine] 17 rules registered (7 Tier 1, 5 Tier 2 spatial, 5 Tier 2 physics)
+
+stdout | __tests__/componentPlacementFlowThroughComposedRuntime.test.ts
+[SvpPlanToolOverlay] Attached with snap service. viewId: vd-component-place-flow
+
+stdout | __tests__/componentPlacementFlowThroughComposedRuntime.test.ts
+[SvpPlanToolOverlay] Detached
+
+ ❯ __tests__/componentPlacementFlowThroughComposedRuntime.test.ts (4 tests | 1 failed) 20966061ms
+     × ARM C — NEGATIVE CONTROL (spec §75 / CA-18): with the catalogue EMPTIED, the SAME click REFUSES BY NAME on the live toast channel and writes NOTHING 20965171ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  __tests__/componentPlacementFlowThroughComposedRuntime.test.ts > §COMPONENT-PLACE-TOOL — browser → place tool → plan click → CA-21 read-back > ARM C — NEGATIVE CONTROL (spec §75 / CA-18): with the catalogue EMPTIED, the SAME click REFUSES BY NAME on the live toast channel and writes NOTHING
+AssertionError: expected the catalogue refusal naming fam_01BXZ3NDEKTSV4RRFFQ69G5F01; saw: []: expected false to be true // Object.is equality
+
+- Expected
++ Received
+
+- true
++ false
+
+ ❯ vi.waitFor.timeout __tests__/componentPlacementFlowThroughComposedRuntime.test.ts:317:19
+    315|                     ),
+    316|                     `expected the catalogue refusal naming ${DEF_ID}; …
+    317|                 ).toBe(true);
+       |                   ^
+    318|             }, { timeout: 10_000 });
+    319|             expect(store().getState().size, 'a refused placement must …
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 3 passed (4)
+   Start at  13:28:55
+   Duration  21007.93s (transform 31.12s, setup 0ms, import 40.89s, tests 20966.06s, environment 653ms)
+

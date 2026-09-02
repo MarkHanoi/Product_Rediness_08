@@ -1,0 +1,2 @@
+506ea163c6d4de429835124c125fc1da374711363e7993f7417e6ef3f199c0b9 *apps/editor/src/PluginRegistry.ts
+506ea163c6d4de429835124c125fc1da374711363e7993f7417e6ef3f199c0b9 *apps/editor/src/PluginRegistry.ts

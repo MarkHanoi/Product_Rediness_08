@@ -1,0 +1,42 @@
+{
+  "_provenance": [
+    "DENMARK chain DK-A — CPH Nørrebro (12.5530, 55.6940), matr. 4801 Udenbys Klædebo Kvarter (BFE 6021259).",
+    "properties = the kommuneplanramme feature R24.B.3.40 served LIVE keyless by geoserver.plandata.dk on",
+    "2026-09-01, VERBATIM as recorded in packages/site-parcel-data/__tests__/dkCorrections.test.ts",
+    "(CPH_RAMME_LIVE) and audit/europe-site-intel/2026-08-31/impl/lane-dk-transcripts/2026-09-01-chain-executed-live.txt.",
+    "parcel.areaM2 = the live DAWA registreretArealM2 for matr. 4801 (same transcript). RECORDED, never re-fetched.",
+    "published = the independently transcribed bounds the arm audits AGAINST: bebygpct 150 % at bebygpctaf=4",
+    "(Det enkelte jordstykke — parcel-scoped, the VALID multiply) gives the honest GFA ceiling",
+    "150 % × 3776 m² = 5664 m²; maxbygnhjd 24 m is the height ceiling. Deliberately SEPARATE from",
+    "properties so a planted falsification (scale published.gfaCeilingM2 down) turns the computed GFA red."
+  ],
+  "point": { "lat": 55.694, "lon": 12.553 },
+  "layer": "kommuneplanramme",
+  "properties": {
+    "plannavn": "R24.B.3.40 - B4",
+    "plannr": "R24.B.3.40",
+    "planid": 11363461,
+    "komplan_id": 11347088,
+    "plantype": 10.1,
+    "anvgen": 11,
+    "anvendelsegenerel": "Boligområde",
+    "bebygpct": 150,
+    "bebygpctaf": 4,
+    "maxbygnhjd": 24,
+    "maxetager": null,
+    "m3_m2": null,
+    "datovedt": 20241212,
+    "datoikraft": 20241212,
+    "planstatus": "V",
+    "doklink": "https://dokument.plandata.dk/11_11347088_1737715824963.pdf",
+    "zonestatus": null,
+    "fremtidigzonestatus": "Byzone"
+  },
+  "parcel": { "areaM2": 3776, "matrikel": "4801 Udenbys Klædebo Kvarter", "source": "DAWA jordstykker, live 2026-09-01" },
+  "published": {
+    "bebygpct": 150,
+    "bebygpctaf": 4,
+    "maxHeightM": 24,
+    "gfaCeilingM2": 5664
+  }
+}

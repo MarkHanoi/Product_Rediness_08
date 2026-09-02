@@ -1,0 +1,45 @@
+{
+  "_provenance": [
+    "DENMARK chain DK-B — Aarhus Midtby (10.2107, 56.1572), matr. 7000ad Århus Bygrunde (BFE 5625716).",
+    "properties = the kommuneplanramme feature 010109CY served LIVE keyless by geoserver.plandata.dk on",
+    "2026-09-01, VERBATIM as recorded in packages/site-parcel-data/__tests__/dkCorrections.test.ts",
+    "(AARHUS_RAMME_LIVE) and audit/europe-site-intel/2026-08-31/impl/lane-dk-transcripts/2026-09-01-chain-executed-live.txt.",
+    "parcel.areaM2 = the live DAWA registreretArealM2 for matr. 7000ad (same transcript). RECORDED, never re-fetched.",
+    "THE POINT OF THIS FIXTURE: bebygpct 180 % at bebygpctaf=1 (Omraadet som helhed — the plan area as a",
+    "WHOLE). A naive per-parcel multiply would state 180 % × 8293 m² = 14 927.4 m² — a WRONG number that the",
+    "chain must produce NOWHERE (L-449 §DK-DENOMINATOR-BRANCH; lane 2 §DK-2). The gate arm greps its own",
+    "serialised chain output for the digits of that naive product as a tripwire.",
+    "naiveForbidden = the digit prefix of the forbidden product, held here so the tripwire and its teeth",
+    "read the same value the transcript recorded."
+  ],
+  "point": { "lat": 56.1572, "lon": 10.2107 },
+  "layer": "kommuneplanramme",
+  "properties": {
+    "plannavn": "Kommuneplan 2025",
+    "plannr": "010109CY",
+    "planid": 11714778,
+    "komplan_id": 11714748,
+    "plantype": 10.1,
+    "anvgen": 41,
+    "anvendelsegenerel": "Centerområde",
+    "bebygpct": 180,
+    "bebygpctaf": 1,
+    "maxbygnhjd": null,
+    "maxetager": 4,
+    "m3_m2": null,
+    "datovedt": 20251217,
+    "datoikraft": 20260119,
+    "planstatus": "V",
+    "doklink": "https://dokument.plandata.dk/11_11714748_1768833193079.pdf",
+    "zonestatus": null,
+    "fremtidigzonestatus": "Byzone"
+  },
+  "parcel": { "areaM2": 8293, "matrikel": "7000ad Århus Bygrunde", "source": "DAWA jordstykker, live 2026-09-01" },
+  "published": {
+    "bebygpct": 180,
+    "bebygpctaf": 1,
+    "maxEtager": 4,
+    "naiveForbidden": "14927",
+    "expectedRefusalReason": "basis-planning-area"
+  }
+}

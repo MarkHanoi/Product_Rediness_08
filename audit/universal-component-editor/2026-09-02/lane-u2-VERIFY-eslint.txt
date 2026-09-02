@@ -1,0 +1,16 @@
+npm warn Unknown project config "package-manager-strict". This will stop working in the next major version of npm. See `npm help npmrc` for supported config options.
+
+C:\Users\LENOVO\OneDrive\Desktop\PRYZM\Product_Rediness_08\apps\editor\src\ui\property-panel\PropertyPanelBodyRenderer.ts
+   68:33  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   72:63  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   74:30  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   80:41  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   82:42  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  101:33  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  188:33  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  237:54  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  284:54  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  362:48  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+✖ 10 problems (0 errors, 10 warnings)
+

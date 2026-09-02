@@ -424,11 +424,18 @@ export function mountCreatePanel(
                             }
                         },
                         {
-                            label: "Generic Component",
+                            // §COMPONENT-BROWSER (lane U1, UIUX-PLAN §U1) — the REAL
+                            // Components entry. This seat held the
+                            // `familyCreatorPlaceholder` console.log stub until
+                            // 2026-09-02; the placeholder files are DELETED (both
+                            // copies) and both create surfaces (L-1380) now open the
+                            // browser, whose "Place" arms the plan tool that
+                            // dispatches the LIVE `component.place` verb.
+                            label: "Components",
                             icon: "material-symbols:category",
                             action: () => {
-                                import('../familyCreatorPlaceholder').then(module => {
-                                    module.openFamilyCreatorPlaceholder();
+                                import('../component-browser/index').then(module => {
+                                    module.openComponentBrowser();
                                 });
                             }
                         }

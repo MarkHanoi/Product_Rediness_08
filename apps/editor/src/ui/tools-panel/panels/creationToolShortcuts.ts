@@ -143,7 +143,11 @@ export const CREATION_TOOL_SHORTCUTS: Readonly<Record<string, string>> = {
     'Kids':                 'Alt+Shift+I',
     'Teens':                'Alt+Shift+E',
     'Lighting':             'Alt+Shift+L',
-    'Component':            'Alt+Shift+M',
+    // §COMPONENT-BROWSER (lane U1, 2026-09-02) — the row was renamed
+    // 'Component' → 'Components' when the familyCreatorPlaceholder dead end was
+    // replaced by the real Components browser; the combo follows the label
+    // (the 'Trees' precedent recorded in creationToolShortcuts.test.ts).
+    'Components':           'Alt+Shift+M',
 
     // ── Landscape ─────────────────────────────────────────────────
     // LANDSCAPE-CATALOGUE (L-1380) - 'Plants' split into two tools, because

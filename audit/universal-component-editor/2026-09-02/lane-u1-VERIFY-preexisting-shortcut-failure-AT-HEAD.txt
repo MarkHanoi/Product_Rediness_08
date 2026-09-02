@@ -1,0 +1,36 @@
+npm warn Unknown project config "package-manager-strict". This will stop working in the next major version of npm. See `npm help npmrc` for supported config options.
+
+ RUN  v4.1.10 C:/Users/LENOVO/OneDrive/Desktop/PRYZM/Product_Rediness_08/apps/editor
+
+ ❯ __tests__/creationToolShortcuts.test.ts (7 tests | 1 failed) 17ms
+     × every tool label rendered by the panel has a shortcut in the map 7ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  __tests__/creationToolShortcuts.test.ts > CREATE-rail completeness (every rendered tool has a shortcut) > every tool label rendered by the panel has a shortcut in the map
+AssertionError: tools missing a shortcut: Bathroom Pod: expected [ 'Bathroom Pod' ] to deeply equal []
+
+- Expected
++ Received
+
+- []
++ [
++   "Bathroom Pod",
++ ]
+
+ ❯ __tests__/creationToolShortcuts.test.ts:101:76
+     99|         const labels = panelToolLabels();
+    100|         const missing = labels.filter((l) => !CREATION_TOOL_SHORTCUTS[…
+    101|         expect(missing, `tools missing a shortcut: ${missing.join(', '…
+       |                                                                            ^
+    102|     });
+    103| });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 6 passed (7)
+   Start at  19:28:17
+   Duration  740ms (transform 71ms, setup 0ms, import 99ms, tests 17ms, environment 0ms)
+

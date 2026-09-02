@@ -173,7 +173,17 @@ describe('§FEAT-DUAL-VIEW-CREATION-MATRIX — the creation matrix is real, not 
             // `activateFurniture`), so the row declares both views and the list
             // SHRANK — this comment's own instruction says to tighten for that, not
             // to absorb it. It was five; it is four.
-            expect(gaps).toEqual(['balcony', 'bathroom-pod', 'boundary-line', 'pool']);
+            //
+            // ⭐ UPDATED 2026-09-02 (§COMPONENT-PLACE-TOOL, lane U1 · UIUX-PLAN §U1):
+            // `component` JOINS this ledger, plan-only — and unlike `balcony` and
+            // `bathroom-pod` it is plan-only PENDING, not structural: the gesture
+            // (single-click insertion) would work in 3-D, but a placed component has
+            // no 3-D mesh while lane 4E's `ComponentCommitter` mount is descoped
+            // (ADR-0376 D10), so a 3-D placement arm would place elements the view
+            // cannot show. The row's gap names the exit: 4E mounts → add the
+            // ToolManager key + 3-D tool → both views. The list GREW, recorded here
+            // with its reason rather than absorbed.
+            expect(gaps).toEqual(['balcony', 'bathroom-pod', 'boundary-line', 'component', 'pool']);
         });
 
         it('reports the LATENT mode-desync risks (the shape of the founder\'s AUTO bug)', () => {

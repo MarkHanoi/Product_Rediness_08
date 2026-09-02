@@ -61,6 +61,13 @@ import { CeilingPlanToolHandler }      from './CeilingPlanToolHandler';
 import { FloorPlanToolHandler }        from './FloorPlanToolHandler';
 import { RailingPlanToolHandler }      from './RailingPlanToolHandler';
 import { FurniturePlanToolHandler }    from './FurniturePlanToolHandler';
+// §COMPONENT-PLACE-TOOL (lane U1, UIUX-PLAN §U1) — the plan route that arms the
+// LIVE `component.place` verb (armed by nothing since Phase 4C). Registered
+// beside furniture because a component occurrence is a placed footprint the way
+// furniture is; putting it in this shared factory gives BOTH plan surfaces the
+// tool at once (the L-73 parity guarantee) — the L-1380 defect the lift's
+// palette row committed once by landing on only one create surface.
+import { ComponentPlanToolHandler }    from './ComponentPlanToolHandler';
 import { LightingPlanToolHandler }     from './LightingPlanToolHandler';
 import { PlumbingPlanToolHandler }     from './PlumbingPlanToolHandler';
 // §BATH102 (L-11480) — the plan route that makes the C109 BATHROOM POD compound
@@ -105,7 +112,7 @@ export const PLAN_TOOL_KEYS = [
     'wall', 'room', 'column', 'linear-dim', 'door', 'window', 'slab', 'pool',
     'balcony', 'lift', 'boundary-line', 'stair',
     'stair-path', 'beam', 'roof', 'curtain-wall', 'ceiling', 'floor', 'railing',
-    'furniture', 'lighting', 'plumbing', 'bathroom-pod', 'opening', 'grid', 'section-mark',
+    'furniture', 'component', 'lighting', 'plumbing', 'bathroom-pod', 'opening', 'grid', 'section-mark',
     'elevation-mark', 'move', 'rotate', 'align', 'copy-place', 'text-note', 'element-tag',
     'door-tag', 'window-tag', 'angular-dimension', 'radius-dimension',
     'diameter-dimension', 'slope-dimension', 'spot-elevation', 'keynote',
@@ -166,6 +173,12 @@ export function createPlanToolHandlers(): Record<string, PlanToolHandler> {
                 'floor':              new FloorPlanToolHandler(),
                 'railing':            new RailingPlanToolHandler(),
                 'furniture':          new FurniturePlanToolHandler(),
+                // §COMPONENT-PLACE-TOOL (lane U1) — arms `component.place`. Plan-only
+                // while the 4E viewport leg is descoped (ADR-0376 D10): a placed
+                // component has no 3-D mesh yet, so a 3-D placement arm would be a
+                // control that reports activation and shows nothing. Both surfaces
+                // get it from this one factory (L-73).
+                'component':          new ComponentPlanToolHandler(),
                 'lighting':           new LightingPlanToolHandler(),
                 'plumbing':           new PlumbingPlanToolHandler(),
                 // §BATH102 (L-11480) — the C109 LOD-300 parametric bathroom module.

@@ -1,0 +1,40 @@
+{
+  "_provenance": [
+    "MADRID NZ 1 — the explicit-ring route (PGOUM-97 PG_CONDICIONES_EDIFICACION layer 6, gate ON since",
+    "SIG-M2). body = a REPRESENTATIVE layer-6 ArcGIS response in the live wire shape (outSR=4326 →",
+    "[lon,lat] rings, ArcGIS closing vertex repeated; COEF_Z typed String, CODMANZANA the block key),",
+    "taken VERBATIM from packages/site-parcel-data/__tests__/resolveMadridNZ1Ring.test.ts (okBody/RINGS —",
+    "honestly labelled there as representative-of-live, not a byte capture; the sigma.madrid.es plane",
+    "returned HTTP 500 during recon so no byte-verbatim body exists in the repo). RECORDED, never re-fetched.",
+    "THE POINT OF THIS FIXTURE: the ring is the WHOLE claim. COEF_Z ('1,25') parses to a numeric",
+    "edificabilidad candidate, but its SEMANTICS are withheld behind the L-449 cert — the live route",
+    "asserts NO height, NO FAR and NO volume from it (siteDispatch §MADRID-NZ1). The arm's bound:",
+    "footprint ≤ parcel ∩ published ring, and ZERO claimed volume.",
+    "published.maxClaimedVolumeM3 = 0 is the audited ceiling — a planted falsification that makes any",
+    "solid claim volume (or scales the inset ceiling down) must turn the arm red."
+  ],
+  "point": { "lat": 40.4166, "lon": -3.7038 },
+  "body": {
+    "features": [
+      {
+        "attributes": { "COEF_Z": "1,25", "COND_EDIF": "1", "CODMANZANA": "0105104" },
+        "geometry": {
+          "rings": [
+            [
+              [-3.704, 40.4166],
+              [-3.7036, 40.4166],
+              [-3.7036, 40.417],
+              [-3.704, 40.417],
+              [-3.704, 40.4166]
+            ]
+          ]
+        }
+      }
+    ]
+  },
+  "published": {
+    "coefZ": "1,25",
+    "codManzana": "0105104",
+    "maxClaimedVolumeM3": 0
+  }
+}

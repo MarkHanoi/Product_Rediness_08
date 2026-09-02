@@ -1,0 +1,205 @@
+npm warn Unknown project config "package-manager-strict". This will stop working in the next major version of npm. See `npm help npmrc` for supported config options.
+
+ RUN  v4.1.10 C:/Users/LENOVO/OneDrive/Desktop/PRYZM/Product_Rediness_08
+
+stdout | apps/editor/src/engine/views/plantools/__tests__/stairCreationModes.spec.ts > FEAT-STAIR-CREATION-MODES -- the stair gains the WALL second axis > THE MODE REACHES THE GEOMETRY -- a real pill, a real stair > ORTHOGONAL: a diagonal click produces an AXIS-ALIGNED flight
+[authoring-context] DrawingModeBar.show refused — project-setup: Project setup is still choosing a site — there is no model to draw into yet. Finish setup to create walls, doors, slabs and the rest.
+
+stdout | apps/editor/src/engine/views/plantools/__tests__/stairCreationModes.spec.ts > FEAT-STAIR-CREATION-MODES -- the stair gains the WALL second axis > THE MODE REACHES THE GEOMETRY -- a real pill, a real stair > LINEAR: the SAME click produces a flight that follows the mouse exactly
+[authoring-context] DrawingModeBar.show refused — project-setup: Project setup is still choosing a site — there is no model to draw into yet. Finish setup to create walls, doors, slabs and the rest.
+
+stdout | apps/editor/src/engine/views/plantools/__tests__/stairCreationModes.spec.ts > FEAT-STAIR-CREATION-MODES -- the stair gains the WALL second axis > THE MODE REACHES THE GEOMETRY -- a real pill, a real stair > the keyboard accelerator reaches the geometry too, not just the highlight
+[authoring-context] DrawingModeBar.show refused — project-setup: Project setup is still choosing a site — there is no model to draw into yet. Finish setup to create walls, doors, slabs and the rest.
+
+stdout | apps/editor/src/engine/views/plantools/__tests__/stairCreationModes.spec.ts > FEAT-STAIR-CREATION-MODES -- the stair gains the WALL second axis > MODE IS LIVE -- switching MID-DRAW keeps the point already placed > a switch applies to the very NEXT click, and the started run survives it
+[authoring-context] DrawingModeBar.show refused — project-setup: Project setup is still choosing a site — there is no model to draw into yet. Finish setup to create walls, doors, slabs and the rest.
+
+stderr | apps/editor/src/engine/views/plantools/__tests__/stairCreationModes.spec.ts
+THREE.WARNING: Multiple instances of Three.js being imported.
+
+stdout | apps/editor/src/engine/views/plantools/__tests__/stairCreationModes.spec.ts
+[CreateCurtainWallsOnAllSlabsCommand] §DEV: window.__resetCwPrewarm() registered. Call it in DevTools to re-enable first-run PSO prewarm for next execute().
+
+ ❯ apps/editor/src/engine/views/plantools/__tests__/stairCreationModes.spec.ts (11 tests | 4 failed) 125ms
+       × ORTHOGONAL: a diagonal click produces an AXIS-ALIGNED flight 58ms
+       × LINEAR: the SAME click produces a flight that follows the mouse exactly 22ms
+       × the keyboard accelerator reaches the geometry too, not just the highlight 19ms
+       × a switch applies to the very NEXT click, and the started run survives it 11ms
+stdout | apps/editor/src/engine/views/plantools/__tests__/stairByWalls.spec.ts > FEAT-STAIR-BY-WALLS -- the By Slab pattern, for stairs > THE PILL -- declared on the strip, in the same commit as the arm > By Walls is an ACTION: it fires and never takes the active highlight
+[authoring-context] DrawingModeBar.show refused — project-setup: Project setup is still choosing a site — there is no model to draw into yet. Finish setup to create walls, doors, slabs and the rest.
+
+stderr | apps/editor/src/engine/views/plantools/__tests__/stairByWalls.spec.ts
+THREE.WARNING: Multiple instances of Three.js being imported.
+
+stdout | apps/editor/src/engine/views/plantools/__tests__/stairByWalls.spec.ts
+[CreateCurtainWallsOnAllSlabsCommand] §DEV: window.__resetCwPrewarm() registered. Call it in DevTools to re-enable first-run PSO prewarm for next execute().
+
+ ❯ apps/editor/src/engine/views/plantools/__tests__/stairByWalls.spec.ts (17 tests | 1 failed) 259ms
+       × By Walls is an ACTION: it fires and never takes the active highlight 13ms
+stderr | apps/editor/src/engine/views/plantools/__tests__/stairPlanCreation.spec.ts
+THREE.WARNING: Multiple instances of Three.js being imported.
+
+stdout | apps/editor/src/engine/views/plantools/__tests__/stairPlanCreation.spec.ts
+[CreateCurtainWallsOnAllSlabsCommand] §DEV: window.__resetCwPrewarm() registered. Call it in DevTools to re-enable first-run PSO prewarm for next execute().
+
+ ❯ apps/editor/src/engine/views/plantools/__tests__/stairPlanCreation.spec.ts (9 tests | 1 failed) 325ms
+     × riserHeight × riserCount === height on a 2-level project 53ms
+Sourcemap for "C:/Users/LENOVO/OneDrive/Desktop/PRYZM/Product_Rediness_08/packages/file-format/src/family-schema.js" points to missing source files
+Sourcemap for "C:/Users/LENOVO/OneDrive/Desktop/PRYZM/Product_Rediness_08/packages/file-format/src/family-types.js" points to missing source files
+Sourcemap for "C:/Users/LENOVO/OneDrive/Desktop/PRYZM/Product_Rediness_08/packages/file-format/src/family-migrations/index.js" points to missing source files
+Sourcemap for "C:/Users/LENOVO/OneDrive/Desktop/PRYZM/Product_Rediness_08/packages/file-format/src/family-migrations/identity.js" points to missing source files
+Sourcemap for "C:/Users/LENOVO/OneDrive/Desktop/PRYZM/Product_Rediness_08/packages/file-format/src/family-migrations/v1_0-to-v1_1.js" points to missing source files
+Sourcemap for "C:/Users/LENOVO/OneDrive/Desktop/PRYZM/Product_Rediness_08/packages/file-format/src/family-migrations/ops/rename-parameter.js" points to missing source files
+Sourcemap for "C:/Users/LENOVO/OneDrive/Desktop/PRYZM/Product_Rediness_08/packages/file-format/src/family-migrations/ops/add-parameter.js" points to missing source files
+Sourcemap for "C:/Users/LENOVO/OneDrive/Desktop/PRYZM/Product_Rediness_08/packages/file-format/src/family-migrations/ops/delete-parameter.js" points to missing source files
+Sourcemap for "C:/Users/LENOVO/OneDrive/Desktop/PRYZM/Product_Rediness_08/packages/file-format/src/family-migrations/ops/change-parameter-type.js" points to missing source files
+Sourcemap for "C:/Users/LENOVO/OneDrive/Desktop/PRYZM/Product_Rediness_08/packages/file-format/src/family-migrations/ops/introduce-expression.js" points to missing source files
+Sourcemap for "C:/Users/LENOVO/OneDrive/Desktop/PRYZM/Product_Rediness_08/packages/file-format/src/family-migrations/ops/rebind-ifc.js" points to missing source files
+Sourcemap for "C:/Users/LENOVO/OneDrive/Desktop/PRYZM/Product_Rediness_08/packages/file-format/src/family-migrations/ops/merge-material-slots.js" points to missing source files
+Sourcemap for "C:/Users/LENOVO/OneDrive/Desktop/PRYZM/Product_Rediness_08/packages/file-format/src/family-migrations/ops/split-type.js" points to missing source files
+stdout | apps/editor/src/engine/views/plantools/__tests__/planAutoModeReachability.spec.ts > §FIX-AUTO-MODE-DROPPED-AT-ACTIVATION (L-918) — AUTO must survive tool activation into plan view > CENSUS: every tool the matrix declares with 2+ modes registers an activator that ACCEPTS a mode
+[Layout] Phase E (S78-WIRE) — tool activators registered with runtime.tools (§FIX-DECLARED-TOOL-WITH-NO-ACTIVATOR: +stair-path, +railing, +grid, +lift, +lighting)
+
+stderr | apps/editor/src/engine/views/plantools/__tests__/planAutoModeReachability.spec.ts
+THREE.WARNING: Multiple instances of Three.js being imported.
+
+stdout | apps/editor/src/engine/views/plantools/__tests__/planAutoModeReachability.spec.ts
+[CreateCurtainWallsOnAllSlabsCommand] §DEV: window.__resetCwPrewarm() registered. Call it in DevTools to re-enable first-run PSO prewarm for next execute().
+
+stderr | apps/editor/src/engine/views/plantools/__tests__/planAutoModeReachability.spec.ts
+Lit is in dev mode. Not recommended for production! See https://lit.dev/msg/dev-mode for more information.
+
+stdout | apps/editor/src/engine/views/plantools/__tests__/planAutoModeReachability.spec.ts
+[ConstraintEngine] 17 rules registered (7 Tier 1, 5 Tier 2 spatial, 5 Tier 2 physics)
+
+stderr | apps/editor/src/engine/views/plantools/__tests__/planAutoModeReachability.spec.ts
+Warning: Please use the `legacy` build in Node.js environments.
+
+ ❯ apps/editor/src/engine/views/plantools/__tests__/planAutoModeReachability.spec.ts (12 tests | 1 failed) 41ms
+     × CENSUS: every tool the matrix declares with 2+ modes registers an activator that ACCEPTS a mode 7ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 7 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  apps/editor/src/engine/views/plantools/__tests__/planAutoModeReachability.spec.ts > §FIX-AUTO-MODE-DROPPED-AT-ACTIVATION (L-918) — AUTO must survive tool activation into plan view > CENSUS: every tool the matrix declares with 2+ modes registers an activator that ACCEPTS a mode
+AssertionError: families that STRUCTURALLY cannot honour an activation mode: grid (declares 3 modes, activator arity 0): expected [ Array(1) ] to deeply equal []
+
+- Expected
++ Received
+
+- []
++ [
++   "grid (declares 3 modes, activator arity 0)",
++ ]
+
+ ❯ apps/editor/src/engine/views/plantools/__tests__/planAutoModeReachability.spec.ts:296:11
+    294|             swallowing,
+    295|             `families that STRUCTURALLY cannot honour an activation mo…
+    296|         ).toEqual([]);
+       |           ^
+    297|
+    298|         // The declared-but-unregistered set is NAMED, not silently sk…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/7]⎯
+
+ FAIL  apps/editor/src/engine/views/plantools/__tests__/stairByWalls.spec.ts > FEAT-STAIR-BY-WALLS -- the By Slab pattern, for stairs > THE PILL -- declared on the strip, in the same commit as the arm > By Walls is an ACTION: it fires and never takes the active highlight
+AssertionError: expected [] to deeply equal [ 'linear', 'ortho', 'bywall' ]
+
+- Expected
++ Received
+
+- [
+-   "linear",
+-   "ortho",
+-   "bywall",
+- ]
++ []
+
+ ❯ apps/editor/src/engine/views/plantools/__tests__/stairByWalls.spec.ts:340:54
+    338|             });
+    339|             const pills = Array.from(document.querySelectorAll<HTMLBut…
+    340|             expect(pills.map((b) => b.dataset.mode)).toEqual(['linear'…
+       |                                                      ^
+    341|
+    342|             const byWalls = pills.find((b) => b.dataset.mode === 'bywa…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/7]⎯
+
+ FAIL  apps/editor/src/engine/views/plantools/__tests__/stairCreationModes.spec.ts > FEAT-STAIR-CREATION-MODES -- the stair gains the WALL second axis > THE MODE REACHES THE GEOMETRY -- a real pill, a real stair > ORTHOGONAL: a diagonal click produces an AXIS-ALIGNED flight
+TypeError: Cannot read properties of null (reading 'click')
+ ❯ apps/editor/src/engine/views/plantools/__tests__/stairCreationModes.spec.ts:200:25
+    198|             const { ctrl, dispatched } = mountStairTool(bar, 'I');
+    199|
+    200|             pill('ortho').click();
+       |                         ^
+    201|             expect(resolveActiveStairDrawMode()).toBe('ortho');
+    202|
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/7]⎯
+
+ FAIL  apps/editor/src/engine/views/plantools/__tests__/stairCreationModes.spec.ts > FEAT-STAIR-CREATION-MODES -- the stair gains the WALL second axis > THE MODE REACHES THE GEOMETRY -- a real pill, a real stair > LINEAR: the SAME click produces a flight that follows the mouse exactly
+Error: [FrameScheduler] addTickListener: duplicate id "stair-path-tool-loop" (each listener must register a unique id).
+ ❯ FrameScheduler.addTickListener packages/frame-scheduler/src/FrameScheduler.ts:373:13
+    371|   ): TickListenerDisposer {
+    372|     if (this.tickListeners.has(id)) {
+    373|       throw new Error(
+       |             ^
+    374|         `[FrameScheduler] addTickListener: duplicate id "${id}" (each …
+    375|       );
+ ❯ StairPathToolController._startRaf packages/geometry-stair/src/stairPath/StairPathToolController.ts:916:43
+ ❯ StairPathToolController.activate packages/geometry-stair/src/stairPath/StairPathToolController.ts:372:14
+ ❯ mountStairTool apps/editor/src/engine/views/plantools/__tests__/stairCreationModes.spec.ts:104:10
+ ❯ apps/editor/src/engine/views/plantools/__tests__/stairCreationModes.spec.ts:216:42
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[4/7]⎯
+
+ FAIL  apps/editor/src/engine/views/plantools/__tests__/stairCreationModes.spec.ts > FEAT-STAIR-CREATION-MODES -- the stair gains the WALL second axis > THE MODE REACHES THE GEOMETRY -- a real pill, a real stair > the keyboard accelerator reaches the geometry too, not just the highlight
+Error: [FrameScheduler] addTickListener: duplicate id "stair-path-tool-loop" (each listener must register a unique id).
+ ❯ FrameScheduler.addTickListener packages/frame-scheduler/src/FrameScheduler.ts:373:13
+    371|   ): TickListenerDisposer {
+    372|     if (this.tickListeners.has(id)) {
+    373|       throw new Error(
+       |             ^
+    374|         `[FrameScheduler] addTickListener: duplicate id "${id}" (each …
+    375|       );
+ ❯ StairPathToolController._startRaf packages/geometry-stair/src/stairPath/StairPathToolController.ts:916:43
+ ❯ StairPathToolController.activate packages/geometry-stair/src/stairPath/StairPathToolController.ts:372:14
+ ❯ mountStairTool apps/editor/src/engine/views/plantools/__tests__/stairCreationModes.spec.ts:104:10
+ ❯ apps/editor/src/engine/views/plantools/__tests__/stairCreationModes.spec.ts:235:42
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[5/7]⎯
+
+ FAIL  apps/editor/src/engine/views/plantools/__tests__/stairCreationModes.spec.ts > FEAT-STAIR-CREATION-MODES -- the stair gains the WALL second axis > MODE IS LIVE -- switching MID-DRAW keeps the point already placed > a switch applies to the very NEXT click, and the started run survives it
+Error: [FrameScheduler] addTickListener: duplicate id "stair-path-tool-loop" (each listener must register a unique id).
+ ❯ FrameScheduler.addTickListener packages/frame-scheduler/src/FrameScheduler.ts:373:13
+    371|   ): TickListenerDisposer {
+    372|     if (this.tickListeners.has(id)) {
+    373|       throw new Error(
+       |             ^
+    374|         `[FrameScheduler] addTickListener: duplicate id "${id}" (each …
+    375|       );
+ ❯ StairPathToolController._startRaf packages/geometry-stair/src/stairPath/StairPathToolController.ts:916:43
+ ❯ StairPathToolController.activate packages/geometry-stair/src/stairPath/StairPathToolController.ts:372:14
+ ❯ mountStairTool apps/editor/src/engine/views/plantools/__tests__/stairCreationModes.spec.ts:104:10
+ ❯ apps/editor/src/engine/views/plantools/__tests__/stairCreationModes.spec.ts:258:52
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[6/7]⎯
+
+ FAIL  apps/editor/src/engine/views/plantools/__tests__/stairPlanCreation.spec.ts > L-243 — plan-view stair creation (ADR-0098) > riserHeight × riserCount === height on a 2-level project
+TypeError: Cannot read properties of undefined (reading 'input')
+ ❯ inputOf apps/editor/src/engine/views/plantools/__tests__/stairPlanCreation.spec.ts:99:14
+     97| function inputOf(cmd: unknown): Record<string, unknown> {
+     98|     const c = cmd as { input?: Record<string, unknown> };
+     99|     return c.input ?? {};
+       |              ^
+    100| }
+    101|
+ ❯ apps/editor/src/engine/views/plantools/__tests__/stairPlanCreation.spec.ts:216:23
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[7/7]⎯
+
+
+ Test Files  4 failed (4)
+      Tests  7 failed | 42 passed (49)
+   Start at  19:24:54
+   Duration  28.33s (transform 55.73s, setup 0ms, import 85.55s, tests 750ms, environment 3.00s)
+

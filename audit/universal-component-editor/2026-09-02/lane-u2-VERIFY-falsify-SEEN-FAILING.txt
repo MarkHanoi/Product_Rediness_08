@@ -1,0 +1,182 @@
+npm warn Unknown project config "package-manager-strict". This will stop working in the next major version of npm. See `npm help npmrc` for supported config options.
+
+ RUN  v4.1.10 C:/Users/LENOVO/OneDrive/Desktop/PRYZM/Product_Rediness_08/apps/editor
+
+Sourcemap for "C:/Users/LENOVO/OneDrive/Desktop/PRYZM/Product_Rediness_08/packages/file-format/src/family-schema.js" points to missing source files
+Sourcemap for "C:/Users/LENOVO/OneDrive/Desktop/PRYZM/Product_Rediness_08/packages/file-format/src/family-types.js" points to missing source files
+Sourcemap for "C:/Users/LENOVO/OneDrive/Desktop/PRYZM/Product_Rediness_08/packages/file-format/src/family-migrations/index.js" points to missing source files
+Sourcemap for "C:/Users/LENOVO/OneDrive/Desktop/PRYZM/Product_Rediness_08/packages/file-format/src/family-migrations/identity.js" points to missing source files
+Sourcemap for "C:/Users/LENOVO/OneDrive/Desktop/PRYZM/Product_Rediness_08/packages/file-format/src/family-migrations/v1_0-to-v1_1.js" points to missing source files
+Sourcemap for "C:/Users/LENOVO/OneDrive/Desktop/PRYZM/Product_Rediness_08/packages/file-format/src/family-migrations/ops/rename-parameter.js" points to missing source files
+Sourcemap for "C:/Users/LENOVO/OneDrive/Desktop/PRYZM/Product_Rediness_08/packages/file-format/src/family-migrations/ops/add-parameter.js" points to missing source files
+Sourcemap for "C:/Users/LENOVO/OneDrive/Desktop/PRYZM/Product_Rediness_08/packages/file-format/src/family-migrations/ops/delete-parameter.js" points to missing source files
+Sourcemap for "C:/Users/LENOVO/OneDrive/Desktop/PRYZM/Product_Rediness_08/packages/file-format/src/family-migrations/ops/change-parameter-type.js" points to missing source files
+Sourcemap for "C:/Users/LENOVO/OneDrive/Desktop/PRYZM/Product_Rediness_08/packages/file-format/src/family-migrations/ops/introduce-expression.js" points to missing source files
+Sourcemap for "C:/Users/LENOVO/OneDrive/Desktop/PRYZM/Product_Rediness_08/packages/file-format/src/family-migrations/ops/rebind-ifc.js" points to missing source files
+Sourcemap for "C:/Users/LENOVO/OneDrive/Desktop/PRYZM/Product_Rediness_08/packages/file-format/src/family-migrations/ops/merge-material-slots.js" points to missing source files
+Sourcemap for "C:/Users/LENOVO/OneDrive/Desktop/PRYZM/Product_Rediness_08/packages/file-format/src/family-migrations/ops/split-type.js" points to missing source files
+stderr | __tests__/componentPropertySectionThroughComposedRuntime.test.ts
+THREE.WARNING: Multiple instances of Three.js being imported.
+
+stdout | __tests__/componentPropertySectionThroughComposedRuntime.test.ts
+[CreateCurtainWallsOnAllSlabsCommand] §DEV: window.__resetCwPrewarm() registered. Call it in DevTools to re-enable first-run PSO prewarm for next execute().
+
+stderr | __tests__/componentPropertySectionThroughComposedRuntime.test.ts
+Warning: Please use the `legacy` build in Node.js environments.
+
+stdout | __tests__/componentPropertySectionThroughComposedRuntime.test.ts
+[ConstraintEngine] 17 rules registered (7 Tier 1, 5 Tier 2 spatial, 5 Tier 2 physics)
+
+ ❯ __tests__/componentPropertySectionThroughComposedRuntime.test.ts (8 tests | 8 failed) 478ms
+     × ARM 1 — ⭐⭐ THE MOUNT: place via the verb → render through the PRODUCTION panel body → the Component section shows name, both types, and per-row C110 §2.2 source badges 64ms
+     × ARM 2 — ⭐ TYPE SWAP through the panel path: `component.swapType` dispatches, reads back CA-21, and the rows re-resolve from the new type 6ms
+     × ARM 3 — ⭐ INSTANCE OVERRIDE through the row path: `component.setInstanceParameter` dispatches, reads back, the row turns `instance` — and a SECOND placed instance still reads `type` (spec §66 F-2 at the panel) 6ms
+     × ARM 4 — ⭐ a FOREIGN-type swap surfaces the handler's refusal IN THE PANEL, naming BOTH ids — and the store did not move 4ms
+     × ARM 5 — a refused row edit renders the diagnostic AGAINST ITS ROW, and nothing was written 6ms
+     × ARM 6 — CLEAR through the row path removes the KEY and the row returns to the ladder below it 7ms
+     × ARM 7 — ⭐⭐ THE HONEST EMPTY STATE: sever the definition (unload it) → the section shows the NAMED refusal and ZERO rows — never stale numbers; reload → the rows return 7ms
+     × ARM 8 — ⭐ the profile-editor opener port: unwired it REFUSES BY NAME; wired (the production dialog) it OPENS over the declared plane 4ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 8 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  __tests__/componentPropertySectionThroughComposedRuntime.test.ts > §U2-COMPONENT-SECTION — select a placed component, see and edit its parameters through the two live verbs > ARM 1 — ⭐⭐ THE MOUNT: place via the verb → render through the PRODUCTION panel body → the Component section shows name, both types, and per-row C110 §2.2 source badges
+AssertionError: expected undefined to be 'U2 Window' // Object.is equality
+
+- Expected:
+"U2 Window"
+
++ Received:
+undefined
+
+ ❯ __tests__/componentPropertySectionThroughComposedRuntime.test.ts:216:74
+    214|         const section = container.querySelector('[data-cs-root]') as H…
+    215|         expect(section, 'the Component section is IN the rendered pane…
+    216|         expect(section!.querySelector('[data-cs-defname]')?.textConten…
+       |                                                                          ^
+    217|
+    218|         // The type dropdown lists the definition's DECLARED types, cu…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/8]⎯
+
+ FAIL  __tests__/componentPropertySectionThroughComposedRuntime.test.ts > §U2-COMPONENT-SECTION — select a placed component, see and edit its parameters through the two live verbs > ARM 2 — ⭐ TYPE SWAP through the panel path: `component.swapType` dispatches, reads back CA-21, and the rows re-resolve from the new type
+AssertionError: expected null to be 'type' // Object.is equality
+
+- Expected:
+"type"
+
++ Received:
+null
+
+ ❯ __tests__/componentPropertySectionThroughComposedRuntime.test.ts:243:53
+    241|         // …and the PANEL re-resolved from it: Width is now the W-600 …
+    242|         // the dependent formula followed. No stored copy anywhere (sp…
+    243|         expect(sourceOf(section.root, PARAM_WIDTH)).toBe('type');
+       |                                                     ^
+    244|         expect(valueOf(section.root, PARAM_WIDTH)).toBe('600');
+    245|         expect(valueOf(section.root, PARAM_GLASS), 'Width 600 − 150').…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/8]⎯
+
+ FAIL  __tests__/componentPropertySectionThroughComposedRuntime.test.ts > §U2-COMPONENT-SECTION — select a placed component, see and edit its parameters through the two live verbs > ARM 3 — ⭐ INSTANCE OVERRIDE through the row path: `component.setInstanceParameter` dispatches, reads back, the row turns `instance` — and a SECOND placed instance still reads `type` (spec §66 F-2 at the panel)
+AssertionError: the inline editor opens under the row: expected false to be true // Object.is equality
+
+- Expected
++ Received
+
+- true
++ false
+
+ ❯ __tests__/componentPropertySectionThroughComposedRuntime.test.ts:252:89
+    250|
+    251|         const section = createComponentSection({ id: OCC1, type: 'comp…
+    252|         expect(section.beginEdit(PARAM_WIDTH), 'the inline editor open…
+       |                                                                                         ^
+    253|         expect(section.root.querySelector(`[data-cs-edit-input="${PARA…
+    254|
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/8]⎯
+
+ FAIL  __tests__/componentPropertySectionThroughComposedRuntime.test.ts > §U2-COMPONENT-SECTION — select a placed component, see and edit its parameters through the two live verbs > ARM 4 — ⭐ a FOREIGN-type swap surfaces the handler's refusal IN THE PANEL, naming BOTH ids — and the store did not move
+AssertionError: the refusal is returned: expected null not to be null
+ ❯ __tests__/componentPropertySectionThroughComposedRuntime.test.ts:275:56
+    273|         const section = createComponentSection({ id: OCC1, type: 'comp…
+    274|         const refusal = await section.requestTypeSwap(TYPE_ALIEN);
+    275|         expect(refusal, 'the refusal is returned').not.toBeNull();
+       |                                                        ^
+    276|
+    277|         // Rendered under the dropdown — not a toast-and-nothing, not …
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[4/8]⎯
+
+ FAIL  __tests__/componentPropertySectionThroughComposedRuntime.test.ts > §U2-COMPONENT-SECTION — select a placed component, see and edit its parameters through the two live verbs > ARM 5 — a refused row edit renders the diagnostic AGAINST ITS ROW, and nothing was written
+AssertionError: the handler's C110 §3.5-a shape refusal, verbatim — ONE refusal vocabulary: expected 'Parameter par_01ARZ3NDEKTSV4RRFFQ69G5…' to contain 'finite number'
+
+Expected: "finite number"
+Received: "Parameter par_01ARZ3NDEKTSV4RRFFQ69G5T07 is not among the declared parameters of this section's current render (no loaded definition declares it here)."
+
+ ❯ __tests__/componentPropertySectionThroughComposedRuntime.test.ts:292:104
+    290|         const refusal = await section.submitEdit(PARAM_WIDTH, 'abc');
+    291|         expect(refusal).not.toBeNull();
+    292|         expect(refusal, 'the handler\'s C110 §3.5-a shape refusal, ver…
+       |                                                                                                        ^
+    293|
+    294|         const rowRefusal = section.root.querySelector(`[data-cs-row-re…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[5/8]⎯
+
+ FAIL  __tests__/componentPropertySectionThroughComposedRuntime.test.ts > §U2-COMPONENT-SECTION — select a placed component, see and edit its parameters through the two live verbs > ARM 6 — CLEAR through the row path removes the KEY and the row returns to the ladder below it
+AssertionError: expected 'component.setInstanceParameter: canEx…' to be null
+
+- Expected:
+null
+
++ Received:
+"component.setInstanceParameter: canExecute rejected — component component_01ARZ3NDEKTSV4RRFFQ69G5T01 has no instance override for par_01ARZ3NDEKTSV4RRFFQ69G5T07; there is nothing to clear."
+
+ ❯ __tests__/componentPropertySectionThroughComposedRuntime.test.ts:304:25
+    302|         const section = createComponentSection({ id: OCC1, type: 'comp…
+    303|         const refusal = await section.clearOverride(PARAM_WIDTH);
+    304|         expect(refusal).toBeNull();
+       |                         ^
+    305|
+    306|         const params = readBack(OCC1).instanceParameters;
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[6/8]⎯
+
+ FAIL  __tests__/componentPropertySectionThroughComposedRuntime.test.ts > §U2-COMPONENT-SECTION — select a placed component, see and edit its parameters through the two live verbs > ARM 7 — ⭐⭐ THE HONEST EMPTY STATE: sever the definition (unload it) → the section shows the NAMED refusal and ZERO rows — never stale numbers; reload → the rows return
+AssertionError: expected null to be '1777' // Object.is equality
+
+- Expected:
+"1777"
+
++ Received:
+null
+
+ ❯ __tests__/componentPropertySectionThroughComposedRuntime.test.ts:318:52
+    316|         });
+    317|         const section = createComponentSection({ id: OCC1, type: 'comp…
+    318|         expect(valueOf(section.root, PARAM_WIDTH)).toBe('1777');
+       |                                                    ^
+    319|
+    320|         componentCatalog.remove(DEF_ID);
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[7/8]⎯
+
+ FAIL  __tests__/componentPropertySectionThroughComposedRuntime.test.ts > §U2-COMPONENT-SECTION — select a placed component, see and edit its parameters through the two live verbs > ARM 8 — ⭐ the profile-editor opener port: unwired it REFUSES BY NAME; wired (the production dialog) it OPENS over the declared plane
+AssertionError: the definition's profile is listed with its affordance: expected null not to be null
+ ❯ __tests__/componentPropertySectionThroughComposedRuntime.test.ts:348:91
+    346|         const section = createComponentSection({ id: OCC1, type: 'comp…
+    347|         const profileBtn = section.root.querySelector(`[data-cs-profil…
+    348|         expect(profileBtn, 'the definition\'s profile is listed with i…
+       |                                                                                           ^
+    349|
+    350|         // Unwired — the ARM-B rule: a missing wire states itself.
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[8/8]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  8 failed (8)
+   Start at  13:29:11
+   Duration  21012.45s (transform 21001.60s, setup 0ms, import 21011.05s, tests 478ms, environment 610ms)
+

@@ -40,6 +40,14 @@ import { buildWindowSection, setWindowOutlineEditorOpener } from '@pryzm/geometr
 // the section is. A port nobody supplies is a dead feature ([[committed-is-not-reachable]]).
 import { openWindowOutlineEditorDialog } from '../WindowOutlineEditorDialog';
 setWindowOutlineEditorOpener(openWindowOutlineEditorDialog);
+// §U2-COMPONENT-SECTION — the placed-component instance section (UI/UX wave, lane U2),
+// MOUNTING lane 4F's parameter table (its §7 axis 3: zero production importers until
+// this line). Same idiom as §OUTLINE81 above: the section's profile-editor opener port
+// is wired at the module that MOUNTS the section, so "Edit profile…" is live wherever
+// the section is — a port nobody supplies is a dead feature ([[committed-is-not-reachable]]).
+import { buildComponentSection, setComponentProfileEditorOpener } from './ComponentSection';
+import { openComponentProfileEditorDialog } from '../ComponentProfileEditorDialog';
+setComponentProfileEditorOpener(openComponentProfileEditorDialog);
 import { RoofPropertySheet }        from './RoofPropertySheet';
 import {
     _buildSpatialSection,
@@ -353,6 +361,14 @@ export function _renderElementToContainer(
             const roofSheet = new RoofPropertySheet(host.commandManager);
             roofSheet.render(body, roofData as any);
         }
+    } else if (elType === 'component') {
+        // §U2-COMPONENT-SECTION — a placed component occurrence (ADR-0376 D9: an
+        // ELEMENT, `type: 'component'`). Definition name + type dropdown
+        // (`component.swapType`) + lane 4F's parameter table with per-row C110 §2.2
+        // source badges, fed from the composed store + the U0 catalogue through the
+        // ONE resolver (`component.setInstanceParameter` on row edits).
+        const componentSec = buildComponentSection(elementData);
+        if (componentSec) body.appendChild(componentSec);
     } else if (elType === 'stair' || elType === 'stairs') {
         // §STAIR-LEVEL-SPAN-CHANGE (L-1533) — the founder's item 0.2. Same mount
         // point and same shape as the door / window parametric sections above: a

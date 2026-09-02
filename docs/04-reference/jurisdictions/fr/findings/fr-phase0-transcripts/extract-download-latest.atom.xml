@@ -1,0 +1,234 @@
+<?xml version='1.0' encoding='UTF-8' standalone='yes'?>
+<feed xmlns:georss="http://www.georss.org/georss" xmlns:gpf_dl="https://data.geopf.fr/annexes/ressources/xsd/gpf_dl.xsd" xmlns="http://www.w3.org/2005/Atom" xmlns:inspire_dls="http://inspire.ec.europa.eu/schemas/inspire_dls/1.0" xml:lang="en" gpf_dl:page="1" gpf_dl:pagesize="50" gpf_dl:pagecount="1" gpf_dl:totalentries="32">
+  <title>Extraction-8ab6236b-21d8-471a-a07b-f84a5921f9f5</title>
+  <subtitle>Extraction-8ab6236b-21d8-471a-a07b-f84a5921f9f5</subtitle>
+  <id>https://data.geopf.fr/extraction/telechargement/resource/extraction_b6f40b99-dbf8-408c-936d-2498f07a2583/data</id>
+  <updated>2026-08-29T14:59:00+01:00</updated>
+  <link href="https://data.geopf.fr/extraction/telechargement/resource/extraction_b6f40b99-dbf8-408c-936d-2498f07a2583/data?lang=fr" hreflang="fr" rel="alternate" type="application/atom+xml" title="Extraction-8ab6236b-21d8-471a-a07b-f84a5921f9f5"/>
+  <link href="https://data.geopf.fr/extraction/telechargement/resource/extraction_b6f40b99-dbf8-408c-936d-2498f07a2583/data" rel="self" type="application/atom+xml" title="This document"/>
+  <link href="https://data.geopf.fr/extraction/telechargement/resource/extraction_b6f40b99-dbf8-408c-936d-2498f07a2583" rel="up" type="application/atom+xml"/>
+  <entry>
+    <link href="https://data.geopf.fr/extraction/telechargement/download/extraction_b6f40b99-dbf8-408c-936d-2498f07a2583/data/extraction.json" rel="alternate" type="application/json" gpf_dl:length="3440"/>
+    <id>https://data.geopf.fr/extraction/telechargement/download/extraction_b6f40b99-dbf8-408c-936d-2498f07a2583/data/extraction.json</id>
+    <content>08f7a0a23188ac87295670e1d12de0ae</content>
+    <category term="https://www.opengis.net/def/crs/EPSG/0/4326" label="EPSG:4326"/>
+    <gpf_dl:mime_type>application/json</gpf_dl:mime_type>
+  </entry>
+  <entry>
+    <link href="https://data.geopf.fr/extraction/telechargement/download/extraction_b6f40b99-dbf8-408c-936d-2498f07a2583/data/export/schema_851ddcb2_d12c_4189_ad5e_eec47a17d366.secteur_cc.gpkg" rel="alternate" type="application/geopackage+sqlite3" gpf_dl:length="107577344"/>
+    <id>https://data.geopf.fr/extraction/telechargement/download/extraction_b6f40b99-dbf8-408c-936d-2498f07a2583/data/export/schema_851ddcb2_d12c_4189_ad5e_eec47a17d366.secteur_cc.gpkg</id>
+    <content>fe8504c356c0bf8445b685ce8b356669</content>
+    <category term="https://www.opengis.net/def/crs/EPSG/0/4326" label="EPSG:4326"/>
+    <gpf_dl:mime_type>application/geopackage+sqlite3</gpf_dl:mime_type>
+  </entry>
+  <entry>
+    <link href="https://data.geopf.fr/extraction/telechargement/download/extraction_b6f40b99-dbf8-408c-936d-2498f07a2583/data/export/schema_851ddcb2_d12c_4189_ad5e_eec47a17d366.doc_urba_scot.gpkg" rel="alternate" type="application/geopackage+sqlite3" gpf_dl:length="172032"/>
+    <id>https://data.geopf.fr/extraction/telechargement/download/extraction_b6f40b99-dbf8-408c-936d-2498f07a2583/data/export/schema_851ddcb2_d12c_4189_ad5e_eec47a17d366.doc_urba_scot.gpkg</id>
+    <content>a6f7764fe266ada1ecc4c62300b9dcbd</content>
+    <category term="https://www.opengis.net/def/crs/EPSG/0/4326" label="EPSG:4326"/>
+    <gpf_dl:mime_type>application/geopackage+sqlite3</gpf_dl:mime_type>
+  </entry>
+  <entry>
+    <link href="https://data.geopf.fr/extraction/telechargement/download/extraction_b6f40b99-dbf8-408c-936d-2498f07a2583/data/export/schema_851ddcb2_d12c_4189_ad5e_eec47a17d366.document.gpkg" rel="alternate" type="application/geopackage+sqlite3" gpf_dl:length="68612096"/>
+    <id>https://data.geopf.fr/extraction/telechargement/download/extraction_b6f40b99-dbf8-408c-936d-2498f07a2583/data/export/schema_851ddcb2_d12c_4189_ad5e_eec47a17d366.document.gpkg</id>
+    <content>55d5de029353512bcc4bf88298cde317</content>
+    <category term="https://www.opengis.net/def/crs/EPSG/0/4326" label="EPSG:4326"/>
+    <gpf_dl:mime_type>application/geopackage+sqlite3</gpf_dl:mime_type>
+  </entry>
+  <entry>
+    <link href="https://data.geopf.fr/extraction/telechargement/download/extraction_b6f40b99-dbf8-408c-936d-2498f07a2583/data/export/schema_851ddcb2_d12c_4189_ad5e_eec47a17d366.info_surf.gpkg" rel="alternate" type="application/geopackage+sqlite3" gpf_dl:length="2461634560"/>
+    <id>https://data.geopf.fr/extraction/telechargement/download/extraction_b6f40b99-dbf8-408c-936d-2498f07a2583/data/export/schema_851ddcb2_d12c_4189_ad5e_eec47a17d366.info_surf.gpkg</id>
+    <content>4588aa03b0ccdef30387710cd01c62c2</content>
+    <category term="https://www.opengis.net/def/crs/EPSG/0/4326" label="EPSG:4326"/>
+    <gpf_dl:mime_type>application/geopackage+sqlite3</gpf_dl:mime_type>
+  </entry>
+  <entry>
+    <link href="https://data.geopf.fr/extraction/telechargement/download/extraction_b6f40b99-dbf8-408c-936d-2498f07a2583/data/export/schema_851ddcb2_d12c_4189_ad5e_eec47a17d366.servitude_acte_sup.gpkg" rel="alternate" type="application/geopackage+sqlite3" gpf_dl:length="15044608"/>
+    <id>https://data.geopf.fr/extraction/telechargement/download/extraction_b6f40b99-dbf8-408c-936d-2498f07a2583/data/export/schema_851ddcb2_d12c_4189_ad5e_eec47a17d366.servitude_acte_sup.gpkg</id>
+    <content>eaa72a1405009996a3b3a34f0a29b0d1</content>
+    <category term="https://www.opengis.net/def/crs/EPSG/0/4326" label="EPSG:4326"/>
+    <gpf_dl:mime_type>application/geopackage+sqlite3</gpf_dl:mime_type>
+  </entry>
+  <entry>
+    <link href="https://data.geopf.fr/extraction/telechargement/download/extraction_b6f40b99-dbf8-408c-936d-2498f07a2583/data/export/schema_851ddcb2_d12c_4189_ad5e_eec47a17d366.doc_urba_com.gpkg" rel="alternate" type="application/geopackage+sqlite3" gpf_dl:length="4071424"/>
+    <id>https://data.geopf.fr/extraction/telechargement/download/extraction_b6f40b99-dbf8-408c-936d-2498f07a2583/data/export/schema_851ddcb2_d12c_4189_ad5e_eec47a17d366.doc_urba_com.gpkg</id>
+    <content>cbfe80ef1480fb969294bdf260fb1506</content>
+    <category term="https://www.opengis.net/def/crs/EPSG/0/4326" label="EPSG:4326"/>
+    <gpf_dl:mime_type>application/geopackage+sqlite3</gpf_dl:mime_type>
+  </entry>
+  <entry>
+    <link href="https://data.geopf.fr/extraction/telechargement/download/extraction_b6f40b99-dbf8-408c-936d-2498f07a2583/data/export/schema_851ddcb2_d12c_4189_ad5e_eec47a17d366.habillage_pct.gpkg" rel="alternate" type="application/geopackage+sqlite3" gpf_dl:length="18018304"/>
+    <id>https://data.geopf.fr/extraction/telechargement/download/extraction_b6f40b99-dbf8-408c-936d-2498f07a2583/data/export/schema_851ddcb2_d12c_4189_ad5e_eec47a17d366.habillage_pct.gpkg</id>
+    <content>9ae82f62813169cc0bed7c580fce5fb0</content>
+    <category term="https://www.opengis.net/def/crs/EPSG/0/4326" label="EPSG:4326"/>
+    <gpf_dl:mime_type>application/geopackage+sqlite3</gpf_dl:mime_type>
+  </entry>
+  <entry>
+    <link href="https://data.geopf.fr/extraction/telechargement/download/extraction_b6f40b99-dbf8-408c-936d-2498f07a2583/data/export/schema_851ddcb2_d12c_4189_ad5e_eec47a17d366.assiette_sup_p.gpkg" rel="alternate" type="application/geopackage+sqlite3" gpf_dl:length="98304"/>
+    <id>https://data.geopf.fr/extraction/telechargement/download/extraction_b6f40b99-dbf8-408c-936d-2498f07a2583/data/export/schema_851ddcb2_d12c_4189_ad5e_eec47a17d366.assiette_sup_p.gpkg</id>
+    <content>c79001a636282feefb8e1ab7edbb926b</content>
+    <category term="https://www.opengis.net/def/crs/EPSG/0/4326" label="EPSG:4326"/>
+    <gpf_dl:mime_type>application/geopackage+sqlite3</gpf_dl:mime_type>
+  </entry>
+  <entry>
+    <link href="https://data.geopf.fr/extraction/telechargement/download/extraction_b6f40b99-dbf8-408c-936d-2498f07a2583/data/export/schema_851ddcb2_d12c_4189_ad5e_eec47a17d366.habillage_surf.gpkg" rel="alternate" type="application/geopackage+sqlite3" gpf_dl:length="498663424"/>
+    <id>https://data.geopf.fr/extraction/telechargement/download/extraction_b6f40b99-dbf8-408c-936d-2498f07a2583/data/export/schema_851ddcb2_d12c_4189_ad5e_eec47a17d366.habillage_surf.gpkg</id>
+    <content>e276c01303185b533698a4017ec654f5</content>
+    <category term="https://www.opengis.net/def/crs/EPSG/0/4326" label="EPSG:4326"/>
+    <gpf_dl:mime_type>application/geopackage+sqlite3</gpf_dl:mime_type>
+  </entry>
+  <entry>
+    <link href="https://data.geopf.fr/extraction/telechargement/download/extraction_b6f40b99-dbf8-408c-936d-2498f07a2583/data/export/schema_851ddcb2_d12c_4189_ad5e_eec47a17d366.info_pct.gpkg" rel="alternate" type="application/geopackage+sqlite3" gpf_dl:length="70160384"/>
+    <id>https://data.geopf.fr/extraction/telechargement/download/extraction_b6f40b99-dbf8-408c-936d-2498f07a2583/data/export/schema_851ddcb2_d12c_4189_ad5e_eec47a17d366.info_pct.gpkg</id>
+    <content>8278560ce3d1528c5b27c6a0d422f8d0</content>
+    <category term="https://www.opengis.net/def/crs/EPSG/0/4326" label="EPSG:4326"/>
+    <gpf_dl:mime_type>application/geopackage+sqlite3</gpf_dl:mime_type>
+  </entry>
+  <entry>
+    <link href="https://data.geopf.fr/extraction/telechargement/download/extraction_b6f40b99-dbf8-408c-936d-2498f07a2583/data/export/schema_851ddcb2_d12c_4189_ad5e_eec47a17d366.prescription_pct.gpkg" rel="alternate" type="application/geopackage+sqlite3" gpf_dl:length="378163200"/>
+    <id>https://data.geopf.fr/extraction/telechargement/download/extraction_b6f40b99-dbf8-408c-936d-2498f07a2583/data/export/schema_851ddcb2_d12c_4189_ad5e_eec47a17d366.prescription_pct.gpkg</id>
+    <content>bea9fa379d9112d1ff45c8740a656ce8</content>
+    <category term="https://www.opengis.net/def/crs/EPSG/0/4326" label="EPSG:4326"/>
+    <gpf_dl:mime_type>application/geopackage+sqlite3</gpf_dl:mime_type>
+  </entry>
+  <entry>
+    <link href="https://data.geopf.fr/extraction/telechargement/download/extraction_b6f40b99-dbf8-408c-936d-2498f07a2583/data/export/schema_851ddcb2_d12c_4189_ad5e_eec47a17d366.extraction_description.gpkg" rel="alternate" type="application/geopackage+sqlite3" gpf_dl:length="73728"/>
+    <id>https://data.geopf.fr/extraction/telechargement/download/extraction_b6f40b99-dbf8-408c-936d-2498f07a2583/data/export/schema_851ddcb2_d12c_4189_ad5e_eec47a17d366.extraction_description.gpkg</id>
+    <content>cc6a786739bb76c11f14143b75b305fa</content>
+    <category term="https://www.opengis.net/def/crs/EPSG/0/4326" label="EPSG:4326"/>
+    <gpf_dl:mime_type>application/geopackage+sqlite3</gpf_dl:mime_type>
+  </entry>
+  <entry>
+    <link href="https://data.geopf.fr/extraction/telechargement/download/extraction_b6f40b99-dbf8-408c-936d-2498f07a2583/data/export/schema_851ddcb2_d12c_4189_ad5e_eec47a17d366.prescription_surf.gpkg" rel="alternate" type="application/geopackage+sqlite3" gpf_dl:length="7124189184"/>
+    <id>https://data.geopf.fr/extraction/telechargement/download/extraction_b6f40b99-dbf8-408c-936d-2498f07a2583/data/export/schema_851ddcb2_d12c_4189_ad5e_eec47a17d366.prescription_surf.gpkg</id>
+    <content>d9df539c5e007a3252ab144f43d8f8b8</content>
+    <category term="https://www.opengis.net/def/crs/EPSG/0/4326" label="EPSG:4326"/>
+    <gpf_dl:mime_type>application/geopackage+sqlite3</gpf_dl:mime_type>
+  </entry>
+  <entry>
+    <link href="https://data.geopf.fr/extraction/telechargement/download/extraction_b6f40b99-dbf8-408c-936d-2498f07a2583/data/export/schema_851ddcb2_d12c_4189_ad5e_eec47a17d366.gestionnaire_sup.gpkg" rel="alternate" type="application/geopackage+sqlite3" gpf_dl:length="454656"/>
+    <id>https://data.geopf.fr/extraction/telechargement/download/extraction_b6f40b99-dbf8-408c-936d-2498f07a2583/data/export/schema_851ddcb2_d12c_4189_ad5e_eec47a17d366.gestionnaire_sup.gpkg</id>
+    <content>372d276739ca6c754958822b0d3d8301</content>
+    <category term="https://www.opengis.net/def/crs/EPSG/0/4326" label="EPSG:4326"/>
+    <gpf_dl:mime_type>application/geopackage+sqlite3</gpf_dl:mime_type>
+  </entry>
+  <entry>
+    <link href="https://data.geopf.fr/extraction/telechargement/download/extraction_b6f40b99-dbf8-408c-936d-2498f07a2583/data/export/schema_851ddcb2_d12c_4189_ad5e_eec47a17d366.zone_urba.gpkg" rel="alternate" type="application/geopackage+sqlite3" gpf_dl:length="4064722944"/>
+    <id>https://data.geopf.fr/extraction/telechargement/download/extraction_b6f40b99-dbf8-408c-936d-2498f07a2583/data/export/schema_851ddcb2_d12c_4189_ad5e_eec47a17d366.zone_urba.gpkg</id>
+    <content>3c0c53c453fa6fc327c58557b6ee4955</content>
+    <category term="https://www.opengis.net/def/crs/EPSG/0/4326" label="EPSG:4326"/>
+    <gpf_dl:mime_type>application/geopackage+sqlite3</gpf_dl:mime_type>
+  </entry>
+  <entry>
+    <link href="https://data.geopf.fr/extraction/telechargement/download/extraction_b6f40b99-dbf8-408c-936d-2498f07a2583/data/export/schema_851ddcb2_d12c_4189_ad5e_eec47a17d366.servitude.gpkg" rel="alternate" type="application/geopackage+sqlite3" gpf_dl:length="25194496"/>
+    <id>https://data.geopf.fr/extraction/telechargement/download/extraction_b6f40b99-dbf8-408c-936d-2498f07a2583/data/export/schema_851ddcb2_d12c_4189_ad5e_eec47a17d366.servitude.gpkg</id>
+    <content>d6ee8f6642044562a740d3c51dc09cc4</content>
+    <category term="https://www.opengis.net/def/crs/EPSG/0/4326" label="EPSG:4326"/>
+    <gpf_dl:mime_type>application/geopackage+sqlite3</gpf_dl:mime_type>
+  </entry>
+  <entry>
+    <link href="https://data.geopf.fr/extraction/telechargement/download/extraction_b6f40b99-dbf8-408c-936d-2498f07a2583/data/export/schema_851ddcb2_d12c_4189_ad5e_eec47a17d366.doc_urba.gpkg" rel="alternate" type="application/geopackage+sqlite3" gpf_dl:length="5554176"/>
+    <id>https://data.geopf.fr/extraction/telechargement/download/extraction_b6f40b99-dbf8-408c-936d-2498f07a2583/data/export/schema_851ddcb2_d12c_4189_ad5e_eec47a17d366.doc_urba.gpkg</id>
+    <content>96fe5d304f17558d2b780bba8814eb7c</content>
+    <category term="https://www.opengis.net/def/crs/EPSG/0/4326" label="EPSG:4326"/>
+    <gpf_dl:mime_type>application/geopackage+sqlite3</gpf_dl:mime_type>
+  </entry>
+  <entry>
+    <link href="https://data.geopf.fr/extraction/telechargement/download/extraction_b6f40b99-dbf8-408c-936d-2498f07a2583/data/export/schema_851ddcb2_d12c_4189_ad5e_eec47a17d366.habillage_txt.gpkg" rel="alternate" type="application/geopackage+sqlite3" gpf_dl:length="184692736"/>
+    <id>https://data.geopf.fr/extraction/telechargement/download/extraction_b6f40b99-dbf8-408c-936d-2498f07a2583/data/export/schema_851ddcb2_d12c_4189_ad5e_eec47a17d366.habillage_txt.gpkg</id>
+    <content>0522875a1f0a16786b4a0ee59f33d17f</content>
+    <category term="https://www.opengis.net/def/crs/EPSG/0/4326" label="EPSG:4326"/>
+    <gpf_dl:mime_type>application/geopackage+sqlite3</gpf_dl:mime_type>
+  </entry>
+  <entry>
+    <link href="https://data.geopf.fr/extraction/telechargement/download/extraction_b6f40b99-dbf8-408c-936d-2498f07a2583/data/export/schema_851ddcb2_d12c_4189_ad5e_eec47a17d366.municipality.gpkg" rel="alternate" type="application/geopackage+sqlite3" gpf_dl:length="150228992"/>
+    <id>https://data.geopf.fr/extraction/telechargement/download/extraction_b6f40b99-dbf8-408c-936d-2498f07a2583/data/export/schema_851ddcb2_d12c_4189_ad5e_eec47a17d366.municipality.gpkg</id>
+    <content>1a5bc1ace87ec844bbd20ec54256fc67</content>
+    <category term="https://www.opengis.net/def/crs/EPSG/0/4326" label="EPSG:4326"/>
+    <gpf_dl:mime_type>application/geopackage+sqlite3</gpf_dl:mime_type>
+  </entry>
+  <entry>
+    <link href="https://data.geopf.fr/extraction/telechargement/download/extraction_b6f40b99-dbf8-408c-936d-2498f07a2583/data/export/schema_851ddcb2_d12c_4189_ad5e_eec47a17d366.assiette_sup_s.gpkg" rel="alternate" type="application/geopackage+sqlite3" gpf_dl:length="1483677696"/>
+    <id>https://data.geopf.fr/extraction/telechargement/download/extraction_b6f40b99-dbf8-408c-936d-2498f07a2583/data/export/schema_851ddcb2_d12c_4189_ad5e_eec47a17d366.assiette_sup_s.gpkg</id>
+    <content>9e5322a266721995d441bc46692a4327</content>
+    <category term="https://www.opengis.net/def/crs/EPSG/0/4326" label="EPSG:4326"/>
+    <gpf_dl:mime_type>application/geopackage+sqlite3</gpf_dl:mime_type>
+  </entry>
+  <entry>
+    <link href="https://data.geopf.fr/extraction/telechargement/download/extraction_b6f40b99-dbf8-408c-936d-2498f07a2583/data/export/schema_851ddcb2_d12c_4189_ad5e_eec47a17d366.generateur_sup_s.gpkg" rel="alternate" type="application/geopackage+sqlite3" gpf_dl:length="913190912"/>
+    <id>https://data.geopf.fr/extraction/telechargement/download/extraction_b6f40b99-dbf8-408c-936d-2498f07a2583/data/export/schema_851ddcb2_d12c_4189_ad5e_eec47a17d366.generateur_sup_s.gpkg</id>
+    <content>5296e120254e78872104c85a5d3b6537</content>
+    <category term="https://www.opengis.net/def/crs/EPSG/0/4326" label="EPSG:4326"/>
+    <gpf_dl:mime_type>application/geopackage+sqlite3</gpf_dl:mime_type>
+  </entry>
+  <entry>
+    <link href="https://data.geopf.fr/extraction/telechargement/download/extraction_b6f40b99-dbf8-408c-936d-2498f07a2583/data/export/schema_851ddcb2_d12c_4189_ad5e_eec47a17d366.generateur_sup_l.gpkg" rel="alternate" type="application/geopackage+sqlite3" gpf_dl:length="97628160"/>
+    <id>https://data.geopf.fr/extraction/telechargement/download/extraction_b6f40b99-dbf8-408c-936d-2498f07a2583/data/export/schema_851ddcb2_d12c_4189_ad5e_eec47a17d366.generateur_sup_l.gpkg</id>
+    <content>8262198654d944453c40c596c3f5c03e</content>
+    <category term="https://www.opengis.net/def/crs/EPSG/0/4326" label="EPSG:4326"/>
+    <gpf_dl:mime_type>application/geopackage+sqlite3</gpf_dl:mime_type>
+  </entry>
+  <entry>
+    <link href="https://data.geopf.fr/extraction/telechargement/download/extraction_b6f40b99-dbf8-408c-936d-2498f07a2583/data/export/schema_851ddcb2_d12c_4189_ad5e_eec47a17d366.scot.gpkg" rel="alternate" type="application/geopackage+sqlite3" gpf_dl:length="39841792"/>
+    <id>https://data.geopf.fr/extraction/telechargement/download/extraction_b6f40b99-dbf8-408c-936d-2498f07a2583/data/export/schema_851ddcb2_d12c_4189_ad5e_eec47a17d366.scot.gpkg</id>
+    <content>58c6e1204748130f84163767a8b5be09</content>
+    <category term="https://www.opengis.net/def/crs/EPSG/0/4326" label="EPSG:4326"/>
+    <gpf_dl:mime_type>application/geopackage+sqlite3</gpf_dl:mime_type>
+  </entry>
+  <entry>
+    <link href="https://data.geopf.fr/extraction/telechargement/download/extraction_b6f40b99-dbf8-408c-936d-2498f07a2583/data/export/schema_851ddcb2_d12c_4189_ad5e_eec47a17d366.doc_urba_com_scot.gpkg" rel="alternate" type="application/geopackage+sqlite3" gpf_dl:length="2367488"/>
+    <id>https://data.geopf.fr/extraction/telechargement/download/extraction_b6f40b99-dbf8-408c-936d-2498f07a2583/data/export/schema_851ddcb2_d12c_4189_ad5e_eec47a17d366.doc_urba_com_scot.gpkg</id>
+    <content>6db018167acebc092cf3aa073b4f8b43</content>
+    <category term="https://www.opengis.net/def/crs/EPSG/0/4326" label="EPSG:4326"/>
+    <gpf_dl:mime_type>application/geopackage+sqlite3</gpf_dl:mime_type>
+  </entry>
+  <entry>
+    <link href="https://data.geopf.fr/extraction/telechargement/download/extraction_b6f40b99-dbf8-408c-936d-2498f07a2583/data/export/schema_851ddcb2_d12c_4189_ad5e_eec47a17d366.perimetre_scot.gpkg" rel="alternate" type="application/geopackage+sqlite3" gpf_dl:length="33099776"/>
+    <id>https://data.geopf.fr/extraction/telechargement/download/extraction_b6f40b99-dbf8-408c-936d-2498f07a2583/data/export/schema_851ddcb2_d12c_4189_ad5e_eec47a17d366.perimetre_scot.gpkg</id>
+    <content>6c0306e38200787475ce5258b5c95fd4</content>
+    <category term="https://www.opengis.net/def/crs/EPSG/0/4326" label="EPSG:4326"/>
+    <gpf_dl:mime_type>application/geopackage+sqlite3</gpf_dl:mime_type>
+  </entry>
+  <entry>
+    <link href="https://data.geopf.fr/extraction/telechargement/download/extraction_b6f40b99-dbf8-408c-936d-2498f07a2583/data/export/schema_851ddcb2_d12c_4189_ad5e_eec47a17d366.habillage_lin.gpkg" rel="alternate" type="application/geopackage+sqlite3" gpf_dl:length="143990784"/>
+    <id>https://data.geopf.fr/extraction/telechargement/download/extraction_b6f40b99-dbf8-408c-936d-2498f07a2583/data/export/schema_851ddcb2_d12c_4189_ad5e_eec47a17d366.habillage_lin.gpkg</id>
+    <content>d62c9de4e17b86501973ea48ca3c222b</content>
+    <category term="https://www.opengis.net/def/crs/EPSG/0/4326" label="EPSG:4326"/>
+    <gpf_dl:mime_type>application/geopackage+sqlite3</gpf_dl:mime_type>
+  </entry>
+  <entry>
+    <link href="https://data.geopf.fr/extraction/telechargement/download/extraction_b6f40b99-dbf8-408c-936d-2498f07a2583/data/export/schema_851ddcb2_d12c_4189_ad5e_eec47a17d366.assiette_sup_l.gpkg" rel="alternate" type="application/geopackage+sqlite3" gpf_dl:length="5070848"/>
+    <id>https://data.geopf.fr/extraction/telechargement/download/extraction_b6f40b99-dbf8-408c-936d-2498f07a2583/data/export/schema_851ddcb2_d12c_4189_ad5e_eec47a17d366.assiette_sup_l.gpkg</id>
+    <content>59988b87ef40b5befdd57d7302ba7dc6</content>
+    <category term="https://www.opengis.net/def/crs/EPSG/0/4326" label="EPSG:4326"/>
+    <gpf_dl:mime_type>application/geopackage+sqlite3</gpf_dl:mime_type>
+  </entry>
+  <entry>
+    <link href="https://data.geopf.fr/extraction/telechargement/download/extraction_b6f40b99-dbf8-408c-936d-2498f07a2583/data/export/schema_851ddcb2_d12c_4189_ad5e_eec47a17d366.info_lin.gpkg" rel="alternate" type="application/geopackage+sqlite3" gpf_dl:length="703340544"/>
+    <id>https://data.geopf.fr/extraction/telechargement/download/extraction_b6f40b99-dbf8-408c-936d-2498f07a2583/data/export/schema_851ddcb2_d12c_4189_ad5e_eec47a17d366.info_lin.gpkg</id>
+    <content>cabbd00a1c0d874035785136ea762d46</content>
+    <category term="https://www.opengis.net/def/crs/EPSG/0/4326" label="EPSG:4326"/>
+    <gpf_dl:mime_type>application/geopackage+sqlite3</gpf_dl:mime_type>
+  </entry>
+  <entry>
+    <link href="https://data.geopf.fr/extraction/telechargement/download/extraction_b6f40b99-dbf8-408c-936d-2498f07a2583/data/export/schema_851ddcb2_d12c_4189_ad5e_eec47a17d366.prescription_lin.gpkg" rel="alternate" type="application/geopackage+sqlite3" gpf_dl:length="2278072320"/>
+    <id>https://data.geopf.fr/extraction/telechargement/download/extraction_b6f40b99-dbf8-408c-936d-2498f07a2583/data/export/schema_851ddcb2_d12c_4189_ad5e_eec47a17d366.prescription_lin.gpkg</id>
+    <content>2e9c31445099b9eecf086c4bda41b201</content>
+    <category term="https://www.opengis.net/def/crs/EPSG/0/4326" label="EPSG:4326"/>
+    <gpf_dl:mime_type>application/geopackage+sqlite3</gpf_dl:mime_type>
+  </entry>
+  <entry>
+    <link href="https://data.geopf.fr/extraction/telechargement/download/extraction_b6f40b99-dbf8-408c-936d-2498f07a2583/data/export/schema_851ddcb2_d12c_4189_ad5e_eec47a17d366.acte_sup.gpkg" rel="alternate" type="application/geopackage+sqlite3" gpf_dl:length="24502272"/>
+    <id>https://data.geopf.fr/extraction/telechargement/download/extraction_b6f40b99-dbf8-408c-936d-2498f07a2583/data/export/schema_851ddcb2_d12c_4189_ad5e_eec47a17d366.acte_sup.gpkg</id>
+    <content>d0e38872aed914ff35eb1e19dd7e8869</content>
+    <category term="https://www.opengis.net/def/crs/EPSG/0/4326" label="EPSG:4326"/>
+    <gpf_dl:mime_type>application/geopackage+sqlite3</gpf_dl:mime_type>
+  </entry>
+  <entry>
+    <link href="https://data.geopf.fr/extraction/telechargement/download/extraction_b6f40b99-dbf8-408c-936d-2498f07a2583/data/export/schema_851ddcb2_d12c_4189_ad5e_eec47a17d366.generateur_sup_p.gpkg" rel="alternate" type="application/geopackage+sqlite3" gpf_dl:length="270336"/>
+    <id>https://data.geopf.fr/extraction/telechargement/download/extraction_b6f40b99-dbf8-408c-936d-2498f07a2583/data/export/schema_851ddcb2_d12c_4189_ad5e_eec47a17d366.generateur_sup_p.gpkg</id>
+    <content>311a487eb3e910e87574ad797f29bc14</content>
+    <category term="https://www.opengis.net/def/crs/EPSG/0/4326" label="EPSG:4326"/>
+    <gpf_dl:mime_type>application/geopackage+sqlite3</gpf_dl:mime_type>
+  </entry>
+</feed>

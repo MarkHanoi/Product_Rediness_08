@@ -740,6 +740,37 @@ export const ELEMENT_CREATION_MATRIX: readonly ElementCreationCapability[] = [
       autoIn: ['plan', '3d'], modeSource: 'shared' },
     { tool: 'furniture', label: 'Furniture', views: ['plan', '3d'], modes: [], autoIn: [], modeSource: 'shared',
       gap: 'NOT IMPLEMENTED from the UI — auto-furnish exists as a batch/AI executor (D-FLE), not a tool mode.' },
+    {
+        // §COMPONENT-PLACE-TOOL (lane U1, UIUX-PLAN §U1) · ADR-0376 D9/D10 — the
+        // click-to-place tool for `.pryzm-family` COMPONENT occurrences, arming the
+        // `component.place` verb that had been LIVE-but-unarmed since Phase 4C.
+        // The definition/type pair comes from the Components browser via
+        // `activeComponentPlacement.ts` (shared store — the L-239-family lesson).
+        //
+        // PLAN ONLY, DELIBERATELY, while lane 4E's production viewport leg is
+        // descoped (ADR-0376 D10): a placed component has no 3-D mesh in the main
+        // viewport yet (`ComponentCommitter` is not mounted at this reading), so a
+        // 3-D placement arm would place elements the view cannot show — the
+        // founder's "reports activation, activates nothing" defect with extra
+        // steps. When 4E's mount lands, the 3-D arm needs a `ToolManager`
+        // activator + key, declared here as the gap.
+        tool: 'component', label: 'Component', views: ['plan'],
+        // No mode strip: a component is a single-click insertion; HOW it sketches
+        // is not a variable of this tool (the definition owns its geometry). The
+        // one live modifier — SPACE to rotate — is named on the overlay hint
+        // (the §LIFT94 rule).
+        modes: [],
+        // No AUTO: where a component goes is the architect's decision; nothing
+        // derives placements from context. "Not applicable", not "not implemented".
+        autoIn: [],
+        modeSource: 'n/a',
+        gap: 'OPEN (UIUX-PLAN §U1/D10): 3-D placement waits for lane 4E\'s viewport '
+           + 'mount — `ComponentCommitter` is committed but not registered on the '
+           + 'production render path, so a 3-D arm would place invisible elements. '
+           + 'When it mounts, add the ToolManager key + 3-D tool and move this row '
+           + 'to both views. Hosted placement (`hostId`) stays OFF separately: the '
+           + 'payload field is INERT while ADR-0376 D11 is open (refusal register R-d).',
+    },
     { tool: 'plumbing',  label: 'Plumbing fixture', views: ['plan', '3d'],
       modes: [
         { id: 'toilet', key: 'T', label: 'WC',     description: 'Place a WC' },

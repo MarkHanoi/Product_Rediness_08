@@ -1287,13 +1287,17 @@ export class CreateRailPanel {
                         } as any,
                     },
                     {
-                        label: 'Component',
+                        // §COMPONENT-BROWSER (lane U1, UIUX-PLAN §U1) — the REAL
+                        // Components entry on the SECOND create surface (L-1380).
+                        // This row routed to the `familyCreatorPlaceholder` "under
+                        // construction" modal until 2026-09-02; the placeholder files
+                        // are DELETED (both copies, plus their scaffold test — the
+                        // retiring-assertion mechanism firing as designed).
+                        label: 'Components',
                         icon:  'material-symbols:category',
                         action: () => {
-                            // Family Creator under reconstruction — see
-                            // docs/00_NEW_ARCHITECTURE/phases/PHASE-3B-FAMILY-CREATOR-REWRITE-PLAN.md
-                            import('../../../familyCreatorPlaceholder').then(m => {
-                                m.openFamilyCreatorPlaceholder();
+                            import('../../component-browser/index').then(m => {
+                                m.openComponentBrowser();
                             });
                         },
                         disabled: () => false,
