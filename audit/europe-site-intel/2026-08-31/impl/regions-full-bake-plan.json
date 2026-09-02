@@ -1,0 +1,64 @@
+{
+  "$schema": "lane REGIONS full-bake plan, 2026-09-02 — data for the orchestrator's deliberate operational bakes. NOT a workflow file.",
+  "authority": [
+    "audit/europe-site-intel/2026-08-31/impl/context-everywhere-assessment.md (verdicts, measured pbf sizes)",
+    "tools/context-bake/bake.mjs §BAKE-EUROPE-NATIONAL (the 25 rows this plan sequences)",
+    "audit/europe-site-intel/2026-08-31/impl/lane-regions-national-rows.md (this lane's proofs + calibration)"
+  ],
+  "calibration": {
+    "buildings_local_bake": "IMPOSSIBLE on this box — osmium/tippecanoe/duckdb/docker/WSL all measured absent 2026-09-02; local proof ran at the pipeline's plan/dry-run/download/preflight layer instead (see findings §3). The FIRST TWO CI region bakes below are therefore the real buildings calibration runs.",
+    "terrain_local_bake_MEASURED": {
+      "tallinn": { "wall_clock_s": 28.1, "mapterhorn_source_tiles": 494, "mesh_tiles": 11, "zoom": "0..9", "verify": "terrain.verify.mjs RC=0, independent decode PASS" },
+      "luxembourgcity": { "wall_clock_s": 16.1, "mapterhorn_source_tiles": 224, "mesh_tiles": 15, "zoom": "0..10", "verify": "terrain.verify.mjs RC=0, independent decode PASS" },
+      "throughput": "~0.06-0.07 s per Mapterhorn z15 source tile, network-bound; a per-city visual-terrain bake is O(seconds-to-a-minute)"
+    },
+    "tiles_weight_model": "tiles_gb = pbf_gb x [0.8 .. 1.9] — Spain calibration (1.3 GB pbf -> 1-2.5 GB tiles, bake §L-607), which was FOUR layers; the pipeline now bakes SEVEN, so lean to the upper half. Re-measure on the LU+EE calibration bakes before finalising the R2 budget.",
+    "time_model": "PROJECTED, not measured: run 30706761446 (buildings layer only, 24 regions, ~13.6 GB pbf est.) hit the 180-min timeout at 99.9% => ~13 min/GB for the buildings chain; full 7-layer bake projected ~15-25 min per GB of pbf + ~2-4 min fixed per country (download+clip). The LU and EE CI bakes are the designated re-calibration points — replace this model with their measured wall-clocks."
+  },
+  "prerequisites_before_any_publish": [
+    "R2 budget decision (founder): scope tiles projected 24-57 GB vs the 10 GB free tier bake §L-607 states — paid R2 ~$0.36-0.86/mo, or trim maxzoom/layers for mass-only countries, or stage countries.",
+    "Workflow switch (HARD prerequisite, arithmetically forced now): ALL_REGIONS is ~33 GB of pbf across 35 regions; the buildings layer ALONE hit 180 min on the old ~13.6 GB set and the job ceiling is 330 min (GitHub max 360). An unscoped full bake CANNOT finish. Switch context-bake.yml to per-region bakes + merged artifacts/incremental `aws s3 sync` exactly as bake.mjs:57 designs. Until it lands, the §BAKE-BY-REGION warning binds: a region-scoped publish REPLACES the whole tileset.",
+    "DEDUP CONSEQUENCE: lisbon/porto/rome/milan/berlin/munich/london/brussels/oslo/stockholm/helsinki/zurich/geneva/bern city rows were REMOVED in favour of national rows. The next published tileset must therefore include the Phase-1 countries below, or those cities vanish from the map on publish.",
+    "Re-probe the 15 UNMEASURED pbf sizes (Geofabrik 502-throttled the assessment's client) before finalising CI bake order — every cell marked est. below.",
+    "Overture flip for thin-OSM countries (GR/RO/BG/HU class): Riyadh-style OSM-vs-Overture count probe per country FIRST; Europe default stays OSM (bake §BAKE-OVERTURE)."
+  ],
+  "phases": [
+    { "phase": 0, "why": "calibration — smallest two, proven locally to the last locally-runnable step this lane could reach; their CI bakes re-measure the weight and time models", "regions": ["luxembourg", "estonia"] },
+    { "phase": 1, "why": "supersede the removed city rows — these countries' cities are IN today's published tileset via the deleted rows; bake them before the next publish so the map never loses a city", "regions": ["portugal", "belgium", "switzerland", "italy", "norway", "sweden", "finland", "greatbritain", "germany"] },
+    { "phase": 2, "why": "the remaining new countries, small to large", "regions": ["slovenia", "latvia", "croatia", "bulgaria", "lithuania", "ireland", "hungary", "slovakia", "austria", "romania", "greece", "czechia", "poland", "france"] },
+    { "phase": "always", "why": "existing rows that keep riding along in every full sequence (unchanged)", "regions": ["spain", "denmark", "netherlands", "paris", "lyon", "koln", "newyork", "sanfrancisco", "riyadh", "jeddah"] }
+  ],
+  "countries": [
+    { "order": 1, "region": "luxembourg", "cc": "LU", "phase": 0, "pbf_gb": 0.047, "pbf_measured": true, "tiles_gb_projected": [0.04, 0.09], "ci_minutes_projected": [2, 4], "heights": "NONE today (no-source row proven: resolveHeights -> no-source)", "note": "pbf downloaded to the pipeline path this lane, 47,420,269 B" },
+    { "order": 2, "region": "estonia", "cc": "EE", "phase": 0, "pbf_gb": 0.123, "pbf_measured": true, "tiles_gb_projected": [0.10, 0.23], "ci_minutes_projected": [3, 6], "heights": "L2 owed (Eesti 3D stamp mirroring lod2nrw); bakes honest OSM defaults until it lands (resolveHeights -> documented, proven)", "note": "pbf downloaded to the pipeline path this lane, 122,684,556 B" },
+    { "order": 3, "region": "portugal", "cc": "PT", "phase": 1, "pbf_gb": 0.35, "pbf_measured": false, "tiles_gb_projected": [0.28, 0.67], "ci_minutes_projected": [6, 12], "heights": "NONE (DGT LiDAR endpoint uncaptured)", "note": "replaces lisbon+porto rows — publish loses those cities if PT is not in the tileset" },
+    { "order": 4, "region": "belgium", "cc": "BE", "phase": 1, "pbf_gb": 0.60, "pbf_measured": false, "tiles_gb_projected": [0.48, 1.14], "ci_minutes_projected": [9, 17], "heights": "3 regional stamps owed (Wallonia MNH / Flanders GRB / Brussels UrbIS)", "note": "replaces brussels row" },
+    { "order": 5, "region": "switzerland", "cc": "CH", "phase": 1, "pbf_gb": 0.45, "pbf_measured": false, "tiles_gb_projected": [0.36, 0.86], "ci_minutes_projected": [7, 14], "heights": "wire-not-build: stampSwissHeightsOnGeojsonseq authored, NOT imported by bake.mjs — cheapest measured-height national add (~0.5 day)", "note": "replaces zurich/geneva/bern rows" },
+    { "order": 6, "region": "italy", "cc": "IT", "phase": 1, "pbf_gb": 2.225, "pbf_measured": true, "tiles_gb_projected": [1.78, 4.23], "ci_minutes_projected": [35, 60], "heights": "NONE national (Piedmont-only regional)", "note": "replaces rome+milan rows" },
+    { "order": 7, "region": "norway", "cc": "NO", "phase": 1, "pbf_gb": 1.374, "pbf_measured": true, "tiles_gb_projected": [1.10, 2.61], "ci_minutes_projected": [22, 39], "heights": "MR owed (keyless NDH nDSM stamp); FKB stays X3-refused", "note": "replaces oslo row" },
+    { "order": 8, "region": "sweden", "cc": "SE", "phase": 1, "pbf_gb": 0.815, "pbf_measured": true, "tiles_gb_projected": [0.65, 1.55], "ci_minutes_projected": [13, 24], "heights": "MR gated on a FREE Lantmateriet download credential (NOT the NGP gate) + nDSM stamp", "note": "replaces stockholm row" },
+    { "order": 9, "region": "finland", "cc": "FI", "phase": 1, "pbf_gb": 0.741, "pbf_measured": true, "tiles_gb_projected": [0.59, 1.41], "ci_minutes_projected": [12, 22], "heights": "L2 partial (status-map read owed first)", "note": "replaces helsinki row" },
+    { "order": 10, "region": "greatbritain", "cc": "GB", "phase": 1, "pbf_gb": 1.90, "pbf_measured": false, "tiles_gb_projected": [1.52, 3.61], "ci_minutes_projected": [30, 52], "heights": "MR England-only owed (EA LiDAR nDSM); OS stays X3-refused (probe-verified)", "note": "replaces london row" },
+    { "order": 11, "region": "germany", "cc": "DE", "phase": 1, "pbf_gb": 4.830, "pbf_measured": true, "tiles_gb_projected": [3.86, 9.18], "ci_minutes_projected": [75, 125], "heights": "L2 staged per-Land (router owed); koln city row KEPT (lod2nrw live) and double-bakes deliberately until the router lands", "note": "Germany alone ~= the whole R2 free tier; budget decision binds before its publish" },
+    { "order": 12, "region": "slovenia", "cc": "SI", "phase": 2, "pbf_gb": 0.28, "pbf_measured": false, "tiles_gb_projected": [0.22, 0.53], "ci_minutes_projected": [5, 10], "heights": "RA with REAL metres (GURS STAVBE) — fill probe owed BEFORE any join" },
+    { "order": 13, "region": "latvia", "cc": "LV", "phase": 2, "pbf_gb": 0.25, "pbf_measured": false, "tiles_gb_projected": [0.20, 0.48], "ci_minutes_projected": [5, 9], "heights": "NONE today — attr presence UNVERIFIED (UNKNOWN stays UNKNOWN)" },
+    { "order": 14, "region": "croatia", "cc": "HR", "phase": 2, "pbf_gb": 0.33, "pbf_measured": false, "tiles_gb_projected": [0.26, 0.63], "ci_minutes_projected": [6, 11], "heights": "NONE" },
+    { "order": 15, "region": "bulgaria", "cc": "BG", "phase": 2, "pbf_gb": 0.35, "pbf_measured": false, "tiles_gb_projected": [0.28, 0.67], "ci_minutes_projected": [6, 12], "heights": "NONE (KAIS cadastre bulk PAID / no open bulk - context rides OSM)" },
+    { "order": 16, "region": "lithuania", "cc": "LT", "phase": 2, "pbf_gb": 0.35, "pbf_measured": false, "tiles_gb_projected": [0.28, 0.67], "ci_minutes_projected": [6, 12], "heights": "NONE (floors product PRICED -> X3-refused)" },
+    { "order": 17, "region": "ireland", "cc": "IE", "phase": 2, "pbf_gb": 0.35, "pbf_measured": false, "tiles_gb_projected": [0.28, 0.67], "ci_minutes_projected": [6, 12], "heights": "NONE (no cadastre by design; honest-low OSM density)" },
+    { "order": 18, "region": "hungary", "cc": "HU", "phase": 2, "pbf_gb": 0.40, "pbf_measured": false, "tiles_gb_projected": [0.32, 0.76], "ci_minutes_projected": [7, 13], "heights": "NONE (fee gate binds the cadastre, not OSM context)" },
+    { "order": 19, "region": "slovakia", "cc": "SK", "phase": 2, "pbf_gb": 0.45, "pbf_measured": false, "tiles_gb_projected": [0.36, 0.86], "ci_minutes_projected": [7, 14], "heights": "NONE today (DMR 5.0 reported, NOT verified)" },
+    { "order": 20, "region": "austria", "cc": "AT", "phase": 2, "pbf_gb": 0.75, "pbf_measured": false, "tiles_gb_projected": [0.60, 1.43], "ci_minutes_projected": [12, 22], "heights": "MR owed (geoland.at nDSM stamp)" },
+    { "order": 21, "region": "romania", "cc": "RO", "phase": 2, "pbf_gb": 0.75, "pbf_measured": false, "tiles_gb_projected": [0.60, 1.43], "ci_minutes_projected": [12, 22], "heights": "NONE" },
+    { "order": 22, "region": "greece", "cc": "GR", "phase": 2, "pbf_gb": 0.90, "pbf_measured": false, "tiles_gb_projected": [0.72, 1.71], "ci_minutes_projected": [14, 26], "heights": "NONE" },
+    { "order": 23, "region": "czechia", "cc": "CZ", "phase": 2, "pbf_gb": 0.95, "pbf_measured": false, "tiles_gb_projected": [0.76, 1.81], "ci_minutes_projected": [15, 27], "heights": "FL derived owed (RUIAN VFR parse first)" },
+    { "order": 24, "region": "poland", "cc": "PL", "phase": 2, "pbf_gb": 2.091, "pbf_measured": true, "tiles_gb_projected": [1.67, 3.97], "ci_minutes_projected": [33, 57], "heights": "FL derived owed (BDOT10k parquet fill read first)" },
+    { "order": 25, "region": "france", "cc": "FR", "phase": 2, "pbf_gb": 5.071, "pbf_measured": true, "tiles_gb_projected": [4.06, 9.64], "ci_minutes_projected": [79, 131], "heights": "MR owed (MNH national stamp); paris/lyon city rows KEPT (live BD TOPO) and double-bake deliberately until then", "note": "largest in scope; budget decision binds" }
+  ],
+  "totals": {
+    "new_countries": 25,
+    "scope_pbf_gb_projected": "~30 (11 measured + 14 est. + PT/BE measured-adjacent est.)",
+    "scope_tiles_gb_projected": "24-57 vs the 10 GB R2 free tier (2.4-5.7x) — founder decision before publish",
+    "datum_lift_rows": "15 owed at assessment time; 2 landed this lane (ee 18.2, lu 48.0 — GeoidEval EGM2008, probe-computed); 13 remain: LT LV PL AT CZ IE HR SI GR HU RO SK BG"
+  }
+}

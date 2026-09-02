@@ -214,6 +214,38 @@ export const TERRAIN_SOURCES = {
         + 'requires a FREE API key (MML_API_KEY, register at asiointi.maanmittauslaitos.fi). Keyless everywhere else '
         + 'in Nordics except this one; add the key as a CI secret to bake Helsinki.' },
   },
+  // §EUROPE-NATIONAL datum-lift rows (2026-09-02, lane REGIONS) — the assessment's §4 ledger owed 15
+  // new geoidSepM constants; these are the FIRST TWO (the two proof countries), each PROBE-COMPUTED
+  // via GeographicLib GeoidEval (EGM2008, 2026-09-02) — never guessed (E4 control 9). Neither has a
+  // national DTM fetch adapter built (DTM_FETCH has no 'ee'/'lu' key), so a DEFAULT bake of their
+  // regions SKIPs loudly (`skip-unwired`, never a fake tile); the VISUAL context bake runs via the
+  // explicit `--dtm-source mapterhorn` switch (E3A), with the datum lift staying THIS row's constant.
+  // The remaining 13 owed constants (LT LV PL AT CZ IE HR SI GR HU RO SK BG) follow the same recipe:
+  //   curl 'https://geographiclib.sourceforge.io/cgi-bin/GeoidEval?input=<lat>+<lon>' → EGM2008 row.
+  ee: {
+    country: 'Estonia', dataset: '(national DTM adapter NOT BUILT — Maa-amet LiDAR elevation is open; route/licence not pinned this wave)',
+    protocol: 'n/a (unwired)', coverageId: null,
+    endpoint: 'https://geoportaal.maaamet.ee/ (Maa-amet elevation data)',
+    resolutionM: null, horizCrs: 'L-EST97 (EPSG:3301)', vertDatum: 'EH2000 (Amsterdam/EVRS)',
+    compoundCrs: null, geoidSepM: 18.2, // Tallinn — GeoidEval EGM2008 = 18.1859 m @ 59.437N 24.745E (PROBED 2026-09-02)
+    license: 'UNWIRED — Maa-amet open-data terms not pinned; visual context via --dtm-source mapterhorn only', commercialOk: null, auth: 'none',
+    probe: { url: 'https://geoportaal.maaamet.ee/', verdict: 'unverified',
+      evidence: 'NOT probed this wave (lane REGIONS 2026-09-02: adapter deliberately unwired — no scope expansion, ' +
+        'E4 control 10). Estonia reports open national LiDAR DTM via Maa-amet; pin route+licence when the EE legal ' +
+        'terrain path is built. geoidSepM IS probe-computed (GeoidEval EGM2008), so the Mapterhorn visual bake lifts honestly.' },
+  },
+  lu: {
+    country: 'Luxembourg', dataset: '(national DTM adapter NOT BUILT — ACT LiDAR 2019 reported open, NOT verified)',
+    protocol: 'n/a (unwired)', coverageId: null,
+    endpoint: 'https://data.public.lu/ (ACT / geoportail.lu)',
+    resolutionM: null, horizCrs: 'LUREF (EPSG:2169)', vertDatum: 'NG95 (Luxembourg levelling)',
+    compoundCrs: null, geoidSepM: 48.0, // Luxembourg City — GeoidEval EGM2008 = 48.0055 m @ 49.611N 6.130E (PROBED 2026-09-02)
+    license: 'UNWIRED — LiDAR 2019 licence/route not verified (L5 LU); visual context via --dtm-source mapterhorn only', commercialOk: null, auth: 'none',
+    probe: { url: 'https://data.public.lu/', verdict: 'unverified',
+      evidence: 'NOT probed this wave (lane REGIONS 2026-09-02: adapter deliberately unwired — no scope expansion, ' +
+        'E4 control 10). L5 LU reports a national LiDAR 2019; pin route+licence when the LU legal terrain path is ' +
+        'built. geoidSepM IS probe-computed (GeoidEval EGM2008), so the Mapterhorn visual bake lifts honestly.' },
+  },
   pt: {
     country: 'Portugal', dataset: '(no open national bare-earth DTM found)',
     protocol: 'n/a', coverageId: null,
@@ -298,6 +330,13 @@ export const REGIONS = [
   { name: 'oslo',         source: 'no', bbox: [10.66, 59.88, 10.83, 59.96] },
   { name: 'stockholm',    source: 'se', bbox: [17.98, 59.28, 18.14, 59.37] }, // apikey (LANTMATERIET_API_KEY)
   { name: 'helsinki',     source: 'fi', bbox: [24.88, 60.14, 25.02, 60.20] }, // apikey (MML_API_KEY)
+  // §EUROPE-NATIONAL proof cities (2026-09-02, lane REGIONS) — the two calibration countries of the
+  // whole-country context wave (bake.mjs §BAKE-EUROPE-NATIONAL). Their national DTM adapters are
+  // UNWIRED (TERRAIN_SOURCES ee/lu — default bake SKIPs loudly, `skip-unwired`); the VISUAL terrain
+  // bake runs via `--dtm-source mapterhorn` (E3A ADOPT), datum lift = the probe-computed EGM2008
+  // constant on the ee/lu source rows. Never the legal sampling path (L-584).
+  { name: 'tallinn',        source: 'ee', bbox: [24.65, 59.40, 24.92, 59.50] }, // city core + port + Lasnamäe; sized to the terrarium maxTiles=512 cap (the first cut, 24.62..24.92×59.39..59.50, was REFUSED honestly at 580 z15 tiles — bake 2026-09-02)
+  { name: 'luxembourgcity', source: 'lu', bbox: [6.06, 49.56, 6.20, 49.66] },   // Ville-Haute + Kirchberg + Pétrusse/Alzette gorges (the relief showcase)
   { name: 'zurich',       source: 'ch', bbox: [8.45, 47.34, 8.62, 47.43] },
   { name: 'geneva',       source: 'ch', bbox: [6.09, 46.17, 6.18, 46.25] },
   { name: 'bern',         source: 'ch', bbox: [7.40, 46.93, 7.48, 46.99] },

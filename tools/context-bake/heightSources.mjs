@@ -241,7 +241,11 @@ export const SOURCES = {
     endpoint: 'Lantmäteriet INSPIRE BU (CC0) + national LiDAR point cloud',
     heightField: 'DSM−DTM nDSM per building',
     note: 'Free national LoD1 via nDSM. LoD2 volumes are per-municipality PAID (Stockholm confirmed). ' +
-      'Account+scope to download. Shares the nDSM module.',
+      'Account+scope to download. Shares the nDSM module. ⭐ PROBED 2026-09-01 (context-everywhere ' +
+      'assessment §3): the national 1 m höjdmodell STAC metadata (api.lantmateriet.se/stac-hojd/v1) ' +
+      'answers HTTP 200 KEYLESS with per-tile COG hrefs, but the asset host 401s — the gate is a FREE ' +
+      'Lantmäteriet download credential (the DK DATAFORDELER shape), NOT the NGP parcels/plans ' +
+      'org-onboarding gate. Do not inherit the NGP gate onto context.',
   },
   dgt_pt: {
     country: 'pt', name: 'DGT national LiDAR nDSM', impl: 'documented',
@@ -274,6 +278,88 @@ export const SOURCES = {
     heightField: 'none reachable (Balady NOOFFLOORS geo-fenced); GLO-30 30 m DEM is a sanity layer',
     note: '⚠ BLOCKED: the national product is geo-fenced (403 measured). Reachable = ML footprints + ' +
       'coarse DEM only — NO real per-building height. Region keeps OSM 9 m; do NOT fabricate a height.',
+  },
+  // ───────────────────────────────────────────────────────────────────────────
+  // §EUROPE-NATIONAL height channels (2026-09-02, lane REGIONS) — one row per national channel the
+  // context-everywhere assessment verified (audit/europe-site-intel/2026-08-31/impl/
+  // context-everywhere-assessment.md §2, "ASSESS <CC>"). ALL impl:'documented' — none has a fetcher
+  // or a bake stamp yet, so resolveHeights() reports the honest channel + owed build and the region
+  // keeps OSM defaults; NO region declares a heightJoin on any of these (§MEASURED-HEIGHT-GATE).
+  eesti3d_ee: {
+    country: 'ee', name: 'Eesti 3D national LoD2 + EHR register', impl: 'documented',
+    provenance: 'tagged', lodNow: 'LoD2 (national CityGML)', lodNext: 'LoD2-mesh (native)',
+    endpoint: 'Maa-amet Eesti 3D CityGML (national LoD2, pre-linked to EHR building ids) + EHR daily CSV (floors)',
+    heightField: 'CityGML measuredHeight; EHR floors (daily CSV) as the derived-levels fallback',
+    coverage: 'full',
+    note: 'ASSESS EE: 856,360 LoD2 + 917,882 LoD1 buildings, state-conflated with the register. The owed ' +
+      'build is an EE CityGML stamp mirroring stampLod2NrwHeightsOnGeojsonseq; until it lands the ' +
+      '`estonia` region bakes honest OSM defaults. Never declare the join before the stamp exists.',
+  },
+  bdot10k_pl: {
+    country: 'pl', name: 'BDOT10k OT_BUBD_A storeys (national GeoParquet)', impl: 'documented',
+    provenance: 'derived-levels', lodNow: 'LoD1-floorcount', lodNext: 'LoD2 (2017-vintage per-voivodeship CityGML, bulk UI-mediated — not a bake channel yet)',
+    endpoint: 'plain-URL national GeoParquet (registry `pl-bdot10k-buildings-geoparquet`; probed 200 / 78.6 MB)',
+    heightField: 'storey attribute — a COUNT (× 3.2 m derived, NEVER a measurement)',
+    coverage: 'full',
+    note: 'ASSESS PL: NATIONAL-DERIVED-HEIGHTS, gated on ONE owed DuckDB fill read over the parquet ' +
+      '(storey-attr fill is UNMEASURED — control 9: UNKNOWN stays UNKNOWN). Until that probe lands, ' +
+      'the `poland` region is mass-only and its row says so.',
+  },
+  ruian_cz: {
+    country: 'cz', name: 'RUIAN pocet podlazi (floors) via VFR', impl: 'documented',
+    provenance: 'derived-levels', lodNow: 'LoD1-floorcount', lodNext: 'DMR5G/DMP1G nDSM (reported open — NOT verified)',
+    endpoint: 'CUZK VFR bulk (RUIAN) + INSPIRE BU WFS (keyless live; heightAboveGround NIL — probed E5-10)',
+    heightField: 'pocet podlazi — a COUNT (× 3.2 m derived); the WFS height slot is NIL, never read it as data',
+    coverage: 'full',
+    note: 'ASSESS CZ: NATIONAL-DERIVED-HEIGHTS, gated on ONE owed VFR parse (floors are DOC-level ' +
+      'until parsed). Until then the `czechia` region is mass-only and its row says so.',
+  },
+  gurs_si: {
+    country: 'si', name: 'GURS KN STAVBE register (REAL metres)', impl: 'documented',
+    provenance: 'tagged', lodNow: 'LoD1-real-height (register attribute)', lodNext: 'per-floor ETAZE (VISINA_ETAZE)',
+    endpoint: 'GURS KN STAVBE/STAVBE_OBRIS keyless WFS, CC BY 4.0 (live-probed E5-7)',
+    heightField: 'lowest/highest elevation + characteristic height — REAL METRES (richer than Spain on the vertical axis)',
+    coverage: 'full',
+    note: 'ASSESS SI: the stand-out register-attribute channel. Owed: a WFS-join stamp AND a fill ' +
+      'probe FIRST (GEOM present 1 of 2 sampled — E5 §C); never declare the join before the fill probe.',
+  },
+  geoland_at: {
+    country: 'at', name: 'geoland.at nationwide 1 m DTM+DSM nDSM', impl: 'documented',
+    provenance: 'tagged', lodNow: 'LoD1-real-height (nDSM derive)', lodNext: 'LoD2 (none national)',
+    endpoint: 'geoland.at open CC BY 4.0 nationwide 1 m DTM + DSM',
+    heightField: 'DSM−DTM nDSM P90 per footprint (shares the nDSM module with ES/DK/SE/PT)',
+    coverage: 'full',
+    note: 'ASSESS AT: open national rasters; the owed build is the nDSM stamp. GWR register is ' +
+      'access-gated (not the context channel). Until the stamp lands, `austria` is mass-only.',
+  },
+  ealidar_gb: {
+    country: 'gb', name: 'EA LiDAR Composite DTM/DSM 1 m (OGL v3) — ENGLAND ONLY', impl: 'documented',
+    provenance: 'tagged', lodNow: 'LoD1-real-height (England only)', lodNext: 'none open (OS Building Heights = premium, X3-refused)',
+    endpoint: 'environment.data.gov.uk EA LiDAR Composite (keyless, OGL v3)',
+    heightField: 'DSM−DTM nDSM per footprint — England only; Scotland/Wales/NI are separate portals',
+    coverage: 'partial',
+    note: 'ASSESS GB (probe-verified): the keyless OS Downloads catalogue (26 products) has NO ' +
+      'building-height product — the GB national verdict rests on OSM/ODbL, and OS licensing stays ' +
+      'X3-refused. The owed build is the England nDSM stamp; `greatbritain` stays mass-only until then.',
+  },
+  buildings3d_fi: {
+    country: 'fi', name: 'FI Buildings 3D national LoD2 (CC BY 4.0)', impl: 'documented',
+    provenance: 'tagged', lodNow: 'LoD2 (PARTIAL coverage)', lodNext: 'KM2 DTM+DSM nDSM derive (keyed, MML_API_KEY)',
+    endpoint: 'NLS Buildings 3D CityGML (CC BY 4.0) + NLS INSPIRE BU footprints (fully anonymous)',
+    heightField: 'CityGML measuredHeight where covered; coverage is PARTIAL (product page 2022-01-27)',
+    coverage: 'partial',
+    note: 'ASSESS FI: current coverage NOT CONFIRMED — read the status map FIRST (owed probe), then ' +
+      'the stamp build. Until then `finland` is mass-only.',
+  },
+  mnh_fr: {
+    country: 'fr', name: 'IGN MNH LiDAR-HD pre-computed nDSM (national)', impl: 'documented',
+    provenance: 'tagged', lodNow: 'LoD1-real-height (national raster)', lodNext: 'LoD2 (LiDAR-HD reconstruction)',
+    endpoint: 'IGN LiDAR HD MNH (Modèle Numérique de Hauteur) — pre-computed, national',
+    heightField: 'MNH pixel value IS height above ground (⛔ do NOT rebuild the DSM−DTM differencing — E5 §G.1 A8)',
+    coverage: 'full',
+    note: 'ASSESS FR: the national stamp (raster sample mirroring stampMdsHeightsOnGeojsonseq) is the ' +
+      'owed build + its stamp-bbox city list. City-scale BD TOPO `hauteur` stays live via the kept ' +
+      'paris/lyon rows; `france` national is mass-only until the MNH stamp lands.',
   },
 };
 
@@ -337,6 +423,36 @@ export const REGION_SOURCE = {
   // GB / FI — not in LOD-RATE-MASTER (no national open height source wired).
   london: { source: null, status: 'no-source', reason: 'OS Building Heights is licensed; GB not in LOD-RATE-MASTER' },
   helsinki: { source: null, status: 'no-source', reason: 'FI not in LOD-RATE-MASTER (Helsinki has open LoD2 — candidate to add)' },
+  // ───────────────────────────────────────────────────────────────────────────
+  // §EUROPE-NATIONAL (2026-09-02, lane REGIONS) — one row per new bake.mjs whole-country region
+  // (§BAKE-EUROPE-NATIONAL), citing context-everywhere-assessment.md §2. NONE of these is
+  // impl:'live', so resolveHeights() logs the honest channel/gap and the region keeps OSM
+  // `assumed` defaults — never a fabricated height, never an armed join without a wired stamp.
+  estonia: 'eesti3d_ee',
+  lithuania: { source: null, status: 'no-source', reason: 'per-object floors is a PRICED RC product (X3-refused); LiDAR agreement-gated — mass-only (ASSESS LT)' },
+  latvia: { source: null, status: 'no-source', reason: 'VZD footprints open but floor/height attr presence UNVERIFIED (one attr probe owed) — UNKNOWN stays UNKNOWN (ASSESS LV)' },
+  poland: 'bdot10k_pl',
+  luxembourg: { source: null, status: 'no-source', reason: 'ACT PCN footprints CC0; national LiDAR 2019 reported NOT verified — no height channel today (ASSESS LU)' },
+  sweden: 'lidar_se',
+  finland: 'buildings3d_fi',
+  norway: 'ndh_no',
+  germany: 'lod2de',   // per-Land router owed; NRW measured heights stay live via the koln city row (heightJoin:'lod2nrw')
+  france: 'mnh_fr',    // national MNH stamp owed; BD TOPO stays live city-scale via the kept paris/lyon rows
+  italy: { source: 'piedmont_it', status: 'no-source', reason: 'Piedmont-only regional layer — NO national height product; EUBUCCO/GBA ML heights excluded as authoritative (E5 §A.5) (ASSESS IT)' },
+  greatbritain: 'ealidar_gb',
+  ireland: { source: null, status: 'no-source', reason: 'no cadastre by design; OSi Prime2 commercial → X3-refused; OPW LiDAR partial (ASSESS IE)' },
+  switzerland: 'swissbuildings3d', // ⭐ wire-not-build: stampSwissHeightsOnGeojsonseq (below) is AUTHORED but not imported by bake.mjs — the cheapest measured-height national add (ASSESS CH)
+  austria: 'geoland_at',
+  czechia: 'ruian_cz',
+  portugal: 'dgt_pt',
+  belgium: 'grb_be',
+  croatia: { source: null, status: 'no-source', reason: 'no national open height product; LiDAR partial (L5 HR / ASSESS HR)' },
+  slovenia: 'gurs_si',
+  greece: { source: null, status: 'no-source', reason: 'no national footprint+height product confirmed (L5 GR / ASSESS GR)' },
+  hungary: { source: null, status: 'no-source', reason: 'Lechner cadastral geometry is PAID → X3-refused; no open height channel — the fee gate binds the cadastre, NOT OSM context (ASSESS HU)' },
+  romania: { source: null, status: 'no-source', reason: 'ANCPI Constructii is nationally INCOMPLETE (queryable ≠ complete) and carries no open height — mass-only (ASSESS RO)' },
+  slovakia: { source: null, status: 'no-source', reason: 'ZBGIS buildings exist; DMR 5.0 LiDAR reported open — NOT verified this pass (ASSESS SK)' },
+  bulgaria: { source: null, status: 'no-source', reason: 'KAIS cadastre bulk is PAID / no open bulk — context rides OSM (ASSESS BG)' },
 };
 
 // ─────────────────────────────────────────────────────────────────────────────

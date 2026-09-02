@@ -101,14 +101,24 @@ const ALL_REGIONS = [
   // shipping "no context". Cities in the same extract reuse one download (grouped by `pbf` path).
   // Portugal / Denmark / Belgium / Netherlands / Norway / Sweden / Finland have no Geofabrik
   // sub-regions, so the city clips come straight from the country extract.
-  { name: 'lisbon',     pbfUrl: 'https://download.geofabrik.de/europe/portugal-latest.osm.pbf',                       pbf: resolve(OUT, 'portugal-latest.osm.pbf'),               bbox: '-9.23,38.68,-9.08,38.80',  clipped: resolve(OUT, 'clip-lisbon.osm.pbf') },
-  { name: 'porto',      pbfUrl: 'https://download.geofabrik.de/europe/portugal-latest.osm.pbf',                       pbf: resolve(OUT, 'portugal-latest.osm.pbf'),               bbox: '-8.70,41.12,-8.55,41.20',  clipped: resolve(OUT, 'clip-porto.osm.pbf') },
+  // ⚠ §BAKE-EUROPE-NATIONAL DEDUP (2026-09-02) — lisbon/porto/rome/milan/berlin/munich/london/
+  // brussels/oslo/stockholm/helsinki/zurich/geneva/bern city rows were REMOVED here, exactly as
+  // Copenhagen's was on 2026-07-26 (see that note below): each is fully contained in its new
+  // whole-country region (§BAKE-EUROPE-NATIONAL block below), so keeping it would DOUBLE-BAKE the
+  // city into the merged buildings.pmtiles. LOSSLESS by measurement, not assumption: every removed
+  // row either had no REGION_SOURCE height mapping or mapped to a documented/blocked/no-source
+  // entry (resolveHeights → keeps OSM), so no measured/live height is lost by the removal.
+  // ⚠ THE THREE KEPT EXCEPTIONS — paris, lyon (bdtopo impl:'live' — resolveHeights fetches REAL
+  // BD TOPO `hauteur` for those bboxes today) and koln (heightJoin:'lod2nrw' — the ONLY German
+  // measured-height join; stampLod2NrwHeightsOnGeojsonseq refuses a national bbox at its own
+  // maxSpanDeg=0.6° guard, so the join CANNOT ride the germany row yet). Removing them would
+  // REGRESS real heights to 9 m defaults; keeping them double-bakes ONLY those three city bboxes
+  // (identical OSM footprints carry the same §BAKE-UNIQUE-ID type_id in both regions, and the
+  // client near-cap thins twins). Named follow-ups fold them in: the FR MNH national stamp and the
+  // DE per-Land LoD2 router (context-everywhere-assessment.md §6) — when either lands, fold its
+  // city row into the national row exactly like Copenhagen.
   { name: 'paris',      pbfUrl: 'https://download.geofabrik.de/europe/france/ile-de-france-latest.osm.pbf',           pbf: resolve(OUT, 'ile-de-france-latest.osm.pbf'),          bbox: '2.22,48.80,2.47,48.91',    clipped: resolve(OUT, 'clip-paris.osm.pbf') },
   { name: 'lyon',       pbfUrl: 'https://download.geofabrik.de/europe/france/rhone-alpes-latest.osm.pbf',             pbf: resolve(OUT, 'rhone-alpes-latest.osm.pbf'),            bbox: '4.78,45.70,4.92,45.80',    clipped: resolve(OUT, 'clip-lyon.osm.pbf') },
-  { name: 'rome',       pbfUrl: 'https://download.geofabrik.de/europe/italy/centro-latest.osm.pbf',                   pbf: resolve(OUT, 'italy-centro-latest.osm.pbf'),           bbox: '12.40,41.83,12.60,41.99',  clipped: resolve(OUT, 'clip-rome.osm.pbf') },
-  { name: 'milan',      pbfUrl: 'https://download.geofabrik.de/europe/italy/nord-ovest-latest.osm.pbf',               pbf: resolve(OUT, 'italy-nordovest-latest.osm.pbf'),        bbox: '9.10,45.40,9.28,45.55',    clipped: resolve(OUT, 'clip-milan.osm.pbf') },
-  { name: 'berlin',     pbfUrl: 'https://download.geofabrik.de/europe/germany/berlin-latest.osm.pbf',                 pbf: resolve(OUT, 'germany-berlin-latest.osm.pbf'),         bbox: '13.28,52.44,13.55,52.58',  clipped: resolve(OUT, 'clip-berlin.osm.pbf') },
-  { name: 'munich',     pbfUrl: 'https://download.geofabrik.de/europe/germany/bayern-latest.osm.pbf',                 pbf: resolve(OUT, 'germany-bayern-latest.osm.pbf'),         bbox: '11.44,48.09,11.66,48.20',  clipped: resolve(OUT, 'clip-munich.osm.pbf') },
   // §BAKE-KOLN (2026-07-31) — ⚠ THE GAP THIS CLOSES. Köln already had a live cadastral parcel provider
   // (`alkis-nrw`, keyless, behind `isInNRW`), a live measured HEIGHT source (`fetchLod2DeNrw`,
   // impl:'live'), and a live TERRAIN region (terrain.mjs `koln` on the Geobasis NRW DGM1 WCS) — but NO
@@ -125,13 +135,17 @@ const ALL_REGIONS = [
   // footprints, exactly as `spain` does with MDS and `denmark` with DHM. Live-measured 2026-07-31: this
   // bbox is 182 NRW Kacheln / 3.90 GB, all present in the NRW index, ~18 MB/s → ~4 min of streaming.
   // Berlin/Munich do NOT get this — LoD2-DE is per-LAND and they are different Länder (see REGION_SOURCE).
+  // ⚠ §BAKE-EUROPE-NATIONAL kept-exception (2026-09-02): koln is now CONTAINED in the `germany`
+  // national row below, so its bbox is double-baked — deliberately, because deleting this row would
+  // regress the only German measured heights (118,603/141,271 footprints stamped, run 30706761446)
+  // and the lod2nrw join cannot ride the national row (its own maxSpanDeg=0.6° guard refuses a
+  // 9.2°×7.9° bbox as `documented`, which the §MEASURED-HEIGHT-GATE counts as FAILED). Fold this row
+  // into `germany` when the per-Land LoD2 router lands (context-everywhere-assessment.md §6).
   { name: 'koln',       pbfUrl: 'https://download.geofabrik.de/europe/germany/nordrhein-westfalen-latest.osm.pbf',    pbf: resolve(OUT, 'germany-nordrhein-westfalen-latest.osm.pbf'), bbox: '6.85,50.88,7.02,50.99', clipped: resolve(OUT, 'clip-koln.osm.pbf'), heightJoin: 'lod2nrw' },
-  { name: 'london',     pbfUrl: 'https://download.geofabrik.de/europe/great-britain/england/greater-london-latest.osm.pbf', pbf: resolve(OUT, 'greater-london-latest.osm.pbf'),  bbox: '-0.20,51.44,0.02,51.55',   clipped: resolve(OUT, 'clip-london.osm.pbf') },
   // ⚠ Copenhagen's own city region was REMOVED 2026-07-26 — the whole-`denmark` region above
   // (national bbox, same denmark-latest.osm.pbf) fully contains it, so a separate Copenhagen clip
   // would DOUBLE-BAKE the city into the merged buildings.pmtiles. Copenhagen now rides the national
   // region (OSM footprints + DHM nDSM heights via the heightJoin, apikey-gated).
-  { name: 'brussels',   pbfUrl: 'https://download.geofabrik.de/europe/belgium-latest.osm.pbf',                        pbf: resolve(OUT, 'belgium-latest.osm.pbf'),                bbox: '4.30,50.80,4.42,50.90',    clipped: resolve(OUT, 'clip-brussels.osm.pbf') },
   // §NL-NATIONWIDE (2026-07-26) — WHOLE NETHERLANDS (national), mirroring the `spain` whole-country
   // region. Geofabrik's Netherlands extract is one ~1.6 GB pbf; tiled whole it is well under R2's
   // 10 GB free storage, and ONE country fits a single CI run. This national bbox covers EVERY NL
@@ -140,14 +154,111 @@ const ALL_REGIONS = [
   // stamped per-CITY bbox — see heightSources.mjs REGION_SOURCE `netherlands` (the whole-country
   // 3DBAG bbox is refused per-tile → keeps OSM; the OSM-footprint-join is the named follow-up).
   { name: 'netherlands', pbfUrl: 'https://download.geofabrik.de/europe/netherlands-latest.osm.pbf',                   pbf: resolve(OUT, 'netherlands-latest.osm.pbf'),            bbox: '3.30,50.75,7.30,53.70',    clipped: resolve(OUT, 'clip-netherlands.osm.pbf') },
-  { name: 'oslo',       pbfUrl: 'https://download.geofabrik.de/europe/norway-latest.osm.pbf',                         pbf: resolve(OUT, 'norway-latest.osm.pbf'),                 bbox: '10.66,59.88,10.83,59.96',  clipped: resolve(OUT, 'clip-oslo.osm.pbf') },
-  { name: 'stockholm',  pbfUrl: 'https://download.geofabrik.de/europe/sweden-latest.osm.pbf',                         pbf: resolve(OUT, 'sweden-latest.osm.pbf'),                 bbox: '17.98,59.28,18.14,59.37',  clipped: resolve(OUT, 'clip-stockholm.osm.pbf') },
-  { name: 'helsinki',   pbfUrl: 'https://download.geofabrik.de/europe/finland-latest.osm.pbf',                        pbf: resolve(OUT, 'finland-latest.osm.pbf'),                bbox: '24.88,60.14,25.02,60.20',  clipped: resolve(OUT, 'clip-helsinki.osm.pbf') },
-  // Switzerland (ch) — one national extract, three demo cities. CH is a top data-rate jurisdiction
-  // (ÖREB + national Nutzungsplanung WFS), so its 3D context must load as fast as Barcelona's.
-  { name: 'zurich',     pbfUrl: 'https://download.geofabrik.de/europe/switzerland-latest.osm.pbf',                    pbf: resolve(OUT, 'switzerland-latest.osm.pbf'),            bbox: '8.45,47.34,8.62,47.43',    clipped: resolve(OUT, 'clip-zurich.osm.pbf') },
-  { name: 'geneva',     pbfUrl: 'https://download.geofabrik.de/europe/switzerland-latest.osm.pbf',                    pbf: resolve(OUT, 'switzerland-latest.osm.pbf'),            bbox: '6.09,46.17,6.18,46.25',    clipped: resolve(OUT, 'clip-geneva.osm.pbf') },
-  { name: 'bern',       pbfUrl: 'https://download.geofabrik.de/europe/switzerland-latest.osm.pbf',                    pbf: resolve(OUT, 'switzerland-latest.osm.pbf'),            bbox: '7.40,46.93,7.48,46.99',    clipped: resolve(OUT, 'clip-bern.osm.pbf') },
+  // ─────────────────────────────────────────────────────────────────────────
+  // §BAKE-EUROPE-NATIONAL (2026-09-02, lane REGIONS) — 25 whole-country rows, the founder's
+  // "NOT ONLY BIG CITIES — EVERYWHERE POSSIBLE" directive executed at the row layer. Every row
+  // follows the spain/denmark/netherlands whole-country shape and cites its verdict row in
+  // audit/europe-site-intel/2026-08-31/impl/context-everywhere-assessment.md §2 ("ASSESS <CC>").
+  //
+  // HONESTY RULES APPLIED PER ROW (assessment + §MEASURED-HEIGHT-GATE):
+  //   • NO row below declares a `heightJoin` — no wired stamp exists for any of these countries
+  //     yet (the dispatch supports mds/dhm/lod2nrw only), and a declared join that produces
+  //     nothing is a NON-ZERO EXIT by design. This is the `netherlands` precedent: a national row
+  //     with honest OSM `assumed` defaults is legitimate and already shipped. Each row's height
+  //     CLASS + the owed build is recorded in heightSources.mjs REGION_SOURCE (same country name),
+  //     so resolveHeights() logs the true per-country reason at bake time instead of a generic gap.
+  //   • buildingsSource stays OSM everywhere — the Overture flip needs the per-country
+  //     OSM-vs-Overture count probe first (assessment §9; Europe default stays OSM per
+  //     §BAKE-OVERTURE's own reasoning).
+  //   • SIZE: scope pbf ≈ 30 GB → projected ~24–57 GB of PMTiles vs the 10 GB R2 free tier the
+  //     spain note above cites — the budget decision + the per-region-bake/incremental-sync
+  //     workflow switch (assessment §5) are PREREQUISITES for baking/publishing the full set.
+  //     ⛔ Do NOT dispatch an UNSCOPED bake of this table: sequence `--region` runs per country.
+  // Baltics — ASSESS EE (NATIONAL-NOW; Eesti 3D national LoD2 pre-linked to EHR ids = the height
+  // build, a CityGML stamp mirroring lod2nrw — until it lands this row bakes honest OSM defaults);
+  // ASSESS LT (mass-only: per-object floors is a PRICED RC product → X3-refused);
+  // ASSESS LV (mass-only: VZD footprint attrs UNVERIFIED — UNKNOWN stays UNKNOWN, not zero).
+  { name: 'estonia',    pbfUrl: 'https://download.geofabrik.de/europe/estonia-latest.osm.pbf',                        pbf: resolve(OUT, 'estonia-latest.osm.pbf'),                bbox: '21.60,57.50,28.30,59.80',  clipped: resolve(OUT, 'clip-estonia.osm.pbf') },
+  { name: 'lithuania',  pbfUrl: 'https://download.geofabrik.de/europe/lithuania-latest.osm.pbf',                      pbf: resolve(OUT, 'lithuania-latest.osm.pbf'),              bbox: '20.85,53.85,26.90,56.50',  clipped: resolve(OUT, 'clip-lithuania.osm.pbf') },
+  { name: 'latvia',     pbfUrl: 'https://download.geofabrik.de/europe/latvia-latest.osm.pbf',                         pbf: resolve(OUT, 'latvia-latest.osm.pbf'),                 bbox: '20.90,55.60,28.30,58.10',  clipped: resolve(OUT, 'clip-latvia.osm.pbf') },
+  // ASSESS PL — NATIONAL-DERIVED-HEIGHTS: BDOT10k OT_BUBD_A storey attribute (floors × 3.2 m,
+  // DERIVED never measured) — gated on ONE owed DuckDB fill read over the probed national parquet;
+  // until that probe lands this row bakes mass-only. 2.09 GB pbf (measured).
+  { name: 'poland',     pbfUrl: 'https://download.geofabrik.de/europe/poland-latest.osm.pbf',                         pbf: resolve(OUT, 'poland-latest.osm.pbf'),                 bbox: '14.05,48.95,24.20,55.00',  clipped: resolve(OUT, 'clip-poland.osm.pbf') },
+  // ASSESS LU — NATIONAL-NOW (mass-only): the cheapest whole-country row in Europe (47 MB pbf,
+  // measured) — the REGIONS-lane calibration pick #1.
+  { name: 'luxembourg', pbfUrl: 'https://download.geofabrik.de/europe/luxembourg-latest.osm.pbf',                     pbf: resolve(OUT, 'luxembourg-latest.osm.pbf'),             bbox: '5.70,49.40,6.60,50.20',    clipped: resolve(OUT, 'clip-luxembourg.osm.pbf') },
+  // Nordics — ASSESS SE (mass-only; measured heights = a FREE Lantmäteriet download credential +
+  // an nDSM stamp build — the context gate is the DK DATAFORDELER shape, NOT the NGP plan gate);
+  // ASSESS FI (mass-only; FI Buildings-3D LoD2 is PARTIAL — status-map read owed before any join);
+  // ASSESS NO (mass-only until the keyless NDH nDSM stamp; FKB surveyed height stays X3-refused;
+  // Svalbard is outside this bbox on purpose).
+  { name: 'sweden',     pbfUrl: 'https://download.geofabrik.de/europe/sweden-latest.osm.pbf',                         pbf: resolve(OUT, 'sweden-latest.osm.pbf'),                 bbox: '10.90,55.20,24.20,69.10',  clipped: resolve(OUT, 'clip-sweden.osm.pbf') },
+  { name: 'finland',    pbfUrl: 'https://download.geofabrik.de/europe/finland-latest.osm.pbf',                        pbf: resolve(OUT, 'finland-latest.osm.pbf'),                bbox: '19.00,59.70,31.60,70.10',  clipped: resolve(OUT, 'clip-finland.osm.pbf') },
+  { name: 'norway',     pbfUrl: 'https://download.geofabrik.de/europe/norway-latest.osm.pbf',                         pbf: resolve(OUT, 'norway-latest.osm.pbf'),                 bbox: '4.50,57.90,31.20,71.20',   clipped: resolve(OUT, 'clip-norway.osm.pbf') },
+  // ASSESS DE — NATIONAL-NOW; heights staged per-Land (LoD2 free in 15 Länder; the per-Land
+  // endpoint router over the live lod2nrw stamp is the owed build). ⚠ 4.83 GB pbf (measured) —
+  // Germany alone ≈ the whole R2 free tier; the §5 budget decision binds before its publish.
+  // ⚠ koln stays a separate city row (kept-exception above) → its bbox double-bakes until the
+  // router lands.
+  { name: 'germany',    pbfUrl: 'https://download.geofabrik.de/europe/germany-latest.osm.pbf',                        pbf: resolve(OUT, 'germany-latest.osm.pbf'),                bbox: '5.85,47.25,15.05,55.10',   clipped: resolve(OUT, 'clip-germany.osm.pbf') },
+  // ASSESS FR — NATIONAL-NOW; the national height channel is the MNH LiDAR-HD PRE-COMPUTED nDSM
+  // (⛔ never rebuild the differencing — E5 §G.1 A8): a national stamp mirroring `mds` is the owed
+  // build. 5.07 GB pbf (measured — largest in scope; §5 budget decision binds). Metropolitan
+  // France + Corsica only — overseas départements fall outside this bbox (mirrors the Canarias
+  // note on `spain`). ⚠ paris/lyon stay separate city rows (kept-exception above — live BD TOPO
+  // heights) → those two bboxes double-bake until the MNH stamp lands.
+  { name: 'france',     pbfUrl: 'https://download.geofabrik.de/europe/france-latest.osm.pbf',                         pbf: resolve(OUT, 'france-latest.osm.pbf'),                 bbox: '-5.15,41.30,9.60,51.10',   clipped: resolve(OUT, 'clip-france.osm.pbf') },
+  // ASSESS IT — NATIONAL-NOW (mass-only): no national open building-height product exists
+  // (Piedmont-only regional layer; EUBUCCO/GBA excluded as authoritative per the E5 verdicts).
+  // Replaces the rome+milan city rows (Copenhagen dedup). Incl. Sicily + Sardinia.
+  { name: 'italy',      pbfUrl: 'https://download.geofabrik.de/europe/italy-latest.osm.pbf',                         pbf: resolve(OUT, 'italy-latest.osm.pbf'),                  bbox: '6.60,35.40,18.60,47.10',   clipped: resolve(OUT, 'clip-italy.osm.pbf') },
+  // ASSESS GB — NATIONAL-NOW (mass-only) on OSM/ODbL alone — probe-verified: the keyless OS
+  // OpenData catalogue holds NO building-height and no detailed-footprint product, so OS licensing
+  // stays X3-refused and does NOT touch this row. EA LiDAR (OGL v3) nDSM = the owed stamp,
+  // ENGLAND-ONLY heights when it lands. Replaces the london city row. ⚠ this extract carries NO
+  // Northern Ireland data — the island of Ireland (incl. NI) rides the `ireland` row below, so the
+  // bbox overlap bakes nothing twice.
+  { name: 'greatbritain', pbfUrl: 'https://download.geofabrik.de/europe/great-britain-latest.osm.pbf',                pbf: resolve(OUT, 'great-britain-latest.osm.pbf'),          bbox: '-8.20,49.90,1.80,60.90',   clipped: resolve(OUT, 'clip-greatbritain.osm.pbf') },
+  // ASSESS IE — NATIONAL-NOW (mass-only, honest-low OSM density): no cadastre by design; OSi
+  // Prime2 commercial → X3-refused. The extract covers the WHOLE island incl. NI (see GB note).
+  { name: 'ireland',    pbfUrl: 'https://download.geofabrik.de/europe/ireland-and-northern-ireland-latest.osm.pbf',   pbf: resolve(OUT, 'ireland-and-northern-ireland-latest.osm.pbf'), bbox: '-10.70,51.30,-5.30,55.50', clipped: resolve(OUT, 'clip-ireland.osm.pbf') },
+  // ASSESS CH — NATIONAL-NOW, the cheapest measured-height national add in Europe (wire-not-build):
+  // `stampSwissHeightsOnGeojsonseq` (heightSources.mjs, keyless swissSURFACE3D−swissALTI3D nDSM) is
+  // ALREADY AUTHORED but NOT imported by this file — wiring it (import + dispatch branch + CH city
+  // stamp list + the LV95 reproject leg) is the owed ~0.5-day build; until then this row bakes
+  // honest OSM defaults and declares NO join (a declared join that produces nothing is a non-zero
+  // exit). Replaces the zurich/geneva/bern city rows (Copenhagen dedup; lossless — their
+  // REGION_SOURCE mapping is impl:'documented', no live height was fetched for them).
+  { name: 'switzerland', pbfUrl: 'https://download.geofabrik.de/europe/switzerland-latest.osm.pbf',                   pbf: resolve(OUT, 'switzerland-latest.osm.pbf'),            bbox: '5.90,45.80,10.50,47.85',   clipped: resolve(OUT, 'clip-switzerland.osm.pbf') },
+  // ASSESS AT — NATIONAL-NOW (mass-only until the geoland.at 1 m DTM+DSM nDSM stamp, CC BY 4.0).
+  { name: 'austria',    pbfUrl: 'https://download.geofabrik.de/europe/austria-latest.osm.pbf',                        pbf: resolve(OUT, 'austria-latest.osm.pbf'),                bbox: '9.50,46.30,17.20,49.05',   clipped: resolve(OUT, 'clip-austria.osm.pbf') },
+  // ASSESS CZ — NATIONAL-DERIVED-HEIGHTS: RUIAN `pocet podlazi` floors (× 3.2 m, DERIVED) — gated
+  // on ONE owed VFR parse; until then mass-only.
+  { name: 'czechia',    pbfUrl: 'https://download.geofabrik.de/europe/czech-republic-latest.osm.pbf',                 pbf: resolve(OUT, 'czech-republic-latest.osm.pbf'),         bbox: '12.05,48.50,18.90,51.10',  clipped: resolve(OUT, 'clip-czechia.osm.pbf') },
+  // ASSESS PT — NATIONAL-NOW (mass-only): replaces the lisbon+porto city rows (same pbf path —
+  // one download, Copenhagen dedup). DGT LiDAR 2024–25 endpoint still uncaptured → heights owed.
+  // ⭐ First country where the Mapterhorn switch (terrain.mjs --dtm-source mapterhorn, E3A)
+  // removes a real terrain BLOCKER (lisbon/porto were terrain-BLOCKED on "no open national DTM").
+  // Mainland only — Azores/Madeira fall outside this bbox (mirrors the Canarias note on `spain`).
+  { name: 'portugal',   pbfUrl: 'https://download.geofabrik.de/europe/portugal-latest.osm.pbf',                       pbf: resolve(OUT, 'portugal-latest.osm.pbf'),               bbox: '-9.60,36.90,-6.10,42.20',  clipped: resolve(OUT, 'clip-portugal.osm.pbf') },
+  // ASSESS BE — NATIONAL-NOW (mass-only): replaces the brussels city row (same pbf path). Height
+  // channel is a regional trisection (Wallonia MNH pre-computed / Flanders 3D GRB LoD1 / Brussels
+  // UrbIS CC0) = 3 owed stamps. Mapterhorn likewise unblocks the Brussels terrain row (E3A).
+  { name: 'belgium',    pbfUrl: 'https://download.geofabrik.de/europe/belgium-latest.osm.pbf',                        pbf: resolve(OUT, 'belgium-latest.osm.pbf'),                bbox: '2.50,49.50,6.40,51.60',    clipped: resolve(OUT, 'clip-belgium.osm.pbf') },
+  // South-east — ASSESS HR / SI / GR / HU / RO / SK / BG. All NATIONAL-NOW mass-only; SI is the
+  // stand-out upgrade path (GURS STAVBE register carries REAL METRES — a WFS-join stamp + a fill
+  // probe are owed before any join is declared); HU/BG cadastre fee gates bind the CADASTRE, not
+  // OSM context; RO registration is nationally INCOMPLETE (queryable ≠ complete — context rides
+  // OSM regardless).
+  { name: 'croatia',    pbfUrl: 'https://download.geofabrik.de/europe/croatia-latest.osm.pbf',                        pbf: resolve(OUT, 'croatia-latest.osm.pbf'),                bbox: '13.40,42.30,19.50,46.60',  clipped: resolve(OUT, 'clip-croatia.osm.pbf') },
+  { name: 'slovenia',   pbfUrl: 'https://download.geofabrik.de/europe/slovenia-latest.osm.pbf',                       pbf: resolve(OUT, 'slovenia-latest.osm.pbf'),               bbox: '13.30,45.40,16.60,46.90',  clipped: resolve(OUT, 'clip-slovenia.osm.pbf') },
+  { name: 'greece',     pbfUrl: 'https://download.geofabrik.de/europe/greece-latest.osm.pbf',                         pbf: resolve(OUT, 'greece-latest.osm.pbf'),                 bbox: '19.30,34.70,29.70,41.80',  clipped: resolve(OUT, 'clip-greece.osm.pbf') },
+  { name: 'hungary',    pbfUrl: 'https://download.geofabrik.de/europe/hungary-latest.osm.pbf',                        pbf: resolve(OUT, 'hungary-latest.osm.pbf'),                bbox: '16.10,45.70,22.95,48.60',  clipped: resolve(OUT, 'clip-hungary.osm.pbf') },
+  { name: 'romania',    pbfUrl: 'https://download.geofabrik.de/europe/romania-latest.osm.pbf',                        pbf: resolve(OUT, 'romania-latest.osm.pbf'),                bbox: '20.20,43.60,29.80,48.30',  clipped: resolve(OUT, 'clip-romania.osm.pbf') },
+  { name: 'slovakia',   pbfUrl: 'https://download.geofabrik.de/europe/slovakia-latest.osm.pbf',                       pbf: resolve(OUT, 'slovakia-latest.osm.pbf'),               bbox: '16.80,47.70,22.60,49.65',  clipped: resolve(OUT, 'clip-slovakia.osm.pbf') },
+  { name: 'bulgaria',   pbfUrl: 'https://download.geofabrik.de/europe/bulgaria-latest.osm.pbf',                       pbf: resolve(OUT, 'bulgaria-latest.osm.pbf'),               bbox: '22.30,41.20,28.70,44.25',  clipped: resolve(OUT, 'clip-bulgaria.osm.pbf') },
+  // ─────────────────────────────────────────────────────────────────────────
   // USA (us) — state-level Geofabrik extracts (smaller than the regional bundles). Add more cities
   // by adding a row with the right state pbf + a city-centre bbox.
   { name: 'newyork',    pbfUrl: 'https://download.geofabrik.de/north-america/us/new-york-latest.osm.pbf',             pbf: resolve(OUT, 'us-new-york-latest.osm.pbf'),            bbox: '-74.03,40.70,-73.91,40.82', clipped: resolve(OUT, 'clip-newyork.osm.pbf') },
