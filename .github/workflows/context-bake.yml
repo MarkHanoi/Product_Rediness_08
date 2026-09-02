@@ -257,21 +257,49 @@ jobs:
 
           TILES="$GITHUB_WORKSPACE/tools/context-bake/out/buildings.pmtiles"
           fail=0
-          # Each row: name + lat,lon + the minimum number of MEASURED footprints required.
-          # These are the cities whose region declares a national height join, so a zero
-          # here means the join silently produced nothing — exactly the 2026-08-01 defect.
-          while read -r name at min; do
+          checked=0
+          # §MEASURED-SPOTCHECK-RESPECTS-REGION (2026-09-02). Run 33598712954 baked
+          # `region=luxembourg,estonia` cleanly and was then failed HERE, because this
+          # spot-check asserted Barcelona and Köln — cities that were not in the run's
+          # scope and therefore absent from the artifact by design (§BAKE-BY-REGION).
+          # A gate that fails on a city the run was told not to bake is not measuring
+          # honesty, it is measuring scope. Each row now carries its bake REGION and is
+          # skipped LOUDLY when that region is not part of this run; a scoped run that
+          # includes none of these cities passes with an explicit notice, because
+          # bake.mjs's own §MEASURED-HEIGHT-GATE already ran inside the Bake step for
+          # every region in scope. A BLANK region input (the full bake) checks every
+          # row, exactly as before — this filter never weakens the publish path.
+          REGION_SCOPE="${{ inputs.region }}"
+          REGION_SCOPE="${REGION_SCOPE// /}"
+          # Each row: name + bake-region + lat,lon + the minimum number of MEASURED
+          # footprints required. These are the cities whose region declares a national
+          # height join, so a zero here means the join silently produced nothing —
+          # exactly the 2026-08-01 defect.
+          while read -r name region at min; do
             [ -z "$name" ] && continue
+            if [ -n "$REGION_SCOPE" ]; then
+              case ",$REGION_SCOPE," in
+                *",$region,"*) ;;
+                *) echo "── $name SKIPPED — its region '$region' is not in this run's scope '$REGION_SCOPE'"; continue ;;
+              esac
+            fi
+            checked=$((checked+1))
             echo "── $name"
             node tools/context-height-probe/probe.mjs \
               --pmtiles "$TILES" --at "$at" --name "$name" --require-measured "$min" || fail=1
           done <<'CITIES'
-          barcelona 41.3888,2.1590 500
-          koln 50.9375,6.9603 500
+          barcelona spain 41.3888,2.1590 500
+          koln koln 50.9375,6.9603 500
           CITIES
           if [ "$fail" -ne 0 ]; then
             echo "::error::A city that declares a national height join shipped ZERO (or too few) measured heights. The tileset would render a fabricated 9 m carpet. NOT publishing."
             exit 1
+          fi
+          if [ "$checked" -eq 0 ]; then
+            echo "NOTICE: no measured-height spot-check city falls inside region scope '$REGION_SCOPE'."
+            echo "This is NOT a verdict on the scoped regions' heights — bake.mjs's §MEASURED-HEIGHT-GATE"
+            echo "already ran for them during the Bake step (a declared join that produced nothing would"
+            echo "have failed THERE). The spot-check is vacuous for this scope, and says so rather than failing."
           fi
 
       - name: Upload the tiles as a run artifact
