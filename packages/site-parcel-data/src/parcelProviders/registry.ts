@@ -243,7 +243,7 @@ const PARCEL_JURISDICTIONS: readonly ParcelJurisdiction[] = [
         proxyPath: '/api/parcel/ee',
         kind: 'cadastral',
         contains: claimsNation('EE'),
-        note: 'Maa- ja Ruumiamet kataster WFS (gsavalik.envir.ee/geoserver, kataster:ky_kehtiv) — keyless, live-probed 2026-08-31 by the E1d lane (real katastriüksus with tunnus + WGS84 ring; countryAdapters/ee/eeParcelProvider.ts carries the parser + transcripts). ⚠ Proxy /api/parcel/ee NOT yet wired server-side → resolves null → OSM footprint until then. Routing is claimsNation("EE"): boundary geometry, so Kuressaare routes here while Rīga (LVA, un-modelled) and Narva-river band points refuse nationally and fall through.',
+        note: 'Maa- ja Ruumiamet kataster WFS (gsavalik.envir.ee/geoserver, kataster:ky_kehtiv) — keyless, live-probed 2026-08-31 by the E1d lane (real katastriüksus with tunnus + WGS84 ring; countryAdapters/ee/eeParcelProvider.ts carries the parser + transcripts). Proxy /api/parcel/ee WIRED server-side 2026-09-02 (euCadastreProxy.js `ee` row, srsName=4326 → WGS84 ring; live leg probe: Tallinn → tunnus 78401:114:0086). Routing is claimsNation("EE"): boundary geometry, so Kuressaare routes here while Rīga (LVA, un-modelled) and Narva-river band points refuse nationally and fall through.',
     },
     {
         regionCode: 'LT',
@@ -253,7 +253,7 @@ const PARCEL_JURISDICTIONS: readonly ParcelJurisdiction[] = [
         proxyPath: '/api/parcel/lt',
         kind: 'cadastral',
         contains: claimsNation('LT'),
-        note: 'Registrų centras NTR parcels ArcGIS FeatureServer (osp-sdg.stat.gov.lt, ntr_sklypai) — keyless, live-probed 2026-09-01 by the E6-LT lane (countryAdapters/lt/ltParcelProvider.ts). ⚠ Proxy /api/parcel/lt NOT yet wired server-side → resolves null → OSM footprint until then. Routing is claimsNation("LT"): Marijampolė (inside POLAND_BBOX) routes here; Polish Suwałki/Sejny (inside LITHUANIA_BBOX, the L-12871 witnesses) do NOT.',
+        note: 'Registrų centras NTR parcels ArcGIS FeatureServer (osp-sdg.stat.gov.lt, ntr_sklypai) — keyless, live-probed 2026-09-01 by the E6-LT lane (countryAdapters/lt/ltParcelProvider.ts). Proxy /api/parcel/lt WIRED server-side 2026-09-02 (euCadastreProxy.js `lt` row, GET + outSR=4326 → WGS84 ring, ha→m² transform mirrored; live leg probe: Žvėrynas → kadastroNr 0101/0039:1406). Routing is claimsNation("LT"): Marijampolė (inside POLAND_BBOX) routes here; Polish Suwałki/Sejny (inside LITHUANIA_BBOX, the L-12871 witnesses) do NOT.',
     },
     {
         regionCode: 'PL',
@@ -263,7 +263,7 @@ const PARCEL_JURISDICTIONS: readonly ParcelJurisdiction[] = [
         proxyPath: '/api/parcel/pl',
         kind: 'cadastral',
         contains: claimsNation('PL'),
-        note: 'GUGiK ULDK point query (uldk.gugik.gov.pl, EPSG:2180 → WGS84) — keyless, live-probed 2026-09-01 by the E6-PL lane (countryAdapters/pl/plUldkClient.ts). ⚠ Proxy /api/parcel/pl NOT yet wired server-side → resolves null → OSM footprint until then. Routing is claimsNation("PL"): Suwałki/Sejny/Zgorzelec route here; the German bank of the Oder/Neisse (Frankfurt (Oder), Görlitz) does NOT — and Słubice (POLISH, 485 m from the ne_10m DE boundary at a measured 1500 m tolerance) REFUSES nationally and falls to the DE footprint row, a recorded DATA limit (upgrade path: official DEU+POL boundaries in jurisdiction/data/), not a routing bug.',
+        note: 'GUGiK ULDK point query (uldk.gugik.gov.pl, EPSG:2180 → WGS84) — keyless, live-probed 2026-09-01 by the E6-PL lane (countryAdapters/pl/plUldkClient.ts). Proxy /api/parcel/pl WIRED server-side 2026-09-02 (euCadastreProxy.js `pl` row, srid=4326 → WGS84 WKT ring; live leg probe: Suwałki → 206301_1.0005.11523/3). Routing is claimsNation("PL"): Suwałki/Sejny/Zgorzelec route here; the German bank of the Oder/Neisse (Frankfurt (Oder), Görlitz) does NOT — and Słubice (POLISH, 485 m from the ne_10m DE boundary at a measured 1500 m tolerance) REFUSES nationally and falls to the DE footprint row, a recorded DATA limit (upgrade path: official DEU+POL boundaries in jurisdiction/data/), not a routing bug.',
     },
     {
         regionCode: 'LU',

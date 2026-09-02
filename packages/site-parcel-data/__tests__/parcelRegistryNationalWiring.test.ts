@@ -13,10 +13,14 @@
 // real dispatch entry point — and NOT from an adapter function. DELETE A ROW AND ITS TEST FAILS.
 //
 // ⛔ WHAT THESE TESTS DO **NOT** PROVE. They prove ROUTING. They do not prove that a click returns a
-// real parcel: `/api/parcel/{ee,lt,pl}` are not yet wired server-side, so those routes 404 and the
-// click falls to the OSM footprint. That is the same declared state the IT / GB-ENG / BE-VLG /
-// US-NYC rows carry, and it is recorded in each row's `note`. (⚠ Corrected 2026-09-02: this header
-// used to cite `apps/editor/__tests__/parcelRegistryNationalClick.test.ts` as the click-layer half —
+// real parcel. (⚠ Corrected AGAIN 2026-09-02, lane PROXY-EE-LT-PL: this paragraph read
+// "`/api/parcel/{ee,lt,pl}` are not yet wired server-side, so those routes 404" — those three legs
+// ARE now wired as table rows in `server/jurisdiction/euCadastreProxy.js` and live-leg-probed
+// (Tallinn → 78401:114:0086 · Žvėrynas → 0101/0039:1406 · Suwałki → 206301_1.0005.11523/3;
+// `server/__tests__/{ee,lt,pl}ParcelProxy.test.ts` + audit/…/impl/lane-proxy-eeltpl.md). The
+// still-unwired proxy rows are IT / GB-ENG / BE-VLG / US-NYC, each recorded in its row's `note`.)
+// (⚠ Corrected 2026-09-02: this header used to cite
+// `apps/editor/__tests__/parcelRegistryNationalClick.test.ts` as the click-layer half —
 // that file DOES NOT EXIST; it is queued work, not a citation. The DK click layer, by contrast, IS
 // proven live: `server/__tests__/dkMatrikelProxy.test.ts` + the L-12888 DAWA transcripts.)
 //
@@ -347,8 +351,14 @@ describe('L-12871 §8 — each row declares the access state its lane measured',
         for (const cc of ['EE', 'LT', 'PL']) {
             expect(row(cc).kind).toBe('cadastral');
             expect(row(cc).proxyPath).toBe(`/api/parcel/${cc.toLowerCase()}`);
-            // The proxy is NOT wired yet, and the row must say so rather than implying coverage.
-            expect(row(cc).note).toContain('NOT yet wired');
+            // The honesty pin FLIPPED 2026-09-02 (lane PROXY-EE-LT-PL): it used to assert the note
+            // says 'NOT yet wired' so the row could not imply coverage the server lacked. The legs
+            // now EXIST (server/jurisdiction/euCadastreProxy.js ee/lt/pl rows, live-leg-probed:
+            // Tallinn → 78401:114:0086 · Žvėrynas → 0101/0039:1406 · Suwałki → 206301_1.0005.11523/3;
+            // server/__tests__/{ee,lt,pl}ParcelProxy.test.ts), so the same honesty rule now requires
+            // the note to declare the WIRED state — and never the stale unwired one.
+            expect(row(cc).note).toContain('WIRED server-side 2026-09-02');
+            expect(row(cc).note).not.toContain('NOT yet wired');
         }
     });
 

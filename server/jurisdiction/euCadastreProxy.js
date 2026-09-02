@@ -22,6 +22,19 @@
  *   • PT  snicws.dgterritorio.gov.pt inspire:cadastralparcel (DGT SNIC)     (GeoJSON, lon,lat) — 2026-07-31
  *   • US-SF  data.sfgov.org acdm-wktn (DataSF assessor parcels)             (Socrata, lon,lat) — 2026-07-31
  *   • US-CHI datacatalog.cookcountyil.gov 77tz-riq7 (Cook County parcels)   (Socrata, lon,lat) — 2026-07-31
+ *   • EE  gsavalik.envir.ee/geoserver kataster:ky_kehtiv                    (GeoJSON, lon,lat) — 2026-09-02
+ *   • LT  osp-sdg.stat.gov.lt ntr_sklypai/FeatureServer/0 (RC NTR)          (ArcGIS JSON, lon,lat) — 2026-09-02
+ *   • PL  uldk.gugik.gov.pl GetParcelByXY (GUGiK ULDK)                       (pipe-text WKT, lon,lat) — 2026-09-02
+ *
+ * EE / LT / PL (lane PROXY-EE-LT-PL, 2026-09-02) are TABLE ROWS here, not DK-style modules,
+ * deliberately: DK earned `dkMatrikelProxy.js` because it needs a CREDENTIAL gate, a Snyder
+ * reprojection, a two-fetch attribute JOIN and a two-leg (Datafordeler→DAWA) fallback. All three
+ * of these are one keyless GET returning WGS84 geometry server-side (srsName / outSR / srid=4326 —
+ * each MEASURED live 2026-09-02, transcripts in
+ * audit/europe-site-intel/2026-08-31/impl/lane-proxy-eeltpl.md), so the row shape fits exactly.
+ * The endpoints/params mirror the package adapters that pinned them
+ * (packages/site-parcel-data/src/countryAdapters/{ee,lt,pl}/) — ONLY the output CRS differs:
+ * the adapters keep native CRS for measurement (E1a discipline); the browser needs WGS84 rings.
  *
  * ⚠ NOT WIRED HERE, DELIBERATELY (L-651 live probe, 2026-07-31): Brussels, Wallonia and Scotland
  * have parcel PROVIDERS in packages/site-parcel-data but no reachable upstream — Brussels'
@@ -204,6 +217,103 @@ function parseSocrataCandidates(text) {
     return out;
 }
 
+// ── ArcGIS REST `query` parse (LT) — Esri JSON under a `features` envelope ───────────────────
+// The FeatureServer `query` op returns `{ features: [{ attributes, geometry: { rings } }] }` —
+// the same Esri polygon JSON as CH's identify but a DIFFERENT envelope (`features`+`attributes`
+// vs `results`+`attributes`), so it gets its own parser exactly as Socrata's bare-array shape
+// did. With `outSR=4326` the rings are [lon,lat] (Esri x,y) — MEASURED live 2026-09-02 on
+// osp-sdg.stat.gov.lt (Vilnius Žvėrynas → kadastro_nr 0101/0039:1406, first vertex
+// [25.2438…, 54.6933…]).
+function parseArcgisCandidates(text) {
+    let json;
+    try { json = JSON.parse(text); } catch { return []; }
+    const feats = Array.isArray(json?.features) ? json.features : [];
+    const out = [];
+    for (const f of feats) {
+        const ring = outerRingFromEsri(f?.geometry);
+        if (ring.length >= 3) out.push({ ring, props: f?.attributes ?? {} });
+    }
+    return out;
+}
+
+/**
+ * ArcGIS returns HTTP **200** with an `{ "error": { code, message } }` payload on a bad request —
+ * a FAILURE, not an empty answer (the LT adapter's measured fact 3,
+ * `packages/site-parcel-data/src/countryAdapters/lt/ltArcgisClient.ts`). Letting it parse to
+ * zero candidates would read as `empty` — the failure≠absence conflation §CONTEXT-DATA-HONESTY
+ * forbids — so the resolve pre-checks this and classifies it `unreachable`.
+ */
+function arcgisErrorDetail(text) {
+    let json;
+    try { json = JSON.parse(text); } catch { return null; }
+    const err = json?.error;
+    if (err === null || err === undefined || typeof err !== 'object') return null;
+    return `ArcGIS ${err.code ?? '?'}: ${err.message ?? 'error'}`;
+}
+
+// ── ULDK parse (PL) — text/plain, STATUS IS THE FIRST TOKEN OF THE BODY, not the HTTP code ──
+// GUGiK's ULDK answers EVERY request HTTP 200 (measured fact 1 of
+// packages/site-parcel-data/src/countryAdapters/pl/plUldkClient.ts):
+//   • success         → first line `0`, then one pipe-delimited record per line
+//   • genuine absence → first line `-1 brak wyników` (a durable "no parcel here")
+//   • bad parameter   → no status token at all (`niepoprawny parametr …`)
+//   • any other `-1 …`→ the service failing in its own words
+// Reading `res.ok` as success would silently turn a service error into "no parcel here", so the
+// resolve classifies from the BODY via this function before any candidate parsing.
+function classifyUldkBody(text) {
+    const lines = String(text).split(/\r?\n/);
+    const status = (lines[0] ?? '').trim();
+    if (status === '0') {
+        const records = lines.slice(1).filter((l) => l.trim() !== '');
+        // Status 0 with no record: the service claims success and served nothing — a service
+        // defect, not a coverage fact (mirrors the PL adapter's classification).
+        return records.length > 0 ? { kind: 'ok', records } : { kind: 'error', detail: 'ULDK status 0 with no record' };
+    }
+    if (status.startsWith('-1') && /brak\s+wynik/i.test(status.slice(2))) {
+        return { kind: 'empty' };
+    }
+    return { kind: 'error', detail: `unrecognised ULDK body: "${String(text).slice(0, 120).trim()}"` };
+}
+
+// One pipe-delimited ULDK record (in PL_ULDK_RESULT_FIELDS order — the `result=` param FIXES the
+// field order, so the positional parse below is pinned to a request this module builds itself) →
+// a candidate. The geometry is `SRID=4326;POLYGON((lon lat, …))` because plUrl asks `srid=4326`
+// (MEASURED live 2026-09-02: Suwałki → SRID=4326 + degree pairs; without the param the same
+// record serves SRID=2180 metres). A record declaring any OTHER SRID is skipped rather than
+// passed through as fake degrees.
+function parseUldkCandidates(records) {
+    const out = [];
+    for (const line of records) {
+        const parts = String(line).split('|');
+        const id = (parts[0] ?? '').trim();
+        const wkt = (parts[6] ?? '').trim();
+        if (!id || !wkt) continue;
+        const m = /^\s*(?:SRID=(\d+);)?\s*POLYGON\s*\(\s*\((.*?)\)\s*[,)]/s.exec(wkt);
+        if (!m || m[1] !== '4326' || m[2] === undefined) continue;
+        const ring = [];
+        let bad = false;
+        for (const pair of m[2].split(',')) {
+            const nums = pair.trim().split(/\s+/);
+            const lon = Number(nums[0]), lat = Number(nums[1]);
+            if (!Number.isFinite(lon) || !Number.isFinite(lat)) { bad = true; break; }
+            ring.push({ lat, lon }); // WKT is lon-first (measured), same as GeoJSON
+        }
+        if (bad || ring.length < 4) continue; // a closed ring is ≥4 positions
+        out.push({
+            ring,
+            props: {
+                id,
+                voivodeship: (parts[1] ?? '').trim() || null,
+                county: (parts[2] ?? '').trim() || null,
+                commune: (parts[3] ?? '').trim() || null,
+                region: (parts[4] ?? '').trim() || null,
+                parcel: (parts[5] ?? '').trim() || null,
+            },
+        });
+    }
+    return out;
+}
+
 // ── GML parse (NO, DE-NRW) — split into members, take each member's first posList ──
 function gmlText(block, tag) {
     const m = block.match(new RegExp(`<(?:[\\w.-]+:)?${tag}\\b[^>]*>\\s*([^<]*?)\\s*</(?:[\\w.-]+:)?${tag}>`, 'i'));
@@ -327,6 +437,64 @@ function chiUrl(lat, lon) {
     return `https://datacatalog.cookcountyil.gov/resource/77tz-riq7.json?${qs.toString()}`;
 }
 
+/**
+ * ESTONIA — Maa-amet (Maa- ja Ruumiamet) public GeoServer, `kataster:ky_kehtiv` (valid cadastral
+ * units). Endpoint + layer + the lat,lon urn-ordered WGS84 bbox entry are the shapes the EE
+ * adapter pinned (`countryAdapters/ee/eeWfsClient.ts` measured facts 1–3); the ONE difference is
+ * `srsName=EPSG:4326`, which the adapter's header records as honoured and which was MEASURED
+ * live 2026-09-02 at Tallinn: GeoJSON output in [lon,lat] degrees (first vertex
+ * [24.7539…, 59.4366…]), tunnus 78401:114:0086 in the candidate set. The urn AUTHORITY bbox form
+ * matters here exactly as it does for PT: the layer's native CRS is projected (L-EST97 /
+ * EPSG:3301), the case where a bare `EPSG:4326` bbox is silently accepted and returns zero.
+ */
+function eeUrl(lat, lon) {
+    const bbox = `${lat - HALF_DEG},${lon - HALF_DEG},${lat + HALF_DEG},${lon + HALF_DEG},urn:ogc:def:crs:EPSG::4326`;
+    return 'https://gsavalik.envir.ee/geoserver/kataster/ows?service=WFS&version=2.0.0&request=GetFeature' +
+        '&typeNames=kataster:ky_kehtiv&srsName=EPSG:4326' +
+        `&count=20&outputFormat=application/json&bbox=${encodeURIComponent(bbox)}`;
+}
+
+/**
+ * LITHUANIA — Registrų centras NTR parcels, republished keylessly by Statistics Lithuania
+ * (`ntr_sklypai/FeatureServer/0`, ArcGIS REST 11.1). Endpoint, point-intersect params and the
+ * explicit `outFields` mirror the LT adapter (`countryAdapters/lt/ltParcelProvider.ts` /
+ * `ltArcgisClient.ts` — never `*`: an added upstream column must be a deliberate change). TWO
+ * differences from the adapter, both measured live 2026-09-02 (Žvėrynas → 0101/0039:1406):
+ * `outSR=4326` (the adapter keeps native LKS-94 for measurement; the browser needs WGS84 — the
+ * service reprojects server-side) and GET instead of POST (the adapter POSTs because a parcel
+ * RING does not fit a URL; a point geometry does, and fetchTextOnce is GET-only).
+ */
+const LT_PROXY_OUT_FIELDS =
+    'unikalus_nr,kadastro_nr,pask_tipas_pavad,sav_pavad,sen_pavad,skl_plotas,pastat_sk';
+function ltUrl(lat, lon) {
+    const qs = new URLSearchParams({
+        f: 'json',
+        geometry: JSON.stringify({ x: lon, y: lat, spatialReference: { wkid: 4326 } }),
+        geometryType: 'esriGeometryPoint',
+        spatialRel: 'esriSpatialRelIntersects',
+        inSR: '4326',
+        outSR: '4326',
+        outFields: LT_PROXY_OUT_FIELDS,
+        returnGeometry: 'true',
+    });
+    return `https://osp-sdg.stat.gov.lt/arcgis/rest/services/ntr_sklypai/FeatureServer/0/query?${qs.toString()}`;
+}
+
+/**
+ * POLAND — GUGiK ULDK `GetParcelByXY`, the keyless national parcel locator. Request shape mirrors
+ * the PL adapter (`countryAdapters/pl/plUldkClient.ts`): ⚠ `xy=` is LONGITUDE FIRST (measured
+ * fact 2 — the swapped pair answers `-1 brak wyników` SILENTLY), and `result=` fixes the field
+ * order the positional parse depends on. The ONE difference is `srid=4326`, MEASURED live
+ * 2026-09-02 at Suwałki: the same record serves `SRID=4326;POLYGON((lon lat …))` degrees instead
+ * of the adapter's native `SRID=2180` metres (206301_1.0005.11523/3 both ways).
+ */
+const PL_ULDK_RESULT_FIELDS = 'id,voivodeship,county,commune,region,parcel,geom_wkt';
+function plUrl(lat, lon) {
+    return 'https://uldk.gugik.gov.pl/?request=GetParcelByXY' +
+        `&xy=${lon},${lat},4326` +
+        `&result=${PL_ULDK_RESULT_FIELDS}&srid=4326`;
+}
+
 function jsonProp(props, ...keys) {
     for (const k of keys) {
         const v = props?.[k];
@@ -335,7 +503,7 @@ function jsonProp(props, ...keys) {
     return null;
 }
 
-/** @typedef {{ guard:(lat:number,lon:number)=>boolean, url:(lat:number,lon:number)=>string, format:'geojson'|'gml'|'esrijson', axis?:'lonlat'|'latlon', source:string, normalise:(c:any)=>{refcat:string,areaM2:number,address:string|null} }} SourceCfg */
+/** @typedef {{ guard:(lat:number,lon:number)=>boolean, url:(lat:number,lon:number)=>string, format:'geojson'|'gml'|'esrijson'|'socrata'|'arcgis'|'uldk', axis?:'lonlat'|'latlon', source:string, normalise:(c:any)=>{refcat:string,areaM2:number,address:string|null} }} SourceCfg */
 
 /** @type {Record<string, SourceCfg>} */
 export const EU_CADASTRE_SOURCES = {
@@ -473,6 +641,57 @@ export const EU_CADASTRE_SOURCES = {
             return { refcat, areaM2: ringAreaM2(c.ring), address: muni ? String(muni) : null };
         },
     },
+    // ── Lane PROXY-EE-LT-PL (2026-09-02): the E9 registration wave's named residual. The three
+    // registry rows routed correctly and their adapters were LIVE-PROVEN, but a production click
+    // resolved null HERE and fell to the OSM footprint. `source` values are the registry rows'
+    // providerIds (one spelling per source, C84 EI-9), NOT new short names.
+    ee: {
+        guard: (lat, lon) => lat >= 57.5 && lat <= 59.8 && lon >= 21.5 && lon <= 28.3,
+        url: eeUrl,
+        format: 'geojson',
+        source: 'ee-maaamet-kataster',
+        normalise: (c) => {
+            const p = c.props || {};
+            // `tunnus` is the cadastral id (78401:114:0086 @ Tallinn, measured); `pindala` is the
+            // cadastre's own registered m² — never derived when served.
+            const refcat = String(jsonProp(p, 'tunnus') ?? '').trim();
+            const areaM2 = Number(jsonProp(p, 'pindala')) || ringAreaM2(c.ring);
+            const address = jsonProp(p, 'l_aadress');
+            return { refcat, areaM2, address: address ? String(address) : null };
+        },
+    },
+    lt: {
+        guard: (lat, lon) => lat >= 53.85 && lat <= 56.5 && lon >= 20.9 && lon <= 26.9,
+        url: ltUrl,
+        format: 'arcgis',
+        source: 'lt-rc-ntr-parcels-featureserver',
+        normalise: (c) => {
+            const p = c.props || {};
+            // `kadastro_nr` is the national parcel id (0101/0039:1406 @ Vilnius, measured);
+            // `unikalus_nr` is the fallback NTR code. ⚠ `skl_plotas` is HECTARES, not m² — the
+            // ×10 000 here is the LT adapter's one unit transform, mirrored (ltParcelProvider.ts).
+            const refcat = String(jsonProp(p, 'kadastro_nr', 'unikalus_nr') ?? '').trim();
+            const ha = Number(jsonProp(p, 'skl_plotas'));
+            const areaM2 = Number.isFinite(ha) && ha > 0 ? ha * 10_000 : ringAreaM2(c.ring);
+            // Municipality/eldership are honest nulls on many parcels (measured fill caveat).
+            const address = jsonProp(p, 'sav_pavad', 'sen_pavad');
+            return { refcat, areaM2, address: address ? String(address) : null };
+        },
+    },
+    pl: {
+        guard: (lat, lon) => lat >= 49.0 && lat <= 54.9 && lon >= 14.1 && lon <= 24.2,
+        url: plUrl,
+        format: 'uldk',
+        source: 'pl-gugik-uldk',
+        normalise: (c) => {
+            const p = c.props || {};
+            // The TERYT-based national id (206301_1.0005.11523/3 @ Suwałki, measured). ULDK
+            // serves no area field → geometry-derived, like NO and CH.
+            const refcat = String(jsonProp(p, 'id') ?? '').trim();
+            const address = jsonProp(p, 'commune');
+            return { refcat, areaM2: ringAreaM2(c.ring), address: address ? String(address) : null };
+        },
+    },
 };
 
 async function fetchTextOnce(url, deps = {}) {
@@ -540,13 +759,40 @@ export async function resolveEuParcelOutcome(cc, lon, lat, deps = {}) {
     // A null body means the upstream never answered — the ONE case that must not read as "empty".
     if (!text) return { outcome: 'unreachable', parcel: null };
 
+    // §CONTEXT-DATA-HONESTY pre-checks for the two formats whose FAILURE arrives as an HTTP-200
+    // body that would otherwise parse to zero candidates and masquerade as `empty`:
+    //   • ArcGIS (LT): HTTP 200 + `{ "error": {...} }` on a bad request (measured fact 3 of the
+    //     LT adapter) — a failure, never an authoritative "no parcel here".
+    //   • ULDK (PL): the status is the FIRST TOKEN OF THE BODY; only `-1 brak wyników` is a real
+    //     absence, everything else non-`0` is the service failing (measured fact 1 of the PL adapter).
+    let uldkRecords = null;
+    if (cfg.format === 'arcgis') {
+        const err = arcgisErrorDetail(text);
+        if (err !== null) {
+            console.warn(`[eu-cadastre] upstream error body (${cc}): ${err}`);
+            return { outcome: 'unreachable', parcel: null };
+        }
+    } else if (cfg.format === 'uldk') {
+        const cls = classifyUldkBody(text);
+        if (cls.kind === 'error') {
+            console.warn(`[eu-cadastre] upstream error body (${cc}): ${cls.detail}`);
+            return { outcome: 'unreachable', parcel: null };
+        }
+        if (cls.kind === 'empty') return { outcome: 'empty', parcel: null };
+        uldkRecords = cls.records;
+    }
+
     const candidates = cfg.format === 'geojson'
         ? parseGeoJsonCandidates(text)
         : cfg.format === 'esrijson'
             ? parseEsriJsonCandidates(text)
-            : cfg.format === 'socrata'
-                ? parseSocrataCandidates(text)
-                : parseGmlCandidates(text, cfg.axis);
+            : cfg.format === 'arcgis'
+                ? parseArcgisCandidates(text)
+                : cfg.format === 'uldk'
+                    ? parseUldkCandidates(uldkRecords ?? [])
+                    : cfg.format === 'socrata'
+                        ? parseSocrataCandidates(text)
+                        : parseGmlCandidates(text, cfg.axis);
     const chosen = pickCandidate(candidates, lat, lon);
     if (!chosen) return { outcome: 'empty', parcel: null };
 
