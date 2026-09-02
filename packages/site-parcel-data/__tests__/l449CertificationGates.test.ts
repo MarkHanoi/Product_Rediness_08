@@ -151,7 +151,10 @@ describe('§NO-UNSIGNED-OPEN-GATE — the reintroduction guard', () => {
 
     it('`isGateSignatureRecorded` distinguishes signed-open from open-unsigned from shut', () => {
         expect(isGateSignatureRecorded('MURCIA_ENVELOPE_VERIFIED')).toBe(true);   // open + SIG-MU1
-        expect(isGateSignatureRecorded('FR_PARIS_PLU_CERTIFIED')).toBe(false);    // open, unsigned
+        // §PARIS-SIGN-OFF (2026-09-02): was the open-unsigned exemplar (→ false); the founder signed
+        // the three assertions and the registry row carries the seat, so signed-open → true.
+        expect(isGateSignatureRecorded('FR_PARIS_PLU_CERTIFIED')).toBe(true);     // open + §PARIS-SIGN-OFF
+        expect(isGateSignatureRecorded('PT_PORTO_PDM_CERTIFIED')).toBe(false);    // SHUT (born shut, signature null)
         expect(isGateSignatureRecorded('CORDOBA_ENVELOPE_VERIFIED')).toBe(true);  // open + SIG-1, signed 2026-08-03
         expect(isGateSignatureRecorded('NOT_A_GATE')).toBe(false);                // unknown
     });

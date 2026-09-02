@@ -88,10 +88,17 @@ export const PARIS_JURISDICTION_ID = 'fr-75056-paris';
  *   3. that `plub_hauteur` (UG.3.2.1) is the operative ceiling, unmodified by the HMC (UG.3.2.2),
  *      the `filet`, or a servitude the pack does not read.
  *
- * (Typed `boolean`, not the literal `false`, so a consumer's `if (FR_PARIS_PLU_CERTIFIED)` draw
- * branch is not narrowed away as dead code while the gate is shut.)
+ * ⭐ SIGNED AND REOPENED 2026-09-02. The signature is the FOUNDER'S, recorded at
+ * `docs/04-reference/jurisdictions/fr/sources/VERIFICATION.md` **§PARIS-SIGN-OFF** — the seat the
+ * l449 registry dereferences — quoting all three assertions verbatim and the session directive
+ * that signed them. Per L-449 the authority is THAT RECORD, never the commit that flips this
+ * constant, and never the model that transcribed it (the scribe-not-signatory rule the Madrid
+ * §3e571724 incident established). Revocation = `false` here + strike the §PARIS-SIGN-OFF block.
+ *
+ * (Typed `boolean`, not the literal `true`, so both branches of a consumer's
+ * `if (FR_PARIS_PLU_CERTIFIED)` stay type-live across flips.)
  */
-export const FR_PARIS_PLU_CERTIFIED: boolean = false;
+export const FR_PARIS_PLU_CERTIFIED: boolean = true;
 
 /**
  * The govern­ing citation carried on the refusal — cites the DATA sources and the règlement DOCUMENT,

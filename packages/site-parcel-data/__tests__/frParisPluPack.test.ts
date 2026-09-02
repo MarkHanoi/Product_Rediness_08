@@ -95,16 +95,22 @@ describe('FR_PARIS_PLU_PACK — the curated pack shape', () => {
         expect(ug!.ordinanceRef).toBe(PARIS_PLU_ORDINANCE_REF);
     });
 
-    it('⛔ THE GATE IS SHUT — open-and-UNSIGNED is not a state this repo tolerates', () => {
-        // SHUT 2026-08-02 (§UNSIGNED-GATE-DEFAULTS-SHUT). It had been ON since 2026-07-26 with
-        // `signature: null` — publishing numeric envelopes with no human signature behind them, in a
-        // corpus nobody on this project has read.
+    it('⭐ THE GATE IS OPEN AND SIGNED (§PARIS-SIGN-OFF, 2026-09-02) — open-and-UNSIGNED stays intolerable', () => {
+        // HISTORY: SHUT 2026-08-02 (§UNSIGNED-GATE-DEFAULTS-SHUT). It had been ON since 2026-07-26
+        // with `signature: null` — publishing numeric envelopes with no human signature behind them,
+        // in a corpus nobody on this project had read.
         //
-        // ⚠ NOT because the numbers are fabricated. They are not: the dispatcher draws the PUBLISHED
+        // ⚠ NOT because the numbers were fabricated. They are not: the dispatcher draws the PUBLISHED
         // `plub_ecm` footprint at the PUBLISHED `plub_hauteur`, and the emprise=parcel assumption is
-        // gone. The defect is the MISSING SIGNATURE. Recorded here so a future reader does not
-        // "re-fix" a data problem that was never the problem.
-        expect(FR_PARIS_PLU_CERTIFIED).toBe(false);
+        // gone. The defect was the MISSING SIGNATURE — and it is now recorded: the founder signed the
+        // three assertions verbatim at
+        // docs/04-reference/jurisdictions/fr/sources/VERIFICATION.md §PARIS-SIGN-OFF (2026-09-02),
+        // and the l449 registry row carries that seat. This pin now asserts the SIGNED-OPEN state.
+        // A boolean cannot tell a signature from a self-attribution — the test that CAN is
+        // l449CertificationGates.test.ts §DEREFERENCE-THE-CITATION, which opens the doc and fails if
+        // the §PARIS-SIGN-OFF anchor is ever deleted. Revocation = flip the const back to `false`
+        // AND flip this pin back with it (strike, not delete, the sign-off block).
+        expect(FR_PARIS_PLU_CERTIFIED).toBe(true);
     });
 
     it('parisUgHeightMassingSupported: UG only (UV / N / secteur-sauvegardé keep the refusal)', () => {

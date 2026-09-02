@@ -27,6 +27,14 @@
 // zone+height refusal, never the structured volume"), so the proxy call and zone resolution below
 // are UNCHANGED — only the two tests that asserted a DRAWN volume are updated to expect the
 // enriched cited refusal instead.
+//
+// ⭐ UPDATED 2026-09-02 (§PARIS-SIGN-OFF). The founder SIGNED the three assertions
+// (docs/04-reference/jurisdictions/fr/sources/VERIFICATION.md §PARIS-SIGN-OFF; the l449 registry
+// row carries the seat), so `FR_PARIS_PLU_CERTIFIED` is `true` WITH a dereferenceable signature.
+// The same two tests flip back to asserting the DRAWN structured ECM volume — the honest pin of
+// the signed-open state, exactly as they pinned the shut state before. The refusal tests below
+// (proxy down / no ECM at point) are UNCHANGED: the signature authorises drawing published
+// geometry, never fabricating absent geometry.
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { SiteModelStore, siteCreate } from '@pryzm/stores';
@@ -184,25 +192,31 @@ describe('§PARIS-PLU — a click on a Ville-de-Paris parcel reaches the Paris c
         expect(Math.abs(Number(q.get('lon')) - PARCEL.lon)).toBeLessThan(5e-4);
     });
 
-    it('§UNSIGNED-GATE-DEFAULTS-SHUT — computes the real ECM volume, then WITHHOLDS it (cited refusal)', async () => {
-        // ⚠ Paris resolves + computes BEFORE gating (unlike NL), so the proxy IS called and the zone
-        // IS identified — but `FR_PARIS_PLU_CERTIFIED` is false, so the computed volume must never
-        // reach the render: the enriched zone+height refusal replaces it, never a fabrication and
-        // never the structured `ok` this test asserted before the gate was correctly shut.
+    it('§PARIS-SIGN-OFF — the SIGNED gate draws the published ECM volume (no refusal, no fabrication)', async () => {
+        // ⭐ SIGNED 2026-09-02 (§PARIS-SIGN-OFF): the founder signed the three assertions, so the
+        // structured volume the engine always computed now REACHES the render. What is drawn is the
+        // PUBLISHED plub_ecm footprint extruded to the PUBLISHED plub_hauteur — real geometry, never
+        // parcel×%. (While shut, this same test asserted the enriched cited refusal; the flip is the
+        // honesty-pin update, not a behaviour change in the engine.)
         const { envelope } = await dispatchParis(PLU_BODY);
         expect(envelope).not.toBeNull();
-        expect(envelope!.status).toBe('none');
+        expect(envelope!.status).toBe('ok');
         expect(envelope!.zoneCode).toBe('UG');
-        expect(envelope!.refusal).toBeTruthy();
-        expect(envelope!.maxHeight_m).toBeNull();
-        expect(envelope!.insetPolygon).toEqual([]);
+        expect(envelope!.refusal).toBeNull();
+        expect(envelope!.maxHeight_m).toBe(PARCEL.heightCeiling_m); // 25 m — published plub_hauteur
+        expect(envelope!.insetPolygon.length).toBeGreaterThanOrEqual(3); // the projected ECM ring
+        expect(envelope!.insetAreaM2).toBeCloseTo(PARCEL.ecmAreaM2, 0); // 83.1 m² — st_area_shape
+        expect(envelope!.confidence).toBe('structured');
+        // The drawn ring is published ECM geometry, not a full-parcel upper bound (L-619).
+        expect(envelope!.footprintIsUpperBound).toBe(false);
     });
 
-    it('threads NO height onto the C19 Parcel while the gate is closed', async () => {
+    it('threads the published height + ECM ring onto the C19 Parcel now the gate is SIGNED (§PARIS-SIGN-OFF)', async () => {
         const { store } = await dispatchParis(PLU_BODY);
         const site = store.getSite()!;
-        expect(site.parcel.maxHeight).toBeNull();
-        expect(site.parcel.buildableRing).toBeNull();
+        expect(site.parcel.maxHeight).toBe(PARCEL.heightCeiling_m); // 25 m — published plub_hauteur
+        expect(site.parcel.buildableRing).not.toBeNull();
+        expect(site.parcel.buildableRing!.length).toBeGreaterThanOrEqual(3);
     });
 
     it('does NOT fall back to the estimated triple when the PLU proxy is DOWN', async () => {

@@ -164,16 +164,19 @@ export const L449_CERTIFICATION_GATES: readonly L449Gate[] = Object.freeze([
         },
     },
 
-    // ── ⛔ SHUT 2026-08-02 — WAS `true` with `signature: null`. §UNSIGNED-GATE-DEFAULTS-SHUT.
-    //    The Madrid defect found again, and unlike Madrid it had already SHIPPED. Now refuses with
-    //    a CITED determination; does not draw. Reasoning at the declaration.
-    //    (NL_BESTEMMINGSPLAN_CERTIFIED — its sibling in this pair — moved to the SIGNED block above
-    //    2026-08-26, SIG-NL1: §L-11840/L-11841. This one stays here, unsigned.)
+    // ── ⭐ SIGNED 2026-09-02 (§PARIS-SIGN-OFF) — was ⛔ SHUT 2026-08-02 for `true` with
+    //    `signature: null` (§UNSIGNED-GATE-DEFAULTS-SHUT, the Madrid defect found again). The
+    //    signatory is the FOUNDER by explicit session directive; the record quotes all three
+    //    assertions verbatim and the revocation procedure. The scribe was a model; the signatory
+    //    was not (L-449's scribe-not-signatory rule). History retained at the declaration.
     {
         gate: 'FR_PARIS_PLU_CERTIFIED',
         file: 'packages/site-parcel-data/src/rulepacks/frParisPluBioclimatique.ts',
         value: FR_PARIS_PLU_CERTIFIED,
-        signature: null,
+        signature: {
+            doc: 'docs/04-reference/jurisdictions/fr/sources/VERIFICATION.md',
+            anchor: '§PARIS-SIGN-OFF',
+        },
     },
     {
         // LANE PT-ZONEID, 2026-09-02 — BORN SHUT, never opened. The first Portuguese pack DRAFT
