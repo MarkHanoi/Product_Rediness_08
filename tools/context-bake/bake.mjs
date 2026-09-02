@@ -348,8 +348,8 @@ const LAYERS = [
   // (L-185, §FEAT-FORMA-SEA-CONTEXT) stitches + closes them into blue sea polygons — zero Overpass. Until
   // a re-bake propagates this, `CesiumViewport.fetchSeaMaskViaOverpass` supplies the coastline live (it
   // self-disables once the baked `collection.sea` is non-empty).
-  { id: 'water',     filter: ['nwr/natural=water', 'nwr/waterway', 'w/water', 'w/natural=coastline'],   geom: 'polygon,linestring', minz: 8,  maxz: 16, extra: [] },
-  { id: 'parks',     filter: ['nwr/leisure=park', 'nwr/landuse=grass,forest,recreation_ground', 'nwr/natural=wood'], geom: 'polygon', minz: 10, maxz: 16, extra: [] },
+  { id: 'water',     filter: ['nwr/natural=water', 'nwr/waterway', 'w/water', 'w/natural=coastline'],   geom: 'polygon,linestring', minz: 8,  maxz: 16, extra: ['--drop-densest-as-needed'] }, // §WATER-TILE-CAP (2026-09-02): run 33622434617 died at z8 tile 8/136/80 — DK+NL water merged in ONE grouped bake exceeded 500KB and tippecanoe wrote NO zoom levels; every other layer already degrades. The flag engages only where the alternative is death.
+  { id: 'parks',     filter: ['nwr/leisure=park', 'nwr/landuse=grass,forest,recreation_ground', 'nwr/natural=wood'], geom: 'polygon', minz: 10, maxz: 16, extra: ['--drop-densest-as-needed'] }, // §WATER-TILE-CAP sibling — same class, pre-empted
   // §FORMA-CTX-LANDUSE (founder 2026-07-29) — colour the TERRAIN by land use: grey urban / brown rural.
   // The `landuse` TAG rides along (osmium keeps it, tippecanoe stores it as a feature attribute), so the
   // client (`contextLanduse.ts`) classifies each polygon urban↔rural and drapes the matching colour. Green
