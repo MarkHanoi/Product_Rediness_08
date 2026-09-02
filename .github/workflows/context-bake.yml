@@ -38,13 +38,17 @@ on:
         type: string
         default: ''
       region:
-        description: '§BAKE-BY-REGION — comma-separated regions (e.g. spain, or spain,denmark). Blank = ALL. ⚠ The published tileset contains ONLY the regions baked, and the R2 publish REPLACES it — so a scoped run + publish removes every other region from the map. Use with publish=false, or only for a deliberate replacement.'
+        description: '§BAKE-BY-REGION — comma-separated regions (e.g. spain, or spain,denmark). Blank = ALL. ⚠ The published tileset contains ONLY the regions baked, and the R2 publish REPLACES it — so a scoped run + publish removes every other region from the map. For a scoped run, tick stage=true (the §SYNC-SWITCH path: uploads to tiles-staging/, never live) — or use publish=false for a deliberate replacement only.'
         type: string
         default: ''
       publish:
-        description: 'Upload the result to s3://pryzm-assets/tiles/. Untick to bake and only inspect the artifact.'
+        description: 'Upload the result to s3://pryzm-assets/tiles/. Untick to bake and only inspect the artifact. Ignored when stage=true (a staged run NEVER touches the live prefix).'
         type: boolean
         default: true
+      stage:
+        description: '§SYNC-SWITCH — upload this run''s tileset + staging-manifest.json to s3://pryzm-assets/tiles-staging/<slug>/ instead of the LIVE tiles/ prefix. The per-region path: stage each region-scoped bake, then dispatch context-merge-publish.yml to merge every staged set and publish once — it REFUSES BY NAME if any expected region is missing, so a scoped run can never silently delete the rest of the map. Default false = today''s behaviour, unchanged.'
+        type: boolean
+        default: false
 
 concurrency:
   group: context-bake
@@ -302,18 +306,93 @@ jobs:
             echo "have failed THERE). The spot-check is vacuous for this scope, and says so rather than failing."
           fi
 
+      # ─────────────────────────────────────────────────────────────────────────
+      # §SYNC-SWITCH (2026-09-02) — the per-region staging path. A stage=true run
+      # uploads its tileset to tiles-staging/<slug>/ (NEVER tiles/), together with a
+      # staging-manifest.json recording exactly which regions + layers these bytes
+      # contain (with sha256s — the merge verifies them against a truncated or stale
+      # download). context-merge-publish.yml later merges EVERY staged set and
+      # publishes once, refusing by name if an expected region is missing. This is
+      # the workflow switch bake.mjs:57 designed ("per-region artifacts merged
+      # before a single publish") — the full 35-region table (~33 GB of pbf) cannot
+      # finish in one job (§BAKE-TIMEOUT-RAISED), and a scoped publish REPLACES the
+      # live tileset (§BAKE-BY-REGION). Staging is how a scoped run becomes useful
+      # WITHOUT either failure mode.
+      # ─────────────────────────────────────────────────────────────────────────
+      - name: Write the staging manifest (§SYNC-SWITCH)
+        if: ${{ inputs.stage }}
+        env:
+          REGION: ${{ inputs.region }}
+          LAYER: ${{ inputs.layer }}
+        run: |
+          set -euo pipefail
+          # Resolve the run's ACTUAL region set from bake.mjs's own table (blank = all 35) —
+          # never from a hand-copied list (the count/range-rot lesson).
+          ARGS=(--regions-json)
+          if [ -n "${REGION// /}" ]; then ARGS+=(--region "${REGION// /}"); fi
+          REGION_CSV="$(node tools/context-bake/bake.mjs "${ARGS[@]}" | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>process.stdout.write(JSON.parse(s).regions.join(",")))')"
+          SLUG="${REGION// /}"; SLUG="${SLUG//,/-}"; SLUG="${SLUG:-all}"
+          echo "SLUG=$SLUG" >> "$GITHUB_ENV"
+          node tools/context-bake/merge-tiles.mjs stage-manifest \
+            --dir tools/context-bake/out \
+            --regions "$REGION_CSV" \
+            --layers "${LAYER:-all}" \
+            --slug "$SLUG"
+
+      - name: Upload to R2 STAGING (never the live prefix)
+        if: ${{ inputs.stage }}
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+          AWS_DEFAULT_REGION: auto
+          AWS_REQUEST_CHECKSUM_CALCULATION: WHEN_REQUIRED
+          AWS_RESPONSE_CHECKSUM_VALIDATION: WHEN_REQUIRED
+          R2_ACCOUNT_ID: ${{ secrets.R2_ACCOUNT_ID }}
+        run: |
+          set -euo pipefail
+          if [ -z "${R2_ACCOUNT_ID}" ] || [ -z "${AWS_ACCESS_KEY_ID}" ]; then
+            echo "::error::R2_* repo secrets are not set — cannot stage."
+            exit 1
+          fi
+          ENDPOINT="https://${R2_ACCOUNT_ID}.r2.cloudflarestorage.com"
+          # --delete keeps the slug prefix an exact mirror of THIS run (a stale layer from an
+          # earlier differently-scoped stage under the same slug must not survive to confuse the
+          # merge — the manifest is authoritative and the bytes must match it).
+          aws s3 sync tools/context-bake/out "s3://pryzm-assets/tiles-staging/${SLUG}" \
+            --endpoint-url "$ENDPOINT" \
+            --no-progress --delete \
+            --exclude '*' --include '*.pmtiles' \
+            --content-type 'application/vnd.pmtiles'
+          aws s3 cp tools/context-bake/out/staging-manifest.json \
+            "s3://pryzm-assets/tiles-staging/${SLUG}/staging-manifest.json" \
+            --endpoint-url "$ENDPOINT" \
+            --content-type 'application/json'
+          echo "── staged prefix after upload ──"
+          aws s3 ls "s3://pryzm-assets/tiles-staging/${SLUG}/" --endpoint-url "$ENDPOINT" --human-readable
+          {
+            echo "### Region set \`${SLUG}\` staged ✅ (tiles-staging/, live tileset untouched)"
+            echo ""
+            echo "When every planned region set is staged, dispatch **context-merge-publish.yml** to merge + publish."
+          } >> "$GITHUB_STEP_SUMMARY"
+
       - name: Upload the tiles as a run artifact
-        # Kept regardless of publishing: it makes a bake inspectable/diffable after
-        # the fact, and gives a rollback source if a later bake regresses.
+        # Kept for NON-staged runs: it makes a bake inspectable/diffable after the
+        # fact, and gives a rollback source if a later bake regresses. A staged run
+        # skips it — its bytes are already inspectable in R2 tiles-staging/, and
+        # multi-GB artifacts are what blew the GitHub artifact quota on 2026-09-01
+        # (22 GB of expired artifacts purged). Retention 14 → 3 for the same reason:
+        # a bake artifact's useful life is "until the next bake or the R2 publish",
+        # not two weeks of quota.
+        if: ${{ !inputs.stage }}
         uses: actions/upload-artifact@v4
         with:
           name: context-pmtiles
           path: tools/context-bake/out/*.pmtiles
-          retention-days: 14
+          retention-days: 3
           if-no-files-found: error
 
       - name: Publish to R2
-        if: ${{ inputs.publish }}
+        if: ${{ inputs.publish && !inputs.stage }}
         env:
           AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
@@ -346,7 +425,7 @@ jobs:
           aws s3 ls "s3://pryzm-assets/tiles/" --endpoint-url "$ENDPOINT" --human-readable
 
       - name: Verify a tileset is publicly readable AND range-servable
-        if: ${{ inputs.publish }}
+        if: ${{ inputs.publish && !inputs.stage }}
         env:
           PUBLIC_BASE: ${{ vars.VITE_CONTEXT_TILES_URL || 'https://pub-1ad4f6c5dec849b5b25a45586898fd4d.r2.dev/tiles/' }}
         run: |
@@ -386,7 +465,7 @@ jobs:
           fi
 
       - name: What to do next
-        if: ${{ success() && inputs.publish }}
+        if: ${{ success() && inputs.publish && !inputs.stage }}
         run: |
           {
             echo "### Context tiles published ✅"

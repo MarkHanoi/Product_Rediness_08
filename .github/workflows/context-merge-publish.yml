@@ -1,0 +1,326 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# context-merge-publish.yml — merge staged per-region bakes → ONE live publish (§SYNC-SWITCH)
+#
+# THE PROBLEM THIS RETIRES. Each context layer is ONE global `<layer>.pmtiles`
+# and the live publish is an `aws s3 sync` that REPLACES the tileset — so a
+# region-scoped bake could never publish without deleting every other region
+# from the map (§BAKE-BY-REGION), while an UNSCOPED bake of the full 35-region
+# table (~33 GB of pbf) cannot finish inside the 330-minute job ceiling
+# (§BAKE-TIMEOUT-RAISED: run 30706761446 died at 99.9 % and published nothing).
+# context-bake.yml's own timeout note names the fix: "per-region artifacts
+# merged before a single publish". This workflow is that merge + publish.
+#
+# THE FLOW.
+#   1. context-bake.yml runs with region=<subset>, stage=true — each run uploads
+#      its per-layer .pmtiles + staging-manifest.json (regions, layers, sha256s)
+#      to s3://pryzm-assets/tiles-staging/<slug>/. The live tiles/ prefix is
+#      NEVER touched by a staged run.
+#   2. THIS workflow downloads every staged set and runs
+#      tools/context-bake/merge-tiles.mjs merge, which REFUSES BY NAME when
+#        · an expected region has no staged bake (publishing would DELETE it),
+#        · a region is staged ambiguously by two sets (double-bake),
+#        · a staged set lacks a requested layer,
+#        · staged bytes disagree with their manifest's sha256 (stale download),
+#        · a region in the LIVE tileset-manifest.json would be lost (no-loss
+#          gate — pass allow_region_removal to remove one DELIBERATELY).
+#      Only then does it merge per layer (tile-join from the same
+#      pryzm-context-bake Docker image the bake uses — felt tippecanoe's
+#      tile-join reads/writes .pmtiles and re-merges vector features in border
+#      tiles shared by adjacent countries) and write tileset-manifest.json.
+#   3. The measured-height spot-check runs against the MERGED buildings layer
+#      (same gate as the bake — SIZE IS NOT PROVENANCE), then the live publish:
+#      `aws s3 sync` of the .pmtiles + the manifest uploaded BESIDE them, so
+#      the next merge KNOWS what the live tileset contains. That manifest is
+#      the cure for the old design's blindness.
+#
+# PUBLISH ATOMICITY — sync-in-place, deliberately. R2 has no atomic prefix
+# rename, and the client resolves fixed flat paths
+# (`<base>/<layer>.pmtiles?v=CONTEXT_TILESET_VERSION` — contextTiles.ts), so a
+# tiles-new/ + flip scheme would need a client change this lane must not make.
+# What we rely on instead, stated: (a) each R2 PUT (multipart included) is
+# per-object atomic — a reader sees the old object or the new one, never a
+# torn one; (b) the tiles are served `immutable, max-age=31536000`, so LIVE
+# clients keep reading their cached tileset and only ever see the new bytes
+# after CONTEXT_TILESET_VERSION is bumped in a client deploy (§CONTEXT-CACHE-BUST).
+# The residual risk is the minutes-wide window where buildings is new and roads
+# is old FOR A CLIENT WITH A COLD CACHE — cosmetic cross-layer skew, accepted.
+#
+# DISK BUDGET, stated up front. The runner holds staged inputs + merged outputs
+# ≈ 2× the tileset. The full 25-country scope projects 24–57 GB of tiles
+# (regions-full-bake-plan.json) — the upper band exceeds a hosted runner. The
+# `layer` input is the escape: dispatch once per layer (buildings is ~most of
+# the bytes) and the download filter below only pulls that layer's staged
+# files. Phased publishes (plan JSON phases 0→1→2) keep each merge well under
+# the cliff while the calibration numbers land.
+#
+# MANUAL ONLY, like the bake: the founder dispatches it when the staged sets
+# are complete. Same concurrency group as the bake so a bake and a publish can
+# never interleave on R2.
+# ─────────────────────────────────────────────────────────────────────────────
+
+name: Merge staged context bakes → publish to R2 (§SYNC-SWITCH)
+
+on:
+  workflow_dispatch:
+    inputs:
+      expect:
+        description: 'Regions the publish MUST contain: "all" (every bake.mjs region — default), "staged" (whatever is staged, for a deliberate subset), or a comma-separated list. Missing regions are a NAMED refusal, never a silent loss.'
+        type: string
+        default: 'all'
+      layer:
+        description: 'Merge only these layers (csv). Blank = all 7. Use for disk-bounded per-layer publishes of very large sets.'
+        type: string
+        default: ''
+      engine:
+        description: 'Merge engine: tile-join (production — re-merges shared border tiles) | js (disjoint-only fallback, refuses collisions) | auto.'
+        type: string
+        default: 'tile-join'
+      publish:
+        description: 'Sync the merged tileset + tileset-manifest.json to s3://pryzm-assets/tiles/. Untick to merge and only inspect.'
+        type: boolean
+        default: true
+      allow_region_removal:
+        description: 'Comma-separated regions the no-loss gate may DELIBERATELY drop from the live tileset. Leave blank normally.'
+        type: string
+        default: ''
+
+concurrency:
+  group: context-bake
+  cancel-in-progress: false
+
+jobs:
+  merge-publish:
+    name: download staged sets → merge (refuse-by-name) → publish once
+    runs-on: ubuntu-latest
+    timeout-minutes: 330
+    env:
+      NODE_OPTIONS: --max-old-space-size=12288
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Free disk space
+        run: |
+          df -h /
+          sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc || true
+          df -h /
+
+      - name: Build the bake toolchain image (tile-join lives in it)
+        # `make install` in the felt tippecanoe build installs tile-join alongside
+        # tippecanoe — same image, same pinned toolchain as the bake, no second recipe.
+        if: ${{ inputs.engine != 'js' }}
+        run: docker build -t pryzm-context-bake tools/context-bake
+
+      - name: Download every staged set from R2
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+          AWS_DEFAULT_REGION: auto
+          AWS_REQUEST_CHECKSUM_CALCULATION: WHEN_REQUIRED
+          AWS_RESPONSE_CHECKSUM_VALIDATION: WHEN_REQUIRED
+          R2_ACCOUNT_ID: ${{ secrets.R2_ACCOUNT_ID }}
+          LAYER: ${{ inputs.layer }}
+        run: |
+          set -euo pipefail
+          if [ -z "${R2_ACCOUNT_ID}" ] || [ -z "${AWS_ACCESS_KEY_ID}" ]; then
+            echo "::error::R2_* repo secrets are not set — cannot download the staged sets."
+            exit 1
+          fi
+          ENDPOINT="https://${R2_ACCOUNT_ID}.r2.cloudflarestorage.com"
+          # Layer-scoped merges only download that layer's staged bytes (disk budget —
+          # see the header). Manifests always come along: the merge is manifest-driven.
+          INCLUDES=(--exclude '*' --include '*/staging-manifest.json')
+          if [ -n "${LAYER// /}" ]; then
+            IFS=',' read -ra LS <<< "${LAYER// /}"
+            for l in "${LS[@]}"; do INCLUDES+=(--include "*/${l}.pmtiles"); done
+          else
+            INCLUDES+=(--include '*.pmtiles')
+          fi
+          mkdir -p tools/context-bake/out/staging
+          aws s3 sync "s3://pryzm-assets/tiles-staging" tools/context-bake/out/staging \
+            --endpoint-url "$ENDPOINT" --no-progress "${INCLUDES[@]}"
+          echo "── staged sets on disk ──"
+          find tools/context-bake/out/staging -maxdepth 2 -type f | sort
+          df -h /
+
+      - name: Fetch the LIVE tileset manifest (arms the no-loss gate)
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+          AWS_DEFAULT_REGION: auto
+          AWS_REQUEST_CHECKSUM_CALCULATION: WHEN_REQUIRED
+          AWS_RESPONSE_CHECKSUM_VALIDATION: WHEN_REQUIRED
+          R2_ACCOUNT_ID: ${{ secrets.R2_ACCOUNT_ID }}
+        run: |
+          set -euo pipefail
+          ENDPOINT="https://${R2_ACCOUNT_ID}.r2.cloudflarestorage.com"
+          # Tolerated-missing ON THE FIRST PUBLISH ONLY: no manifest is live before the first
+          # §SYNC-SWITCH publish ships one. merge-tiles.mjs says loudly which case it saw.
+          aws s3 cp "s3://pryzm-assets/tiles/tileset-manifest.json" tools/context-bake/out/live-tileset-manifest.json \
+            --endpoint-url "$ENDPOINT" \
+            || echo "::warning::no live tileset-manifest.json — BOOTSTRAP publish (the gate arms on the first publish that ships one)"
+
+      - name: Merge (refuses BY NAME on any missing region / ambiguity / integrity gap)
+        env:
+          EXPECT: ${{ inputs.expect }}
+          LAYER: ${{ inputs.layer }}
+          ENGINE: ${{ inputs.engine }}
+          ALLOW_REMOVAL: ${{ inputs.allow_region_removal }}
+        run: |
+          set -euo pipefail
+          ARGS=(merge
+            --staging tools/context-bake/out/staging
+            --out tools/context-bake/out/merged
+            --expect "${EXPECT:-all}"
+            --engine "${ENGINE:-tile-join}")
+          if [ -n "${LAYER// /}" ];        then ARGS+=(--layer "${LAYER// /}"); fi
+          if [ -n "${ALLOW_REMOVAL// /}" ]; then ARGS+=(--allow-region-removal "${ALLOW_REMOVAL// /}"); fi
+          if [ -f tools/context-bake/out/live-tileset-manifest.json ]; then
+            ARGS+=(--live-manifest tools/context-bake/out/live-tileset-manifest.json)
+          fi
+          node tools/context-bake/merge-tiles.mjs "${ARGS[@]}"
+
+      - name: Assert the merged tiles are real
+        run: |
+          set -euo pipefail
+          cd tools/context-bake/out/merged
+          ls -lh *.pmtiles
+          fail=0
+          for f in *.pmtiles; do
+            sz=$(stat -c %s "$f")
+            echo "$f — $sz bytes"
+            if [ "$sz" -lt 51200 ]; then
+              echo "::error::$f is only $sz bytes — the merge produced an effectively empty tileset."
+              fail=1
+            fi
+            if [ "$(head -c 7 "$f")" != "PMTiles" ]; then
+              echo "::error::$f does not carry the PMTiles magic header."
+              fail=1
+            fi
+          done
+          [ "$fail" -eq 0 ] || exit 1
+
+      # Same gate as context-bake.yml's §MEASURED-HEIGHT-GATE spot-check, pointed at the MERGED
+      # buildings layer — the artifact that actually publishes. SIZE IS NOT PROVENANCE: a merge
+      # that silently dropped the height-stamped set would still be large and well-formed.
+      - name: Assert the merged heights are MEASURED (not fabricated)
+        if: ${{ inputs.layer == '' || contains(inputs.layer, 'buildings') }}
+        run: |
+          set -euo pipefail
+          HOSTDIR="${RUNNER_TEMP:-/tmp}/probe-host"
+          rm -rf "$HOSTDIR"; mkdir -p "$HOSTDIR"
+          printf '{"name":"pryzm-probe-host","private":true}\n' > "$HOSTDIR/package.json"
+          # §PROBE-HOST-PIN-MUST-EXIST — pins copied from context-bake.yml (see the note there:
+          # a pin that cannot resolve is a tooling failure, not a height verdict).
+          ( cd "$HOSTDIR" && npm install --no-package-lock pmtiles@4.4.1 @mapbox/vector-tile@3.0.0 pbf@5.1.2 ) \
+            || { echo "::error::Could not PROVISION the height probe. TOOLING failure, NOT a height verdict."; exit 1; }
+          DEST="$GITHUB_WORKSPACE/apps/editor/node_modules"
+          mkdir -p "$DEST"
+          cp -R "$HOSTDIR/node_modules/." "$DEST/"
+
+          TILES="$GITHUB_WORKSPACE/tools/context-bake/out/merged/buildings.pmtiles"
+          # §MEASURED-SPOTCHECK-RESPECTS-REGION — scope from the MERGED manifest (what these
+          # bytes actually contain), not from a workflow input.
+          REGION_SCOPE="$(node -e 'const m=require("./tools/context-bake/out/merged/tileset-manifest.json");process.stdout.write(Object.keys(m.regions).join(","))')"
+          echo "merged regions: $REGION_SCOPE"
+          fail=0
+          checked=0
+          while read -r name region at min; do
+            [ -z "$name" ] && continue
+            case ",$REGION_SCOPE," in
+              *",$region,"*) ;;
+              *) echo "── $name SKIPPED — region '$region' is not in this merge"; continue ;;
+            esac
+            checked=$((checked+1))
+            echo "── $name"
+            node tools/context-height-probe/probe.mjs \
+              --pmtiles "$TILES" --at "$at" --name "$name" --require-measured "$min" || fail=1
+          done <<'CITIES'
+          barcelona spain 41.3888,2.1590 500
+          koln koln 50.9375,6.9603 500
+          CITIES
+          if [ "$fail" -ne 0 ]; then
+            echo "::error::A city that declares a national height join shipped ZERO (or too few) measured heights in the MERGED tileset. NOT publishing."
+            exit 1
+          fi
+          if [ "$checked" -eq 0 ]; then
+            echo "NOTICE: no spot-check city falls inside this merge's regions — each staged set already"
+            echo "passed bake.mjs's own §MEASURED-HEIGHT-GATE when it was baked; the spot-check is vacuous"
+            echo "for this scope, and says so rather than failing."
+          fi
+
+      - name: Publish to R2 (tiles + tileset-manifest.json beside them)
+        if: ${{ inputs.publish }}
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+          AWS_DEFAULT_REGION: auto
+          AWS_REQUEST_CHECKSUM_CALCULATION: WHEN_REQUIRED
+          AWS_RESPONSE_CHECKSUM_VALIDATION: WHEN_REQUIRED
+          R2_ACCOUNT_ID: ${{ secrets.R2_ACCOUNT_ID }}
+        run: |
+          set -euo pipefail
+          ENDPOINT="https://${R2_ACCOUNT_ID}.r2.cloudflarestorage.com"
+          # Sync-in-place — the atomicity decision is in this file's header. Tiles keep the
+          # 1-year immutable TTL (§CONTEXT-CACHE-BUST: clients only see a re-bake after the
+          # CONTEXT_TILESET_VERSION bump). No --delete: a layer-scoped publish must not
+          # remove the other layers.
+          aws s3 sync tools/context-bake/out/merged "s3://pryzm-assets/tiles" \
+            --endpoint-url "$ENDPOINT" \
+            --no-progress \
+            --exclude '*' --include '*.pmtiles' \
+            --content-type 'application/vnd.pmtiles' \
+            --cache-control 'public, max-age=31536000, immutable'
+          # The manifest is NOT immutable — the next merge run reads it to know what is live
+          # (the no-loss gate). no-cache so nothing ever serves a stale region list.
+          aws s3 cp tools/context-bake/out/merged/tileset-manifest.json "s3://pryzm-assets/tiles/tileset-manifest.json" \
+            --endpoint-url "$ENDPOINT" \
+            --content-type 'application/json' \
+            --cache-control 'no-cache'
+          echo "── bucket after publish ──"
+          aws s3 ls "s3://pryzm-assets/tiles/" --endpoint-url "$ENDPOINT" --human-readable
+
+      - name: Verify a tileset is publicly readable AND range-servable
+        if: ${{ inputs.publish }}
+        env:
+          PUBLIC_BASE: ${{ vars.VITE_CONTEXT_TILES_URL || 'https://pub-1ad4f6c5dec849b5b25a45586898fd4d.r2.dev/tiles/' }}
+        run: |
+          set -euo pipefail
+          # §CONTEXT-CACHE-BUST — probe the EXACT URL the browser will request (see
+          # context-bake.yml's identical step for the full rationale).
+          VER="$(sed -n "s/^export const CONTEXT_TILESET_VERSION = '\([^']*\)';/\1/p" \
+                 "$GITHUB_WORKSPACE/apps/editor/src/ui/geospatial/contextTiles.ts" | head -1)"
+          if [ -z "$VER" ]; then
+            echo "::error::Could not read CONTEXT_TILESET_VERSION from contextTiles.ts."
+            exit 1
+          fi
+          echo "client cache-bust stamp: v=$VER"
+          URL="${PUBLIC_BASE%/}/buildings.pmtiles?v=$VER"
+          echo "probing $URL"
+          code="$(curl -s -o /dev/null -w '%{http_code}' -L --max-time 60 -H 'Range: bytes=0-127' "$URL")"
+          echo "HTTP $code (expected 206)"
+          if [ "$code" = "206" ]; then
+            echo "✓ tiles are public and range-servable."
+          elif [ "$code" = "200" ]; then
+            echo "::error::$URL served 200, not 206 — the host is ignoring Range requests."
+            exit 1
+          else
+            echo "::error::$URL returned $code — objects uploaded but not publicly served."
+            exit 1
+          fi
+
+      - name: What to do next
+        if: ${{ success() && inputs.publish }}
+        run: |
+          {
+            echo "### Merged context tileset published ✅"
+            echo ""
+            echo "\`tiles/tileset-manifest.json\` now records exactly which regions are live."
+            echo ""
+            echo "**Clients still see the OLD tileset** (1-year immutable cache): bump"
+            echo "\`CONTEXT_TILESET_VERSION\` in \`apps/editor/src/ui/geospatial/contextTiles.ts\`"
+            echo "and deploy the client to make this publish visible (§CONTEXT-CACHE-BUST)."
+          } >> "$GITHUB_STEP_SUMMARY"

@@ -385,6 +385,13 @@ const LAYERS = [
 const args = process.argv.slice(2);
 const CHECK = args.includes('--check');
 const DRY = args.includes('--dry-run');
+// §SYNC-SWITCH (2026-09-02) — `--regions-json`: print the region/layer tables as ONE machine-readable
+// JSON object on stdout and exit, running NOTHING. Consumed by merge-tiles.mjs (the per-region-bake +
+// merge/publish switch this file's own §BAKE-MULTI-REGION comment designed) so the merge job resolves
+// "expect=all" from THIS table — the single source of truth — instead of a hand-copied list that rots
+// (the CLAUDE.md count/range lesson, applied to regions). Composes with `--region` (the resolved
+// subset is reported in `regions`) and with `--layer`.
+const REGIONS_JSON = args.includes('--regions-json');
 const ONE = args.includes('--layer') ? args[args.indexOf('--layer') + 1] : null;
 const layers = ONE ? LAYERS.filter((l) => l.id === ONE) : LAYERS;
 
@@ -436,10 +443,12 @@ const REGIONS = (() => {
     process.exit(2);
   }
   const picked = ALL_REGIONS.filter((r) => REGION_FILTER.includes(r.name));
-  console.log(`▶ §BAKE-BY-REGION — scoped to ${picked.length}/${ALL_REGIONS.length} region(s): ${picked.map((r) => r.name).join(', ')}`);
-  console.log('  ⚠ the published tileset will contain ONLY these regions (one global .pmtiles per layer,');
-  console.log('    and the R2 publish is an s3 sync that REPLACES it). Do not publish a partial run unless');
-  console.log('    you intend to replace the whole map with this subset.');
+  if (!REGIONS_JSON) { // §SYNC-SWITCH — keep stdout pure JSON in --regions-json mode.
+    console.log(`▶ §BAKE-BY-REGION — scoped to ${picked.length}/${ALL_REGIONS.length} region(s): ${picked.map((r) => r.name).join(', ')}`);
+    console.log('  ⚠ the published tileset will contain ONLY these regions (one global .pmtiles per layer,');
+    console.log('    and the R2 publish is an s3 sync that REPLACES it). Do not publish a partial run unless');
+    console.log('    you intend to replace the whole map with this subset.');
+  }
   return picked;
 })();
 // §MEASURED-HEIGHT-GATE (L-658) — escape hatch for the gate below. Use ONLY when you deliberately
@@ -742,6 +751,17 @@ function printPlan() {
 
 // ── main ───────────────────────────────────────────────────────────────────
 async function main() {
+  // §SYNC-SWITCH — machine-readable region/layer tables, nothing else on stdout, no side effects.
+  if (REGIONS_JSON) {
+    process.stdout.write(JSON.stringify({
+      schema: 'pryzm-context-bake-regions@1',
+      allRegions: ALL_REGIONS.map((r) => ({ name: r.name, bbox: r.bbox, heightJoin: r.heightJoin ?? null })),
+      regions: REGIONS.map((r) => r.name),          // this invocation's scope (--region applied)
+      allLayers: LAYERS.map((l) => l.id),
+      layers: layers.map((l) => l.id),              // this invocation's scope (--layer applied)
+    }) + '\n');
+    return;
+  }
   mkdirSync(OUT, { recursive: true });
   printPlan();
   // §HEIGHT-STAMP-BUDGET (L-659) — refuse a bake that cannot finish, in ~2 ms, before any download.
