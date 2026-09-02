@@ -42,6 +42,8 @@
 import { fetchFound, type FetchOutcome } from '@pryzm/schemas';
 import type { PtFetchDeps } from './ptCrusClient.js';
 import { resolvePtZoneRefusalAtPoint, type PtZoneIdentity } from './ptCrusZone.js';
+import { ptDevelopabilityRefusal } from './ptDevelopability.js';
+import { ptPlanInterventionOverride, type PtPdmObjectEvidence } from './ptPdmObjectGates.js';
 import { ptPortoPdmDraftRefusal, PT_PORTO_DTCC } from './ptPortoPdmDraft.js';
 import { PT_ADAPTER_SOURCES } from './ptSources.js';
 
@@ -76,22 +78,78 @@ export const PT_APPLICABILITY_LADDER = [
 ] as const;
 
 /**
+ * Chain dependencies (lane PT-ENVELOPE): the fetch seam + the OPTIONAL Anexo I-PO object
+ * layer for the 22/132 derivability gate. The object layer is injectable because NO public
+ * channel serves it today (measured 2026-09-02 — see `ptPdmObjectGates.ts`'s header): when a
+ * channel appears, wire THIS dep, never a rival chain.
+ */
+export interface PtChainDeps extends PtFetchDeps {
+    /**
+     * Resolve the Anexo I-PO objects whose OBJETOS_POLIGONO polygons CONTAIN the point
+     * (containment is the provider's job — the CRUS containment-pick discipline).
+     *   • found     → the containing objects (possibly none of them 22/132).
+     *   • absent    → the layer answered and no object exists here (a durable fact).
+     *   • transient → the layer did not answer — the chain CAVEATS the card rather than
+     *                 silently certifying "no PU/PP override" (never overstate).
+     */
+    readonly resolvePdmObjectsAt?: (
+        lat: number,
+        lon: number,
+    ) => Promise<FetchOutcome<readonly PtPdmObjectEvidence[]>>;
+}
+
+/**
  * §E1d-shape chain leg — the §J `rules` arm: resolve the CRUS zone containing the point, then
- * carry its ready-made cited refusal; for Porto (DTCC 1312) the refusal is upgraded to name the
- * gate-shut pack draft (a coverage-statement change only — code/legallyGrounded untouched).
+ * carry its cited refusal through THREE upgrades in order (each a statement change only —
+ * code/legallyGrounded untouched — except the last, which is a typed REPLACEMENT):
+ *   1. Porto (DTCC 1312): the gate-shut pack-draft coverage line (`ptPortoPdmDraftRefusal`).
+ *   2. NATIONAL DEVELOPABILITY (lane PT-ENVELOPE): the closed-catalogue verdict + citation
+ *      (`ptDevelopabilityRefusal`) — a no-op when the catalogue cannot settle the categoria
+ *      (the falsification contract: sever the catalogue, the prior honest refusal returns).
+ *   3. OBJECT 22/132 DERIVABILITY GATE: when the injectable object layer serves a PU/PP área
+ *      de intervenção CONTAINING the point, the card is REPLACED by the `derived-plan`
+ *      refusal naming the overriding plan (`ptPlanInterventionOverride`) — the PDM's verdict
+ *      is not governing there. A transient object layer CAVEATS the card by name instead of
+ *      silently certifying no override exists.
  */
 export async function resolvePtZoneIdentityAt(
     lat: number,
     lon: number,
-    deps: PtFetchDeps = {},
+    deps: PtChainDeps = {},
 ): Promise<FetchOutcome<PtZoneIdentity>> {
     const resolved = await resolvePtZoneRefusalAtPoint(lat, lon, deps);
     if (resolved.status !== 'found') return resolved;
-    if (resolved.value.zone.dtcc !== PT_PORTO_DTCC) return resolved;
-    return fetchFound({
-        zone: resolved.value.zone,
-        refusal: ptPortoPdmDraftRefusal(resolved.value.zone),
-    });
+    const zone = resolved.value.zone;
+
+    // 1 · Porto's coverage-statement upgrade (unchanged behaviour).
+    let refusal =
+        zone.dtcc === PT_PORTO_DTCC ? ptPortoPdmDraftRefusal(zone) : resolved.value.refusal;
+
+    // 2 · The national developability verdict (no-op on a catalogue miss — never a guess).
+    refusal = ptDevelopabilityRefusal(zone, refusal);
+
+    // 3 · The PU/PP derivability gate, only where an object layer is wired.
+    if (deps.resolvePdmObjectsAt) {
+        const objects = await deps.resolvePdmObjectsAt(lat, lon);
+        if (objects.status === 'found') {
+            const override = ptPlanInterventionOverride(zone, objects.value);
+            if (override !== null) refusal = override;
+        } else if (objects.status === 'transient' || objects.status === 'aborted') {
+            // The layer exists but did not answer (or was superseded): saying nothing would
+            // silently certify "no PU/PP override", which may overstate. Caveat by name.
+            refusal = {
+                ...refusal,
+                detail:
+                    refusal.detail +
+                    ' ⚠ The Anexo I-PO plan-intervention layer (PU/PP override check, códigos ' +
+                    `22/132) did not answer (${objects.reason ?? 'aborted'}) — whether a site-` +
+                    'specific plan overrides the PDM at this point is UNVERIFIED on this card.',
+            };
+        }
+        // absent → the layer answered "no object here": the durable clean case, no change.
+    }
+
+    return fetchFound({ zone, refusal });
 }
 
 /**
@@ -142,3 +200,49 @@ export {
     type PtPdmDraftValue,
 } from './ptPortoPdmDraft.js';
 export { PT_ADAPTER_SOURCES, PT_CRUS_SOURCE_ID } from './ptSources.js';
+// LANE PT-ENVELOPE — the vendored national catalogue (Aviso n.º 9282/2021 Anexo I) + the
+// developability map + the object gates, explicit list (the pt barrel discipline: no export *).
+export {
+    PT_ANEXO_I_PO_OBJECTS,
+    PT_ANEXO_I_PO_TRUNCATION,
+    PT_ATO_SERIE_DOMAIN,
+    PT_ATO_TIPO_DOMAIN,
+    PT_CONDICIONANTES_CODES,
+    PT_CONDICIONANTES_THEMES,
+    PT_PDM_FIVE_TABLE_SCHEMA,
+    PT_PDM_NORM_CITATION,
+    PT_PDM_NORM_CONFORMANCE_CAVEAT,
+    PT_PDM_TOPOLOGY_GUARANTEE,
+    PT_PLANTA_DOMAIN,
+    PT_SOIL_CATEGORIES,
+    normalisePtDesignacao,
+    ptAnexoPoObjectByCodigo,
+    ptSoilCategoryByCodigo,
+    ptSoilCategoryByName,
+    type PtAnexoPoObject,
+    type PtAtoSerie,
+    type PtAtoTipo,
+    type PtCondicionanteCode,
+    type PtPdmTable,
+    type PtPdmTableField,
+    type PtSoilCategory,
+    type PtSoloClasse,
+} from './ptPdmDataModel.js';
+export {
+    PT_DEVELOPABILITY_BY_CODIGO,
+    ptDevelopabilityForZone,
+    ptDevelopabilityRefusal,
+    type PtDevelopabilityStatement,
+    type PtDevelopabilityVerdict,
+} from './ptDevelopability.js';
+export {
+    PT_PLAN_INTERVENTION_CODES,
+    parsePtAtoEspecifico,
+    parsePtSrupServCitation,
+    ptAtoCitation,
+    ptPlanInterventionOverride,
+    ptSrupCitationLine,
+    type PtAtoEspecificoRow,
+    type PtPdmObjectEvidence,
+    type PtSrupServCitation,
+} from './ptPdmObjectGates.js';

@@ -1,0 +1,78 @@
+PT-ENVELOPE — BARREL / SHARED-FILE ADDITIONS FOR THE ORCHESTRATOR
+=================================================================
+Lane: PT-ENVELOPE (the founder's PDM data-model brief, Immediate Actions 1-5 —
+docs/04-reference/jurisdictions/pt/PT-PDM-DATA-MODEL-BRIEF.md). The lane owns
+  packages/site-parcel-data/src/countryAdapters/pt/ptPdmDataModel.ts     (new — the vendored catalogue)
+  packages/site-parcel-data/src/countryAdapters/pt/ptDevelopability.ts   (new — category → developability)
+  packages/site-parcel-data/src/countryAdapters/pt/ptPdmObjectGates.ts   (new — 22/132 gate + ATO_ESPECIFICO seat)
+  packages/site-parcel-data/src/countryAdapters/pt/index.ts              (edited, +112/−8 — chain wiring + explicit exports)
+  packages/site-parcel-data/__tests__/ptPdmEnvelope.test.ts              (new — 23 tests)
+  packages/site-parcel-data/tsconfig.lane-pt-envelope.json               (new — see item 2)
+  audit/demo-esfrpt/2026-09-02/  lane-pt-envelope.md, this file, 7 pt-envelope-* transcripts
+NO commit (per brief). schemas/** untouched. src/index.ts (package barrel) untouched.
+
+VERIFIED STATE AT WRITING (measured foreground, RC read from the redirect):
+  · `npx vitest run ptPdmEnvelope ptZoneIdentity --root packages/site-parcel-data` → RC=0, 48/48
+    (23 new + the PT-ZONEID 25, unbroken).
+  · `npx tsc -p packages/site-parcel-data/tsconfig.lane-pt-envelope.json --noEmit` → RC=0.
+  · Live acceptance (Lisbon/Porto/Évora + object-22 synthetic) → RC=0 ALL PASS,
+    transcripts/pt-envelope-live-acceptance.txt.
+  · Falsification: catalogue severed → the PRIOR honest refusal returned at all 3 points
+    (found, no crash, no fabricated verdict) → sha-identical restore (7383aa8d…e24dfa
+    before AND after) — transcripts/pt-envelope-{falsification,sha-restore}.txt.
+
+────────────────────────────────────────────────────────────────────────────────
+ITEM 1 (CONTEXT, NOT A REQUEST) — the package barrel needs NO new edit for this lane
+────────────────────────────────────────────────────────────────────────────────
+PT-ZONEID's barrel item 1 (`export * from './countryAdapters/pt/index.js';` in
+packages/site-parcel-data/src/index.ts) is STILL the one required line; this lane extended
+pt/index.ts's explicit export list, so once that line lands (or if it already has — the
+barrel is currently carrying a concurrent lane's edits and was not read by this lane), every
+new symbol propagates. Name-collision check run 2026-09-02:
+  grep -rn "PT_PDM_\|PT_SOIL_\|PT_ANEXO_\|PT_CONDICIONANTES_\|PT_DEVELOPABILITY_\|PT_PLAN_INTERVENTION_\|PT_ATO_\|PT_PLANTA_\|PtSoilCategory\|PtDevelopability\|PtPdmObject\|PtAtoEspecifico\|PtSrupServ\|ptSoilCategory\|ptAnexoPo\|ptDevelopability\|ptPlanIntervention\|parsePtAto\|parsePtSrup\|ptAtoCitation\|ptSrupCitation\|normalisePtDesignacao\|PtChainDeps" src/ --include="*.ts"
+outside countryAdapters/pt/ → 0 hits.
+
+────────────────────────────────────────────────────────────────────────────────
+ITEM 2 (DECLARED LANE ARTIFACT) — tsconfig.lane-pt-envelope.json, and WHY it exists
+────────────────────────────────────────────────────────────────────────────────
+The FULL-package `npx tsc -p packages/site-parcel-data/tsconfig.json --noEmit` is RC=2 and the
+FULL suite is RC=1 (24 files / 100 tests) — ALL of it a CONCURRENT lane's mid-build working
+tree, none of it this lane's: untracked rulepacks/declarative/{evaluateContextAggregate,
+evaluateHeightProportionalOffset,heightDatumResolver}.ts + their tests import schema exports
+that do not exist yet (ContextAggregateRule, HeightProportionalOffsetRule,
+GEOMETRIC_RULE_KIND_REGISTRY), and the modified ZoningRulesEngine.ts reads
+GEOMETRIC_RULE_KIND_REGISTRY → every envelope-compute test dies at ZoningRulesEngine.ts:1155
+("Cannot read properties of undefined"). Zero failure lines mention countryAdapters/pt (grep
+witness in lane-pt-envelope.md §5). tsconfig.lane-pt-envelope.json scopes tsc to
+countryAdapters/pt/** + the two pt test files (transitively type-checking everything they
+import, @pryzm/schemas included) → RC=0. DELETE it once the package-wide gates are green
+again, or keep it if per-lane scoping proves useful — orchestrator's call.
+
+────────────────────────────────────────────────────────────────────────────────
+ITEM 3 (OWED WHEN A CHANNEL EXISTS) — the object-layer dep is the ONLY wiring seam
+────────────────────────────────────────────────────────────────────────────────
+The 22/132 derivability gate consumes `PtChainDeps.resolvePdmObjectsAt` (pt/index.ts). NO
+public channel serves the Anexo I-PO object layer today (measured — transcripts/
+pt-envelope-measurement.txt P1/P4/P5): when SNIT/DGT ever expose OBJETOS_* (or a per-município
+feed is negotiated), implement THIS dep — never a rival chain. The refusal shape, the
+containment contract and the transient-caveat behaviour are already tested (synthetic
+five-table-shaped fixtures, 6 chain tests).
+
+────────────────────────────────────────────────────────────────────────────────
+ITEM 4 (RECORDED FOR DOC OWNERS — record, do not act)
+────────────────────────────────────────────────────────────────────────────────
+4a. ⭐ CRUS `codigo` IS the Aviso 9282/2021 Anexo I catalogue code — measured 8/8 features,
+    5 municípios, both classes, INCLUDING a pre-norm plan (Lisboa 2020). The brief's
+    "Practical consequence" is therefore live nationally today. PT-PDM-DATA-MODEL-BRIEF.md's
+    owner may want a ⭐ note; PORTUGAL-DATA-RECON.md §4.7's field list predates this reading.
+4b. The five tables are a FILING requirement, not a DISTRIBUTION product: no public WFS/OGC
+    channel serves them (national OGC API 75 collections enumerated; per-DICOFRE CRUS WFS
+    serves the harmonised view even for norm-conformant Évora 2025; per-instrument WFS 404;
+    snit-mais GeoServer now 401 — WAS "WFS disabled" in the recon: the access model changed
+    to credentialed, still not public → recon §measured-fact owner should update).
+4c. The ATO_ESPECIFICO content IS live nationally — FLATTENED onto the DGT SRUP collections
+    (serv_lei/serv_data/serv_dr/serv_hiperligacao/lei_tipo, verbatim Santarém RAN row in the
+    measurement transcript). A future condicionantes lane should consume
+    `parsePtSrupServCitation` (ptPdmObjectGates.ts) — the seat exists, nothing is wired.
+4d. Braga: the recon's unresolved 502 is moot — Braga serves via the national OGC API
+    (PDM 2026-04-15, Vigente, codigo 2 at the probe point).
