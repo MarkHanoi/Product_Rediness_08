@@ -58,6 +58,10 @@ import {
     DkZoningProvider,
     type DkZoningResult,
     isInDenmark,
+    // §ES-SIU-GUARD — the NATIONAL Spain routing bbox (the extent Catastro serves). Coarse on
+    // purpose: it decides only whether the SIU land-class register is worth ASKING before the
+    // estimated fallback publishes; SIU's own `no-coverage` answer is the real "not Spain".
+    isInSpain,
     // ADR-0271 §BCN-REAL-ENVELOPE — Barcelona ensanche real-envelope path.
     isInBarcelona,
     // L-606 — Riyadh (Saudi Arabia) DEMO path. The MOMRAH national residential FOOTPRINT mapped
@@ -554,6 +558,15 @@ import { GeospatialAdapter } from '@pryzm/geospatial';
 // ADR-0271 §BCN-REAL-ENVELOPE — the impure edge providers the Barcelona path injects into the
 // PURE engine: clau (MUC), parcel refcat + block (Catastro), and OSM road centrelines.
 import { fetchQualificationAtPoint } from './zoning/MucZoningProvider.js';
+// §ES-SIU-GUARD (lane ES-SIU-GUARD, 2026-09-02, demo gap G5) — Spain's national SIU land-class
+// register consulted as a guard AHEAD of the estimated fallback. The module holds the pure
+// interpretation + the cited refusal + the outcome record; the dispatch seat is
+// `applySiuGuardedEstimate` below (inside `applyEstimatedZoning`, after the §L-663 guard).
+import {
+    fetchSiuClassificationVerdict,
+    buildSiuNonDevelopableRefusal,
+    recordSiuGuardOutcome,
+} from './siuLandClassificationGuard.js';
 import { catastroParcelProvider } from './parcel/CatastroParcelProvider.js';
 import { fetchBlockForParcel } from './parcel/CatastroBlockProvider.js';
 // §STARTUP-BUDGET (founder 2026-08-07, 5–10× startup) — passive phase marks; behaviour-free.
@@ -8864,6 +8877,27 @@ function applyEstimatedZoning(
         // whose estimated solve ALSO failed must still get the refusal card; the old ordering
         // returned silently and left the panel blank, which reads as a crash (L-553).
         if (refuseEstimateInsideRegisteredJurisdiction(ctx, site.id)) return;
+        // §ES-SIU-GUARD (demo gap G5, 2026-09-02) — INSIDE SPAIN, THE NATIONAL LAND-CLASS REGISTER
+        // IS ASKED BEFORE THE ESTIMATE MAY PUBLISH. Same structural argument as §L-663 above: this
+        // is the ONE chokepoint all fifteen-odd call sites funnel through, so the guard cannot be
+        // bypassed by a sixteenth call site. It runs AFTER the registered-jurisdiction guard (a
+        // registered city's own refusal is the better card and already never publishes the triple)
+        // and, like §L-663, BEFORE the `!envelope` bail — no_urbanizable land whose estimated
+        // solve ALSO failed must still get the cited land-class refusal.
+        //
+        // The same point discipline as §L-663: `_lastParcelQueryPoint` first (the point
+        // `applyZoning` routed on), the site anchor as fallback. A point we don't have consults
+        // nothing and blocks nothing.
+        const siuLoc = ctx.store.getSite()?.location;
+        const siuAt =
+            _lastParcelQueryPoint ??
+            (siuLoc && Number.isFinite(siuLoc.latitude) && Number.isFinite(siuLoc.longitude)
+                ? { lat: siuLoc.latitude, lon: siuLoc.longitude }
+                : null);
+        if (siuAt && isInSpain(siuAt.lat, siuAt.lon)) {
+            void applySiuGuardedEstimate(ctx, site.id, envelope, siuAt);
+            return;
+        }
         if (!envelope) return;
         dispatchEnvelope(ctx, site.id, envelope, 'estimated-default');
     } catch (e) {
@@ -8933,6 +8967,117 @@ function refuseEstimateInsideRegisteredJurisdiction(ctx: SiteContext, siteId: st
             `preceding §BCN/§MADRID/§MURCIA/… log line to see which input was missing.`,
     );
     return true;
+}
+
+/**
+ * §ES-SIU-GUARD — the async continuation behind `applyEstimatedZoning` for a point inside Spain
+ * that NO registered jurisdiction claims (Villacañas, not Eixample: a registered city was already
+ * answered by §L-663 above and never reaches here).
+ *
+ * THE DECISION TABLE (control 9 — UNKNOWN ≠ no-restriction ≠ restriction):
+ *   • SIU answers `no_urbanizable`, in force, not a rural nucleus → a CITED refusal naming SIU,
+ *     the classification and the query. `status: 'not-applicable'` (the register ANSWERED, and
+ *     its answer is "no urban envelope exists on this class of land") — the same status the
+ *     schema's own `protected-soil` gloss carries. NEVER the estimated triple.
+ *   • SIU answers urbano / urbanizable → the existing ladder proceeds UNCHANGED (the estimate,
+ *     honestly badged — C58 §1.6 land PRYZM makes no other claim about).
+ *   • SIU is unreachable / times out / answers something unknown → the guard RECORDS the outcome
+ *     and does NOT block: availability must never convert into a refusal. The estimate publishes
+ *     exactly as it did before this guard existed.
+ *
+ * ⚠ THE ESTIMATE IS *HELD*, NOT PRE-PUBLISHED. The alternative (dispatch the estimate now,
+ * replace it when SIU answers — the DK framing pattern) would render a buildable triple on
+ * no_urbanizable land for the round-trip window, which is the exact overstatement this guard
+ * closes. SIU answers a cached point query in ~0.5 s (proxy TTL 24 h), and the phase machinery
+ * (`beginEnvelopeResolution`) already presents "resolving" honestly, so holding is cheap and
+ * the failure mode is bounded by `SIU_GUARD_TIMEOUT_MS` → transient → estimate.
+ *
+ * ⚠ STALENESS — the §L-536 lesson, same as every other async continuation in this file: a slow
+ * SIU answer for parcel A must not decide parcel B. `_lastParcelQueryPoint` is re-read after the
+ * await; if it no longer matches the point this consult was made for, the continuation yields
+ * (a newer dispatch owns the envelope now). A `null` re-read means a newer `applyZoning` is
+ * mid-flight (it clears first) — that newer run also yields its own answer, so yielding here
+ * loses nothing.
+ *
+ * Fully guarded — never throws into the commit path; its own failure publishes the estimate
+ * (never a refusal, never a blank).
+ */
+async function applySiuGuardedEstimate(
+    ctx: SiteContext,
+    siteId: string,
+    envelope: BuildableEnvelope | null,
+    at: { lat: number; lon: number },
+): Promise<void> {
+    const TAG = '[gis][c58] §ES-SIU-GUARD';
+    try {
+        const verdict = await fetchSiuClassificationVerdict(at.lat, at.lon);
+        recordSiuGuardOutcome(at.lat, at.lon, verdict);
+
+        // Staleness (see the doc block above).
+        const now = _lastParcelQueryPoint;
+        if (now && (now.lat !== at.lat || now.lon !== at.lon)) {
+            console.log(`${TAG} superseded — a newer parcel owns the envelope; yielding.`);
+            return;
+        }
+        const site = ctx.store.getSite();
+        if (!site || site.id !== siteId) return;
+
+        if (verdict.kind === 'refuse') {
+            dispatchEnvelope(
+                ctx,
+                siteId,
+                buildRefusedEnvelope(
+                    // No zone code: SIU answers a land CLASS, not a planning zone, and a
+                    // class-shaped token in `Parcel.zoning.category` would read as one (§L-663's
+                    // null-is-an-answer rule).
+                    null,
+                    buildSiuNonDevelopableRefusal({
+                        lat: at.lat,
+                        lon: at.lon,
+                        claseRaw: verdict.claseRaw,
+                        municipioIne: verdict.municipioIne,
+                        sourceUrl: verdict.sourceUrl,
+                    }),
+                    'not-applicable',
+                ),
+                'es-siu-national',
+            );
+            console.warn(
+                `${TAG} ESTIMATE SUPPRESSED — SIU classifies ${at.lat.toFixed(5)},${at.lon.toFixed(5)} ` +
+                    `as "${verdict.claseRaw}" (no_urbanizable, in force). The generic estimated triple ` +
+                    `was NOT published on state-classified non-developable land (C58 §1.4 / L-616); ` +
+                    `a cited land-class refusal was dispatched instead.`,
+            );
+            return;
+        }
+
+        // Every proceed reason keeps the EXISTING behaviour. The transient case is called out
+        // loudly because it is the availability arm: recorded, never converted into a refusal.
+        if (verdict.reason === 'transient') {
+            console.warn(
+                `${TAG} SIU unreachable (${verdict.detail ?? 'unknown'}) — transient RECORDED; ` +
+                    `the estimated envelope proceeds unchanged (availability is not a land-class answer).`,
+            );
+        } else {
+            console.log(
+                `${TAG} SIU verdict: proceed (${verdict.reason}${verdict.detail ? `: ${verdict.detail}` : ''}) ` +
+                    `— the existing ladder continues.`,
+            );
+        }
+        if (!envelope) return;
+        dispatchEnvelope(ctx, siteId, envelope, 'estimated-default');
+    } catch (e) {
+        // The guard's own failure must degrade to the pre-guard behaviour, never to a blank.
+        console.warn(`${TAG} guard failed (non-fatal) — publishing the estimate unchanged:`, e);
+        try {
+            const site = ctx.store.getSite();
+            if (site && site.id === siteId && envelope) {
+                dispatchEnvelope(ctx, siteId, envelope, 'estimated-default');
+            }
+        } catch {
+            /* best-effort, like every estimated call site */
+        }
+    }
 }
 
 /**

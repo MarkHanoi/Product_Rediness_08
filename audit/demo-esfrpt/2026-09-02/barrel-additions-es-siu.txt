@@ -1,0 +1,28 @@
+LANE ES-SIU-GUARD — barrel/registry additions record (2026-09-02)
+
+ADDITIONS REQUIRED THIS SESSION: NONE.
+
+The guard was implemented entirely in apps/editor (unshared this session):
+  apps/editor/src/ui/site/siuLandClassificationGuard.ts   (new — pure interpretation + refusal + record)
+  apps/editor/src/ui/site/siteDispatch.ts                 (chokepoint edit; imports only symbols the
+                                                           barrel ALREADY exports: isInSpain,
+                                                           buildRefusedEnvelope)
+
+DEFERRED (optional, for a future non-shared session): the pure halves of the guard
+(interpretSiuClassification, buildSiuNonDevelopableRefusal, the SiuGuardVerdict vocabulary)
+belong long-term in packages/site-parcel-data (L2 — no I/O in either function), e.g. as
+src/rulepacks/esSiuLandClassification.ts. That move would need these barrel lines:
+
+    export {
+        interpretSiuClassification,
+        buildSiuNonDevelopableRefusal,
+        siuClassificationQueryUrl,
+        type SiuClassificationAnswer,
+        type SiuGuardVerdict,
+        type SiuProceedReason,
+    } from './rulepacks/esSiuLandClassification.js';
+
+…and would let tools/ga-gate/check-envelope-never-overstates.ts host a rural-no-urbanizable
+arm without importing apps/editor (see lane-es-siu-guard.md §gate for why it cannot today).
+Until then the fetch-side module in apps/editor is the single consumer and the arm is pinned
+by apps/editor/__tests__/esSiuEstimateGuard.test.ts at the dispatch layer.
