@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+       
+        <meta name="robots" content="Index" />
+       
+        <meta name="description" content="SAPPA - The South Australian Property and Planning Atlas, formerly known as the Property Location Browser, is a free map-based application. You can use it to view land administration boundaries and get information about the ownership of land and relevant planning rules" />
+        <meta http-equiv="X-UA-Compatible" content="IE=edge">
+        <meta charset="utf-8">
+        <meta http-equiv="cache-control" content="no-cache" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>SAPPA the South Australian Property and Planning Atlas</title>
+        <link rel="icon" href="images/favicon.ico"/>
+        <link href="https://apps.geohub.sa.gov.au/Kendo/2020_1_406/styles/kendo.common.min.css" rel="stylesheet"
+              type="text/css"/>
+        <link href="https://apps.geohub.sa.gov.au/Kendo/2020_1_406/styles/kendo.bootstrap.min.css" rel="stylesheet"
+              type="text/css"/>
+        <link href="https://apps.geohub.sa.gov.au/ArcGISJSApis/3.26/3.26compact/esri/css/esri.css" rel="stylesheet" type="text/css"/>
+        <link href='https://fonts.googleapis.com/css?family=Open+Sans:300italic,400italic,600italic,700italic,700,600,300,400'
+              rel='stylesheet' type='text/css'>
+        <style type="text/css">
+            .fouc {
+                display: none
+            }
+        </style>
+        <link href="styles/css/fonts/fontello/fontello.css" rel="stylesheet" type="text/css"/>
+
+        <script type="text/javascript" src="https://apps.geohub.sa.gov.au/Kendo/2020_1_406/js/jquery.min.js"></script>
+
+        <!-- handle POST data -->
+        
+        <script type="text/javascript">
+        
+            var sappaAppStatus = {"banner":null,"outage":false};
+            var postParamValuation = "";
+            var postParamParcel = "";
+            
+            var legendStartPromise = new $.Deferred();
+            var legendCompletePromise = new $.Deferred();
+            var toolsCompletePromise = new $.Deferred();
+            var scriptLoadPromise = new $.Deferred();
+            var angularInitPromise = new $.Deferred();
+            var angularHtmlPromise = new $.Deferred();
+            var configPromise = new $.Deferred();
+            var infoPromise = new $.Deferred();
+            var mapPromise = new $.Deferred();
+            var selectionPromise = new $.Deferred();
+            var featureLayerPromise = new $.Deferred();
+            var renderPromise = new $.Deferred();
+            var tokenPromise;
+            var globalToken;
+        </script>
+
+        <script type="text/javascript" src="https://apps.geohub.sa.gov.au/Kendo/2020_1_406/js/angular.min.js"></script>
+
+        <script type="text/javascript">
+            $.when(scriptLoadPromise).done(function () {
+            var plbApp;
+                plbApp = angular.module('plbApp',[
+                    'Map.Core.Module',
+                    'Map.Layer.Module',
+                    'Map.Controls.Module',
+                    'Map.Navigator.Module',
+                    'Map.Startup.Module',
+                    'Map.Symbol.Module',
+                    'Map.GeographicRendering.Module',
+                    'Main.Module',
+                    'LegendModule',
+                    'ActiveSelection.Module',
+                    'Find.Application.Application.Module',
+                    'Find.Parcel.PlanParcel.Module',
+                    'Find.Parcel.Address.Module',
+                    'Find.Parcel.TitleReference.Module',
+                    'Find.Parcel.Valuation.Module',
+                    'Find.PlaceName.Code.Module',
+                    'Find.PlaceName.Name.Module',
+                    'Find.SurveyMarks.Number.Module',
+                    'Find.PlanningPDI.PlanningPDIAct.Module',
+                    'Identify.SAPPAzones.Module',
+                    'Legend.DynamicRenderer.Module',
+                    'Map.CoreAPI.Module',
+                    'Map.Core.Module',
+                    'Map.Geometry.Module',
+                    'Map.Tasks.Module',
+                    'Map.Print.Module',
+                    'Tools.Module',
+                    'Reports.Module',
+                    'Reports.Grid.Module',
+                    'Reports.Selection.Module',
+                    'Reports.Config.Parcel.Module',
+                    'Reports.Config.PlaceName.Module',
+                    'Reports.Config.SurveyMarks.Module',
+                    'Reports.Config.Application.Module',
+                    'Reports.Config.PlanningPDI.Module',
+                    'Reports.Header.Remove.Module',
+                    'Reports.Header.ZoomTo.Module',
+                    'Reports.Header.EdalaLink.Module',
+                    'Reports.Header.Export.Module',
+                    'Reports.Header.ExportSurveyMark.Module',
+                    'Reports.Header.PlanningPDI.Module',
+                    'Reports.Header.Policy24.Module',
+                    'Reports.Header.PrintParcel.Module',
+                    'Reports.Header.PrintPlaceName.Module',
+                    'Reports.Header.PrintSurveyMark.Module',
+                    'Reports.Header.SailisLink.Module',
+                    'Reports.Header.SurveySketches.Module',
+                    'Reports.Header.Minimize.Module',
+                    'Reports.Grid.Application.Applications.Module',
+                    'Reports.Grid.Application.PlanningPDIAct.Module',
+                    'Reports.Grid.Parcel.PropertyData.Module',
+                    'Reports.Grid.Parcel.Planning.Module',
+                    'Reports.Grid.Parcel.PlanningPDI.Module',
+                    'Reports.Grid.PlaceName.PlaceName.Module',
+                    'Reports.Grid.SurveyMarks.All.Module',
+                    'Reports.Grid.SurveyMarks.Existing.Module',
+                    'Reports.Grid.SurveyMarks.Gone.Module',
+                    'Reports.Grid.SurveyMarks.PSM.Module',
+                    'Search.Config.Gazetteer.Module',
+                    'Search.Config.LGA.Module',
+                    'Search.Config.PostCode.Module',
+                    'Search.Config.SAGAF.Module',
+                    'Search.Config.Suburb.Module',
+                    'Search.Panel.Suburb.Module',
+                    'Search.Panel.Postcode.Module',
+                    'Search.Panel.Hundred.Module',
+                    'Search.Panel.DSA.Module',
+                    'Search.Panel.Council.Module',
+                    'Search.Panel.MapIndex.Module',
+                    'Search.Panel.SAPPA.Module',
+                    'kendo.directives']);
+            angularInitPromise.promise();
+            angularInitPromise.resolve();
+            angular.bootstrap(document, ['plbApp']);  // in place of ng-app - binds after dist files have been loaded.
+            });
+        </script>
+
+        <script src="vendor/fillPattern/esri.symbol.FillPattern.js"></script>
+        <script src="vendor/hammerjs/hammer.min.js"></script>
+
+        <!--[if lt IE 9]>
+        <script src="vendor/html5shiv/dist/html5shiv.js"></script>
+        <![endif]-->
+        <!--Needed until drop IE8 support -->
+        <script type="text/javascript" src="https://apps.geohub.sa.gov.au/Kendo/2020_1_406/js/kendo.all.min.js"></script>
+        <script type="text/javascript" src="https://apps.geohub.sa.gov.au/ArcGISJSApis/3.26/3.26compact/init.js"></script>
+        <script src="js/loader_plb.js" type="text/javascript"></script>
+        <script src="https://apps.geohub.sa.gov.au/proj4js/lib/proj4js-compressed.js" type="text/javascript"></script>
+        <script src="https://apps.geohub.sa.gov.au/proj4js/lib/defs/EPSG4283.js" type="text/javascript"></script>
+        <script src="https://apps.geohub.sa.gov.au/proj4js/lib/defs/EPSG28352.js" type="text/javascript"></script>
+        <script src="https://apps.geohub.sa.gov.au/proj4js/lib/defs/EPSG28353.js" type="text/javascript"></script>
+        <script src="https://apps.geohub.sa.gov.au/proj4js/lib/defs/EPSG28354.js" type="text/javascript"></script>
+        <script src="https://apps.geohub.sa.gov.au/proj4js/lib/defs/EPSG3107.js" type="text/javascript"></script>
+        <!-- end PROJ4 -->
+        
+         <!-- Global site tag (gtag.js) - Google Analytics -->
+        <script async src="https://www.googletagmanager.com/gtag/js?id=UA-34259514-2"></script>
+        <script>
+            window.dataLayer = window.dataLayer || [];
+            function gtag(){dataLayer.push(arguments);}
+            gtag('js', new Date());
+            gtag('config', 'UA-34259514-2');
+        </script>
+        
+    </head>
+    <body ng-controller="ApplicationController">
+        <div ng-include src="'dist/html2/' + applicationUrl"></div>
+	<!--link href="https://d3942oqpzu5q1z.cloudfront.net/sappa/styles-1.4.10.css" rel="stylesheet" type="text/css"/-->
+	<link href="https://plan.sa.gov.au/design/css/SAPPA.min.css" rel="stylesheet" type="text/css">
+    </body>
+</html>

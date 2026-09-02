@@ -1,0 +1,10 @@
+HTTP/1.1 302 Found
+Date: Wed, 02 Sep 2026 07:07:26 GMT
+Server: Apache
+Location: https://download.geofabrik.de/australia-oceania/australia-260901.osm.pbf
+Content-Length: 256
+Content-Type: text/html; charset=iso-8859-1
+Cache-Status: download-proxy13;detail=mismatch
+Via: 1.1 download-proxy13 (squid/6.14)
+Connection: keep-alive
+

@@ -1,0 +1,255 @@
+<!DOCTYPE html>
+<html>
+  <head>
+<meta charset="UTF-8">
+<link rel="icon" href="https://www.geofabrik.de/favicon.ico" />
+<meta name="description" content="Download OpenStreetMap data for Australia for self-hosting or data analysis. OSM PBF and Shapefiles available.">
+<meta name="og:description" content="Download OpenStreetMap data for Australia for self-hosting or data analysis. OSM PBF and Shapefiles available.">
+<meta property="og:image" content="https://www.geofabrik.de/img/geofabrik_logo_notext.svg">
+<meta property="og:site_name" content="Geofabrik Download Server">
+<title>Download OpenStreetMap for Australia | Geofabrik Download Server</title>
+    <script type="text/javascript" src="//static.geofabrik.de/ol212/OpenLayers.js"></script>
+    <script type="text/javascript">
+        var map, layer, countryLayer;
+        function init()
+        {
+            map = new OpenLayers.Map('map');
+            layer = new OpenLayers.Layer.OSM("",
+                ["https://a.tile.geofabrik.de/5f33d2afc5074c6da1a5c2a8a960d501/${z}/${x}/${y}.png",
+                 "https://b.tile.geofabrik.de/5f33d2afc5074c6da1a5c2a8a960d501/${z}/${x}/${y}.png",
+                 "https://c.tile.geofabrik.de/5f33d2afc5074c6da1a5c2a8a960d501/${z}/${x}/${y}.png",
+                ],
+                { attribution: "", tileOptions : {crossOriginKeyword: null} }
+            ); // attribution in page footer
+            map.addLayer(layer);
+            layer = new OpenLayers.Layer.Vector("KML", {
+            strategies: [new OpenLayers.Strategy.Fixed()],
+            protocol: new OpenLayers.Protocol.HTTP({
+                url: "australia.kml",
+                format: new OpenLayers.Format.KML({
+                    maxDepth: 2
+                })
+            }),
+            styleMap: new OpenLayers.StyleMap({
+            "default": new OpenLayers.Style({
+                graphicName: "cross",
+                pointRadius: 6,
+                fillOpacity: 0.50,
+                fillColor: "#ffcc66",
+                strokeColor: "#ff9933",
+                strokeWidth: 2
+            })
+            })
+            });
+            layer.events.register("loadend", this, function() { map.zoomToExtent(layer.getDataExtent()); });
+            map.addLayer(layer);
+        }
+        function loadkml(kmlname)
+        {
+            if (countryLayer) map.removeLayer(countryLayer);
+            countryLayer = 
+                new OpenLayers.Layer.Vector("KML", {
+                strategies: [new OpenLayers.Strategy.Fixed()],
+                protocol: new OpenLayers.Protocol.HTTP({
+                    url: kmlname,
+                    format: new OpenLayers.Format.KML({
+                        extractStyles: true,
+                        extractAttributes: true,
+                        maxDepth: 2
+                    })
+                })
+                });
+            map.addLayer(countryLayer);
+        }
+    </script>
+<link rel="stylesheet" type="text/css" href="/download.donation.css">
+</head><body onload='init();'><div id="donation">
+Do you find OpenStreetMap data useful? Consider giving something back in the OSMF's <a href="//supporting.openstreetmap.org">funding campaign!</a>
+</div>
+<div id="download-top">
+   <div id="download-top-right">
+      <img alt="header image" src="/img/geofabrik-downloads.png" height="20">
+   </div>
+</div>
+<div id="download-titlebar">
+<h1>Download OpenStreetMap data for this region:</h1>
+</div>
+<div class="download-main">
+<div class="leftColumn"><h2>Australia</h2>
+<p><a href="/australia-oceania.html">[one level up]</a></p>    <p class="isPublicInfo">
+        The OpenStreetMap data files provided on this server do <b>not</b> contain the user names, user
+        IDs and changeset IDs of the OSM objects because these fields are assumed to contain personal
+        information about the OpenStreetMap contributors and are therefore subject to data protection regulations
+        in the European Union. 
+        <br>
+        <a href="https://osm-internal.download.geofabrik.de/australia-oceania/australia.html">Extracts with full metadata</a> are available to OpenStreetMap
+        contributors only.
+    </p>
+<h3>Commonly Used Formats</h3>
+<ul>
+<li><a href="australia-latest.osm.pbf">australia-latest.osm.pbf</a>, suitable for
+           Osmium, Osmosis, imposm, osm2pgsql, mkgmap, and others. This file was last 
+           modified 1 hour ago and contains all OSM data up to 2026-09-01T20:20:50Z. File size: 916&nbsp;MB. </li>
+
+<li><s>australia-latest-free.shp.zip</s> is not available for this region; try one of the sub-regions.</li></ul><h3>Other Formats and Auxiliary Files</h3>
+<ul>
+<li><s>australia-internal.osh.pbf</s> The history file
+                contains personal data and is available on the
+                <a href="https://osm-internal.download.geofabrik.de/australia-oceania/australia.html">internal server</a>
+                only. See notice above for further information.
+                </li>
+<li><a href="australia.poly">.poly file</a> that describes the extent
+               of this region.</li>
+<li><font color="green">experimental</font> <a href="australia-shortbread-1.0.mbtiles">
+               vector tile package</a> conforming to <a href="https://shortbread-tiles.org/">Shortbread schema</a>
+           for use with MapLibre and other MVT capable software</li>
+<li><a href="australia-updates">.osc.gz files</a>
+                that contain all changes in this region, suitable e.g. for
+                Osmosis updates</li>
+<li><a href="//taginfo.geofabrik.de/australia-oceania:australia/">Taginfo statistics for this region</li>
+<li><a href="#" onclick="OpenLayers.Util.getElement('details').style.display='inline';">raw directory index</a> allowing you to
+            see and download older files</li></ul><div id="details" style="display:none"><table id="subregions"><tr><th class="subregion">file</th><th>date</th><th>size</th></tr><tr><td class="subregion"><a href="australia-140101-free.shp.zip">australia-140101-free.shp.zip</a></td><td class="subright">2018-08-21 07:52</td><td class="subright">269482761</td></tr>
+<tr><td class="subregion"><a href="australia-140101-free.shp.zip.md5">australia-140101-free.shp.zip.md5</a></td><td class="subright">2018-08-21 07:52</td><td class="subright">64</td></tr>
+<tr><td class="subregion"><a href="australia-140101.osm.pbf">australia-140101.osm.pbf</a></td><td class="subright">2014-01-01 23:50</td><td class="subright">161450134</td></tr>
+<tr><td class="subregion"><a href="australia-150101-free.shp.zip">australia-150101-free.shp.zip</a></td><td class="subright">2018-08-21 07:56</td><td class="subright">340075559</td></tr>
+<tr><td class="subregion"><a href="australia-150101-free.shp.zip.md5">australia-150101-free.shp.zip.md5</a></td><td class="subright">2018-08-21 07:56</td><td class="subright">64</td></tr>
+<tr><td class="subregion"><a href="australia-150101.osm.pbf">australia-150101.osm.pbf</a></td><td class="subright">2015-01-02 01:13</td><td class="subright">196796259</td></tr>
+<tr><td class="subregion"><a href="australia-160101-free.shp.zip">australia-160101-free.shp.zip</a></td><td class="subright">2018-08-21 07:51</td><td class="subright">409795346</td></tr>
+<tr><td class="subregion"><a href="australia-160101-free.shp.zip.md5">australia-160101-free.shp.zip.md5</a></td><td class="subright">2018-08-21 07:51</td><td class="subright">64</td></tr>
+<tr><td class="subregion"><a href="australia-160101.osm.pbf">australia-160101.osm.pbf</a></td><td class="subright">2016-01-02 00:46</td><td class="subright">233504532</td></tr>
+<tr><td class="subregion"><a href="australia-170101-free.shp.zip">australia-170101-free.shp.zip</a></td><td class="subright">2018-08-21 07:54</td><td class="subright">503084661</td></tr>
+<tr><td class="subregion"><a href="australia-170101-free.shp.zip.md5">australia-170101-free.shp.zip.md5</a></td><td class="subright">2018-08-21 07:54</td><td class="subright">64</td></tr>
+<tr><td class="subregion"><a href="australia-170101.osm.pbf">australia-170101.osm.pbf</a></td><td class="subright">2017-01-02 01:10</td><td class="subright">278710063</td></tr>
+<tr><td class="subregion"><a href="australia-180101-free.shp.zip">australia-180101-free.shp.zip</a></td><td class="subright">2018-08-21 07:57</td><td class="subright">564378662</td></tr>
+<tr><td class="subregion"><a href="australia-180101-free.shp.zip.md5">australia-180101-free.shp.zip.md5</a></td><td class="subright">2018-08-21 07:57</td><td class="subright">64</td></tr>
+<tr><td class="subregion"><a href="australia-180101.osm.pbf">australia-180101.osm.pbf</a></td><td class="subright">2018-01-01 23:48</td><td class="subright">310232266</td></tr>
+<tr><td class="subregion"><a href="australia-190101-free.shp.zip">australia-190101-free.shp.zip</a></td><td class="subright">2019-01-02 00:42</td><td class="subright">693614058</td></tr>
+<tr><td class="subregion"><a href="australia-190101-free.shp.zip.md5">australia-190101-free.shp.zip.md5</a></td><td class="subright">2019-01-02 00:42</td><td class="subright">64</td></tr>
+<tr><td class="subregion"><a href="australia-190101.osm.pbf">australia-190101.osm.pbf</a></td><td class="subright">2019-01-02 00:23</td><td class="subright">372706353</td></tr>
+<tr><td class="subregion"><a href="australia-200101-free.shp.zip">australia-200101-free.shp.zip</a></td><td class="subright">2020-05-03 01:34</td><td class="subright">863891478</td></tr>
+<tr><td class="subregion"><a href="australia-200101-free.shp.zip.md5">australia-200101-free.shp.zip.md5</a></td><td class="subright">2020-05-03 01:34</td><td class="subright">64</td></tr>
+<tr><td class="subregion"><a href="australia-200101.osm.pbf">australia-200101.osm.pbf</a></td><td class="subright">2020-02-19 16:30</td><td class="subright">451246715</td></tr>
+<tr><td class="subregion"><a href="australia-210101-free.shp.zip">australia-210101-free.shp.zip</a></td><td class="subright">2021-01-01 23:48</td><td class="subright">973432013</td></tr>
+<tr><td class="subregion"><a href="australia-210101-free.shp.zip.md5">australia-210101-free.shp.zip.md5</a></td><td class="subright">2021-01-01 23:48</td><td class="subright">64</td></tr>
+<tr><td class="subregion"><a href="australia-210101.osm.pbf">australia-210101.osm.pbf</a></td><td class="subright">2021-01-01 23:12</td><td class="subright">517024106</td></tr>
+<tr><td class="subregion"><a href="australia-220101-free.shp.zip">australia-220101-free.shp.zip</a></td><td class="subright">2022-01-01 23:34</td><td class="subright">1089575462</td></tr>
+<tr><td class="subregion"><a href="australia-220101-free.shp.zip.md5">australia-220101-free.shp.zip.md5</a></td><td class="subright">2022-01-01 23:34</td><td class="subright">64</td></tr>
+<tr><td class="subregion"><a href="australia-220101.osm.pbf">australia-220101.osm.pbf</a></td><td class="subright">2022-01-01 23:11</td><td class="subright">572921158</td></tr>
+<tr><td class="subregion"><a href="australia-230101-free.shp.zip">australia-230101-free.shp.zip</a></td><td class="subright">2023-01-01 23:07</td><td class="subright">1202766575</td></tr>
+<tr><td class="subregion"><a href="australia-230101-free.shp.zip.md5">australia-230101-free.shp.zip.md5</a></td><td class="subright">2023-01-01 23:07</td><td class="subright">64</td></tr>
+<tr><td class="subregion"><a href="australia-230101.osm.pbf">australia-230101.osm.pbf</a></td><td class="subright">2023-01-01 23:02</td><td class="subright">630485682</td></tr>
+<tr><td class="subregion"><a href="australia-240101-free.shp.zip">australia-240101-free.shp.zip</a></td><td class="subright">2024-01-01 23:43</td><td class="subright">1370715971</td></tr>
+<tr><td class="subregion"><a href="australia-240101-free.shp.zip.md5">australia-240101-free.shp.zip.md5</a></td><td class="subright">2024-01-01 23:43</td><td class="subright">64</td></tr>
+<tr><td class="subregion"><a href="australia-240101.osm.pbf">australia-240101.osm.pbf</a></td><td class="subright">2024-01-01 23:25</td><td class="subright">713867556</td></tr>
+<tr><td class="subregion"><a href="australia-250101-free.shp.zip">australia-250101-free.shp.zip</a></td><td class="subright">2025-01-02 01:52</td><td class="subright">1515466213</td></tr>
+<tr><td class="subregion"><a href="australia-250101-free.shp.zip.md5">australia-250101-free.shp.zip.md5</a></td><td class="subright">2025-01-02 01:52</td><td class="subright">64</td></tr>
+<tr><td class="subregion"><a href="australia-250101.osm.pbf">australia-250101.osm.pbf</a></td><td class="subright">2025-01-02 00:36</td><td class="subright">808135395</td></tr>
+<tr><td class="subregion"><a href="australia-260101-free.shp.zip">australia-260101-free.shp.zip</a></td><td class="subright">2026-01-02 02:39</td><td class="subright">1732960641</td></tr>
+<tr><td class="subregion"><a href="australia-260101-free.shp.zip.md5">australia-260101-free.shp.zip.md5</a></td><td class="subright">2026-01-02 02:39</td><td class="subright">64</td></tr>
+<tr><td class="subregion"><a href="australia-260101.osm.pbf">australia-260101.osm.pbf</a></td><td class="subright">2026-01-01 23:30</td><td class="subright">911036940</td></tr>
+<tr><td class="subregion"><a href="australia-260101.osm.pbf.md5">australia-260101.osm.pbf.md5</a></td><td class="subright">2026-01-01 23:30</td><td class="subright">59</td></tr>
+<tr><td class="subregion"><a href="australia-260601.osm.pbf">australia-260601.osm.pbf</a></td><td class="subright">2026-06-01 22:19</td><td class="subright">942277270</td></tr>
+<tr><td class="subregion"><a href="australia-260601.osm.pbf.md5">australia-260601.osm.pbf.md5</a></td><td class="subright">2026-06-01 22:19</td><td class="subright">59</td></tr>
+<tr><td class="subregion"><a href="australia-260701.osm.pbf">australia-260701.osm.pbf</a></td><td class="subright">2026-07-01 22:09</td><td class="subright">948820327</td></tr>
+<tr><td class="subregion"><a href="australia-260701.osm.pbf.md5">australia-260701.osm.pbf.md5</a></td><td class="subright">2026-07-01 22:09</td><td class="subright">59</td></tr>
+<tr><td class="subregion"><a href="australia-260801.osm.pbf">australia-260801.osm.pbf</a></td><td class="subright">2026-08-01 22:45</td><td class="subright">955855323</td></tr>
+<tr><td class="subregion"><a href="australia-260801.osm.pbf.md5">australia-260801.osm.pbf.md5</a></td><td class="subright">2026-08-01 22:45</td><td class="subright">59</td></tr>
+<tr><td class="subregion"><a href="australia-260826.osm.pbf">australia-260826.osm.pbf</a></td><td class="subright">2026-08-27 12:07</td><td class="subright">959723066</td></tr>
+<tr><td class="subregion"><a href="australia-260826.osm.pbf.md5">australia-260826.osm.pbf.md5</a></td><td class="subright">2026-08-27 12:07</td><td class="subright">59</td></tr>
+<tr><td class="subregion"><a href="australia-260827.osm.pbf">australia-260827.osm.pbf</a></td><td class="subright">2026-08-28 12:09</td><td class="subright">959851859</td></tr>
+<tr><td class="subregion"><a href="australia-260827.osm.pbf.md5">australia-260827.osm.pbf.md5</a></td><td class="subright">2026-08-28 12:09</td><td class="subright">59</td></tr>
+<tr><td class="subregion"><a href="australia-260828.osm.pbf">australia-260828.osm.pbf</a></td><td class="subright">2026-08-29 02:31</td><td class="subright">960040331</td></tr>
+<tr><td class="subregion"><a href="australia-260828.osm.pbf.md5">australia-260828.osm.pbf.md5</a></td><td class="subright">2026-08-29 02:31</td><td class="subright">59</td></tr>
+<tr><td class="subregion"><a href="australia-260829.osm.pbf">australia-260829.osm.pbf</a></td><td class="subright">2026-08-29 22:29</td><td class="subright">960175031</td></tr>
+<tr><td class="subregion"><a href="australia-260829.osm.pbf.md5">australia-260829.osm.pbf.md5</a></td><td class="subright">2026-08-29 22:29</td><td class="subright">59</td></tr>
+<tr><td class="subregion"><a href="australia-260830.osm.pbf">australia-260830.osm.pbf</a></td><td class="subright">2026-08-31 01:34</td><td class="subright">960304888</td></tr>
+<tr><td class="subregion"><a href="australia-260830.osm.pbf.md5">australia-260830.osm.pbf.md5</a></td><td class="subright">2026-08-31 01:34</td><td class="subright">59</td></tr>
+<tr><td class="subregion"><a href="australia-260831.osm.pbf">australia-260831.osm.pbf</a></td><td class="subright">2026-09-01 02:34</td><td class="subright">960526449</td></tr>
+<tr><td class="subregion"><a href="australia-260831.osm.pbf.md5">australia-260831.osm.pbf.md5</a></td><td class="subright">2026-09-01 02:34</td><td class="subright">59</td></tr>
+<tr><td class="subregion"><a href="australia-260901.osm.pbf">australia-260901.osm.pbf</a></td><td class="subright">2026-09-02 05:09</td><td class="subright">960789435</td></tr>
+<tr><td class="subregion"><a href="australia-260901.osm.pbf.md5">australia-260901.osm.pbf.md5</a></td><td class="subright">2026-09-02 05:09</td><td class="subright">59</td></tr>
+<tr><td class="subregion"><a href="australia-updates">australia-updates</a></td><td class="subright">2026-09-02 05:11</td><td class="subright">4096</td></tr>
+<tr><td class="subregion"><a href="australia.kml">australia.kml</a></td><td class="subright">2026-09-02 05:09</td><td class="subright">890</td></tr>
+<tr><td class="subregion"><a href="australia.poly">australia.poly</a></td><td class="subright">2026-09-02 05:07</td><td class="subright">719</td></tr>
+</table></div><h3>Sub Regions</h3><p>Click on the region name to see the overview page for that region, or select one of the
+file extension links for quick access.</p>
+<table id="subregions">
+<tr>
+   <th class="subregion">Sub Region</th>
+   <th colspan="3">Quick Links</th>
+</tr>
+<tr>
+   <th>&nbsp;</th>
+   <th colspan="2">.osm.pbf</th>
+   <th>.gpkg.zip</th>
+</tr>
+<tr onMouseOver="loadkml('australia/act.kml')"><td class="subregion"><a href="australia/act.html">Australian Capital Territory</a></td>
+<td style="border-right: 0px; margin-right: 0px; padding-right: 0px;"><a href="australia/act-latest.osm.pbf">[.osm.pbf]</a></td><td style="border-left: 0px; margin-left: 0px; padding-left: 0px;">(18.0&nbsp;MB)</td><td> <a href="australia/act-latest-free.gpkg.zip">[.gpkg.zip]</a></td></tr>
+<tr onMouseOver="loadkml('australia/ashmore-cartier.kml')"><td class="subregion"><a href="australia/ashmore-cartier.html">Ashmore and Cartier Islands</a></td>
+<td style="border-right: 0px; margin-right: 0px; padding-right: 0px;"><a href="australia/ashmore-cartier-latest.osm.pbf">[.osm.pbf]</a></td><td style="border-left: 0px; margin-left: 0px; padding-left: 0px;">(22.1&nbsp;KB)</td><td> <a href="australia/ashmore-cartier-latest-free.gpkg.zip">[.gpkg.zip]</a></td></tr>
+<tr onMouseOver="loadkml('australia/christmas-island.kml')"><td class="subregion"><a href="australia/christmas-island.html">Christmas Island</a></td>
+<td style="border-right: 0px; margin-right: 0px; padding-right: 0px;"><a href="australia/christmas-island-latest.osm.pbf">[.osm.pbf]</a></td><td style="border-left: 0px; margin-left: 0px; padding-left: 0px;">(216&nbsp;KB)</td><td> <a href="australia/christmas-island-latest-free.gpkg.zip">[.gpkg.zip]</a></td></tr>
+<tr onMouseOver="loadkml('australia/cocos-islands.kml')"><td class="subregion"><a href="australia/cocos-islands.html">Cocos (Keeling) Islands</a></td>
+<td style="border-right: 0px; margin-right: 0px; padding-right: 0px;"><a href="australia/cocos-islands-latest.osm.pbf">[.osm.pbf]</a></td><td style="border-left: 0px; margin-left: 0px; padding-left: 0px;">(258&nbsp;KB)</td><td> <a href="australia/cocos-islands-latest-free.gpkg.zip">[.gpkg.zip]</a></td></tr>
+<tr onMouseOver="loadkml('australia/coral-sea-islands.kml')"><td class="subregion"><a href="australia/coral-sea-islands.html">Coral Sea Islands</a></td>
+<td style="border-right: 0px; margin-right: 0px; padding-right: 0px;"><a href="australia/coral-sea-islands-latest.osm.pbf">[.osm.pbf]</a></td><td style="border-left: 0px; margin-left: 0px; padding-left: 0px;">(176&nbsp;KB)</td><td> <a href="australia/coral-sea-islands-latest-free.gpkg.zip">[.gpkg.zip]</a></td></tr>
+<tr onMouseOver="loadkml('australia/heard-mcdonald.kml')"><td class="subregion"><a href="australia/heard-mcdonald.html">Heard Island and McDonald Islands</a></td>
+<td style="border-right: 0px; margin-right: 0px; padding-right: 0px;"><a href="australia/heard-mcdonald-latest.osm.pbf">[.osm.pbf]</a></td><td style="border-left: 0px; margin-left: 0px; padding-left: 0px;">(94&nbsp;KB)</td><td> <a href="australia/heard-mcdonald-latest-free.gpkg.zip">[.gpkg.zip]</a></td></tr>
+<tr onMouseOver="loadkml('australia/new-south-wales.kml')"><td class="subregion"><a href="australia/new-south-wales.html">New South Wales (with ACT and JBT)</a></td>
+<td style="border-right: 0px; margin-right: 0px; padding-right: 0px;"><a href="australia/new-south-wales-latest.osm.pbf">[.osm.pbf]</a></td><td style="border-left: 0px; margin-left: 0px; padding-left: 0px;">(254&nbsp;MB)</td><td> <a href="australia/new-south-wales-latest-free.gpkg.zip">[.gpkg.zip]</a></td></tr>
+<tr onMouseOver="loadkml('australia/norfolk-island.kml')"><td class="subregion"><a href="australia/norfolk-island.html">Norfolk Island</a></td>
+<td style="border-right: 0px; margin-right: 0px; padding-right: 0px;"><a href="australia/norfolk-island-latest.osm.pbf">[.osm.pbf]</a></td><td style="border-left: 0px; margin-left: 0px; padding-left: 0px;">(326&nbsp;KB)</td><td> <a href="australia/norfolk-island-latest-free.gpkg.zip">[.gpkg.zip]</a></td></tr>
+<tr onMouseOver="loadkml('australia/northern-territory.kml')"><td class="subregion"><a href="australia/northern-territory.html">Northern Territory</a></td>
+<td style="border-right: 0px; margin-right: 0px; padding-right: 0px;"><a href="australia/northern-territory-latest.osm.pbf">[.osm.pbf]</a></td><td style="border-left: 0px; margin-left: 0px; padding-left: 0px;">(16.9&nbsp;MB)</td><td> <a href="australia/northern-territory-latest-free.gpkg.zip">[.gpkg.zip]</a></td></tr>
+<tr onMouseOver="loadkml('australia/queensland.kml')"><td class="subregion"><a href="australia/queensland.html">Queensland</a></td>
+<td style="border-right: 0px; margin-right: 0px; padding-right: 0px;"><a href="australia/queensland-latest.osm.pbf">[.osm.pbf]</a></td><td style="border-left: 0px; margin-left: 0px; padding-left: 0px;">(188&nbsp;MB)</td><td> <a href="australia/queensland-latest-free.gpkg.zip">[.gpkg.zip]</a></td></tr>
+<tr onMouseOver="loadkml('australia/south-australia.kml')"><td class="subregion"><a href="australia/south-australia.html">South Australia</a></td>
+<td style="border-right: 0px; margin-right: 0px; padding-right: 0px;"><a href="australia/south-australia-latest.osm.pbf">[.osm.pbf]</a></td><td style="border-left: 0px; margin-left: 0px; padding-left: 0px;">(64&nbsp;MB)</td><td> <a href="australia/south-australia-latest-free.gpkg.zip">[.gpkg.zip]</a></td></tr>
+<tr onMouseOver="loadkml('australia/tasmania.kml')"><td class="subregion"><a href="australia/tasmania.html">Tasmania</a></td>
+<td style="border-right: 0px; margin-right: 0px; padding-right: 0px;"><a href="australia/tasmania-latest.osm.pbf">[.osm.pbf]</a></td><td style="border-left: 0px; margin-left: 0px; padding-left: 0px;">(51&nbsp;MB)</td><td> <a href="australia/tasmania-latest-free.gpkg.zip">[.gpkg.zip]</a></td></tr>
+<tr onMouseOver="loadkml('australia/victoria.kml')"><td class="subregion"><a href="australia/victoria.html">Victoria</a></td>
+<td style="border-right: 0px; margin-right: 0px; padding-right: 0px;"><a href="australia/victoria-latest.osm.pbf">[.osm.pbf]</a></td><td style="border-left: 0px; margin-left: 0px; padding-left: 0px;">(229&nbsp;MB)</td><td> <a href="australia/victoria-latest-free.gpkg.zip">[.gpkg.zip]</a></td></tr>
+<tr onMouseOver="loadkml('australia/western-australia.kml')"><td class="subregion"><a href="australia/western-australia.html">Western Australia</a></td>
+<td style="border-right: 0px; margin-right: 0px; padding-right: 0px;"><a href="australia/western-australia-latest.osm.pbf">[.osm.pbf]</a></td><td style="border-left: 0px; margin-left: 0px; padding-left: 0px;">(109&nbsp;MB)</td><td> <a href="australia/western-australia-latest-free.gpkg.zip">[.gpkg.zip]</a></td></tr>
+</table>
+</div>
+<div id="download-right">
+   <div id="noscroll">
+   <div id="map"></div>
+
+   <div class="customized_shapes">
+<p>
+      <img alt="small flag of UK" src="/img/en.png">
+Not what you were looking for?
+Geofabrik is a consulting and software development firm based in Karlsruhe, Germany
+specializing in OpenStreetMap services. We're happy to help you with data
+preparation, processing, server setup and the like. <a href="http://www.geofabrik.de/data/shapefiles.html">Check out our web site</a>
+and contact us if we can be of service.
+
+      </p>
+   </div>
+   
+   <div class="customized_shapes">
+      <p>
+      <img alt="small flag of Germany" src="/img/de.png">
+      Nicht das Richtige dabei? 
+Die Geofabrik ist ein auf OpenStreetMap spezialisiertes Beratungs- und Softwareentwicklungsunternehmen in Karlsruhe.
+Gern helfen wir Ihnen bei der Datenaufbereitung, Datenkonvertierung, Serverinstallation und &auml;hnlichen Aufgaben.
+<a href="http://www.geofabrik.de/data/shapefiles.html">Besuchen Sie unsere Webseite</a> und sprechen Sie mit uns, wenn wir Ihnen 
+helfen k&ouml;nnen.
+      </p>
+   </div>
+   </div>
+</div>
+</div>
+<div id="download-copyright">
+Data processed by
+<a href="http://www.geofabrik.de/">Geofabrik GmbH</a>
+and created by 
+<a href="http://www.openstreetmap.org/">OpenStreetMap Contributors</a>
+|
+<a href="http://opendatacommons.org/licenses/odbl/">License: ODbL 1.0</a>
+|
+<a href="http://www.geofabrik.de/geofabrik/contact.html">Contact</a>
+|
+<a href="http://www.geofabrik.de/geofabrik/imprint.html">Legal Notice/Privacy Policy</a>

@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="en" data-critters-container>
+<head>
+  <meta charset="utf-8">
+  <title>Geodetic Calculators</title>
+  <base href="/">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="icon" type="image/x-icon" href="favicon.ico">
+  <!-- Unsupported Browsers -->
+  <script>
+    document.addEventListener('DOMContentLoaded', function (event) {
+      var exists = window.location.href.indexOf('unsupported.browsers.html');
+      if (IECheck() && exists === -1) {
+        var index = window.location.href.indexOf('gov.au/');
+        var url = window.location.href.substr(0, index + 7);
+        location.assign(url + 'assets/unsupported.browsers.html');
+      }
+    });
+
+    function IECheck() {
+      var ua = window.navigator.userAgent;
+      var msie = ua.indexOf('MSIE ');
+      var ie11 = ua.indexOf('Trident');
+      return msie > 0 || ie11 > 0;
+    }
+  </script>
+  <!-- End Unsupported Browsers -->
+  <!-- Google Tag Manager -->
+  <script>(function (w, d, s, l, i) {
+    w[l] = w[l] || [];
+    w[l].push({
+      'gtm.start':
+        new Date().getTime(), event: 'gtm.js'
+    });
+    var f = d.getElementsByTagName(s)[0],
+      j = d.createElement(s), dl = l != 'dataLayer' ? '&l=' + l : '';
+    j.async = true;
+    j.src =
+      'https://www.googletagmanager.com/gtm.js?id=' + i + dl;
+    f.parentNode.insertBefore(j, f);
+  })(window, document, 'script', 'dataLayer', 'GTM-WRMKS55F');</script>
+  <!-- End Google Tag Manager -->
+<style>html{font-family:sans-serif;-ms-text-size-adjust:100%;-webkit-text-size-adjust:100%}body{margin:0}@media print{*,*:before,*:after{color:#000!important;text-shadow:none!important;background:transparent!important;box-shadow:none!important}}*{box-sizing:border-box}*:before,*:after{box-sizing:border-box}html{font-size:10px;-webkit-tap-highlight-color:rgba(0,0,0,0)}body{font-family:Helvetica Neue,Helvetica,Arial,sans-serif;font-size:14px;line-height:1.42857143;color:#333;background-color:#fff}:root{--panel-active-color:#006A85;--panel-inactive-color:#0E3747;--table-header-color:#0E3747;--table-header-font-color:white;--row-highlight-color:#FCFFE5}html,body{overflow:hidden;position:fixed;height:100%;width:100%;touch-action:manipulation}body{font-family:Arial,sans-serif;font-size:13px!important;color:#2f2f2f;height:100%;margin:0}@media print{html,body{overflow:visible;height:auto;position:static}}</style><link rel="stylesheet" href="styles.93c9dddb231130bb.css" media="print" onload="this.media='all'"><noscript><link rel="stylesheet" href="styles.93c9dddb231130bb.css"></noscript></head>
+<body>
+<ga-app-root></ga-app-root>
+<!-- Google Tag Manager (noscript) -->
+<noscript>
+  <iframe src="https://www.googletagmanager.com/ns.html?id=GTM-WRMKS55F" height="0" width="0" style="display:none;visibility:hidden"></iframe>
+</noscript>
+<!-- End Google Tag Manager (noscript) -->
+<script src="runtime.c2e36136926c4e69.js" type="module"></script><script src="polyfills.9578154cd908f614.js" type="module"></script><script src="main.e1c6654467c3e890.js" type="module"></script></body>
+</html>

@@ -1,0 +1,125 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01//EN" "http://www.w3.org/TR/html4/strict.dtd">
+<html>
+	<head>
+		<meta http-equiv="Content-Type" content="text/html; charset=utf-8"/>
+		<META HTTP-EQUIV="CACHE-CONTROL" CONTENT="NO-CACHE">
+		<meta http-equiv="X-UA-Compatible" content="IE=7,IE=9"/>
+		<meta name="viewport" content="initial-scale=1, maximum-scale=1,user-scalable=no"/>
+		<title>
+			LISTdata Open Data
+		</title>
+		<link type="text/css" rel="stylesheet" href="/css/list-main.css" />
+		<link type="text/css" rel="stylesheet" href="resources/opendata.css" />
+		<link rel="stylesheet" href="//code.jquery.com/ui/1.11.2/themes/smoothness/jquery-ui.css">
+		<script src="//code.jquery.com/jquery-1.10.2.js"></script>
+		<script src="//code.jquery.com/ui/1.11.2/jquery-ui.js"></script>
+		<script type="application/javascript" src="resources/opendata.js"></script>
+
+		
+			<!--
+			Script Code for Universal Analytics
+		-->
+		<script type="text/javascript">
+			var _gaq = _gaq || [];
+			_gaq.push(['_setAccount', 'UA-41072492-8']);
+			_gaq.push(['_trackPageview']);
+	
+			(function() {
+				var ga = document.createElement('script'); ga.type = 'text/javascript'; ga.async = true;
+				ga.src = ('https:' == document.location.protocol ? 'https://ssl' : 'http://www') + '.google-analytics.com/ga.js';
+				var s = document.getElementsByTagName('script')[0]; s.parentNode.insertBefore(ga, s);
+			})();
+	
+		</script>
+		<!--
+			Script Code for Google Analytics
+		-->
+		<!-- Google tag (gtag.js) -->
+		
+		<script async src="https://www.googletagmanager.com/gtag/js?id=G-T19NZ67F74"></script>
+		<script type="text/javascript">
+		  window.dataLayer = window.dataLayer || [];
+		  function gtag(){dataLayer.push(arguments);}
+		  gtag('js', new Date());
+		
+		  gtag('config', 'G-T19NZ67F74');
+		</script>
+	</head>
+
+	<body>
+		<div class="stickywrapper">  	
+			<div id="header" class="header-bg">
+				<div class="container">
+					<div id="tas-logo-banner"><a href="/index.html" id="tas-logo-link"></a></div>
+					<div id="center-banner"><a href="/index.html" id="banner-link"></a></div>
+					<div id="logo-banner"><a href="/index.html" id="logo-link"></a></div>
+					<div id="menubar">
+						<div class="menu-nav-container">
+							<ul class="menu" id="menu-nav">
+								<li class="menu-item menu-item-home first" id="menu-item-home"><a id="link-home" href="/">Home</a></li>
+								<li class="menu-item menu-item-property" id="menu-item-property"><a href="https://www.thelist.tas.gov.au">theLIST</a></li>
+								<li class="menu-item menu-item-information" id="menu-item-information"><a href="https://maps.thelist.tas.gov.au">LISTmap</a></li>
+								<li class="menu-item menu-item-information" id="menu-item-information"><a href="https://data.thelist.tas.gov.au">LISTdata</a></li>
+								<li class="menu-item menu-item-information" id="menu-item-information"><a href="http://listdata.thelist.tas.gov.au/public/outgoing/sif/opendatahelp.pdf">Help</a></li>
+								<li class="menu-item menu-item-information" id="menu-item-information"><a href="/include/contact.html">Contact Us</a></li>
+							</ul>
+						</div>
+						<div id="menu-account">
+							<a href="/login">Login</a>
+						</div>
+					</div>
+				</div>
+			</div>
+		
+			<div id="body" class="body-text">
+				
+				<!--  Start Body -->
+				<div id="od-accordion">
+						
+				</div>
+				<div class='noselect' id='moreGISResourcesHeading'>
+					<div id='more-gis-resources-banner'></div>
+				</div>
+				<div id="mgisr-accordion">
+					<h3 class='noselect' id='ESRI_ArcGIS_Layer_Files_for_Opendata_datasets'>ESRI ArcGIS Layer Files for Opendata datasets</h3>
+					<form>
+						<fieldset>
+							<legend>Resource For Download</legend>
+							<div style='width:55%;float:left;'>
+								<input type='button' class='downloadBut' onclick=downloadFile('data/LIST_LAYER_FILES.zip') value='Download Now'> - ESRI Layerfiles for Opendata datasets<br />
+							</div>
+							<div style='float:right;' align='right'>
+								<div class='divDelType noselect'> Downloaded .zip Files Contains:
+									<ul>
+										<li> ESRI Layerfiles (.lyr Files) for ArcGIS ver 9.2 - 10.8</li>
+									</ul>
+								</div></br>
+								<a href='https://www.thelist.tas.gov.au/app/content/data/geo-meta-data-record?detailRecordUID=d58e155d-dc8a-4ca2-bdaf-73dce2e9babf' target='_blank'> View Metadata Record </a></br></br>
+								<a href='http://creativecommons.org/licenses/by/3.0/au/' target='_blank'><img src='https://www.thelist.tas.gov.au/app/content/system/modules/au.gov.tas.dpipwe.sif.list/resources_v11/images/dd_images/by.png'></a></br>
+								View <a href='http://listdata.thelist.tas.gov.au/public/LandTasmaniaDataAttributionGuidelines.pdf' target='_blank'> Land Tasmania Data Attribution Guidelines </a></br></br>
+							</div>
+						</fieldset>
+					</form>
+
+				<!--  End Body -->
+			</div>
+		</div>
+		<div class="stickypush"></div>
+	
+		<div class="stickyfooter">
+			<div id="footer" class="footer-bg">
+				<div class="footerContainer">
+					<div id="footer-tas-logo"><a href="http://www.tas.gov.au" id="tas-logo-link-footer"></a></div>
+					<div id="footer-links"><a href="http://www.tas.gov.au">Tasmania Online</a> | <a href="http://www.service.tas.gov.au">Service Tasmania</a></div>
+					<p>This page was produced by Information and Land Services, a division of the <br/>
+					<a href="https://nre.tas.gov.au/">Department of Natural Resources and Environment Tasmania</a><br/>
+					Use of this website is subject to our <a href="http://www.tas.gov.au/stds/codi.htm">disclaimer and copyright notice</a>.<br/>
+					<div class="LastModified">
+						This page was last modified:
+						07/03/2023 11:49 AM
+					</div></p>
+				</div>
+			</div>
+		</div>
+	</body>
+</html>
