@@ -50,6 +50,30 @@ any pipeline or pack may ship `confidence: structured`.
 > Zeros are **measured emptiness**, not query failure — identical query construction returns 66,973
 > for the Porto district and 321,579 for the Algarve.
 
+### §PORTO-SIGN-OFF — `PT_PORTO_PDM_CERTIFIED` (signed IN PART, 2026-09-02; gate remains SHUT by its own contract)
+
+**Signatory:** the founder (product owner), session directive 2026-09-02: *"I sign up."* — given
+against the standing offer naming Porto's three assertions. Recorded by Claude (scribe only, L-449).
+
+**What this signature covers NOW:**
+1. **SCOPE (assertion 1) — SIGNED**: the Espaços Centrais parameter chain (Art. 32.º índice;
+   cércea ≤ largura do arruamento with the 21 m cap and the moda-da-cércea override;
+   profundidade 25/30 m; afastamento ≥ H/2 min 3 m) applies to the categorias this pack maps.
+2. **MAPPING (assertion 2) — SIGNED**: the CRUS `categoria_2021` → PDMP categoria correspondence
+   as drafted.
+
+**What it CANNOT cover yet, per the gate's own text (`ptPortoPdmDraft.ts` header):**
+3. **ARTICLE PINS (assertion 3) — PENDING**: rows below citing the chapter must be pinned to
+   their Art. N.º by reading the chapter. The pinning lane was dispatched the same hour as this
+   record; on its verified completion, assertion 3 is covered by this signature WITHOUT a further
+   founder action (pre-authorized: *"continue with goal 3. and you have my sign off"*).
+4. **SCHEMA (blocker 4) — PENDING**: the `fabricDerivedHeight` C58 kind (moda da cércea). Enters
+   via the envelope-architecture audit's primitive recommendation + its own schema change-set;
+   the flip to `true` happens only when BOTH 3 and 4 are closed, and must cite this block.
+
+**Revocable** at any time: strike (not delete) this block. Until the flip, no draft value is
+shown or evaluated anywhere — the refusal card states only that the draft exists.
+
 ### A.0.3 — Porto PDM numeric values (`VERIFIED-PRIMARY`, text extracted 2026-07-31)
 
 Source: *Plano Diretor Municipal — Regulamento — Janeiro 2023*,
