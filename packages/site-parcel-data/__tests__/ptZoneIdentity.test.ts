@@ -414,9 +414,17 @@ describe('ptPortoPdmDraft — the gate-shut first pack (FR_PARIS_PLU_CERTIFIED m
             expect(v.confidence).toBe('VERIFIED-PRIMARY');
             expect(v.text.length, key).toBeGreaterThan(0);
         }
-        // The unpinned-article rows say so BY NAME (gate assertion 3) rather than faking an artigo.
+        // Gate assertion 3 CLOSED 2026-09-02 (lane PT-ARTICLE-PINS): zero rows cite a bare
+        // chapter — every formerly unpinned row names its Art. N.º + n.º + alínea and carries
+        // the pin marker. A citation that names a chapter where the ordinance names an article
+        // is not yet a citation.
         const unpinned = entries.filter(([, v]) => v.article.includes('NOT pinned'));
-        expect(unpinned.length).toBeGreaterThan(0);
+        expect(unpinned.length).toBe(0);
+        const pinned = entries.filter(([, v]) => v.article.includes('lane PT-ARTICLE-PINS'));
+        expect(pinned.length).toBe(7);
+        for (const [key, v] of pinned) {
+            expect(v.article, key).toMatch(/Art\. \d+\.º/);
+        }
     });
 
     it('ptPortoPdmDraftRefusal never claims the draft outside Porto and never changes the legal claim inside it', () => {

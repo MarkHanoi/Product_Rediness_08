@@ -32,6 +32,15 @@
 //        profundidade / afastamento / storeys / roof-pitch rows say "Espaços Centrais", not
 //        "Art. N.º") are pinned to their articles by reading the chapter. A citation that names
 //        a chapter where the ordinance names an article is not yet a citation.
+//        → CLOSED 2026-09-02 (lane PT-ARTICLE-PINS): every formerly chapter-only row is pinned
+//          to its Art. N.º + n.º + alínea (Arts. 24.º/27.º/30.º) with the verbatim sentence in
+//          §A.0.3, re-found independently via poppler pdftotext (PDF sha256 a9383f79…, byte-
+//          identical re-fetch). ⚠ Scope findings for the founder (values UNCHANGED): the
+//          street-width cércea rule + 21 m cap are FUC TIPO II (Art. 27.º) — tipo I is governed
+//          by the moda (Art. 24.º n.º 1 e)); the 25/30 m profundidade caps the piso à cota do
+//          logradouro (upper storeys follow the tardoz alignment); Art. 32.º's índice 1 is
+//          Blocos Isolados ONLY, not the whole família. See §A.0.3 rows +
+//          audit/demo-esfrpt/2026-09-02/lane-pt-article-pins.md.
 //   AND EVEN THEN it cannot draw, because:
 //     4. SCHEMA — Porto's dominant height regime is *moda da cércea* (Art. 3.º o): the cércea
 //        with the greatest extent along the built urban frontage) — a FABRIC-DERIVED value no
@@ -98,8 +107,8 @@ export interface PtPdmDraftValue {
     readonly confidence: 'VERIFIED-PRIMARY';
 }
 
-const ARTICLE_NOT_PINNED =
-    'Espaços Centrais chapter — artigo NOT pinned in §A.0.3; pin before signature (gate assertion 3)';
+/** Suffix every article pinned by the 2026-09-02 chapter-reading pass carries (gate assertion 3). */
+const PINNED = 'Art. N.º pinned 2026-09-02 (lane PT-ARTICLE-PINS)';
 
 /**
  * THE DRAFT — the Porto pack shape as data, every value cited. This is a TRANSCRIPTION TARGET
@@ -133,7 +142,11 @@ export const PT_PORTO_PDM_DRAFT: Readonly<Record<string, PtPdmDraftValue>> = {
     },
     cerceaStreetWidth: {
         text: 'cércea ≤ largura do arruamento confrontante',
-        article: ARTICLE_NOT_PINNED,
+        article:
+            'Art. 27.º n.º 1 g) — Frente Urbana Contínua tipo II («A cércea confinante com a via ' +
+            'pública não pode exceder a largura do arruamento confrontante, medida entre os limites ' +
+            'do espaço público dominante ou estabelecido…», PDF p. 18). ⚠ tipo II ONLY — FUC tipo I ' +
+            `is governed by the moda da cércea (Art. 24.º n.º 1 e)). ${PINNED}`,
         subject: 'cércea — regra geral por largura do arruamento',
         confidence: 'VERIFIED-PRIMARY',
     },
@@ -141,25 +154,43 @@ export const PT_PORTO_PDM_DRAFT: Readonly<Record<string, PtPdmDraftValue>> = {
         text:
             'where the public-space cross-section > 21 m → cércea máxima 21 m, UNLESS the moda da ' +
             'cércea is higher (⚠ the moda override is NOT representable — gate blocker 4)',
-        article: ARTICLE_NOT_PINNED,
+        article:
+            'Art. 27.º n.º 2 b) — FUC tipo II («Quando o perfil transversal do espaço público ou ' +
+            'via pública confinantes com uma frente urbana seja superior a 21 metros, a cércea ' +
+            'máxima admitida é de 21 metros, exceto quando a moda da cércea for superior, ' +
+            `respeitando-se essa moda…», PDF p. 18). ${PINNED}`,
         subject: 'cércea — teto de 21 m com prevalência da moda da cércea',
         confidence: 'VERIFIED-PRIMARY',
     },
     profundidade: {
         text: 'profundidade máxima da edificação, medida do alinhamento: 25 m / 30 m (two subcategories)',
-        article: ARTICLE_NOT_PINNED,
+        article:
+            'Art. 24.º n.º 1 d) (25 m, FUC tipo I) + Art. 27.º n.º 1 d) (30 m, FUC tipo II) — «No ' +
+            'piso situado à cota do logradouro, admite-se o prolongamento construtivo do edifício, ' +
+            'não podendo ultrapassar a profundidade de 25 metros medidos a partir do alinhamento da ' +
+            'frente urbana…» (PDF p. 17; Art. 27.º identical with 30 metros, PDF p. 18). ⚠ caps the ' +
+            'piso à cota do logradouro — upper storeys follow the tardoz alignment (alínea b) of ' +
+            `each article). ${PINNED}`,
         subject: 'profundidade máxima',
         confidence: 'VERIFIED-PRIMARY',
     },
     afastamento: {
         text: 'afastamento of upper storeys to plot limits ≥ H/2, minimum 3 m (waived for colmatação de empena)',
-        article: ARTICLE_NOT_PINNED,
+        article:
+            'Art. 30.º n.º 1 d) — Área de Edifícios de Tipo Moradia («Os pisos superiores do ' +
+            'edifício devem garantir um afastamento aos limites do prédio, igual ou superior à ' +
+            'metade da sua altura, com o mínimo de 3 metros, exceto nas situações de colmatação de ' +
+            `empena…», PDF p. 19). ${PINNED}`,
         subject: 'afastamentos laterais/tardoz',
         confidence: 'VERIFIED-PRIMARY',
     },
     maxStoreysStatedSubcategory: {
         text: 'max storeys above ground = 3 (stated subcategory); in colmatação, set by the moda da cércea',
-        article: ARTICLE_NOT_PINNED,
+        article:
+            'Art. 30.º n.º 1 c) — Área de Edifícios de Tipo Moradia («O número máximo de pisos ' +
+            'acima do solo é três, com exceção de situações de colmatação de conjuntos ' +
+            'consolidados, em que o número de pisos é definido em função da moda da cércea», PDF ' +
+            `p. 19; n.º 3: may be exceeded within a UOPG). ${PINNED}`,
         subject: 'número máximo de pisos',
         confidence: 'VERIFIED-PRIMARY',
     },
@@ -171,13 +202,19 @@ export const PT_PORTO_PDM_DRAFT: Readonly<Record<string, PtPdmDraftValue>> = {
     },
     roofPitchMax: {
         text: 'roof pitch max 30°',
-        article: ARTICLE_NOT_PINNED,
+        article:
+            'Art. 24.º n.º 1 f) — FUC tipo I, água com pendente para o arruamento («…o arranque da ' +
+            'laje de cobertura deve coincidir com a inserção entre planos de fachada e a laje de ' +
+            `teto do último piso e a sua inclinação não deve ser superior a 30º», PDF p. 17). ${PINNED}`,
         subject: 'inclinação máxima de cobertura',
         confidence: 'VERIFIED-PRIMARY',
     },
     frontageImplantationExemption: {
         text: 'parcels > 2000 m² exempt from frontage implantation rule',
-        article: ARTICLE_NOT_PINNED,
+        article:
+            'Art. 30.º n.º 2 — Área de Edifícios de Tipo Moradia («Excetuam-se da alínea a) do ' +
+            'número anterior as parcelas com área superior a 2000 m2, admite-se qualquer ' +
+            `implantação…», PDF pp. 19–20). ${PINNED}`,
         subject: 'implantação à frente urbana — isenção',
         confidence: 'VERIFIED-PRIMARY',
     },
