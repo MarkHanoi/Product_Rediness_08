@@ -1,0 +1,39 @@
+npm warn Unknown project config "package-manager-strict". This will stop working in the next major version of npm. See `npm help npmrc` for supported config options.
+
+═══ CH-PROSE · pages 5, 6, 7, 15 ═══
+  RAW (what the spine feeds the grammar)     rules=0
+  NORMALIZED (what the BEFORE run fed it)    rules=1
+      p15 maxHeight_m=27
+  chars raw=7910 normalized=7705 · identical=false
+    diverge @raw 0: raw=""""
+                       nrm=""""
+
+═══ DE-PROSE · pages 71, 72, 73, 74, 75 ═══
+  RAW (what the spine feeds the grammar)     rules=8
+      p71 maxCoverage=0.7
+      p71 maxCoverage=0.6
+      p72 maxFAR=3.2
+      p73 maxFAR=3
+      p73 maxFAR=3
+      p73 maxFAR=1.2
+      p73 maxFAR=2.4
+      p74 maxHeight_m=72.2
+  NORMALIZED (what the BEFORE run fed it)    rules=14
+      p71 maxCoverage=0.7
+      p71 maxCoverage=0.6
+      p72 maxFAR=3.2
+      p73 maxFAR=3
+      p73 maxFAR=3
+      p73 maxFAR=3
+      p73 maxFAR=2
+      p73 maxFAR=1.2
+      p73 maxFAR=2.4
+      p74 maxFAR=1
+      p74 maxHeight_m=51.2
+      p74 maxHeight_m=56.2
+      p74 maxHeight_m=72.2
+      p75 maxHeight_m=55
+  chars raw=14777 normalized=14748 · identical=false
+    diverge @raw 0: raw=""""
+                       nrm=""""
+RC=0

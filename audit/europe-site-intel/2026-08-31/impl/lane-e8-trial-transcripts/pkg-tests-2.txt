@@ -1,0 +1,11 @@
+npm warn Unknown project config "package-manager-strict". This will stop working in the next major version of npm. See `npm help npmrc` for supported config options.
+
+ RUN  v4.1.10 C:/Users/LENOVO/OneDrive/Desktop/PRYZM/Product_Rediness_08/packages/ordinance-extraction
+
+
+ Test Files  24 passed (24)
+      Tests  298 passed (298)
+   Start at  08:08:28
+   Duration  10.52s (transform 25.36s, setup 0ms, import 45.71s, tests 538ms, environment 5ms)
+
+RC=0

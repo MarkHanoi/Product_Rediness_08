@@ -1,0 +1,9 @@
+
+ RUN  v4.1.10 C:/Users/LENOVO/OneDrive/Desktop/PRYZM/Product_Rediness_08/packages/ordinance-extraction
+
+
+ Test Files  20 passed (20)
+      Tests  252 passed (252)
+   Start at  00:06:55
+   Duration  36.71s (transform 188.06s, setup 0ms, import 206.06s, tests 377ms, environment 5ms)
+

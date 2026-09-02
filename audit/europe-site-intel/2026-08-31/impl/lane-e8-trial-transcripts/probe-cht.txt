@@ -1,0 +1,9 @@
+RULES (0)
+
+UNKNOWNS (4)
+  maxCoverage: not-stated-in-text — Field not stated anywhere in this text.
+  maxFAR: not-stated-in-text — Field not stated anywhere in this text.
+  maxFloors: not-stated-in-text — Field not stated anywhere in this text.
+  maxHeight_m: not-stated-in-text — Field not stated anywhere in this text.
+
+REJECTED (0)

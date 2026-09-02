@@ -1,0 +1,40 @@
+RULES (14)
+  maxCoverage = 0.7 ratio basis=parcel matcher=de-grz sec=-
+      raw="0,7"  sent="Maß der baulichen Nutzung, überbaubare Grundstücksflächen Grundfläche Die zulässige Grundfläche im Sondergebiet Bundesna"
+  maxCoverage = 0.6 ratio basis=parcel matcher=de-grz sec=-
+      raw="0,6"  sent="In den allgemeinen Wohngebieten und den Mischgebieten können die Grundstücke bis zu einer GRZ von 0,6 überbaut werden."
+  maxFAR = 3.2 ratio basis=parcel matcher=de-gfz sec=§ 20B
+      raw="3,2"  sent="Bei einer Größe des Baugrundstückes von 93.386 m², das allein das Sondergebiet und nicht die dem Grundstück zugeordneten"
+  maxFAR = 3 ratio basis=parcel matcher=de-gfz sec=-
+      raw="3,0"  sent="Unter Einbeziehung der dem Grundstück zugeordneten privaten Grünflächen beträgt die GFZ 3,0."
+  maxFAR = 3 ratio basis=parcel matcher=de-gfz sec=-
+      raw="3,0"  sent="In den Mischgebieten MI 1 und MI 2 sowie der Gemeinbedarfsfläche Bundeswehrkrankenhaus erfolgt die Festsetzung einer GFZ"
+  maxFAR = 3 ratio basis=parcel matcher=de-gfz sec=-
+      raw="3,0"  sent="Auch für das allgemeine Wohngebiet WA 1 erfolgt die Ausweisung einer GFZ von 3,0, die der zum Teil dort vorhandenen Beba"
+  maxFAR = 2 ratio basis=parcel matcher=de-gfz sec=-
+      raw="2,0"  sent="Für die allgemeinen Wohngebiete WA 2 und WA 3 wird das Nutzungsmaß durch eine GFZ von 2,0 bestimmt."
+  maxFAR = 1.2 ratio basis=parcel matcher=de-gfz sec=§ 17A
+      raw="1,2"  sent="Die durch § 17 Abs. 1 BauNVO bestimmte Obergrenze der GFZ von 1,2 für diese am 1."
+  maxFAR = 2.4 ratio basis=parcel matcher=de-gfz sec=-
+      raw="2,4"  sent="Ebenfalls überschritten wird die durch die BauNVO für Sondergebiete bestimmte maximale GFZ von 2,4."
+  maxFAR = 1 ratio basis=parcel matcher=de-gfz sec=-
+      raw="1,0"  sent="Auf der Gemeinbedarfsfläche Kindertagesstätte wird mit einer geringeren Geschossflächenzahl von 1,0 den besonderen Anfor"
+  maxHeight_m = 51.2 m [building] matcher=de-gebaeudehoehe sec=-
+      raw="51,2"  sent="Zur städtebaulichen Fassung der unbebauten Blockränder entlang der Chausseestraße, der Habersaathstraße und der Planstra"
+  maxHeight_m = 56.2 m [building] matcher=de-gebaeudehoehe sec=-
+      raw="56,2"  sent="Die niedrigere Gebäudeoberkante von 56,2 m über NHN für die Gebäude gegenüber der Schwartzkopffstraße resultiert aus dem"
+  maxHeight_m = 72.2 m [building] matcher=de-gebaeudehoehe sec=-
+      raw="72,2"  sent="Im Inneren des Baufeldes ist eine Gebäudeoberkante von bis zu 72,2 m über NHN möglich."
+  maxHeight_m = 55 m [eaves] matcher=de-traufhoehe sec=-
+      raw="55,0"  sent="In den übrigen Baugebieten erfolgt die Festsetzung der Höhe durch eine Traufhöhe von maximal 55,0 m über NHN (18,8 m übe"
+
+UNKNOWNS (1)
+  maxFloors: not-stated-in-text — Field not stated anywhere in this text.
+
+REJECTED (6)
+  maxCoverage=0,4 by de-ueberschreitung-19-4 :: "In den allgemeinen Wohngebieten wird die nach § 17 Abs.1 BauNVO bestimmte Grundflächenzahl von höchstens 0,4 überschritten."
+  maxCoverage=0,8 by de-ueberschreitung-19-4 :: "Die zulässige Grundfläche darf gemäß § 19 Abs. 4 BauNVO durch Garagen und Stellplätze mit ihren Zufahrten, durch Nebenanlagen im Sinne von § 14 BauNVO"
+  maxCoverage=0,6 by de-ueberschreitung-19-4 :: "Aus gleichem Grund wird auf den Ver- und Entsorgungsflächen Abwasserpumpwerk, Regenrückhaltebecken und Heizkraftwerk durch die textliche Festsetzung N"
+  maxCoverage=1,0 by de-ueberschreitung-19-4 :: "Aus gleichem Grund wird auf den Ver- und Entsorgungsflächen Abwasserpumpwerk, Regenrückhaltebecken und Heizkraftwerk durch die textliche Festsetzung N"
+  maxCoverage=1,0 by de-ueberschreitung-19-4 :: ""Bei der Ermittlung der zulässigen Grundfläche darf durch die Grundfläche von Garagen und Stellplätzen und ihren Zufahrten, Nebenanlagen im Sinne des "
+  maxCoverage=0,3 by de-ueberschreitung-19-4 :: ""Bei der Ermittlung der zulässigen Grundfläche darf durch die Grundfläche von Garagen und Stellplätzen und ihren Zufahrten, Nebenanlagen im Sinne des "

@@ -1,0 +1,1768 @@
+{
+  "goldSet": "e8-trial-1",
+  "results": {
+    "CH-TABLE": {
+      "stratum": {
+        "id": "CH-TABLE",
+        "label": "Luzern BZR — Anhang 1 Zonen- und Dichtebestimmungen (table cells)",
+        "documentUrl": "https://geoshop.lu.ch/pdf/luze_BZR.pdf",
+        "sha256": "26945c0f1a1d95d67a0c9a4d5a05c47c1fff517f2ea2196d97bda43547e3de67",
+        "pages": [
+          26,
+          31
+        ],
+        "selectionRule": "Anhang 1 spans PDF pages 26–36. Page 26 = its FIRST page; page 31 = its SIXTH. Both chosen by POSITION in the annex, before any value was read, and neither because it parsed or was rich. Every zone row on both pages is in the set — none was dropped.",
+        "declaredBias": [
+          "Two of eleven annex pages, so the stratum is not a random draw from the annex.",
+          "A single canton and a single municipality; nothing here supports a claim about Swiss corpora generally.",
+          "The ÜZ → maxCoverage mapping is an INTERPRETATION (the reglement never defines Überbauungsziffer); a Swiss planner must confirm it."
+        ],
+        "valueShape": "table-cell",
+        "ingestionPath": "born-digital-text",
+        "country": "CH",
+        "sample": "out-of-sample"
+      },
+      "score": {
+        "stratum": "CH-TABLE",
+        "armA": {
+          "truePositives": [
+            {
+              "field": "maxHeight_m",
+              "value": 35
+            },
+            {
+              "field": "maxFloors",
+              "value": 7
+            },
+            {
+              "field": "maxHeight_m",
+              "value": 26
+            },
+            {
+              "field": "maxCoverage",
+              "value": 0.15
+            },
+            {
+              "field": "maxFloors",
+              "value": 5
+            },
+            {
+              "field": "maxHeight_m",
+              "value": 21
+            },
+            {
+              "field": "maxCoverage",
+              "value": 0.2
+            },
+            {
+              "field": "maxFloors",
+              "value": 2
+            },
+            {
+              "field": "maxFloors",
+              "value": 3
+            },
+            {
+              "field": "maxFloors",
+              "value": 4
+            },
+            {
+              "field": "maxCoverage",
+              "value": 0.25
+            }
+          ],
+          "falsePositives": [],
+          "falseNegatives": [],
+          "precision": 1,
+          "recall": 1,
+          "overstatementCount": 0,
+          "overstatementRate": 0,
+          "emittedCount": 11,
+          "goldClaimCount": 11
+        },
+        "armB": {
+          "matched": [],
+          "valueOnly": [
+            "p26/row-6/maxHeight_m",
+            "p26/row-8/maxFloors",
+            "p26/row-8/maxHeight_m",
+            "p31/row-128/maxCoverage",
+            "p31/row-128/maxFloors",
+            "p31/row-129/maxCoverage",
+            "p31/row-129/maxFloors",
+            "p31/row-130/maxCoverage",
+            "p31/row-130/maxHeight_m",
+            "p31/row-131/maxCoverage",
+            "p31/row-131/maxHeight_m",
+            "p31/row-132/maxCoverage",
+            "p31/row-132/maxFloors",
+            "p31/row-133/maxCoverage",
+            "p31/row-133/maxFloors",
+            "p31/row-134/maxCoverage",
+            "p31/row-134/maxFloors",
+            "p31/row-135/maxCoverage",
+            "p31/row-135/maxFloors",
+            "p31/row-136/maxCoverage",
+            "p31/row-136/maxFloors",
+            "p31/row-137/maxCoverage",
+            "p31/row-137/maxFloors",
+            "p31/row-138/maxCoverage",
+            "p31/row-138/maxFloors",
+            "p31/row-139/maxCoverage",
+            "p31/row-139/maxFloors",
+            "p31/row-140/maxCoverage",
+            "p31/row-140/maxFloors",
+            "p31/row-141/maxCoverage",
+            "p31/row-141/maxFloors",
+            "p31/row-142/maxCoverage",
+            "p31/row-142/maxFloors",
+            "p31/row-143/maxCoverage",
+            "p31/row-143/maxFloors",
+            "p31/row-144/maxCoverage",
+            "p31/row-144/maxFloors",
+            "p31/row-145/maxCoverage",
+            "p31/row-145/maxHeight_m",
+            "p31/row-146/maxCoverage",
+            "p31/row-146/maxFloors",
+            "p31/row-147/maxCoverage",
+            "p31/row-147/maxFloors",
+            "p31/row-148/maxCoverage",
+            "p31/row-148/maxFloors",
+            "p31/row-149/maxCoverage",
+            "p31/row-149/maxFloors",
+            "p31/row-150/maxCoverage",
+            "p31/row-150/maxFloors",
+            "p31/row-151/maxCoverage",
+            "p31/row-151/maxFloors",
+            "p31/row-152/maxCoverage",
+            "p31/row-152/maxFloors",
+            "p31/row-153/maxCoverage",
+            "p31/row-153/maxFloors"
+          ],
+          "missed": [],
+          "unanchorable": [
+            "p26/row-6/maxHeight_m",
+            "p26/row-8/maxFloors",
+            "p26/row-8/maxHeight_m",
+            "p31/row-128/maxCoverage",
+            "p31/row-128/maxFloors",
+            "p31/row-129/maxCoverage",
+            "p31/row-129/maxFloors",
+            "p31/row-130/maxCoverage",
+            "p31/row-130/maxHeight_m",
+            "p31/row-131/maxCoverage",
+            "p31/row-131/maxHeight_m",
+            "p31/row-132/maxCoverage",
+            "p31/row-132/maxFloors",
+            "p31/row-133/maxCoverage",
+            "p31/row-133/maxFloors",
+            "p31/row-134/maxCoverage",
+            "p31/row-134/maxFloors",
+            "p31/row-135/maxCoverage",
+            "p31/row-135/maxFloors",
+            "p31/row-136/maxCoverage",
+            "p31/row-136/maxFloors",
+            "p31/row-137/maxCoverage",
+            "p31/row-137/maxFloors",
+            "p31/row-138/maxCoverage",
+            "p31/row-138/maxFloors",
+            "p31/row-139/maxCoverage",
+            "p31/row-139/maxFloors",
+            "p31/row-140/maxCoverage",
+            "p31/row-140/maxFloors",
+            "p31/row-141/maxCoverage",
+            "p31/row-141/maxFloors",
+            "p31/row-142/maxCoverage",
+            "p31/row-142/maxFloors",
+            "p31/row-143/maxCoverage",
+            "p31/row-143/maxFloors",
+            "p31/row-144/maxCoverage",
+            "p31/row-144/maxFloors",
+            "p31/row-145/maxCoverage",
+            "p31/row-145/maxHeight_m",
+            "p31/row-146/maxCoverage",
+            "p31/row-146/maxFloors",
+            "p31/row-147/maxCoverage",
+            "p31/row-147/maxFloors",
+            "p31/row-148/maxCoverage",
+            "p31/row-148/maxFloors",
+            "p31/row-149/maxCoverage",
+            "p31/row-149/maxFloors",
+            "p31/row-150/maxCoverage",
+            "p31/row-150/maxFloors",
+            "p31/row-151/maxCoverage",
+            "p31/row-151/maxFloors",
+            "p31/row-152/maxCoverage",
+            "p31/row-152/maxFloors",
+            "p31/row-153/maxCoverage",
+            "p31/row-153/maxFloors"
+          ],
+          "slotRecall": null,
+          "slotDenominator": 0
+        },
+        "labelCounts": {
+          "UNKNOWN": 81,
+          "NUMBER": 55,
+          "NOT-A-PARCEL-RULE": 27
+        },
+        "silentLosses": []
+      },
+      "scrambled": {
+        "stratum": "CH-TABLE",
+        "armA": {
+          "truePositives": [],
+          "falsePositives": [
+            {
+              "field": "maxHeight_m",
+              "value": 68,
+              "klass": "unlisted",
+              "overstates": true,
+              "namedBy": null,
+              "sentences": [
+                "Nr.=3 | Zonenart=WA | A / B=B | FH=68 (höchstens) | g / o=geschlossen | Weitere Bestimmungen=Gestaltungsplanpflicht, Art. 16 Abs. 6"
+              ]
+            },
+            {
+              "field": "maxFloors",
+              "value": 0,
+              "klass": "unlisted",
+              "overstates": false,
+              "namedBy": null,
+              "sentences": [
+                "Nr.=5 | Zonenart=WA | A / B=B | VG=0 | FH=93 | g / o=geschlossen | Weitere Bestimmungen=Konkurrenzverfahren für Aufstockung; Art. 93 Abs. 9 gilt nicht, über dem 0.VG sind Dachaufbauten für Technik zugelassen, max.6m Höhe und min. 3 m zurückversetzt. Der Versatz kann als Schrägdach gestaltet werden."
+              ]
+            },
+            {
+              "field": "maxHeight_m",
+              "value": 93,
+              "klass": "unlisted",
+              "overstates": true,
+              "namedBy": null,
+              "sentences": [
+                "Nr.=5 | Zonenart=WA | A / B=B | VG=0 | FH=93 | g / o=geschlossen | Weitere Bestimmungen=Konkurrenzverfahren für Aufstockung; Art. 93 Abs. 9 gilt nicht, über dem 0.VG sind Dachaufbauten für Technik zugelassen, max.6m Höhe und min. 3 m zurückversetzt. Der Versatz kann als Schrägdach gestaltet werden."
+              ]
+            }
+          ],
+          "falseNegatives": [
+            {
+              "field": "maxHeight_m",
+              "value": 35,
+              "rows": [
+                "p26/row-6/maxHeight_m"
+              ]
+            },
+            {
+              "field": "maxFloors",
+              "value": 7,
+              "rows": [
+                "p26/row-8/maxFloors"
+              ]
+            },
+            {
+              "field": "maxHeight_m",
+              "value": 26,
+              "rows": [
+                "p26/row-8/maxHeight_m"
+              ]
+            },
+            {
+              "field": "maxCoverage",
+              "value": 0.15,
+              "rows": [
+                "p31/row-128/maxCoverage",
+                "p31/row-129/maxCoverage",
+                "p31/row-130/maxCoverage",
+                "p31/row-131/maxCoverage"
+              ]
+            },
+            {
+              "field": "maxFloors",
+              "value": 5,
+              "rows": [
+                "p31/row-128/maxFloors",
+                "p31/row-129/maxFloors",
+                "p31/row-143/maxFloors",
+                "p31/row-144/maxFloors"
+              ]
+            },
+            {
+              "field": "maxHeight_m",
+              "value": 21,
+              "rows": [
+                "p31/row-130/maxHeight_m",
+                "p31/row-131/maxHeight_m",
+                "p31/row-145/maxHeight_m"
+              ]
+            },
+            {
+              "field": "maxCoverage",
+              "value": 0.2,
+              "rows": [
+                "p31/row-132/maxCoverage",
+                "p31/row-133/maxCoverage",
+                "p31/row-134/maxCoverage",
+                "p31/row-135/maxCoverage",
+                "p31/row-136/maxCoverage",
+                "p31/row-137/maxCoverage",
+                "p31/row-138/maxCoverage",
+                "p31/row-139/maxCoverage",
+                "p31/row-140/maxCoverage",
+                "p31/row-141/maxCoverage",
+                "p31/row-142/maxCoverage",
+                "p31/row-143/maxCoverage",
+                "p31/row-144/maxCoverage",
+                "p31/row-145/maxCoverage"
+              ]
+            },
+            {
+              "field": "maxFloors",
+              "value": 2,
+              "rows": [
+                "p31/row-132/maxFloors",
+                "p31/row-133/maxFloors",
+                "p31/row-134/maxFloors",
+                "p31/row-135/maxFloors",
+                "p31/row-146/maxFloors",
+                "p31/row-147/maxFloors",
+                "p31/row-148/maxFloors"
+              ]
+            },
+            {
+              "field": "maxFloors",
+              "value": 3,
+              "rows": [
+                "p31/row-136/maxFloors",
+                "p31/row-137/maxFloors",
+                "p31/row-138/maxFloors",
+                "p31/row-139/maxFloors",
+                "p31/row-149/maxFloors",
+                "p31/row-150/maxFloors",
+                "p31/row-151/maxFloors",
+                "p31/row-152/maxFloors",
+                "p31/row-153/maxFloors"
+              ]
+            },
+            {
+              "field": "maxFloors",
+              "value": 4,
+              "rows": [
+                "p31/row-140/maxFloors",
+                "p31/row-141/maxFloors",
+                "p31/row-142/maxFloors"
+              ]
+            },
+            {
+              "field": "maxCoverage",
+              "value": 0.25,
+              "rows": [
+                "p31/row-146/maxCoverage",
+                "p31/row-147/maxCoverage",
+                "p31/row-148/maxCoverage",
+                "p31/row-149/maxCoverage",
+                "p31/row-150/maxCoverage",
+                "p31/row-151/maxCoverage",
+                "p31/row-152/maxCoverage",
+                "p31/row-153/maxCoverage"
+              ]
+            }
+          ],
+          "precision": 0,
+          "recall": 0,
+          "overstatementCount": 2,
+          "overstatementRate": 0.6666666666666666,
+          "emittedCount": 3,
+          "goldClaimCount": 11
+        },
+        "armB": {
+          "matched": [],
+          "valueOnly": [],
+          "missed": [],
+          "unanchorable": [
+            "p26/row-6/maxHeight_m",
+            "p26/row-8/maxFloors",
+            "p26/row-8/maxHeight_m",
+            "p31/row-128/maxCoverage",
+            "p31/row-128/maxFloors",
+            "p31/row-129/maxCoverage",
+            "p31/row-129/maxFloors",
+            "p31/row-130/maxCoverage",
+            "p31/row-130/maxHeight_m",
+            "p31/row-131/maxCoverage",
+            "p31/row-131/maxHeight_m",
+            "p31/row-132/maxCoverage",
+            "p31/row-132/maxFloors",
+            "p31/row-133/maxCoverage",
+            "p31/row-133/maxFloors",
+            "p31/row-134/maxCoverage",
+            "p31/row-134/maxFloors",
+            "p31/row-135/maxCoverage",
+            "p31/row-135/maxFloors",
+            "p31/row-136/maxCoverage",
+            "p31/row-136/maxFloors",
+            "p31/row-137/maxCoverage",
+            "p31/row-137/maxFloors",
+            "p31/row-138/maxCoverage",
+            "p31/row-138/maxFloors",
+            "p31/row-139/maxCoverage",
+            "p31/row-139/maxFloors",
+            "p31/row-140/maxCoverage",
+            "p31/row-140/maxFloors",
+            "p31/row-141/maxCoverage",
+            "p31/row-141/maxFloors",
+            "p31/row-142/maxCoverage",
+            "p31/row-142/maxFloors",
+            "p31/row-143/maxCoverage",
+            "p31/row-143/maxFloors",
+            "p31/row-144/maxCoverage",
+            "p31/row-144/maxFloors",
+            "p31/row-145/maxCoverage",
+            "p31/row-145/maxHeight_m",
+            "p31/row-146/maxCoverage",
+            "p31/row-146/maxFloors",
+            "p31/row-147/maxCoverage",
+            "p31/row-147/maxFloors",
+            "p31/row-148/maxCoverage",
+            "p31/row-148/maxFloors",
+            "p31/row-149/maxCoverage",
+            "p31/row-149/maxFloors",
+            "p31/row-150/maxCoverage",
+            "p31/row-150/maxFloors",
+            "p31/row-151/maxCoverage",
+            "p31/row-151/maxFloors",
+            "p31/row-152/maxCoverage",
+            "p31/row-152/maxFloors",
+            "p31/row-153/maxCoverage",
+            "p31/row-153/maxFloors"
+          ],
+          "slotRecall": null,
+          "slotDenominator": 0
+        },
+        "labelCounts": {
+          "UNKNOWN": 81,
+          "NUMBER": 55,
+          "NOT-A-PARCEL-RULE": 27
+        },
+        "silentLosses": [
+          {
+            "rowId": "p26/row-6/maxHeight_m",
+            "field": "maxHeight_m",
+            "value": 35,
+            "emittedInstead": [
+              68,
+              93
+            ]
+          },
+          {
+            "rowId": "p26/row-8/maxFloors",
+            "field": "maxFloors",
+            "value": 7,
+            "emittedInstead": [
+              0
+            ]
+          },
+          {
+            "rowId": "p26/row-8/maxHeight_m",
+            "field": "maxHeight_m",
+            "value": 26,
+            "emittedInstead": [
+              68,
+              93
+            ]
+          },
+          {
+            "rowId": "p31/row-128/maxFloors",
+            "field": "maxFloors",
+            "value": 5,
+            "emittedInstead": [
+              0
+            ]
+          },
+          {
+            "rowId": "p31/row-129/maxFloors",
+            "field": "maxFloors",
+            "value": 5,
+            "emittedInstead": [
+              0
+            ]
+          },
+          {
+            "rowId": "p31/row-130/maxHeight_m",
+            "field": "maxHeight_m",
+            "value": 21,
+            "emittedInstead": [
+              68,
+              93
+            ]
+          },
+          {
+            "rowId": "p31/row-131/maxHeight_m",
+            "field": "maxHeight_m",
+            "value": 21,
+            "emittedInstead": [
+              68,
+              93
+            ]
+          },
+          {
+            "rowId": "p31/row-132/maxFloors",
+            "field": "maxFloors",
+            "value": 2,
+            "emittedInstead": [
+              0
+            ]
+          },
+          {
+            "rowId": "p31/row-133/maxFloors",
+            "field": "maxFloors",
+            "value": 2,
+            "emittedInstead": [
+              0
+            ]
+          },
+          {
+            "rowId": "p31/row-134/maxFloors",
+            "field": "maxFloors",
+            "value": 2,
+            "emittedInstead": [
+              0
+            ]
+          },
+          {
+            "rowId": "p31/row-135/maxFloors",
+            "field": "maxFloors",
+            "value": 2,
+            "emittedInstead": [
+              0
+            ]
+          },
+          {
+            "rowId": "p31/row-136/maxFloors",
+            "field": "maxFloors",
+            "value": 3,
+            "emittedInstead": [
+              0
+            ]
+          },
+          {
+            "rowId": "p31/row-137/maxFloors",
+            "field": "maxFloors",
+            "value": 3,
+            "emittedInstead": [
+              0
+            ]
+          },
+          {
+            "rowId": "p31/row-138/maxFloors",
+            "field": "maxFloors",
+            "value": 3,
+            "emittedInstead": [
+              0
+            ]
+          },
+          {
+            "rowId": "p31/row-139/maxFloors",
+            "field": "maxFloors",
+            "value": 3,
+            "emittedInstead": [
+              0
+            ]
+          },
+          {
+            "rowId": "p31/row-140/maxFloors",
+            "field": "maxFloors",
+            "value": 4,
+            "emittedInstead": [
+              0
+            ]
+          },
+          {
+            "rowId": "p31/row-141/maxFloors",
+            "field": "maxFloors",
+            "value": 4,
+            "emittedInstead": [
+              0
+            ]
+          },
+          {
+            "rowId": "p31/row-142/maxFloors",
+            "field": "maxFloors",
+            "value": 4,
+            "emittedInstead": [
+              0
+            ]
+          },
+          {
+            "rowId": "p31/row-143/maxFloors",
+            "field": "maxFloors",
+            "value": 5,
+            "emittedInstead": [
+              0
+            ]
+          },
+          {
+            "rowId": "p31/row-144/maxFloors",
+            "field": "maxFloors",
+            "value": 5,
+            "emittedInstead": [
+              0
+            ]
+          },
+          {
+            "rowId": "p31/row-145/maxHeight_m",
+            "field": "maxHeight_m",
+            "value": 21,
+            "emittedInstead": [
+              68,
+              93
+            ]
+          },
+          {
+            "rowId": "p31/row-146/maxFloors",
+            "field": "maxFloors",
+            "value": 2,
+            "emittedInstead": [
+              0
+            ]
+          },
+          {
+            "rowId": "p31/row-147/maxFloors",
+            "field": "maxFloors",
+            "value": 2,
+            "emittedInstead": [
+              0
+            ]
+          },
+          {
+            "rowId": "p31/row-148/maxFloors",
+            "field": "maxFloors",
+            "value": 2,
+            "emittedInstead": [
+              0
+            ]
+          },
+          {
+            "rowId": "p31/row-149/maxFloors",
+            "field": "maxFloors",
+            "value": 3,
+            "emittedInstead": [
+              0
+            ]
+          },
+          {
+            "rowId": "p31/row-150/maxFloors",
+            "field": "maxFloors",
+            "value": 3,
+            "emittedInstead": [
+              0
+            ]
+          },
+          {
+            "rowId": "p31/row-151/maxFloors",
+            "field": "maxFloors",
+            "value": 3,
+            "emittedInstead": [
+              0
+            ]
+          },
+          {
+            "rowId": "p31/row-152/maxFloors",
+            "field": "maxFloors",
+            "value": 3,
+            "emittedInstead": [
+              0
+            ]
+          },
+          {
+            "rowId": "p31/row-153/maxFloors",
+            "field": "maxFloors",
+            "value": 3,
+            "emittedInstead": [
+              0
+            ]
+          }
+        ]
+      },
+      "oracle": {
+        "stratum": "CH-TABLE",
+        "armA": {
+          "truePositives": [
+            {
+              "field": "maxHeight_m",
+              "value": 35
+            },
+            {
+              "field": "maxFloors",
+              "value": 7
+            },
+            {
+              "field": "maxHeight_m",
+              "value": 26
+            },
+            {
+              "field": "maxCoverage",
+              "value": 0.15
+            },
+            {
+              "field": "maxFloors",
+              "value": 5
+            },
+            {
+              "field": "maxHeight_m",
+              "value": 21
+            },
+            {
+              "field": "maxCoverage",
+              "value": 0.2
+            },
+            {
+              "field": "maxFloors",
+              "value": 2
+            },
+            {
+              "field": "maxFloors",
+              "value": 3
+            },
+            {
+              "field": "maxFloors",
+              "value": 4
+            },
+            {
+              "field": "maxCoverage",
+              "value": 0.25
+            }
+          ],
+          "falsePositives": [],
+          "falseNegatives": [],
+          "precision": 1,
+          "recall": 1,
+          "overstatementCount": 0,
+          "overstatementRate": 0,
+          "emittedCount": 11,
+          "goldClaimCount": 11
+        },
+        "armB": {
+          "matched": [],
+          "valueOnly": [
+            "p26/row-6/maxHeight_m",
+            "p26/row-8/maxFloors",
+            "p26/row-8/maxHeight_m",
+            "p31/row-128/maxCoverage",
+            "p31/row-128/maxFloors",
+            "p31/row-129/maxCoverage",
+            "p31/row-129/maxFloors",
+            "p31/row-130/maxCoverage",
+            "p31/row-130/maxHeight_m",
+            "p31/row-131/maxCoverage",
+            "p31/row-131/maxHeight_m",
+            "p31/row-132/maxCoverage",
+            "p31/row-132/maxFloors",
+            "p31/row-133/maxCoverage",
+            "p31/row-133/maxFloors",
+            "p31/row-134/maxCoverage",
+            "p31/row-134/maxFloors",
+            "p31/row-135/maxCoverage",
+            "p31/row-135/maxFloors",
+            "p31/row-136/maxCoverage",
+            "p31/row-136/maxFloors",
+            "p31/row-137/maxCoverage",
+            "p31/row-137/maxFloors",
+            "p31/row-138/maxCoverage",
+            "p31/row-138/maxFloors",
+            "p31/row-139/maxCoverage",
+            "p31/row-139/maxFloors",
+            "p31/row-140/maxCoverage",
+            "p31/row-140/maxFloors",
+            "p31/row-141/maxCoverage",
+            "p31/row-141/maxFloors",
+            "p31/row-142/maxCoverage",
+            "p31/row-142/maxFloors",
+            "p31/row-143/maxCoverage",
+            "p31/row-143/maxFloors",
+            "p31/row-144/maxCoverage",
+            "p31/row-144/maxFloors",
+            "p31/row-145/maxCoverage",
+            "p31/row-145/maxHeight_m",
+            "p31/row-146/maxCoverage",
+            "p31/row-146/maxFloors",
+            "p31/row-147/maxCoverage",
+            "p31/row-147/maxFloors",
+            "p31/row-148/maxCoverage",
+            "p31/row-148/maxFloors",
+            "p31/row-149/maxCoverage",
+            "p31/row-149/maxFloors",
+            "p31/row-150/maxCoverage",
+            "p31/row-150/maxFloors",
+            "p31/row-151/maxCoverage",
+            "p31/row-151/maxFloors",
+            "p31/row-152/maxCoverage",
+            "p31/row-152/maxFloors",
+            "p31/row-153/maxCoverage",
+            "p31/row-153/maxFloors"
+          ],
+          "missed": [],
+          "unanchorable": [
+            "p26/row-6/maxHeight_m",
+            "p26/row-8/maxFloors",
+            "p26/row-8/maxHeight_m",
+            "p31/row-128/maxCoverage",
+            "p31/row-128/maxFloors",
+            "p31/row-129/maxCoverage",
+            "p31/row-129/maxFloors",
+            "p31/row-130/maxCoverage",
+            "p31/row-130/maxHeight_m",
+            "p31/row-131/maxCoverage",
+            "p31/row-131/maxHeight_m",
+            "p31/row-132/maxCoverage",
+            "p31/row-132/maxFloors",
+            "p31/row-133/maxCoverage",
+            "p31/row-133/maxFloors",
+            "p31/row-134/maxCoverage",
+            "p31/row-134/maxFloors",
+            "p31/row-135/maxCoverage",
+            "p31/row-135/maxFloors",
+            "p31/row-136/maxCoverage",
+            "p31/row-136/maxFloors",
+            "p31/row-137/maxCoverage",
+            "p31/row-137/maxFloors",
+            "p31/row-138/maxCoverage",
+            "p31/row-138/maxFloors",
+            "p31/row-139/maxCoverage",
+            "p31/row-139/maxFloors",
+            "p31/row-140/maxCoverage",
+            "p31/row-140/maxFloors",
+            "p31/row-141/maxCoverage",
+            "p31/row-141/maxFloors",
+            "p31/row-142/maxCoverage",
+            "p31/row-142/maxFloors",
+            "p31/row-143/maxCoverage",
+            "p31/row-143/maxFloors",
+            "p31/row-144/maxCoverage",
+            "p31/row-144/maxFloors",
+            "p31/row-145/maxCoverage",
+            "p31/row-145/maxHeight_m",
+            "p31/row-146/maxCoverage",
+            "p31/row-146/maxFloors",
+            "p31/row-147/maxCoverage",
+            "p31/row-147/maxFloors",
+            "p31/row-148/maxCoverage",
+            "p31/row-148/maxFloors",
+            "p31/row-149/maxCoverage",
+            "p31/row-149/maxFloors",
+            "p31/row-150/maxCoverage",
+            "p31/row-150/maxFloors",
+            "p31/row-151/maxCoverage",
+            "p31/row-151/maxFloors",
+            "p31/row-152/maxCoverage",
+            "p31/row-152/maxFloors",
+            "p31/row-153/maxCoverage",
+            "p31/row-153/maxFloors"
+          ],
+          "slotRecall": null,
+          "slotDenominator": 0
+        },
+        "labelCounts": {
+          "UNKNOWN": 81,
+          "NUMBER": 55,
+          "NOT-A-PARCEL-RULE": 27
+        },
+        "silentLosses": []
+      },
+      "slots": {
+        "matched": [
+          "p26/row-6/maxHeight_m",
+          "p26/row-8/maxFloors",
+          "p26/row-8/maxHeight_m",
+          "p31/row-128/maxCoverage",
+          "p31/row-128/maxFloors",
+          "p31/row-129/maxCoverage",
+          "p31/row-129/maxFloors",
+          "p31/row-130/maxCoverage",
+          "p31/row-130/maxHeight_m",
+          "p31/row-131/maxCoverage",
+          "p31/row-131/maxHeight_m",
+          "p31/row-132/maxCoverage",
+          "p31/row-132/maxFloors",
+          "p31/row-133/maxCoverage",
+          "p31/row-133/maxFloors",
+          "p31/row-134/maxCoverage",
+          "p31/row-134/maxFloors",
+          "p31/row-135/maxCoverage",
+          "p31/row-135/maxFloors",
+          "p31/row-136/maxCoverage",
+          "p31/row-136/maxFloors",
+          "p31/row-137/maxCoverage",
+          "p31/row-137/maxFloors",
+          "p31/row-138/maxCoverage",
+          "p31/row-138/maxFloors",
+          "p31/row-139/maxCoverage",
+          "p31/row-139/maxFloors",
+          "p31/row-140/maxCoverage",
+          "p31/row-140/maxFloors",
+          "p31/row-141/maxCoverage",
+          "p31/row-141/maxFloors",
+          "p31/row-142/maxCoverage",
+          "p31/row-142/maxFloors",
+          "p31/row-143/maxCoverage",
+          "p31/row-143/maxFloors",
+          "p31/row-144/maxCoverage",
+          "p31/row-144/maxFloors",
+          "p31/row-145/maxCoverage",
+          "p31/row-145/maxHeight_m",
+          "p31/row-146/maxCoverage",
+          "p31/row-146/maxFloors",
+          "p31/row-147/maxCoverage",
+          "p31/row-147/maxFloors",
+          "p31/row-148/maxCoverage",
+          "p31/row-148/maxFloors",
+          "p31/row-149/maxCoverage",
+          "p31/row-149/maxFloors",
+          "p31/row-150/maxCoverage",
+          "p31/row-150/maxFloors",
+          "p31/row-151/maxCoverage",
+          "p31/row-151/maxFloors",
+          "p31/row-152/maxCoverage",
+          "p31/row-152/maxFloors",
+          "p31/row-153/maxCoverage",
+          "p31/row-153/maxFloors"
+        ],
+        "wrongValue": [],
+        "missed": [],
+        "denominator": 55,
+        "recall": 1,
+        "onUnknownCell": []
+      },
+      "tier": {
+        "total": 55,
+        "tier4": 55,
+        "aiExtracted": 55,
+        "notChecked": 55,
+        "autoAccepted": 54,
+        "breaches": []
+      },
+      "evidence": {
+        "total": 55,
+        "withSpan": 55,
+        "spanFoundInSource": 55,
+        "withPage": 55,
+        "withCell": 55,
+        "failures": []
+      },
+      "reasons": [
+        [
+          "not-in-document",
+          81
+        ]
+      ],
+      "withheld": []
+    },
+    "CH-PROSE": {
+      "stratum": {
+        "id": "CH-PROSE",
+        "label": "Luzern BZR — body articles Art. 7–13 and Art. 26–28 (prose)",
+        "documentUrl": "https://geoshop.lu.ch/pdf/luze_BZR.pdf",
+        "sha256": "26945c0f1a1d95d67a0c9a4d5a05c47c1fff517f2ea2196d97bda43547e3de67",
+        "pages": [
+          5,
+          6,
+          7,
+          15
+        ],
+        "selectionRule": "The body pages carrying the zone articles (Art. 7–13) and the height article (Art. 26–28). A CONTENT-DIRECTED selection, declared as such.",
+        "declaredBias": [
+          "Selected because these pages carry rules. Supports precision and failure-shape statements; does NOT support a document-level recall figure.",
+          "Swiss German legal vocabulary against a grammar authored for German (DE) Festsetzungen — the mismatch is the measurement, not a defect of the corpus."
+        ],
+        "valueShape": "prose",
+        "ingestionPath": "born-digital-text",
+        "country": "CH",
+        "sample": "out-of-sample"
+      },
+      "score": {
+        "stratum": "CH-PROSE",
+        "armA": {
+          "truePositives": [],
+          "falsePositives": [],
+          "falseNegatives": [
+            {
+              "field": "maxHeight_m",
+              "value": 21,
+              "rows": [
+                "ch-prose/p7-art11-sportarena-21/maxHeight_m",
+                "ch-prose/p15-art26-fassadenhoehe-21/maxHeight_m"
+              ]
+            },
+            {
+              "field": "maxHeight_m",
+              "value": 24,
+              "rows": [
+                "ch-prose/p7-art11-breitensport-24/maxHeight_m",
+                "ch-prose/p15-art26-zone105-24/maxHeight_m"
+              ]
+            },
+            {
+              "field": "maxHeight_m",
+              "value": 88,
+              "rows": [
+                "ch-prose/p7-art11-hochhaeuser-88/maxHeight_m"
+              ]
+            },
+            {
+              "field": "maxHeight_m",
+              "value": 27,
+              "rows": [
+                "ch-prose/p15-art26-firsthoehe-27/maxHeight_m"
+              ]
+            },
+            {
+              "field": "maxFloors",
+              "value": 6,
+              "rows": [
+                "ch-prose/p15-art26-sechs-vollgeschosse/maxFloors"
+              ]
+            }
+          ],
+          "precision": null,
+          "recall": 0,
+          "overstatementCount": 0,
+          "overstatementRate": null,
+          "emittedCount": 0,
+          "goldClaimCount": 5
+        },
+        "armB": {
+          "matched": [],
+          "valueOnly": [],
+          "missed": [
+            "ch-prose/p7-art11-sportarena-21/maxHeight_m",
+            "ch-prose/p7-art11-breitensport-24/maxHeight_m",
+            "ch-prose/p7-art11-hochhaeuser-88/maxHeight_m",
+            "ch-prose/p15-art26-fassadenhoehe-21/maxHeight_m",
+            "ch-prose/p15-art26-firsthoehe-27/maxHeight_m",
+            "ch-prose/p15-art26-sechs-vollgeschosse/maxFloors",
+            "ch-prose/p15-art26-zone105-24/maxHeight_m"
+          ],
+          "unanchorable": [],
+          "slotRecall": 0,
+          "slotDenominator": 7
+        },
+        "labelCounts": {
+          "RULE-NOT-VALUE": 4,
+          "NOT-A-PARCEL-RULE": 5,
+          "NUMBER": 7
+        },
+        "silentLosses": []
+      },
+      "scrambled": {
+        "stratum": "CH-PROSE",
+        "armA": {
+          "truePositives": [],
+          "falsePositives": [],
+          "falseNegatives": [
+            {
+              "field": "maxHeight_m",
+              "value": 21,
+              "rows": [
+                "ch-prose/p7-art11-sportarena-21/maxHeight_m",
+                "ch-prose/p15-art26-fassadenhoehe-21/maxHeight_m"
+              ]
+            },
+            {
+              "field": "maxHeight_m",
+              "value": 24,
+              "rows": [
+                "ch-prose/p7-art11-breitensport-24/maxHeight_m",
+                "ch-prose/p15-art26-zone105-24/maxHeight_m"
+              ]
+            },
+            {
+              "field": "maxHeight_m",
+              "value": 88,
+              "rows": [
+                "ch-prose/p7-art11-hochhaeuser-88/maxHeight_m"
+              ]
+            },
+            {
+              "field": "maxHeight_m",
+              "value": 27,
+              "rows": [
+                "ch-prose/p15-art26-firsthoehe-27/maxHeight_m"
+              ]
+            },
+            {
+              "field": "maxFloors",
+              "value": 6,
+              "rows": [
+                "ch-prose/p15-art26-sechs-vollgeschosse/maxFloors"
+              ]
+            }
+          ],
+          "precision": null,
+          "recall": 0,
+          "overstatementCount": 0,
+          "overstatementRate": null,
+          "emittedCount": 0,
+          "goldClaimCount": 5
+        },
+        "armB": {
+          "matched": [],
+          "valueOnly": [],
+          "missed": [
+            "ch-prose/p7-art11-sportarena-21/maxHeight_m",
+            "ch-prose/p7-art11-breitensport-24/maxHeight_m",
+            "ch-prose/p7-art11-hochhaeuser-88/maxHeight_m",
+            "ch-prose/p15-art26-fassadenhoehe-21/maxHeight_m",
+            "ch-prose/p15-art26-firsthoehe-27/maxHeight_m",
+            "ch-prose/p15-art26-sechs-vollgeschosse/maxFloors",
+            "ch-prose/p15-art26-zone105-24/maxHeight_m"
+          ],
+          "unanchorable": [],
+          "slotRecall": 0,
+          "slotDenominator": 7
+        },
+        "labelCounts": {
+          "RULE-NOT-VALUE": 4,
+          "NOT-A-PARCEL-RULE": 5,
+          "NUMBER": 7
+        },
+        "silentLosses": []
+      },
+      "oracle": {
+        "stratum": "CH-PROSE",
+        "armA": {
+          "truePositives": [
+            {
+              "field": "maxHeight_m",
+              "value": 21
+            },
+            {
+              "field": "maxHeight_m",
+              "value": 24
+            },
+            {
+              "field": "maxHeight_m",
+              "value": 88
+            },
+            {
+              "field": "maxHeight_m",
+              "value": 27
+            },
+            {
+              "field": "maxFloors",
+              "value": 6
+            }
+          ],
+          "falsePositives": [],
+          "falseNegatives": [],
+          "precision": 1,
+          "recall": 1,
+          "overstatementCount": 0,
+          "overstatementRate": 0,
+          "emittedCount": 5,
+          "goldClaimCount": 5
+        },
+        "armB": {
+          "matched": [
+            "ch-prose/p7-art11-sportarena-21/maxHeight_m",
+            "ch-prose/p7-art11-breitensport-24/maxHeight_m",
+            "ch-prose/p7-art11-hochhaeuser-88/maxHeight_m",
+            "ch-prose/p15-art26-fassadenhoehe-21/maxHeight_m",
+            "ch-prose/p15-art26-firsthoehe-27/maxHeight_m",
+            "ch-prose/p15-art26-sechs-vollgeschosse/maxFloors",
+            "ch-prose/p15-art26-zone105-24/maxHeight_m"
+          ],
+          "valueOnly": [],
+          "missed": [],
+          "unanchorable": [],
+          "slotRecall": 1,
+          "slotDenominator": 7
+        },
+        "labelCounts": {
+          "RULE-NOT-VALUE": 4,
+          "NOT-A-PARCEL-RULE": 5,
+          "NUMBER": 7
+        },
+        "silentLosses": []
+      },
+      "slots": {
+        "matched": [],
+        "wrongValue": [],
+        "missed": [],
+        "denominator": 0,
+        "recall": null,
+        "onUnknownCell": []
+      },
+      "tier": {
+        "total": 0,
+        "tier4": 0,
+        "aiExtracted": 0,
+        "notChecked": 0,
+        "autoAccepted": 0,
+        "breaches": []
+      },
+      "evidence": {
+        "total": 0,
+        "withSpan": 0,
+        "spanFoundInSource": 0,
+        "withPage": 0,
+        "withCell": 0,
+        "failures": []
+      },
+      "reasons": [
+        [
+          "not-in-document",
+          4
+        ]
+      ],
+      "withheld": []
+    },
+    "DE-PROSE": {
+      "stratum": {
+        "id": "DE-PROSE",
+        "label": "Berlin B-Plan 1-19 (Begründung) — §II.4.3 Maß der baulichen Nutzung + Höhenfestsetzungen",
+        "documentUrl": "https://fbinter.stadt-berlin.de/ScansBPlan/Begruendungen/0100019_1-19.pdf",
+        "sha256": "449b9a213876bd5d12da9ac8fe828b87ef4f5ffd291db8872b28ff8e38a5e86a",
+        "pages": [
+          71,
+          72,
+          73,
+          74,
+          75
+        ],
+        "selectionRule": "The plan was drawn by a stated, outcome-independent rule: the first `.pdf` grund_www in Berlin WFS order (bplan:b_bp_fs, STARTINDEX=0, COUNT=300) after the two plans the German grammar was authored against (1-14, 8-30) that classified born-digital-text. The pages are the span of the document's OWN section heading \"II.4.3. Maß der baulichen Nutzung\" through the end of \"Höhenfestsetzungen\".",
+        "declaredBias": [
+          "One plan, one city. A Begründung is argumentative prose, so it carries far more non-binding numbers than a Festsetzungstext would — this stratum is harder than average, deliberately.",
+          "The section is rule-bearing by construction, so it measures precision and failure shape, not document-level recall."
+        ],
+        "valueShape": "prose",
+        "ingestionPath": "born-digital-text",
+        "country": "DE",
+        "sample": "out-of-sample"
+      },
+      "score": {
+        "stratum": "DE-PROSE",
+        "armA": {
+          "truePositives": [],
+          "falsePositives": [
+            {
+              "field": "maxCoverage",
+              "value": 0.7,
+              "klass": "named-trap",
+              "overstates": false,
+              "namedBy": "de-prose/p71-so-grz-07/maxCoverage",
+              "sentences": [
+                "umfassen und bezogen auf das gesamte Sondergebiet eine GRZ von 0,7 ergeben."
+              ]
+            },
+            {
+              "field": "maxFAR",
+              "value": 3.2,
+              "klass": "named-trap",
+              "overstates": true,
+              "namedBy": "de-prose/p72-gfz-32-berechnet/maxFAR",
+              "sentences": [
+                "privaten Parkanlagen umfasst, ergibt sich nach Maßgabe von § 20 BauNVO eine GFZ von 3,2."
+              ]
+            },
+            {
+              "field": "maxHeight_m",
+              "value": 72.2,
+              "klass": "named-trap",
+              "overstates": true,
+              "namedBy": "de-prose/p74-baufeld-722/maxHeight_m",
+              "sentences": [
+                "Gebäudeoberkante von bis zu 72,2 m über NHN möglich."
+              ]
+            }
+          ],
+          "falseNegatives": [
+            {
+              "field": "maxCoverage",
+              "value": 0.6,
+              "rows": [
+                "de-prose/p71-wa-mi-grz-06/maxCoverage",
+                "de-prose/p72-tf10-festgesetzte-06/maxCoverage"
+              ]
+            },
+            {
+              "field": "maxCoverage",
+              "value": 0.8,
+              "rows": [
+                "de-prose/p71-bwk-grz-08/maxCoverage"
+              ]
+            },
+            {
+              "field": "maxCoverage",
+              "value": 0.3,
+              "rows": [
+                "de-prose/p72-kita-grz-03/maxCoverage"
+              ]
+            },
+            {
+              "field": "maxFAR",
+              "value": 3,
+              "rows": [
+                "de-prose/p73-mi-gbf-gfz-30/maxFAR",
+                "de-prose/p73-wa1-gfz-30/maxFAR"
+              ]
+            },
+            {
+              "field": "maxFAR",
+              "value": 2,
+              "rows": [
+                "de-prose/p73-wa2-wa3-gfz-20/maxFAR"
+              ]
+            },
+            {
+              "field": "maxFAR",
+              "value": 1,
+              "rows": [
+                "de-prose/p74-kita-gfz-10/maxFAR"
+              ]
+            },
+            {
+              "field": "maxHeight_m",
+              "value": 21.8,
+              "rows": [
+                "de-prose/p74-hoechstmass-218/maxHeight_m"
+              ]
+            },
+            {
+              "field": "maxHeight_m",
+              "value": 18.8,
+              "rows": [
+                "de-prose/p75-uebrige-th-188/maxHeight_m"
+              ]
+            }
+          ],
+          "precision": 0,
+          "recall": 0,
+          "overstatementCount": 2,
+          "overstatementRate": 0.6666666666666666,
+          "emittedCount": 3,
+          "goldClaimCount": 8
+        },
+        "armB": {
+          "matched": [],
+          "valueOnly": [],
+          "missed": [
+            "de-prose/p71-wa-mi-grz-06/maxCoverage",
+            "de-prose/p71-bwk-grz-08/maxCoverage",
+            "de-prose/p72-tf10-festgesetzte-06/maxCoverage",
+            "de-prose/p72-kita-grz-03/maxCoverage",
+            "de-prose/p73-mi-gbf-gfz-30/maxFAR",
+            "de-prose/p73-wa1-gfz-30/maxFAR",
+            "de-prose/p73-wa2-wa3-gfz-20/maxFAR",
+            "de-prose/p74-kita-gfz-10/maxFAR",
+            "de-prose/p74-hoechstmass-218/maxHeight_m",
+            "de-prose/p75-uebrige-th-188/maxHeight_m"
+          ],
+          "unanchorable": [],
+          "slotRecall": 0,
+          "slotDenominator": 10
+        },
+        "labelCounts": {
+          "NOT-A-PARCEL-RULE": 25,
+          "NUMBER": 10,
+          "RULE-NOT-VALUE": 1,
+          "UNKNOWN": 3
+        },
+        "silentLosses": [
+          {
+            "rowId": "de-prose/p71-wa-mi-grz-06/maxCoverage",
+            "field": "maxCoverage",
+            "value": 0.6,
+            "emittedInstead": [
+              0.7
+            ]
+          },
+          {
+            "rowId": "de-prose/p71-bwk-grz-08/maxCoverage",
+            "field": "maxCoverage",
+            "value": 0.8,
+            "emittedInstead": [
+              0.7
+            ]
+          },
+          {
+            "rowId": "de-prose/p72-tf10-festgesetzte-06/maxCoverage",
+            "field": "maxCoverage",
+            "value": 0.6,
+            "emittedInstead": [
+              0.7
+            ]
+          },
+          {
+            "rowId": "de-prose/p72-kita-grz-03/maxCoverage",
+            "field": "maxCoverage",
+            "value": 0.3,
+            "emittedInstead": [
+              0.7
+            ]
+          },
+          {
+            "rowId": "de-prose/p73-mi-gbf-gfz-30/maxFAR",
+            "field": "maxFAR",
+            "value": 3,
+            "emittedInstead": [
+              3.2
+            ]
+          },
+          {
+            "rowId": "de-prose/p73-wa1-gfz-30/maxFAR",
+            "field": "maxFAR",
+            "value": 3,
+            "emittedInstead": [
+              3.2
+            ]
+          },
+          {
+            "rowId": "de-prose/p73-wa2-wa3-gfz-20/maxFAR",
+            "field": "maxFAR",
+            "value": 2,
+            "emittedInstead": [
+              3.2
+            ]
+          },
+          {
+            "rowId": "de-prose/p74-kita-gfz-10/maxFAR",
+            "field": "maxFAR",
+            "value": 1,
+            "emittedInstead": [
+              3.2
+            ]
+          },
+          {
+            "rowId": "de-prose/p74-hoechstmass-218/maxHeight_m",
+            "field": "maxHeight_m",
+            "value": 21.8,
+            "emittedInstead": [
+              72.2
+            ]
+          },
+          {
+            "rowId": "de-prose/p75-uebrige-th-188/maxHeight_m",
+            "field": "maxHeight_m",
+            "value": 18.8,
+            "emittedInstead": [
+              72.2
+            ]
+          }
+        ]
+      },
+      "scrambled": {
+        "stratum": "DE-PROSE",
+        "armA": {
+          "truePositives": [],
+          "falsePositives": [
+            {
+              "field": "maxCoverage",
+              "value": 7,
+              "klass": "unlisted",
+              "overstates": true,
+              "namedBy": null,
+              "sentences": [
+                "umfassen und bezogen auf das gesamte Sondergebiet eine GRZ von 7,0 ergeben."
+              ]
+            },
+            {
+              "field": "maxFAR",
+              "value": 6.9,
+              "klass": "unlisted",
+              "overstates": true,
+              "namedBy": null,
+              "sentences": [
+                "privaten Parkanlagen umfasst, ergibt sich nach Maßgabe von § 97 BauNVO eine GFZ von 6,9."
+              ]
+            },
+            {
+              "field": "maxHeight_m",
+              "value": 9.9,
+              "klass": "unlisted",
+              "overstates": false,
+              "namedBy": null,
+              "sentences": [
+                "Gebäudeoberkante von bis zu 09,9 m über NHN möglich."
+              ]
+            }
+          ],
+          "falseNegatives": [
+            {
+              "field": "maxCoverage",
+              "value": 0.6,
+              "rows": [
+                "de-prose/p71-wa-mi-grz-06/maxCoverage",
+                "de-prose/p72-tf10-festgesetzte-06/maxCoverage"
+              ]
+            },
+            {
+              "field": "maxCoverage",
+              "value": 0.8,
+              "rows": [
+                "de-prose/p71-bwk-grz-08/maxCoverage"
+              ]
+            },
+            {
+              "field": "maxCoverage",
+              "value": 0.3,
+              "rows": [
+                "de-prose/p72-kita-grz-03/maxCoverage"
+              ]
+            },
+            {
+              "field": "maxFAR",
+              "value": 3,
+              "rows": [
+                "de-prose/p73-mi-gbf-gfz-30/maxFAR",
+                "de-prose/p73-wa1-gfz-30/maxFAR"
+              ]
+            },
+            {
+              "field": "maxFAR",
+              "value": 2,
+              "rows": [
+                "de-prose/p73-wa2-wa3-gfz-20/maxFAR"
+              ]
+            },
+            {
+              "field": "maxFAR",
+              "value": 1,
+              "rows": [
+                "de-prose/p74-kita-gfz-10/maxFAR"
+              ]
+            },
+            {
+              "field": "maxHeight_m",
+              "value": 21.8,
+              "rows": [
+                "de-prose/p74-hoechstmass-218/maxHeight_m"
+              ]
+            },
+            {
+              "field": "maxHeight_m",
+              "value": 18.8,
+              "rows": [
+                "de-prose/p75-uebrige-th-188/maxHeight_m"
+              ]
+            }
+          ],
+          "precision": 0,
+          "recall": 0,
+          "overstatementCount": 2,
+          "overstatementRate": 0.6666666666666666,
+          "emittedCount": 3,
+          "goldClaimCount": 8
+        },
+        "armB": {
+          "matched": [],
+          "valueOnly": [],
+          "missed": [
+            "de-prose/p71-wa-mi-grz-06/maxCoverage",
+            "de-prose/p71-bwk-grz-08/maxCoverage",
+            "de-prose/p72-tf10-festgesetzte-06/maxCoverage",
+            "de-prose/p72-kita-grz-03/maxCoverage",
+            "de-prose/p73-mi-gbf-gfz-30/maxFAR",
+            "de-prose/p73-wa1-gfz-30/maxFAR",
+            "de-prose/p73-wa2-wa3-gfz-20/maxFAR",
+            "de-prose/p74-kita-gfz-10/maxFAR",
+            "de-prose/p74-hoechstmass-218/maxHeight_m",
+            "de-prose/p75-uebrige-th-188/maxHeight_m"
+          ],
+          "unanchorable": [],
+          "slotRecall": 0,
+          "slotDenominator": 10
+        },
+        "labelCounts": {
+          "NOT-A-PARCEL-RULE": 25,
+          "NUMBER": 10,
+          "RULE-NOT-VALUE": 1,
+          "UNKNOWN": 3
+        },
+        "silentLosses": [
+          {
+            "rowId": "de-prose/p71-wa-mi-grz-06/maxCoverage",
+            "field": "maxCoverage",
+            "value": 0.6,
+            "emittedInstead": [
+              7
+            ]
+          },
+          {
+            "rowId": "de-prose/p71-bwk-grz-08/maxCoverage",
+            "field": "maxCoverage",
+            "value": 0.8,
+            "emittedInstead": [
+              7
+            ]
+          },
+          {
+            "rowId": "de-prose/p72-tf10-festgesetzte-06/maxCoverage",
+            "field": "maxCoverage",
+            "value": 0.6,
+            "emittedInstead": [
+              7
+            ]
+          },
+          {
+            "rowId": "de-prose/p72-kita-grz-03/maxCoverage",
+            "field": "maxCoverage",
+            "value": 0.3,
+            "emittedInstead": [
+              7
+            ]
+          },
+          {
+            "rowId": "de-prose/p73-mi-gbf-gfz-30/maxFAR",
+            "field": "maxFAR",
+            "value": 3,
+            "emittedInstead": [
+              6.9
+            ]
+          },
+          {
+            "rowId": "de-prose/p73-wa1-gfz-30/maxFAR",
+            "field": "maxFAR",
+            "value": 3,
+            "emittedInstead": [
+              6.9
+            ]
+          },
+          {
+            "rowId": "de-prose/p73-wa2-wa3-gfz-20/maxFAR",
+            "field": "maxFAR",
+            "value": 2,
+            "emittedInstead": [
+              6.9
+            ]
+          },
+          {
+            "rowId": "de-prose/p74-kita-gfz-10/maxFAR",
+            "field": "maxFAR",
+            "value": 1,
+            "emittedInstead": [
+              6.9
+            ]
+          },
+          {
+            "rowId": "de-prose/p74-hoechstmass-218/maxHeight_m",
+            "field": "maxHeight_m",
+            "value": 21.8,
+            "emittedInstead": [
+              9.9
+            ]
+          },
+          {
+            "rowId": "de-prose/p75-uebrige-th-188/maxHeight_m",
+            "field": "maxHeight_m",
+            "value": 18.8,
+            "emittedInstead": [
+              9.9
+            ]
+          }
+        ]
+      },
+      "oracle": {
+        "stratum": "DE-PROSE",
+        "armA": {
+          "truePositives": [
+            {
+              "field": "maxCoverage",
+              "value": 0.6
+            },
+            {
+              "field": "maxCoverage",
+              "value": 0.8
+            },
+            {
+              "field": "maxCoverage",
+              "value": 0.3
+            },
+            {
+              "field": "maxFAR",
+              "value": 3
+            },
+            {
+              "field": "maxFAR",
+              "value": 2
+            },
+            {
+              "field": "maxFAR",
+              "value": 1
+            },
+            {
+              "field": "maxHeight_m",
+              "value": 21.8
+            },
+            {
+              "field": "maxHeight_m",
+              "value": 18.8
+            }
+          ],
+          "falsePositives": [],
+          "falseNegatives": [],
+          "precision": 1,
+          "recall": 1,
+          "overstatementCount": 0,
+          "overstatementRate": 0,
+          "emittedCount": 8,
+          "goldClaimCount": 8
+        },
+        "armB": {
+          "matched": [
+            "de-prose/p71-wa-mi-grz-06/maxCoverage",
+            "de-prose/p71-bwk-grz-08/maxCoverage",
+            "de-prose/p72-tf10-festgesetzte-06/maxCoverage",
+            "de-prose/p72-kita-grz-03/maxCoverage",
+            "de-prose/p73-mi-gbf-gfz-30/maxFAR",
+            "de-prose/p73-wa1-gfz-30/maxFAR",
+            "de-prose/p73-wa2-wa3-gfz-20/maxFAR",
+            "de-prose/p74-kita-gfz-10/maxFAR",
+            "de-prose/p74-hoechstmass-218/maxHeight_m",
+            "de-prose/p75-uebrige-th-188/maxHeight_m"
+          ],
+          "valueOnly": [],
+          "missed": [],
+          "unanchorable": [],
+          "slotRecall": 1,
+          "slotDenominator": 10
+        },
+        "labelCounts": {
+          "NOT-A-PARCEL-RULE": 25,
+          "NUMBER": 10,
+          "RULE-NOT-VALUE": 1,
+          "UNKNOWN": 3
+        },
+        "silentLosses": []
+      },
+      "slots": {
+        "matched": [],
+        "wrongValue": [],
+        "missed": [],
+        "denominator": 0,
+        "recall": null,
+        "onUnknownCell": []
+      },
+      "tier": {
+        "total": 3,
+        "tier4": 3,
+        "aiExtracted": 3,
+        "notChecked": 3,
+        "autoAccepted": 1,
+        "breaches": []
+      },
+      "evidence": {
+        "total": 3,
+        "withSpan": 3,
+        "spanFoundInSource": 3,
+        "withPage": 3,
+        "withCell": 0,
+        "failures": []
+      },
+      "reasons": [
+        [
+          "not-in-document",
+          1
+        ]
+      ],
+      "withheld": []
+    }
+  }
+}

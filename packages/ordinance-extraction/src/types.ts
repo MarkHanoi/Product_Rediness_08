@@ -63,6 +63,16 @@ export const GateNameSchema = z.enum([
     // checking a value against its own source text. It is therefore a whole-
     // envelope gate, not a per-value one (see `envelope/coherence.ts`).
     'coherence',
+    // `containment` asks whether a span a model CLAIMS to have quoted is actually
+    // in the source document — the anti-FABRICATION check ported from NREL
+    // COMPASS's `sentence_ngram_containment` (see `gates/containment.ts`). Added
+    // to this CLOSED vocabulary rather than passed as a free string, because "a
+    // typo'd gate name is a silent no-check" is this enum's whole reason to exist.
+    'containment',
+    // `qualifier` asks whether every semantic qualifier present in the cited span
+    // survived into the emitted claim — the anti-OMISSION check COMPASS does NOT
+    // have, and the executable form of E4 control 8 (see `gates/qualifierSurvival.ts`).
+    'qualifier',
 ]);
 export type GateName = z.infer<typeof GateNameSchema>;
 

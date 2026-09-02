@@ -1,0 +1,17 @@
+npm warn Unknown project config "package-manager-strict". This will stop working in the next major version of npm. See `npm help npmrc` for supported config options.
+
+═══ WHAT SHIPS TODAY — no German lexicon exists in the package (0 qualifier pattern(s)) ═══
+  maxCoverage=0.7  autoAccepted=true  goldSaysNotAParcelRule=true  flags: (none)
+  maxFAR=3.2  autoAccepted=false  goldSaysNotAParcelRule=true
+      flags: maxFAR = 3.2 OUT OF [0.2, 3] — likely a units/locale/OCR shift; route to human.
+  maxHeight_m=72.2  autoAccepted=true  goldSaysNotAParcelRule=true  flags: (none)
+  ⛔ AUTO-ACCEPTED **WRONG** CLAIMS: 2 of 3
+
+═══ WITH THIS LANE'S TRIAL LEXICON — not a product artefact (10 qualifier pattern(s)) ═══
+  maxCoverage=0.7  autoAccepted=true  goldSaysNotAParcelRule=true  flags: (none)
+  maxFAR=3.2  autoAccepted=false  goldSaysNotAParcelRule=true
+      flags: maxFAR = 3.2 OUT OF [0.2, 3] — likely a units/locale/OCR shift; route to human. | 1 of 1 qualifier(s) in the cited span did NOT survive into any typed seat: de-ergibt-sich("ergibt sich", condition — the number is a COMPUTED CONSEQUENCE of other festgesetzte values, not itself a Festsetzung — republishing it as a rule states a derivation as a determination.). Publishing the value without them would state as unconditional what the ordinance states conditionally (control 8 / L-616).
+  maxHeight_m=72.2  autoAccepted=false  goldSaysNotAParcelRule=true
+      flags: 2 of 2 qualifier(s) in the cited span did NOT survive into any typed seat: de-bis-zu("bis zu", bound — "bis zu X" is a permitted RANGE ending at X, not a determination of X.); de-ueber-nhn("über NHN", bound — the height is an ABSOLUTE ELEVATION over a vertical datum, NOT a building height. Treating "55,0 m über NHN" as a 55 m building is the L-584 datum defect in its purest form.). Publishing the value without them would state as unconditional what the ordinance states conditionally (control 8 / L-616).
+  ⛔ AUTO-ACCEPTED **WRONG** CLAIMS: 1 of 3
+RC=0

@@ -1,0 +1,28 @@
+npm warn Unknown project config "package-manager-strict". This will stop working in the next major version of npm. See `npm help npmrc` for supported config options.
+── Layer 1: acquisition ──
+  OK 594,982 bytes sha256=26945c0f1a1d95d6… cached=true
+── Layer 2+3: page geometry ──
+  pages=11/46 producer=Microsoft® Word für Microsoft 365
+── Layer 4: canonical document ──
+  digitisation=born-digital-text sections=56 tables=10 (confident 8, withheld 2)
+  ⚠ FALSIFICATION CONTROL: hallucinating span retriever installed
+── Spine ──
+  outcome.kind = ran
+  claims=0  nothingFound=4  withheldTables=2
+
+  ── NOTHING FOUND maxCoverage: reason=span-not-contained
+     Every span "falsification:hallucinating-retriever" returned for maxCoverage FAILED containment against the source document after 1 attempt(s): the text is not in the document. Refused — a fabricated quote must never become a number.
+
+  ── NOTHING FOUND maxFAR: reason=span-not-contained
+     Every span "falsification:hallucinating-retriever" returned for maxFAR FAILED containment against the source document after 1 attempt(s): the text is not in the document. Refused — a fabricated quote must never become a number.
+
+  ── NOTHING FOUND maxFloors: reason=span-not-contained
+     Every span "falsification:hallucinating-retriever" returned for maxFloors FAILED containment against the source document after 1 attempt(s): the text is not in the document. Refused — a fabricated quote must never become a number.
+
+  ── NOTHING FOUND maxHeight_m: reason=span-not-contained
+     Every span "falsification:hallucinating-retriever" returned for maxHeight_m FAILED containment against the source document after 1 attempt(s): the text is not in the document. Refused — a fabricated quote must never become a number.
+
+  ── WITHHELD TABLE p34: NOT confidently reconstructed (unsnapped-cells) — 9 anchor(s), 20 candidate body row(s), 8 item(s) fitting no column. Rows withheld: an unreconstructed grid is reported, never emitted as plausible rows.
+
+  ── WITHHELD TABLE p35: NOT confidently reconstructed (unsnapped-cells) — 9 anchor(s), 5 candidate body row(s), 5 item(s) fitting no column. Rows withheld: an unreconstructed grid is reported, never emitted as plausible rows.
+RC=0

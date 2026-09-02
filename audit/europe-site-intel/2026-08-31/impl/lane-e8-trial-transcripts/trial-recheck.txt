@@ -1,0 +1,273 @@
+npm warn Unknown project config "package-manager-strict". This will stop working in the next major version of npm. See `npm help npmrc` for supported config options.
+═══════════════════════════════════════════════════════════════════════════
+ E8-TRIAL — measured precision trial of the EXISTING ordinance spine
+ gold set e8-trial-1 · authored 2026-09-01
+ ⛔ humanConfirmed = false — this is a SELF-ASSESSMENT, not a validated figure
+═══════════════════════════════════════════════════════════════════════════
+
+
+───────────────────────────────────────────────────────────────────────────
+STRATUM CH-TABLE — Luzern BZR — Anhang 1 Zonen- und Dichtebestimmungen (table cells)
+  document      https://geoshop.lu.ch/pdf/luze_BZR.pdf
+  sha256        26945c0f1a1d95d67a0c9a4d5a05c47c1fff517f2ea2196d97bda43547e3de67
+  pages         26, 31
+  shape         table-cell · path born-digital-text · CH · out-of-sample
+  selected by   Anhang 1 spans PDF pages 26–36. Page 26 = its FIRST page; page 31 = its SIXTH. Both chosen by POSITION in the annex, before any value was read, and neither because it parsed or was rich. Every zone row on both pages is in the set — none was dropped.
+  ⚠ bias        Two of eleven annex pages, so the stratum is not a random draw from the annex.
+  ⚠ bias        A single canton and a single municipality; nothing here supports a claim about Swiss corpora generally.
+  ⚠ bias        The ÜZ → maxCoverage mapping is an INTERPRETATION (the reglement never defines Überbauungsziffer); a Swiss planner must confirm it.
+
+  GOLD SET (the denominators, stated)
+    UNKNOWN              81 row(s)
+    NUMBER               55 row(s)
+    NOT-A-PARCEL-RULE    27 row(s)
+    distinct gold (field,value) claims: 11
+
+  CONTROL 1 — ORACLE (predictions built FROM the gold set; must be 100%/100%)
+    precision 100.0% · recall 100.0%
+    ✓ scorer plumbing verified
+
+  ARM A — CLAIM SET, distinct (field, value) within the stratum
+    emitted           0
+    true positives    0
+    false positives   0 (named traps 0, unlisted 0)
+    false negatives   11
+    PRECISION         n/a   (denominator: 0 emitted claims)
+    RECALL            0.0%   (denominator: 11 gold claims)
+    OVERSTATEMENT     n/a   (0 of 0 emitted claims exceed the gold ceiling)
+
+  ARM B — SLOT, (locator, field, value) — the PRODUCT unit
+    gold NUMBER rows      55
+    anchorable            0
+    ⛔ UNANCHORABLE       55  (table cells: no sentence exists to cite — Stage 3 CanonicalTable is unbuilt)
+    matched               0
+    value seen, wrong/no locator 0
+    missed                0
+    SLOT RECALL           n/a   (denominator: 0 anchorable rows)
+
+  ⭐ SILENT LOSS — gold values dropped by a field that DID emit something else
+    0 of 55 gold NUMBER rows
+
+  CONTROL 2 — SCRAMBLE (every digit remapped; the harness must SCORE WORSE)
+    precision n/a · recall 0.0% · emitted 0
+    ⚠ INCONCLUSIVE for this stratum — the extractor emitted nothing on either input, so the control cannot tell a working harness from a silent one HERE. (It DOES discriminate on the strata where anything was emitted, which is what establishes the harness itself.)
+
+  POWER
+    n = 11 distinct gold claims → 95% half-width ±29.5% (worst case p=0.5, N=10 000)
+    ⛔ BELOW THE 50-PER-STRATUM FLOOR (E8-SCOUT §4.4). Report the DIRECTION, never the percentage.
+
+  ARM C — HONEST-UNKNOWN FIDELITY (control 9: is the REASON right, not just the number?)
+    ⛔ WRONG maxCoverage        gold: the source STATES a value for this field
+                               said: not-stated-in-text
+    ⛔ WRONG maxFloors          gold: the source STATES a value for this field
+                               said: not-stated-in-text
+    ⛔ WRONG maxHeight_m        gold: the source STATES a value for this field
+                               said: not-stated-in-text
+    ✓       maxFAR             gold: the source is genuinely silent on this field
+                               said: not-stated-in-text
+
+  NOTES
+    envelope mapper: 0 resolved (0 auto-accepted) · 0 conflicted · 4 unknown · 0 reject(s) · 2 coherence check(s).
+    range gate on emitted values: 0 of 0 flagged
+
+  FALSE POSITIVES (every one)
+
+  FALSE NEGATIVES (every one)
+    maxHeight_m = 35   gold rows: p26/row-6/maxHeight_m
+    maxFloors = 7   gold rows: p26/row-8/maxFloors
+    maxHeight_m = 26   gold rows: p26/row-8/maxHeight_m
+    maxCoverage = 0.15   gold rows: p31/row-128/maxCoverage, p31/row-129/maxCoverage, p31/row-130/maxCoverage, p31/row-131/maxCoverage
+    maxFloors = 5   gold rows: p31/row-128/maxFloors, p31/row-129/maxFloors, p31/row-143/maxFloors, p31/row-144/maxFloors
+    maxHeight_m = 21   gold rows: p31/row-130/maxHeight_m, p31/row-131/maxHeight_m, p31/row-145/maxHeight_m
+    maxCoverage = 0.2   gold rows: p31/row-132/maxCoverage, p31/row-133/maxCoverage, p31/row-134/maxCoverage, p31/row-135/maxCoverage, p31/row-136/maxCoverage, p31/row-137/maxCoverage, p31/row-138/maxCoverage, p31/row-139/maxCoverage, p31/row-140/maxCoverage, p31/row-141/maxCoverage, p31/row-142/maxCoverage, p31/row-143/maxCoverage, p31/row-144/maxCoverage, p31/row-145/maxCoverage
+    maxFloors = 2   gold rows: p31/row-132/maxFloors, p31/row-133/maxFloors, p31/row-134/maxFloors, p31/row-135/maxFloors, p31/row-146/maxFloors, p31/row-147/maxFloors, p31/row-148/maxFloors
+    maxFloors = 3   gold rows: p31/row-136/maxFloors, p31/row-137/maxFloors, p31/row-138/maxFloors, p31/row-139/maxFloors, p31/row-149/maxFloors, p31/row-150/maxFloors, p31/row-151/maxFloors, p31/row-152/maxFloors, p31/row-153/maxFloors
+    maxFloors = 4   gold rows: p31/row-140/maxFloors, p31/row-141/maxFloors, p31/row-142/maxFloors
+    maxCoverage = 0.25   gold rows: p31/row-146/maxCoverage, p31/row-147/maxCoverage, p31/row-148/maxCoverage, p31/row-149/maxCoverage, p31/row-150/maxCoverage, p31/row-151/maxCoverage, p31/row-152/maxCoverage, p31/row-153/maxCoverage
+
+───────────────────────────────────────────────────────────────────────────
+STRATUM CH-PROSE — Luzern BZR — body articles Art. 7–13 and Art. 26–28 (prose)
+  document      https://geoshop.lu.ch/pdf/luze_BZR.pdf
+  sha256        26945c0f1a1d95d67a0c9a4d5a05c47c1fff517f2ea2196d97bda43547e3de67
+  pages         5, 6, 7, 15
+  shape         prose · path born-digital-text · CH · out-of-sample
+  selected by   The body pages carrying the zone articles (Art. 7–13) and the height article (Art. 26–28). A CONTENT-DIRECTED selection, declared as such.
+  ⚠ bias        Selected because these pages carry rules. Supports precision and failure-shape statements; does NOT support a document-level recall figure.
+  ⚠ bias        Swiss German legal vocabulary against a grammar authored for German (DE) Festsetzungen — the mismatch is the measurement, not a defect of the corpus.
+
+  GOLD SET (the denominators, stated)
+    RULE-NOT-VALUE       4 row(s)
+    NOT-A-PARCEL-RULE    5 row(s)
+    NUMBER               7 row(s)
+    distinct gold (field,value) claims: 5
+
+  CONTROL 1 — ORACLE (predictions built FROM the gold set; must be 100%/100%)
+    precision 100.0% · recall 100.0%
+    ✓ scorer plumbing verified
+
+  ARM A — CLAIM SET, distinct (field, value) within the stratum
+    emitted           1
+    true positives    1
+    false positives   0 (named traps 0, unlisted 0)
+    false negatives   4
+    PRECISION         100.0%   (denominator: 1 emitted claims)
+    RECALL            20.0%   (denominator: 5 gold claims)
+    OVERSTATEMENT     0.0%   (0 of 1 emitted claims exceed the gold ceiling)
+
+  ARM B — SLOT, (locator, field, value) — the PRODUCT unit
+    gold NUMBER rows      7
+    anchorable            7
+    ⛔ UNANCHORABLE       0  (table cells: no sentence exists to cite — Stage 3 CanonicalTable is unbuilt)
+    matched               1
+    value seen, wrong/no locator 0
+    missed                6
+    SLOT RECALL           14.3%   (denominator: 7 anchorable rows)
+
+  ⭐ SILENT LOSS — gold values dropped by a field that DID emit something else
+    5 of 7 gold NUMBER rows
+      maxHeight_m = 21 LOST; the field emitted 27 instead — and recorded NO unknown, because FieldOutcome is per-FIELD, not per-CLAIM.
+      maxHeight_m = 24 LOST; the field emitted 27 instead — and recorded NO unknown, because FieldOutcome is per-FIELD, not per-CLAIM.
+      maxHeight_m = 88 LOST; the field emitted 27 instead — and recorded NO unknown, because FieldOutcome is per-FIELD, not per-CLAIM.
+      maxHeight_m = 21 LOST; the field emitted 27 instead — and recorded NO unknown, because FieldOutcome is per-FIELD, not per-CLAIM.
+      maxHeight_m = 24 LOST; the field emitted 27 instead — and recorded NO unknown, because FieldOutcome is per-FIELD, not per-CLAIM.
+
+  CONTROL 2 — SCRAMBLE (every digit remapped; the harness must SCORE WORSE)
+    precision 0.0% · recall 0.0% · emitted 1
+    ✓ the harness can fail — it is measuring the document, not the shape of the text
+
+  POWER
+    n = 5 distinct gold claims → 95% half-width ±43.8% (worst case p=0.5, N=10 000)
+    ⛔ BELOW THE 50-PER-STRATUM FLOOR (E8-SCOUT §4.4). Report the DIRECTION, never the percentage.
+
+  ARM C — HONEST-UNKNOWN FIDELITY (control 9: is the REASON right, not just the number?)
+    ⛔ WRONG maxCoverage        gold: the field is regulated but its value lives elsewhere (drawing / annex / discretion)
+                               said: not-stated-in-text
+    ⛔ WRONG maxFloors          gold: the source STATES a value for this field
+                               said: not-stated-in-text
+    ·       maxHeight_m        gold: the source STATES a value for this field
+                               said: — (a value was emitted for this field, so no outcome is due)
+    ⛔ BLIND  setback.front      gold: the source is genuinely silent on this field
+                               said: ⛔ NOT SOUGHT — the grammar defines no matcher for this field. No value, no unknown, no trace.
+
+  NOTES
+    envelope mapper: 1 resolved (1 auto-accepted) · 0 conflicted · 3 unknown · 0 reject(s) · 2 coherence check(s).
+    range gate on emitted values: 0 of 1 flagged
+
+  FALSE POSITIVES (every one)
+
+  FALSE NEGATIVES (every one)
+    maxHeight_m = 21   gold rows: ch-prose/p7-art11-sportarena-21/maxHeight_m, ch-prose/p15-art26-fassadenhoehe-21/maxHeight_m
+    maxHeight_m = 24   gold rows: ch-prose/p7-art11-breitensport-24/maxHeight_m, ch-prose/p15-art26-zone105-24/maxHeight_m
+    maxHeight_m = 88   gold rows: ch-prose/p7-art11-hochhaeuser-88/maxHeight_m
+    maxFloors = 6   gold rows: ch-prose/p15-art26-sechs-vollgeschosse/maxFloors
+
+───────────────────────────────────────────────────────────────────────────
+STRATUM DE-PROSE — Berlin B-Plan 1-19 (Begründung) — §II.4.3 Maß der baulichen Nutzung + Höhenfestsetzungen
+  document      https://fbinter.stadt-berlin.de/ScansBPlan/Begruendungen/0100019_1-19.pdf
+  sha256        449b9a213876bd5d12da9ac8fe828b87ef4f5ffd291db8872b28ff8e38a5e86a
+  pages         71, 72, 73, 74, 75
+  shape         prose · path born-digital-text · DE · out-of-sample
+  selected by   The plan was drawn by a stated, outcome-independent rule: the first `.pdf` grund_www in Berlin WFS order (bplan:b_bp_fs, STARTINDEX=0, COUNT=300) after the two plans the German grammar was authored against (1-14, 8-30) that classified born-digital-text. The pages are the span of the document's OWN section heading "II.4.3. Maß der baulichen Nutzung" through the end of "Höhenfestsetzungen".
+  ⚠ bias        One plan, one city. A Begründung is argumentative prose, so it carries far more non-binding numbers than a Festsetzungstext would — this stratum is harder than average, deliberately.
+  ⚠ bias        The section is rule-bearing by construction, so it measures precision and failure shape, not document-level recall.
+
+  GOLD SET (the denominators, stated)
+    NOT-A-PARCEL-RULE    25 row(s)
+    NUMBER               10 row(s)
+    RULE-NOT-VALUE       1 row(s)
+    UNKNOWN              3 row(s)
+    distinct gold (field,value) claims: 8
+
+  CONTROL 1 — ORACLE (predictions built FROM the gold set; must be 100%/100%)
+    precision 100.0% · recall 100.0%
+    ✓ scorer plumbing verified
+
+  ARM A — CLAIM SET, distinct (field, value) within the stratum
+    emitted           12
+    true positives    4
+    false positives   8 (named traps 8, unlisted 0)
+    false negatives   4
+    PRECISION         33.3%   (denominator: 12 emitted claims)
+    RECALL            50.0%   (denominator: 8 gold claims)
+    OVERSTATEMENT     41.7%   (5 of 12 emitted claims exceed the gold ceiling)
+
+  ARM B — SLOT, (locator, field, value) — the PRODUCT unit
+    gold NUMBER rows      10
+    anchorable            10
+    ⛔ UNANCHORABLE       0  (table cells: no sentence exists to cite — Stage 3 CanonicalTable is unbuilt)
+    matched               5
+    value seen, wrong/no locator 1
+    missed                4
+    SLOT RECALL           50.0%   (denominator: 10 anchorable rows)
+
+  ⭐ SILENT LOSS — gold values dropped by a field that DID emit something else
+    4 of 10 gold NUMBER rows
+      maxCoverage = 0.8 LOST; the field emitted 0.7, 0.6 instead — and recorded NO unknown, because FieldOutcome is per-FIELD, not per-CLAIM.
+      maxCoverage = 0.3 LOST; the field emitted 0.7, 0.6 instead — and recorded NO unknown, because FieldOutcome is per-FIELD, not per-CLAIM.
+      maxHeight_m = 21.8 LOST; the field emitted 51.2, 56.2, 72.2, 55 instead — and recorded NO unknown, because FieldOutcome is per-FIELD, not per-CLAIM.
+      maxHeight_m = 18.8 LOST; the field emitted 51.2, 56.2, 72.2, 55 instead — and recorded NO unknown, because FieldOutcome is per-FIELD, not per-CLAIM.
+
+  CONTROL 2 — SCRAMBLE (every digit remapped; the harness must SCORE WORSE)
+    precision 0.0% · recall 0.0% · emitted 12
+    ✓ the harness can fail — it is measuring the document, not the shape of the text
+
+  POWER
+    n = 8 distinct gold claims → 95% half-width ±34.6% (worst case p=0.5, N=10 000)
+    ⛔ BELOW THE 50-PER-STRATUM FLOOR (E8-SCOUT §4.4). Report the DIRECTION, never the percentage.
+
+  ARM C — HONEST-UNKNOWN FIDELITY (control 9: is the REASON right, not just the number?)
+    ·       maxCoverage        gold: the source STATES a value for this field
+                               said: — (a value was emitted for this field, so no outcome is due)
+    ·       maxFAR             gold: the source STATES a value for this field
+                               said: — (a value was emitted for this field, so no outcome is due)
+    ·       maxHeight_m        gold: the source STATES a value for this field
+                               said: — (a value was emitted for this field, so no outcome is due)
+    ✓       maxFloors          gold: the source is genuinely silent on this field
+                               said: not-stated-in-text
+    ⛔ BLIND  minParcelArea_m2   gold: the source is genuinely silent on this field
+                               said: ⛔ NOT SOUGHT — the grammar defines no matcher for this field. No value, no unknown, no trace.
+    ⛔ BLIND  setback.front      gold: the source is genuinely silent on this field
+                               said: ⛔ NOT SOUGHT — the grammar defines no matcher for this field. No value, no unknown, no trace.
+
+  NOTES
+    envelope mapper: 1 resolved (1 auto-accepted) · 3 conflicted · 1 unknown · 6 reject(s) · 2 coherence check(s).
+    range gate on emitted values: 1 of 14 flagged (maxFAR=3.2)
+
+  FALSE POSITIVES (every one)
+       wrong      maxCoverage = 0.7  [named-trap de-prose/p71-so-grz-07/maxCoverage]
+        cited: "Maß der baulichen Nutzung, überbaubare Grundstücksflächen Grundfläche Die zulässige Grundfläche im Sondergebiet Bundesnachrichtendienst ergibt sich aus den durch Baugrenz…"
+    ⛔ OVERSTATES maxFAR = 3.2  [named-trap de-prose/p72-gfz-32-berechnet/maxFAR]
+        cited: "Bei einer Größe des Baugrundstückes von 93.386 m², das allein das Sondergebiet und nicht die dem Grundstück zugeordneten privaten Parkanlagen umfasst, ergibt sich nach Ma…"
+       wrong      maxFAR = 1.2  [named-trap de-prose/p73-baunvo17-gfz-12/maxFAR]
+        cited: "Die durch § 17 Abs. 1 BauNVO bestimmte Obergrenze der GFZ von 1,2 für diese am 1."
+       wrong      maxFAR = 2.4  [named-trap de-prose/p73-baunvo-so-gfz-24/maxFAR]
+        cited: "Ebenfalls überschritten wird die durch die BauNVO für Sondergebiete bestimmte maximale GFZ von 2,4."
+    ⛔ OVERSTATES maxHeight_m = 51.2  [named-trap de-prose/p74-mindesthoehe-512/maxHeight_m]
+        cited: "Zur städtebaulichen Fassung der unbebauten Blockränder entlang der Chausseestraße, der Habersaathstraße und der Planstraße wird im Sondergebiet SO eine Gebäudeoberkante v…"
+    ⛔ OVERSTATES maxHeight_m = 56.2  [named-trap de-prose/p74-schwartzkopff-562/maxHeight_m]
+        cited: "Die niedrigere Gebäudeoberkante von 56,2 m über NHN für die Gebäude gegenüber der Schwartzkopffstraße resultiert aus dem architektonischen Entwurf und den angestrebten ba…"
+    ⛔ OVERSTATES maxHeight_m = 72.2  [named-trap de-prose/p74-baufeld-722/maxHeight_m]
+        cited: "Im Inneren des Baufeldes ist eine Gebäudeoberkante von bis zu 72,2 m über NHN möglich."
+    ⛔ OVERSTATES maxHeight_m = 55  [named-trap de-prose/p75-uebrige-th-550/maxHeight_m]
+        cited: "In den übrigen Baugebieten erfolgt die Festsetzung der Höhe durch eine Traufhöhe von maximal 55,0 m über NHN (18,8 m über dem mittleren Geländeniveau)."
+
+  FALSE NEGATIVES (every one)
+    maxCoverage = 0.8   gold rows: de-prose/p71-bwk-grz-08/maxCoverage
+    maxCoverage = 0.3   gold rows: de-prose/p72-kita-grz-03/maxCoverage
+    maxHeight_m = 21.8   gold rows: de-prose/p74-hoechstmass-218/maxHeight_m
+    maxHeight_m = 18.8   gold rows: de-prose/p75-uebrige-th-188/maxHeight_m
+
+
+───────────────────────────────────────────────────────────────────────────
+STAGES THAT COULD NOT BE MEASURED — PENDING, not zero
+  Stage 3 STRUCTURE  — CanonicalDocument / CanonicalSection / CanonicalTable are
+                       DECLARED with ZERO producers. The CH table is therefore fed
+                       to the extractor as a flattened stream. PENDING.
+  Stage 4 AI         — DualPassExtractor has no implementation anywhere in the repo,
+                       so no AI-interpreted claim exists to score. PENDING.
+  Tier-4 producer    — zero producers emit derivation 'AI_EXTRACTED'. Nothing in this
+                       trial reaches the RuleProvenance ladder at all. PENDING.
+───────────────────────────────────────────────────────────────────────────
+
+wrote C:/Users/LENOVO/AppData/Local/Temp/claude/c--Users-LENOVO-OneDrive-Desktop-PRYZM-Product-Rediness-08/beb33dfe-f32f-462e-9ed8-2a910f85af86/scratchpad/e8trial/trial-recheck.json
+RC=0

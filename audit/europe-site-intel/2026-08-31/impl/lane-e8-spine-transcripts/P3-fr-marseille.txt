@@ -1,0 +1,4 @@
+npm warn Unknown project config "package-manager-strict". This will stop working in the next major version of npm. See `npm help npmrc` for supported config options.
+── Layer 1: acquisition ──
+  FAILED reason=http-not-found status=404 The register links this document but the host returns 404. A broken link is a register defect — distinct from a plan that simply has no document.
+RC=1

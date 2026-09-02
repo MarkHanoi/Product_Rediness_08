@@ -1,0 +1,52 @@
+npm warn Unknown project config "package-manager-strict". This will stop working in the next major version of npm. See `npm help npmrc` for supported config options.
+── Layer 1: acquisition ──
+  OK 2,513,468 bytes sha256=c24e5b896848f66e… cached=true
+── Layer 2+3: page geometry ──
+  pages=244/244 producer=Adobe PDF Library 10.0
+── Layer 4: canonical document ──
+  digitisation=born-digital-text sections=2 tables=10 (confident 1, withheld 9)
+── Spine ──
+  outcome.kind = ran
+  claims=4  nothingFound=0  withheldTables=9
+
+  ── CLAIM maxCoverage = 0.5 (zone SO)
+     tier=4 derivation=AI_EXTRACTED valueLocation=in-document-text validationState=not-checked
+     method=text-grammar reader=grammar:de page=11 cell=-
+     span: Berlin (BO 58) als höchstzulässige Nutzungsmaße eine Grundflächenzahl (GRZ) von 0,5 und
+     note: extraction method: text-grammar; validation: UNVALIDATED (not-checked); denominator (LandBasis): parcel; verbatim source text: "0,5"
+     source: {"country":"DE","authority":"Land Berlin","dataset":"Bebauungsplan-Begruendung","plan_id":null,"object_id":"SO","document":"0100062b_1-62b.pdf","article":null,"page":11}
+     autoAccepted=true gates=[dual-pass:pass, algorithm:not-applicable, locale:pass-trap-avoided, range:pass, containment:pass, qualifier:pass]
+
+  ── CLAIM plotRatioFAR = 1.8 m²st/m²s (zone SO)
+     tier=4 derivation=AI_EXTRACTED valueLocation=in-document-text validationState=not-checked
+     method=text-grammar reader=grammar:de page=11 cell=-
+     span: Die entsprechende Geschossflächenzahl beträgt 1,8
+     note: extraction method: text-grammar; validation: UNVALIDATED (not-checked); denominator (LandBasis): parcel; verbatim source text: "1,8"
+     source: {"country":"DE","authority":"Land Berlin","dataset":"Bebauungsplan-Begruendung","plan_id":null,"object_id":"SO","document":"0100062b_1-62b.pdf","article":null,"page":11}
+     autoAccepted=true gates=[dual-pass:pass, algorithm:not-applicable, locale:pass-trap-avoided, range:pass, containment:pass, qualifier:not-applicable]
+
+  ── CLAIM maxFloors = 2 (zone SO)
+     tier=4 derivation=AI_EXTRACTED valueLocation=in-document-text validationState=not-checked
+     method=text-grammar reader=grammar:de page=11 cell=-
+     span: GRZ bis 0,4; GFZ bis 0,8, BMZ bis 3,5, 1-2 Vollgeschosse; durch Nebenanlagen, Stellplätze
+     note: extraction method: text-grammar; validation: UNVALIDATED (not-checked)
+     source: {"country":"DE","authority":"Land Berlin","dataset":"Bebauungsplan-Begruendung","plan_id":null,"object_id":"SO","document":"0100062b_1-62b.pdf","article":null,"page":11}
+     autoAccepted=true gates=[dual-pass:pass, algorithm:not-applicable, locale:pass, range:pass, containment:pass, qualifier:not-applicable]
+
+  ── CLAIM maxHeight_m = 19 m (zone SO)
+     tier=4 derivation=AI_EXTRACTED valueLocation=in-document-text validationState=not-checked
+     method=text-grammar reader=grammar:de page=121 cell=-
+     span: geschlossenen Bauweise und einer Mindestbauhöhe (Oberkante) von 19,0 m (53,5 m über
+     note: extraction method: text-grammar; validation: UNVALIDATED (not-checked); height datum: building; verbatim source text: "19,0"
+     source: {"country":"DE","authority":"Land Berlin","dataset":"Bebauungsplan-Begruendung","plan_id":null,"object_id":"SO","document":"0100062b_1-62b.pdf","article":null,"page":121}
+     autoAccepted=false gates=[dual-pass:pass, algorithm:not-applicable, locale:pass-trap-avoided, range:pass, containment:pass, qualifier:flag-polarity]
+     FLAG: POLARITY CONFLICT — 1 qualifier(s) in the cited span bound in the OPPOSITE direction to the target parameter (max): de-mindestens("Mindestbauhöhe"). The span states the opposite bound and the value is being written to a maximum seat. Publishing it would set the envelope from the wrong end (control 8 / L-616). This is NOT redeemable by carrying the qualifier text: the direction is wrong, not the wording.
+
+  ── WITHHELD TABLE p52: NOT confidently reconstructed (too-few-rows, too-few-columns) — 4 anchor(s), 1 candidate body row(s), 0 item(s) fitting no column. Rows withheld: an unreconstructed grid is reported, never emitted as plausible rows.
+
+  ── WITHHELD TABLE p56: NOT confidently reconstructed (unsnapped-cells, too-few-rows) — 4 anchor(s), 1 candidate body row(s), 2 item(s) fitting no column. Rows withheld: an unreconstructed grid is reported, never emitted as plausible rows.
+
+  ── WITHHELD TABLE p74: NOT confidently reconstructed (unsnapped-cells, too-few-rows) — 4 anchor(s), 1 candidate body row(s), 3 item(s) fitting no column. Rows withheld: an unreconstructed grid is reported, never emitted as plausible rows.
+
+  ── WITHHELD TABLE p75: NOT confidently reconstructed (unsnapped-cells, too-few-rows) — 4 anchor(s), 1 candidate body row(s), 4 item(s) fitting no column. Rows withheld: an unreconstructed grid is reported, never emitted as plausible rows.
+RC=0

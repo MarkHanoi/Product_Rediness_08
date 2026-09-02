@@ -1,0 +1,375 @@
+npm warn Unknown project config "package-manager-strict". This will stop working in the next major version of npm. See `npm help npmrc` for supported config options.
+═══════════════════════════════════════════════════════════════════════════
+ E8-TRIAL — THE **AFTER** RUN: the same gold set against the LAYER-3 SPINE
+ gold set e8-trial-1 · authored 2026-09-01
+ ⛔ humanConfirmed = false — this is a SELF-ASSESSMENT, not a validated figure
+═══════════════════════════════════════════════════════════════════════════
+
+INDEPENDENCE OF THE GOLD SET FROM ITS SUBJECT (mtimes, printed not asserted)
+  2026-09-01 21:49  tools/ordinance-trial/goldset/ch-table.ts
+  2026-09-01 21:51  tools/ordinance-trial/goldset/ch-prose.ts
+  2026-09-01 21:53  tools/ordinance-trial/goldset/de-prose.ts
+  2026-09-01 21:49  packages/ordinance-extraction/src/structure/tables.ts
+  2026-09-02 06:03  packages/ordinance-extraction/src/spine/readers.ts
+  2026-09-02 06:04  packages/ordinance-extraction/src/adapters/swissZoneTable.ts
+  ⭐ the three GOLD files predate every PRODUCER file below them.
+
+
+───────────────────────────────────────────────────────────────────────────
+STRATUM CH-TABLE — Luzern BZR — Anhang 1 Zonen- und Dichtebestimmungen (table cells)
+  pages 26, 31 · table-cell · CH · out-of-sample
+
+  STAGE 3 — STRUCTURE (this layer did not exist for the BEFORE run)
+    lines                 95
+    sections              3
+    candidate grids       2
+    CONFIDENT             2
+      p26 · 9 rows · header [Nr. | Zonenart | A / B | ÜZ | GL | VG | FH | g / o | Weitere Bestimmungen]
+      p31 · 27 rows · header [Nr. | Zonenart | A / B | ÜZ | GL | VG | FH | g / o | Weitere Bestimmungen]
+    ⛔ WITHHELD            0
+
+  CONTROL 1 — ORACLE (predictions built FROM the gold set; must be 100%/100%)
+    precision 100.0% · recall 100.0%  ✓ scorer plumbing verified
+
+  ARM A — CLAIM SET, distinct (field, value) within the stratum
+    emitted           11
+    true positives    11
+    false positives   0 (named traps 0, unlisted 0)
+    false negatives   0
+    PRECISION         100.0%   (denominator: 11 emitted claims)
+    RECALL            100.0%   (denominator: 11 gold claims)
+    OVERSTATEMENT     0.0%   (0 of 11 emitted exceed the gold ceiling)
+
+  ⭐ ARM S-B — SLOT, (zone, field, value) — THE PRODUCT UNIT
+     ⚠ The BEFORE run scored this arm ⛔ UNANCHORABLE for all 55 gold NUMBER rows:
+       a flattened stream has no zone to attribute a cell to. It is scoreable AT
+       ALL only because Layer 3 now resolves the column by geometry.
+    zone-attributable gold rows  55
+    matched (zone+field+value)   55
+    WRONG VALUE at the right slot 0
+    missed                       0
+    SLOT RECALL                  100.0%   (denominator: 55)
+    ⛔ value on an UNKNOWN cell   0  (gold says the cell is EMPTY — control 9)
+
+  ⭐ ARM S-T — THE TIER LOCK, read off every claim at RUNTIME
+    claims produced             55
+    tier 4                      55 / 55
+    derivation AI_EXTRACTED     55 / 55
+    validationState not-checked 55 / 55
+    autoAccepted                54 / 55  (⚠ NEVER a licence to publish)
+    ✓ no claim graduated
+
+  ARM S-E — EVIDENCE, re-derived from the document (NOT from the package's own gate)
+    carries a verbatim span   55 / 55
+    span CONTAINED in source  55 / 55
+    carries a page            55 / 55
+    names its COLUMN (cell)   55 / 55
+
+  ARM S-N — HONEST EMPTIES (control 9: a TYPED reason, never a silence)
+    not-in-document            81
+    withheld grids reported to the caller: 0
+    spine outcomes: ran=34   (ran ≠ refused ≠ failed)
+
+  ARM S-U — every gold UNKNOWN cell, PAIRED against a typed reason (not counted)
+    gold UNKNOWN rows            81
+    answered by a TYPED reason   81
+    ⛔ answered by a VALUE        0  (a number where the source is silent)
+    ⛔ UNANSWERED (pure silence)  0  ("we never asked" and "it is not there" print alike)
+        not-in-document          81
+
+  ⭐ ARM S-X — IS ingest/normalize.ts IN THE SPINE'S PATH?
+    grammar hits on RAW text (what the spine feeds it)         0
+    grammar hits on NORMALIZED text (what the BEFORE run fed)  0
+    ✓ no rule hit is lost to the raw/normalized difference
+
+  CONTROL 2 — SCRAMBLE (every digit in every ITEM remapped; must score worse)
+    precision 0.0% · recall 0.0% · emitted 3
+    ✓ the harness can fail — it is measuring the document, not the shape of the text
+
+  POWER
+    ARM A: n = 11 distinct gold claims → 95% half-width ±29.5%
+    ARM S-B: n = 55 slot rows → 95% half-width ±13.2%
+    ⛔ ARM A IS BELOW THE 50-PER-STRATUM FLOOR. Report the DIRECTION, never the percentage.
+
+  EVERY EMITTED CLAIM, with the gate verdicts it carries
+    maxHeight_m=35 m @zone 6 · table-reconstruction · autoAccepted=false · flags: Raw "35 (höchstens)" is not a clean ch-locale number — cannot confirm the read.
+        gate algorithm: not-applicable — Text states a value, not a rule.
+        gate locale: flag — Raw "35 (höchstens)" is not a clean ch-locale number — cannot confirm the read.
+        gate containment: not-applicable — No span was RETRIEVED by a model — the cell text is the page’s own positioned items, so there is no fabrication for containment to catch. not-applicable is not a pass.
+    maxFloors=7 @zone 8 · table-reconstruction · autoAccepted=true
+        gate algorithm: not-applicable — Text states a value, not a rule.
+        gate containment: not-applicable — No span was RETRIEVED by a model — the cell text is the page’s own positioned items, so there is no fabrication for containment to catch. not-applicable is not a pass.
+    maxHeight_m=26 m @zone 8 · table-reconstruction · autoAccepted=true
+        gate algorithm: not-applicable — Text states a value, not a rule.
+        gate containment: not-applicable — No span was RETRIEVED by a model — the cell text is the page’s own positioned items, so there is no fabrication for containment to catch. not-applicable is not a pass.
+    maxCoverage=0.15 @zone 128 · table-reconstruction · autoAccepted=true
+        gate algorithm: not-applicable — Text states a value, not a rule.
+        gate containment: not-applicable — No span was RETRIEVED by a model — the cell text is the page’s own positioned items, so there is no fabrication for containment to catch. not-applicable is not a pass.
+        gate qualifier: not-applicable — No qualifier in the de-CH lexicon (12 phrase(s)) appears in the cited span — nothing to check. This is NOT a statement that the value is unqualified.
+    maxFloors=5 @zone 128 · table-reconstruction · autoAccepted=true
+        gate algorithm: not-applicable — Text states a value, not a rule.
+        gate containment: not-applicable — No span was RETRIEVED by a model — the cell text is the page’s own positioned items, so there is no fabrication for containment to catch. not-applicable is not a pass.
+        gate qualifier: not-applicable — No qualifier in the de-CH lexicon (12 phrase(s)) appears in the cited span — nothing to check. This is NOT a statement that the value is unqualified.
+    maxCoverage=0.15 @zone 129 · table-reconstruction · autoAccepted=true
+        gate algorithm: not-applicable — Text states a value, not a rule.
+        gate containment: not-applicable — No span was RETRIEVED by a model — the cell text is the page’s own positioned items, so there is no fabrication for containment to catch. not-applicable is not a pass.
+        gate qualifier: not-applicable — No qualifier in the de-CH lexicon (12 phrase(s)) appears in the cited span — nothing to check. This is NOT a statement that the value is unqualified.
+    maxFloors=5 @zone 129 · table-reconstruction · autoAccepted=true
+        gate algorithm: not-applicable — Text states a value, not a rule.
+        gate containment: not-applicable — No span was RETRIEVED by a model — the cell text is the page’s own positioned items, so there is no fabrication for containment to catch. not-applicable is not a pass.
+        gate qualifier: not-applicable — No qualifier in the de-CH lexicon (12 phrase(s)) appears in the cited span — nothing to check. This is NOT a statement that the value is unqualified.
+    maxCoverage=0.15 @zone 130 · table-reconstruction · autoAccepted=true
+        gate algorithm: not-applicable — Text states a value, not a rule.
+        gate containment: not-applicable — No span was RETRIEVED by a model — the cell text is the page’s own positioned items, so there is no fabrication for containment to catch. not-applicable is not a pass.
+        gate qualifier: not-applicable — No qualifier in the de-CH lexicon (12 phrase(s)) appears in the cited span — nothing to check. This is NOT a statement that the value is unqualified.
+    maxHeight_m=21 m @zone 130 · table-reconstruction · autoAccepted=true
+        gate algorithm: not-applicable — Text states a value, not a rule.
+        gate containment: not-applicable — No span was RETRIEVED by a model — the cell text is the page’s own positioned items, so there is no fabrication for containment to catch. not-applicable is not a pass.
+        gate qualifier: not-applicable — No qualifier in the de-CH lexicon (12 phrase(s)) appears in the cited span — nothing to check. This is NOT a statement that the value is unqualified.
+    maxCoverage=0.15 @zone 131 · table-reconstruction · autoAccepted=true
+        gate algorithm: not-applicable — Text states a value, not a rule.
+        gate containment: not-applicable — No span was RETRIEVED by a model — the cell text is the page’s own positioned items, so there is no fabrication for containment to catch. not-applicable is not a pass.
+        gate qualifier: not-applicable — No qualifier in the de-CH lexicon (12 phrase(s)) appears in the cited span — nothing to check. This is NOT a statement that the value is unqualified.
+    maxHeight_m=21 m @zone 131 · table-reconstruction · autoAccepted=true
+        gate algorithm: not-applicable — Text states a value, not a rule.
+        gate containment: not-applicable — No span was RETRIEVED by a model — the cell text is the page’s own positioned items, so there is no fabrication for containment to catch. not-applicable is not a pass.
+        gate qualifier: not-applicable — No qualifier in the de-CH lexicon (12 phrase(s)) appears in the cited span — nothing to check. This is NOT a statement that the value is unqualified.
+    maxCoverage=0.2 @zone 132 · table-reconstruction · autoAccepted=true
+        gate algorithm: not-applicable — Text states a value, not a rule.
+        gate containment: not-applicable — No span was RETRIEVED by a model — the cell text is the page’s own positioned items, so there is no fabrication for containment to catch. not-applicable is not a pass.
+        gate qualifier: not-applicable — No qualifier in the de-CH lexicon (12 phrase(s)) appears in the cited span — nothing to check. This is NOT a statement that the value is unqualified.
+    maxFloors=2 @zone 132 · table-reconstruction · autoAccepted=true
+        gate algorithm: not-applicable — Text states a value, not a rule.
+        gate containment: not-applicable — No span was RETRIEVED by a model — the cell text is the page’s own positioned items, so there is no fabrication for containment to catch. not-applicable is not a pass.
+        gate qualifier: not-applicable — No qualifier in the de-CH lexicon (12 phrase(s)) appears in the cited span — nothing to check. This is NOT a statement that the value is unqualified.
+    maxCoverage=0.2 @zone 133 · table-reconstruction · autoAccepted=true
+        gate algorithm: not-applicable — Text states a value, not a rule.
+        gate containment: not-applicable — No span was RETRIEVED by a model — the cell text is the page’s own positioned items, so there is no fabrication for containment to catch. not-applicable is not a pass.
+    maxFloors=2 @zone 133 · table-reconstruction · autoAccepted=true
+        gate algorithm: not-applicable — Text states a value, not a rule.
+        gate containment: not-applicable — No span was RETRIEVED by a model — the cell text is the page’s own positioned items, so there is no fabrication for containment to catch. not-applicable is not a pass.
+    maxCoverage=0.2 @zone 134 · table-reconstruction · autoAccepted=true
+        gate algorithm: not-applicable — Text states a value, not a rule.
+        gate containment: not-applicable — No span was RETRIEVED by a model — the cell text is the page’s own positioned items, so there is no fabrication for containment to catch. not-applicable is not a pass.
+        gate qualifier: not-applicable — No qualifier in the de-CH lexicon (12 phrase(s)) appears in the cited span — nothing to check. This is NOT a statement that the value is unqualified.
+    maxFloors=2 @zone 134 · table-reconstruction · autoAccepted=true
+        gate algorithm: not-applicable — Text states a value, not a rule.
+        gate containment: not-applicable — No span was RETRIEVED by a model — the cell text is the page’s own positioned items, so there is no fabrication for containment to catch. not-applicable is not a pass.
+        gate qualifier: not-applicable — No qualifier in the de-CH lexicon (12 phrase(s)) appears in the cited span — nothing to check. This is NOT a statement that the value is unqualified.
+    maxCoverage=0.2 @zone 135 · table-reconstruction · autoAccepted=true
+        gate algorithm: not-applicable — Text states a value, not a rule.
+        gate containment: not-applicable — No span was RETRIEVED by a model — the cell text is the page’s own positioned items, so there is no fabrication for containment to catch. not-applicable is not a pass.
+    maxFloors=2 @zone 135 · table-reconstruction · autoAccepted=true
+        gate algorithm: not-applicable — Text states a value, not a rule.
+        gate containment: not-applicable — No span was RETRIEVED by a model — the cell text is the page’s own positioned items, so there is no fabrication for containment to catch. not-applicable is not a pass.
+    maxCoverage=0.2 @zone 136 · table-reconstruction · autoAccepted=true
+        gate algorithm: not-applicable — Text states a value, not a rule.
+        gate containment: not-applicable — No span was RETRIEVED by a model — the cell text is the page’s own positioned items, so there is no fabrication for containment to catch. not-applicable is not a pass.
+        gate qualifier: not-applicable — No qualifier in the de-CH lexicon (12 phrase(s)) appears in the cited span — nothing to check. This is NOT a statement that the value is unqualified.
+    maxFloors=3 @zone 136 · table-reconstruction · autoAccepted=true
+        gate algorithm: not-applicable — Text states a value, not a rule.
+        gate containment: not-applicable — No span was RETRIEVED by a model — the cell text is the page’s own positioned items, so there is no fabrication for containment to catch. not-applicable is not a pass.
+        gate qualifier: not-applicable — No qualifier in the de-CH lexicon (12 phrase(s)) appears in the cited span — nothing to check. This is NOT a statement that the value is unqualified.
+    maxCoverage=0.2 @zone 137 · table-reconstruction · autoAccepted=true
+        gate algorithm: not-applicable — Text states a value, not a rule.
+        gate containment: not-applicable — No span was RETRIEVED by a model — the cell text is the page’s own positioned items, so there is no fabrication for containment to catch. not-applicable is not a pass.
+        gate qualifier: not-applicable — No qualifier in the de-CH lexicon (12 phrase(s)) appears in the cited span — nothing to check. This is NOT a statement that the value is unqualified.
+    maxFloors=3 @zone 137 · table-reconstruction · autoAccepted=true
+        gate algorithm: not-applicable — Text states a value, not a rule.
+        gate containment: not-applicable — No span was RETRIEVED by a model — the cell text is the page’s own positioned items, so there is no fabrication for containment to catch. not-applicable is not a pass.
+        gate qualifier: not-applicable — No qualifier in the de-CH lexicon (12 phrase(s)) appears in the cited span — nothing to check. This is NOT a statement that the value is unqualified.
+    maxCoverage=0.2 @zone 138 · table-reconstruction · autoAccepted=true
+        gate algorithm: not-applicable — Text states a value, not a rule.
+        gate containment: not-applicable — No span was RETRIEVED by a model — the cell text is the page’s own positioned items, so there is no fabrication for containment to catch. not-applicable is not a pass.
+        gate qualifier: not-applicable — No qualifier in the de-CH lexicon (12 phrase(s)) appears in the cited span — nothing to check. This is NOT a statement that the value is unqualified.
+    … 31 more
+
+  FALSE POSITIVES (every one)
+
+  FALSE NEGATIVES (every one)
+
+───────────────────────────────────────────────────────────────────────────
+STRATUM CH-PROSE — Luzern BZR — body articles Art. 7–13 and Art. 26–28 (prose)
+  pages 5, 6, 7, 15 · prose · CH · out-of-sample
+
+  STAGE 3 — STRUCTURE (this layer did not exist for the BEFORE run)
+    lines                 170
+    sections              1
+    candidate grids       0
+    CONFIDENT             0
+    ⛔ WITHHELD            0
+
+  CONTROL 1 — ORACLE (predictions built FROM the gold set; must be 100%/100%)
+    precision 100.0% · recall 100.0%  ✓ scorer plumbing verified
+
+  ARM A — CLAIM SET, distinct (field, value) within the stratum
+    emitted           0
+    true positives    0
+    false positives   0 (named traps 0, unlisted 0)
+    false negatives   5
+    PRECISION         n/a   (denominator: 0 emitted claims)
+    RECALL            0.0%   (denominator: 5 gold claims)
+    OVERSTATEMENT     n/a   (0 of 0 emitted exceed the gold ceiling)
+
+  ⭐ ARM S-T — THE TIER LOCK, read off every claim at RUNTIME
+    claims produced             0
+    tier 4                      0 / 0
+    derivation AI_EXTRACTED     0 / 0
+    validationState not-checked 0 / 0
+    autoAccepted                0 / 0  (⚠ NEVER a licence to publish)
+    ✓ no claim graduated
+
+  ARM S-E — EVIDENCE, re-derived from the document (NOT from the package's own gate)
+    carries a verbatim span   0 / 0
+    span CONTAINED in source  0 / 0
+    carries a page            0 / 0
+    names its COLUMN (cell)   0 / 0
+
+  ARM S-N — HONEST EMPTIES (control 9: a TYPED reason, never a silence)
+    not-in-document            4
+    withheld grids reported to the caller: 0
+    spine outcomes: ran=1   (ran ≠ refused ≠ failed)
+
+  ARM S-U — every gold UNKNOWN cell, PAIRED against a typed reason (not counted)
+    gold UNKNOWN rows            0
+    answered by a TYPED reason   0
+    ⛔ answered by a VALUE        0  (a number where the source is silent)
+    ⛔ UNANSWERED (pure silence)  0  ("we never asked" and "it is not there" print alike)
+
+  ⭐ ARM S-X — IS ingest/normalize.ts IN THE SPINE'S PATH?
+    grammar hits on RAW text (what the spine feeds it)         0
+    grammar hits on NORMALIZED text (what the BEFORE run fed)  1
+    ⛔ 1 RULE HIT(S) LOST because the spine bypasses the normalizer
+        lost: p15 maxHeight_m=27
+
+  CONTROL 2 — SCRAMBLE (every digit in every ITEM remapped; must score worse)
+    precision n/a · recall 0.0% · emitted 0
+    ⚠ INCONCLUSIVE for this stratum — the real run scored 0 true positives, so a scrambled run cannot score lower. (The control DOES discriminate on CH-TABLE, which is what establishes the harness.)
+
+  POWER
+    ARM A: n = 5 distinct gold claims → 95% half-width ±43.8%
+    ⛔ ARM A IS BELOW THE 50-PER-STRATUM FLOOR. Report the DIRECTION, never the percentage.
+
+  EVERY EMITTED CLAIM, with the gate verdicts it carries
+
+  FALSE POSITIVES (every one)
+
+  FALSE NEGATIVES (every one)
+    maxHeight_m = 21   gold rows: ch-prose/p7-art11-sportarena-21/maxHeight_m, ch-prose/p15-art26-fassadenhoehe-21/maxHeight_m
+    maxHeight_m = 24   gold rows: ch-prose/p7-art11-breitensport-24/maxHeight_m, ch-prose/p15-art26-zone105-24/maxHeight_m
+    maxHeight_m = 88   gold rows: ch-prose/p7-art11-hochhaeuser-88/maxHeight_m
+    maxHeight_m = 27   gold rows: ch-prose/p15-art26-firsthoehe-27/maxHeight_m
+    maxFloors = 6   gold rows: ch-prose/p15-art26-sechs-vollgeschosse/maxFloors
+
+───────────────────────────────────────────────────────────────────────────
+STRATUM DE-PROSE — Berlin B-Plan 1-19 (Begründung) — §II.4.3 Maß der baulichen Nutzung + Höhenfestsetzungen
+  pages 71, 72, 73, 74, 75 · prose · DE · out-of-sample
+
+  STAGE 3 — STRUCTURE (this layer did not exist for the BEFORE run)
+    lines                 205
+    sections              1
+    candidate grids       0
+    CONFIDENT             0
+    ⛔ WITHHELD            0
+
+  CONTROL 1 — ORACLE (predictions built FROM the gold set; must be 100%/100%)
+    precision 100.0% · recall 100.0%  ✓ scorer plumbing verified
+
+  ARM A — CLAIM SET, distinct (field, value) within the stratum
+    emitted           3
+    true positives    0
+    false positives   3 (named traps 3, unlisted 0)
+    false negatives   8
+    PRECISION         0.0%   (denominator: 3 emitted claims)
+    RECALL            0.0%   (denominator: 8 gold claims)
+    OVERSTATEMENT     66.7%   (2 of 3 emitted exceed the gold ceiling)
+
+  ⭐ ARM S-T — THE TIER LOCK, read off every claim at RUNTIME
+    claims produced             3
+    tier 4                      3 / 3
+    derivation AI_EXTRACTED     3 / 3
+    validationState not-checked 3 / 3
+    autoAccepted                1 / 3  (⚠ NEVER a licence to publish)
+    ✓ no claim graduated
+
+  ARM S-E — EVIDENCE, re-derived from the document (NOT from the package's own gate)
+    carries a verbatim span   3 / 3
+    span CONTAINED in source  3 / 3
+    carries a page            3 / 3
+    names its COLUMN (cell)   0 / 3
+
+  ARM S-N — HONEST EMPTIES (control 9: a TYPED reason, never a silence)
+    not-in-document            1
+    withheld grids reported to the caller: 0
+    spine outcomes: ran=1   (ran ≠ refused ≠ failed)
+
+  ARM S-U — every gold UNKNOWN cell, PAIRED against a typed reason (not counted)
+    gold UNKNOWN rows            3
+    answered by a TYPED reason   1
+    ⛔ answered by a VALUE        0  (a number where the source is silent)
+    ⛔ UNANSWERED (pure silence)  2  ("we never asked" and "it is not there" print alike)
+        not-in-document          1
+        ⛔ de-prose/section/minParcelArea_m2
+        ⛔ de-prose/section/setback.front
+
+  ⭐ ARM S-X — IS ingest/normalize.ts IN THE SPINE'S PATH?
+    grammar hits on RAW text (what the spine feeds it)         8
+    grammar hits on NORMALIZED text (what the BEFORE run fed)  14
+    ⛔ 6 RULE HIT(S) LOST because the spine bypasses the normalizer
+        lost: p73 maxFAR=3
+        lost: p73 maxFAR=2
+        lost: p74 maxFAR=1
+        lost: p74 maxHeight_m=51.2
+        lost: p74 maxHeight_m=56.2
+        lost: p75 maxHeight_m=55
+
+  CONTROL 2 — SCRAMBLE (every digit in every ITEM remapped; must score worse)
+    precision 0.0% · recall 0.0% · emitted 3
+    ⚠ INCONCLUSIVE for this stratum — the real run scored 0 true positives, so a scrambled run cannot score lower. (The control DOES discriminate on CH-TABLE, which is what establishes the harness.)
+
+  POWER
+    ARM A: n = 8 distinct gold claims → 95% half-width ±34.6%
+    ⛔ ARM A IS BELOW THE 50-PER-STRATUM FLOOR. Report the DIRECTION, never the percentage.
+
+  EVERY EMITTED CLAIM, with the gate verdicts it carries
+    maxCoverage=0.7 @zone (document) · text-grammar · autoAccepted=true
+        gate algorithm: not-applicable — Text states a value, not a rule.
+        gate qualifier: not-applicable — No qualifier in the de lexicon (10 phrase(s)) appears in the cited span — nothing to check. This is NOT a statement that the value is unqualified.
+    maxFAR=3.2 m²st/m²s @zone (document) · text-grammar · autoAccepted=false · flags: maxFAR = 3.2 OUT OF [0.2, 3] — likely a units/locale/OCR shift; route to human.; 1 of 1 qualifier(s) in the cited span did NOT survive into any typed seat: de-ergibt-sich("ergibt sich", condition — the number is a COMPUTED CONSEQUENCE of other festgesetzte values, not itself a Festsetzung — republishing it as a rule states a derivation as a determination.). Publishing the value without them would state as unconditional what the ordinance states conditionally (control 8 / L-616).
+        gate algorithm: not-applicable — Text states a value, not a rule.
+        gate range: flag — maxFAR = 3.2 OUT OF [0.2, 3] — likely a units/locale/OCR shift; route to human.
+        gate qualifier: flag — 1 of 1 qualifier(s) in the cited span did NOT survive into any typed seat: de-ergibt-sich("ergibt sich", condition — the number is a COMPUTED CONSEQUENCE of other festgesetzte values, not itself a Festsetzung — republishing it as a rule states a derivation as a determination.). Publishing the value without them would state as unconditional what the ordinance states conditionally (control 8 / L-616).
+    maxHeight_m=72.2 m @zone (document) · text-grammar · autoAccepted=false · flags: 2 of 2 qualifier(s) in the cited span did NOT survive into any typed seat: de-bis-zu("bis zu", bound — "bis zu X" is a permitted RANGE ending at X, not a determination of X.); de-ueber-nhn("über NHN", bound — the height is an ABSOLUTE ELEVATION over a vertical datum, NOT a building height. Treating "55,0 m über NHN" as a 55 m building is the L-584 datum defect in its purest form.). Publishing the value without them would state as unconditional what the ordinance states conditionally (control 8 / L-616).
+        gate algorithm: not-applicable — Text states a value, not a rule.
+        gate qualifier: flag — 2 of 2 qualifier(s) in the cited span did NOT survive into any typed seat: de-bis-zu("bis zu", bound — "bis zu X" is a permitted RANGE ending at X, not a determination of X.); de-ueber-nhn("über NHN", bound — the height is an ABSOLUTE ELEVATION over a vertical datum, NOT a building height. Treating "55,0 m über NHN" as a 55 m building is the L-584 datum defect in its purest form.). Publishing the value without them would state as unconditional what the ordinance states conditionally (control 8 / L-616).
+
+  FALSE POSITIVES (every one)
+       wrong      maxCoverage = 0.7  [named-trap de-prose/p71-so-grz-07/maxCoverage]
+        cited: "umfassen und bezogen auf das gesamte Sondergebiet eine GRZ von 0,7 ergeben."
+    ⛔ OVERSTATES maxFAR = 3.2  [named-trap de-prose/p72-gfz-32-berechnet/maxFAR]
+        cited: "privaten Parkanlagen umfasst, ergibt sich nach Maßgabe von § 20 BauNVO eine GFZ von 3,2."
+    ⛔ OVERSTATES maxHeight_m = 72.2  [named-trap de-prose/p74-baufeld-722/maxHeight_m]
+        cited: "Gebäudeoberkante von bis zu 72,2 m über NHN möglich."
+
+  FALSE NEGATIVES (every one)
+    maxCoverage = 0.6   gold rows: de-prose/p71-wa-mi-grz-06/maxCoverage, de-prose/p72-tf10-festgesetzte-06/maxCoverage
+    maxCoverage = 0.8   gold rows: de-prose/p71-bwk-grz-08/maxCoverage
+    maxCoverage = 0.3   gold rows: de-prose/p72-kita-grz-03/maxCoverage
+    maxFAR = 3   gold rows: de-prose/p73-mi-gbf-gfz-30/maxFAR, de-prose/p73-wa1-gfz-30/maxFAR
+    maxFAR = 2   gold rows: de-prose/p73-wa2-wa3-gfz-20/maxFAR
+    maxFAR = 1   gold rows: de-prose/p74-kita-gfz-10/maxFAR
+    maxHeight_m = 21.8   gold rows: de-prose/p74-hoechstmass-218/maxHeight_m
+    maxHeight_m = 18.8   gold rows: de-prose/p75-uebrige-th-188/maxHeight_m
+
+
+───────────────────────────────────────────────────────────────────────────
+STILL PENDING — measured as ABSENT, never scored as zero
+  Stage 4 AI   — no DualPassExtractor implementation exists in the repo, so the
+                 'ai-span-retrieval' method produced NOTHING in this run. Every
+                 claim above came from a DETERMINISTIC reader (table geometry or
+                 grammar). The AI half of "AI interprets, deterministic computes"
+                 has its TIER STAMPING proven and its ACCURACY unmeasured.
+───────────────────────────────────────────────────────────────────────────
+
+wrote C:/Users/LENOVO/AppData/Local/Temp/claude/c--Users-LENOVO-OneDrive-Desktop-PRYZM-Product-Rediness-08/beb33dfe-f32f-462e-9ed8-2a910f85af86/scratchpad/e8trial/spine-final.json
+RC=0

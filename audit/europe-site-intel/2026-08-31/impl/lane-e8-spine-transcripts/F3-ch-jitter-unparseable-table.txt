@@ -1,0 +1,29 @@
+npm warn Unknown project config "package-manager-strict". This will stop working in the next major version of npm. See `npm help npmrc` for supported config options.
+── Layer 1: acquisition ──
+  OK 594,982 bytes sha256=26945c0f1a1d95d6… cached=true
+── Layer 2+3: page geometry ──
+  pages=11/46 producer=Microsoft® Word für Microsoft 365
+  ⚠ FALSIFICATION CONTROL: displaced body items by ±6 pt — 1295 → 1295 items (NOT ONE GLYPH REMOVED; every number is still on the page)
+── Layer 4: canonical document ──
+  digitisation=born-digital-text sections=1 tables=10 (confident 0, withheld 10)
+── Spine ──
+  outcome.kind = ran
+  claims=0  nothingFound=3  withheldTables=10
+
+  ── NOTHING FOUND maxCoverage: reason=table-not-reconstructed
+     The grid(s) carrying zone "10" on page(s) 26, 27, 28, 29, 30, 31, 32, 33, 34, 35 were NOT confidently reconstructed, so their rows were withheld. The number may well be on the page; which COLUMN it sits in is what could not be established, and guessing that is exactly the 7x overstatement this layer exists to prevent.
+
+  ── NOTHING FOUND maxFloors: reason=table-not-reconstructed
+     The grid(s) carrying zone "10" on page(s) 26, 27, 28, 29, 30, 31, 32, 33, 34, 35 were NOT confidently reconstructed, so their rows were withheld. The number may well be on the page; which COLUMN it sits in is what could not be established, and guessing that is exactly the 7x overstatement this layer exists to prevent.
+
+  ── NOTHING FOUND maxHeight_m: reason=table-not-reconstructed
+     The grid(s) carrying zone "10" on page(s) 26, 27, 28, 29, 30, 31, 32, 33, 34, 35 were NOT confidently reconstructed, so their rows were withheld. The number may well be on the page; which COLUMN it sits in is what could not be established, and guessing that is exactly the 7x overstatement this layer exists to prevent.
+
+  ── WITHHELD TABLE p26: NOT confidently reconstructed (unsnapped-cells) — 9 anchor(s), 9 candidate body row(s), 5 item(s) fitting no column. Rows withheld: an unreconstructed grid is reported, never emitted as plausible rows.
+
+  ── WITHHELD TABLE p27: NOT confidently reconstructed (unsnapped-cells) — 9 anchor(s), 31 candidate body row(s), 37 item(s) fitting no column. Rows withheld: an unreconstructed grid is reported, never emitted as plausible rows.
+
+  ── WITHHELD TABLE p28: NOT confidently reconstructed (unsnapped-cells) — 9 anchor(s), 15 candidate body row(s), 11 item(s) fitting no column. Rows withheld: an unreconstructed grid is reported, never emitted as plausible rows.
+
+  ── WITHHELD TABLE p29: NOT confidently reconstructed (unsnapped-cells) — 9 anchor(s), 10 candidate body row(s), 8 item(s) fitting no column. Rows withheld: an unreconstructed grid is reported, never emitted as plausible rows.
+RC=0

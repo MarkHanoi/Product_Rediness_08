@@ -822,6 +822,87 @@ const GATES: Gate[] = [
   // unverified candidates that must be read before being called defects. Do not
   // quote 43 as "43 defects".
   { name: 'render-aggregate-seam (C71 §7 · L-10530)',          script: 'check-render-aggregate-seam.ts' },
+
+  // ═══ THE E8 CLAIM-HONESTY BATTERY (lane E8-GATES, 2026-09-01) ═════════════
+  // Spec §20 · C58 §1.2/§1.6 · E4-EXECUTION-CONTROL controls 3/5/8/9/10.
+  //
+  // ⭐ WHY THREE GATES ARRIVE AT ONCE, AND WHY NONE EXISTED. Lane E8-SCOUT measured
+  // the coverage directly: `ls tools/ga-gate/` → 76 `check-*.ts` and **NOT ONE of
+  // them names, imports, or asserts anything about `packages/ordinance-extraction`**
+  // — a 63-file, 4,100-line package with 252 passing tests, seven verification
+  // gates of its own, and the tier lock the whole European wave rests on.
+  // `grep -l "pipeline-extracted-unverified" tools/ga-gate/*.ts` returned exactly
+  // ONE file, `check-zoning-fidelity-label.ts`, and that gate guards the RENDER,
+  // never the PRODUCER. So the invariant "an AI-extracted number may never reach a
+  // buildable envelope unlabelled" was enforced in two places — the FROZEN L0
+  // schema and the render badge — with the entire producer path between them
+  // unwatched.
+  //
+  // ⛔ THEY ARE THREE, NOT ONE, BECAUSE THEY ASSERT THREE DIFFERENT FACTS. A claim
+  // can graduate without evidence; carry perfect evidence and still be laundered at
+  // the loader; or be honestly labelled and still never checked. Folding them into
+  // one gate would make a single exit code answer three questions, which is the
+  // defect this suite's own exit-code contract exists to prevent.
+  //
+  // ⛔ NONE MAY EVER ACQUIRE A CEILING ON ITS INVARIANT. Raising one here is not
+  // technical debt — it is a licence to publish an unchecked machine read as a
+  // human determination (C58 §1.6, L-449).
+  //
+  // 1 · NO SILENT GRADUATION — BORN GREEN, hard-0, on NEITHER ledger.
+  //     Six arms: FOUR EXECUTED (they drive `canGraduateTier`,
+  //     `resolvePublishedConfidence`, `capEnvelopeConfidenceToPackDefault` and
+  //     `RuleProvenanceSchema.safeParse` over full cross-products — 270 decisions
+  //     per run), TWO STATIC (a minted human-validation event anywhere repo-wide;
+  //     a tier above the pipeline tier minted inside the extraction package).
+  //     ⭐ Arm D is E4-EXECUTION-CONTROL control 3 made EXECUTABLE: the canonical
+  //     model is FROZEN, and this arm is what notices if the superRefine that makes
+  //     the spec-§20 failure unrepresentable is ever weakened. It reads the schema;
+  //     it never edits it.
+  //     FIRST READING 2026-09-01: RC=0 · arm A 144 · B 24 · C 24 · D 78 executed ·
+  //     arm E 5,273 files · arm F 51 files · 0 findings · 5 planted control groups
+  //     all observed FIRING, in memory, with their outcomes printed.
+  { name: 'no-silent-graduation (spec §20 · C58 §1.6 · LOCK 3)', script: 'check-no-silent-graduation.ts' },
+  //
+  // 2 · EVERY CLAIM CARRIES ITS EVIDENCE — lands RED at a NAMED 48-row ledger
+  //     (claim-evidence-ledger.json), compared as a SET in BOTH directions; either
+  //     difference exits 3 and is never absorbable. Carries a
+  //     gate-newly-measured.json entry added in THIS commit — NOT gate-debt.json:
+  //     the rows predate the instrument and nobody chose to ship them.
+  //     FIRST READING 2026-09-01: RC=1 · arm A 66 declarative rules, 57 of them
+  //     tier-4/AI_EXTRACTED, 48 with NO verbatim span · arm B 88 pack zones, 43
+  //     machine-fielded, all with an ordinanceRef · arm C 5,405 files, 0 producer
+  //     sites (the seat is built and empty) · arm D the extraction core DRIVEN,
+  //     4 cited rules emitted, every one carrying document + sentence + the
+  //     pipeline tier · 9 controls, outcomes printed.
+  //     ⭐ ITS FIRST LIVE READING CAUGHT ITSELF. Arm C flagged a sibling lane's
+  //     `readonly derivation: 'AI_EXTRACTED';` TYPE-LEVEL narrowing — which is the
+  //     tier lock in the type system, the opposite of the defect. The SCANNER was
+  //     fixed and a permanent calibration control added; the ledger was NOT edited
+  //     to swallow it. The first false positive is how a gate gets muted.
+  { name: 'claim-carries-evidence (spec §20 · BRIEF §11)',      script: 'check-claim-carries-evidence.ts' },
+  //
+  // 3 · NO UNVALIDATED CLAIM REACHES AN ENVELOPE — the SIBLING of
+  //     check-envelope-never-overstates, and disjoint from it by construction:
+  //     that gate asks the GEOMETRIC question (does the solved volume exceed what
+  //     the rule grants) and says itself that a wrong-but-self-consistent number
+  //     passes; this one asks the PROVENANCE question (does the LABEL survive the
+  //     trip to the envelope). No shared arm, no shared subject, no shared row.
+  //     All five arms EXECUTE production code — `computeBuildableEnvelope`,
+  //     `classifyEnvelopeCompleteness`, `deriveC58Contract` — because a gate that
+  //     counted provenance-handling FILES would be satisfied by writing one.
+  //     FIRST READING 2026-09-01: RC=1 · arms A/B/C GREEN over 180 zone-solves in
+  //     6 pack-bearing jurisdictions (67 machine-extracted solves, every one at the
+  //     pipeline tier, none classified complete, all carrying the louder caveat) ·
+  //     arms D/E RED at a NAMED 20-row ledger (unvalidated-claim-ledger.json).
+  //     ⭐ WHAT D/E FOUND: the E1bc declarative loader turns 57 rules stamped
+  //     `AI_EXTRACTED` / tier 4 into a C58 contract labelled `ordinance-pdf`
+  //     ("a HUMAN transcribed this", C58 §1.6) at `estimated-ruleset`, and arm E
+  //     then reads `estimated-ruleset` back off NINE real buildable envelopes. The
+  //     document is registered in no pack registry today, so nothing user-facing is
+  //     affected — it goes live as-is the day the hand-written TS pack retires,
+  //     which is exactly why the row is pinned now. Also on
+  //     gate-newly-measured.json, NOT gate-debt.json.
+  { name: 'unvalidated-claim-not-a-constraint (spec §20 · C58 §1.2)', script: 'check-unvalidated-claim-not-a-constraint.ts' },
 ];
 
 // §FIX-GATE-REGISTERED-TWICE (2026-08-11, C9). `check-report-payload-discard.ts`

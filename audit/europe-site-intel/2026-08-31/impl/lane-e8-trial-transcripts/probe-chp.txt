@@ -1,0 +1,10 @@
+RULES (1)
+  maxHeight_m = 27 m [ridge] matcher=de-firsthoehe sec=-
+      raw="27"  sent="Bauvorschriften Art. 26 Maximale Fassaden- und Firsthöhe Die maximale Fassadenhöhe beträgt 21 m und die maximale Firsthö"
+
+UNKNOWNS (3)
+  maxCoverage: not-stated-in-text — Field not stated anywhere in this text.
+  maxFAR: not-stated-in-text — Field not stated anywhere in this text.
+  maxFloors: not-stated-in-text — Field not stated anywhere in this text.
+
+REJECTED (0)

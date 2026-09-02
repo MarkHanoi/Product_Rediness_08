@@ -12,6 +12,13 @@
 export interface PdfTextItemLike {
     readonly str?: string;
     readonly width?: number;
+    /**
+     * Glyph-run height in PDF user-space points, when pdf.js reported one. Optional
+     * because the page-level joiner below never needed it; Layer 3
+     * (`structure/`) uses it to separate a heading from body text and to size the
+     * y tolerance that groups items into lines.
+     */
+    readonly height?: number;
     readonly transform?: readonly number[];
     readonly hasEOL?: boolean;
 }

@@ -246,11 +246,46 @@ export interface CanonicalSection {
  */
 export interface CanonicalTable {
     readonly page: number;
+    /**
+     * The BODY rows (the header, when one was recognised, is {@link header} — it is
+     * NOT row 0). ⚠ EMPTY when `confident` is false: the declared contract above is
+     * that an unreconstructed table is REPORTED, never emitted as plausible rows,
+     * and `detail` then carries the diagnostics instead.
+     */
     readonly rows: readonly (readonly string[])[];
-    /** False when the layout was not recognised; `rows` may then be empty. */
+    /** False when the layout was not recognised; `rows` is then empty. */
     readonly confident: boolean;
     /** Why reconstruction was not confident, when it was not. */
     readonly detail: string;
+    /**
+     * ⭐ ADDED 2026-09-01 (lane E8-SPINE) FOR A MEASURED FAILURE, not for symmetry.
+     *
+     * The recognised column headings, or null when none was recognised. Without
+     * them `rows` is an anonymous grid and a claim read from it cannot say WHICH
+     * parameter a cell holds — which is precisely the Luzern BZR Anhang-1 trap
+     * (`10 WA 0.15 21 geschlossen`: the `21` is Fassadenhöhe 21 m, not 21
+     * Vollgeschosse — a 7x overstatement that the locale, range, dual-pass and
+     * n-gram guards ALL pass, because the error is in the page GEOMETRY).
+     * `header === null` therefore forces `confident: false`.
+     */
+    readonly header: readonly string[] | null;
+    /**
+     * WHERE the header came from — honesty about a header that is not physically
+     * on this page:
+     *   - `this-page`  — a header row was recognised on this page.
+     *   - `continued`  — this page carries a CONTINUATION of a table whose header
+     *                    is on an earlier page; the column anchors matched within
+     *                    tolerance, which is objective geometric evidence, not a
+     *                    guess. (Luzern BZR: header on p26, rows run to p36.)
+     *   - `null`       — no header; `confident` is false.
+     */
+    readonly headerSource: 'this-page' | 'continued' | null;
+    /**
+     * The x anchor (PDF user-space points) of each column, in `header`/row order.
+     * Retained because it is the EVIDENCE the reconstruction rests on and the key
+     * that links a continuation page to its header page.
+     */
+    readonly columnAnchors: readonly number[];
 }
 
 /**

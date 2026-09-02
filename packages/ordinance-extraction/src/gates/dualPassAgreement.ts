@@ -33,6 +33,17 @@ export interface FieldExtractionRequest {
     readonly field: ExtractionCandidate['field'];
     readonly cropRef: string;
     readonly ordinanceRef: string;
+    /**
+     * The zone/subzone the document is being read FOR.
+     *
+     * ⭐ ADDED 2026-09-01 (lane E8-SPINE), optional and additive. The gate below
+     * already treats attribution as load-bearing — "the right value on the wrong
+     * subzone is WRONG (L-590g §7.3)" — and compares `zoneCode` between passes; but
+     * the REQUEST had no seat for the zone, so an extractor could only ever have
+     * guessed which row of a zoning table it was being asked about. The spine's
+     * input is {document, zone context}; this is where the second half arrives.
+     */
+    readonly zoneCode?: string;
 }
 
 /** Numbers agree within this absolute epsilon (cent-scale). */

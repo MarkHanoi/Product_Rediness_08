@@ -1,0 +1,27 @@
+
+=== BEFORE — flattened extractRules (run-trial.ts) ===
+stratum    parameter            TP   FP   FN  precision recall    denominators
+CH-TABLE   maxCoverage           0    0    3  n/a       0.0%      emitted=0 gold=3 overstating=0
+CH-TABLE   maxFloors             0    0    5  n/a       0.0%      emitted=0 gold=5 overstating=0
+CH-TABLE   maxHeight_m           0    0    3  n/a       0.0%      emitted=0 gold=3 overstating=0
+CH-PROSE   maxFloors             0    0    1  n/a       0.0%      emitted=0 gold=1 overstating=0
+CH-PROSE   maxHeight_m           1    0    3  100.0%    25.0%     emitted=1 gold=4 overstating=0
+DE-PROSE   maxCoverage           1    1    2  50.0%     33.3%     emitted=2 gold=3 overstating=0
+DE-PROSE   maxFAR                3    3    0  50.0%     100.0%    emitted=6 gold=3 overstating=1
+DE-PROSE   maxHeight_m           0    4    2  0.0%      0.0%      emitted=4 gold=2 overstating=4
+
+=== AFTER — Layer-3 spine (run-spine-trial.ts) ===
+stratum    parameter            TP   FP   FN  precision recall    denominators
+CH-TABLE   maxCoverage           3    0    0  100.0%    100.0%    emitted=3 gold=3 overstating=0
+CH-TABLE   maxFloors             5    0    0  100.0%    100.0%    emitted=5 gold=5 overstating=0
+CH-TABLE   maxHeight_m           3    0    0  100.0%    100.0%    emitted=3 gold=3 overstating=0
+CH-PROSE   maxFloors             0    0    1  n/a       0.0%      emitted=0 gold=1 overstating=0
+CH-PROSE   maxHeight_m           0    0    4  n/a       0.0%      emitted=0 gold=4 overstating=0
+DE-PROSE   maxCoverage           0    1    3  0.0%      0.0%      emitted=1 gold=3 overstating=0
+DE-PROSE   maxFAR                0    1    3  0.0%      0.0%      emitted=1 gold=3 overstating=1
+DE-PROSE   maxHeight_m           0    1    2  0.0%      0.0%      emitted=1 gold=2 overstating=1
+
+=== AFTER — CH-TABLE ARM S-B slot recall PER PARAMETER ===
+maxCoverage        matched=26 wrong=0 missed=0  SLOT RECALL 100.0% (denominator 26)
+maxFloors          matched=24 wrong=0 missed=0  SLOT RECALL 100.0% (denominator 24)
+maxHeight_m        matched=5 wrong=0 missed=0  SLOT RECALL 100.0% (denominator 5)

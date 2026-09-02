@@ -1,0 +1,181 @@
+=== check-zoning-fidelity-label ===
+npm warn Unknown project config "package-manager-strict". This will stop working in the next major version of npm. See `npm help npmrc` for supported config options.
+[zoning-fidelity-label] ✅ PASS — 1 envelope render(s) honest: field estimates force "Estimated", every non-authoritative confidence tier has a distinct badge, refusals carry their code, and numeric rows carry PUB/EST provenance. (C58 §6 / ADR-0279 BLOCKER-1)
+RC=0
+=== check-envelope-never-overstates ===
+npm warn Unknown project config "package-manager-strict". This will stop working in the next major version of npm. See `npm help npmrc` for supported config options.
+[never-overstate] corpus: 6 pack-bearing jurisdiction(s) · 181 zone-solve(s) walked · 138 solved ok · 43 refused (a refusal draws nothing and cannot overstate — counted, not skipped)
+[never-overstate] axes: height · FAR · coverage · setback · volume — audited on every solved envelope, through the REAL computeBuildableEnvelope + envelopeToMassing (SEAM-1).
+[never-overstate] NOT ESTABLISHED by this gate: jurisdiction-correct rule VALUES (a wrong transcribed number that stays self-consistent passes), live provider data, terrain, or the render pixels — it binds the ENGINE + SEAM arithmetic, not the pack curation (L-449 owns that).
+[never-overstate] OK: 0 overstatement(s) across 181 zone-solve(s) in 6 jurisdiction(s) + estimated-default + the planted self-test pack.
+RC=0
+=== check-refusal-identity ===
+npm warn Unknown project config "package-manager-strict". This will stop working in the next major version of npm. See `npm help npmrc` for supported config options.
+
+[check-refusal-identity] §REFUSAL-IDENTITY (C58 §1.13 / §1.13.8, ADR-0269, ADR-0279)
+  scanned:   apps, packages, plugins under C:\Users\LENOVO\OneDrive\Desktop\PRYZM\Product_Rediness_08
+  findings:  109  (arm A 45, arm B 64)
+  baseline:  67 named offender(s)
+
+❌ 42 refusal(s) rendered WITHOUT their identity and NOT in the baseline:
+
+   [arm A] apps/editor/src/engine/initUI.ts:2470
+              _annDeleteFailed = outcome.reason ?? 'The model refused the delete';
+   [arm A] apps/editor/src/engine/links/linkBusHandlers.ts:117
+              return { refusal: decision.reason ?? 'This link cannot be placed automatically.' };
+   [arm A] apps/editor/src/ui/apartment-layout/apartmentLayoutTrigger.ts:204
+              reason: r.engine.reason ?? 'the layout engine rejected this shape without a reason.',
+   [arm A] apps/editor/src/ui/ContextualEditBar.ts:798
+              this._declineOperation('Delete', outcome.reason ?? 'the model refused the delete');
+   [arm A] apps/editor/src/ui/ContextualEditBar.ts:1476
+              verdict.reason ?? 'this element cannot have its outline edited yet',
+   [arm A] apps/editor/src/ui/property-panel/StairLevelSpanWidget.ts:228
+              setVerdict(verdict.ok ? '' : (verdict.reason ?? 'This span cannot be built.'), !verdict.ok);
+   [arm A] packages/command-registry/src/handrails/CreateHandrailRunCommand.ts:177
+              info.push(`segment ${i} skipped — ${v.reason ?? 'refused'}`);
+   [arm A] packages/command-registry/src/handrails/CreateHandrailRunOnSlabCommand.ts:302
+              info: [this.canExecute(ctx).reason ?? 'Handrail BY SLAB refused.'],
+   [arm A] packages/geometry-wall/src/WallTool.ts:2333
+              this.showStatus(probe.reason ?? 'This wall cannot hold an edited profile.');
+   [arm A] packages/geometry-wall/src/WallTool.ts:2461
+              this.profileEditor?.showRefusal(auth.reason ?? 'This outline cannot be applied.');
+   [arm A] plugins/boundary-line/src/handlers/AttachToBoundaryLine.ts:102
+              return { valid: false, reason: rule.reason ?? `${rule.family} cannot follow a boundary line.` };
+   [arm B] apps/editor/src/engine/initUI.ts:2508
+              toast(`Grid not deleted — ${outcome.reason}`, 'warn');
+   [arm B] apps/editor/src/engine/initUI.ts:2545
+              toast(`Level not deleted — ${outcome.reason}`, 'warn');
+   [arm B] apps/editor/src/engine/links/linkSourceGateway.ts:369
+              if (!fetched.ok) return fail(fetched.failure, fetched.reason);
+   [arm B] apps/editor/src/engine/views/plantools/duplicateToLevel.ts:932
+              if (refusal !== null) return fail(refusal.reason, refusal);
+   [arm B] apps/editor/src/engine/views/SiteViewQuickToggle.ts:167
+              globe.title = model.globe.reason ?? model.globe.title;
+   [arm B] apps/editor/src/engine/views/SiteViewQuickToggle.ts:209
+              if (model.split.reason) split.title = model.split.reason;
+   [arm B] apps/editor/src/engine/views/SiteViewQuickToggle.ts:209
+              if (model.split.reason) split.title = model.split.reason;
+   [arm B] apps/editor/src/engine/views/SiteViewQuickToggle.ts:242
+              btn.title = seg.reason
+   [arm B] apps/editor/src/ui/facade/FacadeReconstructionPanel.ts:606
+              this._canvasNote.textContent = result.ok ? layer.clause : result.reason ?? 'this layer could not be drawn.';
+   [arm B] apps/editor/src/ui/floor-layout/floorLayoutTrigger.ts:157
+              message: `No floor finish was created — ${outcome.reason}`,
+   [arm B] apps/editor/src/ui/layout/GISAreaLayout.ts:2610
+              status.textContent = result.reason === 'height-out-of-bounds'
+   [arm B] apps/editor/src/ui/links/LinkedModelsPanel.ts:355
+              if (row.reason !== null) card.appendChild(notice(row.reason, 'stop'));
+   [arm B] apps/editor/src/ui/links/LinkedModelsPanel.ts:355
+              if (row.reason !== null) card.appendChild(notice(row.reason, 'stop'));
+   [arm B] apps/editor/src/ui/links/LinkedModelsPanel.ts:523
+              if (!step.probe.ok && step.probe.reason !== null) {
+   [arm B] apps/editor/src/ui/links/LinkedModelsPanel.ts:524
+              body.appendChild(notice(step.probe.reason, 'stop'));
+   [arm B] apps/editor/src/ui/property-panel/CurtainSubElementPanel.ts:596
+              applyBtn.textContent = `✗ ${r.reason}`;
+   [arm B] apps/editor/src/ui/property-panel/PropertyPanelSections.ts:191
+              note.textContent = refusal.reason;
+   [arm B] apps/editor/src/ui/property-panel/PropertyPanelSections.ts:368
+              note.textContent = refusal.reason;
+   [arm B] apps/editor/src/ui/property-panel/PropertyPanelSections.ts:430
+              status.textContent = outcome.reason;
+   [arm B] apps/editor/src/ui/property-panel/StairLevelSpanWidget.ts:253
+              ? (verdict.reason ?? 'The stair was not changed.')
+   [arm B] apps/editor/src/ui/property-panel/StairSecondRunWidget.ts:138
+              outer.appendChild(noteEl(elig.reason));
+   [arm B] apps/editor/src/ui/PropertyInspector.ts:637
+              : (verdict.reason ?? 'Not available for this slab');
+   [arm B] apps/editor/src/ui/wardrobe/WardrobeConfigPanel.ts:309
+              note.textContent   = verdict.reason;
+   [arm B] apps/editor/src/ui/wardrobe/WardrobeRunInspector.ts:378
+              note.textContent   = verdict.reason;
+   [arm B] apps/editor/src/ui/WindowOutlineEditorDialog.ts:175
+              if (!res.ok) { setStatus(res.refusal.reason, true); return; }
+   [arm B] packages/geometry-wall/src/WallDataSchema.ts:396
+              ctx.addIssue({ code: 'custom', path: ['wallProfile'], message: auth.reason! });
+   [arm B] packages/geometry-wall/src/WallTool.ts:2307
+              this.showStatus(variant.reason ?? 'Outline editing is not available for this wall yet.');
+   [arm B] packages/geometry-wall/src/WallTool.ts:2333
+              this.showStatus(probe.reason ?? 'This wall cannot hold an edited profile.');
+   [arm B] packages/geometry-wall/src/WallTool.ts:2461
+              this.profileEditor?.showRefusal(auth.reason ?? 'This outline cannot be applied.');
+   [arm B] packages/site-parcel-data/src/countryAdapters/no/noMatrikkelClient.ts:224
+              const nonAscii = nonAsciiNameFromScanDetail(scan.reason, scan.detail);
+   [arm B] plugins/ifc-inspector/src/tree/ifc-tree-view.ts:310
+              ask.textContent = decision.reason;
+
+  A refusal the user cannot attribute to a rule is indistinguishable from a
+  generic "not applicable" (C58 §1.13). Thread the existing code/kind/status
+  through to the render — do NOT widen a closed union to `string`, and do NOT
+  append to this gate's BASELINE to make this pass.
+
+RC=3
+=== check-provenance-not-invented ===
+npm warn Unknown project config "package-manager-strict". This will stop working in the next major version of npm. See `npm help npmrc` for supported config options.
+
+[check-provenance-not-invented] executed controls (C75 §6.2 — an arm never watched failing is UNPROVEN):
+   negative control (planted tree): 5 finding(s), arms fired = [V1, V2, V3, V4, V5]
+       ✓ V2 fired — V2::packages/p/src/defaults.ts:3:origin defaults to 'authored'
+       ✓ V1 fired — V1::packages/p/src/load.ts:5:provenance defaults to 'observed'
+       ✓ V5 fired — V5::packages/p/src/load.ts:5:as any at `provenance`
+       ✓ V3 fired — V3::packages/p/src/repair.ts:9:provenance: 'observed' on a repair path
+       ✓ V4 fired — V4::packages/p/src/schema.ts:3:provenance .default('computed')
+   positive control (clean tree — records UNKNOWN, and refuses): 0 finding(s) — must be 0
+   canonical union resolved inside the synthetic trees: planted=true clean=true — both MUST be true, or V2/V4 read clean for the wrong reason
+
+── check-provenance-not-invented ───────────────────────────────
+   floor  source files scanned: measured 5209, min 500 ✓
+   floor  provenance vocabularies discovered: measured 30, min 1 ✓
+   floor  provenance-typed fields discovered: measured 15, min 1 ✓
+   floor  executed controls passed (0 = blind comparator): measured 1, min 1 ✓
+   floor  distinct arms proven to fire against a planted violation: measured 5, min 5 ✓
+   files scanned: 5209 · vocabularies discovered: 30 · provenance-typed fields: 15
+     vocabulary CeilingDetectionMethodSchema (packages/core-app-model/src/stores/CeilingDataSchema.ts): manual-polygon | from-room | from-slab | ai-generated | ifc-import
+     vocabulary CeilingDetectionMethod (packages/core-app-model/src/stores/CeilingTypes.ts): manual-polygon | from-room | from-slab | ai-generated | ifc-import
+     vocabulary FloorDetectionMethod (packages/core-app-model/src/stores/FloorTypes.ts): manual-polygon | from-room | from-slab | ai-generated | ifc-import
+     vocabulary RoomDetectionMethodSchema (packages/room-topology/src/RoomDataSchema.ts): auto-topology | manual-boundary | point-pick | ai-generated | ifc-import | origin-unknown | repaired-ring
+     vocabulary RoomDetectionMethod (packages/room-topology/src/RoomTypes.ts): auto-topology | manual-boundary | point-pick | ai-generated | ifc-import | origin-unknown | repaired-ring
+     vocabulary FamilyOriginSchema (packages/schemas/src/family-registry/registered-family.ts): core | plugin | user | ai-generated
+     vocabulary CarbonProvenance (packages/schemas/src/materials/materialCarbon.ts): BUILTIN_REFERENCE | USER_ENTERED | EPD
+     vocabulary RoomDetectionMethodSchema (packages/schemas/src/provenance/DetectionMethodOrigin.ts): auto-topology | manual-boundary | point-pick | ai-generated | ifc-import | origin-unknown | repaired-ring
+     vocabulary FinishBoundaryDetectionMethodSchema (packages/schemas/src/provenance/DetectionMethodOrigin.ts): manual-polygon | from-room | from-slab | ai-generated | ifc-import
+     EXCLUDED  ProvenanceExportFormatSchema (packages/schemas/src/provenance/ProvenanceExport.ts) — a file format (pdf | json), not an origin
+     vocabulary ValueOriginSchema (packages/schemas/src/provenance/ValueOrigin.ts): authored | observed | computed | inferred | regenerated
+     vocabulary ProvenanceUnknownReasonSchema (packages/schemas/src/provenance/ValueOrigin.ts): not-recorded | predates-provenance | producer-not-instrumented | source-did-not-state | lost-in-transform | conflicting-records
+     vocabulary HeightProvenanceSchema (packages/schemas/src/site/context/heightProfile.ts): lidar_ndsm | national_lod2 | national_lod1 | osm_tag | levels_x_h | assumed
+     vocabulary ParcelSourceKindSchema (packages/schemas/src/site/ParcelProvenance.ts): cadastral | footprint | user-drawn
+     vocabulary ProvenanceSourceSchema (packages/schemas/src/site/ProvenanceRecord.ts): auto-promoted | user-authored | cesium-ion | osm | msft-footprints | ifc-import | survey | ai
+     EXCLUDED  DerivationConstraintSchema (packages/schemas/src/site/zoning/BuildableEnvelope.ts) — a constraint IDENTIFIER (setback.front, maxFAR), not an origin
+     vocabulary ContextStudyHeightProvenanceSchema (packages/schemas/src/site/zoning/ContextDerivedStudyEnvelope.ts): measured-lidar | tagged | derived-levels | assumed
+     vocabulary FieldProvenanceSchema (packages/schemas/src/site/zoning/ProvenanceFlags.ts): published-structured | ordinance-pdf | pipeline-extracted | estimated
+     vocabulary RuleDerivationSchema (packages/schemas/src/siteintel/provenance.ts): DIRECT | DERIVED | AI_EXTRACTED | HUMAN_VALIDATED
+     vocabulary RasantProvenance (packages/site-parcel-data/src/geometry/facadeRasantDatum.ts): kerb-surveyed | dtm-bare-earth | dsm-surface | unknown
+     vocabulary StreetWidthProvenance (packages/site-parcel-data/src/rulepacks/bcnOfficialStreetWidths.ts): declared-municipal-gis | curated-cerda-nominal | snapped-to-declared-quantum | measured-cadastral
+     vocabulary ValueProvenance (packages/site-parcel-data/src/rulepacks/esMadridSpacmSchema.ts): published-attribute | derived | unknown | contradicted | wrong-kind
+     vocabulary MurciaWidthProvenance (packages/site-parcel-data/src/rulepacks/esMurciaAnchoDeCalle.ts): measured-geometry | declared-official
+     EXCLUDED  ProvenanceCommandRejection (packages/stores/src/provenance-commands/types.ts) — a rejection/error code, not an origin
+     vocabulary ProvenanceKind (plugins/ifc-inspector/src/tree/story-model.ts): model | mapping | user | ai
+     vocabulary Origin (plugins/ifc-inspector/src/tree/tree-source.ts): imported | native
+     vocabulary EnvironmentChangeOrigin (apps/editor/src/engine/views/environmentAnalysisStore.ts): view-properties | site-analysis | system
+     vocabulary ContextHeightProvenance (apps/editor/src/ui/geospatial/contextBuildings.ts): measured-lidar | tagged | derived-levels | assumed
+     vocabulary Origin (apps/editor/src/ui/ProjectBrowser/types.ts): native | ifc
+     EXCLUDED  OverlaySourceKind (apps/editor/src/ui/site/overlay/sitePlanRasterizer.ts) — a raster media kind (pdf | image), not an origin
+     fields: detectionMethod, fieldProvenance, method, origin, originProvenance, provenance, prior, p, derivation, heightProvenance, widthProvenance, packProvenance, permittedUseProv, _origin, prov
+     arms:
+       V1  EVALUATED      — a union member supplied as a fallback for an absent input
+       V2  EVALUATED      — §2.2 — a defaulted value claiming 'authored'/'computed' instead of 'inferred'
+       V3  EVALUATED      — a provenance stamp on a repair path recorded only to the console
+       V4  EVALUATED      — §2.5 — a provenance field defaulting to a member of the five
+       V5  EVALUATED      — `as any` at a provenance boundary
+       V2/V4 subject: ValueOriginSchema + ValueProvenanceSchema in packages/schemas/src/provenance/ValueOrigin.ts · canonical-union-typed fields found: 6 (originProvenance, origin, VALUE_ORIGINS, prior, p, provenance)
+     STILL UNPROVEN (C75 §6.3, unchanged by this run): semantic truth — a path writing OBSERVED while actually computing passes every arm; runtime provenance decided by a branch; the EXPORT boundary (§5); and cross-session regeneration — §2.7's prior-value chain is not statically verifiable, so NOTHING here proves an authored value survives an actual regeneration run.
+     real-tree positive control packages/geometry-slab/src/SlabFragmentBuilder.ts: clean ✓ (it refuses rather than substitutes)
+   
+   FINDING V1 — packages/schemas/src/family-registry/from-pipeline.ts:268 — 'user' is supplied as a FALLBACK for an absent `origin`: `const origin: FamilyOrigin = opts.origin ?? 'user';`. An absent origin is not this origin. Record UNKNOWN-with-reason; a default that presents as observed is indistinguishable from a real observation and will be exported as one.
+   FINDING V1 — packages/site-parcel-data/src/ZoningRulesEngine.ts:181 — 'estimated' is supplied as a FALLBACK for an absent `provenance`: `provenance: packProvenance ?? 'estimated',`. An absent origin is not this origin. Record UNKNOWN-with-reason; a default that presents as observed is indistinguishable from a real observation and will be exported as one.
+   FINDING V1 — apps/editor/src/ui/site/siteDispatch.ts:3619 — 'assumed' is supplied as a FALLBACK for an absent `heightProvenance`: `heightProvenance: f.properties.heightProvenance ?? 'assumed',`. An absent origin is not this origin. Record UNKNOWN-with-reason; a default that presents as observed is indistinguishable from a real observation and will be exported as one.
+   
+   ⚠ NOT ON THE LEDGER — V1::packages/site-parcel-data/src/ZoningRulesEngine.ts:181:provenance defaults to 'estimated'
+   ⚠ NOT ON THE LEDGER — V1::apps/editor/src/ui/site/siteDispatch.ts:3619:heightProvenance defaults to 'assumed'
+   → [3] STALE LEDGER — check-provenance-not-invented: 1 declared entr(ies) are no longer measured: V1::packages/site-parcel-data/src/ZoningRulesEngine.ts:163:provenance defaults to 'estimated'. Debt that has been paid must LEAVE the ledger in the commit that pays it, or the next regression hides inside it.
+RC=3

@@ -1,0 +1,12 @@
+npm warn Unknown project config "package-manager-strict". This will stop working in the next major version of npm. See `npm help npmrc` for supported config options.
+── Layer 1: acquisition ──
+  OK 34,584,817 bytes sha256=d7e3b7570075858e… cached=true
+── Layer 2+3: page geometry ──
+  pages=7/478 producer=SAMBox 3.0.6
+── Layer 4: canonical document ──
+  digitisation=born-digital-text sections=74 tables=3 (confident 0, withheld 3)
+── Spine ──
+  outcome.kind = failed
+  FAILED reason=no-reader-configured
+  No reader is configured that can read any field in this jurisdiction (0 reader(s) supplied). This is a GAP IN PRYZM, not a statement about the document: nothing was looked for, so nothing being found means nothing. A clean empty run here would be a false negative.
+RC=0
