@@ -24,13 +24,19 @@
 // So `instanceParameters` is untouched here, deliberately and permanently. An
 // override survives a type swap because a type swap does not know overrides exist.
 //
-// ─── ⛔ AND IT DOES NOT VALIDATE THE TYPE AGAINST THE DEFINITION ──────────────
-// It cannot, honestly: there is no project-level definition registry at this commit
-// (see `PlaceComponent.ts`'s closing note). It refuses a malformed `typ_` id and
-// accepts a well-formed one. ⚠ That means a swap to a type the definition does not
-// declare is REPRESENTABLE today. Stated, not hidden — C84 §6.2c forbids describing
-// a validation this family does not perform, and a fabricated lookup returning
-// "fine" would be worse than the declared gap.
+// ─── ⭐ TYPE-MEMBERSHIP IS NOW VALIDATED AGAINST THE DEFINITION — lane U0 ──────
+// This header used to say the opposite: *"there is no project-level definition
+// registry at this commit … a swap to a type the definition does not declare is
+// REPRESENTABLE today."* The registry now exists (the ONE catalogue in
+// `apps/editor/src/services/componentCatalog/`, injected through the
+// `ComponentDefinitionResolver` port). With the port wired, a swap to a type the
+// occurrence's definition does not declare is REFUSED NAMING BOTH IDS — so
+// "wrong type" and "wrong definition" stay different answers — and a swap on an
+// occurrence whose definition is NOT LOADED is refused naming the definition,
+// because membership cannot be validated against a document that is not there
+// (loading it is the escape hatch, stated in the refusal). Without the port the
+// Phase-4C format-only behaviour is unchanged and the gap stays declared —
+// there is deliberately NO default resolver (see the port's header).
 
 import {
   produceCommand,
@@ -41,6 +47,7 @@ import {
   type ValidationResult,
 } from '@pryzm/plugin-sdk';
 import { ComponentNotFoundError, ComponentTypeRefError } from '../errors.js';
+import type { ComponentDefinitionResolver } from '../definitionResolver.js';
 import type { ComponentData, ComponentsState } from '../store.js';
 
 const TYPE_RE = /^typ_[0-9A-HJKMNP-TV-Z]{26}$/;
@@ -59,6 +66,9 @@ export class SwapComponentTypeHandler
   readonly type = 'component.swapType';
 
   readonly affectedStores = ['component'] as const;
+
+  /** ⭐ Lane U0 — the definition catalogue; optional BY CONTRACT (see the header). */
+  constructor(private readonly definitions?: ComponentDefinitionResolver) {}
 
   canExecute(ctx: HandlerContext<Stores>, cmd: SwapComponentTypePayload): ValidationResult {
     const current = ctx.stores.component[cmd.componentId];
@@ -85,7 +95,40 @@ export class SwapComponentTypeHandler
         reason: `component ${cmd.componentId} already wears type ${cmd.typeId}; nothing to swap.`,
       };
     }
+    // ⭐ Lane U0 — membership against the occurrence's OWN definition.
+    const membership = this._membershipRefusal(current as ComponentData, cmd.typeId);
+    if (membership !== null) {
+      return { valid: false, reason: membership };
+    }
     return { valid: true };
+  }
+
+  /**
+   * ⭐ Lane U0 — shared by `canExecute` (reason) and `execute` (typed throw).
+   * `null` means: the type is a member, or no resolver is wired (the declared
+   * Phase-4C gap, unchanged for hosts without a catalogue).
+   */
+  private _membershipRefusal(current: ComponentData, typeId: string): string | null {
+    if (this.definitions === undefined) return null;
+    const view = this.definitions.view(current.definitionId);
+    if (view === undefined) {
+      return (
+        `component.swapType: component ${current.id} references definition ` +
+        `${current.definitionId}, which is not loaded in this project's component catalogue — ` +
+        `type membership cannot be validated against a document that is not there. Load the ` +
+        `definition, then swap.`
+      );
+    }
+    if (!view.types.some((t) => t.id === typeId)) {
+      // ⭐ BOTH ids, deliberately: "wrong type" and "wrong definition" must stay
+      // distinguishable at the refusal, or the UI can only say "failed".
+      return (
+        `component.swapType: typeId ${typeId} is not a type of definition ` +
+        `${current.definitionId} (${view.name}); its types are ` +
+        `[${view.types.map((t) => t.id).join(', ')}].`
+      );
+    }
+    return null;
   }
 
   execute(ctx: HandlerContext<Stores>, cmd: SwapComponentTypePayload): HandlerResult {
@@ -97,6 +140,9 @@ export class SwapComponentTypeHandler
           `component.swapType: typeId ${JSON.stringify(cmd.typeId)} is not a typ_<ULID>.`,
         );
       }
+      // ⭐ Lane U0 — re-checked, not assumed (CA-3's throw half); runs again on REDO.
+      const membership = this._membershipRefusal(current, cmd.typeId);
+      if (membership !== null) throw new ComponentTypeRefError(membership);
 
       // ⭐ A NESTED PATCH ON ONE FIELD, not a whole-record replace. The inverse Immer
       // generates is then `replace typeId -> <the old one>`, so an undo restores the

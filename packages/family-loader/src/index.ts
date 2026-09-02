@@ -1,6 +1,7 @@
 // @pryzm/family-loader — public surface (S56 D1).
 
-export { loadFamily, loadFamilyFromBytes } from './loadFamily.js';
+export { loadFamily } from './loadFamily.js';
+export { loadFamilyFromBytes } from './loadFamilyFromBytes.js';
 export {
   createFamilyCache,
   defaultFamilyCache,

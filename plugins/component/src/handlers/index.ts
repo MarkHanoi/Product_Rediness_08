@@ -21,6 +21,7 @@
 
 import type { CommandBus, CommandHandler } from '@pryzm/plugin-sdk';
 import { withHandlerSpan } from '@pryzm/plugin-sdk';
+import type { ComponentHandlerDeps } from '../definitionResolver.js';
 import { PlaceComponentHandler } from './PlaceComponent.js';
 import { SwapComponentTypeHandler } from './SwapComponentType.js';
 import { SetComponentInstanceParameterHandler } from './SetComponentInstanceParameter.js';
@@ -44,19 +45,33 @@ export const COMPONENT_HANDLER_TYPES = [
 
 export type ComponentHandlerType = (typeof COMPONENT_HANDLER_TYPES)[number];
 
-export function buildComponentHandlerSet(): readonly CommandHandler<unknown>[] {
+/**
+ * Build the three handlers.
+ *
+ * ⭐ Lane U0 — `deps.definitions` is the project's definition catalogue
+ * (`ComponentDefinitionResolver`, see `../definitionResolver.ts`). WITH it, the
+ * verbs enforce definition-existence, typeId-membership, instance-kind and
+ * value-shape BY NAME; WITHOUT it they keep the Phase-4C format-only behaviour —
+ * the declared gap, declared still, never faked with a default resolver.
+ */
+export function buildComponentHandlerSet(
+  deps: ComponentHandlerDeps = {},
+): readonly CommandHandler<unknown>[] {
   return [
-    new PlaceComponentHandler() as unknown as CommandHandler<unknown>,
-    new SwapComponentTypeHandler() as unknown as CommandHandler<unknown>,
-    new SetComponentInstanceParameterHandler() as unknown as CommandHandler<unknown>,
+    new PlaceComponentHandler(deps.definitions) as unknown as CommandHandler<unknown>,
+    new SwapComponentTypeHandler(deps.definitions) as unknown as CommandHandler<unknown>,
+    new SetComponentInstanceParameterHandler(deps.definitions) as unknown as CommandHandler<unknown>,
   ];
 }
 
-export function registerComponentHandlers(bus: CommandBus): readonly string[] {
+export function registerComponentHandlers(
+  bus: CommandBus,
+  deps: ComponentHandlerDeps = {},
+): readonly string[] {
   return withHandlerSpan('pryzm.component.registerHandlers', {
     'pryzm.plugin': 'component',
   }, (span) => {
-    const set = buildComponentHandlerSet();
+    const set = buildComponentHandlerSet(deps);
     for (const h of set) bus.register(h);
     // Both numbers, deliberately — the balcony barrel's reasoning, kept: `handlers`
     // is what was registered and `verbs` is what this barrel CLAIMS is dispatchable.

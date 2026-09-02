@@ -56,15 +56,22 @@
 //     commit; the 3-D leg is Phase 4E's under ADR-0376 D10.
 //  2. That a SENTENCE reaches the verb. ARM F measures the opposite, on purpose.
 //  3. That the AI can create a RULE (§41–42). ARM G measures that too, and it is 0.
-//  4. That `definitionId` names a definition that exists. There is no registry to ask
-//     (4C's declared gap, C84 §6.2c) — the handler refuses a malformed reference and
-//     accepts a well-formed one, which is all it claims.
+//  4. ⭐ CAVEAT CLOSED BY LANE U0 (2026-09-02): the registry now exists
+//     (`src/services/componentCatalog/`) and the handlers ENFORCE definition
+//     existence through it — which is why `beforeAll` loads the fixture definition
+//     through `packFamily` → the ONE loader before any arm dispatches. The
+//     enforcement is proven red-first in
+//     `componentCatalogSeamThroughComposedRuntime.test.ts`; a green HERE still
+//     does not mean the AI can ENUMERATE definitions (that is lane U6's seam).
 
 import { describe, expect, it, beforeAll, afterAll } from 'vitest';
 
 import { composeRuntime } from '@pryzm/runtime-composer';
+import { packFamily, type FamilyDocument, type FamilyManifest } from '@pryzm/file-format';
 import { bootstrapWithEverything } from '../src/bootstrap.everything.js';
 import { ComponentStore } from '@pryzm/plugin-component';
+// ⭐ Lane U0 — the SAME singleton PluginRegistry injects into the handlers.
+import { componentCatalog } from '../src/services/componentCatalog/index.js';
 import { PatchEmitter } from '@pryzm/command-bus';
 import {
     resolveUtterance,
@@ -96,6 +103,49 @@ beforeAll(async () => {
     // in the browser, so the bridge below is talking to the application's real bus,
     // real handler registry and real stores — not to a double.
     (globalThis as any).window.runtime = rt;
+
+    // ⭐ Lane U0 — the fixture definition, through packFamily → the ONE loader,
+    // into the catalogue the handlers consult (caveat 4 above, closed). Authored
+    // here because there is no corpus (C111 §3.1) — stated, not hidden.
+    componentCatalog.clear();
+    const document: FamilyDocument = {
+        formatVersion: '1.1',
+        referencePlanes: [],
+        parameters: [
+            { id: PARAM_WIDTH, name: 'Width', kind: 'instance', dataType: 'length', defaultValue: 1200, expression: null, ifcMapping: null, exposed: true },
+            { id: PARAM_HEIGHT, name: 'Height', kind: 'instance', dataType: 'length', defaultValue: 1500, expression: null, ifcMapping: null, exposed: true },
+            { id: PARAM_FRAME, name: 'FrameDepth', kind: 'instance', dataType: 'length', defaultValue: 75, expression: null, ifcMapping: null, exposed: true },
+        ],
+        profiles: [],
+        solids: [],
+        materialSlots: [],
+        types: [
+            { id: TYPE_ID, name: 'W1200', values: {}, checksum: 'sha256:44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a' },
+        ],
+        representations: [],
+        connectors: [],
+        propertySets: [],
+        featureEdges: [],
+    } as unknown as FamilyDocument;
+    const manifest: FamilyManifest = {
+        formatVersion: '1.1',
+        id: DEF_ID,
+        name: 'AiSliceFixtureWindow',
+        semver: '1.0.0',
+        author: { id: 'usr_01HZ00000000000000000ASR01', displayName: 'ai-reaches-slice' },
+        description: 'ai slice fixture',
+        ifcEntity: 'IfcWindow',
+        category: 'Window',
+        tags: [],
+        minPRYZMVersion: '2.0.0',
+        schemaHash: 'sha256:0000000000000000000000000000000000000000000000000000000000000000',
+        createdAt: '2026-09-02T00:00:00.000Z',
+        lastModifiedAt: '2026-09-02T00:00:00.000Z',
+    } as unknown as FamilyManifest;
+    const packed = await packFamily({ manifest, document });
+    if (!packed.ok) throw new Error(`[test] packFamily failed: ${(packed as { message?: string }).message}`);
+    const loaded = await componentCatalog.loadFromBytes(packed.bytes, { provenance: 'project' });
+    if (!loaded.ok) throw new Error(`[test] catalogue load failed: ${loaded.message}`);
 }, BUDGET);
 
 afterAll(() => {

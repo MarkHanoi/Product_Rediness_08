@@ -45,10 +45,14 @@
 //  2. **That a CLICK places one.** There is no plan-view tool for this family yet
 //     (Phase 4F). These arms prove the VERB is reachable and lands, not that a
 //     gesture reaches the verb.
-//  3. **That `definitionId` names a definition that exists.** There is no
-//     project-level definition registry at this commit; the handlers refuse a
-//     malformed reference and accept a well-formed one. A declared gap (C84 §6.2c),
-//     not an implied capability.
+//  3. ⭐ **CAVEAT CLOSED BY LANE U0 (2026-09-02).** This entry used to declare:
+//     *"there is no project-level definition registry at this commit."* There is
+//     now — `apps/editor/src/services/componentCatalog/` — and the handlers
+//     ENFORCE definition-existence through it, which is why `beforeAll` below
+//     loads the fixture definition through `packFamily` → the ONE loader before
+//     any arm places. The enforcement itself is proven red-first in
+//     `componentCatalogSeamThroughComposedRuntime.test.ts` (the U0 acceptance);
+//     THIS file keeps proving the join and its persistence.
 //  4. **That a parameter RESOLVES through the ladder.** `resolveParameter()` in
 //     `@pryzm/family-runtime` is 4A's, and reaching it needs the definition document
 //     that (3) says is not reachable. ARM F proves the STRUCTURAL precondition F-2
@@ -63,8 +67,12 @@
 import { describe, expect, it, beforeAll } from 'vitest';
 
 import { composeRuntime } from '@pryzm/runtime-composer';
+import { packFamily, type FamilyDocument, type FamilyManifest } from '@pryzm/file-format';
 import { bootstrapWithEverything } from '../src/bootstrap.everything.js';
 import { ComponentStore } from '@pryzm/plugin-component';
+// ⭐ Lane U0 — the SAME singleton PluginRegistry injects into the handlers; the
+// fixture definition is loaded into it below so the arms' placements RESOLVE.
+import { componentCatalog } from '../src/services/componentCatalog/index.js';
 import { ProjectSerializer } from '../src/engine/persistence/ProjectSerializer';
 import { restoreCompoundFamilies } from '../src/engine/persistence/restoreCompoundFamilies';
 import { SNAPSHOT_FAMILY_COVERAGE } from '../src/engine/persistence/snapshotFamilyCoverage';
@@ -83,6 +91,52 @@ beforeAll(async () => {
         canvas: null,
         bootstrapFn: bootstrapWithEverything as never,
     });
+
+    // ⭐ Lane U0 — load the fixture definition through packFamily → the ONE loader,
+    // into the SAME catalogue the handlers consult. Without this, every placement
+    // below is refused BY NAME (caveat 3 above, closed; proven red-first in the U0
+    // acceptance file). ⚠ There is no corpus (C111 §3.1) — the fixture is authored
+    // here and that is stated, not hidden. Parameter defaults are in the
+    // family-runtime canonical unit (mm); placements stay in metres (D3).
+    componentCatalog.clear();
+    const document: FamilyDocument = {
+        formatVersion: '1.1',
+        referencePlanes: [],
+        parameters: [
+            { id: PARAM_WIDTH, name: 'Width', kind: 'instance', dataType: 'length', defaultValue: 1200, expression: null, ifcMapping: null, exposed: true },
+            { id: PARAM_HEIGHT, name: 'Height', kind: 'instance', dataType: 'length', defaultValue: 1500, expression: null, ifcMapping: null, exposed: true },
+        ],
+        profiles: [],
+        solids: [],
+        materialSlots: [],
+        types: [
+            { id: TYPE_A, name: 'W1200', values: {}, checksum: 'sha256:44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a' },
+            { id: TYPE_B, name: 'W600', values: { [PARAM_WIDTH]: 600 }, checksum: 'sha256:44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a' },
+        ],
+        representations: [],
+        connectors: [],
+        propertySets: [],
+        featureEdges: [],
+    } as unknown as FamilyDocument;
+    const manifest: FamilyManifest = {
+        formatVersion: '1.1',
+        id: DEF_ID,
+        name: 'JoinFixtureWindow',
+        semver: '1.0.0',
+        author: { id: 'usr_01HZ00000000000000000ASR01', displayName: 'component-join' },
+        description: 'componentJoin fixture',
+        ifcEntity: 'IfcWindow',
+        category: 'Window',
+        tags: [],
+        minPRYZMVersion: '2.0.0',
+        schemaHash: 'sha256:0000000000000000000000000000000000000000000000000000000000000000',
+        createdAt: '2026-09-02T00:00:00.000Z',
+        lastModifiedAt: '2026-09-02T00:00:00.000Z',
+    } as unknown as FamilyManifest;
+    const packed = await packFamily({ manifest, document });
+    if (!packed.ok) throw new Error(`[test] packFamily failed: ${(packed as { message?: string }).message}`);
+    const loaded = await componentCatalog.loadFromBytes(packed.bytes, { provenance: 'project' });
+    if (!loaded.ok) throw new Error(`[test] catalogue load failed: ${loaded.message}`);
 }, BUDGET);
 
 // ── IDS ──────────────────────────────────────────────────────────────────────

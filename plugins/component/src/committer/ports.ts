@@ -74,18 +74,21 @@ export type BakeComponentInstance = (input: {
 }) => Promise<BakeResultLike>;
 
 /**
- * ⭐ THE DEFINITION-RESOLUTION PORT — and the honest name for a gap.
+ * ⭐ THE DEFINITION-RESOLUTION PORT — and the honest name for what WAS a gap.
  *
- * ⛔ THERE IS NO PROJECT-LEVEL COMPONENT-DEFINITION REGISTRY IN THIS REPOSITORY.
- *    Lane 4C measured it and declared it (its ARM-3 note: *"there is no
- *    project-level definition registry at this commit"*), and this lane did not
- *    build one — building one to make a render work would be a rival to whatever
- *    the real registry turns out to be, decided by a rendering lane, which is
- *    exactly the R1 shape.
+ * ⚠ CORRECTED BY LANE U0 (2026-09-02). This comment used to open: *"THERE IS NO
+ *   PROJECT-LEVEL COMPONENT-DEFINITION REGISTRY IN THIS REPOSITORY"* — true when
+ *   lane 4E wrote it, and exactly why 4E refused to invent one (a rendering lane
+ *   minting the registry would be the R1 rival shape). The registry now exists:
+ *   the ONE catalogue at `apps/editor/src/services/componentCatalog/`, whose
+ *   `has()` satisfies THIS port unchanged and whose richer
+ *   `ComponentDefinitionResolver` face (`../definitionResolver.ts`) serves the
+ *   command handlers — one object, both seams, so the committer and the verbs
+ *   cannot disagree about whether a definition exists.
  *
- * So the committer ASKS, and a wiring that has no answer says so. `false` is a
- * first-class result and it is rendered as an ABSENCE with a warning, never as a
- * substitute box.
+ * The port keeps its narrow shape: the committer needs `has()` and nothing more.
+ * A wiring that has no answer still says so — `false` is a first-class result and
+ * it is rendered as an ABSENCE with a warning, never as a substitute box.
  */
 export interface ComponentDefinitionSource {
   /** Is a definition document available for this id? */

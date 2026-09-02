@@ -1,0 +1,880 @@
+{
+  "lane": "BASE-INNER (axes A+B, runtime layer)",
+  "capturedAt": "2026-09-02T08:01:29.146Z",
+  "environment": {
+    "kind": "headless vitest (happy-dom) · REAL composeRuntime(bootstrapWithEverything) · renderless (canvas: null) · single fork",
+    "node": "v24.15.0",
+    "platform": "win32 10.0.26200 x64",
+    "cpu": "AMD Ryzen 5 7235HS                              × 8",
+    "totalMemGB": 11.692,
+    "headSha": "9a45a0bb",
+    "treeState": "dirty (multi-lane wave in flight) — see lane transcript for git status at lane start",
+    "caveat": "scene-commit/render NOT included (no canvas); dev-server numbers are inadmissible per doctrine and are not what this measures"
+  },
+  "reproduce": "npx vitest run -c tools/perf/vitest.inner.config.mts",
+  "harness": "tools/perf/inner-runtime-perf.perf.test.ts",
+  "stageKey": {
+    "ctx": "bus.storesProvider = storesAsRecordView (Object.fromEntries over EVERY store, EVERY dispatch — bootstrap.ts)",
+    "canExecute": "handler.canExecute",
+    "execute": "handler.execute (produceCommand / Immer)",
+    "emitTotal": "PatchEmitter.emit(record) — msgpack encode + ALL listener fan-out (attachStores/store.applyPatch, authoritative mirror, CommandEventBridge, persistence)",
+    "emit_msgpackEncode": "PatchEmitter.encode — msgpack of the WHOLE EventRecord (payload + forward + inverse), computed unconditionally before any listener runs",
+    "emit_applyPatch": "Store.applyPatch via attachStores (DTO store write; inside emit)",
+    "emit_authoritativeMirrorAdd": "authoritative WallStore.add via wireAuthoritativeElementMirror (inside emit; wall verbs only)",
+    "residualPostEmit": "record build + ring-buffer push (toJsonPointer × ops) + legacy undo push + gesture/audit bookkeeping"
+  },
+  "results": {
+    "A1_wall_create_single": {
+      "verb": "wall.create",
+      "total": {
+        "n": 60,
+        "medianMs": 1.167,
+        "p95Ms": 1.907,
+        "meanMs": 1.843,
+        "minMs": 0.65,
+        "maxMs": 36.661
+      },
+      "stages": {
+        "ctx": {
+          "n": 60,
+          "medianMs": 0.064,
+          "p95Ms": 0.1,
+          "meanMs": 0.068,
+          "minMs": 0.037,
+          "maxMs": 0.194
+        },
+        "canExecute": {
+          "n": 60,
+          "medianMs": 0.011,
+          "p95Ms": 0.041,
+          "meanMs": 0.018,
+          "minMs": 0.005,
+          "maxMs": 0.206
+        },
+        "execute": {
+          "n": 60,
+          "medianMs": 0.348,
+          "p95Ms": 0.647,
+          "meanMs": 0.48,
+          "minMs": 0.161,
+          "maxMs": 7.108
+        },
+        "emitTotal": {
+          "n": 60,
+          "medianMs": 0.56,
+          "p95Ms": 1.066,
+          "meanMs": 1.051,
+          "minMs": 0.31,
+          "maxMs": 26.435
+        },
+        "emit_msgpackEncode": {
+          "n": 60,
+          "medianMs": 0.066,
+          "p95Ms": 0.192,
+          "meanMs": 0.112,
+          "minMs": 0.039,
+          "maxMs": 2.061
+        },
+        "emit_applyPatch": {
+          "n": 60,
+          "medianMs": 0.116,
+          "p95Ms": 0.367,
+          "meanMs": 0.151,
+          "minMs": 0.064,
+          "maxMs": 0.705
+        },
+        "emit_authoritativeMirrorAdd": {
+          "n": 60,
+          "medianMs": 0.342,
+          "p95Ms": 0.67,
+          "meanMs": 0.72,
+          "minMs": 0.188,
+          "maxMs": 21.548
+        },
+        "residualPostEmit": {
+          "n": 60,
+          "medianMs": 0.169,
+          "p95Ms": 0.346,
+          "meanMs": 0.225,
+          "minMs": 0.08,
+          "maxMs": 2.761
+        }
+      }
+    },
+    "A2a_wall_createOpening_door": {
+      "verb": "wall.createOpening (type=door)",
+      "total": {
+        "n": 60,
+        "medianMs": 0.256,
+        "p95Ms": 0.44,
+        "meanMs": 0.287,
+        "minMs": 0.205,
+        "maxMs": 1.291
+      },
+      "stages": {
+        "ctx": {
+          "n": 60,
+          "medianMs": 0.025,
+          "p95Ms": 0.037,
+          "meanMs": 0.026,
+          "minMs": 0.019,
+          "maxMs": 0.065
+        },
+        "canExecute": {
+          "n": 60,
+          "medianMs": 0.004,
+          "p95Ms": 0.015,
+          "meanMs": 0.01,
+          "minMs": 0.003,
+          "maxMs": 0.275
+        },
+        "execute": {
+          "n": 60,
+          "medianMs": 0.057,
+          "p95Ms": 0.138,
+          "meanMs": 0.077,
+          "minMs": 0.045,
+          "maxMs": 0.498
+        },
+        "emitTotal": {
+          "n": 60,
+          "medianMs": 0.092,
+          "p95Ms": 0.139,
+          "meanMs": 0.102,
+          "minMs": 0.072,
+          "maxMs": 0.321
+        },
+        "emit_msgpackEncode": {
+          "n": 60,
+          "medianMs": 0.022,
+          "p95Ms": 0.046,
+          "meanMs": 0.027,
+          "minMs": 0.019,
+          "maxMs": 0.128
+        },
+        "emit_applyPatch": {
+          "n": 60,
+          "medianMs": 0.063,
+          "p95Ms": 0.098,
+          "meanMs": 0.07,
+          "minMs": 0.049,
+          "maxMs": 0.228
+        },
+        "emit_authoritativeMirrorAdd": {
+          "n": 60,
+          "medianMs": 0,
+          "p95Ms": 0,
+          "meanMs": 0,
+          "minMs": 0,
+          "maxMs": 0
+        },
+        "residualPostEmit": {
+          "n": 60,
+          "medianMs": 0.065,
+          "p95Ms": 0.11,
+          "meanMs": 0.072,
+          "minMs": 0.058,
+          "maxMs": 0.153
+        }
+      }
+    },
+    "A2b_door_batch_create_1": {
+      "verb": "door.batch.create (1 entry)",
+      "total": {
+        "n": 60,
+        "medianMs": 0.288,
+        "p95Ms": 0.581,
+        "meanMs": 0.507,
+        "minMs": 0.223,
+        "maxMs": 8.163
+      },
+      "stages": {
+        "ctx": {
+          "n": 60,
+          "medianMs": 0.031,
+          "p95Ms": 0.066,
+          "meanMs": 0.035,
+          "minMs": 0.021,
+          "maxMs": 0.086
+        },
+        "canExecute": {
+          "n": 60,
+          "medianMs": 0.001,
+          "p95Ms": 0.01,
+          "meanMs": 0.005,
+          "minMs": 0.001,
+          "maxMs": 0.141
+        },
+        "execute": {
+          "n": 60,
+          "medianMs": 0.089,
+          "p95Ms": 0.21,
+          "meanMs": 0.159,
+          "minMs": 0.062,
+          "maxMs": 3.554
+        },
+        "emitTotal": {
+          "n": 60,
+          "medianMs": 0.079,
+          "p95Ms": 0.154,
+          "meanMs": 0.23,
+          "minMs": 0.064,
+          "maxMs": 7.932
+        },
+        "emit_msgpackEncode": {
+          "n": 60,
+          "medianMs": 0.027,
+          "p95Ms": 0.057,
+          "meanMs": 0.039,
+          "minMs": 0.02,
+          "maxMs": 0.524
+        },
+        "emit_applyPatch": {
+          "n": 60,
+          "medianMs": 0.048,
+          "p95Ms": 0.102,
+          "meanMs": 0.184,
+          "minMs": 0.03,
+          "maxMs": 7.886
+        },
+        "emit_authoritativeMirrorAdd": {
+          "n": 60,
+          "medianMs": 0,
+          "p95Ms": 0,
+          "meanMs": 0,
+          "minMs": 0,
+          "maxMs": 0
+        },
+        "residualPostEmit": {
+          "n": 60,
+          "medianMs": 0.067,
+          "p95Ms": 0.12,
+          "meanMs": 0.078,
+          "minMs": 0.058,
+          "maxMs": 0.163
+        }
+      }
+    },
+    "A3_wall_createOpening_window": {
+      "verb": "wall.createOpening (type=window)",
+      "total": {
+        "n": 60,
+        "medianMs": 0.247,
+        "p95Ms": 0.51,
+        "meanMs": 0.301,
+        "minMs": 0.184,
+        "maxMs": 0.641
+      },
+      "stages": {
+        "ctx": {
+          "n": 60,
+          "medianMs": 0.035,
+          "p95Ms": 0.119,
+          "meanMs": 0.045,
+          "minMs": 0.024,
+          "maxMs": 0.164
+        },
+        "canExecute": {
+          "n": 60,
+          "medianMs": 0.004,
+          "p95Ms": 0.008,
+          "meanMs": 0.005,
+          "minMs": 0.003,
+          "maxMs": 0.013
+        },
+        "execute": {
+          "n": 60,
+          "medianMs": 0.054,
+          "p95Ms": 0.145,
+          "meanMs": 0.071,
+          "minMs": 0.04,
+          "maxMs": 0.213
+        },
+        "emitTotal": {
+          "n": 60,
+          "medianMs": 0.084,
+          "p95Ms": 0.187,
+          "meanMs": 0.101,
+          "minMs": 0.064,
+          "maxMs": 0.268
+        },
+        "emit_msgpackEncode": {
+          "n": 60,
+          "medianMs": 0.023,
+          "p95Ms": 0.066,
+          "meanMs": 0.029,
+          "minMs": 0.017,
+          "maxMs": 0.085
+        },
+        "emit_applyPatch": {
+          "n": 60,
+          "medianMs": 0.055,
+          "p95Ms": 0.118,
+          "meanMs": 0.066,
+          "minMs": 0.045,
+          "maxMs": 0.173
+        },
+        "emit_authoritativeMirrorAdd": {
+          "n": 60,
+          "medianMs": 0,
+          "p95Ms": 0,
+          "meanMs": 0,
+          "minMs": 0,
+          "maxMs": 0
+        },
+        "residualPostEmit": {
+          "n": 60,
+          "medianMs": 0.062,
+          "p95Ms": 0.145,
+          "meanMs": 0.079,
+          "minMs": 0.052,
+          "maxMs": 0.161
+        }
+      }
+    },
+    "A4_hosted_create_refusals": {
+      "note": "door.create and window.create REFUSE (hosted elements are created via the atomic 'wall.createOpening'); measured as an assertion, not a timing"
+    },
+    "B1_100_walls": {
+      "batch": {
+        "verb": "wall.batch.create (100 walls, ONE dispatch)",
+        "total": {
+          "n": 12,
+          "medianMs": 15.984,
+          "p95Ms": 23.761,
+          "meanMs": 16.823,
+          "minMs": 9.333,
+          "maxMs": 23.761
+        },
+        "stages": {
+          "ctx": {
+            "n": 12,
+            "medianMs": 0.096,
+            "p95Ms": 0.168,
+            "meanMs": 0.109,
+            "minMs": 0.07,
+            "maxMs": 0.168
+          },
+          "canExecute": {
+            "n": 12,
+            "medianMs": 0.028,
+            "p95Ms": 0.192,
+            "meanMs": 0.044,
+            "minMs": 0.006,
+            "maxMs": 0.192
+          },
+          "execute": {
+            "n": 12,
+            "medianMs": 3.466,
+            "p95Ms": 5.232,
+            "meanMs": 3.456,
+            "minMs": 1.919,
+            "maxMs": 5.232
+          },
+          "emitTotal": {
+            "n": 12,
+            "medianMs": 12.665,
+            "p95Ms": 19.188,
+            "meanMs": 12.886,
+            "minMs": 6.983,
+            "maxMs": 19.188
+          },
+          "emit_msgpackEncode": {
+            "n": 12,
+            "medianMs": 1.747,
+            "p95Ms": 2.745,
+            "meanMs": 1.775,
+            "minMs": 0.916,
+            "maxMs": 2.745
+          },
+          "emit_applyPatch": {
+            "n": 12,
+            "medianMs": 1.96,
+            "p95Ms": 3.046,
+            "meanMs": 2.189,
+            "minMs": 1.515,
+            "maxMs": 3.046
+          },
+          "emit_authoritativeMirrorAdd": {
+            "n": 12,
+            "medianMs": 7.72,
+            "p95Ms": 15.107,
+            "meanMs": 8.658,
+            "minMs": 4.326,
+            "maxMs": 15.107
+          },
+          "residualPostEmit": {
+            "n": 12,
+            "medianMs": 0.343,
+            "p95Ms": 0.43,
+            "meanMs": 0.329,
+            "minMs": 0.228,
+            "maxMs": 0.43
+          }
+        },
+        "topRingEntryPerRep": [
+          {
+            "commandType": "wall.batch.create",
+            "forwardOps": 100
+          },
+          {
+            "commandType": "wall.batch.create",
+            "forwardOps": 100
+          },
+          {
+            "commandType": "wall.batch.create",
+            "forwardOps": 100
+          },
+          {
+            "commandType": "wall.batch.create",
+            "forwardOps": 100
+          },
+          {
+            "commandType": "wall.batch.create",
+            "forwardOps": 100
+          },
+          {
+            "commandType": "wall.batch.create",
+            "forwardOps": 100
+          },
+          {
+            "commandType": "wall.batch.create",
+            "forwardOps": 100
+          },
+          {
+            "commandType": "wall.batch.create",
+            "forwardOps": 100
+          },
+          {
+            "commandType": "wall.batch.create",
+            "forwardOps": 100
+          },
+          {
+            "commandType": "wall.batch.create",
+            "forwardOps": 100
+          },
+          {
+            "commandType": "wall.batch.create",
+            "forwardOps": 100
+          },
+          {
+            "commandType": "wall.batch.create",
+            "forwardOps": 100
+          }
+        ]
+      },
+      "singles": {
+        "verb": "wall.create × 100 (the anti-pattern)",
+        "totalPerRep": {
+          "n": 6,
+          "medianMs": 42.591,
+          "p95Ms": 52.225,
+          "meanMs": 43.337,
+          "minMs": 37.31,
+          "maxMs": 52.225
+        },
+        "perDispatch": {
+          "total": {
+            "n": 600,
+            "medianMs": 0.391,
+            "p95Ms": 0.726,
+            "meanMs": 0.431,
+            "minMs": 0.226,
+            "maxMs": 6.686
+          },
+          "stages": {
+            "ctx": {
+              "n": 600,
+              "medianMs": 0.037,
+              "p95Ms": 0.076,
+              "meanMs": 0.042,
+              "minMs": 0.021,
+              "maxMs": 0.255
+            },
+            "canExecute": {
+              "n": 600,
+              "medianMs": 0.004,
+              "p95Ms": 0.008,
+              "meanMs": 0.004,
+              "minMs": 0.002,
+              "maxMs": 0.048
+            },
+            "execute": {
+              "n": 600,
+              "medianMs": 0.094,
+              "p95Ms": 0.22,
+              "meanMs": 0.109,
+              "minMs": 0.051,
+              "maxMs": 0.481
+            },
+            "emitTotal": {
+              "n": 600,
+              "medianMs": 0.164,
+              "p95Ms": 0.321,
+              "meanMs": 0.19,
+              "minMs": 0.087,
+              "maxMs": 6.461
+            },
+            "emit_msgpackEncode": {
+              "n": 600,
+              "medianMs": 0.021,
+              "p95Ms": 0.047,
+              "meanMs": 0.025,
+              "minMs": 0.015,
+              "maxMs": 0.136
+            },
+            "emit_applyPatch": {
+              "n": 600,
+              "medianMs": 0.06,
+              "p95Ms": 0.109,
+              "meanMs": 0.073,
+              "minMs": 0.029,
+              "maxMs": 6.148
+            },
+            "emit_authoritativeMirrorAdd": {
+              "n": 600,
+              "medianMs": 0.072,
+              "p95Ms": 0.159,
+              "meanMs": 0.082,
+              "minMs": 0.035,
+              "maxMs": 0.311
+            },
+            "residualPostEmit": {
+              "n": 600,
+              "medianMs": 0.072,
+              "p95Ms": 0.161,
+              "meanMs": 0.086,
+              "minMs": 0.05,
+              "maxMs": 0.684
+            }
+          }
+        },
+        "undoableEntriesAfterRep_ringCapped200": [
+          200,
+          200,
+          200,
+          200,
+          200,
+          200
+        ]
+      },
+      "ratio_singles_over_batch_median": 2.665
+    },
+    "B2_1000_walls": {
+      "batch": {
+        "verb": "wall.batch.create (1000 walls, ONE dispatch)",
+        "total": {
+          "n": 6,
+          "medianMs": 285.731,
+          "p95Ms": 350.097,
+          "meanMs": 287.478,
+          "minMs": 245.865,
+          "maxMs": 350.097
+        },
+        "stages": {
+          "ctx": {
+            "n": 6,
+            "medianMs": 0.101,
+            "p95Ms": 0.14,
+            "meanMs": 0.106,
+            "minMs": 0.084,
+            "maxMs": 0.14
+          },
+          "canExecute": {
+            "n": 6,
+            "medianMs": 0.052,
+            "p95Ms": 0.073,
+            "meanMs": 0.054,
+            "minMs": 0.04,
+            "maxMs": 0.073
+          },
+          "execute": {
+            "n": 6,
+            "medianMs": 18.678,
+            "p95Ms": 28.638,
+            "meanMs": 20.879,
+            "minMs": 16.461,
+            "maxMs": 28.638
+          },
+          "emitTotal": {
+            "n": 6,
+            "medianMs": 265.648,
+            "p95Ms": 320.666,
+            "meanMs": 265.643,
+            "minMs": 228.66,
+            "maxMs": 320.666
+          },
+          "emit_msgpackEncode": {
+            "n": 6,
+            "medianMs": 11.302,
+            "p95Ms": 19.429,
+            "meanMs": 13.102,
+            "minMs": 9.39,
+            "maxMs": 19.429
+          },
+          "emit_applyPatch": {
+            "n": 6,
+            "medianMs": 14.642,
+            "p95Ms": 26.065,
+            "meanMs": 18.397,
+            "minMs": 13.382,
+            "maxMs": 26.065
+          },
+          "emit_authoritativeMirrorAdd": {
+            "n": 6,
+            "medianMs": 228.257,
+            "p95Ms": 288.883,
+            "meanMs": 233.246,
+            "minMs": 205.132,
+            "maxMs": 288.883
+          },
+          "residualPostEmit": {
+            "n": 6,
+            "medianMs": 0.649,
+            "p95Ms": 1.251,
+            "meanMs": 0.795,
+            "minMs": 0.568,
+            "maxMs": 1.251
+          }
+        },
+        "topRingEntryPerRep": [
+          {
+            "commandType": "wall.batch.create",
+            "forwardOps": 1000
+          },
+          {
+            "commandType": "wall.batch.create",
+            "forwardOps": 1000
+          },
+          {
+            "commandType": "wall.batch.create",
+            "forwardOps": 1000
+          },
+          {
+            "commandType": "wall.batch.create",
+            "forwardOps": 1000
+          },
+          {
+            "commandType": "wall.batch.create",
+            "forwardOps": 1000
+          },
+          {
+            "commandType": "wall.batch.create",
+            "forwardOps": 1000
+          }
+        ]
+      },
+      "singles": {
+        "verb": "wall.create × 1000 (the anti-pattern)",
+        "totalPerRep": {
+          "n": 2,
+          "medianMs": 2288.273,
+          "p95Ms": 5174.224,
+          "meanMs": 3731.249,
+          "minMs": 2288.273,
+          "maxMs": 5174.224
+        },
+        "perDispatch": {
+          "total": {
+            "n": 2000,
+            "medianMs": 2.571,
+            "p95Ms": 7.022,
+            "meanMs": 3.726,
+            "minMs": 0.185,
+            "maxMs": 1191.993
+          },
+          "stages": {
+            "ctx": {
+              "n": 2000,
+              "medianMs": 0.26,
+              "p95Ms": 0.932,
+              "meanMs": 0.751,
+              "minMs": 0.019,
+              "maxMs": 716.199
+            },
+            "canExecute": {
+              "n": 2000,
+              "medianMs": 0.009,
+              "p95Ms": 0.016,
+              "meanMs": 0.009,
+              "minMs": 0.001,
+              "maxMs": 0.261
+            },
+            "execute": {
+              "n": 2000,
+              "medianMs": 0.661,
+              "p95Ms": 1.919,
+              "meanMs": 0.944,
+              "minMs": 0.043,
+              "maxMs": 205.025
+            },
+            "emitTotal": {
+              "n": 2000,
+              "medianMs": 1.369,
+              "p95Ms": 4.116,
+              "meanMs": 1.881,
+              "minMs": 0.07,
+              "maxMs": 270.515
+            },
+            "emit_msgpackEncode": {
+              "n": 2000,
+              "medianMs": 0.038,
+              "p95Ms": 0.064,
+              "meanMs": 0.04,
+              "minMs": 0.015,
+              "maxMs": 1.339
+            },
+            "emit_applyPatch": {
+              "n": 2000,
+              "medianMs": 0.798,
+              "p95Ms": 2.591,
+              "meanMs": 1.212,
+              "minMs": 0.026,
+              "maxMs": 269.195
+            },
+            "emit_authoritativeMirrorAdd": {
+              "n": 2000,
+              "medianMs": 0.433,
+              "p95Ms": 1.677,
+              "meanMs": 0.612,
+              "minMs": 0.025,
+              "maxMs": 15.63
+            },
+            "residualPostEmit": {
+              "n": 2000,
+              "medianMs": 0.139,
+              "p95Ms": 0.228,
+              "meanMs": 0.14,
+              "minMs": 0.047,
+              "maxMs": 0.595
+            }
+          }
+        },
+        "undoableEntriesAfterRep_ringCapped200": [
+          200,
+          200
+        ],
+        "ringBufferCapacityNote": "RingBufferUndoStack DEFAULT_MAX_SIZE=200 — 1000 singles evict 800 entries; only the last 200 are undoable",
+        "ctxMedianMs_dispatch_1_100": 0.117,
+        "ctxMedianMs_dispatch_451_550": 0.226,
+        "ctxMedianMs_dispatch_901_1000": 0.672
+      },
+      "ratio_singles_over_batch_median": 8.008
+    },
+    "B3_undo_1000_batch": {
+      "undoEntriesForBatch": 1,
+      "proof": "top ring entry commandType=wall.batch.create with 1000 forward ops; ONE inverse application emptied the DTO store",
+      "composedUndoSlot": {
+        "undoMs": 7.724,
+        "restoredDtoStore": false,
+        "finding": "REACHABILITY FINDING — runtime.undoStack.undo() (Phase-D slot, composeRuntime buildPhaseDUndoStackSlot) pops the cursor but applies NOTHING to element stores: bus.fetchStores returns the storesAsRecordView DTO snapshot (plain objects, no applyPatch) and applyRingBufferSide refuses (C03 §4.7 B1, error printed on run 6). Any caller of the composition-root undo surface gets a silent no-op with a moved cursor. Production Ctrl+Z uses L7 performUndoRedo instead — verify there before logging user impact."
+      },
+      "inverseApplyViaRealStoreMap": {
+        "applyMs": 3.585,
+        "note": "applyRingBufferSide(inverse, [wall], {wall: REAL store}) — the routing performUndoRedo performs; this is the actual 1000-op undo-apply cost"
+      },
+      "authoritativeStoreSizeAfterUndo": 1000,
+      "authoritativeNote": "the authoritative mirror is add-only (MIRRORED map), so undo does not shrink the authoritative WallStore at this layer"
+    },
+    "B4_generator_apartment_end_to_end": {
+      "shape": "10×9 m shell · 2-bed/1-bath program · D-TGL deterministic engine (no LLM)",
+      "reps": [
+        {
+          "engineMs": 82.127,
+          "buildCommandsMs": 5.175,
+          "dispatchMs": 20.126,
+          "totalMs": 107.427,
+          "wallsLanded": 10,
+          "doorsLanded": 6,
+          "windowsLanded": 8
+        },
+        {
+          "engineMs": 24.077,
+          "buildCommandsMs": 1.948,
+          "dispatchMs": 6.533,
+          "totalMs": 32.558,
+          "wallsLanded": 10,
+          "doorsLanded": 6,
+          "windowsLanded": 8
+        },
+        {
+          "engineMs": 18.27,
+          "buildCommandsMs": 2.301,
+          "dispatchMs": 6.442,
+          "totalMs": 27.013,
+          "wallsLanded": 10,
+          "doorsLanded": 6,
+          "windowsLanded": 8
+        },
+        {
+          "engineMs": 25.364,
+          "buildCommandsMs": 2.185,
+          "dispatchMs": 10.603,
+          "totalMs": 38.152,
+          "wallsLanded": 10,
+          "doorsLanded": 6,
+          "windowsLanded": 8
+        },
+        {
+          "engineMs": 20.391,
+          "buildCommandsMs": 2.041,
+          "dispatchMs": 8.912,
+          "totalMs": 31.345,
+          "wallsLanded": 10,
+          "doorsLanded": 6,
+          "windowsLanded": 8
+        }
+      ],
+      "engine": {
+        "n": 5,
+        "medianMs": 24.077,
+        "p95Ms": 82.127,
+        "meanMs": 34.046,
+        "minMs": 18.27,
+        "maxMs": 82.127
+      },
+      "buildCommands": {
+        "n": 5,
+        "medianMs": 2.185,
+        "p95Ms": 5.175,
+        "meanMs": 2.73,
+        "minMs": 1.948,
+        "maxMs": 5.175
+      },
+      "dispatch": {
+        "n": 5,
+        "medianMs": 8.912,
+        "p95Ms": 20.126,
+        "meanMs": 10.523,
+        "minMs": 6.442,
+        "maxMs": 20.126
+      },
+      "total": {
+        "n": 5,
+        "medianMs": 32.558,
+        "p95Ms": 107.427,
+        "meanMs": 47.299,
+        "minMs": 27.013,
+        "maxMs": 107.427
+      },
+      "dispatchedVerbTallyLastRep": {
+        "wall.batch.create": 1,
+        "wall.createOpening": 14,
+        "door.batch.create": 1,
+        "window.batch.create": 1
+      },
+      "skippedVerbs": [],
+      "note": "boundaryCommands/roomCommands are NOT dispatched (no bus verb / executor-owned) — matches the LayoutCommandSet contract",
+      "finding_doorSystemTypeVocabularyMismatch": "buildLayoutCommands stamps DoorSystemTypeStore ids (dt-solid-timber via defaultDoorSystemTypeId) onto door.batch.create/window.batch.create entries; CreateDoorBatch.canExecute validates systemTypeId against getDoorType() (@pryzm/types-builtin: 'door.interior.single.standard', ...). The vocabularies are disjoint, so the generator's door batch REFUSES on the composed bus ('door type not found: dt-solid-timber' — measured). The live editor dodges it because ApartmentLayoutExecutor drives the LEGACY CreateWallOpeningsBatchCommand instead. Harness strips systemTypeId to time the path; fixing it belongs to the door plugin / executePlan owners."
+    },
+    "F1_falsification_planted_delay": {
+      "plantedMs": 25,
+      "cleanMedianMs": 0.581,
+      "degradedMedianMs": 26.13,
+      "verdict": "harness tracks the subject — a planted delay moves the numbers by the planted amount"
+    },
+    "F2_falsification_broken_subject": {
+      "verdict": "with the subject broken, timedDispatch rejects — the harness FAILS rather than reporting a number"
+    }
+  }
+}

@@ -1,0 +1,365 @@
+{
+  "live-shell": {
+    "target": "https://pryzm.fly.dev",
+    "note": "anonymous landing/app-shell — live auth gate blocks the authed editor (findings F1/F2)",
+    "cold": {
+      "domContentLoaded": {
+        "n": 5,
+        "min": 3139,
+        "median": 3459,
+        "p95": 4148,
+        "max": 4148
+      },
+      "firstContentfulPaint": {
+        "n": 4,
+        "min": 2538,
+        "median": 3271,
+        "p95": 4222,
+        "max": 4222
+      },
+      "interactive": {
+        "n": 5,
+        "min": 3271,
+        "median": 3547,
+        "p95": 4235,
+        "max": 4235
+      }
+    },
+    "warm": {
+      "domContentLoaded": {
+        "n": 5,
+        "min": 545,
+        "median": 781,
+        "p95": 1278,
+        "max": 1278
+      },
+      "firstContentfulPaint": {
+        "n": 5,
+        "min": 310,
+        "median": 402,
+        "p95": 1169,
+        "max": 1169
+      },
+      "interactive": {
+        "n": 5,
+        "min": 577,
+        "median": 852,
+        "p95": 1420,
+        "max": 1420
+      }
+    }
+  },
+  "_meta": {
+    "lane": "BASE-OUTER",
+    "when": "2026-09-02T08:01:08.281Z",
+    "runsPerCell": 5,
+    "env": {
+      "platform": "win32",
+      "node": "v24.15.0"
+    },
+    "reproduce": "npx playwright test --config tools/perf/outer/playwright.outer.config.ts (local cells need run-outer-local.mjs first)"
+  },
+  "axisC-local": {
+    "target": "http://localhost:5311",
+    "note": "API leg = POST /api/v1/projects (in-memory store locally — see findings for the live-API create cost to add for a WAN estimate); hydrate leg = canonical open gesture to usable editor (canvas + overlay dismissed + double-rAF).",
+    "apiLeg": {
+      "n": 5,
+      "min": 9,
+      "median": 12,
+      "p95": 51,
+      "max": 51
+    },
+    "hydrateToCanvas": {
+      "n": 5,
+      "min": 2504,
+      "median": 2693,
+      "p95": 3585,
+      "max": 3585
+    },
+    "hydrateToUsable": {
+      "n": 5,
+      "min": 6857,
+      "median": 7189,
+      "p95": 8727,
+      "max": 8727
+    },
+    "clickToUsable": {
+      "n": 5,
+      "min": 6867,
+      "median": 7200,
+      "p95": 8769,
+      "max": 8769
+    }
+  },
+  "axisD-local-cold-run0-loaderPhases": [
+    "[ProjectLoader] §LOAD-PHASE name=setup elapsed=0.6ms total=0.6ms",
+    "[§PERF] §PERF-L03-PHASE phase=import_drain ms=35.1 chunked=false elements=0",
+    "[ProjectLoader] §LOAD-PHASE name=hydrate elapsed=57.9ms total=58.5ms",
+    "[ProjectLoader] §LOAD-PHASE name=event_flush elapsed=0.7ms total=59.2ms",
+    "[ProjectLoader] §LOAD-PHASE name=wall_rebuild_flush elapsed=0.3ms total=59.5ms",
+    "[§PERF] §PERF-L03-PHASE phase=wall_restore_flush ms=0.3 walls=0",
+    "[ProjectLoader] §LOAD-PHASE name=redetect_sweep elapsed=1.1ms total=60.6ms",
+    "[§PERF] §PERF-L03-PHASE phase=redetect_sweep ms=0.9",
+    "[ProjectLoader] §LOAD-PHASE name=setup elapsed=0.3ms total=0.3ms",
+    "[§PERF] §PERF-L03-TIER-TRAVERSE event=bim-wall-added isBatching=false loadActive=true",
+    "[§PERF] §PERF-L03-TIER-TRAVERSE event=bim-wall-added isBatching=false loadActive=true",
+    "[§PERF] §PERF-L03-TIER-TRAVERSE event=bim-wall-added isBatching=false loadActive=true",
+    "[§PERF] §PERF-L03-TIER-TRAVERSE event=bim-wall-added isBatching=false loadActive=true",
+    "[§PERF] §PERF-L03-TIER-TRAVERSE event=bim-wall-added isBatching=false loadActive=true",
+    "[§PERF] §PERF-L03-TIER-TRAVERSE event=bim-wall-added isBatching=false loadActive=true",
+    "[§PERF] §PERF-L03-TIER-TRAVERSE event=bim-wall-added isBatching=false loadActive=true",
+    "[§PERF] §PERF-L03-TIER-TRAVERSE event=bim-wall-added isBatching=false loadActive=true",
+    "[§PERF] §PERF-L03-TIER-TRAVERSE event=bim-wall-added isBatching=false loadActive=true",
+    "[§PERF] §PERF-L03-TIER-TRAVERSE event=bim-wall-added isBatching=false loadActive=true",
+    "[§PERF] §PERF-L03-TIER-TRAVERSE event=bim-wall-added isBatching=false loadActive=true",
+    "[§PERF] §PERF-L03-TIER-TRAVERSE event=bim-wall-added isBatching=false loadActive=true",
+    "[§PERF] §PERF-L03-TIER-TRAVERSE event=bim-wall-added isBatching=false loadActive=true",
+    "[§PERF] §PERF-L03-TIER-TRAVERSE event=bim-wall-added isBatching=false loadActive=true",
+    "[§PERF] §PERF-L03-TIER-TRAVERSE event=bim-wall-added isBatching=false loadActive=true",
+    "[§PERF] §PERF-L03-TIER-TRAVERSE event=bim-wall-added isBatching=false loadActive=true",
+    "[§PERF] §PERF-L03-TIER-TRAVERSE event=bim-wall-added isBatching=false loadActive=true",
+    "[§PERF] §PERF-L03-TIER-TRAVERSE event=bim-wall-added isBatching=false loadActive=true",
+    "[§PERF] §PERF-L03-TIER-TRAVERSE event=bim-wall-added isBatching=false loadActive=true",
+    "[§PERF] §PERF-L03-TIER-TRAVERSE event=bim-wall-added isBatching=false loadActive=true",
+    "[§PERF] §PERF-L03-TIER-TRAVERSE event=bim-wall-added isBatching=false loadActive=true",
+    "[§PERF] §PERF-L03-TIER-TRAVERSE event=bim-wall-added isBatching=false loadActive=true",
+    "[§PERF] §PERF-L03-TIER-TRAVERSE event=bim-wall-added isBatching=false loadActive=true",
+    "[§PERF] §PERF-L03-TIER-TRAVERSE event=bim-wall-added isBatching=false loadActive=true",
+    "[§PERF] §PERF-L03-TIER-TRAVERSE event=bim-wall-added isBatching=false loadActive=true",
+    "[§PERF] §PERF-L03-TIER-TRAVERSE event=bim-wall-added isBatching=false loadActive=true",
+    "[§PERF] §PERF-L03-TIER-TRAVERSE event=bim-wall-added isBatching=false loadActive=true",
+    "[§PERF] §PERF-L03-TIER-TRAVERSE event=bim-wall-added isBatching=false loadActive=true",
+    "[§PERF] §PERF-L03-TIER-TRAVERSE event=bim-wall-added isBatching=false loadActive=true",
+    "[§PERF] §PERF-L03-TIER-TRAVERSE event=bim-wall-added isBatching=false loadActive=true",
+    "[§PERF] §PERF-L03-TIER-TRAVERSE event=bim-wall-added isBatching=false loadActive=true"
+  ],
+  "axisD-local": {
+    "target": "http://localhost:5311",
+    "project": {
+      "id": "proj-1788335858505-v6ezm",
+      "walls": 300,
+      "levels": 1
+    },
+    "cold": {
+      "navigation": {
+        "n": 5,
+        "min": 1753,
+        "median": 2160,
+        "p95": 2635,
+        "max": 2635
+      },
+      "firstContentfulPaint": {
+        "n": 5,
+        "min": 3135,
+        "median": 4178,
+        "p95": 4579,
+        "max": 4579
+      },
+      "canvasVisible": {
+        "n": 5,
+        "min": 4277,
+        "median": 4380,
+        "p95": 4669,
+        "max": 4669
+      },
+      "sceneLoaded300Walls": {
+        "n": 5,
+        "min": 6823,
+        "median": 9001,
+        "p95": 10008,
+        "max": 10008
+      },
+      "interactive": {
+        "n": 5,
+        "min": 9403,
+        "median": 11659,
+        "p95": 13710,
+        "max": 13710
+      }
+    },
+    "warm": {
+      "navigation": {
+        "n": 5,
+        "min": 1975,
+        "median": 2205,
+        "p95": 2354,
+        "max": 2354
+      },
+      "firstContentfulPaint": {
+        "n": 5,
+        "min": 3639,
+        "median": 3858,
+        "p95": 4332,
+        "max": 4332
+      },
+      "canvasVisible": {
+        "n": 5,
+        "min": 3729,
+        "median": 3983,
+        "p95": 4424,
+        "max": 4424
+      },
+      "sceneLoaded300Walls": {
+        "n": 5,
+        "min": 8637,
+        "median": 9146,
+        "p95": 9710,
+        "max": 9710
+      },
+      "interactive": {
+        "n": 5,
+        "min": 13058,
+        "median": 13950,
+        "p95": 14341,
+        "max": 14341
+      }
+    },
+    "startupBudgetMedianTPlusMs": {
+      "runtime:composed": 0,
+      "open:router-launch": 90,
+      "open:persistence-openProject": 109,
+      "platform:router-started": 111,
+      "boot:ensure-requested": 148,
+      "wiring:heavy-resolved": 294,
+      "boot:heavy-wiring-done": 294,
+      "boot:engine-start": 905,
+      "boot:scene-done": 1774,
+      "boot:builders-done": 3421,
+      "boot:tools-done": 3671,
+      "boot:bus-handlers-done": 3752,
+      "boot:data-platform-done": 3763,
+      "boot:ui-done": 4426,
+      "open:shell-context-set": 5034,
+      "open:version-read-start": 5040,
+      "open:version-read-done": 5041,
+      "open:snapshot-loaded": 6029,
+      "open:first-interactive-frame": 6522
+    }
+  },
+  "axisD-falsification": {
+    "ok": true,
+    "failure": "wallStore reached 0/300 before timeout; logs=[§PERF] §PERF-L03-TIER-TRAVERSE l03.collectNewPbrMeshes count=1 totalMs=0.8 maxMs=0.81 (load window) | [§PERF] §PERF-L03-TIER-TRAVERSE l03.tierMeshCount count=1 totalMs=0.2 maxMs=0.16 (load window) | [§PERF] §PERF-L03-TIER-TRAVERSE l03.meshCountProvider count=0 totalMs=0.0 maxMs=0.00 (load window) | [§STARTUP-BUDGET] open:first-interactive-frame +102ms (t+7833ms)"
+  },
+  "axisD-cold-profile-top-self-time": {
+    "project": "proj-1788336051007-3292k",
+    "interactiveMs": 16217,
+    "top": [
+      {
+        "fn": "(program)",
+        "where": ":0",
+        "selfMs": 1756
+      },
+      {
+        "fn": "(idle)",
+        "where": ":0",
+        "selfMs": 565.5
+      },
+      {
+        "fn": "(anonymous)",
+        "where": "vendor-thatopen-Buo-QyYF.js:357",
+        "selfMs": 166.5
+      },
+      {
+        "fn": "_completeCompile",
+        "where": "vendor-three-5o-4cC47.js:4592",
+        "selfMs": 96.3
+      },
+      {
+        "fn": "Rce",
+        "where": "engineLauncher-D-wn05_G.js:1784",
+        "selfMs": 89
+      },
+      {
+        "fn": "(garbage collector)",
+        "where": ":0",
+        "selfMs": 79.5
+      },
+      {
+        "fn": "query",
+        "where": ":5447",
+        "selfMs": 79
+      },
+      {
+        "fn": "_completeCompile",
+        "where": "vendor-three-5o-4cC47.js:4592",
+        "selfMs": 65.5
+      },
+      {
+        "fn": "A",
+        "where": "vendor-three-5o-4cC47.js:3991",
+        "selfMs": 51.8
+      },
+      {
+        "fn": "Mz",
+        "where": "domain-engine-YGrwaSEe.js:505",
+        "selfMs": 38
+      },
+      {
+        "fn": "_positionDefaultViewBelowToolsPanel",
+        "where": "engineLauncher-D-wn05_G.js:688",
+        "selfMs": 28.3
+      },
+      {
+        "fn": "setupLogo",
+        "where": "vendor-thatopen-Buo-QyYF.js:641",
+        "selfMs": 27.5
+      }
+    ]
+  },
+  "live-api": {
+    "target": "https://pryzm.fly.dev",
+    "when": "2026-09-02T08:12:00.479Z",
+    "unit": "ms",
+    "runs": 10,
+    "snapshotBytes": 64606,
+    "note": "Anonymous legacy /api/projects surface (the only one live prod serves a throwaway session — see findings F1/F2). create=POST /api/projects · save=POST versions (300-wall snapshot) · fetchLatest=GET latest-version (the D-axis server leg) · list=GET /api/projects.",
+    "create": {
+      "n": 10,
+      "min": 30.9,
+      "median": 32.3,
+      "p95": 134.6,
+      "max": 134.6
+    },
+    "save": {
+      "n": 10,
+      "min": 62.5,
+      "median": 68.3,
+      "p95": 145.5,
+      "max": 145.5
+    },
+    "fetchLatest": {
+      "n": 10,
+      "min": 51.3,
+      "median": 56.9,
+      "p95": 66.7,
+      "max": 66.7
+    },
+    "list": {
+      "n": 10,
+      "min": 33.7,
+      "median": 36,
+      "p95": 47.2,
+      "max": 47.2
+    }
+  },
+  "observations": {
+    "when": "2026-09-02",
+    "swProbe": {
+      "target": "http://localhost:5311 (local prod build)",
+      "serviceWorker": "sw.js active, scope /",
+      "warmReloadResources": {
+        "total": 36,
+        "zeroTransfer": 32
+      },
+      "meaning": "assets ARE cache/SW-served warm, yet axisD warm interactive did not improve — local D is CPU-bound (engine boot + shader compile + GC per the cpuprofile), not network-bound."
+    },
+    "liveVsLocal": "On live, cold vs warm shell differs ~3.5s vs ~0.85s (network dominates); on localhost cold vs warm overlap (CPU dominates). A WAN user cold-opening a 300-wall project pays roughly live-shell cold (~3.3s) + local axisD interactive (~11.7s) minus overlap.",
+    "interactiveDefinition": "canvas visible + wallStore holds all seeded walls + #pryzm-engine-loading-overlay hidden + double-rAF settle; STARTUP-BUDGET first-interactive-frame (t+6.5s median cold) starts at runtime:composed, i.e. after ~3s of navigation+bundle boot — the two scales differ by design.",
+    "buildProvenance": {
+      "sha": "c5d0109c8afca5faf2c0778bdc713b916cb65dee",
+      "tree": "DIRTY (concurrent UCE/E9 lane edits present at build time)",
+      "distBuiltAt": "2026-09-02 09:50 +0200",
+      "builtBy": "node --max-old-space-size=6144 node_modules/vite/bin/vite.js build (20m03s)"
+    }
+  }
+}

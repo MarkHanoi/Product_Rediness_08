@@ -24,16 +24,21 @@
 // mutates nothing still mints a ring-buffer entry, and the user's next Ctrl+Z would
 // spend itself on an edit that never happened.
 //
-// ─── ⛔ IT DOES NOT VALIDATE THE PARAMETER AGAINST THE DEFINITION ─────────────
-// Same honest gap as `component.swapType`: there is no project-level definition
-// registry at this commit, so this handler cannot say whether `par_…` is a
-// parameter the definition declares, whether its `kind` is `instance` rather than
-// `type` (C111 — a TYPE parameter must not be overridable per occurrence), or
-// whether the value's unit kind matches the parameter's `dataType` (C110 §3.5-a,
-// whose `UnitMismatchError` lane 4A made throwable). ⚠ ALL THREE ARE REAL,
-// DECLARED GAPS — the third especially: 4A built the kind algebra, and reaching it
-// from here needs the definition document, which needs the registry. Naming them is
-// the C84 §6.2c obligation; a fabricated "looks fine" check would be worse.
+// ─── ⭐ THE PARAMETER IS NOW VALIDATED AGAINST THE DEFINITION — lane U0 ────────
+// This header used to declare three gaps: parameter-not-declared, kind-not-
+// instance, and value-shape-vs-dataType (C110 §3.5-a) — all three blocked on
+// *"the definition document, which needs the registry."* The registry now exists
+// (the ONE catalogue in `apps/editor/src/services/componentCatalog/`, injected
+// through the `ComponentDefinitionResolver` port), and with it wired the SET leg
+// refuses all three BY NAME.
+//
+// ⚠ THE CLEAR LEG IS DELIBERATELY NOT GATED ON THE CATALOGUE. Clearing removes an
+// override — it moves the occurrence TOWARD the ladder, asserting nothing new —
+// and refusing to remove data because the definition is not currently loaded
+// would be a regression wearing a contract citation
+// ([[refusing-half-needs-its-escape-hatch]]). The existing checks (component
+// exists, key format, override actually present) still guard it. Without the port
+// the Phase-4C behaviour is unchanged and the gaps stay DECLARED, never faked.
 
 import {
   produceCommand,
@@ -44,6 +49,7 @@ import {
   type ValidationResult,
 } from '@pryzm/plugin-sdk';
 import { ComponentNotFoundError, ComponentParameterWriteError } from '../errors.js';
+import { valueShapeRefusal, type ComponentDefinitionResolver } from '../definitionResolver.js';
 import type { ComponentData, ComponentsState } from '../store.js';
 
 const PARAMETER_RE = /^par_[0-9A-HJKMNP-TV-Z]{26}$/;
@@ -72,6 +78,9 @@ export class SetComponentInstanceParameterHandler
   readonly type = 'component.setInstanceParameter';
 
   readonly affectedStores = ['component'] as const;
+
+  /** ⭐ Lane U0 — the definition catalogue; optional BY CONTRACT (see the header). */
+  constructor(private readonly definitions?: ComponentDefinitionResolver) {}
 
   canExecute(
     ctx: HandlerContext<Stores>,
@@ -119,6 +128,11 @@ export class SetComponentInstanceParameterHandler
       if (t === 'number' && !Number.isFinite(cmd.value as number)) {
         return { valid: false, reason: 'instance parameter value must be a finite number.' };
       }
+      // ⭐ Lane U0 — the three definition checks, on the SET leg only (header).
+      const defRefusal = this._setRefusal(current as ComponentData, cmd.parameterId, cmd.value as number | string | boolean);
+      if (defRefusal !== null) {
+        return { valid: false, reason: defRefusal };
+      }
     }
     if (clearing && (current as ComponentData).instanceParameters[cmd.parameterId] === undefined) {
       // ⭐ CLEARING SOMETHING THAT IS NOT OVERRIDDEN IS REFUSED, not silently
@@ -156,6 +170,11 @@ export class SetComponentInstanceParameterHandler
             `(got value=${JSON.stringify(cmd.value)}, clear=${JSON.stringify(cmd.clear)}).`,
         );
       }
+      // ⭐ Lane U0 — re-checked, not assumed (CA-3's throw half); runs again on REDO.
+      if (setting) {
+        const defRefusal = this._setRefusal(current, cmd.parameterId, cmd.value as number | string | boolean);
+        if (defRefusal !== null) throw new ComponentParameterWriteError(defRefusal);
+      }
 
       // A NESTED patch on the one map entry — so the inverse Immer generates is
       // scoped to that entry and an undo cannot disturb the occurrence's type,
@@ -171,5 +190,50 @@ export class SetComponentInstanceParameterHandler
       );
       return { forward, inverse, nextStates: { component: next } };
     });
+  }
+
+  /**
+   * ⭐ Lane U0 — the SET-leg definition checks, shared by `canExecute` (reason)
+   * and `execute` (typed throw). `null` means: the write resolves, or no resolver
+   * is wired (the declared Phase-4C gap, unchanged for hosts without a catalogue).
+   */
+  private _setRefusal(
+    current: ComponentData,
+    parameterId: string,
+    value: number | string | boolean,
+  ): string | null {
+    if (this.definitions === undefined) return null;
+    const view = this.definitions.view(current.definitionId);
+    if (view === undefined) {
+      return (
+        `component.setInstanceParameter: component ${current.id} references definition ` +
+        `${current.definitionId}, which is not loaded in this project's component catalogue — ` +
+        `the parameter cannot be validated against a document that is not there. Load the ` +
+        `definition, then set the override (clearing an existing override needs no catalogue).`
+      );
+    }
+    const param = view.parameters.find((p) => p.id === parameterId);
+    if (param === undefined) {
+      return (
+        `component.setInstanceParameter: ${parameterId} is not a parameter of definition ` +
+        `${current.definitionId} (${view.name}); it declares ` +
+        `[${view.parameters.map((p) => p.id).join(', ')}].`
+      );
+    }
+    if (param.kind !== 'instance') {
+      return (
+        `component.setInstanceParameter: parameter ${parameterId} (${param.name}) of definition ` +
+        `${current.definitionId} has kind '${param.kind}' — a TYPE parameter is not overridable ` +
+        `per occurrence (C111); edit the type instead.`
+      );
+    }
+    const shape = valueShapeRefusal(param.dataType, value);
+    if (shape !== null) {
+      return (
+        `component.setInstanceParameter: override for parameter ${parameterId} (${param.name}) ` +
+        `of definition ${current.definitionId}: ${shape} (C110 §3.5-a).`
+      );
+    }
+    return null;
   }
 }

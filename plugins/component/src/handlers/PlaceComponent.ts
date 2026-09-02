@@ -36,13 +36,21 @@
 // legacy path. A pre-minted id cannot drift.
 //
 // ─── ⛔ WHAT THIS HANDLER DOES NOT DO — C84 §6.2c ─────────────────────────────
-// It does not resolve the definition, load the `.pryzm-family` document, validate
-// that `definitionId` names a document that exists, evaluate a parameter, produce
-// geometry, cut a host, or render anything. It places an OCCURRENCE. The reference
-// integrity question — *does this definition exist in this project?* — needs a
-// project-level definition registry that does not exist at this commit, and
-// inventing a lookup that silently returns "yes" would be strictly worse than the
-// honest absence. Declared, not implied.
+// It does not load the `.pryzm-family` document, evaluate a parameter, produce
+// geometry, cut a host, or render anything. It places an OCCURRENCE.
+//
+// ─── ⭐ THE REFERENCE-INTEGRITY QUESTION IS NOW ASKED — lane U0 ────────────────
+// This header used to close with: *"needs a project-level definition registry that
+// does not exist at this commit."* The registry now exists — the ONE catalogue in
+// `apps/editor/src/services/componentCatalog/`, injected here through the
+// `ComponentDefinitionResolver` port (`../definitionResolver.ts`). With the port
+// wired: a `definitionId` that names no LOADED definition is REFUSED BY NAME, a
+// `typeId` the definition does not declare is refused naming BOTH ids, and an
+// `instanceParameters` override must name a DECLARED parameter of kind
+// `instance` whose `dataType` the value's shape can wear (C110 §3.5-a). Without
+// the port (no catalogue in the host — e.g. the plugin's own unit suite) the
+// Phase-4C behaviour is unchanged and the gap stays DECLARED, never faked —
+// there is deliberately NO default resolver (see the port's header).
 
 import {
   produceCommand,
@@ -53,7 +61,12 @@ import {
   type ValidationResult,
 } from '@pryzm/plugin-sdk';
 import { Component } from '@pryzm/plugin-sdk';
-import { ComponentDefinitionRefError, ComponentTypeRefError } from '../errors.js';
+import {
+  ComponentDefinitionRefError,
+  ComponentParameterWriteError,
+  ComponentTypeRefError,
+} from '../errors.js';
+import { valueShapeRefusal, type ComponentDefinitionResolver } from '../definitionResolver.js';
 import type { ComponentData, ComponentsState } from '../store.js';
 
 /** ⚠ Restated from `packages/schemas/src/elements/Component.ts`; see its note. */
@@ -97,6 +110,11 @@ export class PlaceComponentHandler implements CommandHandler<PlaceComponentPaylo
   /** CA-6 / §U-B6 — one store, because the command writes exactly one. */
   readonly affectedStores = ['component'] as const;
 
+  /** ⭐ Lane U0 — the definition catalogue, injected by the composition seam
+   *  (`PluginRegistry.ts`). Optional BY CONTRACT; absent means the Phase-4C
+   *  format-only behaviour, never a fabricated "yes" — see `definitionResolver.ts`. */
+  constructor(private readonly definitions?: ComponentDefinitionResolver) {}
+
   canExecute(ctx: HandlerContext<Stores>, cmd: PlaceComponentPayload): ValidationResult {
     if (typeof cmd.componentId !== 'string' || cmd.componentId.length === 0) {
       return { valid: false, reason: 'componentId must be a non-empty string' };
@@ -137,6 +155,12 @@ export class PlaceComponentHandler implements CommandHandler<PlaceComponentPaylo
         };
       }
     }
+    // ⭐ Lane U0 — the resolver checks, AFTER the format checks (so a malformed id
+    // still gets the format refusal) and BEFORE the schema parse.
+    const resolverRefusal = this._resolverRefusal(cmd);
+    if (resolverRefusal !== null) {
+      return { valid: false, reason: resolverRefusal.reason };
+    }
     // CA-3 — the schema is asked BEFORE the mutation, so a malformed record fails
     // with a `reason` rather than throwing mid-patch. Same shape as
     // `CreateBalconyHandler`, and it uses the SAME builder `execute()` does so the
@@ -163,6 +187,18 @@ export class PlaceComponentHandler implements CommandHandler<PlaceComponentPaylo
           `component.place: typeId ${JSON.stringify(cmd.typeId)} is not a typ_<ULID>.`,
         );
       }
+      // ⭐ Lane U0 — re-checked, not assumed (CA-3's throw half), through the SAME
+      // method `canExecute` used so the two cannot disagree. ⚠ This runs again on
+      // REDO: a definition unloaded between undo and redo makes the redo REFUSE
+      // loudly rather than re-mint an occurrence of nothing.
+      const resolverRefusal = this._resolverRefusal(cmd);
+      if (resolverRefusal !== null) {
+        switch (resolverRefusal.kind) {
+          case 'definition': throw new ComponentDefinitionRefError(resolverRefusal.reason);
+          case 'type': throw new ComponentTypeRefError(resolverRefusal.reason);
+          case 'parameter': throw new ComponentParameterWriteError(resolverRefusal.reason);
+        }
+      }
       const record = Component.parse(this._recordOf(cmd)) as ComponentData;
 
       // ── THE ONE PATCH PAIR ────────────────────────────────────────────────────
@@ -177,6 +213,72 @@ export class PlaceComponentHandler implements CommandHandler<PlaceComponentPaylo
       );
       return { forward, inverse, nextStates: { component: next } };
     });
+  }
+
+  /**
+   * ⭐ Lane U0 — the four resolver checks, shared by `canExecute` (reason) and
+   * `execute` (typed throw). Returns `null` when the placement resolves, when no
+   * resolver is wired (the declared Phase-4C gap, unchanged), or — for the
+   * override checks — everything the loaded definition can answer for.
+   *
+   * The order is deliberate: existence → membership → overrides, so the refusal
+   * names the FIRST unresolvable rung of the reference and never a consequence
+   * of it.
+   */
+  private _resolverRefusal(
+    cmd: PlaceComponentPayload,
+  ): { kind: 'definition' | 'type' | 'parameter'; reason: string } | null {
+    if (this.definitions === undefined) return null;
+    const view = this.definitions.view(cmd.definitionId);
+    if (view === undefined) {
+      const n = this.definitions.list().length;
+      return {
+        kind: 'definition',
+        reason:
+          `component.place: definitionId ${cmd.definitionId} names no definition loaded in ` +
+          `this project's component catalogue (${n === 0 ? 'the catalogue is EMPTY' : `${n} definition(s) loaded`}). ` +
+          `Load the definition (file-open or marketplace download) before placing — a placed ` +
+          `occurrence of an unloaded definition would resolve to nothing.`,
+      };
+    }
+    if (!view.types.some((t) => t.id === cmd.typeId)) {
+      return {
+        kind: 'type',
+        reason:
+          `component.place: typeId ${cmd.typeId} is not a type of definition ` +
+          `${cmd.definitionId} (${view.name}); its types are [${view.types.map((t) => t.id).join(', ')}].`,
+      };
+    }
+    for (const [key, value] of Object.entries(cmd.instanceParameters ?? {})) {
+      const param = view.parameters.find((p) => p.id === key);
+      if (param === undefined) {
+        return {
+          kind: 'parameter',
+          reason:
+            `component.place: instanceParameters key ${key} is not a parameter of definition ` +
+            `${cmd.definitionId} (${view.name}); it declares [${view.parameters.map((p) => p.id).join(', ')}].`,
+        };
+      }
+      if (param.kind !== 'instance') {
+        return {
+          kind: 'parameter',
+          reason:
+            `component.place: parameter ${key} (${param.name}) of definition ${cmd.definitionId} ` +
+            `has kind '${param.kind}' — a TYPE parameter is not overridable per occurrence ` +
+            `(C111); edit the type, or swap to one that carries the value you want.`,
+        };
+      }
+      const shape = valueShapeRefusal(param.dataType, value);
+      if (shape !== null) {
+        return {
+          kind: 'parameter',
+          reason:
+            `component.place: override for parameter ${key} (${param.name}) of definition ` +
+            `${cmd.definitionId}: ${shape} (C110 §3.5-a).`,
+        };
+      }
+    }
+    return null;
   }
 
   /**

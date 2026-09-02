@@ -107,6 +107,9 @@ import { BalconyStore, buildBalconyHandlerSet } from '@pryzm/plugin-balcony';
 // OCCURRENCE of a component definition. See the descriptor below; this import is
 // axis 1 of the four the pool taught us to check.
 import { ComponentStore, buildComponentHandlerSet } from '@pryzm/plugin-component';
+// ⭐ Lane U0 (§COMPONENT-CATALOG) — the ONE definition catalogue, injected into
+// the component handlers below and advertised as `auxiliaries.componentCatalog`.
+import { componentCatalog } from './services/componentCatalog/index.js';
 // §FEAT-LIFT-COMPOUND-SYSTEM (L-5700, C104 / ADR-0325) — the lift COMPOUND. See the
 // descriptor below for the four-axis reachability argument.
 import { LiftCompoundStore, LiftPartStore, buildLiftHandlerSet } from '@pryzm/plugin-lift';
@@ -534,11 +537,26 @@ export const ALL_PLUGINS: readonly PluginDescriptor[] = [
   // after every descriptor is built. Placed here beside the other new families for
   // the reader only — stated because the balcony's comment above once claimed an
   // ordering the code did not have.
+  //
+  // ⭐ Lane U0 (§COMPONENT-CATALOG) — THE DEFINITION SEAM CLOSES HERE. The
+  // handlers receive the ONE catalogue (`services/componentCatalog/`), so
+  // `component.place` refuses a definitionId that names no LOADED definition BY
+  // NAME, `component.swapType` enforces type membership naming both ids, and
+  // `component.setInstanceParameter` enforces declared/instance-kind/value-shape
+  // (C110 §3.5-a). The SAME instance rides `buildAuxiliaries` →
+  // `runtime.auxiliaries.componentCatalog` for the UI lanes (U1/U2/U3) and the
+  // 4E bake wiring (`entry(id).family` → `bakeFamilyInstance`; `has()` satisfies
+  // the committer's `ComponentDefinitionSource`) — the one-resolver rule
+  // (UIUX-PLAN §U0, C84 EI-9). Definitions load EXPLICITLY (file-open /
+  // marketplace / builtin bytes); project-scoped persistence is an OPEN
+  // founder/ADR question, declared in the catalogue's header.
   {
     id: 'component',
     storeKey: 'component',
     buildStore: () => new ComponentStore() as unknown as Store<object>,
-    buildHandlers: () => buildComponentHandlerSet() as readonly CommandHandler<unknown>[],
+    buildHandlers: () =>
+      buildComponentHandlerSet({ definitions: componentCatalog }) as readonly CommandHandler<unknown>[],
+    buildAuxiliaries: () => ({ componentCatalog }),
   },
 
   // ---- Lift + LiftPart (§FEAT-LIFT-COMPOUND-SYSTEM, L-5700 · C104 · ADR-0325) ----

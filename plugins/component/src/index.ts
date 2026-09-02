@@ -38,6 +38,20 @@ export {
   isComponentSystemError,
 } from './errors.js';
 
+// ⭐ Lane U0 — the definition-resolution PORT the composition seam injects into
+// the handlers (apps/editor's componentCatalog implements it; `has()` also
+// satisfies the committer's `ComponentDefinitionSource`, so one object serves
+// both the command surface and the render seam — the one-resolver rule).
+export {
+  valueShapeRefusal,
+  type ComponentDefinitionResolver,
+  type ComponentDefinitionView,
+  type ComponentDefinitionTypeView,
+  type ComponentDefinitionParameterView,
+  type ComponentDefinitionProvenance,
+  type ComponentHandlerDeps,
+} from './definitionResolver.js';
+
 export {
   COMPONENT_HANDLER_TYPES,
   buildComponentHandlerSet,
