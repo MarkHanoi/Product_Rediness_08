@@ -1,0 +1,44 @@
+// LANE PORTO-FLIP driver — drives resolvePtZoneIdentityAt live at Porto points and prints the
+// card verbatim. Args: --point lat,lon [--record path] (record saves the raw CRUS body).
+import { writeFileSync } from 'node:fs';
+import {
+    resolvePtZoneIdentityAt,
+    buildPtCrusPointUrl,
+} from '../../../../../../../OneDrive/Desktop/PRYZM/Product_Rediness_08/packages/site-parcel-data/src/countryAdapters/pt/index.js';
+
+const args = process.argv.slice(2);
+function argOf(name: string): string | null {
+    const i = args.indexOf(name);
+    return i >= 0 ? (args[i + 1] ?? null) : null;
+}
+const pt = argOf('--point');
+if (!pt) throw new Error('need --point lat,lon');
+const [lat, lon] = pt.split(',').map(Number) as [number, number];
+const record = argOf('--record');
+
+async function main(): Promise<void> {
+    if (record) {
+        const url = buildPtCrusPointUrl(lat, lon);
+        const res = await fetch(url);
+        const body = await res.text();
+        writeFileSync(record, body);
+        console.log(`# recorded ${body.length} bytes from ${url}`);
+    }
+    const t0 = Date.now();
+    const out = await resolvePtZoneIdentityAt(lat, lon);
+    const ms = Date.now() - t0;
+    console.log(`## Porto card @ (${lat}, ${lon}) — status=${out.status} in ${ms} ms`);
+    if (out.status !== 'found') {
+        console.log(JSON.stringify(out, null, 2));
+        return;
+    }
+    const { zone, refusal } = out.value;
+    console.log(`   zone     : ${zone.classificacaoEQualificacao}`);
+    console.log(`   categoria: ${zone.categoria2021} · codigo ${zone.codigo} · classe ${zone.classe2021}`);
+    console.log(`   instrum. : PDM de ${zone.municipio} · registo ${zone.registoOuDeposito} · ${zone.situacaoPdm}`);
+    console.log(`   refusal  : code=${refusal.code} legallyGrounded=${refusal.legallyGrounded}`);
+    console.log(`   headline : ${refusal.headline}`);
+    for (const f of refusal.knownFacts) console.log(`   fact     : ${f}`);
+    console.log(`   detail   : ${refusal.detail}`);
+}
+main().catch((e) => { console.error(e); process.exit(1); });

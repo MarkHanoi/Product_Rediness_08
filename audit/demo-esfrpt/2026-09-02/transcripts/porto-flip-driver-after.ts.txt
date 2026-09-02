@@ -1,0 +1,173 @@
+// LANE PORTO-FLIP driver (AFTER) — drives resolvePtZoneIdentityAt live at Porto points with an
+// optional frente-urbana dep and prints the card verbatim.
+//   --point lat,lon
+//   --frontage none|osm|synthetic
+//     osm       — the driver PLAYS THE RUNTIME'S CONTEXT FETCH (C12 §8 keeps fetches out of the
+//                 package): one Overpass query → nearest named highway, clipped between
+//                 intersection nodes (Art. 3.º l), buildings mapped with corniceHeightM=null
+//                 ALWAYS (OSM serves no cércea-comparable, façade-datum height — the honest
+//                 provenance travels per member).
+//     synthetic — the measured member set from the test fixture geometry, so the RESOLVED card
+//                 is demonstrable end-to-end (labelled SYNTHETIC in the transcript).
+import {
+    resolvePtZoneIdentityAt,
+    type PtChainDeps,
+    type PtFrenteUrbanaData,
+    type PtFrontageBuilding,
+} from '../../../../../../../OneDrive/Desktop/PRYZM/Product_Rediness_08/packages/site-parcel-data/src/countryAdapters/pt/index.js';
+import { fetchFound, fetchTransient, type FetchOutcome } from '../../../../../../../OneDrive/Desktop/PRYZM/Product_Rediness_08/packages/schemas/src/index.js';
+
+const args = process.argv.slice(2);
+function argOf(name: string): string | null {
+    const i = args.indexOf(name);
+    return i >= 0 ? (args[i + 1] ?? null) : null;
+}
+const pt = argOf('--point');
+if (!pt) throw new Error('need --point lat,lon');
+const [lat, lon] = pt.split(',').map(Number) as [number, number];
+const frontageMode = argOf('--frontage') ?? 'none';
+
+/* ── the OSM context fetch (driver-side, playing the runtime's existing context machinery) ── */
+
+interface OsmElement {
+    readonly type: string;
+    readonly id: number;
+    readonly tags?: Record<string, string>;
+    readonly nodes?: readonly number[];
+    readonly geometry?: readonly { lat: number; lon: number }[];
+}
+
+function dist2ToSeg(p: { lat: number; lon: number }, a: { lat: number; lon: number }, b: { lat: number; lon: number }): number {
+    const kLat = 111_320;
+    const kLon = kLat * Math.cos((p.lat * Math.PI) / 180);
+    const ax = (a.lon - p.lon) * kLon, ay = (a.lat - p.lat) * kLat;
+    const bx = (b.lon - p.lon) * kLon, by = (b.lat - p.lat) * kLat;
+    const dx = bx - ax, dy = by - ay;
+    const len2 = dx * dx + dy * dy;
+    const t = len2 === 0 ? 0 : Math.max(0, Math.min(1, (-ax * dx - ay * dy) / len2));
+    const px = ax + t * dx, py = ay + t * dy;
+    return px * px + py * py;
+}
+
+async function fetchOsmFrontage(latQ: number, lonQ: number): Promise<FetchOutcome<PtFrenteUrbanaData>> {
+    const d = 0.0025;
+    const q = `[out:json][timeout:30];(way["highway"](${latQ - d},${lonQ - d},${latQ + d},${lonQ + d});way["building"](${latQ - d},${lonQ - d},${latQ + d},${lonQ + d}););out geom;`;
+    const res = await fetch('https://overpass.kumi.systems/api/interpreter', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'User-Agent': 'PRYZM-lane-porto-flip/1.0' },
+        body: 'data=' + encodeURIComponent(q),
+    });
+    if (!res.ok) return fetchTransient(`upstream-failed: HTTP ${res.status}`);
+    const data = (await res.json()) as { elements: OsmElement[] };
+    const highways = data.elements.filter((e) => e.tags?.['highway'] && e.geometry && e.geometry.length >= 2);
+    const buildings = data.elements.filter((e) => e.tags?.['building'] && e.geometry && e.geometry.length >= 3);
+    // Nearest DRIVABLE named way (a frente urbana fronts a public way, not a footpath).
+    const candidates = highways.filter((w) =>
+        !['footway', 'path', 'steps', 'cycleway', 'service'].includes(w.tags!['highway']!));
+    let best: { way: OsmElement; d2: number; segIdx: number } | null = null;
+    for (const w of candidates) {
+        const g = w.geometry!;
+        for (let i = 0; i < g.length - 1; i++) {
+            const d2 = dist2ToSeg({ lat: latQ, lon: lonQ }, g[i]!, g[i + 1]!);
+            if (best === null || d2 < best.d2) best = { way: w, d2, segIdx: i };
+        }
+    }
+    if (best === null) {
+        return { status: 'absent', reason: 'no-feature: no public way within the context box' } as FetchOutcome<PtFrenteUrbanaData>;
+    }
+    // Intersection nodes = nodes this way shares with ANOTHER highway way (Art. 3.º l bounds).
+    const nodeUse = new Map<number, number>();
+    for (const w of highways) for (const n of w.nodes ?? []) nodeUse.set(n, (nodeUse.get(n) ?? 0) + 1);
+    const wayNodes = best.way.nodes ?? [];
+    const g = best.way.geometry!;
+    let lo = 0;
+    let hi = g.length - 1;
+    for (let i = best.segIdx; i >= 0; i--) {
+        if (i !== best.segIdx && (nodeUse.get(wayNodes[i] ?? -1) ?? 0) > 1) { lo = i; break; }
+        lo = i;
+    }
+    for (let i = best.segIdx + 1; i < g.length; i++) {
+        hi = i;
+        if ((nodeUse.get(wayNodes[i] ?? -1) ?? 0) > 1) break;
+    }
+    const path = g.slice(lo, hi + 1).map((p) => ({ lat: p.lat, lon: p.lon }));
+    const mapped: PtFrontageBuilding[] = buildings.map((b) => ({
+        sourceId: `osm:way/${b.id}`,
+        // HONESTY: OSM serves NO cércea-comparable height here — `height` (rare) is roof-datum,
+        // `building:levels` is a storey count (the NL_STOREY_DERIVED class). Always null.
+        corniceHeightM: null,
+        heightProvenance:
+            b.tags?.['height'] !== undefined
+                ? `osm height=${b.tags['height']} is roof-datum, not a cércea (Art. 3.º g) — arrives null`
+                : b.tags?.['building:levels'] !== undefined
+                    ? `osm building:levels=${b.tags['building:levels']} is a storey count, not a measured cércea — arrives null`
+                    : 'osm: no height tag at all — arrives null',
+        ring: (b.geometry ?? []).map((p) => ({ lat: p.lat, lon: p.lon })),
+    }));
+    console.log(
+        `# OSM context fetch: ${highways.length} highway way(s), ${buildings.length} building(s); ` +
+            `fronting way osm:way/${best.way.id} «${best.way.tags?.['name'] ?? '(unnamed)'}» clipped to ${path.length} pt(s) between intersections`,
+    );
+    return fetchFound({
+        subject: { lat: latQ, lon: lonQ },
+        way: { sourceId: `osm:way/${best.way.id}`, name: best.way.tags?.['name'] ?? null, path },
+        buildings: mapped,
+    });
+}
+
+/* ── the synthetic measured set (fixture geometry, re-anchored to the point) ── */
+
+function syntheticFrontage(latQ: number, lonQ: number): PtFrenteUrbanaData {
+    const s0 = { lat: 41.1493, lon: -8.6109 };
+    const dl = { lat: latQ - s0.lat, lon: lonQ - s0.lon };
+    const mv = (p: { lat: number; lon: number }) => ({ lat: p.lat + dl.lat, lon: p.lon + dl.lon });
+    const rect = (id: string, lonA: number, lonB: number, latA: number, latB: number, h: number): PtFrontageBuilding => ({
+        sourceId: id,
+        corniceHeightM: h,
+        heightProvenance: 'SYNTHETIC fixture: cércea from mean ground at façade (Art. 3.º g)',
+        ring: [
+            mv({ lat: latA, lon: lonA }), mv({ lat: latA, lon: lonB }),
+            mv({ lat: latB, lon: lonB }), mv({ lat: latB, lon: lonA }),
+        ],
+    });
+    return {
+        subject: { lat: latQ, lon: lonQ },
+        way: {
+            sourceId: 'synthetic:way/1',
+            name: 'Frente sintética (demo)',
+            path: [mv({ lat: 41.14925, lon: -8.612 }), mv({ lat: 41.14925, lon: -8.6098 })],
+        },
+        buildings: [
+            rect('synthetic:b1', -8.6118, -8.61153, 41.14928, 41.14935, 18),
+            rect('synthetic:b2', -8.6115, -8.61131, 41.14928, 41.14935, 18),
+            rect('synthetic:b3', -8.6112, -8.61108, 41.14928, 41.14935, 12),
+        ],
+    };
+}
+
+async function main(): Promise<void> {
+    const deps: PtChainDeps = {};
+    let depsUsed: PtChainDeps = deps;
+    if (frontageMode === 'osm') {
+        depsUsed = { resolveFrenteUrbanaAt: (a, b) => fetchOsmFrontage(a, b) };
+    } else if (frontageMode === 'synthetic') {
+        depsUsed = { resolveFrenteUrbanaAt: async (a, b) => fetchFound(syntheticFrontage(a, b)) };
+    }
+    const t0 = Date.now();
+    const out = await resolvePtZoneIdentityAt(lat, lon, depsUsed);
+    const ms = Date.now() - t0;
+    console.log(`## Porto card @ (${lat}, ${lon}) — frontage=${frontageMode} — status=${out.status} in ${ms} ms`);
+    if (out.status !== 'found') {
+        console.log(JSON.stringify(out, null, 2));
+        return;
+    }
+    const { zone, refusal } = out.value;
+    console.log(`   zone     : ${zone.classificacaoEQualificacao}`);
+    console.log(`   categoria: ${zone.categoria2021} · codigo ${zone.codigo} · classe ${zone.classe2021}`);
+    console.log(`   instrum. : PDM de ${zone.municipio} · registo ${zone.registoOuDeposito} · ${zone.situacaoPdm}`);
+    console.log(`   refusal  : code=${refusal.code} legallyGrounded=${refusal.legallyGrounded}`);
+    console.log(`   headline : ${refusal.headline}`);
+    for (const f of refusal.knownFacts) console.log(`   fact     : ${f}`);
+    console.log(`   detail   : ${refusal.detail}`);
+}
+main().catch((e) => { console.error(e); process.exit(1); });

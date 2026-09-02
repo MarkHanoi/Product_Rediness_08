@@ -1,0 +1,35 @@
+{
+  "__label__": "CRUS OGC API items bodies recorded LIVE 2026-09-02 (lane PORTO-FLIP) at the two Porto FUC probe points: tipo I 41.1493,-8.6109 (Av. dos Aliados frontage) and tipo II 41.1620,-8.6220. PROPERTIES are byte-verbatim from the service; the recorded polygons (5,255+ vertices, ~2.2 MB total) live in audit/demo-esfrpt/2026-09-02/transcripts/porto-flip-fuc*-crus-recorded.json ( porto-flip-fuc*-BEFORE.txt name the URLs; full-body sha256 fuc1=ac460addc17e1f7bae7db3057e08b86ecceb01c5ca21ec20fb890be2c2c9df1b fuc2=5f0d2f9df4a5bbc32fc3f0c45399325e2bc32a1f006f18cc57d1dcd94125807b). Tests wrap these props in small synthetic containment squares — the geometry under test is the FRONTAGE geometry, not the zone polygon.",
+  "fuc1Props": {
+    "fid": 135112,
+    "dtcc": "1312",
+    "municipio": "PORTO",
+    "classificacao_e_qualificacao": "Solo Urbano  – Espaços centrais –  Área de frente urbana contínua tipo I",
+    "classe_2021": "Solo Urbano",
+    "categoria_2021": "Espaço Central",
+    "escala_origem": "1/10000",
+    "fonte": "CM - Vectorial e Raster",
+    "area_ha": 243.96222122395943,
+    "autor": "DGT",
+    "data_pub_origem": "2021-07-08T00:00:00+00:00",
+    "registo_ou_deposito": "01.13.12/PDM/03/2021/93",
+    "situacao_pdm": "Vigente",
+    "codigo": 2
+  },
+  "fuc2Props": {
+    "fid": 135116,
+    "dtcc": "1312",
+    "municipio": "PORTO",
+    "classificacao_e_qualificacao": "Solo Urbano  – Espaços centrais – Área de frente urbana contínua tipo II",
+    "classe_2021": "Solo Urbano",
+    "categoria_2021": "Espaço Central",
+    "escala_origem": "1/10000",
+    "fonte": "CM - Vectorial e Raster",
+    "area_ha": 378.22007103071235,
+    "autor": "DGT",
+    "data_pub_origem": "2021-07-08T00:00:00+00:00",
+    "registo_ou_deposito": "01.13.12/PDM/03/2021/93",
+    "situacao_pdm": "Vigente",
+    "codigo": 2
+  }
+}

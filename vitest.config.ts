@@ -137,6 +137,13 @@ export default defineConfig({
       // skipped, it is NEVER DISCOVERED, and `vitest run <path>` prints "No test files found"
       // rather than failing. "Never ran" and "passed" print the same value.
       'apps/editor/src/ui/component/__tests__/**/*.spec.ts',
+      // ⭐ §U3-DEFINITION-WORKSPACE (UIUX-PLAN §U3 · ADR-0376 D4/D5 · C110) — the
+      // definition-editor workspace: honest-state arms (unloaded definition refuses
+      // by name; severed op gateway refuses loudly) + the source-level assertion that
+      // the Components browser carries the "Edit definition…" entry. ⚠ ADDED IN THE
+      // SAME COMMIT AS THE FILES — this list is an ALLOWLIST (§L-851): a spec outside
+      // it is never discovered, and "never ran" and "passed" print the same value.
+      'apps/editor/src/ui/component-editor-workspace/__tests__/**/*.spec.ts',
       // §XSS-SINK-SCAN (L-407): the GA-gate HTML-sink classifier + the repo-wide
       // ratchet assertion. Pure Node (fs + string analysis); lives here because
       // `test:root` is the only suite CI runs over non-package tooling.

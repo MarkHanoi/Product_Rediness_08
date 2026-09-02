@@ -120,6 +120,9 @@ import {
     resolveMadridNZ1Ring,
     MADRID_NZ1_RING_REF,
     ES_MADRID_NZ1_PACK,
+    // §PT-PORTO-MODA (2f) — the certified FUC card (§PORTO-SIGN-OFF, gate ON; ADR-0379).
+    resolvePtZoneIdentityAt,
+    PT_PORTO_PDM_CERTIFIED,
     type BuildableEnvelopeMassingInput,
     type ParisEnvelopeResult,
     type PlandataLayer,
@@ -924,6 +927,124 @@ async function main(): Promise<number> {
         }
     }
 
+    // ── 2f. §PT-PORTO-MODA (LANE PORTO-FLIP, 2026-09-02) — the certified Porto FUC card never
+    //        substitutes a scalar for the moda. Porto's cércea regime is FABRIC-DERIVED
+    //        (Art. 3.º o) moda da cércea; ADR-0379 `context-aggregate`), and Art. 27.º n.º 2 b)
+    //        SUBORDINATES the 21 m cap to it — so on a runtime with NO frontage source wired,
+    //        the card must carry the ADR-0379 `context-set-unavailable` refusal BY NAME and
+    //        never a resolved numeric cércea (the silent-substitution overstate/understate
+    //        `ptPortoPdmDraft.ts` was born naming). Drives the REAL resolvePtZoneIdentityAt
+    //        chain over the recorded FUC-I zone (corpus fixture — properties verbatim from the
+    //        live 2026-09-02 CRUS body; see its _provenance). No envelope solve exists for PT
+    //        (the pack draws nothing), so this arm audits the CARD TEXT — the artefact the
+    //        user reads.
+    {
+        interface PtPortoFixture {
+            readonly point: { readonly lat: number; readonly lon: number };
+            readonly properties: Record<string, unknown>;
+        }
+        const fix = readCorpusFixture<PtPortoFixture>('pt-porto-fuc1-aliados.json');
+        const half = 0.01;
+        const { lat, lon } = fix.point;
+        const itemsBody = {
+            type: 'FeatureCollection',
+            numberReturned: 1,
+            features: [
+                {
+                    type: 'Feature',
+                    properties: fix.properties,
+                    geometry: {
+                        type: 'Polygon',
+                        coordinates: [
+                            [
+                                [lon - half, lat - half],
+                                [lon + half, lat - half],
+                                [lon + half, lat + half],
+                                [lon - half, lat + half],
+                                [lon - half, lat - half],
+                            ],
+                        ],
+                    },
+                },
+            ],
+        };
+        const textFetch = (async () => ({
+            ok: true,
+            status: 200,
+            text: async () => JSON.stringify(itemsBody),
+        })) as unknown as typeof fetch;
+
+        /** The substitution detector: a numeric cércea presented as RESOLVED on a card whose
+         *  moda did not resolve. Flags (a) a resolved-format CÉRCEA line carrying a number,
+         *  (b) a "cércea máxima … N m" statement outside a quoted article (no « before it),
+         *  (c) any knownFact stating a cércea with a number (the knownFacts contract). */
+        const substitutionFindings = (card: { detail: string; knownFacts: readonly string[] }, zone: string) => {
+            const out: Finding[] = [];
+            if (/CÉRCEA \(FUC tipo I[^)]*\): \d+(?:\.\d+)? m/u.test(card.detail)) {
+                out.push({
+                    axis: 'height', pack: 'pt-1312-porto', zone,
+                    detail: 'a RESOLVED numeric cércea appears on a card whose context set did not resolve',
+                });
+            }
+            if (/cércea máxima(?: admitida)?(?::| é de| de)? ?\d+ ?m/u.test(card.detail)) {
+                out.push({
+                    axis: 'height', pack: 'pt-1312-porto', zone,
+                    detail: 'a bare "cércea máxima N m" statement appears — the Art. 27.º n.º 2 b) cap stated without its moda condition',
+                });
+            }
+            for (const f of card.knownFacts) {
+                if (/^Cércea.*\d+ ?m/u.test(f)) {
+                    out.push({
+                        axis: 'height', pack: 'pt-1312-porto', zone,
+                        detail: `knownFacts carries a numeric cércea ("${f}") — never a number the user could mistake for an allowance`,
+                    });
+                }
+            }
+            return out;
+        };
+
+        const resolvedPt = await resolvePtZoneIdentityAt(lat, lon, { fetchImpl: textFetch });
+        zonesWalked++;
+        if (resolvedPt.status !== 'found') {
+            checkerBlind ??= `PT Porto arm: the recorded FUC-I zone did not resolve (${resolvedPt.status}) — the arm walked no card`;
+        } else {
+            refused++; // the PT chain always refuses to draw — counted, never skipped
+            const card = resolvedPt.value.refusal;
+            const cardFindings = substitutionFindings(card, 'fuc-i/no-frontage-source');
+            findings.push(...cardFindings);
+            if (PT_PORTO_PDM_CERTIFIED) {
+                // A card that SUBSTITUTED is a real finding (exit 1) and must not be re-read as
+                // "unproven"; only a card that neither refuses NOR substitutes is one this arm
+                // cannot certify anything about.
+                if (cardFindings.length === 0 && !card.detail.includes('NOT RESOLVED — context-set-unavailable')) {
+                    checkerBlind ??=
+                        'PT Porto arm: the certified FUC-I card does not carry the ADR-0379 ' +
+                        'context-set-unavailable refusal — the arm cannot certify the no-substitution property on it';
+                }
+            } else if (/CÉRCEA/u.test(card.detail)) {
+                checkerBlind ??= 'PT Porto arm: gate shut yet a CÉRCEA line appears — the shut branch regressed';
+            }
+            // CHECKER TEETH — the pre-ADR-0379 substitution (the bare 21 m cap wearing the
+            // article) must be flagged by the same detector, or the arm is blind.
+            const tampered = {
+                detail: card.detail.replace(
+                    /⚠ CÉRCEA[^]*?$/u,
+                    'CÉRCEA (FUC tipo II): cércea máxima admitida: 21 m (Art. 27.º n.º 2 b)).',
+                ),
+                knownFacts: [...card.knownFacts, 'Cércea máxima: 21 m'],
+            };
+            if (substitutionFindings(tampered, 'teeth').length === 0) {
+                checkerBlind ??=
+                    'PT Porto arm teeth: the tampered bare-21 m substitution was not flagged — the arm cannot see the defect it polices';
+            }
+            console.log(
+                `[never-overstate] §PT-PORTO-MODA: recorded FUC-I card — gate ${PT_PORTO_PDM_CERTIFIED ? 'OPEN' : 'SHUT'}, ` +
+                    `moda ${card.detail.includes('NOT RESOLVED — context-set-unavailable') ? 'refused context-set-unavailable (no frontage source)' : 'line absent'}, ` +
+                    'no substituted cércea scalar required.',
+            );
+        }
+    }
+
     // ── 3. SELF-TEST layer 1 — ENGINE TEETH: the planted pack through the real engine. ──
     const plantedEnv = computeBuildableEnvelope({
         parcelRing: PARCEL,
@@ -997,7 +1118,7 @@ async function main(): Promise<number> {
     console.log(
         `[never-overstate] OK: 0 overstatement(s) across ${zonesWalked} zone-solve(s) in ` +
             `${packJurisdictions} jurisdiction(s) + estimated-default + the recorded live-route arms ` +
-            '(Paris · Denmark · Madrid NZ-1) + the planted self-test pack.',
+            '(Paris · Denmark · Madrid NZ-1 · Porto FUC-I) + the planted self-test pack.',
     );
     return 0;
 }

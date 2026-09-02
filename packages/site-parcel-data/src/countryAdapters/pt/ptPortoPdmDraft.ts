@@ -467,8 +467,21 @@ export function ptPortoCerceaStatement(u: PtPortoCerceaUpgrade): {
         };
     }
 
-    // The moda did NOT resolve → the ADR-0379 refusal, NAMING the failed precondition. Never a
-    // scalar; never the 21 m cap alone.
+    // The moda did NOT resolve. ONE case still resolves without it — FUC tipo II with a KNOWN
+    // largura ≤ 21 m: Art. 27.º n.º 1 g) governs alone there (n.º 2 b) and its moda override
+    // exist only where the perfil EXCEEDS 21 m). The pinned interplay, exactly.
+    if (u.tipo === 'fuc-ii' && u.streetWidthM !== null && u.streetWidthM <= 21) {
+        return {
+            detailLine:
+                ` ⭐ CÉRCEA (FUC tipo II): cércea ≤ largura do arruamento = ${u.streetWidthM} m ` +
+                `(Art. 27.º n.º 1 g); the perfil does not exceed 21 m, so the n.º 2 b) moda ` +
+                `override does not arise — the unresolved moda (${u.outcome.code}) is not needed ` +
+                `here). ${governs}.`,
+            fact: 'Cércea (FUC tipo II): resolved from measured largura (Art. 27.º n.º 1 g) — value in detail',
+        };
+    }
+    // Otherwise: the ADR-0379 refusal, NAMING the failed precondition. Never a scalar; never
+    // the 21 m cap alone.
     const r = u.outcome;
     return {
         detailLine:

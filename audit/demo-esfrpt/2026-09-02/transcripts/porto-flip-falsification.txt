@@ -1,0 +1,53 @@
+# LANE PORTO-FLIP — falsification cycles (sever → SEEN FAILING → byte-identical restore). All timestamps 2026-09-02.
+
+## shas BEFORE any sever (the restore targets)
+9487f6bfa7a53b6d1b267f4df9e8dabae9420ceb8b15f25ceede61c67b67c56a *packages/site-parcel-data/src/countryAdapters/pt/ptFrenteUrbana.ts
+3783de7f61a49472b940e761e9bd463b598db78cdab92369ea673b0c983e7806 *packages/site-parcel-data/src/countryAdapters/pt/ptPortoPdmDraft.ts
+gate file:
+8e7196676223ee0b8e64c9eee579ecbf276453c689ce94e507a47409c8240cc3 *tools/ga-gate/check-envelope-never-overstates.ts
+
+## (a) extractor severed to DROP poisoned members silently → 2 tests RED (the mode resolved 18 m from survivors — a wrong number wearing a citation)
+     × ⭐ a POISONED height passes through VERBATIM and the evaluator refuses invalid-member (ADR-0379 §3) 6ms
+     × ⭐ a POISONED member reaches the card as the invalid-member refusal — refuse, never exclude-and-resolve 6ms
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 2 ⎯⎯⎯⎯⎯⎯⎯
+ Test Files  1 failed (1)
+      Tests  2 failed | 13 passed (15)
+
+### RED detail (vitest)
+ FAIL  __tests__/ptPortoModaCercea.test.ts > extractPtFrenteUrbana — the member set (Art. 3.º l/o), constructed or honestly refused > ⭐ a POISONED height passes through VERBATIM and the evaluator refuses invalid-member (ADR-0379 §3)
+AssertionError: expected false to be true // Object.is equality
+
+- Expected
++ Received
+
+- true
++ false
+
+ ❯ __tests__/ptPortoModaCercea.test.ts:248:82
+
+## (b) ptPortoCerceaStatement refusal branch severed to substitute 'cércea máxima admitida: 21 m'
+### vitest RED:
+     × ⭐ FUC tipo I with NO frontage source: the ADR-0379 unavailable refusal BY NAME — never a substituted cap 22ms
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+ Test Files  1 failed (1)
+      Tests  1 failed | 14 skipped (15)
+### never-overstate gate RED (RC=1, 2 findings by name):
+[never-overstate] FAIL: 2 overstatement finding(s):
+  · [height] pt-1312-porto / fuc-i/no-frontage-source — a bare "cércea máxima N m" statement appears — the Art. 27.º n.º 2 b) cap stated without its moda condition
+  · [height] pt-1312-porto / fuc-i/no-frontage-source — knownFacts carries a numeric cércea ("Cércea máxima: 21 m") — never a number the user could mistake for an allowance
+
+## (c) gate-arm detector severed (patterns b+c disabled) → the arm's own TEETH declare blindness (RC=2 UNPROVEN, never a silent pass)
+[never-overstate] UNPROVEN: PT Porto arm teeth: the tampered bare-21 m substitution was not flagged — the arm cannot see the defect it polices
+
+## restores — byte-identical (sha256 after == before)
+9487f6bfa7a53b6d1b267f4df9e8dabae9420ceb8b15f25ceede61c67b67c56a *packages/site-parcel-data/src/countryAdapters/pt/ptFrenteUrbana.ts
+3783de7f61a49472b940e761e9bd463b598db78cdab92369ea673b0c983e7806 *packages/site-parcel-data/src/countryAdapters/pt/ptPortoPdmDraft.ts
+8e7196676223ee0b8e64c9eee579ecbf276453c689ce94e507a47409c8240cc3 *tools/ga-gate/check-envelope-never-overstates.ts
+
+## final green: gate RC=0
+[never-overstate] OK: 0 overstatement(s) across 190 zone-solve(s) in 6 jurisdiction(s) + estimated-default + the recorded live-route arms (Paris · Denmark · Madrid NZ-1 · Porto FUC-I) + the planted self-test pack.
+
+NOTE: the ptPortoPdmDraft.ts sha above records the RESTORE point (byte-identical to pre-sever).
+A subsequent, deliberate refinement (the FUC-II largura≤21 n.º 1 g branch — the pinned interplay's
+moda-not-needed case) changed the file afterwards; re-proven by: focused suite 70/70 RC=0, scoped
+tsc RC=0, never-overstate RC=0 (190 solves), all on the final tree.

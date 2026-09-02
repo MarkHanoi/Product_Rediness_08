@@ -1,0 +1,53 @@
+npm warn Unknown project config "package-manager-strict". This will stop working in the next major version of npm. See `npm help npmrc` for supported config options.
+
+ RUN  v4.1.10 C:/Users/LENOVO/OneDrive/Desktop/PRYZM/Product_Rediness_08/apps/editor
+
+Sourcemap for "C:/Users/LENOVO/OneDrive/Desktop/PRYZM/Product_Rediness_08/packages/file-format/src/family-schema.js" points to missing source files
+Sourcemap for "C:/Users/LENOVO/OneDrive/Desktop/PRYZM/Product_Rediness_08/packages/file-format/src/family-types.js" points to missing source files
+Sourcemap for "C:/Users/LENOVO/OneDrive/Desktop/PRYZM/Product_Rediness_08/packages/file-format/src/family-migrations/index.js" points to missing source files
+Sourcemap for "C:/Users/LENOVO/OneDrive/Desktop/PRYZM/Product_Rediness_08/packages/file-format/src/family-migrations/identity.js" points to missing source files
+Sourcemap for "C:/Users/LENOVO/OneDrive/Desktop/PRYZM/Product_Rediness_08/packages/file-format/src/family-migrations/v1_0-to-v1_1.js" points to missing source files
+Sourcemap for "C:/Users/LENOVO/OneDrive/Desktop/PRYZM/Product_Rediness_08/packages/file-format/src/family-migrations/ops/rename-parameter.js" points to missing source files
+Sourcemap for "C:/Users/LENOVO/OneDrive/Desktop/PRYZM/Product_Rediness_08/packages/file-format/src/family-migrations/ops/add-parameter.js" points to missing source files
+Sourcemap for "C:/Users/LENOVO/OneDrive/Desktop/PRYZM/Product_Rediness_08/packages/file-format/src/family-migrations/ops/delete-parameter.js" points to missing source files
+Sourcemap for "C:/Users/LENOVO/OneDrive/Desktop/PRYZM/Product_Rediness_08/packages/file-format/src/family-migrations/ops/change-parameter-type.js" points to missing source files
+Sourcemap for "C:/Users/LENOVO/OneDrive/Desktop/PRYZM/Product_Rediness_08/packages/file-format/src/family-migrations/ops/introduce-expression.js" points to missing source files
+Sourcemap for "C:/Users/LENOVO/OneDrive/Desktop/PRYZM/Product_Rediness_08/packages/file-format/src/family-migrations/ops/rebind-ifc.js" points to missing source files
+Sourcemap for "C:/Users/LENOVO/OneDrive/Desktop/PRYZM/Product_Rediness_08/packages/file-format/src/family-migrations/ops/merge-material-slots.js" points to missing source files
+Sourcemap for "C:/Users/LENOVO/OneDrive/Desktop/PRYZM/Product_Rediness_08/packages/file-format/src/family-migrations/ops/split-type.js" points to missing source files
+stderr | __tests__/componentDefinitionWorkspaceThroughComposedRuntime.test.ts
+THREE.WARNING: Multiple instances of Three.js being imported.
+
+stdout | __tests__/componentDefinitionWorkspaceThroughComposedRuntime.test.ts
+[CreateCurtainWallsOnAllSlabsCommand] §DEV: window.__resetCwPrewarm() registered. Call it in DevTools to re-enable first-run PSO prewarm for next execute().
+
+stderr | __tests__/componentDefinitionWorkspaceThroughComposedRuntime.test.ts
+Warning: Please use the `legacy` build in Node.js environments.
+
+stdout | __tests__/componentDefinitionWorkspaceThroughComposedRuntime.test.ts
+[ConstraintEngine] 17 rules registered (7 Tier 1, 5 Tier 2 spatial, 5 Tier 2 physics)
+
+ ❯ __tests__/componentDefinitionWorkspaceThroughComposedRuntime.test.ts (10 tests | 1 failed) 578ms
+     × ARM 4 — LIVE typed diagnostics for INVALID expressions: `expression-parse` and `unit-mismatch` render in place as the user types — C110 §4.4's closed set, never swallowed 6ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  __tests__/componentDefinitionWorkspaceThroughComposedRuntime.test.ts > §U3-DEFINITION-WORKSPACE — the founder's §64 demo, end to end through the real composed runtime > ARM 4 — LIVE typed diagnostics for INVALID expressions: `expression-parse` and `unit-mismatch` render in place as the user types — C110 §4.4's closed set, never swallowed
+AssertionError: the unit-mismatch diagnostic renders live, typed: expected null not to be null
+ ❯ __tests__/componentDefinitionWorkspaceThroughComposedRuntime.test.ts:279:82
+    277|         input.dispatchEvent(new Event('input'));
+    278|         const unitDiag = preview.querySelector('[data-cdw-preview-diag…
+    279|         expect(unitDiag, 'the unit-mismatch diagnostic renders live, t…
+       |                                                                                  ^
+    280|         expect(unitDiag?.getAttribute('data-cdw-preview-diag-severity'…
+    281|
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 9 passed (10)
+   Start at  21:17:05
+   Duration  30.69s (transform 22.51s, setup 0ms, import 29.41s, tests 578ms, environment 469ms)
+
+RC=1
