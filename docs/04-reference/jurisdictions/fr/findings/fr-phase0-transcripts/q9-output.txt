@@ -1,0 +1,22 @@
+=== OTHER idurba samples ===
+distinct OTHER idurba: 4215
+20161123 x1
+01008_20170327 x1
+01024_20230620 x1
+6536920100706 x1
+01038_20130513 x1
+0104120170719 x1
+1458920130415 x1
+01045_20050324 x1
+01064_20170414 x1
+01083_20190125 x1
+01093_20230130 x1
+01095_20150420 x1
+=== DEDUPED (one doc per commune, PSMV excluded) ===
+docs: 12601 covered pop: 62,947,448 = 91.3% of national
+  25% of national pop: 30 documents (cum 17,500,433)
+  50% of national pop: 283 documents (cum 34,497,064)
+  75% of national pop: 1817 documents (cum 51,715,261)
+=== municipality.gpkg === cols: fid_extract,the_geom,gid,name,insee,is_rnu,is_deleted,is_coastline
+rows: 36732 is_rnu distribution: [{"is_rnu":0,"c":29854},{"is_rnu":1,"c":6878}]
+RNU communes: 6878 population: 1,908,221 (2.77% of national)

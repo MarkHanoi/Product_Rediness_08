@@ -1,0 +1,102 @@
+{
+    "begin_timestamp": "2026-08-29T02:01:08Z",
+    "end_timestamp": "2026-08-29T02:11:37Z",
+    "format": "GPKG",
+    "data_output_name": "export",
+    "metadata_output_name": "extraction.json",
+    "relations": [
+        {
+            "schema_851ddcb2_d12c_4189_ad5e_eec47a17d366.secteur_cc": "SUCCESS"
+        },
+        {
+            "schema_851ddcb2_d12c_4189_ad5e_eec47a17d366.habillage_pct": "SUCCESS"
+        },
+        {
+            "schema_851ddcb2_d12c_4189_ad5e_eec47a17d366.habillage_lin": "SUCCESS"
+        },
+        {
+            "schema_851ddcb2_d12c_4189_ad5e_eec47a17d366.document": "SUCCESS"
+        },
+        {
+            "schema_851ddcb2_d12c_4189_ad5e_eec47a17d366.zone_urba": "SUCCESS"
+        },
+        {
+            "schema_851ddcb2_d12c_4189_ad5e_eec47a17d366.doc_urba_com": "SUCCESS"
+        },
+        {
+            "schema_851ddcb2_d12c_4189_ad5e_eec47a17d366.doc_urba": "SUCCESS"
+        },
+        {
+            "schema_851ddcb2_d12c_4189_ad5e_eec47a17d366.acte_sup": "SUCCESS"
+        },
+        {
+            "schema_851ddcb2_d12c_4189_ad5e_eec47a17d366.generateur_sup_p": "SUCCESS"
+        },
+        {
+            "schema_851ddcb2_d12c_4189_ad5e_eec47a17d366.habillage_surf": "SUCCESS"
+        },
+        {
+            "schema_851ddcb2_d12c_4189_ad5e_eec47a17d366.municipality": "SUCCESS"
+        },
+        {
+            "schema_851ddcb2_d12c_4189_ad5e_eec47a17d366.servitude_acte_sup": "SUCCESS"
+        },
+        {
+            "schema_851ddcb2_d12c_4189_ad5e_eec47a17d366.extraction_description": "SUCCESS"
+        },
+        {
+            "schema_851ddcb2_d12c_4189_ad5e_eec47a17d366.assiette_sup_l": "SUCCESS"
+        },
+        {
+            "schema_851ddcb2_d12c_4189_ad5e_eec47a17d366.perimetre_scot": "SUCCESS"
+        },
+        {
+            "schema_851ddcb2_d12c_4189_ad5e_eec47a17d366.servitude": "SUCCESS"
+        },
+        {
+            "schema_851ddcb2_d12c_4189_ad5e_eec47a17d366.info_surf": "SUCCESS"
+        },
+        {
+            "schema_851ddcb2_d12c_4189_ad5e_eec47a17d366.habillage_txt": "SUCCESS"
+        },
+        {
+            "schema_851ddcb2_d12c_4189_ad5e_eec47a17d366.assiette_sup_p": "SUCCESS"
+        },
+        {
+            "schema_851ddcb2_d12c_4189_ad5e_eec47a17d366.doc_urba_scot": "SUCCESS"
+        },
+        {
+            "schema_851ddcb2_d12c_4189_ad5e_eec47a17d366.scot": "SUCCESS"
+        },
+        {
+            "schema_851ddcb2_d12c_4189_ad5e_eec47a17d366.prescription_pct": "SUCCESS"
+        },
+        {
+            "schema_851ddcb2_d12c_4189_ad5e_eec47a17d366.generateur_sup_l": "SUCCESS"
+        },
+        {
+            "schema_851ddcb2_d12c_4189_ad5e_eec47a17d366.info_pct": "SUCCESS"
+        },
+        {
+            "schema_851ddcb2_d12c_4189_ad5e_eec47a17d366.gestionnaire_sup": "SUCCESS"
+        },
+        {
+            "schema_851ddcb2_d12c_4189_ad5e_eec47a17d366.info_lin": "SUCCESS"
+        },
+        {
+            "schema_851ddcb2_d12c_4189_ad5e_eec47a17d366.prescription_surf": "SUCCESS"
+        },
+        {
+            "schema_851ddcb2_d12c_4189_ad5e_eec47a17d366.assiette_sup_s": "SUCCESS"
+        },
+        {
+            "schema_851ddcb2_d12c_4189_ad5e_eec47a17d366.generateur_sup_s": "SUCCESS"
+        },
+        {
+            "schema_851ddcb2_d12c_4189_ad5e_eec47a17d366.doc_urba_com_scot": "SUCCESS"
+        },
+        {
+            "schema_851ddcb2_d12c_4189_ad5e_eec47a17d366.prescription_lin": "SUCCESS"
+        }
+    ]
+}

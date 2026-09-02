@@ -1,0 +1,4 @@
+INHERITED: sampled= 500 untestable(non-URL)= 67 counts= {"200":105,"206":183,"400":3,"403":3,"404":110,"503":2,"ERR:UNABLE_TO_VERIFY_LEAF_SIGNATURE":7,"ERR:ENOTFOUND":3,"ERR:TypeError":5,"ERR:ERR_TLS_CERT_ALTNAME_INVALID":3,"ERR:UND_ERR_CONNECT_TIMEOUT":9}
+INHERITED 200/206 rate: of testable 66.5% ; of all 500: 57.6%
+untestable samples: ["56136_PLU_20141103/Pieces_ecrites/3_Reglement/56136_reglement_20141103.pdf","..\\pieces_ecrites\\3_reglement\\69093_reglement_20111017.pdf","56145_PLU_20100121/Pieces_ecrites/3_Reglement/56145_reglement_20100121.pdf","..\\Pieces_ecrites\\3_Reglement\\44008_reglement_20190312.pdf"]
+REPROBE 30: agree(200-class)= 30 /30; flips: []

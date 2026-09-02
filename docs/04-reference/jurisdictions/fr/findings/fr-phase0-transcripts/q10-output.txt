@@ -1,0 +1,35 @@
+NO-idurba subpop: {"c":145689,"insee_f":145689,"datappro_f":143973,"nomfic_f":134429,"destdomi_f":145689}
+nomfic anchors: {"with_page":214481,"filled":1329159,"pdfish":1329159,"url_with_page":39399}
+per-doc page anchors: {"docs":8269,"docs_with_page_anchors":1798,"docs_all_zones_paged":1764}
+doc_urba cols: fid_extract,the_geom,gid,etat,siren,urlpe,idurba,nomreg,urlreg,datefin,dateref,interco,nomplan,nomproc,nomrapp,siteweb,typedoc,typeref,urlplan,urlrapp,datappro,partition,gpu_doc_id,gpu_status,gpu_timestamp
+doc_urba rows: 23885
+ fill etat       23885 = 100.00%
+ fill datappro   23809 = 99.68%
+ fill datefin     5305 = 22.21%
+ fill nomreg     17607 = 73.72%
+ fill urlreg      7680 = 32.15%
+ fill nomplan     7040 = 29.47%
+ fill urlplan      900 = 3.77%
+ fill siteweb     1789 = 7.49%
+ fill dateref    19213 = 80.44%
+ fill typeref    21138 = 88.50%
+ fill nomproc     8214 = 34.39%
+ fill datvalid NO SUCH COLUMN
+typedoc distribution:
+   PLU 16254
+   CC 4657
+   POS 2315
+   PLUI 612
+   PSMV 44
+   PLUi 3
+etat distribution:
+   03 16486
+   05 4386
+   07 2639
+   04 226
+   02 68
+   01 44
+   08 30
+   09 3
+   06 3
+ gpu_status production 23885

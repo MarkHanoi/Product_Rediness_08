@@ -1,0 +1,30 @@
+=== idurba kind parse across all zones ===
+  PLUi-shaped       645211 nomfic=100.00%
+  PLU-shaped        549214 nomfic=100.00%
+  <empty idurba>    145689 nomfic=92.27%
+  PSMV-shaped          262 nomfic=100.00%
+  OTHER                 43 nomfic=100.00%
+=== OTHER samples ===
+  1028720180319 x43
+=== sample nomfic values ===
+  "17325_reglement_20250414.pdf#page=45" x3
+  "77486_reglement_20231219.pdf#page=72" x1
+  "42182_reglement_20151124.pdf#page=93" x27
+  "59137_reglement_20260304.pdf" x30
+  "95256_reglement_20251211.pdf" x52
+  "80726_reglement_20190513.pdf" x17
+  "17309_reglement_20240618.pdf#page=20" x5
+  "42162_reglement_20250304.pdf#page=41" x5
+  "26002_reglement_20250220.pdf#page=90" x69
+  "84080_reglement_20220321.pdf#page=41" x16
+=== sample urlfic values ===
+  "https://paysredon.geomatika.fr/releves/paysredon/paysredon_urbanisme/reglement/56011_PLU_20131204/Pieces_ecrites/3_Reglement/56011_reglement_20131204.pdf#page=78"
+  "https://www.communaute-paysbasque.fr/documents-durbanisme-1/document/approbation-de-la-revision-generale-du-plan-local-durbanisme-de-saint-pee-sur-nivelle"
+  "https://data.agglo-saintdizier.fr/public/gpu/52104_reglement_20080225.pdf"
+  "https://aunis-sud.fr/je-mepanouis-en-aunis-sud/jai-un-projet-immobilier/portail-pluih/"
+  "https://plui.ampmetropole.fr/assets/documents/PLUi_CT1_L_Reglement.pdf#page=194"
+  "38113_PLU_20210518\\Pieces_ecrites\\3_Reglement"
+=== nomfic-empty rows: which docs ===
+  <empty> 11260
+=== zones per doc: median-ish (for context) ===
+  docs: 8269 min: 1 p50: 53 p90: 218 max: 15587

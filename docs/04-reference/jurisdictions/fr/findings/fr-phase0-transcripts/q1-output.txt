@@ -1,0 +1,25 @@
+=== zone_urba fill rates (non-null AND non-empty; T=1340419) ===
+nomfic     1329159 = 99.16%
+urlfic      244891 = 18.27%
+destoui      11319 = 0.84%
+destcdt      15767 = 1.18%
+destnon      16489 = 1.23%
+destdomi    145689 = 10.87%
+formdomi     61787 = 4.61%
+libelle    1340419 = 100.00%
+typezone   1340419 = 100.00%
+idurba     1194730 = 89.13%
+datappro    143973 = 10.74%
+datvalid   1237387 = 92.31%
+insee       145689 = 10.87%
+partition  1340419 = 100.00%
+distinct idurba in zone_urba: 8269
+doc_urba idurba uniqueness: {"n":23885,"d":14109}
+=== gpu_status distribution (zone rows) ===
+  production 1340419
+=== NOMFIC/URLFIC fill by TYPEDOC (LEFT JOIN doc_urba on idurba) ===
+  PLU         zones=  545949 nomfic=100.00% urlfic=17.07%
+  PLUI        zones=  541589 nomfic=100.00% urlfic=18.25%
+  NO-DOC-ROW  zones=  247562 nomfic=95.45% urlfic=21.35%
+  PLUi        zones=    5058 nomfic=100.00% urlfic=0.00%
+  PSMV        zones=     261 nomfic=100.00% urlfic=2.30%

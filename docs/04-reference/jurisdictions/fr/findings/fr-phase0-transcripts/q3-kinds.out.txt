@@ -1,0 +1,30 @@
+=== idurba kind parse across all zones ===
+  PLUi-shaped       645211 nomfic=100.00%
+  PLU-shaped        549214 nomfic=100.00%
+  <empty idurba>    145689 nomfic=92.27%
+  PSMV-shaped          262 nomfic=100.00%
+  OTHER                 43 nomfic=100.00%
+=== OTHER samples ===
+  1028720180319 x43
+=== sample nomfic values ===
+  "90050_reglement_20170224.pdf" x11
+  "31407_reglement_20241217.pdf" x40
+  "60684_reglement_20231204.pdf#page=97" x3
+  "01333_reglement_20260302.pdf" x82
+  "74218_reglement_20260119.pdf" x156
+  "42288_reglement_20110628.pdf#page=33" x6
+  "64483_reglement_20250927.pdf#NER" x4
+  "35068_reglement_20240514.pdf" x109
+  "81014_reglement_20240909.pdf" x613
+  "32104_reglement_20180718.pdf#page=25" x70
+=== sample urlfic values ===
+  "56136_PLU_20141103/Pieces_ecrites/3_Reglement/56136_reglement_20141103.pdf"
+  "..\\Pieces_ecrites\\3_Reglement\\42138_reglement_20131016.pdf"
+  "http://www.geoportail-urbanisme.gouv.fr/"
+  "03200_PLU_20200915\\Pieces_ecrites\\3_Reglement"
+  "http://piece-jointe-carto.developpement-durable.gouv.fr/DEPT078A/PLU_NUM/78650_reglement_20251229.pdf"
+  "https://sig.auray-quiberon.fr/documents/Urbanisme/PLU/56054/56054_reglement_20250708.pdf"
+=== nomfic-empty rows: which docs ===
+  <empty> 11260
+=== zones per doc: median-ish (for context) ===
+  docs: 8269 min: 1 p50: 53 p90: 218 max: 15587

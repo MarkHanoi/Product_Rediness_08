@@ -1,0 +1,19 @@
+doc_urba_com rows: 33125 status values: ["production"]
+distinct documents in doc_urba_com: 13766
+=== PLUi leverage ===
+PLUi documents: 556
+communes covered by PLUi: 13193
+communes/PLUi min: 1 p25: 12 p50: 19 p75: 31 p90: 47 max: 95
+population covered by PLUi docs: 31,364,895 = 45.5% of national 68,952,941
+=== per-kind: docs, communes, population ===
+  CC     docs=  1198 communes=  1187 pop=     445,920 (0.6%)
+  PLU    docs=  7759 communes=  7654 pop=  28,473,929 (41.3%)
+  OTHER  docs=  4215 communes=  4143 pop=   5,277,957 (7.7%)
+  PLUi   docs=   556 communes= 12965 pop=  30,491,232 (44.2%)
+  PSMV   docs=    38 communes=    36 pop=   4,783,331 (6.9%)
+=== documents needed for X% of NATIONAL population (68,952,941) ===
+population covered by ANY GPU DU document: 75,846,049 = 110.0%
+  25% of national pop: 16 documents
+  50% of national pop: 104 documents
+  75% of national pop: 611 documents
+communes with NO GPU DU doc row: 10246 pop: 6,005,493 (8.7%)

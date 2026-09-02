@@ -1,0 +1,89 @@
+=== FORMDOMI value distribution (codes verbatim, NOT interpreted — brief §10.1) ===
+  <empty>  1278632
+  0800     20319
+  0700     10947
+  0100     7096
+  0200     2529
+  0500     2504
+  0300     1975
+  0108     1540
+  0107     1403
+  0103     1119
+  0102     1109
+  0400     1054
+  0105     885
+  0104     832
+  0101     825
+  0703     800
+  0109     743
+  0801     719
+  0000     675
+  0701     608
+  0201     532
+  0401     501
+  0705     496
+  9900     446
+  0501     357
+  0702     209
+  0802     176
+  0407     154
+  0202     140
+  0903     139
+  0405     138
+  0600     123
+  0406     117
+  0502     104
+  0901     101
+  0704     95
+  0106     67
+  0900     46
+  0902     31
+  0603     24
+  0403     24
+  0602     23
+  0601     13
+  0503     12
+  0404     12
+  0402     10
+  0203     10
+  0604     5
+=== destdomi distribution ===
+  <empty>  1194730
+  01       50533
+  08       44628
+  07       27709
+  03       7555
+  02       5738
+  04       3589
+  05       3334
+  09       964
+  99       787
+  00       529
+  10       323
+=== TYPEZONE distribution ===
+  N      523265
+  U      389408
+  A      325288
+  AUc    58654
+  Nh     19431
+  AUs    18722
+  Ah     5608
+  Nd     41
+  Auc    2
+=== zone-scoped vs shared reglement, per non-empty idurba (8269 docs... those with idurba) ===
+{
+ "docs": 8269,
+ "zones": 1194730,
+ "one_file_all_zones": 6377,
+ "partial": 1891,
+ "per_zone_files": 1,
+ "single_zone_docs": 64,
+ "no_nomfic_docs": 0,
+ "no_urlfic_docs": 7064,
+ "one_url_docs": 816,
+ "multi_url_docs": 389,
+ "mean_nomfic_ratio": 0.06736022580621667,
+ "mean_urlfic_ratio": 0.011335981728141509
+}
+=== NO-idurba subpopulation cross-fills (the standard-version signal) ===
+{"c":145689,"insee_f":145689,"datappro_f":143973,"nomfic_f":134429,"destdomi_f":145689}

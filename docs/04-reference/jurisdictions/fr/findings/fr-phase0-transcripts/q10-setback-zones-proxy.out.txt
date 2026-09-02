@@ -1,0 +1,3 @@
+zones in documents carrying >=1 drawn-setback (TYPEPSC=15) prescription: 550607 across 2942 documents
+= 41.08% of all 1340419 zones (DOCUMENT-level proxy; true geometric intersect DEFERRED)
+distinct partitions with TYPEPSC=15 (surf UNION lin): 3199

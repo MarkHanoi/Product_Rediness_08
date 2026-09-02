@@ -1,0 +1,80 @@
+======== prescription_surf (extract vintage 2026-08-29) ========
+total rows: 4274439
+-- TYPEPSC=15 by stypepsc --
+  15/01 18952
+  15/00 15922
+  15/02 9293
+  15/50 3442
+  15/98 2409
+  15/03 665
+  15/<empty> 631
+  15/51 93
+  15 TOTAL: 51407 distinct partitions: 1728 distinct idurba: 1645
+-- TYPEPSC=14 --
+  14 TOTAL: 5291 distinct partitions: 88 distinct insee (nb: insee sparsely filled): 6
+-- TYPEPSC=29 by stypepsc --
+  29/00 508
+  29/01 203
+  29/02 5
+  29/<empty> 1
+-- TYPEPSC=30 by stypepsc --
+  30/01 2304
+  30/02 519
+  30/03 141
+  30/00 82
+  30/04 5
+-- fills --
+  nomfic 2770546 = 64.82%
+  urlfic 768300 = 17.97%
+  idurba 4100218 = 95.92%
+  insee 174221 = 4.08%
+-- top TYPEPSC codes overall --
+  02 1267653
+  07 1197926
+  01 461752
+  31 257901
+  05 207930
+  25 207871
+  48 117787
+  16 95857
+  18 90166
+  39 77350
+  99 68320
+  15 51407
+======== prescription_lin (extract vintage 2026-08-29) ========
+total rows: 4137469
+-- TYPEPSC=15 by stypepsc --
+  15/01 31493
+  15/00 28684
+  15/98 4447
+  15/<empty> 2257
+  15/51 1788
+  15/02 880
+  15/03 151
+  15/50 39
+  15 TOTAL: 69739 distinct partitions: 1942 distinct idurba: 1769
+-- TYPEPSC=14 --
+  14 TOTAL: 43 distinct partitions: 8 distinct insee (nb: insee sparsely filled): 0
+-- TYPEPSC=29 by stypepsc --
+  29/00 318
+-- TYPEPSC=30 by stypepsc --
+  30/00 2
+  30/02 1
+-- fills --
+  nomfic 2696579 = 65.17%
+  urlfic 753779 = 18.22%
+  idurba 4004161 = 96.78%
+  insee 133308 = 3.22%
+-- top TYPEPSC codes overall --
+  07 3304171
+  25 269347
+  24 135187
+  01 89726
+  15 69739
+  47 59604
+  22 45560
+  99 32928
+  02 32506
+  40 21205
+  43 20927
+  39 14818

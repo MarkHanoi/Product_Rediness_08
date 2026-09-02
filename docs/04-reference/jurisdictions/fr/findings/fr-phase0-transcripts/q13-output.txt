@@ -1,0 +1,7 @@
+municipality is_deleted: [{"is_deleted":0,"c":35011},{"is_deleted":1,"c":1721}]
+rnu x deleted: [{"is_rnu":0,"is_deleted":0,"c":28365},{"is_rnu":0,"is_deleted":1,"c":1489},{"is_rnu":1,"is_deleted":0,"c":6646},{"is_rnu":1,"is_deleted":1,"c":232}]
+OLD-STANDARD (no-idurba) zones by governing doc kind (insee->doc_urba_com):
+  OTHER-shaped         communes= 1887 zones= 131114 nomfic=92.73%
+  PLU                  communes=   88 zones=   7884 nomfic=99.35%
+  NO doc_urba_com row  communes=  108 zones=   6618 nomfic=75.76%
+  PLUi                 communes=    2 zones=     73 nomfic=1.37%

@@ -1,0 +1,30 @@
+{
+ "A1": {
+  "status": 200,
+  "name": "LORAY",
+  "insee": "25349",
+  "is_rnu": false,
+  "PASS": true
+ },
+ "A2": {
+  "status": 200,
+  "name": "GUILLONVILLE",
+  "is_rnu": false,
+  "PASS": true
+ },
+ "A3": {
+  "status": 200,
+  "du_type": "PLUi",
+  "partition": "DU_200070159",
+  "nFeatures": 1,
+  "PASS": true
+ },
+ "A4": {
+  "status": 200,
+  "geomType": "MultiPolygon",
+  "libelle": "A",
+  "nFeatures": 1,
+  "PASS": true
+ }
+}
+ALL_PASS: true
