@@ -1,0 +1,3 @@
+npm warn Unknown project config "package-manager-strict". This will stop working in the next major version of npm. See `npm help npmrc` for supported config options.
+status = transient
+reason = endpoint-unreachable: https://severed.invalid.dgterritorio.example/collections/crus/items?bbox=-9.1394%2C38.722199999999994%2C-9.1392%2C38.7224&f=json&limit=10 (fetch failed)

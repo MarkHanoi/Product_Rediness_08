@@ -81,6 +81,7 @@ import { LAS_TORRES_DE_COTILLAS_ENVELOPE_VERIFIED } from './rulepacks/esLasTorre
 import { HUESCA_ENVELOPE_VERIFIED, ZARAGOZA_ENVELOPE_VERIFIED } from './rulepacks/esAragon.js';
 import { EL_SAUZAL_ENVELOPE_VERIFIED } from './rulepacks/esElSauzal.js';
 import { FR_PARIS_PLU_CERTIFIED } from './rulepacks/frParisPluBioclimatique.js';
+import { PT_PORTO_PDM_CERTIFIED } from './countryAdapters/pt/ptPortoPdmDraft.js';
 
 const tracer = trace.getTracer('pryzm.zoning.l449');
 
@@ -172,6 +173,20 @@ export const L449_CERTIFICATION_GATES: readonly L449Gate[] = Object.freeze([
         gate: 'FR_PARIS_PLU_CERTIFIED',
         file: 'packages/site-parcel-data/src/rulepacks/frParisPluBioclimatique.ts',
         value: FR_PARIS_PLU_CERTIFIED,
+        signature: null,
+    },
+    {
+        // LANE PT-ZONEID, 2026-09-02 — BORN SHUT, never opened. The first Portuguese pack DRAFT
+        // (Porto PDMP, Regulamento Janeiro 2023, per-article citations at VERIFIED-PRIMARY from
+        // pt/sources/SOURCES.md §A.0.3). Shut TWICE over: (a) no human signature of its three
+        // assertions (scope/exceptions · CRUS→PDMP categoria mapping · article pins), and (b) the
+        // moda-da-cércea height regime needs a C58 `fabricDerivedHeight` GeometricRule kind that
+        // does not exist (pt-13/1315-porto/ENVELOPE.md) — so even a signature cannot open a
+        // drawing path until that schema amendment lands. While shut it upgrades only the COVERAGE
+        // STATEMENT on Porto's zone-named CRUS refusal; no draft value is evaluated or shown.
+        gate: 'PT_PORTO_PDM_CERTIFIED',
+        file: 'packages/site-parcel-data/src/countryAdapters/pt/ptPortoPdmDraft.ts',
+        value: PT_PORTO_PDM_CERTIFIED,
         signature: null,
     },
     {

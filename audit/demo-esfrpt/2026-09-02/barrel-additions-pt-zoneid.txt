@@ -1,0 +1,146 @@
+PT-ZONEID — BARREL / REGISTRY ADDITIONS FOR THE ORCHESTRATOR
+============================================================
+Lane: PT-ZONEID (demo gap G4 — the PORTUGAL national zone-identity leg on CRUS), finished by
+lane PT-ZONEID-FINISH 2026-09-02 after the original lane was cut mid-build. The lane owns
+  packages/site-parcel-data/src/countryAdapters/pt/               (5 files: ptCrusClient.ts,
+      ptCrusZone.ts [both inherited + verified], ptSources.ts, ptPortoPdmDraft.ts, index.ts)
+  packages/site-parcel-data/__tests__/ptZoneIdentity.test.ts      (new)
+  packages/site-parcel-data/__tests__/fixtures/pt-crus-zoneid/    (new)
+PLUS one additive edit to a shared file this lane's brief did NOT forbid and whose own gate
+DEMANDS it (declared in item 0 below, for review):
+  packages/site-parcel-data/src/l449CertificationGates.ts         (+15 lines)
+Everything else below is a change to a SHARED file the lane may not edit (barrel protocol).
+
+VERIFIED STATE AT WRITING (measured foreground, RC read from the redirect):
+  · `npx vitest run ptZoneIdentity --root packages/site-parcel-data` → RC=0, 25/25.
+  · `npx vitest run --root packages/site-parcel-data` (FULL suite) → RC=0, 171 files,
+    3743 passed | 3 skipped.
+  · `npx tsc -p packages/site-parcel-data/tsconfig.json --noEmit` → RC=0.
+  · Live acceptance driver (Lisbon/Porto/Évora + 2 sea controls) → RC=0, transcript
+    `transcripts/pt-zoneid-live-acceptance.txt`.
+  · Falsification: endpoint severed → `transient` `endpoint-unreachable:` BY NAME; restore
+    sha256 byte-identical (`transcripts/pt-zoneid-{falsification,sha-restore}.txt`).
+  · `git status --porcelain packages/site-parcel-data/` → ONLY the lane paths above.
+
+────────────────────────────────────────────────────────────────────────────────
+ITEM 0 (ALREADY DONE — DECLARED FOR REVIEW) — L-449 gate registration
+────────────────────────────────────────────────────────────────────────────────
+FILE: packages/site-parcel-data/src/l449CertificationGates.ts (EDITED by this lane, +15)
+The new `PT_PORTO_PDM_CERTIFIED` constant (born SHUT, `signature: null`) is registered in
+`L449_CERTIFICATION_GATES`. This edit was FORCED by the package's own totality gate:
+`l449CertificationGates.test.ts` scans every `*_CERTIFIED` constant on disk and FAILS the
+whole suite on an unregistered one ("Register it in src/l449CertificationGates.ts" is the
+test's own instruction). The file was not on the lane's forbidden list; leaving the suite RED
+would have violated acceptance arm 3. Revert + move behind the barrel if the orchestrator
+prefers — the entry is self-contained (one import + one object literal after the
+FR_PARIS_PLU_CERTIFIED entry).
+
+────────────────────────────────────────────────────────────────────────────────
+ITEM 1 (REQUIRED) — export the adapter from the package barrel
+────────────────────────────────────────────────────────────────────────────────
+FILE: packages/site-parcel-data/src/index.ts
+
+ADD (one line, alongside the sibling adapter re-exports — the fr line landed in 35baaabd):
+
+export * from './countryAdapters/pt/index.js';
+
+Note: `pt/index.ts` re-exports an EXPLICIT list (no `export *` from its own leaves), so this
+line has a closed, reviewable surface. Name-collision check run 2026-09-02:
+  grep -rn "PT_CRUS_\|PT_PORTO_\|PtCrus\|PtZoneIdentity\|PtFetchDeps\|PtLonLatRing\|PtPdmDraftValue\|ptCountryAdapter\|ptCrusZoneRefusal\|ptRefusalCodeForZone\|ptPortoPdmDraftRefusal\|resolvePtZone\|resolvePtCrus\|classifyPtCrusClasse\|parsePtCrus\|buildPtCrusPointUrl\|ptGetJson\|PT_ADAPTER_SOURCES\|PT_APPLICABILITY_LADDER\|PT_CRUS_JURISDICTION_ID" src/ --include="*.ts"
+outside `countryAdapters/pt/` returns ONLY the l449CertificationGates.ts registration (item 0)
+— no overlap with the SNIC parcel provider's `PORTUGAL_BBOX`/`isInPortugal`/`Dgt*` names.
+
+────────────────────────────────────────────────────────────────────────────────
+ITEM 2 (REQUIRED) — migrate the CRUS source row into sourceRegistry/pt.ts
+────────────────────────────────────────────────────────────────────────────────
+WHY: `sourceRegistry/pt.ts` holds only the SNIC cadastre row. The CRUS OGC API row is now
+probed on two dated passes (shape-pinning + the inheritance re-probe, both 2026-09-02) and
+minted in `countryAdapters/pt/ptSources.ts` as `PT_ADAPTER_SOURCES` (id `pt-dgt-crus-ogcapi`).
+
+2a. FILE: packages/site-parcel-data/src/sourceRegistry/pt.ts
+    ADD to the `defineSources('PT', [...])` array: the row from `ptSources.ts`, VERBATIM —
+    the probe notes are the evidence and must not be summarised.
+
+2b. THEN, in packages/site-parcel-data/src/countryAdapters/pt/ptSources.ts: delete the
+    `defineSources('PT', [...])` literal and re-export the registry's row instead —
+      import { PT_SOURCES } from '../../sourceRegistry/pt.js';
+      export const PT_ADAPTER_SOURCES: readonly SiteIntelSource[] =
+          PT_SOURCES.filter((r) => r.id === PT_CRUS_SOURCE_ID);
+    — keeping `PT_CRUS_SOURCE_ID` exactly as is. DO NOT LEAVE TWO COPIES (C84 EI-9; the
+    FR/LU/LT lanes left the same instruction for the same reason).
+
+────────────────────────────────────────────────────────────────────────────────
+ITEM 3 (THE WIRING THAT CLOSES G4 AT THE USER LAYER — dispatcher, NOT this lane's file)
+────────────────────────────────────────────────────────────────────────────────
+The leg is reachable but not yet dispatched: `apps/editor/src/ui/site/siteDispatch.ts` (held
+surface) today falls to `applyEstimatedZoning` for every PT point. The closing edit, wherever
+the dispatch ladder's owner lands it:
+
+  WHEN the zoning dispatch resolves `none` AND the point routes to PT, CALL
+  `resolvePtZoneIdentityAt(lat, lon)` (through a C57 same-origin proxy — item 4) BEFORE
+  `applyEstimatedZoning`:
+    · found     → render `value.refusal` (typed, cited EnvelopeRefusal — zone-named, with the
+      PDM's registo/depósito + situação; C58 §1.13 card), NOT the Estimated triple. Porto
+      points additionally carry the pack-draft coverage line.
+    · absent    → the existing honest-absent path (sea / Açores–Madeira / land the vigente
+      PDM's CRUS transcription does not cover).
+    · transient → the existing transient/retry card (never the Estimated triple: CRUS not
+      answering is not evidence the parcel is estimate-eligible).
+
+  NO ORDERING GUARD IS NEEDED TODAY (unlike FR): no Portuguese jurisdiction is registered in
+  rulepacks/registry.ts, and the Porto pack draft is gate-shut and deliberately unregistered.
+  ⚠ WHEN a signed PT pack is ever REGISTERED, add FR's rung-0 `resolveRegisteredJurisdictionAt`
+  guard to `resolvePtZoneIdentityAt` IN THE SAME COMMIT (the pt/index.ts header and
+  PT_APPLICABILITY_LADDER rung 1 both record this obligation; never a copied bbox — L-12871).
+
+────────────────────────────────────────────────────────────────────────────────
+ITEM 4 (SERVER LEG OWED — same shape as the E9 ee/lt/pl and FR proxies)
+────────────────────────────────────────────────────────────────────────────────
+`PT_CRUS_OGCAPI_ENDPOINT` (`https://ogcapi.dgterritorio.gov.pt`) is the server/node seam;
+browser use needs a same-origin proxy under C57 CSP. `PT_CRUS_PROXY_PATH` (`/api/pt/crus`)
+documents the route: `server/` forwarding `/api/pt/crus?lat=&lon=` → the
+`buildPtCrusPointUrl` upstream VERBATIM, UA `PRYZM-Research/1.0` (the `/api/parcel/pt`
+precedent). The source row's `adapterStatus` says "browser proxy NOT yet mounted" — keep that
+string truthful when the proxy lands.
+
+────────────────────────────────────────────────────────────────────────────────
+ITEM 5 — NO SCHEMA CHANGE IS REQUESTED (control held; L-12874 respected STRICTLY)
+────────────────────────────────────────────────────────────────────────────────
+`packages/schemas/**` was NOT touched and NOTHING in it needs to change for this leg:
+  · The refusals ride the EXISTING `EnvelopeRefusalSchema` codes — `public-open-space` /
+    `facility-plan` / `protected-soil` (legallyGrounded ONLY where DR 15/2015 categoria
+    semantics settle it) and `no-rule-pack` (the weakest-claim default, ungrounded).
+  · STRICTER THAN THE SIBLINGS: no `mapper-refused:` token is emitted anywhere in pt/ —
+    unreadable/unusable upstream answers classify `upstream-failed:` (an L0 member). The
+    inherited client header records this as a deliberate refusal to ship L-12874 recurrence
+    six while the R-batch freeze blocks the token's L0 seat.
+  · Absents use only the L0 doc's genuine-absence family: `no-feature:` / `no-point:` /
+    `degenerate-geometry:`.
+  · ⚠ ONE SCHEMA GAP IS RECORDED, NOT WORKED AROUND: Porto's moda-da-cércea height regime
+    needs a C58 `fabricDerivedHeight` GeometricRule kind before ANY Porto pack can draw
+    (pt-13/1315-porto/ENVELOPE.md; restated in the PT_PORTO_PDM_CERTIFIED gate text). That is
+    a schema-lane decision, deliberately NOT requested here.
+
+────────────────────────────────────────────────────────────────────────────────
+ITEM 6 — DISCOVERIES RECORDED FOR OTHER LANES (record, do not act)
+────────────────────────────────────────────────────────────────────────────────
+6a. ⭐ NEXT.md item 9.3 IS ANSWERED: the DGT national OGC API DOES carry a CRUS collection
+    (`ogcapi.dgterritorio.gov.pt/collections/crus`, "CRUS Portugal Continental", 0.16–0.97 s
+    per point query measured) — the per-DICOFRE WFS family (132–204 s, per-município
+    FeatureType names) is obsolete as a resolver channel. The OGC API channel is also strictly
+    RICHER: it serves `registo_ou_deposito` (SNIT legal-deposit ref) and `situacao_pdm`
+    (in-force stamp), both absent from the WFS schema. docs/04-reference/jurisdictions/pt/
+    NEXT.md + PORTUGAL-DATA-RECON.md §4.7 should be updated by their owner.
+6b. DICOFRE DEFECT CONFIRMED AGAIN: Porto is dtcc **1312** (CRUS live, twice) — the repo
+    folder `pt-13/1315-porto/` says 1315, already recorded as a defect in pt/sources/
+    SOURCES.md §A.0.5. The pack draft keys on 1312.
+6c. The per-city `pt-13/1315-porto/sources/SOURCES.md` ("no numeric PDM values verified for
+    Porto") is STALE against the country-level §A.0.3 (full VERIFIED-PRIMARY extraction table,
+    2026-07-31). The country-level table is the newer, richer record; the per-city file's
+    owner should reconcile.
+6d. DEMO-READINESS row 7-9 update: the G4 sentence "CRUS categorical zone WFS is verified
+    live per-DICOFRE but unwired" is now closed at the chain layer by this lane (national OGC
+    API channel, not the WFS); "not even a zone name" is no longer true once item 3 lands.
+6e. Concurrent-lane state at this lane's close (so the orchestrator does not read it as this
+    lane's breakage): `packages/schemas/**` and `apps/editor/**` carry the component/UCE
+    lane's working-tree edits. This lane's suite + tsc ran green against that tree.

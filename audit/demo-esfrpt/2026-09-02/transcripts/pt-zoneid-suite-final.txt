@@ -1,0 +1,7 @@
+ Test Files  171 passed (171)
+      Tests  3743 passed | 3 skipped (3746)
+   Start at  11:15:48
+   Duration  66.80s (transform 78.21s, setup 0ms, import 296.41s, tests 15.83s, environment 35ms)
+
+SUITE RC=0 (171 files, 3743 passed | 3 skipped)
+TSC RC=0 (npx tsc -p packages/site-parcel-data/tsconfig.json --noEmit)
