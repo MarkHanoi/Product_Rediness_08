@@ -290,6 +290,22 @@ export class PlatformRouter {
         // emitted into the void. Platform-nav events travel on the always-present
         // `window` bus; every emitter also `window.dispatchEvent`s them.
         window.addEventListener('pryzm-go-hub', () => { // §33-NAV-FIX
+            // §PERF-HUB-BOOT (2026-09-03) — ⭐ THE RETURN-DIRECTION TWIN OF `hub:open-clicked`.
+            //
+            // The founder's `hub:mount-start +76753ms` read as a 77-second hub boot. It was
+            // not: §STARTUP-BUDGET deltas are measured against the PREVIOUS MARK of the run,
+            // and no mark existed at the back-hub gesture — so that delta spanned the tail of
+            // the project open, his ENTIRE editing session, and only then this handler. Human
+            // dwell and machine work were the same value again (§CONTEXT-DATA-HONESTY, exactly
+            // the defect `hub:open-clicked` closed for the open direction, L-11440). This mark
+            // is the boundary: everything before it is editor dwell; `hub:back-clicked →
+            // hub:mount-start` is the machine cost of the back-hub navigation (on the founder's
+            // run the following marks — warm +36ms, grid +104ms, sync +103ms — already proved
+            // the hub itself fast). Every back-hub emitter dual-dispatches on the `window` bus,
+            // so this one listener is the single choke point; the runtime-bus leg that runs
+            // just before it (collab suspend + pill hide) logs its own lines. Passive mark
+            // only — nothing here changes what runs (startupBudget.ts contract).
+            markStartupPhase('hub:back-clicked');
             const u = getCurrentUser();
             // Re-show platform root (hidden by launchWorkspace) and navigate to hub
             const platformRoot = document.getElementById(ROOT_ID);

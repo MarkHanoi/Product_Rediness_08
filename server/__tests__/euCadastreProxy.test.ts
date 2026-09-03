@@ -313,10 +313,20 @@ describe('fetchEuParcelAtPoint — guards + never-throws', () => {
         await expect(fetchEuParcelAtPoint('fr', NaN, NaN, { fetchImpl: fakeFetch(FR_GEOJSON) })).resolves.toBeNull();
     });
 
-    it('exposes exactly the wired cadastres (L-651 added pt / us-sf / us-chi; lane PROXY-EE-LT-PL added ee / lt / pl; lane LU-PARCEL added lu)', () => {
+    it('exposes exactly the wired cadastres (L-651 pt/us-sf/us-chi; PROXY-EE-LT-PL ee/lt/pl; LU-PARCEL lu; PROXY-LEGS au-*/tr/qa/lv/hr/gr/si/sk)', () => {
         expect(Object.keys(EU_CADASTRE_SOURCES).sort()).toEqual([
-            'ch', 'de-nrw', 'ee', 'fr', 'lt', 'lu', 'nl', 'no', 'pl', 'pt', 'us-chi', 'us-sf',
+            'au-act', 'au-nsw', 'au-qld', 'au-sa', 'au-tas', 'au-vic',
+            'ch', 'de-nrw', 'ee', 'fr', 'gr', 'hr', 'lt', 'lu', 'lv',
+            'nl', 'no', 'pl', 'pt', 'qa', 'si', 'sk', 'tr', 'us-chi', 'us-sf',
         ]);
+    });
+
+    // LANE PROXY-LEGS — IL is deliberately NOT a key: govmap's identify serves NO parcel ring
+    // (centroid + extent only, measured — ilParcelProvider.ts header). Serving the extent
+    // RECTANGLE as a boundary would be the L-616 overstatement family; the ring query is the IL
+    // lane's recorded follow-up. The IL registry row self-corrects to the footprint on this 404.
+    it('does NOT wire il (ring-less identify channel) — the 404 is the honest answer', () => {
+        expect(EU_CADASTRE_SOURCES['il']).toBeUndefined();
     });
 
     // L-651 — Brussels / Wallonia / Scotland have providers but NO reachable upstream (probed
@@ -335,5 +345,294 @@ describe('fetchEuParcelAtPoint — guards + never-throws', () => {
         const p = await fetchEuParcelAtPoint('ch', 2.3522, 48.8566, { fetchImpl: spy }); // Paris
         expect(p).toBeNull();
         expect(called).toBe(false);
+    });
+});
+
+// ══════════════════════════════════════════════════════════════════════════════════════════════
+// LANE PROXY-LEGS (2026-09-03) — the AU/TR/QA/LV/HR/GR/SI/SK wave. Fixtures mirror the adapter
+// waves' live probes (ids quoted verbatim from the lane docs; every leg was ALSO re-proven live
+// through these exact builders on 2026-09-03 — see audit/intl-parcels/2026-09-02/lane-proxy-legs.md).
+// Offline here, always: shapes only, never the network.
+// ══════════════════════════════════════════════════════════════════════════════════════════════
+
+/** A tiny square ArcGIS ring around (lon,lat) — Esri rings are [x,y] = [lon,lat] under outSR=4326. */
+function esriSquare(lon: number, lat: number, d = 0.0004) {
+    return { rings: [[[lon - d, lat - d], [lon + d, lat - d], [lon + d, lat + d], [lon - d, lat + d], [lon - d, lat - d]]] };
+}
+/** The same square as GeoJSON Polygon coordinates. */
+function geoSquare(lon: number, lat: number, d = 0.0004) {
+    return { type: 'Polygon', coordinates: [[[lon - d, lat - d], [lon + d, lat - d], [lon + d, lat + d], [lon - d, lat + d], [lon - d, lat - d]]] };
+}
+
+const AU_NSW_ARCGIS = JSON.stringify({
+    features: [{ attributes: { lotidstring: '100//DP1048011', lotnumber: '100', planlabel: 'DP1048011' }, geometry: esriSquare(151.20658, -33.87344) }],
+});
+
+const AU_VIC_GEOJSON = JSON.stringify({
+    type: 'FeatureCollection',
+    features: [{ type: 'Feature', geometry: geoSquare(144.9631, -37.8136), properties: { parcel_spi: 'PC366537', parcel_pfi: '152191430', parcel_plan_number: 'PC366537' } }],
+});
+
+// QLD serves the lot PLUS an "Unlinked parcel or interest" twin with null lotplan (measured @
+// Brisbane) — both contain the click, so the id-less twin MUST be dropped before point-in-polygon.
+const AU_QLD_ARCGIS = JSON.stringify({
+    features: [
+        { attributes: { lotplan: null, lot: null, plan: null, tenure: 'Unlinked parcel or interest' }, geometry: esriSquare(153.026, -27.4705) },
+        { attributes: { lotplan: '47SP317615', lot: '47', plan: 'SP317615', tenure: 'Lands Lease', locality: 'Brisbane City' }, geometry: esriSquare(153.026, -27.4705) },
+    ],
+});
+
+// SA serves parcel_id whitespace-PADDED ("C21367   F1", measured) + the CT title parts.
+const AU_SA_ARCGIS = JSON.stringify({
+    features: [{ attributes: { parcel_id: 'C21367   F1', plan_t: 'C', plan: '21367', parcel_t: 'F', parcel: '1', title_t: 'CT', volume: '5954', folio: '719' }, geometry: esriSquare(138.601, -34.9235) }],
+});
+
+const AU_TAS_ARCGIS = JSON.stringify({
+    features: [{ attributes: { PID: 3321248, VOLUME: '40374', FOLIO: 3, PROP_ADD: '49-51 MURRAY ST HOBART TAS 7000', TENURE_TY: 'Council' }, geometry: esriSquare(147.3272, -42.8821) }],
+});
+
+// ACT @ Civic: 3 RETIRED (superseded, overlapping) + 1 APPROVED, no CURRENT (measured). A RETIRED
+// block containing the click must never be asserted as the parcel.
+const AU_ACT_ARCGIS = JSON.stringify({
+    features: [
+        { attributes: { BLOCK_NUMBER: 12, SECTION_NUMBER: 19, BLOCK_SECTION: '19/12', DISTRICT_NAME: 'CANBERRA CENTRAL', CURRENT_LIFECYCLE_STAGE: 'RETIRED' }, geometry: esriSquare(149.13, -35.2809) },
+        { attributes: { BLOCK_NUMBER: 44, SECTION_NUMBER: 19, BLOCK_SECTION: '19/44', DISTRICT_NAME: 'CANBERRA CENTRAL', CURRENT_LIFECYCLE_STAGE: 'APPROVED' }, geometry: esriSquare(149.13, -35.2809) },
+    ],
+});
+
+// TR — TKGM answers a BARE GeoJSON Feature (not a FeatureCollection), alan is a STRING (measured).
+const TR_FEATURE = JSON.stringify({
+    type: 'Feature',
+    geometry: geoSquare(29.0576, 40.9819),
+    properties: { adaNo: '3106', parselNo: '258', ilAd: 'Istanbul', ilceAd: 'Kadiköy', mahalleAd: 'Tuğlaci Başi', alan: '816.27', pafta: '151' },
+});
+
+const QA_ARCGIS = JSON.stringify({
+    features: [{ attributes: { PIN: 1010028, CDST_KEY: 1010028, PD_NO: 'PD/4693/2019', PDAREA: 183494, GFCODE: 'PDGVCDST' }, geometry: esriSquare(51.531, 25.286) }],
+});
+
+const LV_GEOJSON = JSON.stringify({
+    type: 'FeatureCollection',
+    features: [{ type: 'Feature', geometry: geoSquare(24.1052, 56.9496), properties: { code: '01000070006', property_code: '01000070006', address: 'Pils iela 23, Rīga, LV1050', area: 5537, area_scale: 5537.2 } }],
+});
+
+const HR_GEOJSON = JSON.stringify({
+    type: 'FeatureCollection',
+    features: [{ type: 'Feature', geometry: geoSquare(15.9771, 45.8132), properties: { ID: 21606979, BROJ_CESTICE: '2379', MATICNI_BROJ_KO: 335240 } }],
+});
+
+const GR_ARCGIS = JSON.stringify({
+    features: [{ attributes: { KAEK: '050095701001', MAIN_USE: '7300', DESCR: 'Άλλος κοινόχρηστος χώρος', AREA: 10839.77, PERIMETER: 587.9 }, geometry: esriSquare(23.7348, 37.9755) }],
+});
+
+const SI_GEOJSON = JSON.stringify({
+    type: 'FeatureCollection',
+    features: [{ type: 'Feature', geometry: geoSquare(14.5058, 46.0569), properties: { KO_ID: 1725, ST_PARCELE: '3274/13', EID_PARCELA: 'SI0123456789', POVRSINA: 19141, NAZIV: '1725 AJDOVŠČINA' } }],
+});
+
+const SK_ARCGIS = JSON.stringify({
+    features: [{ attributes: { ID: 2090872505, PARCEL_NUMBER: '15', CADASTRAL_UNIT_ID: 2933, DESCRIPTIVE_AREA_OF_PARCEL: 832, FOLIO_ID: 335384911 }, geometry: esriSquare(17.1077, 48.1436) }],
+});
+
+describe('LANE PROXY-LEGS — Australia (six state cadastres)', () => {
+    it('AU-NSW → lotidstring refcat + geometry-derived area', async () => {
+        const p = await fetchEuParcelAtPoint('au-nsw', 151.20658, -33.87344, { fetchImpl: fakeFetch(AU_NSW_ARCGIS) });
+        expect(p).not.toBeNull();
+        expect(p!.refcat).toBe('100//DP1048011');
+        expect(p!.areaM2).toBeGreaterThan(0); // ALWAYS geometry-derived for AU (ambiguous upstream units)
+    });
+
+    it('AU-NSW issues an ArcGIS point-intersect with inSR/outSR 4326 and explicit outFields', async () => {
+        let seen = '';
+        const spy = async (url: string) => { seen = url; return { ok: true, status: 200, text: async () => AU_NSW_ARCGIS }; };
+        await fetchEuParcelAtPoint('au-nsw', 151.20658, -33.87344, { fetchImpl: spy });
+        const decoded = decodeURIComponent(seen);
+        expect(decoded).toContain('portal.spatial.nsw.gov.au/server/rest/services/NSW_Land_Parcel_Property_Theme/FeatureServer/8/query');
+        expect(decoded).toContain('inSR=4326');
+        expect(decoded).toContain('outSR=4326');
+        expect(decoded).toContain('lotidstring');
+        expect(decoded).not.toContain('outFields=*');
+    });
+
+    it('AU-VIC → SPI refcat; the CQL INTERSECTS point is LAT,LON order (lon,lat silently returns 0 — measured)', async () => {
+        let seen = '';
+        const spy = async (url: string) => { seen = url; return { ok: true, status: 200, text: async () => AU_VIC_GEOJSON }; };
+        const p = await fetchEuParcelAtPoint('au-vic', 144.9631, -37.8136, { fetchImpl: spy });
+        expect(p!.refcat).toBe('PC366537');
+        const decoded = decodeURIComponent(seen).replace(/\+/g, ' ');
+        expect(decoded).toContain('opendata.maps.vic.gov.au/geoserver/wfs');
+        expect(decoded).toContain('typeNames=open-data-platform:v_parcel_mp');
+        // LAT first inside POINT — the load-bearing axis pin.
+        expect(decoded).toContain('INTERSECTS(geom,POINT(-37.8136 144.9631))');
+    });
+
+    it('AU-QLD → lotplan refcat; the id-less "Unlinked parcel" twin is dropped BEFORE point-in-polygon', async () => {
+        const p = await fetchEuParcelAtPoint('au-qld', 153.026, -27.4705, { fetchImpl: fakeFetch(AU_QLD_ARCGIS) });
+        expect(p).not.toBeNull();
+        expect(p!.refcat).toBe('47SP317615'); // never the null-lotplan twin, though it also contains the click
+        expect(p!.address).toBe('Brisbane City');
+    });
+
+    it('AU-SA injects the documented public SAPPA Referer server-side (soft CloudFront WAF: 403 bare, 200 with)', async () => {
+        let seenHeaders: Record<string, string> | undefined;
+        const spy = async (_url: string, init?: { headers?: Record<string, string> }) => {
+            seenHeaders = init?.headers;
+            return { ok: true, status: 200, text: async () => AU_SA_ARCGIS };
+        };
+        const p = await fetchEuParcelAtPoint('au-sa', 138.601, -34.9235, { fetchImpl: spy });
+        expect(seenHeaders?.Referer).toBe('https://sappa.plan.sa.gov.au/');
+        // parcel_id arrives whitespace-padded — collapsed; CT title rides as the info-card address.
+        expect(p!.refcat).toBe('C21367 F1');
+        expect(p!.address).toBe('CT 5954/719');
+    });
+
+    it('AU-TAS → PID refcat + street address', async () => {
+        const p = await fetchEuParcelAtPoint('au-tas', 147.3272, -42.8821, { fetchImpl: fakeFetch(AU_TAS_ARCGIS) });
+        expect(p!.refcat).toBe('3321248');
+        expect(p!.address).toBe('49-51 MURRAY ST HOBART TAS 7000');
+    });
+
+    it('AU-ACT drops RETIRED blocks and composes block/section from the EXPLICIT fields (BLOCK_SECTION is section/block order)', async () => {
+        const p = await fetchEuParcelAtPoint('au-act', 149.13, -35.2809, { fetchImpl: fakeFetch(AU_ACT_ARCGIS) });
+        expect(p).not.toBeNull();
+        // The RETIRED block 12/19 also contains the click — the APPROVED block 44/19 must win.
+        expect(p!.refcat).toBe('44/19');
+        expect(p!.address).toBe('CANBERRA CENTRAL');
+    });
+
+    it('the AU guards fence each state (a Melbourne click never reaches the NSW service)', async () => {
+        let called = false;
+        const spy = async () => { called = true; return { ok: true, status: 200, text: async () => AU_NSW_ARCGIS }; };
+        expect(await fetchEuParcelAtPoint('au-nsw', 144.9631, -37.8136, { fetchImpl: spy })).toBeNull();
+        expect(called).toBe(false);
+    });
+});
+
+describe('LANE PROXY-LEGS — Turkey (TKGM parsel)', () => {
+    it('TR parses the BARE GeoJSON Feature body → ada/parsel refcat + served alan (a string) + composed address', async () => {
+        const p = await fetchEuParcelAtPoint('tr', 29.0576, 40.9819, { fetchImpl: fakeFetch(TR_FEATURE) });
+        expect(p).not.toBeNull();
+        expect(p!.refcat).toBe('3106/258');
+        expect(p!.areaM2).toBeCloseTo(816.27, 2);
+        expect(p!.address).toBe('Tuğlaci Başi, Kadiköy, Istanbul');
+    });
+
+    it('TR builds the LAT-then-LON path form (measured path-param order)', async () => {
+        let seen = '';
+        const spy = async (url: string) => { seen = url; return { ok: true, status: 200, text: async () => TR_FEATURE }; };
+        await fetchEuParcelAtPoint('tr', 29.0576, 40.9819, { fetchImpl: spy });
+        expect(seen).toBe('https://cbsapi.tkgm.gov.tr/megsiswebapi.v3/api/parsel/40.9819/29.0576');
+    });
+
+    it('the TKGM 404 is SEMANTIC ("Parsel Bulunamadı") → `empty`, never `unreachable` — and only for TR', async () => {
+        const notFound = fakeFetch('{"Message":"Parsel Bulunamadı: Enlem = 40.98 - Boylam=29.05"}', 404);
+        const tr = await resolveEuParcelOutcome('tr', 29.0576, 40.9819, { fetchImpl: notFound });
+        expect(tr.outcome).toBe('empty'); // a durable, authoritative "no parcel here"
+        // Every other source keeps 404 → unreachable (for a query endpoint a 404 IS a broken route).
+        const fr = await resolveEuParcelOutcome('fr', 2.3522, 48.8566, { fetchImpl: fakeFetch('', 404) });
+        expect(fr.outcome).toBe('unreachable');
+    });
+});
+
+describe('LANE PROXY-LEGS — Qatar / Latvia / Croatia / Greece / Slovenia / Slovakia', () => {
+    it('QA → PIN refcat + served PDAREA (surveyed m², not a zoning figure)', async () => {
+        const p = await fetchEuParcelAtPoint('qa', 51.531, 25.286, { fetchImpl: fakeFetch(QA_ARCGIS) });
+        expect(p!.refcat).toBe('1010028');
+        expect(p!.areaM2).toBe(183494);
+        expect(p!.address).toBeNull(); // no address field is served — never invented
+    });
+
+    it('QA issues the CadastrePlots query in the adapter-measured shape (outSR=4326)', async () => {
+        let seen = '';
+        const spy = async (url: string) => { seen = url; return { ok: true, status: 200, text: async () => QA_ARCGIS }; };
+        await fetchEuParcelAtPoint('qa', 51.531, 25.286, { fetchImpl: spy });
+        const decoded = decodeURIComponent(seen);
+        expect(decoded).toContain('services.gisqatar.org.qa/server/rest/services/Vector/CadastrePlots/MapServer/0/query');
+        expect(decoded).toContain('outSR=4326');
+    });
+
+    it('LV → cadastral code refcat + registered area + address', async () => {
+        const p = await fetchEuParcelAtPoint('lv', 24.1052, 56.9496, { fetchImpl: fakeFetch(LV_GEOJSON) });
+        expect(p!.refcat).toBe('01000070006');
+        expect(p!.areaM2).toBe(5537); // the cadastre's own `area`, never derived when served
+        expect(p!.address).toBe('Pils iela 23, Rīga, LV1050');
+    });
+
+    it('LV issues the urn AUTHORITY form for BOTH srsName and bbox, with a SMALL dense-parcel window', async () => {
+        let seen = '';
+        const spy = async (url: string) => { seen = url; return { ok: true, status: 200, text: async () => LV_GEOJSON }; };
+        await fetchEuParcelAtPoint('lv', 24.1052, 56.9496, { fetchImpl: spy });
+        const decoded = decodeURIComponent(seen);
+        expect(decoded).toContain('geolatvija.lv/geoserver/vraa/wfs');
+        expect(decoded).toContain('typeNames=vraa:parcel');
+        expect(decoded).toContain('srsName=urn:ogc:def:crs:EPSG::4326');
+        // ±0.0001 lat,lon window, lat-first, urn-terminated (float-safe: parse the bbox back).
+        const bbox = new URL(seen).searchParams.get('bbox')!;
+        const parts = bbox.split(',');
+        expect(parts).toHaveLength(5);
+        expect(Number(parts[0])).toBeCloseTo(56.9495, 6); // latMin FIRST — the urn axis order
+        expect(Number(parts[1])).toBeCloseTo(24.1051, 6);
+        expect(Number(parts[2])).toBeCloseTo(56.9497, 6);
+        expect(Number(parts[3])).toBeCloseTo(24.1053, 6);
+        expect(parts[4]).toBe('urn:ogc:def:crs:EPSG::4326');
+    });
+
+    it('HR → composed "k.č. …, k.o. …" refcat (the adapter own composition; NOT the INSPIRE harmonized key)', async () => {
+        const p = await fetchEuParcelAtPoint('hr', 15.9771, 45.8132, { fetchImpl: fakeFetch(HR_GEOJSON) });
+        expect(p!.refcat).toBe('k.č. 2379, k.o. 335240');
+        expect(p!.areaM2).toBeGreaterThan(0); // no area field served → geometry-derived
+    });
+
+    it('HR asks srsName=EPSG:4326 for OUTPUT (measured 2026-09-03: honoured; without it the ring is native EPSG:3765 metres)', async () => {
+        let seen = '';
+        const spy = async (url: string) => { seen = url; return { ok: true, status: 200, text: async () => HR_GEOJSON }; };
+        await fetchEuParcelAtPoint('hr', 15.9771, 45.8132, { fetchImpl: spy });
+        const decoded = decodeURIComponent(seen);
+        expect(decoded).toContain('api.uredjenazemlja.hr/services/inspire/cp_wms/wfs');
+        expect(decoded).toContain('typeNames=cp_wms:CP.CadastralParcel');
+        expect(decoded).toContain('srsName=EPSG:4326');
+        expect(decoded).toContain('urn:ogc:def:crs:EPSG::4326'); // the entry bbox authority form
+    });
+
+    it('GR → KAEK refcat + served AREA; DESCR (a land-use text) is deliberately NOT surfaced as an address', async () => {
+        const p = await fetchEuParcelAtPoint('gr', 23.7348, 37.9755, { fetchImpl: fakeFetch(GR_ARCGIS) });
+        expect(p!.refcat).toBe('050095701001');
+        expect(p!.areaM2).toBeCloseTo(10839.77, 2);
+        expect(p!.address).toBeNull();
+    });
+
+    it('SI → KO_ID + ST_PARCELE refcat + POVRSINA + NAZIV (the queued B3 shape, applied)', async () => {
+        const p = await fetchEuParcelAtPoint('si', 14.5058, 46.0569, { fetchImpl: fakeFetch(SI_GEOJSON) });
+        expect(p!.refcat).toBe('1725 3274/13');
+        expect(p!.areaM2).toBe(19141);
+        expect(p!.address).toBe('1725 AJDOVŠČINA');
+    });
+
+    it('SK → composed parc. č./k.ú. refcat + register area; the query is SPATIAL — NO where= (the ESKN WAF 403s any where clause)', async () => {
+        let seen = '';
+        const spy = async (url: string) => { seen = url; return { ok: true, status: 200, text: async () => SK_ARCGIS }; };
+        const p = await fetchEuParcelAtPoint('sk', 17.1077, 48.1436, { fetchImpl: spy });
+        expect(p!.refcat).toBe('parc. č. 15, k.ú. 2933');
+        expect(p!.areaM2).toBe(832);
+        const decoded = decodeURIComponent(seen);
+        expect(decoded).toContain('kataster.skgeodesy.sk/eskn/rest/services/VRM/kn/MapServer/9/query');
+        expect(decoded).not.toContain('where='); // ⛔ the WAF pin — a where= clause is HTTP 403
+    });
+
+    it('an ArcGIS error body on the new arcgis legs stays `unreachable`, never `empty`', async () => {
+        const errBody = fakeFetch('{"error":{"code":400,"message":"Invalid parameters"}}');
+        for (const [cc, lon, lat] of [['gr', 23.7348, 37.9755], ['sk', 17.1077, 48.1436], ['qa', 51.531, 25.286], ['au-nsw', 151.20658, -33.87344]] as const) {
+            const r = await resolveEuParcelOutcome(cc, lon, lat, { fetchImpl: errBody });
+            expect(r.outcome, `${cc} must classify an ArcGIS error body as unreachable`).toBe('unreachable');
+        }
+    });
+
+    it('the new guards short-circuit out-of-area clicks without an upstream call', async () => {
+        for (const [cc, lon, lat] of [['tr', 2.35, 48.85], ['qa', 24.11, 56.95], ['lv', 51.53, 25.29], ['hr', 23.73, 37.98], ['gr', 15.98, 45.81], ['si', 17.11, 48.14], ['sk', 14.51, 46.06]] as const) {
+            let called = false;
+            const spy = async () => { called = true; return { ok: true, status: 200, text: async () => '{"features":[]}' }; };
+            expect(await fetchEuParcelAtPoint(cc, lon, lat, { fetchImpl: spy })).toBeNull();
+            expect(called, `${cc} must not call upstream for an out-of-area point`).toBe(false);
+        }
     });
 });

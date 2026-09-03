@@ -710,7 +710,18 @@ export class RenderingPipelineCoordinator {
             `decorativeShadows=${settings.decorativeFurnitureShadows ? 'on' : 'off'} ` +
             `probes=${settings.reflectionProbes ? 'on' : 'off'} ` +
             // The setting that was invisible and cost the most. Named, always.
-            `fullScenePbrTraverse=${settings.fullScenePbrTraverse ? 'ON ⚠ (the ~38.7s whole-scene material re-traverse is ARMED)' : 'off'})`;
+            // §PERF-TRAVERSE-RECOMPILE-SCOPE (2026-09-03) — the parenthetical used to say
+            // "the ~38.7s whole-scene material re-traverse is ARMED". That was a 2026-05
+            // measurement of a SYNCHRONOUS whole-scene pass which §A.21.D40 PBR-SCOPE /
+            // §FIX-POST-BATCH-PBR-CHUNK / PERF-DEFER-PBR-IDLE had already dismantled, and
+            // it alarmed a 71-mesh boot (founder paste, 2026-09-03) about a cost that
+            // could not occur. What ON arms today: an idle-deferred, 120-mesh-chunked
+            // pass over NEW meshes only, which recompiles ONLY materials whose env-map
+            // binding / toneMapped actually change (PBRSceneUpgrader logs the recompile
+            // count). Say that, not the ghost number — ADR-0292: facts in the log.
+            `fullScenePbrTraverse=${settings.fullScenePbrTraverse
+                ? 'ON (scoped+chunked+idle; recompiles only real material changes — see [PBRSceneUpgrader] recompiles:N; the 38.7s sync pass was dismantled 2026-05)'
+                : 'off'})`;
         const tierTransitioned = tier !== this._lastLoggedTier;
         if (tierTransitioned) {
             console.log(tierLine);
@@ -872,10 +883,16 @@ export class RenderingPipelineCoordinator {
      * ADR-0076 §PERF-WEBGPU-FRAGMENT — whether the expensive whole-scene/post-batch
      * PBR upgrade should run for the CURRENT render tier.
      *
-     * Measured: the post-batch PBRSceneUpgrader is 38.7 s wall-clock on a real
-     * 4073-mesh building (THE project-open bottleneck). It is only worth running at
-     * `cinematic` (small showcase scenes); at `balanced`+ the base
-     * MeshStandardMaterial already renders correctly, so the caller should SKIP it.
+     * Measured: the post-batch PBRSceneUpgrader was 38.7 s wall-clock on a real
+     * 4073-mesh building (THE project-open bottleneck) — a 2026-05 reading of the
+     * then-SYNCHRONOUS unconditional-needsUpdate pass. §PERF-TRAVERSE-RECOMPILE-SCOPE
+     * (2026-09-03): the pass is now scoped to new meshes, chunked, idle-deferred, and
+     * recompiles only materials whose env-map binding / toneMapped actually change —
+     * this gate remains as tier policy (the tuning is cosmetic and not worth even the
+     * cheap pass beyond small showcase scenes), not as the 38.7 s firewall it once was.
+     * It is only worth running at `cinematic` (small showcase scenes); at `balanced`+
+     * the base MeshStandardMaterial already renders correctly, so the caller should
+     * SKIP it.
      *
      * Returns true only when the held tier's `fullScenePbrTraverse` is true. Before
      * the first tier evaluation (held tier undefined) it returns true so cold-start

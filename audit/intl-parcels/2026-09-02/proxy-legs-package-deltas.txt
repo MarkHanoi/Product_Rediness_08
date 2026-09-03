@@ -1,0 +1,56 @@
+LANE PROXY-LEGS (2026-09-03) — PACKAGE-SIDE DELTAS FOR THE ORCHESTRATOR
+=======================================================================
+This lane wired 13 server proxy legs in server/jurisdiction/euCadastreProxy.js (+ tests) and was
+FENCED OUT of packages/site-parcel-data (another lane owns it). The items below are the
+package-side edits/decisions this lane's work makes due, queued here instead of applied.
+
+1. HR — registry row flip is now HALF-UNBLOCKED (barrel-additions-hr.txt step (vi))
+-----------------------------------------------------------------------------------
+The HR row in parcelProviders/registry.ts is kind 'footprint-fallback' + proxyPath null because
+BOTH downstream wirings were pending. One of the two is now DONE: /api/parcel/hr is wired and
+LIVE-PROVEN (Zagreb 45.8132,15.9771 → k.č. 2379, k.o. 335240, 161-vert WGS84 ring through the leg).
+Flip the row to:
+    proxyPath: '/api/parcel/hr',
+    kind: 'cadastral',
+This matches the GR/SK/SI registration precedent (cadastral + proxyPath while DORMANT on the
+resolver gate — claimsNation('HR') stays false until HRV is promoted, so the flip can never
+misroute today). NOTE A MEASUREMENT THE HR LANE DID NOT HAVE: cp_wms DOES honour
+srsName=EPSG:4326 for OUTPUT (probed 2026-09-03: crs echoed urn:…::4326, [lon,lat] degrees,
+BROJ_CESTICE/MATICNI_BROJ_KO intact). barrel-additions-hr step (vi) said "no srsName → native
+3765 ring"; the proxy leg asks srsName and serves a real WGS84 ring — no reprojection module
+needed. The hr adapter itself (native-CRS discipline) needs NO change.
+
+2. SI — barrel-additions-si.txt SECTION B3 is APPLIED (do not double-apply)
+---------------------------------------------------------------------------
+The queued euCadastreProxy `si` row + siUrl builder from the SI lane's B3 are now IN
+server/jurisdiction/euCadastreProxy.js (verbatim shape; guard uses the actual SLOVENIA_BBOX
+values 45.4/46.9/13.35/16.65 — B3's draft had minLon 13.3, the shipped box says 13.35).
+LIVE-PROVEN through the leg: Ljubljana 46.0569,14.5058 → refcat "1725 3274/13", POVRSINA 19141,
+NAZIV "1725 AJDOVŠČINA". B1 (SVN promotion) + B2 (prefilter) remain queued as the SI lane wrote
+them — apply together with HR/HU per its neighbour-integrity caveat.
+
+3. LV — latent mis-select in resolveLvParcelAtWgs84Point (flag, not a fix request)
+----------------------------------------------------------------------------------
+The LV adapter's click path (lvParcelProvider.ts) uses d=0.00006 + count=1 and takes the FIRST
+feature. MEASURED 2026-09-03 at the LV lane's own golden point (56.9496,24.1052): the bbox holds
+3 candidates; the ring that CONTAINS the point is code 01000070162 (area 5768, address null),
+NOT 01000070006 ("Pils iela 23") — the first-feature answer. The proxy leg resolves the true
+container via point-in-polygon (pickCandidate). If the adapter's click path is ever used for a
+legal claim, it should gain the same containment pick; today it is a display-path divergence.
+
+4. IL — proxy leg DELIBERATELY NOT WIRED; the unblocking follow-up is package-side
+----------------------------------------------------------------------------------
+govmap IdentifyByXY serves NO parcel ring (centroid + extent only — ilParcelProvider.ts header:
+"never fabricated here"). The euCadastreProxy contract is a real boundary ring; serving the
+extent RECTANGLE would be the L-616 overstatement family, so /api/parcel/il still 404s and the
+IL registry row self-corrects to the OSM footprint (its own documented state). To unblock:
+live-prove the ring channel the IL lane recorded as follow-up (SDE.PARCEL_ALL feature query by
+the identify's objectId, or the ags.govmap.gov.il ArcGIS export), then wire `il` here. The ITM
+transform stays package-side either way (a ring channel with outSR support would not need it
+server-side; govmap's identify itself speaks ITM only).
+
+5. Pre-existing citation drift observed (not caused, not fixed here)
+--------------------------------------------------------------------
+server/jurisdiction/euCadastreProxy.js's LU comment cites server/__tests__/luParcelProxy.test.ts
+("both pinned by…"); no such file exists — the LU pins live in euCadastreProxy.test.ts. One
+spelling per fact says fix the comment when the file is next touched (or mint the test file).

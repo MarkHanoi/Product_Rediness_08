@@ -26,6 +26,44 @@
  *   • LT  osp-sdg.stat.gov.lt ntr_sklypai/FeatureServer/0 (RC NTR)          (ArcGIS JSON, lon,lat) — 2026-09-02
  *   • PL  uldk.gugik.gov.pl GetParcelByXY (GUGiK ULDK)                       (pipe-text WKT, lon,lat) — 2026-09-02
  *   • LU  wms.inspire.geoportail.lu/geoserver/wfs cp:CP.CadastralParcel (ACT) (GeoJSON, lon,lat) — 2026-09-03
+ *   • AU-NSW portal.spatial.nsw.gov.au NSW_Land_Parcel_Property_Theme/8      (ArcGIS JSON, lon,lat) — 2026-09-03
+ *   • AU-VIC opendata.maps.vic.gov.au WFS open-data-platform:v_parcel_mp     (GeoJSON, lon,lat) — 2026-09-03
+ *   • AU-QLD spatial-gis.information.qld.gov.au LandParcelPropertyFramework/4 (ArcGIS JSON, lon,lat) — 2026-09-03
+ *   • AU-SA  lsa2.geohub.sa.gov.au SAPPA/PropertyPlanningAtlasV19/41 (Referer!) (ArcGIS JSON, lon,lat) — 2026-09-03
+ *   • AU-TAS services.thelist.tas.gov.au Public/CadastreParcels/0            (ArcGIS JSON, lon,lat) — 2026-09-03
+ *   • AU-ACT services1.arcgis.com ACTGOV_BLOCKS/0 (lifecycle-filtered)       (ArcGIS JSON, lon,lat) — 2026-09-03
+ *   • TR  cbsapi.tkgm.gov.tr megsiswebapi.v3 parsel/{lat}/{lon}              (GeoJSON Feature, lon,lat) — 2026-09-02
+ *   • QA  services.gisqatar.org.qa Vector/CadastrePlots/0                    (ArcGIS JSON, lon,lat) — 2026-09-02
+ *   • LV  geolatvija.lv/geoserver/vraa/wfs vraa:parcel                       (GeoJSON, lon,lat) — 2026-09-03
+ *   • HR  api.uredjenazemlja.hr cp_wms:CP.CadastralParcel                    (GeoJSON, lon,lat) — 2026-09-03
+ *   • GR  services-eu1.arcgis.com GEOTEMAXIA_LEITOURGOUN_ON_gdb/0            (ArcGIS JSON, lon,lat) — 2026-09-03
+ *   • SI  ipi.eprostor.gov.si wfs-si-gurs-kn SI.GURS.KN:PARCELE              (GeoJSON, lon,lat) — 2026-09-03
+ *   • SK  kataster.skgeodesy.sk VRM/kn/MapServer/9 (⛔ no where= — WAF 403)   (ArcGIS JSON, lon,lat) — 2026-09-03
+ *
+ * LANE PROXY-LEGS (2026-09-03) wired the AU/TR/QA/LV/HR/GR/SI/SK block above from the adapter
+ * waves' live-proven channels (audit/intl-parcels/2026-09-02/lane-{au,me}-open.md,
+ * audit/europe-adapters-2/2026-09-02/lane-{lv,hr,gr,si,sk}.md). Each leg mirrors the request shape
+ * its package adapter measured (packages/site-parcel-data/src/countryAdapters/<cc>/) with the ONE
+ * proxy-side difference where noted: WGS84 output for the browser ring (the adapters keep native
+ * CRS for measurement — E1a discipline). Three legs carry a per-source quirk the table row shape
+ * grew a field for:
+ *   • AU-SA `headers` — a soft CloudFront WAF Referer rule (403 bare / 200 with
+ *     Referer https://sappa.plan.sa.gov.au/, control transcript live-sa-noreferer.txt). A public
+ *     documented value, NOT a secret.
+ *   • TR `semantic404` — TKGM answers a no-parcel point HTTP 404 `{"Message":"Parsel Bulunamadı…"}`
+ *     — a durable ABSENCE, not an outage; without the flag the 404 would read `unreachable`
+ *     (failure≠absence, §CONTEXT-DATA-HONESTY inverted).
+ *   • AU-QLD / AU-ACT `select` — candidate pre-filtering BEFORE pickCandidate: QLD serves an
+ *     "Unlinked parcel or interest" twin with null lotplan; ACT serves RETIRED (superseded) block
+ *     shapes overlapping the CURRENT/APPROVED one. Point-in-polygon alone would happily pick those.
+ *
+ * ⚠ IL (Israel) is DELIBERATELY NOT WIRED despite a live-proven channel: govmap `IdentifyByXY`
+ * serves NO parcel ring — only centroid + extent (measured, countryAdapters/il/ilParcelProvider.ts
+ * header: "The parcel POLYGON is NOT in the identify body … never fabricated here"). This proxy's
+ * contract is a real boundary ring; serving the extent RECTANGLE as the parcel would be the L-616
+ * overstatement family. The ring query (SDE.PARCEL_ALL by objectId) is the IL lane's recorded
+ * follow-up — wire `il` here only once that channel is live-proven. Until then the IL registry row
+ * self-corrects to the OSM footprint on this route's 404, which is the honest answer.
  *
  * EE / LT / PL (lane PROXY-EE-LT-PL, 2026-09-02) are TABLE ROWS here, not DK-style modules,
  * deliberately: DK earned `dkMatrikelProxy.js` because it needs a CREDENTIAL gate, a Snyder
@@ -155,7 +193,11 @@ function outerRingFromGeoJson(geom) {
 function parseGeoJsonCandidates(text) {
     let json;
     try { json = JSON.parse(text); } catch { return []; }
-    const feats = Array.isArray(json?.features) ? json.features : [];
+    // TKGM (TR) answers a BARE GeoJSON `Feature`, not a FeatureCollection (measured 2026-09-02,
+    // trTkgmClient.ts fact 2) — accepted here as a one-element collection.
+    const feats = Array.isArray(json?.features)
+        ? json.features
+        : json?.type === 'Feature' ? [json] : [];
     const out = [];
     for (const f of feats) {
         const ring = outerRingFromGeoJson(f?.geometry);
@@ -519,6 +561,186 @@ function plUrl(lat, lon) {
         `&result=${PL_ULDK_RESULT_FIELDS}&srid=4326`;
 }
 
+// ── LANE PROXY-LEGS (2026-09-03) — URL builders for the AU/TR/QA/LV/HR/GR/SI/SK wave ─────────────
+
+/**
+ * Shared ArcGIS REST point-intersect builder (AU ArcGIS states, GR, SK) — the ltUrl idiom
+ * (geometry as an Esri JSON point, inSR/outSR 4326 so the ring arrives in WGS84 degrees), with
+ * per-source explicit `outFields` mirroring each adapter's "never `*` — a widened upstream column
+ * must be a deliberate change" rule where the adapter declares a list (QA's own adapter uses `*`,
+ * so its builder below does too).
+ */
+function arcgisPointUrl(base, outFields) {
+    return (lat, lon) => {
+        const qs = new URLSearchParams({
+            f: 'json',
+            geometry: JSON.stringify({ x: lon, y: lat, spatialReference: { wkid: 4326 } }),
+            geometryType: 'esriGeometryPoint',
+            spatialRel: 'esriSpatialRelIntersects',
+            inSR: '4326',
+            outSR: '4326',
+            outFields,
+            returnGeometry: 'true',
+        });
+        return `${base}?${qs.toString()}`;
+    };
+}
+
+/**
+ * AUSTRALIA — six state cadastres (lane AU-OPEN, live-probed 2026-09-03; descriptors mirrored from
+ * countryAdapters/au/auStateCadastre.ts AU_STATE_DESCRIPTORS — endpoints, id fields, quirks).
+ * Australia has NO national cadastre; cadastre is a STATE competency, hence one leg per state.
+ * Area is ALWAYS geometry-derived for AU (the adapter's rule: upstream area fields have ambiguous
+ * units — TAS's COMP_AREA is unit-ambiguous, NSW/VIC/QLD/SA/ACT serve none worth trusting).
+ */
+const AU_SA_REFERER = 'https://sappa.plan.sa.gov.au/'; // documented public value — NOT a secret
+const auNswUrl = arcgisPointUrl(
+    'https://portal.spatial.nsw.gov.au/server/rest/services/NSW_Land_Parcel_Property_Theme/FeatureServer/8/query',
+    'lotidstring,lotnumber,sectionnumber,planlabel',
+);
+const auQldUrl = arcgisPointUrl(
+    'https://spatial-gis.information.qld.gov.au/arcgis/rest/services/PlanningCadastre/LandParcelPropertyFramework/MapServer/4/query',
+    'lotplan,lot,plan,tenure,locality',
+);
+const auSaUrl = arcgisPointUrl(
+    'https://lsa2.geohub.sa.gov.au/arcgis/rest/services/SAPPA/PropertyPlanningAtlasV19/MapServer/41/query',
+    'parcel_id,plan_t,plan,parcel_t,parcel,title_t,volume,folio',
+);
+const auTasUrl = arcgisPointUrl(
+    'https://services.thelist.tas.gov.au/arcgis/rest/services/Public/CadastreParcels/MapServer/0/query',
+    'PID,VOLUME,FOLIO,PROP_ADD,TENURE_TY',
+);
+const auActUrl = arcgisPointUrl(
+    'https://services1.arcgis.com/E5n4f1VY84i0xSjy/arcgis/rest/services/ACTGOV_BLOCKS/FeatureServer/0/query',
+    'BLOCK_NUMBER,SECTION_NUMBER,BLOCK_SECTION,DISTRICT_NAME,VOLUME_FOLIO,CURRENT_LIFECYCLE_STAGE',
+);
+
+/**
+ * AU-VIC — Vicmap open-data GeoServer WFS (the ONE non-ArcGIS Australian state). ⚠ The CQL
+ * INTERSECTS point is **LAT,LON order** — a lon,lat point silently returns 0 features (measured,
+ * auSources.ts probe note). `srsName=EPSG:4326` → GeoJSON lon,lat output; geometry column `geom`.
+ */
+function auVicUrl(lat, lon) {
+    const qs = new URLSearchParams({
+        service: 'WFS',
+        version: '2.0.0',
+        request: 'GetFeature',
+        typeNames: 'open-data-platform:v_parcel_mp',
+        outputFormat: 'application/json',
+        srsName: 'EPSG:4326',
+        count: '10',
+        cql_filter: `INTERSECTS(geom,POINT(${lat} ${lon}))`, // ⚠ LAT LON — measured
+    });
+    return `https://opendata.maps.vic.gov.au/geoserver/wfs?${qs.toString()}`;
+}
+
+/**
+ * TURKEY — TKGM megsiswebapi.v3, the keyless national point→parcel endpoint (lane ME-OPEN,
+ * live-probed 2026-09-02: Kadıköy → ada 3106 / parsel 258). Path params are **LAT then LON**
+ * (measured, trTkgmClient.ts fact 1). Returns a BARE GeoJSON Feature in WGS84 (fact 2 — handled
+ * by parseGeoJsonCandidates). Its no-parcel answer is a SEMANTIC HTTP 404 (fact 3), hence
+ * `semantic404: true` on the row.
+ */
+function trUrl(lat, lon) {
+    return `https://cbsapi.tkgm.gov.tr/megsiswebapi.v3/api/parsel/${lat}/${lon}`;
+}
+
+/**
+ * QATAR — MME CadastrePlots ArcGIS MapServer (lane ME-OPEN, live-probed 2026-09-02: Doha →
+ * PIN 1010028, 137-vertex WGS84 ring). Mirrors buildQaCadastreQueryUrl verbatim
+ * (countryAdapters/qa/qaCadastreClient.ts) — including `outFields=*`, the adapter's own measured
+ * shape, and the simple `lon,lat` geometry form it probed with. The layer is HIDDEN from the
+ * Vector folder listing (GetCapabilities-is-not-an-inventory) — address it directly.
+ */
+function qaUrl(lat, lon) {
+    const qs = new URLSearchParams({
+        geometry: `${lon},${lat}`,
+        geometryType: 'esriGeometryPoint',
+        inSR: '4326',
+        spatialRel: 'esriSpatialRelIntersects',
+        outFields: '*',
+        returnGeometry: 'true',
+        outSR: '4326',
+        f: 'json',
+    });
+    return `https://services.gisqatar.org.qa/server/rest/services/Vector/CadastrePlots/MapServer/0/query?${qs.toString()}`;
+}
+
+/**
+ * LATVIA — VZD kadastrs via the geolatvija.lv GeoServer, `vraa:parcel` (lane LV, live-probed at
+ * Rīga → code 01000070006). Mirrors buildLvWgs84BboxUrl (countryAdapters/lv/lvWfsClient.ts):
+ * urn-ordered lat,lon WGS84 bbox + `srsName=urn:…::4326` → WGS84 GeoJSON back (measured fact 2 —
+ * the server reprojects). Rīga parcels are DENSE, so the window is small (the LU lesson):
+ * ±~11 m + pickCandidate's point-in-polygon, not the shared ±38 m.
+ */
+const LV_WGS84_URN = 'urn:ogc:def:crs:EPSG::4326';
+const LV_HALF_DEG = 0.0001;
+function lvUrl(lat, lon) {
+    const qs = new URLSearchParams({
+        service: 'WFS',
+        version: '2.0.0',
+        request: 'GetFeature',
+        typeNames: 'vraa:parcel',
+        count: '30',
+        outputFormat: 'application/json',
+        srsName: LV_WGS84_URN,
+        bbox: `${lat - LV_HALF_DEG},${lon - LV_HALF_DEG},${lat + LV_HALF_DEG},${lon + LV_HALF_DEG},${LV_WGS84_URN}`,
+    });
+    return `https://geolatvija.lv/geoserver/vraa/wfs?${qs.toString()}`;
+}
+
+/**
+ * CROATIA — DGU / Uređena zemlja `cp_wms:CP.CadastralParcel`, the SIMPLE feature type (the cp:
+ * app-schema sibling is ORA-01000-degraded — hrWfsClient.ts fact 1; do not "upgrade" to it).
+ * The HR adapter keeps native EPSG:3765 output (no srsName); the browser needs WGS84, and
+ * `srsName=EPSG:4326` IS honoured for output — MEASURED live 2026-09-03 by lane PROXY-LEGS at
+ * Zagreb (crs echoed urn:…::4326, [lon,lat] degrees, BROJ_CESTICE/MATICNI_BROJ_KO intact), a fact
+ * the HR lane had not probed. Entry bbox is the urn lat,lon form (fact 3).
+ */
+function hrUrl(lat, lon) {
+    const bbox = `${lat - HALF_DEG},${lon - HALF_DEG},${lat + HALF_DEG},${lon + HALF_DEG},urn:ogc:def:crs:EPSG::4326`;
+    return 'https://api.uredjenazemlja.hr/services/inspire/cp_wms/wfs?service=WFS&version=2.0.0&request=GetFeature' +
+        '&typeNames=cp_wms:CP.CadastralParcel&srsName=EPSG:4326' +
+        `&count=20&outputFormat=application/json&bbox=${encodeURIComponent(bbox)}`;
+}
+
+/**
+ * GREECE — Hellenic Cadastre OPERATING-cadastre parcels, a keyless ArcGIS Online FeatureServer
+ * (lane GR, live-probed at Athens/Syntagma → KAEK 050095701001, AREA 10839.77 m²). Explicit
+ * outFields mirror GR_PARCEL_OUT_FIELDS (grKtimatologioClient.ts). The old INSPIRE path
+ * gis.ktimanet.gr/inspire is HTTP 404 — do not resurrect.
+ */
+const GR_PROXY_OUT_FIELDS = 'KAEK,MAIN_USE,PERCENTAGE,DESCR,PROP_VERT,PROP_HOR,LINK,AREA,PERIMETER';
+const grUrl = arcgisPointUrl(
+    'https://services-eu1.arcgis.com/40tFGWzosjaLJpmn/arcgis/rest/services/GEOTEMAXIA_LEITOURGOUN_ON_gdb/FeatureServer/0/query',
+    GR_PROXY_OUT_FIELDS,
+);
+
+/**
+ * SLOVENIA — GURS Kataster nepremičnin `SI.GURS.KN:PARCELE` (lane SI, live-probed at Ljubljana:
+ * 12 candidates incl. the click parcel; srsName=EPSG:4326 + urn lat,lon bbox → WGS84 [lon,lat]).
+ * Builder verbatim from the SI lane's queued B3 (barrel-additions-si.txt).
+ */
+function siUrl(lat, lon) {
+    const bbox = `${lat - HALF_DEG},${lon - HALF_DEG},${lat + HALF_DEG},${lon + HALF_DEG},urn:ogc:def:crs:EPSG::4326`;
+    return 'https://ipi.eprostor.gov.si/wfs-si-gurs-kn/ows?service=WFS&version=2.0.0&request=GetFeature' +
+        '&typeNames=SI.GURS.KN:PARCELE&srsName=EPSG:4326' +
+        `&count=20&outputFormat=application/json&bbox=${encodeURIComponent(bbox)}`;
+}
+
+/**
+ * SLOVAKIA — ÚGKK/GKÚ ESKN C-register parcels, `VRM/kn/MapServer/9` "Plocha parcely C" (lane SK,
+ * live-probed at Bratislava → parcel №15, k.ú. 2933, 832 m²). ⛔ The ESKN WAF returns HTTP 403 for
+ * ANY `where=` clause (measured) — this builder is a pure SPATIAL query and must stay one.
+ * Explicit outFields mirror SK_PARCEL_OUT_FIELDS (skEsknClient.ts).
+ */
+const SK_PROXY_OUT_FIELDS =
+    'ID,PARCEL_NUMBER,CADASTRAL_UNIT_ID,DESCRIPTIVE_AREA_OF_PARCEL,FOLIO_ID,NATURE_OF_LAND_USE_ID,VALID_TO_DATE';
+const skUrl = arcgisPointUrl(
+    'https://kataster.skgeodesy.sk/eskn/rest/services/VRM/kn/MapServer/9/query',
+    SK_PROXY_OUT_FIELDS,
+);
+
 function jsonProp(props, ...keys) {
     for (const k of keys) {
         const v = props?.[k];
@@ -527,7 +749,24 @@ function jsonProp(props, ...keys) {
     return null;
 }
 
-/** @typedef {{ guard:(lat:number,lon:number)=>boolean, url:(lat:number,lon:number)=>string, format:'geojson'|'gml'|'esrijson'|'socrata'|'arcgis'|'uldk', axis?:'lonlat'|'latlon', source:string, normalise:(c:any)=>{refcat:string,areaM2:number,address:string|null} }} SourceCfg */
+/**
+ * @typedef {{
+ *   guard:(lat:number,lon:number)=>boolean,
+ *   url:(lat:number,lon:number)=>string,
+ *   format:'geojson'|'gml'|'esrijson'|'socrata'|'arcgis'|'uldk',
+ *   axis?:'lonlat'|'latlon',
+ *   source:string,
+ *   headers?:Record<string,string>,
+ *   semantic404?:boolean,
+ *   select?:(candidates:any[])=>any[],
+ *   normalise:(c:any)=>{refcat:string,areaM2:number,address:string|null}
+ * }} SourceCfg
+ *
+ * `headers` — extra request headers the upstream requires (AU-SA's public Referer). `semantic404` —
+ * this upstream's HTTP 404 means "no parcel here" (TR), classified `empty`, never `unreachable`.
+ * `select` — candidate pre-filter/ordering applied BEFORE pickCandidate (AU-QLD unlinked twins,
+ * AU-ACT RETIRED lifecycle) so point-in-polygon can only choose an assertable parcel.
+ */
 
 /** @type {Record<string, SourceCfg>} */
 export const EU_CADASTRE_SOURCES = {
@@ -735,9 +974,257 @@ export const EU_CADASTRE_SOURCES = {
             return { refcat, areaM2: ringAreaM2(c.ring), address: address ? String(address) : null };
         },
     },
+    // ── LANE PROXY-LEGS (2026-09-03): the AU/TR/QA/LV/HR/GR/SI/SK wave. `source` values are the
+    // registry rows' providerIds (one spelling per source, C84 EI-9). Guards mirror each adapter's
+    // measured routing bbox (countryAdapters/<cc>/<cc>Jurisdiction.ts / auJurisdiction.ts) — the
+    // registry's own routing decides WHICH row is tried; the guard only fences this source's
+    // territory. IL is deliberately absent (no ring served — see the header).
+    'au-nsw': {
+        guard: (lat, lon) => lat >= -37.51 && lat <= -28.15 && lon >= 140.99 && lon <= 153.64,
+        url: auNswUrl,
+        format: 'arcgis',
+        source: 'au-nsw-dcs-cadastre',
+        normalise: (c) => {
+            const p = c.props || {};
+            // `lotidstring` is the served legal id (100//DP1048011 @ Sydney Town Hall, measured);
+            // fall back to lot//section/plan composition, exactly as nswIdentity does.
+            const lotId = String(jsonProp(p, 'lotidstring') ?? '').trim();
+            const lot = jsonProp(p, 'lotnumber');
+            const sec = jsonProp(p, 'sectionnumber');
+            const plan = jsonProp(p, 'planlabel');
+            const refcat = lotId || (lot !== null && plan !== null ? `${lot}//${sec ?? ''}/${plan}` : '');
+            return { refcat, areaM2: ringAreaM2(c.ring), address: null };
+        },
+    },
+    'au-vic': {
+        guard: (lat, lon) => lat >= -39.2 && lat <= -33.98 && lon >= 140.96 && lon <= 150.04,
+        url: auVicUrl,
+        format: 'geojson',
+        source: 'au-vic-vicmap-cadastre',
+        normalise: (c) => {
+            const p = c.props || {};
+            // `parcel_spi` is the Standard Parcel Identifier (PC366537 @ Melbourne, measured).
+            const refcat = String(jsonProp(p, 'parcel_spi', 'spi') ?? '').trim();
+            return { refcat, areaM2: ringAreaM2(c.ring), address: null };
+        },
+    },
+    'au-qld': {
+        guard: (lat, lon) => lat >= -29.2 && lat <= -9.09 && lon >= 137.99 && lon <= 153.56,
+        url: auQldUrl,
+        format: 'arcgis',
+        source: 'au-qld-qspatial-cadastre',
+        // The point query returns the lot PLUS an "Unlinked parcel or interest" twin with null
+        // lotplan (measured @ Brisbane). Drop id-less twins BEFORE point-in-polygon can pick one.
+        select: (candidates) => candidates.filter((c) => jsonProp(c.props || {}, 'lotplan') !== null),
+        normalise: (c) => {
+            const p = c.props || {};
+            const refcat = String(jsonProp(p, 'lotplan') ?? '').trim(); // 47SP317615 @ Brisbane
+            const locality = jsonProp(p, 'locality');
+            return { refcat, areaM2: ringAreaM2(c.ring), address: locality ? String(locality) : null };
+        },
+    },
+    'au-sa': {
+        // ⛔ code `au-sa`, never `sa` (= Saudi Arabia in the registry).
+        guard: (lat, lon) => lat >= -38.07 && lat <= -25.99 && lon >= 128.99 && lon <= 141.01,
+        url: auSaUrl,
+        format: 'arcgis',
+        source: 'au-sa-sappa-cadastre',
+        // Soft CloudFront WAF: 403 bare, 200 with this documented PUBLIC Referer (control
+        // transcript live-sa-noreferer.txt). Injected server-side — the whole point of this proxy.
+        headers: { Referer: AU_SA_REFERER },
+        normalise: (c) => {
+            const p = c.props || {};
+            // `parcel_id` arrives whitespace-padded ("C21367   F1") — collapsed, as saIdentity does;
+            // else composed plan+parcel. Title (CT volume/folio) rides as the info-card address.
+            const rawId = jsonProp(p, 'parcel_id');
+            const composed = [jsonProp(p, 'plan_t'), jsonProp(p, 'plan')].every((v) => v !== null) &&
+                [jsonProp(p, 'parcel_t'), jsonProp(p, 'parcel')].every((v) => v !== null)
+                ? `${jsonProp(p, 'plan_t')}${jsonProp(p, 'plan')} ${jsonProp(p, 'parcel_t')}${jsonProp(p, 'parcel')}`
+                : '';
+            const refcat = rawId ? String(rawId).replace(/\s+/g, ' ').trim() : composed;
+            const titleT = jsonProp(p, 'title_t');
+            const vol = jsonProp(p, 'volume');
+            const folio = jsonProp(p, 'folio');
+            const title = titleT !== null && vol !== null && folio !== null ? `${titleT} ${vol}/${folio}` : null;
+            return { refcat, areaM2: ringAreaM2(c.ring), address: title };
+        },
+    },
+    'au-tas': {
+        guard: (lat, lon) => lat >= -43.75 && lat <= -39.18 && lon >= 143.79 && lon <= 148.53,
+        url: auTasUrl,
+        format: 'arcgis',
+        source: 'au-tas-thelist-cadastre',
+        normalise: (c) => {
+            const p = c.props || {};
+            // PID is theLIST's parcel id (3321248 @ Hobart); fall back to the title reference.
+            const pid = jsonProp(p, 'PID');
+            const vol = jsonProp(p, 'VOLUME');
+            const folio = jsonProp(p, 'FOLIO');
+            const refcat = pid !== null ? String(pid).trim()
+                : vol !== null && folio !== null ? `${vol}/${folio}` : '';
+            const address = jsonProp(p, 'PROP_ADD');
+            return { refcat, areaM2: ringAreaM2(c.ring), address: address ? String(address) : null };
+        },
+    },
+    'au-act': {
+        guard: (lat, lon) => lat >= -35.93 && lat <= -35.12 && lon >= 148.75 && lon <= 149.41,
+        url: auActUrl,
+        format: 'arcgis',
+        source: 'au-act-actmapi-blocks',
+        // @ Civic the point returned 3 RETIRED + 1 APPROVED overlapping blocks (measured). A
+        // RETIRED (superseded) block is never asserted as the parcel; CURRENT outranks APPROVED —
+        // exactly actRank in auStateCadastre.ts.
+        select: (candidates) => {
+            const stage = (c) => String(jsonProp(c.props || {}, 'CURRENT_LIFECYCLE_STAGE') ?? '').toUpperCase();
+            const rank = (c) => (stage(c) === 'CURRENT' ? 0 : stage(c) === 'APPROVED' ? 1 : 2);
+            return candidates.filter((c) => stage(c) !== 'RETIRED').sort((a, b) => rank(a) - rank(b));
+        },
+        normalise: (c) => {
+            const p = c.props || {};
+            // ⚠ The served BLOCK_SECTION composite is SECTION/BLOCK order — the id is composed from
+            // the EXPLICIT block+section fields so its ordering is unambiguous (actIdentity's rule).
+            const block = jsonProp(p, 'BLOCK_NUMBER');
+            const section = jsonProp(p, 'SECTION_NUMBER');
+            const refcat = block !== null && section !== null
+                ? `${block}/${section}`
+                : String(jsonProp(p, 'BLOCK_SECTION') ?? '').trim();
+            const district = jsonProp(p, 'DISTRICT_NAME');
+            return { refcat, areaM2: ringAreaM2(c.ring), address: district ? String(district) : null };
+        },
+    },
+    tr: {
+        guard: (lat, lon) => lat >= 35.8 && lat <= 42.2 && lon >= 25.6 && lon <= 44.9,
+        url: trUrl,
+        format: 'geojson',
+        source: 'tr-tkgm-parsel',
+        semantic404: true, // TKGM 404 "Parsel Bulunamadı" = a durable no-parcel, never an outage
+        normalise: (c) => {
+            const p = c.props || {};
+            // ada/parsel is THE national parcel key (ada 3106 / parsel 258 @ Kadıköy, measured).
+            const ada = jsonProp(p, 'adaNo');
+            const parsel = jsonProp(p, 'parselNo');
+            const refcat = ada !== null && parsel !== null
+                ? `${ada}/${parsel}`
+                : String(jsonProp(p, 'parselNo', 'adaNo') ?? '').trim();
+            // `alan` is the served m² AS A STRING ("816.27"); unparsable → geometry-derived.
+            const areaM2 = Number(jsonProp(p, 'alan')) || ringAreaM2(c.ring);
+            const address = [jsonProp(p, 'mahalleAd'), jsonProp(p, 'ilceAd'), jsonProp(p, 'ilAd')]
+                .filter(Boolean).join(', ');
+            return { refcat, areaM2, address: address || null };
+        },
+    },
+    qa: {
+        guard: (lat, lon) => lat >= 24.45 && lat <= 26.2 && lon >= 50.6 && lon <= 51.7,
+        url: qaUrl,
+        format: 'arcgis',
+        source: 'qa-gisqatar-cadastre-plots',
+        normalise: (c) => {
+            const p = c.props || {};
+            // PIN is the national plot id (1010028 @ Doha, measured); CDST_KEY equals it on the
+            // probed plot and is the fallback. PDAREA is the surveyed plot area in m² (SURVEYED ≠
+            // NORMATIVE — it is a geometry fact, not a zoning figure). No address field is served.
+            const refcat = String(jsonProp(p, 'PIN', 'CDST_KEY') ?? '').trim();
+            const areaM2 = Number(jsonProp(p, 'PDAREA')) || ringAreaM2(c.ring);
+            return { refcat, areaM2, address: null };
+        },
+    },
+    lv: {
+        guard: (lat, lon) => lat >= 55.6 && lat <= 58.1 && lon >= 20.9 && lon <= 28.3,
+        url: lvUrl,
+        format: 'geojson',
+        source: 'lv-vzd-kadastrs-geolatvija',
+        normalise: (c) => {
+            const p = c.props || {};
+            // `code` is the 11-digit cadastral designation (01000070006 @ Rīga, measured); `area`
+            // is the cadastre's own registered m² (integer; `area_scale` the finer float).
+            const refcat = String(jsonProp(p, 'code') ?? '').trim();
+            const areaM2 = Number(jsonProp(p, 'area', 'area_scale')) || ringAreaM2(c.ring);
+            const address = jsonProp(p, 'address');
+            return { refcat, areaM2, address: address ? String(address) : null };
+        },
+    },
+    hr: {
+        guard: (lat, lon) => lat >= 42.2 && lat <= 46.56 && lon >= 13.4 && lon <= 19.45,
+        url: hrUrl,
+        format: 'geojson',
+        source: 'hr-dgu-dkp-cp',
+        normalise: (c) => {
+            const p = c.props || {};
+            // COMPOSED display reference "k.č. <BROJ_CESTICE>, k.o. <MATICNI_BROJ_KO>" — exactly
+            // parseHrParcelFeature's composition; NOT claimed as the INSPIRE
+            // nationalCadastralReference (that lives on the ORA-degraded cp: complex type). No
+            // area field is served → geometry-derived, like NO and CH.
+            const broj = jsonProp(p, 'BROJ_CESTICE');
+            const ko = jsonProp(p, 'MATICNI_BROJ_KO');
+            const refcat = broj !== null ? `k.č. ${broj}, k.o. ${ko ?? '?'}` : '';
+            return { refcat, areaM2: ringAreaM2(c.ring), address: null };
+        },
+    },
+    gr: {
+        guard: (lat, lon) => lat >= 34.7 && lat <= 41.8 && lon >= 19.3 && lon <= 29.7,
+        url: grUrl,
+        format: 'arcgis',
+        source: 'gr-ktimatologio-geotemaxia-leitourgoun',
+        normalise: (c) => {
+            const p = c.props || {};
+            // KAEK is the 12-digit national cadastre code (050095701001 @ Syntagma, measured),
+            // opaque — never split. AREA is the register's own m², carried verbatim. DESCR is a
+            // land-USE description, not an address — deliberately not surfaced as one.
+            const refcat = String(jsonProp(p, 'KAEK') ?? '').trim();
+            const areaM2 = Number(jsonProp(p, 'AREA')) || ringAreaM2(c.ring);
+            return { refcat, areaM2, address: null };
+        },
+    },
+    si: {
+        guard: (lat, lon) => lat >= 45.4 && lat <= 46.9 && lon >= 13.35 && lon <= 16.65,
+        url: siUrl,
+        format: 'geojson',
+        source: 'si-gurs-kn-parcele',
+        normalise: (c) => {
+            const p = c.props || {};
+            // Canonical human reference KO_ID + ST_PARCELE ("1725 2468/4"); fall back to the stable
+            // EID. POVRSINA is the registered m²; NAZIV the KO id + name ("1725 AJDOVŠČINA").
+            const ko = jsonProp(p, 'KO_ID');
+            const st = jsonProp(p, 'ST_PARCELE');
+            const refcat = (ko !== null && st !== null
+                ? `${ko} ${st}`
+                : String(jsonProp(p, 'EID_PARCELA') ?? '')).trim();
+            const areaM2 = Number(jsonProp(p, 'POVRSINA')) || ringAreaM2(c.ring);
+            const address = jsonProp(p, 'NAZIV');
+            return { refcat, areaM2, address: address ? String(address) : null };
+        },
+    },
+    sk: {
+        guard: (lat, lon) => lat >= 47.7 && lat <= 49.65 && lon >= 16.8 && lon <= 22.6,
+        url: skUrl,
+        format: 'arcgis',
+        source: 'sk-ugkk-eskn-kn-parcela-c',
+        normalise: (c) => {
+            const p = c.props || {};
+            // Composed citizen-facing reference "parc. č. <PARCEL_NUMBER>, k.ú. <CADASTRAL_UNIT_ID>"
+            // (parcel №15, k.ú. 2933 @ Bratislava, measured); fall back to the register-C id.
+            // DESCRIPTIVE_AREA_OF_PARCEL is the register's own m² (832 measured) — the S-JTSK
+            // measure-after-reprojection trap is why it is preferred over the ring.
+            const num = jsonProp(p, 'PARCEL_NUMBER');
+            const ku = jsonProp(p, 'CADASTRAL_UNIT_ID');
+            const refcat = num !== null
+                ? `parc. č. ${num}${ku !== null ? `, k.ú. ${ku}` : ''}`
+                : String(jsonProp(p, 'ID') ?? '').trim();
+            const areaM2 = Number(jsonProp(p, 'DESCRIPTIVE_AREA_OF_PARCEL')) || ringAreaM2(c.ring);
+            return { refcat, areaM2, address: null };
+        },
+    },
 };
 
-async function fetchTextOnce(url, deps = {}) {
+/**
+ * Sentinel for a SEMANTIC HTTP 404 — an upstream whose 404 body means "no parcel here" (TKGM's
+ * measured `{"Message":"Parsel Bulunamadı…"}`), which is a durable ABSENCE, never an outage.
+ * Only sources declaring `semantic404: true` receive it; everyone else keeps 404 → null →
+ * `unreachable`, because for a path-less query endpoint a 404 usually IS a broken route.
+ */
+const SEMANTIC_404 = Symbol('eu-cadastre-semantic-404');
+
+async function fetchTextOnce(url, deps = {}, opts = {}) {
     const fetchImpl = deps.fetchImpl || fetch;
     const timeoutMs = deps.timeoutMs || UPSTREAM_TIMEOUT_MS;
     for (let attempt = 0; attempt < 2; attempt++) {
@@ -749,10 +1236,14 @@ async function fetchTextOnce(url, deps = {}) {
                 headers: {
                     Accept: 'application/json, application/xml, text/xml, application/gml+xml, */*',
                     'User-Agent': 'PRYZM-Cadastre-Proxy/1.0 (+https://pryzm.fly.dev)',
+                    // Per-source extra headers (AU-SA's soft CloudFront WAF Referer). Documented
+                    // PUBLIC values only — never a credential, so nothing here can leak a secret.
+                    ...(opts.headers || {}),
                 },
                 signal: ctrl.signal,
             });
             if (res.status === 429 || res.status === 503 || res.status === 504) continue;
+            if (res.status === 404 && opts.semantic404) return SEMANTIC_404;
             if (!res.ok) { console.warn(`[eu-cadastre] HTTP ${res.status} for ${url}`); return null; }
             const text = await res.text();
             return text && text.length > 0 ? text : null;
@@ -798,7 +1289,13 @@ export async function resolveEuParcelOutcome(cc, lon, lat, deps = {}) {
     // Outside the source's own territory: an authoritative "not covered", NOT a failure.
     if (!cfg.guard(lat, lon)) return { outcome: 'out-of-area', parcel: null };
 
-    const text = await fetchTextOnce(cfg.url(lat, lon), deps);
+    const text = await fetchTextOnce(cfg.url(lat, lon), deps, {
+        headers: cfg.headers,
+        semantic404: cfg.semantic404 === true,
+    });
+    // A SEMANTIC 404 (TR: TKGM's "Parsel Bulunamadı") is the upstream ANSWERING "no parcel here" —
+    // a durable absence, classified before the null check so it can never read as an outage.
+    if (text === SEMANTIC_404) return { outcome: 'empty', parcel: null };
     // A null body means the upstream never answered — the ONE case that must not read as "empty".
     if (!text) return { outcome: 'unreachable', parcel: null };
 
@@ -836,7 +1333,10 @@ export async function resolveEuParcelOutcome(cc, lon, lat, deps = {}) {
                     : cfg.format === 'socrata'
                         ? parseSocrataCandidates(text)
                         : parseGmlCandidates(text, cfg.axis);
-    const chosen = pickCandidate(candidates, lat, lon);
+    // Per-source candidate pre-filter/ordering (AU-QLD id-less "Unlinked parcel" twins, AU-ACT
+    // RETIRED lifecycle) — point-in-polygon may only choose among assertable parcels.
+    const selectable = typeof cfg.select === 'function' ? cfg.select(candidates) : candidates;
+    const chosen = pickCandidate(selectable, lat, lon);
     if (!chosen) return { outcome: 'empty', parcel: null };
 
     const meta = cfg.normalise(chosen);

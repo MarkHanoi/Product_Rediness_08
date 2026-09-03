@@ -158,10 +158,22 @@ export interface SceneQualitySettings {
     /**
      * Whether the expensive whole-scene/post-batch PBR upgrade is permitted.
      *
-     * Measured cost (founder, real 785-element / 4073-mesh building):
+     * Measured cost (founder, real 785-element / 4073-mesh building, 2026-05):
      *   post-batch PBRSceneUpgrader = 38.7 SECONDS wall-clock (materials look
      *   unfinished for ~38s as 4073 meshes trickle through needsUpdate → WebGPU
-     *   PSO recompiles). This is THE project-open bottleneck, not negligible.
+     *   PSO recompiles). This was THE project-open bottleneck, not negligible.
+     *
+     * ⭐ §PERF-TRAVERSE-RECOMPILE-SCOPE (lane PERF-TRAVERSE, 2026-09-03) — that cost
+     * is HISTORY twice over, and this field's name is older than both fixes: the pass
+     * is no longer whole-scene (§A.21.D40 PBR-SCOPE: new meshes only; chunked 120/frame;
+     * idle-deferred), and it no longer recompiles unchanged materials
+     * (PBRSceneUpgrader._tuneMaterial: `needsUpdate` only when the env-map binding or
+     * `toneMapped` actually changes — the 38.7 s was 4073 unconditional needsUpdate ×
+     * PSO recompile, not the traverse itself). On the Phase-5 real-WebGPU path
+     * (scene.environment = null, toneMapped default true) the armed pass is
+     * recompile-free uniform writes, ~ms. The tier gate below therefore stands as
+     * POLICY (the tuning is cosmetic; not worth even a cheap pass on big scenes),
+     * no longer as the firewall in front of a 38.7 s stall.
      *
      * So this is true ONLY at `cinematic` (≤1500 meshes — small showcase scenes
      * where the cosmetic envMapIntensity/toneMapped tuning is affordable). At

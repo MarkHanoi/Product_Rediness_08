@@ -33,6 +33,9 @@ import * as THREE from '@pryzm/renderer-three/three';
 // 4073-mesh building (RenderingPipelineCoordinator.ts:852, ADR-0076), which makes
 // it the single largest named cost in the product — and nothing timed it at the
 // point of use, so it could never be separated from the rest of a batch.
+// §PERF-TRAVERSE-RECOMPILE-SCOPE (2026-09-03) — that recording is of the 2026-05
+// unconditional-needsUpdate pass; see _tuneMaterial for why the cost was the PSO
+// recompiles, not the traverse, and why `needsUpdate` is now changed-only.
 import { bumpPerf, addPerfTime, isPerfOn, PERF_KEYS } from '@pryzm/frame-scheduler';
 
 // ── Types ──────────────────────────────────────────────────────────────────
@@ -52,6 +55,16 @@ export interface PBRUpgradeStats {
     glassMaterials:    number;
     roughMaterials:    number;
     polishedMaterials: number;
+    /**
+     * §PERF-TRAVERSE-RECOMPILE-SCOPE (2026-09-03) — materials that were actually
+     * marked `needsUpdate = true` this pass (env-map binding changed or `toneMapped`
+     * flipped). Every other touched material received uniform-level writes only, which
+     * cost no shader/PSO recompile. The 38.7 s the header cites was never the
+     * traverse — it was 4073 materials × unconditional `needsUpdate` × WebGPU PSO
+     * recompile. This counter is what makes "the pass ran but recompiled nothing"
+     * a fact in the log rather than an inference.
+     */
+    recompiledMaterials: number;
 }
 
 // ── Class ─────────────────────────────────────────────────────────────────
@@ -63,7 +76,90 @@ export class PBRSceneUpgrader {
         totalMeshes: 0, totalMaterials: 0,
         metalMaterials: 0, glassMaterials: 0,
         roughMaterials: 0, polishedMaterials: 0,
+        recompiledMaterials: 0,
     };
+
+    /**
+     * §PERF-TRAVERSE-RECOMPILE-SCOPE (lane PERF-TRAVERSE, 2026-09-03) — apply the
+     * category tuning to one material, marking `needsUpdate` ONLY when a
+     * PROGRAM-CACHE-KEY property actually changed.
+     *
+     * WHY: `needsUpdate = true` bumps `material.version`, which forces a full shader
+     * program (WebGL) / PSO (WebGPU) rebuild. The recorded 38.7 s (4073-mesh building,
+     * ADR-0076) was exactly this: every MeshStandardMaterial in the scene marked dirty
+     * unconditionally, then trickling through per-material recompiles. But of the five
+     * properties this pass writes, only TWO are program-cache keys in three:
+     *   - `envMap` binding (presence/identity — changes the lighting node graph),
+     *   - `toneMapped` (part of the output/tonemapping program key).
+     * `envMapIntensity`, `roughness`, `metalness` are per-frame UNIFORMS — writing them
+     * costs no recompile and needs no `needsUpdate`.
+     *
+     * On the Phase-5 real-WebGPU path (PascalSceneLighting; `scene.environment = null`,
+     * no per-material envMap ever passed) and with three's `toneMapped` default of
+     * `true`, this makes the whole armed cinematic pass RECOMPILE-FREE: uniform writes
+     * only, ~ms even if the scene were at the 1500-mesh cinematic ceiling. The
+     * load-bearing case — an HDRI env map newly bound or a material authored with
+     * `toneMapped = false` — still recompiles, exactly as it must.
+     * (Scene-level `scene.environment` changes need no help from this pass: both
+     * renderers detect a materialProperties/render-object cache-key change themselves.)
+     *
+     * Returns true when the material was marked for recompile.
+     */
+    private _tuneMaterial(
+        mat: THREE.MeshStandardMaterial,
+        envMap: THREE.Texture | null | undefined,
+        stats: PBRUpgradeStats,
+    ): boolean {
+        // Apply HDRI env map if provided — a program-cache-key change ONLY when the
+        // binding actually changes identity (null→tex, or a different texture).
+        let pipelineDirty = false;
+        if (envMap && mat.envMap !== envMap) {
+            mat.envMap = envMap;
+            pipelineDirty = true;
+        }
+
+        // ── Category-based PBR upgrade (uniform-level writes) ──────────────
+        const isGlass    = mat.transparent && mat.opacity < 0.5;
+        const isMetal    = mat.metalness > 0.7;
+        const isRough    = mat.roughness > 0.7 && !isMetal;
+        const isPolished = mat.roughness < 0.2 && !isMetal;
+
+        if (isGlass) {
+            // Glass: IOR-correct minimum roughness + high env reflection
+            mat.envMapIntensity = 1.5;
+            if (mat.roughness < 0.02) mat.roughness = 0.02; // Avoid perfect mirror glass
+            stats.glassMaterials++;
+        } else if (isMetal) {
+            // Metals: high env intensity for sharp reflections
+            mat.envMapIntensity = Math.max(mat.envMapIntensity, 1.2);
+            stats.metalMaterials++;
+        } else if (isRough) {
+            // Rough dielectrics (concrete, plaster, fabric): moderate env
+            mat.envMapIntensity = Math.max(mat.envMapIntensity, 0.3);
+            stats.roughMaterials++;
+        } else if (isPolished) {
+            // Polished dielectrics (marble, polished wood): decent env
+            mat.envMapIntensity = Math.max(mat.envMapIntensity, 0.8);
+            stats.polishedMaterials++;
+        } else {
+            // Mid-gloss: balanced env intensity
+            mat.envMapIntensity = Math.max(mat.envMapIntensity, 0.5);
+        }
+
+        // toneMapped is a program-cache key — flip (and recompile) only when it is
+        // actually false. three's MeshStandardMaterial default is true, so on
+        // unexceptional scenes this never dirties anything.
+        if (!mat.toneMapped) {
+            mat.toneMapped = true;
+            pipelineDirty = true;
+        }
+
+        if (pipelineDirty) {
+            mat.needsUpdate = true;
+            stats.recompiledMaterials++;
+        }
+        return pipelineDirty;
+    }
 
     get applied(): boolean  { return this._isApplied; }
     get stats(): PBRUpgradeStats { return { ...this._stats }; }
@@ -91,6 +187,7 @@ export class PBRSceneUpgrader {
             totalMeshes: 0, totalMaterials: 0,
             metalMaterials: 0, glassMaterials: 0,
             roughMaterials: 0, polishedMaterials: 0,
+            recompiledMaterials: 0,
         };
 
         const visited = new Set<string>();
@@ -119,47 +216,10 @@ export class PBRSceneUpgrader {
                     });
                 }
 
-                // Apply HDRI env map if provided
-                if (envMap) mat.envMap = envMap;
-
-                // ── Category-based PBR upgrade ─────────────────────────────
-                const isGlass   = mat.transparent && mat.opacity < 0.5;
-                const isMetal   = mat.metalness > 0.7;
-                const isRough   = mat.roughness > 0.7 && !isMetal;
-                const isPolished = mat.roughness < 0.2 && !isMetal;
-
-                if (isGlass) {
-                    // Glass: IOR-correct minimum roughness + high env reflection
-                    mat.envMapIntensity = 1.5;
-                    if (mat.roughness < 0.02) mat.roughness = 0.02; // Avoid perfect mirror glass
-                    mat.toneMapped = true;
-                    stats.glassMaterials++;
-
-                } else if (isMetal) {
-                    // Metals: high env intensity for sharp reflections
-                    mat.envMapIntensity = Math.max(mat.envMapIntensity, 1.2);
-                    mat.toneMapped = true;
-                    stats.metalMaterials++;
-
-                } else if (isRough) {
-                    // Rough dielectrics (concrete, plaster, fabric): moderate env
-                    mat.envMapIntensity = Math.max(mat.envMapIntensity, 0.3);
-                    mat.toneMapped = true;
-                    stats.roughMaterials++;
-
-                } else if (isPolished) {
-                    // Polished dielectrics (marble, polished wood): decent env
-                    mat.envMapIntensity = Math.max(mat.envMapIntensity, 0.8);
-                    mat.toneMapped = true;
-                    stats.polishedMaterials++;
-
-                } else {
-                    // Mid-gloss: balanced env intensity
-                    mat.envMapIntensity = Math.max(mat.envMapIntensity, 0.5);
-                    mat.toneMapped = true;
-                }
-
-                mat.needsUpdate = true;
+                // §PERF-TRAVERSE-RECOMPILE-SCOPE — uniform-level tuning always; a
+                // needsUpdate recompile ONLY when env-map binding / toneMapped
+                // actually changed (see _tuneMaterial for why that is sufficient).
+                this._tuneMaterial(mat, envMap, stats);
             }
         });
 
@@ -171,8 +231,10 @@ export class PBRSceneUpgrader {
         console.log(
             `[PBRSceneUpgrader] Applied — meshes: ${stats.totalMeshes}` +
             ` materials: ${stats.totalMaterials}` +
+            ` recompiles: ${stats.recompiledMaterials}` +
             ` (metal: ${stats.metalMaterials}, glass: ${stats.glassMaterials}` +
-            ` rough: ${stats.roughMaterials}, polished: ${stats.polishedMaterials})`
+            ` rough: ${stats.roughMaterials}, polished: ${stats.polishedMaterials})` +
+            ` §PERF-TRAVERSE-RECOMPILE-SCOPE`
         );
     }
 
@@ -201,12 +263,22 @@ export class PBRSceneUpgrader {
                 const snap = this._snapshots.get(mat.uuid);
                 if (!snap) continue;
 
+                // §PERF-TRAVERSE-RECOMPILE-SCOPE — mirror of _tuneMaterial: the three
+                // scalar restores are uniform-level; only an actual envMap unbind or a
+                // toneMapped flip is a program-cache-key change worth a recompile.
                 mat.envMapIntensity = snap.envMapIntensity;
                 mat.roughness       = snap.roughness;
                 mat.metalness       = snap.metalness;
-                mat.toneMapped      = snap.toneMapped;
-                mat.envMap          = null;
-                mat.needsUpdate     = true;
+                let pipelineDirty = false;
+                if (mat.toneMapped !== snap.toneMapped) {
+                    mat.toneMapped = snap.toneMapped;
+                    pipelineDirty = true;
+                }
+                if (mat.envMap !== null) {
+                    mat.envMap = null;
+                    pipelineDirty = true;
+                }
+                if (pipelineDirty) mat.needsUpdate = true;
             }
         });
 
@@ -241,21 +313,13 @@ export class PBRSceneUpgrader {
                     toneMapped:      mat.toneMapped,
                 });
 
-                if (envMap) mat.envMap = envMap;
-
-                const isGlass    = mat.transparent && mat.opacity < 0.5;
-                const isMetal    = mat.metalness > 0.7;
-                const isRough    = mat.roughness > 0.7 && !isMetal;
-                const isPolished = mat.roughness < 0.2 && !isMetal;
-
-                if      (isGlass)    mat.envMapIntensity = 1.5;
-                else if (isMetal)    mat.envMapIntensity = Math.max(mat.envMapIntensity, 1.2);
-                else if (isRough)    mat.envMapIntensity = Math.max(mat.envMapIntensity, 0.3);
-                else if (isPolished) mat.envMapIntensity = Math.max(mat.envMapIntensity, 0.8);
-                else                 mat.envMapIntensity = Math.max(mat.envMapIntensity, 0.5);
-
-                mat.toneMapped  = true;
-                mat.needsUpdate = true;
+                // §PERF-TRAVERSE-RECOMPILE-SCOPE — same changed-only recompile rule as
+                // apply(): this is the path every post-batch chunk funnels through
+                // (initScene §FIX-POST-BATCH-PBR-CHUNK), so it is where the per-chunk
+                // "needsUpdate → PSO recompile" trickle is actually cut. Category
+                // counters accumulate into _stats so the running totals stay honest.
+                this._tuneMaterial(mat, envMap, this._stats);
+                this._stats.totalMaterials++;
             }
         }
     }

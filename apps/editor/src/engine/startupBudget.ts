@@ -118,6 +118,24 @@
 //     deferred rebuild that piled onto the first tick. That gap is lane PERF105's subject; this
 //     family only makes it a number.
 //
+// ⭐ ADDED 2026-09-03 (lane PERF-HUB-BOOT) — ONE mark, for the RETURN direction of the exact
+// defect `hub:open-clicked` closed. The founder's paste read `hub:mount-start +76753ms
+// (t+82680ms)` after clicking back-hub from an open project, and the delta is against the
+// PREVIOUS MARK of the run — which was the tail of his project open at t+5,927 ms. The 76.7 s
+// was his editing session, not hub work (the very next marks in the same paste — hub:warm-start
+// +36ms, hub:grid-painted +104ms, hub:sync-done +103ms — showed the hub fast once mounted).
+// Human dwell and machine work were once again the same value:
+//
+//   · hub:back-clicked — the `pryzm-go-hub` window-bus gesture (PlatformRouter's listener, the
+//     choke point every back-hub emitter dual-dispatches through). Everything before it is
+//     editor dwell ∥ editor work; `hub:back-clicked → hub:mount-start` is the machine cost of
+//     the back-hub navigation itself (style re-show + hub destroy + showHub). Nothing heavy
+//     runs on that path by design — project teardown (ClearProjectCommand, thumbnail capture)
+//     belongs to the NEXT launchWorkspace, not to back-hub.
+//     ⛔ Never quote a `hub:mount-start` delta as a cost without saying whether
+//     `hub:back-clicked` (return direction) or `platform:router-started` (cold direction)
+//     precedes it in the same run.
+//
 // ⚠ THE HUB-OPEN PATH STILL NEVER PRINTS THE TABLE, and that is a KNOWN GAP rather than an
 // oversight: `reportStartupBudget` is called from exactly one place (`enterCanvasWithSitePlan`,
 // the ONBOARDING arm) and it is one-shot per run. Calling it from the post-scene family would
@@ -179,7 +197,17 @@ export function beginStartupBudget(): void {
         _marks = [];
         _startedAtMs = now();
         _reported = false;
-        console.log('[§STARTUP-BUDGET] run started (t0).');
+        // §PERF-HUB-BOOT (2026-09-03) — say WHERE t0 sits. `performance.now()` is
+        // navigation-relative, but every delta in this module is re-based to the first mark,
+        // so the cost BEFORE t0 (main-chunk download + parse/eval — 8.5 MB `main` at last
+        // build) was invisible in every paste: `onboarding:shown +0ms` is tautological, not
+        // fast. Printing the nav offset makes that pre-mark leg a number without adding a
+        // mark. (Suppressed on the Date.now() fallback, where the value would be epoch ms.)
+        const navOffset =
+            typeof performance !== 'undefined' && typeof performance.now === 'function'
+                ? ` at nav+${Math.round(_startedAtMs)}ms`
+                : '';
+        console.log(`[§STARTUP-BUDGET] run started (t0${navOffset}).`);
     } finally {
         span.end();
     }
