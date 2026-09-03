@@ -772,13 +772,39 @@ async function download(url, dest) {
   }
   console.log(`\n▶ download ${url}\n  → ${dest}`);
   if (DRY) return;
-  const { createWriteStream } = await import('node:fs');
-  const res = await fetch(url, { redirect: 'follow' });
-  if (!res.ok) throw new Error(`download failed: HTTP ${res.status}`);
+  const { createWriteStream, unlinkSync } = await import('node:fs');
   const { Readable } = await import('node:stream');
   const { pipeline } = await import('node:stream/promises');
-  await pipeline(Readable.fromWeb(res.body), createWriteStream(dest));
-  console.log(`  done — ${(statSync(dest).size / 1e6).toFixed(0)} MB`);
+  // Geofabrik is intermittently 429/500/502/503/504 (L-513/L-523). A single transient upstream
+  // hiccup must NOT abort a whole staged bake — a Latvia 502 aborted the entire 34-group staging
+  // chain (§STAGE-CHAIN) — so retry with exponential backoff. A non-transient 4xx (a genuinely
+  // wrong URL) still throws immediately; retrying it would only waste the runner's minutes.
+  const TRANSIENT = new Set([408, 425, 429, 500, 502, 503, 504]);
+  const MAX = 5;
+  for (let attempt = 1; ; attempt++) {
+    try {
+      const res = await fetch(url, { redirect: 'follow' });
+      if (!res.ok) {
+        if (TRANSIENT.has(res.status) && attempt < MAX) {
+          const wait = Math.min(60, 5 * 2 ** (attempt - 1));
+          console.warn(`  ⚠ download HTTP ${res.status} (attempt ${attempt}/${MAX}) — retrying in ${wait}s`);
+          await new Promise((r) => setTimeout(r, wait * 1000));
+          continue;
+        }
+        throw new Error(`download failed: HTTP ${res.status}`);
+      }
+      await pipeline(Readable.fromWeb(res.body), createWriteStream(dest));
+      console.log(`  done — ${(statSync(dest).size / 1e6).toFixed(0)} MB`);
+      return;
+    } catch (e) {
+      const permanent = /HTTP 4\d\d/.test(String(e && e.message));
+      if (permanent || attempt >= MAX) throw e;
+      const wait = Math.min(60, 5 * 2 ** (attempt - 1));
+      console.warn(`  ⚠ download error "${e && e.message}" (attempt ${attempt}/${MAX}) — retrying in ${wait}s`);
+      try { if (existsSync(dest)) unlinkSync(dest); } catch {}
+      await new Promise((r) => setTimeout(r, wait * 1000));
+    }
+  }
 }
 
 // ── plan / check ─────────────────────────────────────────────────────────────

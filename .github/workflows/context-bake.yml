@@ -51,7 +51,10 @@ on:
         default: false
 
 concurrency:
-  group: context-bake
+  # Per-region lane: distinct regions bake in PARALLEL — a 34-group staging sweep no longer
+  # serialises end to end — while two runs of the SAME region still serialise so they never race
+  # the same tiles-staging/<slug>/ prefix. A push/schedule run (no region input) shares the 'all' lane.
+  group: context-bake-${{ inputs.region || 'all' }}
   cancel-in-progress: false
 
 jobs:
