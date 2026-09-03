@@ -158,6 +158,17 @@ describe('interior controls · one per country owning a national routing bbox', 
         ['Kuwait City', 29.3759, 47.9774, 'KWT'],
         ['Manama', 26.2285, 50.586, 'BHR'],
         ['Muscat', 23.588, 58.3829, 'OMN'],
+        // LANE BOUNDARY-WAVE (2026-09-03) — the six dormant-adapter countries promoted to
+        // claimable, each with a LIVE-PROVEN keyless parcel channel (per-lane transcripts under
+        // audit/europe-adapters-2/2026-09-02/). LVA/SVK/SVN were refusal-only neighbours
+        // (rings promoted verbatim); HRV/GRC/BGR are new ne_10m members, added TOGETHER with
+        // their land neighbours HUN/SRB/BIH/MNE/ALB/MKD/ROU/TUR (L-12887).
+        ['Riga', 56.9496, 24.1052, 'LVA'],
+        ['Bratislava', 48.1436, 17.1077, 'SVK'],
+        ['Ljubljana', 46.0569, 14.5058, 'SVN'],
+        ['Zagreb', 45.8132, 15.9771, 'HRV'],
+        ['Athens', 37.9755, 23.7348, 'GRC'],
+        ['Sofia', 42.6975, 23.3223, 'BGR'],
     ];
 
     it('covers every country in the shipped boundary set', () => {
@@ -355,6 +366,12 @@ describe('L-12887 · a point in un-modelled territory is never annexed by a mode
         ['Monaco (MC)', 43.7384, 7.4246, 'MCO', 'FRA'],
         ['Athus (BE)', 49.5622, 5.8261, 'BEL', 'LUX'],
         ['Vise (BE)', 50.7377, 5.6997, 'BEL', 'NLD'],
+        // ⚠ Valka RECONCILED 2026-09-03 (lane BOUNDARY-WAVE): LVA is a CLAIMABLE country now, so
+        // "never claimable" no longer describes it — but the row STAYS, because the MEASURED
+        // verdict is unchanged in shape: Valka refuses `within-dataset-tolerance-of-rival` at
+        // 452 m from the EST boundary (the LV lane's queued prediction "Valka becomes a correct
+        // LV claim" was measured FALSE — the twin town straddles the border inside the tolerance
+        // band, exactly like Frankfurt (Oder)/Słubice). The detail still names LVA.
         ['Valka (LV)', 57.7772, 26.0146, 'LVA', 'EST'],
         ['Ivangorod (RU)', 59.3714, 28.2149, 'RUS', 'EST'],
         ['Sovetsk (RU, Kaliningrad)', 55.0819, 21.8884, 'RUS', 'LTU'],
@@ -382,12 +399,14 @@ describe('L-12887 · a point in un-modelled territory is never annexed by a mode
         expect(v.detail).toContain(owner as string);
     });
 
-    it('interior points of un-modelled neighbours stay refused too (the 24 that already refused must not regress)', () => {
+    it('interior points of un-modelled neighbours stay refused too (the survivors must not regress)', () => {
+        // ⚠ RECONCILED BY LANE BOUNDARY-WAVE (2026-09-03): Riga/Daugavpils (LV) and Ljubljana (SI)
+        // LEFT this list — LVA and SVN are claimable countries now, and those three towns are
+        // interior CLAIMS (see CONTROLS). The neighbours added by the same wave contribute their
+        // own interiors below: every one of them must refuse, because a neighbour is refusal-only.
         const INTERIOR: readonly (readonly [string, number, number])[] = [
             ['Praha (CZ)', 50.0755, 14.4378],
             ['Brno (CZ)', 49.1951, 16.6068],
-            ['Riga (LV)', 56.9496, 24.1052],
-            ['Daugavpils (LV)', 55.8714, 26.5161],
             ['Bruxelles (BE)', 50.8467, 4.3525],
             ['Liege (BE)', 50.6326, 5.5797],
             ['Kaliningrad (RU)', 54.7104, 20.4522],
@@ -396,8 +415,18 @@ describe('L-12887 · a point in un-modelled territory is never annexed by a mode
             ['Bregenz (AT)', 47.5031, 9.7471],
             ['Andorra la Vella (AD)', 42.5063, 1.5218],
             ['San Marino (SM)', 43.9424, 12.4578],
-            ['Ljubljana (SI)', 46.0569, 14.5058],
             ['Tanger (MA)', 35.7595, -5.834],
+            // The 2026-09-03 wave's refusal-only members (HUN/SRB/BIH/MNE/ALB/MKD/ROU/TUR):
+            ['Budapest (HU)', 47.4979, 19.0402],
+            ['Szeged (HU)', 46.253, 20.1414],
+            ['Beograd (RS)', 44.7866, 20.4489],
+            ['Sarajevo (BA)', 43.8563, 18.4131],
+            ['Podgorica (ME)', 42.4304, 19.2594],
+            ['Tirana (AL)', 41.3275, 19.8187],
+            ['Skopje (MK)', 41.9973, 21.428],
+            ['Bucuresti (RO)', 44.4268, 26.1025],
+            ['Istanbul (TR)', 41.0082, 28.9784],
+            ['Izmir (TR)', 38.4237, 27.1428],
         ];
         const wrong: string[] = [];
         for (const [name, lat, lon] of INTERIOR) {
@@ -429,10 +458,179 @@ describe('L-12887 · a point in un-modelled territory is never annexed by a mode
     });
 
     it('the neighbour set documents its own provenance (same source, same discipline)', () => {
+        // ⚠ LVA/SVN (and SVK) left this list 2026-09-03 — promoted to claimable countries by lane
+        // BOUNDARY-WAVE. The wave's own additions (HUN/SRB/BIH/MNE/ALB/MKD/ROU/TUR) joined it.
         const set = NATIONAL_BOUNDARY_SET;
         expect(Object.keys(set.neighbours ?? {}).length).toBeGreaterThanOrEqual(12);
-        for (const iso3 of ['CZE', 'LVA', 'BEL', 'AUT', 'LIE', 'RUS', 'BLR', 'AND', 'MCO', 'SMR', 'SVN', 'MAR']) {
+        for (const iso3 of ['CZE', 'BEL', 'AUT', 'LIE', 'RUS', 'BLR', 'AND', 'MCO', 'SMR', 'MAR', 'HUN', 'SRB', 'BIH', 'MNE', 'ALB', 'MKD', 'ROU', 'TUR']) {
             expect(set.neighbours?.[iso3]?.rings?.length ?? 0, iso3).toBeGreaterThan(0);
+        }
+        // A code is never BOTH claimable and refusal-only — promotion means leaving `neighbours`.
+        for (const iso3 of Object.keys(set.countries)) {
+            expect(set.neighbours?.[iso3], `${iso3} must not be in both sets`).toBeUndefined();
+        }
+    });
+});
+
+// ════════════════════════════════════════════════════════════════════════════════════════════
+// LANE BOUNDARY-WAVE (2026-09-03) · six live-proven parcel countries promoted to claimable —
+// LV/SK/SI (neighbours→countries, rings verbatim) + HR/GR/BG (new ne_10m members) — TOGETHER
+// with the L-12887 refusal-only rivals their borders demand (HUN/SRB/BIH/MNE/ALB/MKD/ROU/TUR).
+// Every verdict below is MEASURED (probe transcript in the lane doc), not hoped: border towns
+// inside the tolerance band REFUSE naming the rival, wider towns CLAIM by containment.
+// ════════════════════════════════════════════════════════════════════════════════════════════
+describe('BOUNDARY-WAVE 2026-09-03 · red-pin border integrity for the six promoted countries', () => {
+    it('SK↔HU (HU stays refusal-only): the Danube towns refuse naming HUN; interiors claim SVK', () => {
+        // Komárno SK is 208 m and Štúrovo SK 780 m from the HUN boundary — inside the 1500 m band.
+        for (const [name, lat, lon] of [
+            ['Komarno (SK)', 47.7633, 18.1281],
+            ['Sturovo (SK)', 47.7998, 18.7185],
+        ] as const) {
+            const v = resolveNationalJurisdiction(lat, lon);
+            expect(v.ok, `${name}: ${describeNationalJurisdiction(v)}`).toBe(false);
+            if (!v.ok) {
+                expect(v.reason).toBe('within-dataset-tolerance-of-rival');
+                expect(v.detail).toContain('HUN');
+            }
+        }
+        // The Hungarian bank refuses TO Hungary by name — never claimed for SK.
+        const esztergom = resolveNationalJurisdiction(47.7856, 18.7403);
+        expect(esztergom.ok).toBe(false);
+        if (!esztergom.ok) {
+            expect(esztergom.reason).toBe('claimed-by-unmodelled-neighbour');
+            expect(esztergom.detail).toContain('HUN');
+        }
+        // Žilina sat inside POLAND_BBOX and used to refuse naming SVK — it must CLAIM SVK now.
+        const zilina = resolveNationalJurisdiction(49.2231, 18.7394);
+        expect(zilina.ok, describeNationalJurisdiction(zilina)).toBe(true);
+        if (zilina.ok) expect(zilina.iso3).toBe('SVK');
+    });
+
+    it('HR↔SI: both banks are claimable now — each capital claims its own, neither annexes', () => {
+        const zagreb = resolveNationalJurisdiction(45.8132, 15.9771);
+        const ljubljana = resolveNationalJurisdiction(46.0569, 14.5058);
+        expect(zagreb.ok && zagreb.iso3).toBe('HRV');
+        expect(ljubljana.ok && ljubljana.iso3).toBe('SVN');
+    });
+
+    it('HR eastern/southern borders: Osijek/Dubrovnik claim HRV; the BA/ME/RS side refuses by name', () => {
+        for (const [name, lat, lon] of [
+            ['Osijek (HR)', 45.555, 18.6955],
+            ['Dubrovnik (HR)', 42.6507, 18.0944],
+        ] as const) {
+            const v = resolveNationalJurisdiction(lat, lon);
+            expect(v.ok, `${name}: ${describeNationalJurisdiction(v)}`).toBe(true);
+            if (v.ok) expect(v.iso3).toBe('HRV');
+        }
+        for (const [name, lat, lon, owner] of [
+            ['Trebinje (BA)', 42.7113, 18.3436, 'BIH'],
+            ['Herceg Novi (ME)', 42.4531, 18.5375, 'MNE'],
+            ['Mohacs (HU)', 45.9935, 18.6845, 'HUN'],
+        ] as const) {
+            const v = resolveNationalJurisdiction(lat, lon);
+            expect(v.ok, `${name}: ${describeNationalJurisdiction(v)}`).toBe(false);
+            if (!v.ok) {
+                expect(v.reason).toBe('claimed-by-unmodelled-neighbour');
+                expect(v.detail).toContain(owner);
+            }
+        }
+        // Vukovar sits on the Danube RS bank line — the dataset cannot separate it (measured):
+        const vukovar = resolveNationalJurisdiction(45.355, 18.9983);
+        expect(vukovar.ok).toBe(false);
+        if (!vukovar.ok) expect(vukovar.reason).toBe('within-dataset-tolerance-of-rival');
+    });
+
+    it('GR: islands claim GRC across the Aegean; the Turkish coast refuses naming TUR', () => {
+        for (const [name, lat, lon] of [
+            ['Rhodes', 36.4341, 28.2176],
+            ['Chios', 38.3679, 26.1358],
+            ['Kos', 36.8938, 27.2877],
+            ['Corfu', 39.6243, 19.9217],
+            ['Heraklion (Crete)', 35.3387, 25.1442],
+        ] as const) {
+            const v = resolveNationalJurisdiction(lat, lon);
+            expect(v.ok, `${name}: ${describeNationalJurisdiction(v)}`).toBe(true);
+            if (v.ok) expect(v.iso3).toBe('GRC');
+        }
+        for (const [name, lat, lon] of [
+            ['Kas (TR, ~2 km from Kastellorizo)', 36.202, 29.6377],
+            ['Bodrum (TR)', 37.0344, 27.4305],
+            ['Cesme (TR)', 38.3236, 26.3027],
+            ['Edirne (TR)', 41.6771, 26.5557],
+        ] as const) {
+            const v = resolveNationalJurisdiction(lat, lon);
+            expect(v.ok, `${name}: ${describeNationalJurisdiction(v)}`).toBe(false);
+            if (!v.ok) {
+                expect(v.reason).toBe('claimed-by-unmodelled-neighbour');
+                expect(v.detail).toContain('TUR');
+            }
+        }
+        // ⚠ KNOWN DATA MISS, named so it cannot drift: Kastellorizo itself is smaller than the
+        // ne_10m island threshold — no GRC ring carries it, TUR is 2+ km away, so it refuses
+        // outside-every-candidate-polygon. A refusal, never a wrong claim (the L-12871 bargain).
+        const kastellorizo = resolveNationalJurisdiction(36.1533, 29.5926);
+        expect(kastellorizo.ok).toBe(false);
+        if (!kastellorizo.ok) expect(kastellorizo.reason).toBe('outside-every-candidate-polygon');
+    });
+
+    it('BG: Danube/valley towns claim BGR; the RO bank and the western neighbours refuse by name', () => {
+        for (const [name, lat, lon] of [
+            ['Ruse (BG, Danube bank)', 43.8356, 25.9657],
+            ['Svilengrad (BG, GR/TR corner)', 41.766, 26.203],
+            ['Sandanski (BG, GR border)', 41.5677, 23.2807],
+            ['Varna (BG, Black Sea coast)', 43.2141, 27.9147],
+        ] as const) {
+            const v = resolveNationalJurisdiction(lat, lon);
+            expect(v.ok, `${name}: ${describeNationalJurisdiction(v)}`).toBe(true);
+            if (v.ok) expect(v.iso3).toBe('BGR');
+        }
+        for (const [name, lat, lon, owner] of [
+            ['Giurgiu (RO, opposite Ruse)', 43.9037, 25.9699, 'ROU'],
+            ['Bitola (MK)', 41.0311, 21.3347, 'MKD'],
+            ['Korce (AL)', 40.6186, 20.7808, 'ALB'],
+        ] as const) {
+            const v = resolveNationalJurisdiction(lat, lon);
+            expect(v.ok, `${name}: ${describeNationalJurisdiction(v)}`).toBe(false);
+            if (!v.ok) {
+                expect(v.reason).toBe('claimed-by-unmodelled-neighbour');
+                expect(v.detail).toContain(owner);
+            }
+        }
+    });
+
+    it('no overreach: Vienna, Budapest and Bucharest still refuse — promotion claimed no foreign capital', () => {
+        for (const [name, lat, lon] of [
+            ['Vienna (AT)', 48.2082, 16.3738],
+            ['Budapest (HU)', 47.4979, 19.0402],
+            ['Bucuresti (RO)', 44.4268, 26.1025],
+            ['Beograd (RS)', 44.7866, 20.4489],
+            ['Skopje (MK)', 41.9973, 21.428],
+            ['Istanbul (TR)', 41.0082, 28.9784],
+        ] as const) {
+            const v = resolveNationalJurisdiction(lat, lon);
+            expect(v.ok, `${name} was CLAIMED: ${describeNationalJurisdiction(v)}`).toBe(false);
+        }
+    });
+
+    it('LV: the Baltic pair holds — Riga/Daugavpils/Liepaja claim LVA, the Valga/Valka twins both refuse', () => {
+        for (const [lat, lon] of [
+            [56.9496, 24.1052],
+            [55.8714, 26.5161],
+            [56.5047, 21.0108],
+        ] as const) {
+            const v = resolveNationalJurisdiction(lat, lon);
+            expect(v.ok, describeNationalJurisdiction(v)).toBe(true);
+            if (v.ok) expect(v.iso3).toBe('LVA');
+        }
+        // Valka (LV) 452 m and Valga (EE) 1083 m from the shared border: inside the band, both
+        // refuse within-dataset-tolerance-of-rival — the honest answer for twin border towns.
+        for (const [lat, lon] of [
+            [57.7772, 26.0146],
+            [57.777, 26.0473],
+        ] as const) {
+            const v = resolveNationalJurisdiction(lat, lon);
+            expect(v.ok).toBe(false);
+            if (!v.ok) expect(v.reason).toBe('within-dataset-tolerance-of-rival');
         }
     });
 });

@@ -34,29 +34,15 @@
 // below is the machine-readable list of everything in this directory that looks callable and
 // deliberately refuses ([[committed-is-not-reachable]]).
 
+// Only the names the ADAPTER VALUE below consumes are imported; everything else in this
+// directory reaches consumers through the re-export blocks at the bottom (the root tsc is
+// stricter than the package one — an import used only by a re-export is an unused local there).
 import type { SiteIntelSource } from '@pryzm/schemas';
 import {
-    RO_ANCPI_DEFERRAL,
-    RO_ANCPI_DEFERRED_TOKEN,
-    RO_ANCPI_ENDPOINTS,
-    RO_ANCPI_INSPIRE_ID_FIELD,
-    assertRoAncpiDeferralNotExpired,
-    roAncpiDeferredRefusal,
-} from './roAncpiGate.js';
-import {
-    ROMANIA_BBOX,
-    RO_JURISDICTION_DEFERRAL,
-    claimsRomania,
-    isInRomania,
-} from './roJurisdiction.js';
-import {
-    RO_PARCEL_PROVIDER_ID,
-    RO_PARCEL_PROVIDER_LABEL,
     resolveRoParcelAtWgs84Point,
     resolveRoParcelByInspireId,
-    type RoCadastralParcel,
 } from './roParcelProvider.js';
-import { RO_ANCPI_SOURCE_ID, RO_SOURCES } from './roSources.js';
+import { RO_SOURCES } from './roSources.js';
 
 /**
  * §J `precedence: ApplicabilityLadder` — Romania's, as DATA. It exists in LAW (PUG → PUZ → PUD,

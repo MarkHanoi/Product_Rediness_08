@@ -533,3 +533,79 @@ describe('L-12871 §10 — measured coverage over the ten largest cities of each
         expect(row('LU').kind).toBe('cadastral');
     });
 });
+
+// ══════════════════════════════════════════════════════════════════════════════════════════════
+// 11. LANE BOUNDARY-WAVE (2026-09-03) — the six DORMANT adapter rows are now ROUTED TO.
+// The 2026-09-02/03 adapter waves registered LV/SK/SI/HR/GR/BG rows whose `contains` is
+// `claimsNation(cc)` — false everywhere while their ISO3 was a refusal-only neighbour (LVA/SVK/
+// SVN) or absent (HRV/GRC/BGR). This wave promoted all six (each has a LIVE-PROVEN parcel
+// channel: Rīga 01000070006 · Bratislava 2090872505 · Ljubljana KO/ST · Zagreb k.č. 2379 CENTAR ·
+// Athens KAEK 050095701001 · Sofia 68134.100.5), so the rows must now be the FIRST candidate at
+// their capitals — and EXCLUSIVE there (the national claim removes every foreign rival).
+// ══════════════════════════════════════════════════════════════════════════════════════════════
+describe('BOUNDARY-WAVE — the six promoted rows are reachable and exclusive at their capitals', () => {
+    // proxyPath is the row's declared server route: lv/sk/si/hr/gr are WIRED server-side (lane
+    // PROXY-LEGS, euCadastreProxy.js); bg's leg is NOT yet wired — its declared path 404s and the
+    // match self-corrects to the footprint (the row's own documented state), never a dead click.
+    const PROMOTED: ReadonlyArray<readonly [string, number, number, string, string, string, string]> = [
+        ['Rīga', 56.9496, 24.1052, 'LV', 'lv-vzd-kadastrs-geolatvija', 'cadastral', '/api/parcel/lv'],
+        ['Bratislava', 48.1436, 17.1077, 'SK', 'sk-ugkk-eskn-kn-parcela-c', 'cadastral', '/api/parcel/sk'],
+        ['Ljubljana', 46.0569, 14.5058, 'SI', 'si-gurs-kn-parcele', 'cadastral', '/api/parcel/si'],
+        // HR flipped footprint→cadastral the same day: lane PROXY-LEGS live-proved /api/parcel/hr.
+        ['Zagreb', 45.8132, 15.9771, 'HR', 'hr-dgu-dkp-cp', 'cadastral', '/api/parcel/hr'],
+        ['Athens', 37.9755, 23.7348, 'GR', 'gr-ktimatologio-geotemaxia-leitourgoun', 'cadastral', '/api/parcel/gr'],
+        ['Sofia', 42.6975, 23.3223, 'BG', 'bg-gcca-inspire-cadastral-parcel', 'cadastral', '/api/parcel/bg'],
+    ];
+
+    for (const [name, lat, lon, cc, providerId, kind, proxyPath] of PROMOTED) {
+        it(`${name} routes FIRST to ${cc} (${providerId}) — delete the row and this fails`, () => {
+            const top = primary(lat, lon);
+            expect(top, `${name} matched no jurisdiction at all`).toBeDefined();
+            expect(top!.regionCode).toBe(cc);
+            expect(top!.providerId).toBe(providerId);
+            expect(top!.kind).toBe(kind);
+            expect(top!.proxyPath).toBe(proxyPath);
+            // EXCLUSIVE: a national claim filters the pool to the claimed country's rows only.
+            for (const offered of codes(lat, lon)) {
+                expect(offered, `${name} must offer only ${cc} rows`).toBe(cc);
+            }
+        });
+    }
+
+    it('the six are registered exactly once each', () => {
+        const all = listParcelJurisdictions().map((j) => j.regionCode);
+        for (const cc of ['LV', 'SK', 'SI', 'HR', 'GR', 'BG']) {
+            expect(all.filter((c) => c === cc), `${cc} row count`).toHaveLength(1);
+        }
+    });
+
+    it('no overreach through the ROUTER: Vienna/Budapest/Bucharest/Belgrade offer NONE of the six', () => {
+        // HU and RO rows exist but stay dormant (HU: sample-only cadastre; RO: NXDOMAIN service) —
+        // their capitals must offer no promoted-country row, and no promoted row may cross a border.
+        for (const [name, lat, lon] of [
+            ['Vienna', 48.2082, 16.3738],
+            ['Budapest', 47.4979, 19.0402],
+            ['Bucuresti', 44.4268, 26.1025],
+            ['Beograd', 44.7866, 20.4489],
+            ['Istanbul', 41.0082, 28.9784],
+        ] as const) {
+            const offered = codes(lat, lon);
+            for (const cc of ['LV', 'SK', 'SI', 'HR', 'GR', 'BG']) {
+                expect(offered, `${name} must not be offered ${cc}`).not.toContain(cc);
+            }
+        }
+    });
+
+    it('the SK↔HU border band refuses nationally, so NEITHER bank is offered the other country', () => {
+        // Komárno (SK, 208 m from HUN) refuses → the pool falls back to bbox rows, none of which
+        // is a promoted national row; Esztergom (HU bank) likewise. Never a cross-border cadastre.
+        for (const [name, lat, lon] of [
+            ['Komárno (SK bank)', 47.7633, 18.1281],
+            ['Esztergom (HU bank)', 47.7856, 18.7403],
+        ] as const) {
+            const offered = codes(lat, lon);
+            expect(offered, name).not.toContain('SK');
+            expect(offered, name).not.toContain('HU');
+        }
+    });
+});

@@ -57,8 +57,8 @@ export const GREECE_BBOX: Bbox = { minLat: 34.7, maxLat: 41.8, minLon: 19.3, max
  * True when a WGS84 point falls inside {@link GREECE_BBOX}. Pure; never throws.
  *
  * ⛔ NOT A ROUTING PREDICATE. The registry row's `contains` is `claimsNation('GR')`, decided on
- * boundary geometry by the national-jurisdiction resolver (which does not yet model GR — see the
- * header). This helper exists for the specificity metric and for tests that need to name a Greek
+ * boundary geometry by the national-jurisdiction resolver (GRC modelled since the 2026-09-03
+ * boundary wave). This helper exists for the specificity metric and for tests that need to name a Greek
  * point without invoking the resolver; using it to route would be exactly the L-12871 defect.
  */
 export function isInGreece(lat: number, lon: number): boolean {
@@ -93,4 +93,15 @@ export const GREECE_ROUTING_DEFERRAL = Object.freeze({
     ] as const,
     /** Assert-by date: after this the routing deferral is a decision that must be re-taken. */
     reviewBy: '2027-03-01',
+    /**
+     * ⭐ PARTIALLY RETIRED 2026-09-03 (lane BOUNDARY-WAVE): retiredBy[0] landed — GRC entered
+     * jurisdiction/data/nationalBoundaries.json as a claimable country (regionCode 'GR', ne_10m
+     * pipeline validated against the SI lane's fixture) together with its land neighbours
+     * ALB/MKD/TUR as refusal-only members (BGR promoted claimable in the same wave), and
+     * ['GRC', isInGreece] entered CANDIDATE_PREFILTERS. Athens/Thessaloniki/Heraklion/Rhodes now
+     * CLAIM GR; Edirne/İzmir/Kaş refuse naming TUR. retiredBy[1] ALSO landed 2026-09-03 — lane
+     * PROXY-LEGS wired the euCadastreProxy.js `gr` row, so /api/parcel/gr serves clicks. Both
+     * halves closed; the record stays as dated history.
+     */
+    boundaryRetiredOn: '2026-09-03',
 });

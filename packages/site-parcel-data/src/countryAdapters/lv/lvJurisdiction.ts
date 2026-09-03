@@ -82,10 +82,12 @@ export function isInLatvia(lat: number, lon: number): boolean {
  * same computation, kept here as well so the adapter is self-contained and its dormancy is
  * testable in isolation. Pure; never throws.
  *
- * ⚠ RETURNS FALSE EVERYWHERE TODAY (GATE 2): LVA is a REFUSAL-ONLY NEIGHBOUR in the resolver's
- * boundary set, not a claimable country, so every Latvian point REFUSES
- * (`claimed-by-unmodelled-neighbour`). See {@link LV_JURISDICTION_DEFERRAL}. This is deliberate
- * and documented, not a defect to route around.
+ * ⭐ LIVE SINCE 2026-09-03 (lane BOUNDARY-WAVE): LVA was PROMOTED from refusal-only neighbour to
+ * claimable country (rings verbatim, regionCode 'LV') and `['LVA', isInLatvia]` entered the
+ * resolver pre-filters, exactly as {@link LV_JURISDICTION_DEFERRAL}.retiredBy specified — with no
+ * edit to this adapter's parcel leg. Rīga/Daugavpils/Liepāja now CLAIM LV by polygon containment;
+ * border-band points (Valka, 452 m from the EST boundary) still refuse within-tolerance, which is
+ * the dataset being honest, not a routing defect.
  */
 export function claimsLatvia(lat: number, lon: number): boolean {
     if (!Number.isFinite(lat) || !Number.isFinite(lon)) return false;
@@ -122,4 +124,11 @@ export const LV_JURISDICTION_DEFERRAL = Object.freeze({
     reviewBy: '2026-12-01',
     /** ⭐ Distinct from RO: the parcel SERVICE is NOT gated — only this routing predicate is dormant. */
     serviceGate: 'NONE — VZD/geolatvija vraa:parcel WFS live + keyless, probed 2026-09-03 at Rīga',
+    /**
+     * ⭐ RETIRED 2026-09-03 (lane BOUNDARY-WAVE): the exact retiredBy steps landed — LVA promoted
+     * neighbours→countries (regionCode 'LV'), ['LVA', isInLatvia] added to CANDIDATE_PREFILTERS,
+     * and the resolver test moved Rīga/Daugavpils to LV claims. The record stays as the dated
+     * history of the gate; `claimsLatvia` is live.
+     */
+    retiredOn: '2026-09-03',
 });

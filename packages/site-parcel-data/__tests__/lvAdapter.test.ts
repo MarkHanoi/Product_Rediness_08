@@ -17,6 +17,7 @@ import {
     lvCountryAdapter,
     lvWfsGetFeatures,
     parseLvParcelFeature,
+    pickLvParcelFeature,
     resolveLvParcelAtWgs84Point,
     resolveLvParcelByCode,
     type LvWfsDeps,
@@ -79,13 +80,38 @@ describe('LV parcel provider — the live click path (recorded)', () => {
         expect(lat).toBeLessThan(57.1);
     });
 
-    it('at a WGS84 point (the map click) → found, a real land-unit code', async () => {
+    it('at a WGS84 point (the map click) → found, the CONTAINING land-unit — never features[0]', async () => {
+        // ⛔ THE MIS-SELECT THIS PINS (fixed 2026-09-03, lanes PROXY-LEGS + BOUNDARY-WAVE): the
+        // recorded Rīga bbox body holds FIVE candidates in feature-id order; features[0] is
+        // 01000492026 — a 439 882 m² public-domain polygon that does NOT contain the click. The
+        // true container is 01000070008 (Doma laukums 4) — the LAST feature. First-feature
+        // selection returned the wrong parcel; point-in-polygon selection must win.
         const deps = makeFetch([['bbox', 200, FX.parcelsAtPoint]]);
         const out = await resolveLvParcelAtWgs84Point(56.9497, 24.1038, deps);
         expect(out.status).toBe('found');
         if (out.status !== 'found') return;
+        expect(out.value.cadastralCode).toBe('01000070008');
         expect(out.value.cadastralCode).toMatch(/^\d{11}$/);
         expect(out.value.crs).toBe('EPSG:4326');
+        // The falsification control: the first-feature answer is a DIFFERENT, non-containing parcel.
+        const first = (FX.parcelsAtPoint as { features: Array<{ properties: { code?: string } }> })
+            .features[0]!.properties.code;
+        expect(first).toBe('01000492026');
+        expect(out.value.cadastralCode).not.toBe(first);
+    });
+
+    it('pickLvParcelFeature: containment wins; a road click still yields the nearest parcel', () => {
+        const features = (FX.parcelsAtPoint as { features: LvWfsFeature[] }).features;
+        // Containment at the recorded click point:
+        const hit = pickLvParcelFeature(features, 56.9497, 24.1038);
+        expect(hit?.properties['code']).toBe('01000070008');
+        // A point just outside every candidate ring (mid-square) still picks a real neighbour by
+        // nearest centroid — never null while usable rings exist, never a fabricated parcel:
+        const near = pickLvParcelFeature(features, 56.9494, 24.1045);
+        expect(near).not.toBeNull();
+        expect(typeof near?.properties['code']).toBe('string');
+        // No usable rings → null (the caller classifies, never invents):
+        expect(pickLvParcelFeature([], 56.9497, 24.1038)).toBeNull();
     });
 
     it('EMPTY vs FAILURE stay different values — a water point is ABSENT, not transient', async () => {
@@ -163,7 +189,7 @@ describe('LV §J adapter shape — parcel LIVE, rules honestly DEFERRED', () => 
     });
 });
 
-describe('LV routing — DORMANT on GATE 2 (the ONLY gate), never a rectangle router', () => {
+describe('LV routing — LIVE since the 2026-09-03 boundary wave (GATE 2 retired), never a rectangle router', () => {
     const RIGA: readonly [number, number] = [56.9496, 24.1052];
 
     it('LATVIA_BBOX contains Rīga (the specificity pre-filter), but a rectangle is not a claim', () => {
@@ -171,12 +197,15 @@ describe('LV routing — DORMANT on GATE 2 (the ONLY gate), never a rectangle ro
         expect(isInLatvia(48.8566, 2.3522)).toBe(false); // Paris
     });
 
-    it('claimsLatvia is FALSE at Rīga today — LVA is a refusal-only neighbour (GATE 2)', () => {
-        // This is the honest dormant state: the national resolver refuses at every Latvian point
-        // because LVA is modelled as a neighbour, not a country. Flips true only when a boundary
-        // wave promotes it — with no change to this adapter.
-        expect(claimsLatvia(RIGA[0], RIGA[1])).toBe(false);
-        expect(claimsLatvia(55.8714, 26.5161)).toBe(false); // Daugavpils
+    it('claimsLatvia is TRUE at Rīga and Daugavpils — LVA was promoted neighbour → country', () => {
+        // GATE 2 retired 2026-09-03 (lane BOUNDARY-WAVE): LVA moved from `neighbours` to
+        // `countries` (rings verbatim, regionCode 'LV') and ['LVA', isInLatvia] entered the
+        // resolver pre-filters — with NO change to this adapter, exactly as the deferral said.
+        expect(claimsLatvia(RIGA[0], RIGA[1])).toBe(true);
+        expect(claimsLatvia(55.8714, 26.5161)).toBe(true); // Daugavpils
+        // Foreign ground stays foreign: Vilnius is LT, Pskov is RU — never a LV claim.
+        expect(claimsLatvia(54.6872, 25.2797)).toBe(false); // Vilnius
+        expect(claimsLatvia(57.8136, 28.3496)).toBe(false); // Pskov
     });
 
     it('claimsLatvia is total — junk input never throws', () => {
@@ -184,9 +213,10 @@ describe('LV routing — DORMANT on GATE 2 (the ONLY gate), never a rectangle ro
         expect(claimsLatvia(0, Number.POSITIVE_INFINITY)).toBe(false);
     });
 
-    it('the deferral names the single gate and records that the SERVICE is open', () => {
+    it('the retired deferral stays as dated history: gate, open service, and the retirement', () => {
         expect(LV_JURISDICTION_DEFERRAL.gate).toContain('GATE 2');
         expect(LV_JURISDICTION_DEFERRAL.reviewBy).toBe('2026-12-01');
         expect(LV_JURISDICTION_DEFERRAL.serviceGate).toContain('NONE');
+        expect(LV_JURISDICTION_DEFERRAL.retiredOn).toBe('2026-09-03');
     });
 });

@@ -87,11 +87,13 @@ export function isInSlovakia(lat: number, lon: number): boolean {
  * same computation, kept here as well so the adapter is self-contained and its dormancy is testable
  * in isolation. Pure; never throws.
  *
- * ⚠ RETURNS FALSE EVERYWHERE TODAY: SVK is a REFUSAL-ONLY NEIGHBOUR (not a claimable country) in
- * the resolver's boundary set, so every Slovak point REFUSES — `no-national-candidate` at the
- * capital (no prefilter covers it), `claimed-by-unmodelled-neighbour` naming SVK at northern points
- * inside POLAND_BBOX (measured; see the header). See {@link SK_ROUTING_DEFERRAL}. This is
- * deliberate and documented, not a defect to route around.
+ * ⭐ LIVE SINCE 2026-09-03 (lane BOUNDARY-WAVE): SVK was PROMOTED from refusal-only neighbour to
+ * claimable country (rings verbatim, regionCode 'SK'), `['SVK', isInSlovakia]` entered the
+ * resolver pre-filters, and HUN entered the set as a refusal-only neighbour — the three
+ * {@link SK_ROUTING_DEFERRAL}.retiredBy steps, landed together, with no edit to the parcel leg.
+ * Bratislava/Košice/Žilina now CLAIM SK by polygon containment; Danube border towns
+ * (Komárno 208 m, Štúrovo 780 m from the HUN boundary) refuse within-tolerance naming HUN — the
+ * L-12887 border integrity the HUN neighbour exists to provide.
  */
 export function claimsSlovakia(lat: number, lon: number): boolean {
     if (!Number.isFinite(lat) || !Number.isFinite(lon)) return false;
@@ -129,4 +131,11 @@ export const SK_ROUTING_DEFERRAL = Object.freeze({
             'ship red-pin border tests for the SK↔HU/CZ/AT/PL/UA bands with that wave',
     ] as const,
     reviewBy: '2026-12-03',
+    /**
+     * ⭐ RETIRED 2026-09-03 (lane BOUNDARY-WAVE): all three retiredBy steps landed in one commit —
+     * SVK promoted neighbours→countries, the SVK prefilter added, HUN added refusal-only (from the
+     * SI lane's pipeline-validated ne_10m fixture), and the SK↔HU/CZ/AT/PL/UA red-pins shipped in
+     * the resolver + SK suites. The record stays as the dated history; `claimsSlovakia` is live.
+     */
+    retiredOn: '2026-09-03',
 });

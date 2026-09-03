@@ -178,18 +178,29 @@ describe('SI registry row — registered in FINAL form, DORMANT-BUT-SAFE today',
         expect(siRow!.providerId).toBe('si-gurs-kn-parcele');
         expect(siRow!.proxyPath).toBe('/api/parcel/si');
     });
-    it('is DORMANT today — a Ljubljana click offers NO Slovenian candidate, never a misroute', () => {
-        // claimsNation('SI') is false until SVN is promoted; the row matches nothing today.
+    it('is LIVE since 2026-09-03 — a Ljubljana click offers the SI row FIRST, and ONLY SI rows', () => {
+        // The queued promotion landed (lane BOUNDARY-WAVE): SVN neighbours → countries with the
+        // HRV/HUN neighbour integrity this suite's falsification control demanded (HRV arrived as
+        // a claimable country, HUN as a refusal-only neighbour). claimsNation('SI') is now true at
+        // Slovenian points and the national claim makes the SI row exclusive at the capital.
         const candidates = resolveParcelCandidates(LJUBLJANA.lat, LJUBLJANA.lon);
-        expect(candidates.some((c) => c.regionCode === 'SI')).toBe(false);
+        expect(candidates.length).toBeGreaterThan(0);
+        expect(candidates[0]!.regionCode).toBe('SI');
+        expect(candidates[0]!.providerId).toBe('si-gurs-kn-parcele');
+        expect(candidates.every((c) => c.regionCode === 'SI')).toBe(true);
     });
 });
 
 // ── THE LOAD-BEARING TEST — the QUEUED resolver/boundary promotion is CORRECT, and its neighbour-
 //    integrity requirement is REAL, both proven through the ACTUAL resolver with injected deps. ──
 describe('SI queued resolver promotion — proven correct, with a falsification control', () => {
+    // ⚠ RECONCILED 2026-09-03 (lane BOUNDARY-WAVE): the promotion this block PROVED has now
+    // LANDED, so `base.neighbours.SVN` no longer exists — the SVN rings live in `base.countries`.
+    // The block keeps proving the same two propositions with injected worlds built from those
+    // rings: (1) the promotion claims Slovenian cities, (2) WITHOUT the HRV/HUN rivals it annexes
+    // a Croatian border town — the L-12887 requirement the shipped wave satisfied.
     const base = NATIONAL_BOUNDARY_SET as NationalBoundarySet;
-    const svn = (base.neighbours as Record<string, unknown> | undefined)?.SVN as { rings: unknown };
+    const svn = (base.countries as Record<string, unknown>).SVN as { rings: unknown };
     const prefilters: ReadonlyArray<readonly [string, (a: number, b: number) => boolean]> = [
         ['ITA', isInItaly],
         ['SVN', isInSlovenia],

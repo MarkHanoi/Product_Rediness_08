@@ -41,21 +41,15 @@
 // §SEAM-E1BC-FETCHCHAIN (the EE seam, unchanged): when the shared SDK `CountryAdapter`/`fetchChain`
 // type lands, reconcile HERE (rename/wrap), never by editing core to match an adapter.
 
+// Only the names the ADAPTER VALUE below consumes are imported; everything else in this
+// directory reaches consumers through the re-export blocks at the bottom (the root tsc is
+// stricter than the package one — an import used only by a re-export is an unused local there).
 import type { SiteIntelSource } from '@pryzm/schemas';
 import {
-    SLOVAKIA_BBOX,
-    SK_ROUTING_DEFERRAL,
-    claimsSlovakia,
-    isInSlovakia,
-} from './skJurisdiction.js';
-import {
-    SK_PARCEL_PROVIDER_ID,
-    SK_PARCEL_PROVIDER_LABEL,
     resolveSkParcelAtWgs84Point,
     resolveSkParcelByRegisterCId,
-    type SkCadastralParcel,
 } from './skParcelProvider.js';
-import { SK_PARCEL_SOURCE_ID, SK_SOURCES } from './skSources.js';
+import { SK_SOURCES } from './skSources.js';
 
 /**
  * §J `precedence: ApplicabilityLadder` — Slovakia's, as DATA. It exists in LAW (územný plán obce /

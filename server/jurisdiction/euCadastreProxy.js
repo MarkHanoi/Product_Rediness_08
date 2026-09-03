@@ -502,7 +502,9 @@ function eeUrl(lat, lon) {
  * WFS 2.0, PROBED LIVE 2026-09-03 (founder click 49.61195,6.12926 → national_cadastral_reference
  * 075F00137000000; Esch-sur-Alzette 49.496,5.981 → 039A00606016640). Endpoint / layer / axis
  * mirror the LU package adapter (`countryAdapters/lu/luParcelProvider.ts`). TWO LU-specific
- * measured facts, both pinned by server/__tests__/luParcelProxy.test.ts:
+ * measured facts, both pinned by server/__tests__/euCadastreProxy.test.ts (the LU pins live
+ * there; a luParcelProxy.test.ts never existed — citation drift fixed 2026-09-03, lane
+ * BOUNDARY-WAVE, flagged by lane PROXY-LEGS deltas §5):
  *   • the urn AUTHORITY bbox is required — a CQL INTERSECTS reads the SRID-less literal in the
  *     layer's native EPSG:2169 and returns 0; the projected native CRS is also the bare-`EPSG:4326`
  *     silent-empty trap (the PT/EE gotcha), so the bbox carries urn:ogc:def:crs:EPSG::4326.

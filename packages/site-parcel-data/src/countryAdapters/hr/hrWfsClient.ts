@@ -22,6 +22,11 @@
 //      geometry stays native 3765 (`crs` echoed `urn:ogc:def:crs:EPSG::3765`), GeoJSON coords
 //      [easting, northing]. The adapter does NO projection of its own (the mml/dk lesson: a
 //      hand-rolled 3765 transform would be silently wrong; C58 §1.4).
+//      ⭐ MEASUREMENT ADDED 2026-09-03 (lane PROXY-LEGS): `srsName=EPSG:4326` IS honoured for
+//      OUTPUT too (crs echoed urn:…::4326, [lon,lat] degrees, identifiers intact) — the
+//      /api/parcel/hr proxy leg uses exactly that, so NO reprojection module exists anywhere.
+//      This adapter deliberately keeps the native-3765 request shape (fact 3 unchanged); "3765
+//      output" describes THIS module's no-srsName requests, never a limitation of the service.
 //   3. WGS84 ENTRY axis order: `bbox=<latMin>,<lonMin>,<latMax>,<lonMax>,urn:ogc:def:crs:EPSG::4326`
 //      — lat,lon (the urn/EPSG axis order). PROBED: a Zagreb click in this order returns the
 //      parcel; the OUTPUT stays native 3765 (measured).

@@ -24,6 +24,7 @@
 
 import { SpanStatusCode, trace } from '@opentelemetry/api';
 import { fetchTransient, type FetchOutcome } from '@pryzm/schemas';
+import { pointInRingsEvenOdd } from '../../geometry/pointInRingsEvenOdd.js';
 import {
     buildLvCqlUrl,
     buildLvWgs84BboxUrl,
@@ -94,22 +95,7 @@ export function parseLvParcelFeature(
     const p = feature.properties;
     const cadastralCode = str(p['code']);
     if (cadastralCode === null) return null;
-    const geom = feature.geometry;
-    const ring: Array<readonly [number, number]> = [];
-    if (geom && (geom.type === 'Polygon' || geom.type === 'MultiPolygon')) {
-        let coords: unknown = geom.coordinates;
-        if (geom.type === 'MultiPolygon' && Array.isArray(coords)) coords = coords[0];
-        const outer = Array.isArray(coords) ? coords[0] : null;
-        if (Array.isArray(outer)) {
-            for (const pair of outer) {
-                if (Array.isArray(pair) && pair.length >= 2) {
-                    const x = num(pair[0]);
-                    const y = num(pair[1]);
-                    if (x !== null && y !== null) ring.push([x, y] as const);
-                }
-            }
-        }
-    }
+    const ring = lvOuterRing(feature.geometry); // ONE ring extraction (shared with pickLvParcelFeature)
     if (ring.length < 3) return null;
     return {
         cadastralCode,
@@ -140,6 +126,65 @@ function firstParcelOutcome(
         return fetchTransient(`upstream-failed: unparsable vraa:parcel feature (${label})`);
     }
     return { status: 'found', value: parsed };
+}
+
+/** The outer [lon,lat] ring of a `vraa:parcel` feature's (Multi)Polygon, or [] when unusable. */
+export function lvOuterRing(
+    geom: LvWfsFeature['geometry'],
+): Array<readonly [number, number]> {
+    if (!geom || (geom.type !== 'Polygon' && geom.type !== 'MultiPolygon')) return [];
+    let coords: unknown = geom.coordinates;
+    if (geom.type === 'MultiPolygon' && Array.isArray(coords)) coords = coords[0];
+    const outer = Array.isArray(coords) ? coords[0] : null;
+    const ring: Array<readonly [number, number]> = [];
+    if (Array.isArray(outer)) {
+        for (const pair of outer) {
+            if (Array.isArray(pair) && pair.length >= 2) {
+                const x = num(pair[0]);
+                const y = num(pair[1]);
+                if (x !== null && y !== null) ring.push([x, y] as const);
+            }
+        }
+    }
+    return ring;
+}
+
+/**
+ * The click resolver's selection rule — the LU `pickCandidate` discipline (L-12930 family):
+ * the feature whose ring CONTAINS the point wins; else the nearest centroid (a road/boundary
+ * click still yields a real parcel). NEVER features[0]: the WFS returns feature-id order, not
+ * spatial order — MEASURED 2026-09-03 (lane PROXY-LEGS + lane BOUNDARY-WAVE) at the LV golden
+ * point (56.9497, 24.1038): features[0] is 01000492026, a 439 882 m² public-domain polygon that
+ * does NOT contain the click, while the true container is 01000070008 (Doma laukums 4). The
+ * containment test is the package's own even-odd solver, the same one the national resolver uses.
+ * Returns null only when no feature has a usable (≥3-vertex) ring.
+ */
+export function pickLvParcelFeature(
+    features: readonly LvWfsFeature[],
+    lat: number,
+    lon: number,
+): LvWfsFeature | null {
+    let nearest: LvWfsFeature | null = null;
+    let nearestD = Number.POSITIVE_INFINITY;
+    let sawRing = false;
+    for (const f of features) {
+        const ring = lvOuterRing(f.geometry);
+        if (ring.length < 3) continue;
+        sawRing = true;
+        if (pointInRingsEvenOdd({ x: lon, y: lat }, [ring])) return f;
+        let sx = 0;
+        let sy = 0;
+        for (const [x, y] of ring) {
+            sx += x;
+            sy += y;
+        }
+        const d = (sx / ring.length - lon) ** 2 + (sy / ring.length - lat) ** 2;
+        if (d < nearestD) {
+            nearestD = d;
+            nearest = f;
+        }
+    }
+    return sawRing ? nearest : null;
 }
 
 /**
@@ -173,7 +218,13 @@ export async function resolveLvParcelByCode(
 /**
  * Resolve a parcel at a WGS84 point (registry click path) via a tiny lat,lon urn-ordered bbox —
  * the server reprojects and returns WGS84 (lvWfsClient.ts measured fact 2); this module does NO
- * projection. The window is a click (~6 m half-width), not a search.
+ * projection. The window is a click (~11 m half-width, the LU-measured discipline), not a search.
+ *
+ * ⛔ SELECTION IS POINT-IN-POLYGON, NEVER features[0] (fixed 2026-09-03): with `count=1` +
+ * first-feature this path returned the ADJACENT parcel at the LV golden point — the WFS serves
+ * feature-id order, and a dense old-town bbox holds several candidates (the recorded Rīga fixture
+ * holds 5; the true container 01000070008 is LAST). `pickLvParcelFeature` selects the containing
+ * ring, else the nearest centroid — the same rule the /api/parcel/lv proxy leg uses.
  */
 export async function resolveLvParcelAtWgs84Point(
     lat: number,
@@ -184,21 +235,31 @@ export async function resolveLvParcelAtWgs84Point(
         try {
             span.setAttribute('lv.lat', lat);
             span.setAttribute('lv.lon', lon);
-            const d = 0.00006; // ~6 m half-window — a click, not a search
+            const d = 0.0001; // ~11 m half-window — small enough that `count` cannot truncate away the container
             const url = buildLvWgs84BboxUrl(
                 LV_PARCEL_LAYER,
                 lat - d,
                 lon - d,
                 lat + d,
                 lon + d,
-                1,
+                30,
             );
             const outcome = await lvWfsGetFeatures(
                 url,
                 `${LV_PARCEL_LAYER} @ ${lat.toFixed(6)},${lon.toFixed(6)}`,
                 deps,
             );
-            const result = firstParcelOutcome(outcome, `@${lat},${lon}`);
+            let result: FetchOutcome<LvCadastralParcel>;
+            if (outcome.status !== 'found') {
+                result = outcome;
+            } else {
+                const picked = pickLvParcelFeature(outcome.value, lat, lon);
+                const parsed = picked === null ? null : parseLvParcelFeature(picked);
+                result =
+                    parsed === null
+                        ? fetchTransient(`upstream-failed: unparsable vraa:parcel feature (@${lat},${lon})`)
+                        : { status: 'found', value: parsed };
+            }
             span.setStatus(
                 result.status === 'transient'
                     ? { code: SpanStatusCode.ERROR, message: result.reason }

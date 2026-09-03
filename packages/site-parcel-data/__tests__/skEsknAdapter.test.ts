@@ -83,37 +83,51 @@ describe('isInSlovakia — specificity-metric predicate (NOT a routing authority
     });
 });
 
-describe('the ROUTING deferral — SVK is a refusal-only neighbour, not a claimable country', () => {
-    it('resolveNationalJurisdiction does NOT claim SK at Bratislava or Košice (measured 2026-09-03)', () => {
+describe('the ROUTING promotion — SVK is a claimable country since the 2026-09-03 boundary wave', () => {
+    it('resolveNationalJurisdiction CLAIMS SK at Bratislava and Košice (measured 2026-09-03)', () => {
+        // The deferral's three retiredBy steps landed in one commit (lane BOUNDARY-WAVE):
+        // SVK neighbours → countries (rings verbatim), the ['SVK', isInSlovakia] prefilter, and
+        // HUN as a new refusal-only neighbour for the Danube border.
         for (const [lat, lon] of [[48.1436, 17.1077], [48.7164, 21.2611]] as const) {
             const v = resolveNationalJurisdiction(lat, lon);
-            // The whole point: the resolver never returns 'SK', so claimsNation('SK') is false.
-            expect(v.ok && v.regionCode === 'SK').toBe(false);
-            // MEASURED: the capital refuses `no-national-candidate` (no prefilter covers it).
-            expect(v.ok).toBe(false);
-            if (!v.ok) expect(v.reason).toBe('no-national-candidate');
+            expect(v.ok).toBe(true);
+            if (v.ok) {
+                expect(v.regionCode).toBe('SK');
+                expect(v.basis.kind).toBe('polygon-containment');
+            }
         }
     });
-    it('a northern Slovak point inside POLAND_BBOX refuses `claimed-by-unmodelled-neighbour` naming SVK (L-12887)', () => {
-        // Poprad (49.055,20.298) is inside POLAND_BBOX; the SVK neighbour polygon refuses the POL
-        // candidate rather than misrouting to Poland. This is why SVK belongs in the boundary set.
+    it('a northern Slovak point inside POLAND_BBOX now CLAIMS SVK — the same geometry that refused it now routes it', () => {
+        // Poprad (49.055,20.298) is inside POLAND_BBOX; before the wave the SVK NEIGHBOUR polygon
+        // refused the POL candidate (`claimed-by-unmodelled-neighbour` naming SVK). The identical
+        // ring, promoted, converts that refusal into the SK claim — never a POL misroute either way.
         const v = resolveNationalJurisdiction(49.055, 20.298);
+        expect(v.ok).toBe(true);
+        if (v.ok) expect(v.regionCode).toBe('SK');
+    });
+    it('the Danube border band refuses naming HUN — the neighbour the wave added for exactly this', () => {
+        // Komárno is 208 m from the HUN boundary (measured): inside the 1500 m band → refuse,
+        // detail naming the rival. HU stays refusal-only (its cadastre is sample-only).
+        const v = resolveNationalJurisdiction(47.7633, 18.1281);
         expect(v.ok).toBe(false);
         if (!v.ok) {
-            expect(v.reason).toBe('claimed-by-unmodelled-neighbour');
-            expect(v.detail).toContain('SVK');
+            expect(v.reason).toBe('within-dataset-tolerance-of-rival');
+            expect(v.detail).toContain('HUN');
         }
     });
-    it('claimsSlovakia is false at Bratislava (dormant until SVK is promoted)', () => {
-        expect(claimsSlovakia(48.1436, 17.1077)).toBe(false);
+    it('claimsSlovakia is true at Bratislava, false on foreign/junk input', () => {
+        expect(claimsSlovakia(48.1436, 17.1077)).toBe(true);
+        expect(claimsSlovakia(48.2082, 16.3738)).toBe(false); // Vienna
+        expect(claimsSlovakia(47.4979, 19.0402)).toBe(false); // Budapest
         expect(claimsSlovakia(Number.NaN, 20)).toBe(false);
     });
-    it('the deferral is stated as data with a named retirement + reviewBy (the SE pattern)', () => {
+    it('the deferral record survives as dated history: declaredOn, retiredBy, and the retirement', () => {
         expect(SK_ROUTING_DEFERRAL.declaredOn).toBe('2026-09-03');
         expect(SK_ROUTING_DEFERRAL.reviewBy).toBe('2026-12-03');
         expect(SK_ROUTING_DEFERRAL.retiredBy.length).toBe(3); // promote SVK + prefilter + HUN neighbour
         expect(SK_ROUTING_DEFERRAL.evidence).toMatch(/claimed-by-unmodelled-neighbour/);
         expect(SK_ROUTING_DEFERRAL.evidence).toMatch(/SVK/);
+        expect(SK_ROUTING_DEFERRAL.retiredOn).toBe('2026-09-03');
     });
 });
 

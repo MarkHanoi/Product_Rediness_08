@@ -1,6 +1,6 @@
 // LANE GR — GREECE adapter: the parcel arm (Hellenic Cadastre operating cadastre, ArcGIS Online),
 // the FetchOutcome classification (found / absent / transient — DIFFERENT VALUES), the routing
-// deferral (GR not modelled by the national resolver -> claimsNation('GR') inert), and the
+// promotion (GRC claimable since the 2026-09-03 boundary wave -> claimsNation('GR') live), and the
 // documents-only rules stance.
 //
 // Fixtures are RECORDED LIVE 2026-09-03 bodies (fixtures/gr-athens-2026-09-03/*.json). Every test
@@ -78,19 +78,30 @@ describe('isInGreece — specificity-metric predicate (NOT a routing authority)'
     });
 });
 
-describe('the ROUTING deferral — GR is not modelled by the national resolver', () => {
-    it('resolveNationalJurisdiction does NOT claim GR at Athens or Thessaloniki (measured live 2026-09-03)', () => {
+describe('the ROUTING promotion — GRC is modelled by the national resolver since 2026-09-03', () => {
+    it('resolveNationalJurisdiction CLAIMS GR at Athens and Thessaloniki (measured 2026-09-03)', () => {
+        // retiredBy[0] of the deferral landed (lane BOUNDARY-WAVE): GRC entered the boundary set
+        // as a claimable country with its ALB/MKD/TUR land neighbours refusal-only (BGR claimable
+        // in the same wave), so claimsNation('GR') is now true at Greek points.
         for (const [lat, lon] of [[37.9755, 23.7348], [40.6401, 22.9444]] as const) {
             const v = resolveNationalJurisdiction(lat, lon);
-            // The whole point: the resolver never returns 'GR', so claimsNation('GR') is false.
-            expect(v.ok && v.regionCode === 'GR').toBe(false);
+            expect(v.ok).toBe(true);
+            if (v.ok) expect(v.regionCode).toBe('GR');
         }
     });
-    it('the deferral is stated as data with a named retirement + reviewBy (the SE pattern)', () => {
+    it('no overreach: the Turkish coast refuses naming TUR, never a GR claim', () => {
+        for (const [lat, lon] of [[38.4237, 27.1428], [41.6771, 26.5557]] as const) { // İzmir, Edirne
+            const v = resolveNationalJurisdiction(lat, lon);
+            expect(v.ok).toBe(false);
+            if (!v.ok) expect(v.detail).toContain('TUR');
+        }
+    });
+    it('the deferral record survives as dated history (BOTH halves closed 2026-09-03: boundary + gr proxy)', () => {
         expect(GREECE_ROUTING_DEFERRAL.declaredOn).toBe('2026-09-03');
         expect(GREECE_ROUTING_DEFERRAL.reviewBy).toBe('2027-03-01');
         expect(GREECE_ROUTING_DEFERRAL.retiredBy.length).toBe(2); // resolver boundary + proxy row
         expect(GREECE_ROUTING_DEFERRAL.evidence).toMatch(/no-national-candidate/);
+        expect(GREECE_ROUTING_DEFERRAL.boundaryRetiredOn).toBe('2026-09-03'); // boundary landed; PROXY-LEGS wired /api/parcel/gr the same day
     });
 });
 

@@ -912,6 +912,30 @@ export {
     type PlPogWithheldReason,
     type PlPogEnvelopeResolution,
 } from './rulepacks/plPogEnvelope.js';
+// ── LANE LU-ENVELOPE (2026-09-03) — LUXEMBOURG PAG NQ-PAP degré-d'utilisation coefficients →
+//    envelope COMPILED FACTS (Type-B COMPILE; CENSUS.md row 12). ⛔ NOTHING BINDS: COS/CSS are
+//    ratios over the terrain à bâtir NET and CUS/DL over the BRUT (planning constructs, no area
+//    served — C63), Art. 26 makes every value a zone AVERAGE lots may exceed, no vertical axis is
+//    served, and LU_PAG_CERTIFIED is BORN SHUT (L-449, signature: null). The record feeds the
+//    engine NO number (status 'none' — draws nothing, cannot overstate); facts ride the citation. ──
+export {
+    LU_PAG_JURISDICTION_ID,
+    LU_PAG_DEFAULT_ZONE_CODE,
+    LU_PAG_CERTIFIED,
+    LU_PAG_UNCERTIFIED_CAVEAT,
+    LU_PAG_ENVELOPE_REF,
+    resolveLuPagEnvelope,
+    luPagFieldsFromNqPapRow,
+    luPagCitationFromNqPapRow,
+    luPagFromInspireWfsFeature,
+    luPagZoningRecord,
+    luPagZoningRecordFromInspireWfsFeature,
+    type LuPagFields,
+    type LuPagCitation,
+    type LuPagWithheldReason,
+    type LuPagCompiledFact,
+    type LuPagEnvelopeResolution,
+} from './rulepacks/luPagEnvelope.js';
 export { isInDenmark, DENMARK_BBOX } from './providers/denmarkBbox.js';
 // ── ADR-0271 — Barcelona metropolitan jurisdiction gate (bbox). ──
 export { isInBarcelona, BARCELONA_BBOX } from './providers/barcelonaBbox.js';

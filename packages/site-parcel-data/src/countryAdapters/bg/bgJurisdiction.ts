@@ -54,8 +54,8 @@ export const BULGARIA_BBOX: Bbox = { minLat: 41.2, maxLat: 44.25, minLon: 22.3, 
  * True when a WGS84 point falls inside {@link BULGARIA_BBOX}. Pure; never throws.
  *
  * ⛔ NOT A ROUTING PREDICATE. The registry row's `contains` is `claimsNation('BG')`, decided on
- * boundary geometry by the national-jurisdiction resolver (which does not yet model BG — see the
- * header). This helper exists for the specificity metric and for tests that need to name a Bulgarian
+ * boundary geometry by the national-jurisdiction resolver (BGR modelled since the 2026-09-03
+ * boundary wave). This helper exists for the specificity metric and for tests that need to name a Bulgarian
  * point without invoking the resolver; using it to route would be exactly the L-12871 defect.
  */
 export function isInBulgaria(lat: number, lon: number): boolean {
@@ -95,4 +95,14 @@ export const BG_ROUTING_DEFERRAL = Object.freeze({
     ] as const,
     /** Assert-by date: after this the routing deferral is a decision that must be re-taken. */
     reviewBy: '2027-03-01',
+    /**
+     * ⭐ PARTIALLY RETIRED 2026-09-03 (lane BOUNDARY-WAVE): retiredBy[0] landed — BGR entered
+     * jurisdiction/data/nationalBoundaries.json as a claimable country (regionCode 'BG') WITH the
+     * L-12887 neighbour integrity it demanded: SRB/ROU/MKD/TUR as refusal-only members and GRC
+     * claimable in the same wave. ['BGR', isInBulgaria] entered CANDIDATE_PREFILTERS.
+     * Sofia/Plovdiv/Varna/Ruse now CLAIM BG; Giurgiu (RO bank of the Danube) refuses naming ROU.
+     * retiredBy[1] (the /api/parcel/bg server proxy) is STILL OPEN — until it lands a BG match
+     * self-corrects to the footprint on the proxy 404.
+     */
+    boundaryRetiredOn: '2026-09-03',
 });

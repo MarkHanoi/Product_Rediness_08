@@ -113,6 +113,19 @@ import { isInSweden } from '../countryAdapters/se/seJurisdiction.js';
 // Saudi or footprint-labelled Saudi). All four are DEFERRALS at the parcel axis; the CLAIM is used
 // only to route + to refuse a border band, exactly as for LU/SE.
 import { isInUAE, isInKuwait, isInBahrain, isInOman } from '../countryAdapters/gulf/gulfJurisdiction.js';
+// LANE BOUNDARY-WAVE (2026-09-03) — the six dormant-adapter countries promoted to claimable.
+// LVA/SVK/SVN were refusal-only neighbours (promoted rings verbatim); HRV/GRC/BGR are new members
+// (same pinned ne_10m source, re-verified byte-identical). Every one of the six carries a
+// LIVE-PROVEN keyless parcel channel (Rīga / Bratislava / Ljubljana / Zagreb / Athens / Sofia —
+// per-lane transcripts under audit/europe-adapters-2/2026-09-02/). Their land neighbours
+// HUN/SRB/BIH/MNE/ALB/MKD/ROU/TUR entered the set as refusal-only members in the same commit —
+// promoting a country without its rivals is the L-12887 annexation defect.
+import { isInLatvia } from '../countryAdapters/lv/lvJurisdiction.js';
+import { isInSlovakia } from '../countryAdapters/sk/skJurisdiction.js';
+import { isInSlovenia } from '../countryAdapters/si/siJurisdiction.js';
+import { isInCroatia } from '../countryAdapters/hr/hrJurisdiction.js';
+import { isInGreece } from '../countryAdapters/gr/grJurisdiction.js';
+import { isInBulgaria } from '../countryAdapters/bg/bgJurisdiction.js';
 
 const _tracer = trace.getTracer('pryzm.jurisdiction');
 
@@ -124,8 +137,10 @@ interface CountryGeometry {
 }
 
 /**
- * L-12887 — a REFUSAL-ONLY member: the boundary of an UN-MODELLED land neighbour (CZE, LVA, BEL,
- * AUT, LIE, RUS, BLR, AND, MCO, SMR, SVN, MAR + the same-class SVK, UKR, GIB, VAT). A neighbour
+ * L-12887 — a REFUSAL-ONLY member: the boundary of an UN-MODELLED land neighbour (CZE, BEL, AUT,
+ * LIE, RUS, BLR, AND, MCO, SMR, MAR + the same-class UKR, GIB, VAT, and — since the 2026-09-03
+ * boundary wave — HUN, SRB, BIH, MNE, ALB, MKD, ROU, TUR; LVA/SVK/SVN were PROMOTED out of this
+ * set to claimable countries by that wave). A neighbour
  * can never be CLAIMED — no cadastre is registered for it — it exists so that a point on its
  * territory is refused BY NAME instead of annexed to the nearest modelled country. Without these,
  * the nearest-polygon coastal rescue had no rival to lose to wherever the true owner was absent
@@ -198,6 +213,13 @@ const CANDIDATE_PREFILTERS: ReadonlyArray<readonly [string, (lat: number, lon: n
     ['KWT', isInKuwait],
     ['BHR', isInBahrain],
     ['OMN', isInOman],
+    // LANE BOUNDARY-WAVE (2026-09-03) — pre-filters ONLY; countries.<ISO3> geometry decides.
+    ['LVA', isInLatvia],
+    ['SVK', isInSlovakia],
+    ['SVN', isInSlovenia],
+    ['HRV', isInCroatia],
+    ['GRC', isInGreece],
+    ['BGR', isInBulgaria],
 ];
 
 /** Why a national-jurisdiction resolution refused. Closed vocabulary — operationally distinct. */

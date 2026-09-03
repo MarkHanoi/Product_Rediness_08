@@ -112,14 +112,14 @@ import {
 // LANE RO (2026-09-03) — SPECIFICITY-ONLY box for the DORMANT Romania row (contains is
 // claimsNation('RO'), never this rectangle; the resolver decides). Imported for REGION_BBOX only.
 import { ROMANIA_BBOX } from '../countryAdapters/ro/roJurisdiction.js';
-// LANE LV (2026-09-03) — SPECIFICITY-ONLY box for the DORMANT Latvia row (contains is
+// LANE LV (2026-09-03; LIVE since the 2026-09-03 boundary wave) — SPECIFICITY-ONLY box for the Latvia row (contains is
 // claimsNation('LV'), never this rectangle; the resolver decides). Imported for REGION_BBOX only.
 import { LATVIA_BBOX } from '../countryAdapters/lv/lvJurisdiction.js';
 import { GREECE_BBOX } from '../countryAdapters/gr/grJurisdiction.js';
-// LANE BG (2026-09-03) — SPECIFICITY-ONLY box for the DORMANT Bulgaria row (contains is
+// LANE BG (2026-09-03; LIVE since the 2026-09-03 boundary wave) — SPECIFICITY-ONLY box for the Bulgaria row (contains is
 // claimsNation('BG'), never this rectangle; the resolver decides). Imported for REGION_BBOX only.
 import { BULGARIA_BBOX } from '../countryAdapters/bg/bgJurisdiction.js';
-// LANE SK (2026-09-03) — SPECIFICITY-ONLY box for the DORMANT Slovakia row (contains is
+// LANE SK (2026-09-03; LIVE since the 2026-09-03 boundary wave) — SPECIFICITY-ONLY box for the Slovakia row (contains is
 // claimsNation('SK'), never this rectangle; the resolver decides). Imported for REGION_BBOX only.
 import { SLOVAKIA_BBOX } from '../countryAdapters/sk/skJurisdiction.js';
 // LANE AU-OPEN (2026-09-03) — AUSTRALIA's six open states + two declared deferrals. Sub-national
@@ -324,21 +324,20 @@ const PARCEL_JURISDICTIONS: readonly ParcelJurisdiction[] = [
     {
         // LANE HR (2026-09-03). The Croatian cadastre IS live + keyless — countryAdapters/hr/
         // resolveHrParcelAtWgs84Point PROVED a real Zagreb parcel (k.č. 2379, k.o. CENTAR 335240)
-        // through DGU/Uređena zemlja cp_wms:CP.CadastralParcel this session. Registered as a
-        // footprint-fallback (not `cadastral`) because BOTH downstream wirings are pending: (a) no
-        // same-origin server proxy /api/parcel/hr is wired yet, and (b) the national resolver has
-        // NO HRV geometry, so `claimsNation('HR')` is false everywhere today — the row is
-        // correct-by-construction and can NEVER misroute (the resolver can't emit 'HR' without the
-        // geometry), and it goes live the moment the declared resolver-wiring lands. providerId is
-        // reserved by hrParcelProvider.ts so the row and the adapter cannot drift (the SE pattern).
+        // through DGU/Uređena zemlja cp_wms:CP.CadastralParcel. Registered 2026-09-03 as a
+        // footprint-fallback with BOTH downstream wirings declared-deferred; BOTH cleared the SAME
+        // DAY — (a) lane PROXY-LEGS wired + live-proved /api/parcel/hr (srsName=EPSG:4326 output,
+        // 161-vert WGS84 ring), (b) lane BOUNDARY-WAVE promoted HRV to a claimable country — so
+        // the row is now `cadastral` with its proxy seat (barrel-additions-hr.txt step (vi)).
+        // providerId is reserved by hrParcelProvider.ts so the row and the adapter cannot drift.
         regionCode: 'HR',
         countryName: 'Croatia',
         providerId: 'hr-dgu-dkp-cp',
         label: 'Katastarska čestica (Croatia · DGU / Uređena zemlja DKP)',
-        proxyPath: null,
-        kind: 'footprint-fallback',
+        proxyPath: '/api/parcel/hr',
+        kind: 'cadastral',
         contains: claimsNation('HR'),
-        note: 'Croatia IS served KEYLESSLY: DGU/Uređena zemlja INSPIRE GeoServer cp_wms:CP.CadastralParcel (api.uredjenazemlja.hr/services/inspire/cp_wms/wfs, WFS 2.0.0, EPSG:3765) — live-probed 2026-09-03 by lane HR (Zagreb → BROJ_CESTICE 2379 / MATICNI_BROJ_KO 335240 (k.o. CENTAR) / ID 21609461, real Polygon; countryAdapters/hr/hrParcelProvider.ts carries the parser + transcripts audit/europe-adapters-2/2026-09-02/hr-transcripts/). The standards INSPIRE cp:CadastralParcel complex WFS is ORA-01000-degraded (app-schema cursor saturation), so the simple cp_wms channel is used. TWO wirings are DECLARED-DEFERRED, gate named: (1) server proxy /api/parcel/hr NOT wired (euCadastreProxy.js); (2) nationalJurisdictionResolver has NO HRV country geometry, so claimsNation("HR") is false until HRV + HR land-neighbour (HUN/SRB/BIH/MNE) geometry is added to jurisdiction/data/nationalBoundaries.json + CANDIDATE_PREFILTERS (a shared-decider lane with red-pin border tests; barrel-additions-hr.txt §3). reviewBy 2026-10-03. Until then HR clicks fall to the OSM footprint, never a fabricated parcel.',
+        note: 'Croatia IS served KEYLESSLY: DGU/Uređena zemlja INSPIRE GeoServer cp_wms:CP.CadastralParcel (api.uredjenazemlja.hr/services/inspire/cp_wms/wfs, WFS 2.0.0, EPSG:3765) — live-probed 2026-09-03 by lane HR (Zagreb → BROJ_CESTICE 2379 / MATICNI_BROJ_KO 335240 (k.o. CENTAR) / ID 21609461, real Polygon; countryAdapters/hr/hrParcelProvider.ts carries the parser + transcripts audit/europe-adapters-2/2026-09-02/hr-transcripts/). The standards INSPIRE cp:CadastralParcel complex WFS is ORA-01000-degraded (app-schema cursor saturation), so the simple cp_wms channel is used. BOTH declared-deferred wirings CLEARED 2026-09-03: (1) lane PROXY-LEGS wired /api/parcel/hr in euCadastreProxy.js and LIVE-PROVED it (Zagreb through the leg -> k.č. 2379, k.o. 335240, 161-vertex WGS84 ring; cp_wms honours srsName=EPSG:4326 for OUTPUT — measured, correcting the HR-lane native-3765-only belief — so no reprojection module exists anywhere); (2) lane BOUNDARY-WAVE: HRV entered nationalBoundaries.json as a claimable country (regionCode "HR", the SI lane\'s pipeline-validated ne_10m rings) with HUN/SRB/BIH/MNE refusal-only land neighbours + the ["HRV", isInCroatia] prefilter and red-pin border tests, so claimsNation("HR") now claims Croatian points (Zagreb/Split/Osijek/Dubrovnik proven) and a Zagreb click routes HERE — cadastral, through the live proxy leg (the step (vi) flip, done). reviewBy 2026-10-03 stands only for the rules leg (none served; documents-only).',
     },
     {
         regionCode: 'LT',
@@ -389,8 +388,8 @@ const PARCEL_JURISDICTIONS: readonly ParcelJurisdiction[] = [
     },
     {
         // LANE SI (europe-adapters-2, 2026-09-03) — SLOVENIA, registered in FINAL form: the parcel
-        // service is LIVE + KEYLESS and proven at the capital, so this is a `cadastral` row whose
-        // gate is a single-line resolver flip, never a misroute today (the LV/EE precedent).
+        // service is LIVE + KEYLESS and proven at the capital, so this is a `cadastral` row. The
+        // resolver gate CLEARED 2026-09-03 (lane BOUNDARY-WAVE): SVN is claimable, this row ROUTES.
         regionCode: 'SI',
         countryName: 'Slovenia',
         providerId: 'si-gurs-kn-parcele',
@@ -398,7 +397,7 @@ const PARCEL_JURISDICTIONS: readonly ParcelJurisdiction[] = [
         proxyPath: '/api/parcel/si',
         kind: 'cadastral',
         contains: claimsNation('SI'),
-        note: 'Slovenia IS served KEYLESSLY: the GURS Kataster nepremičnin GeoServer WFS (https://ipi.eprostor.gov.si/wfs-si-gurs-kn/ows, layer SI.GURS.KN:PARCELE, native EPSG:3794 / CC-BY-4.0) resolves the real cadastral parcel at a WGS84 point with no credential — LIVE-PROBED 2026-09-03 by lane SI (capital click Ljubljana 46.0569,14.5058 → KO_ID 1725 "1725 AJDOVŠČINA" ST_PARCELE 2468/4, EID_PARCELA 100100001379837235, POVRSINA 1896 m²; a WGS84 lat,lon urn bbox is reprojected server-side and srsName=EPSG:4326 returns a WGS84 ring; countryAdapters/si/siParcelProvider.ts carries the parser, __tests__/fixtures/si-ljubljana/ the recorded body). DORMANT ON THE RESOLVER-GEOMETRY GATE (the only gate here): SVN is a refusal-only NEIGHBOUR in jurisdiction/data/nationalBoundaries.json, not a claimable country, so claimsNation("SI") is FALSE everywhere and this row matches nothing until a boundary wave PROMOTES SVN to .countries (regionCode "SI") + adds ["SVN", isInSlovenia] to the resolver prefilters — the single-line flip EE/LT/PL/LU/SE got 2026-09-02. ⚠ NEIGHBOUR-INTEGRITY REQUIREMENT (MEASURED with the real resolver via injected deps, 2026-09-03): promoting SVN ALONE annexes 7/10 border-hugging Croatian/Hungarian points to SI (the L-12887 defect); the promotion must land TOGETHER with Croatia + Hungary as resolver members — which the concurrent HR + HU lanes are already promoting to CLAIMABLE COUNTRIES (so no HRV/HUN neighbours are needed once all three land together; a stop-gap HRV/HUN neighbour ring set is provided in case SI lands alone). With that, 25/26 witnesses are correct and the one residual (a sub-1500 m Kolpa-river point) is the documented ne_10m tolerance floor, same class as the DE/PL Oder band. Ready-to-apply resolver + boundaries + euCadastreProxy.js si-row additions are queued for the orchestrator in audit/europe-adapters-2/2026-09-02/barrel-additions-si.txt (reviewBy 2026-12-01). ⚠ Proxy /api/parcel/si not yet wired server-side → even once the gate clears, a click resolves null → OSM footprint until the euCadastreProxy.js si row lands. Registered in FINAL form so clearing the gate is a single-line flip and never a misroute today (a Slovenian click falls to the universal footprint exactly as before).',
+        note: 'Slovenia IS served KEYLESSLY: the GURS Kataster nepremičnin GeoServer WFS (https://ipi.eprostor.gov.si/wfs-si-gurs-kn/ows, layer SI.GURS.KN:PARCELE, native EPSG:3794 / CC-BY-4.0) resolves the real cadastral parcel at a WGS84 point with no credential — LIVE-PROBED 2026-09-03 by lane SI (capital click Ljubljana 46.0569,14.5058 → KO_ID 1725 "1725 AJDOVŠČINA" ST_PARCELE 2468/4, EID_PARCELA 100100001379837235, POVRSINA 1896 m²; a WGS84 lat,lon urn bbox is reprojected server-side and srsName=EPSG:4326 returns a WGS84 ring; countryAdapters/si/siParcelProvider.ts carries the parser, __tests__/fixtures/si-ljubljana/ the recorded body). GATE CLEARED 2026-09-03 (lane BOUNDARY-WAVE): SVN was PROMOTED from refusal-only neighbour to claimable country (regionCode "SI", rings verbatim) + ["SVN", isInSlovenia] entered the resolver prefilters, so claimsNation("SI") now claims Slovenian points and a Ljubljana click routes HERE exclusively. ⚠ NEIGHBOUR-INTEGRITY REQUIREMENT (MEASURED with the real resolver via injected deps, 2026-09-03): promoting SVN ALONE annexes 7/10 border-hugging Croatian/Hungarian points to SI (the L-12887 defect); the promotion must land TOGETHER with Croatia + Hungary as resolver members — which the concurrent HR + HU lanes are already promoting to CLAIMABLE COUNTRIES (so no HRV/HUN neighbours are needed once all three land together; a stop-gap HRV/HUN neighbour ring set is provided in case SI lands alone). With that, 25/26 witnesses are correct and the one residual (a sub-1500 m Kolpa-river point) is the documented ne_10m tolerance floor, same class as the DE/PL Oder band. Ready-to-apply resolver + boundaries + euCadastreProxy.js si-row additions are queued for the orchestrator in audit/europe-adapters-2/2026-09-02/barrel-additions-si.txt (reviewBy 2026-12-01). ⭐ Proxy /api/parcel/si WIRED server-side 2026-09-03 (lane PROXY-LEGS applied the queued B3 row verbatim; LIVE-PROVEN through the leg: Ljubljana → refcat 1725 3274/13). Registered in FINAL form so clearing the gate is a single-line flip and never a misroute today (a Slovenian click falls to the universal footprint exactly as before).',
     },
     {
         regionCode: 'HU',
@@ -413,10 +412,10 @@ const PARCEL_JURISDICTIONS: readonly ParcelJurisdiction[] = [
     // LANE LV (2026-09-03) — LATVIA, registered in its FINAL form. UNLIKE the HU/RO/GR deferrals in
     // this wave, LATVIA'S PARCEL SERVICE IS LIVE + KEYLESS (proven at the capital): the geolatvija
     // VRAA GeoServer vraa:parcel layer resolves a real land-unit at a WGS84 point. The ONLY gate is
-    // GATE 2 (JURISDICTION): LVA is a refusal-only NEIGHBOUR in nationalBoundaries.json, not a
-    // claimable country, so claimsNation('LV') is FALSE everywhere and this row is DORMANT until a
-    // boundary wave promotes LVA (single-line flip; queued in
-    // audit/europe-adapters-2/2026-09-02/barrel-additions-lv.txt). providerId reserved by
+    // GATE 2 (JURISDICTION), which CLEARED 2026-09-03: lane BOUNDARY-WAVE promoted LVA from
+    // refusal-only neighbour to claimable country (as queued in
+    // audit/europe-adapters-2/2026-09-02/barrel-additions-lv.txt §3), so claimsNation('LV') now
+    // claims Latvian points and this row ROUTES. providerId reserved by
     // countryAdapters/lv/lvParcelProvider.ts so the row and the live adapter cannot drift.
     {
         regionCode: 'LV',
@@ -426,7 +425,7 @@ const PARCEL_JURISDICTIONS: readonly ParcelJurisdiction[] = [
         proxyPath: '/api/parcel/lv',
         kind: 'cadastral',
         contains: claimsNation('LV'),
-        note: 'Latvia IS served KEYLESSLY: the geolatvija VRAA GeoServer vraa:parcel layer (https://geolatvija.lv/geoserver/vraa/wfs, workspace vraa, CC-BY-4.0 per data.gov.lv dataset kadastralie-zemes-gabali-inspire) resolves the real cadastral land-unit at a WGS84 point with no credential — LIVE-PROBED 2026-09-03 by lane LV (Rīga / Pils iela 23 → cadastral code 01000070006, area 1435 m², WGS84 MultiPolygon; countryAdapters/lv/lvParcelProvider.ts carries the parser, __tests__/fixtures/lv-riga-pilsiela/ the recorded body). DORMANT ON GATE 2 (the resolver-geometry gate, the ONLY gate here): LVA is a refusal-only NEIGHBOUR in jurisdiction/data/nationalBoundaries.json, not a claimable country, so claimsNation("LV") is FALSE everywhere and this row matches nothing until a boundary wave PROMOTES LVA to .countries (regionCode "LV") + adds ["LVA", isInLatvia] to the resolver prefilters — the single-line flip EE/LT/PL/LU/SE got 2026-09-02 (lvJurisdiction.ts LV_JURISDICTION_DEFERRAL, reviewBy 2026-12-01; ready-to-apply additions queued in audit/europe-adapters-2/2026-09-02/barrel-additions-lv.txt). ⚠ Proxy /api/parcel/lv not yet wired server-side → even once GATE 2 clears, a click resolves null → OSM footprint until the euCadastreProxy.js lv row lands. Registered in FINAL form (cadastral, since the service is live-proven) so clearing the gate is a single-line flip and never a misroute today (a Latvian click falls to the universal footprint exactly as before).',
+        note: 'Latvia IS served KEYLESSLY: the geolatvija VRAA GeoServer vraa:parcel layer (https://geolatvija.lv/geoserver/vraa/wfs, workspace vraa, CC-BY-4.0 per data.gov.lv dataset kadastralie-zemes-gabali-inspire) resolves the real cadastral land-unit at a WGS84 point with no credential — LIVE-PROBED 2026-09-03 by lane LV (Rīga / Pils iela 23 → cadastral code 01000070006, area 1435 m², WGS84 MultiPolygon; countryAdapters/lv/lvParcelProvider.ts carries the parser, __tests__/fixtures/lv-riga-pilsiela/ the recorded body). GATE 2 CLEARED 2026-09-03 (lane BOUNDARY-WAVE): LVA was PROMOTED from refusal-only neighbour to claimable country (regionCode "LV", rings verbatim) + ["LVA", isInLatvia] entered the resolver prefilters, so claimsNation("LV") now claims Latvian points (Rīga/Daugavpils/Liepāja proven) and a Rīga click routes HERE exclusively (lvJurisdiction.ts LV_JURISDICTION_DEFERRAL, reviewBy 2026-12-01; ready-to-apply additions queued in audit/europe-adapters-2/2026-09-02/barrel-additions-lv.txt). ⭐ Proxy /api/parcel/lv WIRED server-side 2026-09-03 (lane PROXY-LEGS, euCadastreProxy.js lv row with the point-in-polygon pickCandidate — the same containment rule the adapter click path gained the same day). Registered in FINAL form (cadastral, since the service is live-proven) so clearing the gate is a single-line flip and never a misroute today (a Latvian click falls to the universal footprint exactly as before).',
     },
     // LANE RO (2026-09-03) — ROMANIA, a TWO-GATE DECLARED DEFERRAL, registered in its FINAL form so
     // clearing the gates is a single-line flip. GATE 1 (SERVICE): the ANCPI geoportal host is
@@ -443,14 +442,15 @@ const PARCEL_JURISDICTIONS: readonly ParcelJurisdiction[] = [
         proxyPath: null,
         kind: 'footprint-fallback',
         contains: claimsNation('RO'),
-        note: 'Romania: ANCPI geoportal (INSPIRE Cadastral Parcel, eterra3_publish/MapServer/1, INSPIRE_ID-keyed GeoJSON over ArcGIS Server) is the national cadastre — DEFERRED on TWO gates (countryAdapters/ro/). GATE 1 SERVICE: geoportal.ancpi.ro is NXDOMAIN from Google + Cloudflare DoH and curl exit 6, measured 2026-09-02 AND 2026-09-03 (apex ancpi.ro resolves — zone live, geoportal subdomain absent); no served bytes, so no parser is shipped ([[fake-more-capable-than-real]]) and the two resolvers refuse with a self-announcing transient (roAncpiGate.ts RO_ANCPI_DEFERRAL, reviewBy 2026-12-01). GATE 2 JURISDICTION: ROU is not in jurisdiction/data/nationalBoundaries.json, so claimsNation("RO") is false everywhere and THIS ROW IS DORMANT until a boundary wave adds ROU (roJurisdiction.ts RO_JURISDICTION_DEFERRAL). Either gate alone keeps it dormant; both are open. Systematic land registration is also incomplete nationally (queryable ≠ complete per AOI).',
+        note: 'Romania: ANCPI geoportal (INSPIRE Cadastral Parcel, eterra3_publish/MapServer/1, INSPIRE_ID-keyed GeoJSON over ArcGIS Server) is the national cadastre — DEFERRED on TWO gates (countryAdapters/ro/). GATE 1 SERVICE: geoportal.ancpi.ro is NXDOMAIN from Google + Cloudflare DoH and curl exit 6, measured 2026-09-02 AND 2026-09-03 (apex ancpi.ro resolves — zone live, geoportal subdomain absent); no served bytes, so no parser is shipped ([[fake-more-capable-than-real]]) and the two resolvers refuse with a self-announcing transient (roAncpiGate.ts RO_ANCPI_DEFERRAL, reviewBy 2026-12-01). GATE 2 JURISDICTION: ROU is not a CLAIMABLE country in jurisdiction/data/nationalBoundaries.json (since 2026-09-03 it is a refusal-only NEIGHBOUR — Romanian border-band points now refuse BY NAME instead of falling through silently — but a neighbour can never be claimed), so claimsNation("RO") is false everywhere and THIS ROW IS DORMANT until a boundary wave promotes ROU to .countries (roJurisdiction.ts RO_JURISDICTION_DEFERRAL). Either gate alone keeps it dormant; both are open. Systematic land registration is also incomplete nationally (queryable ≠ complete per AOI).',
     },
     // LANE GR (2026-09-03) — GREECE. Unlike RO above, the SERVICE gate is CLEARED: the Hellenic
     // Cadastre operating-cadastre parcels answer a KEYLESS ArcGIS Online FeatureServer and were
     // LIVE-PROVEN at Athens (KAEK 050095701001). So this registers `cadastral` (not footprint —
-    // the source is reachable). The ONE open gate is JURISDICTION: GRC is absent from the national
-    // boundary set, so claimsNation('GR') is false everywhere and THIS ROW IS DORMANT until a
-    // boundary wave adds GRC (grJurisdiction.ts GREECE_ROUTING_DEFERRAL) — exactly RO's GATE 2.
+    // the source is reachable). The JURISDICTION gate CLEARED 2026-09-03 (lane BOUNDARY-WAVE):
+    // GRC entered the boundary set as a claimable country with ALB/MKD/TUR refusal-only
+    // neighbours, so claimsNation('GR') claims Greek points and THIS ROW ROUTES (grJurisdiction.ts
+    // GREECE_ROUTING_DEFERRAL, boundary half retired).
     // proxyPath is RESERVED: `/api/parcel/gr` needs a `gr` row in server/jurisdiction/
     // euCadastreProxy.js (the PROXY-EE-LT-PL pattern for a new country); until then a match self-
     // corrects to the footprint on the proxy 404. providerId reserved by countryAdapters/gr/.
@@ -462,15 +462,15 @@ const PARCEL_JURISDICTIONS: readonly ParcelJurisdiction[] = [
         proxyPath: '/api/parcel/gr',
         kind: 'cadastral',
         contains: claimsNation('GR'),
-        note: 'Greece: Hellenic Cadastre (Ελληνικό Κτηματολόγιο) OPERATING-cadastre parcels — a KEYLESS ArcGIS Online FeatureServer (services-eu1.arcgis.com/40tFGWzosjaLJpmn, GEOTEMAXIA_LEITOURGOUN_ON_gdb/FeatureServer/0), LIVE-PROBED 2026-09-03 by the GR lane (real γεωτεμάχιο with KAEK + WGS84 ring; countryAdapters/gr/ carries the parser + recorded-live fixtures). Channel discovered via the official viewer maps.ktimatologio.gr Experience Builder config; the OLD INSPIRE path gis.ktimanet.gr/inspire is now HTTP 404 (do not resurrect). LIVE CLICK PROOF: Athens/Syntagma (37.9755,23.7348) → KAEK 050095701001, AREA 10839.77 m². TWO wiring steps pending (the row is DORMANT until step 1): (1) GRC is NOT in jurisdiction/data/nationalBoundaries.json, so claimsNation("GR") is false everywhere — a boundary wave must add GRC (grJurisdiction.ts GREECE_ROUTING_DEFERRAL, reviewBy 2027-03-01); (2) /api/parcel/gr needs a euCadastreProxy.js `gr` row (outSR=4326 → WGS84 ring, AREA served) to serve production clicks. Rules are DOCUMENTS-ONLY (όροι δόμησης = FEK-decree PDFs; no machine-readable zoning register).',
+        note: 'Greece: Hellenic Cadastre (Ελληνικό Κτηματολόγιο) OPERATING-cadastre parcels — a KEYLESS ArcGIS Online FeatureServer (services-eu1.arcgis.com/40tFGWzosjaLJpmn, GEOTEMAXIA_LEITOURGOUN_ON_gdb/FeatureServer/0), LIVE-PROBED 2026-09-03 by the GR lane (real γεωτεμάχιο with KAEK + WGS84 ring; countryAdapters/gr/ carries the parser + recorded-live fixtures). Channel discovered via the official viewer maps.ktimatologio.gr Experience Builder config; the OLD INSPIRE path gis.ktimanet.gr/inspire is now HTTP 404 (do not resurrect). LIVE CLICK PROOF: Athens/Syntagma (37.9755,23.7348) → KAEK 050095701001, AREA 10839.77 m². Wiring step (1) CLEARED 2026-09-03 (lane BOUNDARY-WAVE): GRC entered jurisdiction/data/nationalBoundaries.json as a claimable country (regionCode "GR") with ALB/MKD/TUR refusal-only land neighbours + BGR claimable, so claimsNation("GR") now claims Greek points (Athens/Thessaloniki/Crete/Rhodes proven; Kastellorizo is below the ne_10m island threshold and refuses honestly). Step (2) ALSO CLEARED 2026-09-03: lane PROXY-LEGS wired the euCadastreProxy.js `gr` row, so /api/parcel/gr serves production clicks. Rules are DOCUMENTS-ONLY (όροι δόμησης = FEK-decree PDFs; no machine-readable zoning register).',
     },
     // LANE BG (2026-09-03) — BULGARIA. Like GR above (and unlike RO/HU), the SERVICE gate is
     // CLEARED: the GCCA/AGKK INSPIRE Cadastral-Parcels service answers a KEYLESS ArcGIS REST query
     // and was LIVE-PROVEN at Sofia (nationalcadastralref 68134.100.5). So this registers `cadastral`
-    // (not footprint — the source is reachable). The ONE open gate is JURISDICTION: BGR is absent
-    // from the national boundary set, so claimsNation('BG') is false everywhere and THIS ROW IS
-    // DORMANT until a boundary wave adds BGR (bgJurisdiction.ts BG_ROUTING_DEFERRAL) — exactly GR's
-    // gate. proxyPath is RESERVED: `/api/parcel/bg` needs a `bg` row in server/jurisdiction/
+    // (not footprint — the source is reachable). The JURISDICTION gate CLEARED 2026-09-03 (lane
+    // BOUNDARY-WAVE): BGR entered the boundary set as a claimable country WITH the demanded
+    // SRB/ROU/MKD/TUR neighbour integrity, so claimsNation('BG') claims Bulgarian points and THIS
+    // ROW ROUTES (bgJurisdiction.ts BG_ROUTING_DEFERRAL, boundary half retired). proxyPath is RESERVED: `/api/parcel/bg` needs a `bg` row in server/jurisdiction/
     // euCadastreProxy.js (the PROXY-EE-LT-PL pattern for a new country); until then a match self-
     // corrects to the footprint on the proxy 404. providerId reserved by countryAdapters/bg/.
     {
@@ -481,19 +481,17 @@ const PARCEL_JURISDICTIONS: readonly ParcelJurisdiction[] = [
         proxyPath: '/api/parcel/bg',
         kind: 'cadastral',
         contains: claimsNation('BG'),
-        note: 'Bulgaria: GCCA/AGKK (Агенция по геодезия, картография и кадастър) INSPIRE Cadastral-Parcels — a KEYLESS ArcGIS REST service (inspire.cadastre.bg/arcgis/rest/services/Cadastral_Parcel/MapServer/0, capabilities Data,Map,Query; layer 0 CP.CadastralParcel; stored EPSG:4258, outSR=4326 → WGS84 ring), LIVE-PROBED 2026-09-03 by lane BG (real поземлен имот with nationalcadastralref + WGS84 ring; countryAdapters/bg/ carries the parser + recorded-live fixtures __tests__/fixtures/bg-sofia-2026-09-03/ + transcript audit/europe-adapters-2/2026-09-02/lane-bg-transcripts/). Channel discovered via the national INSPIRE geoportal inspire.egov.bg → GeoNetwork record "Cadastral parcels - GCCA"; the KAIS app backend arcgis.cadastre.bg is WAF-guarded (do not use), and the INSPIRE download WFS is disabled for parcels (WMS GetFeatureInfo + REST query are the keyless channels). LIVE CLICK PROOF: Sofia capital (42.6975,23.3223) → nationalcadastralref 68134.100.5 (68134 = EKATTE for Sofia), areavalue 3499 m², id_namespace BG.CP, 51-vertex WGS84 ring. TWO wiring steps pending (the row is DORMANT until step 1): (1) BGR is NOT in jurisdiction/data/nationalBoundaries.json, so claimsNation("BG") is false everywhere — a boundary wave must add BGR together with RS/RO/GR/TR/MK land-neighbour integrity (bgJurisdiction.ts BG_ROUTING_DEFERRAL, reviewBy 2027-03-01); (2) /api/parcel/bg needs a euCadastreProxy.js `bg` row (outSR=4326 → WGS84 ring, areavalue served) to serve production clicks. Rules are DOCUMENTS-ONLY (ОУП/ПУП under ЗУТ = PDF/DWG per municipality; Sofia has a city GIS island Sofiaplan; no national machine-readable zoning register). The official cadastral EXTRACT is a PAID KAIS service (parcel axis YELLOW: free view/query, paid extract).',
+        note: 'Bulgaria: GCCA/AGKK (Агенция по геодезия, картография и кадастър) INSPIRE Cadastral-Parcels — a KEYLESS ArcGIS REST service (inspire.cadastre.bg/arcgis/rest/services/Cadastral_Parcel/MapServer/0, capabilities Data,Map,Query; layer 0 CP.CadastralParcel; stored EPSG:4258, outSR=4326 → WGS84 ring), LIVE-PROBED 2026-09-03 by lane BG (real поземлен имот with nationalcadastralref + WGS84 ring; countryAdapters/bg/ carries the parser + recorded-live fixtures __tests__/fixtures/bg-sofia-2026-09-03/ + transcript audit/europe-adapters-2/2026-09-02/lane-bg-transcripts/). Channel discovered via the national INSPIRE geoportal inspire.egov.bg → GeoNetwork record "Cadastral parcels - GCCA"; the KAIS app backend arcgis.cadastre.bg is WAF-guarded (do not use), and the INSPIRE download WFS is disabled for parcels (WMS GetFeatureInfo + REST query are the keyless channels). LIVE CLICK PROOF: Sofia capital (42.6975,23.3223) → nationalcadastralref 68134.100.5 (68134 = EKATTE for Sofia), areavalue 3499 m², id_namespace BG.CP, 51-vertex WGS84 ring. Wiring step (1) CLEARED 2026-09-03 (lane BOUNDARY-WAVE): BGR entered jurisdiction/data/nationalBoundaries.json as a claimable country (regionCode "BG") WITH the demanded RS/RO/TR/MK neighbour integrity (SRB/ROU/TUR/MKD refusal-only; GRC claimable), so claimsNation("BG") now claims Bulgarian points (Sofia/Plovdiv/Varna/Ruse proven). STILL PENDING: (2) /api/parcel/bg needs a euCadastreProxy.js `bg` row (outSR=4326 → WGS84 ring, areavalue served) to serve production clicks. Rules are DOCUMENTS-ONLY (ОУП/ПУП under ЗУТ = PDF/DWG per municipality; Sofia has a city GIS island Sofiaplan; no national machine-readable zoning register). The official cadastral EXTRACT is a PAID KAIS service (parcel axis YELLOW: free view/query, paid extract).',
     },
     // LANE SK (2026-09-03) — SLOVAKIA. Like GR above (and unlike RO), the SERVICE gate is CLEARED:
     // the ÚGKK/GKÚ ESKN C-register parcels answer a KEYLESS ArcGIS MapServer and were LIVE-PROVEN at
     // Bratislava (register-C id 2090872505, parcel №15, k.ú. 2933, 832 m²). So this registers
     // `cadastral` (not footprint — the source is reachable). The ONE open gate is JURISDICTION, and
-    // it is a RICHER form than GR's: SVK is ALREADY in the resolver's boundary set but as a
-    // REFUSAL-ONLY NEIGHBOUR (not a claimable country), so claimsNation('SK') is false everywhere.
-    // MEASURED 2026-09-03: a Bratislava click refuses `no-national-candidate` (no prefilter covers
-    // it), while northern-Slovak points inside POLAND_BBOX refuse `claimed-by-unmodelled-neighbour`
-    // naming SVK — the SVK neighbour polygon refuses the POL candidate instead of misrouting (the
-    // L-12887 protection). THIS ROW IS DORMANT until a boundary wave PROMOTES SVK from neighbours to
-    // countries (skJurisdiction.ts SK_ROUTING_DEFERRAL). proxyPath is RESERVED: `/api/parcel/sk`
+    // it CLEARED 2026-09-03 (lane BOUNDARY-WAVE): SVK was PROMOTED from refusal-only neighbour to
+    // claimable country + HUN entered as a new refusal-only neighbour, so claimsNation('SK') now
+    // claims Slovak points (Bratislava/Košice/Žilina proven) and THIS ROW ROUTES; Komárno/Štúrovo
+    // refuse within-tolerance naming HUN — the L-12887 border integrity working as designed
+    // (skJurisdiction.ts SK_ROUTING_DEFERRAL, retiredOn 2026-09-03). proxyPath is RESERVED: `/api/parcel/sk`
     // needs an `sk` row in server/jurisdiction/euCadastreProxy.js (the PROXY-EE-LT-PL pattern for a
     // new country); until then a match self-corrects to the footprint on the proxy 404. providerId
     // reserved by countryAdapters/sk/.
@@ -505,7 +503,7 @@ const PARCEL_JURISDICTIONS: readonly ParcelJurisdiction[] = [
         proxyPath: '/api/parcel/sk',
         kind: 'cadastral',
         contains: claimsNation('SK'),
-        note: 'Slovakia: ÚGKK/GKÚ ESKN cadastre — C-register parcels on a KEYLESS ArcGIS MapServer (kataster.skgeodesy.sk/eskn/rest/services/VRM/kn/MapServer, layer 9 "Plocha parcely C"), LIVE-PROBED 2026-09-03 by the SK lane (real parcel with PARCEL_NUMBER + CADASTRAL_UNIT_ID + WGS84 ring; countryAdapters/sk/ carries the parser + recorded-live fixtures). LIVE CLICK PROOF: Bratislava Old Town (48.1436,17.1077) → register-C id 2090872505, parcel №15, k.ú. 2933, DESCRIPTIVE_AREA 832 m², FOLIO_ID (LV) 335384911, national cultural monument. ⛔ The ESKN WAF blocks attribute where= (HTTP 403); objectIds= is allowed, so the by-id lookup uses objectIds. TWO wiring steps pending (the row is DORMANT until step 1): (1) SVK is a REFUSAL-ONLY NEIGHBOUR in jurisdiction/data/nationalBoundaries.json (not one of the 20 claimable countries), so claimsNation("SK") is false everywhere — a boundary wave must PROMOTE SVK to countries (regionCode "SK") + add the ["SVK", isInSlovakia] prefilter + add HUN as a new refusal-only neighbour for SK↔HU border integrity (skJurisdiction.ts SK_ROUTING_DEFERRAL, reviewBy 2026-12-03); (2) /api/parcel/sk needs a euCadastreProxy.js `sk` row (outSR=4326 → WGS84 ring, DESCRIPTIVE_AREA_OF_PARCEL → areaM2) to serve production clicks. Rules are DOCUMENTS-ONLY (územné plány = municipal PDFs; state planning IS due ~2028; no machine-readable zoning register).',
+        note: 'Slovakia: ÚGKK/GKÚ ESKN cadastre — C-register parcels on a KEYLESS ArcGIS MapServer (kataster.skgeodesy.sk/eskn/rest/services/VRM/kn/MapServer, layer 9 "Plocha parcely C"), LIVE-PROBED 2026-09-03 by the SK lane (real parcel with PARCEL_NUMBER + CADASTRAL_UNIT_ID + WGS84 ring; countryAdapters/sk/ carries the parser + recorded-live fixtures). LIVE CLICK PROOF: Bratislava Old Town (48.1436,17.1077) → register-C id 2090872505, parcel №15, k.ú. 2933, DESCRIPTIVE_AREA 832 m², FOLIO_ID (LV) 335384911, national cultural monument. ⛔ The ESKN WAF blocks attribute where= (HTTP 403); objectIds= is allowed, so the by-id lookup uses objectIds. Wiring step (1) CLEARED 2026-09-03 (lane BOUNDARY-WAVE): SVK was PROMOTED to countries (regionCode "SK", rings verbatim) + the ["SVK", isInSlovakia] prefilter + HUN as a new refusal-only neighbour, so claimsNation("SK") now claims Slovak points (Bratislava/Košice/Žilina proven; Komárno/Štúrovo refuse within-tolerance naming HUN — the border integrity working as designed). Step (2) ALSO CLEARED 2026-09-03: lane PROXY-LEGS wired the euCadastreProxy.js `sk` row, so /api/parcel/sk serves production clicks. Rules are DOCUMENTS-ONLY (územné plány = municipal PDFs; state planning IS due ~2028; no machine-readable zoning register).',
     },
     {
         // ══════════════════════════════════════════════════════════════════════════════════════
@@ -1087,31 +1085,32 @@ const REGION_BBOX: Readonly<Record<string, RectBbox>> = {
     PL: POLAND_BBOX,
     LU: LUXEMBOURG_BBOX,
     SE: SWEDEN_BBOX,
-    // LANE SI (2026-09-03) — specificity metric only for the DORMANT Slovenia row; the row routes on
-    // claimsNation('SI'), which is false until SVN is promoted from a resolver neighbour to a country
-    // (barrel-additions-si.txt). Overlaps ITALY_BBOX (the Trieste/Gorizia band), which is exactly why
+    // LANE SI (2026-09-03) — specificity metric only for the Slovenia row (LIVE since the
+    // 2026-09-03 boundary wave promoted SVN to a claimable country); the row routes on claimsNation('SI'). Overlaps ITALY_BBOX (the Trieste/Gorizia band), which is exactly why
     // routing is by boundary geometry, not this rectangle.
     SI: SLOVENIA_BBOX,
     // LANE HU (2026-09-03) — specificity metric only for the DORMANT Hungary row; the row routes on
-    // claimsNation('HU'), which is false until HUN enters the resolver (barrel-additions-hu.txt).
+    // claimsNation('HU'), which is false until HUN is a CLAIMABLE country (since the 2026-09-03
+    // boundary wave HUN is a refusal-only NEIGHBOUR — Hungarian points now refuse BY NAME, but a
+    // neighbour can never be claimed; barrel-additions-hu.txt Section B still names the promotion).
     HU: HUNGARY_BBOX,
-    // LANE LV — specificity metric for the DORMANT Latvia row; never a router (claimsNation('LV')
-    // decides, and is false until LVA is promoted from a resolver neighbour to a country). Overlaps
+    // LANE LV — specificity metric for the Latvia row (LIVE since the 2026-09-03 boundary wave
+    // promoted LVA to a claimable country); never a router (claimsNation('LV') decides). Overlaps
     // EE/LT/SE boxes, which is exactly why routing is by boundary geometry, not this rectangle.
     LV: LATVIA_BBOX,
     // LANE RO — specificity metric for the DORMANT Romania row; never a router (claimsNation('RO')
     // decides, and is false until ROU enters the resolver). No existing box overlaps ROMANIA_BBOX.
     RO: ROMANIA_BBOX,
     // LANE GR (2026-09-03). Specificity-metric entry only — the row's `contains` is
-    // claimsNation('GR') (dormant until GRC enters the resolver). No existing box overlaps GREECE_BBOX
+    // claimsNation('GR') (LIVE since the 2026-09-03 boundary wave added GRC as claimable). No existing box overlaps GREECE_BBOX
     // in a way that matters, since the national filter decides and the box never asserts sovereignty.
     GR: GREECE_BBOX,
     // LANE BG (2026-09-03). Specificity-metric entry only — the row's `contains` is claimsNation('BG')
-    // (dormant until BGR enters the resolver). No registered parcel box asserts sovereignty over BG
+    // (LIVE since the 2026-09-03 boundary wave added BGR as claimable). No registered parcel box asserts sovereignty over BG
     // points; the box never routes, it only guarantees a finite (never +Infinity) specificity rank.
     BG: BULGARIA_BBOX,
     // LANE SK (2026-09-03). Specificity-metric entry only — the row's `contains` is claimsNation('SK')
-    // (dormant until SVK is PROMOTED from refusal-only neighbour to modelled country). No registered
+    // (LIVE since the 2026-09-03 boundary wave PROMOTED SVK to a claimable country). No registered
     // parcel box overlaps SLOVAKIA_BBOX in a way that matters; the national filter decides.
     SK: SLOVAKIA_BBOX,
     // LANE AU-OPEN (2026-09-03) — the eight Australian state/territory boxes. `contains` IS the

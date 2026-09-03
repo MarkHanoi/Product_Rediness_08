@@ -1,6 +1,6 @@
 // LANE BG — BULGARIA adapter: the parcel arm (GCCA/AGKK INSPIRE Cadastral Parcels, ArcGIS REST),
 // the FetchOutcome classification (found / absent / transient — DIFFERENT VALUES), the routing
-// deferral (BG not modelled by the national resolver → claimsNation('BG') inert), the sweep-
+// promotion (BGR claimable since the 2026-09-03 boundary wave → claimsNation('BG') live), the sweep-
 // confirmed WMS GetFeatureInfo channel, and the documents-only rules stance.
 //
 // Fixtures are RECORDED LIVE 2026-09-03 bodies (fixtures/bg-sofia-2026-09-03/). Every test injects
@@ -115,21 +115,29 @@ describe('isInBulgaria — specificity-metric predicate (NOT a routing authority
 });
 
 // ══════════════════════════════════════════════════════════════════════════════════════════════
-// 2. THE ROUTING DEFERRAL — BG is not modelled by the national resolver.
+// 2. THE ROUTING PROMOTION — BGR is modelled claimable since the 2026-09-03 boundary wave.
 // ══════════════════════════════════════════════════════════════════════════════════════════════
-describe('the ROUTING deferral — BG is not modelled by the national resolver', () => {
-    it('resolveNationalJurisdiction does NOT claim BG at Sofia or Varna (measured 2026-09-03)', () => {
+describe('the ROUTING promotion — BGR is modelled by the national resolver since 2026-09-03', () => {
+    it('resolveNationalJurisdiction CLAIMS BG at Sofia and Varna (measured 2026-09-03)', () => {
+        // retiredBy[0] of the deferral landed (lane BOUNDARY-WAVE) with the exact neighbour
+        // integrity it demanded: BGR claimable + SRB/ROU/MKD/TUR refusal-only + GRC claimable.
         for (const [lat, lon] of [[42.6975, 23.3223], [43.2141, 27.9147]] as const) {
             const v = resolveNationalJurisdiction(lat, lon);
-            // The whole point: the resolver never returns 'BG', so claimsNation('BG') is false.
-            expect(v.ok && v.regionCode === 'BG').toBe(false);
+            expect(v.ok).toBe(true);
+            if (v.ok) expect(v.regionCode).toBe('BG');
         }
     });
-    it('the deferral is stated as data with a named retirement + reviewBy (the SE pattern)', () => {
+    it('no overreach: the RO bank of the Danube refuses naming ROU, never a BG claim', () => {
+        const v = resolveNationalJurisdiction(43.9037, 25.9699); // Giurgiu, opposite Ruse
+        expect(v.ok).toBe(false);
+        if (!v.ok) expect(v.detail).toContain('ROU');
+    });
+    it('the deferral record survives as dated history (proxy half still open)', () => {
         expect(BG_ROUTING_DEFERRAL.declaredOn).toBe('2026-09-03');
         expect(BG_ROUTING_DEFERRAL.reviewBy).toBe('2027-03-01');
         expect(BG_ROUTING_DEFERRAL.retiredBy.length).toBe(2); // resolver boundary + proxy row
         expect(BG_ROUTING_DEFERRAL.evidence).toMatch(/BGR absent/);
+        expect(BG_ROUTING_DEFERRAL.boundaryRetiredOn).toBe('2026-09-03'); // half 1 landed; the bg proxy has not
     });
 });
 
