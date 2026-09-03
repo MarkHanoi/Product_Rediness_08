@@ -82,6 +82,7 @@ import { HUESCA_ENVELOPE_VERIFIED, ZARAGOZA_ENVELOPE_VERIFIED } from './rulepack
 import { EL_SAUZAL_ENVELOPE_VERIFIED } from './rulepacks/esElSauzal.js';
 import { FR_PARIS_PLU_CERTIFIED } from './rulepacks/frParisPluBioclimatique.js';
 import { PT_PORTO_PDM_CERTIFIED } from './countryAdapters/pt/ptPortoPdmDraft.js';
+import { LU_PAG_CERTIFIED } from './rulepacks/luPagEnvelope.js';
 
 const tracer = trace.getTracer('pryzm.zoning.l449');
 
@@ -264,6 +265,23 @@ export const L449_CERTIFICATION_GATES: readonly L449Gate[] = Object.freeze([
             doc: 'docs/04-reference/jurisdictions/es/es-md/28079-madrid/sources/VERIFICATION.md',
             anchor: 'SIG-M2 · ✍ SIGNED 2026-08-02',
         },
+    },
+    {
+        // LANE LU-ENVELOPE (2026-09-03) — BORN SHUT, `signature: null` (§UNSIGNED-GATE-DEFAULTS-
+        // SHUT). The gap-master's named LU unblock: a founder signature over the COS/CUS/CSS/DL →
+        // envelope mapping (`rulepacks/luPagEnvelope.ts`). ⚠ Narrow even when signed: it would
+        // certify the COMPILE MAPPING of the state-served coefficients into cited facts — it
+        // CANNOT make any of them bind, because (a) their statutory denominators (terrain à bâtir
+        // net/brut, RGD 08/03/2017 Annexe II) are planning constructs the state serves no area
+        // for (C63), and (b) Art. 26 makes every value a zone AVERAGE individual lots may exceed.
+        // Today the pack feeds the engine an all-null record (status 'none', draws nothing) and
+        // carries the four coefficients as withheld cited facts; the gate governs whether even
+        // that compiled-facts publication is presented as certified. A signature cannot supply a
+        // denominator — the flip points are named in the pack header (F1/F2/F3).
+        gate: 'LU_PAG_CERTIFIED',
+        file: 'packages/site-parcel-data/src/rulepacks/luPagEnvelope.ts',
+        value: LU_PAG_CERTIFIED,
+        signature: null,
     },
     {
         // SIG-M1: the founder has stated the NARROWER text they would sign and asked for a targeted

@@ -1,0 +1,14 @@
+npm warn Unknown project config "package-manager-strict". This will stop working in the next major version of npm. See `npm help npmrc` for supported config options.
+[never-overstate] §PARIS-LIVE-ROUTE: recorded parcel 19-DL-0002 — base 83.1 m² × 25 m, cour-X partial refusal HELD, no-ECM drew nothing.
+[never-overstate] §DK-DENOMINATOR-LIVE Nørrebro (af=4): env ok, GFA 5664 m² ≤ ceiling 5664 m².
+[never-overstate] §DK-DENOMINATOR-LIVE Aarhus (af=1): FAR withheld=true, GFA consumer REFUSED (basis-planning-area), naive '14927' absent=true.
+[never-overstate] §MADRID-NZ1-LIVE: recorded manzana 0105104 — clip 905.7 m² of ring 1509.6 m², COEF_Z "1,25" withheld=true, claimed volume 0 m³ required.
+[never-overstate] §PT-PORTO-MODA: recorded FUC-I card — gate OPEN, moda refused context-set-unavailable (no frontage source), no substituted cércea scalar required.
+[never-overstate] §FR-PLAN-MASSE-LIVE: recorded 17453_PLU_20190411 — clip 13771.7 m² of ring 27699.8 m², height 9 m au faitage datum=unknown binds=false (cited, never applied), claimed volume 0 m³ required.
+[never-overstate] §PL-POG-COMPILE strefa 1SZ: env ok, height 15 m (binds) ≤ 15 m, FAR/coverage withheld (env.maxFAR=null, env.maxCoverage=null), naive '800'/'500' absent, tamper re-binds=true.
+[never-overstate] §LU-PAG-COMPILE zone 539 (C026): env none (refusal IS the honest answer — nothing binds), facts COS 0.3 / CUS 0.3 / CSS 0.5 / DL 30 faithful to the transcript, engine numbers empty, tamper re-binds=true, certified=false.
+[never-overstate] corpus: 6 pack-bearing jurisdiction(s) · 193 zone-solve(s) walked · 146 solved ok · 47 refused (a refusal draws nothing and cannot overstate — counted, not skipped)
+[never-overstate] axes: height · FAR · coverage · setback · volume — audited on every solved envelope, through the REAL computeBuildableEnvelope + envelopeToMassing (SEAM-1).
+[never-overstate] NOT ESTABLISHED by this gate: jurisdiction-correct rule VALUES (a wrong transcribed number that stays self-consistent passes), live provider data, terrain, or the render pixels — it binds the ENGINE + SEAM arithmetic, not the pack curation (L-449 owns that).
+[never-overstate] OK: 0 overstatement(s) across 193 zone-solve(s) in 6 jurisdiction(s) + estimated-default + the recorded live-route arms (Paris · Denmark · Madrid NZ-1 · Porto FUC-I · PL POG · LU PAG) + the planted self-test pack.
+RC=0

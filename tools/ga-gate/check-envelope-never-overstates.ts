@@ -129,6 +129,15 @@ import {
     resolvePlPogEnvelope,
     type PlPogFields,
     type PlPogCitation,
+    // §LU-PAG-COMPILE (2i, LANE LU-ENVELOPE) — LUXEMBOURG PAG NQ-PAP coefficients. ⛔ NOTHING
+    // BINDS (terrain-à-bâtir denominators + Art. 26 zone averages + no vertical axis served +
+    // the shut L-449 gate): the compiled record must REFUSE, and the facts must stay faithful.
+    luPagZoningRecord,
+    resolveLuPagEnvelope,
+    LU_PAG_CERTIFIED,
+    type LuPagFields,
+    type LuPagCitation,
+    type LuPagEnvelopeResolution,
     // §FR-PLAN-MASSE-LIVE (2g, LANE FR-PRESCRIPTIONS) — the GPU drawn-envelope consumer + its
     // explicit-area seat. The plan-masse polygon feeds the SAME explicit-area clip as Madrid NZ-1.
     buildFrDrawnEnvelopeContribution,
@@ -1351,6 +1360,186 @@ async function main(): Promise<number> {
         );
     }
 
+    // ── 2i. §LU-PAG-COMPILE (LANE LU-ENVELOPE, 2026-09-03) — the RECORDED live Ville-de-
+    // Luxembourg NQ-PAP zone ze.PAG_PAG_NQ_PAP_539 (INSPIRE WFS, sha-pinned raw body). ──
+    // Luxembourg is the INVERSE of PL/DK: there is NO denominator-free axis at all. COS/CSS are
+    // ratios over the terrain à bâtir NET and CUS/DL over the BRUT (RGD 08/03/2017 Annexe II) —
+    // planning constructs the state serves NO area for (C63); Art. 26 makes every value a zone
+    // AVERAGE lots may exceed; no height/setback/storey is served; LU_PAG_CERTIFIED is born shut.
+    // So the arm proves the STRONGER property: (i) the compiled facts are FAITHFUL to the
+    // independently transcribed published values; (ii) NOTHING reaches the engine numbers and the
+    // record honestly REFUSES (status 'none' — draws nothing, cannot overstate); (iii) the
+    // withhold is LOAD-BEARING — inject the ratios back and the engine provably re-binds them.
+    {
+        interface LuFixture {
+            readonly fields: LuPagFields;
+            readonly citation: LuPagCitation;
+            readonly parcel: { readonly areaM2: number };
+            readonly published: {
+                readonly cosMax: number;
+                readonly cusMax: number;
+                readonly cssMax: number;
+                readonly dlMax: number;
+                readonly coverageForbiddenM2: number;
+                readonly weightedGfaForbiddenM2: number;
+                readonly sealedForbiddenM2: number;
+            };
+        }
+        const fix = readCorpusFixture<LuFixture>('lu-pag-c026-zone-539.json');
+
+        // FIDELITY audit — compiled fact ≡ the independently transcribed published value, per
+        // coefficient, in BOTH directions (a shrunk fact under-serves the citation; an inflated
+        // one is the overstatement-in-waiting the flip points would inherit). Reused by the teeth.
+        const auditLuFidelity = (
+            res: LuPagEnvelopeResolution,
+            pub: LuFixture['published'],
+            sink: Finding[],
+        ): void => {
+            const rows: ReadonlyArray<readonly [Finding['axis'], string, number | null, number]> = [
+                ['coverage', 'COS_MAX', res.coverage.fact, pub.cosMax],
+                ['far', 'CUS_MAX', res.weightedFar.fact, pub.cusMax],
+                ['coverage', 'CSS_MAX', res.soilSealing.fact, pub.cssMax],
+                ['far', 'DL_MAX', res.dwellingDensity.fact, pub.dlMax],
+            ];
+            for (const [axis, name, fact, published] of rows) {
+                if (fact !== published) {
+                    sink.push({
+                        axis, pack: 'lu-pag/compile', zone: 'ze.PAG_PAG_NQ_PAP_539',
+                        detail: `compiled ${name} ${String(fact)} ≠ the recorded published value ${published} — ` +
+                            'the compiled fact drifted from the state-served number (fidelity)',
+                    });
+                }
+            }
+        };
+
+        const { record, resolution } = luPagZoningRecord(fix.fields, fix.citation);
+        auditLuFidelity(resolution, fix.published, findings);
+        if (
+            resolution.coverage.fact === null || resolution.weightedFar.fact === null ||
+            resolution.soilSealing.fact === null || resolution.dwellingDensity.fact === null
+        ) {
+            checkerBlind ??=
+                'LU-PAG arm: the recorded zone compiled a null fact — the arm is vacuous ' +
+                '(zone 539 DOES publish COS 0.3 / CUS 0.3 / CSS 0.5 / DL 30)';
+        }
+
+        // (ii) THE WITHHOLD — no number of ANY kind may ride the engine record.
+        const sf = record.structuredFields;
+        for (const [key, value] of [
+            ['maxHeight_m', sf.maxHeight_m ?? null],
+            ['maxFloors', sf.maxFloors ?? null],
+            ['plotRatioFAR', sf.plotRatioFAR ?? null],
+            ['maxCoverage', sf.maxCoverage ?? null],
+        ] as const) {
+            if (value !== null) {
+                findings.push({
+                    axis: key === 'maxCoverage' ? 'coverage' : key === 'maxHeight_m' ? 'height' : 'far',
+                    pack: 'lu-pag/compile', zone: 'ze.PAG_PAG_NQ_PAP_539',
+                    detail: `structuredFields.${key} = ${String(value)} — a LU coefficient rode the engine ` +
+                        'numbers (the terrain-à-bâtir denominator withhold was bypassed, C63)',
+                });
+            }
+        }
+
+        // (iii) SOLVE — the honest LU output is a REFUSAL. A solve means a scalar leaked.
+        const areaM2 = fix.parcel.areaM2; // 1000 = 40 × 25 exactly
+        const parcelRing = rect(0, 0, 40, 25);
+        zonesWalked++;
+        const env = computeBuildableEnvelope({
+            parcelRing,
+            edgeClassifications: CLASSIFIED,
+            zoning: record,
+            rulePack: null,
+        });
+        if (env.status === 'ok') {
+            solved++;
+            findings.push({
+                axis: 'volume', pack: 'lu-pag/compile', zone: 'ze.PAG_PAG_NQ_PAP_539',
+                detail: `the all-withheld LU record SOLVED (status ok, height ${String(env.maxHeight_m)}, ` +
+                    `FAR ${String(env.maxFAR)}, coverage ${String(env.maxCoverage)}) — with every axis ` +
+                    'unresolved the only honest envelope is NO envelope; the naive products ' +
+                    `(${fix.published.coverageForbiddenM2} m² footprint / ` +
+                    `${fix.published.weightedGfaForbiddenM2} m² weighted GFA on the ${areaM2} m² parcel) ` +
+                    'become reachable',
+            });
+        } else {
+            refused++; // a refusal draws nothing and cannot overstate — the CORRECT LU answer
+        }
+        findings.push(...auditEnvelope(env, null, 'lu-pag/compile', 'ze.PAG_PAG_NQ_PAP_539', areaM2));
+
+        // (iv) TEETH #1 — the withhold is load-bearing: inject COS as coverage + CUS as FAR (the
+        // pre-fix bypass) and the engine MUST solve and bind them; if it does not, the omission is
+        // not what protects us and this arm cannot see the defect it polices.
+        const tamperedRecord = {
+            ...record,
+            structuredFields: {
+                ...record.structuredFields,
+                plotRatioFAR: resolution.weightedFar.fact,
+                maxCoverage: resolution.coverage.fact,
+            },
+        };
+        const tamperedEnv = computeBuildableEnvelope({
+            parcelRing,
+            edgeClassifications: CLASSIFIED,
+            zoning: tamperedRecord as typeof record,
+            rulePack: null,
+        });
+        if (tamperedEnv.status !== 'ok' || tamperedEnv.maxFAR === null || tamperedEnv.maxCoverage === null) {
+            checkerBlind ??=
+                'LU-PAG arm teeth: injecting COS/CUS into the structured numbers did NOT re-bind them ' +
+                `(status ${tamperedEnv.status}, FAR ${String(tamperedEnv.maxFAR)}, coverage ` +
+                `${String(tamperedEnv.maxCoverage)}) — the withhold is not the thing preventing the ` +
+                'C63 trap, so the arm is blind';
+        }
+
+        // (v) TEETH #2 — the fidelity check has teeth in BOTH directions: a resolution compiled
+        // from a LOWERED served value must be flagged against the true published bound, and one
+        // compiled from an INFLATED value must be flagged too.
+        const loweredTeeth: Finding[] = [];
+        auditLuFidelity(
+            resolveLuPagEnvelope({ ...fix.fields, cosMax: fix.fields.cosMax! - 0.1 }, fix.citation),
+            fix.published, loweredTeeth,
+        );
+        const inflatedTeeth: Finding[] = [];
+        auditLuFidelity(
+            resolveLuPagEnvelope({ ...fix.fields, cusMax: fix.fields.cusMax! + 0.5 }, fix.citation),
+            fix.published, inflatedTeeth,
+        );
+        if (loweredTeeth.length === 0 || inflatedTeeth.length === 0) {
+            checkerBlind ??=
+                'LU-PAG arm teeth: a tampered compiled fact (lowered COS / inflated CUS) was not ' +
+                'flagged against the published transcript — the fidelity check is blind';
+        }
+
+        // (vi) DOMAIN teeth — a served COS above 1 (a ratio of area over area) must classify
+        // refused-domain with a null fact, never a compiled number.
+        const domain = resolveLuPagEnvelope({ ...fix.fields, cosMax: 1.3 }, fix.citation);
+        if (domain.coverage.fact !== null || domain.coverage.kind !== 'refused-domain') {
+            findings.push({
+                axis: 'coverage', pack: 'lu-pag/compile', zone: 'ze.PAG_PAG_NQ_PAP_539',
+                detail: `a served COS_MAX 1.3 compiled to fact ${String(domain.coverage.fact)} ` +
+                    `(kind ${domain.coverage.kind}) instead of a refused-domain null`,
+            });
+        }
+
+        // (vii) CERTIFICATION honesty — the resolution mirrors the L-449 gate constant, and while
+        // the gate is shut the refusal is NAMED on the resolution (never silent).
+        if (resolution.certified !== LU_PAG_CERTIFIED) {
+            checkerBlind ??= 'LU-PAG arm: resolution.certified drifted from the LU_PAG_CERTIFIED constant';
+        }
+        if (!LU_PAG_CERTIFIED && !resolution.caveats.some((c) => c.includes('LU_PAG_CERTIFIED'))) {
+            checkerBlind ??=
+                'LU-PAG arm: the gate is shut but no caveat names LU_PAG_CERTIFIED — the refusal is silent';
+        }
+
+        console.log(
+            `[never-overstate] §LU-PAG-COMPILE zone 539 (C026): env ${env.status} (refusal IS the honest ` +
+                `answer — nothing binds), facts COS ${resolution.coverage.fact} / CUS ${resolution.weightedFar.fact} / ` +
+                `CSS ${resolution.soilSealing.fact} / DL ${resolution.dwellingDensity.fact} faithful to the transcript, ` +
+                `engine numbers empty, tamper re-binds=${tamperedEnv.maxFAR !== null}, certified=${String(LU_PAG_CERTIFIED)}.`,
+        );
+    }
+
     // ── 3. SELF-TEST layer 1 — ENGINE TEETH: the planted pack through the real engine. ──
     const plantedEnv = computeBuildableEnvelope({
         parcelRing: PARCEL,
@@ -1424,7 +1613,7 @@ async function main(): Promise<number> {
     console.log(
         `[never-overstate] OK: 0 overstatement(s) across ${zonesWalked} zone-solve(s) in ` +
             `${packJurisdictions} jurisdiction(s) + estimated-default + the recorded live-route arms ` +
-            '(Paris · Denmark · Madrid NZ-1 · Porto FUC-I) + the planted self-test pack.',
+            '(Paris · Denmark · Madrid NZ-1 · Porto FUC-I · PL POG · LU PAG) + the planted self-test pack.',
     );
     return 0;
 }

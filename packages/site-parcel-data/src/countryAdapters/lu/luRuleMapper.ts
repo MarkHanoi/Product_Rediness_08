@@ -175,6 +175,29 @@ export const LU_VALUE_BASIS_CODES = Object.freeze([
 ] as const);
 export type LuValueBasisCode = (typeof LU_VALUE_BASIS_CODES)[number];
 
+/**
+ * LANE LU-ENVELOPE (2026-09-03, additive) — the STATUTORY DENOMINATOR DEFINITIONS, verbatim from
+ * Annexe II (règlement grand-ducal du 8 mars 2017, contenu du PAG), previously quoted only in this
+ * file's header comment. Exported as DATA so the envelope compile pack
+ * (`rulepacks/luPagEnvelope.ts`) can carry the exact French wording in its withhold caveats
+ * without duplicating the strings (C84 EI-9 — one authority per concept; a translated denominator
+ * is a lost denominator).
+ *
+ * ⚠ NEITHER term is the cadastral parcel, and NEITHER is served as an AREA anywhere in the PAG
+ * artefact — which is precisely why no LU coefficient may be multiplied by a parcel area.
+ */
+export const LU_TERRAIN_A_BATIR_DEFINITIONS = Object.freeze({
+    /** Annexe II E — the CUS / DL denominator. */
+    brut:
+        'terrain à bâtir brut: « tous les fonds situés en zone urbanisée ou destinée à être ' +
+        'urbanisée, non encore ou partiellement viabilisés »',
+    /** Annexe II F — the COS / CSS denominator. */
+    net:
+        'terrain à bâtir net: « tous les fonds situés en zone urbanisée ou destinée à être ' +
+        'urbanisée déduction faite de toutes les surfaces privées et publiques nécessaires à sa ' +
+        'viabilisation »',
+} as const);
+
 /* ═══════════════════════════════ the vocabulary ═════════════════════════════ */
 
 /** One row of the LU→canonical coefficient vocabulary. */

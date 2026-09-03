@@ -1,0 +1,61 @@
+{
+  "_provenance": [
+    "LANE LU-ENVELOPE (2026-09-03) — LUXEMBOURG PAG NQ-PAP zone ze.PAG_PAG_NQ_PAP_539, Ville de",
+    "Luxembourg (commune C026), RECORDED FROM THE LIVE INSPIRE WFS (not the bulk GPKG):",
+    "https://wms.inspire.geoportail.lu/geoserver/wfs · typeNames=lu:LU.SpatialPlan.PAG ·",
+    "cql_filter=xtf_id='a13bb15a-0239-4f8e-a6c5-2eaa800a0b4e' · srsName=EPSG:4326 · GeoJSON.",
+    "Probe 2026-09-03: HTTP 200, 5,023 bytes, numberMatched 1; raw body byte-pinned as",
+    "packages/site-parcel-data/__tests__/fixtures/lu-c026/wfs-nqpap-zone-539-recorded-live-2026-09-03.json",
+    "(sha256 a17e527ffd21de5122c1201c440d55b8fe427605dc0520388a7279b8ee3911c5). The discovery",
+    "transcript (DescribeFeatureType with TYPED cos_max/cus_max/css_max/dl_max columns; the",
+    "129-hit C026 sweep) is at audit/demo-esfrpt/2026-09-02/transcripts/lu-envelope/. This",
+    "channel SUPERSEDES (for THIS host) the E7-LU 'no live query service' reading, which probed",
+    "wfs.geoportail.lu (dead) and the opendata WMS (no PAG layer) — same host-discovery shape as",
+    "lane LU-PARCEL's cadastre finding.",
+    "'fields' + 'citation' are transcribed VERBATIM from the recorded body: cos_max 0.3 ·",
+    "cus_max 0.3 · css_max 0.5 · dl_max 30 · minima all null · nom_fichier_ec '026_PE_NQ' ·",
+    "channel-served legislation 'Règlement grand-ducal du 28 juillet 2011 concernant le contenu",
+    "du plan d'aménagement général d'une commune' (A159, entered into force 08/01/2011).",
+    "'published' is the INDEPENDENTLY re-transcribed bound the arm audits AGAINST, deliberately",
+    "SEPARATE from 'fields' so a planted falsification (lower one recorded value) turns the arm",
+    "red (fidelity), and an inflated compiled fact turns it red (never-overstate).",
+    "⛔ THE LUXEMBOURG INVARIANT THIS FIXTURE PROVES: NOTHING BINDS. COS/CSS are ratios over the",
+    "terrain à bâtir NET and CUS/DL over the BRUT (RGD 08/03/2017 Annexe II) — planning",
+    "constructs whose areas the state does not serve (C63 denominator); Art. 26 makes every",
+    "value a zone AVERAGE lots may exceed; NO height/setback/storey axis is served; and",
+    "LU_PAG_CERTIFIED is BORN SHUT (L-449). The compiled record must solve to status 'none'",
+    "(draws NOTHING); the naive products COS×1000=300 m² footprint / CUS×1000=300 m² weighted",
+    "GFA / CSS×1000=500 m² sealed must be reachable NOWHERE.",
+    "parcel.areaM2 = 1000 (the 40 m × 25 m canonical study parcel — synthetic; the zone polygon",
+    "is real and recorded in the raw body, near 6.09845 E / 49.58965 N)."
+  ],
+  "fields": {
+    "cosMax": 0.3,
+    "cosMin": null,
+    "cusMax": 0.3,
+    "cusMin": null,
+    "cssMax": 0.5,
+    "dlMax": 30,
+    "dlMin": null
+  },
+  "citation": {
+    "communeCode": "C026",
+    "zoneDenomination": null,
+    "xtfId": "a13bb15a-0239-4f8e-a6c5-2eaa800a0b4e",
+    "inspireLocalId": "ze.PAG_PAG_NQ_PAP_539",
+    "partieEcriteFilename": "026_PE_NQ",
+    "servedLegislationCitation": "Règlement grand-ducal du 28 juillet 2011 concernant le contenu du plan d'aménagement général d'une commune",
+    "channel": "inspire-wfs"
+  },
+  "parcel": { "areaM2": 1000, "note": "40 m × 25 m synthetic study parcel; the served zone polygon is in the sha-pinned raw body" },
+  "published": {
+    "cosMax": 0.3,
+    "cusMax": 0.3,
+    "cssMax": 0.5,
+    "dlMax": 30,
+    "coverageForbiddenM2": 300,
+    "weightedGfaForbiddenM2": 300,
+    "sealedForbiddenM2": 500,
+    "note": "NOTHING binds: all four are compiled facts withheld on terrain-à-bâtir denominators (C63) + Art. 26 zone-average + the shut L-449 gate; the record must refuse (status 'none')"
+  }
+}

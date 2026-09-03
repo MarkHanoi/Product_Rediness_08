@@ -1,0 +1,12 @@
+LANE LU-ENVELOPE live partiality probe — 2026-09-03, wms.inspire.geoportail.lu/geoserver/wfs,
+typeNames=lu:LU.SpatialPlan.PAG, resultType=hits, cql_filter on inspireid_identifier_localid:
+
+  LIKE 'ze.PAG_PAG_ZONAGE%'    -> numberMatched 21938   (GPKG 2026-08-31: 46,191)
+  LIKE 'ze.PAG_PAG_ZONES_QE%'  -> numberMatched 8328    (GPKG: 18,743)
+  LIKE 'ze.PAG_PAG_NQ_PAP%'    -> numberMatched 1404    (GPKG: 3,017)
+  LIKE '%ALIGN%'               -> numberMatched 0       (GPKG PAG_PAG_ALIGN_A_RESP: 2,442)
+  specificlanduse0_xlink_title LIKE '%ALIGN%' -> 0
+
+⇒ the live WFS is a PARTIAL VIEW (~46-47% of the numeric layer) and serves NO alignment lines;
+the bulk GPKG remains the complete corpus. The C026 coefficient query (cos_max>0 AND
+nom_fichier_ec LIKE '026%') matched 129 zones live.

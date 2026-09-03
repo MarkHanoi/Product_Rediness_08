@@ -1,0 +1,90 @@
+LANE LU-ENVELOPE — barrel / shared-file additions record (2026-09-03)
+
+════════════════════════════════════════════════════════════════════════════════════════════════
+OWNED FILES (this lane's — no orchestrator action needed beyond keeping them):
+════════════════════════════════════════════════════════════════════════════════════════════════
+  NEW  packages/site-parcel-data/src/rulepacks/luPagEnvelope.ts
+         (the LU PAG NQ-PAP coefficient COMPILE pack: COS/CUS/CSS/DL → cited FACTS, ALL withheld
+          — terrain-à-bâtir denominators (C63) + Art. 26 zone averages + no vertical axis served
+          + LU_PAG_CERTIFIED born shut (L-449). The ZoningRecord feeds the engine NO number:
+          status 'none', draws nothing, cannot overstate. Flip points F1/F2/F3 in the header.)
+  EDIT packages/site-parcel-data/src/countryAdapters/lu/luRuleMapper.ts   (ADDITIVE ONLY)
+         + export const LU_TERRAIN_A_BATIR_DEFINITIONS  (the verbatim Annexe II brut/net
+           denominator definitions, promoted from the header comment to exported data so the
+           pack's caveats cite them without duplicating strings — C84 EI-9)
+  NEW  packages/site-parcel-data/__tests__/luPagEnvelope.test.ts          (19 tests, all green)
+  NEW  packages/site-parcel-data/__tests__/fixtures/lu-c026/wfs-nqpap-zone-539-recorded-live-2026-09-03.json
+         (raw live INSPIRE-WFS GeoJSON body, sha256
+          a17e527ffd21de5122c1201c440d55b8fe427605dc0520388a7279b8ee3911c5)
+  NEW  tools/ga-gate/corpus/never-overstate/lu-pag-c026-zone-539.json     (the gate arm fixture)
+  EDIT tools/ga-gate/check-envelope-never-overstates.ts                   (ADDITIVE arm 2i
+         §LU-PAG-COMPILE + its imports + "LU PAG" appended to the final OK line)
+
+════════════════════════════════════════════════════════════════════════════════════════════════
+SHARED FILE 1 — packages/site-parcel-data/src/index.ts   (ADDITIVE export block only)
+════════════════════════════════════════════════════════════════════════════════════════════════
+Inserted immediately AFTER the `} from './rulepacks/plPogEnvelope.js';` block (~line 914):
+
+// ── LANE LU-ENVELOPE (2026-09-03) — LUXEMBOURG PAG NQ-PAP degré-d'utilisation coefficients →
+//    envelope COMPILED FACTS (Type-B COMPILE; CENSUS.md row 12). ⛔ NOTHING BINDS: COS/CSS are
+//    ratios over the terrain à bâtir NET and CUS/DL over the BRUT (planning constructs, no area
+//    served — C63), Art. 26 makes every value a zone AVERAGE lots may exceed, no vertical axis is
+//    served, and LU_PAG_CERTIFIED is BORN SHUT (L-449, signature: null). The record feeds the
+//    engine NO number (status 'none' — draws nothing, cannot overstate); facts ride the citation. ──
+export {
+    LU_PAG_JURISDICTION_ID,
+    LU_PAG_DEFAULT_ZONE_CODE,
+    LU_PAG_CERTIFIED,
+    LU_PAG_UNCERTIFIED_CAVEAT,
+    LU_PAG_ENVELOPE_REF,
+    resolveLuPagEnvelope,
+    luPagFieldsFromNqPapRow,
+    luPagCitationFromNqPapRow,
+    luPagFromInspireWfsFeature,
+    luPagZoningRecord,
+    luPagZoningRecordFromInspireWfsFeature,
+    type LuPagFields,
+    type LuPagCitation,
+    type LuPagWithheldReason,
+    type LuPagCompiledFact,
+    type LuPagEnvelopeResolution,
+} from './rulepacks/luPagEnvelope.js';
+
+════════════════════════════════════════════════════════════════════════════════════════════════
+SHARED FILE 2 — packages/site-parcel-data/src/l449CertificationGates.ts   (ADDITIVE row)
+════════════════════════════════════════════════════════════════════════════════════════════════
+(a) import added after the PT_PORTO import:
+        import { LU_PAG_CERTIFIED } from './rulepacks/luPagEnvelope.js';
+(b) ONE row added in the SHUT section (immediately BEFORE the MADRID_ENVELOPE_VERIFIED / SIG-M1
+    row), value READ from the constant, signature: null, with the LANE LU-ENVELOPE comment
+    explaining what a signature would and would NOT buy (it cannot supply a terrain-à-bâtir
+    denominator; flip points F1/F2/F3 live in the pack header):
+        gate: 'LU_PAG_CERTIFIED',
+        file: 'packages/site-parcel-data/src/rulepacks/luPagEnvelope.ts',
+        value: LU_PAG_CERTIFIED,
+        signature: null,
+
+════════════════════════════════════════════════════════════════════════════════════════════════
+⚠ INCIDENT RECORD — shared-tree breakage OBSERVED (NOT this lane's edit, NOT fixed by this lane)
+════════════════════════════════════════════════════════════════════════════════════════════════
+While re-running the never-overstate gate after the sha-verified fixture restore, the concurrent
+boundary-wave lane's fresh Croatia row in packages/site-parcel-data/src/parcelProviders/registry.ts
+landed with an UNESCAPED APOSTROPHE inside its single-quoted note string
+(line 341 col ~833: "the SI lane's pipeline-validated" → esbuild: Expected "}" but found "s"),
+which breaks EVERY consumer of the package barrel (tsc, vitest, both ga-gates). Per the
+shared-file discipline this lane did NOT edit registry.ts; the one-character fix is the owning
+lane's (escape the apostrophe: lane\'s — or reword). The lane's own gate/tests were green
+before that edit landed and re-verified the moment the tree parsed again (see
+transcripts/lu-envelope/falsify-RESTORED-GREEN.txt).
+
+GREENS (foreground, this session; tsc/gate RCs are the process's own exit codes):
+  scoped tsc  @pryzm/site-parcel-data typecheck                          → RC=0
+  vitest      luPagEnvelope.test.ts                                      → 19 passed
+  vitest      l449CertificationGates + envelopeAuthorisation +
+              packPublishedConfidenceUnchanged                           → 50 passed
+  vitest      FULL @pryzm/site-parcel-data suite (after the registry
+              breakage cleared)                                          → 201 files, 4,244 passed, 3 skipped, 0 failed
+  ga-gate     check-envelope-never-overstates.ts (with arm 2i)           → RC=0
+  FALSIFY     fixture fields.cosMax 0.3→0.2 → RC=1 (the exact LU fidelity finding) →
+              byte-identical restore (sha fcb72c52… before == after)     → RC=0
+              (transcripts/lu-envelope/falsify-*.txt / *.sha256)
