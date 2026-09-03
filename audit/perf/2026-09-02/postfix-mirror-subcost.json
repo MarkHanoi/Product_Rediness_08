@@ -1,0 +1,26 @@
+{
+  "lane": "PERF-2",
+  "date": "2026-09-03",
+  "probe": "tools/perf/diagnose-mirror-subcost.mts",
+  "subject": "§PERF-MIRROR-BATCH decision — is batch-bracketing the authoritative mirror a real browser target?",
+  "environment": "Windows 11, node v24.15.0, tsx, headless (no THREE, no render); real WallStore + real wireAuthoritativeElementMirror + real storeEventBus",
+  "N": 1000,
+  "arms": {
+    "1_mirror_headless": {
+      "total_ms": 49.0,
+      "mirror_adds_performed": 1000,
+      "note": "reproduces the BASE-INNER attribution — the mirror does all 1000 add()s because the headless harness never wires the L7 §P2.1 bridge"
+    },
+    "2_mirror_browser": {
+      "total_ms": 2.4,
+      "mirror_adds_performed": 0,
+      "note": "§P2.1 bridge pre-added all 1000 first (as it always does in the browser); every mirror getById() hits -> skip. THE MIRROR PERFORMS ZERO add()s."
+    },
+    "3_fanout_unbatched": { "total_ms": 44.6, "storeEventBus_deliveries": 4000, "K_subs": 4 },
+    "4_fanout_batched": { "total_ms": 55.6, "storeEventBus_deliveries": 4000, "K_subs": 4,
+      "note": "storeEventBus.batch() BUFFERS then flushes all N deliveries at endBatch — it does NOT reduce total subscriber work and can add buffering overhead; batching here is a jank/longtask fix (endBatchYielded), NOT a throughput lever" }
+  },
+  "verdict": "CONFIRMED NO-OP — §PERF-MIRROR-BATCH on packages/runtime-composer/src/authoritativeElementMirror.ts saves ~0 browser milliseconds. The 228ms->(post-2a)~44ms the inner harness attributes to the mirror is paid in the browser by the L7 §P2.1 bridge's own WallStore.add(), whose store-internal cost was already flattened by fix 2a. Adding a batch bracket to a provably-dead code path is pure risk with no benefit.",
+  "redirect": "The per-add browser cost is genuine once-per-element work (store-internal [flattened by 2a], VDT/bimManager register, subscriber processing) that must happen per wall regardless. No throughput win exists from batch-bracketing EITHER the mirror OR the storeEventBus fan-out (arm 3 vs 4). The only remaining lever is longtask/jank, already owned by BatchCoordinator.endBatchYielded (200 events/frame).",
+  "falsification": "arm 2 asserts adds-performed === 0 (invariant across runs), not merely 'fast'."
+}
