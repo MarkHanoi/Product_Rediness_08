@@ -344,6 +344,24 @@ jobs:
             exit 1
           fi
           echo "client cache-bust stamp: v=$VER"
+          # §VERIFY-PROBED-A-PATH-NOT-A-URL (2026-09-03) — `vars.VITE_CONTEXT_TILES_URL` is the
+          # CLIENT's base and is legitimately the SAME-ORIGIN PROXY path `/api/context-tiles/`.
+          # It is correct for a browser and useless to curl on a runner: the `||` fallback never
+          # fires (the var is set, just relative), so this step probed `/api/context-tiles/...`,
+          # got no host, and reported "objects uploaded but not publicly served" — condemning a
+          # publish that had in fact SUCCEEDED. Run 33795775939 published 23.79 GB of buildings
+          # across 49 regions and then failed here; the bytes were public and range-servable the
+          # whole time (independently: HTTP 206, PMTiles magic header).
+          # The probe must therefore resolve to an ABSOLUTE origin. A relative base means
+          # "same-origin proxy", which this runner cannot reach — fall back to R2's public host.
+          case "$PUBLIC_BASE" in
+            http://*|https://*) ;;
+            *)
+              echo "PUBLIC_BASE '$PUBLIC_BASE' is relative (the same-origin proxy) — a runner cannot"
+              echo "resolve it. Probing R2's public host directly instead."
+              PUBLIC_BASE='https://pub-1ad4f6c5dec849b5b25a45586898fd4d.r2.dev/tiles/'
+              ;;
+          esac
           URL="${PUBLIC_BASE%/}/buildings.pmtiles?v=$VER"
           echo "probing $URL"
           code="$(curl -s -o /dev/null -w '%{http_code}' -L --max-time 60 -H 'Range: bytes=0-127' "$URL")"

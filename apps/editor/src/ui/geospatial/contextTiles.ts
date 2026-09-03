@@ -319,7 +319,32 @@ export function contextTilesOrigin(): string | null {
 // NEVER WHEN IT IS DISPATCHED.** A version stamp is a claim about what is IN R2. Bumping it in the
 // same commit that fixes the bake asserts the fix succeeded before it has run — and a failed publish
 // then poisons the new stamp with the old bytes, which is strictly worse than not bumping at all.
-export const CONTEXT_TILESET_VERSION = 'L660a';
+//
+// ⭐ L661a (2026-09-03) — **THE WHOLE-COUNTRY BUILDINGS PUBLISH, and the first bump in this file's
+// history made AFTER independently verifying the bytes rather than on a run's own verdict.**
+// Run **33795775939** merged the 49 staged regions' `buildings` layer with tile-join and published
+// **23,794,734,067 bytes** (23.79 GB, up from 2.40 GB) plus the first-ever `tileset-manifest.json`
+// (12,410 B, `layers: ['buildings']`, `regions: 49`) at 21:01:03Z.
+//
+// ⚠ **THAT RUN IS RECORDED AS A FAILURE, AND THE FAILURE IS THE VERIFIER'S, NOT THE PUBLISH'S.**
+// Step 11 "Publish to R2" succeeded; step 12 "Verify a tileset is publicly readable AND
+// range-servable" exited 3 having probed **`/api/context-tiles/buildings.pmtiles?v=L660a`** — a
+// RELATIVE PATH. `vars.VITE_CONTEXT_TILES_URL` is the CLIENT's base and is legitimately the
+// same-origin proxy, so the workflow's `|| <r2.dev>` fallback never fired and curl had no host to
+// resolve. Fixed the same day (§VERIFY-PROBED-A-PATH-NOT-A-URL, in BOTH workflows).
+//
+// The bytes were independently confirmed public and range-servable BEFORE this bump — the only
+// evidence the L659a scar below accepts: `HTTP 206`, 128 bytes returned, leading magic
+// `504d 5469 6c65 73` ("PMTiles"), and a manifest enumerating all 49 regions. **The rule is
+// intact: the stamp moved only because the publish PROVABLY landed. It simply was not the run
+// that got to say so — which is exactly why the rule is "verify", not "trust the exit code".**
+//
+// ⚠ SCOPE OF THIS STAMP — it now claims a tileset whose `buildings` is 2026-09-03 while
+// `roads`/`parks`/`water` remain 2026-07-24 and `trees` is absent (404). Per-layer publishing is
+// the disk-budget escape (§MERGE-DISK-BUDGET-IS-NAMED — 82.1 GB staged across 7 layers, against a
+// plan that projected 24–57 GB), so cross-layer skew is the accepted, stated cost of shipping
+// buildings now. Re-bump when the remaining layers land.
+export const CONTEXT_TILESET_VERSION = 'L661a';
 
 /**
  * The full URL of one layer's PMTiles archive, cache-bust stamp included.
