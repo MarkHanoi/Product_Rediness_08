@@ -1,0 +1,39 @@
+{
+    "type":"FeatureCollection",
+    "features":[],
+    "numberReturned":0,
+    "numberMatched":0,
+    "links":[
+        {
+            "type":"application/geo+json",
+            "rel":"self",
+            "title":"This document as GeoJSON",
+            "href":"https://ogcapi.dgterritorio.gov.pt/collections/cadastro/items?f=json&limit=3&bbox=-9.1397,38.7219,-9.1389,38.7227"
+        },
+        {
+            "rel":"alternate",
+            "type":"application/ld+json",
+            "title":"This document as RDF (JSON-LD)",
+            "href":"https://ogcapi.dgterritorio.gov.pt/collections/cadastro/items?f=jsonld&limit=3&bbox=-9.1397,38.7219,-9.1389,38.7227"
+        },
+        {
+            "type":"text/html",
+            "rel":"alternate",
+            "title":"This document as HTML",
+            "href":"https://ogcapi.dgterritorio.gov.pt/collections/cadastro/items?f=html&limit=3&bbox=-9.1397,38.7219,-9.1389,38.7227"
+        },
+        {
+            "type":"text/csv; charset=utf-8",
+            "rel":"alternate",
+            "title":"This document as CSV",
+            "href":"https://ogcapi.dgterritorio.gov.pt/collections/cadastro/items?f=csv&limit=3&bbox=-9.1397,38.7219,-9.1389,38.7227"
+        },
+        {
+            "type":"application/json",
+            "title":"Cadastro Predial (Continente)",
+            "rel":"collection",
+            "href":"https://ogcapi.dgterritorio.gov.pt/collections/cadastro"
+        }
+    ],
+    "timeStamp":"2026-09-03T13:56:55.914548Z"
+}

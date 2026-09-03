@@ -1,0 +1,8 @@
+-- https://geo.bupi.gov.pt/gisbupi/rest/services?f=json
+{"currentVersion":11.5,"folders":["Impressao","opendata","Parceiros","Teste","TesteCache","Utilities"],"services":[]}
+HTTP 200
+
+-- https://geo.bupi.gov.pt/gisbupi/rest/services/opendata?f=json
+{"currentVersion":11.5,"folders":[],"services":[{"name":"opendata/CAOP_atual","type":"MapServer"},{"name":"opendata/CAOP_Mad_atual","type":"MapServer"},{"name":"opendata/RGG_Consulta_Publica","type":"MapServer"},{"name":"opendata/RGG_DadosGovPT_Madeira","type":"MapServer"},{"name":"opendata/RGG_DadosGovPT","type":"MapServer"},{"name":"opendata/RGG_Query","type":"MapServer"}]}
+HTTP 200
+

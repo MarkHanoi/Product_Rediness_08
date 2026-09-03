@@ -1,0 +1,3 @@
+URL: https://snicws.dgterritorio.gov.pt/geoserver/inspire/ows?service=WFS&version=2.0.0&request=GetFeature&typeNames=inspire:cadastralparcel&srsName=EPSG:4326&count=20&outputFormat=application/json&bbox=41.14925,-8.61135,41.14995,-8.610650000000001%2Curn:ogc:def:crs:EPSG::4326
+{"type":"FeatureCollection","features":[],"totalFeatures":0,"numberMatched":0,"numberReturned":0,"timeStamp":"2026-09-03T13:54:24.639Z","crs":null}
+HTTP 200 in 0.205798s

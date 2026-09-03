@@ -862,6 +862,22 @@ export const EU_CADASTRE_SOURCES = {
         url: ptUrl,
         format: 'geojson',
         source: 'dgt-cadastro-predial',
+        // LANE PT-PARCEL-ACCURACY (2026-09-03, founder report "parcels in Portugal are not
+        // accurate") — the STRUCTURAL coverage fact behind most PT empties, carried on every
+        // `empty` outcome so a client can tell "no cadastre is published for this área" from
+        // "the cadastre says no parcel exists here". MEASURED 2026-09-03 against the SNIC WFS
+        // (transcripts audit/demo-esfrpt/2026-09-02/transcripts/pt-accuracy/): central Lisboa
+        // (38.7223,-9.1393), the whole Porto city bbox AND an Évora-area rural point all return
+        // numberMatched=0 while the national set holds 1,789,672 parcels and neighbouring
+        // Amadora (a SiNErGIC pilot município) is fully covered — the same query shape returns
+        // 7 parcels at the 2026-07-31 control point. Empty here is usually a PUBLISHING gap,
+        // not a ground-truth absence. Do not soften this into "no parcel here".
+        coverageNote:
+            'DGT Cadastro Predial coverage is per-município and INCOMPLETE: Lisboa and Porto ' +
+            'municípios publish no parcels at all (numberMatched=0, measured 2026-09-03). An ' +
+            'empty answer in mainland Portugal usually means "no cadastre published for this ' +
+            'área yet", not "no parcel exists here". No keyless urban parcel-geometry service ' +
+            'exists for Portugal (BUPi RGG is rústico/misto only).',
         normalise: (c) => {
             const p = c.props || {};
             // `label` is the human NIC ("AAA 001 318 684"); `nationalcadastralreference` is the
@@ -1282,9 +1298,27 @@ export async function fetchEuParcelAtPoint(cc, lon, lat, deps = {}) {
  * this repo keeps re-encountering. `fetchEuParcelAtPoint` keeps its old signature for existing
  * callers; new callers should prefer this.
  *
- * @returns {Promise<{ outcome:'ok'|'empty'|'unreachable'|'unknown-source'|'bad-input'|'out-of-area', parcel: object|null }>}
+ * LANE PT-PARCEL-ACCURACY (2026-09-03): an `empty` outcome from a source whose config declares a
+ * `coverageNote` (today: PT only) additionally carries that note verbatim, because for such a
+ * source "empty" is USUALLY a publishing gap rather than a ground-truth absence — collapsing the
+ * two is exactly the founder-reported defect ("parcels in Portugal are not accurate": an urban
+ * click silently degraded to the OSM footprint with no statement that Portugal publishes no urban
+ * cadastre). The note rides ONLY on `empty` — an `ok`/`unreachable`/`out-of-area` answer needs no
+ * coverage apology and must not carry one.
+ *
+ * @returns {Promise<{ outcome:'ok'|'empty'|'unreachable'|'unknown-source'|'bad-input'|'out-of-area', parcel: object|null, coverageNote?: string }>}
  */
 export async function resolveEuParcelOutcome(cc, lon, lat, deps = {}) {
+    const r = await resolveEuParcelOutcomeInner(cc, lon, lat, deps);
+    const cfg = EU_CADASTRE_SOURCES[cc];
+    if (r.outcome === 'empty' && cfg && typeof cfg.coverageNote === 'string' && cfg.coverageNote) {
+        return { ...r, coverageNote: cfg.coverageNote };
+    }
+    return r;
+}
+
+/** The undecorated resolution — every return site here stays a plain `{ outcome, parcel }`. */
+async function resolveEuParcelOutcomeInner(cc, lon, lat, deps = {}) {
     const cfg = EU_CADASTRE_SOURCES[cc];
     if (!cfg) return { outcome: 'unknown-source', parcel: null };
     if (!Number.isFinite(lon) || !Number.isFinite(lat)) return { outcome: 'bad-input', parcel: null };
@@ -1386,8 +1420,9 @@ export function makeEuParcelHandler(deps = {}) {
         // a point→refcat cache is impossible before the WFS answers, exactly like the Catastro proxy.
         let outcome = 'unreachable';
         let parcel = null;
+        let coverageNote;
         try {
-            ({ outcome, parcel } = await resolveEuParcelOutcome(cc, lon, lat, deps));
+            ({ outcome, parcel, coverageNote } = await resolveEuParcelOutcome(cc, lon, lat, deps));
         } catch (err) {
             console.warn(`[eu-cadastre] unexpected error (${cc}):`, err?.message ?? err);
             outcome = 'unreachable';
@@ -1403,6 +1438,13 @@ export function makeEuParcelHandler(deps = {}) {
             if (outcome === 'unreachable') res.setHeader('Cache-Control', 'no-store');
             res.setHeader('X-Cadastre-Cache', 'MISS-EMPTY');
             res.setHeader('X-Cadastre-Outcome', outcome);
+            // LANE PT-PARCEL-ACCURACY — a source with declared-incomplete coverage (PT) says so on
+            // every `empty`, so the client CAN distinguish "no cadastre published here" from "no
+            // parcel here". Additive field; absent for sources without a coverageNote.
+            if (typeof coverageNote === 'string' && coverageNote) {
+                res.setHeader('X-Cadastre-Coverage', 'declared-incomplete');
+                return res.status(200).json({ parcel: null, outcome, coverageNote });
+            }
             return res.status(200).json({ parcel: null, outcome });
         }
         res.setHeader('X-Cadastre-Cache', 'HIT-OR-FETCH');

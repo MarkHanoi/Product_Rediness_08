@@ -1,0 +1,1 @@
+{"data":[],"meta":{"queryParameters":{"q":"cadastro","filter":{"source":"geodados-cml.hub.arcgis.com","isCancelled":"eventsEq(false)","status":"not(private,draft,planned)","endDate":"eventsBefore(1788443971714)"},"page":{"size":"20"}},"stats":{"count":0,"totalCount":0,"aggs":{}}}}

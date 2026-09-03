@@ -1,0 +1,780 @@
+[
+ {
+  "svc": "Principal",
+  "id": 11,
+  "name": "Floor Space Ratio Map",
+  "cls": "DIRECT",
+  "total": 34840,
+  "cadidNonNull": null,
+  "note": "no CADID field"
+ },
+ {
+  "svc": "Principal",
+  "id": 14,
+  "name": "Height of Buildings Map",
+  "cls": "DIRECT",
+  "total": 40964,
+  "cadidNonNull": null,
+  "note": "no CADID field"
+ },
+ {
+  "svc": "Principal",
+  "id": 221,
+  "name": "State Heritage Register Curtilage",
+  "cls": "GEOMETRIC",
+  "total": 1824,
+  "cadidNonNull": null,
+  "note": "no CADID field"
+ },
+ {
+  "svc": "Principal",
+  "id": 22,
+  "name": "Minimum Lot Size",
+  "cls": "DIRECT",
+  "total": 41646,
+  "cadidNonNull": null,
+  "note": "no CADID field"
+ },
+ {
+  "svc": "Principal",
+  "id": 24,
+  "name": "Land Reservation Acquisition",
+  "cls": "GEOMETRIC",
+  "total": 5432,
+  "cadidNonNull": null,
+  "note": "no CADID field"
+ },
+ {
+  "svc": "Principal",
+  "id": 25,
+  "name": "Minimum Dwelling Density Area",
+  "cls": "DIRECT",
+  "total": 661,
+  "cadidNonNull": null,
+  "note": "no CADID field"
+ },
+ {
+  "svc": "Principal",
+  "id": 26,
+  "name": "Foreshore Building Line",
+  "cls": "GEOMETRIC",
+  "total": 2629,
+  "cadidNonNull": null,
+  "note": "no CADID field"
+ },
+ {
+  "svc": "LocalProvisions",
+  "id": 416,
+  "name": "Active Street Frontages Map",
+  "cls": "GEOMETRIC",
+  "total": 0,
+  "cadidNonNull": 0
+ },
+ {
+  "svc": "LocalProvisions",
+  "id": 420,
+  "name": "Airport Buffer Map",
+  "cls": "GEOMETRIC",
+  "total": 1,
+  "cadidNonNull": 1
+ },
+ {
+  "svc": "LocalProvisions",
+  "id": 421,
+  "name": "Airport Development Area Map",
+  "cls": "GEOMETRIC",
+  "total": 1,
+  "cadidNonNull": 1
+ },
+ {
+  "svc": "LocalProvisions",
+  "id": 422,
+  "name": "Alternative Building Heights Map",
+  "cls": "DIRECT",
+  "total": 79,
+  "cadidNonNull": 79
+ },
+ {
+  "svc": "LocalProvisions",
+  "id": 423,
+  "name": "Alternative Floor Space Ratio Map",
+  "cls": "DIRECT",
+  "total": 73,
+  "cadidNonNull": 73
+ },
+ {
+  "svc": "LocalProvisions",
+  "id": 772,
+  "name": "Alternative Floor Space Ratio Map - Affordable Housing Sites",
+  "cls": "DIRECT",
+  "total": 25,
+  "cadidNonNull": 25
+ },
+ {
+  "svc": "LocalProvisions",
+  "id": 773,
+  "name": "Alternative Floor Space Ratio Map - Employment Sites",
+  "cls": "DIRECT",
+  "total": 24,
+  "cadidNonNull": 24
+ },
+ {
+  "svc": "LocalProvisions",
+  "id": 771,
+  "name": "Alternative Height of Buildings Map",
+  "cls": "DIRECT",
+  "total": 91,
+  "cadidNonNull": 91
+ },
+ {
+  "svc": "LocalProvisions",
+  "id": 429,
+  "name": "Building Height Allowance Map",
+  "cls": "DIRECT",
+  "total": 203,
+  "cadidNonNull": 203
+ },
+ {
+  "svc": "LocalProvisions",
+  "id": 430,
+  "name": "Building Height Plane Map",
+  "cls": "GEOMETRIC",
+  "total": 9,
+  "cadidNonNull": 9
+ },
+ {
+  "svc": "LocalProvisions",
+  "id": 431,
+  "name": "Building Setback Map",
+  "cls": "DIRECT",
+  "total": 30,
+  "cadidNonNull": 30
+ },
+ {
+  "svc": "LocalProvisions",
+  "id": 757,
+  "name": "Community Facility Floor Space Map",
+  "cls": "DIRECT",
+  "total": 1,
+  "cadidNonNull": 1
+ },
+ {
+  "svc": "LocalProvisions",
+  "id": 455,
+  "name": "Dwelling Density Map",
+  "cls": "DIRECT",
+  "total": 11,
+  "cadidNonNull": 11
+ },
+ {
+  "svc": "LocalProvisions",
+  "id": 460,
+  "name": "Earthworks Exclusion Map",
+  "cls": "GEOMETRIC",
+  "total": 2,
+  "cadidNonNull": 2
+ },
+ {
+  "svc": "LocalProvisions",
+  "id": 469,
+  "name": "Floor Height Restriction Map",
+  "cls": "DIRECT",
+  "total": 14,
+  "cadidNonNull": 14
+ },
+ {
+  "svc": "LocalProvisions",
+  "id": 470,
+  "name": "Floor Space Ratio Incentive Map",
+  "cls": "DIRECT",
+  "total": 36,
+  "cadidNonNull": 36
+ },
+ {
+  "svc": "LocalProvisions",
+  "id": 471,
+  "name": "Foreshore Scenic Protection Area Map",
+  "cls": "GEOMETRIC",
+  "total": 0,
+  "cadidNonNull": 0
+ },
+ {
+  "svc": "LocalProvisions",
+  "id": 484,
+  "name": "Incentive Floor Space Ratio Map",
+  "cls": "DIRECT",
+  "total": 172,
+  "cadidNonNull": 172
+ },
+ {
+  "svc": "LocalProvisions",
+  "id": 485,
+  "name": "Incentive Height of Buildings Map",
+  "cls": "DIRECT",
+  "total": 365,
+  "cadidNonNull": 365
+ },
+ {
+  "svc": "LocalProvisions",
+  "id": 496,
+  "name": "Landscape Area Map",
+  "cls": "DIRECT",
+  "total": 2419,
+  "cadidNonNull": 2419
+ },
+ {
+  "svc": "LocalProvisions",
+  "id": 497,
+  "name": "Landscape Map",
+  "cls": "DIRECT",
+  "total": 5361,
+  "cadidNonNull": 5361
+ },
+ {
+  "svc": "LocalProvisions",
+  "id": 775,
+  "name": "Lot Size for Dual Occupancy Development Area Map",
+  "cls": "DIRECT",
+  "total": 1,
+  "cadidNonNull": 1
+ },
+ {
+  "svc": "LocalProvisions",
+  "id": 506,
+  "name": "Lot Size for Dual Occupancy Development Map",
+  "cls": "DIRECT",
+  "total": 1464,
+  "cadidNonNull": 1464
+ },
+ {
+  "svc": "LocalProvisions",
+  "id": 508,
+  "name": "Macquarie Park Corridor Precinct Incentive Floor Space Ratio Map",
+  "cls": "DIRECT",
+  "total": 55,
+  "cadidNonNull": 55
+ },
+ {
+  "svc": "LocalProvisions",
+  "id": 509,
+  "name": "Macquarie Park Corridor Precinct Incentive Height of Buildings Map",
+  "cls": "DIRECT",
+  "total": 54,
+  "cadidNonNull": 54
+ },
+ {
+  "svc": "LocalProvisions",
+  "id": 512,
+  "name": "Meteorological Station Height Limit Map",
+  "cls": "DIRECT",
+  "total": 7,
+  "cadidNonNull": 7
+ },
+ {
+  "svc": "LocalProvisions",
+  "id": 515,
+  "name": "Minimum Lot Size - Dual Occupancy Map",
+  "cls": "DIRECT",
+  "total": 36,
+  "cadidNonNull": 36
+ },
+ {
+  "svc": "LocalProvisions",
+  "id": 516,
+  "name": "Minimum Lot Size - Manor Houses, Multi Dwelling Housing and Residential Flat Buildings Map",
+  "cls": "DIRECT",
+  "total": 39,
+  "cadidNonNull": 39
+ },
+ {
+  "svc": "LocalProvisions",
+  "id": 517,
+  "name": "Minimum Lot Sizes for Dual Occupancy Development Map",
+  "cls": "DIRECT",
+  "total": 0,
+  "cadidNonNull": 0
+ },
+ {
+  "svc": "LocalProvisions",
+  "id": 518,
+  "name": "Minimum Site Area Map",
+  "cls": "DIRECT",
+  "total": 78,
+  "cadidNonNull": 78
+ },
+ {
+  "svc": "LocalProvisions",
+  "id": 1027,
+  "name": "Non-Residential Floor Space Map",
+  "cls": "DIRECT",
+  "total": 5,
+  "cadidNonNull": 5
+ },
+ {
+  "svc": "LocalProvisions",
+  "id": 532,
+  "name": "Non-Residential Floor Space Ratio Map",
+  "cls": "DIRECT",
+  "total": 212,
+  "cadidNonNull": 212
+ },
+ {
+  "svc": "LocalProvisions",
+  "id": 763,
+  "name": "Overshadowing Map",
+  "cls": "GEOMETRIC",
+  "total": 10,
+  "cadidNonNull": 10
+ },
+ {
+  "svc": "LocalProvisions",
+  "id": 553,
+  "name": "River Front Building Line Map",
+  "cls": "GEOMETRIC",
+  "total": 27,
+  "cadidNonNull": 27
+ },
+ {
+  "svc": "LocalProvisions",
+  "id": 572,
+  "name": "Sun Access Protection Map",
+  "cls": "GEOMETRIC",
+  "total": 154,
+  "cadidNonNull": 154
+ },
+ {
+  "svc": "LocalProvisions",
+  "id": 573,
+  "name": "Sun Plane Protection Map",
+  "cls": "GEOMETRIC",
+  "total": 9,
+  "cadidNonNull": 9
+ },
+ {
+  "svc": "LocalProvisions",
+  "id": 758,
+  "name": "Underground Floor Space Ratio Map",
+  "cls": "DIRECT",
+  "total": 42,
+  "cadidNonNull": 42
+ },
+ {
+  "svc": "SEPP",
+  "id": 83,
+  "name": "Land Reservation Acquisition",
+  "cls": "GEOMETRIC",
+  "total": 0,
+  "cadidNonNull": null,
+  "note": "no CADID field"
+ },
+ {
+  "svc": "SEPP",
+  "id": 713,
+  "name": "Floor Space Ratio",
+  "cls": "DIRECT",
+  "total": 63,
+  "cadidNonNull": 63
+ },
+ {
+  "svc": "SEPP",
+  "id": 715,
+  "name": "Height Of Building",
+  "cls": "DIRECT",
+  "total": 68,
+  "cadidNonNull": 68
+ },
+ {
+  "svc": "SEPP",
+  "id": 718,
+  "name": "Reduced Level",
+  "cls": "DIRECT",
+  "total": 5,
+  "cadidNonNull": null,
+  "note": "no CADID field"
+ },
+ {
+  "svc": "SEPP",
+  "id": 131,
+  "name": "Floor Space Ratio (n:1)",
+  "cls": "DIRECT",
+  "total": 0,
+  "cadidNonNull": null,
+  "note": "no CADID field"
+ },
+ {
+  "svc": "SEPP",
+  "id": 133,
+  "name": "Minimum Lot Size",
+  "cls": "DIRECT",
+  "total": 0,
+  "cadidNonNull": null,
+  "note": "no CADID field"
+ },
+ {
+  "svc": "SEPP",
+  "id": 134,
+  "name": "Height of Building",
+  "cls": "DIRECT",
+  "total": 7,
+  "cadidNonNull": null,
+  "note": "no CADID field"
+ },
+ {
+  "svc": "SEPP",
+  "id": 135,
+  "name": "Reduced Level",
+  "cls": "DIRECT",
+  "total": 0,
+  "cadidNonNull": null,
+  "note": "no CADID field"
+ },
+ {
+  "svc": "SEPP",
+  "id": 138,
+  "name": "Land Reservation Acquisition",
+  "cls": "GEOMETRIC",
+  "total": 487,
+  "cadidNonNull": null,
+  "note": "no CADID field"
+ },
+ {
+  "svc": "SEPP",
+  "id": 113,
+  "name": "Active Street Frontages",
+  "cls": "GEOMETRIC",
+  "total": 4,
+  "cadidNonNull": null,
+  "note": "no CADID field"
+ },
+ {
+  "svc": "SEPP",
+  "id": 114,
+  "name": "Dwelling Density",
+  "cls": "DIRECT",
+  "total": 173,
+  "cadidNonNull": null,
+  "note": "no CADID field"
+ },
+ {
+  "svc": "SEPP",
+  "id": 116,
+  "name": "Floor Space Ratio (n:1)",
+  "cls": "DIRECT",
+  "total": 71,
+  "cadidNonNull": null,
+  "note": "no CADID field"
+ },
+ {
+  "svc": "SEPP",
+  "id": 118,
+  "name": "Height Of Building",
+  "cls": "DIRECT",
+  "total": 184,
+  "cadidNonNull": null,
+  "note": "no CADID field"
+ },
+ {
+  "svc": "SEPP",
+  "id": 120,
+  "name": "Land Reservation Acquisition",
+  "cls": "GEOMETRIC",
+  "total": 487,
+  "cadidNonNull": null,
+  "note": "no CADID field"
+ },
+ {
+  "svc": "SEPP",
+  "id": 122,
+  "name": "Minimum Lot Size",
+  "cls": "DIRECT",
+  "total": 78,
+  "cadidNonNull": null,
+  "note": "no CADID field"
+ },
+ {
+  "svc": "SEPP",
+  "id": 611,
+  "name": "Floor Space Ratio (n:1)",
+  "cls": "DIRECT",
+  "total": 23,
+  "cadidNonNull": null,
+  "note": "no CADID field"
+ },
+ {
+  "svc": "SEPP",
+  "id": 613,
+  "name": "Minimum Lot Size",
+  "cls": "DIRECT",
+  "total": 0,
+  "cadidNonNull": null,
+  "note": "no CADID field"
+ },
+ {
+  "svc": "SEPP",
+  "id": 614,
+  "name": "Height of Building",
+  "cls": "DIRECT",
+  "total": 76,
+  "cadidNonNull": null,
+  "note": "no CADID field"
+ },
+ {
+  "svc": "SEPP",
+  "id": 615,
+  "name": "Reduced Level",
+  "cls": "DIRECT",
+  "total": 0,
+  "cadidNonNull": null,
+  "note": "no CADID field"
+ },
+ {
+  "svc": "SEPP",
+  "id": 618,
+  "name": "Land Reservation Acquisition",
+  "cls": "GEOMETRIC",
+  "total": 0,
+  "cadidNonNull": null,
+  "note": "no CADID field"
+ },
+ {
+  "svc": "SEPP",
+  "id": 628,
+  "name": "Floor Space Ratio (n:1)",
+  "cls": "DIRECT",
+  "total": 6,
+  "cadidNonNull": null,
+  "note": "no CADID field"
+ },
+ {
+  "svc": "SEPP",
+  "id": 630,
+  "name": "Minimum Lot Size",
+  "cls": "DIRECT",
+  "total": 17,
+  "cadidNonNull": null,
+  "note": "no CADID field"
+ },
+ {
+  "svc": "SEPP",
+  "id": 631,
+  "name": "Height of Building",
+  "cls": "DIRECT",
+  "total": 22,
+  "cadidNonNull": null,
+  "note": "no CADID field"
+ },
+ {
+  "svc": "SEPP",
+  "id": 632,
+  "name": "Reduced Level",
+  "cls": "DIRECT",
+  "total": 0,
+  "cadidNonNull": null,
+  "note": "no CADID field"
+ },
+ {
+  "svc": "SEPP",
+  "id": 635,
+  "name": "Land Reservation Acquisition",
+  "cls": "GEOMETRIC",
+  "total": 1,
+  "cadidNonNull": null,
+  "note": "no CADID field"
+ },
+ {
+  "svc": "SEPP",
+  "id": 43,
+  "name": "Floor Space Ratio (n:1)",
+  "cls": "DIRECT",
+  "total": 131,
+  "cadidNonNull": null,
+  "note": "no CADID field"
+ },
+ {
+  "svc": "SEPP",
+  "id": 44,
+  "name": "Height of Building",
+  "cls": "DIRECT",
+  "total": 156,
+  "cadidNonNull": null,
+  "note": "no CADID field"
+ },
+ {
+  "svc": "SEPP",
+  "id": 47,
+  "name": "Minimum Lot Size",
+  "cls": "DIRECT",
+  "total": 6,
+  "cadidNonNull": null,
+  "note": "no CADID field"
+ },
+ {
+  "svc": "SEPP",
+  "id": 49,
+  "name": "Active Street Frontages",
+  "cls": "GEOMETRIC",
+  "total": 19,
+  "cadidNonNull": null,
+  "note": "no CADID field"
+ },
+ {
+  "svc": "SEPP",
+  "id": 645,
+  "name": "Floor Space Ratio (n:1)",
+  "cls": "DIRECT",
+  "total": 2,
+  "cadidNonNull": null,
+  "note": "no CADID field"
+ },
+ {
+  "svc": "SEPP",
+  "id": 647,
+  "name": "Minimum Lot Size",
+  "cls": "DIRECT",
+  "total": 9,
+  "cadidNonNull": null,
+  "note": "no CADID field"
+ },
+ {
+  "svc": "SEPP",
+  "id": 648,
+  "name": "Height of Building",
+  "cls": "DIRECT",
+  "total": 13,
+  "cadidNonNull": null,
+  "note": "no CADID field"
+ },
+ {
+  "svc": "SEPP",
+  "id": 649,
+  "name": "Reduced Level",
+  "cls": "DIRECT",
+  "total": 0,
+  "cadidNonNull": null,
+  "note": "no CADID field"
+ },
+ {
+  "svc": "SEPP",
+  "id": 652,
+  "name": "Land Reservation Acquisition",
+  "cls": "GEOMETRIC",
+  "total": 19,
+  "cadidNonNull": null,
+  "note": "no CADID field"
+ },
+ {
+  "svc": "SEPP",
+  "id": 679,
+  "name": "Active Street Frontages",
+  "cls": "GEOMETRIC",
+  "total": 0,
+  "cadidNonNull": null,
+  "note": "no CADID field"
+ },
+ {
+  "svc": "SEPP",
+  "id": 680,
+  "name": "Dwelling Density",
+  "cls": "DIRECT",
+  "total": 156,
+  "cadidNonNull": null,
+  "note": "no CADID field"
+ },
+ {
+  "svc": "SEPP",
+  "id": 682,
+  "name": "Floor Space Ratio (n:1)",
+  "cls": "DIRECT",
+  "total": 63,
+  "cadidNonNull": null,
+  "note": "no CADID field"
+ },
+ {
+  "svc": "SEPP",
+  "id": 684,
+  "name": "Height Of Building",
+  "cls": "DIRECT",
+  "total": 208,
+  "cadidNonNull": null,
+  "note": "no CADID field"
+ },
+ {
+  "svc": "SEPP",
+  "id": 686,
+  "name": "Land Reservation Acquisition",
+  "cls": "GEOMETRIC",
+  "total": 266,
+  "cadidNonNull": null,
+  "note": "no CADID field"
+ },
+ {
+  "svc": "SEPP",
+  "id": 688,
+  "name": "Minimum Lot Size",
+  "cls": "DIRECT",
+  "total": 93,
+  "cadidNonNull": null,
+  "note": "no CADID field"
+ },
+ {
+  "svc": "SEPP",
+  "id": 798,
+  "name": "Minimum Non-Residential Floor Space Map",
+  "cls": "DIRECT",
+  "total": 10,
+  "cadidNonNull": null,
+  "note": "no CADID field"
+ },
+ {
+  "svc": "SEPP",
+  "id": 799,
+  "name": "Incentive Height of Buildings Map",
+  "cls": "DIRECT",
+  "total": 4,
+  "cadidNonNull": null,
+  "note": "no CADID field"
+ },
+ {
+  "svc": "SEPP",
+  "id": 800,
+  "name": "Incentive Floor Space Ratio Map",
+  "cls": "DIRECT",
+  "total": 4,
+  "cadidNonNull": null,
+  "note": "no CADID field"
+ },
+ {
+  "svc": "SEPP",
+  "id": 273,
+  "name": "Land Reservation Acquisition",
+  "cls": "GEOMETRIC",
+  "total": 223,
+  "cadidNonNull": 223
+ },
+ {
+  "svc": "SEPP",
+  "id": 278,
+  "name": "Obstacle Limitation Surface",
+  "cls": "GEOMETRIC",
+  "total": 113,
+  "cadidNonNull": null,
+  "note": "no CADID field"
+ },
+ {
+  "svc": "SEPP",
+  "id": 280,
+  "name": "Airport Noise",
+  "cls": "GEOMETRIC",
+  "total": 4,
+  "cadidNonNull": null,
+  "note": "no CADID field"
+ },
+ {
+  "svc": "SEPP",
+  "id": 726,
+  "name": "Height of Building",
+  "cls": "DIRECT",
+  "total": 4,
+  "cadidNonNull": 4
+ }
+]

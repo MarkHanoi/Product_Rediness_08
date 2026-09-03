@@ -293,6 +293,56 @@ describe('§CONTEXT-DATA-HONESTY — outage and empty never collapse', () => {
     });
 });
 
+// ══════════════════════════════════════════════════════════════════════════════════════════════
+// LANE PT-PARCEL-ACCURACY (2026-09-03) — the declared-incomplete coverage note.
+// Founder report: "parcels in Portugal are not accurate." Measured root cause (transcripts
+// audit/demo-esfrpt/2026-09-02/transcripts/pt-accuracy/): the DGT Cadastro Predial publishes ZERO
+// parcels for Lisboa and Porto municípios (numberMatched=0 at central Lisboa AND across the whole
+// Porto city bbox) while holding 1,789,672 parcels nationally — so an urban PT click resolves
+// `empty` and the client falls to the OSM building footprint. For such a source, `empty` is
+// USUALLY "no cadastre published for this área", not "no parcel exists here" — the pt leg's
+// `coverageNote` says so on every empty, and ONLY on empty.
+// ══════════════════════════════════════════════════════════════════════════════════════════════
+
+describe('§PT-PARCEL-ACCURACY — declared-incomplete coverage rides every PT empty', () => {
+    const EMPTY_FC = '{"type":"FeatureCollection","features":[]}';
+
+    it('a PT `empty` carries the coverageNote naming the Lisboa/Porto publishing gap', async () => {
+        const r = await resolveEuParcelOutcome('pt', -9.1393, 38.7223, { fetchImpl: fakeFetch(EMPTY_FC) });
+        expect(r.outcome).toBe('empty');
+        expect(r.coverageNote).toBeTypeOf('string');
+        expect(r.coverageNote).toContain('per-município');
+        expect(r.coverageNote).toContain('Lisboa');
+        // The note must deny the "no parcel exists here" reading, not soften into it.
+        expect(r.coverageNote).toContain('no cadastre published');
+    });
+
+    it('a PT `ok` does NOT carry the note — a resolved parcel needs no coverage apology', async () => {
+        const r = await resolveEuParcelOutcome('pt', -7.5534, 39.6713, { fetchImpl: fakeFetch(PT_GEOJSON) });
+        expect(r.outcome).toBe('ok');
+        expect(r.coverageNote).toBeUndefined();
+    });
+
+    it('a PT `unreachable` does NOT carry the note — an outage is not a coverage fact', async () => {
+        const r = await resolveEuParcelOutcome('pt', -9.1393, 38.7223, { fetchImpl: fakeFetch('', 500) });
+        expect(r.outcome).toBe('unreachable');
+        expect(r.coverageNote).toBeUndefined();
+    });
+
+    it('an `empty` from a source WITHOUT a declared note stays undecorated (FR)', async () => {
+        const r = await resolveEuParcelOutcome('fr', 2.3522, 48.8566, { fetchImpl: fakeFetch(EMPTY_FC) });
+        expect(r.outcome).toBe('empty');
+        expect(r.coverageNote).toBeUndefined();
+    });
+
+    it('the pt config is the only one declaring a coverageNote today (add deliberately, never by copy-paste)', () => {
+        const noted = Object.entries(EU_CADASTRE_SOURCES)
+            .filter(([, cfg]) => typeof (cfg as { coverageNote?: unknown }).coverageNote === 'string')
+            .map(([cc]) => cc);
+        expect(noted).toEqual(['pt']);
+    });
+});
+
 describe('fetchEuParcelAtPoint — guards + never-throws', () => {
     it('out-of-national-bbox short-circuits without calling the WFS', async () => {
         let called = false;
