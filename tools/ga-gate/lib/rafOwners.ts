@@ -62,6 +62,15 @@ export function rafExcluded(rel: string): boolean {
   if (rel.endsWith('.d.ts')) return true;
   if (/(^|\/)(__tests__|__fixtures__|__mocks__)\//.test(rel)) return true;
   if (/\.(bad|good)\.tsx?$/.test(rel)) return true;
+  // §RAF-GATE-SPEC-BLIND (2026-09-03): spec/test FILES outside __tests__/ dirs.
+  // tools/perf/outer/outer-baseline.spec.ts (7fa60a2b) tripped the gate with
+  // three rAF calls that all live INSIDE page.evaluate() — Playwright
+  // browser-context strings measuring paint settledness from OUTSIDE the app.
+  // A spec file is not a build artifact and cannot start a production
+  // animation loop; counting it repeats the comment-counting defect
+  // (§RAF-GATE-COMMENT-BLIND) one level up. Production modules never carry
+  // .spec/.test suffixes, so this cannot hide a real owner.
+  if (/\.(spec|test)\.tsx?$/.test(rel)) return true;
   // Scaffolding that MUST contain the literal: the gate, this shared scan
   // (the pattern + doc examples live here), and the eslint rule that bans it.
   if (rel === 'tools/ga-gate/check-raf-count.ts') return true;
