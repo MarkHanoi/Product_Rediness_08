@@ -2872,6 +2872,28 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
         '<span style="color:#a49dbb;font-style:italic;" title="The rule pack did not derive this. We do not infer it — an inferred value would be indistinguishable from a derived one.">not derived</span>';
 
     /**
+     * §RESI-ORCH-COST (2026-09-03) — THE ONE PLACE THE CARD DERIVES ITS PERMITTED FOOTPRINT AND
+     * GFA. Extracted, unchanged, out of `buildSiteDataBlock` because the indicative-cost fold now
+     * needs the same two numbers and a second copy of `footprint × storeys` is exactly how a card
+     * and the section beneath it come to state different areas for one parcel (C06 §13.3 — one
+     * producer, many renderers).
+     *
+     * ⚠ THE `null` IS THE WHOLE POINT AND IS NOT AN OVERSIGHT. GFA is withheld whenever the rule
+     * pack did not derive a storey count, because footprint × a GUESSED storey count is
+     * indistinguishable from footprint × a derived one — and it would now propagate into money.
+     */
+    const permittedStudyFigures = (
+        e: NonNullable<ReturnType<typeof getLastBuildableEnvelope>>,
+    ): { footprintM2: number; gfaM2: number | null } => {
+        const inset = e.insetPolygon ?? [];
+        const footprintM2 = e.insetAreaM2 || polyAreaM2(inset);
+        return {
+            footprintM2,
+            gfaM2: e.maxFloors !== null && e.maxFloors > 0 ? footprintM2 * e.maxFloors : null,
+        };
+    };
+
+    /**
      * §CARD-DEPTH-TERM (L-676) — the LOCAL-LANGUAGE name of the buildable-depth rule, taken from
      * the ordinance the card is already citing.
      *

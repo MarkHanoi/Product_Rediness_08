@@ -477,10 +477,30 @@ export function resolveBuildingCostModels(
  * anywhere. It computes slab plan area, which is close, and floor-finish area,
  * which is smaller (it excludes the walls). Neither IS gross built area, so the
  * one used is named on the panel and the reader can judge the error.
+ *
+ * ⭐ `'envelope-study-gfa'` (lane RESI-ORCHESTRATOR, 2026-09-03) IS A FOURTH NAMED
+ * PROXY, AND IT IS THE WEAKEST OF THE FOUR BY CONSTRUCTION. The other three are
+ * measured off drawn geometry. This one is a STUDY figure taken from a buildable
+ * envelope — footprint × storeys — on a project where nothing has been drawn yet,
+ * which is precisely the stage at which an INDICATIVE order of magnitude is worth
+ * having and a PRICE is not. It is admitted here rather than in a rival type for
+ * one reason: `estimateBuildingCost` generates the sentence that must accompany
+ * every figure, and that sentence is built from `basis` + `caveat`. A second
+ * estimator for the envelope stage would be a second producer of the number AND
+ * of its provenance, and the two would drift. So the caller supplies the honest
+ * `basis`/`caveat` and the ONE estimator still writes the ONE statement.
+ *
+ * ⛔ It is a proxy for a proxy, and its `caveat` must say so. A study GFA is not a
+ * measurement of anything; it is what the ordinance would permit if it were built
+ * out in full.
  */
 export interface MeasuredBuiltArea {
   readonly areaM2: number;
-  readonly proxy: 'slab-plan-area' | 'floor-plan-area' | 'room-finish-area';
+  readonly proxy:
+    | 'slab-plan-area'
+    | 'floor-plan-area'
+    | 'room-finish-area'
+    | 'envelope-study-gfa';
   /** How the number was reached, in words, for the panel and the CSV. */
   readonly basis: string;
   /** Which take-off lines contributed, so the figure is traceable. */

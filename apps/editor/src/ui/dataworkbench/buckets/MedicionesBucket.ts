@@ -63,6 +63,8 @@ import { escapeHtml } from './DWHelpers';
 // §REGIONAL-COST-ESTIMATE (L-4832) — the composition surface where the parcel's
 // geolocation becomes a cost jurisdiction, through the ONE existing resolver.
 import { currentCostJurisdiction, costJurisdictionDiagLine } from './resolveCostJurisdiction';
+// §RESI-ORCH-COST — the ONE typology-choice store, shared with the envelope card.
+import { loadBuildingChoice, saveBuildingChoice, type BuildingChoice } from './buildingTypologyChoice';
 
 type Runtime = import('@pryzm/runtime-composer/types').PryzmRuntime | null;
 
@@ -126,33 +128,14 @@ function saveRateBook(runtime: Runtime, book: RateBook): void {
 // A default would be a guess with a legal citation attached, so the panel asks
 // once and then remembers the answer. Same storage caveat as the rate book —
 // this browser only.
-
-const BUILDING_GROUP_PREFIX = 'pryzm.mediciones.buildingGroup.';
-
-interface BuildingChoice { groupId: string | null; correctionId: string | null }
-
-function groupKey(runtime: Runtime): string {
-    return BUILDING_GROUP_PREFIX + (runtime?.projectContext?.projectId ?? 'unscoped');
-}
-
-function loadBuildingChoice(runtime: Runtime): BuildingChoice {
-    try {
-        const raw = localStorage.getItem(groupKey(runtime));
-        if (!raw) return { groupId: null, correctionId: null };
-        const p = JSON.parse(raw) as Partial<BuildingChoice>;
-        return {
-            groupId: typeof p.groupId === 'string' && p.groupId ? p.groupId : null,
-            correctionId: typeof p.correctionId === 'string' && p.correctionId ? p.correctionId : null,
-        };
-    } catch {
-        return { groupId: null, correctionId: null };
-    }
-}
-
-function saveBuildingChoice(runtime: Runtime, choice: BuildingChoice): void {
-    try { localStorage.setItem(groupKey(runtime), JSON.stringify(choice)); }
-    catch (e) { console.warn('[Mediciones] building typology choice could not be saved to this browser:', e); }
-}
+//
+// ⭐ §RESI-ORCH-COST (2026-09-03) — `BuildingChoice`, its storage key and its
+// load/save now live in `./buildingTypologyChoice`, unchanged in behaviour and
+// with the same key, because the buildable-envelope card asks the SAME question
+// one stage earlier. Two panels remembering two different answers to "what kind
+// of building is this?" would state two different costs for one project, and the
+// spread between the extreme rows of the same published table is a factor of nine.
+// One store, two readers.
 
 // ── Small shared bits ─────────────────────────────────────────────────────────
 
