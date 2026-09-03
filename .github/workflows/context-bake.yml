@@ -214,8 +214,18 @@ jobs:
             sz=$(stat -c %s "$f")
             echo "$f — $sz bytes"
             if [ "$sz" -lt 51200 ]; then
-              echo "::error::$f is only $sz bytes — the bake produced an effectively empty tileset."
-              fail=1
+              # §DESERT-LAYER-HONESTY (2026-09-03): a tiny trees/parks/water archive is the
+              # HONEST bake for sparse fabric — Riyadh/Jeddah/Abu Dhabi failed the whole
+              # staged bake on trees.pmtiles=8045 B, which is empty-is-correct, not broken
+              # (the same failure≠empty confusion as the context-data-honesty family).
+              # buildings/roads keep the hard floor: a region without those IS a broken bake.
+              case "$f" in
+                trees.pmtiles|parks.pmtiles|water.pmtiles|rail.pmtiles)
+                  echo "::warning::$f is only $sz bytes — accepted as an honestly sparse layer (magic still checked below)." ;;
+                *)
+                  echo "::error::$f is only $sz bytes — the bake produced an effectively empty tileset."
+                  fail=1 ;;
+              esac
             fi
             # PMTiles v3 files start with the magic string "PMTiles".
             if [ "$(head -c 7 "$f")" != "PMTiles" ]; then
