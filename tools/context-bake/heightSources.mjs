@@ -361,6 +361,26 @@ export const SOURCES = {
       'owed build + its stamp-bbox city list. City-scale BD TOPO `hauteur` stays live via the kept ' +
       'paris/lyon rows; `france` national is mass-only until the MNH stamp lands.',
   },
+  // ───────────────────────────────────────────────────────────────────────────
+  // §INTL height channels (2026-09-03, lane CONTEXT-INTL) — new non-EU channels the au-sweep/me-sweep
+  // verified (audit/geo-expansion/2026-09-02/{au-sweep,me-sweep}.md). impl:'documented' — no fetcher or
+  // bake stamp yet, so resolveHeights() reports the honest channel + owed build and the region keeps OSM
+  // defaults; NO region declares a heightJoin on any of these (§MEASURED-HEIGHT-GATE). US metros reuse
+  // the existing `overture_us` row (Overture height + 3DEP nDSM); the AE metros are honest `no-source`.
+  elvis_au: {
+    country: 'au', name: 'ELVIS national LiDAR DTM/DSM nDSM (FSDF, CC BY 4.0)', impl: 'documented',
+    provenance: 'tagged', lodNow: 'LoD1-real-height (nDSM derive)', lodNext: 'LoD2 (Geoscape commercial / per-city meshes)',
+    endpoint: 'elevation.fsdf.org.au (ELVIS, HTTP 200 probed 2026-09-02) — per-state DTM/DSM',
+    heightField: 'DSM−DTM nDSM per OSM/ACT footprint (shares the nDSM module with ES/DK/SE/PT/AT)',
+    coverage: 'partial',
+    note: 'ASSESS AU (au-sweep §1.3/§9.2/§9.3): the OPEN height channel in every AU state is the ELVIS ' +
+      'nDSM derive; the owed build is a per-capital nDSM stamp mirroring stampMdsHeightsOnGeojsonseq, ' +
+      'plus each capital’s AUSGeoid2020 datum constant (the separation swings tens of m W↔E). ACT ' +
+      'ships 64,674 open footprints and Melbourne serves real LoD1 extrusions (earlier metro joins); ' +
+      'Geoscape (national footprints+heights) is a commercial sales-agreement gate (site 403 to probe), ' +
+      'AURIN offers it under an academic gate; MS GlobalML EXCLUDED. Per-capital LiDAR coverage fraction ' +
+      'is UNKNOWN (owed ELVIS index probe). Until the stamp lands every AU state is mass-only.',
+  },
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -453,6 +473,31 @@ export const REGION_SOURCE = {
   romania: { source: null, status: 'no-source', reason: 'ANCPI Constructii is nationally INCOMPLETE (queryable ≠ complete) and carries no open height — mass-only (ASSESS RO)' },
   slovakia: { source: null, status: 'no-source', reason: 'ZBGIS buildings exist; DMR 5.0 LiDAR reported open — NOT verified this pass (ASSESS SK)' },
   bulgaria: { source: null, status: 'no-source', reason: 'KAIS cadastre bulk is PAID / no open bulk — context rides OSM (ASSESS BG)' },
+  // ───────────────────────────────────────────────────────────────────────────
+  // §INTL (2026-09-03, lane CONTEXT-INTL) — US metros, AU states, AE metros. Citations:
+  // audit/geo-expansion/2026-09-02/{au-sweep,me-sweep}.md. NONE impl:'live'; NO bake row declares a
+  // heightJoin, so resolveHeights() logs the honest per-region reason and the region keeps OSM `assumed`
+  // defaults — never a fabricated height, never an armed join without a wired stamp.
+  // US metros — Overture height + USGS 3DEP nDSM (overture_us, documented); the per-metro OPEN channels
+  // the owed 3DEP stamp draws on: NYC open building heights, Chicago open footprints, Boston MassGIS.
+  chicago: 'overture_us', austin: 'overture_us', houston: 'overture_us', boston: 'overture_us',
+  // AU states — ELVIS nDSM derive is the owed height build (elvis_au note carries the per-state nuance:
+  // ACT's 64,674 open footprints, au-sweep §7.3; Melbourne's real LoD1 extrusions, §2.3). All plain
+  // strings: a `documented` custom reason would be DEAD (resolveHeights re-derives it from the SOURCES
+  // note), the §BAKED-FLAG-IS-NOT-EVIDENCE anti-pattern — object form is reserved for blocked/no-source,
+  // where the reason IS surfaced.
+  newsouthwales: 'elvis_au',
+  victoria: 'elvis_au',
+  queensland: 'elvis_au',
+  westernaustralia: 'elvis_au',
+  southaustralia: 'elvis_au',
+  tasmania: 'elvis_au',
+  act: 'elvis_au',
+  northernterritory: 'elvis_au',
+  // AE metros — no open height channel (emirate data hosts vantage/WAF-blocked); Overture footprints,
+  // honest assumed heights (Overture height ~0% in the Gulf, like Saudi). me-sweep §2/§3.
+  dubai: { source: null, status: 'no-source', reason: 'AE emirate data hosts vantage-blocked (TCP timeout on all Dubai Pulse / DM GIS hosts, me-sweep §2); no open building-height channel — Overture footprints, honest assumed heights (ASSESS AE-Dubai)' },
+  abudhabi: { source: null, status: 'no-source', reason: 'AD open-data API WAF-fenced ("Request Rejected"), legacy SDI hosts NXDOMAIN (me-sweep §3); no open height channel — Overture footprints, honest assumed heights (ASSESS AE-AbuDhabi)' },
 };
 
 // ─────────────────────────────────────────────────────────────────────────────

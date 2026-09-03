@@ -1,0 +1,54 @@
+{
+  "$schema": "lane CONTEXT-INTL full-bake plan, 2026-09-03 — data for the orchestrator's deliberate operational bakes. NOT a workflow file. Sibling of regions-full-bake-plan.json (EU).",
+  "authority": [
+    "audit/geo-expansion/2026-09-02/au-sweep.md (AU per-state verdicts + measured pbf sizes)",
+    "audit/geo-expansion/2026-09-02/me-sweep.md (Dubai/Abu Dhabi verdicts + gcc-states size)",
+    "tools/context-bake/bake.mjs §BAKE-US-METROS / §BAKE-AU-STATES / §BAKE-AE-METROS (the 14 rows this plan sequences)",
+    "audit/geo-expansion/2026-09-02/lane-context-intl.md (this lane's proofs + datum-lift ledger)"
+  ],
+  "calibration": {
+    "tiles_weight_model": "tiles_gb = pbf_gb x [0.8 .. 1.9] on a WHOLE-STATE row (7 layers, lean upper) — inherited from the EU plan. US + AE rows are METRO clips: they DOWNLOAD a state/gcc extract but TILE only a metro bbox, so their tile output is small regardless of the download size.",
+    "time_model": "PROJECTED (EU plan model): ~15-25 min/GB of TILED pbf + ~2-4 min fixed per row (download+clip). A metro clip tiles in ~1-3 min; its cost is the state-extract download. The `act` whole-state row (18.9 MB) is the AU calibration pilot, as luxembourg/estonia were for the EU.",
+    "buildings_local_bake": "IMPOSSIBLE on this box (osmium/tippecanoe/duckdb/docker all absent 2026-09-03). Proof ran at the pipeline's plan/dry-run/preflight layer (lane doc §2-3). The AE rows additionally need DuckDB (Overture) — the §BAKE-OVERTURE gate fails loud if absent."
+  },
+  "prerequisites_before_any_publish": [
+    "R2 budget + workflow-switch prerequisite STILL BINDS (EU plan). ALL_REGIONS is now 49 rows; an unscoped full bake cannot finish. context-bake.yml must go per-region + merged-artifact / incremental `aws s3 sync` (bake.mjs:57; --regions-json + merge-tiles.mjs are the machine-readable half). Until then a region-scoped publish REPLACES the whole tileset (§BAKE-BY-REGION).",
+    "AE rows require DuckDB (local `duckdb` or the tools/context-bake Docker image) for the Overture buildings read — same gate as riyadh/jeddah.",
+    "NT scope check: `northernterritory` is included on the Saudi precedent (geo-fenced parcels != no context row). Drop it if the founder's '6 states + ACT' scope is strict.",
+    "Overture density calibration: a Dubai/AbuDhabi-specific OSM-vs-Overture count probe (Riyadh rule) is owed; the flip is founder-directed + riyadh/jeddah-precedented, so it bakes now and the probe refines maxzoom."
+  ],
+  "phases": [
+    { "phase": "au-0", "why": "AU calibration — smallest whole-state row, the ACT pilot", "regions": ["act"] },
+    { "phase": "au-1", "why": "AU states small-to-large (whole-state tiles)", "regions": ["northernterritory", "tasmania", "southaustralia", "westernaustralia", "queensland", "victoria", "newsouthwales"] },
+    { "phase": "us", "why": "US metros — each downloads a state extract, tiles a metro bbox; austin+houston share the texas download", "regions": ["chicago", "boston", "austin", "houston"] },
+    { "phase": "ae", "why": "AE metros — share the gcc-states download (already fetched for riyadh/jeddah); Overture buildings", "regions": ["dubai", "abudhabi"] }
+  ],
+  "regions": [
+    { "region": "act", "cc": "AU-ACT", "phase": "au-0", "scope": "whole-state", "pbf_gb": 0.0189, "pbf_measured": true, "tiles_gb_projected": [0.015, 0.036], "ci_minutes_projected": [2, 4], "buildings": "OSM", "heights": "NONE today (elvis_au nDSM derive owed; ACT has 64,674 OPEN footprints, au-sweep §7.3)", "datum_lift_egm2008_m": 19.2335, "datum_city": "Canberra", "vert_datum": "AHD (EPSG:5711)", "note": "pbf 18,868,770 B (au-sweep §9.1); the calibration pilot" },
+    { "region": "northernterritory", "cc": "AU-NT", "phase": "au-1", "scope": "whole-state", "pbf_gb": 0.0177, "pbf_measured": true, "tiles_gb_projected": [0.014, 0.034], "ci_minutes_projected": [2, 4], "buildings": "OSM (thin)", "heights": "NONE (elvis_au derive owed)", "datum_lift_egm2008_m": 51.0618, "datum_city": "Darwin", "vert_datum": "AHD", "note": "pbf 17,690,374 B; PARCELS viewer-gated (au-sweep §8) but context bakes fine (Saudi precedent) — drop only if '6 states + ACT' is strict" },
+    { "region": "tasmania", "cc": "AU-TAS", "phase": "au-1", "scope": "whole-state", "pbf_gb": 0.0537, "pbf_measured": true, "tiles_gb_projected": [0.043, 0.102], "ci_minutes_projected": [3, 5], "buildings": "OSM", "heights": "NONE (elvis_au derive owed)", "datum_lift_egm2008_m": -3.8089, "datum_city": "Hobart", "vert_datum": "AHD-TAS (separate tide-gauge origin)", "note": "pbf 53,667,005 B" },
+    { "region": "southaustralia", "cc": "AU-SA", "phase": "au-1", "scope": "whole-state", "pbf_gb": 0.0672, "pbf_measured": true, "tiles_gb_projected": [0.054, 0.128], "ci_minutes_projected": [3, 6], "buildings": "OSM", "heights": "NONE (elvis_au derive owed)", "datum_lift_egm2008_m": -0.3354, "datum_city": "Adelaide", "vert_datum": "AHD", "note": "pbf 67,206,086 B; ⭐ richest ENVELOPE layer set in AU (au-sweep §5) but that is a PARCEL/rules axis, not context" },
+    { "region": "westernaustralia", "cc": "AU-WA", "phase": "au-1", "scope": "whole-state", "pbf_gb": 0.1143, "pbf_measured": true, "tiles_gb_projected": [0.091, 0.217], "ci_minutes_projected": [4, 8], "buildings": "OSM", "heights": "NONE (elvis_au derive owed)", "datum_lift_egm2008_m": -32.915, "datum_city": "Perth", "vert_datum": "AHD", "note": "pbf 114,307,529 B; ⚠ Perth undulation is the NEGATIVE extreme — a single national AU constant is impossible (84 m spread vs Darwin +51)" },
+    { "region": "queensland", "cc": "AU-QLD", "phase": "au-1", "scope": "whole-state", "pbf_gb": 0.1973, "pbf_measured": true, "tiles_gb_projected": [0.158, 0.375], "ci_minutes_projected": [6, 11], "buildings": "OSM", "heights": "NONE (elvis_au derive owed)", "datum_lift_egm2008_m": 41.3551, "datum_city": "Brisbane", "vert_datum": "AHD", "note": "pbf 197,341,278 B; incl. Torres Strait" },
+    { "region": "victoria", "cc": "AU-VIC", "phase": "au-1", "scope": "whole-state", "pbf_gb": 0.2406, "pbf_measured": true, "tiles_gb_projected": [0.193, 0.457], "ci_minutes_projected": [6, 12], "buildings": "OSM (Melbourne serves REAL LoD1 extrusions, au-sweep §2.3)", "heights": "Melbourne city served; statewide elvis_au derive owed", "datum_lift_egm2008_m": 4.6281, "datum_city": "Melbourne", "vert_datum": "AHD", "note": "pbf 240,644,273 B" },
+    { "region": "newsouthwales", "cc": "AU-NSW", "phase": "au-1", "scope": "whole-state", "pbf_gb": 0.2667, "pbf_measured": true, "tiles_gb_projected": [0.213, 0.507], "ci_minutes_projected": [7, 13], "buildings": "OSM", "heights": "NONE (elvis_au derive owed)", "datum_lift_egm2008_m": 22.3574, "datum_city": "Sydney", "vert_datum": "AHD", "note": "pbf 266,748,889 B; largest AU state extract" },
+    { "region": "chicago", "cc": "US-IL", "phase": "us", "scope": "metro", "pbf_download_gb": 0.3581, "tiles_gb_projected": [0.02, 0.08], "ci_minutes_projected": [4, 8], "buildings": "OSM (dense import; Chicago open footprints)", "heights": "NONE today (overture_us 3DEP nDSM stamp owed)", "datum_lift_egm2008_m": -33.9306, "datum_city": "Chicago", "vert_datum": "NAVD88/GEOID18", "note": "downloads illinois 358,148,729 B, tiles metro bbox -87.94,41.64,-87.52,42.05" },
+    { "region": "boston", "cc": "US-MA", "phase": "us", "scope": "metro", "pbf_download_gb": 0.3098, "tiles_gb_projected": [0.02, 0.06], "ci_minutes_projected": [4, 7], "buildings": "OSM (MassGIS open)", "heights": "NONE today (overture_us 3DEP nDSM stamp owed)", "datum_lift_egm2008_m": -28.5769, "datum_city": "Boston", "vert_datum": "NAVD88/GEOID18", "note": "downloads massachusetts 309,784,351 B, tiles metro bbox -71.20,42.22,-70.98,42.40" },
+    { "region": "austin", "cc": "US-TX", "phase": "us", "scope": "metro", "pbf_download_gb": 0.7174, "pbf_shared_with": "houston", "tiles_gb_projected": [0.02, 0.07], "ci_minutes_projected": [5, 9], "buildings": "OSM", "heights": "NONE today (overture_us 3DEP nDSM stamp owed)", "datum_lift_egm2008_m": -26.9013, "datum_city": "Austin", "vert_datum": "NAVD88/GEOID18", "note": "shares the texas 717,401,617 B download with houston (one download, two clips)" },
+    { "region": "houston", "cc": "US-TX", "phase": "us", "scope": "metro", "pbf_download_gb": 0.7174, "pbf_shared_with": "austin", "tiles_gb_projected": [0.03, 0.10], "ci_minutes_projected": [2, 4], "buildings": "OSM", "heights": "NONE today (overture_us 3DEP nDSM stamp owed)", "datum_lift_egm2008_m": -28.4065, "datum_city": "Houston", "vert_datum": "NAVD88/GEOID18", "note": "rides the same texas download; second clip only" },
+    { "region": "dubai", "cc": "AE-DU", "phase": "ae", "scope": "metro", "pbf_download_gb": 0.2536, "pbf_shared_with": "abudhabi,riyadh,jeddah", "buildings": "OVERTURE (Gulf OSM-desert; me-sweep §12; founder-directed, MS GlobalML EXCLUDED)", "tiles_gb_projected": [0.03, 0.08], "ci_minutes_projected": [3, 6], "heights": "NONE (data hosts vantage-blocked, me-sweep §2; Overture height ~0% in Gulf)", "datum_lift_egm2008_m": -34.1289, "datum_city": "Dubai", "vert_datum": "UAE local (UNVERIFIED-DOC, me-sweep §13)", "note": "shares gcc-states 253,643,828 B (already fetched for riyadh/jeddah); Overture buildings need DuckDB" },
+    { "region": "abudhabi", "cc": "AE-AZ", "phase": "ae", "scope": "metro", "pbf_download_gb": 0.2536, "pbf_shared_with": "dubai,riyadh,jeddah", "buildings": "OVERTURE (same rationale as dubai)", "tiles_gb_projected": [0.02, 0.06], "ci_minutes_projected": [2, 4], "heights": "NONE (open-data API WAF-fenced, me-sweep §3)", "datum_lift_egm2008_m": -33.2007, "datum_city": "Abu Dhabi", "vert_datum": "UAE local (UNVERIFIED-DOC)", "note": "rides the same gcc-states download; second clip only" }
+  ],
+  "totals": {
+    "new_rows": 14,
+    "us_metros": 4,
+    "au_states": 8,
+    "ae_metros": 2,
+    "au_scope_pbf_gb": "~0.96 (whole continent, all 8 measured) -> ~0.77-1.82 GB tiles (7 layers, lean upper)",
+    "us_scope": "metro clips — 3 state downloads (illinois 0.36, texas 0.72 shared, massachusetts 0.31 GB), tiles small",
+    "ae_scope": "2 metro clips on the already-downloaded gcc-states + Overture buildings",
+    "all_regions_after": 49,
+    "datum_lift": "16 EGM2008 constants probe-computed (GeoidEval, lane doc §4). terrain.mjs NOT wired: AU needs 8 per-state sources OR a per-region geoidSepM override (the recommended terrain-model build — the per-source single-constant model cannot express AU's 84 m spread); US metros ride the existing `us` -32.0 representative; AE is a clean `ae` 2-letter drop-in when the terrain owner decides.",
+    "measured_height_gate": "0 heightJoin declared on any of the 14 rows (mass-only, netherlands precedent) — verified via --regions-json"
+  }
+}

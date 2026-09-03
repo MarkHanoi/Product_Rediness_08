@@ -259,10 +259,53 @@ const ALL_REGIONS = [
   { name: 'slovakia',   pbfUrl: 'https://download.geofabrik.de/europe/slovakia-latest.osm.pbf',                       pbf: resolve(OUT, 'slovakia-latest.osm.pbf'),               bbox: '16.80,47.70,22.60,49.65',  clipped: resolve(OUT, 'clip-slovakia.osm.pbf') },
   { name: 'bulgaria',   pbfUrl: 'https://download.geofabrik.de/europe/bulgaria-latest.osm.pbf',                       pbf: resolve(OUT, 'bulgaria-latest.osm.pbf'),               bbox: '22.30,41.20,28.70,44.25',  clipped: resolve(OUT, 'clip-bulgaria.osm.pbf') },
   // ─────────────────────────────────────────────────────────────────────────
-  // USA (us) — state-level Geofabrik extracts (smaller than the regional bundles). Add more cities
-  // by adding a row with the right state pbf + a city-centre bbox.
+  // §BAKE-US-METROS (newyork/sanfrancisco 2026-07-24; chicago/austin/houston/boston 2026-09-03, lane
+  // CONTEXT-INTL) — state-level Geofabrik extracts (smaller than the regional bundles), each clipped to
+  // a METRO-centre bbox. ⚠ Unlike the EU/AU rows these are METROS, not whole states: a US whole-state or
+  // national bake is deferred behind the §5 R2-budget decision, and the national US footprint BACKBONE
+  // is Overture (§BAKE-OVERTURE — Overture ⊇ OSM everywhere, folds MS-ML + Google + Esri + cadastres).
+  // These metros bake OSM by default because major-US-metro OSM carries dense government footprint
+  // imports (NYC/SF/Chicago/Boston); a per-metro OSM-vs-Overture count probe (the Riyadh rule) is the
+  // owed calibration before any `--buildings-source overture` flip — no probe forces one today.
+  // HEIGHTS: honest OSM `assumed` until the USGS 3DEP nDSM stamp lands (heightSources REGION_SOURCE
+  // `overture_us` — documented, no wired join, so no heightJoin here). The per-metro OPEN channels the
+  // owed stamp draws on, from the registry the sweeps cite: NYC = open building heights (DOB/PLUTO),
+  // Chicago = open building footprints, Boston = MassGIS open. Austin+Houston share the texas extract
+  // (ONE download, two clips — grouped by `pbf` path). Add a metro by appending a row: state pbf + a
+  // metro bbox. Datum: NAVD88/GEOID18 (terrain.mjs `us`, geoidSepM NEGATIVE in CONUS); terrain via
+  // --dtm-source mapterhorn.
   { name: 'newyork',    pbfUrl: 'https://download.geofabrik.de/north-america/us/new-york-latest.osm.pbf',             pbf: resolve(OUT, 'us-new-york-latest.osm.pbf'),            bbox: '-74.03,40.70,-73.91,40.82', clipped: resolve(OUT, 'clip-newyork.osm.pbf') },
   { name: 'sanfrancisco', pbfUrl: 'https://download.geofabrik.de/north-america/us/california-latest.osm.pbf',         pbf: resolve(OUT, 'us-california-latest.osm.pbf'),          bbox: '-122.52,37.70,-122.36,37.83', clipped: resolve(OUT, 'clip-sanfrancisco.osm.pbf') },
+  { name: 'chicago',    pbfUrl: 'https://download.geofabrik.de/north-america/us/illinois-latest.osm.pbf',            pbf: resolve(OUT, 'us-illinois-latest.osm.pbf'),            bbox: '-87.94,41.64,-87.52,42.05',  clipped: resolve(OUT, 'clip-chicago.osm.pbf') },
+  { name: 'austin',     pbfUrl: 'https://download.geofabrik.de/north-america/us/texas-latest.osm.pbf',               pbf: resolve(OUT, 'us-texas-latest.osm.pbf'),               bbox: '-97.95,30.10,-97.56,30.52',  clipped: resolve(OUT, 'clip-austin.osm.pbf') },
+  { name: 'houston',    pbfUrl: 'https://download.geofabrik.de/north-america/us/texas-latest.osm.pbf',               pbf: resolve(OUT, 'us-texas-latest.osm.pbf'),               bbox: '-95.80,29.52,-95.06,30.14',  clipped: resolve(OUT, 'clip-houston.osm.pbf') },
+  { name: 'boston',     pbfUrl: 'https://download.geofabrik.de/north-america/us/massachusetts-latest.osm.pbf',       pbf: resolve(OUT, 'us-massachusetts-latest.osm.pbf'),       bbox: '-71.20,42.22,-70.98,42.40',  clipped: resolve(OUT, 'clip-boston.osm.pbf') },
+  // ─────────────────────────────────────────────────────────────────────────
+  // §BAKE-AU-STATES (2026-09-03, lane CONTEXT-INTL) — 8 whole-state rows, the AU analogue of
+  // §BAKE-EUROPE-NATIONAL. Cadastre + planning are STATE competencies in Australia (no national scheme),
+  // so the "whole-country" row is a whole-STATE row. Each cites audit/geo-expansion/2026-09-02/
+  // au-sweep.md §N and uses the per-state Geofabrik extract under australia-oceania/australia/ (all 8
+  // range-GET-verified 2026-09-03, sizes in au-sweep §9.1 — 0.96 GB pbf for the whole continent, ~1/5
+  // of Germany, so the §5 R2-budget concern is far smaller here). buildings = OSM everywhere: ACT ships
+  // OPEN footprints (64,674 probed) and Melbourne serves REAL extrusions — both ride the OSM/derive
+  // path; MS GlobalML stays EXCLUDED. NO row declares a heightJoin — no wired stamp exists; the owed
+  // height build is the ELVIS national LiDAR nDSM (CC BY 4.0) mirroring the mds/dhm stamps
+  // (heightSources REGION_SOURCE `elvis_au`), so every row bakes honest OSM `assumed` defaults, the
+  // netherlands precedent. Datum: AHD (EPSG:5711; AHD-TAS on Tasmania), lifted PER-CAPITAL from
+  // AUSGeoid2020 — the separation swings tens of metres W↔E so a single national geoidSepM is impossible
+  // (au-sweep §9.2); terrain via --dtm-source mapterhorn (planet-wide, ADOPTED). ⚠ NT context bakes fine
+  // (OSM) though its PARCELS are viewer/Cloudflare-gated — the Saudi precedent: geo-fenced parcels are
+  // not a reason to omit a context row (that would recreate the exact L-607 "no surrounding building
+  // data" defect). Whole-state bboxes fully CONTAIN each state; the per-state pbf holds only that state,
+  // so a generous bbox clips to the whole state and nothing foreign.
+  { name: 'newsouthwales',    pbfUrl: 'https://download.geofabrik.de/australia-oceania/australia/new-south-wales-latest.osm.pbf',    pbf: resolve(OUT, 'au-new-south-wales-latest.osm.pbf'),    bbox: '141.00,-37.60,153.70,-28.10', clipped: resolve(OUT, 'clip-newsouthwales.osm.pbf') },
+  { name: 'victoria',         pbfUrl: 'https://download.geofabrik.de/australia-oceania/australia/victoria-latest.osm.pbf',          pbf: resolve(OUT, 'au-victoria-latest.osm.pbf'),          bbox: '140.90,-39.20,150.05,-33.90', clipped: resolve(OUT, 'clip-victoria.osm.pbf') },
+  { name: 'queensland',       pbfUrl: 'https://download.geofabrik.de/australia-oceania/australia/queensland-latest.osm.pbf',        pbf: resolve(OUT, 'au-queensland-latest.osm.pbf'),        bbox: '138.00,-29.20,153.60,-9.00',  clipped: resolve(OUT, 'clip-queensland.osm.pbf') },
+  { name: 'westernaustralia', pbfUrl: 'https://download.geofabrik.de/australia-oceania/australia/western-australia-latest.osm.pbf', pbf: resolve(OUT, 'au-western-australia-latest.osm.pbf'), bbox: '112.90,-35.20,129.00,-13.50', clipped: resolve(OUT, 'clip-westernaustralia.osm.pbf') },
+  { name: 'southaustralia',   pbfUrl: 'https://download.geofabrik.de/australia-oceania/australia/south-australia-latest.osm.pbf',   pbf: resolve(OUT, 'au-south-australia-latest.osm.pbf'),   bbox: '129.00,-38.10,141.05,-25.90', clipped: resolve(OUT, 'clip-southaustralia.osm.pbf') },
+  { name: 'tasmania',         pbfUrl: 'https://download.geofabrik.de/australia-oceania/australia/tasmania-latest.osm.pbf',          pbf: resolve(OUT, 'au-tasmania-latest.osm.pbf'),          bbox: '143.80,-43.75,148.55,-39.40', clipped: resolve(OUT, 'clip-tasmania.osm.pbf') },
+  { name: 'act',              pbfUrl: 'https://download.geofabrik.de/australia-oceania/australia/act-latest.osm.pbf',               pbf: resolve(OUT, 'au-act-latest.osm.pbf'),               bbox: '148.70,-35.95,149.40,-35.10', clipped: resolve(OUT, 'clip-act.osm.pbf') },
+  { name: 'northernterritory', pbfUrl: 'https://download.geofabrik.de/australia-oceania/australia/northern-territory-latest.osm.pbf', pbf: resolve(OUT, 'au-northern-territory-latest.osm.pbf'), bbox: '128.90,-26.10,138.10,-10.90', clipped: resolve(OUT, 'clip-northernterritory.osm.pbf') },
   // Saudi — Geofabrik bundles it in the GCC-states extract (no standalone SA file). OSM/Geofabrik
   // is global + free, so context tiles bake fine here even though the LIVE gov parcel data is
   // geo-fenced (that gate is unrelated to OSM footprints).
@@ -281,6 +324,21 @@ const ALL_REGIONS = [
   // which is why European regions stay on OSM by default and lose nothing.
   { name: 'riyadh',     pbfUrl: 'https://download.geofabrik.de/asia/gcc-states-latest.osm.pbf',                       pbf: resolve(OUT, 'gcc-states-latest.osm.pbf'),             bbox: '46.60,24.58,46.83,24.80',  clipped: resolve(OUT, 'clip-riyadh.osm.pbf'), buildingsSource: 'overture' },
   { name: 'jeddah',     pbfUrl: 'https://download.geofabrik.de/asia/gcc-states-latest.osm.pbf',                       pbf: resolve(OUT, 'gcc-states-latest.osm.pbf'),             bbox: '39.10,21.45,39.28,21.62',  clipped: resolve(OUT, 'clip-jeddah.osm.pbf'), buildingsSource: 'overture' },
+  // §BAKE-AE-METROS (2026-09-03, lane CONTEXT-INTL) — Dubai + Abu Dhabi, the founder-named UAE metros.
+  // SAME gcc-states extract as riyadh/jeddah (Geofabrik serves NO per-country UAE/Gulf file — ONE
+  // download for all four; me-sweep §12), clipped to each emirate's metro bbox (both well inside the
+  // gcc-states.poly lon 34.43..60.95 / lat 15.25..32.20). buildings = OVERTURE, exactly the
+  // riyadh/jeddah precedent: the Gulf is an OSM building desert (me-sweep §12 "gcc-states thin … desert
+  // dominance"; riyadh 5.3× / jeddah 7.2× Overture-vs-OSM density, VERIFIED 2026-07-24) and the founder
+  // directed Overture here. ⚠ MS GlobalML stays EXCLUDED — Overture is the sanctioned conflation that
+  // happens to fold ML footprints in (licensed for us), which raw GlobalML is not. HEIGHTS: NONE — no
+  // open height channel exists (both emirates' data hosts are vantage/WAF-blocked, me-sweep §2/§3), so
+  // NO heightJoin and honest assumed defaults (Overture height is ~0% in the Gulf, like Saudi). A
+  // Dubai/AbuDhabi-specific OSM-vs-Overture count probe is the owed density calibration. Datum:
+  // me-sweep §13 names the UAE local vertical datum as UNVERIFIED-DOC — verify on first load; terrain
+  // via --dtm-source mapterhorn.
+  { name: 'dubai',      pbfUrl: 'https://download.geofabrik.de/asia/gcc-states-latest.osm.pbf',                       pbf: resolve(OUT, 'gcc-states-latest.osm.pbf'),             bbox: '54.95,24.85,55.45,25.35',  clipped: resolve(OUT, 'clip-dubai.osm.pbf'), buildingsSource: 'overture' },
+  { name: 'abudhabi',   pbfUrl: 'https://download.geofabrik.de/asia/gcc-states-latest.osm.pbf',                       pbf: resolve(OUT, 'gcc-states-latest.osm.pbf'),             bbox: '54.28,24.33,54.75,24.62',  clipped: resolve(OUT, 'clip-abudhabi.osm.pbf'), buildingsSource: 'overture' },
 ];
 
 // §BAKE-OVERTURE — the Overture buildings source. Overture publishes ONE global GeoParquet dataset
