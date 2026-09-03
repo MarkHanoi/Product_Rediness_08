@@ -146,6 +146,52 @@ jobs:
           find tools/context-bake/out/staging -maxdepth 2 -type f | sort
           df -h /
 
+      # ─────────────────────────────────────────────────────────────────────────
+      # §MERGE-DISK-BUDGET-IS-NAMED (lane CONTEXT-R2, 2026-09-03) — the merge holds
+      # INPUTS + OUTPUT at once, so a hosted runner needs ~2× the downloaded bytes.
+      # Measured that day: the 49 staged sets total **82.1 GB** across 7 layers, and
+      # the plan JSON that sized this job projected 24–57 GB — the weight model was
+      # low by ~1.4× at its OWN upper bound (measured tiles/pbf ratio 2.61, assumed
+      # 0.8–1.9). An all-layer merge of that set cannot fit, and today it does not
+      # SAY so: run 33764577747 downloaded, sha256-verified, started tile-join and
+      # died ~35 min into the merge step with nothing published — a disk verdict
+      # wearing a merge failure's clothes (§CONTEXT-DATA-HONESTY: a failure and an
+      # impossibility are the same exit code unless you separate them).
+      #
+      # This step separates them, and refuses in FOUR minutes instead of sixty. It
+      # is deliberately NOT a tuning knob: the hard refusal fires only when the
+      # output provably cannot fit (avail < downloaded), which no successful run has
+      # ever satisfied — a false refusal here would be its own harm. The 1.3× band
+      # is a warning, never a failure.
+      #
+      # THE ESCAPE IS THE `layer` INPUT, and the refusal names it: dispatch once per
+      # layer (buildings 22.3 GB · roads 23.7 GB · parks 12.2 GB · landuse 11.4 GB ·
+      # water 11.1 GB · rail 1.2 GB · trees 0.4 GB at the 2026-09-03 staging) and the
+      # download filter above pulls only that layer's bytes. Bump
+      # CONTEXT_TILESET_VERSION once, after the LAST layer publishes — a stamp is a
+      # claim about the whole tileset (§CONTEXT-CACHE-BUST).
+      - name: Assert the merge can FIT (refuses by name, not by tile-join death)
+        run: |
+          set -euo pipefail
+          IN_BYTES=$(du -sb tools/context-bake/out/staging | cut -f1)
+          AVAIL_BYTES=$(( $(df -B1 --output=avail "$GITHUB_WORKSPACE" | tail -1) ))
+          gb() { awk -v b="$1" 'BEGIN{printf "%.1f", b/1073741824}'; }
+          echo "staged inputs on disk : $(gb "$IN_BYTES") GB"
+          echo "free space for output : $(gb "$AVAIL_BYTES") GB"
+          echo "merge holds inputs AND output simultaneously — it needs ~1× the inputs free."
+          if [ "$AVAIL_BYTES" -lt "$IN_BYTES" ]; then
+            echo "::error::MERGE CANNOT FIT — $(gb "$IN_BYTES") GB of staged inputs but only $(gb "$AVAIL_BYTES") GB free."
+            echo "::error::tile-join writes a merged archive of roughly the input size, so this WILL exhaust the disk."
+            echo "::error::Re-dispatch with the 'layer' input set to ONE layer (or a small csv) — the download step"
+            echo "::error::filters by layer, which is exactly what that input exists for. Publish each layer in turn,"
+            echo "::error::then bump CONTEXT_TILESET_VERSION once at the end."
+            exit 1
+          fi
+          if [ "$AVAIL_BYTES" -lt $(( IN_BYTES * 13 / 10 )) ]; then
+            echo "::warning::Headroom is thin ($(gb "$AVAIL_BYTES") GB free vs $(gb "$IN_BYTES") GB of inputs)."
+            echo "::warning::tile-join temp files may still exhaust the disk. Prefer a per-layer dispatch."
+          fi
+
       - name: Fetch the LIVE tileset manifest (arms the no-loss gate)
         env:
           AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
