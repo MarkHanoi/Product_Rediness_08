@@ -1,0 +1,87 @@
+LANE SK — barrel additions for the orchestrator to RE-APPLY on conflict.
+These edits were already applied by the lane; this file is the re-apply source (shared files:
+parcelProviders/registry.ts + src/index.ts). All SK symbols are SK-/sk-/Slovakia-prefixed, so the
+`export *` cannot collide.
+
+================================================================================
+FILE 1: packages/site-parcel-data/src/parcelProviders/registry.ts
+================================================================================
+
+(1a) IMPORT — add after the GREECE_BBOX import (the L-12871 / new-country bbox group):
+
+// LANE SK (2026-09-03) — SPECIFICITY-ONLY box for the DORMANT Slovakia row (contains is
+// claimsNation('SK'), never this rectangle; the resolver decides). Imported for REGION_BBOX only.
+import { SLOVAKIA_BBOX } from '../countryAdapters/sk/skJurisdiction.js';
+
+(1b) ROW — add a new ParcelJurisdiction row in PARCEL_JURISDICTIONS, immediately AFTER the GR row
+     (regionCode 'GR') and BEFORE the BELGIUM block, with this leading comment:
+
+    // LANE SK (2026-09-03) — SLOVAKIA. Like GR above (and unlike RO), the SERVICE gate is CLEARED:
+    // the ÚGKK/GKÚ ESKN C-register parcels answer a KEYLESS ArcGIS MapServer and were LIVE-PROVEN at
+    // Bratislava (register-C id 2090872505, parcel №15, k.ú. 2933, 832 m²). So this registers
+    // `cadastral` (not footprint — the source is reachable). The ONE open gate is JURISDICTION, and
+    // it is a RICHER form than GR's: SVK is ALREADY in the resolver's boundary set but as a
+    // REFUSAL-ONLY NEIGHBOUR (not a claimable country), so claimsNation('SK') is false everywhere.
+    // MEASURED 2026-09-03: a Bratislava click refuses `no-national-candidate` (no prefilter covers
+    // it), while northern-Slovak points inside POLAND_BBOX refuse `claimed-by-unmodelled-neighbour`
+    // naming SVK — the SVK neighbour polygon refuses the POL candidate instead of misrouting (the
+    // L-12887 protection). THIS ROW IS DORMANT until a boundary wave PROMOTES SVK from neighbours to
+    // countries (skJurisdiction.ts SK_ROUTING_DEFERRAL). proxyPath is RESERVED: `/api/parcel/sk`
+    // needs an `sk` row in server/jurisdiction/euCadastreProxy.js (the PROXY-EE-LT-PL pattern for a
+    // new country); until then a match self-corrects to the footprint on the proxy 404. providerId
+    // reserved by countryAdapters/sk/.
+    {
+        regionCode: 'SK',
+        countryName: 'Slovakia',
+        providerId: 'sk-ugkk-eskn-kn-parcela-c',
+        label: 'Parcela registra C (Slovakia · ÚGKK / GKÚ ESKN kataster)',
+        proxyPath: '/api/parcel/sk',
+        kind: 'cadastral',
+        contains: claimsNation('SK'),
+        note: 'Slovakia: ÚGKK/GKÚ ESKN cadastre — C-register parcels on a KEYLESS ArcGIS MapServer (kataster.skgeodesy.sk/eskn/rest/services/VRM/kn/MapServer, layer 9 "Plocha parcely C"), LIVE-PROBED 2026-09-03 by the SK lane (real parcel with PARCEL_NUMBER + CADASTRAL_UNIT_ID + WGS84 ring; countryAdapters/sk/ carries the parser + recorded-live fixtures). LIVE CLICK PROOF: Bratislava Old Town (48.1436,17.1077) → register-C id 2090872505, parcel №15, k.ú. 2933, DESCRIPTIVE_AREA 832 m², FOLIO_ID (LV) 335384911, national cultural monument. ⛔ The ESKN WAF blocks attribute where= (HTTP 403); objectIds= is allowed, so the by-id lookup uses objectIds. TWO wiring steps pending (the row is DORMANT until step 1): (1) SVK is a REFUSAL-ONLY NEIGHBOUR in jurisdiction/data/nationalBoundaries.json (not one of the 20 claimable countries), so claimsNation("SK") is false everywhere — a boundary wave must PROMOTE SVK to countries (regionCode "SK") + add the ["SVK", isInSlovakia] prefilter + add HUN as a new refusal-only neighbour for SK↔HU border integrity (skJurisdiction.ts SK_ROUTING_DEFERRAL, reviewBy 2026-12-03); (2) /api/parcel/sk needs a euCadastreProxy.js `sk` row (outSR=4326 → WGS84 ring, DESCRIPTIVE_AREA_OF_PARCEL → areaM2) to serve production clicks. Rules are DOCUMENTS-ONLY (územné plány = municipal PDFs; state planning IS due ~2028; no machine-readable zoning register).',
+    },
+
+(1c) REGION_BBOX — add after `GR: GREECE_BBOX,` in the REGION_BBOX map:
+
+    // LANE SK (2026-09-03). Specificity-metric entry only — the row's `contains` is claimsNation('SK')
+    // (dormant until SVK is PROMOTED from refusal-only neighbour to modelled country). No registered
+    // parcel box overlaps SLOVAKIA_BBOX in a way that matters; the national filter decides.
+    SK: SLOVAKIA_BBOX,
+
+================================================================================
+FILE 2: packages/site-parcel-data/src/index.ts
+================================================================================
+
+Add after `export * from './countryAdapters/gr/index.js';`:
+
+// LANE SK (2026-09-03) — Slovakia, a LIVE keyless ÚGKK/GKÚ ESKN cadastre + DOCUMENTS-ONLY rules.
+// Every export is SK-/sk-/Slovakia-prefixed (skCountryAdapter, SLOVAKIA_BBOX, isInSlovakia,
+// SK_SOURCES, SK_PARCEL_*, resolveSkParcel*, SK_ROUTING_DEFERRAL), no wildcard collision.
+export * from './countryAdapters/sk/index.js';
+
+================================================================================
+DOWNSTREAM WIRING (NOT this lane's deliverable — named for the orchestrator / follow-up lanes):
+  A. jurisdiction/data/nationalBoundaries.json + nationalJurisdictionResolver.ts — the SHARED
+     L-12871/L-12887 decider. Slovakia is a SHARPER case than GR/RO: SVK is ALREADY in the boundary
+     set, but under `neighbours` (refusal-only), NOT `countries`. Promoting it is a coordinated wave:
+       (a) MOVE SVK from `neighbours` to `countries.SVK` with regionCode 'SK' (ne_10m ring, 100 m
+           simplification), exactly as EST/LTU/POL/LUX/SWE/SVN were promoted;
+       (b) ADD ['SVK', isInSlovakia] to CANDIDATE_PREFILTERS (pre-filter only — geometry decides);
+       (c) ADD Hungary (HUN) as a NEW refusal-only neighbour — SK's ONLY land neighbour absent from
+           the set (CZE/AUT/UKR are already refusal-only, POL is already claimable, HUN is in
+           NEITHER — measured 2026-09-03) — so promoting SVK cannot annex a Komárno/Štúrovo SK↔HU
+           border point to Slovakia (the L-12887 border-integrity requirement);
+       (d) SHIP red-pin border tests for the SK↔HU/CZ/AT/PL/UA bands with that wave.
+     The registry row is DORMANT until this lands; the day it does, claimsNation('SK') and
+     claimsSlovakia BOTH start claiming Slovak points with NO edit to countryAdapters/sk/.
+     ⚠ COORDINATE with the concurrent SI lane, which also touches nationalBoundaries.json's neighbour
+       set (it added HRV/HUN per its header) — a HUN add must not be applied twice.
+  B. server/jurisdiction/euCadastreProxy.js — add an `sk` row (format 'arcgis', point query against
+     VRM/kn/MapServer/9 with inSR=4326&outSR=4326, normalise PARCEL_NUMBER + CADASTRAL_UNIT_ID → refs
+     and DESCRIPTIVE_AREA_OF_PARCEL → areaM2) so /api/parcel/sk serves production clicks. Mirror the
+     ee/lt rows. ⛔ Use a spatial (geometry) query, NOT where= — the ESKN WAF returns HTTP 403 for any
+     where= clause (measured); objectIds= is allowed for a by-id form.
+  C. sourceRegistry/sk.ts — migrate SK_SOURCES out of countryAdapters/sk/skSources.ts into a
+     per-country registry module + export from sourceRegistry/index.js (a SHARED file), exactly as
+     queued for GR; when it lands, delete skSources.ts's self-contained rows and re-export.
+================================================================================

@@ -25,6 +25,7 @@
  *   • EE  gsavalik.envir.ee/geoserver kataster:ky_kehtiv                    (GeoJSON, lon,lat) — 2026-09-02
  *   • LT  osp-sdg.stat.gov.lt ntr_sklypai/FeatureServer/0 (RC NTR)          (ArcGIS JSON, lon,lat) — 2026-09-02
  *   • PL  uldk.gugik.gov.pl GetParcelByXY (GUGiK ULDK)                       (pipe-text WKT, lon,lat) — 2026-09-02
+ *   • LU  wms.inspire.geoportail.lu/geoserver/wfs cp:CP.CadastralParcel (ACT) (GeoJSON, lon,lat) — 2026-09-03
  *
  * EE / LT / PL (lane PROXY-EE-LT-PL, 2026-09-02) are TABLE ROWS here, not DK-style modules,
  * deliberately: DK earned `dkMatrikelProxy.js` because it needs a CREDENTIAL gate, a Snyder
@@ -455,6 +456,29 @@ function eeUrl(lat, lon) {
 }
 
 /**
+ * LUXEMBOURG — ACT / INSPIRE Cadastral Parcels on the geoportail.lu INSPIRE GeoServer. Keyless
+ * WFS 2.0, PROBED LIVE 2026-09-03 (founder click 49.61195,6.12926 → national_cadastral_reference
+ * 075F00137000000; Esch-sur-Alzette 49.496,5.981 → 039A00606016640). Endpoint / layer / axis
+ * mirror the LU package adapter (`countryAdapters/lu/luParcelProvider.ts`). TWO LU-specific
+ * measured facts, both pinned by server/__tests__/luParcelProxy.test.ts:
+ *   • the urn AUTHORITY bbox is required — a CQL INTERSECTS reads the SRID-less literal in the
+ *     layer's native EPSG:2169 and returns 0; the projected native CRS is also the bare-`EPSG:4326`
+ *     silent-empty trap (the PT/EE gotcha), so the bbox carries urn:ogc:def:crs:EPSG::4326.
+ *   • LU parcels are DENSE, so the window is DELIBERATELY SMALL (`LU_HALF_DEG` ±~11 m, count 30),
+ *     NOT the shared `HALF_DEG` ±38 m: a coarse bbox truncates the true container past `count` and
+ *     `pickCandidate` then mis-selects a neighbour (measured: features[0] and a coarse box both
+ *     return the wrong adjacent parcel). Small window + `pickCandidate`'s point-in-polygon is what
+ *     resolves the right dense LU parcel.
+ */
+const LU_HALF_DEG = 0.0001;
+function luUrl(lat, lon) {
+    const bbox = `${lat - LU_HALF_DEG},${lon - LU_HALF_DEG},${lat + LU_HALF_DEG},${lon + LU_HALF_DEG},urn:ogc:def:crs:EPSG::4326`;
+    return 'https://wms.inspire.geoportail.lu/geoserver/wfs?service=WFS&version=2.0.0&request=GetFeature' +
+        '&typeNames=cp:CP.CadastralParcel&srsName=EPSG:4326' +
+        `&count=30&outputFormat=application/json&bbox=${encodeURIComponent(bbox)}`;
+}
+
+/**
  * LITHUANIA — Registrų centras NTR parcels, republished keylessly by Statistics Lithuania
  * (`ntr_sklypai/FeatureServer/0`, ArcGIS REST 11.1). Endpoint, point-intersect params and the
  * explicit `outFields` mirror the LT adapter (`countryAdapters/lt/ltParcelProvider.ts` /
@@ -658,6 +682,25 @@ export const EU_CADASTRE_SOURCES = {
             const areaM2 = Number(jsonProp(p, 'pindala')) || ringAreaM2(c.ring);
             const address = jsonProp(p, 'l_aadress');
             return { refcat, areaM2, address: address ? String(address) : null };
+        },
+    },
+    // LANE LU-PARCEL (2026-09-03) — Luxembourg, ACT / INSPIRE cp:CP.CadastralParcel. The guard is
+    // LUXEMBOURG_BBOX (countryAdapters/lu/luJurisdiction.ts); the registry routes on claimsNation('LU'),
+    // so this guard only fences the source's own territory. GeoJSON, [lon,lat] WGS84 output.
+    lu: {
+        guard: (lat, lon) => lat >= 49.44 && lat <= 50.19 && lon >= 5.72 && lon <= 6.54,
+        url: luUrl,
+        format: 'geojson',
+        source: 'lu-act-inspire-cp',
+        normalise: (c) => {
+            const p = c.props || {};
+            // `national_cadastral_reference` is the INSPIRE harmonized key (075F00137000000 @ the
+            // founder click); `area` is the served registered m²; `label` is the plan label (137 /
+            // 461/1970). Prefer the national reference, never invent one.
+            const refcat = String(jsonProp(p, 'national_cadastral_reference') ?? '').trim();
+            const areaM2 = Number(jsonProp(p, 'area')) || ringAreaM2(c.ring);
+            const label = jsonProp(p, 'label');
+            return { refcat, areaM2, address: label ? String(label) : null };
         },
     },
     lt: {

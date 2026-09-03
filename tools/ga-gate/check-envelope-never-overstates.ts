@@ -123,6 +123,19 @@ import {
     // §PT-PORTO-MODA (2f) — the certified FUC card (§PORTO-SIGN-OFF, gate ON; ADR-0379).
     resolvePtZoneIdentityAt,
     PT_PORTO_PDM_CERTIFIED,
+    // §PL-POG-COMPILE (2h) — POLAND POG APP GML strefa → envelope-contribution scalars (LANE PL-POG).
+    // HEIGHT binds; FAR + COVERAGE are compiled FACTS but WITHHELD (działka-budowlana denominator).
+    plPogZoningRecord,
+    resolvePlPogEnvelope,
+    type PlPogFields,
+    type PlPogCitation,
+    // §FR-PLAN-MASSE-LIVE (2g, LANE FR-PRESCRIPTIONS) — the GPU drawn-envelope consumer + its
+    // explicit-area seat. The plan-masse polygon feeds the SAME explicit-area clip as Madrid NZ-1.
+    buildFrDrawnEnvelopeContribution,
+    frFootprintToSceneParts,
+    frPrescriptionGeoFeaturesAtPoint,
+    FR_PLAN_MASSE_EXPLICIT_AREA_PACK,
+    solveExplicitArea,
     type BuildableEnvelopeMassingInput,
     type ParisEnvelopeResult,
     type PlandataLayer,
@@ -1043,6 +1056,299 @@ async function main(): Promise<number> {
                     'no substituted cércea scalar required.',
             );
         }
+    }
+
+    // ── 2g. §FR-PLAN-MASSE-LIVE (LANE FR-PRESCRIPTIONS) — the RECORDED GPU drawn envelope. ──
+    // The GPU PUBLISHES the buildable volume as a `typepsc=14` secteur de plan de masse polygon
+    // (STR §9 P1). `frPrescriptionGeoFeaturesAtPoint` (a recordedFetch replaying the real
+    // 2026-09-02 census body — never the network) → `buildFrDrawnEnvelopeContribution` → the SAME
+    // explicit-area clip Madrid uses. NEVER-OVERSTATE bounds, transcribed INDEPENDENTLY from the
+    // census:
+    //   • footprint ≤ parcel ∩ published plan-masse ring (the drawn polygon is the whole claim);
+    //   • ZERO height/FAR/volume rides on the envelope — the 39/02 height (9 m au faîtage) has an
+    //     UNRESOLVED datum (ADR-0377), so it is a cited study bound, never applied as a cap;
+    //   • the consumed height number EQUALS the verbatim libelle number (9 m) — a shrunk OR
+    //     inflated consumed cap breaks fidelity, and an inflated one also overstates.
+    {
+        interface FrFixture {
+            readonly point: { readonly lat: number; readonly lon: number };
+            readonly body: unknown;
+            readonly published: {
+                readonly planMasseIdurba: string;
+                readonly planMasseLibelle: string;
+                readonly heightLabelMetres: number;
+                readonly heightCitation: string;
+            };
+        }
+        const fix = readCorpusFixture<FrFixture>('fr-plan-masse-17453.json');
+        // The consumer's own fetch seam (`frGpuGetJson` reads `res.text()` then JSON.parse), driven
+        // by the recorded body — the real 2026-09-02 census FeatureCollection carrying the
+        // plan-masse AND the height feature. NEVER the network.
+        const recordedTextFetch = (async () => ({
+            ok: true,
+            status: 200,
+            text: async () => JSON.stringify(fix.body),
+        })) as unknown as typeof fetch;
+        const feats = await frPrescriptionGeoFeaturesAtPoint('prescription-surf', fix.point.lat, fix.point.lon, {
+            fetchImpl: recordedTextFetch,
+        });
+        if (feats.status !== 'found') {
+            checkerBlind ??= `FR plan-masse arm: the recorded prescription body did not parse (${feats.status}) — the arm walked no solve`;
+        } else {
+            const contribution = buildFrDrawnEnvelopeContribution({
+                point: fix.point,
+                fetchedAtIso: '2026-09-02T18:00:00.000Z',
+                planMasseFeatures: feats.value,
+                heightFeatures: feats.value,
+            });
+            const fp = contribution.footprint;
+            const hc = contribution.heightCap;
+            // The FR plan-masse pack DECLARES the explicit-area seat this footprint feeds (STR §9 P1).
+            if (FR_PLAN_MASSE_EXPLICIT_AREA_PACK.zones[0]?.geometricRule?.kind !== 'explicit-area') {
+                checkerBlind ??= 'FR plan-masse arm: the pack no longer declares the explicit-area seat — the drawn footprint has no engine path';
+            }
+            if (fp === null) {
+                checkerBlind ??= 'FR plan-masse arm: the recorded plan-masse produced no drawn footprint — a vacuous arm';
+            } else {
+                // Project into a local metre frame about the footprint's first vertex (θ=0). Shape +
+                // area are frame-invariant, so the origin does not change the clip answer.
+                const origin = fp.parts[0]!.outer[0]!;
+                const parts = frFootprintToSceneParts(fp, origin);
+                const ringArea = parts.reduce((s, p) => s + polyArea(p.outer), 0);
+                const xs = parts.flatMap((p) => p.outer.map((q) => q.x));
+                const zs = parts.flatMap((p) => p.outer.map((q) => q.z));
+                const [minX, maxX] = [Math.min(...xs), Math.max(...xs)];
+                const [minZ, maxZ] = [Math.min(...zs), Math.max(...zs)];
+                // A parcel biting the footprint: its left 50 % plus a 10 m apron — the clip MUST cut.
+                const cutX = minX + (maxX - minX) * 0.5;
+                const parcelRing = rect(minX - 10, minZ - 10, cutX, maxZ + 10);
+                const parcelArea = polyArea(parcelRing);
+                // parcel ∩ ring honest ceiling: bounded above by min(parcel, ring) — the clip ≤ both.
+                const honestCeilingM2 = Math.min(parcelArea, ringArea);
+                zonesWalked++;
+                // THE ENGINE'S explicit-area primitive (`solveExplicitArea` = parcel ∩ footprint —
+                // the exact clip `computeBuildableEnvelope`'s explicit-area branch calls). NOT a new
+                // solver. It publishes a footprint RING + area, and NO height/FAR/volume — so a
+                // datum-unresolved 39/02 height can ride on nothing here, structurally.
+                const solve = solveExplicitArea({ parcelRing, footprintParts: parts });
+                if (solve.ok) solved++; else refused++;
+
+                /** Audit the drawn footprint clip: it never exceeds parcel ∩ published ring. */
+                const auditFrFootprint = (
+                    s: ReturnType<typeof solveExplicitArea>,
+                    ceilingM2: number,
+                    zoneLabel: string,
+                ): Finding[] => {
+                    const out: Finding[] = [];
+                    if (!s.ok) return out; // a refusal draws nothing and cannot overstate
+                    if (s.areaM2 > ceilingM2 * (1 + EPS_REL) + EPS_ABS) {
+                        out.push({
+                            axis: 'setback',
+                            pack: 'fr-gpu-plan-masse/live-route',
+                            zone: zoneLabel,
+                            detail:
+                                `plan-masse clip granted ${s.areaM2.toFixed(1)} m² where parcel ∩ published ring ` +
+                                `is ${ceilingM2.toFixed(1)} m² — buildable area drawn outside the published footprint`,
+                        });
+                    }
+                    return out;
+                };
+
+                /** Audit the consumed height cap vs the INDEPENDENTLY-transcribed libelle number. */
+                const auditFrHeight = (
+                    consumed: number | null,
+                    bindsAsCap: boolean,
+                    zoneLabel: string,
+                ): Finding[] => {
+                    const out: Finding[] = [];
+                    const f = (detail: string): void => {
+                        out.push({ axis: 'height', pack: 'fr-gpu-plan-masse/live-route', zone: zoneLabel, detail });
+                    };
+                    // ADR-0377 — the 39/02 datum is unresolved, so the number must NEVER bind as a cap.
+                    if (bindsAsCap) {
+                        f('the 39/02 height binds as a cap — its ground datum is unresolved (ADR-0377); a datum-unresolved height may never be applied');
+                    }
+                    if (consumed === null) {
+                        f(`consumed height is null where the libelle states ${fix.published.heightLabelMetres} m ("${fix.published.heightCitation}") — the cited number was lost`);
+                        return out;
+                    }
+                    // NEVER-OVERSTATE: the consumed cap may never exceed the published label.
+                    if (consumed > fix.published.heightLabelMetres * (1 + EPS_REL) + EPS_ABS) {
+                        f(`consumed height ${consumed} m exceeds the published libelle ${fix.published.heightLabelMetres} m — an overstated ceiling`);
+                    }
+                    // FIDELITY (the falsification hook): a SHRUNK consumed cap ≠ the published number.
+                    if (Math.abs(consumed - fix.published.heightLabelMetres) > EPS_ABS) {
+                        f(`consumed height ${consumed} m ≠ the published libelle ${fix.published.heightLabelMetres} m — a transcription defect (the cited number must be carried verbatim)`);
+                    }
+                    return out;
+                };
+
+                if (!solve.ok || !(solve.areaM2 > 0)) {
+                    checkerBlind ??= `FR plan-masse arm: the explicit-area clip did not solve (${solve.ok ? 'zero area' : solve.reason}) — a vacuous arm, not a pass`;
+                } else if (solve.areaM2 >= honestCeilingM2 - 1) {
+                    checkerBlind ??= `FR plan-masse arm: the clip did not BITE (inset ${solve.areaM2.toFixed(1)} m² vs ceiling ${honestCeilingM2.toFixed(1)} m²) — the clip provably did not run`;
+                }
+                findings.push(...auditFrFootprint(solve, honestCeilingM2, `plan-masse-${fix.published.planMasseIdurba}`));
+                findings.push(
+                    ...auditFrHeight(hc?.maxHeight_m ?? null, hc?.appliesAsBindingCap ?? false, `plan-masse-${fix.published.planMasseIdurba}`),
+                );
+
+                // CHECKER TEETH #1 — a fabricated footprint drawn OUTSIDE the published ring must be
+                // flagged, or the footprint arm is blind.
+                if (solve.ok) {
+                    const tampered = { ...solve, areaM2: honestCeilingM2 * 2 + 100 };
+                    if (auditFrFootprint(tampered, honestCeilingM2, 'teeth').length === 0) {
+                        checkerBlind ??= 'FR plan-masse arm teeth: an area drawn past the published ring was not flagged — the footprint arm is blind';
+                    }
+                }
+                // CHECKER TEETH #2 — a 39/02 height APPLIED as a cap (datum-unresolved) must be flagged.
+                if (auditFrHeight(fix.published.heightLabelMetres, true, 'teeth').length === 0) {
+                    checkerBlind ??= 'FR plan-masse arm teeth: a datum-unresolved height applied as a cap was not flagged — the ADR-0377 arm is blind';
+                }
+                // CHECKER TEETH #3 — the falsification the brief names: a SHRUNK consumed cap must be
+                // flagged by the fidelity check (and an INFLATED one by never-overstate).
+                if (auditFrHeight(fix.published.heightLabelMetres - 3, false, 'teeth').length === 0) {
+                    checkerBlind ??= 'FR plan-masse arm teeth: a shrunk consumed height cap was not flagged — the fidelity check is blind';
+                }
+                if (auditFrHeight(fix.published.heightLabelMetres + 5, false, 'teeth').length === 0) {
+                    checkerBlind ??= 'FR plan-masse arm teeth: an inflated consumed height cap was not flagged — the never-overstate check is blind';
+                }
+
+                console.log(
+                    `[never-overstate] §FR-PLAN-MASSE-LIVE: recorded ${fix.published.planMasseIdurba} — clip ` +
+                        `${solve.ok ? `${solve.areaM2.toFixed(1)} m² of ring ${ringArea.toFixed(1)} m²` : solve.reason}, ` +
+                        `height ${hc?.maxHeight_m ?? 'n/a'} m au ${hc?.measuredTo ?? 'n/a'} datum=${hc?.heightDatum.kind ?? 'n/a'} ` +
+                        `binds=${hc?.appliesAsBindingCap ?? false} (cited, never applied), claimed volume 0 m³ required.`,
+                );
+            }
+        }
+    }
+
+    // ── 2h. §PL-POG-COMPILE (LANE PL-POG, 2026-09-03) — the RECORDED official POG strefa 1SZ. ──
+    // Poland's POG APP GML 2.0 serves FOUR published ceilings per strefa; this module COMPILES them
+    // into the scalar-cap path. HEIGHT (an absolute metric cap) BINDS; FAR (intensywność) and
+    // COVERAGE (udział) are ratios over the *działka budowlana* (buildable plot), NOT the cadastral
+    // parcel — so they are WITHHELD from the engine numbers (feeding them would be the C63
+    // denominator trap: FAR/coverage × cadastral parcel area over-states on real land). This arm
+    // proves (i) the compiled envelope never overstates height; (ii) FAR/coverage never ride the
+    // record; (iii) the WITHHOLD is load-bearing — inject FAR back and the trap provably reappears.
+    {
+        interface PlPogFixture {
+            readonly fields: PlPogFields;
+            readonly citation: PlPogCitation;
+            readonly parcel: { readonly areaM2: number };
+            readonly published: { readonly heightM: number; readonly farForbidden: string; readonly coverageForbidden: string };
+        }
+        const fix = readCorpusFixture<PlPogFixture>('pl-pog-official-sample-1sz.json');
+        const { record, resolution } = plPogZoningRecord(fix.fields, fix.citation);
+
+        // (i) THE WITHHOLD — neither ratio may ride the numbers the engine multiplies.
+        if ((record.structuredFields.plotRatioFAR ?? null) !== null) {
+            findings.push({
+                axis: 'far', pack: 'pl-pog/compile', zone: '1SZ',
+                detail: `a POG intensywność rode the record as per-parcel FAR ${record.structuredFields.plotRatioFAR} — ` +
+                    'the działka-budowlana denominator withhold was bypassed (C63)',
+            });
+        }
+        if ((record.structuredFields.maxCoverage ?? null) !== null) {
+            findings.push({
+                axis: 'coverage', pack: 'pl-pog/compile', zone: '1SZ',
+                detail: `a POG udział rode the record as coverage ${record.structuredFields.maxCoverage} over the cadastral ` +
+                    'parcel — the działka-budowlana denominator withhold was bypassed (C63)',
+            });
+        }
+
+        // (ii) SOLVE through the real engine and audit every axis. HEIGHT binds; the unresolved
+        // setback axis with no shaping rule must stamp footprintIsUpperBound (mechanism A).
+        const areaM2 = fix.parcel.areaM2; // 1000 = 40 × 25 exactly
+        const parcelRing = rect(0, 0, 40, 25);
+        zonesWalked++;
+        const env = computeBuildableEnvelope({
+            parcelRing,
+            edgeClassifications: CLASSIFIED,
+            zoning: record,
+            rulePack: null, // structured fields only — the DK-Plandata-shaped structured route
+        });
+        if (env.status === 'ok') solved++; else refused++;
+        findings.push(...auditEnvelope(env, null, 'pl-pog/compile', '1SZ', areaM2));
+        if (env.status === 'ok') {
+            if (env.maxHeight_m !== null && env.maxHeight_m > fix.published.heightM * (1 + EPS_REL) + EPS_ABS) {
+                findings.push({
+                    axis: 'height', pack: 'pl-pog/compile', zone: '1SZ',
+                    detail: `compiled height ${env.maxHeight_m} m exceeds the recorded maksWysokoscZabudowy ${fix.published.heightM} m`,
+                });
+            }
+            if (env.maxFAR !== null || env.maxCoverage !== null) {
+                findings.push({
+                    axis: 'far', pack: 'pl-pog/compile', zone: '1SZ',
+                    detail: `the solved envelope bound FAR=${env.maxFAR}/coverage=${env.maxCoverage} — a withheld ratio reached the engine`,
+                });
+            }
+        } else {
+            checkerBlind ??= `PL-POG arm: the compiled record did not solve (status=${env.status}) — a vacuous arm, not a pass`;
+        }
+
+        // THE COMPILE-VS-BIND SPLIT — the C63 trap for PL is a SEMANTIC overstatement (a ratio over
+        // the wrong denominator) that the engine's never-overstate ARITHMETIC cannot see: FAR ×
+        // cadastral is self-consistent. The only protection is the WITHHOLD, so the arm asserts it
+        // DIRECTLY: each ratio is COMPILED as a fact (present in the resolution) yet reaches the
+        // engine as null (never multiplied). A resolution that dropped the fact, or an engine that
+        // bound it, is the defect.
+        if (resolution.maxFar === null || resolution.maxCoverageFraction === null) {
+            checkerBlind ??=
+                'PL-POG arm: the recorded strefa 1SZ compiled no FAR/coverage FACT — the arm is vacuous ' +
+                '(the sample DOES publish intensywność 0.8 and udział 50 %)';
+        }
+        // The naive działka-budowlana products (ratio × cadastral parcel area) must never be the
+        // engine's bound FAR/coverage — asserted numerically, not by substring (a legitimate volume
+        // like 15 000 m³ contains "500" and would false-match a whole-serial grep).
+        const naiveFarGfa = resolution.maxFar! * areaM2; // 0.8 × 1000 = 800 (the forbidden GFA)
+        const naiveCovFootprint = resolution.maxCoverageFraction! * areaM2; // 0.5 × 1000 = 500
+        if (env.maxFAR === resolution.maxFar || env.maxCoverage === resolution.maxCoverageFraction) {
+            findings.push({
+                axis: 'far', pack: 'pl-pog/compile', zone: '1SZ',
+                detail: `a withheld ratio bound the envelope (FAR ${env.maxFAR} / coverage ${env.maxCoverage}) — the ` +
+                    `działka-budowlana products (${naiveFarGfa} m² GFA / ${naiveCovFootprint} m² footprint) become reachable`,
+            });
+        }
+
+        // (iii) THE TEETH — the withhold is what protects us. Inject FAR + coverage back into the
+        // structured numbers (the pre-fix bypass) and the engine MUST re-bind them; if it does not,
+        // the withhold is not load-bearing and this arm cannot see the defect it polices.
+        const tamperedRecord = {
+            ...record,
+            structuredFields: {
+                ...record.structuredFields,
+                plotRatioFAR: resolution.maxFar,
+                maxCoverage: resolution.maxCoverageFraction,
+            },
+        };
+        const tamperedEnv = computeBuildableEnvelope({
+            parcelRing,
+            edgeClassifications: CLASSIFIED,
+            zoning: tamperedRecord,
+            rulePack: null,
+        });
+        if (tamperedEnv.maxFAR === null && tamperedEnv.maxCoverage === null) {
+            checkerBlind ??=
+                'PL-POG arm teeth: injecting FAR + coverage into the structured numbers did NOT re-bind them — ' +
+                'the withhold is not the thing preventing the C63 trap, so the arm is blind';
+        }
+
+        // RANGE-GATE TEETH — an out-of-range served height is WITHHELD, never compiled into a cap.
+        const oor = resolvePlPogEnvelope({ ...fix.fields, maxHeightValue: fix.published.heightM * 100 }, fix.citation);
+        if (oor.maxHeightM !== null || oor.heightWithheldReason !== 'height-out-of-range') {
+            findings.push({
+                axis: 'height', pack: 'pl-pog/compile', zone: '1SZ',
+                detail: `an out-of-range height (${fix.published.heightM * 100} m) compiled to ${oor.maxHeightM} m instead of being withheld by the range gate`,
+            });
+        }
+
+        console.log(
+            `[never-overstate] §PL-POG-COMPILE strefa 1SZ: env ${env.status}, height ${env.maxHeight_m ?? 'n/a'} m (binds) ≤ ${fix.published.heightM} m, ` +
+                `FAR/coverage withheld (env.maxFAR=${env.maxFAR}, env.maxCoverage=${env.maxCoverage}), ` +
+                `naive '${fix.published.farForbidden}'/'${fix.published.coverageForbidden}' absent, tamper re-binds=${tamperedEnv.maxFAR !== null}.`,
+        );
     }
 
     // ── 3. SELF-TEST layer 1 — ENGINE TEETH: the planted pack through the real engine. ──

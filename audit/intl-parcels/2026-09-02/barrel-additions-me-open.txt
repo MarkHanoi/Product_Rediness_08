@@ -1,0 +1,67 @@
+LANE ME-OPEN — BARREL ADDITIONS (shared-file edits, recorded for reconciliation).
+
+This lane touches TWO shared files (parcelProviders/registry.ts + src/index.ts). The edits are
+ALREADY APPLIED in the working tree; this file is the re-appliable record in case a concurrent
+lane's merge (AU-OPEN / RO / FR were all editing these same files this session) drops them. Every
+addition is additive and namespaced — no existing line is modified or removed.
+
+=====================================================================
+1. packages/site-parcel-data/src/parcelProviders/registry.ts
+=====================================================================
+
+1a. IMPORTS — appended immediately AFTER the LANE AU-OPEN import block (before `const _tracer`):
+
+    import { isInTurkey, TURKEY_BBOX } from '../countryAdapters/tr/trJurisdiction.js';
+    import { isInIsrael, ISRAEL_BBOX } from '../countryAdapters/il/ilJurisdiction.js';
+    import { isInQatar, QATAR_BBOX } from '../countryAdapters/qa/qaJurisdiction.js';
+
+    Both the predicate (for `contains`) AND the bbox (for REGION_BBOX) are imported — unlike the
+    EE/LT/PL/LU/SE batch (bbox only), because these rows route on the RECTANGLE (the SA idiom),
+    not on `claimsNation` (none of TR/IL/QA has a national-boundary polygon, so claimsNation would
+    be dead). See each countryAdapters/<cc>/<cc>Jurisdiction.ts for the measured overlap audit.
+
+1b. ROWS — three ParcelJurisdiction rows inserted into PARCEL_JURISDICTIONS immediately BEFORE the
+    `regionCode: 'SA'` row (so the legacy first-match resolver prefers the live cadastre over the SA
+    footprint for QA/IL points; the real dispatch already orders by specificity):
+      • TR — providerId 'tr-tkgm-parsel',            proxyPath '/api/parcel/tr', kind 'cadastral', contains isInTurkey
+      • IL — providerId 'il-govmap-parcel-all',      proxyPath '/api/parcel/il', kind 'cadastral', contains isInIsrael
+      • QA — providerId 'qa-gisqatar-cadastre-plots',proxyPath '/api/parcel/qa', kind 'cadastral', contains isInQatar
+    Each note records: the 2026-09-02 live-probe id (TR ada 3106/parsel 258 · IL gush 6952/helka 139
+    · QA PIN 1010028), keyless, LICENCE UNREAD (YELLOW), and "Proxy /api/parcel/<cc> not yet wired
+    server-side → resolves null → OSM footprint until then" (same honest proxy-pending state as
+    US-NY-NYC / IT). QA/IL notes name the SAUDI_ARABIA_BBOX overlap + the national-resolver refusal.
+
+1c. REGION_BBOX — appended after the AU-OPEN block (specificity metric; every row needs a finite
+    entry or it sorts +Infinity / last — parcelRegistryWiring asserts this):
+
+        TR: TURKEY_BBOX,
+        IL: ISRAEL_BBOX,
+        QA: QATAR_BBOX,
+
+=====================================================================
+2. packages/site-parcel-data/src/index.ts
+=====================================================================
+
+Appended after the LANE RO adapter export (in the country-adapter barrel block). Every export is
+Tr*/Il*/Qa*/TR_/IL_/QA_-named or otherwise unique (isInTurkey/isInIsrael/isInQatar,
+TURKEY_BBOX/ISRAEL_BBOX/QATAR_BBOX, wgs84ToItm/itmToWgs84, ITM_PARAMS, extractStoreyHintFromNitelik),
+so the star re-exports cannot collide with the existing barrel or a sibling adapter:
+
+    export * from './countryAdapters/tr/index.js';
+    export * from './countryAdapters/il/index.js';
+    export * from './countryAdapters/qa/index.js';
+
+=====================================================================
+3. NOT TOUCHED (out of lane scope) — recorded so the reader knows what is still owed
+=====================================================================
+• server/ proxies /api/parcel/{tr,il,qa} — NOT wired this lane (the brief's deliverables are the
+  adapter dir, registry rows, resolver routing, tests, and a live click; the server proxy is a
+  separate seam, exactly as US-NY-NYC / IT sit today). The registry notes say so verbatim.
+• jurisdiction/nationalJurisdictionResolver.ts — NOT touched. TR/IL/QA have no boundary polygon,
+  so the resolver correctly REFUSES every ME point (measured: Istanbul/Ankara no-national-candidate;
+  Tel Aviv/Jerusalem/Doha outside-every-candidate-polygon vs the SA prefilter). On that refusal the
+  registry keeps the bbox-matched set — the "a refusal is not a dead click" contract — so the rows
+  route without any resolver change. Adding an ISR/TUR/QAT prefilter WITHOUT a polygon would be inert
+  (the resolver guards prefilters by `set.countries[iso3]`) and would falsely imply coverage; not done.
+• schemas/** — FROZEN, untouched. The adapters return their OWN typed shapes (TrParsel / IlParcel /
+  QaCadastrePlot), never a schema change; source rows validate through the existing SiteIntelSourceSchema.

@@ -1,0 +1,583 @@
+{
+  "__label__": "Slovakia — GKÚ/ÚGKK ESKN cadastre, VRM/kn MapServer layer 9 (Plocha parcely C). Recorded live 2026-09-03 from Bratislava Old Town (Hlavné námestie).",
+  "__endpoint__": "https://kataster.skgeodesy.sk/eskn/rest/services/VRM/kn/MapServer/9/query",
+  "bratislavaOldTownPoint": {
+    "displayFieldName": "PARCEL_NUMBER",
+    "fieldAliases": {
+      "ID": "Identifikátor parcely registra C",
+      "CADASTRAL_UNIT_ID": "Identifikátor katastrálneho územia",
+      "DESCRIPTIVE_AREA_OF_PARCEL": "Výmera SPI (m2)",
+      "FOLIO_ID": "Identifikátor listu vlastníctva",
+      "NATURE_OF_LAND_USE_ID": "Identifikátor druhu pozemku",
+      "PLOT_UTILISATION_ID": "Identifikátor spôsobu využívania pozemku",
+      "PLOT_LOCALIZATION_ID": "Identifikátor umiestnenia pozemku",
+      "PROPERTY_AFFILIATION_ID": "Identifikátor príslušnosti pozemku k pôdnemu fondu",
+      "XMIN": "XMIN",
+      "XMAX": "XMAX",
+      "YMIN": "YMIN",
+      "YMAX": "YMAX",
+      "PARCEL_NUMBER_SORT": "PARCEL_NUMBER_SORT",
+      "IS_TRACKABLE": "IS_TRACKABLE",
+      "VALID_TO_DATE": "VALID_TO_DATE",
+      "PARCEL_NUMBER": "Parcelné číslo",
+      "PARCEL_NUMBER_LABEL": "PARCEL_NUMBER_LABEL",
+      "PROTECTED_PROPERTIES_CODE_LIST": "PROTECTED_PROPERTIES_CODE_LIST",
+      "PROTECTED_PROPERTIES_NAME_LIST": "PROTECTED_PROPERTIES_NAME_LIST",
+      "SHAPE.AREA": "SHAPE.AREA",
+      "SHAPE.LEN": "SHAPE.LEN"
+    },
+    "geometryType": "esriGeometryPolygon",
+    "spatialReference": {
+      "wkid": 4326,
+      "latestWkid": 4326
+    },
+    "fields": [
+      {
+        "name": "ID",
+        "type": "esriFieldTypeOID",
+        "alias": "Identifikátor parcely registra C"
+      },
+      {
+        "name": "CADASTRAL_UNIT_ID",
+        "type": "esriFieldTypeInteger",
+        "alias": "Identifikátor katastrálneho územia"
+      },
+      {
+        "name": "DESCRIPTIVE_AREA_OF_PARCEL",
+        "type": "esriFieldTypeInteger",
+        "alias": "Výmera SPI (m2)"
+      },
+      {
+        "name": "FOLIO_ID",
+        "type": "esriFieldTypeInteger",
+        "alias": "Identifikátor listu vlastníctva"
+      },
+      {
+        "name": "NATURE_OF_LAND_USE_ID",
+        "type": "esriFieldTypeInteger",
+        "alias": "Identifikátor druhu pozemku"
+      },
+      {
+        "name": "PLOT_UTILISATION_ID",
+        "type": "esriFieldTypeInteger",
+        "alias": "Identifikátor spôsobu využívania pozemku"
+      },
+      {
+        "name": "PLOT_LOCALIZATION_ID",
+        "type": "esriFieldTypeInteger",
+        "alias": "Identifikátor umiestnenia pozemku"
+      },
+      {
+        "name": "PROPERTY_AFFILIATION_ID",
+        "type": "esriFieldTypeInteger",
+        "alias": "Identifikátor príslušnosti pozemku k pôdnemu fondu"
+      },
+      {
+        "name": "XMIN",
+        "type": "esriFieldTypeDouble",
+        "alias": "XMIN"
+      },
+      {
+        "name": "XMAX",
+        "type": "esriFieldTypeDouble",
+        "alias": "XMAX"
+      },
+      {
+        "name": "YMIN",
+        "type": "esriFieldTypeDouble",
+        "alias": "YMIN"
+      },
+      {
+        "name": "YMAX",
+        "type": "esriFieldTypeDouble",
+        "alias": "YMAX"
+      },
+      {
+        "name": "PARCEL_NUMBER_SORT",
+        "type": "esriFieldTypeDouble",
+        "alias": "PARCEL_NUMBER_SORT"
+      },
+      {
+        "name": "IS_TRACKABLE",
+        "type": "esriFieldTypeSmallInteger",
+        "alias": "IS_TRACKABLE"
+      },
+      {
+        "name": "VALID_TO_DATE",
+        "type": "esriFieldTypeDate",
+        "alias": "VALID_TO_DATE",
+        "length": 8
+      },
+      {
+        "name": "PARCEL_NUMBER",
+        "type": "esriFieldTypeString",
+        "alias": "Parcelné číslo",
+        "length": 15
+      },
+      {
+        "name": "PARCEL_NUMBER_LABEL",
+        "type": "esriFieldTypeString",
+        "alias": "PARCEL_NUMBER_LABEL",
+        "length": 15
+      },
+      {
+        "name": "PROTECTED_PROPERTIES_CODE_LIST",
+        "type": "esriFieldTypeString",
+        "alias": "PROTECTED_PROPERTIES_CODE_LIST",
+        "length": 4000
+      },
+      {
+        "name": "PROTECTED_PROPERTIES_NAME_LIST",
+        "type": "esriFieldTypeString",
+        "alias": "PROTECTED_PROPERTIES_NAME_LIST",
+        "length": 4000
+      },
+      {
+        "name": "SHAPE.AREA",
+        "type": "esriFieldTypeDouble",
+        "alias": "SHAPE.AREA"
+      },
+      {
+        "name": "SHAPE.LEN",
+        "type": "esriFieldTypeDouble",
+        "alias": "SHAPE.LEN"
+      }
+    ],
+    "features": [
+      {
+        "attributes": {
+          "ID": 2090872505,
+          "CADASTRAL_UNIT_ID": 2933,
+          "DESCRIPTIVE_AREA_OF_PARCEL": 832,
+          "FOLIO_ID": 335384911,
+          "NATURE_OF_LAND_USE_ID": 9,
+          "PLOT_UTILISATION_ID": 16,
+          "PLOT_LOCALIZATION_ID": 1,
+          "PROPERTY_AFFILIATION_ID": 1,
+          "XMIN": 1904378.7,
+          "XMAX": 1904447.72,
+          "YMIN": 6130738.78,
+          "YMAX": 6130846.57,
+          "PARCEL_NUMBER_SORT": 150000,
+          "IS_TRACKABLE": 1,
+          "VALID_TO_DATE": 1788372000000,
+          "PARCEL_NUMBER": "15",
+          "PARCEL_NUMBER_LABEL": "15",
+          "PROTECTED_PROPERTIES_CODE_LIST": "201",
+          "PROTECTED_PROPERTIES_NAME_LIST": "Nehnuteľná kultúrna pamiatka (národná kultúrna pamiatka)",
+          "SHAPE.AREA": 833.74925,
+          "SHAPE.LEN": 167.97235072409
+        },
+        "geometry": {
+          "rings": [
+            [
+              [
+                17.107480185821423,
+                48.1435477072082
+              ],
+              [
+                17.107370394317318,
+                48.14358952006235
+              ],
+              [
+                17.107449674033795,
+                48.14365817448532
+              ],
+              [
+                17.10745580397392,
+                48.14365515558472
+              ],
+              [
+                17.107534030611735,
+                48.1437093661675
+              ],
+              [
+                17.107578877015246,
+                48.14374766231327
+              ],
+              [
+                17.107500922699487,
+                48.14382092276906
+              ],
+              [
+                17.10749412058336,
+                48.14382570389553
+              ],
+              [
+                17.10757231747287,
+                48.14386852304292
+              ],
+              [
+                17.107614626602917,
+                48.14389236507206
+              ],
+              [
+                17.1076945783509,
+                48.143927167943005
+              ],
+              [
+                17.107732419252716,
+                48.14394573515908
+              ],
+              [
+                17.107788684482696,
+                48.14388636936947
+              ],
+              [
+                17.107723979250924,
+                48.14385612646707
+              ],
+              [
+                17.10758915692198,
+                48.14378768037035
+              ],
+              [
+                17.10765427316298,
+                48.143734971538024
+              ],
+              [
+                17.107631262439654,
+                48.143721930260135
+              ],
+              [
+                17.10767636650193,
+                48.14369344427699
+              ],
+              [
+                17.107719986959683,
+                48.143671185030485
+              ],
+              [
+                17.107771424726327,
+                48.14364457508733
+              ],
+              [
+                17.107892420011083,
+                48.14357694693126
+              ],
+              [
+                17.107726633907692,
+                48.14344900100246
+              ],
+              [
+                17.107480185821423,
+                48.1435477072082
+              ]
+            ]
+          ]
+        }
+      }
+    ]
+  },
+  "registerCIdLookup": {
+    "displayFieldName": "PARCEL_NUMBER",
+    "fieldAliases": {
+      "ID": "Identifikátor parcely registra C",
+      "PARCEL_NUMBER": "Parcelné číslo",
+      "CADASTRAL_UNIT_ID": "Identifikátor katastrálneho územia",
+      "DESCRIPTIVE_AREA_OF_PARCEL": "Výmera SPI (m2)",
+      "FOLIO_ID": "Identifikátor listu vlastníctva",
+      "NATURE_OF_LAND_USE_ID": "Identifikátor druhu pozemku",
+      "VALID_TO_DATE": "VALID_TO_DATE"
+    },
+    "geometryType": "esriGeometryPolygon",
+    "spatialReference": {
+      "wkid": 4326,
+      "latestWkid": 4326
+    },
+    "fields": [
+      {
+        "name": "ID",
+        "type": "esriFieldTypeOID",
+        "alias": "Identifikátor parcely registra C"
+      },
+      {
+        "name": "PARCEL_NUMBER",
+        "type": "esriFieldTypeString",
+        "alias": "Parcelné číslo",
+        "length": 15
+      },
+      {
+        "name": "CADASTRAL_UNIT_ID",
+        "type": "esriFieldTypeInteger",
+        "alias": "Identifikátor katastrálneho územia"
+      },
+      {
+        "name": "DESCRIPTIVE_AREA_OF_PARCEL",
+        "type": "esriFieldTypeInteger",
+        "alias": "Výmera SPI (m2)"
+      },
+      {
+        "name": "FOLIO_ID",
+        "type": "esriFieldTypeInteger",
+        "alias": "Identifikátor listu vlastníctva"
+      },
+      {
+        "name": "NATURE_OF_LAND_USE_ID",
+        "type": "esriFieldTypeInteger",
+        "alias": "Identifikátor druhu pozemku"
+      },
+      {
+        "name": "VALID_TO_DATE",
+        "type": "esriFieldTypeDate",
+        "alias": "VALID_TO_DATE",
+        "length": 8
+      }
+    ],
+    "features": [
+      {
+        "attributes": {
+          "ID": 2090872505,
+          "PARCEL_NUMBER": "15",
+          "CADASTRAL_UNIT_ID": 2933,
+          "DESCRIPTIVE_AREA_OF_PARCEL": 832,
+          "FOLIO_ID": 335384911,
+          "NATURE_OF_LAND_USE_ID": 9,
+          "VALID_TO_DATE": 1788372000000
+        },
+        "geometry": {
+          "rings": [
+            [
+              [
+                17.107480185821423,
+                48.1435477072082
+              ],
+              [
+                17.107370394317318,
+                48.14358952006235
+              ],
+              [
+                17.107449674033795,
+                48.14365817448532
+              ],
+              [
+                17.10745580397392,
+                48.14365515558472
+              ],
+              [
+                17.107534030611735,
+                48.1437093661675
+              ],
+              [
+                17.107578877015246,
+                48.14374766231327
+              ],
+              [
+                17.107500922699487,
+                48.14382092276906
+              ],
+              [
+                17.10749412058336,
+                48.14382570389553
+              ],
+              [
+                17.10757231747287,
+                48.14386852304292
+              ],
+              [
+                17.107614626602917,
+                48.14389236507206
+              ],
+              [
+                17.1076945783509,
+                48.143927167943005
+              ],
+              [
+                17.107732419252716,
+                48.14394573515908
+              ],
+              [
+                17.107788684482696,
+                48.14388636936947
+              ],
+              [
+                17.107723979250924,
+                48.14385612646707
+              ],
+              [
+                17.10758915692198,
+                48.14378768037035
+              ],
+              [
+                17.10765427316298,
+                48.143734971538024
+              ],
+              [
+                17.107631262439654,
+                48.143721930260135
+              ],
+              [
+                17.10767636650193,
+                48.14369344427699
+              ],
+              [
+                17.107719986959683,
+                48.143671185030485
+              ],
+              [
+                17.107771424726327,
+                48.14364457508733
+              ],
+              [
+                17.107892420011083,
+                48.14357694693126
+              ],
+              [
+                17.107726633907692,
+                48.14344900100246
+              ],
+              [
+                17.107480185821423,
+                48.1435477072082
+              ]
+            ]
+          ]
+        }
+      }
+    ]
+  },
+  "outsideCoverageAbsent": {
+    "displayFieldName": "PARCEL_NUMBER",
+    "fieldAliases": {
+      "ID": "Identifikátor parcely registra C",
+      "CADASTRAL_UNIT_ID": "Identifikátor katastrálneho územia",
+      "DESCRIPTIVE_AREA_OF_PARCEL": "Výmera SPI (m2)",
+      "FOLIO_ID": "Identifikátor listu vlastníctva",
+      "NATURE_OF_LAND_USE_ID": "Identifikátor druhu pozemku",
+      "PLOT_UTILISATION_ID": "Identifikátor spôsobu využívania pozemku",
+      "PLOT_LOCALIZATION_ID": "Identifikátor umiestnenia pozemku",
+      "PROPERTY_AFFILIATION_ID": "Identifikátor príslušnosti pozemku k pôdnemu fondu",
+      "XMIN": "XMIN",
+      "XMAX": "XMAX",
+      "YMIN": "YMIN",
+      "YMAX": "YMAX",
+      "PARCEL_NUMBER_SORT": "PARCEL_NUMBER_SORT",
+      "IS_TRACKABLE": "IS_TRACKABLE",
+      "VALID_TO_DATE": "VALID_TO_DATE",
+      "PARCEL_NUMBER": "Parcelné číslo",
+      "PARCEL_NUMBER_LABEL": "PARCEL_NUMBER_LABEL",
+      "PROTECTED_PROPERTIES_CODE_LIST": "PROTECTED_PROPERTIES_CODE_LIST",
+      "PROTECTED_PROPERTIES_NAME_LIST": "PROTECTED_PROPERTIES_NAME_LIST",
+      "SHAPE.AREA": "SHAPE.AREA",
+      "SHAPE.LEN": "SHAPE.LEN"
+    },
+    "geometryType": "esriGeometryPolygon",
+    "spatialReference": {
+      "wkid": 4326,
+      "latestWkid": 4326
+    },
+    "fields": [
+      {
+        "name": "ID",
+        "type": "esriFieldTypeOID",
+        "alias": "Identifikátor parcely registra C"
+      },
+      {
+        "name": "CADASTRAL_UNIT_ID",
+        "type": "esriFieldTypeInteger",
+        "alias": "Identifikátor katastrálneho územia"
+      },
+      {
+        "name": "DESCRIPTIVE_AREA_OF_PARCEL",
+        "type": "esriFieldTypeInteger",
+        "alias": "Výmera SPI (m2)"
+      },
+      {
+        "name": "FOLIO_ID",
+        "type": "esriFieldTypeInteger",
+        "alias": "Identifikátor listu vlastníctva"
+      },
+      {
+        "name": "NATURE_OF_LAND_USE_ID",
+        "type": "esriFieldTypeInteger",
+        "alias": "Identifikátor druhu pozemku"
+      },
+      {
+        "name": "PLOT_UTILISATION_ID",
+        "type": "esriFieldTypeInteger",
+        "alias": "Identifikátor spôsobu využívania pozemku"
+      },
+      {
+        "name": "PLOT_LOCALIZATION_ID",
+        "type": "esriFieldTypeInteger",
+        "alias": "Identifikátor umiestnenia pozemku"
+      },
+      {
+        "name": "PROPERTY_AFFILIATION_ID",
+        "type": "esriFieldTypeInteger",
+        "alias": "Identifikátor príslušnosti pozemku k pôdnemu fondu"
+      },
+      {
+        "name": "XMIN",
+        "type": "esriFieldTypeDouble",
+        "alias": "XMIN"
+      },
+      {
+        "name": "XMAX",
+        "type": "esriFieldTypeDouble",
+        "alias": "XMAX"
+      },
+      {
+        "name": "YMIN",
+        "type": "esriFieldTypeDouble",
+        "alias": "YMIN"
+      },
+      {
+        "name": "YMAX",
+        "type": "esriFieldTypeDouble",
+        "alias": "YMAX"
+      },
+      {
+        "name": "PARCEL_NUMBER_SORT",
+        "type": "esriFieldTypeDouble",
+        "alias": "PARCEL_NUMBER_SORT"
+      },
+      {
+        "name": "IS_TRACKABLE",
+        "type": "esriFieldTypeSmallInteger",
+        "alias": "IS_TRACKABLE"
+      },
+      {
+        "name": "VALID_TO_DATE",
+        "type": "esriFieldTypeDate",
+        "alias": "VALID_TO_DATE",
+        "length": 8
+      },
+      {
+        "name": "PARCEL_NUMBER",
+        "type": "esriFieldTypeString",
+        "alias": "Parcelné číslo",
+        "length": 15
+      },
+      {
+        "name": "PARCEL_NUMBER_LABEL",
+        "type": "esriFieldTypeString",
+        "alias": "PARCEL_NUMBER_LABEL",
+        "length": 15
+      },
+      {
+        "name": "PROTECTED_PROPERTIES_CODE_LIST",
+        "type": "esriFieldTypeString",
+        "alias": "PROTECTED_PROPERTIES_CODE_LIST",
+        "length": 4000
+      },
+      {
+        "name": "PROTECTED_PROPERTIES_NAME_LIST",
+        "type": "esriFieldTypeString",
+        "alias": "PROTECTED_PROPERTIES_NAME_LIST",
+        "length": 4000
+      },
+      {
+        "name": "SHAPE.AREA",
+        "type": "esriFieldTypeDouble",
+        "alias": "SHAPE.AREA"
+      },
+      {
+        "name": "SHAPE.LEN",
+        "type": "esriFieldTypeDouble",
+        "alias": "SHAPE.LEN"
+      }
+    ],
+    "features": []
+  }
+}

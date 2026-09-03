@@ -1,0 +1,44 @@
+{
+  "_provenance": [
+    "LANE PL-POG (2026-09-03) — POLAND POG APP GML 2.0 strefa 1SZ, from the OFFICIAL MINISTRY POG",
+    "test export (schemat aplikacyjny planowaniePrzestrzenne 2.0), byte-pinned as",
+    "packages/site-parcel-data/__tests__/fixtures/pl-app-gml-2-0/pog-official-sample-2024-12-04.gml",
+    "(253,475 bytes, sha256 173690566bf1fab5fbb448970efc007219848d06eb93ff5e7e35c70ea5090853).",
+    "'fields' + 'citation' are the values that module transcribes VERBATIM from strefa 1SZ:",
+    "  app:maksWysokoscZabudowy uom=\"m\">15.0 · app:maksNadziemnaIntensywnoscZabudowy>0.8 ·",
+    "  app:maksUdzialPowierzchniZabudowy>50.0 · app:minUdzialPowierzchniBiologicznieCzynnej>50.0 ·",
+    "  act idIIP PL.ZIPPZP.11111/321202-POG/1POG wersja 20241204T095812 status 'elaboration' (DRAFT).",
+    "The national POG data channel is NOT live (re-confirmed live 2026-09-03: the KrajowaIntegracja-",
+    "PlanowOgolnych WMS/WFS return the byte-identical 401 catch-all, RU host unreachable), so this",
+    "recorded strefa is the servable proof of the COMPILE path; live national resolution today is the",
+    "coverage-gap refusal (plPogCoverageGapRefusal). 'published' = the INDEPENDENTLY transcribed",
+    "bound the arm audits AGAINST, deliberately SEPARATE from 'fields' so a planted falsification",
+    "(scale published.heightM down) turns the compiled envelope red. farForbidden/coverageForbidden",
+    "are the NAIVE C63 products (FAR/coverage × cadastral parcel area) that must appear NOWHERE.",
+    "parcel.areaM2 = 1000 (a 40 m × 25 m canonical study parcel — synthetic, the sample gmina is",
+    "PL.ZIPPZP.11111 'gmina ABC' and covers no real cadastral parcel)."
+  ],
+  "fields": {
+    "maxHeightValue": 15,
+    "maxHeightUom": "m",
+    "maxFar": 0.8,
+    "maxCoveragePct": 50,
+    "minGreenPct": 50
+  },
+  "citation": {
+    "planIdentity": "PL.ZIPPZP.11111/321202-POG/1POG",
+    "planVersion": "20241204T095812",
+    "actStatus": "elaboration",
+    "zoneDesignation": "1SZ",
+    "zoneSymbol": "SZ",
+    "zoneIdentity": "PL.ZIPPZP.11111/321202-POG/1POG-1SZ"
+  },
+  "parcel": { "areaM2": 1000, "note": "40 m × 25 m synthetic study parcel (sample gmina covers no real parcel)" },
+  "published": {
+    "heightM": 15,
+    "farForbidden": "800",
+    "coverageForbidden": "500",
+    "inForce": false,
+    "note": "height 15 m BINDS; FAR 0.8 and coverage 50% are WITHHELD (działka-budowlana denominator, C63)"
+  }
+}

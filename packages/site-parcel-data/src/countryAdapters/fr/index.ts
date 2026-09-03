@@ -421,3 +421,36 @@ export {
     type FrZoneIdentity,
 } from './frZoneIdentity.js';
 export { FR_ADAPTER_SOURCES, FR_ALTIMETRY_SOURCE_ID, FR_GPU_SOURCE_ID } from './frSources.js';
+
+// LANE FR-PRESCRIPTIONS — the GPU prescription→geometry consumer (STR §9 P1 authoritative-geometry
+// tier): typepsc=14 plan-masse → F-A drawn footprint · typepsc=15 marge de recul → drawn setback ·
+// typepsc=39/02 → cited height cap (datum unknown, ADR-0377). Feeds the existing explicit-area path.
+export {
+    FR_GPU_PLAN_MASSE_JURISDICTION_ID,
+    FR_PLAN_MASSE_EXPLICIT_AREA_PACK,
+    FR_PLAN_MASSE_RING_REF,
+    FR_PRESCRIPTION_DATASET,
+    buildFrDrawnEnvelopeContribution,
+    frFootprintToSceneParts,
+    frPrescriptionGeoFeaturesAtPoint,
+    isFrPlanMasseFeature,
+    parseFrHeightCapPrescription,
+    parseFrHeightLibelle,
+    parseFrLineStrings,
+    parseFrPlanMassePrescription,
+    parseFrPolygonParts,
+    parseFrSetbackPrescription,
+    projectFrLatLonRingToSceneXZ,
+    type FrDrawnEnvelopeContribution,
+    type FrDrawnEnvelopeInput,
+    type FrDrawnFootprintContribution,
+    type FrDrawnHeightCap,
+    type FrDrawnSetbackContribution,
+    type FrEnvelopeDegradation,
+    type FrEnvelopeSlot,
+    type FrGeoJsonGeometry,
+    type FrGeoPart,
+    type FrHeightMeasuredTo,
+    type FrLatLon,
+    type FrPrescriptionGeoFeature,
+} from './frPrescriptionGeometry.js';

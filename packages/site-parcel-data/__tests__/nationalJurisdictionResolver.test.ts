@@ -153,6 +153,11 @@ describe('interior controls · one per country owning a national routing bbox', 
         ['Luxembourg', 49.6116, 6.1319, 'LUX'],
         ['Warszawa', 52.2297, 21.0122, 'POL'],
         ['Stockholm', 59.3293, 18.0686, 'SWE'],
+        // LANE ME-GULF (2026-09-02) — the four Gulf countries added to the boundary set.
+        ['Dubai', 25.1972, 55.2744, 'ARE'],
+        ['Kuwait City', 29.3759, 47.9774, 'KWT'],
+        ['Manama', 26.2285, 50.586, 'BHR'],
+        ['Muscat', 23.588, 58.3829, 'OMN'],
     ];
 
     it('covers every country in the shipped boundary set', () => {

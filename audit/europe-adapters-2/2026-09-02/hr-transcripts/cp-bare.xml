@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?><ows:ExceptionReport xmlns:xs="http://www.w3.org/2001/XMLSchema" xmlns:ows="http://www.opengis.net/ows/1.1" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" version="2.0.0" xsi:schemaLocation="http://www.opengis.net/ows/1.1 https://api.uredjenazemlja.hr/services/inspire/schemas/ows/1.1.0/owsAll.xsd">
+  <ows:Exception exceptionCode="NoApplicableCode">
+    <ows:ExceptionText>java.lang.RuntimeException: java.io.IOException
+java.io.IOExceptionORA-00604: error occurred at recursive SQL level 1
+ORA-01000: maximum open cursors exceeded
+ORA-00604: error occurred at recursive SQL level 1
+ORA-01000: maximum open cursors exceeded
+
+ORA-00604: error occurred at recursive SQL level 1
+ORA-01000: maximum open cursors exceeded
+ORA-00604: error occurred at recursive SQL level 1
+ORA-01000: maximum open cursors exceeded
+</ows:ExceptionText>
+  </ows:Exception>
+</ows:ExceptionReport>

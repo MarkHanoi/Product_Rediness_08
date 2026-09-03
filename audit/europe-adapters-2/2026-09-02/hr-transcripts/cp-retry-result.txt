@@ -1,0 +1,27 @@
+curl: (22) The requested URL returned error: 400
+curl: (22) The requested URL returned error: 400
+curl: (22) The requested URL returned error: 400
+curl: (22) The requested URL returned error: 400
+curl: (22) The requested URL returned error: 400
+curl: (22) The requested URL returned error: 400
+curl: (22) The requested URL returned error: 400
+curl: (22) The requested URL returned error: 400
+curl: (22) The requested URL returned error: 400
+curl: (22) The requested URL returned error: 400
+curl: (22) The requested URL returned error: 400
+curl: (22) The requested URL returned error: 400
+curl: (22) The requested URL returned error: 400
+curl: (22) The requested URL returned error: 400
+curl: (22) The requested URL returned error: 400
+curl: (22) The requested URL returned error: 400
+curl: (22) The requested URL returned error: 400
+curl: (22) The requested URL returned error: 400
+curl: (22) The requested URL returned error: 400
+curl: (22) The requested URL returned error: 400
+curl: (22) The requested URL returned error: 400
+curl: (22) The requested URL returned error: 400
+curl: (22) The requested URL returned error: 400
+curl: (22) The requested URL returned error: 400
+curl: (22) The requested URL returned error: 400
+curl: (22) The requested URL returned error: 400
+FINAL HTTP=400 bytes=0 type=application/xml

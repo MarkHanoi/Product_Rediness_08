@@ -82,6 +82,9 @@ import { componentCatalog } from '../../services/componentCatalog';
 // ⭐ REUSED, not re-implemented: the proven generic picker chrome (label + select +
 // Apply, honest-refusal branch) — the U2 plan names it for the type dropdown.
 import { buildGenericTypeSelectorWidget } from './GenericTypeSelectorWidget';
+// ⭐ Lane U6 — the placed-instance authoring chat strip. Deterministic, offline; drives
+// the SAME two verbs this section dispatches, through the SAME `dispatch` seam.
+import { makeComponentInstanceController, mountComponentChat, type ComponentChatHandle } from '../component-chat';
 
 /* ------------------------------------------------------------------ */
 /* §U2-PROFILE-OPENER-PORT — à la `setWindowOutlineEditorOpener`       */
@@ -225,6 +228,38 @@ export function createComponentSection(
     /** Parameters of the loaded definition, by id — the parse table for `submitEdit`. */
     let paramsById = new Map<string, FamilyParameter>();
     let openEditorFor: string | null = null;
+
+    /* ── Lane U6 — the placed-instance authoring chat strip (the chat twin of the
+     *    controls above). Mounted ONCE into a persistent host so its transcript
+     *    survives render()'s full rebuild; drives the SAME two bus verbs. ── */
+    const chatHost = el('div', '');
+    chatHost.setAttribute('data-cs-chat-host', '');
+    let chatHandle: ComponentChatHandle | null = null;
+    const ensureChat = (): void => {
+        if (chatHandle !== null) return;
+        chatHandle = mountComponentChat(chatHost, makeComponentInstanceController({
+            view: () => {
+                const o = liveRuntime()?.store.get(occurrenceId);
+                return o ? (componentCatalog.view(o.definitionId) ?? null) : null;
+            },
+            definitionRef: () => liveRuntime()?.store.get(occurrenceId)?.definitionId ?? occurrenceId,
+            setParameter: async (parameterId, value) => {
+                const r = await dispatch('component.setInstanceParameter', { componentId: occurrenceId, parameterId, value });
+                if (r === null) render();
+                return r;
+            },
+            clearParameter: async (parameterId) => {
+                const r = await dispatch('component.setInstanceParameter', { componentId: occurrenceId, parameterId, clear: true });
+                if (r === null) render();
+                return r;
+            },
+            swapType: async (typeId) => {
+                const r = await dispatch('component.swapType', { componentId: occurrenceId, typeId });
+                if (r === null) render();
+                return r;
+            },
+        }));
+    };
 
     /* ── dispatch — refusals RETURNED and RENDERED, never swallowed ── */
     async function dispatch(cmd: string, payload: unknown): Promise<string | null> {
@@ -570,6 +605,10 @@ export function createComponentSection(
                 root.appendChild(row);
             }
         }
+
+        // ── Lane U6 — the authoring chat strip (persistent host, re-appended) ──
+        ensureChat();
+        root.appendChild(chatHost);
 
         root.appendChild(status);
         setStatus('');

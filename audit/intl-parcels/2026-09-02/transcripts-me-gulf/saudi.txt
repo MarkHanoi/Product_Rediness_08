@@ -1,0 +1,23 @@
+# SAUDI probe transcript — captured 2026-09-03T05:45:11Z — UA: PRYZM-Research/1.0 (+https://pryzm.app; contact pryzmhello@gmail.com)
+# L-606 DELTA: the fence changed class from IP/WAF geo-fence to ArcGIS token / Balady-SSO gate.
+$ curl -sS -I 'https://umaps.balady.gov.sa/'  (redirect)
+  HTTP=301 -> https://umaps.momah.gov.sa/ t=1.361133s
+  RC=0
+$ curl 'https://umaps.momah.gov.sa/server/rest/services?f=json'  (ROOT answers foreign IP now)
+{"currentVersion":11.5,"folders":["Hosted","umaps","Utilities"],"services":[]}
+$ curl 'https://umaps.momah.gov.sa/server/rest/services/umaps?f=json'  (DATA folder = token gate; re-probed x3, stable)
+{"error":{"code":499,"message":"Token Required","details":[]}}
+$ curl 'https://umaps.momah.gov.sa/server/rest/services/Hosted?f=json'  (DATA folder = token gate)
+{"error":{"code":499,"message":"Token Required","details":[]}}
+# (a fourth capture caught a transient backend-connect error naming the internal component
+#  umapsps.momah.gov.sa:7443 / 192.168.89.24 — itself evidence the data tier is an internal,
+#  non-public ArcGIS behind the token gate; the stable public answer is 499 Token Required.)
+$ curl 'https://umaps.momah.gov.sa/portal/sharing/rest?f=json'  (ArcGIS Enterprise 11.5 portal)
+{"currentVersion":"2025.1","enterpriseVersion":"11.5.0","enterpriseBuild":"56755"}
+$ curl 'https://umapsudp.momrah.gov.sa/server/rest/services?f=json'  (OLD backend — dead DNS)
+curl: (6) Could not resolve host: umapsudp.momrah.gov.sa
+  HTTP=000 t=0.157469s
+  RC=6
+# GATE: every data folder returns ArcGIS 499 Token Required; the viewer authenticates against
+#       https://ssoapp.balady.gov.sa (Balady SSO / Saudi Nafath national identity). An in-SA
+#       proxy alone no longer suffices — the gate is credential-class, not IP-class.

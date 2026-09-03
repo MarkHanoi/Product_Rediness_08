@@ -1,0 +1,536 @@
+{
+"__label__": "LANE SI recorded-live 2026-09-03 - GURS Kataster nepremicnin SI.GURS.KN:PARCELE via https://ipi.eprostor.gov.si/wfs-si-gurs-kn/ows. parcelLjubljana = GetFeature bbox(46.0567,14.5056,46.0571,14.5060,urn:EPSG::4326) count=1 (native EPSG:3794 output). parcelByEid = cql EID_PARCELA=100100001379837235. wrongLayerExceptionBody = HTTP 400 body for SI.GURS.KN:PARCELE_WRONGNAME. Re-record: rerun those three requests.",
+"parcelLjubljana": {
+"type": "FeatureCollection",
+"features": [
+{
+"type": "Feature",
+"id": "PARCELE.100100001379837235",
+"geometry": {
+"type": "Polygon",
+"coordinates": [
+[
+[
+461753.48,
+101988.78
+],
+[
+461753.94,
+101988.7
+],
+[
+461753.79,
+101988.19
+],
+[
+461753.28,
+101986.46
+],
+[
+461752.48,
+101983.73
+],
+[
+461752.11,
+101982.48
+],
+[
+461750.76,
+101977.9
+],
+[
+461750.39,
+101976.64
+],
+[
+461746.76,
+101964.33
+],
+[
+461745.83,
+101964.67
+],
+[
+461744.88,
+101961.46
+],
+[
+461750.84,
+101959.69
+],
+[
+461752.07,
+101959.32
+],
+[
+461773.04,
+101953.1
+],
+[
+461780.67,
+101950.8
+],
+[
+461782.43,
+101956.51
+],
+[
+461798.47,
+101952.81
+],
+[
+461806.21,
+101978.14
+],
+[
+461802.75,
+101979.15
+],
+[
+461802.27,
+101977.51
+],
+[
+461788.51,
+101981.51
+],
+[
+461787.85,
+101979.24
+],
+[
+461763.18,
+101986.38
+],
+[
+461767.89,
+102002.71
+],
+[
+461770.84,
+102001.83
+],
+[
+461834.9,
+101983.1
+],
+[
+461833.01,
+101976.19
+],
+[
+461831.82,
+101971.85
+],
+[
+461832.68,
+101971.57
+],
+[
+461836.94,
+101985.69
+],
+[
+461835.83,
+101986
+],
+[
+461820.51,
+101990.46
+],
+[
+461809.96,
+101993.53
+],
+[
+461764.51,
+102006.03
+],
+[
+461763.31,
+102006.36
+],
+[
+461762.93,
+102006.46
+],
+[
+461759.93,
+102007.07
+],
+[
+461758.75,
+102006.51
+],
+[
+461758.03,
+102005.54
+],
+[
+461757.7,
+102004.3
+],
+[
+461757.36,
+102003.04
+],
+[
+461755.69,
+101996.91
+],
+[
+461755.35,
+101995.65
+],
+[
+461753.7,
+101989.58
+],
+[
+461753.48,
+101988.78
+]
+]
+]
+},
+"geometry_name": "GEOM",
+"properties": {
+"FEATUREID": 100100001379837235,
+"EID": "100100001379837235",
+"EID_PARCELA": "100100001379837235",
+"PARCELA_ID": 137983723,
+"KO_ID": 1725,
+"NAZIV": "1725 AJDOVŠČINA",
+"ST_PARCELE": "2468/4",
+"POVRSINA": 1896,
+"DOLOCITEV_POVRSINE": 0,
+"METODE_DOLOCITVE_POVRSINE_SIFRA": 0,
+"METODE_DOLOCITVE_POVRSINE_NAZIV_SL": "ni podatka",
+"METODE_DOLOCITVE_POVRSINE_OPIS_SL": "Ob migraciji grafična površina parcele v zemljiškokatastrskem načrtu (ZKN) in vpisana (atributna) površina parcele ni bila enaka, način izračuna površine ni znan. Šifra se uporablja samo ob migraciji iz starega sistema v IS kataster.",
+"METODE_DOLOCITVE_POVRSINE_NAZIV_EN": null,
+"METODE_DOLOCITVE_POVRSINE_OPIS_EN": null,
+"METODE_DOLOCITVE_POVRSINE_NAZIV_IT": null,
+"METODE_DOLOCITVE_POVRSINE_OPIS_IT": null,
+"METODE_DOLOCITVE_POVRSINE_NAZIV_HU": null,
+"METODE_DOLOCITVE_POVRSINE_OPIS_HU": null,
+"UPRAVNI_STATUS_ID": 1,
+"UPRAVNI_STATUSI_SIFRA": 1,
+"UPRAVNI_STATUSI_NAZIV_SL": "ni urejena",
+"UPRAVNI_STATUSI_OPIS_SL": null,
+"UPRAVNI_STATUSI_NAZIV_EN": null,
+"UPRAVNI_STATUSI_OPIS_EN": null,
+"UPRAVNI_STATUSI_NAZIV_IT": "determinato",
+"UPRAVNI_STATUSI_OPIS_IT": "determinato",
+"UPRAVNI_STATUSI_NAZIV_HU": "rendezett",
+"UPRAVNI_STATUSI_OPIS_HU": "rendezett",
+"E_CEN": 461773.65,
+"N_CEN": 101968.38,
+"DATUM_SYS": "2024-09-16T14:03:30Z",
+"BONITETA": null,
+"ZNESEK_KD": null,
+"SKUPNI_DEL_ETAZNA_LASTNINA": 1,
+"SKUPNI_DEL_ETAZNA_LASTNINA_SIFRA": 1,
+"SKUPNI_DEL_ETAZNA_LASTNINA_NAZIV_SL": "Da",
+"SKUPNI_DEL_ETAZNA_LASTNINA_OPIS_SL": "Da",
+"SKUPNI_DEL_ETAZNA_LASTNINA_NAZIV_EN": null,
+"SKUPNI_DEL_ETAZNA_LASTNINA_OPIS_EN": null,
+"SKUPNI_DEL_ETAZNA_LASTNINA_NAZIV_IT": "Si",
+"SKUPNI_DEL_ETAZNA_LASTNINA_OPIS_IT": "Si",
+"SKUPNI_DEL_ETAZNA_LASTNINA_NAZIV_HU": "Igen",
+"SKUPNI_DEL_ETAZNA_LASTNINA_OPIS_HU": "Igen",
+"GRAD_PARC": "Ne",
+"OMEJITEV": "Ne"
+},
+"bbox": [
+461744.88,
+101950.8,
+461836.94,
+102007.07
+]
+}
+],
+"totalFeatures": 5,
+"numberMatched": 5,
+"numberReturned": 1,
+"timeStamp": "2026-09-03T05:58:55.246Z",
+"crs": {
+"type": "name",
+"properties": {
+"name": "urn:ogc:def:crs:EPSG::3794"
+}
+},
+"bbox": [
+461744.88,
+101950.8,
+461836.94,
+102007.07
+]
+},
+"parcelByEid": {
+"type": "FeatureCollection",
+"features": [
+{
+"type": "Feature",
+"id": "PARCELE.100100001379837235",
+"geometry": {
+"type": "Polygon",
+"coordinates": [
+[
+[
+461753.48,
+101988.78
+],
+[
+461753.94,
+101988.7
+],
+[
+461753.79,
+101988.19
+],
+[
+461753.28,
+101986.46
+],
+[
+461752.48,
+101983.73
+],
+[
+461752.11,
+101982.48
+],
+[
+461750.76,
+101977.9
+],
+[
+461750.39,
+101976.64
+],
+[
+461746.76,
+101964.33
+],
+[
+461745.83,
+101964.67
+],
+[
+461744.88,
+101961.46
+],
+[
+461750.84,
+101959.69
+],
+[
+461752.07,
+101959.32
+],
+[
+461773.04,
+101953.1
+],
+[
+461780.67,
+101950.8
+],
+[
+461782.43,
+101956.51
+],
+[
+461798.47,
+101952.81
+],
+[
+461806.21,
+101978.14
+],
+[
+461802.75,
+101979.15
+],
+[
+461802.27,
+101977.51
+],
+[
+461788.51,
+101981.51
+],
+[
+461787.85,
+101979.24
+],
+[
+461763.18,
+101986.38
+],
+[
+461767.89,
+102002.71
+],
+[
+461770.84,
+102001.83
+],
+[
+461834.9,
+101983.1
+],
+[
+461833.01,
+101976.19
+],
+[
+461831.82,
+101971.85
+],
+[
+461832.68,
+101971.57
+],
+[
+461836.94,
+101985.69
+],
+[
+461835.83,
+101986
+],
+[
+461820.51,
+101990.46
+],
+[
+461809.96,
+101993.53
+],
+[
+461764.51,
+102006.03
+],
+[
+461763.31,
+102006.36
+],
+[
+461762.93,
+102006.46
+],
+[
+461759.93,
+102007.07
+],
+[
+461758.75,
+102006.51
+],
+[
+461758.03,
+102005.54
+],
+[
+461757.7,
+102004.3
+],
+[
+461757.36,
+102003.04
+],
+[
+461755.69,
+101996.91
+],
+[
+461755.35,
+101995.65
+],
+[
+461753.7,
+101989.58
+],
+[
+461753.48,
+101988.78
+]
+]
+]
+},
+"geometry_name": "GEOM",
+"properties": {
+"FEATUREID": 100100001379837235,
+"EID": "100100001379837235",
+"EID_PARCELA": "100100001379837235",
+"PARCELA_ID": 137983723,
+"KO_ID": 1725,
+"NAZIV": "1725 AJDOVŠČINA",
+"ST_PARCELE": "2468/4",
+"POVRSINA": 1896,
+"DOLOCITEV_POVRSINE": 0,
+"METODE_DOLOCITVE_POVRSINE_SIFRA": 0,
+"METODE_DOLOCITVE_POVRSINE_NAZIV_SL": "ni podatka",
+"METODE_DOLOCITVE_POVRSINE_OPIS_SL": "Ob migraciji grafična površina parcele v zemljiškokatastrskem načrtu (ZKN) in vpisana (atributna) površina parcele ni bila enaka, način izračuna površine ni znan. Šifra se uporablja samo ob migraciji iz starega sistema v IS kataster.",
+"METODE_DOLOCITVE_POVRSINE_NAZIV_EN": null,
+"METODE_DOLOCITVE_POVRSINE_OPIS_EN": null,
+"METODE_DOLOCITVE_POVRSINE_NAZIV_IT": null,
+"METODE_DOLOCITVE_POVRSINE_OPIS_IT": null,
+"METODE_DOLOCITVE_POVRSINE_NAZIV_HU": null,
+"METODE_DOLOCITVE_POVRSINE_OPIS_HU": null,
+"UPRAVNI_STATUS_ID": 1,
+"UPRAVNI_STATUSI_SIFRA": 1,
+"UPRAVNI_STATUSI_NAZIV_SL": "ni urejena",
+"UPRAVNI_STATUSI_OPIS_SL": null,
+"UPRAVNI_STATUSI_NAZIV_EN": null,
+"UPRAVNI_STATUSI_OPIS_EN": null,
+"UPRAVNI_STATUSI_NAZIV_IT": "determinato",
+"UPRAVNI_STATUSI_OPIS_IT": "determinato",
+"UPRAVNI_STATUSI_NAZIV_HU": "rendezett",
+"UPRAVNI_STATUSI_OPIS_HU": "rendezett",
+"E_CEN": 461773.65,
+"N_CEN": 101968.38,
+"DATUM_SYS": "2024-09-16T14:03:30Z",
+"BONITETA": null,
+"ZNESEK_KD": null,
+"SKUPNI_DEL_ETAZNA_LASTNINA": 1,
+"SKUPNI_DEL_ETAZNA_LASTNINA_SIFRA": 1,
+"SKUPNI_DEL_ETAZNA_LASTNINA_NAZIV_SL": "Da",
+"SKUPNI_DEL_ETAZNA_LASTNINA_OPIS_SL": "Da",
+"SKUPNI_DEL_ETAZNA_LASTNINA_NAZIV_EN": null,
+"SKUPNI_DEL_ETAZNA_LASTNINA_OPIS_EN": null,
+"SKUPNI_DEL_ETAZNA_LASTNINA_NAZIV_IT": "Si",
+"SKUPNI_DEL_ETAZNA_LASTNINA_OPIS_IT": "Si",
+"SKUPNI_DEL_ETAZNA_LASTNINA_NAZIV_HU": "Igen",
+"SKUPNI_DEL_ETAZNA_LASTNINA_OPIS_HU": "Igen",
+"GRAD_PARC": "Ne",
+"OMEJITEV": "Ne"
+},
+"bbox": [
+461744.88,
+101950.8,
+461836.94,
+102007.07
+]
+}
+],
+"totalFeatures": 1,
+"numberMatched": 1,
+"numberReturned": 1,
+"timeStamp": "2026-09-03T05:58:55.908Z",
+"crs": {
+"type": "name",
+"properties": {
+"name": "urn:ogc:def:crs:EPSG::3794"
+}
+},
+"bbox": [
+461744.88,
+101950.8,
+461836.94,
+102007.07
+]
+},
+"wrongLayerExceptionBody": "<?xml version=\"1.0\" encoding=\"UTF-8\"?><ows:ExceptionReport xmlns:xs=\"http://www.w3.org/2001/XMLSchema\" xmlns:ows=\"http://www.opengis.net/ows/1.1\" xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\" version=\"2.0.0\" xsi:schemaLocation=\"http://www.opengis.net/ows/1.1 https://ipi.eprostor.gov.si/wfs-si-gurs-kn/schemas/ows/1.1.0/owsAll.xsd\">\n<ows:Exception exceptionCode=\"InvalidParameterValue\" locator=\"typeName\">\n<ows:ExceptionText>Feature type SI.GURS.KN:PARCELE_WRONGNAME unknown</ows:ExceptionText>\n</ows:Exception>\n</ows:ExceptionReport>\n"
+}

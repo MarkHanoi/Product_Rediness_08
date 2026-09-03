@@ -1,0 +1,25 @@
+[WARN] The "pnpm" field in package.json is no longer read by pnpm. The following keys were ignored: "pnpm.overrides", "pnpm.onlyBuiltDependencies". See https://pnpm.io/settings for the new home of each setting.
+
+ RUN  v4.1.10 C:/Users/LENOVO/OneDrive/Desktop/PRYZM/Product_Rediness_08/packages/file-format
+
+Sourcemap for "C:/Users/LENOVO/OneDrive/Desktop/PRYZM/Product_Rediness_08/packages/file-format/src/family-migrations/index.js" points to missing source files
+Sourcemap for "C:/Users/LENOVO/OneDrive/Desktop/PRYZM/Product_Rediness_08/packages/file-format/src/family-migrations/identity.js" points to missing source files
+Sourcemap for "C:/Users/LENOVO/OneDrive/Desktop/PRYZM/Product_Rediness_08/packages/file-format/src/family-migrations/v1_0-to-v1_1.js" points to missing source files
+Sourcemap for "C:/Users/LENOVO/OneDrive/Desktop/PRYZM/Product_Rediness_08/packages/file-format/src/family-schema.js" points to missing source files
+Sourcemap for "C:/Users/LENOVO/OneDrive/Desktop/PRYZM/Product_Rediness_08/packages/file-format/src/family-types.js" points to missing source files
+Sourcemap for "C:/Users/LENOVO/OneDrive/Desktop/PRYZM/Product_Rediness_08/packages/file-format/src/family-migrations/ops/rename-parameter.js" points to missing source files
+Sourcemap for "C:/Users/LENOVO/OneDrive/Desktop/PRYZM/Product_Rediness_08/packages/file-format/src/family-migrations/ops/add-parameter.js" points to missing source files
+Sourcemap for "C:/Users/LENOVO/OneDrive/Desktop/PRYZM/Product_Rediness_08/packages/file-format/src/family-migrations/ops/delete-parameter.js" points to missing source files
+Sourcemap for "C:/Users/LENOVO/OneDrive/Desktop/PRYZM/Product_Rediness_08/packages/file-format/src/family-migrations/ops/change-parameter-type.js" points to missing source files
+Sourcemap for "C:/Users/LENOVO/OneDrive/Desktop/PRYZM/Product_Rediness_08/packages/file-format/src/family-migrations/ops/introduce-expression.js" points to missing source files
+Sourcemap for "C:/Users/LENOVO/OneDrive/Desktop/PRYZM/Product_Rediness_08/packages/file-format/src/family-migrations/ops/rebind-ifc.js" points to missing source files
+Sourcemap for "C:/Users/LENOVO/OneDrive/Desktop/PRYZM/Product_Rediness_08/packages/file-format/src/family-migrations/ops/merge-material-slots.js" points to missing source files
+Sourcemap for "C:/Users/LENOVO/OneDrive/Desktop/PRYZM/Product_Rediness_08/packages/file-format/src/family-migrations/ops/split-type.js" points to missing source files
+Sourcemap for "C:/Users/LENOVO/OneDrive/Desktop/PRYZM/Product_Rediness_08/packages/file-format/src/index.js" points to missing source files
+
+ Test Files  4 passed (4)
+      Tests  57 passed (57)
+   Start at  07:45:36
+   Duration  29.05s (transform 21.85s, setup 0ms, import 29.20s, tests 309ms, environment 762ms)
+
+RC=0

@@ -458,6 +458,10 @@ app.use(
     authMiddleware,
     buildFamilyMarketplaceRouter({
         publicBaseUrl: process.env.PUBLIC_BASE_URL ?? '',
+        // §STARTER-SEED (lane U-SEED) — ship a starter library so a first-time
+        // user's Components browser opens with the Window / Door / Panel loadable
+        // instead of an empty file-picker. Off-switch: FAMILY_SEED=0.
+        seed: process.env.FAMILY_SEED !== '0',
     }),
 );
 // W3 (PRYZM2-FINAL-WIREUP-AUDIT-S71 §4.3): apply authMiddleware here so

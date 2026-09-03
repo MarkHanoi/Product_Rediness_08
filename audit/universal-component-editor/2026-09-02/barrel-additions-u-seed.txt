@@ -1,0 +1,57 @@
+LANE U-SEED — barrel / shared-file additions (for the orchestrator's merge)
+============================================================================
+
+All edits below are ADDITIVE. No existing export line was removed or reordered.
+
+1. apps/editor/src/ui/component-browser/ComponentBrowserPanel.ts
+   ⚠ SHARED FILE — also carries lane U4's uncommitted "Types…" edit
+   (the `openComponentTypeCatalog` import + the `types` button). U-SEED read the
+   CURRENT disk state and left ALL of U4's lines intact. U-SEED added, additively:
+     - import: `import { openNewComponentWorkspace } from './newComponent';`
+       (placed immediately after the `armComponentPlaceTool` import; U3's and
+        U4's imports below it are untouched)
+     - import members `CatalogFetch`, `MarketplaceFamilyRow` added to the existing
+       `../../services/componentCatalog/index.js` import
+     - `ComponentBrowserOptions.starterFetch?: CatalogFetch` (new optional field)
+     - fields `starterFetch`, `starterRows`
+     - `open()` now also calls `void this._refreshStarters()`
+     - footer gained a "New Component" button (`data-component-browser-new`);
+       "Load Component…" restyled to secondary (both buttons kept)
+     - `_renderList()` now also renders the starter section
+     - new methods: `_starterSection`, `_refreshStarters`, `_loadStarter`,
+       `_newComponent`
+     - the empty-state SENTENCE was reworded (still `data-component-browser-empty`,
+       still contains "No Component definitions are loaded")  ← if U4 or another
+       lane also touched this exact string, reconcile by KEEPING both the new
+       starter-library mention and whatever U4 added.
+
+   MERGE RISK: low. The only line another lane is likely to also touch is the
+   footer `footer.append(...)` and the empty-state string. If a conflict lands,
+   the resolution is: keep U4's Types button + U-SEED's New Component button; keep
+   the starter-library wording in the empty state.
+
+2. apps/editor/src/ui/component-browser/index.ts  (barrel)
+   Added, after the existing exports (nothing removed):
+     export {
+         createBlankComponentDefinition,
+         openNewComponentWorkspace,
+         type CreateBlankComponentResult,
+         type OpenNewComponentResult,
+     } from './newComponent';
+
+3. NEW files (no merge risk):
+     - apps/editor/src/ui/component-browser/newComponent.ts
+     - server/familySeeds.js
+     - apps/editor/__tests__/componentStarterLibraryAndNewComponent.test.ts
+     - server/__tests__/familyMarketplaceSeed.test.ts
+
+4. server/familyMarketplaceRoutes.js  (additive)
+     - import `{ buildStarterFamilyRecords } from './familySeeds.js'`
+     - new exports `seedFamilyMarketplaceStore`, plus `ensureSeedReady` (module-
+       local); `clearFamilyMarketplaceStore` now also resets `_seedPromise`
+     - `buildFamilyMarketplaceRouter` honours `opts.seed` (default OFF → existing
+       publish-flow suites unaffected)
+     - GET '/', GET '/:id', GET '/:id/download', POST '/' now `await ensureSeedReady()`
+
+5. server.js  (one call site)
+     - `buildFamilyMarketplaceRouter({ ..., seed: process.env.FAMILY_SEED !== '0' })`

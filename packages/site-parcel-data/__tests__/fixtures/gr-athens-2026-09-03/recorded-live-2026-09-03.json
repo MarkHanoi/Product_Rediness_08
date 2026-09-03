@@ -1,0 +1,323 @@
+{
+ "__label__": "Hellenic Cadastre operating cadastre parcels (GEOTEMAXIA_LEITOURGOUN_ON_gdb/FeatureServer/0) — recorded LIVE 2026-09-03 from services-eu1.arcgis.com/40tFGWzosjaLJpmn (keyless ArcGIS Online). Point queries inSR=4326&outSR=4326.",
+ "__endpoint__": "https://services-eu1.arcgis.com/40tFGWzosjaLJpmn/arcgis/rest/services/GEOTEMAXIA_LEITOURGOUN_ON_gdb/FeatureServer/0/query",
+ "athensSyntagmaPoint": {
+  "objectIdFieldName": "OBJECTID",
+  "uniqueIdField": {
+   "name": "OBJECTID",
+   "isSystemMaintained": true
+  },
+  "globalIdFieldName": "",
+  "geometryProperties": {
+   "shapeAreaFieldName": "Shape__Area",
+   "shapeLengthFieldName": "Shape__Length",
+   "units": "esriMeters"
+  },
+  "geometryType": "esriGeometryPolygon",
+  "spatialReference": {
+   "wkid": 4326,
+   "latestWkid": 4326
+  },
+  "fields": [
+   {
+    "name": "OBJECTID",
+    "type": "esriFieldTypeOID",
+    "alias": "OBJECTID",
+    "sqlType": "sqlTypeOther",
+    "domain": null,
+    "defaultValue": null,
+    "required": true
+   },
+   {
+    "name": "KAEK",
+    "type": "esriFieldTypeString",
+    "alias": "KAEK",
+    "sqlType": "sqlTypeOther",
+    "length": 20,
+    "domain": null,
+    "defaultValue": null
+   },
+   {
+    "name": "MAIN_USE",
+    "type": "esriFieldTypeString",
+    "alias": "MAIN_USE",
+    "sqlType": "sqlTypeOther",
+    "length": 254,
+    "domain": null,
+    "defaultValue": null
+   },
+   {
+    "name": "PERCENTAGE",
+    "type": "esriFieldTypeSmallInteger",
+    "alias": "PERCENTAGE",
+    "sqlType": "sqlTypeOther",
+    "domain": null,
+    "defaultValue": null
+   },
+   {
+    "name": "DESCR",
+    "type": "esriFieldTypeString",
+    "alias": "DESCR",
+    "sqlType": "sqlTypeOther",
+    "length": 254,
+    "domain": null,
+    "defaultValue": null
+   },
+   {
+    "name": "PROP_VERT",
+    "type": "esriFieldTypeSmallInteger",
+    "alias": "PROP_VERT",
+    "sqlType": "sqlTypeOther",
+    "domain": null,
+    "defaultValue": null
+   },
+   {
+    "name": "PROP_HOR",
+    "type": "esriFieldTypeSmallInteger",
+    "alias": "PROP_HOR",
+    "sqlType": "sqlTypeOther",
+    "domain": null,
+    "defaultValue": null
+   },
+   {
+    "name": "LINK",
+    "type": "esriFieldTypeString",
+    "alias": "LINK",
+    "sqlType": "sqlTypeOther",
+    "length": 255,
+    "domain": null,
+    "defaultValue": null
+   },
+   {
+    "name": "AREA",
+    "type": "esriFieldTypeDouble",
+    "alias": "AREA",
+    "sqlType": "sqlTypeOther",
+    "domain": null,
+    "defaultValue": null
+   },
+   {
+    "name": "PERIMETER",
+    "type": "esriFieldTypeDouble",
+    "alias": "PERIMETER",
+    "sqlType": "sqlTypeOther",
+    "domain": null,
+    "defaultValue": null
+   },
+   {
+    "name": "Shape__Area",
+    "type": "esriFieldTypeDouble",
+    "alias": "Shape__Area",
+    "sqlType": "sqlTypeDouble",
+    "domain": null,
+    "defaultValue": null
+   },
+   {
+    "name": "Shape__Length",
+    "type": "esriFieldTypeDouble",
+    "alias": "Shape__Length",
+    "sqlType": "sqlTypeDouble",
+    "domain": null,
+    "defaultValue": null
+   }
+  ],
+  "features": [
+   {
+    "attributes": {
+     "OBJECTID": 1304312,
+     "KAEK": "050095701001",
+     "MAIN_USE": "7300",
+     "PERCENTAGE": 100,
+     "DESCR": "Άλλος Κοινόχρηστος χώρος",
+     "PROP_VERT": 0,
+     "PROP_HOR": 0,
+     "LINK": "https://www.ktimatologio.gr/ota/05009",
+     "AREA": 10839.766215540725,
+     "PERIMETER": 404.30426092228157,
+     "Shape__Area": 17487.0390625,
+     "Shape__Length": 513.4855865250844
+    },
+    "geometry": {
+     "rings": [
+      [
+       [
+        23.7341301031144,
+        37.9754253935648
+       ],
+       [
+        23.7341514722384,
+        37.9756385619336
+       ],
+       [
+        23.7342011382938,
+        37.9757890791699
+       ],
+       [
+        23.734300984241,
+        37.9759813967802
+       ],
+       [
+        23.7344237273465,
+        37.9760634742148
+       ],
+       [
+        23.7354996063246,
+        37.975920042935
+       ],
+       [
+        23.7353205298677,
+        37.9750256549111
+       ],
+       [
+        23.7341685905344,
+        37.9751827405241
+       ],
+       [
+        23.7341403259423,
+        37.9753055896036
+       ],
+       [
+        23.7341301031144,
+        37.9754253935648
+       ]
+      ]
+     ]
+    }
+   }
+  ]
+ },
+ "kaekLookup": {
+  "objectIdFieldName": "OBJECTID",
+  "uniqueIdField": {
+   "name": "OBJECTID",
+   "isSystemMaintained": true
+  },
+  "globalIdFieldName": "",
+  "geometryProperties": {
+   "shapeAreaFieldName": "Shape__Area",
+   "shapeLengthFieldName": "Shape__Length",
+   "units": "esriMeters"
+  },
+  "geometryType": "esriGeometryPolygon",
+  "spatialReference": {
+   "wkid": 4326,
+   "latestWkid": 4326
+  },
+  "fields": [
+   {
+    "name": "KAEK",
+    "type": "esriFieldTypeString",
+    "alias": "KAEK",
+    "sqlType": "sqlTypeOther",
+    "length": 20,
+    "domain": null,
+    "defaultValue": null
+   },
+   {
+    "name": "MAIN_USE",
+    "type": "esriFieldTypeString",
+    "alias": "MAIN_USE",
+    "sqlType": "sqlTypeOther",
+    "length": 254,
+    "domain": null,
+    "defaultValue": null
+   },
+   {
+    "name": "AREA",
+    "type": "esriFieldTypeDouble",
+    "alias": "AREA",
+    "sqlType": "sqlTypeOther",
+    "domain": null,
+    "defaultValue": null
+   },
+   {
+    "name": "DESCR",
+    "type": "esriFieldTypeString",
+    "alias": "DESCR",
+    "sqlType": "sqlTypeOther",
+    "length": 254,
+    "domain": null,
+    "defaultValue": null
+   }
+  ],
+  "features": [
+   {
+    "attributes": {
+     "KAEK": "050095701001",
+     "MAIN_USE": "7300",
+     "AREA": 10839.766215540725,
+     "DESCR": "Άλλος Κοινόχρηστος χώρος"
+    },
+    "geometry": {
+     "rings": [
+      [
+       [
+        23.7341301031144,
+        37.9754253935648
+       ],
+       [
+        23.7341514722384,
+        37.9756385619336
+       ],
+       [
+        23.7342011382938,
+        37.9757890791699
+       ],
+       [
+        23.734300984241,
+        37.9759813967802
+       ],
+       [
+        23.7344237273465,
+        37.9760634742148
+       ],
+       [
+        23.7354996063246,
+        37.975920042935
+       ],
+       [
+        23.7353205298677,
+        37.9750256549111
+       ],
+       [
+        23.7341685905344,
+        37.9751827405241
+       ],
+       [
+        23.7341403259423,
+        37.9753055896036
+       ],
+       [
+        23.7341301031144,
+        37.9754253935648
+       ]
+      ]
+     ]
+    }
+   }
+  ]
+ },
+ "seaAbsent": {
+  "objectIdFieldName": "OBJECTID",
+  "uniqueIdField": {
+   "name": "OBJECTID",
+   "isSystemMaintained": true
+  },
+  "globalIdFieldName": "",
+  "geometryProperties": {
+   "shapeAreaFieldName": "Shape__Area",
+   "shapeLengthFieldName": "Shape__Length",
+   "units": "esriMeters"
+  },
+  "features": []
+ },
+ "badField": {
+  "error": {
+   "code": 400,
+   "message": "Cannot perform query. Invalid query parameters.",
+   "details": [
+    "'Invalid field: NOTAFIELD' parameter is invalid"
+   ]
+  }
+ }
+}

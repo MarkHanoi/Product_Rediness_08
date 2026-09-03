@@ -1,0 +1,93 @@
+LANE US-EXPAND — BARREL / SHARED-FILE ADDITIONS (applied in this worktree; queued here for the
+orchestrator's cherry-pick + merge, per the lane's "row in + barrel-additions file regardless" rule).
+
+Two SHARED files were edited in place (registry.ts + index.ts). Everything else is this lane's own
+new directory (packages/site-parcel-data/src/countryAdapters/us/) + its own test — no shared-file
+risk there. NO COMMIT was made.
+
+Scope: four MORE US jurisdictions beyond the existing three cities (US-NY-NYC / US-CA-SF /
+US-IL-CHI), on the SAME proven US-<STATE>[-<COUNTY>] shape:
+    US-MA         MassGIS statewide L3 parcels            us-ma-massgis-l3       (STATEWIDE)
+    US-FL         FDOR statewide cadastral (DOR/FGIO)      us-fl-fdor-cadastral   (STATEWIDE)
+    US-WA-KING    King County parcels (Seattle metro)      us-wa-king-parcels     (one county)
+    US-TX-HARRIS  Harris County / HCAD (Houston metro)     us-tx-harris-hcad      (one county)
+All four are `cadastral`, VERIFIED-LIVE 2026-09-03 with a REAL parcel id each (see §LIVE below).
+
+=====================================================================
+1. packages/site-parcel-data/src/index.ts  (SHARED — one added export block)
+=====================================================================
+After the ME-OPEN `export * from './countryAdapters/qa/index.js';` line, added:
+
+    // LANE US-EXPAND (2026-09-03) — the US parcel adapter (parcel-only): MassGIS statewide (US-MA),
+    // FDOR statewide (US-FL), King County (US-WA-KING), Harris/HCAD (US-TX-HARRIS), one shared
+    // ArcGIS client. Exports are Us*/US_*/isIn*-named plus the shared helpers toFiniteNum/parseRing/
+    // ringAreaM2/isInUsBbox — none of which any other barreled module exports (checked).
+    export * from './countryAdapters/us/index.js';
+
+Collision check (done + tsc-confirmed): the US barrel exports isInMassachusetts / isInFlorida /
+isInKingCountyWa / isInHarrisCountyTx, US_MA_BBOX / US_FL_BBOX / US_WA_KING_BBOX / US_TX_HARRIS_BBOX,
+US_MA_PARCELS / US_FL_PARCELS / US_WA_KING_PARCELS / US_TX_HARRIS_PARCELS, US_EXPAND_PARCEL_CONFIGS,
+usMaParcelProvider / usFlParcelProvider / usWaKingParcelProvider / usTxHarrisParcelProvider,
+makeUsArcgisParcelProvider / fetchUsParcelAtPoint / buildUsArcgisPointQueryUrl /
+parseUsArcgisParcelFeature / parseUsArcgisParcelResponse / isInUsBbox / parseRing / ringAreaM2 /
+toFiniteNum, plus the Us* types. grep over the barreled countryAdapters (+ direct index.ts exports)
+found NONE of these names already exported — the SF/Chicago/NYC providers export toFiniteNum/parseRing/
+ringAreaM2 too but are NOT in the barrel (parcelProviders/* reach index.ts only through registry.ts),
+so this US module is the first barreled source and there is no wildcard ambiguity. `npx tsc -p
+tsconfig.json --noEmit` produced ZERO errors in any US-EXPAND file.
+
+=====================================================================
+2. packages/site-parcel-data/src/parcelProviders/registry.ts  (SHARED)
+=====================================================================
+2a. IMPORTS — after the `import { SWEDEN_BBOX } from '../countryAdapters/se/seJurisdiction.js';`
+    line (and alongside the concurrent RO/AU/ME import blocks), added the US predicate+bbox import:
+        import {
+            US_MA_BBOX, isInMassachusetts,
+            US_FL_BBOX, isInFlorida,
+            US_WA_KING_BBOX, isInKingCountyWa,
+            US_TX_HARRIS_BBOX, isInHarrisCountyTx,
+        } from '../countryAdapters/us/usJurisdiction.js';
+    Both the BBOX (for REGION_BBOX specificity) AND the isIn* predicate (for `contains`) are imported:
+    a US row DOES match on its rectangle (the US is deliberately absent from the national resolver, so
+    resolveNationalJurisdiction returns `no-national-candidate` and the registry keeps the bbox-matched
+    set — the ESTABLISHED US-NY-NYC/US-CA-SF/US-IL-CHI behaviour, extended, NOT a rival dispatch).
+
+2b. ROWS — four new ParcelJurisdiction rows inserted into PARCEL_JURISDICTIONS, placed immediately
+    after the US-IL-CHI row (order is cosmetic — a US point matches ONLY its own US box; no US box
+    overlaps any other registered row). All four `cadastral`:
+        US-MA         us-ma-massgis-l3       /api/parcel/us-ma        cadastral   isInMassachusetts
+        US-FL         us-fl-fdor-cadastral   /api/parcel/us-fl        cadastral   isInFlorida
+        US-WA-KING    us-wa-king-parcels     /api/parcel/us-wa-king   cadastral   isInKingCountyWa
+        US-TX-HARRIS  us-tx-harris-hcad      /api/parcel/us-tx-harris cadastral   isInHarrisCountyTx
+    Each note carries the dated LIVE probe + the real returned id. Like IT/BE-VLG/GB-ENG/US-NY-NYC,
+    the four same-origin proxy routes are NOT yet wired server-side → resolve null → OSM footprint
+    until the orchestrator adds each proxy (the upstream query the proxy must run is documented in
+    each config's `upstreamQueryUrl` + `buildUsArcgisPointQueryUrl`). ⚠ FL PROXY NOTE: the FDOR
+    hosted service REQUIRES a JSON point geometry (a bare `x,y` string returns HTTP 400) — the proxy
+    must emit `geometry={"x":lon,"y":lat,"spatialReference":{"wkid":4326}}`, as buildUsArcgisPoint-
+    QueryUrl does.
+
+2c. REGION_BBOX — four entries appended (SPECIFICITY metric; a missing entry scores +Infinity and
+    sorts last — parcelRegistryWiring.test.ts asserts every row has one):
+        'US-MA': US_MA_BBOX, 'US-FL': US_FL_BBOX, 'US-WA-KING': US_WA_KING_BBOX,
+        'US-TX-HARRIS': US_TX_HARRIS_BBOX
+
+=====================================================================
+3. NEW FILES (this lane's own — no shared-file risk)
+=====================================================================
+    packages/site-parcel-data/src/countryAdapters/us/usArcgisParcelClient.ts  (shared ArcGIS client)
+    packages/site-parcel-data/src/countryAdapters/us/usJurisdiction.ts        (4 configs + bbox + preds)
+    packages/site-parcel-data/src/countryAdapters/us/index.ts                 (barrel)
+    packages/site-parcel-data/__tests__/usParcelProviders.test.ts             (28 tests, recorded-live)
+
+=====================================================================
+§LIVE — the four live clicks (documented upstream query = what each proxy will run), 2026-09-03
+        UA "PRYZM-Research/1.0 (+https://pryzm.app; contact pryzmhello@gmail.com)", all HTTP 200:
+=====================================================================
+    US-MA        @ 42.26259,-71.80230 (Worcester)   → LOC_ID   F_574532_2920828   (455 MAIN ST)
+    US-FL        @ 27.94810,-82.45640 (Tampa)        → PARCEL_ID 1829244ZI000075000020A (325 N FLORIDA AVE)
+    US-WA-KING   @ 47.62530,-122.32220 (Seattle)     → PIN      9831200275         (Capitol Hill)
+    US-TX-HARRIS @ 29.74400,-95.39080 (Houston)      → HCAD_NUM 0261520000043      (3217 MONTROSE BLVD)
+
+TESTS: `npx vitest run __tests__/usParcelProviders.test.ts` → 28 passed. Existing registry suites
+(parcelRegistry + parcelRegistryWiring + parcelRegistryNationalWiring) → 134 passed (no regression).

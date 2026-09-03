@@ -1,0 +1,50 @@
+# ANCPI live gate probe — LANE RO — 2026-09-02T21:03:07Z
+# Bucharest test point: lat 44.4268, lon 26.1025 (Piata Universitatii)
+
+## 1. DNS-over-HTTPS for geoportal.ancpi.ro (Google 8.8.8.8)
+{"Status":3,"TC":false,"RD":true,"RA":true,"AD":false,"CD":false,"Question":[{"name":"geoportal.ancpi.ro.","type":1}],"Authority":[{"name":"ancpi.ro.","type":6,"TTL":1747,"data":"iris.ns.cloudflare.com. dns.cloudflare.com. 2413655452 10000 2400 604800 1800"}]}
+
+## 2. DNS-over-HTTPS for geoportal.ancpi.ro (Cloudflare)
+{"Status":3,"TC":false,"RD":true,"RA":true,"AD":false,"CD":false,"Question":[{"name":"geoportal.ancpi.ro","type":1}],"Authority":[{"name":"ancpi.ro","type":6,"TTL":1800,"data":"iris.ns.cloudflare.com. dns.cloudflare.com. 2413655452 10000 2400 604800 1800"}]}
+
+## 3. Direct HTTPS GET, documented INSPIRE CP endpoint (eterra3_publish parcels layer 1)
+curl: (6) Could not resolve host: geoportal.ancpi.ro
+HTTP 000 | resolved_ip= | curl_exit_recorded_below
+curl_exit=6
+
+## 4. Direct HTTPS GET, documented INSPIRE View CP endpoint (CP_View layer 1)
+curl: (6) Could not resolve host: geoportal.ancpi.ro
+HTTP 000 | resolved_ip=
+curl_exit=6
+
+## 5. Parent domain ancpi.ro (control — proves it is the geoportal subdomain, not all of ANCPI)
+https://ancpi.ro/  -> HTTP 200 | ip=2606:4700::6812:836/n{"Status":0,"TC":false,"RD":true,"RA":true,"AD":false,"CD":false,"Question":[{"name":"ancpi.ro.","type":1}],"Answer":[{"name":"ancpi.ro.","type":1,"TTL":300,"data":"104.18.9.54"},{"name":"ancpi.ro.","type":1,"TTL":300,"data":"104.18.8.54"}],"Comment":"Response from 108.162.192.118."}
+
+# ==================================================================================
+# RE-PROBE 2026-09-03 (LANE RO · europe-adapters-2 wave) — GATE STILL OPEN (2 days on)
+# Bucharest test point unchanged: lat 44.4268, lon 26.1025
+# ==================================================================================
+
+## A. Direct HTTPS GET, documented eterra3 parcels endpoint (sandbox egress)
+$ curl -sk "https://geoportal.ancpi.ro/maps/rest/services/eterra3_publish/MapServer/1/query?f=json"
+curl_http=000  time=0.023581s
+curl_exit=6            # (6) Could not resolve host: geoportal.ancpi.ro
+
+## B. DNS-over-HTTPS for geoportal.ancpi.ro (Google public resolver, via independent fetcher)
+{"Status":3,"TC":false,"RD":true,"RA":true,"AD":false,"CD":false,"Question":[{"name":"geoportal.ancpi.ro.","type":1}],"Authority":[{"name":"ancpi.ro.","type":6,"TTL":1800,"data":"iris.ns.cloudflare.com. dns.cloudflare.com. 2413655452 10000 2400 604800 1800"}],"Comment":"Response from 172.64.35.34."}
+# Status 3 = NXDOMAIN. The ancpi.ro zone answers (SOA present); the `geoportal` label does not exist.
+
+## C. CONTROL — www.ancpi.ro resolves (proves it is the geoportal subdomain, not the zone)
+{"Status":0,"TC":false,"RD":true,"RA":true,"AD":false,"CD":false,"Question":[{"name":"www.ancpi.ro.","type":1}],"Answer":[{"name":"www.ancpi.ro.","type":1,"TTL":300,"data":"104.18.9.54"},{"name":"www.ancpi.ro.","type":1,"TTL":300,"data":"104.18.8.54"}],"Comment":"Response from 173.245.58.118."}
+
+## VERDICT
+# GATE 1 (SERVICE) is OPEN and STABLE: geoportal.ancpi.ro NXDOMAIN across 2 sessions (09-02, 09-03)
+# and 3+ resolvers (Google, Cloudflare, sandbox getaddrinfo). Not a credential 401, not a geofence
+# 4xx — the host has no public A/AAAA record. Classified TRANSIENT (source did not answer), never
+# absent. Re-check: curl -sk "https://dns.google/resolve?name=geoportal.ancpi.ro&type=A" → Status 0
+# with an Answer array means GATE 1 has cleared.
+#
+# GATE 2 (JURISDICTION) is independently OPEN: ROU is absent from
+# packages/site-parcel-data/src/jurisdiction/data/nationalBoundaries.json (16 claimable + 16
+# neighbours; ROU in neither), so claimsNation('RO') is false everywhere and the RO registry row is
+# DORMANT. Either gate alone defers the parcel leg; both are open.

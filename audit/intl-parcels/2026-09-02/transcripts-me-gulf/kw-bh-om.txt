@@ -1,0 +1,17 @@
+# KUWAIT / BAHRAIN / OMAN one-liner probes — captured 2026-09-03T05:45:11Z — UA: PRYZM-Research/1.0 (+https://pryzm.app; contact pryzmhello@gmail.com)
+## KW — PACI
+curl: (35) schannel: next InitializeSecurityContext failed: SEC_E_CERT_EXPIRED (0x80090328) - The received certificate has expired.
+  kuwaitfinder.paci.gov.kw -> HTTP=000 t=1.140011s
+  RC=35 (schannel cert expired / connection reset)
+  services.paci.gov.kw/arcgis/rest/services -> HTTP=302
+  RC=0
+## BH — SLRB + data.gov.bh
+  slrb.gov.bh -> HTTP=200 t=0.765242s
+  RC=0
+  data.gov.bh api q=parcel -> {"nhits": 4, "parameters": {"q": "parcel", "rows": 10, "start": 0, "staged": false, "include_draft": false, "format": "j
+## OM — NSDI + housing
+curl: (28) Connection timed out after 20017 milliseconds
+  onsdi.ncsi.gov.om -> HTTP=000 t=20.017880s
+  RC=28 (TCP timeout — NSDI drops foreign SYNs)
+  housing.gov.om -> HTTP=403 t=0.908594s
+  RC=0 (WAF 403 — the krooki/parcel authority)

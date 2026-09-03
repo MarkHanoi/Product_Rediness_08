@@ -4024,35 +4024,33 @@ export const CHAT_UNAVAILABLE: ReadonlyMap<string, string> = new Map([
 
   // ── THE COMPONENT FAMILY (audit §12 Phase 4C's three new verbs) ───────────
   //
-  // ⭐⭐ ONE MEASURED REASON COVERS ALL THREE, AND IT IS STRUCTURAL, NOT A TO-DO:
-  // **every reference in this family is a ULID, and a sentence carries names.**
-  // `component.place` needs `definitionId: fam_<ULID>` + `typeId: typ_<ULID>`;
-  // `component.setInstanceParameter` needs `parameterId: par_<ULID>` and refuses a
-  // name-keyed override BY DESIGN (`SetComponentInstanceParameter.ts`: *"Overrides are
-  // keyed by parameter ID, never by display name — a rename would silently orphan a
-  // name-keyed override"*); `component.swapType` needs a second `typ_<ULID>`.
+  // ⭐⭐ WHY THESE THREE STAY DECLARED HERE RATHER THAN BECOMING GLOBAL CAPABILITIES —
+  // UPDATED 2026-09-03 (lane U6). The premise this block used to carry ("there is no
+  // project-level definition registry at this commit") is NO LONGER TRUE: lane U0 built
+  // the ONE catalogue (`apps/editor/src/services/componentCatalog`, name→definition), and
+  // lanes U1/U2/U3 built the surfaces that consume it (the Component place tool, the
+  // instance property section, the definition workspace). The name→ULID join EXISTS now.
   //
-  // The join from a spoken word to any of those three ids is a PROJECT-LEVEL
-  // COMPONENT-DEFINITION REGISTRY, and there is none at this commit —
-  // `PlaceComponent.ts` says so in its own header (*"there is no project-level
-  // definition registry at this commit … inventing a lookup that silently returns
-  // ‘yes’ would be strictly worse than the honest absence"*), and a repo-wide sweep
-  // for a `FamilyDocument` store addressable by name finds the pack / unpack /
-  // migrate / evaluate side and no registry.
+  // They stay in `CHAT_UNAVAILABLE` for a DIFFERENT, MEASURED reason: the GLOBAL
+  // ZeroToken resolver cannot reach them without new hand-written `applySemanticIntent`
+  // case arms, and `check-chat-capability-coverage`'s case-arm ratchet
+  // (`MAX_RESOLVER_CASE_ARMS`) is AT its baseline (30/30 measured 2026-09-03) — the
+  // component payloads (a single `componentId` + a `par_`/`typ_` ULID) fit neither the
+  // `CapabilityExecutionSpec` `idsField` template nor the generic property arm, so a
+  // capability here would push the ratchet to 31/30 and FAIL the gate. Placement
+  // additionally has no pointer in a sentence (C83 §4.3 — never guess a position).
   //
-  // ⛔ SO A `ChatCapability` FOR THESE THREE IS REFUSED ON §75 GROUNDS ("do not fake
-  // capabilities"), not deferred for want of effort. Its `targets` would be a claim
-  // the guard cannot honour for any sentence a user would actually say, which is
-  // precisely the `ElementCapabilities` defect this gate's check 3a was built to
-  // reject. The missing piece is named in
-  // `audit/universal-component-editor/2026-09-01/phase4/lane-4h-ai-reaches-the-slice.md`
-  // §OWED item 2 (an ISSUE-LOG row is OWED; no L-number is cited here because minting
-  // one this lane cannot append would be the UNMINTED-AND-CITED defect, C103) and belongs to
-  // whichever lane mints the registry — at which point these rows become
-  // capabilities in one edit.
-  ['component.place', 'I can\'t place a component from a sentence yet: placing one needs the component DEFINITION and TYPE by id, and there is no project-level catalogue for me to look a name like "window" up in. Place it with the Component tool, which carries both ids for you.'],
-  ['component.setInstanceParameter', 'I can\'t change a placed component\'s parameter from a sentence yet: overrides are keyed by parameter id, never by name, and reading the names needs the component definition — which is not loaded into the project yet. Edit it in the Properties panel with the component selected.'],
-  ['component.swapType', 'I can\'t swap a placed component\'s type from a sentence yet: I would need the target type by id, and there is no catalogue for me to resolve a type NAME against. Switch it in the Properties panel with the component selected.'],
+  // ⭐ SO LANE U6 WIRED THE AUTHORING CHAT AS `FinishTypeChatStrip`-STYLE SURFACES
+  // instead (its own header names this exact shape as the architecturally-sound
+  // alternative): a deterministic offline resolver over the definition's DECLARED
+  // parameters, dispatching through the SAME bus verbs / the same `introduce-expression`
+  // draft op the controls use. The strings below now point at those REAL surfaces —
+  // their promises are TRUE — while the global-sentence path stays honestly declined.
+  // (`apps/editor/src/ui/component-chat/**`; audit R1: no new verb, no new resolver case,
+  //  no global capability row, UNDECLARED stays 0.)
+  ['component.place', 'I place a component from a sentence by ARMING the Component tool, not by guessing a spot: say "place a <name>" and I resolve the name against the loaded component DEFINITIONS/TYPES in the catalogue, arm the plan tool, and you click to place it (the id join is U0\'s catalogue). Free-sentence coordinates are not wired; the Components browser\'s Place button does the same.'],
+  ['component.setInstanceParameter', 'I change a placed component\'s parameter from the Component section\'s "Ask" chat with the component selected — it reads the parameter names from the loaded definition (overrides are keyed by parameter id, never by name) and drives this same verb. A bare global sentence stays declined; select the component and ask there.'],
+  ['component.swapType', 'I swap a placed component\'s type from the Component section\'s "Ask" chat with the component selected — it resolves the target type NAME against the loaded definition\'s type catalogue and drives this same verb by id. A bare global sentence stays declined; select the component and ask there.'],
 
   // ── THE WORLD MODEL QUERY TRIO ─────────────────────────────────
   //

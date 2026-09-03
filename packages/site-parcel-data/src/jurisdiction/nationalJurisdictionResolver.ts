@@ -107,6 +107,12 @@ import { isInLithuania } from '../countryAdapters/lt/ltJurisdiction.js';
 import { isInLuxembourg } from '../countryAdapters/lu/luJurisdiction.js';
 import { isInPoland } from '../countryAdapters/pl/plJurisdiction.js';
 import { isInSweden } from '../countryAdapters/se/seJurisdiction.js';
+// LANE ME-GULF (2026-09-02) — the four Gulf (GCC) countries added to the boundary set as
+// claimable rivals to Saudi (SAUDI_ARABIA_BBOX covers Dubai/Abu Dhabi/Kuwait/Bahrain, so before
+// this SAU was their only candidate and a UAE/KW/BH point could be nearest-polygon-annexed to
+// Saudi or footprint-labelled Saudi). All four are DEFERRALS at the parcel axis; the CLAIM is used
+// only to route + to refuse a border band, exactly as for LU/SE.
+import { isInUAE, isInKuwait, isInBahrain, isInOman } from '../countryAdapters/gulf/gulfJurisdiction.js';
 
 const _tracer = trace.getTracer('pryzm.jurisdiction');
 
@@ -184,6 +190,14 @@ const CANDIDATE_PREFILTERS: ReadonlyArray<readonly [string, (lat: number, lon: n
     ['LUX', isInLuxembourg],
     ['POL', isInPoland],
     ['SWE', isInSweden],
+    // LANE ME-GULF (2026-09-02) — ARE/KWT/BHR/OMN. Each pre-filter overlaps SAUDI_ARABIA_BBOX, so
+    // at a Gulf point SAU is co-present as the RIVAL for the tolerance check; the ne_10m geometry
+    // then claims the true owner or refuses at the border. (QAT is deliberately NOT here — Qatar is
+    // the QA lane's keyless-cadastre jurisdiction; its boundary is added when that row lands.)
+    ['ARE', isInUAE],
+    ['KWT', isInKuwait],
+    ['BHR', isInBahrain],
+    ['OMN', isInOman],
 ];
 
 /** Why a national-jurisdiction resolution refused. Closed vocabulary — operationally distinct. */

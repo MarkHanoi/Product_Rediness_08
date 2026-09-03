@@ -38,6 +38,7 @@ import {
   packFamily,
   unpackFamily,
 } from '@pryzm/file-format/server';
+import { buildStarterFamilyRecords } from './familySeeds.js';
 
 const MAX_FAMILY_BYTES = 8 * 1024 * 1024;
 const ENABLE_VIRUS_SCAN = process.env.FAMILY_VIRUS_SCAN !== '0';
@@ -47,6 +48,59 @@ const store = new Map();
 
 export function clearFamilyMarketplaceStore() {
   store.clear();
+  _seedPromise = null;
+}
+
+/* ------------------------------------------------------------------ */
+/* §STARTER-SEED (lane U-SEED) — the first components come into being.  */
+/*                                                                     */
+/* The store starts EMPTY, so a first-time user's Components browser    */
+/* had nothing to load. Seeding inserts the three starter definitions  */
+/* (Window, Door, Panel) DIRECTLY — they are app-shipped, trusted      */
+/* bytes authored by the ONE packer, so they legitimately bypass the    */
+/* publish POST's signature/round-trip/monotonic gauntlet (which exists */
+/* to police UNTRUSTED uploads). The GET list / detail / download       */
+/* routes read them like any other record.                              */
+/*                                                                     */
+/* Opt-IN via `buildFamilyMarketplaceRouter({ seed: true })` — the      */
+/* production server opts in; the publish-flow test suites build the    */
+/* router WITHOUT it and keep their empty-then-publish assertions.      */
+/* ------------------------------------------------------------------ */
+let _seedPromise = null;
+
+/** Seed the store with the starter components (idempotent — an id already
+ *  present is left untouched). Returns the promise so callers can await it. */
+export function seedFamilyMarketplaceStore() {
+  if (_seedPromise !== null) return _seedPromise;
+  _seedPromise = (async () => {
+    const records = await buildStarterFamilyRecords();
+    for (const rec of records) {
+      if (store.has(rec.id)) continue; // never clobber a real publish of the same id
+      store.set(rec.id, {
+        latest: rec.semver,
+        semvers: new Map([
+          [
+            rec.semver,
+            {
+              manifest: rec.manifest,
+              ifcMapping: rec.ifcMapping,
+              schemaHash: rec.schemaHash,
+              publishedAt: rec.publishedAt,
+              bytes: rec.bytes,
+              authorJwk: null,
+            },
+          ],
+        ]),
+      });
+    }
+  })();
+  return _seedPromise;
+}
+
+/** Resolve once the starter seed (if any was requested) is in the store. When
+ *  seeding was never requested this is an immediately-resolved no-op. */
+async function ensureSeedReady() {
+  if (_seedPromise !== null) await _seedPromise;
 }
 
 export function listFamiliesForTests() {
@@ -108,6 +162,10 @@ async function containsEicarInUnpacked(unpacked) {
 export function buildFamilyMarketplaceRouter(opts = {}) {
   const router = express.Router();
 
+  // §STARTER-SEED — opt-in. Kick seeding off now (async); the handlers below
+  // `await ensureSeedReady()` so the very first GET already sees the starters.
+  if (opts.seed) seedFamilyMarketplaceStore();
+
   // Raw body parser — we need the bytes verbatim to verify the signature
   // and the round-trip determinism, so JSON middleware is bypassed.
   router.use(
@@ -120,6 +178,7 @@ export function buildFamilyMarketplaceRouter(opts = {}) {
 
   router.post('/', async (req, res) => {
     try {
+      await ensureSeedReady(); // so a republish's monotonic check sees any seed
       // §B3 (audit) — reject anonymous publish. The router previously trusted
       // the JWK header for identity, but the JWK is supplied by the publisher
       // so it proves nothing about who is publishing. server.js now mounts the
@@ -265,7 +324,8 @@ export function buildFamilyMarketplaceRouter(opts = {}) {
     }
   });
 
-  router.get('/', (_req, res) => {
+  router.get('/', async (_req, res) => {
+    await ensureSeedReady();
     const out = [];
     for (const [id, entry] of store) {
       const rec = entry.semvers.get(entry.latest);
@@ -286,7 +346,8 @@ export function buildFamilyMarketplaceRouter(opts = {}) {
     res.json({ families: out });
   });
 
-  router.get('/:id', (req, res) => {
+  router.get('/:id', async (req, res) => {
+    await ensureSeedReady();
     const entry = store.get(req.params.id);
     if (!entry) return res.status(404).json({ error: 'not-found', familyId: req.params.id });
     const rec = entry.semvers.get(entry.latest);
@@ -303,7 +364,8 @@ export function buildFamilyMarketplaceRouter(opts = {}) {
     });
   });
 
-  router.get('/:id/download', (req, res) => {
+  router.get('/:id/download', async (req, res) => {
+    await ensureSeedReady();
     const entry = store.get(req.params.id);
     if (!entry) return res.status(404).json({ error: 'not-found' });
     const semver = req.query.semver ? String(req.query.semver) : entry.latest;

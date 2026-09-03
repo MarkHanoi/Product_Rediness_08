@@ -1,0 +1,9 @@
+§U4-FALSIFY byte-identity proof
+================================
+Falsification-time BEFORE hash : 5dbca2d877669ce6135ad8db770cadb0310c4dcf188a242d829352b302d01875
+Falsification-time AFTER-restore: 5dbca2d877669ce6135ad8db770cadb0310c4dcf188a242d829352b302d01875
+=> BYTE-IDENTICAL restore proven (sever loadFileFormat() -> restore .bak -> same sha).
+
+Post-falsification edit (SEPARATE, later): removed the unused `Migrator` type import
+(root tsc TS6196). New final hash below; the falsification restore above is unaffected.
+Final ComponentTypeCatalog.ts hash: cba16a5b8e872b76b8954c38939885bb70249ad9abcb6b7a6671b9b63ec2e489

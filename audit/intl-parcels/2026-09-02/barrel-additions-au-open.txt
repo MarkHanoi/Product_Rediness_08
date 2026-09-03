@@ -1,0 +1,69 @@
+LANE AU-OPEN — BARREL / SHARED-FILE ADDITIONS (applied in this worktree; queued here for the
+orchestrator's cherry-pick + merge, per the lane's "row in + barrel-additions file regardless" rule).
+
+Two SHARED files were edited in place (registry.ts + index.ts). Everything else is this lane's own
+new directory (packages/site-parcel-data/src/countryAdapters/au/) + its own test — no shared-file
+risk there. NO COMMIT was made.
+
+=====================================================================
+1. packages/site-parcel-data/src/index.ts  (SHARED — one added line)
+=====================================================================
+After the existing `export * from './countryAdapters/pt/index.js';` line, add:
+
+    // LANE AU-OPEN — AUSTRALIA (open states) parcel adapter. Every export is Au*/AU_*/isIn*-named,
+    // so a star re-export cannot collide with the existing barrel.
+    export * from './countryAdapters/au/index.js';
+
+Collision check: the AU barrel exports ONLY Au*/AU_*/isIn* symbols (AuParcel, AuStateDescriptor,
+AU_STATE_DESCRIPTORS, AU_SOURCES, AU_*_BBOX, isInNsw/isInVic/isInQld/isInSaAu/isInTas/isInAct/
+isInWa/isInNt, parseAuFeature/parseAuResponse/fetchAuParcelAtPoint/auStateParcelProvider, …). grep
+confirmed no existing barrel export shares any of these names. `isInSaAu` (South Australia) is
+deliberately NOT `isInSA` — there is no Saudi `isInSA` in the barrel, and the name keeps the two
+South-Australia/Saudi jurisdictions distinct at the symbol level too.
+
+=====================================================================
+2. packages/site-parcel-data/src/parcelProviders/registry.ts  (SHARED)
+=====================================================================
+2a. IMPORTS — after the `import { SWEDEN_BBOX } from '../countryAdapters/se/seJurisdiction.js';`
+    line (and alongside the concurrent RO import if present), add the AU predicate+bbox import block
+    (isInNsw/isInVic/isInQld/isInSaAu/isInTas/isInAct/isInWa/isInNt + AU_*_BBOX from
+    '../countryAdapters/au/auJurisdiction.js').
+
+2b. ROWS — eight new ParcelJurisdiction rows inserted into PARCEL_JURISDICTIONS (placed before the
+    FR row; order is cosmetic — an AU point matches ONLY AU rows). Six cadastral, two
+    footprint-fallback deferrals. ACT first (enclave), deferrals last:
+       AU-ACT  au-act-actmapi-blocks     /api/parcel/au-act   cadastral   isInAct
+       AU-TAS  au-tas-thelist-cadastre   /api/parcel/au-tas   cadastral   isInTas
+       AU-VIC  au-vic-vicmap-cadastre    /api/parcel/au-vic   cadastral   isInVic
+       AU-NSW  au-nsw-dcs-cadastre       /api/parcel/au-nsw   cadastral   isInNsw
+       AU-SA   au-sa-sappa-cadastre      /api/parcel/au-sa    cadastral   isInSaAu   (⛔ NOT SA=Saudi)
+       AU-QLD  au-qld-qspatial-cadastre  /api/parcel/au-qld   cadastral   isInQld
+       AU-WA   footprint (deferral)      null                 footprint   isInWa   (Landgate id gate)
+       AU-NT   footprint (deferral)      null                 footprint   isInNt   (viewer gate)
+    Each note carries the dated LIVE probe + the real returned id. All six cadastral proxies are
+    NOT yet wired server-side (like IT/BE-VLG/GB-ENG/US-NY-NYC) → null → OSM footprint until then.
+
+2c. REGION_BBOX — eight entries appended (SPECIFICITY metric; a missing entry scores +Infinity and
+    sorts last — parcelRegistryWiring.test.ts asserts every row has one):
+       'AU-ACT': AU_ACT_BBOX, 'AU-TAS': AU_TAS_BBOX, 'AU-VIC': AU_VIC_BBOX, 'AU-NSW': AU_NSW_BBOX,
+       'AU-SA': AU_SA_BBOX, 'AU-QLD': AU_QLD_BBOX, 'AU-WA': AU_WA_BBOX, 'AU-NT': AU_NT_BBOX
+
+=====================================================================
+3. RESOLVER — NO edit to jurisdiction/nationalJurisdictionResolver.ts (deliberate; see findings §3)
+=====================================================================
+Australia is not in the bundled national boundary set and no prefilter bbox reaches AU longitudes
+(all ≤ 55.7°E), so `resolveNationalJurisdiction` returns `no-national-candidate` for every AU point
+and `resolveParcelCandidates` keeps the bbox-matched AU rows (the refusal path). Extending the
+national resolver to SUB-national AU routing is the lane it defers in its own header ("E4 control
+10"); it would need an AUS ADM0 polygon this lane did not source. The AU rows route through the
+EXISTING resolver framework with NO rival bbox — exactly the US-<STATE> idiom.
+
+=====================================================================
+4. NOT DONE (out of this lane's scope — flagged for the orchestrator / a server pass)
+=====================================================================
+- server-side proxies /api/parcel/au-{nsw,vic,qld,sa,tas,act}: NOT wired (shared server file). The
+  upstream endpoints + the exact live query for each are in AU_STATE_DESCRIPTORS[*].upstream and in
+  countryAdapters/au/auSources.ts (with transcripts). SA's proxy MUST add
+  `Referer: https://sappa.plan.sa.gov.au/` server-side (AU_SA_REFERER); VIC's is a WFS GetFeature
+  with a LAT,LON CQL point (a lon,lat point silently returns 0). Until wired, every AU click falls
+  to the OSM footprint (honest), never a fabricated parcel.

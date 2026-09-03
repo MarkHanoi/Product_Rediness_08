@@ -144,6 +144,14 @@ export default defineConfig({
       // SAME COMMIT AS THE FILES — this list is an ALLOWLIST (§L-851): a spec outside
       // it is never discovered, and "never ran" and "passed" print the same value.
       'apps/editor/src/ui/component-editor-workspace/__tests__/**/*.spec.ts',
+      // ⭐ §U4-TYPE-CATALOG (UIUX-PLAN §U4 · ADR-0376 D4/D5 · C110 §2.2) — the type
+      // catalog surface: honest-state arms (unloaded definition refuses by name;
+      // severed op gateway refuses loudly) + the source-level assertion that CREATE
+      // rides the split-type migrator and EDIT/DELETE are re-validated document
+      // transforms with no rival write path. ⚠ ADDED IN THE SAME COMMIT AS THE
+      // FILES — this list is an ALLOWLIST (§L-851): a spec outside it is never
+      // discovered, and "never ran" and "passed" print the same value.
+      'apps/editor/src/ui/component-type-catalog/__tests__/**/*.spec.ts',
       // §XSS-SINK-SCAN (L-407): the GA-gate HTML-sink classifier + the repo-wide
       // ratchet assertion. Pure Node (fs + string analysis); lives here because
       // `test:root` is the only suite CI runs over non-package tooling.

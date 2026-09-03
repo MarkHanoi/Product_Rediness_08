@@ -1,0 +1,41 @@
+
+  {
+    "type": "FeatureCollection",
+    "features": [
+      {
+        "type": "Feature",
+        "geometry": null,
+        "properties": {
+          "Unique identifier": "2725748",
+          "ArcGIS for INSPIRE identifier, used in references to the object/feature": "2725748",
+          "areaValue": "3499",
+          "areaValue_uom": "m2",
+          "areaValue_void": "Null",
+          "beginLifespanVersion": "11/10/2017 6:35:17 PM",
+          "beginLifespanVersion_void": "Null",
+          "endLifespanVersion": "Null",
+          "endLifespanVersion_void": "Null",
+          "inspireId_localId": "68134.100.5",
+          "inspireId_namespace": "BG.CP",
+          "inspireId_versionId": "Null",
+          "inspireId_versionId_void": "2",
+          "label": "5",
+          "nationalCadastralReference": "68134.100.5",
+          "validFrom": "4/18/2011",
+          "validFrom_void": "Null",
+          "validTo": "Null",
+          "validTo_void": "Null",
+          "basicPropertyUnit_void": "2",
+          "zoning": "Null",
+          "zoning_void": "Null",
+          "administrativeUnit": "4656",
+          "administrativeUnit_void": "Null",
+          "Shape": "Polygon",
+          "st_area(shape)": "0",
+          "st_perimeter(shape)": "0.004903"
+        },
+        "layerName": "CP.CadastralParcel"	
+      }
+    ]
+  }
+  

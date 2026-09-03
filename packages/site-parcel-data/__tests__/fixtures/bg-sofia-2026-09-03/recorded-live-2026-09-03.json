@@ -1,0 +1,681 @@
+{
+ "__label__": "Bulgaria — GCCA/AGKK INSPIRE Cadastral Parcels, recorded LIVE 2026-09-03 from inspire.cadastre.bg (ArcGIS REST MapServer, keyless, capabilities Data,Map,Query). Point queries inSR=4326&outSR=4326 → WGS84 rings. Layer 0 = CP.CadastralParcel.",
+ "__endpoint__": "https://inspire.cadastre.bg/arcgis/rest/services/Cadastral_Parcel/MapServer/0/query",
+ "sofiaCenterPoint": {
+  "displayFieldName": "id_namespace",
+  "fieldAliases": {
+   "nationalcadastralref": "nationalCadastralReference",
+   "id_localid": "inspireId_localId",
+   "id_namespace": "inspireId_namespace",
+   "areavalue": "areaValue",
+   "areavalue_uom": "areaValue_uom",
+   "label": "label",
+   "admunit": "administrativeUnit",
+   "validfrom": "validFrom",
+   "beginlifespanversion": "beginLifespanVersion"
+  },
+  "geometryType": "esriGeometryPolygon",
+  "spatialReference": {
+   "wkid": 4326,
+   "latestWkid": 4326
+  },
+  "fields": [
+   {
+    "name": "nationalcadastralref",
+    "type": "esriFieldTypeString",
+    "alias": "nationalCadastralReference",
+    "length": 32
+   },
+   {
+    "name": "id_localid",
+    "type": "esriFieldTypeString",
+    "alias": "inspireId_localId",
+    "length": 255
+   },
+   {
+    "name": "id_namespace",
+    "type": "esriFieldTypeString",
+    "alias": "inspireId_namespace",
+    "length": 255
+   },
+   {
+    "name": "areavalue",
+    "type": "esriFieldTypeDouble",
+    "alias": "areaValue"
+   },
+   {
+    "name": "areavalue_uom",
+    "type": "esriFieldTypeString",
+    "alias": "areaValue_uom",
+    "length": 255
+   },
+   {
+    "name": "label",
+    "type": "esriFieldTypeString",
+    "alias": "label",
+    "length": 255
+   },
+   {
+    "name": "admunit",
+    "type": "esriFieldTypeInteger",
+    "alias": "administrativeUnit"
+   },
+   {
+    "name": "validfrom",
+    "type": "esriFieldTypeDate",
+    "alias": "validFrom",
+    "length": 8
+   },
+   {
+    "name": "beginlifespanversion",
+    "type": "esriFieldTypeDate",
+    "alias": "beginLifespanVersion",
+    "length": 8
+   }
+  ],
+  "features": [
+   {
+    "attributes": {
+     "nationalcadastralref": "68134.100.5",
+     "id_localid": "68134.100.5",
+     "id_namespace": "BG.CP",
+     "areavalue": 3499,
+     "areavalue_uom": "m2",
+     "label": "5",
+     "admunit": 4656,
+     "validfrom": 1303084800000,
+     "beginlifespanversion": 1510338917000
+    },
+    "geometry": {
+     "rings": [
+      [
+       [
+        23.32217663000006,
+        42.69764250305973
+       ],
+       [
+        23.322389279000053,
+        42.69760636205972
+       ],
+       [
+        23.322574711000076,
+        42.697574845059755
+       ],
+       [
+        23.323326176000027,
+        42.69744710505972
+       ],
+       [
+        23.32369008300003,
+        42.69738392705976
+       ],
+       [
+        23.323708964000048,
+        42.697380611059764
+       ],
+       [
+        23.323739933000073,
+        42.69737482305974
+       ],
+       [
+        23.32377076800003,
+        42.69736864605976
+       ],
+       [
+        23.323801447000054,
+        42.69736207805976
+       ],
+       [
+        23.32382887900008,
+        42.69735580005975
+       ],
+       [
+        23.323831969000025,
+        42.69735509305973
+       ],
+       [
+        23.323862320000046,
+        42.69734774505974
+       ],
+       [
+        23.32389249000005,
+        42.697339988059746
+       ],
+       [
+        23.323922479000032,
+        42.69733184905975
+       ],
+       [
+        23.323952261000045,
+        42.69732331905975
+       ],
+       [
+        23.32398183700008,
+        42.697314416059726
+       ],
+       [
+        23.324011206000023,
+        42.697305130059746
+       ],
+       [
+        23.324040344000025,
+        42.69729547105973
+       ],
+       [
+        23.324069250000033,
+        42.69728543905971
+       ],
+       [
+        23.324014983000044,
+        42.69713465505975
+       ],
+       [
+        23.32395456100005,
+        42.69714408905975
+       ],
+       [
+        23.323960939000074,
+        42.69716632805971
+       ],
+       [
+        23.323763926000023,
+        42.69719706805971
+       ],
+       [
+        23.323759151000047,
+        42.697180317059725
+       ],
+       [
+        23.32286616100004,
+        42.697326678059746
+       ],
+       [
+        23.322739096000074,
+        42.69734749805972
+       ],
+       [
+        23.322701804000076,
+        42.69735360705977
+       ],
+       [
+        23.322704342000062,
+        42.69736240905972
+       ],
+       [
+        23.322214806000034,
+        42.69743880305974
+       ],
+       [
+        23.322137107000064,
+        42.69745804805972
+       ],
+       [
+        23.32211718900004,
+        42.69744561105976
+       ],
+       [
+        23.32215017100003,
+        42.69755486205973
+       ],
+       [
+        23.322155128000073,
+        42.69757128405973
+       ],
+       [
+        23.32215097800002,
+        42.69757194305974
+       ],
+       [
+        23.32205588100004,
+        42.69758702105973
+       ],
+       [
+        23.322013500000025,
+        42.697593744059745
+       ],
+       [
+        23.321996227000056,
+        42.6975964780597
+       ],
+       [
+        23.321950053000023,
+        42.69760380405971
+       ],
+       [
+        23.321919156000035,
+        42.697605432059724
+       ],
+       [
+        23.321882390000045,
+        42.69759719605974
+       ],
+       [
+        23.32185973600008,
+        42.697580951059756
+       ],
+       [
+        23.321879688000024,
+        42.69764028105974
+       ],
+       [
+        23.321893811000056,
+        42.697682299059736
+       ],
+       [
+        23.32189644300007,
+        42.69769012105973
+       ],
+       [
+        23.321912569000066,
+        42.697687384059726
+       ],
+       [
+        23.32194807600007,
+        42.69768135005972
+       ],
+       [
+        23.321973537000073,
+        42.69767701605973
+       ],
+       [
+        23.321986408000043,
+        42.69767483805975
+       ],
+       [
+        23.322008037000046,
+        42.69767116005976
+       ],
+       [
+        23.32201152500005,
+        42.69767056905975
+       ],
+       [
+        23.32217663000006,
+        42.69764250305973
+       ]
+      ]
+     ]
+    }
+   }
+  ]
+ },
+ "refLookup": {
+  "displayFieldName": "id_namespace",
+  "fieldAliases": {
+   "nationalcadastralref": "nationalCadastralReference",
+   "id_localid": "inspireId_localId",
+   "id_namespace": "inspireId_namespace",
+   "areavalue": "areaValue",
+   "areavalue_uom": "areaValue_uom",
+   "label": "label",
+   "admunit": "administrativeUnit",
+   "validfrom": "validFrom",
+   "beginlifespanversion": "beginLifespanVersion"
+  },
+  "geometryType": "esriGeometryPolygon",
+  "spatialReference": {
+   "wkid": 4326,
+   "latestWkid": 4326
+  },
+  "fields": [
+   {
+    "name": "nationalcadastralref",
+    "type": "esriFieldTypeString",
+    "alias": "nationalCadastralReference",
+    "length": 32
+   },
+   {
+    "name": "id_localid",
+    "type": "esriFieldTypeString",
+    "alias": "inspireId_localId",
+    "length": 255
+   },
+   {
+    "name": "id_namespace",
+    "type": "esriFieldTypeString",
+    "alias": "inspireId_namespace",
+    "length": 255
+   },
+   {
+    "name": "areavalue",
+    "type": "esriFieldTypeDouble",
+    "alias": "areaValue"
+   },
+   {
+    "name": "areavalue_uom",
+    "type": "esriFieldTypeString",
+    "alias": "areaValue_uom",
+    "length": 255
+   },
+   {
+    "name": "label",
+    "type": "esriFieldTypeString",
+    "alias": "label",
+    "length": 255
+   },
+   {
+    "name": "admunit",
+    "type": "esriFieldTypeInteger",
+    "alias": "administrativeUnit"
+   },
+   {
+    "name": "validfrom",
+    "type": "esriFieldTypeDate",
+    "alias": "validFrom",
+    "length": 8
+   },
+   {
+    "name": "beginlifespanversion",
+    "type": "esriFieldTypeDate",
+    "alias": "beginLifespanVersion",
+    "length": 8
+   }
+  ],
+  "features": [
+   {
+    "attributes": {
+     "nationalcadastralref": "68134.100.5",
+     "id_localid": "68134.100.5",
+     "id_namespace": "BG.CP",
+     "areavalue": 3499,
+     "areavalue_uom": "m2",
+     "label": "5",
+     "admunit": 4656,
+     "validfrom": 1303084800000,
+     "beginlifespanversion": 1510338917000
+    },
+    "geometry": {
+     "rings": [
+      [
+       [
+        23.32217663000006,
+        42.69764250305973
+       ],
+       [
+        23.322389279000053,
+        42.69760636205972
+       ],
+       [
+        23.322574711000076,
+        42.697574845059755
+       ],
+       [
+        23.323326176000027,
+        42.69744710505972
+       ],
+       [
+        23.32369008300003,
+        42.69738392705976
+       ],
+       [
+        23.323708964000048,
+        42.697380611059764
+       ],
+       [
+        23.323739933000073,
+        42.69737482305974
+       ],
+       [
+        23.32377076800003,
+        42.69736864605976
+       ],
+       [
+        23.323801447000054,
+        42.69736207805976
+       ],
+       [
+        23.32382887900008,
+        42.69735580005975
+       ],
+       [
+        23.323831969000025,
+        42.69735509305973
+       ],
+       [
+        23.323862320000046,
+        42.69734774505974
+       ],
+       [
+        23.32389249000005,
+        42.697339988059746
+       ],
+       [
+        23.323922479000032,
+        42.69733184905975
+       ],
+       [
+        23.323952261000045,
+        42.69732331905975
+       ],
+       [
+        23.32398183700008,
+        42.697314416059726
+       ],
+       [
+        23.324011206000023,
+        42.697305130059746
+       ],
+       [
+        23.324040344000025,
+        42.69729547105973
+       ],
+       [
+        23.324069250000033,
+        42.69728543905971
+       ],
+       [
+        23.324014983000044,
+        42.69713465505975
+       ],
+       [
+        23.32395456100005,
+        42.69714408905975
+       ],
+       [
+        23.323960939000074,
+        42.69716632805971
+       ],
+       [
+        23.323763926000023,
+        42.69719706805971
+       ],
+       [
+        23.323759151000047,
+        42.697180317059725
+       ],
+       [
+        23.32286616100004,
+        42.697326678059746
+       ],
+       [
+        23.322739096000074,
+        42.69734749805972
+       ],
+       [
+        23.322701804000076,
+        42.69735360705977
+       ],
+       [
+        23.322704342000062,
+        42.69736240905972
+       ],
+       [
+        23.322214806000034,
+        42.69743880305974
+       ],
+       [
+        23.322137107000064,
+        42.69745804805972
+       ],
+       [
+        23.32211718900004,
+        42.69744561105976
+       ],
+       [
+        23.32215017100003,
+        42.69755486205973
+       ],
+       [
+        23.322155128000073,
+        42.69757128405973
+       ],
+       [
+        23.32215097800002,
+        42.69757194305974
+       ],
+       [
+        23.32205588100004,
+        42.69758702105973
+       ],
+       [
+        23.322013500000025,
+        42.697593744059745
+       ],
+       [
+        23.321996227000056,
+        42.6975964780597
+       ],
+       [
+        23.321950053000023,
+        42.69760380405971
+       ],
+       [
+        23.321919156000035,
+        42.697605432059724
+       ],
+       [
+        23.321882390000045,
+        42.69759719605974
+       ],
+       [
+        23.32185973600008,
+        42.697580951059756
+       ],
+       [
+        23.321879688000024,
+        42.69764028105974
+       ],
+       [
+        23.321893811000056,
+        42.697682299059736
+       ],
+       [
+        23.32189644300007,
+        42.69769012105973
+       ],
+       [
+        23.321912569000066,
+        42.697687384059726
+       ],
+       [
+        23.32194807600007,
+        42.69768135005972
+       ],
+       [
+        23.321973537000073,
+        42.69767701605973
+       ],
+       [
+        23.321986408000043,
+        42.69767483805975
+       ],
+       [
+        23.322008037000046,
+        42.69767116005976
+       ],
+       [
+        23.32201152500005,
+        42.69767056905975
+       ],
+       [
+        23.32217663000006,
+        42.69764250305973
+       ]
+      ]
+     ]
+    }
+   }
+  ]
+ },
+ "seaAbsent": {
+  "displayFieldName": "id_namespace",
+  "fieldAliases": {
+   "nationalcadastralref": "nationalCadastralReference",
+   "id_localid": "inspireId_localId",
+   "id_namespace": "inspireId_namespace",
+   "areavalue": "areaValue",
+   "areavalue_uom": "areaValue_uom",
+   "label": "label",
+   "admunit": "administrativeUnit",
+   "validfrom": "validFrom",
+   "beginlifespanversion": "beginLifespanVersion"
+  },
+  "geometryType": "esriGeometryPolygon",
+  "spatialReference": {
+   "wkid": 4326,
+   "latestWkid": 4326
+  },
+  "fields": [
+   {
+    "name": "nationalcadastralref",
+    "type": "esriFieldTypeString",
+    "alias": "nationalCadastralReference",
+    "length": 32
+   },
+   {
+    "name": "id_localid",
+    "type": "esriFieldTypeString",
+    "alias": "inspireId_localId",
+    "length": 255
+   },
+   {
+    "name": "id_namespace",
+    "type": "esriFieldTypeString",
+    "alias": "inspireId_namespace",
+    "length": 255
+   },
+   {
+    "name": "areavalue",
+    "type": "esriFieldTypeDouble",
+    "alias": "areaValue"
+   },
+   {
+    "name": "areavalue_uom",
+    "type": "esriFieldTypeString",
+    "alias": "areaValue_uom",
+    "length": 255
+   },
+   {
+    "name": "label",
+    "type": "esriFieldTypeString",
+    "alias": "label",
+    "length": 255
+   },
+   {
+    "name": "admunit",
+    "type": "esriFieldTypeInteger",
+    "alias": "administrativeUnit"
+   },
+   {
+    "name": "validfrom",
+    "type": "esriFieldTypeDate",
+    "alias": "validFrom",
+    "length": 8
+   },
+   {
+    "name": "beginlifespanversion",
+    "type": "esriFieldTypeDate",
+    "alias": "beginLifespanVersion",
+    "length": 8
+   }
+  ],
+  "features": []
+ },
+ "badField": {
+  "error": {
+   "code": 400,
+   "message": "Failed to execute query.",
+   "details": []
+  }
+ }
+}

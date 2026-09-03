@@ -1,0 +1,140 @@
+LANE HU — BARREL / REGISTRY / RESOLVER ADDITIONS FOR THE ORCHESTRATOR
+=====================================================================
+Lane: HU (Hungary), europe-adapters-2 wave. Written 2026-09-03.
+Owns ONLY:
+  packages/site-parcel-data/src/countryAdapters/hu/**                         (5 modules)
+  packages/site-parcel-data/__tests__/huAdapter.test.ts                       (1 suite, 19 tests)
+  packages/site-parcel-data/__tests__/fixtures/hu-lechner-inspire-cp-2026-09-03/**  (2 recorded-live fixtures)
+  audit/europe-adapters-2/2026-09-02/lane-hu.md + lane-hu-transcripts/**
+
+VERIFIED STATE AT WRITING (measured, foreground, $? checked):
+  · npx vitest run huAdapter                        → RC=0, 19/19.
+  · npx vitest run parcelRegistryWiring             → RC=0, 35/35 (HU row has a finite specificity).
+  · npx tsc -p tsconfig.json --noEmit               → the ONLY error is
+      __tests__/frPrescriptionGeometry.test.ts(24,34): no exported member 'Pt'
+    which belongs to a CONCURRENT FR lane (untracked file), not this one. ZERO errors reference
+    countryAdapters/hu/ or huAdapter or parcelProviders/registry.ts.
+  · Live capital click re-confirmed 2026-09-03: Budapest bbox → numberMatched=0 (deferral pin holds).
+
+════════════════════════════════════════════════════════════════════════════════════════════════
+SECTION A — SHARED EDITS THIS LANE ALREADY APPLIED (re-apply verbatim if a merge drops them)
+════════════════════════════════════════════════════════════════════════════════════════════════
+These are additive, low-conflict, and consistent with the concurrent RO/GR dormant-row pattern
+already in the file. If a three-way merge loses any of them, re-apply exactly:
+
+A1. packages/site-parcel-data/src/parcelProviders/registry.ts — the import (beside the SWEDEN_BBOX
+    import in the L-12871 batch):
+
+      import { HUNGARY_BBOX } from '../countryAdapters/hu/huJurisdiction.js';
+
+A2. registry.ts — the row (immediately AFTER the SE row, inside PARCEL_JURISDICTIONS):
+
+      {
+          regionCode: 'HU',
+          countryName: 'Hungary',
+          providerId: 'hu-lechner-inspire-cp',
+          label: 'Building footprint (OSM)',
+          proxyPath: null,
+          kind: 'footprint-fallback',
+          contains: claimsNation('HU'),
+          note: '…Mesterszállás sample only; Budapest numberMatched=0; INERT-BUT-SAFE until HUN
+                 enters the resolver (Section B); see the full note in registry.ts…',
+      },
+
+A3. registry.ts — the REGION_BBOX specificity entry (beside SE, before the RO comment):
+
+      HU: HUNGARY_BBOX,
+
+A4. packages/site-parcel-data/src/index.ts — the barrel export (beside the sibling adapters,
+    after the `hr` line):
+
+      export * from './countryAdapters/hu/index.js';
+
+    Collision check run 2026-09-03: every HU symbol is Hu*/HU_*/isInHungary/HUNGARY_BBOX-prefixed;
+    the OWS-exception helper is `extractHuOwsExceptionText` (prefixed), so `export *` does NOT
+    collide with the shared `extractOwsExceptionText` re-export at the bottom of index.ts.
+
+════════════════════════════════════════════════════════════════════════════════════════════════
+SECTION B — DEFERRED SHARED WORK: MAKE THE HU ROW LIVE (a COORDINATED boundary-lane commit)
+════════════════════════════════════════════════════════════════════════════════════════════════
+The HU row's `contains` is `claimsNation('HU')`, and `claimsNation('HU')` is FALSE today because
+HUN is not a modelled country in the national resolver (measured 2026-09-03: `countries` in
+nationalBoundaries.json holds CHE·DEU·DNK·ESP·EST·FIN·FRA·ITA·LTU·LUX·NLD·NOR·POL·PRT·SAU·SWE
+[+ ARE·BHR·KWT·OMN added by a concurrent Gulf lane]; HUN is in NEITHER `countries` NOR the
+refusal-only `neighbours`). So a Budapest click falls to the universal footprint — correct and
+safe, never a misroute (empirically verified: resolveParcelCandidates(Budapest) → []). To turn the
+row LIVE, a boundary lane must, IN ONE COMMIT:
+
+B1. nationalJurisdictionResolver.ts — import + prefilter row (additive):
+
+      import { isInHungary } from '../countryAdapters/hu/huJurisdiction.js';
+      // …then add to CANDIDATE_PREFILTERS:
+      ['HUN', isInHungary],
+
+B2. nationalBoundaries.json — add HUN to `countries`:
+
+      "HUN": { "regionCode": "HU", "rings": [ …ne_10m_admin_0_countries HUN geometry… ] }
+
+    Regenerate the rings with the SAME pipeline the file already used (dataset
+    natural-earth-vector / ne_10m_admin_0_countries, sourceSha256 pinned in the JSON header,
+    simplifiedToleranceM 100) so HUN's positional/coastal tolerances match the rest of the set.
+    Do NOT hand-digitise or use a different simplification — that would give HUN a different
+    displacement profile than its neighbours and break the measured 1500 m / 2000 m tolerances.
+
+B3. ⛔ NEIGHBOUR-INTEGRITY — THE PART THAT MAKES THIS A COORDINATED COMMIT, NOT A SOLO EDIT.
+    Hungary borders seven states. FOUR are already refusal-only `neighbours` (AUT, SVK, UKR, SVN).
+    THREE ARE ABSENT FROM THE DATASET ENTIRELY: HRV (Croatia), SRB (Serbia), ROU (Romania). If HUN
+    is added to `countries` WITHOUT adding these three as `neighbours`, the L-12887 coastal-rescue
+    has no rival to lose to along the HU/HR, HU/RS and HU/RO frontiers, and a Croatian/Serbian/
+    Romanian border-band point inside HUNGARY_BBOX and within coastalToleranceM (2000 m) of the HUN
+    boundary would be ANNEXED to HU — the exact failure L-12887 exists to prevent, and WORSE than
+    PL's Słubice (which merely refuses a Polish town; this misroutes a foreign one). So B3 MUST add
+    HRV/SRB/ROU refusal-only neighbour rings (same ne_10m source), with red-pinned witness points in
+    the resolver test:
+      · Osijek, HR (45.5550, 18.6955)  — must refuse/attribute HR, never HU.
+      · Subotica, RS (46.1006, 19.6650) — must refuse/attribute RS, never HU.
+      · Oradea, RO (47.0722, 21.9217)  — must refuse/attribute RO, never HU.
+    …and an interior HU control that must CLAIM HU:
+      · Budapest (47.4979, 19.0402)    — must claim HU once B1+B2 land.
+
+    ⚠ ROU COLLISION WITH THE CONCURRENT RO LANE. `parcelProviders/registry.ts` already carries a
+    DORMANT `claimsNation('RO')` row + `RO: ROMANIA_BBOX` (RO lane, same wave). The RO lane will add
+    ROU to `countries` (claimable), while HU needs ROU as a `neighbours` (refusal-only). These two
+    are MUTUALLY EXCLUSIVE for the same ISO3 key. RESOLUTION: land ROU as a COUNTRY (RO lane's
+    intent); then HU needs nothing extra for the HU/RO border — a Romanian border point simply
+    claims RO. So sequence B for HU AFTER the RO lane's ROU-as-country addition, and drop ROU from
+    HU's neighbour list (keep only HRV + SRB, which no other wave lane claims). The Osijek/Subotica
+    witnesses still apply; the Oradea witness becomes "claims RO" instead of "refuses".
+
+B4. nationalJurisdictionResolver.test.ts — add the HU interior control to CONTROLS (the suite
+    asserts `CONTROLS covers every country in the boundary set`). NOTE: that assertion is ALREADY
+    RED at writing because the concurrent Gulf lane added ARE/BHR/KWT/OMN to `countries` without
+    controls — not this lane's doing; the Gulf lane owes those four controls.
+
+════════════════════════════════════════════════════════════════════════════════════════════════
+SECTION C — sourceRegistry/hu.ts MIGRATION (LU/SE pattern; optional bookkeeping)
+════════════════════════════════════════════════════════════════════════════════════════════════
+This lane minted its two source rows INSIDE the adapter (countryAdapters/hu/huSources.ts) through
+the registry's own `defineSources('HU', […])` loader, so they carry identical build-time
+validation. When the orchestrator wants HU in the registry proper:
+  a. Create packages/site-parcel-data/src/sourceRegistry/hu.ts exporting
+       export const HU_SOURCES = HU_ADAPTER_SOURCES_RAW;   // MOVE the two literals verbatim
+  b. sourceRegistry/index.ts — add `import { HU_SOURCES } from './hu.js';`, add `HU_SOURCES,` to the
+     export block and `HU: HU_SOURCES,` to SOURCE_REGISTRY. If a `SOURCE_ABSENCE_REASONS['HU']`
+     entry exists, DELETE it (the probe is now dated — do not leave a country both present and
+     honestly-absent).
+  c. countryAdapters/hu/huSources.ts — replace the two literals with a resolve-from-registry
+     re-export, keeping the `assertHuEndpoint` module-load drift guard. Do NOT leave two copies
+     (C84 EI-9).
+THE TWO ROW IDS (so the orchestrator can diff them):
+  hu-lechner-inspire-cp-wfs        gate: null            adapterStatus: 'live-sample-only'
+  hu-lechner-takarnet-geoshop      gate: paid            adapterStatus: 'deferred-stub'
+
+════════════════════════════════════════════════════════════════════════════════════════════════
+SECTION D — NO SCHEMA CHANGE (packages/schemas/** frozen, untouched)
+════════════════════════════════════════════════════════════════════════════════════════════════
+  · SourceProtocolSchema already carries 'WFS2' (INSPIRE CP WFS) and 'bulk' (TAKARNET SHP/DXF).
+  · TRANSIENT_FETCH_REASONS already carries 'endpoint-unreachable' — the deferral refusal token
+    starts with it (L-12874 table honoured; no new transient token invented).
+  · FetchOutcome's found/absent/transient carry the whole HU story (real sample parcel / in-sample
+    gap / out-of-sample fee-gate deferral). No parameter refused for want of a schema seat.

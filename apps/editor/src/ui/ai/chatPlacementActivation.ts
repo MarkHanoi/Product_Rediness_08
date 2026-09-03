@@ -63,6 +63,13 @@ import {
     STAIR_SHAPES,
     type StairShapeChoice,
 } from '@pryzm/geometry-stair';
+// ⭐ Lane U6 — the component catalogue (U0) as a THIRD placement source, and the ONE
+// arming function (U1) every component-place entry point routes through. "place a
+// window" resolves a loaded component DEFINITION/TYPE and arms the SAME plan tool the
+// browser's Place button does — no position is guessed (C83 §4.3); the user clicks.
+import { componentCatalog } from '../../services/componentCatalog';
+import { armComponentPlaceTool } from '../component-browser/componentPlaceTool';
+import type { ComponentDefinitionView } from '@pryzm/plugin-component';
 
 // ─── Enumeration ─────────────────────────────────────────────────────────────
 
@@ -83,6 +90,20 @@ export type PlaceableEntry =
           readonly id: string;
           readonly name: string;
           readonly item: FurnitureTypeDescriptor;
+      }
+    | {
+          // ⭐ Lane U6 — a loaded component definition (or one of its types). Placement
+          // arms the plan tool with these ids; the user's click dispatches
+          // `component.place` (U1's proven flow), so no position is ever guessed.
+          readonly kind: 'component';
+          /** `definitionId` (definition entry) or `definitionId:typeId` (type entry). */
+          readonly id: string;
+          readonly name: string;
+          readonly definitionId: string;
+          readonly typeId: string;
+          readonly definitionVersion?: string;
+          readonly definitionName: string;
+          readonly typeName: string;
       };
 
 /**
@@ -94,6 +115,11 @@ export type PlaceableEntry =
 export function enumeratePlaceables(
     matrix: readonly ElementCreationCapability[] = ELEMENT_CREATION_MATRIX,
     categories: readonly FurnitureCategoryDescriptor[] = getCategories(),
+    // ⭐ Lane U6 — the THIRD source, read LIVE from the ONE catalogue (C69: never a
+    // hand-written rival list). A definition loaded into the project is automatically
+    // chat-placeable; unloaded ⇒ absent ⇒ resolves to nothing and the refusal names
+    // what IS loaded. The parameter exists so a spec can prove derivation.
+    definitions: readonly ComponentDefinitionView[] = componentCatalog.list(),
 ): readonly PlaceableEntry[] {
     const entries: PlaceableEntry[] = [];
     for (const cap of matrix) {
@@ -112,6 +138,34 @@ export function enumeratePlaceables(
                 id: String(item.type),
                 name: item.label,
                 item,
+            });
+        }
+    }
+    for (const def of definitions) {
+        const firstType = def.types[0];
+        if (firstType === undefined) continue; // FamilyDocument.types is .min(1), but stay honest
+        // One entry for the DEFINITION (arms its first/default type) …
+        entries.push({
+            kind: 'component',
+            id: def.definitionId,
+            name: def.name,
+            definitionId: def.definitionId,
+            typeId: firstType.id,
+            definitionVersion: def.semver,
+            definitionName: def.name,
+            typeName: firstType.name,
+        });
+        // … and one per TYPE, so "place a W-1200" reaches the exact type.
+        for (const t of def.types) {
+            entries.push({
+                kind: 'component',
+                id: `${def.definitionId}:${t.id}`,
+                name: t.name,
+                definitionId: def.definitionId,
+                typeId: t.id,
+                definitionVersion: def.semver,
+                definitionName: def.name,
+                typeName: t.name,
             });
         }
     }
@@ -316,6 +370,29 @@ export function activatePlacementFromChat(
     }
 
     const entry = res.entry;
+    if (entry.kind === 'component') {
+        // ⭐ Lane U6 — arm the plan tool with the resolved (definitionId, typeId), the
+        // SAME `armComponentPlaceTool` the browser's Place button and
+        // `BimService.activateComponentTool` route through (L-5709: one function, one
+        // path). ⛔ NO `component.place` dispatch here and NO guessed position — the
+        // user's canvas click dispatches it (U1's proven flow).
+        const armed = armComponentPlaceTool({
+            definitionId: entry.definitionId,
+            typeId: entry.typeId,
+            definitionVersion: entry.definitionVersion,
+            definitionName: entry.definitionName,
+            typeName: entry.typeName,
+        });
+        const typeNote = entry.name === entry.typeName ? '' : ` (type ${entry.typeName})`;
+        if (!armed) {
+            return (
+                `I resolved "${ref}" to the ${entry.definitionName} component${typeNote}, but no ` +
+                'plan view is open to arm the place tool — nothing was activated. Open a plan ' +
+                'view (or use the Components browser\'s Place button) and try again.'
+            );
+        }
+        return `${entry.definitionName} component${typeNote} placement is active — ${CLICK_TO_PLACE}.`;
+    }
     if (entry.kind === 'furniture') {
         if (!activateFurnitureItem(entry.item)) {
             return (

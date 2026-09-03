@@ -1,0 +1,160 @@
+npm warn Unknown project config "package-manager-strict". This will stop working in the next major version of npm. See `npm help npmrc` for supported config options.
+
+ RUN  v4.1.10 C:/Users/LENOVO/OneDrive/Desktop/PRYZM/Product_Rediness_08/apps/editor
+
+stderr | __tests__/componentTypeCatalogThroughComposedRuntime.test.ts
+THREE.WARNING: Multiple instances of Three.js being imported.
+
+stdout | __tests__/componentTypeCatalogThroughComposedRuntime.test.ts
+[CreateCurtainWallsOnAllSlabsCommand] §DEV: window.__resetCwPrewarm() registered. Call it in DevTools to re-enable first-run PSO prewarm for next execute().
+
+Sourcemap for "C:/Users/LENOVO/OneDrive/Desktop/PRYZM/Product_Rediness_08/packages/file-format/src/family-schema.js" points to missing source files
+Sourcemap for "C:/Users/LENOVO/OneDrive/Desktop/PRYZM/Product_Rediness_08/packages/file-format/src/family-types.js" points to missing source files
+Sourcemap for "C:/Users/LENOVO/OneDrive/Desktop/PRYZM/Product_Rediness_08/packages/file-format/src/family-migrations/index.js" points to missing source files
+Sourcemap for "C:/Users/LENOVO/OneDrive/Desktop/PRYZM/Product_Rediness_08/packages/file-format/src/family-migrations/identity.js" points to missing source files
+Sourcemap for "C:/Users/LENOVO/OneDrive/Desktop/PRYZM/Product_Rediness_08/packages/file-format/src/family-migrations/v1_0-to-v1_1.js" points to missing source files
+Sourcemap for "C:/Users/LENOVO/OneDrive/Desktop/PRYZM/Product_Rediness_08/packages/file-format/src/family-migrations/ops/rename-parameter.js" points to missing source files
+Sourcemap for "C:/Users/LENOVO/OneDrive/Desktop/PRYZM/Product_Rediness_08/packages/file-format/src/family-migrations/ops/add-parameter.js" points to missing source files
+Sourcemap for "C:/Users/LENOVO/OneDrive/Desktop/PRYZM/Product_Rediness_08/packages/file-format/src/family-migrations/ops/delete-parameter.js" points to missing source files
+Sourcemap for "C:/Users/LENOVO/OneDrive/Desktop/PRYZM/Product_Rediness_08/packages/file-format/src/family-migrations/ops/change-parameter-type.js" points to missing source files
+Sourcemap for "C:/Users/LENOVO/OneDrive/Desktop/PRYZM/Product_Rediness_08/packages/file-format/src/family-migrations/ops/introduce-expression.js" points to missing source files
+Sourcemap for "C:/Users/LENOVO/OneDrive/Desktop/PRYZM/Product_Rediness_08/packages/file-format/src/family-migrations/ops/rebind-ifc.js" points to missing source files
+Sourcemap for "C:/Users/LENOVO/OneDrive/Desktop/PRYZM/Product_Rediness_08/packages/file-format/src/family-migrations/ops/merge-material-slots.js" points to missing source files
+Sourcemap for "C:/Users/LENOVO/OneDrive/Desktop/PRYZM/Product_Rediness_08/packages/file-format/src/family-migrations/ops/split-type.js" points to missing source files
+stderr | __tests__/componentTypeCatalogThroughComposedRuntime.test.ts
+Warning: Please use the `legacy` build in Node.js environments.
+
+stdout | __tests__/componentTypeCatalogThroughComposedRuntime.test.ts
+[ConstraintEngine] 17 rules registered (7 Tier 1, 5 Tier 2 spatial, 5 Tier 2 physics)
+
+ ✓ __tests__/componentTypeCatalogThroughComposedRuntime.test.ts > §U4-TYPE-CATALOG — create/edit/delete types, end to end through the real composed runtime > ARM 1 — ⭐ OPEN FROM THE BROWSER: the real Components browser carries "Types…" and the click mounts the catalog over the loaded definition 49ms
+ × __tests__/componentTypeCatalogThroughComposedRuntime.test.ts > §U4-TYPE-CATALOG — create/edit/delete types, end to end through the real composed runtime > ARM 2 — ⭐⭐ CREATE 'Wide' overriding Width=2400 through the split-type op → it appears with the OVERRIDE BADGE (source Type, value 2400) 24ms
+   → a well-formed new type is accepted: expected 'The Component document-migration ops …' to be null
+ × __tests__/componentTypeCatalogThroughComposedRuntime.test.ts > §U4-TYPE-CATALOG — create/edit/delete types, end to end through the real composed runtime > ARM 3 — ⭐⭐ SAVE-VIA-PACK, ROUND-TRIP IDENTICAL: packFamily → the ONE catalogue/loader → the reloaded definition carries 'Wide' with Width=2400 2ms
+   → the save lands: expected 'The packer could not be loaded from t…' to be null
+ × __tests__/componentTypeCatalogThroughComposedRuntime.test.ts > §U4-TYPE-CATALOG — create/edit/delete types, end to end through the real composed runtime > ARM 4 — ⭐⭐ PLACE AND RESOLVE: `component.place` of a 'Wide' instance via the real bus → the property section resolves Width = 2400 mm, source Type 7ms
+   → component.place: canExecute rejected — component.place needs a typeId of the form typ_<ULID> (C111 §1.1-a); got "". Every definition declares at least one type (FamilyDocumentSchema.types is .min(1)), so an occurrence always wears one.
+ × __tests__/componentTypeCatalogThroughComposedRuntime.test.ts > §U4-TYPE-CATALOG — create/edit/delete types, end to end through the real composed runtime > ARM 5 — ⭐ DUPLICATE NAME REFUSES IN PLACE: a second 'Wide' renders the typed refusal, the draft type count unchanged 24ms
+   → expected 'The Component document-migration ops …' to contain 'already exists'
+ × __tests__/componentTypeCatalogThroughComposedRuntime.test.ts > §U4-TYPE-CATALOG — create/edit/delete types, end to end through the real composed runtime > ARM 6 — EDIT via a re-validated document transform: rename 'Wide' → 'Wider', change Width override to 2600 → the list and the scoped table follow 2ms
+   → the edit lands: expected 'The Component document-migration ops …' to be null
+ × __tests__/componentTypeCatalogThroughComposedRuntime.test.ts > §U4-TYPE-CATALOG — create/edit/delete types, end to end through the real composed runtime > ARM 7 — DELETE via a re-validated document transform, and the LAST-TYPE delete is refused by the schema's types.min(1) 2ms
+   → a non-last delete succeeds: expected 'The Component document-migration ops …' to be null
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 6 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  __tests__/componentTypeCatalogThroughComposedRuntime.test.ts > §U4-TYPE-CATALOG — create/edit/delete types, end to end through the real composed runtime > ARM 2 — ⭐⭐ CREATE 'Wide' overriding Width=2400 through the split-type op → it appears with the OVERRIDE BADGE (source Type, value 2400)
+AssertionError: a well-formed new type is accepted: expected 'The Component document-migration ops …' to be null
+
+- Expected:
+null
+
++ Received:
+"The Component document-migration ops could not be loaded from the file-format package — the edit was NOT applied and the draft is unchanged: SEVERED — the file-format ops gateway is unavailable (falsification probe).."
+
+ ❯ __tests__/componentTypeCatalogThroughComposedRuntime.test.ts:183:63
+    181|             overrides: [{ parameterId: PARAM_WIDTH, raw: '2400' }],
+    182|         });
+    183|         expect(refusal, 'a well-formed new type is accepted').toBeNull…
+       |                                                               ^
+    184|
+    185|         const wide = cat.document.types.find((t) => t.name === 'Wide');
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/6]⎯
+
+ FAIL  __tests__/componentTypeCatalogThroughComposedRuntime.test.ts > §U4-TYPE-CATALOG — create/edit/delete types, end to end through the real composed runtime > ARM 3 — ⭐⭐ SAVE-VIA-PACK, ROUND-TRIP IDENTICAL: packFamily → the ONE catalogue/loader → the reloaded definition carries 'Wide' with Width=2400
+AssertionError: the save lands: expected 'The packer could not be loaded from t…' to be null
+
+- Expected:
+null
+
++ Received:
+"The packer could not be loaded from the file-format package — nothing was saved: SEVERED — the file-format ops gateway is unavailable (falsification probe).."
+
+ ❯ __tests__/componentTypeCatalogThroughComposedRuntime.test.ts:205:43
+    203|         const hashBefore = componentCatalog.entry(DEF_ID)!.family.sche…
+    204|         const refusal = await cat.save();
+    205|         expect(refusal, 'the save lands').toBeNull();
+       |                                           ^
+    206|         expect(cat.isDirty()).toBe(false);
+    207|         expect(cat.statusText).toContain('Saved — packed and reloaded …
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/6]⎯
+
+ FAIL  __tests__/componentTypeCatalogThroughComposedRuntime.test.ts > §U4-TYPE-CATALOG — create/edit/delete types, end to end through the real composed runtime > ARM 4 — ⭐⭐ PLACE AND RESOLVE: `component.place` of a 'Wide' instance via the real bus → the property section resolves Width = 2400 mm, source Type
+CommandBusError: component.place: canExecute rejected — component.place needs a typeId of the form typ_<ULID> (C111 §1.1-a); got "". Every definition declares at least one type (FamilyDocumentSchema.types is .min(1)), so an occurrence always wears one.
+ ❯ ../../packages/command-bus/src/CommandBus.ts:429:17
+    427|         const validation = handler.canExecute(ctx as HandlerContext<An…
+    428|         if (!validation.valid) {
+    429|           throw new CommandBusError(
+       |                 ^
+    430|             `${handler.type}: canExecute rejected — ${validation.reaso…
+    431|           );
+ ❯ withSpan ../../packages/command-bus/src/otel.ts:24:26
+ ❯ CommandBus.executeCommand ../../packages/command-bus/src/CommandBus.ts:419:12
+ ❯ Object.executeCommand ../../packages/runtime-composer/src/composeRuntime.ts:1877:26
+ ❯ __tests__/componentTypeCatalogThroughComposedRuntime.test.ts:226:22
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/6]⎯
+
+ FAIL  __tests__/componentTypeCatalogThroughComposedRuntime.test.ts > §U4-TYPE-CATALOG — create/edit/delete types, end to end through the real composed runtime > ARM 5 — ⭐ DUPLICATE NAME REFUSES IN PLACE: a second 'Wide' renders the typed refusal, the draft type count unchanged
+AssertionError: expected 'The Component document-migration ops …' to contain 'already exists'
+
+Expected: "already exists"
+Received: "The Component document-migration ops could not be loaded from the file-format package — the edit was NOT applied and the draft is unchanged: SEVERED — the file-format ops gateway is unavailable (falsification probe).."
+
+ ❯ __tests__/componentTypeCatalogThroughComposedRuntime.test.ts:257:25
+    255|         });
+    256|         expect(refusal, 'the duplicate name is refused').not.toBeNull(…
+    257|         expect(refusal).toContain('already exists');
+       |                         ^
+    258|         // ⭐ Rendered IN PLACE under the create form (C16 CA-18), not …
+    259|         const inPlace = cat.root.querySelector('[data-ctc-create-refus…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[4/6]⎯
+
+ FAIL  __tests__/componentTypeCatalogThroughComposedRuntime.test.ts > §U4-TYPE-CATALOG — create/edit/delete types, end to end through the real composed runtime > ARM 6 — EDIT via a re-validated document transform: rename 'Wide' → 'Wider', change Width override to 2600 → the list and the scoped table follow
+AssertionError: the edit lands: expected 'The Component document-migration ops …' to be null
+
+- Expected:
+null
+
++ Received:
+"The Component document-migration ops could not be loaded from the file-format package — the edit was NOT applied and the draft is unchanged: SEVERED — the file-format ops gateway is unavailable (falsification probe).."
+
+ ❯ __tests__/componentTypeCatalogThroughComposedRuntime.test.ts:273:43
+    271|             overrides: [{ parameterId: PARAM_WIDTH, raw: '2600' }],
+    272|         });
+    273|         expect(refusal, 'the edit lands').toBeNull();
+       |                                           ^
+    274|         const edited = cat.document.types.find((t) => t.id === WIDE_ID…
+    275|         expect(edited.name).toBe('Wider');
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[5/6]⎯
+
+ FAIL  __tests__/componentTypeCatalogThroughComposedRuntime.test.ts > §U4-TYPE-CATALOG — create/edit/delete types, end to end through the real composed runtime > ARM 7 — DELETE via a re-validated document transform, and the LAST-TYPE delete is refused by the schema's types.min(1)
+AssertionError: a non-last delete succeeds: expected 'The Component document-migration ops …' to be null
+
+- Expected:
+null
+
++ Received:
+"The Component document-migration ops could not be loaded from the file-format package — the edit was NOT applied and the draft is unchanged: SEVERED — the file-format ops gateway is unavailable (falsification probe).."
+
+ ❯ __tests__/componentTypeCatalogThroughComposedRuntime.test.ts:293:77
+    291|     it('ARM 7 — DELETE via a re-validated document transform, and the …
+    292|         // Delete non-last types down to one.
+    293|         expect(await cat.deleteType(WIDE_ID), 'a non-last delete succe…
+       |                                                                             ^
+    294|         expect(cat.document.types.some((t) => t.id === WIDE_ID)).toBe(…
+    295|         expect(await cat.deleteType(TYPE_B)).toBeNull();
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[6/6]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  6 failed | 1 passed (7)
+   Start at  07:41:48
+   Duration  56.74s (transform 42.03s, setup 0ms, import 53.80s, tests 444ms, environment 1.98s)
+
+RC=1

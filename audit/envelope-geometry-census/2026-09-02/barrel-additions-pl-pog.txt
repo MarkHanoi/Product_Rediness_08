@@ -1,0 +1,33 @@
+LANE PL-POG (2026-09-03) — barrel additions to packages/site-parcel-data/src/index.ts
+(the only barrel touched by this lane). New re-exports, all from the new leaf module
+./rulepacks/plPogEnvelope.js. No existing export removed or renamed.
+
+VALUES:
+  PL_POG_JURISDICTION_ID
+  PL_POG_DEFAULT_ZONE_CODE
+  PL_POG_HEIGHT_MAX_M
+  PL_POG_METRE_UOMS
+  PL_POG_ENVELOPE_REF
+  PL_POG_SOURCE_ID
+  resolvePlPogEnvelope
+  plPogFieldsFromStrefa
+  plPogCitationFromStrefa
+  plPogZoningRecord
+  plPogZoningRecordFromStrefa
+  plPogPlanIdentityOf
+  plPogCoverageGapRefusal
+
+TYPES:
+  PlPogFields
+  PlPogCitation
+  PlPogWithheldReason
+  PlPogEnvelopeResolution
+
+Leaf-module imports pulled INTO the new file (not new barrel surface, recorded for audit):
+  from '@pryzm/schemas': ZoningRecordSchema, ZoningRecord (type), fetchTransient, FetchOutcome (type)
+  from '../parsers/appGml/index.js': AppMeasure, AppDecimal, AppStrefaPlanistyczna (types)
+  from '../countryAdapters/pl/plSources.js': PL_APP_GML_SOURCE_ID
+  from '../countryAdapters/pl/plRuleMapper.js': PL_ACT_STATUS_IN_FORCE, PL_VALUE_BASIS_SCHEME,
+      plCodeTail, plIipIdentity
+  (all leaf-file imports — NEVER the countryAdapters/pl/index.js barrel, per
+   §SCC-no-barrel-access-at-module-load)

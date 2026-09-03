@@ -3,7 +3,10 @@
 // §J CONFORMANCE MAP:
 //   country      → 'LU'
 //   sources()    → LU_ADAPTER_SOURCES (one typed row, dated probe, CC0 confirmed at the deed)
-//   parcel       → resolveLuParcelByNumCadast (plural by construction — the key is not unique)
+//   parcel       → resolveLuParcelAtWgs84Point (LIVE ACT / INSPIRE cp:CP.CadastralParcel WFS, lane
+//                  LU-PARCEL 2026-09-03 — the click-to-select leg the founder bug L-? needed). The
+//                  older resolveLuParcelByNumCadast (below) stays for GPKG key lookups but is NOT
+//                  the click path: NUM_CADAST is not unique, so a click resolves by GEOMETRY here.
 //   planGeometry → resolveLuNqPapByXtfId / resolveLuNqPapCandidatesForEnvelope (bbox CANDIDATES)
 //   rules        → kind: 'structured' — resolveLuZoneChain below (FetchOutcome<LuZoneChain>)
 //   documents    → the partie-écrite FILENAME travels verbatim on every rule's source.document;
@@ -35,6 +38,7 @@ import type {
 } from '@pryzm/schemas';
 import { fetchLuPagManifest, type LuPagDeps, type LuPagManifest } from './luPagGpkgClient.js';
 import { resolveLuNqPapByXtfId } from './luPagProvider.js';
+import { resolveLuParcelAtWgs84Point, type LuCadastralParcel } from './luParcelProvider.js';
 import { mapLuNqPapRowToRules } from './luRuleMapper.js';
 import { LU_ADAPTER_SOURCES } from './luSources.js';
 import type { LuNqPapRow } from './luPagGpkgClient.js';
@@ -172,6 +176,17 @@ export async function resolveLuZoneChain(
 export const luCountryAdapter = {
     country: 'LU' as const,
     sources: (): readonly SiteIntelSource[] => LU_ADAPTER_SOURCES,
+    // §J `parcel` — the LIVE ACT / INSPIRE cadastral-parcel click leg (lane LU-PARCEL, 2026-09-03).
+    // This is a DIFFERENT source from the PAG-GPKG rules half and from the ambiguous NUM_CADAST
+    // key-join below (`resolveLuParcelByNumCadast`): it resolves the parcel UNDER a WGS84 click via
+    // the keyless INSPIRE WFS, joined to the rules by geometry (point ∈ parcel), never by the
+    // duplicate-prone NUM_CADAST. One authority per concept (C84 EI-9).
+    parcel: {
+        resolveAtWgs84Point: (
+            lat: number,
+            lon: number,
+        ): Promise<FetchOutcome<LuCadastralParcel>> => resolveLuParcelAtWgs84Point(lat, lon),
+    },
     rules: { kind: 'structured' as const, fetchChain: resolveLuZoneChain },
     precedence: LU_APPLICABILITY_LADDER,
 };
@@ -230,3 +245,25 @@ export {
     type LuMappedRuleSet,
 } from './luRuleMapper.js';
 export { LU_ADAPTER_ENDPOINT_BINDINGS, LU_ADAPTER_SOURCES, LU_PAG_SOURCE_ID } from './luSources.js';
+export {
+    LU_PARCEL_CLICK_COUNT,
+    LU_PARCEL_CLICK_HALF_DEG,
+    LU_PARCEL_LAYER,
+    LU_PARCEL_PROVIDER_ID,
+    LU_PARCEL_PROVIDER_LABEL,
+    LU_PARCEL_WFS_BASE,
+    LU_PARCEL_WGS84_URN,
+    buildLuParcelClickUrl,
+    extractLuOwsExceptionText,
+    luOuterRing,
+    luParcelWfsGetFeatures,
+    luRingContains,
+    luSectionFromZoning,
+    parseLuParcelFeature,
+    pickLuParcelFeature,
+    pickedLuParcelOutcome,
+    resolveLuParcelAtWgs84Point,
+    type LuCadastralParcel,
+    type LuParcelWfsDeps,
+    type LuParcelWfsFeature,
+} from './luParcelProvider.js';

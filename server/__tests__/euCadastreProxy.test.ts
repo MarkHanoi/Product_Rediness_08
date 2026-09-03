@@ -313,9 +313,9 @@ describe('fetchEuParcelAtPoint — guards + never-throws', () => {
         await expect(fetchEuParcelAtPoint('fr', NaN, NaN, { fetchImpl: fakeFetch(FR_GEOJSON) })).resolves.toBeNull();
     });
 
-    it('exposes exactly the wired cadastres (L-651 added pt / us-sf / us-chi; lane PROXY-EE-LT-PL added ee / lt / pl)', () => {
+    it('exposes exactly the wired cadastres (L-651 added pt / us-sf / us-chi; lane PROXY-EE-LT-PL added ee / lt / pl; lane LU-PARCEL added lu)', () => {
         expect(Object.keys(EU_CADASTRE_SOURCES).sort()).toEqual([
-            'ch', 'de-nrw', 'ee', 'fr', 'lt', 'nl', 'no', 'pl', 'pt', 'us-chi', 'us-sf',
+            'ch', 'de-nrw', 'ee', 'fr', 'lt', 'lu', 'nl', 'no', 'pl', 'pt', 'us-chi', 'us-sf',
         ]);
     });
 

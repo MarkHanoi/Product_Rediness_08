@@ -1,0 +1,63 @@
+LANE GR — barrel additions for the orchestrator to RE-APPLY on conflict.
+These edits were already applied by the lane; this file is the re-apply source (shared files:
+parcelProviders/registry.ts + src/index.ts). All GR symbols are GR-/gr-/Greece-prefixed, so the
+`export *` cannot collide.
+
+================================================================================
+FILE 1: packages/site-parcel-data/src/parcelProviders/registry.ts
+================================================================================
+
+(1a) IMPORT — add after the ROMANIA_BBOX import (the L-12871 / new-country bbox group):
+
+import { GREECE_BBOX } from '../countryAdapters/gr/grJurisdiction.js';
+
+(1b) ROW — add a new ParcelJurisdiction row in PARCEL_JURISDICTIONS, immediately AFTER the RO row
+     (regionCode 'RO') and BEFORE the BELGIUM block, with this leading comment:
+
+    // LANE GR (2026-09-03) — GREECE. Unlike RO above, the SERVICE gate is CLEARED: the Hellenic
+    // Cadastre operating-cadastre parcels answer a KEYLESS ArcGIS Online FeatureServer and were
+    // LIVE-PROVEN at Athens (KAEK 050095701001). So this registers `cadastral` (not footprint —
+    // the source is reachable). The ONE open gate is JURISDICTION: GRC is absent from the national
+    // boundary set, so claimsNation('GR') is false everywhere and THIS ROW IS DORMANT until a
+    // boundary wave adds GRC (grJurisdiction.ts GREECE_ROUTING_DEFERRAL) — exactly RO's GATE 2.
+    // proxyPath is RESERVED: `/api/parcel/gr` needs a `gr` row in server/jurisdiction/
+    // euCadastreProxy.js (the PROXY-EE-LT-PL pattern for a new country); until then a match self-
+    // corrects to the footprint on the proxy 404. providerId reserved by countryAdapters/gr/.
+    {
+        regionCode: 'GR',
+        countryName: 'Greece',
+        providerId: 'gr-ktimatologio-geotemaxia-leitourgoun',
+        label: 'Γεωτεμάχιο (Greece · Ελληνικό Κτηματολόγιο, operating cadastre)',
+        proxyPath: '/api/parcel/gr',
+        kind: 'cadastral',
+        contains: claimsNation('GR'),
+        note: 'Greece: Hellenic Cadastre (Ελληνικό Κτηματολόγιο) OPERATING-cadastre parcels — a KEYLESS ArcGIS Online FeatureServer (services-eu1.arcgis.com/40tFGWzosjaLJpmn, GEOTEMAXIA_LEITOURGOUN_ON_gdb/FeatureServer/0), LIVE-PROBED 2026-09-03 by the GR lane (real γεωτεμάχιο with KAEK + WGS84 ring; countryAdapters/gr/ carries the parser + recorded-live fixtures). Channel discovered via the official viewer maps.ktimatologio.gr Experience Builder config; the OLD INSPIRE path gis.ktimanet.gr/inspire is now HTTP 404 (do not resurrect). LIVE CLICK PROOF: Athens/Syntagma (37.9755,23.7348) → KAEK 050095701001, AREA 10839.77 m². TWO wiring steps pending (the row is DORMANT until step 1): (1) GRC is NOT in jurisdiction/data/nationalBoundaries.json, so claimsNation("GR") is false everywhere — a boundary wave must add GRC (grJurisdiction.ts GREECE_ROUTING_DEFERRAL, reviewBy 2027-03-01); (2) /api/parcel/gr needs a euCadastreProxy.js `gr` row (outSR=4326 → WGS84 ring, AREA served) to serve production clicks. Rules are DOCUMENTS-ONLY (όροι δόμησης = FEK-decree PDFs; no machine-readable zoning register).',
+    },
+
+(1c) REGION_BBOX — add after `RO: ROMANIA_BBOX,` in the REGION_BBOX map:
+
+    // LANE GR (2026-09-03). Specificity-metric entry only — the row's `contains` is
+    // claimsNation('GR') (dormant until GRC enters the resolver). No existing box overlaps GREECE_BBOX
+    // in a way that matters, since the national filter decides and the box never asserts sovereignty.
+    GR: GREECE_BBOX,
+
+================================================================================
+FILE 2: packages/site-parcel-data/src/index.ts
+================================================================================
+
+Add after `export * from './countryAdapters/ro/index.js';`:
+
+// LANE GR (2026-09-03) — Greece, a LIVE keyless cadastre + DOCUMENTS-ONLY rules. Every export is
+// GR-prefixed (grCountryAdapter, GREECE_BBOX, isInGreece, GR_SOURCES, GR_PARCEL_*, resolveGrParcel*,
+// GREECE_ROUTING_DEFERRAL), no wildcard collision.
+export * from './countryAdapters/gr/index.js';
+
+================================================================================
+DOWNSTREAM WIRING (NOT this lane's deliverable — named for the orchestrator / follow-up lanes):
+  A. jurisdiction/data/nationalBoundaries.json — add a GRC boundary polygon (+ resolver row) so
+     resolveNationalJurisdiction claims GR and claimsNation('GR') becomes true (the row is dormant
+     until this lands). This is the shared L-12871 resolver's file; GR must not add a rival bbox.
+  B. server/jurisdiction/euCadastreProxy.js — add a `gr` row (format 'arcgis', url builder with
+     outSR=4326 point query against GEOTEMAXIA_LEITOURGOUN_ON_gdb/FeatureServer/0, normalise KAEK →
+     refcat + AREA → areaM2) so /api/parcel/gr serves production clicks. Mirror the ee/lt rows.
+================================================================================

@@ -1,0 +1,71 @@
+LANE ME-GULF — SHARED-FILE ADDITIONS (row-in applied in the working tree; recorded here "regardless"
+per the lane hard rule, so the orchestrator can re-apply / verify after any shared-tree churn).
+Group: me-gulf · Owner: lane ME-GULF · Probed 2026-09-02, re-probed 2026-09-03 · NO commit.
+
+Adapter (net-new, no collision — all exports GULF_*/isInUAE/isInKuwait/isInBahrain/isInOman/
+UAE_BBOX/KUWAIT_BBOX/BAHRAIN_BBOX/OMAN_BBOX/resolveGulfParcel*-named):
+  packages/site-parcel-data/src/countryAdapters/gulf/
+    gulfJurisdiction.ts   — the 4 country pre-filter bboxes + isIn* predicates
+    gulfDeferrals.ts       — GulfDeferral + GULF_DEFERRALS (6 jurisdictions: AE-DU · AE-AZ · SA · KW ·
+                             BH · OM) + gulfDeferredRefusal + assertGulfDeferralsNotExpired
+    gulfParcelProvider.ts  — resolveGulfParcelAtWgs84Point/ById (one deferred resolver, by regionCode)
+    index.ts               — curated re-export barrel
+
+════════════════════════════════════════════════════════════════════════════════════════════════
+1) packages/site-parcel-data/src/index.ts  — ADD after the ME-OPEN `export * .../qa/index.js` line:
+════════════════════════════════════════════════════════════════════════════════════════════════
+export * from './countryAdapters/gulf/index.js';
+  (with the LANE ME-GULF comment block above it — see the applied edit)
+
+════════════════════════════════════════════════════════════════════════════════════════════════
+2) packages/site-parcel-data/src/parcelProviders/registry.ts
+════════════════════════════════════════════════════════════════════════════════════════════════
+IMPORT (after the isInQatar/QATAR_BBOX import):
+  import { UAE_BBOX, KUWAIT_BBOX, BAHRAIN_BBOX, OMAN_BBOX } from '../countryAdapters/gulf/gulfJurisdiction.js';
+
+ROWS (PARCEL_JURISDICTIONS — inserted just BEFORE the existing SA row; SA note UPDATED in place):
+  { regionCode:'AE', providerId:'footprint', kind:'footprint-fallback', proxyPath:null,
+    contains: claimsNation('AE'), note: <names BOTH emirate gates — Dubai vantage-TCP-fence, Abu
+    Dhabi F5-WAF — + emirate competency + reviewBy 2027-03-02> }
+  { regionCode:'KW', ... contains: claimsNation('KW'), note: <PACI no-open-channel one-liner> }
+  { regionCode:'BH', ... contains: claimsNation('BH'), note: <SLRB eKey one-liner> }
+  { regionCode:'OM', ... contains: claimsNation('OM'), note: <NSDI vantage/WAF one-liner> }
+  SA row note REPLACED: stale "IP geo-fenced (WAF-blocks non-SA IPs, L-606)" -> the L-606 DELTA
+    (ArcGIS root/portal now answer a foreign IP; every data folder = 499 Token Required; Balady SSO /
+    Nafath credential-class gate). `contains` LEFT as isInSaudiArabia (SAU already in the boundary set,
+    filtered correctly; minimal change to the pre-existing row).
+
+REGION_BBOX (specificity map — ADD after QA: QATAR_BBOX):
+  AE: UAE_BBOX,  KW: KUWAIT_BBOX,  BH: BAHRAIN_BBOX,  OM: OMAN_BBOX,
+
+════════════════════════════════════════════════════════════════════════════════════════════════
+3) packages/site-parcel-data/src/jurisdiction/nationalJurisdictionResolver.ts  (+ its data JSON)
+════════════════════════════════════════════════════════════════════════════════════════════════
+IMPORT (after the isInSweden import):
+  import { isInUAE, isInKuwait, isInBahrain, isInOman } from '../countryAdapters/gulf/gulfJurisdiction.js';
+CANDIDATE_PREFILTERS += (after the SI ['SVN',isInSlovenia] row):
+  ['ARE', isInUAE], ['KWT', isInKuwait], ['BHR', isInBahrain], ['OMN', isInOman],
+DATA — nationalBoundaries.json `countries` += ARE/KWT/BHR/OMN (regionCodes AE/KW/BH/OM). The exact
+  4 objects + the re-apply recipe + the byte-exact-validated extraction script are in
+  audit/intl-parcels/2026-09-02/resolver-additions-me-gulf/ (gulf-countries.json + README.txt +
+  extract.mjs). ne_10m sha256 239eec57… == the file's pinned sourceSha256 (provenance-consistent).
+  ⚠ Qatar (QAT) is deliberately NOT added — Qatar is the QA lane's jurisdiction.
+
+════════════════════════════════════════════════════════════════════════════════════════════════
+4) packages/site-parcel-data/__tests__/nationalJurisdictionResolver.test.ts  (SHARED test)
+════════════════════════════════════════════════════════════════════════════════════════════════
+CONTROLS += one interior CLAIM per new country (keeps `covers every country in the boundary set` true):
+  ['Dubai',25.1972,55.2744,'ARE'] ['Kuwait City',29.3759,47.9774,'KWT']
+  ['Manama',26.2285,50.586,'BHR'] ['Muscat',23.588,58.3829,'OMN']
+
+NEW test file (net-new, no shared-file edit): __tests__/meGulfRegistryWiring.test.ts — 32 tests,
+  all green; routing + deferral-honesty + provenance, recorded-live fixtures = the gate transcripts.
+
+════════════════════════════════════════════════════════════════════════════════════════════════
+VERIFICATION (this environment, 2026-09-03):
+  • tsc -p tsconfig.json --noEmit  → 0 errors in any ME-GULF file (1 unrelated pre-existing error:
+    frPrescriptionGeometry.test.ts wants a missing `Pt` export — another lane's WIP, not this lane's).
+  • vitest meGulfRegistryWiring + nationalJurisdictionResolver + parcelRegistryWiring +
+    parcelRegistryNationalWiring + meOpenRegistryWiring + jurisdictionSpecificity + parcelRegistry
+    → 279/279 passed. Dubai/AbuDhabi/Sharjah → [AE] (was mislabelled SA); Kuwait→[KW]; Manama→[BH];
+    Muscat→[OM]; Riyadh/Dammam→[SA]; Doha→[QA,SA] (QA lane intact); Qatar REFUSES (not annexed).

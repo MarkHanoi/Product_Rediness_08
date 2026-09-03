@@ -877,6 +877,41 @@ export {
     type DkPlanEnvelopeResolution,
     type DkFarWithheldReason,
 } from './rulepacks/dkPlandataEnvelope.js';
+// ── LANE DK-BINDING (2026-09-02) — the byggefelt BINDING-vs-MAXIMUM distinction (bygkunifelt=true
+//    ⇒ a MANDATORY placement / MIN obligation, the never-UNDERSTATE dual of never-overstate). The
+//    obligation (`footprintIsRequired`) is recorded OWED (schema frozen), never faked. ──
+export {
+    resolveDkByggefeltEnvelopeContribution,
+    dkByggefeltCitation,
+    DK_BYGGEFELT_OBLIGATION_OWED,
+    DK_BYGGEFELT_REQUIRED_FIELD_CAVEAT,
+    type DkByggefeltEnvelopeContribution,
+    type DkByggefeltEnvelopeSemantics,
+    type DkByggefeltObligationRepresentation,
+} from './rulepacks/dkByggefeltBinding.js';
+// ── LANE PL-POG (2026-09-03) — POLAND POG APP GML 2.0 strefa parameters → envelope-contribution
+//    scalars (Type-B COMPILE; CENSUS.md row 23). HEIGHT binds (metric absolute cap, range-gated);
+//    FAR + COVERAGE are compiled FACTS but WITHHELD from the binding multiply (działka-budowlana
+//    denominator, C63); the coverage-gap refusal is transient-by-name, never the pre-reform MPZP. ──
+export {
+    PL_POG_JURISDICTION_ID,
+    PL_POG_DEFAULT_ZONE_CODE,
+    PL_POG_HEIGHT_MAX_M,
+    PL_POG_METRE_UOMS,
+    PL_POG_ENVELOPE_REF,
+    PL_POG_SOURCE_ID,
+    resolvePlPogEnvelope,
+    plPogFieldsFromStrefa,
+    plPogCitationFromStrefa,
+    plPogZoningRecord,
+    plPogZoningRecordFromStrefa,
+    plPogPlanIdentityOf,
+    plPogCoverageGapRefusal,
+    type PlPogFields,
+    type PlPogCitation,
+    type PlPogWithheldReason,
+    type PlPogEnvelopeResolution,
+} from './rulepacks/plPogEnvelope.js';
 export { isInDenmark, DENMARK_BBOX } from './providers/denmarkBbox.js';
 // ── ADR-0271 — Barcelona metropolitan jurisdiction gate (bbox). ──
 export { isInBarcelona, BARCELONA_BBOX } from './providers/barcelonaBbox.js';
@@ -2370,6 +2405,19 @@ export {
 // is an explicit, curated re-export list (DK's five `export *` lines are the recorded odd one
 // out, L-12875), so these wildcards have a closed, reviewed surface. ──────────────────────────
 export * from './countryAdapters/ee/index.js';
+// LANE SI (europe-adapters-2, 2026-09-03) — Slovenia, a LIVE keyless cadastre (GURS Kataster
+// nepremičnin SI.GURS.KN:PARCELE) + honest no-rule-pack path (numeric OPN rules are municipal
+// text). Routing DORMANT until SVN is promoted from a resolver neighbour to a country. Every export
+// is Si/SI-prefixed (siCountryAdapter, SLOVENIA_BBOX, isInSlovenia, SI_SOURCES, SI_KN_WFS_BASE); its
+// OWS-exception helper is `extractSiOwsExceptionText`, so no collision with the shared name.
+export * from './countryAdapters/si/index.js';
+export * from './countryAdapters/hr/index.js';
+// LANE HU (europe-adapters-2, 2026-09-03) — Hungary. DECLARED DEFERRAL: national cadastre fee-gated
+// (Lechner TAKARNET/Geoshop); the keyless INSPIRE CP WFS covers the Mesterszállás sample only, so a
+// capital click is a self-announcing deferral (HU_INSPIRE_CP_DEFERRED_TOKEN), never a false absence.
+// All exports are Hu*/HU_*/isInHungary/HUNGARY_BBOX-prefixed; its OWS-exception helper is
+// `extractHuOwsExceptionText`, so no collision with the shared `extractOwsExceptionText`.
+export * from './countryAdapters/hu/index.js';
 export * from './countryAdapters/dk/index.js';
 export * from './countryAdapters/lt/index.js';
 export * from './countryAdapters/pl/index.js';
@@ -2379,6 +2427,50 @@ export * from './countryAdapters/fi/index.js';
 export * from './countryAdapters/no/index.js';
 export * from './countryAdapters/fr/index.js';
 export * from './countryAdapters/pt/index.js';
+// LANE AU-OPEN — AUSTRALIA (open states) parcel adapter. Every export is Au*/AU_*/isIn*-named, so a
+// star re-export cannot collide with the existing barrel.
+export * from './countryAdapters/au/index.js';
+// LANE RO (2026-09-03) — Romania, a two-gate DECLARED DEFERRAL. All exports are RO-prefixed
+// (roCountryAdapter, ROMANIA_BBOX, claimsRomania, RO_SOURCES, RO_ANCPI_*), no wildcard collision.
+export * from './countryAdapters/ro/index.js';
+// LANE LV (2026-09-03) — Latvia, a LIVE keyless cadastre (geolatvija vraa:parcel) + DEFERRED rules
+// (numeric envelope in TIAN legal HTML). Routing DORMANT until LVA is promoted from a resolver
+// neighbour to a country. Every export is Lv/LV-prefixed (lvCountryAdapter, LATVIA_BBOX, isInLatvia,
+// claimsLatvia, LV_SOURCES, LV_PARCEL_*, resolveLvParcel*, LV_JURISDICTION_DEFERRAL), no collision.
+export * from './countryAdapters/lv/index.js';
+// LANE GR (2026-09-03) — Greece, a LIVE keyless cadastre + DOCUMENTS-ONLY rules. Every export is
+// GR-prefixed (grCountryAdapter, GREECE_BBOX, isInGreece, GR_SOURCES, GR_PARCEL_*, resolveGrParcel*,
+// GREECE_ROUTING_DEFERRAL), no wildcard collision.
+export * from './countryAdapters/gr/index.js';
+// LANE BG (2026-09-03) — Bulgaria, a LIVE keyless cadastre (GCCA/AGKK INSPIRE Cadastral Parcels) +
+// DOCUMENTS-ONLY rules. Routing DORMANT until BGR enters the national resolver. Every export is
+// Bg/BG-/Bulgaria-prefixed (bgCountryAdapter, BULGARIA_BBOX, isInBulgaria, BG_SOURCES, BG_PARCEL_*,
+// resolveBgParcel*, BG_ROUTING_DEFERRAL), no wildcard collision.
+export * from './countryAdapters/bg/index.js';
+// LANE SK (2026-09-03) — Slovakia, a LIVE keyless ÚGKK/GKÚ ESKN cadastre + DOCUMENTS-ONLY rules.
+// Every export is SK-/sk-/Slovakia-prefixed (skCountryAdapter, SLOVAKIA_BBOX, isInSlovakia,
+// SK_SOURCES, SK_PARCEL_*, resolveSkParcel*, SK_ROUTING_DEFERRAL), no wildcard collision.
+export * from './countryAdapters/sk/index.js';
+// LANE ME-OPEN (2026-09-03) — MIDDLE EAST open channels: TR · IL · QA (keyless national cadastres,
+// live-probed 2026-09-02). Every export is Tr*/Il*/Qa*/TR_/IL_/QA_-named or otherwise unique
+// (isInTurkey/isInIsrael/isInQatar, TURKEY_BBOX/ISRAEL_BBOX/QATAR_BBOX, wgs84ToItm/itmToWgs84,
+// ITM_PARAMS, extractStoreyHintFromNitelik), so the star re-exports cannot collide with the barrel.
+export * from './countryAdapters/tr/index.js';
+export * from './countryAdapters/il/index.js';
+export * from './countryAdapters/qa/index.js';
+// LANE ME-GULF (2026-09-02) — MIDDLE EAST Gulf (GCC): AE · KW · BH · OM, four DECLARED-DEFERRAL
+// parcel jurisdictions (every Gulf parcel channel probed 2026-09-02 / re-probed 2026-09-03 is
+// gated or vantage-blocked; SA's note is updated in registry.ts for the L-606 token/SSO delta).
+// The four Gulf COUNTRIES are added to the national boundary set as claimable rivals to Saudi.
+// Every export is GULF_*/isInUAE/isInKuwait/isInBahrain/isInOman/UAE_BBOX/KUWAIT_BBOX/BAHRAIN_BBOX/
+// OMAN_BBOX/resolveGulfParcel*-named — unique, so the star re-export cannot collide with the barrel.
+export * from './countryAdapters/gulf/index.js';
+// LANE US-EXPAND (2026-09-03) — the US parcel adapter (parcel-only): MassGIS statewide (US-MA), FDOR
+// statewide (US-FL), King County (US-WA-KING), Harris/HCAD (US-TX-HARRIS), one shared ArcGIS client.
+// Exports are Us*/US_*/isIn*-named (isInMassachusetts/isInFlorida/isInKingCountyWa/isInHarrisCountyTx,
+// US_MA_PARCELS…, usMaParcelProvider…) plus the shared helpers toFiniteNum/parseRing/ringAreaM2/
+// isInUsBbox — none of which any other barreled module exports (checked), so no wildcard collision.
+export * from './countryAdapters/us/index.js';
 
 // ⚠ ONE ambiguity between the adapter wildcards, resolved explicitly rather than silently:
 // EE (eeWfsClient) and NO (noMatrikkelClient) each mint their OWN `extractOwsExceptionText`

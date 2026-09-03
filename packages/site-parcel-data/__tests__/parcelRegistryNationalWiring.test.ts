@@ -75,8 +75,9 @@ describe('L-12871 reachability — the five country adapters are now routed to',
         ['Kaunas', 54.8985, 23.9036, 'LT', 'lt-rc-ntr-parcels-featureserver'],
         ['Warsaw', 52.2297, 21.0122, 'PL', 'pl-gugik-uldk'],
         ['Kraków', 50.0647, 19.945, 'PL', 'pl-gugik-uldk'],
-        ['Luxembourg City', 49.6116, 6.1319, 'LU', 'footprint'],
-        ['Esch-sur-Alzette', 49.4958, 5.9806, 'LU', 'footprint'],
+        // LANE LU-PARCEL (2026-09-03): LU flipped footprint → LIVE cadastral (ACT / INSPIRE cp).
+        ['Luxembourg City', 49.6116, 6.1319, 'LU', 'lu-act-inspire-cp'],
+        ['Esch-sur-Alzette', 49.4958, 5.9806, 'LU', 'lu-act-inspire-cp'],
         ['Stockholm', 59.3293, 18.0686, 'SE', 'se-lantmateriet-fastighetsindelning'],
         ['Visby', 57.6348, 18.2948, 'SE', 'se-lantmateriet-fastighetsindelning'],
     ];
@@ -368,10 +369,14 @@ describe('L-12871 §8 — each row declares the access state its lane measured',
         expect(row('SE').note).toContain('401');
     });
 
-    it('LU is a footprint-fallback: the LU adapter ships no parcel provider at all', () => {
-        expect(row('LU').kind).toBe('footprint-fallback');
-        expect(row('LU').proxyPath).toBeNull();
-        expect(row('LU').note).toContain('NO parcel source is wired');
+    it('LU is now cadastral: the ACT / INSPIRE parcel WFS is live + keyless (lane LU-PARCEL 2026-09-03)', () => {
+        // FLIPPED from footprint-fallback: the E7-LU "no parcel source" verdict was about the
+        // PAG-GPKG NUM_CADAST channel; the ACT INSPIRE cp:CP.CadastralParcel WFS is a DIFFERENT,
+        // live source that resolves the parcel under a click by geometry (founder click → 075F00137000000).
+        expect(row('LU').kind).toBe('cadastral');
+        expect(row('LU').proxyPath).toBe('/api/parcel/lu');
+        expect(row('LU').providerId).toBe('lu-act-inspire-cp');
+        expect(row('LU').note).toContain('075F00137000000');
     });
 
     it('every new row has a finite specificity (none can silently sort last)', () => {
@@ -519,11 +524,12 @@ describe('L-12871 §10 — measured coverage over the ten largest cities of each
 
     it('LU is the country the tolerance costs most — 6 of 10, and that is a DATA limit', () => {
         // Luxembourg is ~82 km across against a MEASURED 1500 m boundary tolerance, so a large share
-        // of it sits in the un-separable band. Registering it is still strictly better than not: with
-        // no row all ten towns are attributed to Germany or France, and the row is a
-        // footprint-fallback either way, so no click changes what the user actually gets.
+        // of it sits in the un-separable band. The 4 border towns that refuse nationally still fall
+        // to their FR/DE footprint. The 6 that DO claim LU now reach the LIVE ACT / INSPIRE cadastre
+        // (lane LU-PARCEL flipped the row footprint → cadastral) — so for those a click now returns a
+        // real Luxembourg parcel instead of an OSM footprint. The tolerance limit is unchanged.
         const luRouted = CITIES.LU!.filter(([, lat, lon]) => codes(lat, lon).includes('LU')).length;
         expect(luRouted).toBe(6);
-        expect(row('LU').kind).toBe('footprint-fallback');
+        expect(row('LU').kind).toBe('cadastral');
     });
 });

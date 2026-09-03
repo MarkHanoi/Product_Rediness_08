@@ -1,0 +1,23 @@
+# DUBAI probe transcript — captured 2026-09-03T05:43:02Z — UA: PRYZM-Research/1.0 (+https://pryzm.app; contact pryzmhello@gmail.com)
+## data hosts (authoritative parcel channels)
+$ curl -A UA --max-time 25 'https://www.dubaipulse.gov.ae/'
+curl: (28) Failed to connect to www.dubaipulse.gov.ae port 443 after 21266 ms: Could not connect to server
+  HTTP=000 time=21.266098s
+  RC=28
+$ curl -A UA --max-time 25 'https://geodubai.dm.gov.ae/arcgis/rest/services?f=json'
+curl: (28) Failed to connect to geodubai.dm.gov.ae port 443 after 21343 ms: Could not connect to server
+  HTTP=000 time=21.343000s
+  RC=28
+$ curl -A UA --max-time 25 'https://gis.dm.gov.ae/'
+curl: (28) Connection timed out after 25014 milliseconds
+  HTTP=000 time=25.015000s
+  RC=28
+$ curl -A UA --max-time 25 'https://www.dm.gov.ae/'
+  HTTP=200 time=0.954382s
+  RC=0
+## AGOL past-the-viewer: official Dubai Municipality org (dubaimunicipalityitd) public items
+$ arcgis.com/sharing/rest/search?q=owner:dubaimunicipalityitd
+  total=1
+  - Web Map | Dubai Municipality HQ | (no service url)
+  -> only item is a Web Map 'Dubai Municipality HQ' (id 5ef062c43514440cb5831d75dbcdf42c); its /data?f=json operationalLayers=0, baseMap=OpenStreetMap. No hosted parcel FeatureServer.
+## AGOL parcel search — only third-party demos surfaced (Urban_Sydney, Sydney_Geodesign, gistec_agol reseller, jsaligoe_esri DEMO); NO authoritative DM/DLD keyless FeatureServer.

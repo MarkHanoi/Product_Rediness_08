@@ -1,0 +1,132 @@
+LANE SI — SLOVENIA · barrel-additions + queued shared-file changes
+==================================================================
+Written 2026-09-03. Re-application source for the SHARED files this lane touched, PLUS the
+resolver/boundary/proxy additions this lane deliberately did NOT apply (the fleet queue pattern:
+the HR/HU/LV lanes do the same — a lane never unilaterally promotes a country in the shared
+national boundary set, because those additions must be serialised by the orchestrator).
+
+New package files (already created, no conflict — Si*/SI_*/isInSlovenia/SLOVENIA_*-prefixed):
+  packages/site-parcel-data/src/countryAdapters/si/siJurisdiction.ts
+  packages/site-parcel-data/src/countryAdapters/si/siWfsClient.ts
+  packages/site-parcel-data/src/countryAdapters/si/siParcelProvider.ts
+  packages/site-parcel-data/src/countryAdapters/si/siSources.ts
+  packages/site-parcel-data/src/countryAdapters/si/index.ts
+  packages/site-parcel-data/__tests__/siParcelAdapter.test.ts
+  packages/site-parcel-data/__tests__/fixtures/si-ljubljana/recorded-live-2026-09-03.json
+  packages/site-parcel-data/__tests__/fixtures/si-ljubljana/queued-resolver-additions.json
+
+
+========================================================================================
+SECTION A — SHARED-FILE CHANGES ALREADY APPLIED (re-apply verbatim if a merge drops them)
+========================================================================================
+
+A1. packages/site-parcel-data/src/parcelProviders/registry.ts — the import (after the SWEDEN_BBOX import):
+
+    // LANE SI (europe-adapters-2, 2026-09-03) — SLOVENIA_BBOX is imported for the SPECIFICITY metric
+    // ONLY (`REGION_BBOX['SI']`); the SI row routes on `claimsNation('SI')`, never this rectangle.
+    import { SLOVENIA_BBOX } from '../countryAdapters/si/siJurisdiction.js';
+
+A2. registry.ts — the SI row (place in the countryAdapters block; order is not load-bearing —
+    the SI row was inserted immediately BEFORE the `regionCode: 'HU'` row):
+
+    {
+        // LANE SI (europe-adapters-2, 2026-09-03) — SLOVENIA, registered in FINAL form: the parcel
+        // service is LIVE + KEYLESS and proven at the capital, so this is a `cadastral` row whose
+        // gate is a single-line resolver flip, never a misroute today (the LV/EE precedent).
+        regionCode: 'SI',
+        countryName: 'Slovenia',
+        providerId: 'si-gurs-kn-parcele',
+        label: 'Parcela (Slovenia · GURS Kataster nepremičnin)',
+        proxyPath: '/api/parcel/si',
+        kind: 'cadastral',
+        contains: claimsNation('SI'),
+        note: '<see the applied row in registry.ts for the full note — live-probe evidence + the
+               DORMANT-ON-RESOLVER-GATE explanation + the HRV/HUN neighbour-integrity requirement>',
+    },
+
+A3. registry.ts — the REGION_BBOX entry (after `SE: SWEDEN_BBOX,`):
+
+    // LANE SI (2026-09-03) — specificity metric only for the DORMANT Slovenia row; the row routes on
+    // claimsNation('SI'), which is false until SVN is promoted from a resolver neighbour to a country
+    // (barrel-additions-si.txt). Overlaps ITALY_BBOX (the Trieste/Gorizia band), which is exactly why
+    // routing is by boundary geometry, not this rectangle.
+    SI: SLOVENIA_BBOX,
+
+A4. packages/site-parcel-data/src/index.ts — the barrel export (after the ee export):
+
+    // LANE SI (europe-adapters-2, 2026-09-03) — Slovenia, a LIVE keyless cadastre (GURS Kataster
+    // nepremičnin SI.GURS.KN:PARCELE) + honest no-rule-pack path (numeric OPN rules are municipal
+    // text). Routing DORMANT until SVN is promoted from a resolver neighbour to a country. Every export
+    // is Si/SI-prefixed (siCountryAdapter, SLOVENIA_BBOX, isInSlovenia, SI_SOURCES, SI_KN_WFS_BASE); its
+    // OWS-exception helper is `extractSiOwsExceptionText`, so no collision with the shared name.
+    export * from './countryAdapters/si/index.js';
+
+
+========================================================================================
+SECTION B — QUEUED FOR THE ORCHESTRATOR (NOT APPLIED — the single-line resolver flip + proxy)
+========================================================================================
+These clear the ONLY gate on the SI row. MEASURED-CORRECT 2026-09-03 through the real resolver
+(with injected deps) — see siParcelAdapter.test.ts "SI queued resolver promotion" (a PASSING test
+that drives the promotion AND a FALSIFICATION CONTROL). reviewBy 2026-12-01.
+
+⚠ NEIGHBOUR-INTEGRITY / CROSS-LANE COORDINATION (the load-bearing caveat):
+  Promoting SVN ALONE annexes 7/10 border-hugging Croatian/Hungarian points to SI (the L-12887
+  defect — MEASURED, reproduced as the falsification control in the test). SI's land neighbours
+  Croatia (HRV) and Hungary (HUN) MUST be resolver members when SVN is promoted. The CONCURRENT
+  HR + HU lanes are already promoting HRV + HUN to CLAIMABLE COUNTRIES (registry rows exist,
+  DORMANT, queued in barrel-additions-hr.txt / barrel-additions-hu.txt). THEREFORE:
+    • APPLY SI + HR + HU boundary/prefilter additions TOGETHER. If HRV + HUN land as .countries in
+      the same wave, SI needs NO HRV/HUN neighbours (a code cannot be both a country and a
+      neighbour). This is the preferred path.
+    • ONLY IF SI must land ALONE (HR/HU not in the wave), add HRV + HUN as refusal-only neighbours
+      as a STOP-GAP, using the rings in:
+          packages/site-parcel-data/__tests__/fixtures/si-ljubljana/queued-resolver-additions.json
+      (extracted 2026-09-03 from ne_10m, sourceSha256 239eec57… — BYTE-IDENTICAL to
+      nationalBoundaries.json's own sourceSha256; shapely simplify(0.0009°≈DP-100m) + 5-decimal
+      rounding, same pipeline as the existing neighbours). HR/HU's later country promotion then
+      supersedes these neighbours (move the code from neighbours → countries).
+
+B1. jurisdiction/data/nationalBoundaries.json — PROMOTE SVN neighbour → claimable country:
+      countries["SVN"] = { "regionCode": "SI", "rings": <the EXISTING neighbours["SVN"].rings, verbatim> }
+      delete neighbours["SVN"]
+    (No new geometry — SVN's rings are already validated in the set. Update neighboursNote to record
+    the promotion + the HRV/HUN coordination, and note the count is now 17 claimable countries.)
+
+B2. jurisdiction/nationalJurisdictionResolver.ts — add the SVN pre-filter:
+      import { isInSlovenia } from '../countryAdapters/si/siJurisdiction.js';   // after isInSweden import
+      // and in CANDIDATE_PREFILTERS, after ['SWE', isInSweden]:
+      ['SVN', isInSlovenia],   // pre-filter only; countries.SVN + HRV/HUN membership decide
+
+B3. server/jurisdiction/euCadastreProxy.js — the `si` proxy row + url builder (mirrors the `ee` row;
+    MEASURED live 2026-09-03: srsName=EPSG:4326 + lat,lon urn bbox → WGS84 [lon,lat] ring, 12
+    candidates at the capital incl. the click parcel). Add the builder near eeUrl:
+
+      function siUrl(lat, lon) {
+          const bbox = `${lat - HALF_DEG},${lon - HALF_DEG},${lat + HALF_DEG},${lon + HALF_DEG},urn:ogc:def:crs:EPSG::4326`;
+          return 'https://ipi.eprostor.gov.si/wfs-si-gurs-kn/ows?service=WFS&version=2.0.0&request=GetFeature' +
+              '&typeNames=SI.GURS.KN:PARCELE&srsName=EPSG:4326' +
+              `&count=20&outputFormat=application/json&bbox=${encodeURIComponent(bbox)}`;
+      }
+
+    and the EU_CADASTRE_SOURCES entry:
+
+      si: {
+          guard: (lat, lon) => lat >= 45.4 && lat <= 46.9 && lon >= 13.3 && lon <= 16.65,
+          url: siUrl,
+          format: 'geojson',
+          source: 'si-gurs-kn-parcele',   // = the registry providerId (one spelling per source, C84 EI-9)
+          normalise: (c) => {
+              const p = c.props || {};
+              // Canonical human reference KO_ID + ST_PARCELE ("1725 2468/4"); fall back to the stable EID.
+              const ko = jsonProp(p, 'KO_ID');
+              const st = jsonProp(p, 'ST_PARCELE');
+              const refcat = (ko != null && st != null ? `${ko} ${st}` : String(jsonProp(p, 'EID_PARCELA') ?? '')).trim();
+              const areaM2 = Number(jsonProp(p, 'POVRSINA')) || ringAreaM2(c.ring);   // POVRSINA is registered m²
+              const address = jsonProp(p, 'NAZIV');   // "1725 AJDOVŠČINA" (KO id + name)
+              return { refcat, areaM2, address: address ? String(address) : null };
+          },
+      },
+
+After B1+B2 (+ B3 for the browser path): a Ljubljana click routes claimsNation('SI') → the live KN
+cadastre → a real parcel. Until then the row is DORMANT-BUT-SAFE (a SI click falls to the OSM
+footprint exactly as before, never a misroute — proven by the "DORMANT-BUT-SAFE" test).

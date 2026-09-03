@@ -1,0 +1,94 @@
+LANE BG — barrel additions for the orchestrator to RE-APPLY on conflict.
+These edits were ALREADY APPLIED LIVE by the lane (2026-09-03) and the package's full suite passes
+(200 files, 4211 passed / 3 skipped; typecheck RC=0). This file is the re-apply source for the two
+SHARED files (parcelProviders/registry.ts + src/index.ts). All BG symbols are BG-/bg-/Bulgaria-
+prefixed, so the `export *` cannot collide.
+
+Bulgaria is the GR/HR/SI class: a LIVE, KEYLESS, capital-PROVEN cadastre whose ONE open gate is the
+JURISDICTION gate (BGR not in the national resolver). Registered `cadastral` in FINAL form, DORMANT
+until a boundary wave adds BGR — a single-line flip, never a misroute today.
+
+================================================================================
+FILE 1: packages/site-parcel-data/src/parcelProviders/registry.ts
+================================================================================
+
+(1a) IMPORT — add immediately after the `GREECE_BBOX` import (the L-12871 / new-country bbox group):
+
+// LANE BG (2026-09-03) — SPECIFICITY-ONLY box for the DORMANT Bulgaria row (contains is
+// claimsNation('BG'), never this rectangle; the resolver decides). Imported for REGION_BBOX only.
+import { BULGARIA_BBOX } from '../countryAdapters/bg/bgJurisdiction.js';
+
+(1b) ROW — add a new ParcelJurisdiction row in PARCEL_JURISDICTIONS, immediately AFTER the GR row
+     (regionCode 'GR') and BEFORE the SK row, with this leading comment:
+
+    // LANE BG (2026-09-03) — BULGARIA. Like GR above (and unlike RO/HU), the SERVICE gate is
+    // CLEARED: the GCCA/AGKK INSPIRE Cadastral-Parcels service answers a KEYLESS ArcGIS REST query
+    // and was LIVE-PROVEN at Sofia (nationalcadastralref 68134.100.5). So this registers `cadastral`
+    // (not footprint — the source is reachable). The ONE open gate is JURISDICTION: BGR is absent
+    // from the national boundary set, so claimsNation('BG') is false everywhere and THIS ROW IS
+    // DORMANT until a boundary wave adds BGR (bgJurisdiction.ts BG_ROUTING_DEFERRAL) — exactly GR's
+    // gate. proxyPath is RESERVED: `/api/parcel/bg` needs a `bg` row in server/jurisdiction/
+    // euCadastreProxy.js (the PROXY-EE-LT-PL pattern for a new country); until then a match self-
+    // corrects to the footprint on the proxy 404. providerId reserved by countryAdapters/bg/.
+    {
+        regionCode: 'BG',
+        countryName: 'Bulgaria',
+        providerId: 'bg-gcca-inspire-cadastral-parcel',
+        label: 'Поземлен имот (Bulgaria · ГКГК/АГКК INSPIRE Cadastral Parcels)',
+        proxyPath: '/api/parcel/bg',
+        kind: 'cadastral',
+        contains: claimsNation('BG'),
+        note: 'Bulgaria: GCCA/AGKK (Агенция по геодезия, картография и кадастър) INSPIRE Cadastral-Parcels — a KEYLESS ArcGIS REST service (inspire.cadastre.bg/arcgis/rest/services/Cadastral_Parcel/MapServer/0, capabilities Data,Map,Query; layer 0 CP.CadastralParcel; stored EPSG:4258, outSR=4326 → WGS84 ring), LIVE-PROBED 2026-09-03 by lane BG (real поземлен имот with nationalcadastralref + WGS84 ring; countryAdapters/bg/ carries the parser + recorded-live fixtures __tests__/fixtures/bg-sofia-2026-09-03/ + transcript audit/europe-adapters-2/2026-09-02/lane-bg-transcripts/). Channel discovered via the national INSPIRE geoportal inspire.egov.bg → GeoNetwork record "Cadastral parcels - GCCA"; the KAIS app backend arcgis.cadastre.bg is WAF-guarded (do not use), and the INSPIRE download WFS is disabled for parcels (WMS GetFeatureInfo + REST query are the keyless channels). LIVE CLICK PROOF: Sofia capital (42.6975,23.3223) → nationalcadastralref 68134.100.5 (68134 = EKATTE for Sofia), areavalue 3499 m², id_namespace BG.CP, 51-vertex WGS84 ring. TWO wiring steps pending (the row is DORMANT until step 1): (1) BGR is NOT in jurisdiction/data/nationalBoundaries.json, so claimsNation("BG") is false everywhere — a boundary wave must add BGR together with RS/RO/GR/TR/MK land-neighbour integrity (bgJurisdiction.ts BG_ROUTING_DEFERRAL, reviewBy 2027-03-01); (2) /api/parcel/bg needs a euCadastreProxy.js `bg` row (outSR=4326 → WGS84 ring, areavalue served) to serve production clicks. Rules are DOCUMENTS-ONLY (ОУП/ПУП under ЗУТ = PDF/DWG per municipality; Sofia has a city GIS island Sofiaplan; no national machine-readable zoning register). The official cadastral EXTRACT is a PAID KAIS service (parcel axis YELLOW: free view/query, paid extract).',
+    },
+
+(1c) REGION_BBOX — add immediately after `GR: GREECE_BBOX,` in the REGION_BBOX map (before the SK entry):
+
+    // LANE BG (2026-09-03). Specificity-metric entry only — the row's `contains` is claimsNation('BG')
+    // (dormant until BGR enters the resolver). No registered parcel box asserts sovereignty over BG
+    // points; the box never routes, it only guarantees a finite (never +Infinity) specificity rank.
+    BG: BULGARIA_BBOX,
+
+  ⚠ REQUIRED: parcelRegistryWiring.test.ts asserts EVERY registered row has a finite REGION_BBOX
+  entry. Adding the row (1b) WITHOUT this entry (1c) fails that test. Apply both or neither.
+
+================================================================================
+FILE 2: packages/site-parcel-data/src/index.ts
+================================================================================
+
+Add immediately after `export * from './countryAdapters/gr/index.js';` (before the SK export):
+
+// LANE BG (2026-09-03) — Bulgaria, a LIVE keyless cadastre (GCCA/AGKK INSPIRE Cadastral Parcels) +
+// DOCUMENTS-ONLY rules. Routing DORMANT until BGR enters the national resolver. Every export is
+// Bg/BG-/Bulgaria-prefixed (bgCountryAdapter, BULGARIA_BBOX, isInBulgaria, BG_SOURCES, BG_PARCEL_*,
+// resolveBgParcel*, BG_ROUTING_DEFERRAL), no wildcard collision.
+export * from './countryAdapters/bg/index.js';
+
+================================================================================
+NEW FILES (scoped to this lane, no conflict expected):
+  packages/site-parcel-data/src/countryAdapters/bg/bgJurisdiction.ts
+  packages/site-parcel-data/src/countryAdapters/bg/bgCadastreClient.ts   (reuses providers/containers/arcgisRest.ts)
+  packages/site-parcel-data/src/countryAdapters/bg/bgParcelProvider.ts
+  packages/site-parcel-data/src/countryAdapters/bg/bgSources.ts
+  packages/site-parcel-data/src/countryAdapters/bg/index.ts
+  packages/site-parcel-data/__tests__/bgAdapter.test.ts
+  packages/site-parcel-data/__tests__/fixtures/bg-sofia-2026-09-03/recorded-live-2026-09-03.json
+  packages/site-parcel-data/__tests__/fixtures/bg-sofia-2026-09-03/wms-getfeatureinfo-sofia.geojson
+
+================================================================================
+DOWNSTREAM WIRING (NOT this lane's deliverable — named for the orchestrator / follow-up lanes):
+  A. jurisdiction/data/nationalBoundaries.json — add a BGR boundary polygon (+ the
+     ["BGR", isInBulgaria] resolver prefilter row) so resolveNationalJurisdiction claims BG and
+     claimsNation('BG') becomes true (the row is dormant until this lands). This is the shared
+     L-12871 resolver's 1 MB file; BG must NOT add a rival bbox. ⚠ NEIGHBOUR-INTEGRITY: BG's land
+     neighbours are RS (Serbia), RO (Romania), GR (Greece), TR (Turkey), MK (North Macedonia). Add
+     BGR TOGETHER with those as resolver members (or refusal-only neighbour rings) so a coastal
+     rescue on the Black Sea coast never annexes a border-band neighbour point (the L-12887 defect).
+     NOTE the concurrent RO/GR/SK lanes are also promoting neighbours — coordinate the wave.
+  B. server/jurisdiction/euCadastreProxy.js — add a `bg` row (format 'arcgis', url builder with
+     outSR=4326 point query against inspire.cadastre.bg Cadastral_Parcel/MapServer/0, normalise
+     nationalcadastralref → refcat + areavalue → areaM2) so /api/parcel/bg serves production clicks.
+     Mirror the ee/lt rows. The REST query answers the DEFAULT (non-browser) UA — no UA header needed.
+  C. sourceRegistry/bg.ts + sourceRegistry/index.ts — migrate BG_SOURCES (the 2 rows in bgSources.ts)
+     into a proper sourceRegistry module + SOURCE_REGISTRY key, then delete bgSources.ts's local rows
+     and re-export the registry's (do NOT leave two — C84 EI-9). Same as the GR/HU migration.
+================================================================================

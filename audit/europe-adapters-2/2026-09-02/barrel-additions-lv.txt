@@ -1,0 +1,85 @@
+LANE LV — BARREL ADDITIONS (for the orchestrator to re-apply on conflict / to serialize the
+boundary-set change). registry.ts + src/index.ts were APPLIED by this lane (the brief instructs
+"your registry row goes in"); the resolver + boundaries promotion is QUEUED (a per-wave collision
+hotspot the orchestrator must apply once, alongside HU/RO/GR/ME-OPEN's queued additions).
+
+=====================================================================
+1. APPLIED — packages/site-parcel-data/src/parcelProviders/registry.ts
+=====================================================================
+(a) Import, after the RO import:
+    import { LATVIA_BBOX } from '../countryAdapters/lv/lvJurisdiction.js';
+
+(b) One ParcelJurisdiction row (placed before the LANE RO block), kind 'cadastral',
+    contains claimsNation('LV'), proxyPath '/api/parcel/lv', providerId
+    'lv-vzd-kadastrs-geolatvija'. FULL note in the file. Key facts: LV cadastre LIVE + keyless
+    (geolatvija vraa:parcel, proven at Rīga → code 01000070006), row DORMANT on GATE 2 (LVA is a
+    resolver neighbour, not a country) until the boundary wave below; proxy /api/parcel/lv not yet
+    wired server-side.
+
+(c) REGION_BBOX entry (before the RO entry):
+    LV: LATVIA_BBOX,
+
+If a merge conflict arises on registry.ts, re-apply (a)+(b)+(c). Every LV export is Lv/LV-prefixed;
+no star-export collision. The row is INERT-BUT-SAFE today (claimsNation('LV') is false everywhere),
+so applying it can never misroute a click.
+
+=====================================================================
+2. APPLIED — packages/site-parcel-data/src/index.ts
+=====================================================================
+    export * from './countryAdapters/lv/index.js';
+(after the ro export line, following the wave convention where every countryAdapter is barrelled).
+Re-apply on conflict. No collision (Lv/LV-prefixed exports).
+
+=====================================================================
+3. QUEUED — the LVA promotion (SERIALIZED boundary-wave change; NOT applied by this lane)
+=====================================================================
+This is the SINGLE-LINE-FLIP that activates the dormant LV row. It is out of this lane's scope by
+the brief ("no bbox of your own — the national-jurisdiction resolver decides (L-12871/12887
+closed)") and is a shared-geometry change every country lane in this wave needs, so the orchestrator
+must apply it ONCE (HU/RO/GR queued the same; HU's barrel-additions flags the neighbour-integrity
+requirement). Ready-to-apply:
+
+3a. packages/site-parcel-data/src/jurisdiction/data/nationalBoundaries.json
+    MOVE the existing `neighbours.LVA` entry (a full unclipped ring, 475 pts — already present) to
+    `countries.LVA`, adding `"regionCode": "LV"`. DELETE it from `neighbours`. No geometry is
+    sourced — the ring already ships; this only reclassifies it neighbour → claimable, exactly as
+    EST/LTU/POL/LUX/SWE were on 2026-09-02 and as ARE/KWT/BHR/OMN were by the ME-OPEN lane.
+
+3b. packages/site-parcel-data/src/jurisdiction/nationalJurisdictionResolver.ts
+    import { isInLatvia } from '../countryAdapters/lv/lvJurisdiction.js';
+    ...and add to CANDIDATE_PREFILTERS:  ['LVA', isInLatvia],
+
+3c. packages/site-parcel-data/__tests__/nationalJurisdictionResolver.test.ts  (shared test — move
+    Latvia from refusal witness to claim, in the SAME commit as 3a/3b):
+      - Remove 'Riga (LV)' and 'Daugavpils (LV)' from the L-12887 "interior points … stay refused"
+        list, and 'Valka (LV)' from the ANNEXED witnesses (Valka becomes a correct LV claim).
+      - Remove 'LVA' from the neighbour-provenance test's required-neighbour list.
+      - Add LV interior claims (Rīga 56.9496,24.1052 → regionCode 'LV'; Daugavpils 55.8714,26.5161).
+    After 3a, `NATIONAL_BOUNDARY_SET.countries` has 17→(21 with ME-OPEN's 4). See §5 flag below —
+    the CONTROLS-count invariant is ALREADY RED from the ME-OPEN countries and must be reconciled
+    for ALL newly-promoted countries at once, not just LV.
+
+3d. NOTHING in this lane's countryAdapters/lv/ needs editing when 3a–3c land: `claimsLatvia` and
+    `claimsNation('LV')` start returning true at Latvian points automatically. LV_JURISDICTION_DEFERRAL
+    (lvJurisdiction.ts) documents this; reviewBy 2026-12-01.
+
+=====================================================================
+4. server-side proxy (out of lane scope) — server/jurisdiction/euCadastreProxy.js
+=====================================================================
+Add an `lv` row mirroring the ee/lt/pl rows: base https://geolatvija.lv/geoserver/vraa/wfs,
+typeNames vraa:parcel, srsName=urn:ogc:def:crs:EPSG::4326 → WGS84 ring, WGS84 bbox click. Until
+then the row's proxyPath resolves null → OSM footprint (the IT/GB/NYC state), even after GATE 2
+clears. The provider parser is countryAdapters/lv/lvParcelProvider.ts (measured schema).
+
+=====================================================================
+5. CONCURRENT-LANE BREAKAGES OBSERVED (reported, NOT caused by LV, NOT fixed here)
+=====================================================================
+Measured 2026-09-03 in this working tree (proven independent of the LV edits by reverting
+registry.ts+index.ts to their pre-LV bytes — both still red):
+  5a. __tests__/nationalJurisdictionResolver.test.ts > "covers every country in the shipped
+      boundary set" FAILS: CONTROLS has 16 distinct countries but NATIONAL_BOUNDARY_SET.countries
+      now has 20 (ME-OPEN added ARE/KWT/BHR/OMN). Owner: whoever promoted those 4 (+ any others).
+      The 3c LV test edits must be folded into the same reconciliation.
+  5b. __tests__/frPrescriptionGeometry.test.ts(24,34): error TS2305 — '../src/index.js' has no
+      exported member 'Pt' (a concurrent FR/PT lane). Package tsc exit 2 is this one error; ZERO
+      errors are in countryAdapters/lv/**, registry.ts, or src/index.ts.

@@ -35,13 +35,23 @@ import { trace } from '@opentelemetry/api';
 import {
     componentCatalog as defaultCatalog,
     type ComponentCatalog,
+    type CatalogFetch,
+    type MarketplaceFamilyRow,
 } from '../../services/componentCatalog/index.js';
 import { armComponentPlaceTool } from './componentPlaceTool';
+// Lane U-SEED — the from-zero authoring path, opened from this browser's "New
+// Component" button. Static import is safe: it keeps `@pryzm/file-format` LAZY
+// (the U0 §5-D2 pdfjs/DOMMatrix lesson), so nothing heavy lands on this graph.
+import { openNewComponentWorkspace } from './newComponent';
 // Lane U3 — the definition-editor workspace, opened from this browser's
 // "Edit definition…" entry (UIUX-PLAN §U3's acceptance names this exact seam).
 // Static import is safe: the workspace keeps `@pryzm/file-format` LAZY (the U0
 // §5-D2 pdfjs/DOMMatrix lesson), so nothing heavy lands on this panel's graph.
 import { openComponentDefinitionWorkspace } from '../component-editor-workspace/index.js';
+// Lane U4 — the type catalog, opened from this browser's "Types…" entry
+// (UIUX-PLAN §U4: "the browser's type sub-list refinement"). Static import is safe
+// for the same reason the workspace is: the catalog keeps `@pryzm/file-format` LAZY.
+import { openComponentTypeCatalog } from '../component-type-catalog/index.js';
 
 const _tracer = trace.getTracer('@pryzm/editor.component-browser', '0.1.0');
 
@@ -67,10 +77,19 @@ function resolveCatalog(explicit?: ComponentCatalog): ComponentCatalog {
 export interface ComponentBrowserOptions {
     /** Test seam — production uses the runtime's advertised catalogue. */
     readonly catalog?: ComponentCatalog;
+    /** Test seam for the STARTER-LIBRARY leg (lane U-SEED). Production omits it,
+     *  so the catalogue's same-origin `fetch` reaches the live marketplace
+     *  (`GET /api/v1/families`); tests inject a fetch serving the seed bytes. */
+    readonly starterFetch?: CatalogFetch;
 }
 
 export class ComponentBrowserPanel {
     private readonly catalog: ComponentCatalog;
+    private readonly starterFetch: CatalogFetch | undefined;
+    /** Starter-library offers discovered from the marketplace, minus any already
+     *  loaded into the catalogue. Empty until `_refreshStarters()` resolves — so
+     *  the honest empty state renders SYNCHRONOUSLY on open regardless. */
+    private starterRows: readonly MarketplaceFamilyRow[] = [];
     private overlay: HTMLElement | null = null;
     private listEl: HTMLElement | null = null;
     private statusEl: HTMLElement | null = null;
@@ -81,6 +100,7 @@ export class ComponentBrowserPanel {
 
     constructor(opts: ComponentBrowserOptions = {}) {
         this.catalog = resolveCatalog(opts.catalog);
+        this.starterFetch = opts.starterFetch;
     }
 
     isOpen(): boolean {
@@ -95,6 +115,10 @@ export class ComponentBrowserPanel {
                 this._renderList();
                 this.unsubscribe = this.catalog.subscribe(() => this._renderList());
                 document.addEventListener('keydown', this.onKeyDown);
+                // ⭐ STARTER LIBRARY (lane U-SEED) — discover the app-shipped
+                // starters async; the sync render above already stands, so a slow
+                // or absent marketplace never delays the honest empty state.
+                void this._refreshStarters();
             } finally {
                 span.end();
             }
@@ -184,13 +208,26 @@ export class ComponentBrowserPanel {
         loadBtn.setAttribute('data-component-browser-load', '');
         loadBtn.textContent = 'Load Component…';
         loadBtn.style.cssText = [
-            'background:#6600FF', 'color:#fff', 'border:none',
+            'background:#fff', 'color:#6600FF', 'border:1px solid rgba(102,0,255,0.4)',
             'padding:8px 16px', 'border-radius:6px',
             'font-weight:600', 'cursor:pointer', 'font-size:13px',
         ].join(';');
         loadBtn.addEventListener('click', () => fileInput.click());
 
-        footer.append(loadBtn, fileInput);
+        // Lane U-SEED — the from-zero authoring path. Mints a minimal valid
+        // Component and opens U3's workspace on it (never a silent no-op click).
+        const newBtn = document.createElement('button');
+        newBtn.type = 'button';
+        newBtn.setAttribute('data-component-browser-new', '');
+        newBtn.textContent = 'New Component';
+        newBtn.style.cssText = [
+            'background:#6600FF', 'color:#fff', 'border:none',
+            'padding:8px 16px', 'border-radius:6px',
+            'font-weight:600', 'cursor:pointer', 'font-size:13px',
+        ].join(';');
+        newBtn.addEventListener('click', () => void this._newComponent());
+
+        footer.append(newBtn, loadBtn, fileInput);
         card.append(header, list, status, footer);
         overlay.appendChild(card);
         document.body.appendChild(overlay);
@@ -206,19 +243,79 @@ export class ComponentBrowserPanel {
         list.textContent = '';
 
         const views = this.catalog.list();
+        const loadedIds = new Set(views.map((v) => v.definitionId));
+
         if (views.length === 0) {
-            // ⭐ The honest empty state — an answer, with the live route forward.
+            // ⭐ The honest empty state — an answer, with the live routes forward.
             const empty = document.createElement('p');
             empty.setAttribute('data-component-browser-empty', '');
-            empty.style.cssText = 'margin:24px 0;color:#555;font-size:14px;line-height:1.5;text-align:center';
+            empty.style.cssText = 'margin:24px 0 12px;color:#555;font-size:14px;line-height:1.5;text-align:center';
             empty.textContent =
                 'No Component definitions are loaded in this project. ' +
-                'Use “Load Component…” below to load one from a file.';
+                'Load one from the starter library below, open one from a file, or start a new one.';
             list.appendChild(empty);
-            return;
+        } else {
+            for (const view of views) list.appendChild(this._definitionCard(view));
         }
 
-        for (const view of views) list.appendChild(this._definitionCard(view));
+        // ⭐ STARTER LIBRARY — the app-shipped Components a first-time user can
+        // load with one click, minus any already in the catalogue.
+        const offers = this.starterRows.filter((r) => !loadedIds.has(r.id));
+        if (offers.length > 0) list.appendChild(this._starterSection(offers));
+    }
+
+    private _starterSection(offers: readonly MarketplaceFamilyRow[]): HTMLElement {
+        const section = document.createElement('div');
+        section.setAttribute('data-component-browser-starters', '');
+        section.style.cssText = 'margin:8px 0 0;border-top:1px solid #eee;padding-top:12px';
+
+        const heading = document.createElement('h3');
+        heading.textContent = 'Starter Components';
+        heading.style.cssText = 'margin:0 0 8px;font-size:13px;color:#333;font-weight:600';
+        section.appendChild(heading);
+
+        for (const offer of offers) {
+            const row = document.createElement('div');
+            row.setAttribute('data-component-browser-starter', offer.id);
+            row.style.cssText =
+                'display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid #f2f2f2';
+
+            const name = document.createElement('span');
+            name.setAttribute('data-component-browser-starter-name', '');
+            name.textContent = offer.name;
+            name.style.cssText = 'font-size:13px;font-weight:600';
+
+            const category = document.createElement('span');
+            category.textContent = offer.category;
+            category.style.cssText = 'font-size:11px;color:#777';
+
+            // Provenance chip — an OFFER not yet in the catalogue reads "Starter".
+            const chip = document.createElement('span');
+            chip.setAttribute('data-component-browser-starter-provenance', 'starter');
+            chip.textContent = 'Starter';
+            chip.style.cssText = [
+                'font-size:10px', 'font-weight:600', 'text-transform:uppercase',
+                'letter-spacing:0.04em', 'color:#6600FF',
+                'background:rgba(102,0,255,0.08)', 'border:1px solid rgba(102,0,255,0.25)',
+                'border-radius:999px', 'padding:2px 8px', 'margin-left:auto',
+            ].join(';');
+
+            const load = document.createElement('button');
+            load.type = 'button';
+            load.setAttribute('data-component-browser-starter-load', offer.id);
+            load.textContent = 'Load';
+            load.style.cssText = [
+                'background:#6600FF', 'color:#fff', 'border:none',
+                'padding:4px 14px', 'border-radius:6px',
+                'font-weight:600', 'cursor:pointer', 'font-size:12px',
+            ].join(';');
+            load.addEventListener('click', () => void this._loadStarter(offer.id));
+
+            row.append(name, category, chip, load);
+            section.appendChild(row);
+        }
+
+        return section;
     }
 
     private _definitionCard(view: CatalogView): HTMLElement {
@@ -268,7 +365,25 @@ export class ComponentBrowserPanel {
             this._status('');
         });
 
-        head.append(name, semver, edit, chip);
+        // Lane U4 — the TYPE CATALOG for this LOADED definition. An unloaded
+        // definition (a race with remove()) refuses BY NAME into this panel's own
+        // status line — never a silent no-op click (C16 CA-18).
+        const types = document.createElement('button');
+        types.type = 'button';
+        types.setAttribute('data-component-browser-types', view.definitionId);
+        types.textContent = 'Types…';
+        types.style.cssText = [
+            'background:#fff', 'color:#6600FF', 'border:1px solid rgba(102,0,255,0.4)',
+            'padding:3px 10px', 'border-radius:6px',
+            'font-weight:600', 'cursor:pointer', 'font-size:11px',
+        ].join(';');
+        types.addEventListener('click', () => {
+            const res = openComponentTypeCatalog(view.definitionId);
+            if (!res.ok) { this._status(res.refusal); return; }
+            this._status('');
+        });
+
+        head.append(name, semver, edit, types, chip);
         card.appendChild(head);
 
         for (const t of view.types) {
@@ -323,6 +438,57 @@ export class ComponentBrowserPanel {
         }
         // subscribe() already re-rendered the list; the status line confirms.
         this._status('');
+    }
+
+    // ── Starter library leg (lane U-SEED) ──────────────────────────────────────
+
+    /** Discover the app-shipped starters via the ONE catalogue's marketplace
+     *  browse leg. Failure is HONEST — no starters, the empty state stands — and
+     *  is never allowed to break the panel. */
+    private async _refreshStarters(): Promise<void> {
+        try {
+            const res = await this.catalog.listMarketplace(
+                this.starterFetch ? { fetchImpl: this.starterFetch } : {},
+            );
+            if (!res.ok) return; // no live marketplace: the file-open / New paths stand
+            this.starterRows = [...res.rows];
+            this._renderList();
+        } catch {
+            // Starter discovery must never take the whole browser down.
+        }
+    }
+
+    /** Load one starter through the marketplace download leg (provenance
+     *  `'marketplace'`). subscribe() re-renders: the definition moves into the
+     *  main list and its offer row disappears. A refusal renders verbatim. */
+    private async _loadStarter(definitionId: string): Promise<void> {
+        this._status('');
+        const res = await this.catalog.loadFromMarketplace(
+            definitionId,
+            this.starterFetch ? { fetchImpl: this.starterFetch } : {},
+        );
+        if (!res.ok) {
+            this._status(res.message);
+            return;
+        }
+        this._status('');
+    }
+
+    // ── New Component leg (lane U-SEED) ─────────────────────────────────────────
+
+    /** Mint a minimal valid Component and open U3's definition workspace on it.
+     *  A mint/pack/load refusal renders verbatim in this panel's status line —
+     *  never a silent no-op click (C16 CA-18). */
+    private async _newComponent(): Promise<void> {
+        this._status('');
+        const res = await openNewComponentWorkspace(this.catalog);
+        if (!res.ok) {
+            this._status(res.refusal);
+            return;
+        }
+        // The workspace mounts its own modal above this one; close the browser so
+        // the author lands on the new definition without the list behind it.
+        this.close();
     }
 
     private _status(message: string): void {

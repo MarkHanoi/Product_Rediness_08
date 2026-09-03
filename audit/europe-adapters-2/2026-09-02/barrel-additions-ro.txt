@@ -1,0 +1,73 @@
+LANE RO — barrel additions for the shared files (orchestrator re-applies from here on conflict).
+Romania is a TWO-GATE DECLARED DEFERRAL. All four hunks below were applied live 2026-09-03 and the
+package's registry + wiring tests pass (152/152). If registry.ts / src/index.ts conflict on merge,
+re-apply exactly these.
+
+================================================================================================
+1) packages/site-parcel-data/src/parcelProviders/registry.ts — IMPORT (after the SWEDEN_BBOX import)
+================================================================================================
+Anchor line:
+    import { SWEDEN_BBOX } from '../countryAdapters/se/seJurisdiction.js';
+Add immediately after it:
+
+// LANE RO (2026-09-03) — SPECIFICITY-ONLY box for the DORMANT Romania row (contains is
+// claimsNation('RO'), never this rectangle; the resolver decides). Imported for REGION_BBOX only.
+import { ROMANIA_BBOX } from '../countryAdapters/ro/roJurisdiction.js';
+
+================================================================================================
+2) packages/site-parcel-data/src/parcelProviders/registry.ts — ROW (after the SE row in PARCEL_JURISDICTIONS)
+================================================================================================
+Anchor: the SE row ends with `... are NOT matched.',` then `    },`. Add this object next:
+
+    // LANE RO (2026-09-03) — ROMANIA, a TWO-GATE DECLARED DEFERRAL, registered in its FINAL form so
+    // clearing the gates is a single-line flip. GATE 1 (SERVICE): the ANCPI geoportal host is
+    // NXDOMAIN (measured 2026-09-02 + 2026-09-03), so there is nothing to route to — footprint-fallback,
+    // proxyPath null. GATE 2 (JURISDICTION): ROU is absent from the national boundary set, so
+    // claimsNation('RO') is FALSE everywhere today and this row is DORMANT (it matches nothing until a
+    // boundary wave adds ROU, exactly as EE/LT/PL/LU/SE were added). providerId reserved by
+    // countryAdapters/ro/roParcelProvider.ts so the row and the deferred adapter cannot drift apart.
+    {
+        regionCode: 'RO',
+        countryName: 'Romania',
+        providerId: 'ancpi-eterra3',
+        label: 'Building footprint (OSM)',
+        proxyPath: null,
+        kind: 'footprint-fallback',
+        contains: claimsNation('RO'),
+        note: 'Romania: ANCPI geoportal (INSPIRE Cadastral Parcel, eterra3_publish/MapServer/1, INSPIRE_ID-keyed GeoJSON over ArcGIS Server) is the national cadastre — DEFERRED on TWO gates (countryAdapters/ro/). GATE 1 SERVICE: geoportal.ancpi.ro is NXDOMAIN from Google + Cloudflare DoH and curl exit 6, measured 2026-09-02 AND 2026-09-03 (apex ancpi.ro resolves — zone live, geoportal subdomain absent); no served bytes, so no parser is shipped ([[fake-more-capable-than-real]]) and the two resolvers refuse with a self-announcing transient (roAncpiGate.ts RO_ANCPI_DEFERRAL, reviewBy 2026-12-01). GATE 2 JURISDICTION: ROU is not in jurisdiction/data/nationalBoundaries.json, so claimsNation("RO") is false everywhere and THIS ROW IS DORMANT until a boundary wave adds ROU (roJurisdiction.ts RO_JURISDICTION_DEFERRAL). Either gate alone keeps it dormant; both are open. Systematic land registration is also incomplete nationally (queryable ≠ complete per AOI).',
+    },
+
+================================================================================================
+3) packages/site-parcel-data/src/parcelProviders/registry.ts — REGION_BBOX (after `SE: SWEDEN_BBOX,`)
+================================================================================================
+Anchor:
+    SE: SWEDEN_BBOX,
+Add immediately after it (BEFORE the closing `};`):
+
+    // LANE RO — specificity metric for the DORMANT Romania row; never a router (claimsNation('RO')
+    // decides, and is false until ROU enters the resolver). No existing box overlaps ROMANIA_BBOX.
+    RO: ROMANIA_BBOX,
+
+  ⚠ REQUIRED: parcelRegistryWiring.test.ts asserts EVERY registered row has a finite REGION_BBOX
+  entry. Adding the row (hunk 2) WITHOUT this entry fails that test. Apply both or neither.
+
+================================================================================================
+4) packages/site-parcel-data/src/index.ts — BARREL (after the pt adapter export)
+================================================================================================
+Anchor:
+    export * from './countryAdapters/pt/index.js';
+Add immediately after it:
+
+// LANE RO (2026-09-03) — Romania, a two-gate DECLARED DEFERRAL. All exports are RO-prefixed
+// (roCountryAdapter, ROMANIA_BBOX, claimsRomania, RO_SOURCES, RO_ANCPI_*), no wildcard collision.
+export * from './countryAdapters/ro/index.js';
+
+================================================================================================
+NEW FILES (scoped to this lane, no conflict expected):
+  packages/site-parcel-data/src/countryAdapters/ro/roJurisdiction.ts
+  packages/site-parcel-data/src/countryAdapters/ro/roAncpiGate.ts
+  packages/site-parcel-data/src/countryAdapters/ro/roParcelProvider.ts
+  packages/site-parcel-data/src/countryAdapters/ro/roSources.ts
+  packages/site-parcel-data/src/countryAdapters/ro/index.ts
+  packages/site-parcel-data/__tests__/roAdapter.test.ts
+  packages/site-parcel-data/__tests__/fixtures/ro-ancpi-gate-2026-09-03/ancpi-gate-probe.txt

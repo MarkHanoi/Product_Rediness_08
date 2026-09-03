@@ -1,0 +1,123 @@
+LANE LU-PARCEL — barrel / shared-file additions record (2026-09-03)
+VERDICT: WIRED (live). Two real Luxembourg parcel ids resolved end-to-end through
+resolveParcelWithFallback → the /api/parcel/lu proxy → the LIVE ACT / INSPIRE endpoint:
+  founder click 49.61195,6.12926 → 075F00137000000   (label 137, 140.92 m²)
+  Esch-sur-Alzette 49.496,5.981  → 039A00606016640   (label 606/16640, 199.54 m²)
+  acceptance 49.611,6.129 (a road) → 075F00421000009 (nearest real parcel; the exact coord is
+                                     public domain, so nearest-centroid, still a real LU parcel)
+
+These edits were APPLIED to disk this session (the acceptance runs the real wired path). They are
+recorded here verbatim so the orchestrator can re-apply on a merge conflict with the concurrent
+EU-8 / intl parcel waves. All four SHARED files below are edited ADDITIVELY / surgically (one LU
+row, one proxy leg, two LU-only test assertions).
+
+════════════════════════════════════════════════════════════════════════════════════════════════
+OWNED FILES (this lane's — NOT shared, no orchestrator action needed beyond keeping them):
+════════════════════════════════════════════════════════════════════════════════════════════════
+  NEW  packages/site-parcel-data/src/countryAdapters/lu/luParcelProvider.ts
+         (the ACT/INSPIRE cp:CP.CadastralParcel WFS client + pure parser + point-in-polygon pick
+          + resolveLuParcelAtWgs84Point; FetchOutcome discipline end-to-end)
+  EDIT packages/site-parcel-data/src/countryAdapters/lu/index.ts
+         - import resolveLuParcelAtWgs84Point + type LuCadastralParcel
+         - add `parcel: { resolveAtWgs84Point }` to luCountryAdapter (the §J parcel leg; the
+           RULES half `rules:{kind:'structured',fetchChain:resolveLuZoneChain}` is UNCHANGED —
+           one authority per concept, C84 EI-9)
+         - re-export the luParcelProvider surface (barrel `export *` in src/index.ts already
+           re-exports lu/index.js, so NO src/index.ts edit is required or made)
+         - update the §J header `parcel →` line
+  NEW  packages/site-parcel-data/__tests__/luParcelProvider.test.ts        (12 tests, all green)
+  NEW  packages/site-parcel-data/__tests__/fixtures/lu-luxcity/recorded-live-2026-09-03.json
+  NEW  packages/site-parcel-data/__tests__/fixtures/lu-esch/recorded-live-2026-09-03.json
+
+  ⚠ src/index.ts is NOT edited (it already carries `export * from './countryAdapters/lu/index.js';`
+    at line ~2424, so every new LU symbol propagates automatically).
+
+════════════════════════════════════════════════════════════════════════════════════════════════
+SHARED FILE 1 — packages/site-parcel-data/src/parcelProviders/registry.ts   (the LU row FLIP)
+════════════════════════════════════════════════════════════════════════════════════════════════
+The single LU jurisdiction row (was footprint-fallback) becomes cadastral. FROM:
+
+        regionCode: 'LU',
+        countryName: 'Luxembourg',
+        providerId: 'footprint',
+        label: 'Building footprint (OSM)',
+        proxyPath: null,
+        kind: 'footprint-fallback',
+        contains: claimsNation('LU'),
+        note: 'Luxembourg: NO parcel source is wired — the E7-LU lane measured the national PAG …',
+
+TO (contains: claimsNation('LU') UNCHANGED; a preceding LANE LU-PARCEL comment added):
+        providerId: 'lu-act-inspire-cp',
+        label:      'Parcelle cadastrale (Luxembourg · ACT — INSPIRE Cadastral Parcels)',
+        proxyPath:  '/api/parcel/lu',
+        kind:       'cadastral',
+        note:       'Luxembourg IS served KEYLESSLY: the ACT / INSPIRE Cadastral-Parcels WFS 2.0
+                     (https://wms.inspire.geoportail.lu/geoserver/wfs, layer cp:CP.CadastralParcel …)
+                     … founder click 49.61195,6.12926 → 075F00137000000 … Esch → 039A00606016640 …'
+   (full note text is in the applied file — it quotes both ids, the CQL-vs-bbox fact, the
+    dense-parcel features[0]/truncation fact, and that it SUPERSEDES the E7-LU GPKG-channel verdict.)
+
+════════════════════════════════════════════════════════════════════════════════════════════════
+SHARED FILE 2 — server/jurisdiction/euCadastreProxy.js   (the /api/parcel/lu leg)
+════════════════════════════════════════════════════════════════════════════════════════════════
+(a) WIRED-CADASTRES header list — one line after the PL line:
+ *   • LU  wms.inspire.geoportail.lu/geoserver/wfs cp:CP.CadastralParcel (ACT) (GeoJSON, lon,lat) — 2026-09-03
+
+(b) A new URL builder inserted immediately AFTER function eeUrl(...) — LU gets its OWN small
+    window (LU parcels are dense; the shared HALF_DEG ±38 m truncates the true container past
+    `count` and pickCandidate then mis-picks a neighbour):
+
+        const LU_HALF_DEG = 0.0001;
+        function luUrl(lat, lon) {
+            const bbox = `${lat - LU_HALF_DEG},${lon - LU_HALF_DEG},${lat + LU_HALF_DEG},${lon + LU_HALF_DEG},urn:ogc:def:crs:EPSG::4326`;
+            return 'https://wms.inspire.geoportail.lu/geoserver/wfs?service=WFS&version=2.0.0&request=GetFeature' +
+                '&typeNames=cp:CP.CadastralParcel&srsName=EPSG:4326' +
+                `&count=30&outputFormat=application/json&bbox=${encodeURIComponent(bbox)}`;
+        }
+
+(c) A new `lu` entry in EU_CADASTRE_SOURCES, inserted after the `ee` entry (format 'geojson',
+    parsed by the existing parseGeoJsonCandidates + pickCandidate point-in-polygon):
+
+        lu: {
+            guard: (lat, lon) => lat >= 49.44 && lat <= 50.19 && lon >= 5.72 && lon <= 6.54,
+            url: luUrl,
+            format: 'geojson',
+            source: 'lu-act-inspire-cp',
+            normalise: (c) => {
+                const p = c.props || {};
+                const refcat = String(jsonProp(p, 'national_cadastral_reference') ?? '').trim();
+                const areaM2 = Number(jsonProp(p, 'area')) || ringAreaM2(c.ring);
+                const label = jsonProp(p, 'label');
+                return { refcat, areaM2, address: label ? String(label) : null };
+            },
+        },
+
+   No route change needed: server/jurisdiction/index.js mounts the generic `${EU_PARCEL_PATH}/:cc`,
+   so /api/parcel/lu resolves the moment the `lu` key exists.
+
+════════════════════════════════════════════════════════════════════════════════════════════════
+SHARED FILE 3 — server/__tests__/euCadastreProxy.test.ts   (exact-key-set assertion)
+════════════════════════════════════════════════════════════════════════════════════════════════
+The `Object.keys(EU_CADASTRE_SOURCES).sort()` assertion gains 'lu' (sorted after 'lt'):
+    ['ch', 'de-nrw', 'ee', 'fr', 'lt', 'lu', 'nl', 'no', 'pl', 'pt', 'us-chi', 'us-sf']
+
+════════════════════════════════════════════════════════════════════════════════════════════════
+SHARED FILE 4 — packages/site-parcel-data/__tests__/parcelRegistryNationalWiring.test.ts
+════════════════════════════════════════════════════════════════════════════════════════════════
+Three LU-only assertions updated from the footprint era → the live-cadastral state:
+  • the L-12871 reachability cases: LU providerId 'footprint' → 'lu-act-inspire-cp' (2 rows).
+  • §8 honesty test "LU is a footprint-fallback …" → "LU is now cadastral …":
+        expect(row('LU').kind).toBe('cadastral');
+        expect(row('LU').proxyPath).toBe('/api/parcel/lu');
+        expect(row('LU').providerId).toBe('lu-act-inspire-cp');
+        expect(row('LU').note).toContain('075F00137000000');
+  • §10 "LU is the country the tolerance costs most" test: the final
+        expect(row('LU').kind).toBe('footprint-fallback')  →  toBe('cadastral')
+    (the `luRouted === 6` tolerance assertion is UNCHANGED; comment updated).
+
+════════════════════════════════════════════════════════════════════════════════════════════════
+GREENS (foreground, this session):
+  scoped tsc  @pryzm/site-parcel-data typecheck              → exit 0
+  vitest      @pryzm/site-parcel-data (full)                 → 200 files, 4199 passed, 3 skipped, 0 failed
+  vitest      server euCadastreProxy.test.ts                 → 24 passed
+  LIVE        resolveParcelWithFallback → /api/parcel/lu leg → the two parcel ids above (ACT endpoint live)

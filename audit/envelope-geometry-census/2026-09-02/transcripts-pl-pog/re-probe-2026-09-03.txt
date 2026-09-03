@@ -1,0 +1,12 @@
+LANE PL-POG live re-probe â€” 2026-09-03 (vantage: this session). Confirms E6-PL 2026-09-01.
+
+[POG WMS GetCapabilities]  HTTP 401 · 96B · text/html;charset=UTF-8
+[POG WMS nonsense control] HTTP 401 · 96B · text/html;charset=UTF-8
+[POG WFS GetCapabilities]  HTTP 401 · 96B · text/html;charset=UTF-8
+[MPZP WMS positive control] HTTP 200 · 23800B · text/xml
+[RU root]                  HTTP 200 · 22530B · text/html
+[RU api host]              HTTP 000 · 0B · 
+
+VERDICT: POG WMS/WFS 401 == nonsense-control 401 (byte-identical catch-all, NOT a gated service);
+MPZP control 200 (base serves real services); RU root 200 = 22,530 B Angular SPA shell (no data service, matches E6-PL 2026-09-01); RU api host unreachable (000).
+No servable POG data channel today. Coverage via data channel = 0 communes. RU transition ends 2026-11-30.

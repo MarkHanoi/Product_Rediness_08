@@ -99,6 +99,10 @@ import {
 } from '../component';
 // ⭐ Lane U0's ONE catalogue — the same singleton the handlers and the browser read.
 import { componentCatalog } from '../../services/componentCatalog';
+// ⭐ Lane U6 — the definition-authoring chat strip (the §64 "author a formula by
+// sentence" surface). Deterministic, offline; drives THIS workspace's own
+// `previewExpression`/`applyExpression` — no bus verb, no second validation.
+import { makeComponentExpressionController, mountComponentChat, type ComponentChatHandle } from '../component-chat';
 
 /* ------------------------------------------------------------------ */
 /* §U3-ONE-MUTATION-GATEWAY — the lazy file-format seam                */
@@ -302,6 +306,21 @@ export function openComponentDefinitionWorkspace(
     };
 
     const table: ComponentParameterTableHandle = createComponentParameterTable({ attrPrefix: 'dcpt' });
+
+    /* ── Lane U6 — the authoring chat strip, mounted ONCE into a persistent host so
+     *    its transcript survives the card's full-rebuild render (the same node is
+     *    re-appended, never re-created). It drives the workspace's own methods only. */
+    const chatHost = el('div', 'margin-top:6px;');
+    chatHost.setAttribute('data-cdw-chat-host', '');
+    let chatHandle: ComponentChatHandle | null = null;
+    const ensureChat = (): void => {
+        if (chatHandle !== null) return;
+        chatHandle = mountComponentChat(chatHost, makeComponentExpressionController({
+            params: () => draft.document.parameters as readonly FamilyParameter[],
+            preview: (parameterId, expression) => previewExpression(parameterId, expression),
+            apply: (parameterId, expression) => applyExpression(parameterId, expression),
+        }));
+    };
 
     /* ── the ops gateway (⛔ the ONLY draft mutation) ─────────────────
      * 1. lazy-load @pryzm/file-format (the falsification seam);
@@ -946,6 +965,13 @@ export function openComponentDefinitionWorkspace(
             }
         }
 
+        // ── Lane U6 — the authoring chat strip (persistent host, re-appended) ──
+        card.appendChild(el('div',
+            'font-size:11px;font-weight:700;letter-spacing:.03em;text-transform:uppercase;' +
+            `color:${MUTED};margin:12px 0 2px;`, 'Author by chat'));
+        ensureChat();
+        card.appendChild(chatHost);
+
         card.appendChild(status);
     }
 
@@ -956,6 +982,8 @@ export function openComponentDefinitionWorkspace(
 
     function close(): void {
         document.removeEventListener('keydown', onKeyDown);
+        chatHandle?.dispose();
+        chatHandle = null;
         overlay.remove();
         if (_open?.overlay === overlay) _open = null;
     }

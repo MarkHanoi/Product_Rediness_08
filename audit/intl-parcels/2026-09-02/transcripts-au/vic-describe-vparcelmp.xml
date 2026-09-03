@@ -1,0 +1,53 @@
+<?xml version="1.0" encoding="UTF-8"?><xsd:schema xmlns:gml="http://www.opengis.net/gml/3.2" xmlns:open-data-platform="http://www.delwp.vic.gov.au/open-data-platform" xmlns:wfs="http://www.opengis.net/wfs/2.0" xmlns:xsd="http://www.w3.org/2001/XMLSchema" elementFormDefault="qualified" targetNamespace="http://www.delwp.vic.gov.au/open-data-platform">
+  <xsd:import namespace="http://www.opengis.net/gml/3.2" schemaLocation="http://opendata.maps.vic.gov.au/geoserver/schemas/gml/3.2.1/gml.xsd"/>
+  <xsd:complexType name="v_parcel_mpType">
+    <xsd:complexContent>
+      <xsd:extension base="gml:AbstractFeatureType">
+        <xsd:sequence>
+          <xsd:element maxOccurs="1" minOccurs="0" name="geom" nillable="true" type="gml:MultiSurfacePropertyType"/>
+          <xsd:element maxOccurs="1" minOccurs="0" name="parcel_pfi" nillable="true" type="xsd:string"/>
+          <xsd:element maxOccurs="1" minOccurs="0" name="parcel_spi" nillable="true" type="xsd:string"/>
+          <xsd:element maxOccurs="1" minOccurs="0" name="parcel_spi_code" nillable="true" type="xsd:short"/>
+          <xsd:element maxOccurs="1" minOccurs="0" name="parcel_desc_type" nillable="true" type="xsd:string"/>
+          <xsd:element maxOccurs="1" minOccurs="0" name="parcel_multi" nillable="true" type="xsd:string"/>
+          <xsd:element maxOccurs="1" minOccurs="0" name="parcel_road" nillable="true" type="xsd:string"/>
+          <xsd:element maxOccurs="1" minOccurs="0" name="parcel_lga_code" nillable="true" type="xsd:string"/>
+          <xsd:element maxOccurs="1" minOccurs="0" name="parcel_plan_number" nillable="true" type="xsd:string"/>
+          <xsd:element maxOccurs="1" minOccurs="0" name="parcel_lot_number" nillable="true" type="xsd:string"/>
+          <xsd:element maxOccurs="1" minOccurs="0" name="parcel_accessory_lot" nillable="true" type="xsd:string"/>
+          <xsd:element maxOccurs="1" minOccurs="0" name="parcel_allotment" nillable="true" type="xsd:string"/>
+          <xsd:element maxOccurs="1" minOccurs="0" name="parcel_sec" nillable="true" type="xsd:string"/>
+          <xsd:element maxOccurs="1" minOccurs="0" name="parcel_block" nillable="true" type="xsd:string"/>
+          <xsd:element maxOccurs="1" minOccurs="0" name="parcel_portion" nillable="true" type="xsd:string"/>
+          <xsd:element maxOccurs="1" minOccurs="0" name="parcel_subdivision" nillable="true" type="xsd:string"/>
+          <xsd:element maxOccurs="1" minOccurs="0" name="parcel_crown_status" nillable="true" type="xsd:string"/>
+          <xsd:element maxOccurs="1" minOccurs="0" name="parcel_parish_code" nillable="true" type="xsd:string"/>
+          <xsd:element maxOccurs="1" minOccurs="0" name="parcel_township_code" nillable="true" type="xsd:string"/>
+          <xsd:element maxOccurs="1" minOccurs="0" name="parcel_p_number" nillable="true" type="xsd:string"/>
+          <xsd:element maxOccurs="1" minOccurs="0" name="parcel_further_description" nillable="true" type="xsd:string"/>
+          <xsd:element maxOccurs="1" minOccurs="0" name="parcel_part" nillable="true" type="xsd:string"/>
+          <xsd:element maxOccurs="1" minOccurs="0" name="parcel_crefno" nillable="true" type="xsd:string"/>
+          <xsd:element maxOccurs="1" minOccurs="0" name="parcel_status" nillable="true" type="xsd:string"/>
+          <xsd:element maxOccurs="1" minOccurs="0" name="parcel_reg_date" nillable="true" type="xsd:date"/>
+          <xsd:element maxOccurs="1" minOccurs="0" name="parcel_id" nillable="true" type="xsd:string"/>
+          <xsd:element maxOccurs="1" minOccurs="0" name="parcel_pfi_created" nillable="true" type="xsd:dateTime"/>
+          <xsd:element maxOccurs="1" minOccurs="0" name="parcel_ufi" nillable="true" type="xsd:int"/>
+          <xsd:element maxOccurs="1" minOccurs="0" name="parcel_ufi_created" nillable="true" type="xsd:dateTime"/>
+          <xsd:element maxOccurs="1" minOccurs="0" name="parcel_ufi_old" nillable="true" type="xsd:int"/>
+          <xsd:element maxOccurs="1" minOccurs="0" name="parcel_task_id" nillable="true" type="xsd:int"/>
+          <xsd:element maxOccurs="1" minOccurs="0" name="parv_pfi" nillable="true" type="xsd:string"/>
+          <xsd:element maxOccurs="1" minOccurs="0" name="parv_centroid_pfi" nillable="true" type="xsd:string"/>
+          <xsd:element maxOccurs="1" minOccurs="0" name="parv_z_level" nillable="true" type="xsd:string"/>
+          <xsd:element maxOccurs="1" minOccurs="0" name="parv_horiz_pos_uncertainty" nillable="true" type="xsd:decimal"/>
+          <xsd:element maxOccurs="1" minOccurs="0" name="parv_pfi_created" nillable="true" type="xsd:dateTime"/>
+          <xsd:element maxOccurs="1" minOccurs="0" name="parv_ufi" nillable="true" type="xsd:int"/>
+          <xsd:element maxOccurs="1" minOccurs="0" name="parv_ufi_created" nillable="true" type="xsd:dateTime"/>
+          <xsd:element maxOccurs="1" minOccurs="0" name="parv_ufi_old" nillable="true" type="xsd:int"/>
+          <xsd:element maxOccurs="1" minOccurs="0" name="parv_task_id" nillable="true" type="xsd:int"/>
+          <xsd:element maxOccurs="1" minOccurs="0" name="vdpid" nillable="true" type="xsd:int"/>
+        </xsd:sequence>
+      </xsd:extension>
+    </xsd:complexContent>
+  </xsd:complexType>
+  <xsd:element name="v_parcel_mp" substitutionGroup="gml:AbstractFeature" type="open-data-platform:v_parcel_mpType"/>
+</xsd:schema>

@@ -1,0 +1,788 @@
+{
+ "__label__": "RECORDED LIVE 2026-09-03 from the Latvian national geoportal WFS (geolatvija.lv/geoserver/vraa/wfs, VRAA GeoServer, workspace vraa, layer vraa:parcel). Keyless, CC-BY-4.0 (data.gov.lv dataset kadastralie-zemes-gabali-inspire). These are FIXTURES: byte-for-byte live WFS bodies replayed through LvWfsDeps.fetchImpl so the suite runs without the network. Re-record via the transcripts in audit/europe-adapters-2/2026-09-02/lane-lv.md. byCode = cql code=01000070006 (Pils iela 23, Rīga). atPoint = WGS84 bbox around that parcel (click path). sea = Gulf of Rīga water (0 features -> absent). wrongLayer = HTTP 400 ows:ExceptionReport (-> transient).",
+ "parcelByCode": {
+  "type": "FeatureCollection",
+  "features": [
+   {
+    "type": "Feature",
+    "id": "parcel.498869084",
+    "geometry": {
+     "type": "MultiPolygon",
+     "coordinates": [
+      [
+       [
+        [
+         24.10378748,
+         56.94972711
+        ],
+        [
+         24.10409651,
+         56.94958451
+        ],
+        [
+         24.10426775,
+         56.94947113
+        ],
+        [
+         24.10460708,
+         56.9496506
+        ],
+        [
+         24.10463298,
+         56.94966912
+        ],
+        [
+         24.10473263,
+         56.94976901
+        ],
+        [
+         24.10400868,
+         56.94989947
+        ],
+        [
+         24.10400329,
+         56.94989528
+        ],
+        [
+         24.10378748,
+         56.94972711
+        ]
+       ]
+      ]
+     ]
+    },
+    "geometry_name": "geom",
+    "properties": {
+     "id": 498869084,
+     "code": "01000070006",
+     "geom_act_d": "2011-11-02Z",
+     "objectcode": "7201060110",
+     "area_scale": 1434.89233975,
+     "group_code": null,
+     "folder_name": "ExportCadGroup_0100007",
+     "address": "Pils iela 23, Rīga, LV1050",
+     "purpose_use": "Komercdarbības objektu apbūve",
+     "area": 1435,
+     "owner": "juridiska persona (Īpašnieks)",
+     "owned_by_municipality": false,
+     "public_water": false,
+     "score": null,
+     "property_code": "01000070006",
+     "parcel_status_kind_name": "*nekustamais īpašums"
+    }
+   }
+  ],
+  "totalFeatures": 1,
+  "numberMatched": 1,
+  "numberReturned": 1,
+  "timeStamp": "2026-09-03T05:38:48.340Z",
+  "crs": {
+   "type": "name",
+   "properties": {
+    "name": "urn:ogc:def:crs:EPSG::4326"
+   }
+  }
+ },
+ "parcelsAtPoint": {
+  "type": "FeatureCollection",
+  "features": [
+   {
+    "type": "Feature",
+    "id": "parcel.498876302",
+    "geometry": {
+     "type": "MultiPolygon",
+     "coordinates": [
+      [
+       [
+        [
+         24.09799461,
+         56.95207894
+        ],
+        [
+         24.09128759,
+         56.95071624
+        ],
+        [
+         24.09160823,
+         56.95017752
+        ],
+        [
+         24.0920056,
+         56.94953333
+        ],
+        [
+         24.09276828,
+         56.94856059
+        ],
+        [
+         24.09284575,
+         56.94854617
+        ],
+        [
+         24.09311364,
+         56.9483041
+        ],
+        [
+         24.09655314,
+         56.94497343
+        ],
+        [
+         24.0970335,
+         56.94438749
+        ],
+        [
+         24.09722145,
+         56.94413818
+        ],
+        [
+         24.09785335,
+         56.94337621
+        ],
+        [
+         24.09786144,
+         56.94336646
+        ],
+        [
+         24.09795334,
+         56.94327182
+        ],
+        [
+         24.09825043,
+         56.94296773
+        ],
+        [
+         24.09830423,
+         56.94291799
+        ],
+        [
+         24.09867698,
+         56.94241594
+        ],
+        [
+         24.10575218,
+         56.9450296
+        ],
+        [
+         24.10596434,
+         56.94514247
+        ],
+        [
+         24.10563205,
+         56.94530547
+        ],
+        [
+         24.10550189,
+         56.94537288
+        ],
+        [
+         24.10541906,
+         56.94541454
+        ],
+        [
+         24.10516759,
+         56.94554101
+        ],
+        [
+         24.10501739,
+         56.94561655
+        ],
+        [
+         24.10449862,
+         56.94590356
+        ],
+        [
+         24.10435023,
+         56.94599192
+        ],
+        [
+         24.10418507,
+         56.94591004
+        ],
+        [
+         24.10384036,
+         56.94610939
+        ],
+        [
+         24.10378849,
+         56.94615459
+        ],
+        [
+         24.10395063,
+         56.94623399
+        ],
+        [
+         24.10394314,
+         56.94623871
+        ],
+        [
+         24.10382183,
+         56.94631664
+        ],
+        [
+         24.1037662,
+         56.94635165
+        ],
+        [
+         24.10374385,
+         56.94636579
+        ],
+        [
+         24.1036047,
+         56.94631473
+        ],
+        [
+         24.10289574,
+         56.94693249
+        ],
+        [
+         24.10106511,
+         56.94849073
+        ],
+        [
+         24.10090741,
+         56.94864251
+        ],
+        [
+         24.1004083,
+         56.94912286
+        ],
+        [
+         24.09998678,
+         56.94956727
+        ],
+        [
+         24.09984333,
+         56.94972794
+        ],
+        [
+         24.09912285,
+         56.95061825
+        ],
+        [
+         24.09883936,
+         56.95100565
+        ],
+        [
+         24.09856253,
+         56.95144233
+        ],
+        [
+         24.0984317,
+         56.95160872
+        ],
+        [
+         24.09835949,
+         56.95171245
+        ],
+        [
+         24.0981967,
+         56.95194662
+        ],
+        [
+         24.09813459,
+         56.95193463
+        ],
+        [
+         24.09799461,
+         56.95207894
+        ]
+       ]
+      ]
+     ]
+    },
+    "geometry_name": "geom",
+    "properties": {
+     "id": 498876302,
+     "code": "01000492026",
+     "geom_act_d": "2026-03-05Z",
+     "objectcode": "7201060310",
+     "area_scale": 439881.88722565,
+     "group_code": null,
+     "folder_name": "ExportCadGroup_0100049",
+     "address": null,
+     "purpose_use": "Publiskie ūdeņi",
+     "area": 439882,
+     "owner": "pašvaldība (Tiesiskais valdītājs)",
+     "owned_by_municipality": true,
+     "public_water": true,
+     "score": null,
+     "property_code": "01001190430",
+     "parcel_status_kind_name": "*valsts īpašumā uz likuma pamata"
+    }
+   },
+   {
+    "type": "Feature",
+    "id": "parcel.498869045",
+    "geometry": {
+     "type": "MultiPolygon",
+     "coordinates": [
+      [
+       [
+        [
+         24.10336027,
+         56.94950681
+        ],
+        [
+         24.10341359,
+         56.94947758
+        ],
+        [
+         24.10361358,
+         56.94935673
+        ],
+        [
+         24.10375348,
+         56.94926223
+        ],
+        [
+         24.10390336,
+         56.94932281
+        ],
+        [
+         24.1037536,
+         56.94942459
+        ],
+        [
+         24.10357778,
+         56.94954067
+        ],
+        [
+         24.10350394,
+         56.94957925
+        ],
+        [
+         24.10336027,
+         56.94950681
+        ]
+       ]
+      ]
+     ]
+    },
+    "geometry_name": "geom",
+    "properties": {
+     "id": 498869045,
+     "code": "01000070010",
+     "geom_act_d": "2011-11-02Z",
+     "objectcode": "7201060110",
+     "area_scale": 429.48263434,
+     "group_code": null,
+     "folder_name": "ExportCadGroup_0100007",
+     "address": "Doma laukums 3, Rīga, LV1050",
+     "purpose_use": "Komercdarbības objektu apbūve",
+     "area": 429,
+     "owner": "juridiska persona (Īpašnieks)",
+     "owned_by_municipality": false,
+     "public_water": false,
+     "score": null,
+     "property_code": "01000070010",
+     "parcel_status_kind_name": "*nekustamais īpašums"
+    }
+   },
+   {
+    "type": "Feature",
+    "id": "parcel.498869186",
+    "geometry": {
+     "type": "MultiPolygon",
+     "coordinates": [
+      [
+       [
+        [
+         24.10194136,
+         56.94920757
+        ],
+        [
+         24.10205362,
+         56.94911159
+        ],
+        [
+         24.10206258,
+         56.94914086
+        ],
+        [
+         24.10233734,
+         56.94926464
+        ],
+        [
+         24.10247636,
+         56.94935318
+        ],
+        [
+         24.10274484,
+         56.94948292
+        ],
+        [
+         24.10282318,
+         56.94951751
+        ],
+        [
+         24.10289233,
+         56.94954816
+        ],
+        [
+         24.10296282,
+         56.949585
+        ],
+        [
+         24.10318005,
+         56.94969726
+        ],
+        [
+         24.10329875,
+         56.9497609
+        ],
+        [
+         24.10347972,
+         56.94985798
+        ],
+        [
+         24.10354312,
+         56.94989733
+        ],
+        [
+         24.10367373,
+         56.94997377
+        ],
+        [
+         24.10349822,
+         56.94999689
+        ],
+        [
+         24.1035099,
+         56.94997546
+        ],
+        [
+         24.10327114,
+         56.94983501
+        ],
+        [
+         24.10308176,
+         56.94974421
+        ],
+        [
+         24.10291935,
+         56.94966424
+        ],
+        [
+         24.10280125,
+         56.94960137
+        ],
+        [
+         24.10268155,
+         56.94954426
+        ],
+        [
+         24.1025631,
+         56.94948888
+        ],
+        [
+         24.10246319,
+         56.94944177
+        ],
+        [
+         24.10228177,
+         56.94936044
+        ],
+        [
+         24.10194136,
+         56.94920757
+        ]
+       ]
+      ]
+     ]
+    },
+    "geometry_name": "geom",
+    "properties": {
+     "id": 498869186,
+     "code": "01000089021",
+     "geom_act_d": "2011-11-02Z",
+     "objectcode": "7201060310",
+     "area_scale": 1123.89959817,
+     "group_code": null,
+     "folder_name": "ExportCadGroup_0100008",
+     "address": null,
+     "purpose_use": "Zeme dzelzceļa infrastruktūras zemes nodalījuma joslā un ceļu zemes nodalījuma joslā",
+     "area": 1124,
+     "owner": "pašvaldība (Īpašnieks)",
+     "owned_by_municipality": true,
+     "public_water": false,
+     "score": null,
+     "property_code": "01000089000",
+     "parcel_status_kind_name": "*nekustamais īpašums"
+    }
+   },
+   {
+    "type": "Feature",
+    "id": "parcel.498869161",
+    "geometry": {
+     "type": "MultiPolygon",
+     "coordinates": [
+      [
+       [
+        [
+         24.1020177,
+         56.95025338
+        ],
+        [
+         24.10217829,
+         56.95021571
+        ],
+        [
+         24.10236108,
+         56.9501739
+        ],
+        [
+         24.10249259,
+         56.95014495
+        ],
+        [
+         24.10262202,
+         56.95012988
+        ],
+        [
+         24.10269152,
+         56.9501104
+        ],
+        [
+         24.103022,
+         56.95005534
+        ],
+        [
+         24.10324087,
+         56.95002916
+        ],
+        [
+         24.10330081,
+         56.95002163
+        ],
+        [
+         24.10330193,
+         56.95002425
+        ],
+        [
+         24.1034384,
+         56.95000671
+        ],
+        [
+         24.10343727,
+         56.95000408
+        ],
+        [
+         24.10349822,
+         56.94999689
+        ],
+        [
+         24.10367373,
+         56.94997377
+        ],
+        [
+         24.10400329,
+         56.94989528
+        ],
+        [
+         24.10400868,
+         56.94989947
+        ],
+        [
+         24.10473263,
+         56.94976901
+        ],
+        [
+         24.10487334,
+         56.94991005
+        ],
+        [
+         24.10449972,
+         56.94991044
+        ],
+        [
+         24.10450122,
+         56.94991627
+        ],
+        [
+         24.104369,
+         56.94994135
+        ],
+        [
+         24.10426635,
+         56.94995805
+        ],
+        [
+         24.10416582,
+         56.94997583
+        ],
+        [
+         24.10405216,
+         56.94999325
+        ],
+        [
+         24.10380385,
+         56.95004572
+        ],
+        [
+         24.10373347,
+         56.95005489
+        ],
+        [
+         24.1035693,
+         56.95008336
+        ],
+        [
+         24.10355269,
+         56.95008122
+        ],
+        [
+         24.10321566,
+         56.95013736
+        ],
+        [
+         24.10321417,
+         56.95013493
+        ],
+        [
+         24.10261578,
+         56.95022712
+        ],
+        [
+         24.10261842,
+         56.95022981
+        ],
+        [
+         24.10242996,
+         56.95026902
+        ],
+        [
+         24.10228206,
+         56.95029977
+        ],
+        [
+         24.10209473,
+         56.95036127
+        ],
+        [
+         24.1020177,
+         56.95025338
+        ]
+       ]
+      ]
+     ]
+    },
+    "geometry_name": "geom",
+    "properties": {
+     "id": 498869161,
+     "code": "01000089022",
+     "geom_act_d": "2011-11-02Z",
+     "objectcode": "7201060310",
+     "area_scale": 1992.5874389,
+     "group_code": null,
+     "folder_name": "ExportCadGroup_0100008",
+     "address": null,
+     "purpose_use": "Zeme dzelzceļa infrastruktūras zemes nodalījuma joslā un ceļu zemes nodalījuma joslā",
+     "area": 1993,
+     "owner": "pašvaldība (Īpašnieks)",
+     "owned_by_municipality": true,
+     "public_water": false,
+     "score": null,
+     "property_code": "01000089000",
+     "parcel_status_kind_name": "*nekustamais īpašums"
+    }
+   },
+   {
+    "type": "Feature",
+    "id": "parcel.498869075",
+    "geometry": {
+     "type": "MultiPolygon",
+     "coordinates": [
+      [
+       [
+        [
+         24.10350394,
+         56.94957925
+        ],
+        [
+         24.10357778,
+         56.94954067
+        ],
+        [
+         24.1037536,
+         56.94942459
+        ],
+        [
+         24.10390336,
+         56.94932281
+        ],
+        [
+         24.10426775,
+         56.94947113
+        ],
+        [
+         24.10409651,
+         56.94958451
+        ],
+        [
+         24.10378748,
+         56.94972711
+        ],
+        [
+         24.10372941,
+         56.94970084
+        ],
+        [
+         24.10364994,
+         56.9496631
+        ],
+        [
+         24.10359687,
+         56.94963262
+        ],
+        [
+         24.10350394,
+         56.94957925
+        ]
+       ]
+      ]
+     ]
+    },
+    "geometry_name": "geom",
+    "properties": {
+     "id": 498869075,
+     "code": "01000070008",
+     "geom_act_d": "2011-11-02Z",
+     "objectcode": "7201060110",
+     "area_scale": 1033.96994177,
+     "group_code": null,
+     "folder_name": "ExportCadGroup_0100007",
+     "address": "Doma laukums 4, Rīga, LV1050",
+     "purpose_use": "Komercdarbības objektu apbūve",
+     "area": 1034,
+     "owner": "juridiska persona (Īpašnieks)",
+     "owned_by_municipality": false,
+     "public_water": false,
+     "score": null,
+     "property_code": "01000070008",
+     "parcel_status_kind_name": "*nekustamais īpašums"
+    }
+   }
+  ],
+  "totalFeatures": 16,
+  "numberMatched": 16,
+  "numberReturned": 5,
+  "timeStamp": "2026-09-03T05:38:48.432Z",
+  "crs": {
+   "type": "name",
+   "properties": {
+    "name": "urn:ogc:def:crs:EPSG::4326"
+   }
+  }
+ },
+ "seaEmpty": {
+  "type": "FeatureCollection",
+  "features": [],
+  "totalFeatures": 0,
+  "numberMatched": 0,
+  "numberReturned": 0,
+  "timeStamp": "2026-09-03T05:38:48.505Z",
+  "crs": null
+ },
+ "wrongLayerBody": "<?xml version=\"1.0\" encoding=\"UTF-8\"?><ows:ExceptionReport xmlns:xs=\"http://www.w3.org/2001/XMLSchema\" xmlns:ows=\"http://www.opengis.net/ows/1.1\" xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\" version=\"2.0.0\" xsi:schemaLocation=\"http://www.opengis.net/ows/1.1 https://geolatvija.lv/geoserver/schemas/ows/1.1.0/owsAll.xsd\">\n  <ows:Exception exceptionCode=\"InvalidParameterValue\" locator=\"typeName\">\n    <ows:ExceptionText>Feature type vraa:parcel_WRONG unknown</ows:ExceptionText>\n  </ows:Exception>\n</ows:ExceptionReport>\n",
+ "wrongLayerStatus": 400
+}

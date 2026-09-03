@@ -1,0 +1,16 @@
+# ABU DHABI probe transcript — captured 2026-09-03T05:43:02Z — UA: PRYZM-Research/1.0 (+https://pryzm.app; contact pryzmhello@gmail.com)
+$ curl '.../opendata/data.json'  (F5 WAF test)
+<html><head><title>Request Rejected</title></head><body>The requested URL was rejected. Please consult with your administrator.<br><br>Your support ID is: 11709459134665974889<br><br><a href='javascript:history.back();'>[Go Back]</a></body></html>
+$ curl '.../opendata/search/type/dataset?query=parcel'
+<html><head><title>Request Rejected</title></head><body>The requested URL was rejected. Please consult with your administrator.<br><br>Your support ID is: 11709459135260541597<br><br><a href='javascript:history.back();'>[Go Back]</a></body></html>
+$ curl '.../opendata/api/1/metastore/schemas/dataset/items'  (DKAN REST)
+curl: (28) Operation timed out after 25016 milliseconds with 0 bytes received
+  HTTP=000 time=25.016245s
+  RC=28
+## AD-SDI hosts
+  geoportal.dmt.gov.ae -> HTTP=000 t=0.214497s RC=0
+  sdi.gsec.abudhabi -> HTTP=000 t=0.223153s RC=0
+  geoportal.abudhabi.ae -> HTTP=000 t=0.355844s RC=0
+  www.abudhabimaps.ae -> HTTP=000 t=0.056564s RC=0
+  adgeospatial.gov.ae -> HTTP=000 t=0.060341s RC=0
+## AGOL: 0 official Abu Dhabi parcel FeatureServers (queries: 'Abu Dhabi parcel', 'Abu Dhabi plot cadastre', 'owner:AbuDhabi', 'DMT Abu Dhabi plot' — all total:0)
