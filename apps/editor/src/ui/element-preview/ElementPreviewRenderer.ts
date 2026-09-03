@@ -55,10 +55,12 @@ import { findMaterialById } from '@pryzm/core-app-model/material-library';
 import type {
     AnyPreviewPart,
     PreviewExtrudedOutlinePart,
+    PreviewMeshPart,
     PreviewSubject,
 } from './OpeningPreviewSubject';
-// §OUTLINE81 — the ONE narrowing predicate for the part union (a value import, not a type).
-import { isExtrudedOutlinePart } from './OpeningPreviewSubject';
+// §OUTLINE81 / §COMPONENT-PREVIEW — the narrowing predicates for the part union
+// (value imports, not types).
+import { isExtrudedOutlinePart, isMeshPart } from './OpeningPreviewSubject';
 // §QTYHL132 (L-12120) — the ONE resolver for CSS custom-property colour
 // references. THREE has no CSS engine; see `graphMarkColour` below.
 import { resolveCssColour } from '../styles/categoricalPalette';
@@ -356,7 +358,13 @@ function buildContent(r: Rig, subject: PreviewSubject): void {
     const [ex, ey] = subject.extent;
     for (const part of subject.parts) {
         let geo: THREE.BufferGeometry;
-        if (isExtrudedOutlinePart(part)) {
+        if (isMeshPart(part)) {
+            // §COMPONENT-PREVIEW — already-tessellated buffers from the ONE bake
+            // (`bakeFamilyInstance`). Wrapped, never copied and never re-derived —
+            // the same translation `plugins/component`'s `geometry-bridge` performs
+            // for the placed instance, so the preview cannot disagree with it.
+            geo = meshPartGeometry(part);
+        } else if (isExtrudedOutlinePart(part)) {
             // §OUTLINE81 (D8) — the outline part, extruded on this already-P2-legal path.
             // The points arrive in the subject's own (x, y) elevation metres; the shape
             // carries its own position, so the mesh sits at `center` (typically the
@@ -387,6 +395,23 @@ function buildContent(r: Rig, subject: PreviewSubject): void {
  * for a box part. No bevel — the real builder's `extrudeCentred` has none either,
  * and a bevelled preview would show edges the placed window will not have.
  */
+/**
+ * §COMPONENT-PREVIEW (lane U5) — wrap a {@link PreviewMeshPart}'s baked buffers
+ * into a `BufferGeometry`. The typed arrays become the geometry's storage
+ * directly (no copy) — the same contract `buildComponentBufferGeometry` states
+ * in `plugins/component/src/committer/geometry-bridge.ts`. No crease welding,
+ * no normal recompute: `produceExtrude` already emitted clean per-face normals,
+ * and recomputing here would give the preview a SECOND answer to a question the
+ * placed mesh has already answered.
+ */
+function meshPartGeometry(part: PreviewMeshPart): THREE.BufferGeometry {
+    const geo = new THREE.BufferGeometry();
+    geo.setAttribute('position', new THREE.BufferAttribute(part.position, 3));
+    geo.setAttribute('normal', new THREE.BufferAttribute(part.normal, 3));
+    geo.setIndex(new THREE.BufferAttribute(part.index, 1));
+    return geo;
+}
+
 function extrudedOutlineGeometry(part: PreviewExtrudedOutlinePart): THREE.BufferGeometry {
     const shape = new THREE.Shape(part.points.map((p) => new THREE.Vector2(p.x, p.y)));
     for (const hole of part.holes ?? []) {

@@ -103,6 +103,16 @@ import { componentCatalog } from '../../services/componentCatalog';
 // sentence" surface). Deterministic, offline; drives THIS workspace's own
 // `previewExpression`/`applyExpression` — no bus verb, no second validation.
 import { makeComponentExpressionController, mountComponentChat, type ComponentChatHandle } from '../component-chat';
+// ⭐ Lane U5 — the live 3-D preview: the ONE bake (`bakeFamilyInstance`) drawn
+// through the SHARED element-preview rig. Every accepted op re-evaluates and
+// re-renders, so the §64 demo is VISUAL: change FrameWidth, watch the glass
+// shrink. A recipe that cannot evaluate shows the evaluator's own sentences and
+// tears the canvas down — never a stale or invented shape.
+import {
+    mountComponentPreview,
+    type ComponentPreviewHandle,
+    type ComponentPreviewResult,
+} from '../component-preview';
 
 /* ------------------------------------------------------------------ */
 /* §U3-ONE-MUTATION-GATEWAY — the lazy file-format seam                */
@@ -169,6 +179,13 @@ export interface ComponentDefinitionWorkspaceHandle {
     applyDeleteParameter(parameterId: string): Promise<string | null>;
     /** Mount the 4F profile panel for one of the definition's profiles. */
     openProfile(profileId: string): boolean;
+    /** Lane U5 — settles when the LATEST 3-D preview refresh has been applied (or
+     *  superseded by a newer edit). The preview's state is on the DOM:
+     *  `[data-component-preview-state]` ∈ empty | ok | partial | refused. */
+    previewSettled(): Promise<void>;
+    /** Lane U5 — the last APPLIED preview evaluation (the bake's own numbers),
+     *  or null before the first refresh settles. */
+    previewResult(): ComponentPreviewResult | null;
     /** Pack via `packFamily` and reload through the ONE catalogue/loader. */
     save(): Promise<string | null>;
     close(): void;
@@ -321,6 +338,34 @@ export function openComponentDefinitionWorkspace(
             apply: (parameterId, expression) => applyExpression(parameterId, expression),
         }));
     };
+
+    /* ── Lane U5 — the LIVE 3-D preview, mounted ONCE into a persistent host (the
+     *    chat-host pattern: the same node is re-appended across the card's
+     *    full-rebuild renders, so the canvas, its orbit state and the shared-rig
+     *    mount all survive). `refreshPreview()` re-evaluates the CURRENT draft
+     *    under the CURRENT scope after every render — i.e. after every accepted
+     *    op — which is what makes the §64 demo visual. */
+    const previewHost = el('div', 'margin:4px 0 2px;');
+    previewHost.setAttribute('data-cdw-preview-host', '');
+    let previewHandle: ComponentPreviewHandle | null = null;
+    /** Settles when the LATEST preview refresh has been applied (or superseded) —
+     *  the test seam for the async bake, and honest to await in production too. */
+    let previewSettled: Promise<void> = Promise.resolve();
+    const ensurePreview = (): void => {
+        if (previewHandle !== null) return;
+        previewHandle = mountComponentPreview(previewHost, { heightPx: 168 });
+    };
+    function refreshPreview(): void {
+        ensurePreview();
+        const schemaHash =
+            componentCatalog.entry(definitionId)?.family.schemaHash ??
+            (draft.manifest as { schemaHash?: string }).schemaHash ??
+            'sha256:0000000000000000000000000000000000000000000000000000000000000000';
+        previewSettled = previewHandle!.update({
+            family: { manifest: draft.manifest, document: draft.document, schemaHash },
+            typeId: scopeTypeId,
+        });
+    }
 
     /* ── the ops gateway (⛔ the ONLY draft mutation) ─────────────────
      * 1. lazy-load @pryzm/file-format (the falsification seam);
@@ -873,6 +918,14 @@ export function openComponentDefinitionWorkspace(
         scopeRow.appendChild(scopeSel);
         card.appendChild(scopeRow);
 
+        // ── Lane U5 — the live 3-D preview (persistent host, re-appended; the bake
+        // itself is kicked at the END of render so it reads the fully-assembled
+        // draft state exactly once per accepted edit).
+        card.appendChild(el('div',
+            'font-size:11px;font-weight:700;letter-spacing:.03em;text-transform:uppercase;' +
+            `color:${MUTED};margin:6px 0 2px;`, 'Preview'));
+        card.appendChild(previewHost);
+
         // toolbar
         const toolbar = el('div', 'display:flex;gap:8px;margin:0 0 4px;');
         toolbar.setAttribute('data-cdw-toolbar', '');
@@ -973,6 +1026,10 @@ export function openComponentDefinitionWorkspace(
         card.appendChild(chatHost);
 
         card.appendChild(status);
+
+        // ── Lane U5 — re-evaluate the CURRENT draft under the CURRENT scope. Runs
+        // after every render, i.e. after every accepted op — the §64 visual loop.
+        refreshPreview();
     }
 
     function setScope(typeId: string | null): void {
@@ -984,6 +1041,10 @@ export function openComponentDefinitionWorkspace(
         document.removeEventListener('keydown', onKeyDown);
         chatHandle?.dispose();
         chatHandle = null;
+        // Lane U5 — releases this workspace's claim on the SHARED preview rig
+        // (the context itself is released only when the LAST mount goes).
+        previewHandle?.dispose();
+        previewHandle = null;
         overlay.remove();
         if (_open?.overlay === overlay) _open = null;
     }
@@ -1009,6 +1070,8 @@ export function openComponentDefinitionWorkspace(
         applyDataTypeChange,
         applyDeleteParameter,
         openProfile,
+        previewSettled: () => previewSettled,
+        previewResult: () => previewHandle?.lastResult() ?? null,
         save,
         close,
         get model(): ParameterTableModel | null { return model; },

@@ -103,8 +103,38 @@ export interface PreviewExtrudedOutlinePart {
     readonly opacity?: number;
 }
 
+/**
+ * §COMPONENT-PREVIEW (lane U5) — a part that is ALREADY-TESSELLATED MESH DATA: the
+ * `BufferGeometryDescriptor` buffers `bakeFamilyInstance` produced for a component
+ * solid, handed through verbatim. THREE-free by construction — typed arrays are
+ * ECMAScript, not THREE, and the renderer wraps them into `BufferAttribute`s on the
+ * P2-legal path exactly as `plugins/component`'s `geometry-bridge` does for the
+ * PLACED instance. That symmetry is the point: the preview draws the SAME buffers
+ * the placement pipeline draws, so `preview ≡ placed component` holds by
+ * construction (L-127's rule, one surface up) — the subject re-tessellates nothing
+ * and can therefore invent nothing.
+ *
+ * Vertices are in the bake's own model metres, NOT pre-centred; `center` is the
+ * whole-subject centring offset the builder computed from the union bounds, so the
+ * renderer's one placement rule (`center[1] - ey/2`) applies unchanged.
+ */
+export interface PreviewMeshPart {
+    readonly kind: 'mesh';
+    readonly name: string;
+    /** Tightly-packed positions (x, y, z, …), metres, model space. */
+    readonly position: Float32Array;
+    /** Tightly-packed unit normals (x, y, z, …). */
+    readonly normal: Float32Array;
+    /** Triangle indices — the producer's own narrowest-fit buffer. */
+    readonly index: Uint16Array | Uint32Array;
+    readonly center: readonly [number, number, number];
+    readonly materialId?: string | undefined;
+    readonly fallbackHex?: string | undefined;
+    readonly opacity?: number;
+}
+
 /** Every part shape the renderer can draw. A part with no `kind` is a box (the original). */
-export type AnyPreviewPart = PreviewPart | PreviewExtrudedOutlinePart;
+export type AnyPreviewPart = PreviewPart | PreviewExtrudedOutlinePart | PreviewMeshPart;
 
 /**
  * §OUTLINE81 — THE ONE narrowing predicate for {@link AnyPreviewPart}, and the reason it
@@ -124,9 +154,18 @@ export function isExtrudedOutlinePart(part: AnyPreviewPart): part is PreviewExtr
     return 'kind' in part && part.kind === 'extrudedOutline';
 }
 
-/** The complement of {@link isExtrudedOutlinePart} — a box part, the original shape. */
+/** §COMPONENT-PREVIEW — the narrowing predicate for {@link PreviewMeshPart}. */
+export function isMeshPart(part: AnyPreviewPart): part is PreviewMeshPart {
+    return 'kind' in part && part.kind === 'mesh';
+}
+
+/** The complement of the kinded predicates — a box part, the original shape.
+ *  ⚠ Since the THIRD member joined the union this is `!('kind' in part)`, not
+ *  `!isExtrudedOutlinePart(part)`: the old body would have passed a mesh part
+ *  as a box, and TypeScript does not check predicate BODIES — only callers'
+ *  narrowed reads would have failed, at a distance. */
 export function isBoxPart(part: AnyPreviewPart): part is PreviewPart {
-    return !isExtrudedOutlinePart(part);
+    return !('kind' in part);
 }
 
 export interface PreviewSubject {

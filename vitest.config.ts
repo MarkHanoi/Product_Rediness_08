@@ -152,6 +152,15 @@ export default defineConfig({
       // FILES — this list is an ALLOWLIST (§L-851): a spec outside it is never
       // discovered, and "never ran" and "passed" print the same value.
       'apps/editor/src/ui/component-type-catalog/__tests__/**/*.spec.ts',
+      // ⭐ §COMPONENT-PREVIEW (lane U5 · UIUX-PLAN §U3/§U1 · L-127) — the component
+      // 3-D preview: the THREE-free subject over the ONE bake (`bakeFamilyInstance`,
+      // Window seed at two valuations: glass 1050 → 1250), the honest-refusal mount
+      // (a recipe that cannot evaluate shows the evaluator's sentences, never a
+      // stale shape), and both production mounts (workspace live loop + browser
+      // thumbnails). ⚠ ADDED IN THE SAME CHANGE AS THE FILES — this list is an
+      // ALLOWLIST (§L-851): a spec outside it is never discovered, and "never ran"
+      // and "passed" print the same value.
+      'apps/editor/src/ui/component-preview/__tests__/**/*.spec.ts',
       // §XSS-SINK-SCAN (L-407): the GA-gate HTML-sink classifier + the repo-wide
       // ratchet assertion. Pure Node (fs + string analysis); lives here because
       // `test:root` is the only suite CI runs over non-package tooling.

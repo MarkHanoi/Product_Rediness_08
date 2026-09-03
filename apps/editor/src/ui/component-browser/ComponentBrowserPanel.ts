@@ -52,6 +52,14 @@ import { openComponentDefinitionWorkspace } from '../component-editor-workspace/
 // (UIUX-PLAN §U4: "the browser's type sub-list refinement"). Static import is safe
 // for the same reason the workspace is: the catalog keeps `@pryzm/file-format` LAZY.
 import { openComponentTypeCatalog } from '../component-type-catalog/index.js';
+// Lane U5 — static per-definition thumbnails drawn through the SHARED
+// element-preview rig (never a context per card) and cached per
+// `(schemaHash, typeId)`. The panel holds the rig for its open lifetime so a
+// batch of cards costs one context, created lazily on the first actual draw.
+import {
+    getComponentThumbnail,
+    holdComponentThumbnailRig,
+} from '../component-preview/index.js';
 
 const _tracer = trace.getTracer('@pryzm/editor.component-browser', '0.1.0');
 
@@ -94,6 +102,8 @@ export class ComponentBrowserPanel {
     private listEl: HTMLElement | null = null;
     private statusEl: HTMLElement | null = null;
     private unsubscribe: (() => void) | null = null;
+    /** Lane U5 — releases the panel's hold on the shared preview rig. */
+    private rigRelease: (() => void) | null = null;
     private readonly onKeyDown = (e: KeyboardEvent): void => {
         if (e.key === 'Escape') this.close();
     };
@@ -112,6 +122,10 @@ export class ComponentBrowserPanel {
             try {
                 if (this.isOpen()) return;
                 this._mount();
+                // Lane U5 — one rig hold for the panel's whole open lifetime, so
+                // per-card thumbnail draws share one lazily-created context
+                // instead of churning create/destroy per card.
+                this.rigRelease = holdComponentThumbnailRig();
                 this._renderList();
                 this.unsubscribe = this.catalog.subscribe(() => this._renderList());
                 document.addEventListener('keydown', this.onKeyDown);
@@ -128,6 +142,8 @@ export class ComponentBrowserPanel {
     close(): void {
         this.unsubscribe?.();
         this.unsubscribe = null;
+        this.rigRelease?.();
+        this.rigRelease = null;
         document.removeEventListener('keydown', this.onKeyDown);
         this.overlay?.remove();
         this.overlay = null;
@@ -322,7 +338,27 @@ export class ComponentBrowserPanel {
         const card = document.createElement('div');
         card.setAttribute('data-component-browser-definition', view.definitionId);
         card.style.cssText =
-            'border:1px solid #e5e7eb;border-radius:8px;padding:12px;margin:0 0 10px';
+            'border:1px solid #e5e7eb;border-radius:8px;padding:12px;margin:0 0 10px;' +
+            'display:flex;gap:10px;align-items:flex-start';
+
+        // ── Lane U5 — the static 3-D thumbnail (cached per definition schemaHash
+        // + type). Three honest states: the image, "cannot evaluate" (the
+        // evaluator's own reason), and "cannot draw right now" — never a blank box
+        // pretending to be a shape.
+        const thumb = document.createElement('div');
+        thumb.setAttribute('data-component-browser-thumb', view.definitionId);
+        thumb.style.cssText =
+            'width:56px;height:56px;flex:0 0 56px;border:1px solid #eee;border-radius:8px;' +
+            'display:flex;align-items:center;justify-content:center;overflow:hidden;' +
+            'background:linear-gradient(160deg,#ffffff 0%,#f6f4ff 100%);' +
+            'font-size:9px;line-height:1.3;color:#888;text-align:center;padding:2px';
+        thumb.textContent = '…';
+        void this._fillThumbnail(thumb, view.definitionId);
+        card.appendChild(thumb);
+
+        const body = document.createElement('div');
+        body.style.cssText = 'flex:1;min-width:0';
+        card.appendChild(body);
 
         const head = document.createElement('div');
         head.style.cssText = 'display:flex;align-items:center;gap:8px;margin:0 0 8px';
@@ -384,7 +420,7 @@ export class ComponentBrowserPanel {
         });
 
         head.append(name, semver, edit, types, chip);
-        card.appendChild(head);
+        body.appendChild(head);
 
         for (const t of view.types) {
             const row = document.createElement('div');
@@ -419,10 +455,51 @@ export class ComponentBrowserPanel {
             });
 
             row.append(label, place);
-            card.appendChild(row);
+            body.appendChild(row);
         }
 
         return card;
+    }
+
+    /**
+     * Lane U5 — resolve and place one card's thumbnail. Async and card-local: a
+     * slow bake never delays the list render, and a card unmounted by a re-render
+     * (the subscribe loop) drops its result on the floor via `isConnected`.
+     */
+    private async _fillThumbnail(box: HTMLElement, definitionId: string): Promise<void> {
+        const entry = this.catalog.entry(definitionId);
+        if (entry === undefined) {
+            box.textContent = 'not loaded';
+            box.setAttribute('data-component-browser-thumb-state', 'not-loaded');
+            return;
+        }
+        const typeId = entry.family.document.types[0]?.id ?? null;
+        const res = await getComponentThumbnail({
+            family: {
+                manifest: entry.family.manifest,
+                document: entry.family.document,
+                schemaHash: entry.family.schemaHash,
+            },
+            typeId,
+        });
+        if (!box.isConnected) return;
+        if (res.ok) {
+            const img = document.createElement('img');
+            img.src = res.url;
+            img.alt = `3-D preview of ${entry.family.manifest.name}`;
+            img.style.cssText = 'width:100%;height:100%;object-fit:contain;display:block';
+            box.replaceChildren(img);
+            box.setAttribute('data-component-browser-thumb-state', res.partial ? 'partial' : 'ok');
+            if (res.partial) {
+                box.title = 'Partial preview — this definition declares solid features the bake refused.';
+            }
+        } else {
+            // The NAMED reason, compact on the card, full sentence on the title.
+            box.textContent = 'no 3-D preview';
+            box.title = res.message;
+            box.setAttribute('data-component-browser-thumb-state', 'refused');
+            box.setAttribute('data-component-browser-thumb-reason', res.reason);
+        }
     }
 
     // ── Load leg ──────────────────────────────────────────────────────────────
