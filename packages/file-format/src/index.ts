@@ -142,6 +142,19 @@ export {
   type MergeMaterialSlotsParams,
   makeSplitTypeMigrator,
   type SplitTypeParams,
+  /* --- lane U8 (§U8-AUTHORED-SHAPE) — the geometry-authoring ops --- */
+  makeAddBoxSolidMigrator,
+  makeSetBoxDimensionsMigrator,
+  readBoxSolid,
+  type AddBoxSolidParams,
+  type SetBoxDimensionsParams,
+  type BoxDimension,
+  type BoxDimensions,
+  type BoxSolidReading,
+  makeAddReferencePlaneMigrator,
+  type AddReferencePlaneParams,
+  makeDeleteSolidMigrator,
+  type DeleteSolidParams,
 } from './family-migrations/index.js';
 // ── Sprint AI/AJ (2026-05-12/13) — import/ + export/ → @pryzm/file-format ────────
 

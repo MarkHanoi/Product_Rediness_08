@@ -4,9 +4,30 @@
 //   - `document.parameters[*].name`
 //   - any `lengthExpression` in `document.solids[*]` that references
 //     the old name as a bare identifier.
+//   - any EXPRESSION-VALUED profile-entity coordinate that references it
+//     (lane U8; see below).
 //
 // Identifiers in expressions are matched on word boundaries so
 // `Width` does not match `WidthMM`.
+//
+// ⭐ §U8-RENAME-REACHES-PROFILES (lane U8). This op used to rewrite
+//    `lengthExpression` ONLY. That was complete while nothing bound a PROFILE
+//    coordinate to a parameter — but `profileToPolygon` has evaluated
+//    expression-valued `x`/`z` since lane 4D (spec §67), the U5 fixture binds
+//    a glazing profile to `GlassWidth`, and `add-box-solid` now writes
+//    `-(Width) / 2` into every authored box. Renaming `Width` while leaving
+//    those strings behind left a document whose geometry silently stopped
+//    evaluating — the extrude followed the rename and the profile did not.
+//    ⛔ Only STRING values in `entity.data` are touched; a numeric coordinate
+//    is a number and has no identifier in it. `constraints[*].parameterRef` is
+//    an ID and is deliberately untouched — ids do not carry names.
+//
+// ⚠ STILL NOT REWRITTEN, and named rather than hidden (C110 §1.4 / G-7): the
+//   `expression` on OTHER PARAMETERS. A dependent formula still shows its
+//   `unknown-identifier` diagnostic after a rename, which the workspace states
+//   in its own status line at the moment of the rename.
+/** Keys whose value is a sibling ENTITY ID, never an expression. */
+const REFERENCE_KEYS = new Set(['p1', 'p2', 'center']);
 export function makeRenameParameterMigrator(from, to, params) {
     return {
         id: `rename-parameter:${params.parameterId}`,
@@ -29,12 +50,37 @@ export function makeRenameParameterMigrator(from, to, params) {
                     lengthExpression: expressionRewriter(s.lengthExpression),
                 };
             });
+            // §U8-RENAME-REACHES-PROFILES — expression-valued coordinates follow the
+            // rename, exactly as `lengthExpression` does.
+            const profiles = input.document.profiles.map((pr) => ({
+                ...pr,
+                entities: pr.entities.map((e) => {
+                    let changed = false;
+                    const data = {};
+                    for (const [k, v] of Object.entries(e.data)) {
+                        // ⛔ `p1`/`p2`/`center` hold SIBLING ENTITY IDS, not expressions
+                        // (§4D-ENTITY-READ-CONTRACT). Rewriting an identifier inside an id
+                        // would repoint geometry; the exclusion is by key, not by shape.
+                        if (typeof v === 'string' && !REFERENCE_KEYS.has(k)) {
+                            const next = expressionRewriter(v);
+                            if (next !== v)
+                                changed = true;
+                            data[k] = next;
+                        }
+                        else {
+                            data[k] = v;
+                        }
+                    }
+                    return changed ? { ...e, data } : e;
+                }),
+            }));
             return {
                 manifest: { ...input.manifest },
                 document: {
                     ...input.document,
                     formatVersion: to,
                     parameters,
+                    profiles,
                     solids,
                 },
                 ifcMapping: input.ifcMapping,

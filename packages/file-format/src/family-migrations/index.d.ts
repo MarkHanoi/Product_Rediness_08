@@ -11,4 +11,7 @@ export { makeIntroduceExpressionMigrator, type IntroduceExpressionParams, } from
 export { makeRebindIfcMigrator, type RebindIfcParams, } from './ops/rebind-ifc.js';
 export { makeMergeMaterialSlotsMigrator, type MergeMaterialSlotsParams, } from './ops/merge-material-slots.js';
 export { makeSplitTypeMigrator, type SplitTypeParams, } from './ops/split-type.js';
+export { makeAddBoxSolidMigrator, makeSetBoxDimensionsMigrator, readBoxSolid, type AddBoxSolidParams, type SetBoxDimensionsParams, type BoxDimension, type BoxDimensions, type BoxSolidReading, } from './ops/box-solid.js';
+export { makeAddReferencePlaneMigrator, type AddReferencePlaneParams, } from './ops/add-reference-plane.js';
+export { makeDeleteSolidMigrator, type DeleteSolidParams, } from './ops/delete-solid.js';
 //# sourceMappingURL=index.d.ts.map

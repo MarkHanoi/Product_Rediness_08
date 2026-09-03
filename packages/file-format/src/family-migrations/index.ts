@@ -59,3 +59,27 @@ export {
   makeSplitTypeMigrator,
   type SplitTypeParams,
 } from './ops/split-type.js';
+
+/* ── lane U8 (§U8-AUTHORED-SHAPE) — the GEOMETRY-authoring ops ──────────
+ * The eight ops above could add a parameter and nothing else; these three are
+ * the first that write `document.profiles` / `document.solids`. `readBoxSolid`
+ * is exported WITH its writers on purpose — §U8-BOX-SPELLING has exactly one
+ * authority and a UI that re-parsed those strings would be the second. */
+export {
+  makeAddBoxSolidMigrator,
+  makeSetBoxDimensionsMigrator,
+  readBoxSolid,
+  type AddBoxSolidParams,
+  type SetBoxDimensionsParams,
+  type BoxDimension,
+  type BoxDimensions,
+  type BoxSolidReading,
+} from './ops/box-solid.js';
+export {
+  makeAddReferencePlaneMigrator,
+  type AddReferencePlaneParams,
+} from './ops/add-reference-plane.js';
+export {
+  makeDeleteSolidMigrator,
+  type DeleteSolidParams,
+} from './ops/delete-solid.js';

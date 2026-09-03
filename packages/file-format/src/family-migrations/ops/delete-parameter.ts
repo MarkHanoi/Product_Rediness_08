@@ -56,6 +56,27 @@ export function makeDeleteParameterMigrator(
         );
       }
 
+      // §U8-DELETE-SEES-PROFILES (lane U8) — the same guard, one array over.
+      // Expression-valued profile coordinates have been evaluated since lane 4D
+      // (spec §67) and every box authored by `add-box-solid` binds two of them;
+      // deleting the parameter underneath one left a document whose PROFILE no
+      // longer evaluated while this op reported success. Same rule as the
+      // solid arm: refuse and name the holder, never silently change geometry.
+      for (const profile of input.document.profiles) {
+        for (const entity of profile.entities) {
+          for (const [key, value] of Object.entries(entity.data)) {
+            if (key === 'p1' || key === 'p2' || key === 'center') continue;
+            if (typeof value !== 'string') continue;
+            if (!new RegExp(`\\b${escapeRegex(target.name)}\\b`).test(value)) continue;
+            throw new Error(
+              `cannot delete parameter ${params.parameterId}: profile ${profile.id} entity ` +
+                `${entity.id} coordinate '${key}' is the expression "${value}", which references ` +
+                `"${target.name}"; rewrite the geometry or rename it first`,
+            );
+          }
+        }
+      }
+
       const parameters = input.document.parameters.filter(
         (p) => p.id !== params.parameterId,
       );

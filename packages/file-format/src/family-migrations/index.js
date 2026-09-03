@@ -14,4 +14,12 @@ export { makeIntroduceExpressionMigrator, } from './ops/introduce-expression.js'
 export { makeRebindIfcMigrator, } from './ops/rebind-ifc.js';
 export { makeMergeMaterialSlotsMigrator, } from './ops/merge-material-slots.js';
 export { makeSplitTypeMigrator, } from './ops/split-type.js';
+/* ── lane U8 (§U8-AUTHORED-SHAPE) — the GEOMETRY-authoring ops ──────────
+ * The eight ops above could add a parameter and nothing else; these three are
+ * the first that write `document.profiles` / `document.solids`. `readBoxSolid`
+ * is exported WITH its writers on purpose — §U8-BOX-SPELLING has exactly one
+ * authority and a UI that re-parsed those strings would be the second. */
+export { makeAddBoxSolidMigrator, makeSetBoxDimensionsMigrator, readBoxSolid, } from './ops/box-solid.js';
+export { makeAddReferencePlaneMigrator, } from './ops/add-reference-plane.js';
+export { makeDeleteSolidMigrator, } from './ops/delete-solid.js';
 //# sourceMappingURL=index.js.map

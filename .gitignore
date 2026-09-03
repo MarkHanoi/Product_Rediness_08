@@ -76,3 +76,7 @@ test-results/
 # SHIPPED derivatives live in public/apex/ (hero-hevc.mp4, hero.mp4) and ARE tracked; these are the
 # masters they are cut from and belong on disk, not in history.
 docs/04-reference/Video/
+
+# family-migrations UTF-8 emit scratch (tooling artefact, never source)
+packages/file-format/.u8emit/
+packages/file-format/.u8emit.tsconfig.json
