@@ -30,6 +30,10 @@
 
 name: Bake context tiles → R2 (L-513a)
 
+# The region in the run title, so a parallel staging sweep of many regions is legible in the
+# Actions list and a driver can map runs → regions without opening each one.
+run-name: "context-bake ${{ inputs.region || 'ALL' }}"
+
 on:
   workflow_dispatch:
     inputs:
