@@ -68,6 +68,8 @@
  */
 
 import type {
+    BoxDimension,
+    BoxSolidReading,
     FamilyDocument,
     FamilyEvent,
     FamilyManifest,
@@ -108,7 +110,10 @@ import { makeComponentExpressionController, mountComponentChat, type ComponentCh
 // re-renders, so the §64 demo is VISUAL: change FrameWidth, watch the glass
 // shrink. A recipe that cannot evaluate shows the evaluator's own sentences and
 // tears the canvas down — never a stale or invented shape.
+// ⭐ Lane U8 — the family-editor VIEWPORTS (3-D + plan + two elevations) and the
+// authored-shape ops. One bake, four cameras, one WebGL context.
 import {
+    COMPONENT_FAMILY_EDITOR_VIEWS,
     mountComponentPreview,
     type ComponentPreviewHandle,
     type ComponentPreviewResult,
@@ -121,13 +126,18 @@ import {
 type FileFormatModule = typeof import('@pryzm/file-format');
 
 let _ffPromise: Promise<FileFormatModule> | null = null;
+/** The resolved module, once the gateway has opened. ⛔ Read-ONLY uses (the
+ *  §U8-BOX-SPELLING reader); every MUTATION still goes through `applyOp`. */
+let _ff: FileFormatModule | null = null;
 
 /** ⛔ THE ONE GATEWAY to `@pryzm/file-format`'s value surface (ops + packer +
  *  schema). Severing this import is the workspace's falsification: every edit
  *  and every save then REFUSES with the load failure rendered in place — the
  *  draft is never mutated by any other route, so nothing can be silently lost. */
 async function loadFileFormat(): Promise<FileFormatModule> {
-    return await (_ffPromise ??= import('@pryzm/file-format'));
+    const mod = await (_ffPromise ??= import('@pryzm/file-format'));
+    _ff = mod;
+    return mod;
 }
 
 /* ------------------------------------------------------------------ */
@@ -144,6 +154,28 @@ export interface ExpressionPreview {
     readonly clean: boolean;
     /** The defaultValue `introduce-expression` will clear (D4), or null. */
     readonly willClearDefault: number | string | null;
+}
+
+/**
+ * lane U8 — one dimension as the FORM states it, before it becomes a
+ * {@link BoxDimension}. `new-parameter` is the inline-create leg: the number
+ * already typed becomes the new parameter's default, so binding costs one
+ * extra field and never a trip to another panel.
+ */
+export interface ShapeDimensionField {
+    readonly mode: 'literal' | 'parameter' | 'new-parameter';
+    /** Runtime length units (mm today). Used by `literal` and `new-parameter`. */
+    readonly value?: number;
+    readonly parameterId?: string;
+    readonly newParameterName?: string;
+}
+
+export interface AddShapeFields {
+    /** The profile's name — what the shape list shows. */
+    readonly name: string;
+    readonly width: ShapeDimensionField;
+    readonly depth: ShapeDimensionField;
+    readonly height: ShapeDimensionField;
 }
 
 export interface AddParameterFields {
@@ -179,6 +211,22 @@ export interface ComponentDefinitionWorkspaceHandle {
     applyDeleteParameter(parameterId: string): Promise<string | null>;
     /** Mount the 4F profile panel for one of the definition's profiles. */
     openProfile(profileId: string): boolean;
+    /* ── lane U8 — GEOMETRY AUTHORING (§U8-AUTHORED-SHAPE) ────────────────── */
+    /** Open the add-shape form (DOM). */
+    beginAddShape(): void;
+    /** Author one parametric box through the ops. Returns a refusal, or null. */
+    submitAddShape(fields: AddShapeFields): Promise<string | null>;
+    /** Select a shape (or `null`) — the list highlights it and shows its editor. */
+    selectShape(solidId: string | null): void;
+    /** The selected shape's id, or null. */
+    selectedShape(): string | null;
+    /** Re-dimension / re-bind a box. Only the named dimensions change. */
+    applyShapeDimensions(
+        solidId: string,
+        dims: { width?: ShapeDimensionField; depth?: ShapeDimensionField; height?: ShapeDimensionField },
+    ): Promise<string | null>;
+    /** Delete a shape. Deleting the last one restores the honest no-solids state. */
+    applyDeleteShape(solidId: string): Promise<string | null>;
     /** Lane U5 — settles when the LATEST 3-D preview refresh has been applied (or
      *  superseded by a newer edit). The preview's state is on the DOM:
      *  `[data-component-preview-state]` ∈ empty | ok | partial | refused. */
@@ -238,10 +286,21 @@ function coerceValues(
 /** Mint a `par_<ULID>` through the ONE id factory (`createId`) — the ULID comes
  *  from the sanctioned generator; only the frozen wire prefix differs. */
 function mintParameterId(): string {
+    return `par_${mintUlid()}`;
+}
+
+/** A BARE ULID — profile entity ids carry no prefix in `ProfileEntitySchema`. */
+function mintUlid(): string {
     const parsed = parseId(createId('component'));
     if (parsed === null) throw new Error('[workspace] createId produced an unparseable id');
-    return `par_${parsed.ulid}`;
+    return parsed.ulid;
 }
+
+/** Runtime length units per metre — for the shape list's metre gloss only.
+ *  ⛔ NOT a conversion used to author anything: every dimension this workspace
+ *  writes stays in runtime units and crosses `§4D-ONE-LENGTH-SEAM` exactly once,
+ *  inside the bake. This is a LABEL. */
+const RUNTIME_UNITS_PER_M = 1000;
 
 /** Parse an authored default by the DECLARED dataType. Deliberately refuses
  *  nothing itself — a wrong shape reaches the Zod schema, the one voice. */
@@ -298,6 +357,9 @@ export function openComponentDefinitionWorkspace(
     let dirty = false;
     let scopeTypeId: string | null = draft.document.types[0]?.id ?? null;
     let model: ParameterTableModel | null = null;
+    /** lane U8 — the selected shape, or null. Selection is VIEW state, not
+     *  document state: it is never packed and never migrated. */
+    let selectedSolidId: string | null = null;
 
     /* ── chrome ── */
     const overlay = el('div',
@@ -305,7 +367,9 @@ export function openComponentDefinitionWorkspace(
         'background:rgba(15,15,30,0.55);font-family:system-ui,sans-serif;');
     overlay.setAttribute('data-cdw-overlay', '');
     const card = el('div',
-        'width:min(760px,calc(100% - 48px));max-height:min(720px,calc(100% - 48px));display:flex;' +
+        // lane U8 — wider than U3's 760px: the 2x2 viewport grid puts four cameras
+        // where one preview used to be, and each cell must still read.
+        'width:min(980px,calc(100% - 48px));max-height:min(860px,calc(100% - 48px));display:flex;' +
         'flex-direction:column;overflow-y:auto;background:#fff;color:' + INK + ';border-radius:12px;' +
         'padding:20px;box-shadow:0 24px 64px rgba(0,0,0,0.35);font:13px/1.45 system-ui,sans-serif;');
     card.setAttribute('data-cdw-root', definitionId);
@@ -353,7 +417,14 @@ export function openComponentDefinitionWorkspace(
     let previewSettled: Promise<void> = Promise.resolve();
     const ensurePreview = (): void => {
         if (previewHandle !== null) return;
-        previewHandle = mountComponentPreview(previewHost, { heightPx: 168 });
+        // ⭐ Lane U8 — FOUR viewports (3-D · plan · front · side) from ONE bake
+        // and ONE WebGL context. `views` is the only change from U5's single
+        // preview; the honest-state machinery, the newest-wins token and the
+        // stale-shape teardown are U5's, unchanged.
+        previewHandle = mountComponentPreview(previewHost, {
+            heightPx: 150,
+            views: COMPONENT_FAMILY_EDITOR_VIEWS,
+        });
     };
     function refreshPreview(): void {
         ensurePreview();
@@ -809,6 +880,400 @@ export function openComponentDefinitionWorkspace(
         return true;
     }
 
+    /* ══════════════════════════════════════════════════════════════════════
+     * lane U8 (§U8-AUTHORED-SHAPE) — GEOMETRY AUTHORING
+     *
+     * ⭐⭐ WHAT THIS CLOSES. U3 shipped with a stated, named absence: *"the
+     *     family-migrations ops export NO profile op … so the mounted profile
+     *     surface states that it cannot persist, BY NAME"*. That absence is why
+     *     "New Component" opened on a definition with zero solids and the
+     *     preview answered `no-solids`. Lane U8 added the ops
+     *     (`add-box-solid`, `set-box-dimensions`, `delete-solid`,
+     *     `add-reference-plane`) inside `@pryzm/file-format` — the SANCTIONED
+     *     path — so this surface authors geometry the same way it authors
+     *     parameters: through an op, never a document write.
+     *
+     * ⛔ ONE SHAPE KIND: a parametric box (rect profile × extrude height). Not
+     *    a simplification for its own sake — `BAKEABLE_SOLID_KINDS` is
+     *    `['extrude']` and every other kind REFUSES in `bakeFamilyInstance`
+     *    with a sentence naming the persisted fields it lacks. An "Add
+     *    sweep" button would author a refusal (spec §75).
+     * ══════════════════════════════════════════════════════════════════════ */
+
+    /** Length parameters a dimension may bind to — the ones whose name the
+     *  expression grammar can read (a name with a space is two identifiers). */
+    function bindableParameters(): readonly FamilyParameter[] {
+        return params().filter((p) => p.dataType === 'length' && !/\s/.test(p.name));
+    }
+
+    /** The §U8-BOX-SPELLING reading for a solid, or null (not a box / not yet
+     *  loaded). ⛔ Read through `@pryzm/file-format`'s OWN reader — parsing the
+     *  corner expressions here would be the second authority for the spelling. */
+    function boxReading(solidId: string): BoxSolidReading | null {
+        return _ff?.readBoxSolid(draft.document, solidId) ?? null;
+    }
+
+    /** Render a dimension for a human: the parameter's NAME, or the number. */
+    function dimensionLabel(dim: BoxDimension): string {
+        if (dim.kind === 'literal') return `${dim.value} (${dim.value / RUNTIME_UNITS_PER_M} m)`;
+        const p = paramById(dim.parameterId);
+        return p ? `${p.name} (bound)` : `${dim.parameterId} — missing`;
+    }
+
+    /** Turn ONE form field into a persisted binding, creating the parameter
+     *  first when the author asked for a new one. Refusals come back as text. */
+    async function resolveDimension(
+        field: ShapeDimensionField,
+        label: string,
+    ): Promise<{ ok: true; dim: BoxDimension } | { ok: false; refusal: string }> {
+        if (field.mode === 'parameter') {
+            const id = field.parameterId ?? '';
+            if (paramById(id) === undefined) {
+                return { ok: false, refusal: `${label} names no parameter of this Component.` };
+            }
+            return { ok: true, dim: { kind: 'parameter', parameterId: id } };
+        }
+        const value = field.value;
+        if (typeof value !== 'number' || !Number.isFinite(value) || value <= 0) {
+            return {
+                ok: false,
+                refusal: `${label} needs a positive number (in ${runtimeUnitLabel('length')}); ` +
+                    'a zero or negative extent produces a solid the evaluator refuses.',
+            };
+        }
+        if (field.mode === 'literal') return { ok: true, dim: { kind: 'literal', value } };
+
+        // ── inline parameter creation, through the SAME add-parameter op the
+        //    table's own "Add parameter…" uses. The number already typed becomes
+        //    the default, so nothing is invented behind the author's back.
+        const name = (field.newParameterName ?? '').trim();
+        if (name === '') {
+            return { ok: false, refusal: `${label}: name the new parameter before binding to it.` };
+        }
+        const parameterId = mintParameterId();
+        const v = draft.document.formatVersion;
+        const res = await applyOp((ff) => ff.makeAddParameterMigrator(v, v, {
+            parameter: {
+                id: parameterId,
+                name,
+                kind: 'instance',
+                dataType: 'length',
+                defaultValue: value,
+                expression: null,
+                ifcMapping: null,
+                exposed: true,
+            } as PersistedFamilyParameter,
+        }));
+        if (!res.ok) return { ok: false, refusal: res.refusal };
+        return { ok: true, dim: { kind: 'parameter', parameterId } };
+    }
+
+    /** The plane the next profile is drawn on — the host plane if there is one.
+     *  Creates one only when the definition carries NONE (a from-zero mint). */
+    async function ensurePlane(): Promise<{ ok: true; planeId: string } | { ok: false; refusal: string }> {
+        const planes = draft.document.referencePlanes as readonly ReferencePlane[];
+        const existing = planes.find((pl) => pl.isHost) ?? planes[0];
+        if (existing) return { ok: true, planeId: existing.id };
+        const planeId = `plane_${mintUlid()}`;
+        const v = draft.document.formatVersion;
+        const res = await applyOp((ff) => ff.makeAddReferencePlaneMigrator(v, v, {
+            plane: {
+                id: planeId, name: 'Base',
+                origin: { x: 0, y: 0, z: 0 }, normal: { x: 0, y: 1, z: 0 }, isHost: true,
+            } as ReferencePlane,
+        }));
+        return res.ok ? { ok: true, planeId } : { ok: false, refusal: res.refusal };
+    }
+
+    async function submitAddShape(fields: AddShapeFields): Promise<string | null> {
+        // ⚠ The gateway must be OPEN before the dimension legs run, so a load
+        // failure refuses BEFORE any parameter is created rather than half-way
+        // through (a partially-applied shape is the state this order avoids).
+        try {
+            await loadFileFormat();
+        } catch (e) {
+            const msg = `${OPS_UNAVAILABLE}: ${e instanceof Error ? e.message : String(e)}.`;
+            setStatus(msg, true);
+            return msg;
+        }
+        const w = await resolveDimension(fields.width, 'Width');
+        if (!w.ok) { setStatus(w.refusal, true); return w.refusal; }
+        const d = await resolveDimension(fields.depth, 'Depth');
+        if (!d.ok) { setStatus(d.refusal, true); return d.refusal; }
+        const h = await resolveDimension(fields.height, 'Height');
+        if (!h.ok) { setStatus(h.refusal, true); return h.refusal; }
+        const plane = await ensurePlane();
+        if (!plane.ok) { setStatus(plane.refusal, true); return plane.refusal; }
+
+        const solidId = `sol_${mintUlid()}`;
+        const v = draft.document.formatVersion;
+        const res = await applyOp((ff) => ff.makeAddBoxSolidMigrator(v, v, {
+            solidId,
+            profileId: `prof_${mintUlid()}`,
+            profileName: fields.name.trim() === '' ? 'Shape' : fields.name.trim(),
+            planeId: plane.planeId,
+            entityIds: [mintUlid(), mintUlid(), mintUlid(), mintUlid()],
+            width: w.dim,
+            depth: d.dim,
+            height: h.dim,
+        }));
+        if (!res.ok) { setStatus(res.refusal, true); return res.refusal; }
+        selectedSolidId = solidId;
+        addShapeForm = null;
+        render();
+        setStatus('Shape added to the draft (not yet saved) — the viewports show it immediately.');
+        return null;
+    }
+
+    async function applyShapeDimensions(
+        solidId: string,
+        dims: { width?: ShapeDimensionField; depth?: ShapeDimensionField; height?: ShapeDimensionField },
+    ): Promise<string | null> {
+        try {
+            await loadFileFormat();
+        } catch (e) {
+            const msg = `${OPS_UNAVAILABLE}: ${e instanceof Error ? e.message : String(e)}.`;
+            setStatus(msg, true);
+            return msg;
+        }
+        const out: { width?: BoxDimension; depth?: BoxDimension; height?: BoxDimension } = {};
+        for (const key of ['width', 'depth', 'height'] as const) {
+            const field = dims[key];
+            if (field === undefined) continue;
+            const r = await resolveDimension(field, key[0]!.toUpperCase() + key.slice(1));
+            if (!r.ok) { setStatus(r.refusal, true); return r.refusal; }
+            out[key] = r.dim;
+        }
+        const v = draft.document.formatVersion;
+        const res = await applyOp((ff) => ff.makeSetBoxDimensionsMigrator(v, v, { solidId, ...out }));
+        if (!res.ok) { setStatus(res.refusal, true); return res.refusal; }
+        setStatus('Shape re-dimensioned in the draft — every viewport re-evaluated through the one bake.');
+        return null;
+    }
+
+    async function applyDeleteShape(solidId: string): Promise<string | null> {
+        const v = draft.document.formatVersion;
+        const res = await applyOp((ff) => ff.makeDeleteSolidMigrator(v, v, { solidId }));
+        if (!res.ok) { setStatus(res.refusal, true); return res.refusal; }
+        if (selectedSolidId === solidId) selectedSolidId = null;
+        render();
+        // ⭐ The honest consequence, said out loud rather than discovered.
+        setStatus(
+            draft.document.solids.length === 0
+                ? 'Shape deleted — this Component now declares no solids, so the preview refuses ' +
+                  'with no-solids. That refusal is correct for an empty definition; add a shape to ' +
+                  'bring the viewports back.'
+                : 'Shape deleted from the draft (not yet saved).');
+        return null;
+    }
+
+    function selectShape(solidId: string | null): void {
+        selectedSolidId = solidId;
+        render();
+    }
+
+    /* ── the add-shape form ── */
+    let addShapeForm: HTMLElement | null = null;
+
+    /**
+     * One dimension control: a mode select + the inputs that mode needs.
+     * Returns a reader, so the caller collects the value at SUBMIT time rather
+     * than tracking every keystroke.
+     */
+    function dimensionControl(
+        attr: string,
+        initial: BoxDimension | null,
+        allowNewParameter: boolean,
+    ): { root: HTMLElement; read: () => ShapeDimensionField } {
+        const wrap = el('div', 'display:flex;gap:4px;align-items:center;flex-wrap:wrap;');
+        wrap.setAttribute(`data-cdw-dim-${attr}`, '');
+
+        const mode = document.createElement('select');
+        mode.setAttribute(`data-cdw-dim-${attr}-mode`, '');
+        const modes: readonly (readonly [string, string])[] = allowNewParameter
+            ? [['literal', 'Fixed'], ['parameter', 'Bind to parameter'], ['new-parameter', 'New parameter…']]
+            : [['literal', 'Fixed'], ['parameter', 'Bind to parameter']];
+        for (const [value, label] of modes) {
+            const o = document.createElement('option');
+            o.value = value; o.textContent = label;
+            mode.appendChild(o);
+        }
+
+        const num = document.createElement('input');
+        num.setAttribute(`data-cdw-dim-${attr}-value`, '');
+        num.type = 'number';
+        num.style.cssText = 'width:82px;padding:3px 5px;font:12px ui-monospace,monospace;';
+        num.placeholder = runtimeUnitLabel('length');
+
+        const paramSel = document.createElement('select');
+        paramSel.setAttribute(`data-cdw-dim-${attr}-param`, '');
+        for (const p of bindableParameters()) {
+            const o = document.createElement('option');
+            o.value = p.id; o.textContent = p.name;
+            paramSel.appendChild(o);
+        }
+
+        const newName = document.createElement('input');
+        newName.setAttribute(`data-cdw-dim-${attr}-newname`, '');
+        newName.placeholder = 'New parameter name';
+        newName.style.cssText = 'width:130px;padding:3px 5px;font:12px system-ui,sans-serif;';
+
+        // Seed from the CURRENT binding, so an edit form opens on the truth.
+        if (initial?.kind === 'parameter') {
+            mode.value = 'parameter';
+            paramSel.value = initial.parameterId;
+            num.value = '';
+        } else {
+            mode.value = 'literal';
+            num.value = initial ? String(initial.value) : '600';
+        }
+
+        const sync = (): void => {
+            num.style.display = mode.value === 'parameter' ? 'none' : '';
+            paramSel.style.display = mode.value === 'parameter' ? '' : 'none';
+            newName.style.display = mode.value === 'new-parameter' ? '' : 'none';
+        };
+        mode.addEventListener('change', sync);
+
+        wrap.append(mode, num, paramSel, newName);
+        sync();
+
+        // ⚠ No bindable parameter exists yet? Say so instead of offering an
+        // empty select that silently binds to nothing.
+        if (bindableParameters().length === 0) {
+            const note = el('span', `font-size:11px;color:${MUTED};`,
+                'no length parameter to bind to yet');
+            note.setAttribute(`data-cdw-dim-${attr}-nobind`, '');
+            wrap.appendChild(note);
+        }
+
+        return {
+            root: wrap,
+            read: (): ShapeDimensionField => {
+                const m = mode.value as ShapeDimensionField['mode'];
+                const raw = Number(num.value);
+                return {
+                    mode: m,
+                    ...(Number.isFinite(raw) ? { value: raw } : {}),
+                    ...(paramSel.value !== '' ? { parameterId: paramSel.value } : {}),
+                    ...(newName.value.trim() !== '' ? { newParameterName: newName.value.trim() } : {}),
+                };
+            },
+        };
+    }
+
+    function beginAddShape(): void {
+        if (addShapeForm !== null) { addShapeForm.querySelector('input')?.focus?.(); return; }
+        const wrap = el('div',
+            `border:1px solid ${LINE};border-radius:8px;padding:10px;margin:6px 0;` +
+            'display:flex;flex-direction:column;gap:6px;');
+        wrap.setAttribute('data-cdw-add-shape-form', '');
+
+        const nameIn = document.createElement('input');
+        nameIn.setAttribute('data-cdw-add-shape-name', '');
+        nameIn.placeholder = 'Shape name (e.g. Body)';
+        nameIn.value = 'Body';
+        nameIn.style.cssText = 'padding:4px 6px;font:12.5px system-ui,sans-serif;max-width:220px;';
+        wrap.appendChild(nameIn);
+
+        const row = (label: string, ctl: HTMLElement): HTMLElement => {
+            const r = el('div', 'display:flex;gap:8px;align-items:center;');
+            const l = el('span', `font-size:11.5px;color:${MUTED};width:52px;`, label);
+            r.append(l, ctl);
+            return r;
+        };
+        const w = dimensionControl('width', null, true);
+        const d = dimensionControl('depth', null, true);
+        const h = dimensionControl('height', null, true);
+        wrap.append(row('Width', w.root), row('Depth', d.root), row('Height', h.root));
+
+        const actions = el('div', 'display:flex;gap:6px;');
+        const applyBtn = el('button', 'padding:4px 12px;font-weight:600;cursor:pointer;', 'Add shape');
+        applyBtn.setAttribute('data-cdw-add-shape-apply', '');
+        applyBtn.addEventListener('click', () => {
+            void submitAddShape({
+                name: nameIn.value, width: w.read(), depth: d.read(), height: h.read(),
+            });
+        });
+        const cancelBtn = el('button', 'padding:4px 10px;cursor:pointer;', 'Cancel');
+        cancelBtn.addEventListener('click', () => { addShapeForm?.remove(); addShapeForm = null; });
+        actions.append(applyBtn, cancelBtn);
+        wrap.appendChild(actions);
+
+        // ⛔ The declared limit, stated where the author is about to hit it.
+        const limit = el('div', `font-size:11px;color:${MUTED};line-height:1.45;`,
+            'A shape is a box: a rectangle extruded upward. Voids/cuts, sweeps, revolves and ' +
+            'lofts are persistable in the format but are REFUSED by the evaluator ' +
+            '(bakeFamilyInstance bakes extrude only), so this editor does not offer buttons that ' +
+            'would author a refusal.');
+        limit.setAttribute('data-cdw-add-shape-limit', '');
+        wrap.appendChild(limit);
+
+        addShapeForm = wrap;
+        card.querySelector('[data-cdw-shapes-toolbar]')?.insertAdjacentElement('afterend', wrap);
+        nameIn.focus?.();
+    }
+
+    /** The selected shape's editor — dimensions + bindings + delete. */
+    function renderShapeEditor(host: HTMLElement, solidId: string): void {
+        const reading = boxReading(solidId);
+        const box = el('div',
+            `border:1px solid ${LINE};border-radius:8px;padding:10px;margin:4px 0;` +
+            'display:flex;flex-direction:column;gap:6px;');
+        box.setAttribute('data-cdw-shape-editor', solidId);
+
+        if (reading === null) {
+            // ⭐ HONEST: "not a box this editor wrote" is an ANSWER. Offering
+            // dimension fields over a sketched profile would rewrite geometry
+            // the reader cannot even see.
+            box.appendChild(el('div', `font-size:11.5px;color:${WARN};line-height:1.5;`,
+                _ff === null
+                    ? 'Reading this shape’s dimensions…'
+                    : 'This shape’s profile was not authored as a box by this editor (or one of its ' +
+                      'bound parameters is gone), so its dimensions are not editable here. It still ' +
+                      'evaluates and still draws; nothing about it is hidden.'));
+            const del = el('button', 'padding:3px 10px;font-size:11.5px;cursor:pointer;align-self:flex-start;', 'Delete shape');
+            del.setAttribute('data-cdw-shape-delete', solidId);
+            del.addEventListener('click', () => { void applyDeleteShape(solidId); });
+            box.appendChild(del);
+            host.appendChild(box);
+            return;
+        }
+
+        const controls = {
+            width: dimensionControl('edit-width', reading.width, false),
+            depth: dimensionControl('edit-depth', reading.depth, false),
+            height: dimensionControl('edit-height', reading.height, false),
+        };
+        for (const [label, key] of [['Width', 'width'], ['Depth', 'depth'], ['Height', 'height']] as const) {
+            const r = el('div', 'display:flex;gap:8px;align-items:center;');
+            r.append(el('span', `font-size:11.5px;color:${MUTED};width:52px;`, label), controls[key].root);
+            box.appendChild(r);
+        }
+
+        const actions = el('div', 'display:flex;gap:6px;');
+        const apply = el('button', 'padding:4px 12px;font-weight:600;cursor:pointer;', 'Apply dimensions');
+        apply.setAttribute('data-cdw-shape-apply', solidId);
+        apply.addEventListener('click', () => {
+            void applyShapeDimensions(solidId, {
+                width: controls.width.read(),
+                depth: controls.depth.read(),
+                height: controls.height.read(),
+            });
+        });
+        const del = el('button', 'padding:4px 10px;cursor:pointer;', 'Delete shape');
+        del.setAttribute('data-cdw-shape-delete', solidId);
+        del.addEventListener('click', () => { void applyDeleteShape(solidId); });
+        actions.append(apply, del);
+        box.appendChild(actions);
+
+        // The §64 sentence, in place: a bound dimension follows the table.
+        box.appendChild(el('div', `font-size:11px;color:${MUTED};line-height:1.45;`,
+            'A bound dimension follows its parameter: change the parameter in the table above and ' +
+            'this shape re-evaluates through the same bake the placed instance uses.'));
+        host.appendChild(box);
+    }
+
     /* ── save-via-pack ── */
 
     async function save(): Promise<string | null> {
@@ -865,6 +1330,7 @@ export function openComponentDefinitionWorkspace(
 
     function render(): void {
         addForm = null;
+        addShapeForm = null;
         card.replaceChildren();
         const doc = draft.document;
         const view = componentCatalog.view(definitionId);
@@ -986,23 +1452,66 @@ export function openComponentDefinitionWorkspace(
             }
         }
 
-        // solid features (read-only; R-a's honesty for `boolean`)
-        if (doc.solids.length > 0) {
-            card.appendChild(el('div',
-                'font-size:11px;font-weight:700;letter-spacing:.03em;text-transform:uppercase;' +
-                `color:${MUTED};margin:10px 0 4px;`, 'Solid features'));
-            for (const s of doc.solids) {
-                const isBoolean = (s as { kind: string }).kind === 'boolean';
-                const row = el('div',
-                    `font-size:12px;margin:1px 0;color:${isBoolean ? REFUSAL : INK};`,
-                    isBoolean
-                        ? 'boolean — unsupported-feature: persisted by the schema but deliberately ' +
-                          'absent from the bake adapter while D7 (feature graph vs undo) is OPEN; ' +
-                          'this document\'s feature will not bake.'
-                        : (s as { kind: string }).kind);
-                row.setAttribute('data-cdw-solid', (s as { id: string }).id);
-                card.appendChild(row);
+        // ── SHAPES (lane U8) — the authored-geometry list: select → edit
+        //    dimensions/bindings → delete, plus the add-shape entry. Replaces
+        //    U3's read-only "Solid features" list, which could name a solid but
+        //    could not add, change or remove one.
+        card.appendChild(el('div',
+            'font-size:11px;font-weight:700;letter-spacing:.03em;text-transform:uppercase;' +
+            `color:${MUTED};margin:10px 0 4px;`, 'Shapes'));
+
+        const shapesToolbar = el('div', 'display:flex;gap:8px;align-items:center;margin:0 0 4px;');
+        shapesToolbar.setAttribute('data-cdw-shapes-toolbar', '');
+        const addShapeBtn = el('button',
+            `background:#fff;color:${PURPLE};border:1px solid ${PURPLE};padding:4px 12px;` +
+            'border-radius:6px;font-weight:600;cursor:pointer;font-size:12px;', 'Add shape…');
+        addShapeBtn.setAttribute('data-cdw-add-shape', '');
+        addShapeBtn.addEventListener('click', () => beginAddShape());
+        shapesToolbar.appendChild(addShapeBtn);
+        card.appendChild(shapesToolbar);
+
+        if (doc.solids.length === 0) {
+            // ⭐ The honest empty state, with the route forward — NOT the bake's
+            // refusal wearing chrome. The refusal itself still appears in the
+            // viewport, because that is where "cannot be evaluated" belongs.
+            const empty = el('div', `font-size:11.5px;color:${MUTED};line-height:1.5;margin:2px 0 6px;`,
+                'This Component declares no shapes, so there is nothing to evaluate and the ' +
+                'viewports show the evaluator’s no-solids refusal. Add a shape to give it a body.');
+            empty.setAttribute('data-cdw-shapes-empty', '');
+            card.appendChild(empty);
+        }
+
+        for (const s of doc.solids) {
+            const solid = s as { id: string; kind: string };
+            const isBoolean = solid.kind === 'boolean';
+            const selected = selectedSolidId === solid.id;
+            const row = el('div',
+                'display:flex;align-items:center;gap:8px;margin:1px 0;padding:3px 6px;border-radius:6px;' +
+                `cursor:pointer;background:${selected ? '#f3edff' : 'transparent'};` +
+                `border:1px solid ${selected ? PURPLE : 'transparent'};`);
+            row.setAttribute('data-cdw-solid', solid.id);
+            if (selected) row.setAttribute('data-cdw-solid-selected', solid.id);
+            row.addEventListener('click', () => selectShape(selected ? null : solid.id));
+
+            const reading = boxReading(solid.id);
+            const profile = (doc.profiles as readonly Profile[])
+                .find((pr) => 'profileId' in s && pr.id === (s as { profileId?: string }).profileId);
+            const title = el('span', `font-size:12px;color:${isBoolean ? REFUSAL : INK};font-weight:600;`,
+                profile?.name ?? solid.kind);
+            row.appendChild(title);
+            row.appendChild(el('span', `font-size:11.5px;color:${MUTED};`,
+                reading
+                    ? `W ${dimensionLabel(reading.width)} · D ${dimensionLabel(reading.depth)} · ` +
+                      `H ${dimensionLabel(reading.height)}`
+                    : solid.kind));
+            if (isBoolean) {
+                // R-a's honesty, preserved verbatim in meaning: persisted, not bakeable.
+                row.appendChild(el('span', `font-size:11px;color:${REFUSAL};`,
+                    '⛔ unsupported-feature — persisted by the schema but absent from the bake ' +
+                    'adapter while D7 (feature graph vs undo) is OPEN; this feature will not bake.'));
             }
+            card.appendChild(row);
+            if (selected) renderShapeEditor(card, solid.id);
         }
 
         // material slots (read-only list)
@@ -1053,6 +1562,17 @@ export function openComponentDefinitionWorkspace(
     setStatus('');
     document.body.appendChild(overlay);
 
+    // ⭐ lane U8 — WARM the ONE gateway. `readBoxSolid` (the §U8-BOX-SPELLING
+    // reader) lives in `@pryzm/file-format`, which is loaded lazily on purpose
+    // (the barrel evaluates pdfjs at module scope). Until it lands the shape
+    // rows say "reading…" rather than inventing a dimension; when it lands the
+    // list re-renders. ⛔ A local parse would be the second authority for the
+    // spelling and is exactly what this defers instead.
+    void loadFileFormat().then(() => { if (overlay.isConnected) render(); }).catch(() => {
+        // Silent here BY DESIGN: the failure is not silent anywhere it matters —
+        // the first edit refuses loudly through `applyOp`'s OPS_UNAVAILABLE.
+    });
+
     const handle: ComponentDefinitionWorkspaceHandle = {
         ok: true,
         root: card,
@@ -1070,6 +1590,12 @@ export function openComponentDefinitionWorkspace(
         applyDataTypeChange,
         applyDeleteParameter,
         openProfile,
+        beginAddShape,
+        submitAddShape,
+        selectShape,
+        selectedShape: () => selectedSolidId,
+        applyShapeDimensions,
+        applyDeleteShape,
         previewSettled: () => previewSettled,
         previewResult: () => previewHandle?.lastResult() ?? null,
         save,

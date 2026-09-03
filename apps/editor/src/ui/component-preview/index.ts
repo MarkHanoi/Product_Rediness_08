@@ -13,8 +13,15 @@ export {
 } from './componentPreviewSubject';
 export {
     mountComponentPreview,
+    // lane U8 (§U8-MULTI-VIEW) — the family-editor viewport presets.
+    COMPONENT_FAMILY_EDITOR_VIEWS,
+    COMPONENT_VIEW_3D,
+    COMPONENT_VIEW_PLAN,
+    COMPONENT_VIEW_FRONT,
+    COMPONENT_VIEW_SIDE,
     type ComponentPreviewHandle,
     type ComponentPreviewOptions,
+    type ComponentPreviewView,
 } from './ComponentPreview';
 export {
     getComponentThumbnail,

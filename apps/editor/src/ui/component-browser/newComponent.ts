@@ -61,9 +61,15 @@ const PLACEHOLDER_SCHEMA_HASH =
  *  from the sanctioned generator; only the frozen wire prefix differs (the same
  *  convention U3's `mintParameterId` uses). */
 function mintId(prefix: string): string {
+    return `${prefix}_${mintUlid()}`;
+}
+
+/** A BARE ULID. Profile entity ids carry no prefix in `ProfileEntitySchema`
+ *  (they are entity-local), so the prefix step is skipped rather than faked. */
+function mintUlid(): string {
     const parsed = parseId(createId('component'));
     if (parsed === null) throw new Error('[newComponent] createId produced an unparseable id');
-    return `${prefix}_${parsed.ulid}`;
+    return parsed.ulid;
 }
 
 export type CreateBlankComponentResult =
@@ -146,20 +152,67 @@ export async function createBlankComponentDefinition(
         } as unknown as import('@pryzm/file-format').FamilyParameter,
     });
 
+    /* ── lane U8 (§U8-AUTHORED-SHAPE) — THE SEED IS A SHAPE, NOT AN EMPTY SET ──
+     *
+     * ⭐⭐ THE DEAD END THIS CLOSES. Until lane U8 the mint produced
+     *     `solids: []`, so the very first thing a new Component said to its
+     *     author was the bake's refusal, verbatim:
+     *       "This definition cannot be evaluated (no-solids) — family has zero
+     *        solids; cannot bake an instance."
+     *     That refusal is CORRECT for an empty definition and it is KEPT (delete
+     *     the last shape in the workspace and it comes straight back). What was
+     *     wrong was that a from-zero authoring path could only ever START there,
+     *     with no affordance in reach that could add a solid.
+     *
+     * The seed is ONE parametric box: Width (the parameter above) × 600 × 600 in
+     * runtime length units, authored through the SAME ops the workspace's "Add
+     * shape" uses — never hand-spliced into `document.solids`. Depth and height
+     * stay LITERAL on purpose: the mint carries the smallest parameter set that
+     * demonstrates the §64 loop (change Width → the box resizes), and re-binding
+     * height to a parameter is the workspace's own one-click move. */
+    const planeId = mintId('plane');
+    const profileId = mintId('prof');
+    const solidId = mintId('sol');
+    const entityIds = [mintUlid(), mintUlid(), mintUlid(), mintUlid()];
+
+    const addPlane = ff.makeAddReferencePlaneMigrator('1.1', '1.1', {
+        plane: {
+            id: planeId,
+            name: 'Base',
+            origin: { x: 0, y: 0, z: 0 },
+            normal: { x: 0, y: 1, z: 0 },
+            isHost: true,
+        },
+    });
+    const addBox = ff.makeAddBoxSolidMigrator('1.1', '1.1', {
+        solidId,
+        profileId,
+        profileName: 'Body',
+        planeId,
+        entityIds,
+        width: { kind: 'parameter', parameterId: paramId },
+        depth: { kind: 'literal', value: 600 },
+        height: { kind: 'literal', value: 600 },
+    });
+
     let raw: import('@pryzm/file-format').RawFamily;
     try {
         // ⚠ `ifcMapping` is OPTIONAL on RawFamily and unused here: packFamily
         // PROJECTS the ifc binding from `document.parameters` itself, so a blank
         // component with no ifc-mapped parameters needs none.
-        raw = addParam.apply({
+        //
+        // ⛔ ONE MUTATION PATH, THREE OPS, IN ORDER: the parameter must exist
+        // before a box can bind to it, and the plane must exist before a profile
+        // can be drawn on it. Each op's own typed throw is the refusal.
+        raw = addBox.apply(addPlane.apply(addParam.apply({
             manifest,
             document: baseDocument,
             events: [],
-        });
+        })));
     } catch (e) {
         return {
             ok: false,
-            refusal: `The initial parameter could not be added — ${e instanceof Error ? e.message : String(e)}.`,
+            refusal: `The starting shape could not be authored — ${e instanceof Error ? e.message : String(e)}.`,
         };
     }
 

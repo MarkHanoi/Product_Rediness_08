@@ -81,6 +81,19 @@ const BUFFER_PX = 512;
 /** §CONTEXT-DATA-HONESTY — one line per distinct dead id, not one per part. */
 const warnedIds = new Set<string>();
 
+/**
+ * §U8-ORTHOGRAPHIC-VIEW (lane U8) — how a view PROJECTS.
+ *
+ * ⭐ A plan and an elevation are not "a perspective camera pointed downwards".
+ *    Under perspective, two equal walls at different depths measure differently
+ *    on screen, so a "plan" drawn with a perspective camera is a picture that
+ *    LOOKS like a plan and cannot be measured — which is the lying-preview
+ *    defect class one surface over ([[fake-more-capable-than-real]]). The
+ *    projection is therefore a property of the view, carried on the orbit state
+ *    the caller already passes, and NOT a second rig.
+ */
+export type PreviewProjection = 'perspective' | 'orthographic';
+
 export interface OrbitState {
     /** Radians, around the world Y axis. */
     yaw: number;
@@ -88,6 +101,13 @@ export interface OrbitState {
     pitch: number;
     /** 1 = the framed default; >1 pulls back. */
     zoom: number;
+    /**
+     * lane U8 — OPTIONAL, and absent means `'perspective'`: every existing
+     * caller keeps today's camera to the last decimal. `'orthographic'` also
+     * lifts the pole clamp to ±π/2, because a top-down PLAN is exactly the view
+     * `PITCH_LIMIT` exists to keep a perspective orbit out of.
+     */
+    projection?: PreviewProjection;
 }
 
 export const DEFAULT_ORBIT: Readonly<OrbitState> = Object.freeze({
@@ -105,6 +125,10 @@ interface Rig {
     renderer: THREE.WebGLRenderer;
     scene: THREE.Scene;
     camera: THREE.PerspectiveCamera;
+    /** lane U8 — the SAME scene, the SAME context, a second PROJECTION. A camera
+     *  is a few floats; a second WebGLRenderer is what this module exists to
+     *  prevent, and these are not the same economy. */
+    ortho: THREE.OrthographicCamera;
     /** Everything belonging to the CURRENT subject; emptied and disposed on each swap. */
     content: THREE.Group;
     canvas: HTMLCanvasElement;
@@ -225,10 +249,13 @@ function ensureRig(): Rig | null {
         scene.add(key, fill, rim, amb);
 
         const camera = new THREE.PerspectiveCamera(32, 1, 0.02, 200);
+        // lane U8 — the frustum is re-derived per draw from the subject's own
+        // extent; these constructor bounds are placeholders, never drawn with.
+        const ortho = new THREE.OrthographicCamera(-1, 1, 1, -1, 0.02, 200);
         const content = new THREE.Group();
         scene.add(content);
 
-        rig = { renderer, scene, camera, content, canvas, lost: false };
+        rig = { renderer, scene, camera, ortho, content, canvas, lost: false };
 
         // §OPENING-PREVIEW-HONEST-FAILURE (L-9601) — the ONLY way to learn that a
         // context died. `render()` on a lost context is a silent no-op: it returns
@@ -423,9 +450,93 @@ function extrudedOutlineGeometry(part: PreviewExtrudedOutlinePart): THREE.Buffer
     return geo;
 }
 
-function frameCamera(r: Rig, subject: PreviewSubject, orbit: OrbitState): void {
+/**
+ * §U8-ORTHOGRAPHIC-VIEW — where the camera goes, as ARITHMETIC, testable
+ * without a GPU.
+ *
+ * ⭐ Extracted PURE deliberately. happy-dom provides no WebGL, so every
+ *    assertion about a camera made through `drawNow` is an assertion about a
+ *    rig that returned `'no-webgl'` before it ever looked at the camera — i.e.
+ *    it proves nothing (the L-9600 shape: success and total failure carrying
+ *    the same value). This function is the part a spec can actually pin: that
+ *    the PLAN preset is an orthographic camera directly above the subject, with
+ *    an up-vector that puts model +X across the page.
+ *
+ * The perspective branch is byte-for-byte the arithmetic that was inline here
+ * before, including `PITCH_LIMIT` and the 1.28 framing slack.
+ */
+export interface PreviewCameraPose {
+    readonly projection: PreviewProjection;
+    readonly position: readonly [number, number, number];
+    readonly up: readonly [number, number, number];
+    /** Half-height/width of the orthographic frustum, or null under perspective. */
+    readonly halfExtent: number | null;
+}
+
+/** How close to a pole counts as "straight down" for the up-vector swap. */
+const POLE_EPSILON_RAD = 1e-3;
+
+export function previewCameraPose(
+    extent: readonly [number, number, number],
+    orbit: OrbitState,
+    fovDeg = 32,
+): PreviewCameraPose {
+    const [ex, ey, ez] = extent;
+    const radius = Math.max(Math.hypot(ex, ey, ez) * 0.5, 0.2);
+    const zoom = Math.max(orbit.zoom, 0.2);
+    const orthographic = orbit.projection === 'orthographic';
+
+    // ⭐ The pole clamp is a PERSPECTIVE constraint: a perspective camera at the
+    // pole degenerates and the showroom's three-quarter orbit has no business
+    // there. A plan is precisely the pole, and an orthographic camera reaches it
+    // without degenerating — so the clamp widens rather than being removed.
+    const limit = orthographic ? Math.PI / 2 : PITCH_LIMIT;
+    const p = Math.max(-limit, Math.min(limit, orbit.pitch));
+
+    const fov = (fovDeg * Math.PI) / 180;
+    const dist = orthographic
+        // Any distance that keeps the subject inside near/far works under a
+        // parallel projection — the SIZE comes from `halfExtent`, not from here.
+        ? radius * 4
+        : (radius / Math.sin(fov / 2)) * 1.28 * zoom;
+
+    const atPole = Math.abs(Math.abs(p) - Math.PI / 2) < POLE_EPSILON_RAD;
+    return {
+        projection: orthographic ? 'orthographic' : 'perspective',
+        position: [
+            dist * Math.cos(p) * Math.sin(orbit.yaw),
+            dist * Math.sin(p),
+            dist * Math.cos(p) * Math.cos(orbit.yaw),
+        ],
+        // Looking straight down, world +Y is the view direction and cannot also
+        // be "up" on the page. −Z is: it puts model +X across the page to the
+        // right and +Z down it, which is the plan orientation the main viewport
+        // already draws.
+        up: atPole ? [0, 0, -1] : [0, 1, 0],
+        halfExtent: orthographic ? radius * 1.28 * zoom : null,
+    };
+}
+
+function frameCamera(r: Rig, subject: PreviewSubject, orbit: OrbitState): THREE.Camera {
     const [ex, ey, ez] = subject.extent;
     const radius = Math.max(Math.hypot(ex, ey, ez) * 0.5, 0.2);
+    const pose = previewCameraPose(subject.extent, orbit, r.camera.fov);
+    if (pose.projection === 'orthographic') {
+        const h = pose.halfExtent ?? radius;
+        r.ortho.left = -h;
+        r.ortho.right = h;
+        r.ortho.top = h;
+        r.ortho.bottom = -h;
+        r.ortho.near = 0.02;
+        // The camera sits `radius * 4` out; the far plane must clear the far
+        // side of the subject, never merely reach its centre.
+        r.ortho.far = radius * 8 + 1;
+        r.ortho.up.set(pose.up[0], pose.up[1], pose.up[2]);
+        r.ortho.position.set(pose.position[0], pose.position[1], pose.position[2]);
+        r.ortho.lookAt(0, 0, 0);
+        r.ortho.updateProjectionMatrix();
+        return r.ortho;
+    }
     const fov = (r.camera.fov * Math.PI) / 180;
     const dist = (radius / Math.sin(fov / 2)) * 1.28 * Math.max(orbit.zoom, 0.2);
 
@@ -445,6 +556,7 @@ function frameCamera(r: Rig, subject: PreviewSubject, orbit: OrbitState): void {
     );
     r.camera.lookAt(0, 0, 0);
     r.camera.updateProjectionMatrix();
+    return r.camera;
 }
 
 /**
@@ -486,8 +598,10 @@ function drawNow(
 
     ensureBuffer(r, BUFFER_PX, BUFFER_PX);
     if (builtKey !== subject.key) buildContent(r, subject);
-    frameCamera(r, subject, orbit);
-    r.renderer.render(r.scene, r.camera);
+    // lane U8 — the camera the view ASKED for (perspective unless the orbit
+    // state says otherwise); one scene, one context, N projections.
+    const camera = frameCamera(r, subject, orbit);
+    r.renderer.render(r.scene, camera);
 
     const ctx = target.getContext('2d');
     if (!ctx) return 'no-2d-context';

@@ -113,6 +113,23 @@ export interface ElementPreviewOptions {
     subject: PreviewSubject;
     /** CSS height of the canvas box. Width follows the container. */
     heightPx?: number;
+    /**
+     * lane U8 — the view this canvas shows. Merged over {@link DEFAULT_ORBIT},
+     * so omitting it is exactly today's three-quarter showroom view.
+     * `projection: 'orthographic'` is what makes a PLAN a plan rather than a
+     * perspective picture pointed downwards.
+     */
+    orbit?: Partial<OrbitState>;
+    /**
+     * lane U8 — `false` mounts a FIXED view: no orbit, no zoom, no keyboard
+     * rotation, no caption strip.
+     *
+     * ⭐ Not a downgrade — a CORRECTION. An elevation the user can rotate away
+     *    from is no longer an elevation, and a "Front" caption over a rotated
+     *    camera is a label that has stopped being true. The parent labels these
+     *    views; `Reset view` has nothing to reset.
+     */
+    interactive?: boolean;
 }
 
 /**
@@ -127,7 +144,10 @@ export function mountElementPreview(
     opts: ElementPreviewOptions,
 ): ElementPreviewHandle {
     let subject = opts.subject;
-    const orbit: OrbitState = { ...DEFAULT_ORBIT };
+    const interactive = opts.interactive !== false;
+    /** The view this canvas shows. `DEFAULT_ORBIT` unless the caller named one. */
+    const initialOrbit: OrbitState = { ...DEFAULT_ORBIT, ...(opts.orbit ?? {}) };
+    const orbit: OrbitState = { ...initialOrbit };
     let disposed = false;
     let dragging = false;
     /** The outcome of the most recent draw. Exposed on the handle so a caller can act on it. */
@@ -154,8 +174,15 @@ export function mountElementPreview(
 
     const focusRing = () => { frame.style.boxShadow = `0 0 0 2px ${PURPLE}33`; frame.style.borderColor = PURPLE; };
     const blurRing = () => { frame.style.boxShadow = 'none'; frame.style.borderColor = LINE; };
-    canvas.addEventListener('focus', focusRing);
-    canvas.addEventListener('blur', blurRing);
+    if (interactive) {
+        canvas.addEventListener('focus', focusRing);
+        canvas.addEventListener('blur', blurRing);
+    } else {
+        // A fixed view is not a control: it must not take a tab stop, and it
+        // must not advertise a grab cursor for a drag that does nothing.
+        canvas.tabIndex = -1;
+        canvas.style.cursor = 'default';
+    }
 
     // The honest-failure overlay. Hidden unless a draw ACTUALLY reports a failure,
     // and re-hidden the moment one succeeds.
@@ -177,6 +204,8 @@ export function mountElementPreview(
         'background:rgba(255,255,255,.72);border-radius:999px;padding:2px 8px;pointer-events:none;';
     hint.textContent = 'drag to rotate · scroll to zoom';
 
+    if (!interactive) hint.style.display = 'none';
+
     frame.append(canvas, failure, hint);
 
     const caption = document.createElement('div');
@@ -189,6 +218,9 @@ export function mountElementPreview(
         'margin-left:auto;font:inherit;font-size:10.5px;padding:1px 8px;border:1px solid ' + LINE + ';' +
         'border-radius:999px;background:#fff;color:' + PURPLE + ';cursor:pointer;font-weight:600;';
     caption.append(captionText, resetBtn);
+    // A fixed view carries no caption strip — the parent that CHOSE the view is
+    // the honest place to name it, and `Reset view` has nothing to reset.
+    if (!interactive) caption.style.display = 'none';
 
     root.append(frame, caption);
     host.appendChild(root);
@@ -213,7 +245,9 @@ export function mountElementPreview(
         canvas.setAttribute(
             'aria-label',
             `3-D preview: ${subject.caption}. ${subject.parts.length} parts. ` +
-            'Use the arrow keys to rotate, plus and minus to zoom, Home to reset.',
+            (interactive
+                ? 'Use the arrow keys to rotate, plus and minus to zoom, Home to reset.'
+                : 'A fixed view; it does not rotate.'),
         );
     }
 
@@ -231,8 +265,10 @@ export function mountElementPreview(
         lastResult = result;
         if (result === 'ok') {
             failure.style.display = 'none';
-            hint.style.display = '';
-            canvas.style.cursor = dragging ? 'grabbing' : 'grab';
+            if (interactive) {
+                hint.style.display = '';
+                canvas.style.cursor = dragging ? 'grabbing' : 'grab';
+            }
             return;
         }
         let text = FAILURE_COPY[result];
@@ -259,73 +295,76 @@ export function mountElementPreview(
         requestPreviewDraw(subject, canvas, orbit, applyResult);
     }
 
-    // ── orbit ────────────────────────────────────────────────────────────────
-    let lastX = 0;
-    let lastY = 0;
+    // ── orbit — INTERACTIVE VIEWS ONLY (lane U8) ─────────────────────────────
+    if (interactive) {
+        // ── orbit ────────────────────────────────────────────────────────────────
+        let lastX = 0;
+        let lastY = 0;
 
-    canvas.addEventListener('pointerdown', (e) => {
-        dragging = true;
-        lastX = e.clientX;
-        lastY = e.clientY;
-        canvas.style.cursor = 'grabbing';
-        canvas.setPointerCapture(e.pointerId);
-        // The showroom lives inside a modal and inside the inspector; neither should
-        // start a marquee or a viewport orbit because the user grabbed the preview.
-        e.stopPropagation();
-        e.preventDefault();
-    });
+        canvas.addEventListener('pointerdown', (e) => {
+            dragging = true;
+            lastX = e.clientX;
+            lastY = e.clientY;
+            canvas.style.cursor = 'grabbing';
+            canvas.setPointerCapture(e.pointerId);
+            // The showroom lives inside a modal and inside the inspector; neither should
+            // start a marquee or a viewport orbit because the user grabbed the preview.
+            e.stopPropagation();
+            e.preventDefault();
+        });
 
-    canvas.addEventListener('pointermove', (e) => {
-        if (!dragging) return;
-        orbit.yaw -= (e.clientX - lastX) * 0.011;
-        orbit.pitch = Math.max(-PITCH_LIMIT, Math.min(PITCH_LIMIT, orbit.pitch + (e.clientY - lastY) * 0.009));
-        lastX = e.clientX;
-        lastY = e.clientY;
-        e.stopPropagation();
-        // One draw per frame regardless of how many pointermove events land in it.
-        draw();
-    });
+        canvas.addEventListener('pointermove', (e) => {
+            if (!dragging) return;
+            orbit.yaw -= (e.clientX - lastX) * 0.011;
+            orbit.pitch = Math.max(-PITCH_LIMIT, Math.min(PITCH_LIMIT, orbit.pitch + (e.clientY - lastY) * 0.009));
+            lastX = e.clientX;
+            lastY = e.clientY;
+            e.stopPropagation();
+            // One draw per frame regardless of how many pointermove events land in it.
+            draw();
+        });
 
-    const endDrag = (e: PointerEvent): void => {
-        if (!dragging) return;
-        dragging = false;
-        canvas.style.cursor = 'grab';
-        try { canvas.releasePointerCapture(e.pointerId); } catch { /* already released */ }
-    };
-    canvas.addEventListener('pointerup', endDrag);
-    canvas.addEventListener('pointercancel', endDrag);
+        const endDrag = (e: PointerEvent): void => {
+            if (!dragging) return;
+            dragging = false;
+            canvas.style.cursor = 'grab';
+            try { canvas.releasePointerCapture(e.pointerId); } catch { /* already released */ }
+        };
+        canvas.addEventListener('pointerup', endDrag);
+        canvas.addEventListener('pointercancel', endDrag);
 
-    canvas.addEventListener('wheel', (e) => {
-        e.preventDefault();
-        e.stopPropagation();
-        orbit.zoom = Math.max(0.45, Math.min(3, orbit.zoom * (e.deltaY > 0 ? 1.1 : 0.9)));
-        draw();
-    }, { passive: false });
+        canvas.addEventListener('wheel', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            orbit.zoom = Math.max(0.45, Math.min(3, orbit.zoom * (e.deltaY > 0 ? 1.1 : 0.9)));
+            draw();
+        }, { passive: false });
 
-    canvas.addEventListener('keydown', (e) => {
-        let handled = true;
-        switch (e.key) {
-            case 'ArrowLeft':  orbit.yaw -= 0.15; break;
-            case 'ArrowRight': orbit.yaw += 0.15; break;
-            case 'ArrowUp':    orbit.pitch = Math.min(PITCH_LIMIT, orbit.pitch + 0.12); break;
-            case 'ArrowDown':  orbit.pitch = Math.max(-PITCH_LIMIT, orbit.pitch - 0.12); break;
-            case '+': case '=': orbit.zoom = Math.max(0.45, orbit.zoom * 0.9); break;
-            case '-': case '_': orbit.zoom = Math.min(3, orbit.zoom * 1.1); break;
-            case 'Home': Object.assign(orbit, DEFAULT_ORBIT); break;
-            default: handled = false;
-        }
-        if (!handled) return;
-        // ⚠ The dialog's own Escape/Enter/Tab handling must survive; only the keys
-        // this widget actually consumes are swallowed.
-        e.preventDefault();
-        e.stopPropagation();
-        draw();
-    });
+        canvas.addEventListener('keydown', (e) => {
+            let handled = true;
+            switch (e.key) {
+                case 'ArrowLeft':  orbit.yaw -= 0.15; break;
+                case 'ArrowRight': orbit.yaw += 0.15; break;
+                case 'ArrowUp':    orbit.pitch = Math.min(PITCH_LIMIT, orbit.pitch + 0.12); break;
+                case 'ArrowDown':  orbit.pitch = Math.max(-PITCH_LIMIT, orbit.pitch - 0.12); break;
+                case '+': case '=': orbit.zoom = Math.max(0.45, orbit.zoom * 0.9); break;
+                case '-': case '_': orbit.zoom = Math.min(3, orbit.zoom * 1.1); break;
+                case 'Home': Object.assign(orbit, initialOrbit); break;
+                default: handled = false;
+            }
+            if (!handled) return;
+            // ⚠ The dialog's own Escape/Enter/Tab handling must survive; only the keys
+            // this widget actually consumes are swallowed.
+            e.preventDefault();
+            e.stopPropagation();
+            draw();
+        });
 
-    resetBtn.addEventListener('click', () => {
-        Object.assign(orbit, DEFAULT_ORBIT);
-        draw();
-    });
+        resetBtn.addEventListener('click', () => {
+            Object.assign(orbit, initialOrbit);
+            draw();
+        });
+    }
 
     // ── resize ───────────────────────────────────────────────────────────────
     let ro: ResizeObserver | null = null;
@@ -351,7 +390,7 @@ export function mountElementPreview(
             draw();
         },
         resetView(): void {
-            Object.assign(orbit, DEFAULT_ORBIT);
+            Object.assign(orbit, initialOrbit);
             draw();
         },
         dispose(): void {
