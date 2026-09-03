@@ -169,6 +169,24 @@ export type FloorId       = Id<'floor'>;
  * keeps the type-safe ID contract uniform across all element families.
  */
 export type SectionId     = Id<'section'>;
+/**
+ * §FEAT-SPACE-ENVELOPE (L-12900, C114, ADR-0380) — an AUTHORED spatial volume
+ * placed BEFORE any wall exists: the founder's level-envelope and room-envelope.
+ *
+ * ⛔ NOT `BuildableEnvelope` (`schemas/src/site/zoning/`). That is the SOLVED
+ * legal ceiling — a study with a mandatory `EnvelopeConfidence`, a derivation
+ * trace and a refusal vocabulary, produced by the zoning engine and never
+ * authored. ADR-0380 D2 declines to promote it to an element precisely so a user
+ * can never drag the thing the product calls the law; `role: 'maximumBuildable'`
+ * is declared in the schema and REFUSED at the create verb.
+ *
+ * ⛔ NOT `RoomId`. ADR-0380 D1 keeps them apart for a MEASURED reason: C84
+ * EI-7e records that room boundaries are RECOMPUTED from the wall set after undo,
+ * so a wall-free volume in the room store would be recomputed away by the room
+ * detector. The founder's *"maybe they ARE rooms"* is honoured as a promotion
+ * VERB, not as a shared record.
+ */
+export type SpaceEnvelopeId = Id<'spaceEnvelope'>;
 
 /** Discriminator value the `type` field of a node will hold. */
 export type ElementType =
@@ -213,7 +231,11 @@ export type ElementType =
   | 'boundaryLine'
   | 'opening'
   | 'floor'
-  | 'section';
+  | 'section'
+  // §FEAT-SPACE-ENVELOPE (L-12900, C114, ADR-0380) — the authored spatial volume.
+  // ONE kind with a `role` union ('level' | 'room' | 'maximumBuildable'), not three
+  // kinds: C83 §2.1 — *"A new element kind must not require 30 new decisions"*.
+  | 'spaceEnvelope';
 
 /** All branded IDs the protocol surface exposes. */
 export type AnyElementId =
@@ -223,7 +245,7 @@ export type AnyElementId =
   | ScheduleId | ViewId | ProjectId
   | StructuralId | LightingId | PlumbingId | ProjectOriginId
   | PoolId | WaterId | BalconyId | ComponentId | LiftId | LiftPartId | BathroomPodId | BoundaryLineId
-  | OpeningId | FloorId | SectionId;
+  | OpeningId | FloorId | SectionId | SpaceEnvelopeId;
 
 /** Map element-type discriminator → typed ID. */
 export type IdFor<T extends ElementType> =
@@ -265,4 +287,6 @@ export type IdFor<T extends ElementType> =
   T extends 'opening'     ? OpeningId     :
   T extends 'floor'       ? FloorId       :
   T extends 'section'    ? SectionId     :
+  // §FEAT-SPACE-ENVELOPE (L-12900, C114, ADR-0380).
+  T extends 'spaceEnvelope' ? SpaceEnvelopeId :
   never;

@@ -68,3 +68,26 @@ export { BoundaryLine, BoundaryLineAttachmentSchema } from './BoundaryLine.js';
 export type { BoundaryLineAttachment } from './BoundaryLine.js';
 // §P3.4-SE: Section cut annotation element schema + DTO types.
 export type { SectionData, SectionLine, SectionsState } from './Section.js';
+// §FEAT-SPACE-ENVELOPE (L-12900) — the AUTHORED spatial volume placed BEFORE any
+// wall exists (C114, ADR-0380): the founder's LEVEL envelope and ROOM envelope, one
+// kind with a `role`. ⛔ NOT `BuildableEnvelope` (the SOLVED legal ceiling, owned by
+// the site subsystem — ADR-0380 D2 refuses `role: 'maximumBuildable'` at the create
+// verb so a study can never be authored by hand) and ⛔ NOT `Room` (ADR-0380 D1:
+// room boundaries are RECOMPUTED from the wall set after undo — C84 EI-7e — so a
+// wall-free volume in the room store would be recomputed away by the room detector).
+export {
+    SpaceEnvelope,
+    SpaceEnvelopeRoleSchema,
+    SpaceEnvelopeBasisSchema,
+    SPACE_ENVELOPE_ROLES,
+    AUTHORABLE_SPACE_ENVELOPE_ROLES,
+    SPACE_ENVELOPE_STANDING,
+    MAXIMUM_BUILDABLE_IS_NOT_AUTHORED,
+    isAuthorableSpaceEnvelopeRole,
+} from './SpaceEnvelope.js';
+export type {
+    SpaceEnvelopeRole,
+    AuthorableSpaceEnvelopeRole,
+    SpaceEnvelopeStanding,
+    SpaceEnvelopeBasis,
+} from './SpaceEnvelope.js';

@@ -42,6 +42,12 @@ import { Water } from './elements/Water.js';
 // ⛔ Adding `component` here does NOT close T9 for the other four; they are still
 // omitted, and this comment is not a claim that they are not.
 import { Component } from './elements/Component.js';
+// §FEAT-SPACE-ENVELOPE (L-12900) · C114 · ADR-0380 — the AUTHORED spatial volume.
+// Registered here IN THE SAME COMMIT as the kind, per ADR-0376 D9's rule that moving
+// the row is a BINDING CONDITION of minting the kind rather than a tidiness
+// preference. ⛔ This does NOT close T9 for `Balcony` / `BoundaryLine` / `Section` /
+// `CurtainPanelVocabulary`, which the registry still omits.
+import { SpaceEnvelope } from './elements/SpaceEnvelope.js';
 
 /**
  * The element schemas, addressable by element-type discriminator.
@@ -80,6 +86,8 @@ export const SCHEMA_REGISTRY = {
   // §COMPONENT-PLACE · ADR-0376 D9 — THE JOIN. See the import above for why the row
   // and the kind moved together.
   component: Component,
+  // §FEAT-SPACE-ENVELOPE · C114 · ADR-0380 — see the import above.
+  spaceEnvelope: SpaceEnvelope,
 } as const;
 
 export type SchemaRegistry = typeof SCHEMA_REGISTRY;
