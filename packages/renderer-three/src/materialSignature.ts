@@ -27,6 +27,52 @@
 //   as their absent sentinel, so Basic/Lambert/Phong/Standard/Physical all share
 //   one code path.
 //
+// ── ⛔ WHAT DEDUP DOES *NOT* BUY: IT DOES NOT SAVE A SHADER COMPILE ────────────
+//
+// Measured 2026-09-04 against the vendored `three@0.183.2`, because a sibling
+// instrument asserts the opposite and the claim is load-bearing for how this
+// module gets prioritised. `packages/geometry-wall/__tests__/SCENE6InstancingReject
+// Census.measure.test.ts` prints, on every non-instanced corpus:
+//
+//     "364 distinct INSTANCES for 1 distinct VISUAL SIGNATURES
+//      ⭐ 363 redundant material objects — A SHADER COMPILE EACH"
+//
+// ⭐ THE "A SHADER COMPILE EACH" HALF IS FALSE, ON BOTH BACKENDS. Neither renderer
+// keys its program/pipeline cache on material IDENTITY; both key it on material
+// VALUES — which is the same thing this file fingerprints:
+//
+//   classic THREE.WebGLRenderer — `getProgramCacheKey()` (three.module.js:7803)
+//     builds its key from shaderID, defines, precision, colorspace and the
+//     parameter/boolean sets (:7843 `getProgramCacheKeyParameters`). `uuid` is
+//     never read. N identical MeshStandardMaterials ⇒ ONE compiled program.
+//
+//   WebGPURenderer — `RenderObject.getMaterialCacheKey()` (three.webgpu.js:29811)
+//     iterates the material's own keys under an EXPLICIT skip-list:
+//         /^(is[A-Z]|_)|^(visible|version|uuid|name|opacity|userData)$/
+//     `uuid` is skipped BY NAME. That key becomes `initialCacheKey` (:29373), which
+//     `getForRenderCacheKey()` (:53446) hands to `nodeBuilderCache.get(cacheKey)`
+//     (:53471) and to the pipeline cache (:31409). N identical materials ⇒ ONE
+//     node build, ONE pipeline.
+//
+// So the L-382 "Compiling GPU shaders" tail is NOT explained by material-object
+// multiplicity, and deduping materials will NOT shorten it. Whatever that tail is,
+// it is a DIFFERENT defect, and attributing it here would send the next reader to
+// optimise a cache that is already doing its job.
+//
+// ── WHAT DEDUP *DOES* BUY, AND IT IS STILL WORTH HAVING ───────────────────────
+//   DRAW CALLS, and only draw calls. `InstancedElementRenderer._hashGeometry`
+//   keys its groups on `material.uuid`, so N look-alike-but-distinct materials
+//   ⇒ N InstanceGroups of size 1 ⇒ N draw calls where 1 would do. That is real,
+//   and it is the entire benefit. State it that way; do not inherit the census's
+//   shader-compile framing.
+//
+// ⛔ COROLLARY, measured in the same census: for WALLS this cache is mostly moot.
+//   On `realistic-plate-13x13-openings` ("what a real floor actually is") 364/364
+//   walls leave the instanced arm on the `openings` clause ALONE, BEFORE any
+//   material is hashed. A wall rejected for geometry never reaches this
+//   serializer, so sharing its material changes nothing. The instancing win for
+//   walls is in the REJECT CLAUSES, not here.
+//
 // P2 (single THREE owner): THREE is imported via the renderer-three re-export;
 //   this file lives INSIDE renderer-three so it may read THREE material types.
 //   It is a pure THREE-reading serializer — no allocation, no mutation, no I/O.
