@@ -1,0 +1,438 @@
+# C114 — ELEMENT: SPACE ENVELOPE
+
+**Status:** CANONICAL · **Minted:** 2026-09-04 · **Lane:** ENVELOPE-ELEMENT
+**Ratified by:** [`ADR-0380`](../adrs/ADR-0380-the-space-envelope-is-one-family-with-two-authored-roles.md)
+(six rulings) · **Authority above it:**
+[`STR-ENVELOPE-AS-FIRST-CLASS-ELEMENT`](../../01-strategy/STR-ENVELOPE-AS-FIRST-CLASS-ELEMENT.md)
+(founder directive, `2ddfb560`).
+**Binds:** every PR touching the `spaceEnvelope` family, per [`C84 §6`](C84-ELEMENT-INTEGRITY.md).
+**Siblings:** [`C94`](C94-ELEMENT-ROOM-SPACE.md) (room/space — the nearest family, deliberately
+kept separate by ADR-0380 D1) · [`C107`](C107-ELEMENT-ADAPTIVE-COMPONENT.md) (**the structural
+template**, for the reason C84 §6.2b gives: it is the proof that a twelve-section contract written
+*before* the code is useful rather than aspirational).
+
+> ⛔ **WHY THIS DOCUMENT EXISTS AT ALL, STATED PLAINLY.** C84 §6 forbids the family without it:
+> *"A new family may not be added while its per-element contract is absent."* `ADR-0380` was
+> committed (`8f7d47e9`) naming this contract as its spawn, and **four source files cited `C114`
+> while no `C114` was on disk** — the `UNMINTED-AND-CITED` shape that `L-7060` logs against `C103`
+> and that CLAUDE.md's governance section records as a recurring defect. That gap is closed by this
+> file. ⭐ **The citation was created before the contract, which is the wrong order, and it is
+> recorded here rather than tidied away.**
+
+---
+
+## §0 — WHAT THIS IS, AND THE ONE SENTENCE IT DEFENDS
+
+A **space envelope** is an AUTHORED spatial volume placed *before any wall exists* — the founder's
+*"basic and initial representation of spaces as living entities, aware of their surroundings"*
+(directive §3). Geometrically it is a prism: a footprint ring on a level's XZ plane, lifted by
+`baseOffset`, extruded by `height`.
+
+**The one sentence this contract defends:**
+
+> **A space envelope states what a designer INTENDS to build. It never states what the law
+> PERMITS, and no code path may widen the first into the second.**
+
+Everything in §12 (refusals) and §9 (vocabularies) exists to hold that sentence.
+
+### §0.1 — ⛔ THE HONEST STATUS OF THIS FAMILY, MEASURED 2026-09-04
+
+Per C84 §6.2a — *"on the day it is written, almost every AS-IS cell will read `NOT MEASURED` or an
+honest absence, and that is the correct content"* — and per C107 §0.1's worked precedent of a
+contract that measures its own absence:
+
+```
+grep -rl "spaceEnvelope\|SpaceEnvelope" --include=*.ts --include=*.tsx \
+     packages plugins apps src server tools
+→ 4 files, ALL of them schema:
+     packages/schemas/src/elements/SpaceEnvelope.ts     (the L0 record)
+     packages/schemas/src/elements/index.ts             (barrel re-export)
+     packages/schemas/src/registry.ts                   (SCHEMA_REGISTRY row)
+     packages/schemas/src/types/Id.ts                   (brand + ElementType + IdFor)
+```
+
+⭐ **There is no store, no command, no handler, no plugin, no renderer, no UI control and no
+persistence leg.** A registered schema is not an element — it is a *shape* an element could take.
+This section is the guard against the exact misreport the lane brief forbids: **do not cite a
+schema's existence as a working element.**
+
+### §0.2 — THE NAMING-DISCLOSURE CLAUSE, INHERITED FROM C107 §0.2-a
+
+*"A family named for a behaviour it does not have is the naming-vs-behaviour defect this repository
+logs repeatedly."* ⛔ **This contract may not describe face-dragging, neighbour adaptation, solar
+awareness, living-graph membership, profile editing, IFC identity or RAC authoring as capabilities
+on the strength of an authored schema or a TO-BE cell.** Each is claimed only where §14 records it
+SHIPPED with a proof. Everything else in this document is normative intent.
+
+### §0.3 — THE THREE THINGS IT IS NOT
+
+| Not this | Why the confusion is dangerous |
+|---|---|
+| **`BuildableEnvelope`** (`packages/schemas/src/site/zoning/`) | That is the SOLVED legal ceiling — a study with a mandatory `EnvelopeConfidence`, a derivation trace and a refusal vocabulary, produced by the zoning engine and never authored. ADR-0380 D2 refuses to promote it precisely so a user can never drag the thing the product calls the law |
+| **`Room`** (`packages/schemas/src/elements/Room.ts`) | `RoomTopologyObserver` discharges suppressed commits on `resume()` (C84 EI-7e), so a wall-free volume in the room store would be **recomputed away by the room detector**. ADR-0380 D1 |
+| **The parameter "envelope"** (`packages/schemas/src/apartment/ApartmentParameters.ts`, a `[min,max]` band) | Same English word, unrelated concept. The kind is spelled `spaceEnvelope`, **never bare `envelope`**, so a grep for one never returns the other (C84 EI-8) |
+
+---
+
+## §1 — IDENTITY
+
+| Axis | AS-IS (measured 2026-09-04) | TO-BE (normative) |
+|---|---|---|
+| Canonical `elementType` tag | `'spaceEnvelope'` — `Id.ts:238` (`ElementType` union), `registry.ts:90` (`SCHEMA_REGISTRY`) | unchanged |
+| Every spelling in use (§4E) | **exactly one**: `spaceEnvelope`. No rival spelling exists, because no second author has touched it yet | ⛔ **hold the count at one.** `envelope`, `spatialEnvelope`, `massEnvelope` and `volume` are all forbidden spellings for this family |
+| L0 schema | `packages/schemas/src/elements/SpaceEnvelope.ts` — `defineElement('spaceEnvelope', …)` + three `.refine()` invariants | unchanged; §5 is its field map |
+| Branded id | `SpaceEnvelopeId = Id<'spaceEnvelope'>` — `Id.ts:189`, in `AnyElementId` (`:248`) and `IdFor` (`:291`) | unchanged |
+| Bus verb namespace | **ABSENT** — no verb exists | `spaceEnvelope.*`, per C69 §3.6 (the namespace is the kind, never an abbreviation). Roster in §6 |
+| IFC identity | **NOT MEASURED.** `IfcSpatialZone` is the plausible candidate; `IfcSpace` is ruled OUT by ADR-0380 D1 because stamping a design study as building fabric exports intent as fact | resolve before any IFC export claim. ⛔ Until resolved, the family is **excluded** from IFC export rather than guessed into it |
+
+---
+
+## §2 — STORES, AND WHICH ONE IS THE AUTHORITY
+
+**AS-IS: there are zero stores.** The record exists only as a Zod shape.
+
+**TO-BE — normative, and deliberately minimal (EI-1: one authority per question):**
+
+| Representation | Status | Authority? |
+|---|---|---|
+| **L0 `SpaceEnvelope` record** in the element store | TO BUILD | ⭐ **YES — the single authority.** Every other view of the family is derived |
+| Scene `userData` on the rendered prism | TO BUILD | NO — carries `{ id, type }` for picking only |
+| A plugin-side DTO | ⛔ **FORBIDDEN** | — |
+| A `roomStore` mirror | ⛔ **FORBIDDEN** | — |
+
+> ⛔ **§2a — MUST: NO PLUGIN DTO, AND NO ROOM MIRROR.** C84 EI-5a is explicit that mirroring two
+> representations where one has no readers *"makes both copies authoritative and neither
+> trustworthy"*. This family is being built from zero, so it has the one chance no older family
+> had: **it can decline the second store outright.** A future PR that adds a DTO must first amend
+> this section.
+
+> ⛔ **§2b — MUST: the derived cache fields are written by ONE function.** `footprintAreaM2` and
+> `volumeM3` are caches of `footprint`/`height`. They are recomputed by
+> `recomputeSpaceEnvelopeMetrics` in `@pryzm/geometry-space-envelope` and by nothing else. A second
+> writer is EI-9's "two answers to one question" with a rounding difference attached.
+
+---
+
+## §3 — CONSUMERS
+
+**AS-IS: zero consumers.** Renderer, plan view, persistence, IFC export, GLB export and the bake
+worker each read **nothing**, because nothing exists to read.
+
+**TO-BE:**
+
+| Consumer | Obligation |
+|---|---|
+| 3D renderer | draws the prism, translucent, role-tinted; owns `materialColor`'s default |
+| Plan view | draws the footprint ring at the owning level; ⭐ **must show `role`**, because a level and a room envelope are indistinguishable as outlines |
+| Persistence | round-trips **every** field of §5 without loss. This is the axis §14 requires a passing test for before claiming "serialised" |
+| IFC export | ⛔ **EXCLUDED until §1's IFC row resolves.** An unmapped family is skipped, never approximated |
+| GLB export / bake worker | **NOT MEASURED** |
+| `measureAuthoredDesign` | ⛔ **MUST NOT CONSUME IT.** ADR-0380 D5 — see §11 and the table below |
+
+> ⭐ **§3a — THE GFA SEPARATION IS NORMATIVE AND IT IS THE MOST LOAD-BEARING RULE HERE.**
+> Three questions, three authorities, never summed into one number:
+>
+> | question | authority |
+> |---|---|
+> | *"How much floor area has been BUILT?"* | `apps/editor/src/ui/site/designMeasurement.ts measureAuthoredDesign` — measured off REAL floor plates, refusing (`overlapping-floor-plates`, `unattributed-floor-plate`, `no-floor-plates`) rather than guessing |
+> | *"How much is INTENDED?"* | this family's `footprintAreaM2` × membership — **a separate channel with a separate name** |
+> | *"How much is PERMITTED?"* | `BuildableEnvelope` — unchanged, and neither of the above may restate it |
+>
+> Collapsing the first two makes the feasibility panel's headline built-area number **change when
+> nothing was built** — `§CONTEXT-DATA-HONESTY` at the single number the panel turns on, and the
+> defect `L-456` exists to stop, arriving through a new door.
+
+---
+
+## §4 — PLUGIN ↔ DTO ↔ COMMAND ↔ BUILDER, AND WHAT "REACHABLE" COSTS
+
+**AS-IS:** no plugin, no handlers, no registration, no UI control. **Reachability: 0 of 0.**
+
+**TO-BE — the wiring, with the C84 EI-3 rule stated up front:** a handler that is *registered* but
+that **no UI control can reach** is dead code that measures as coverage. Each verb in §6 must name
+its reaching control, or be recorded here as deliberately head-less (RAC/AI-only).
+
+| Layer | Artefact | Status |
+|---|---|---|
+| L0 schema | `packages/schemas/src/elements/SpaceEnvelope.ts` | ✅ SHIPPED |
+| L1/L2 geometry | `packages/geometry-space-envelope` — pure prism solver, face-move, containment, adjacency, stacking, refusals PLANNED — see §14 |
+| Commands | `spaceEnvelope.*` handlers | see §14 |
+| Plugin | `plugins/space-envelope` — tool, UI, registration PLANNED — see §14 |
+| Renderer join | prism draw + pick | see §14 |
+
+---
+
+## §5 — THE BRIDGE FIELD MAP
+
+⛔ **EVERY field of the payload, and for each: CARRIED, TRANSFORMED, or DELIBERATELY DROPPED.
+Omission is forbidden (C84 EI-2).** This section is what the future `check-bridge-field-coverage`
+gate consumes.
+
+| Field | Type | Create payload → record | Record → renderer | Record → persistence | Note |
+|---|---|---|---|---|---|
+| `id` | `SpaceEnvelopeId` | minted | CARRIED (`userData.id`) | CARRIED | |
+| `type` | `'spaceEnvelope'` | injected by `defineElement` | CARRIED | CARRIED | |
+| `levelId` | `string` | CARRIED | TRANSFORMED → world Y via the level datum | CARRIED | ⚠ see §10a on terrain |
+| `name` | `string` | CARRIED | CARRIED (label) | CARRIED | |
+| `role` | `'level'\|'room'\|'maximumBuildable'` | CARRIED, **`maximumBuildable` REFUSED at create** | TRANSFORMED → tint + plan style | CARRIED | §9 |
+| `footprint` | `Vec3[]` (y ≡ 0) | CARRIED | TRANSFORMED → prism side faces | CARRIED | invariant enforced by `.refine` |
+| `baseOffset` | `number` | CARRIED | TRANSFORMED → prism base Y | CARRIED | |
+| `height` | `number` > 0 | CARRIED | TRANSFORMED → prism top Y | CARRIED | |
+| `withinId` | `SpaceEnvelopeId \| null` | CARRIED | **DELIBERATELY DROPPED** — the renderer draws volumes, not memberships | CARRIED | the ONE stored relation (§9a) |
+| `occupancy` | `string?` | CARRIED | TRANSFORMED → colour when a room role | CARRIED | free string, pinned to `RoomOccupancyType` by test (§9) |
+| `standing` | `'design-intent'` | forced, never read from payload | TRANSFORMED → the honesty badge | CARRIED | ⭐ §12 |
+| `basis` | `{zoneCode, citedAtIso} \| null` | CARRIED | **DELIBERATELY DROPPED** from the solid; surfaced in the inspector | CARRIED | a CITATION, never a copy |
+| `footprintAreaM2` | `number` | RECOMPUTED, never trusted from payload | DELIBERATELY DROPPED | CARRIED | cache — §2b |
+| `volumeM3` | `number` | RECOMPUTED, never trusted from payload | DELIBERATELY DROPPED | CARRIED | cache — §2b |
+| `materialColor` | `string?` | CARRIED | CARRIED | CARRIED | |
+| `provenance` | `RetrofittedProvenance` | CARRIED | DROPPED | CARRIED | PV-04 / C75 §2.4 |
+| `confidence` | `RetrofittedConfidence` | CARRIED | DROPPED | CARRIED | PV-06 / C75 §1.3 |
+
+> ⭐ **The two `RECOMPUTED` rows are the interesting ones.** A create payload that supplies
+> `footprintAreaM2` is **not** believed — the value is recomputed from `footprint`. A caller who
+> could lie about the area of their own polygon is a caller who can make the intended-area channel
+> disagree with the geometry it is drawn from.
+
+---
+
+## §6 — VERBS
+
+Namespace `spaceEnvelope.*` (C69 §3.6). Lineage bands are C84 §4A's L1–L6.
+
+| Verb | Purpose | Stores written | Restored on undo | Equal? | Reaching control |
+|---|---|---|---|---|---|
+| `spaceEnvelope.batch.create` | ⭐ **the ONLY create path.** N envelopes, ONE undo entry | element store | element store | MUST be | 3D/2D draw tool; RAC |
+| `spaceEnvelope.delete` | remove; clears dangling `withinId` on children | element store | element store | MUST be | selection → delete |
+| `spaceEnvelope.move` | translate the whole prism | element store | element store | MUST be | 3D gizmo; 2D drag |
+| `spaceEnvelope.moveFace` | ⭐ move ONE face along its own normal; neighbours adapt | element store | element store | MUST be | 3D face gizmo (§10) |
+| `spaceEnvelope.setFootprint` | replace the ring (profile edit) | element store | element store | MUST be | profile editor (§10b) |
+| `spaceEnvelope.setParameter` | `height`, `baseOffset`, `name`, `occupancy`, `materialColor` | element store | element store | MUST be | inspector; RAC |
+| `spaceEnvelope.setWithin` | declare/clear membership | element store | element store | MUST be | inspector |
+| `spaceEnvelope.changeLevel` | re-seat on another storey | element store | element store | MUST be | inspector (the C94 §L-1032 storey axis) |
+| `spaceEnvelope.promoteToRoom` | ⛔ **DEFERRED to Stage H** | — | — | — | — |
+
+> ⛔ **§6a — MUST: ONE GESTURE = ONE `*.batch.create`.** C16 §8.6 B-6. ⚠ `batchCoordinator.runBatch`
+> is **undo-NEUTRAL** — N commands inside it produce N undo entries, which is RESI-ORCHESTRATOR-PLAN
+> §6 risk 7 and the trap this family is most likely to fall into. There is **no** singular
+> `spaceEnvelope.create`; the batch verb is the create path even for one envelope, so no caller can
+> reach for the wrong one.
+
+> ⛔ **§6b — MUST: `role: 'maximumBuildable'` is REFUSED by `spaceEnvelope.batch.create`,** with the
+> exported sentence `MAXIMUM_BUILDABLE_IS_NOT_AUTHORED` and **never a re-typed copy** (C84 EI-8a: a
+> licensed copy is pinned by a test, never by a comment — and the cheapest way to have no second
+> copy is to have no second string). No UI surface offers the role, which is the half EI-3 polices.
+
+> **§6c — MUST: every handler carries ≥1 OpenTelemetry span (P8 ZONE A, zero tolerance).**
+
+---
+
+## §7 — UNDO / REDO
+
+**AS-IS: NOT MEASURED — no verb exists.**
+
+**TO-BE — normative:**
+
+- **`affectedStores` MUST equal the measured write set** (C84 EI-7). This family writes exactly one
+  store, which makes the declaration checkable by inspection — an advantage no older family has.
+- **`createSnapshot` MUST cover every declared key** (EI-7d).
+- ⭐ **Redo RESTORES; it does not RECOMPUTE (EI-7e).** This is the single most important row in the
+  section and it is the reason ADR-0380 D1 kept this family out of `Room`: `RoomTopologyObserver`
+  discharges suppressed commits on `resume()`, so room boundaries are *recomputed from the
+  post-undo wall set*. **A space envelope has no detector and must never acquire one.** Its
+  geometry is authored, so undo restores the authored value verbatim.
+- **The two cache fields are restored, not recomputed on undo** — recomputation would be correct
+  here by luck, and a rule that is right by luck is a rule that breaks when the cache gains a field.
+
+---
+
+## §8 — CASCADES
+
+| Mutation | Cascade | Reversed by undo? |
+|---|---|---|
+| `moveFace` | the **four faces sharing an edge with the moved face adapt** (their shared vertices move); neighbouring envelopes do **not** move | MUST be — the whole ring is captured in one patch |
+| `delete` a level envelope | children naming it in `withinId` are **NOT deleted**; their `withinId` is cleared and the containment finding turns advisory | MUST be |
+| any geometry change | `footprintAreaM2` / `volumeM3` recomputed in the same patch | MUST be |
+| any geometry change | adjacency / stacking / containment findings are **recomputed on read, never stored** — so there is no cascade to reverse (ADR-0380 D3) | N/A by construction |
+| any change | living-graph node/edge projection refreshes via `buildingGraphMaintainer` | MUST be |
+
+> ⭐ **§8a — THE ABSENT CASCADE IS THE DESIGN.** Adjacency and stacking are *functions* of two
+> prisms. Storing them would be a cache, and a cache is a second answer to a question the geometry
+> already answers (C84 EI-9). Every row above that reads "recomputed on read" is a cascade that
+> **cannot** fall out of sync, which is why C71 §2.5's *"writing edges nothing reads"* warning does
+> not apply to this family.
+
+---
+
+## §9 — VOCABULARIES
+
+| Vocabulary | Members | Rule |
+|---|---|---|
+| `SPACE_ENVELOPE_ROLES` | `level` · `room` · `maximumBuildable` | CLOSED union with a value roster; a new member is a compile error at every exhaustive switch |
+| `AUTHORABLE_SPACE_ENVELOPE_ROLES` | `level` · `room` | the authorable subset; `isAuthorableSpaceEnvelopeRole` is the ONE predicate |
+| `SPACE_ENVELOPE_STANDING` | `design-intent` — **one member** | ⭐ a one-member literal so no code path can widen intent into permission without a schema edit a reviewer sees |
+| `occupancy` | free `string` | ⚠ **a LICENSED COPY of `RoomOccupancyType`** (~55 members, `@pryzm/room-topology`, L2 — which L0 may not import). Pinned by a test against the room-topology source, the `BoundaryLine.drawMode` pattern, per C84 EI-8a |
+| `SpaceEnvelopeRefusalCode` | see §12 | CLOSED union + compile-time completeness assertion + `Record<>`-typed sentence per member |
+| Material vocabulary | **NOT MEASURED** — `materialColor` is a raw string today | resolve against C100 before claiming a material story |
+
+> ⛔ **§9a — `UBG_EDGE_TYPES` IS NOT EXTENDED.** ADR-0380 D3, and the measurement that makes it
+> cheap: **`UbgNodeSchema.kind` is a free `z.string()`** — *"adapters own the vocabulary, the UBG
+> core does not constrain it"*. A new element kind costs the graph **zero schema edits**. What it
+> costs is three small rows in the EDITOR: `kindFromId`'s `KNOWN` set (omit it and every envelope
+> node renders as the generic label `"Element"`), a `FAMILY_DISCIPLINE` row (bucket `spatial`,
+> **both singular and plural keys**), and `CONNECTIVITY_TYPES` **only if** the kind changes room
+> connectivity — which an envelope does not.
+>
+> | relation | kind of fact | home |
+> |---|---|---|
+> | **within** | AUTHORED | `withinId`, projected onto the **existing `bounds`** edge |
+> | **around** (adjacent) | DERIVED | the **existing `adjacentTo`**, projected from geometry |
+> | **on top of** | DERIVED | ⛔ **no edge.** Computed on demand |
+
+---
+
+## §10 — GEOMETRY
+
+| Axis | Statement |
+|---|---|
+| Primitive | a **prism** and only a prism: ring + `baseOffset` + `height`. Not a general solid, not a b-rep |
+| Ring convention | OPEN (closing vertex implied), counter-clockwise, `y ≡ 0` **enforced** by `.refine`, not documented — an ignored component is the silent-narrowing landmine C84 EI-2.d names |
+| Datum | **level-relative.** `baseOffset` and `height` are measured from the owning level's datum |
+| Stack A builder | `@pryzm/geometry-space-envelope` — pure, deterministic, no THREE |
+| Stack B producer | the renderer's prism mesh, built from the same ring |
+| Proven to agree? | **NOT MEASURED** until both exist. §11 carries it |
+
+> ⚠ **§10a — L-584 IS NOT RE-IMPORTED, AND THE OMISSION IS DELIBERATE.** The ordinance measures the
+> rasante **at the façade**; PRYZM samples **one terrain point at the centroid**. A space envelope
+> therefore records **no terrain relationship at all** — it is level-relative and says so. Whatever
+> answers *"what does this mean against the ground"* must state which datum it used
+> (`HEIGHT_DATUM_CAVEAT`, ADR-0377), and that answer does not belong in a field that would make a
+> single sampled point look like a measured one. ⛔ **Do not add a `terrainOffset` field.**
+
+> **§10b — THE PROFILE EDITOR IS JOINED, NOT REBUILT.** `WallProfileEditorPort` /
+> `WallProfileEditorSubject` are **already generic by port**; the shared surface
+> `apps/editor/src/ui/ElevationOutlineSurface.ts` is already reused by `ComponentProfilePanel`; the
+> resolver is `ui/ContextualEditBar.ts _profileEditToolFor(type)` over `{slab, floor, ceiling,
+> wall}`. The envelope adds a row to that resolver. ⛔ **A new outline surface is forbidden.**
+
+> ⭐ **§10c — THE FACE-MOVE FORKS `WallMoveReweld`'s SHAPE AND THIS IS A FINDING, NOT A PREFERENCE**
+> (ADR-0380 D6). Measured: `packages/geometry-wall/src/WallMoveReweld.ts` (2207 lines) has **no type
+> parameter anywhere**, its entry field is `wallId`, its authorship bands derive from **wall
+> thickness** (`cornerBandM = t/2 + COINCIDENT_M`). The repository's own precedent is decisive:
+> curtain walls needed the whole engine **forked** — `CurtainWallMoveReweld.ts` declares a parallel
+> vocabulary, and `engineLauncher.ts:1027` states it in its own comment (*"no `CurtainWall`
+> reference anywhere in `WallMoveReweld`"*).
+>
+> **What is REUSED is the CONTRACT**: one command per gesture · a census separating `entries` /
+> `refusals` / `notApplicable` · `IMPOSSIBLE | INCUMBENT` refusal grounds · a service that latches
+> re-entrancy and coalesces drags. ⛔ **What this forbids is a THIRD shape** — so the next family
+> to need this has two matching precedents to generalise from, not two dialects.
+>
+> **The owed fix, recorded:** give `WallMoveReweld` a real type parameter over `{id, geometry}` and
+> prove it on curtain walls first. That is strictly larger than this lane.
+
+---
+
+## §11 — THE DELTA
+
+Ordered. Each item names its invariant and its proof.
+
+| # | Item | Invariant | Proof |
+|---|---|---|---|
+| **1** | ✅ L0 record + registration | the kind exists in `SCHEMA_REGISTRY`, `ElementType`, `IdFor` | `SpaceEnvelope.parse({})` succeeds; provenance/confidence sweeps pass |
+| **2** | ✅ **this contract** | C84 §6 — the family may not be added while its contract is absent | this file + its README row |
+| **3** | pure solver `@pryzm/geometry-space-envelope` | prism math, face-move, containment/adjacency/stacking, closed refusal union | unit tests |
+| **4** | `spaceEnvelope.batch.create` / `delete` / `move` | ⭐ **one gesture = one undo entry** | a round-trip test that asserts the undo-stack DEPTH, not just the final state |
+| **5** | persistence round-trip | every §5 field survives save→load | a test that diffs the full record |
+| **6** | `moveFace` + the 3D gizmo | neighbours adapt; inverting the solid REFUSES with both numbers | census test + an interaction |
+| **7** | profile edit via `_profileEditToolFor` | reuses `ElevationOutlineSurface`; no new surface | the resolver row |
+| **8** | living-graph projection | `bounds` + `adjacentTo`, **no new edge type** | graph test |
+| **9** | ⭐ per-face solar via `accumulateRoomHeatGain` | the highest-value unwired asset for this family | a test that the faces receive distinct values |
+| **10** | boundary distance + containment findings | ADVISORY, both numbers | test |
+| **11** | IFC disposition | §1's open row | an ADR |
+| **12** | the INTENDED-area channel, presented beside BUILT | ⚠ **owed to lane RESI-ORCH** — it lives under `apps/editor/src/ui/site/**`, which this lane does not own | — |
+| **13** | `WallMoveReweld` type parameter | §10c's owed fix; larger than this lane | — |
+
+---
+
+## §12 — REFUSALS
+
+⛔ **A refusal is a correct answer — an undocumented one is not** (C84 §6). The framework is C83:
+the test is **"can context reverse it?"**, never severity, and C83 §1.3 forbids inferring the
+verdict from magnitude.
+
+| State | Verdict | Why |
+|---|---|---|
+| A face move that would **invert or collapse the solid** | ⛔ **IMPOSSIBLE / ENFORCEMENT** — refuses at the command seam | Two mutually exclusive claims about one volume. No site, no brief and no user preference makes a negative-thickness prism correct. C83 §1.2's exact test: *"A rule that can never be wrong may refuse"* |
+| `role: 'maximumBuildable'` at create | ⛔ **IMPOSSIBLE / ENFORCEMENT** | An editable legal ceiling is a study a user can drag. `MAXIMUM_BUILDABLE_IS_NOT_AUTHORED` carries the sentence |
+| `height <= 0` | ⛔ **IMPOSSIBLE** — schema-level | a zero-height envelope is a footprint pretending to be a volume, and every consumer that divides by it produces a confidently wrong number |
+| A **room envelope outside its level envelope** | **INADVISABLE / ADVISORY** — reported, never refused | Buildable and internally consistent. It usually means *the level envelope needs to grow*, which is a design act, not an error. Refusing it makes the containment field a cage instead of a relationship |
+| A **level envelope outside the maximum buildable volume** | **INADVISABLE / ADVISORY** — reported, never refused | ⭐ **the decisive one.** The maximum buildable volume is a **STUDY, not a permit** (C58/C74/C75). Refusing an architect's edit on the authority of a study PRYZM computed would tell a professional they may not draw something they may well be entitled to build — and is *"the fastest route to being muted"* (C83 §5) |
+| Envelopes overlapping in space | **FINE** | overlapping study volumes are a normal design state |
+| `promoteToRoom` | **NOT SUPPORTED (deferred)** | C80's *"may this pass replace this?"* question; Stage H |
+| IFC export | **EXCLUDED** | §1's IFC row is unresolved; an unmapped family is skipped, never approximated |
+
+> ⭐ **§12a — EVERY REFUSAL AND EVERY ADVISORY CARRIES BOTH NUMBERS**, read from the geometry and
+> never re-typed — the founder's standing direction and C74's requirement:
+> *"this face would put the envelope **1.42 m** outside the level envelope, whose nearest face is at
+> **8.10 m**."*
+
+> ⛔ **§12b — THE ENFORCEMENT ROW IS A C74 §2 CONTRACT EDIT.** C83 §1.1.1: *"C74 §2's protected
+> table names exactly one ENFORCEMENT row today … A second one is a C74 §2 contract edit, in the
+> same PR — it is not a code change with a doc follow-up."* Recorded here as owed; see §14.
+
+> **§12c — the refusal vocabulary EXTENDS, it does not rival** (C83 §1.4). `SpaceEnvelopeRefusalCode`
+> is a separate closed union rather than new `CanPlaceRefusalCode` members, because `canPlace` is
+> about **wall occupancy**, and a code about envelope solidity in that union would widen a wall
+> concept to mean "any spatial refusal".
+
+---
+
+## §13 — GATES
+
+| Gate | Applies how |
+|---|---|
+| `check-domain-purity.ts` (P5) | `SpaceEnvelope.ts` is L0-pure: Zod + plain TS, zero I/O, zero THREE, zero DOM, **no OTel span** (a span is I/O) |
+| `check-three-imports.ts` (P2) | `@pryzm/geometry-space-envelope` MUST NOT import THREE |
+| `check-otel-spans.ts` (P8 ZONE A) | every `spaceEnvelope.*` CommandBus handler carries ≥1 span — zero tolerance |
+| `check-layer-boundaries.ts` | the geometry package sits at L1/L2 and may not import L3+ |
+| `check-no-direct-store-writes.ts` (P6) | UI dispatches through `commandBus`; ⛔ this family adds **zero** new tolerated direct writes |
+| `check-contract-index-equivalence.ts` | ⭐ this file needs a **README row in the same commit** — arm A (FILE-WITHOUT-ROW) is a shrink-only ratchet and a row-less file breaches it |
+| `check-provenance-coverage` | satisfied by `provenance` + `confidence` declared at the point of use in the `defineElement` call |
+
+---
+
+## §14 — STATUS (living record — appended, never rewritten)
+
+### 2026-09-04 · lane ENVELOPE-ELEMENT
+
+| Delta item | State |
+|---|---|
+| 1 — L0 record + registration | ✅ **SHIPPED** (`8f7d47e9`) |
+| 2 — this contract + README row | ✅ **SHIPPED** |
+| 3–13 | see the commits that follow this one; **anything not listed as shipped here is NOT shipped** |
+
+⛔ **§14a — THE REPORTING RULE FOR THIS FAMILY.** Per §0.1 and §0.2: a schema, a contract and a
+TO-BE table are **not** an element. Until §11 item 4 has a test asserting undo-stack DEPTH and item
+5 has a persistence diff, the honest sentence is *"the family is contracted and its record is
+registered"* — never *"the envelope is a first-class element"*.
+
+⛔ **§14b — OWED TO OTHER LANES, recorded so it is not silently dropped:** delta item 12 (the
+INTENDED-vs-BUILT presentation) lives under `apps/editor/src/ui/site/**` and belongs to lane
+RESI-ORCH; delta item 13 (`WallMoveReweld` type parameter) is larger than this lane; §12b (the
+C74 §2 ENFORCEMENT row) must land with the `moveFace` handler.
+
+---
+
+## §15 — NOT MEASURED
+
+Recorded as findings, per C84 §6's rule that an unverified claim is a finding rather than a gap:
+
+1. **The IFC mapping.** `IfcSpatialZone` is plausible; nothing is measured. The family is excluded
+   from IFC export until an ADR resolves it.
+2. **GLB export and the bake worker** — no disposition measured.
+3. **Whether Stack A and Stack B agree** — neither exists yet.
+4. **The material vocabulary** (C100) against `materialColor`.
+5. **Whether `RoomOccupancyType`'s ~55 members are all meaningful for an envelope.** The licensed
+   copy is pinned by a test for *equality*, which does not establish *fitness*.
+6. **Performance at scale.** C66 §1's rule applies: no capacity tier may be described as supported
+   while it is CLAIMED. No envelope count has been measured.
