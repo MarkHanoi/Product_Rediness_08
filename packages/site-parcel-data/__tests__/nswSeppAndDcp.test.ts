@@ -38,6 +38,8 @@ import {
     NSW_SYDNEY_DCP_SETBACK_VOCABULARY,
     NSW_SYDNEY_DCP_STOREY_VOCABULARY,
 } from '../src/rulepacks/au/nswDcpStoreys.js';
+import { nswAdaptPlane, nswPlaneSide } from '../src/rulepacks/au/nswInclinedPlane.js';
+import { nswLookupRuling } from '../src/rulepacks/au/nswClauseRegistry.js';
 
 type Bag = Record<string, unknown>;
 interface Point {
@@ -464,5 +466,122 @@ describe('§SEPP-CATALOGUE — the classification is measured, and it names what
         expect(f.classification).toBe('IRRELEVANT');
         // ⚠ Irrelevant to the ENVELOPE TOP is not irrelevant to the brief — it binds the programme.
         expect(f.why).toMatch(/binds the programme/);
+    });
+});
+
+describe('§NSW-INCLINED-PLANE — the shared solver is consumed, and every refusal names a fact', () => {
+    // ⭐ THIS SUITE ASSERTS AN ADAPTER, NOT A SOLVER. `geometry/inclinedTop.ts` predates this lane
+    // and is line-anchored exactly as Burwood cl 4.3A describes; the correct amount of geometry to
+    // write here was zero (§GREP-FOR-THE-EXISTING-SOLVER-FIRST).
+    const burwoodD = nswLookupRuling('Burwood Local Environmental Plan 2012', 430, 'D')!;
+    const cited = {
+        state: 'registry-unsigned' as const,
+        clause: burwoodD.clause,
+        signedBy: null,
+        absenceReason: null,
+    };
+    const uncited = {
+        state: 'absent' as const,
+        clause: null,
+        signedBy: null,
+        absenceReason: 'no clause',
+    };
+    // Class D: 1.0 m at the line, 33°, "North of BHP line". A line running WEST→EAST.
+    const westToEast = { a: { x: 0, z: 0 }, b: { x: 100, z: 0 }, source: 'test fixture' };
+
+    it('adapts the Burwood class-D plane and orients the line so the solver governs NORTH', () => {
+        const r = nswAdaptPlane({ ruling: burwoodD, citation: cited, originLine: westToEast, id: 'bhp-D' });
+        expect(r.ok).toBe(true);
+        if (!r.ok) return;
+        expect(r.spec.baseHeight_m).toBe(1.0);
+        expect(r.spec.slopePerMeter).toBeCloseTo(Math.tan((33 * Math.PI) / 180), 10);
+        // ⭐ THE FRAME IS SCENE-XZ AND NORTH IS −z (C12 §7 / §9), NOT +y. The first draft of the
+        // adapter assumed +y and would have picked the OPPOSITE side for every north/south plane.
+        // The solver's field rises along (−dz, dx); for "North of BHP line" that must point north.
+        const dx = r.spec.anchorB.x - r.spec.anchorA.x;
+        const dz = r.spec.anchorB.z - r.spec.anchorA.z;
+        const rise = { x: -dz, z: dx };
+        expect(rise.x * 0 + rise.z * -1).toBeGreaterThan(0); // rise · north(0,−1) > 0
+        // A west→east line has its rise pointing SOUTH, so the adapter reverses it.
+        expect(r.spec.anchorA).toEqual({ x: 100, z: 0 });
+        expect(r.spec.anchorB).toEqual({ x: 0, z: 0 });
+        expect(r.note).toMatch(/line reversed/);
+    });
+
+    it('KEEPS the line when the caller already supplies it the right way round', () => {
+        // ⛔ THE COIN-FLIP THIS FUNCTION EXISTS TO REMOVE. The instrument names a compass side and
+        // the solver names "left of A→B"; they agree for exactly one winding, and picking the wrong
+        // one trims the other half of the site.
+        const eastToWest = { a: { x: 100, z: 0 }, b: { x: 0, z: 0 }, source: 'test fixture' };
+        const r = nswAdaptPlane({ ruling: burwoodD, citation: cited, originLine: eastToWest, id: 'bhp-D' });
+        expect(r.ok).toBe(true);
+        if (!r.ok) return;
+        // Already oriented so the rise points north — kept as supplied, and the note says so.
+        expect(r.spec.anchorA).toEqual({ x: 100, z: 0 });
+        expect(r.spec.anchorB).toEqual({ x: 0, z: 0 });
+        expect(r.note).not.toMatch(/line reversed/);
+    });
+
+    it('refuses when the line runs parallel to the side the instrument names', () => {
+        // "North of a line running north" names no half-plane. Either the line or the orientation
+        // is not what this reader takes it to be, and choosing one discards the disagreement.
+        const southToNorth = { a: { x: 0, z: 0 }, b: { x: 0, z: 100 }, source: 'test fixture' };
+        const r = nswAdaptPlane({ ruling: burwoodD, citation: cited, originLine: southToNorth, id: 'bhp-D' });
+        expect(r.ok).toBe(false);
+        if (r.ok) return;
+        expect(r.reason).toBe('orientation-parallel-to-line');
+    });
+
+    it('refuses without an origin line, and does NOT derive one from the control polygon', () => {
+        const r = nswAdaptPlane({ ruling: burwoodD, citation: cited, originLine: null, id: 'bhp-D' });
+        expect(r.ok).toBe(false);
+        if (r.ok) return;
+        expect(r.reason).toBe('no-origin-line');
+        expect(r.detail).toMatch(/not derived from the control polygon/);
+    });
+
+    it('refuses an UNCITED plane before it looks at the geometry — ARM B on a cap', () => {
+        const r = nswAdaptPlane({ ruling: burwoodD, citation: uncited, originLine: westToEast, id: 'bhp-D' });
+        expect(r.ok).toBe(false);
+        if (r.ok) return;
+        expect(r.reason).toBe('uncited');
+    });
+
+    it('reads the three measured orientation phrases and refuses a compound bearing', () => {
+        expect(nswPlaneSide('East of BHP line')).toBe('east');
+        expect(nswPlaneSide('West of BHP line')).toBe('west');
+        expect(nswPlaneSide('North of BHP line')).toBe('north');
+        // ⛔ `\b` matches at the hyphen, so a naive leading-word regex accepts "North-east" and
+        // silently resolves it to north. A compound bearing names none of the four half-planes.
+        expect(nswPlaneSide('North-east of BHP line')).toBeNull();
+        expect(nswPlaneSide('North east of BHP line')).toBeNull();
+        expect(nswPlaneSide('Toward the park')).toBeNull();
+        expect(nswPlaneSide(null)).toBeNull();
+    });
+
+    it('passes governsExtent through, and says so when there is none', () => {
+        const area = [
+            { x: 0, z: 0 },
+            { x: 50, z: 0 },
+            { x: 50, z: 50 },
+            { x: 0, z: 50 },
+        ];
+        const withArea = nswAdaptPlane({
+            ruling: burwoodD,
+            citation: cited,
+            originLine: westToEast,
+            governsExtent: area,
+            id: 'bhp-D',
+        });
+        expect(withArea.ok && withArea.spec.governsExtent).toEqual(area);
+        const without = nswAdaptPlane({
+            ruling: burwoodD,
+            citation: cited,
+            originLine: westToEast,
+            id: 'bhp-D',
+        });
+        // `null` is the solver's "governs everywhere" — correct only when the caller established it.
+        expect(without.ok && without.spec.governsExtent).toBeNull();
+        expect(without.ok && without.note).toMatch(/OVERSTATES the constraint/);
     });
 });
