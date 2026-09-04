@@ -1,0 +1,900 @@
+{
+ "generatedAt": "2026-09-04T11:09:35.780Z",
+ "lane": "ENVELOPE-NLDK round 3",
+ "seed": 20260903,
+ "method": "banked rows; iomfangreg read from the governing lokalplan feature at the point; route = byggefelt feature present at point > lokalplandelomraade present > neither; HEAD per distinct doklink",
+ "datafordelerCredentialPresent": false,
+ "strata": {
+  "land": {
+   "rows": 500,
+   "rowsWithLokalplan": 54,
+   "iomfangregTrue": 30,
+   "iomfangregFalse": 24,
+   "iomfangregAbsent": 0,
+   "kompleksTrue": 0,
+   "route": {
+    "byggefelt-geometry": 4,
+    "delomraade-extent": 22,
+    "document-kortbilag": 4
+   },
+   "byggefeltSemantics": {
+    "binding-obligation(bygkunifelt)": 1,
+    "indicative(bygvejledende)": 2,
+    "neither-flag": 1,
+    "both-flags-conflict": 0
+   },
+   "byggefeltPublishesHeight": 1,
+   "withDoklink": 30,
+   "doklinkDistinct": 30
+  },
+  "urban": {
+   "rows": 154,
+   "rowsWithLokalplan": 67,
+   "iomfangregTrue": 47,
+   "iomfangregFalse": 18,
+   "iomfangregAbsent": 2,
+   "kompleksTrue": 0,
+   "route": {
+    "byggefelt-geometry": 8,
+    "delomraade-extent": 33,
+    "document-kortbilag": 6
+   },
+   "byggefeltSemantics": {
+    "binding-obligation(bygkunifelt)": 1,
+    "indicative(bygvejledende)": 6,
+    "neither-flag": 1,
+    "both-flags-conflict": 0
+   },
+   "byggefeltPublishesHeight": 0,
+   "withDoklink": 47,
+   "doklinkDistinct": 46
+  }
+ },
+ "doklinkReachability": {
+  "distinct": 76,
+  "statusHistogram": {
+   "206": 76
+  },
+  "contentTypeHistogram": {
+   "application/pdf": 76
+  },
+  "results": [
+   {
+    "doklink": "https://dokument.plandata.dk/20_1023694_APPROVED_1249993019747.pdf",
+    "planid": 1023694,
+    "strata": [
+     "land"
+    ],
+    "status": 206,
+    "contentType": "application/pdf",
+    "contentLength": "1",
+    "finalUrl": "https://dokument.plandata.dk/20_1023694_APPROVED_1249993019747.pdf"
+   },
+   {
+    "doklink": "https://dokument.plandata.dk/20_1025050_APPROVED_1168848227909.pdf",
+    "planid": 1025050,
+    "strata": [
+     "land"
+    ],
+    "status": 206,
+    "contentType": "application/pdf",
+    "contentLength": "1",
+    "finalUrl": "https://dokument.plandata.dk/20_1025050_APPROVED_1168848227909.pdf"
+   },
+   {
+    "doklink": "https://dokument.plandata.dk/20_10268980_1781853864221.pdf",
+    "planid": 10268980,
+    "strata": [
+     "urban"
+    ],
+    "status": 206,
+    "contentType": "application/pdf",
+    "contentLength": "1",
+    "finalUrl": "https://dokument.plandata.dk/20_10268980_1781853864221.pdf"
+   },
+   {
+    "doklink": "https://dokument.plandata.dk/20_1028167_APPROVED_1180951938251.pdf",
+    "planid": 1028167,
+    "strata": [
+     "urban"
+    ],
+    "status": 206,
+    "contentType": "application/pdf",
+    "contentLength": "1",
+    "finalUrl": "https://dokument.plandata.dk/20_1028167_APPROVED_1180951938251.pdf"
+   },
+   {
+    "doklink": "https://dokument.plandata.dk/20_1028956_APPROVED_1173173225285.pdf",
+    "planid": 1028956,
+    "strata": [
+     "land"
+    ],
+    "status": 206,
+    "contentType": "application/pdf",
+    "contentLength": "1",
+    "finalUrl": "https://dokument.plandata.dk/20_1028956_APPROVED_1173173225285.pdf"
+   },
+   {
+    "doklink": "https://dokument.plandata.dk/20_1031678_APPROVED_1174476352881.pdf",
+    "planid": 1031678,
+    "strata": [
+     "urban"
+    ],
+    "status": 206,
+    "contentType": "application/pdf",
+    "contentLength": "1",
+    "finalUrl": "https://dokument.plandata.dk/20_1031678_APPROVED_1174476352881.pdf"
+   },
+   {
+    "doklink": "https://dokument.plandata.dk/20_1031731_APPROVED_1174478260410.pdf",
+    "planid": 1031731,
+    "strata": [
+     "urban"
+    ],
+    "status": 206,
+    "contentType": "application/pdf",
+    "contentLength": "1",
+    "finalUrl": "https://dokument.plandata.dk/20_1031731_APPROVED_1174478260410.pdf"
+   },
+   {
+    "doklink": "https://dokument.plandata.dk/20_1032829_APPROVED_1184271853543.pdf",
+    "planid": 1032829,
+    "strata": [
+     "urban"
+    ],
+    "status": 206,
+    "contentType": "application/pdf",
+    "contentLength": "1",
+    "finalUrl": "https://dokument.plandata.dk/20_1032829_APPROVED_1184271853543.pdf"
+   },
+   {
+    "doklink": "https://dokument.plandata.dk/20_1037254_APPROVED_1178200823707.pdf",
+    "planid": 1037254,
+    "strata": [
+     "urban"
+    ],
+    "status": 206,
+    "contentType": "application/pdf",
+    "contentLength": "1",
+    "finalUrl": "https://dokument.plandata.dk/20_1037254_APPROVED_1178200823707.pdf"
+   },
+   {
+    "doklink": "https://dokument.plandata.dk/20_1038997_1584450236999.pdf",
+    "planid": 1038997,
+    "strata": [
+     "urban"
+    ],
+    "status": 206,
+    "contentType": "application/pdf",
+    "contentLength": "1",
+    "finalUrl": "https://dokument.plandata.dk/20_1038997_1584450236999.pdf"
+   },
+   {
+    "doklink": "https://dokument.plandata.dk/20_1046244_DRAFT_1184072238380.pdf",
+    "planid": 1046244,
+    "strata": [
+     "land"
+    ],
+    "status": 206,
+    "contentType": "application/pdf",
+    "contentLength": "1",
+    "finalUrl": "https://dokument.plandata.dk/20_1046244_DRAFT_1184072238380.pdf"
+   },
+   {
+    "doklink": "https://dokument.plandata.dk/20_1046547_DRAFT_1184854317044.pdf",
+    "planid": 1046547,
+    "strata": [
+     "urban"
+    ],
+    "status": 206,
+    "contentType": "application/pdf",
+    "contentLength": "1",
+    "finalUrl": "https://dokument.plandata.dk/20_1046547_DRAFT_1184854317044.pdf"
+   },
+   {
+    "doklink": "https://dokument.plandata.dk/20_1049626_DRAFT_1186999873864.pdf",
+    "planid": 1049626,
+    "strata": [
+     "urban"
+    ],
+    "status": 206,
+    "contentType": "application/pdf",
+    "contentLength": "1",
+    "finalUrl": "https://dokument.plandata.dk/20_1049626_DRAFT_1186999873864.pdf"
+   },
+   {
+    "doklink": "https://dokument.plandata.dk/20_1049951_APPROVED_1199700680499.pdf",
+    "planid": 1049951,
+    "strata": [
+     "urban"
+    ],
+    "status": 206,
+    "contentType": "application/pdf",
+    "contentLength": "1",
+    "finalUrl": "https://dokument.plandata.dk/20_1049951_APPROVED_1199700680499.pdf"
+   },
+   {
+    "doklink": "https://dokument.plandata.dk/20_1052512_1395058803261.pdf",
+    "planid": 1052512,
+    "strata": [
+     "urban"
+    ],
+    "status": 206,
+    "contentType": "application/pdf",
+    "contentLength": "1",
+    "finalUrl": "https://dokument.plandata.dk/20_1052512_1395058803261.pdf"
+   },
+   {
+    "doklink": "https://dokument.plandata.dk/20_1054753_APPROVED_1209546643202.pdf",
+    "planid": 1054753,
+    "strata": [
+     "urban"
+    ],
+    "status": 206,
+    "contentType": "application/pdf",
+    "contentLength": "1",
+    "finalUrl": "https://dokument.plandata.dk/20_1054753_APPROVED_1209546643202.pdf"
+   },
+   {
+    "doklink": "https://dokument.plandata.dk/20_1059700_APPROVED_1195552246263.pdf",
+    "planid": 1059700,
+    "strata": [
+     "urban"
+    ],
+    "status": 206,
+    "contentType": "application/pdf",
+    "contentLength": "1",
+    "finalUrl": "https://dokument.plandata.dk/20_1059700_APPROVED_1195552246263.pdf"
+   },
+   {
+    "doklink": "https://dokument.plandata.dk/20_1062306_1551275417529.pdf",
+    "planid": 1062306,
+    "strata": [
+     "land"
+    ],
+    "status": 206,
+    "contentType": "application/pdf",
+    "contentLength": "1",
+    "finalUrl": "https://dokument.plandata.dk/20_1062306_1551275417529.pdf"
+   },
+   {
+    "doklink": "https://dokument.plandata.dk/20_1071454_DRAFT_1201775671759.pdf",
+    "planid": 1071454,
+    "strata": [
+     "land"
+    ],
+    "status": 206,
+    "contentType": "application/pdf",
+    "contentLength": "1",
+    "finalUrl": "https://dokument.plandata.dk/20_1071454_DRAFT_1201775671759.pdf"
+   },
+   {
+    "doklink": "https://dokument.plandata.dk/20_1071754_APPROVED_1282726969688.pdf",
+    "planid": 1071754,
+    "strata": [
+     "urban"
+    ],
+    "status": 206,
+    "contentType": "application/pdf",
+    "contentLength": "1",
+    "finalUrl": "https://dokument.plandata.dk/20_1071754_APPROVED_1282726969688.pdf"
+   },
+   {
+    "doklink": "https://dokument.plandata.dk/20_1074014_APPROVED_1203685887903.pdf",
+    "planid": 1074014,
+    "strata": [
+     "land"
+    ],
+    "status": 206,
+    "contentType": "application/pdf",
+    "contentLength": "1",
+    "finalUrl": "https://dokument.plandata.dk/20_1074014_APPROVED_1203685887903.pdf"
+   },
+   {
+    "doklink": "https://dokument.plandata.dk/20_1075219_DRAFT_1204715211975.pdf",
+    "planid": 1075219,
+    "strata": [
+     "urban"
+    ],
+    "status": 206,
+    "contentType": "application/pdf",
+    "contentLength": "1",
+    "finalUrl": "https://dokument.plandata.dk/20_1075219_DRAFT_1204715211975.pdf"
+   },
+   {
+    "doklink": "https://dokument.plandata.dk/20_1075400_APPROVED_1204726343956.pdf",
+    "planid": 1075400,
+    "strata": [
+     "land"
+    ],
+    "status": 206,
+    "contentType": "application/pdf",
+    "contentLength": "1",
+    "finalUrl": "https://dokument.plandata.dk/20_1075400_APPROVED_1204726343956.pdf"
+   },
+   {
+    "doklink": "https://dokument.plandata.dk/20_1075905_DRAFT_1205332661062.pdf",
+    "planid": 1075905,
+    "strata": [
+     "urban"
+    ],
+    "status": 206,
+    "contentType": "application/pdf",
+    "contentLength": "1",
+    "finalUrl": "https://dokument.plandata.dk/20_1075905_DRAFT_1205332661062.pdf"
+   },
+   {
+    "doklink": "https://dokument.plandata.dk/20_1076874_1773144584721.pdf",
+    "planid": 1076874,
+    "strata": [
+     "urban"
+    ],
+    "status": 206,
+    "contentType": "application/pdf",
+    "contentLength": "1",
+    "finalUrl": "https://dokument.plandata.dk/20_1076874_1773144584721.pdf"
+   },
+   {
+    "doklink": "https://dokument.plandata.dk/20_1076955_APPROVED_1206702185817.pdf",
+    "planid": 1076955,
+    "strata": [
+     "land"
+    ],
+    "status": 206,
+    "contentType": "application/pdf",
+    "contentLength": "1",
+    "finalUrl": "https://dokument.plandata.dk/20_1076955_APPROVED_1206702185817.pdf"
+   },
+   {
+    "doklink": "https://dokument.plandata.dk/20_1077057_APPROVED_1206702626368.pdf",
+    "planid": 1077057,
+    "strata": [
+     "urban"
+    ],
+    "status": 206,
+    "contentType": "application/pdf",
+    "contentLength": "1",
+    "finalUrl": "https://dokument.plandata.dk/20_1077057_APPROVED_1206702626368.pdf"
+   },
+   {
+    "doklink": "https://dokument.plandata.dk/20_1077712_APPROVED_1206524888557.pdf",
+    "planid": 1077712,
+    "strata": [
+     "land"
+    ],
+    "status": 206,
+    "contentType": "application/pdf",
+    "contentLength": "1",
+    "finalUrl": "https://dokument.plandata.dk/20_1077712_APPROVED_1206524888557.pdf"
+   },
+   {
+    "doklink": "https://dokument.plandata.dk/20_1081855_1761914057242.pdf",
+    "planid": 1081855,
+    "strata": [
+     "land"
+    ],
+    "status": 206,
+    "contentType": "application/pdf",
+    "contentLength": "1",
+    "finalUrl": "https://dokument.plandata.dk/20_1081855_1761914057242.pdf"
+   },
+   {
+    "doklink": "https://dokument.plandata.dk/20_1082012_APPROVED_1216480172021.pdf",
+    "planid": 1082012,
+    "strata": [
+     "land"
+    ],
+    "status": 206,
+    "contentType": "application/pdf",
+    "contentLength": "1",
+    "finalUrl": "https://dokument.plandata.dk/20_1082012_APPROVED_1216480172021.pdf"
+   },
+   {
+    "doklink": "https://dokument.plandata.dk/20_1082085_APPROVED_1216480306455.pdf",
+    "planid": 1082085,
+    "strata": [
+     "land"
+    ],
+    "status": 206,
+    "contentType": "application/pdf",
+    "contentLength": "1",
+    "finalUrl": "https://dokument.plandata.dk/20_1082085_APPROVED_1216480306455.pdf"
+   },
+   {
+    "doklink": "https://dokument.plandata.dk/20_10840513_1678102147648.pdf",
+    "planid": 10840513,
+    "strata": [
+     "urban"
+    ],
+    "status": 206,
+    "contentType": "application/pdf",
+    "contentLength": "1",
+    "finalUrl": "https://dokument.plandata.dk/20_10840513_1678102147648.pdf"
+   },
+   {
+    "doklink": "https://dokument.plandata.dk/20_10908075_1649318537892.pdf",
+    "planid": 10908075,
+    "strata": [
+     "urban"
+    ],
+    "status": 206,
+    "contentType": "application/pdf",
+    "contentLength": "1",
+    "finalUrl": "https://dokument.plandata.dk/20_10908075_1649318537892.pdf"
+   },
+   {
+    "doklink": "https://dokument.plandata.dk/20_1101813_1781084454497.pdf",
+    "planid": 1101813,
+    "strata": [
+     "land"
+    ],
+    "status": 206,
+    "contentType": "application/pdf",
+    "contentLength": "1",
+    "finalUrl": "https://dokument.plandata.dk/20_1101813_1781084454497.pdf"
+   },
+   {
+    "doklink": "https://dokument.plandata.dk/20_11020390_1660817713622.pdf",
+    "planid": 11020390,
+    "strata": [
+     "urban"
+    ],
+    "status": 206,
+    "contentType": "application/pdf",
+    "contentLength": "1",
+    "finalUrl": "https://dokument.plandata.dk/20_11020390_1660817713622.pdf"
+   },
+   {
+    "doklink": "https://dokument.plandata.dk/20_11024018_1668777807038.pdf",
+    "planid": 11024018,
+    "strata": [
+     "land"
+    ],
+    "status": 206,
+    "contentType": "application/pdf",
+    "contentLength": "1",
+    "finalUrl": "https://dokument.plandata.dk/20_11024018_1668777807038.pdf"
+   },
+   {
+    "doklink": "https://dokument.plandata.dk/20_1102831_APPROVED_1276257716113.pdf",
+    "planid": 1102831,
+    "strata": [
+     "urban"
+    ],
+    "status": 206,
+    "contentType": "application/pdf",
+    "contentLength": "1",
+    "finalUrl": "https://dokument.plandata.dk/20_1102831_APPROVED_1276257716113.pdf"
+   },
+   {
+    "doklink": "https://dokument.plandata.dk/20_1108427_APPROVED_1223555560788.pdf",
+    "planid": 1108427,
+    "strata": [
+     "land"
+    ],
+    "status": 206,
+    "contentType": "application/pdf",
+    "contentLength": "1",
+    "finalUrl": "https://dokument.plandata.dk/20_1108427_APPROVED_1223555560788.pdf"
+   },
+   {
+    "doklink": "https://dokument.plandata.dk/20_11235527_1780040643060.pdf",
+    "planid": 11235527,
+    "strata": [
+     "urban"
+    ],
+    "status": 206,
+    "contentType": "application/pdf",
+    "contentLength": "1",
+    "finalUrl": "https://dokument.plandata.dk/20_11235527_1780040643060.pdf"
+   },
+   {
+    "doklink": "https://dokument.plandata.dk/20_11236223_1690454949082.pdf",
+    "planid": 11236223,
+    "strata": [
+     "urban"
+    ],
+    "status": 206,
+    "contentType": "application/pdf",
+    "contentLength": "1",
+    "finalUrl": "https://dokument.plandata.dk/20_11236223_1690454949082.pdf"
+   },
+   {
+    "doklink": "https://dokument.plandata.dk/20_1126498_APPROVED_1233585309250.pdf",
+    "planid": 1126498,
+    "strata": [
+     "urban"
+    ],
+    "status": 206,
+    "contentType": "application/pdf",
+    "contentLength": "1",
+    "finalUrl": "https://dokument.plandata.dk/20_1126498_APPROVED_1233585309250.pdf"
+   },
+   {
+    "doklink": "https://dokument.plandata.dk/20_11278111_1732541050320.pdf",
+    "planid": 11278111,
+    "strata": [
+     "land"
+    ],
+    "status": 206,
+    "contentType": "application/pdf",
+    "contentLength": "1",
+    "finalUrl": "https://dokument.plandata.dk/20_11278111_1732541050320.pdf"
+   },
+   {
+    "doklink": "https://dokument.plandata.dk/20_11304208_1742210296091.pdf",
+    "planid": 11304208,
+    "strata": [
+     "urban"
+    ],
+    "status": 206,
+    "contentType": "application/pdf",
+    "contentLength": "1",
+    "finalUrl": "https://dokument.plandata.dk/20_11304208_1742210296091.pdf"
+   },
+   {
+    "doklink": "https://dokument.plandata.dk/20_11328459_1765890510168.pdf",
+    "planid": 11328459,
+    "strata": [
+     "urban"
+    ],
+    "status": 206,
+    "contentType": "application/pdf",
+    "contentLength": "1",
+    "finalUrl": "https://dokument.plandata.dk/20_11328459_1765890510168.pdf"
+   },
+   {
+    "doklink": "https://dokument.plandata.dk/20_1144151_APPROVED_1273144094886.pdf",
+    "planid": 1144151,
+    "strata": [
+     "urban"
+    ],
+    "status": 206,
+    "contentType": "application/pdf",
+    "contentLength": "1",
+    "finalUrl": "https://dokument.plandata.dk/20_1144151_APPROVED_1273144094886.pdf"
+   },
+   {
+    "doklink": "https://dokument.plandata.dk/20_1166318_APPROVED_1239890005414.pdf",
+    "planid": 1166318,
+    "strata": [
+     "urban"
+    ],
+    "status": 206,
+    "contentType": "application/pdf",
+    "contentLength": "1",
+    "finalUrl": "https://dokument.plandata.dk/20_1166318_APPROVED_1239890005414.pdf"
+   },
+   {
+    "doklink": "https://dokument.plandata.dk/20_1177012_APPROVED_1243239371258.pdf",
+    "planid": 1177012,
+    "strata": [
+     "urban"
+    ],
+    "status": 206,
+    "contentType": "application/pdf",
+    "contentLength": "1",
+    "finalUrl": "https://dokument.plandata.dk/20_1177012_APPROVED_1243239371258.pdf"
+   },
+   {
+    "doklink": "https://dokument.plandata.dk/20_1218569_DRAFT_1251266204401.pdf",
+    "planid": 1218569,
+    "strata": [
+     "urban"
+    ],
+    "status": 206,
+    "contentType": "application/pdf",
+    "contentLength": "1",
+    "finalUrl": "https://dokument.plandata.dk/20_1218569_DRAFT_1251266204401.pdf"
+   },
+   {
+    "doklink": "https://dokument.plandata.dk/20_1221625_1618559193091.pdf",
+    "planid": 1221625,
+    "strata": [
+     "urban"
+    ],
+    "status": 206,
+    "contentType": "application/pdf",
+    "contentLength": "1",
+    "finalUrl": "https://dokument.plandata.dk/20_1221625_1618559193091.pdf"
+   },
+   {
+    "doklink": "https://dokument.plandata.dk/20_1222057_APPROVED_1252137388829.pdf",
+    "planid": 1222057,
+    "strata": [
+     "land"
+    ],
+    "status": 206,
+    "contentType": "application/pdf",
+    "contentLength": "1",
+    "finalUrl": "https://dokument.plandata.dk/20_1222057_APPROVED_1252137388829.pdf"
+   },
+   {
+    "doklink": "https://dokument.plandata.dk/20_1264134_1548940074505.pdf",
+    "planid": 1264134,
+    "strata": [
+     "urban"
+    ],
+    "status": 206,
+    "contentType": "application/pdf",
+    "contentLength": "1",
+    "finalUrl": "https://dokument.plandata.dk/20_1264134_1548940074505.pdf"
+   },
+   {
+    "doklink": "https://dokument.plandata.dk/20_1318163_APPROVED_1259156111293.pdf",
+    "planid": 1318163,
+    "strata": [
+     "urban"
+    ],
+    "status": 206,
+    "contentType": "application/pdf",
+    "contentLength": "1",
+    "finalUrl": "https://dokument.plandata.dk/20_1318163_APPROVED_1259156111293.pdf"
+   },
+   {
+    "doklink": "https://dokument.plandata.dk/20_1363833_1587495571023.pdf",
+    "planid": 1363833,
+    "strata": [
+     "urban"
+    ],
+    "status": 206,
+    "contentType": "application/pdf",
+    "contentLength": "1",
+    "finalUrl": "https://dokument.plandata.dk/20_1363833_1587495571023.pdf"
+   },
+   {
+    "doklink": "https://dokument.plandata.dk/20_1363912_APPROVED_1299759877152.pdf",
+    "planid": 1363912,
+    "strata": [
+     "land"
+    ],
+    "status": 206,
+    "contentType": "application/pdf",
+    "contentLength": "1",
+    "finalUrl": "https://dokument.plandata.dk/20_1363912_APPROVED_1299759877152.pdf"
+   },
+   {
+    "doklink": "https://dokument.plandata.dk/20_1373893_1472474541216.pdf",
+    "planid": 1373893,
+    "strata": [
+     "urban"
+    ],
+    "status": 206,
+    "contentType": "application/pdf",
+    "contentLength": "1",
+    "finalUrl": "https://dokument.plandata.dk/20_1373893_1472474541216.pdf"
+   },
+   {
+    "doklink": "https://dokument.plandata.dk/20_1424137_1705058850942.pdf",
+    "planid": 1424137,
+    "strata": [
+     "land"
+    ],
+    "status": 206,
+    "contentType": "application/pdf",
+    "contentLength": "1",
+    "finalUrl": "https://dokument.plandata.dk/20_1424137_1705058850942.pdf"
+   },
+   {
+    "doklink": "https://dokument.plandata.dk/20_1425356_1754996772999.pdf",
+    "planid": 1425356,
+    "strata": [
+     "land"
+    ],
+    "status": 206,
+    "contentType": "application/pdf",
+    "contentLength": "1",
+    "finalUrl": "https://dokument.plandata.dk/20_1425356_1754996772999.pdf"
+   },
+   {
+    "doklink": "https://dokument.plandata.dk/20_1469799_1395150300900.pdf",
+    "planid": 1469799,
+    "strata": [
+     "urban"
+    ],
+    "status": 206,
+    "contentType": "application/pdf",
+    "contentLength": "1",
+    "finalUrl": "https://dokument.plandata.dk/20_1469799_1395150300900.pdf"
+   },
+   {
+    "doklink": "https://dokument.plandata.dk/20_177077_APPROVED_1158428555546.pdf",
+    "planid": 177077,
+    "strata": [
+     "urban"
+    ],
+    "status": 206,
+    "contentType": "application/pdf",
+    "contentLength": "1",
+    "finalUrl": "https://dokument.plandata.dk/20_177077_APPROVED_1158428555546.pdf"
+   },
+   {
+    "doklink": "https://dokument.plandata.dk/20_177575_1669207622576.pdf",
+    "planid": 177575,
+    "strata": [
+     "land"
+    ],
+    "status": 206,
+    "contentType": "application/pdf",
+    "contentLength": "1",
+    "finalUrl": "https://dokument.plandata.dk/20_177575_1669207622576.pdf"
+   },
+   {
+    "doklink": "https://dokument.plandata.dk/20_177942_APPROVED_1290690392347.pdf",
+    "planid": 177942,
+    "strata": [
+     "land"
+    ],
+    "status": 206,
+    "contentType": "application/pdf",
+    "contentLength": "1",
+    "finalUrl": "https://dokument.plandata.dk/20_177942_APPROVED_1290690392347.pdf"
+   },
+   {
+    "doklink": "https://dokument.plandata.dk/20_178913_APPROVED_1204617030253.pdf",
+    "planid": 178913,
+    "strata": [
+     "land"
+    ],
+    "status": 206,
+    "contentType": "application/pdf",
+    "contentLength": "1",
+    "finalUrl": "https://dokument.plandata.dk/20_178913_APPROVED_1204617030253.pdf"
+   },
+   {
+    "doklink": "https://dokument.plandata.dk/20_179226_APPROVED_1158440789217.pdf",
+    "planid": 179226,
+    "strata": [
+     "urban"
+    ],
+    "status": 206,
+    "contentType": "application/pdf",
+    "contentLength": "1",
+    "finalUrl": "https://dokument.plandata.dk/20_179226_APPROVED_1158440789217.pdf"
+   },
+   {
+    "doklink": "https://dokument.plandata.dk/20_189809_1426672582886.pdf",
+    "planid": 189809,
+    "strata": [
+     "urban"
+    ],
+    "status": 206,
+    "contentType": "application/pdf",
+    "contentLength": "1",
+    "finalUrl": "https://dokument.plandata.dk/20_189809_1426672582886.pdf"
+   },
+   {
+    "doklink": "https://dokument.plandata.dk/20_190071_APPROVED_1170922911561.pdf",
+    "planid": 190071,
+    "strata": [
+     "land"
+    ],
+    "status": 206,
+    "contentType": "application/pdf",
+    "contentLength": "1",
+    "finalUrl": "https://dokument.plandata.dk/20_190071_APPROVED_1170922911561.pdf"
+   },
+   {
+    "doklink": "https://dokument.plandata.dk/20_190121_1698224886492.pdf",
+    "planid": 190121,
+    "strata": [
+     "land"
+    ],
+    "status": 206,
+    "contentType": "application/pdf",
+    "contentLength": "1",
+    "finalUrl": "https://dokument.plandata.dk/20_190121_1698224886492.pdf"
+   },
+   {
+    "doklink": "https://dokument.plandata.dk/20_1944287_APPROVED_1369994455948.pdf",
+    "planid": 1944287,
+    "strata": [
+     "urban"
+    ],
+    "status": 206,
+    "contentType": "application/pdf",
+    "contentLength": "1",
+    "finalUrl": "https://dokument.plandata.dk/20_1944287_APPROVED_1369994455948.pdf"
+   },
+   {
+    "doklink": "https://dokument.plandata.dk/20_2741041_1399377126992.pdf",
+    "planid": 2741041,
+    "strata": [
+     "land"
+    ],
+    "status": 206,
+    "contentType": "application/pdf",
+    "contentLength": "1",
+    "finalUrl": "https://dokument.plandata.dk/20_2741041_1399377126992.pdf"
+   },
+   {
+    "doklink": "https://dokument.plandata.dk/20_2952914_1418906183149.pdf",
+    "planid": 2952914,
+    "strata": [
+     "land"
+    ],
+    "status": 206,
+    "contentType": "application/pdf",
+    "contentLength": "1",
+    "finalUrl": "https://dokument.plandata.dk/20_2952914_1418906183149.pdf"
+   },
+   {
+    "doklink": "https://dokument.plandata.dk/20_2988733_1434532531988.pdf",
+    "planid": 2988733,
+    "strata": [
+     "land"
+    ],
+    "status": 206,
+    "contentType": "application/pdf",
+    "contentLength": "1",
+    "finalUrl": "https://dokument.plandata.dk/20_2988733_1434532531988.pdf"
+   },
+   {
+    "doklink": "https://dokument.plandata.dk/20_3268775_1489603598632.pdf",
+    "planid": 3268775,
+    "strata": [
+     "urban"
+    ],
+    "status": 206,
+    "contentType": "application/pdf",
+    "contentLength": "1",
+    "finalUrl": "https://dokument.plandata.dk/20_3268775_1489603598632.pdf"
+   },
+   {
+    "doklink": "https://dokument.plandata.dk/20_3786719_1514998285912.pdf",
+    "planid": 3786719,
+    "strata": [
+     "urban"
+    ],
+    "status": 206,
+    "contentType": "application/pdf",
+    "contentLength": "1",
+    "finalUrl": "https://dokument.plandata.dk/20_3786719_1514998285912.pdf"
+   },
+   {
+    "doklink": "https://dokument.plandata.dk/20_9600144_1558608548613.pdf",
+    "planid": 9600144,
+    "strata": [
+     "urban"
+    ],
+    "status": 206,
+    "contentType": "application/pdf",
+    "contentLength": "1",
+    "finalUrl": "https://dokument.plandata.dk/20_9600144_1558608548613.pdf"
+   },
+   {
+    "doklink": "https://dokument.plandata.dk/20_9693447_1579092263782.pdf",
+    "planid": 9693447,
+    "strata": [
+     "land"
+    ],
+    "status": 206,
+    "contentType": "application/pdf",
+    "contentLength": "1",
+    "finalUrl": "https://dokument.plandata.dk/20_9693447_1579092263782.pdf"
+   },
+   {
+    "doklink": "https://dokument.plandata.dk/20_9695891_1583754597080.pdf",
+    "planid": 9695891,
+    "strata": [
+     "urban"
+    ],
+    "status": 206,
+    "contentType": "application/pdf",
+    "contentLength": "1",
+    "finalUrl": "https://dokument.plandata.dk/20_9695891_1583754597080.pdf"
+   },
+   {
+    "doklink": "https://dokument.plandata.dk/20_9717330_1592164649935.pdf",
+    "planid": 9717330,
+    "strata": [
+     "urban"
+    ],
+    "status": 206,
+    "contentType": "application/pdf",
+    "contentLength": "1",
+    "finalUrl": "https://dokument.plandata.dk/20_9717330_1592164649935.pdf"
+   }
+  ]
+ }
+}

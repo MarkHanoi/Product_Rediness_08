@@ -1,7 +1,7 @@
 // §DK-GRAPHIC-LEG — the route the drawn regulation takes, and what each route lets us SAY.
 
 import { describe, it, expect } from 'vitest';
-import { resolveDkGraphicLeg } from '../src/rulepacks/dkGraphicLeg.js';
+import { resolveDkGraphicLeg, censusDkGraphicRoutes, DK_GRAPHIC_ROUTE_CENSUS_2026_09_04 } from '../src/rulepacks/dkGraphicLeg.js';
 import { resolveDkOmfangRegulation } from '../src/rulepacks/dkOmfangRegulation.js';
 import { resolveDkByggefeltEnvelopeContribution } from '../src/rulepacks/dkByggefeltBinding.js';
 
@@ -92,5 +92,67 @@ describe('routes, in authority order', () => {
         const r = resolveDkGraphicLeg({ omfang: IOMFANG_TRUE, byggefelt: { status: 'found', value: conflict } });
         expect(r.route).toBe('document-kortbilag');
         expect(r.statement).toContain('not placeable');
+    });
+});
+
+// ── Round 3: a dead doklink is `inaccessible`, never `graphic`; the census reducer reproduces the probe ──
+
+describe('round 3 — doklinkStatus and the route census', () => {
+    it('document route with a DEAD doklink → footprint and height are inaccessible (retryable), statement warns', () => {
+        const r = resolveDkGraphicLeg({ omfang: IOMFANG_TRUE, byggefelt: { status: 'absent' } as never, delomraadePresent: false, doklink: 'https://dokument.plandata.dk/20_dead.pdf', doklinkStatus: 'dead' });
+        expect(r.route).toBe('document-kortbilag');
+        const fp = r.footprintState!(REF);
+        const h = r.heightState!(REF);
+        expect(fp.status === 'unrecovered' && fp.failure).toBe('inaccessible');
+        expect(h.status === 'unrecovered' && h.failure).toBe('inaccessible');
+        expect(r.statement).toContain('did not answer');
+        expect(r.caveats.some((c) => c.includes('retry'))).toBe(true);
+    });
+
+    it('document route with an ANSWERING (or unchecked) doklink keeps graphic/pdf', () => {
+        for (const s of ['answers', 'unchecked', undefined] as const) {
+            const r = resolveDkGraphicLeg({ omfang: IOMFANG_TRUE, byggefelt: { status: 'absent' } as never, delomraadePresent: false, doklink: 'https://dokument.plandata.dk/20_1469799_1395150300900.pdf', doklinkStatus: s });
+            const fp = r.footprintState!(REF);
+            expect(fp.status === 'unrecovered' && fp.failure).toBe('graphic');
+            expect(r.heightState!(REF).status === 'unrecovered' && (r.heightState!(REF) as { failure: string }).failure).toBe('pdf');
+        }
+    });
+
+    it('delområde route with a dead doklink is also inaccessible, and keeps the extent caveat', () => {
+        const r = resolveDkGraphicLeg({ omfang: IOMFANG_TRUE, byggefelt: { status: 'absent' } as never, delomraadePresent: true, doklinkStatus: 'dead' });
+        expect(r.route).toBe('delomraade-extent');
+        expect(r.footprintState!(REF).status === 'unrecovered' && (r.footprintState!(REF) as { failure: string }).failure).toBe('inaccessible');
+        expect(r.caveats[0]).toContain('extent');
+    });
+
+    it('the census reducer: three-valued flag read, authority-ordered routes, byggefelt semantics, height', () => {
+        // Field NAMES and serialisations are the Plandata WFS's (booleans arrive as strings), as in the sample rows.
+        const c = censusDkGraphicRoutes([
+            { iomfangreg: 'true', kompleks: 'false', byggefeltAtPoint: [{ bygkunifelt: 'false', bygvejledende: 'true', maxbygnhjd: '8.5' }], delomraadeAtPoint: true, doklink: 'https://dokument.plandata.dk/20_a.pdf' },
+            { iomfangreg: 'true', kompleks: 'false', byggefeltAtPoint: [{ bygkunifelt: 'true', bygvejledende: 'false', maxbygnhjd: null }], delomraadeAtPoint: false, doklink: 'https://dokument.plandata.dk/20_b.pdf' },
+            { iomfangreg: 'true', byggefeltAtPoint: [], delomraadeAtPoint: true, doklink: 'https://dokument.plandata.dk/20_c.pdf' },
+            { iomfangreg: 'true', byggefeltAtPoint: [], delomraadeAtPoint: false, doklink: '' },
+            { iomfangreg: 'true', byggefeltAtPoint: null, delomraadeAtPoint: null },
+            { iomfangreg: 'false', byggefeltAtPoint: [], delomraadeAtPoint: false },
+            { iomfangreg: undefined, byggefeltAtPoint: [], delomraadeAtPoint: false },
+        ]);
+        expect(c.rows).toBe(7);
+        expect(c.iomfangregTrue).toBe(5);
+        expect(c.iomfangregFalse).toBe(1);
+        expect(c.iomfangregAbsent).toBe(1); // absent is NEVER false
+        expect(c.route).toEqual({ 'byggefelt-geometry': 2, 'delomraade-extent': 1, 'document-kortbilag': 1, 'byggefelt-unresolved': 1 });
+        expect(c.byggefeltSemantics).toEqual({ 'binding-obligation': 1, indicative: 1, 'neither-flag': 0, 'both-flags-conflict': 0 });
+        expect(c.byggefeltPublishesHeight).toBe(1);
+        expect(c.withDoklink).toBe(3);
+    });
+
+    it('the banked census is internally consistent: routes sum to iomfangregTrue per stratum, strata not pooled', () => {
+        for (const s of [DK_GRAPHIC_ROUTE_CENSUS_2026_09_04.land, DK_GRAPHIC_ROUTE_CENSUS_2026_09_04.urban]) {
+            const sum = s.route['byggefelt-geometry'] + s.route['delomraade-extent'] + s.route['document-kortbilag'];
+            expect(sum).toBe(s.iomfangregTrue);
+            expect(s.withDoklink).toBe(s.iomfangregTrue);
+        }
+        expect(DK_GRAPHIC_ROUTE_CENSUS_2026_09_04.doklinkReachability.status['206']).toBe(76);
+        expect(DK_GRAPHIC_ROUTE_CENSUS_2026_09_04.datafordelerCredentialPresent).toBe(false);
     });
 });
