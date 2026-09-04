@@ -5,6 +5,10 @@ import {
     // lifecycle wiring at all; see the owner block at the end of mountGISArea().
     projectScopeRegistry,
     registerProjectScopeProbe,
+    // §RESI-ORCH-COST — the L2 cost engine. The SAME two functions the 5D tab calls, so the
+    // envelope card and the Data Workbench cannot state two different €/m² for one building.
+    resolveBuildingCostModels,
+    estimateBuildingCost,
 } from '@pryzm/core-app-model';
 import type { CesiumThreeBridge } from '@pryzm/plugin-geospatial';
 import type { UIProps } from '../Layout';
@@ -257,6 +261,38 @@ import {
     STUDY_HEIGHT_SAVE_BTN_TESTID,
     STUDY_HEIGHT_STATUS_TESTID,
 } from '../site/envelopeCardSections';
+// §RESI-ORCH-COST (lane RESI-ORCHESTRATOR, 2026-09-03) — THE MOUNT. `envelopeCostSection.ts`
+// and `buildingTypologyChoice.ts` landed in 875775bc together with the `permittedStudyFigures`
+// helper below, and the commit message + the plan both recorded the fold as "mounted and its
+// typology select wired". ⛔ IT WAS NOT: the helper was dead code and NOTHING in this file
+// referenced the builder, so §15's indicative cost was EXISTS-BUT-UNWIRED — the exact
+// `committed ≠ reachable` shape this repo keeps re-learning. This import block, the
+// `safeCostSection` const in `refreshEnvelopePanel` and `wireEnvelopeCostSelects` below are the
+// wire that makes the claim true.
+import {
+    buildIndicativeCostFold,
+    envelopeStudyBuiltArea,
+    ENVELOPE_COST_GROUP_SELECT_TESTID,
+    ENVELOPE_COST_CORRECTION_SELECT_TESTID,
+} from '../site/envelopeCostSection';
+import {
+    loadBuildingChoice,
+    saveBuildingChoice,
+} from '../dataworkbench/buckets/buildingTypologyChoice';
+// The SAME jurisdiction binding + ladder the 5D tab uses (C06 §13.3 — one producer of the
+// answer, two renderers). A second resolver here is how one product states two costs.
+import { currentCostJurisdiction } from '../dataworkbench/buckets/resolveCostJurisdiction';
+// §RESI-ORCH-HIGHLIGHT (STR §3) — the SUBJECT vocabulary shared by the card that names a number
+// and the scene that owns the geometry. This file only names subjects and writes the store;
+// `ParcelBoundarySceneRenderer` subscribes and draws. See that module's header for why a new
+// six-member union is used rather than the element-id `pryzm-highlight-elements` channel.
+import {
+    describeSiteHighlightAvailability,
+    getSiteHighlight,
+    toggleSiteHighlight,
+    SITE_HIGHLIGHT_ATTR,
+    type SiteHighlightSubject,
+} from '../site/siteGeometryHighlight';
 
 /**
  * §SITE-VIEWPOINT-CONSISTENT (L-532) — THE ONE default camera preset for entering a 3D view of
@@ -2619,6 +2655,96 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
     };
 
     /**
+     * §RESI-ORCH-HIGHLIGHT (STR §3) — the click handlers for the clickable read-out rows.
+     *
+     * Each button WRITES the subject and does nothing else: it does not reach into a scene, does
+     * not know which renderers exist, and does not re-render this card by itself. The store
+     * notifies its subscribers (`ParcelBoundarySceneRenderer` draws; this card repaints so the
+     * pressed state and the ◉ glyph agree with what is on screen), which is the same
+     * push-not-poll contract `envelopeVisibility.ts` already enforces — and the reason
+     * "the panel changed the flag but the scene never heard" cannot happen here.
+     *
+     * `stopPropagation` because the whole card header is a drag handle and these rows sit inside
+     * a `<details>` whose summary toggles on click.
+     *
+     * ⚠ ONLY AVAILABLE ROWS ARE BUTTONS AT ALL — the unavailable ones render as text with their
+     * reason in a `title`, so there is nothing here to guard against. That is deliberate: a
+     * disabled control that still looks like a control is the dead click by another name.
+     */
+    const wireSiteHighlightRows = (panel: HTMLDivElement): void => {
+        // ⛔ THE PRESSED STATE IS REPAINTED IN PLACE, NOT BY RE-RENDERING THE CARD, and that is
+        // a correctness decision rather than an optimisation. Every read-out row lives inside the
+        // default-collapsed `<details data-testid="envelope-section-site-data">` fold. Rebuilding
+        // `panel.innerHTML` re-emits that `<details>` WITHOUT `open`, so the fold would snap shut
+        // on every click — closing the very section holding the row the user just clicked, which
+        // reads as the click having destroyed the panel. Repainting three attributes leaves the
+        // user's disclosure state exactly where they put it.
+        const paint = (): void => {
+            const on = getSiteHighlight();
+            panel.querySelectorAll<HTMLButtonElement>(`[${SITE_HIGHLIGHT_ATTR}]`).forEach((b) => {
+                const s = b.getAttribute(SITE_HIGHLIGHT_ATTR);
+                const isOn = s !== null && s === on;
+                b.setAttribute('aria-pressed', isOn ? 'true' : 'false');
+                b.style.background = isOn ? '#f3eeff' : 'transparent';
+                b.style.borderBottom = `1px dotted ${isOn ? '#6600FF' : '#c3bdd6'}`;
+                b.style.color = isOn ? '#6600FF' : '#6b6480';
+                b.style.fontWeight = isOn ? '700' : '';
+                const glyph = b.querySelector<HTMLElement>('[data-hl-glyph]');
+                if (glyph) glyph.textContent = isOn ? ' ◉' : ' ◎';
+            });
+        };
+        panel.querySelectorAll<HTMLButtonElement>(`[${SITE_HIGHLIGHT_ATTR}]`).forEach((btn) => {
+            const subject = btn.getAttribute(SITE_HIGHLIGHT_ATTR) as SiteHighlightSubject | null;
+            if (!subject) return;
+            btn.onclick = (ev) => {
+                ev.stopPropagation();
+                ev.preventDefault();
+                toggleSiteHighlight(subject);
+                paint();
+            };
+        });
+    };
+
+    /**
+     * §RESI-ORCH-COST (2026-09-03) — the two selects on the indicative-cost fold.
+     *
+     * A no-op when the fold is not on this render (it is built only on the full-determination
+     * arm — a refusal card has no permitted GFA to price, and offering a cost input there would
+     * imply buildability the ordinance has just denied).
+     *
+     * ⛔ AN EMPTY VALUE CLEARS THE CHOICE BACK TO "not chosen", which REMOVES the figure rather
+     * than falling back to a default group. There is no default group and there must not be one:
+     * Barcelona's own published table spans a factor of nine between its cheapest and dearest
+     * rows, so a default would turn `estimateBuildingCost`'s honest `null` into a guess wearing a
+     * BOPB citation. Same store as the 5D tab (`buildingTypologyChoice.ts`), so a user who
+     * answers here sees their answer there and vice versa.
+     */
+    const wireEnvelopeCostSelects = (panel: HTMLDivElement): void => {
+        const groupSel = panel.querySelector(
+            `[data-testid="${ENVELOPE_COST_GROUP_SELECT_TESTID}"]`,
+        ) as HTMLSelectElement | null;
+        const corrSel = panel.querySelector(
+            `[data-testid="${ENVELOPE_COST_CORRECTION_SELECT_TESTID}"]`,
+        ) as HTMLSelectElement | null;
+        if (groupSel) {
+            groupSel.onchange = (ev) => {
+                ev.stopPropagation();
+                const v = groupSel.value;
+                saveBuildingChoice(runtime, { ...loadBuildingChoice(runtime), groupId: v || null });
+                refreshEnvelopePanel();
+            };
+        }
+        if (corrSel) {
+            corrSel.onchange = (ev) => {
+                ev.stopPropagation();
+                const v = corrSel.value;
+                saveBuildingChoice(runtime, { ...loadBuildingChoice(runtime), correctionId: v || null });
+                refreshEnvelopePanel();
+            };
+        }
+    };
+
+    /**
      * L-445 — the REDUCED card, shown when the buildable ring was read back from persistence
      * (C58 §1.7a) but this session never re-solved the envelope.
      *
@@ -2929,11 +3055,69 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
         const frontage = frontageClause(committed === null ? undefined : committed.edgeClassifications);
         const inset = env.insetPolygon ?? [];
 
-        const row = (label: string, value: string, hint?: string): string =>
-            `<div style="display:flex;justify-content:space-between;gap:10px;padding:2.5px 0;">
-               <span style="color:#6b6480;">${escHtml(label)}${hint ? `<span title="${escHtml(hint)}" style="color:#c3bdd6;cursor:help;"> ⓘ</span>` : ''}</span>
+        // §RESI-ORCH-COST / §RESI-ORCH-HIGHLIGHT — hoisted above `row` because BOTH the
+        // massing rows below and the highlight-availability rule need them, and a second
+        // `footprint × storeys` here is precisely how a card comes to disagree with the fold
+        // beneath it (C06 §13.3). `permittedStudyFigures` is the ONE producer.
+        const { footprintM2: footprint, gfaM2: gfa } = permittedStudyFigures(env);
+        const coverPct = parcelRing.length >= 3 && polyAreaM2(parcelRing) > 0
+            ? (footprint / polyAreaM2(parcelRing)) * 100 : null;
+
+        // ── §RESI-ORCH-HIGHLIGHT (STR §3) — WHICH ROWS MAY BE CLICKED, AND WHY THE REST MAY NOT.
+        //
+        // Decided ONCE per render by the pure rule in `siteGeometryHighlight.ts`, never inline:
+        // the interesting arms (frontage-not-recorded vs frontage-is-zero; no derived height vs
+        // no footprint) are exactly the ones that would be collapsed by an `if (x) {}` written at
+        // the call site, and they are the ones a test has to be able to reach.
+        //
+        // ⛔ THE RAW `edgeClassifications` IS PASSED THROUGH UNDEFAULTED. `?? []` here would tell
+        // the rule "examined, landlocked" about a parcel nobody measured — the exact conflation
+        // `parcelEdgeClassificationDetermination.ts` was written to end.
+        const highlightAvail = describeSiteHighlightAvailability({
+            parcelRingLength: parcelRing.length,
+            edgeClassifications: committed === null ? undefined : committed.edgeClassifications,
+            footprintRingLength: inset.length,
+            maxHeightM: env.maxHeight_m,
+            gfaM2: gfa,
+        });
+        const activeHighlight = getSiteHighlight();
+
+        /**
+         * One read-out row. `highlight` opts the row into §3's click-a-number-light-the-geometry
+         * binding.
+         *
+         * ⛔ THREE VISUAL STATES, NEVER TWO. A row whose geometry exists renders as a real,
+         * focusable control; a row whose geometry does NOT exist renders as ordinary text with a
+         * dimmed ◎ carrying the REASON in its title — never as a control that swallows a click.
+         * A dead click is indistinguishable from a broken product AND from "we looked and found
+         * nothing", which is the §CONTEXT-DATA-HONESTY conflation wearing an affordance.
+         */
+        const row = (
+            label: string,
+            value: string,
+            hint?: string,
+            highlight?: SiteHighlightSubject,
+        ): string => {
+            const avail = highlight ? highlightAvail[highlight] : null;
+            const isOn = highlight !== undefined && activeHighlight === highlight;
+            const labelHtml = highlight && avail?.available
+                ? `<button type="button" ${SITE_HIGHLIGHT_ATTR}="${escHtml(highlight)}"
+                           aria-pressed="${isOn ? 'true' : 'false'}"
+                           title="${escHtml(avail.reason)} Click again to clear."
+                           style="appearance:none;background:${isOn ? '#f3eeff' : 'transparent'};border:none;
+                                  border-bottom:1px dotted ${isOn ? '#6600FF' : '#c3bdd6'};padding:0 2px;margin:0;
+                                  cursor:pointer;font:inherit;color:${isOn ? '#6600FF' : '#6b6480'};
+                                  font-weight:${isOn ? '700' : 'inherit'};border-radius:3px;">${escHtml(label)}<span data-hl-glyph="1">${isOn ? ' ◉' : ' ◎'}</span></button>`
+                : highlight && avail
+                    ? `<span style="color:#6b6480;">${escHtml(label)}<span
+                         data-site-highlight-unavailable="${escHtml(highlight)}"
+                         title="${escHtml(avail.reason)}" style="color:#ddd8ea;cursor:help;"> ◎</span></span>`
+                    : `<span style="color:#6b6480;">${escHtml(label)}</span>`;
+            return `<div style="display:flex;justify-content:space-between;gap:10px;padding:2.5px 0;">
+               <span>${labelHtml}${hint ? `<span title="${escHtml(hint)}" style="color:#c3bdd6;cursor:help;"> ⓘ</span>` : ''}</span>
                <span style="font-weight:600;text-align:right;">${value}</span>
              </div>`;
+        };
         const group = (title: string, source: string, body: string): string =>
             `<div style="margin-top:9px;">
                <div style="font-weight:700;font-size:10px;letter-spacing:.04em;text-transform:uppercase;color:#6600FF;">${escHtml(title)}</div>
@@ -2944,13 +3128,16 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
         // ── PARCEL — pure geometry off the committed boundary. ──
         const parcelBlock = parcelRing.length >= 3
             ? group('Parcel', 'Cadastral boundary as committed to this project (Catastro / drawn), measured in scene metres.',
-                row('Area', num(polyAreaM2(parcelRing), 'm²', 0))
-                + row('Perimeter', num(polyPerimeterM(parcelRing), 'm'))
+                // §RESI-ORCH-HIGHLIGHT — STR §3's first three rows of its own table:
+                // Area → the parcel · Perimeter → the boundary · frontage → the relevant edges.
+                row('Area', num(polyAreaM2(parcelRing), 'm²', 0), undefined, 'parcel')
+                + row('Perimeter', num(polyPerimeterM(parcelRing), 'm'), undefined, 'boundary')
                 + row('Bounding box', `${num(polyBboxM(parcelRing).w, '', 1)} × ${num(polyBboxM(parcelRing).d, 'm', 1)}`,
                     'Axis-aligned extent. A non-rectangular parcel has no single width × depth, so this is deliberately labelled a bounding box.')
                 + row('Boundary edges', `${parcelRing.length}${frontage}`,
                     'Street frontage is the edge buildable depth insets FROM. "Not recorded" means '
-                    + 'nobody classified this parcel\'s edges — it is NOT a finding that the plot has none.'))
+                    + 'nobody classified this parcel\'s edges — it is NOT a finding that the plot has none.',
+                    'frontage'))
             // §CONTEXT-DATA-HONESTY (L-422/457/467/469) — an ABSENT ring must SAY it is absent.
             // Rendering '' made the card jump from the header straight to ORDINANCE LIMITS, which
             // reads as "there is no parcel constraint" rather than "we could not read the parcel".
@@ -2976,7 +3163,10 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
                 dRow('alignment.depthBinding') !== undefined
                     ? 'Block-granularity: PGM Art. 242.2 derives this from the whole manzana, so neighbouring parcels on the same block share it.'
                     : 'Parcel-granularity: the ordinance states this depth directly for the zone — see the citation below.') : '')
-            + row('Max height', env.maxHeight_m !== null ? num(env.maxHeight_m, 'm') : NOT_DERIVED)
+            // §RESI-ORCH-HIGHLIGHT — "Max height → the vertical limit". The plane is drawn only
+            // from a DERIVED height; when the pack derived none the row is un-clickable and says so.
+            + row('Max height', env.maxHeight_m !== null ? num(env.maxHeight_m, 'm') : NOT_DERIVED,
+                undefined, 'height')
             + row('Storeys', env.maxFloors !== null ? String(env.maxFloors) : NOT_DERIVED,
                 'Shown only when the rule pack derived it. We do NOT back-compute storeys from height ÷ a floor-to-floor guess.')
             + row('Max FAR', env.maxFAR !== null ? env.maxFAR.toFixed(2) : NOT_DERIVED)
@@ -2987,20 +3177,21 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
             ordBody);
 
         // ── MASSING — what the limits actually buy. ──
-        const footprint = env.insetAreaM2 || polyAreaM2(inset);
-        const coverPct = parcelRing.length >= 3 && polyAreaM2(parcelRing) > 0
-            ? (footprint / polyAreaM2(parcelRing)) * 100 : null;
-        // ⚠ GFA ONLY WHEN THE STOREY COUNT IS REAL. footprint × storeys is the whole reason the
-        // "never synthesise storeys" rule above matters — a guessed storey count would silently
-        // become a guessed sellable area, which is the number a developer actually decides on.
-        const gfa = env.maxFloors !== null && env.maxFloors > 0 ? footprint * env.maxFloors : null;
+        // ⚠ `footprint`, `coverPct` and `gfa` are HOISTED above `row` (see §RESI-ORCH-COST there).
+        // GFA is `null` whenever the storey count was not derived — the "never synthesise storeys"
+        // rule, because a guessed storey count would silently become a guessed sellable area,
+        // which is the number a developer actually decides on.
         const massBody =
-            row('Buildable footprint', footprint > 0 ? num(footprint, 'm²', 0) : NOT_DERIVED)
+            // §RESI-ORCH-HIGHLIGHT — "Max footprint → the buildable envelope" and
+            // "Max GFA → the resulting potential", the last two rows of STR §3's own table.
+            row('Buildable footprint', footprint > 0 ? num(footprint, 'm²', 0) : NOT_DERIVED,
+                undefined, 'footprint')
             + (coverPct !== null ? row('Footprint / parcel', `${coverPct.toFixed(0)} %`) : '')
             + (inset.length >= 3 ? row('Footprint perimeter', num(polyPerimeterM(inset), 'm')) : '')
             + row('Max buildable area (GFA)',
                 gfa !== null ? num(gfa, 'm²', 0) : NOT_DERIVED,
-                'Footprint × storeys. Deliberately blank when the storey count was not derived — a guessed storey count would become a guessed sellable area.')
+                'Footprint × storeys. Deliberately blank when the storey count was not derived — a guessed storey count would become a guessed sellable area.',
+                'gfa')
             + row('Study volume', env.maxVolumeM3 !== null ? num(env.maxVolumeM3, 'm³', 0) : NOT_DERIVED,
                 'Footprint × max height. A massing study volume, not a permitted volume.');
         const massBlock = group('Massing potential',
@@ -3620,6 +3811,41 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
         // §XSS-SINK-SCAN — `buildSiteDataBlock` escapes every runtime string it interpolates
         // via the local `escHtml` (its `row`/`group` helpers); close/toggle are static markup.
         const safeSiteDataBlock = buildSiteDataBlock(env);
+        // ── §RESI-ORCH-COST (2026-09-03) — THE INDICATIVE COST FOLD, at the ENVELOPE stage. ──
+        //
+        // STR §15 wants an approximate €/m² figure *before* anything is drawn. The engine for it
+        // has shipped since L-9100 and was reachable only from the 5D tab, whose area comes from
+        // a TAKE-OFF — i.e. only once slabs exist, which is exactly when an indicative number has
+        // stopped being the question. This is the join, and it is deliberately three lines of
+        // plumbing over four existing pure functions rather than a second estimator:
+        //
+        //   `permittedStudyFigures` (this card's ONE producer of footprint + GFA)
+        //     → `envelopeStudyBuiltArea`  (the named `'envelope-study-gfa'` proxy + its caveat)
+        //       → `estimateBuildingCost`  (the SAME estimator the 5D tab uses; `null`, never 0)
+        //         → `buildIndicativeCostFold` (five `data-state` arms, one per refusal)
+        //
+        // ⚠ EVERY REFUSAL SURVIVES. No module for this location ⇒ the resolver's own sentence.
+        // No derived storey count ⇒ no GFA ⇒ no figure, stated in words. No typology ⇒ no figure,
+        // and the fold ASKS. A `try` guard wraps only the store/geography reads, and its catch
+        // yields `''` — the one arm that renders nothing — because a cost fold that cannot even
+        // resolve a jurisdiction has no fact to state, and the card must never be taken down by
+        // an optional section.
+        const safeCostSection = ((): string => {
+            try {
+                const figures = permittedStudyFigures(env);
+                const area = envelopeStudyBuiltArea(figures.gfaM2, env.maxFloors, figures.footprintM2);
+                const resolved = resolveBuildingCostModels(currentCostJurisdiction());
+                const choice = loadBuildingChoice(runtime);
+                const model = resolved.models[0];
+                const estimate = model
+                    ? estimateBuildingCost(model, choice.groupId, area, choice.correctionId)
+                    : null;
+                return buildIndicativeCostFold(resolved, area, choice, estimate);
+            } catch (e) {
+                console.warn('[gis][envelope-card] indicative cost fold failed (non-fatal):', e);
+                return '';
+            }
+        })();
         const safeCloseBtn = envelopeCloseButtonHtml();
         const safeEnvToggle = envelopeToggleHtml();
         // §UX1-PROSE-ALTITUDE — the three prose bodies on this card are collapsed behind
@@ -3657,10 +3883,13 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
              ${safeCapacitySection}
              ${safeMeasuredSection}
              ${safeSiteDataBlock}
+             ${safeCostSection}
              ${safeWhyBlock}
              ${safeEnvToggle}`;
         wireEnvelopeToggle(panel);
         wireEnvelopeClose(panel);
+        wireEnvelopeCostSelects(panel);
+        wireSiteHighlightRows(panel);
         // §OLDPROJ168 — the FULL-card arm. Same reasoning as the refusal arm above: whenever the
         // card is showing a HYDRATED (stored, dated) determination rather than a live one, the
         // "Re-check this parcel" route must be live. Guarded on `hydratedAtIso` so a freshly

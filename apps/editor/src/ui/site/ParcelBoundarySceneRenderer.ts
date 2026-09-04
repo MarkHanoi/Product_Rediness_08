@@ -105,12 +105,45 @@ import {
     STUDY_MASSING_FILL_ALPHA,
     STUDY_GROUND_SHADE_FILL_ALPHA,
 } from './contextStudyMassingStyle';
+// ⭐ §RESI-ORCH-HIGHLIGHT (STR-RESIDENTIAL-DESIGN-ORCHESTRATOR §3, lane RESI-ORCH 2026-09-04) —
+// THE SUBSCRIBER. The envelope card names a NUMBER; this renderer owns the GEOMETRY that number
+// describes; `siteGeometryHighlight` is the vocabulary between them. Until this commit that module
+// had ZERO subscribers repo-wide, so every clickable row on the card toggled a store and changed
+// NOTHING on screen — a binding that exists is not an interaction that works
+// (§COMMITTED-IS-NOT-REACHABLE). Same PUSH-not-poll contract as the two subscriptions above.
+//
+// ⛔ THE EMPHASIS RULE LIVES IN THAT MODULE, NOT HERE, and it is one-directional: everything that
+// is NOT the subject RECEDES; the subject is never brightened and its hue never changes. Boosting
+// a provisional solid to "highlight" it would make an estimate read as a determination — §L-616
+// re-introduced by a UI affordance. See `SITE_HIGHLIGHT_RECEDE_FACTOR` for why it is a MULTIPLIER
+// on the authored alpha rather than a target value.
+import {
+    getSiteHighlight,
+    subscribeSiteHighlight,
+    siteHighlightCue,
+    siteHighlightEmphasis,
+    SITE_HIGHLIGHT_RECEDE_FACTOR,
+    type SiteHighlightSubject,
+    type SiteHighlightRole,
+} from './siteGeometryHighlight';
+// §RESI-ORCH-HIGHLIGHT — the frontage cue reads the SAME determination the card's frontage clause
+// and the highlight-availability rule read (three arms: unrecorded / landlocked / n > 0).
+// Re-deriving "which edges are front" here would be a second answer to a question that already has
+// an owner, and the copy that DRAWS would win silently.
+import {
+    determineParcelEdgeClassifications,
+    FRONT_EDGE,
+} from './parcelEdgeClassificationDetermination';
 
 /** The unified PRYZM preview / site-context violet. */
 const PRYZM_VIOLET = 0x6600ff;
 
 /** Slight +y lift (metres) so the outline never z-fights the ground grid. */
 const GROUND_Y_OFFSET = 0.02;
+
+/** §RESI-ORCH-HIGHLIGHT — ground-level cues sit just ABOVE the parcel ring and fill so a
+ *  highlighted subset of the boundary is not z-fought by the boundary it is a subset of. */
+const HIGHLIGHT_CUE_Y = GROUND_Y_OFFSET * 3;
 
 // ════════════════════════════════════════════════════════════════════════════════════════════
 // §ENV3D164 (L-12700) — STUDY MASSING render treatment. ⛔ NON-NEGOTIABLE: this must NEVER read
@@ -190,6 +223,13 @@ export class ParcelBoundarySceneRenderer {
         // discipline as the subscription above — this renderer never polls, so a study saved
         // while the scene is idle still reaches the ground the moment it is saved.
         this.disposers.push(subscribeContextDerivedStudyEnvelope(() => this.refresh()));
+
+        // ⭐ §RESI-ORCH-HIGHLIGHT (STR §3) — repaint when the user clicks a NUMBER on the envelope
+        // card. A full `refresh()` rather than an in-place material poke, deliberately: the cue
+        // geometry (front edges / inset ring / limit plane) EXISTS ONLY while its subject is
+        // active, so a rebuild is what makes "clear the highlight" leave no residue. Rebuilds are
+        // already the norm here — every boundary commit and every visibility flip does one.
+        this.disposers.push(subscribeSiteHighlight(() => this.refresh()));
 
         // Project-switch reset — clear the outline alongside the stores so a
         // Project A parcel never renders against Project B (C19 §1.13).
@@ -287,6 +327,9 @@ export class ParcelBoundarySceneRenderer {
         // `isParcelBoundaryFill` flag (buildFill) and stays hidden in pure-3D (it read as
         // a "grey shade beside the house", A.21.D44) — only the crisp outline shows in 3D.
         loop.userData.isParcelBoundaryLine = true;
+        // §RESI-ORCH-HIGHLIGHT — WHAT THIS IS, not what it means. The renderer tags the geometry
+        // it drew; `siteHighlightEmphasis` decides which tag is the subject of which number.
+        loop.userData.siteHighlightRole = 'parcel-line' satisfies SiteHighlightRole;
         group.add(loop);
 
         // ── Faint translucent fill ───────────────────────────────────────────
@@ -332,7 +375,269 @@ export class ParcelBoundarySceneRenderer {
             obj.renderOrder = 0;
         });
 
+        // ⭐ §RESI-ORCH-HIGHLIGHT (STR §3) — LAST, and deliberately AFTER the layer/pick traverse
+        // above so any cue it adds inherits EDITOR_LAYER + non-pickability from the same single
+        // place every other overlay in this group gets them, rather than from a second copy of
+        // that rule which could drift.
+        this.applyHighlightEmphasis(group, polygon);
+
         return group;
+    }
+
+    /**
+     * §RESI-ORCH-HIGHLIGHT (STR §3) — "the user must ALWAYS understand: what does this number
+     * mean PHYSICALLY?". A row on the envelope card was clicked; this makes the geometry it names
+     * legible, and everything else recede.
+     *
+     * ⛔ ONE DIRECTION ONLY. Non-subjects have their AUTHORED opacity multiplied DOWN; the subject
+     * is never brightened and its hue is never changed. The envelope's hue and fill alpha ARE its
+     * honesty signal (`envelopeRenderStyle.ts`: confident violet · provisional grey · suggested
+     * amber · study teal; near-wireframe for an upper bound). Boosting a provisional solid to
+     * "highlight" it would make an estimate read as a determination — the §L-616 overstatement,
+     * re-introduced by an affordance. Contrast carries the emphasis instead, so no solid ever
+     * renders stronger than it has earned.
+     *
+     * ⚠ SAFE TO MUTATE MATERIALS IN PLACE: every material under this group is constructed fresh by
+     * this same `buildOutline` pass (nothing here is a shared or cached material), and a highlight
+     * change re-drives `refresh()`, which disposes and rebuilds the group. A receded alpha can
+     * therefore never accumulate across clicks.
+     *
+     * Never throws — a highlight is a reading aid, and the outline must survive its failure.
+     */
+    private applyHighlightEmphasis(group: THREE.Group, polygon: XZPoint[]): void {
+        const subject = getSiteHighlight();
+        // The resting state. Every surface renders exactly as authored — this method is a no-op,
+        // which is what makes "clear the highlight" fully reversible.
+        if (subject === null) return;
+        try {
+            const cue = this.buildHighlightCue(subject, polygon);
+            if (cue) {
+                cue.traverse((obj) => {
+                    obj.layers.set(EDITOR_LAYER);
+                    (obj as unknown as { raycast: () => void }).raycast = () => {};
+                });
+                group.add(cue);
+            }
+            group.traverse((obj) => {
+                const role = obj.userData?.siteHighlightRole as SiteHighlightRole | undefined;
+                if (!role) return;
+                if (siteHighlightEmphasis(subject, role) === 'subject') {
+                    // Draw the subject after the receded surfaces so a translucent volume cannot
+                    // wash it out. NOT a strengthening of the claim: render order changes nothing
+                    // about hue or alpha.
+                    obj.renderOrder = 1;
+                    return;
+                }
+                const mat = (obj as THREE.Mesh).material as
+                    | THREE.Material
+                    | THREE.Material[]
+                    | undefined;
+                if (!mat) return;
+                for (const m of Array.isArray(mat) ? mat : [mat]) {
+                    const tm = m as THREE.Material & { opacity?: number };
+                    if (typeof tm.opacity !== 'number') continue;
+                    tm.transparent = true;
+                    tm.opacity = tm.opacity * SITE_HIGHLIGHT_RECEDE_FACTOR;
+                    tm.needsUpdate = true;
+                }
+            });
+        } catch (err) {
+            console.warn('[ParcelBoundarySceneRenderer] §RESI-ORCH-HIGHLIGHT emphasis failed (non-fatal):', err);
+        }
+    }
+
+    /**
+     * §RESI-ORCH-HIGHLIGHT — build the geometry a subject needs before it can be pointed at, or
+     * null when the subject is already on screen (Area / Perimeter / GFA) and emphasis alone
+     * answers it. WHICH cue a subject needs is decided by `siteHighlightCue`, never here.
+     *
+     * ⛔ RETURNING null IS AN HONEST ANSWER AND MUST STAY ONE. A cue builder that cannot find its
+     * geometry draws NOTHING — it never falls back to lighting the parcel instead. Pointing at the
+     * wrong geometry is worse than pointing at none, because the reader cannot tell the difference.
+     * (The card has already refused to make such a row clickable —
+     * `describeSiteHighlightAvailability` — so reaching a null here means the store moved between
+     * render and draw, not that a user clicked something dead.)
+     */
+    private buildHighlightCue(
+        subject: SiteHighlightSubject,
+        polygon: XZPoint[],
+    ): THREE.Object3D | null {
+        switch (siteHighlightCue(subject)) {
+            case 'front-edges': return this.buildFrontEdgesCue(polygon);
+            case 'inset-ring': return this.buildInsetRingCue();
+            case 'limit-plane': return this.buildLimitPlaneCue();
+            case null: return null;
+        }
+    }
+
+    /**
+     * "Street frontage → the relevant edges." The classified front edges of the committed ring,
+     * drawn as a heavier violet overlay on top of the (now receded) boundary, so they read as a
+     * SUBSET of the ring rather than as a second, unrelated outline.
+     *
+     * ⛔ THE THREE-ARM DETERMINATION IS NOT RE-DERIVED HERE. `determineParcelEdgeClassifications`
+     * is asked, with the polygon length, so "nobody classified these edges" (undetermined) and
+     * "classified, none faces a street" (determined, zero front labels) both yield null — and they
+     * yield it for DIFFERENT reasons the card has already printed in words. A `?? []` here would
+     * silently assert the landlocked finding about an unmeasured plot.
+     */
+    private buildFrontEdgesCue(polygon: XZPoint[]): THREE.Object3D | null {
+        const boundary = this.runtime.siteModelStore?.getParcelBoundary?.() ?? null;
+        const determination = determineParcelEdgeClassifications(
+            boundary?.edgeClassifications,
+            'parcel edge classifications',
+            polygon.length,
+        );
+        if (determination.kind !== 'determined') return null;
+        const labels = determination.elements;
+        const coords: number[] = [];
+        for (let i = 0; i < polygon.length; i++) {
+            if (labels[i] !== FRONT_EDGE) continue;
+            const a = polygon[i]!;
+            const b = polygon[(i + 1) % polygon.length]!;
+            coords.push(a.x, HIGHLIGHT_CUE_Y, a.z, b.x, HIGHLIGHT_CUE_Y, b.z);
+        }
+        // Determined AND zero front edges — a real finding about a landlocked plot, already stated
+        // on the card. Nothing to draw, and nothing invented.
+        if (coords.length === 0) return null;
+        const geo = new THREE.BufferGeometry();
+        geo.setAttribute('position', new THREE.BufferAttribute(new Float32Array(coords), 3));
+        // §LINELOOP-WEBGPU-FIX applies to LineLOOP only; LineSegments is a plain line-list and is
+        // supported by both backends. Each front edge is its own vertex pair, so a ring with two
+        // non-adjacent frontages draws two separate segments, never a false connecting edge.
+        const line = new THREE.LineSegments(
+            geo,
+            new THREE.LineBasicMaterial({
+                color: PRYZM_VIOLET,
+                transparent: true,
+                opacity: 0.95,
+                depthWrite: false,
+            }),
+        );
+        line.name = 'pryzm-site-highlight-front-edges';
+        line.userData.siteHighlightRole = 'cue' satisfies SiteHighlightRole;
+        line.userData.siteHighlightSubject = 'frontage';
+        line.userData.siteHighlightFrontEdgeCount = coords.length / 6;
+        return line;
+    }
+
+    /**
+     * "Max footprint → the buildable envelope." The inset ring at ground — the polygon the card's
+     * footprint area is literally measured inside, which is otherwise only ever seen as the hidden
+     * BASE of a solid.
+     *
+     * ⚠ ONE RING, THE PRINCIPAL TIER'S. `insetPolygon` is exactly what `permittedStudyFigures`
+     * (the card's single producer of the footprint number) measures, so the outline and the number
+     * cannot disagree. A tiered envelope's upper tiers are NOT drawn here: they are not what that
+     * number describes, and adding them would make the footprint row point at more than it claims.
+     */
+    private buildInsetRingCue(): THREE.Object3D | null {
+        const env = getLastBuildableEnvelope();
+        const ring = (env?.insetPolygon ?? []) as XZPoint[];
+        // Empty whenever the envelope is not `ok` (see BuildableEnvelopeSchema) — a refusal has no
+        // buildable ring, and this is where that stays true in geometry.
+        if (ring.length < 3) return null;
+        return this.buildClosedCueLine(ring, HIGHLIGHT_CUE_Y, 'pryzm-site-highlight-inset-ring');
+    }
+
+    /**
+     * "Max height → the vertical limit." A translucent plane at the derived maximum height over
+     * the buildable footprint, with its own rim — the construction that turns a NUMBER into
+     * something physical, which is the whole of STR §3's ask for this row.
+     *
+     * ⛔ DRAWN ONLY FROM A DERIVED HEIGHT. There is no `storeys × 3 m` fallback and there must not
+     * be one: a plane at an invented height is visually identical to one at a published limit, and
+     * a reader can at least see that a NUMBER is a number — they cannot see that a SOLID is a guess.
+     */
+    private buildLimitPlaneCue(): THREE.Object3D | null {
+        const env = getLastBuildableEnvelope();
+        if (!env) return null;
+        const ring = (env.insetPolygon ?? []) as XZPoint[];
+        const height = env.maxHeight_m;
+        if (ring.length < 3 || height === null || !(height > 0)) return null;
+        const y = height + GROUND_Y_OFFSET;
+        const group = new THREE.Group();
+        group.name = 'pryzm-site-highlight-limit-plane';
+        try {
+            const shape = new THREE.Shape();
+            // The ONE (x, −z) → XZ convention used by `buildFill` / `buildEnvelopeVolume` /
+            // `buildContextStudyVolume` in this file. Keep them identical — the sign disagreement
+            // between two such builders WAS the §PARCEL-SHADE-NOT-MIRRORED defect (L-10740).
+            shape.moveTo(ring[0]!.x, -ring[0]!.z);
+            for (let i = 1; i < ring.length; i++) shape.lineTo(ring[i]!.x, -ring[i]!.z);
+            shape.closePath();
+            const geo = new THREE.ShapeGeometry(shape);
+            geo.rotateX(-Math.PI / 2);
+            geo.translate(0, y, 0);
+            const mesh = new THREE.Mesh(
+                geo,
+                new THREE.MeshBasicMaterial({
+                    color: PRYZM_VIOLET,
+                    transparent: true,
+                    // Faint on purpose: this is a LIMIT — a ceiling nothing may pass through — not
+                    // a buildable volume. A dense plate would read as a roof slab.
+                    opacity: 0.14,
+                    depthWrite: false,
+                    side: THREE.DoubleSide,
+                }),
+            );
+            mesh.name = 'pryzm-site-highlight-limit-plane-fill';
+            mesh.userData.siteHighlightRole = 'cue' satisfies SiteHighlightRole;
+            mesh.userData.siteHighlightLimitHeightM = height;
+            group.add(mesh);
+        } catch (err) {
+            console.warn('[ParcelBoundarySceneRenderer] limit-plane triangulation failed:', err);
+        }
+        // The rim goes on even when the fill failed to triangulate: a ring at the limit height is
+        // still a truthful, legible answer to "how high is that?".
+        const rim = this.buildClosedCueLine(ring, y, 'pryzm-site-highlight-limit-plane-rim');
+        if (rim) group.add(rim);
+        if (group.children.length === 0) return null;
+        group.userData.siteHighlightRole = 'cue' satisfies SiteHighlightRole;
+        return group;
+    }
+
+    /**
+     * A closed violet cue line along `ring` at height `y`. §LINELOOP-WEBGPU-FIX — a `THREE.Line`
+     * with the first vertex repeated, never a `LineLoop` (unsupported by the WebGPU backend; it
+     * spammed a per-frame error the last time this file used one).
+     */
+    private buildClosedCueLine(
+        ring: ReadonlyArray<XZPoint>,
+        y: number,
+        name: string,
+    ): THREE.Line | null {
+        try {
+            if (ring.length < 3) return null;
+            const positions = new Float32Array((ring.length + 1) * 3);
+            for (let i = 0; i < ring.length; i++) {
+                const p = ring[i]!;
+                positions[i * 3 + 0] = p.x;
+                positions[i * 3 + 1] = y;
+                positions[i * 3 + 2] = p.z;
+            }
+            const first = ring[0]!;
+            positions[ring.length * 3 + 0] = first.x;
+            positions[ring.length * 3 + 1] = y;
+            positions[ring.length * 3 + 2] = first.z;
+            const geo = new THREE.BufferGeometry();
+            geo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+            const line = new THREE.Line(
+                geo,
+                new THREE.LineBasicMaterial({
+                    color: PRYZM_VIOLET,
+                    transparent: true,
+                    opacity: 0.95,
+                    depthWrite: false,
+                }),
+            );
+            line.name = name;
+            line.userData.siteHighlightRole = 'cue' satisfies SiteHighlightRole;
+            return line;
+        } catch (err) {
+            console.warn('[ParcelBoundarySceneRenderer] cue line build failed:', err);
+            return null;
+        }
     }
 
     /**
@@ -397,6 +702,7 @@ export class ParcelBoundarySceneRenderer {
             // the site / plan views (founder: the ring floated under the tower as a
             // confusing stray circle).
             mesh.userData.isParcelBoundaryFill = true;
+            mesh.userData.siteHighlightRole = 'parcel-fill' satisfies SiteHighlightRole;
             return mesh;
         } catch (e) {
             console.warn('[ParcelBoundarySceneRenderer] fill triangulation failed:', e);
@@ -566,6 +872,7 @@ export class ParcelBoundarySceneRenderer {
             // its entities, so a name-based consumer reads ONE vocabulary across both surfaces.
             mesh.name = solid.id;
             mesh.userData.isBuildableEnvelopeVolume = true;
+            mesh.userData.siteHighlightRole = 'envelope-volume' satisfies SiteHighlightRole;
             mesh.userData.massingSolidRole = solid.role;
             mesh.userData.envelopeGroundShade = solid.id === 'pryzm-forma-envelope-ground-shade';
             mesh.userData.envelopeConfidenceComplete = solid.style.complete;
@@ -657,6 +964,7 @@ export class ParcelBoundarySceneRenderer {
                 ? 'pryzm-context-study-massing-ground-shade'
                 : 'pryzm-context-study-massing-volume';
             mesh.userData.isContextStudyMassingVolume = true;
+            mesh.userData.siteHighlightRole = 'study-volume' satisfies SiteHighlightRole;
             mesh.userData.contextStudyHeightBasisMethod = study.heightBasis.method;
             mesh.userData.contextStudyGroundShade = groundShade;
             mesh.userData.contextStudyOpenTopExpressed = useOpenTop;
@@ -712,6 +1020,7 @@ export class ParcelBoundarySceneRenderer {
             const line = new THREE.Line(geo, mat);
             line.computeLineDistances();
             line.name = 'pryzm-context-study-massing-rim';
+            line.userData.siteHighlightRole = 'study-volume' satisfies SiteHighlightRole;
             return line;
         } catch (e) {
             console.warn('[ParcelBoundarySceneRenderer] context-study dashed rim build failed:', e);
