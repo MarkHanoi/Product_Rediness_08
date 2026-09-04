@@ -41,6 +41,18 @@ export {
 // same-look elements into one draw call. Pure THREE-reading helper; no allocation.
 export { materialInstanceSignature } from './materialSignature.js';
 
+// §PERF-DRAWCALLS-ARE-CUMULATIVE (L-2502) — the ONE owner of "draw calls last
+// frame". `three` ships two Info classes and `render.calls` means per-frame on one
+// and since-boot on the other; this resolves it structurally. Pure, no THREE.
+export {
+  readFrameDrawCalls,
+  isCumulativeCallsField,
+  type FrameDrawCallReading,
+  type DrawCallProvenance,
+  type RendererInfoLike,
+  type RendererRenderInfoLike,
+} from './rendererFrameStats.js';
+
 // ── three/examples/jsm addon re-exports ────────────────────────────────────
 // Contract C04 §1.1 (P2): only packages/renderer-three/ may touch three sub-paths.
 

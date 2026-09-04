@@ -66,6 +66,12 @@ import { isElementInstancingEnabled } from '@pryzm/core-app-model/rendering';
 // §SURFACE-WITH-NO-AREA-REFUSES-THE-PASS. A named function import, not `* as THREE`
 // (P2 holds); `surfaceArea.ts` is structurally typed and pulls no renderer with it.
 import { getZeroAreaSurfaceReport } from '@pryzm/renderer-three';
+// §PERF-DRAWCALLS-ARE-CUMULATIVE (L-2502) — `info.render.calls` is a per-frame
+// count on a classic WebGLRenderer and a SINCE-BOOT odometer on a WebGPURenderer
+// (both its backends, so `webgl-fallback` too). This file printed it as
+// "LAST RENDERED FRAME" on every backend. The discriminator lives in
+// renderer-three so this reader and the initScene one cannot drift apart.
+import { readFrameDrawCalls, type DrawCallProvenance } from '@pryzm/renderer-three';
 // ⭐ §MESH110 (L-11564, CLOSED) — the heavy-scene swap thresholds were hand-COPIED
 // here (importing `autoWebGLHeavyScene` would pull the renderer-creation graph into
 // a diagnostic). They now have ONE owner: the zero-import leaf module
@@ -113,7 +119,24 @@ interface SceneNodeLike {
 
 /** `renderer.info`-shaped stats, as returned by RenderPerformanceService.getStats(). */
 interface RenderStatsLike {
-    drawCalls: number;
+    /**
+     * Draw calls in the LAST RENDERED FRAME — or `null` when this source cannot
+     * supply that meaning. §PERF-DRAWCALLS-ARE-CUMULATIVE (L-2502): it is `null`,
+     * never 0, because a 0 that means "unavailable" is the false exoneration
+     * rule 3 of this file's header forbids.
+     */
+    drawCalls: number | null;
+    /**
+     * Which field `drawCalls` came from. `null` when the source is the injected
+     * `RenderPerformanceService.getStats()`, which does its own (unfixed) read —
+     * see the warning printed beside the row.
+     */
+    drawCallProvenance: DrawCallProvenance | null;
+    /**
+     * Render calls SINCE THE APP STARTED (WebGPU-family renderers only; `null`
+     * elsewhere). An odometer. ⛔ Never subtract a per-frame quantity from it.
+     */
+    cumulativeCalls: number | null;
     triangles: number;
     geometries: number;
     textures: number;
@@ -158,8 +181,16 @@ function readRendererInfoDirect(): RenderStatsLike | null {
     const info = r?.info;
     if (!info) return null;
     const px = safe(() => r?.getPixelRatio?.() ?? null);
+    // §PERF-DRAWCALLS-ARE-CUMULATIVE (L-2502). Was `info.render?.calls ?? 0`,
+    // printed two rows below as "← LAST RENDERED FRAME". That is true only on a
+    // classic THREE.WebGLRenderer; on either WebGPURenderer backend `calls` is a
+    // since-boot odometer that `Info.reset()` deliberately does not zero, so the
+    // row grew without bound and looked like a collapsing scene.
+    const dc = readFrameDrawCalls(info);
     return {
-        drawCalls: info.render?.calls ?? 0,
+        drawCalls: dc.perFrame,
+        drawCallProvenance: dc.provenance,
+        cumulativeCalls: dc.cumulativeCalls,
         triangles: info.render?.triangles ?? 0,
         geometries: info.memory?.geometries ?? 0,
         textures: info.memory?.textures ?? 0,
@@ -946,7 +977,20 @@ function printReport(r: PryzmPerfReport): void {
         r.socketStatus === 'disconnected' ? '🔴 socket is DOWN right now' : ''));
     p(row('registered BIM elements', num(r.registeredElements)));
     if (r.render) {
-        p(row('draw calls', num(r.render.drawCalls), '← LAST RENDERED FRAME'));
+        // §PERF-DRAWCALLS-ARE-CUMULATIVE (L-2502). The note used to read a flat
+        // '← LAST RENDERED FRAME'. It was FALSE on both WebGPURenderer backends,
+        // which is three of the four backends `RendererHandleFactory` can build —
+        // including `webgl-fallback`, the one `autoWebGLHeavyScene` forces a heavy
+        // scene onto. The row now names the field it read, so the reading can
+        // never again be inherited without its meaning.
+        p(row('draw calls / frame', num(r.render.drawCalls),
+            r.render.drawCallProvenance === null
+                ? '⚠ source did not declare its field — see L-2502'
+                : `← ${r.render.drawCallProvenance}`));
+        if (r.render.cumulativeCalls !== null) {
+            p(row('  render calls since boot', num(r.render.cumulativeCalls),
+                '← odometer, NOT a frame cost. Never subtract from this.'));
+        }
         p(row('triangles', num(r.render.triangles)));
         p(row('shader programs', num(r.render.programs)));
         p(row('geometries (GPU)', num(r.render.geometries)));
@@ -1016,11 +1060,27 @@ function printReport(r: PryzmPerfReport): void {
             // casters, or of a second render pass — NOT of extra geometry. Those
             // are different fixes, so the report must not collapse them into one
             // number and leave the reader guessing which they are looking at.
-            const gap = r.render.drawCalls - r.scene.estimatedForwardDrawCalls;
-            p(row('  renderer says', num(r.render.drawCalls),
-                gap > 0
-                    ? `← ${num(gap)} MORE than one forward pass = shadow/post/multi-pass`
-                    : '← at or below the forward estimate (culling is removing work)'));
+            //
+            // ⛔ CORRECTED — §PERF-DRAWCALLS-ARE-CUMULATIVE (L-2502). This
+            // subtraction was `r.render.drawCalls - estimate` where `drawCalls`
+            // was `info.render.calls`. On either WebGPURenderer backend that is an
+            // ODOMETER, so the "gap" was (every frame since page load) minus (one
+            // frame's meshes) — a number that grows forever and reads as a
+            // catastrophic multi-pass overdraw at minute 5 that was fine at
+            // minute 1. It is the same shape as the '76.7 s hub boot' that turned
+            // out to be editing dwell: a mislabelled instrument inventing a defect.
+            // The subtraction is now performed ONLY against a genuine per-frame
+            // reading, and refuses out loud otherwise.
+            if (r.render.drawCalls === null) {
+                p(row('  renderer says', null,
+                    '← no per-frame draw-call field on this renderer; gap NOT computed'));
+            } else {
+                const gap = r.render.drawCalls - r.scene.estimatedForwardDrawCalls;
+                p(row('  renderer says', num(r.render.drawCalls),
+                    gap > 0
+                        ? `← ${num(gap)} MORE than one forward pass = shadow/post/multi-pass`
+                        : '← at or below the forward estimate (culling is removing work)'));
+            }
         }
         p(row('shadow casters', num(r.scene.shadowCasters),
             '← a shadow map pass RE-SUBMITS each one'));
