@@ -318,7 +318,37 @@ import {
     TARGET_AREA_INPUT_TESTID,
     TARGET_AREA_SOLVE_BTN_TESTID,
     TARGET_AREA_CLEAR_BTN_TESTID,
+    // §RESI-ORCH-ADOPT (STR §5/§20) — the CONFIRM step: the session study becomes a real,
+    // undoable level envelope. A separate gesture on purpose; see the builder's own comment.
+    TARGET_AREA_ADOPT_BTN_TESTID,
+    // §RESI-ORCH-STAGE-WIRE (STR §21) — the card's sections ORDERED and GATED by the stage, and
+    // the third area channel (INTENDED) beside BUILT.
+    buildStagedSectionsHtml,
+    buildIntendedAreaFold,
 } from '../site/envelopeCardSections';
+// §RESI-ORCH-STAGE-WIRE (STR §21) — *"the right panel exposes the controls relevant to the current
+// stage."* The DECISION (which section leads, which is gated, and why) is pure and lives next
+// door; this file renders it and wires the jump. ⛔ Nothing is HIDDEN by the stage — see
+// `designStagePanel.ts`'s header for why a vanishing section is the wrong fix.
+import {
+    describeEnvelopeCardSections,
+    type EnvelopeCardSection,
+} from '../site/designStagePanel';
+import { wireDesignStageStrip } from '../site/designStageStripControl';
+import type { DesignStageStatus } from '../site/designStageModel';
+// §RESI-ORCH-INTENDED (C114 §3a) — *"three questions, three authorities, never summed into one
+// number."* BUILT is `measureAuthoredDesign`; PERMITTED is the `BuildableEnvelope`; INTENDED is
+// the space-envelope family, read here through its own reader so ADR-0380 D5's separation holds.
+import { collectIntendedAreas } from '../site/intendedAreaChannel';
+// §RESI-ORCH-ADOPT — the payload builder is pure and refuses (no proposal / no levels / no ground
+// level) rather than inventing a storey. This file mints the id (C16 CA-2 — never the handler)
+// and speaks the ONE create verb, `spaceEnvelope.batch.create` (C114 §6a: the batch verb even for
+// one envelope, so one gesture is one undo entry).
+import {
+    buildAdoptProposalPlan,
+    readLevelCandidates,
+} from '../site/adoptProposalAsEnvelope';
+import { createId } from '@pryzm/schemas';
 
 /**
  * §SITE-VIEWPOINT-CONSISTENT (L-532) — THE ONE default camera preset for entering a 3D view of
@@ -2695,6 +2725,13 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
     let targetAreaStatement: string | null = null;
     let targetAreaRefused = false;
     let targetAreaTyped: number | null = null;
+    /**
+     * §RESI-ORCH-ADOPT — the transcript of the KEEP step, carried the same way and for the same
+     * reason as the three above: a refusal the user has not read yet must survive a re-render, and
+     * whether it WAS a refusal is carried, never sniffed out of the sentence.
+     */
+    let adoptStatement: string | null = null;
+    let adoptFailed = false;
 
     /**
      * §RESI-ORCH-TARGET-AREA (STR §5) — the entry's two buttons.
@@ -2724,6 +2761,10 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
                 targetAreaStatement = null;
                 targetAreaRefused = false;
                 targetAreaTyped = null;
+                // The adopt transcript describes a plate that no longer exists — drop it with the
+                // plate, or the card narrates a proposal that is off the ground.
+                adoptStatement = null;
+                adoptFailed = false;
                 refreshEnvelopePanel();
             };
         }
@@ -2746,6 +2787,9 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
             // ⛔ A REFUSAL WITHDRAWS THE GEOMETRY. Never leave the previous plate on the ground
             // beside a fresh "no" — the picture would keep asserting what the words just denied.
             setTargetFootprintProposal(result.ok ? result : null);
+            // A NEW answer supersedes whatever the last adopt attempt said about the old one.
+            adoptStatement = null;
+            adoptFailed = false;
             refreshEnvelopePanel();
         };
         solveBtn.onclick = solve;
@@ -2753,6 +2797,89 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
         // a user reach for the mouse to ask it is friction with no purpose.
         input.onkeydown = (ev) => {
             if ((ev as KeyboardEvent).key === 'Enter') solve(ev);
+        };
+    };
+
+    /**
+     * §RESI-ORCH-ADOPT (STR §5/§20, C114 §6a) — the CONFIRM step: the session STUDY plate becomes
+     * a real, undoable, persisted LEVEL ENVELOPE element.
+     *
+     * ⭐ WHY THIS IS A SECOND, DELIBERATE GESTURE AND NOT PART OF "Fit this on the ground floor".
+     * The founder's §20 loop is Generate → Explain → Compare → Edit → Recompute → **Confirm**, and
+     * *"do not over-automate"* is the standing instruction. A solve that silently minted an element
+     * would have skipped every step after the first, and it would put an undo entry on the ring for
+     * a question the user was still asking. So the solve draws a study and the adopt commits it.
+     *
+     * ⛔ ONE GESTURE = ONE UNDO, and the only way to buy it is ONE `*.batch.create` (C16 §8.6 B-6).
+     * `batchCoordinator.runBatch` is undo-NEUTRAL — N commands inside it are N ring entries — so
+     * this dispatches the plugin's single batch verb with a one-element array, which is exactly
+     * what C114 §6a says the batch verb is FOR ("no caller can reach for the wrong one").
+     *
+     * ⛔ THE ID IS MINTED HERE, NEVER IN THE HANDLER (C16 CA-2): `execute()` runs again on REDO, so
+     * an id minted inside the handler would differ the second time and orphan every `withinId`
+     * pointing at the first.
+     *
+     * ⛔ EVERY FAILURE ARM PRINTS. No proposal, no storeys, no ground storey, no bus, or a throw
+     * from the bus — each states what happened and that nothing was created. A create button whose
+     * click evaporates is the dead click this whole lane exists to remove.
+     */
+    const wireTargetAreaAdopt = (panel: HTMLDivElement): void => {
+        const btn = panel.querySelector(
+            `[data-testid="${TARGET_AREA_ADOPT_BTN_TESTID}"]`,
+        ) as HTMLButtonElement | null;
+        if (!btn) return;
+        btn.onclick = (ev) => {
+            ev.stopPropagation();
+            ev.preventDefault();
+            const env = getLastBuildableEnvelope();
+            const figures = env ? permittedStudyFigures(env) : null;
+            // The SAME staleness gate the card and the scene ask, so all three agree about whether
+            // the plate on the ground is still a live answer to a live envelope.
+            const live = resolveLiveTargetFootprintProposal(
+                figures && figures.footprintM2 > 0 ? figures.footprintM2 : null,
+            );
+            let levels: ReturnType<typeof readLevelCandidates> = [];
+            try {
+                levels = readLevelCandidates(
+                    (window.bimManager as { getLevels?: () => unknown[] } | undefined)?.getLevels?.() ?? [],
+                );
+            } catch (err) {
+                console.warn('[gis][envelope-card] level read failed during adopt (non-fatal):', err);
+            }
+            const plan = buildAdoptProposalPlan(
+                live,
+                levels,
+                { maxHeightM: env?.maxHeight_m ?? null, maxFloors: env?.maxFloors ?? null },
+                createId('spaceEnvelope'),
+            );
+            if (!plan.ok) {
+                adoptStatement = plan.statement;
+                adoptFailed = true;
+                refreshEnvelopePanel();
+                return;
+            }
+            const bus = runtime?.bus;
+            if (!bus || typeof bus.executeCommand !== 'function') {
+                // An admission about PRYZM's wiring, never a statement about the user's project.
+                adoptStatement =
+                    'This surface has no command bus, so PRYZM cannot create the element. Nothing was '
+                    + 'created and nothing changed — this is a gap in the wiring, not a refusal about '
+                    + 'your design.';
+                adoptFailed = true;
+                refreshEnvelopePanel();
+                return;
+            }
+            try {
+                bus.executeCommand(plan.command, plan.payload);
+                adoptStatement = `Created — one undo removes it. ${plan.statement}`;
+                adoptFailed = false;
+            } catch (err) {
+                adoptStatement =
+                    `PRYZM could not create the level envelope: ${String((err as Error)?.message ?? err)}. `
+                    + 'Nothing was created and nothing changed.';
+                adoptFailed = true;
+            }
+            refreshEnvelopePanel();
         };
     };
 
@@ -3435,6 +3562,39 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
         const safeMeasuredSection = buildHowMeasuredFold(
             capacityJoin.measurement, { joinFailed: capacityJoin.joinFailed });
 
+        // ── §RESI-ORCH-INTENDED (C114 §3a) — THE THIRD AREA CHANNEL. ──────────────────────────
+        //
+        // ⛔ *"Three questions, three authorities, never summed into one number."* BUILT is
+        // `measureAuthoredDesign` (real floor plates, the fold above). PERMITTED is the
+        // `BuildableEnvelope` (the rows at the top of this card). INTENDED is the space-envelope
+        // family — and ADR-0380 D5 forbids the measurement from consuming it, so it is read HERE,
+        // through its own reader, and rendered under its own label. PRYZM never adds them.
+        //
+        // ⚠ THE STORE IS ALLOWED TO BE ABSENT, and `collectIntendedAreas` says so in words rather
+        // than reporting an empty project: a runtime with no `spaceEnvelope` slot is a gap in
+        // PRYZM's wiring, not a finding that nothing is intended. That distinction is the whole
+        // reason this is a reader with a `readable` discriminant instead of a `?? []`.
+        const levelRecords = ((): unknown => {
+            try {
+                return (window.bimManager as { getLevels?: () => unknown[] } | undefined)?.getLevels?.() ?? [];
+            } catch {
+                return [];
+            }
+        })();
+        const safeIntendedSection = ((): string => {
+            try {
+                return buildIntendedAreaFold(collectIntendedAreas(
+                    runtime?.stores?.spaceEnvelope ?? null,
+                    readLevelCandidates(levelRecords).map((l) => ({
+                        id: l.id, name: l.name, elevation: l.elevation,
+                    })),
+                ));
+            } catch (err) {
+                console.warn('[gis][envelope-card] intended-area fold failed (non-fatal):', err);
+                return '';
+            }
+        })();
+
         // ── §RESI-ORCH-DESIGN-STAGE (STR §1/§19/§21) — "where am I, and what can I do?" ──
         //
         // Computed HERE, beside the capacity join and BEFORE the refusal branch, for the same
@@ -3447,12 +3607,12 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
         // than a `false` that would print a finding about the user's project out of a gap in
         // PRYZM's own wiring. `hasProgramme` is exactly that case today (the programme table lives
         // in the Data Workbench and is not joined here), and the model prints the difference.
-        const safeDesignStageStrip = ((): string => {
+        const designStages: readonly DesignStageStatus[] = ((): readonly DesignStageStatus[] => {
             try {
                 const committedRing = getCommittedParcelBoundary()?.polygon ?? [];
                 const figures = permittedStudyFigures(env);
                 const m = capacityJoin.measurement;
-                return buildDesignStageStripHtml(describeDesignStages({
+                return describeDesignStages({
                     hasCommittedParcel: committedRing.length >= 3,
                     // A REFUSAL reaching this point has no inset ring, so this is false on the
                     // refusal arm by measurement rather than by a branch someone remembered.
@@ -3469,12 +3629,21 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
                     // read of the room store (C06 §13.3).
                     hasRooms: m?.design.netFloorAreaM2 != null,
                     measurementFailed: capacityJoin.joinFailed,
-                }));
+                });
             } catch (err) {
                 console.warn('[gis][envelope-card] design-stage strip failed (non-fatal):', err);
-                return '';
+                // ⛔ EMPTY, NOT A FABRICATED LADDER. `describeEnvelopeCardSections([])` renders the
+                // canonical order with NOTHING gated, which is the honest plan when PRYZM could
+                // not compute a stage: gating a section on a stage it does not know would print a
+                // reason it does not have.
+                return [];
             }
         })();
+        const safeDesignStageStrip = buildDesignStageStripHtml(designStages);
+        // ── §RESI-ORCH-STAGE-WIRE (STR §21) — *"the panel EVOLVES with the stage."* ──
+        // The plan decides ORDER and RELEVANCE only. Nothing is hidden, no fold is opened, no
+        // number changes — see `designStagePanel.ts` for why a vanishing section is the wrong fix.
+        const sectionPlan = describeEnvelopeCardSections(designStages);
 
         // §GIS-ENVELOPE-DETERMINATION-PERSIST (L-1654) — a HYDRATED card must wear its date,
         // prominently (mirroring the parcel section's "Retrieved:" line): a stored snapshot
@@ -3662,14 +3831,21 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
                  ${safeManualZoneBtn}
                  ${safeContextStudySection}
                  ${safeStudyHeightEntry}
-                 ${safeCapacitySection}
-                 ${safeMeasuredSection}
+                 ${buildStagedSectionsHtml(sectionPlan, {
+                     'designed-vs-permitted': safeCapacitySection,
+                     'how-measured': safeMeasuredSection,
+                     'intended-area': safeIntendedSection,
+                 })}
                  ${safeDesignStageStrip}
                  ${safeEnvToggle}`;
             wireEnvelopeToggle(panel);
             wireEnvelopeClose(panel);
             wireManualZoneButton(panel);
             wireStudyHeightEntry(panel);
+            // §RESI-ORCH-STAGE-WIRE — the "do this next" pill. On THIS arm the massing control is
+            // the study-height entry, which carries `data-stage-control="massing"`; when the arm
+            // does not host it the jump prints WHERE the control is rather than doing nothing.
+            wireDesignStageStrip(panel);
             // §OLDPROJ168 — the REFUSAL-card arm. A stored determination is a dated snapshot, so
             // the notice it renders needs its button live here too: this is the arm the founder
             // actually lands on with an old project (a stored `source-data-unavailable` from a
@@ -3959,6 +4135,10 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
                     targetAreaStatement,
                     targetAreaRefused,
                     targetAreaTyped,
+                    // ⛔ THE KEEP BUTTON EXISTS ONLY WHEN THERE IS SOMETHING LIVE TO KEEP. `null`
+                    // withholds the affordance rather than rendering a disabled control that could
+                    // only ever refuse — see the builder's own `@param adopt`.
+                    live === null ? null : { statement: adoptStatement, failed: adoptFailed },
                 );
             } catch (err) {
                 console.warn('[gis][envelope-card] target-area entry failed (non-fatal):', err);
@@ -3999,13 +4179,16 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
              <div style="margin-top:8px;display:flex;align-items:center;justify-content:space-between;">
                ${safeSourceLine}
              </div>
-             ${safeCapacitySection}
-             ${safeMeasuredSection}
-             ${safePerLevelSection}
-             ${safeSiteDataBlock}
-             ${safeTargetAreaSection}
-             ${safeCostSection}
-             ${safeWhyBlock}
+             ${buildStagedSectionsHtml(sectionPlan, {
+                 'designed-vs-permitted': safeCapacitySection,
+                 'how-measured': safeMeasuredSection,
+                 'per-level': safePerLevelSection,
+                 'intended-area': safeIntendedSection,
+                 'site-data': safeSiteDataBlock,
+                 'target-area': safeTargetAreaSection,
+                 'cost': safeCostSection,
+                 'why': safeWhyBlock,
+             } satisfies Partial<Record<EnvelopeCardSection, string>>)}
              ${safeDesignStageStrip}
              ${safeEnvToggle}`;
         wireEnvelopeToggle(panel);
@@ -4013,6 +4196,12 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
         wireEnvelopeCostSelects(panel);
         wireSiteHighlightRows(panel);
         wireTargetAreaEntry(panel);
+        // §RESI-ORCH-ADOPT — the CONFIRM step. Only ever wired when the button was rendered, and
+        // it is rendered only when a LIVE proposal exists (`resolveLiveTargetFootprintProposal`).
+        wireTargetAreaAdopt(panel);
+        // §RESI-ORCH-STAGE-WIRE — the "do this next" pill jumps to `data-stage-control="massing"`,
+        // which is the target-area entry on this arm.
+        wireDesignStageStrip(panel);
         // §OLDPROJ168 — the FULL-card arm. Same reasoning as the refusal arm above: whenever the
         // card is showing a HYDRATED (stored, dated) determination rather than a live one, the
         // "Re-check this parcel" route must be live. Guarded on `hydratedAtIso` so a freshly

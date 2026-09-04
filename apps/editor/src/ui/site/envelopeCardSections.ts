@@ -49,6 +49,17 @@ import { UNMEASURED_REASON_TEXT } from './designMeasurement';
 // rule of its own: which stage is reached, and why an unreached one is not, are decisions a test
 // can reach, and a DOM builder is where decisions go to become unassertable.
 import type { DesignStageStatus } from './designStageModel';
+// §RESI-ORCH-STAGE-PANEL — the ORDER/GATE decision and the jump-target attribute are decided in
+// `designStagePanel.ts` (pure, tested). This file renders that decision; it never re-derives it.
+import {
+    DESIGN_STAGE_CARD_CONTROL,
+    DESIGN_STAGE_CONTROL_ATTR,
+    ENVELOPE_CARD_SECTION_LABEL,
+    type EnvelopeCardPlan,
+    type EnvelopeCardSection,
+} from './designStagePanel';
+import { DESIGN_STAGE_JUMP_ATTR, DESIGN_STAGE_JUMP_STATUS_TESTID } from './designStageStripControl';
+import type { IntendedAreaSnapshot } from './intendedAreaChannel';
 import type { UserSuppliedStudyHeightRecord } from './userSuppliedStudyHeightState';
 
 const _tracer = trace.getTracer('pryzm.site.envelopeCardSections');
@@ -233,10 +244,23 @@ export const DESIGN_STAGE_STRIP_TESTID = 'envelope-design-stage-strip';
  * printed"* — rather than inventing a second convention. A greyed step with no explanation is the
  * same defect as a dead click: the user cannot tell "not yet" from "broken" from "not for you".
  *
- * ⛔ NOTHING HERE IS CLICKABLE, AND THAT IS DELIBERATE FOR NOW. The strip REPORTS a derived state;
- * it does not navigate. A step that looked like a button and did nothing would be exactly the dead
- * click §3's binding was written to remove — so until each stage has a destination wired, it reads
- * as a status, which is what it honestly is.
+ * ⛔ THE FIVE PILLS ARE STILL NOT CLICKABLE, AND THAT REMAINS DELIBERATE. They REPORT a derived
+ * state. What was added (§RESI-ORCH-STAGE-WIRE, 2026-09-04) is ONE next-step affordance beneath
+ * them, and only where there is somewhere real to go:
+ *
+ *   · the `available` stage's control is ON THIS CARD (`DESIGN_STAGE_CARD_CONTROL[s].onCard`)
+ *     ⇒ a real `<button ${DESIGN_STAGE_JUMP_ATTR}>` that `wireDesignStageStrip` opens the folds
+ *       to, scrolls to and focuses;
+ *   · the control lives ELSEWHERE ⇒ a `<span>` that SAYS WHERE (the stage's own hint). Never a
+ *     button. A button that names a surface it cannot open is the dead click by another name, and
+ *     the whole strip exists to end that class of affordance.
+ *   · no stage is `available` at all ⇒ nothing is emitted. The reason is upstream of this strip
+ *     (no parcel; a failed measurement) and pointing at a design stage would send the user to the
+ *     wrong place — which `describeDesignStages` already refuses to do by not offering one.
+ *
+ * The status line (`DESIGN_STAGE_JUMP_STATUS_TESTID`) is emitted WITH the button, because the one
+ * thing a jump must never do is fail silently: a control that is not on this ARM of the card is a
+ * fact the user is entitled to read, not a click that evaporates.
  *
  * Colours are the brand's: PRYZM violet for what is true, grey for what is not. No black, no red —
  * an unreached stage is not an error.
@@ -275,11 +299,219 @@ export function buildDesignStageStripHtml(
             ? 'No design stage has been reached yet — the reason for each is on the label.'
             : `You are at <b>${escHtml(current.label)}</b> — ${escHtml(current.reason)}`;
 
+        // ── THE NEXT STEP. At most one, because `describeDesignStages` offers at most one. ──
+        const next = stages.find((s) => s.state === 'available') ?? null;
+        span.setAttribute('pryzm.designStage.stripNext', next?.stage ?? 'none');
+        const nextRow = ((): string => {
+            if (next === null) return '';
+            const control = DESIGN_STAGE_CARD_CONTROL[next.stage];
+            span.setAttribute('pryzm.designStage.stripNextOnCard', control.onCard);
+            if (control.onCard) {
+                return `<div style="margin-top:5px;">`
+                    + `<button type="button" ${DESIGN_STAGE_JUMP_ATTR}="${escHtml(next.stage)}" `
+                    + `title="${escHtml(control.hint)}" `
+                    + `style="appearance:none;background:#faf9fd;border:1px solid #6600FF;color:#6600FF;`
+                    + `cursor:pointer;padding:4px 9px;border-radius:8px;font:600 10px system-ui;">`
+                    + `Do this next: ${escHtml(next.label)} →</button>`
+                    + `<div data-testid="${DESIGN_STAGE_JUMP_STATUS_TESTID}" `
+                    + `style="min-height:12px;margin-top:3px;font-size:9px;line-height:1.4;color:#8a5a00;"></div>`
+                    + `</div>`;
+            }
+            // ⛔ NOT A BUTTON. The artefact is produced on another surface, so the honest
+            // affordance is a sentence naming it — see this function's header.
+            return `<div data-design-stage-elsewhere="${escHtml(next.stage)}" `
+                + `style="margin-top:5px;font-size:9px;line-height:1.45;color:#8a83a0;">`
+                + `<b style="color:#6600FF;">Next: ${escHtml(next.label)}</b> — ${escHtml(control.hint)}</div>`;
+        })();
+
         return `<div data-testid="${DESIGN_STAGE_STRIP_TESTID}" data-current="${escHtml(current?.stage ?? 'none')}" `
+            + `data-next="${escHtml(next?.stage ?? 'none')}" `
             + `style="margin-top:7px;padding-top:6px;border-top:1px solid #efecf7;min-width:0;max-width:100%;">`
             + `<div style="display:flex;flex-wrap:wrap;gap:4px;">${pills}</div>`
             + `<div style="margin-top:4px;font-size:9px;line-height:1.45;color:#8a83a0;">${caption}</div>`
+            + `${nextRow}`
             + `</div>`;
+    } finally {
+        span.end();
+    }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// §RESI-ORCH-STAGE-WIRE (STR §21) — THE CARD'S SECTIONS, ORDERED BY THE STAGE
+// ─────────────────────────────────────────────────────────────────────────────
+
+/** The attribute a stage-gated section wrapper carries, so a test can find the greying. */
+export const STAGE_GATE_ATTR = 'data-stage-gate';
+
+/**
+ * Render the card's sections in the order `describeEnvelopeCardSections` decided, greying the
+ * gated ones WITH the stage's own reason printed above them.
+ *
+ * ⛔ NOTHING IS EVER HIDDEN, and that is the whole rule. §21 asks the panel to *change with the
+ * stage*; the cheap reading of that is "show only what is relevant", and it is wrong twice over.
+ * A user at massing still has every right to read that *Designed vs permitted* says **nothing
+ * authored yet** — that sentence IS the honest answer to §14's *"what am I proposing?"* — and a
+ * section that vanishes and reappears is a card nobody can learn. So a gated section RECEDES and
+ * EXPLAINS; it never disappears. This is the same discipline `SITE_HIGHLIGHT_RECEDE_FACTOR`
+ * enforces in the scene: contrast carries emphasis, removal does not.
+ *
+ * ⛔ AN EMPTY SECTION STRING IS SKIPPED WITHOUT A GATE NOTE. A section the card did not build on
+ * this arm (the cost fold on a refusal card, say) has nothing to grey — printing a stage reason
+ * over an absent section would state a stage fact about a section that is not there.
+ *
+ * @param plan           from `describeEnvelopeCardSections(stages)`
+ * @param htmlBySection  each section's already-safe markup; missing/empty entries are skipped
+ */
+export function buildStagedSectionsHtml(
+    plan: EnvelopeCardPlan,
+    htmlBySection: Readonly<Partial<Record<EnvelopeCardSection, string>>>,
+): string {
+    const span = _tracer.startSpan('pryzm.site.buildStagedSectionsHtml');
+    try {
+        let gated = 0;
+        let rendered = 0;
+        const out: string[] = [];
+        for (const section of plan.order) {
+            const safeHtml = htmlBySection[section];
+            if (typeof safeHtml !== 'string' || safeHtml.length === 0) continue;
+            rendered++;
+            const p = plan.byId[section];
+            if (p.relevance !== 'gated' || p.reason === null) {
+                out.push(safeHtml);
+                continue;
+            }
+            gated++;
+            // Greyed WITH the reason printed — `SiteEntryPanel`'s shipped rule, copied.
+            out.push(
+                `<div ${STAGE_GATE_ATTR}="${escHtml(section)}" data-stage="${escHtml(p.stage ?? 'none')}" `
+                + `style="opacity:0.62;min-width:0;max-width:100%;">`
+                + `<div style="margin-top:9px;font-size:9px;line-height:1.45;color:#8a83a0;">`
+                + `<b style="color:#8a83a0;">${escHtml(ENVELOPE_CARD_SECTION_LABEL[section])} — not at this stage yet.</b> `
+                + `${escHtml(p.reason)}</div>`
+                + `${safeHtml}</div>`,
+            );
+        }
+        span.setAttribute('pryzm.envelopeCard.stagedSections', rendered);
+        span.setAttribute('pryzm.envelopeCard.stagedGated', gated);
+        span.setAttribute('pryzm.envelopeCard.leadStage', plan.leadStage ?? 'none');
+        return out.join('\n');
+    } finally {
+        span.end();
+    }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// §RESI-ORCH-INTENDED (C114 §3a) — HOW MUCH IS *INTENDED*, BESIDE HOW MUCH IS BUILT
+// ─────────────────────────────────────────────────────────────────────────────
+
+export const INTENDED_AREA_SECTION_TESTID = 'envelope-section-intended-area';
+
+/**
+ * The intended-area fold — the space-envelope family's declared floor area, per storey.
+ *
+ * ⛔ THIS IS A THIRD NUMBER, NEVER A REPLACEMENT AND NEVER AN ADDEND (C114 §3a: *"three
+ * questions, three authorities, never summed into one number"*). BUILT comes from
+ * `measureAuthoredDesign` (real floor plates); INTENDED comes from `collectIntendedAreas`
+ * (declared level envelopes); PERMITTED comes from `BuildableEnvelope`. ADR-0380 D5 forbids the
+ * measurement from consuming space envelopes at all, and `SpaceEnvelope.footprintAreaM2` carries
+ * its own rider — *"THIS IS NOT A GROSS FLOOR AREA AND MUST NEVER BE SUMMED INTO ONE."* So this
+ * fold sits BESIDE `buildPerLevelBuiltAreaFold` under its own label, and a user who has drawn a
+ * 180 m² level envelope and built nothing reads `built: nothing authored · intended: 180 m²` —
+ * two facts, two authorities, no arithmetic between them.
+ *
+ * ⛔ FOUR ARMS, and the first two are the §CONTEXT-DATA-HONESTY split:
+ *   · `unreadable`     — no store, or the read threw. An admission about PRYZM's WIRING.
+ *   · `none-declared`  — the store is readable and empty. A FINDING about the project.
+ *   · `declared`       — at least one level envelope.
+ *   · `rooms-only`     — room envelopes exist but no level envelope does. Their area is NOT
+ *                        summed (a room sits within a level, C114 §9a `withinId`), so the honest
+ *                        answer is "no level area declared, and here is why you may have expected
+ *                        one" rather than a number built from the wrong records.
+ */
+export function buildIntendedAreaFold(snapshot: IntendedAreaSnapshot): string {
+    const span = _tracer.startSpan('pryzm.site.buildIntendedAreaFold');
+    try {
+        if (!snapshot.readable) {
+            span.setAttribute('pryzm.envelopeCard.intendedArm', 'unreadable');
+            return fold(
+                INTENDED_AREA_SECTION_TESTID,
+                'unreadable',
+                'Intended area — unavailable',
+                `<div style="color:#8a5a00;background:#fff6e8;border-radius:6px;padding:6px 8px;`
+                + `font-size:10px;line-height:1.5;">${escHtml(snapshot.text)}</div>`,
+            );
+        }
+        if (snapshot.byLevel.length === 0) {
+            const roomsOnly = snapshot.roomEnvelopeCount > 0;
+            const state = roomsOnly ? 'rooms-only' : 'none-declared';
+            span.setAttribute('pryzm.envelopeCard.intendedArm', state);
+            const body = roomsOnly
+                ? `<div style="color:#8a83a0;font-size:10px;line-height:1.5;">`
+                  + `${escHtml(String(snapshot.roomEnvelopeCount))} room envelope(s) are declared, but no `
+                  + `<b>level</b> envelope is. A room sits <i>within</i> a level, so its area is counted here `
+                  + `only once the level that contains it exists — adding room areas together would count the `
+                  + `same floor twice.</div>`
+                : `<div style="color:#8a83a0;font-size:10px;line-height:1.5;">No space envelope has been `
+                  + `declared for this project yet, so there is no <b>intended</b> area to state. This is a `
+                  + `finding, not a gap: PRYZM can read the store and it is empty.</div>`;
+            return fold(
+                INTENDED_AREA_SECTION_TESTID,
+                state,
+                roomsOnly ? 'Intended area — rooms only, no level declared' : 'Intended area — none declared',
+                body,
+            );
+        }
+        span.setAttribute('pryzm.envelopeCard.intendedArm', 'declared');
+        span.setAttribute('pryzm.envelopeCard.intendedLevels', snapshot.byLevel.length);
+        // Highest storey first, matching the built-area fold beside it, so the two read together.
+        const ordered = [...snapshot.byLevel].sort((a, b) => {
+            if (a.elevation !== null && b.elevation !== null) return b.elevation - a.elevation;
+            if (a.elevation !== null) return -1;
+            if (b.elevation !== null) return 1;
+            return 0;
+        });
+        const rows = ordered
+            .map((r) => {
+                // ⛔ A DANGLING levelId IS SHOWN, NEVER DROPPED. An envelope naming a storey the
+                // level store does not have is itself a fact — silently omitting its area would
+                // make the total disagree with the rows for no visible reason.
+                const label = r.name !== null
+                    ? escHtml(r.name)
+                    : r.elevation !== null
+                        ? `Storey at ${escHtml(r.elevation.toFixed(2))} m`
+                        : `<span data-dangling-level="${escHtml(r.levelId)}" style="color:#8a5a00;">`
+                          + `Storey <code style="font-size:9px;">${escHtml(r.levelId)}</code> (not in this project's level list)</span>`;
+                const count = r.levelEnvelopeCount > 1
+                    ? `<span style="color:#c3bdd6;"> · ${escHtml(String(r.levelEnvelopeCount))} envelopes</span>`
+                    : '';
+                return `<div style="display:flex;justify-content:space-between;gap:10px;padding:2px 0;">`
+                    + `<span style="color:#6b6480;">${label}${count}</span>`
+                    + `<span style="font-weight:600;text-align:right;">${escHtml(r.intendedAreaM2.toFixed(0))} m²</span></div>`;
+            })
+            .join('');
+        const total = snapshot.totalIntendedM2;
+        const totalRow = `<div style="display:flex;justify-content:space-between;gap:10px;padding:4px 0 0 0;margin-top:3px;border-top:1px solid #efecf7;">`
+            + `<span style="color:#6600FF;font-weight:700;">Total intended area</span>`
+            + `<span style="font-weight:700;">${escHtml((total ?? 0).toFixed(0))} m²</span></div>`;
+        const rider = `<div style="margin-top:5px;font-size:9px;line-height:1.45;color:#8a83a0;">`
+            + `This is what has been <b>declared</b>, not what has been <b>built</b> and not what is `
+            + `<b>permitted</b> — three separate questions with three separate authorities. PRYZM does not `
+            + `add them together.`
+            + (snapshot.roomEnvelopeCount > 0
+                ? ` ${escHtml(String(snapshot.roomEnvelopeCount))} room envelope(s) sit within these levels and `
+                  + `are deliberately not added on top.`
+                : '')
+            + (snapshot.skippedCount > 0
+                ? ` ${escHtml(String(snapshot.skippedCount))} record(s) could not be read as a level or room `
+                  + `envelope and are excluded — counted here rather than dropped in silence.`
+                : '')
+            + `</div>`;
+        return fold(
+            INTENDED_AREA_SECTION_TESTID,
+            'declared',
+            `Intended area — ${escHtml((total ?? 0).toFixed(0))} m² declared`,
+            rows + totalRow + rider,
+        );
     } finally {
         span.end();
     }
@@ -888,7 +1120,7 @@ export function buildStudyHeightEntryHtml(
         span.setAttribute('pryzm.envelopeCard.studyEntryHasSaved', current !== null);
         const heightAttr = current ? ` value="${escHtml(current.heightM)}"` : '';
         const setbackAttr = ` value="${escHtml(current ? current.setbackM : 0)}"`;
-        return `<div data-testid="envelope-study-height-entry" style="margin-top:9px;border-top:1px solid #efecf7;padding-top:7px;min-width:0;max-width:100%;">
+        return `<div data-testid="envelope-study-height-entry" ${DESIGN_STAGE_CONTROL_ATTR}="massing" style="margin-top:9px;border-top:1px solid #efecf7;padding-top:7px;min-width:0;max-width:100%;">
              <div style="font-weight:700;font-size:10.5px;color:#6600FF;">Don't know the height? Type one for a study massing.</div>
              <div style="margin-top:3px;color:#8a83a0;font-size:9.5px;line-height:1.4;">This is YOUR number, not a measurement — it will be labelled &ldquo;supplied by you&rdquo; and PRYZM still cannot judge compliance against it.</div>
              <div style="display:flex;gap:6px;margin-top:6px;align-items:flex-end;">
@@ -927,6 +1159,9 @@ export const TARGET_AREA_INPUT_TESTID = 'envelope-target-area-input';
 export const TARGET_AREA_SOLVE_BTN_TESTID = 'envelope-target-area-solve-btn';
 export const TARGET_AREA_CLEAR_BTN_TESTID = 'envelope-target-area-clear-btn';
 export const TARGET_AREA_STATUS_TESTID = 'envelope-target-area-status';
+/** §RESI-ORCH-ADOPT — the button that turns a session STUDY into a real, undoable element. */
+export const TARGET_AREA_ADOPT_BTN_TESTID = 'envelope-target-area-adopt-btn';
+export const TARGET_AREA_ADOPT_STATUS_TESTID = 'envelope-target-area-adopt-status';
 
 /**
  * The target-area entry, plus the standing statement of whatever is currently proposed.
@@ -948,12 +1183,20 @@ export const TARGET_AREA_STATUS_TESTID = 'envelope-target-area-status';
  * @param refused          whether `statement` is a refusal. Passed rather than parsed: sniffing a
  *                         verdict out of prose is how a refusal comes to render as a success.
  * @param currentTargetM2  what the user last typed, so a re-render does not blank their entry.
+ * @param adopt            §RESI-ORCH-ADOPT — the KEEP step, offered ONLY when a live proposal is
+ *                         on the ground. `null` withholds the affordance entirely (there is
+ *                         nothing to keep), which is why it is a nullable object rather than a
+ *                         disabled button: a control that can only refuse is a dead click with a
+ *                         label on it. `statement` is whatever the last adopt attempt said —
+ *                         plan, refusal or confirmation — and `failed` says which, carried rather
+ *                         than sniffed out of the prose.
  */
 export function buildTargetAreaEntryHtml(
     permittedAreaM2: number | null,
     statement: string | null,
     refused: boolean,
     currentTargetM2: number | null,
+    adopt: { readonly statement: string | null; readonly failed: boolean } | null = null,
 ): string {
     const span = _tracer.startSpan('pryzm.site.buildTargetAreaEntryHtml');
     try {
@@ -968,7 +1211,7 @@ export function buildTargetAreaEntryHtml(
                     : 'proposed';
         span.setAttribute('pryzm.envelopeCard.targetAreaState', state);
 
-        const head = `<div data-testid="envelope-target-area-entry" data-state="${state}" style="margin-top:9px;border-top:1px solid #efecf7;padding-top:7px;min-width:0;max-width:100%;">
+        const head = `<div data-testid="envelope-target-area-entry" ${DESIGN_STAGE_CONTROL_ATTR}="massing" data-state="${state}" style="margin-top:9px;border-top:1px solid #efecf7;padding-top:7px;min-width:0;max-width:100%;">
              <div style="font-weight:700;font-size:10.5px;color:#6600FF;">Know the ground floor you want? Type the area.</div>`;
 
         if (!hasFootprint) {
@@ -989,6 +1232,30 @@ export function buildTargetAreaEntryHtml(
             ? ''
             : `<div data-testid="${TARGET_AREA_STATUS_TESTID}" data-state="${refused ? 'refused' : 'proposed'}" style="margin-top:5px;font-size:9.5px;line-height:1.45;color:${statusColour};background:${refused ? '#fdf8ee' : '#faf9fd'};border-left:2px solid ${refused ? '#c9973a' : '#6600FF'};padding:4px 6px;border-radius:0 5px 5px 0;">${escHtml(statement)}</div>`;
 
+        // ── §RESI-ORCH-ADOPT — GENERATE → EXPLAIN → *CONFIRM*, never generate-and-commit. ──
+        // ⛔ The plate the solver drew is a SESSION STUDY: it is not persisted, not undoable and
+        // not an element. Adopting it is a SEPARATE, deliberate gesture, because the founder's
+        // §20 loop is Generate → Explain → Compare → Edit → Recompute → **Confirm** — a study
+        // that silently became a durable element would have skipped every step after the first.
+        // The button states, before the click, exactly what will be created (`plan.statement`).
+        const adoptHtml = adopt === null
+            ? ''
+            : `<div style="margin-top:6px;padding-top:5px;border-top:1px dashed #ece9f4;">`
+              + `<button type="button" data-testid="${TARGET_AREA_ADOPT_BTN_TESTID}" `
+              + `style="width:100%;appearance:none;border:1px solid #6600FF;cursor:pointer;padding:6px 10px;`
+              + `border-radius:8px;font:600 11px system-ui;background:#6600FF;color:#ffffff;">`
+              + `Keep this as a level envelope</button>`
+              + `<div style="margin-top:3px;color:#8a83a0;font-size:9px;line-height:1.4;">`
+              + `Records what you INTEND to build as a real element you can undo, move and measure. `
+              + `It does not change the permitted envelope and it is still not a permit.</div>`
+              + (adopt.statement === null
+                  ? `<div data-testid="${TARGET_AREA_ADOPT_STATUS_TESTID}" data-state="idle" style="min-height:12px;"></div>`
+                  : `<div data-testid="${TARGET_AREA_ADOPT_STATUS_TESTID}" data-state="${adopt.failed ? 'refused' : 'done'}" `
+                    + `style="margin-top:5px;font-size:9.5px;line-height:1.45;color:${adopt.failed ? '#8a5a00' : '#6b6480'};`
+                    + `background:${adopt.failed ? '#fdf8ee' : '#faf9fd'};border-left:2px solid ${adopt.failed ? '#c9973a' : '#6600FF'};`
+                    + `padding:4px 6px;border-radius:0 5px 5px 0;">${escHtml(adopt.statement)}</div>`)
+              + `</div>`;
+
         return head
             + `<div style="margin-top:3px;color:#8a83a0;font-size:9.5px;line-height:1.4;">PRYZM will set a plate of that size inside the permitted footprint (${escHtml(permittedAreaM2.toFixed(0))} m²) and tell you what it actually achieved. A STUDY of what fits — not a permit.</div>
              <div style="display:flex;gap:6px;margin-top:6px;align-items:flex-end;">
@@ -1006,6 +1273,7 @@ export function buildTargetAreaEntryHtml(
                </button>
              </div>
              ${statusHtml}
+             ${adoptHtml}
            </div>`;
     } finally {
         span.end();

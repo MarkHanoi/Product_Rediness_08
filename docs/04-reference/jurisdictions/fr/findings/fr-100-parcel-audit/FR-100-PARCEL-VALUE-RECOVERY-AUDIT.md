@@ -236,17 +236,118 @@ qualitative rows alone would explain.
 
 ## 7. WHAT TO BUILD, IN THIS ORDER
 
-1. **The règlement PDF extraction leg.** 389 of 529 failures, one component. Every other item on
-   the FR list is rounding error beside it. **Do not sequence it behind an SRU-XML parser (§3.1).**
-2. **Frontage as a computation** (A3/A4) — unblocks C5 numerics, the H/2 formula class, and the
+> ⛔ **RE-ORDERED BY ROUND 2 (§8). The PDF leg is no longer item 1.** It was ranked first on a
+> failure COUNT (389 `pdf` states) before anything measured what the alternatives yield. Round 2
+> measured both, and a municipal pack returns **19× more parameters per parcel** than the national
+> chain in the one territory where both were run head to head. The order below is the corrected one;
+> the ranking above it is kept in §8 as the record of what the re-measurement changed.
+
+1. ⭐ **Municipal opendata packs**, starting with the ones already built. Days-to-weeks, and §8.2
+   measures the yield: Paris PLU-b resolves **C2 for 89.5 %** of in-commune parcels where the
+   national chain resolves **0 %**. ⛔ **Fix [L-12898](../../../ISSUE-LOG.md) first** — the pack's
+   only jurisdiction gate is a bbox, and it currently reaches four neighbouring communes.
+2. **Datum resolution from règlement text** (A2). Promoted from 3 to 2 by §8.3: **all nine** metric
+   heights the national chain recovers sit on an UNKNOWN plane, so under §DATUM-DECISION the
+   national C2 numerator is **zero**. Nothing else in the FR list moves C2 nationally.
+3. **Frontage as a computation** (A3/A4) — unblocks C5 numerics, the H/2 formula class, and the
    façade-profile datum sampler (L-584). It is code over geometry we already hold, not sourcing.
-3. **Datum resolution from règlement text** (A2) — 81 `semantic` states, and the one that decides
-   whether a recovered height may be multiplied into a volume at all.
-4. **Municipal opendata packs** where a city publishes its own parameter layer. The Paris precedent
-   (§5.1) shows this beats the national chain outright — and the audit's own number understates
-   PRYZM precisely to the extent these exist.
+4. **The règlement PDF extraction leg.** Still 389 of 529 failures and still **the only path to C4
+   emprise, C6 volumétrie and D1** — §8.1 measures their national ceiling at **0 / 100 each**, and
+   §8.2 shows the Paris pack does not close them either. **Months, not weeks; sequence it fourth,
+   do not cancel it.** **Do not sequence it behind an SRU-XML parser (§3.1).**
 
 ---
 
-*Deliverable of lane ENVELOPE-FR, 2026-09-04. Re-run: `node run-fr-audit.mjs out.json` (seed pinned;
-`WANT_A` / `WANT_B` override the strata sizes).*
+## 8. ROUND 2 — the GPU ceiling, the source-tier comparison, and the datum hit
+
+> **Run 2026-09-04**, same instrument, **same seed `20260904`**, raw record
+> [`fr-audit-raw-r2.json`](fr-audit-raw-r2.json). ⭐ **It reproduces round 1 EXACTLY** — the same 100
+> parcels, the same communes, 23.7 % / 89.9 % / 3.0 % — so no scoring rule moved. Round 2 adds three
+> MEASUREMENTS the round-1 record could not answer, because it kept only the prescription CODES and
+> discarded the payload; the payload is now persisted, so every number below is re-computable from
+> the file rather than asserted.
+
+### 8.1 ⭐ The GPU-only ceiling: **3.0 %, and we are AT it**
+
+```
+parameter rows the national chain COULD ever answer
+  numeric TXT only ........................  9 / 500 = 1.8 %
+  + drawn geometry (14, 15) ............... 15 / 500 = 3.0 %   ← the ceiling
+ACTUALLY RECOVERED ......................... 15 / 500 = 3.0 %   ⇒ 100 % of it
+```
+
+**262 prescriptions served across the 100 parcels.** All 262 carry some text; **45.0 % populate a
+non-empty `TXT`**; **5.0 % (13) carry a parseable number anywhere.** Of the 36 in an envelope family
+(`14/15/38/39/40`), **25.0 % carry a number** — and that is entirely `typepsc 39`, at 9 of 25 (36.0 %).
+`38` emprise: **0 of 4.** `15` implantation: **0 of 7** (it needs none — the drawn line IS the rule).
+`40` volumétrie: **not served once.** `D1`: **no CNIG code exists.**
+
+> ⛔ **So 3.0 % is the CEILING, not the failure rate, and the extractor is saturated against it.**
+> C4, C6 and D1 have a national ceiling of **zero**; a further **55 of 500** rows are RNU
+> `requires-determination` refusals no dataset can convert. **There is no `TXT` to clean and no
+> parser to tune — further FR recovery must come from a different SOURCE.**
+
+### 8.2 ⭐ Source tier: the Paris pack beats the national chain **19×**
+
+Stratum C, **25 live draws** inside the Ville-de-Paris routing box, pack queried **alongside** the
+national chain and never merged into it. **Zero pack layers were transient**, so every `absent` is a
+real absence.
+
+| parameter | national chain | Paris PLU-b pack |
+|---|---|---|
+| **C2** height | 0 / 25 = **0.0 %** (all `unrecovered/pdf`) | ⭐ 18 / 25 = **72.0 %** · **17/19 = 89.5 %** of in-commune draws |
+| C4 emprise | 0 / 25 | 1 / 25 (`plub_ecm`, partial coverage) |
+| C5 setback | 1 / 25 | 0 / 25 (not a pack layer) |
+| C6 volumétrie | 0 / 25 | 0 / 25 (6 `plub_filet` codes — informational, not a parameter) |
+| D1 | 0 / 25 | 0 / 25 |
+| **TOTAL** | **1 / 125 = 0.8 %** | **19 / 125 = 15.2 %** |
+
+**Verdict — move 6 (packs) over move 7 (PDF), for HEIGHT and only for height.** The pack saturates
+C2 with real citable integers (25 m / 31 m, `plub_hauteur`, PLU-b art. UG.3.2.1) and leaves
+C4/C6/D1 at the same wall §8.1 measures nationally. **They are not substitutes.**
+
+⛔ **This run also found a shipping defect: [L-12898](../../../ISSUE-LOG.md).** The pack's only
+jurisdiction gate is the loose bbox; **6 of 25 draws were not the Ville de Paris** (Ivry, Issy,
+Charenton, Levallois) and for one of them `plub_hauteur` answered **31 m**, which the pack would
+cite against the wrong commune's règlement.
+
+### 8.3 ⛔ The datum hit: **15 → 6**, taken deliberately
+
+Founder review §9 asked whether a height with `datum = unknown` counts in the 15/500.
+**Decided: no** (`rulepacks/frHeightDatum.ts` · `FR_DATUM_DECISION`). Measured cost, running the
+shipped `frCnigPrescriptionTree` + the real `extractFrHeightDatum` over this corpus:
+
+| | round-1 harness | §DATUM-DECISION |
+|---|---|---|
+| C2 metric heights recovered | 9 | **0** — *all nine have `FROM = unknown`* |
+| C5 drawn marges de recul | 6 | 6 |
+| **parameter recovery** | 15 / 500 = 3.0 % | ⛔ **6 / 500 = 1.2 %** |
+| `partialCarried` (kept, visible, never counted) | 0 | **9** |
+| `unrecoveredSilent` — the founder's `done` metric | not measured | ⭐ **0** |
+
+The nine, verbatim — ⚠ **two are RANGES read as a single cap**, which is independent evidence they
+were never clean recoveries:
+
+```
+B13  39.02  17 m  "Hauteur maximale"
+B27  39     7 m   "Plan des hauteurs de coeur d'îlot"
+B30  39     15 m  "Hauteur - 15m + bonus / 9m"          ← a bonus and an alternative, read as 15
+B40  39     22 m  "Hauteur_22m"
+B41  39     19 m  "Hauteur_19m"
+B42  39.02  10 m  "Zone hauteur 10 mètres maximum"
+B43  39.02  22 m  "Zone hauteur 22 mètres maximum"
+B44  39.02  12 m  "Hauteur entre 10 et 12 m"            ← a range, read as 12
+B45  39.02  12 m  "Hauteur entre 10 et 12 m"            ← a range, read as 12
+```
+
+### 8.4 §11 vintage — NATURE is served, and it is thin
+
+**27 of 262 prescriptions (10.3 %) carry a `NATURE`.** The rest publish the pair only, so their SRU
+`idPrescription` degrades to `TYPEPSC-STYPEPSC` — a v2017-vintage signal the audit can now stratify
+on, since the composite id travels on every row of the raw record.
+
+---
+
+*Deliverable of lane ENVELOPE-FR, 2026-09-04 (round 2). Re-run:
+`node run-fr-audit.mjs out.json` (seed pinned; `WANT_A` / `WANT_B` / `WANT_C` override the strata
+sizes — `WANT_C` is the Paris source-tier stratum and is never folded into the 100).*

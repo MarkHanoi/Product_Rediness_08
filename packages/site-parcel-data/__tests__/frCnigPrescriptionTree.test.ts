@@ -7,6 +7,7 @@ import type { RuleSourceRef } from '@pryzm/schemas';
 import {
     FR_CNIG_TREE_ORDER,
     classifyFrCnigCode,
+    frCnigIdPrescription,
     frCnigRuleStates,
     recoverFrNumberFromText,
     type FrPrescriptionRow,
@@ -25,7 +26,7 @@ const ref: RuleSourceRef = {
 
 function row(p: Partial<FrPrescriptionRow>): FrPrescriptionRow {
     return {
-        typepsc: null, stypepsc: null, libelle: null, txt: null,
+        typepsc: null, stypepsc: null, nature: null, libelle: null, txt: null,
         nomfic: '200046977_reglement_20260326.pdf', idurba: '200046977_PLUI_20260326', ...p,
     };
 }
@@ -70,6 +71,41 @@ describe('CNIG code classification — the table the founder called “much bett
     });
 });
 
+describe('§TRIPLE-KEY — the composite id is `TYPEPSC-STYPEPSC-NATURE`, not the dotted pair', () => {
+    // Founder blocker review §1 item 2. SRU niveau 1 names the prescription a title governs by
+    // exactly this string, so the tree's `object_id` must BE that string or the PDF leg (move 7)
+    // has nothing to join on. The founder's own worked examples are the two asserted first.
+    it('builds the founder’s worked examples verbatim', () => {
+        expect(frCnigIdPrescription('15', '01', 'retrait_par_rapport_voies')).toBe('15-01-retrait_par_rapport_voies');
+        expect(frCnigIdPrescription('07', '02', 'Cones_de_vue')).toBe('07-02-Cones_de_vue');
+    });
+
+    it('⚠ a v2017-vintage document publishes NO nature — the id degrades to the PAIR, never a guess', () => {
+        // Absent / empty / whitespace NATURE all mean "this document predates CNIG 2.1.0". The
+        // pair-shaped id is itself the vintage signal (§11 stratification), so it must not be
+        // padded with an invented third segment.
+        for (const n of [null, undefined, '', '   ']) {
+            expect(frCnigIdPrescription('39', '02', n)).toBe('39-02');
+        }
+        // An unspecified SUBTYPE still occupies its segment as the CNIG `00`, so the id keeps its
+        // three-segment grammar and a join on it cannot silently shift columns.
+        expect(frCnigIdPrescription('14', null, null)).toBe('14-00');
+    });
+
+    it('the classification carries BOTH ids — the pair decides the semantic, the triple joins', () => {
+        const c = classifyFrCnigCode('39', '02', 'hauteur_maximale');
+        expect(c).toMatchObject({
+            code: '39.02',
+            idPrescription: '39-02-hauteur_maximale',
+            nature: 'hauteur_maximale',
+            semantic: 'maximum',
+        });
+        // ⛔ NATURE is document-authored free text and is NOT a closed list, so it must never move
+        // the semantic. A `.97` stays qualitative no matter what NATURE the commune wrote.
+        expect(classifyFrCnigCode('39', '97', 'hauteur_maximale')!.semantic).toBe('qualitative');
+    });
+});
+
 describe('numeric recovery — the CNIG schema mandates NO universal numeric field', () => {
     it('recovers a number and its unit VERBATIM from free text', () => {
         expect(recoverFrNumberFromText('Hauteur maximale 9 m')).toEqual({
@@ -94,7 +130,10 @@ describe('numeric recovery — the CNIG schema mandates NO universal numeric fie
 describe('the decision tree — one RuleState per parameter the codes speak to', () => {
     it('⭐ `39.97` answers QUALITATIVE RULE, not UNKNOWN — the source licenses it (R151-12)', () => {
         const s = frCnigRuleStates({
-            prescriptions: [row({ typepsc: '39', stypepsc: '97', libelle: "La hauteur doit s'harmoniser avec le bâti voisin." })],
+            prescriptions: [row({
+                typepsc: '39', stypepsc: '97', nature: 'hauteur_qualitative',
+                libelle: "La hauteur doit s'harmoniser avec le bâti voisin.",
+            })],
             ref, reglementReachable: true,
         });
         expect(s).toHaveLength(1);
@@ -104,17 +143,23 @@ describe('the decision tree — one RuleState per parameter the codes speak to',
         // Quoted verbatim — a qualitative rule silently rendered as a number manufactures an
         // entitlement out of a sentence that grants none.
         expect(s[0]!.text).toContain("s'harmoniser");
-        expect(s[0]!.ref.object_id).toBe('TYPEPSC=39.97');
+        // §TRIPLE-KEY: `object_id` is the SRU niveau 1 `idPrescription`, not a `TYPEPSC=` prose
+        // label. A refusal must be joinable on the same key as a recovery, or move 7 lands its
+        // parsed values on nothing.
+        expect(s[0]!.ref.object_id).toBe('39-97-hauteur_qualitative');
     });
 
-    it('a drawn `39.02` WITH a number resolves; the same code WITHOUT one is `unrecovered`, not absent', () => {
+    it('a drawn `39.02` with a number AND its datum resolves; without a number it is `unrecovered`, not absent', () => {
+        // ⚠ §DATUM-DECISION (founder review §9): the number alone is NOT a recovery. The plane it
+        // is measured FROM must be co-extracted from the SAME text, so the fixture carries it.
         const withNum = frCnigRuleStates({
-            prescriptions: [row({ typepsc: '39', stypepsc: '02', libelle: 'Hauteur maximale 12 m' })],
+            prescriptions: [row({ typepsc: '39', stypepsc: '02', libelle: 'Hauteur maximale 12 m au-dessus du terrain naturel' })],
             ref, reglementReachable: true,
         });
         expect(withNum[0]).toMatchObject({ status: 'resolved', value: 12, unit: 'm' });
-        // ⚠ The datum is NOT in the feature — a number on an unresolved plane is not a cap (ADR-0377).
-        expect(withNum[0]).toMatchObject({ datum: null });
+        // `terrain naturel` has NO ADR-0377 member, so it is carried with the `fr:` prefix rather
+        // than mis-seated onto `terrain-highest`/`terrain-lowest` (which are DK/DE variants).
+        expect(withNum[0]).toMatchObject({ datum: 'fr:terrain-naturel' });
 
         const paris = frCnigRuleStates({
             prescriptions: [row({ typepsc: '39', stypepsc: '02', libelle: 'Hauteur plafond', txt: '' })],
@@ -125,6 +170,35 @@ describe('the decision tree — one RuleState per parameter the codes speak to',
         // our extractor is. Reporting it as F1 would blame the commune for our unbuilt parser.
         if (paris[0]!.status !== 'unrecovered') throw new Error('unreachable');
         expect(paris[0]!.mechanism).not.toBe('absent');
+    });
+
+    it('⛔ §DATUM-DECISION: a metric height on an UNKNOWN plane is `unrecovered`, the number in `partial`', () => {
+        // Founder review §9, decided 2026-09-04: a "12 m" whose FROM-plane was not co-extracted is
+        // not a recovery — 12 m above the road and 12 m above natural terrain are different
+        // buildings on a sloping parcel. Round one emitted `resolved` with `datum: null` for nine
+        // such heights, which violated the vocabulary it consumed. The 15/500 falls by design.
+        const s = frCnigRuleStates({
+            prescriptions: [row({ typepsc: '39', stypepsc: '02', libelle: 'Hauteur maximale 12 m' })],
+            ref, reglementReachable: true,
+        });
+        expect(s[0]).toMatchObject({ status: 'unrecovered', failure: 'semantic', mechanism: 'present' });
+        if (s[0]!.status !== 'unrecovered') throw new Error('unreachable');
+        // The number IS carried — visible and reviewable — but it never reaches a numerator.
+        expect(s[0]!.partial).toMatchObject({ value: 12, unit: 'm', verbatim: 'Hauteur maximale 12 m' });
+        expect(s[0]!.stoppedAt).toContain('terrain naturel');
+
+        // A storey count and a percentage have no FROM-plane at all, so the tightening must not
+        // catch them: `R+2` is a cap wherever the ground is.
+        const storeys = frCnigRuleStates({
+            prescriptions: [row({ typepsc: '39', stypepsc: '02', libelle: 'R+2, soit 3 niveaux' })],
+            ref, reglementReachable: true,
+        });
+        expect(storeys[0]).toMatchObject({ status: 'resolved', value: 3, unit: 'niveaux', datum: null });
+        const emprise = frCnigRuleStates({
+            prescriptions: [row({ typepsc: '38', stypepsc: '02', libelle: 'Emprise au sol 40 %' })],
+            ref, reglementReachable: true,
+        });
+        expect(emprise[0]).toMatchObject({ status: 'resolved', value: 40, unit: '%', datum: null });
     });
 
     it('an unreachable règlement is `missing-source`, a reachable one is `pdf` — two remedies', () => {
@@ -152,7 +226,9 @@ describe('the decision tree — one RuleState per parameter the codes speak to',
         const c4 = s.filter((x) => x.rule === 'C4');
         expect(c4).toHaveLength(1);
         expect(c4[0]).toMatchObject({ status: 'resolved', reachability: 'source-complete' });
-        expect(c4[0]!.ref.object_id).toBe('TYPEPSC=14');
+        // The WINNER's id travels, not the loser's — a reader following `object_id` back to the GPU
+        // must land on the plan-masse feature that actually governs, never on the 38 row it beat.
+        expect(c4[0]!.ref.object_id).toBe('14-00');
     });
 
     it('⚠ a `.98` with fewer than two NAMED readings is NOT claimed as an alternative set', () => {

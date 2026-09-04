@@ -14,12 +14,70 @@
 //  • Deterministic seed → the same 100 parcels on re-run.
 //  • Every endpoint spelling is copied from the SHIPPED, live-probed client
 //    (countryAdapters/fr/frGpuClient.ts). No endpoint is invented.
+//
+// ══════════════════════════════════════════════════════════════════════════════════════════════
+// ROUND 2 (2026-09-04, lane ENVELOPE-FR) — founder blocker review moves 2, 3 and §11
+// ══════════════════════════════════════════════════════════════════════════════════════════════
+// Round 1 measured `parameter recovery 3.0 % (15/500)` and could not say what the CEILING was,
+// because it kept only the prescription CODES and threw the payload away. Three additions, all of
+// them measurement — no scoring rule changed, so round 1's headline stays comparable:
+//
+//  M2 · THE GPU-ONLY `TXT` CEILING (review §5). Every applying prescription's `LIBELLE` / `TXT` /
+//       `NATURE` is now PERSISTED, so "share of applying prescriptions carrying a parseable number"
+//       is computed from the record rather than asserted. ⭐ This reframes 3.0 % from *"we recover
+//       3 %"* to *"the national chain can yield at most X %, and we recover 3.0 of it"* — and it is
+//       the number that forecloses a `TXT`-cleanup proposal. Paris's `txt=""` is the CNIG schema
+//       behaving as specified (`URLFIC` is defined as a hyperlink, empty permitted); it is a
+//       structural ceiling, not producer quality, and only the persisted payload can prove that.
+//
+//  M3 · THE SOURCE-TIER COMPARISON (review §11). `resolveParisPluZone.ts`'s municipal pack is now
+//       queried ALONGSIDE the national chain for every parcel in Paris (INSEE 75056), and a
+//       PARIS-ONLY stratum C gives that comparison an n worth quoting. It decides move 6 (municipal
+//       pack adapters) against move 7 (the PDF leg). ⛔ The pack NEVER overwrites a national state:
+//       both answers are recorded side by side, because the question IS the delta.
+//
+//  §11 · VINTAGE. `datappro` and `nature` now travel, so recovery can be stratified by CNIG
+//       document version — v2022-10 / v2024-01 (2.1.0) carry NATURE, v2017c/d do not, and the
+//       newer stratum grows. A pair-shaped `idPrescription` is itself the vintage signal.
+//
+// ⛔ DETERMINISM PRESERVED. Strata A and B draw from the `rnd` stream FIRST and in the original
+// order, so the same seed still yields the same 100 parcels; stratum C is drawn afterwards and
+// cannot perturb them. Round 1's raw record (`fr-audit-raw.json`) is NOT overwritten — round 2
+// writes beside it, so the two are diffable.
 
 import { writeFileSync } from 'node:fs';
 
 const WFS = 'https://data.geopf.fr/wfs/ows';
 const SEED = 20260904;
 const TIMEOUT_MS = 45000;
+
+// ── the municipal pack under test (move 3) ────────────────────────────────────────────────────
+// ⛔ EVERY SPELLING BELOW IS COPIED VERBATIM from the SHIPPED, live-probed proxy
+// `server/jurisdiction/parisPluProxy.js` (PARIS_*_ENDPOINT + build*Url). No endpoint is invented
+// and no query shape is guessed — including the axis trap the proxy documents: the GPU CQL filter
+// is `POINT(lat lon)` while ODSQL WKT is the standard `POINT(lon lat)`.
+// ⛔ THE ROUTING GATE IS THE BBOX, NOT THE INSEE — measured, and it cost a smoke run.
+// The Ville de Paris is INSEE 75056, so an INSEE-keyed Paris gate reads as the obvious one. It is
+// UNSATISFIABLE against this chain: `wfs_du:municipality` serves the ARRONDISSEMENT code at every
+// point inside Paris (probe 2026-09-04 → `75110` PARIS-10E, `75118` PARIS-18E), never `75056`.
+// A gate written that way fires zero times and reports "the pack carries nothing" — an answer
+// indistinguishable from a real absence. The SHIPPED resolver already gets this right by routing on
+// `isInParis` (`providers/parisBbox.ts`), and PARIS_BBOX below is copied VERBATIM from it so the
+// audit measures the pack the product would actually reach. The served INSEE is recorded per parcel
+// so an arrondissement outside the box is visible rather than silently mis-attributed.
+const PARIS_BBOX = { minLat: 48.80, maxLat: 48.91, minLon: 2.22, maxLon: 2.47 };
+const isInParis = (lat, lon) => lat >= PARIS_BBOX.minLat && lat <= PARIS_BBOX.maxLat
+    && lon >= PARIS_BBOX.minLon && lon <= PARIS_BBOX.maxLon;
+const ODS = 'https://opendata.paris.fr/api/explore/v2.1/catalog/datasets';
+const PARIS_FILET_RADIUS_M = 20;
+const PARIS_PACK_LAYERS = [
+    // dataset, parameter it speaks to, ODSQL where-clause builder, selected fields
+    { ds: 'plub_hauteur', param: 'C2', kind: 'intersects', select: 'hauteur' },
+    { ds: 'plub_hmc', param: 'C2', kind: 'intersects', select: 'hmc,ht_hmc' },
+    { ds: 'plub_ecm', param: 'C4', kind: 'intersects', select: 'emprise,hauteur,st_area_shape' },
+    { ds: 'plub_eal', param: 'C4', kind: 'intersects', select: 'st_area_shape' },
+    { ds: 'plub_filet', param: 'C6', kind: 'within', select: 'haut,cour' },
+];
 
 // ── deterministic PRNG (mulberry32) — reproducible sample, no Math.random ──────────────────────
 function mulberry32(a) {
@@ -109,6 +167,87 @@ async function getFeatures(layer, lat, lon, props, attempts = 5) {
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
+// ── the municipal-pack leg (move 3) ───────────────────────────────────────────────────────────
+/**
+ * Query ONE Paris opendata layer at a point. → {status:'found'|'absent'|'transient', row, reason}.
+ * Availability never reads as absence here either: a severed opendata host must not be published as
+ * "the pack carries nothing", which is the §CONTEXT-DATA-HONESTY trap arriving from the other side.
+ */
+async function odsQuery(layer, lat, lon, attempts = 4) {
+    const where = layer.kind === 'within'
+        ? `within_distance(geo_shape, geom'POINT(${lon} ${lat})', ${PARIS_FILET_RADIUS_M}m)`
+        : `intersects(geo_shape, geom'POINT(${lon} ${lat})')`;
+    const url = `${ODS}/${layer.ds}/records?${new URLSearchParams({ where, limit: '1', select: layer.select })}`;
+    let last = '';
+    for (let i = 0; i < attempts; i++) {
+        await throttle();
+        try {
+            const ac = new AbortController();
+            const t = setTimeout(() => ac.abort(), TIMEOUT_MS);
+            const r = await fetch(url, { signal: ac.signal, headers: { accept: 'application/json' } });
+            clearTimeout(t);
+            if (r.status === 429) { last = 'HTTP 429'; await sleep(2500 * (i + 1) * (i + 1)); continue; }
+            if (!r.ok) { last = `HTTP ${r.status}`; await sleep(900 * (i + 1)); continue; }
+            const j = await r.json();
+            const rows = Array.isArray(j?.results) ? j.results : null;
+            if (rows === null) { last = 'shapeless body'; await sleep(600 * (i + 1)); continue; }
+            return { status: rows.length > 0 ? 'found' : 'absent', row: rows[0] ?? null, reason: null };
+        } catch (e) {
+            last = e?.name === 'AbortError' ? `timeout ${TIMEOUT_MS}ms` : String(e?.message ?? e);
+            await sleep(600 * (i + 1));
+        }
+    }
+    return { status: 'transient', row: null, reason: `${layer.ds}: ${last}` };
+}
+
+/** A positive finite number, or null. `0` in these layers means "not specified", never zero metres. */
+function posNum(raw) {
+    const n = typeof raw === 'number' ? raw : Number.parseFloat(String(raw));
+    return Number.isFinite(n) && n > 0 ? n : null;
+}
+
+/**
+ * The Paris municipal pack at a point — what `resolveParisPluZone.ts` would resolve, measured
+ * against the SAME parameters the national chain was scored on. ⛔ It returns its OWN verdict per
+ * parameter; the caller records both and never lets one overwrite the other.
+ */
+async function parisPackAt(lat, lon) {
+    const layers = {};
+    for (const l of PARIS_PACK_LAYERS) layers[l.ds] = await odsQuery(l, lat, lon);
+
+    const transient = Object.entries(layers).filter(([, r]) => r.status === 'transient').map(([k]) => k);
+    const hauteur = posNum(layers.plub_hauteur.row?.hauteur);
+    const hmc = posNum(layers.plub_hmc.row?.ht_hmc);
+    const hmcDatum = typeof layers.plub_hmc.row?.hmc === 'string' ? layers.plub_hmc.row.hmc.trim() || null : null;
+    const emprise = posNum(layers.plub_ecm.row?.emprise);
+    const ecmArea = posNum(layers.plub_ecm.row?.st_area_shape);
+    const filet = layers.plub_filet.row ?? null;
+
+    // ⚠ C2 counts as a pack recovery ONLY on `plub_hauteur`: it is the published height CEILING in
+    // metres. `plub_hmc.ht_hmc` is a SEPARATE overlay whose `hmc` datum is often `NGF` — an absolute
+    // altitude, not a height above ground — so it is recorded but never scored as the same answer
+    // (that conflation is exactly the §DATUM-DECISION failure, in NGF clothing).
+    // ⚠ C4 counts on the ECM POLYGON, not on `emprise`: the ECM strip IS the buildable footprint
+    // (geometry, not a parcel×% guess) and `emprise=0` means "not specified".
+    const params = {
+        C2: hauteur !== null
+            ? { status: 'resolved', value: hauteur, unit: 'm', from: 'plub_hauteur.hauteur (PLU-b art. UG.3.2.1, graphic annex)' }
+            : { status: 'absent', from: layers.plub_hauteur.status },
+        C4: ecmArea !== null
+            ? { status: 'resolved', value: 'plub_ecm polygon', unit: null, emprisePct: emprise, areaM2: ecmArea, from: 'plub_ecm (emprise constructible maximale, drawn)' }
+            : { status: 'absent', from: layers.plub_ecm.status },
+        C6: filet !== null
+            ? { status: 'partial', value: filet.haut ?? null, cour: filet.cour ?? null, from: `plub_filet within ${PARIS_FILET_RADIUS_M} m (gabarit-enveloppe frontage marking)` }
+            : { status: 'absent', from: layers.plub_filet.status },
+    };
+    return {
+        pack: 'paris-plu-bioclimatique',
+        transient,
+        params,
+        extras: { hmc_m: hmc, hmc_datum: hmcDatum, eal: layers.plub_eal.status === 'found' },
+    };
+}
+
 // ── value extraction from a CNIG libelle/txt ──────────────────────────────────────────────────
 // A prescription's number, when it is published at all, lives in the free-text LIBELLE — the CNIG
 // schema mandates no universal numeric field (FR-FOUNDER §4). This is the SAME class of parser the
@@ -192,19 +331,57 @@ async function traceParcel(id, stratum, lat, lon, label) {
     out.commune = { insee: m.insee, name: m.name, is_rnu: m.is_rnu === true || m.is_rnu === 'true' };
 
     // SERIAL, not Promise.all — see the throttle note above.
+    // ⚠ ROUND 2 adds `nature` and `datappro` to the PROPERTYNAME lists. Both were VERIFIED present
+    // on the live layers before being requested (probe 2026-09-04: `prescription_surf` publishes
+    // gid,…,stypepsc,idpsc,lib_idpsc,**nature**,symbole; `zone_urba` publishes …,**datappro**,…).
+    // Requesting a field a layer does not have is how a working query silently starts erroring.
     const doc = await getFeatures('wfs_du:document', lat, lon, ['du_type', 'partition', 'name']);
     const zone = await getFeatures('wfs_du:zone_urba', lat, lon,
-        ['libelle', 'typezone', 'idurba', 'nomfic', 'urlfic', 'partition']);
+        ['libelle', 'typezone', 'idurba', 'nomfic', 'urlfic', 'partition', 'datappro']);
     const psurf = await getFeatures('wfs_du:prescription_surf', lat, lon,
-        ['typepsc', 'stypepsc', 'libelle', 'txt', 'nomfic', 'urlfic', 'idurba', 'lib_idpsc', 'datvalid']);
+        ['typepsc', 'stypepsc', 'nature', 'libelle', 'txt', 'nomfic', 'urlfic', 'idurba', 'lib_idpsc', 'datvalid', 'datappro']);
     const plin = await getFeatures('wfs_du:prescription_lin', lat, lon,
-        ['typepsc', 'stypepsc', 'libelle', 'txt', 'nomfic', 'urlfic', 'idurba', 'lib_idpsc']);
+        ['typepsc', 'stypepsc', 'nature', 'libelle', 'txt', 'nomfic', 'urlfic', 'idurba', 'lib_idpsc', 'datappro']);
     for (const [n, r] of [['document', doc], ['zone_urba', zone], ['prescription_surf', psurf], ['prescription_lin', plin]]) {
         if (r.status === 'transient') out.notes.push(`transient ${n}: ${r.reason}`);
     }
 
     const prescriptions = [...psurf.features, ...plin.features].map((f) => f.properties);
     out.prescriptionCodes = [...new Set(prescriptions.map((p) => `${p.typepsc}.${p.stypepsc ?? '--'}`))].sort();
+
+    // ── M2 · the GPU-only TXT ceiling — the PAYLOAD is persisted, not just the code ────────────
+    // ⛔ Round 1 kept only `prescriptionCodes` and therefore could not answer "what is the ceiling",
+    // only "what did we recover". A claim about a ceiling that cannot be recomputed from the record
+    // is an assertion, so the record now carries every field the claim is built from.
+    out.prescriptions = prescriptions.map((p) => ({
+        typepsc: p.typepsc ?? null,
+        stypepsc: p.stypepsc ?? null,
+        nature: p.nature ?? null,
+        // The CNIG composite key TYPEPSC-STYPEPSC[-NATURE] = SRU niveau 1 `idPrescription`
+        // (review §1 item 2). Pair-shaped where the document published no NATURE — a v2017
+        // vintage signal, never a guessed third segment.
+        idPrescription: [p.typepsc ?? '??', p.stypepsc ?? '00', (p.nature ?? '').trim() || null]
+            .filter((s) => s !== null).join('-'),
+        libelle: p.libelle ?? null,
+        txt: p.txt ?? null,
+        lib_idpsc: p.lib_idpsc ?? null,
+        nomfic: p.nomfic ?? null,
+        urlfic: p.urlfic ?? null,
+        datappro: p.datappro ?? null,
+        // The three facts the ceiling is computed from, resolved once here so the report and any
+        // later re-read agree by construction rather than by two people writing the same filter.
+        hasText: [p.libelle, p.txt, p.lib_idpsc].some((s) => typeof s === 'string' && s.trim() !== ''),
+        hasNumber: numericFrom(p.libelle, p.txt, p.lib_idpsc) !== null,
+        envelopeFamily: ['14', '15', '38', '39', '40'].includes(String(p.typepsc)) ? String(p.typepsc) : null,
+    }));
+    // §11 · VINTAGE. `datappro` (date d'approbation) from whichever layer served one, plus whether
+    // ANY prescription carried a NATURE — the 2.1.0-vs-2017 discriminator, observed rather than
+    // inferred from the date alone.
+    out.vintage = {
+        datappro: zone.features[0]?.properties?.datappro
+            ?? prescriptions.find((p) => p.datappro)?.datappro ?? null,
+        anyNature: prescriptions.some((p) => typeof p.nature === 'string' && p.nature.trim() !== ''),
+    };
 
     const z = zone.features[0]?.properties ?? null;
     const d = doc.features[0]?.properties ?? null;
@@ -311,6 +488,13 @@ async function traceParcel(id, stratum, lat, lon, label) {
         }));
     }
 
+    // ── M3 · the SOURCE-TIER comparison — the municipal pack, beside the national chain ────────
+    // ⛔ RECORDED, NEVER MERGED. `out.states` stays exactly what the NATIONAL GPU chain produced,
+    // so the 23.7 % / 3.0 % headline remains the same measurement it was in round 1; the pack's
+    // verdict lands in `out.pack` and the delta is computed in the report. Merging them would
+    // answer a different question and destroy the comparison this run exists to make.
+    if (isInParis(lat, lon)) out.pack = await parisPackAt(lat, lon);
+
     return out;
 }
 
@@ -333,6 +517,24 @@ function urbanPoints(perCity) {
             // ±0.012° ≈ ±1.3 km — inside the commune, off the exact centroid.
             pts.push([lat + (rnd() - 0.5) * 0.024, lon + (rnd() - 0.5) * 0.034, name]);
         }
+    }
+    return pts;
+}
+
+/**
+ * STRATUM C (round 2) — points inside PARIS, for the source-tier comparison. Two Paris parcels fell
+ * out of stratum B, which is not an n anybody should quote for a build-order decision, so the pack
+ * question gets its own sample.
+ *
+ * ⚠ The box is INSIDE the périphérique (48.815–48.902 N, 2.255–2.415 E), so a draw is a Paris draw;
+ * the audit still RECORDS the commune the authority returns, so any point that is not in 75056 is
+ * visible in the output rather than silently counted as Paris.
+ * ⛔ Drawn AFTER strata A and B so the `rnd` stream reaching them is untouched (see the header).
+ */
+function parisPoints(n) {
+    const pts = [];
+    for (let i = 0; i < n; i++) {
+        pts.push([48.815 + rnd() * (48.902 - 48.815), 2.255 + rnd() * (2.415 - 2.255), 'Paris']);
     }
     return pts;
 }
@@ -374,11 +576,29 @@ async function main() {
         ...rawA.filter((r) => !r.skip).slice(0, wantA),
         ...rawB.filter((r) => !r.skip).slice(0, wantB),
     ];
-    const rejected = { areaRandomOffLand: rawA.filter((r) => r.skip).length, urbanSkipped: rawB.filter((r) => r.skip).length };
+
+    // ── STRATUM C · Paris, for the pack-vs-national comparison (move 3) ───────────────────────
+    // ⛔ NOT part of the 100. It is reported separately and is NEVER folded into the 23.7 % / 3.0 %
+    // headline: a Paris-weighted sample would inflate a national figure, which is the whole reason
+    // the strata are kept apart in the first place.
+    const wantC = Number(process.env.WANT_C ?? 25);
+    let parisParcels = [];
+    if (wantC > 0) {
+        const candidatesC = parisPoints(wantC);
+        process.stderr.write(`Stratum C (Paris source-tier, n=${candidatesC.length})…\n`);
+        const rawC = await pool(candidatesC, 2, ([lat, lon, name], k) => traceParcel(`C${k}`, 'paris-pack', lat, lon, name));
+        parisParcels = rawC.filter((r) => !r.skip);
+    }
+
+    const rejected = {
+        areaRandomOffLand: rawA.filter((r) => r.skip).length,
+        urbanSkipped: rawB.filter((r) => r.skip).length,
+        parisSkipped: wantC - parisParcels.length,
+    };
 
     writeFileSync(process.argv[2] ?? 'fr-audit-raw.json',
-        JSON.stringify({ seed: SEED, runAtIso: new Date().toISOString(), rejected, parcels }, null, 1));
-    process.stderr.write(`\nDONE — ${parcels.length} parcels traced (A ${parcels.filter(p=>p.stratum==='area-random').length} / B ${parcels.filter(p=>p.stratum==='urban').length}), ${rejected.areaRandomOffLand} off-land rejects\n`);
+        JSON.stringify({ seed: SEED, runAtIso: new Date().toISOString(), round: 2, rejected, parcels, parisParcels }, null, 1));
+    process.stderr.write(`\nDONE — ${parcels.length} parcels traced (A ${parcels.filter(p=>p.stratum==='area-random').length} / B ${parcels.filter(p=>p.stratum==='urban').length}), ${rejected.areaRandomOffLand} off-land rejects, stratum C ${parisParcels.length}\n`);
 }
 
 main().catch((e) => { console.error(e); process.exit(1); });

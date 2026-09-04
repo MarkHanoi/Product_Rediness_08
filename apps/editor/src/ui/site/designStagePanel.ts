@@ -39,6 +39,7 @@ export type EnvelopeCardSection =
     | 'designed-vs-permitted'
     | 'how-measured'
     | 'per-level'
+    | 'intended-area'
     | 'site-data'
     | 'target-area'
     | 'cost'
@@ -48,6 +49,7 @@ export const ENVELOPE_CARD_SECTIONS: readonly EnvelopeCardSection[] = Object.fre
     'designed-vs-permitted',
     'how-measured',
     'per-level',
+    'intended-area',
     'site-data',
     'target-area',
     'cost',
@@ -67,6 +69,11 @@ export const ENVELOPE_CARD_SECTION_STAGE: Readonly<Record<EnvelopeCardSection, D
         'designed-vs-permitted': 'bim',
         'how-measured': 'bim',
         'per-level': 'bim',
+        // ⚠ INTENDED serves MASSING, not BIM, and the difference is the whole point of the
+        // channel. Its subject is what the user has DECLARED (level envelopes, C114) — an
+        // artefact of the massing stage that exists precisely BEFORE anything is authored.
+        // Gating it behind BIM would grey out the one section that can speak at massing.
+        'intended-area': 'massing',
         'site-data': null,
         'target-area': 'massing',
         'cost': 'massing',
@@ -78,6 +85,7 @@ export const ENVELOPE_CARD_SECTION_LABEL: Readonly<Record<EnvelopeCardSection, s
     'designed-vs-permitted': 'Designed vs permitted',
     'how-measured': 'How these were measured',
     'per-level': 'Built area by storey',
+    'intended-area': 'Intended area by storey',
     'site-data': 'Full site & massing data',
     'target-area': 'Target ground-floor area',
     'cost': 'Indicative cost',
