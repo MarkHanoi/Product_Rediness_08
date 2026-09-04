@@ -35,6 +35,27 @@ production and costs a migration forever if deferred.
 metres cannot represent. (IEEE-754 doubles give ~15 significant digits; at building scale this is
 sub-nanometre. Not expected — but it is the test.)
 
+> ⛔ **STATUS 2026-09-04 — D3 IS NOT EXECUTED, AND ITS STATED PREMISE IS NOW FALSE.**
+> **The premise:** *"payable now precisely because `family-runtime` is not yet reachable from the
+> editor (`grep '@pryzm/family-runtime' apps/editor` → 0)."* **Re-measured at HEAD: 10 files** in
+> `apps/editor/src` import `@pryzm/family-runtime`, 7 import `@pryzm/family-instance`, and
+> `ComponentCatalog.ts` imports `@pryzm/family-loader`. **The window this ruling said it was
+> exploiting has closed** — the whole authoring spine is reachable from the Tools rail.
+> **The execution:** `packages/family-instance/src/units.ts` (§4D-ONE-LENGTH-SEAM) records it
+> plainly — *"Lane 4A executed the D4 half of its row and **deliberately did NOT execute D3** —
+> `family-runtime`'s `CANONICAL_LENGTH_UNIT` is still `'mm'` and its own guard test asserts that
+> OWED state."* So the 1000× seam this ruling exists to remove **is live today**: a number out of
+> the parameter runtime is millimetres, a number authored in the document is metres.
+> ⭐ **The mitigation is real and was taken deliberately:** both consumers were funnelled through
+> the single `runtimeLengthToMetres` helper, so the flip is one constant
+> (`RUNTIME_LENGTH_UNITS_PER_METRE`). ⛔ **Do not inline a second `÷1000` at a new call site** — two
+> hand-written ones is how a 1000× defect survives a migration, which is why that file exists.
+> ⚠ **Flipping the constant is necessary and NOT sufficient**: existing `.pryzm-family` documents
+> carry length `defaultValue`s and expression-valued profile coordinates in runtime units, so D3's
+> landing needs a **version migration op**, not only the constant. Costed as rank 6 in
+> [`UCE-REACHABILITY-AUDIT.md`](../../03-execution/plans/UCE-REACHABILITY-AUDIT.md).
+> **Read the code and the audit, never this paragraph's parenthetical.**
+
 ## D4 — **EXPRESSION BEATS `defaultValue`**; the full order is instance > type > expression > definition default
 
 Spec §12 orders resolution `definition defaults → type values → instance overrides → derived → geometry`
@@ -89,6 +110,24 @@ its own run enumerates one and names `familyEditorRuntime.ts` (**L-12830, P0**).
 this application is currently taken against an instrument printing a false green **about that exact
 application**. **Fix the gate first; execute the retirement second.** A retirement justified by a lying
 instrument would be right by accident, and this repository does not accept right-by-accident.
+
+> ⭐ **STATUS 2026-09-04 — THE SEQUENCING BLOCKER IS CLEARED; THE RETIREMENT IS NOT DONE.**
+> The `"0 rivals"` literal was removed from `check-single-compose.ts` on **2026-08-30**
+> (`4a4b35c0`); the gate now reads **1 definition · 1/1 rival (`createFamilyEditorRuntime`) · 2/2
+> production callers, RC=0**. **D1's own precondition is therefore satisfied and the retirement is
+> executable.**
+> ⛔ **Neither half has happened, and the HARVEST is the expensive half to keep forgetting.**
+> `apps/component-editor` is not merely un-retired, it is **UNREACHABLE**: not a rollup input
+> (`vite.config.ts:425-428` declares only `index.html` / `browser.html`), never copied into the
+> runtime image (`Dockerfile:251-280`), no server route, no link, **zero dependent workspaces**, and
+> its `test:ci` is silently skipped by CI. Grepping all 105 files of `dist/assets/` for
+> `mountAppShell` / `familyEditorRuntime` / `constraint.addCoincident` → **0**.
+> ⭐ **What is stranded there is the largest block of built-and-unreachable value in the programme**:
+> the five REAL constraint creators on planegcs (spec §14) and eleven sketch modules (spec §57
+> *Create*/*Modify*) — capabilities the live editor does **not** have. ⚠ **Harvest is not a port**:
+> the rival bus has no redo, no validation gate and no persistence, so the verbs must be re-authored
+> to C16 rather than moved. Costed as rank 3 in
+> [`UCE-REACHABILITY-AUDIT.md`](../../03-execution/plans/UCE-REACHABILITY-AUDIT.md).
 
 ## D2 — 3-D IS A FIRST-CLASS AUTHORING SURFACE **FOR EVERYTHING THAT DOES NOT INFER A PLANE**
 

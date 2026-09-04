@@ -374,6 +374,23 @@ undocumented one is not.*
 > surfaces (`ChatCapabilityRegistry`, `CHAT_UNAVAILABLE`) are Phase 4H's exclusive files, and 4H's
 > ENTRY condition is *"4C's verbs registered"* — so the plan schedules this delta deliberately. That
 > makes it OWED, not acceptable.
+>
+> ⭐ **PAID — corrected 2026-09-04. Every number in the paragraph above is STALE.** Re-run at HEAD:
+> `npx tsx tools/ga-gate/check-chat-capability-coverage.ts` →
+> **`[check-chat-capability-coverage] UNDECLARED: 0 (baseline 0)`**. Phase 4H landed the
+> declarations; all three verbs are declared at `ChatCapabilityRegistry.ts:4063-4065`, each naming
+> the surface that drives it and what it declines. **The debt this section records is discharged and
+> the ratchet is at baseline.**
+> ⛔ **DO NOT read this family's status off the gate's EXIT CODE.** The gate still exits non-zero,
+> on arms that are **not this family's**: unresolvable parameter sources **3** · scope modes
+> declared-but-not-honoured **1** · undeclared spatial reach **5/2** · unreachable panel properties
+> **47/42**. A reader who saw the non-zero exit and re-quoted "17" would report a paid debt as
+> outstanding — which is exactly the stale-transcription failure the CLAUDE.md correction boxes
+> exist for, and it happened once already while this audit was being written.
+> ⚠ **§12.4's heading, the §11 row at line 141, the §10 table row at line 405 and the exit
+> criterion at line 431 all still carry the old reading.** They are left in place as the record of
+> the debt; **this box is the current one.** Full context:
+> [`UCE-REACHABILITY-AUDIT.md`](../../03-execution/plans/UCE-REACHABILITY-AUDIT.md) §6.
 
 > **§12.5 — NO SECOND `ComponentDefinitionSchema`, NO SECOND EXPRESSION ENGINE, NO SECOND REFUSAL
 > VOCABULARY.** The audit's standing rule R1. This family adds an OCCURRENCE — the one thing that
