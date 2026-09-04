@@ -28,3 +28,9 @@ export * from './ContextDerivedStudyEnvelope.js';
 // gap. Composes with `FieldProvenance`/`EnvelopeConfidence`; replaces neither. Used by every
 // country adapter — FR, PT/ES, NL/DK and NSW — so there is exactly one spelling.
 export * from './RuleState.js';
+// §CONSTRAINT-FORM (founder ES field-level pass §5) — the SIX forms a planning constraint takes:
+// scalar · formula · conditional · geometric · linear · document-derived. Spain's conditional norms
+// (`IF floors=3 THEN height<=10.50m`) are not expressible as a nullable number. Types the shape of
+// the E1a `SiteIntelRule.body` JSON blob; rivals neither it nor `RuleState`, which it joins via
+// `ruleStatusForResolution`.
+export * from './ConstraintForm.js';
