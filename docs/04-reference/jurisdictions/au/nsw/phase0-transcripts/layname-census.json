@@ -1,0 +1,99 @@
+{
+ "capturedAt": "2026-09-04",
+ "totalFeat": 996,
+ "totalPop": 996,
+ "layers": {
+  "420": {
+   "features": 1,
+   "layNamePopulated": 1,
+   "distinctLayNames": [
+    "Airport Buffer"
+   ]
+  },
+  "422": {
+   "features": 79,
+   "layNamePopulated": 79,
+   "distinctLayNames": [
+    "Maximum Building Height (m)"
+   ]
+  },
+  "429": {
+   "features": 203,
+   "layNamePopulated": 203,
+   "distinctLayNames": [
+    "Minimum Level Australian Height Datum (AHD)"
+   ]
+  },
+  "430": {
+   "features": 9,
+   "layNamePopulated": 9,
+   "distinctLayNames": [
+    "Building Height Plane"
+   ]
+  },
+  "469": {
+   "features": 14,
+   "layNamePopulated": 14,
+   "distinctLayNames": [
+    "Minimum Floor Height Restriction Heights shown on map in AHD (m)"
+   ]
+  },
+  "485": {
+   "features": 365,
+   "layNamePopulated": 365,
+   "distinctLayNames": [
+    "Maximum Building Height",
+    "Maximum Building Height (m)"
+   ]
+  },
+  "509": {
+   "features": 54,
+   "layNamePopulated": 54,
+   "distinctLayNames": [
+    "Maximum Building Height (m)"
+   ]
+  },
+  "512": {
+   "features": 7,
+   "layNamePopulated": 7,
+   "distinctLayNames": [
+    "Meteorological Station Height Limit"
+   ]
+  },
+  "572": {
+   "features": 154,
+   "layNamePopulated": 154,
+   "distinctLayNames": [
+    "Additional Protection - Parramatta Square",
+    "Land affected by Sun Access Protection",
+    "Land Affected by Sun Protection Controls",
+    "Protected Areas",
+    "Protected Places",
+    "Specified Sites",
+    "Sun Access Protection"
+   ]
+  },
+  "573": {
+   "features": 9,
+   "layNamePopulated": 9,
+   "distinctLayNames": [
+    "Protected Areas"
+   ]
+  },
+  "763": {
+   "features": 10,
+   "layNamePopulated": 10,
+   "distinctLayNames": [
+    "Overshadowing Map"
+   ]
+  },
+  "771": {
+   "features": 91,
+   "layNamePopulated": 91,
+   "distinctLayNames": [
+    "Alternative Maximum Building Height (m)",
+    "Maximum Building Height (m)"
+   ]
+  }
+ }
+}
