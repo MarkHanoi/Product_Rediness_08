@@ -1,0 +1,116 @@
+{
+ "generatedAt": "2026-09-04T06:18:23.959Z",
+ "lane": "ENVELOPE-NLDK",
+ "credentialsPresent": {
+  "DATAFORDELER_API_KEY": false,
+  "DATAFORDELER_USERNAME": false
+ },
+ "probes": [
+  {
+   "id": "plandata-wfs-capabilities",
+   "url": "https://geoserver.plandata.dk/geoserver/wfs?service=WFS&version=2.0.0&request=GetCapabilities",
+   "gate": "keyless",
+   "status": 200,
+   "contentType": "application/xml",
+   "bytes": 227556,
+   "head": "<?xml version=\"1.0\" encoding=\"UTF-8\"?><wfs:WFS_Capabilities version=\"2.0.0\" xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\" xmlns=\"http://www.opengis.net/wfs/2.0\" xmlns:wfs=\"http://www.opengis.n"
+  },
+  {
+   "id": "dawa-jordstykker-point",
+   "url": "https://api.dataforsyningen.dk/jordstykker?x=12.5683&y=55.6761&srid=4326",
+   "gate": "keyless",
+   "status": 200,
+   "contentType": "application/json; charset=UTF-8",
+   "bytes": 1239,
+   "head": "[ { \"matrikelnr\": \"7000q\", \"bbox\": [ 12.56697311, 55.67078163, 12.57950467, 55.6765606 ], \"visueltcenter\": [ 12.56812689, 55.67574416 ], \"href\": \"https://api.dataforsyningen.dk/jordstykker/2000179/700"
+  },
+  {
+   "id": "dawa-bbr-probe",
+   "url": "https://api.dataforsyningen.dk/bbrlight/bygninger?per_side=1",
+   "gate": "keyless (BBR-light; DK-DATA-GAP-AUDIT §1.4 records DAWA bygninger as REJECTED for 200-empty at central CPH)",
+   "status": 404,
+   "contentType": "text/html",
+   "bytes": 604,
+   "head": "<!DOCTYPE html><html lang=\"da\"><head><meta charset=\"UTF-8\"><title>Dataforsyningen API Gateway</title><style>body{font-family:Roboto,sans-serif;font-size:11px;}h1{margin-bottom:.3rem;font-size:.75rem;l"
+  },
+  {
+   "id": "datafordeler-MAT-wfs-anon",
+   "url": "https://wfs.datafordeler.dk/MAT/MAT_WFS/1.0.0/WFS?service=WFS&request=GetCapabilities",
+   "gate": "DATAFORDELER_API_KEY",
+   "status": 401,
+   "contentType": null,
+   "bytes": 0,
+   "head": ""
+  },
+  {
+   "id": "datafordeler-GeoDanmark-wfs-anon",
+   "url": "https://wfs.datafordeler.dk/GeoDanmarkVektor/GeoDanmark60_NOHIST_GML3/1.0.0/WFS?service=WFS&request=GetCapabilities",
+   "gate": "DATAFORDELER_API_KEY",
+   "status": 401,
+   "contentType": null,
+   "bytes": 0,
+   "head": ""
+  },
+  {
+   "id": "datafordeler-BBR-anon",
+   "url": "https://services.datafordeler.dk/BBR/BBRPublic/1/rest/bygning?format=json&username=&password=",
+   "gate": "Datafordeler service user",
+   "status": 403,
+   "contentType": "text/plain; charset=UTF-8",
+   "bytes": 25,
+   "head": "(403) Unauthorized access"
+  },
+  {
+   "id": "datafordeler-DHM-wcs-anon",
+   "url": "https://services.datafordeler.dk/DHMNedboer/dhm/1.0.0/WCS?service=WCS&request=GetCapabilities",
+   "gate": "DATAFORDELER_API_KEY",
+   "status": 404,
+   "contentType": null,
+   "bytes": 0,
+   "head": ""
+  },
+  {
+   "id": "retsinformation-api",
+   "url": "https://www.retsinformation.dk/api/document/eli/lta/2018/1615",
+   "gate": "unknown — Part 5.1",
+   "status": 200,
+   "contentType": "text/html; charset=utf-8",
+   "bytes": 4516,
+   "head": " <!DOCTYPE html> <html lang=\"da\" prefix=\" og: http://ogp.me/ns# eli: http://data.europa.eu/eli/ontology# iana: http://www.iana.org/\"> <!-- for a list of additionally recognized default prefixes in RDF"
+  },
+  {
+   "id": "miljoeportal-arealdata-wfs",
+   "url": "https://arealdata-api.miljoeportal.dk/geoserver/wfs?service=WFS&request=GetCapabilities",
+   "gate": "unknown — Part 6",
+   "status": 404,
+   "contentType": null,
+   "bytes": 0,
+   "head": ""
+  },
+  {
+   "id": "slks-fbb-wfs",
+   "url": "https://www.kulturarv.dk/ffrepox/rest/api/",
+   "gate": "unknown — Part 7 FBB",
+   "status": 404,
+   "contentType": "text/html; charset=iso-8859-1",
+   "bytes": 272,
+   "head": "<!DOCTYPE HTML PUBLIC \"-//IETF//DTD HTML 2.0//EN\"> <html><head> <title>404 Not Found</title> </head><body> <h1>Not Found</h1> <p>The requested URL was not found on this server.</p> <hr> <address>Apach"
+  },
+  {
+   "id": "ler-openapi",
+   "url": "https://ler.dk/api/v2/openapi.json",
+   "gate": "professional-purpose auth — Part 9",
+   "status": null,
+   "error": "fetch failed"
+  },
+  {
+   "id": "tinglysning-api",
+   "url": "https://www.tinglysning.dk/tinglysning/",
+   "gate": "MitID-class identity — Part 10 (TRUNCATED in transmission)",
+   "status": 200,
+   "contentType": "text/html; charset=UTF-8",
+   "bytes": 7503,
+   "head": "<!doctype html> <html lang=\"da\" data-beasties-container> <head> <meta charset=\"utf-8\"> <title>Tinglysning.dk</title> <base href=\"/tmv/\"> <meta http-equiv=\"x-ua-compatible\" content=\"IE=edge\"> <meta nam"
+  }
+ ]
+}

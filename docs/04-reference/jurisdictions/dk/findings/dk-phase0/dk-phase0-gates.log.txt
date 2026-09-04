@@ -1,0 +1,26 @@
+200   plandata-wfs-capabilities          227556B application/xml
+         <?xml version="1.0" encoding="UTF-8"?><wfs:WFS_Capabilities version="2.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns="http://www.opengis.net/
+200   dawa-jordstykker-point             1239B application/json; charset=UTF-8
+         [ { "matrikelnr": "7000q", "bbox": [ 12.56697311, 55.67078163, 12.57950467, 55.6765606 ], "visueltcenter": [ 12.56812689, 55.67574416 ], "href": "https://api.da
+404   dawa-bbr-probe                     604B text/html
+         <!DOCTYPE html><html lang="da"><head><meta charset="UTF-8"><title>Dataforsyningen API Gateway</title><style>body{font-family:Roboto,sans-serif;font-size:11px;}h
+401   datafordeler-MAT-wfs-anon          0B 
+401   datafordeler-GeoDanmark-wfs-anon   0B 
+403   datafordeler-BBR-anon              25B text/plain; charset=UTF-8
+         (403) Unauthorized access
+404   datafordeler-DHM-wcs-anon          0B 
+200   retsinformation-api                4516B text/html; charset=utf-8
+          <!DOCTYPE html> <html lang="da" prefix=" og: http://ogp.me/ns# eli: http://data.europa.eu/eli/ontology# iana: http://www.iana.org/"> <!-- for a list of additio
+404   miljoeportal-arealdata-wfs         0B 
+404   slks-fbb-wfs                       272B text/html; charset=iso-8859-1
+         <!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML 2.0//EN"> <html><head> <title>404 Not Found</title> </head><body> <h1>Not Found</h1> <p>The requested URL was not found
+ERR   ler-openapi                        fetch failed
+200   tinglysning-api                    7503B text/html; charset=UTF-8
+         <!doctype html> <html lang="da" data-beasties-container> <head> <meta charset="utf-8"> <title>Tinglysning.dk</title> <base href="/tmv/"> <meta http-equiv="x-ua-
+
+WROTE dk-phase0-gates.json
+
+READ THIS BEFORE QUOTING ANY LINE ABOVE: a status is a fact about the PROBE, not about
+the dataset. A 404 on an anonymous Datafordeler call is the gate answering, NOT an
+absence of Danish cadastral data. Nothing here licenses a coverage claim.
+RC=0
