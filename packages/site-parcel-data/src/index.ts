@@ -2502,3 +2502,69 @@ export * from './countryAdapters/us/index.js';
 // bare name resolves to the EE original; NO's copy stays reachable under a prefixed alias.
 export { extractOwsExceptionText } from './countryAdapters/ee/index.js';
 export { extractOwsExceptionText as noExtractOwsExceptionText } from './countryAdapters/no/index.js';
+
+// ── LANE ENVELOPE-NLDK (2026-09-04) — NETHERLANDS + DENMARK, built against Phase 0's numbers. ──
+//
+// §NL-PEIL — `peil` as a first-class legal variable (NL master §7.1). Phase 0: a peil definition
+// resolved in only 20/66 = 30.3% of plans, carrying 17 DISTINCT definitions, and MOST are
+// multi-branch — so a Dutch height datum is usually `alternative` (named branches, no unique
+// value), not `resolved`. ⛔ `peil = AHN elevation` is NOT expressible through this API: evidence
+// must name WHICH legal reference it measured, and a mismatched class refuses.
+export {
+    classifyNlPeilDefinition,
+    resolveNlPeil,
+    describeNlPeilClass,
+    nlVerticalEnvelope,
+    nlPeilToRuleState,
+    NL_PEIL_REFERENCE_CLASSES,
+    type NlPeilReferenceClass,
+    type NlPeilEvidence,
+    type NlPeilResolution,
+    type NlVerticalEnvelope,
+} from './rulepacks/nlPeil.js';
+// §NL-ROOF-UNDERDETERMINED — two limits are not a roof (NL master §7.4 + the §15 fixture).
+// ⭐ Phase 0 moved this from edge case to MAIN PATH: goothoogte and bouwhoogte co-occur on 1 of
+// 500 land parcels and 0 of 250 urban, and SVBP2012 published a dakhelling or nokhoogte ZERO
+// times across 556 parcels with a plan — while the plan TEXT carries dakhelling in 28.8% of
+// plans. So the roof rule exists and is not structured: `mechanism: 'present'` + `failure: 'pdf'`,
+// never F1 and never "any roof is allowed".
+export {
+    resolveNlRoofDeterminacy,
+    nlRoofToRuleState,
+    type NlRoofFormRules,
+    type NlRoofInputs,
+    type NlRoofBounds,
+    type NlRoofDeterminacy,
+} from './rulepacks/nlRoofDeterminacy.js';
+// §DK-IOMFANGREG — Denmark's F1 DISCRIMINATOR. Phase 0 (§D4c) found `iomfangreg = true` co-occurs
+// with a published height/percentage/storey count 0/183 times, exceptionless: it is NOT the
+// overstatement exposure DK-DATA-GAP-AUDIT §1.2 feared, it is the one field Denmark publishes
+// that EXPLAINS an absence — "this plan regulates bulk, in the document, not in these fields" —
+// on the register's own authority, over 61.2% of lokalplan features.
+export {
+    readDkPlandataFlag,
+    resolveDkOmfangRegulation,
+    dkOmfangToRuleState,
+    type DkOmfangFlags,
+    type DkOmfangNumbers,
+    type DkOmfangVerdict,
+} from './rulepacks/dkOmfangRegulation.js';
+
+// ── FRANCE — the CNIG PLU 2025 prescription code table as a DETERMINISTIC DECISION TREE. ──────────
+// `parcel → intersect prescriptions → 39.02? ⇒ max height · 15.01? ⇒ road setback · 38.02? ⇒ max
+// emprise · 40.02? ⇒ volumetry` — the founder's §2 finding ("much better than searching a 200-page
+// PDF with an LLM"). ⭐ It types the `.97` QUALITATIVE and `.98` ALTERNATIVE subtypes that no FR code
+// distinguished (FR-DATA-GAP-AUDIT §1.5/§2g-ii), so a legally non-numeric rule answers
+// `QUALITATIVE RULE` instead of `UNKNOWN` — an answer the source itself licenses (R151-12).
+// Emits the SHARED `RuleState` vocabulary; mints no FR spelling. Pure, no I/O.
+export {
+    FR_CNIG_TREE_ORDER,
+    classifyFrCnigCode,
+    recoverFrNumberFromText,
+    frCnigRuleStates,
+    type FrCnigSemantic,
+    type FrCnigClassification,
+    type FrRecoveredNumber,
+    type FrPrescriptionRow,
+    type FrCnigTreeInput,
+} from './rulepacks/frCnigPrescriptionTree.js';
