@@ -1223,3 +1223,123 @@ describe('GpuPickStrategy respects visibility (§PICK-RESPECT-VISIBILITY)', () =
     expect(pickSlotsForId(strategy, 'col-2')).toBe(1);
   });
 });
+
+// ---------------------------------------------------------------------------
+// §PERF-PICK-STABILITY-IS-A-SET-PROBE — the registry-stability check
+// ---------------------------------------------------------------------------
+//
+// `syncPickScene` decides whether the element set changed since the last pick.
+// It used a sorted-and-joined STRING HASH of every id, rebuilt on every click and
+// every throttled hover RAF (~20 Hz); it is now a Set probe (size, then
+// membership) that allocates nothing on the stable path.
+//
+// ⭐ WHAT THESE TESTS EXIST FOR: the replacement is only safe if it answers the
+// SAME yes/no. The dangerous case is a SAME-SIZE REPLACEMENT — one id swapped for
+// another — which a size check alone reports as "stable" and which would then skip
+// the removal pass, leaving a dead element pickable and a live one absent. The
+// membership loop is what catches it, and `same-size replacement` below is the
+// test that fails if that loop is ever dropped as "redundant".
+//
+// Equivalence with the old string-hash implementation was verified directly during
+// the change on six id-set mutations (same / added / removed / renamed / reordered
+// / two-ids-swapped); both agreed on all six.
+describe('§PERF-PICK-STABILITY-IS-A-SET-PROBE — registry-change detection', () => {
+  function meshEntry(id: string): { id: string; kind: string; mesh: THREE.Mesh } {
+    return { id, kind: 'wall', mesh: makeMesh() };
+  }
+
+  it('a stable registry keeps every element pickable across repeated syncs', () => {
+    const strategy = new GpuPickStrategy({ targetWidth: 4, targetHeight: 4 });
+    const entries = [meshEntry('a'), meshEntry('b')];
+    const { renderer } = makeFakeRenderer(4, 4);
+    const ctx = makeCtx(fakeRegistry(entries), renderer);
+
+    for (let i = 0; i < 5; i++) strategy.pick({ x: 50, y: 50 }, ctx);
+    expect(pickSlotsForId(strategy, 'a')).toBe(1);
+    expect(pickSlotsForId(strategy, 'b')).toBe(1);
+  });
+
+  it('an ADDED element becomes pickable on the next sync', () => {
+    const strategy = new GpuPickStrategy({ targetWidth: 4, targetHeight: 4 });
+    const entries = [meshEntry('a')];
+    const { renderer } = makeFakeRenderer(4, 4);
+    const ctx = makeCtx(fakeRegistry(entries), renderer);
+
+    strategy.pick({ x: 50, y: 50 }, ctx);
+    expect(pickSlotsForId(strategy, 'b')).toBe(0);
+
+    entries.push(meshEntry('b'));
+    strategy.pick({ x: 50, y: 50 }, ctx);
+    expect(pickSlotsForId(strategy, 'b')).toBe(1);
+  });
+
+  it('a REMOVED element stops being pickable on the next sync', () => {
+    const strategy = new GpuPickStrategy({ targetWidth: 4, targetHeight: 4 });
+    const entries = [meshEntry('a'), meshEntry('b')];
+    const { renderer } = makeFakeRenderer(4, 4);
+    const ctx = makeCtx(fakeRegistry(entries), renderer);
+
+    strategy.pick({ x: 50, y: 50 }, ctx);
+    expect(pickSlotsForId(strategy, 'b')).toBe(1);
+
+    entries.splice(1, 1);
+    strategy.pick({ x: 50, y: 50 }, ctx);
+    expect(pickSlotsForId(strategy, 'b')).toBe(0);
+    expect(pickSlotsForId(strategy, 'a')).toBe(1);
+  });
+
+  it('⭐ a SAME-SIZE REPLACEMENT is detected (size alone cannot see it)', () => {
+    const strategy = new GpuPickStrategy({ targetWidth: 4, targetHeight: 4 });
+    const entries = [meshEntry('a'), meshEntry('b')];
+    const { renderer } = makeFakeRenderer(4, 4);
+    const ctx = makeCtx(fakeRegistry(entries), renderer);
+
+    strategy.pick({ x: 50, y: 50 }, ctx);
+    expect(pickSlotsForId(strategy, 'b')).toBe(1);
+
+    // Swap 'b' for 'c' — the COUNT is unchanged, so only a membership test sees it.
+    entries[1] = meshEntry('c');
+    strategy.pick({ x: 50, y: 50 }, ctx);
+    expect(pickSlotsForId(strategy, 'b')).toBe(0);   // dead id must be gone
+    expect(pickSlotsForId(strategy, 'c')).toBe(1);   // new id must be present
+    expect(pickSlotsForId(strategy, 'a')).toBe(1);
+  });
+
+  it('⭐ a REORDERED registry reads STABLE (order-independence preserved)', () => {
+    const strategy = new GpuPickStrategy({ targetWidth: 4, targetHeight: 4 });
+    const entries = [meshEntry('a'), meshEntry('b'), meshEntry('c')];
+    const { renderer } = makeFakeRenderer(4, 4);
+    const ctx = makeCtx(fakeRegistry(entries), renderer);
+
+    strategy.pick({ x: 50, y: 50 }, ctx);
+    const slotOfA = [...(strategy as unknown as { indexToId: Map<number, string> })
+      .indexToId.entries()].find(([, v]) => v === 'a')![0];
+
+    // The old code SORTED ids precisely so Map order could not fork the hash.
+    // A Set probe is order-independent by construction; assert that, because a
+    // regression here would rebuild every clone on every hover instead.
+    entries.reverse();
+    strategy.pick({ x: 50, y: 50 }, ctx);
+
+    const slotOfAAfter = [...(strategy as unknown as { indexToId: Map<number, string> })
+      .indexToId.entries()].find(([, v]) => v === 'a')![0];
+    // Slots are preserved ⇒ nothing was torn down and rebuilt ⇒ read as stable.
+    expect(slotOfAAfter).toBe(slotOfA);
+    expect(pickSlotsForId(strategy, 'a')).toBe(1);
+    expect(pickSlotsForId(strategy, 'b')).toBe(1);
+    expect(pickSlotsForId(strategy, 'c')).toBe(1);
+  });
+
+  it('an emptied registry drops everything', () => {
+    const strategy = new GpuPickStrategy({ targetWidth: 4, targetHeight: 4 });
+    const entries = [meshEntry('a'), meshEntry('b')];
+    const { renderer } = makeFakeRenderer(4, 4);
+    const ctx = makeCtx(fakeRegistry(entries), renderer);
+
+    strategy.pick({ x: 50, y: 50 }, ctx);
+    entries.length = 0;
+    strategy.pick({ x: 50, y: 50 }, ctx);
+    expect(pickSlotsForId(strategy, 'a')).toBe(0);
+    expect(pickSlotsForId(strategy, 'b')).toBe(0);
+  });
+});
