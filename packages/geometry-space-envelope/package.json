@@ -1,0 +1,31 @@
+{
+  "name": "@pryzm/geometry-space-envelope",
+  "version": "0.1.0",
+  "description": "PRYZM \u2014 SPACE ENVELOPE geometry. The prism solver, the per-face move planner (move-one-face, connected-faces-adapt, refuse-by-name), the derived-metric authority, and the awareness relations (containment, adjacency, stacking, boundary distance) computed on demand and never stored. \u00a7FEAT-SPACE-ENVELOPE / C114 / ADR-0380.",
+  "private": true,
+  "type": "module",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "files": [
+    "src"
+  ],
+  "scripts": {
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:ci": "vitest run",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "dependencies": {
+    "@opentelemetry/api": "^1.9.0",
+    "@pryzm/schemas": "workspace:*",
+    "@pryzm/site-parcel-data": "workspace:*",
+    "@pryzm/solar-analysis": "workspace:*",
+    "zod": "*"
+  },
+  "devDependencies": {
+    "vitest": "^3.0.0"
+  }
+}

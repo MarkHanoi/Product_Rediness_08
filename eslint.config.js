@@ -154,6 +154,7 @@ export const layerElements = [
   { type: 'L2', pattern: 'packages/geometry-pool/**' },         // [family] verified: imports schemas only
   { type: 'L2', pattern: 'packages/geometry-roof/**' },         // [family]
   { type: 'L2', pattern: 'packages/geometry-slab/**' },         // [family]
+  { type: 'L2', pattern: 'packages/geometry-space-envelope/**' }, // [family] imports schemas (L0), solar-analysis (L1), site-parcel-data (L2)
   { type: 'L2', pattern: 'packages/geometry-stair/**' },        // [family]
   { type: 'L2', pattern: 'packages/geometry-wall/**' },         // [family]
   { type: 'L2', pattern: 'packages/geometry-window/**' },       // [family]
