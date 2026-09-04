@@ -536,6 +536,32 @@ const LV_GEOJSON = JSON.stringify({
     features: [{ type: 'Feature', geometry: geoSquare(24.1052, 56.9496), properties: { code: '01000070006', property_code: '01000070006', address: 'Pils iela 23, Rīga, LV1050', area: 5537, area_scale: 5537.2 } }],
 });
 
+// ⛔ LV CONTAINMENT — the fixture above is a ONE-FEATURE fake and therefore CANNOT falsify the
+// containment claim: with a single candidate `pickCandidate` has nothing to choose from, so the
+// test that uses it passes whether the leg picks the container or simply takes `features[0]`
+// ([[fake-more-capable-than-real]]). The one below reproduces what geolatvija ACTUALLY serves at
+// the Rīga golden point, so the pick is load-bearing.
+//
+// MEASURED LIVE 2026-09-04 (lane PARCEL-REACH round 4), upstream AND through
+// https://pryzm.fly.dev/api/parcel/lv?lon=24.1052&lat=56.9496 — both:
+//     HTTP 200 · application/json;charset=UTF-8 · 5250 B
+//     → refcat 01000070162 · area 5768 m² · 41-vertex ring · v0 56.949201,24.103611
+// The dense old-town bbox holds SEVERAL candidates and the FIRST one served is 01000070006
+// ("Pils iela 23"), which does NOT contain the click. A `features[0]` leg answers 01000070006 —
+// the ADJACENT parcel — under a confident cadastral label, which is the C58 §1.4 false-provenance
+// failure at parcel scale rather than at country scale.
+const LV_GEOJSON_MULTI = JSON.stringify({
+    type: 'FeatureCollection',
+    features: [
+        // [0] served FIRST by the WFS; its ring lies WEST of the click and does not contain it.
+        { type: 'Feature', geometry: geoSquare(24.1040, 56.9490), properties: { code: '01000070006', property_code: '01000070006', address: 'Pils iela 23, Rīga, LV1050', area: 5537, area_scale: 5537.2 } },
+        // [1] the TRUE container — the answer the live leg returns.
+        { type: 'Feature', geometry: geoSquare(24.1052, 56.9496), properties: { code: '01000070162', property_code: '01000070162', area: 5768, area_scale: 5768.0 } },
+        // [2] a third neighbour EAST of the click, so "last feature wins" is falsified too.
+        { type: 'Feature', geometry: geoSquare(24.1065, 56.9502), properties: { code: '01000070008', property_code: '01000070008', address: 'Doma laukums 4, Rīga', area: 3210, area_scale: 3210.0 } },
+    ],
+});
+
 const HR_GEOJSON = JSON.stringify({
     type: 'FeatureCollection',
     features: [{ type: 'Feature', geometry: geoSquare(15.9771, 45.8132), properties: { ID: 21606979, BROJ_CESTICE: '2379', MATICNI_BROJ_KO: 335240 } }],
@@ -669,6 +695,29 @@ describe('LANE PROXY-LEGS — Qatar / Latvia / Croatia / Greece / Slovenia / Slo
         const decoded = decodeURIComponent(seen);
         expect(decoded).toContain('services.gisqatar.org.qa/server/rest/services/Vector/CadastrePlots/MapServer/0/query');
         expect(decoded).toContain('outSR=4326');
+    });
+
+    // ⭐ THE CONTAINMENT PIN (lane PARCEL-REACH round 4, 2026-09-04). Rīga must resolve
+    // 01000070162, NEVER 01000070006 — see LV_GEOJSON_MULTI's header for the live evidence.
+    it('LV picks the ring that CONTAINS the click (01000070162), not the first feature (01000070006)', async () => {
+        const p = await fetchEuParcelAtPoint('lv', 24.1052, 56.9496, { fetchImpl: fakeFetch(LV_GEOJSON_MULTI) });
+        expect(p!.refcat).toBe('01000070162');
+        expect(p!.areaM2).toBe(5768);
+        // The two falsification controls, asserted by name so a regression cannot read as a pass.
+        expect(p!.refcat).not.toBe('01000070006'); // features[0] — the adjacent parcel
+        expect(p!.refcat).not.toBe('01000070008'); // features[2] — "last feature wins"
+    });
+
+    it('LV containment survives the WFS reordering the SAME three candidates', async () => {
+        // Order is a property of the service, not of the answer. Reversing it must change nothing;
+        // if it does, the leg is reading position rather than geometry.
+        const reversed = JSON.stringify({
+            type: 'FeatureCollection',
+            features: JSON.parse(LV_GEOJSON_MULTI).features.slice().reverse(),
+        });
+        __resetEuCadastreCache();
+        const p = await fetchEuParcelAtPoint('lv', 24.1052, 56.9496, { fetchImpl: fakeFetch(reversed) });
+        expect(p!.refcat).toBe('01000070162');
     });
 
     it('LV → cadastral code refcat + registered area + address', async () => {
