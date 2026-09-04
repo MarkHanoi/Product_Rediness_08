@@ -2997,6 +2997,21 @@ export {
 // Lane PT reports the identical structure from RGEU art. 65 — two jurisdictions makes this a
 // platform concern, and this module is shaped so promotion to the shared envelope model costs a
 // move rather than a rewrite.
+// ⭐ THE INCLINED-PLANE ADAPTER ADDS NO GEOMETRY. `geometry/inclinedTop.ts` predates this lane and
+// is line-anchored exactly as Burwood LEP 2012 cl 4.3A describes; lane ENVELOPE-IBERIA's
+// `governsExtent` is precisely what the clause's "land marked Area A" needs, so the plane is
+// restricted rather than applied to the whole parcel (which would OVERSTATE) or dropped (L-616).
+export {
+    nswAdaptPlane,
+    nswPlaneSide,
+    type NswPt,
+    // ⛔ NswPt IS the shared `Pt` — { x, z } scene metres, NOT { x, y }. Re-exported as an alias so a
+    // caller cannot construct a parallel point type and reason about compass sides in the wrong plane.
+    type NswPlaneOriginLine,
+    type NswPlaneSide,
+    type NswPlaneRefusal,
+    type NswPlaneAdaptation,
+} from './rulepacks/au/nswInclinedPlane.js';
 export {
     nswReadStoreys,
     describeNswStoreyLimit,

@@ -579,3 +579,68 @@ describe('falsification — a severed GPU is transient-by-name on EVERY branch',
         }
     });
 });
+
+// ══════════════════════════════════════════════════════════════════════════════════════════════
+// §FR-RESOLUTION — the rule packs, proven REACHABLE at the layer a dispatcher calls
+// ══════════════════════════════════════════════════════════════════════════════════════════════
+// ⭐ THIS BLOCK EXISTS BECAUSE THE PACKS WERE NOT REACHED. Before the composer landed, all seven FR
+// rule packs had ZERO consumers outside their own unit tests — pure, green, and on no path any
+// parcel walks (§COMMITTED-IS-NOT-REACHABLE). A unit test of a pack proves the pack; only THIS
+// proves the product runs it. Every case below goes through `resolveFrNoExtractionAt`, the same
+// entry a dispatcher calls, over the same recorded-live fixtures as the rest of this file.
+describe('§FR-RESOLUTION — the packs are REACHED through the chain, not merely exported', () => {
+    it('⭐ an RNU commune (Bergonne, live) reaches the NATIONAL pack and cites the Code', async () => {
+        const rec = await resolveAt('bergonne', fixtureFetch());
+        expect(rec.ruleStates.regime.regime).toBe('RNU');
+        expect(rec.ruleStates.packsConsulted).toContain('rnu-national');
+        expect(rec.ruleStates.states.length).toBeGreaterThan(0);
+        // ⛔ Every citation is Légifrance, never a commune règlement that does not exist. This is
+        // the founder's §4 correction made observable: "no PLU found" is the observation,
+        // "no source" was the wrong inference — the source is the Code.
+        expect(rec.ruleStates.states.every((s) => s.ref.dataset === 'code-de-l-urbanisme')).toBe(true);
+        expect(rec.ruleStates.states.every((s) => s.ref.document!.includes('legifrance.gouv.fr'))).toBe(true);
+    });
+
+    it('⭐ `discretionary` is REAL on that record — E4, the conseil municipal deliberation', async () => {
+        const rec = await resolveAt('bergonne', fixtureFetch());
+        const e4 = rec.ruleStates.states.find((s) => s.rule === 'E4');
+        expect(e4).toMatchObject({ status: 'unrecovered', failure: 'discretionary' });
+    });
+
+    it('a PLU parcel (Paris 11e, live) reaches the CNIG tree — and NOT the national pack', async () => {
+        const rec = await resolveAt('paris11', fixtureFetch());
+        expect(rec.ruleStates.regime.regime).toBe('PLU');
+        expect(rec.ruleStates.packsConsulted).toContain('cnig-prescriptions');
+        expect(rec.ruleStates.packsConsulted).not.toContain('rnu-national');
+    });
+
+    it('⛔ the record still asserts NO ENVELOPE — the packs added a reading, never a volume', async () => {
+        // The L-616 prohibition in this record's header is unchanged by the wiring: `RuleState` is a
+        // per-parameter reading with a citation. A bounded volume appearing here would be exactly
+        // the overstatement the type was built to prevent.
+        const rec = await resolveAt('bergonne', fixtureFetch());
+        const json = JSON.stringify(rec);
+        expect(json).not.toContain('"envelope"');
+        expect(json).not.toContain('"massing"');
+        // and every emitted state carries its legal address, refusals included
+        expect(rec.ruleStates.states.every((s) => s.ref.country === 'FR' && s.ref.article !== null)).toBe(true);
+    });
+
+    it('⚠ frontage and PAU do NOT run at this seam — it is point-addressed, it holds no ring', async () => {
+        // Both derivations need the parcel RING. Passing the query point as a ring would invent a
+        // geometry the record does not have, so this seam passes none and says so.
+        const rec = await resolveAt('bergonne', fixtureFetch());
+        expect(rec.ruleStates.packsConsulted).not.toContain('frontage');
+        expect(rec.ruleStates.packsConsulted).not.toContain('pau');
+        // ⇒ B5 is therefore the honest REFUSAL, not a derived verdict: the derivation exists and
+        // was not run for this parcel, and the state says exactly that rather than going silent.
+        const b5 = rec.ruleStates.states.find((s) => s.rule === 'B5');
+        expect(b5).toMatchObject({ status: 'refused', basis: 'requires-determination' });
+    });
+
+    it('is byte-deterministic through the chain, states included', async () => {
+        const a = await resolveAt('bergonne', fixtureFetch());
+        const b = await resolveAt('bergonne', fixtureFetch());
+        expect(JSON.stringify(a.ruleStates)).toBe(JSON.stringify(b.ruleStates));
+    });
+});

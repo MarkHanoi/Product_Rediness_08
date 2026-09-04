@@ -37,6 +37,8 @@ import type { EnvelopeRefusal, FetchOutcome, RuleSourceRef } from '@pryzm/schema
 import type { FrElevation } from './frAltimetry.js';
 import type { FrNeighbourBuildings } from './frBdTopoNeighbours.js';
 import type { FrGpuFeature } from './frGpuClient.js';
+import { FR_LEGIFRANCE_CODE_URBANISME_URL } from '../../rulepacks/frLegifrance.js';
+import { frEnvelopeRuleStates, type FrResolution } from '../../rulepacks/frResolution.js';
 import {
     parseFrGpuZoneFeature,
     parseFrIdurba,
@@ -497,9 +499,13 @@ export interface FrGoverningDocument {
     readonly legifranceArticles: string;
 }
 
-/** Code de l'urbanisme on Légifrance (probed 2026-09-02: /codes/id/ 302s here — use this). */
-export const FR_LEGIFRANCE_CODE_URBANISME_URL =
-    'https://www.legifrance.gouv.fr/codes/texte_lc/LEGITEXT000006074075/';
+/**
+ * Code de l'urbanisme on Légifrance. ⚠ MOVED to `rulepacks/frLegifrance.ts` (a leaf) and re-exported
+ * here so no consumer changed: `frRnuNationalPack` needs it and imported it from this module, which
+ * closed an import CYCLE the moment this file acquired the `frEnvelopeRuleStates` call below. The
+ * leaf has zero imports, so the ring cannot re-form. See that file's header.
+ */
+export { FR_LEGIFRANCE_CODE_URBANISME_URL } from '../../rulepacks/frLegifrance.js';
 
 /** GPU archive download base (§4.2; probed 2026-09-02: DU_75056 → 302 → document zip). */
 export const FR_GPU_DOWNLOAD_BY_PARTITION_BASE =
@@ -547,6 +553,20 @@ export interface FrNoExtractionRecord {
      * product and no envelope is asserted either way.
      */
     readonly refusal: EnvelopeRefusal | null;
+    /**
+     * ⭐ The FR rule packs' typed reading of the facts above — one `RuleState` per envelope
+     * parameter a source actually speaks to (`rulepacks/frResolution.ts`). This is what makes the
+     * packs REACHABLE rather than merely exported.
+     *
+     * ⛔ IT IS NOT AN ENVELOPE and asserts no bounded volume — the L-616 prohibition in this type's
+     * header applies to it unchanged. It re-reads regime, prescriptions and document, performs no
+     * fetch, and emits NOTHING for a parameter no source speaks to (a silent parameter is not "no
+     * limit"; the rule is very probably in a règlement nobody parsed).
+     *
+     * ⚠ `states` is empty where the publisher's own statements CONFLICT — that is the honest
+     * output, not a degraded one.
+     */
+    readonly ruleStates: FrResolution;
 }
 
 /* ────────────────────────────── refusal builders ───────────────────────── */
@@ -870,6 +890,27 @@ export function buildFrNoExtractionRecord(
                 neighbours: buildNeighboursSlice(fetches.neighbours, fetchedAtIso),
                 governingDocument: unresolved(reason, false),
                 refusal,
+                // ⚠ THIS BRANCH IS THE `genuinely-missing` CASE and the packs must say so by
+                // SILENCE, not by an answer: `is_rnu=false` declares a local document, and none was
+                // served. The regime is `undetermined-declared-not-served`, so NEITHER pack speaks —
+                // the national articles do not apply (a local document exists) and there are no
+                // prescriptions to read. Emitting a state here would answer for an instrument
+                // nobody has seen.
+                ruleStates: frEnvelopeRuleStates({
+                    facts: { isRnu: mun.isRnu, duType: null, zoneServed: false, secteurCcServed: false },
+                    prescriptions: [],
+                    ref: {
+                        country: 'FR',
+                        authority: FR_GPU_AUTHORITY,
+                        dataset: 'zone_urba',
+                        plan_id: null,
+                        object_id: null,
+                        document: null,
+                        article: null,
+                        page: null,
+                    },
+                    reglementReachable: false,
+                }),
             },
         };
     }
@@ -1196,6 +1237,56 @@ export function buildFrNoExtractionRecord(
         );
     }
 
+    // ── §FR-RESOLUTION — the rule packs, REACHED (lane ENVELOPE-FR, 2026-09-04) ────────────────
+    // ⭐ THIS CALL IS THE POINT. Seven pure FR rule packs shipped with ZERO consumers outside their
+    // own tests; `frEnvelopeRuleStates` composes them and THIS is the production caller that makes
+    // them run. Exporting a pack makes it importable; only a caller makes it reachable.
+    //
+    // ⛔ IT ADDS NO NUMBER THIS RECORD DID NOT ALREADY HOLD, and it must not: the slice is a TYPED
+    // READING of facts already fetched above (regime, prescriptions, document), not a new fetch and
+    // not an envelope. The L-616 prohibition in this file's header stands — no bounded volume is
+    // asserted anywhere in this type.
+    //
+    // ⚠ FRONTAGE AND PAU DO NOT RUN HERE, deliberately. Both need the parcel RING, and this record
+    // is POINT-addressed (see the header: it rides beside the parcel row, never instead of it). A
+    // caller holding the ring passes `geometry` and gets A3/A4 plus a derived B5; this seam holds no
+    // ring, so it passes none rather than inventing one from the query point.
+    const ruleStates = frEnvelopeRuleStates({
+        facts: {
+            isRnu: mun.isRnu,
+            duType: doc?.duType ?? null,
+            zoneServed: zonesUrba.length > 0,
+            secteurCcServed: secteurs.length > 0,
+        },
+        prescriptions:
+            prescriptionsSlice.status === 'resolved'
+                ? prescriptionsSlice.value.atPoint.map((p) => ({
+                    typepsc: p.typepsc,
+                    stypepsc: p.stypepsc,
+                    nature: p.nature,
+                    libelle: p.libelle,
+                    txt: p.txt,
+                    nomfic: p.reglementDoc,
+                    idurba: p.idurba,
+                }))
+                : [],
+        ref: {
+            country: 'FR',
+            authority: FR_GPU_AUTHORITY,
+            dataset: 'zone_urba',
+            plan_id: firstZone?.idurba ?? doc?.name ?? null,
+            object_id: null,
+            document: firstZone?.reglementDoc ?? null,
+            article: null,
+            page: firstZone?.reglementPage ?? null,
+        },
+        // A document is REACHABLE when the publisher pointed at one. Absent that, a gap is
+        // `missing-source` (go find the document) rather than `pdf` (go parse the one we have) —
+        // two different remedies that must never share a label.
+        reglementReachable:
+            firstZone?.reglementDoc !== null && firstZone?.reglementDoc !== undefined,
+    });
+
     return {
         status: 'found',
         value: {
@@ -1213,6 +1304,7 @@ export function buildFrNoExtractionRecord(
             neighbours: neighboursSlice,
             governingDocument: governingSlice,
             refusal,
+            ruleStates,
         },
     };
 }

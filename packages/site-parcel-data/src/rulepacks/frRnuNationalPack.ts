@@ -60,7 +60,7 @@ import {
     type RuleState,
 } from '@pryzm/schemas';
 
-import { FR_LEGIFRANCE_CODE_URBANISME_URL } from '../countryAdapters/fr/frNoExtraction.js';
+import { FR_LEGIFRANCE_CODE_URBANISME_URL } from './frLegifrance.js';
 import { frDatumForRuleState } from './frHeightDatum.js';
 import { type FrPauDerivation, frPauRuleState } from './frPau.js';
 import type { FrRegimeVerdict } from './frPlanningRegime.js';
