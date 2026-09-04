@@ -1,3 +1,14 @@
+// @command-gate: not-a-command-bus-handler
+//
+// This module is the PROJECTION the `annotation.*` handlers write THROUGH; it is not
+// itself a bus handler and has no `canExecute`/`execute` pair. It lives in
+// `src/handlers/` for co-location with the eight handlers that are its only callers —
+// exactly the case `tests/commands/__tests__/affected-stores.test.ts:36-40` mints this
+// marker for, and the same shape as `plugins/rooms/src/handlers/legacyCommands.ts` and
+// `plugins/selection/src/handlers/selectionStoreAccess.ts`.
+//
+// ⛔ The marker MUST stay inside the first 600 bytes — the gate reads no further
+// (`affected-stores.test.ts:71-72`). Do not push it below the block comment.
 /**
  * §ANN-ONE-STORE — THE canonical annotation sink.
  *
