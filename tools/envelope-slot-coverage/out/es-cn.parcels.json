@@ -1,0 +1,694 @@
+{
+  "ine": "35026",
+  "population": 35324,
+  "seed": 20260904,
+  "outcomes": [
+    {
+      "ref": "35026A01000004",
+      "lat": 28.0266097,
+      "lon": -15.3887818,
+      "zoneCode": null,
+      "zoneRefusal": "no-zone",
+      "shipped": "no-plan-served",
+      "ifSigned": "no-plan-served",
+      "slots": [],
+      "sipuFilled": []
+    },
+    {
+      "ref": "1863110DS6916S",
+      "lat": 27.9935316,
+      "lon": -15.3885327,
+      "zoneCode": "B1",
+      "zoneRefusal": null,
+      "shipped": "f1-gap",
+      "ifSigned": "resolved",
+      "slots": [
+        "setback.front",
+        "setback.side",
+        "setback.rear",
+        "maxHeight",
+        "maxFloors",
+        "maxFAR",
+        "maxCoverage",
+        "permittedUse"
+      ],
+      "sipuFilled": [
+        "SepMinFr",
+        "SepMinPs",
+        "SepMinLt",
+        "PMaxOcup",
+        "EdifMax",
+        "AltMaxPl",
+        "AltMaxMt"
+      ]
+    },
+    {
+      "ref": "3281300DR6938S",
+      "lat": 28.0093663,
+      "lon": -15.3777195,
+      "zoneCode": "F",
+      "zoneRefusal": null,
+      "shipped": "f1-gap",
+      "ifSigned": "resolved",
+      "slots": [
+        "setback.front",
+        "setback.side",
+        "setback.rear",
+        "maxHeight",
+        "maxFloors",
+        "maxFAR",
+        "maxCoverage",
+        "permittedUse"
+      ],
+      "sipuFilled": [
+        "SepMinFr",
+        "SepMinPs",
+        "SepMinLt",
+        "PMaxOcup",
+        "EdifMax",
+        "AltMaxPl",
+        "AltMaxMt"
+      ]
+    },
+    {
+      "ref": "9830706DR5998S",
+      "lat": 28.009747,
+      "lon": -15.4081029,
+      "zoneCode": null,
+      "zoneRefusal": "no-zone",
+      "shipped": "no-plan-served",
+      "ifSigned": "no-plan-served",
+      "slots": [],
+      "sipuFilled": []
+    },
+    {
+      "ref": "3262633DR6936S",
+      "lat": 27.9911004,
+      "lon": -15.3745223,
+      "zoneCode": "E",
+      "zoneRefusal": null,
+      "shipped": "f1-gap",
+      "ifSigned": "resolved",
+      "slots": [
+        "setback.front",
+        "setback.side",
+        "setback.rear",
+        "maxHeight",
+        "maxFloors",
+        "maxFAR",
+        "maxCoverage",
+        "permittedUse"
+      ],
+      "sipuFilled": [
+        "SepMinFr",
+        "SepMinPs",
+        "SepMinLt",
+        "PMaxOcup",
+        "EdifMax",
+        "AltMaxPl",
+        "AltMaxMt"
+      ]
+    },
+    {
+      "ref": "35026A02000667",
+      "lat": 27.9801945,
+      "lon": -15.4366723,
+      "zoneCode": null,
+      "zoneRefusal": "no-zone",
+      "shipped": "no-plan-served",
+      "ifSigned": "no-plan-served",
+      "slots": [],
+      "sipuFilled": []
+    },
+    {
+      "ref": "4953312DS5945S",
+      "lat": 27.9841388,
+      "lon": -15.45973,
+      "zoneCode": "A2",
+      "zoneRefusal": "no-rule-pack",
+      "shipped": "f1-gap",
+      "ifSigned": "f1-gap",
+      "slots": [],
+      "sipuFilled": []
+    },
+    {
+      "ref": "35026A01700448",
+      "lat": 28.0093085,
+      "lon": -15.4397038,
+      "zoneCode": null,
+      "zoneRefusal": "no-zone",
+      "shipped": "no-plan-served",
+      "ifSigned": "no-plan-served",
+      "slots": [],
+      "sipuFilled": []
+    },
+    {
+      "ref": "1888413DS6918N",
+      "lat": 28.0155886,
+      "lon": -15.3898659,
+      "zoneCode": "B1",
+      "zoneRefusal": null,
+      "shipped": "f1-gap",
+      "ifSigned": "resolved",
+      "slots": [
+        "setback.front",
+        "setback.side",
+        "setback.rear",
+        "maxHeight",
+        "maxFloors",
+        "maxFAR",
+        "maxCoverage",
+        "permittedUse"
+      ],
+      "sipuFilled": [
+        "SepMinFr",
+        "SepMinPs",
+        "SepMinLt",
+        "PMaxOcup",
+        "EdifMax",
+        "AltMaxPl",
+        "AltMaxMt"
+      ]
+    },
+    {
+      "ref": "35026A01901389",
+      "lat": 27.9903458,
+      "lon": -15.4558597,
+      "zoneCode": null,
+      "zoneRefusal": "no-zone",
+      "shipped": "no-plan-served",
+      "ifSigned": "no-plan-served",
+      "slots": [],
+      "sipuFilled": []
+    },
+    {
+      "ref": "1454904DS6915S",
+      "lat": 27.9848226,
+      "lon": -15.3941267,
+      "zoneCode": "B1",
+      "zoneRefusal": null,
+      "shipped": "f1-gap",
+      "ifSigned": "resolved",
+      "slots": [
+        "setback.front",
+        "setback.side",
+        "setback.rear",
+        "maxHeight",
+        "maxFloors",
+        "maxFAR",
+        "maxCoverage",
+        "permittedUse"
+      ],
+      "sipuFilled": [
+        "SepMinFr",
+        "SepMinPs",
+        "SepMinLt",
+        "PMaxOcup",
+        "EdifMax",
+        "AltMaxPl",
+        "AltMaxMt"
+      ]
+    },
+    {
+      "ref": "2487806DS6928N",
+      "lat": 28.0144285,
+      "lon": -15.3844248,
+      "zoneCode": "E",
+      "zoneRefusal": null,
+      "shipped": "f1-gap",
+      "ifSigned": "resolved",
+      "slots": [
+        "setback.front",
+        "setback.side",
+        "setback.rear",
+        "maxHeight",
+        "maxFloors",
+        "maxFAR",
+        "maxCoverage",
+        "permittedUse"
+      ],
+      "sipuFilled": [
+        "SepMinFr",
+        "SepMinPs",
+        "SepMinLt",
+        "PMaxOcup",
+        "EdifMax",
+        "AltMaxPl",
+        "AltMaxMt"
+      ]
+    },
+    {
+      "ref": "35026A01600787",
+      "lat": 28.0131854,
+      "lon": -15.4743831,
+      "zoneCode": null,
+      "zoneRefusal": "no-zone",
+      "shipped": "no-plan-served",
+      "ifSigned": "no-plan-served",
+      "slots": [],
+      "sipuFilled": []
+    },
+    {
+      "ref": "2436803DR5923N",
+      "lat": 27.9673575,
+      "lon": -15.4834285,
+      "zoneCode": "R2",
+      "zoneRefusal": "no-rule-pack",
+      "shipped": "f1-gap",
+      "ifSigned": "f1-gap",
+      "slots": [],
+      "sipuFilled": []
+    },
+    {
+      "ref": "35026A01300011",
+      "lat": 28.0211319,
+      "lon": -15.472725,
+      "zoneCode": null,
+      "zoneRefusal": "no-zone",
+      "shipped": "no-plan-served",
+      "ifSigned": "no-plan-served",
+      "slots": [],
+      "sipuFilled": []
+    },
+    {
+      "ref": "1386540DS6918N",
+      "lat": 28.0136381,
+      "lon": -15.3946671,
+      "zoneCode": "B2",
+      "zoneRefusal": null,
+      "shipped": "f1-gap",
+      "ifSigned": "resolved",
+      "slots": [
+        "setback.front",
+        "setback.side",
+        "setback.rear",
+        "maxHeight",
+        "maxFloors",
+        "maxFAR",
+        "maxCoverage",
+        "permittedUse"
+      ],
+      "sipuFilled": [
+        "SepMinFr",
+        "SepMinPs",
+        "SepMinLt",
+        "PMaxOcup",
+        "EdifMax",
+        "AltMaxPl",
+        "AltMaxMt"
+      ]
+    },
+    {
+      "ref": "2546332DS6924N",
+      "lat": 27.9766765,
+      "lon": -15.3825978,
+      "zoneCode": "H",
+      "zoneRefusal": null,
+      "shipped": "f1-gap",
+      "ifSigned": "resolved",
+      "slots": [
+        "setback.front",
+        "setback.side",
+        "setback.rear",
+        "maxHeight",
+        "maxFloors",
+        "maxFAR",
+        "permittedUse"
+      ],
+      "sipuFilled": [
+        "SepMinFr",
+        "SepMinPs",
+        "SepMinLt",
+        "EdifMax",
+        "AltMaxPl",
+        "AltMaxMt"
+      ]
+    },
+    {
+      "ref": "0798406DS6906N",
+      "lat": 27.9974712,
+      "lon": -15.4009279,
+      "zoneCode": "B1",
+      "zoneRefusal": null,
+      "shipped": "f1-gap",
+      "ifSigned": "resolved",
+      "slots": [
+        "setback.front",
+        "setback.side",
+        "setback.rear",
+        "maxHeight",
+        "maxFloors",
+        "maxFAR",
+        "maxCoverage",
+        "permittedUse"
+      ],
+      "sipuFilled": [
+        "SepMinFr",
+        "SepMinPs",
+        "SepMinLt",
+        "PMaxOcup",
+        "EdifMax",
+        "AltMaxPl",
+        "AltMaxMt"
+      ]
+    },
+    {
+      "ref": "9372704DS5997S",
+      "lat": 28.0009129,
+      "lon": -15.4146782,
+      "zoneCode": "A3",
+      "zoneRefusal": "no-rule-pack",
+      "shipped": "f1-gap",
+      "ifSigned": "f1-gap",
+      "slots": [],
+      "sipuFilled": []
+    },
+    {
+      "ref": "35026A01400216",
+      "lat": 28.0173228,
+      "lon": -15.4799956,
+      "zoneCode": null,
+      "zoneRefusal": "no-zone",
+      "shipped": "no-plan-served",
+      "ifSigned": "no-plan-served",
+      "slots": [],
+      "sipuFilled": []
+    },
+    {
+      "ref": "35026A02200542",
+      "lat": 27.9743819,
+      "lon": -15.4686271,
+      "zoneCode": null,
+      "zoneRefusal": "no-zone",
+      "shipped": "no-plan-served",
+      "ifSigned": "no-plan-served",
+      "slots": [],
+      "sipuFilled": []
+    },
+    {
+      "ref": "9367426DS5996N",
+      "lat": 27.9954513,
+      "lon": -15.4159336,
+      "zoneCode": "B1",
+      "zoneRefusal": null,
+      "shipped": "f1-gap",
+      "ifSigned": "resolved",
+      "slots": [
+        "setback.front",
+        "setback.side",
+        "setback.rear",
+        "maxHeight",
+        "maxFloors",
+        "maxFAR",
+        "maxCoverage",
+        "permittedUse"
+      ],
+      "sipuFilled": [
+        "SepMinFr",
+        "SepMinPs",
+        "SepMinLt",
+        "PMaxOcup",
+        "EdifMax",
+        "AltMaxPl",
+        "AltMaxMt"
+      ]
+    },
+    {
+      "ref": "35026A02300924",
+      "lat": 27.9553703,
+      "lon": -15.4631373,
+      "zoneCode": null,
+      "zoneRefusal": "no-zone",
+      "shipped": "no-plan-served",
+      "ifSigned": "no-plan-served",
+      "slots": [],
+      "sipuFilled": []
+    },
+    {
+      "ref": "1384603DS6918N",
+      "lat": 28.0121622,
+      "lon": -15.3945923,
+      "zoneCode": "B1",
+      "zoneRefusal": null,
+      "shipped": "f1-gap",
+      "ifSigned": "resolved",
+      "slots": [
+        "setback.front",
+        "setback.side",
+        "setback.rear",
+        "maxHeight",
+        "maxFloors",
+        "maxFAR",
+        "maxCoverage",
+        "permittedUse"
+      ],
+      "sipuFilled": [
+        "SepMinFr",
+        "SepMinPs",
+        "SepMinLt",
+        "PMaxOcup",
+        "EdifMax",
+        "AltMaxPl",
+        "AltMaxMt"
+      ]
+    },
+    {
+      "ref": "8908603DS5080N",
+      "lat": 28.0339223,
+      "lon": -15.4204145,
+      "zoneCode": "A2",
+      "zoneRefusal": "no-rule-pack",
+      "shipped": "f1-gap",
+      "ifSigned": "f1-gap",
+      "slots": [],
+      "sipuFilled": []
+    },
+    {
+      "ref": "2073711DS6927S",
+      "lat": 28.0020128,
+      "lon": -15.3871761,
+      "zoneCode": "B1",
+      "zoneRefusal": null,
+      "shipped": "f1-gap",
+      "ifSigned": "resolved",
+      "slots": [
+        "setback.front",
+        "setback.side",
+        "setback.rear",
+        "maxHeight",
+        "maxFloors",
+        "maxFAR",
+        "maxCoverage",
+        "permittedUse"
+      ],
+      "sipuFilled": [
+        "SepMinFr",
+        "SepMinPs",
+        "SepMinLt",
+        "PMaxOcup",
+        "EdifMax",
+        "AltMaxPl",
+        "AltMaxMt"
+      ]
+    },
+    {
+      "ref": "002001600DS59H",
+      "lat": 28.0075245,
+      "lon": -15.4089015,
+      "zoneCode": "A2",
+      "zoneRefusal": "no-rule-pack",
+      "shipped": "f1-gap",
+      "ifSigned": "f1-gap",
+      "slots": [],
+      "sipuFilled": []
+    },
+    {
+      "ref": "7766904DR5976N",
+      "lat": 27.9944709,
+      "lon": -15.4292962,
+      "zoneCode": "G",
+      "zoneRefusal": null,
+      "shipped": "f1-gap",
+      "ifSigned": "resolved",
+      "slots": [
+        "setback.front",
+        "maxHeight",
+        "maxFloors",
+        "maxFAR",
+        "permittedUse"
+      ],
+      "sipuFilled": [
+        "SepMinFr",
+        "EdifMax",
+        "AltMaxPl",
+        "AltMaxMt"
+      ]
+    },
+    {
+      "ref": "1790306DS6910S",
+      "lat": 28.0176394,
+      "lon": -15.391074,
+      "zoneCode": "B2",
+      "zoneRefusal": null,
+      "shipped": "f1-gap",
+      "ifSigned": "resolved",
+      "slots": [
+        "setback.front",
+        "setback.side",
+        "setback.rear",
+        "maxHeight",
+        "maxFloors",
+        "maxFAR",
+        "maxCoverage",
+        "permittedUse"
+      ],
+      "sipuFilled": [
+        "SepMinFr",
+        "SepMinPs",
+        "SepMinLt",
+        "PMaxOcup",
+        "EdifMax",
+        "AltMaxPl",
+        "AltMaxMt"
+      ]
+    },
+    {
+      "ref": "35026A01400148",
+      "lat": 28.0160983,
+      "lon": -15.4814015,
+      "zoneCode": null,
+      "zoneRefusal": "no-zone",
+      "shipped": "no-plan-served",
+      "ifSigned": "no-plan-served",
+      "slots": [],
+      "sipuFilled": []
+    },
+    {
+      "ref": "35026A01901938",
+      "lat": 27.9889956,
+      "lon": -15.448546,
+      "zoneCode": null,
+      "zoneRefusal": "no-zone",
+      "shipped": "no-plan-served",
+      "ifSigned": "no-plan-served",
+      "slots": [],
+      "sipuFilled": []
+    },
+    {
+      "ref": "35026A01901310",
+      "lat": 27.9895033,
+      "lon": -15.4613899,
+      "zoneCode": null,
+      "zoneRefusal": "no-zone",
+      "shipped": "no-plan-served",
+      "ifSigned": "no-plan-served",
+      "slots": [],
+      "sipuFilled": []
+    },
+    {
+      "ref": "35026A01800793",
+      "lat": 27.9988395,
+      "lon": -15.4233275,
+      "zoneCode": null,
+      "zoneRefusal": "no-zone",
+      "shipped": "no-plan-served",
+      "ifSigned": "no-plan-served",
+      "slots": [],
+      "sipuFilled": []
+    },
+    {
+      "ref": "35026A01800532",
+      "lat": 28.0025674,
+      "lon": -15.4382183,
+      "zoneCode": null,
+      "zoneRefusal": "no-zone",
+      "shipped": "no-plan-served",
+      "ifSigned": "no-plan-served",
+      "slots": [],
+      "sipuFilled": []
+    },
+    {
+      "ref": "1976631DR6917N",
+      "lat": 28.0039664,
+      "lon": -15.3860665,
+      "zoneCode": "E",
+      "zoneRefusal": null,
+      "shipped": "f1-gap",
+      "ifSigned": "resolved",
+      "slots": [
+        "setback.front",
+        "setback.side",
+        "setback.rear",
+        "maxHeight",
+        "maxFloors",
+        "maxFAR",
+        "maxCoverage",
+        "permittedUse"
+      ],
+      "sipuFilled": [
+        "SepMinFr",
+        "SepMinPs",
+        "SepMinLt",
+        "PMaxOcup",
+        "EdifMax",
+        "AltMaxPl",
+        "AltMaxMt"
+      ]
+    },
+    {
+      "ref": "35026A01500429",
+      "lat": 28.0095075,
+      "lon": -15.4831265,
+      "zoneCode": null,
+      "zoneRefusal": "no-zone",
+      "shipped": "no-plan-served",
+      "ifSigned": "no-plan-served",
+      "slots": [],
+      "sipuFilled": []
+    },
+    {
+      "ref": "35026A01901270",
+      "lat": 27.9876147,
+      "lon": -15.4454987,
+      "zoneCode": null,
+      "zoneRefusal": "no-zone",
+      "shipped": "no-plan-served",
+      "ifSigned": "no-plan-served",
+      "slots": [],
+      "sipuFilled": []
+    },
+    {
+      "ref": "35026A02001016",
+      "lat": 27.9770573,
+      "lon": -15.4600849,
+      "zoneCode": null,
+      "zoneRefusal": "no-zone",
+      "shipped": "no-plan-served",
+      "ifSigned": "no-plan-served",
+      "slots": [],
+      "sipuFilled": []
+    },
+    {
+      "ref": "35026A01601007",
+      "lat": 28.0113844,
+      "lon": -15.4585156,
+      "zoneCode": null,
+      "zoneRefusal": "no-zone",
+      "shipped": "no-plan-served",
+      "ifSigned": "no-plan-served",
+      "slots": [],
+      "sipuFilled": []
+    },
+    {
+      "ref": "35026A01300029",
+      "lat": 28.0221046,
+      "lon": -15.4721939,
+      "zoneCode": null,
+      "zoneRefusal": "no-zone",
+      "shipped": "no-plan-served",
+      "ifSigned": "no-plan-served",
+      "slots": [],
+      "sipuFilled": []
+    }
+  ]
+}

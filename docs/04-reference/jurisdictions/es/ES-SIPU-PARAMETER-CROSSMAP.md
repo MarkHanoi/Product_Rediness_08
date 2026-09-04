@@ -301,3 +301,113 @@ are research leads, not measurements.
 4. ⛔ **Do NOT spend engineering on the 43–46 multi-instrument municipalities.** The blocker is legal
    and structural — no vigencia field exists in any SIPU family — and only the Gobierno de Canarias
    can close it.
+
+---
+
+## §8 — ⭐ THE SAME QUESTION, ASKED OF REAL PARCELS (lane ENVELOPE-IBERIA round 4, 2026-09-04)
+
+> **The founder's instruction was "measure parcels, not datasets", and §1–§7 above measure a
+> DATASET** — 135 tables, 103,125 rows, a schema cross-map. That is the right first question and it
+> is not the last one. This section runs REAL Catastro parcels through the SHIPPED Canarias path and
+> reports what the mapping delivers on the ground.
+>
+> **Harness:** `tools/envelope-slot-coverage/measureCanarias.ts` · artefacts
+> `out/es-cn.slots.md` + `out/es-cn.parcels.json` · **40 real Catastro parcels drawn uniformly
+> without replacement (seed 20260904) over Telde's FULL INSPIRE CP population of 35,324**, each
+> centroid through the shipped `resolveTeldeZoneFromRecords` (2,643 committed EDIF rings) and then
+> `ES_TELDE_PGO2003_PACK` → `computeBuildableEnvelope`.
+>
+> ⛔⛔ **THIS IS TELDE, AND TELDE IS THE CEILING.** One municipality of 88 has a transcribed pack.
+> Multiplying the figures below by 88 is the *dataset* error one level up.
+
+### §8.1 — What the parcels did
+
+| outcome | n of 40 |
+|---|---:|
+| centroid landed in an EDIF zone polygon | **20** |
+| … in a PACKED zone (15 zones are packed) | **15** |
+| … in an UNPACKED, non-GRF zone (`A2` ×3 · `A3` · `R2`) — a PRYZM coverage gap | 5 |
+| … in a GRF (building line on a DRAWING) zone | 0 |
+| no EDIF polygon at the centroid — the layer's own served zero, NOT a gap | **20** |
+| service failure | 0 |
+
+⭐ **Half the drawn parcels are outside the EDIF layer entirely.** The layer covers the planned
+zones, not every cadastral parcel in the municipal term (the 20 are overwhelmingly `35026A…` rustic
+polígono/parcela references). That is `no-plan-served` — nothing failed and nothing is owed — and it
+halves the denominator before any question about parameters is asked.
+
+### §8.2 — The founder's 14 fields, filled ON PARCELS
+
+Over the **15** parcels that landed in a packed zone:
+
+| SIPU field | C58 seat | filled on n of 15 |
+|---|---|---:|
+| `SepMinFr` | `setbacks.front_m` | **15** |
+| `SepMinPs` | `setbacks.rear_m` | **14** |
+| `SepMinLt` | `setbacks.side_m` | **14** |
+| `PMaxOcup` | `maxCoverage` | **13** |
+| `EdifMax` | `plotRatioFAR` | **15** |
+| `AltMaxPl` | `maxFloors` | **15** |
+| `AltMaxMt` | `maxHeight_m` (LOSSY — no datum) | **15** |
+| `SupMin` · `LongMin` · `CircInsc` · `FondoMax` · `SepMnVol` · `SupOcMax` · `SupEdMax` | **no seat** | — |
+
+> ⭐ **THE SIX SEATED FIELDS FILL AT 87–100 % ON REAL PARCELS.** §2's schema verdict holds on the
+> ground: where a seat exists, the data is there. The mapping is not a paper mapping.
+>
+> ⛔ **AND THAT IS STILL NOT A REGIONAL NUMBER.** Telde is the one municipality somebody transcribed
+> and validated. §1 measures the corpus-wide reality — **15.6 % any-drawable columns-only, 24.2 %
+> land-weighted, COMPLETE rule 3.2 %** — and nothing here revises those. What §8 establishes is
+> narrower and still worth having: **the failure mode is NOT the mapping.** A parcel that reaches a
+> validated SIPU row gets six of eight envelope dimensions. Parcels miss out by landing outside the
+> zone layer, in an untranscribed zone, or in one of the 87 municipalities nobody has opened.
+
+### §8.3 — Slot coverage, both arms
+
+`CANARIAS_ENVELOPE_VERIFIED` is `false` ⇒ **AS SHIPPED: 0 numbers reach a user** and all 20 answerable
+points are F1. **IF SIGNED** (a demonstration, not an authorisation): **72.5 %** — 116 slots ÷
+(8 × 20), with `setback.front` 15, `setback.side` 14, `setback.rear` 14, `maxHeight` 15,
+`maxFloors` 15, `maxFAR` 15, `maxCoverage` 13, `permittedUse` 15.
+
+> ⛔⛔ **AN EARLIER READING OF THIS ARM SAID 36.3 %, AND IT WAS WRONG FOR A REASON THAT INVALIDATED
+> EVERY OTHER ARM TOO.** The shared classifier `slotsFromEnvelope` read `env.derivationTrace`;
+> `BuildableEnvelopeSchema` calls the field **`derivation`** (`derivationTrace` belongs to a
+> different type). `?? []` swallowed the `undefined`, so **`setback.front/side/rear` and
+> `permittedUse` could never resolve for ANY jurisdiction in ANY arm** — four of eight slots
+> structurally unreachable, every headline capped at 50 %. It was invisible because `0 / N` reads
+> exactly like a coverage gap; it surfaced only when Telde zone `E` scored `setback.* = 0` while its
+> pack literally carries `{front_m: 5, side_m: 2, rear_m: 5}` — a contradiction that could not be
+> explained away (§probe-can-be-wrong-three-ways: the WRONG PROPERTY returns a well-formed,
+> plausible, wrong number). **Corrected figures: Spain pooled 3.7 % → 8.4 %, Barcelona 17.1 % →
+> 35.7 %, Murcia 11.5 % → 27.6 %.** The classifier now THROWS if the field ever moves again, because
+> a silent 0 is what hid this.
+
+### §8.4 — ⭐ THE COMPILER VERDICT
+
+The founder's instruction was: *"If the mapping holds on real parcels, build the FIP/SIPU → canonical
+compiler — the biggest available shortcut."* **The mapping holds. The compiler is still not the next
+move, and the parcels say why.**
+
+**BUILD IT WHEN — and these are the measured preconditions, in order:**
+
+1. ⛔ **The six missing seats exist** (§7 step 2). A compiler emitting into a model with no
+   `minParcel_m2`, `minFrontage_m` or `CircInsc` seat throws away 6 of 14 columns AT THE OUTPUT — and
+   `SupMin`/`LongMin` are the two the packs already re-invent pack-locally
+   (`bcn20aSubzones.ts`, Madrid's `NM_FRTE_MIN`), i.e. the loss is already being paid for by hand.
+2. ⛔ **The datum axis exists** (§7 step 1). `AltMaxMt` fills on **15 of 15** parcels here and states
+   **NO DATUM** — a compiler would industrialise the one field the cross-map calls LOSSY, at scale,
+   with nothing to record the loss on. That is the L-584 defect with a pipeline attached.
+3. ⚠ **A compiler compiles ROWS, and the row supply is the actual bottleneck.** 46 of 88 municipalities
+   are blocked by `CANARIAS_MULTI_INSTRUMENT_BLOCKER` — no `vigencia` field in ANY SIPU family, so the
+   governing instrument is undeterminable and only the Gobierno de Canarias can close it. A compiler
+   cannot compile an instrument it cannot identify.
+4. ⛔ **Nothing publishes either way.** `CANARIAS_ENVELOPE_VERIFIED` is `false` with `signature: null`.
+   A compiler's entire output would land behind the same shut gate as Telde's hand-transcription.
+
+**AND ONE THING THE COMPILER WOULD NOT FIX, measured here:** half the drawn parcels had no EDIF
+polygon at all. Compiling every EDIF row in Canarias perfectly still answers nothing for them.
+
+⇒ **§7's build order stands, unchanged, and this section is its evidence rather than its
+replacement:** seats and the datum axis FIRST, then the SIPU half of the compiler starting with the
+unread MEMO channel and `EDIF_L`, and the FIP half still gated on **opening one FIP archive** — a
+day's work, and still the cheapest available test of the "biggest shortcut" claim, which §8 has not
+performed and does not claim to have performed.

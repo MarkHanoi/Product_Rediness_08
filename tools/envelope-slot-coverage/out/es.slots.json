@@ -1,7 +1,7 @@
 {
   "version": "1.0",
   "country": "es",
-  "measuredAt": "2026-09-04T06:19:40.332Z",
+  "measuredAt": "2026-09-04T17:06:30.250Z",
   "args": {
     "cities": [
       "barcelona",
@@ -22,7 +22,8 @@
           "zoneLabel": "12",
           "area": "es-08019-barcelona",
           "slots": [
-            "maxFAR"
+            "maxFAR",
+            "permittedUse"
           ],
           "why": "pack es-08019-barcelona · confidence estimated-ruleset · status degenerate"
         },
@@ -123,7 +124,8 @@
           "zoneLabel": "12",
           "area": "es-08019-barcelona",
           "slots": [
-            "maxFAR"
+            "maxFAR",
+            "permittedUse"
           ],
           "why": "pack es-08019-barcelona · confidence estimated-ruleset · status degenerate"
         },
@@ -143,10 +145,14 @@
           "zoneLabel": "20a/10",
           "area": "es-08019-barcelona",
           "slots": [
+            "setback.front",
+            "setback.side",
+            "setback.rear",
             "maxHeight",
             "maxFloors",
             "maxFAR",
-            "maxCoverage"
+            "maxCoverage",
+            "permittedUse"
           ],
           "why": "pack es-08019-barcelona · confidence estimated-ruleset · status ok"
         },
@@ -166,7 +172,11 @@
           "zoneLabel": "20a/8",
           "area": "es-08019-barcelona",
           "slots": [
-            "maxCoverage"
+            "setback.front",
+            "setback.side",
+            "setback.rear",
+            "maxCoverage",
+            "permittedUse"
           ],
           "why": "pack es-08019-barcelona · confidence estimated-ruleset · status ok"
         },
@@ -276,7 +286,8 @@
           "zoneLabel": "12",
           "area": "es-08019-barcelona",
           "slots": [
-            "maxFAR"
+            "maxFAR",
+            "permittedUse"
           ],
           "why": "pack es-08019-barcelona · confidence estimated-ruleset · status degenerate"
         },
@@ -341,7 +352,8 @@
           "zoneLabel": "12",
           "area": "es-08019-barcelona",
           "slots": [
-            "maxFAR"
+            "maxFAR",
+            "permittedUse"
           ],
           "why": "pack es-08019-barcelona · confidence estimated-ruleset · status degenerate"
         },
@@ -433,7 +445,8 @@
           "zoneLabel": "12",
           "area": "es-08019-barcelona",
           "slots": [
-            "maxFAR"
+            "maxFAR",
+            "permittedUse"
           ],
           "why": "pack es-08019-barcelona · confidence estimated-ruleset · status degenerate"
         },
@@ -444,7 +457,8 @@
           "zoneLabel": "12",
           "area": "es-08019-barcelona",
           "slots": [
-            "maxFAR"
+            "maxFAR",
+            "permittedUse"
           ],
           "why": "pack es-08019-barcelona · confidence estimated-ruleset · status degenerate"
         },
@@ -464,7 +478,8 @@
           "zoneLabel": "12",
           "area": "es-08019-barcelona",
           "slots": [
-            "maxFAR"
+            "maxFAR",
+            "permittedUse"
           ],
           "why": "pack es-08019-barcelona · confidence estimated-ruleset · status degenerate"
         },
@@ -484,7 +499,8 @@
           "zoneLabel": "12",
           "area": "es-08019-barcelona",
           "slots": [
-            "maxFAR"
+            "maxFAR",
+            "permittedUse"
           ],
           "why": "pack es-08019-barcelona · confidence estimated-ruleset · status degenerate"
         },
@@ -522,7 +538,8 @@
           "zoneLabel": "12",
           "area": "es-08019-barcelona",
           "slots": [
-            "maxFAR"
+            "maxFAR",
+            "permittedUse"
           ],
           "why": "pack es-08019-barcelona · confidence estimated-ruleset · status degenerate"
         },
@@ -551,10 +568,14 @@
           "zoneLabel": "20a/9",
           "area": "es-08019-barcelona",
           "slots": [
+            "setback.front",
+            "setback.side",
+            "setback.rear",
             "maxHeight",
             "maxFloors",
             "maxFAR",
-            "maxCoverage"
+            "maxCoverage",
+            "permittedUse"
           ],
           "why": "pack es-08019-barcelona · confidence estimated-ruleset · status ok"
         },
@@ -592,7 +613,8 @@
           "zoneLabel": "12",
           "area": "es-08019-barcelona",
           "slots": [
-            "maxFAR"
+            "maxFAR",
+            "permittedUse"
           ],
           "why": "pack es-08019-barcelona · confidence estimated-ruleset · status degenerate"
         },
@@ -702,7 +724,8 @@
           "zoneLabel": "12",
           "area": "es-08019-barcelona",
           "slots": [
-            "maxFAR"
+            "maxFAR",
+            "permittedUse"
           ],
           "why": "pack es-08019-barcelona · confidence estimated-ruleset · status degenerate"
         },
@@ -713,7 +736,8 @@
           "zoneLabel": "12",
           "area": "es-08019-barcelona",
           "slots": [
-            "maxFAR"
+            "maxFAR",
+            "permittedUse"
           ],
           "why": "pack es-08019-barcelona · confidence estimated-ruleset · status degenerate"
         },
@@ -805,7 +829,8 @@
           "zoneLabel": "12",
           "area": "es-08019-barcelona",
           "slots": [
-            "maxFAR"
+            "maxFAR",
+            "permittedUse"
           ],
           "why": "pack es-08019-barcelona · confidence estimated-ruleset · status degenerate"
         },
@@ -861,7 +886,8 @@
           "zoneLabel": "12",
           "area": "es-08019-barcelona",
           "slots": [
-            "maxFAR"
+            "maxFAR",
+            "permittedUse"
           ],
           "why": "pack es-08019-barcelona · confidence estimated-ruleset · status degenerate"
         },
@@ -899,7 +925,8 @@
           "zoneLabel": "12",
           "area": "es-08019-barcelona",
           "slots": [
-            "maxFAR"
+            "maxFAR",
+            "permittedUse"
           ],
           "why": "pack es-08019-barcelona · confidence estimated-ruleset · status degenerate"
         },
@@ -919,7 +946,8 @@
           "zoneLabel": "12",
           "area": "es-08019-barcelona",
           "slots": [
-            "maxFAR"
+            "maxFAR",
+            "permittedUse"
           ],
           "why": "pack es-08019-barcelona · confidence estimated-ruleset · status degenerate"
         },
@@ -930,7 +958,8 @@
           "zoneLabel": "12",
           "area": "es-08019-barcelona",
           "slots": [
-            "maxFAR"
+            "maxFAR",
+            "permittedUse"
           ],
           "why": "pack es-08019-barcelona · confidence estimated-ruleset · status degenerate"
         },
@@ -977,7 +1006,8 @@
           "zoneLabel": "12",
           "area": "es-08019-barcelona",
           "slots": [
-            "maxFAR"
+            "maxFAR",
+            "permittedUse"
           ],
           "why": "pack es-08019-barcelona · confidence estimated-ruleset · status degenerate"
         },
@@ -1060,7 +1090,8 @@
           "zoneLabel": "12",
           "area": "es-08019-barcelona",
           "slots": [
-            "maxFAR"
+            "maxFAR",
+            "permittedUse"
           ],
           "why": "pack es-08019-barcelona · confidence estimated-ruleset · status degenerate"
         },
@@ -1125,10 +1156,14 @@
           "zoneLabel": "20a/10",
           "area": "es-08019-barcelona",
           "slots": [
+            "setback.front",
+            "setback.side",
+            "setback.rear",
             "maxHeight",
             "maxFloors",
             "maxFAR",
-            "maxCoverage"
+            "maxCoverage",
+            "permittedUse"
           ],
           "why": "pack es-08019-barcelona · confidence estimated-ruleset · status ok"
         },
@@ -1193,7 +1228,8 @@
           "zoneLabel": "12",
           "area": "es-08019-barcelona",
           "slots": [
-            "maxFAR"
+            "maxFAR",
+            "permittedUse"
           ],
           "why": "pack es-08019-barcelona · confidence estimated-ruleset · status degenerate"
         },
@@ -1213,7 +1249,8 @@
           "zoneLabel": "12",
           "area": "es-08019-barcelona",
           "slots": [
-            "maxFAR"
+            "maxFAR",
+            "permittedUse"
           ],
           "why": "pack es-08019-barcelona · confidence estimated-ruleset · status degenerate"
         },
@@ -1233,7 +1270,8 @@
           "zoneLabel": "12",
           "area": "es-08019-barcelona",
           "slots": [
-            "maxFAR"
+            "maxFAR",
+            "permittedUse"
           ],
           "why": "pack es-08019-barcelona · confidence estimated-ruleset · status degenerate"
         },
@@ -1271,7 +1309,8 @@
           "zoneLabel": "12",
           "area": "es-08019-barcelona",
           "slots": [
-            "maxFAR"
+            "maxFAR",
+            "permittedUse"
           ],
           "why": "pack es-08019-barcelona · confidence estimated-ruleset · status degenerate"
         },
@@ -1291,10 +1330,14 @@
           "zoneLabel": "20a/9",
           "area": "es-08019-barcelona",
           "slots": [
+            "setback.front",
+            "setback.side",
+            "setback.rear",
             "maxHeight",
             "maxFloors",
             "maxFAR",
-            "maxCoverage"
+            "maxCoverage",
+            "permittedUse"
           ],
           "why": "pack es-08019-barcelona · confidence estimated-ruleset · status ok"
         },
@@ -1431,10 +1474,14 @@
           "zoneLabel": "20a/10",
           "area": "es-08019-barcelona",
           "slots": [
+            "setback.front",
+            "setback.side",
+            "setback.rear",
             "maxHeight",
             "maxFloors",
             "maxFAR",
-            "maxCoverage"
+            "maxCoverage",
+            "permittedUse"
           ],
           "why": "pack es-08019-barcelona · confidence estimated-ruleset · status ok"
         },
@@ -1463,7 +1510,11 @@
           "zoneLabel": "20a/8",
           "area": "es-08019-barcelona",
           "slots": [
-            "maxCoverage"
+            "setback.front",
+            "setback.side",
+            "setback.rear",
+            "maxCoverage",
+            "permittedUse"
           ],
           "why": "pack es-08019-barcelona · confidence estimated-ruleset · status ok"
         },
@@ -1492,7 +1543,8 @@
           "zoneLabel": "12",
           "area": "es-08019-barcelona",
           "slots": [
-            "maxFAR"
+            "maxFAR",
+            "permittedUse"
           ],
           "why": "pack es-08019-barcelona · confidence estimated-ruleset · status degenerate"
         },
@@ -1557,10 +1609,14 @@
           "zoneLabel": "20a/9",
           "area": "es-08019-barcelona",
           "slots": [
+            "setback.front",
+            "setback.side",
+            "setback.rear",
             "maxHeight",
             "maxFloors",
             "maxFAR",
-            "maxCoverage"
+            "maxCoverage",
+            "permittedUse"
           ],
           "why": "pack es-08019-barcelona · confidence estimated-ruleset · status ok"
         },
@@ -1589,9 +1645,13 @@
           "zoneLabel": "20a/9u",
           "area": "es-08019-barcelona",
           "slots": [
+            "setback.front",
+            "setback.side",
+            "setback.rear",
             "maxHeight",
             "maxFloors",
-            "maxCoverage"
+            "maxCoverage",
+            "permittedUse"
           ],
           "why": "pack es-08019-barcelona · confidence estimated-ruleset · status ok"
         },
@@ -1620,10 +1680,14 @@
           "zoneLabel": "20a/10",
           "area": "es-08019-barcelona",
           "slots": [
+            "setback.front",
+            "setback.side",
+            "setback.rear",
             "maxHeight",
             "maxFloors",
             "maxFAR",
-            "maxCoverage"
+            "maxCoverage",
+            "permittedUse"
           ],
           "why": "pack es-08019-barcelona · confidence estimated-ruleset · status ok"
         },
@@ -1742,7 +1806,8 @@
           "zoneLabel": "12",
           "area": "es-08019-barcelona",
           "slots": [
-            "maxFAR"
+            "maxFAR",
+            "permittedUse"
           ],
           "why": "pack es-08019-barcelona · confidence estimated-ruleset · status degenerate"
         },
@@ -1762,7 +1827,8 @@
           "zoneLabel": "12",
           "area": "es-08019-barcelona",
           "slots": [
-            "maxFAR"
+            "maxFAR",
+            "permittedUse"
           ],
           "why": "pack es-08019-barcelona · confidence estimated-ruleset · status degenerate"
         },
@@ -1782,7 +1848,8 @@
           "zoneLabel": "12",
           "area": "es-08019-barcelona",
           "slots": [
-            "maxFAR"
+            "maxFAR",
+            "permittedUse"
           ],
           "why": "pack es-08019-barcelona · confidence estimated-ruleset · status degenerate"
         },
@@ -1820,10 +1887,14 @@
           "zoneLabel": "20a/9",
           "area": "es-08019-barcelona",
           "slots": [
+            "setback.front",
+            "setback.side",
+            "setback.rear",
             "maxHeight",
             "maxFloors",
             "maxFAR",
-            "maxCoverage"
+            "maxCoverage",
+            "permittedUse"
           ],
           "why": "pack es-08019-barcelona · confidence estimated-ruleset · status ok"
         },
@@ -1843,7 +1914,8 @@
           "zoneLabel": "12",
           "area": "es-08019-barcelona",
           "slots": [
-            "maxFAR"
+            "maxFAR",
+            "permittedUse"
           ],
           "why": "pack es-08019-barcelona · confidence estimated-ruleset · status degenerate"
         },
@@ -1908,7 +1980,8 @@
           "zoneLabel": "12",
           "area": "es-08019-barcelona",
           "slots": [
-            "maxFAR"
+            "maxFAR",
+            "permittedUse"
           ],
           "why": "pack es-08019-barcelona · confidence estimated-ruleset · status degenerate"
         },
@@ -1928,7 +2001,8 @@
           "zoneLabel": "12",
           "area": "es-08019-barcelona",
           "slots": [
-            "maxFAR"
+            "maxFAR",
+            "permittedUse"
           ],
           "why": "pack es-08019-barcelona · confidence estimated-ruleset · status degenerate"
         },
@@ -1984,7 +2058,8 @@
           "zoneLabel": "12",
           "area": "es-08019-barcelona",
           "slots": [
-            "maxFAR"
+            "maxFAR",
+            "permittedUse"
           ],
           "why": "pack es-08019-barcelona · confidence estimated-ruleset · status degenerate"
         },
@@ -2067,10 +2142,14 @@
           "zoneLabel": "20a/9",
           "area": "es-08019-barcelona",
           "slots": [
+            "setback.front",
+            "setback.side",
+            "setback.rear",
             "maxHeight",
             "maxFloors",
             "maxFAR",
-            "maxCoverage"
+            "maxCoverage",
+            "permittedUse"
           ],
           "why": "pack es-08019-barcelona · confidence estimated-ruleset · status ok"
         },
@@ -2090,7 +2169,8 @@
           "zoneLabel": "12",
           "area": "es-08019-barcelona",
           "slots": [
-            "maxFAR"
+            "maxFAR",
+            "permittedUse"
           ],
           "why": "pack es-08019-barcelona · confidence estimated-ruleset · status degenerate"
         },
@@ -2128,10 +2208,14 @@
           "zoneLabel": "20a/9",
           "area": "es-08019-barcelona",
           "slots": [
+            "setback.front",
+            "setback.side",
+            "setback.rear",
             "maxHeight",
             "maxFloors",
             "maxFAR",
-            "maxCoverage"
+            "maxCoverage",
+            "permittedUse"
           ],
           "why": "pack es-08019-barcelona · confidence estimated-ruleset · status ok"
         },
@@ -2169,7 +2253,8 @@
           "zoneLabel": "12",
           "area": "es-08019-barcelona",
           "slots": [
-            "maxFAR"
+            "maxFAR",
+            "permittedUse"
           ],
           "why": "pack es-08019-barcelona · confidence estimated-ruleset · status degenerate"
         },
@@ -2189,7 +2274,8 @@
           "zoneLabel": "12",
           "area": "es-08019-barcelona",
           "slots": [
-            "maxFAR"
+            "maxFAR",
+            "permittedUse"
           ],
           "why": "pack es-08019-barcelona · confidence estimated-ruleset · status degenerate"
         },
@@ -2227,7 +2313,8 @@
           "zoneLabel": "12",
           "area": "es-08019-barcelona",
           "slots": [
-            "maxFAR"
+            "maxFAR",
+            "permittedUse"
           ],
           "why": "pack es-08019-barcelona · confidence estimated-ruleset · status degenerate"
         },
@@ -2247,7 +2334,8 @@
           "zoneLabel": "12",
           "area": "es-08019-barcelona",
           "slots": [
-            "maxFAR"
+            "maxFAR",
+            "permittedUse"
           ],
           "why": "pack es-08019-barcelona · confidence estimated-ruleset · status degenerate"
         },
@@ -2294,7 +2382,8 @@
           "zoneLabel": "12",
           "area": "es-08019-barcelona",
           "slots": [
-            "maxFAR"
+            "maxFAR",
+            "permittedUse"
           ],
           "why": "pack es-08019-barcelona · confidence estimated-ruleset · status degenerate"
         },
@@ -2314,7 +2403,8 @@
           "zoneLabel": "12",
           "area": "es-08019-barcelona",
           "slots": [
-            "maxFAR"
+            "maxFAR",
+            "permittedUse"
           ],
           "why": "pack es-08019-barcelona · confidence estimated-ruleset · status degenerate"
         },
@@ -2361,7 +2451,8 @@
           "zoneLabel": "12",
           "area": "es-08019-barcelona",
           "slots": [
-            "maxFAR"
+            "maxFAR",
+            "permittedUse"
           ],
           "why": "pack es-08019-barcelona · confidence estimated-ruleset · status degenerate"
         },
@@ -2381,7 +2472,8 @@
           "zoneLabel": "12",
           "area": "es-08019-barcelona",
           "slots": [
-            "maxFAR"
+            "maxFAR",
+            "permittedUse"
           ],
           "why": "pack es-08019-barcelona · confidence estimated-ruleset · status degenerate"
         },
@@ -2500,7 +2592,8 @@
           "zoneLabel": "12",
           "area": "es-08019-barcelona",
           "slots": [
-            "maxFAR"
+            "maxFAR",
+            "permittedUse"
           ],
           "why": "pack es-08019-barcelona · confidence estimated-ruleset · status degenerate"
         },
@@ -2520,7 +2613,8 @@
           "zoneLabel": "12",
           "area": "es-08019-barcelona",
           "slots": [
-            "maxFAR"
+            "maxFAR",
+            "permittedUse"
           ],
           "why": "pack es-08019-barcelona · confidence estimated-ruleset · status degenerate"
         },
@@ -2567,7 +2661,8 @@
           "zoneLabel": "12",
           "area": "es-08019-barcelona",
           "slots": [
-            "maxFAR"
+            "maxFAR",
+            "permittedUse"
           ],
           "why": "pack es-08019-barcelona · confidence estimated-ruleset · status degenerate"
         },
@@ -2596,7 +2691,8 @@
           "zoneLabel": "12",
           "area": "es-08019-barcelona",
           "slots": [
-            "maxFAR"
+            "maxFAR",
+            "permittedUse"
           ],
           "why": "pack es-08019-barcelona · confidence estimated-ruleset · status degenerate"
         },
@@ -2616,7 +2712,8 @@
           "zoneLabel": "12",
           "area": "es-08019-barcelona",
           "slots": [
-            "maxFAR"
+            "maxFAR",
+            "permittedUse"
           ],
           "why": "pack es-08019-barcelona · confidence estimated-ruleset · status degenerate"
         },
@@ -2645,10 +2742,14 @@
           "zoneLabel": "20a/9",
           "area": "es-08019-barcelona",
           "slots": [
+            "setback.front",
+            "setback.side",
+            "setback.rear",
             "maxHeight",
             "maxFloors",
             "maxFAR",
-            "maxCoverage"
+            "maxCoverage",
+            "permittedUse"
           ],
           "why": "pack es-08019-barcelona · confidence estimated-ruleset · status ok"
         },
@@ -2677,10 +2778,14 @@
           "zoneLabel": "20a/10",
           "area": "es-08019-barcelona",
           "slots": [
+            "setback.front",
+            "setback.side",
+            "setback.rear",
             "maxHeight",
             "maxFloors",
             "maxFAR",
-            "maxCoverage"
+            "maxCoverage",
+            "permittedUse"
           ],
           "why": "pack es-08019-barcelona · confidence estimated-ruleset · status ok"
         },
@@ -2709,7 +2814,8 @@
           "zoneLabel": "12",
           "area": "es-08019-barcelona",
           "slots": [
-            "maxFAR"
+            "maxFAR",
+            "permittedUse"
           ],
           "why": "pack es-08019-barcelona · confidence estimated-ruleset · status degenerate"
         },
@@ -2720,7 +2826,8 @@
           "zoneLabel": "12",
           "area": "es-08019-barcelona",
           "slots": [
-            "maxFAR"
+            "maxFAR",
+            "permittedUse"
           ],
           "why": "pack es-08019-barcelona · confidence estimated-ruleset · status degenerate"
         },
@@ -2758,7 +2865,8 @@
           "zoneLabel": "12",
           "area": "es-08019-barcelona",
           "slots": [
-            "maxFAR"
+            "maxFAR",
+            "permittedUse"
           ],
           "why": "pack es-08019-barcelona · confidence estimated-ruleset · status degenerate"
         },
@@ -2769,7 +2877,8 @@
           "zoneLabel": "12",
           "area": "es-08019-barcelona",
           "slots": [
-            "maxFAR"
+            "maxFAR",
+            "permittedUse"
           ],
           "why": "pack es-08019-barcelona · confidence estimated-ruleset · status degenerate"
         },
@@ -2834,7 +2943,8 @@
           "zoneLabel": "12",
           "area": "es-08019-barcelona",
           "slots": [
-            "maxFAR"
+            "maxFAR",
+            "permittedUse"
           ],
           "why": "pack es-08019-barcelona · confidence estimated-ruleset · status degenerate"
         },
@@ -2881,7 +2991,8 @@
           "zoneLabel": "12",
           "area": "es-08019-barcelona",
           "slots": [
-            "maxFAR"
+            "maxFAR",
+            "permittedUse"
           ],
           "why": "pack es-08019-barcelona · confidence estimated-ruleset · status degenerate"
         },
@@ -2892,10 +3003,14 @@
           "zoneLabel": "20a/9",
           "area": "es-08019-barcelona",
           "slots": [
+            "setback.front",
+            "setback.side",
+            "setback.rear",
             "maxHeight",
             "maxFloors",
             "maxFAR",
-            "maxCoverage"
+            "maxCoverage",
+            "permittedUse"
           ],
           "why": "pack es-08019-barcelona · confidence estimated-ruleset · status ok"
         },
@@ -2906,7 +3021,8 @@
           "zoneLabel": "12",
           "area": "es-08019-barcelona",
           "slots": [
-            "maxFAR"
+            "maxFAR",
+            "permittedUse"
           ],
           "why": "pack es-08019-barcelona · confidence estimated-ruleset · status degenerate"
         },
@@ -2917,7 +3033,11 @@
           "zoneLabel": "20a/8",
           "area": "es-08019-barcelona",
           "slots": [
-            "maxCoverage"
+            "setback.front",
+            "setback.side",
+            "setback.rear",
+            "maxCoverage",
+            "permittedUse"
           ],
           "why": "pack es-08019-barcelona · confidence estimated-ruleset · status ok"
         },
@@ -2928,7 +3048,8 @@
           "zoneLabel": "12",
           "area": "es-08019-barcelona",
           "slots": [
-            "maxFAR"
+            "maxFAR",
+            "permittedUse"
           ],
           "why": "pack es-08019-barcelona · confidence estimated-ruleset · status degenerate"
         },
@@ -3038,7 +3159,8 @@
           "zoneLabel": "12",
           "area": "es-08019-barcelona",
           "slots": [
-            "maxFAR"
+            "maxFAR",
+            "permittedUse"
           ],
           "why": "pack es-08019-barcelona · confidence estimated-ruleset · status degenerate"
         },
@@ -3058,10 +3180,14 @@
           "zoneLabel": "20a/9",
           "area": "es-08019-barcelona",
           "slots": [
+            "setback.front",
+            "setback.side",
+            "setback.rear",
             "maxHeight",
             "maxFloors",
             "maxFAR",
-            "maxCoverage"
+            "maxCoverage",
+            "permittedUse"
           ],
           "why": "pack es-08019-barcelona · confidence estimated-ruleset · status ok"
         },
@@ -3072,7 +3198,8 @@
           "zoneLabel": "12",
           "area": "es-08019-barcelona",
           "slots": [
-            "maxFAR"
+            "maxFAR",
+            "permittedUse"
           ],
           "why": "pack es-08019-barcelona · confidence estimated-ruleset · status degenerate"
         },
@@ -3083,10 +3210,14 @@
           "zoneLabel": "20a/11",
           "area": "es-08019-barcelona",
           "slots": [
+            "setback.front",
+            "setback.side",
+            "setback.rear",
             "maxHeight",
             "maxFloors",
             "maxFAR",
-            "maxCoverage"
+            "maxCoverage",
+            "permittedUse"
           ],
           "why": "pack es-08019-barcelona · confidence estimated-ruleset · status ok"
         },
@@ -3178,7 +3309,8 @@
           "zoneLabel": "12",
           "area": "es-08019-barcelona",
           "slots": [
-            "maxFAR"
+            "maxFAR",
+            "permittedUse"
           ],
           "why": "pack es-08019-barcelona · confidence estimated-ruleset · status degenerate"
         },
@@ -3225,7 +3357,8 @@
           "zoneLabel": "12",
           "area": "es-08019-barcelona",
           "slots": [
-            "maxFAR"
+            "maxFAR",
+            "permittedUse"
           ],
           "why": "pack es-08019-barcelona · confidence estimated-ruleset · status degenerate"
         },
@@ -3326,7 +3459,8 @@
           "zoneLabel": "12",
           "area": "es-08019-barcelona",
           "slots": [
-            "maxFAR"
+            "maxFAR",
+            "permittedUse"
           ],
           "why": "pack es-08019-barcelona · confidence estimated-ruleset · status degenerate"
         },
@@ -3337,7 +3471,11 @@
           "zoneLabel": "20a/8",
           "area": "es-08019-barcelona",
           "slots": [
-            "maxCoverage"
+            "setback.front",
+            "setback.side",
+            "setback.rear",
+            "maxCoverage",
+            "permittedUse"
           ],
           "why": "pack es-08019-barcelona · confidence estimated-ruleset · status ok"
         },
@@ -3366,7 +3504,8 @@
           "zoneLabel": "12",
           "area": "es-08019-barcelona",
           "slots": [
-            "maxFAR"
+            "maxFAR",
+            "permittedUse"
           ],
           "why": "pack es-08019-barcelona · confidence estimated-ruleset · status degenerate"
         },
@@ -3413,7 +3552,8 @@
           "zoneLabel": "12",
           "area": "es-08019-barcelona",
           "slots": [
-            "maxFAR"
+            "maxFAR",
+            "permittedUse"
           ],
           "why": "pack es-08019-barcelona · confidence estimated-ruleset · status degenerate"
         },
@@ -3424,7 +3564,8 @@
           "zoneLabel": "12",
           "area": "es-08019-barcelona",
           "slots": [
-            "maxFAR"
+            "maxFAR",
+            "permittedUse"
           ],
           "why": "pack es-08019-barcelona · confidence estimated-ruleset · status degenerate"
         },
@@ -3435,7 +3576,8 @@
           "zoneLabel": "12",
           "area": "es-08019-barcelona",
           "slots": [
-            "maxFAR"
+            "maxFAR",
+            "permittedUse"
           ],
           "why": "pack es-08019-barcelona · confidence estimated-ruleset · status degenerate"
         },
@@ -3446,10 +3588,14 @@
           "zoneLabel": "20a/9",
           "area": "es-08019-barcelona",
           "slots": [
+            "setback.front",
+            "setback.side",
+            "setback.rear",
             "maxHeight",
             "maxFloors",
             "maxFAR",
-            "maxCoverage"
+            "maxCoverage",
+            "permittedUse"
           ],
           "why": "pack es-08019-barcelona · confidence estimated-ruleset · status ok"
         },
@@ -3568,7 +3714,8 @@
           "zoneLabel": "12",
           "area": "es-08019-barcelona",
           "slots": [
-            "maxFAR"
+            "maxFAR",
+            "permittedUse"
           ],
           "why": "pack es-08019-barcelona · confidence estimated-ruleset · status degenerate"
         },
@@ -3579,7 +3726,8 @@
           "zoneLabel": "12",
           "area": "es-08019-barcelona",
           "slots": [
-            "maxFAR"
+            "maxFAR",
+            "permittedUse"
           ],
           "why": "pack es-08019-barcelona · confidence estimated-ruleset · status degenerate"
         },
@@ -3617,10 +3765,14 @@
           "zoneLabel": "20a/10",
           "area": "es-08019-barcelona",
           "slots": [
+            "setback.front",
+            "setback.side",
+            "setback.rear",
             "maxHeight",
             "maxFloors",
             "maxFAR",
-            "maxCoverage"
+            "maxCoverage",
+            "permittedUse"
           ],
           "why": "pack es-08019-barcelona · confidence estimated-ruleset · status ok"
         },
@@ -3649,7 +3801,8 @@
           "zoneLabel": "12",
           "area": "es-08019-barcelona",
           "slots": [
-            "maxFAR"
+            "maxFAR",
+            "permittedUse"
           ],
           "why": "pack es-08019-barcelona · confidence estimated-ruleset · status degenerate"
         },
@@ -3660,7 +3813,8 @@
           "zoneLabel": "12",
           "area": "es-08019-barcelona",
           "slots": [
-            "maxFAR"
+            "maxFAR",
+            "permittedUse"
           ],
           "why": "pack es-08019-barcelona · confidence estimated-ruleset · status degenerate"
         },
@@ -3698,10 +3852,14 @@
           "zoneLabel": "20a/9",
           "area": "es-08019-barcelona",
           "slots": [
+            "setback.front",
+            "setback.side",
+            "setback.rear",
             "maxHeight",
             "maxFloors",
             "maxFAR",
-            "maxCoverage"
+            "maxCoverage",
+            "permittedUse"
           ],
           "why": "pack es-08019-barcelona · confidence estimated-ruleset · status ok"
         },
@@ -3739,7 +3897,8 @@
           "zoneLabel": "12",
           "area": "es-08019-barcelona",
           "slots": [
-            "maxFAR"
+            "maxFAR",
+            "permittedUse"
           ],
           "why": "pack es-08019-barcelona · confidence estimated-ruleset · status degenerate"
         },
@@ -3750,7 +3909,8 @@
           "zoneLabel": "12",
           "area": "es-08019-barcelona",
           "slots": [
-            "maxFAR"
+            "maxFAR",
+            "permittedUse"
           ],
           "why": "pack es-08019-barcelona · confidence estimated-ruleset · status degenerate"
         },
@@ -3806,7 +3966,8 @@
           "zoneLabel": "12",
           "area": "es-08019-barcelona",
           "slots": [
-            "maxFAR"
+            "maxFAR",
+            "permittedUse"
           ],
           "why": "pack es-08019-barcelona · confidence estimated-ruleset · status degenerate"
         },
@@ -3817,7 +3978,8 @@
           "zoneLabel": "12",
           "area": "es-08019-barcelona",
           "slots": [
-            "maxFAR"
+            "maxFAR",
+            "permittedUse"
           ],
           "why": "pack es-08019-barcelona · confidence estimated-ruleset · status degenerate"
         },
@@ -3828,7 +3990,8 @@
           "zoneLabel": "12",
           "area": "es-08019-barcelona",
           "slots": [
-            "maxFAR"
+            "maxFAR",
+            "permittedUse"
           ],
           "why": "pack es-08019-barcelona · confidence estimated-ruleset · status degenerate"
         },
@@ -3848,7 +4011,8 @@
           "zoneLabel": "12",
           "area": "es-08019-barcelona",
           "slots": [
-            "maxFAR"
+            "maxFAR",
+            "permittedUse"
           ],
           "why": "pack es-08019-barcelona · confidence estimated-ruleset · status degenerate"
         },
@@ -3859,10 +4023,14 @@
           "zoneLabel": "20a/9",
           "area": "es-08019-barcelona",
           "slots": [
+            "setback.front",
+            "setback.side",
+            "setback.rear",
             "maxHeight",
             "maxFloors",
             "maxFAR",
-            "maxCoverage"
+            "maxCoverage",
+            "permittedUse"
           ],
           "why": "pack es-08019-barcelona · confidence estimated-ruleset · status ok"
         }
@@ -7519,8 +7687,12 @@
           "zoneLabel": "IX",
           "area": "es-30030-murcia",
           "slots": [
+            "setback.front",
+            "setback.side",
+            "setback.rear",
             "maxFAR",
-            "maxCoverage"
+            "maxCoverage",
+            "permittedUse"
           ],
           "why": "pack es-30030-murcia · confidence estimated-ruleset · status ok"
         },
@@ -7657,9 +7829,13 @@
           "zoneLabel": "RL",
           "area": "es-30030-murcia",
           "slots": [
+            "setback.front",
+            "setback.side",
+            "setback.rear",
             "maxHeight",
             "maxFloors",
-            "maxFAR"
+            "maxFAR",
+            "permittedUse"
           ],
           "why": "pack es-30030-murcia · confidence estimated-ruleset · status ok"
         },
@@ -7706,8 +7882,11 @@
           "zoneLabel": "RD1",
           "area": "es-30030-murcia",
           "slots": [
+            "setback.front",
+            "setback.side",
             "maxHeight",
-            "maxFloors"
+            "maxFloors",
+            "permittedUse"
           ],
           "why": "pack es-30030-murcia · confidence estimated-ruleset · status ok"
         },
@@ -7763,8 +7942,11 @@
           "zoneLabel": "RD1",
           "area": "es-30030-murcia",
           "slots": [
+            "setback.front",
+            "setback.side",
             "maxHeight",
-            "maxFloors"
+            "maxFloors",
+            "permittedUse"
           ],
           "why": "pack es-30030-murcia · confidence estimated-ruleset · status ok"
         },
@@ -7829,9 +8011,13 @@
           "zoneLabel": "RL",
           "area": "es-30030-murcia",
           "slots": [
+            "setback.front",
+            "setback.side",
+            "setback.rear",
             "maxHeight",
             "maxFloors",
-            "maxFAR"
+            "maxFAR",
+            "permittedUse"
           ],
           "why": "pack es-30030-murcia · confidence estimated-ruleset · status ok"
         },
@@ -7842,8 +8028,11 @@
           "zoneLabel": "MC",
           "area": "es-30030-murcia",
           "slots": [
+            "setback.front",
+            "setback.side",
             "maxHeight",
-            "maxFloors"
+            "maxFloors",
+            "permittedUse"
           ],
           "why": "pack es-30030-murcia · confidence estimated-ruleset · status ok"
         },
@@ -7872,9 +8061,13 @@
           "zoneLabel": "RL",
           "area": "es-30030-murcia",
           "slots": [
+            "setback.front",
+            "setback.side",
+            "setback.rear",
             "maxHeight",
             "maxFloors",
-            "maxFAR"
+            "maxFAR",
+            "permittedUse"
           ],
           "why": "pack es-30030-murcia · confidence estimated-ruleset · status ok"
         },
@@ -8002,9 +8195,13 @@
           "zoneLabel": "RL",
           "area": "es-30030-murcia",
           "slots": [
+            "setback.front",
+            "setback.side",
+            "setback.rear",
             "maxHeight",
             "maxFloors",
-            "maxFAR"
+            "maxFAR",
+            "permittedUse"
           ],
           "why": "pack es-30030-murcia · confidence estimated-ruleset · status ok"
         },
@@ -8024,9 +8221,13 @@
           "zoneLabel": "RL",
           "area": "es-30030-murcia",
           "slots": [
+            "setback.front",
+            "setback.side",
+            "setback.rear",
             "maxHeight",
             "maxFloors",
-            "maxFAR"
+            "maxFAR",
+            "permittedUse"
           ],
           "why": "pack es-30030-murcia · confidence estimated-ruleset · status ok"
         },
@@ -8181,8 +8382,11 @@
           "zoneLabel": "RM2",
           "area": "es-30030-murcia",
           "slots": [
+            "setback.front",
+            "setback.side",
             "maxHeight",
-            "maxFloors"
+            "maxFloors",
+            "permittedUse"
           ],
           "why": "pack es-30030-murcia · confidence estimated-ruleset · status ok"
         },
@@ -8220,9 +8424,13 @@
           "zoneLabel": "RF",
           "area": "es-30030-murcia",
           "slots": [
+            "setback.front",
+            "setback.side",
+            "setback.rear",
             "maxHeight",
             "maxFloors",
-            "maxCoverage"
+            "maxCoverage",
+            "permittedUse"
           ],
           "why": "pack es-30030-murcia · confidence estimated-ruleset · status ok"
         },
@@ -8242,9 +8450,13 @@
           "zoneLabel": "RG",
           "area": "es-30030-murcia",
           "slots": [
+            "setback.front",
+            "setback.side",
+            "setback.rear",
             "maxHeight",
             "maxFloors",
-            "maxCoverage"
+            "maxCoverage",
+            "permittedUse"
           ],
           "why": "pack es-30030-murcia · confidence estimated-ruleset · status ok"
         },
@@ -8255,8 +8467,11 @@
           "zoneLabel": "RD1",
           "area": "es-30030-murcia",
           "slots": [
+            "setback.front",
+            "setback.side",
             "maxHeight",
-            "maxFloors"
+            "maxFloors",
+            "permittedUse"
           ],
           "why": "pack es-30030-murcia · confidence estimated-ruleset · status ok"
         },
@@ -8303,9 +8518,13 @@
           "zoneLabel": "RL",
           "area": "es-30030-murcia",
           "slots": [
+            "setback.front",
+            "setback.side",
+            "setback.rear",
             "maxHeight",
             "maxFloors",
-            "maxFAR"
+            "maxFAR",
+            "permittedUse"
           ],
           "why": "pack es-30030-murcia · confidence estimated-ruleset · status ok"
         },
@@ -8334,9 +8553,13 @@
           "zoneLabel": "RH",
           "area": "es-30030-murcia",
           "slots": [
+            "setback.front",
+            "setback.side",
+            "setback.rear",
             "maxHeight",
             "maxFloors",
-            "maxCoverage"
+            "maxCoverage",
+            "permittedUse"
           ],
           "why": "pack es-30030-murcia · confidence estimated-ruleset · status ok"
         },
@@ -8356,8 +8579,12 @@
           "zoneLabel": "IX",
           "area": "es-30030-murcia",
           "slots": [
+            "setback.front",
+            "setback.side",
+            "setback.rear",
             "maxFAR",
-            "maxCoverage"
+            "maxCoverage",
+            "permittedUse"
           ],
           "why": "pack es-30030-murcia · confidence estimated-ruleset · status ok"
         },
@@ -8386,9 +8613,13 @@
           "zoneLabel": "RL",
           "area": "es-30030-murcia",
           "slots": [
+            "setback.front",
+            "setback.side",
+            "setback.rear",
             "maxHeight",
             "maxFloors",
-            "maxFAR"
+            "maxFAR",
+            "permittedUse"
           ],
           "why": "pack es-30030-murcia · confidence estimated-ruleset · status ok"
         },
@@ -8408,9 +8639,13 @@
           "zoneLabel": "RL",
           "area": "es-30030-murcia",
           "slots": [
+            "setback.front",
+            "setback.side",
+            "setback.rear",
             "maxHeight",
             "maxFloors",
-            "maxFAR"
+            "maxFAR",
+            "permittedUse"
           ],
           "why": "pack es-30030-murcia · confidence estimated-ruleset · status ok"
         },
@@ -8448,8 +8683,12 @@
           "zoneLabel": "IX",
           "area": "es-30030-murcia",
           "slots": [
+            "setback.front",
+            "setback.side",
+            "setback.rear",
             "maxFAR",
-            "maxCoverage"
+            "maxCoverage",
+            "permittedUse"
           ],
           "why": "pack es-30030-murcia · confidence estimated-ruleset · status ok"
         },
@@ -8460,9 +8699,13 @@
           "zoneLabel": "RL",
           "area": "es-30030-murcia",
           "slots": [
+            "setback.front",
+            "setback.side",
+            "setback.rear",
             "maxHeight",
             "maxFloors",
-            "maxFAR"
+            "maxFAR",
+            "permittedUse"
           ],
           "why": "pack es-30030-murcia · confidence estimated-ruleset · status ok"
         },
@@ -8536,9 +8779,13 @@
           "zoneLabel": "RL",
           "area": "es-30030-murcia",
           "slots": [
+            "setback.front",
+            "setback.side",
+            "setback.rear",
             "maxHeight",
             "maxFloors",
-            "maxFAR"
+            "maxFAR",
+            "permittedUse"
           ],
           "why": "pack es-30030-murcia · confidence estimated-ruleset · status ok"
         },
@@ -8558,9 +8805,13 @@
           "zoneLabel": "RL",
           "area": "es-30030-murcia",
           "slots": [
+            "setback.front",
+            "setback.side",
+            "setback.rear",
             "maxHeight",
             "maxFloors",
-            "maxFAR"
+            "maxFAR",
+            "permittedUse"
           ],
           "why": "pack es-30030-murcia · confidence estimated-ruleset · status ok"
         },
@@ -8580,8 +8831,11 @@
           "zoneLabel": "MC",
           "area": "es-30030-murcia",
           "slots": [
+            "setback.front",
+            "setback.side",
             "maxHeight",
-            "maxFloors"
+            "maxFloors",
+            "permittedUse"
           ],
           "why": "pack es-30030-murcia · confidence estimated-ruleset · status ok"
         },
@@ -8754,9 +9008,13 @@
           "zoneLabel": "RF",
           "area": "es-30030-murcia",
           "slots": [
+            "setback.front",
+            "setback.side",
+            "setback.rear",
             "maxHeight",
             "maxFloors",
-            "maxCoverage"
+            "maxCoverage",
+            "permittedUse"
           ],
           "why": "pack es-30030-murcia · confidence estimated-ruleset · status ok"
         },
@@ -8812,8 +9070,11 @@
           "zoneLabel": "RD1",
           "area": "es-30030-murcia",
           "slots": [
+            "setback.front",
+            "setback.side",
             "maxHeight",
-            "maxFloors"
+            "maxFloors",
+            "permittedUse"
           ],
           "why": "pack es-30030-murcia · confidence estimated-ruleset · status ok"
         },
@@ -8833,9 +9094,13 @@
           "zoneLabel": "RF",
           "area": "es-30030-murcia",
           "slots": [
+            "setback.front",
+            "setback.side",
+            "setback.rear",
             "maxHeight",
             "maxFloors",
-            "maxCoverage"
+            "maxCoverage",
+            "permittedUse"
           ],
           "why": "pack es-30030-murcia · confidence estimated-ruleset · status ok"
         },
@@ -8918,9 +9183,13 @@
           "zoneLabel": "RH",
           "area": "es-30030-murcia",
           "slots": [
+            "setback.front",
+            "setback.side",
+            "setback.rear",
             "maxHeight",
             "maxFloors",
-            "maxCoverage"
+            "maxCoverage",
+            "permittedUse"
           ],
           "why": "pack es-30030-murcia · confidence estimated-ruleset · status ok"
         },
@@ -8931,9 +9200,13 @@
           "zoneLabel": "RL",
           "area": "es-30030-murcia",
           "slots": [
+            "setback.front",
+            "setback.side",
+            "setback.rear",
             "maxHeight",
             "maxFloors",
-            "maxFAR"
+            "maxFAR",
+            "permittedUse"
           ],
           "why": "pack es-30030-murcia · confidence estimated-ruleset · status ok"
         },
@@ -8953,8 +9226,12 @@
           "zoneLabel": "IX",
           "area": "es-30030-murcia",
           "slots": [
+            "setback.front",
+            "setback.side",
+            "setback.rear",
             "maxFAR",
-            "maxCoverage"
+            "maxCoverage",
+            "permittedUse"
           ],
           "why": "pack es-30030-murcia · confidence estimated-ruleset · status ok"
         },
@@ -8965,9 +9242,13 @@
           "zoneLabel": "RL",
           "area": "es-30030-murcia",
           "slots": [
+            "setback.front",
+            "setback.side",
+            "setback.rear",
             "maxHeight",
             "maxFloors",
-            "maxFAR"
+            "maxFAR",
+            "permittedUse"
           ],
           "why": "pack es-30030-murcia · confidence estimated-ruleset · status ok"
         },
@@ -8978,8 +9259,12 @@
           "zoneLabel": "IC",
           "area": "es-30030-murcia",
           "slots": [
+            "setback.front",
+            "setback.side",
+            "setback.rear",
             "maxFAR",
-            "maxCoverage"
+            "maxCoverage",
+            "permittedUse"
           ],
           "why": "pack es-30030-murcia · confidence estimated-ruleset · status ok"
         },
@@ -9008,9 +9293,13 @@
           "zoneLabel": "RL",
           "area": "es-30030-murcia",
           "slots": [
+            "setback.front",
+            "setback.side",
+            "setback.rear",
             "maxHeight",
             "maxFloors",
-            "maxFAR"
+            "maxFAR",
+            "permittedUse"
           ],
           "why": "pack es-30030-murcia · confidence estimated-ruleset · status ok"
         },
@@ -9093,9 +9382,13 @@
           "zoneLabel": "RL",
           "area": "es-30030-murcia",
           "slots": [
+            "setback.front",
+            "setback.side",
+            "setback.rear",
             "maxHeight",
             "maxFloors",
-            "maxFAR"
+            "maxFAR",
+            "permittedUse"
           ],
           "why": "pack es-30030-murcia · confidence estimated-ruleset · status ok"
         },
@@ -9178,9 +9471,13 @@
           "zoneLabel": "RL",
           "area": "es-30030-murcia",
           "slots": [
+            "setback.front",
+            "setback.side",
+            "setback.rear",
             "maxHeight",
             "maxFloors",
-            "maxFAR"
+            "maxFAR",
+            "permittedUse"
           ],
           "why": "pack es-30030-murcia · confidence estimated-ruleset · status ok"
         },
@@ -9218,9 +9515,13 @@
           "zoneLabel": "RL",
           "area": "es-30030-murcia",
           "slots": [
+            "setback.front",
+            "setback.side",
+            "setback.rear",
             "maxHeight",
             "maxFloors",
-            "maxFAR"
+            "maxFAR",
+            "permittedUse"
           ],
           "why": "pack es-30030-murcia · confidence estimated-ruleset · status ok"
         },
@@ -9303,9 +9604,13 @@
           "zoneLabel": "RL",
           "area": "es-30030-murcia",
           "slots": [
+            "setback.front",
+            "setback.side",
+            "setback.rear",
             "maxHeight",
             "maxFloors",
-            "maxFAR"
+            "maxFAR",
+            "permittedUse"
           ],
           "why": "pack es-30030-murcia · confidence estimated-ruleset · status ok"
         },
@@ -9361,9 +9666,13 @@
           "zoneLabel": "RL",
           "area": "es-30030-murcia",
           "slots": [
+            "setback.front",
+            "setback.side",
+            "setback.rear",
             "maxHeight",
             "maxFloors",
-            "maxFAR"
+            "maxFAR",
+            "permittedUse"
           ],
           "why": "pack es-30030-murcia · confidence estimated-ruleset · status ok"
         },
@@ -9392,9 +9701,13 @@
           "zoneLabel": "RL",
           "area": "es-30030-murcia",
           "slots": [
+            "setback.front",
+            "setback.side",
+            "setback.rear",
             "maxHeight",
             "maxFloors",
-            "maxFAR"
+            "maxFAR",
+            "permittedUse"
           ],
           "why": "pack es-30030-murcia · confidence estimated-ruleset · status ok"
         },
@@ -9423,9 +9736,13 @@
           "zoneLabel": "RG",
           "area": "es-30030-murcia",
           "slots": [
+            "setback.front",
+            "setback.side",
+            "setback.rear",
             "maxHeight",
             "maxFloors",
-            "maxCoverage"
+            "maxCoverage",
+            "permittedUse"
           ],
           "why": "pack es-30030-murcia · confidence estimated-ruleset · status ok"
         },
@@ -9472,9 +9789,13 @@
           "zoneLabel": "RL",
           "area": "es-30030-murcia",
           "slots": [
+            "setback.front",
+            "setback.side",
+            "setback.rear",
             "maxHeight",
             "maxFloors",
-            "maxFAR"
+            "maxFAR",
+            "permittedUse"
           ],
           "why": "pack es-30030-murcia · confidence estimated-ruleset · status ok"
         },
@@ -9584,9 +9905,13 @@
           "zoneLabel": "RL",
           "area": "es-30030-murcia",
           "slots": [
+            "setback.front",
+            "setback.side",
+            "setback.rear",
             "maxHeight",
             "maxFloors",
-            "maxFAR"
+            "maxFAR",
+            "permittedUse"
           ],
           "why": "pack es-30030-murcia · confidence estimated-ruleset · status ok"
         },
@@ -9642,8 +9967,11 @@
           "zoneLabel": "RD1",
           "area": "es-30030-murcia",
           "slots": [
+            "setback.front",
+            "setback.side",
             "maxHeight",
-            "maxFloors"
+            "maxFloors",
+            "permittedUse"
           ],
           "why": "pack es-30030-murcia · confidence estimated-ruleset · status ok"
         },
@@ -9654,9 +9982,13 @@
           "zoneLabel": "RL",
           "area": "es-30030-murcia",
           "slots": [
+            "setback.front",
+            "setback.side",
+            "setback.rear",
             "maxHeight",
             "maxFloors",
-            "maxFAR"
+            "maxFAR",
+            "permittedUse"
           ],
           "why": "pack es-30030-murcia · confidence estimated-ruleset · status ok"
         },
@@ -9721,9 +10053,13 @@
           "zoneLabel": "RL",
           "area": "es-30030-murcia",
           "slots": [
+            "setback.front",
+            "setback.side",
+            "setback.rear",
             "maxHeight",
             "maxFloors",
-            "maxFAR"
+            "maxFAR",
+            "permittedUse"
           ],
           "why": "pack es-30030-murcia · confidence estimated-ruleset · status ok"
         },
@@ -9743,9 +10079,13 @@
           "zoneLabel": "RL",
           "area": "es-30030-murcia",
           "slots": [
+            "setback.front",
+            "setback.side",
+            "setback.rear",
             "maxHeight",
             "maxFloors",
-            "maxFAR"
+            "maxFAR",
+            "permittedUse"
           ],
           "why": "pack es-30030-murcia · confidence estimated-ruleset · status ok"
         },
@@ -9765,9 +10105,13 @@
           "zoneLabel": "RL",
           "area": "es-30030-murcia",
           "slots": [
+            "setback.front",
+            "setback.side",
+            "setback.rear",
             "maxHeight",
             "maxFloors",
-            "maxFAR"
+            "maxFAR",
+            "permittedUse"
           ],
           "why": "pack es-30030-murcia · confidence estimated-ruleset · status ok"
         },
@@ -9886,9 +10230,13 @@
           "zoneLabel": "RL",
           "area": "es-30030-murcia",
           "slots": [
+            "setback.front",
+            "setback.side",
+            "setback.rear",
             "maxHeight",
             "maxFloors",
-            "maxFAR"
+            "maxFAR",
+            "permittedUse"
           ],
           "why": "pack es-30030-murcia · confidence estimated-ruleset · status ok"
         },
@@ -9899,9 +10247,13 @@
           "zoneLabel": "RL",
           "area": "es-30030-murcia",
           "slots": [
+            "setback.front",
+            "setback.side",
+            "setback.rear",
             "maxHeight",
             "maxFloors",
-            "maxFAR"
+            "maxFAR",
+            "permittedUse"
           ],
           "why": "pack es-30030-murcia · confidence estimated-ruleset · status ok"
         },
@@ -9948,9 +10300,13 @@
           "zoneLabel": "RG",
           "area": "es-30030-murcia",
           "slots": [
+            "setback.front",
+            "setback.side",
+            "setback.rear",
             "maxHeight",
             "maxFloors",
-            "maxCoverage"
+            "maxCoverage",
+            "permittedUse"
           ],
           "why": "pack es-30030-murcia · confidence estimated-ruleset · status ok"
         },
@@ -9970,8 +10326,11 @@
           "zoneLabel": "RM2",
           "area": "es-30030-murcia",
           "slots": [
+            "setback.front",
+            "setback.side",
             "maxHeight",
-            "maxFloors"
+            "maxFloors",
+            "permittedUse"
           ],
           "why": "pack es-30030-murcia · confidence estimated-ruleset · status ok"
         },
@@ -10063,8 +10422,11 @@
           "zoneLabel": "MC",
           "area": "es-30030-murcia",
           "slots": [
+            "setback.front",
+            "setback.side",
             "maxHeight",
-            "maxFloors"
+            "maxFloors",
+            "permittedUse"
           ],
           "why": "pack es-30030-murcia · confidence estimated-ruleset · status ok"
         },
@@ -10111,9 +10473,13 @@
           "zoneLabel": "RD",
           "area": "es-30030-murcia",
           "slots": [
+            "setback.front",
+            "setback.side",
+            "setback.rear",
             "maxHeight",
             "maxFloors",
-            "maxFAR"
+            "maxFAR",
+            "permittedUse"
           ],
           "why": "pack es-30030-murcia · confidence estimated-ruleset · status ok"
         },
@@ -10142,9 +10508,13 @@
           "zoneLabel": "RF",
           "area": "es-30030-murcia",
           "slots": [
+            "setback.front",
+            "setback.side",
+            "setback.rear",
             "maxHeight",
             "maxFloors",
-            "maxCoverage"
+            "maxCoverage",
+            "permittedUse"
           ],
           "why": "pack es-30030-murcia · confidence estimated-ruleset · status ok"
         },
@@ -10191,9 +10561,13 @@
           "zoneLabel": "RL",
           "area": "es-30030-murcia",
           "slots": [
+            "setback.front",
+            "setback.side",
+            "setback.rear",
             "maxHeight",
             "maxFloors",
-            "maxFAR"
+            "maxFAR",
+            "permittedUse"
           ],
           "why": "pack es-30030-murcia · confidence estimated-ruleset · status ok"
         },
@@ -10330,9 +10704,13 @@
           "zoneLabel": "RL",
           "area": "es-30030-murcia",
           "slots": [
+            "setback.front",
+            "setback.side",
+            "setback.rear",
             "maxHeight",
             "maxFloors",
-            "maxFAR"
+            "maxFAR",
+            "permittedUse"
           ],
           "why": "pack es-30030-murcia · confidence estimated-ruleset · status ok"
         },
@@ -10361,9 +10739,13 @@
           "zoneLabel": "RL",
           "area": "es-30030-murcia",
           "slots": [
+            "setback.front",
+            "setback.side",
+            "setback.rear",
             "maxHeight",
             "maxFloors",
-            "maxFAR"
+            "maxFAR",
+            "permittedUse"
           ],
           "why": "pack es-30030-murcia · confidence estimated-ruleset · status ok"
         },
@@ -10419,8 +10801,11 @@
           "zoneLabel": "RD1",
           "area": "es-30030-murcia",
           "slots": [
+            "setback.front",
+            "setback.side",
             "maxHeight",
-            "maxFloors"
+            "maxFloors",
+            "permittedUse"
           ],
           "why": "pack es-30030-murcia · confidence estimated-ruleset · status ok"
         },
@@ -10431,9 +10816,13 @@
           "zoneLabel": "RL",
           "area": "es-30030-murcia",
           "slots": [
+            "setback.front",
+            "setback.side",
+            "setback.rear",
             "maxHeight",
             "maxFloors",
-            "maxFAR"
+            "maxFAR",
+            "permittedUse"
           ],
           "why": "pack es-30030-murcia · confidence estimated-ruleset · status ok"
         },
@@ -10480,8 +10869,11 @@
           "zoneLabel": "RD1",
           "area": "es-30030-murcia",
           "slots": [
+            "setback.front",
+            "setback.side",
             "maxHeight",
-            "maxFloors"
+            "maxFloors",
+            "permittedUse"
           ],
           "why": "pack es-30030-murcia · confidence estimated-ruleset · status ok"
         },
@@ -10528,8 +10920,11 @@
           "zoneLabel": "RM2",
           "area": "es-30030-murcia",
           "slots": [
+            "setback.front",
+            "setback.side",
             "maxHeight",
-            "maxFloors"
+            "maxFloors",
+            "permittedUse"
           ],
           "why": "pack es-30030-murcia · confidence estimated-ruleset · status ok"
         },
@@ -10558,9 +10953,13 @@
           "zoneLabel": "RD",
           "area": "es-30030-murcia",
           "slots": [
+            "setback.front",
+            "setback.side",
+            "setback.rear",
             "maxHeight",
             "maxFloors",
-            "maxFAR"
+            "maxFAR",
+            "permittedUse"
           ],
           "why": "pack es-30030-murcia · confidence estimated-ruleset · status ok"
         },
@@ -10580,9 +10979,13 @@
           "zoneLabel": "RL",
           "area": "es-30030-murcia",
           "slots": [
+            "setback.front",
+            "setback.side",
+            "setback.rear",
             "maxHeight",
             "maxFloors",
-            "maxFAR"
+            "maxFAR",
+            "permittedUse"
           ],
           "why": "pack es-30030-murcia · confidence estimated-ruleset · status ok"
         },
@@ -10602,9 +11005,13 @@
           "zoneLabel": "RL",
           "area": "es-30030-murcia",
           "slots": [
+            "setback.front",
+            "setback.side",
+            "setback.rear",
             "maxHeight",
             "maxFloors",
-            "maxFAR"
+            "maxFAR",
+            "permittedUse"
           ],
           "why": "pack es-30030-murcia · confidence estimated-ruleset · status ok"
         },
@@ -10615,8 +11022,11 @@
           "zoneLabel": "RD1",
           "area": "es-30030-murcia",
           "slots": [
+            "setback.front",
+            "setback.side",
             "maxHeight",
-            "maxFloors"
+            "maxFloors",
+            "permittedUse"
           ],
           "why": "pack es-30030-murcia · confidence estimated-ruleset · status ok"
         },
@@ -10627,9 +11037,13 @@
           "zoneLabel": "RL",
           "area": "es-30030-murcia",
           "slots": [
+            "setback.front",
+            "setback.side",
+            "setback.rear",
             "maxHeight",
             "maxFloors",
-            "maxFAR"
+            "maxFAR",
+            "permittedUse"
           ],
           "why": "pack es-30030-murcia · confidence estimated-ruleset · status ok"
         },
@@ -10676,9 +11090,13 @@
           "zoneLabel": "RL",
           "area": "es-30030-murcia",
           "slots": [
+            "setback.front",
+            "setback.side",
+            "setback.rear",
             "maxHeight",
             "maxFloors",
-            "maxFAR"
+            "maxFAR",
+            "permittedUse"
           ],
           "why": "pack es-30030-murcia · confidence estimated-ruleset · status ok"
         },
@@ -10716,9 +11134,13 @@
           "zoneLabel": "RL",
           "area": "es-30030-murcia",
           "slots": [
+            "setback.front",
+            "setback.side",
+            "setback.rear",
             "maxHeight",
             "maxFloors",
-            "maxFAR"
+            "maxFAR",
+            "permittedUse"
           ],
           "why": "pack es-30030-murcia · confidence estimated-ruleset · status ok"
         },
@@ -10792,9 +11214,13 @@
           "zoneLabel": "RL",
           "area": "es-30030-murcia",
           "slots": [
+            "setback.front",
+            "setback.side",
+            "setback.rear",
             "maxHeight",
             "maxFloors",
-            "maxFAR"
+            "maxFAR",
+            "permittedUse"
           ],
           "why": "pack es-30030-murcia · confidence estimated-ruleset · status ok"
         },
@@ -10823,9 +11249,13 @@
           "zoneLabel": "RL",
           "area": "es-30030-murcia",
           "slots": [
+            "setback.front",
+            "setback.side",
+            "setback.rear",
             "maxHeight",
             "maxFloors",
-            "maxFAR"
+            "maxFAR",
+            "permittedUse"
           ],
           "why": "pack es-30030-murcia · confidence estimated-ruleset · status ok"
         },
@@ -10854,8 +11284,11 @@
           "zoneLabel": "RD1",
           "area": "es-30030-murcia",
           "slots": [
+            "setback.front",
+            "setback.side",
             "maxHeight",
-            "maxFloors"
+            "maxFloors",
+            "permittedUse"
           ],
           "why": "pack es-30030-murcia · confidence estimated-ruleset · status ok"
         },
@@ -10920,8 +11353,11 @@
           "zoneLabel": "RD1",
           "area": "es-30030-murcia",
           "slots": [
+            "setback.front",
+            "setback.side",
             "maxHeight",
-            "maxFloors"
+            "maxFloors",
+            "permittedUse"
           ],
           "why": "pack es-30030-murcia · confidence estimated-ruleset · status ok"
         },
@@ -11031,8 +11467,11 @@
           "zoneLabel": "RD1",
           "area": "es-30030-murcia",
           "slots": [
+            "setback.front",
+            "setback.side",
             "maxHeight",
-            "maxFloors"
+            "maxFloors",
+            "permittedUse"
           ],
           "why": "pack es-30030-murcia · confidence estimated-ruleset · status ok"
         },
@@ -11097,8 +11536,11 @@
           "zoneLabel": "RD1",
           "area": "es-30030-murcia",
           "slots": [
+            "setback.front",
+            "setback.side",
             "maxHeight",
-            "maxFloors"
+            "maxFloors",
+            "permittedUse"
           ],
           "why": "pack es-30030-murcia · confidence estimated-ruleset · status ok"
         },
@@ -11154,9 +11596,13 @@
           "zoneLabel": "RL",
           "area": "es-30030-murcia",
           "slots": [
+            "setback.front",
+            "setback.side",
+            "setback.rear",
             "maxHeight",
             "maxFloors",
-            "maxFAR"
+            "maxFAR",
+            "permittedUse"
           ],
           "why": "pack es-30030-murcia · confidence estimated-ruleset · status ok"
         },
@@ -11167,9 +11613,13 @@
           "zoneLabel": "RF",
           "area": "es-30030-murcia",
           "slots": [
+            "setback.front",
+            "setback.side",
+            "setback.rear",
             "maxHeight",
             "maxFloors",
-            "maxCoverage"
+            "maxCoverage",
+            "permittedUse"
           ],
           "why": "pack es-30030-murcia · confidence estimated-ruleset · status ok"
         },
@@ -11198,8 +11648,12 @@
           "zoneLabel": "IC",
           "area": "es-30030-murcia",
           "slots": [
+            "setback.front",
+            "setback.side",
+            "setback.rear",
             "maxFAR",
-            "maxCoverage"
+            "maxCoverage",
+            "permittedUse"
           ],
           "why": "pack es-30030-murcia · confidence estimated-ruleset · status ok"
         },
@@ -11273,9 +11727,13 @@
           "zoneLabel": "RL",
           "area": "es-30030-murcia",
           "slots": [
+            "setback.front",
+            "setback.side",
+            "setback.rear",
             "maxHeight",
             "maxFloors",
-            "maxFAR"
+            "maxFAR",
+            "permittedUse"
           ],
           "why": "pack es-30030-murcia · confidence estimated-ruleset · status ok"
         },
@@ -11304,9 +11762,13 @@
           "zoneLabel": "RL",
           "area": "es-30030-murcia",
           "slots": [
+            "setback.front",
+            "setback.side",
+            "setback.rear",
             "maxHeight",
             "maxFloors",
-            "maxFAR"
+            "maxFAR",
+            "permittedUse"
           ],
           "why": "pack es-30030-murcia · confidence estimated-ruleset · status ok"
         },
@@ -11317,8 +11779,11 @@
           "zoneLabel": "RD1",
           "area": "es-30030-murcia",
           "slots": [
+            "setback.front",
+            "setback.side",
             "maxHeight",
-            "maxFloors"
+            "maxFloors",
+            "permittedUse"
           ],
           "why": "pack es-30030-murcia · confidence estimated-ruleset · status ok"
         },
@@ -11338,8 +11803,11 @@
           "zoneLabel": "RD1",
           "area": "es-30030-murcia",
           "slots": [
+            "setback.front",
+            "setback.side",
             "maxHeight",
-            "maxFloors"
+            "maxFloors",
+            "permittedUse"
           ],
           "why": "pack es-30030-murcia · confidence estimated-ruleset · status ok"
         },
@@ -18592,7 +19060,8 @@
           "zoneLabel": "12",
           "area": "es-08019-barcelona",
           "slots": [
-            "maxFAR"
+            "maxFAR",
+            "permittedUse"
           ],
           "why": "pack es-08019-barcelona · confidence estimated-ruleset · status degenerate"
         },
@@ -18693,7 +19162,8 @@
           "zoneLabel": "12",
           "area": "es-08019-barcelona",
           "slots": [
-            "maxFAR"
+            "maxFAR",
+            "permittedUse"
           ],
           "why": "pack es-08019-barcelona · confidence estimated-ruleset · status degenerate"
         },
@@ -18713,10 +19183,14 @@
           "zoneLabel": "20a/10",
           "area": "es-08019-barcelona",
           "slots": [
+            "setback.front",
+            "setback.side",
+            "setback.rear",
             "maxHeight",
             "maxFloors",
             "maxFAR",
-            "maxCoverage"
+            "maxCoverage",
+            "permittedUse"
           ],
           "why": "pack es-08019-barcelona · confidence estimated-ruleset · status ok"
         },
@@ -18736,7 +19210,11 @@
           "zoneLabel": "20a/8",
           "area": "es-08019-barcelona",
           "slots": [
-            "maxCoverage"
+            "setback.front",
+            "setback.side",
+            "setback.rear",
+            "maxCoverage",
+            "permittedUse"
           ],
           "why": "pack es-08019-barcelona · confidence estimated-ruleset · status ok"
         },
@@ -18846,7 +19324,8 @@
           "zoneLabel": "12",
           "area": "es-08019-barcelona",
           "slots": [
-            "maxFAR"
+            "maxFAR",
+            "permittedUse"
           ],
           "why": "pack es-08019-barcelona · confidence estimated-ruleset · status degenerate"
         },
@@ -18911,7 +19390,8 @@
           "zoneLabel": "12",
           "area": "es-08019-barcelona",
           "slots": [
-            "maxFAR"
+            "maxFAR",
+            "permittedUse"
           ],
           "why": "pack es-08019-barcelona · confidence estimated-ruleset · status degenerate"
         },
@@ -19003,7 +19483,8 @@
           "zoneLabel": "12",
           "area": "es-08019-barcelona",
           "slots": [
-            "maxFAR"
+            "maxFAR",
+            "permittedUse"
           ],
           "why": "pack es-08019-barcelona · confidence estimated-ruleset · status degenerate"
         },
@@ -19014,7 +19495,8 @@
           "zoneLabel": "12",
           "area": "es-08019-barcelona",
           "slots": [
-            "maxFAR"
+            "maxFAR",
+            "permittedUse"
           ],
           "why": "pack es-08019-barcelona · confidence estimated-ruleset · status degenerate"
         },
@@ -19034,7 +19516,8 @@
           "zoneLabel": "12",
           "area": "es-08019-barcelona",
           "slots": [
-            "maxFAR"
+            "maxFAR",
+            "permittedUse"
           ],
           "why": "pack es-08019-barcelona · confidence estimated-ruleset · status degenerate"
         },
@@ -19054,7 +19537,8 @@
           "zoneLabel": "12",
           "area": "es-08019-barcelona",
           "slots": [
-            "maxFAR"
+            "maxFAR",
+            "permittedUse"
           ],
           "why": "pack es-08019-barcelona · confidence estimated-ruleset · status degenerate"
         },
@@ -19092,7 +19576,8 @@
           "zoneLabel": "12",
           "area": "es-08019-barcelona",
           "slots": [
-            "maxFAR"
+            "maxFAR",
+            "permittedUse"
           ],
           "why": "pack es-08019-barcelona · confidence estimated-ruleset · status degenerate"
         },
@@ -19121,10 +19606,14 @@
           "zoneLabel": "20a/9",
           "area": "es-08019-barcelona",
           "slots": [
+            "setback.front",
+            "setback.side",
+            "setback.rear",
             "maxHeight",
             "maxFloors",
             "maxFAR",
-            "maxCoverage"
+            "maxCoverage",
+            "permittedUse"
           ],
           "why": "pack es-08019-barcelona · confidence estimated-ruleset · status ok"
         },
@@ -19162,7 +19651,8 @@
           "zoneLabel": "12",
           "area": "es-08019-barcelona",
           "slots": [
-            "maxFAR"
+            "maxFAR",
+            "permittedUse"
           ],
           "why": "pack es-08019-barcelona · confidence estimated-ruleset · status degenerate"
         },
@@ -19272,7 +19762,8 @@
           "zoneLabel": "12",
           "area": "es-08019-barcelona",
           "slots": [
-            "maxFAR"
+            "maxFAR",
+            "permittedUse"
           ],
           "why": "pack es-08019-barcelona · confidence estimated-ruleset · status degenerate"
         },
@@ -19283,7 +19774,8 @@
           "zoneLabel": "12",
           "area": "es-08019-barcelona",
           "slots": [
-            "maxFAR"
+            "maxFAR",
+            "permittedUse"
           ],
           "why": "pack es-08019-barcelona · confidence estimated-ruleset · status degenerate"
         },
@@ -19375,7 +19867,8 @@
           "zoneLabel": "12",
           "area": "es-08019-barcelona",
           "slots": [
-            "maxFAR"
+            "maxFAR",
+            "permittedUse"
           ],
           "why": "pack es-08019-barcelona · confidence estimated-ruleset · status degenerate"
         },
@@ -19431,7 +19924,8 @@
           "zoneLabel": "12",
           "area": "es-08019-barcelona",
           "slots": [
-            "maxFAR"
+            "maxFAR",
+            "permittedUse"
           ],
           "why": "pack es-08019-barcelona · confidence estimated-ruleset · status degenerate"
         },
@@ -19469,7 +19963,8 @@
           "zoneLabel": "12",
           "area": "es-08019-barcelona",
           "slots": [
-            "maxFAR"
+            "maxFAR",
+            "permittedUse"
           ],
           "why": "pack es-08019-barcelona · confidence estimated-ruleset · status degenerate"
         },
@@ -19489,7 +19984,8 @@
           "zoneLabel": "12",
           "area": "es-08019-barcelona",
           "slots": [
-            "maxFAR"
+            "maxFAR",
+            "permittedUse"
           ],
           "why": "pack es-08019-barcelona · confidence estimated-ruleset · status degenerate"
         },
@@ -19500,7 +19996,8 @@
           "zoneLabel": "12",
           "area": "es-08019-barcelona",
           "slots": [
-            "maxFAR"
+            "maxFAR",
+            "permittedUse"
           ],
           "why": "pack es-08019-barcelona · confidence estimated-ruleset · status degenerate"
         },
@@ -19547,7 +20044,8 @@
           "zoneLabel": "12",
           "area": "es-08019-barcelona",
           "slots": [
-            "maxFAR"
+            "maxFAR",
+            "permittedUse"
           ],
           "why": "pack es-08019-barcelona · confidence estimated-ruleset · status degenerate"
         },
@@ -19630,7 +20128,8 @@
           "zoneLabel": "12",
           "area": "es-08019-barcelona",
           "slots": [
-            "maxFAR"
+            "maxFAR",
+            "permittedUse"
           ],
           "why": "pack es-08019-barcelona · confidence estimated-ruleset · status degenerate"
         },
@@ -19695,10 +20194,14 @@
           "zoneLabel": "20a/10",
           "area": "es-08019-barcelona",
           "slots": [
+            "setback.front",
+            "setback.side",
+            "setback.rear",
             "maxHeight",
             "maxFloors",
             "maxFAR",
-            "maxCoverage"
+            "maxCoverage",
+            "permittedUse"
           ],
           "why": "pack es-08019-barcelona · confidence estimated-ruleset · status ok"
         },
@@ -19763,7 +20266,8 @@
           "zoneLabel": "12",
           "area": "es-08019-barcelona",
           "slots": [
-            "maxFAR"
+            "maxFAR",
+            "permittedUse"
           ],
           "why": "pack es-08019-barcelona · confidence estimated-ruleset · status degenerate"
         },
@@ -19783,7 +20287,8 @@
           "zoneLabel": "12",
           "area": "es-08019-barcelona",
           "slots": [
-            "maxFAR"
+            "maxFAR",
+            "permittedUse"
           ],
           "why": "pack es-08019-barcelona · confidence estimated-ruleset · status degenerate"
         },
@@ -19803,7 +20308,8 @@
           "zoneLabel": "12",
           "area": "es-08019-barcelona",
           "slots": [
-            "maxFAR"
+            "maxFAR",
+            "permittedUse"
           ],
           "why": "pack es-08019-barcelona · confidence estimated-ruleset · status degenerate"
         },
@@ -19841,7 +20347,8 @@
           "zoneLabel": "12",
           "area": "es-08019-barcelona",
           "slots": [
-            "maxFAR"
+            "maxFAR",
+            "permittedUse"
           ],
           "why": "pack es-08019-barcelona · confidence estimated-ruleset · status degenerate"
         },
@@ -19861,10 +20368,14 @@
           "zoneLabel": "20a/9",
           "area": "es-08019-barcelona",
           "slots": [
+            "setback.front",
+            "setback.side",
+            "setback.rear",
             "maxHeight",
             "maxFloors",
             "maxFAR",
-            "maxCoverage"
+            "maxCoverage",
+            "permittedUse"
           ],
           "why": "pack es-08019-barcelona · confidence estimated-ruleset · status ok"
         },
@@ -20001,10 +20512,14 @@
           "zoneLabel": "20a/10",
           "area": "es-08019-barcelona",
           "slots": [
+            "setback.front",
+            "setback.side",
+            "setback.rear",
             "maxHeight",
             "maxFloors",
             "maxFAR",
-            "maxCoverage"
+            "maxCoverage",
+            "permittedUse"
           ],
           "why": "pack es-08019-barcelona · confidence estimated-ruleset · status ok"
         },
@@ -20033,7 +20548,11 @@
           "zoneLabel": "20a/8",
           "area": "es-08019-barcelona",
           "slots": [
-            "maxCoverage"
+            "setback.front",
+            "setback.side",
+            "setback.rear",
+            "maxCoverage",
+            "permittedUse"
           ],
           "why": "pack es-08019-barcelona · confidence estimated-ruleset · status ok"
         },
@@ -20062,7 +20581,8 @@
           "zoneLabel": "12",
           "area": "es-08019-barcelona",
           "slots": [
-            "maxFAR"
+            "maxFAR",
+            "permittedUse"
           ],
           "why": "pack es-08019-barcelona · confidence estimated-ruleset · status degenerate"
         },
@@ -20127,10 +20647,14 @@
           "zoneLabel": "20a/9",
           "area": "es-08019-barcelona",
           "slots": [
+            "setback.front",
+            "setback.side",
+            "setback.rear",
             "maxHeight",
             "maxFloors",
             "maxFAR",
-            "maxCoverage"
+            "maxCoverage",
+            "permittedUse"
           ],
           "why": "pack es-08019-barcelona · confidence estimated-ruleset · status ok"
         },
@@ -20159,9 +20683,13 @@
           "zoneLabel": "20a/9u",
           "area": "es-08019-barcelona",
           "slots": [
+            "setback.front",
+            "setback.side",
+            "setback.rear",
             "maxHeight",
             "maxFloors",
-            "maxCoverage"
+            "maxCoverage",
+            "permittedUse"
           ],
           "why": "pack es-08019-barcelona · confidence estimated-ruleset · status ok"
         },
@@ -20190,10 +20718,14 @@
           "zoneLabel": "20a/10",
           "area": "es-08019-barcelona",
           "slots": [
+            "setback.front",
+            "setback.side",
+            "setback.rear",
             "maxHeight",
             "maxFloors",
             "maxFAR",
-            "maxCoverage"
+            "maxCoverage",
+            "permittedUse"
           ],
           "why": "pack es-08019-barcelona · confidence estimated-ruleset · status ok"
         },
@@ -20312,7 +20844,8 @@
           "zoneLabel": "12",
           "area": "es-08019-barcelona",
           "slots": [
-            "maxFAR"
+            "maxFAR",
+            "permittedUse"
           ],
           "why": "pack es-08019-barcelona · confidence estimated-ruleset · status degenerate"
         },
@@ -20332,7 +20865,8 @@
           "zoneLabel": "12",
           "area": "es-08019-barcelona",
           "slots": [
-            "maxFAR"
+            "maxFAR",
+            "permittedUse"
           ],
           "why": "pack es-08019-barcelona · confidence estimated-ruleset · status degenerate"
         },
@@ -20352,7 +20886,8 @@
           "zoneLabel": "12",
           "area": "es-08019-barcelona",
           "slots": [
-            "maxFAR"
+            "maxFAR",
+            "permittedUse"
           ],
           "why": "pack es-08019-barcelona · confidence estimated-ruleset · status degenerate"
         },
@@ -20390,10 +20925,14 @@
           "zoneLabel": "20a/9",
           "area": "es-08019-barcelona",
           "slots": [
+            "setback.front",
+            "setback.side",
+            "setback.rear",
             "maxHeight",
             "maxFloors",
             "maxFAR",
-            "maxCoverage"
+            "maxCoverage",
+            "permittedUse"
           ],
           "why": "pack es-08019-barcelona · confidence estimated-ruleset · status ok"
         },
@@ -20413,7 +20952,8 @@
           "zoneLabel": "12",
           "area": "es-08019-barcelona",
           "slots": [
-            "maxFAR"
+            "maxFAR",
+            "permittedUse"
           ],
           "why": "pack es-08019-barcelona · confidence estimated-ruleset · status degenerate"
         },
@@ -20478,7 +21018,8 @@
           "zoneLabel": "12",
           "area": "es-08019-barcelona",
           "slots": [
-            "maxFAR"
+            "maxFAR",
+            "permittedUse"
           ],
           "why": "pack es-08019-barcelona · confidence estimated-ruleset · status degenerate"
         },
@@ -20498,7 +21039,8 @@
           "zoneLabel": "12",
           "area": "es-08019-barcelona",
           "slots": [
-            "maxFAR"
+            "maxFAR",
+            "permittedUse"
           ],
           "why": "pack es-08019-barcelona · confidence estimated-ruleset · status degenerate"
         },
@@ -20554,7 +21096,8 @@
           "zoneLabel": "12",
           "area": "es-08019-barcelona",
           "slots": [
-            "maxFAR"
+            "maxFAR",
+            "permittedUse"
           ],
           "why": "pack es-08019-barcelona · confidence estimated-ruleset · status degenerate"
         },
@@ -20637,10 +21180,14 @@
           "zoneLabel": "20a/9",
           "area": "es-08019-barcelona",
           "slots": [
+            "setback.front",
+            "setback.side",
+            "setback.rear",
             "maxHeight",
             "maxFloors",
             "maxFAR",
-            "maxCoverage"
+            "maxCoverage",
+            "permittedUse"
           ],
           "why": "pack es-08019-barcelona · confidence estimated-ruleset · status ok"
         },
@@ -20660,7 +21207,8 @@
           "zoneLabel": "12",
           "area": "es-08019-barcelona",
           "slots": [
-            "maxFAR"
+            "maxFAR",
+            "permittedUse"
           ],
           "why": "pack es-08019-barcelona · confidence estimated-ruleset · status degenerate"
         },
@@ -20698,10 +21246,14 @@
           "zoneLabel": "20a/9",
           "area": "es-08019-barcelona",
           "slots": [
+            "setback.front",
+            "setback.side",
+            "setback.rear",
             "maxHeight",
             "maxFloors",
             "maxFAR",
-            "maxCoverage"
+            "maxCoverage",
+            "permittedUse"
           ],
           "why": "pack es-08019-barcelona · confidence estimated-ruleset · status ok"
         },
@@ -20739,7 +21291,8 @@
           "zoneLabel": "12",
           "area": "es-08019-barcelona",
           "slots": [
-            "maxFAR"
+            "maxFAR",
+            "permittedUse"
           ],
           "why": "pack es-08019-barcelona · confidence estimated-ruleset · status degenerate"
         },
@@ -20759,7 +21312,8 @@
           "zoneLabel": "12",
           "area": "es-08019-barcelona",
           "slots": [
-            "maxFAR"
+            "maxFAR",
+            "permittedUse"
           ],
           "why": "pack es-08019-barcelona · confidence estimated-ruleset · status degenerate"
         },
@@ -20797,7 +21351,8 @@
           "zoneLabel": "12",
           "area": "es-08019-barcelona",
           "slots": [
-            "maxFAR"
+            "maxFAR",
+            "permittedUse"
           ],
           "why": "pack es-08019-barcelona · confidence estimated-ruleset · status degenerate"
         },
@@ -20817,7 +21372,8 @@
           "zoneLabel": "12",
           "area": "es-08019-barcelona",
           "slots": [
-            "maxFAR"
+            "maxFAR",
+            "permittedUse"
           ],
           "why": "pack es-08019-barcelona · confidence estimated-ruleset · status degenerate"
         },
@@ -20864,7 +21420,8 @@
           "zoneLabel": "12",
           "area": "es-08019-barcelona",
           "slots": [
-            "maxFAR"
+            "maxFAR",
+            "permittedUse"
           ],
           "why": "pack es-08019-barcelona · confidence estimated-ruleset · status degenerate"
         },
@@ -20884,7 +21441,8 @@
           "zoneLabel": "12",
           "area": "es-08019-barcelona",
           "slots": [
-            "maxFAR"
+            "maxFAR",
+            "permittedUse"
           ],
           "why": "pack es-08019-barcelona · confidence estimated-ruleset · status degenerate"
         },
@@ -20931,7 +21489,8 @@
           "zoneLabel": "12",
           "area": "es-08019-barcelona",
           "slots": [
-            "maxFAR"
+            "maxFAR",
+            "permittedUse"
           ],
           "why": "pack es-08019-barcelona · confidence estimated-ruleset · status degenerate"
         },
@@ -20951,7 +21510,8 @@
           "zoneLabel": "12",
           "area": "es-08019-barcelona",
           "slots": [
-            "maxFAR"
+            "maxFAR",
+            "permittedUse"
           ],
           "why": "pack es-08019-barcelona · confidence estimated-ruleset · status degenerate"
         },
@@ -21070,7 +21630,8 @@
           "zoneLabel": "12",
           "area": "es-08019-barcelona",
           "slots": [
-            "maxFAR"
+            "maxFAR",
+            "permittedUse"
           ],
           "why": "pack es-08019-barcelona · confidence estimated-ruleset · status degenerate"
         },
@@ -21090,7 +21651,8 @@
           "zoneLabel": "12",
           "area": "es-08019-barcelona",
           "slots": [
-            "maxFAR"
+            "maxFAR",
+            "permittedUse"
           ],
           "why": "pack es-08019-barcelona · confidence estimated-ruleset · status degenerate"
         },
@@ -21137,7 +21699,8 @@
           "zoneLabel": "12",
           "area": "es-08019-barcelona",
           "slots": [
-            "maxFAR"
+            "maxFAR",
+            "permittedUse"
           ],
           "why": "pack es-08019-barcelona · confidence estimated-ruleset · status degenerate"
         },
@@ -21166,7 +21729,8 @@
           "zoneLabel": "12",
           "area": "es-08019-barcelona",
           "slots": [
-            "maxFAR"
+            "maxFAR",
+            "permittedUse"
           ],
           "why": "pack es-08019-barcelona · confidence estimated-ruleset · status degenerate"
         },
@@ -21186,7 +21750,8 @@
           "zoneLabel": "12",
           "area": "es-08019-barcelona",
           "slots": [
-            "maxFAR"
+            "maxFAR",
+            "permittedUse"
           ],
           "why": "pack es-08019-barcelona · confidence estimated-ruleset · status degenerate"
         },
@@ -21215,10 +21780,14 @@
           "zoneLabel": "20a/9",
           "area": "es-08019-barcelona",
           "slots": [
+            "setback.front",
+            "setback.side",
+            "setback.rear",
             "maxHeight",
             "maxFloors",
             "maxFAR",
-            "maxCoverage"
+            "maxCoverage",
+            "permittedUse"
           ],
           "why": "pack es-08019-barcelona · confidence estimated-ruleset · status ok"
         },
@@ -21247,10 +21816,14 @@
           "zoneLabel": "20a/10",
           "area": "es-08019-barcelona",
           "slots": [
+            "setback.front",
+            "setback.side",
+            "setback.rear",
             "maxHeight",
             "maxFloors",
             "maxFAR",
-            "maxCoverage"
+            "maxCoverage",
+            "permittedUse"
           ],
           "why": "pack es-08019-barcelona · confidence estimated-ruleset · status ok"
         },
@@ -21279,7 +21852,8 @@
           "zoneLabel": "12",
           "area": "es-08019-barcelona",
           "slots": [
-            "maxFAR"
+            "maxFAR",
+            "permittedUse"
           ],
           "why": "pack es-08019-barcelona · confidence estimated-ruleset · status degenerate"
         },
@@ -21290,7 +21864,8 @@
           "zoneLabel": "12",
           "area": "es-08019-barcelona",
           "slots": [
-            "maxFAR"
+            "maxFAR",
+            "permittedUse"
           ],
           "why": "pack es-08019-barcelona · confidence estimated-ruleset · status degenerate"
         },
@@ -21328,7 +21903,8 @@
           "zoneLabel": "12",
           "area": "es-08019-barcelona",
           "slots": [
-            "maxFAR"
+            "maxFAR",
+            "permittedUse"
           ],
           "why": "pack es-08019-barcelona · confidence estimated-ruleset · status degenerate"
         },
@@ -21339,7 +21915,8 @@
           "zoneLabel": "12",
           "area": "es-08019-barcelona",
           "slots": [
-            "maxFAR"
+            "maxFAR",
+            "permittedUse"
           ],
           "why": "pack es-08019-barcelona · confidence estimated-ruleset · status degenerate"
         },
@@ -21404,7 +21981,8 @@
           "zoneLabel": "12",
           "area": "es-08019-barcelona",
           "slots": [
-            "maxFAR"
+            "maxFAR",
+            "permittedUse"
           ],
           "why": "pack es-08019-barcelona · confidence estimated-ruleset · status degenerate"
         },
@@ -21451,7 +22029,8 @@
           "zoneLabel": "12",
           "area": "es-08019-barcelona",
           "slots": [
-            "maxFAR"
+            "maxFAR",
+            "permittedUse"
           ],
           "why": "pack es-08019-barcelona · confidence estimated-ruleset · status degenerate"
         },
@@ -21462,10 +22041,14 @@
           "zoneLabel": "20a/9",
           "area": "es-08019-barcelona",
           "slots": [
+            "setback.front",
+            "setback.side",
+            "setback.rear",
             "maxHeight",
             "maxFloors",
             "maxFAR",
-            "maxCoverage"
+            "maxCoverage",
+            "permittedUse"
           ],
           "why": "pack es-08019-barcelona · confidence estimated-ruleset · status ok"
         },
@@ -21476,7 +22059,8 @@
           "zoneLabel": "12",
           "area": "es-08019-barcelona",
           "slots": [
-            "maxFAR"
+            "maxFAR",
+            "permittedUse"
           ],
           "why": "pack es-08019-barcelona · confidence estimated-ruleset · status degenerate"
         },
@@ -21487,7 +22071,11 @@
           "zoneLabel": "20a/8",
           "area": "es-08019-barcelona",
           "slots": [
-            "maxCoverage"
+            "setback.front",
+            "setback.side",
+            "setback.rear",
+            "maxCoverage",
+            "permittedUse"
           ],
           "why": "pack es-08019-barcelona · confidence estimated-ruleset · status ok"
         },
@@ -21498,7 +22086,8 @@
           "zoneLabel": "12",
           "area": "es-08019-barcelona",
           "slots": [
-            "maxFAR"
+            "maxFAR",
+            "permittedUse"
           ],
           "why": "pack es-08019-barcelona · confidence estimated-ruleset · status degenerate"
         },
@@ -21608,7 +22197,8 @@
           "zoneLabel": "12",
           "area": "es-08019-barcelona",
           "slots": [
-            "maxFAR"
+            "maxFAR",
+            "permittedUse"
           ],
           "why": "pack es-08019-barcelona · confidence estimated-ruleset · status degenerate"
         },
@@ -21628,10 +22218,14 @@
           "zoneLabel": "20a/9",
           "area": "es-08019-barcelona",
           "slots": [
+            "setback.front",
+            "setback.side",
+            "setback.rear",
             "maxHeight",
             "maxFloors",
             "maxFAR",
-            "maxCoverage"
+            "maxCoverage",
+            "permittedUse"
           ],
           "why": "pack es-08019-barcelona · confidence estimated-ruleset · status ok"
         },
@@ -21642,7 +22236,8 @@
           "zoneLabel": "12",
           "area": "es-08019-barcelona",
           "slots": [
-            "maxFAR"
+            "maxFAR",
+            "permittedUse"
           ],
           "why": "pack es-08019-barcelona · confidence estimated-ruleset · status degenerate"
         },
@@ -21653,10 +22248,14 @@
           "zoneLabel": "20a/11",
           "area": "es-08019-barcelona",
           "slots": [
+            "setback.front",
+            "setback.side",
+            "setback.rear",
             "maxHeight",
             "maxFloors",
             "maxFAR",
-            "maxCoverage"
+            "maxCoverage",
+            "permittedUse"
           ],
           "why": "pack es-08019-barcelona · confidence estimated-ruleset · status ok"
         },
@@ -21748,7 +22347,8 @@
           "zoneLabel": "12",
           "area": "es-08019-barcelona",
           "slots": [
-            "maxFAR"
+            "maxFAR",
+            "permittedUse"
           ],
           "why": "pack es-08019-barcelona · confidence estimated-ruleset · status degenerate"
         },
@@ -21795,7 +22395,8 @@
           "zoneLabel": "12",
           "area": "es-08019-barcelona",
           "slots": [
-            "maxFAR"
+            "maxFAR",
+            "permittedUse"
           ],
           "why": "pack es-08019-barcelona · confidence estimated-ruleset · status degenerate"
         },
@@ -21896,7 +22497,8 @@
           "zoneLabel": "12",
           "area": "es-08019-barcelona",
           "slots": [
-            "maxFAR"
+            "maxFAR",
+            "permittedUse"
           ],
           "why": "pack es-08019-barcelona · confidence estimated-ruleset · status degenerate"
         },
@@ -21907,7 +22509,11 @@
           "zoneLabel": "20a/8",
           "area": "es-08019-barcelona",
           "slots": [
-            "maxCoverage"
+            "setback.front",
+            "setback.side",
+            "setback.rear",
+            "maxCoverage",
+            "permittedUse"
           ],
           "why": "pack es-08019-barcelona · confidence estimated-ruleset · status ok"
         },
@@ -21936,7 +22542,8 @@
           "zoneLabel": "12",
           "area": "es-08019-barcelona",
           "slots": [
-            "maxFAR"
+            "maxFAR",
+            "permittedUse"
           ],
           "why": "pack es-08019-barcelona · confidence estimated-ruleset · status degenerate"
         },
@@ -21983,7 +22590,8 @@
           "zoneLabel": "12",
           "area": "es-08019-barcelona",
           "slots": [
-            "maxFAR"
+            "maxFAR",
+            "permittedUse"
           ],
           "why": "pack es-08019-barcelona · confidence estimated-ruleset · status degenerate"
         },
@@ -21994,7 +22602,8 @@
           "zoneLabel": "12",
           "area": "es-08019-barcelona",
           "slots": [
-            "maxFAR"
+            "maxFAR",
+            "permittedUse"
           ],
           "why": "pack es-08019-barcelona · confidence estimated-ruleset · status degenerate"
         },
@@ -22005,7 +22614,8 @@
           "zoneLabel": "12",
           "area": "es-08019-barcelona",
           "slots": [
-            "maxFAR"
+            "maxFAR",
+            "permittedUse"
           ],
           "why": "pack es-08019-barcelona · confidence estimated-ruleset · status degenerate"
         },
@@ -22016,10 +22626,14 @@
           "zoneLabel": "20a/9",
           "area": "es-08019-barcelona",
           "slots": [
+            "setback.front",
+            "setback.side",
+            "setback.rear",
             "maxHeight",
             "maxFloors",
             "maxFAR",
-            "maxCoverage"
+            "maxCoverage",
+            "permittedUse"
           ],
           "why": "pack es-08019-barcelona · confidence estimated-ruleset · status ok"
         },
@@ -22138,7 +22752,8 @@
           "zoneLabel": "12",
           "area": "es-08019-barcelona",
           "slots": [
-            "maxFAR"
+            "maxFAR",
+            "permittedUse"
           ],
           "why": "pack es-08019-barcelona · confidence estimated-ruleset · status degenerate"
         },
@@ -22149,7 +22764,8 @@
           "zoneLabel": "12",
           "area": "es-08019-barcelona",
           "slots": [
-            "maxFAR"
+            "maxFAR",
+            "permittedUse"
           ],
           "why": "pack es-08019-barcelona · confidence estimated-ruleset · status degenerate"
         },
@@ -22187,10 +22803,14 @@
           "zoneLabel": "20a/10",
           "area": "es-08019-barcelona",
           "slots": [
+            "setback.front",
+            "setback.side",
+            "setback.rear",
             "maxHeight",
             "maxFloors",
             "maxFAR",
-            "maxCoverage"
+            "maxCoverage",
+            "permittedUse"
           ],
           "why": "pack es-08019-barcelona · confidence estimated-ruleset · status ok"
         },
@@ -22219,7 +22839,8 @@
           "zoneLabel": "12",
           "area": "es-08019-barcelona",
           "slots": [
-            "maxFAR"
+            "maxFAR",
+            "permittedUse"
           ],
           "why": "pack es-08019-barcelona · confidence estimated-ruleset · status degenerate"
         },
@@ -22230,7 +22851,8 @@
           "zoneLabel": "12",
           "area": "es-08019-barcelona",
           "slots": [
-            "maxFAR"
+            "maxFAR",
+            "permittedUse"
           ],
           "why": "pack es-08019-barcelona · confidence estimated-ruleset · status degenerate"
         },
@@ -22268,10 +22890,14 @@
           "zoneLabel": "20a/9",
           "area": "es-08019-barcelona",
           "slots": [
+            "setback.front",
+            "setback.side",
+            "setback.rear",
             "maxHeight",
             "maxFloors",
             "maxFAR",
-            "maxCoverage"
+            "maxCoverage",
+            "permittedUse"
           ],
           "why": "pack es-08019-barcelona · confidence estimated-ruleset · status ok"
         },
@@ -22309,7 +22935,8 @@
           "zoneLabel": "12",
           "area": "es-08019-barcelona",
           "slots": [
-            "maxFAR"
+            "maxFAR",
+            "permittedUse"
           ],
           "why": "pack es-08019-barcelona · confidence estimated-ruleset · status degenerate"
         },
@@ -22320,7 +22947,8 @@
           "zoneLabel": "12",
           "area": "es-08019-barcelona",
           "slots": [
-            "maxFAR"
+            "maxFAR",
+            "permittedUse"
           ],
           "why": "pack es-08019-barcelona · confidence estimated-ruleset · status degenerate"
         },
@@ -22376,7 +23004,8 @@
           "zoneLabel": "12",
           "area": "es-08019-barcelona",
           "slots": [
-            "maxFAR"
+            "maxFAR",
+            "permittedUse"
           ],
           "why": "pack es-08019-barcelona · confidence estimated-ruleset · status degenerate"
         },
@@ -22387,7 +23016,8 @@
           "zoneLabel": "12",
           "area": "es-08019-barcelona",
           "slots": [
-            "maxFAR"
+            "maxFAR",
+            "permittedUse"
           ],
           "why": "pack es-08019-barcelona · confidence estimated-ruleset · status degenerate"
         },
@@ -22398,7 +23028,8 @@
           "zoneLabel": "12",
           "area": "es-08019-barcelona",
           "slots": [
-            "maxFAR"
+            "maxFAR",
+            "permittedUse"
           ],
           "why": "pack es-08019-barcelona · confidence estimated-ruleset · status degenerate"
         },
@@ -22418,7 +23049,8 @@
           "zoneLabel": "12",
           "area": "es-08019-barcelona",
           "slots": [
-            "maxFAR"
+            "maxFAR",
+            "permittedUse"
           ],
           "why": "pack es-08019-barcelona · confidence estimated-ruleset · status degenerate"
         },
@@ -22429,10 +23061,14 @@
           "zoneLabel": "20a/9",
           "area": "es-08019-barcelona",
           "slots": [
+            "setback.front",
+            "setback.side",
+            "setback.rear",
             "maxHeight",
             "maxFloors",
             "maxFAR",
-            "maxCoverage"
+            "maxCoverage",
+            "permittedUse"
           ],
           "why": "pack es-08019-barcelona · confidence estimated-ruleset · status ok"
         },
@@ -26079,8 +26715,12 @@
           "zoneLabel": "IX",
           "area": "es-30030-murcia",
           "slots": [
+            "setback.front",
+            "setback.side",
+            "setback.rear",
             "maxFAR",
-            "maxCoverage"
+            "maxCoverage",
+            "permittedUse"
           ],
           "why": "pack es-30030-murcia · confidence estimated-ruleset · status ok"
         },
@@ -26217,9 +26857,13 @@
           "zoneLabel": "RL",
           "area": "es-30030-murcia",
           "slots": [
+            "setback.front",
+            "setback.side",
+            "setback.rear",
             "maxHeight",
             "maxFloors",
-            "maxFAR"
+            "maxFAR",
+            "permittedUse"
           ],
           "why": "pack es-30030-murcia · confidence estimated-ruleset · status ok"
         },
@@ -26266,8 +26910,11 @@
           "zoneLabel": "RD1",
           "area": "es-30030-murcia",
           "slots": [
+            "setback.front",
+            "setback.side",
             "maxHeight",
-            "maxFloors"
+            "maxFloors",
+            "permittedUse"
           ],
           "why": "pack es-30030-murcia · confidence estimated-ruleset · status ok"
         },
@@ -26323,8 +26970,11 @@
           "zoneLabel": "RD1",
           "area": "es-30030-murcia",
           "slots": [
+            "setback.front",
+            "setback.side",
             "maxHeight",
-            "maxFloors"
+            "maxFloors",
+            "permittedUse"
           ],
           "why": "pack es-30030-murcia · confidence estimated-ruleset · status ok"
         },
@@ -26389,9 +27039,13 @@
           "zoneLabel": "RL",
           "area": "es-30030-murcia",
           "slots": [
+            "setback.front",
+            "setback.side",
+            "setback.rear",
             "maxHeight",
             "maxFloors",
-            "maxFAR"
+            "maxFAR",
+            "permittedUse"
           ],
           "why": "pack es-30030-murcia · confidence estimated-ruleset · status ok"
         },
@@ -26402,8 +27056,11 @@
           "zoneLabel": "MC",
           "area": "es-30030-murcia",
           "slots": [
+            "setback.front",
+            "setback.side",
             "maxHeight",
-            "maxFloors"
+            "maxFloors",
+            "permittedUse"
           ],
           "why": "pack es-30030-murcia · confidence estimated-ruleset · status ok"
         },
@@ -26432,9 +27089,13 @@
           "zoneLabel": "RL",
           "area": "es-30030-murcia",
           "slots": [
+            "setback.front",
+            "setback.side",
+            "setback.rear",
             "maxHeight",
             "maxFloors",
-            "maxFAR"
+            "maxFAR",
+            "permittedUse"
           ],
           "why": "pack es-30030-murcia · confidence estimated-ruleset · status ok"
         },
@@ -26562,9 +27223,13 @@
           "zoneLabel": "RL",
           "area": "es-30030-murcia",
           "slots": [
+            "setback.front",
+            "setback.side",
+            "setback.rear",
             "maxHeight",
             "maxFloors",
-            "maxFAR"
+            "maxFAR",
+            "permittedUse"
           ],
           "why": "pack es-30030-murcia · confidence estimated-ruleset · status ok"
         },
@@ -26584,9 +27249,13 @@
           "zoneLabel": "RL",
           "area": "es-30030-murcia",
           "slots": [
+            "setback.front",
+            "setback.side",
+            "setback.rear",
             "maxHeight",
             "maxFloors",
-            "maxFAR"
+            "maxFAR",
+            "permittedUse"
           ],
           "why": "pack es-30030-murcia · confidence estimated-ruleset · status ok"
         },
@@ -26741,8 +27410,11 @@
           "zoneLabel": "RM2",
           "area": "es-30030-murcia",
           "slots": [
+            "setback.front",
+            "setback.side",
             "maxHeight",
-            "maxFloors"
+            "maxFloors",
+            "permittedUse"
           ],
           "why": "pack es-30030-murcia · confidence estimated-ruleset · status ok"
         },
@@ -26780,9 +27452,13 @@
           "zoneLabel": "RF",
           "area": "es-30030-murcia",
           "slots": [
+            "setback.front",
+            "setback.side",
+            "setback.rear",
             "maxHeight",
             "maxFloors",
-            "maxCoverage"
+            "maxCoverage",
+            "permittedUse"
           ],
           "why": "pack es-30030-murcia · confidence estimated-ruleset · status ok"
         },
@@ -26802,9 +27478,13 @@
           "zoneLabel": "RG",
           "area": "es-30030-murcia",
           "slots": [
+            "setback.front",
+            "setback.side",
+            "setback.rear",
             "maxHeight",
             "maxFloors",
-            "maxCoverage"
+            "maxCoverage",
+            "permittedUse"
           ],
           "why": "pack es-30030-murcia · confidence estimated-ruleset · status ok"
         },
@@ -26815,8 +27495,11 @@
           "zoneLabel": "RD1",
           "area": "es-30030-murcia",
           "slots": [
+            "setback.front",
+            "setback.side",
             "maxHeight",
-            "maxFloors"
+            "maxFloors",
+            "permittedUse"
           ],
           "why": "pack es-30030-murcia · confidence estimated-ruleset · status ok"
         },
@@ -26863,9 +27546,13 @@
           "zoneLabel": "RL",
           "area": "es-30030-murcia",
           "slots": [
+            "setback.front",
+            "setback.side",
+            "setback.rear",
             "maxHeight",
             "maxFloors",
-            "maxFAR"
+            "maxFAR",
+            "permittedUse"
           ],
           "why": "pack es-30030-murcia · confidence estimated-ruleset · status ok"
         },
@@ -26894,9 +27581,13 @@
           "zoneLabel": "RH",
           "area": "es-30030-murcia",
           "slots": [
+            "setback.front",
+            "setback.side",
+            "setback.rear",
             "maxHeight",
             "maxFloors",
-            "maxCoverage"
+            "maxCoverage",
+            "permittedUse"
           ],
           "why": "pack es-30030-murcia · confidence estimated-ruleset · status ok"
         },
@@ -26916,8 +27607,12 @@
           "zoneLabel": "IX",
           "area": "es-30030-murcia",
           "slots": [
+            "setback.front",
+            "setback.side",
+            "setback.rear",
             "maxFAR",
-            "maxCoverage"
+            "maxCoverage",
+            "permittedUse"
           ],
           "why": "pack es-30030-murcia · confidence estimated-ruleset · status ok"
         },
@@ -26946,9 +27641,13 @@
           "zoneLabel": "RL",
           "area": "es-30030-murcia",
           "slots": [
+            "setback.front",
+            "setback.side",
+            "setback.rear",
             "maxHeight",
             "maxFloors",
-            "maxFAR"
+            "maxFAR",
+            "permittedUse"
           ],
           "why": "pack es-30030-murcia · confidence estimated-ruleset · status ok"
         },
@@ -26968,9 +27667,13 @@
           "zoneLabel": "RL",
           "area": "es-30030-murcia",
           "slots": [
+            "setback.front",
+            "setback.side",
+            "setback.rear",
             "maxHeight",
             "maxFloors",
-            "maxFAR"
+            "maxFAR",
+            "permittedUse"
           ],
           "why": "pack es-30030-murcia · confidence estimated-ruleset · status ok"
         },
@@ -27008,8 +27711,12 @@
           "zoneLabel": "IX",
           "area": "es-30030-murcia",
           "slots": [
+            "setback.front",
+            "setback.side",
+            "setback.rear",
             "maxFAR",
-            "maxCoverage"
+            "maxCoverage",
+            "permittedUse"
           ],
           "why": "pack es-30030-murcia · confidence estimated-ruleset · status ok"
         },
@@ -27020,9 +27727,13 @@
           "zoneLabel": "RL",
           "area": "es-30030-murcia",
           "slots": [
+            "setback.front",
+            "setback.side",
+            "setback.rear",
             "maxHeight",
             "maxFloors",
-            "maxFAR"
+            "maxFAR",
+            "permittedUse"
           ],
           "why": "pack es-30030-murcia · confidence estimated-ruleset · status ok"
         },
@@ -27096,9 +27807,13 @@
           "zoneLabel": "RL",
           "area": "es-30030-murcia",
           "slots": [
+            "setback.front",
+            "setback.side",
+            "setback.rear",
             "maxHeight",
             "maxFloors",
-            "maxFAR"
+            "maxFAR",
+            "permittedUse"
           ],
           "why": "pack es-30030-murcia · confidence estimated-ruleset · status ok"
         },
@@ -27118,9 +27833,13 @@
           "zoneLabel": "RL",
           "area": "es-30030-murcia",
           "slots": [
+            "setback.front",
+            "setback.side",
+            "setback.rear",
             "maxHeight",
             "maxFloors",
-            "maxFAR"
+            "maxFAR",
+            "permittedUse"
           ],
           "why": "pack es-30030-murcia · confidence estimated-ruleset · status ok"
         },
@@ -27140,8 +27859,11 @@
           "zoneLabel": "MC",
           "area": "es-30030-murcia",
           "slots": [
+            "setback.front",
+            "setback.side",
             "maxHeight",
-            "maxFloors"
+            "maxFloors",
+            "permittedUse"
           ],
           "why": "pack es-30030-murcia · confidence estimated-ruleset · status ok"
         },
@@ -27314,9 +28036,13 @@
           "zoneLabel": "RF",
           "area": "es-30030-murcia",
           "slots": [
+            "setback.front",
+            "setback.side",
+            "setback.rear",
             "maxHeight",
             "maxFloors",
-            "maxCoverage"
+            "maxCoverage",
+            "permittedUse"
           ],
           "why": "pack es-30030-murcia · confidence estimated-ruleset · status ok"
         },
@@ -27372,8 +28098,11 @@
           "zoneLabel": "RD1",
           "area": "es-30030-murcia",
           "slots": [
+            "setback.front",
+            "setback.side",
             "maxHeight",
-            "maxFloors"
+            "maxFloors",
+            "permittedUse"
           ],
           "why": "pack es-30030-murcia · confidence estimated-ruleset · status ok"
         },
@@ -27393,9 +28122,13 @@
           "zoneLabel": "RF",
           "area": "es-30030-murcia",
           "slots": [
+            "setback.front",
+            "setback.side",
+            "setback.rear",
             "maxHeight",
             "maxFloors",
-            "maxCoverage"
+            "maxCoverage",
+            "permittedUse"
           ],
           "why": "pack es-30030-murcia · confidence estimated-ruleset · status ok"
         },
@@ -27478,9 +28211,13 @@
           "zoneLabel": "RH",
           "area": "es-30030-murcia",
           "slots": [
+            "setback.front",
+            "setback.side",
+            "setback.rear",
             "maxHeight",
             "maxFloors",
-            "maxCoverage"
+            "maxCoverage",
+            "permittedUse"
           ],
           "why": "pack es-30030-murcia · confidence estimated-ruleset · status ok"
         },
@@ -27491,9 +28228,13 @@
           "zoneLabel": "RL",
           "area": "es-30030-murcia",
           "slots": [
+            "setback.front",
+            "setback.side",
+            "setback.rear",
             "maxHeight",
             "maxFloors",
-            "maxFAR"
+            "maxFAR",
+            "permittedUse"
           ],
           "why": "pack es-30030-murcia · confidence estimated-ruleset · status ok"
         },
@@ -27513,8 +28254,12 @@
           "zoneLabel": "IX",
           "area": "es-30030-murcia",
           "slots": [
+            "setback.front",
+            "setback.side",
+            "setback.rear",
             "maxFAR",
-            "maxCoverage"
+            "maxCoverage",
+            "permittedUse"
           ],
           "why": "pack es-30030-murcia · confidence estimated-ruleset · status ok"
         },
@@ -27525,9 +28270,13 @@
           "zoneLabel": "RL",
           "area": "es-30030-murcia",
           "slots": [
+            "setback.front",
+            "setback.side",
+            "setback.rear",
             "maxHeight",
             "maxFloors",
-            "maxFAR"
+            "maxFAR",
+            "permittedUse"
           ],
           "why": "pack es-30030-murcia · confidence estimated-ruleset · status ok"
         },
@@ -27538,8 +28287,12 @@
           "zoneLabel": "IC",
           "area": "es-30030-murcia",
           "slots": [
+            "setback.front",
+            "setback.side",
+            "setback.rear",
             "maxFAR",
-            "maxCoverage"
+            "maxCoverage",
+            "permittedUse"
           ],
           "why": "pack es-30030-murcia · confidence estimated-ruleset · status ok"
         },
@@ -27568,9 +28321,13 @@
           "zoneLabel": "RL",
           "area": "es-30030-murcia",
           "slots": [
+            "setback.front",
+            "setback.side",
+            "setback.rear",
             "maxHeight",
             "maxFloors",
-            "maxFAR"
+            "maxFAR",
+            "permittedUse"
           ],
           "why": "pack es-30030-murcia · confidence estimated-ruleset · status ok"
         },
@@ -27653,9 +28410,13 @@
           "zoneLabel": "RL",
           "area": "es-30030-murcia",
           "slots": [
+            "setback.front",
+            "setback.side",
+            "setback.rear",
             "maxHeight",
             "maxFloors",
-            "maxFAR"
+            "maxFAR",
+            "permittedUse"
           ],
           "why": "pack es-30030-murcia · confidence estimated-ruleset · status ok"
         },
@@ -27738,9 +28499,13 @@
           "zoneLabel": "RL",
           "area": "es-30030-murcia",
           "slots": [
+            "setback.front",
+            "setback.side",
+            "setback.rear",
             "maxHeight",
             "maxFloors",
-            "maxFAR"
+            "maxFAR",
+            "permittedUse"
           ],
           "why": "pack es-30030-murcia · confidence estimated-ruleset · status ok"
         },
@@ -27778,9 +28543,13 @@
           "zoneLabel": "RL",
           "area": "es-30030-murcia",
           "slots": [
+            "setback.front",
+            "setback.side",
+            "setback.rear",
             "maxHeight",
             "maxFloors",
-            "maxFAR"
+            "maxFAR",
+            "permittedUse"
           ],
           "why": "pack es-30030-murcia · confidence estimated-ruleset · status ok"
         },
@@ -27863,9 +28632,13 @@
           "zoneLabel": "RL",
           "area": "es-30030-murcia",
           "slots": [
+            "setback.front",
+            "setback.side",
+            "setback.rear",
             "maxHeight",
             "maxFloors",
-            "maxFAR"
+            "maxFAR",
+            "permittedUse"
           ],
           "why": "pack es-30030-murcia · confidence estimated-ruleset · status ok"
         },
@@ -27921,9 +28694,13 @@
           "zoneLabel": "RL",
           "area": "es-30030-murcia",
           "slots": [
+            "setback.front",
+            "setback.side",
+            "setback.rear",
             "maxHeight",
             "maxFloors",
-            "maxFAR"
+            "maxFAR",
+            "permittedUse"
           ],
           "why": "pack es-30030-murcia · confidence estimated-ruleset · status ok"
         },
@@ -27952,9 +28729,13 @@
           "zoneLabel": "RL",
           "area": "es-30030-murcia",
           "slots": [
+            "setback.front",
+            "setback.side",
+            "setback.rear",
             "maxHeight",
             "maxFloors",
-            "maxFAR"
+            "maxFAR",
+            "permittedUse"
           ],
           "why": "pack es-30030-murcia · confidence estimated-ruleset · status ok"
         },
@@ -27983,9 +28764,13 @@
           "zoneLabel": "RG",
           "area": "es-30030-murcia",
           "slots": [
+            "setback.front",
+            "setback.side",
+            "setback.rear",
             "maxHeight",
             "maxFloors",
-            "maxCoverage"
+            "maxCoverage",
+            "permittedUse"
           ],
           "why": "pack es-30030-murcia · confidence estimated-ruleset · status ok"
         },
@@ -28032,9 +28817,13 @@
           "zoneLabel": "RL",
           "area": "es-30030-murcia",
           "slots": [
+            "setback.front",
+            "setback.side",
+            "setback.rear",
             "maxHeight",
             "maxFloors",
-            "maxFAR"
+            "maxFAR",
+            "permittedUse"
           ],
           "why": "pack es-30030-murcia · confidence estimated-ruleset · status ok"
         },
@@ -28144,9 +28933,13 @@
           "zoneLabel": "RL",
           "area": "es-30030-murcia",
           "slots": [
+            "setback.front",
+            "setback.side",
+            "setback.rear",
             "maxHeight",
             "maxFloors",
-            "maxFAR"
+            "maxFAR",
+            "permittedUse"
           ],
           "why": "pack es-30030-murcia · confidence estimated-ruleset · status ok"
         },
@@ -28202,8 +28995,11 @@
           "zoneLabel": "RD1",
           "area": "es-30030-murcia",
           "slots": [
+            "setback.front",
+            "setback.side",
             "maxHeight",
-            "maxFloors"
+            "maxFloors",
+            "permittedUse"
           ],
           "why": "pack es-30030-murcia · confidence estimated-ruleset · status ok"
         },
@@ -28214,9 +29010,13 @@
           "zoneLabel": "RL",
           "area": "es-30030-murcia",
           "slots": [
+            "setback.front",
+            "setback.side",
+            "setback.rear",
             "maxHeight",
             "maxFloors",
-            "maxFAR"
+            "maxFAR",
+            "permittedUse"
           ],
           "why": "pack es-30030-murcia · confidence estimated-ruleset · status ok"
         },
@@ -28281,9 +29081,13 @@
           "zoneLabel": "RL",
           "area": "es-30030-murcia",
           "slots": [
+            "setback.front",
+            "setback.side",
+            "setback.rear",
             "maxHeight",
             "maxFloors",
-            "maxFAR"
+            "maxFAR",
+            "permittedUse"
           ],
           "why": "pack es-30030-murcia · confidence estimated-ruleset · status ok"
         },
@@ -28303,9 +29107,13 @@
           "zoneLabel": "RL",
           "area": "es-30030-murcia",
           "slots": [
+            "setback.front",
+            "setback.side",
+            "setback.rear",
             "maxHeight",
             "maxFloors",
-            "maxFAR"
+            "maxFAR",
+            "permittedUse"
           ],
           "why": "pack es-30030-murcia · confidence estimated-ruleset · status ok"
         },
@@ -28325,9 +29133,13 @@
           "zoneLabel": "RL",
           "area": "es-30030-murcia",
           "slots": [
+            "setback.front",
+            "setback.side",
+            "setback.rear",
             "maxHeight",
             "maxFloors",
-            "maxFAR"
+            "maxFAR",
+            "permittedUse"
           ],
           "why": "pack es-30030-murcia · confidence estimated-ruleset · status ok"
         },
@@ -28446,9 +29258,13 @@
           "zoneLabel": "RL",
           "area": "es-30030-murcia",
           "slots": [
+            "setback.front",
+            "setback.side",
+            "setback.rear",
             "maxHeight",
             "maxFloors",
-            "maxFAR"
+            "maxFAR",
+            "permittedUse"
           ],
           "why": "pack es-30030-murcia · confidence estimated-ruleset · status ok"
         },
@@ -28459,9 +29275,13 @@
           "zoneLabel": "RL",
           "area": "es-30030-murcia",
           "slots": [
+            "setback.front",
+            "setback.side",
+            "setback.rear",
             "maxHeight",
             "maxFloors",
-            "maxFAR"
+            "maxFAR",
+            "permittedUse"
           ],
           "why": "pack es-30030-murcia · confidence estimated-ruleset · status ok"
         },
@@ -28508,9 +29328,13 @@
           "zoneLabel": "RG",
           "area": "es-30030-murcia",
           "slots": [
+            "setback.front",
+            "setback.side",
+            "setback.rear",
             "maxHeight",
             "maxFloors",
-            "maxCoverage"
+            "maxCoverage",
+            "permittedUse"
           ],
           "why": "pack es-30030-murcia · confidence estimated-ruleset · status ok"
         },
@@ -28530,8 +29354,11 @@
           "zoneLabel": "RM2",
           "area": "es-30030-murcia",
           "slots": [
+            "setback.front",
+            "setback.side",
             "maxHeight",
-            "maxFloors"
+            "maxFloors",
+            "permittedUse"
           ],
           "why": "pack es-30030-murcia · confidence estimated-ruleset · status ok"
         },
@@ -28623,8 +29450,11 @@
           "zoneLabel": "MC",
           "area": "es-30030-murcia",
           "slots": [
+            "setback.front",
+            "setback.side",
             "maxHeight",
-            "maxFloors"
+            "maxFloors",
+            "permittedUse"
           ],
           "why": "pack es-30030-murcia · confidence estimated-ruleset · status ok"
         },
@@ -28671,9 +29501,13 @@
           "zoneLabel": "RD",
           "area": "es-30030-murcia",
           "slots": [
+            "setback.front",
+            "setback.side",
+            "setback.rear",
             "maxHeight",
             "maxFloors",
-            "maxFAR"
+            "maxFAR",
+            "permittedUse"
           ],
           "why": "pack es-30030-murcia · confidence estimated-ruleset · status ok"
         },
@@ -28702,9 +29536,13 @@
           "zoneLabel": "RF",
           "area": "es-30030-murcia",
           "slots": [
+            "setback.front",
+            "setback.side",
+            "setback.rear",
             "maxHeight",
             "maxFloors",
-            "maxCoverage"
+            "maxCoverage",
+            "permittedUse"
           ],
           "why": "pack es-30030-murcia · confidence estimated-ruleset · status ok"
         },
@@ -28751,9 +29589,13 @@
           "zoneLabel": "RL",
           "area": "es-30030-murcia",
           "slots": [
+            "setback.front",
+            "setback.side",
+            "setback.rear",
             "maxHeight",
             "maxFloors",
-            "maxFAR"
+            "maxFAR",
+            "permittedUse"
           ],
           "why": "pack es-30030-murcia · confidence estimated-ruleset · status ok"
         },
@@ -28890,9 +29732,13 @@
           "zoneLabel": "RL",
           "area": "es-30030-murcia",
           "slots": [
+            "setback.front",
+            "setback.side",
+            "setback.rear",
             "maxHeight",
             "maxFloors",
-            "maxFAR"
+            "maxFAR",
+            "permittedUse"
           ],
           "why": "pack es-30030-murcia · confidence estimated-ruleset · status ok"
         },
@@ -28921,9 +29767,13 @@
           "zoneLabel": "RL",
           "area": "es-30030-murcia",
           "slots": [
+            "setback.front",
+            "setback.side",
+            "setback.rear",
             "maxHeight",
             "maxFloors",
-            "maxFAR"
+            "maxFAR",
+            "permittedUse"
           ],
           "why": "pack es-30030-murcia · confidence estimated-ruleset · status ok"
         },
@@ -28979,8 +29829,11 @@
           "zoneLabel": "RD1",
           "area": "es-30030-murcia",
           "slots": [
+            "setback.front",
+            "setback.side",
             "maxHeight",
-            "maxFloors"
+            "maxFloors",
+            "permittedUse"
           ],
           "why": "pack es-30030-murcia · confidence estimated-ruleset · status ok"
         },
@@ -28991,9 +29844,13 @@
           "zoneLabel": "RL",
           "area": "es-30030-murcia",
           "slots": [
+            "setback.front",
+            "setback.side",
+            "setback.rear",
             "maxHeight",
             "maxFloors",
-            "maxFAR"
+            "maxFAR",
+            "permittedUse"
           ],
           "why": "pack es-30030-murcia · confidence estimated-ruleset · status ok"
         },
@@ -29040,8 +29897,11 @@
           "zoneLabel": "RD1",
           "area": "es-30030-murcia",
           "slots": [
+            "setback.front",
+            "setback.side",
             "maxHeight",
-            "maxFloors"
+            "maxFloors",
+            "permittedUse"
           ],
           "why": "pack es-30030-murcia · confidence estimated-ruleset · status ok"
         },
@@ -29088,8 +29948,11 @@
           "zoneLabel": "RM2",
           "area": "es-30030-murcia",
           "slots": [
+            "setback.front",
+            "setback.side",
             "maxHeight",
-            "maxFloors"
+            "maxFloors",
+            "permittedUse"
           ],
           "why": "pack es-30030-murcia · confidence estimated-ruleset · status ok"
         },
@@ -29118,9 +29981,13 @@
           "zoneLabel": "RD",
           "area": "es-30030-murcia",
           "slots": [
+            "setback.front",
+            "setback.side",
+            "setback.rear",
             "maxHeight",
             "maxFloors",
-            "maxFAR"
+            "maxFAR",
+            "permittedUse"
           ],
           "why": "pack es-30030-murcia · confidence estimated-ruleset · status ok"
         },
@@ -29140,9 +30007,13 @@
           "zoneLabel": "RL",
           "area": "es-30030-murcia",
           "slots": [
+            "setback.front",
+            "setback.side",
+            "setback.rear",
             "maxHeight",
             "maxFloors",
-            "maxFAR"
+            "maxFAR",
+            "permittedUse"
           ],
           "why": "pack es-30030-murcia · confidence estimated-ruleset · status ok"
         },
@@ -29162,9 +30033,13 @@
           "zoneLabel": "RL",
           "area": "es-30030-murcia",
           "slots": [
+            "setback.front",
+            "setback.side",
+            "setback.rear",
             "maxHeight",
             "maxFloors",
-            "maxFAR"
+            "maxFAR",
+            "permittedUse"
           ],
           "why": "pack es-30030-murcia · confidence estimated-ruleset · status ok"
         },
@@ -29175,8 +30050,11 @@
           "zoneLabel": "RD1",
           "area": "es-30030-murcia",
           "slots": [
+            "setback.front",
+            "setback.side",
             "maxHeight",
-            "maxFloors"
+            "maxFloors",
+            "permittedUse"
           ],
           "why": "pack es-30030-murcia · confidence estimated-ruleset · status ok"
         },
@@ -29187,9 +30065,13 @@
           "zoneLabel": "RL",
           "area": "es-30030-murcia",
           "slots": [
+            "setback.front",
+            "setback.side",
+            "setback.rear",
             "maxHeight",
             "maxFloors",
-            "maxFAR"
+            "maxFAR",
+            "permittedUse"
           ],
           "why": "pack es-30030-murcia · confidence estimated-ruleset · status ok"
         },
@@ -29236,9 +30118,13 @@
           "zoneLabel": "RL",
           "area": "es-30030-murcia",
           "slots": [
+            "setback.front",
+            "setback.side",
+            "setback.rear",
             "maxHeight",
             "maxFloors",
-            "maxFAR"
+            "maxFAR",
+            "permittedUse"
           ],
           "why": "pack es-30030-murcia · confidence estimated-ruleset · status ok"
         },
@@ -29276,9 +30162,13 @@
           "zoneLabel": "RL",
           "area": "es-30030-murcia",
           "slots": [
+            "setback.front",
+            "setback.side",
+            "setback.rear",
             "maxHeight",
             "maxFloors",
-            "maxFAR"
+            "maxFAR",
+            "permittedUse"
           ],
           "why": "pack es-30030-murcia · confidence estimated-ruleset · status ok"
         },
@@ -29352,9 +30242,13 @@
           "zoneLabel": "RL",
           "area": "es-30030-murcia",
           "slots": [
+            "setback.front",
+            "setback.side",
+            "setback.rear",
             "maxHeight",
             "maxFloors",
-            "maxFAR"
+            "maxFAR",
+            "permittedUse"
           ],
           "why": "pack es-30030-murcia · confidence estimated-ruleset · status ok"
         },
@@ -29383,9 +30277,13 @@
           "zoneLabel": "RL",
           "area": "es-30030-murcia",
           "slots": [
+            "setback.front",
+            "setback.side",
+            "setback.rear",
             "maxHeight",
             "maxFloors",
-            "maxFAR"
+            "maxFAR",
+            "permittedUse"
           ],
           "why": "pack es-30030-murcia · confidence estimated-ruleset · status ok"
         },
@@ -29414,8 +30312,11 @@
           "zoneLabel": "RD1",
           "area": "es-30030-murcia",
           "slots": [
+            "setback.front",
+            "setback.side",
             "maxHeight",
-            "maxFloors"
+            "maxFloors",
+            "permittedUse"
           ],
           "why": "pack es-30030-murcia · confidence estimated-ruleset · status ok"
         },
@@ -29480,8 +30381,11 @@
           "zoneLabel": "RD1",
           "area": "es-30030-murcia",
           "slots": [
+            "setback.front",
+            "setback.side",
             "maxHeight",
-            "maxFloors"
+            "maxFloors",
+            "permittedUse"
           ],
           "why": "pack es-30030-murcia · confidence estimated-ruleset · status ok"
         },
@@ -29591,8 +30495,11 @@
           "zoneLabel": "RD1",
           "area": "es-30030-murcia",
           "slots": [
+            "setback.front",
+            "setback.side",
             "maxHeight",
-            "maxFloors"
+            "maxFloors",
+            "permittedUse"
           ],
           "why": "pack es-30030-murcia · confidence estimated-ruleset · status ok"
         },
@@ -29657,8 +30564,11 @@
           "zoneLabel": "RD1",
           "area": "es-30030-murcia",
           "slots": [
+            "setback.front",
+            "setback.side",
             "maxHeight",
-            "maxFloors"
+            "maxFloors",
+            "permittedUse"
           ],
           "why": "pack es-30030-murcia · confidence estimated-ruleset · status ok"
         },
@@ -29714,9 +30624,13 @@
           "zoneLabel": "RL",
           "area": "es-30030-murcia",
           "slots": [
+            "setback.front",
+            "setback.side",
+            "setback.rear",
             "maxHeight",
             "maxFloors",
-            "maxFAR"
+            "maxFAR",
+            "permittedUse"
           ],
           "why": "pack es-30030-murcia · confidence estimated-ruleset · status ok"
         },
@@ -29727,9 +30641,13 @@
           "zoneLabel": "RF",
           "area": "es-30030-murcia",
           "slots": [
+            "setback.front",
+            "setback.side",
+            "setback.rear",
             "maxHeight",
             "maxFloors",
-            "maxCoverage"
+            "maxCoverage",
+            "permittedUse"
           ],
           "why": "pack es-30030-murcia · confidence estimated-ruleset · status ok"
         },
@@ -29758,8 +30676,12 @@
           "zoneLabel": "IC",
           "area": "es-30030-murcia",
           "slots": [
+            "setback.front",
+            "setback.side",
+            "setback.rear",
             "maxFAR",
-            "maxCoverage"
+            "maxCoverage",
+            "permittedUse"
           ],
           "why": "pack es-30030-murcia · confidence estimated-ruleset · status ok"
         },
@@ -29833,9 +30755,13 @@
           "zoneLabel": "RL",
           "area": "es-30030-murcia",
           "slots": [
+            "setback.front",
+            "setback.side",
+            "setback.rear",
             "maxHeight",
             "maxFloors",
-            "maxFAR"
+            "maxFAR",
+            "permittedUse"
           ],
           "why": "pack es-30030-murcia · confidence estimated-ruleset · status ok"
         },
@@ -29864,9 +30790,13 @@
           "zoneLabel": "RL",
           "area": "es-30030-murcia",
           "slots": [
+            "setback.front",
+            "setback.side",
+            "setback.rear",
             "maxHeight",
             "maxFloors",
-            "maxFAR"
+            "maxFAR",
+            "permittedUse"
           ],
           "why": "pack es-30030-murcia · confidence estimated-ruleset · status ok"
         },
@@ -29877,8 +30807,11 @@
           "zoneLabel": "RD1",
           "area": "es-30030-murcia",
           "slots": [
+            "setback.front",
+            "setback.side",
             "maxHeight",
-            "maxFloors"
+            "maxFloors",
+            "permittedUse"
           ],
           "why": "pack es-30030-murcia · confidence estimated-ruleset · status ok"
         },
@@ -29898,8 +30831,11 @@
           "zoneLabel": "RD1",
           "area": "es-30030-murcia",
           "slots": [
+            "setback.front",
+            "setback.side",
             "maxHeight",
-            "maxFloors"
+            "maxFloors",
+            "permittedUse"
           ],
           "why": "pack es-30030-murcia · confidence estimated-ruleset · status ok"
         },

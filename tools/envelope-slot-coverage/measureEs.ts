@@ -184,21 +184,19 @@ function probeEs(row: DeterminationRow): { result: PointResult; witness: string 
         rulePack: disp.pack,
     });
     const slots = slotsFromEnvelope(env);
-    if (slots.length > 0) {
-        return {
-            witness: row.cat,
-            result: {
-                lat: row.lat, lon: row.lon, cls: 'resolved',
-                zoneLabel: row.code, area: jid, slots,
-                why: `pack ${disp.pack.jurisdictionId} · confidence ${env.confidence} · status ${env.status}`,
-            },
-        };
-    }
-    // Zero scalars — but WHY? A pack zone carrying a footprint-shaping geometric rule answers with
-    // a SHAPE (see the header's correction). That is unmeasurable here, not a gap.
+    // ⛔ THE SHAPE TEST RUNS FIRST, AND IT ASKS ABOUT SCALARS ONLY (reordered 2026-09-04).
+    // It used to run AFTER `slots.length > 0`, which was safe only while the classifier could never
+    // resolve `permittedUse` (the `derivationTrace` typo — see `shared.ts`). The moment that was
+    // fixed, `permittedUse` alone resolved on Barcelona's 171 `13a`/`13b` points and promoted every
+    // one of them from `shape-rule-unmeasured` to `resolved` — re-burying the exact distinction the
+    // 2026-09-03 correction established, and inflating the headline with a slot that says nothing
+    // about the ENVELOPE. `permittedUse` is a USE, not a dimension: it cannot answer the question
+    // "does a scalar exist for this shape rule?", so it is excluded from THIS test and from it only
+    // (it still counts, correctly, in the slot tally for every zone that is not shape-ruled).
     const zone = disp.pack.zones.find((z) => z.code === row.code);
     const kind = zone?.geometricRule?.kind;
-    if (kind !== undefined && GEOMETRIC_RULE_KIND_REGISTRY[kind].footprintShaping) {
+    const scalarSlots = slots.filter((s) => s !== 'permittedUse');
+    if (scalarSlots.length === 0 && kind !== undefined && GEOMETRIC_RULE_KIND_REGISTRY[kind].footprintShaping) {
         return {
             witness: row.cat,
             result: {
@@ -207,6 +205,16 @@ function probeEs(row: DeterminationRow): { result: PointResult; witness: string 
                     `pack ${disp.pack.jurisdictionId} answers for "${row.code}" with a ` +
                     `footprint-shaping rule (kind '${kind}') and no scalar constraint — its inputs ` +
                     '(block ring / street width) come from live providers this harness does not run',
+            },
+        };
+    }
+    if (slots.length > 0) {
+        return {
+            witness: row.cat,
+            result: {
+                lat: row.lat, lon: row.lon, cls: 'resolved',
+                zoneLabel: row.code, area: jid, slots,
+                why: `pack ${disp.pack.jurisdictionId} · confidence ${env.confidence} · status ${env.status}`,
             },
         };
     }

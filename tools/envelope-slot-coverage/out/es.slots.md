@@ -18,20 +18,20 @@
 | `resolved` — at least one envelope slot resolved | 96 | 24.0 % |
 | probed | 400 | |
 
-**⭐ ENVELOPE SLOT COVERAGE = 17.1 %** — 155 slots resolved ÷ (8 × 113 answerable points).
+**⭐ ENVELOPE SLOT COVERAGE = 35.7 %** — 323 slots resolved ÷ (8 × 113 answerable points).
 
 Answerable = F1 + resolved. **F2 and `shape-rule-unmeasured` are excluded from this denominator by construction** — the first has no subject, the second has no scalar to fill.
 
 | slot | resolved on n of 113 answerable |
 |---|---:|
-| `setback.front` | 0 |
-| `setback.side` | 0 |
-| `setback.rear` | 0 |
+| `setback.front` | 24 |
+| `setback.side` | 24 |
+| `setback.rear` | 24 |
 | `maxHeight` | 20 |
 | `maxFloors` | 20 |
 | `maxFAR` | 91 |
 | `maxCoverage` | 24 |
-| `permittedUse` | 0 |
+| `permittedUse` | 96 |
 
 **The F1 build queue, measured (top zones by point count):**
 
@@ -107,20 +107,20 @@ Answerable = F1 + resolved. **F2 and `shape-rule-unmeasured` are excluded from t
 | `resolved` — at least one envelope slot resolved | 80 | 20.0 % |
 | probed | 400 | |
 
-**⭐ ENVELOPE SLOT COVERAGE = 11.5 %** — 214 slots resolved ÷ (8 × 233 answerable points).
+**⭐ ENVELOPE SLOT COVERAGE = 27.6 %** — 514 slots resolved ÷ (8 × 233 answerable points).
 
 Answerable = F1 + resolved. **F2 and `shape-rule-unmeasured` are excluded from this denominator by construction** — the first has no subject, the second has no scalar to fill.
 
 | slot | resolved on n of 233 answerable |
 |---|---:|
-| `setback.front` | 0 |
-| `setback.side` | 0 |
-| `setback.rear` | 0 |
+| `setback.front` | 80 |
+| `setback.side` | 80 |
+| `setback.rear` | 60 |
 | `maxHeight` | 74 |
 | `maxFloors` | 74 |
 | `maxFAR` | 50 |
 | `maxCoverage` | 16 |
-| `permittedUse` | 0 |
+| `permittedUse` | 80 |
 
 **The F1 build queue, measured (top zones by point count):**
 
@@ -246,20 +246,20 @@ Answerable = F1 + resolved. **F2 and `shape-rule-unmeasured` are excluded from t
 | `resolved` — at least one envelope slot resolved | 176 | 8.8 % |
 | probed | 2000 | |
 
-**⭐ ENVELOPE SLOT COVERAGE = 3.7 %** — 369 slots resolved ÷ (8 × 1252 answerable points).
+**⭐ ENVELOPE SLOT COVERAGE = 8.4 %** — 837 slots resolved ÷ (8 × 1252 answerable points).
 
 Answerable = F1 + resolved. **F2 and `shape-rule-unmeasured` are excluded from this denominator by construction** — the first has no subject, the second has no scalar to fill.
 
 | slot | resolved on n of 1252 answerable |
 |---|---:|
-| `setback.front` | 0 |
-| `setback.side` | 0 |
-| `setback.rear` | 0 |
+| `setback.front` | 104 |
+| `setback.side` | 104 |
+| `setback.rear` | 84 |
 | `maxHeight` | 94 |
 | `maxFloors` | 94 |
 | `maxFAR` | 141 |
 | `maxCoverage` | 40 |
-| `permittedUse` | 0 |
+| `permittedUse` | 176 |
 
 **The F1 build queue, measured (top zones by point count):**
 

@@ -258,6 +258,13 @@ export function utmZoneFromSrs(srs) {
     const code = +m[1];
     if (code >= 25828 && code <= 25831) return code - 25800; // ETRS89 / UTM zone N
     if (code >= 23028 && code <= 23031) return code - 23000; // ED50 / UTM zone N (legacy sheets)
+    // ⭐ THE CANARIES (added 2026-09-04, lane ENVELOPE-IBERIA — found by `measureCanarias.ts`
+    // REFUSING on Telde, which is this function working as designed). Canarias Catastro publishes
+    // **EPSG:32628 — WGS84 / UTM 28N**, NOT an ETRS89 25828: the archipelago's official frame is
+    // REGCAN95, which is WGS84-realised, so the peninsular ETRS89 codes never appear there. Zones
+    // 27N–31N are admitted for the same reason (El Hierro sits in 27N; the range costs nothing).
+    // ⚠ The inverse below is on GRS80; WGS84's flattening differs by ~1e-11, i.e. sub-micron here.
+    if (code >= 32627 && code <= 32631) return code - 32600; // WGS84 / UTM zone N (Canarias)
     if (code === 4326) return 0;                              // already geographic
     return null;
 }

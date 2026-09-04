@@ -1,7 +1,7 @@
 {
   "version": "1.0",
   "country": "es-ib",
-  "measuredAt": "2026-09-04T09:56:34.061Z",
+  "measuredAt": "2026-09-04T17:08:55.164Z",
   "args": {
     "n": 40,
     "seed": 20260904,
@@ -583,6 +583,9 @@
           "zoneLabel": "RE-EP-1",
           "area": "07033 manacor",
           "slots": [
+            "setback.front",
+            "setback.side",
+            "setback.rear",
             "maxFloors",
             "maxFAR",
             "maxCoverage"
@@ -596,6 +599,9 @@
           "zoneLabel": "RE-EP-4",
           "area": "07033 manacor",
           "slots": [
+            "setback.front",
+            "setback.side",
+            "setback.rear",
             "maxFloors",
             "maxFAR",
             "maxCoverage"
@@ -671,6 +677,9 @@
           "zoneLabel": "RE-EU-11",
           "area": "07033 manacor",
           "slots": [
+            "setback.front",
+            "setback.side",
+            "setback.rear",
             "maxFloors",
             "maxFAR",
             "maxCoverage"
@@ -706,6 +715,9 @@
           "zoneLabel": "RE-EP-4",
           "area": "07033 manacor",
           "slots": [
+            "setback.front",
+            "setback.side",
+            "setback.rear",
             "maxFloors",
             "maxFAR",
             "maxCoverage"
@@ -755,6 +767,9 @@
           "zoneLabel": "RE-EU-3",
           "area": "07033 manacor",
           "slots": [
+            "setback.front",
+            "setback.side",
+            "setback.rear",
             "maxFloors",
             "maxFAR",
             "maxCoverage"
@@ -795,7 +810,7 @@
       ]
     },
     "palma/determination": {
-      "frame": "40 REAL Catastro parcels drawn UNIFORMLY WITHOUT REPLACEMENT (seed 20260904) over PALMA's FULL INSPIRE CP parcel population of 45,333 parcels (ATOM enclosure A.ES.SDGC.CP.07040.zip, 103.3 MB GML, fetched 2026-09-04; CRS read from the file: http://www.opengis.net/def/crs/EPSG/0/25831). Each parcel's re-projected centroid was cross-checked against the independent `wfsCP.aspx` oracle; the shipped `resolveBalearsMuib` was then run at the point through the server's own `fetchBalearsMuibAtPoint` mapping, `asOf` 2026-09-04. ARM: determination (the shipped L-449 gate).",
+      "frame": "40 REAL Catastro parcels drawn UNIFORMLY WITHOUT REPLACEMENT (seed 20260904) over PALMA's FULL INSPIRE CP parcel population of 45,333 parcels (ATOM enclosure A.ES.SDGC.CP.07040.zip, 103.3 MB GML, cached 2026-09-04; CRS read from the file: http://www.opengis.net/def/crs/EPSG/0/25831). Each parcel's re-projected centroid was cross-checked against the independent `wfsCP.aspx` oracle; the shipped `resolveBalearsMuib` was then run at the point through the server's own `fetchBalearsMuibAtPoint` mapping, `asOf` 2026-09-04. ARM: determination (the shipped L-449 gate).",
       "points": [
         {
           "lat": 39.5934378,
@@ -1160,7 +1175,7 @@
       ]
     },
     "palma/indicative": {
-      "frame": "40 REAL Catastro parcels drawn UNIFORMLY WITHOUT REPLACEMENT (seed 20260904) over PALMA's FULL INSPIRE CP parcel population of 45,333 parcels (ATOM enclosure A.ES.SDGC.CP.07040.zip, 103.3 MB GML, fetched 2026-09-04; CRS read from the file: http://www.opengis.net/def/crs/EPSG/0/25831). Each parcel's re-projected centroid was cross-checked against the independent `wfsCP.aspx` oracle; the shipped `resolveBalearsMuib` was then run at the point through the server's own `fetchBalearsMuibAtPoint` mapping, `asOf` 2026-09-04. ARM: indicative draw (= \"if signed\" for slot counting).",
+      "frame": "40 REAL Catastro parcels drawn UNIFORMLY WITHOUT REPLACEMENT (seed 20260904) over PALMA's FULL INSPIRE CP parcel population of 45,333 parcels (ATOM enclosure A.ES.SDGC.CP.07040.zip, 103.3 MB GML, cached 2026-09-04; CRS read from the file: http://www.opengis.net/def/crs/EPSG/0/25831). Each parcel's re-projected centroid was cross-checked against the independent `wfsCP.aspx` oracle; the shipped `resolveBalearsMuib` was then run at the point through the server's own `fetchBalearsMuibAtPoint` mapping, `asOf` 2026-09-04. ARM: indicative draw (= \"if signed\" for slot counting).",
       "points": [
         {
           "lat": 39.5934378,
@@ -2447,6 +2462,9 @@
           "zoneLabel": "RE-EP-1",
           "area": "07033 manacor",
           "slots": [
+            "setback.front",
+            "setback.side",
+            "setback.rear",
             "maxFloors",
             "maxFAR",
             "maxCoverage"
@@ -2460,6 +2478,9 @@
           "zoneLabel": "RE-EP-4",
           "area": "07033 manacor",
           "slots": [
+            "setback.front",
+            "setback.side",
+            "setback.rear",
             "maxFloors",
             "maxFAR",
             "maxCoverage"
@@ -2535,6 +2556,9 @@
           "zoneLabel": "RE-EU-11",
           "area": "07033 manacor",
           "slots": [
+            "setback.front",
+            "setback.side",
+            "setback.rear",
             "maxFloors",
             "maxFAR",
             "maxCoverage"
@@ -2570,6 +2594,9 @@
           "zoneLabel": "RE-EP-4",
           "area": "07033 manacor",
           "slots": [
+            "setback.front",
+            "setback.side",
+            "setback.rear",
             "maxFloors",
             "maxFAR",
             "maxCoverage"
@@ -2619,6 +2646,9 @@
           "zoneLabel": "RE-EU-3",
           "area": "07033 manacor",
           "slots": [
+            "setback.front",
+            "setback.side",
+            "setback.rear",
             "maxFloors",
             "maxFAR",
             "maxCoverage"

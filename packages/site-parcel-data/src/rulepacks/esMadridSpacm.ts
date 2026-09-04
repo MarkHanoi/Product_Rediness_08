@@ -102,6 +102,45 @@ export const CM_SPACM_JURISDICTION_ID = 'es-md-comunidad-madrid';
  * CLICK. That is stated plainly rather than papered over: an adapter nothing routes to answers
  * nobody, which is the §authored-but-unwired failure this port set out to end, and it is only half
  * ended.
+ *
+ * ══════════════════════════════════════════════════════════════════════════════════════════════
+ * ⭐ ADDENDUM 2026-09-04 (lane ENVELOPE-IBERIA round 4) — THE UNBLOCKER IS NO LONGER A PROPOSAL.
+ * ══════════════════════════════════════════════════════════════════════════════════════════════
+ * The 2026-08-02 reading above quoted two BBOXES out of `Callejero:SIGI_V_MUNICIPIOS`. The whole
+ * layer has now been FETCHED and put through the shipped predicate — the run is
+ * `tools/envelope-slot-coverage/measureMadridRegion.ts` Goal A, artefacts
+ * `out/es-md-region.slots.md` + `out/cm-sigi-municipios.geojson`:
+ *
+ *   • HTTP 200, `application/json`, **4,121,578 bytes · 179 features** (the layer's own census).
+ *     ⚠ The FIRST attempt the same day returned **HTTP 400** with an Oracle
+ *     `Unable to obtain connection` exception — the upstream, not the request. **A service failure
+ *     is never a zero**; the shape below is the one that answered on retry, unchanged.
+ *   • CRS `urn:ogc:def:crs:EPSG::25830` · Polygon × 170, MultiPolygon × 9 · **153,499 vertices**.
+ *   • The INE key is **`CDMUNICIPIO`** — 3 digits, zero-padded, 179 distinct over 179 features;
+ *     INE-5 composes as `'28' + CDMUNICIPIO`, the same key `VPLA_V_ORDENANZA.CD_MUNICIPIO` uses.
+ *     ⚠ "keyless" in the paragraph above is now REFUTED: the layer carries its key.
+ *   • **20 hand-chosen points through the SHIPPED `pointInRingsEvenOdd`: 20 of 20 land in EXACTLY
+ *     ONE municipality**, seven of them inside the 4.35 km interleave band. 079 and 022 interiors
+ *     are DISJOINT (0 vertices of either inside the other, 0 proper crossings).
+ *   • Douglas-Peucker at **20 m → 20,682 vertices (−86.5 %, ≈478 KB)** and **50 m → 12,236
+ *     (−92 %)** both keep all 20 classifications and both keep the two interiors disjoint. A
+ *     3,000-point seeded control re-classifies **100.0 %** identically at 20 m, **99.7 %** at 50 m.
+ *     ⚠ The 50 m delta is neighbours simplified INDEPENDENTLY opening hairline slivers on shared
+ *     borders — a production gate must simplify shared edges once, or ask both near a border.
+ *
+ * ⛔⛔ AND THE COST OF NOT DOING IT IS NOW MEASURED ON REAL LAND, NOT ARGUED. Over 80 real Catastro
+ * parcels drawn uniformly from the full INSPIRE CP populations of Boadilla del Monte (8,456) and
+ * Colmenar Viejo (13,028), the SHIPPED `resolveRegisteredJurisdictionAt` claims
+ * **`es-28079-madrid` at 30 of 40 Boadilla centroids and 7 of 40 Colmenar centroids** — 37 real
+ * parcels routed to the CAPITAL's registration, which is a different plan, a different publisher
+ * and a different pack. The SIGI predicate puts **80 of 80** in their own municipality. That is the
+ * §EXTENT-SPILLS-A-BORDER failure happening, not risked.
+ *
+ * ⚠ STILL NOT WIRED, and deliberately: routing on geometry is a change to `registry.ts`'s contract
+ * (a `contains` backed by ~478 KB of polygons, its own load path and its own staleness question),
+ * the second blocker above (`jurisdictionSpecificity.test.ts`'s centre invariant) is untouched by
+ * any of this, and `CM_SPACM_ENVELOPE_VERIFIED` is still false so nothing would publish anyway.
+ * What changed is that the evidence is now on disk instead of being an argument.
  */
 export const CM_SPACM_REGISTRATION_BLOCKED = true as const;
 

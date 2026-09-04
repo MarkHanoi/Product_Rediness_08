@@ -1,2 +1,7 @@
 # Download caches for the online arms (Catastro ATOM/GML/ZIP, ámbito register pages). Re-derivable.
 out/.cache/
+
+# The raw 4.1 MB SIGI municipal-boundary layer (Goal A of measureMadridRegion). Re-derivable in
+# one request; the measurement that matters is summarised in out/es-md-region.slots.md. Committing
+# 4 MB of geometry to prove a 480 KB simplification is feasible is the wrong artefact.
+out/cm-sigi-municipios.geojson

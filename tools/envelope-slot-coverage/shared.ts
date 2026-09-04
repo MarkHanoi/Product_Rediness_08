@@ -15,15 +15,43 @@ const HERE = path.dirname(fileURLToPath(import.meta.url));
  * the envelope (a `geometricRule` that supersedes the setback triple, a confidence ceiling, a
  * degenerate solve). The user sees the ENVELOPE. So does this.
  *
- * Setbacks and `permittedUse` are read from `derivationTrace`, because the solved envelope exposes
- * only the inset polygon and the trace is where the engine records that a setback RESOLVED (it
- * calls `addEntry` only for non-null values — that early-return IS the "resolved" predicate).
- * The four scalars are read from the envelope's own fields; `maxFloors` in particular has no
- * `DerivationConstraint` member at all, so the trace could not answer for it.
+ * Setbacks and `permittedUse` are read from the envelope's PER-CONSTRAINT DERIVATION TRACE, because
+ * the solved envelope exposes only the inset polygon and the trace is where the engine records that
+ * a setback RESOLVED (it calls `addEntry` only for non-null values — that early-return IS the
+ * "resolved" predicate). The four scalars are read from the envelope's own fields; `maxFloors` in
+ * particular has no `DerivationConstraint` member at all, so the trace could not answer for it.
+ *
+ * ⛔⛔ THE FIELD IS `derivation`, AND THIS FUNCTION READ `derivationTrace` UNTIL 2026-09-04.
+ * `BuildableEnvelopeSchema` calls it **`derivation`**; `derivationTrace` is a field on a DIFFERENT
+ * type (`SiteIntelEnvelopeSchema`, where it holds evidence IDs, not constraint rows). `env.derivationTrace`
+ * is therefore always `undefined`, `?? []` swallowed it, and **`setback.front`, `setback.side`,
+ * `setback.rear` and `permittedUse` could never resolve for ANY jurisdiction in ANY arm** — four of
+ * the eight slots were structurally unreachable and every published "ENVELOPE SLOT COVERAGE"
+ * headline was capped at 50 %.
+ *
+ * ⚠ It was invisible from the outputs because 0/N reads exactly like a coverage gap: the pooled ES
+ * arm reported `setback.front 0 / 113` and that is precisely what a country with no setback data
+ * would report. It surfaced only when the Canarias arm scored `setback.* = 0` on Telde zone `E`,
+ * whose PACK LITERALLY CARRIES `{front_m: 5, side_m: 2, rear_m: 5}` — a contradiction the data made
+ * impossible to explain away. §probe-can-be-wrong-three-ways: the probe was reading the wrong
+ * PROPERTY, and a wrong property returns a well-formed, plausible, wrong number.
+ *
+ * ⛔ AND IT TYPE-CHECKED. Reading a non-existent property off a `z.infer` type should be a compile
+ * error; it was not, which is the `any`-seam class of defect (§fake-more-capable-than-real). The
+ * guard below is therefore a RUNTIME one — it throws if the trace field ever goes missing again,
+ * because silently scoring 0 is the failure mode that hid this for three arms and two rounds.
  */
 export function slotsFromEnvelope(env: BuildableEnvelope): EnvelopeSlot[] {
+    if (!Array.isArray(env.derivation)) {
+        throw new Error(
+            '[slots] BuildableEnvelope.derivation is not an array — the per-constraint trace this ' +
+            'classifier reads has moved or been renamed. REFUSING rather than scoring 0 slots: a ' +
+            'silent 0 is indistinguishable from a real coverage gap, which is exactly how the ' +
+            '`derivationTrace` typo survived (see this function\'s header).',
+        );
+    }
     const traced = new Set<string>(
-        (env.derivationTrace ?? [])
+        env.derivation
             .filter((e) => e.value !== null && !(Array.isArray(e.value) && e.value.length === 0))
             .map((e) => e.constraint),
     );

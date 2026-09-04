@@ -1,0 +1,873 @@
+{
+  "version": "1.0",
+  "country": "es-cn",
+  "measuredAt": "2026-09-04T17:07:27.731Z",
+  "args": {
+    "n": 40,
+    "seed": 20260904,
+    "ine": "35026"
+  },
+  "frames": {
+    "telde · AS SHIPPED": {
+      "frame": "40 REAL Catastro parcels drawn UNIFORMLY WITHOUT REPLACEMENT (seed 20260904) over TELDE's FULL INSPIRE CP parcel population of 35324; each centroid resolved through the SHIPPED offline `resolveTeldeZoneFromRecords` over the committed EDIF extract (2643 rings), then through `ES_TELDE_PGO2003_PACK` + `computeBuildableEnvelope` on a neutral 40 m square ring.",
+      "points": [
+        {
+          "lat": 28.0266097,
+          "lon": -15.3887818,
+          "slots": [],
+          "cls": "no-plan-served",
+          "zoneLabel": null,
+          "area": "35026",
+          "why": "resolveTeldeZone: no-zone"
+        },
+        {
+          "lat": 27.9935316,
+          "lon": -15.3885327,
+          "slots": [],
+          "cls": "f1-gap",
+          "zoneLabel": "B1",
+          "area": "35026",
+          "why": "CANARIAS_ENVELOPE_VERIFIED=false — the pack answers 8 slot(s) but the verification gate is SHUT, so 0 numbers reach a user"
+        },
+        {
+          "lat": 28.0093663,
+          "lon": -15.3777195,
+          "slots": [],
+          "cls": "f1-gap",
+          "zoneLabel": "F",
+          "area": "35026",
+          "why": "CANARIAS_ENVELOPE_VERIFIED=false — the pack answers 8 slot(s) but the verification gate is SHUT, so 0 numbers reach a user"
+        },
+        {
+          "lat": 28.009747,
+          "lon": -15.4081029,
+          "slots": [],
+          "cls": "no-plan-served",
+          "zoneLabel": null,
+          "area": "35026",
+          "why": "resolveTeldeZone: no-zone"
+        },
+        {
+          "lat": 27.9911004,
+          "lon": -15.3745223,
+          "slots": [],
+          "cls": "f1-gap",
+          "zoneLabel": "E",
+          "area": "35026",
+          "why": "CANARIAS_ENVELOPE_VERIFIED=false — the pack answers 8 slot(s) but the verification gate is SHUT, so 0 numbers reach a user"
+        },
+        {
+          "lat": 27.9801945,
+          "lon": -15.4366723,
+          "slots": [],
+          "cls": "no-plan-served",
+          "zoneLabel": null,
+          "area": "35026",
+          "why": "resolveTeldeZone: no-zone"
+        },
+        {
+          "lat": 27.9841388,
+          "lon": -15.45973,
+          "slots": [],
+          "cls": "f1-gap",
+          "zoneLabel": "A2",
+          "area": "35026",
+          "why": "no-rule-pack: Canarias — no signed envelope transcription."
+        },
+        {
+          "lat": 28.0093085,
+          "lon": -15.4397038,
+          "slots": [],
+          "cls": "no-plan-served",
+          "zoneLabel": null,
+          "area": "35026",
+          "why": "resolveTeldeZone: no-zone"
+        },
+        {
+          "lat": 28.0155886,
+          "lon": -15.3898659,
+          "slots": [],
+          "cls": "f1-gap",
+          "zoneLabel": "B1",
+          "area": "35026",
+          "why": "CANARIAS_ENVELOPE_VERIFIED=false — the pack answers 8 slot(s) but the verification gate is SHUT, so 0 numbers reach a user"
+        },
+        {
+          "lat": 27.9903458,
+          "lon": -15.4558597,
+          "slots": [],
+          "cls": "no-plan-served",
+          "zoneLabel": null,
+          "area": "35026",
+          "why": "resolveTeldeZone: no-zone"
+        },
+        {
+          "lat": 27.9848226,
+          "lon": -15.3941267,
+          "slots": [],
+          "cls": "f1-gap",
+          "zoneLabel": "B1",
+          "area": "35026",
+          "why": "CANARIAS_ENVELOPE_VERIFIED=false — the pack answers 8 slot(s) but the verification gate is SHUT, so 0 numbers reach a user"
+        },
+        {
+          "lat": 28.0144285,
+          "lon": -15.3844248,
+          "slots": [],
+          "cls": "f1-gap",
+          "zoneLabel": "E",
+          "area": "35026",
+          "why": "CANARIAS_ENVELOPE_VERIFIED=false — the pack answers 8 slot(s) but the verification gate is SHUT, so 0 numbers reach a user"
+        },
+        {
+          "lat": 28.0131854,
+          "lon": -15.4743831,
+          "slots": [],
+          "cls": "no-plan-served",
+          "zoneLabel": null,
+          "area": "35026",
+          "why": "resolveTeldeZone: no-zone"
+        },
+        {
+          "lat": 27.9673575,
+          "lon": -15.4834285,
+          "slots": [],
+          "cls": "f1-gap",
+          "zoneLabel": "R2",
+          "area": "35026",
+          "why": "no-rule-pack: Canarias — no signed envelope transcription."
+        },
+        {
+          "lat": 28.0211319,
+          "lon": -15.472725,
+          "slots": [],
+          "cls": "no-plan-served",
+          "zoneLabel": null,
+          "area": "35026",
+          "why": "resolveTeldeZone: no-zone"
+        },
+        {
+          "lat": 28.0136381,
+          "lon": -15.3946671,
+          "slots": [],
+          "cls": "f1-gap",
+          "zoneLabel": "B2",
+          "area": "35026",
+          "why": "CANARIAS_ENVELOPE_VERIFIED=false — the pack answers 8 slot(s) but the verification gate is SHUT, so 0 numbers reach a user"
+        },
+        {
+          "lat": 27.9766765,
+          "lon": -15.3825978,
+          "slots": [],
+          "cls": "f1-gap",
+          "zoneLabel": "H",
+          "area": "35026",
+          "why": "CANARIAS_ENVELOPE_VERIFIED=false — the pack answers 7 slot(s) but the verification gate is SHUT, so 0 numbers reach a user"
+        },
+        {
+          "lat": 27.9974712,
+          "lon": -15.4009279,
+          "slots": [],
+          "cls": "f1-gap",
+          "zoneLabel": "B1",
+          "area": "35026",
+          "why": "CANARIAS_ENVELOPE_VERIFIED=false — the pack answers 8 slot(s) but the verification gate is SHUT, so 0 numbers reach a user"
+        },
+        {
+          "lat": 28.0009129,
+          "lon": -15.4146782,
+          "slots": [],
+          "cls": "f1-gap",
+          "zoneLabel": "A3",
+          "area": "35026",
+          "why": "no-rule-pack: Canarias — no signed envelope transcription."
+        },
+        {
+          "lat": 28.0173228,
+          "lon": -15.4799956,
+          "slots": [],
+          "cls": "no-plan-served",
+          "zoneLabel": null,
+          "area": "35026",
+          "why": "resolveTeldeZone: no-zone"
+        },
+        {
+          "lat": 27.9743819,
+          "lon": -15.4686271,
+          "slots": [],
+          "cls": "no-plan-served",
+          "zoneLabel": null,
+          "area": "35026",
+          "why": "resolveTeldeZone: no-zone"
+        },
+        {
+          "lat": 27.9954513,
+          "lon": -15.4159336,
+          "slots": [],
+          "cls": "f1-gap",
+          "zoneLabel": "B1",
+          "area": "35026",
+          "why": "CANARIAS_ENVELOPE_VERIFIED=false — the pack answers 8 slot(s) but the verification gate is SHUT, so 0 numbers reach a user"
+        },
+        {
+          "lat": 27.9553703,
+          "lon": -15.4631373,
+          "slots": [],
+          "cls": "no-plan-served",
+          "zoneLabel": null,
+          "area": "35026",
+          "why": "resolveTeldeZone: no-zone"
+        },
+        {
+          "lat": 28.0121622,
+          "lon": -15.3945923,
+          "slots": [],
+          "cls": "f1-gap",
+          "zoneLabel": "B1",
+          "area": "35026",
+          "why": "CANARIAS_ENVELOPE_VERIFIED=false — the pack answers 8 slot(s) but the verification gate is SHUT, so 0 numbers reach a user"
+        },
+        {
+          "lat": 28.0339223,
+          "lon": -15.4204145,
+          "slots": [],
+          "cls": "f1-gap",
+          "zoneLabel": "A2",
+          "area": "35026",
+          "why": "no-rule-pack: Canarias — no signed envelope transcription."
+        },
+        {
+          "lat": 28.0020128,
+          "lon": -15.3871761,
+          "slots": [],
+          "cls": "f1-gap",
+          "zoneLabel": "B1",
+          "area": "35026",
+          "why": "CANARIAS_ENVELOPE_VERIFIED=false — the pack answers 8 slot(s) but the verification gate is SHUT, so 0 numbers reach a user"
+        },
+        {
+          "lat": 28.0075245,
+          "lon": -15.4089015,
+          "slots": [],
+          "cls": "f1-gap",
+          "zoneLabel": "A2",
+          "area": "35026",
+          "why": "no-rule-pack: Canarias — no signed envelope transcription."
+        },
+        {
+          "lat": 27.9944709,
+          "lon": -15.4292962,
+          "slots": [],
+          "cls": "f1-gap",
+          "zoneLabel": "G",
+          "area": "35026",
+          "why": "CANARIAS_ENVELOPE_VERIFIED=false — the pack answers 5 slot(s) but the verification gate is SHUT, so 0 numbers reach a user"
+        },
+        {
+          "lat": 28.0176394,
+          "lon": -15.391074,
+          "slots": [],
+          "cls": "f1-gap",
+          "zoneLabel": "B2",
+          "area": "35026",
+          "why": "CANARIAS_ENVELOPE_VERIFIED=false — the pack answers 8 slot(s) but the verification gate is SHUT, so 0 numbers reach a user"
+        },
+        {
+          "lat": 28.0160983,
+          "lon": -15.4814015,
+          "slots": [],
+          "cls": "no-plan-served",
+          "zoneLabel": null,
+          "area": "35026",
+          "why": "resolveTeldeZone: no-zone"
+        },
+        {
+          "lat": 27.9889956,
+          "lon": -15.448546,
+          "slots": [],
+          "cls": "no-plan-served",
+          "zoneLabel": null,
+          "area": "35026",
+          "why": "resolveTeldeZone: no-zone"
+        },
+        {
+          "lat": 27.9895033,
+          "lon": -15.4613899,
+          "slots": [],
+          "cls": "no-plan-served",
+          "zoneLabel": null,
+          "area": "35026",
+          "why": "resolveTeldeZone: no-zone"
+        },
+        {
+          "lat": 27.9988395,
+          "lon": -15.4233275,
+          "slots": [],
+          "cls": "no-plan-served",
+          "zoneLabel": null,
+          "area": "35026",
+          "why": "resolveTeldeZone: no-zone"
+        },
+        {
+          "lat": 28.0025674,
+          "lon": -15.4382183,
+          "slots": [],
+          "cls": "no-plan-served",
+          "zoneLabel": null,
+          "area": "35026",
+          "why": "resolveTeldeZone: no-zone"
+        },
+        {
+          "lat": 28.0039664,
+          "lon": -15.3860665,
+          "slots": [],
+          "cls": "f1-gap",
+          "zoneLabel": "E",
+          "area": "35026",
+          "why": "CANARIAS_ENVELOPE_VERIFIED=false — the pack answers 8 slot(s) but the verification gate is SHUT, so 0 numbers reach a user"
+        },
+        {
+          "lat": 28.0095075,
+          "lon": -15.4831265,
+          "slots": [],
+          "cls": "no-plan-served",
+          "zoneLabel": null,
+          "area": "35026",
+          "why": "resolveTeldeZone: no-zone"
+        },
+        {
+          "lat": 27.9876147,
+          "lon": -15.4454987,
+          "slots": [],
+          "cls": "no-plan-served",
+          "zoneLabel": null,
+          "area": "35026",
+          "why": "resolveTeldeZone: no-zone"
+        },
+        {
+          "lat": 27.9770573,
+          "lon": -15.4600849,
+          "slots": [],
+          "cls": "no-plan-served",
+          "zoneLabel": null,
+          "area": "35026",
+          "why": "resolveTeldeZone: no-zone"
+        },
+        {
+          "lat": 28.0113844,
+          "lon": -15.4585156,
+          "slots": [],
+          "cls": "no-plan-served",
+          "zoneLabel": null,
+          "area": "35026",
+          "why": "resolveTeldeZone: no-zone"
+        },
+        {
+          "lat": 28.0221046,
+          "lon": -15.4721939,
+          "slots": [],
+          "cls": "no-plan-served",
+          "zoneLabel": null,
+          "area": "35026",
+          "why": "resolveTeldeZone: no-zone"
+        }
+      ]
+    },
+    "telde · IF SIGNED": {
+      "frame": "40 REAL Catastro parcels drawn UNIFORMLY WITHOUT REPLACEMENT (seed 20260904) over TELDE's FULL INSPIRE CP parcel population of 35324; each centroid resolved through the SHIPPED offline `resolveTeldeZoneFromRecords` over the committed EDIF extract (2643 rings), then through `ES_TELDE_PGO2003_PACK` + `computeBuildableEnvelope` on a neutral 40 m square ring.",
+      "points": [
+        {
+          "lat": 28.0266097,
+          "lon": -15.3887818,
+          "slots": [],
+          "cls": "no-plan-served",
+          "zoneLabel": null,
+          "area": "35026",
+          "why": "resolveTeldeZone: no-zone"
+        },
+        {
+          "lat": 27.9935316,
+          "lon": -15.3885327,
+          "cls": "resolved",
+          "zoneLabel": "B1",
+          "area": "35026",
+          "slots": [
+            "setback.front",
+            "setback.side",
+            "setback.rear",
+            "maxHeight",
+            "maxFloors",
+            "maxFAR",
+            "maxCoverage",
+            "permittedUse"
+          ],
+          "why": "pack es-35026-telde · confidence estimated-ruleset · status ok"
+        },
+        {
+          "lat": 28.0093663,
+          "lon": -15.3777195,
+          "cls": "resolved",
+          "zoneLabel": "F",
+          "area": "35026",
+          "slots": [
+            "setback.front",
+            "setback.side",
+            "setback.rear",
+            "maxHeight",
+            "maxFloors",
+            "maxFAR",
+            "maxCoverage",
+            "permittedUse"
+          ],
+          "why": "pack es-35026-telde · confidence estimated-ruleset · status ok"
+        },
+        {
+          "lat": 28.009747,
+          "lon": -15.4081029,
+          "slots": [],
+          "cls": "no-plan-served",
+          "zoneLabel": null,
+          "area": "35026",
+          "why": "resolveTeldeZone: no-zone"
+        },
+        {
+          "lat": 27.9911004,
+          "lon": -15.3745223,
+          "cls": "resolved",
+          "zoneLabel": "E",
+          "area": "35026",
+          "slots": [
+            "setback.front",
+            "setback.side",
+            "setback.rear",
+            "maxHeight",
+            "maxFloors",
+            "maxFAR",
+            "maxCoverage",
+            "permittedUse"
+          ],
+          "why": "pack es-35026-telde · confidence estimated-ruleset · status ok"
+        },
+        {
+          "lat": 27.9801945,
+          "lon": -15.4366723,
+          "slots": [],
+          "cls": "no-plan-served",
+          "zoneLabel": null,
+          "area": "35026",
+          "why": "resolveTeldeZone: no-zone"
+        },
+        {
+          "lat": 27.9841388,
+          "lon": -15.45973,
+          "slots": [],
+          "cls": "f1-gap",
+          "zoneLabel": "A2",
+          "area": "35026",
+          "why": "no-rule-pack: Canarias — no signed envelope transcription."
+        },
+        {
+          "lat": 28.0093085,
+          "lon": -15.4397038,
+          "slots": [],
+          "cls": "no-plan-served",
+          "zoneLabel": null,
+          "area": "35026",
+          "why": "resolveTeldeZone: no-zone"
+        },
+        {
+          "lat": 28.0155886,
+          "lon": -15.3898659,
+          "cls": "resolved",
+          "zoneLabel": "B1",
+          "area": "35026",
+          "slots": [
+            "setback.front",
+            "setback.side",
+            "setback.rear",
+            "maxHeight",
+            "maxFloors",
+            "maxFAR",
+            "maxCoverage",
+            "permittedUse"
+          ],
+          "why": "pack es-35026-telde · confidence estimated-ruleset · status ok"
+        },
+        {
+          "lat": 27.9903458,
+          "lon": -15.4558597,
+          "slots": [],
+          "cls": "no-plan-served",
+          "zoneLabel": null,
+          "area": "35026",
+          "why": "resolveTeldeZone: no-zone"
+        },
+        {
+          "lat": 27.9848226,
+          "lon": -15.3941267,
+          "cls": "resolved",
+          "zoneLabel": "B1",
+          "area": "35026",
+          "slots": [
+            "setback.front",
+            "setback.side",
+            "setback.rear",
+            "maxHeight",
+            "maxFloors",
+            "maxFAR",
+            "maxCoverage",
+            "permittedUse"
+          ],
+          "why": "pack es-35026-telde · confidence estimated-ruleset · status ok"
+        },
+        {
+          "lat": 28.0144285,
+          "lon": -15.3844248,
+          "cls": "resolved",
+          "zoneLabel": "E",
+          "area": "35026",
+          "slots": [
+            "setback.front",
+            "setback.side",
+            "setback.rear",
+            "maxHeight",
+            "maxFloors",
+            "maxFAR",
+            "maxCoverage",
+            "permittedUse"
+          ],
+          "why": "pack es-35026-telde · confidence estimated-ruleset · status ok"
+        },
+        {
+          "lat": 28.0131854,
+          "lon": -15.4743831,
+          "slots": [],
+          "cls": "no-plan-served",
+          "zoneLabel": null,
+          "area": "35026",
+          "why": "resolveTeldeZone: no-zone"
+        },
+        {
+          "lat": 27.9673575,
+          "lon": -15.4834285,
+          "slots": [],
+          "cls": "f1-gap",
+          "zoneLabel": "R2",
+          "area": "35026",
+          "why": "no-rule-pack: Canarias — no signed envelope transcription."
+        },
+        {
+          "lat": 28.0211319,
+          "lon": -15.472725,
+          "slots": [],
+          "cls": "no-plan-served",
+          "zoneLabel": null,
+          "area": "35026",
+          "why": "resolveTeldeZone: no-zone"
+        },
+        {
+          "lat": 28.0136381,
+          "lon": -15.3946671,
+          "cls": "resolved",
+          "zoneLabel": "B2",
+          "area": "35026",
+          "slots": [
+            "setback.front",
+            "setback.side",
+            "setback.rear",
+            "maxHeight",
+            "maxFloors",
+            "maxFAR",
+            "maxCoverage",
+            "permittedUse"
+          ],
+          "why": "pack es-35026-telde · confidence estimated-ruleset · status ok"
+        },
+        {
+          "lat": 27.9766765,
+          "lon": -15.3825978,
+          "cls": "resolved",
+          "zoneLabel": "H",
+          "area": "35026",
+          "slots": [
+            "setback.front",
+            "setback.side",
+            "setback.rear",
+            "maxHeight",
+            "maxFloors",
+            "maxFAR",
+            "permittedUse"
+          ],
+          "why": "pack es-35026-telde · confidence estimated-ruleset · status ok"
+        },
+        {
+          "lat": 27.9974712,
+          "lon": -15.4009279,
+          "cls": "resolved",
+          "zoneLabel": "B1",
+          "area": "35026",
+          "slots": [
+            "setback.front",
+            "setback.side",
+            "setback.rear",
+            "maxHeight",
+            "maxFloors",
+            "maxFAR",
+            "maxCoverage",
+            "permittedUse"
+          ],
+          "why": "pack es-35026-telde · confidence estimated-ruleset · status ok"
+        },
+        {
+          "lat": 28.0009129,
+          "lon": -15.4146782,
+          "slots": [],
+          "cls": "f1-gap",
+          "zoneLabel": "A3",
+          "area": "35026",
+          "why": "no-rule-pack: Canarias — no signed envelope transcription."
+        },
+        {
+          "lat": 28.0173228,
+          "lon": -15.4799956,
+          "slots": [],
+          "cls": "no-plan-served",
+          "zoneLabel": null,
+          "area": "35026",
+          "why": "resolveTeldeZone: no-zone"
+        },
+        {
+          "lat": 27.9743819,
+          "lon": -15.4686271,
+          "slots": [],
+          "cls": "no-plan-served",
+          "zoneLabel": null,
+          "area": "35026",
+          "why": "resolveTeldeZone: no-zone"
+        },
+        {
+          "lat": 27.9954513,
+          "lon": -15.4159336,
+          "cls": "resolved",
+          "zoneLabel": "B1",
+          "area": "35026",
+          "slots": [
+            "setback.front",
+            "setback.side",
+            "setback.rear",
+            "maxHeight",
+            "maxFloors",
+            "maxFAR",
+            "maxCoverage",
+            "permittedUse"
+          ],
+          "why": "pack es-35026-telde · confidence estimated-ruleset · status ok"
+        },
+        {
+          "lat": 27.9553703,
+          "lon": -15.4631373,
+          "slots": [],
+          "cls": "no-plan-served",
+          "zoneLabel": null,
+          "area": "35026",
+          "why": "resolveTeldeZone: no-zone"
+        },
+        {
+          "lat": 28.0121622,
+          "lon": -15.3945923,
+          "cls": "resolved",
+          "zoneLabel": "B1",
+          "area": "35026",
+          "slots": [
+            "setback.front",
+            "setback.side",
+            "setback.rear",
+            "maxHeight",
+            "maxFloors",
+            "maxFAR",
+            "maxCoverage",
+            "permittedUse"
+          ],
+          "why": "pack es-35026-telde · confidence estimated-ruleset · status ok"
+        },
+        {
+          "lat": 28.0339223,
+          "lon": -15.4204145,
+          "slots": [],
+          "cls": "f1-gap",
+          "zoneLabel": "A2",
+          "area": "35026",
+          "why": "no-rule-pack: Canarias — no signed envelope transcription."
+        },
+        {
+          "lat": 28.0020128,
+          "lon": -15.3871761,
+          "cls": "resolved",
+          "zoneLabel": "B1",
+          "area": "35026",
+          "slots": [
+            "setback.front",
+            "setback.side",
+            "setback.rear",
+            "maxHeight",
+            "maxFloors",
+            "maxFAR",
+            "maxCoverage",
+            "permittedUse"
+          ],
+          "why": "pack es-35026-telde · confidence estimated-ruleset · status ok"
+        },
+        {
+          "lat": 28.0075245,
+          "lon": -15.4089015,
+          "slots": [],
+          "cls": "f1-gap",
+          "zoneLabel": "A2",
+          "area": "35026",
+          "why": "no-rule-pack: Canarias — no signed envelope transcription."
+        },
+        {
+          "lat": 27.9944709,
+          "lon": -15.4292962,
+          "cls": "resolved",
+          "zoneLabel": "G",
+          "area": "35026",
+          "slots": [
+            "setback.front",
+            "maxHeight",
+            "maxFloors",
+            "maxFAR",
+            "permittedUse"
+          ],
+          "why": "pack es-35026-telde · confidence estimated-ruleset · status ok"
+        },
+        {
+          "lat": 28.0176394,
+          "lon": -15.391074,
+          "cls": "resolved",
+          "zoneLabel": "B2",
+          "area": "35026",
+          "slots": [
+            "setback.front",
+            "setback.side",
+            "setback.rear",
+            "maxHeight",
+            "maxFloors",
+            "maxFAR",
+            "maxCoverage",
+            "permittedUse"
+          ],
+          "why": "pack es-35026-telde · confidence estimated-ruleset · status ok"
+        },
+        {
+          "lat": 28.0160983,
+          "lon": -15.4814015,
+          "slots": [],
+          "cls": "no-plan-served",
+          "zoneLabel": null,
+          "area": "35026",
+          "why": "resolveTeldeZone: no-zone"
+        },
+        {
+          "lat": 27.9889956,
+          "lon": -15.448546,
+          "slots": [],
+          "cls": "no-plan-served",
+          "zoneLabel": null,
+          "area": "35026",
+          "why": "resolveTeldeZone: no-zone"
+        },
+        {
+          "lat": 27.9895033,
+          "lon": -15.4613899,
+          "slots": [],
+          "cls": "no-plan-served",
+          "zoneLabel": null,
+          "area": "35026",
+          "why": "resolveTeldeZone: no-zone"
+        },
+        {
+          "lat": 27.9988395,
+          "lon": -15.4233275,
+          "slots": [],
+          "cls": "no-plan-served",
+          "zoneLabel": null,
+          "area": "35026",
+          "why": "resolveTeldeZone: no-zone"
+        },
+        {
+          "lat": 28.0025674,
+          "lon": -15.4382183,
+          "slots": [],
+          "cls": "no-plan-served",
+          "zoneLabel": null,
+          "area": "35026",
+          "why": "resolveTeldeZone: no-zone"
+        },
+        {
+          "lat": 28.0039664,
+          "lon": -15.3860665,
+          "cls": "resolved",
+          "zoneLabel": "E",
+          "area": "35026",
+          "slots": [
+            "setback.front",
+            "setback.side",
+            "setback.rear",
+            "maxHeight",
+            "maxFloors",
+            "maxFAR",
+            "maxCoverage",
+            "permittedUse"
+          ],
+          "why": "pack es-35026-telde · confidence estimated-ruleset · status ok"
+        },
+        {
+          "lat": 28.0095075,
+          "lon": -15.4831265,
+          "slots": [],
+          "cls": "no-plan-served",
+          "zoneLabel": null,
+          "area": "35026",
+          "why": "resolveTeldeZone: no-zone"
+        },
+        {
+          "lat": 27.9876147,
+          "lon": -15.4454987,
+          "slots": [],
+          "cls": "no-plan-served",
+          "zoneLabel": null,
+          "area": "35026",
+          "why": "resolveTeldeZone: no-zone"
+        },
+        {
+          "lat": 27.9770573,
+          "lon": -15.4600849,
+          "slots": [],
+          "cls": "no-plan-served",
+          "zoneLabel": null,
+          "area": "35026",
+          "why": "resolveTeldeZone: no-zone"
+        },
+        {
+          "lat": 28.0113844,
+          "lon": -15.4585156,
+          "slots": [],
+          "cls": "no-plan-served",
+          "zoneLabel": null,
+          "area": "35026",
+          "why": "resolveTeldeZone: no-zone"
+        },
+        {
+          "lat": 28.0221046,
+          "lon": -15.4721939,
+          "slots": [],
+          "cls": "no-plan-served",
+          "zoneLabel": null,
+          "area": "35026",
+          "why": "resolveTeldeZone: no-zone"
+        }
+      ]
+    }
+  }
+}

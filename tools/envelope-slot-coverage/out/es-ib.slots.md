@@ -55,11 +55,11 @@
 | RE-IP-1 · RE_IP_1 · Intensiva Manacor RE-IP-1 · SU | 4 | no-drawable-parameters×4 |
 | RE-IP-3 · RE_IP_3 · Intensiva plurifamiliar RE-IP-3 · SU | 3 | ok[3 slots]×3 |
 | RE-NA · RE_NA · Nucli antic RE-NA · SU | 3 | ok[3 slots]×3 |
-| RE-EP-4 · RE_EP_4 · Extensiva plurifamiliar RE-EP-4 · SU | 2 | ok[3 slots]×2 |
+| RE-EP-4 · RE_EP_4 · Extensiva plurifamiliar RE-EP-4 · SU | 2 | ok[6 slots]×2 |
 | RE-CB-2 · RE_IP_CB_2 · Fartàritx RE-CB-2 · SU | 1 | no-drawable-parameters×1 |
-| RE-EP-1 · RE_EP_1 · Extensiva plurifamiliar RE-EP-1 · SU | 1 | ok[3 slots]×1 |
-| RE-EU-11 · RE_EU_11 · Extensiva unifamiliar RE-EU-11 · SU | 1 | ok[3 slots]×1 |
-| RE-EU-3 · RE_EU_3 · Extensiva unifamiliar RE-EU-3 · SU | 1 | ok[3 slots]×1 |
+| RE-EP-1 · RE_EP_1 · Extensiva plurifamiliar RE-EP-1 · SU | 1 | ok[6 slots]×1 |
+| RE-EU-11 · RE_EU_11 · Extensiva unifamiliar RE-EU-11 · SU | 1 | ok[6 slots]×1 |
+| RE-EU-3 · RE_EU_3 · Extensiva unifamiliar RE-EU-3 · SU | 1 | ok[6 slots]×1 |
 
 ### Frame `manacor/determination`
 
@@ -117,15 +117,15 @@ Answerable = F1 + resolved. **F2 and `shape-rule-unmeasured` are excluded from t
 | `resolved` — at least one envelope slot resolved | 11 | 27.5 % |
 | probed | 40 | |
 
-**⭐ ENVELOPE SLOT COVERAGE = 25.8 %** — 33 slots resolved ÷ (8 × 16 answerable points).
+**⭐ ENVELOPE SLOT COVERAGE = 37.5 %** — 48 slots resolved ÷ (8 × 16 answerable points).
 
 Answerable = F1 + resolved. **F2 and `shape-rule-unmeasured` are excluded from this denominator by construction** — the first has no subject, the second has no scalar to fill.
 
 | slot | resolved on n of 16 answerable |
 |---|---:|
-| `setback.front` | 0 |
-| `setback.side` | 0 |
-| `setback.rear` | 0 |
+| `setback.front` | 5 |
+| `setback.side` | 5 |
+| `setback.rear` | 5 |
 | `maxHeight` | 0 |
 | `maxFloors` | 11 |
 | `maxFAR` | 11 |
@@ -141,7 +141,7 @@ Answerable = F1 + resolved. **F2 and `shape-rule-unmeasured` are excluded from t
 
 ## PALMA (INE 07040)
 
-**Frame:** 40 REAL Catastro parcels drawn UNIFORMLY WITHOUT REPLACEMENT (seed 20260904) over PALMA's FULL INSPIRE CP parcel population of 45,333 parcels (ATOM enclosure A.ES.SDGC.CP.07040.zip, 103.3 MB GML, fetched 2026-09-04; CRS read from the file: http://www.opengis.net/def/crs/EPSG/0/25831). Each parcel's re-projected centroid was cross-checked against the independent `wfsCP.aspx` oracle; the shipped `resolveBalearsMuib` was then run at the point through the server's own `fetchBalearsMuibAtPoint` mapping, `asOf` 2026-09-04.
+**Frame:** 40 REAL Catastro parcels drawn UNIFORMLY WITHOUT REPLACEMENT (seed 20260904) over PALMA's FULL INSPIRE CP parcel population of 45,333 parcels (ATOM enclosure A.ES.SDGC.CP.07040.zip, 103.3 MB GML, cached 2026-09-04; CRS read from the file: http://www.opengis.net/def/crs/EPSG/0/25831). Each parcel's re-projected centroid was cross-checked against the independent `wfsCP.aspx` oracle; the shipped `resolveBalearsMuib` was then run at the point through the server's own `fetchBalearsMuibAtPoint` mapping, `asOf` 2026-09-04.
 
 ### Headline counts
 
@@ -204,7 +204,7 @@ Answerable = F1 + resolved. **F2 and `shape-rule-unmeasured` are excluded from t
 
 ### Frame `palma/determination`
 
-**Frame (the denominator, stated):** 40 REAL Catastro parcels drawn UNIFORMLY WITHOUT REPLACEMENT (seed 20260904) over PALMA's FULL INSPIRE CP parcel population of 45,333 parcels (ATOM enclosure A.ES.SDGC.CP.07040.zip, 103.3 MB GML, fetched 2026-09-04; CRS read from the file: http://www.opengis.net/def/crs/EPSG/0/25831). Each parcel's re-projected centroid was cross-checked against the independent `wfsCP.aspx` oracle; the shipped `resolveBalearsMuib` was then run at the point through the server's own `fetchBalearsMuibAtPoint` mapping, `asOf` 2026-09-04. ARM: determination (the shipped L-449 gate).
+**Frame (the denominator, stated):** 40 REAL Catastro parcels drawn UNIFORMLY WITHOUT REPLACEMENT (seed 20260904) over PALMA's FULL INSPIRE CP parcel population of 45,333 parcels (ATOM enclosure A.ES.SDGC.CP.07040.zip, 103.3 MB GML, cached 2026-09-04; CRS read from the file: http://www.opengis.net/def/crs/EPSG/0/25831). Each parcel's re-projected centroid was cross-checked against the independent `wfsCP.aspx` oracle; the shipped `resolveBalearsMuib` was then run at the point through the server's own `fetchBalearsMuibAtPoint` mapping, `asOf` 2026-09-04. ARM: determination (the shipped L-449 gate).
 
 | class | n | share of answered points |
 |---|---:|---:|
@@ -233,7 +233,7 @@ Answerable = F1 + resolved. **F2 and `shape-rule-unmeasured` are excluded from t
 
 ### Frame `palma/indicative`
 
-**Frame (the denominator, stated):** 40 REAL Catastro parcels drawn UNIFORMLY WITHOUT REPLACEMENT (seed 20260904) over PALMA's FULL INSPIRE CP parcel population of 45,333 parcels (ATOM enclosure A.ES.SDGC.CP.07040.zip, 103.3 MB GML, fetched 2026-09-04; CRS read from the file: http://www.opengis.net/def/crs/EPSG/0/25831). Each parcel's re-projected centroid was cross-checked against the independent `wfsCP.aspx` oracle; the shipped `resolveBalearsMuib` was then run at the point through the server's own `fetchBalearsMuibAtPoint` mapping, `asOf` 2026-09-04. ARM: indicative draw (= "if signed" for slot counting).
+**Frame (the denominator, stated):** 40 REAL Catastro parcels drawn UNIFORMLY WITHOUT REPLACEMENT (seed 20260904) over PALMA's FULL INSPIRE CP parcel population of 45,333 parcels (ATOM enclosure A.ES.SDGC.CP.07040.zip, 103.3 MB GML, cached 2026-09-04; CRS read from the file: http://www.opengis.net/def/crs/EPSG/0/25831). Each parcel's re-projected centroid was cross-checked against the independent `wfsCP.aspx` oracle; the shipped `resolveBalearsMuib` was then run at the point through the server's own `fetchBalearsMuibAtPoint` mapping, `asOf` 2026-09-04. ARM: indicative draw (= "if signed" for slot counting).
 
 | class | n | share of answered points |
 |---|---:|---:|
@@ -354,15 +354,15 @@ Answerable = F1 + resolved. **F2 and `shape-rule-unmeasured` are excluded from t
 | `resolved` — at least one envelope slot resolved | 11 | 13.8 % |
 | probed | 80 | |
 
-**⭐ ENVELOPE SLOT COVERAGE = 25.8 %** — 33 slots resolved ÷ (8 × 16 answerable points).
+**⭐ ENVELOPE SLOT COVERAGE = 37.5 %** — 48 slots resolved ÷ (8 × 16 answerable points).
 
 Answerable = F1 + resolved. **F2 and `shape-rule-unmeasured` are excluded from this denominator by construction** — the first has no subject, the second has no scalar to fill.
 
 | slot | resolved on n of 16 answerable |
 |---|---:|
-| `setback.front` | 0 |
-| `setback.side` | 0 |
-| `setback.rear` | 0 |
+| `setback.front` | 5 |
+| `setback.side` | 5 |
+| `setback.rear` | 5 |
 | `maxHeight` | 0 |
 | `maxFloors` | 11 |
 | `maxFAR` | 11 |
@@ -378,15 +378,15 @@ Answerable = F1 + resolved. **F2 and `shape-rule-unmeasured` are excluded from t
 
 ### ⚠ The ratified F1/F2 seam on `plan-not-current`
 
-`balearsRefusal('plan-not-current')` ships `legallyGrounded: true` (“grounded in the PUBLISHER'S OWN statement”), so `classifyRefusal` files the **40** such parcels (palma 40) as **F2 correct-null** and they LEAVE the answerable denominator. Read literally against the brief's F1 definition (“a plan governs, no mechanism — GAP”) these are land where a plan DOES govern and PRYZM has no current mechanism; the publisher merely says MUIB is out of date there. This harness does NOT re-class them (no rival vocabulary — `slots.ts` header), but it prints the alternative so nobody reads Palma's absence from the F1 build queue as coverage: if `plan-not-current` were read as F1, the pooled answerable denominator would be 56 instead of 16, and the indicative slot coverage 7.4 % instead of 25.8 %.
+`balearsRefusal('plan-not-current')` ships `legallyGrounded: true` (“grounded in the PUBLISHER'S OWN statement”), so `classifyRefusal` files the **40** such parcels (palma 40) as **F2 correct-null** and they LEAVE the answerable denominator. Read literally against the brief's F1 definition (“a plan governs, no mechanism — GAP”) these are land where a plan DOES govern and PRYZM has no current mechanism; the publisher merely says MUIB is out of date there. This harness does NOT re-class them (no rival vocabulary — `slots.ts` header), but it prints the alternative so nobody reads Palma's absence from the F1 build queue as coverage: if `plan-not-current` were read as F1, the pooled answerable denominator would be 56 instead of 16, and the indicative slot coverage 10.7 % instead of 37.5 %.
 
 ### Upstream HTTP log (every outbound request this run made)
 
 | host | status | n | median ms |
 |---|---|---:|---:|
-| ideib.caib.es | 200 | 80 | 226 |
-| ovc.catastro.meh.es | 200 | 80 | 172 |
-| muib.caib.es | 200 | 29 | 327 |
+| ideib.caib.es | 200 | 80 | 113 |
+| ovc.catastro.meh.es | 200 | 80 | 132 |
+| muib.caib.es | 200 | 29 | 153 |
 | (fitxa cache) | served from per-run cache | 51 | |
 
 _Article cross-check: the resolver's `articleRefs` and this harness's re-parse of the same HTML agree on every `ok` record (11)._
@@ -415,23 +415,23 @@ _Article cross-check: the resolver's `articleRefs` and this harness's re-parse o
 | manacor | 07033A01500175 | hit | — (SR) | SR | — | — | not-buildable-class → det:f2-correct-null / ind:f2-correct-null | — | (none) | (none) |
 | manacor | 07033A02200114 | hit | — (SR) | SR | — | — | not-buildable-class → det:f2-correct-null / ind:f2-correct-null | — | (none) | (none) |
 | manacor | 7703613ED1870S | hit | RE-NA (RE_NA) | SU | 2021_PG_MANACOR_033 | 292430 | ok → det:f1-gap / ind:resolved | maxFloors, maxFAR, maxCoverage | Article 66; Article 56.3.j | Article 66; Article 56.3.j |
-| manacor | 8964001ED2786S | hit | RE-EP-1 (RE_EP_1) | SU | 2021_PG_MANACOR_033 | 292436 | ok → det:f1-gap / ind:resolved | maxFloors, maxFAR, maxCoverage | Article 66 | Article 66 |
-| manacor | 25700A1ED2627S | hit | RE-EP-4 (RE_EP_4) | SU | 2021_PG_MANACOR_033 | 292439 | ok → det:f1-gap / ind:resolved | maxFloors, maxFAR, maxCoverage | Article 66 | Article 66 |
+| manacor | 8964001ED2786S | hit | RE-EP-1 (RE_EP_1) | SU | 2021_PG_MANACOR_033 | 292436 | ok → det:f1-gap / ind:resolved | setback.front, setback.side, setback.rear, maxFloors, maxFAR, maxCoverage | Article 66 | Article 66 |
+| manacor | 25700A1ED2627S | hit | RE-EP-4 (RE_EP_4) | SU | 2021_PG_MANACOR_033 | 292439 | ok → det:f1-gap / ind:resolved | setback.front, setback.side, setback.rear, maxFloors, maxFAR, maxCoverage | Article 66 | Article 66 |
 | manacor | 07033A01800028 | hit | — (SR) | SR | — | — | not-buildable-class → det:f2-correct-null / ind:f2-correct-null | — | (none) | (none) |
 | manacor | 07033A02300306 | hit | — (SR) | SR | — | — | not-buildable-class → det:f2-correct-null / ind:f2-correct-null | — | (none) | (none) |
 | manacor | 8775201ED2787N | hit | RE-IP-3 (RE_IP_3) | SU | 2021_PG_MANACOR_033 | 292443 | ok → det:f1-gap / ind:resolved | maxFloors, maxFAR, maxCoverage | Article 66; Article 56.3.j | Article 66; Article 56.3.j; Article 74 |
 | manacor | 8400015ED1880S | hit | RE-NA (RE_NA) | SU | 2021_PG_MANACOR_033 | 292430 | ok → det:f1-gap / ind:resolved | maxFloors, maxFAR, maxCoverage | Article 66; Article 56.3.j | Article 66; Article 56.3.j |
 | manacor | 07033A02300204 | hit | — (SR) | SR | — | — | not-buildable-class → det:f2-correct-null / ind:f2-correct-null | — | (none) | (none) |
 | manacor | 7301402ED1870S | hit | RE-IP-1 (RE_IP_1) | SU | 2021_PG_MANACOR_033 | 292441 | no-drawable-parameters → det:f1-gap / ind:f1-gap | — | Article 66 | Article 66; Article 74 |
-| manacor | 38870C6ED2638N | hit | RE-EU-11 (RE_EU_11) | SU | 2021_PG_MANACOR_033 | 292455 | ok → det:f1-gap / ind:resolved | maxFloors, maxFAR, maxCoverage | Article 66 | Article 66 |
+| manacor | 38870C6ED2638N | hit | RE-EU-11 (RE_EU_11) | SU | 2021_PG_MANACOR_033 | 292455 | ok → det:f1-gap / ind:resolved | setback.front, setback.side, setback.rear, maxFloors, maxFAR, maxCoverage | Article 66 | Article 66 |
 | manacor | 07033A02509372 | hit | — (SR) | SR | — | — | not-buildable-class → det:f2-correct-null / ind:f2-correct-null | — | (none) | (none) |
 | manacor | 8768102ED2786N | hit | RE-IP-3 (RE_IP_3) | SU | 2021_PG_MANACOR_033 | 292443 | ok → det:f1-gap / ind:resolved | maxFloors, maxFAR, maxCoverage | Article 66; Article 56.3.j | Article 66; Article 56.3.j; Article 74 |
-| manacor | 2570043ED2627S | hit | RE-EP-4 (RE_EP_4) | SU | 2021_PG_MANACOR_033 | 292439 | ok → det:f1-gap / ind:resolved | maxFloors, maxFAR, maxCoverage | Article 66 | Article 66 |
+| manacor | 2570043ED2627S | hit | RE-EP-4 (RE_EP_4) | SU | 2021_PG_MANACOR_033 | 292439 | ok → det:f1-gap / ind:resolved | setback.front, setback.side, setback.rear, maxFloors, maxFAR, maxCoverage | Article 66 | Article 66 |
 | manacor | 07033A02300137 | hit | — (SR) | SR | — | — | not-buildable-class → det:f2-correct-null / ind:f2-correct-null | — | (none) | (none) |
 | manacor | 07033A02300486 | hit | — (SR) | SR | — | — | not-buildable-class → det:f2-correct-null / ind:f2-correct-null | — | (none) | (none) |
 | manacor | 07033A02300578 | hit | — (SR) | SR | — | — | not-buildable-class → det:f2-correct-null / ind:f2-correct-null | — | (none) | (none) |
 | manacor | 07033A00600244 | hit | — (SR) | SR | — | — | not-buildable-class → det:f2-correct-null / ind:f2-correct-null | — | (none) | (none) |
-| manacor | 9126707ED1892N | hit | RE-EU-3 (RE_EU_3) | SU | 2021_PG_MANACOR_033 | 292447 | ok → det:f1-gap / ind:resolved | maxFloors, maxFAR, maxCoverage | Article 66 | Article 66 |
+| manacor | 9126707ED1892N | hit | RE-EU-3 (RE_EU_3) | SU | 2021_PG_MANACOR_033 | 292447 | ok → det:f1-gap / ind:resolved | setback.front, setback.side, setback.rear, maxFloors, maxFAR, maxCoverage | Article 66 | Article 66 |
 | manacor | 07033A02200294 | hit | — (SR) | SR | — | — | not-buildable-class → det:f2-correct-null / ind:f2-correct-null | — | (none) | (none) |
 | manacor | 07033A03400864 | hit | — (SR) | SR | — | — | not-buildable-class → det:f2-correct-null / ind:f2-correct-null | — | (none) | (none) |
 | manacor | 9374207ED2797S | hit | RE-IP-3 (RE_IP_3) | SU | 2021_PG_MANACOR_033 | 292443 | ok → det:f1-gap / ind:resolved | maxFloors, maxFAR, maxCoverage | Article 66; Article 56.3.j | Article 66; Article 56.3.j; Article 74 |

@@ -1,6 +1,6 @@
 {
   "version": "1.0",
-  "measuredAt": "2026-09-04T09:56:34.082Z",
+  "measuredAt": "2026-09-04T17:08:55.174Z",
   "args": {
     "n": 40,
     "seed": 20260904,
@@ -20,58 +20,58 @@
   },
   "frameNotes": {
     "manacor": "40 REAL Catastro parcels drawn UNIFORMLY WITHOUT REPLACEMENT (seed 20260904) over MANACOR's FULL INSPIRE CP parcel population of 34,257 parcels (ATOM enclosure A.ES.SDGC.CP.07033.zip, 77.4 MB GML, cached 2026-09-04; CRS read from the file: http://www.opengis.net/def/crs/EPSG/0/25831). Each parcel's re-projected centroid was cross-checked against the independent `wfsCP.aspx` oracle; the shipped `resolveBalearsMuib` was then run at the point through the server's own `fetchBalearsMuibAtPoint` mapping, `asOf` 2026-09-04.",
-    "palma": "40 REAL Catastro parcels drawn UNIFORMLY WITHOUT REPLACEMENT (seed 20260904) over PALMA's FULL INSPIRE CP parcel population of 45,333 parcels (ATOM enclosure A.ES.SDGC.CP.07040.zip, 103.3 MB GML, fetched 2026-09-04; CRS read from the file: http://www.opengis.net/def/crs/EPSG/0/25831). Each parcel's re-projected centroid was cross-checked against the independent `wfsCP.aspx` oracle; the shipped `resolveBalearsMuib` was then run at the point through the server's own `fetchBalearsMuibAtPoint` mapping, `asOf` 2026-09-04."
+    "palma": "40 REAL Catastro parcels drawn UNIFORMLY WITHOUT REPLACEMENT (seed 20260904) over PALMA's FULL INSPIRE CP parcel population of 45,333 parcels (ATOM enclosure A.ES.SDGC.CP.07040.zip, 103.3 MB GML, cached 2026-09-04; CRS read from the file: http://www.opengis.net/def/crs/EPSG/0/25831). Each parcel's re-projected centroid was cross-checked against the independent `wfsCP.aspx` oracle; the shipped `resolveBalearsMuib` was then run at the point through the server's own `fetchBalearsMuibAtPoint` mapping, `asOf` 2026-09-04."
   },
   "httpLog": [
     {
       "host": "ovc.catastro.meh.es",
       "status": 200,
-      "ms": 1125
+      "ms": 555
     },
     {
       "host": "ideib.caib.es",
       "status": 200,
-      "ms": 229
+      "ms": 238
     },
     {
       "host": "muib.caib.es",
       "status": 200,
-      "ms": 239
+      "ms": 188
     },
     {
       "host": "ovc.catastro.meh.es",
       "status": 200,
-      "ms": 181
+      "ms": 170
     },
     {
       "host": "ideib.caib.es",
       "status": 200,
-      "ms": 3885
+      "ms": 72
     },
     {
       "host": "ovc.catastro.meh.es",
       "status": 200,
-      "ms": 1703
+      "ms": 176
     },
     {
       "host": "ideib.caib.es",
       "status": 200,
-      "ms": 316
+      "ms": 82
     },
     {
       "host": "muib.caib.es",
       "status": 200,
-      "ms": 2508
+      "ms": 195
     },
     {
       "host": "ovc.catastro.meh.es",
       "status": 200,
-      "ms": 251
+      "ms": 209
     },
     {
       "host": "ideib.caib.es",
       "status": 200,
-      "ms": 110
+      "ms": 79
     },
     {
       "host": "muib.caib.es",
@@ -81,102 +81,7 @@
     {
       "host": "ovc.catastro.meh.es",
       "status": 200,
-      "ms": 157
-    },
-    {
-      "host": "ideib.caib.es",
-      "status": 200,
-      "ms": 97
-    },
-    {
-      "host": "ovc.catastro.meh.es",
-      "status": 200,
-      "ms": 153
-    },
-    {
-      "host": "ideib.caib.es",
-      "status": 200,
-      "ms": 71
-    },
-    {
-      "host": "ovc.catastro.meh.es",
-      "status": 200,
-      "ms": 159
-    },
-    {
-      "host": "ideib.caib.es",
-      "status": 200,
-      "ms": 155
-    },
-    {
-      "host": "ovc.catastro.meh.es",
-      "status": 200,
-      "ms": 129
-    },
-    {
-      "host": "ideib.caib.es",
-      "status": 200,
-      "ms": 310
-    },
-    {
-      "host": "ovc.catastro.meh.es",
-      "status": 200,
-      "ms": 155
-    },
-    {
-      "host": "ideib.caib.es",
-      "status": 200,
-      "ms": 185
-    },
-    {
-      "host": "ovc.catastro.meh.es",
-      "status": 200,
-      "ms": 124
-    },
-    {
-      "host": "ideib.caib.es",
-      "status": 200,
-      "ms": 249
-    },
-    {
-      "host": "ovc.catastro.meh.es",
-      "status": 200,
-      "ms": 117
-    },
-    {
-      "host": "ideib.caib.es",
-      "status": 200,
-      "ms": 124
-    },
-    {
-      "host": "ovc.catastro.meh.es",
-      "status": 200,
-      "ms": 152
-    },
-    {
-      "host": "ideib.caib.es",
-      "status": 200,
-      "ms": 253
-    },
-    {
-      "host": "muib.caib.es",
-      "status": 200,
-      "ms": 630
-    },
-    {
-      "host": "ovc.catastro.meh.es",
-      "status": 200,
-      "ms": 259
-    },
-    {
-      "host": "ideib.caib.es",
-      "status": 200,
-      "ms": 58
-    },
-    {
-      "host": "ovc.catastro.meh.es",
-      "status": 200,
-      "ms": 121
+      "ms": 132
     },
     {
       "host": "ideib.caib.es",
@@ -186,27 +91,17 @@
     {
       "host": "ovc.catastro.meh.es",
       "status": 200,
-      "ms": 128
+      "ms": 133
     },
     {
       "host": "ideib.caib.es",
       "status": 200,
-      "ms": 83
+      "ms": 71
     },
     {
       "host": "ovc.catastro.meh.es",
       "status": 200,
-      "ms": 236
-    },
-    {
-      "host": "ideib.caib.es",
-      "status": 200,
-      "ms": 88
-    },
-    {
-      "host": "ovc.catastro.meh.es",
-      "status": 200,
-      "ms": 172
+      "ms": 127
     },
     {
       "host": "ideib.caib.es",
@@ -216,67 +111,27 @@
     {
       "host": "ovc.catastro.meh.es",
       "status": 200,
+      "ms": 134
+    },
+    {
+      "host": "ideib.caib.es",
+      "status": 200,
+      "ms": 68
+    },
+    {
+      "host": "ovc.catastro.meh.es",
+      "status": 200,
+      "ms": 172
+    },
+    {
+      "host": "ideib.caib.es",
+      "status": 200,
+      "ms": 113
+    },
+    {
+      "host": "ovc.catastro.meh.es",
+      "status": 200,
       "ms": 124
-    },
-    {
-      "host": "ideib.caib.es",
-      "status": 200,
-      "ms": 78
-    },
-    {
-      "host": "ovc.catastro.meh.es",
-      "status": 200,
-      "ms": 173
-    },
-    {
-      "host": "ideib.caib.es",
-      "status": 200,
-      "ms": 156
-    },
-    {
-      "host": "ovc.catastro.meh.es",
-      "status": 200,
-      "ms": 201
-    },
-    {
-      "host": "ideib.caib.es",
-      "status": 200,
-      "ms": 80
-    },
-    {
-      "host": "ovc.catastro.meh.es",
-      "status": 200,
-      "ms": 215
-    },
-    {
-      "host": "ideib.caib.es",
-      "status": 200,
-      "ms": 63
-    },
-    {
-      "host": "muib.caib.es",
-      "status": 200,
-      "ms": 539
-    },
-    {
-      "host": "ovc.catastro.meh.es",
-      "status": 200,
-      "ms": 128
-    },
-    {
-      "host": "ideib.caib.es",
-      "status": 200,
-      "ms": 185
-    },
-    {
-      "host": "muib.caib.es",
-      "status": 200,
-      "ms": 312
-    },
-    {
-      "host": "ovc.catastro.meh.es",
-      "status": 200,
-      "ms": 126
     },
     {
       "host": "ideib.caib.es",
@@ -286,77 +141,42 @@
     {
       "host": "ovc.catastro.meh.es",
       "status": 200,
-      "ms": 171
+      "ms": 122
     },
     {
       "host": "ideib.caib.es",
       "status": 200,
-      "ms": 100
+      "ms": 272
     },
     {
       "host": "ovc.catastro.meh.es",
       "status": 200,
-      "ms": 169
+      "ms": 157
     },
     {
       "host": "ideib.caib.es",
       "status": 200,
-      "ms": 145
+      "ms": 87
     },
     {
       "host": "muib.caib.es",
       "status": 200,
-      "ms": 555
+      "ms": 238
     },
     {
       "host": "ovc.catastro.meh.es",
       "status": 200,
-      "ms": 152
+      "ms": 124
     },
     {
       "host": "ideib.caib.es",
       "status": 200,
-      "ms": 90
+      "ms": 79
     },
     {
       "host": "ovc.catastro.meh.es",
       "status": 200,
-      "ms": 129
-    },
-    {
-      "host": "ideib.caib.es",
-      "status": 200,
-      "ms": 104
-    },
-    {
-      "host": "ovc.catastro.meh.es",
-      "status": 200,
-      "ms": 194
-    },
-    {
-      "host": "ideib.caib.es",
-      "status": 200,
-      "ms": 103
-    },
-    {
-      "host": "ovc.catastro.meh.es",
-      "status": 200,
-      "ms": 129
-    },
-    {
-      "host": "ideib.caib.es",
-      "status": 200,
-      "ms": 110
-    },
-    {
-      "host": "muib.caib.es",
-      "status": 200,
-      "ms": 327
-    },
-    {
-      "host": "ovc.catastro.meh.es",
-      "status": 200,
-      "ms": 183
+      "ms": 147
     },
     {
       "host": "ideib.caib.es",
@@ -366,22 +186,62 @@
     {
       "host": "ovc.catastro.meh.es",
       "status": 200,
-      "ms": 124
+      "ms": 126
     },
     {
       "host": "ideib.caib.es",
       "status": 200,
-      "ms": 70
+      "ms": 68
     },
     {
       "host": "ovc.catastro.meh.es",
       "status": 200,
-      "ms": 124
+      "ms": 179
     },
     {
       "host": "ideib.caib.es",
       "status": 200,
+      "ms": 82
+    },
+    {
+      "host": "ovc.catastro.meh.es",
+      "status": 200,
+      "ms": 174
+    },
+    {
+      "host": "ideib.caib.es",
+      "status": 200,
+      "ms": 79
+    },
+    {
+      "host": "ovc.catastro.meh.es",
+      "status": 200,
+      "ms": 127
+    },
+    {
+      "host": "ideib.caib.es",
+      "status": 200,
+      "ms": 59
+    },
+    {
+      "host": "ovc.catastro.meh.es",
+      "status": 200,
       "ms": 128
+    },
+    {
+      "host": "ideib.caib.es",
+      "status": 200,
+      "ms": 100
+    },
+    {
+      "host": "ovc.catastro.meh.es",
+      "status": 200,
+      "ms": 206
+    },
+    {
+      "host": "ideib.caib.es",
+      "status": 200,
+      "ms": 77
     },
     {
       "host": "ovc.catastro.meh.es",
@@ -391,7 +251,137 @@
     {
       "host": "ideib.caib.es",
       "status": 200,
-      "ms": 166
+      "ms": 65
+    },
+    {
+      "host": "muib.caib.es",
+      "status": 200,
+      "ms": 260
+    },
+    {
+      "host": "ovc.catastro.meh.es",
+      "status": 200,
+      "ms": 128
+    },
+    {
+      "host": "ideib.caib.es",
+      "status": 200,
+      "ms": 102
+    },
+    {
+      "host": "muib.caib.es",
+      "status": 200,
+      "ms": 153
+    },
+    {
+      "host": "ovc.catastro.meh.es",
+      "status": 200,
+      "ms": 129
+    },
+    {
+      "host": "ideib.caib.es",
+      "status": 200,
+      "ms": 58
+    },
+    {
+      "host": "ovc.catastro.meh.es",
+      "status": 200,
+      "ms": 140
+    },
+    {
+      "host": "ideib.caib.es",
+      "status": 200,
+      "ms": 99
+    },
+    {
+      "host": "ovc.catastro.meh.es",
+      "status": 200,
+      "ms": 162
+    },
+    {
+      "host": "ideib.caib.es",
+      "status": 200,
+      "ms": 70
+    },
+    {
+      "host": "muib.caib.es",
+      "status": 200,
+      "ms": 162
+    },
+    {
+      "host": "ovc.catastro.meh.es",
+      "status": 200,
+      "ms": 148
+    },
+    {
+      "host": "ideib.caib.es",
+      "status": 200,
+      "ms": 78
+    },
+    {
+      "host": "ovc.catastro.meh.es",
+      "status": 200,
+      "ms": 132
+    },
+    {
+      "host": "ideib.caib.es",
+      "status": 200,
+      "ms": 98
+    },
+    {
+      "host": "ovc.catastro.meh.es",
+      "status": 200,
+      "ms": 151
+    },
+    {
+      "host": "ideib.caib.es",
+      "status": 200,
+      "ms": 77
+    },
+    {
+      "host": "ovc.catastro.meh.es",
+      "status": 200,
+      "ms": 132
+    },
+    {
+      "host": "ideib.caib.es",
+      "status": 200,
+      "ms": 103
+    },
+    {
+      "host": "muib.caib.es",
+      "status": 200,
+      "ms": 245
+    },
+    {
+      "host": "ovc.catastro.meh.es",
+      "status": 200,
+      "ms": 185
+    },
+    {
+      "host": "ideib.caib.es",
+      "status": 200,
+      "ms": 59
+    },
+    {
+      "host": "ovc.catastro.meh.es",
+      "status": 200,
+      "ms": 120
+    },
+    {
+      "host": "ideib.caib.es",
+      "status": 200,
+      "ms": 70
+    },
+    {
+      "host": "ovc.catastro.meh.es",
+      "status": 200,
+      "ms": 125
+    },
+    {
+      "host": "ideib.caib.es",
+      "status": 200,
+      "ms": 128
     },
     {
       "host": "ovc.catastro.meh.es",
@@ -401,7 +391,17 @@
     {
       "host": "ideib.caib.es",
       "status": 200,
-      "ms": 107
+      "ms": 97
+    },
+    {
+      "host": "ovc.catastro.meh.es",
+      "status": 200,
+      "ms": 122
+    },
+    {
+      "host": "ideib.caib.es",
+      "status": 200,
+      "ms": 101
     },
     {
       "host": "ovc.catastro.meh.es",
@@ -411,17 +411,17 @@
     {
       "host": "ideib.caib.es",
       "status": 200,
-      "ms": 108
+      "ms": 96
     },
     {
       "host": "ovc.catastro.meh.es",
       "status": 200,
-      "ms": 123
+      "ms": 124
     },
     {
       "host": "ideib.caib.es",
       "status": 200,
-      "ms": 62
+      "ms": 58
     },
     {
       "host": "ovc.catastro.meh.es",
@@ -431,22 +431,12 @@
     {
       "host": "ideib.caib.es",
       "status": 200,
-      "ms": 78
+      "ms": 65
     },
     {
       "host": "muib.caib.es",
       "status": 200,
-      "ms": 629
-    },
-    {
-      "host": "ovc.catastro.meh.es",
-      "status": 200,
-      "ms": 127
-    },
-    {
-      "host": "ideib.caib.es",
-      "status": 200,
-      "ms": 104
+      "ms": 307
     },
     {
       "host": "ovc.catastro.meh.es",
@@ -461,187 +451,47 @@
     {
       "host": "ovc.catastro.meh.es",
       "status": 200,
-      "ms": 177
+      "ms": 127
     },
     {
       "host": "ideib.caib.es",
       "status": 200,
-      "ms": 68
+      "ms": 96
     },
     {
       "host": "ovc.catastro.meh.es",
       "status": 200,
-      "ms": 507
+      "ms": 164
     },
     {
       "host": "ideib.caib.es",
       "status": 200,
-      "ms": 723
-    },
-    {
-      "host": "muib.caib.es",
-      "status": 200,
-      "ms": 808
+      "ms": 66
     },
     {
       "host": "ovc.catastro.meh.es",
       "status": 200,
-      "ms": 197
+      "ms": 139
     },
     {
       "host": "ideib.caib.es",
-      "status": 200,
-      "ms": 254
-    },
-    {
-      "host": "muib.caib.es",
-      "status": 200,
-      "ms": 291
-    },
-    {
-      "host": "ovc.catastro.meh.es",
-      "status": 200,
-      "ms": 1178
-    },
-    {
-      "host": "ideib.caib.es",
-      "status": 200,
-      "ms": 1274
-    },
-    {
-      "host": "ovc.catastro.meh.es",
-      "status": 200,
-      "ms": 783
-    },
-    {
-      "host": "ideib.caib.es",
-      "status": 200,
-      "ms": 3688
-    },
-    {
-      "host": "muib.caib.es",
-      "status": 200,
-      "ms": 1830
-    },
-    {
-      "host": "ovc.catastro.meh.es",
-      "status": 200,
-      "ms": 780
-    },
-    {
-      "host": "ideib.caib.es",
-      "status": 200,
-      "ms": 475
-    },
-    {
-      "host": "muib.caib.es",
-      "status": 200,
-      "ms": 157
-    },
-    {
-      "host": "ovc.catastro.meh.es",
-      "status": 200,
-      "ms": 177
-    },
-    {
-      "host": "ideib.caib.es",
-      "status": 200,
-      "ms": 185
-    },
-    {
-      "host": "muib.caib.es",
-      "status": 200,
-      "ms": 100
-    },
-    {
-      "host": "ovc.catastro.meh.es",
-      "status": 200,
-      "ms": 174
-    },
-    {
-      "host": "ideib.caib.es",
-      "status": 200,
-      "ms": 360
-    },
-    {
-      "host": "ovc.catastro.meh.es",
-      "status": 200,
-      "ms": 128
-    },
-    {
-      "host": "ideib.caib.es",
-      "status": 200,
-      "ms": 315
-    },
-    {
-      "host": "ovc.catastro.meh.es",
-      "status": 200,
-      "ms": 153
-    },
-    {
-      "host": "ideib.caib.es",
-      "status": 200,
-      "ms": 460
-    },
-    {
-      "host": "muib.caib.es",
-      "status": 200,
-      "ms": 1262
-    },
-    {
-      "host": "ovc.catastro.meh.es",
-      "status": 200,
-      "ms": 296
-    },
-    {
-      "host": "ideib.caib.es",
-      "status": 200,
-      "ms": 343
-    },
-    {
-      "host": "muib.caib.es",
-      "status": 200,
-      "ms": 219
-    },
-    {
-      "host": "ovc.catastro.meh.es",
-      "status": 200,
-      "ms": 447
-    },
-    {
-      "host": "ideib.caib.es",
-      "status": 200,
-      "ms": 365
-    },
-    {
-      "host": "muib.caib.es",
-      "status": 200,
-      "ms": 519
-    },
-    {
-      "host": "ovc.catastro.meh.es",
-      "status": 200,
-      "ms": 999
-    },
-    {
-      "host": "ideib.caib.es",
-      "status": 200,
-      "ms": 1129
-    },
-    {
-      "host": "muib.caib.es",
-      "status": 200,
-      "ms": 874
-    },
-    {
-      "host": "ovc.catastro.meh.es",
       "status": 200,
       "ms": 226
     },
     {
+      "host": "muib.caib.es",
+      "status": 200,
+      "ms": 251
+    },
+    {
+      "host": "ovc.catastro.meh.es",
+      "status": 200,
+      "ms": 151
+    },
+    {
       "host": "ideib.caib.es",
       "status": 200,
-      "ms": 246
+      "ms": 127
     },
     {
       "host": "muib.caib.es",
@@ -651,62 +501,57 @@
     {
       "host": "ovc.catastro.meh.es",
       "status": 200,
-      "ms": 181
+      "ms": 221
     },
     {
       "host": "ideib.caib.es",
       "status": 200,
-      "ms": 255
-    },
-    {
-      "host": "muib.caib.es",
-      "status": 200,
-      "ms": 146
+      "ms": 232
     },
     {
       "host": "ovc.catastro.meh.es",
       "status": 200,
-      "ms": 140
+      "ms": 123
     },
     {
       "host": "ideib.caib.es",
       "status": 200,
-      "ms": 209
+      "ms": 121
     },
     {
       "host": "muib.caib.es",
       "status": 200,
-      "ms": 133
+      "ms": 132
     },
     {
       "host": "ovc.catastro.meh.es",
       "status": 200,
-      "ms": 149
+      "ms": 131
     },
     {
       "host": "ideib.caib.es",
       "status": 200,
-      "ms": 233
+      "ms": 222
     },
     {
       "host": "muib.caib.es",
       "status": 200,
-      "ms": 66
+      "ms": 122
     },
     {
       "host": "ovc.catastro.meh.es",
       "status": 200,
-      "ms": 153
+      "ms": 125
     },
     {
       "host": "ideib.caib.es",
       "status": 200,
-      "ms": 227
+      "ms": 121
     },
     {
       "host": "muib.caib.es",
       "status": 200,
-      "ms": 206
+      "ms": 65
     },
     {
       "host": "ovc.catastro.meh.es",
@@ -716,7 +561,92 @@
     {
       "host": "ideib.caib.es",
       "status": 200,
-      "ms": 282
+      "ms": 220
+    },
+    {
+      "host": "ovc.catastro.meh.es",
+      "status": 200,
+      "ms": 118
+    },
+    {
+      "host": "ideib.caib.es",
+      "status": 200,
+      "ms": 230
+    },
+    {
+      "host": "ovc.catastro.meh.es",
+      "status": 200,
+      "ms": 115
+    },
+    {
+      "host": "ideib.caib.es",
+      "status": 200,
+      "ms": 236
+    },
+    {
+      "host": "muib.caib.es",
+      "status": 200,
+      "ms": 170
+    },
+    {
+      "host": "ovc.catastro.meh.es",
+      "status": 200,
+      "ms": 119
+    },
+    {
+      "host": "ideib.caib.es",
+      "status": 200,
+      "ms": 153
+    },
+    {
+      "host": "muib.caib.es",
+      "status": 200,
+      "ms": 140
+    },
+    {
+      "host": "ovc.catastro.meh.es",
+      "status": 200,
+      "ms": 189
+    },
+    {
+      "host": "ideib.caib.es",
+      "status": 200,
+      "ms": 225
+    },
+    {
+      "host": "muib.caib.es",
+      "status": 200,
+      "ms": 127
+    },
+    {
+      "host": "ovc.catastro.meh.es",
+      "status": 200,
+      "ms": 208
+    },
+    {
+      "host": "ideib.caib.es",
+      "status": 200,
+      "ms": 147
+    },
+    {
+      "host": "muib.caib.es",
+      "status": 200,
+      "ms": 103
+    },
+    {
+      "host": "ovc.catastro.meh.es",
+      "status": 200,
+      "ms": 126
+    },
+    {
+      "host": "ideib.caib.es",
+      "status": 200,
+      "ms": 227
+    },
+    {
+      "host": "muib.caib.es",
+      "status": 200,
+      "ms": 111
     },
     {
       "host": "ovc.catastro.meh.es",
@@ -726,165 +656,25 @@
     {
       "host": "ideib.caib.es",
       "status": 200,
-      "ms": 264
+      "ms": 252
+    },
+    {
+      "host": "muib.caib.es",
+      "status": 200,
+      "ms": 108
     },
     {
       "host": "ovc.catastro.meh.es",
-      "status": 200,
-      "ms": 228
-    },
-    {
-      "host": "ideib.caib.es",
       "status": 200,
       "ms": 118
     },
     {
-      "host": "muib.caib.es",
-      "status": 200,
-      "ms": 992
-    },
-    {
-      "host": "ovc.catastro.meh.es",
-      "status": 200,
-      "ms": 1030
-    },
-    {
       "host": "ideib.caib.es",
       "status": 200,
-      "ms": 395
-    },
-    {
-      "host": "ovc.catastro.meh.es",
-      "status": 200,
-      "ms": 198
-    },
-    {
-      "host": "ideib.caib.es",
-      "status": 200,
-      "ms": 270
-    },
-    {
-      "host": "ovc.catastro.meh.es",
-      "status": 200,
-      "ms": 260
-    },
-    {
-      "host": "ideib.caib.es",
-      "status": 200,
-      "ms": 323
-    },
-    {
-      "host": "ovc.catastro.meh.es",
-      "status": 200,
-      "ms": 266
-    },
-    {
-      "host": "ideib.caib.es",
-      "status": 200,
-      "ms": 900
+      "ms": 224
     },
     {
       "host": "muib.caib.es",
-      "status": 200,
-      "ms": 1473
-    },
-    {
-      "host": "ovc.catastro.meh.es",
-      "status": 200,
-      "ms": 580
-    },
-    {
-      "host": "ideib.caib.es",
-      "status": 200,
-      "ms": 486
-    },
-    {
-      "host": "ovc.catastro.meh.es",
-      "status": 200,
-      "ms": 1322
-    },
-    {
-      "host": "ideib.caib.es",
-      "status": 200,
-      "ms": 625
-    },
-    {
-      "host": "ovc.catastro.meh.es",
-      "status": 200,
-      "ms": 1307
-    },
-    {
-      "host": "ideib.caib.es",
-      "status": 200,
-      "ms": 1188
-    },
-    {
-      "host": "ovc.catastro.meh.es",
-      "status": 200,
-      "ms": 435
-    },
-    {
-      "host": "ideib.caib.es",
-      "status": 200,
-      "ms": 1333
-    },
-    {
-      "host": "muib.caib.es",
-      "status": 200,
-      "ms": 3563
-    },
-    {
-      "host": "ovc.catastro.meh.es",
-      "status": 200,
-      "ms": 3227
-    },
-    {
-      "host": "ideib.caib.es",
-      "status": 200,
-      "ms": 906
-    },
-    {
-      "host": "ovc.catastro.meh.es",
-      "status": 200,
-      "ms": 408
-    },
-    {
-      "host": "ideib.caib.es",
-      "status": 200,
-      "ms": 177
-    },
-    {
-      "host": "ovc.catastro.meh.es",
-      "status": 200,
-      "ms": 134
-    },
-    {
-      "host": "ideib.caib.es",
-      "status": 200,
-      "ms": 255
-    },
-    {
-      "host": "ovc.catastro.meh.es",
-      "status": 200,
-      "ms": 150
-    },
-    {
-      "host": "ideib.caib.es",
-      "status": 200,
-      "ms": 457
-    },
-    {
-      "host": "muib.caib.es",
-      "status": 200,
-      "ms": 686
-    },
-    {
-      "host": "ovc.catastro.meh.es",
-      "status": 200,
-      "ms": 166
-    },
-    {
-      "host": "ideib.caib.es",
       "status": 200,
       "ms": 124
     },
@@ -896,12 +686,37 @@
     {
       "host": "ideib.caib.es",
       "status": 200,
-      "ms": 158
+      "ms": 220
     },
     {
       "host": "muib.caib.es",
       "status": 200,
-      "ms": 88
+      "ms": 57
+    },
+    {
+      "host": "ovc.catastro.meh.es",
+      "status": 200,
+      "ms": 137
+    },
+    {
+      "host": "ideib.caib.es",
+      "status": 200,
+      "ms": 224
+    },
+    {
+      "host": "muib.caib.es",
+      "status": 200,
+      "ms": 104
+    },
+    {
+      "host": "ovc.catastro.meh.es",
+      "status": 200,
+      "ms": 122
+    },
+    {
+      "host": "ideib.caib.es",
+      "status": 200,
+      "ms": 242
     },
     {
       "host": "ovc.catastro.meh.es",
@@ -911,62 +726,247 @@
     {
       "host": "ideib.caib.es",
       "status": 200,
-      "ms": 231
+      "ms": 219
     },
     {
       "host": "ovc.catastro.meh.es",
       "status": 200,
-      "ms": 145
+      "ms": 129
     },
     {
       "host": "ideib.caib.es",
       "status": 200,
-      "ms": 226
-    },
-    {
-      "host": "ovc.catastro.meh.es",
-      "status": 200,
-      "ms": 204
-    },
-    {
-      "host": "ideib.caib.es",
-      "status": 200,
-      "ms": 231
+      "ms": 111
     },
     {
       "host": "muib.caib.es",
       "status": 200,
-      "ms": 321
+      "ms": 233
     },
     {
       "host": "ovc.catastro.meh.es",
       "status": 200,
-      "ms": 130
+      "ms": 134
     },
     {
       "host": "ideib.caib.es",
       "status": 200,
-      "ms": 322
+      "ms": 234
     },
     {
       "host": "ovc.catastro.meh.es",
       "status": 200,
-      "ms": 213
+      "ms": 149
     },
     {
       "host": "ideib.caib.es",
+      "status": 200,
+      "ms": 219
+    },
+    {
+      "host": "ovc.catastro.meh.es",
+      "status": 200,
+      "ms": 176
+    },
+    {
+      "host": "ideib.caib.es",
+      "status": 200,
+      "ms": 221
+    },
+    {
+      "host": "ovc.catastro.meh.es",
+      "status": 200,
+      "ms": 129
+    },
+    {
+      "host": "ideib.caib.es",
+      "status": 200,
+      "ms": 111
+    },
+    {
+      "host": "muib.caib.es",
       "status": 200,
       "ms": 239
     },
     {
       "host": "ovc.catastro.meh.es",
       "status": 200,
-      "ms": 206
+      "ms": 135
     },
     {
       "host": "ideib.caib.es",
       "status": 200,
-      "ms": 229
+      "ms": 219
+    },
+    {
+      "host": "ovc.catastro.meh.es",
+      "status": 200,
+      "ms": 157
+    },
+    {
+      "host": "ideib.caib.es",
+      "status": 200,
+      "ms": 156
+    },
+    {
+      "host": "ovc.catastro.meh.es",
+      "status": 200,
+      "ms": 119
+    },
+    {
+      "host": "ideib.caib.es",
+      "status": 200,
+      "ms": 238
+    },
+    {
+      "host": "ovc.catastro.meh.es",
+      "status": 200,
+      "ms": 193
+    },
+    {
+      "host": "ideib.caib.es",
+      "status": 200,
+      "ms": 222
+    },
+    {
+      "host": "muib.caib.es",
+      "status": 200,
+      "ms": 268
+    },
+    {
+      "host": "ovc.catastro.meh.es",
+      "status": 200,
+      "ms": 116
+    },
+    {
+      "host": "ideib.caib.es",
+      "status": 200,
+      "ms": 218
+    },
+    {
+      "host": "ovc.catastro.meh.es",
+      "status": 200,
+      "ms": 139
+    },
+    {
+      "host": "ideib.caib.es",
+      "status": 200,
+      "ms": 140
+    },
+    {
+      "host": "ovc.catastro.meh.es",
+      "status": 200,
+      "ms": 115
+    },
+    {
+      "host": "ideib.caib.es",
+      "status": 200,
+      "ms": 112
+    },
+    {
+      "host": "ovc.catastro.meh.es",
+      "status": 200,
+      "ms": 133
+    },
+    {
+      "host": "ideib.caib.es",
+      "status": 200,
+      "ms": 308
+    },
+    {
+      "host": "muib.caib.es",
+      "status": 200,
+      "ms": 275
+    },
+    {
+      "host": "ovc.catastro.meh.es",
+      "status": 200,
+      "ms": 112
+    },
+    {
+      "host": "ideib.caib.es",
+      "status": 200,
+      "ms": 111
+    },
+    {
+      "host": "ovc.catastro.meh.es",
+      "status": 200,
+      "ms": 114
+    },
+    {
+      "host": "ideib.caib.es",
+      "status": 200,
+      "ms": 150
+    },
+    {
+      "host": "muib.caib.es",
+      "status": 200,
+      "ms": 115
+    },
+    {
+      "host": "ovc.catastro.meh.es",
+      "status": 200,
+      "ms": 136
+    },
+    {
+      "host": "ideib.caib.es",
+      "status": 200,
+      "ms": 227
+    },
+    {
+      "host": "ovc.catastro.meh.es",
+      "status": 200,
+      "ms": 122
+    },
+    {
+      "host": "ideib.caib.es",
+      "status": 200,
+      "ms": 225
+    },
+    {
+      "host": "ovc.catastro.meh.es",
+      "status": 200,
+      "ms": 190
+    },
+    {
+      "host": "ideib.caib.es",
+      "status": 200,
+      "ms": 232
+    },
+    {
+      "host": "muib.caib.es",
+      "status": 200,
+      "ms": 277
+    },
+    {
+      "host": "ovc.catastro.meh.es",
+      "status": 200,
+      "ms": 119
+    },
+    {
+      "host": "ideib.caib.es",
+      "status": 200,
+      "ms": 309
+    },
+    {
+      "host": "ovc.catastro.meh.es",
+      "status": 200,
+      "ms": 197
+    },
+    {
+      "host": "ideib.caib.es",
+      "status": 200,
+      "ms": 218
+    },
+    {
+      "host": "ovc.catastro.meh.es",
+      "status": 200,
+      "ms": 161
+    },
+    {
+      "host": "ideib.caib.es",
+      "status": 200,
+      "ms": 222
     }
   ],
   "crossCheckMismatches": [],
@@ -2282,6 +2282,9 @@
         "confidence": "estimated-ruleset",
         "footprintIsUpperBound": false,
         "slots": [
+          "setback.front",
+          "setback.side",
+          "setback.rear",
           "maxFloors",
           "maxFAR",
           "maxCoverage"
@@ -2350,6 +2353,9 @@
         "confidence": "estimated-ruleset",
         "footprintIsUpperBound": false,
         "slots": [
+          "setback.front",
+          "setback.side",
+          "setback.rear",
           "maxFloors",
           "maxFAR",
           "maxCoverage"
@@ -2807,6 +2813,9 @@
         "confidence": "estimated-ruleset",
         "footprintIsUpperBound": false,
         "slots": [
+          "setback.front",
+          "setback.side",
+          "setback.rear",
           "maxFloors",
           "maxFAR",
           "maxCoverage"
@@ -3008,6 +3017,9 @@
         "confidence": "estimated-ruleset",
         "footprintIsUpperBound": false,
         "slots": [
+          "setback.front",
+          "setback.side",
+          "setback.rear",
           "maxFloors",
           "maxFAR",
           "maxCoverage"
@@ -3316,6 +3328,9 @@
         "confidence": "estimated-ruleset",
         "footprintIsUpperBound": false,
         "slots": [
+          "setback.front",
+          "setback.side",
+          "setback.rear",
           "maxFloors",
           "maxFAR",
           "maxCoverage"
