@@ -134,7 +134,7 @@ wrong on the facts while right on the conclusion**:
   > ⭐ **The delområde route dominates** — the drawn rule is most often reachable only as an *extent*,
   > which is an upper bound and must be rendered as one. **All 76 distinct doklinks answered
   > (`206`, `application/pdf`, `dokument.plandata.dk`)** — the documents are reachable; they are
-  > PDFs. **byggefelt publishes a height once in 121 rows** (land 1, urban 0), which is D2's
+  > PDFs. **byggefelt publishes a height ONCE across all 121 rows** (land 1, urban 0), which is D2's
   > inversion measured a second way. ⛔ **Still open:** reading the kortbilag itself.
 - **4. Four Part 5–10 endpoints are dead — `inaccessible`.** Miljøportal, SLKS/FBB, LER, DAWA-BBR.
   ⛔ **Marked `UNVERIFIED-ENDPOINT`, NOT `absent`**, per the doctrine's RULE 2 (*never invent an
@@ -181,7 +181,7 @@ wrong on the facts while right on the conclusion**:
 | **`bebygpct` (site coverage)** | **source-complete, DENOMINATOR-BLOCKED** | only ~30 % parcel-scoped; ~40 % scoped to `ejendom` and refused |
 | Floor-area (`eareal` / `m3_m2`) | **not-measured** | |
 | Setbacks | **not-measured** | |
-| **Volume regulation** | **F1 → now ROUTED** | ⭐ `iomfangreg` co-occurs with a number **0/183** over **61.2 %** of features; `dkGraphicLeg.ts` routes it — byggefelt 12 · **delområde 55** · document 10 of 121 rows |
+| **Volume regulation** | **F1 → now ROUTED** | ⭐ `iomfangreg` co-occurs with a number **0/183** over **61.2 %** of features; `dkGraphicLeg.ts` routes it — of the **77 `iomfangreg`-true rows** (121 carried a lokalplan): byggefelt 12 · **delområde 55** · document 10 |
 | Roof geometry | **not-measured** | |
 | Density (`boligenhed`) | **not-measured** | |
 | Existing buildings (BBR) | **undeterminable (from this egress)** | **403** — and BBR is **registered existing state, never future rights** (RULE 6) |
@@ -218,8 +218,8 @@ neither country is the dominant blocker engineering, and in neither can this lan
 - Storeys, floor-area indices, setbacks, roof geometry and density — **not measured**.
 - ⛔ **Reading the kortbilag.** The graphic leg now ROUTES the drawn regulation and proves the
   documents are reachable (**76/76 doklinks answered `206 application/pdf`**), but nothing reads the
-  drawing. The dominant route is **delområde extent** (55 of 121 rows) — an **upper bound**, not a
-  footprint, and it must be rendered as one.
+  drawing. The dominant route is **delområde extent** — **55 of the 77 `iomfangreg`-true rows, 71 %** —
+  and an extent is an **upper bound**, not a footprint. It must be rendered as one.
 - **F1/F2 split of the 439 no-plan parcels** — still not completed. ⚠ **The classification is not
   obvious and must not be guessed:** a parcel with no lokalplan is usually *governed by a coarser
   instrument* (kommuneplanramme) or, in landzone, by a **discretionary permission** (Planloven §35) —
