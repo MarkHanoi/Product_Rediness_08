@@ -185,9 +185,28 @@ export const isInDeLand = (code: string) => (lat: number, lon: number): boolean 
     // candidate and returns the jurisdiction that ACTUALLY ANSWERED: proven live 2026-09-04 —
     // Wiesbaden→DE-HE, Osnabrück→DE-NI, Braunschweig→DE-NI, Leipzig→DE-SN, Potsdam→DE-BB,
     // Halle→DE-ST, each answered by the CORRECT Land after the mis-ranked neighbour returned zero
-    // features. What stays coarse is the single-verdict LABEL from `resolveParcelJurisdiction`, and
-    // within Germany that label is always a WRONG LAND, never a wrong sovereign register — a
-    // materially smaller error than the Praha→Germany / Dublin→England class this lane removed.
-    // The real fix is a polygon gate (the Land outlines), not more rectangles.
+    // features. What stays coarse is the single-verdict LABEL from `resolveParcelJurisdiction`.
+    //
+    // ⛔ CORRECTED 2026-09-04 (round 4). This paragraph used to end "within Germany that label is
+    // always a WRONG LAND, never a wrong SOVEREIGN register — a materially smaller error than the
+    // Praha→Germany / Dublin→England class this lane removed". **That is measurably false, and the
+    // counter-example is inside this very table**: `DE-BB` reaches to 14.8°E and therefore covers
+    // SŁUBICE (52.3481, 14.5606), which is POLAND. A Polish click is offered ALKIS Brandenburg and
+    // LABELLED Brandenburg. It is tolerable ONLY because the national resolver has REFUSED at that
+    // point — it asserts no nationality there, and its refusal text prescribes exactly this: "try
+    // each candidate's cadastre and let the service's own answer decide"; Brandenburg answers zero
+    // features on Polish soil and the walk falls through. It would NOT be tolerable as a claim.
+    //
+    // ⛔ AND THE "REAL FIX" THIS PARAGRAPH NAMED IS ALSO FALSIFIED for the national case. A polygon
+    // gate on the national outline cannot help, because ne_10m is wrong on BOTH sides of this border
+    // in OPPOSITE directions (measured 2026-09-04): it puts POLISH Słubice INSIDE Germany (POL
+    // boundary 216 m away) and GERMAN Görlitz INSIDE Poland (DEU boundary 355 m away). Gating on
+    // containment would KEEP the German cadastre at Słubice and TAKE IT AWAY from Görlitz — strictly
+    // worse, in both directions at once. The fix that would work is the one the refusal already asks
+    // for: let the `claimsNation` rows (here PL) participate as FALL-THROUGH candidates on a
+    // REFUSAL, so GUGiK ULDK is tried at Słubice. Recorded, not actioned — a routing-doctrine change
+    // with a wide blast radius; pinned as an explicit gap in
+    // `__tests__/parcelRegistryNationalWiring.test.ts` §4 rather than left to memory.
+    // A LAND-outline polygon gate is still the right refinement for the INTRA-German coarseness.
     return true;
 };

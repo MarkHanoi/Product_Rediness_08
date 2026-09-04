@@ -218,14 +218,62 @@ describe('L-12871 §4 — the German/Polish border band refuses rather than gues
         });
     }
 
+    // ⚠ TEST CORRECTED 2026-09-04 (lane PARCEL-REACH round 4). As inherited this asserted
+    // `primary(...).kind === 'footprint-fallback'` for all three band points, and it went RED.
+    //
+    // ⛔ THE INHERITED DIAGNOSIS WAS WRONG IN BOTH HALVES, so it is written down here rather than
+    // quietly fixed. It was reported as "the Malta carve-out (405d6b54) made a refused point resolve
+    // to NOTHING". MEASURED 2026-09-04:
+    //   • CAUSE: not Malta. `405d6b54` touches `isInItaly` + the proxy's `it` guard only, neither of
+    //     which is reachable at 52°N. The change is `48cfa327`, which added FOURTEEN German Land rows
+    //     (`isInDeLand`, raw rectangles) — `DE-BB` (51.3–53.6°N, 11.2–14.8°E) covers Frankfurt (Oder)
+    //     AND Słubice; `DE-SN` (50.1–51.7°N, 11.8–15.1°E) covers Görlitz.
+    //   • SYMPTOM: the OPPOSITE of a dead click. Every band point still resolves — it now resolves to
+    //     MORE than before (`DE-BB`/`DE-SN` cadastral ahead of the coarse `DE` footprint), which is why
+    //     `toBeDefined()` never failed and only the `kind` pin did.
+    //
+    // ⛔ AND THE OBVIOUS FIX — gate the Land rectangles on the containing national polygon — IS
+    // FALSIFIED BY THE DATASET ITSELF, measured at these exact points:
+    //     Słubice  (POLISH) → "DEU contains this point in ne_10m, POL's boundary 216 m away"
+    //     Görlitz  (GERMAN) → "POL contains this point in ne_10m, DEU's boundary 355 m away"
+    //   ne_10m is wrong at BOTH, in OPPOSITE directions. A containment gate would KEEP the German
+    //   cadastre at Polish Słubice and DROP it at German Görlitz — strictly worse, and exactly the
+    //   failure `nationalJurisdictionResolver.ts`'s own header warns about. That is why the resolver
+    //   REFUSES here, and its refusal text prescribes the remedy verbatim: "try each candidate's
+    //   cadastre and let the service's own answer decide."
+    //
+    // So the pin moves to the SHIPPED guarantee, tightened rather than loosened.
     it('a refused point still resolves to SOMETHING — a click is never dead (C58 §1.4)', () => {
-        // The coarse DE footprint row still covers the strip. ⚠ Słubice is POLISH and gets a
-        // German-attributed footprint; that is UNCHANGED from before this batch (nothing routed to
-        // PL at all) and is recorded as a data limit in the PL row's note, not fixed by tuning.
         for (const [, lat, lon] of band) {
             expect(primary(lat, lon)).toBeDefined();
-            expect(primary(lat, lon)!.kind).toBe('footprint-fallback');
+            // The coarse DE footprint row is still the TERMINAL candidate at every band point, so a
+            // Land cadastre that answers nothing can never leave the click dead.
+            const all = resolveParcelCandidates(lat, lon);
+            const last = all[all.length - 1]!;
+            expect(last.kind).toBe('footprint-fallback');
+            expect(last.regionCode).toBe('DE');
         }
+    });
+
+    it('the two GERMAN band towns now reach their own Land ALKIS — the improvement, pinned', () => {
+        // Frankfurt (Oder) is in Brandenburg and Görlitz is in Saxony; both are real German ground and
+        // both now get a real Flürstuck instead of an OSM footprint. Pinned so a future "refusal =
+        // footprint" simplification cannot silently take a working cadastre away again.
+        expect(primary(52.3471, 14.5506)!.providerId).toBe('alkis-bb');
+        expect(primary(51.1526, 14.9876)!.providerId).toBe('alkis-sn');
+    });
+
+    it('⛔ SŁUBICE IS THE RESIDUAL: a POLISH point is offered a GERMAN cadastre, and the Polish one is unreachable', () => {
+        // Recorded as a MEASURED LIMIT, never tuned away — the honest half of this section.
+        // (a) The German Land row is offered first. It is a fall-through, not an assertion: the
+        //     national resolver has REFUSED, ALKIS Brandenburg answers zero features on Polish soil,
+        //     and `resolveParcelWithFallback` walks past it. It costs one fast round-trip.
+        expect(primary(52.3481, 14.5606)!.regionCode).toBe('DE-BB');
+        // (b) ⚠ THE GAP: the refusal's own doctrine is "try EACH candidate's cadastre", and the PL row
+        //     cannot participate — its `contains` is `claimsNation('PL')`, false on every refusal. So
+        //     GUGiK ULDK, which WOULD answer here, is never tried, and Słubice ends on a
+        //     German-attributed OSM footprint. Unchanged from before the German rows landed.
+        expect(codes(52.3481, 14.5606)).not.toContain('PL');
     });
 
     it('Zgorzelec (POLISH, 1839 m from the German polygon) DOES claim — the band is not a blanket', () => {
