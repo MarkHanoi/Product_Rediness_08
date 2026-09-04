@@ -334,6 +334,7 @@ export function frCnigRuleStates(input: FrCnigTreeInput): readonly RuleState[] {
                     out.push({
                         rule: parameter,
                         status: 'unrecovered',
+                        partial: null,
                         reachability: 'extractable',
                         failure: input.reglementReachable ? 'pdf' : 'missing-source',
                         mechanism: 'present',
@@ -368,6 +369,7 @@ export function frCnigRuleStates(input: FrCnigTreeInput): readonly RuleState[] {
                     out.push({
                         rule: parameter,
                         status: 'unrecovered',
+                        partial: null,
                         reachability: 'extractable',
                         failure: input.reglementReachable ? 'pdf' : 'missing-source',
                         mechanism: 'present',
