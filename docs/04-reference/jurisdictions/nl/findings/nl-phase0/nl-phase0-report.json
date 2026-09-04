@@ -1,5 +1,5 @@
 {
- "generatedAt": "2026-09-03T20:58:05.335Z",
+ "generatedAt": "2026-09-04T06:54:31.538Z",
  "lane": "ENVELOPE-NLDK",
  "M1_M3": {
   "land": {
@@ -607,18 +607,19 @@
    "withAResolvablePeilDefinition": "20/66 = 30.3%",
    "distinctDefinitions": 17,
    "physicalReferenceClassFrequency": {
-    "maaiveld-other": 9,
+    "adjoining-finished-ground": 11,
     "authority-determined": 3,
     "main-entrance-referenced": 14,
     "nap-absolute": 6,
     "water-or-dike": 8,
     "road-crown": 2,
-    "adjoining-finished-ground": 1
+    "maaiveld-other": 1
    },
    "clusters": [
     {
      "n": 2,
      "classes": [
+      "adjoining-finished-ground",
       "main-entrance-referenced"
      ],
      "exemplar": "a. voor een bouwwerk op een perceel, waarvan de hoofdtoegang direct aan de weg grenst: de hoogte van de weg ter plaatse van die hoofdtoegang; b. voor een bouwwerk op een perceel waarvan de hoofdtoegang niet direct aan de weg grenst: de hoogte van het aansluitende afgewerkte terrein ter hoogte van die hoofdingang, waarbij plaatselijke, niet bij het verdere verloop van het terrein passende, ophoging",
@@ -627,7 +628,7 @@
     {
      "n": 2,
      "classes": [
-      "maaiveld-other"
+      "adjoining-finished-ground"
      ],
      "exemplar": ": de gemiddelde hoogte van het bestaande aansluitende afgewerkte maaiveld; 1.18 risicovolle inrichting: een inrichting, die ingevolge het Besluit externe veiligheid inrichtingen, zoals deze luidt op het moment van terinzagelegging van het ontwerp van dit plan, een grenswaarde, een richtwaarde voor het risico c.q. een risicoafstand moet worden aangehouden bij het in het bestemmingsplan toelaten van",
      "examplePlan": "NL.IMRO.0310.21001BP0000-VG01"
@@ -644,7 +645,7 @@
     {
      "n": 1,
      "classes": [
-      "maaiveld-other",
+      "adjoining-finished-ground",
       "authority-determined"
      ],
      "exemplar": ": 1. De kruin van de dichtstbij gelegen weg, als de (voor)gevel van het gebouw of het bouwwerk, geen gebouw zijnde, geheel of gedeeltelijk is gelegen op een afstand van 10 m of minder van die weg; 2. De gemiddelde hoogte van het aan het bouwwerk aansluitende maaiveld vóór het bouwrijp maken, als de (voor)gevel van het gebouw of het bouwwerk, geen gebouw zijnde, is gelegen op een afstand van meer d",
@@ -664,7 +665,7 @@
      "n": 1,
      "classes": [
       "road-crown",
-      "maaiveld-other",
+      "adjoining-finished-ground",
       "main-entrance-referenced",
       "water-or-dike"
      ],
@@ -683,7 +684,7 @@
     {
      "n": 1,
      "classes": [
-      "maaiveld-other",
+      "adjoining-finished-ground",
       "nap-absolute",
       "water-or-dike"
      ],
@@ -702,7 +703,7 @@
     {
      "n": 1,
      "classes": [
-      "maaiveld-other"
+      "adjoining-finished-ground"
      ],
      "exemplar": "a. voor gebouwen die onmiddellijk aan de weg grenzen: de hoogte van die weg; b. in andere gevallen en voor bouwwerken, geen gebouwen zijnde: de gemiddelde hoogte van het aansluitende afgewerkte maaiveld, op het tijdstip van inwerkingtreding van dit plan. 1.88 permanente bewoning indien een of meerdere personen de woning al dan niet tijdelijk gebruiken als hoofdverblijf in de zin van artikel 1:10 B",
      "examplePlan": "NL.IMRO.0736.BP018BgbWest-va02"
@@ -728,7 +729,7 @@
     {
      "n": 1,
      "classes": [
-      "maaiveld-other",
+      "adjoining-finished-ground",
       "nap-absolute",
       "main-entrance-referenced",
       "water-or-dike"
@@ -748,7 +749,7 @@
     {
      "n": 1,
      "classes": [
-      "maaiveld-other",
+      "adjoining-finished-ground",
       "main-entrance-referenced"
      ],
      "exemplar": ": a. voor gebouwen, waarvan de hoofdtoegang onmiddellijk aan een weg grenst: de hoogte van die weg ter plaatse van de hoofdtoegang; b. in andere gevallen: de gemiddelde hoogte van het aansluitende afgewerkte maaiveld; 1.107 permanente bewoning: de bewoning van een bouwwerk voor recreatief nachtverblijf als hoofdverblijf; 1.108 pleziervaartuig: een gebruiksklaar vaartuig dat is bestemd voor sportbe",

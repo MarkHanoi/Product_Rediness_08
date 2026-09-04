@@ -194,7 +194,11 @@ function classifyPeil(text) {
     const s = text.toLowerCase();
     const hits = [];
     if (/kruin van de weg|kruin van de aangrenzende|wegdek/.test(s)) hits.push('road-crown');
-    if (/aansluitend (afgewerkt )?(maaiveld|terrein)|gemiddelde hoogte van het (aansluitende )?(terrein|maaiveld)/.test(s)) hits.push('adjoining-finished-ground');
+    // ⚠ CORRECTED 2026-09-04 (lane ENVELOPE-NLDK) — the original regex required the UNINFLECTED
+    // "aansluitend afgewerkt maaiveld". Dutch legal prose overwhelmingly writes the INFLECTED
+    // "aansluitende afgewerkte maaiveld", so this class was detected on 1 of 20 plans when the
+    // true figure is 11. Caught by nlPeil.test.ts, re-reduced offline from the stored texts.
+    if (/aansluitende?\s+(afgewerkte?\s+)?(maaiveld|terrein)|gemiddelde hoogte van het\s+(aansluitende?\s+)?(afgewerkte?\s+)?(terrein|maaiveld)/.test(s)) hits.push('adjoining-finished-ground');
     if (/\bmaaiveld\b/.test(s) && !hits.includes('adjoining-finished-ground')) hits.push('maaiveld-other');
     if (/\bn\.?a\.?p\.?\b|normaal amsterdams peil/.test(s)) hits.push('nap-absolute');
     if (/hoofdtoegang|toegang van het gebouw|entree/.test(s)) hits.push('main-entrance-referenced');

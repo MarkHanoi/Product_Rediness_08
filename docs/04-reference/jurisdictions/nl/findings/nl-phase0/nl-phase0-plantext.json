@@ -142,7 +142,7 @@
    "peilDefinition": ": 1. De kruin van de dichtstbij gelegen weg, als de (voor)gevel van het gebouw of het bouwwerk, geen gebouw zijnde, geheel of gedeeltelijk is gelegen op een afstand van 10 m of minder van die weg; 2. De gemiddelde hoogte van het aan het bouwwerk aansluitende maaiveld vóór het bouwrijp maken, als de (voor)gevel van het gebouw of het bouwwerk, geen gebouw zijnde, is gelegen op een afstand van meer dan 10 m van de dichtstbij gelegen weg; 3. Indien het bepaalde onder 1 of 2 niet voldoende concreet is te bepalen, het door of namens burgemeester en wethouders aan te geven peil. 1.100 permanente bewoning: Bewoning van een ruimte als hoofdverblijf. 1.101 productiegebonden detailhandel: Detailhandel in goederen die ter plaatse worden vervaardigd, gerepareerd en/of toegepast in het productieproces, waarbij de detailhandelsfunctie ondergeschikt is aan de productiefunctie. 1.102 professioneel vuurwerk: Vuurwerk, niet zijnde consumentenvuurwerk. 1.103 prostitutie: Het zich beschikbaar stellen tot het verrichten van seksuele handelingen met een ander persoon of meerdere personen tegen vergoeding. 1.104 relatie: een figuur dat twee afzonderlijk weergegeven delen van een bouwperceel met elkaar ver",
    "peilHeading": "1.99 peil",
    "peilClasses": [
-    "maaiveld-other",
+    "adjoining-finished-ground",
     "authority-determined"
    ],
    "terms": {
@@ -200,6 +200,7 @@
    "peilDefinition": "a. voor een bouwwerk op een perceel, waarvan de hoofdtoegang direct aan de weg grenst: de hoogte van de weg ter plaatse van die hoofdtoegang; b. voor een bouwwerk op een perceel waarvan de hoofdtoegang niet direct aan de weg grenst: de hoogte van het aansluitende afgewerkte terrein ter hoogte van die hoofdingang, waarbij plaatselijke, niet bij het verdere verloop van het terrein passende, ophogingen of verdiepingen aan de voet van het bouwwerk, anders dan noodzakelijk voor de bouw daarvan, buiten beschouwing blijven; c. voor een bouwwerk drijvend op het water: de waterspiegel; d. voor een bouwwerk in of over het water, geen drijvend bouwwerk zijnde: de hoogte van het terrein ter plaatse van het punt dat het meest nabij ligt aan waar het water grenst aan het vasteland; 1.95 plaatsgebonden risico risico op een plaats buiten een inrichting, uitgedrukt als de kans per jaar dat een persoon die onafgebroken en onbeschermd op die plaats zou verblijven, overlijdt als rechtstreeks gevolg van een ongewoon voorval binnen die inrichting waarbij een gevaarlijke stof, gevaarlijke afvalstof of bestrijdingsmiddel betrokken is; 1.96 prostitutie het zich beschikbaar stellen tot het verrichten van se",
    "peilHeading": "1.94 peil",
    "peilClasses": [
+    "adjoining-finished-ground",
     "main-entrance-referenced"
    ],
    "terms": {
@@ -756,7 +757,7 @@
    "peilDefinition": ": de gemiddelde hoogte van het bestaande aansluitende afgewerkte maaiveld; 1.18 risicovolle inrichting: een inrichting, die ingevolge het Besluit externe veiligheid inrichtingen, zoals deze luidt op het moment van terinzagelegging van het ontwerp van dit plan, een grenswaarde, een richtwaarde voor het risico c.q. een risicoafstand moet worden aangehouden bij het in het bestemmingsplan toelaten van kwetsbare of beperkt kwetsbare objecten;",
    "peilHeading": "1.17 peil",
    "peilClasses": [
-    "maaiveld-other"
+    "adjoining-finished-ground"
    ],
    "terms": {
     "roof_dakhelling": false,
@@ -924,7 +925,7 @@
    "peilHeading": "1.90 Peil",
    "peilClasses": [
     "road-crown",
-    "maaiveld-other",
+    "adjoining-finished-ground",
     "main-entrance-referenced",
     "water-or-dike"
    ],
@@ -1753,7 +1754,7 @@
    "peilDefinition": "a. voor gebouwen die onmiddellijk aan de weg grenzen: de hoogte van die weg; b. voor windturbines en bouwwerken in het water: 0.00m +NAP; c. voor gebouwen in het talud van de dijk: de gemiddelde hoogte van het bestaande aansluitende afgewerkte maaiveld ter plaatse van de van de dijk afgekeerde zijde van het gebouw; d. in andere gevallen en voor bouwwerken, geen gebouwen zijnde: de gemiddelde hoogte van het bestaande aansluitende afgewerkte maaiveld; e. wanneer onduidelijkheid bestaat over het peil kunnen burgemeester en wethouder een peil aanwijzen. 1.93 permanent kampeermiddel t.b.v. recreatief nachtverblijf een jaarrond geplaatst bouwwerk ten behoeve van recreatief nachtverblijf, zoals een tenthuis, (sta-) of tourcaravan, recreatieve accommodatie of een daarmee vergelijkbaar onderkomen, waarvoor geen omgevingsvergunning vereist is. De staanplaats mag als jaarplaats gebruikt worden, waarbij de gebruikers hun hoofdverblijf elders hebben. 1.94 plattelandswoning een (voormalige) agrarische bedrijfswoning als bedoeld in artikel 1.1a van de Wet algemene bepalingen omgevingsrecht. 1.95 praktijkruimte een gebouw of een gedeelte daarvan, dat dient voor het beroepsmatig verlenen van dienst",
    "peilHeading": "1.92 peil",
    "peilClasses": [
-    "maaiveld-other",
+    "adjoining-finished-ground",
     "nap-absolute",
     "water-or-dike"
    ],
@@ -1870,7 +1871,7 @@
    "peilDefinition": "a. voor gebouwen die onmiddellijk aan de weg grenzen: de hoogte van die weg; b. in andere gevallen en voor bouwwerken, geen gebouwen zijnde: de gemiddelde hoogte van het aansluitende afgewerkte maaiveld, op het tijdstip van inwerkingtreding van dit plan. 1.88 permanente bewoning indien een of meerdere personen de woning al dan niet tijdelijk gebruiken als hoofdverblijf in de zin van artikel 1:10 BW – zoals dat geldt ten tijde van de vaststelling van dit bestemmingsplan - dan wel anderszins gebruiken voor niet-recreatieve doeleinden; 1.89 prostitutie het zich beschikbaar stellen tot het verrichten van seksuele handelingen met een ander tegen vergoeding. 1.90 prostitutiebedrijf prostitutie in een daarvoor ingerichte ruimte en in dienstverband (seksclub, bordelen, privé-huizen), niet zijnde sekswinkels, seksbioscopen, sekstheaters en daarmee gelijk te stellen bedrijfstypen. 1.91 recreatie-appartement het geheel van bijeenbehorende ruimten die gezamenlijk bedoeld zijn voor recreatief nachtverblijf door één of meer personen die zijn/hun hoofdverblijf elders hebben, binnen een groter gebouwd dat naar aard en inrichting bedoeld is voor verblijfsrecreatie. 1.92 recreatie-ark een drijvend b",
    "peilHeading": "1.87 peil",
    "peilClasses": [
-    "maaiveld-other"
+    "adjoining-finished-ground"
    ],
    "terms": {
     "roof_dakhelling": true,
@@ -2542,7 +2543,7 @@
    "peilDefinition": "voor een gebouw op een perceel, waarvan de hoofdtoegang direct aan de weg grenst: de hoogte van de weg ter plaatse van die hoofdtoegang; voor gebouwen, ter plaatse van de aanduiding ‘Villa Via Nova’, het vloerpeilniveau woning zoals aangegeven als vloerpeil woning / begane grond in meters in +NAP in Bijlage 8 van deze regels; voor bouwwerken, geen gebouw zijnde binnen de bestemming 'Water': de hoogte van de bovenzijde van het heersende waterpeil; ten aanzien van de bestemming 'Verkeer-Railverkeer': de bovenkant spoorstaaf; voor een bouwwerk op een perceel, waarvan de hoofdtoegang niet direct aan de weg grenst: de gemiddelde hoogte van het afgewerkte aansluitende maaiveld. Ter plaatse van de aanduiding ‘entreegebouw kasteelruïne’ geldt: peil 1: de hoogte van de weg ter plaatse van de hoofdtoegang van het entreegebouw aan het Grendelplein; peil 2: de gemiddelde hoogte van het aansluitende afgewerkte maaiveld 1.183 perceelgrens een grenslijn tussen bouwpercelen onderling. 1.184 perifere detailhandel detailhandel op terreinen of locaties binnen de bebouwde kom die niet binnen een bestaand winkel(concentratie)gebied of het onmiddellijk daaraan grenzende gebied liggen c.q. gevestigd kunn",
    "peilHeading": "1.182 peil",
    "peilClasses": [
-    "maaiveld-other",
+    "adjoining-finished-ground",
     "nap-absolute",
     "main-entrance-referenced",
     "water-or-dike"
@@ -2660,7 +2661,7 @@
    "peilDefinition": ": a. voor gebouwen, waarvan de hoofdtoegang onmiddellijk aan een weg grenst: de hoogte van die weg ter plaatse van de hoofdtoegang; b. in andere gevallen: de gemiddelde hoogte van het aansluitende afgewerkte maaiveld; 1.107 permanente bewoning: de bewoning van een bouwwerk voor recreatief nachtverblijf als hoofdverblijf; 1.108 pleziervaartuig: een gebruiksklaar vaartuig dat is bestemd voor sportbeoefening of vrijetijdsbesteding; 1.109 prostitutie: het zich beschikbaar stellen tot het verrichten van seksuele handelingen met een ander tegen vergoeding; 1.110 recreatief medegebruik: een recreatief gebruik van gronden dat ondergeschikt is aan de functie van de bestemming waarbinnen dit recreatieve gebruik is toegestaan; 1.111 recreatiewoning: een permanent aanwezig gebouw, geen woonkeet en geen caravan of ander bouwsel op wielen zijnde, bestemd om uitsluitend door een huishouden dat, of een daarmee gelijk te stellen groep van personen, dat of die het hoofdverblijf elders heeft, gedurende een gedeelte van het jaar als recreatieverblijf gebuikt te worden bewoond ; 1.112 relatie: ter plaatse van de aanduiding 'relatie' wordt de verbinding aangegeven tussen twee of meer afzonderlijk begren",
    "peilHeading": "1.106 peil",
    "peilClasses": [
-    "maaiveld-other",
+    "adjoining-finished-ground",
     "main-entrance-referenced"
    ],
    "terms": {
@@ -2718,7 +2719,7 @@
    "peilDefinition": ": de gemiddelde hoogte van het bestaande aansluitende afgewerkte maaiveld; 1.12 risicovolle inrichting: een inrichting, die ingevolge het Besluit externe veiligheid inrichtingen, zoals deze luidt op het moment van terinzagelegging van het ontwerp van dit plan, een grenswaarde, een richtwaarde voor het risico c.q. een risicoafstand moet worden aangehouden bij het in het bestemmingsplan toelaten van kwetsbare of beperkt kwetsbare objecten.",
    "peilHeading": "1.11 peil",
    "peilClasses": [
-    "maaiveld-other"
+    "adjoining-finished-ground"
    ],
    "terms": {
     "roof_dakhelling": false,
@@ -3203,6 +3204,7 @@
    "peilDefinition": ": ten opzichte van gebouwen, waarvan de hoofdtoegang onmiddellijk aan een weg grenst: de hoogte van die weg ter plaatse van de hoofdingang; in andere gevallen: de gemiddelde hoogte van het aansluitende afgewerkte terrein; als in of op het water wordt gebouwd: het gemiddelde waterniveau gedurende een jaar ten opzichte van NAP; tevens de waterstand die zoveel mogelijk wordt gehandhaafd en die wordt vastgelegd in een peilbesluit; bij drijvende bouwwerken is het peil de waterlijn; 1.30 perceelsgrens: algemeen grens van een perceel voor de grens van een perceel gelegen aan de zijde van de voorgevel van de woning zij de grens tussen twee percelen, die voor- en achterzijde van een perceel verbindt achter de van de weg afgekeerde grens van een perceel indien meerdere zijden van het perceel van de weg afgekeerd zijn, wijzen burgemeester en wethouders een achterste perceelsgrens aan; 1.31 uitwendige scheidingsconstructie: constructie die de scheiding vormt tussen een voor personen toegankelijke besloten ruimte van een gebouw en de buitenlucht, de grond of het water, waaronder begrepen de op die constructie aansluitende delen van andere constructies, voor zover die delen van invloed zijn op h",
    "peilHeading": "1.29 peil",
    "peilClasses": [
+    "adjoining-finished-ground",
     "nap-absolute",
     "main-entrance-referenced",
     "water-or-dike",
@@ -3800,5 +3802,7 @@
     "peil_word": false
    }
   }
- ]
+ ],
+ "reclassifiedAt": "2026-09-04T06:50:38.941Z",
+ "reclassifyNote": "peilClasses re-derived OFFLINE from the stored peilDefinition texts after the adjoining-finished-ground regex was corrected for Dutch adjectival inflection (lane ENVELOPE-NLDK, 2026-09-04). No network traffic; the fetched texts are unchanged."
 }
