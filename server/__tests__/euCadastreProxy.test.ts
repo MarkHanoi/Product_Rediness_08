@@ -363,10 +363,16 @@ describe('fetchEuParcelAtPoint — guards + never-throws', () => {
         await expect(fetchEuParcelAtPoint('fr', NaN, NaN, { fetchImpl: fakeFetch(FR_GEOJSON) })).resolves.toBeNull();
     });
 
-    it('exposes exactly the wired cadastres (L-651 pt/us-sf/us-chi; PROXY-EE-LT-PL ee/lt/pl; LU-PARCEL lu; PROXY-LEGS au-*/tr/qa/lv/hr/gr/si/sk; PARCEL-REACH it/bg/be-vlg/gb + 5 us; PARCEL-REACH-2 cz/ie/at)', () => {
+    it('exposes exactly the wired cadastres (L-651 pt/us-sf/us-chi; PROXY-EE-LT-PL ee/lt/pl; LU-PARCEL lu; PROXY-LEGS au-*/tr/qa/lv/hr/gr/si/sk; PARCEL-REACH it/bg/be-vlg/gb + 5 us; PARCEL-REACH-2 cz/ie/at + 14 de-*)', () => {
         expect(Object.keys(EU_CADASTRE_SOURCES).sort()).toEqual([
             'at', 'au-act', 'au-nsw', 'au-qld', 'au-sa', 'au-tas', 'au-vic',
-            'be-vlg', 'bg', 'ch', 'cz', 'de-nrw', 'ee', 'fr', 'gb', 'gr', 'hr', 'ie', 'it',
+            'be-vlg', 'bg', 'ch', 'cz',
+            // GERMANY — 14 Länder. ⛔ 'de-by' is ABSENT ON PURPOSE: Bayern's INSPIRE ALKIS WFS
+            // answers 401 `WWW-Authenticate: Basic realm="INSPIRE-WFS ALKIS"` and its whole
+            // open-data catalogue is raster. A key here would advertise Bayern as wired.
+            'de-bb', 'de-be', 'de-bw', 'de-hb', 'de-he', 'de-hh', 'de-mv', 'de-ni', 'de-nrw',
+            'de-rp', 'de-sh', 'de-sl', 'de-sn', 'de-st', 'de-th',
+            'ee', 'fr', 'gb', 'gr', 'hr', 'ie', 'it',
             'lt', 'lu', 'lv', 'nl', 'no', 'pl', 'pt', 'qa', 'si', 'sk', 'tr',
             'us-chi', 'us-fl', 'us-ma', 'us-nyc', 'us-sf', 'us-tx-harris', 'us-wa-king',
         ]);

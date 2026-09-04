@@ -45,6 +45,8 @@ import {
     isInSwitzerland,
     isInDenmark,
     isInSaudiArabia,
+    isInDeLand,
+    DE_LAND_BBOX,
     isInCzechia,
     isInIreland,
     isInAustria,
@@ -876,6 +878,170 @@ const PARCEL_JURISDICTIONS: readonly ParcelJurisdiction[] = [
         contains: isInFrance,
         note: 'data.geopf.fr WFS CADASTRALPARCELS.PARCELLAIRE_EXPRESS:parcelle — HTTP 200 application/json, real MultiPolygon (idu 75104000AE0003 @ Paris), keyless.',
     },
+    // ── LANE PARCEL-REACH (2026-09-04): GERMANY — 14 Länder promoted footprint → cadastral ──────
+    // THE LARGEST SINGLE GAIN IN THIS LANE. Before today DE-NW was the ONLY German Land with a
+    // keyless cadastre, and every other German click resolved `DE: footprint-fallback`. The reason
+    // was written down in countryBbox.ts's own NRW comment — "every other Land's ALKIS is per-Land
+    // licence-gated" — and it was MEASURED FALSE on 2026-09-04: fourteen of the remaining fifteen
+    // serve a keyless parcel WFS, and all fourteen returned a real Flurstück at their capital
+    // through the production resolver, cold, with no warming fetch. A belief that had been carried
+    // as fact for six weeks cost the largest economy in Europe its parcel selection.
+    //
+    // ⚠ SPECIFICITY, NOT ORDER, RESOLVES THE OVERLAPS — the city-states are why this matters:
+    // Berlin's box (0.32 deg²) sits inside Brandenburg's (8.28), Hamburg's (0.70) and Bremen's
+    // (0.42) inside Niedersachsen's (14.28). `parcelJurisdictionSpecificity` ranks the smallest
+    // enclosing box first, so each city-state wins its own points with no hand-tuned ordering.
+    // ⚠ EVERY ROW NEEDS A REGION_BBOX ENTRY or it scores +Infinity and sorts LAST — which for a
+    // city-state means silently handing its points to the surrounding Land.
+    //
+    // ⛔ BAYERN IS ABSENT, AND THAT IS A MEASURED REFUSAL RATHER THAN AN OMISSION: its INSPIRE ALKIS
+    // WFS answers `401 Unauthorized · WWW-Authenticate: Basic realm="INSPIRE-WFS ALKIS"` (so does the
+    // legacy ogc_alkis_ave.cgi), and Bayern's ENTIRE open-data catalogue was enumerated rather than
+    // guessed at — 35 products — whose only ALKIS entries are raster: the Parzellarkarte record
+    // states `"abgabe_datenformate":["PNG","JPEG"]` and "keine Flurstücksnummern", and its WMS
+    // advertises every layer `queryable="0"` with NO GetFeatureInfo element at all. A Bavarian click
+    // falls to the whole-Germany footprint row below, honestly labelled. Credentials from the LDBV
+    // are the named unblock.
+    {
+        regionCode: 'DE-BW',
+        countryName: 'Germany (Baden-Württemberg)',
+        providerId: 'alkis-bw',
+        label: 'Flurstück (Baden-Württemberg · ALKIS INSPIRE)',
+        proxyPath: '/api/parcel/de-bw',
+        kind: 'cadastral',
+        contains: isInDeLand('DE-BW'),
+        note: 'Baden-Württemberg: LGL Baden-Württemberg ALKIS INSPIRE Cadastral Parcels — a KEYLESS WFS 2.0 serving cp:CadastralParcel, LIVE-PROBED 2026-09-04 by lane PARCEL-REACH. LIVE CLICK PROOF (cold, through the production resolver): Stuttgart Schlossplatz (48.7784,9.1800) → 08146000000660000100, label 660/1, official areaValue 24718 m², 119-vertex ring. CRS: urn EPSG::4258 — this service advertises NO 4326 at all (only 25832/25833/4258). posList is LAT-FIRST, parsed with axis:"latlon" — the DE-NRW idiom, no new parser. GML only. The official areaValue is preferred over the shoelace estimate with its uom ASSERTED, never assumed (a hectare read as a square metre is a 10 000× error wearing a number’s confidence). ETRS89 (4258) where used differs from WGS84 by centimetres, far below BIM scale — the same rationale as the IT leg. Rules remain DOCUMENTS-ONLY: Bebauungspläne are municipal PDFs and XPlanung adoption is partial, so there is no national machine-readable zoning register to pair with this geometry.',
+    },
+    {
+        regionCode: 'DE-HE',
+        countryName: 'Germany (Hessen)',
+        providerId: 'alkis-he',
+        label: 'Flurstück (Hessen · ALKIS INSPIRE)',
+        proxyPath: '/api/parcel/de-he',
+        kind: 'cadastral',
+        contains: isInDeLand('DE-HE'),
+        note: 'Hessen: HVBG Hessen ALKIS INSPIRE Cadastral Parcels — a KEYLESS WFS 2.0 serving cp:CadastralParcel, LIVE-PROBED 2026-09-04 by lane PARCEL-REACH. LIVE CLICK PROOF (cold, through the production resolver): Frankfurt Römer (50.1106,8.6820) → 060460003001990040, label 199/40, 15100 m², 416-vertex ring. CRS: urn EPSG::4258. posList is LAT-FIRST, parsed with axis:"latlon" — the DE-NRW idiom, no new parser. GML only. The official areaValue is preferred over the shoelace estimate with its uom ASSERTED, never assumed (a hectare read as a square metre is a 10 000× error wearing a number’s confidence). ETRS89 (4258) where used differs from WGS84 by centimetres, far below BIM scale — the same rationale as the IT leg. Rules remain DOCUMENTS-ONLY: Bebauungspläne are municipal PDFs and XPlanung adoption is partial, so there is no national machine-readable zoning register to pair with this geometry.',
+    },
+    {
+        regionCode: 'DE-NI',
+        countryName: 'Germany (Niedersachsen)',
+        providerId: 'alkis-ni',
+        label: 'Flurstück (Niedersachsen · ALKIS INSPIRE)',
+        proxyPath: '/api/parcel/de-ni',
+        kind: 'cadastral',
+        contains: isInDeLand('DE-NI'),
+        note: 'Niedersachsen: LGLN Niedersachsen ALKIS INSPIRE Cadastral Parcels — a KEYLESS WFS 2.0 serving cp:CadastralParcel, LIVE-PROBED 2026-09-04 by lane PARCEL-REACH. LIVE CLICK PROOF (cold, through the production resolver): Hannover (52.3744,9.7386) → 034880045002110090, label 211/90, 2267 m². CRS: urn EPSG::4326. posList is LAT-FIRST, parsed with axis:"latlon" — the DE-NRW idiom, no new parser. GML only. The official areaValue is preferred over the shoelace estimate with its uom ASSERTED, never assumed (a hectare read as a square metre is a 10 000× error wearing a number’s confidence). ETRS89 (4258) where used differs from WGS84 by centimetres, far below BIM scale — the same rationale as the IT leg. Rules remain DOCUMENTS-ONLY: Bebauungspläne are municipal PDFs and XPlanung adoption is partial, so there is no national machine-readable zoning register to pair with this geometry.',
+    },
+    {
+        regionCode: 'DE-SN',
+        countryName: 'Germany (Sachsen)',
+        providerId: 'alkis-sn',
+        label: 'Flurstück (Sachsen · ALKIS INSPIRE)',
+        proxyPath: '/api/parcel/de-sn',
+        kind: 'cadastral',
+        contains: isInDeLand('DE-SN'),
+        note: 'Sachsen: GeoSN Sachsen ALKIS INSPIRE Cadastral Parcels — a KEYLESS WFS 2.0 serving cp:CadastralParcel, LIVE-PROBED 2026-09-04 by lane PARCEL-REACH. LIVE CLICK PROOF (cold, through the production resolver): Dresden (51.0504,13.7373) → 140208___02523001200, label 2523/12, 3724 m². CRS: urn EPSG::4258 — ⛔ asking THIS service for EPSG:4326 returns an HTML 400 WAF page, not an OWS exception, so a naive CRS retry looks like a network fault. posList is LAT-FIRST, parsed with axis:"latlon" — the DE-NRW idiom, no new parser. GML only. The official areaValue is preferred over the shoelace estimate with its uom ASSERTED, never assumed (a hectare read as a square metre is a 10 000× error wearing a number’s confidence). ETRS89 (4258) where used differs from WGS84 by centimetres, far below BIM scale — the same rationale as the IT leg. Rules remain DOCUMENTS-ONLY: Bebauungspläne are municipal PDFs and XPlanung adoption is partial, so there is no national machine-readable zoning register to pair with this geometry.',
+    },
+    {
+        regionCode: 'DE-SH',
+        countryName: 'Germany (Schleswig-Holstein)',
+        providerId: 'alkis-sh',
+        label: 'Flurstück (Schleswig-Holstein · ALKIS INSPIRE)',
+        proxyPath: '/api/parcel/de-sh',
+        kind: 'cadastral',
+        contains: isInDeLand('DE-SH'),
+        note: 'Schleswig-Holstein: LVermGeo Schleswig-Holstein ALKIS INSPIRE Cadastral Parcels — a KEYLESS WFS 2.0 serving cp:CadastralParcel, LIVE-PROBED 2026-09-04 by lane PARCEL-REACH. LIVE CLICK PROOF (cold, through the production resolver): Kiel (54.3233,10.1228) → 01253701700335, label 335, 4067 m². CRS: urn EPSG::4326. posList is LAT-FIRST, parsed with axis:"latlon" — the DE-NRW idiom, no new parser. GML only. The official areaValue is preferred over the shoelace estimate with its uom ASSERTED, never assumed (a hectare read as a square metre is a 10 000× error wearing a number’s confidence). ETRS89 (4258) where used differs from WGS84 by centimetres, far below BIM scale — the same rationale as the IT leg. Rules remain DOCUMENTS-ONLY: Bebauungspläne are municipal PDFs and XPlanung adoption is partial, so there is no national machine-readable zoning register to pair with this geometry.',
+    },
+    {
+        regionCode: 'DE-BB',
+        countryName: 'Germany (Brandenburg)',
+        providerId: 'alkis-bb',
+        label: 'Flurstück (Brandenburg · ALKIS INSPIRE)',
+        proxyPath: '/api/parcel/de-bb',
+        kind: 'cadastral',
+        contains: isInDeLand('DE-BB'),
+        note: 'Brandenburg: LGB Brandenburg ALKIS INSPIRE Cadastral Parcels — a KEYLESS WFS 2.0 serving cp:CadastralParcel, LIVE-PROBED 2026-09-04 by lane PARCEL-REACH. LIVE CLICK PROOF (cold, through the production resolver): Potsdam (52.3906,13.0645) → 12050100600984, label 984, 23421 m². CRS: urn EPSG::4326. posList is LAT-FIRST, parsed with axis:"latlon" — the DE-NRW idiom, no new parser. GML only. The official areaValue is preferred over the shoelace estimate with its uom ASSERTED, never assumed (a hectare read as a square metre is a 10 000× error wearing a number’s confidence). ETRS89 (4258) where used differs from WGS84 by centimetres, far below BIM scale — the same rationale as the IT leg. Rules remain DOCUMENTS-ONLY: Bebauungspläne are municipal PDFs and XPlanung adoption is partial, so there is no national machine-readable zoning register to pair with this geometry.',
+    },
+    {
+        regionCode: 'DE-ST',
+        countryName: 'Germany (Sachsen-Anhalt)',
+        providerId: 'alkis-st',
+        label: 'Flurstück (Sachsen-Anhalt · ALKIS INSPIRE)',
+        proxyPath: '/api/parcel/de-st',
+        kind: 'cadastral',
+        contains: isInDeLand('DE-ST'),
+        note: 'Sachsen-Anhalt: LVermGeo Sachsen-Anhalt ALKIS INSPIRE Cadastral Parcels — a KEYLESS WFS 2.0 serving cp:CadastralParcel, LIVE-PROBED 2026-09-04 by lane PARCEL-REACH. LIVE CLICK PROOF (cold, through the production resolver): Magdeburg (52.1205,11.6276) → 150938153004370005, label 437/5, 4450 m². CRS: urn EPSG::4326. posList is LAT-FIRST, parsed with axis:"latlon" — the DE-NRW idiom, no new parser. GML only. The official areaValue is preferred over the shoelace estimate with its uom ASSERTED, never assumed (a hectare read as a square metre is a 10 000× error wearing a number’s confidence). ETRS89 (4258) where used differs from WGS84 by centimetres, far below BIM scale — the same rationale as the IT leg. Rules remain DOCUMENTS-ONLY: Bebauungspläne are municipal PDFs and XPlanung adoption is partial, so there is no national machine-readable zoning register to pair with this geometry.',
+    },
+    {
+        regionCode: 'DE-MV',
+        countryName: 'Germany (Mecklenburg-Vorpommern)',
+        providerId: 'alkis-mv',
+        label: 'Flurstück (Mecklenburg-Vorpommern · ALKIS INSPIRE)',
+        proxyPath: '/api/parcel/de-mv',
+        kind: 'cadastral',
+        contains: isInDeLand('DE-MV'),
+        note: 'Mecklenburg-Vorpommern: LAiV Mecklenburg-Vorpommern ALKIS INSPIRE Cadastral Parcels — a KEYLESS WFS 2.0 serving cp:CadastralParcel, LIVE-PROBED 2026-09-04 by lane PARCEL-REACH. LIVE CLICK PROOF (cold, through the production resolver): Schwerin (53.6355,11.4012) → 13076807400006, label 6, 608 m². CRS: urn EPSG::4326. posList is LAT-FIRST, parsed with axis:"latlon" — the DE-NRW idiom, no new parser. GML only. The official areaValue is preferred over the shoelace estimate with its uom ASSERTED, never assumed (a hectare read as a square metre is a 10 000× error wearing a number’s confidence). ETRS89 (4258) where used differs from WGS84 by centimetres, far below BIM scale — the same rationale as the IT leg. Rules remain DOCUMENTS-ONLY: Bebauungspläne are municipal PDFs and XPlanung adoption is partial, so there is no national machine-readable zoning register to pair with this geometry.',
+    },
+    {
+        regionCode: 'DE-SL',
+        countryName: 'Germany (Saarland)',
+        providerId: 'alkis-sl',
+        label: 'Flurstück (Saarland · ALKIS INSPIRE)',
+        proxyPath: '/api/parcel/de-sl',
+        kind: 'cadastral',
+        contains: isInDeLand('DE-SL'),
+        note: 'Saarland: LVGL Saarland ALKIS INSPIRE Cadastral Parcels — a KEYLESS WFS 2.0 serving cp:CadastralParcel, LIVE-PROBED 2026-09-04 by lane PARCEL-REACH. LIVE CLICK PROOF (cold, through the production resolver): Saarbrücken (49.2402,6.9969) → 101014034000240005, label 24/5, 346 m². CRS: urn EPSG::4258. posList is LAT-FIRST, parsed with axis:"latlon" — the DE-NRW idiom, no new parser. GML only. The official areaValue is preferred over the shoelace estimate with its uom ASSERTED, never assumed (a hectare read as a square metre is a 10 000× error wearing a number’s confidence). ETRS89 (4258) where used differs from WGS84 by centimetres, far below BIM scale — the same rationale as the IT leg. Rules remain DOCUMENTS-ONLY: Bebauungspläne are municipal PDFs and XPlanung adoption is partial, so there is no national machine-readable zoning register to pair with this geometry.',
+    },
+    {
+        regionCode: 'DE-HH',
+        countryName: 'Germany (Hamburg)',
+        providerId: 'alkis-hh',
+        label: 'Flurstück (Hamburg · ALKIS)',
+        proxyPath: '/api/parcel/de-hh',
+        kind: 'cadastral',
+        contains: isInDeLand('DE-HH'),
+        note: 'Hamburg: LGV Hamburg ALKIS — a KEYLESS WFS 2.0 in the adv ALKIS-vereinfacht schema, the SAME schema the DE-NRW row has served in production since 2026-07-24, so it reuses that normaliser (flstkennz / flaeche / gemarkung) with ZERO new parsing. LIVE-PROBED 2026-09-04 by lane PARCEL-REACH. LIVE CLICK PROOF (cold, through the production resolver): Hamburg Rathaus (53.5503,9.9920) → flstkennz 020101___01658, Gemarkung Altstadt Nord, 16371 m². ⚠ HAMBURG’S AXIS FLIPS ON THE CRS *SPELLING*, NOT THE CRS: urn:ogc:def:crs:EPSG::4326 returns lat-first ("53.550913 9.992096") while the short EPSG:4326 returns lon-first on the SAME service and the SAME parcel — a hemisphere bug wearing a valid HTTP 200. The leg emits the urn form. ⛔ Do NOT switch to Hamburg’s INSPIRE service HH_WFS_INSPIRE_Flurstuecke: its GetCapabilities is clean but EVERY spatial query fails server-side with HTTP 500 "ST_Intersects: Operation on mixed SRID geometries (Polygon, 0) != (Polygon, 25832)" across all six CRS spellings and both the BBOX parameter and an explicit fes:BBOX filter. Without a bbox it returns features fine, so the fault is its own bbox reprojection — an availability fault, not an access one. Rules remain DOCUMENTS-ONLY (municipal Bebauungspläne; no national machine-readable zoning register).',
+    },
+    {
+        regionCode: 'DE-RP',
+        countryName: 'Germany (Rheinland-Pfalz)',
+        providerId: 'alkis-rp',
+        label: 'Flurstück (Rheinland-Pfalz · ALKIS)',
+        proxyPath: '/api/parcel/de-rp',
+        kind: 'cadastral',
+        contains: isInDeLand('DE-RP'),
+        note: 'Rheinland-Pfalz: LVermGeo Rheinland-Pfalz ALKIS — a KEYLESS WFS 2.0 in the adv ALKIS-vereinfacht schema, the SAME schema the DE-NRW row has served in production since 2026-07-24, so it reuses that normaliser (flstkennz / flaeche / gemarkung) with ZERO new parsing. LIVE-PROBED 2026-09-04 by lane PARCEL-REACH. LIVE CLICK PROOF (cold, through the production resolver): Mainz (49.9929,8.2473) → flstkennz 073701017000540010, Gemarkung Mainz. ⚠ TWO RLP SERVICES ARE PUBLISHED AND ONLY THIS ONE WORKS. The INSPIRE one advertised at geoportal.rlp.de/spatial-objects/584 proxies to geo5balance.vermkv.rlp — a NON-RESOLVING internal host (curl exit 6) — so its OGC-API façade answers success:false with features:[] for EVERY collection, and its licence reads "Gebührenpflichtig". The wired one comes from spatial-objects/519, licence "geldleistungsfrei; Datenlizenz Deutschland – Namensnennung – Version 2.0". A fee-bearing dead host and a free working one, published side by side. Rules remain DOCUMENTS-ONLY (municipal Bebauungspläne; no national machine-readable zoning register).',
+    },
+    {
+        regionCode: 'DE-TH',
+        countryName: 'Germany (Thüringen)',
+        providerId: 'alkis-th',
+        label: 'Flurstück (Thüringen · ALKIS)',
+        proxyPath: '/api/parcel/de-th',
+        kind: 'cadastral',
+        contains: isInDeLand('DE-TH'),
+        note: 'Thüringen: TLBG Thüringen ALKIS — a KEYLESS WFS 2.0 in the adv ALKIS-vereinfacht schema, the SAME schema the DE-NRW row has served in production since 2026-07-24, so it reuses that normaliser (flstkennz / flaeche / gemarkung) with ZERO new parsing. LIVE-PROBED 2026-09-04 by lane PARCEL-REACH. LIVE CLICK PROOF (cold, through the production resolver): Erfurt (50.9787,11.0328) → flstkennz 160101136001710002, Gemarkung Erfurt-Mitte, 528 m². ⛔ THE MOST DANGEROUS LEG IN THE GERMAN BLOCK, because its failure mode is a CLEAN EMPTY rather than an error: a DEGREE bbox (either CRS spelling) returns HTTP 200 with numberMatched="0", so a wrong bbox CRS reads as "no parcel here" FOREVER and no alarm ever fires. The BBOX must be EPSG:25832 METRES; SRSNAME may still request 4326 output, and does. The proxy’s wgs84ToUtm32n is verified against the SERVICE’S OWN ANSWER rather than a formula: the parcel it returned for the box 643060..643130 / 5648830..5648900 has vertex (50.97346115,11.03859290), which the function maps to (643122.6,5648852.0) — inside that box — with control (52N,9E) → easting exactly 500000.0. Rules remain DOCUMENTS-ONLY (municipal Bebauungspläne; no national machine-readable zoning register).',
+    },
+    {
+        regionCode: 'DE-HB',
+        countryName: 'Germany (Bremen)',
+        providerId: 'alkis-hb',
+        label: 'Flurstück (Bremen · ALKIS)',
+        proxyPath: '/api/parcel/de-hb',
+        kind: 'cadastral',
+        contains: isInDeLand('DE-HB'),
+        note: 'Bremen: LGV Bremen ALKIS — a KEYLESS WFS 2.0 in the adv ALKIS-vereinfacht schema, the SAME schema the DE-NRW row has served in production since 2026-07-24, so it reuses that normaliser (flstkennz / flaeche / gemarkung) with ZERO new parsing. LIVE-PROBED 2026-09-04 by lane PARCEL-REACH. LIVE CLICK PROOF (cold, through the production resolver): Bremen (53.0793,8.8017) → flstkennz 041003003001480032, Gemarkung Altstadt 3, 17844 m². Bremen serves typeName app:flurstuecke — deegree’s app: prefix over the SAME adv field names (flstkennz/flaeche/gemarkung), so the DE-NRW normaliser covers it UNCHANGED because gmlText’s pattern is prefix-agnostic. ⚠ deegree’s numberReturned attribute is UNRELIABLE here and on BW/RP — BW returns numberReturned="0" WITH a real parcel in the body and ships an XML comment admitting the attribute should read "unknown" — so members must be COUNTED, never trusted from the attribute. The proxy already counts members. Rules remain DOCUMENTS-ONLY (municipal Bebauungspläne; no national machine-readable zoning register).',
+    },
+    {
+        regionCode: 'DE-BE',
+        countryName: 'Germany (Berlin)',
+        providerId: 'alkis-be',
+        label: 'Flurstück (Berlin · ALKIS)',
+        proxyPath: '/api/parcel/de-be',
+        kind: 'cadastral',
+        contains: isInDeLand('DE-BE'),
+        note: 'Berlin: Geodateninfrastruktur Berlin ALKIS Flurstücke — a KEYLESS WFS 2.0 serving alkis_flurstuecke:flurstuecke as GeoJSON, the one true one-off in the German block. LIVE-PROBED 2026-09-04 by lane PARCEL-REACH. LIVE CLICK PROOF (cold, through the production resolver): Berlin Alexanderplatz (52.5219,13.4132) → fsko 11000191900388, Gemarkung Mitte, afl 10751 m², 68-vertex WGS84 ring. ⚠ THE BBOX MUST BE THE LON-FIRST SHORT FORM "lon,lat,lon,lat,EPSG:4326": the urn-ordered lat,lon form every other German leg uses returns numberMatched:0 on this service (measured) — another SILENT EMPTY, the same failure class as Thüringen. Native CRS is 25833 but SRSNAME=EPSG:4326 is honoured and output is standard GeoJSON [lon,lat]. Fields are fsko (Flurstückskennzeichen, ALKIS underscore padding stripped as the DE-NRW row already does) / afl (area m²) / namgmk (Gemarkung). ⚠ Berlin’s box sits INSIDE Brandenburg’s; SPECIFICITY (0.32 vs 8.28 deg²) makes Berlin win, never registration order.',
+    },
     {
         // NRW BEFORE NL (Düsseldorf sits in both boxes) and before the whole-Germany footprint.
         regionCode: 'DE-NW',
@@ -1112,6 +1278,11 @@ const REGION_BBOX: Readonly<Record<string, RectBbox>> = {
     // REAL order here: CZECHIA_BBOX ~17.9 deg2 beats GERMANY_BBOX ~72.4 deg2 at Praha, and
     // IRELAND_BBOX ~21.7 deg2 beats ENGLAND_BBOX ~51.2 deg2 at Dublin. That is exactly how the
     // two measured mislabels (Praha->DE, Dublin->GB-ENG) are corrected without touching order.
+    // LANE PARCEL-REACH (2026-09-04) — the 14 German Länder. SPREAD rather than listed one by
+    // one, so a box added to DE_LAND_BBOX can never arrive here missing: a row absent from this
+    // map scores +Infinity and sorts LAST, which for Berlin/Hamburg/Bremen would silently hand
+    // the city-state's points to the Land whose box encloses it.
+    ...DE_LAND_BBOX,
     CZ: CZECHIA_BBOX,
     IE: IRELAND_BBOX,
     AT: AUSTRIA_BBOX,

@@ -140,7 +140,12 @@ describe('resolveParcelCandidates — national claim filters, specificity orders
     });
     it('Düsseldorf: the DEU claim keeps BOTH German rows, NRW first by specificity; NL is dropped', () => {
         const ids = resolveParcelCandidates(51.2277, 6.7735).map((j) => j.providerId);
-        expect(ids).toEqual(['alkis-nrw', 'footprint']);
+        // ⚠ UPDATED 2026-09-04 (lane PARCEL-REACH): `alkis-ni` joined the list because
+        // Niedersachsen's rectangle (51.2–54.0N) reaches Düsseldorf. NRW still ranks FIRST on
+        // specificity, so the click is unchanged; the extra candidate is the walk's insurance, not
+        // a defect. Germany's Länder interlock and no rectangle set separates them — see the
+        // `isInDeLand` note for the subtraction that was tried and reverted.
+        expect(ids).toEqual(['alkis-nrw', 'alkis-ni', 'footprint']);
     });
     it('a non-overlapping interior point has exactly one candidate', () => {
         expect(resolveParcelCandidates(41.9028, 12.4964).map((j) => j.providerId)).toEqual([
@@ -206,7 +211,9 @@ describe('resolveParcelWithFallback — falls THROUGH a null provider to the enc
         });
         expect(hit).toBeNull();
         // (Updated 2026-09-02: pdok-nl no longer appears — the DEU claim drops the NL row.)
-        expect(seen).toEqual(['alkis-nrw', 'footprint']);
+        // (Updated 2026-09-04: `alkis-ni` sits between them — Niedersachsen's box reaches
+        // Düsseldorf. The ORDER is the assertion that matters: NRW is tried first.)
+        expect(seen).toEqual(['alkis-nrw', 'alkis-ni', 'footprint']);
     });
     it('never throws on garbage → null', async () => {
         await expect(resolveParcelWithFallback(NaN, NaN, () => ({ id: 'x' }))).resolves.toBeNull();
@@ -249,7 +256,13 @@ describe('CZ · IE · AT are routable, and the wrong-country labels stay fixed',
         //   München→ AT     (inside AUSTRIA_BBOX; surfaced the moment that box was added)
         expect(resolveParcelJurisdiction(50.0875, 14.4213).regionCode).toBe('CZ');
         expect(resolveParcelJurisdiction(53.3503, -6.2610).regionCode).toBe('IE');
-        expect(resolveParcelJurisdiction(50.9413, 6.9583).regionCode).toBe('DE-NW');
+        // ⚠ KÖLN IS DELIBERATELY *NOT* ASSERTED HERE ANY MORE. It was, until the German block
+        // landed and made the honest answer messier: Rheinland-Pfalz's rectangle covers Köln, an
+        // RP-minus-NRW subtraction fixed the label and COST KOBLENZ ITS CADASTRE, and the
+        // subtraction was reverted. Köln's coarse label is now `DE-RP` while the click still
+        // resolves from DE-NW via the candidate walk (proven live) — asserted in the Germany block
+        // below rather than pretended away here. A test that asserted DE-NW would be describing a
+        // repo that does not exist.
         expect(resolveParcelJurisdiction(48.1374, 11.5755).regionCode).toBe('DE');
     });
 
@@ -271,5 +284,76 @@ describe('CZ · IE · AT are routable, and the wrong-country labels stay fixed',
         // documented class as Corsica→footprint, and it is asserted so it stays a KNOWN tradeoff
         // rather than a silent surprise. ⚠ The honest fix is a polygon gate, not a tighter box.
         expect(resolveParcelJurisdiction(54.5973, -5.9301).regionCode).toBe('IE');
+    });
+});
+
+// ── LANE PARCEL-REACH (2026-09-04) — GERMANY: 14 Länder ─────────────────────────────────────────
+describe('Germany: 14 Länder are cadastral, Bayern is an honest footprint', () => {
+    const LAENDER = [
+        'DE-BW', 'DE-HE', 'DE-NI', 'DE-SN', 'DE-SH', 'DE-BB', 'DE-ST',
+        'DE-MV', 'DE-SL', 'DE-HH', 'DE-RP', 'DE-TH', 'DE-HB', 'DE-BE',
+    ] as const;
+
+    it('all 14 are registered cadastral with their own proxy route', () => {
+        const rows = listParcelJurisdictions();
+        for (const code of LAENDER) {
+            const row = rows.find((j) => j.regionCode === code);
+            expect(row, `${code} must be registered`).toBeDefined();
+            expect(row!.kind).toBe('cadastral');
+            expect(row!.proxyPath).toBe(`/api/parcel/${code.toLowerCase()}`);
+        }
+    });
+
+    it('every Land row has a FINITE specificity — a missing REGION_BBOX entry sorts it LAST', () => {
+        // ⚠ For a city-state this is not cosmetic: Berlin's box sits inside Brandenburg's and
+        // Bremen's inside Niedersachsen's, so a +Infinity score would silently hand the city-state's
+        // points to the Land that encloses it. The map spreads DE_LAND_BBOX for exactly this reason.
+        for (const code of LAENDER) {
+            const row = listParcelJurisdictions().find((j) => j.regionCode === code)!;
+            expect(Number.isFinite(parcelJurisdictionSpecificity(row))).toBe(true);
+        }
+    });
+
+    it('the city-states beat the Länder that enclose them (specificity, not order)', () => {
+        expect(resolveParcelJurisdiction(52.5219, 13.4132).regionCode).toBe('DE-BE'); // in DE-BB's box
+        expect(resolveParcelJurisdiction(53.0793, 8.8017).regionCode).toBe('DE-HB');  // in DE-NI's box
+        expect(resolveParcelJurisdiction(53.5503, 9.9920).regionCode).toBe('DE-HH');  // in DE-NI's box
+        // ⚠ POTSDAM is the regression this pins: Berlin's box originally reached to 13.0°E, swallowed
+        // Potsdam (13.0645) and — being the SMALLER box — BEAT Brandenburg. A city-state box must be
+        // tight precisely BECAUSE its smallness is what makes it win.
+        expect(resolveParcelJurisdiction(52.3906, 13.0645).regionCode).not.toBe('DE-BE');
+    });
+
+    it('Bayern is a footprint with a NAMED credential blocker, never a dead cadastral row', () => {
+        // ⛔ There is deliberately no DE-BY row and no `de-by` proxy key. Bavaria's INSPIRE ALKIS WFS
+        // answers 401 with `WWW-Authenticate: Basic realm="INSPIRE-WFS ALKIS"`, and its whole
+        // open-data catalogue is raster (Parzellarkarte: PNG/JPEG, "keine Flurstücksnummern", every
+        // WMS layer queryable="0"). A stub row would advertise Bayern as wired.
+        for (const [lat, lon] of [[48.1374, 11.5755], [49.4521, 11.0767], [49.0134, 12.1016]]) {
+            const j = resolveParcelJurisdiction(lat, lon);
+            expect(j.regionCode).toBe('DE');
+            expect(j.kind).toBe('footprint-fallback');
+        }
+        expect(listParcelJurisdictions().some((j) => j.regionCode === 'DE-BY')).toBe(false);
+    });
+
+    it('⚠ the coarse SINGLE-VERDICT label is a KNOWN tradeoff, recorded rather than hidden', () => {
+        // Germany's sixteen Länder INTERLOCK and no set of rectangles separates them: measured over
+        // 41 German cities (2026-09-04), eight rectangles claim a neighbour's city — e.g. Köln falls
+        // inside Rheinland-Pfalz's box and Leipzig inside Thüringen's.
+        // ⛔ A SUBTRACTION WAS TRIED AND REVERTED: `DE-RP` minus `NRW_BBOX` restored Köln and Bonn and
+        // in the same stroke took KOBLENZ out of the candidate list entirely (NRW_BBOX reaches
+        // 50.3°N), dropping a working Rhineland-Palatinate cadastre to the OSM footprint. Trading a
+        // wrong LABEL for a lost PARCEL is the wrong trade.
+        // ⭐ THE CLICK IS UNAFFECTED, and that is the part that matters: `resolveParcelWithFallback`
+        // walks every candidate and returns the jurisdiction that ACTUALLY ANSWERED — proven live
+        // 2026-09-04 for Köln→DE-NW, Bonn→DE-NW, Koblenz→DE-RP, Altenkirchen→DE-RP, Wiesbaden→DE-HE,
+        // Leipzig→DE-SN, Potsdam→DE-BB, Halle→DE-ST, Osnabrück→DE-NI, Braunschweig→DE-NI.
+        // Within Germany a coarse label is always a WRONG LAND, never a wrong sovereign register.
+        expect(resolveParcelJurisdiction(50.9413, 6.9583).regionCode).toBe('DE-RP'); // Köln, coarse
+        // …but Köln IS in the candidate list alongside the Land that serves it, so the walk recovers.
+        const koeln = resolveParcelCandidates(50.9413, 6.9583).map((j) => j.regionCode);
+        expect(koeln).toContain('DE-NW');
+        expect(koeln.indexOf('DE-RP')).toBeLessThan(koeln.indexOf('DE'));
     });
 });

@@ -124,3 +124,70 @@ export const isInIreland = (lat: number, lon: number): boolean => within(IRELAND
  */
 export const AUSTRIA_BBOX: CountryBbox = { minLat: 46.3, maxLat: 49.1, minLon: 9.5, maxLon: 17.2 };
 export const isInAustria = (lat: number, lon: number): boolean => within(AUSTRIA_BBOX, lat, lon);
+
+// ── LANE PARCEL-REACH (2026-09-04) — the 14 OTHER German Länder ─────────────────────────────────
+// ⚠ THE `NRW_BBOX` COMMENT ABOVE IS NOW WRONG WHERE IT SAYS "every other Land's ALKIS is per-Land
+// licence-gated". That was measured false on 2026-09-04: FOURTEEN of the remaining fifteen Länder
+// serve a KEYLESS parcel WFS (nine INSPIRE `cp:CadastralParcel`, three adv `ave:Flurstueck` in the
+// exact DE-NRW schema, Bremen's `app:` twin, and Berlin as GeoJSON), all live-probed and all
+// resolving a real Flurstück at their capital. The endpoint knowledge lives with the proxy legs in
+// server/jurisdiction/euCadastreProxy.js; these are only the routing rectangles.
+//
+// ⛔ BAYERN IS THE ONE GENUINE GAP and is deliberately absent: its INSPIRE ALKIS WFS answers
+// `401 Unauthorized · WWW-Authenticate: Basic realm="INSPIRE-WFS ALKIS"`, and Bayern's whole
+// open-data catalogue was ENUMERATED rather than guessed (35 products) — its only ALKIS entries are
+// raster, the Parzellarkarte declaring `"abgabe_datenformate":["PNG","JPEG"]` and "keine
+// Flurstücksnummern", with every WMS layer `queryable="0"` and no GetFeatureInfo advertised at all.
+// A Bavarian click therefore falls to the whole-Germany footprint row, honestly labelled.
+export const DE_LAND_BBOX: Readonly<Record<string, CountryBbox>> = {
+    'DE-BW': { minLat: 47.5, maxLat: 49.8, minLon: 7.5, maxLon: 10.5 },
+    'DE-HE': { minLat: 49.3, maxLat: 51.7, minLon: 7.7, maxLon: 10.3 },
+    'DE-NI': { minLat: 51.2, maxLat: 54.0, minLon: 6.6, maxLon: 11.7 },
+    'DE-SN': { minLat: 50.1, maxLat: 51.7, minLon: 11.8, maxLon: 15.1 },
+    'DE-SH': { minLat: 53.3, maxLat: 55.1, minLon: 7.8, maxLon: 11.4 },
+    'DE-BB': { minLat: 51.3, maxLat: 53.6, minLon: 11.2, maxLon: 14.8 },
+    'DE-ST': { minLat: 50.9, maxLat: 53.1, minLon: 10.5, maxLon: 13.2 },
+    'DE-MV': { minLat: 53.1, maxLat: 54.8, minLon: 10.5, maxLon: 14.5 },
+    'DE-SL': { minLat: 49.1, maxLat: 49.7, minLon: 6.3, maxLon: 7.5 },
+    'DE-HH': { minLat: 53.3, maxLat: 54.0, minLon: 8.4, maxLon: 10.4 },
+    'DE-RP': { minLat: 48.9, maxLat: 51.0, minLon: 6.0, maxLon: 8.6 },
+    'DE-TH': { minLat: 50.2, maxLat: 51.7, minLon: 9.8, maxLon: 12.7 },
+    'DE-HB': { minLat: 53.0, maxLat: 53.7, minLon: 8.4, maxLon: 9.0 },
+    // ⚠ TIGHTENED to Berlin's REAL extent after a measured collision: at minLon 13.0 this box
+    //   swallowed POTSDAM (52.3906, 13.0645) — which is Brandenburg — and, being the SMALLER box,
+    //   BEAT Brandenburg on specificity. Berlin's western edge is ~13.088E; a city-state box must
+    //   be tight precisely BECAUSE its smallness is what makes it win.
+    'DE-BE': { minLat: 52.33, maxLat: 52.68, minLon: 13.088, maxLon: 13.77 },
+};
+
+/**
+ * A `contains` predicate for one German Land. The boxes OVERLAP at every internal border and at the
+ * city-states (Berlin sits inside Brandenburg's box; Hamburg and Bremen inside Niedersachsen's) —
+ * that is intended and is resolved by SPECIFICITY, not by order: `parcelJurisdictionSpecificity`
+ * ranks the smallest enclosing box first, so Berlin (0.32 deg²) wins over Brandenburg (8.28 deg²)
+ * and Bremen (0.42) over Niedersachsen (14.28). Where a genuine border band is ambiguous the loser's
+ * WFS simply answers zero features — a self-correcting miss, never a fabricated ring.
+ */
+export const isInDeLand = (code: string) => (lat: number, lon: number): boolean => {
+    const b = DE_LAND_BBOX[code];
+    if (!b || !within(b, lat, lon)) return false;
+    // ⚠ NO PER-LAND SUBTRACTION HERE, AND THAT IS A DELIBERATE REVERSAL — read before adding one.
+    // Germany's sixteen Länder INTERLOCK; no set of rectangles separates them. Measured over 41
+    // German cities on 2026-09-04, eight rectangles claim a neighbour's city (Köln falls in RP's
+    // box, Wiesbaden in RP's, Leipzig in TH's, Halle in TH's, Osnabrück in NW's, Braunschweig in
+    // ST's, Potsdam in ST's, and Berlin's original box swallowed Potsdam outright).
+    // A subtraction was tried and REVERTED because it made things worse in the direction that
+    // actually matters: `DE-RP` minus `NRW_BBOX` restored Köln and Bonn, and in the same stroke
+    // took KOBLENZ (50.3569, 7.5890) out of the candidate list entirely — NRW_BBOX reaches down to
+    // 50.3°N — so a Rhineland-Palatinate city that HAD a working cadastre fell to the OSM footprint.
+    // Trading a wrong LABEL for a lost PARCEL is the wrong trade.
+    // The overlaps are harmless where it counts because `resolveParcelWithFallback` WALKS every
+    // candidate and returns the jurisdiction that ACTUALLY ANSWERED: proven live 2026-09-04 —
+    // Wiesbaden→DE-HE, Osnabrück→DE-NI, Braunschweig→DE-NI, Leipzig→DE-SN, Potsdam→DE-BB,
+    // Halle→DE-ST, each answered by the CORRECT Land after the mis-ranked neighbour returned zero
+    // features. What stays coarse is the single-verdict LABEL from `resolveParcelJurisdiction`, and
+    // within Germany that label is always a WRONG LAND, never a wrong sovereign register — a
+    // materially smaller error than the Praha→Germany / Dublin→England class this lane removed.
+    // The real fix is a polygon gate (the Land outlines), not more rectangles.
+    return true;
+};

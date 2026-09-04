@@ -716,6 +716,130 @@ function gbUrl(lat, lon) {
     return `https://www.planning.data.gov.uk/entity.geojson?${qs.toString()}`;
 }
 
+// ── LANE PARCEL-REACH (2026-09-04) — GERMANY: 14 of 16 Länder, the largest single gain here ─────
+//
+// Before this block DE-NW was the ONLY German Land with a keyless cadastre and every other German
+// click fell to `DE: footprint-fallback`. `countryBbox.ts` still says so in its NRW comment —
+// "every other Land's ALKIS is per-Land licence-gated" — and that turns out to be FALSE for
+// fourteen of them. Each host below was probed live 2026-09-04 (GetCapabilities read first, then a
+// real GetFeature at the Land's capital) and each returns a real Flurstück ring, keyless.
+//
+// THREE SCHEMA FAMILIES, and two of them need no new parsing at all:
+//   A. INSPIRE `cp:CadastralParcel` (BW HE NI SN SH BB ST MV SL) — nationalCadastralReference /
+//      areaValue / label. One new normaliser, shared.
+//   B. adv ALKIS-vereinfacht `ave:Flurstueck` (HH RP TH) — byte-identical to the DE-NRW row that has
+//      been in production since 2026-07-24: flstkennz / flaeche / gemarkung.
+//   C. Bremen `app:flurstuecke` — the SAME field names under deegree's `app:` prefix. `gmlText`'s
+//      pattern is `<(?:[\w.-]+:)?TAG`, i.e. prefix-agnostic, so family B's normaliser covers it
+//      unchanged. Berlin is the one true one-off (GeoJSON).
+//
+// ⛔ BAYERN IS NOT HERE, AND THAT IS A MEASURED REFUSAL, NOT AN OMISSION. Its INSPIRE ALKIS WFS
+// answers `HTTP/1.1 401 Unauthorized` with `WWW-Authenticate: Basic realm="INSPIRE-WFS ALKIS"`
+// (so does the legacy ogc_alkis_ave.cgi), and Bayern's whole open-data catalogue was enumerated
+// rather than guessed at — geodaten.bayern.de/opengeodata/json/opengeodata_produkte.json, 35
+// products — whose only ALKIS entries are raster: the Parzellarkarte record states
+// `"abgabe_datenformate": ["PNG","JPEG"]` and "keine Flurstücksnummern", and its WMS advertises
+// every layer `queryable="0"` with NO GetFeatureInfo element at all. Bayern stays on the OSM
+// footprint until credentials are procured from the LDBV. A refusal naming the reason beats a
+// footprint silently labelled a parcel.
+
+/** Family A — INSPIRE `cp:CadastralParcel`, lat-first GML, one urn CRS per Land. */
+function deCpUrl(base, urn) {
+    return (lat, lon) => {
+        const bbox = `${lat - HALF_DEG},${lon - HALF_DEG},${lat + HALF_DEG},${lon + HALF_DEG},${urn}`;
+        return `${base}${base.includes('?') ? '&' : '?'}SERVICE=WFS&VERSION=2.0.0&REQUEST=GetFeature` +
+            `&TYPENAMES=cp:CadastralParcel&SRSNAME=${encodeURIComponent(urn)}` +
+            `&COUNT=20&BBOX=${encodeURIComponent(bbox)}`;
+    };
+}
+
+/** Family B/C — adv ALKIS-vereinfacht `ave:Flurstueck` (and Bremen's `app:flurstuecke` twin). */
+function deAveUrl(base, typeName) {
+    return (lat, lon) => {
+        const urn = 'urn:ogc:def:crs:EPSG::4326';
+        const bbox = `${lat - HALF_DEG},${lon - HALF_DEG},${lat + HALF_DEG},${lon + HALF_DEG},${urn}`;
+        return `${base}${base.includes('?') ? '&' : '?'}SERVICE=WFS&VERSION=2.0.0&REQUEST=GetFeature` +
+            `&TYPENAMES=${encodeURIComponent(typeName)}&SRSNAME=${encodeURIComponent(urn)}` +
+            `&COUNT=20&BBOX=${encodeURIComponent(bbox)}`;
+    };
+}
+
+/**
+ * WGS84 → UTM zone 32N (EPSG:25832), metres. Needed ONLY by Thüringen, whose WFS is the most
+ * dangerous leg in this block: a DEGREE bbox (either the urn or the short CRS spelling) returns a
+ * clean `HTTP 200 numberMatched="0"` — a SILENT EMPTY, not an error — so a wrong bbox CRS there
+ * reads as "no parcel here" forever. The bbox must be in 25832 metres; SRSNAME may still ask for
+ * 4326 output, which is what the leg does.
+ * VERIFIED against the service's OWN answer, not against a formula: the parcel Thüringen returned
+ * for the box 643060..643130 / 5648830..5648900 has vertex (50.97346115, 11.03859290), and this
+ * function maps it to (643122.6, 5648852.0) — inside that box. Central-meridian control: (52N, 9E)
+ * → easting exactly 500000.0.
+ */
+function wgs84ToUtm32n(lat, lon) {
+    const a = 6378137.0, f = 1 / 298.257223563, k0 = 0.9996, lon0 = (9.0 * Math.PI) / 180;
+    const e2 = f * (2 - f), ep2 = e2 / (1 - e2);
+    const p = (lat * Math.PI) / 180, l = (lon * Math.PI) / 180;
+    const N = a / Math.sqrt(1 - e2 * Math.sin(p) ** 2);
+    const T = Math.tan(p) ** 2, C = ep2 * Math.cos(p) ** 2, A = (l - lon0) * Math.cos(p);
+    const M = a * ((1 - e2 / 4 - (3 * e2 ** 2) / 64 - (5 * e2 ** 3) / 256) * p
+        - ((3 * e2) / 8 + (3 * e2 ** 2) / 32 + (45 * e2 ** 3) / 1024) * Math.sin(2 * p)
+        + ((15 * e2 ** 2) / 256 + (45 * e2 ** 3) / 1024) * Math.sin(4 * p)
+        - ((35 * e2 ** 3) / 3072) * Math.sin(6 * p));
+    const x = k0 * N * (A + ((1 - T + C) * A ** 3) / 6
+        + ((5 - 18 * T + T ** 2 + 72 * C - 58 * ep2) * A ** 5) / 120) + 500000;
+    const y = k0 * (M + N * Math.tan(p) * (A ** 2 / 2 + ((5 - T + 9 * C + 4 * C ** 2) * A ** 4) / 24
+        + ((61 - 58 * T + T ** 2 + 600 * C - 330 * ep2) * A ** 6) / 720));
+    return { x, y };
+}
+
+const TH_HALF_M = 40; // ±40 m in 25832 metres — the degree HALF_DEG is meaningless for this leg
+function deThUrl(lat, lon) {
+    const { x, y } = wgs84ToUtm32n(lat, lon);
+    const bbox = `${x - TH_HALF_M},${y - TH_HALF_M},${x + TH_HALF_M},${y + TH_HALF_M},urn:ogc:def:crs:EPSG::25832`;
+    return 'https://www.geoproxy.geoportal-th.de/geoproxy/services/adv_alkis_v2_wfs' +
+        '?SERVICE=WFS&VERSION=2.0.0&REQUEST=GetFeature&TYPENAMES=ave:Flurstueck' +
+        '&SRSNAME=urn:ogc:def:crs:EPSG::4326' +
+        `&COUNT=20&BBOX=${encodeURIComponent(bbox)}`;
+}
+
+/**
+ * BERLIN — the one true one-off: a GeoJSON WFS (`alkis_flurstuecke:flurstuecke`), fields
+ * `fsko` / `afl` / `namgmk`. ⚠ Its bbox must be the LON-FIRST short form `…,EPSG:4326`; the
+ * urn-ordered lat,lon form every other leg here uses returns `numberMatched:0` (measured — another
+ * silent empty). Native CRS is 25833, but `SRSNAME=EPSG:4326` is honoured and output is standard
+ * GeoJSON `[lon,lat]`, so `parseGeoJsonCandidates` applies unchanged.
+ */
+function deBeUrl(lat, lon) {
+    const bbox = `${lon - HALF_DEG},${lat - HALF_DEG},${lon + HALF_DEG},${lat + HALF_DEG},EPSG:4326`;
+    return 'https://gdi.berlin.de/services/wfs/alkis_flurstuecke' +
+        '?SERVICE=WFS&VERSION=2.0.0&REQUEST=GetFeature&TYPENAMES=alkis_flurstuecke:flurstuecke' +
+        '&SRSNAME=EPSG:4326&COUNT=20&OUTPUTFORMAT=' + encodeURIComponent('application/json') +
+        `&BBOX=${encodeURIComponent(bbox)}`;
+}
+
+/**
+ * Family A normaliser — INSPIRE cp:CadastralParcel. `areaValue` carries an official figure with a
+ * `uom` attribute; the uom is ASSERTED, never assumed (a hectare read as m² is a 10 000× error).
+ * `label` is the human parcel number ("660/1"), `nationalCadastralReference` the full ALKIS key.
+ */
+function deCpNormalise(c) {
+    const b = c.block || '';
+    const refcat = (gmlText(b, 'NATIONALCADASTRALREFERENCE') ?? '').replace(/_+$/, '').trim();
+    const uom = (gmlAttr(b, 'areaValue', 'uom') ?? '').toLowerCase();
+    const served = Number(gmlText(b, 'AREAVALUE'));
+    const areaM2 = uom === 'm2' && Number.isFinite(served) && served > 0 ? served : ringAreaM2(c.ring);
+    const label = gmlText(b, 'LABEL');
+    return { refcat, areaM2, address: label ? String(label) : null };
+}
+
+/** Family B/C normaliser — adv ALKIS-vereinfacht. Identical to the DE-NRW row, deliberately. */
+function deAveNormalise(c) {
+    const b = c.block || '';
+    const refcat = (gmlText(b, 'flstkennz') ?? '').replace(/_+$/, '').trim();
+    const areaM2 = Number(gmlText(b, 'flaeche')) || ringAreaM2(c.ring);
+    return { refcat, areaM2, address: gmlText(b, 'gemarkung') ?? null };
+}
+
 // ── LANE PARCEL-REACH (2026-09-04) — URL builders for CZ / IE / AT ──────────────────────────────
 //
 // Three countries that had NO REGISTRY ROW AT ALL — not a footprint row, not a deferral, nothing.
@@ -1183,6 +1307,120 @@ export const EU_CADASTRE_SOURCES = {
             const refcat = String(jsonProp(p, 'pin10', 'pin14', 'pin') ?? '').trim();
             const muni = jsonProp(p, 'municipality');
             return { refcat, areaM2: ringAreaM2(c.ring), address: muni ? String(muni) : null };
+        },
+    },
+    // ── LANE PARCEL-REACH (2026-09-04): GERMANY, 14 Länder ──────────────────────────────────────
+    // Guards are the Länder's own extents. They OVERLAP each other at every internal border, which
+    // is fine and is how DE-NW already behaves: the registry decides WHICH row is tried, a guard
+    // only fences its own source's territory, and a neighbour's WFS answers zero features outside
+    // its Land — a self-correcting miss, never a fabricated ring.
+    // ⚠ EVERY SRSNAME BELOW IS THE MEASURED ONE. BW and SN advertise NO 4326 at all (only
+    // 25832/25833/4258), and asking SN for EPSG:4326 returns an HTML 400 WAF page rather than an OWS
+    // exception — so they use ETRS89 (4258), which differs from WGS84 by centimetres, the same
+    // rationale as the IT leg. HE and SL likewise measured on 4258.
+    'de-bw': {
+        guard: (lat, lon) => lat >= 47.5 && lat <= 49.8 && lon >= 7.5 && lon <= 10.5,
+        url: deCpUrl('https://owsproxy.lgl-bw.de/owsproxy/wfs/WFS_INSP_BW_Flst_ALKIS', 'urn:ogc:def:crs:EPSG::4258'),
+        format: 'gml', axis: 'latlon', source: 'alkis-bw', normalise: deCpNormalise,
+    },
+    // ⛔ NO 'de-by' KEY — deliberately. A key here would be a STUB standing in for a refusal,
+    //    and Object.keys() would then advertise Bayern as wired. See the Bayern block above.
+    'de-he': {
+        guard: (lat, lon) => lat >= 49.3 && lat <= 51.7 && lon >= 7.7 && lon <= 10.3,
+        url: deCpUrl('https://inspire-hessen.de/ows/services/org.2.07247d95-adc7-4c7d-9c7a-ed17af855317_wfs', 'urn:ogc:def:crs:EPSG::4258'),
+        format: 'gml', axis: 'latlon', source: 'alkis-he', normalise: deCpNormalise,
+    },
+    'de-ni': {
+        guard: (lat, lon) => lat >= 51.2 && lat <= 54.0 && lon >= 6.6 && lon <= 11.7,
+        url: deCpUrl('https://www.inspire.niedersachsen.de/doorman/noauth/alkis-dls-cp', 'urn:ogc:def:crs:EPSG::4326'),
+        format: 'gml', axis: 'latlon', source: 'alkis-ni', normalise: deCpNormalise,
+    },
+    'de-sn': {
+        guard: (lat, lon) => lat >= 50.1 && lat <= 51.7 && lon >= 11.8 && lon <= 15.1,
+        url: deCpUrl('https://geodienste.sachsen.de/aaa/public_inspire/alkis/cp/dls/wfs', 'urn:ogc:def:crs:EPSG::4258'),
+        format: 'gml', axis: 'latlon', source: 'alkis-sn', normalise: deCpNormalise,
+    },
+    'de-sh': {
+        guard: (lat, lon) => lat >= 53.3 && lat <= 55.1 && lon >= 7.8 && lon <= 11.4,
+        url: deCpUrl('https://service.gdi-sh.de/SH_INSPIREDOWNLOAD_AI_CP_ALKIS', 'urn:ogc:def:crs:EPSG::4326'),
+        format: 'gml', axis: 'latlon', source: 'alkis-sh', normalise: deCpNormalise,
+    },
+    'de-bb': {
+        guard: (lat, lon) => lat >= 51.3 && lat <= 53.6 && lon >= 11.2 && lon <= 14.8,
+        url: deCpUrl('https://inspire.brandenburg.de/services/cp_alkis_wfs', 'urn:ogc:def:crs:EPSG::4326'),
+        format: 'gml', axis: 'latlon', source: 'alkis-bb', normalise: deCpNormalise,
+    },
+    'de-st': {
+        guard: (lat, lon) => lat >= 50.9 && lat <= 53.1 && lon >= 10.5 && lon <= 13.2,
+        url: deCpUrl('https://geodatenportal.sachsen-anhalt.de/ows_INSPIRE_LVermGeo_ALKIS_CP_WFS', 'urn:ogc:def:crs:EPSG::4326'),
+        format: 'gml', axis: 'latlon', source: 'alkis-st', normalise: deCpNormalise,
+    },
+    'de-mv': {
+        guard: (lat, lon) => lat >= 53.1 && lat <= 54.8 && lon >= 10.5 && lon <= 14.5,
+        url: deCpUrl('https://www.geodaten-mv.de/dienste/inspire_cp_alkis_download', 'urn:ogc:def:crs:EPSG::4326'),
+        format: 'gml', axis: 'latlon', source: 'alkis-mv', normalise: deCpNormalise,
+    },
+    'de-sl': {
+        guard: (lat, lon) => lat >= 49.1 && lat <= 49.7 && lon >= 6.3 && lon <= 7.5,
+        url: deCpUrl('https://geoportal.saarland.de/gdi-sl/inspirewfs_Flurstuecke_Grundstuecke_ALKIS', 'urn:ogc:def:crs:EPSG::4258'),
+        format: 'gml', axis: 'latlon', source: 'alkis-sl', normalise: deCpNormalise,
+    },
+    // Family B — adv ALKIS-vereinfacht, the DE-NRW schema exactly.
+    'de-hh': {
+        // ⚠ HAMBURG'S AXIS FLIPS ON THE CRS *SPELLING*, not the CRS: `urn:ogc:def:crs:EPSG::4326`
+        // returns lat-first ("53.550913 9.992096") while the short `EPSG:4326` returns lon-first on
+        // the SAME service and the SAME parcel — a hemisphere bug wearing a valid response. deAveUrl
+        // emits the urn form, which is why this row is `axis:'latlon'`.
+        // ⛔ Do NOT "upgrade" to Hamburg's INSPIRE service HH_WFS_INSPIRE_Flurstuecke: its
+        // GetCapabilities is clean but EVERY spatial query fails server-side with HTTP 500
+        // `ST_Intersects: Operation on mixed SRID geometries (Polygon, 0) != (Polygon, 25832)`,
+        // across all CRS spellings and both BBOX param and fes:BBOX filter. Its own reprojection is
+        // broken; this vereinfacht service is the working one.
+        guard: (lat, lon) => lat >= 53.3 && lat <= 54.0 && lon >= 8.4 && lon <= 10.4,
+        url: deAveUrl('https://geodienste.hamburg.de/WFS_HH_ALKIS_vereinfacht', 'ave:Flurstueck'),
+        format: 'gml', axis: 'latlon', source: 'alkis-hh', normalise: deAveNormalise,
+    },
+    'de-rp': {
+        // ⚠ TWO RLP SERVICES ARE PUBLISHED AND ONLY THIS ONE WORKS. The INSPIRE one advertised at
+        // geoportal.rlp.de/spatial-objects/584 proxies to geo5balance.vermkv.rlp — a NON-RESOLVING
+        // internal host — so its OGC-API façade answers `{"success":false,…,"features":[]}` for
+        // every collection, and its licence reads "Gebührenpflichtig". This one comes from
+        // spatial-objects/519, licence "geldleistungsfrei; Datenlizenz Deutschland – Namensnennung".
+        guard: (lat, lon) => lat >= 48.9 && lat <= 51.0 && lon >= 6.0 && lon <= 8.6,
+        url: deAveUrl('https://geo5.service24.rlp.de/wfs/alkis_rp.fcgi', 'ave:Flurstueck'),
+        format: 'gml', axis: 'latlon', source: 'alkis-rp', normalise: deAveNormalise,
+    },
+    'de-th': {
+        // ⛔ THE MOST DANGEROUS LEG IN THIS BLOCK — its failure mode is a CLEAN EMPTY, not an error.
+        // A degree bbox (either CRS spelling) returns HTTP 200 with numberMatched="0", so a wrong
+        // bbox CRS would read as "no parcel here" forever. `deThUrl` projects the click to EPSG:25832
+        // metres; see `wgs84ToUtm32n`, which is verified against the service's OWN returned parcel.
+        guard: (lat, lon) => lat >= 50.2 && lat <= 51.7 && lon >= 9.8 && lon <= 12.7,
+        url: deThUrl,
+        format: 'gml', axis: 'latlon', source: 'alkis-th', normalise: deAveNormalise,
+    },
+    // Family C — Bremen's deegree `app:` prefix over the SAME field names. gmlText's pattern is
+    // `<(?:[\w.-]+:)?TAG`, i.e. prefix-agnostic, so family B's normaliser covers it unchanged.
+    'de-hb': {
+        guard: (lat, lon) => lat >= 53.0 && lat <= 53.7 && lon >= 8.4 && lon <= 9.0,
+        url: deAveUrl('https://geodienste.bremen.de/wfs_hduk2958loah3976niun', 'app:flurstuecke'),
+        format: 'gml', axis: 'latlon', source: 'alkis-hb', normalise: deAveNormalise,
+    },
+    // The one true one-off — GeoJSON, lon-first bbox, its own field names.
+    'de-be': {
+        guard: (lat, lon) => lat >= 52.3 && lat <= 52.7 && lon >= 13.0 && lon <= 13.8,
+        url: deBeUrl,
+        format: 'geojson',
+        source: 'alkis-be',
+        normalise: (c) => {
+            const p = c.props || {};
+            // `fsko` is the ALKIS Flurstückskennzeichen (11000191900567____ @ Mitte, measured);
+            // trailing underscores are ALKIS padding, stripped as the DE-NRW row already does.
+            const refcat = String(jsonProp(p, 'fsko') ?? '').replace(/_+$/, '').trim();
+            const afl = Number(jsonProp(p, 'afl'));
+            const areaM2 = Number.isFinite(afl) && afl > 0 ? afl : ringAreaM2(c.ring);
+            const gmk = jsonProp(p, 'namgmk');
+            return { refcat, areaM2, address: gmk ? String(gmk) : null };
         },
     },
     // ── LANE PARCEL-REACH (2026-09-04): CZ / IE / AT — three countries with NO ROW AT ALL ───────
