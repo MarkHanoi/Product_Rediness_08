@@ -1,5 +1,11 @@
 # Runbook — bake + publish `rail` and `trees` context tiles to R2
 
+> ⚠ **Superseded in SHAPE, 2026-09-04.** §2 below describes the pre-§SYNC-SWITCH unscoped
+> "Bake → Publish" path. The authoritative per-layer procedure (stage-all → one merge-publish per
+> layer with manifest carry-forward → verify 206 + PMTiles magic from the public host → stamp once →
+> CI deploy) is [`RUNBOOK-CONTEXT-R2-PUBLISH.md`](RUNBOOK-CONTEXT-R2-PUBLISH.md). This file remains
+> correct for what `rail` and `trees` ARE (§1) and is that runbook's layer-specific appendix.
+
 > **Written 2026-08-07** (docs-reconciliation, from `tools/context-bake/bake.mjs` +
 > `.github/workflows/context-bake.yml`). Closes the gap logged as **L-730**: the client
 > requests `tiles/rail.pmtiles` and `tiles/trees.pmtiles` and both 404 on R2. Both layers
