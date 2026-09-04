@@ -94,6 +94,45 @@ const MISREAD: readonly string[] = [
     'create walls on all slabs',
     'create walls on the perimeter of slab',
     'delete all grids',
+    // ⭐ §CW90 item 5 (all-scope curtain-wall families) — SIX phrasings the ladder
+    // began CLAIMING and then REFUSING. Measured one by one with the real resolver,
+    // not inferred; every entry below is the resolution that actually came back.
+    //
+    // These belong in MISREAD, not in SHADOWED_CORRECT and not in SERVED, because
+    // MISREAD is already this file's bucket for "the ladder claims it and produces
+    // the wrong thing" INCLUDING claims that end in a refusal — `create walls on
+    // all slabs` (→ create-wall, then refuses for want of coordinates) and `delete
+    // all grids` (→ a clarify question) are the standing precedent directly above.
+    // A refusal still SHADOWS the legacy pattern behind it, so calling these SERVED
+    // would assert the legacy path still answers them when it can no longer be
+    // reached.
+    //
+    //  • the four `set-curtain-wall-type` claims — colour, grid X, grid Y and
+    //    material — all come back with the SAME sentence: *"I can't list every
+    //    curtain walls here — scope resolution isn't wired into this chat
+    //    context."* Note it is not only ungrammatical: none of these four asks is
+    //    about a TYPE at all. Colour and material are appearance, grid X/Y is the
+    //    bay rhythm; the type family caught them on the noun alone.
+    //  • `set all curtain wall height to 4m` and `… mullion thickness to 0.08m`
+    //    reach `set-curtain-wall-dimensions`, which refuses with *"I can't count
+    //    every curtain-wall here … and I won't run a delete without telling you how
+    //    many first"* — a DELETE sentence for a resize, and then it offers as its
+    //    remedy `set all curtain walls height to 4m`: the same sentence one letter
+    //    different from the one it just refused.
+    //  • ⚠ AND THE ASYMMETRY IS THE TELL: `set all curtain wall PANEL thickness to
+    //    0.05m` resolves to a REAL project-scope `curtain-wall.bulkUpdateParameter`
+    //    (see SHADOWED_CORRECT), while MULLION thickness — the sibling parameter of
+    //    the same family — is intercepted by the dimension family's `thickness`
+    //    carrier gap and refused. One parameter works, its twin does not.
+    //
+    // Fixing any of these must fail this test. That is why they are named one by
+    // one rather than counted.
+    'set all curtain wall color to white',
+    'set all curtain wall grid x to 1.2m',
+    'set all curtain wall grid y to 1.2m',
+    'set all curtain wall height to 4m',
+    'set all curtain wall material to glass',
+    'set all curtain wall mullion thickness to 0.08m',
 ];
 
 /**
@@ -156,9 +195,14 @@ const DRAINED: readonly string[] = [
     'make all slabs blue',
     'make all slabs gray',
     'make all slabs white',
-    'set all curtain wall height to 4m',
-    'set all curtain wall mullion thickness to 0.08m',
-    'set all curtain wall panel thickness to 0.05m',
+    // ⛔ STRUCK BY §CW90 item 5, and struck rather than deleted quietly. The three
+    // `set all curtain wall …` rows that lived here — height, mullion thickness and
+    // panel thickness — are NO LONGER MISSES: the all-scope curtain-wall families
+    // now claim all three. Two of them claim-and-refuse and have moved to MISREAD;
+    // panel thickness claims and does the RIGHT thing and has moved to
+    // SHADOWED_CORRECT. Leaving them here would have asserted `claimedBy(q) === null`
+    // for phrasings the ladder demonstrably claims, which is how this list would
+    // start lying about the very regression it exists to catch.
     'set all slabs thickness to 0.15m',
     'set all slabs thickness to 0.25m',
     'set all slabs thickness to 0.2m',
@@ -186,6 +230,16 @@ const SHADOWED_CORRECT: readonly string[] = [
     // served ("isolate level 2" and "isolate all doors" stay misses — pinned
     // in DRAINED and in the served-families test below).
     'isolate selected elements',
+    // ⭐ §CW90 item 5 — measured, not assumed. The resolver returns
+    // `kind: 'commands'`, intent `set-curtain-wall-parameter`, ONE command
+    // `curtain-wall.bulkUpdateParameter` with
+    // `{ scope: { kind: 'project' }, parameter: 'panelThickness', value: 0.05 }`
+    // and the summary *"Set the panel thickness of every curtain wall in the project
+    // to 0.05 m."* — and `plugins/curtain-wall/src/handlers/BulkUpdateCurtainWallParameter.ts`
+    // is the LIVE handler for that type. Verb, scope, parameter and value are all
+    // right, so the legacy QueryEngine pattern behind it is genuinely dead from chat.
+    // It was in DRAINED as an honest miss; it is now a correct claim.
+    'set all curtain wall panel thickness to 0.05m',
 ];
 
 describe('§DRAIN — the legacy QueryEngine inventory, pinned', () => {

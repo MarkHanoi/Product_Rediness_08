@@ -24,11 +24,41 @@ interface TestWindowFacets {
     bimManager?: { getLevels?: () => ReadonlyArray<{ id: string; name?: string; elevation?: number }> };
     projectContext?: { activeLevelId?: string | null };
     runtime?: {
-        bus?: { executeCommand(type: string, payload: unknown): Promise<unknown> };
+        bus?: {
+            // ⭐ §AI-ACTOR-STAMP (ADR-0324 §1-2) — the third argument is real, so the
+            // stub declares it. A stub whose signature is narrower than the product's
+            // teaches the suite that a dropped stamp is untestable.
+            executeCommand(
+                type: string,
+                payload: unknown,
+                opts?: { readonly context?: unknown },
+            ): Promise<unknown>;
+        };
         events?: { emit(name: string, payload: unknown): void };
     };
 }
 const testWindow = (): TestWindowFacets => window as unknown as TestWindowFacets;
+
+/**
+ * ⭐ §AI-ACTOR-STAMP (ADR-0324 §1-2 / C16 §6 / spec §76 gate D) — the invocation
+ * envelope EVERY dispatch in `ZeroTokenChatBridge` now carries as its third
+ * argument.
+ *
+ * It is ASSERTED here, not tolerated. Before it existed, an AI-authored edit and a
+ * toolbar click were BYTE-IDENTICAL in the audit trail; "the same funnel" and
+ * "indistinguishable" are different claims and only the first one is wanted. These
+ * assertions used to read `toHaveBeenCalledWith(type, payload)` — a two-argument
+ * match that a third argument fails — so the stamp landing turned seven green
+ * dispatch proofs red without a single one of them being about the stamp.
+ *
+ * ⛔ SPELLED ONCE, ON PURPOSE. Inlining `{ context: … }` at each site would mean a
+ * dropped stamp fails one assertion and a reviewer deletes one object; naming it
+ * means the whole file moves together. `actor` says WHO, `origin` says WHERE, and
+ * they stay separate (ADR-0324 §2: *"never stamp actorId='ai' as a substitute"*).
+ */
+const AI_STAMP = {
+    context: { actor: { kind: 'ai' }, origin: { surface: 'chat' } },
+} as const;
 
 /**
  * §FIX-REPORT-PAYLOAD-DISCARD (W2-B) — the report event each batch bridge
@@ -128,7 +158,7 @@ describe('ZeroTokenChatBridge — natural language, zero tokens (ADR-0313 §NL)'
 
         expect(handled).toBe(true);
         expect(executeCommand).toHaveBeenCalledTimes(1);
-        expect(executeCommand).toHaveBeenCalledWith('wall.updateDimensions', { wallId: 'wall-1', height: 3 });
+        expect(executeCommand).toHaveBeenCalledWith('wall.updateDimensions', { wallId: 'wall-1', height: 3 }, AI_STAMP);
         expect(querySpy).not.toHaveBeenCalled(); // ← the zero-token proof
         expect(said.some((s) => s.includes('Done'))).toBe(true);
     });
@@ -148,7 +178,7 @@ describe('ZeroTokenChatBridge — natural language, zero tokens (ADR-0313 §NL)'
         expect(confirm).toHaveBeenCalledTimes(1);
         expect(executeCommand).toHaveBeenCalledWith('element.delete', {
             elementId: 'door-1', elementType: 'door', source: 'AI_CHAT_ZERO_TOKEN',
-        });
+        }, AI_STAMP);
         expect(querySpy).not.toHaveBeenCalled();
     });
 
@@ -178,7 +208,7 @@ describe('ZeroTokenChatBridge — natural language, zero tokens (ADR-0313 §NL)'
         // …and answering the question completes the edit — still zero tokens.
         const handled2 = await tryHandleZeroToken('2700', hooks);
         expect(handled2).toBe(true);
-        expect(executeCommand).toHaveBeenCalledWith('wall.updateDimensions', { wallId: 'wall-1', height: 2.7 });
+        expect(executeCommand).toHaveBeenCalledWith('wall.updateDimensions', { wallId: 'wall-1', height: 2.7 }, AI_STAMP);
         expect(querySpy).not.toHaveBeenCalled();
     });
 
@@ -189,8 +219,8 @@ describe('ZeroTokenChatBridge — natural language, zero tokens (ADR-0313 §NL)'
         await tryHandleZeroToken('make this wall 3m tall', hooks);
         await tryHandleZeroToken('actually, make it 3.2m', hooks);
 
-        expect(executeCommand).toHaveBeenNthCalledWith(1, 'wall.updateDimensions', { wallId: 'wall-1', height: 3 });
-        expect(executeCommand).toHaveBeenNthCalledWith(2, 'wall.updateDimensions', { wallId: 'wall-1', height: 3.2 });
+        expect(executeCommand).toHaveBeenNthCalledWith(1, 'wall.updateDimensions', { wallId: 'wall-1', height: 3 }, AI_STAMP);
+        expect(executeCommand).toHaveBeenNthCalledWith(2, 'wall.updateDimensions', { wallId: 'wall-1', height: 3.2 }, AI_STAMP);
         expect(querySpy).not.toHaveBeenCalled();
     });
 
@@ -231,7 +261,7 @@ describe('ZeroTokenChatBridge — natural language, zero tokens (ADR-0313 §NL)'
         expect(executeCommand).toHaveBeenCalledWith('element.updateParameters', {
             elementId: 'win-1', elementType: 'window',
             parameters: { height: 2, width: 2, sillHeight: 0.1 },
-        });
+        }, AI_STAMP);
         expect(said.some((s) => s.includes('did not complete'))).toBe(false);
         expect(said.some((s) => s.includes('Done'))).toBe(true);
         expect(querySpy).not.toHaveBeenCalled();
@@ -262,7 +292,7 @@ describe('ZeroTokenChatBridge — natural language, zero tokens (ADR-0313 §NL)'
         expect(executeCommand).toHaveBeenCalledTimes(1);
         expect(executeCommand).toHaveBeenCalledWith('wall.updateColorBatch', {
             wallIds: 'all', materialColor: '#ffffff',
-        });
+        }, AI_STAMP);
         expect(said.some((s) => s.includes('did not complete'))).toBe(false);
         expect(querySpy).not.toHaveBeenCalled();
     });
@@ -321,10 +351,10 @@ describe('ZeroTokenChatBridge — natural language, zero tokens (ADR-0313 §NL)'
         expect(confirm).toHaveBeenCalledTimes(1); // ONE card for the whole plan
         expect(executeCommand).toHaveBeenNthCalledWith(1, 'wall.updateColorBatch', {
             wallIds: 'all', materialColor: '#ffffff',
-        });
+        }, AI_STAMP);
         expect(executeCommand).toHaveBeenNthCalledWith(2, 'generation.rooms', {
             steps: ['ceilings'], levelId: 'L0',
-        });
+        }, AI_STAMP);
         expect(said.join(' ')).toContain('Step 1 done');
         expect(said.join(' ')).toContain('Step 2 done');
         expect(said.join(' ')).toContain('Ctrl+Z twice');

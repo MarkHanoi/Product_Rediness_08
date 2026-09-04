@@ -172,7 +172,16 @@ describe('§PLANNER — a planned intent runs through the SAME executor', () => 
 
         expect(handled).toBe(true);
         expect(relay.relayCalls()).toBe(1);
-        expect(executeCommand).toHaveBeenCalledWith('wall.updateColorBatch', expect.anything());
+        // ⭐ §AI-ACTOR-STAMP (ADR-0324 §1-2) — the planner leg reaches the SAME
+        // executor as the deterministic leg, so it carries the SAME third-argument
+        // invocation envelope. Asserted rather than matched loosely: a planned edit
+        // that reached the bus unstamped would be byte-identical to a toolbar click
+        // in the audit trail, which is exactly what the stamp exists to prevent.
+        expect(executeCommand).toHaveBeenCalledWith(
+            'wall.updateColorBatch',
+            expect.anything(),
+            { context: { actor: { kind: 'ai' }, origin: { surface: 'chat' } } },
+        );
         // Token honesty: the deterministic line is NOT printed on a planned result.
         expect(said.join(' ')).not.toContain('resolved without AI tokens');
         expect(said.join(' ')).toContain('AI planner');

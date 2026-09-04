@@ -207,11 +207,26 @@ describe('enumeration derives from the matrix + catalogue — no hand-written ri
 
 describe('activation never overclaims', () => {
     it('a single-view tool discloses its view restriction', () => {
-        const lift = ELEMENT_CREATION_MATRIX.find((c) => c.tool === 'lift');
-        expect(lift?.views).toEqual(['3d']); // guard: if lift gains plan view, update this test
-        const reply = activatePlacementFromChat('lift');
-        expect(reply).toContain('3d view only');
-        expect(world.toolActivations).toEqual([{ tool: 'lift', mode: undefined }]);
+        // ⚠ THE SUBJECT IS DERIVED FROM THE MATRIX, NOT NAMED — and that is the
+        // whole repair. This test used to hard-code `lift`, assert
+        // `lift.views === ['3d']`, and carry the comment *"guard: if lift gains
+        // plan view, update this test"*. `lift` then GAINED plan view
+        // (§FIX-LIFT-UNREACHABLE / L-7020..L-7024 — `LiftPlanToolHandler` is real
+        // and the row moved with the capability, which is correct), the guard
+        // fired exactly as written, and nobody updated the test. A comment is not
+        // a mechanism.
+        //
+        // Worse, the hard-coded expectation encoded a fact that is no longer true
+        // of ANY row: there is no `views: ['3d']` entry left in the matrix at all.
+        // So the test would have been unfixable by swapping one name for another
+        // of the same kind. Asking the matrix which tool is single-view — and
+        // reading the restricted view OFF that row — is the version that survives
+        // the next row moving, whichever direction it moves in.
+        const single = ELEMENT_CREATION_MATRIX.find((c) => c.views.length === 1);
+        expect(single, 'the matrix declares no single-view tool at all').toBeDefined();
+        const reply = activatePlacementFromChat(single!.tool);
+        expect(reply).toContain(`${single!.views[0]} view only`);
+        expect(world.toolActivations).toEqual([{ tool: single!.tool, mode: undefined }]);
     });
 
     it('tool runtime not ready → says NOTHING was activated, points at the palette', () => {
