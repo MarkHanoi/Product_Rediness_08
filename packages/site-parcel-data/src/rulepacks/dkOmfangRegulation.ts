@@ -264,6 +264,7 @@ export function dkOmfangToRuleState(
             return {
                 rule,
                 status: 'unrecovered',
+                partial: null,
                 reachability: 'extractable',
                 failure: 'pdf',
                 mechanism: 'present',
@@ -285,6 +286,7 @@ export function dkOmfangToRuleState(
             return {
                 rule,
                 status: 'unrecovered',
+                partial: null,
                 reachability: 'extractable',
                 failure: 'semantic',
                 mechanism: 'unknown',
@@ -295,6 +297,7 @@ export function dkOmfangToRuleState(
             return {
                 rule,
                 status: 'unrecovered',
+                partial: null,
                 reachability: 'derivable',
                 failure: 'inaccessible',
                 mechanism: 'unknown',
