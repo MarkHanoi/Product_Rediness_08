@@ -75,6 +75,16 @@ describe('isInItaly — national predicate (AP Trento/Bolzano excluded)', () => 
         expect(isInItaly(46.4983, 11.3548)).toBe(false); // Bolzano
         expect(isInItaly(46.0679, 11.1211)).toBe(false); // Trento
     });
+    // Lane PARCEL-REACH round 3 (2026-09-04): Valletta resolved `IT:cadastral` — a Maltese click was
+    // labelled Italy and dispatched to a WFS that cannot serve it. Malta is another COUNTRY inside the
+    // Italian rectangle, so it is carved out; the Italian islands around it must survive the carve-out.
+    it('MALTA (a sovereign state inside ITALY_BBOX) is EXCLUDED; the Italian islands around it are not', () => {
+        expect(isInItaly(35.8989, 14.5146)).toBe(false); // Valletta
+        expect(isInItaly(36.0443, 14.2394)).toBe(false); // Victoria, Gozo
+        expect(isInItaly(35.5019, 12.6042)).toBe(true); // Lampedusa (IT, west of the carve-out)
+        expect(isInItaly(36.7833, 11.9500)).toBe(true); // Pantelleria (IT)
+        expect(isInItaly(36.7306, 14.8497)).toBe(true); // Pozzallo, Sicily (IT, north of the carve-out)
+    });
     it('outside Italy and non-finite → false', () => {
         expect(isInItaly(48.8566, 2.3522)).toBe(false); // Paris
         expect(isInItaly(Number.NaN, 12)).toBe(false);

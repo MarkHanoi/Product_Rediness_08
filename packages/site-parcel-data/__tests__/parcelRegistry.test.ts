@@ -71,6 +71,16 @@ describe('resolveParcelJurisdiction — universal footprint + never-throws', () 
     it('mid-ocean routes to the universal footprint', () => {
         expect(resolveParcelJurisdiction(0, -30)).toBe(UNIVERSAL_FOOTPRINT_JURISDICTION);
     });
+    // Lane PARCEL-REACH round 3 (2026-09-04) — MEASURED before the fix: Valletta → `IT:cadastral`.
+    // Malta is a sovereign state inside ITALY_BBOX; labelling it Italy and dispatching to the Agenzia
+    // WFS (which cannot serve it, and holds a 25 s deadline) was the C58 §1.4 wrong-country failure.
+    it('Valletta (Malta) is NOT Italy — no Italian candidate is offered, the honest universal footprint is', () => {
+        const cands = resolveParcelCandidates(35.8989, 14.5146);
+        expect(cands.map((c) => c.regionCode)).not.toContain('IT');
+        expect(resolveParcelJurisdiction(35.8989, 14.5146)).toBe(UNIVERSAL_FOOTPRINT_JURISDICTION);
+        // The falsification control: Sicily just north of the carve-out is still Italian.
+        expect(resolveParcelJurisdiction(36.7306, 14.8497).regionCode).toBe('IT'); // Pozzallo
+    });
     it('never throws on NaN / Infinity / garbage', () => {
         expect(() => resolveParcelJurisdiction(NaN, 0)).not.toThrow();
         expect(() => resolveParcelJurisdiction(0, Infinity)).not.toThrow();

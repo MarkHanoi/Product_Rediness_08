@@ -136,14 +136,27 @@ export const TRENTINO_ALTO_ADIGE_EXCLUSION: Bbox = {
 };
 
 /**
+ * Malta (Malta + Gozo + Comino) — a SOVEREIGN STATE that sits entirely inside `ITALY_BBOX`
+ * (Sicily's southern tip is ≈36.65°N; Valletta is 35.90°N/14.51°E, Victoria/Gozo 36.04°N/14.24°E).
+ * MEASURED 2026-09-04 (lane PARCEL-REACH round 3): `resolveParcelJurisdiction(35.8989, 14.5146)`
+ * → `IT:cadastral` — a Maltese click was LABELLED ITALY and dispatched to the Agenzia delle Entrate
+ * WFS, which cannot serve it and burns Italy's 25 s deadline before the OSM footprint appears. The
+ * box is clear of every Italian island: Lampedusa (35.50°N, 12.60°E) and Pantelleria (36.78°N,
+ * 11.95°E) lie west of 14.15°E, Pozzallo/Portopalo (36.7°N) lie north of 36.10°N.
+ */
+export const MALTA_EXCLUSION: Bbox = { minLat: 35.78, maxLat: 36.10, minLon: 14.15, maxLon: 14.60 };
+
+/**
  * True when the WGS84 point is served by the national Agenzia Entrate cadastre: inside the Italy box
- * AND outside the AP Trento/Bolzano own-cadastre exclusion (property 3). The predicate the registry
- * routes on — the national analogue of `isInSpain`.
+ * AND outside the AP Trento/Bolzano own-cadastre exclusion (property 3) AND outside Malta (another
+ * country, not another register). The predicate the registry routes on — the national analogue of
+ * `isInSpain`.
  */
 export function isInItaly(lat: number, lon: number): boolean {
     if (!Number.isFinite(lat) || !Number.isFinite(lon)) return false;
     if (!within(ITALY_BBOX, lat, lon)) return false;
     if (within(TRENTINO_ALTO_ADIGE_EXCLUSION, lat, lon)) return false;
+    if (within(MALTA_EXCLUSION, lat, lon)) return false;
     return true;
 }
 

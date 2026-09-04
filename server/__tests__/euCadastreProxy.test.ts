@@ -452,6 +452,20 @@ describe('fetchEuParcelAtPoint — guards + never-throws', () => {
         expect(p).toBeNull();
         expect(called).toBe(false);
     });
+
+    // Lane PARCEL-REACH round 3 (2026-09-04): Malta sits inside the Italian rectangle. Before the
+    // carve-out a Valletta click reached the Agenzia WFS (which cannot serve Malta) and paid Italy's
+    // 25 s deadline before the footprint appeared. `out-of-area` is the true answer and costs nothing.
+    it('IT guard carves out MALTA (out-of-area, no upstream call) while Sicily just north still resolves', async () => {
+        let called = false;
+        const spy = async () => { called = true; return { ok: true, status: 200, text: async () => '<x/>' }; };
+        const valletta = await resolveEuParcelOutcome('it', 14.5146, 35.8989, { fetchImpl: spy });
+        expect(valletta.outcome).toBe('out-of-area');
+        expect(called).toBe(false);
+        const pozzallo = await resolveEuParcelOutcome('it', 14.8497, 36.7306, { fetchImpl: spy });
+        expect(called).toBe(true); // Pozzallo (Sicily) DOES reach the Italian cadastre
+        expect(pozzallo.outcome).not.toBe('out-of-area');
+    });
 });
 
 // ══════════════════════════════════════════════════════════════════════════════════════════════

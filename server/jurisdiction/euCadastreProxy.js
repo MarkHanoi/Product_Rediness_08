@@ -1509,7 +1509,13 @@ export const EU_CADASTRE_SOURCES = {
     it: {
         // Mainland + islands; AP Trento/Bolzano excluded BY THE SOURCE (they run their own Catasto
         // tavolare), which reads here as an honest `empty`, never a fabricated ring.
-        guard: (lat, lon) => lat >= 35.4 && lat <= 47.1 && lon >= 6.6 && lon <= 18.6,
+        // ⛔ MALTA is carved out (lane PARCEL-REACH round 3, 2026-09-04): a sovereign state inside
+        // the Italy rectangle (Valletta 35.90°N/14.51°E; Sicily's tip is 36.65°N). Without the
+        // carve-out a Maltese click reached the Agenzia WFS, which cannot serve it, and paid the
+        // 25 s Italian deadline before falling to the footprint — an `out-of-area` here is the true
+        // answer and costs nothing. Mirrors MALTA_EXCLUSION in agenziaEntrateParcelProvider.ts.
+        guard: (lat, lon) => lat >= 35.4 && lat <= 47.1 && lon >= 6.6 && lon <= 18.6
+            && !(lat >= 35.78 && lat <= 36.10 && lon >= 14.15 && lon <= 14.60),
         url: itUrl,
         format: 'gml',
         axis: 'latlon', // EPSG:6706 GML posList is lat-first — the DE-NRW idiom
