@@ -239,6 +239,10 @@ import {
     // §RESI-ORCH-PERLEVEL (STR §13/§14) — the per-storey built-area fold. The plates were already
     // summed storey by storey inside `measureAuthoredDesign`; only the TOTAL used to survive.
     buildPerLevelBuiltAreaFold,
+    // §RESI-ORCH-DESIGN-STAGE (STR §1/§19/§21) — "where am I, and what can I do from here?" on the
+    // far side of the parcel hand-off. Rendered on BOTH card arms: a refusal card is a place a user
+    // can be just as much as a determination is, and it is the arm where "what now?" is loudest.
+    buildDesignStageStripHtml,
     // §GIS-LEGACY-DETERMINATION-ESCAPE (L-1970..L-1974) — the REDUCED card's notice AND its
     // escape hatch. The reduced card was honest and unactionable; this carries the route out.
     buildLegacyDeterminationNoticeHtml,
@@ -306,6 +310,7 @@ import {
     setTargetFootprintProposal,
     clearTargetFootprintProposal,
 } from '../site/targetFootprintAreaState';
+import { describeDesignStages } from '../site/designStageModel';
 import {
     buildTargetAreaEntryHtml,
     TARGET_AREA_INPUT_TESTID,
@@ -3487,6 +3492,47 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
         const safeMeasuredSection = buildHowMeasuredFold(
             capacityJoin.measurement, { joinFailed: capacityJoin.joinFailed });
 
+        // ── §RESI-ORCH-DESIGN-STAGE (STR §1/§19/§21) — "where am I, and what can I do?" ──
+        //
+        // Computed HERE, beside the capacity join and BEFORE the refusal branch, for the same
+        // reason that join is: a refusal card is a place a user can be, and it is the arm where
+        // "what now?" is loudest. The strip renders on both templates.
+        //
+        // ⛔ EVERY INPUT IS EVIDENCE THIS SURFACE CAN ACTUALLY SEE. The stage is DERIVED, never
+        // stored, so it cannot claim "you are at BIM" about a project with no authored storey —
+        // and where this panel genuinely cannot see something, it passes the honest `null` rather
+        // than a `false` that would print a finding about the user's project out of a gap in
+        // PRYZM's own wiring. `hasProgramme` is exactly that case today (the programme table lives
+        // in the Data Workbench and is not joined here), and the model prints the difference.
+        const safeDesignStageStrip = ((): string => {
+            try {
+                const committedRing = getCommittedParcelBoundary()?.polygon ?? [];
+                const figures = permittedStudyFigures(env);
+                const m = capacityJoin.measurement;
+                return buildDesignStageStripHtml(describeDesignStages({
+                    hasCommittedParcel: committedRing.length >= 3,
+                    // A REFUSAL reaching this point has no inset ring, so this is false on the
+                    // refusal arm by measurement rather than by a branch someone remembered.
+                    hasResolvedEnvelope: figures.footprintM2 > 0,
+                    hasMassingProposal:
+                        resolveLiveTargetFootprintProposal(
+                            figures.footprintM2 > 0 ? figures.footprintM2 : null,
+                        ) !== null,
+                    // ⛔ null, NOT false — see the block comment above.
+                    hasProgramme: null,
+                    designedStoreyCount: m?.designedStoreyCount ?? 0,
+                    // Net area is measured ONLY from real room boundaries, so a non-null value is
+                    // exactly "rooms exist". Derived from the ONE measurement rather than a second
+                    // read of the room store (C06 §13.3).
+                    hasRooms: m?.design.netFloorAreaM2 != null,
+                    measurementFailed: capacityJoin.joinFailed,
+                }));
+            } catch (err) {
+                console.warn('[gis][envelope-card] design-stage strip failed (non-fatal):', err);
+                return '';
+            }
+        })();
+
         // §GIS-ENVELOPE-DETERMINATION-PERSIST (L-1654) — a HYDRATED card must wear its date,
         // prominently (mirroring the parcel section's "Retrieved:" line): a stored snapshot
         // presented as freshly derived would fabricate recency, which is provenance (C58 §1.4).
@@ -3675,6 +3721,7 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
                  ${safeStudyHeightEntry}
                  ${safeCapacitySection}
                  ${safeMeasuredSection}
+                 ${safeDesignStageStrip}
                  ${safeEnvToggle}`;
             wireEnvelopeToggle(panel);
             wireEnvelopeClose(panel);
@@ -4016,6 +4063,7 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
              ${safeTargetAreaSection}
              ${safeCostSection}
              ${safeWhyBlock}
+             ${safeDesignStageStrip}
              ${safeEnvToggle}`;
         wireEnvelopeToggle(panel);
         wireEnvelopeClose(panel);

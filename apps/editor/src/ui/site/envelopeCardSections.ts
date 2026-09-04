@@ -45,6 +45,10 @@ import type { DesignMeasurement } from './designMeasurement';
 // print. A second wording table here would let one fold say "no floor slabs are authored" while the
 // fold above it said something else about the identical fact.
 import { UNMEASURED_REASON_TEXT } from './designMeasurement';
+// §RESI-ORCH-DESIGN-STAGE — the strip renders a model decided next door. This file holds NO stage
+// rule of its own: which stage is reached, and why an unreached one is not, are decisions a test
+// can reach, and a DOM builder is where decisions go to become unassertable.
+import type { DesignStageStatus } from './designStageModel';
 import type { UserSuppliedStudyHeightRecord } from './userSuppliedStudyHeightState';
 
 const _tracer = trace.getTracer('pryzm.site.envelopeCardSections');
@@ -209,6 +213,73 @@ export function buildHowMeasuredFold(
             'How these were measured',
             renderMeasurementCaveatLinesHtml(measurement.caveats),
         );
+    } finally {
+        span.end();
+    }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// §RESI-ORCH-DESIGN-STAGE (STR §1/§19/§21) — WHERE AM I, AND WHAT CAN I DO?
+// ─────────────────────────────────────────────────────────────────────────────
+
+export const DESIGN_STAGE_STRIP_TESTID = 'envelope-design-stage-strip';
+
+/**
+ * The design-stage strip: the five stages past the parcel hand-off, each showing whether it has
+ * been reached and — when it has not — WHY NOT, in the user's own words.
+ *
+ * ⛔ EVERY STAGE CARRIES ITS REASON IN A `title`, INCLUDING THE UNREACHED ONES. This copies
+ * `SiteEntryPanel`'s already-shipped rule — *"an unavailable action renders greyed WITH its reason
+ * printed"* — rather than inventing a second convention. A greyed step with no explanation is the
+ * same defect as a dead click: the user cannot tell "not yet" from "broken" from "not for you".
+ *
+ * ⛔ NOTHING HERE IS CLICKABLE, AND THAT IS DELIBERATE FOR NOW. The strip REPORTS a derived state;
+ * it does not navigate. A step that looked like a button and did nothing would be exactly the dead
+ * click §3's binding was written to remove — so until each stage has a destination wired, it reads
+ * as a status, which is what it honestly is.
+ *
+ * Colours are the brand's: PRYZM violet for what is true, grey for what is not. No black, no red —
+ * an unreached stage is not an error.
+ */
+export function buildDesignStageStripHtml(
+    stages: readonly DesignStageStatus[],
+): string {
+    const span = _tracer.startSpan('pryzm.site.buildDesignStageStripHtml');
+    try {
+        if (stages.length === 0) return '';
+        const current = stages.find((s) => s.state === 'current') ?? null;
+        span.setAttribute('pryzm.designStage.stripCurrent', current?.stage ?? 'none');
+
+        const pills = stages
+            .map((s) => {
+                const style =
+                    s.state === 'current'
+                        ? 'background:#6600FF;color:#ffffff;border:1px solid #6600FF;font-weight:700;'
+                        : s.state === 'done'
+                            ? 'background:#f3eeff;color:#6600FF;border:1px solid #d9ccff;font-weight:600;'
+                            : s.state === 'available'
+                                ? 'background:#ffffff;color:#6600FF;border:1px dashed #b9a6f2;font-weight:600;'
+                                : 'background:#ffffff;color:#b3adc4;border:1px solid #ece9f4;font-weight:500;';
+                const glyph = s.state === 'done' ? '✓ ' : s.state === 'current' ? '◉ ' : '';
+                return `<span data-design-stage="${escHtml(s.stage)}" data-state="${escHtml(s.state)}" `
+                    + `title="${escHtml(s.reason)}" `
+                    + `style="${style}padding:2px 7px;border-radius:999px;font-size:9.5px;white-space:nowrap;cursor:help;">`
+                    + `${glyph}${escHtml(s.label)}</span>`;
+            })
+            .join('');
+
+        // ⛔ THE CAPTION NEVER SAYS "STAGE 1 OF 5". A stage is REACHED because its artefact exists,
+        // not because four others were completed first — a project can hold a BIM model with no
+        // declared programme, and a progress fraction would flatten that into a false ordering.
+        const caption = current === null
+            ? 'No design stage has been reached yet — the reason for each is on the label.'
+            : `You are at <b>${escHtml(current.label)}</b> — ${escHtml(current.reason)}`;
+
+        return `<div data-testid="${DESIGN_STAGE_STRIP_TESTID}" data-current="${escHtml(current?.stage ?? 'none')}" `
+            + `style="margin-top:7px;padding-top:6px;border-top:1px solid #efecf7;min-width:0;max-width:100%;">`
+            + `<div style="display:flex;flex-wrap:wrap;gap:4px;">${pills}</div>`
+            + `<div style="margin-top:4px;font-size:9px;line-height:1.45;color:#8a83a0;">${caption}</div>`
+            + `</div>`;
     } finally {
         span.end();
     }
