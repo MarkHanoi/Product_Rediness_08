@@ -363,6 +363,39 @@ function gmlText(block, tag) {
     return m && m[1] ? m[1].trim() : null;
 }
 
+/**
+ * Read an ATTRIBUTE off a GML element, e.g. `xlink:title` on `<cp:administrativeUnit xlink:title="Praha" …/>`.
+ * ⛔ `gmlText` above reads element TEXT and returns null for an EMPTY (self-closing) element, which is
+ * exactly the shape INSPIRE uses for xlink associations — so reading a municipality name with
+ * `gmlText` silently yields nothing while the name is sitting right there in the markup. CZ needs
+ * this; do not "simplify" it back to gmlText.
+ */
+function gmlAttr(block, tag, attr) {
+    // String.raw, not a plain quoted string: in a normal JS string literal `\w` collapses to `w`
+    // and `\b` becomes a BACKSPACE character, so the pattern would silently stop matching namespaced
+    // tags — a parser that returns null for every field while looking perfectly well-formed.
+    const pat = String.raw`<(?:[\w.-]+:)?` + tag + String.raw`\b[^>]*?\b(?:[\w.-]+:)?` + attr
+        + String.raw`\s*=\s*"([^"]*)"`;
+    const m = block.match(new RegExp(pat, 'i'));
+    return m && m[1] ? m[1].trim() : null;
+}
+
+/**
+ * EPSG:3857 (Web Mercator, metres) → WGS84 degrees. Needed by AT, whose only queryable channel is a
+ * GeoServer WMS GetFeatureInfo, and whose GeoJSON therefore comes back in whatever CRS was ASKED for.
+ * ⛔ WE MUST ASK FOR 3857, NOT 4326 — that GeoServer's `numDecimals` is 3, so a 4326 answer is
+ * rounded to THREE DECIMAL DEGREES (~110 m) and the ring collapses into a handful of repeated points
+ * (measured at Stephansplatz: `[16.373,48.208],[16.373,48.208],[16.373,48.208]…`). In 3857 the same
+ * three decimals are MILLIMETRES, so the ring is exact and this inverse is loss-free at BIM scale.
+ * A silently degenerate boundary is worse than no boundary — it looks like a parcel and is not one.
+ */
+const WEB_MERCATOR_R = 6378137;
+function webMercatorToWgs84(x, y) {
+    const lon = (x / WEB_MERCATOR_R) * (180 / Math.PI);
+    const lat = (2 * Math.atan(Math.exp(y / WEB_MERCATOR_R)) - Math.PI / 2) * (180 / Math.PI);
+    return { lat, lon };
+}
+
 function parseGmlCandidates(text, axis /* 'lonlat' | 'latlon' */) {
     // Each feature is a <wfs:member>…</wfs:member> (WFS 2.0) or <gml:featureMember>…
     let blocks = text.match(/<(?:wfs:)?member\b[\s\S]*?<\/(?:wfs:)?member>/gi);
@@ -681,6 +714,105 @@ function gbUrl(lat, lon) {
         limit: '10',
     });
     return `https://www.planning.data.gov.uk/entity.geojson?${qs.toString()}`;
+}
+
+// ── LANE PARCEL-REACH (2026-09-04) — URL builders for CZ / IE / AT ──────────────────────────────
+//
+// Three countries that had NO REGISTRY ROW AT ALL — not a footprint row, not a deferral, nothing.
+// That is worse than an unwired row, because `resolveParcelCandidates` then either returns NOTHING
+// (Brno, Ostrava, Wien — measured) or hands the point to whichever NEIGHBOUR's rectangle happens to
+// cover it (Praha resolved to `DE:footprint-fallback`, and Dublin to `GB-ENG:cadastral`, both
+// measured 2026-09-04). A Czech click was being told it was in Germany.
+
+/**
+ * CZECHIA — ČÚZK (Český úřad zeměměřický a katastrální) INSPIRE Cadastral Parcels, `cp:CadastralParcel`.
+ * Keyless WFS 2.0 (Marushka), live-probed 2026-09-04 at Praha Staré Město.
+ *   • `SRSNAME=urn:ogc:def:crs:EPSG::4326` IS honoured — the response geometry carries
+ *     `srsName="urn:ogc:def:crs:EPSG::4326"` and the posList is LAT-FIRST
+ *     (`50.086623 14.420771` — 50 is the latitude), so `axis:'latlon'`, the DE-NRW/IT idiom.
+ *   • GML only. No JSON output format is advertised; `parseGmlCandidates` handles it unchanged.
+ *   • Each member is a single `gml:exterior` LinearRing, so the parser's "first posList" rule takes
+ *     the exterior — no hole can be mistaken for a boundary.
+ * COVERAGE, stated by the service's own Abstract: parcels exist for the territory with a DIGITAL
+ * cadastral map, "to the 2026-08-31 it is 99.50% of the Czech territory". The residual 0.5% is an
+ * honest `empty` → footprint, not a failure.
+ */
+function czUrl(lat, lon) {
+    const bbox = `${lat - HALF_DEG},${lon - HALF_DEG},${lat + HALF_DEG},${lon + HALF_DEG},urn:ogc:def:crs:EPSG::4326`;
+    return 'https://services.cuzk.cz/wfs/inspire-cp-wfs.asp?SERVICE=WFS&VERSION=2.0.0&REQUEST=GetFeature' +
+        '&TYPENAMES=cp:CadastralParcel&SRSNAME=urn:ogc:def:crs:EPSG::4326' +
+        `&COUNT=20&BBOX=${encodeURIComponent(bbox)}`;
+}
+
+/**
+ * IRELAND — Tailte Éireann (the merged OSi / Property Registration Authority) Cadastral Parcels,
+ * a keyless ArcGIS Online FeatureServer. Live-probed 2026-09-04 at Dublin and Cork.
+ * ⚠ LAYER 12, NOT 0 — `/FeatureServer/0/query` answers
+ * `{"error":{"code":400,…,"The requested layer (layerId: 0) was not found."}}`. Freehold is layer 12
+ * of `Cadastral_Parcels_Freehold`; LEASEHOLD is a SEPARATE SERVICE at layer 13.
+ * ⚠ IRISH COVERAGE IS TITLE-BASED, NOT AN EXHAUSTIVE TESSELLATION — unlike CZ/AT/ES, streets,
+ * commonage and unregistered land carry NO polygon, so `features: []` is the NORMAL and TRUE answer
+ * on a road (measured: O'Connell St and Cork city centre both return zero while parcels a few
+ * metres away are dense). That empty must stay an honest `empty` → footprint; it is not an outage.
+ * `outSR=4326` → standard GeoJSON `[lon,lat]` at full precision, so `parseGeoJsonCandidates` applies
+ * unchanged.
+ */
+const IE_OUT_FIELDS = 'OBJECTID,SP_ID,COUNTY_NAM,Shape__Area,Shape__Length';
+function ieUrl(lat, lon) {
+    const qs = new URLSearchParams({
+        geometry: `${lon},${lat}`,
+        geometryType: 'esriGeometryPoint',
+        inSR: '4326',
+        spatialRel: 'esriSpatialRelIntersects',
+        outFields: IE_OUT_FIELDS,
+        returnGeometry: 'true',
+        outSR: '4326',
+        f: 'geojson',
+    });
+    return 'https://services-eu1.arcgis.com/FH5XCsx8rYXqnjF5/ArcGIS/rest/services/' +
+        `Cadastral_Parcels_Freehold/FeatureServer/12/query?${qs.toString()}`;
+}
+
+/**
+ * AUSTRIA — BEV (Bundesamt für Eich- und Vermessungswesen) INSPIRE Cadastral Parcels.
+ * ⛔ THE WFS ROUTES ARE ALL DEAD — probed 2026-09-04, recorded so nobody re-walks them:
+ *   • `data.bev.gv.at/geoserver/BEVdataKAT/wfs` → `ServiceUnavailable: Service GeoServer Enterprise
+ *     WFS is disabled` (WFS is switched off org-wide on that GeoServer).
+ *   • `apps.bev.gv.at/bev.webservice/inspire` answers 200 but advertises only GetCapabilities /
+ *     GetWSDL / GetProducts — NO FeatureTypeList and NO GetFeature. It is an INSPIRE pre-defined
+ *     DATASET DOWNLOAD service (bulk), not a query service, and declares AccessConstraints
+ *     "restricted, copyright, licence".
+ *   • `kataster.bev.gv.at/ortho/ows` IS a real WFS 2.0 but carries only elevation + historic-map
+ *     types (`inspireEL_ALS_DSM/DTM`, `urmappe:*`) — no cadastral parcel type.
+ * So the ONE keyless channel is the WMS's `GetFeatureInfo` with `INFO_FORMAT=application/json`,
+ * which returns real GeoJSON rings. A ±50 m box is drawn around the click in Web-Mercator metres and
+ * the CENTRE PIXEL of a 101×101 image is queried, which is a point-intersect in all but name.
+ * ⛔ SRS MUST BE EPSG:3857, NEVER 4326. That GeoServer's `numDecimals` is 3: a 4326 answer is rounded
+ * to three decimal DEGREES (~110 m) and the ring degenerates into repeated identical points
+ * (measured at Stephansplatz: `[16.373,48.208],[16.373,48.208],[16.373,48.208]…`). In 3857 three
+ * decimals are millimetres, so the ring is exact and `webMercatorToWgs84` is loss-free at BIM scale.
+ * A degenerate ring is the worst failure mode available here — it LOOKS like a parcel and is not one.
+ */
+const AT_HALF_M = 50; // ±50 m around the click, in Web-Mercator metres
+function atUrl(lat, lon) {
+    const x = (lon * 20037508.34) / 180;
+    const y = (Math.log(Math.tan(((90 + lat) * Math.PI) / 360)) / (Math.PI / 180)) * (20037508.34 / 180);
+    const qs = new URLSearchParams({
+        SERVICE: 'WMS',
+        VERSION: '1.1.1',
+        REQUEST: 'GetFeatureInfo',
+        LAYERS: 'CP_CadastralParcel',
+        QUERY_LAYERS: 'CP_CadastralParcel',
+        SRS: 'EPSG:3857',
+        BBOX: `${x - AT_HALF_M},${y - AT_HALF_M},${x + AT_HALF_M},${y + AT_HALF_M}`,
+        WIDTH: '101',
+        HEIGHT: '101',
+        X: '50',
+        Y: '50',
+        INFO_FORMAT: 'application/json',
+        FEATURE_COUNT: '5',
+    });
+    return `https://data.bev.gv.at/geoserver/INSdataCP/wms?${qs.toString()}`;
 }
 
 // ── LANE PARCEL-REACH (2026-09-03) — URL builders for the five missing US legs ───────────────────
@@ -1051,6 +1183,85 @@ export const EU_CADASTRE_SOURCES = {
             const refcat = String(jsonProp(p, 'pin10', 'pin14', 'pin') ?? '').trim();
             const muni = jsonProp(p, 'municipality');
             return { refcat, areaM2: ringAreaM2(c.ring), address: muni ? String(muni) : null };
+        },
+    },
+    // ── LANE PARCEL-REACH (2026-09-04): CZ / IE / AT — three countries with NO ROW AT ALL ───────
+    // Measured before the fix (resolveParcelCandidates at real city points, 2026-09-04):
+    //   Praha  → `DE:footprint-fallback`  — a Czech click was labelled GERMANY and served an OSM
+    //                                        outline, because GERMANY_BBOX reaches 15.1°E.
+    //   Brno   → (no candidate at all)    — likewise Ostrava, and Wien.
+    //   Dublin → `GB-ENG:cadastral`       — an Irish click routed to HM Land Registry ENGLAND.
+    // None of those is a footprint honestly labelled; each is a WRONG COUNTRY asserted, which is the
+    // C58 §1.4 failure. CZE and AUT sit in the national boundary set as REFUSAL-ONLY neighbours, so
+    // `claimsNation('CZ'|'AT')` is false everywhere and a claimsNation row would never route — these
+    // rows therefore use bbox predicates, the FR/NL/CH/IT pattern. That is SAFE for the wired
+    // neighbours precisely because they ARE claimable: `resolveParcelCandidates` filters the pool to
+    // the claimed country, so a Polish/German/Slovak point drops these rows before they are tried.
+    cz: {
+        guard: (lat, lon) => lat >= 48.5 && lat <= 51.1 && lon >= 12.0 && lon <= 18.9,
+        url: czUrl,
+        format: 'gml',
+        axis: 'latlon', // posList is lat-first — measured `50.086623 14.420771` @ Praha
+        source: 'cz-cuzk-inspire-cp',
+        normalise: (c) => {
+            // ⛔ GML candidates carry `block` (raw XML), NEVER `props` — the IT row above documents
+            // this trap in full. Use gmlText/gmlAttr.
+            const b = c.block || '';
+            // 727024-542 @ Praha Staré Město, measured: cadastral-district code + parcel number.
+            const refcat = (gmlText(b, 'NATIONALCADASTRALREFERENCE') ?? '').trim();
+            // ⭐ ČÚZK SERVES AN OFFICIAL AREA (`<cp:areaValue uom="m2">775</cp:areaValue>`), so the
+            // registry figure is preferred over the shoelace estimate. The uom is ASSERTED, never
+            // assumed: anything but m² falls back to the ring, because a hectare read as a square
+            // metre is a 10 000× error wearing a number's confidence.
+            const uom = (gmlAttr(b, 'areaValue', 'uom') ?? '').toLowerCase();
+            const served = Number(gmlText(b, 'AREAVALUE'));
+            const areaM2 = uom === 'm2' && Number.isFinite(served) && served > 0 ? served : ringAreaM2(c.ring);
+            // ⛔ `administrativeUnit` and `zoning` are xlink ASSOCIATIONS — self-closing elements whose
+            // human name lives in the `xlink:title` ATTRIBUTE ("Praha", "Staré Město"). `gmlText`
+            // reads element TEXT and returns null for both; that is what `gmlAttr` exists for.
+            const obec = gmlAttr(b, 'administrativeUnit', 'title');
+            const ku = gmlAttr(b, 'zoning', 'title');
+            const address = ku && obec ? `${ku}, ${obec}` : (obec ?? ku ?? null);
+            return { refcat, areaM2, address };
+        },
+    },
+    ie: {
+        // Island of Ireland box; NORTHERN IRELAND falls inside it and is NOT served by Tailte
+        // Éireann (LPS Northern Ireland is a separate, non-keyless register), so a Belfast click is
+        // an honest `empty` → footprint. Measured coverage is title-based, so `empty` is frequent
+        // and TRUE on any street — never treat it as an outage.
+        guard: (lat, lon) => lat >= 51.35 && lat <= 55.45 && lon >= -10.6 && lon <= -5.3,
+        url: ieUrl,
+        format: 'geojson',
+        source: 'ie-tailte-eireann-freehold',
+        normalise: (c) => {
+            const p = c.props || {};
+            // SP_ID is the stable spatial-parcel id (2577972 @ Dublin, measured) and arrives NUMERIC,
+            // so it is coerced. ⛔ OBJECTID is the ArcGIS row id, NOT a cadastral identifier — citing
+            // it would attribute a surrogate key to Tailte Éireann, so it is never used as refcat.
+            const refcat = String(jsonProp(p, 'SP_ID') ?? '').trim();
+            // ⚠ `Shape__Area` is in the SERVICE's own units and is NOT asserted to be m² anywhere in
+            // the layer metadata, so the ring is used — the AU/CH/US discipline.
+            const county = jsonProp(p, 'COUNTY_NAM');
+            return { refcat, areaM2: ringAreaM2(c.ring), address: county ? String(county) : null };
+        },
+    },
+    at: {
+        guard: (lat, lon) => lat >= 46.3 && lat <= 49.1 && lon >= 9.5 && lon <= 17.2,
+        url: atUrl,
+        format: 'geojson',
+        // ⛔ The ONLY source needing a reprojection. See `webMercatorToWgs84` and `atUrl` for WHY the
+        // request must be EPSG:3857 (the 4326 answer is rounded to ~110 m and the ring degenerates).
+        reproject: 'epsg3857',
+        source: 'at-bev-inspire-cp',
+        normalise: (c) => {
+            const p = c.props || {};
+            // AT.0002.I.6.CP.01004954 @ Wien Stephansplatz, measured. ⚠ `inspireId` is the ONLY
+            // attribute this layer exposes — there is no separate Katastralgemeinde number and no
+            // Grundstücksnummer field, confirmed against INFO_FORMAT=text/html on the same layer. So
+            // there is no address to show and `address` is honestly null rather than invented.
+            const refcat = String(jsonProp(p, 'inspireId') ?? '').trim();
+            return { refcat, areaM2: ringAreaM2(c.ring), address: null };
         },
     },
     // ── LANE PARCEL-REACH (2026-09-03): IT / BG / BE-VLG / GB-ENG ───────────────────────────────
@@ -1727,9 +1938,18 @@ async function resolveEuParcelOutcomeInner(cc, lon, lat, deps = {}) {
                     : cfg.format === 'socrata'
                         ? parseSocrataCandidates(text)
                         : parseGmlCandidates(text, cfg.axis);
+    // A source whose ONLY queryable channel answers in a projected CRS (today: AT's WMS
+    // GetFeatureInfo, which must be asked in EPSG:3857 or the ring is rounded to ~110 m and
+    // collapses) is converted to WGS84 HERE — before point-in-polygon, so `pickCandidate` compares
+    // degrees against degrees. ⛔ Reprojecting AFTER selection would silently pick the wrong parcel:
+    // the click's lat/lon would be tested against metre coordinates and every containment test
+    // would fail, degrading every AT click to "nearest centroid" over an arbitrary ordering.
+    const projected = cfg.reproject === 'epsg3857'
+        ? candidates.map((c) => ({ ...c, ring: c.ring.map((pt) => webMercatorToWgs84(pt.lon, pt.lat)) }))
+        : candidates;
     // Per-source candidate pre-filter/ordering (AU-QLD id-less "Unlinked parcel" twins, AU-ACT
     // RETIRED lifecycle) — point-in-polygon may only choose among assertable parcels.
-    const selectable = typeof cfg.select === 'function' ? cfg.select(candidates) : candidates;
+    const selectable = typeof cfg.select === 'function' ? cfg.select(projected) : projected;
     const chosen = pickCandidate(selectable, lat, lon);
     if (!chosen) return { outcome: 'empty', parcel: null };
 

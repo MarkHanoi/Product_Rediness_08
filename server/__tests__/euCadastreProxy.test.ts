@@ -363,10 +363,10 @@ describe('fetchEuParcelAtPoint — guards + never-throws', () => {
         await expect(fetchEuParcelAtPoint('fr', NaN, NaN, { fetchImpl: fakeFetch(FR_GEOJSON) })).resolves.toBeNull();
     });
 
-    it('exposes exactly the wired cadastres (L-651 pt/us-sf/us-chi; PROXY-EE-LT-PL ee/lt/pl; LU-PARCEL lu; PROXY-LEGS au-*/tr/qa/lv/hr/gr/si/sk; PARCEL-REACH it/bg/be-vlg/gb + us-nyc/us-ma/us-fl/us-wa-king/us-tx-harris)', () => {
+    it('exposes exactly the wired cadastres (L-651 pt/us-sf/us-chi; PROXY-EE-LT-PL ee/lt/pl; LU-PARCEL lu; PROXY-LEGS au-*/tr/qa/lv/hr/gr/si/sk; PARCEL-REACH it/bg/be-vlg/gb + 5 us; PARCEL-REACH-2 cz/ie/at)', () => {
         expect(Object.keys(EU_CADASTRE_SOURCES).sort()).toEqual([
-            'au-act', 'au-nsw', 'au-qld', 'au-sa', 'au-tas', 'au-vic',
-            'be-vlg', 'bg', 'ch', 'de-nrw', 'ee', 'fr', 'gb', 'gr', 'hr', 'it',
+            'at', 'au-act', 'au-nsw', 'au-qld', 'au-sa', 'au-tas', 'au-vic',
+            'be-vlg', 'bg', 'ch', 'cz', 'de-nrw', 'ee', 'fr', 'gb', 'gr', 'hr', 'ie', 'it',
             'lt', 'lu', 'lv', 'nl', 'no', 'pl', 'pt', 'qa', 'si', 'sk', 'tr',
             'us-chi', 'us-fl', 'us-ma', 'us-nyc', 'us-sf', 'us-tx-harris', 'us-wa-king',
         ]);
@@ -734,5 +734,141 @@ describe('LANE PROXY-LEGS — Qatar / Latvia / Croatia / Greece / Slovenia / Slo
             expect(await fetchEuParcelAtPoint(cc, lon, lat, { fetchImpl: spy })).toBeNull();
             expect(called, `${cc} must not call upstream for an out-of-area point`).toBe(false);
         }
+    });
+});
+
+// ── LANE PARCEL-REACH (2026-09-04) — CZ / IE / AT ───────────────────────────────────────────────
+// Fixtures are TRIMMED CAPTURES of real 2026-09-04 responses (rings shortened to a small square;
+// every attribute is verbatim). Each test pins the ONE thing that, if it silently regressed, would
+// hand the user a plausible-looking wrong answer rather than an error.
+
+// CZECHIA — ČÚZK INSPIRE. posList is LAT-FIRST; the municipality/cadastral-district names live in
+// `xlink:title` ATTRIBUTES on self-closing elements, and `areaValue` carries an official m² figure.
+const CZ_GML = `<?xml version="1.0" encoding="utf-8"?>
+<FeatureCollection xmlns="http://www.opengis.net/wfs/2.0" xmlns:wfs="http://www.opengis.net/wfs/2.0" xmlns:gml="http://www.opengis.net/gml/3.2" xmlns:cp="http://inspire.ec.europa.eu/schemas/cp/4.0" xmlns:base="http://inspire.ec.europa.eu/schemas/base/3.3" xmlns:xlink="http://www.w3.org/1999/xlink">
+ <member><cp:CadastralParcel gml:id="CP.2099310101">
+  <cp:areaValue uom="m2">775</cp:areaValue>
+  <cp:geometry><gml:Polygon srsName="urn:ogc:def:crs:EPSG::4326"><gml:exterior><gml:LinearRing>
+   <gml:posList>50.0873 14.4211 50.0873 14.4215 50.0877 14.4215 50.0877 14.4211 50.0873 14.4211</gml:posList>
+  </gml:LinearRing></gml:exterior></gml:Polygon></cp:geometry>
+  <cp:inspireId><base:Identifier><base:localId>CP.2099310101</base:localId></base:Identifier></cp:inspireId>
+  <cp:label>542</cp:label>
+  <cp:nationalCadastralReference>727024-542</cp:nationalCadastralReference>
+  <cp:administrativeUnit xlink:type="simple" xlink:href="http://services.cuzk.cz/x" xlink:title="Praha" />
+  <cp:zoning xlink:type="simple" xlink:href="http://services.cuzk.cz/y" xlink:title="Staré Město" />
+ </cp:CadastralParcel></member>
+</FeatureCollection>`;
+
+// IRELAND — Tailte Éireann freehold, GeoJSON [lon,lat].
+const IE_GEOJSON = JSON.stringify({
+    type: 'FeatureCollection',
+    crs: { type: 'name', properties: { name: 'EPSG:4326' } },
+    features: [{
+        type: 'Feature',
+        id: 1128417,
+        geometry: { type: 'Polygon', coordinates: [[[-6.2613, 53.3501], [-6.2608, 53.3501], [-6.2608, 53.3505], [-6.2613, 53.3505], [-6.2613, 53.3501]]] },
+        properties: { OBJECTID: 1128417, SP_ID: 2577972, COUNTY_NAM: 'Dublin', Shape__Area: 221.607, Shape__Length: 73.75 },
+    }],
+});
+
+// AUSTRIA — BEV WMS GetFeatureInfo. ⚠ COORDINATES ARE EPSG:3857 METRES, not degrees. This fixture
+// is the real Stephansplatz block; the numbers are what the live service returned.
+const AT_GEOJSON_3857 = JSON.stringify({
+    type: 'FeatureCollection',
+    features: [{
+        type: 'Feature',
+        id: 'CP_CadastralParcel.6856',
+        geometry: {
+            type: 'MultiPolygon',
+            coordinates: [[[[1822669.72, 6141236.763], [1822694.028, 6141278.804], [1822696.288, 6141246.636], [1822685.993, 6141231.955], [1822669.72, 6141236.763]]]],
+        },
+        properties: { inspireId: 'AT.0002.I.6.CP.01004954' },
+    }],
+    numberReturned: 1,
+});
+
+describe('LANE PARCEL-REACH — CZ / IE / AT', () => {
+    beforeEach(() => __resetEuCadastreCache());
+
+    it('CZ: lat-first posList, official m² areaValue, and the xlink:title names', async () => {
+        const p = await fetchEuParcelAtPoint('cz', 14.4213, 50.0875, { fetchImpl: fakeFetch(CZ_GML) });
+        expect(p).not.toBeNull();
+        expect(p!.refcat).toBe('727024-542');
+        // ⭐ 775 is the REGISTRY figure from `<cp:areaValue uom="m2">`, NOT the shoelace of this
+        // trimmed fixture ring (which is ~1200 m²). If this ever reads the ring value, the official
+        // area has stopped being preferred and every Czech parcel silently reports an estimate.
+        expect(p!.areaM2).toBe(775);
+        // ⛔ These names are in `xlink:title` ATTRIBUTES on SELF-CLOSING elements. `gmlText` reads
+        // element TEXT and returns null for both — if this assertion ever goes null, someone
+        // "simplified" gmlAttr away and the address silently disappeared.
+        expect(p!.address).toBe('Staré Město, Praha');
+        // Lat-first: a lon-first read would put this parcel at lat 14 / lon 50 — in Turkmenistan.
+        expect(p!.ring.every((v: { lat: number; lon: number }) => v.lat > 50 && v.lat < 51 && v.lon > 14 && v.lon < 15)).toBe(true);
+    });
+
+    it('CZ: falls back to the ring when the served area is not in m²', async () => {
+        // A hectare read as a square metre is a 10 000× error wearing a number's confidence.
+        const ha = CZ_GML.replace('uom="m2">775', 'uom="ha">0.0775');
+        const p = await fetchEuParcelAtPoint('cz', 14.4213, 50.0875, { fetchImpl: fakeFetch(ha) });
+        expect(p!.areaM2).not.toBe(0.0775);
+        expect(p!.areaM2).toBeGreaterThan(100);
+    });
+
+    it('IE: cites SP_ID, never the ArcGIS OBJECTID surrogate', async () => {
+        const p = await fetchEuParcelAtPoint('ie', -6.261, 53.3503, { fetchImpl: fakeFetch(IE_GEOJSON) });
+        expect(p!.refcat).toBe('2577972');
+        // ⛔ OBJECTID is an ArcGIS row id, not a cadastral identifier — citing it would attribute a
+        // made-up reference to Tailte Éireann.
+        expect(p!.refcat).not.toBe('1128417');
+        expect(p!.address).toBe('Dublin');
+    });
+
+    it('IE: an empty answer on a street is `empty`, never `unreachable`', async () => {
+        // Irish coverage is TITLE-BASED, not an exhaustive tessellation — roads genuinely have no
+        // polygon (measured: O'Connell St and Cork city centre both return zero). That must read as
+        // an authoritative absence so the client shows an honest footprint, not an outage.
+        const r = await resolveEuParcelOutcome('ie', -6.2603, 53.3498, {
+            fetchImpl: fakeFetch('{"type":"FeatureCollection","features":[]}'),
+        });
+        expect(r.outcome).toBe('empty');
+    });
+
+    it('AT: reprojects EPSG:3857 metres to WGS84 degrees at Stephansplatz', async () => {
+        const p = await fetchEuParcelAtPoint('at', 16.3731, 48.2084, { fetchImpl: fakeFetch(AT_GEOJSON_3857) });
+        expect(p).not.toBeNull();
+        expect(p!.refcat).toBe('AT.0002.I.6.CP.01004954');
+        // The whole point of the leg: raw 3857 metres (1_822_669, 6_141_236) must NOT survive into
+        // the ring. An un-reprojected ring is off the planet, and `pickCandidate` would then compare
+        // degrees against metres and silently degrade every Austrian click to nearest-centroid.
+        for (const v of p!.ring as Array<{ lat: number; lon: number }>) {
+            expect(Math.abs(v.lat)).toBeLessThanOrEqual(90);
+            expect(Math.abs(v.lon)).toBeLessThanOrEqual(180);
+        }
+        const lats = (p!.ring as Array<{ lat: number }>).map((v) => v.lat);
+        const lons = (p!.ring as Array<{ lon: number }>).map((v) => v.lon);
+        expect(Math.min(...lats)).toBeGreaterThan(48.2);
+        expect(Math.max(...lats)).toBeLessThan(48.21);
+        expect(Math.min(...lons)).toBeGreaterThan(16.37);
+        expect(Math.max(...lons)).toBeLessThan(16.38);
+        // Area must be computed from the REPROJECTED ring: the shoelace of raw metre coordinates
+        // would come out ~10^10 m². Stephansplatz's block is on the order of 1e3 m².
+        expect(p!.areaM2).toBeGreaterThan(100);
+        expect(p!.areaM2).toBeLessThan(100_000);
+    });
+
+    it('AT: the three dead BEV routes stay out of the URL builder', () => {
+        // ⛔ Recorded so nobody "restores" a WFS route that is switched off. All measured 2026-09-04:
+        // BEVdataKAT/wfs → "Service GeoServer Enterprise WFS is disabled"; apps.bev.gv.at advertises
+        // no GetFeature at all (bulk download service); kataster.bev.gv.at/ortho carries only
+        // elevation + historic-map types. GetFeatureInfo on the WMS is the only keyless channel.
+        const url = EU_CADASTRE_SOURCES['at'].url(48.2084, 16.3731);
+        expect(url).toContain('data.bev.gv.at/geoserver/INSdataCP/wms');
+        expect(url).toContain('REQUEST=GetFeatureInfo');
+        // ⛔ EPSG:3857 IS LOAD-BEARING. That GeoServer's numDecimals is 3, so a 4326 answer is
+        // rounded to ~110 m and the ring degenerates into repeated identical points — a boundary
+        // that LOOKS like a parcel and is not one.
+        expect(url).toContain('SRS=EPSG%3A3857');
+        expect(url).not.toContain('BEVdataKAT');
+        expect(url).not.toContain('apps.bev.gv.at');
     });
 });
