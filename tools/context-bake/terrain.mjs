@@ -2027,6 +2027,370 @@ export const SAMPLE_PROBES = {
 };
 
 // ═════════════════════════════════════════════════════════════════════════════
+// §11 — TERRAIN-EVERYWHERE: WHOLE-REGION (NATIONAL) TERRAIN  (2026-09-04, lane TERRAIN-EVERYWHERE)
+//
+// THE GAP THIS CLOSES: context buildings are NATIONAL (bake.mjs — 49 regions, one bbox per country,
+// live on R2) while terrain was CITY-SCOPED (§1b REGIONS — 592 rows, 563 of them Spanish municipalities).
+// A site anywhere outside a city bbox rendered FLAT. The founder's ask: "terrain in every country in
+// Europe + USA + Australia + Middle East — as we have in Spain."
+//
+// THE MEASUREMENT THAT DECIDED THE SHAPE (2026-09-04, this machine):
+//   • A Spanish city today = z0..z10, 257-grid, 14 tiles, 826 KB, 4 s (barcelona, ES WCS). Its FINEST
+//     level is z10 (tmsMaxZoomForBbox of a ~0.14° box), i.e. 257 posts over a 0.176° tile ≈ 58×76 m
+//     posts at 41°N. So the "city-scale detail" is ALREADY the resolution of a national z10 pyramid —
+//     a national bake at z10 gives every site in the country exactly what a Spanish city has now.
+//   • The national DTM adapters (§8b) cannot deliver "everywhere": 8 wired (ES FR DE NO IT GB CH DK),
+//     3 apikey-gated, and NOTHING for AT CZ PL IE LT LV HR SI GR HU RO SK BG PT BE EE LU, the US 3DEP
+//     route (TERRAIN_SOURCES.us has no DTM_FETCH adapter), Australia or the Gulf. They also cap each
+//     request at 3–30 km, so Spain alone would be ~3,700 WCS calls. Mapterhorn (§8d, E3a ADOPT) is the
+//     ONE wired source that covers all 49 regions (national lidar where ingested, GLO-30 fill), serves a
+//     full z0..z12+ pyramid (LIVE-PROBED 2026-09-04: ES/AU/US/UAE at z0,z1,z2,z3,z4,z6,z8,z10,z11,z12 →
+//     HTTP 200, 512×512 lossless WebP, cache-control 7 d), and its z-tile at zoom z is 512 px over a
+//     mercator tile TWICE the lon-width of our geographic z tile — 256 px across our 257-post grid, a
+//     1:1 sampling match, so terrarium zoom = output zoom and each output tile costs ~1 source tile.
+//   • So the choice was forced by COVERAGE, not preference: national = Mapterhorn-sourced, STREAMED per
+//     output tile (memory bounded by one tile, never a country-sized raster), same encoder, same
+//     §10.1/§10.2 header invariants, same octvertexnormals, verified by the same independent decoder.
+//
+// THE DATUM RULE AT NATIONAL SCALE (L-584 / C12 §1.4): a per-country geoid CONSTANT is honest over one
+// 256 m city tile (cm) but DISHONEST over a country — EGM2008 N varies 18→45 m across Norway, 45→55 m
+// across Spain. National tiles therefore lift every post by N(lon,lat) read from the NGA EGM2008 2.5′
+// grid, served as a tiled COG on the PROJ CDN (https://cdn.proj.org/us_nga_egm08_25.tif — 8640×4321,
+// 256×256 tiles, Accept-Ranges; PROBED 2026-09-04: Madrid window read = 51.666 m vs GeoidEval EGM2008
+// 51.6669 m). One window per region bbox (+1° pad) is read by HTTP range request (Norway ≈ 0.8 MB).
+// The per-region `geoidSepM` constant below is PROBE-COMPUTED (GeoidEval EGM2008, 2026-09-04, at the
+// principal city) and is used ONLY under an explicit `--geoid constant` — never a silent fallback.
+//
+// WHAT STAYS UNCHANGED: every §1b city tileset (national-lidar adapters, 0.5 m base error) is untouched
+// and takes PRECEDENCE in the client (terrainCoverage.ts resolves city first, then region). Mapterhorn
+// remains VISUAL-ONLY (never the L-584 legal sampling source, never a runtime tile source — L-513).
+// The legal-DTM `blocked` rows in REGIONS stay blocked: lisbon/porto/berlin/munich/brussels/riyadh/jeddah
+// gain a VISUAL drape from their region tileset, and the legal status is unchanged.
+// ═════════════════════════════════════════════════════════════════════════════
+export const EGM08_COG_URL = 'https://cdn.proj.org/us_nga_egm08_25.tif';
+
+/**
+ * Whole-region terrain rows — the context-bake regions of bake.mjs that are NOT already a §1b terrain
+ * city (paris/lyon/koln are cities there and live here). Slug == bake.mjs REGIONS name == the R2 path
+ * `terrain/<slug>/` == terrainCoverage.ts TERRAIN_REGION_BBOXES. Bboxes are bake.mjs's 1:1.
+ * `geoidSepM` = EGM2008 N at the principal city (GeoidEval, PROBED 2026-09-04) — documentation + the
+ * explicit `--geoid constant` fallback only; the default bake reads N(lon,lat) per post (EGM08_COG_URL).
+ */
+export const NATIONAL_REGIONS = [
+  // ── Europe (28 whole-country rows; paris/lyon/koln are §1b cities) ──
+  { name: 'spain',        group: 'europe', bbox: [-9.55, 35.90, 4.60, 43.90],   geoidSepM: 51.67, probeCity: 'Madrid' },
+  { name: 'denmark',      group: 'europe', bbox: [7.70, 54.40, 15.30, 57.90],   geoidSepM: 36.26, probeCity: 'Copenhagen' },
+  { name: 'netherlands',  group: 'europe', bbox: [3.30, 50.75, 7.30, 53.70],    geoidSepM: 43.19, probeCity: 'Amsterdam' },
+  { name: 'estonia',      group: 'europe', bbox: [21.60, 57.50, 28.30, 59.80],  geoidSepM: 18.19, probeCity: 'Tallinn' },
+  { name: 'lithuania',    group: 'europe', bbox: [20.85, 53.85, 26.90, 56.50],  geoidSepM: 25.17, probeCity: 'Vilnius' },
+  { name: 'latvia',       group: 'europe', bbox: [20.90, 55.60, 28.30, 58.10],  geoidSepM: 21.09, probeCity: 'Riga' },
+  { name: 'poland',       group: 'europe', bbox: [14.05, 48.95, 24.20, 55.00],  geoidSepM: 31.22, probeCity: 'Warsaw' },
+  { name: 'luxembourg',   group: 'europe', bbox: [5.70, 49.40, 6.60, 50.20],    geoidSepM: 48.01, probeCity: 'Luxembourg City' },
+  { name: 'sweden',       group: 'europe', bbox: [10.90, 55.20, 24.20, 69.10],  geoidSepM: 23.22, probeCity: 'Stockholm' },
+  { name: 'finland',      group: 'europe', bbox: [19.00, 59.70, 31.60, 70.10],  geoidSepM: 17.80, probeCity: 'Helsinki' },
+  { name: 'norway',       group: 'europe', bbox: [4.50, 57.90, 31.20, 71.20],   geoidSepM: 39.35, probeCity: 'Oslo' },
+  { name: 'germany',      group: 'europe', bbox: [5.85, 47.25, 15.05, 55.10],   geoidSepM: 39.48, probeCity: 'Berlin' },
+  { name: 'france',       group: 'europe', bbox: [-5.15, 41.30, 9.60, 51.10],   geoidSepM: 44.61, probeCity: 'Paris' },
+  { name: 'italy',        group: 'europe', bbox: [6.60, 35.40, 18.60, 47.10],   geoidSepM: 48.41, probeCity: 'Rome' },
+  { name: 'greatbritain', group: 'europe', bbox: [-8.20, 49.90, 1.80, 60.90],   geoidSepM: 46.09, probeCity: 'London' },
+  { name: 'ireland',      group: 'europe', bbox: [-10.70, 51.30, -5.30, 55.50], geoidSepM: 56.40, probeCity: 'Dublin' },
+  { name: 'switzerland',  group: 'europe', bbox: [5.90, 45.80, 10.50, 47.85],   geoidSepM: 49.37, probeCity: 'Bern' },
+  { name: 'austria',      group: 'europe', bbox: [9.50, 46.30, 17.20, 49.05],   geoidSepM: 44.73, probeCity: 'Vienna' },
+  { name: 'czechia',      group: 'europe', bbox: [12.05, 48.50, 18.90, 51.10],  geoidSepM: 44.92, probeCity: 'Prague' },
+  { name: 'portugal',     group: 'europe', bbox: [-9.60, 36.90, -6.10, 42.20],  geoidSepM: 53.77, probeCity: 'Lisbon' },
+  { name: 'belgium',      group: 'europe', bbox: [2.50, 49.50, 6.40, 51.60],    geoidSepM: 45.40, probeCity: 'Brussels' },
+  { name: 'croatia',      group: 'europe', bbox: [13.40, 42.30, 19.50, 46.60],  geoidSepM: 46.06, probeCity: 'Zagreb' },
+  { name: 'slovenia',     group: 'europe', bbox: [13.30, 45.40, 16.60, 46.90],  geoidSepM: 46.90, probeCity: 'Ljubljana' },
+  { name: 'greece',       group: 'europe', bbox: [19.30, 34.70, 29.70, 41.80],  geoidSepM: 38.65, probeCity: 'Athens' },
+  { name: 'hungary',      group: 'europe', bbox: [16.10, 45.70, 22.95, 48.60],  geoidSepM: 43.66, probeCity: 'Budapest' },
+  { name: 'romania',      group: 'europe', bbox: [20.20, 43.60, 29.80, 48.30],  geoidSepM: 35.82, probeCity: 'Bucharest' },
+  { name: 'slovakia',     group: 'europe', bbox: [16.80, 47.70, 22.60, 49.65],  geoidSepM: 43.88, probeCity: 'Bratislava' },
+  { name: 'bulgaria',     group: 'europe', bbox: [22.30, 41.20, 28.70, 44.25],  geoidSepM: 44.60, probeCity: 'Sofia' },
+  // ── USA (6 metro rows — context is city-scoped here too; CONUS N is NEGATIVE) ──
+  { name: 'newyork',      group: 'usa', bbox: [-74.03, 40.70, -73.91, 40.82],    geoidSepM: -32.72, probeCity: 'New York' },
+  { name: 'sanfrancisco', group: 'usa', bbox: [-122.52, 37.70, -122.36, 37.83],  geoidSepM: -32.16, probeCity: 'San Francisco' },
+  { name: 'chicago',      group: 'usa', bbox: [-87.94, 41.64, -87.52, 42.05],    geoidSepM: -33.93, probeCity: 'Chicago' },
+  { name: 'austin',       group: 'usa', bbox: [-97.95, 30.10, -97.56, 30.52],    geoidSepM: -26.90, probeCity: 'Austin' },
+  { name: 'houston',      group: 'usa', bbox: [-95.80, 29.52, -95.06, 30.14],    geoidSepM: -28.41, probeCity: 'Houston' },
+  { name: 'boston',       group: 'usa', bbox: [-71.20, 42.22, -70.98, 42.40],    geoidSepM: -28.58, probeCity: 'Boston' },
+  // ── Australia (8 state/territory rows — huge sparse bboxes; N swings −33 → +51 across them) ──
+  { name: 'newsouthwales',    group: 'australia', bbox: [141.00, -37.60, 153.70, -28.10], geoidSepM: 22.36, probeCity: 'Sydney' },
+  { name: 'victoria',         group: 'australia', bbox: [140.90, -39.20, 150.05, -33.90], geoidSepM: 4.63,  probeCity: 'Melbourne' },
+  { name: 'queensland',       group: 'australia', bbox: [138.00, -29.20, 153.60, -9.00],  geoidSepM: 41.36, probeCity: 'Brisbane' },
+  { name: 'westernaustralia', group: 'australia', bbox: [112.90, -35.20, 129.00, -13.50], geoidSepM: -32.90, probeCity: 'Perth' },
+  { name: 'southaustralia',   group: 'australia', bbox: [129.00, -38.10, 141.05, -25.90], geoidSepM: -0.34, probeCity: 'Adelaide' },
+  { name: 'tasmania',         group: 'australia', bbox: [143.80, -43.75, 148.55, -39.40], geoidSepM: -3.81, probeCity: 'Hobart' },
+  { name: 'act',              group: 'australia', bbox: [148.70, -35.95, 149.40, -35.10], geoidSepM: 19.23, probeCity: 'Canberra' },
+  { name: 'northernterritory', group: 'australia', bbox: [128.90, -26.10, 138.10, -10.90], geoidSepM: 51.06, probeCity: 'Darwin' },
+  // ── Middle East (4 metro rows; SA/AE national DTMs are gov-gated — Mapterhorn = GLO-30 here) ──
+  { name: 'riyadh',       group: 'middleeast', bbox: [46.60, 24.58, 46.83, 24.80], geoidSepM: -7.35, probeCity: 'Riyadh' },
+  { name: 'jeddah',       group: 'middleeast', bbox: [39.10, 21.45, 39.28, 21.62], geoidSepM: 4.73,  probeCity: 'Jeddah' },
+  { name: 'dubai',        group: 'middleeast', bbox: [54.95, 24.85, 55.45, 25.35], geoidSepM: -34.13, probeCity: 'Dubai' },
+  { name: 'abudhabi',     group: 'middleeast', bbox: [54.28, 24.33, 54.75, 24.62], geoidSepM: -33.20, probeCity: 'Abu Dhabi' },
+];
+export const NATIONAL_GROUPS = ['europe', 'usa', 'australia', 'middleeast'];
+
+/** Bake defaults for a whole region. maxZoom 10 = the finest level a Spanish city has today (see §11
+ *  header); baseErrM is the MARTINI vertical error at the finest level (coarser levels double per step,
+ *  exactly like emitTileChain). Measured 2026-09-04 (see the lane report / --national-regions). */
+export const NATIONAL_BAKE_DEFAULTS = { maxZoom: 10, baseErrM: 1.0, gridSize: 257, concurrency: 4 };
+
+/** The slug set the CLIENT (terrainCoverage.ts) must list: every bakeable §1b city whose source can
+ *  actually produce a tileset (a fetch adapter or an apikey source — `ee`/`lu` have neither, so tallinn/
+ *  luxembourgcity are served by their REGION), plus every whole-region row. Checked by --check-client-coverage. */
+export const CLIENT_TERRAIN_SLUGS = () => {
+  const cities = BAKEABLE_REGIONS.filter((r) => r.source === 'nl' || DTM_FETCH[r.source] || APIKEY_SOURCES[r.source]).map((r) => r.name);
+  return { cities, regions: NATIONAL_REGIONS.map((r) => r.name) };
+};
+
+const MERC_ORIGIN = 20037508.342789244;      // spherical-mercator half-world (m) — same constant as §8d
+const MERC_MAX_LAT = 85.05112877980659;      // the square-domain latitude limit (reproject.mjs clamps here too)
+const TERRARIUM_TILE_PX = 512;
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+
+/**
+ * Read the EGM2008 geoid-undulation window covering `bboxWsen` (+pad) from the PROJ-CDN COG via HTTP range
+ * requests → { sample(lon,lat) → N metres (bilinear, edge-clamped), width, height, resDeg, stats }.
+ * N is what lifts a terrarium/GLO-30 orthometric height to the WGS-84 ellipsoidal height Cesium places.
+ */
+export async function loadGeoidGrid(bboxWsen, { geotiffMod, url = EGM08_COG_URL, padDeg = 1.0 } = {}) {
+  const t0 = Date.now();
+  const tiff = await geotiffMod.fromUrl(url, { allowFullFile: false });
+  const im = await tiff.getImage(0);
+  const bb = im.getBoundingBox();               // [west, south, east, north] in degrees (−180..180)
+  const [rx, ryRaw] = im.getResolution(); const ry = Math.abs(ryRaw);
+  const W = im.getWidth(), H = im.getHeight();
+  const [w, s, e, n] = bboxWsen;
+  const cx = (v) => Math.max(0, Math.min(W, v)), cy = (v) => Math.max(0, Math.min(H, v));
+  const px0 = cx(Math.floor((w - padDeg - bb[0]) / rx)), px1 = cx(Math.ceil((e + padDeg - bb[0]) / rx) + 1);
+  const py0 = cy(Math.floor((bb[3] - (n + padDeg)) / ry)), py1 = cy(Math.ceil((bb[3] - (s - padDeg)) / ry) + 1);
+  const width = px1 - px0, height = py1 - py0;
+  if (width < 2 || height < 2) throw new Error(`loadGeoidGrid: degenerate window ${width}x${height} for bbox ${bboxWsen}`);
+  const rasters = await im.readRasters({ window: [px0, py0, px1, py1] });
+  const values = Float32Array.from(rasters[0]);
+  const west = bb[0] + px0 * rx, north = bb[3] - py0 * ry;
+  let mn = Infinity, mx = -Infinity; for (const v of values) { if (v < mn) mn = v; if (v > mx) mx = v; }
+  // pixel-centre convention: value (i,j) sits at west + (i+0.5)·rx, north − (j+0.5)·ry
+  const sample = (lon, lat) => sampleGrid(values, width, height, (lon - west) / rx - 0.5, (north - lat) / ry - 0.5);
+  return { sample, width, height, resDeg: rx, west, north, minN: mn, maxN: mx, bytes: values.byteLength, ms: Date.now() - t0, url };
+}
+
+/**
+ * LRU cache of DECODED terrarium tiles (Float32 orthometric metres, 512×512) with in-flight de-dup and
+ * bounded retry. A 404 at a served zoom is thrown honestly (never a fabricated tile); 5xx/network errors
+ * retry with backoff. `stats()` reports what a bake actually pulled from the sponsored CDN.
+ */
+export function createTerrariumCache({ endpoint, tileSize = TERRARIUM_TILE_PX, maxEntries = 128, sharp, retries = 3 }) {
+  const map = new Map(); const pending = new Map();
+  let fetched = 0, bytes = 0, hits = 0, retried = 0;
+  async function fetchDecode(z, x, y) {
+    const url = `${endpoint}/${z}/${x}/${y}.webp`;
+    let lastErr;
+    for (let attempt = 0; attempt <= retries; attempt++) {
+      try {
+        const { ab } = await fetchBuffer(url, { accept: 'image/webp' });
+        const { data, info } = await sharp(Buffer.from(ab)).raw().toBuffer({ resolveWithObject: true });
+        if (info.width !== tileSize || info.height !== tileSize) throw new Error(`terrarium ${url} decoded ${info.width}x${info.height}, expected ${tileSize}²`);
+        const ch = info.channels; const vals = new Float32Array(tileSize * tileSize);
+        for (let i = 0, o = 0; i < vals.length; i++, o += ch) vals[i] = data[o] * 256 + data[o + 1] + data[o + 2] / 256 - 32768;
+        fetched++; bytes += ab.byteLength;
+        return vals;
+      } catch (e) {
+        lastErr = e;
+        if (/HTTP 404/.test(String(e.message))) break;   // honest: the pyramid does not serve it
+        if (attempt < retries) { retried++; await sleep(400 * 2 ** attempt); }
+      }
+    }
+    throw lastErr;
+  }
+  async function get(z, x, y) {
+    const key = `${z}/${x}/${y}`;
+    const have = map.get(key);
+    if (have) { hits++; map.delete(key); map.set(key, have); return have; }
+    if (pending.has(key)) return pending.get(key);
+    const p = fetchDecode(z, x, y);
+    pending.set(key, p);
+    try {
+      const v = await p;
+      map.set(key, v);
+      while (map.size > maxEntries) map.delete(map.keys().next().value);
+      return v;
+    } finally { pending.delete(key); }
+  }
+  return { get, stats: () => ({ fetched, bytes, hits, retried, cached: map.size }) };
+}
+
+/**
+ * Sample a gridSize×gridSize WGS-84 grid (row-major, gy=0 = north — the encoder's convention) over the
+ * geographic tile `rectDeg` from terrarium tiles at zoom `z`, restricted to `coverWsen` (the region bbox):
+ * posts outside the region, or beyond the mercator domain, are SEA LEVEL 0 — §COARSE-TILE-SEALEVEL
+ * (L-639), identical to the city path's out-of-DTM fill. Bilinear, pixel-centre aligned; terrarium tiles
+ * are looked up per neighbour so the sample is seamless across source-tile edges (no mosaic in memory).
+ */
+export async function terrariumGridForRect(rectDeg, gridSize, z, cache, coverWsen, proj) {
+  const [w, s, e, n] = rectDeg; const [cw, cs, ce, cn] = coverWsen;
+  const nT = 2 ** z, res = (2 * MERC_ORIGIN) / (nT * TERRARIUM_TILE_PX), gMax = nT * TERRARIUM_TILE_PX - 1;
+  const gpx = new Float64Array(gridSize), gpy = new Float64Array(gridSize);
+  const inLon = new Uint8Array(gridSize), inLat = new Uint8Array(gridSize);
+  let anyLon = false, anyLat = false;
+  for (let i = 0; i < gridSize; i++) {
+    const lon = w + (e - w) * (i / (gridSize - 1)), lat = n - (n - s) * (i / (gridSize - 1));
+    inLon[i] = lon >= cw && lon <= ce ? 1 : 0; anyLon ||= inLon[i] === 1;
+    inLat[i] = lat >= cs && lat <= cn && Math.abs(lat) <= MERC_MAX_LAT ? 1 : 0; anyLat ||= inLat[i] === 1;
+    const [X] = proj.forward(lon, 0); const [, Y] = proj.forward(0, lat);
+    gpx[i] = Math.max(0, Math.min(gMax, (X + MERC_ORIGIN) / res - 0.5));
+    gpy[i] = Math.max(0, Math.min(gMax, (MERC_ORIGIN - Y) / res - 0.5));
+  }
+  const out = new Float32Array(gridSize * gridSize);   // sea-level 0 by default (outside the region)
+  if (!anyLon || !anyLat) return { grid: out, sourceTiles: 0 };
+  // The source tiles this grid touches (bilinear footprint), prefetched together.
+  let pxMin = Infinity, pxMax = -Infinity, pyMin = Infinity, pyMax = -Infinity;
+  for (let i = 0; i < gridSize; i++) {
+    if (inLon[i]) { pxMin = Math.min(pxMin, Math.floor(gpx[i])); pxMax = Math.max(pxMax, Math.min(gMax, Math.floor(gpx[i]) + 1)); }
+    if (inLat[i]) { pyMin = Math.min(pyMin, Math.floor(gpy[i])); pyMax = Math.max(pyMax, Math.min(gMax, Math.floor(gpy[i]) + 1)); }
+  }
+  const txMin = pxMin >> 9, txMax = pxMax >> 9, tyMin = pyMin >> 9, tyMax = pyMax >> 9;
+  const tiles = new Map(); const keys = [];
+  for (let ty = tyMin; ty <= tyMax; ty++) for (let tx = txMin; tx <= txMax; tx++) keys.push([tx, ty]);
+  await Promise.all(keys.map(async ([tx, ty]) => tiles.set(`${tx}/${ty}`, await cache.get(z, tx, ty))));
+  const val = (px, py) => {
+    const t = tiles.get(`${px >> 9}/${py >> 9}`);
+    if (!t) throw new Error(`terrarium sample outside prefetched block (px=${px},py=${py},z=${z})`);
+    return t[(py & 511) * TERRARIUM_TILE_PX + (px & 511)];
+  };
+  for (let gy = 0; gy < gridSize; gy++) {
+    if (!inLat[gy]) continue;
+    const fy = gpy[gy], y0 = Math.floor(fy), y1 = Math.min(gMax, y0 + 1), ty = fy - y0;
+    for (let gx = 0; gx < gridSize; gx++) {
+      if (!inLon[gx]) continue;
+      const fx = gpx[gx], x0 = Math.floor(fx), x1 = Math.min(gMax, x0 + 1), tx = fx - x0;
+      const a = val(x0, y0), b = val(x1, y0), c = val(x0, y1), d = val(x1, y1);
+      out[gy * gridSize + gx] = (a * (1 - tx) + b * tx) * (1 - ty) + (c * (1 - tx) + d * tx) * ty;
+    }
+  }
+  return { grid: out, sourceTiles: keys.length };
+}
+
+/** MARTINI at `errM`, relaxing the error ×1.5 until the quantized-mesh uint16 vertex budget (65,536)
+ *  fits — a 257² alpine tile at a tight error can keep every post (66,049 > 65,536). Reported, not hidden. */
+function meshTileBounded(martini, grid, errM) {
+  let err = errM; const tile = martini.createTile(grid); let mesh = tile.getMesh(err);
+  while (mesh.vertices.length / 2 > 65536) { err *= 1.5; mesh = tile.getMesh(err); }
+  return { mesh: { vertices: mesh.vertices, triangles: mesh.triangles }, errM: err, relaxed: err !== errM };
+}
+
+/**
+ * The ASYNC sibling of emitTileChain for whole regions: same pyramid (every TMS tile intersecting the
+ * bbox at z0..maxZoom, each encoded over its OWN rectangle, error doubling per coarser level), same
+ * layer.json, but `gridForRect(rectDeg, z)` is awaited (it streams source tiles) and tiles are encoded by
+ * a bounded worker pool so fetch latency overlaps compute. Optional sharding for a huge region: shard 0
+ * writes layer.json + every coarse level; the FINEST level is split across shards by tile column, so N
+ * CI jobs each upload a disjoint slice under the same `terrain/<slug>/`. emitTileChain (the city path) is
+ * deliberately untouched — §L-1056 keeps default city bakes checksum-equal.
+ */
+export async function emitTileChainAsync({ regionWsen, gridForRect, gridSize, outDir, Martini, baseErrM, maxZoom, shard = null, concurrency = 4, log = console.log }) {
+  mkdirSync(outDir, { recursive: true });
+  const martini = new Martini(gridSize);
+  const shardI = shard ? shard.i : 0, shardN = shard ? shard.n : 1;
+  const available = []; const levels = []; let totalBytes = 0, totalTiles = 0, relaxedTiles = 0, sourceTiles = 0;
+  for (let z = 0; z <= maxZoom; z++) {
+    const { xMin, xMax, yMin, yMax } = tmsTileRangeForBbox(regionWsen, z);
+    available.push([{ startX: xMin, startY: yMin, endX: xMax, endY: yMax }]);
+    const errM = baseErrM * 2 ** (maxZoom - z);
+    const jobs = [];
+    for (let x = xMin; x <= xMax; x++) {
+      if (shardN > 1 && z === maxZoom && (x - xMin) % shardN !== shardI) continue;
+      if (shardN > 1 && z < maxZoom && shardI !== 0) continue;
+      for (let y = yMin; y <= yMax; y++) jobs.push([x, y]);
+    }
+    const t0 = Date.now(); let next = 0, bytes = 0, minH = Infinity, maxH = -Infinity, relaxed = 0, src = 0;
+    const worker = async () => {
+      while (next < jobs.length) {
+        const [x, y] = jobs[next++];
+        const rectDeg = tmsTileRectDeg(z, x, y);
+        const { grid, sourceTiles: st } = await gridForRect(rectDeg, z);
+        src += st;
+        const tileRad = { west: rectDeg[0] * D2R, south: rectDeg[1] * D2R, east: rectDeg[2] * D2R, north: rectDeg[3] * D2R };
+        const m = meshTileBounded(martini, grid, errM);
+        if (m.relaxed) relaxed++;
+        const enc = encodeQuantizedMesh(m.mesh, gridSize, tileRad, (gx, gy) => grid[gy * gridSize + gx]);
+        mkdirSync(resolve(outDir, String(z), String(x)), { recursive: true });
+        writeFileSync(resolve(outDir, String(z), String(x), `${y}.terrain`), enc.buffer);
+        bytes += enc.buffer.length; minH = Math.min(minH, enc.stats.minH); maxH = Math.max(maxH, enc.stats.maxH);
+      }
+    };
+    await Promise.all(Array.from({ length: Math.max(1, Math.min(concurrency, jobs.length)) }, worker));
+    const declared = (xMax - xMin + 1) * (yMax - yMin + 1);
+    totalBytes += bytes; totalTiles += jobs.length; relaxedTiles += relaxed; sourceTiles += src;
+    levels.push({ z, declared, emitted: jobs.length, bytes, errM, seconds: (Date.now() - t0) / 1000, minH, maxH, relaxed });
+    log(`  z${String(z).padStart(2)}  ${String(jobs.length).padStart(6)}/${String(declared).padEnd(6)} tiles  err=${errM.toFixed(2).padStart(7)}m  ${(bytes / 1048576).toFixed(2).padStart(8)} MB  ${((Date.now() - t0) / 1000).toFixed(1).padStart(7)}s  h[${Number.isFinite(minH) ? minH.toFixed(0) : '-'}..${Number.isFinite(maxH) ? maxH.toFixed(0) : '-'}]m${relaxed ? `  (${relaxed} vertex-budget relaxed)` : ''}`);
+  }
+  if (shardI === 0) writeFileSync(resolve(outDir, 'layer.json'), JSON.stringify(layerJson(regionWsen, available), null, 2));
+  log(`${shardI === 0 ? 'layer.json' : `(shard ${shardI}/${shardN}: no layer.json — shard 0 owns it)`} · bounds ${regionWsen.map((v) => v.toFixed(2)).join(',')} · z0..${maxZoom} · ${totalTiles} tiles · ${(totalBytes / 1048576).toFixed(1)} MB · ${sourceTiles} source-tile reads → ${outDir}`);
+  return { regionWsen, maxZoom, available, levels, totalBytes, totalTiles, relaxedTiles, sourceTiles };
+}
+
+/**
+ * Bake ONE whole region (any NATIONAL_REGIONS row — or any bbox via `bboxOverride`) end-to-end from
+ * Mapterhorn terrarium tiles with a per-post EGM2008 lift → `outDir/{layer.json,{z}/{x}/{y}.terrain}`.
+ * `geoidMode` 'egm08' (default — the COG window; throws if unreachable, never a silent constant) or
+ * 'constant' (the row's probe-computed `geoidSepM`; explicit only).
+ */
+export async function bakeNationalRegion(region, { outDir, gridSize = NATIONAL_BAKE_DEFAULTS.gridSize, maxZoom, baseErrM, Martini, geotiffMod,
+  shard = null, concurrency = NATIONAL_BAKE_DEFAULTS.concurrency, geoidMode = 'egm08', bboxOverride, log = console.log } = {}) {
+  const cfg = DTM_FETCH.mapterhorn;
+  let sharp;
+  try { sharp = (await import('sharp')).default; }
+  catch { throw new Error("bakeNationalRegion needs the 'sharp' WebP decoder (standalone dep — see §8d / terrain-bake.yml)."); }
+  const bbox = bboxOverride ?? region.bbox;
+  const Z = maxZoom ?? region.maxZoom ?? NATIONAL_BAKE_DEFAULTS.maxZoom;
+  const err0 = baseErrM ?? region.baseErrM ?? NATIONAL_BAKE_DEFAULTS.baseErrM;
+  let geoidAt, geoid;
+  if (geoidMode === 'constant') {
+    if (region.geoidSepM == null) throw new Error(`region '${region.name}' has no geoidSepM constant — use --geoid egm08`);
+    geoidAt = () => region.geoidSepM; geoid = { mode: 'constant', N: region.geoidSepM };
+    log(`  geoid: CONSTANT ${region.geoidSepM} m (explicit --geoid constant; EGM2008 at ${region.probeCity ?? 'principal city'})`);
+  } else {
+    const g = await loadGeoidGrid(bbox, { geotiffMod });
+    geoidAt = g.sample; geoid = { mode: 'egm08', url: g.url, window: `${g.width}x${g.height}`, resDeg: g.resDeg, minN: g.minN, maxN: g.maxN };
+    log(`  geoid: EGM2008 window ${g.width}x${g.height} @ ${(g.resDeg * 60).toFixed(1)}′ (${(g.bytes / 1024).toFixed(0)} KB, ${g.ms} ms) · N ∈ [${g.minN.toFixed(1)}, ${g.maxN.toFixed(1)}] m over the region (a constant would be off by up to ${((g.maxN - g.minN) / 2).toFixed(1)} m)`);
+  }
+  const cache = createTerrariumCache({ endpoint: cfg.endpoint, tileSize: cfg.tileSize, sharp });
+  const proj = getProjector('EPSG:3857');
+  const lons = new Float64Array(gridSize), lats = new Float64Array(gridSize);
+  const gridForRect = async (rectDeg, z) => {
+    const tz = Math.min(z, cfg.z);   // terrarium zoom = output zoom (1:1 posts, see §11 header); never past the pinned max
+    const { grid, sourceTiles } = await terrariumGridForRect(rectDeg, gridSize, tz, cache, bbox, proj);
+    const [w, s, e, n] = rectDeg;
+    for (let i = 0; i < gridSize; i++) { lons[i] = w + (e - w) * (i / (gridSize - 1)); lats[i] = n - (n - s) * (i / (gridSize - 1)); }
+    // orthometric (terrarium ≈ EGM2008-referenced; national lidar where ingested) → ellipsoidal, per post
+    for (let gy = 0; gy < gridSize; gy++) for (let gx = 0; gx < gridSize; gx++) grid[gy * gridSize + gx] += geoidAt(lons[gx], lats[gy]);
+    return { grid, sourceTiles };
+  };
+  const t0 = Date.now();
+  const res = await emitTileChainAsync({ regionWsen: bbox, gridForRect, gridSize, outDir, Martini, baseErrM: err0, maxZoom: Z, shard, concurrency, log });
+  const fetch = cache.stats();
+  log(`  source: ${cfg.endpoint} · ${fetch.fetched} tiles fetched (${(fetch.bytes / 1048576).toFixed(1)} MB), ${fetch.hits} cache hits, ${fetch.retried} retries · ${((Date.now() - t0) / 1000).toFixed(0)} s`);
+  return { status: 'ok', name: region.name, bbox, source: 'mapterhorn', geoid, fetch, seconds: (Date.now() - t0) / 1000, ...res };
+}
+
+/** Tile-count/size PLAN for every region at a max zoom (the founder's cost table — declared tiles per
+ *  level summed; no fetch). `avgBytes` is a measured per-finest-tile average to extrapolate storage. */
+export function planNationalRegions(maxZoom = NATIONAL_BAKE_DEFAULTS.maxZoom, avgBytesFinest = null) {
+  const rows = NATIONAL_REGIONS.map((r) => {
+    let total = 0, finest = 0;
+    for (let z = 0; z <= maxZoom; z++) {
+      const { xMin, xMax, yMin, yMax } = tmsTileRangeForBbox(r.bbox, z);
+      const n = (xMax - xMin + 1) * (yMax - yMin + 1); total += n; if (z === maxZoom) finest = n;
+    }
+    const [w, s, e, n] = r.bbox;
+    return { name: r.name, group: r.group, spanDeg: `${(e - w).toFixed(2)}×${(n - s).toFixed(2)}`, finest, total,
+      estBytes: avgBytesFinest ? Math.round(total * avgBytesFinest) : null };
+  });
+  return rows;
+}
+
+// ═════════════════════════════════════════════════════════════════════════════
 // §10 — CLI
 // ═════════════════════════════════════════════════════════════════════════════
 function printRegistry() {

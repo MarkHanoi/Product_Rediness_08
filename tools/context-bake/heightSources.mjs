@@ -42,6 +42,12 @@ import { appendFileSync, existsSync, mkdirSync, writeFileSync } from 'node:fs';
 import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
+// §MNH-FR (2026-09-04) — the PURE half of the French national stamp (URL builders, pixel budget, the
+// dalle-index hits parser, the nodata mask, the city working set) lives in its own dependency-free
+// module so vitest can import and pin its decisions; this file keeps the raster/network half.
+import { MNH_FR, MNH_FR_CITY_BBOXES, classifyDalleCoverage, maskNodata, mnhFrDalleHitsUrl, mnhFrGetMapUrl, mnhFrPxDims, parseWfsHits } from './heights/mnhFr.mjs';
+export { MNH_FR, MNH_FR_CITY_BBOXES };
+
 const HERE = dirname(fileURLToPath(import.meta.url));
 const OUT = resolve(HERE, 'out');
 
@@ -352,14 +358,28 @@ export const SOURCES = {
       'the stamp build. Until then `finland` is mass-only.',
   },
   mnh_fr: {
-    country: 'fr', name: 'IGN MNH LiDAR-HD pre-computed nDSM (national)', impl: 'documented',
-    provenance: 'tagged', lodNow: 'LoD1-real-height (national raster)', lodNext: 'LoD2 (LiDAR-HD reconstruction)',
-    endpoint: 'IGN LiDAR HD MNH (Modèle Numérique de Hauteur) — pre-computed, national',
-    heightField: 'MNH pixel value IS height above ground (⛔ do NOT rebuild the DSM−DTM differencing — E5 §G.1 A8)',
+    country: 'fr', name: 'IGN LiDAR HD MNH (Modèle Numérique de Hauteur) — national pre-computed nDSM', impl: 'live',
+    provenance: 'tagged', lodNow: 'LoD1-real-height (national 50 cm raster)', lodNext: 'LoD2 (LiDAR HD building-class reconstruction)',
+    endpoint: 'https://data.geopf.fr/wms-r/wms (IGNF_LIDAR-HD_MNH_ELEVATION.ELEVATIONGRIDCOVERAGE.WGS84G, image/geotiff) ' +
+      '+ dalle index https://data.geopf.fr/wfs/ows (IGNF_MNH-LIDAR-HD:dalle)',
+    heightField: 'MNH pixel value IS height above ground (Float32 metres, GDAL nodata −9999) — ⛔ do NOT rebuild the ' +
+      'DSM−DTM differencing (E5 §G.1 A8); the stamp takes P90 over the eroded footprint interior',
     coverage: 'full',
-    note: 'ASSESS FR: the national stamp (raster sample mirroring stampMdsHeightsOnGeojsonseq) is the ' +
-      'owed build + its stamp-bbox city list. City-scale BD TOPO `hauteur` stays live via the kept ' +
-      'paris/lyon rows; `france` national is mass-only until the MNH stamp lands.',
+    keyless: true, // Géoplateforme open services — NO api key, NO repo secret. Licence Ouverte Etalab 2.0.
+    note: 'LIVE-VERIFIED 2026-09-04 (lane HEIGHTS-EVERYWHERE): GetMap EPSG:4326 (⚠ BBOX lat,lon — WMS 1.3.0) ' +
+      'FORMAT=image/geotiff → HTTP 200 image/geotiff, ONE Float32 band, 3.1 MB / 880×890 px in 0.95 s over ' +
+      'Île de la Cité (p50 3.8 m · p90 23.6 m · max 87.8 m). NATIONAL STAMP BUILT: stampMnhFrHeightsOnGeojsonseq ' +
+      '(mirrors the ES mds OSM-footprint join; working set + pure helpers in heights/mnhFr.mjs, MNH_FR_CITY_BBOXES). ' +
+      'It is a bake STAMP over bake\'s own OSM footprints, NOT a bbox footprint fetcher — the `france` row must ' +
+      'declare heightJoin:\'mnh_fr\' (bake.mjs dispatch + stampBboxesFor → MNH_FR_CITY_BBOXES) to receive it. ' +
+      'Coverage is BIMODAL (dalle index + raster nodata, two independent probes, 2026-09-04): paris 268 · lyon 149 · ' +
+      'toulouse 120 · montpellier 120 · rennes 122 · marseille 116 · bordeaux 114 · nantes 100 · strasbourg 94 · ' +
+      'grenoble 81 · nice 64 · rural Touraine 70 · rural Provence 84 dalles (0.000 nodata) — vs lille 0 · rural ' +
+      'Creuse 0 · rural Bretagne 0 (1.000 nodata). The stamp pre-checks the index per stamp area and SKIPS ' +
+      'unpublished ground by name; a failed index request is UNKNOWN (sampled anyway), never 0. ⚠ MNH is all ' +
+      'sursol (vegetation too) — P90 over the eroded interior, as DK/CH. BD TOPO `hauteur` stays the city-scale ' +
+      'tagged source; its 5,000-row cap left Paris at 56/12,064 measured on the SHIPPED tiles (§BDTOPO-CAP-TRUNCATE, ' +
+      'probed 2026-09-04), which is why the raster, not the WFS, is the national channel.',
   },
   // ───────────────────────────────────────────────────────────────────────────
   // §INTL height channels (2026-09-03, lane CONTEXT-INTL) — new non-EU channels the au-sweep/me-sweep
@@ -457,7 +477,7 @@ export const REGION_SOURCE = {
   finland: 'buildings3d_fi',
   norway: 'ndh_no',
   germany: 'lod2de',   // per-Land router owed; NRW measured heights stay live via the koln city row (heightJoin:'lod2nrw')
-  france: 'mnh_fr',    // national MNH stamp owed; BD TOPO stays live city-scale via the kept paris/lyon rows
+  france: 'mnh_fr',    // ⭐ LIVE 2026-09-04 — national MNH stamp BUILT (stampMnhFrHeightsOnGeojsonseq, working set MNH_FR_CITY_BBOXES). The bake row must declare heightJoin:'mnh_fr' (orchestrator); the paris/lyon city rows fold into `france` once it lands, exactly like Copenhagen.
   italy: { source: 'piedmont_it', status: 'no-source', reason: 'Piedmont-only regional layer — NO national height product; EUBUCCO/GBA ML heights excluded as authoritative (E5 §A.5) (ASSESS IT)' },
   greatbritain: 'ealidar_gb',
   ireland: { source: null, status: 'no-source', reason: 'no cadastre by design; OSi Prime2 commercial → X3-refused; OPW LiDAR partial (ASSESS IE)' },
@@ -2221,6 +2241,173 @@ export async function stampSwissHeightsOnGeojsonseq(inPath, outPath, bbox, {
   };
 }
 
+// ── FR WHOLE-COUNTRY join — stamp IGN LiDAR HD MNH heights onto bake's OWN OSM footprints. ─────
+// §MNH-FR-OSM-JOIN (2026-09-04, lane HEIGHTS-EVERYWHERE) — the FR analogue of the ES MDS join above
+// and the whole-country answer for France. WHY NOT BD TOPO: `fetchBdTopo` is live and real, but the
+// WFS caps at 5,000 features per request against 317,361 buildings in the Paris bake bbox alone
+// (§BDTOPO-CAP-TRUNCATE) — and the SHIPPED tileset shows the consequence (probe 2026-09-04): Paris
+// 56 of 12,064 footprints measured (0.5 %), Toulouse 0 of 8,421 (71 % `assumed`). A national BD TOPO
+// join would have to page ~30 M buildings through a 5,000-row window; the MNH raster is ONE GetMap
+// per populated cell and already covers every footprint under it — cheaper AND more complete. BD
+// TOPO stays what it is: a city-scale `tagged` source behind the paris/lyon rows.
+//
+// WHAT IT DOES: reads bake's OSM footprints, HOLDS only those inside the declared stamp areas
+// (retainBboxes → MNH_FR_CITY_BBOXES for the `france` row; §JOIN-BOUNDED-WORKING-SET), asks IGN's
+// dalle index which areas are PUBLISHED, fetches the MNH raster per POPULATED 0.01° cell at ~1 m
+// (WMS GetMap, EPSG:4326, image/geotiff — the SAME degree-gridded raster shape as ES MDS, so
+// `mdsHeightForBuilding` is reused unchanged: local metric frame, 1 m erosion, holes excluded, P90),
+// and stamps `height` + `pryzm:height_src=measured-lidar` where ≥ minSamples clean pixels agree.
+// ⛔ It NEVER differences MNS−MNT (E5 §G.1 A8): the MNH pixel IS the height above ground.
+//
+// §CONTEXT-DATA-HONESTY — the values this join keeps DIFFERENT:
+//   • dalle index says 0 for a stamp area      → the area is SKIPPED by name (no bytes, no heap); its
+//                                                 footprints pass through with their OSM tags; the result
+//                                                 lists it in `areaCoverage` as 'none'. Not an error.
+//   • dalle index unreachable / unparseable    → 'unknown' → the area IS sampled (failure ≠ empty).
+//   • raster tile 100 % nodata (unpublished)   → `voidTiles++`; footprints keep OSM tags. Not an error.
+//   • raster request refused / undecodable     → `tileErrors++` — a real failure, counted as one.
+//   • footprint with < minSamples clean pixels → keeps its ORIGINAL OSM tags. Never a neighbour's height.
+//   • EVERY stamp area unpublished             → `blocked` — an external publisher gate the bake cannot
+//                                                 fix; the §MEASURED-HEIGHT-GATE warns and passes.
+// KEYLESS (Géoplateforme open services; Licence Ouverte Etalab 2.0, attribution "IGN – Programme
+// LiDAR HD"). ⚠ MNH includes vegetation (all sursol) — see heights/mnhFr.mjs; P90 over the eroded
+// interior is the same mitigation DK/CH apply to their surface models.
+export async function stampMnhFrHeightsOnGeojsonseq(inPath, outPath, bbox, {
+  timeoutMs = 120_000,
+  tileSpanDeg = 0.01, resM = 1.0, maxTilePx = MNH_FR.maxPx, maxTiles = 4000, padDeg = 0.001,
+  priorityBboxes = [], retainBboxes = null, coveragePrecheck = true,
+  erodeM = 1.0, percentile = 90, minSamples = 3, sampleStepM = 1.0,
+} = {}) {
+  if (!inPath || !existsSync(inPath)) return { status: 'error', reason: `MNH-FR join: input footprints not found (${inPath})` };
+  if (!bbox || bbox.length !== 4) return { status: 'error', reason: 'MNH-FR join: no bbox supplied' };
+  const gt = await loadGeoTiff();
+  if (!gt) return { status: 'documented', reason: 'MNH-FR join: geotiff dep unavailable — install it in the bake image; footprints keep OSM default.' };
+  const [w, s, e, n] = bbox;
+
+  // §MNH-FR-COVERAGE-PRECHECK — one ~100 ms hits query per stamp area, BEFORE a footprint is held.
+  const declaredAreas = stampAreasFor(retainBboxes, bbox);
+  const areaCoverage = [];
+  for (const area of declaredAreas) {
+    let dalles = null;
+    if (coveragePrecheck) {
+      try {
+        const r = await httpGet(mnhFrDalleHitsUrl(area), { timeoutMs: 30_000 });
+        dalles = r.ok ? parseWfsHits(r.body) : null;
+      } catch { dalles = null; } // a network throw is UNKNOWN — never 0.
+    }
+    areaCoverage.push({ bbox: area, dalles, verdict: coveragePrecheck ? classifyDalleCoverage(dalles) : 'unchecked' });
+  }
+  const skippedAreas = areaCoverage.filter((c) => c.verdict === 'none').length;
+  const stampAreas = areaCoverage.filter((c) => c.verdict !== 'none').map((c) => c.bbox);
+  if (stampAreas.length === 0) {
+    return {
+      status: 'blocked', areaCoverage, skippedAreas,
+      reason: `MNH-FR join: IGN's dalle index lists NO published MNH dalle in any of the ${declaredAreas.length} stamp area(s) — ` +
+        'LiDAR HD has not reached them yet (progress map: macarte.ign.fr/carte/mThSup/diffusionMNxLiDARHD). ' +
+        'Footprints keep their honest OSM tags; nothing to fix in the pipeline.',
+    };
+  }
+
+  mkdirSync(dirname(outPath), { recursive: true });
+  const load = loadJoinFootprintsBounded(inPath, outPath, (feat) => {
+    const fp = footprintFromFeature(feat);
+    if (!fp) return null;
+    if (!inAnyArea(fp.clon, fp.clat, stampAreas)) return null;
+    return { feat, ...fp };
+  }, 'MNH-FR join');
+  if (load.status !== 'ok') return { status: load.status, reason: load.reason, read: load.read };
+  const records = load.retained;
+  const read = load.read;
+
+  const nx = Math.max(1, Math.ceil((e - w) / tileSpanDeg));
+  const ny = Math.max(1, Math.ceil((n - s) / tileSpanDeg));
+  const cellIx = (lon) => Math.min(nx - 1, Math.max(0, Math.floor((lon - w) / tileSpanDeg)));
+  const cellIy = (lat) => Math.min(ny - 1, Math.max(0, Math.floor((lat - s) / tileSpanDeg)));
+  const buckets = bucketRecords(records, (r) => [cellIx(r.clon), cellIy(r.clat)]);
+  const doneCells = new Set();
+  let processedTiles = 0, tileErrors = 0, voidTiles = 0, tileCapHit = false, priorityTiles = 0;
+  let nodataPixels = 0, totalPixels = 0, bytesFetched = 0;
+  // §ABORT-IS-NOT-A-CAP — kept SEPARATE from `tileCapHit` on purpose (see the MDS join's catch).
+  let sweepAborted = false, sweepAbortReason = null;
+  const heights = [];
+  const processCell = async (ix, iy, respectCap) => {
+    const key = `${ix},${iy}`;
+    if (doneCells.has(key)) return false;
+    const inTile = buckets.get(key);
+    if (!inTile || inTile.length === 0) return false;
+    if (respectCap && processedTiles >= maxTiles) { tileCapHit = true; return true; }
+    doneCells.add(key);
+    const tw = w + ix * tileSpanDeg, ts = s + iy * tileSpanDeg;
+    const te = Math.min(tw + tileSpanDeg, e), tn = Math.min(ts + tileSpanDeg, n);
+    const rbox = [tw - padDeg, ts - padDeg, te + padDeg, tn + padDeg];
+    const rr = await httpGetBuffer(mnhFrGetMapUrl(rbox, mnhFrPxDims(rbox, resM, maxTilePx)), { timeoutMs });
+    if (!rr.ok || !/tiff/i.test(rr.ct)) { tileErrors++; return false; }
+    bytesFetched += rr.ab.byteLength;
+    let mnh;
+    try { mnh = await readDhmRaster(rr.ab, gt); }
+    catch { tileErrors++; return false; }
+    // −9999 → NaN so the shared bilinear sampler drops it instead of blending it (heights/mnhFr.mjs).
+    const masked = maskNodata(mnh.values, MNH_FR.nodata);
+    nodataPixels += masked; totalPixels += mnh.values.length;
+    processedTiles++;
+    if (masked === mnh.values.length) { voidTiles++; return false; } // unpublished ground: an honest void, not an error.
+    for (const r of inTile) {
+      const h = mdsHeightForBuilding(r.ext, r.interiors, mnh, { erodeM, percentile, minSamples, sampleStepM });
+      if (h) {
+        r.feat.properties = { ...(r.feat.properties ?? {}), building: r.feat.properties?.building ?? 'yes', height: Number(h.height.toFixed(1)), heightSource: MNH_FR.heightSourceTag, [MEASURED_HEIGHT_SRC_TAG]: MEASURED_HEIGHT_SRC_VALUE };
+        heights.push(h.height);
+      }
+    }
+    return false;
+  };
+  try {
+    // Priority areas first (UNCAPPED) — each listed city is guaranteed its heights before the sweep
+    // can exhaust `maxTiles`. A priority bbox with no retained footprints stamps nothing — harmless.
+    for (const pb of priorityBboxes) {
+      if (!Array.isArray(pb) || pb.length !== 4) continue;
+      const [pw, ps, pe, pn] = pb;
+      const before = processedTiles;
+      for (let iy = cellIy(ps); iy <= cellIy(pn); iy++) {
+        for (let ix = cellIx(pw); ix <= cellIx(pe); ix++) await processCell(ix, iy, false);
+      }
+      priorityTiles += processedTiles - before;
+    }
+    // Sweep ONLY the populated cells, sorted → deterministic under the cap.
+    const rest = [...buckets.keys()].filter((k) => !doneCells.has(k)).sort();
+    for (const k of rest) {
+      const [ix, iy] = k.split(',').map(Number);
+      if (await processCell(ix, iy, true)) break;
+    }
+  } catch (err) { sweepAborted = true; sweepAbortReason = String(err?.message ?? err); } // §ABORT-IS-NOT-A-CAP
+
+  // Pass-through footprints are already in outPath; append the retained (stamped or not) ones.
+  if (records.length) appendFileSync(outPath, records.map((r) => JSON.stringify(r.feat)).join('\n') + '\n');
+  const measured = heights.length;
+  heights.sort((a, b) => a - b);
+  const emptyTiles = Math.max(0, nx * ny - buckets.size);
+  return {
+    status: 'ok', outPath, count: read.parsed, footprintCount: records.length, measuredCount: measured,
+    coverage: records.length ? Number((measured / records.length).toFixed(3)) : 0,
+    heightStats: statsOf(heights), heightSamples: heights.slice(0, 8),
+    tilesProcessed: processedTiles, priorityTiles, tileErrors, voidTiles, emptyTiles, tileCapHit, sweepAborted, sweepAbortReason, tileGrid: `${nx}×${ny}`,
+    nodataFraction: totalPixels ? Number((nodataPixels / totalPixels).toFixed(3)) : null,
+    bytesFetchedMB: Number((bytesFetched / 1e6).toFixed(1)),
+    areaCoverage, skippedAreas,
+    retainedFootprints: records.length, passedThroughFootprints: read.passedThrough,
+    stampAreas: stampAreas.length, populatedCells: buckets.size,
+    peakHeapUsedMB: read.peakHeapUsedMB, heapLimitMB: read.heapLimitMB,
+    note: `IGN LiDAR HD MNH (P90 over the eroded footprint) stamped onto OSM footprints → ${measured}/${records.length} RETAINED ` +
+      `footprint(s) got a MEASURED height (tagged); ${read.passedThrough} footprint(s) outside the ${stampAreas.length} published ` +
+      `stamp bbox(es) passed through with their original OSM tags` +
+      `${skippedAreas ? ` (${skippedAreas} declared area(s) skipped — IGN has published no MNH dalle there yet)` : ''}; ` +
+      `${processedTiles} tile(s)${priorityTiles ? ` (${priorityTiles} in ${priorityBboxes.length} priority bbox(es) first)` : ''}, ` +
+      `${voidTiles} void (unpublished) tile(s), ${tileErrors} raster error(s), ${(bytesFetched / 1e6).toFixed(0)} MB fetched` +
+      `${tileCapHit ? ` (maxTiles ${maxTiles} cap hit — rest keep OSM)` : ''}` +
+      `${sweepAborted ? ` ⚠ SWEEP ABORTED after ${processedTiles} tile(s) — ${sweepAbortReason}; the rest keep OSM (a FAILURE, not a cap)` : ''}` +
+      `; peak heap ${read.peakHeapUsedMB} MB of ${read.heapLimitMB} MB.`,
+  };
+}
+
 // ── DE/NRW WHOLE-CITY join — stamp LoD2-DE·NRW `measuredHeight` onto bake's OWN OSM footprints. ──
 // §LOD2-NRW-OSM-JOIN (2026-07-31) — the DE analogue of the ES MDS / DK DHM / CH swisstopo joins above,
 // and the Köln ("the German Barcelona") real-height path. It differs from those three in ONE structural
@@ -2676,6 +2863,17 @@ export async function resolveHeights(region, { outDir = OUT, bbox } = {}) {
   else if (source === 'mds_edificacion') res = await fetchSpainBuildingHeights(bbox);
   else if (source === 'lod2de_nrw') res = await fetchLod2DeNrw(bbox);
   else if (source === 'geodanmark') res = await fetchGeoDanmarkHeights(bbox);
+  else if (source === 'mnh_fr') {
+    // §MNH-FR — live, but it is a bake STAMP over bake's own footprints, not a footprint fetcher. A
+    // region reaching this branch has NOT declared `heightJoin:'mnh_fr'` in bake.mjs; say so precisely
+    // (the honest reason the orchestrator can act on), and keep OSM — never a fabricated height.
+    return {
+      status: 'documented', region, source, provenance: src.provenance,
+      reason: `${src.name}: this source is the bake STAMP stampMnhFrHeightsOnGeojsonseq, dispatched only when the region ` +
+        `declares heightJoin:'mnh_fr' in bake.mjs (with stampBboxesFor → MNH_FR_CITY_BBOXES). Region "${region}" does not, so ` +
+        'its footprints keep their OSM tags until that row edit lands.',
+    };
+  }
   else return { status: 'documented', reason: `${src.name} fetcher not implemented`, region, source };
 
   // A never-throwing fetcher may itself report a real gate (blocked/documented) — surface it honestly.
@@ -2718,6 +2916,7 @@ const PROBE_BBOX = {
   mds_edificacion: [2.163, 41.388, 2.169, 41.393], // Barcelona Eixample (~5–7 storeys ≈ 18–24 m)
   lod2de_nrw: [6.94, 50.93, 6.96, 50.95],      // Cologne centre (NRW) — LoD2-DE live reference
   geodanmark: [12.56, 55.67, 12.58, 55.69],    // Copenhagen centre (auth-gated → blocked probe)
+  mnh_fr: [2.346, 48.852, 2.352, 48.856],      // Paris, Île de la Cité — the 2026-09-04 live-verification bbox
 };
 
 export async function probeSource(id) {
@@ -2812,6 +3011,34 @@ export async function probeSource(id) {
       provenance: 'tagged', truncated: r.truncated, mode: heightModeForSource('geodanmark'), reason: r.reason ?? r.note,
     };
   }
+  if (id === 'mnh_fr') {
+    // §MNH-FR — asserts the THREE things the stamp depends on, each independently: (1) the WMS answers
+    // a decodable Float32 GeoTIFF in the requested axis order, (2) its pixels are plausible building
+    // heights (not a shaded relief, not open ocean), (3) the dalle index agrees the bbox is published.
+    const gt = await loadGeoTiff();
+    const url = mnhFrGetMapUrl(bbox, mnhFrPxDims(bbox, 1.0));
+    const rr = await httpGetBuffer(url, { timeoutMs: 60_000 });
+    let raster = null, stats = null, nodataPixels = 0, decodeError = null;
+    if (rr.ok && gt && /tiff/i.test(rr.ct)) {
+      try {
+        raster = await readDhmRaster(rr.ab, gt);
+        nodataPixels = maskNodata(raster.values, MNH_FR.nodata);
+        const vals = Array.from(raster.values).filter(Number.isFinite).sort((a, b) => a - b);
+        stats = vals.length ? { n: vals.length, min: vals[0], p50: _percentile(vals, 50), p90: _percentile(vals, 90), max: vals[vals.length - 1] } : null;
+      } catch (e) { decodeError = String(e?.message ?? e); }
+    }
+    let dalles = null;
+    try { const h = await httpGet(mnhFrDalleHitsUrl(bbox), { timeoutMs: 30_000 }); dalles = h.ok ? parseWfsHits(h.body) : null; } catch { dalles = null; }
+    return {
+      id, endpoint: MNH_FR.wms, layer: MNH_FR.layer, status: rr.ok && raster ? 'ok' : 'error', httpStatus: rr.status, contentType: rr.ct,
+      assertContentType: /tiff/i.test(rr.ct ?? ''), assertGeoTiffDecodes: !!raster, geotiffDeps: !!gt,
+      width: raster?.width, height: raster?.height, bboxRead: raster?.bboxNative, nodataPixels, heightStats: stats,
+      assertRealHeight: !!stats && stats.p90 > 2.5 && stats.max < 400,
+      dalleIndexHits: dalles, dalleCoverage: classifyDalleCoverage(dalles),
+      provenance: 'tagged', mode: "stamp (bake.mjs heightJoin:'mnh_fr' → stampMnhFrHeightsOnGeojsonseq)",
+      reason: rr.reason ?? decodeError ?? (gt ? null : 'geotiff dep unavailable'),
+    };
+  }
   return { id, status: 'error', reason: `no live probe for "${id}"` };
 }
 
@@ -2849,7 +3076,7 @@ if (isMain) {
     }
     if (args.includes('--probe')) {
       const which = args[args.indexOf('--probe') + 1];
-      const ids = which && !which.startsWith('--') ? [which] : ['bdtopo', '3dbag', 'catastro', 'mds_edificacion', 'lod2de_nrw', 'geodanmark'];
+      const ids = which && !which.startsWith('--') ? [which] : ['bdtopo', '3dbag', 'catastro', 'mds_edificacion', 'lod2de_nrw', 'geodanmark', 'mnh_fr'];
       for (const id of ids) {
         console.log(`\n▶ probe ${id} (${SOURCES[id]?.endpoint})`);
         try { console.log(JSON.stringify(await probeSource(id), null, 2)); }
