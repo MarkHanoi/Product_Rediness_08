@@ -16,4 +16,5 @@ export { makeAddReferencePlaneMigrator, type AddReferencePlaneParams, } from './
 export { makeDeleteSolidMigrator, type DeleteSolidParams, } from './ops/delete-solid.js';
 export { makeUpdateProfileMigrator, type UpdateProfileParams, type ProfilePointUpdate, } from './ops/update-profile.js';
 export { makeDeleteExpressionMigrator, type DeleteExpressionParams, } from './ops/delete-expression.js';
+export { makeSetTypeValuesMigrator, typeValuesChecksum, type SetTypeValuesParams, type TypeValueMap, } from './ops/type-values.js';
 //# sourceMappingURL=index.d.ts.map

@@ -2,11 +2,26 @@
 //
 // Clones a `FamilyType` into a brand-new type with its own id, name,
 // and (optionally) value overrides.  The source type is preserved.
-// The new type's `checksum` is RECOMPUTED from its values map via the
-// shared `canonicalStringify` + sha256 helper used by the rest of the
-// file-format package.
+//
+// ⛔ CORRECTED 2026-09-04 (lane UCE-FAMILY, §UCE-TYPE-CHECKSUM-IS-COMPUTED).
+//    This header used to end: *"The real sha256 is recomputed async when the
+//    family is packed via family-pack.ts."* **It is not, and it never was.**
+//
+//        grep -c checksum packages/file-format/src/family-pack.ts    -> 0
+//        grep -c checksum packages/file-format/src/family-unpack.ts  -> 0
+//
+//    Nothing recomputes a type checksum at pack time and nothing verifies one at
+//    load time, so the value written HERE is the only value the field will ever
+//    hold. The comment described a downstream repair that does not exist — which
+//    is why `ComponentTypeCatalog`'s edit path felt safe carrying the checksum
+//    unchanged, and why an edited type's checksum was stale forever.
+//
+// ⭐ The digest itself now lives in ONE place — `./type-values.ts`'s
+//    `typeValuesChecksum`, which `set-type-values` also uses. Two ops writing one
+//    field with two private hash implementations is how the create path and the
+//    edit path start disagreeing (C84 EI-9).
 
-import { canonicalise } from '../../canonical-json.js';
+import { typeValuesChecksum } from './type-values.js';
 import type { Migrator, RawFamily } from '../types.js';
 
 export interface SplitTypeParams {
@@ -14,18 +29,6 @@ export interface SplitTypeParams {
   readonly newTypeId: string;
   readonly newTypeName: string;
   readonly valueOverrides?: Record<string, number | string | boolean>;
-}
-
-// Browser-compatible synchronous checksum placeholder.
-// The real sha256 is recomputed async when the family is packed via family-pack.ts.
-function syncChecksumPlaceholder(json: string): string {
-  let h = 0x811c9dc5;
-  for (let i = 0; i < json.length; i++) {
-    h ^= json.charCodeAt(i);
-    h = (h * 0x01000193) >>> 0;
-  }
-  const hex = h.toString(16).padStart(8, '0').repeat(8);
-  return 'sha256:' + hex;
 }
 
 export function makeSplitTypeMigrator(
@@ -57,7 +60,7 @@ export function makeSplitTypeMigrator(
         ...source.values,
         ...(params.valueOverrides ?? {}),
       };
-      const checksum = syncChecksumPlaceholder(canonicalise(mergedValues));
+      const checksum = typeValuesChecksum(mergedValues);
 
       const types = [
         ...input.document.types,

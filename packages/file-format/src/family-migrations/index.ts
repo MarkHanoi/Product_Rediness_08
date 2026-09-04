@@ -98,3 +98,17 @@ export {
   makeDeleteExpressionMigrator,
   type DeleteExpressionParams,
 } from './ops/delete-expression.js';
+
+/* ── lane UCE-FAMILY — the EDIT half of the type system, and the ONE checksum ──
+ * `ComponentTypeCatalog` could create a type (split-type) and delete one, but
+ * EDITED one through a raw `document.types` transform that carried the per-type
+ * `checksum` UNCHANGED — stale forever, in a content-addressed format, because
+ * nothing recomputes it at pack time (measured: `grep -c checksum family-pack.ts`
+ * → 0). `set-type-values` is that missing op; `typeValuesChecksum` is the single
+ * digest both it and `split-type` write. */
+export {
+  makeSetTypeValuesMigrator,
+  typeValuesChecksum,
+  type SetTypeValuesParams,
+  type TypeValueMap,
+} from './ops/type-values.js';

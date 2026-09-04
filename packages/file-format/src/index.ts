@@ -161,6 +161,11 @@ export {
   type ProfilePointUpdate,
   makeDeleteExpressionMigrator,
   type DeleteExpressionParams,
+  /* --- lane UCE-FAMILY --- the type EDIT op + the ONE per-type checksum --- */
+  makeSetTypeValuesMigrator,
+  typeValuesChecksum,
+  type SetTypeValuesParams,
+  type TypeValueMap,
 } from './family-migrations/index.js';
 // ── Sprint AI/AJ (2026-05-12/13) — import/ + export/ → @pryzm/file-format ────────
 
