@@ -123,12 +123,59 @@ describe('deriveNlBebouwingsgebied — single street', () => {
         expect(s.status === 'resolved' && s.unit).toBe('m2');
     });
 
+    // ⚠ EDGE INDEX CONVENTION, stated because getting it wrong is what made this test red:
+    // edge `i` runs from vertex `i` to vertex `i+1` (indexed by its START vertex), so reversing a ring
+    // of n vertices sends original edge `e` to reversed edge `n−2−e` — NOT to `n−1−e`. An off-by-one
+    // here silently relabels which gevel is the voorkant, and the module then answers a DIFFERENT,
+    // correctly-computed question. The mapping is applied rather than hand-typed so it cannot recur.
+    const reverseEdgeIndex = (i: number, n: number): number => ((n - 2 - i) % n + n) % n;
+
     it('the winding of the perceel does not change the answer', () => {
         const cw = [...PERCEEL].reverse();
-        const cwEdges = ['side', 'rear', 'side', 'front'] as const; // edges of the reversed ring: (0,40)→(20,40) rear … (20,0)→(0,0) is edge 3
-        const r = deriveNlBebouwingsgebied({ perceel: cw, perceelEdges: [...cwEdges], hoofdgebouw: HOOFD, oorspronkelijkHoofdgebouw: { kind: 'same-as-current', evidence: 'x' } });
+        const n = PERCEEL.length;
+        // reversed edge j carries the classification of original edge n−2−j → ['rear','side','front','side']
+        const cwEdges = Array.from({ length: n }, (_v, j) => SINGLE_FRONT[reverseEdgeIndex(j, n)]!);
+        expect(cwEdges).toEqual(['rear', 'side', 'front', 'side']);
+        const r = deriveNlBebouwingsgebied({ perceel: cw, perceelEdges: cwEdges, hoofdgebouw: HOOFD, oorspronkelijkHoofdgebouw: { kind: 'same-as-current', evidence: 'x' } });
         expect(r.kind).toBe('derived');
-        if (r.kind === 'derived') expect(r.achtererfgebied.areaM2).toBeCloseTo(590, 3);
+        if (r.kind !== 'derived') return;
+        expect(r.achtererfgebied.areaM2).toBeCloseTo(590, 3);
+        // and the voorkant reported in the CALLER's index space is the same physical edge
+        expect(r.voorkant.edgeIndex).toBe(reverseEdgeIndex(0, n));
+        expect(r.voorkant.point.z).toBeCloseTo(6, 6);
+    });
+
+    it('a NON-CONVEX perceel (pijpensteel) is answered from the same face under either winding', () => {
+        // A flag lot: a 6 m stem from the street at z = 0 up to z = 20, opening into a 20 m wide body.
+        // The vertex centroid of this ring lies OUTSIDE it — which is precisely what the old
+        // centroid-based inward normal could not survive.
+        const flag: Pt[] = [
+            { x: 7, z: 0 },
+            { x: 13, z: 0 },
+            { x: 13, z: 20 },
+            { x: 20, z: 20 },
+            { x: 20, z: 40 },
+            { x: 0, z: 40 },
+            { x: 0, z: 20 },
+            { x: 7, z: 20 },
+        ];
+        const edges = ['front', 'side', 'side', 'side', 'rear', 'side', 'side', 'side'] as const;
+        const house: Pt[] = [{ x: 4, z: 24 }, { x: 16, z: 24 }, { x: 16, z: 34 }, { x: 4, z: 34 }];
+        const ccw = deriveNlBebouwingsgebied({ perceel: flag, perceelEdges: [...edges], hoofdgebouw: house, oorspronkelijkHoofdgebouw: { kind: 'same-as-current', evidence: 'x' } });
+        expect(ccw.kind).toBe('derived');
+        if (ccw.kind !== 'derived') return;
+        expect(ccw.voorkant.edgeIndex).toBe(0);
+        expect(ccw.voorkant.point.z).toBeCloseTo(25, 6); // face at z = 24, line 1 m behind it
+
+        const rev = [...flag].reverse();
+        const m = flag.length;
+        const revEdges = Array.from({ length: m }, (_v, j) => edges[reverseEdgeIndex(j, m)]!);
+        const cw = deriveNlBebouwingsgebied({ perceel: rev, perceelEdges: revEdges, hoofdgebouw: house, oorspronkelijkHoofdgebouw: { kind: 'same-as-current', evidence: 'x' } });
+        expect(cw.kind).toBe('derived');
+        if (cw.kind !== 'derived') return;
+        expect(cw.voorkant.edgeIndex).toBe(reverseEdgeIndex(0, m));
+        expect(cw.achtererfgebied.areaM2).toBeCloseTo(ccw.achtererfgebied.areaM2, 6);
+        expect(cw.voorkant.point.z).toBeCloseTo(25, 6);
     });
 });
 

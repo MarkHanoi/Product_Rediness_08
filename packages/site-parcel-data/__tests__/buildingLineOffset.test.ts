@@ -148,6 +148,46 @@ describe('inwardEdgeNormal — points INTO the parcel regardless of winding', ()
     it('returns NULL on a degenerate ring', () => {
         expect(inwardEdgeNormal([{ x: 0, z: 0 }], 0)).toBeNull();
     });
+
+    // ⚠ REGRESSION, 2026-09-04 (lane ENVELOPE-NLDK). The side used to be chosen by testing both
+    // candidate normals against the ring's VERTEX CENTROID. That is sound only for a CONVEX ring.
+    // This U-shaped parcel's vertex centroid is (15, 17.5), which lies in the NOTCH — outside the
+    // polygon — so the centroid test returned the OUTWARD normal for the notch's bottom edge, with
+    // no error raised. A flipped normal puts a byggelinje / achtererfgebied line on the wrong side of
+    // the building and yields a plausible, wrong buildable area (the L-616 shape). Courtyard blocks
+    // and flag lots are non-convex as a matter of course, so this is a live case, not a curiosity.
+    const U_PARCEL: Pt[] = [
+        { x: 0, z: 0 },
+        { x: 30, z: 0 },
+        { x: 30, z: 30 },
+        { x: 20, z: 30 },
+        { x: 20, z: 10 },
+        { x: 10, z: 10 },
+        { x: 10, z: 30 },
+        { x: 0, z: 30 },
+    ];
+
+    it('a NON-CONVEX ring whose centroid falls OUTSIDE it still gets the interior normal', () => {
+        // edge 4 = (20,10) → (10,10), the bottom of the notch; the interior lies BELOW it (−z).
+        const n = inwardEdgeNormal(U_PARCEL, 4);
+        expect(n).not.toBeNull();
+        expect(n!.x).toBeCloseTo(0, 9);
+        expect(n!.z).toBeCloseTo(-1, 9);
+        // and the outer south edge still points +z
+        const s = inwardEdgeNormal(U_PARCEL, 0)!;
+        expect(s.z).toBeCloseTo(1, 9);
+    });
+
+    it('the non-convex answer is identical under the reversed winding', () => {
+        const cw = [...U_PARCEL].reverse();
+        const m = U_PARCEL.length;
+        const rev = (i: number): number => ((m - 2 - i) % m + m) % m; // edge i runs vertex i → i+1
+        const n = inwardEdgeNormal(cw, rev(4));
+        expect(n!.x).toBeCloseTo(0, 9);
+        expect(n!.z).toBeCloseTo(-1, 9);
+        const s = inwardEdgeNormal(cw, rev(0))!;
+        expect(s.z).toBeCloseTo(1, 9);
+    });
 });
 
 describe('signedDepthAlongNormal — the primitive that turns two lines into a band depth', () => {

@@ -83,6 +83,22 @@ function unitDir(a: Pt, b: Pt): Pt | null {
     if (len < EPSILON_ZERO) return null;
     return { x: v.x / len, z: v.z / len };
 }
+/**
+ * Shoelace signed area of an OPEN ring in the x/z convention. POSITIVE means the interior lies to the
+ * LEFT of each edge's direction of travel, which is what `inwardEdgeNormal` needs to pick a side.
+ *
+ * ⚠ This is the ONLY sound winding test for a NON-CONVEX ring — see `inwardEdgeNormal`.
+ */
+function ringSignedArea(ring: readonly Pt[]): number {
+    let a = 0;
+    for (let i = 0; i < ring.length; i += 1) {
+        const p = ring[i]!;
+        const q = ring[(i + 1) % ring.length]!;
+        a += p.x * q.z - q.x * p.z;
+    }
+    return a / 2;
+}
+
 /** Average of a point set (representative point of a polyline). */
 function centroidOf(pts: readonly Pt[]): Pt {
     let x = 0;
@@ -159,8 +175,21 @@ export function matchBuildingLineToParcelEdge(
 }
 
 /**
- * The inward unit normal of parcel edge `edgeIndex` (points INTO the parcel). Winding-agnostic: both
- * candidate normals are tested against the parcel centroid and the interior-pointing one wins.
+ * The inward unit normal of parcel edge `edgeIndex` (points INTO the parcel). Winding-agnostic:
+ * the ring's ORIENTATION is measured and the rotation that faces the interior is applied.
+ *
+ * ⚠ CORRECTED 2026-09-04 (lane ENVELOPE-NLDK). This used to pick the side by testing both candidate
+ * normals against the ring's VERTEX CENTROID and keeping the one pointing at it. That is sound only
+ * for a CONVEX ring. On a non-convex parcel the centroid can sit outside the polygon, or simply on
+ * the far side of a re-entrant edge, and the function then returned the OUTWARD normal — silently,
+ * with no error raised anywhere, which is the L-616 shape. It is not a hypothetical shape for us:
+ * the flag lot (NL `pijpensteel`, DK `koteletgrund`) is a normal residential parcel in both
+ * jurisdictions, and a flipped normal there puts the achtererfgebied line on the wrong side of the
+ * house and hands back a plausible, wrong buildable area.
+ *
+ * The signed area is EXACT for any simple polygon, convex or not: positive orientation puts the
+ * interior to the left of each edge, so `(-dir.z, dir.x)` is inward; negative orientation flips it.
+ * A ring whose signed area is ~0 is degenerate and yields `null` rather than an arbitrary side.
  *
  * Exported for the DK resolver, which projects building lines onto this normal to recover the
  * façade-offset and the buildable depth. Returns `null` on a degenerate edge/parcel. PURE.
@@ -171,10 +200,9 @@ export function inwardEdgeNormal(parcelRing: readonly Pt[], edgeIndex: number): 
     const b = parcelRing[(edgeIndex + 1) % parcelRing.length]!;
     const dir = unitDir(a, b);
     if (!dir) return null;
-    const n = { x: -dir.z, z: dir.x };
-    const c = centroidOf(parcelRing);
-    const toInterior = sub(c, a);
-    return n.x * toInterior.x + n.z * toInterior.z >= 0 ? n : { x: -n.x, z: -n.z };
+    const signed = ringSignedArea(parcelRing);
+    if (!Number.isFinite(signed) || Math.abs(signed) < EPSILON_ZERO) return null;
+    return signed > 0 ? { x: -dir.z, z: dir.x } : { x: dir.z, z: -dir.x };
 }
 
 /**
