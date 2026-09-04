@@ -60,6 +60,9 @@ import {
 } from './designStagePanel';
 import { DESIGN_STAGE_JUMP_ATTR, DESIGN_STAGE_JUMP_STATUS_TESTID } from './designStageStripControl';
 import type { IntendedAreaSnapshot } from './intendedAreaChannel';
+// §RESI-ORCH-MASSING-OPTIONS (STR §7) — the enumerator is pure and lives next door. This file
+// renders its answer and NEVER re-derives a figure from it.
+import type { MassingOption, MassingOptionSet } from './massingOptionModel';
 import type { UserSuppliedStudyHeightRecord } from './userSuppliedStudyHeightState';
 
 const _tracer = trace.getTracer('pryzm.site.envelopeCardSections');
@@ -398,6 +401,147 @@ export function buildStagedSectionsHtml(
     } finally {
         span.end();
     }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// §RESI-ORCH-MASSING-OPTIONS (STR §7) — N MASSINGS, EACH WITH ITS REASON
+// ─────────────────────────────────────────────────────────────────────────────
+
+export const MASSING_OPTIONS_SECTION_TESTID = 'envelope-section-massing-options';
+export const MASSING_OPTIONS_GENERATE_BTN_TESTID = 'envelope-massing-generate-btn';
+export const MASSING_OPTIONS_CLEAR_BTN_TESTID = 'envelope-massing-clear-btn';
+/** The attribute a per-option "use this plate" button carries. One name, both sides. */
+export const MASSING_PICK_ATTR = 'data-massing-pick';
+
+/**
+ * The massing-options fold.
+ *
+ * ⛔ IT DOES NOT GENERATE ON RENDER. The fold opens IDLE, with a button. Two reasons, and the
+ * second is the important one:
+ *   1. cost — each option runs a bisection over the repo erosion, and `refreshEnvelopePanel` fires
+ *      on every authored change;
+ *   2. ⭐ *"do not over-automate"* — §20's loop begins with GENERATE, an act the user performs.
+ *      Options that appear unasked are an answer to a question nobody put, and they arrive with
+ *      the authority of something the product decided to say.
+ *
+ * ⛔ NO OPTION IS MARKED RECOMMENDED, AND THERE IS NO SCORE COLUMN. See `massingOptionModel.ts`'s
+ * header: whether a two-storey full plate beats a four-storey third plate is the architect's
+ * judgement, and a number labelled "score" would launder it into an authority.
+ *
+ * ⛔ A REFUSED OPTION IS STILL LISTED, with its reason and WITHOUT a pick button — the same
+ * three-state discipline `siteHighlightRowControl` uses for its rows. Shipping three where four
+ * were enumerated would make an absence read as a design decision.
+ */
+export function buildMassingOptionsFold(
+    state: { readonly kind: 'idle' } | { readonly kind: 'computed'; readonly set: MassingOptionSet },
+): string {
+    const span = _tracer.startSpan('pryzm.site.buildMassingOptionsFold');
+    try {
+        const intro =
+            `<div style="color:#8a83a0;font-size:9.5px;line-height:1.45;">Generate several massings of `
+            + `the permitted footprint and compare them side by side. Each one states the storeys it `
+            + `needs and the floor area it reaches. <b>PRYZM does not pick one</b> — the trade between `
+            + `floor area and open ground is yours.</div>`;
+
+        if (state.kind === 'idle') {
+            span.setAttribute('pryzm.massing.foldArm', 'idle');
+            return fold(
+                MASSING_OPTIONS_SECTION_TESTID,
+                'idle',
+                'Massing options',
+                intro
+                + `<button type="button" data-testid="${MASSING_OPTIONS_GENERATE_BTN_TESTID}" `
+                + `style="margin-top:7px;width:100%;appearance:none;border:1px solid #6600FF;cursor:pointer;`
+                + `padding:6px 10px;border-radius:8px;font:600 11px system-ui;background:#faf9fd;color:#6600FF;">`
+                + `Generate massing options</button>`,
+            );
+        }
+        const set = state.set;
+        if (!set.ok) {
+            span.setAttribute('pryzm.massing.foldArm', 'refused');
+            return fold(
+                MASSING_OPTIONS_SECTION_TESTID,
+                'refused',
+                'Massing options — unavailable',
+                `<div style="color:#8a5a00;background:#fff6e8;border-radius:6px;padding:6px 8px;`
+                + `font-size:10px;line-height:1.5;">${escHtml(set.text)}</div>`,
+            );
+        }
+        span.setAttribute('pryzm.massing.foldArm', 'computed');
+        span.setAttribute('pryzm.massing.foldOptions', set.options.length);
+        const cards = set.options.map(buildMassingOptionCard).join('');
+        const caveat =
+            `<div style="margin-top:7px;padding-top:5px;border-top:1px dashed #ece9f4;color:#8a83a0;`
+            + `font-size:9px;line-height:1.45;">${escHtml(set.caveat)}</div>`;
+        const clear =
+            `<button type="button" data-testid="${MASSING_OPTIONS_CLEAR_BTN_TESTID}" `
+            + `style="margin-top:6px;width:100%;appearance:none;border:1px solid #d8d3e6;cursor:pointer;`
+            + `padding:5px 10px;border-radius:8px;font:600 10px system-ui;background:#ffffff;color:#8a83a0;">`
+            + `Hide these options</button>`;
+        return fold(
+            MASSING_OPTIONS_SECTION_TESTID,
+            'computed',
+            `Massing options — ${escHtml(String(set.options.length))} generated`,
+            intro + cards + caveat + clear,
+        );
+    } finally {
+        span.end();
+    }
+}
+
+/** One option card: what it is, why, its axes as facts, its limitations, and its pick button. */
+function buildMassingOptionCard(o: MassingOption): string {
+    const axes = o.scores
+        .map((a) => {
+            // ⛔ A NULL AXIS PRINTS "not derived", NEVER A ZERO-LENGTH BAR. An empty bar is read as
+            // a measured worst case, which is the §CONTEXT-DATA-HONESTY conflation drawn as a
+            // rectangle — the same substitution `designMeasurement.ts` refuses for areas.
+            const bar = a.normalised === null
+                ? `<span style="color:#8a5a00;font-size:9px;">not derived</span>`
+                : `<span style="display:inline-block;width:56px;height:5px;border-radius:3px;background:#efecf7;`
+                  + `vertical-align:middle;overflow:hidden;"><span style="display:block;height:5px;`
+                  + `width:${escHtml((Math.max(0, Math.min(1, a.normalised)) * 100).toFixed(0))}%;background:#6600FF;"></span></span>`;
+            return `<div title="${escHtml(a.meaning)}" style="display:flex;justify-content:space-between;`
+                + `gap:8px;align-items:center;padding:1px 0;">`
+                + `<span style="color:#8a83a0;font-size:9px;">${escHtml(a.label)}</span>`
+                + `<span style="display:flex;gap:6px;align-items:center;font-size:9px;color:#6b6480;">`
+                + `${a.display === null ? '<span style="color:#8a5a00;">not derived</span>' : escHtml(a.display)}`
+                + `${bar}</span></div>`;
+        })
+        .join('');
+
+    const limits = o.limitations
+        .map((l) => {
+            const colour = l.severity === 'error' ? '#8a5a00' : '#8a83a0';
+            const bg = l.severity === 'error' ? '#fdf8ee' : '#faf9fd';
+            return `<div data-massing-limitation="${escHtml(l.code)}" data-severity="${escHtml(l.severity)}" `
+                + `style="margin-top:4px;font-size:9px;line-height:1.45;color:${colour};background:${bg};`
+                + `border-left:2px solid ${l.severity === 'error' ? '#c9973a' : '#d9ccff'};padding:3px 6px;`
+                + `border-radius:0 4px 4px 0;">${escHtml(l.text)}</div>`;
+        })
+        .join('');
+
+    // ⛔ NO PROPOSAL ⇒ NO BUTTON. Not a disabled one: a control that can only fail is a dead click
+    // with a label on it, and the reason is already printed above it as a limitation.
+    const pick = o.proposal === null
+        ? ''
+        : `<button type="button" ${MASSING_PICK_ATTR}="${escHtml(o.id)}" `
+          + `style="margin-top:5px;width:100%;appearance:none;border:1px solid #6600FF;cursor:pointer;`
+          + `padding:5px 9px;border-radius:7px;font:600 10px system-ui;background:#ffffff;color:#6600FF;">`
+          + `Use this plate</button>`;
+
+    return `<div data-massing-option="${escHtml(o.id)}" data-refused="${o.refused ? '1' : '0'}" `
+        + `style="margin-top:7px;padding:6px 7px;border:1px solid #efecf7;border-radius:8px;`
+        + `background:${o.refused ? '#fbfafd' : '#ffffff'};min-width:0;max-width:100%;">`
+        + `<div style="display:flex;justify-content:space-between;gap:8px;align-items:baseline;">`
+        + `<span style="font-weight:700;font-size:10.5px;color:${o.refused ? '#8a83a0' : '#6600FF'};">${escHtml(o.label)}</span>`
+        + `<span style="font-size:9px;color:#8a83a0;">`
+        + `${o.footprintAreaM2 === null ? 'no plate' : `${escHtml(o.footprintAreaM2.toFixed(0))} m²`}</span></div>`
+        + `<div style="margin-top:3px;font-size:9.5px;line-height:1.45;color:#6b6480;">${escHtml(o.statement)}</div>`
+        + (axes === '' ? '' : `<div style="margin-top:5px;">${axes}</div>`)
+        + limits
+        + pick
+        + `</div>`;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

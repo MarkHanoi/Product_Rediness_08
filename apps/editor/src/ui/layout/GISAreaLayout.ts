@@ -325,7 +325,17 @@ import {
     // the third area channel (INTENDED) beside BUILT.
     buildStagedSectionsHtml,
     buildIntendedAreaFold,
+    // §RESI-ORCH-MASSING-OPTIONS (STR §7) — N massings of the permitted footprint, each with its
+    // reason. The enumerator is pure and lives next door; this file owns the button and the pick.
+    buildMassingOptionsFold,
+    MASSING_OPTIONS_GENERATE_BTN_TESTID,
+    MASSING_OPTIONS_CLEAR_BTN_TESTID,
+    MASSING_PICK_ATTR,
 } from '../site/envelopeCardSections';
+import {
+    enumerateMassingOptions,
+    type MassingOptionSet,
+} from '../site/massingOptionModel';
 // §RESI-ORCH-STAGE-WIRE (STR §21) — *"the right panel exposes the controls relevant to the current
 // stage."* The DECISION (which section leads, which is gated, and why) is pure and lives next
 // door; this file renders it and wires the jump. ⛔ Nothing is HIDDEN by the stage — see
@@ -2884,6 +2894,108 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
     };
 
     /**
+     * §RESI-ORCH-MASSING-OPTIONS (STR §7) — the generated option set, held for this card only.
+     *
+     * ⛔ NOT A STORE, AND NOT PERSISTED. A set of options is the transcript of one question the
+     * user asked; restoring it on next load would present four alternatives nobody asked for as
+     * though the product had decided something. It is dropped whenever the envelope is re-solved,
+     * for the same reason the target-area plate is: options measured against a 92 m² footprint are
+     * not options about a re-solved 61 m² one.
+     */
+    let massingOptions: MassingOptionSet | null = null;
+    /**
+     * The permitted footprint the set above was enumerated against.
+     *
+     * ⛔ THE STALENESS GATE, AND IT IS THE SAME ONE `resolveLiveTargetFootprintProposal` APPLIES TO
+     * THE PLATE. Four options measured against a 92 m² footprint are not options about a re-solved
+     * 61 m² one, and leaving them on the card would let a user pick a plate whose stated coverage,
+     * storeys and floor area are all about a determination that no longer exists. Dropped, never
+     * re-scaled: re-scaling would produce numbers nobody computed.
+     */
+    let massingOptionsForFootprintM2: number | null = null;
+
+    /**
+     * §RESI-ORCH-MASSING-OPTIONS — GENERATE, PICK, HIDE.
+     *
+     * ⭐ GENERATE IS AN ACT THE USER PERFORMS. The fold renders idle with a button; nothing is
+     * enumerated on a card render. *"Do not over-automate"* — and each option runs a bisection over
+     * the repo erosion, so generating on every `refreshEnvelopePanel` would also be wasteful.
+     *
+     * ⛔ PICK REUSES THE §5 CHANNEL AND MINTS NOTHING. An option's plate IS a
+     * `TargetFootprintProposal`, so choosing one writes the same session slot a typed target
+     * writes — the same scene draws it, the same staleness gate governs it, and the same adopt
+     * button commits it. A second proposal channel here is how a card and a scene come to disagree
+     * about which plate is on the ground.
+     */
+    const wireMassingOptions = (panel: HTMLDivElement): void => {
+        const genBtn = panel.querySelector(
+            `[data-testid="${MASSING_OPTIONS_GENERATE_BTN_TESTID}"]`,
+        ) as HTMLButtonElement | null;
+        if (genBtn) {
+            genBtn.onclick = (ev) => {
+                ev.stopPropagation();
+                ev.preventDefault();
+                const env = getLastBuildableEnvelope();
+                const figures = env ? permittedStudyFigures(env) : null;
+                const committed = getCommittedParcelBoundary();
+                const parcelRing = committed?.polygon ?? [];
+                try {
+                    massingOptions = enumerateMassingOptions({
+                        permittedRing: env?.insetPolygon ?? [],
+                        // The card's ONE producer of both figures (C06 §13.3) — an option can never
+                        // cite a footprint or a GFA that differs from the rows above it.
+                        permittedFootprintM2: figures?.footprintM2 ?? 0,
+                        permittedGfaM2: figures?.gfaM2 ?? null,
+                        maxFloors: env?.maxFloors ?? null,
+                        maxHeightM: env?.maxHeight_m ?? null,
+                        parcelAreaM2: parcelRing.length >= 3 ? polyAreaM2(parcelRing) : null,
+                    });
+                } catch (err) {
+                    console.warn('[gis][envelope-card] massing enumeration failed (non-fatal):', err);
+                    massingOptions = null;
+                }
+                massingOptionsForFootprintM2 = figures?.footprintM2 ?? null;
+                refreshEnvelopePanel();
+            };
+        }
+        const clearBtn = panel.querySelector(
+            `[data-testid="${MASSING_OPTIONS_CLEAR_BTN_TESTID}"]`,
+        ) as HTMLButtonElement | null;
+        if (clearBtn) {
+            clearBtn.onclick = (ev) => {
+                ev.stopPropagation();
+                ev.preventDefault();
+                massingOptions = null;
+                massingOptionsForFootprintM2 = null;
+                refreshEnvelopePanel();
+            };
+        }
+        panel.querySelectorAll<HTMLButtonElement>(`[${MASSING_PICK_ATTR}]`).forEach((btn) => {
+            btn.onclick = (ev) => {
+                ev.stopPropagation();
+                ev.preventDefault();
+                const id = btn.getAttribute(MASSING_PICK_ATTR);
+                const set = massingOptions;
+                if (id === null || set === null || !set.ok) return;
+                const option = set.options.find((o) => o.id === id) ?? null;
+                if (option === null || option.proposal === null) return;
+                // ⛔ ONE PROPOSAL CHANNEL. The picked plate becomes THE §5 proposal, so the card's
+                // target-area section, the scene and the adopt step all read one answer.
+                setTargetFootprintProposal(option.proposal);
+                targetAreaTyped = Math.round(option.proposal.achievedAreaM2);
+                targetAreaStatement =
+                    `${option.label} — ${option.proposal.statement} `
+                    + 'Chosen from the generated options; edit the area above to move away from it.';
+                targetAreaRefused = false;
+                // A newly picked plate supersedes anything the last adopt attempt said.
+                adoptStatement = null;
+                adoptFailed = false;
+                refreshEnvelopePanel();
+            };
+        });
+    };
+
+    /**
      * §RESI-ORCH-COST (2026-09-03) — the two selects on the indicative-cost fold.
      *
      * A no-op when the fold is not on this render (it is built only on the full-determination
@@ -4145,6 +4257,28 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
                 return '';
             }
         })();
+        const safeMassingOptionsSection = ((): string => {
+            try {
+                // The staleness gate — see `massingOptionsForFootprintM2`. 0.5 m² is the same band
+                // `resolveLiveTargetFootprintProposal` uses, so the plate and the options it came
+                // from cannot go stale at different moments.
+                const nowFootprintM2 = permittedStudyFigures(env).footprintM2;
+                if (
+                    massingOptions !== null
+                    && (massingOptionsForFootprintM2 === null
+                        || Math.abs(massingOptionsForFootprintM2 - nowFootprintM2) > 0.5)
+                ) {
+                    massingOptions = null;
+                    massingOptionsForFootprintM2 = null;
+                }
+                return buildMassingOptionsFold(
+                    massingOptions === null ? { kind: 'idle' } : { kind: 'computed', set: massingOptions },
+                );
+            } catch (err) {
+                console.warn('[gis][envelope-card] massing options fold failed (non-fatal):', err);
+                return '';
+            }
+        })();
         const safeCloseBtn = envelopeCloseButtonHtml();
         const safeEnvToggle = envelopeToggleHtml();
         // §UX1-PROSE-ALTITUDE — the three prose bodies on this card are collapsed behind
@@ -4185,6 +4319,7 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
                  'per-level': safePerLevelSection,
                  'intended-area': safeIntendedSection,
                  'site-data': safeSiteDataBlock,
+                 'massing-options': safeMassingOptionsSection,
                  'target-area': safeTargetAreaSection,
                  'cost': safeCostSection,
                  'why': safeWhyBlock,
@@ -4199,6 +4334,9 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
         // §RESI-ORCH-ADOPT — the CONFIRM step. Only ever wired when the button was rendered, and
         // it is rendered only when a LIVE proposal exists (`resolveLiveTargetFootprintProposal`).
         wireTargetAreaAdopt(panel);
+        // §RESI-ORCH-MASSING-OPTIONS — generate / pick / hide. Full-determination arm only: every
+        // option is a fraction of a PERMITTED footprint, and a refusal card has none.
+        wireMassingOptions(panel);
         // §RESI-ORCH-STAGE-WIRE — the "do this next" pill jumps to `data-stage-control="massing"`,
         // which is the target-area entry on this arm.
         wireDesignStageStrip(panel);

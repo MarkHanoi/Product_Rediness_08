@@ -266,11 +266,22 @@ describe('L-1653 wiring — GISAreaLayout hosts the four folds first-class (sour
         expect(src).not.toContain('Site data &amp; capacity');
     });
 
-    it('the full card interpolates all four sections + the measured fold reaches the refusal card too', () => {
-        expect((src.match(/\$\{safeMeasuredSection\}/g) ?? []).length).toBeGreaterThanOrEqual(2);
-        expect((src.match(/\$\{safeCapacitySection\}/g) ?? []).length).toBeGreaterThanOrEqual(2);
-        expect(src).toContain('${safeSiteDataBlock}');
-        expect(src).toContain('${safeWhyBlock}');
+    it('the full card carries all four sections + the measured fold reaches the refusal card too', () => {
+        // ⚠ UPDATED §RESI-ORCH-STAGE-WIRE (2026-09-04) — this pin read
+        // `/\$\{safeMeasuredSection\}/` twice, i.e. the sections interpolated DIRECTLY into the two
+        // templates. They are now routed through `buildStagedSectionsHtml`, which orders them by
+        // the derived design stage and greys the ones whose stage is unreached (STR §21).
+        //
+        // ⛔ THE PIN IS STRENGTHENED, NOT RELAXED. The old form proved the string appeared; this
+        // form proves each section is HANDED TO THE ORDERER UNDER ITS OWN SECTION KEY — which is
+        // what makes it renderable at all — and that both templates go through it. Deleting the pin
+        // because the shape moved is how a first-class section quietly becomes absent again
+        // (L-1650 root cause 1, which this suite exists to prevent recurring).
+        expect((src.match(/buildStagedSectionsHtml\(sectionPlan/g) ?? []).length).toBe(2);
+        expect((src.match(/'how-measured': safeMeasuredSection,/g) ?? []).length).toBe(2);
+        expect((src.match(/'designed-vs-permitted': safeCapacitySection,/g) ?? []).length).toBe(2);
+        expect(src).toContain("'site-data': safeSiteDataBlock,");
+        expect(src).toContain("'why': safeWhyBlock,");
     });
 
     it('the site-data and why folds carry stable section testids', () => {

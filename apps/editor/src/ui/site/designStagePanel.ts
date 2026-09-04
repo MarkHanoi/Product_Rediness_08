@@ -41,6 +41,7 @@ export type EnvelopeCardSection =
     | 'per-level'
     | 'intended-area'
     | 'site-data'
+    | 'massing-options'
     | 'target-area'
     | 'cost'
     | 'why';
@@ -51,6 +52,7 @@ export const ENVELOPE_CARD_SECTIONS: readonly EnvelopeCardSection[] = Object.fre
     'per-level',
     'intended-area',
     'site-data',
+    'massing-options',
     'target-area',
     'cost',
     'why',
@@ -75,6 +77,8 @@ export const ENVELOPE_CARD_SECTION_STAGE: Readonly<Record<EnvelopeCardSection, D
         // Gating it behind BIM would grey out the one section that can speak at massing.
         'intended-area': 'massing',
         'site-data': null,
+        // §RESI-ORCH-MASSING-OPTIONS — options ARE the massing stage's own artefact.
+        'massing-options': 'massing',
         'target-area': 'massing',
         'cost': 'massing',
         'why': null,
@@ -87,6 +91,7 @@ export const ENVELOPE_CARD_SECTION_LABEL: Readonly<Record<EnvelopeCardSection, s
     'per-level': 'Built area by storey',
     'intended-area': 'Intended area by storey',
     'site-data': 'Full site & massing data',
+    'massing-options': 'Massing options',
     'target-area': 'Target ground-floor area',
     'cost': 'Indicative cost',
     'why': 'Why these numbers?',

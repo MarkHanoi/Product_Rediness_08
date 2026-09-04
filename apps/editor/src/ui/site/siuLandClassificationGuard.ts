@@ -67,6 +67,7 @@
 // Contracts: C58 §1.4 (never overstate), §1.11 (granularity — SIU answers "what class of land",
 // NOT "what may I build"; its own payload says so), §CONTEXT-DATA-HONESTY, L-616 family.
 
+import { projectScopeRegistry } from '@pryzm/core-app-model';
 import type { EnvelopeRefusal } from '@pryzm/schemas';
 
 /** The same-origin proxy route (`server/jurisdiction/siuClassificationProxy.js`). */
@@ -306,3 +307,23 @@ export function getLastSiuGuardOutcome(): SiuGuardOutcomeRecord | null {
 export function __resetSiuGuardForTests(): void {
     _lastOutcome = null;
 }
+
+// ── §C13-CANDIDATE-OWNERS (ADR-0298 §3, lane CI-GREEN/ISO) — project-switch owner ──
+//
+// `_lastOutcome` carries `lat`/`lon` — THE PREVIOUS PROJECT'S SITE COORDINATES — plus the
+// verdict the national register returned for them. That is project-identifying content by
+// any reading: `getLastSiuGuardOutcome()` is the diagnostic answer to "what did the guard
+// last say about THIS site", and after a switch it answered about the other one, with a
+// timestamp that makes the stale reading look current.
+//
+// The block above states the intended lifetime itself — "the same lifetime discipline as
+// `_lastEnvelope` in siteDispatch" — and `_lastEnvelope` IS cleared per project, by
+// `resetSiteDispatchProjectState()` (siteDispatch.ts, the declared `site.dispatch` scope).
+// This slot was written to mirror that discipline and never wired to it; the only thing
+// that dropped it was the test seam directly above. Registering here rather than adding a
+// line to `resetSiteDispatchProjectState` keeps the state and its teardown in ONE module
+// (C13 §3.10), which the sweep can see and a reader cannot miss.
+projectScopeRegistry.register({
+    scopeName: 'site.siuLandClassificationGuard',
+    clear: () => { _lastOutcome = null; },
+});

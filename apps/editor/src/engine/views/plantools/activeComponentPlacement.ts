@@ -22,6 +22,7 @@
  */
 
 import { trace } from '@opentelemetry/api';
+import { projectScopeRegistry } from '@pryzm/core-app-model';
 
 const _tracer = trace.getTracer('@pryzm/editor.active-component-placement', '0.1.0');
 
@@ -65,3 +66,24 @@ export function clearActiveComponentPlacement(): void {
         span.end();
     });
 }
+
+// ── §C13-CANDIDATE-OWNERS (ADR-0298 §3, lane CI-GREEN/ISO) — project-switch owner ──
+//
+// ⭐ THE DOC COMMENT DIRECTLY ABOVE ALREADY SAID "project close". NOTHING CLOSED IT.
+// `clearActiveComponentPlacement()` had no project-lifecycle caller, which is the
+// AUTHORED-BUT-UNWIRED shape ISO45 named for `stairByWalls.__resetStairByWallsForTests`
+// ("Test seam + project-switch reset (C48 project isolation)", zero project-switch
+// callers). The declaration is now the code.
+//
+// `_active` holds a `(definitionId, typeId)` pair out of the COMPONENT CATALOGUE the
+// user had open, and catalogue membership is judged per project (lane U0's
+// catalogue-membership refusals, C111 §1.1-a). Surviving a switch it is exactly the
+// `activeWallSystemType` entry already on the ADR-0298 debt list — "a type ID from
+// Project A; after a switch new walls are drawn against a type that does not exist" —
+// except that here the bus refuses instead of drawing, so the user meets a refusal
+// naming a definition they never chose in this project. Either way the resting state
+// after a switch must be "nothing is chosen", which is what `null` means here.
+projectScopeRegistry.register({
+    scopeName: 'plantools.activeComponentPlacement',
+    clear: () => clearActiveComponentPlacement(),
+});

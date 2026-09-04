@@ -62,6 +62,7 @@
 // load would light geometry nobody asked about.
 
 import { trace } from '@opentelemetry/api';
+import { projectScopeRegistry } from '@pryzm/core-app-model';
 import { frontEdgeCount } from './parcelEdgeClassificationDetermination';
 
 const _tracer = trace.getTracer('pryzm.site.siteGeometryHighlight');
@@ -265,6 +266,35 @@ export function __resetSiteHighlightForTests(): void {
     active = null;
     listeners.clear();
 }
+
+// ── §C13-CANDIDATE-OWNERS (ADR-0298 §3, lane CI-GREEN/ISO) — project-switch owner ──
+//
+// The header already says an emphasis is "a momentary act of reading, not a preference"
+// and refuses to persist one. A project switch is the same argument at a different
+// boundary: `active` is written by a click on PROJECT A's envelope card and, with no
+// owner, is still in force when project B's scene subscribes — so B opens with every
+// surface RECEDED around a subject nobody in B asked about, and (by this module's own
+// rule) the dimming is what carries the emphasis, so there is no bright thing on screen
+// to explain it. Worse when the subject is unavailable in B: the row that would explain
+// the state renders un-clickable, so the emphasis has no visible cause at all.
+//
+// ⛔ ONLY THE SUBJECT IS CLEARED — NEVER `listeners`. The test seam above drops both
+// because a spec must not inherit the previous spec's subscribers; a project switch is
+// the opposite case, since the scene and the panel that subscribed are the SAME live
+// surfaces after the switch. Clearing the set on a switch would silently unsubscribe
+// them and the next highlight would repaint nothing. This is the ISO45 rule ("the
+// project-switch reset was SPLIT from the test reset so the switch does not clear the
+// subscription latch") applied verbatim, and it is why this does not simply call
+// `__resetSiteHighlightForTests()`.
+//
+// `setSiteHighlight(null)` rather than `active = null` on purpose: subscribers must be
+// told, or a renderer keeps drawing project A's recede state until some unrelated event
+// happens to repaint it — the poll-not-push defect this module's push contract exists to
+// make structurally impossible. It no-ops when nothing was emphasised.
+projectScopeRegistry.register({
+    scopeName: 'site.geometryHighlight',
+    clear: () => setSiteHighlight(null),
+});
 
 // ─────────────────────────────────────────────────────────────────────────────
 // THE EMPHASIS RULE — what a SUBSCRIBER is allowed to do once a subject is set

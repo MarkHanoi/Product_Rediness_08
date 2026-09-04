@@ -70,7 +70,7 @@
 // undo / redo alike via `subscribeDirty`, registration survives undo by construction.
 // ⛔ The POD's own id is NOT registered — nothing draws it (§PLAN-MEMBERSHIP-RULE
 // precondition (1) fails; see the file header).
-import { viewDependencyTracker } from '@pryzm/core-app-model';
+import { projectScopeRegistry, viewDependencyTracker } from '@pryzm/core-app-model';
 
 /**
  * The narrowest shape of the LEGACY fixture store this module needs.
@@ -295,3 +295,32 @@ function _snapshotMembers(state: ReadonlyMap<string, unknown>): ReadonlyMap<stri
 export function __resetBathroomPodMemberMirrorForTests(): void {
     _lastKnownMembers = new Map();
 }
+
+// ── §C13-CANDIDATE-OWNERS (ADR-0298 §3, lane CI-GREEN/ISO) — project-switch owner ──
+//
+// `_lastKnownMembers` maps a pod id to its member ELEMENT IDS, and those ids are what
+// the reap loop above passes to `store.remove(memberId)` on the legacy plumbing store.
+// Carried across a project switch it is the `plantools.armedSelection` shape one level
+// up: ids naming nothing in the incoming project, held by a module that is imported
+// once and never re-evaluated. Until now the ONLY thing that dropped it was
+// `__resetBathroomPodMemberMirrorForTests`, whose six callers are all specs — the
+// AUTHORED-BUT-UNWIRED shape ISO45 named (a reset that exists, is exported, and no
+// production path calls).
+//
+// Dropping it on a switch cannot orphan a fixture: `ClearProjectCommand` removes every
+// `plumbingStore` record itself (`plumbing.forEach(p => plumbingStore.remove(p.id))`),
+// so the reap is not the only road out for Project A's fixtures. And the snapshot is
+// re-derived from the live store on the very next notification, so the cost of clearing
+// it is one map allocation.
+//
+// ⚠ SPLIT FROM THE TEST SEAM DELIBERATELY (the ISO45 rule): the two happen to do the
+// same thing today, and a shared body is how a step added for one silently becomes a
+// step taken by the other.
+export function clearBathroomPodMemberSnapshot(): void {
+    _lastKnownMembers = new Map();
+}
+
+projectScopeRegistry.register({
+    scopeName: 'bathroomPod.memberMirror',
+    clear: () => clearBathroomPodMemberSnapshot(),
+});
