@@ -94,6 +94,68 @@ export class FrameScheduler {
   /** Disposer for the active heartbeat subscription (null when not subscribed). */
   private heartbeatUnsub: (() => void) | null = null;
   private readonly tickListeners = new Map<string, TickListener>();
+
+  /**
+   * §PERF-TICK-ORDER-IS-CACHED — the tick-listener list, ALREADY flattened into
+   * `TICK_PRIORITIES` order, or `null` when it must be rebuilt.
+   *
+   * ── WHAT THIS REPLACES ────────────────────────────────────────────────────
+   * `_tick()` used to do, on EVERY frame:
+   *     const listenersThisTick = [...this.tickListeners.values()];   // 1 alloc
+   *     for (const priority of TICK_PRIORITIES)                        // P = 4
+   *       for (const listener of listenersThisTick)                    // × N
+   *         if (listener.priority !== priority) continue;              // 3N skips
+   * i.e. one N-element array allocated per frame, plus P×N iterations to perform
+   * N calls. At 60 Hz with N listeners that is 60 allocations/s and 4N loop steps
+   * per frame, three quarters of which exist only to be skipped.
+   *
+   * ⭐ THE ORDER IS A PURE FUNCTION OF THE LISTENER SET, and the listener set
+   * changes on register/unregister — a few times per session — not per frame. So
+   * it is computed on mutation and reused, which is the whole fix.
+   *
+   * ── ⛔ SNAPSHOT SEMANTICS ARE PRESERVED EXACTLY, AND THEY ARE LOAD-BEARING ──
+   * The old code snapshotted into a local before iterating, so a listener that
+   * mutates the set DURING a tick could not perturb that tick:
+   *   • a listener ADDED mid-tick does NOT run until the next frame;
+   *   • a listener REMOVED mid-tick STILL runs on this frame.
+   * Both survive because invalidation only ever NULLS this field and a rebuild
+   * only ever assigns a BRAND-NEW array. `_tick()` holds its own reference to the
+   * array it started with, so an in-flight iteration is never observed to change.
+   * ⛔ NEVER mutate a cached array in place (push/splice/sort) — that is the one
+   * change that would silently break the contract above.
+   */
+  private _orderedTickListeners: readonly TickListener[] | null = null;
+
+  /**
+   * Invalidate {@link _orderedTickListeners}. Call after EVERY mutation of
+   * `tickListeners` — add, delete, clear. Cheap: one field write.
+   */
+  private _invalidateTickOrder(): void {
+    this._orderedTickListeners = null;
+  }
+
+  /**
+   * The listener list in `TICK_PRIORITIES` order, built at most once per
+   * mutation. Within a priority, MAP INSERTION ORDER is preserved — identical to
+   * the old nested-loop traversal, which iterated `tickListeners.values()` (an
+   * insertion-ordered Map) inside the priority loop.
+   *
+   * A listener whose `priority` is not a member of `TICK_PRIORITIES` is omitted
+   * and therefore never runs — also identical to the old behaviour, where no
+   * iteration of the outer loop could match it.
+   */
+  private _orderedTickListenersOrBuild(): readonly TickListener[] {
+    const cached = this._orderedTickListeners;
+    if (cached !== null) return cached;
+    const built: TickListener[] = [];
+    for (const priority of TICK_PRIORITIES) {
+      for (const listener of this.tickListeners.values()) {
+        if (listener.priority === priority) built.push(listener);
+      }
+    }
+    this._orderedTickListeners = built;
+    return built;
+  }
   private readonly idle = new IdleContinuation();
   /** True after we've fired the `pryzm.frame.idle-continuation` "enter" event
    *  for the current idle window; reset on motion or `start()`. */
@@ -253,6 +315,7 @@ export class FrameScheduler {
     this.idle.reset();
     this.idleEntryEmitted = false;
     this.tickListeners.clear();
+    this._invalidateTickOrder();
     this.tickCount = 0;
     this.motionActive = false;
     this.motionListeners.clear();
@@ -375,9 +438,13 @@ export class FrameScheduler {
       );
     }
     this.tickListeners.set(id, { id, callback, priority });
+    this._invalidateTickOrder();
     this.wakeIfStopped();
     return () => {
-      this.tickListeners.delete(id);
+      // §PERF-TICK-ORDER-IS-CACHED — invalidate ONLY on an actual removal, so a
+      // disposer called twice (a common idempotent-cleanup pattern) does not
+      // discard a freshly-built order for nothing.
+      if (this.tickListeners.delete(id)) this._invalidateTickOrder();
     };
   }
 
@@ -769,22 +836,24 @@ export class FrameScheduler {
     // queued for the NEXT scheduler tick — the intended "one callback per
     // frame" contract that scheduleOnce and schedule() both document.
     if (this.tickListeners.size > 0) {
-      const listenersThisTick = [...this.tickListeners.values()];
-      for (const priority of TICK_PRIORITIES) {
-        for (const listener of listenersThisTick) {
-          if (listener.priority !== priority) continue;
-          const _lT0 = _prof ? _perfNow() : 0;
-          try {
-            listener.callback(now, deltaMs);
-          } catch (err) {
-            // eslint-disable-next-line no-console
-            console.error(
-              `[FrameScheduler] tick listener "${listener.id}" error:`,
-              err,
-            );
-          }
-          if (_prof) this.profiler.recordListener(listener.id, _perfNow() - _lT0);
+      // §PERF-TICK-ORDER-IS-CACHED — ONE pass over a list that is already in
+      // priority order, instead of P=4 passes over an array rebuilt every frame.
+      // `listenersThisTick` is a stable reference for the whole tick, which is
+      // what preserves the mid-tick mutation semantics documented on
+      // `_orderedTickListeners` — do not re-read the field inside this loop.
+      const listenersThisTick = this._orderedTickListenersOrBuild();
+      for (const listener of listenersThisTick) {
+        const _lT0 = _prof ? _perfNow() : 0;
+        try {
+          listener.callback(now, deltaMs);
+        } catch (err) {
+          // eslint-disable-next-line no-console
+          console.error(
+            `[FrameScheduler] tick listener "${listener.id}" error:`,
+            err,
+          );
         }
+        if (_prof) this.profiler.recordListener(listener.id, _perfNow() - _lT0);
       }
     }
 
