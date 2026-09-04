@@ -1,0 +1,1698 @@
+{
+ "probedAt": "2026-09-04",
+ "service": "https://mapprod3.environment.nsw.gov.au/arcgis/rest/services/ePlanning/Planning_Portal_SEPP/MapServer",
+ "layers": {
+  "43": {
+   "id": 43,
+   "name": "Floor Space Ratio (n:1)",
+   "parent": "State Environmental Planning Policy (Gosford City Centre) 2018",
+   "geometryType": "esriGeometryPolygon",
+   "features": 131,
+   "fields": [
+    "OBJECTID|OBJECTID|OID",
+    "EPI_NAME|EPI Name|String",
+    "LGA_NAME|LGA Name|String",
+    "PUBLISHED_DATE|Published Date|Date",
+    "COMMENCED_DATE|Commenced Date|Date",
+    "CURRENCY_DATE|Currency Date|Date",
+    "AMENDMENT|Amendment|String",
+    "FSR|Floor Space Ratio|Double",
+    "LEGIS_REF_CLAUSE|Legislative Clause|String",
+    "EPI_TYPE|EPI Type|String",
+    "SHAPE|SHAPE|Geometry"
+   ],
+   "groups": {
+    "epi": {
+     "State Environmental Planning Policy (Precincts—Regional) 2021": 131
+    },
+    "layName": {},
+    "units": {},
+    "clause": {
+     "Clause 4.4": 131
+    },
+    "layClassSample": {},
+    "maxBH": {},
+    "nullClause": 0,
+    "nullLayName": 131
+   },
+   "sampleRow": {
+    "OBJECTID": 109500,
+    "EPI_NAME": "State Environmental Planning Policy (Precincts—Regional) 2021",
+    "LGA_NAME": "",
+    "PUBLISHED_DATE": 1638403200000,
+    "COMMENCED_DATE": 1646092800000,
+    "CURRENCY_DATE": 1646092800000,
+    "AMENDMENT": null,
+    "FSR": 1.5,
+    "LEGIS_REF_CLAUSE": "Clause 4.4",
+    "EPI_TYPE": "SEPP"
+   }
+  },
+  "44": {
+   "id": 44,
+   "name": "Height of Building",
+   "parent": "State Environmental Planning Policy (Gosford City Centre) 2018",
+   "geometryType": "esriGeometryPolygon",
+   "features": 156,
+   "fields": [
+    "OBJECTID|OBJECTID|OID",
+    "EPI_NAME|EPI Name|String",
+    "LGA_NAME|LGA Name|String",
+    "PUBLISHED_DATE|Published Date|Date",
+    "COMMENCED_DATE|Commenced Date|Date",
+    "CURRENCY_DATE|Currency Date|Date",
+    "AMENDMENT|Amendment|String",
+    "MAX_B_H|Maximum Building Height|Double",
+    "UNITS|Units|String",
+    "LEGIS_REF_CLAUSE|Legislative Clause|String",
+    "EPI_TYPE|EPI Type|String",
+    "SHAPE|Shape|Geometry",
+    "MAX_B_H_M|MAX_B_H_M|Double",
+    "MAX_B_H_RL|MAX_B_H_RL|Double"
+   ],
+   "groups": {
+    "epi": {
+     "State Environmental Planning Policy (Precincts—Regional) 2021": 156
+    },
+    "layName": {},
+    "units": {
+     "m": 136,
+     "m(RL)": 20
+    },
+    "clause": {
+     "Clause 4.3": 156
+    },
+    "layClassSample": {},
+    "maxBH": {
+     "0": 3,
+     "10": 1,
+     "12": 22,
+     "15": 8,
+     "18": 24,
+     "24": 15,
+     "30": 2,
+     "36": 5,
+     "48": 7,
+     "60": 3,
+     "68": 1,
+     "69": 1,
+     "71": 1,
+     "72": 3,
+     "73": 1,
+     "80": 1,
+     "10.5": 2,
+     "55.7": 1,
+     "59.3": 1,
+     "65.1": 1,
+     "64.3": 1,
+     "65.8": 1,
+     "54.7": 1,
+     "62.5": 1,
+     "46.3": 1
+    },
+    "nullClause": 0,
+    "nullLayName": 156
+   },
+   "sampleRow": {
+    "OBJECTID": 104366,
+    "EPI_NAME": "State Environmental Planning Policy (Precincts—Regional) 2021",
+    "LGA_NAME": "",
+    "PUBLISHED_DATE": 1638403200000,
+    "COMMENCED_DATE": 1646092800000,
+    "CURRENCY_DATE": 1646092800000,
+    "AMENDMENT": null,
+    "MAX_B_H": 15,
+    "UNITS": "m",
+    "LEGIS_REF_CLAUSE": "Clause 4.3",
+    "EPI_TYPE": "SEPP",
+    "MAX_B_H_M": 15,
+    "MAX_B_H_RL": null
+   }
+  },
+  "116": {
+   "id": 116,
+   "name": "Floor Space Ratio (n:1)",
+   "parent": "State Environmental Planning Policy (Sydney Region Growth Centres) 2006",
+   "geometryType": "esriGeometryPolygon",
+   "features": 71,
+   "fields": [
+    "OBJECTID|OBJECTID|OID",
+    "EPI_NAME|EPI Name|String",
+    "LGA_NAME|LGA Name|String",
+    "PUBLISHED_DATE|Published Date|Date",
+    "COMMENCED_DATE|Commenced Date|Date",
+    "CURRENCY_DATE|Currency Date|Date",
+    "AMENDMENT|Amendment|String",
+    "FSR|Floor Space Ratio|Double",
+    "EPI_TYPE|EPI Type|String",
+    "SHAPE|SHAPE|Geometry"
+   ],
+   "groups": {
+    "epi": {
+     "State Environmental Planning Policy (Precincts—Central River City) 2021": 71
+    },
+    "layName": {},
+    "units": {},
+    "clause": {},
+    "layClassSample": {},
+    "maxBH": {},
+    "nullClause": 71,
+    "nullLayName": 71
+   },
+   "sampleRow": {
+    "OBJECTID": 79838,
+    "EPI_NAME": "State Environmental Planning Policy (Precincts—Central River City) 2021",
+    "LGA_NAME": "",
+    "PUBLISHED_DATE": 1638403200000,
+    "COMMENCED_DATE": 1646092800000,
+    "CURRENCY_DATE": 1671148800000,
+    "AMENDMENT": null,
+    "FSR": 1.75,
+    "EPI_TYPE": "SEPP"
+   }
+  },
+  "118": {
+   "id": 118,
+   "name": "Height Of Building",
+   "parent": "State Environmental Planning Policy (Sydney Region Growth Centres) 2006",
+   "geometryType": "esriGeometryPolygon",
+   "features": 184,
+   "fields": [
+    "OBJECTID|OBJECTID|OID",
+    "EPI_NAME|EPI Name|String",
+    "LGA_NAME|LGA Name|String",
+    "PUBLISHED_DATE|Published Date|Date",
+    "COMMENCED_DATE|Commenced Date|Date",
+    "CURRENCY_DATE|Currency Date|Date",
+    "AMENDMENT|Amendment|String",
+    "MAX_B_H|Maximum Building Height|Double",
+    "UNITS|Units|String",
+    "EPI_TYPE|EPI Type|String",
+    "SHAPE|SHAPE|Geometry",
+    "MAX_B_H_M|MAX_B_H_M|Double",
+    "MAX_B_H_RL|MAX_B_H_RL|Double"
+   ],
+   "groups": {
+    "epi": {
+     "State Environmental Planning Policy (Precincts—Central River City) 2021": 184
+    },
+    "layName": {},
+    "units": {
+     "m": 184
+    },
+    "clause": {},
+    "layClassSample": {},
+    "maxBH": {
+     "0": 1,
+     "5": 1,
+     "9": 44,
+     "10": 1,
+     "12": 25,
+     "13": 1,
+     "14": 21,
+     "16": 33,
+     "17": 2,
+     "18": 5,
+     "21": 11,
+     "24": 7,
+     "26": 5,
+     "8.5": 24,
+     "18.5": 2,
+     "17.5": 1
+    },
+    "nullClause": 184,
+    "nullLayName": 184
+   },
+   "sampleRow": {
+    "OBJECTID": 134989,
+    "EPI_NAME": "State Environmental Planning Policy (Precincts—Central River City) 2021",
+    "LGA_NAME": "",
+    "PUBLISHED_DATE": 1638403200000,
+    "COMMENCED_DATE": 1646092800000,
+    "CURRENCY_DATE": 1775088000000,
+    "AMENDMENT": null,
+    "MAX_B_H": 26,
+    "UNITS": "m",
+    "EPI_TYPE": "SEPP",
+    "MAX_B_H_M": 26,
+    "MAX_B_H_RL": null
+   }
+  },
+  "134": {
+   "id": 134,
+   "name": "Height of Building",
+   "parent": "State Environmental Planning Policy (State Significant Precincts) 2005",
+   "geometryType": "esriGeometryPolygon",
+   "features": 7,
+   "fields": [
+    "OBJECTID|OBJECTID|OID",
+    "EPI_NAME|EPI Name|String",
+    "LGA_NAME|LGA Name|String",
+    "PUBLISHED_DATE|Published Date|Date",
+    "COMMENCED_DATE|Commenced Date|Date",
+    "CURRENCY_DATE|Currency Date|Date",
+    "AMENDMENT|Amendment|String",
+    "MAX_B_H|Maximum Building Height|Double",
+    "UNITS|Units|String",
+    "EPI_TYPE|EPI Type|String",
+    "SHAPE|SHAPE|Geometry",
+    "MAX_B_H_M|MAX_B_H_M|Double",
+    "MAX_B_H_RL|MAX_B_H_RL|Double"
+   ],
+   "groups": {
+    "epi": {
+     "State Environmental Planning Policy (Precincts—Central River City) 2021": 7
+    },
+    "layName": {},
+    "units": {
+     "(null)": 7
+    },
+    "clause": {},
+    "layClassSample": {},
+    "maxBH": {
+     "2": 4,
+     "3": 2,
+     "6": 1
+    },
+    "nullClause": 7,
+    "nullLayName": 7
+   },
+   "sampleRow": {
+    "OBJECTID": 355647,
+    "EPI_NAME": "State Environmental Planning Policy (Precincts—Central River City) 2021",
+    "LGA_NAME": " ",
+    "PUBLISHED_DATE": 1638403200000,
+    "COMMENCED_DATE": 1646092800000,
+    "CURRENCY_DATE": 1646092800000,
+    "AMENDMENT": null,
+    "MAX_B_H": 6,
+    "UNITS": null,
+    "EPI_TYPE": "SEPP",
+    "MAX_B_H_M": 6,
+    "MAX_B_H_RL": null
+   }
+  },
+  "278": {
+   "id": 278,
+   "name": "Obstacle Limitation Surface",
+   "parent": "State Environmental Planning Policy (Western Sydney Aerotropolis) 2020",
+   "geometryType": "esriGeometryPolygon",
+   "features": 113,
+   "fields": [
+    "OBJECTID|OBJECTID|OID",
+    "EPI_NAME|EPI Name|String",
+    "LGA_NAME|LGA Name|String",
+    "PUBLISHED_DATE|Published Date|Date",
+    "COMMENCED_DATE|Commenced Date|Date",
+    "CURRENCY_DATE|Currency Date|Date",
+    "AMENDMENT|Amendment|String",
+    "MINIMUM_HEIGHT|Minimum Height|Double",
+    "MAXIMUM_HEIGHT|Maximum Height|Double",
+    "COMMENTS|Comments|String",
+    "EPI_TYPE|EPI Type|String",
+    "SHAPE|SHAPE|Geometry"
+   ],
+   "groups": {
+    "epi": {
+     "State Environmental Planning Policy (Precincts—Western Parkland City) 2021": 113
+    },
+    "layName": {},
+    "units": {},
+    "clause": {},
+    "layClassSample": {},
+    "maxBH": {},
+    "nullClause": 113,
+    "nullLayName": 113
+   },
+   "sampleRow": {
+    "OBJECTID": 1109,
+    "EPI_NAME": "State Environmental Planning Policy (Precincts—Western Parkland City) 2021",
+    "LGA_NAME": "",
+    "PUBLISHED_DATE": 1638403200000,
+    "COMMENCED_DATE": 1646092800000,
+    "CURRENCY_DATE": 1646092800000,
+    "AMENDMENT": null,
+    "MINIMUM_HEIGHT": 230.5,
+    "MAXIMUM_HEIGHT": 230.5,
+    "COMMENTS": "Horizontal",
+    "EPI_TYPE": "SEPP"
+   }
+  },
+  "611": {
+   "id": 611,
+   "name": "Floor Space Ratio (n:1)",
+   "parent": "State Environmental Planning Policy (State Significant Precincts) 2005",
+   "geometryType": "esriGeometryPolygon",
+   "features": 23,
+   "fields": [
+    "OBJECTID|OBJECTID|OID",
+    "EPI_NAME|EPI Name|String",
+    "LGA_NAME|LGA Name|String",
+    "PUBLISHED_DATE|Published Date|Date",
+    "COMMENCED_DATE|Commenced Date|Date",
+    "CURRENCY_DATE|Currency Date|Date",
+    "AMENDMENT|Amendment|String",
+    "FSR|Floor Space Ratio|Double",
+    "EPI_TYPE|EPI Type|String",
+    "SHAPE|SHAPE|Geometry"
+   ],
+   "groups": {
+    "epi": {
+     "State Environmental Planning Policy (Precincts—Eastern Harbour City) 2021": 23
+    },
+    "layName": {},
+    "units": {},
+    "clause": {},
+    "layClassSample": {},
+    "maxBH": {},
+    "nullClause": 23,
+    "nullLayName": 23
+   },
+   "sampleRow": {
+    "OBJECTID": 79870,
+    "EPI_NAME": "State Environmental Planning Policy (Precincts—Eastern Harbour City) 2021",
+    "LGA_NAME": "",
+    "PUBLISHED_DATE": 1638403200000,
+    "COMMENCED_DATE": 1646092800000,
+    "CURRENCY_DATE": 1760659200000,
+    "AMENDMENT": null,
+    "FSR": 2,
+    "EPI_TYPE": "SEPP"
+   }
+  },
+  "614": {
+   "id": 614,
+   "name": "Height of Building",
+   "parent": "State Environmental Planning Policy (State Significant Precincts) 2005",
+   "geometryType": "esriGeometryPolygon",
+   "features": 76,
+   "fields": [
+    "OBJECTID|OBJECTID|OID",
+    "EPI_NAME|EPI Name|String",
+    "LGA_NAME|LGA Name|String",
+    "PUBLISHED_DATE|Published Date|Date",
+    "COMMENCED_DATE|Commenced Date|Date",
+    "CURRENCY_DATE|Currency Date|Date",
+    "AMENDMENT|Amendment|String",
+    "MAX_B_H|Maximum Building Height|Double",
+    "UNITS|Units|String",
+    "EPI_TYPE|EPI Type|String",
+    "SHAPE|SHAPE|Geometry",
+    "MAX_B_H_M|MAX_B_H_M|Double",
+    "MAX_B_H_RL|MAX_B_H_RL|Double"
+   ],
+   "groups": {
+    "epi": {
+     "State Environmental Planning Policy (Precincts—Eastern Harbour City) 2021": 76
+    },
+    "layName": {},
+    "units": {
+     "m": 44,
+     "m(RL)": 26,
+     "NA": 6
+    },
+    "clause": {},
+    "layClassSample": {},
+    "maxBH": {
+     "6": 2,
+     "9": 9,
+     "12": 5,
+     "16": 5,
+     "17": 3,
+     "24": 1,
+     "28": 1,
+     "30": 1,
+     "32": 1,
+     "35": 2,
+     "40": 2,
+     "50": 2,
+     "65": 1,
+     "97": 1,
+     "109": 1,
+     "209": 1,
+     "275": 1,
+     "31.2": 1,
+     "9.5": 2,
+     "39.8": 1,
+     "38.2": 1,
+     "41.4": 1,
+     "23.05": 1,
+     "42.45": 1,
+     "33.75": 1
+    },
+    "nullClause": 76,
+    "nullLayName": 76
+   },
+   "sampleRow": {
+    "OBJECTID": 194600,
+    "EPI_NAME": "State Environmental Planning Policy (Precincts—Eastern Harbour City) 2021",
+    "LGA_NAME": "",
+    "PUBLISHED_DATE": 1638403200000,
+    "COMMENCED_DATE": 1646092800000,
+    "CURRENCY_DATE": 1760659200000,
+    "AMENDMENT": null,
+    "MAX_B_H": 12,
+    "UNITS": "m",
+    "EPI_TYPE": "SEPP",
+    "MAX_B_H_M": 12,
+    "MAX_B_H_RL": null
+   }
+  },
+  "628": {
+   "id": 628,
+   "name": "Floor Space Ratio (n:1)",
+   "parent": "State Environmental Planning Policy (State Significant Precincts) 2005",
+   "geometryType": "esriGeometryPolygon",
+   "features": 6,
+   "fields": [
+    "OBJECTID|OBJECTID|OID",
+    "EPI_NAME|EPI Name|String",
+    "LGA_NAME|LGA Name|String",
+    "PUBLISHED_DATE|Published Date|Date",
+    "COMMENCED_DATE|Commenced Date|Date",
+    "CURRENCY_DATE|Currency Date|Date",
+    "AMENDMENT|Amendment|String",
+    "FSR|Floor Space Ratio|Double",
+    "EPI_TYPE|EPI Type|String",
+    "SHAPE|SHAPE|Geometry"
+   ],
+   "groups": {
+    "epi": {
+     "State Environmental Planning Policy (Precincts—Regional) 2021": 6
+    },
+    "layName": {},
+    "units": {},
+    "clause": {},
+    "layClassSample": {},
+    "maxBH": {},
+    "nullClause": 6,
+    "nullLayName": 6
+   },
+   "sampleRow": {
+    "OBJECTID": 79902,
+    "EPI_NAME": "State Environmental Planning Policy (Precincts—Regional) 2021",
+    "LGA_NAME": "",
+    "PUBLISHED_DATE": 1638403200000,
+    "COMMENCED_DATE": 1646092800000,
+    "CURRENCY_DATE": 1646092800000,
+    "AMENDMENT": null,
+    "FSR": 0.5,
+    "EPI_TYPE": "SEPP"
+   }
+  },
+  "631": {
+   "id": 631,
+   "name": "Height of Building",
+   "parent": "State Environmental Planning Policy (State Significant Precincts) 2005",
+   "geometryType": "esriGeometryPolygon",
+   "features": 22,
+   "fields": [
+    "OBJECTID|OBJECTID|OID",
+    "EPI_NAME|EPI Name|String",
+    "LGA_NAME|LGA Name|String",
+    "PUBLISHED_DATE|Published Date|Date",
+    "COMMENCED_DATE|Commenced Date|Date",
+    "CURRENCY_DATE|Currency Date|Date",
+    "AMENDMENT|Amendment|String",
+    "MAX_B_H|Maximum Building Height|Double",
+    "UNITS|Units|String",
+    "EPI_TYPE|EPI Type|String",
+    "SHAPE|SHAPE|Geometry",
+    "MAX_B_H_M|MAX_B_H_M|Double",
+    "MAX_B_H_RL|MAX_B_H_RL|Double"
+   ],
+   "groups": {
+    "epi": {
+     "State Environmental Planning Policy (Precincts—Regional) 2021": 22
+    },
+    "layName": {},
+    "units": {
+     "m": 22
+    },
+    "clause": {},
+    "layClassSample": {},
+    "maxBH": {
+     "9": 16,
+     "11": 1,
+     "18": 3,
+     "13.6": 1,
+     "6.5": 1
+    },
+    "nullClause": 22,
+    "nullLayName": 22
+   },
+   "sampleRow": {
+    "OBJECTID": 88325,
+    "EPI_NAME": "State Environmental Planning Policy (Precincts—Regional) 2021",
+    "LGA_NAME": "",
+    "PUBLISHED_DATE": 1638403200000,
+    "COMMENCED_DATE": 1646092800000,
+    "CURRENCY_DATE": 1646092800000,
+    "AMENDMENT": null,
+    "MAX_B_H": 11,
+    "UNITS": "m",
+    "EPI_TYPE": "SEPP",
+    "MAX_B_H_M": 11,
+    "MAX_B_H_RL": null
+   }
+  },
+  "645": {
+   "id": 645,
+   "name": "Floor Space Ratio (n:1)",
+   "parent": "State Environmental Planning Policy (State Significant Precincts) 2005",
+   "geometryType": "esriGeometryPolygon",
+   "features": 2,
+   "fields": [
+    "OBJECTID|OBJECTID|OID",
+    "EPI_NAME|EPI Name|String",
+    "LGA_NAME|LGA Name|String",
+    "PUBLISHED_DATE|Published Date|Date",
+    "COMMENCED_DATE|Commenced Date|Date",
+    "CURRENCY_DATE|Currency Date|Date",
+    "AMENDMENT|Amendment|String",
+    "FSR|Floor Space Ratio|Double",
+    "EPI_TYPE|EPI Type|String",
+    "SHAPE|SHAPE|Geometry"
+   ],
+   "groups": {
+    "epi": {
+     "State Environmental Planning Policy (Precincts—Western Parkland City) 2021": 2
+    },
+    "layName": {},
+    "units": {},
+    "clause": {},
+    "layClassSample": {},
+    "maxBH": {},
+    "nullClause": 2,
+    "nullLayName": 2
+   },
+   "sampleRow": {
+    "OBJECTID": 79956,
+    "EPI_NAME": "State Environmental Planning Policy (Precincts—Western Parkland City) 2021",
+    "LGA_NAME": "",
+    "PUBLISHED_DATE": 1638403200000,
+    "COMMENCED_DATE": 1646092800000,
+    "CURRENCY_DATE": 1646092800000,
+    "AMENDMENT": null,
+    "FSR": 2.5,
+    "EPI_TYPE": "SEPP"
+   }
+  },
+  "648": {
+   "id": 648,
+   "name": "Height of Building",
+   "parent": "State Environmental Planning Policy (State Significant Precincts) 2005",
+   "geometryType": "esriGeometryPolygon",
+   "features": 13,
+   "fields": [
+    "OBJECTID|OBJECTID|OID",
+    "EPI_NAME|EPI Name|String",
+    "LGA_NAME|LGA Name|String",
+    "PUBLISHED_DATE|Published Date|Date",
+    "COMMENCED_DATE|Commenced Date|Date",
+    "CURRENCY_DATE|Currency Date|Date",
+    "AMENDMENT|Amendment|String",
+    "MAX_B_H|Maximum Building Height|Double",
+    "UNITS|Units|String",
+    "EPI_TYPE|EPI Type|String",
+    "SHAPE|SHAPE|Geometry",
+    "MAX_B_H_M|MAX_B_H_M|Double",
+    "MAX_B_H_RL|MAX_B_H_RL|Double"
+   ],
+   "groups": {
+    "epi": {
+     "State Environmental Planning Policy (Precincts—Western Parkland City) 2021": 13
+    },
+    "layName": {},
+    "units": {
+     "m": 13
+    },
+    "clause": {},
+    "layClassSample": {},
+    "maxBH": {
+     "12": 4,
+     "15": 2,
+     "21": 1,
+     "24": 2,
+     "9.5": 4
+    },
+    "nullClause": 13,
+    "nullLayName": 13
+   },
+   "sampleRow": {
+    "OBJECTID": 88471,
+    "EPI_NAME": "State Environmental Planning Policy (Precincts—Western Parkland City) 2021",
+    "LGA_NAME": "",
+    "PUBLISHED_DATE": 1638403200000,
+    "COMMENCED_DATE": 1646092800000,
+    "CURRENCY_DATE": 1651190400000,
+    "AMENDMENT": null,
+    "MAX_B_H": 24,
+    "UNITS": "m",
+    "EPI_TYPE": "SEPP",
+    "MAX_B_H_M": 24,
+    "MAX_B_H_RL": null
+   }
+  },
+  "682": {
+   "id": 682,
+   "name": "Floor Space Ratio (n:1)",
+   "parent": "State Environmental Planning Policy (Sydney Region Growth Centres) 2006",
+   "geometryType": "esriGeometryPolygon",
+   "features": 63,
+   "fields": [
+    "OBJECTID|OBJECTID|OID",
+    "EPI_NAME|EPI Name|String",
+    "LGA_NAME|LGA Name|String",
+    "PUBLISHED_DATE|Published Date|Date",
+    "COMMENCED_DATE|Commenced Date|Date",
+    "CURRENCY_DATE|Currency Date|Date",
+    "AMENDMENT|Amendment|String",
+    "FSR|Floor Space Ratio|Double",
+    "EPI_TYPE|EPI Type|String",
+    "SHAPE|SHAPE|Geometry"
+   ],
+   "groups": {
+    "epi": {
+     "State Environmental Planning Policy (Precincts—Western Parkland City) 2021": 63
+    },
+    "layName": {},
+    "units": {},
+    "clause": {},
+    "layClassSample": {},
+    "maxBH": {},
+    "nullClause": 63,
+    "nullLayName": 63
+   },
+   "sampleRow": {
+    "OBJECTID": 285707,
+    "EPI_NAME": "State Environmental Planning Policy (Precincts—Western Parkland City) 2021",
+    "LGA_NAME": " ",
+    "PUBLISHED_DATE": 1782432000000,
+    "COMMENCED_DATE": 1782432000000,
+    "CURRENCY_DATE": 1782432000000,
+    "AMENDMENT": "State Environmental Planning Policy (Precincts—Western Parkland City) Amendment (Leppington Town Centre) 2026",
+    "FSR": 2.5,
+    "EPI_TYPE": "SEPP"
+   }
+  },
+  "684": {
+   "id": 684,
+   "name": "Height Of Building",
+   "parent": "State Environmental Planning Policy (Sydney Region Growth Centres) 2006",
+   "geometryType": "esriGeometryPolygon",
+   "features": 208,
+   "fields": [
+    "OBJECTID|OBJECTID|OID",
+    "EPI_NAME|EPI Name|String",
+    "LGA_NAME|LGA Name|String",
+    "PUBLISHED_DATE|Published Date|Date",
+    "COMMENCED_DATE|Commenced Date|Date",
+    "CURRENCY_DATE|Currency Date|Date",
+    "AMENDMENT|Amendment|String",
+    "MAX_B_H|Maximum Building Height|Double",
+    "UNITS|Units|String",
+    "EPI_TYPE|EPI Type|String",
+    "SHAPE|SHAPE|Geometry",
+    "MAX_B_H_M|MAX_B_H_M|Double",
+    "MAX_B_H_RL|MAX_B_H_RL|Double"
+   ],
+   "groups": {
+    "epi": {
+     "State Environmental Planning Policy (Precincts—Western Parkland City) 2021": 208
+    },
+    "layName": {},
+    "units": {
+     "m": 206,
+     "(null)": 2
+    },
+    "clause": {},
+    "layClassSample": {},
+    "maxBH": {
+     "5": 6,
+     "6": 2,
+     "9": 49,
+     "12": 47,
+     "13": 1,
+     "15": 1,
+     "16": 10,
+     "17": 6,
+     "18": 10,
+     "21": 4,
+     "22": 1,
+     "24": 5,
+     "25": 12,
+     "30": 8,
+     "36": 5,
+     "40": 2,
+     "47": 1,
+     "50": 10,
+     "65": 4,
+     "80": 6,
+     "96": 1,
+     "9.5": 15
+    },
+    "nullClause": 208,
+    "nullLayName": 208
+   },
+   "sampleRow": {
+    "OBJECTID": 88061,
+    "EPI_NAME": "State Environmental Planning Policy (Precincts—Western Parkland City) 2021",
+    "LGA_NAME": "",
+    "PUBLISHED_DATE": 1638403200000,
+    "COMMENCED_DATE": 1646092800000,
+    "CURRENCY_DATE": 1783641600000,
+    "AMENDMENT": null,
+    "MAX_B_H": 9.5,
+    "UNITS": "m",
+    "EPI_TYPE": "SEPP",
+    "MAX_B_H_M": 9.5,
+    "MAX_B_H_RL": null
+   }
+  },
+  "713": {
+   "id": 713,
+   "name": "Floor Space Ratio",
+   "parent": "State Environmental Planning Policy (Precincts—Central River City) 2021",
+   "geometryType": "esriGeometryPolygon",
+   "features": 63,
+   "fields": [
+    "OBJECTID|OBJECTID|OID",
+    "EPI_NAME|EPI_NAME|String",
+    "LGA_NAME|LGA_NAME|String",
+    "LGA_CODE|LGA_CODE|Integer",
+    "PUBLISHED_DATE|PUBLISHED_DATE|Date",
+    "COMMENCED_DATE|COMMENCED_DATE|Date",
+    "CURRENCY_DATE|CURRENCY_DATE|Date",
+    "AMENDMENT|AMENDMENT|String",
+    "MAP_TYPE|MAP_TYPE|String",
+    "MAP_NAME|MAP_NAME|String",
+    "LAY_NAME|LAY_NAME|String",
+    "LAY_CLASS|LAY_CLASS|String",
+    "SYM_CODE|SYM_CODE|Integer",
+    "FSR|FSR|Double",
+    "LABEL|LABEL|String",
+    "LEGIS_REF_AREA|LEGIS_REF_AREA|String",
+    "LEGIS_REF_CLAUSE|LEGIS_REF_CLAUSE|String",
+    "LEGIS_REF_VALUE|LEGIS_REF_VALUE|String",
+    "PCO_REF_KEY|PCO_REF_KEY|String",
+    "CREATED_USER|CREATED_USER|String",
+    "CREATED_DATE|CREATED_DATE|Date",
+    "LAST_EDITED_USER|LAST_EDITED_USER|String",
+    "LAST_EDITED_DATE|LAST_EDITED_DATE|Date",
+    "EPI_TYPE|EPI_TYPE|String",
+    "CADID|CADID|Integer",
+    "SHAPE|SHAPE|Geometry",
+    "SHAPE.STArea()|SHAPE.STArea()|Double",
+    "SHAPE.STLength()|SHAPE.STLength()|Double"
+   ],
+   "groups": {
+    "epi": {
+     "State Environmental Planning Policy (Precincts—Central River City) 2021": 63
+    },
+    "layName": {
+     "Maximum Floor Space Ratio (n:1)": 63
+    },
+    "units": {},
+    "clause": {
+     "Clause 4.4": 63
+    },
+    "layClassSample": {
+     "5-5.99": 7,
+     "2-2.49": 4,
+     "4.5-4.99": 6,
+     "1.5-1.99": 4,
+     "3-3.49": 9,
+     "3.5-3.99": 8,
+     "8-8.99": 2,
+     "1.2-1.29": 2,
+     "7-7.99": 4,
+     "0-0.39": 1,
+     "6-6.99": 3,
+     "1-1.09": 1,
+     "4-4.49": 5,
+     "0.5-0.54": 1,
+     "9-9.99": 1,
+     "1.3-1.39": 1,
+     "2.5-2.99": 3,
+     "12-12.99": 1
+    },
+    "maxBH": {},
+    "nullClause": 0,
+    "nullLayName": 0
+   },
+   "sampleRow": {
+    "OBJECTID": 79886,
+    "EPI_NAME": "State Environmental Planning Policy (Precincts—Central River City) 2021",
+    "LGA_NAME": "",
+    "LGA_CODE": 0,
+    "PUBLISHED_DATE": 1775001600000,
+    "COMMENCED_DATE": 1775001600000,
+    "CURRENCY_DATE": 1775001600000,
+    "AMENDMENT": "State Environmental Planning Policy (Precincts—Central River City) Amendment (Sydney Olympic Park Master Plan 2050) 2026",
+    "MAP_TYPE": "FSR",
+    "MAP_NAME": "SEPP (Precincts—Central River City) 2021 Sydney Olympic Park Floor Space Ratio Map",
+    "LAY_NAME": "Maximum Floor Space Ratio (n:1)",
+    "LAY_CLASS": "5-5.99",
+    "SYM_CODE": 94,
+    "FSR": 5.25,
+    "LABEL": "Z2",
+    "LEGIS_REF_AREA": null,
+    "LEGIS_REF_CLAUSE": "Clause 4.4",
+    "LEGIS_REF_VALUE": null,
+    "PCO_REF_KEY": "2021-725",
+    "CREATED_USER": "CHRYSTS",
+    "CREATED_DATE": 1525064487000,
+    "LAST_EDITED_USER": "VANDEN01",
+    "LAST_EDITED_DATE": 1775534207000,
+    "EPI_TYPE": "SEPP",
+    "CADID": 0,
+    "SHAPE.STArea()": 0.0000014558448141093304,
+    "SHAPE.STLength()": 0.006676204784288099
+   }
+  },
+  "715": {
+   "id": 715,
+   "name": "Height Of Building",
+   "parent": "State Environmental Planning Policy (Precincts—Central River City) 2021",
+   "geometryType": "esriGeometryPolygon",
+   "features": 68,
+   "fields": [
+    "OBJECTID|OBJECTID|OID",
+    "EPI_NAME|EPI_NAME|String",
+    "LGA_CODE|LGA_CODE|Integer",
+    "LGA_NAME|LGA_NAME|String",
+    "PUBLISHED_DATE|PUBLISHED_DATE|Date",
+    "COMMENCED_DATE|COMMENCED_DATE|Date",
+    "CURRENCY_DATE|CURRENCY_DATE|Date",
+    "AMENDMENT|AMENDMENT|String",
+    "MAP_TYPE|MAP_TYPE|String",
+    "MAP_NAME|MAP_NAME|String",
+    "LAY_NAME|LAY_NAME|String",
+    "LAY_CLASS|LAY_CLASS|String",
+    "SYM_CODE|SYM_CODE|Integer",
+    "MAX_B_H|MAX_B_H|Double",
+    "LABEL|LABEL|String",
+    "LEGIS_REF_AREA|LEGIS_REF_AREA|String",
+    "LEGIS_REF_CLAUSE|LEGIS_REF_CLAUSE|String",
+    "LEGIS_REF_VALUE|LEGIS_REF_VALUE|String",
+    "UNITS|UNITS|String",
+    "CREATED_USER|CREATED_USER|String",
+    "CREATED_DATE|CREATED_DATE|Date",
+    "LAST_EDITED_USER|LAST_EDITED_USER|String",
+    "LAST_EDITED_DATE|LAST_EDITED_DATE|Date",
+    "PCO_REF_KEY|PCO_REF_KEY|String",
+    "EPI_TYPE|EPI_TYPE|String",
+    "CADID|CADID|Integer",
+    "MAX_B_H_M|MAX_B_H_M|Double",
+    "MAX_B_H_RL|MAX_B_H_RL|Double",
+    "SHAPE|SHAPE|Geometry",
+    "SHAPE.STArea()|SHAPE.STArea()|Double",
+    "SHAPE.STLength()|SHAPE.STLength()|Double"
+   ],
+   "groups": {
+    "epi": {
+     "State Environmental Planning Policy (Precincts—Central River City) 2021": 68
+    },
+    "layName": {
+     "Maximum Building Height (m)": 68
+    },
+    "units": {
+     "m": 68
+    },
+    "clause": {},
+    "layClassSample": {
+     "55-59.9": 4,
+     "80-99.9": 9,
+     "60-79.9": 7,
+     "15-16.9": 3,
+     "25-29.9": 3,
+     "50-54.9": 4,
+     "150-174.9": 4,
+     "19-20.9": 1,
+     "40-44.9": 5,
+     "23-24.9": 2,
+     "30-34.9": 8,
+     "45-49.9": 2,
+     "125-149.9": 4,
+     "100-124.9": 6,
+     "35-39.9": 1,
+     "21-22.9": 3,
+     "9-9.9": 1,
+     "175-199.9": 1
+    },
+    "maxBH": {
+     "15": 1,
+     "20": 1,
+     "24": 1,
+     "26": 2,
+     "30": 1,
+     "31": 1,
+     "34": 1,
+     "40": 1,
+     "43": 1,
+     "47": 1,
+     "50": 1,
+     "55": 1,
+     "56": 3,
+     "69": 1,
+     "74": 1,
+     "79": 1,
+     "85": 1,
+     "86": 1,
+     "90": 2,
+     "93": 1,
+     "96": 1,
+     "144": 1,
+     "148": 1,
+     "156": 3,
+     "166": 1
+    },
+    "nullClause": 68,
+    "nullLayName": 0
+   },
+   "sampleRow": {
+    "OBJECTID": 361262,
+    "EPI_NAME": "State Environmental Planning Policy (Precincts—Central River City) 2021",
+    "LGA_CODE": 0,
+    "LGA_NAME": " ",
+    "PUBLISHED_DATE": 1775001600000,
+    "COMMENCED_DATE": 1775001600000,
+    "CURRENCY_DATE": 1775001600000,
+    "AMENDMENT": "State Environmental Planning Policy (Precincts—Central River City) Amendment (Sydney Olympic Park Master Plan 2050) 2026",
+    "MAP_TYPE": "HOB",
+    "MAP_NAME": "SEPP (Precincts—Central River City) 2021 Sydney Olympic Park Height of Buildings Map",
+    "LAY_NAME": "Maximum Building Height (m)",
+    "LAY_CLASS": "55-59.9",
+    "SYM_CODE": 102,
+    "MAX_B_H": 56,
+    "LABEL": "Z2",
+    "LEGIS_REF_AREA": null,
+    "LEGIS_REF_CLAUSE": null,
+    "LEGIS_REF_VALUE": null,
+    "UNITS": "m",
+    "CREATED_USER": "VANDEN01",
+    "CREATED_DATE": 1775109829000,
+    "LAST_EDITED_USER": "VANDEN01",
+    "LAST_EDITED_DATE": 1775534163000,
+    "PCO_REF_KEY": "2021-725",
+    "EPI_TYPE": "SEPP",
+    "CADID": 0,
+    "MAX_B_H_M": 56,
+    "MAX_B_H_RL": 0,
+    "SHAPE.STArea()": 0.0000013676191709140749,
+    "SHAPE.STLength()": 0.0054203753925662216
+   }
+  },
+  "718": {
+   "id": 718,
+   "name": "Reduced Level",
+   "parent": "State Environmental Planning Policy (Precincts—Central River City) 2021",
+   "geometryType": "esriGeometryPolygon",
+   "features": 5,
+   "fields": [
+    "OBJECTID|OBJECTID|OID",
+    "EPI_NAME|EPI_NAME|String",
+    "PUBLISHED_DATE|PUBLISHED_DATE|Date",
+    "COMMENCED_DATE|COMMENCED_DATE|Date",
+    "CURRENCY_DATE|CURRENCY_DATE|Date",
+    "AMENDMENT|AMENDMENT|String",
+    "MAP_TYPE|MAP_TYPE|String",
+    "MAP_NAME|MAP_NAME|String",
+    "LAY_NAME|LAY_NAME|String",
+    "LAY_CLASS|LAY_CLASS|String",
+    "LABEL|LABEL|String",
+    "SYM_CODE|SYM_CODE|String",
+    "LEGIS_REF_AREA|LEGIS_REF_AREA|String",
+    "LEGIS_REF_CLAUSE|LEGIS_REF_CLAUSE|String",
+    "LEGIS_REF_VALUE|LEGIS_REF_VALUE|String",
+    "PCO_REF_KEY|PCO_REF_KEY|String",
+    "UNITS|UNITS|String",
+    "CREATED_USER|CREATED_USER|String",
+    "CREATED_DATE|CREATED_DATE|Date",
+    "LAST_EDITED_USER|LAST_EDITED_USER|String",
+    "LAST_EDITED_DATE|LAST_EDITED_DATE|Date",
+    "EPI_TYPE|EPI_TYPE|String",
+    "SHAPE|SHAPE|Geometry",
+    "SHAPE.STArea()|SHAPE.STArea()|Double",
+    "SHAPE.STLength()|SHAPE.STLength()|Double"
+   ],
+   "groups": {
+    "epi": {
+     "State Environmental Planning Policy (Precincts—Central River City) 2021": 5
+    },
+    "layName": {
+     "Maximum Building Height (m)": 5
+    },
+    "units": {
+     "m": 5
+    },
+    "clause": {},
+    "layClassSample": {
+     "23": 2,
+     "28": 1,
+     "42": 2
+    },
+    "maxBH": {},
+    "nullClause": 5,
+    "nullLayName": 0
+   },
+   "sampleRow": {
+    "OBJECTID": 5,
+    "EPI_NAME": "State Environmental Planning Policy (Precincts—Central River City) 2021",
+    "PUBLISHED_DATE": 1657238400000,
+    "COMMENCED_DATE": 1657238400000,
+    "CURRENCY_DATE": 1775001600000,
+    "AMENDMENT": "State Environmental Planning Policy (Precincts—Central River City) Amendment (Sydney Olympic Park) 2022",
+    "MAP_TYPE": "RDL",
+    "MAP_NAME": "SEPP (Precincts—Central River City) 2021 Sydney Olympic Park Reduced Level Map",
+    "LAY_NAME": "Maximum Building Height (m)",
+    "LAY_CLASS": "23",
+    "LABEL": "S",
+    "SYM_CODE": "S",
+    "LEGIS_REF_AREA": null,
+    "LEGIS_REF_CLAUSE": null,
+    "LEGIS_REF_VALUE": null,
+    "PCO_REF_KEY": "2021-725",
+    "UNITS": "m",
+    "CREATED_USER": "",
+    "CREATED_DATE": 978307200000,
+    "LAST_EDITED_USER": "VANDEN01",
+    "LAST_EDITED_DATE": 1775112150000,
+    "EPI_TYPE": "SEPP",
+    "SHAPE.STArea()": 3.812915069649261e-7,
+    "SHAPE.STLength()": 0.0032715487034329846
+   }
+  },
+  "726": {
+   "id": 726,
+   "name": "Height of Building",
+   "parent": "State Environmental Planning Policy (Transport and Infrastructure) 2021",
+   "geometryType": "esriGeometryPolygon",
+   "features": 4,
+   "fields": [
+    "OBJECTID|OBJECTID|OID",
+    "EPI_NAME|EPI_NAME|String",
+    "LGA_CODE|LGA_CODE|Integer",
+    "LGA_NAME|LGA_NAME|String",
+    "PUBLISHED_DATE|PUBLISHED_DATE|Date",
+    "COMMENCED_DATE|COMMENCED_DATE|Date",
+    "CURRENCY_DATE|CURRENCY_DATE|Date",
+    "AMENDMENT|AMENDMENT|String",
+    "MAP_TYPE|MAP_TYPE|String",
+    "MAP_NAME|MAP_NAME|String",
+    "LAY_NAME|LAY_NAME|String",
+    "LAY_CLASS|LAY_CLASS|String",
+    "SYM_CODE|SYM_CODE|Integer",
+    "MAX_B_H|MAX_B_H|Double",
+    "LABEL|LABEL|String",
+    "LEGIS_REF_AREA|LEGIS_REF_AREA|String",
+    "LEGIS_REF_CLAUSE|LEGIS_REF_CLAUSE|String",
+    "LEGIS_REF_VALUE|LEGIS_REF_VALUE|String",
+    "UNITS|UNITS|String",
+    "CREATED_USER|CREATED_USER|String",
+    "CREATED_DATE|CREATED_DATE|Date",
+    "LAST_EDITED_USER|LAST_EDITED_USER|String",
+    "LAST_EDITED_DATE|LAST_EDITED_DATE|Date",
+    "PCO_REF_KEY|PCO_REF_KEY|String",
+    "EPI_TYPE|EPI_TYPE|String",
+    "CADID|CADID|Integer",
+    "MAX_B_H_M|MAX_B_H_M|Double",
+    "MAX_B_H_RL|MAX_B_H_RL|Double",
+    "SHAPE|SHAPE|Geometry",
+    "SHAPE.STArea()|SHAPE.STArea()|Double",
+    "SHAPE.STLength()|SHAPE.STLength()|Double"
+   ],
+   "groups": {
+    "epi": {
+     "State Environmental Planning Policy (Transport and Infrastructure) 2021": 4
+    },
+    "layName": {
+     "Maximum Building Height (m)": 4
+    },
+    "units": {
+     "m": 4
+    },
+    "clause": {},
+    "layClassSample": {
+     "30-34.9": 2,
+     "17-18.9": 1,
+     "15-16.9": 1
+    },
+    "maxBH": {
+     "15": 1,
+     "18": 1,
+     "32.5": 2
+    },
+    "nullClause": 4,
+    "nullLayName": 0
+   },
+   "sampleRow": {
+    "OBJECTID": 88336,
+    "EPI_NAME": "State Environmental Planning Policy (Transport and Infrastructure) 2021",
+    "LGA_CODE": 0,
+    "LGA_NAME": "",
+    "PUBLISHED_DATE": 1657238400000,
+    "COMMENCED_DATE": 1657238400000,
+    "CURRENCY_DATE": 1657238400000,
+    "AMENDMENT": "State Environmental Planning Policy (Transport and Infrastructure) Amendment (Three Ports) 2022",
+    "MAP_TYPE": "HOB",
+    "MAP_NAME": "SEPP (Transport and Infrastructure) 2021 Three Ports Height of Buildings Map",
+    "LAY_NAME": "Maximum Building Height (m)",
+    "LAY_CLASS": "30-34.9",
+    "SYM_CODE": 21,
+    "MAX_B_H": 32.5,
+    "LABEL": "U",
+    "LEGIS_REF_AREA": null,
+    "LEGIS_REF_CLAUSE": null,
+    "LEGIS_REF_VALUE": null,
+    "UNITS": "m",
+    "CREATED_USER": "CHRYSTS",
+    "CREATED_DATE": 1525130131000,
+    "LAST_EDITED_USER": "VANDEN01",
+    "LAST_EDITED_DATE": 1694569160000,
+    "PCO_REF_KEY": "2021-732",
+    "EPI_TYPE": "SEPP",
+    "CADID": 0,
+    "MAX_B_H_M": 32.5,
+    "MAX_B_H_RL": null,
+    "SHAPE.STArea()": 0.00013114155118967963,
+    "SHAPE.STLength()": 0.08452512818626519
+   }
+  },
+  "798": {
+   "id": 798,
+   "name": "Minimum Non-Residential Floor Space Map",
+   "parent": "State Environmental Planning Policy (Sydney Region Growth Centres) 2006",
+   "geometryType": "esriGeometryPolygon",
+   "features": 10,
+   "fields": [
+    "OBJECTID|OBJECTID|OID",
+    "EPI_NAME|EPI_NAME|String",
+    "PUBLISHED_DATE|PUBLISHED_DATE|Date",
+    "COMMENCED_DATE|COMMENCED_DATE|Date",
+    "CURRENCY_DATE|CURRENCY_DATE|Date",
+    "AMENDMENT|AMENDMENT|String",
+    "MAP_TYPE|MAP_TYPE|String",
+    "MAP_NAME|MAP_NAME|String",
+    "LAY_NAME|LAY_NAME|String",
+    "LAY_CLASS|LAY_CLASS|String",
+    "SYM_CODE|SYM_CODE|String",
+    "LABEL|LABEL|String",
+    "LEGIS_REF_AREA|LEGIS_REF_AREA|String",
+    "LEGIS_REF_CLAUSE|LEGIS_REF_CLAUSE|String",
+    "LEGIS_REF_VALUE|LEGIS_REF_VALUE|String",
+    "AREA_HA|AREA_HA|Double",
+    "AREA_SQM|AREA_SQM|Double",
+    "PCO_REF_KEY|PCO_REF_KEY|String",
+    "CREATED_USER|CREATED_USER|String",
+    "CREATED_DATE|CREATED_DATE|Date",
+    "LAST_EDITED_USER|LAST_EDITED_USER|String",
+    "LAST_EDITED_DATE|LAST_EDITED_DATE|Date",
+    "EPI_TYPE|EPI_TYPE|String",
+    "SHAPE|SHAPE|Geometry",
+    "SHAPE.STArea()|SHAPE.STArea()|Double",
+    "SHAPE.STLength()|SHAPE.STLength()|Double"
+   ],
+   "groups": {
+    "epi": {
+     "State Environmental Planning Policy (Precincts—Western Parkland City) 2021": 10
+    },
+    "layName": {
+     "Minimum Non-Residential Floor Space Ratio (n:1)": 10
+    },
+    "units": {},
+    "clause": {},
+    "layClassSample": {
+     "0.25": 10
+    },
+    "maxBH": {},
+    "nullClause": 10,
+    "nullLayName": 0
+   },
+   "sampleRow": {
+    "OBJECTID": 14968,
+    "EPI_NAME": "State Environmental Planning Policy (Precincts—Western Parkland City) 2021",
+    "PUBLISHED_DATE": 1782432000000,
+    "COMMENCED_DATE": 1782432000000,
+    "CURRENCY_DATE": 1782432000000,
+    "AMENDMENT": "State Environmental Planning Policy (Precincts—Western Parkland City) Amendment (Leppington Town Centre) 2026",
+    "MAP_TYPE": "NRF*",
+    "MAP_NAME": "SEPP (Sydney Region Growth Centres) 2006 South West Growth Centre Minimum Non-Residential Floor Spac",
+    "LAY_NAME": "Minimum Non-Residential Floor Space Ratio (n:1)",
+    "LAY_CLASS": "0.25",
+    "SYM_CODE": null,
+    "LABEL": "A",
+    "LEGIS_REF_AREA": null,
+    "LEGIS_REF_CLAUSE": null,
+    "LEGIS_REF_VALUE": null,
+    "AREA_HA": null,
+    "AREA_SQM": null,
+    "PCO_REF_KEY": "2021-728",
+    "CREATED_USER": "RAOV",
+    "CREATED_DATE": 1782703474000,
+    "LAST_EDITED_USER": "RAOV",
+    "LAST_EDITED_DATE": 1782788742000,
+    "EPI_TYPE": "SEPP",
+    "SHAPE.STArea()": 0.000003352001260002573,
+    "SHAPE.STLength()": 0.00783120323267772
+   }
+  },
+  "799": {
+   "id": 799,
+   "name": "Incentive Height of Buildings Map",
+   "parent": "State Environmental Planning Policy (Sydney Region Growth Centres) 2006",
+   "geometryType": "esriGeometryPolygon",
+   "features": 4,
+   "fields": [
+    "OBJECTID|OBJECTID|OID",
+    "EPI_NAME|EPI_NAME|String",
+    "PUBLISHED_DATE|PUBLISHED_DATE|Date",
+    "COMMENCED_DATE|COMMENCED_DATE|Date",
+    "CURRENCY_DATE|CURRENCY_DATE|Date",
+    "AMENDMENT|AMENDMENT|String",
+    "MAP_TYPE|MAP_TYPE|String",
+    "MAP_NAME|MAP_NAME|String",
+    "LAY_NAME|LAY_NAME|String",
+    "LAY_CLASS|LAY_CLASS|String",
+    "SYM_CODE|SYM_CODE|String",
+    "LABEL|LABEL|String",
+    "LEGIS_REF_AREA|LEGIS_REF_AREA|String",
+    "LEGIS_REF_CLAUSE|LEGIS_REF_CLAUSE|String",
+    "LEGIS_REF_VALUE|LEGIS_REF_VALUE|String",
+    "AREA_HA|AREA_HA|Double",
+    "AREA_SQM|AREA_SQM|Double",
+    "PCO_REF_KEY|PCO_REF_KEY|String",
+    "CREATED_USER|CREATED_USER|String",
+    "CREATED_DATE|CREATED_DATE|Date",
+    "LAST_EDITED_USER|LAST_EDITED_USER|String",
+    "LAST_EDITED_DATE|LAST_EDITED_DATE|Date",
+    "EPI_TYPE|EPI_TYPE|String",
+    "SHAPE|SHAPE|Geometry",
+    "SHAPE.STArea()|SHAPE.STArea()|Double",
+    "SHAPE.STLength()|SHAPE.STLength()|Double"
+   ],
+   "groups": {
+    "epi": {
+     "State Environmental Planning Policy (Precincts—Western Parkland City) 2021": 4
+    },
+    "layName": {
+     "Maximum Building Height (m)": 4
+    },
+    "units": {},
+    "clause": {},
+    "layClassSample": {
+     "80-99.9": 4
+    },
+    "maxBH": {},
+    "nullClause": 4,
+    "nullLayName": 0
+   },
+   "sampleRow": {
+    "OBJECTID": 14964,
+    "EPI_NAME": "State Environmental Planning Policy (Precincts—Western Parkland City) 2021",
+    "PUBLISHED_DATE": 1782432000000,
+    "COMMENCED_DATE": 1782432000000,
+    "CURRENCY_DATE": 1782432000000,
+    "AMENDMENT": "State Environmental Planning Policy (Precincts—Western Parkland City) Amendment (Leppington Town Centre) 2026",
+    "MAP_TYPE": "IHOB",
+    "MAP_NAME": "SEPP (Sydney Region Growth Centres) 2006 South West Growth Centre Incentive Height of Buildings Map",
+    "LAY_NAME": "Maximum Building Height (m)",
+    "LAY_CLASS": "80-99.9",
+    "SYM_CODE": "AB",
+    "LABEL": "96",
+    "LEGIS_REF_AREA": null,
+    "LEGIS_REF_CLAUSE": null,
+    "LEGIS_REF_VALUE": null,
+    "AREA_HA": null,
+    "AREA_SQM": null,
+    "PCO_REF_KEY": "2021-728",
+    "CREATED_USER": "RAOV",
+    "CREATED_DATE": 1782703183000,
+    "LAST_EDITED_USER": "RAOV",
+    "LAST_EDITED_DATE": 1782703270000,
+    "EPI_TYPE": "SEPP",
+    "SHAPE.STArea()": 0.0000027051808730034312,
+    "SHAPE.STLength()": 0.007328908262565845
+   }
+  },
+  "800": {
+   "id": 800,
+   "name": "Incentive Floor Space Ratio Map",
+   "parent": "State Environmental Planning Policy (Sydney Region Growth Centres) 2006",
+   "geometryType": "esriGeometryPolygon",
+   "features": 4,
+   "fields": [
+    "OBJECTID|OBJECTID|OID",
+    "EPI_NAME|EPI_NAME|String",
+    "PUBLISHED_DATE|PUBLISHED_DATE|Date",
+    "COMMENCED_DATE|COMMENCED_DATE|Date",
+    "CURRENCY_DATE|CURRENCY_DATE|Date",
+    "AMENDMENT|AMENDMENT|String",
+    "MAP_TYPE|MAP_TYPE|String",
+    "MAP_NAME|MAP_NAME|String",
+    "LAY_NAME|LAY_NAME|String",
+    "LAY_CLASS|LAY_CLASS|String",
+    "SYM_CODE|SYM_CODE|String",
+    "LABEL|LABEL|String",
+    "LEGIS_REF_AREA|LEGIS_REF_AREA|String",
+    "LEGIS_REF_CLAUSE|LEGIS_REF_CLAUSE|String",
+    "LEGIS_REF_VALUE|LEGIS_REF_VALUE|String",
+    "AREA_HA|AREA_HA|Double",
+    "AREA_SQM|AREA_SQM|Double",
+    "PCO_REF_KEY|PCO_REF_KEY|String",
+    "CREATED_USER|CREATED_USER|String",
+    "CREATED_DATE|CREATED_DATE|Date",
+    "LAST_EDITED_USER|LAST_EDITED_USER|String",
+    "LAST_EDITED_DATE|LAST_EDITED_DATE|Date",
+    "EPI_TYPE|EPI_TYPE|String",
+    "SHAPE|SHAPE|Geometry",
+    "SHAPE.STArea()|SHAPE.STArea()|Double",
+    "SHAPE.STLength()|SHAPE.STLength()|Double"
+   ],
+   "groups": {
+    "epi": {
+     "State Environmental Planning Policy (Precincts—Western Parkland City) 2021": 4
+    },
+    "layName": {
+     "Maximum Floor Space Ratio (n:1)": 4
+    },
+    "units": {},
+    "clause": {},
+    "layClassSample": {
+     "5-5.99": 4
+    },
+    "maxBH": {},
+    "nullClause": 4,
+    "nullLayName": 0
+   },
+   "sampleRow": {
+    "OBJECTID": 14960,
+    "EPI_NAME": "State Environmental Planning Policy (Precincts—Western Parkland City) 2021",
+    "PUBLISHED_DATE": 1782432000000,
+    "COMMENCED_DATE": 1782432000000,
+    "CURRENCY_DATE": 1782432000000,
+    "AMENDMENT": "State Environmental Planning Policy (Precincts—Western Parkland City) Amendment (Leppington Town Centre) 2026",
+    "MAP_TYPE": "IFSR",
+    "MAP_NAME": "SEPP (Sydney Region Growth Centres) 2006 South West Growth Centre Incentive Floor Space Ratio Map",
+    "LAY_NAME": "Maximum Floor Space Ratio (n:1)",
+    "LAY_CLASS": "5-5.99",
+    "SYM_CODE": "Z",
+    "LABEL": "5",
+    "LEGIS_REF_AREA": null,
+    "LEGIS_REF_CLAUSE": null,
+    "LEGIS_REF_VALUE": null,
+    "AREA_HA": null,
+    "AREA_SQM": null,
+    "PCO_REF_KEY": "2021-728",
+    "CREATED_USER": "RAOV",
+    "CREATED_DATE": 1782702959000,
+    "LAST_EDITED_USER": "RAOV",
+    "LAST_EDITED_DATE": 1782703067000,
+    "EPI_TYPE": "SEPP",
+    "SHAPE.STArea()": 0.0000027091051749273325,
+    "SHAPE.STLength()": 0.007332438803664443
+   }
+  }
+ },
+ "overlap": {
+  "44": {
+   "sampled": 0,
+   "lepHobCoexists": 0,
+   "valuesDiffer": 0,
+   "rows": []
+  },
+  "118": {
+   "sampled": 0,
+   "lepHobCoexists": 0,
+   "valuesDiffer": 0,
+   "rows": []
+  },
+  "134": {
+   "sampled": 0,
+   "lepHobCoexists": 0,
+   "valuesDiffer": 0,
+   "rows": []
+  },
+  "614": {
+   "sampled": 0,
+   "lepHobCoexists": 0,
+   "valuesDiffer": 0,
+   "rows": []
+  },
+  "631": {
+   "sampled": 0,
+   "lepHobCoexists": 0,
+   "valuesDiffer": 0,
+   "rows": []
+  },
+  "648": {
+   "sampled": 0,
+   "lepHobCoexists": 0,
+   "valuesDiffer": 0,
+   "rows": []
+  },
+  "684": {
+   "sampled": 0,
+   "lepHobCoexists": 0,
+   "valuesDiffer": 0,
+   "rows": []
+  },
+  "715": {
+   "sampled": 8,
+   "lepHobCoexists": 8,
+   "valuesDiffer": 0,
+   "rows": [
+    {
+     "objectid": 88305,
+     "seppEpi": "State Environmental Planning Policy (Precincts—Central River City) 2021",
+     "seppLayName": "Maximum Building Height (m)",
+     "seppClass": "30-34.9",
+     "seppMaxBH": 31,
+     "seppUnits": "m",
+     "lon": 151.078825145274,
+     "lat": -33.8230955808941,
+     "lepHob": [
+      {
+       "epi": "State Environmental Planning Policy (Precincts—Central River City) 2021",
+       "v": "31",
+       "units": "m",
+       "clause": "Null"
+      }
+     ]
+    },
+    {
+     "objectid": 88310,
+     "seppEpi": "State Environmental Planning Policy (Precincts—Central River City) 2021",
+     "seppLayName": "Maximum Building Height (m)",
+     "seppClass": "15-16.9",
+     "seppMaxBH": 15,
+     "seppUnits": "m",
+     "lon": 151.0665919317725,
+     "lat": -33.84698553928456,
+     "lepHob": [
+      {
+       "epi": "State Environmental Planning Policy (Precincts—Central River City) 2021",
+       "v": "15",
+       "units": "m",
+       "clause": "Null"
+      }
+     ]
+    },
+    {
+     "objectid": 361254,
+     "seppEpi": "State Environmental Planning Policy (Precincts—Central River City) 2021",
+     "seppLayName": "Maximum Building Height (m)",
+     "seppClass": "30-34.9",
+     "seppMaxBH": 34,
+     "seppUnits": "m",
+     "lon": 151.06512537399547,
+     "lat": -33.84426412600654,
+     "lepHob": [
+      {
+       "epi": "State Environmental Planning Policy (Precincts—Central River City) 2021",
+       "v": "34",
+       "units": "m",
+       "clause": "Null"
+      }
+     ]
+    },
+    {
+     "objectid": 361255,
+     "seppEpi": "State Environmental Planning Policy (Precincts—Central River City) 2021",
+     "seppLayName": "Maximum Building Height (m)",
+     "seppClass": "80-99.9",
+     "seppMaxBH": 96,
+     "seppUnits": "m",
+     "lon": 151.06418050767493,
+     "lat": -33.8436103663959,
+     "lepHob": [
+      {
+       "epi": "State Environmental Planning Policy (Precincts—Central River City) 2021",
+       "v": "96",
+       "units": "m",
+       "clause": "Null"
+      }
+     ]
+    },
+    {
+     "objectid": 361256,
+     "seppEpi": "State Environmental Planning Policy (Precincts—Central River City) 2021",
+     "seppLayName": "Maximum Building Height (m)",
+     "seppClass": "80-99.9",
+     "seppMaxBH": 80,
+     "seppUnits": "m",
+     "lon": 151.06387396898046,
+     "lat": -33.84243400498408,
+     "lepHob": [
+      {
+       "epi": "State Environmental Planning Policy (Precincts—Central River City) 2021",
+       "v": "80",
+       "units": "m",
+       "clause": "Null"
+      }
+     ]
+    },
+    {
+     "objectid": 361257,
+     "seppEpi": "State Environmental Planning Policy (Precincts—Central River City) 2021",
+     "seppLayName": "Maximum Building Height (m)",
+     "seppClass": "30-34.9",
+     "seppMaxBH": 31,
+     "seppUnits": "m",
+     "lon": 151.05691222351348,
+     "lat": -33.846316736555885,
+     "lepHob": [
+      {
+       "epi": "State Environmental Planning Policy (Precincts—Central River City) 2021",
+       "v": "31",
+       "units": "m",
+       "clause": "Null"
+      }
+     ]
+    },
+    {
+     "objectid": 361258,
+     "seppEpi": "State Environmental Planning Policy (Precincts—Central River City) 2021",
+     "seppLayName": "Maximum Building Height (m)",
+     "seppClass": "30-34.9",
+     "seppMaxBH": 31,
+     "seppUnits": "m",
+     "lon": 151.05655074446295,
+     "lat": -33.846891126774715,
+     "lepHob": [
+      {
+       "epi": "State Environmental Planning Policy (Precincts—Central River City) 2021",
+       "v": "31",
+       "units": "m",
+       "clause": "Null"
+      }
+     ]
+    },
+    {
+     "objectid": 361259,
+     "seppEpi": "State Environmental Planning Policy (Precincts—Central River City) 2021",
+     "seppLayName": "Maximum Building Height (m)",
+     "seppClass": "50-54.9",
+     "seppMaxBH": 50,
+     "seppUnits": "m",
+     "lon": 151.058167991426,
+     "lat": -33.84502456014524,
+     "lepHob": [
+      {
+       "epi": "State Environmental Planning Policy (Precincts—Central River City) 2021",
+       "v": "50",
+       "units": "m",
+       "clause": "Null"
+      }
+     ]
+    }
+   ]
+  },
+  "726": {
+   "sampled": 4,
+   "lepHobCoexists": 4,
+   "valuesDiffer": 0,
+   "rows": [
+    {
+     "objectid": 88336,
+     "seppEpi": "State Environmental Planning Policy (Transport and Infrastructure) 2021",
+     "seppLayName": "Maximum Building Height (m)",
+     "seppClass": "30-34.9",
+     "seppMaxBH": 32.5,
+     "seppUnits": "m",
+     "lon": 151.216024774051,
+     "lat": -33.96571846091226,
+     "lepHob": [
+      {
+       "epi": "State Environmental Planning Policy (Transport and Infrastructure) 2021",
+       "v": "32.5",
+       "units": "m",
+       "clause": "Null"
+      }
+     ]
+    },
+    {
+     "objectid": 88353,
+     "seppEpi": "State Environmental Planning Policy (Transport and Infrastructure) 2021",
+     "seppLayName": "Maximum Building Height (m)",
+     "seppClass": "17-18.9",
+     "seppMaxBH": 18,
+     "seppUnits": "m",
+     "lon": 151.21508703947814,
+     "lat": -33.978117708505415,
+     "lepHob": [
+      {
+       "epi": "State Environmental Planning Policy (Transport and Infrastructure) 2021",
+       "v": "18",
+       "units": "m",
+       "clause": "Null"
+      }
+     ]
+    },
+    {
+     "objectid": 88366,
+     "seppEpi": "State Environmental Planning Policy (Transport and Infrastructure) 2021",
+     "seppLayName": "Maximum Building Height (m)",
+     "seppClass": "15-16.9",
+     "seppMaxBH": 15,
+     "seppUnits": "m",
+     "lon": 151.20302990692866,
+     "lat": -33.965445817940385,
+     "lepHob": [
+      {
+       "epi": "State Environmental Planning Policy (Transport and Infrastructure) 2021",
+       "v": "15",
+       "units": "m",
+       "clause": "Null"
+      }
+     ]
+    },
+    {
+     "objectid": 88375,
+     "seppEpi": "State Environmental Planning Policy (Transport and Infrastructure) 2021",
+     "seppLayName": "Maximum Building Height (m)",
+     "seppClass": "30-34.9",
+     "seppMaxBH": 32.5,
+     "seppUnits": "m",
+     "lon": 151.22624355691391,
+     "lat": -33.97051669255267,
+     "lepHob": [
+      {
+       "epi": "State Environmental Planning Policy (Transport and Infrastructure) 2021",
+       "v": "32.5",
+       "units": "m",
+       "clause": "Null"
+      }
+     ]
+    }
+   ]
+  },
+  "799": {
+   "sampled": 0,
+   "lepHobCoexists": 0,
+   "valuesDiffer": 0,
+   "rows": []
+  }
+ }
+}

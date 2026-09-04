@@ -2679,10 +2679,75 @@ export {
 // than silently falling through to the PDF.
 export {
     resolveDkGraphicLeg,
+    censusDkGraphicRoutes,
+    DK_GRAPHIC_ROUTE_CENSUS_2026_09_04,
     type DkGraphicRoute,
+    type DkDoklinkStatus,
     type DkGraphicLegInputs,
     type DkGraphicLegResolution,
+    type DkGraphicCensusRow,
+    type DkGraphicRouteCensus,
 } from './rulepacks/dkGraphicLeg.js';
+// §NL-VOORRANGSREGELS (round three) — precedence applied BEFORE answering: applicability is the engine's
+// verdict (never a raw intersect), `not-evaluated` blocks "none apply", pending besluiten are a forward
+// view, same-day conflicts are named. Composes with `stampNlPrecedence`; emits B5.
+export {
+    applyNlVoorrang,
+    applyNlVoorrangAll,
+    nlVoorrangRegelingRef,
+    nlVoorrangStamped,
+    nlVoorrangToRuleState,
+    type NlApplicability,
+    type NlVoorrangsregel,
+    type NlWijzigingsbesluitenRead,
+    type NlVoorrangResolution,
+} from './rulepacks/nlVoorrangsregels.js';
+// §NL-BEBOUWINGSGEBIED (round three) — a DERIVED geometry, not a dataset: the IPLO achtererfgebied
+// construction as half-planes over BRK + BAG + A3 (BGT), the bruidsschat art. 22.36 oppervlakte formula and
+// its procedural 4 m height regime; an unknown oorspronkelijk hoofdgebouw yields BOUNDS carried as `partial`.
+export {
+    deriveNlBebouwingsgebied,
+    nlBebouwingsgebiedToRuleState,
+    nlBruidsschatMaxBijbehorendOppervlakM2,
+    nlBruidsschatBijbehorendHeightRegime,
+    NL_BEBOUWINGSGEBIED_DEFINITIONS,
+    NL_BRUIDSSCHAT_22_36_BIJBEHOREND,
+    type NlOorspronkelijkHoofdgebouw,
+    type NlBebouwingsgebiedInputs,
+    type NlBebouwingsgebiedResult,
+    type NlAreaBounds,
+    type NlAchtererfLine,
+    type NlBijbehorendHeightRegime,
+} from './rulepacks/nlBebouwingsgebied.js';
+// §NL-PEIL-CATALOGUE (round three) — the 18 distinct peil definitions of the seed-20260903 sample QUOTED
+// as a closed set, the begripsbepaling extractor (lowercase-heading trim), and the Stelselcatalogus
+// reference: `peil` has no national concept, `straatpeil` does and is the normalisation anchor.
+export {
+    NL_PEIL_DEFINITION_CATALOGUE,
+    NL_STELSELCATALOGUS_REFERENCE,
+    normaliseNlBegripText,
+    lookupNlPeilDefinition,
+    extractNlBegripsbepaling,
+    alignNlPeilToStraatpeil,
+    type NlPeilCatalogueEntry,
+    type NlPeilCatalogueLookup,
+    type NlBegripExtraction,
+    type NlStraatpeilAlignment,
+} from './rulepacks/nlPeilCatalogue.js';
+// §NL-TOEPASBARE-REGELS-CROSSCHECK (round three) — the DSO's executable rules as a SECOND representation:
+// our verdict ↔ ConclusieToestemming.code (Uitvoeren v3, verbatim); disagree → REVIEW, never adopted.
+export {
+    crossCheckNlPermitVerdict,
+    nlVerdictToDsoCode,
+    nlVergunningvrijOutcomeToVerdict,
+    DSO_CONCLUSIE_CODES,
+    NL_TOEPASBARE_REGELS_SURFACE,
+    type DsoConclusieCode,
+    type NlOurPermitVerdict,
+    type NlDsoConclusie,
+    type NlCrossCheckVerdict,
+    type NlCrossCheckResult,
+} from './rulepacks/nlToepasbareRegelsCrossCheck.js';
 
 // ── FRANCE — the CNIG PLU 2025 prescription code table as a DETERMINISTIC DECISION TREE. ──────────
 // `parcel → intersect prescriptions → 39.02? ⇒ max height · 15.01? ⇒ road setback · 38.02? ⇒ max
@@ -2694,6 +2759,7 @@ export {
 export {
     FR_CNIG_TREE_ORDER,
     classifyFrCnigCode,
+    frCnigIdPrescription,
     recoverFrNumberFromText,
     frCnigRuleStates,
     type FrCnigSemantic,
@@ -2702,6 +2768,86 @@ export {
     type FrPrescriptionRow,
     type FrCnigTreeInput,
 } from './rulepacks/frCnigPrescriptionTree.js';
+
+// §FR-FOUNDER-8-MOVES (lane ENVELOPE-FR, 2026-09-04, rounds 2–3) — the founder blocker review's
+// moves 1, 4 and 5 as pure rule-pack modules, all emitting the shared `RuleState` vocabulary:
+//   • `frPlanningRegime`   — PLU / PLUi / PSMV / CC / RNU / POS-caduc / undetermined, asserted only
+//                            from a publisher STATEMENT, never inferred from a silence.
+//   • `frRnuNationalPack`  — the Règlement national d'urbanisme as rules (R.111-16 H ≤ L, R.111-17
+//                            max(3, ΔH/2), no-limit-stated where the RNU is silent, E4 discretionary
+//                            where an authority decides). Légifrance-cited on every arm.
+//   • `frHeightDatum`      — the FROM/TO datum enums; §DATUM-DECISION: datum=unknown is NOT recovered.
+//   • `frImplantationRule` — the mitoyenneté split (rule parameter `extractable`; legal party-wall
+//                            status `undeterminable`, small subset).
+//   • `frFrontage`         — per-edge PHYSICAL (🔵 derivable) vs LEGAL (🟡) road frontage + A4 width.
+//   • `frPau`              — PAU as `derivable-non-authoritative`: declared parameters, cited
+//                            jurisprudence, `provenance: 'estimated'`, never a gate.
+// ⚠ EXPORTED, NOT YET ROUTED into the FR parcel route (`countryAdapters/fr/index.ts` is another
+// lane's file); the 100-parcel audit instrument is their first consumer (§COMMITTED-IS-NOT-REACHABLE).
+export {
+    FR_PLANNING_REGIMES,
+    classifyFrPlanningRegime,
+    type FrPlanningRegime,
+    type FrRegimeFacts,
+    type FrRegimeVerdict,
+} from './rulepacks/frPlanningRegime.js';
+export {
+    FR_RNU_ARTICLES,
+    FR_RNU_AUTHORITY,
+    FR_RNU_STATE_ORDER,
+    FR_RNU_R111_16_HEIGHT_AT_ALIGNMENT,
+    FR_RNU_R111_17_LATERAL_SETBACK,
+    FR_RNU_L111_6_ROAD_BAND,
+    frRnuOrdrePublicArticles,
+    frRnuRuleStates,
+    type FrRnuApplicability,
+    type FrRnuArticle,
+    type FrRnuFacts,
+    type FrRnuInput,
+    type FrRnuRoadClass,
+    type FrRnuVerification,
+} from './rulepacks/frRnuNationalPack.js';
+export {
+    FR_HEIGHT_DATUM_FROM,
+    FR_HEIGHT_REFERENCE_TO,
+    FR_HEIGHT_DATUM_ADR0377_SEAT,
+    FR_DATUM_DECISION,
+    extractFrHeightDatum,
+    frDatumForRuleState,
+    frDatumIsResolved,
+    type FrHeightDatumFrom,
+    type FrHeightReferenceTo,
+    type FrHeightDatumExtraction,
+} from './rulepacks/frHeightDatum.js';
+export {
+    FR_LATERAL_IMPLANTATION_RULES,
+    FR_MITOYENNETE_SPLIT,
+    extractFrLateralImplantationRule,
+    type FrLateralImplantationRule,
+    type FrLateralImplantationExtraction,
+} from './rulepacks/frImplantationRule.js';
+export {
+    deriveFrFrontage,
+    type FrRoadSegment,
+    type FrFrontageOptions,
+    type FrFrontagePhysical,
+    type FrFrontageLegal,
+    type FrEdgeFrontage,
+    type FrFrontageDerivation,
+} from './rulepacks/frFrontage.js';
+export {
+    FR_PAU_WORKING_PARAMETERS,
+    FR_PAU_AUTHORITIES,
+    FR_PAU_STATEMENT,
+    deriveFrPau,
+    frPauRuleState,
+    type FrPauParameters,
+    type FrPauAuthority,
+    type FrPauDwelling,
+    type FrPauInput,
+    type FrPauVerdict,
+    type FrPauDerivation,
+} from './rulepacks/frPau.js';
 
 // §NSW-ENVELOPE (lane ENVELOPE-NSW, 2026-09-04) — the NSW vertical-precedence surface.
 //

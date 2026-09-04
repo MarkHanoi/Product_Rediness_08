@@ -1,0 +1,943 @@
+{
+ "probedAt": "2026-09-04",
+ "results": [
+  {
+   "id": "epi-2012-0628",
+   "label": "Sydney LEP 2012",
+   "needles": [
+    "Alternative Height of Buildings Map",
+    "Sun Access Protection Map",
+    "6.17 Sun access planes",
+    "6.18 Overshadowing"
+   ],
+   "url": "https://legislation.nsw.gov.au/view/whole/html/inforce/current/epi-2012-0628",
+   "status": 200,
+   "bytes": 3164987,
+   "hits": {
+    "Alternative Height of Buildings Map": [
+     {
+      "heading": {
+       "num": "6.60B",
+       "title": "Botany Road Precinct Opportunity Land",
+       "at": 209817
+      },
+      "context": "sed only for— (i) non-residential purposes, or (ii) non-residential purposes and to provide affordable housing, and (b) the height of the building does not exceed the height shown for the land on the Alternative Height of Buildings Map . (4) A building on land to which this clause applies may exceed the floor space ratio shown for the land on the Floor Space Ratio Map if the floor space ratio of the building does not exceed the floor space ratio shown for the land on— (a) for a building used only for non-residential purposes—the Alternative Floor Space Ratio Map—Employment Sites , or (b) for a building used only for non-residential purposes and to provide affordable housing—the Alternative F"
+     },
+     {
+      "heading": {
+       "num": "6.60D",
+       "title": "Oxford Street Cultural and Creative Precinct",
+       "at": 214927
+      },
+      "context": "t Cultural and Creative Precinct. (3) A building on land to which this clause applies may have either or both of the following— (a) a height not exceeding the maximum height shown for the land on the Alternative Height of Buildings Map , (b) a floor space ratio not exceeding the maximum floor space ratio shown for the land on the Alternative Floor Space Ratio Map . (4) Subclause (3) applies only if— (a) the building will only be used for the purposes of one or more of the following— (i) commercial premises, (ii) community facilities, (iii) entertainment facilities, (iv) health services facilities, (v) hotel or motel accommodation, (vi) information and education facilities, (vii) light indust"
+     },
+     {
+      "heading": {
+       "num": "6.60H",
+       "title": "Hunter Street Metro Station",
+       "at": 226013
+      },
+      "context": "eet, Surry Hills. (2) A building on land to which this clause applies may have— (a) a floor space ratio of up to 4.5:1, and (b) a building height of up to the maximum height shown for the land on the Alternative Height of Buildings Map . (3) Subclause (2) does not apply unless the consent authority is satisfied the building will not be used for the purposes of residential accommodation or serviced apartments. (4) This clause does not apply to the erection of a new building on land to which this clause applies. (5) Clause 6.21D does not apply to development on land to which this clause applies. cl 6.60I: Ins 2024 (19), Sch 1[2]. 6.60J Mulgu Precinct (1) The objective of this clause is to enco"
+     },
+     {
+      "heading": {
+       "num": "6.60J",
+       "title": "Mulgu Precinct",
+       "at": 229717
+      },
+      "context": "e granted to development on the land unless a development control plan has been prepared for the land. (4) The maximum height for buildings on the land is the maximum height shown for the land on the Alternative Height of Buildings Map if— (a) a development control plan or development consent granted on the determination of a concept development application applies to the land, and (b) the height of a building under the development control plan or development consent exceeds the maximum height shown for the land on the Height of Buildings Map . (5) If subclause (4) applies, development consent must not be granted to development on the land unless the consent authority is satisfied at least 4"
+     }
+    ],
+    "Sun Access Protection Map": [
+     {
+      "heading": {
+       "num": "6.18",
+       "title": "Overshadowing of certain public places",
+       "at": 128213
+      },
+      "context": "blic places from future overshadowing. (2) Development consent must not be granted to development resulting in part of a building causing additional overshadowing to the following places shown on the Sun Access Protection Map during the specified dates and times— Place Period of protection Times of protection Macquarie Place 14 April–31 August 10am–2pm Martin Place, between Pitt Street and George Street 14 April–31 August Midday–2pm Pitt Street Mall 14 April–31 August 10am–2pm Australia Square Plaza 14 April–31 August Midday–2pm First Government House Place 14 April–31 August 10am–2pm Sydney Town Hall Steps 14 April–31 August 10.30am–4pm Sydney Square 14 April–31 August 11am–4pm Future Town "
+     },
+     {
+      "heading": {
+       "num": "6.53",
+       "title": "Western Gateway Sub-precinct",
+       "at": 194652
+      },
+      "context": "eans the floor area of a building as measured to the external face of the external walls. Prince Alfred Park means the location identified as “Prince Alfred Park” (as shown with blue hatching) on the Sun Access Protection Map . cl 6.53: Ins 2020 (480), Sch 1. Am 2021 (612), Sch 1[1]–[6]; 2021 (717), Sch 1[37]. 6.54 17–31 Cowper Street and 2A–2D Wentworth Park Road, Glebe (1) This clause applies to the following land at Glebe— (a) 17–31 Cowper Street, being Lot 17, DP 244897 (the southern site ), (b) 2A–2D Wentworth Park Road, being Lot 18, DP 244897 (the northern site ). (2) Despite clause 4.4, the consent authority may grant development consent to development on land to which this clause ap"
+     },
+     {
+      "heading": {
+       "num": "6.17",
+       "title": "Part 1 Interpretation 1 Description of sun access planes",
+       "at": 613602
+      },
+      "context": "l next above, or if there is no floor above, the ceiling or roof above, but does not include— (a) a space that contains only a lift shaft, stairway or meter room, or (b) a mezzanine, or (c) an attic. Sun Access Protection Map means the Sydney Local Environmental Plan 2012 Sun Access Protection Map . swimming pool has the same meaning as in the Swimming Pools Act 1992 . Note. The term is defined as follows— swimming pool means an excavation, structure or vessel— (a) that is capable of being filled with water to a depth of 300 millimetres or more, and (b) that is solely or principally used, or that is designed, manufactured or adapted to be solely or principally used, for the purpose of swimmi"
+     },
+     {
+      "heading": {
+       "num": "6.17",
+       "title": "Part 1 Interpretation 1 Description of sun access planes",
+       "at": 613602
+      },
+      "context": "ut does not include— (a) a space that contains only a lift shaft, stairway or meter room, or (b) a mezzanine, or (c) an attic. Sun Access Protection Map means the Sydney Local Environmental Plan 2012 Sun Access Protection Map . swimming pool has the same meaning as in the Swimming Pools Act 1992 . Note. The term is defined as follows— swimming pool means an excavation, structure or vessel— (a) that is capable of being filled with water to a depth of 300 millimetres or more, and (b) that is solely or principally used, or that is designed, manufactured or adapted to be solely or principally used, for the purpose of swimming, wading, paddling or any other human aquatic activity, and includes a "
+     }
+    ],
+    "6.17 Sun access planes": [
+     {
+      "heading": {
+       "num": "6.16",
+       "title": "Erection of tall buildings in Central Sydney",
+       "at": 124403
+      },
+      "context": " areas. (4) Development consent must not be granted to development to which subclause (2)(a) or (c) applies unless the site area is at least 1,000 square metres. cl 6.16: Subst 2021 (717), Sch 1[18]. 6.17 Sun access planes (1) The objectives of this clause are— (a) to ensure that buildings maximise sunlight access to the public places set out in this clause, and (b) to ensure sunlight access to the facades of sandstone buildings in special character areas to assist the conservation of the sandstone and to maintain the amenity of those areas, and (c) to protect and improve sunlight access to important public parks and places in and near Central Sydney throughout the year, and during periods i"
+     }
+    ],
+    "6.18 Overshadowing": [
+     {
+      "heading": {
+       "num": "6.17",
+       "title": "Sun access planes",
+       "at": 126350
+      },
+      "context": " Botanic Gardens All year 9am–2pm Wynyard Park All year Midday–2pm (5)–(19) (Repealed) cl 6.17: Am 2016 (226), Sch 1 [10] [11]; 2021 (717), Sch 1[19]–[22]; 2022 (678), Sch 1[2]; 2023 (312), Sch 1[2]. 6.18 Overshadowing of certain public places (1) The objectives of this clause are— (a) to prevent additional overshadowing of valued public places that are used as areas for passive recreation by the public, workers and visitors in Central Sydney, and (b) to protect significant, new and planned public places from future overshadowing. (2) Development consent must not be granted to development resulting in part of a building causing additional overshadowing to the following places shown on the Su"
+     }
+    ]
+   },
+   "err": null
+  },
+  {
+   "id": "epi-2013-0036",
+   "label": "Randwick LEP 2012",
+   "needles": [
+    "Alternative Building Heights Map"
+   ],
+   "url": "https://legislation.nsw.gov.au/view/whole/html/inforce/current/epi-2013-0036",
+   "status": 200,
+   "bytes": 1127971,
+   "hits": {
+    "Alternative Building Heights Map": [
+     {
+      "heading": {
+       "num": "4.3B",
+       "title": "Exceptions to height of buildings on land within Maroubra Beach Commercial Centre",
+       "at": 51251
+      },
+      "context": "all of the land identified as “Area 6” on the Height of Buildings Map is consolidated into a single lot, the maximum height of a building on that land is the maximum height shown for that land on the Alternative Building Heights Map . (3) If all of the land identified as “Area 7” on the Height of Buildings Map is consolidated into a single lot, the maximum height of a building on that land is the maximum height shown for that land on the Alternative Building Heights Map . 4.4 Floor space ratio (1) The objectives of this clause are as follows— (a) to ensure that the size and scale of development is compatible with the desired future character of the locality, (b) to ensure that buildings are "
+     },
+     {
+      "heading": {
+       "num": "4.3B",
+       "title": "Exceptions to height of buildings on land within Maroubra Beach Commercial Centre",
+       "at": 51251
+      },
+      "context": "all of the land identified as “Area 7” on the Height of Buildings Map is consolidated into a single lot, the maximum height of a building on that land is the maximum height shown for that land on the Alternative Building Heights Map . 4.4 Floor space ratio (1) The objectives of this clause are as follows— (a) to ensure that the size and scale of development is compatible with the desired future character of the locality, (b) to ensure that buildings are well articulated and respond to environmental and energy needs, (c) to ensure that development is compatible with the scale and character of contributory buildings in a conservation area or near a heritage item, (d) to ensure that development"
+     },
+     {
+      "heading": {
+       "num": "6.16",
+       "title": "Special provision—land at Young Street Randwick",
+       "at": 120870
+      },
+      "context": "the nature of the community infrastructure and its value to the Kensington and Kingsford town centres community. (4) Under subclause (2), a building on land in any of the areas identified on— (a) the Alternative Building Heights Map —is eligible for an amount of additional building height determined by the consent authority but no more than that which may be achieved by applying the maximum height specified in relation to that area, and (b) the Alternative Floor Space Ratio Map —is eligible for an amount of additional floor space determined by the consent authority but no more than that which may be achieved by applying the maximum floor space ratio specified in relation to that area. (5) In"
+     },
+     {
+      "heading": {
+       "num": "6.21",
+       "title": "Design excellence at Kensington and Kingsford town centres",
+       "at": 125698
+      },
+      "context": "n and Kingsford town centres. (2) This clause applies to development involving the erection of a new building or external alterations to an existing building on land identified as “Y1” or “Y2” on the Alternative Building Heights Map . (3) Development consent must not be granted to development to which this clause applies unless the consent authority considers that the development exhibits design excellence. (4) In considering whether the development exhibits design excellence, the consent authority must have regard to the following matters— (a) whether a high standard of architectural design, materials and detailing appropriate to the building type and location will be achieved, (b) whether "
+     }
+    ]
+   },
+   "err": null
+  },
+  {
+   "id": "epi-2014-0608",
+   "label": "Ryde LEP 2014",
+   "needles": [
+    "Macquarie Park Incentive Height of Buildings Map"
+   ],
+   "url": "https://legislation.nsw.gov.au/view/whole/html/inforce/current/epi-2014-0608",
+   "status": 200,
+   "bytes": 829037,
+   "hits": {
+    "Macquarie Park Incentive Height of Buildings Map": [
+     {
+      "heading": {
+       "num": "7.6",
+       "title": "Minimum non-residential floor space ratio for certain land",
+       "at": 118366
+      },
+      "context": "s that is not identified as an Area on the Key Sites Map under Division 2. (3) A building on land to which this clause applies may have a height of up to the building height shown for the land on the Macquarie Park Incentive Height of Buildings Map . (4) The floor space ratio of buildings on a site on land to which this clause applies may be up to the floor space ratio shown for the land on the Macquarie Park Incentive Floor Space Ratio Map . (5) Subclauses (3) and (4) do not apply unless the consent authority is satisfied the development includes adequate provision for the following— (a) recreation areas that are configured and located in a way that is appropriate for the recreational purpo"
+     },
+     {
+      "heading": {
+       "num": "7.8",
+       "title": "Development on land in “Area 1”",
+       "at": 120767
+      },
+      "context": "ion area and a riparian corridor. (3) If subclause (2)(a), (b) or (c) applies, a building on land to which this clause applies may have a height of up to the building height shown for the land on the Macquarie Park Incentive Height of Buildings Map . cl 7.8: Ins 2024 (597), Sch 1[7]. 7.9 Development on land in “Area 2” (1) This clause applies to land identified as “Area 2” on the Key Sites Map . (2) A building on land to which this clause applies may have a height of up to the building height shown for the land on the Macquarie Park Incentive Height of Buildings Map . (3) The floor space ratio of buildings on a site on land to which this clause applies may be up to the floor space ratio show"
+     },
+     {
+      "heading": {
+       "num": "7.9",
+       "title": "Development on land in “Area 2”",
+       "at": 122627
+      },
+      "context": " This clause applies to land identified as “Area 2” on the Key Sites Map . (2) A building on land to which this clause applies may have a height of up to the building height shown for the land on the Macquarie Park Incentive Height of Buildings Map . (3) The floor space ratio of buildings on a site on land to which this clause applies may be up to the floor space ratio shown for the land on the Macquarie Park Incentive Floor Space Ratio Map . (4) Subclauses (2) and (3) do not apply unless the consent authority is satisfied that at least 7,310m 2 of the site area will be used for the purposes of a single recreation area. cl 7.9: Ins 2024 (597), Sch 1[7]. 7.10 Development on land in “Area 3” ("
+     },
+     {
+      "heading": {
+       "num": "7.10",
+       "title": "Development on land in “Area 3”",
+       "at": 123328
+      },
+      "context": " This clause applies to land identified as “Area 3” on the Key Sites Map . (2) A building on land to which this clause applies may have a height of up to the building height shown for the land on the Macquarie Park Incentive Height of Buildings Map . (3) The floor space ratio of buildings on a site on land to which this clause applies may be up to— (a) if the consent authority is satisfied that at least 5,300m 2 of floor area on the site will be used for the purposes of a single community facility—the floor space ratio identified on the Macquarie Park Incentive Floor Space Ratio Map , or (b) otherwise—3.5:1. (4) Subclauses (2) and (3) do not apply unless the consent authority is satisfied at"
+     }
+    ]
+   },
+   "err": null
+  },
+  {
+   "id": "epi-2014-0297",
+   "label": "Byron LEP 2014",
+   "needles": [
+    "Building Height Allowance Map",
+    "Minimum Level"
+   ],
+   "url": "https://legislation.nsw.gov.au/view/whole/html/inforce/current/epi-2014-0297",
+   "status": 200,
+   "bytes": 885791,
+   "hits": {
+    "Building Height Allowance Map": [
+     {
+      "heading": {
+       "num": "4.3A",
+       "title": "Measurement of height of buildings",
+       "at": 81578
+      },
+      "context": "de for a consistent point of reference for the measurement of building heights in flood prone areas. (2) This clause applies to land identified as “Minimum Level Australian Height Datum (AHD)” on the Building Height Allowance Map . (3) The maximum height of a building on land to which this clause applies is to be measured from the minimum level AHD permitted for that land on the Building Height Allowance Map . cl 4.3A: Ins 2021 (467), Sch 1[1]. 4.4 Floor space ratio (1) The objectives of this clause are as follows— (a) to ensure that new buildings are appropriate in relation to the character, amenity and environment of the locality, (b) to enable a diversity of housing types by encouraging l"
+     },
+     {
+      "heading": {
+       "num": "4.3A",
+       "title": "Measurement of height of buildings",
+       "at": 81578
+      },
+      "context": "tum (AHD)” on the Building Height Allowance Map . (3) The maximum height of a building on land to which this clause applies is to be measured from the minimum level AHD permitted for that land on the Building Height Allowance Map . cl 4.3A: Ins 2021 (467), Sch 1[1]. 4.4 Floor space ratio (1) The objectives of this clause are as follows— (a) to ensure that new buildings are appropriate in relation to the character, amenity and environment of the locality, (b) to enable a diversity of housing types by encouraging low scale medium density housing in suitable locations, (c) to provide floor space in employment and mixed use zones adequate for the foreseeable future, (d) to regulate density of de"
+     },
+     {
+      "heading": {
+       "num": "7.3",
+       "title": "Development control plan",
+       "at": 159880
+      },
+      "context": " Height Datum to the highest point of the building, including plant and lift overruns, but excluding communication devices, antennae, satellite dishes, masts, flagpoles, chimneys, flues and the like. Building Height Allowance Map means the Byron Local Environmental Plan 2014 Building Height Allowance Map . building identification sign means a sign that identifies or names a building and that may include the name of a building, the street name and number of a building, and a logo or other symbol but does not include general advertising of products, goods or services. Note. Building identification signs are a type of signage —see the definition of that term in this Dictionary. building line or"
+     },
+     {
+      "heading": {
+       "num": "7.3",
+       "title": "Development control plan",
+       "at": 159880
+      },
+      "context": " overruns, but excluding communication devices, antennae, satellite dishes, masts, flagpoles, chimneys, flues and the like. Building Height Allowance Map means the Byron Local Environmental Plan 2014 Building Height Allowance Map . building identification sign means a sign that identifies or names a building and that may include the name of a building, the street name and number of a building, and a logo or other symbol but does not include general advertising of products, goods or services. Note. Building identification signs are a type of signage —see the definition of that term in this Dictionary. building line or setback means the horizontal distance between the property boundary or othe"
+     }
+    ],
+    "Minimum Level": [
+     {
+      "heading": {
+       "num": "4.3A",
+       "title": "Measurement of height of buildings",
+       "at": 81578
+      },
+      "context": "sions within Byron Bay town centre, and (b) to provide for a consistent point of reference for the measurement of building heights in flood prone areas. (2) This clause applies to land identified as “Minimum Level Australian Height Datum (AHD)” on the Building Height Allowance Map . (3) The maximum height of a building on land to which this clause applies is to be measured from the minimum level AHD permitted for that land on the Building Height Allowance Map . cl 4.3A: Ins 2021 (467), Sch 1[1]. 4.4 Floor space ratio (1) The objectives of this clause are as follows— (a) to ensure that new buildings are appropriate in relation to the character, amenity and environment of the locality, (b) to "
+     }
+    ]
+   },
+   "err": null
+  },
+  {
+   "id": "epi-2013-0524",
+   "label": "Singleton LEP 2013",
+   "needles": [
+    "Floor Height Restriction Map"
+   ],
+   "url": "https://legislation.nsw.gov.au/view/whole/html/inforce/current/epi-2013-0524",
+   "status": 200,
+   "bytes": 739180,
+   "hits": {
+    "Floor Height Restriction Map": [
+     {
+      "heading": {
+       "num": "7.1",
+       "title": "Earthworks",
+       "at": 113378
+      },
+      "context": "tisfied that— (a) the foundations and structure of that building will mitigate any potential damage to the building caused by floodwaters, and (b) if the building is located on land identified on the Floor Height Restriction Map —the finished floor height of any habitable room in that building will not be less than the minimum height shown for the land on that map, and (c) if the building is located on other flood liable land—the finished floor height of any habitable room in that building will not be less than the flood planning level. (2) Development consent must not be granted to the erection of a two-storey building used for the purpose of residential accommodation or tourist or visitor "
+     },
+     {
+      "heading": {
+       "num": "7.1",
+       "title": "Earthworks",
+       "at": 113378
+      },
+      "context": "ill be constructed using water-resistant materials, and (c) a flood-free building site is not located on natural ground level on the land, and (d) if the building is located on land identified on the Floor Height Restriction Map —the finished floor height of the first floor of the building will not be less than the height shown for the land on that map and will not exceed 4 metres above natural ground level, and (e) if the building is located on other flood liable land—the finished floor height of the first floor of the building will not be less than the flood planning level and will not exceed 4 metres above natural ground level. (3) This clause does not apply to the following development— "
+     },
+     {
+      "heading": {
+       "num": "7.12",
+       "title": "Development of land at 257 Hermitage Road, Pokolbin",
+       "at": 126821
+      },
+      "context": "viour, local overland flooding, or tidal action so as to mitigate flood impacts. flood planning level means the level of a 1:100 ARI (average recurrent interval) flood event plus 0.5 metre freeboard. Floor Height Restriction Map means the Singleton Local Environmental Plan 2013 Floor Height Restriction Map . floor space ratio —see clause 4.5. Floor Space Ratio Map means the Singleton Local Environmental Plan 2013 Floor Space Ratio Map . food and drink premises means premises that are used for the preparation and retail sale of food or drink (or both) for immediate consumption on or off the premises, and includes any of the following— (a) a restaurant or cafe, (b) take away food and drink pre"
+     },
+     {
+      "heading": {
+       "num": "7.12",
+       "title": "Development of land at 257 Hermitage Road, Pokolbin",
+       "at": 126821
+      },
+      "context": ". flood planning level means the level of a 1:100 ARI (average recurrent interval) flood event plus 0.5 metre freeboard. Floor Height Restriction Map means the Singleton Local Environmental Plan 2013 Floor Height Restriction Map . floor space ratio —see clause 4.5. Floor Space Ratio Map means the Singleton Local Environmental Plan 2013 Floor Space Ratio Map . food and drink premises means premises that are used for the preparation and retail sale of food or drink (or both) for immediate consumption on or off the premises, and includes any of the following— (a) a restaurant or cafe, (b) take away food and drink premises, (c) a pub, (d) a small bar. Note. Food and drink premises are a type of "
+     }
+    ]
+   },
+   "err": null
+  },
+  {
+   "id": "epi-2010-0076",
+   "label": "Wollongong LEP 2009",
+   "needles": [
+    "Sun Plane Protection Map",
+    "Overshadowing Map"
+   ],
+   "url": "https://legislation.nsw.gov.au/view/whole/html/inforce/current/epi-2010-0076",
+   "status": 200,
+   "bytes": 1198687,
+   "hits": {
+    "Sun Plane Protection Map": [
+     {
+      "heading": {
+       "num": "7.18",
+       "title": "Design excellence in Wollongong city centre and at key sites",
+       "at": 141851
+      },
+      "context": "roposed development detrimentally impacts on view corridors, (d) whether the proposed development detrimentally overshadows the following— (i) an area shown distinctively coloured and numbered on the Sun Plane Protection Map , (ii) a site identified on the Overshadowing Map , (e) how the proposed development addresses the following matters— (i) the suitability of the land for development, (ii) existing and proposed uses and use mix, (iii) heritage issues and streetscape constraints, (iv) the location of any tower proposed, having regard to the need to achieve an acceptable relationship with other towers (existing or proposed) on the same site or on neighbouring sites in terms of separation, "
+     },
+     {
+      "heading": {
+       "num": "8.3",
+       "title": "Sun plane protection",
+       "at": 158352
+      },
+      "context": " (1) The objective of this clause is to protect specified public open space from excessive overshadowing by restricting the height of buildings. (2) This clause applies to land coloured yellow on the Sun Plane Protection Map . (3) Development on land to which this clause applies is prohibited if the development results in any part of a building projecting above a sun access control set out in this clause. (4) MacCabe Park The sun access control for any point on land shown coloured yellow on the Sun Plane Protection Map and marked “MacCabe Park—Burelli Street” is— (a) 32 metres above the point, or (b) if the point is within 26.4 metres of the boundary of Burelli Street— metres above the point"
+     },
+     {
+      "heading": {
+       "num": "8.3",
+       "title": "Sun plane protection",
+       "at": 158352
+      },
+      "context": " development results in any part of a building projecting above a sun access control set out in this clause. (4) MacCabe Park The sun access control for any point on land shown coloured yellow on the Sun Plane Protection Map and marked “MacCabe Park—Burelli Street” is— (a) 32 metres above the point, or (b) if the point is within 26.4 metres of the boundary of Burelli Street— metres above the point, where D is the shortest distance in metres between the point and the boundary of Burelli Street. (5) The sun access control for any point on land shown coloured yellow on the Sun Plane Protection Map and marked “MacCabe Park—Keira Street” is— (a) 24 metres above the point, or (b) if the point is w"
+     },
+     {
+      "heading": {
+       "num": "8.3",
+       "title": "Sun plane protection",
+       "at": 158352
+      },
+      "context": " metres above the point, where D is the shortest distance in metres between the point and the boundary of Burelli Street. (5) The sun access control for any point on land shown coloured yellow on the Sun Plane Protection Map and marked “MacCabe Park—Keira Street” is— (a) 24 metres above the point, or (b) if the point is within 4.4 metres of the boundary of Keira Street— metres above the point, where D is the shortest distance in metres between the point and the boundary of Keira Street. (6) Civic Square The sun access control for any point on land shown coloured yellow on the Sun Plane Protection Map and marked “Civic Square” is— (a) 32 metres above the point, or (b) if the point is within 3"
+     }
+    ],
+    "Overshadowing Map": [
+     {
+      "heading": {
+       "num": "7.18",
+       "title": "Design excellence in Wollongong city centre and at key sites",
+       "at": 141851
+      },
+      "context": "rs, (d) whether the proposed development detrimentally overshadows the following— (i) an area shown distinctively coloured and numbered on the Sun Plane Protection Map , (ii) a site identified on the Overshadowing Map , (e) how the proposed development addresses the following matters— (i) the suitability of the land for development, (ii) existing and proposed uses and use mix, (iii) heritage issues and streetscape constraints, (iv) the location of any tower proposed, having regard to the need to achieve an acceptable relationship with other towers (existing or proposed) on the same site or on neighbouring sites in terms of separation, setbacks, amenity and urban form, (v) bulk, massing and m"
+     },
+     {
+      "heading": {
+       "num": "7.20",
+       "title": "Overshadowing of Heritage Plaza, Central Park and Southern Park",
+       "at": 146739
+      },
+      "context": "t be granted for development on land to which this clause applies if the development will result in overshadowing of the land identified as “Heritage Plaza”, “Central Park” and “Southern Park” on the Overshadowing Map between 11am and 2pm on 21 June. (4) Subclause (3) does not apply to overshadowing caused by the following structures shown on the Overshadowing Map — (a) C1 North Stack, (b) C1 Brick Chimney Stack, (c) C1 Fine Coal Bin. cl 7.20: Ins 2022 (185), Sch 1[1]. 7.21 Restoration or repair of heritage structures at former Corrimal Coke Works (1) This clause applies to Lot 1, DP 795791, Railway Street, Corrimal. (2) Despite clauses 4.3 and 7.20, development for the purposes of restoring"
+     },
+     {
+      "heading": {
+       "num": "7.20",
+       "title": "Overshadowing of Heritage Plaza, Central Park and Southern Park",
+       "at": 146739
+      },
+      "context": " Plaza”, “Central Park” and “Southern Park” on the Overshadowing Map between 11am and 2pm on 21 June. (4) Subclause (3) does not apply to overshadowing caused by the following structures shown on the Overshadowing Map — (a) C1 North Stack, (b) C1 Brick Chimney Stack, (c) C1 Fine Coal Bin. cl 7.20: Ins 2022 (185), Sch 1[1]. 7.21 Restoration or repair of heritage structures at former Corrimal Coke Works (1) This clause applies to Lot 1, DP 795791, Railway Street, Corrimal. (2) Despite clauses 4.3 and 7.20, development for the purposes of restoring, repairing, reconstructing or rebuilding the following structures shown on the Overshadowing Map is permitted with development consent— (a) C1 North"
+     },
+     {
+      "heading": {
+       "num": "7.21",
+       "title": "Restoration or repair of heritage structures at former Corrimal Coke Works",
+       "at": 147567
+      },
+      "context": " Lot 1, DP 795791, Railway Street, Corrimal. (2) Despite clauses 4.3 and 7.20, development for the purposes of restoring, repairing, reconstructing or rebuilding the following structures shown on the Overshadowing Map is permitted with development consent— (a) C1 North Stack, (b) C1 Brick Chimney Stack, (c) C1 Fine Coal Bin. (3) The maximum building height for the structures is as follows— (a) C1 North Stack—37m, (b) C1 Brick Chimney Stack—29m, (c) C1 Fine Coal Bin—25m. (4) In this clause— rebuilding a structure means rebuilding in a way that evokes the original structure by representing key shapes or features. cl 7.21: Ins 2022 (185), Sch 1[1]. 7.22 Development in local centres (1) The obje"
+     }
+    ]
+   },
+   "err": null
+  },
+  {
+   "id": "epi-2012-0550",
+   "label": "Burwood LEP 2012",
+   "needles": [
+    "Building Height Plane Map",
+    "building height plane"
+   ],
+   "url": "https://legislation.nsw.gov.au/view/whole/html/inforce/current/epi-2012-0550",
+   "status": 200,
+   "bytes": 742292,
+   "hits": {
+    "Building Height Plane Map": [
+     {
+      "heading": {
+       "num": "4.3A",
+       "title": "Exceptions to height of buildings",
+       "at": 39439
+      },
+      "context": " of Buildings Map is not to exceed the building height plane for that land. (3) In this clause— building height plane or BHP means a plane— (a) commencing at a building height plane line shown on the Building Height Plane Map and referred to in Column 1 of the Table to this clause and at the height above ground level (existing) as shown opposite in Column 2 of that Table, and (b) projected at the angle measured above the horizontal as shown opposite in Column 3 of that Table, and (c) having the general orientation as shown opposite in Column 4 of that Table. Column 1 Column 2 Column 3 Column 4 BHP line symbol BHP line height BHP projected angle BHP general orientation A 1.0 metre 54° East of"
+     },
+     {
+      "heading": {
+       "num": "6.10",
+       "title": "Minimum site area requirements—Croydon North Masterplan Precinct",
+       "at": 101240
+      },
+      "context": " Height Datum to the highest point of the building, including plant and lift overruns, but excluding communication devices, antennae, satellite dishes, masts, flagpoles, chimneys, flues and the like. Building Height Plane Map means the Burwood Local Environmental Plan 2012 Building Height Plane Map . building identification sign means a sign that identifies or names a building and that may include the name of a building, the street name and number of a building, and a logo or other symbol but does not include general advertising of products, goods or services. Note. Building identification signs are a type of signage —see the definition of that term in this Dictionary. building line or setba"
+     },
+     {
+      "heading": {
+       "num": "6.10",
+       "title": "Minimum site area requirements—Croydon North Masterplan Precinct",
+       "at": 101240
+      },
+      "context": "ft overruns, but excluding communication devices, antennae, satellite dishes, masts, flagpoles, chimneys, flues and the like. Building Height Plane Map means the Burwood Local Environmental Plan 2012 Building Height Plane Map . building identification sign means a sign that identifies or names a building and that may include the name of a building, the street name and number of a building, and a logo or other symbol but does not include general advertising of products, goods or services. Note. Building identification signs are a type of signage —see the definition of that term in this Dictionary. building line or setback means the horizontal distance between the property boundary or other st"
+     }
+    ],
+    "building height plane": [
+     {
+      "heading": {
+       "num": "4.3A",
+       "title": "Exceptions to height of buildings",
+       "at": 39439
+      },
+      "context": "acilitate adequate solar access to land adjoining the Burwood Town Centre. (2) Despite clause 4.3, the height of a building on land marked “Area A” on the Height of Buildings Map is not to exceed the building height plane for that land. (3) In this clause— building height plane or BHP means a plane— (a) commencing at a building height plane line shown on the Building Height Plane Map and referred to in Column 1 of the Table to this clause and at the height above ground level (existing) as shown opposite in Column 2 of that Table, and (b) projected at the angle measured above the horizontal as shown opposite in Column 3 of that Table, and (c) having the general orientation as shown opposite i"
+     },
+     {
+      "heading": {
+       "num": "4.3A",
+       "title": "Exceptions to height of buildings",
+       "at": 39439
+      },
+      "context": "wood Town Centre. (2) Despite clause 4.3, the height of a building on land marked “Area A” on the Height of Buildings Map is not to exceed the building height plane for that land. (3) In this clause— building height plane or BHP means a plane— (a) commencing at a building height plane line shown on the Building Height Plane Map and referred to in Column 1 of the Table to this clause and at the height above ground level (existing) as shown opposite in Column 2 of that Table, and (b) projected at the angle measured above the horizontal as shown opposite in Column 3 of that Table, and (c) having the general orientation as shown opposite in Column 4 of that Table. Column 1 Column 2 Column 3 Colu"
+     },
+     {
+      "heading": {
+       "num": "4.3A",
+       "title": "Exceptions to height of buildings",
+       "at": 39439
+      },
+      "context": "ng on land marked “Area A” on the Height of Buildings Map is not to exceed the building height plane for that land. (3) In this clause— building height plane or BHP means a plane— (a) commencing at a building height plane line shown on the Building Height Plane Map and referred to in Column 1 of the Table to this clause and at the height above ground level (existing) as shown opposite in Column 2 of that Table, and (b) projected at the angle measured above the horizontal as shown opposite in Column 3 of that Table, and (c) having the general orientation as shown opposite in Column 4 of that Table. Column 1 Column 2 Column 3 Column 4 BHP line symbol BHP line height BHP projected angle BHP gen"
+     }
+    ]
+   },
+   "err": null
+  },
+  {
+   "id": "epi-2021-0725",
+   "label": "SEPP (Precincts—Central River City) 2021",
+   "needles": [
+    "Height of Buildings Map",
+    "Reduced Level Map",
+    "prevails",
+    "does not apply"
+   ],
+   "url": "https://legislation.nsw.gov.au/view/whole/html/inforce/current/epi-2021-0725",
+   "status": 200,
+   "bytes": 2640434,
+   "hits": {
+    "Height of Buildings Map": [
+     {
+      "heading": {
+       "num": "3.8",
+       "title": "Names of maps adopted by Chapter",
+       "at": 18246
+      },
+      "context": "es of maps adopted by Chapter In this Chapter— Floor Space Ratio Map means the State Environmental Planning Policy (Sydney Region Growth Centres) 2006 North West Growth Centre Floor Space Ratio Map . Height of Buildings Map means the State Environmental Planning Policy (Sydney Region Growth Centres) 2006 North West Growth Centre Height of Buildings Map . Heritage Map means the State Environmental Planning Policy (Sydney Region Growth Centres) 2006 North West Growth Centre Heritage Map . Key Sites Map means the State Environmental Planning Policy (Sydney Region Growth Centres) 2006 North West Growth Centre Key Sites Map . Land Application Map means the State Environmental Planning Policy (Syd"
+     },
+     {
+      "heading": {
+       "num": "3.8",
+       "title": "Names of maps adopted by Chapter",
+       "at": 18246
+      },
+      "context": "rowth Centres) 2006 North West Growth Centre Floor Space Ratio Map . Height of Buildings Map means the State Environmental Planning Policy (Sydney Region Growth Centres) 2006 North West Growth Centre Height of Buildings Map . Heritage Map means the State Environmental Planning Policy (Sydney Region Growth Centres) 2006 North West Growth Centre Heritage Map . Key Sites Map means the State Environmental Planning Policy (Sydney Region Growth Centres) 2006 North West Growth Centre Key Sites Map . Land Application Map means the State Environmental Planning Policy (Sydney Region Growth Centres) 2006 North West Growth Centre Land Application Map . Land Reclassification (Part Lots) Map means the Sta"
+     },
+     {
+      "heading": {
+       "num": "5.4",
+       "title": "Definitions",
+       "at": 80550
+      },
+      "context": "ic safety precautions resulting in isolation from other buildings or storage establishments, or (b) represents a significant hazard to human health or life or property or the biophysical environment. Height of Buildings Map means the “ State Environmental Planning Policy (Kurnell Peninsula) 1989 Height of Buildings Map ” deposited in the office of the Department. heritage item means a building, work, tree or place described in Schedule 10, Part 2. heritage significance means historic, scientific, cultural, social, archaeological, architectural, natural or aesthetic significance. home activity means a business that is ancillary to a residential use and is carried out, or partially carried out"
+     },
+     {
+      "heading": {
+       "num": "5.4",
+       "title": "Definitions",
+       "at": 80550
+      },
+      "context": "b) represents a significant hazard to human health or life or property or the biophysical environment. Height of Buildings Map means the “ State Environmental Planning Policy (Kurnell Peninsula) 1989 Height of Buildings Map ” deposited in the office of the Department. heritage item means a building, work, tree or place described in Schedule 10, Part 2. heritage significance means historic, scientific, cultural, social, archaeological, architectural, natural or aesthetic significance. home activity means a business that is ancillary to a residential use and is carried out, or partially carried out, in a dwelling or within an allotment which contains a dwelling house or dwellings, but only if—"
+     }
+    ],
+    "Reduced Level Map": [
+     {
+      "heading": {
+       "num": "2.7",
+       "title": "Part 1 Preliminary 1 Definition of particular terms",
+       "at": 175185
+      },
+      "context": " a copy of which is held in the head office of the Authority. place of Aboriginal heritage significance means an area of land shown on the Heritage Map as a place of Aboriginal heritage significance. Reduced Level Map means the State Environmental Planning Policy (Precincts—Central River City) 2021 Sydney Olympic Park Reduced Level Map . (2) A word or expression used in this Appendix has the same meaning as it has in the standard instrument prescribed by the Standard Instrument (Local Environmental Plans) Order 2006 (as in force immediately before the commencement of the Standard Instrument (Local Environmental Plans) Amendment Order 2011 ) unless it is otherwise defined in this Appendix. 4 "
+     },
+     {
+      "heading": {
+       "num": "2.7",
+       "title": "Part 1 Preliminary 1 Definition of particular terms",
+       "at": 175185
+      },
+      "context": " land shown on the Heritage Map as a place of Aboriginal heritage significance. Reduced Level Map means the State Environmental Planning Policy (Precincts—Central River City) 2021 Sydney Olympic Park Reduced Level Map . (2) A word or expression used in this Appendix has the same meaning as it has in the standard instrument prescribed by the Standard Instrument (Local Environmental Plans) Order 2006 (as in force immediately before the commencement of the Standard Instrument (Local Environmental Plans) Amendment Order 2011 ) unless it is otherwise defined in this Appendix. 4 Relationship with other environmental planning instruments (1) The only environmental planning instruments that apply, a"
+     },
+     {
+      "heading": {
+       "num": "2.7",
+       "title": "Part 1 Preliminary 1 Definition of particular terms",
+       "at": 175185
+      },
+      "context": "the Crown. 18 Height of buildings The height of a building on any land within the Sydney Olympic Park site is not to exceed the maximum height shown for the land on the Height of Buildings Map or the Reduced Level Map , whichever is applicable. 19 Floor space ratio The maximum floor space ratio for a building on any land within the Sydney Olympic Park site is not to exceed the floor space ratio shown for the land on the Floor Space Ratio Map . 20 Calculation of floor space ratio and site area (1) Objectives The objectives of this section are as follows— (a) to define floor space ratio , (b) to set out rules for the calculation of the site area of development for the purpose of applying permi"
+     },
+     {
+      "heading": {
+       "num": "2.7",
+       "title": "Part 1 Preliminary 1 Definition of particular terms",
+       "at": 175185
+      },
+      "context": "considered whether the proposed development exhibits design excellence, and (b) in the case of a building that will attain the maximum height shown for that land on the Height of Buildings Map or the Reduced Level Map (whichever is the lesser), is satisfied that the development exhibits design excellence. (2) In considering whether proposed development exhibits design excellence, the consent authority must have regard to the following matters— (a) whether a high standard of architectural design, materials and detailing appropriate to the building type and location will be achieved, (b) whether the form and external appearance of the building will improve the quality and amenity of the public"
+     }
+    ],
+    "prevails": [
+     {
+      "heading": {
+       "num": "2.4",
+       "title": "Maps",
+       "at": 4132
+      },
+      "context": "ction 74(1) of the Act, in the event of an inconsistency between this Chapter and another environmental planning instrument whether made before or after the commencement of this Chapter, this Chapter prevails to the extent of the inconsistency. 2.6A Savings (1) A development application made, but not finally determined, before the commencement of State Environmental Planning Policy Amendment (Exceptions to Development Standards) 2023 must be determined as if that policy had not commenced. (2) A development application lodged, but not finally determined, before the commencement of State Environmental Planning Policy (Precinct—Central River City) Amendment (Sydney Olympic Park Master Plan 2050"
+     },
+     {
+      "heading": {
+       "num": "3.6",
+       "title": "Relationship with other environmental planning instruments",
+       "at": 16785
+      },
+      "context": "ction 74(1) of the Act, in the event of an inconsistency between this Chapter and another environmental planning instrument whether made before or after the commencement of this Chapter, this Chapter prevails to the extent of the inconsistency. 3.7 Maps (1) A reference in this Chapter to a named map adopted by this Chapter is a reference to a map by that name— (a) approved by the Minister when the map is adopted, and (b) as amended or replaced from time to time by maps declared by environmental planning instruments to amend or replace that map, and approved by the Minister when the instruments are made. (2) Any 2 or more named maps may be combined into a single map. In that case, a reference"
+     },
+     {
+      "heading": {
+       "num": "4.3",
+       "title": "Relationship to other planning instruments",
+       "at": 45789
+      },
+      "context": "management of Sydney Olympic Park, and (g) to provide for public consultation in the planning and development of the Homebush Bay Area. 4.3 Relationship to other planning instruments (1) This Chapter prevails to the extent of any inconsistency between this Chapter and any other environmental planning instrument which applies to land to which this Chapter applies, except the following— State Environmental Planning Policy No 55—Remediation of Land It does not matter whether the other instrument was made before, or is made on or after, the day on which this plan takes effect. (2) This Chapter repeals or amends the planning instruments listed in Schedule 1 as set out in that Schedule. 4.4 Suspen"
+     },
+     {
+      "heading": {
+       "num": "6.4",
+       "title": "Maps",
+       "at": 170191
+      },
+      "context": "tal planning instruments If there is an inconsistency between this Chapter and any other environmental planning instrument, whether made before or after the commencement of this Chapter, this Chapter prevails to the extent of the inconsistency. 6.6 Review of Policy The Minister must ensure that the provisions of this Chapter are reviewed— (a) as soon as practicable after the first anniversary of the commencement of this Chapter, and (b) at least every 5 years after that commencement. Part 6.2 Potential urban renewal precincts 6.7 Proposals for potential precincts (1) The Director-General must undertake a study or arrange for a study to be undertaken for the purpose of determining— (a) whethe"
+     }
+    ],
+    "does not apply": [
+     {
+      "heading": {
+       "num": "3.13",
+       "title": "Application of Part and of other planning instruments",
+       "at": 23671
+      },
+      "context": "g instrument (other than a State environmental planning policy or regional environmental plan) applying to the land concerned, except to the extent that this Chapter otherwise provides. (3) This Part does not apply to land to which a Precinct Plan applies or land referred to in section 3.11. 3.14 Land use zones The land use zones under this Part are as follows— Environment Conservation Public Recreation—Regional Public Recreation—Local 3.15 Objectives for development in land use reservation zones (1) The objectives for development in each land use reservation zone are set out in the Table to this section. (2) The consent authority must have regard to the objectives for development in any suc"
+     },
+     {
+      "heading": {
+       "num": "3.19",
+       "title": "Development for previously permitted uses of land",
+       "at": 29189
+      },
+      "context": "n 2.5(1) of the Act, or (b) in the case of land within the Public Recreation—Local Zone—the council of the area in which the land is situated. Part 3.4 Development controls—general Note. Section 3.21 does not apply to land to which a Precinct Plan applies or to land referred to in section 3.11. pt 3.4, note: Am 2026 (286), Sch 1.5[2]. 3.21 Development applications in growth centres—matters for consideration until finalisation of precinct planning for land (1) Until provisions have been specified in a Precinct Plan or in section 3.11 with respect to the development of the land, consent is not to be granted to the carrying out of development on land within a growth centre unless the consent au"
+     },
+     {
+      "heading": {
+       "num": "3.19",
+       "title": "Development for previously permitted uses of land",
+       "at": 29189
+      },
+      "context": "r (in addition) the proposed development will protect areas of aboriginal heritage, ecological diversity or biological diversity as well as protecting the scenic amenity of the land. (2) This section does not apply to land zoned under Part 3. 3.22 (Repealed) s 3.22: Am 2022 (835), Sch 1[15] [16]; 2023 (523), Sch 2.3[1]–[3]. Rep 2026 (286), Sch 1.5[3]. 3.23 Water recycling and conservation Note. This section and sections 3.24 and 3.25 apply to all land to which this State Environmental Planning Policy applies (except as otherwise provided by those sections). (1) This section applies to land within a growth centre— (a) that is serviced by a water recycling plant, or (b) that will be serviced b"
+     },
+     {
+      "heading": {
+       "num": "3.27",
+       "title": "Development on and near certain land at Riverstone West",
+       "at": 37199
+      },
+      "context": "reases only, and (d) is not likely to result in adverse flood impacts on properties adjoining the relevant area (including during any construction stage of the proposed development). (3) This section does not apply to development that the consent authority is satisfied is minor and will not result in unacceptable adverse flood impacts on properties adjoining the relevant area. s 3.27: Am 2022 (835), Sch 1[17]–[20]. Part 3.6 Development controls—vegetation 3.28 Land to which Part applies (1) This Part applies to the following land— (a) land zoned under Part 3.3, (b) flood prone and major creeks land, (c) transitional land, (d) land that is— (i) under State Environmental Planning Policy (Preci"
+     }
+    ]
+   },
+   "err": null
+  },
+  {
+   "id": "epi-2021-0726",
+   "label": "SEPP (Precincts—Eastern Harbour City) 2021",
+   "needles": [
+    "Height of Buildings Map",
+    "prevails",
+    "does not apply"
+   ],
+   "url": "https://legislation.nsw.gov.au/view/whole/html/inforce/current/epi-2021-0726",
+   "status": 200,
+   "bytes": 867093,
+   "hits": {
+    "Height of Buildings Map": [
+     {
+      "heading": {
+       "num": "2.7",
+       "title": "Part 1 Preliminary 1A Definitions",
+       "at": 171301
+      },
+      "context": "rn–Waterloo Authority Sites—Floor Space Ratio Map . Gross Floor Area Map means the State Environmental Planning Policy (Major Development) 2005 Redfern–Waterloo Authority Sites—Gross Floor Area Map . Height of Buildings Map means the State Environmental Planning Policy (Major Development) 2005 Redfern–Waterloo Authority Sites—Height of Buildings Map . Heritage Map means the State Environmental Planning Policy (Major Development) 2005 Redfern–Waterloo Authority Sites—Heritage Map . information and education facility means a building or place used for providing information or education to visitors, and the exhibition or display of items, and includes an art gallery, museum, library, visitor in"
+     },
+     {
+      "heading": {
+       "num": "2.7",
+       "title": "Part 1 Preliminary 1A Definitions",
+       "at": 171301
+      },
+      "context": "velopment) 2005 Redfern–Waterloo Authority Sites—Gross Floor Area Map . Height of Buildings Map means the State Environmental Planning Policy (Major Development) 2005 Redfern–Waterloo Authority Sites—Height of Buildings Map . Heritage Map means the State Environmental Planning Policy (Major Development) 2005 Redfern–Waterloo Authority Sites—Heritage Map . information and education facility means a building or place used for providing information or education to visitors, and the exhibition or display of items, and includes an art gallery, museum, library, visitor information centre and the like. Land Application Map means the State Environmental Planning Policy (Major Development) 2005 Redfe"
+     },
+     {
+      "heading": {
+       "num": "2.7",
+       "title": "Part 1 Preliminary 1A Definitions",
+       "at": 171301
+      },
+      "context": "t, the Act enables it to be carried out without development consent. 21 Height, floor space ratio and gross floor area restrictions (1) The height of a building on any land that is the subject of the Height of Buildings Map is not to exceed the maximum height shown for the land on that map. (1A) The height of a building on land identified as “Area A” on the Land Application Map may exceed the maximum height shown for the land on the Height of Buildings Map by up to 1m (the additional height ) if the consent authority is satisfied the additional height— (a) will only be used for rooftop plant or equipment, mechanical services or ducting, and (b) will have minimal visual impact when viewed fro"
+     },
+     {
+      "heading": {
+       "num": "2.7",
+       "title": "Part 1 Preliminary 1A Definitions",
+       "at": 171301
+      },
+      "context": "eed the maximum height shown for the land on that map. (1A) The height of a building on land identified as “Area A” on the Land Application Map may exceed the maximum height shown for the land on the Height of Buildings Map by up to 1m (the additional height ) if the consent authority is satisfied the additional height— (a) will only be used for rooftop plant or equipment, mechanical services or ducting, and (b) will have minimal visual impact when viewed from the surrounding public domain, and (c) will cause no more than minimal overshadowing on neighbouring premises and the surrounding public domain, and (d) will not increase the gross floor area of the building. (2) The floor space ratio "
+     }
+    ],
+    "prevails": [
+     {
+      "heading": {
+       "num": "2.4",
+       "title": "Maps",
+       "at": 4594
+      },
+      "context": "ction 74(1) of the Act, in the event of an inconsistency between this Chapter and another environmental planning instrument whether made before or after the commencement of this Chapter, this Chapter prevails to the extent of the inconsistency. 2.6A s 2.6A: Ins 2023 (524), Sch 2.2[1]. Rep 2023 (664), Sch 2.3[1]. s 2.6A: Ins 2022 (826), Sch 1.2[1]. Am 2023 (664), Sch 2.3[2]. 2.6A Savings provisions (1) A development application or an application for a complying development certificate lodged, but not finally determined, before the commencement of State Environmental Planning Policy Amendment (Blackwattle Bay Precinct) 2022 must be determined as if that Policy had not commenced. (2) Developmen"
+     },
+     {
+      "heading": {
+       "num": "6.3",
+       "title": "Relationship to other environmental planning instruments",
+       "at": 98338
+      },
+      "context": "ruments (1) In the event of an inconsistency between this Chapter and another environmental planning instrument, whether made before, on or after the date on which this Chapter was made, this Chapter prevails to the extent of the inconsistency, subject to section 36 (4) of the Act. (2) To remove any doubt, this Chapter does not affect the application of State Environmental Planning Policy No 55—Remediation of Land to land within the Cooks Cove site. 6.4 Consent authority Rockdale City Council is the consent authority for the purposes of this Chapter, except as provided otherwise by the Act. 6.5 Definitions (1) Certain terms used in this Chapter are defined in the Dictionary at the end of thi"
+     },
+     {
+      "heading": {
+       "num": "7.3",
+       "title": "Relationship to other environmental planning instruments",
+       "at": 134688
+      },
+      "context": "r applies cease to apply to that land. (2) In the event of an inconsistency between this Chapter and another environmental planning instrument, whether made before or after this Chapter, this Chapter prevails to the extent of the inconsistency. 7.4 Definitions In this Chapter— advertisement means the display of words, symbols, messages or other devices for promotional purposes or for conveying information, instructions, directions or the like, whether or not the display includes the erection of a structure or the carrying out of a work. amusement and entertainment facilities means a building in which recreation facilities, exhibitions or displays such as cinemas, showgrounds, amusement rides"
+     }
+    ],
+    "does not apply": [
+     {
+      "heading": {
+       "num": "3.1",
+       "title": "Land to which Chapter applies",
+       "at": 12581
+      },
+      "context": "ur 3.1 Land to which Chapter applies (1) Except as provided by subsection (2), this Chapter applies to the whole of the land within the Development Area, as varied from time to time. (2) This Chapter does not apply to land in respect of which an order is in force under clause 3B of the Darling Harbour Authority Regulation 1984 . 3.2 Objects of plan (1) The objects of this Chapter are— (a) to promote the development of the Darling Harbour area as part of the State’s Bicentennial Program, (b) to encourage the development of a variety of tourist, educational, recreational, entertainment, cultural and commercial facilities within that area, and (c) to make provision with respect to controlling d"
+     },
+     {
+      "heading": {
+       "num": "3.2",
+       "title": "Objects of plan",
+       "at": 12909
+      },
+      "context": "in that area in relation to the carrying out of development apply also in relation to the demolition and renovation of buildings and works. 3.3 Plan not to apply to acts of the Authority This Chapter does not apply to or in respect of any act, matter or thing done or caused to be done by the Authority pursuant to Part 3 of the Act. 3.4 Definitions (1) In this Chapter, except in so far as the context or subject-matter otherwise indicates or requires— child care centre has the same meaning as it has in the Environmental Planning and Assessment Model Provisions 1980 . conservation has the same meaning as it has in the Australia ICOMOS Charter for the Conservation of Places of Cultural Significa"
+     },
+     {
+      "heading": {
+       "num": "3.10",
+       "title": "Other development in the vicinity of the Corn Exchange",
+       "at": 18347
+      },
+      "context": " (Biodiversity and Conservation) 2021 , Chapter 6 applies. The land to which this Chapter applies is part of the Sydney Region and is referred to in this Chapter as “City West”. However, this Chapter does not apply to land to which Sydney Local Environmental Plan 2012 applies. s 4.1: Am 2022 (629), Sch 3.14[2]. 4.2 Precincts Four Precincts are intended to be created within City West. The “Ultimo-Pyrmont Precinct” is created by this Chapter and is the land indicated by heavy black edging on Map 2, Sheet 1. The “Eveleigh Precinct” is created by Sydney Regional Environmental Plan No 26—City West (Amendment No 1—Eveleigh Precinct) and is the land indicated by heavy black edging on Map 2, Sheet 2"
+     },
+     {
+      "heading": {
+       "num": "3.10",
+       "title": "Other development in the vicinity of the Corn Exchange",
+       "at": 18347
+      },
+      "context": " Plan No 20 , and any other local environmental plan or deemed environmental planning instrument. 4.5 Suspension of covenants and other instruments Any agreement, covenant or other similar instrument does not apply to development allowed by this Chapter to the extent necessary to allow the development to be carried out in accordance with this Chapter, and any consent granted pursuant to this Chapter, as in force from time to time. This section does not affect the application of any of the following— • any agreement, covenant or other similar instrument entered into, before or after the commencement of this section, by the Minister, Sydney City Council, South Sydney City Council or the Sydney"
+     }
+    ]
+   },
+   "err": null
+  },
+  {
+   "id": "epi-2021-0728",
+   "label": "SEPP (Precincts—Western Parkland City) 2021",
+   "needles": [
+    "Height of Buildings Map",
+    "Incentive Height of Buildings Map",
+    "Obstacle Limitation Surface",
+    "prevails"
+   ],
+   "url": "https://legislation.nsw.gov.au/view/whole/html/inforce/current/epi-2021-0728",
+   "status": 200,
+   "bytes": 2718235,
+   "hits": {
+    "Height of Buildings Map": [
+     {
+      "heading": {
+       "num": "3.8",
+       "title": "Names of maps adopted by Chapter",
+       "at": 19157
+      },
+      "context": "Ratio Map . Greater Macarthur Growth Area Precinct Boundary Map means the State Environmental Planning Policy (Sydney Region Growth Centres) 2006 Greater Macarthur Growth Area Precinct Boundary Map . Height of Buildings Map means the following— (a) for a precinct in the South West Growth Centre—the State Environmental Planning Policy (Sydney Region Growth Centres) 2006 South West Growth Centre Height of Buildings Map , (b) for a precinct in the Wilton Growth Area—the State Environmental Planning Policy (Sydney Region Growth Centres) 2006 Wilton Growth Area Height of Buildings Map , (c) for a precinct in the Greater Macarthur Growth Area—the State Environmental Planning Policy (Precincts—West"
+     },
+     {
+      "heading": {
+       "num": "3.8",
+       "title": "Names of maps adopted by Chapter",
+       "at": 19157
+      },
+      "context": " . Height of Buildings Map means the following— (a) for a precinct in the South West Growth Centre—the State Environmental Planning Policy (Sydney Region Growth Centres) 2006 South West Growth Centre Height of Buildings Map , (b) for a precinct in the Wilton Growth Area—the State Environmental Planning Policy (Sydney Region Growth Centres) 2006 Wilton Growth Area Height of Buildings Map , (c) for a precinct in the Greater Macarthur Growth Area—the State Environmental Planning Policy (Precincts—Western Parkland City) 2021 Greater Macarthur Growth Area Height of Buildings Map . Heritage Map means the following— (a) for a precinct in the South West Growth Centre—the State Environmental Planning"
+     },
+     {
+      "heading": {
+       "num": "3.8",
+       "title": "Names of maps adopted by Chapter",
+       "at": 19157
+      },
+      "context": "es) 2006 South West Growth Centre Height of Buildings Map , (b) for a precinct in the Wilton Growth Area—the State Environmental Planning Policy (Sydney Region Growth Centres) 2006 Wilton Growth Area Height of Buildings Map , (c) for a precinct in the Greater Macarthur Growth Area—the State Environmental Planning Policy (Precincts—Western Parkland City) 2021 Greater Macarthur Growth Area Height of Buildings Map . Heritage Map means the following— (a) for a precinct in the South West Growth Centre—the State Environmental Planning Policy (Sydney Region Growth Centres) 2006 South West Growth Centre Heritage Map , (b) for a precinct in the Wilton Growth Area—the State Environmental Planning Poli"
+     },
+     {
+      "heading": {
+       "num": "3.8",
+       "title": "Names of maps adopted by Chapter",
+       "at": 19157
+      },
+      "context": "wth Area Height of Buildings Map , (c) for a precinct in the Greater Macarthur Growth Area—the State Environmental Planning Policy (Precincts—Western Parkland City) 2021 Greater Macarthur Growth Area Height of Buildings Map . Heritage Map means the following— (a) for a precinct in the South West Growth Centre—the State Environmental Planning Policy (Sydney Region Growth Centres) 2006 South West Growth Centre Heritage Map , (b) for a precinct in the Wilton Growth Area—the State Environmental Planning Policy (Sydney Region Growth Centres) 2006 Wilton Growth Area Heritage Map , (c) for a precinct in the Greater Macarthur Growth Area—the State Environmental Planning Policy (Precincts—Western Par"
+     }
+    ],
+    "Incentive Height of Buildings Map": [
+     {
+      "heading": {
+       "num": "1.4",
+       "title": "Definitions",
+       "at": 404095
+      },
+      "context": "ea—Liverpool City Council. Incentive Floor Space Ratio Map means the State Environmental Planning Policy (Sydney Region Growth Centres) 2006 South West Growth Centre Incentive Floor Space Ratio Map . Incentive Height of Buildings Map means the State Environmental Planning Policy (Sydney Region Growth Centres) 2006 South West Growth Centre Incentive Height of Buildings Map . Key Sites Map means the State Environmental Planning Policy (Sydney Region Growth Centres) 2006 South West Growth Centre Key Sites Map . Leppington Town Centre means land identified as “Leppington Town Centre” on the Land Application Map . Minimum Non-residential Floor Space Map means the State Environmental Planning Poli"
+     },
+     {
+      "heading": {
+       "num": "1.4",
+       "title": "Definitions",
+       "at": 404095
+      },
+      "context": "South West Growth Centre Incentive Floor Space Ratio Map . Incentive Height of Buildings Map means the State Environmental Planning Policy (Sydney Region Growth Centres) 2006 South West Growth Centre Incentive Height of Buildings Map . Key Sites Map means the State Environmental Planning Policy (Sydney Region Growth Centres) 2006 South West Growth Centre Key Sites Map . Leppington Town Centre means land identified as “Leppington Town Centre” on the Land Application Map . Minimum Non-residential Floor Space Map means the State Environmental Planning Policy (Sydney Region Growth Centres) 2006 South West Growth Centre Minimum Non-residential Floor Space Map . 1.5 Notes Notes in this precinct pl"
+     },
+     {
+      "heading": {
+       "num": "6.16",
+       "title": "Incentivised development",
+       "at": 477595
+      },
+      "context": "nd landscape measures. (3) Despite section 4.3, the maximum height of a building resulting from incentivised development on land to which this division applies is the height shown for the land on the Incentive Height of Buildings Map . (4) Despite section 4.4, the maximum floor space ratio of buildings resulting from incentivised development on land to which this division applies is the floor space ratio shown for the land on the Incentive Floor Space Ratio Map . 6.17 Affordable housing incentives (1) The objective of this section is to encourage the supply of affordable housing in certain zones in the Leppington Town Centre. (2) This section applies to incentivised development— (a) for the "
+     },
+     {
+      "heading": {
+       "num": "6.17",
+       "title": "Affordable housing incentives",
+       "at": 480004
+      },
+      "context": ") shop top housing, and (b) in Zone MU1 Mixed Use. (3) Despite section 4.3, a building resulting from development to which this section applies may exceed the maximum height shown for the land on the Incentive Height of Buildings Map . (4) Despite section 4.4, a building resulting from development to which this section applies may exceed the maximum floor space ratio shown for the land on the Incentive Floor Space Ratio Map by the following— (a) for Zone MU1 Mixed Use—up to 0.5:1, (b) any additional floor space permitted under section 6.18. (5) Subsections (3) and (4) do not apply unless the consent authority is satisfied at least 3% of the gross floor area of the residential component of th"
+     }
+    ],
+    "Obstacle Limitation Surface": [
+     {
+      "heading": {
+       "num": "4.22",
+       "title": "Airspace operations",
+       "at": 74502
+      },
+      "context": "6 (286), Sch 1.8[5]. 4.21 (Repealed) s 4.21: Am 2022 (112), Sch 1.1[14]. Rep 2026 (286), Sch 1.8[3]. 4.22 Airspace operations (1) This section applies to development that is— (a) on land shown on the Obstacle Limitation Surface Map , and (b) a controlled activity within the meaning of the Airports Act 1996 of the Commonwealth, Part 12, Division 4. (2) Development consent must not be granted to development to which this section applies unless the consent authority is satisfied the development will not— (a) compromise the safe operation of the airport, or (b) cause undue risk to the community. s 4.22: Am 2022 (112), Sch 1.1[15] [16]. Subst 2026 (286), Sch 1.8[6]. 4.23 Public safety (1) The obj"
+     },
+     {
+      "heading": {
+       "num": "6.12",
+       "title": "Affordable housing",
+       "at": 941895
+      },
+      "context": "a master plan approved by the Minister under section 4.41. Noise Exposure Contour Map means the State Environmental Planning Policy (Precincts—Western Parkland City) 2021 Noise Exposure Contour Map . Obstacle Limitation Surface Map means the State Environmental Planning Policy (Precincts—Western Parkland City) 2021 Obstacle Limitation Surface Map . precinct plan means a precinct plan approved by the Minister under section 4.38. prescribed airspace means the airspace— (a) above part of an OLS or PANS-OPS surface, within the meaning of the Airports (Protection of Airspace) Regulations 1996 of the Commonwealth, for the Airport, and (b) declared, under regulation 5 of the Airports (Protection of"
+     },
+     {
+      "heading": {
+       "num": "6.12",
+       "title": "Affordable housing",
+       "at": 941895
+      },
+      "context": "lanning Policy (Precincts—Western Parkland City) 2021 Noise Exposure Contour Map . Obstacle Limitation Surface Map means the State Environmental Planning Policy (Precincts—Western Parkland City) 2021 Obstacle Limitation Surface Map . precinct plan means a precinct plan approved by the Minister under section 4.38. prescribed airspace means the airspace— (a) above part of an OLS or PANS-OPS surface, within the meaning of the Airports (Protection of Airspace) Regulations 1996 of the Commonwealth, for the Airport, and (b) declared, under regulation 5 of the Airports (Protection of Airspace) Regulations 1996 of the Commonwealth, to be prescribed airspace. Public Safety Area Map means the State En"
+     }
+    ],
+    "prevails": [
+     {
+      "heading": {
+       "num": "2.4",
+       "title": "Maps",
+       "at": 4136
+      },
+      "context": "ction 74(1) of the Act, in the event of an inconsistency between this Chapter and another environmental planning instrument whether made before or after the commencement of this Chapter, this Chapter prevails to the extent of the inconsistency. 2.6A Savings A development application made, but not finally determined, before the commencement of State Environmental Planning Policy Amendment (Exceptions to Development Standards) 2023 must be determined as if that policy had not commenced. s 2.6A: Ins 2023 (524), Sch 2.4[1]. Part 2.2 State significant precincts 2.7 State significant precincts (1) Each Appendix made under this Chapter describes a State significant precinct. (2) The provisions in a"
+     },
+     {
+      "heading": {
+       "num": "3.6",
+       "title": "Relationship with other environmental planning instruments",
+       "at": 17694
+      },
+      "context": "ction 74(1) of the Act, in the event of an inconsistency between this Chapter and another environmental planning instrument whether made before or after the commencement of this Chapter, this Chapter prevails to the extent of the inconsistency. 3.7 Maps (1) A reference in this Chapter to a named map adopted by this Chapter is a reference to a map by that name— (a) approved by the Minister when the map is adopted, and (b) as amended or replaced from time to time by maps declared by environmental planning instruments to amend or replace that map, and approved by the Minister when the instruments are made. (2) Any 2 or more named maps may be combined into a single map. In that case, a reference"
+     },
+     {
+      "heading": {
+       "num": "4.4",
+       "title": "Relationship with other environmental planning instruments generally",
+       "at": 50906
+      },
+      "context": "truments generally (1) In the event of an inconsistency between this Chapter and another environmental planning instrument, whether made before or after the commencement of this Chapter, this Chapter prevails to the extent of the inconsistency. (2) A local environmental plan does not apply to land shown on the Land Application Map . 4.5 Application of State Environmental Planning Policy (Transport and Infrastructure) 2021 (1) The Transport and Infrastructure SEPP, Chapter 2 applies to land shown on the Land Application Map , except as otherwise provided by this section. (2) The Transport and Infrastructure SEPP, Part 2.3, Division 4 does not apply to land in the 3 km zone within the meaning "
+     },
+     {
+      "heading": {
+       "num": "5.5",
+       "title": "Relationship with other State environmental planning policies",
+       "at": 128010
+      },
+      "context": "al planning policies (1) If there is an inconsistency between this Chapter and any other environmental planning instrument, whether made before or after the commencement of this Chapter, this Chapter prevails to the extent of the inconsistency. (2) State Environmental Planning Policy (Affordable Rental Housing) 2009 does not apply to land zoned Employment, Residential or Tourism under this Chapter. (3) State Environmental Planning Policy (Exempt and Complying Development Codes) 2008 does not apply to unzoned land or land zoned Environment, Parkland or Waterway under this Chapter. (4) State Environmental Planning Policy No 1—Development Standards does not apply to land to which this Chapter a"
+     }
+    ]
+   },
+   "err": null
+  },
+  {
+   "id": "epi-2021-0727",
+   "label": "SEPP (Precincts—Regional) 2021",
+   "needles": [
+    "Height of Buildings Map",
+    "prevails"
+   ],
+   "url": "https://legislation.nsw.gov.au/view/whole/html/inforce/current/epi-2021-0727",
+   "status": 200,
+   "bytes": 1459506,
+   "hits": {
+    "Height of Buildings Map": [
+     {
+      "heading": {
+       "num": "5.25",
+       "title": "Height of buildings",
+       "at": 115348
+      },
+      "context": "pace from excessive overshadowing and to allow views to identify natural topographical features. (2) The height of a building on any land is not to exceed the maximum height shown for the land on the Height of Buildings Map . Note. Sections 5.28, 5.33, 5.44 and 5.46 provide exceptions to the maximum height shown for the relevant land on the Height of Buildings Map in certain circumstances. 5.26 Floor space ratio (1) The objectives of this section are as follows— (a) to establish standards for the maximum development density and intensity of land use, (b) to control building density and bulk in relation to site area in order to achieve the desired future character for different locations, (c)"
+     },
+     {
+      "heading": {
+       "num": "5.25",
+       "title": "Height of buildings",
+       "at": 115348
+      },
+      "context": "t to exceed the maximum height shown for the land on the Height of Buildings Map . Note. Sections 5.28, 5.33, 5.44 and 5.46 provide exceptions to the maximum height shown for the relevant land on the Height of Buildings Map in certain circumstances. 5.26 Floor space ratio (1) The objectives of this section are as follows— (a) to establish standards for the maximum development density and intensity of land use, (b) to control building density and bulk in relation to site area in order to achieve the desired future character for different locations, (c) to minimise adverse environmental effects on the use or enjoyment of adjoining properties and the public domain, (d) to maintain an appropriat"
+     },
+     {
+      "heading": {
+       "num": "5.46",
+       "title": "Exceptions to height and floor space in Zones B3, B4 and B6",
+       "at": 155038
+      },
+      "context": "urposes. (3) Development consent may be granted to development on land to which this section applies that results in a building with a height that exceeds the maximum height shown for the land on the Height of Buildings Map , by an amount to be determined by the consent authority, if— (a) the site area of the development is at least 2,800 square metres but less than 5,600 square metres, or the building will have a street frontage of at least 36 metres, and (b) a design review panel reviews the development, and (c) the consent authority takes into account the findings of the design review panel, and (d) the consent authority is satisfied with the amount of floor space that will be provided fo"
+     },
+     {
+      "heading": {
+       "num": "5.46",
+       "title": "Exceptions to height and floor space in Zones B3, B4 and B6",
+       "at": 155038
+      },
+      "context": "ility and environmental performance standards. (4) Development consent may be granted to development that results in a building with a height that exceeds the maximum height shown for the land on the Height of Buildings Map , or a floor space ratio that exceeds the floor space ratio shown for the land on the Floor Space Ratio Map , or both, by an amount to be determined by the consent authority, if— (a) the site area of the development is at least 5,600 square metres, and (b) a design review panel reviews the development, and (c) if required by the design review panel, a competitive design process is held in relation to the development, and (d) the consent authority takes into account the fi"
+     }
+    ],
+    "prevails": [
+     {
+      "heading": {
+       "num": "2.4",
+       "title": "Maps",
+       "at": 4311
+      },
+      "context": "ction 74(1) of the Act, in the event of an inconsistency between this Chapter and another environmental planning instrument whether made before or after the commencement of this Chapter, this Chapter prevails to the extent of the inconsistency. 2.6A Savings A development application made, but not finally determined, before the commencement of State Environmental Planning Policy Amendment (Exceptions to Development Standards) 2023 must be determined as if that policy had not commenced. s 2.6A: Ins 2023 (524), Sch 2.3[1]. Part 2.2 State significant precincts 2.7 State significant precincts (1) Each Appendix made under this Chapter describes a State significant precinct. (2) The provisions in a"
+     },
+     {
+      "heading": {
+       "num": "3.4",
+       "title": "Relationship with other environmental planning instruments",
+       "at": 9511
+      },
+      "context": "anning instruments (1) In the event of an inconsistency between this Chapter and another environmental planning instrument, whether made before or after the commencement of this Chapter, this Chapter prevails to the extent of the inconsistency. (2) A local environmental plan does not apply to land within an Activation Precinct. (3) State Environmental Planning Policy (Planning Systems) 2021 , Chapter 2 does not apply to land within an Activation Precinct. (4) Subsection (3) does not apply to the following development carried out on land that is partly within and partly outside an Activation Precinct— (a) electricity transmission and distribution, (b) pipelines and pipeline corridors, (c) pub"
+     },
+     {
+      "heading": {
+       "num": "5.9",
+       "title": "Relationship to other environmental planning instruments",
+       "at": 86032
+      },
+      "context": "her environmental planning instruments (1) In the event of an inconsistency between this Chapter and another environmental planning instrument, whether made before or after this Chapter, this Chapter prevails to the extent of the inconsistency. (2) Despite subsection (1), State Environmental Planning Policy (State and Regional Development) 2011 prevails to the extent of any inconsistency between this Chapter and State Environmental Planning Policy (State and Regional Development) 2011 . (3) The following State environmental planning policies (or provisions) do not apply to the land to which this Chapter applies— State Environmental Planning Policy No 1—Development Standards 5.10 Suspension o"
+     },
+     {
+      "heading": {
+       "num": "5.9",
+       "title": "Relationship to other environmental planning instruments",
+       "at": 86032
+      },
+      "context": "ther made before or after this Chapter, this Chapter prevails to the extent of the inconsistency. (2) Despite subsection (1), State Environmental Planning Policy (State and Regional Development) 2011 prevails to the extent of any inconsistency between this Chapter and State Environmental Planning Policy (State and Regional Development) 2011 . (3) The following State environmental planning policies (or provisions) do not apply to the land to which this Chapter applies— State Environmental Planning Policy No 1—Development Standards 5.10 Suspension of covenants, agreements and instruments (1) For the purpose of enabling development on land in any zone to be carried out in accordance with this C"
+     }
+    ]
+   },
+   "err": null
+  }
+ ]
+}

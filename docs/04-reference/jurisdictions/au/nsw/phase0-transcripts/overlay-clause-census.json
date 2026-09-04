@@ -1,0 +1,1019 @@
+{
+ "probedAt": "2026-09-04",
+ "layers": {
+  "420": {
+   "id": 420,
+   "features": 1,
+   "byEpi": {
+    "Armidale Regional Local Environmental Plan 2012": {
+     "rows": 1,
+     "cited": 0,
+     "clauses": {},
+     "layNames": {
+      "Airport Buffer": 1
+     },
+     "layClasses": {
+      "Airport Buffer": 1
+     },
+     "lga": "ARMIDALE REGIONAL",
+     "pco": "2012-589",
+     "areas": {},
+     "classDesc": {
+      "Airport Buffer": 1
+     },
+     "suggested": {
+      "Buffer area": 1
+     }
+    }
+   }
+  },
+  "422": {
+   "id": 422,
+   "features": 79,
+   "byEpi": {
+    "Randwick Local Environmental Plan 2012": {
+     "rows": 79,
+     "cited": 0,
+     "clauses": {},
+     "layNames": {
+      "Maximum Building Height (m)": 79
+     },
+     "layClasses": {
+      "1": 17,
+      "4": 2,
+      "13": 3,
+      "16": 4,
+      "19": 12,
+      "25": 2,
+      "31": 29,
+      "51": 3,
+      "54": 7
+     },
+     "lga": "RANDWICK",
+     "pco": "2013-36",
+     "areas": {},
+     "classDesc": {
+      "1": 17,
+      "4": 2,
+      "13": 3,
+      "16": 4,
+      "19": 12,
+      "25": 2,
+      "31": 29,
+      "51": 3,
+      "54": 7
+     },
+     "suggested": {
+      "HOB exception": 79
+     }
+    }
+   }
+  },
+  "429": {
+   "id": 429,
+   "features": 203,
+   "byEpi": {
+    "Ballina Local Environmental Plan 2012": {
+     "rows": 181,
+     "cited": 0,
+     "clauses": {},
+     "layNames": {
+      "Minimum Level Australian Height Datum (AHD)": 181
+     },
+     "layClasses": {
+      "2.3": 11,
+      "2.5": 7,
+      "1.9": 28,
+      "2.1": 18,
+      "3.2": 6,
+      "2.2": 20,
+      "3.5": 5,
+      "3.8": 3,
+      "3.1": 6,
+      "3.9": 3,
+      "2.0": 3,
+      "2.4": 9,
+      "3.6": 5,
+      "4.0": 4,
+      "3.0": 6,
+      "3.7": 4,
+      "3.4": 10,
+      "2.8": 8,
+      "3.3": 3,
+      "2.9": 7,
+      "2.6": 7,
+      "2.7": 7,
+      "1.8": 1
+     },
+     "lga": "BALLINA",
+     "pco": "2013-20",
+     "areas": {},
+     "classDesc": {},
+     "suggested": {
+      "HOB exception": 181
+     }
+    },
+    "Byron Local Environmental Plan 2014": {
+     "rows": 22,
+     "cited": 0,
+     "clauses": {},
+     "layNames": {
+      "Minimum Level Australian Height Datum (AHD)": 22
+     },
+     "layClasses": {
+      "3": 4,
+      "3.1": 6,
+      "3.2": 2,
+      "3.3": 3,
+      "3.4": 4,
+      "3.5": 1,
+      "3.6": 1,
+      "2.9": 1
+     },
+     "lga": "BYRON",
+     "pco": "2014-297",
+     "areas": {},
+     "classDesc": {
+      "C - 3.1m": 6,
+      "D - 3.2m": 2,
+      "E - 3.3m": 3,
+      "F - 3.4m": 4,
+      "G - 3.5m": 1,
+      "H - 3.6m": 1,
+      "B - 3.0m": 4,
+      "A - 2.9m": 1
+     },
+     "suggested": {
+      "HOB exception": 22
+     }
+    }
+   }
+  },
+  "430": {
+   "id": 430,
+   "features": 9,
+   "byEpi": {
+    "Burwood Local Environmental Plan 2012": {
+     "rows": 9,
+     "cited": 0,
+     "clauses": {},
+     "layNames": {
+      "Building Height Plane": 9
+     },
+     "layClasses": {
+      "D": 2,
+      "E": 3,
+      "A": 2,
+      "C": 1,
+      "B": 1
+     },
+     "lga": "BURWOOD",
+     "pco": "2012-550",
+     "areas": {},
+     "classDesc": {
+      "BHP Line Height: 1m, BHP Projected Angle: 33°, BHP General Orientation: North of BHP line": 2,
+      "BHP Line Height: 1.8m, BHP Projected Angle: 33°, BHP General Orientation: North of BHP line": 3,
+      "BHP Line Height: 1m, BHP Projected Angle: 54°, BHP General Orientation: East of BHP line": 2,
+      "BHP Line Height: 1m, BHP Projected Angle: 36°, BHP General Orientation: West of BHP line": 1,
+      "BHP Line Height: 1.8m, BHP Projected Angle: 54°, BHP General Orientation: East of BHP line": 1
+     },
+     "suggested": {
+      "HOB exception": 9
+     }
+    }
+   }
+  },
+  "469": {
+   "id": 469,
+   "features": 14,
+   "byEpi": {
+    "Singleton Local Environmental Plan 2013": {
+     "rows": 14,
+     "cited": 0,
+     "clauses": {},
+     "layNames": {
+      "Minimum Floor Height Restriction Heights shown on map in AHD (m)": 14
+     },
+     "layClasses": {
+      "43": 1,
+      "78.1": 1,
+      "41.2": 3,
+      "40.6": 2,
+      "42.7": 1,
+      "42.4": 1,
+      "40.9": 1,
+      "41.8": 1,
+      "64.1": 1,
+      "41.5": 1,
+      "42.1": 1
+     },
+     "lga": "SINGLETON",
+     "pco": "2013-524",
+     "areas": {},
+     "classDesc": {
+      "43": 1,
+      "78.1": 1,
+      "41.2": 3,
+      "40.6": 1,
+      "42.7": 1,
+      "42.4": 1,
+      "40.9": 1,
+      "41.8": 1,
+      "64.1": 1,
+      "41.5": 1
+     },
+     "suggested": {
+      "Miscellaneous": 14
+     }
+    }
+   }
+  },
+  "485": {
+   "id": 485,
+   "features": 365,
+   "byEpi": {
+    "Shoalhaven Local Environmental Plan 2014": {
+     "rows": 10,
+     "cited": 0,
+     "clauses": {},
+     "layNames": {
+      "Maximum Building Height (m)": 10
+     },
+     "layClasses": {
+      "13": 8,
+      "16": 2
+     },
+     "lga": "SHOALHAVEN",
+     "pco": "2014-179",
+     "areas": {},
+     "classDesc": {
+      "Maximum Building Height (m)": 10
+     },
+     "suggested": {
+      "HOB exception": 10
+     }
+    },
+    "Blacktown Local Environmental Plan 2015": {
+     "rows": 14,
+     "cited": 1,
+     "clauses": {
+      "Clause 7.7A(3)": 1
+     },
+     "layNames": {
+      "Maximum Building Height (m)": 14
+     },
+     "layClasses": {
+      "44": 3,
+      "80": 4,
+      "100": 7
+     },
+     "lga": "BLACKTOWN",
+     "pco": "2015-239",
+     "areas": {
+      "Area A": 1
+     },
+     "classDesc": {
+      "Incentive Height of Buildings Map": 14
+     },
+     "suggested": {
+      "Miscellaneous": 14
+     }
+    },
+    "Lane Cove Local Environmental Plan 2009": {
+     "rows": 57,
+     "cited": 57,
+     "clauses": {
+      "Refer to Part 7": 56,
+      "Refer to Clause 8.7": 1
+     },
+     "layNames": {
+      "Maximum Building Height (m)": 57
+     },
+     "layClasses": {
+      "15": 3,
+      "25": 5,
+      "31": 6,
+      "37": 8,
+      "38": 1,
+      "44": 4,
+      "53": 2,
+      "65": 1,
+      "2.5": 26,
+      "Refer to Clause 8.7": 1
+     },
+     "lga": "LANE COVE",
+     "pco": "2010-49",
+     "areas": {
+      "Area 13": 1,
+      "Area 12": 1,
+      "Area 2": 1,
+      "Area 21": 3,
+      "Area 22": 2,
+      "Area 23": 2,
+      "Area 6": 1,
+      "Area 15": 1,
+      "Area 3": 1,
+      "Area 5": 1
+     },
+     "classDesc": {
+      "Incentive Height of Buildings Map": 57
+     },
+     "suggested": {
+      "Miscellaneous": 57
+     }
+    },
+    "Canada Bay Local Environmental Plan 2013": {
+     "rows": 107,
+     "cited": 0,
+     "clauses": {},
+     "layNames": {
+      "Maximum Building Height (m)": 107
+     },
+     "layClasses": {
+      "0": 9,
+      "10": 1,
+      "13": 1,
+      "17": 4,
+      "19": 3,
+      "20": 1,
+      "22": 2,
+      "23": 1,
+      "28": 2,
+      "32": 1,
+      "35": 4,
+      "42": 6,
+      "45": 1,
+      "47": 1,
+      "52": 3,
+      "54": 1,
+      "56": 1,
+      "60": 1,
+      "61": 1,
+      "65": 1,
+      "67": 4,
+      "73": 1,
+      "75": 1,
+      "78": 1,
+      "79": 1,
+      "132": 1,
+      "2.5": 19,
+      "37.5": 2,
+      "8.5": 1,
+      "10.5": 1
+     },
+     "lga": "CANADA BAY",
+     "pco": "2013-389",
+     "areas": {},
+     "classDesc": {},
+     "suggested": {
+      "Miscellaneous": 107
+     }
+    },
+    "Strathfield Local Environmental Plan 2012": {
+     "rows": 24,
+     "cited": 0,
+     "clauses": {},
+     "layNames": {
+      "Maximum Building Height (m)": 24
+     },
+     "layClasses": {
+      "0": 12,
+      "35": 1,
+      "52": 2,
+      "75": 2,
+      "81": 4,
+      "103": 2,
+      "136": 1
+     },
+     "lga": "STRATHFIELD",
+     "pco": "2013-115",
+     "areas": {},
+     "classDesc": {},
+     "suggested": {
+      "Miscellaneous": 24
+     }
+    },
+    "The Hills Local Environmental Plan 2019": {
+     "rows": 28,
+     "cited": 0,
+     "clauses": {},
+     "layNames": {
+      "Maximum Building Height": 2,
+      "Maximum Building Height (m)": 26
+     },
+     "layClasses": {
+      "23": 2,
+      "26": 4,
+      "30": 2,
+      "36": 2,
+      "40": 2,
+      "43": 3,
+      "51": 1,
+      "54": 2,
+      "67": 1,
+      "73": 1,
+      "76": 1,
+      "80": 2,
+      "83": 1,
+      "86": 1,
+      "92": 1,
+      "99.5": 2
+     },
+     "lga": "THE HILLS SHIRE",
+     "pco": "2019-596",
+     "areas": {},
+     "classDesc": {
+      "AB1": 1,
+      "AB2": 1,
+      "AB4": 1,
+      "AA2": 1,
+      "W2": 1,
+      "S": 1,
+      "Y1": 1,
+      "V": 1,
+      "T": 1,
+      "U": 1
+     },
+     "suggested": {
+      "Miscellaneous": 28
+     }
+    },
+    "North Sydney Local Environmental Plan 2013": {
+     "rows": 4,
+     "cited": 0,
+     "clauses": {},
+     "layNames": {
+      "Maximum Building Height (m)": 4
+     },
+     "layClasses": {
+      "30": 1,
+      "43": 1,
+      "49": 1,
+      "55": 1
+     },
+     "lga": "NORTH SYDNEY",
+     "pco": "2013-411",
+     "areas": {},
+     "classDesc": {
+      "30": 1,
+      "43": 1,
+      "49": 1,
+      "55": 1
+     },
+     "suggested": {
+      "Miscellaneous": 4
+     }
+    },
+    "Canterbury-Bankstown Local Environmental Plan 2023": {
+     "rows": 74,
+     "cited": 0,
+     "clauses": {},
+     "layNames": {
+      "Maximum Building Height (m)": 74
+     },
+     "layClasses": {
+      "17": 1,
+      "23": 10,
+      "24": 1,
+      "30": 2,
+      "33": 16,
+      "35": 1,
+      "36": 2,
+      "43": 14,
+      "50": 1,
+      "52": 5,
+      "54": 1,
+      "56": 1,
+      "62": 6,
+      "65": 1,
+      "67": 1,
+      "68": 1,
+      "78": 1,
+      "83": 2,
+      "86": 1,
+      "52.5": 1,
+      "81.5": 1,
+      "32.5": 2,
+      "3.5": 1,
+      "77.5": 1
+     },
+     "lga": "CANTERBURY-BANKSTOWN",
+     "pco": "2023-336",
+     "areas": {},
+     "classDesc": {
+      "35": 1,
+      "50": 1,
+      "54": 1,
+      "56": 1,
+      "65": 1,
+      "67": 1,
+      "78": 1,
+      "83": 2,
+      "86": 1,
+      "52.5": 1
+     },
+     "suggested": {
+      "Miscellaneous": 74
+     }
+    },
+    "Cumberland Local Environmental Plan 2021": {
+     "rows": 19,
+     "cited": 0,
+     "clauses": {},
+     "layNames": {
+      "Maximum Building Height (m)": 19
+     },
+     "layClasses": {
+      "23": 2,
+      "36": 12,
+      "41": 5
+     },
+     "lga": "CUMBERLAND",
+     "pco": "2021-651",
+     "areas": {},
+     "classDesc": {
+      "23": 2,
+      "36": 12,
+      "41": 5
+     },
+     "suggested": {}
+    },
+    "Hornsby Local Environmental Plan 2013": {
+     "rows": 28,
+     "cited": 0,
+     "clauses": {},
+     "layNames": {
+      "Maximum Building Height (m)": 28
+     },
+     "layClasses": {
+      "16": 2,
+      "20": 1,
+      "23": 3,
+      "26": 3,
+      "30": 2,
+      "36": 2,
+      "40": 2,
+      "43": 1,
+      "48": 3,
+      "51": 1,
+      "54": 1,
+      "57": 1,
+      "61": 2,
+      "64": 2,
+      "73": 1,
+      "96": 1
+     },
+     "lga": "HORNSBY",
+     "pco": "2013-569",
+     "areas": {},
+     "classDesc": {
+      "16": 1,
+      "23": 2,
+      "26": 1,
+      "36": 1,
+      "40": 1,
+      "48": 1,
+      "54": 1,
+      "64": 1,
+      "73": 1,
+      "96": 1
+     },
+     "suggested": {
+      "Miscellaneous": 28
+     }
+    }
+   }
+  },
+  "509": {
+   "id": 509,
+   "features": 54,
+   "byEpi": {
+    "Ryde Local Environmental Plan 2014": {
+     "rows": 54,
+     "cited": 0,
+     "clauses": {},
+     "layNames": {
+      "Maximum Building Height (m)": 54
+     },
+     "layClasses": {
+      "45": 25,
+      "65": 14,
+      "95": 2,
+      "110": 3,
+      "130": 3,
+      "150": 2,
+      "190": 5
+     },
+     "lga": "RYDE",
+     "pco": "2014-608",
+     "areas": {},
+     "classDesc": {
+      "45": 25,
+      "65": 14,
+      "95": 2,
+      "110": 3,
+      "130": 3,
+      "150": 2,
+      "190": 5
+     },
+     "suggested": {
+      "Miscellaneous": 54
+     }
+    }
+   }
+  },
+  "512": {
+   "id": 512,
+   "features": 7,
+   "byEpi": {
+    "Moree Plains Local Environmental Plan 2011": {
+     "rows": 7,
+     "cited": 0,
+     "clauses": {},
+     "layNames": {
+      "Meteorological Station Height Limit": 7
+     },
+     "layClasses": {
+      "Meteorological Station Height Limit m (A.H.D.)": 7
+     },
+     "lga": "MOREE PLAINS",
+     "pco": "2011-646",
+     "areas": {},
+     "classDesc": {
+      "MSHL (AHD)": 7
+     },
+     "suggested": {
+      "Miscellaneous": 7
+     }
+    }
+   }
+  },
+  "572": {
+   "id": 572,
+   "features": 154,
+   "byEpi": {
+    "Sydney Local Environmental Plan 2012": {
+     "rows": 31,
+     "cited": 19,
+     "clauses": {
+      "Clause 6.18": 13,
+      "Clause 6.17 & Clause 6.18": 6
+     },
+     "layNames": {
+      "Protected Places": 25,
+      "Land Affected by Sun Protection Controls": 6
+     },
+     "layClasses": {
+      "Land Protected by Clause 6.18": 13,
+      "Land Affected by Clause 6.17 and 6.18": 6,
+      "Area Protected by Sun Access Planes": 12
+     },
+     "lga": "SYDNEY",
+     "pco": "2012-628",
+     "areas": {},
+     "classDesc": {
+      "Land Protected by Clause 6.18": 13,
+      "Land Affected by Clause 6.17 and 6.18": 6,
+      "Area Protected by Sun Access Planes": 12
+     },
+     "suggested": {
+      "Miscellaneous": 31
+     }
+    },
+    "Willoughby Local Environmental Plan 2012": {
+     "rows": 45,
+     "cited": 5,
+     "clauses": {
+      "Clause 6.15": 5
+     },
+     "layNames": {
+      "Sun Access Protection": 45
+     },
+     "layClasses": {
+      "RL 220-240": 4,
+      "RL 200-220": 4,
+      "RL 180-200": 4,
+      "RL 160-180": 6,
+      "RL 240-246.8": 1,
+      "RL 100-120": 5,
+      "Area 4": 1,
+      "Area 2": 1,
+      "Area 5": 1,
+      "Area 1": 1,
+      "Area 3": 1,
+      "RL 0-100": 5,
+      "RL 140-160": 6,
+      "RL 120-140": 5
+     },
+     "lga": "WILLOUGHBY",
+     "pco": "2012-679",
+     "areas": {
+      "Area 4": 1,
+      "Area 2": 1,
+      "Area 5": 1,
+      "Area 1": 1,
+      "Area 3": 1
+     },
+     "classDesc": {
+      "RL 220-240": 2,
+      "RL 200-220": 2,
+      "RL 180-200": 2,
+      "RL 160-180": 2,
+      "RL 240-246.8": 1,
+      "RL 100-120": 1,
+      "Area 4: Chatswood Tennis Club and Croquet Club": 1,
+      "Area 2: Chatswood Oval": 1,
+      "Area 5: Victoria Avenue And Concourse Open Space": 1,
+      "Area 1: Chatswood Garden of Remembrance": 1
+     },
+     "suggested": {
+      "Sun Access Protection": 45
+     }
+    },
+    "Coffs Harbour Local Environmental Plan 2013": {
+     "rows": 7,
+     "cited": 0,
+     "clauses": {},
+     "layNames": {
+      "Specified Sites": 7
+     },
+     "layClasses": {
+      "No Additional Overshadowing": 7
+     },
+     "lga": "COFFS HARBOUR",
+     "pco": "2013-564",
+     "areas": {},
+     "classDesc": {},
+     "suggested": {}
+    },
+    "Parramatta Local Environmental Plan 2023": {
+     "rows": 57,
+     "cited": 14,
+     "clauses": {
+      "Clause 7.7": 13,
+      "Clause 7.5(4)(a)": 1
+     },
+     "layNames": {
+      "Sun Access Protection": 45,
+      "Protected Areas": 9,
+      "Additional Protection - Parramatta Square": 3
+     },
+     "layClasses": {
+      "Jubilee Park": 6,
+      "Parramatta River Foreshore": 3,
+      "Area 12": 4,
+      "Prince Alfred Square": 3,
+      "Area 10": 3,
+      "Area 11": 3,
+      "No Additional Overshadowing": 9,
+      "Lancers Barracks": 8,
+      "Area 7": 2,
+      "Area 8": 2,
+      "Block A": 1,
+      "Block B": 1,
+      "Experiment Farm": 5,
+      "Parramatta Square": 5,
+      "Clause 7.5(4)(a)": 1,
+      "Area 9": 1
+     },
+     "lga": "CITY OF PARRAMATTA",
+     "pco": "2023-117",
+     "areas": {},
+     "classDesc": {
+      "Jubilee Park": 5,
+      "Parramatta River Foreshore": 3,
+      "Area 12": 1,
+      "Prince Alfred Square": 3,
+      "Area 10": 1,
+      "Area 11": 3,
+      "No Additional Overshadowing": 3,
+      "Lancers Barracks": 2,
+      "Area 7": 1,
+      "Area 8": 1
+     },
+     "suggested": {
+      "Miscellaneous": 57
+     }
+    },
+    "Canada Bay Local Environmental Plan 2013": {
+     "rows": 8,
+     "cited": 8,
+     "clauses": {
+      "Clause 7.3": 8
+     },
+     "layNames": {
+      "Sun Access Protection": 8
+     },
+     "layClasses": {
+      "Refer to Clause 7.3": 8
+     },
+     "lga": "CANADA BAY",
+     "pco": "2013-389",
+     "areas": {},
+     "classDesc": {},
+     "suggested": {
+      "Miscellaneous": 8
+     }
+    },
+    "Blacktown Local Environmental Plan 2015": {
+     "rows": 5,
+     "cited": 0,
+     "clauses": {},
+     "layNames": {
+      "Land affected by Sun Access Protection": 5
+     },
+     "layClasses": {
+      "Northern Landing Park": 1,
+      "Alpha Park": 1,
+      "Balmoral Street": 1,
+      "Civic Plaza": 1,
+      "Main Street Plaza": 1
+     },
+     "lga": "BLACKTOWN",
+     "pco": "2015-239",
+     "areas": {},
+     "classDesc": {
+      "Northern Landing Park": 1,
+      "Alpha Park": 1,
+      "Balmoral Street": 1,
+      "Civic Plaza": 1,
+      "Main Street Plaza": 1
+     },
+     "suggested": {
+      "Miscellaneous": 5
+     }
+    },
+    "Canterbury-Bankstown Local Environmental Plan 2023": {
+     "rows": 1,
+     "cited": 0,
+     "clauses": {},
+     "layNames": {
+      "Sun Access Protection": 1
+     },
+     "layClasses": {
+      "Refer to Clause 6.18": 1
+     },
+     "lga": "CANTERBURY-BANKSTOWN",
+     "pco": "2023-336",
+     "areas": {},
+     "classDesc": {},
+     "suggested": {
+      "Miscellaneous": 1
+     }
+    }
+   }
+  },
+  "573": {
+   "id": 573,
+   "features": 9,
+   "byEpi": {
+    "Wollongong Local Environmental Plan 2009": {
+     "rows": 9,
+     "cited": 0,
+     "clauses": {},
+     "layNames": {
+      "Protected Areas": 9
+     },
+     "layClasses": {
+      "MacCabe Park 12-2pm 21 June": 1,
+      "Sites affected by sun plane controls": 5,
+      "Civic Square 11-3pm 21 June": 1,
+      "Pioneer Park 12-2pm 21 June": 1,
+      "Market Square 12-2pm 21 June": 1
+     },
+     "lga": "WOLLONGONG",
+     "pco": "2010-76",
+     "areas": {},
+     "classDesc": {
+      "MacCabe Park 12-2pm, 21 June": 1,
+      "Sites affected by sun plane controls": 5,
+      "Civic Square 11-3pm, 21 June": 1,
+      "Pioneer Park 12-2pm, 21 June": 1,
+      "Market Square 12-2pm, 21 June": 1
+     },
+     "suggested": {
+      "Sun plane protection": 9
+     }
+    }
+   }
+  },
+  "763": {
+   "id": 763,
+   "features": 10,
+   "byEpi": {
+    "Wollongong Local Environmental Plan 2009": {
+     "rows": 10,
+     "cited": 0,
+     "clauses": {},
+     "layNames": {
+      "Overshadowing Map": 10
+     },
+     "layClasses": {
+      "Luke's Place Playground": 1,
+      "Wilga Street Tennis Courts": 1,
+      "Central Park": 1,
+      "C1 Brick Chimney Stack - 29m": 1,
+      "C1 North Stack - 37m": 1,
+      "Memorial Outside Ground": 1,
+      "Heritage Park": 1,
+      "Memorial Main Ground": 1,
+      "Southern Park": 1,
+      "C1 Fine Coal Bin - 25m": 1
+     },
+     "lga": "WOLLONGONG",
+     "pco": "2010-76",
+     "areas": {},
+     "classDesc": {
+      "Luke's Place Playground": 1,
+      "Wilga Street Tennis Courts": 1,
+      "Central Park": 1,
+      "C1 Brick Chimney Stack - 29m": 1,
+      "C1 North Stack - 37m": 1,
+      "Memorial Outside Ground": 1,
+      "Heritage Park": 1,
+      "Memorial Main Ground": 1,
+      "Southern Park": 1,
+      "C1 Fine Coal Bin - 25m": 1
+     },
+     "suggested": {
+      "Miscellaneous": 10
+     }
+    }
+   }
+  },
+  "771": {
+   "id": 771,
+   "features": 91,
+   "byEpi": {
+    "Sydney Local Environmental Plan 2012": {
+     "rows": 89,
+     "cited": 0,
+     "clauses": {},
+     "layNames": {
+      "Maximum Building Height (m)": 89
+     },
+     "layClasses": {
+      "3": 2,
+      "11": 2,
+      "18": 13,
+      "20": 12,
+      "22": 4,
+      "23": 7,
+      "24": 7,
+      "25": 9,
+      "27": 5,
+      "29": 4,
+      "30": 2,
+      "33": 8,
+      "35": 7,
+      "50": 1,
+      "55": 2,
+      "90": 1,
+      "40 - 50": 2,
+      "50 - 60": 1
+     },
+     "lga": "SYDNEY",
+     "pco": "2012-628",
+     "areas": {},
+     "classDesc": {
+      "3": 1,
+      "18": 7,
+      "22": 1,
+      "24": 3,
+      "25": 3,
+      "27": 1,
+      "30": 1,
+      "33": 1,
+      "40": 1,
+      "90": 1
+     },
+     "suggested": {
+      "Miscellaneous": 89
+     }
+    },
+    "Waverley Local Environmental Plan 2012": {
+     "rows": 2,
+     "cited": 0,
+     "clauses": {},
+     "layNames": {
+      "Alternative Maximum Building Height (m)": 2
+     },
+     "layClasses": {
+      "15": 1,
+      "21": 1
+     },
+     "lga": "WAVERLEY",
+     "pco": "2012-540",
+     "areas": {},
+     "classDesc": {
+      "15": 1,
+      "21": 1
+     },
+     "suggested": {
+      "HOB exception": 2
+     }
+    }
+   }
+  }
+ }
+}

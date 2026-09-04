@@ -1,0 +1,903 @@
+{
+ "probedAt": "2026-09-04",
+ "service": "https://services1.arcgis.com/cNVyNtjGVZybOQWZ/arcgis/rest/services/Sydney_Development_Control_Plan_2012/FeatureServer",
+ "vocab": {
+  "3.SetbackType": {
+   "field": "SetbackType",
+   "distinct": 28,
+   "rows": [
+    {
+     "n": 57,
+     "SetbackType": "6m Minimum setback"
+    },
+    {
+     "n": 48,
+     "SetbackType": "4m Upper level setback"
+    },
+    {
+     "n": 46,
+     "SetbackType": "3m Landscape setback"
+    },
+    {
+     "n": 44,
+     "SetbackType": "2m Landscape setback"
+    },
+    {
+     "n": 20,
+     "SetbackType": "3m Upper level setback"
+    },
+    {
+     "n": 15,
+     "SetbackType": "1.5m Primary setback"
+    },
+    {
+     "n": 10,
+     "SetbackType": "3m Primary setback"
+    },
+    {
+     "n": 10,
+     "SetbackType": "6m Upper level setback"
+    },
+    {
+     "n": 8,
+     "SetbackType": "4m Landscape setback"
+    },
+    {
+     "n": 7,
+     "SetbackType": "2m Upper level setback"
+    },
+    {
+     "n": 6,
+     "SetbackType": "4m Build to alignment"
+    },
+    {
+     "n": 5,
+     "SetbackType": "6m Landscape setback"
+    },
+    {
+     "n": 4,
+     "SetbackType": "5m Landscape setback"
+    },
+    {
+     "n": 3,
+     "SetbackType": "1.5m Landscape setback"
+    },
+    {
+     "n": 3,
+     "SetbackType": "1m Upper level setback"
+    },
+    {
+     "n": 3,
+     "SetbackType": "3m Active edge setback"
+    },
+    {
+     "n": 3,
+     "SetbackType": "3m Side setback"
+    },
+    {
+     "n": 2,
+     "SetbackType": "10m Upper level setback"
+    },
+    {
+     "n": 2,
+     "SetbackType": "12m Landscape setback"
+    },
+    {
+     "n": 2,
+     "SetbackType": "12m Upper level setback"
+    },
+    {
+     "n": 2,
+     "SetbackType": "2.5m Primary setback"
+    },
+    {
+     "n": 2,
+     "SetbackType": "4m Primary setback"
+    },
+    {
+     "n": 2,
+     "SetbackType": "7m Landscape setback"
+    },
+    {
+     "n": 2,
+     "SetbackType": "8m Upper level setback"
+    },
+    {
+     "n": 1,
+     "SetbackType": "10m Landscape setback"
+    },
+    {
+     "n": 1,
+     "SetbackType": "2.5m Landscape setback"
+    },
+    {
+     "n": 1,
+     "SetbackType": "5m Upper level setback"
+    },
+    {
+     "n": 1,
+     "SetbackType": "Landscape setback varying width"
+    }
+   ],
+   "dateMin": "2015-11-17",
+   "dateMax": "2024-03-22",
+   "error": null
+  },
+  "12.SetbackType": {
+   "field": "SetbackType",
+   "distinct": 22,
+   "rows": [
+    {
+     "n": 34,
+     "SetbackType": "1.4m Setback - Footpath widening"
+    },
+    {
+     "n": 26,
+     "SetbackType": "2.4m Setback - Footpath widening"
+    },
+    {
+     "n": 13,
+     "SetbackType": "3m Setback - Footpath widening"
+    },
+    {
+     "n": 8,
+     "SetbackType": "1.5m Landscape setback"
+    },
+    {
+     "n": 7,
+     "SetbackType": "10m Landscape setback"
+    },
+    {
+     "n": 6,
+     "SetbackType": "2m Setback - Footpath widening"
+    },
+    {
+     "n": 5,
+     "SetbackType": "3m Landscape setback"
+    },
+    {
+     "n": 5,
+     "SetbackType": "Liveable Green Network var. width"
+    },
+    {
+     "n": 4,
+     "SetbackType": "1.2m Setback - Footpath widening"
+    },
+    {
+     "n": 3,
+     "SetbackType": "4m Setback - Footpath widening"
+    },
+    {
+     "n": 3,
+     "SetbackType": "6.4m Footpath widening / Landscape setback"
+    },
+    {
+     "n": 3,
+     "SetbackType": "Footpath widening varying width"
+    },
+    {
+     "n": 3,
+     "SetbackType": "Landscape setback varying width"
+    },
+    {
+     "n": 2,
+     "SetbackType": "0.5m Setback - Footpath widening"
+    },
+    {
+     "n": 2,
+     "SetbackType": "1.5m Setback - Footpath widening"
+    },
+    {
+     "n": 2,
+     "SetbackType": "10m Setback - Liveable Green Network"
+    },
+    {
+     "n": 2,
+     "SetbackType": "2m Footpath widening / Landscape setback"
+    },
+    {
+     "n": 1,
+     "SetbackType": "12.5m Landscape setback"
+    },
+    {
+     "n": 1,
+     "SetbackType": "1m Setback - Footpath widening"
+    },
+    {
+     "n": 1,
+     "SetbackType": "2.9m Setback - Footpath widening"
+    },
+    {
+     "n": 1,
+     "SetbackType": "3.2m Setback - Footpath widening"
+    },
+    {
+     "n": 1,
+     "SetbackType": "6m Setback - Footpath widening"
+    }
+   ],
+   "dateMin": "2015-11-17",
+   "dateMax": "2022-11-11",
+   "error": null
+  },
+  "5.Storeys": {
+   "field": "Storeys",
+   "distinct": 11,
+   "rows": [
+    {
+     "n": 435,
+     "Storeys": "1"
+    },
+    {
+     "n": 256,
+     "Storeys": "2"
+    },
+    {
+     "n": 184,
+     "Storeys": "3"
+    },
+    {
+     "n": 132,
+     "Storeys": "4"
+    },
+    {
+     "n": 92,
+     "Storeys": "6"
+    },
+    {
+     "n": 78,
+     "Storeys": "5"
+    },
+    {
+     "n": 24,
+     "Storeys": "8"
+    },
+    {
+     "n": 8,
+     "Storeys": "7"
+    },
+    {
+     "n": 2,
+     "Storeys": "Existing height"
+    },
+    {
+     "n": 2,
+     "Storeys": "10"
+    },
+    {
+     "n": 1,
+     "Storeys": "9"
+    }
+   ],
+   "dateMin": "2012-12-14",
+   "dateMax": "2022-11-11",
+   "error": null
+  },
+  "7.Storeys": {
+   "field": "Storeys",
+   "distinct": 17,
+   "rows": [
+    {
+     "n": 1201,
+     "Storeys": "2"
+    },
+    {
+     "n": 682,
+     "Storeys": "3"
+    },
+    {
+     "n": 473,
+     "Storeys": "4"
+    },
+    {
+     "n": 314,
+     "Storeys": "6"
+    },
+    {
+     "n": 258,
+     "Storeys": "1"
+    },
+    {
+     "n": 226,
+     "Storeys": "5"
+    },
+    {
+     "n": 146,
+     "Storeys": "8"
+    },
+    {
+     "n": 115,
+     "Storeys": "7"
+    },
+    {
+     "n": 51,
+     "Storeys": "10"
+    },
+    {
+     "n": 38,
+     "Storeys": ">15"
+    },
+    {
+     "n": 29,
+     "Storeys": "12"
+    },
+    {
+     "n": 29,
+     "Storeys": "9"
+    },
+    {
+     "n": 10,
+     "Storeys": "14"
+    },
+    {
+     "n": 8,
+     "Storeys": "15"
+    },
+    {
+     "n": 8,
+     "Storeys": "13"
+    },
+    {
+     "n": 3,
+     "Storeys": "11"
+    },
+    {
+     "n": 1,
+     "Storeys": null
+    }
+   ],
+   "dateMin": "2012-12-14",
+   "dateMax": "2024-03-22",
+   "error": null
+  },
+  "4.Section": {
+   "field": "Section",
+   "distinct": 1,
+   "rows": [
+    {
+     "n": 1,
+     "Section": "6.2.8"
+    }
+   ],
+   "dateMin": "2018-08-24",
+   "dateMax": "2018-08-24",
+   "error": null
+  },
+  "16.Section": {
+   "field": "Section",
+   "distinct": 46,
+   "rows": [
+    {
+     "n": 5,
+     "Section": "6.2.12"
+    },
+    {
+     "n": 1,
+     "Section": "6.1.10"
+    },
+    {
+     "n": 1,
+     "Section": "6.1.11"
+    },
+    {
+     "n": 1,
+     "Section": "6.1.12"
+    },
+    {
+     "n": 1,
+     "Section": "6.1.3"
+    },
+    {
+     "n": 1,
+     "Section": "6.1.4"
+    },
+    {
+     "n": 1,
+     "Section": "6.1.8"
+    },
+    {
+     "n": 1,
+     "Section": "6.1.9"
+    },
+    {
+     "n": 1,
+     "Section": "6.2.10"
+    },
+    {
+     "n": 1,
+     "Section": "6.2.11"
+    },
+    {
+     "n": 1,
+     "Section": "6.2.4"
+    },
+    {
+     "n": 1,
+     "Section": "6.2.6"
+    },
+    {
+     "n": 1,
+     "Section": "6.2.7"
+    },
+    {
+     "n": 1,
+     "Section": "6.2.8"
+    },
+    {
+     "n": 1,
+     "Section": "6.2.9"
+    },
+    {
+     "n": 1,
+     "Section": "6.3"
+    },
+    {
+     "n": 1,
+     "Section": "6.3.1"
+    },
+    {
+     "n": 1,
+     "Section": "6.3.10"
+    },
+    {
+     "n": 1,
+     "Section": "6.3.11"
+    },
+    {
+     "n": 1,
+     "Section": "6.3.12"
+    },
+    {
+     "n": 1,
+     "Section": "6.3.13"
+    },
+    {
+     "n": 1,
+     "Section": "6.3.14"
+    },
+    {
+     "n": 1,
+     "Section": "6.3.15"
+    },
+    {
+     "n": 1,
+     "Section": "6.3.16"
+    },
+    {
+     "n": 1,
+     "Section": "6.3.17"
+    },
+    {
+     "n": 1,
+     "Section": "6.3.18"
+    },
+    {
+     "n": 1,
+     "Section": "6.3.2"
+    },
+    {
+     "n": 1,
+     "Section": "6.3.20"
+    },
+    {
+     "n": 1,
+     "Section": "6.3.21"
+    },
+    {
+     "n": 1,
+     "Section": "6.3.22"
+    },
+    {
+     "n": 1,
+     "Section": "6.3.23"
+    },
+    {
+     "n": 1,
+     "Section": "6.3.24"
+    },
+    {
+     "n": 1,
+     "Section": "6.3.25"
+    },
+    {
+     "n": 1,
+     "Section": "6.3.26"
+    },
+    {
+     "n": 1,
+     "Section": "6.3.27"
+    },
+    {
+     "n": 1,
+     "Section": "6.3.28"
+    },
+    {
+     "n": 1,
+     "Section": "6.3.29"
+    },
+    {
+     "n": 1,
+     "Section": "6.3.3"
+    },
+    {
+     "n": 1,
+     "Section": "6.3.30"
+    },
+    {
+     "n": 1,
+     "Section": "6.3.31"
+    },
+    {
+     "n": 1,
+     "Section": "6.3.4"
+    },
+    {
+     "n": 1,
+     "Section": "6.3.5"
+    },
+    {
+     "n": 1,
+     "Section": "6.3.6"
+    },
+    {
+     "n": 1,
+     "Section": "6.3.7"
+    },
+    {
+     "n": 1,
+     "Section": "6.3.8"
+    },
+    {
+     "n": 1,
+     "Section": "6.3.9"
+    }
+   ],
+   "dateMin": "2012-07-02",
+   "dateMax": "2025-11-26",
+   "error": null
+  },
+  "3.DCP_Name": {
+   "field": "DCP_Name",
+   "distinct": 9,
+   "rows": [
+    {
+     "n": 218,
+     "DCP_Name": "Sydney DCP 2012 - Green Square Setbacks"
+    },
+    {
+     "n": 31,
+     "DCP_Name": "Sydney DCP 2012 - Enterprise Area Review"
+    },
+    {
+     "n": 26,
+     "DCP_Name": "Sydney DCP 2012 - Dank St South, Waterloo"
+    },
+    {
+     "n": 10,
+     "DCP_Name": "Sydney DCP 2012 - 12-40 Rosebery Ave, Rosebery"
+    },
+    {
+     "n": 8,
+     "DCP_Name": "Sydney DCP 2012 - Botany Road Precinct"
+    },
+    {
+     "n": 7,
+     "DCP_Name": "Sydney DCP 2012 - 102-106 Dunning Ave, Rosebery"
+    },
+    {
+     "n": 4,
+     "DCP_Name": "Sydney DCP 2012 - 12-24 Rothschild Ave, Rosebery"
+    },
+    {
+     "n": 4,
+     "DCP_Name": "Sydney DCP 2012 - 96-298 Botany Rd, Alexandria"
+    },
+    {
+     "n": 2,
+     "DCP_Name": "Sydney DCP 2012 - 923-935 Bourke St, Waterloo"
+    }
+   ],
+   "dateMin": "2015-11-17",
+   "dateMax": "2024-03-22",
+   "error": null
+  },
+  "7.DCP_Name": {
+   "field": "DCP_Name",
+   "distinct": 20,
+   "rows": [
+    {
+     "n": 2852,
+     "DCP_Name": "Sydney DCP 2012"
+    },
+    {
+     "n": 197,
+     "DCP_Name": "Sydney DCP 2012 - Amendment 2"
+    },
+    {
+     "n": 127,
+     "DCP_Name": "Sydney DCP 2012 - Lachlan"
+    },
+    {
+     "n": 116,
+     "DCP_Name": "Sydney DCP 2012 - Ashmore"
+    },
+    {
+     "n": 95,
+     "DCP_Name": "Sydney DCP 2012 - Enterprise Area Review"
+    },
+    {
+     "n": 66,
+     "DCP_Name": "Sydney DCP 2012 - Epsom Park"
+    },
+    {
+     "n": 49,
+     "DCP_Name": "Sydney DCP 2012 - North Rosebery"
+    },
+    {
+     "n": 31,
+     "DCP_Name": "Sydney DCP 2012 - Danks St, Waterloo"
+    },
+    {
+     "n": 16,
+     "DCP_Name": "Sydney DCP 2012 - 2-38 Baptist St, Redfern"
+    },
+    {
+     "n": 12,
+     "DCP_Name": "Sydney DCP 2012 - Botany Road Precinct"
+    },
+    {
+     "n": 7,
+     "DCP_Name": "Sydney DCP 2012 - 904 Bourke St, Zetland"
+    },
+    {
+     "n": 5,
+     "DCP_Name": "Sydney DCP 2012 - 12-40 Rosebery Ave, Rosebery"
+    },
+    {
+     "n": 4,
+     "DCP_Name": "Sydney DCP 2012 - 96-298 Botany Rd, Alexandria"
+    },
+    {
+     "n": 3,
+     "DCP_Name": "Sydney DCP 2012 - 30-62 Barcom Ave, Darlinghurst"
+    },
+    {
+     "n": 3,
+     "DCP_Name": "Sydney DCP 2012 - 12-24 Rothschild Ave, Rosebery"
+    },
+    {
+     "n": 2,
+     "DCP_Name": "Sydney DCP 2012 - Alexandria & Waterloo"
+    },
+    {
+     "n": 2,
+     "DCP_Name": "Sydney DCP 2012 - 923-935 Bourke St, Waterloo"
+    },
+    {
+     "n": 2,
+     "DCP_Name": "Sydney DCP 2012 - 287-289 Crown St, Surry Hills"
+    },
+    {
+     "n": 2,
+     "DCP_Name": "Sydney DCP 2012 - 51-55 Missenden Rd, Camperdown"
+    },
+    {
+     "n": 1,
+     "DCP_Name": null
+    }
+   ],
+   "dateMin": "2012-12-14",
+   "dateMax": "2024-03-22",
+   "error": null
+  }
+ },
+ "orgServices": {
+  "count": 196,
+  "planning": [
+   "Planning_Controls",
+   "PlanningConsentAuthority",
+   "Potable_water_consumption_intensity_by_suburb_floor_space_200506",
+   "SydneyLEP2012MapSheet",
+   "Property_Dcp_Lep_Amend",
+   "DCP_LEP_Amendment_2021_gdb"
+  ],
+  "all": [
+   "2012_Employment",
+   "2017_Employment",
+   "A_day_in_the_life_of_a_park",
+   "A_natural_city",
+   "Aboriginal_history_places",
+   "AccessAudit",
+   "Accessible_car_parking_spaces_respondant",
+   "Activated_laneways",
+   "Address_Check_Tree_Giveaway",
+   "AFZ_consultation_land_not_managed_by_City_of_Sydney",
+   "Ashtrays",
+   "Assessment_Books",
+   "Automatic_Hourly_Pedestrian_Count",
+   "Automatic_Walking_Count_Sites",
+   "Banner_pole_map_areas_2",
+   "Banner_poles_audit_1",
+   "Bridges",
+   "Bus_shelters",
+   "Bushfire_recovery_committee_areas",
+   "Business_Needs_—_Covid_19_Recovery",
+   "BusinessRateCategory",
+   "CCTV_Locations",
+   "City_of_Sydney_Potable_Water_Intensity_by_Sector",
+   "City_of_Sydney_Tree_Species_List",
+   "City_Users_Creative_Industries",
+   "City_Users_Suburb_Localities_Business_Counts_p",
+   "City_Users_Suburb_Localities_Employee_Counts_p",
+   "CityofSydneyLGASimple",
+   "CityVillages",
+   "Cliffs_and_walls",
+   "Contractor_Works_Accessible_City_view_website",
+   "Council_car_parks",
+   "Council_Childcare_Centres",
+   "CouncilFacilities",
+   "Covid_Business_Recovery_Survey_2022",
+   "Crown_Land",
+   "Customer_Service_Centres",
+   "Developing_Sydney",
+   "DonatedTrees",
+   "Drainage_catchment_areas",
+   "Drinking_fountains",
+   "Electricity_intensity_by_sector",
+   "ElectricityConsumption_CityofSydney_FY2005_2015",
+   "electricityconsumptionbysuburb_200506_201415",
+   "electricityintensitybysuburb_200506_201415",
+   "Emissions_Factors_used_for_GPC_carbon_inventory",
+   "ExclusionZones",
+   "Fences",
+   "FES2007_Employment_Zone_Data",
+   "FES2012_Employment_Zone_Data",
+   "FES2017_Employment_Zone_Data",
+   "Filming_permits",
+   "Free_15_minute_parking",
+   "gasconsumptionbysuburb_200506_201415",
+   "gasintensitybysuburb_200506_201415",
+   "GHG_LGA_2014",
+   "GPC_carbon_inventory",
+   "Grants_and_sponsorships_funding",
+   "Green_Square_Development_Areas",
+   "Greenhouse_gas_emissions_by_modes_of_transport",
+   "Greenhouse_gas_emissions_profile_by_suburb",
+   "GreenhouseGas",
+   "GreenSquareConstruction",
+   "GreenSquareMask",
+   "Historical_Atlas_of_Sydney",
+   "HistoricWardBoundaries_A",
+   "Hoarding_Graphics_Areas",
+   "HoardingsChargeZone",
+   "Hospitals",
+   "Indigenous_businesses",
+   "Information_Kiosks",
+   "Join_Features_to_Walking_count_sites",
+   "Kilometres_travelled_by_mode_of_transport",
+   "LGA_Black_Glow",
+   "LGA_Orange_Glow",
+   "LGABufferRings",
+   "Lifts",
+   "Low_rise_medium_density_housing_in_Rosebery",
+   "NABERRatingsRegisterSummary",
+   "Natural_gas_intensity_by_sector",
+   "NaturalGasConsumption_CityofSydney200506_201415",
+   "Navability_routes",
+   "Night_time_precincts",
+   "NSW_LGA_boundaries",
+   "NSW_LGAs",
+   "Outdoor_alcohol_restrictions_2023_consultation",
+   "Outdoor_alcohol_restrictions_for_public_consultation_July_2024",
+   "ParkingPermits",
+   "Planning_Controls",
+   "PlanningConsentAuthority",
+   "Police_stations",
+   "Potable_water_consumption_by_Sector_Level_2_200506",
+   "Potable_water_consumption_by_Suburb_2005_06",
+   "Potable_water_consumption_intensity_by_suburb_floor_space_200506",
+   "Rain_Gardens",
+   "RecreationCentres",
+   "Residential_waste_recovery",
+   "Seats",
+   "Section94ContributionPlans",
+   "Shared_spaces",
+   "Small_Business_Villages",
+   "Stairs",
+   "STMP2022_view",
+   "Street_litter_bins",
+   "SuburbBoundaries",
+   "SwimmingPools",
+   "SydneyLEP2012MapSheet",
+   "TaxiRanks",
+   "Tech_Central",
+   "Terrain_Contours",
+   "Trees",
+   "Twice_Yearly_Bicycle_Count_Data",
+   "Twice_Yearly_Bicycle_Count_Locations",
+   "Village_Groupings",
+   "Village_population_changes",
+   "Villages_Population_2011_2019",
+   "Walking_count_sites_summary",
+   "Walking_count_surveys",
+   "Walking_counts_sites_join_walking_summary_data",
+   "WalkingCountSites",
+   "Waste_generation_by_suburb",
+   "Wayfinding_signage",
+   "Webmap_CouncilFacilities",
+   "Wildlife_watch_original",
+   "WorldPride_TemporaryAFZs_Labels",
+   "Webmap_CarShareBays",
+   "Playgrounds",
+   "Parks",
+   "FES2022EmploymentZoneData",
+   "FES2022_Block_Data",
+   "survey123_80427609979b464383beaec91900fe5a_form",
+   "Property_Dcp_Lep_Amend",
+   "DCP_LEP_Amendment_2021_gdb",
+   "FES_Industry_of_occupation",
+   "survey123_43164428df054bf681fcbe92a8a9ff65_form",
+   "RST_Existing",
+   "RST_UPDATE_20250224_V3_view",
+   "Libraries",
+   "Library_details",
+   "Join_Features_to_Library_locations_view",
+   "Dog_off_leash_park_areas",
+   "Webmap_CommunityGardens",
+   "Significant_Tree_Nominations_3_view",
+   "Lights",
+   "Sport",
+   "2007_Employment",
+   "LGA_Buffer",
+   "StationsStopsWharves",
+   "Register_of_Significant_Trees_view",
+   "RPP_TKN",
+   "GPOMSites_dissolve",
+   "GPOMSites",
+   "RycTk",
+   "service_d0bf007a31a1479cb5fa54d843ab742b_form",
+   "URPTkNo",
+   "URPVIPNo",
+   "survey123_330fd0ca84824c509995f9b5758cf2c1_form",
+   "LGABoundary",
+   "Tree_donations",
+   "survey123_da7b08c8b74d416e9622bd760ae42f18_form",
+   "Suburbs_view",
+   "Dog_off_leash_parks",
+   "AffordableHousingContributions",
+   "Ticket_parking_rates",
+   "Filming_Permit_Areas",
+   "Sharps_disposal_bins",
+   "Sharps_bins",
+   "SharpsBins_NSWHealth",
+   "service_4e73aefd6d5c40ea8687d9b600b1b1dd_form",
+   "National_public_toilets",
+   "DA_Applications_on_Exhibition_QA_TEST_auth",
+   "Car_share_bays_usage",
+   "Free_Tree_Giveaway",
+   "Alcohol_free_zones",
+   "Mobility_parking",
+   "Drainage_pipes",
+   "Street_Codes",
+   "StreetCodes_Buffer5m",
+   "CommunityBinsFoodscraps",
+   "Venues_For_Hire",
+   "Join_Features_to_Venues_for_hire_view",
+   "Bicycle_Wayfinding",
+   "Electric_vehicle_charging_bays",
+   "Separated_cycleway_network",
+   "DA_Applications_on_Exhibition_QA_TEST",
+   "SpecialEntertainmentPrecincts_poly",
+   "Icecream_Sunday_DEV_view",
+   "Light_poles",
+   "Smart_poles",
+   "Drainage_pits",
+   "Road_names",
+   "Bicycle_parking",
+   "APTs_QMS",
+   "Bike_share_parking",
+   "Development_Monitoring",
+   "Sydney_Development_Control_Plan_2012"
+  ]
+ }
+}

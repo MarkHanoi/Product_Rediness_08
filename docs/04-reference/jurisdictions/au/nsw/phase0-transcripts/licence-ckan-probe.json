@@ -1,0 +1,157 @@
+{
+ "probedAt": "2026-09-04",
+ "probes": {
+  "nsw_theme_service": {
+   "status": 200,
+   "title": "NSW Elevation and Depth Theme  - GDA2020 Service",
+   "license_title": "License Not Specified",
+   "license_id": "notspecified",
+   "organization": "Spatial Services (DCS)",
+   "maintainer": null,
+   "metadata_modified": "2026-06-21T09:51:14.862572",
+   "update_freq": null,
+   "notes": "<b><span style='margin-right:6px; margin-top:6px;'><br /><a href='https://portal.spatial.nsw.gov.au/static/exportcontent.html?featureservername=NSW_Elevation_and_Depth_Theme_multiCRS&amp;title=NSW Elevation and Depth Theme multiCRS&amp;wgs84Eqv=GDA2020&amp;url=https://portal.spatial.nsw.gov.au/server/rest/services/NSW_Elevation_and_Depth_Theme_multiCRS/FeatureServer' rel='nofollow ugc' style='border-radius:4px; font-family:Arial; color:#ffffff; font-size:18px; background:#0079c1; padding:8px 16px 8px 16px; text-decoration:none;'>Export Data</a></span> <a href='https://portal.spatial.nsw.gov.au",
+   "resources": [
+    {
+     "format": "ARCGIS REST SERVICE",
+     "url": "https://portal.spatial.nsw.gov.au/server/rest/services/NSW_Elevation_and_Depth_Theme_multiCRS/FeatureServer"
+    }
+   ],
+   "extras": []
+  },
+  "nsw_theme_profile": {
+   "status": 200,
+   "title": "NSW Foundation Spatial Data Framework - Elevation and Depth Theme Profile",
+   "license_title": "Creative Commons Attribution",
+   "license_id": "cc-by",
+   "license_url": "http://www.opendefinition.org/licenses/cc-by",
+   "organization": "Department of Customer Service",
+   "author": "Department of Finance, Services and Innovation",
+   "maintainer": "maria-jansen-366",
+   "metadata_modified": "2018-10-20T11:27:16.660912",
+   "update_freq": null,
+   "notes": "Elevation and Depth is the measurement of the Earth’s surface above or below a vertical datum to obtain the height of the land.\r\nData is collected using a range of sensors including: laser, sonar, radar and optical.\r\nTechnical methodologies are used to derive spot heights, raster surfaces, contours, triangulated irregular networks and digital elevation models.",
+   "resources": [
+    {
+     "name": "NSW Foundation Spatial Data - Elevation and Depth Theme Profile ",
+     "format": "PDF",
+     "url": "https://proddatansw.dac.nsw.gov.au/data/dataset/ea4fe153-21e9-4318-9fd5-58a6f88a5b04/resource/444e7837-9ffd-422a-a91d-c8ddbffd9473/download/theme-profile_elevation-and-depth-theme.pdf"
+    }
+   ],
+   "extras": []
+  },
+  "nsw_theme_alt": {
+   "status": 200,
+   "title": "NSW Elevation and Depth Theme",
+   "license_title": "License Not Specified",
+   "license_id": "notspecified",
+   "organization": "Spatial Services (DCS)",
+   "maintainer": null,
+   "metadata_modified": "2026-05-13T02:49:54.416778",
+   "update_freq": null,
+   "notes": "<p style='margin-top:6px;'><b><a href='https://portal.spatial.nsw.gov.au/static/exportcontent.html?featureservername=NSW_Elevation_and_Depth_Theme&amp;title=NSW Elevation and Depth Theme&amp;wgs84Eqv=GDA94&amp;url=https://portal.spatial.nsw.gov.au/server/rest/services/NSW_Elevation_and_Depth_Theme/MapServer' rel='nofollow ugc' style='border-radius:4px; font-family:Arial; color:#ffffff; font-size:18px; background:#0079c1; padding:8px 16px 8px 16px; text-decoration:none;'>Export Data</a><span> </span><a href='https://portal.spatial.nsw.gov.au/server/rest/services/NSW_Elevation_and_Depth_Theme/Ma",
+   "resources": [
+    {
+     "format": "ARCGIS REST SERVICE",
+     "url": "https://portal.spatial.nsw.gov.au/server/rest/services/NSW_Elevation_and_Depth_Theme/MapServer"
+    }
+   ],
+   "extras": []
+  },
+  "gov_au": {
+   "status": 200,
+   "title": "NSW Elevation and Depth Theme",
+   "license_title": "Creative Commons Attribution 3.0 Australia",
+   "license_id": "cc-by",
+   "license_url": "http://creativecommons.org/licenses/by/3.0/au/",
+   "organization": "Spatial Services (DCS)",
+   "maintainer": null,
+   "metadata_modified": "2025-08-16T04:57:14.379545",
+   "update_freq": null,
+   "notes": "Export Data Access API\nNSW Elevation and Depth Theme – Relative\nHeights \n\nPlease Note\nWGS 84 service aligned to GDA94\nThis dataset has spatial reference [WGS 84 ≈ GDA94] which may result in\nmisalignments when viewed in GDA2020 environments. A similar service with a\n‘multiCRS’ suffix is available which can support GDA2020, GDA94 and WGS 84 ≈\nGDA2020 environments.\nIn due course, and allowing time for user feedback and testing, it is intended\nthat the original service name will adopt the new multiCRS functionality.\nMetadata Portal Metadata Information\nContent TitleNSW Elevation and Depth ThemeCon",
+   "resources": [
+    {
+     "format": "ARCGIS REST SERVICE",
+     "url": "https://portal.spatial.nsw.gov.au/server/rest/services/NSW_Elevation_and_Depth_Theme/FeatureServer/1"
+    }
+   ],
+   "extras": []
+  },
+  "nsw_search": {
+   "status": 200,
+   "count": 683,
+   "items": [
+    {
+     "name": "1-73a47df530fe42a0a1d3eabb43defcf1",
+     "title": "NSW Elevation and Depth Theme GDA2020 Service",
+     "license_title": "License Not Specified",
+     "org": "Spatial Services (DCS)"
+    },
+    {
+     "name": "1-85ca688f5e9c43e28363dda4bbf23d42",
+     "title": "NSW Elevation and Depth Theme  - GDA2020 Service",
+     "license_title": "License Not Specified",
+     "org": "Spatial Services (DCS)"
+    },
+    {
+     "name": "1-f1b1b26b23ab4574a561f890edd3bd7e",
+     "title": "NSW Elevation and Depth Theme",
+     "license_title": "License Not Specified",
+     "org": "Spatial Services (DCS)"
+    },
+    {
+     "name": "1-a9acf411599c4d0c8c91fc2ef0f99f5f",
+     "title": "NSW Elevation and Depth Theme",
+     "license_title": "License Not Specified",
+     "org": "Spatial Services (DCS)"
+    },
+    {
+     "name": "nsw-foundation-spatial-data-framework-elevation-and-depth-point-cloud",
+     "title": "NSW Foundation Spatial Data Framework - Elevation and Depth - Point Cloud",
+     "license_title": "Creative Commons Attribution",
+     "org": "Department of Customer Service"
+    },
+    {
+     "name": "nsw-foundation-spatial-data-framework-elevation-and-depth-nsw-contours",
+     "title": "NSW Foundation Spatial Data Framework - Elevation and Depth - NSW Contours",
+     "license_title": "Creative Commons Attribution",
+     "org": "Department of Customer Service"
+    },
+    {
+     "name": "nsw-foundation-spatial-data-framework-elevation-and-depth-theme-profile",
+     "title": "NSW Foundation Spatial Data Framework - Elevation and Depth Theme Profile",
+     "license_title": "Creative Commons Attribution",
+     "org": "Department of Customer Service"
+    },
+    {
+     "name": "1-01374b5346c14095b19bed3038992f26",
+     "title": "Relative Height - NSW Elevation and Depth Theme - GDA2020 Service",
+     "license_title": "License Not Specified",
+     "org": "Spatial Services (DCS)"
+    },
+    {
+     "name": "nsw-foundation-spatial-data-framework-elevation-and-depth-nsw-relative-heights",
+     "title": "NSW Foundation Spatial Data Framework - Elevation and Depth - NSW Relative Heights",
+     "license_title": "Creative Commons Attribution",
+     "org": "Department of Customer Service"
+    },
+    {
+     "name": "nsw-foundation-spatial-data-framework-elevation-and-depth-nsw-spot-heights",
+     "title": "NSW Foundation Spatial Data Framework - Elevation and Depth - NSW Spot Heights",
+     "license_title": "Creative Commons Attribution",
+     "org": "Department of Customer Service"
+    }
+   ]
+  },
+  "spatial_copyright_html": {
+   "status": 403,
+   "raw": " Just a moment... *{box-sizing:border-box;margin:0;padding:0}html{line-height:1.15;-webkit-text-size-adjust:100%;color:#313131;font-family:system-ui,-apple-system,BlinkMacSystemFont,\"Segoe UI\",Roboto,\"Helvetica Neue\",Arial,\"Noto Sans\",sans-serif,\"Apple Color Emoji\",\"Segoe UI Emoji\",\"Segoe UI Symbol\",\"Noto Color Emoji\"}body{display:flex;flex-direction:column;height:100vh;min-height:100vh}.main-content{margin:8rem auto;padding-left:1.5rem;max-width:60rem}@media (width Enable JavaScript and cookies to continue ",
+   "err": null
+  },
+  "portal_tos_html": {
+   "status": 200,
+   "raw": " --> --> #base-loader{display:block;fill:none;stroke:#009af2;animation:loader-color-shift 2s alternate-reverse infinite linear;height:54px;margin-top:75px}#base-loader svg.loader-square{position:absolute;left:0;right:0;margin-left:auto;margin-right:auto;width:54px;height:54px;stroke-width:6px;stroke-dashoffset:0;fill:none}#base-loader svg.loader-square.loader-square-1{stroke-dasharray:50% 350%;animation:loader-clockwise 2s infinite linear}#base-loader svg.loader-square.loader-square-2{stroke-dasharray:100% 225% 50% 25%;animation:loader-clockwise 1s infinite linear}#base-loader svg.loader-square.loader-square-3{stroke-dasharray:50% 50% 75% 225%;animation:loader-clockwise 1.85s infinite linear}@keyframes loader-color-shift{0%{stroke:#009af2}100%{stroke:#00619b}}@keyframes loader-clockwise{0%{stroke-dashoffset:0}100%{stroke-dashoffset:-400%}}#base-loader .loader-bars{display:none}@media screen and (-ms-high-contrast:active),(-ms-high-contrast:none){#base-loader svg,.active#base-loader svg{display:none}#base-loader .loader-bars,.active#base-loader .loader-bars{display:block}}@supports (-ms-ime-align:auto){#base-loader svg,.active#base-loader svg{display:none}#base-loader .loader-bars,.active#base-loader .loader-bars{display:block}}#base-loader .loader-bars,#base-loader .loader-bars:after,#base-loader .loader-bars:before{background:#0079c1;animation:load .8s infinite ease-in-out;width:8.5px;height:20px}#base-loader .loader-bars:after,#base-loader .loader-bars:before{position:absol",
+   "err": null
+  }
+ }
+}

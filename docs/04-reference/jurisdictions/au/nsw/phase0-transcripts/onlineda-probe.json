@@ -1,0 +1,112 @@
+{
+ "probedAt": "2026-09-04",
+ "endpoint": "https://api.apps1.nsw.gov.au/eplanning/data/v0/OnlineDA",
+ "attempts": [
+  {
+   "label": "no filter, page 1 size 5",
+   "status": 400,
+   "topKeys": [
+    "ErrorMessage"
+   ],
+   "count": null,
+   "total": null,
+   "firstKeys": null,
+   "first": null,
+   "raw": null,
+   "err": null,
+   "rateHeaders": {}
+  },
+  {
+   "label": "City of Sydney determined 2025",
+   "status": 200,
+   "topKeys": [
+    "PageSize",
+    "PageNumber",
+    "TotalPages",
+    "TotalCount"
+   ],
+   "count": null,
+   "total": 0,
+   "firstKeys": null,
+   "first": null,
+   "raw": null,
+   "err": null,
+   "rateHeaders": {}
+  },
+  {
+   "label": "Council of the City of Sydney determined 2025",
+   "status": 200,
+   "topKeys": [
+    "PageSize",
+    "PageNumber",
+    "TotalPages",
+    "TotalCount",
+    "Application"
+   ],
+   "count": 5,
+   "total": 369,
+   "firstKeys": [
+    "PlanningPortalApplicationNumber",
+    "DateLastUpdated",
+    "SubmissionDate",
+    "LodgementDate",
+    "DeterminationDate",
+    "AssessmentExhibitionEndDate",
+    "AssessmentExhibitionStartDate",
+    "CostOfDevelopment",
+    "NumberOfNewDwellings",
+    "NumberOfStoreys",
+    "CouncilApplicationNumber",
+    "ApplicationStatus",
+    "ApplicationType",
+    "AccompaniedByVPAFlag",
+    "DevelopmentSubjectToSICFlag",
+    "EPIVariationProposedFlag",
+    "DeterminationAuthority",
+    "Council",
+    "DevelopmentType",
+    "Location"
+   ],
+   "first": {
+    "PlanningPortalApplicationNumber": "PAN-485589",
+    "DateLastUpdated": "2025-01-03T21:53:24.360",
+    "SubmissionDate": "2024-11-18",
+    "LodgementDate": "2024-11-25",
+    "DeterminationDate": "2025-01-03",
+    "AssessmentExhibitionEndDate": "2025-12-18T00:00:00",
+    "AssessmentExhibitionStartDate": "2025-12-03T00:00:00",
+    "CostOfDevelopment": 0,
+    "NumberOfNewDwellings": 1,
+    "NumberOfStoreys": 2,
+    "CouncilApplicationNumber": "D/2024/1062",
+    "ApplicationStatus": "Determined",
+    "ApplicationType": "Development Application",
+    "AccompaniedByVPAFlag": "N",
+    "DevelopmentSubjectToSICFlag": "N",
+    "EPIVariationProposedFlag": "Y",
+    "DeterminationAuthority": "Council staff under delegated authority",
+    "Council": {
+     "CouncilName": "Council of the City of Sydney"
+    },
+    "DevelopmentType": [
+     {
+      "DevelopmentType": "Alterations or additions to an existing building or structure"
+     },
+     {
+      "DevelopmentType": "Residential flat building"
+     }
+    ],
+    "Location": [
+     {
+      "FullAddress": "Apart. 706&707 / The Rex 50 Macleay St Potts Point",
+      "X": "151.224968008",
+      "Y": "-33.870376346"
+     }
+    ]
+   },
+   "raw": null,
+   "err": null,
+   "rateHeaders": {}
+  }
+ ]
+}

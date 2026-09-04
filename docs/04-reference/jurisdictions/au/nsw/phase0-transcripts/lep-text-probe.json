@@ -1,0 +1,134 @@
+{
+ "probedAt": "2026-09-04",
+ "results": [
+  {
+   "id": "act-1979-203",
+   "label": "EP&A Act 1979",
+   "needles": [
+    "3.28",
+    "Inconsistency between instruments",
+    "general presumption"
+   ],
+   "url": "https://legislation.nsw.gov.au/view/whole/html/inforce/current/act-1979-203",
+   "status": 200,
+   "bytes": 1574812,
+   "server": "cloudflare",
+   "found": {
+    "3.28": "hat relates to the declaration of the Sydney drinking water catchment unless— (a) the Minister administering the Water NSW Act 2014 approves of the declaration, and (b) the Minister administering the Protection of the Environment Operations Act 1997 has been consulted about the declaration. ss 3.26–3.28 (previously ss 34B–36): Renumbered 2017 No 60, Sch 3.2 [4]. 3.27 Validity of instruments (cf previous s 35) The validity of an environmental planning instrument shall not be questioned in any legal proceedings except those commenced in the Court by any person within 3 months of the date of its publication on the NSW legislation website. ss 3.26–3.28 (previously ss 34B–36): Renumbered 2017 No 60, Sch 3.2 [4]. 3.28 Inconsistency between instruments (cf previous s 36) (1) In the event of an inconsistency between environmental planning instruments and unless otherwise provided— (a) there is a general presumption that a State environmental planning policy prevails over a local environmental ",
+    "Inconsistency between instruments": "ity of an environmental planning instrument shall not be questioned in any legal proceedings except those commenced in the Court by any person within 3 months of the date of its publication on the NSW legislation website. ss 3.26–3.28 (previously ss 34B–36): Renumbered 2017 No 60, Sch 3.2 [4]. 3.28 Inconsistency between instruments (cf previous s 36) (1) In the event of an inconsistency between environmental planning instruments and unless otherwise provided— (a) there is a general presumption that a State environmental planning policy prevails over a local environmental plan or other instrument made before or after that State environmental planning policy, and (b) (Repealed) (c) the general presumptions of the law as to when an Act prevails over another Act apply to when one kind of environmental planning instrument prevails over another environmental planning instrument of the same kind. (2), (3) (Repealed) (4) Nothing in this section prevents an environmental planning instrument fro",
+    "general presumption": "ublication on the NSW legislation website. ss 3.26–3.28 (previously ss 34B–36): Renumbered 2017 No 60, Sch 3.2 [4]. 3.28 Inconsistency between instruments (cf previous s 36) (1) In the event of an inconsistency between environmental planning instruments and unless otherwise provided— (a) there is a general presumption that a State environmental planning policy prevails over a local environmental plan or other instrument made before or after that State environmental planning policy, and (b) (Repealed) (c) the general presumptions of the law as to when an Act prevails over another Act apply to when one kind of environmental planning instrument prevails over another environmental planning instrument of the same kind. (2), (3) (Repealed) (4) Nothing in this section prevents an environmental planning instrument from being expressly amended by a later environmental planning instrument, of the same or a different kind, to provide for the way in which an inconsistency between them is to be res"
+   },
+   "err": null
+  },
+  {
+   "id": "epi-2013-0020",
+   "label": "Ballina LEP 2012 (PCO 2013-20)",
+   "needles": [
+    "Building Height Allowance Map",
+    "Australian Height Datum",
+    "minimum level"
+   ],
+   "url": "https://legislation.nsw.gov.au/view/whole/html/inforce/current/epi-2013-0020",
+   "status": 200,
+   "bytes": 755872,
+   "server": "cloudflare",
+   "found": {
+    "Building Height Allowance Map": "(1) The objective of this clause is to align building height and flood planning provisions and provide for a consistent point of reference for the measurement of building heights in flood prone areas. (2) This clause applies to land identified as “Minimum Level Australian Height Datum (AHD)” on the Building Height Allowance Map . (3) The maximum height of a building on land to which this clause applies is to be measured— (a) where the existing ground level is higher than the minimum level shown on the Building Height Allowance Map —from the existing ground level, or (b) otherwise—from the minimum level AHD permitted for the land on the Building Height Allowance Map . cl 4.3A: Am 2014 (273), Sch 1; 2025 (466), Sch 1[7]. 4.4 Floor space ratio (1) The objectives of this clause are as follows— (a) to ensure that buildings are compatible with the bulk, scale and character of the locality, (b) to minimise adverse impacts on existing or future amenity of adjoining properties and the scenic or",
+    "Australian Height Datum": ".3A Exceptions to height of buildings (1) The objective of this clause is to align building height and flood planning provisions and provide for a consistent point of reference for the measurement of building heights in flood prone areas. (2) This clause applies to land identified as “Minimum Level Australian Height Datum (AHD)” on the Building Height Allowance Map . (3) The maximum height of a building on land to which this clause applies is to be measured— (a) where the existing ground level is higher than the minimum level shown on the Building Height Allowance Map —from the existing ground level, or (b) otherwise—from the minimum level AHD permitted for the land on the Building Height Allowance Map . cl 4.3A: Am 2014 (273), Sch 1; 2025 (466), Sch 1[7]. 4.4 Floor space ratio (1) The objectives of this clause are as follows— (a) to ensure that buildings are compatible with the bulk, scale and character of the locality, (b) to minimise adverse impacts on existing or future amenity of ",
+    "minimum level": "n flood prone areas. (2) This clause applies to land identified as “Minimum Level Australian Height Datum (AHD)” on the Building Height Allowance Map . (3) The maximum height of a building on land to which this clause applies is to be measured— (a) where the existing ground level is higher than the minimum level shown on the Building Height Allowance Map —from the existing ground level, or (b) otherwise—from the minimum level AHD permitted for the land on the Building Height Allowance Map . cl 4.3A: Am 2014 (273), Sch 1; 2025 (466), Sch 1[7]. 4.4 Floor space ratio (1) The objectives of this clause are as follows— (a) to ensure that buildings are compatible with the bulk, scale and character of the locality, (b) to minimise adverse impacts on existing or future amenity of adjoining properties and the scenic or landscape quality of the locality. (2) The maximum floor space ratio for a building on any land is not to exceed the floor space ratio shown for the land on the Floor Space Ratio "
+   },
+   "err": null
+  },
+  {
+   "id": "epi-2012-0628",
+   "label": "Sydney LEP 2012 (PCO 2012-628)",
+   "needles": [
+    "Alternative Height of Buildings Map",
+    "Sun Access Protection",
+    "6.17",
+    "6.18"
+   ],
+   "url": "https://legislation.nsw.gov.au/view/whole/html/inforce/current/epi-2012-0628",
+   "status": 200,
+   "bytes": 3164987,
+   "server": "cloudflare",
+   "found": {
+    "Alternative Height of Buildings Map": "xceed the maximum height shown for the land on the Height of Buildings Map if— (a) the building is used only for— (i) non-residential purposes, or (ii) non-residential purposes and to provide affordable housing, and (b) the height of the building does not exceed the height shown for the land on the Alternative Height of Buildings Map . (4) A building on land to which this clause applies may exceed the floor space ratio shown for the land on the Floor Space Ratio Map if the floor space ratio of the building does not exceed the floor space ratio shown for the land on— (a) for a building used only for non-residential purposes—the Alternative Floor Space Ratio Map—Employment Sites , or (b) for a building used only for non-residential purposes and to provide affordable housing—the Alternative Floor Space Ratio Map—Affordable Housing Sites . (5) In calculating the floor space ratio for the building under subclause (4), land identified as “Classified Road (SP2)” on the Land Reservation Acquis",
+    "Sun Access Protection": "e public, workers and visitors in Central Sydney, and (b) to protect significant, new and planned public places from future overshadowing. (2) Development consent must not be granted to development resulting in part of a building causing additional overshadowing to the following places shown on the Sun Access Protection Map during the specified dates and times— Place Period of protection Times of protection Macquarie Place 14 April–31 August 10am–2pm Martin Place, between Pitt Street and George Street 14 April–31 August Midday–2pm Pitt Street Mall 14 April–31 August 10am–2pm Australia Square Plaza 14 April–31 August Midday–2pm First Government House Place 14 April–31 August 10am–2pm Sydney Town Hall Steps 14 April–31 August 10.30am–4pm Sydney Square 14 April–31 August 11am–4pm Future Town Hall Square All year Midday–sunset Bank Street Park All year 10am–2pm Sydney Fish Market Urban Park 21 June Midday–2pm Wentworth Park All year 10am–2pm Glebe Foreshore Parks 21 June 9am–3pm (3) Subcla",
+    "6.17": "o exceed the maximum height shown for the land on the Height of Buildings Map . Note. No maximum height is shown for land in Area 3 on the Height of Buildings Map . The maximum height for buildings on this land are determined by the sun access planes that are taken to extend over the land by clause 6.17. (2A) Despite any other provision of this Plan, the maximum height of a building on land shown as Area 1 or Area 2 on the Height of Buildings Map is the height of the building on the land as at the commencement of this Plan. cl 4.3: Am 2021 (717), Sch 1[4]. 4.4 Floor space ratio (1) The objectives of this clause are as follows— (a) to provide sufficient floor space to meet anticipated development needs for the foreseeable future, (b) to regulate the density of development, built form and land use intensity and to control the generation of vehicle and pedestrian traffic, (c) to provide for an intensity of development that is commensurate with the capacity of existing and planned infrastr",
+    "6.18": "dditional floor space requires allocation of heritage floor space), (cda) clause 6.11A (Temporary alternative heritage arrangements in relation to allocation of heritage floor space), (cdb) clause 6.16 (Erection of tall buildings in Central Sydney), (ce) clause 6.17 (Sun access planes), (cf) clause 6.18 (Overshadowing of certain public places), unless the additional overshadowing is caused by playground equipment, a shade structure, an awning, a sculpture or artwork, a community notice or a public information sign, (cg) clause 6.19 (View planes), except in relation to the Martin Place View of western sky view protection plane, (cga) clause 6.26 (AMP Circular Quay precinct), (cgb) clause 6.29 (58–60 Martin Place, Sydney), (cgc) clause 6.33 (230–238 Sussex Street, Sydney), (cgd) clause 6.35 (45 Murray Street, Pyrmont), but only if the development is an alteration or addition to an existing building, (cge) clause 6.36 (12–20 Rosebery Avenue, 22–40 Rosebery Avenue and 108 Dalmeny Avenue, R"
+   },
+   "err": null
+  },
+  {
+   "id": "epi-2015-0239",
+   "label": "Blacktown LEP 2015 (PCO 2015-239)",
+   "needles": [
+    "Incentive Height of Buildings Map",
+    "7.7A"
+   ],
+   "url": "https://legislation.nsw.gov.au/view/whole/html/inforce/current/epi-2015-0239",
+   "status": 200,
+   "bytes": 731573,
+   "server": "cloudflare",
+   "found": {
+    "Incentive Height of Buildings Map": "oposed improvements to, the public domain. (5) In this clause— Blacktown Development Control Plan means the Blacktown Development Control Plan 2006 , as in force on the commencement of this Plan. 7.7A Height of buildings exhibiting design excellence (1) This clause applies to land identified on the Incentive Height of Buildings Map . (2) A building on the land may have an incentive height , being a height that— (a) is more than the maximum height shown on the Height of Buildings Map for the land, and (b) is less than or equal to the height shown on the Incentive Height of Buildings Map for the land. (3) Development consent must not be granted to development resulting in a building that has an incentive height on the land unless— (a) a competitive design process has been held in relation to the development, and (b) the design of the development is the winner of the competitive design process, and (c) the consent authority considers that the development exhibits design excellence, and (d",
+    "7.7A": "residential uses, (e) to establish an appropriate interface between centres, adjoining lower density residential zones and public spaces. (2) The height of a building on any land is not to exceed the maximum height shown for the land on the Height of Buildings Map . Note. See clauses 4.3A, 4.3B and 7.7A for exceptions to the maximum height of buildings. cl 4.3: Am 2020 (197), Sch 1[1]. 4.3A Restrictions on height of buildings in Zone R1 General Residential (1) The objectives of this clause are as follows— (a) to minimise any visual impact on, or loss of solar access to, land in the vicinity of development as a result of that development, (b) to minimise any loss of privacy to residential land as a result of development. (2) This clause applies to land in Zone R1 General Residential. (3) A building on land to which this clause applies that consists of a street corner lot is not to have more than 3 storeys. (4) One of the dwellings in a dual occupancy (detached) must— (a) be located behi"
+   },
+   "err": null
+  },
+  {
+   "id": "epi-2023-0117",
+   "label": "Parramatta LEP 2023 (PCO 2023-117)",
+   "needles": [
+    "Sun Access Protection Map",
+    "7.7",
+    "Sun access"
+   ],
+   "url": "https://legislation.nsw.gov.au/view/whole/html/inforce/current/epi-2023-0117",
+   "status": 200,
+   "bytes": 1554007,
+   "server": "cloudflare",
+   "found": {
+    "Sun Access Protection Map": "and from overshadowing— (a) public open space in Parramatta Square, Jubilee Park, Prince Alfred Square and the Parramatta River foreshore, (b) heritage items and curtilage at the Lancer Barracks site and Experiment Farm. (2) This clause applies to the following land— (a) land shown in purple on the Sun Access Protection Map , (b) land identified as “Block A” or “Block B” on the Sun Access Protection Map . (3) Development consent must not be granted to development on the land if a building resulting from the development will create additional overshadowing, on 21 June in any year, on the land shown with blue hatching on the Sun Access Protection Map during the following times— (a) for Experiment Farm—between 10am and 2pm, (b) for Jubilee Park—between midday and 2pm, (c) for the Lancer Barracks site—between midday and 2pm, (d) for Parramatta Square—between midday and 2pm, (e) for Prince Alfred Square—between 11am and 2pm, (f) for the Parramatta River foreshore—between 11am and 2pm. (4) D",
+    "7.7": "gs in public spaces, (r) the impact on heritage conservation areas, including additional overshadowing, (s) water sensitive urban design, (t) the development’s compatibility with the intended character of the area and the development’s contribution to the streetscape and sense of place in the area. 7.7 Sun access (1) The objective of this clause is to protect the following land from overshadowing— (a) public open space in Parramatta Square, Jubilee Park, Prince Alfred Square and the Parramatta River foreshore, (b) heritage items and curtilage at the Lancer Barracks site and Experiment Farm. (2) This clause applies to the following land— (a) land shown in purple on the Sun Access Protection Map , (b) land identified as “Block A” or “Block B” on the Sun Access Protection Map . (3) Development consent must not be granted to development on the land if a building resulting from the development will create additional overshadowing, on 21 June in any year, on the land shown with blue hatching",
+    "Sun access": "n public spaces, (r) the impact on heritage conservation areas, including additional overshadowing, (s) water sensitive urban design, (t) the development’s compatibility with the intended character of the area and the development’s contribution to the streetscape and sense of place in the area. 7.7 Sun access (1) The objective of this clause is to protect the following land from overshadowing— (a) public open space in Parramatta Square, Jubilee Park, Prince Alfred Square and the Parramatta River foreshore, (b) heritage items and curtilage at the Lancer Barracks site and Experiment Farm. (2) This clause applies to the following land— (a) land shown in purple on the Sun Access Protection Map , (b) land identified as “Block A” or “Block B” on the Sun Access Protection Map . (3) Development consent must not be granted to development on the land if a building resulting from the development will create additional overshadowing, on 21 June in any year, on the land shown with blue hatching on "
+   },
+   "err": null
+  },
+  {
+   "id": "epi-2013-0036",
+   "label": "Randwick LEP 2012 (PCO 2013-36)",
+   "needles": [
+    "Alternative Building Heights Map",
+    "Alternative Building Height"
+   ],
+   "url": "https://legislation.nsw.gov.au/view/whole/html/inforce/current/epi-2013-0036",
+   "status": 200,
+   "bytes": 1127971,
+   "server": "cloudflare",
+   "found": {
+    "Alternative Building Heights Map": " if lot consolidation is achieved and public open space and through-site links are provided. (2) If all of the land identified as “Area 6” on the Height of Buildings Map is consolidated into a single lot, the maximum height of a building on that land is the maximum height shown for that land on the Alternative Building Heights Map . (3) If all of the land identified as “Area 7” on the Height of Buildings Map is consolidated into a single lot, the maximum height of a building on that land is the maximum height shown for that land on the Alternative Building Heights Map . 4.4 Floor space ratio (1) The objectives of this clause are as follows— (a) to ensure that the size and scale of development is compatible with the desired future character of the locality, (b) to ensure that buildings are well articulated and respond to environmental and energy needs, (c) to ensure that development is compatible with the scale and character of contributory buildings in a conservation area or near a her",
+    "Alternative Building Height": " if lot consolidation is achieved and public open space and through-site links are provided. (2) If all of the land identified as “Area 6” on the Height of Buildings Map is consolidated into a single lot, the maximum height of a building on that land is the maximum height shown for that land on the Alternative Building Heights Map . (3) If all of the land identified as “Area 7” on the Height of Buildings Map is consolidated into a single lot, the maximum height of a building on that land is the maximum height shown for that land on the Alternative Building Heights Map . 4.4 Floor space ratio (1) The objectives of this clause are as follows— (a) to ensure that the size and scale of development is compatible with the desired future character of the locality, (b) to ensure that buildings are well articulated and respond to environmental and energy needs, (c) to ensure that development is compatible with the scale and character of contributory buildings in a conservation area or near a her"
+   },
+   "err": null
+  },
+  {
+   "id": "epi-2014-0608",
+   "label": "Ryde LEP 2014 (PCO 2014-608)",
+   "needles": [
+    "Macquarie Park Corridor Precinct Incentive Height of Buildings Map",
+    "Incentive Height"
+   ],
+   "url": "https://legislation.nsw.gov.au/view/whole/html/inforce/current/epi-2014-0608",
+   "status": 200,
+   "bytes": 829037,
+   "server": "cloudflare",
+   "found": {
+    "Macquarie Park Corridor Precinct Incentive Height of Buildings Map": null,
+    "Incentive Height": "twork and recreation areas. (2) This clause applies to land to which this part applies that is not identified as an Area on the Key Sites Map under Division 2. (3) A building on land to which this clause applies may have a height of up to the building height shown for the land on the Macquarie Park Incentive Height of Buildings Map . (4) The floor space ratio of buildings on a site on land to which this clause applies may be up to the floor space ratio shown for the land on the Macquarie Park Incentive Floor Space Ratio Map . (5) Subclauses (3) and (4) do not apply unless the consent authority is satisfied the development includes adequate provision for the following— (a) recreation areas that are configured and located in a way that is appropriate for the recreational purposes of the Precinct, (b) an access network that is configured and located in a way that will allow a suitable level of connectivity within the Precinct. cl 7.7: Ins 2024 (597), Sch 1[7]. Am 2025 (494), Sch 1[2]. Div"
+   },
+   "err": null
+  }
+ ]
+}

@@ -1,0 +1,21 @@
+{
+ "probedAt": "2026-09-04",
+ "results": [
+  {
+   "id": "epi-2013-0524",
+   "label": "Singleton LEP 2013",
+   "needle": "Floor Height Restriction Map",
+   "status": 403,
+   "bytes": 5825,
+   "hits": []
+  },
+  {
+   "id": "epi-2012-0679",
+   "label": "Willoughby LEP 2012",
+   "needle": "Sun Access Protection Map",
+   "status": 403,
+   "bytes": 5846,
+   "hits": []
+  }
+ ]
+}

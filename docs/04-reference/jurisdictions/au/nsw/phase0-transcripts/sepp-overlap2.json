@@ -1,0 +1,2154 @@
+{
+ "probedAt": "2026-09-04",
+ "q1": {
+  "44": {
+   "sampled": 10,
+   "skipped": 2,
+   "principal14None": 0,
+   "principal14One": 10,
+   "principal14Two": 0,
+   "oneIsSepp": 10,
+   "oneIsLep": 0,
+   "sameValueAsSepp": 10,
+   "rows": [
+    {
+     "objectid": 104340,
+     "seppEpi": "State Environmental Planning Policy (Precincts—Regional) 2021",
+     "seppVal": 55.7,
+     "seppUnits": "m(RL)",
+     "lon": 151.34462827592066,
+     "lat": -33.43209826740491,
+     "principal14": [
+      {
+       "epi": "State Environmental Planning Policy (Precincts—Regional) 2021",
+       "epiType": "State Environmental Planning Policy",
+       "v": "55.7",
+       "units": "m(RL)",
+       "clause": "Clause 4.3"
+      }
+     ]
+    },
+    {
+     "objectid": 104341,
+     "seppEpi": "State Environmental Planning Policy (Precincts—Regional) 2021",
+     "seppVal": 71,
+     "seppUnits": "m(RL)",
+     "lon": 151.34376564196046,
+     "lat": -33.43040660649323,
+     "principal14": [
+      {
+       "epi": "State Environmental Planning Policy (Precincts—Regional) 2021",
+       "epiType": "State Environmental Planning Policy",
+       "v": "71",
+       "units": "m(RL)",
+       "clause": "Clause 4.3"
+      }
+     ]
+    },
+    {
+     "objectid": 104343,
+     "seppEpi": "State Environmental Planning Policy (Precincts—Regional) 2021",
+     "seppVal": 49.3,
+     "seppUnits": "m(RL)",
+     "lon": 151.34393440172704,
+     "lat": -33.43117769033883,
+     "principal14": [
+      {
+       "epi": "State Environmental Planning Policy (Precincts—Regional) 2021",
+       "epiType": "State Environmental Planning Policy",
+       "v": "49.3",
+       "units": "m(RL)",
+       "clause": "Clause 4.3"
+      }
+     ]
+    },
+    {
+     "objectid": 104345,
+     "seppEpi": "State Environmental Planning Policy (Precincts—Regional) 2021",
+     "seppVal": 69,
+     "seppUnits": "m(RL)",
+     "lon": 151.34543034531555,
+     "lat": -33.429735011949575,
+     "principal14": [
+      {
+       "epi": "State Environmental Planning Policy (Precincts—Regional) 2021",
+       "epiType": "State Environmental Planning Policy",
+       "v": "69",
+       "units": "m(RL)",
+       "clause": "Clause 4.3"
+      }
+     ]
+    },
+    {
+     "objectid": 104346,
+     "seppEpi": "State Environmental Planning Policy (Precincts—Regional) 2021",
+     "seppVal": 65.1,
+     "seppUnits": "m(RL)",
+     "lon": 151.34519226871532,
+     "lat": -33.431351314712394,
+     "principal14": [
+      {
+       "epi": "State Environmental Planning Policy (Precincts—Regional) 2021",
+       "epiType": "State Environmental Planning Policy",
+       "v": "65.1",
+       "units": "m(RL)",
+       "clause": "Clause 4.3"
+      }
+     ]
+    },
+    {
+     "objectid": 104347,
+     "seppEpi": "State Environmental Planning Policy (Precincts—Regional) 2021",
+     "seppVal": 68,
+     "seppUnits": "m(RL)",
+     "lon": 151.34447007939258,
+     "lat": -33.43075866293102,
+     "principal14": [
+      {
+       "epi": "State Environmental Planning Policy (Precincts—Regional) 2021",
+       "epiType": "State Environmental Planning Policy",
+       "v": "68",
+       "units": "m(RL)",
+       "clause": "Clause 4.3"
+      }
+     ]
+    },
+    {
+     "objectid": 104348,
+     "seppEpi": "State Environmental Planning Policy (Precincts—Regional) 2021",
+     "seppVal": 64.3,
+     "seppUnits": "m(RL)",
+     "lon": 151.34498562599,
+     "lat": -33.43107337051201,
+     "principal14": [
+      {
+       "epi": "State Environmental Planning Policy (Precincts—Regional) 2021",
+       "epiType": "State Environmental Planning Policy",
+       "v": "64.3",
+       "units": "m(RL)",
+       "clause": "Clause 4.3"
+      }
+     ]
+    },
+    {
+     "objectid": 104349,
+     "seppEpi": "State Environmental Planning Policy (Precincts—Regional) 2021",
+     "seppVal": 65.8,
+     "seppUnits": "m(RL)",
+     "lon": 151.34539470617958,
+     "lat": -33.43177425964904,
+     "principal14": [
+      {
+       "epi": "State Environmental Planning Policy (Precincts—Regional) 2021",
+       "epiType": "State Environmental Planning Policy",
+       "v": "65.8",
+       "units": "m(RL)",
+       "clause": "Clause 4.3"
+      }
+     ]
+    },
+    {
+     "objectid": 104350,
+     "seppEpi": "State Environmental Planning Policy (Precincts—Regional) 2021",
+     "seppVal": 10,
+     "seppUnits": "m(RL)",
+     "lon": 151.33873902359062,
+     "lat": -33.431934494108894,
+     "principal14": [
+      {
+       "epi": "State Environmental Planning Policy (Precincts—Regional) 2021",
+       "epiType": "State Environmental Planning Policy",
+       "v": "10",
+       "units": "m(RL)",
+       "clause": "Clause 4.3"
+      }
+     ]
+    },
+    {
+     "objectid": 104351,
+     "seppEpi": "State Environmental Planning Policy (Precincts—Regional) 2021",
+     "seppVal": 73,
+     "seppUnits": "m(RL)",
+     "lon": 151.34572789125878,
+     "lat": -33.43135190872837,
+     "principal14": [
+      {
+       "epi": "State Environmental Planning Policy (Precincts—Regional) 2021",
+       "epiType": "State Environmental Planning Policy",
+       "v": "73",
+       "units": "m(RL)",
+       "clause": "Clause 4.3"
+      }
+     ]
+    }
+   ]
+  },
+  "118": {
+   "sampled": 12,
+   "skipped": 0,
+   "principal14None": 0,
+   "principal14One": 12,
+   "principal14Two": 0,
+   "oneIsSepp": 12,
+   "oneIsLep": 0,
+   "sameValueAsSepp": 12,
+   "rows": [
+    {
+     "objectid": 88032,
+     "seppEpi": "State Environmental Planning Policy (Precincts—Central River City) 2021",
+     "seppVal": 9,
+     "seppUnits": "m",
+     "lon": 150.8780259208915,
+     "lat": -33.68734144233441,
+     "principal14": [
+      {
+       "epi": "State Environmental Planning Policy (Precincts—Central River City) 2021",
+       "epiType": "State Environmental Planning Policy",
+       "v": "9",
+       "units": "m",
+       "clause": "Null"
+      }
+     ]
+    },
+    {
+     "objectid": 88034,
+     "seppEpi": "State Environmental Planning Policy (Precincts—Central River City) 2021",
+     "seppVal": 9,
+     "seppUnits": "m",
+     "lon": 150.8653401018839,
+     "lat": -33.659219302218396,
+     "principal14": [
+      {
+       "epi": "State Environmental Planning Policy (Precincts—Central River City) 2021",
+       "epiType": "State Environmental Planning Policy",
+       "v": "9",
+       "units": "m",
+       "clause": "Null"
+      }
+     ]
+    },
+    {
+     "objectid": 88035,
+     "seppEpi": "State Environmental Planning Policy (Precincts—Central River City) 2021",
+     "seppVal": 9,
+     "seppUnits": "m",
+     "lon": 150.799615374482,
+     "lat": -33.70328520022793,
+     "principal14": [
+      {
+       "epi": "State Environmental Planning Policy (Precincts—Central River City) 2021",
+       "epiType": "State Environmental Planning Policy",
+       "v": "9",
+       "units": "m",
+       "clause": "Null"
+      }
+     ]
+    },
+    {
+     "objectid": 88042,
+     "seppEpi": "State Environmental Planning Policy (Precincts—Central River City) 2021",
+     "seppVal": 9,
+     "seppUnits": "m",
+     "lon": 150.81922063594456,
+     "lat": -33.70840958285397,
+     "principal14": [
+      {
+       "epi": "State Environmental Planning Policy (Precincts—Central River City) 2021",
+       "epiType": "State Environmental Planning Policy",
+       "v": "9",
+       "units": "m",
+       "clause": "Null"
+      }
+     ]
+    },
+    {
+     "objectid": 88043,
+     "seppEpi": "State Environmental Planning Policy (Precincts—Central River City) 2021",
+     "seppVal": 21,
+     "seppUnits": "m",
+     "lon": 150.83037286331418,
+     "lat": -33.7073129989217,
+     "principal14": [
+      {
+       "epi": "State Environmental Planning Policy (Precincts—Central River City) 2021",
+       "epiType": "State Environmental Planning Policy",
+       "v": "21",
+       "units": "m",
+       "clause": "Null"
+      }
+     ]
+    },
+    {
+     "objectid": 88044,
+     "seppEpi": "State Environmental Planning Policy (Precincts—Central River City) 2021",
+     "seppVal": 9,
+     "seppUnits": "m",
+     "lon": 150.84137289270046,
+     "lat": -33.70093607463047,
+     "principal14": [
+      {
+       "epi": "State Environmental Planning Policy (Precincts—Central River City) 2021",
+       "epiType": "State Environmental Planning Policy",
+       "v": "9",
+       "units": "m",
+       "clause": "Null"
+      }
+     ]
+    },
+    {
+     "objectid": 88046,
+     "seppEpi": "State Environmental Planning Policy (Precincts—Central River City) 2021",
+     "seppVal": 9,
+     "seppUnits": "m",
+     "lon": 150.8881269998197,
+     "lat": -33.70453207834724,
+     "principal14": [
+      {
+       "epi": "State Environmental Planning Policy (Precincts—Central River City) 2021",
+       "epiType": "State Environmental Planning Policy",
+       "v": "9",
+       "units": "m",
+       "clause": "Null"
+      }
+     ]
+    },
+    {
+     "objectid": 88050,
+     "seppEpi": "State Environmental Planning Policy (Precincts—Central River City) 2021",
+     "seppVal": 9,
+     "seppUnits": "m",
+     "lon": 150.86518305463883,
+     "lat": -33.70317365964774,
+     "principal14": [
+      {
+       "epi": "State Environmental Planning Policy (Precincts—Central River City) 2021",
+       "epiType": "State Environmental Planning Policy",
+       "v": "9",
+       "units": "m",
+       "clause": "Null"
+      }
+     ]
+    },
+    {
+     "objectid": 88057,
+     "seppEpi": "State Environmental Planning Policy (Precincts—Central River City) 2021",
+     "seppVal": 16,
+     "seppUnits": "m",
+     "lon": 150.95130416636334,
+     "lat": -33.68538023351243,
+     "principal14": [
+      {
+       "epi": "State Environmental Planning Policy (Precincts—Central River City) 2021",
+       "epiType": "State Environmental Planning Policy",
+       "v": "16",
+       "units": "m",
+       "clause": "Null"
+      }
+     ]
+    },
+    {
+     "objectid": 88062,
+     "seppEpi": "State Environmental Planning Policy (Precincts—Central River City) 2021",
+     "seppVal": 9,
+     "seppUnits": "m",
+     "lon": 150.82188814142376,
+     "lat": -33.70186540306215,
+     "principal14": [
+      {
+       "epi": "State Environmental Planning Policy (Precincts—Central River City) 2021",
+       "epiType": "State Environmental Planning Policy",
+       "v": "9",
+       "units": "m",
+       "clause": "Null"
+      }
+     ]
+    },
+    {
+     "objectid": 88063,
+     "seppEpi": "State Environmental Planning Policy (Precincts—Central River City) 2021",
+     "seppVal": 9,
+     "seppUnits": "m",
+     "lon": 150.84557302347457,
+     "lat": -33.70449311081774,
+     "principal14": [
+      {
+       "epi": "State Environmental Planning Policy (Precincts—Central River City) 2021",
+       "epiType": "State Environmental Planning Policy",
+       "v": "9",
+       "units": "m",
+       "clause": "Null"
+      }
+     ]
+    },
+    {
+     "objectid": 88064,
+     "seppEpi": "State Environmental Planning Policy (Precincts—Central River City) 2021",
+     "seppVal": 12,
+     "seppUnits": "m",
+     "lon": 150.8378286900483,
+     "lat": -33.70383021980359,
+     "principal14": [
+      {
+       "epi": "State Environmental Planning Policy (Precincts—Central River City) 2021",
+       "epiType": "State Environmental Planning Policy",
+       "v": "12",
+       "units": "m",
+       "clause": "Null"
+      }
+     ]
+    }
+   ]
+  },
+  "134": {
+   "sampled": 5,
+   "skipped": 2,
+   "principal14None": 0,
+   "principal14One": 1,
+   "principal14Two": 4,
+   "oneIsSepp": 1,
+   "oneIsLep": 0,
+   "sameValueAsSepp": 5,
+   "rows": [
+    {
+     "objectid": 355647,
+     "seppEpi": "State Environmental Planning Policy (Precincts—Central River City) 2021",
+     "seppVal": 6,
+     "seppUnits": null,
+     "lon": 151.06893684701626,
+     "lat": -33.78231512604665,
+     "principal14": [
+      {
+       "epi": "Parramatta Local Environmental Plan 2023",
+       "epiType": "Local Environment Plan",
+       "v": "20",
+       "units": "m",
+       "clause": "Clause 4.3"
+      },
+      {
+       "epi": "State Environmental Planning Policy (Precincts—Central River City) 2021",
+       "epiType": "State Environmental Planning Policy",
+       "v": "6",
+       "units": "Null",
+       "clause": "Null"
+      }
+     ]
+    },
+    {
+     "objectid": 355649,
+     "seppEpi": "State Environmental Planning Policy (Precincts—Central River City) 2021",
+     "seppVal": 2,
+     "seppUnits": null,
+     "lon": 151.06864782554658,
+     "lat": -33.782124339558564,
+     "principal14": [
+      {
+       "epi": "Parramatta Local Environmental Plan 2023",
+       "epiType": "Local Environment Plan",
+       "v": "20",
+       "units": "m",
+       "clause": "Clause 4.3"
+      },
+      {
+       "epi": "State Environmental Planning Policy (Precincts—Central River City) 2021",
+       "epiType": "State Environmental Planning Policy",
+       "v": "2",
+       "units": "Null",
+       "clause": "Null"
+      }
+     ]
+    },
+    {
+     "objectid": 355651,
+     "seppEpi": "State Environmental Planning Policy (Precincts—Central River City) 2021",
+     "seppVal": 2,
+     "seppUnits": null,
+     "lon": 151.0709646773323,
+     "lat": -33.781570792478796,
+     "principal14": [
+      {
+       "epi": "Parramatta Local Environmental Plan 2023",
+       "epiType": "Local Environment Plan",
+       "v": "20",
+       "units": "m",
+       "clause": "Clause 4.3"
+      },
+      {
+       "epi": "State Environmental Planning Policy (Precincts—Central River City) 2021",
+       "epiType": "State Environmental Planning Policy",
+       "v": "2",
+       "units": "Null",
+       "clause": "Null"
+      }
+     ]
+    },
+    {
+     "objectid": 355653,
+     "seppEpi": "State Environmental Planning Policy (Precincts—Central River City) 2021",
+     "seppVal": 2,
+     "seppUnits": null,
+     "lon": 151.07048548263003,
+     "lat": -33.782019876374015,
+     "principal14": [
+      {
+       "epi": "State Environmental Planning Policy (Precincts—Central River City) 2021",
+       "epiType": "State Environmental Planning Policy",
+       "v": "2",
+       "units": "Null",
+       "clause": "Null"
+      }
+     ]
+    },
+    {
+     "objectid": 355654,
+     "seppEpi": "State Environmental Planning Policy (Precincts—Central River City) 2021",
+     "seppVal": 3,
+     "seppUnits": null,
+     "lon": 151.0700232720028,
+     "lat": -33.78282903189723,
+     "principal14": [
+      {
+       "epi": "Parramatta Local Environmental Plan 2023",
+       "epiType": "Local Environment Plan",
+       "v": "9",
+       "units": "m",
+       "clause": "Clause 4.3"
+      },
+      {
+       "epi": "State Environmental Planning Policy (Precincts—Central River City) 2021",
+       "epiType": "State Environmental Planning Policy",
+       "v": "3",
+       "units": "Null",
+       "clause": "Null"
+      }
+     ]
+    }
+   ]
+  },
+  "614": {
+   "sampled": 11,
+   "skipped": 1,
+   "principal14None": 0,
+   "principal14One": 9,
+   "principal14Two": 2,
+   "oneIsSepp": 9,
+   "oneIsLep": 0,
+   "sameValueAsSepp": 11,
+   "rows": [
+    {
+     "objectid": 88300,
+     "seppEpi": "State Environmental Planning Policy (Precincts—Eastern Harbour City) 2021",
+     "seppVal": 23.05,
+     "seppUnits": "m(RL)",
+     "lon": 151.2020645977034,
+     "lat": -33.85987351503268,
+     "principal14": [
+      {
+       "epi": "State Environmental Planning Policy (Precincts—Eastern Harbour City) 2021",
+       "epiType": "State Environmental Planning Policy",
+       "v": "23.05",
+       "units": "m(RL)",
+       "clause": "Null"
+      }
+     ]
+    },
+    {
+     "objectid": 88335,
+     "seppEpi": "State Environmental Planning Policy (Precincts—Eastern Harbour City) 2021",
+     "seppVal": 250,
+     "seppUnits": "m(RL)",
+     "lon": 151.2017273467511,
+     "lat": -33.862963307509965,
+     "principal14": [
+      {
+       "epi": "State Environmental Planning Policy (Precincts—Eastern Harbour City) 2021",
+       "epiType": "State Environmental Planning Policy",
+       "v": "250",
+       "units": "m(RL)",
+       "clause": "Null"
+      }
+     ]
+    },
+    {
+     "objectid": 88340,
+     "seppEpi": "State Environmental Planning Policy (Precincts—Eastern Harbour City) 2021",
+     "seppVal": 41.5,
+     "seppUnits": "m(RL)",
+     "lon": 151.201432459111,
+     "lat": -33.865819404041595,
+     "principal14": [
+      {
+       "epi": "State Environmental Planning Policy (Precincts—Eastern Harbour City) 2021",
+       "epiType": "State Environmental Planning Policy",
+       "v": "41.5",
+       "units": "m(RL)",
+       "clause": "Null"
+      }
+     ]
+    },
+    {
+     "objectid": 88344,
+     "seppEpi": "State Environmental Planning Policy (Precincts—Eastern Harbour City) 2021",
+     "seppVal": 25,
+     "seppUnits": "m(RL)",
+     "lon": 151.20203534725198,
+     "lat": -33.865601557453935,
+     "principal14": [
+      {
+       "epi": "State Environmental Planning Policy (Precincts—Eastern Harbour City) 2021",
+       "epiType": "State Environmental Planning Policy",
+       "v": "25",
+       "units": "m(RL)",
+       "clause": "Null"
+      }
+     ]
+    },
+    {
+     "objectid": 88367,
+     "seppEpi": "State Environmental Planning Policy (Precincts—Eastern Harbour City) 2021",
+     "seppVal": 209,
+     "seppUnits": "m(RL)",
+     "lon": 151.2022280127757,
+     "lat": -33.86376998801842,
+     "principal14": [
+      {
+       "epi": "State Environmental Planning Policy (Precincts—Eastern Harbour City) 2021",
+       "epiType": "State Environmental Planning Policy",
+       "v": "209",
+       "units": "m(RL)",
+       "clause": "Null"
+      }
+     ]
+    },
+    {
+     "objectid": 88374,
+     "seppEpi": "State Environmental Planning Policy (Precincts—Eastern Harbour City) 2021",
+     "seppVal": 180,
+     "seppUnits": "m(RL)",
+     "lon": 151.20222490592323,
+     "lat": -33.86479495057287,
+     "principal14": [
+      {
+       "epi": "State Environmental Planning Policy (Precincts—Eastern Harbour City) 2021",
+       "epiType": "State Environmental Planning Policy",
+       "v": "180",
+       "units": "m(RL)",
+       "clause": "Null"
+      }
+     ]
+    },
+    {
+     "objectid": 88383,
+     "seppEpi": "State Environmental Planning Policy (Precincts—Eastern Harbour City) 2021",
+     "seppVal": 275,
+     "seppUnits": "m(RL)",
+     "lon": 151.20110200478643,
+     "lat": -33.86242031594993,
+     "principal14": [
+      {
+       "epi": "State Environmental Planning Policy (Precincts—Eastern Harbour City) 2021",
+       "epiType": "State Environmental Planning Policy",
+       "v": "275",
+       "units": "m(RL)",
+       "clause": "Null"
+      }
+     ]
+    },
+    {
+     "objectid": 88392,
+     "seppEpi": "State Environmental Planning Policy (Precincts—Eastern Harbour City) 2021",
+     "seppVal": 35,
+     "seppUnits": "m(RL)",
+     "lon": 151.20208890249188,
+     "lat": -33.860829860419486,
+     "principal14": [
+      {
+       "epi": "State Environmental Planning Policy (Precincts—Eastern Harbour City) 2021",
+       "epiType": "State Environmental Planning Policy",
+       "v": "35",
+       "units": "m(RL)",
+       "clause": "Null"
+      }
+     ]
+    },
+    {
+     "objectid": 88482,
+     "seppEpi": "State Environmental Planning Policy (Precincts—Eastern Harbour City) 2021",
+     "seppVal": 9.5,
+     "seppUnits": "m",
+     "lon": 151.10026357509463,
+     "lat": -33.729895694092164,
+     "principal14": [
+      {
+       "epi": "Hornsby Local Environmental Plan 2013",
+       "epiType": "Local Environment Plan",
+       "v": "8.5",
+       "units": "m",
+       "clause": "Clause 4.3"
+      },
+      {
+       "epi": "State Environmental Planning Policy (Precincts—Eastern Harbour City) 2021",
+       "epiType": "State Environmental Planning Policy",
+       "v": "9.5",
+       "units": "m",
+       "clause": "Null"
+      }
+     ]
+    },
+    {
+     "objectid": 88483,
+     "seppEpi": "State Environmental Planning Policy (Precincts—Eastern Harbour City) 2021",
+     "seppVal": 9.5,
+     "seppUnits": "m",
+     "lon": 151.10244171781505,
+     "lat": -33.729195902553776,
+     "principal14": [
+      {
+       "epi": "Hornsby Local Environmental Plan 2013",
+       "epiType": "Local Environment Plan",
+       "v": "8.5",
+       "units": "m",
+       "clause": "Clause 4.3"
+      },
+      {
+       "epi": "State Environmental Planning Policy (Precincts—Eastern Harbour City) 2021",
+       "epiType": "State Environmental Planning Policy",
+       "v": "9.5",
+       "units": "m",
+       "clause": "Null"
+      }
+     ]
+    },
+    {
+     "objectid": 194546,
+     "seppEpi": "State Environmental Planning Policy (Precincts—Eastern Harbour City) 2021",
+     "seppVal": 16,
+     "seppUnits": "m",
+     "lon": 151.1992586672379,
+     "lat": -33.888994475482534,
+     "principal14": [
+      {
+       "epi": "State Environmental Planning Policy (Precincts—Eastern Harbour City) 2021",
+       "epiType": "State Environmental Planning Policy",
+       "v": "16",
+       "units": "m",
+       "clause": "Null"
+      }
+     ]
+    }
+   ]
+  },
+  "631": {
+   "sampled": 12,
+   "skipped": 0,
+   "principal14None": 0,
+   "principal14One": 12,
+   "principal14Two": 0,
+   "oneIsSepp": 12,
+   "oneIsLep": 0,
+   "sameValueAsSepp": 12,
+   "rows": [
+    {
+     "objectid": 88273,
+     "seppEpi": "State Environmental Planning Policy (Precincts—Regional) 2021",
+     "seppVal": 9,
+     "seppUnits": "m",
+     "lon": 150.73192033777613,
+     "lat": -34.57109885546099,
+     "principal14": [
+      {
+       "epi": "State Environmental Planning Policy (Precincts—Regional) 2021",
+       "epiType": "State Environmental Planning Policy",
+       "v": "9",
+       "units": "m",
+       "clause": "Null"
+      }
+     ]
+    },
+    {
+     "objectid": 88289,
+     "seppEpi": "State Environmental Planning Policy (Precincts—Regional) 2021",
+     "seppVal": 9,
+     "seppUnits": "m",
+     "lon": 150.91766458882714,
+     "lat": -34.32821089938812,
+     "principal14": [
+      {
+       "epi": "State Environmental Planning Policy (Precincts—Regional) 2021",
+       "epiType": "State Environmental Planning Policy",
+       "v": "9",
+       "units": "m",
+       "clause": "Null"
+      }
+     ]
+    },
+    {
+     "objectid": 88291,
+     "seppEpi": "State Environmental Planning Policy (Precincts—Regional) 2021",
+     "seppVal": 9,
+     "seppUnits": "m",
+     "lon": 150.74964736534926,
+     "lat": -34.54844372961921,
+     "principal14": [
+      {
+       "epi": "State Environmental Planning Policy (Precincts—Regional) 2021",
+       "epiType": "State Environmental Planning Policy",
+       "v": "9",
+       "units": "m",
+       "clause": "Null"
+      }
+     ]
+    },
+    {
+     "objectid": 88297,
+     "seppEpi": "State Environmental Planning Policy (Precincts—Regional) 2021",
+     "seppVal": 6.5,
+     "seppUnits": "m",
+     "lon": 150.73611797245346,
+     "lat": -34.56503361469825,
+     "principal14": [
+      {
+       "epi": "State Environmental Planning Policy (Precincts—Regional) 2021",
+       "epiType": "State Environmental Planning Policy",
+       "v": "6.5",
+       "units": "m",
+       "clause": "Null"
+      }
+     ]
+    },
+    {
+     "objectid": 88302,
+     "seppEpi": "State Environmental Planning Policy (Precincts—Regional) 2021",
+     "seppVal": 9,
+     "seppUnits": "m",
+     "lon": 150.7373874663263,
+     "lat": -34.55527908918267,
+     "principal14": [
+      {
+       "epi": "State Environmental Planning Policy (Precincts—Regional) 2021",
+       "epiType": "State Environmental Planning Policy",
+       "v": "9",
+       "units": "m",
+       "clause": "Null"
+      }
+     ]
+    },
+    {
+     "objectid": 88306,
+     "seppEpi": "State Environmental Planning Policy (Precincts—Regional) 2021",
+     "seppVal": 13.6,
+     "seppUnits": "m",
+     "lon": 153.4678447590151,
+     "lat": -28.21319915398768,
+     "principal14": [
+      {
+       "epi": "State Environmental Planning Policy (Precincts—Regional) 2021",
+       "epiType": "State Environmental Planning Policy",
+       "v": "13.6",
+       "units": "m",
+       "clause": "Null"
+      }
+     ]
+    },
+    {
+     "objectid": 88317,
+     "seppEpi": "State Environmental Planning Policy (Precincts—Regional) 2021",
+     "seppVal": 9,
+     "seppUnits": "m",
+     "lon": 150.92019444026678,
+     "lat": -34.321303241844795,
+     "principal14": [
+      {
+       "epi": "State Environmental Planning Policy (Precincts—Regional) 2021",
+       "epiType": "State Environmental Planning Policy",
+       "v": "9",
+       "units": "m",
+       "clause": "Null"
+      }
+     ]
+    },
+    {
+     "objectid": 88321,
+     "seppEpi": "State Environmental Planning Policy (Precincts—Regional) 2021",
+     "seppVal": 9,
+     "seppUnits": "m",
+     "lon": 150.7564126131331,
+     "lat": -34.5534969571576,
+     "principal14": [
+      {
+       "epi": "State Environmental Planning Policy (Precincts—Regional) 2021",
+       "epiType": "State Environmental Planning Policy",
+       "v": "9",
+       "units": "m",
+       "clause": "Null"
+      }
+     ]
+    },
+    {
+     "objectid": 88325,
+     "seppEpi": "State Environmental Planning Policy (Precincts—Regional) 2021",
+     "seppVal": 11,
+     "seppUnits": "m",
+     "lon": 150.91906381077416,
+     "lat": -34.32095321305034,
+     "principal14": [
+      {
+       "epi": "State Environmental Planning Policy (Precincts—Regional) 2021",
+       "epiType": "State Environmental Planning Policy",
+       "v": "11",
+       "units": "m",
+       "clause": "Null"
+      }
+     ]
+    },
+    {
+     "objectid": 88337,
+     "seppEpi": "State Environmental Planning Policy (Precincts—Regional) 2021",
+     "seppVal": 9,
+     "seppUnits": "m",
+     "lon": 153.46422890172565,
+     "lat": -28.216236573634824,
+     "principal14": [
+      {
+       "epi": "State Environmental Planning Policy (Precincts—Regional) 2021",
+       "epiType": "State Environmental Planning Policy",
+       "v": "9",
+       "units": "m",
+       "clause": "Null"
+      }
+     ]
+    },
+    {
+     "objectid": 88339,
+     "seppEpi": "State Environmental Planning Policy (Precincts—Regional) 2021",
+     "seppVal": 9,
+     "seppUnits": "m",
+     "lon": 150.9181458773354,
+     "lat": -34.325210712254886,
+     "principal14": [
+      {
+       "epi": "State Environmental Planning Policy (Precincts—Regional) 2021",
+       "epiType": "State Environmental Planning Policy",
+       "v": "9",
+       "units": "m",
+       "clause": "Null"
+      }
+     ]
+    },
+    {
+     "objectid": 88356,
+     "seppEpi": "State Environmental Planning Policy (Precincts—Regional) 2021",
+     "seppVal": 9,
+     "seppUnits": "m",
+     "lon": 150.73775137469525,
+     "lat": -34.57024356444753,
+     "principal14": [
+      {
+       "epi": "State Environmental Planning Policy (Precincts—Regional) 2021",
+       "epiType": "State Environmental Planning Policy",
+       "v": "9",
+       "units": "m",
+       "clause": "Null"
+      }
+     ]
+    }
+   ]
+  },
+  "648": {
+   "sampled": 12,
+   "skipped": 0,
+   "principal14None": 0,
+   "principal14One": 12,
+   "principal14Two": 0,
+   "oneIsSepp": 12,
+   "oneIsLep": 0,
+   "sameValueAsSepp": 12,
+   "rows": [
+    {
+     "objectid": 88469,
+     "seppEpi": "State Environmental Planning Policy (Precincts—Western Parkland City) 2021",
+     "seppVal": 9.5,
+     "seppUnits": "m",
+     "lon": 150.86110894234875,
+     "lat": -33.98073887845929,
+     "principal14": [
+      {
+       "epi": "State Environmental Planning Policy (Precincts—Western Parkland City) 2021",
+       "epiType": "State Environmental Planning Policy",
+       "v": "9.5",
+       "units": "m",
+       "clause": "Null"
+      }
+     ]
+    },
+    {
+     "objectid": 88470,
+     "seppEpi": "State Environmental Planning Policy (Precincts—Western Parkland City) 2021",
+     "seppVal": 24,
+     "seppUnits": "m",
+     "lon": 150.85934172169618,
+     "lat": -33.971568598341555,
+     "principal14": [
+      {
+       "epi": "State Environmental Planning Policy (Precincts—Western Parkland City) 2021",
+       "epiType": "State Environmental Planning Policy",
+       "v": "24",
+       "units": "m",
+       "clause": "Null"
+      }
+     ]
+    },
+    {
+     "objectid": 88471,
+     "seppEpi": "State Environmental Planning Policy (Precincts—Western Parkland City) 2021",
+     "seppVal": 24,
+     "seppUnits": "m",
+     "lon": 150.85942046489095,
+     "lat": -33.96804886537373,
+     "principal14": [
+      {
+       "epi": "State Environmental Planning Policy (Precincts—Western Parkland City) 2021",
+       "epiType": "State Environmental Planning Policy",
+       "v": "24",
+       "units": "m",
+       "clause": "Null"
+      }
+     ]
+    },
+    {
+     "objectid": 88472,
+     "seppEpi": "State Environmental Planning Policy (Precincts—Western Parkland City) 2021",
+     "seppVal": 12,
+     "seppUnits": "m",
+     "lon": 150.8567280828213,
+     "lat": -33.975719615829234,
+     "principal14": [
+      {
+       "epi": "State Environmental Planning Policy (Precincts—Western Parkland City) 2021",
+       "epiType": "State Environmental Planning Policy",
+       "v": "12",
+       "units": "m",
+       "clause": "Null"
+      }
+     ]
+    },
+    {
+     "objectid": 88473,
+     "seppEpi": "State Environmental Planning Policy (Precincts—Western Parkland City) 2021",
+     "seppVal": 12,
+     "seppUnits": "m",
+     "lon": 150.8521398475565,
+     "lat": -33.964679441246474,
+     "principal14": [
+      {
+       "epi": "State Environmental Planning Policy (Precincts—Western Parkland City) 2021",
+       "epiType": "State Environmental Planning Policy",
+       "v": "12",
+       "units": "m",
+       "clause": "Null"
+      }
+     ]
+    },
+    {
+     "objectid": 88474,
+     "seppEpi": "State Environmental Planning Policy (Precincts—Western Parkland City) 2021",
+     "seppVal": 21,
+     "seppUnits": "m",
+     "lon": 150.85730345253646,
+     "lat": -33.96578204977202,
+     "principal14": [
+      {
+       "epi": "State Environmental Planning Policy (Precincts—Western Parkland City) 2021",
+       "epiType": "State Environmental Planning Policy",
+       "v": "21",
+       "units": "m",
+       "clause": "Null"
+      }
+     ]
+    },
+    {
+     "objectid": 88475,
+     "seppEpi": "State Environmental Planning Policy (Precincts—Western Parkland City) 2021",
+     "seppVal": 15,
+     "seppUnits": "m",
+     "lon": 150.85366088830892,
+     "lat": -33.966801411196485,
+     "principal14": [
+      {
+       "epi": "State Environmental Planning Policy (Precincts—Western Parkland City) 2021",
+       "epiType": "State Environmental Planning Policy",
+       "v": "15",
+       "units": "m",
+       "clause": "Null"
+      }
+     ]
+    },
+    {
+     "objectid": 88476,
+     "seppEpi": "State Environmental Planning Policy (Precincts—Western Parkland City) 2021",
+     "seppVal": 12,
+     "seppUnits": "m",
+     "lon": 150.85220904307948,
+     "lat": -33.97452851190882,
+     "principal14": [
+      {
+       "epi": "State Environmental Planning Policy (Precincts—Western Parkland City) 2021",
+       "epiType": "State Environmental Planning Policy",
+       "v": "12",
+       "units": "m",
+       "clause": "Null"
+      }
+     ]
+    },
+    {
+     "objectid": 88477,
+     "seppEpi": "State Environmental Planning Policy (Precincts—Western Parkland City) 2021",
+     "seppVal": 15,
+     "seppUnits": "m",
+     "lon": 150.85458436222692,
+     "lat": -33.974215306050844,
+     "principal14": [
+      {
+       "epi": "State Environmental Planning Policy (Precincts—Western Parkland City) 2021",
+       "epiType": "State Environmental Planning Policy",
+       "v": "15",
+       "units": "m",
+       "clause": "Null"
+      }
+     ]
+    },
+    {
+     "objectid": 88478,
+     "seppEpi": "State Environmental Planning Policy (Precincts—Western Parkland City) 2021",
+     "seppVal": 9.5,
+     "seppUnits": "m",
+     "lon": 150.85471461999674,
+     "lat": -33.98040775998603,
+     "principal14": [
+      {
+       "epi": "State Environmental Planning Policy (Precincts—Western Parkland City) 2021",
+       "epiType": "State Environmental Planning Policy",
+       "v": "9.5",
+       "units": "m",
+       "clause": "Null"
+      }
+     ]
+    },
+    {
+     "objectid": 88479,
+     "seppEpi": "State Environmental Planning Policy (Precincts—Western Parkland City) 2021",
+     "seppVal": 12,
+     "seppUnits": "m",
+     "lon": 150.86128162344446,
+     "lat": -33.97374589387483,
+     "principal14": [
+      {
+       "epi": "State Environmental Planning Policy (Precincts—Western Parkland City) 2021",
+       "epiType": "State Environmental Planning Policy",
+       "v": "12",
+       "units": "m",
+       "clause": "Null"
+      }
+     ]
+    },
+    {
+     "objectid": 88480,
+     "seppEpi": "State Environmental Planning Policy (Precincts—Western Parkland City) 2021",
+     "seppVal": 9.5,
+     "seppUnits": "m",
+     "lon": 150.8616060950003,
+     "lat": -33.97637647319645,
+     "principal14": [
+      {
+       "epi": "State Environmental Planning Policy (Precincts—Western Parkland City) 2021",
+       "epiType": "State Environmental Planning Policy",
+       "v": "9.5",
+       "units": "m",
+       "clause": "Null"
+      }
+     ]
+    }
+   ]
+  },
+  "684": {
+   "sampled": 12,
+   "skipped": 0,
+   "principal14None": 0,
+   "principal14One": 12,
+   "principal14Two": 0,
+   "oneIsSepp": 12,
+   "oneIsLep": 0,
+   "sameValueAsSepp": 12,
+   "rows": [
+    {
+     "objectid": 88033,
+     "seppEpi": "State Environmental Planning Policy (Precincts—Western Parkland City) 2021",
+     "seppVal": 9,
+     "seppUnits": "m",
+     "lon": 150.80163831090877,
+     "lat": -33.94131473219681,
+     "principal14": [
+      {
+       "epi": "State Environmental Planning Policy (Precincts—Western Parkland City) 2021",
+       "epiType": "State Environmental Planning Policy",
+       "v": "9",
+       "units": "m",
+       "clause": "Null"
+      }
+     ]
+    },
+    {
+     "objectid": 88036,
+     "seppEpi": "State Environmental Planning Policy (Precincts—Western Parkland City) 2021",
+     "seppVal": 17,
+     "seppUnits": "m",
+     "lon": 150.81317946928243,
+     "lat": -33.93248245622503,
+     "principal14": [
+      {
+       "epi": "State Environmental Planning Policy (Precincts—Western Parkland City) 2021",
+       "epiType": "State Environmental Planning Policy",
+       "v": "17",
+       "units": "m",
+       "clause": "Null"
+      }
+     ]
+    },
+    {
+     "objectid": 88039,
+     "seppEpi": "State Environmental Planning Policy (Precincts—Western Parkland City) 2021",
+     "seppVal": 9,
+     "seppUnits": "m",
+     "lon": 150.81342564523968,
+     "lat": -33.93005291368909,
+     "principal14": [
+      {
+       "epi": "State Environmental Planning Policy (Precincts—Western Parkland City) 2021",
+       "epiType": "State Environmental Planning Policy",
+       "v": "9",
+       "units": "m",
+       "clause": "Null"
+      }
+     ]
+    },
+    {
+     "objectid": 88040,
+     "seppEpi": "State Environmental Planning Policy (Precincts—Western Parkland City) 2021",
+     "seppVal": 9.5,
+     "seppUnits": "m",
+     "lon": 150.75479644158958,
+     "lat": -33.98400682064881,
+     "principal14": [
+      {
+       "epi": "State Environmental Planning Policy (Precincts—Western Parkland City) 2021",
+       "epiType": "State Environmental Planning Policy",
+       "v": "9.5",
+       "units": "m",
+       "clause": "Null"
+      }
+     ]
+    },
+    {
+     "objectid": 88045,
+     "seppEpi": "State Environmental Planning Policy (Precincts—Western Parkland City) 2021",
+     "seppVal": 24,
+     "seppUnits": "m",
+     "lon": 150.74233360171948,
+     "lat": -33.99898700528938,
+     "principal14": [
+      {
+       "epi": "State Environmental Planning Policy (Precincts—Western Parkland City) 2021",
+       "epiType": "State Environmental Planning Policy",
+       "v": "24",
+       "units": "m",
+       "clause": "Null"
+      }
+     ]
+    },
+    {
+     "objectid": 88047,
+     "seppEpi": "State Environmental Planning Policy (Precincts—Western Parkland City) 2021",
+     "seppVal": 16,
+     "seppUnits": "m",
+     "lon": 150.7225835123097,
+     "lat": -33.99759274333585,
+     "principal14": [
+      {
+       "epi": "State Environmental Planning Policy (Precincts—Western Parkland City) 2021",
+       "epiType": "State Environmental Planning Policy",
+       "v": "16",
+       "units": "m",
+       "clause": "Null"
+      }
+     ]
+    },
+    {
+     "objectid": 88048,
+     "seppEpi": "State Environmental Planning Policy (Precincts—Western Parkland City) 2021",
+     "seppVal": 12,
+     "seppUnits": "m",
+     "lon": 150.71943683873502,
+     "lat": -34.008946016104574,
+     "principal14": [
+      {
+       "epi": "State Environmental Planning Policy (Precincts—Western Parkland City) 2021",
+       "epiType": "State Environmental Planning Policy",
+       "v": "12",
+       "units": "m",
+       "clause": "Null"
+      }
+     ]
+    },
+    {
+     "objectid": 88049,
+     "seppEpi": "State Environmental Planning Policy (Precincts—Western Parkland City) 2021",
+     "seppVal": 17,
+     "seppUnits": "m",
+     "lon": 150.81565615181148,
+     "lat": -33.92037129530523,
+     "principal14": [
+      {
+       "epi": "State Environmental Planning Policy (Precincts—Western Parkland City) 2021",
+       "epiType": "State Environmental Planning Policy",
+       "v": "17",
+       "units": "m",
+       "clause": "Null"
+      }
+     ]
+    },
+    {
+     "objectid": 88053,
+     "seppEpi": "State Environmental Planning Policy (Precincts—Western Parkland City) 2021",
+     "seppVal": 12,
+     "seppUnits": "m",
+     "lon": 150.8187087244134,
+     "lat": -33.949920526951175,
+     "principal14": [
+      {
+       "epi": "State Environmental Planning Policy (Precincts—Western Parkland City) 2021",
+       "epiType": "State Environmental Planning Policy",
+       "v": "12",
+       "units": "m",
+       "clause": "Null"
+      }
+     ]
+    },
+    {
+     "objectid": 88056,
+     "seppEpi": "State Environmental Planning Policy (Precincts—Western Parkland City) 2021",
+     "seppVal": 12,
+     "seppUnits": "m",
+     "lon": 150.8148164211496,
+     "lat": -33.91818559285021,
+     "principal14": [
+      {
+       "epi": "State Environmental Planning Policy (Precincts—Western Parkland City) 2021",
+       "epiType": "State Environmental Planning Policy",
+       "v": "12",
+       "units": "m",
+       "clause": "Null"
+      }
+     ]
+    },
+    {
+     "objectid": 88061,
+     "seppEpi": "State Environmental Planning Policy (Precincts—Western Parkland City) 2021",
+     "seppVal": 9.5,
+     "seppUnits": "m",
+     "lon": 150.72331016731417,
+     "lat": -34.00330914326198,
+     "principal14": [
+      {
+       "epi": "State Environmental Planning Policy (Precincts—Western Parkland City) 2021",
+       "epiType": "State Environmental Planning Policy",
+       "v": "9.5",
+       "units": "m",
+       "clause": "Null"
+      }
+     ]
+    },
+    {
+     "objectid": 88069,
+     "seppEpi": "State Environmental Planning Policy (Precincts—Western Parkland City) 2021",
+     "seppVal": 17,
+     "seppUnits": "m",
+     "lon": 150.81059307119685,
+     "lat": -33.91226509011059,
+     "principal14": [
+      {
+       "epi": "State Environmental Planning Policy (Precincts—Western Parkland City) 2021",
+       "epiType": "State Environmental Planning Policy",
+       "v": "17",
+       "units": "m",
+       "clause": "Null"
+      }
+     ]
+    }
+   ]
+  },
+  "715": {
+   "sampled": 10,
+   "skipped": 2,
+   "principal14None": 0,
+   "principal14One": 10,
+   "principal14Two": 0,
+   "oneIsSepp": 10,
+   "oneIsLep": 0,
+   "sameValueAsSepp": 10,
+   "rows": [
+    {
+     "objectid": 88305,
+     "seppEpi": "State Environmental Planning Policy (Precincts—Central River City) 2021",
+     "seppVal": 31,
+     "seppUnits": "m",
+     "lon": 151.078825145274,
+     "lat": -33.8230955808941,
+     "principal14": [
+      {
+       "epi": "State Environmental Planning Policy (Precincts—Central River City) 2021",
+       "epiType": "State Environmental Planning Policy",
+       "v": "31",
+       "units": "m",
+       "clause": "Null"
+      }
+     ]
+    },
+    {
+     "objectid": 88310,
+     "seppEpi": "State Environmental Planning Policy (Precincts—Central River City) 2021",
+     "seppVal": 15,
+     "seppUnits": "m",
+     "lon": 151.0665919317725,
+     "lat": -33.84698553928456,
+     "principal14": [
+      {
+       "epi": "State Environmental Planning Policy (Precincts—Central River City) 2021",
+       "epiType": "State Environmental Planning Policy",
+       "v": "15",
+       "units": "m",
+       "clause": "Null"
+      }
+     ]
+    },
+    {
+     "objectid": 361254,
+     "seppEpi": "State Environmental Planning Policy (Precincts—Central River City) 2021",
+     "seppVal": 34,
+     "seppUnits": "m",
+     "lon": 151.06512537399547,
+     "lat": -33.84426412600654,
+     "principal14": [
+      {
+       "epi": "State Environmental Planning Policy (Precincts—Central River City) 2021",
+       "epiType": "State Environmental Planning Policy",
+       "v": "34",
+       "units": "m",
+       "clause": "Null"
+      }
+     ]
+    },
+    {
+     "objectid": 361255,
+     "seppEpi": "State Environmental Planning Policy (Precincts—Central River City) 2021",
+     "seppVal": 96,
+     "seppUnits": "m",
+     "lon": 151.06418050767493,
+     "lat": -33.8436103663959,
+     "principal14": [
+      {
+       "epi": "State Environmental Planning Policy (Precincts—Central River City) 2021",
+       "epiType": "State Environmental Planning Policy",
+       "v": "96",
+       "units": "m",
+       "clause": "Null"
+      }
+     ]
+    },
+    {
+     "objectid": 361256,
+     "seppEpi": "State Environmental Planning Policy (Precincts—Central River City) 2021",
+     "seppVal": 80,
+     "seppUnits": "m",
+     "lon": 151.06387396898046,
+     "lat": -33.84243400498408,
+     "principal14": [
+      {
+       "epi": "State Environmental Planning Policy (Precincts—Central River City) 2021",
+       "epiType": "State Environmental Planning Policy",
+       "v": "80",
+       "units": "m",
+       "clause": "Null"
+      }
+     ]
+    },
+    {
+     "objectid": 361257,
+     "seppEpi": "State Environmental Planning Policy (Precincts—Central River City) 2021",
+     "seppVal": 31,
+     "seppUnits": "m",
+     "lon": 151.05691222351348,
+     "lat": -33.846316736555885,
+     "principal14": [
+      {
+       "epi": "State Environmental Planning Policy (Precincts—Central River City) 2021",
+       "epiType": "State Environmental Planning Policy",
+       "v": "31",
+       "units": "m",
+       "clause": "Null"
+      }
+     ]
+    },
+    {
+     "objectid": 361258,
+     "seppEpi": "State Environmental Planning Policy (Precincts—Central River City) 2021",
+     "seppVal": 31,
+     "seppUnits": "m",
+     "lon": 151.05655074446295,
+     "lat": -33.846891126774715,
+     "principal14": [
+      {
+       "epi": "State Environmental Planning Policy (Precincts—Central River City) 2021",
+       "epiType": "State Environmental Planning Policy",
+       "v": "31",
+       "units": "m",
+       "clause": "Null"
+      }
+     ]
+    },
+    {
+     "objectid": 361259,
+     "seppEpi": "State Environmental Planning Policy (Precincts—Central River City) 2021",
+     "seppVal": 50,
+     "seppUnits": "m",
+     "lon": 151.058167991426,
+     "lat": -33.84502456014524,
+     "principal14": [
+      {
+       "epi": "State Environmental Planning Policy (Precincts—Central River City) 2021",
+       "epiType": "State Environmental Planning Policy",
+       "v": "50",
+       "units": "m",
+       "clause": "Null"
+      }
+     ]
+    },
+    {
+     "objectid": 361260,
+     "seppEpi": "State Environmental Planning Policy (Precincts—Central River City) 2021",
+     "seppVal": 69,
+     "seppUnits": "m",
+     "lon": 151.06030082720267,
+     "lat": -33.843886633847866,
+     "principal14": [
+      {
+       "epi": "State Environmental Planning Policy (Precincts—Central River City) 2021",
+       "epiType": "State Environmental Planning Policy",
+       "v": "69",
+       "units": "m",
+       "clause": "Null"
+      }
+     ]
+    },
+    {
+     "objectid": 361261,
+     "seppEpi": "State Environmental Planning Policy (Precincts—Central River City) 2021",
+     "seppVal": 53,
+     "seppUnits": "m",
+     "lon": 151.0586950177677,
+     "lat": -33.84349212096259,
+     "principal14": [
+      {
+       "epi": "State Environmental Planning Policy (Precincts—Central River City) 2021",
+       "epiType": "State Environmental Planning Policy",
+       "v": "53",
+       "units": "m",
+       "clause": "Null"
+      }
+     ]
+    }
+   ]
+  },
+  "726": {
+   "sampled": 4,
+   "skipped": 0,
+   "principal14None": 0,
+   "principal14One": 4,
+   "principal14Two": 0,
+   "oneIsSepp": 4,
+   "oneIsLep": 0,
+   "sameValueAsSepp": 4,
+   "rows": [
+    {
+     "objectid": 88336,
+     "seppEpi": "State Environmental Planning Policy (Transport and Infrastructure) 2021",
+     "seppVal": 32.5,
+     "seppUnits": "m",
+     "lon": 151.216024774051,
+     "lat": -33.96571846091226,
+     "principal14": [
+      {
+       "epi": "State Environmental Planning Policy (Transport and Infrastructure) 2021",
+       "epiType": "State Environmental Planning Policy",
+       "v": "32.5",
+       "units": "m",
+       "clause": "Null"
+      }
+     ]
+    },
+    {
+     "objectid": 88353,
+     "seppEpi": "State Environmental Planning Policy (Transport and Infrastructure) 2021",
+     "seppVal": 18,
+     "seppUnits": "m",
+     "lon": 151.21508703947814,
+     "lat": -33.978117708505415,
+     "principal14": [
+      {
+       "epi": "State Environmental Planning Policy (Transport and Infrastructure) 2021",
+       "epiType": "State Environmental Planning Policy",
+       "v": "18",
+       "units": "m",
+       "clause": "Null"
+      }
+     ]
+    },
+    {
+     "objectid": 88366,
+     "seppEpi": "State Environmental Planning Policy (Transport and Infrastructure) 2021",
+     "seppVal": 15,
+     "seppUnits": "m",
+     "lon": 151.20302990692866,
+     "lat": -33.965445817940385,
+     "principal14": [
+      {
+       "epi": "State Environmental Planning Policy (Transport and Infrastructure) 2021",
+       "epiType": "State Environmental Planning Policy",
+       "v": "15",
+       "units": "m",
+       "clause": "Null"
+      }
+     ]
+    },
+    {
+     "objectid": 88375,
+     "seppEpi": "State Environmental Planning Policy (Transport and Infrastructure) 2021",
+     "seppVal": 32.5,
+     "seppUnits": "m",
+     "lon": 151.22624355691391,
+     "lat": -33.97051669255267,
+     "principal14": [
+      {
+       "epi": "State Environmental Planning Policy (Transport and Infrastructure) 2021",
+       "epiType": "State Environmental Planning Policy",
+       "v": "32.5",
+       "units": "m",
+       "clause": "Null"
+      }
+     ]
+    }
+   ]
+  },
+  "799": {
+   "sampled": 4,
+   "skipped": 0,
+   "principal14None": 0,
+   "principal14One": 4,
+   "principal14Two": 0,
+   "oneIsSepp": 4,
+   "oneIsLep": 0,
+   "sameValueAsSepp": 0,
+   "rows": [
+    {
+     "objectid": 14964,
+     "seppEpi": "State Environmental Planning Policy (Precincts—Western Parkland City) 2021",
+     "seppVal": "80-99.9",
+     "seppUnits": null,
+     "lon": 150.80826913496063,
+     "lat": -33.956035192395845,
+     "principal14": [
+      {
+       "epi": "State Environmental Planning Policy (Precincts—Western Parkland City) 2021",
+       "epiType": "State Environmental Planning Policy",
+       "v": "30",
+       "units": "m",
+       "clause": "Null"
+      }
+     ]
+    },
+    {
+     "objectid": 14965,
+     "seppEpi": "State Environmental Planning Policy (Precincts—Western Parkland City) 2021",
+     "seppVal": "80-99.9",
+     "seppUnits": null,
+     "lon": 150.80798182226013,
+     "lat": -33.952712199863896,
+     "principal14": [
+      {
+       "epi": "State Environmental Planning Policy (Precincts—Western Parkland City) 2021",
+       "epiType": "State Environmental Planning Policy",
+       "v": "30",
+       "units": "m",
+       "clause": "Null"
+      }
+     ]
+    },
+    {
+     "objectid": 14966,
+     "seppEpi": "State Environmental Planning Policy (Precincts—Western Parkland City) 2021",
+     "seppVal": "80-99.9",
+     "seppUnits": null,
+     "lon": 150.80805500637595,
+     "lat": -33.953635301361196,
+     "principal14": [
+      {
+       "epi": "State Environmental Planning Policy (Precincts—Western Parkland City) 2021",
+       "epiType": "State Environmental Planning Policy",
+       "v": "24",
+       "units": "m",
+       "clause": "Null"
+      }
+     ]
+    },
+    {
+     "objectid": 14967,
+     "seppEpi": "State Environmental Planning Policy (Precincts—Western Parkland City) 2021",
+     "seppVal": "80-99.9",
+     "seppUnits": null,
+     "lon": 150.80823580300424,
+     "lat": -33.9552225142778,
+     "principal14": [
+      {
+       "epi": "State Environmental Planning Policy (Precincts—Western Parkland City) 2021",
+       "epiType": "State Environmental Planning Policy",
+       "v": "24",
+       "units": "m",
+       "clause": "Null"
+      }
+     ]
+    }
+   ]
+  }
+ },
+ "q2": {
+  "epiTypeField": "EPI_TYPE",
+  "totalHob": 40964,
+  "nonLepHob": 40964,
+  "returned": 2000,
+  "exceeded": true,
+  "byEpiType": {
+   "LEP": 2000
+  },
+  "byEpi": {
+   "Liverpool Local Environmental Plan 2008": 217,
+   "Eurobodalla Local Environmental Plan 2012": 57,
+   "Muswellbrook Local Environmental Plan 2009": 52,
+   "North Sydney Local Environmental Plan 2013": 79,
+   "Tweed Local Environmental Plan 2014": 10,
+   "Walgett Local Environmental Plan 2013": 1,
+   "Wollongong Local Environmental Plan 2009": 190,
+   "Goulburn Mulwaree Local Environmental Plan 2009": 9,
+   "Tweed City Centre Local Environmental Plan 2012": 99,
+   "Nambucca Local Environmental Plan 2010": 260,
+   "Camden Local Environmental Plan 2010": 22,
+   "Burwood Local Environmental Plan 2012": 23,
+   "Waverley Local Environmental Plan 2012": 125,
+   "Bellingen Local Environmental Plan 2010": 1,
+   "Port Macquarie-Hastings Local Environmental Plan 2011": 103,
+   "Wagga Wagga Local Environmental Plan 2010": 16,
+   "Newcastle Local Environmental Plan 2012": 50,
+   "Mosman Local Environmental Plan 2012": 340,
+   "Kiama Local Environmental Plan 2011": 326,
+   "Maitland Local Environmental Plan 2011": 7,
+   "Orange Local Environmental Plan 2011": 13
+  },
+  "clauseByEpi": {
+   "Liverpool Local Environmental Plan 2008": {
+    "cited": 217,
+    "clauses": {
+     "Clause 4.3": 217
+    }
+   },
+   "Eurobodalla Local Environmental Plan 2012": {
+    "cited": 57,
+    "clauses": {
+     "Clause 4.3": 57
+    }
+   },
+   "Muswellbrook Local Environmental Plan 2009": {
+    "cited": 52,
+    "clauses": {
+     "Clause 4.3": 52
+    }
+   },
+   "North Sydney Local Environmental Plan 2013": {
+    "cited": 79,
+    "clauses": {
+     "Clause 4.3": 79
+    }
+   },
+   "Tweed Local Environmental Plan 2014": {
+    "cited": 10,
+    "clauses": {
+     "Clause 4.3": 10
+    }
+   },
+   "Walgett Local Environmental Plan 2013": {
+    "cited": 1,
+    "clauses": {
+     "Clause 4.3": 1
+    }
+   },
+   "Wollongong Local Environmental Plan 2009": {
+    "cited": 190,
+    "clauses": {
+     "Clause 4.3": 190
+    }
+   },
+   "Goulburn Mulwaree Local Environmental Plan 2009": {
+    "cited": 9,
+    "clauses": {
+     "Clause 4.3": 9
+    }
+   },
+   "Tweed City Centre Local Environmental Plan 2012": {
+    "cited": 99,
+    "clauses": {
+     "Clause 4.3": 99
+    }
+   },
+   "Nambucca Local Environmental Plan 2010": {
+    "cited": 260,
+    "clauses": {
+     "Clause 4.3": 260
+    }
+   },
+   "Camden Local Environmental Plan 2010": {
+    "cited": 22,
+    "clauses": {
+     "Clause 4.3": 22
+    }
+   },
+   "Burwood Local Environmental Plan 2012": {
+    "cited": 23,
+    "clauses": {
+     "Clause 4.3": 23
+    }
+   },
+   "Waverley Local Environmental Plan 2012": {
+    "cited": 125,
+    "clauses": {
+     "Clause 4.3": 125
+    }
+   },
+   "Bellingen Local Environmental Plan 2010": {
+    "cited": 1,
+    "clauses": {
+     "Clause 4.3": 1
+    }
+   },
+   "Port Macquarie-Hastings Local Environmental Plan 2011": {
+    "cited": 103,
+    "clauses": {
+     "Clause 4.3": 103
+    }
+   },
+   "Wagga Wagga Local Environmental Plan 2010": {
+    "cited": 16,
+    "clauses": {
+     "Clause 4.3": 16
+    }
+   },
+   "Newcastle Local Environmental Plan 2012": {
+    "cited": 50,
+    "clauses": {
+     "Clause 4.3": 50
+    }
+   },
+   "Mosman Local Environmental Plan 2012": {
+    "cited": 340,
+    "clauses": {
+     "Clause 4.3": 340
+    }
+   },
+   "Kiama Local Environmental Plan 2011": {
+    "cited": 326,
+    "clauses": {
+     "Clause 4.3": 326
+    }
+   },
+   "Maitland Local Environmental Plan 2011": {
+    "cited": 7,
+    "clauses": {
+     "Clause 4.3": 7
+    }
+   },
+   "Orange Local Environmental Plan 2011": {
+    "cited": 13,
+    "clauses": {
+     "Clause 4.3": 13
+    }
+   }
+  },
+  "fields": [
+   "OBJECTID",
+   "EPI_NAME",
+   "LGA_NAME",
+   "PUBLISHED_DATE",
+   "COMMENCED_DATE",
+   "CURRENCY_DATE",
+   "AMENDMENT",
+   "SYM_CODE",
+   "MAX_B_H",
+   "UNITS",
+   "LEGIS_REF_AREA",
+   "LEGIS_REF_CLAUSE",
+   "EPI_TYPE",
+   "SHAPE",
+   "MAX_B_H_M",
+   "MAX_B_H_RL"
+  ]
+ },
+ "q3": {
+  "m3-random2000-raw.json": {
+   "rows": 2000,
+   "double14": 0,
+   "examples": [],
+   "sampleKeys": [
+    "oid",
+    "lot",
+    "cadid",
+    "x",
+    "y",
+    "vert",
+    "fsr",
+    "err"
+   ]
+  },
+  "m3-urban600-raw.json": {
+   "rows": 600,
+   "double14": 0,
+   "examples": [],
+   "sampleKeys": [
+    "centre",
+    "lot",
+    "x",
+    "y",
+    "vert",
+    "fsr"
+   ]
+  }
+ },
+ "extra": {
+  "278": [
+   {
+    "OBJECTID": 1109,
+    "EPI_NAME": "State Environmental Planning Policy (Precincts—Western Parkland City) 2021",
+    "LGA_NAME": "",
+    "PUBLISHED_DATE": 1638403200000,
+    "COMMENCED_DATE": 1646092800000,
+    "CURRENCY_DATE": 1646092800000,
+    "AMENDMENT": null,
+    "MINIMUM_HEIGHT": 230.5,
+    "MAXIMUM_HEIGHT": 230.5,
+    "COMMENTS": "Horizontal",
+    "EPI_TYPE": "SEPP"
+   },
+   {
+    "OBJECTID": 1110,
+    "EPI_NAME": "State Environmental Planning Policy (Precincts—Western Parkland City) 2021",
+    "LGA_NAME": "",
+    "PUBLISHED_DATE": 1638403200000,
+    "COMMENCED_DATE": 1646092800000,
+    "CURRENCY_DATE": 1646092800000,
+    "AMENDMENT": null,
+    "MINIMUM_HEIGHT": 160,
+    "MAXIMUM_HEIGHT": 170,
+    "COMMENTS": "Conical",
+    "EPI_TYPE": "SEPP"
+   },
+   {
+    "OBJECTID": 1111,
+    "EPI_NAME": "State Environmental Planning Policy (Precincts—Western Parkland City) 2021",
+    "LGA_NAME": "",
+    "PUBLISHED_DATE": 1638403200000,
+    "COMMENCED_DATE": 1646092800000,
+    "CURRENCY_DATE": 1646092800000,
+    "AMENDMENT": null,
+    "MINIMUM_HEIGHT": 150,
+    "MAXIMUM_HEIGHT": 160,
+    "COMMENTS": "Conical",
+    "EPI_TYPE": "SEPP"
+   },
+   {
+    "OBJECTID": 1112,
+    "EPI_NAME": "State Environmental Planning Policy (Precincts—Western Parkland City) 2021",
+    "LGA_NAME": "",
+    "PUBLISHED_DATE": 1638403200000,
+    "COMMENCED_DATE": 1646092800000,
+    "CURRENCY_DATE": 1646092800000,
+    "AMENDMENT": null,
+    "MINIMUM_HEIGHT": 140,
+    "MAXIMUM_HEIGHT": 150,
+    "COMMENTS": "Conical",
+    "EPI_TYPE": "SEPP"
+   },
+   {
+    "OBJECTID": 1113,
+    "EPI_NAME": "State Environmental Planning Policy (Precincts—Western Parkland City) 2021",
+    "LGA_NAME": "",
+    "PUBLISHED_DATE": 1638403200000,
+    "COMMENCED_DATE": 1646092800000,
+    "CURRENCY_DATE": 1646092800000,
+    "AMENDMENT": null,
+    "MINIMUM_HEIGHT": 130,
+    "MAXIMUM_HEIGHT": 140,
+    "COMMENTS": "Conical",
+    "EPI_TYPE": "SEPP"
+   },
+   {
+    "OBJECTID": 1114,
+    "EPI_NAME": "State Environmental Planning Policy (Precincts—Western Parkland City) 2021",
+    "LGA_NAME": "",
+    "PUBLISHED_DATE": 1638403200000,
+    "COMMENCED_DATE": 1646092800000,
+    "CURRENCY_DATE": 1646092800000,
+    "AMENDMENT": null,
+    "MINIMUM_HEIGHT": 125.5,
+    "MAXIMUM_HEIGHT": 130,
+    "COMMENTS": "Conical",
+    "EPI_TYPE": "SEPP"
+   }
+  ],
+  "718": [
+   {
+    "OBJECTID": 5,
+    "EPI_NAME": "State Environmental Planning Policy (Precincts—Central River City) 2021",
+    "PUBLISHED_DATE": 1657238400000,
+    "COMMENCED_DATE": 1657238400000,
+    "CURRENCY_DATE": 1775001600000,
+    "AMENDMENT": "State Environmental Planning Policy (Precincts—Central River City) Amendment (Sydney Olympic Park) 2022",
+    "MAP_TYPE": "RDL",
+    "MAP_NAME": "SEPP (Precincts—Central River City) 2021 Sydney Olympic Park Reduced Level Map",
+    "LAY_NAME": "Maximum Building Height (m)",
+    "LAY_CLASS": "23",
+    "LABEL": "S",
+    "SYM_CODE": "S",
+    "LEGIS_REF_AREA": null,
+    "LEGIS_REF_CLAUSE": null,
+    "LEGIS_REF_VALUE": null,
+    "PCO_REF_KEY": "2021-725",
+    "UNITS": "m",
+    "CREATED_USER": "",
+    "CREATED_DATE": 978307200000,
+    "LAST_EDITED_USER": "VANDEN01",
+    "LAST_EDITED_DATE": 1775112150000,
+    "EPI_TYPE": "SEPP",
+    "SHAPE.STArea()": 3.812915069649261e-7,
+    "SHAPE.STLength()": 0.0032715487034329846
+   },
+   {
+    "OBJECTID": 10,
+    "EPI_NAME": "State Environmental Planning Policy (Precincts—Central River City) 2021",
+    "PUBLISHED_DATE": 1657238400000,
+    "COMMENCED_DATE": 1657238400000,
+    "CURRENCY_DATE": 1775001600000,
+    "AMENDMENT": "State Environmental Planning Policy (Precincts—Central River City) Amendment (Sydney Olympic Park) 2022",
+    "MAP_TYPE": "RDL",
+    "MAP_NAME": "SEPP (Precincts—Central River City) 2021 Sydney Olympic Park Reduced Level Map",
+    "LAY_NAME": "Maximum Building Height (m)",
+    "LAY_CLASS": "23",
+    "LABEL": "S",
+    "SYM_CODE": "S",
+    "LEGIS_REF_AREA": null,
+    "LEGIS_REF_CLAUSE": null,
+    "LEGIS_REF_VALUE": null,
+    "PCO_REF_KEY": "2021-725",
+    "UNITS": "m",
+    "CREATED_USER": "",
+    "CREATED_DATE": 978307200000,
+    "LAST_EDITED_USER": "VANDEN01",
+    "LAST_EDITED_DATE": 1775112148000,
+    "EPI_TYPE": "SEPP",
+    "SHAPE.STArea()": 3.86275219412052e-7,
+    "SHAPE.STLength()": 0.003235487078981283
+   },
+   {
+    "OBJECTID": 15,
+    "EPI_NAME": "State Environmental Planning Policy (Precincts—Central River City) 2021",
+    "PUBLISHED_DATE": 1775001600000,
+    "COMMENCED_DATE": 1775001600000,
+    "CURRENCY_DATE": 1775001600000,
+    "AMENDMENT": "State Environmental Planning Policy (Precincts—Central River City) Amendment (Sydney Olympic Park Master Plan 2050) 2026",
+    "MAP_TYPE": "RDL",
+    "MAP_NAME": "SEPP (Precincts—Central River City) 2021 Sydney Olympic Park Reduced Level Map",
+    "LAY_NAME": "Maximum Building Height (m)",
+    "LAY_CLASS": "28",
+    "LABEL": "T",
+    "SYM_CODE": "T",
+    "LEGIS_REF_AREA": null,
+    "LEGIS_REF_CLAUSE": null,
+    "LEGIS_REF_VALUE": null,
+    "PCO_REF_KEY": "2021-725",
+    "UNITS": "m",
+    "CREATED_USER": "",
+    "CREATED_DATE": 978307200000,
+    "LAST_EDITED_USER": "VANDEN01",
+    "LAST_EDITED_DATE": 1775534249000,
+    "EPI_TYPE": "SEPP",
+    "SHAPE.STArea()": 1.687933778495596e-7,
+    "SHAPE.STLength()": 0.0018999900553570636
+   },
+   {
+    "OBJECTID": 18,
+    "EPI_NAME": "State Environmental Planning Policy (Precincts—Central River City) 2021",
+    "PUBLISHED_DATE": 1775001600000,
+    "COMMENCED_DATE": 1775001600000,
+    "CURRENCY_DATE": 1775001600000,
+    "AMENDMENT": "State Environmental Planning Policy (Precincts—Central River City) Amendment (Sydney Olympic Park Master Plan 2050) 2026",
+    "MAP_TYPE": "RDL",
+    "MAP_NAME": "SEPP (Precincts—Central River City) 2021 Sydney Olympic Park Reduced Level Map",
+    "LAY_NAME": "Maximum Building Height (m)",
+    "LAY_CLASS": "42",
+    "LABEL": "W",
+    "SYM_CODE": "W",
+    "LEGIS_REF_AREA": null,
+    "LEGIS_REF_CLAUSE": null,
+    "LEGIS_REF_VALUE": null,
+    "PCO_REF_KEY": "2021-725",
+    "UNITS": "m",
+    "CREATED_USER": "CHRYSTS",
+    "CREATED_DATE": 1538096341000,
+    "LAST_EDITED_USER": "VANDEN01",
+    "LAST_EDITED_DATE": 1775534249000,
+    "EPI_TYPE": "SEPP",
+    "SHAPE.STArea()": 0.000001439437437686236,
+    "SHAPE.STLength()": 0.007432423238867601
+   },
+   {
+    "OBJECTID": 19,
+    "EPI_NAME": "State Environmental Planning Policy (Precincts—Central River City) 2021",
+    "PUBLISHED_DATE": 1775001600000,
+    "COMMENCED_DATE": 1775001600000,
+    "CURRENCY_DATE": 1775001600000,
+    "AMENDMENT": "State Environmental Planning Policy (Precincts—Central River City) Amendment (Sydney Olympic Park Master Plan 2050) 2026",
+    "MAP_TYPE": "RDL",
+    "MAP_NAME": "SEPP (Precincts—Central River City) 2021 Sydney Olympic Park Reduced Level Map",
+    "LAY_NAME": "Maximum Building Height (m)",
+    "LAY_CLASS": "42",
+    "LABEL": "W",
+    "SYM_CODE": "W",
+    "LEGIS_REF_AREA": null,
+    "LEGIS_REF_CLAUSE": null,
+    "LEGIS_REF_VALUE": null,
+    "PCO_REF_KEY": "2021-725",
+    "UNITS": "m",
+    "CREATED_USER": "CHRYSTS",
+    "CREATED_DATE": 1538096552000,
+    "LAST_EDITED_USER": "VANDEN01",
+    "LAST_EDITED_DATE": 1775534249000,
+    "EPI_TYPE": "SEPP",
+    "SHAPE.STArea()": 0.000006036869149124962,
+    "SHAPE.STLength()": 0.028709403207957698
+   }
+  ]
+ }
+}

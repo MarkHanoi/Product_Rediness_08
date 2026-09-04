@@ -1,0 +1,485 @@
+{
+ "capturedAt": "2026-09-04",
+ "note": "RAW ArcGIS identify attribute bags captured live from mapprod3 ePlanning at points chosen by sepp-overlap2.mjs. Keys exactly as served (alias-keyed identify). Each hit carries the SERVICE it came from because layer ids are per-service. Do not normalise.",
+ "points": {
+  "parramatta-north-ssp-stack": {
+   "id": "parramatta-north-ssp-stack",
+   "why": "Principal/14 returns TWO polygons: Parramatta LEP 2023 20 m (cl 4.3) + SEPP (Precincts—Central River City) 2021 value 6, UNITS null. A real LEP+SEPP stack.",
+   "lon": 151.06893684701626,
+   "lat": -33.78231512604665,
+   "hits": [
+    {
+     "service": "PRINCIPAL",
+     "layerId": 14,
+     "layerName": "Height of Buildings Map",
+     "attributes": {
+      "OBJECTID": "306201",
+      "EPI Name": "Parramatta Local Environmental Plan 2023",
+      "LGA Name": "CITY OF PARRAMATTA",
+      "Published Date": "3/3/2023",
+      "Commenced Date": "3/3/2023",
+      "Currency Date": "8/7/2026",
+      "Amendment": "Null",
+      "Symbol Code": "Q2",
+      "Maximum Building Height": "20",
+      "Units": "m",
+      "Additional Controls": "Null",
+      "Legislative Clause": "Clause 4.3",
+      "EPI Type": "Local Environment Plan",
+      "SHAPE": "Polygon",
+      "MAX_B_H_M": "20",
+      "MAX_B_H_RL": "0"
+     }
+    },
+    {
+     "service": "PRINCIPAL",
+     "layerId": 14,
+     "layerName": "Height of Buildings Map",
+     "attributes": {
+      "OBJECTID": "355647",
+      "EPI Name": "State Environmental Planning Policy (Precincts—Central River City) 2021",
+      "LGA Name": " ",
+      "Published Date": "12/2/2021",
+      "Commenced Date": "3/1/2022",
+      "Currency Date": "3/1/2022",
+      "Amendment": "Null",
+      "Symbol Code": "E",
+      "Maximum Building Height": "6",
+      "Units": "Null",
+      "Additional Controls": "Null",
+      "Legislative Clause": "Null",
+      "EPI Type": "State Environmental Planning Policy",
+      "SHAPE": "Polygon",
+      "MAX_B_H_M": "6",
+      "MAX_B_H_RL": "Null"
+     }
+    },
+    {
+     "service": "PRINCIPAL",
+     "layerId": 11,
+     "layerName": "Floor Space Ratio Map",
+     "attributes": {
+      "OBJECTID": "266577",
+      "EPI Name": "Parramatta Local Environmental Plan 2023",
+      "LGA Name": "CITY OF PARRAMATTA",
+      "Published Date": "4/17/2025",
+      "Commenced Date": "4/17/2025",
+      "Currency Date": "8/7/2026",
+      "Amendment": "Map Amendment No 8",
+      "Layer Class": "0.85-0.89",
+      "Symbol Code": "K",
+      "Floor Space Ratio": "0.89",
+      "Label": "K",
+      "Additional Controls": "Null",
+      "Legislative Clause": "Clause 4.4",
+      "EPI Type": "Local Environment Plan",
+      "SHAPE": "Polygon"
+     }
+    },
+    {
+     "service": "SEPP",
+     "layerId": 134,
+     "layerName": "Height of Building",
+     "attributes": {
+      "OBJECTID": "355647",
+      "EPI Name": "State Environmental Planning Policy (Precincts—Central River City) 2021",
+      "LGA Name": " ",
+      "Published Date": "12/2/2021",
+      "Commenced Date": "3/1/2022",
+      "Currency Date": "3/1/2022",
+      "Amendment": "Null",
+      "Maximum Building Height": "6",
+      "Units": "Null",
+      "EPI Type": "State Environmental Planning Policy",
+      "SHAPE": "Polygon",
+      "MAX_B_H_M": "6",
+      "MAX_B_H_RL": "Null"
+     }
+    }
+   ]
+  },
+  "hornsby-ehc-stack": {
+   "id": "hornsby-ehc-stack",
+   "why": "Principal/14 returns Hornsby LEP 2013 8.5 m (cl 4.3) + SEPP (Precincts—Eastern Harbour City) 2021 9.5 m. A real LEP+SEPP stack, both in metres.",
+   "lon": 151.10026357509463,
+   "lat": -33.729895694092164,
+   "hits": [
+    {
+     "service": "PRINCIPAL",
+     "layerId": 14,
+     "layerName": "Height of Buildings Map",
+     "attributes": {
+      "OBJECTID": "17733",
+      "EPI Name": "Hornsby Local Environmental Plan 2013",
+      "LGA Name": "HORNSBY",
+      "Published Date": "9/27/2013",
+      "Commenced Date": "10/11/2013",
+      "Currency Date": "8/7/2026",
+      "Amendment": "Null",
+      "Symbol Code": "I",
+      "Maximum Building Height": "8.5",
+      "Units": "m",
+      "Additional Controls": "Null",
+      "Legislative Clause": "Clause 4.3",
+      "EPI Type": "Local Environment Plan",
+      "SHAPE": "Polygon",
+      "MAX_B_H_M": "8.5",
+      "MAX_B_H_RL": "Null"
+     }
+    },
+    {
+     "service": "PRINCIPAL",
+     "layerId": 14,
+     "layerName": "Height of Buildings Map",
+     "attributes": {
+      "OBJECTID": "88482",
+      "EPI Name": "State Environmental Planning Policy (Precincts—Eastern Harbour City) 2021",
+      "LGA Name": "",
+      "Published Date": "12/2/2021",
+      "Commenced Date": "3/1/2022",
+      "Currency Date": "12/9/2022",
+      "Amendment": "Null",
+      "Symbol Code": "J",
+      "Maximum Building Height": "9.5",
+      "Units": "m",
+      "Additional Controls": "Null",
+      "Legislative Clause": "Null",
+      "EPI Type": "State Environmental Planning Policy",
+      "SHAPE": "Polygon",
+      "MAX_B_H_M": "9.5",
+      "MAX_B_H_RL": "Null"
+     }
+    },
+    {
+     "service": "SEPP",
+     "layerId": 614,
+     "layerName": "Height of Building",
+     "attributes": {
+      "OBJECTID": "88482",
+      "EPI Name": "State Environmental Planning Policy (Precincts—Eastern Harbour City) 2021",
+      "LGA Name": "",
+      "Published Date": "12/2/2021",
+      "Commenced Date": "3/1/2022",
+      "Currency Date": "12/9/2022",
+      "Amendment": "Null",
+      "Maximum Building Height": "9.5",
+      "Units": "m",
+      "EPI Type": "State Environmental Planning Policy",
+      "SHAPE": "Polygon",
+      "MAX_B_H_M": "9.5",
+      "MAX_B_H_RL": "Null"
+     }
+    }
+   ]
+  },
+  "growth-centres-wpc-sepp-only": {
+   "id": "growth-centres-wpc-sepp-only",
+   "why": "Principal/14 returns ONE polygon, SEPP-drawn (Precincts—Western Parkland City), 9 m, uncited. No LEP HOB here.",
+   "lon": 150.80163831090877,
+   "lat": -33.94131473219681,
+   "hits": [
+    {
+     "service": "PRINCIPAL",
+     "layerId": 14,
+     "layerName": "Height of Buildings Map",
+     "attributes": {
+      "OBJECTID": "88033",
+      "EPI Name": "State Environmental Planning Policy (Precincts—Western Parkland City) 2021",
+      "LGA Name": "",
+      "Published Date": "12/2/2021",
+      "Commenced Date": "3/1/2022",
+      "Currency Date": "7/10/2026",
+      "Amendment": "Null",
+      "Symbol Code": "J1",
+      "Maximum Building Height": "9",
+      "Units": "m",
+      "Additional Controls": "Null",
+      "Legislative Clause": "Null",
+      "EPI Type": "State Environmental Planning Policy",
+      "SHAPE": "Polygon",
+      "MAX_B_H_M": "9",
+      "MAX_B_H_RL": "Null"
+     }
+    },
+    {
+     "service": "SEPP",
+     "layerId": 684,
+     "layerName": "Height Of Building",
+     "attributes": {
+      "OBJECTID": "88033",
+      "EPI Name": "State Environmental Planning Policy (Precincts—Western Parkland City) 2021",
+      "LGA Name": "",
+      "Published Date": "12/2/2021",
+      "Commenced Date": "3/1/2022",
+      "Currency Date": "7/10/2026",
+      "Amendment": "Null",
+      "Maximum Building Height": "9",
+      "Units": "m",
+      "EPI Type": "State Environmental Planning Policy",
+      "SHAPE": "Polygon",
+      "MAX_B_H_M": "9",
+      "MAX_B_H_RL": "Null"
+     }
+    },
+    {
+     "service": "SEPP",
+     "layerId": 278,
+     "layerName": "Obstacle Limitation Surface",
+     "attributes": {
+      "OBJECTID": "1109",
+      "EPI Name": "State Environmental Planning Policy (Precincts—Western Parkland City) 2021",
+      "LGA Name": "",
+      "Published Date": "12/2/2021",
+      "Commenced Date": "3/1/2022",
+      "Currency Date": "3/1/2022",
+      "Amendment": "Null",
+      "Minimum Height": "230.5",
+      "Maximum Height": "230.5",
+      "Comments": "Horizontal",
+      "EPI Type": "State Environmental Planning Policy",
+      "SHAPE": "Polygon"
+     }
+    }
+   ]
+  },
+  "gosford-regional-mrl-cited": {
+   "id": "gosford-regional-mrl-cited",
+   "why": "Principal/14 returns ONE SEPP-drawn polygon (Precincts—Regional), 55.7 m(RL), LEGIS_REF_CLAUSE \"Clause 4.3\" (pre-consolidation Gosford SEPP numbering; the consolidated instrument says s 5.25).",
+   "lon": 151.34462827592066,
+   "lat": -33.43209826740491,
+   "hits": [
+    {
+     "service": "PRINCIPAL",
+     "layerId": 14,
+     "layerName": "Height of Buildings Map",
+     "attributes": {
+      "OBJECTID": "104340",
+      "EPI Name": "State Environmental Planning Policy (Precincts—Regional) 2021",
+      "LGA Name": "",
+      "Published Date": "12/2/2021",
+      "Commenced Date": "3/1/2022",
+      "Currency Date": "3/1/2022",
+      "Amendment": "Null",
+      "Symbol Code": "RL3",
+      "Maximum Building Height": "55.7",
+      "Units": "m(RL)",
+      "Additional Controls": "Null",
+      "Legislative Clause": "Clause 4.3",
+      "EPI Type": "State Environmental Planning Policy",
+      "SHAPE": "Polygon",
+      "MAX_B_H_M": "Null",
+      "MAX_B_H_RL": "55.7"
+     }
+    },
+    {
+     "service": "PRINCIPAL",
+     "layerId": 11,
+     "layerName": "Floor Space Ratio Map",
+     "attributes": {
+      "OBJECTID": "109595",
+      "EPI Name": "State Environmental Planning Policy (Precincts—Regional) 2021",
+      "LGA Name": "",
+      "Published Date": "12/2/2021",
+      "Commenced Date": "3/1/2022",
+      "Currency Date": "3/1/2022",
+      "Amendment": "Null",
+      "Layer Class": "1.5-1.99",
+      "Symbol Code": "S",
+      "Floor Space Ratio": "1.5",
+      "Label": "S",
+      "Additional Controls": "Null",
+      "Legislative Clause": "Clause 4.4",
+      "EPI Type": "State Environmental Planning Policy",
+      "SHAPE": "Polygon"
+     }
+    },
+    {
+     "service": "SEPP",
+     "layerId": 44,
+     "layerName": "Height of Building",
+     "attributes": {
+      "OBJECTID": "104340",
+      "EPI Name": "State Environmental Planning Policy (Precincts—Regional) 2021",
+      "LGA Name": "",
+      "Published Date": "12/2/2021",
+      "Commenced Date": "3/1/2022",
+      "Currency Date": "3/1/2022",
+      "Amendment": "Null",
+      "Maximum Building Height": "55.7",
+      "Units": "m(RL)",
+      "Legislative Clause": "Clause 4.3",
+      "EPI Type": "State Environmental Planning Policy",
+      "Shape": "Polygon",
+      "MAX_B_H_M": "Null",
+      "MAX_B_H_RL": "55.7"
+     }
+    }
+   ]
+  },
+  "growth-centres-incentive-hob": {
+   "id": "growth-centres-incentive-hob",
+   "why": "SEPP service 799 Incentive HOB \"80-99.9\" over a Principal/14 SEPP-drawn 30 m. A CONDITIONAL uplift that exists ONLY in the SEPP service (s 6.16 incentivised development).",
+   "lon": 150.80826913496063,
+   "lat": -33.956035192395845,
+   "hits": [
+    {
+     "service": "PRINCIPAL",
+     "layerId": 14,
+     "layerName": "Height of Buildings Map",
+     "attributes": {
+      "OBJECTID": "367070",
+      "EPI Name": "State Environmental Planning Policy (Precincts—Western Parkland City) 2021",
+      "LGA Name": " ",
+      "Published Date": "6/26/2026",
+      "Commenced Date": "6/26/2026",
+      "Currency Date": "7/10/2026",
+      "Amendment": "State Environmental Planning Policy (Precincts—Western Parkland City) Amendment (Leppington Town Centre) 2026",
+      "Symbol Code": "U",
+      "Maximum Building Height": "30",
+      "Units": "m",
+      "Additional Controls": "Null",
+      "Legislative Clause": "Null",
+      "EPI Type": "State Environmental Planning Policy",
+      "SHAPE": "Polygon",
+      "MAX_B_H_M": "30",
+      "MAX_B_H_RL": "Null"
+     }
+    },
+    {
+     "service": "PRINCIPAL",
+     "layerId": 11,
+     "layerName": "Floor Space Ratio Map",
+     "attributes": {
+      "OBJECTID": "285719",
+      "EPI Name": "State Environmental Planning Policy (Precincts—Western Parkland City) 2021",
+      "LGA Name": " ",
+      "Published Date": "6/26/2026",
+      "Commenced Date": "6/26/2026",
+      "Currency Date": "6/26/2026",
+      "Amendment": "State Environmental Planning Policy (Precincts—Western Parkland City) Amendment (Leppington Town Centre) 2026",
+      "Layer Class": "2.5-2.99",
+      "Symbol Code": "U2",
+      "Floor Space Ratio": "2.8",
+      "Label": "U2",
+      "Additional Controls": "Null",
+      "Legislative Clause": "Null",
+      "EPI Type": "State Environmental Planning Policy",
+      "SHAPE": "Polygon"
+     }
+    },
+    {
+     "service": "SEPP",
+     "layerId": 684,
+     "layerName": "Height Of Building",
+     "attributes": {
+      "OBJECTID": "367070",
+      "EPI Name": "State Environmental Planning Policy (Precincts—Western Parkland City) 2021",
+      "LGA Name": " ",
+      "Published Date": "6/26/2026",
+      "Commenced Date": "6/26/2026",
+      "Currency Date": "7/10/2026",
+      "Amendment": "State Environmental Planning Policy (Precincts—Western Parkland City) Amendment (Leppington Town Centre) 2026",
+      "Maximum Building Height": "30",
+      "Units": "m",
+      "EPI Type": "State Environmental Planning Policy",
+      "SHAPE": "Polygon",
+      "MAX_B_H_M": "30",
+      "MAX_B_H_RL": "Null"
+     }
+    },
+    {
+     "service": "SEPP",
+     "layerId": 799,
+     "layerName": "Incentive Height of Buildings Map",
+     "attributes": {
+      "OBJECTID": "14964",
+      "EPI_NAME": "State Environmental Planning Policy (Precincts—Western Parkland City) 2021",
+      "PUBLISHED_DATE": "6/26/2026",
+      "COMMENCED_DATE": "6/26/2026",
+      "CURRENCY_DATE": "6/26/2026",
+      "AMENDMENT": "State Environmental Planning Policy (Precincts—Western Parkland City) Amendment (Leppington Town Centre) 2026",
+      "MAP_TYPE": "IHOB",
+      "MAP_NAME": "SEPP (Sydney Region Growth Centres) 2006 South West Growth Centre Incentive Height of Buildings Map",
+      "LAY_NAME": "Maximum Building Height (m)",
+      "LAY_CLASS": "80-99.9",
+      "SYM_CODE": "AB",
+      "LABEL": "96",
+      "LEGIS_REF_AREA": "Null",
+      "LEGIS_REF_CLAUSE": "Null",
+      "LEGIS_REF_VALUE": "Null",
+      "AREA_HA": "Null",
+      "AREA_SQM": "Null",
+      "PCO_REF_KEY": "2021-728",
+      "CREATED_USER": "RAOV",
+      "CREATED_DATE": "6/29/2026 3:19:43 AM",
+      "LAST_EDITED_USER": "RAOV",
+      "LAST_EDITED_DATE": "6/29/2026 3:21:10 AM",
+      "EPI_TYPE": "State Environmental Planning Policy",
+      "SHAPE": "Polygon",
+      "SHAPE.STArea()": "0.000003",
+      "SHAPE.STLength()": "0.007329"
+     }
+    },
+    {
+     "service": "SEPP",
+     "layerId": 278,
+     "layerName": "Obstacle Limitation Surface",
+     "attributes": {
+      "OBJECTID": "1109",
+      "EPI Name": "State Environmental Planning Policy (Precincts—Western Parkland City) 2021",
+      "LGA Name": "",
+      "Published Date": "12/2/2021",
+      "Commenced Date": "3/1/2022",
+      "Currency Date": "3/1/2022",
+      "Amendment": "Null",
+      "Minimum Height": "230.5",
+      "Maximum Height": "230.5",
+      "Comments": "Horizontal",
+      "EPI Type": "State Environmental Planning Policy",
+      "SHAPE": "Polygon"
+     }
+    }
+   ]
+  },
+  "sop-reduced-level": {
+   "id": "sop-reduced-level",
+   "why": "SEPP service 718 \"Reduced Level Map\" polygon at Sydney Olympic Park: LAY_NAME says \"Maximum Building Height (m)\", UNITS m, while the map title says Reduced Level. Principal/14 returns nothing here.",
+   "lon": 151.0631174218549,
+   "lat": -33.84843365549725,
+   "hits": [
+    {
+     "service": "SEPP",
+     "layerId": 718,
+     "layerName": "Reduced Level",
+     "attributes": {
+      "OBJECTID": "5",
+      "EPI_NAME": "State Environmental Planning Policy (Precincts—Central River City) 2021",
+      "PUBLISHED_DATE": "7/8/2022",
+      "COMMENCED_DATE": "7/8/2022",
+      "CURRENCY_DATE": "4/1/2026",
+      "AMENDMENT": "State Environmental Planning Policy (Precincts—Central River City) Amendment (Sydney Olympic Park) 2022",
+      "MAP_TYPE": "RDL",
+      "MAP_NAME": "SEPP (Precincts—Central River City) 2021 Sydney Olympic Park Reduced Level Map",
+      "LAY_NAME": "Maximum Building Height (m)",
+      "LAY_CLASS": "23",
+      "LABEL": "S",
+      "SYM_CODE": "S",
+      "LEGIS_REF_AREA": "Null",
+      "LEGIS_REF_CLAUSE": "Null",
+      "LEGIS_REF_VALUE": "Null",
+      "PCO_REF_KEY": "2021-725",
+      "UNITS": "m",
+      "CREATED_USER": "",
+      "CREATED_DATE": "1/1/2001",
+      "LAST_EDITED_USER": "VANDEN01",
+      "LAST_EDITED_DATE": "4/2/2026 6:42:30 AM",
+      "EPI_TYPE": "State Environmental Planning Policy",
+      "SHAPE": "Polygon",
+      "SHAPE.STArea()": "0",
+      "SHAPE.STLength()": "0.003272"
+     }
+    }
+   ]
+  }
+ }
+}

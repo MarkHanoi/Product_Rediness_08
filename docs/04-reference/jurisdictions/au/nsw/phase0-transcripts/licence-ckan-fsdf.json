@@ -1,0 +1,71 @@
+{
+ "probedAt": "2026-09-04",
+ "datasets": {
+  "nsw-foundation-spatial-data-framework-elevation-and-depth-point-cloud": {
+   "status": 200,
+   "title": "NSW Foundation Spatial Data Framework - Elevation and Depth - Point Cloud",
+   "license_title": "Creative Commons Attribution",
+   "license_id": "cc-by",
+   "license_url": "http://www.opendefinition.org/licenses/cc-by",
+   "org": "Department of Customer Service",
+   "modified": "2018-10-20T11:29:13.577902",
+   "resources": [
+    {
+     "name": "NSW Foundation Spatial Data Framework - Elevation and Depth - Point Cloud",
+     "format": "PDF",
+     "url": "https://proddatansw.dac.nsw.gov.au/data/dataset/8e4f68b7-2f20-4ccc-b76d-9d83cf14b26f/resource/12a706d8-b4b4-4a5e-b57f-56d636b1da78/download/datasetproducttitle_point-cloud.pdf"
+    }
+   ],
+   "notes": "The point cloud data set consists of point clouds captured from LiDAR (Light Detection and Ranging) and derived from airborne imagery using photogrammetric techniques."
+  },
+  "nsw-foundation-spatial-data-framework-elevation-and-depth-nsw-contours": {
+   "status": 200,
+   "title": "NSW Foundation Spatial Data Framework - Elevation and Depth - NSW Contours",
+   "license_title": "Creative Commons Attribution",
+   "license_id": "cc-by",
+   "license_url": "http://www.opendefinition.org/licenses/cc-by",
+   "org": "Department of Customer Service",
+   "modified": "2018-10-20T11:28:03.987912",
+   "resources": [
+    {
+     "name": "NSW Foundation Spatial Data Framework - Elevation and Depth Theme - NSW Contours",
+     "format": "PDF",
+     "url": "https://proddatansw.dac.nsw.gov.au/data/dataset/34284542-2846-4679-9be0-c367c3ef519f/resource/1b9bb019-ac3f-44d4-8be9-e9ad26a3f40f/download/datasetproducttitle_nsw-contours.pdf"
+    }
+   ],
+   "notes": "Contours are virtual imaginary lines on the ground, joining points of an equal elevation in relation to the Australian Height Datum (AHD). A contour can be a standard contour, depression contour or an ancillary contour. It is a part of the NSW Digital Topographic Database (DTDB)."
+  },
+  "nsw-foundation-spatial-data-framework-elevation-and-depth-nsw-relative-heights": {
+   "status": 200,
+   "title": "NSW Foundation Spatial Data Framework - Elevation and Depth - NSW Relative Heights",
+   "license_title": "Creative Commons Attribution",
+   "license_id": "cc-by",
+   "license_url": "http://www.opendefinition.org/licenses/cc-by",
+   "org": "Department of Customer Service",
+   "modified": "2018-10-20T11:28:27.867824",
+   "resources": [
+    {
+     "name": "NSW Foundation Spatial Data Framework - Elevation and Depth Theme -NSW Relative Heights.pdf",
+     "format": "PDF",
+     "url": "https://proddatansw.dac.nsw.gov.au/data/dataset/ae703ff3-e249-4c3b-97ce-64bd4f46d173/resource/c89b3e2f-7f6b-4c78-b861-4a066f502253/download/datasetproducttitle_nsw-relative-heights.pdf"
+    }
+   ],
+   "notes": "Relative Height is a point feature class representing relative heights of a vertical face of a cliff. It is a part of the NSW Digital Topographic Database (DTDB)."
+  },
+  "1-f1b1b26b23ab4574a561f890edd3bd7e": {
+   "status": 200,
+   "title": "NSW Elevation and Depth Theme",
+   "license_title": "License Not Specified",
+   "license_id": "notspecified",
+   "org": "Spatial Services (DCS)",
+   "modified": "2026-05-14T02:49:59.861594",
+   "resources": [
+    {
+     "format": "ARCGIS REST SERVICE",
+     "url": "https://portal.spatial.nsw.gov.au/server/rest/services/NSW_Elevation_and_Depth_Theme/FeatureServer"
+    }
+   ],
+   "notes": " Export Data Access API Access 5m DEM Service Access NSW Elevation Service Access ELVIS Platform RETIRING This GDA94 service is scheduled for retirement. Please begin transitioning to the GDA2020 service and update any maps, applications, or workflows that currently reference this service. You can access the new GDA2020 Service here: NSW Elevation and Depth Theme - GDA2020 Service NSW Elevation and Depth Theme Please Note WGS 84 service aligned to GDA94 This dataset has spatial reference [WGS 84"
+  }
+ }
+}

@@ -1,0 +1,374 @@
+{
+ "probedAt": "2026-09-04",
+ "probes": {
+  "mapServer": {
+   "status": 200,
+   "picked": {
+    "copyrightText": "",
+    "description": "",
+    "serviceDescription": "",
+    "documentInfo": {
+     "Title": "Map",
+     "Author": "",
+     "Comments": "",
+     "Subject": "",
+     "Category": "",
+     "AntialiasingMode": "None",
+     "TextAntialiasingMode": "Force",
+     "Version": "2.6.0",
+     "Keywords": ""
+    }
+   },
+   "results": null,
+   "error": null,
+   "rawHead": null
+  },
+  "featureServer": {
+   "status": 200,
+   "picked": {
+    "copyrightText": "",
+    "description": "",
+    "serviceDescription": "",
+    "documentInfo": {
+     "Title": "Map",
+     "Author": "",
+     "Comments": "",
+     "Subject": "",
+     "Category": "",
+     "Keywords": ""
+    }
+   },
+   "results": null,
+   "error": null,
+   "rawHead": null
+  },
+  "layer0": {
+   "status": 200,
+   "picked": {
+    "copyrightText": "",
+    "description": "",
+    "name": "SpotHeight"
+   },
+   "results": null,
+   "error": null,
+   "rawHead": null
+  },
+  "layer2": {
+   "status": 200,
+   "picked": {
+    "copyrightText": "",
+    "description": "",
+    "name": "Contour"
+   },
+   "results": null,
+   "error": null,
+   "rawHead": null
+  },
+  "mapIteminfo": {
+   "status": 200,
+   "picked": {
+    "description": "",
+    "licenseInfo": "",
+    "accessInformation": "",
+    "name": "NSW_Elevation_and_Depth_Theme",
+    "title": "NSW_Elevation_and_Depth_Theme",
+    "snippet": "",
+    "tags": []
+   },
+   "results": null,
+   "error": null,
+   "rawHead": null
+  },
+  "featIteminfo": {
+   "status": 200,
+   "picked": {
+    "description": "",
+    "licenseInfo": "",
+    "accessInformation": "",
+    "name": "NSW_Elevation_and_Depth_Theme",
+    "title": "NSW_Elevation_and_Depth_Theme",
+    "snippet": "",
+    "tags": []
+   },
+   "results": null,
+   "error": null,
+   "rawHead": null
+  },
+  "portalSearch": {
+   "status": 200,
+   "picked": {},
+   "results": [
+    {
+     "id": "85ca688f5e9c43e28363dda4bbf23d42",
+     "title": "NSW Elevation and Depth Theme  - GDA2020 Service",
+     "type": "Feature Service",
+     "licenseInfo": "<p style='margin:0cm 0cm 7.5pt; background-image:initial; background-position:initial; background-size:initial; background-repeat:initial; background-attachment:initial; background-origin:initial; background-clip:initial;'></p><p style='margin-top: 0px; margin-bottom: 7.5pt; font-family: &quot;Avenir Next W01&quot;, &quot;Avenir Next W00&quot;, &quot;Avenir Next&quot;, Avenir, &quot;Helvetica Neue&quot;, sans-serif; font-size: 16px; background-image: initial; background-position: initial; background-size: initial; background-repeat: initial; background-attachment: initial; background-origin: initial; background-clip: initial;'><font size='4'><a href='https://portal.spatial.nsw.gov.au/portal/apps/sites/#/homepage/pages/terms-of-service' rel='nofollow ugc' style='color: rgb(0, 121, 193); text-decoration-line: none;' target='_blank'>Terms of Service</a><br /></font></p><p style='margin-top: 0px; margin-bottom: 7.5pt; font-family: &quot;Avenir Next W01&quot;, &quot;Avenir Next W00&quot;, &quot;Avenir Next&quot;, Avenir, &quot;Helvetica Neue&quot;, sans-serif; font-size: 16px; background-image: initial; background-position: initial; background-size: initial; background-repeat: initial; background-attachment: initial; background-origin: initial; background-clip: initial;'><a href='https://www.spatial.nsw.gov.au/copyright' rel='nofollow ugc' style='color: rgb(0, 121, 193); text-decoration-line: none;' target='_blank'><font size='4'>Copyright</font></a></p>",
+     "accessInformation": "© State of New South Wales (Spatial Services, a business unit of the Department of Customer Service NSW). For current information go to spatial.nsw.gov.au.",
+     "url": "https://portal.spatial.nsw.gov.au/server/rest/services/NSW_Elevation_and_Depth_Theme_multiCRS/FeatureServer",
+     "owner": "ss-sds"
+    },
+    {
+     "id": "73a47df530fe42a0a1d3eabb43defcf1",
+     "title": "NSW Elevation and Depth Theme GDA2020 Service",
+     "type": "Map Service",
+     "licenseInfo": "<p style='margin:0cm 0cm 7.5pt; background-image:initial; background-position:initial; background-size:initial; background-repeat:initial; background-attachment:initial; background-origin:initial; background-clip:initial;'></p><p style='margin-top: 0px; margin-bottom: 7.5pt; font-family: &quot;Avenir Next W01&quot;, &quot;Avenir Next W00&quot;, &quot;Avenir Next&quot;, Avenir, &quot;Helvetica Neue&quot;, sans-serif; font-size: 16px; background-image: initial; background-position: initial; background-size: initial; background-repeat: initial; background-attachment: initial; background-origin: initial; background-clip: initial;'><font size='4'><a href='https://portal.spatial.nsw.gov.au/portal/apps/sites/#/homepage/pages/terms-of-service' rel='nofollow ugc' style='color: rgb(0, 121, 193); text-decoration-line: none;' target='_blank'>Terms of Service</a><br /></font></p><p style='margin-top: 0px; margin-bottom: 7.5pt; font-family: &quot;Avenir Next W01&quot;, &quot;Avenir Next W00&quot;, &quot;Avenir Next&quot;, Avenir, &quot;Helvetica Neue&quot;, sans-serif; font-size: 16px; background-image: initial; background-position: initial; background-size: initial; background-repeat: initial; background-attachment: initial; background-origin: initial; background-clip: initial;'><a href='https://www.spatial.nsw.gov.au/copyright' rel='nofollow ugc' style='color: rgb(0, 121, 193); text-decoration-line: none;' target='_blank'><font size='4'>Copyright</font></a></p>",
+     "accessInformation": "© State of New South Wales (Spatial Services, a business unit of the Department of Customer Service NSW). For current information go to spatial.nsw.gov.au.",
+     "url": "https://portal.spatial.nsw.gov.au/server/rest/services/NSW_Elevation_and_Depth_Theme_multiCRS/MapServer",
+     "owner": "ss-sds"
+    },
+    {
+     "id": "2ab7c868b85d4945b491f7b93e3979b8",
+     "title": "NSW Elevation and Depth Theme - 20m Historical Contours",
+     "type": "Feature Service",
+     "licenseInfo": "<p style='margin-top:0px; margin-bottom:7.5pt; font-family:&quot;Avenir Next W01&quot;, &quot;Avenir Next W00&quot;, &quot;Avenir Next&quot;, Avenir, &quot;Helvetica Neue&quot;, sans-serif; font-size:16px; background-image:initial; background-position:initial; background-size:initial; background-repeat:initial; background-attachment:initial; background-origin:initial; background-clip:initial;'><font size='4'><a href='https://portal.spatial.nsw.gov.au/portal/apps/sites/#/homepage/pages/terms-of-service' rel='nofollow ugc' style='color:rgb(0, 121, 193); text-decoration-line:none;' target='_blank'>Terms of Service</a><br /></font></p><p style='margin-top:0px; margin-bottom:7.5pt; font-family:&quot;Avenir Next W01&quot;, &quot;Avenir Next W00&quot;, &quot;Avenir Next&quot;, Avenir, &quot;Helvetica Neue&quot;, sans-serif; font-size:16px; background-image:initial; background-position:initial; background-size:initial; background-repeat:initial; background-attachment:initial; background-origin:initial; background-clip:initial;'><a href='https://www.spatial.nsw.gov.au/copyright' rel='nofollow ugc' style='color:rgb(0, 94, 149);' target='_blank'><font size='4'>Copyright</font></a></p>",
+     "accessInformation": "© State of New South Wales (Spatial Services, a business unit of the Department of Customer Service NSW). For current information go to spatial.nsw.gov.au",
+     "url": "https://portal.spatial.nsw.gov.au/server/rest/services/NSW_Elevation_and_Depth_Theme/FeatureServer/2",
+     "owner": "ss-sds"
+    },
+    {
+     "id": "085ffca162724a80841a53c2afdc5c1a",
+     "title": "NSW Elevation and Depth Theme - 10m Historical Contours",
+     "type": "Feature Service",
+     "licenseInfo": "<div><p style='margin-top:0px; margin-bottom:7.5pt; font-family:&quot;Avenir Next W01&quot;, &quot;Avenir Next W00&quot;, &quot;Avenir Next&quot;, Avenir, &quot;Helvetica Neue&quot;, sans-serif; font-size:16px; background-image:initial; background-position:initial; background-size:initial; background-repeat:initial; background-attachment:initial; background-origin:initial; background-clip:initial;'><font size='4'><a href='https://portal.spatial.nsw.gov.au/portal/apps/sites/#/homepage/pages/terms-of-service' rel='nofollow ugc' style='color:rgb(0, 121, 193); text-decoration-line:none;' target='_blank'>Terms of Service</a><br /></font></p><p style='margin-top:0px; margin-bottom:7.5pt; font-family:&quot;Avenir Next W01&quot;, &quot;Avenir Next W00&quot;, &quot;Avenir Next&quot;, Avenir, &quot;Helvetica Neue&quot;, sans-serif; font-size:16px; background-image:initial; background-position:initial; background-size:initial; background-repeat:initial; background-attachment:initial; background-origin:initial; background-clip:initial;'><a href='https://www.spatial.nsw.gov.au/copyright' rel='nofollow ugc' style='color:rgb(0, 94, 149);' target='_blank'><font size='4'>Copyright</font></a></p></div>",
+     "accessInformation": "© State of New South Wales (Spatial Services, a business unit of the Department of Customer Service NSW). For current information go to spatial.nsw.gov.au",
+     "url": "https://portal.spatial.nsw.gov.au/server/rest/services/NSW_Elevation_and_Depth_Theme/FeatureServer/2",
+     "owner": "ss-sds"
+    },
+    {
+     "id": "f98aa45c47914096853228545091c203",
+     "title": "Spot Height - NSW Elevation and Depth Theme - GDA2020 Service",
+     "type": "Feature Service",
+     "licenseInfo": "<p style='margin-top:0px; margin-bottom:7.5pt; font-family:&quot;Avenir Next W01&quot;, &quot;Avenir Next W00&quot;, &quot;Avenir Next&quot;, Avenir, &quot;Helvetica Neue&quot;, sans-serif; font-size:16px; background-image:initial; background-position:initial; background-size:initial; background-repeat:initial; background-attachment:initial; background-origin:initial; background-clip:initial;'><font size='4'><a href='https://portal.spatial.nsw.gov.au/portal/apps/sites/#/homepage/pages/terms-of-service' rel='nofollow ugc' style='color:rgb(0, 121, 193); text-decoration-line:none;' target='_blank'>Terms of Service</a><br /></font></p><p style='margin-top:0px; margin-bottom:7.5pt; font-family:&quot;Avenir Next W01&quot;, &quot;Avenir Next W00&quot;, &quot;Avenir Next&quot;, Avenir, &quot;Helvetica Neue&quot;, sans-serif; font-size:16px; background-image:initial; background-position:initial; background-size:initial; background-repeat:initial; background-attachment:initial; background-origin:initial; background-clip:initial;'><a href='https://www.spatial.nsw.gov.au/copyright' rel='nofollow ugc' style='color:rgb(0, 94, 149);' target='_blank'><font size='4'>Copyright</font></a></p>",
+     "accessInformation": "© State of New South Wales (Spatial Services, a business unit of the Department of Customer Service NSW). For current information go to spatial.nsw.gov.au",
+     "url": "https://portal.spatial.nsw.gov.au/server/rest/services/NSW_Elevation_and_Depth_Theme_multiCRS/FeatureServer/0",
+     "owner": "data.enablement"
+    },
+    {
+     "id": "01374b5346c14095b19bed3038992f26",
+     "title": "Relative Height - NSW Elevation and Depth Theme - GDA2020 Service",
+     "type": "Feature Service",
+     "licenseInfo": "<p style='margin-top:0px; margin-bottom:7.5pt; font-family:&quot;Avenir Next W01&quot;, &quot;Avenir Next W00&quot;, &quot;Avenir Next&quot;, Avenir, &quot;Helvetica Neue&quot;, sans-serif; font-size:16px; background-image:initial; background-position:initial; background-size:initial; background-repeat:initial; background-attachment:initial; background-origin:initial; background-clip:initial;'><font size='4'><a href='https://portal.spatial.nsw.gov.au/portal/apps/sites/#/homepage/pages/terms-of-service' rel='nofollow ugc' style='color:rgb(0, 121, 193); text-decoration:none;' target='_blank'>Terms of Service</a><br /></font></p><p style='margin-top:0px; margin-bottom:7.5pt; font-family:&quot;Avenir Next W01&quot;, &quot;Avenir Next W00&quot;, &quot;Avenir Next&quot;, Avenir, &quot;Helvetica Neue&quot;, sans-serif; font-size:16px; background-image:initial; background-position:initial; background-size:initial; background-repeat:initial; background-attachment:initial; background-origin:initial; background-clip:initial;'><a href='https://www.spatial.nsw.gov.au/copyright' rel='nofollow ugc' style='color:rgb(0, 121, 193); text-decoration:none;' target='_blank'><font size='4'>Copyright</font></a></p>",
+     "accessInformation": "© State of New South Wales (Spatial Services, a business unit of the Department of Customer Service NSW). For current information go to spatial.nsw.gov.au.",
+     "url": "https://portal.spatial.nsw.gov.au/server/rest/services/NSW_Elevation_and_Depth_Theme_multiCRS/FeatureServer/1",
+     "owner": "data.enablement"
+    },
+    {
+     "id": "ef74b2309a004880812cd9c6b102008f",
+     "title": "NSW Physiography Category - GDA2020 Service",
+     "type": "Feature Service",
+     "licenseInfo": "<p style='margin:0cm 0cm 7.5pt; background-image:initial; background-position:initial; background-size:initial; background-repeat:initial; background-attachment:initial; background-origin:initial; background-clip:initial;'></p><p style='margin-top: 0px; margin-bottom: 7.5pt; font-family: &quot;Avenir Next W01&quot;, &quot;Avenir Next W00&quot;, &quot;Avenir Next&quot;, Avenir, &quot;Helvetica Neue&quot;, sans-serif; font-size: 16px; background-image: initial; background-position: initial; background-size: initial; background-repeat: initial; background-attachment: initial; background-origin: initial; background-clip: initial;'><font size='4'><a href='https://portal.spatial.nsw.gov.au/portal/apps/sites/#/homepage/pages/terms-of-service' rel='nofollow ugc' style='color: rgb(0, 121, 193); text-decoration-line: none;' target='_blank'>Terms of Service</a><br /></font></p><p style='margin-top: 0px; margin-bottom: 7.5pt; font-family: &quot;Avenir Next W01&quot;, &quot;Avenir Next W00&quot;, &quot;Avenir Next&quot;, Avenir, &quot;Helvetica Neue&quot;, sans-serif; font-size: 16px; background-image: initial; background-position: initial; background-size: initial; background-repeat: initial; background-attachment: initial; background-origin: initial; background-clip: initial;'><a href='https://www.spatial.nsw.gov.au/copyright' rel='nofollow ugc' style='color: rgb(0, 121, 193); text-decoration-line: none;' target='_blank'><font size='4'>Copyright</font></a></p>",
+     "accessInformation": "© State of New South Wales (Spatial Services, a business unit of the Department of Customer Service NSW). For current information go to spatial.nsw.gov.au.",
+     "url": "https://portal.spatial.nsw.gov.au/server/rest/services/NSW_Physiography_Category_multiCRS/FeatureServer",
+     "owner": "ss-sds"
+    },
+    {
+     "id": "fb951545eae346638c28e66c940b9c38",
+     "title": "NSW Positioning Theme - Survey Mark GDA2020 multiCRS",
+     "type": "Map Service",
+     "licenseInfo": "<p style='margin-top: 0px; margin-bottom: 7.5pt; background-image: initial; background-position: initial; background-size: initial; background-repeat: initial; background-attachment: initial; background-origin: initial; background-clip: initial; font-family: &quot;Avenir Next W01&quot;, &quot;Avenir Next W00&quot;, &quot;Avenir Next&quot;, Avenir, &quot;Helvetica Neue&quot;, sans-serif; font-size: 16px;'><font size='4'><a href='https://portal.spatial.nsw.gov.au/portal/apps/sites/#/homepage/pages/terms-of-service' rel='nofollow ugc' style='color: rgb(0, 121, 193); text-decoration-line: none;' target='_blank'>Terms of Service</a><br /></font></p><p style='margin-top: 0px; margin-bottom: 7.5pt; background-image: initial; background-position: initial; background-size: initial; background-repeat: initial; background-attachment: initial; background-origin: initial; background-clip: initial; font-family: &quot;Avenir Next W01&quot;, &quot;Avenir Next W00&quot;, &quot;Avenir Next&quot;, Avenir, &quot;Helvetica Neue&quot;, sans-serif; font-size: 16px;'><a href='https://www.spatial.nsw.gov.au/copyright' rel='nofollow ugc' style='color: rgb(0, 121, 193); text-decoration-line: none;' target='_blank'><font size='4'>Copyright</font></a></p>",
+     "accessInformation": "© State of New South Wales (Spatial Services, a business unit of the Department of Customer Service NSW). For current information go to spatial.nsw.gov.au",
+     "url": "https://portal.spatial.nsw.gov.au/server/rest/services/SurveyMarkGDA2020_multiCRS/MapServer",
+     "owner": "ss-sds"
+    },
+    {
+     "id": "80034bd4c1264c938d67873ccecd4125",
+     "title": "NSW Positioning Theme - Survey Mark GDA94 multiCRS",
+     "type": "Feature Service",
+     "licenseInfo": "<p style='margin-top: 0px; margin-bottom: 7.5pt; font-family: &quot;Avenir Next W01&quot;, &quot;Avenir Next W00&quot;, &quot;Avenir Next&quot;, Avenir, &quot;Helvetica Neue&quot;, sans-serif; font-size: 16px; background-image: initial; background-position: initial; background-size: initial; background-repeat: initial; background-attachment: initial; background-origin: initial; background-clip: initial;'><font size='4'><a href='https://portal.spatial.nsw.gov.au/portal/apps/sites/#/homepage/pages/terms-of-service' rel='nofollow ugc' style='color: rgb(0, 121, 193); text-decoration-line: none;' target='_blank'>Terms of Service</a><br /></font></p><p style='margin-top: 0px; margin-bottom: 7.5pt; font-family: &quot;Avenir Next W01&quot;, &quot;Avenir Next W00&quot;, &quot;Avenir Next&quot;, Avenir, &quot;Helvetica Neue&quot;, sans-serif; font-size: 16px; background-image: initial; background-position: initial; background-size: initial; background-repeat: initial; background-attachment: initial; background-origin: initial; background-clip: initial;'><a href='https://www.spatial.nsw.gov.au/copyright' rel='nofollow ugc' style='color: rgb(0, 121, 193); text-decoration-line: none;' target='_blank'><font size='4'>Copyright</font></a></p>",
+     "accessInformation": "© State of New South Wales (Spatial Services, a business unit of the Department of Customer Service NSW). For current information go to spatial.nsw.gov.au",
+     "url": "https://portal.spatial.nsw.gov.au/server/rest/services/SurveyMarkGDA94_multiCRS/FeatureServer",
+     "owner": "ss-sds"
+    },
+    {
+     "id": "b93186e141e241c4b78e0ac7e9ed9354",
+     "title": "NSW Positioning Theme - Survey Mark GDA94 multiCRS",
+     "type": "Map Service",
+     "licenseInfo": "<p style='margin-top: 0px; margin-bottom: 7.5pt; background-image: initial; background-position: initial; background-size: initial; background-repeat: initial; background-attachment: initial; background-origin: initial; background-clip: initial; font-family: &quot;Avenir Next W01&quot;, &quot;Avenir Next W00&quot;, &quot;Avenir Next&quot;, Avenir, &quot;Helvetica Neue&quot;, sans-serif; font-size: 16px;'><font size='4'><a href='https://portal.spatial.nsw.gov.au/portal/apps/sites/#/homepage/pages/terms-of-service' rel='nofollow ugc' style='color: rgb(0, 121, 193); text-decoration-line: none;' target='_blank'>Terms of Service</a><br /></font></p><p style='margin-top: 0px; margin-bottom: 7.5pt; background-image: initial; background-position: initial; background-size: initial; background-repeat: initial; background-attachment: initial; background-origin: initial; background-clip: initial; font-family: &quot;Avenir Next W01&quot;, &quot;Avenir Next W00&quot;, &quot;Avenir Next&quot;, Avenir, &quot;Helvetica Neue&quot;, sans-serif; font-size: 16px;'><a href='https://www.spatial.nsw.gov.au/copyright' rel='nofollow ugc' style='color: rgb(0, 121, 193); text-decoration-line: none;' target='_blank'><font size='4'>Copyright</font></a></p>",
+     "accessInformation": "© State of New South Wales (Spatial Services, a business unit of the Department of Customer Service NSW). For current information go to spatial.nsw.gov.au",
+     "url": "https://portal.spatial.nsw.gov.au/server/rest/services/SurveyMarkGDA94_multiCRS/MapServer",
+     "owner": "ss-sds"
+    }
+   ],
+   "error": null,
+   "rawHead": null
+  },
+  "portalSearch2": {
+   "status": 200,
+   "picked": {},
+   "results": [
+    {
+     "id": "85ca688f5e9c43e28363dda4bbf23d42",
+     "title": "NSW Elevation and Depth Theme  - GDA2020 Service",
+     "type": "Feature Service",
+     "licenseInfo": "<p style='margin:0cm 0cm 7.5pt; background-image:initial; background-position:initial; background-size:initial; background-repeat:initial; background-attachment:initial; background-origin:initial; background-clip:initial;'></p><p style='margin-top: 0px; margin-bottom: 7.5pt; font-family: &quot;Avenir Next W01&quot;, &quot;Avenir Next W00&quot;, &quot;Avenir Next&quot;, Avenir, &quot;Helvetica Neue&quot;, sans-serif; font-size: 16px; background-image: initial; background-position: initial; background-size: initial; background-repeat: initial; background-attachment: initial; background-origin: initial; background-clip: initial;'><font size='4'><a href='https://portal.spatial.nsw.gov.au/portal/apps/sites/#/homepage/pages/terms-of-service' rel='nofollow ugc' style='color: rgb(0, 121, 193); text-decoration-line: none;' target='_blank'>Terms of Service</a><br /></font></p><p style='margin-top: 0px; margin-bottom: 7.5pt; font-family: &quot;Avenir Next W01&quot;, &quot;Avenir Next W00&quot;, &quot;Avenir Next&quot;, Avenir, &quot;Helvetica Neue&quot;, sans-serif; font-size: 16px; background-image: initial; background-position: initial; background-size: initial; background-repeat: initial; background-attachment: initial; background-origin: initial; background-clip: initial;'><a href='https://www.spatial.nsw.gov.au/copyright' rel='nofollow ugc' style='color: rgb(0, 121, 193); text-decoration-line: none;' target='_blank'><font size='4'>Copyright</font></a></p>",
+     "accessInformation": "© State of New South Wales (Spatial Services, a business unit of the Department of Customer Service NSW). For current information go to spatial.nsw.gov.au.",
+     "url": "https://portal.spatial.nsw.gov.au/server/rest/services/NSW_Elevation_and_Depth_Theme_multiCRS/FeatureServer",
+     "owner": "ss-sds"
+    },
+    {
+     "id": "73a47df530fe42a0a1d3eabb43defcf1",
+     "title": "NSW Elevation and Depth Theme GDA2020 Service",
+     "type": "Map Service",
+     "licenseInfo": "<p style='margin:0cm 0cm 7.5pt; background-image:initial; background-position:initial; background-size:initial; background-repeat:initial; background-attachment:initial; background-origin:initial; background-clip:initial;'></p><p style='margin-top: 0px; margin-bottom: 7.5pt; font-family: &quot;Avenir Next W01&quot;, &quot;Avenir Next W00&quot;, &quot;Avenir Next&quot;, Avenir, &quot;Helvetica Neue&quot;, sans-serif; font-size: 16px; background-image: initial; background-position: initial; background-size: initial; background-repeat: initial; background-attachment: initial; background-origin: initial; background-clip: initial;'><font size='4'><a href='https://portal.spatial.nsw.gov.au/portal/apps/sites/#/homepage/pages/terms-of-service' rel='nofollow ugc' style='color: rgb(0, 121, 193); text-decoration-line: none;' target='_blank'>Terms of Service</a><br /></font></p><p style='margin-top: 0px; margin-bottom: 7.5pt; font-family: &quot;Avenir Next W01&quot;, &quot;Avenir Next W00&quot;, &quot;Avenir Next&quot;, Avenir, &quot;Helvetica Neue&quot;, sans-serif; font-size: 16px; background-image: initial; background-position: initial; background-size: initial; background-repeat: initial; background-attachment: initial; background-origin: initial; background-clip: initial;'><a href='https://www.spatial.nsw.gov.au/copyright' rel='nofollow ugc' style='color: rgb(0, 121, 193); text-decoration-line: none;' target='_blank'><font size='4'>Copyright</font></a></p>",
+     "accessInformation": "© State of New South Wales (Spatial Services, a business unit of the Department of Customer Service NSW). For current information go to spatial.nsw.gov.au.",
+     "url": "https://portal.spatial.nsw.gov.au/server/rest/services/NSW_Elevation_and_Depth_Theme_multiCRS/MapServer",
+     "owner": "ss-sds"
+    },
+    {
+     "id": "085ffca162724a80841a53c2afdc5c1a",
+     "title": "NSW Elevation and Depth Theme - 10m Historical Contours",
+     "type": "Feature Service",
+     "licenseInfo": "<div><p style='margin-top:0px; margin-bottom:7.5pt; font-family:&quot;Avenir Next W01&quot;, &quot;Avenir Next W00&quot;, &quot;Avenir Next&quot;, Avenir, &quot;Helvetica Neue&quot;, sans-serif; font-size:16px; background-image:initial; background-position:initial; background-size:initial; background-repeat:initial; background-attachment:initial; background-origin:initial; background-clip:initial;'><font size='4'><a href='https://portal.spatial.nsw.gov.au/portal/apps/sites/#/homepage/pages/terms-of-service' rel='nofollow ugc' style='color:rgb(0, 121, 193); text-decoration-line:none;' target='_blank'>Terms of Service</a><br /></font></p><p style='margin-top:0px; margin-bottom:7.5pt; font-family:&quot;Avenir Next W01&quot;, &quot;Avenir Next W00&quot;, &quot;Avenir Next&quot;, Avenir, &quot;Helvetica Neue&quot;, sans-serif; font-size:16px; background-image:initial; background-position:initial; background-size:initial; background-repeat:initial; background-attachment:initial; background-origin:initial; background-clip:initial;'><a href='https://www.spatial.nsw.gov.au/copyright' rel='nofollow ugc' style='color:rgb(0, 94, 149);' target='_blank'><font size='4'>Copyright</font></a></p></div>",
+     "accessInformation": "© State of New South Wales (Spatial Services, a business unit of the Department of Customer Service NSW). For current information go to spatial.nsw.gov.au",
+     "url": "https://portal.spatial.nsw.gov.au/server/rest/services/NSW_Elevation_and_Depth_Theme/FeatureServer/2",
+     "owner": "ss-sds"
+    },
+    {
+     "id": "2ab7c868b85d4945b491f7b93e3979b8",
+     "title": "NSW Elevation and Depth Theme - 20m Historical Contours",
+     "type": "Feature Service",
+     "licenseInfo": "<p style='margin-top:0px; margin-bottom:7.5pt; font-family:&quot;Avenir Next W01&quot;, &quot;Avenir Next W00&quot;, &quot;Avenir Next&quot;, Avenir, &quot;Helvetica Neue&quot;, sans-serif; font-size:16px; background-image:initial; background-position:initial; background-size:initial; background-repeat:initial; background-attachment:initial; background-origin:initial; background-clip:initial;'><font size='4'><a href='https://portal.spatial.nsw.gov.au/portal/apps/sites/#/homepage/pages/terms-of-service' rel='nofollow ugc' style='color:rgb(0, 121, 193); text-decoration-line:none;' target='_blank'>Terms of Service</a><br /></font></p><p style='margin-top:0px; margin-bottom:7.5pt; font-family:&quot;Avenir Next W01&quot;, &quot;Avenir Next W00&quot;, &quot;Avenir Next&quot;, Avenir, &quot;Helvetica Neue&quot;, sans-serif; font-size:16px; background-image:initial; background-position:initial; background-size:initial; background-repeat:initial; background-attachment:initial; background-origin:initial; background-clip:initial;'><a href='https://www.spatial.nsw.gov.au/copyright' rel='nofollow ugc' style='color:rgb(0, 94, 149);' target='_blank'><font size='4'>Copyright</font></a></p>",
+     "accessInformation": "© State of New South Wales (Spatial Services, a business unit of the Department of Customer Service NSW). For current information go to spatial.nsw.gov.au",
+     "url": "https://portal.spatial.nsw.gov.au/server/rest/services/NSW_Elevation_and_Depth_Theme/FeatureServer/2",
+     "owner": "ss-sds"
+    },
+    {
+     "id": "f98aa45c47914096853228545091c203",
+     "title": "Spot Height - NSW Elevation and Depth Theme - GDA2020 Service",
+     "type": "Feature Service",
+     "licenseInfo": "<p style='margin-top:0px; margin-bottom:7.5pt; font-family:&quot;Avenir Next W01&quot;, &quot;Avenir Next W00&quot;, &quot;Avenir Next&quot;, Avenir, &quot;Helvetica Neue&quot;, sans-serif; font-size:16px; background-image:initial; background-position:initial; background-size:initial; background-repeat:initial; background-attachment:initial; background-origin:initial; background-clip:initial;'><font size='4'><a href='https://portal.spatial.nsw.gov.au/portal/apps/sites/#/homepage/pages/terms-of-service' rel='nofollow ugc' style='color:rgb(0, 121, 193); text-decoration-line:none;' target='_blank'>Terms of Service</a><br /></font></p><p style='margin-top:0px; margin-bottom:7.5pt; font-family:&quot;Avenir Next W01&quot;, &quot;Avenir Next W00&quot;, &quot;Avenir Next&quot;, Avenir, &quot;Helvetica Neue&quot;, sans-serif; font-size:16px; background-image:initial; background-position:initial; background-size:initial; background-repeat:initial; background-attachment:initial; background-origin:initial; background-clip:initial;'><a href='https://www.spatial.nsw.gov.au/copyright' rel='nofollow ugc' style='color:rgb(0, 94, 149);' target='_blank'><font size='4'>Copyright</font></a></p>",
+     "accessInformation": "© State of New South Wales (Spatial Services, a business unit of the Department of Customer Service NSW). For current information go to spatial.nsw.gov.au",
+     "url": "https://portal.spatial.nsw.gov.au/server/rest/services/NSW_Elevation_and_Depth_Theme_multiCRS/FeatureServer/0",
+     "owner": "data.enablement"
+    },
+    {
+     "id": "01374b5346c14095b19bed3038992f26",
+     "title": "Relative Height - NSW Elevation and Depth Theme - GDA2020 Service",
+     "type": "Feature Service",
+     "licenseInfo": "<p style='margin-top:0px; margin-bottom:7.5pt; font-family:&quot;Avenir Next W01&quot;, &quot;Avenir Next W00&quot;, &quot;Avenir Next&quot;, Avenir, &quot;Helvetica Neue&quot;, sans-serif; font-size:16px; background-image:initial; background-position:initial; background-size:initial; background-repeat:initial; background-attachment:initial; background-origin:initial; background-clip:initial;'><font size='4'><a href='https://portal.spatial.nsw.gov.au/portal/apps/sites/#/homepage/pages/terms-of-service' rel='nofollow ugc' style='color:rgb(0, 121, 193); text-decoration:none;' target='_blank'>Terms of Service</a><br /></font></p><p style='margin-top:0px; margin-bottom:7.5pt; font-family:&quot;Avenir Next W01&quot;, &quot;Avenir Next W00&quot;, &quot;Avenir Next&quot;, Avenir, &quot;Helvetica Neue&quot;, sans-serif; font-size:16px; background-image:initial; background-position:initial; background-size:initial; background-repeat:initial; background-attachment:initial; background-origin:initial; background-clip:initial;'><a href='https://www.spatial.nsw.gov.au/copyright' rel='nofollow ugc' style='color:rgb(0, 121, 193); text-decoration:none;' target='_blank'><font size='4'>Copyright</font></a></p>",
+     "accessInformation": "© State of New South Wales (Spatial Services, a business unit of the Department of Customer Service NSW). For current information go to spatial.nsw.gov.au.",
+     "url": "https://portal.spatial.nsw.gov.au/server/rest/services/NSW_Elevation_and_Depth_Theme_multiCRS/FeatureServer/1",
+     "owner": "data.enablement"
+    },
+    {
+     "id": "cf3878d666bd4fc79de475cac081e8ac",
+     "title": "NSW Elevation and Depth Theme - Spot Height",
+     "type": "Feature Service",
+     "licenseInfo": "<p style='margin-top:0px; margin-bottom:7.5pt; font-family:&quot;Avenir Next W01&quot;, &quot;Avenir Next W00&quot;, &quot;Avenir Next&quot;, Avenir, &quot;Helvetica Neue&quot;, sans-serif; font-size:16px; background-image:initial; background-position:initial; background-size:initial; background-repeat:initial; background-attachment:initial; background-origin:initial; background-clip:initial;'><font size='4'><a href='https://portal.spatial.nsw.gov.au/portal/apps/sites/#/homepage/pages/terms-of-service' rel='nofollow ugc' style='color:rgb(0, 121, 193); text-decoration-line:none;' target='_blank'>Terms of Service</a><br /></font></p><p style='margin-top:0px; margin-bottom:7.5pt; font-family:&quot;Avenir Next W01&quot;, &quot;Avenir Next W00&quot;, &quot;Avenir Next&quot;, Avenir, &quot;Helvetica Neue&quot;, sans-serif; font-size:16px; background-image:initial; background-position:initial; background-size:initial; background-repeat:initial; background-attachment:initial; background-origin:initial; background-clip:initial;'><a href='https://www.spatial.nsw.gov.au/copyright' rel='nofollow ugc' style='color:rgb(0, 94, 149);' target='_blank'><font size='4'>Copyright</font></a></p>",
+     "accessInformation": "© State of New South Wales (Spatial Services, a business unit of the Department of Customer Service NSW). For current information go to spatial.nsw.gov.au",
+     "url": "https://portal.spatial.nsw.gov.au/server/rest/services/NSW_Elevation_and_Depth_Theme/FeatureServer/0",
+     "owner": "ss-sds"
+    },
+    {
+     "id": "ca62b4699e5d43119617a9dce5bbe0c4",
+     "title": "NSW Elevation and Depth Theme - Relative Height",
+     "type": "Feature Service",
+     "licenseInfo": "<p style='margin-top:0cm; margin-right:0cm; margin-bottom:7.5pt; margin-left:0cm; background:white;'><span style='font-size:14.0pt; font-family:&quot;Arial&quot;,sans-serif;'>Spatial\nServices, a division of the Department of Customer Service creates and manages\nIntellectual Property for the Crown in right of New South Wales. Acquisition of\nthis data is subject to the customer entering into an appropriate Creative\nCommons license agreement. To the extent that Creative Commons licensing\napplies, all data and other material produced by Spatial Services constitutes\nCrown copyright. Spatial Services has applied the Creative Commons Attribution\n4.0 Australia Licence. Spatial Services asserts the right to be attributed as\nauthor of the original material in the following manner: </span></p>\n\n<p style='margin-top:0cm; margin-right:0cm; margin-bottom:7.5pt; margin-left:0cm; background:white;'><img alt='cc-by' src='https://i.creativecommons.org/l/by/3.0/88x31.png' style='background-color:transparent;' /> <span style='font-size:14.0pt; font-family:&quot;Arial&quot;,sans-serif;'>©\nSpatial Services 2021.</span></p>\n\n<p style='margin-top:0cm; margin-right:8.8pt; margin-bottom:0cm; margin-left:0cm; margin-bottom:.0001pt;'><span style='font-size:14.0pt; font-family:&quot;Arial&quot;,sans-serif;'>Additional terms for\nthe use of Spatial Services material. Any derived products which are created\nwill be required to clearly mark the date that any extractions from the Spatial\nServices Spatial Database occurred. All Intellectual Property which is owned by\nSpatial Services should only be loaded on any external cloud platforms if\nSpatial Services’ Intellectual Property remains unchanged, maintained and\npreserved.</span><b><span style='font-size:14.0pt; font-family:&quot;Arial&quot;,sans-serif;'></span></b></p>",
+     "accessInformation": "© State of New South Wales (Spatial Services, a business unit of the Department of Customer Service NSW). For current information go to spatial.nsw.gov.au",
+     "url": "https://portal.spatial.nsw.gov.au/server/rest/services/NSW_Elevation_and_Depth_Theme/FeatureServer/1",
+     "owner": "ss-sds"
+    },
+    {
+     "id": "a9acf411599c4d0c8c91fc2ef0f99f5f",
+     "title": "NSW Elevation and Depth Theme",
+     "type": "Map Service",
+     "licenseInfo": "<div><p style='margin-top:0px; margin-bottom:7.5pt; font-family:&quot;Avenir Next W01&quot;, &quot;Avenir Next W00&quot;, &quot;Avenir Next&quot;, Avenir, &quot;Helvetica Neue&quot;, sans-serif; font-size:16px; background-image:initial; background-position:initial; background-size:initial; background-repeat:initial; background-attachment:initial; background-origin:initial; background-clip:initial;'><font size='4'><a href='https://portal.spatial.nsw.gov.au/portal/apps/sites/#/homepage/pages/terms-of-service' rel='nofollow ugc' style='color:rgb(0, 121, 193); text-decoration-line:none;' target='_blank'>Terms of Service</a><br /></font></p><p style='margin-top:0px; margin-bottom:7.5pt; font-family:&quot;Avenir Next W01&quot;, &quot;Avenir Next W00&quot;, &quot;Avenir Next&quot;, Avenir, &quot;Helvetica Neue&quot;, sans-serif; font-size:16px; background-image:initial; background-position:initial; background-size:initial; background-repeat:initial; background-attachment:initial; background-origin:initial; background-clip:initial;'><a href='https://www.spatial.nsw.gov.au/copyright' rel='nofollow ugc' style='color:rgb(0, 94, 149);' target='_blank'><font size='4'>Copyright</font></a></p></div>",
+     "accessInformation": "© State of New South Wales (Spatial Services, a business unit of the Department of Customer Service NSW). For current information go to spatial.nsw.gov.au",
+     "url": "https://portal.spatial.nsw.gov.au/server/rest/services/NSW_Elevation_and_Depth_Theme/MapServer",
+     "owner": "ss-sds"
+    },
+    {
+     "id": "f1b1b26b23ab4574a561f890edd3bd7e",
+     "title": "NSW Elevation and Depth Theme",
+     "type": "Feature Service",
+     "licenseInfo": "<p style='margin-top:0px; margin-bottom:7.5pt; font-family:&quot;Avenir Next W01&quot;, &quot;Avenir Next W00&quot;, &quot;Avenir Next&quot;, Avenir, &quot;Helvetica Neue&quot;, sans-serif; font-size:16px; background-image:initial; background-position:initial; background-size:initial; background-repeat:initial; background-attachment:initial; background-origin:initial; background-clip:initial;'><font size='4'><a href='https://portal.spatial.nsw.gov.au/portal/apps/sites/#/homepage/pages/terms-of-service' rel='nofollow ugc' style='color:rgb(0, 121, 193); text-decoration-line:none;' target='_blank'>Terms of Service</a><br /></font></p><p style='margin-top:0px; margin-bottom:7.5pt; font-family:&quot;Avenir Next W01&quot;, &quot;Avenir Next W00&quot;, &quot;Avenir Next&quot;, Avenir, &quot;Helvetica Neue&quot;, sans-serif; font-size:16px; background-image:initial; background-position:initial; background-size:initial; background-repeat:initial; background-attachment:initial; background-origin:initial; background-clip:initial;'><a href='https://www.spatial.nsw.gov.au/copyright' rel='nofollow ugc' style='color:rgb(0, 94, 149);' target='_blank'><font size='4'>Copyright</font></a></p>",
+     "accessInformation": "© State of New South Wales (Spatial Services, a business unit of the Department of Customer Service NSW). For current information go to spatial.nsw.gov.au",
+     "url": "https://portal.spatial.nsw.gov.au/server/rest/services/NSW_Elevation_and_Depth_Theme/FeatureServer",
+     "owner": "ss-sds"
+    }
+   ],
+   "error": null,
+   "rawHead": null
+  },
+  "item_85ca688f5e9c43e28363dda4bbf23d42": {
+   "status": 200,
+   "title": "NSW Elevation and Depth Theme  - GDA2020 Service",
+   "type": "Feature Service",
+   "url": "https://portal.spatial.nsw.gov.au/server/rest/services/NSW_Elevation_and_Depth_Theme_multiCRS/FeatureServer",
+   "licenseInfo": "<p style='margin:0cm 0cm 7.5pt; background-image:initial; background-position:initial; background-size:initial; background-repeat:initial; background-attachment:initial; background-origin:initial; background-clip:initial;'></p><p style='margin-top: 0px; margin-bottom: 7.5pt; font-family: &quot;Avenir Next W01&quot;, &quot;Avenir Next W00&quot;, &quot;Avenir Next&quot;, Avenir, &quot;Helvetica Neue&quot;, sans-serif; font-size: 16px; background-image: initial; background-position: initial; background-size: initial; background-repeat: initial; background-attachment: initial; background-origin: initial; background-clip: initial;'><font size='4'><a href='https://portal.spatial.nsw.gov.au/portal/apps/sites/#/homepage/pages/terms-of-service' rel='nofollow ugc' style='color: rgb(0, 121, 193); text-decoration-line: none;' target='_blank'>Terms of Service</a><br /></font></p><p style='margin-top: 0px; margin-bottom: 7.5pt; font-family: &quot;Avenir Next W01&quot;, &quot;Avenir Next W00&quot;, &quot;Avenir Next&quot;, Avenir, &quot;Helvetica Neue&quot;, sans-serif; font-size: 16px; background-image: initial; background-position: initial; background-size: initial; background-repeat: initial; background-attachment: initial; background-origin: initial; background-clip: initial;'><a href='https://www.spatial.nsw.gov.au/copyright' rel='nofollow ugc' style='color: rgb(0, 121, 193); text-decoration-line: none;' target='_blank'><font size='4'>Copyright</font></a></p>",
+   "accessInformation": "© State of New South Wales (Spatial Services, a business unit of the Department of Customer Service NSW). For current information go to spatial.nsw.gov.au.",
+   "snippet": "Elevation and Depth is the measurement of the Earth’s surface above or below a vertical datum to obtain the height of the land. This service supports multiple coordinate reference systems.",
+   "error": null
+  },
+  "item_73a47df530fe42a0a1d3eabb43defcf1": {
+   "status": 200,
+   "title": "NSW Elevation and Depth Theme GDA2020 Service",
+   "type": "Map Service",
+   "url": "https://portal.spatial.nsw.gov.au/server/rest/services/NSW_Elevation_and_Depth_Theme_multiCRS/MapServer",
+   "licenseInfo": "<p style='margin:0cm 0cm 7.5pt; background-image:initial; background-position:initial; background-size:initial; background-repeat:initial; background-attachment:initial; background-origin:initial; background-clip:initial;'></p><p style='margin-top: 0px; margin-bottom: 7.5pt; font-family: &quot;Avenir Next W01&quot;, &quot;Avenir Next W00&quot;, &quot;Avenir Next&quot;, Avenir, &quot;Helvetica Neue&quot;, sans-serif; font-size: 16px; background-image: initial; background-position: initial; background-size: initial; background-repeat: initial; background-attachment: initial; background-origin: initial; background-clip: initial;'><font size='4'><a href='https://portal.spatial.nsw.gov.au/portal/apps/sites/#/homepage/pages/terms-of-service' rel='nofollow ugc' style='color: rgb(0, 121, 193); text-decoration-line: none;' target='_blank'>Terms of Service</a><br /></font></p><p style='margin-top: 0px; margin-bottom: 7.5pt; font-family: &quot;Avenir Next W01&quot;, &quot;Avenir Next W00&quot;, &quot;Avenir Next&quot;, Avenir, &quot;Helvetica Neue&quot;, sans-serif; font-size: 16px; background-image: initial; background-position: initial; background-size: initial; background-repeat: initial; background-attachment: initial; background-origin: initial; background-clip: initial;'><a href='https://www.spatial.nsw.gov.au/copyright' rel='nofollow ugc' style='color: rgb(0, 121, 193); text-decoration-line: none;' target='_blank'><font size='4'>Copyright</font></a></p>",
+   "accessInformation": "© State of New South Wales (Spatial Services, a business unit of the Department of Customer Service NSW). For current information go to spatial.nsw.gov.au.",
+   "snippet": "Elevation and Depth is the measurement of the Earth’s surface above or below a vertical datum to obtain the height of the land. This service supports multiple coordinate reference systems.",
+   "error": null
+  },
+  "item_2ab7c868b85d4945b491f7b93e3979b8": {
+   "status": 200,
+   "title": "NSW Elevation and Depth Theme - 20m Historical Contours",
+   "type": "Feature Service",
+   "url": "https://portal.spatial.nsw.gov.au/server/rest/services/NSW_Elevation_and_Depth_Theme/FeatureServer/2",
+   "licenseInfo": "<p style='margin-top:0px; margin-bottom:7.5pt; font-family:&quot;Avenir Next W01&quot;, &quot;Avenir Next W00&quot;, &quot;Avenir Next&quot;, Avenir, &quot;Helvetica Neue&quot;, sans-serif; font-size:16px; background-image:initial; background-position:initial; background-size:initial; background-repeat:initial; background-attachment:initial; background-origin:initial; background-clip:initial;'><font size='4'><a href='https://portal.spatial.nsw.gov.au/portal/apps/sites/#/homepage/pages/terms-of-service' rel='nofollow ugc' style='color:rgb(0, 121, 193); text-decoration-line:none;' target='_blank'>Terms of Service</a><br /></font></p><p style='margin-top:0px; margin-bottom:7.5pt; font-family:&quot;Avenir Next W01&quot;, &quot;Avenir Next W00&quot;, &quot;Avenir Next&quot;, Avenir, &quot;Helvetica Neue&quot;, sans-serif; font-size:16px; background-image:initial; background-position:initial; background-size:initial; background-repeat:initial; background-attachment:initial; background-origin:initial; background-clip:initial;'><a href='https://www.spatial.nsw.gov.au/copyright' rel='nofollow ugc' style='color:rgb(0, 94, 149);' target='_blank'><font size='4'>Copyright</font></a></p>",
+   "accessInformation": "© State of New South Wales (Spatial Services, a business unit of the Department of Customer Service NSW). For current information go to spatial.nsw.gov.au",
+   "snippet": "20m Historical Contours are virtual imaginary lines on the ground, joining points of an equal elevation.",
+   "error": null
+  },
+  "item_085ffca162724a80841a53c2afdc5c1a": {
+   "status": 200,
+   "title": "NSW Elevation and Depth Theme - 10m Historical Contours",
+   "type": "Feature Service",
+   "url": "https://portal.spatial.nsw.gov.au/server/rest/services/NSW_Elevation_and_Depth_Theme/FeatureServer/2",
+   "licenseInfo": "<div><p style='margin-top:0px; margin-bottom:7.5pt; font-family:&quot;Avenir Next W01&quot;, &quot;Avenir Next W00&quot;, &quot;Avenir Next&quot;, Avenir, &quot;Helvetica Neue&quot;, sans-serif; font-size:16px; background-image:initial; background-position:initial; background-size:initial; background-repeat:initial; background-attachment:initial; background-origin:initial; background-clip:initial;'><font size='4'><a href='https://portal.spatial.nsw.gov.au/portal/apps/sites/#/homepage/pages/terms-of-service' rel='nofollow ugc' style='color:rgb(0, 121, 193); text-decoration-line:none;' target='_blank'>Terms of Service</a><br /></font></p><p style='margin-top:0px; margin-bottom:7.5pt; font-family:&quot;Avenir Next W01&quot;, &quot;Avenir Next W00&quot;, &quot;Avenir Next&quot;, Avenir, &quot;Helvetica Neue&quot;, sans-serif; font-size:16px; background-image:initial; background-position:initial; background-size:initial; background-repeat:initial; background-attachment:initial; background-origin:initial; background-clip:initial;'><a href='https://www.spatial.nsw.gov.au/copyright' rel='nofollow ugc' style='color:rgb(0, 94, 149);' target='_blank'><font size='4'>Copyright</font></a></p></div>",
+   "accessInformation": "© State of New South Wales (Spatial Services, a business unit of the Department of Customer Service NSW). For current information go to spatial.nsw.gov.au",
+   "snippet": "10m Historical Contours are virtual imaginary lines on the ground, joining points of an equal elevation.",
+   "error": null
+  },
+  "item_f98aa45c47914096853228545091c203": {
+   "status": 200,
+   "title": "Spot Height - NSW Elevation and Depth Theme - GDA2020 Service",
+   "type": "Feature Service",
+   "url": "https://portal.spatial.nsw.gov.au/server/rest/services/NSW_Elevation_and_Depth_Theme_multiCRS/FeatureServer/0",
+   "licenseInfo": "<p style='margin-top:0px; margin-bottom:7.5pt; font-family:&quot;Avenir Next W01&quot;, &quot;Avenir Next W00&quot;, &quot;Avenir Next&quot;, Avenir, &quot;Helvetica Neue&quot;, sans-serif; font-size:16px; background-image:initial; background-position:initial; background-size:initial; background-repeat:initial; background-attachment:initial; background-origin:initial; background-clip:initial;'><font size='4'><a href='https://portal.spatial.nsw.gov.au/portal/apps/sites/#/homepage/pages/terms-of-service' rel='nofollow ugc' style='color:rgb(0, 121, 193); text-decoration-line:none;' target='_blank'>Terms of Service</a><br /></font></p><p style='margin-top:0px; margin-bottom:7.5pt; font-family:&quot;Avenir Next W01&quot;, &quot;Avenir Next W00&quot;, &quot;Avenir Next&quot;, Avenir, &quot;Helvetica Neue&quot;, sans-serif; font-size:16px; background-image:initial; background-position:initial; background-size:initial; background-repeat:initial; background-attachment:initial; background-origin:initial; background-clip:initial;'><a href='https://www.spatial.nsw.gov.au/copyright' rel='nofollow ugc' style='color:rgb(0, 94, 149);' target='_blank'><font size='4'>Copyright</font></a></p>",
+   "accessInformation": "© State of New South Wales (Spatial Services, a business unit of the Department of Customer Service NSW). For current information go to spatial.nsw.gov.au",
+   "snippet": "Spot Height is a point feature class representing individual points on the earth’s surface.",
+   "error": null
+  },
+  "item_01374b5346c14095b19bed3038992f26": {
+   "status": 200,
+   "title": "Relative Height - NSW Elevation and Depth Theme - GDA2020 Service",
+   "type": "Feature Service",
+   "url": "https://portal.spatial.nsw.gov.au/server/rest/services/NSW_Elevation_and_Depth_Theme_multiCRS/FeatureServer/1",
+   "licenseInfo": "<p style='margin-top:0px; margin-bottom:7.5pt; font-family:&quot;Avenir Next W01&quot;, &quot;Avenir Next W00&quot;, &quot;Avenir Next&quot;, Avenir, &quot;Helvetica Neue&quot;, sans-serif; font-size:16px; background-image:initial; background-position:initial; background-size:initial; background-repeat:initial; background-attachment:initial; background-origin:initial; background-clip:initial;'><font size='4'><a href='https://portal.spatial.nsw.gov.au/portal/apps/sites/#/homepage/pages/terms-of-service' rel='nofollow ugc' style='color:rgb(0, 121, 193); text-decoration:none;' target='_blank'>Terms of Service</a><br /></font></p><p style='margin-top:0px; margin-bottom:7.5pt; font-family:&quot;Avenir Next W01&quot;, &quot;Avenir Next W00&quot;, &quot;Avenir Next&quot;, Avenir, &quot;Helvetica Neue&quot;, sans-serif; font-size:16px; background-image:initial; background-position:initial; background-size:initial; background-repeat:initial; background-attachment:initial; background-origin:initial; background-clip:initial;'><a href='https://www.spatial.nsw.gov.au/copyright' rel='nofollow ugc' style='color:rgb(0, 121, 193); text-decoration:none;' target='_blank'><font size='4'>Copyright</font></a></p>",
+   "accessInformation": "© State of New South Wales (Spatial Services, a business unit of the Department of Customer Service NSW). For current information go to spatial.nsw.gov.au.",
+   "snippet": "Relative Height is a point feature class representing relative heights of a vertical face of a cliff.",
+   "error": null
+  },
+  "item_ef74b2309a004880812cd9c6b102008f": {
+   "status": 200,
+   "title": "NSW Physiography Category - GDA2020 Service",
+   "type": "Feature Service",
+   "url": "https://portal.spatial.nsw.gov.au/server/rest/services/NSW_Physiography_Category_multiCRS/FeatureServer",
+   "licenseInfo": "<p style='margin:0cm 0cm 7.5pt; background-image:initial; background-position:initial; background-size:initial; background-repeat:initial; background-attachment:initial; background-origin:initial; background-clip:initial;'></p><p style='margin-top: 0px; margin-bottom: 7.5pt; font-family: &quot;Avenir Next W01&quot;, &quot;Avenir Next W00&quot;, &quot;Avenir Next&quot;, Avenir, &quot;Helvetica Neue&quot;, sans-serif; font-size: 16px; background-image: initial; background-position: initial; background-size: initial; background-repeat: initial; background-attachment: initial; background-origin: initial; background-clip: initial;'><font size='4'><a href='https://portal.spatial.nsw.gov.au/portal/apps/sites/#/homepage/pages/terms-of-service' rel='nofollow ugc' style='color: rgb(0, 121, 193); text-decoration-line: none;' target='_blank'>Terms of Service</a><br /></font></p><p style='margin-top: 0px; margin-bottom: 7.5pt; font-family: &quot;Avenir Next W01&quot;, &quot;Avenir Next W00&quot;, &quot;Avenir Next&quot;, Avenir, &quot;Helvetica Neue&quot;, sans-serif; font-size: 16px; background-image: initial; background-position: initial; background-size: initial; background-repeat: initial; background-attachment: initial; background-origin: initial; background-clip: initial;'><a href='https://www.spatial.nsw.gov.au/copyright' rel='nofollow ugc' style='color: rgb(0, 121, 193); text-decoration-line: none;' target='_blank'><font size='4'>Copyright</font></a></p>",
+   "accessInformation": "© State of New South Wales (Spatial Services, a business unit of the Department of Customer Service NSW). For current information go to spatial.nsw.gov.au.",
+   "snippet": "This category is a spatial representation of geographic features as lines, points and polygons that supports multiple coordinate reference systems.",
+   "error": null
+  },
+  "item_fb951545eae346638c28e66c940b9c38": {
+   "status": 200,
+   "title": "NSW Positioning Theme - Survey Mark GDA2020 multiCRS",
+   "type": "Map Service",
+   "url": "https://portal.spatial.nsw.gov.au/server/rest/services/SurveyMarkGDA2020_multiCRS/MapServer",
+   "licenseInfo": "<p style='margin-top: 0px; margin-bottom: 7.5pt; background-image: initial; background-position: initial; background-size: initial; background-repeat: initial; background-attachment: initial; background-origin: initial; background-clip: initial; font-family: &quot;Avenir Next W01&quot;, &quot;Avenir Next W00&quot;, &quot;Avenir Next&quot;, Avenir, &quot;Helvetica Neue&quot;, sans-serif; font-size: 16px;'><font size='4'><a href='https://portal.spatial.nsw.gov.au/portal/apps/sites/#/homepage/pages/terms-of-service' rel='nofollow ugc' style='color: rgb(0, 121, 193); text-decoration-line: none;' target='_blank'>Terms of Service</a><br /></font></p><p style='margin-top: 0px; margin-bottom: 7.5pt; background-image: initial; background-position: initial; background-size: initial; background-repeat: initial; background-attachment: initial; background-origin: initial; background-clip: initial; font-family: &quot;Avenir Next W01&quot;, &quot;Avenir Next W00&quot;, &quot;Avenir Next&quot;, Avenir, &quot;Helvetica Neue&quot;, sans-serif; font-size: 16px;'><a href='https://www.spatial.nsw.gov.au/copyright' rel='nofollow ugc' style='color: rgb(0, 121, 193); text-decoration-line: none;' target='_blank'><font size='4'>Copyright</font></a></p>",
+   "accessInformation": "© State of New South Wales (Spatial Services, a business unit of the Department of Customer Service NSW). For current information go to spatial.nsw.gov.au",
+   "snippet": "SurveyMarkGDA2020 - This service provides GDA2020 coordinates that support Multi Coordinate reference Systems.",
+   "error": null
+  }
+ }
+}

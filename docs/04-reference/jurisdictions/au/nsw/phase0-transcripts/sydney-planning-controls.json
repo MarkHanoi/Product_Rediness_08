@@ -1,0 +1,446 @@
+{
+ "probedAt": "2026-09-04",
+ "services": {
+  "Planning_Controls/FeatureServer": {
+   "layers": [
+    {
+     "id": 0,
+     "name": "Planning Controls",
+     "fields": [
+      "OBJECTID",
+      "AreaNo",
+      "Description",
+      "Shape__Area",
+      "Shape__Length"
+     ],
+     "count": 60
+    }
+   ],
+   "copyrightText": "City of Sydney",
+   "description": "The City of Sydney is not the only planning authority in our area. Use this map to determine which planning controls apply."
+  },
+  "SydneyLEP2012MapSheet/FeatureServer": {
+   "layers": [
+    {
+     "id": 0,
+     "name": "SydneyLEP2012MapSheet",
+     "fields": [
+      "OBJECTID",
+      "LEP_NAME",
+      "LGA_CODE",
+      "LGA_NAME",
+      "MAP_TYPE",
+      "LEP_TYPE",
+      "MAP_SHEET",
+      "MAP_SCALE",
+      "Shape__Area",
+      "Shape__Length"
+     ],
+     "count": 24
+    }
+   ],
+   "copyrightText": "",
+   "description": "This layer identifies the relevant map sheet from the Sydney LEP 2012 map collection on the NSW legislation website."
+  },
+  "Property_Dcp_Lep_Amend/FeatureServer": {
+   "layers": [
+    {
+     "id": 0,
+     "name": "Property_LEP_DCP",
+     "fields": [
+      "OBJECTID",
+      "Address",
+      "DcpCodes",
+      "LepCodes",
+      "Shape__Area",
+      "Shape__Length"
+     ],
+     "count": 27141
+    }
+   ],
+   "copyrightText": "City of Sydney",
+   "description": "DCP LEP Amendments property layer to be used in the Amendments map showing affected zones"
+  },
+  "DCP_LEP_Amendment_2021_gdb/FeatureServer": {
+   "layers": [
+    {
+     "id": 28,
+     "name": "DCP_Amendment10",
+     "fields": [
+      "OBJECTID",
+      "DcpCodes",
+      "Shape__Area",
+      "Shape__Length"
+     ],
+     "count": 1
+    },
+    {
+     "id": 19,
+     "name": "DCP_Amendment1",
+     "fields": [
+      "OBJECTID",
+      "DcpCodes",
+      "Shape__Area",
+      "Shape__Length"
+     ],
+     "count": 1
+    },
+    {
+     "id": 29,
+     "name": "DCP_Amendment11",
+     "fields": [
+      "OBJECTID",
+      "DcpCodes",
+      "Shape__Area",
+      "Shape__Length"
+     ],
+     "count": 1
+    },
+    {
+     "id": 30,
+     "name": "DCP_Amendment12",
+     "fields": [
+      "OBJECTID",
+      "DcpCodes",
+      "Shape__Area",
+      "Shape__Length"
+     ],
+     "count": 1
+    },
+    {
+     "id": 31,
+     "name": "DCP_Amendment13",
+     "fields": [
+      "OBJECTID",
+      "DcpCodes",
+      "Shape__Area",
+      "Shape__Length"
+     ],
+     "count": 5
+    },
+    {
+     "id": 32,
+     "name": "DCP_Amendment14",
+     "fields": [
+      "OBJECTID",
+      "DcpCodes",
+      "Shape__Area",
+      "Shape__Length"
+     ],
+     "count": 1
+    },
+    {
+     "id": 33,
+     "name": "DCP_Amendment15",
+     "fields": [
+      "OBJECTID",
+      "DcpCodes",
+      "Shape__Area",
+      "Shape__Length"
+     ],
+     "count": 1
+    },
+    {
+     "id": 34,
+     "name": "DCP_Amendment16",
+     "fields": [
+      "OBJECTID",
+      "DcpCodes",
+      "Shape__Area",
+      "Shape__Length"
+     ],
+     "count": 14
+    },
+    {
+     "id": 20,
+     "name": "DCP_Amendment2",
+     "fields": [
+      "OBJECTID",
+      "DcpCodes",
+      "Shape__Area",
+      "Shape__Length"
+     ],
+     "count": 1
+    },
+    {
+     "id": 21,
+     "name": "DCP_Amendment3",
+     "fields": [
+      "OBJECTID",
+      "DcpCodes",
+      "Shape__Area",
+      "Shape__Length"
+     ],
+     "count": 1
+    },
+    {
+     "id": 22,
+     "name": "DCP_Amendment4",
+     "fields": [
+      "OBJECTID",
+      "DcpCodes",
+      "Shape__Area",
+      "Shape__Length"
+     ],
+     "count": 1
+    },
+    {
+     "id": 23,
+     "name": "DCP_Amendment5",
+     "fields": [
+      "OBJECTID",
+      "DcpCodes",
+      "Shape__Area",
+      "Shape__Length"
+     ],
+     "count": 98
+    },
+    {
+     "id": 24,
+     "name": "DCP_Amendment6",
+     "fields": [
+      "OBJECTID",
+      "DcpCodes",
+      "Shape__Area",
+      "Shape__Length"
+     ],
+     "count": 1
+    },
+    {
+     "id": 25,
+     "name": "DCP_Amendment7",
+     "fields": [
+      "OBJECTID",
+      "DcpCodes",
+      "Shape__Area",
+      "Shape__Length"
+     ],
+     "count": 1
+    },
+    {
+     "id": 26,
+     "name": "DCP_Amendment8",
+     "fields": [
+      "OBJECTID",
+      "DcpCodes",
+      "Shape__Area",
+      "Shape__Length"
+     ],
+     "count": 2
+    },
+    {
+     "id": 27,
+     "name": "DCP_Amendment9",
+     "fields": [
+      "OBJECTID",
+      "DcpCodes",
+      "Shape__Area",
+      "Shape__Length"
+     ],
+     "count": 1
+    },
+    {
+     "id": 36,
+     "name": "LEP_Amendment1",
+     "fields": [
+      "OBJECTID",
+      "LepCodes",
+      "Shape__Area",
+      "Shape__Length"
+     ],
+     "count": 1
+    },
+    {
+     "id": 38,
+     "name": "LEP_Amendment3",
+     "fields": [
+      "OBJECTID",
+      "LepCodes",
+      "Shape__Area",
+      "Shape__Length"
+     ],
+     "count": 1
+    },
+    {
+     "id": 40,
+     "name": "LEP_Amendment5",
+     "fields": [
+      "OBJECTID",
+      "LepCodes",
+      "Shape__Area",
+      "Shape__Length"
+     ],
+     "count": 75
+    },
+    {
+     "id": 43,
+     "name": "LEP_Amendment8",
+     "fields": [
+      "OBJECTID",
+      "LepCodes",
+      "Shape__Area",
+      "Shape__Length"
+     ],
+     "count": 1
+    },
+    {
+     "id": 37,
+     "name": "LEP_Amendment2",
+     "fields": [
+      "OBJECTID",
+      "LepCodes",
+      "Shape__Area",
+      "Shape__Length"
+     ],
+     "count": 1
+    },
+    {
+     "id": 39,
+     "name": "LEP_Amendment4",
+     "fields": [
+      "OBJECTID",
+      "LepCodes",
+      "Shape__Area",
+      "Shape__Length"
+     ],
+     "count": 2
+    },
+    {
+     "id": 41,
+     "name": "LEP_Amendment6",
+     "fields": [
+      "OBJECTID",
+      "LepCodes",
+      "Shape__Area",
+      "Shape__Length"
+     ],
+     "count": 145
+    },
+    {
+     "id": 42,
+     "name": "LEP_Amendment7",
+     "fields": [
+      "OBJECTID",
+      "LepCodes",
+      "Shape__Area",
+      "Shape__Length"
+     ],
+     "count": 65
+    },
+    {
+     "id": 44,
+     "name": "LEP_Amendment9",
+     "fields": [
+      "OBJECTID",
+      "LepCodes",
+      "Shape__Area",
+      "Shape__Length"
+     ],
+     "count": 1
+    },
+    {
+     "id": 45,
+     "name": "LEP_Amendment10",
+     "fields": [
+      "OBJECTID",
+      "LepCodes",
+      "Shape__Area",
+      "Shape__Length"
+     ],
+     "count": 1
+    },
+    {
+     "id": 46,
+     "name": "LEP_Amendment11",
+     "fields": [
+      "OBJECTID",
+      "LepCodes",
+      "Shape__Area",
+      "Shape__Length"
+     ],
+     "count": 33
+    },
+    {
+     "id": 47,
+     "name": "LEP_Amendment12",
+     "fields": [
+      "OBJECTID",
+      "LepCodes",
+      "Shape__Area",
+      "Shape__Length"
+     ],
+     "count": 1
+    },
+    {
+     "id": 48,
+     "name": "LEP_Amendment13",
+     "fields": [
+      "OBJECTID",
+      "LepCodes",
+      "Shape__Area",
+      "Shape__Length"
+     ],
+     "count": 2
+    },
+    {
+     "id": 49,
+     "name": "LEP_Amendment14",
+     "fields": [
+      "OBJECTID",
+      "LepCodes",
+      "Shape__Area",
+      "Shape__Length"
+     ],
+     "count": 282
+    },
+    {
+     "id": 50,
+     "name": "LEP_Amendment15",
+     "fields": [
+      "OBJECTID",
+      "LepCodes",
+      "Shape__Area",
+      "Shape__Length"
+     ],
+     "count": 1
+    },
+    {
+     "id": 51,
+     "name": "LEP_Amendment16",
+     "fields": [
+      "OBJECTID",
+      "LepCodes",
+      "Shape__Area",
+      "Shape__Length"
+     ],
+     "count": 8
+    },
+    {
+     "id": 52,
+     "name": "LEP_Amendment17",
+     "fields": [
+      "OBJECTID",
+      "LepCodes",
+      "Shape__Area",
+      "Shape__Length"
+     ],
+     "count": 5
+    },
+    {
+     "id": 53,
+     "name": "LEP_Amendment18",
+     "fields": [
+      "OBJECTID",
+      "LepCodes",
+      "Shape__Area",
+      "Shape__Length"
+     ],
+     "count": 14
+    }
+   ],
+   "copyrightText": "City of Sydney",
+   "description": "DCP and LEP 2021 Amendments for public exhibition 2024/25"
+  }
+ },
+ "parcels": {}
+}

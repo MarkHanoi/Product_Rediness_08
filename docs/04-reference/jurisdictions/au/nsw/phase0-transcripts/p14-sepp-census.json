@@ -1,0 +1,128 @@
+{
+ "probedAt": "2026-09-04",
+ "epiTypeDomain": {
+  "type": "codedValue",
+  "name": "WS2_EPI_TYPE",
+  "description": "EPI TYPE Description",
+  "codedValues": [
+   {
+    "name": "Local Environment Plan",
+    "code": "LEP"
+   },
+   {
+    "name": "State Environmental Planning Policy",
+    "code": "SEPP"
+   }
+  ],
+  "mergePolicy": "esriMPTDefaultValue",
+  "splitPolicy": "esriSPTDefaultValue"
+ },
+ "byType": {
+  "LEP": 40221,
+  "SEPP": 743,
+  "other": 0
+ },
+ "sepp": {
+  "State Environmental Planning Policy (Precincts—Central River City) 2021": {
+   "rows": 260,
+   "cited": 1,
+   "clauses": {
+    "Clause 4.3": 1
+   },
+   "units": {
+    "m": 253
+   },
+   "lgas": {},
+   "nullUnits": 7
+  },
+  "State Environmental Planning Policy (Precincts—Western Parkland City) 2021": {
+   "rows": 219,
+   "cited": 0,
+   "clauses": {},
+   "units": {
+    "m": 219
+   },
+   "lgas": {},
+   "nullUnits": 0
+  },
+  "State Environmental Planning Policy (Precincts—Regional) 2021": {
+   "rows": 178,
+   "cited": 156,
+   "clauses": {
+    "Clause 4.3": 156
+   },
+   "units": {
+    "m": 158,
+    "m(RL)": 20
+   },
+   "lgas": {},
+   "nullUnits": 0
+  },
+  "State Environmental Planning Policy (Precincts—Eastern Harbour City) 2021": {
+   "rows": 76,
+   "cited": 0,
+   "clauses": {},
+   "units": {
+    "m(RL)": 26,
+    "m": 44,
+    "NA": 6
+   },
+   "lgas": {},
+   "nullUnits": 0
+  },
+  "State Environmental Planning Policy (Transport and Infrastructure) 2021": {
+   "rows": 10,
+   "cited": 6,
+   "clauses": {
+    "Clause 6.8": 6
+   },
+   "units": {
+    "m": 10
+   },
+   "lgas": {},
+   "nullUnits": 0
+  }
+ },
+ "rl718": [
+  {
+   "objectid": 5,
+   "layClass": "23",
+   "units": "m",
+   "lon": 151.0631174218549,
+   "lat": -33.84843365549725,
+   "p14": []
+  },
+  {
+   "objectid": 10,
+   "layClass": "23",
+   "units": "m",
+   "lon": 151.06371181367496,
+   "lat": -33.84578819672344,
+   "p14": []
+  },
+  {
+   "objectid": 15,
+   "layClass": "28",
+   "units": "m",
+   "lon": 151.0623781405241,
+   "lat": -33.84502628171608,
+   "p14": []
+  },
+  {
+   "objectid": 18,
+   "layClass": "42",
+   "units": "m",
+   "lon": 151.0625942571587,
+   "lat": -33.843975829950914,
+   "p14": []
+  },
+  {
+   "objectid": 19,
+   "layClass": "42",
+   "units": "m",
+   "lon": 151.06287423249162,
+   "lat": -33.847248227135466,
+   "p14": []
+  }
+ ]
+}
