@@ -22,3 +22,9 @@ export * from './FetchOutcome.js';
 // §CONTEXT-DERIVED-STUDY-ENVELOPE (§ENVAMS148) — a STANDALONE massing-study artefact, deliberately
 // NOT a field on `BuildableEnvelope` — see the module header for why.
 export * from './ContextDerivedStudyEnvelope.js';
+// §RULE-STATE (founder transmission 2026-09-03) — the SHARED per-rule state vocabulary: the five
+// reachability states, the founder's four answer shapes + the PRYZM-side `unrecovered` arm, the
+// six-label failure taxonomy, and the F1/F2 split the NL and NSW audits both name as their open
+// gap. Composes with `FieldProvenance`/`EnvelopeConfidence`; replaces neither. Used by every
+// country adapter — FR, PT/ES, NL/DK and NSW — so there is exactly one spelling.
+export * from './RuleState.js';
