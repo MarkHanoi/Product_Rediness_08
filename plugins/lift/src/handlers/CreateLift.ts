@@ -146,11 +146,15 @@ type LiftHandlerStores = Readonly<
  */
 export const DEFAULT_LIFT_TYPE_ID = 'passenger-6';
 
-// eslint-disable-next-line pryzm/store-single-channel -- CA-6/§U-B6: this command
+// CA-6/§U-B6: this command
 // REALLY writes six stores; declaring fewer drops the undeclared stores' patches
 // from undo routing (Ctrl+Z would remove the lift but leave a full-height hole
 // through every floor plate). The rule has no multi-store option; the declaration
 // below is the truth.
+// ⚠ THE DIRECTIVE MUST BE THE LAST COMMENT LINE HERE. `-next-line` means the
+// NEXT LINE: with the rationale below it, it pointed at a comment and suppressed
+// NOTHING, so this deliberate exemption had been reporting as a hard lint ERROR.
+// eslint-disable-next-line pryzm/store-single-channel
 export class CreateLiftHandler implements CommandHandler<CreateLiftPayload, LiftHandlerStores> {
     readonly type = 'lift.create';
 

@@ -91,8 +91,12 @@ function sameLoop(
     return true;
 }
 
-// eslint-disable-next-line pryzm/store-single-channel -- CA-6/§U-B6: mirrors
+// CA-6/§U-B6: mirrors
 // CreateLift — six stores is the truthful declaration; see the rationale there.
+// ⚠ THE DIRECTIVE MUST BE THE LAST COMMENT LINE HERE. `-next-line` means the
+// NEXT LINE: with the rationale below it, it pointed at a comment and suppressed
+// NOTHING, so this deliberate exemption had been reporting as a hard lint ERROR.
+// eslint-disable-next-line pryzm/store-single-channel
 export class DeleteLiftHandler implements CommandHandler<DeleteLiftPayload, LiftHandlerStores> {
     readonly type = 'lift.delete';
 

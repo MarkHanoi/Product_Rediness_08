@@ -107,10 +107,14 @@ const DERIVED_FIELDS = Object.freeze({
   handrail: ['path'] as const,
 });
 
-// eslint-disable-next-line pryzm/store-single-channel -- CA-6/§U-B6: a reshape really
+// CA-6/§U-B6: a reshape really
 // does write four stores in one gesture; declaring fewer would drop the undeclared
 // stores' patches from undo routing, so Ctrl+Z would restore the old outline on the
 // slab and leave the railing at the new one.
+// ⚠ THE DIRECTIVE MUST BE THE LAST COMMENT LINE HERE. `-next-line` means the
+// NEXT LINE: with the rationale below it, it pointed at a comment and suppressed
+// NOTHING, so this deliberate exemption had been reporting as a hard lint ERROR.
+// eslint-disable-next-line pryzm/store-single-channel
 export class UpdateBalconyProfileHandler
   implements CommandHandler<UpdateBalconyProfilePayload, BalconyHandlerStores>
 {
