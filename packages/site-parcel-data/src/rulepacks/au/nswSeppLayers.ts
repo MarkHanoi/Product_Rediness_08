@@ -375,7 +375,12 @@ export const NSW_SEPP_LAYER_FACTS: readonly NswSeppLayerFacts[] = Object.freeze(
         features: 63,
         citedFeatures: 0,
         replicaEvidence: 'Same instrument and schema family as layer 684, which measured 12/12 replica.',
-        why: 'Growth Centres FSR.',
+        why:
+            'Growth Centres floor space ratio; Principal/11 carries the SEPP-drawn rows. ' +
+            '⚠ INFERRED FROM A SIBLING, NOT SAMPLED DIRECTLY — the overlap probe sampled the HOB ' +
+            'layers only, so every FSR row here rests on its height twin sharing an instrument and a ' +
+            'schema. That is a reasonable inference and it is not a measurement; if an FSR-side ' +
+            'double-count ever appears, this is the assumption to falsify first.',
     },
 ]);
 

@@ -430,7 +430,13 @@ export const NSW_CONTROL_RULINGS: readonly NswControlRuling[] = Object.freeze([
     // Local Provisions layer happens to share the id.
     // ──────────────────────────────────────────────────────────────────────────────────────────
     {
-        instrument: 'State Environmental Planning Policy (Sydney Region Growth Centres) 2006',
+        // THE MAP IS A 2006 GROWTH CENTRES MAP AND THE INSTRUMENT IS THE 2021 SEPP THAT ADOPTED IT.
+        // Measured on the captured row: MAP_NAME "SEPP (Sydney Region Growth Centres) 2006 South
+        // West Growth Centre Incentive Height of Buildings Map" while EPI_NAME reads
+        // "State Environmental Planning Policy (Precincts-Western Parkland City) 2021".
+        // The registry keys on EPI_NAME because that is what the service serves and what the
+        // resolver has; keying on the map's own title would have missed every row.
+        instrument: 'State Environmental Planning Policy (Precincts—Western Parkland City) 2021',
         layerId: 799, // SEPP/799 Incentive Height of Buildings Map
         service: 'SEPP',
         layClass: null,
@@ -461,7 +467,8 @@ export const NSW_CONTROL_RULINGS: readonly NswControlRuling[] = Object.freeze([
             'entitlement is the worst output this engine can produce".',
     },
     {
-        instrument: 'State Environmental Planning Policy (Sydney Region Growth Centres) 2006',
+        // Same adoption as layer 799 above: 2006 map, 2021 instrument, keyed on EPI_NAME.
+        instrument: 'State Environmental Planning Policy (Precincts—Western Parkland City) 2021',
         layerId: 800, // SEPP/800 Incentive Floor Space Ratio Map
         service: 'SEPP',
         layClass: null,

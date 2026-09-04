@@ -601,6 +601,28 @@ export function resolveNswVerticalPrecedence(
                 describeNswAxisExclusion(c.quantity),
         );
     }
+    // ⭐ THE §13 SEPP CRITERION, MADE LEGIBLE RATHER THAN MERELY STRUCTURAL.
+    //
+    // "A SEPP-covered parcel is never resolved LEP-alone" is already enforced downstream — an
+    // unreadable SEPP control lands in `unevaluated`, which sets `envelopeIsUpperBound` and blocks
+    // publication. But a reader looking at the trace would see only "an unreadable control", and
+    // WHICH INSTRUMENT could not be read is the whole point of the criterion.
+    //
+    // Measured on `parramatta-north-ssp-stack`: Principal/14 returns Parramatta LEP 2023 at 20 m
+    // alongside SEPP (Precincts—Central River City) 2021 at 6 with `UNITS` null. The SEPP applies,
+    // it may well displace the 20, and its own service gives no units to read it by. Emitting 20 m
+    // with no mention of the policy would be LEP-alone in everything but bookkeeping.
+    for (const c of live) {
+        if (c.instrumentClass !== 'SEPP') continue;
+        if (c.quantity.constrainsEnvelopeTop) continue;
+        explanation.push(
+            `⚠ A STATE ENVIRONMENTAL PLANNING POLICY APPLIES HERE AND COULD NOT BE EVALUATED — ` +
+                `${c.instrument ?? 'an unnamed SEPP'} (${c.layerName}): ` +
+                `${describeNswHeight(c.height)}. A SEPP that applies may displace the local plan ` +
+                'entirely, so any height reported below is at most an upper bound, and this parcel ' +
+                'is NOT resolved on the local environmental plan alone.',
+        );
+    }
     for (const c of controls) {
         if (c.schemaSurprise) explanation.push(`⚠ ${c.schemaSurprise}`);
     }
