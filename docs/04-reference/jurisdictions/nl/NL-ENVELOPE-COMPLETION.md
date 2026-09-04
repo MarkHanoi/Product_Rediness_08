@@ -92,6 +92,19 @@ and served by **ruimtelijkeplannen.nl**. Our sample read the second and not the 
 observed"* measures **which API we queried**, not what the Netherlands publishes. ⚠ It is therefore
 **not** evidence of a small IMOW corpus, and must never be quoted as such.
 
+### §1.7 — ⭐ ONE DISCOVERY CALL REACHES BOTH HALVES
+
+`POST /documenten/_zoek` on **Omgevingsinformatie Ontsluiten v2** takes a **GeoJSON geometry** and a
+date and returns **OW documents and IMRO documents in one list**, each carrying the metadata block
+that says which world it belongs to (`omgevingsdocumentMetadata` vs `imroDocumentMetadata`) — the
+API's own words: *"om te kunnen zoeken naar zowel omgevingsdocumenten in het kader van de
+Omgevingswet (OW), als IMRO-documenten (bestemmingsplannen en dergelijke) in het kader van de Wet op
+de Ruimtelijke Ordening (Wro)."* Only **retrieval** is split, and **both APIs take the same
+`x-api-key` from the same ontwikkelaarsportaal**. Encoded as
+`packages/site-parcel-data/src/rulepacks/nlTijdelijkDeel.ts` (`routeNlDocument`).
+
+---
+
 ### §1.8 — ⭐ M7 · `nokhoogte` in TEXT — the founder asked; it does **NOT** track `dakhelling`
 
 The founder's §5: *"⚠ Measure `nokhoogte` in TEXT too. We report the structured zero but not the text
@@ -134,17 +147,6 @@ M5's product decision measured a second way and from a different corpus.
 > every figure is ≥ the parcel-level share; **(d)** ⛔ **20.8 % is NOT a correction of Phase 0's
 > 28.8 %** — different sample, and a **stricter** detector that demands a number in degrees. Reporting
 > it as a correction would be the defect this dossier keeps documenting.
-
-### §1.7 — ⭐ ONE DISCOVERY CALL REACHES BOTH HALVES
-
-`POST /documenten/_zoek` on **Omgevingsinformatie Ontsluiten v2** takes a **GeoJSON geometry** and a
-date and returns **OW documents and IMRO documents in one list**, each carrying the metadata block
-that says which world it belongs to (`omgevingsdocumentMetadata` vs `imroDocumentMetadata`) — the
-API's own words: *"om te kunnen zoeken naar zowel omgevingsdocumenten in het kader van de
-Omgevingswet (OW), als IMRO-documenten (bestemmingsplannen en dergelijke) in het kader van de Wet op
-de Ruimtelijke Ordening (Wro)."* Only **retrieval** is split, and **both APIs take the same
-`x-api-key` from the same ontwikkelaarsportaal**. Encoded as
-`packages/site-parcel-data/src/rulepacks/nlTijdelijkDeel.ts` (`routeNlDocument`).
 
 ---
 
