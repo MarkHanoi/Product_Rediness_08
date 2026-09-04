@@ -204,9 +204,13 @@ export const NSW_CONTROL_RULINGS: readonly NswControlRuling[] = Object.freeze([
     },
 
     // ──────────────────────────────────────────────────────────────────────────────────────────
-    // SINGLETON LEP 2013 — Floor Height Restriction. ABSOLUTE LEVELS, not heights.
-    // Measured LAY_CLASS: 40.9 / 41.2 / 41.5 / 41.8 / 42.1 / 42.4 / 42.7 / 64.1 — flood planning
-    // levels in AHD on the Hunter floodplain. ⛔ Terrain must NEVER be added to these.
+    // SINGLETON LEP 2013 — Floor Height Restriction. ABSOLUTE MINIMUM LEVELS, not heights.
+    //
+    // The service names its own datum in LAY_NAME: "Minimum Floor Height Restriction Heights shown
+    // on map in AHD (m)". Measured LAY_CLASS (re-read 2026-09-04, all 14 rows): 40.6 / 40.9 / 41.2
+    // / 41.5 / 41.8 / 42.1 / 42.4 / 42.7 / 43 / 78.1 — TEN distinct levels; the first Phase 0 pass
+    // enumerated eight and missed 43 and 78.1. Flood planning levels on the Hunter floodplain.
+    // ⛔ Terrain must NEVER be added to these — they are already absolute.
     // ──────────────────────────────────────────────────────────────────────────────────────────
     {
         instrument: 'Singleton Local Environmental Plan 2013',
@@ -215,12 +219,50 @@ export const NSW_CONTROL_RULINGS: readonly NswControlRuling[] = Object.freeze([
         role: 'CAP',
         condition: null,
         clause: null,
-        source: 'ePlanning Portal Local_Provisions/469 LAY_CLASS (served attribute), read 2026-09-03',
+        source: 'ePlanning Portal Local_Provisions/469 LAY_NAME + LAY_CLASS (served), read 2026-09-04',
         plane: null,
         signedBy: null,
         note:
-            'Values are absolute AHD levels (minimum habitable floor level on a floodplain), not ' +
-            'heights above ground. Constrains floor placement, not the envelope top.',
+            'A MINIMUM habitable floor level in AHD — it constrains how LOW the building may sit, ' +
+            'not how high. ⚠ `role: CAP` describes its effect on the FLOOR axis; it is NOT a cap on ' +
+            'the envelope top, and what keeps it out of height precedence is the AXIS guard in ' +
+            'nswLayName.ts (constrainsEnvelopeTop=false), never this role. A future reader tempted ' +
+            'to intersect this against a maximum height is comparing two different axes in two ' +
+            'different datums.',
+    },
+
+    // ──────────────────────────────────────────────────────────────────────────────────────────
+    // BALLINA + BYRON LEPs — Building Height Allowance (layer 429). ⛔ NOT A HEIGHT ALLOWANCE.
+    //
+    // ⭐ THE LANE'S MOST EXPENSIVE CORRECTION, RECORDED HERE SO THE LAYER TITLE CANNOT RE-MISLEAD.
+    // The layer is called "Building Height Allowance Map" and the earlier reading took it at its
+    // word: an additive height bonus granted under condition. **`LAY_NAME` says otherwise on
+    // 203 of 203 rows: "Minimum Level Australian Height Datum (AHD)".** Values 1.8–2.1 in BALLINA
+    // and BYRON — coastal flood LGAs where that is a credible minimum habitable floor level and an
+    // absurd height bonus. It is a MINIMUM, it is ABSOLUTE, and it is on the FLOOR axis.
+    //
+    // The parcel that exposed it is `152//DP877246`: HOB 8.5 m alongside a 429 value of 2.1.
+    // `min()` returns 2.1 — a garage where an 8.5 m house is permitted. The earlier guard reached
+    // the right answer here from a false premise, which is worse than failing, because the premise
+    // travels to the next parcel and the answer does not.
+    // ──────────────────────────────────────────────────────────────────────────────────────────
+    {
+        instrument: '*',
+        layerId: NSW_LAYER.BUILDING_HEIGHT_ALLOWANCE,
+        layClass: null,
+        role: 'CAP',
+        condition: null,
+        // ⚠ STILL null, and Arm C still counts this control as UNCITED — deliberately. Knowing
+        // what the number MEANS is not knowing which clause makes it BIND. Recording the semantics
+        // here must not be allowed to look like a citation; only a real clause reference closes it.
+        clause: null,
+        source: 'ePlanning Portal Local_Provisions/429 LAY_NAME (served attribute), read 2026-09-04',
+        plane: null,
+        signedBy: null,
+        note:
+            'Minimum habitable floor level in AHD, on the FLOOR axis — despite the layer being ' +
+            'titled "Building Height Allowance Map". Measured 203/203 rows, BALLINA + BYRON. ' +
+            'Never additive, never a maximum, never comparable to a height above existing ground.',
     },
 ]);
 

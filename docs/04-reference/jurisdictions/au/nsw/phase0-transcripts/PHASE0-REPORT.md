@@ -22,6 +22,20 @@ The founder's §1.2 non-negotiable reads: *"The layers serve `LEGIS_REF_CLAUSE` 
 | The numeric control is machine-readable | ✅ **100.0%** — but in **`LAY_CLASS`** (130,649 / 130,660 DIRECT-layer features). |
 | `LEGIS_REF_CLAUSE` carries the citation | ⚠️ **94.9%** on Principal (HOB/FSR/lot size) but **0.0% on 10 of the 12 vertical overlay layers** — the exact layers precedence needs. |
 
+> ⭐ **AMENDED 2026-09-04 — the table above is right and INCOMPLETE, and the missing row changes
+> what follows.** A fourth claim was never tested here: **`LAY_NAME` is populated on 996 / 996
+> vertical overlay features = 100.0%, across 19 distinct strings state-wide**
+> (`layname-census.json`). It carries the **quantity, the direction and the datum** —
+> `"Maximum Building Height (m)"` vs `"Minimum Level Australian Height Datum (AHD)"` vs
+> `"Minimum Floor Height Restriction Heights shown on map in AHD (m)"`.
+>
+> **So the two questions this report conflated are separable, and only one of them is unanswered.**
+> NSW does not serve the CITATION for its overlays. It DOES serve the VALUE SEMANTICS for every one
+> of them. The fifty-metre units error of build prompt §6 is therefore **fully solvable from served
+> attributes on a finite closed vocabulary**; only **PRECEDENCE** needs the clause registry.
+> Treating "uncited" as "unreadable" gave away a 100%-populated field — and cost the §M3.4 error
+> corrected below.
+
 **Consequence for §5.** The precedence engine's designed input — *"resolve each control's
 `LEGIS_REF_CLAUSE`"* — **does not exist in the data for the overlay family.** The base control is
 well-cited; the overrides, uplifts and caps that compete with it are not cited at all. Precedence
@@ -96,6 +110,10 @@ hand-completable corpus of ~32 polygons across 3 LEPs**, not an open-ended parsi
 573 Sun Plane Protection    [WOLLONGONG]      LAY_CLASS="MacCabe Park 12-2pm 21 June"   CLAUSE=null
                                               LAY_CLASS="Civic Square 11-3pm 21 June"
 469 Floor Height Restrict.  [SINGLETON]       LAY_CLASS="42.7"|"41.2"|"64.1" CLAUSE=null VALUE=null
+                                              LAY_NAME="Minimum Floor Height Restriction Heights
+                                                        shown on map in AHD (m)"   <- corrected 09-04:
+                                              10 distinct levels, not 8 (43 and 78.1 were missed),
+                                              and they are MINIMA, not caps.
 431 Building Setback        [THE HILLS SHIRE] LAY_CLASS="10" LABEL="10m"     CLAUSE=null VALUE=null
 422 Alt Building Heights    [RANDWICK]        LAY_CLASS="13" LABEL="N1"      CLAUSE=null VALUE="N1"
 ```
@@ -209,10 +227,31 @@ this engine, not an edge case**, and it must ship in the first commit.
 ```
 
 **`152//DP877246` is the proof of §1.3.** HOB = 8.5 m, Building Height Allowance = **2.1**.
-`min()` over those two returns **2.1 m** — a garage. The 2.1 is not a competing height at all; it
-is an **additive allowance** granted under condition. Any tightest-number-wins resolver produces a
+`min()` over those two returns **2.1 m** — a garage. Any tightest-number-wins resolver produces a
 building a quarter of the legal height, confidently, with a plausible face. This parcel is
 fixture #1.
+
+> ⛔ **CORRECTED 2026-09-04 — the CONCLUSION above survives and the REASON did not.** This
+> paragraph originally continued: *"The 2.1 is not a competing height at all; it is an **additive
+> allowance** granted under condition."* **Measured live, that is wrong on 203 of 203 rows.**
+> Layer 429's `LAY_NAME` is **`"Minimum Level Australian Height Datum (AHD)"`**, in **BALLINA and
+> BYRON** — coastal flood LGAs where 1.8–2.1 m AHD is a credible minimum habitable floor level and
+> an absurd height bonus. The 2.1 is a **MINIMUM**, it is **ABSOLUTE**, and it is on the **FLOOR
+> axis**. It was never additive. Transcript: `layname-census.json`; script:
+> `scripts/laynamecensus.mjs`.
+>
+> ⚠ **Why this correction is worth more than the number it fixes.** A guard was written around the
+> additive reading (`NSW_ADDITIVE_ALLOWANCE_LAYERS`, described in code as *"the single most
+> important guard in the pack"*). It got the right answer **on this parcel from a false premise** —
+> and a false premise generalises. The real exclusion is axis-based: a minimum-floor-level control
+> is not on the envelope-top axis and never enters height precedence at all. That property is
+> checkable from a field populated on **996/996** features; "is this layer additive?" was checkable
+> from nothing but a layer title. §CONFIDENT-REGISTER-ROWS-ARE-THE-WRONG-ONES — the prose read
+> fluently and the verdict was wrong.
+>
+> ⚠ **And a second trap on the same rows:** `SUGGESTED_CATEGORY` looks like a served role hint. It
+> reads **`"HOB exception"`** on all 203 of those minimum-level rows. The government's own
+> categorisation is wrong here. ⛔ **Do not key legal roles off it.**
 
 **`5//DP240402` is the proof of §5.5.** Base HOB 12 m, Alternative HOB 25 m; base FSR plus *two*
 mutually exclusive conditional alternatives (affordable-housing 2.5, employment 3.5). A resolver
