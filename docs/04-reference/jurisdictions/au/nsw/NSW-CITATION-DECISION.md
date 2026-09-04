@@ -225,9 +225,32 @@ From M3 (uniform random n=2,000; urban-weighted n=600):
 | `m(RL)` never treated as height-above-ground | ✅ `101//DP1265976`, corroborated by `MAX_B_H_RL` |
 | `NA` refuses | ✅ and never rendered as unbounded (L-616) |
 | Unresolvable Building Height Plane class → status C | ✅ reported, bounded, never extruded |
-| A SEPP-covered parcel is never resolved LEP-alone | ⛔ **NOT BUILT** — SEPP layers are not wired |
+| A SEPP-covered parcel is never resolved LEP-alone | ✅ **BUILT round 4** — see below |
 | F1 and F2 remain separate | ✅ structurally — they cannot share a status |
-| The 10.7 certificate CI check | ⛔ **NOT BUILT** — no council endpoint proven |
+| The 10.7 certificate CI check | 🟠 **RE-SPECIFIED round 4** — see below |
 
-The two ⛔ rows are named rather than quietly omitted. Neither is blocked by a decision on this
-memo; both are unstarted work.
+> ⭐ **UPDATED 2026-09-04 (round 4). Both ⛔ rows moved, and neither moved the way this table
+> predicted.** The authority is `NSW-PRECEDENCE-BEYOND-THE-LEP.md`; read it, not this box.
+>
+> - **The SEPP row is BUILT, and the obvious implementation of it would have been a regression.**
+>   *"SEPP layers are not wired"* framed the gap as a missing fetch. It was a missing FIELD:
+>   `Principal/14`'s `EPI_TYPE` is a coded domain (`LEP` 40,221 · `SEPP` **743**), so the state
+>   already replicates SEPP heights onto the layer this pack was reading all along. Measured, eight
+>   of the ten SEPP-service HOB layers serve the identical value at the same point, and fetching
+>   them would have manufactured a second BASE control and **refused ~1.8% of NSW parcels that have
+>   one answer**. Precedence is resolved from four verbatim *"this Chapter prevails"* clauses, per
+>   instrument, never from `EPI_TYPE` itself.
+> - **The 10.7 row is not "unstarted work" — it is UNBUILDABLE AS SPECIFIED, and that is measured.**
+>   The Online s10.7 Service API exists, is state-published, and is **subscription-key gated as a
+>   council-to-portal integration pipe**: *"Councils will issue the 10.7 Certificate and publish
+>   them via the … APIs."* There is no third-party read scope. Per L-716 it is decomposed onto the
+>   oracle that IS reachable — the Online **DA** feed, open and unauthenticated — which is now
+>   `tools/ga-gate/check-nsw-da-crossref.ts`.
+>
+> ⚠ **And one ✅ row above is now known to have been passing on a wrong reason.** The
+> `152//DP877246` cell under *"never take the minimum"* was green while the engine reported 8.5 m
+> **above existing ground level** on a parcel where Byron LEP 2014 cl 4.3A makes that height
+> measurable **from an AHD datum instead**. The conclusion (never 2.1) survived all three readings;
+> the reason did not survive any of them. See §2 of the round-4 memo.
+
+The ⛔ rows were named rather than quietly omitted, and naming them is what got them measured.

@@ -26,7 +26,6 @@ describe('resolveParcelJurisdiction — cadastral routing (live-probed open cada
         // L-650 Phase-4 batch (proxy-pending → route cadastral now, fetch falls to OSM until wired).
         ['Rome → Agenzia Entrate (national INSPIRE cadastre)', 41.9028, 12.4964, 'agenzia-entrate'],
         ['Antwerp → GRB (Flanders, before NL+FR)', 51.2194, 4.4025, 'flanders-grb'],
-        ['Helsinki → MML (Finland, before NO which encloses it)', 60.1699, 24.9384, 'mml'],
         ['London → HMLR INSPIRE (England, before FR)', 51.5074, -0.1278, 'gb-os-inspire'],
         ['New York City → MapPLUTO (no overlap with any box)', 40.7128, -74.006, 'nyc-pluto'],
     ];
@@ -38,6 +37,24 @@ describe('resolveParcelJurisdiction — cadastral routing (live-probed open cada
             expect(j.proxyPath).toBeTruthy();
         });
     }
+
+    // ⚠ HELSINKI WAS REMOVED FROM THE LIST ABOVE 2026-09-04 (lane PARCEL-REACH round 4) and is
+    // pinned here INSTEAD, as the honest state — removing a row from a list is how a fact gets lost,
+    // so the fact moves rather than disappearing.
+    // MEASURED: GET https://pryzm.fly.dev/api/parcel/fi?lon=24.9384&lat=60.1699
+    //           → HTTP 404 {"error":"Unknown cadastre 'fi'."}
+    // There is no `fi` key in EU_CADASTRE_SOURCES, no fi proxy module, and no MML_API_KEY anywhere
+    // under server/ — the key-carrying proxy the FI note described was never built. Asserting
+    // kind:'cadastral' here made this suite CERTIFY that a Helsinki click reaches the Finnish land
+    // register, when it can only ever return an OSM footprint (C58 §1.4).
+    it('Helsinki is a FOOTPRINT, not MML: /api/parcel/fi is a route the server does not serve', () => {
+        const j = resolveParcelJurisdiction(60.1699, 24.9384);
+        expect(j.providerId).toBe('mml'); // providerId reserved so row + mmlParcelProvider cannot drift
+        expect(j.kind).toBe('footprint-fallback');
+        expect(j.proxyPath).toBeNull();
+        // FI still outranks the enclosing Norwegian row — the demotion is about the LABEL, not routing.
+        expect(j.regionCode).toBe('FI');
+    });
 });
 
 describe('resolveParcelJurisdiction — documented footprint-fallback jurisdictions', () => {

@@ -12,6 +12,25 @@
  * any miss/upstream failure answers HTTP 200 `{ parcel: null }` so the client falls back to draw
  * (or, one layer up, to the OSM footprint).
  *
+ * ⭐ THE AUTHORITATIVE LEG SET IS `Object.keys(EU_CADASTRE_SOURCES)` (51 keys on 2026-09-04), and
+ * the authoritative COVERAGE CLASSES + verbatim probe evidence live in
+ * docs/04-reference/jurisdictions/PARCEL-SELECT-COVERAGE.md.
+ *
+ * ⚠ CORRECTED 2026-09-04 (lane PARCEL-REACH round 4). This paragraph asserted that the doc had
+ * been "re-measured end-to-end … lane PARCEL-REACH round 3: 51/51". The MEASUREMENT was real, but
+ * it was NEVER WRITTEN INTO THE DOC — which still carried its 2026-07-24 table of nine rows, with
+ * no AU / TR / IL / QA row and no non-NRW Land. A forward reference to a document that does not
+ * contain the fact is the [[verification-artifact-can-predate-subject]] shape, and pointing at it
+ * with "read the table, not this comment" made it worse. The doc now IS that table (53 wired rows,
+ * two separate columns for parcel SELECTION and DATA AVAILABILITY), independently re-run and
+ * banked on 2026-09-04, and it ships with the probe that produced it:
+ *     node docs/04-reference/jurisdictions/parcel-reach-probe.mjs
+ * Round-4 reading: 51/51 legs returned a real polygon at a real urban point; on
+ * https://pryzm.fly.dev 50/51 answered, the one exception being BE-VLG — see its row. The per-source
+ * technical notes below (format, axis order, quirks) are kept because they are about the WIRE, not
+ * about coverage — but the list is NOT exhaustive (the IT/BG/BE-VLG/GB/US×5/CZ/IE/AT/DE×14 legs from
+ * edd3b4be / b46949e1 are documented at their rows, not here). Read the table, not this comment.
+ *
  * WIRED CADASTRES — each LIVE-PROBED keyless (evidence in
  * docs/04-reference/jurisdictions/PARCEL-SELECT-COVERAGE.md):
  *   • FR  data.geopf.fr WFS CADASTRALPARCELS.PARCELLAIRE_EXPRESS:parcelle   (GeoJSON, lon,lat) — 2026-07-24
@@ -1575,6 +1594,21 @@ export const EU_CADASTRE_SOURCES = {
         url: beVlgUrl,
         format: 'geojson',
         source: 'flanders-grb',
+        // ⛔ MEASURED 2026-09-04 (lane PARCEL-REACH round 4) — THIS LEG IS HEALTHY LOCALLY AND DEAD
+        // IN PRODUCTION, which is exactly the gap a local-only probe cannot see:
+        //     upstream from a dev machine  → HTTP 200 · 11 729 B · 21 736 ms · 11803C2165/00M000
+        //     https://pryzm.fly.dev/api/parcel/be-vlg → {"parcel":null,"outcome":"unreachable"}
+        //                                              after 56 749 ms — reproduced twice
+        // 56.7 s ≈ 2 × 28 s: BOTH attempts (call + retry) hit the deadline below, so Fly's egress to
+        // geo.api.vlaanderen.be is slower than a laptop's and the 28 s ceiling — which was raised
+        // from a LOCAL measurement — is still too low THERE. Every Flemish click in production is
+        // currently an OSM footprint under a Flanders label.
+        // ⛔ DO NOT simply raise this number again from a local reading: that is how it got here.
+        // The deadline must be set from a measurement taken ON FLY (the true upstream latency there
+        // is unknown — both attempts aborted, so all we know is >28 s), and one long attempt is
+        // likely better than two short ones. Recorded, not guessed
+        // ([[tolerance-from-measured-error-not-the-test]]).
+        //
         // ⚠ MEASURED 2026-09-03: this host answers in ~20 s and the latency is FIXED per request,
         // not payload-bound — ±11 m/1 feature and ±38 m/14 features both took ~20 s across repeated
         // calls, so shrinking the bbox or COUNT does not help. Under the shared 15 s ceiling every

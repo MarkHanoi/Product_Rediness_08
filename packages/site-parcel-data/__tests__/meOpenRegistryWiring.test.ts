@@ -133,23 +133,46 @@ describe('ME-OPEN §3 — no ME row claims a point outside its own country', () 
 // ══════════════════════════════════════════════════════════════════════════════════════════════
 
 describe('ME-OPEN §4 — each row declares the access state its probe measured', () => {
-    it('TR/IL/QA are cadastral (keyless, live-probed) each with its own unique proxy seat', () => {
+    // ⚠ TEST CORRECTED 2026-09-04 (lane PARCEL-REACH round 4). As inherited this asserted all THREE
+    // rows are `cadastral` with a proxy seat, and that all three notes say the proxy is
+    // "not yet wired server-side". BOTH halves went out of date in OPPOSITE directions, and the
+    // test held the registry to the stale reading in each:
+    //   • TR and QA WERE wired (lane PROXY-LEGS) — re-proven end to end 2026-09-04 through
+    //     https://pryzm.fly.dev: İstanbul/Şişli → 954/36, Doha → PIN 1010028. Their notes still
+    //     claimed otherwise, so the honesty pin was enforcing a FALSE "we cannot reach this".
+    //   • IL was NEVER wired and is deliberately not going to be (govmap serves a centroid and an
+    //     EXTENT, never a ring — publishing the rectangle would be the L-616 overstatement family),
+    //     yet the row advertised kind:'cadastral' + proxyPath:'/api/parcel/il'. MEASURED:
+    //     GET /api/parcel/il?lon=34.7818&lat=32.0853 → HTTP 404 "Unknown cadastre il." — a Tel Aviv
+    //     click could only ever be an OSM footprint under an Israeli-cadastre label (C58 §1.4).
+    // So the rows split, and the pin splits with them.
+    it('TR/QA are cadastral (keyless, live-probed) each with its own unique proxy seat', () => {
         const expected: ReadonlyArray<[string, string]> = [
             ['TR', '/api/parcel/tr'],
-            ['IL', '/api/parcel/il'],
             ['QA', '/api/parcel/qa'],
         ];
         for (const [cc, proxyPath] of expected) {
             expect(row(cc).kind).toBe('cadastral');
             expect(row(cc).proxyPath).toBe(proxyPath);
             expect(row(cc).note).toMatch(/VERIFIED-LIVE 2026-09-02/);
+            // The note must declare the WIRED state, and must never carry the stale unwired one.
+            expect(row(cc).note).toMatch(/WIRED server-side/);
+            expect(row(cc).note).not.toMatch(/not yet wired server-side/);
         }
     });
 
-    it('every note is honest about the UNREAD licence (YELLOW) and the un-wired proxy', () => {
+    it('IL is a footprint-fallback with NO proxy seat: govmap serves no ring, so none is claimed', () => {
+        expect(row('IL').kind).toBe('footprint-fallback');
+        expect(row('IL').proxyPath).toBeNull();
+        // The live channel is real and stays recorded — the demotion is about the RING, not access.
+        expect(row('IL').note).toMatch(/VERIFIED-LIVE 2026-09-02/);
+        expect(row('IL').note).toMatch(/CENTROID AND AN EXTENT, never a boundary ring/);
+        expect(row('IL').note).toMatch(/L-616/);
+    });
+
+    it('every note is honest about the UNREAD licence (YELLOW)', () => {
         for (const cc of ['TR', 'IL', 'QA']) {
             expect(row(cc).note).toMatch(/LICENCE UNREAD \(YELLOW\)/);
-            expect(row(cc).note).toMatch(/not yet wired server-side/);
         }
     });
 

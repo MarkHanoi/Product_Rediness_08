@@ -570,7 +570,7 @@ const PARCEL_JURISDICTIONS: readonly ParcelJurisdiction[] = [
         proxyPath: '/api/parcel/be-vlg',
         kind: 'cadastral',
         contains: isInFlanders,
-        note: 'GRB Adp (administratieve percelen) — CAPAKEY + NIScode + geometry, EPSG:31370 → WGS84, open data (no key). FLANDERS ONLY: Brussels (CoBAT/UrbIS) + Wallonia (CoDT/PICC) are different systems; a Brussels/Wallonia click returns no ADP feature → footprint. ⚠ Proxy /api/parcel/be-vlg not yet wired server-side → resolves null → OSM footprint until then.',
+        note: 'GRB Adp (administratieve percelen) — CAPAKEY + NIScode + geometry, EPSG:31370 → WGS84, open data (no key). FLANDERS ONLY: Brussels (CoBAT/UrbIS) + Wallonia (CoDT/PICC) are different systems; a Brussels/Wallonia click returns no ADP feature → footprint. ⭐ WIRED server-side, and the "not yet wired" warning this replaces was STALE — it survived the commit that landed the leg. RE-PROVEN END TO END 2026-09-04 (lane PARCEL-REACH round 4) through https://pryzm.fly.dev/api/parcel/be-vlg: HTTP 200 with a real WGS84 ring (Antwerpen → 11803C2165/00M000).',
     },
     {
         // BE-WAL AFTER BE-VLG: the two boxes overlap in Walloon Brabant (50.67–50.85°N), where
@@ -678,11 +678,11 @@ const PARCEL_JURISDICTIONS: readonly ParcelJurisdiction[] = [
         regionCode: 'FI',
         countryName: 'Finland',
         providerId: 'mml',
-        label: 'Kiinteistörekisteri (Finland · Maanmittauslaitos)',
-        proxyPath: '/api/parcel/fi',
-        kind: 'cadastral',
+        label: 'Building footprint (OSM)',
+        proxyPath: null,
+        kind: 'footprint-fallback',
         contains: isInFinland,
-        note: 'MML kiinteisto-avoin OGC API Features (PalstanSijaintitiedot), EPSG:3067 → WGS84. KEY-GATED (self-service): needs a free MML_API_KEY (create at omatili.maanmittauslaitos.fi) carried server-side by the proxy as HTTP Basic (key as username / blank password). Resolves real Finnish parcels once the key is set; else null → OSM footprint. Åland excluded. ⭐ ONE AUTHORITY (decided 2026-09-02): mmlParcelProvider.ts REMAINS the FI parcel authority — countryAdapters/fi/ SUPPLEMENTS it (Ryhti PLANS, not parcels) and its fiJurisdiction.ts re-exports THIS provider’s predicate rather than minting a rival.',
+        note: '⛔ DEMOTED cadastral → footprint-fallback 2026-09-04 (lane PARCEL-REACH round 4) BECAUSE THE ROW WAS FALSE, not merely stale. It advertised kind:"cadastral" + proxyPath:"/api/parcel/fi" and its note claimed the key was "carried server-side by the proxy as HTTP Basic". MEASURED: GET https://pryzm.fly.dev/api/parcel/fi?lon=24.9384&lat=60.1699 → HTTP 404 with body {"error":"Unknown cadastre fi."}. There is NO `fi` key in EU_CADASTRE_SOURCES, no fi proxy module, and no MML_API_KEY anywhere under server/ — the key-carrying proxy the note described was never built. A Helsinki click could only ever produce an OSM footprint while the UI named the Finnish land register: the C58 §1.4 credibility failure, which is why kind/proxyPath now state the truth. THE SOURCE IS REAL AND THE GATE IS CHEAP: MML kiinteisto-avoin OGC API Features (PalstanSijaintitiedot), EPSG:3067 → WGS84, re-probed 2026-09-04 → HTTP 401 · server=BigIP · WWW-Authenticate: Basic realm="API-key required to access". The key is FREE and self-service at omatili.maanmittauslaitos.fi; we do not hold one. To restore this row to cadastral: obtain the key, add an `fi` leg to EU_CADASTRE_SOURCES carrying it server-side, prove it live, THEN flip kind+proxyPath back — in that order. providerId stays "mml" so the row and mmlParcelProvider.ts cannot drift apart. Åland excluded. ⭐ ONE AUTHORITY (decided 2026-09-02): mmlParcelProvider.ts REMAINS the FI parcel authority — countryAdapters/fi/ SUPPLEMENTS it (Ryhti PLANS, not parcels) and its fiJurisdiction.ts re-exports THIS provider’s predicate rather than minting a rival.',
     },
     {
         // US-NYC — no overlap with any box (Western hemisphere); position is free. Ordered here
@@ -796,7 +796,7 @@ const PARCEL_JURISDICTIONS: readonly ParcelJurisdiction[] = [
         proxyPath: '/api/parcel/au-act',
         kind: 'cadastral',
         contains: isInAct,
-        note: 'ACTGOV_BLOCKS FeatureServer (services1.arcgis.com/E5n4f1VY84i0xSjy, layer 0) — keyless, live-probed 2026-09-03 @ Civic (149.1300,-35.2809): 4 features, 3 RETIRED (superseded — parser drops them, RETIRED≠current) + 1 APPROVED = block 44 section 19 (BLOCK_KEY 11080190044, CANBERRA CENTRAL), the resolved parcel; ACT is leasehold, block/section IS the parcel id and the Territory-Plan zone rides on the row. CC-BY-4.0 (hub item example; per-item confirm owed). ACT is enclaved in NSW → smallest box wins Canberra by specificity. ⚠ Proxy /api/parcel/au-act not yet wired → null → OSM footprint until then.',
+        note: 'ACTGOV_BLOCKS FeatureServer (services1.arcgis.com/E5n4f1VY84i0xSjy, layer 0) — keyless, live-probed 2026-09-03 @ Civic (149.1300,-35.2809): 4 features, 3 RETIRED (superseded — parser drops them, RETIRED≠current) + 1 APPROVED = block 44 section 19 (BLOCK_KEY 11080190044, CANBERRA CENTRAL), the resolved parcel; ACT is leasehold, block/section IS the parcel id and the Territory-Plan zone rides on the row. CC-BY-4.0 (hub item example; per-item confirm owed). ACT is enclaved in NSW → smallest box wins Canberra by specificity. ⭐ WIRED server-side (lane PROXY-LEGS 2026-09-03; the stale "not yet wired" warning this replaces survived the wiring commit). RE-PROVEN END TO END 2026-09-04 by lane PARCEL-REACH round 4 through https://pryzm.fly.dev/api/parcel/au-act — HTTP 200 with a real WGS84 ring.',
     },
     {
         regionCode: 'AU-TAS',
@@ -806,7 +806,7 @@ const PARCEL_JURISDICTIONS: readonly ParcelJurisdiction[] = [
         proxyPath: '/api/parcel/au-tas',
         kind: 'cadastral',
         contains: isInTas,
-        note: 'theLIST Public/CadastreParcels MapServer/0 (services.thelist.tas.gov.au) — keyless, live-probed 2026-09-03 @ Hobart (147.3272,-42.8821) → PID 3321248, title VOLUME 40374/FOLIO 3, TENURE Council, "49-51 MURRAY ST HOBART" — the richest parcel row in AU (id+title+tenure+address+area). Licence string UNKNOWN this session (theLIST records usually CC BY 3.0 AU; read the listdata record, reviewBy 2026-10-15). ⚠ Proxy /api/parcel/au-tas not yet wired → null → OSM footprint until then.',
+        note: 'theLIST Public/CadastreParcels MapServer/0 (services.thelist.tas.gov.au) — keyless, live-probed 2026-09-03 @ Hobart (147.3272,-42.8821) → PID 3321248, title VOLUME 40374/FOLIO 3, TENURE Council, "49-51 MURRAY ST HOBART" — the richest parcel row in AU (id+title+tenure+address+area). Licence string UNKNOWN this session (theLIST records usually CC BY 3.0 AU; read the listdata record, reviewBy 2026-10-15). ⭐ WIRED server-side (lane PROXY-LEGS 2026-09-03; the stale "not yet wired" warning this replaces survived the wiring commit). RE-PROVEN END TO END 2026-09-04 by lane PARCEL-REACH round 4 through https://pryzm.fly.dev/api/parcel/au-tas — HTTP 200 with a real WGS84 ring.',
     },
     {
         regionCode: 'AU-VIC',
@@ -816,7 +816,7 @@ const PARCEL_JURISDICTIONS: readonly ParcelJurisdiction[] = [
         proxyPath: '/api/parcel/au-vic',
         kind: 'cadastral',
         contains: isInVic,
-        note: 'Vicmap open-data GeoServer WFS 2.0 (opendata.maps.vic.gov.au, open-data-platform:v_parcel_mp) — keyless, live-probed 2026-09-03 @ Melbourne (-37.8136,144.9631): INTERSECTS(geom,POINT(lat lon)) — CQL is LAT,LON order (a lon,lat probe returns 0 silently); srsName=EPSG:4326 → GeoJSON lon/lat; parcel_spi "PC366537" (the Standard Parcel Identifier), status A, crs urn EPSG::7844 (GDA2020≈WGS84). CC BY 4.0. ⚠ Proxy /api/parcel/au-vic not yet wired → null → OSM footprint until then.',
+        note: 'Vicmap open-data GeoServer WFS 2.0 (opendata.maps.vic.gov.au, open-data-platform:v_parcel_mp) — keyless, live-probed 2026-09-03 @ Melbourne (-37.8136,144.9631): INTERSECTS(geom,POINT(lat lon)) — CQL is LAT,LON order (a lon,lat probe returns 0 silently); srsName=EPSG:4326 → GeoJSON lon/lat; parcel_spi "PC366537" (the Standard Parcel Identifier), status A, crs urn EPSG::7844 (GDA2020≈WGS84). CC BY 4.0. ⭐ WIRED server-side (lane PROXY-LEGS 2026-09-03; the stale "not yet wired" warning this replaces survived the wiring commit). RE-PROVEN END TO END 2026-09-04 by lane PARCEL-REACH round 4 through https://pryzm.fly.dev/api/parcel/au-vic — HTTP 200 with a real WGS84 ring.',
     },
     {
         regionCode: 'AU-NSW',
@@ -826,7 +826,7 @@ const PARCEL_JURISDICTIONS: readonly ParcelJurisdiction[] = [
         proxyPath: '/api/parcel/au-nsw',
         kind: 'cadastral',
         contains: isInNsw,
-        note: 'DCS Spatial Services NSW_Land_Parcel_Property_Theme FeatureServer/8 (portal.spatial.nsw.gov.au) — keyless, live-probed 2026-09-03 @ Sydney Town Hall (151.20658,-33.87344) → lotidstring "100//DP1048011" (planlabel DP1048011, cadid 100105498), WGS84 polygon 21 verts. CC Attribution (data.nsw CKAN Cadastral Fabric). Road corridors are not lots (0 features → footprint). ⚠ Proxy /api/parcel/au-nsw not yet wired → null → OSM footprint until then.',
+        note: 'DCS Spatial Services NSW_Land_Parcel_Property_Theme FeatureServer/8 (portal.spatial.nsw.gov.au) — keyless, live-probed 2026-09-03 @ Sydney Town Hall (151.20658,-33.87344) → lotidstring "100//DP1048011" (planlabel DP1048011, cadid 100105498), WGS84 polygon 21 verts. CC Attribution (data.nsw CKAN Cadastral Fabric). Road corridors are not lots (0 features → footprint). ⭐ WIRED server-side (lane PROXY-LEGS 2026-09-03; the stale "not yet wired" warning this replaces survived the wiring commit). RE-PROVEN END TO END 2026-09-04 by lane PARCEL-REACH round 4 through https://pryzm.fly.dev/api/parcel/au-nsw — HTTP 200 with a real WGS84 ring.',
     },
     {
         regionCode: 'AU-SA',
@@ -836,7 +836,7 @@ const PARCEL_JURISDICTIONS: readonly ParcelJurisdiction[] = [
         proxyPath: '/api/parcel/au-sa',
         kind: 'cadastral',
         contains: isInSaAu,
-        note: '⛔ regionCode AU-SA (Australian South Australia), NOT SA (Saudi). PlanSA SAPPA/PropertyPlanningAtlasV19 MapServer/41 (lsa2.geohub.sa.gov.au) — live-probed 2026-09-03 @ Rundle Mall (138.6010,-34.9235) → parcel_id "C21367   F1" (plan C21367 F1, title CT 5954/719). SOFT CloudFront WAF: 403 to a bare request, 200 WITH Referer https://sappa.plan.sa.gov.au/ (control probe live-sa-noreferer.txt = 403; NOT IP-geofenced like Saudi Balady) — the proxy adds the Referer server-side. Data itself CC Attribution (data.sa; open downloads exist). PlanSA live-endpoint terms owed a read (reviewBy 2026-12-01). ⚠ Proxy /api/parcel/au-sa not yet wired → null → OSM footprint until then.',
+        note: '⛔ regionCode AU-SA (Australian South Australia), NOT SA (Saudi). PlanSA SAPPA/PropertyPlanningAtlasV19 MapServer/41 (lsa2.geohub.sa.gov.au) — live-probed 2026-09-03 @ Rundle Mall (138.6010,-34.9235) → parcel_id "C21367   F1" (plan C21367 F1, title CT 5954/719). SOFT CloudFront WAF: 403 to a bare request, 200 WITH Referer https://sappa.plan.sa.gov.au/ (control probe live-sa-noreferer.txt = 403; NOT IP-geofenced like Saudi Balady) — the proxy adds the Referer server-side. Data itself CC Attribution (data.sa; open downloads exist). PlanSA live-endpoint terms owed a read (reviewBy 2026-12-01). ⭐ WIRED server-side (lane PROXY-LEGS 2026-09-03; the stale "not yet wired" warning this replaces survived the wiring commit). RE-PROVEN END TO END 2026-09-04 by lane PARCEL-REACH round 4 through https://pryzm.fly.dev/api/parcel/au-sa — HTTP 200 with a real WGS84 ring.',
     },
     {
         regionCode: 'AU-QLD',
@@ -846,7 +846,7 @@ const PARCEL_JURISDICTIONS: readonly ParcelJurisdiction[] = [
         proxyPath: '/api/parcel/au-qld',
         kind: 'cadastral',
         contains: isInQld,
-        note: 'QSpatial PlanningCadastre/LandParcelPropertyFramework MapServer/4 (spatial-gis.information.qld.gov.au) — keyless, live-probed 2026-09-03 @ Brisbane CBD (153.0260,-27.4705): 2 features, the Lot Type Parcel carries lotplan "47SP317615" (lot 47/plan SP317615, tenure Lands Lease); the 2nd is an "Unlinked parcel or interest" with null lotplan (parser skips it). CC BY 4.0 (data.qld). ⚠ Proxy /api/parcel/au-qld not yet wired → null → OSM footprint until then.',
+        note: 'QSpatial PlanningCadastre/LandParcelPropertyFramework MapServer/4 (spatial-gis.information.qld.gov.au) — keyless, live-probed 2026-09-03 @ Brisbane CBD (153.0260,-27.4705): 2 features, the Lot Type Parcel carries lotplan "47SP317615" (lot 47/plan SP317615, tenure Lands Lease); the 2nd is an "Unlinked parcel or interest" with null lotplan (parser skips it). CC BY 4.0 (data.qld). ⭐ WIRED server-side (lane PROXY-LEGS 2026-09-03; the stale "not yet wired" warning this replaces survived the wiring commit). RE-PROVEN END TO END 2026-09-04 by lane PARCEL-REACH round 4 through https://pryzm.fly.dev/api/parcel/au-qld — HTTP 200 with a real WGS84 ring.',
     },
     {
         regionCode: 'AU-WA',
@@ -1100,7 +1100,7 @@ const PARCEL_JURISDICTIONS: readonly ParcelJurisdiction[] = [
         proxyPath: '/api/parcel/it',
         kind: 'cadastral',
         contains: isInItaly,
-        note: 'Agenzia delle Entrate INSPIRE Cartografia Catastale WFS 2.0 (CP:CadastralParcel), EPSG:6706 (ETRS89 ≈ WGS84 at BIM scale, no reprojection), keyless CC BY 4.0, verified-live 2026-07-24 (Rome/H501, Milan/F205, Turin/L219). AP Trento + Bolzano excluded (own Catasto tavolare / Libro Fondiario). ⚠ Proxy /api/parcel/it not yet wired server-side → resolves null → OSM footprint until then.',
+        note: 'Agenzia delle Entrate INSPIRE Cartografia Catastale WFS 2.0 (CP:CadastralParcel), EPSG:6706 (ETRS89 ≈ WGS84 at BIM scale, no reprojection), keyless CC BY 4.0, verified-live 2026-07-24 (Rome/H501, Milan/F205, Turin/L219). AP Trento + Bolzano excluded (own Catasto tavolare / Libro Fondiario). ⭐ WIRED server-side, and the "not yet wired" warning this replaces was STALE — it survived the commit that landed the leg. RE-PROVEN END TO END 2026-09-04 (lane PARCEL-REACH round 4) through https://pryzm.fly.dev/api/parcel/it: HTTP 200 with a real WGS84 ring (Roma → H501A048100.A).',
     },
     {
         regionCode: 'DE',
@@ -1150,17 +1150,17 @@ const PARCEL_JURISDICTIONS: readonly ParcelJurisdiction[] = [
         proxyPath: '/api/parcel/tr',
         kind: 'cadastral',
         contains: isInTurkey,
-        note: 'TKGM megsiswebapi.v3 point→parcel GeoJSON (cbsapi.tkgm.gov.tr) — keyless, VERIFIED-LIVE 2026-09-02 by this lane (GET /parsel/40.9819/29.0576 → HTTP 200, ada 3106 / parsel 258, İstanbul/Kadıköy, alan 816.27 m², nitelik "11 Katli…" storey signal, WGS84 Polygon; countryAdapters/tr/trParcelProvider.ts carries the parser, trTkgmClient.ts the 404-as-absent classifier). A no-parcel point answers a SEMANTIC 404 "Parsel Bulunamadı" (absent, not a fence). LICENCE UNREAD (YELLOW): TKGM bulk/WMS is priced+protocol-gated — the query endpoint being keyless is the bulk-vs-query distinction, read the usage-terms modal before prod. ⚠ Proxy /api/parcel/tr not yet wired server-side → resolves null → OSM footprint until then. No modelled box overlaps Turkey; the national resolver returns no-national-candidate.',
+        note: 'TKGM megsiswebapi.v3 point→parcel GeoJSON (cbsapi.tkgm.gov.tr) — keyless, VERIFIED-LIVE 2026-09-02 by this lane (GET /parsel/40.9819/29.0576 → HTTP 200, ada 3106 / parsel 258, İstanbul/Kadıköy, alan 816.27 m², nitelik "11 Katli…" storey signal, WGS84 Polygon; countryAdapters/tr/trParcelProvider.ts carries the parser, trTkgmClient.ts the 404-as-absent classifier). A no-parcel point answers a SEMANTIC 404 "Parsel Bulunamadı" (absent, not a fence). LICENCE UNREAD (YELLOW): TKGM bulk/WMS is priced+protocol-gated — the query endpoint being keyless is the bulk-vs-query distinction, read the usage-terms modal before prod. ⭐ WIRED server-side, and the "not yet wired" warning this replaces was STALE — it survived the commit that landed the leg. RE-PROVEN END TO END 2026-09-04 (lane PARCEL-REACH round 4) through https://pryzm.fly.dev/api/parcel/tr: HTTP 200 with a real WGS84 ring (İstanbul/Şişli → 954/36). No modelled box overlaps Turkey; the national resolver returns no-national-candidate.',
     },
     {
         regionCode: 'IL',
         countryName: 'Israel',
         providerId: 'il-govmap-parcel-all',
-        label: 'Gush/Helka (Israel · govmap / Survey of Israel)',
-        proxyPath: '/api/parcel/il',
-        kind: 'cadastral',
+        label: 'Building footprint (OSM)',
+        proxyPath: null,
+        kind: 'footprint-fallback',
         contains: isInIsrael,
-        note: 'govmap IdentifyByXY PARCEL_ALL (ags.govmap.gov.il) — keyless, VERIFIED-LIVE 2026-09-02 by this lane (POST ITM (179254,665111) → HTTP 200, gush 6952 / helka 139, registered area 7404 m², status מוסדר, centroid ITM (179256.4375,665120.5938); countryAdapters/il/ carries the parser + ilItm.ts the ITM↔WGS84 transform EPSG:2039, verified against the returned centroid → WGS84 (32.0783,34.7780)). The API speaks ITM only — the WGS84 click is projected IN THE LEG. National BULK parcel_all.zip is IL-IP GATED (403 from a foreign IP) but the QUERY endpoint is NOT fenced (bulk≠query). LICENCE UNREAD (YELLOW): bulk CKAN field reads "Other (Open)" but the query-API terms are unread. ⚠ Proxy /api/parcel/il not yet wired server-side → resolves null → OSM footprint until then. ⛔ Southern Israel sits inside SAUDI_ARABIA_BBOX; the national resolver REFUSES Israeli points (Saudi polygon far), so this row survives and outranks the SA footprint on specificity.',
+        note: 'govmap IdentifyByXY PARCEL_ALL (ags.govmap.gov.il) — keyless, VERIFIED-LIVE 2026-09-02 by this lane (POST ITM (179254,665111) → HTTP 200, gush 6952 / helka 139, registered area 7404 m², status מוסדר, centroid ITM (179256.4375,665120.5938); countryAdapters/il/ carries the parser + ilItm.ts the ITM↔WGS84 transform EPSG:2039, verified against the returned centroid → WGS84 (32.0783,34.7780)). The API speaks ITM only — the WGS84 click is projected IN THE LEG. National BULK parcel_all.zip is IL-IP GATED (403 from a foreign IP) but the QUERY endpoint is NOT fenced (bulk≠query). LICENCE UNREAD (YELLOW): bulk CKAN field reads "Other (Open)" but the query-API terms are unread. ⛔ DEMOTED cadastral → footprint-fallback 2026-09-04 (lane PARCEL-REACH round 4). The note below already said the leg was unwired, but kind:"cadastral" + proxyPath:"/api/parcel/il" contradicted it, and `kind` is what the UI labels from. MEASURED: GET https://pryzm.fly.dev/api/parcel/il?lon=34.7818&lat=32.0853 → HTTP 404 with body {"error":"Unknown cadastre il."} — a Tel Aviv click gets an OSM footprint under an Israeli-cadastre label. ⭐ THE LEG IS DELIBERATELY ABSENT AND SHOULD STAY SO UNTIL A RING CHANNEL IS PROVEN: govmap IdentifyByXY serves a CENTROID AND AN EXTENT, never a boundary ring, and publishing the extent RECTANGLE as the parcel is the L-616 overstatement family. Unblock by live-proving the ring channel (SDE.PARCEL_ALL feature query by the identify’s objectId, or the ags.govmap.gov.il ArcGIS export), wiring `il`, THEN flipping kind+proxyPath back — in that order. providerId is retained so the row and countryAdapters/il/ cannot drift apart. ⛔ Southern Israel sits inside SAUDI_ARABIA_BBOX; the national resolver REFUSES Israeli points (Saudi polygon far), so this row survives and outranks the SA footprint on specificity.',
     },
     {
         regionCode: 'QA',
@@ -1170,7 +1170,7 @@ const PARCEL_JURISDICTIONS: readonly ParcelJurisdiction[] = [
         proxyPath: '/api/parcel/qa',
         kind: 'cadastral',
         contains: isInQatar,
-        note: 'CadastrePlots ArcGIS MapServer layer 0 (services.gisqatar.org.qa) — keyless, VERIFIED-LIVE 2026-09-02 by this lane (query @ 51.531,25.286 → HTTP 200, PIN 1010028, CDST_KEY 1010028, PD_NO "PD/4693/2019", PDAREA 183494 m², GFCODE PDGVCDST, 137-vertex WGS84 ring; countryAdapters/qa/qaParcelProvider.ts carries the parser). The layer is HIDDEN from the Vector folder listing — enumerate the qmap webmap, not the folder (GetCapabilities≠inventory). LICENCE UNREAD (YELLOW): no licence on the REST endpoint; keyless≠licensed — read gisqatar.org.qa terms + MME open-data policy before prod. ⚠ Proxy /api/parcel/qa not yet wired server-side → resolves null → OSM footprint until then. ⛔ Qatar sits inside SAUDI_ARABIA_BBOX; the national resolver REFUSES Doha (Saudi polygon ~80 km away), so QA survives and outranks the SA footprint on specificity.',
+        note: 'CadastrePlots ArcGIS MapServer layer 0 (services.gisqatar.org.qa) — keyless, VERIFIED-LIVE 2026-09-02 by this lane (query @ 51.531,25.286 → HTTP 200, PIN 1010028, CDST_KEY 1010028, PD_NO "PD/4693/2019", PDAREA 183494 m², GFCODE PDGVCDST, 137-vertex WGS84 ring; countryAdapters/qa/qaParcelProvider.ts carries the parser). The layer is HIDDEN from the Vector folder listing — enumerate the qmap webmap, not the folder (GetCapabilities≠inventory). LICENCE UNREAD (YELLOW): no licence on the REST endpoint; keyless≠licensed — read gisqatar.org.qa terms + MME open-data policy before prod. ⭐ WIRED server-side, and the "not yet wired" warning this replaces was STALE — it survived the commit that landed the leg. RE-PROVEN END TO END 2026-09-04 (lane PARCEL-REACH round 4) through https://pryzm.fly.dev/api/parcel/qa: HTTP 200 with a real WGS84 ring (Doha → PIN 1010028). ⛔ Qatar sits inside SAUDI_ARABIA_BBOX; the national resolver REFUSES Doha (Saudi polygon ~80 km away), so QA survives and outranks the SA footprint on specificity.',
     },
     // ══════════════════════════════════════════════════════════════════════════════════════
     // LANE ME-GULF (2026-09-02) — AE · KW · BH · OM, four DECLARED-DEFERRAL parcel jurisdictions
