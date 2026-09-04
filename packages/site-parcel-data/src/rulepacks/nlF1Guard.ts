@@ -31,11 +31,21 @@
 
 import type { RuleState } from '@pryzm/schemas';
 
-/** The bruidsschat articles the founder names as carrying building rules. Status: not re-verified. */
+/**
+ * The bruidsschat articles the founder names as carrying building rules. Round 3 (2026-09-04) re-verified
+ * both from two independent sources: ABRvS ECLI:NL:RVS:2025:4539 (24-09-2025) — art. 22.27 makes
+ * activities vergunningvrij only "als ze in overeenstemming zijn met het Omgevingsplan", art. 22.36 names
+ * activities "die in ieder geval in overeenstemming met dit omgevingsplan" are — and the art. 22.36 lid 1
+ * onder a text fragment (Wolters Kluwer InView, read 2026-09-04): bijbehorend bouwwerk in achtererfgebied,
+ * the 4 m switch from the oorspronkelijk hoofdgebouw, dakvoet ≤ 3 m, hellingshoek ≤ 55°, daknok =
+ * (afstand tot perceelsgrens × 0,47) + 3, oppervlakte 50 % / 50 m² + 20 % / 90 m² + 10 % max 150 m².
+ */
 export const NL_BRUIDSSCHAT_BUILDING_RULE_ARTICLES = Object.freeze({
     articles: ['22.27', '22.36'] as readonly string[],
     instrument: 'omgevingsplan hoofdstuk 22 (bruidsschat) — national, identical in every gemeente on 2024-01-01',
-    citationStatus: 'founder-sourced-not-re-verified',
+    citationStatus:
+        're-verified-2026-09-04: ECLI:NL:RVS:2025:4539 (art. 22.27 vs 22.36 distinction) + art. 22.36 lid 1 onder a ' +
+        'text fragment (InView); the full consolidated bruidsschat text was not fetched (IPLO toelichting PDF → 404)',
     servedVia: 'DSO / LVBB (Ozon) — key-gated (Presenteren v8 HTTP 401, 2026-09-04)',
 } as const);
 

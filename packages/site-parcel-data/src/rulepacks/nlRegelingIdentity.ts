@@ -17,17 +17,28 @@
 // the answer, so no consumer can drop it.
 //
 // ══════════════════════════════════════════════════════════════════════════════════════════════
-// THE `not-verified` QUESTION, ANSWERED (founder §11, first bullet)
+// THE `not-verified` QUESTION, ANSWERED — AND REFINED BY AN INDEPENDENT SOURCE (founder §11)
 // ══════════════════════════════════════════════════════════════════════════════════════════════
 // "Is the tijdelijk deel served through Ozon/Presenteren, or only through ruimtelijkeplannen.nl?"
-// IPLO (iplo.nl, read 2026-09-04): *"Regels op de kaart toont ook geldige documenten die via
-// ruimtelijkeplannen.nl gepubliceerd zijn. De ruimtelijke plannen komen automatisch beschikbaar
-// vanuit ruimtelijkeplannen.nl"* and the Wro-plannen *"zijn … nu nog als zelfstandig document te
-// bekijken bij Regels op de kaart."* ⇒ **NOT served through Ozon.** The bruidsschat and the
-// wijzigingsbesluiten are LVBB/Ozon documents; the bestemmingsplannen stay on ruimtelijkeplannen.nl.
-// ⛔ So moves 1 and 2 of the founder's sequence do NOT collapse into one integration: precedence
-// needs BOTH sources, and the join key between them is the LOCATION, not a document id.
-// (`NL_TIJDELIJK_DEEL_SERVING` below carries this verdict with its citation.)
+// ROUND TWO (documentation read, IPLO 2026-09-04): *"Regels op de kaart toont ook geldige documenten
+// die via ruimtelijkeplannen.nl gepubliceerd zijn"* ⇒ "not served through Ozon".
+// ROUND THREE (the same day, from a SECOND SYSTEM — the DSO's own public OpenAPI documents, which
+// need no key even though the data paths do): that verdict was right for the IMRO half and WRONG
+// for the bruidsschat half. The tijdelijk deel is SPLIT:
+//   · the bruidsschat IS an Ozon object — Presenteren v8 models a `Regeling` with `tijdelijkDelen` /
+//     `tijdelijkDeelVan` / `ontwerpTijdelijkDelen` links and a `conditie` ("de verhouding … tussen dit
+//     tijdelijk deel en de hoofdregeling"); Ontsluiten v2 returns it under
+//     `gerelateerdeTijdelijkeRegelingdelen`;
+//   · the bestemmingsplannen are NOT — Presenteren mentions IMRO exactly twice, both as
+//     `Omgevingsvergunning.iMROPlanidentificatie` ("het IMRO-plan-ID waar deze vergunning bij hoort"),
+//     a FOREIGN KEY; the register says the Ruimtelijke Plannen API "kunnen bestaande ruimtelijke plannen
+//     worden opgevraagd uit Ruimtelijkeplannen.nl".
+// ⛔ So moves 1 and 2 do NOT collapse into one API — but they DO collapse into ONE credential (both
+// are x-api-key APIs of the same ontwikkelaarsportaal) and ONE discovery call: Ontsluiten v2
+// `POST /documenten/_zoek` takes a `geometrie` and returns OW documents AND IMRO documents together.
+// Precedence still needs both sources, and the join key between them is the LOCATION, not a
+// document id. (`NL_TIJDELIJK_DEEL_SERVING` below carries the refined verdict with its citations;
+// the raw readings are in `findings/nl-phase0/nl-dso-surface-probe.json`.)
 //
 // ══════════════════════════════════════════════════════════════════════════════════════════════
 // B1 IS ONE REGELING PER GEMEENTE, NOT N PLANS (founder §9.1)
@@ -49,11 +60,18 @@ import type { RuleState } from '@pryzm/schemas';
 
 export const NL_TIJDELIJK_DEEL_SERVING = Object.freeze({
     question: 'Is the tijdelijk deel of the omgevingsplan served through Ozon / the Presenteren API?',
-    verdict: 'not-served-through-ozon',
+    verdict: 'split-bruidsschat-in-ozon-imro-on-ruimtelijkeplannen',
+    roundTwoVerdict:
+        'not-served-through-ozon (documentation read, 2026-09-04) — right for the IMRO half, wrong for the ' +
+        'bruidsschat half; refined the same day from the public OpenAPI documents below',
     consequence:
-        'moves 1 (DSO key) and 2 (voorrangsregels) do NOT collapse: the bestemmingsplannen of the ' +
-        'tijdelijk deel stay on ruimtelijkeplannen.nl; the bruidsschat and every wijzigingsbesluit ' +
-        'are LVBB/Ozon documents. Precedence needs both sources, joined on location.',
+        'moves 1 (DSO key) and 2 (voorrangsregels) do NOT collapse into one API: the bestemmingsplannen of the ' +
+        'tijdelijk deel are served by ruimtelijkeplannen.nl / the Ruimtelijke Plannen API v4 ' +
+        '(ruimte.omgevingswet.overheid.nl); the bruidsschat (a tijdelijk regelingdeel) and every wijzigingsbesluit ' +
+        'by Ozon (Presenteren v8). But they DO collapse into ONE credential — both are x-api-key APIs of the same ' +
+        'ontwikkelaarsportaal — and ONE discovery call: Omgevingsinformatie Ontsluiten v2 POST /documenten/_zoek ' +
+        'takes a geometrie and returns OW documents and IMRO documents together. Precedence needs both sources, ' +
+        'joined on location.',
     evidence: [
         'iplo.nl/digitaal-stelsel/omgevingsloket/regels-kaart/ (read 2026-09-04): "Regels op de kaart ' +
             'toont ook geldige documenten die via ruimtelijkeplannen.nl gepubliceerd zijn. De ruimtelijke ' +
@@ -61,10 +79,29 @@ export const NL_TIJDELIJK_DEEL_SERVING = Object.freeze({
         'iplo.nl/regelgeving/instrumenten/omgevingsplan/tijdelijk-deel-omgevingsplan/ (read 2026-09-04): ' +
             'Wro instruments appear in Regels op de kaart as "apart document"; "Gemeenten hebben tot eind ' +
             '2031 de tijd om de inhoud van het tijdelijke deel … om te zetten".',
-        'Presenteren v8 anonymous probe 2026-09-04: HTTP 401 {"title":"Inloggegevens ontbreken"} — the ' +
-            'Ozon half is key-gated; the key is freely requestable via the ontwikkelaarsportaal.',
+        'Presenteren v8 /openapi.json (PUBLIC, HTTP 200, 273 kB, "Omgevingsdocumenten Presenteren" 8.5.2, read ' +
+            '2026-09-04): Regeling._links carries `tijdelijkDeelVan`, `tijdelijkDelen`, `ontwerpTijdelijkDelen`; ' +
+            'Regeling.conditie = "De verhouding is tussen dit tijdelijk deel en de hoofdregeling"; ' +
+            'getRegelingVoorkomens links "tijdelijke regelingdelen" — the DSO MODELS the tijdelijk regelingdeel. ' +
+            '"IMRO" occurs twice, both as Omgevingsvergunning.iMROPlanidentificatie ("het IMRO-plan-ID waar deze ' +
+            'vergunning bij hoort/van afwijkt") — a foreign key, not served content; "bestemmingsplan" and ' +
+            '"ruimtelijke" occur zero times.',
+        'API register api/rp-opvragen/ (read 2026-09-04): "Met deze REST API kunnen bestaande ruimtelijke plannen ' +
+            'worden opgevraagd uit Ruimtelijkeplannen.nl." Ruimtelijke Plannen API 4.5.2 /openapi.json (PUBLIC, ' +
+            '181 kB): X-Api-Key; /plannen/{planId}/bouwvlakken, /maatvoeringen, /teksten, /artikelen/_zoek; ' +
+            'anonymous /plannen → HTTP 401.',
+        'Omgevingsinformatie ontsluiten API 2.13.1 /openapi.json (PUBLIC, 57 kB): "zoeken naar zowel ' +
+            'omgevingsdocumenten in het kader van de Omgevingswet (OW), als IMRO-documenten (bestemmingsplannen en ' +
+            'dergelijke) in het kader van de Wet op de Ruimtelijke Ordening (Wro)"; getDocument: "als het een ' +
+            'tijdelijk deel is met api_object = Regeling … te vinden in de gerelateerdeTijdelijkeRegelingdelen"; ' +
+            'document attributes imroVersie, isTamPlan, heeftPlankaart; anonymous /app-info → HTTP 401.',
+        'Presenteren v8 anonymous probe 2026-09-04: /app-info HTTP 401 {"title":"Inloggegevens ontbreken"} — the ' +
+            'data plane is key-gated; the key is freely requestable via the ontwikkelaarsportaal.',
     ],
-    verifiedBy: 'lane ENVELOPE-NLDK, documentation read; not a live Ozon query (no key held)',
+    verifiedBy:
+        'lane ENVELOPE-NLDK round 3 — three public OpenAPI documents + the API register, independent of the IPLO ' +
+        'prose read in round 2; not a live Ozon query (no key held). Artefact: ' +
+        'docs/04-reference/jurisdictions/nl/findings/nl-phase0/nl-dso-surface-probe.json',
 } as const);
 
 // ──────────────────────────────────────────────────────────────────────────────────────────────

@@ -85,6 +85,8 @@ describe('F1 is withheld until all three layers were read', () => {
     });
     it('carries the founder’s bruidsschat articles with an honest citation status', () => {
         expect(NL_BRUIDSSCHAT_BUILDING_RULE_ARTICLES.articles).toEqual(['22.27', '22.36']);
-        expect(NL_BRUIDSSCHAT_BUILDING_RULE_ARTICLES.citationStatus).toBe('founder-sourced-not-re-verified');
+        // Round 3 re-verified the two articles from ABRvS ECLI:NL:RVS:2025:4539 and the art. 22.36 text fragment.
+        expect(NL_BRUIDSSCHAT_BUILDING_RULE_ARTICLES.citationStatus).toContain('re-verified-2026-09-04');
+        expect(NL_BRUIDSSCHAT_BUILDING_RULE_ARTICLES.citationStatus).toContain('ECLI:NL:RVS:2025:4539');
     });
 });

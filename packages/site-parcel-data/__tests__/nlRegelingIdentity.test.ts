@@ -121,8 +121,12 @@ describe('precedence travels with the answer', () => {
 
 describe('the not-verified question has a documented answer', () => {
     it('records that the tijdelijk deel is NOT served through Ozon, with its citations', () => {
-        expect(NL_TIJDELIJK_DEEL_SERVING.verdict).toBe('not-served-through-ozon');
-        expect(NL_TIJDELIJK_DEEL_SERVING.evidence.length).toBeGreaterThanOrEqual(2);
+        // Round 3 refined round 2's 'not-served-through-ozon' from an INDEPENDENT source (the public
+        // OpenAPI documents): the bruidsschat half IS an Ozon tijdelijk regelingdeel, the IMRO half is not.
+        expect(NL_TIJDELIJK_DEEL_SERVING.verdict).toBe('split-bruidsschat-in-ozon-imro-on-ruimtelijkeplannen');
+        expect(NL_TIJDELIJK_DEEL_SERVING.roundTwoVerdict).toContain('not-served-through-ozon');
+        expect(NL_TIJDELIJK_DEEL_SERVING.evidence.length).toBeGreaterThanOrEqual(5);
         expect(NL_TIJDELIJK_DEEL_SERVING.consequence).toContain('do NOT collapse');
+        expect(NL_TIJDELIJK_DEEL_SERVING.consequence).toContain('ONE credential');
     });
 });
